@@ -108,7 +108,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 		)
 
 		client = cmdclient.NewMockLauncherClient(ctrl)
-		sockFile := cmdclient.SocketFromNamespaceName(shareDir, "default", "testvmi")
+		sockFile := cmdclient.SocketFromUID(shareDir, "")
 		controller.addLauncherClient(client, sockFile)
 
 		mockQueue = testutils.NewMockWorkQueue(controller.Queue)

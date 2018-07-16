@@ -322,13 +322,13 @@ const (
 	// This label marks resources that belong to KubeVirt. An optional value
 	// may indicate which specific KubeVirt component a resource belongs to.
 	AppLabel string = "kubevirt.io"
-	// This label is used to match virtual machine instances represented as
-	// libvirt XML domains with their pods. Among other things, the label is
+	// This annotation is used to match virtual machine instances represented as
+	// libvirt XML domains with their pods. Among other things, the annotation is
 	// used to detect virtual machines with dead pods. Used on Pod.
-	DomainLabel string = "kubevirt.io/domain"
-	// This annotation is used to match virtual machine instance IDs with pods.
+	DomainAnnotation string = "kubevirt.io/domain"
+	// This label is used to match virtual machine instance IDs with pods.
 	// Similar to kubevirt.io/domain. Used on Pod.
-	CreatedByAnnotation string = "kubevirt.io/created-by"
+	CreatedByLabel string = "kubevirt.io/created-by"
 	// This annotation defines which KubeVirt component owns the resource. Used
 	// on Pod.
 	OwnedByAnnotation string = "kubevirt.io/owned-by"

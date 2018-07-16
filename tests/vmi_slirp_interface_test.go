@@ -64,7 +64,7 @@ var _ = Describe("Slirp", func() {
 	table.DescribeTable("should be able to", func(vmiRef **v1.VirtualMachineInstance) {
 		By("have containerPort in the pod manifest")
 		vmi := *vmiRef
-		vmiPod := tests.GetRunningPodByLabel(vmi.Name, v1.DomainLabel, tests.NamespaceTestDefault)
+		vmiPod := tests.GetRunningPodByVirtualMachineInstance(vmi, tests.NamespaceTestDefault)
 		for _, containerSpec := range vmiPod.Spec.Containers {
 			if containerSpec.Name == "compute" {
 				container = containerSpec

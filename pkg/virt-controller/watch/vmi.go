@@ -560,13 +560,13 @@ func (c *VMIController) listPodsFromNamespace(namespace string) ([]*k8sv1.Pod, e
 }
 
 func (c *VMIController) filterMatchingPods(vmi *virtv1.VirtualMachineInstance, pods []*k8sv1.Pod) ([]*k8sv1.Pod, error) {
-	selector, err := v1.LabelSelectorAsSelector(&v1.LabelSelector{MatchLabels: map[string]string{virtv1.DomainLabel: vmi.Name, virtv1.AppLabel: "virt-launcher"}})
+	selector, err := v1.LabelSelectorAsSelector(&v1.LabelSelector{MatchLabels: map[string]string{virtv1.CreatedByLabel: string(vmi.UID), virtv1.AppLabel: "virt-launcher"}})
 	if err != nil {
 		return nil, err
 	}
 	matchingPods := []*k8sv1.Pod{}
 	for _, pod := range pods {
-		if selector.Matches(labels.Set(pod.ObjectMeta.Labels)) && pod.Annotations[virtv1.CreatedByAnnotation] == string(vmi.UID) {
+		if selector.Matches(labels.Set(pod.ObjectMeta.Labels)) {
 			matchingPods = append(matchingPods, pod)
 		}
 	}
@@ -592,8 +592,8 @@ func (c *VMIController) getControllerOf(pod *k8sv1.Pod) *v1.OwnerReference {
 	t := true
 	return &v1.OwnerReference{
 		Kind:               virtv1.VirtualMachineInstanceGroupVersionKind.Kind,
-		Name:               pod.Labels[virtv1.DomainLabel],
-		UID:                types.UID(pod.Annotations[virtv1.CreatedByAnnotation]),
+		Name:               pod.Annotations[virtv1.DomainAnnotation],
+		UID:                types.UID(pod.Labels[virtv1.CreatedByLabel]),
 		Controller:         &t,
 		BlockOwnerDeletion: &t,
 	}

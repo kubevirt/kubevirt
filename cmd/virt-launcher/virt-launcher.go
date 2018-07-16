@@ -296,7 +296,7 @@ func main() {
 	// Clients can use this service to tell virt-launcher
 	// to start/stop virtual machines
 	options := cmdserver.NewServerOptions(*useEmulation)
-	socketPath := cmdclient.SocketFromNamespaceName(*virtShareDir, *namespace, *name)
+	socketPath := cmdclient.SocketFromUID(*virtShareDir, *uid)
 	startCmdServer(socketPath, domainManager, stopChan, options)
 
 	watchdogFile := watchdog.WatchdogFileFromNamespaceName(*virtShareDir,

@@ -40,6 +40,7 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/kubecli"
+	"kubevirt.io/kubevirt/pkg/util/net/dns"
 	"kubevirt.io/kubevirt/pkg/virtctl/vm"
 	"kubevirt.io/kubevirt/tests"
 )
@@ -517,7 +518,7 @@ func NewRandomVirtualMachine(vmi *v1.VirtualMachineInstance, running bool) *v1.V
 			Running: running,
 			Template: &v1.VirtualMachineInstanceTemplateSpec{
 				ObjectMeta: v12.ObjectMeta{
-					Labels:    map[string]string{"name": name},
+					Labels:    map[string]string{"name": dns.SanitizeHostname(vmi)},
 					Name:      name,
 					Namespace: namespace,
 				},

@@ -416,7 +416,7 @@ var _ = Describe("VMIlifecycle", func() {
 
 				// Delete vmi pod
 				pods, err := virtClient.CoreV1().Pods(vmi.Namespace).List(metav1.ListOptions{
-					LabelSelector: v1.DomainLabel + " = " + vmi.Name,
+					LabelSelector: v1.CreatedByLabel + "=" + string(vmi.GetUID()),
 				})
 				Expect(err).ToNot(HaveOccurred())
 				Expect(pods.Items).To(HaveLen(1))
@@ -1071,9 +1071,9 @@ func renderPkillAllJob(processName string) *k8sv1.Pod {
 
 func getVirtLauncherLogs(virtCli kubecli.KubevirtClient, vmi *v1.VirtualMachineInstance) string {
 	namespace := vmi.GetObjectMeta().GetNamespace()
-	domain := vmi.GetObjectMeta().GetName()
+	uid := vmi.GetObjectMeta().GetUID()
 
-	labelSelector := fmt.Sprintf("kubevirt.io/domain in (%s)", domain)
+	labelSelector := fmt.Sprintf(v1.CreatedByLabel + "=" + string(uid))
 
 	pods, err := virtCli.CoreV1().Pods(namespace).List(metav1.ListOptions{LabelSelector: labelSelector})
 	Expect(err).ToNot(HaveOccurred())
