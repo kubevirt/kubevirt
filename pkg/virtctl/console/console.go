@@ -24,6 +24,8 @@ import (
 	"io"
 	"os"
 	"os/signal"
+	"strings"
+	"time"
 
 	"golang.org/x/crypto/ssh/terminal"
 
@@ -34,6 +36,8 @@ import (
 	"kubevirt.io/kubevirt/pkg/kubecli"
 	"kubevirt.io/kubevirt/pkg/virtctl/templates"
 )
+
+var timeout int
 
 func NewCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
 	cmd := &cobra.Command{
@@ -46,6 +50,8 @@ func NewCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
 			return c.Run(cmd, args)
 		},
 	}
+
+	cmd.Flags().IntVar(&timeout, "timeout", 5, "The number of minutes to wait for the virtual machine instance to be ready.")
 	cmd.SetUsageTemplate(templates.UsageTemplate())
 	return cmd
 }
@@ -55,8 +61,11 @@ type Console struct {
 }
 
 func usage() string {
-	usage := "# Connect to the console on VirtualMachineInstance 'myvmi':\n"
-	usage += "virtctl console myvmi"
+	usage := `# Connect to the console on VirtualMachineInstance 'myvmi':
+  virtctl console myvmi
+# Configure one minute timeout (default 5 minutes)
+  virtctl console --timeout=1 myvmi`
+
 	return usage
 }
 
@@ -73,15 +82,6 @@ func (c *Console) Run(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	state, err := terminal.MakeRaw(int(os.Stdin.Fd()))
-	if err != nil {
-		return fmt.Errorf("Make raw terminal failed: %s", err)
-	}
-	fmt.Fprint(os.Stderr, "Escape sequence is ^]\n")
-
-	in := os.Stdin
-	out := os.Stdout
-
 	stdinReader, stdinWriter := io.Pipe()
 	stdoutReader, stdoutWriter := io.Pipe()
 
@@ -93,18 +93,52 @@ func (c *Console) Run(cmd *cobra.Command, args []string) error {
 	writeStop := make(chan error)
 	readStop := make(chan error)
 
+	// Wait until the virtual machine is in running phase, user interrupt or timeout
+	runningChan := make(chan error)
+	timeoutChan := time.Tick(time.Duration(timeout) * time.Minute)
+	waitInterrupt := make(chan os.Signal, 1)
+	signal.Notify(waitInterrupt, os.Interrupt)
+
 	go func() {
 		con, err := virtCli.VirtualMachineInstance(namespace).SerialConsole(vmi)
-		if err != nil {
-			resChan <- err
-			return
+		if strings.Contains(fmt.Sprint(err), "not found") {
+			runningChan <- err
 		}
 
+		for err != nil {
+			// Sleep to prevent denial of service on the api server
+			time.Sleep(500 * time.Millisecond)
+			con, err = virtCli.VirtualMachineInstance(namespace).SerialConsole(vmi)
+		}
+
+		runningChan <- nil
 		resChan <- con.Stream(kubecli.StreamOptions{
 			In:  stdinReader,
 			Out: stdoutWriter,
 		})
 	}()
+
+	select {
+	case <-timeoutChan:
+		return fmt.Errorf("Timeout trying to connect to the virtual machine instance")
+	case <-waitInterrupt:
+		// Make a new line in the terminal
+		fmt.Println()
+		return nil
+	case err = <-runningChan:
+		if err != nil {
+			return err
+		}
+	}
+
+	state, err := terminal.MakeRaw(int(os.Stdin.Fd()))
+	if err != nil {
+		return fmt.Errorf("Make raw terminal failed: %s", err)
+	}
+	fmt.Fprint(os.Stderr, "Successfully connected to ", vmi, " console. The escape sequence is ^]\n")
+
+	in := os.Stdin
+	out := os.Stdout
 
 	go func() {
 		interrupt := make(chan os.Signal, 1)
