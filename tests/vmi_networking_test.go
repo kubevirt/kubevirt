@@ -447,4 +447,25 @@ var _ = Describe("Networking", func() {
 			checkMacAddress(deadbeafVMI, deadbeafVMI.Spec.Domain.Devices.Interfaces[0].MacAddress, "localhost:~#")
 		})
 	})
+
+	Context("VirtualMachineInstance with disabled automatic attachment of interfaces", func() {
+		It("should not configure any external interfaces", func() {
+			By("checking loopback is the only guest interface")
+			autoAttach := false
+			detachedVMI := tests.NewRandomVMIWithEphemeralDiskAndUserdata(tests.RegistryDiskFor(tests.RegistryDiskCirros), "#!/bin/bash\necho 'hello'\n")
+			detachedVMI.Spec.Domain.Devices.AutoattachPodInterface = &autoAttach
+
+			_, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(detachedVMI)
+			Expect(err).ToNot(HaveOccurred())
+			waitUntilVMIReady(detachedVMI, tests.LoggedInCirrosExpecter)
+
+			err := tests.CheckForTextExpecter(detachedVMI, []expect.Batcher{
+				&expect.BSnd{S: "\n"},
+				&expect.BExp{R: "\\$ "},
+				&expect.BSnd{S: "ls /sys/class/net/ | wc -l\n"},
+				&expect.BExp{R: "1"},
+			}, 15)
+			Expect(err).ToNot(HaveOccurred())
+		})
+	})
 })
