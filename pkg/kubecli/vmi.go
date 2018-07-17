@@ -249,6 +249,19 @@ func (v *vmis) SerialConsole(name string) (StreamInterface, error) {
 	return v.asyncSubresourceHelper(name, "console")
 }
 
+type AsyncSubresourceError struct {
+	err        string
+	StatusCode int
+}
+
+func (a *AsyncSubresourceError) Error() string {
+	return a.err
+}
+
+func (a *AsyncSubresourceError) GetStatusCode() int {
+	return a.StatusCode
+}
+
 func (v *vmis) asyncSubresourceHelper(name string, resource string) (StreamInterface, error) {
 
 	done := make(chan struct{})
@@ -276,7 +289,7 @@ func (v *vmis) asyncSubresourceHelper(name string, resource string) (StreamInter
 		response, err := wrappedRoundTripper.RoundTrip(req)
 
 		if err != nil {
-			errChan <- err
+			errChan <- &AsyncSubresourceError{err: err.Error(), StatusCode: response.StatusCode}
 			return
 		}
 
@@ -284,14 +297,14 @@ func (v *vmis) asyncSubresourceHelper(name string, resource string) (StreamInter
 			switch response.StatusCode {
 			case http.StatusOK:
 			case http.StatusNotFound:
-				err = fmt.Errorf("Virtual Machine not found.")
+				err = &AsyncSubresourceError{err: "Virtual Machine not found.", StatusCode: response.StatusCode}
 			case http.StatusInternalServerError:
-				err = fmt.Errorf("Websocket failed due to internal server error.")
+				err = &AsyncSubresourceError{err: "Websocket failed due to internal server error.", StatusCode: response.StatusCode}
 			default:
-				err = fmt.Errorf("Websocket failed with http status: %s", response.Status)
+				err = &AsyncSubresourceError{err: fmt.Sprintf("Websocket failed with http status: %s", response.Status), StatusCode: response.StatusCode}
 			}
 		} else {
-			err = fmt.Errorf("no response received")
+			err = &AsyncSubresourceError{err: "no response received"}
 		}
 		errChan <- err
 	}()
