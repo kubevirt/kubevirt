@@ -21,11 +21,18 @@ package kubecli
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/url"
 
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/rest"
 
+	"kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/version"
+)
+
+const (
+	ApiGroupName = "/apis/" + v1.SubresourceGroupName
 )
 
 func (k *kubevirt) ServerVersion() *ServerVersion {
@@ -41,9 +48,12 @@ type ServerVersion struct {
 }
 
 func (v *ServerVersion) Get() (*version.Info, error) {
-	result := v.restClient.Get().RequestURI("/apis/subresources.kubevirt.io/v1alpha2/version").Do()
-	data, err := result.Raw()
-	if err != nil {
+
+	var group metav1.APIGroup
+	// First, find out which version to query
+	uri := ApiGroupName
+	result := v.restClient.Get().RequestURI(uri).Do()
+	if data, err := result.Raw(); err != nil {
 		connErr, isConnectionErr := err.(*url.Error)
 
 		if isConnectionErr {
@@ -51,13 +61,25 @@ func (v *ServerVersion) Get() (*version.Info, error) {
 		}
 
 		return nil, err
-	}
-
-	var serverInfo version.Info
-	json.Unmarshal(data, &serverInfo)
-	if err != nil {
+	} else if err = json.Unmarshal(data, &group); err != nil {
 		return nil, err
 	}
 
+	// Now, query the preferred version
+	uri = fmt.Sprintf("/apis/%s/version", group.PreferredVersion.GroupVersion)
+	var serverInfo version.Info
+
+	result = v.restClient.Get().RequestURI(uri).Do()
+	if data, err := result.Raw(); err != nil {
+		connErr, isConnectionErr := err.(*url.Error)
+
+		if isConnectionErr {
+			return nil, connErr.Err
+		}
+
+		return nil, err
+	} else if err = json.Unmarshal(data, &serverInfo); err != nil {
+		return nil, err
+	}
 	return &serverInfo, nil
 }
