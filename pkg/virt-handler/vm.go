@@ -530,14 +530,15 @@ func (d *VirtualMachineController) processVmShutdown(vmi *v1.VirtualMachineInsta
 
 	// Only attempt to shutdown/destroy if we still have a connection established with the pod.
 	client, err := d.getVerifiedLauncherClient(vmi)
+	if err != nil {
+		return err
+	}
 
-	// If the pod has been torn down, we know the VirtualMachineInstance is down.
-	if err == nil {
-
-		// Only attempt to gracefully shutdown if the domain has the ACPI feature enabled
-		if useShutdown(vmi, domain) {
-			expired, timeLeft := d.hasGracePeriodExpired(domain)
-			if !expired && domain.Status.Status != api.Shutdown {
+	// Only attempt to gracefully shutdown if the domain has the ACPI feature enabled
+	if isACPIEnabled(vmi, domain) {
+		expired, timeLeft := d.hasGracePeriodExpired(domain)
+		if !expired {
+			if domain.Status.Status != api.Shutdown {
 				err = client.ShutdownVirtualMachine(vmi)
 				if err != nil && !cmdclient.IsDisconnected(err) {
 					// Only report err if it wasn't the result of a disconnect.
@@ -548,26 +549,25 @@ func (d *VirtualMachineController) processVmShutdown(vmi *v1.VirtualMachineInsta
 				// pending graceful shutdown.
 				d.Queue.AddAfter(controller.VirtualMachineKey(vmi), time.Duration(timeLeft)*time.Second)
 				d.recorder.Event(vmi, k8sv1.EventTypeNormal, v1.ShuttingDown.String(), "Signaled Graceful Shutdown")
-				return nil
-			} else if !expired {
+			} else {
 				log.Log.V(4).Object(vmi).Infof("%s is already shutting down.", vmi.GetObjectMeta().GetName())
-				return nil
 			}
-			log.Log.Object(vmi).Infof("Grace period expired, killing deleted VirtualMachineInstance %s", vmi.GetObjectMeta().GetName())
-		} else {
-			log.Log.Object(vmi).Infof("ACPI feature not available, killing deleted VirtualMachineInstance %s", vmi.GetObjectMeta().GetName())
+			return nil
 		}
+		log.Log.Object(vmi).Infof("Grace period expired, killing deleted VirtualMachineInstance %s", vmi.GetObjectMeta().GetName())
+	} else {
+		log.Log.Object(vmi).Infof("ACPI feature not available, killing deleted VirtualMachineInstance %s", vmi.GetObjectMeta().GetName())
+	}
 
-		err = client.KillVirtualMachine(vmi)
-		if err != nil && !cmdclient.IsDisconnected(err) {
-			// Only report err if it wasn't the result of a disconnect.
-			//
-			// Both virt-launcher and virt-handler are trying to destroy
-			// the VirtualMachineInstance at the same time. It's possible the client may get
-			// disconnected during the kill request, which shouldn't be
-			// considered an error.
-			return err
-		}
+	err = client.KillVirtualMachine(vmi)
+	if err != nil && !cmdclient.IsDisconnected(err) {
+		// Only report err if it wasn't the result of a disconnect.
+		//
+		// Both virt-launcher and virt-handler are trying to destroy
+		// the VirtualMachineInstance at the same time. It's possible the client may get
+		// disconnected during the kill request, which shouldn't be
+		// considered an error.
+		return err
 	}
 
 	d.recorder.Event(vmi, k8sv1.EventTypeNormal, v1.Deleted.String(), "VirtualMachineInstance stopping")
@@ -688,7 +688,7 @@ func (d *VirtualMachineController) calculateVmPhaseForStatusReason(domain *api.D
 				// When ACPI is available, the domain was tried to be shutdown,
 				// and destroyed means that the domain was destroyed after the graceperiod expired.
 				// Without ACPI a destroyed domain is ok.
-				if useShutdown(vmi, domain) {
+				if isACPIEnabled(vmi, domain) {
 					return v1.Failed, nil
 				}
 				return v1.Succeeded, nil
@@ -781,7 +781,7 @@ func (d *VirtualMachineController) heartBeat(interval time.Duration, stopCh chan
 	}
 }
 
-func useShutdown(vmi *v1.VirtualMachineInstance, domain *api.Domain) bool {
+func isACPIEnabled(vmi *v1.VirtualMachineInstance, domain *api.Domain) bool {
 	zero := int64(0)
 	return vmi.Spec.TerminationGracePeriodSeconds != &zero &&
 		domain.Spec.Features != nil &&
