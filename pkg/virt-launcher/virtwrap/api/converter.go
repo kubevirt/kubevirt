@@ -141,7 +141,7 @@ func Convert_v1_Volume_To_api_Disk(source *v1.Volume, disk *Disk, c *ConverterCo
 	}
 
 	if source.PersistentVolumeClaim != nil {
-		return Covert_v1_FilesystemVolumeSource_To_api_Disk(source.Name, disk, c)
+		return Convert_v1_FilesystemVolumeSource_To_api_Disk(source.Name, disk, c)
 	}
 
 	if source.Ephemeral != nil {
@@ -154,7 +154,8 @@ func Convert_v1_Volume_To_api_Disk(source *v1.Volume, disk *Disk, c *ConverterCo
 	return fmt.Errorf("disk %s references an unsupported source", disk.Alias.Name)
 }
 
-func Covert_v1_FilesystemVolumeSource_To_api_Disk(volumeName string, disk *Disk, c *ConverterContext) error {
+// Convert_v1_FilesystemVolumeSource_To_api_Disk takes a FS source and builds the KVM Disk representation
+func Convert_v1_FilesystemVolumeSource_To_api_Disk(volumeName string, disk *Disk, c *ConverterContext) error {
 
 	disk.Type = "file"
 	disk.Driver.Type = "raw"
@@ -211,7 +212,7 @@ func Convert_v1_EphemeralVolumeSource_To_api_Disk(volumeName string, source *v1.
 	disk.BackingStore = &BackingStore{}
 
 	backingDisk := &Disk{Driver: &DiskDriver{}}
-	err := Covert_v1_FilesystemVolumeSource_To_api_Disk(volumeName, backingDisk, c)
+	err := Convert_v1_FilesystemVolumeSource_To_api_Disk(volumeName, backingDisk, c)
 	if err != nil {
 		return err
 	}
