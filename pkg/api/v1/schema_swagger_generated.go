@@ -150,33 +150,51 @@ func (VolumeSource) SwaggerDoc() map[string]string {
 		"registryDisk":          "RegistryDisk references a docker image, embedding a qcow or raw disk.\nMore info: https://kubevirt.gitbooks.io/user-guide/registry-disk.html\n+optional",
 		"ephemeral":             "Ephemeral is a special volume source that \"wraps\" specified source and provides copy-on-write image on top of it.\n+optional",
 		"emptyDisk":             "EmptyDisk represents a temporary disk which shares the vmis lifecycle.\nMore info: https://kubevirt.gitbooks.io/user-guide/disks-and-volumes.html\n+optional",
+		"networkDisk":           "NetworkDisk represents a network attached disk\nPrimarily we're using this to stream from things like an https source, but it can\nalso be extended for direct connects from qemu to things like rbd, iscsi etc",
 	}
 }
 
 func (EphemeralVolumeSource) SwaggerDoc() map[string]string {
 	return map[string]string{
+		"": "EphemeralVolumeSource Represents an ephemeral volumes source for a VMI.",
 		"persistentVolumeClaim": "PersistentVolumeClaimVolumeSource represents a reference to a PersistentVolumeClaim in the same namespace.\nDirectly attached to the vmi via qemu.\nMore info: https://kubernetes.io/docs/concepts/storage/persistent-volumes#persistentvolumeclaims\n+optional",
 	}
 }
 
 func (EmptyDiskSource) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"":         "EmptyDisk represents a temporary disk which shares the vmis lifecycle.",
+		"":         "EmptyDiskSource represents a temporary disk which shares the vmis lifecycle.",
 		"capacity": "Capacity of the sparse disk.",
 	}
 }
 
 func (RegistryDiskSource) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"":                "Represents a docker image with an embedded disk.",
+		"":                "RegistryDiskSource Represents a docker image with an embedded disk.",
 		"image":           "Image is the name of the image with the embedded disk.",
 		"imagePullSecret": "ImagePullSecret is the name of the Docker registry secret required to pull the image. The secret must already exist.",
 	}
 }
 
+func (NetworkDiskSource) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"": "NetworkDiskSource Represents a network disk.  Currently we only implement HTTP Sources",
+	}
+}
+
+func (HTTPNetworkDiskSource) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"":          "HTTPNetworkDiskSource Represents an HTTP or HTTPS based Network Disk Source",
+		"protocol":  "Protocol specifies either http or https",
+		"imagePath": "ImagePath is the full path to the image being used",
+		"hostName":  "HostName is the DNS Name/IP of the source (ie 'dl-cdn.alpinelinux.org')",
+		"port":      "Port is the port to connect to HostName on",
+	}
+}
+
 func (ClockOffset) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"":         "Exactly one of its members must be set.",
+		"":         "ClockOffset provides a mechanism for setting the VMIs UTC offset and TZ.\nExactly one of its members must be set.",
 		"utc":      "UTC sets the guest clock to UTC on each boot. If an offset is specified,\nguest changes to the clock will be kept during reboots and are not reset.",
 		"timezone": "Timezone sets the guest clock to the specified timezone.\nZone name follows the TZ environment variable format (e.g. 'America/New_York').",
 	}
@@ -184,7 +202,7 @@ func (ClockOffset) SwaggerDoc() map[string]string {
 
 func (ClockOffsetUTC) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"":              "UTC sets the guest clock to UTC on each boot.",
+		"":              "ClockOffsetUTC sets the guest clock to UTC on each boot.",
 		"offsetSeconds": "OffsetSeconds specifies an offset in seconds, relative to UTC. If set,\nguest changes to the clock will be kept during reboots and not reset.",
 	}
 }

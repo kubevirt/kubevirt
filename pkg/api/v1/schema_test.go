@@ -159,6 +159,15 @@ var exampleJSON = `{
               "bus": "virtio"
             },
             "serial": "sn-11223344"
+          },
+          {
+            "name": "cdrom1",
+            "volumeName": "volume5",
+            "cdrom": {
+              "bus": "virtio",
+              "readonly": true,
+              "tray": "open"
+            }
           }
         ],
         "interfaces": [
@@ -188,6 +197,17 @@ var exampleJSON = `{
         "name": "volume2",
         "persistentVolumeClaim": {
           "claimName": "testclaim"
+        }
+      },
+      {
+        "name": "volume5",
+        "networkDisk": {
+          "http": {
+            "protocol": "http",
+            "imagePath": "/path/to/my.iso",
+            "hostName": "test.server.com",
+            "port": "80"
+          }
         }
       }
     ],
@@ -260,6 +280,17 @@ var _ = Describe("Schema", func() {
 					},
 				},
 			},
+			{
+				Name:       "cdrom1",
+				VolumeName: "volume5",
+				DiskDevice: DiskDevice{
+					CDRom: &CDRomTarget{
+						Bus:      "virtio",
+						ReadOnly: _true,
+						Tray:     "open",
+					},
+				},
+			},
 		}
 
 		exampleVMI.Spec.Volumes = []Volume{
@@ -286,6 +317,19 @@ var _ = Describe("Schema", func() {
 				VolumeSource: VolumeSource{
 					PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{
 						ClaimName: "testclaim",
+					},
+				},
+			},
+			{
+				Name: "volume5",
+				VolumeSource: VolumeSource{
+					NetworkDisk: &NetworkDiskSource{
+						HTTP: &HTTPNetworkDiskSource{
+							Protocol:  "http",
+							ImagePath: "/path/to/my.iso",
+							HostName:  "test.server.com",
+							Port:      "80",
+						},
 					},
 				},
 			},
@@ -375,6 +419,8 @@ var _ = Describe("Schema", func() {
 			exampleJSONParsed := tpl.String()
 			buf, err := json.MarshalIndent(*exampleVMI, "", "  ")
 			Expect(err).To(BeNil())
+			// fmt.Println("expected: ", string(exampleJSONParsed))
+			// fmt.Println("actual: ", string(buf))
 			Expect(string(buf)).To(Equal(exampleJSONParsed))
 		})
 	})

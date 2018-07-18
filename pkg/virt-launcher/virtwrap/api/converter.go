@@ -150,13 +150,28 @@ func Convert_v1_Volume_To_api_Disk(source *v1.Volume, disk *Disk, c *ConverterCo
 	if source.EmptyDisk != nil {
 		return Convert_v1_EmptyDiskSource_To_api_Disk(source.Name, source.EmptyDisk, disk, c)
 	}
+	if source.NetworkDisk.HTTP != nil {
+		return ConvertV1NetworkHTTPSourceToAPIDisk(source.NetworkDisk.HTTP, disk, c)
+	}
 
 	return fmt.Errorf("disk %s references an unsupported source", disk.Alias.Name)
 }
 
+// ConvertV1NetworkHTTPSourceToAPIDisk converts an http or other network source to an api Disk
+func ConvertV1NetworkHTTPSourceToAPIDisk(source *v1.HTTPNetworkDiskSource, disk *Disk, c *ConverterContext) error {
+	disk.Source.Host = &DiskSourceHost{}
+	disk.Type = "network"
+	disk.Driver.Type = "raw"
+
+	disk.Source.Protocol = source.Protocol
+	disk.Source.Name = source.ImagePath
+	disk.Source.Host.Name = source.HostName
+	disk.Source.Host.Port = source.Port
+	return nil
+}
+
 // Convert_v1_FilesystemVolumeSource_To_api_Disk takes a FS source and builds the KVM Disk representation
 func Convert_v1_FilesystemVolumeSource_To_api_Disk(volumeName string, disk *Disk, c *ConverterContext) error {
-
 	disk.Type = "file"
 	disk.Driver.Type = "raw"
 	disk.Source.File = filepath.Join(

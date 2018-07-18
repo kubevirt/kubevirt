@@ -108,7 +108,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"kubevirt.io/kubevirt/pkg/api/v1.ClockOffset": {
 			Schema: spec.Schema{
 				SchemaProps: spec.SchemaProps{
-					Description: "Exactly one of its members must be set.",
+					Description: "ClockOffset provides a mechanism for setting the VMIs UTC offset and TZ. Exactly one of its members must be set.",
 					Properties: map[string]spec.Schema{
 						"utc": {
 							SchemaProps: spec.SchemaProps{
@@ -132,7 +132,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"kubevirt.io/kubevirt/pkg/api/v1.ClockOffsetUTC": {
 			Schema: spec.Schema{
 				SchemaProps: spec.SchemaProps{
-					Description: "UTC sets the guest clock to UTC on each boot.",
+					Description: "ClockOffsetUTC sets the guest clock to UTC on each boot.",
 					Properties: map[string]spec.Schema{
 						"offsetSeconds": {
 							SchemaProps: spec.SchemaProps{
@@ -467,7 +467,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"kubevirt.io/kubevirt/pkg/api/v1.EmptyDiskSource": {
 			Schema: spec.Schema{
 				SchemaProps: spec.SchemaProps{
-					Description: "EmptyDisk represents a temporary disk which shares the vmis lifecycle.",
+					Description: "EmptyDiskSource represents a temporary disk which shares the vmis lifecycle.",
 					Properties: map[string]spec.Schema{
 						"capacity": {
 							SchemaProps: spec.SchemaProps{
@@ -485,6 +485,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"kubevirt.io/kubevirt/pkg/api/v1.EphemeralVolumeSource": {
 			Schema: spec.Schema{
 				SchemaProps: spec.SchemaProps{
+					Description: "EphemeralVolumeSource Represents an ephemeral volumes source for a VMI.",
 					Properties: map[string]spec.Schema{
 						"persistentVolumeClaim": {
 							SchemaProps: spec.SchemaProps{
@@ -978,6 +979,22 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 			Dependencies: []string{
 				"kubevirt.io/kubevirt/pkg/api/v1.PodNetwork"},
 		},
+		"kubevirt.io/kubevirt/pkg/api/v1.NetworkDiskSource": {
+			Schema: spec.Schema{
+				SchemaProps: spec.SchemaProps{
+					Description: "NetworkDiskSource Represents a network disk.  Currently we only implement HTTP Sources",
+					Properties: map[string]spec.Schema{
+						"http": {
+							SchemaProps: spec.SchemaProps{
+								Ref: ref("kubevirt.io/kubevirt/pkg/api/v1.HTTPNetworkDiskSource"),
+							},
+						},
+					},
+				},
+			},
+			Dependencies: []string{
+				"kubevirt.io/kubevirt/pkg/api/v1.HTTPNetworkDiskSource"},
+		},
 		"kubevirt.io/kubevirt/pkg/api/v1.NetworkSource": {
 			Schema: spec.Schema{
 				SchemaProps: spec.SchemaProps{
@@ -1099,7 +1116,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"kubevirt.io/kubevirt/pkg/api/v1.RegistryDiskSource": {
 			Schema: spec.Schema{
 				SchemaProps: spec.SchemaProps{
-					Description: "Represents a docker image with an embedded disk.",
+					Description: "RegistryDiskSource Represents a docker image with an embedded disk.",
 					Properties: map[string]spec.Schema{
 						"image": {
 							SchemaProps: spec.SchemaProps{
@@ -2049,12 +2066,18 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 								Ref:         ref("kubevirt.io/kubevirt/pkg/api/v1.EmptyDiskSource"),
 							},
 						},
+						"networkDisk": {
+							SchemaProps: spec.SchemaProps{
+								Description: "NetworkDisk represents a network attached disk Primarily we're using this to stream from things like an https source, but it can also be extended for direct connects from qemu to things like rbd, iscsi etc",
+								Ref:         ref("kubevirt.io/kubevirt/pkg/api/v1.NetworkDiskSource"),
+							},
+						},
 					},
 					Required: []string{"name"},
 				},
 			},
 			Dependencies: []string{
-				"k8s.io/api/core/v1.PersistentVolumeClaimVolumeSource", "kubevirt.io/kubevirt/pkg/api/v1.CloudInitNoCloudSource", "kubevirt.io/kubevirt/pkg/api/v1.EmptyDiskSource", "kubevirt.io/kubevirt/pkg/api/v1.EphemeralVolumeSource", "kubevirt.io/kubevirt/pkg/api/v1.RegistryDiskSource"},
+				"k8s.io/api/core/v1.PersistentVolumeClaimVolumeSource", "kubevirt.io/kubevirt/pkg/api/v1.CloudInitNoCloudSource", "kubevirt.io/kubevirt/pkg/api/v1.EmptyDiskSource", "kubevirt.io/kubevirt/pkg/api/v1.EphemeralVolumeSource", "kubevirt.io/kubevirt/pkg/api/v1.NetworkDiskSource", "kubevirt.io/kubevirt/pkg/api/v1.RegistryDiskSource"},
 		},
 		"kubevirt.io/kubevirt/pkg/api/v1.VolumeSource": {
 			Schema: spec.Schema{
@@ -2091,11 +2114,17 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 								Ref:         ref("kubevirt.io/kubevirt/pkg/api/v1.EmptyDiskSource"),
 							},
 						},
+						"networkDisk": {
+							SchemaProps: spec.SchemaProps{
+								Description: "NetworkDisk represents a network attached disk Primarily we're using this to stream from things like an https source, but it can also be extended for direct connects from qemu to things like rbd, iscsi etc",
+								Ref:         ref("kubevirt.io/kubevirt/pkg/api/v1.NetworkDiskSource"),
+							},
+						},
 					},
 				},
 			},
 			Dependencies: []string{
-				"k8s.io/api/core/v1.PersistentVolumeClaimVolumeSource", "kubevirt.io/kubevirt/pkg/api/v1.CloudInitNoCloudSource", "kubevirt.io/kubevirt/pkg/api/v1.EmptyDiskSource", "kubevirt.io/kubevirt/pkg/api/v1.EphemeralVolumeSource", "kubevirt.io/kubevirt/pkg/api/v1.RegistryDiskSource"},
+				"k8s.io/api/core/v1.PersistentVolumeClaimVolumeSource", "kubevirt.io/kubevirt/pkg/api/v1.CloudInitNoCloudSource", "kubevirt.io/kubevirt/pkg/api/v1.EmptyDiskSource", "kubevirt.io/kubevirt/pkg/api/v1.EphemeralVolumeSource", "kubevirt.io/kubevirt/pkg/api/v1.NetworkDiskSource", "kubevirt.io/kubevirt/pkg/api/v1.RegistryDiskSource"},
 		},
 		"kubevirt.io/kubevirt/pkg/api/v1.Watchdog": {
 			Schema: spec.Schema{
