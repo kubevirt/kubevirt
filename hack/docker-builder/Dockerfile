@@ -19,9 +19,10 @@ RUN \
     go get github.com/mattn/goveralls && \
     go get -u github.com/Masterminds/glide && \
     go get golang.org/x/tools/cmd/goimports && \
-    go get -u mvdan.cc/sh/cmd/shfmt && \
+    git clone https://github.com/mvdan/sh.git $GOPATH/src/mvdan.cc/sh && \
     cd /go/src/mvdan.cc/sh/cmd/shfmt && \
-    git checkout v2.3.0 && \
+    git checkout v2.5.0 && \
+    go get mvdan.cc/sh/cmd/shfmt && \
     go install && \
     go get -u github.com/golang/mock/gomock && \
     go get -u github.com/rmohr/mock/mockgen && \
