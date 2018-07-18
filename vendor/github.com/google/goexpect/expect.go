@@ -142,6 +142,15 @@ func changeChk(f func(*GExpect) bool) Option {
 	}
 }
 
+// SetEnv sets the environmental variables of the spawned process.
+func SetEnv(env []string) Option {
+	return func(e *GExpect) Option {
+		prev := e.cmd.Env
+		e.cmd.Env = env
+		return SetEnv(prev)
+	}
+}
+
 // BatchCommands.
 const (
 	// BatchSend for invoking Send in a batch
@@ -843,9 +852,10 @@ func SpawnFake(b []Batcher, timeout time.Duration, opt ...Option) (*GExpect, <-c
 	}, timeout, opt...)
 }
 
-// Spawn starts a new process and collects the output. The error channel returns the result of the
-// command Spawned when it finishes.
-func Spawn(command string, timeout time.Duration, opts ...Option) (*GExpect, <-chan error, error) {
+// SpawnWithArgs starts a new process and collects the output. The error
+// channel returns the result of the command Spawned when it finishes.
+// Arguments may contain spaces.
+func SpawnWithArgs(command []string, timeout time.Duration, opts ...Option) (*GExpect, <-chan error, error) {
 	pty, err := term.OpenPTY()
 	if err != nil {
 		return nil, nil, err
@@ -858,8 +868,7 @@ func Spawn(command string, timeout time.Duration, opts ...Option) (*GExpect, <-c
 		timeout = DefaultTimeout
 	}
 	// Get the command up and running
-	args := strings.Fields(command)
-	cmd := exec.Command(args[0], args[1:]...)
+	cmd := exec.Command(command[0], command[1:]...)
 	// This ties the commands Stdin,Stdout & Stderr to the virtual terminal we created
 	cmd.Stdin, cmd.Stdout, cmd.Stderr = pty.Slave, pty.Slave, pty.Slave
 	// New process needs to be the process leader and control of a tty
@@ -895,6 +904,13 @@ func Spawn(command string, timeout time.Duration, opts ...Option) (*GExpect, <-c
 	go e.runcmd(res)
 	// Wait until command started
 	return e, res, <-res
+}
+
+// Spawn starts a new process and collects the output. The error channel
+// returns the result of the command Spawned when it finishes. Arguments may
+// not contain spaces.
+func Spawn(command string, timeout time.Duration, opts ...Option) (*GExpect, <-chan error, error) {
+	return SpawnWithArgs(strings.Fields(command), timeout, opts...)
 }
 
 // SpawnSSH starts an interactive SSH session,ties it to a PTY and collects the output. The returned channel sends the
@@ -1064,7 +1080,7 @@ func (e *GExpect) Send(in string) error {
 				return nil
 			}
 		}
-		log.Info("Sent: %q", in)
+		log.Infof("Sent: %q", in)
 	}
 	return nil
 }
