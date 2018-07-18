@@ -99,6 +99,8 @@ type VirtControllerApp struct {
 	vmController *VMController
 	vmInformer   cache.SharedIndexInformer
 
+	limitrangeInformer cache.SharedIndexInformer
+
 	LeaderElection leaderelectionconfig.Configuration
 
 	launcherImage    string
@@ -158,6 +160,7 @@ func Execute() {
 	app.configMapCache = app.configMapInformer.GetStore()
 
 	app.vmInformer = app.informerFactory.VirtualMachine()
+	app.limitrangeInformer = app.informerFactory.LimitRanges()
 
 	app.initCommon()
 	app.initReplicaSet()
