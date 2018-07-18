@@ -1,4 +1,6 @@
 ---
+runtime_requirements:
+  host-distro: same
 sub-stages:
   - k8s-1.10.3-dev
   - k8s-1.10.3-release
