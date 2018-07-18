@@ -363,3 +363,11 @@ func (PodNetwork) SwaggerDoc() map[string]string {
 		"vmNetworkCIDR": "CIDR for vm network.\nDefault 10.0.2.0/24 if not specified.",
 	}
 }
+
+func (ResourceNetwork) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"":             "Represents a network that was exposed to the pod using a device plugin.",
+		"resourceName": "URL describing the name of the device plugin and the resource it exposes to the pod.\nThe device plugin will publish the information about the name of the pod's interface and binding mechanism in\nan environment variable. Name of variable would start with: \"NETWORK_INTERFACE_RESOURCES_\" and its content would\nbe json formatted.",
+		"envVarName":   "Name of the environment variable holding information about the name of the pod's interface and binding mechanism.\nIf not set, all environment variables with names starting with \"NETWORK_INTERFACE_RESOURCES_\" will be searched for the desired resource.",
+	}
+}

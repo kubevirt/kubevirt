@@ -51,7 +51,7 @@ func SetupNetworkInterfaces(vmi *v1.VirtualMachineInstance, domain *api.Domain) 
 	}
 
 	if len(networks) == 0 {
-		return fmt.Errorf("no networks were specified on a vm spec")
+		return fmt.Errorf("No networks were specified on a vmi spec")
 	}
 
 	for _, iface := range vmi.Spec.Domain.Devices.Interfaces {
@@ -77,6 +77,8 @@ func SetupNetworkInterfaces(vmi *v1.VirtualMachineInstance, domain *api.Domain) 
 func getNetworkClass(network *v1.Network) (NetworkInterface, error) {
 	if network.Pod != nil {
 		return new(PodInterface), nil
+	} else if network.Resource != nil {
+		return new(ResourceInterface), nil
 	}
 	return nil, fmt.Errorf("Network not implemented")
 }
