@@ -255,7 +255,7 @@ func (vca *VirtControllerApp) initCommon() {
 	}
 	vca.templateService = services.NewTemplateService(vca.launcherImage, vca.virtShareDir, vca.imagePullSecret, vca.configMapCache)
 	vca.vmiController = NewVMIController(vca.templateService, vca.vmiInformer, vca.podInformer, vca.vmiRecorder, vca.clientSet, vca.configMapInformer)
-	vca.vmiPresetController = NewVirtualMachinePresetController(vca.vmiPresetInformer, vca.vmiInformer, vca.vmiPresetQueue, vca.vmiPresetCache, vca.clientSet, vca.vmiPresetRecorder)
+	vca.vmiPresetController = NewVirtualMachinePresetController(vca.vmiPresetInformer, vca.vmiInformer, vca.vmiPresetQueue, vca.vmiPresetCache, vca.clientSet, vca.vmiPresetRecorder, vca.limitrangeInformer)
 	vca.nodeController = NewNodeController(vca.clientSet, vca.nodeInformer, vca.vmiInformer, nil)
 }
 

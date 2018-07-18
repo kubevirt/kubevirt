@@ -189,7 +189,7 @@ func (f *kubeInformerFactory) LimitRanges() cache.SharedIndexInformer {
 	return f.getInformer("limitrangeInformer", func() cache.SharedIndexInformer {
 		restClient := f.clientSet.CoreV1().RESTClient()
 		lw := cache.NewListWatchFromClient(restClient, "limitranges", k8sv1.NamespaceAll, fields.Everything())
-		return cache.NewSharedIndexInformer(lw, &k8sv1.LimitRangeList{}, f.defaultResync, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
+		return cache.NewSharedIndexInformer(lw, &k8sv1.LimitRange{}, f.defaultResync, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
 	})
 }
 
