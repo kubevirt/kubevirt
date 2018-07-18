@@ -27,6 +27,7 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"net/http"
 	"os"
 	"os/exec"
 	"reflect"
@@ -1130,10 +1131,21 @@ func NewConsoleExpecter(virtCli kubecli.KubevirtClient, vmi *v1.VirtualMachineIn
 	expecterReader, expecterWriter := io.Pipe()
 	resCh := make(chan error)
 	go func() {
-		con, err := virtCli.VirtualMachineInstance(vmi.ObjectMeta.Namespace).SerialConsole(vmi.ObjectMeta.Name)
-		if err != nil {
-			resCh <- err
-			return
+		con, err := virtCli.VirtualMachineInstance(vmi.Namespace).SerialConsole(vmi.Name)
+		for err != nil {
+			if asyncSubresourceError, ok := err.(*kubecli.AsyncSubresourceError); ok {
+				if asyncSubresourceError.GetStatusCode() == http.StatusBadRequest {
+					// Sleep to prevent denial of service on the api server
+					time.Sleep(500 * time.Millisecond)
+					con, err = virtCli.VirtualMachineInstance(vmi.ObjectMeta.Namespace).SerialConsole(vmi.Name)
+				} else {
+					resCh <- asyncSubresourceError
+					return
+				}
+			} else {
+				resCh <- err
+				return
+			}
 		}
 
 		resCh <- con.Stream(kubecli.StreamOptions{

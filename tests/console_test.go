@@ -47,7 +47,6 @@ var _ = Describe("Console", func() {
 
 		By("Creating a new VirtualMachineInstance")
 		Expect(virtClient.RestClient().Post().Resource("virtualmachineinstances").Namespace(tests.NamespaceTestDefault).Body(vmi).Do().Error()).To(Succeed())
-		tests.WaitForSuccessfulVMIStart(vmi)
 
 		By("Expecting the VirtualMachineInstance console")
 		expecter, _, err := tests.NewConsoleExpecter(virtClient, vmi, 10*time.Second)
@@ -88,7 +87,6 @@ var _ = Describe("Console", func() {
 
 				By("Creating a new VirtualMachineInstance")
 				Expect(virtClient.RestClient().Post().Resource("virtualmachineinstances").Namespace(tests.NamespaceTestDefault).Body(vmi).Do().Error()).To(Succeed())
-				tests.WaitForSuccessfulVMIStart(vmi)
 
 				for i := 0; i < 5; i++ {
 					By("Checking that the console output equals to expected one")
