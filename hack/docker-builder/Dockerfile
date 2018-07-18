@@ -1,6 +1,9 @@
-FROM fedora:27
+FROM fedora:28
 
-ENV LIBVIRT_VERSION 3.7.0
+ENV LIBVIRT_VERSION 4.2.0
+
+RUN curl --output /etc/yum.repos.d/fedora-virt-preview.repo \
+      https://fedorapeople.org/groups/virt/virt-preview/fedora-virt-preview.repo
 
 RUN dnf -y install libvirt-devel-${LIBVIRT_VERSION} make git mercurial sudo gcc findutils gradle rsync-daemon rsync qemu-img protobuf-compiler && \
     dnf -y clean all
@@ -19,9 +22,10 @@ RUN \
     go get github.com/mattn/goveralls && \
     go get -u github.com/Masterminds/glide && \
     go get golang.org/x/tools/cmd/goimports && \
-    go get -u mvdan.cc/sh/cmd/shfmt && \
+    git clone https://github.com/mvdan/sh.git $GOPATH/src/mvdan.cc/sh && \
     cd /go/src/mvdan.cc/sh/cmd/shfmt && \
-    git checkout v2.3.0 && \
+    git checkout v2.5.0 && \
+    go get mvdan.cc/sh/cmd/shfmt && \
     go install && \
     go get -u github.com/golang/mock/gomock && \
     go get -u github.com/rmohr/mock/mockgen && \

@@ -173,7 +173,6 @@ var _ = Describe("Networking", func() {
 		case "InboundVMIWithCustomMacAddress":
 			addr = inboundVMIWithCustomMacAddress.Status.Interfaces[0].IP
 		}
-		fmt.Println(addr)
 
 		By("checking br1 MTU inside the pod")
 		vmiPod := tests.GetRunningPodByLabel(outboundVMI.Name, v1.DomainLabel, tests.NamespaceTestDefault)

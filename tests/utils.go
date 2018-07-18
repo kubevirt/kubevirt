@@ -1567,3 +1567,38 @@ func GetNodeLibvirtCapabilities(nodeName string) string {
 
 	return output
 }
+
+// KubevirtFailHandler call ginkgo.Fail with printing the additional information
+func KubevirtFailHandler(message string, callerSkip ...int) {
+	virtClient, err := kubecli.GetKubevirtClient()
+	PanicOnError(err)
+
+	for _, ns := range []string{metav1.NamespaceSystem, NamespaceTestDefault} {
+		// Get KubeVirt specific pods information
+		pods, err := virtClient.CoreV1().Pods(ns).List(metav1.ListOptions{LabelSelector: "kubevirt.io"})
+		PanicOnError(err)
+
+		for _, pod := range pods.Items {
+			fmt.Printf("\nPod name: %s\t Pod phase: %s\n\n", pod.Name, pod.Status.Phase)
+			var tailLines int64 = 15
+			var containerName = ""
+			if strings.HasPrefix(pod.Name, "virt-launcher") {
+				containerName = "compute"
+			}
+			logsRaw, err := virtClient.CoreV1().Pods(ns).GetLogs(
+				pod.Name, &k8sv1.PodLogOptions{
+					TailLines: &tailLines,
+					Container: containerName,
+				},
+			).DoRaw()
+			if err == nil {
+				fmt.Printf(string(logsRaw))
+			}
+		}
+	}
+
+	if len(callerSkip) > 0 {
+		callerSkip[0]++
+	}
+	Fail(message, callerSkip...)
+}
