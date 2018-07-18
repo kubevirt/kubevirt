@@ -170,6 +170,8 @@ type Devices struct {
 	Watchdog *Watchdog `json:"watchdog,omitempty"`
 	// Interfaces describe network interfaces which are added to the vm.
 	Interfaces []Interface `json:"interfaces,omitempty"`
+	// Whether to attach a pod network interface. Defaults to true.
+	AutoattachPodInterface *bool `json:"autoattachPodInterface,omitempty"`
 }
 
 // ---

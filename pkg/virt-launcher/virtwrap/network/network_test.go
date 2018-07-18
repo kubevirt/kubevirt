@@ -55,5 +55,12 @@ var _ = Describe("Network", func() {
 			err := SetupNetworkInterfaces(vm, domain)
 			Expect(err).To(BeNil())
 		})
+
+		It("should accept empty network list", func() {
+			vmi := newVMI("testnamespace", "testVmName")
+			domain := &api.Domain{}
+			err := SetupNetworkInterfaces(vmi, domain)
+			Expect(err).To(BeNil())
+		})
 	})
 })
