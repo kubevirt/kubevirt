@@ -383,6 +383,19 @@ func ValidateVirtualMachineInstanceSpec(field *k8sfield.Path, spec *v1.VirtualMa
 		}
 	}
 
+	// Validate subdomain according to DNS subdomain rules
+	if spec.Subdomain != "" {
+		errors := validation.IsDNS1123Subdomain(spec.Subdomain)
+		if len(errors) != 0 {
+			causes = append(causes, metav1.StatusCause{
+				Type: metav1.CauseTypeFieldValueInvalid,
+				Message: fmt.Sprintf("%s does not conform to the kubernetes DNS_SUBDOMAIN rules : %s",
+					field.Child("subdomain").String(), strings.Join(errors, ", ")),
+				Field: field.Child("subdomain").String(),
+			})
+		}
+	}
+
 	// Validate memory size if values are not negative
 	if spec.Domain.Resources.Requests.Memory().Value() < 0 {
 		causes = append(causes, metav1.StatusCause{
