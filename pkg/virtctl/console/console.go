@@ -22,7 +22,6 @@ package console
 import (
 	"fmt"
 	"io"
-	"net/http"
 	"os"
 	"os/signal"
 	"time"
@@ -101,23 +100,7 @@ func (c *Console) Run(cmd *cobra.Command, args []string) error {
 
 	go func() {
 		con, err := virtCli.VirtualMachineInstance(namespace).SerialConsole(vmi)
-		for err != nil {
-			if asyncSubresourceError, ok := err.(*kubecli.AsyncSubresourceError); ok {
-				if asyncSubresourceError.GetStatusCode() == http.StatusBadRequest {
-					// Sleep to prevent denial of service on the api server
-					time.Sleep(500 * time.Millisecond)
-					con, err = virtCli.VirtualMachineInstance(namespace).SerialConsole(vmi)
-				} else {
-					runningChan <- asyncSubresourceError
-					return
-				}
-			} else {
-				runningChan <- err
-				return
-			}
-		}
-
-		runningChan <- nil
+		runningChan <- err
 		resChan <- con.Stream(kubecli.StreamOptions{
 			In:  stdinReader,
 			Out: stdoutWriter,

@@ -98,6 +98,15 @@ var _ = Describe("Console", func() {
 					Expect(err).ToNot(HaveOccurred())
 				}
 			}, 220)
+			It("should wait until the virtual machine is in running state and return a stream interface", func() {
+				vmi := tests.NewRandomVMIWithEphemeralDisk(tests.RegistryDiskFor(tests.RegistryDiskAlpine))
+
+				By("Creating a new VirtualMachineInstance")
+				Expect(virtClient.RestClient().Post().Resource("virtualmachineinstances").Namespace(tests.NamespaceTestDefault).Body(vmi).Do().Error()).To(Succeed())
+
+				_, err := virtClient.VirtualMachineInstance(vmi.Namespace).SerialConsole(vmi.Name)
+				Expect(err).ToNot(HaveOccurred())
+			}, 220)
 		})
 	})
 })

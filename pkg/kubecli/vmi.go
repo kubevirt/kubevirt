@@ -25,6 +25,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"time"
 
 	"github.com/gorilla/websocket"
 
@@ -246,7 +247,21 @@ func (v *vmis) VNC(name string) (StreamInterface, error) {
 	return v.asyncSubresourceHelper(name, "vnc")
 }
 func (v *vmis) SerialConsole(name string) (StreamInterface, error) {
-	return v.asyncSubresourceHelper(name, "console")
+	con, err := v.asyncSubresourceHelper(name, "console")
+	for err != nil {
+		if asyncSubresourceError, ok := err.(*AsyncSubresourceError); ok {
+			if asyncSubresourceError.GetStatusCode() == http.StatusBadRequest {
+				// Sleep to prevent denial of service on the api server
+				time.Sleep(500 * time.Millisecond)
+				con, err = v.asyncSubresourceHelper(name, "console")
+			} else {
+				return nil, asyncSubresourceError
+			}
+		} else {
+			return nil, err
+		}
+	}
+	return con, nil
 }
 
 type AsyncSubresourceError struct {
