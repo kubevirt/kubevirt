@@ -131,7 +131,7 @@ func (c *DeviceController) Run(stop chan struct{}) error {
 	logger.Info("Starting device plugin controller")
 
 	for _, dev := range c.devicePlugins {
-		c.startDevicePlugin(dev, stop)
+		go c.startDevicePlugin(dev, stop)
 	}
 
 	<-stop
