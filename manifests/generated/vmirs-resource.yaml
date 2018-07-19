@@ -37,11 +37,7 @@ spec:
                 metadata: {}
                 spec:
                   properties:
-                    affinity:
-                      properties:
-                        nodeAffinity: {}
-                        podAffinity: {}
-                        podAntiAffinity: {}
+                    affinity: {}
                     domain:
                       properties:
                         clock:

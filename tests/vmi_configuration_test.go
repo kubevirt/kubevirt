@@ -160,7 +160,7 @@ var _ = Describe("Configurations", func() {
 					Skip(fmt.Sprintf("No node with hugepages %s capacity", hugepageType))
 				}
 				// initialHugepages := nodeWithHugepages.Status.Capacity[resourceName]
-				hugepagesVmi.Spec.Affinity = &v1.Affinity{
+				hugepagesVmi.Spec.Affinity = &kubev1.Affinity{
 					NodeAffinity: &kubev1.NodeAffinity{
 						RequiredDuringSchedulingIgnoredDuringExecution: &kubev1.NodeSelector{
 							NodeSelectorTerms: []kubev1.NodeSelectorTerm{
@@ -259,7 +259,7 @@ var _ = Describe("Configurations", func() {
 			cpuVendor = vendor[1]
 
 			cpuVmi = tests.NewRandomVMIWithEphemeralDiskAndUserdata(tests.RegistryDiskFor(tests.RegistryDiskCirros), "#!/bin/bash\necho 'hello'\n")
-			cpuVmi.Spec.Affinity = &v1.Affinity{
+			cpuVmi.Spec.Affinity = &kubev1.Affinity{
 				NodeAffinity: &kubev1.NodeAffinity{
 					RequiredDuringSchedulingIgnoredDuringExecution: &kubev1.NodeSelector{
 						NodeSelectorTerms: []kubev1.NodeSelectorTerm{

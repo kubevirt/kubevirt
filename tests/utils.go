@@ -1534,7 +1534,7 @@ func GetNodeLibvirtCapabilities(nodeName string) string {
 
 	// Create a virt-launcher pod, that can fetch virsh capabilities
 	vmi := NewRandomVMIWithEphemeralDiskAndUserdata(RegistryDiskFor(RegistryDiskCirros), "#!/bin/bash\necho 'hello'\n")
-	vmi.Spec.Affinity = &v1.Affinity{
+	vmi.Spec.Affinity = &k8sv1.Affinity{
 		NodeAffinity: &k8sv1.NodeAffinity{
 			RequiredDuringSchedulingIgnoredDuringExecution: &k8sv1.NodeSelector{
 				NodeSelectorTerms: []k8sv1.NodeSelectorTerm{

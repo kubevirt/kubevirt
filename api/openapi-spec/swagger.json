@@ -3314,18 +3314,18 @@
     }
    },
    "v1.Affinity": {
-    "description": "Affinity groups all the affinity rules related to a VirtualMachineInstance",
+    "description": "Affinity is a group of affinity scheduling rules.",
     "properties": {
      "nodeAffinity": {
-      "description": "Node affinity support",
+      "description": "Describes node affinity scheduling rules for the pod.",
       "$ref": "#/definitions/v1.NodeAffinity"
      },
      "podAffinity": {
-      "description": "Pod affinity support",
+      "description": "Describes pod affinity scheduling rules (e.g. co-locate this pod in the same node, zone, etc. as some other pod(s)).",
       "$ref": "#/definitions/v1.PodAffinity"
      },
      "podAntiAffinity": {
-      "description": "Pod anti-affinity support",
+      "description": "Describes pod anti-affinity scheduling rules (e.g. avoid putting this pod in the same node, zone, etc. as some other pod(s)).",
       "$ref": "#/definitions/v1.PodAntiAffinity"
      }
     }

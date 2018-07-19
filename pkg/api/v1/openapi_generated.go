@@ -27,35 +27,6 @@ import (
 
 func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenAPIDefinition {
 	return map[string]common.OpenAPIDefinition{
-		"kubevirt.io/kubevirt/pkg/api/v1.Affinity": {
-			Schema: spec.Schema{
-				SchemaProps: spec.SchemaProps{
-					Description: "Affinity groups all the affinity rules related to a VirtualMachineInstance",
-					Properties: map[string]spec.Schema{
-						"nodeAffinity": {
-							SchemaProps: spec.SchemaProps{
-								Description: "Node affinity support",
-								Ref:         ref("k8s.io/api/core/v1.NodeAffinity"),
-							},
-						},
-						"podAffinity": {
-							SchemaProps: spec.SchemaProps{
-								Description: "Pod affinity support",
-								Ref:         ref("k8s.io/api/core/v1.PodAffinity"),
-							},
-						},
-						"podAntiAffinity": {
-							SchemaProps: spec.SchemaProps{
-								Description: "Pod anti-affinity support",
-								Ref:         ref("k8s.io/api/core/v1.PodAntiAffinity"),
-							},
-						},
-					},
-				},
-			},
-			Dependencies: []string{
-				"k8s.io/api/core/v1.NodeAffinity", "k8s.io/api/core/v1.PodAffinity", "k8s.io/api/core/v1.PodAntiAffinity"},
-		},
 		"kubevirt.io/kubevirt/pkg/api/v1.CDRomTarget": {
 			Schema: spec.Schema{
 				SchemaProps: spec.SchemaProps{
@@ -1800,7 +1771,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 						"affinity": {
 							SchemaProps: spec.SchemaProps{
 								Description: "If affinity is specifies, obey all the affinity rules",
-								Ref:         ref("kubevirt.io/kubevirt/pkg/api/v1.Affinity"),
+								Ref:         ref("k8s.io/api/core/v1.Affinity"),
 							},
 						},
 						"terminationGracePeriodSeconds": {
@@ -1855,7 +1826,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 				},
 			},
 			Dependencies: []string{
-				"kubevirt.io/kubevirt/pkg/api/v1.Affinity", "kubevirt.io/kubevirt/pkg/api/v1.DomainSpec", "kubevirt.io/kubevirt/pkg/api/v1.Network", "kubevirt.io/kubevirt/pkg/api/v1.Volume"},
+				"k8s.io/api/core/v1.Affinity", "kubevirt.io/kubevirt/pkg/api/v1.DomainSpec", "kubevirt.io/kubevirt/pkg/api/v1.Network", "kubevirt.io/kubevirt/pkg/api/v1.Volume"},
 		},
 		"kubevirt.io/kubevirt/pkg/api/v1.VirtualMachineInstanceStatus": {
 			Schema: spec.Schema{
