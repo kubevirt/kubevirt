@@ -26,6 +26,8 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 
+	"github.com/onsi/ginkgo/extensions/table"
+
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	k8smeta "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -464,16 +466,19 @@ var _ = Describe("Converter", func() {
 			Expect(domainSpec.VCPU.CPUs).To(Equal(uint32(3)))
 		})
 
-		It("should convert CPU model passthrough", func() {
+		table.DescribeTable("should convert CPU model", func(model string) {
 			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
 			vmi.Spec.Domain.CPU = &v1.CPU{
 				Cores: 3,
-				Model: "passthrough",
+				Model: model,
 			}
 			domainSpec := vmiToDomainXMLToDomainSpec(vmi, c)
 
-			Expect(domainSpec.CPU.Mode).To(Equal("host-passthrough"))
-		})
+			Expect(domainSpec.CPU.Mode).To(Equal(model))
+		},
+			table.Entry(CPUModeHostPassthrough, CPUModeHostPassthrough),
+			table.Entry(CPUModeHostModel, CPUModeHostModel),
+		)
 
 		Context("when CPU spec defined and model not", func() {
 			It("should set host-model CPU mode", func() {

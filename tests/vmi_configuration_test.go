@@ -312,7 +312,7 @@ var _ = Describe("Configurations", func() {
 		Context("when CPU model equals to passthrough", func() {
 			It("should report exactly the same model as node CPU", func() {
 				cpuVmi.Spec.Domain.CPU = &v1.CPU{
-					Model: "passthrough",
+					Model: "host-passthrough",
 				}
 
 				By("Starting a VirtualMachineInstance")
