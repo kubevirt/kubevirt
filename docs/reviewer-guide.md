@@ -19,3 +19,9 @@ Make a few passes over the code you want to review.
 * Reasonable info messages
 * Unit and functional tests to avoid regressions (the core case must be tested)
 * The PR implement what is needed (changes out of the PR scope should belong to a separate one)
+
+## Pull Request structure
+
+* It's preferred that authors rebase on master instead of merging master into their PRs.
+* We merge PRs into our branches.
+* Commits in a PR should make sense: Ask people to squash commits like "Fix reviewer comments", "wip", "addition", ...
