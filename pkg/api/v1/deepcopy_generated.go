@@ -246,6 +246,15 @@ func (in *Devices) DeepCopyInto(out *Devices) {
 			(*in)[i].DeepCopyInto(&(*out)[i])
 		}
 	}
+	if in.AutoattachPodInterface != nil {
+		in, out := &in.AutoattachPodInterface, &out.AutoattachPodInterface
+		if *in == nil {
+			*out = nil
+		} else {
+			*out = new(bool)
+			**out = **in
+		}
+	}
 	return
 }
 

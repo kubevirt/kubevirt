@@ -51,6 +51,8 @@ spec:
                       type: string
                 devices:
                   properties:
+                    autoattachPodInterface:
+                      type: boolean
                     disks:
                       items:
                         properties:

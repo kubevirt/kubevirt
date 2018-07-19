@@ -242,6 +242,13 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 								},
 							},
 						},
+						"autoattachPodInterface": {
+							SchemaProps: spec.SchemaProps{
+								Description: "Whether to attach a pod network interface. Defaults to true.",
+								Type:        []string{"boolean"},
+								Format:      "",
+							},
+						},
 					},
 				},
 			},
