@@ -114,7 +114,6 @@ func (app *SubresourceAPIApp) VNCRequestHandler(request *restful.Request, respon
 
 	vmiName := request.PathParameter("name")
 	namespace := request.PathParameter("namespace")
-	cmd := []string{"/usr/share/kubevirt/virt-launcher/sock-connector", fmt.Sprintf("/var/run/kubevirt-private/%s/%s/virt-%s", namespace, vmiName, "vnc")}
 
 	vmi, code, err := app.fetchVirtualMachineInstance(vmiName, namespace)
 	if err != nil {
@@ -131,13 +130,14 @@ func (app *SubresourceAPIApp) VNCRequestHandler(request *restful.Request, respon
 		return
 	}
 
+	cmd := []string{"/usr/share/kubevirt/virt-launcher/sock-connector", fmt.Sprintf("/var/run/kubevirt-private/%s/virt-%s", vmi.GetUID(), "vnc")}
+
 	app.requestHandler(request, response, vmi, cmd)
 }
 
 func (app *SubresourceAPIApp) ConsoleRequestHandler(request *restful.Request, response *restful.Response) {
 	vmiName := request.PathParameter("name")
 	namespace := request.PathParameter("namespace")
-	cmd := []string{"/usr/share/kubevirt/virt-launcher/sock-connector", fmt.Sprintf("/var/run/kubevirt-private/%s/%s/virt-%s", namespace, vmiName, "serial0")}
 
 	vmi, code, err := app.fetchVirtualMachineInstance(vmiName, namespace)
 	if err != nil {
@@ -146,6 +146,7 @@ func (app *SubresourceAPIApp) ConsoleRequestHandler(request *restful.Request, re
 		return
 	}
 
+	cmd := []string{"/usr/share/kubevirt/virt-launcher/sock-connector", fmt.Sprintf("/var/run/kubevirt-private/%s/virt-%s", vmi.GetUID(), "serial0")}
 	app.requestHandler(request, response, vmi, cmd)
 }
 
