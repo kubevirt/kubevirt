@@ -41,6 +41,12 @@ const (
 	connectionTimeout = 5 * time.Second
 )
 
+type GenericDevice interface {
+	Start(chan struct{}) error
+	GetDevicePath() string
+	GetDeviceName() string
+}
+
 type GenericDevicePlugin struct {
 	counter    int
 	devs       []*pluginapi.Device
@@ -94,6 +100,14 @@ func connect(socketPath string, timeout time.Duration) (*grpc.ClientConn, error)
 	}
 
 	return c, nil
+}
+
+func (dpi *GenericDevicePlugin) GetDevicePath() string {
+	return dpi.devicePath
+}
+
+func (dpi *GenericDevicePlugin) GetDeviceName() string {
+	return dpi.deviceName
 }
 
 // Start starts the gRPC server of the device plugin
