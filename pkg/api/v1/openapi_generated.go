@@ -71,7 +71,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 						},
 						"model": {
 							SchemaProps: spec.SchemaProps{
-								Description: "Model specifies the CPU model inside the VMI. List of available models https://github.com/libvirt/libvirt/blob/master/src/cpu/cpu_map.xml.",
+								Description: "Model specifies the CPU model inside the VMI. List of available models https://github.com/libvirt/libvirt/blob/master/src/cpu/cpu_map.xml. You also can specify special cases like \"passthrough\" to get the same CPU as the node.",
 								Type:        []string{"string"},
 								Format:      "",
 							},

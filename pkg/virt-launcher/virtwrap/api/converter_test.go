@@ -464,6 +464,17 @@ var _ = Describe("Converter", func() {
 			Expect(domainSpec.VCPU.CPUs).To(Equal(uint32(3)))
 		})
 
+		It("should convert CPU model passthrough", func() {
+			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
+			vmi.Spec.Domain.CPU = &v1.CPU{
+				Cores: 3,
+				Model: "passthrough",
+			}
+			domainSpec := vmiToDomainXMLToDomainSpec(vmi, c)
+
+			Expect(domainSpec.CPU.Mode).To(Equal("host-passthrough"))
+		})
+
 		Context("when CPU spec defined and model not", func() {
 			It("should set host-model CPU mode", func() {
 				v1.SetObjectDefaults_VirtualMachineInstance(vmi)

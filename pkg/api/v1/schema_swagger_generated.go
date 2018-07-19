@@ -48,7 +48,7 @@ func (CPU) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"":      "CPU allows specifying the CPU topology.",
 		"cores": "Cores specifies the number of cores inside the vmi.\nMust be a value greater or equal 1.",
-		"model": "Model specifies the CPU model inside the VMI.\nList of available models https://github.com/libvirt/libvirt/blob/master/src/cpu/cpu_map.xml.\n+optional",
+		"model": "Model specifies the CPU model inside the VMI.\nList of available models https://github.com/libvirt/libvirt/blob/master/src/cpu/cpu_map.xml.\nYou also can specify special cases like \"passthrough\" to get the same CPU as the node.\n+optional",
 	}
 }
 

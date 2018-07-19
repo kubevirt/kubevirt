@@ -461,8 +461,12 @@ func Convert_v1_VirtualMachine_To_api_Domain(vmi *v1.VirtualMachineInstance, dom
 
 		// Set VM CPU model and vendor
 		if vmi.Spec.Domain.CPU.Model != "" {
-			domain.Spec.CPU.Mode = "custom"
-			domain.Spec.CPU.Model = vmi.Spec.Domain.CPU.Model
+			if vmi.Spec.Domain.CPU.Model == "passthrough" {
+				domain.Spec.CPU.Mode = "host-passthrough"
+			} else {
+				domain.Spec.CPU.Mode = "custom"
+				domain.Spec.CPU.Model = vmi.Spec.Domain.CPU.Model
+			}
 		}
 	}
 
