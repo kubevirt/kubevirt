@@ -307,8 +307,8 @@ func (w *ObjectEventWatcher) WaitFor(eventType EventType, reason interface{}) (e
 
 func AfterTestSuitCleanup() {
 	// Make sure that the namespaces exist, to not have to check in the cleanup code for existing namespaces
-	createNamespaces()
-	cleanNamespaces()
+	CreateNamespaces()
+	CleanNamespaces()
 	cleanupServiceAccounts()
 
 	DeletePVC(osWindows)
@@ -316,11 +316,11 @@ func AfterTestSuitCleanup() {
 	DeletePVC(osAlpineHostPath)
 	DeletePV(osAlpineHostPath)
 
-	removeNamespaces()
+	RemoveNamespaces()
 }
 
 func BeforeTestCleanup() {
-	cleanNamespaces()
+	CleanNamespaces()
 }
 
 func BeforeTestSuitSetup() {
@@ -328,7 +328,7 @@ func BeforeTestSuitSetup() {
 	log.InitializeLogging("tests")
 	log.Log.SetIOWriter(GinkgoWriter)
 
-	createNamespaces()
+	CreateNamespaces()
 	createServiceAccounts()
 
 	CreateHostPathPv(osAlpineHostPath, HostPathAlpine)
@@ -667,7 +667,7 @@ func GetRunningPodByLabel(label string, labelType string, namespace string) *k8s
 	return readyPod
 }
 
-func cleanNamespaces() {
+func CleanNamespaces() {
 	virtCli, err := kubecli.GetKubevirtClient()
 	PanicOnError(err)
 
@@ -713,7 +713,7 @@ func cleanNamespaces() {
 	}
 }
 
-func removeNamespaces() {
+func RemoveNamespaces() {
 	virtCli, err := kubecli.GetKubevirtClient()
 	PanicOnError(err)
 
@@ -734,7 +734,7 @@ func removeNamespaces() {
 	}
 }
 
-func createNamespaces() {
+func CreateNamespaces() {
 	virtCli, err := kubecli.GetKubevirtClient()
 	PanicOnError(err)
 
