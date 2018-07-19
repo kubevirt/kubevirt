@@ -24,4 +24,17 @@ source $(dirname "$0")/../hack/common.sh
 source ${KUBEVIRT_DIR}/cluster/$KUBEVIRT_PROVIDER/provider.sh
 source ${KUBEVIRT_DIR}/hack/config.sh
 
-${KUBEVIRT_DIR}/_out/cmd/virtctl/virtctl --kubeconfig=${kubeconfig} "$@"
+CONFIG_ARGS=
+
+if [ -n "$kubeconfig" ]; then
+    CONFIG_ARGS="--kubeconfig=${kubeconfig}"
+elif [ -n "$KUBECONFIG" ]; then
+    CONFIG_ARGS="--kubeconfig=${KUBECONFIG}"
+fi
+
+VIRTCTL=virtctl
+if [ "$(uname -s)" = "Darwin" ]; then
+    VIRTCTL='virtctl-darwin'
+fi
+
+${KUBEVIRT_DIR}/_out/cmd/virtctl/${VIRTCTL} $CONFIG_ARGS "$@"
