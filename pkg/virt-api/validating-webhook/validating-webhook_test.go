@@ -327,6 +327,21 @@ var _ = Describe("Validating Webhook", func() {
 	})
 
 	Context("with VirtualMachineInstance spec", func() {
+		It("should accept valid subdomain name", func() {
+			vmi := v1.NewMinimalVMI("testvmi")
+			vmi.Spec.Subdomain = "testsubdomain"
+
+			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec)
+			Expect(len(causes)).To(Equal(0))
+		})
+		It("should reject invalid subdomain name", func() {
+			vmi := v1.NewMinimalVMI("testvmi")
+			vmi.Spec.Subdomain = "bad+domain"
+
+			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec)
+			Expect(len(causes)).To(Equal(1))
+			Expect(causes[0].Field).To(Equal("fake.subdomain"))
+		})
 		It("should accept disk and volume lists equal to max element length", func() {
 			vmi := v1.NewMinimalVMI("testvmi")
 
