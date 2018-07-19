@@ -38,6 +38,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/emptydisk"
 	"kubevirt.io/kubevirt/pkg/ephemeral-disk"
 	"kubevirt.io/kubevirt/pkg/hooks"
+	"kubevirt.io/kubevirt/pkg/host-disk"
 	"kubevirt.io/kubevirt/pkg/log"
 	"kubevirt.io/kubevirt/pkg/registry-disk"
 	"kubevirt.io/kubevirt/pkg/util/net/dns"
@@ -98,6 +99,12 @@ func (l *LibvirtDomainManager) preStartHook(vmi *v1.VirtualMachineInstance, doma
 
 	// setup networking
 	err = network.SetupPodNetwork(vmi, domain)
+	if err != nil {
+		return domain, err
+	}
+
+	// create images for volumes with persistent volume claims attached
+	err = hostdisk.CreateHostDisks(vmi)
 	if err != nil {
 		return domain, err
 	}

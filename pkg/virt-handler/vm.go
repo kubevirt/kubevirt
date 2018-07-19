@@ -42,6 +42,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/cloud-init"
 	"kubevirt.io/kubevirt/pkg/controller"
+	"kubevirt.io/kubevirt/pkg/host-disk"
 	"kubevirt.io/kubevirt/pkg/kubecli"
 	"kubevirt.io/kubevirt/pkg/log"
 	"kubevirt.io/kubevirt/pkg/precond"
@@ -451,6 +452,23 @@ func (d *VirtualMachineController) execute(key string) error {
 	return nil
 }
 
+func (d *VirtualMachineController) injectHostDisks(vmi *v1.VirtualMachineInstance) error {
+	// host disks are created based on PersistenVolumeClaims
+	for i := range vmi.Spec.Volumes {
+		if volumeSource := &vmi.Spec.Volumes[i].VolumeSource; volumeSource.PersistentVolumeClaim != nil {
+			pvcSize, err := hostdisk.GetPVCSize(volumeSource.PersistentVolumeClaim.ClaimName, vmi.Namespace, d.clientset)
+			if err != nil {
+				return err
+			}
+			volumeSource.HostDisk = v1.HostDisk{
+				PersistentVolumeClaim: volumeSource.PersistentVolumeClaim,
+				Capacity:              pvcSize,
+			}
+		}
+	}
+	return nil
+}
+
 func (d *VirtualMachineController) injectCloudInitSecrets(vmi *v1.VirtualMachineInstance) error {
 	cloudInitSpec := cloudinit.GetCloudInitNoCloudSource(vmi)
 	if cloudInitSpec == nil {
@@ -631,6 +649,11 @@ func (d *VirtualMachineController) processVmUpdate(origVMI *v1.VirtualMachineIns
 		return err
 	} else if isExpired {
 		return goerror.New(fmt.Sprintf("Can not update a VirtualMachineInstance with expired watchdog."))
+	}
+
+	err = d.injectHostDisks(vmi)
+	if err != nil {
+		return err
 	}
 
 	err = d.injectCloudInitSecrets(vmi)
