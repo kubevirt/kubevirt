@@ -27,7 +27,7 @@ summary() {
 downloads() {
     log "Adding download urls"
     local GHRELURL="https://github.com/kubevirt/kubevirt/releases/tag/"
-    local RELURL="$GHRELURL$RELREF"
+    local RELURL="$GHRELURL$FUTURERELREF"
     cat <<EOF
 The source code and selected binaries are available for download at:
 <$RELURL>.
@@ -53,13 +53,14 @@ functest() {
 }
 
 usage() {
-    echo "Usage: $0 [RELEASE_REF] [PREV_RELEASE_REF]"
+    echo "Usage: $0 [FUTURE_RELEASE_REF] [PREV_RELEASE_REF]"
 }
 
 main() {
     log "Span: $RELSPANREF"
 
     fold -s <<EOF | tee release-announce
+---
 $(summary)
 
 $(downloads)
@@ -95,13 +96,16 @@ Additional Resources
 [git-evtag]: https://github.com/cgwalters/git-evtag#using-git-evtag
 [contributing]: https://github.com/kubevirt/kubevirt/blob/master/CONTRIBUTING.md
 [license]: https://github.com/kubevirt/kubevirt/blob/master/LICENSE
+---
+git evtag sign $FUTURERELREF
 EOF
 }
 
 #
 # Let's get the party started
 #
-RELREF="$1"
+FUTURERELREF="$1"
+RELREF="HEAD"
 PREREF="$2"
 RELREF=${RELREF:-$(git describe --abbrev=0 --tags)}
 PREREF=${PREREF:-$(git describe --abbrev=0 --tags $RELREF^)}
