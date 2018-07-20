@@ -1,0 +1,4 @@
+# Environment variables to pass in to the container
+# If no value is specified, Docker will evaluate them at run-time based on its environment
+KUBEVIRT_VERSION
+KUBEVIRT_PROVIDER

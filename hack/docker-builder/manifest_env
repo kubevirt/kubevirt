@@ -1,0 +1,6 @@
+# Environment variables to pass in to the container
+# If no value is specified, Docker will evaluate them at run-time based on its environment
+KUBEVIRT_PROVIDER
+IMAGE_PULL_POLICY
+DOCKER_PREFIX
+DOCKER_TAG

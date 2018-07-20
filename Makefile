@@ -1,7 +1,6 @@
 export GO15VENDOREXPERIMENT := 1
 
-all:
-	hack/dockerized "./hack/check.sh && KUBEVIRT_VERSION=${KUBEVIRT_VERSION} ./hack/build-go.sh install ${WHAT} && ./hack/build-copy-artifacts.sh ${WHAT} && DOCKER_PREFIX=${DOCKER_PREFIX} DOCKER_TAG=${DOCKER_TAG} ./hack/build-manifests.sh"
+all: build manifests
 
 generate:
 	hack/dockerized "./hack/generate.sh"
@@ -10,13 +9,13 @@ apidocs:
 	hack/dockerized "./hack/generate.sh && ./hack/gen-swagger-doc/gen-swagger-docs.sh v1 html"
 
 client-python:
-	hack/dockerized "./hack/generate.sh && TRAVIS_TAG=${TRAVIS_TAG} ./hack/gen-client-python/generate.sh"
+	hack/dockerized -e travis_env "./hack/generate.sh && ./hack/gen-client-python/generate.sh"
 
 build:
-	hack/dockerized "./hack/check.sh && KUBEVIRT_VERSION=${KUBEVIRT_VERSION} ./hack/build-go.sh install ${WHAT}" && ./hack/build-copy-artifacts.sh ${WHAT}
+	hack/dockerized -e build_env "./hack/check.sh && ./hack/build-go.sh install ${WHAT}" && ./hack/build-copy-artifacts.sh ${WHAT}
 
 goveralls:
-	SYNC_OUT=false hack/dockerized "./hack/check.sh && TRAVIS_JOB_ID=${TRAVIS_JOB_ID} TRAVIS_PULL_REQUEST=${TRAVIS_PULL_REQUEST} TRAVIS_BRANCH=${TRAVIS_BRANCH} ./hack/goveralls.sh"
+	SYNC_OUT=false hack/dockerized -e travis_env "./hack/check.sh && ./hack/goveralls.sh"
 
 test:
 	SYNC_OUT=false hack/dockerized "./hack/check.sh && ./hack/build-go.sh test ${WHAT}"
@@ -54,7 +53,7 @@ verify-build:
 	hack/verify-build.sh
 
 manifests:
-	hack/dockerized "DOCKER_PREFIX=${DOCKER_PREFIX} DOCKER_TAG=${DOCKER_TAG} ./hack/build-manifests.sh"
+	hack/dockerized -e manifest_env ./hack/build-manifests.sh
 
 .release-functest:
 	make functest > .release-functest 2>&1

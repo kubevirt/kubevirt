@@ -1,9 +1,38 @@
 #!/bin/bash
 set -e
 
+usage() {
+    echo "Usage: $(basename $0) [ -c container name] [ -e environment ] [ -i docker image template ]"
+    exit 1
+}
+
+DOCKER_IMG=docker-builder
+ENV_FILE=
+while getopts "c:e:i:" opt; do
+    case $opt in
+    # Allow specifying a named container
+    c)
+        CONTAINER_BASE=$OPTARG
+        ;;
+    # Allow specifying an environment variable file for runtime in the container
+    e)
+        ENV_FILE=$OPTARG
+        ;;
+    # Allow specifying a template for building the container
+    i)
+        DOCKER_IMG=$OPTARG
+        ;;
+    *)
+        usage
+        ;;
+    esac
+done
+shift $((OPTIND - 1))
+
+# Fill in the environment
 source $(dirname "$0")/common.sh
 
-DOCKER_DIR=${KUBEVIRT_DIR}/hack/docker-builder
+DOCKER_DIR=${KUBEVIRT_DIR}/hack/$DOCKER_IMG
 
 SYNC_OUT=${SYNC_OUT:-true}
 
@@ -17,6 +46,17 @@ TEMPFILE=".rsynctemp"
 BUILD_QUIET=
 if [ -n "$JOB_NAME" -o -n "$TRAVIS_BUILD_ID" ]; then
     BUILD_QUIET="-q"
+fi
+
+# Build up arguments for passing environment data to containers
+ENV_ARG=
+if [ -n "$ENV_FILE" ]; then
+    FULL_ENV_FILE=${DOCKER_DIR}/${ENV_FILE}
+    if [ ! -f $FULL_ENV_FILE ]; then
+        echo "Environment file $FULL_ENV_FILE not found"
+        exit 1
+    fi
+    ENV_ARG="--env-file=$FULL_ENV_FILE"
 fi
 
 # Build the build container
@@ -74,7 +114,8 @@ _rsync --delete --exclude 'cluster/**/.kubectl' --exclude 'cluster/**/.oc' --exc
 
 # Run the command
 test -t 1 && USE_TTY="-it"
-docker run --rm -v "${BUILDER}:/root:rw,z" --security-opt label:disable ${USE_TTY} -w "/root/go/src/kubevirt.io/kubevirt" ${BUILDER} "$@"
+
+docker run --rm -v "${BUILDER}:/root:rw,z" $ENV_ARG --security-opt label:disable ${USE_TTY} -w "/root/go/src/kubevirt.io/kubevirt" ${BUILDER} "$@"
 
 # Copy the whole kubevirt data out to get generated sources and formatting changes
 _rsync --exclude '.glide*' --exclude 'cluster/**/.kubectl' --exclude 'cluster/**/.oc' --exclude 'cluster/**/.kubeconfig' --exclude "_out" --exclude "vendor" --exclude ".vagrant" --exclude ".git" "rsync://root@127.0.0.1:${RSYNCD_PORT}/build" ${KUBEVIRT_DIR}/

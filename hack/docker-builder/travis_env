@@ -1,0 +1,6 @@
+# Environment variables to pass in to the container
+# If no value is specified, Docker will evaluate them at run-time based on its environment
+TRAVIS_TAG
+TRAVIS_JOB_ID
+TRAVIS_PULL_REQUEST
+TRAVIS_BRANCH

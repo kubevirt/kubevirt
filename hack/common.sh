@@ -34,7 +34,7 @@ fi
 #If run on jenkins, let us create isolated environments based on the job and
 # the executor number
 provider_prefix=${JOB_NAME:-${KUBEVIRT_PROVIDER}}${EXECUTOR_NUMBER}
-job_prefix=${JOB_NAME:-kubevirt}${EXECUTOR_NUMBER}
+job_prefix=${JOB_NAME:-${CONTAINER_BASE:-kubevirt}}${EXECUTOR_NUMBER}
 
 # Populate an environment variable with the version info needed.
 # It should be used for everything which needs a version when building (not generating)
