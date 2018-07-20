@@ -14,9 +14,9 @@ while getopts "c:e:i:" opt; do
     c)
         CONTAINER_BASE=$OPTARG
         ;;
-    # Allow specifying an environment variable file for runtime in the container
+    # Allow specifying one or more environment variable files for runtime in the container
     e)
-        ENV_FILE=$OPTARG
+        ENV_FILE="$ENV_FILE $OPTARG"
         ;;
     # Allow specifying a template for building the container
     i)
@@ -51,12 +51,14 @@ fi
 # Build up arguments for passing environment data to containers
 ENV_ARG=
 if [ -n "$ENV_FILE" ]; then
-    FULL_ENV_FILE=${DOCKER_DIR}/${ENV_FILE}
-    if [ ! -f $FULL_ENV_FILE ]; then
-        echo "Environment file $FULL_ENV_FILE not found"
-        exit 1
-    fi
-    ENV_ARG="--env-file=$FULL_ENV_FILE"
+    for e in $ENV_FILE; do
+        FULL_ENV_FILE=${DOCKER_DIR}/$e
+        if [ ! -f $FULL_ENV_FILE ]; then
+            echo "Environment file $FULL_ENV_FILE not found"
+            exit 1
+        fi
+        ENV_ARG="$ENV_ARG --env-file=$FULL_ENV_FILE"
+    done
 fi
 
 # Build the build container
