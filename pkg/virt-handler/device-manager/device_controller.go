@@ -37,14 +37,14 @@ const (
 )
 
 type DeviceController struct {
-	devicePlugins []*GenericDevicePlugin
+	devicePlugins []GenericDevice
 	host          string
 	maxDevices    int
 }
 
 func NewDeviceController(host string, maxDevices int) *DeviceController {
 	return &DeviceController{
-		devicePlugins: []*GenericDevicePlugin{
+		devicePlugins: []GenericDevice{
 			NewGenericDevicePlugin(KVMName, KVMPath, maxDevices),
 			NewGenericDevicePlugin(TunName, TunPath, maxDevices),
 		},
@@ -105,24 +105,26 @@ func (c *DeviceController) waitForPath(target string, stop chan struct{}) error 
 	}
 }
 
-func (c *DeviceController) startDevicePlugin(dev *GenericDevicePlugin, stop chan struct{}) error {
+func (c *DeviceController) startDevicePlugin(dev GenericDevice, stop chan struct{}) error {
 	logger := log.DefaultLogger()
-	if !c.nodeHasDevice(dev.devicePath) {
-		logger.Infof("%s device not found. Waiting.", dev.deviceName)
-		err := c.waitForPath(dev.devicePath, stop)
+	devicePath := dev.GetDevicePath()
+	deviceName := dev.GetDeviceName()
+	if !c.nodeHasDevice(devicePath) {
+		logger.Infof("%s device not found. Waiting.", deviceName)
+		err := c.waitForPath(devicePath, stop)
 		if err != nil {
-			logger.Errorf("error waiting for %s device: %v", dev.deviceName, err)
+			logger.Errorf("error waiting for %s device: %v", deviceName, err)
 			return err
 		}
 	}
 
 	err := dev.Start(stop)
 	if err != nil {
-		logger.Errorf("Error starting %s device plugin: %v", dev.deviceName, err)
+		logger.Errorf("Error starting %s device plugin: %v", deviceName, err)
 		return err
 	}
 
-	logger.Infof("%s device plugin started", dev.deviceName)
+	logger.Infof("%s device plugin started", deviceName)
 	return nil
 }
 
@@ -131,7 +133,7 @@ func (c *DeviceController) Run(stop chan struct{}) error {
 	logger.Info("Starting device plugin controller")
 
 	for _, dev := range c.devicePlugins {
-		c.startDevicePlugin(dev, stop)
+		go c.startDevicePlugin(dev, stop)
 	}
 
 	<-stop
