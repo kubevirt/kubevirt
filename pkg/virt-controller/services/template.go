@@ -23,22 +23,19 @@ import (
 	"fmt"
 	"path/filepath"
 	"strconv"
-	"strings"
 
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/client-go/tools/cache"
 
 	"kubevirt.io/kubevirt/pkg/api/v1"
+	"kubevirt.io/kubevirt/pkg/config"
 	"kubevirt.io/kubevirt/pkg/hooks"
 	"kubevirt.io/kubevirt/pkg/precond"
 	"kubevirt.io/kubevirt/pkg/registry-disk"
 	"kubevirt.io/kubevirt/pkg/util/net/dns"
 )
 
-const configMapName = "kube-system/kubevirt-config"
-const useEmulationKey = "debug.useEmulation"
 const KvmDevice = "devices.kubevirt.io/kvm"
 const TunDevice = "devices.kubevirt.io/tun"
 
@@ -50,24 +47,7 @@ type templateService struct {
 	launcherImage   string
 	virtShareDir    string
 	imagePullSecret string
-	store           cache.Store
-}
-
-func IsEmulationAllowed(store cache.Store) (bool, error) {
-	obj, exists, err := store.GetByKey(configMapName)
-	if err != nil {
-		return false, err
-	}
-	if !exists {
-		return exists, nil
-	}
-	useEmulation := false
-	cm := obj.(*k8sv1.ConfigMap)
-	emu, ok := cm.Data[useEmulationKey]
-	if ok {
-		useEmulation = (strings.ToLower(emu) == "true")
-	}
-	return useEmulation, nil
+	clusterConfig   *config.ClusterConfig
 }
 
 func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (*k8sv1.Pod, error) {
@@ -236,7 +216,7 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 		"--hook-sidecars", strconv.Itoa(len(requestedHookSidecarList)),
 	}
 
-	useEmulation, err := IsEmulationAllowed(t.store)
+	useEmulation, err := t.clusterConfig.IsUseEmulation()
 	if err != nil {
 		return nil, err
 	}
@@ -464,13 +444,13 @@ func getPortsFromVMI(vmi *v1.VirtualMachineInstance) []k8sv1.ContainerPort {
 	return ports
 }
 
-func NewTemplateService(launcherImage string, virtShareDir string, imagePullSecret string, configMapCache cache.Store) TemplateService {
+func NewTemplateService(launcherImage string, virtShareDir string, imagePullSecret string, clusterConfig *config.ClusterConfig) TemplateService {
 	precond.MustNotBeEmpty(launcherImage)
 	svc := templateService{
 		launcherImage:   launcherImage,
 		virtShareDir:    virtShareDir,
 		imagePullSecret: imagePullSecret,
-		store:           configMapCache,
+		clusterConfig:   clusterConfig,
 	}
 	return &svc
 }
