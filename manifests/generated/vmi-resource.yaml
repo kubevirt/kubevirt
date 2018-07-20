@@ -294,8 +294,3 @@ spec:
             phase:
               type: string
   version: v1alpha2
-status:
-  acceptedNames:
-    kind: ""
-    plural: ""
-  conditions: null
