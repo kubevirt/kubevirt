@@ -1527,13 +1527,11 @@ func SkipIfVersionBelow(message string, expectedVersion string) {
 	}
 }
 
-// GetNodeLibvirtCapabilities returns node libvirt capabilities
-func GetNodeLibvirtCapabilities(nodeName string) string {
+// StartVmOnNode will start a VMI on the specified node
+func StartVmOnNode(vmi *v1.VirtualMachineInstance, nodeName string) {
 	virtClient, err := kubecli.GetKubevirtClient()
 	PanicOnError(err)
 
-	// Create a virt-launcher pod, that can fetch virsh capabilities
-	vmi := NewRandomVMIWithEphemeralDiskAndUserdata(RegistryDiskFor(RegistryDiskCirros), "#!/bin/bash\necho 'hello'\n")
 	vmi.Spec.Affinity = &k8sv1.Affinity{
 		NodeAffinity: &k8sv1.NodeAffinity{
 			RequiredDuringSchedulingIgnoredDuringExecution: &k8sv1.NodeSelector{
@@ -1551,6 +1549,12 @@ func GetNodeLibvirtCapabilities(nodeName string) string {
 	_, err = virtClient.VirtualMachineInstance(NamespaceTestDefault).Create(vmi)
 	Expect(err).ToNot(HaveOccurred())
 	WaitForSuccessfulVMIStart(vmi)
+}
+
+// RunCommandOnVmiPod will run specified command on the virt-launcher pod
+func RunCommandOnVmiPod(vmi *v1.VirtualMachineInstance, command []string) string {
+	virtClient, err := kubecli.GetKubevirtClient()
+	PanicOnError(err)
 
 	pods, err := virtClient.CoreV1().Pods(NamespaceTestDefault).List(UnfinishedVMIPodSelector(vmi))
 	Expect(err).ToNot(HaveOccurred())
@@ -1561,11 +1565,28 @@ func GetNodeLibvirtCapabilities(nodeName string) string {
 		virtClient,
 		&vmiPod,
 		"compute",
-		[]string{"virsh", "-r", "capabilities"},
+		command,
 	)
 	Expect(err).ToNot(HaveOccurred())
 
 	return output
+}
+
+// GetNodeLibvirtCapabilities returns node libvirt capabilities
+func GetNodeLibvirtCapabilities(nodeName string) string {
+	// Create a virt-launcher pod, that can fetch virsh capabilities
+	vmi := NewRandomVMIWithEphemeralDiskAndUserdata(RegistryDiskFor(RegistryDiskCirros), "#!/bin/bash\necho 'hello'\n")
+	StartVmOnNode(vmi, nodeName)
+
+	return RunCommandOnVmiPod(vmi, []string{"virsh", "-r", "capabilities"})
+}
+
+// GetNodeCPUInfo returns output of lscpu on the pod that runs on the specified node
+func GetNodeCPUInfo(nodeName string) string {
+	vmi := NewRandomVMIWithEphemeralDiskAndUserdata(RegistryDiskFor(RegistryDiskCirros), "#!/bin/bash\necho 'hello'\n")
+	StartVmOnNode(vmi, nodeName)
+
+	return RunCommandOnVmiPod(vmi, []string{"lscpu"})
 }
 
 // KubevirtFailHandler call ginkgo.Fail with printing the additional information
