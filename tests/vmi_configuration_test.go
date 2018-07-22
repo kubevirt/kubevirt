@@ -242,11 +242,13 @@ var _ = Describe("Configurations", func() {
 	})
 
 	Context("with CPU spec", func() {
-		cpuRegexp := regexp.MustCompile(`<model>(\w+)\-*\w*</model>`)
-		vendorRegexp := regexp.MustCompile(`<vendor>(\w+)</vendor>`)
+		libvirtCPUModelRegexp := regexp.MustCompile(`<model>(\w+)\-*\w*</model>`)
+		libvirtCPUVendorRegexp := regexp.MustCompile(`<vendor>(\w+)</vendor>`)
+		cpuModelNameRegexp := regexp.MustCompile(`Model name:\s*([\s\w\-@\.\(\)]+)`)
 
-		var cpuModel string
-		var cpuVendor string
+		var libvirtCpuModel string
+		var libvirtCpuVendor string
+		var cpuModelName string
 		var cpuVmi *v1.VirtualMachineInstance
 
 		BeforeEach(func() {
@@ -256,13 +258,18 @@ var _ = Describe("Configurations", func() {
 
 			virshCaps := tests.GetNodeLibvirtCapabilities(nodes.Items[0].Name)
 
-			model := cpuRegexp.FindStringSubmatch(virshCaps)
+			model := libvirtCPUModelRegexp.FindStringSubmatch(virshCaps)
 			Expect(len(model)).To(Equal(2))
-			cpuModel = model[1]
+			libvirtCpuModel = model[1]
 
-			vendor := vendorRegexp.FindStringSubmatch(virshCaps)
+			vendor := libvirtCPUVendorRegexp.FindStringSubmatch(virshCaps)
 			Expect(len(vendor)).To(Equal(2))
-			cpuVendor = vendor[1]
+			libvirtCpuVendor = vendor[1]
+
+			cpuInfo := tests.GetNodeCPUInfo(nodes.Items[0].Name)
+			modelName := cpuModelNameRegexp.FindStringSubmatch(cpuInfo)
+			Expect(len(modelName)).To(Equal(2))
+			cpuModelName = modelName[1]
 
 			cpuVmi = tests.NewRandomVMIWithEphemeralDiskAndUserdata(tests.RegistryDiskFor(tests.RegistryDiskCirros), "#!/bin/bash\necho 'hello'\n")
 			cpuVmi.Spec.Affinity = &v1.Affinity{
@@ -283,7 +290,7 @@ var _ = Describe("Configurations", func() {
 		Context("when CPU model defined", func() {
 			It("should report defined CPU model", func() {
 				vmiModel := "Conroe"
-				if cpuVendor == "AMD" {
+				if libvirtCpuVendor == "AMD" {
 					vmiModel = "Opteron_G1"
 				}
 				cpuVmi.Spec.Domain.CPU = &v1.CPU{
@@ -308,6 +315,30 @@ var _ = Describe("Configurations", func() {
 			})
 		})
 
+		Context("when CPU model equals to passthrough", func() {
+			It("should report exactly the same model as node CPU", func() {
+				cpuVmi.Spec.Domain.CPU = &v1.CPU{
+					Model: "host-passthrough",
+				}
+
+				By("Starting a VirtualMachineInstance")
+				_, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(cpuVmi)
+				Expect(err).ToNot(HaveOccurred())
+				tests.WaitForSuccessfulVMIStart(cpuVmi)
+
+				By("Expecting the VirtualMachineInstance console")
+				expecter, err := tests.LoggedInCirrosExpecter(cpuVmi)
+				Expect(err).ToNot(HaveOccurred())
+				defer expecter.Close()
+
+				By("Checking the CPU model under the guest OS")
+				_, err = expecter.ExpectBatch([]expect.Batcher{
+					&expect.BSnd{S: fmt.Sprintf("grep %s /proc/cpuinfo\n", cpuModelName)},
+					&expect.BExp{R: "model name"},
+				}, 10*time.Second)
+			})
+		})
+
 		Context("when CPU model not defined", func() {
 			It("should report CPU model from libvirt capabilities", func() {
 				By("Starting a VirtualMachineInstance")
@@ -322,7 +353,7 @@ var _ = Describe("Configurations", func() {
 
 				By("Checking the CPU model under the guest OS")
 				_, err = expecter.ExpectBatch([]expect.Batcher{
-					&expect.BSnd{S: fmt.Sprintf("grep %s /proc/cpuinfo\n", cpuModel)},
+					&expect.BSnd{S: fmt.Sprintf("grep %s /proc/cpuinfo\n", libvirtCpuModel)},
 					&expect.BExp{R: "model name"},
 				}, 10*time.Second)
 			})

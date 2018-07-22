@@ -38,6 +38,11 @@ import (
 	"kubevirt.io/kubevirt/pkg/registry-disk"
 )
 
+const (
+	CPUModeHostPassthrough = "host-passthrough"
+	CPUModeHostModel       = "host-model"
+)
+
 type ConverterContext struct {
 	AllowEmulation bool
 	Secrets        map[string]*k8sv1.Secret
@@ -454,13 +459,17 @@ func Convert_v1_VirtualMachine_To_api_Domain(vmi *v1.VirtualMachineInstance, dom
 
 		// Set VM CPU model and vendor
 		if vmi.Spec.Domain.CPU.Model != "" {
-			domain.Spec.CPU.Mode = "custom"
-			domain.Spec.CPU.Model = vmi.Spec.Domain.CPU.Model
+			if vmi.Spec.Domain.CPU.Model == CPUModeHostModel || vmi.Spec.Domain.CPU.Model == CPUModeHostPassthrough {
+				domain.Spec.CPU.Mode = vmi.Spec.Domain.CPU.Model
+			} else {
+				domain.Spec.CPU.Mode = "custom"
+				domain.Spec.CPU.Model = vmi.Spec.Domain.CPU.Model
+			}
 		}
 	}
 
 	if vmi.Spec.Domain.CPU == nil || vmi.Spec.Domain.CPU.Model == "" {
-		domain.Spec.CPU.Mode = "host-model"
+		domain.Spec.CPU.Mode = CPUModeHostModel
 	}
 
 	// Add mandatory console device
