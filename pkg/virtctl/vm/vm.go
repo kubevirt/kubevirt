@@ -21,6 +21,7 @@ package vm
 
 import (
 	"fmt"
+	"os"
 
 	"github.com/spf13/cobra"
 	k8smetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -40,7 +41,7 @@ const (
 func NewStartCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "start (vmi)",
-		Short:   "Start a virtual machine which is managed by an offline virtual machine.",
+		Short:   "Start a virtual machine instance which is managed by a virtual machine.",
 		Example: usage(COMMAND_START),
 		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -55,7 +56,7 @@ func NewStartCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
 func NewStopCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
 	return &cobra.Command{
 		Use:     "stop (vmi)",
-		Short:   "Stop a virtual machine which is managed by an offline virtual machine.",
+		Short:   "Stop a virtual machine instace which is managed by a virtual machine.",
 		Example: usage(COMMAND_STOP),
 		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -75,7 +76,7 @@ func NewCommand(command string) *Command {
 }
 
 func usage(cmd string) string {
-	usage := "#Start a virtual machine called 'myvmi':\n"
+	usage := fmt.Sprintf("# %s a virtual machine called 'myvmi':\n", cmd)
 	usage += fmt.Sprintf("virtctl %s myvmi", cmd)
 	return usage
 }
@@ -87,6 +88,11 @@ func (o *Command) Run(cmd *cobra.Command, args []string) error {
 	namespace, _, err := o.clientConfig.Namespace()
 	if err != nil {
 		return err
+	}
+
+	value := os.Getenv("KUBECTL_PLUGINS_CURRENT_NAMESPACE")
+	if value != "" {
+		namespace = value
 	}
 
 	virtClient, err := kubecli.GetKubevirtClientFromClientConfig(o.clientConfig)
