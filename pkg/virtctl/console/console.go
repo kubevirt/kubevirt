@@ -72,6 +72,11 @@ func (c *Console) Run(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
+	value := os.Getenv("KUBECTL_PLUGINS_CURRENT_NAMESPACE")
+	if value != "" {
+		namespace = value
+	}
+
 	vmi := args[0]
 
 	virtCli, err := kubecli.GetKubevirtClientFromClientConfig(c.clientConfig)

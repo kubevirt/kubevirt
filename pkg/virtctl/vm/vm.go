@@ -22,6 +22,7 @@ package vm
 import (
 	"fmt"
 	"strings"
+	"os"
 
 	"github.com/spf13/cobra"
 	k8smetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -105,6 +106,11 @@ func (o *Command) Run(cmd *cobra.Command, args []string) error {
 	namespace, _, err := o.clientConfig.Namespace()
 	if err != nil {
 		return err
+	}
+
+	value := os.Getenv("KUBECTL_PLUGINS_CURRENT_NAMESPACE")
+	if value != "" {
+		namespace = value
 	}
 
 	virtClient, err := kubecli.GetKubevirtClientFromClientConfig(o.clientConfig)

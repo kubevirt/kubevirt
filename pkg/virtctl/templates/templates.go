@@ -39,3 +39,12 @@ func OptionsUsageTemplate() string {
 {{.InheritedFlags.FlagUsages | trimTrailingWhitespaces}}{{end}}
 `
 }
+
+func InstallPluginTemplate() string {
+	return `name: "virt"
+  shortDesc: "virt controls virtual machine related operations on your kubernetes cluster."
+  command: "./virtctl"
+  tree:
+  
+  `
+}
