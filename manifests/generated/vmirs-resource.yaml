@@ -302,8 +302,3 @@ spec:
               format: int32
               type: integer
   version: v1alpha2
-status:
-  acceptedNames:
-    kind: ""
-    plural: ""
-  conditions: null
