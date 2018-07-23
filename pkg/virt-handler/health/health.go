@@ -5,13 +5,15 @@ import (
 	"fmt"
 	"time"
 
-	v12 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
 
 	"sync/atomic"
 
 	"k8s.io/apimachinery/pkg/util/runtime"
+
+	v12 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/clock"
 
 	"kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/kubecli"
@@ -32,12 +34,14 @@ func NewReadinessChecker(clientset kubecli.KubevirtClient, host string) *Readine
 	return &ReadinessChecker{
 		clientset: clientset,
 		host:      host,
+		Clock:     clock.RealClock{},
 	}
 }
 
 type ReadinessChecker struct {
 	clientset kubecli.KubevirtClient
 	host      string
+	Clock     clock.Clock
 }
 
 // HeartBeat take a heartbeat inverval, a maximum of non-userfacing errors which are
@@ -49,7 +53,8 @@ func (l *ReadinessChecker) HeartBeat(interval time.Duration, maxErrorsPerInterva
 		wait.JitterUntil(func() {
 			schedulable := true
 
-			errorRateExceeded := atomic.LoadUint64(&errorCount) > maxErrorsPerInterval
+			errors := atomic.LoadUint64(&errorCount)
+			errorRateExceeded := errors > maxErrorsPerInterval
 			atomic.StoreUint64(&errorCount, 0)
 
 			// Check if error rate got exceeded
@@ -58,9 +63,12 @@ func (l *ReadinessChecker) HeartBeat(interval time.Duration, maxErrorsPerInterva
 				// TODO do we also want to panic? Maybe better to feed a liveness prove and decide on the manifest level
 				// if a restart it swanted.
 				schedulable = false
+				log.DefaultLogger().
+					Reason(fmt.Errorf("Allowed error rate per interval exceeded: %d/%v", errors, interval)).
+					Errorf("Will mark myself as unschedulable.")
 			}
 
-			now, err := json.Marshal(v12.Now())
+			now, err := json.Marshal(v12.Time{Time: l.Clock.Now()})
 			if err != nil {
 				log.DefaultLogger().Reason(err).Errorf("Can't determine date")
 				return
