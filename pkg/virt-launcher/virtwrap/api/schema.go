@@ -69,6 +69,22 @@ const (
 
 	// NoState reasons
 	ReasonNonExistent StateChangeReason = "NonExistent"
+
+	// Pause reasons
+	ReasonPausedUnknown        StateChangeReason = "Unknown"
+	ReasonPausedUser           StateChangeReason = "User"
+	ReasonPausedMigration      StateChangeReason = "Migration"
+	ReasonPausedSave           StateChangeReason = "Save"
+	ReasonPausedDump           StateChangeReason = "Dump"
+	ReasonPausedIOError        StateChangeReason = "IOError"
+	ReasonPausedWatchdog       StateChangeReason = "Watchdog"
+	ReasonPausedFromSnapshot   StateChangeReason = "FromSnapshot"
+	ReasonPausedShuttingDown   StateChangeReason = "ShuttingDown"
+	ReasonPausedSnapshot       StateChangeReason = "Snapshot"
+	ReasonPausedCrashed        StateChangeReason = "Crashed"
+	ReasonPausedStartingUp     StateChangeReason = "StartingUp"
+	ReasonPausedPostcopy       StateChangeReason = "Postcopy"
+	ReasonPausedPostcopyFailed StateChangeReason = "PostcopyFailed"
 )
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
