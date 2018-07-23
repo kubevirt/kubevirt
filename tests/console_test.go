@@ -110,7 +110,7 @@ var _ = Describe("Console", func() {
 			}, 220)
 			It("should fail waiting for the virtual machine instance to be running", func() {
 				vmi := tests.NewRandomVMIWithEphemeralDisk(tests.RegistryDiskFor(tests.RegistryDiskAlpine))
-				vmi.Spec.Affinity = &v1.Affinity{
+				vmi.Spec.Affinity = &k8sv1.Affinity{
 					NodeAffinity: &k8sv1.NodeAffinity{
 						RequiredDuringSchedulingIgnoredDuringExecution: &k8sv1.NodeSelector{
 							NodeSelectorTerms: []k8sv1.NodeSelectorTerm{
