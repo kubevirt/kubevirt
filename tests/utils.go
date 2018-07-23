@@ -1338,7 +1338,7 @@ func BeforeAll(fn func()) {
 
 func SkipIfNoWindowsImage(virtClient kubecli.KubevirtClient) {
 	windowsPv, err := virtClient.CoreV1().PersistentVolumes().Get(DiskWindows, metav1.GetOptions{})
-	if err != nil || (windowsPv.Status.Phase != k8sv1.VolumeAvailable && windowsPv.Status.Phase != k8sv1.VolumeReleased) {
+	if err != nil || windowsPv.Status.Phase == k8sv1.VolumePending || windowsPv.Status.Phase == k8sv1.VolumeFailed {
 		Skip(fmt.Sprintf("Skip Windows tests that requires PVC %s", DiskWindows))
 	} else if windowsPv.Status.Phase == k8sv1.VolumeReleased {
 		windowsPv.Spec.ClaimRef = nil
