@@ -52,13 +52,5 @@ type Install struct {
 }
 
 func (I *Install) Run(cmd *cobra.Command, args []string) error {
-	plugin := kubecli.MakePluginConfiguration(I.rootCommand)
-	err := kubecli.WritePluginYaml(plugin)
-	if err != nil {
-		return err
-	}
-
-	err := kubecli.CopyVirtctlFile()
-	
-	return err
+	return kubecli.InstallVirtPlugin(I.rootCommand)
 }
