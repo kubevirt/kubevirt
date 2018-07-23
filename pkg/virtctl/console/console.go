@@ -24,7 +24,6 @@ import (
 	"io"
 	"os"
 	"os/signal"
-	"time"
 
 	"golang.org/x/crypto/ssh/terminal"
 
@@ -94,13 +93,17 @@ func (c *Console) Run(cmd *cobra.Command, args []string) error {
 
 	// Wait until the virtual machine is in running phase, user interrupt or timeout
 	runningChan := make(chan error)
-	timeoutChan := time.NewTicker(time.Duration(timeout) * time.Minute)
 	waitInterrupt := make(chan os.Signal, 1)
 	signal.Notify(waitInterrupt, os.Interrupt)
 
 	go func() {
-		con, err := virtCli.VirtualMachineInstance(namespace).SerialConsole(vmi)
+		con, err := virtCli.VirtualMachineInstance(namespace).SerialConsole(vmi, timeout)
 		runningChan <- err
+
+		if err != nil {
+			return
+		}
+
 		resChan <- con.Stream(kubecli.StreamOptions{
 			In:  stdinReader,
 			Out: stdoutWriter,
@@ -108,8 +111,6 @@ func (c *Console) Run(cmd *cobra.Command, args []string) error {
 	}()
 
 	select {
-	case <-timeoutChan.C:
-		return fmt.Errorf("Timeout trying to connect to the virtual machine instance")
 	case <-waitInterrupt:
 		// Make a new line in the terminal
 		fmt.Println()
@@ -120,7 +121,6 @@ func (c *Console) Run(cmd *cobra.Command, args []string) error {
 		}
 	}
 
-	timeoutChan.Stop()
 	state, err := terminal.MakeRaw(int(os.Stdin.Fd()))
 	if err != nil {
 		return fmt.Errorf("Make raw terminal failed: %s", err)

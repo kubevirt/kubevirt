@@ -1130,7 +1130,7 @@ func NewConsoleExpecter(virtCli kubecli.KubevirtClient, vmi *v1.VirtualMachineIn
 	expecterReader, expecterWriter := io.Pipe()
 	resCh := make(chan error)
 	go func() {
-		con, err := virtCli.VirtualMachineInstance(vmi.Namespace).SerialConsole(vmi.Name)
+		con, err := virtCli.VirtualMachineInstance(vmi.Namespace).SerialConsole(vmi.Name, int(timeout))
 		if err != nil {
 			resCh <- err
 			return

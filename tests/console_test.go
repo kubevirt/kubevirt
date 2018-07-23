@@ -30,6 +30,8 @@ import (
 	"kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/kubecli"
 	"kubevirt.io/kubevirt/tests"
+
+	k8sv1 "k8s.io/api/core/v1"
 )
 
 var _ = Describe("Console", func() {
@@ -100,13 +102,34 @@ var _ = Describe("Console", func() {
 			}, 220)
 			It("should wait until the virtual machine is in running state and return a stream interface", func() {
 				vmi := tests.NewRandomVMIWithEphemeralDisk(tests.RegistryDiskFor(tests.RegistryDiskAlpine))
+				By("Creating a new VirtualMachineInstance")
+				Expect(virtClient.RestClient().Post().Resource("virtualmachineinstances").Namespace(tests.NamespaceTestDefault).Body(vmi).Do().Error()).To(Succeed())
+
+				_, err := virtClient.VirtualMachineInstance(vmi.Namespace).SerialConsole(vmi.Name, 2)
+				Expect(err).ToNot(HaveOccurred())
+			}, 220)
+			It("should fail waiting for the virtual machine instance to be running", func() {
+				vmi := tests.NewRandomVMIWithEphemeralDisk(tests.RegistryDiskFor(tests.RegistryDiskAlpine))
+				vmi.Spec.Affinity = &v1.Affinity{
+					NodeAffinity: &k8sv1.NodeAffinity{
+						RequiredDuringSchedulingIgnoredDuringExecution: &k8sv1.NodeSelector{
+							NodeSelectorTerms: []k8sv1.NodeSelectorTerm{
+								{
+									MatchExpressions: []k8sv1.NodeSelectorRequirement{
+										{Key: "kubernetes.io/hostname", Operator: k8sv1.NodeSelectorOpIn, Values: []string{"notexist"}},
+									},
+								},
+							},
+						},
+					},
+				}
 
 				By("Creating a new VirtualMachineInstance")
 				Expect(virtClient.RestClient().Post().Resource("virtualmachineinstances").Namespace(tests.NamespaceTestDefault).Body(vmi).Do().Error()).To(Succeed())
 
-				_, err := virtClient.VirtualMachineInstance(vmi.Namespace).SerialConsole(vmi.Name)
-				Expect(err).ToNot(HaveOccurred())
-			}, 220)
+				_, err := virtClient.VirtualMachineInstance(vmi.Namespace).SerialConsole(vmi.Name, 1)
+				Expect(err).To(HaveOccurred())
+			}, 180)
 		})
 	})
 })

@@ -246,22 +246,42 @@ func (ws *wsStreamer) Stream(options StreamOptions) error {
 func (v *vmis) VNC(name string) (StreamInterface, error) {
 	return v.asyncSubresourceHelper(name, "vnc")
 }
-func (v *vmis) SerialConsole(name string) (StreamInterface, error) {
-	con, err := v.asyncSubresourceHelper(name, "console")
-	for err != nil {
-		if asyncSubresourceError, ok := err.(*AsyncSubresourceError); ok {
-			if asyncSubresourceError.GetStatusCode() == http.StatusBadRequest {
-				// Sleep to prevent denial of service on the api server
-				time.Sleep(500 * time.Millisecond)
-				con, err = v.asyncSubresourceHelper(name, "console")
+
+type connectionStruct struct {
+	con StreamInterface
+	err error
+}
+
+func (v *vmis) SerialConsole(name string, timeout int) (StreamInterface, error) {
+	timeoutChan := time.Tick(time.Duration(timeout) * time.Minute)
+	connectionChan := make(chan connectionStruct)
+
+	go func() {
+		con, err := v.asyncSubresourceHelper(name, "console")
+		for err != nil {
+			if asyncSubresourceError, ok := err.(*AsyncSubresourceError); ok {
+				if asyncSubresourceError.GetStatusCode() == http.StatusBadRequest {
+					// Sleep to prevent denial of service on the api server
+					time.Sleep(500 * time.Millisecond)
+					con, err = v.asyncSubresourceHelper(name, "console")
+				} else {
+					connectionChan <- connectionStruct{con: nil, err: asyncSubresourceError}
+					return
+				}
 			} else {
-				return nil, asyncSubresourceError
+				connectionChan <- connectionStruct{con: nil, err: err}
+				return
 			}
-		} else {
-			return nil, err
 		}
+		connectionChan <- connectionStruct{con: con, err: nil}
+	}()
+
+	select {
+	case <-timeoutChan:
+		return nil, fmt.Errorf("Timeout trying to connect to the virtual machine instance")
+	case conStruct := <-connectionChan:
+		return conStruct.con, conStruct.err
 	}
-	return con, nil
 }
 
 type AsyncSubresourceError struct {
