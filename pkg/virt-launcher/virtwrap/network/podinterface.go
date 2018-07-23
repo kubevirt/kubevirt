@@ -240,8 +240,8 @@ func (b *BridgePodInterface) preparePodNetworkInterfaces() error {
 		// Start DHCP server to lease the allocated IP address
 		b.startDHCPServer()
 	} else {
-		// Restore default gateway inside the pod
-		if err := b.restoreDefaultGateway(); err != nil {
+		// Restore all routes inside the pod, using br1 instead of eth0
+		if err := b.restoreRoutes(); err != nil {
 			return err
 		}
 	}
@@ -249,10 +249,29 @@ func (b *BridgePodInterface) preparePodNetworkInterfaces() error {
 	return nil
 }
 
-func (b *BridgePodInterface) restoreDefaultGateway() error {
-	route := &netlink.Route{Gw: b.vif.Gateway}
-	if err := Handler.RouteAdd(b.podNicLink, route); err != nil {
+// Restore other routes that previously belonged to eth0, now for br1
+func (b *BridgePodInterface) restoreRoutes() error {
+	link, err := Handler.LinkByName(api.DefaultBridgeName)
+	if err != nil {
+		log.Log.Reason(err).Errorf("failed to get a link for interface: %s", api.DefaultBridgeName)
 		return err
+	}
+
+	if b.vif.Routes != nil {
+		for _, route := range *(b.vif.Routes) {
+			idx := link.Attrs().Index
+			// Replace eth0 index with the one for br1
+			route.LinkIndex = idx
+			route.ILinkIndex = idx
+			if err := Handler.RouteAdd(link, &route); err != nil {
+				return err
+			}
+		}
+	} else {
+		route := &netlink.Route{Gw: b.vif.Gateway}
+		if err := Handler.RouteAdd(b.podNicLink, route); err != nil {
+			return err
+		}
 	}
 	return nil
 }
