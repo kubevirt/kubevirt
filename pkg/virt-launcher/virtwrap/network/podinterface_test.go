@@ -51,7 +51,7 @@ var _ = Describe("Pod Network", func() {
 	var bridgeTest *netlink.Bridge
 	var bridgeAddr *netlink.Addr
 	var testNic *VIF
-	var interfaceXml, interfaceXmlDelegateIp []byte
+	var interfaceXml, interfaceXmlDelegateNetworkToGuest []byte
 	var tmpDir string
 	log.Log.SetIOWriter(GinkgoWriter)
 
@@ -88,7 +88,7 @@ var _ = Describe("Pod Network", func() {
 			MAC:     fakeMac,
 			Gateway: gw}
 		interfaceXml = []byte(`<Interface type="bridge"><source bridge="br1"></source><model type="virtio"></model><mac address="12:34:56:78:9a:bc"></mac><alias name="default"></alias></Interface>`)
-		interfaceXmlDelegateIp = []byte(`<Interface type="bridge"><source bridge="br1"></source><model type="virtio"></model><alias name="default"></alias></Interface>`)
+		interfaceXmlDelegateNetworkToGuest = []byte(`<Interface type="bridge"><source bridge="br1"></source><model type="virtio"></model><alias name="default"></alias></Interface>`)
 	})
 
 	AfterEach(func() {
@@ -130,7 +130,7 @@ var _ = Describe("Pod Network", func() {
 		Expect(err).To(BeNil())
 	}
 
-	TestPodInterfaceIPBindingDelegateIpFalse := func(vm *v1.VirtualMachineInstance, domain *api.Domain) {
+	TestPodInterfaceIPBindingDelegateNetworkToGuestFalse := func(vm *v1.VirtualMachineInstance, domain *api.Domain) {
 
 		mockNetwork.EXPECT().LinkByName(podInterface).Return(dummy, nil)
 		mockNetwork.EXPECT().AddrList(dummy, netlink.FAMILY_V4).Return(addrList, nil)
@@ -148,7 +148,7 @@ var _ = Describe("Pod Network", func() {
 		Expect(err).To(BeNil())
 		Expect(len(domain.Spec.Devices.Interfaces)).To(Equal(1))
 		xmlStr, err := xml.Marshal(domain.Spec.Devices.Interfaces)
-		Expect(string(xmlStr)).To(Equal(string(interfaceXmlDelegateIp)))
+		Expect(string(xmlStr)).To(Equal(string(interfaceXmlDelegateNetworkToGuest)))
 		Expect(err).To(BeNil())
 
 		// Calling SetupPodNetwork a second time should result in no
@@ -158,7 +158,7 @@ var _ = Describe("Pod Network", func() {
 		Expect(err).To(BeNil())
 		Expect(len(domain.Spec.Devices.Interfaces)).To(Equal(1))
 		xmlStr, err = xml.Marshal(domain.Spec.Devices.Interfaces)
-		Expect(string(xmlStr)).To(Equal(string(interfaceXmlDelegateIp)))
+		Expect(string(xmlStr)).To(Equal(string(interfaceXmlDelegateNetworkToGuest)))
 		Expect(err).To(BeNil())
 	}
 
@@ -182,14 +182,14 @@ var _ = Describe("Pod Network", func() {
 			api.SetObjectDefaults_Domain(domain)
 			TestPodInterfaceIPBinding(vm, domain)
 		})
-		It("should define a new VIF bind to a bridge with delegateIp=false", func() {
-			delegateIp := false
+		It("should define a new VIF bind to a bridge with delegateNetworkToGuest=false", func() {
+			delegateNetworkToGuest := false
 			domain := NewDomainWithBridgeInterface()
 			vmi := newVMIBridgeInterface("testnamespace", "testVmName")
-			vmi.Spec.Domain.Devices.Interfaces[0].Bridge.DelegateIp = &delegateIp
+			vmi.Spec.Domain.Devices.Interfaces[0].Bridge.DelegateNetworkToGuest = &delegateNetworkToGuest
 
 			api.SetObjectDefaults_Domain(domain)
-			TestPodInterfaceIPBindingDelegateIpFalse(vmi, domain)
+			TestPodInterfaceIPBindingDelegateNetworkToGuestFalse(vmi, domain)
 		})
 		It("should panic if pod networking fails to setup", func() {
 			testNetworkPanic := func() {
@@ -380,7 +380,7 @@ var _ = Describe("Pod Network", func() {
 				Expect(domain.Spec.QEMUCmd.QEMUArg[1]).To(Equal(api.Arg{Value: "e1000,netdev=default,id=default"}))
 			})
 		})
-		Context("func delegateIPAddress", func() {
+		Context("func delegateNetworkToGuest", func() {
 			It("Should return true by default", func() {
 				domain := NewDomainWithBridgeInterface()
 				vmi := newVMIBridgeInterface("testnamespace", "testVmName")
@@ -388,29 +388,29 @@ var _ = Describe("Pod Network", func() {
 				binding, err := getBinding(&vmi.Spec.Domain.Devices.Interfaces[0], domain)
 				driver := binding.(*BridgePodInterface)
 				Expect(err).ToNot(HaveOccurred())
-				Expect(driver.delegateIPAddress()).To(BeTrue())
+				Expect(driver.delegateNetworkToGuest()).To(BeTrue())
 			})
 			It("Should return true when explicitly set to true", func() {
-				delegateIp := true
+				delegateNetworkToGuest := true
 				domain := NewDomainWithBridgeInterface()
 				vmi := newVMIBridgeInterface("testnamespace", "testVmName")
-				vmi.Spec.Domain.Devices.Interfaces[0].Bridge.DelegateIp = &delegateIp
+				vmi.Spec.Domain.Devices.Interfaces[0].Bridge.DelegateNetworkToGuest = &delegateNetworkToGuest
 				api.SetObjectDefaults_Domain(domain)
 				binding, err := getBinding(&vmi.Spec.Domain.Devices.Interfaces[0], domain)
 				driver := binding.(*BridgePodInterface)
 				Expect(err).ToNot(HaveOccurred())
-				Expect(driver.delegateIPAddress()).To(BeTrue())
+				Expect(driver.delegateNetworkToGuest()).To(BeTrue())
 			})
 			It("Should return false when explicitly set to false", func() {
-				delegateIp := false
+				delegateNetworkToGuest := false
 				domain := NewDomainWithBridgeInterface()
 				vmi := newVMIBridgeInterface("testnamespace", "testVmName")
-				vmi.Spec.Domain.Devices.Interfaces[0].Bridge.DelegateIp = &delegateIp
+				vmi.Spec.Domain.Devices.Interfaces[0].Bridge.DelegateNetworkToGuest = &delegateNetworkToGuest
 				api.SetObjectDefaults_Domain(domain)
 				binding, err := getBinding(&vmi.Spec.Domain.Devices.Interfaces[0], domain)
 				driver := binding.(*BridgePodInterface)
 				Expect(err).ToNot(HaveOccurred())
-				Expect(driver.delegateIPAddress()).To(BeFalse())
+				Expect(driver.delegateNetworkToGuest()).To(BeFalse())
 			})
 		})
 	})

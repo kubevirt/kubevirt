@@ -181,15 +181,15 @@ func (b *BridgePodInterface) discoverPodNetworkInterface() error {
 	return nil
 }
 
-func (b *BridgePodInterface) delegateIPAddress() bool {
-	if b.iface.Bridge.DelegateIp != nil {
-		return *b.iface.Bridge.DelegateIp
+func (b *BridgePodInterface) delegateNetworkToGuest() bool {
+	if b.iface.Bridge.DelegateNetworkToGuest != nil {
+		return *b.iface.Bridge.DelegateNetworkToGuest
 	}
 	return true
 }
 
 func (b *BridgePodInterface) preparePodNetworkInterfaces() error {
-	delegateIp := b.delegateIPAddress()
+	delegateNetworkToGuest := b.delegateNetworkToGuest()
 
 	// Remove IP from POD interface
 	err := Handler.AddrDel(b.podNicLink, &b.vif.IP)
@@ -199,7 +199,7 @@ func (b *BridgePodInterface) preparePodNetworkInterfaces() error {
 		return err
 	}
 
-	if delegateIp {
+	if delegateNetworkToGuest {
 		// Set interface link to down to change its MAC address
 		err = Handler.LinkSetDown(b.podNicLink)
 		if err != nil {
@@ -225,7 +225,7 @@ func (b *BridgePodInterface) preparePodNetworkInterfaces() error {
 
 	// Set up IP address on the bridge
 	var bridgeAddr string
-	if delegateIp {
+	if delegateNetworkToGuest {
 		// Set fake ip on a bridge
 		bridgeAddr = bridgeFakeIP
 	} else {
@@ -236,7 +236,7 @@ func (b *BridgePodInterface) preparePodNetworkInterfaces() error {
 		return err
 	}
 
-	if delegateIp {
+	if delegateNetworkToGuest {
 		// Start DHCP server to lease the allocated IP address
 		b.startDHCPServer()
 	} else {
@@ -283,8 +283,8 @@ func (b *BridgePodInterface) startDHCPServer() {
 }
 
 func (b *BridgePodInterface) decorateConfig() error {
-	// Move MAC address to the guest only when delegateIp is on
-	if b.delegateIPAddress() {
+	// Move MAC address to the guest only when delegateNetworkToGuest is on
+	if b.delegateNetworkToGuest() {
 		b.domain.Spec.Devices.Interfaces[b.podInterfaceNum].MAC = &api.MAC{MAC: b.vif.MAC.String()}
 	}
 

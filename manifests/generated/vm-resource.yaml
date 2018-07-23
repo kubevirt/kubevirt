@@ -105,7 +105,7 @@ spec:
                                 properties:
                                   bridge:
                                     properties:
-                                      delegateIp:
+                                      delegateNetworkToGuest:
                                         type: boolean
                                   macAddress:
                                     type: string

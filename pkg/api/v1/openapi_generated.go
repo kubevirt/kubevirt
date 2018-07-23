@@ -891,9 +891,9 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 			Schema: spec.Schema{
 				SchemaProps: spec.SchemaProps{
 					Properties: map[string]spec.Schema{
-						"delegateIp": {
+						"delegateNetworkToGuest": {
 							SchemaProps: spec.SchemaProps{
-								Description: "Whether to delegate pod IP address to the guest via DHCP. Defaults to true.",
+								Description: "Whether to delegate pod IP and MAC addresses to the guest. For IP addresses, DHCP is used. Defaults to true.",
 								Type:        []string{"boolean"},
 								Format:      "",
 							},

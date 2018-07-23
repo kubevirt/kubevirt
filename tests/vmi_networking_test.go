@@ -429,7 +429,7 @@ var _ = Describe("Networking", func() {
 			delegateIp := false
 			// Nothing special about e1000 but this one has explicit bridge interface
 			vmi := tests.NewRandomVMIWithe1000NetworkInterface()
-			vmi.Spec.Domain.Devices.Interfaces[0].Bridge.DelegateIp = &delegateIp
+			vmi.Spec.Domain.Devices.Interfaces[0].Bridge.DelegateNetworkToGuest = &delegateIp
 			_, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
 			Expect(err).ToNot(HaveOccurred())
 			waitUntilVMIReady(vmi, tests.LoggedInAlpineExpecter)

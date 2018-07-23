@@ -3850,8 +3850,8 @@
    },
    "v1.InterfaceBridge": {
     "properties": {
-     "delegateIp": {
-      "description": "Whether to delegate pod IP address to the guest via DHCP.\nDefaults to true.",
+     "delegateNetworkToGuest": {
+      "description": "Whether to delegate pod IP and MAC addresses to the guest.\nFor IP addresses, DHCP is used.\nDefaults to true.",
       "type": "boolean"
      }
     }
