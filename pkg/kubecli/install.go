@@ -21,8 +21,19 @@
 package kubecli
 
 import (
+	"fmt"
+	"io"
+	"io/ioutil"
+	"os"
+	"path/filepath"
+
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
+	yaml "gopkg.in/yaml.v2"
+)
+
+var (
+	kubectlPluginPath string
 )
 
 // Plugin holds everything needed to register a
@@ -54,16 +65,63 @@ type Flag struct {
 	DefValue  string `json:"defValue,omitempty"`
 }
 
-func MakePluginConfiguration(cmd *cobra.Command) *Plugin {
+func InstallVirtPlugin(cmd *cobra.Command) error {
+	err := getPluginFolder()
+	if err != nil {
+		return err
+	}
+
+	// Create virt folder
+	err = os.MkdirAll(kubectlPluginPath, os.ModePerm)
+	if err != nil {
+		return err
+	}
+
+	plugin := makePluginConfiguration(cmd)
+
+	err = writePluginYaml(plugin)
+	if err != nil {
+		return err
+	}
+
+	return copyVirtctlFile()
+}
+
+func getPluginFolder() error {
+	globalPluginPath := os.Getenv("KUBECTL_PLUGINS_PATH")
+	if len(globalPluginPath) > 0 {
+		kubectlPluginPath = filepath.Join(globalPluginPath, "virt")
+		return nil
+	}
+
+	xdgDataPath := os.Getenv("XDG_DATA_DIRS")
+	if len(xdgDataPath) > 0 {
+		kubectlPluginPath = filepath.Join(xdgDataPath, "kubectl", "plugins", "virt")
+		return nil
+	}
+
+	userHomeDir := os.Getenv("HOME")
+	if len(userHomeDir) > 0 {
+		kubectlPluginPath = filepath.Join(userHomeDir, ".kube", "plugins", "virt")
+		return nil
+	}
+
+	return fmt.Errorf("Fail to find kubernetes plugin folder")
+}
+
+func makePluginConfiguration(cmd *cobra.Command) *Plugin {
 	tree := make(Plugins, 0)
 	for _, command := range cmd.Commands() {
-		flags := make([]Flag, 0)
+		if command.Name() != "install" && command.Name() != "options" {
+			flags := make([]Flag, 0)
 
-		checkFlags := func(f *pflag.Flag) {
-			flags = append(flags, Flag{Name: f.Name})
+			checkFlags := func(f *pflag.Flag) {
+				flags = append(flags, Flag{Name: f.Name, Desc: f.Usage, DefValue: f.DefValue})
+			}
+
+			command.Flags().VisitAll(checkFlags)
+			tree = append(tree, &Plugin{Name: command.Name(), ShortDesc: command.Short, Command: fmt.Sprintf("%s %s", "./virtctl", command.Name()), Flags: flags})
 		}
-		command.Flags().VisitAll(checkFlags)
-		tree = append(tree, &Plugin{Name: command.Name(), ShortDesc: command.Short, Command: command.Name(), Flags: flags})
 	}
 
 	plugin := &Plugin{Name: "virt", ShortDesc: "kubevirt command plugin", Command: "./virtctl", Tree: tree}
@@ -71,10 +129,39 @@ func MakePluginConfiguration(cmd *cobra.Command) *Plugin {
 	return plugin
 }
 
-func WritePluginYaml(plugin *Plugin) error {
-	return nil
+func writePluginYaml(plugin *Plugin) error {
+	yamlData, err := yaml.Marshal(plugin)
+	if err != nil {
+		return err
+	}
+
+	return ioutil.WriteFile(filepath.Join(kubectlPluginPath, "plugin.yaml"), yamlData, 0644)
 }
 
-func CopyVirtctlFile() error {
-	return nil
+func copyVirtctlFile() error {
+	dst := filepath.Join(kubectlPluginPath, "virtctl")
+
+	srcfd, err := os.Open(os.Args[0])
+	if err != nil {
+		return err
+	}
+	defer srcfd.Close()
+
+	dstfd, err := os.Create(dst)
+	if err != nil {
+		return err
+	}
+	defer dstfd.Close()
+
+	if _, err = io.Copy(dstfd, srcfd); err != nil {
+		return err
+	}
+
+	srcinfo, err := os.Stat(os.Args[0])
+	if err != nil {
+		return err
+	}
+
+	return os.Chmod(dst, srcinfo.Mode())
+
 }
