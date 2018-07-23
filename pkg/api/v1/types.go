@@ -139,7 +139,7 @@ type VirtualMachineInstanceSpec struct {
 	// +optional
 	NodeSelector map[string]string `json:"nodeSelector,omitempty"`
 	// If affinity is specifies, obey all the affinity rules
-	Affinity *Affinity `json:"affinity,omitempty"`
+	Affinity *k8sv1.Affinity `json:"affinity,omitempty"`
 	// Grace period observed after signalling a VirtualMachineInstance to stop after which the VirtualMachineInstance is force terminated.
 	TerminationGracePeriodSeconds *int64 `json:"terminationGracePeriodSeconds,omitempty"`
 	// List of volumes that can be mounted by disks belonging to the vmi.
@@ -155,20 +155,6 @@ type VirtualMachineInstanceSpec struct {
 	Subdomain string `json:"subdomain,omitempty"`
 	// List of networks that can be attached to a vm's virtual interface.
 	Networks []Network `json:"networks,omitempty"`
-}
-
-// Affinity groups all the affinity rules related to a VirtualMachineInstance
-// ---
-// +k8s:openapi-gen=true
-type Affinity struct {
-	// Node affinity support
-	NodeAffinity *k8sv1.NodeAffinity `json:"nodeAffinity,omitempty"`
-
-	// Pod affinity support
-	PodAffinity *k8sv1.PodAffinity `json:"podAffinity,omitempty"`
-
-	// Pod anti-affinity support
-	PodAntiAffinity *k8sv1.PodAntiAffinity `json:"podAntiAffinity,omitempty"`
 }
 
 // VirtualMachineInstanceStatus represents information about the status of a VirtualMachineInstance. Status may trail the actual

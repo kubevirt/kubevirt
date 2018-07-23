@@ -135,7 +135,7 @@ var _ = Describe("Template", func() {
 				vmi := v1.VirtualMachineInstance{
 					ObjectMeta: metav1.ObjectMeta{Name: "testvmi", Namespace: "default", UID: "1234"},
 					Spec: v1.VirtualMachineInstanceSpec{
-						Affinity: &v1.Affinity{NodeAffinity: &nodeAffinity},
+						Affinity: &kubev1.Affinity{NodeAffinity: &nodeAffinity},
 						Domain:   v1.DomainSpec{},
 					},
 				}
@@ -150,7 +150,7 @@ var _ = Describe("Template", func() {
 				vm := v1.VirtualMachineInstance{
 					ObjectMeta: metav1.ObjectMeta{Name: "testvm", Namespace: "default", UID: "1234"},
 					Spec: v1.VirtualMachineInstanceSpec{
-						Affinity: &v1.Affinity{PodAffinity: &podAffinity},
+						Affinity: &kubev1.Affinity{PodAffinity: &podAffinity},
 						Domain:   v1.DomainSpec{},
 					},
 				}
@@ -165,7 +165,7 @@ var _ = Describe("Template", func() {
 				vm := v1.VirtualMachineInstance{
 					ObjectMeta: metav1.ObjectMeta{Name: "testvm", Namespace: "default", UID: "1234"},
 					Spec: v1.VirtualMachineInstanceSpec{
-						Affinity: &v1.Affinity{PodAntiAffinity: &podAntiAffinity},
+						Affinity: &kubev1.Affinity{PodAntiAffinity: &podAntiAffinity},
 						Domain:   v1.DomainSpec{},
 					},
 				}

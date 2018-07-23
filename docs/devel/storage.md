@@ -58,8 +58,8 @@ metadata:
   labels:
     app: containerized-data-importer
   annotations:
-    kubevirt.io/storage.import.endpoint: "https://download.cirros-cloud.net/0.4.0/cirros-0.4.0-x86_64-disk.img"   # Required.  Format: (http||s3)://www.myUrl.com/path/of/data
-    kubevirt.io/storage.import.secretName: "" # Optional.  The name of the secret containing credentials for the data source
+    cdi.kubevirt.io/storage.import.endpoint: "https://download.cirros-cloud.net/0.4.0/cirros-0.4.0-x86_64-disk.img"   # Required.  Format: (http||s3)://www.myUrl.com/path/of/data
+    cdi.kubevirt.io/storage.import.secretName: "" # Optional.  The name of the secret containing credentials for the data source
 spec:
   accessModes:
   - ReadWriteOnce
@@ -76,8 +76,8 @@ The CDI controller will see the annotation and spawn an 'importer' pod that does
 
 Now that we have a populated PVC, we can create a VM using the disk image. For instance using this yaml:
 ```YAML
-apiVersion: kubevirt.io/v1alpha1
-kind: VirtualMachine
+apiVersion: kubevirt.io/v1alpha2
+kind: VirtualMachineInstance
 metadata:
   creationTimestamp: null
   name: vm-pvc-cirrus

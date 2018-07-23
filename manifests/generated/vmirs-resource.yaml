@@ -37,11 +37,7 @@ spec:
                 metadata: {}
                 spec:
                   properties:
-                    affinity:
-                      properties:
-                        nodeAffinity: {}
-                        podAffinity: {}
-                        podAntiAffinity: {}
+                    affinity: {}
                     domain:
                       properties:
                         clock:
@@ -314,8 +310,3 @@ spec:
               format: int32
               type: integer
   version: v1alpha2
-status:
-  acceptedNames:
-    kind: ""
-    plural: ""
-  conditions: null

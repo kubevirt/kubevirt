@@ -30,15 +30,6 @@ func (VirtualMachineInstanceSpec) SwaggerDoc() map[string]string {
 	}
 }
 
-func (Affinity) SwaggerDoc() map[string]string {
-	return map[string]string{
-		"":                "Affinity groups all the affinity rules related to a VirtualMachineInstance",
-		"nodeAffinity":    "Node affinity support",
-		"podAffinity":     "Pod affinity support",
-		"podAntiAffinity": "Pod anti-affinity support",
-	}
-}
-
 func (VirtualMachineInstanceStatus) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"":           "VirtualMachineInstanceStatus represents information about the status of a VirtualMachineInstance. Status may trail the actual\nstate of a system.",

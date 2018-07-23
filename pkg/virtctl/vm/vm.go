@@ -125,5 +125,6 @@ func (o *Command) Run(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("Error: VirtualMachineInstance '%s' is already %s", vmiName, stateMsg)
 	}
 
+	cmd.Printf("VM %s was scheduled to %s\n", vmiName, o.command)
 	return nil
 }

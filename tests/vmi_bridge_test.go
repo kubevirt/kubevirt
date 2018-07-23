@@ -201,8 +201,8 @@ var _ = Describe("Bridge", func() {
 				v1.Interface{Name: "blue",
 					InterfaceBindingMethod: v1.InterfaceBindingMethod{Bridge: &v1.InterfaceBridge{}}})
 			vmi.Spec.Networks = append(vmi.Spec.Networks,
-				v1.Network{Name: "blue", 
-				NetworkSource: v1.NetworkSource{Resource: &v1.ResourceNetwork{ResourceName: "bridge.network.kubevirt.io/blue"}}})
+				v1.Network{Name: "blue",
+					NetworkSource: v1.NetworkSource{Resource: &v1.ResourceNetwork{ResourceName: "bridge.network.kubevirt.io/blue"}}})
 
 			vmi, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
 			Expect(err).ToNot(HaveOccurred())
@@ -232,7 +232,7 @@ var _ = Describe("Bridge", func() {
 		const IP2 = "192.168.1.2"
 
 		tests.BeforeAll(func() {
-			createVMWithNetworkandIP := func(networkName string, cidr string) (vmi *v1.VirtualMachineInstance) {				
+			createVMWithNetworkandIP := func(networkName string, cidr string) (vmi *v1.VirtualMachineInstance) {
 				vmi = tests.NewRandomVMIWithResourceNetworkEphemeralDiskAndUserdata(tests.RegistryDiskFor(tests.RegistryDiskCirros),
 					"#!/bin/bash\necho 'hello'\n",
 					networkName,
@@ -254,11 +254,11 @@ var _ = Describe("Bridge", func() {
 				}, 180*time.Second)
 				log.Log.Infof("%v", out)
 				Expect(err).ToNot(HaveOccurred())
-				return 
+				return
 			}
 
-			vmi1 = createVMWithNetworkandIP("red", IP1 + "/24")
-			vmi2 = createVMWithNetworkandIP("red", IP2 + "/24")
+			vmi1 = createVMWithNetworkandIP("red", IP1+"/24")
+			vmi2 = createVMWithNetworkandIP("red", IP2+"/24")
 		})
 
 		It("VM1 should be able to ping VM2", func() {
@@ -274,7 +274,7 @@ var _ = Describe("Bridge", func() {
 			log.Log.Infof("%v", out)
 			Expect(err).ToNot(HaveOccurred())
 		})
-		
+
 		It("VM2 should be able to ping VM1", func() {
 			expecter, err := tests.LoggedInCirrosExpecter(vmi2)
 			Expect(err).ToNot(HaveOccurred())
@@ -288,7 +288,7 @@ var _ = Describe("Bridge", func() {
 			log.Log.Infof("%v", out)
 			Expect(err).ToNot(HaveOccurred())
 		})
-		
+
 		It("Ping should fail over the default interface", func() {
 			expecter, err := tests.LoggedInCirrosExpecter(vmi2)
 			Expect(err).ToNot(HaveOccurred())
