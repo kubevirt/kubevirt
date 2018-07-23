@@ -442,7 +442,7 @@ var _ = Describe("Networking", func() {
 
 			_, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(detachedVMI)
 			Expect(err).ToNot(HaveOccurred())
-			waitUntilVMIReady(detachedVMI, tests.LoggedInCirrosExpecter)
+			tests.WaitUntilVMIReady(detachedVMI, tests.LoggedInCirrosExpecter)
 
 			err := tests.CheckForTextExpecter(detachedVMI, []expect.Batcher{
 				&expect.BSnd{S: "\n"},

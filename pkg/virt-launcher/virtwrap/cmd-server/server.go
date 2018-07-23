@@ -129,15 +129,15 @@ func (s *Launcher) Delete(args *cmdclient.Args, reply *cmdclient.Reply) error {
 		return nil
 	}
 
-	err = s.domainManager.SignalShutdownVMI(vmi)
+	err = s.domainManager.DeleteVMI(vmi)
 	if err != nil {
-		log.Log.Object(vmi).Reason(err).Errorf("Failed to signal shutdown for vmi")
+		log.Log.Object(vmi).Reason(err).Errorf("Failed to signal deletion for vmi")
 		reply.Success = false
 		reply.Message = err.Error()
 		return nil
 	}
 
-	log.Log.Object(vmi).Info("Signaled vmi shutdown")
+	log.Log.Object(vmi).Info("Signaled vmi deletion")
 	return nil
 }
 

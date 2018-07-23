@@ -145,7 +145,6 @@ var _ = Describe("VirtualMachineInstance", func() {
 
 			client.EXPECT().Ping()
 			client.EXPECT().DeleteDomain(v1.NewVMIReferenceFromName("testvmi"))
-			client.EXPECT().Close()
 			controller.Execute()
 		})
 

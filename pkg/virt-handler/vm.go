@@ -323,8 +323,7 @@ func (d *VirtualMachineController) execute(key string) error {
 	// Ignore domains from an older VMI
 	if vmiExists && domainExists && domain.Spec.Metadata.KubeVirt.UID != vmi.UID {
 		log.Log.Object(vmi).Info("Ignoring domain from an older VMI, will be handled by its own VMI.")
-		domain = nil
-		domainExists = false
+		return nil
 	}
 
 	log.Log.V(3).Infof("Domain: existing: %v\n", domainExists)
@@ -600,7 +599,7 @@ func (d *VirtualMachineController) processVmDelete(vmi *v1.VirtualMachineInstanc
 		}
 	}
 
-	return d.processVmCleanup(vmi)
+	return nil
 
 }
 

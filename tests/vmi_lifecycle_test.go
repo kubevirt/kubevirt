@@ -462,10 +462,6 @@ var _ = Describe("VMIlifecycle", func() {
 		Context("with non default namespace", func() {
 			table.DescribeTable("should log libvirt start and stop lifecycle events of the domain", func(namespace string) {
 
-				_, exists := os.LookupEnv("JENKINS_HOME")
-				if exists {
-					Skip("Skip log query tests for JENKINS ci test environment")
-				}
 				nodes, err := virtClient.CoreV1().Nodes().List(metav1.ListOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				Expect(nodes.Items).ToNot(BeEmpty())
