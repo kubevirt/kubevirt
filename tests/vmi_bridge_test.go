@@ -113,7 +113,7 @@ var _ = Describe("Bridge", func() {
 				j, err := virtClient.Core().Pods(tests.NamespaceTestDefault).Get(pod.ObjectMeta.Name, metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				return j.Status.Phase
-			}, 30*time.Second, 1*time.Second).Should(Or(Equal(k8sv1.PodSucceeded), Equal(k8sv1.PodFailed)))
+			}, 60*time.Second, 1*time.Second).Should(Or(Equal(k8sv1.PodSucceeded), Equal(k8sv1.PodFailed)))
 			j, err := virtClient.Core().Pods(tests.NamespaceTestDefault).Get(pod.ObjectMeta.Name, metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			return j.Status.Phase
@@ -146,11 +146,13 @@ var _ = Describe("Bridge", func() {
 
 	Context("Exposing interface to the VM via bridge device plugin", func() {
 		var vmi *v1.VirtualMachineInstance
+		const networkName = "red"
+		const ifaceName = "eth1"
 		tests.BeforeAll(func() {
 			vmi = tests.NewRandomVMIWithResourceNetworkEphemeralDiskAndUserdata(tests.RegistryDiskFor(tests.RegistryDiskCirros),
 				"#!/bin/bash\necho 'hello'\n",
-				"red",
-				"bridge.network.kubevirt.io/red")
+				networkName,
+				fmt.Sprintf("bridge.network.kubevirt.io/%s", networkName))
 
 			vmi, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
 			Expect(err).ToNot(HaveOccurred())
@@ -165,8 +167,8 @@ var _ = Describe("Bridge", func() {
 			out, err := expecter.ExpectBatch([]expect.Batcher{
 				&expect.BSnd{S: "\n"},
 				&expect.BExp{R: "\\$ "},
-				&expect.BSnd{S: "ip link show eth1 &> /dev/null && echo ok\n"},
-				&expect.BExp{R: "ok"},
+				&expect.BSnd{S: fmt.Sprintf("ip link show %s &> /dev/null; echo $?\n", ifaceName)},
+				&expect.BExp{R: "0"},
 			}, 180*time.Second)
 			log.Log.Infof("%v", out)
 			Expect(err).ToNot(HaveOccurred())
@@ -190,19 +192,23 @@ var _ = Describe("Bridge", func() {
 
 	Context("Exposing multiple interface to the VM via bridge device plugin", func() {
 		var vmi *v1.VirtualMachineInstance
+		const networkName1 = "red"
+		const networkName2 = "blue"
+		const ifaceName = "eth1"
 		tests.BeforeAll(func() {
 			vmi = tests.NewRandomVMIWithResourceNetworkEphemeralDiskAndUserdata(tests.RegistryDiskFor(tests.RegistryDiskCirros),
 				"#!/bin/bash\necho 'hello'\n",
-				"red",
-				"bridge.network.kubevirt.io/red")
+				networkName1,
+				fmt.Sprintf("bridge.network.kubevirt.io/%s", networkName1))
 
 			// add the "blue" interface and network
 			vmi.Spec.Domain.Devices.Interfaces = append(vmi.Spec.Domain.Devices.Interfaces,
-				v1.Interface{Name: "blue",
+				v1.Interface{Name: networkName2,
 					InterfaceBindingMethod: v1.InterfaceBindingMethod{Bridge: &v1.InterfaceBridge{}}})
 			vmi.Spec.Networks = append(vmi.Spec.Networks,
-				v1.Network{Name: "blue",
-					NetworkSource: v1.NetworkSource{Resource: &v1.ResourceNetwork{ResourceName: "bridge.network.kubevirt.io/blue"}}})
+				v1.Network{Name: networkName2,
+					NetworkSource: v1.NetworkSource{
+						Resource: &v1.ResourceNetwork{ResourceName: fmt.Sprintf("bridge.network.kubevirt.io/%s", networkName2)}}})
 
 			vmi, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
 			Expect(err).ToNot(HaveOccurred())
@@ -217,8 +223,8 @@ var _ = Describe("Bridge", func() {
 			out, err := expecter.ExpectBatch([]expect.Batcher{
 				&expect.BSnd{S: "\n"},
 				&expect.BExp{R: "\\$ "},
-				&expect.BSnd{S: "ip link show eth2 &> /dev/null && echo ok\n"},
-				&expect.BExp{R: "ok"},
+				&expect.BSnd{S: fmt.Sprintf("ip link show %s &> /dev/null; echo $?\n", ifaceName)},
+				&expect.BExp{R: "0"},
 			}, 180*time.Second)
 			log.Log.Infof("%v", out)
 			Expect(err).ToNot(HaveOccurred())
@@ -228,8 +234,10 @@ var _ = Describe("Bridge", func() {
 	Context("Let 2 VMs communicate over a private L2 network", func() {
 		var vmi1 *v1.VirtualMachineInstance
 		var vmi2 *v1.VirtualMachineInstance
+		const networkName = "red"
 		const IP1 = "192.168.1.1"
 		const IP2 = "192.168.1.2"
+		const ifaceName = "eth1"
 
 		tests.BeforeAll(func() {
 			createVMWithNetworkandIP := func(networkName string, cidr string) (vmi *v1.VirtualMachineInstance) {
@@ -249,16 +257,16 @@ var _ = Describe("Bridge", func() {
 				out, err := expecter.ExpectBatch([]expect.Batcher{
 					&expect.BSnd{S: "\n"},
 					&expect.BExp{R: "\\$ "},
-					&expect.BSnd{S: fmt.Sprintf("ip addr add %s dev eth1 && echo ok\n", cidr)},
-					&expect.BExp{R: "ok"},
+					&expect.BSnd{S: fmt.Sprintf("sudo ip addr add %s dev %s; echo $?\n", cidr, ifaceName)},
+					&expect.BExp{R: "0"},
 				}, 180*time.Second)
 				log.Log.Infof("%v", out)
 				Expect(err).ToNot(HaveOccurred())
 				return
 			}
 
-			vmi1 = createVMWithNetworkandIP("red", IP1+"/24")
-			vmi2 = createVMWithNetworkandIP("red", IP2+"/24")
+			vmi1 = createVMWithNetworkandIP(networkName, IP1+"/24")
+			vmi2 = createVMWithNetworkandIP(networkName, IP2+"/24")
 		})
 
 		It("VM1 should be able to ping VM2", func() {
@@ -268,8 +276,8 @@ var _ = Describe("Bridge", func() {
 			out, err := expecter.ExpectBatch([]expect.Batcher{
 				&expect.BSnd{S: "\n"},
 				&expect.BExp{R: "\\$ "},
-				&expect.BSnd{S: fmt.Sprintf("ping %s -I eth1 -q -c 2 > /dev/null && echo ok\n", IP2)},
-				&expect.BExp{R: "ok"},
+				&expect.BSnd{S: fmt.Sprintf("ping %s -I %s -q -c 2 -w 10; echo $?\n", IP2, ifaceName)},
+				&expect.BExp{R: "0"},
 			}, 180*time.Second)
 			log.Log.Infof("%v", out)
 			Expect(err).ToNot(HaveOccurred())
@@ -282,8 +290,8 @@ var _ = Describe("Bridge", func() {
 			out, err := expecter.ExpectBatch([]expect.Batcher{
 				&expect.BSnd{S: "\n"},
 				&expect.BExp{R: "\\$ "},
-				&expect.BSnd{S: fmt.Sprintf("ping %s -I eth1 -q -c 2 > /dev/null && echo ok\n", IP1)},
-				&expect.BExp{R: "ok"},
+				&expect.BSnd{S: fmt.Sprintf("ping %s -I %s -q -c 2 -w 10; echo $?\n", IP1, ifaceName)},
+				&expect.BExp{R: "0"},
 			}, 180*time.Second)
 			log.Log.Infof("%v", out)
 			Expect(err).ToNot(HaveOccurred())
@@ -296,7 +304,7 @@ var _ = Describe("Bridge", func() {
 			out, err := expecter.ExpectBatch([]expect.Batcher{
 				&expect.BSnd{S: "\n"},
 				&expect.BExp{R: "\\$ "},
-				&expect.BSnd{S: fmt.Sprintf("ping %s -q -c 2 > /dev/null; echo $?\n", IP1)},
+				&expect.BSnd{S: fmt.Sprintf("ping %s -q -c 2 -w 10; echo $?\n", IP1)},
 				&expect.BExp{R: "1"},
 			}, 180*time.Second)
 			log.Log.Infof("%v", out)

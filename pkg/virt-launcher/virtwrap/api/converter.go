@@ -47,6 +47,7 @@ import (
 const (
 	CPUModeHostPassthrough = "host-passthrough"
 	CPUModeHostModel       = "host-model"
+	TargetDevicePrefix     = "net-"
 )
 
 type ConverterContext struct {
@@ -547,6 +548,15 @@ func Convert_v1_VirtualMachine_To_api_Domain(vmi *v1.VirtualMachineInstance, dom
 		return iface.Name
 	}
 
+	getTargetDevice := func(network *v1.Network) (target *InterfaceTarget) {
+		// set target name for anything else than the pod networks (that should be eth0)
+		target = nil
+		if network.Pod == nil {
+			target = &InterfaceTarget{Device: TargetDevicePrefix + network.Name}
+		}
+		return
+	}
+
 	networks := map[string]*v1.Network{}
 	for _, network := range vmi.Spec.Networks {
 		networks[network.Name] = network.DeepCopy()
@@ -573,6 +583,7 @@ func Convert_v1_VirtualMachine_To_api_Domain(vmi *v1.VirtualMachineInstance, dom
 				Source: InterfaceSource{
 					Bridge: getBridgeName(net),
 				},
+				Target: getTargetDevice(net),
 				Alias: &Alias{
 					Name: getAliasName(&iface, net),
 				},
