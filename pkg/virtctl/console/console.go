@@ -24,6 +24,7 @@ import (
 	"io"
 	"os"
 	"os/signal"
+	"time"
 
 	"golang.org/x/crypto/ssh/terminal"
 
@@ -97,7 +98,7 @@ func (c *Console) Run(cmd *cobra.Command, args []string) error {
 	signal.Notify(waitInterrupt, os.Interrupt)
 
 	go func() {
-		con, err := virtCli.VirtualMachineInstance(namespace).SerialConsole(vmi, timeout)
+		con, err := virtCli.VirtualMachineInstance(namespace).SerialConsole(vmi, time.Duration(timeout)*time.Minute)
 		runningChan <- err
 
 		if err != nil {

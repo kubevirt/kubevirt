@@ -252,17 +252,18 @@ type connectionStruct struct {
 	err error
 }
 
-func (v *vmis) SerialConsole(name string, timeout int) (StreamInterface, error) {
-	timeoutChan := time.Tick(time.Duration(timeout) * time.Minute)
+func (v *vmis) SerialConsole(name string, timeout time.Duration) (StreamInterface, error) {
+	timeoutChan := time.Tick(timeout)
 	connectionChan := make(chan connectionStruct)
+	isWaiting := true
 
 	go func() {
 		con, err := v.asyncSubresourceHelper(name, "console")
-		for err != nil {
+		for err != nil && isWaiting {
 			if asyncSubresourceError, ok := err.(*AsyncSubresourceError); ok {
 				if asyncSubresourceError.GetStatusCode() == http.StatusBadRequest {
 					// Sleep to prevent denial of service on the api server
-					time.Sleep(500 * time.Millisecond)
+					time.Sleep(1 * time.Second)
 					con, err = v.asyncSubresourceHelper(name, "console")
 				} else {
 					connectionChan <- connectionStruct{con: nil, err: asyncSubresourceError}
@@ -273,11 +274,14 @@ func (v *vmis) SerialConsole(name string, timeout int) (StreamInterface, error) 
 				return
 			}
 		}
-		connectionChan <- connectionStruct{con: con, err: nil}
+		if isWaiting {
+			connectionChan <- connectionStruct{con: con, err: nil}
+		}
 	}()
 
 	select {
 	case <-timeoutChan:
+		isWaiting = false
 		return nil, fmt.Errorf("Timeout trying to connect to the virtual machine instance")
 	case conStruct := <-connectionChan:
 		return conStruct.con, conStruct.err

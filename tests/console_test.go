@@ -51,7 +51,7 @@ var _ = Describe("Console", func() {
 		Expect(virtClient.RestClient().Post().Resource("virtualmachineinstances").Namespace(tests.NamespaceTestDefault).Body(vmi).Do().Error()).To(Succeed())
 
 		By("Expecting the VirtualMachineInstance console")
-		expecter, _, err := tests.NewConsoleExpecter(virtClient, vmi, 10*time.Second)
+		expecter, _, err := tests.NewConsoleExpecter(virtClient, vmi, 30*time.Second)
 		Expect(err).ToNot(HaveOccurred())
 		defer expecter.Close()
 
@@ -105,7 +105,7 @@ var _ = Describe("Console", func() {
 				By("Creating a new VirtualMachineInstance")
 				Expect(virtClient.RestClient().Post().Resource("virtualmachineinstances").Namespace(tests.NamespaceTestDefault).Body(vmi).Do().Error()).To(Succeed())
 
-				_, err := virtClient.VirtualMachineInstance(vmi.Namespace).SerialConsole(vmi.Name, 2)
+				_, err := virtClient.VirtualMachineInstance(vmi.Namespace).SerialConsole(vmi.Name, 30*time.Second)
 				Expect(err).ToNot(HaveOccurred())
 			}, 220)
 			It("should fail waiting for the virtual machine instance to be running", func() {
@@ -127,8 +127,33 @@ var _ = Describe("Console", func() {
 				By("Creating a new VirtualMachineInstance")
 				Expect(virtClient.RestClient().Post().Resource("virtualmachineinstances").Namespace(tests.NamespaceTestDefault).Body(vmi).Do().Error()).To(Succeed())
 
-				_, err := virtClient.VirtualMachineInstance(vmi.Namespace).SerialConsole(vmi.Name, 1)
+				_, err := virtClient.VirtualMachineInstance(vmi.Namespace).SerialConsole(vmi.Name, 30*time.Second)
 				Expect(err).To(HaveOccurred())
+				Expect(err.Error()).To(Equal("Timeout trying to connect to the virtual machine instance"))
+			}, 180)
+			It("should fail waiting for the expecter", func() {
+				vmi := tests.NewRandomVMIWithEphemeralDisk(tests.RegistryDiskFor(tests.RegistryDiskAlpine))
+				vmi.Spec.Affinity = &k8sv1.Affinity{
+					NodeAffinity: &k8sv1.NodeAffinity{
+						RequiredDuringSchedulingIgnoredDuringExecution: &k8sv1.NodeSelector{
+							NodeSelectorTerms: []k8sv1.NodeSelectorTerm{
+								{
+									MatchExpressions: []k8sv1.NodeSelectorRequirement{
+										{Key: "kubernetes.io/hostname", Operator: k8sv1.NodeSelectorOpIn, Values: []string{"notexist"}},
+									},
+								},
+							},
+						},
+					},
+				}
+
+				By("Creating a new VirtualMachineInstance")
+				Expect(virtClient.RestClient().Post().Resource("virtualmachineinstances").Namespace(tests.NamespaceTestDefault).Body(vmi).Do().Error()).To(Succeed())
+
+				By("Expecting the VirtualMachineInstance console")
+				_, _, err := tests.NewConsoleExpecter(virtClient, vmi, 30*time.Second)
+				Expect(err).To(HaveOccurred())
+				Expect(err.Error()).To(Equal("Timeout trying to connect to the virtual machine instance"))
 			}, 180)
 		})
 	})
