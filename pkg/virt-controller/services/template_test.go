@@ -175,6 +175,24 @@ var _ = Describe("Template", func() {
 				Expect(pod.Spec.Affinity).To(BeEquivalentTo(&kubev1.Affinity{PodAntiAffinity: &podAntiAffinity}))
 			})
 
+			It("should add tolerations to pod", func() {
+				podToleration := kubev1.Toleration{Key: "test"}
+				vm := v1.VirtualMachineInstance{
+					ObjectMeta: metav1.ObjectMeta{Name: "testvm", Namespace: "default", UID: "1234"},
+					Spec: v1.VirtualMachineInstanceSpec{
+						Tolerations: []kubev1.Toleration{
+							{
+								Key: podToleration.Key,
+							},
+						},
+						Domain: v1.DomainSpec{},
+					},
+				}
+				pod, err := svc.RenderLaunchManifest(&vm)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(pod.Spec.Tolerations).To(BeEquivalentTo([]kubev1.Toleration{{Key: podToleration.Key}}))
+			})
+
 			It("should use the hostname and subdomain if specified on the vm", func() {
 				vmi := v1.VirtualMachineInstance{
 					ObjectMeta: metav1.ObjectMeta{Name: "testvm",
