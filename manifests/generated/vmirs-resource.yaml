@@ -216,6 +216,8 @@ spec:
                           properties:
                             limits:
                               type: object
+                            overcommitGuestOverhead:
+                              type: boolean
                             requests:
                               type: object
                       required:

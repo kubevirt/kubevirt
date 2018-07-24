@@ -284,6 +284,35 @@ var _ = Describe("Template", func() {
 				Expect(pod.Spec.Containers[0].Resources.Requests.Memory().String()).To(Equal("1099507557"))
 				Expect(pod.Spec.Containers[0].Resources.Limits.Memory().String()).To(Equal("2099507557"))
 			})
+			It("should overcommit guest overhead if selected, by only adding the overhead to memory limits", func() {
+
+				vmi := v1.VirtualMachineInstance{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "testvmi",
+						Namespace: "default",
+						UID:       "1234",
+					},
+					Spec: v1.VirtualMachineInstanceSpec{
+						Domain: v1.DomainSpec{
+							Resources: v1.ResourceRequirements{
+								OvercommitGuestOverhead: true,
+								Requests: kubev1.ResourceList{
+									kubev1.ResourceMemory: resource.MustParse("1G"),
+								},
+								Limits: kubev1.ResourceList{
+									kubev1.ResourceMemory: resource.MustParse("2G"),
+								},
+							},
+						},
+					},
+				}
+
+				pod, err := svc.RenderLaunchManifest(&vmi)
+				Expect(err).ToNot(HaveOccurred())
+
+				Expect(pod.Spec.Containers[0].Resources.Requests.Memory().String()).To(Equal("1G"))
+				Expect(pod.Spec.Containers[0].Resources.Limits.Memory().String()).To(Equal("2099507557"))
+			})
 			It("should not add unset resources", func() {
 
 				vmi := v1.VirtualMachineInstance{

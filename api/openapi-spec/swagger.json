@@ -4360,6 +4360,10 @@
        "$ref": "#/definitions/resource.Quantity"
       }
      },
+     "overcommitGuestOverhead": {
+      "description": "Don't ask the scheduler to take the guest-management overhead into account. Instead\nput the overhead only into the requested memory limits. This can lead to crashes if\nall memory is in use on a node. Defaults to false.",
+      "type": "boolean"
+     },
      "requests": {
       "description": "Requests is a description of the initial vmi resources.\nValid resource keys are \"memory\" and \"cpu\".\n+optional",
       "type": "object",

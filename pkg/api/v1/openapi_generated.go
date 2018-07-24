@@ -1158,6 +1158,13 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 								},
 							},
 						},
+						"overcommitGuestOverhead": {
+							SchemaProps: spec.SchemaProps{
+								Description: "Don't ask the scheduler to take the guest-management overhead into account. Instead put the overhead only into the requested memory limits. This can lead to crashes if all memory is in use on a node. Defaults to false.",
+								Type:        []string{"boolean"},
+								Format:      "",
+							},
+						},
 					},
 				},
 			},
