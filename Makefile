@@ -25,6 +25,9 @@ functest:
 	hack/dockerized "hack/build-func-tests.sh"
 	hack/functests.sh
 
+rpmbuild:
+	hack/dockerized "hack/build-rpm.sh"
+
 clean:
 	hack/dockerized "./hack/build-go.sh clean ${WHAT} && rm _out/* -rf"
 	rm -f tools/openapispec/openapispec tools/crd-generator/crd-generator tools/manifest-templator/manifests-templator tools/vms-generator/vms-generator

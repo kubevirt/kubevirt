@@ -5,7 +5,7 @@ ENV LIBVIRT_VERSION 4.2.0
 RUN curl --output /etc/yum.repos.d/fedora-virt-preview.repo \
       https://fedorapeople.org/groups/virt/virt-preview/fedora-virt-preview.repo
 
-RUN dnf -y install libvirt-devel-${LIBVIRT_VERSION} make git mercurial sudo gcc findutils gradle rsync-daemon rsync qemu-img protobuf-compiler && \
+RUN dnf -y install libvirt-devel-${LIBVIRT_VERSION} make git mercurial sudo gcc findutils gradle rsync-daemon rsync qemu-img protobuf-compiler rpmdevtools && \
     dnf -y clean all
 
 ENV GIMME_GO_VERSION=1.10
