@@ -397,6 +397,12 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 		}
 	}
 
+	if vmi.Spec.Tolerations != nil {
+		pod.Spec.Tolerations = []k8sv1.Toleration{}
+		for _, v := range vmi.Spec.Tolerations {
+			pod.Spec.Tolerations = append(pod.Spec.Tolerations, v)
+		}
+	}
 	return &pod, nil
 }
 

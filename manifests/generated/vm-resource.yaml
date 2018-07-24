@@ -243,6 +243,9 @@ spec:
                     terminationGracePeriodSeconds:
                       format: int64
                       type: integer
+                    tolerations:
+                      items: {}
+                      type: array
                     volumes:
                       items:
                         properties:

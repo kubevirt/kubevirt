@@ -455,6 +455,78 @@ var _ = Describe("VMIlifecycle", func() {
 			})
 		})
 
+		Context("with node tainted", func() {
+			var nodes *k8sv1.NodeList
+			var err error
+			BeforeEach(func() {
+				nodes, err = virtClient.CoreV1().Nodes().List(metav1.ListOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				Expect(nodes.Items).NotTo(BeEmpty())
+
+				// Taint first node with "NoSchedule"
+				data := []byte(`{"spec":{"taints":[{"effect":"NoSchedule","key":"test","timeAdded":null,"value":"123"}]}}`)
+				_, err = virtClient.CoreV1().Nodes().Patch(nodes.Items[0].Name, types.StrategicMergePatchType, data)
+				Expect(err).ToNot(HaveOccurred())
+
+			})
+
+			AfterEach(func() {
+				// Untaint first node
+				data := []byte(`{"spec":{"taints":[]}}`)
+				_, err = virtClient.CoreV1().Nodes().Patch(nodes.Items[0].Name, types.StrategicMergePatchType, data)
+				Expect(err).ToNot(HaveOccurred())
+			})
+
+			It("the vmi with tolerations should be scheduled", func() {
+				vmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(tests.RegistryDiskFor(tests.RegistryDiskCirros), "#!/bin/bash\necho 'hello'\n")
+				vmi.Spec.Tolerations = []k8sv1.Toleration{{Key: "test", Value: "123"}}
+				vmi.Spec.Affinity = &k8sv1.Affinity{
+					NodeAffinity: &k8sv1.NodeAffinity{
+						RequiredDuringSchedulingIgnoredDuringExecution: &k8sv1.NodeSelector{
+							NodeSelectorTerms: []k8sv1.NodeSelectorTerm{
+								{
+									MatchExpressions: []k8sv1.NodeSelectorRequirement{
+										{Key: "kubernetes.io/hostname", Operator: k8sv1.NodeSelectorOpIn, Values: []string{nodes.Items[0].Name}},
+									},
+								},
+							},
+						},
+					},
+				}
+				_, err = virtClient.VirtualMachineInstance(vmi.Namespace).Create(vmi)
+				Expect(err).ToNot(HaveOccurred())
+				tests.WaitForSuccessfulVMIStart(vmi)
+			})
+
+			It("the vmi without tolerations should not be scheduled", func() {
+				vmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(tests.RegistryDiskFor(tests.RegistryDiskCirros), "#!/bin/bash\necho 'hello'\n")
+				vmi.Spec.Affinity = &k8sv1.Affinity{
+					NodeAffinity: &k8sv1.NodeAffinity{
+						RequiredDuringSchedulingIgnoredDuringExecution: &k8sv1.NodeSelector{
+							NodeSelectorTerms: []k8sv1.NodeSelectorTerm{
+								{
+									MatchExpressions: []k8sv1.NodeSelectorRequirement{
+										{Key: "kubernetes.io/hostname", Operator: k8sv1.NodeSelectorOpIn, Values: []string{nodes.Items[0].Name}},
+									},
+								},
+							},
+						},
+					},
+				}
+				_, err = virtClient.VirtualMachineInstance(vmi.Namespace).Create(vmi)
+				Expect(err).ToNot(HaveOccurred())
+				By("Waiting for the VirtualMachineInstance to be unschedulable")
+				Eventually(func() string {
+					curVMI, err := virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &metav1.GetOptions{})
+					Expect(err).ToNot(HaveOccurred())
+					if curVMI.Status.Conditions != nil {
+						return curVMI.Status.Conditions[0].Reason
+					}
+					return ""
+				}, 60*time.Second, 1*time.Second).Should(Equal("Unschedulable"))
+			})
+		})
+
 		Context("with non default namespace", func() {
 			table.DescribeTable("should log libvirt start and stop lifecycle events of the domain", func(namespace string) {
 

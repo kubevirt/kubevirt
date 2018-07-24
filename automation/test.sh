@@ -115,8 +115,9 @@ kubectl version
 ginko_params="--ginkgo.noColor --junit-output=$WORKSPACE/junit.xml"
 
 # Prepare PV for windows testing
-if [[ -d $NFS_WINDOWS_DIR ]] && [[ $TARGET =~ windows.* ]]; then
-  kubectl create -f - <<EOF
+if [[ $TARGET =~ windows.* ]]; then
+  if [[ -d $NFS_WINDOWS_DIR ]]; then
+    kubectl create -f - <<EOF
 ---
 apiVersion: v1
 kind: PersistentVolume
@@ -133,6 +134,8 @@ spec:
     server: "nfs"
     path: /
 EOF
+  fi
+  # Run only windows tests
   ginko_params="$ginko_params --ginkgo.focus=Windows"
 fi
 

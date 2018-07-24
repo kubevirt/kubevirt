@@ -202,5 +202,12 @@ var _ = Describe("Expose", func() {
 				Expect(cmd()).NotTo(BeNil())
 			})
 		})
+		Context("With string target-port", func() {
+			It("should succeed", func() {
+				err := tests.NewRepeatableVirtctlCommand(expose.COMMAND_EXPOSE, "vmi", vmName, "--name", "my-service",
+					"--port", "9999", "--target-port", "http")
+				Expect(err()).To(BeNil())
+			})
+		})
 	})
 })
