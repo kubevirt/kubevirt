@@ -31,7 +31,7 @@ var loadBalancerIP string
 var port int32
 var nodePort int32
 var strProtocol string
-var intTargetPort int
+var strTargetPort string
 var strServiceType string
 var portName string
 var namespace string
@@ -41,8 +41,8 @@ func NewExposeCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "expose TYPE NAME",
 		Short: "Expose a virtual machine as a new service.",
-		Long: `Looks up a virtual machine, offline virtual machine or virtual machine replica set by name and use its selector as the selector for a new service on the specified port.
-A virtual machine replica set will be exposed as a service only if its selector is convertible to a selector that service supports, i.e. when the selector contains only the matchLabels component.
+		Long: `Looks up a virtual machine instance, virtual machine or virtual machine instance replica set by name and use its selector as the selector for a new service on the specified port.
+A virtual machine instance replica set will be exposed as a service only if its selector is convertible to a selector that service supports, i.e. when the selector contains only the matchLabels component.
 Note that if no port is specified via --port and the exposed resource has multiple ports, all will be re-used by the new service. 
 Also if no labels are specified, the new service will re-use the labels from the resource it exposes.
         
@@ -66,7 +66,7 @@ virtualmachineinstance (vmi), virtualmachine (vm), virtualmachineinstancereplica
 	cmd.Flags().Int32Var(&port, "port", 0, "The port that the service should serve on")
 	cmd.MarkFlagRequired("port")
 	cmd.Flags().StringVar(&strProtocol, "protocol", "TCP", "The network protocol for the service to be created.")
-	cmd.Flags().IntVar(&intTargetPort, "target-port", 0, "Name or number for the port on the VM that the service should direct traffic to. Optional.")
+	cmd.Flags().StringVar(&strTargetPort, "target-port", "", "Name or number for the port on the VM that the service should direct traffic to. Optional.")
 	cmd.Flags().Int32Var(&nodePort, "node-port", 0, "Port used to expose the service on each node in a cluster.")
 	cmd.Flags().StringVar(&strServiceType, "type", "ClusterIP", "Type for this service: ClusterIP, NodePort, or LoadBalancer.")
 	cmd.Flags().StringVar(&portName, "port-name", "", "Name of the port. Optional.")
@@ -76,14 +76,14 @@ virtualmachineinstance (vmi), virtualmachine (vm), virtualmachineinstancereplica
 }
 
 func usage() string {
-	usage := `  # Expose SSH to a virtual machine called 'myvm' as a node port (5555) of the cluster:
-  virtctl expose vm myvm --port=5555 --target-port=22 --name=myvm-ssh --type=NodePort")`
+	usage := `  # Expose SSH to a virtual machine instance called 'myvm' as a node port (5555) of the cluster:
+  virtctl expose vmi myvm --port=5555 --target-port=22 --name=myvm-ssh --type=NodePort")`
 	return usage
 }
 
 // executing the "expose" command
 func (o *Command) RunE(cmd *cobra.Command, args []string) error {
-	// first argument is type of VM: VM, offline VM or replica set VM
+	// first argument is type of VM: VMI, VM or VMIRS
 	vmType := strings.ToLower(args[0])
 	// second argument must be name of the VM
 	vmName := args[1]
@@ -94,7 +94,7 @@ func (o *Command) RunE(cmd *cobra.Command, args []string) error {
 	var serviceType v1.ServiceType
 
 	// convert from integer to the IntOrString type
-	targetPort = intstr.FromInt(intTargetPort)
+	targetPort = intstr.Parse(strTargetPort)
 
 	// convert from string to the protocol enum
 	switch strProtocol {
@@ -139,30 +139,30 @@ func (o *Command) RunE(cmd *cobra.Command, args []string) error {
 	switch vmType {
 	case "vmi", "vmis", "virtualmachineinstance", "virtualmachineinstances":
 		// get the VM
-		vm, err := virtClient.VirtualMachineInstance(namespace).Get(vmName, &options)
+		vmi, err := virtClient.VirtualMachineInstance(namespace).Get(vmName, &options)
 		if err != nil {
 			return fmt.Errorf("error fetching VirtualMachineInstance: %v", err)
 		}
-		serviceSelector = vm.ObjectMeta.Labels
+		serviceSelector = vmi.ObjectMeta.Labels
 		// remove unwanted labels
 		delete(serviceSelector, "kubevirt.io/nodeName")
 	case "vm", "vms", "virtualmachine", "virtualmachines":
 		// get the offline VM
-		ovm, err := virtClient.VirtualMachine(namespace).Get(vmName, &options)
+		vm, err := virtClient.VirtualMachine(namespace).Get(vmName, &options)
 		if err != nil {
 			return fmt.Errorf("error fetching OfflineVirtual: %v", err)
 		}
-		serviceSelector = ovm.Spec.Template.ObjectMeta.Labels
+		serviceSelector = vm.Spec.Template.ObjectMeta.Labels
 	case "vmirs", "vmirss", "virtualmachineinstancereplicaset", "virtualmachineinstancereplicasets":
 		// get the VM replica set
-		vmrs, err := virtClient.ReplicaSet(namespace).Get(vmName, options)
+		vmirs, err := virtClient.ReplicaSet(namespace).Get(vmName, options)
 		if err != nil {
 			return fmt.Errorf("error fetching VirtualMachineInstance ReplicaSet: %v", err)
 		}
-		if len(vmrs.Spec.Selector.MatchExpressions) > 0 {
+		if len(vmirs.Spec.Selector.MatchExpressions) > 0 {
 			return fmt.Errorf("cannot expose VirtualMachineInstance ReplicaSet with match expressions")
 		}
-		serviceSelector = vmrs.Spec.Selector.MatchLabels
+		serviceSelector = vmirs.Spec.Selector.MatchLabels
 	default:
 		return fmt.Errorf("unsupported resource type: %s", vmType)
 	}
