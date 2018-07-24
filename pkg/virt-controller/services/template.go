@@ -443,7 +443,9 @@ func getMemoryOverhead(domain v1.DomainSpec) *resource.Quantity {
 	overhead.Add(resource.MustParse("8Mi"))
 
 	// Add video RAM overhead
-	overhead.Add(resource.MustParse("16Mi"))
+	if domain.Devices.AutoattachGraphicsDevice == nil || *domain.Devices.AutoattachGraphicsDevice == true {
+		overhead.Add(resource.MustParse("16Mi"))
+	}
 
 	return overhead
 }

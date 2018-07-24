@@ -80,10 +80,11 @@ func (Firmware) SwaggerDoc() map[string]string {
 
 func (Devices) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"disks":                  "Disks describes disks, cdroms, floppy and luns which are connected to the vmi.",
-		"watchdog":               "Watchdog describes a watchdog device which can be added to the vmi.",
-		"interfaces":             "Interfaces describe network interfaces which are added to the vm.",
-		"autoattachPodInterface": "Whether to attach a pod network interface. Defaults to true.",
+		"disks":                    "Disks describes disks, cdroms, floppy and luns which are connected to the vmi.",
+		"watchdog":                 "Watchdog describes a watchdog device which can be added to the vmi.",
+		"interfaces":               "Interfaces describe network interfaces which are added to the vm.",
+		"autoattachPodInterface":   "Whether to attach a pod network interface. Defaults to true.",
+		"autoattachGraphicsDevice": "Wheater to attach the default graphics device or not.\nVNC will not be available if set to false. Defaults to true.",
 	}
 }
 

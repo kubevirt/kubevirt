@@ -745,6 +745,42 @@ var _ = Describe("Converter", func() {
 			Expect(err).To(BeNil())
 		})
 	})
+
+	Context("graphics and video device", func() {
+
+		table.DescribeTable("should check autoattachGraphicsDevicse", func(autoAttach *bool, devices int) {
+
+			vmi := v1.VirtualMachineInstance{
+				ObjectMeta: k8smeta.ObjectMeta{
+					Name:      "testvmi",
+					Namespace: "default",
+					UID:       "1234",
+				},
+				Spec: v1.VirtualMachineInstanceSpec{
+					Domain: v1.DomainSpec{
+						CPU: &v1.CPU{Cores: 3},
+						Resources: v1.ResourceRequirements{
+							Requests: k8sv1.ResourceList{
+								k8sv1.ResourceCPU:    resource.MustParse("1m"),
+								k8sv1.ResourceMemory: resource.MustParse("64M"),
+							},
+						},
+					},
+				},
+			}
+			vmi.Spec.Domain.Devices = v1.Devices{
+				AutoattachGraphicsDevice: autoAttach,
+			}
+			domain := vmiToDomain(&vmi, &ConverterContext{UseEmulation: true})
+			Expect(domain.Spec.Devices.Video).To(HaveLen(devices))
+			Expect(domain.Spec.Devices.Graphics).To(HaveLen(devices))
+
+		},
+			table.Entry("and add the graphics and video device if it is not set", nil, 1),
+			table.Entry("and add the graphics and video device if it is set to true", True(), 1),
+			table.Entry("and not add the graphics and video device if it is set to false", False(), 0),
+		)
+	})
 })
 
 func diskToDiskXML(disk *v1.Disk) string {
@@ -781,4 +817,14 @@ func xmlToDomainSpec(data string) *DomainSpec {
 
 func vmiToDomainXMLToDomainSpec(vmi *v1.VirtualMachineInstance, c *ConverterContext) *DomainSpec {
 	return xmlToDomainSpec(vmiToDomainXML(vmi, c))
+}
+
+func True() *bool {
+	b := true
+	return &b
+}
+
+func False() *bool {
+	b := false
+	return &b
 }

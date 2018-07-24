@@ -176,6 +176,9 @@ type Devices struct {
 	Interfaces []Interface `json:"interfaces,omitempty"`
 	// Whether to attach a pod network interface. Defaults to true.
 	AutoattachPodInterface *bool `json:"autoattachPodInterface,omitempty"`
+	// Wheater to attach the default graphics device or not.
+	// VNC will not be available if set to false. Defaults to true.
+	AutoattachGraphicsDevice *bool `json:"autoattachGraphicsDevice,omitempty"`
 }
 
 // ---

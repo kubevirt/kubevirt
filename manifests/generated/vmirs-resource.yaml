@@ -58,6 +58,8 @@ spec:
                               type: string
                         devices:
                           properties:
+                            autoattachGraphicsDevice:
+                              type: boolean
                             autoattachPodInterface:
                               type: boolean
                             disks:
