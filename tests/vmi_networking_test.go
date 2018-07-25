@@ -42,6 +42,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/kubecli"
 	"kubevirt.io/kubevirt/pkg/log"
+	"kubevirt.io/kubevirt/pkg/virt-controller/services"
 	"kubevirt.io/kubevirt/tests"
 )
 
@@ -465,6 +466,47 @@ var _ = Describe("Networking", func() {
 				&expect.BExp{R: "1"},
 			}, 15)
 			Expect(err).ToNot(HaveOccurred())
+		})
+
+		It("should not request a tun device", func() {
+			By("Creating random VirtualMachineInstance")
+			autoAttach := false
+			vmi := tests.NewRandomVMIWithEphemeralDisk(tests.RegistryDiskFor(tests.RegistryDiskAlpine))
+
+			vmi.Spec.Domain.Devices.AutoattachPodInterface = &autoAttach
+
+			_, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
+			Expect(err).ToNot(HaveOccurred())
+			waitUntilVMIReady(vmi, tests.LoggedInAlpineExpecter)
+
+			By("Checking that the pod did not request a tun device")
+			virtClient, err := kubecli.GetKubevirtClient()
+			Expect(err).ToNot(HaveOccurred())
+
+			labelSelector := fmt.Sprintf("kubevirt.io/domain=%s", vmi.ObjectMeta.Name)
+
+			By("Looking up pod using VMI's label")
+			pods, err := virtClient.CoreV1().Pods(tests.NamespaceTestDefault).List(
+				v13.ListOptions{LabelSelector: labelSelector},
+			)
+			Expect(err).ToNot(HaveOccurred())
+
+			Expect(len(pods.Items)).To(Equal(1))
+
+			found := false
+			pod := pods.Items[0]
+			for _, container := range pod.Spec.Containers {
+				if container.Name == "compute" {
+					found = true
+					_, ok := container.Resources.Requests[services.TunDevice]
+					Expect(ok).To(BeFalse())
+
+					_, ok = container.Resources.Limits[services.TunDevice]
+					Expect(ok).To(BeFalse())
+				}
+			}
+
+			Expect(found).To(BeTrue(), "Did not find 'compute' container in pod")
 		})
 	})
 
