@@ -1535,7 +1535,7 @@ func SkipIfVersionBelow(message string, expectedVersion string) {
 	}
 }
 
-// StartVmOnNode will start a VMI on the specified node
+// StartVmOnNode starts a VMI on the specified node
 func StartVmOnNode(vmi *v1.VirtualMachineInstance, nodeName string) {
 	virtClient, err := kubecli.GetKubevirtClient()
 	PanicOnError(err)
@@ -1559,7 +1559,7 @@ func StartVmOnNode(vmi *v1.VirtualMachineInstance, nodeName string) {
 	WaitForSuccessfulVMIStart(vmi)
 }
 
-// RunCommandOnVmiPod will run specified command on the virt-launcher pod
+// RunCommandOnVmiPod runs specified command on the virt-launcher pod
 func RunCommandOnVmiPod(vmi *v1.VirtualMachineInstance, command []string) string {
 	virtClient, err := kubecli.GetKubevirtClient()
 	PanicOnError(err)
@@ -1582,7 +1582,7 @@ func RunCommandOnVmiPod(vmi *v1.VirtualMachineInstance, command []string) string
 
 // GetNodeLibvirtCapabilities returns node libvirt capabilities
 func GetNodeLibvirtCapabilities(nodeName string) string {
-	// Create a virt-launcher pod, that can fetch virsh capabilities
+	// Create a virt-launcher pod to fetch virsh capabilities
 	vmi := NewRandomVMIWithEphemeralDiskAndUserdata(RegistryDiskFor(RegistryDiskCirros), "#!/bin/bash\necho 'hello'\n")
 	StartVmOnNode(vmi, nodeName)
 
