@@ -33,10 +33,10 @@ import (
 	"kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/hooks"
 	"kubevirt.io/kubevirt/pkg/kubecli"
+	"kubevirt.io/kubevirt/pkg/log"
 	"kubevirt.io/kubevirt/pkg/precond"
 	"kubevirt.io/kubevirt/pkg/registry-disk"
 	"kubevirt.io/kubevirt/pkg/util/net/dns"
-	//registrydisk "kubevirt.io/kubevirt/pkg/registry-disk"
 )
 
 const configMapName = "kube-system/kubevirt-config"
@@ -133,8 +133,12 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 			MountPath: filepath.Join("/var/run/kubevirt-private", "vmi-disks", volume.Name),
 		}
 		if volume.PersistentVolumeClaim != nil {
+			logger := log.DefaultLogger()
+			// FIXME: We should create an event and mark the VMI as failed if the referenced
+			// PVC is not found
 			isBlock, err := isPVCBlock(namespace, volume.PersistentVolumeClaim.ClaimName)
 			if err != nil {
+				logger.Errorf("error checking for PVC: %v", err)
 				return nil, err
 			}
 			if isBlock {
@@ -315,8 +319,9 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 				Add: []k8sv1.Capability{"NET_ADMIN"},
 			},
 		},
-		Command:      command,
-		VolumeMounts: volumeMounts,
+		Command:       command,
+		VolumeDevices: volumeDevices,
+		VolumeMounts:  volumeMounts,
 		ReadinessProbe: &k8sv1.Probe{
 			Handler: k8sv1.Handler{
 				Exec: &k8sv1.ExecAction{
