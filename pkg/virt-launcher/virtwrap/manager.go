@@ -103,7 +103,8 @@ func (l *LibvirtDomainManager) preStartHook(vmi *v1.VirtualMachineInstance, doma
 		return domain, err
 	}
 
-	// create images for volumes with persistent volume claims attached
+	// create disks images on the cluster lever
+	// or initalize disks images for empty PVC
 	err = hostdisk.CreateHostDisks(vmi)
 	if err != nil {
 		return domain, err

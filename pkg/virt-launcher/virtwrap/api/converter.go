@@ -146,8 +146,8 @@ func Convert_v1_Volume_To_api_Disk(source *v1.Volume, disk *Disk, c *ConverterCo
 		return Convert_v1_CloudInitNoCloudSource_To_api_Disk(source.CloudInitNoCloud, disk, c)
 	}
 
-	if source.PersistentVolumeClaim != nil {
-		return Convert_v1_FilesystemVolumeSource_To_api_Disk(source.Name, disk, c)
+	if source.HostDisk != nil {
+		return Convert_v1_HostDisk_To_api_Disk(source.HostDisk.Path, disk, c)
 	}
 
 	if source.DataVolume != nil {
@@ -174,6 +174,13 @@ func Convert_v1_FilesystemVolumeSource_To_api_Disk(volumeName string, disk *Disk
 		"vmi-disks",
 		volumeName,
 		"disk.img")
+	return nil
+}
+
+func Convert_v1_HostDisk_To_api_Disk(path string, disk *Disk, c *ConverterContext) error {
+	disk.Type = "file"
+	disk.Driver.Type = "raw"
+	disk.Source.File = path
 	return nil
 }
 

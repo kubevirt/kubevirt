@@ -1,0 +1,28 @@
+apiVersion: kubevirt.io/v1alpha2
+kind: VirtualMachineInstance
+metadata:
+  creationTimestamp: null
+  labels:
+    special: vmi-host-disk
+  name: vmi-host-disk
+spec:
+  domain:
+    devices:
+      disks:
+      - disk:
+          bus: virtio
+        name: hostdisk
+        volumeName: hostdisk-example
+    machine:
+      type: ""
+    resources:
+      requests:
+        memory: 64M
+  terminationGracePeriodSeconds: 0
+  volumes:
+  - name: hostdisk-example
+    hostDisk:
+      path: /data/disk.img
+      type: DiskOrCreate
+      capacity: 1Gi
+status: {}

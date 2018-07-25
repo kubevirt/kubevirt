@@ -20,10 +20,11 @@
 package hostdisk
 
 import (
+	"errors"
+	"fmt"
 	"os"
-	"os/exec"
 	"path"
-	"strconv"
+	"syscall"
 
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -36,14 +37,24 @@ import (
 
 const pvcBaseDir = "/var/run/kubevirt-private/vmi-disks"
 
-func getDiskImgPath(volumeName string) string {
-	return path.Join(pvcBaseDir, volumeName, "disk.img")
+func dirBytesAvailable(path string) (uint64, error) {
+	var stat syscall.Statfs_t
+	err := syscall.Statfs(path, &stat)
+	if err != nil {
+		return 0, err
+	}
+	return (stat.Bavail * uint64(stat.Bsize)), nil
 }
 
-func calculateRawImgSize(quantity resource.Quantity) int64 {
-	// TODO: take fs overhead into account
-	size, _ := quantity.AsInt64()
-	return size
+func createSparseRaw(fullPath string, size int64) {
+	offset := size - 1
+	f, _ := os.Create(fullPath)
+	defer f.Close()
+	f.WriteAt([]byte{0}, offset)
+}
+
+func GetPVCDiskImgPath(volumeName string) string {
+	return path.Join(pvcBaseDir, volumeName, "disk.img")
 }
 
 func GetPVCSize(pvcName string, namespace string, clientset kubecli.KubevirtClient) (resource.Quantity, error) {
@@ -60,20 +71,23 @@ func GetPVCSize(pvcName string, namespace string, clientset kubecli.KubevirtClie
 }
 
 func CreateHostDisks(vmi *v1.VirtualMachineInstance) error {
-	// TODO: add checks:
-	// - if there is enough space
 	for _, volume := range vmi.Spec.Volumes {
-		if hostDisk := volume.VolumeSource.HostDisk; hostDisk.PersistentVolumeClaim != nil {
-			size := strconv.FormatInt(calculateRawImgSize(hostDisk.Capacity), 10)
-			file := getDiskImgPath(volume.Name)
+		if hostDisk := volume.VolumeSource.HostDisk; hostDisk != nil && hostDisk.Type == v1.HostDiskExistsOrCreate && hostDisk.Path != "" {
 
-			if _, err := os.Stat(file); os.IsNotExist(err) {
-				if err := exec.Command("qemu-img", "create", "-f", "raw", file, size).Run(); err != nil {
+			if _, err := os.Stat(hostDisk.Path); os.IsNotExist(err) {
+				availableSpace, err := dirBytesAvailable(path.Dir(hostDisk.Path))
+				if err != nil {
 					return err
 				}
+				size, _ := hostDisk.Capacity.AsInt64()
+				if uint64(size) > availableSpace {
+					return errors.New(fmt.Sprintf("Unable to create %s with size %s - not enough space on the cluster", hostDisk.Path, hostDisk.Capacity.String()))
+				}
+				createSparseRaw(hostDisk.Path, size)
 			} else if err != nil {
 				return err
 			}
+
 		}
 	}
 	return nil

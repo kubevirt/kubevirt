@@ -32,15 +32,15 @@ import (
  ATTENTION: Rerun code generators when comments on structs or fields are modified.
 */
 
-// Represents a disk created on a cluster level based on PersistentVolumeClaim
+// Represents a disk created on a cluster level
 // --
 // +k8s:openapi-gen=true
 type HostDisk struct {
-	// PersistentVolumeClaimVolumeSource represents a reference to a PersistentVolumeClaim in the same namespace.
-	// Directly attached to the vmi via qemu.
-	// More info: https://kubernetes.io/docs/concepts/storage/persistent-volumes#persistentvolumeclaims
-	// +optional
-	PersistentVolumeClaim *v1.PersistentVolumeClaimVolumeSource `json:"persistentVolumeClaim,omitempty"`
+	// Path to host disk located on the cluster
+	Path string `json:"path"`
+	// Contains information if disk exists or should be created
+	// allowed options are 'Disk' and 'DiskOrCreate'
+	Type HostDiskType `json:"type"`
 	// Capacity of the sparse disk
 	// +optional
 	Capacity resource.Quantity `json:"capacity"`
@@ -297,9 +297,9 @@ type Volume struct {
 // ---
 // +k8s:openapi-gen=true
 type VolumeSource struct {
-	// HostDisk represents a disk created on a cluster level based on a PersistentVolumeClaim
+	// HostDisk represents a disk created on the cluster level
 	// +optional
-	HostDisk HostDisk `json:"hostDisk,omitempty"`
+	HostDisk *HostDisk `json:"hostDisk,omitempty"`
 	// PersistentVolumeClaimVolumeSource represents a reference to a PersistentVolumeClaim in the same namespace.
 	// Directly attached to the vmi via qemu.
 	// More info: https://kubernetes.io/docs/concepts/storage/persistent-volumes#persistentvolumeclaims
