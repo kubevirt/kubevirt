@@ -25,6 +25,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"time"
 
 	"github.com/gorilla/websocket"
 
@@ -245,8 +246,59 @@ func (ws *wsStreamer) Stream(options StreamOptions) error {
 func (v *vmis) VNC(name string) (StreamInterface, error) {
 	return v.asyncSubresourceHelper(name, "vnc")
 }
-func (v *vmis) SerialConsole(name string) (StreamInterface, error) {
-	return v.asyncSubresourceHelper(name, "console")
+
+type connectionStruct struct {
+	con StreamInterface
+	err error
+}
+
+func (v *vmis) SerialConsole(name string, timeout time.Duration) (StreamInterface, error) {
+	timeoutChan := time.Tick(timeout)
+	connectionChan := make(chan connectionStruct)
+	isWaiting := true
+
+	go func() {
+		con, err := v.asyncSubresourceHelper(name, "console")
+		for err != nil && isWaiting {
+			if asyncSubresourceError, ok := err.(*AsyncSubresourceError); ok {
+				if asyncSubresourceError.GetStatusCode() == http.StatusBadRequest {
+					// Sleep to prevent denial of service on the api server
+					time.Sleep(1 * time.Second)
+					con, err = v.asyncSubresourceHelper(name, "console")
+				} else {
+					connectionChan <- connectionStruct{con: nil, err: asyncSubresourceError}
+					return
+				}
+			} else {
+				connectionChan <- connectionStruct{con: nil, err: err}
+				return
+			}
+		}
+		if isWaiting {
+			connectionChan <- connectionStruct{con: con, err: nil}
+		}
+	}()
+
+	select {
+	case <-timeoutChan:
+		isWaiting = false
+		return nil, fmt.Errorf("Timeout trying to connect to the virtual machine instance")
+	case conStruct := <-connectionChan:
+		return conStruct.con, conStruct.err
+	}
+}
+
+type AsyncSubresourceError struct {
+	err        string
+	StatusCode int
+}
+
+func (a *AsyncSubresourceError) Error() string {
+	return a.err
+}
+
+func (a *AsyncSubresourceError) GetStatusCode() int {
+	return a.StatusCode
 }
 
 func (v *vmis) asyncSubresourceHelper(name string, resource string) (StreamInterface, error) {
@@ -276,7 +328,7 @@ func (v *vmis) asyncSubresourceHelper(name string, resource string) (StreamInter
 		response, err := wrappedRoundTripper.RoundTrip(req)
 
 		if err != nil {
-			errChan <- err
+			errChan <- &AsyncSubresourceError{err: err.Error(), StatusCode: response.StatusCode}
 			return
 		}
 
@@ -284,14 +336,14 @@ func (v *vmis) asyncSubresourceHelper(name string, resource string) (StreamInter
 			switch response.StatusCode {
 			case http.StatusOK:
 			case http.StatusNotFound:
-				err = fmt.Errorf("Virtual Machine not found.")
+				err = &AsyncSubresourceError{err: "Virtual Machine not found.", StatusCode: response.StatusCode}
 			case http.StatusInternalServerError:
-				err = fmt.Errorf("Websocket failed due to internal server error.")
+				err = &AsyncSubresourceError{err: "Websocket failed due to internal server error.", StatusCode: response.StatusCode}
 			default:
-				err = fmt.Errorf("Websocket failed with http status: %s", response.Status)
+				err = &AsyncSubresourceError{err: fmt.Sprintf("Websocket failed with http status: %s", response.Status), StatusCode: response.StatusCode}
 			}
 		} else {
-			err = fmt.Errorf("no response received")
+			err = &AsyncSubresourceError{err: "no response received"}
 		}
 		errChan <- err
 	}()

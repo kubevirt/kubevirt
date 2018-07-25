@@ -1137,13 +1137,15 @@ func NewConsoleExpecter(virtCli kubecli.KubevirtClient, vmi *v1.VirtualMachineIn
 	vmiReader, vmiWriter := io.Pipe()
 	expecterReader, expecterWriter := io.Pipe()
 	resCh := make(chan error)
-	go func() {
-		con, err := virtCli.VirtualMachineInstance(vmi.ObjectMeta.Namespace).SerialConsole(vmi.ObjectMeta.Name)
-		if err != nil {
-			resCh <- err
-			return
-		}
 
+	startTime := time.Now()
+	con, err := virtCli.VirtualMachineInstance(vmi.Namespace).SerialConsole(vmi.Name, timeout)
+	if err != nil {
+		return nil, nil, err
+	}
+	timeout = timeout - time.Now().Sub(startTime)
+
+	go func() {
 		resCh <- con.Stream(kubecli.StreamOptions{
 			In:  vmiReader,
 			Out: expecterWriter,
@@ -1187,7 +1189,7 @@ func RegistryDiskFor(name RegistryDisk) string {
 func CheckForTextExpecter(vmi *v1.VirtualMachineInstance, expected []expect.Batcher, wait int) error {
 	virtClient, err := kubecli.GetKubevirtClient()
 	PanicOnError(err)
-	expecter, _, err := NewConsoleExpecter(virtClient, vmi, 10*time.Second)
+	expecter, _, err := NewConsoleExpecter(virtClient, vmi, 30*time.Second)
 	if err != nil {
 		return err
 	}
