@@ -65,7 +65,7 @@ const (
 	SuccessfulHandOverPodReason = "SuccessfulHandOver"
 )
 
-func NewVMIController(templateService services.TemplateService, vmiInformer cache.SharedIndexInformer, podInformer cache.SharedIndexInformer, recorder record.EventRecorder, clientset kubecli.KubevirtClient, configMapInformer cache.SharedIndexInformer) *VMIController {
+func NewVMIController(templateService services.TemplateService, vmiInformer cache.SharedIndexInformer, podInformer cache.SharedIndexInformer, recorder record.EventRecorder, clientset kubecli.KubevirtClient) *VMIController {
 	c := &VMIController{
 		templateService:      templateService,
 		Queue:                workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter()),
@@ -75,7 +75,6 @@ func NewVMIController(templateService services.TemplateService, vmiInformer cach
 		clientset:            clientset,
 		podExpectations:      controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectations()),
 		handoverExpectations: controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectations()),
-		configMapInformer:    configMapInformer,
 	}
 
 	c.vmiInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
@@ -120,7 +119,6 @@ type VMIController struct {
 	recorder             record.EventRecorder
 	podExpectations      *controller.UIDTrackingControllerExpectations
 	handoverExpectations *controller.UIDTrackingControllerExpectations
-	configMapInformer    cache.SharedIndexInformer
 }
 
 func (c *VMIController) Run(threadiness int, stopCh chan struct{}) {
@@ -129,7 +127,7 @@ func (c *VMIController) Run(threadiness int, stopCh chan struct{}) {
 	log.Log.Info("Starting vmi controller.")
 
 	// Wait for cache sync before we start the pod controller
-	cache.WaitForCacheSync(stopCh, c.vmiInformer.HasSynced, c.podInformer.HasSynced, c.configMapInformer.HasSynced)
+	cache.WaitForCacheSync(stopCh, c.vmiInformer.HasSynced, c.podInformer.HasSynced)
 
 	// Start the actual work
 	for i := 0; i < threadiness; i++ {
