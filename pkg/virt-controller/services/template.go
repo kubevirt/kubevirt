@@ -276,13 +276,11 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 		resources.Limits = make(k8sv1.ResourceList)
 	}
 
-	// TODO: This can be hardcoded in the current model, but will need to be revisted
-	// once dynamic network device allocation is added
-	resources.Limits[TunDevice] = resource.MustParse("1")
+	extraResources := getRequiredResources(vmi)
+	for key, val := range extraResources {
+		resources.Limits[key] = val
+	}
 
-	// FIXME: decision point: allow emulation means "it's ok to skip hw acceleration if not present"
-	// but if the KVM resource is not requested then it's guaranteed to be not present
-	// This code works for now, but the semantics are wrong. revisit this.
 	if useEmulation {
 		command = append(command, "--use-emulation")
 	} else {
@@ -428,6 +426,14 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 		}
 	}
 	return &pod, nil
+}
+
+func getRequiredResources(vmi *v1.VirtualMachineInstance) k8sv1.ResourceList {
+	res := k8sv1.ResourceList{}
+	if (vmi.Spec.Domain.Devices.AutoattachPodInterface == nil) || (*vmi.Spec.Domain.Devices.AutoattachPodInterface == true) {
+		res[TunDevice] = resource.MustParse("1")
+	}
+	return res
 }
 
 func appendUniqueImagePullSecret(secrets []k8sv1.LocalObjectReference, newsecret k8sv1.LocalObjectReference) []k8sv1.LocalObjectReference {
