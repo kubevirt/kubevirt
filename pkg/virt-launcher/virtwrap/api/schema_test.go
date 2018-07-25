@@ -21,6 +21,7 @@ package api
 
 import (
 	"encoding/xml"
+	"fmt"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -40,9 +41,11 @@ var exampleXML = `<domain type="kvm" xmlns:qemu="http://libvirt.org/schemas/doma
     <baseBoard></baseBoard>
   </sysinfo>
   <devices>
+    <controller type="usb" index="0" model="none"></controller>
     <video>
       <model type="vga" heads="1" vram="16384"></model>
     </video>
+    <memballoon model="none"></memballoon>
     <disk device="disk" type="network">
       <source protocol="iscsi" name="iqn.2013-07.com.example:iscsi-nopool/2">
         <host name="example.com" port="3260"></host>
@@ -176,6 +179,7 @@ var _ = Describe("Schema", func() {
 		It("Marshal into xml", func() {
 			buf, err := xml.MarshalIndent(exampleDomain.Spec, "", "  ")
 			Expect(err).To(BeNil())
+			fmt.Printf(string(buf))
 			Expect(string(buf)).To(Equal(exampleXML))
 		})
 
