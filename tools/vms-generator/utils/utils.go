@@ -45,6 +45,7 @@ const (
 	VmiFedora            = "vmi-fedora"
 	VmiNoCloud           = "vmi-nocloud"
 	VmiPVC               = "vmi-pvc"
+	VmiBlockPVC          = "vmi-block-pvc"
 	VmiWindows           = "vmi-windows"
 	VmiSlirp             = "vmi-slirp"
 	VmiWithHookSidecar   = "vmi-with-sidecar-hook"
@@ -366,6 +367,13 @@ func GetVMIPvc() *v1.VirtualMachineInstance {
 	vmi := getBaseVMI(VmiPVC)
 
 	addPVCDisk(&vmi.Spec, "disk-alpine", busVirtio, "pvcdisk", "pvcvolume")
+	return vmi
+}
+
+func GetVMIBlockPvc() *v1.VirtualMachineInstance {
+	vmi := getBaseVMI(VmiBlockPVC)
+
+	addPVCDisk(&vmi.Spec, "local-block-storage-cirros", busVirtio, "blockpvcdisk", "blockpvcvolume")
 	return vmi
 }
 

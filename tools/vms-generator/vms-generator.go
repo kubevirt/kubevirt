@@ -59,6 +59,7 @@ func main() {
 		utils.VmiFedora:            utils.GetVMIEphemeralFedora(),
 		utils.VmiNoCloud:           utils.GetVMINoCloud(),
 		utils.VmiPVC:               utils.GetVMIPvc(),
+		utils.VmiBlockPVC:          utils.GetVMIBlockPvc(),
 		utils.VmiWindows:           utils.GetVMIWindows(),
 		utils.VmiSlirp:             utils.GetVMISlirp(),
 		utils.VmiWithHookSidecar:   utils.GetVMIWithHookSidecar(),
