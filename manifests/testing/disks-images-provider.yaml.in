@@ -33,6 +33,41 @@ spec:
     path: /tmp/hostImages/alpine
 ---
 apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: iscsi-disk-cirros-block
+  labels:
+    kubevirt.io: ""
+    os: "cirros-block"
+spec:
+  capacity:
+    storage: 40Gi
+  accessModes:
+    - ReadWriteOnce
+  volumeMode: Block
+  hostPath:
+      # FIXME: this needs to be provided automatically
+      path: /volumes/cirros.img
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: disk-cirros-block
+  labels:
+    kubevirt.io: ""
+spec:
+  storageClassName: ""
+  accessModes:
+    - ReadWriteOnce
+  volumeMode: Block
+  resources:
+    requests:
+      storage: 40Gi
+  selector:
+    matchLabels:
+      os: "cirros-block"
+---
+apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
   name: disk-custom
