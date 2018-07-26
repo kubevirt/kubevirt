@@ -1046,7 +1046,7 @@ func waitForVMIStart(obj runtime.Object, seconds int, ignoreWarnings bool) (node
 			return true
 		}
 		return false
-	}, time.Duration(seconds)*time.Second).Should(Equal(true))
+	}, time.Duration(seconds)*time.Second).Should(Equal(true), "Timed out waiting for VMI to enter Running phase")
 
 	return
 }
