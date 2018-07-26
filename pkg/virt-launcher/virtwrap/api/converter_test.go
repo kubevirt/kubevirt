@@ -323,7 +323,7 @@ var _ = Describe("Converter", func() {
       <model type="vga" heads="1" vram="16384"></model>
     </video>
     <graphics type="vnc">
-      <listen type="socket" socket="/var/run/kubevirt-private/mynamespace/testvmi/virt-vnc"></listen>
+      <listen type="socket" socket="/var/run/kubevirt-private/f4686d2c-6e8d-4335-b8fd-81bee22f4814/virt-vnc"></listen>
     </graphics>
     <disk device="disk" type="file">
       <source file="/var/run/kubevirt-private/vmi-disks/myvolume/disk.img"></source>
@@ -381,7 +381,7 @@ var _ = Describe("Converter", func() {
     </disk>
     <serial type="unix">
       <target port="0"></target>
-      <source mode="bind" path="/var/run/kubevirt-private/mynamespace/testvmi/virt-serial0"></source>
+      <source mode="bind" path="/var/run/kubevirt-private/f4686d2c-6e8d-4335-b8fd-81bee22f4814/virt-serial0"></source>
     </serial>
     <console type="pty">
       <target type="serial" port="0"></target>
