@@ -231,6 +231,7 @@ spec:
                     networks:
                       items:
                         properties:
+                          multus: {}
                           name:
                             type: string
                           pod:

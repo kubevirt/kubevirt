@@ -552,6 +552,12 @@ func Convert_v1_VirtualMachine_To_api_Domain(vmi *v1.VirtualMachineInstance, dom
 
 	networks := map[string]*v1.Network{}
 	for _, network := range vmi.Spec.Networks {
+		if network.Multus == nil && network.Pod == nil {
+			return fmt.Errorf("fail network %s must have a network type", network.Name)
+		}
+		if network.Multus == nil && network.Pod == nil {
+			return fmt.Errorf("fail network %s must have only one network type", network.Name)
+		}
 		networks[network.Name] = network.DeepCopy()
 	}
 
@@ -559,10 +565,6 @@ func Convert_v1_VirtualMachine_To_api_Domain(vmi *v1.VirtualMachineInstance, dom
 		net, isExist := networks[iface.Name]
 		if !isExist {
 			return fmt.Errorf("failed to find network %s", iface.Name)
-		}
-
-		if net.Pod == nil {
-			return fmt.Errorf("network interface type not supported for %s", iface.Name)
 		}
 
 		if iface.Bridge != nil {

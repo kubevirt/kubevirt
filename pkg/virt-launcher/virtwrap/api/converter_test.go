@@ -605,7 +605,7 @@ var _ = Describe("Converter", func() {
 			}
 		})
 
-		It("should fail to convert if non-pod interfaces are present", func() {
+		It("should fail to convert if non network source are present", func() {
 			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
 			name := "otherName"
 			iface := v1.DefaultNetworkInterface()

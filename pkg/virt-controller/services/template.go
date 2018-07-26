@@ -377,15 +377,22 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 
 	hostName := dns.SanitizeHostname(vmi)
 
+	annotationsList := map[string]string{
+		v1.DomainAnnotation:  domain,
+		v1.OwnedByAnnotation: "virt-controller",
+	}
+
+	multusNetworks := getMultusinterfaceList(vmi)
+	if len(multusNetworks) > 0 {
+		annotationsList["k8s.v1.cni.cncf.io/networks"] = multusNetworks
+	}
+
 	// TODO use constants for podLabels
 	pod := k8sv1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
 			GenerateName: "virt-launcher-" + domain + "-",
 			Labels:       podLabels,
-			Annotations: map[string]string{
-				v1.DomainAnnotation:  domain,
-				v1.OwnedByAnnotation: "virt-controller",
-			},
+			Annotations:  annotationsList,
 		},
 		Spec: k8sv1.PodSpec{
 			Hostname:  hostName,
@@ -501,6 +508,21 @@ func getPortsFromVMI(vmi *v1.VirtualMachineInstance) []k8sv1.ContainerPort {
 	}
 
 	return ports
+}
+
+func getMultusinterfaceList(vmi *v1.VirtualMachineInstance) string {
+	ifaceList := ""
+
+	for _, network := range vmi.Spec.Networks {
+		if network.Multus != nil {
+			ifaceList += network.Name + ","
+		}
+	}
+
+	if len(ifaceList) > 0 {
+		ifaceList = ifaceList[:len(ifaceList)-1]
+	}
+	return ifaceList
 }
 
 func NewTemplateService(launcherImage string, virtShareDir string, imagePullSecret string, configMapCache cache.Store) TemplateService {

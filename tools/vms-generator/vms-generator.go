@@ -53,6 +53,7 @@ const (
 	vmiWindows         = "vmi-windows"
 	vmiSlirp           = "vmi-slirp"
 	vmiWithHookSidecar = "vmi-with-sidecar-hook"
+	vmiMultus          = "vmi-multus"
 	vmTemplateFedora   = "vm-template-fedora"
 	vmTemplateRHEL7    = "vm-template-rhel7"
 	vmTemplateWindows  = "vm-template-windows2012r2"
@@ -246,6 +247,18 @@ func getVMISlirp() *v1.VirtualMachineInstance {
 	slirp := &v1.InterfaceSlirp{}
 	ports := []v1.Port{v1.Port{Name: "http", Protocol: "TCP", Port: 80}}
 	vm.Spec.Domain.Devices.Interfaces = []v1.Interface{v1.Interface{Name: "testSlirp", Ports: ports, InterfaceBindingMethod: v1.InterfaceBindingMethod{Slirp: slirp}}}
+
+	return vm
+}
+
+func getVMIMultus() *v1.VirtualMachineInstance {
+	vm := getBaseVMI(vmiMultus)
+	vm.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("1024M")
+	vm.Spec.Networks = []v1.Network{*v1.DefaultPodNetwork(), v1.Network{Name: "macvlan-conf", NetworkSource: v1.NetworkSource{Multus: &v1.MultusNetwork{}}}}
+	addRegistryDisk(&vm.Spec, fmt.Sprintf("%s/%s:%s", dockerPrefix, imageFedora, dockerTag), busVirtio)
+	addNoCloudDiskWitUserData(&vm.Spec, "#!/bin/bash\necho \"fedora\" |passwd fedora --stdin\n")
+
+	vm.Spec.Domain.Devices.Interfaces = []v1.Interface{{Name: "macvlan-conf", InterfaceBindingMethod: v1.InterfaceBindingMethod{Bridge: &v1.InterfaceBridge{}}}}
 
 	return vm
 }
@@ -614,6 +627,7 @@ func main() {
 		vmiWindows:         getVMIWindows(),
 		vmiSlirp:           getVMISlirp(),
 		vmiWithHookSidecar: getVMIWithHookSidecar(),
+		vmiMultus:          getVMIMultus(),
 	}
 
 	var vmireplicasets = map[string]*v1.VirtualMachineInstanceReplicaSet{
