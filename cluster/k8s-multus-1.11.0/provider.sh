@@ -18,13 +18,13 @@ function up() {
     export KUBECONFIG=${KUBEVIRT_PATH}cluster/$KUBEVIRT_PROVIDER/.kubeconfig
     ${KUBEVIRT_PATH}cluster/$KUBEVIRT_PROVIDER/.kubectl config set-cluster kubernetes --server=https://$(_main_ip):$(_port k8s)
     ${KUBEVIRT_PATH}cluster/$KUBEVIRT_PROVIDER/.kubectl config set-cluster kubernetes --insecure-skip-tls-verify=true
-    
+
     # Make sure that local config is correct
     prepare_config
 
     for i in $(seq 1 ${KUBEVIRT_NUM_NODES}); do
         cluster/kubectl.sh create clusterrolebinding multus-node-"node$(printf "%02d" ${i})" \
-                    --clusterrole=multus-crd-overpowered \
-                    --user=system:node:"node$(printf "%02d" ${i})"
+            --clusterrole=multus-crd-overpowered \
+            --user=system:node:"node$(printf "%02d" ${i})"
     done
 }
