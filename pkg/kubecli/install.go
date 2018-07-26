@@ -77,7 +77,7 @@ func InstallVirtPlugin(cmd *cobra.Command) error {
 		return err
 	}
 
-	plugin := makePluginConfiguration(cmd)
+	plugin := MakePluginConfiguration(cmd)
 
 	err = writePluginYaml(plugin)
 	if err != nil {
@@ -109,7 +109,7 @@ func getPluginFolder() error {
 	return fmt.Errorf("Fail to find kubernetes plugin folder")
 }
 
-func makePluginConfiguration(cmd *cobra.Command) *Plugin {
+func MakePluginConfiguration(cmd *cobra.Command) *Plugin {
 	tree := make(Plugins, 0)
 	for _, command := range cmd.Commands() {
 		if command.Name() != "install" && command.Name() != "options" {
