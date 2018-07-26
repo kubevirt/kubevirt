@@ -246,6 +246,15 @@ func (in *Devices) DeepCopyInto(out *Devices) {
 			(*in)[i].DeepCopyInto(&(*out)[i])
 		}
 	}
+	if in.AutoattachGraphicsDevice != nil {
+		in, out := &in.AutoattachGraphicsDevice, &out.AutoattachGraphicsDevice
+		if *in == nil {
+			*out = nil
+		} else {
+			*out = new(bool)
+			**out = **in
+		}
+	}
 	return
 }
 

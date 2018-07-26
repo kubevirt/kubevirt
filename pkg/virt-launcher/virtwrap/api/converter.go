@@ -498,15 +498,27 @@ func Convert_v1_VirtualMachine_To_api_Domain(vmi *v1.VirtualMachineInstance, dom
 		},
 	}
 
-	// Add mandatory vnc device
-	domain.Spec.Devices.Graphics = []Graphics{
-		{
-			Listen: &GraphicsListen{
-				Type:   "socket",
-				Socket: fmt.Sprintf("/var/run/kubevirt-private/%s/%s/virt-vnc", vmi.ObjectMeta.Namespace, vmi.ObjectMeta.Name),
+	if vmi.Spec.Domain.Devices.AutoattachGraphicsDevice == nil || *vmi.Spec.Domain.Devices.AutoattachGraphicsDevice == true {
+		var heads uint = 1
+		var vram uint = 16384
+		domain.Spec.Devices.Video = []Video{
+			{
+				Model: VideoModel{
+					Type:  "vga",
+					Heads: &heads,
+					VRam:  &vram,
+				},
 			},
-			Type: "vnc",
-		},
+		}
+		domain.Spec.Devices.Graphics = []Graphics{
+			{
+				Listen: &GraphicsListen{
+					Type:   "socket",
+					Socket: fmt.Sprintf("/var/run/kubevirt-private/%s/%s/virt-vnc", vmi.ObjectMeta.Namespace, vmi.ObjectMeta.Name),
+				},
+				Type: "vnc",
+			},
+		}
 	}
 
 	// Add mandatory interface

@@ -2,23 +2,6 @@ package api
 
 const DefaultBridgeName = "br1"
 
-func SetDefaults_Devices(devices *Devices) {
-	// Use vga as video device, since it is better than cirrus
-	// and does not require guest drivers
-	var heads uint = 1
-	var vram uint = 16384
-	devices.Video = []Video{
-		{
-			Model: VideoModel{
-				Type:  "vga",
-				Heads: &heads,
-				VRam:  &vram,
-			},
-		},
-	}
-
-}
-
 func SetDefaults_OSType(ostype *OSType) {
 	ostype.OS = "hvm"
 

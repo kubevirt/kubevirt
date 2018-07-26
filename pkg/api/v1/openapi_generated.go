@@ -242,6 +242,13 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 								},
 							},
 						},
+						"autoattachGraphicsDevice": {
+							SchemaProps: spec.SchemaProps{
+								Description: "Wheater to attach the default graphics device or not. VNC will not be available if set to false. Defaults to true.",
+								Type:        []string{"boolean"},
+								Format:      "",
+							},
+						},
 					},
 				},
 			},
@@ -1021,6 +1028,13 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 										},
 									},
 								},
+							},
+						},
+						"overcommitGuestOverhead": {
+							SchemaProps: spec.SchemaProps{
+								Description: "Don't ask the scheduler to take the guest-management overhead into account. Instead put the overhead only into the requested memory limits. This can lead to crashes if all memory is in use on a node. Defaults to false.",
+								Type:        []string{"boolean"},
+								Format:      "",
 							},
 						},
 					},

@@ -39,7 +39,6 @@ func SetObjectDefaults_Domain(in *Domain) {
 	if in.Spec.SysInfo != nil {
 		SetDefaults_SysInfo(in.Spec.SysInfo)
 	}
-	SetDefaults_Devices(&in.Spec.Devices)
 }
 
 func SetObjectDefaults_DomainList(in *DomainList) {
