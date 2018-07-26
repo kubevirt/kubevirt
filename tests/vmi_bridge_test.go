@@ -148,11 +148,15 @@ var _ = Describe("Bridge", func() {
 		var vmi *v1.VirtualMachineInstance
 		const networkName = "red"
 		const ifaceName = "eth1"
+		const macAddress = "de:ad:00:00:be:af"
 		tests.BeforeAll(func() {
 			vmi = tests.NewRandomVMIWithResourceNetworkEphemeralDiskAndUserdata(tests.RegistryDiskFor(tests.RegistryDiskCirros),
 				"#!/bin/bash\necho 'hello'\n",
 				networkName,
 				fmt.Sprintf("bridge.network.kubevirt.io/%s", networkName))
+
+			// set the MAC address on the L2 interface
+			vmi.Spec.Domain.Devices.Interfaces[1].MacAddress = macAddress
 
 			vmi, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
 			Expect(err).ToNot(HaveOccurred())
@@ -184,6 +188,21 @@ var _ = Describe("Bridge", func() {
 				&expect.BExp{R: "\\$ "},
 				&expect.BSnd{S: "curl -o /dev/null -s -w \"%{http_code}\\n\" -k https://google.com\n"},
 				&expect.BExp{R: "301"},
+			}, 180*time.Second)
+			log.Log.Infof("%v", out)
+			Expect(err).ToNot(HaveOccurred())
+		})
+
+		It("Should have MAC address set correctly", func() {
+			expecter, err := tests.LoggedInCirrosExpecter(vmi)
+			Expect(err).ToNot(HaveOccurred())
+			defer expecter.Close()
+
+			out, err := expecter.ExpectBatch([]expect.Batcher{
+				&expect.BSnd{S: "\n"},
+				&expect.BExp{R: "\\$ "},
+				&expect.BSnd{S: fmt.Sprintf("ip link show %s | tail -1 | awk '{print $2}'\n", ifaceName)},
+				&expect.BExp{R: macAddress},
 			}, 180*time.Second)
 			log.Log.Infof("%v", out)
 			Expect(err).ToNot(HaveOccurred())

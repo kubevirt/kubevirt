@@ -34,6 +34,12 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 )
 
+const (
+	ProtocolIP       = "IP"
+	ProtocolEthernet = "Ethernet"
+	ProtocolPCI      = "PCI"
+)
+
 type ResourceInterface struct {
 	Configuration map[string]*PodInterfaceConfiguration
 }
@@ -51,7 +57,7 @@ type ResourceConfiguration struct {
 }
 
 func (l *ResourceInterface) cachePodInterfacesFromEnvironment() {
-	// TODO: no actual caching is happening here, so we can refresh. should e add rate limit here?
+	// TODO: no actual caching is happening here, so we can refresh. should we add rate limit here?
 	if l.Configuration == nil {
 		l.Configuration = make(map[string]*PodInterfaceConfiguration)
 	}
@@ -84,7 +90,7 @@ func (l *ResourceInterface) cachePodInterfacesFromEnvironment() {
 			resourceName := pair[1]
 
 			if len(conf.Interfaces) == 0 {
-				log.Log.Warningf("Environment variable %s, contains no pod interfaces", varName)
+				log.Log.Warningf("Environment variable %s contains no pod interfaces", varName)
 				continue
 			}
 
@@ -141,20 +147,21 @@ func (l *ResourceInterface) Plug(iface *v1.Interface, network *v1.Network, domai
 	}
 
 	// find the VM interface configuration as received from API
-	vmInterface := getInterfaceByName(domain.Spec.Devices.Interfaces, iface.Name)
-	if vmInterface == nil {
-		// TODO: this should not happen, should we panic here?
-		errMsg := fmt.Sprintf("Domain configuration was not found for network: '%s'", network.Name)
-		err := errors.New(errMsg)
-		log.Log.Reason(err).Error(errMsg)
-		return err
-	}
+	domIf := func() *api.Interface {
+		for _, domIf := range domain.Spec.Devices.Interfaces {
+			if domIf.Alias.Name == iface.Name {
+				return &domIf
+			}
+		}
+		panic(fmt.Sprintf("Domain configuration was not found for network: '%s'", network.Name))
+	}()
 
 	// automatically determine binding according to device plugin configuration
-	if podIf.Protocol == "Ethernet" {
+	if podIf.Protocol == ProtocolEthernet || podIf.Protocol == ProtocolIP {
+		// TODO: support delagate IP in case of ProtocolIP and flag set to "true"
 		// Create a bridge connecting the pod interface with the VM
 		bridge := &netlink.Bridge{
-			LinkAttrs: netlink.LinkAttrs{Name: vmInterface.Source.Bridge},
+			LinkAttrs: netlink.LinkAttrs{Name: domIf.Source.Bridge},
 		}
 
 		err = Handler.LinkAdd(bridge)
@@ -176,7 +183,7 @@ func (l *ResourceInterface) Plug(iface *v1.Interface, network *v1.Network, domai
 			netlink.LinkDel(bridge)
 			return err
 		}
-	} else if podIf.Protocol == "PCI" {
+	} else if podIf.Protocol == ProtocolPCI {
 		errMsg := fmt.Sprint("PCI passthrough not supported")
 		err := errors.New(errMsg)
 		log.Log.Reason(err).Error(errMsg)
@@ -187,6 +194,6 @@ func (l *ResourceInterface) Plug(iface *v1.Interface, network *v1.Network, domai
 		log.Log.Reason(err).Error(errMsg)
 		return err
 	}
-	// TODO: what if binding mechanism was set in the network configuration?
+	// TODO: handle binding overrides from interface
 	return nil
 }
