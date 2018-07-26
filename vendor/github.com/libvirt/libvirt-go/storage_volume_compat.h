@@ -29,10 +29,6 @@
 
 /* 3.0.0 */
 
-int virStorageVolGetInfoFlagsCompat(virStorageVolPtr vol,
-				    virStorageVolInfoPtr info,
-				    unsigned int flags);
-
 #ifndef VIR_STORAGE_VOL_USE_ALLOCATION
 #define VIR_STORAGE_VOL_USE_ALLOCATION 0
 #endif

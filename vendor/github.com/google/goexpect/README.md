@@ -48,6 +48,10 @@ The ChangeCheck option makes it possible to replace the Spawner Check function w
 
 ## Basic Examples
 
+### networkbit.ch
+
+An [article](http://networkbit.ch/golang-regular-expression/) with some examples was written about goexpect on [networkbit.ch](http://networkbit.ch). 
+
 ### The [Wikipedia Expect](https://en.wikipedia.org/wiki/Expect) examples.
 
 #### Telnet

@@ -1,5 +1,5 @@
-hash: 7147e37736bb8c9778ca38e1016364d45dbb068f9a405fa75a59cc264a6e8386
-updated: 2018-07-20T13:09:43.587022884+02:00
+hash: e7f653b6fca179c0b8184771a264de6fa9894c59f29c58cc1a0cc3439de1fabb
+updated: 2018-07-26T07:42:29.456918439Z
 imports:
 - name: cloud.google.com/go
   version: 3b1ae45394a234c385be014e9a488f2bb6eef821
@@ -11,7 +11,7 @@ imports:
   subpackages:
   - pkg
 - name: github.com/asaskevich/govalidator
-  version: 7d2e70ef918f16bd6455529af38304d6d025c952
+  version: f9ffefc3facfbe0caee3fea233cbb6e8208f4541
 - name: github.com/Azure/go-autorest
   version: d4e6b95c12a08b4de2d48b45d5b4d594e5d32fab
   subpackages:
@@ -52,13 +52,13 @@ imports:
 - name: github.com/go-logfmt/logfmt
   version: 390ab7935ee28ec6b286364bba9b4dd6410cb3d5
 - name: github.com/go-openapi/jsonpointer
-  version: 46af16f9f7b149af66e5d1bd010e3574dc06de98
+  version: 3a0015ad55fa9873f41605d3e8f28cd279c32ab2
 - name: github.com/go-openapi/jsonreference
-  version: 13c6e3589ad90f49bd3e3bbe2c2cb3d7a4142272
+  version: 3fb327e6747da3043567ee86abd02bb6376b6be2
 - name: github.com/go-openapi/spec
-  version: 7abd5745472fff5eb3685386d5fb8bf38683154d
+  version: bce47c9386f9ecd6b86f450478a80103c3fe1402
 - name: github.com/go-openapi/swag
-  version: f3f9494671f93fcff853e3c6e9e948b3eb71e590
+  version: becd2f08beafcca035645a8a101e0e3e18140458
 - name: github.com/go-stack/stack
   version: 259ab82a6cad3992b4e21ff5cac294ccb06474bc
 - name: github.com/gogo/protobuf
@@ -87,7 +87,7 @@ imports:
   - ptypes/duration
   - ptypes/timestamp
 - name: github.com/google/goexpect
-  version: 24d0569daa0e7d860dc93ebc60ef69a0a2958889
+  version: 9db06cbbaed691242d13045e8e5f5037f72db9e7
 - name: github.com/google/gofuzz
   version: 44d81051d367757e1c7c6a5a86423ece9afcf63c
 - name: github.com/google/goterm
@@ -117,6 +117,13 @@ imports:
   - simplelru
 - name: github.com/howeyc/gopass
   version: bf9dde6d0d2c004a008c27aaee91170c786f6db8
+- name: github.com/hpcloud/tail
+  version: a1dbeea552b7c8df4b542c66073e393de198a800
+  subpackages:
+  - ratelimiter
+  - util
+  - watch
+  - winfile
 - name: github.com/imdario/mergo
   version: 6633656539c1639d9d78127b7d47c622b5d7b6dc
 - name: github.com/inconshreveable/mousetrap
@@ -130,7 +137,7 @@ imports:
   subpackages:
   - conn
 - name: github.com/libvirt/libvirt-go
-  version: d0e4392dfcc5489797a5f875cc3355b255612a18
+  version: d5e0adac44d4365a2d97e259f51ab76cc3c01b20
 - name: github.com/mailru/easyjson
   version: 2f5df55504ebc322e4d52d34df6a1f5b503bf26d
   subpackages:
@@ -142,7 +149,7 @@ imports:
 - name: github.com/modern-go/reflect2
   version: 05fbef0ca5da472bbf96c9322b84a53edc03c9fd
 - name: github.com/onsi/ginkgo
-  version: 11459a886d9cd66b319dac7ef1e917ee221372c9
+  version: 3774a09d95489ccaa16032e0770d08ea77ba6184
   subpackages:
   - config
   - extensions/table
@@ -163,7 +170,7 @@ imports:
   - reporters/stenographer/support/go-isatty
   - types
 - name: github.com/onsi/gomega
-  version: dcabb60a477c2b6f456df65037cb6708210fbb02
+  version: b6ea1ea48f981d0f615a154a45eabb9dd466556d
   subpackages:
   - format
   - ghttp
@@ -196,7 +203,7 @@ imports:
   subpackages:
   - nl
 - name: github.com/vishvananda/netns
-  version: be1fbeda19366dea804f00efff2dd73a1642fdcc
+  version: 13995c7128ccc8e51e9a6bd2b551020a27180abd
 - name: golang.org/x/crypto
   version: 81e90905daefcd6fd217b62423c0908922eadb30
   subpackages:
@@ -307,10 +314,14 @@ imports:
   - status
   - tap
   - transport
+- name: gopkg.in/fsnotify/fsnotify.v1
+  version: c2828203cd70a50dcccfb2761f8b1f8ceef9a8e9
 - name: gopkg.in/inf.v0
   version: 3887ee99ecf07df5b447e9b00d9c0b2adaa9f3e4
 - name: gopkg.in/ini.v1
   version: 358ee7663966325963d4e8b2e1fbd570c5195153
+- name: gopkg.in/tomb.v1
+  version: c131134a1947e9afd9cecfe11f4c6dff0732ae58
 - name: gopkg.in/yaml.v2
   version: 670d4cfef0544295bc27a114dbac37980d83185a
 - name: k8s.io/api
@@ -518,9 +529,10 @@ imports:
   - pkg/client/clientset_generated/clientset/typed/apiregistration/v1
   - pkg/client/clientset_generated/clientset/typed/apiregistration/v1beta1
 - name: k8s.io/kube-openapi
-  version: 39a7bf85c140f972372c2a0d1ee40adbf0c8bfe1
+  version: 39cb288412c48cb533ba4be5d6c28620b9a0c1b4
   subpackages:
   - pkg/common
+  - pkg/util/proto
 - name: kubevirt.io/qe-tools
   version: 13fc8573324cd2af42c88043b5a7c6e03bf39f95
   repo: https://github.com/kubevirt/qe-tools.git

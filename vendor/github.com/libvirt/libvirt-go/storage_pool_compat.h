@@ -78,10 +78,6 @@ typedef void (*virConnectStoragePoolEventGenericCallback)(virConnectPtr conn,
                                                           void *opaque);
 #endif
 
-int virConnectStoragePoolEventDeregisterAnyCompat(virConnectPtr conn,
-						  int callbackID);
-
-
 /* 3.8.0 */
 
 #ifndef VIR_STORAGE_POOL_EVENT_CREATED

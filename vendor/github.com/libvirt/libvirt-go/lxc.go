@@ -33,12 +33,9 @@ package libvirt
 // Can't rely on pkg-config for libvirt-lxc since it was not
 // installed until 2.6.0 onwards
 #cgo LDFLAGS: -lvirt-lxc
-#include <libvirt/libvirt.h>
-#include <libvirt/libvirt-lxc.h>
-#include <libvirt/virterror.h>
 #include <stdlib.h>
 #include <string.h>
-#include "lxc_compat.h"
+#include "lxc_wrapper.h"
 */
 import "C"
 
@@ -50,9 +47,10 @@ import (
 func (d *Domain) LxcOpenNamespace(flags uint32) ([]os.File, error) {
 	var cfdlist *C.int
 
-	ret := C.virDomainLxcOpenNamespace(d.ptr, &cfdlist, C.uint(flags))
+	var err C.virError
+	ret := C.virDomainLxcOpenNamespaceWrapper(d.ptr, &cfdlist, C.uint(flags), &err)
 	if ret == -1 {
-		return []os.File{}, GetLastError()
+		return []os.File{}, makeError(&err)
 	}
 	fdlist := make([]os.File, ret)
 	for i := 0; i < int(ret); i++ {
@@ -72,9 +70,10 @@ func (d *Domain) LxcEnterNamespace(fdlist []os.File, flags uint32) ([]os.File, e
 		cfdlist[i] = C.int(fdlist[i].Fd())
 	}
 
-	ret := C.virDomainLxcEnterNamespace(d.ptr, C.uint(len(fdlist)), &cfdlist[0], &ncoldfdlist, &coldfdlist, C.uint(flags))
+	var err C.virError
+	ret := C.virDomainLxcEnterNamespaceWrapper(d.ptr, C.uint(len(fdlist)), &cfdlist[0], &ncoldfdlist, &coldfdlist, C.uint(flags), &err)
 	if ret == -1 {
-		return []os.File{}, GetLastError()
+		return []os.File{}, makeError(&err)
 	}
 	oldfdlist := make([]os.File, ncoldfdlist)
 	for i := 0; i < int(ncoldfdlist); i++ {
@@ -122,9 +121,10 @@ func DomainLxcEnterSecurityLabel(model *NodeSecurityModel, label *SecurityLabel,
 		clabel.enforcing = 0
 	}
 
-	ret := C.virDomainLxcEnterSecurityLabel(&cmodel, &clabel, &coldlabel, C.uint(flags))
+	var err C.virError
+	ret := C.virDomainLxcEnterSecurityLabelWrapper(&cmodel, &clabel, &coldlabel, C.uint(flags), &err)
 	if ret == -1 {
-		return nil, GetLastError()
+		return nil, makeError(&err)
 	}
 
 	var oldlabel SecurityLabel
@@ -141,13 +141,14 @@ func DomainLxcEnterSecurityLabel(model *NodeSecurityModel, label *SecurityLabel,
 
 func (d *Domain) DomainLxcEnterCGroup(flags uint32) error {
 	if C.LIBVIR_VERSION_NUMBER < 2000000 {
-		return GetNotImplementedError("virDomainLxcEnterCGroup")
+		return makeNotImplementedError("virDomainLxcEnterCGroup")
 	}
 
-	ret := C.virDomainLxcEnterCGroupCompat(d.ptr, C.uint(flags))
+	var err C.virError
+	ret := C.virDomainLxcEnterCGroupWrapper(d.ptr, C.uint(flags), &err)
 
 	if ret == -1 {
-		return GetLastError()
+		return makeError(&err)
 	}
 
 	return nil
