@@ -319,12 +319,14 @@ var _ = Describe("Converter", func() {
       <model type="virtio"></model>
       <alias name="default"></alias>
     </interface>
+    <controller type="usb" index="0" model="none"></controller>
     <video>
       <model type="vga" heads="1" vram="16384"></model>
     </video>
     <graphics type="vnc">
       <listen type="socket" socket="/var/run/kubevirt-private/f4686d2c-6e8d-4335-b8fd-81bee22f4814/virt-vnc"></listen>
     </graphics>
+    <memballoon model="none"></memballoon>
     <disk device="disk" type="file">
       <source file="/var/run/kubevirt-private/vmi-disks/myvolume/disk.img"></source>
       <target bus="virtio" dev="vda"></target>

@@ -11,6 +11,22 @@ const (
 	DefaultBridgeName   = "br1"
 )
 
+func SetDefaults_Devices(devices *Devices) {
+	// Set default controllers, "none" means that controller disabled
+	devices.Controllers = []Controller{
+		{
+			Type:  "usb",
+			Index: "0",
+			Model: "none",
+		},
+	}
+	// Set default memballoon, "none" means that controller disabled
+	devices.Ballooning = &Ballooning{
+		Model: "none",
+	}
+
+}
+
 func SetDefaults_OSType(ostype *OSType) {
 	ostype.OS = "hvm"
 
