@@ -39,8 +39,9 @@ func (DomainPresetSpec) SwaggerDoc() map[string]string {
 
 func (ResourceRequirements) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"requests": "Requests is a description of the initial vmi resources.\nValid resource keys are \"memory\" and \"cpu\".\n+optional",
-		"limits":   "Limits describes the maximum amount of compute resources allowed.\nValid resource keys are \"memory\" and \"cpu\".\n+optional",
+		"requests":                "Requests is a description of the initial vmi resources.\nValid resource keys are \"memory\" and \"cpu\".\n+optional",
+		"limits":                  "Limits describes the maximum amount of compute resources allowed.\nValid resource keys are \"memory\" and \"cpu\".\n+optional",
+		"overcommitGuestOverhead": "Don't ask the scheduler to take the guest-management overhead into account. Instead\nput the overhead only into the requested memory limits. This can lead to crashes if\nall memory is in use on a node. Defaults to false.",
 	}
 }
 
@@ -80,10 +81,11 @@ func (Firmware) SwaggerDoc() map[string]string {
 
 func (Devices) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"disks":                  "Disks describes disks, cdroms, floppy and luns which are connected to the vmi.",
-		"watchdog":               "Watchdog describes a watchdog device which can be added to the vmi.",
-		"interfaces":             "Interfaces describe network interfaces which are added to the vm.",
-		"autoattachPodInterface": "Whether to attach a pod network interface. Defaults to true.",
+		"disks":                    "Disks describes disks, cdroms, floppy and luns which are connected to the vmi.",
+		"watchdog":                 "Watchdog describes a watchdog device which can be added to the vmi.",
+		"interfaces":               "Interfaces describe network interfaces which are added to the vm.",
+		"autoattachPodInterface":   "Whether to attach a pod network interface. Defaults to true.",
+		"autoattachGraphicsDevice": "Wheater to attach the default graphics device or not.\nVNC will not be available if set to false. Defaults to true.",
 	}
 }
 
