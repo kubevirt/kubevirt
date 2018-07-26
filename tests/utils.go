@@ -1601,13 +1601,25 @@ func GetNodeCPUInfo(nodeName string) string {
 
 // KubevirtFailHandler call ginkgo.Fail with printing the additional information
 func KubevirtFailHandler(message string, callerSkip ...int) {
+	if len(callerSkip) > 0 {
+		callerSkip[0]++
+	}
+
 	virtClient, err := kubecli.GetKubevirtClient()
-	PanicOnError(err)
+	if err != nil {
+		fmt.Println(err)
+		Fail(message, callerSkip...)
+		return
+	}
 
 	for _, ns := range []string{metav1.NamespaceSystem, NamespaceTestDefault} {
 		// Get KubeVirt specific pods information
 		pods, err := virtClient.CoreV1().Pods(ns).List(metav1.ListOptions{LabelSelector: "kubevirt.io"})
-		PanicOnError(err)
+		if err != nil {
+			fmt.Println(err)
+			Fail(message, callerSkip...)
+			return
+		}
 
 		for _, pod := range pods.Items {
 			fmt.Printf("\nPod name: %s\t Pod phase: %s\n\n", pod.Name, pod.Status.Phase)
@@ -1626,10 +1638,6 @@ func KubevirtFailHandler(message string, callerSkip ...int) {
 				fmt.Printf(string(logsRaw))
 			}
 		}
-	}
-
-	if len(callerSkip) > 0 {
-		callerSkip[0]++
 	}
 	Fail(message, callerSkip...)
 }
