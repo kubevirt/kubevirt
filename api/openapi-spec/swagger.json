@@ -3898,12 +3898,18 @@
      }
     }
    },
+   "v1.MultusNetwork": {
+    "description": "Represents the multus cni network."
+   },
    "v1.Network": {
     "description": "Network represents a network type and a resource that should be connected to the vm.",
     "required": [
      "name"
     ],
     "properties": {
+     "multus": {
+      "$ref": "#/definitions/v1.MultusNetwork"
+     },
      "name": {
       "description": "Network name.\nMust be a DNS_LABEL and unique within the vm.\nMore info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names",
       "type": "string"

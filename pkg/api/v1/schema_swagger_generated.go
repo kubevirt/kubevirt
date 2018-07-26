@@ -369,3 +369,9 @@ func (PodNetwork) SwaggerDoc() map[string]string {
 		"vmNetworkCIDR": "CIDR for vm network.\nDefault 10.0.2.0/24 if not specified.",
 	}
 }
+
+func (MultusNetwork) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"": "Represents the multus cni network.",
+	}
+}

@@ -173,6 +173,9 @@ func formClasslessRoutes(routes *[]netlink.Route) (formattedRoutes []byte) {
 	//              192.168.1/24, gateway: 192.168.2.3
 	//		would result in the following structure:
 	//      []byte{8, 10, 10, 1, 2, 3, 24, 192, 168, 1, 192, 168, 2, 3}
+	if routes == nil {
+		return []byte{}
+	}
 
 	sortedRoutes := sortRoutes(*routes)
 	for _, route := range sortedRoutes {

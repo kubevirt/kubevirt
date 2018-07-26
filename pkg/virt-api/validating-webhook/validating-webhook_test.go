@@ -707,19 +707,6 @@ var _ = Describe("Validating Webhook", func() {
 			Expect(len(causes)).To(Equal(1))
 			Expect(causes[0].Field).To(Equal("fake.domain.devices.interfaces[0].name"))
 		})
-		It("should only accept networks with a pod network source ", func() {
-			vm := v1.NewMinimalVMI("testvm")
-			vm.Spec.Domain.Devices.Interfaces = []v1.Interface{*v1.DefaultNetworkInterface()}
-			vm.Spec.Networks = []v1.Network{
-				v1.Network{
-					Name:          "default",
-					NetworkSource: v1.NetworkSource{},
-				},
-			}
-			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vm.Spec)
-			Expect(len(causes)).To(Equal(2))
-			Expect(causes[0].Field).To(Equal("fake.networks[0].pod"))
-		})
 		It("should accept networks with a pod network source and bridge interface", func() {
 			vm := v1.NewMinimalVMI("testvm")
 			vm.Spec.Domain.Devices.Interfaces = []v1.Interface{*v1.DefaultNetworkInterface()}
@@ -732,6 +719,36 @@ var _ = Describe("Validating Webhook", func() {
 
 			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vm.Spec)
 			Expect(len(causes)).To(Equal(0))
+		})
+		It("should accept networks with a multus network source and bridge interface", func() {
+			vm := v1.NewMinimalVMI("testvm")
+			vm.Spec.Domain.Devices.Interfaces = []v1.Interface{*v1.DefaultNetworkInterface()}
+			vm.Spec.Networks = []v1.Network{
+				v1.Network{
+					Name:          "default",
+					NetworkSource: v1.NetworkSource{Multus: &v1.MultusNetwork{}},
+				},
+			}
+
+			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vm.Spec)
+			Expect(len(causes)).To(Equal(0))
+		})
+		It("should reject networks with a multus network source and slirp interface", func() {
+			vm := v1.NewMinimalVMI("testvm")
+			vm.Spec.Domain.Devices.Interfaces = []v1.Interface{v1.Interface{
+				Name: "default",
+				InterfaceBindingMethod: v1.InterfaceBindingMethod{
+					Slirp: &v1.InterfaceSlirp{},
+				}}}
+			vm.Spec.Networks = []v1.Network{
+				v1.Network{
+					Name:          "default",
+					NetworkSource: v1.NetworkSource{Multus: &v1.MultusNetwork{}},
+				},
+			}
+
+			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vm.Spec)
+			Expect(len(causes)).To(Equal(1))
 		})
 		It("should accept networks with a pod network source and slirp interface", func() {
 			vm := v1.NewMinimalVMI("testvm")
@@ -1334,6 +1351,30 @@ var _ = Describe("Function getNumberOfPodInterfaces()", func() {
 		spec.Networks = []v1.Network{net1, net2}
 		spec.Domain.Devices.Interfaces = []v1.Interface{iface1, iface2}
 		Expect(getNumberOfPodInterfaces(spec)).To(Equal(2))
+	})
+	It("should reject when not network source is configured", func() {
+		spec := &v1.VirtualMachineInstanceSpec{}
+		net1 := v1.Network{
+			NetworkSource: v1.NetworkSource{},
+			Name:          "testnet1",
+		}
+		iface1 := v1.Interface{Name: net1.Name}
+		spec.Networks = []v1.Network{net1}
+		spec.Domain.Devices.Interfaces = []v1.Interface{iface1}
+		causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), spec)
+		Expect(causes).To(HaveLen(1))
+	})
+	It("should reject when more then one network source is configured", func() {
+		spec := &v1.VirtualMachineInstanceSpec{}
+		net1 := v1.Network{
+			NetworkSource: v1.NetworkSource{Pod: &v1.PodNetwork{}, Multus: &v1.MultusNetwork{}},
+			Name:          "testnet1",
+		}
+		iface1 := v1.Interface{Name: net1.Name}
+		spec.Networks = []v1.Network{net1}
+		spec.Domain.Devices.Interfaces = []v1.Interface{iface1}
+		causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), spec)
+		Expect(causes).To(HaveLen(1))
 	})
 	It("should work when boot order is given to interfaces", func() {
 		spec := &v1.VirtualMachineInstanceSpec{}

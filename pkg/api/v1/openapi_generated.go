@@ -981,6 +981,15 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 			Dependencies: []string{
 				"k8s.io/apimachinery/pkg/api/resource.Quantity", "kubevirt.io/kubevirt/pkg/api/v1.Hugepages"},
 		},
+		"kubevirt.io/kubevirt/pkg/api/v1.MultusNetwork": {
+			Schema: spec.Schema{
+				SchemaProps: spec.SchemaProps{
+					Description: "Represents the multus cni network.",
+					Properties:  map[string]spec.Schema{},
+				},
+			},
+			Dependencies: []string{},
+		},
 		"kubevirt.io/kubevirt/pkg/api/v1.Network": {
 			Schema: spec.Schema{
 				SchemaProps: spec.SchemaProps{
@@ -998,12 +1007,17 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 								Ref: ref("kubevirt.io/kubevirt/pkg/api/v1.PodNetwork"),
 							},
 						},
+						"multus": {
+							SchemaProps: spec.SchemaProps{
+								Ref: ref("kubevirt.io/kubevirt/pkg/api/v1.MultusNetwork"),
+							},
+						},
 					},
 					Required: []string{"name"},
 				},
 			},
 			Dependencies: []string{
-				"kubevirt.io/kubevirt/pkg/api/v1.PodNetwork"},
+				"kubevirt.io/kubevirt/pkg/api/v1.MultusNetwork", "kubevirt.io/kubevirt/pkg/api/v1.PodNetwork"},
 		},
 		"kubevirt.io/kubevirt/pkg/api/v1.NetworkSource": {
 			Schema: spec.Schema{
@@ -1015,11 +1029,16 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 								Ref: ref("kubevirt.io/kubevirt/pkg/api/v1.PodNetwork"),
 							},
 						},
+						"multus": {
+							SchemaProps: spec.SchemaProps{
+								Ref: ref("kubevirt.io/kubevirt/pkg/api/v1.MultusNetwork"),
+							},
+						},
 					},
 				},
 			},
 			Dependencies: []string{
-				"kubevirt.io/kubevirt/pkg/api/v1.PodNetwork"},
+				"kubevirt.io/kubevirt/pkg/api/v1.MultusNetwork", "kubevirt.io/kubevirt/pkg/api/v1.PodNetwork"},
 		},
 		"kubevirt.io/kubevirt/pkg/api/v1.PITTimer": {
 			Schema: spec.Schema{

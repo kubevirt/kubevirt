@@ -63,11 +63,11 @@ func findInterfaceByName(ifaces []api.Interface, name string) (int, error) {
 }
 
 // Plug connect a Pod network device to the virtual machine
-func (l *PodInterface) Plug(iface *v1.Interface, network *v1.Network, domain *api.Domain) error {
+func (l *PodInterface) Plug(iface *v1.Interface, network *v1.Network, domain *api.Domain, podInterfaceName string) error {
 	precond.MustNotBeNil(domain)
 	initHandler()
 
-	driver, err := getBinding(iface, domain)
+	driver, err := getBinding(iface, domain, podInterfaceName)
 	if err != nil {
 		return err
 	}
@@ -106,7 +106,7 @@ func (l *PodInterface) Plug(iface *v1.Interface, network *v1.Network, domain *ap
 	return nil
 }
 
-func getBinding(iface *v1.Interface, domain *api.Domain) (BindMechanism, error) {
+func getBinding(iface *v1.Interface, domain *api.Domain, podInterfaceName string) (BindMechanism, error) {
 	podInterfaceNum, err := findInterfaceByName(domain.Spec.Devices.Interfaces, iface.Name)
 	if err != nil {
 		return nil, err
@@ -126,7 +126,7 @@ func getBinding(iface *v1.Interface, domain *api.Domain) (BindMechanism, error) 
 	if iface.Bridge != nil {
 		vif := &VIF{Name: podInterface}
 		populateMacAddress(vif, iface)
-		return &BridgePodInterface{iface: iface, vif: vif, domain: domain, podInterfaceNum: podInterfaceNum}, nil
+		return &BridgePodInterface{iface: iface, vif: vif, domain: domain, podInterfaceNum: podInterfaceNum, podInterfaceName: podInterfaceName}, nil
 	}
 	if iface.Slirp != nil {
 		return &SlirpPodInterface{iface: iface, domain: domain, podInterfaceNum: podInterfaceNum}, nil
@@ -135,17 +135,19 @@ func getBinding(iface *v1.Interface, domain *api.Domain) (BindMechanism, error) 
 }
 
 type BridgePodInterface struct {
-	vif             *VIF
-	iface           *v1.Interface
-	podNicLink      netlink.Link
-	domain          *api.Domain
-	podInterfaceNum int
+	vif              *VIF
+	iface            *v1.Interface
+	podNicLink       netlink.Link
+	domain           *api.Domain
+	isLayer2         bool
+	podInterfaceNum  int
+	podInterfaceName string
 }
 
 func (b *BridgePodInterface) discoverPodNetworkInterface() error {
-	link, err := Handler.LinkByName(podInterface)
+	link, err := Handler.LinkByName(b.podInterfaceName)
 	if err != nil {
-		log.Log.Reason(err).Errorf("failed to get a link for interface: %s", podInterface)
+		log.Log.Reason(err).Errorf("failed to get a link for interface: %s", b.podInterfaceName)
 		return err
 	}
 	b.podNicLink = link
@@ -153,24 +155,21 @@ func (b *BridgePodInterface) discoverPodNetworkInterface() error {
 	// get IP address
 	addrList, err := Handler.AddrList(b.podNicLink, netlink.FAMILY_V4)
 	if err != nil {
-		log.Log.Reason(err).Errorf("failed to get an ip address for %s", podInterface)
+		log.Log.Reason(err).Errorf("failed to get an ip address for %s", b.podInterfaceName)
 		return err
 	}
 	if len(addrList) == 0 {
-		return fmt.Errorf("No IP address found on %s", podInterface)
-	}
-	b.vif.IP = addrList[0]
-
-	// Handle interface routes
-	if err := b.setInterfaceRoutes(); err != nil {
-		return err
+		b.isLayer2 = true
+	} else {
+		b.vif.IP = addrList[0]
+		b.isLayer2 = false
 	}
 
 	if len(b.vif.MAC) == 0 {
 		// Get interface MAC address
-		mac, err := Handler.GetMacDetails(podInterface)
+		mac, err := Handler.GetMacDetails(b.podInterfaceName)
 		if err != nil {
-			log.Log.Reason(err).Errorf("failed to get MAC for %s", podInterface)
+			log.Log.Reason(err).Errorf("failed to get MAC for %s", b.podInterfaceName)
 			return err
 		}
 		b.vif.MAC = mac
@@ -178,41 +177,50 @@ func (b *BridgePodInterface) discoverPodNetworkInterface() error {
 
 	// Get interface MTU
 	b.vif.Mtu = uint16(b.podNicLink.Attrs().MTU)
+
+	if !b.isLayer2 {
+		// Handle interface routes
+		if err := b.setInterfaceRoutes(); err != nil {
+			return err
+		}
+	}
 	return nil
 }
 
 func (b *BridgePodInterface) preparePodNetworkInterfaces() error {
-	// Remove IP from POD interface
-	err := Handler.AddrDel(b.podNicLink, &b.vif.IP)
-
-	if err != nil {
-		log.Log.Reason(err).Errorf("failed to delete link for interface: %s", podInterface)
+	if err := b.createDefaultBridge(); err != nil {
 		return err
+	}
+
+	if !b.isLayer2 {
+		// Remove IP from POD interface
+		err := Handler.AddrDel(b.podNicLink, &b.vif.IP)
+
+		if err != nil {
+			log.Log.Reason(err).Errorf("failed to delete address for interface: %s", b.podInterfaceName)
+			return err
+		}
+
+		b.startDHCPServer()
 	}
 
 	// Set interface link to down to change its MAC address
-	err = Handler.LinkSetDown(b.podNicLink)
+	err := Handler.LinkSetDown(b.podNicLink)
 	if err != nil {
-		log.Log.Reason(err).Errorf("failed to bring link down for interface: %s", podInterface)
+		log.Log.Reason(err).Errorf("failed to bring link down for interface: %s", b.podInterfaceName)
 		return err
 	}
 
-	_, err = Handler.SetRandomMac(podInterface)
+	_, err = Handler.SetRandomMac(b.podInterfaceName)
 	if err != nil {
 		return err
 	}
 
 	err = Handler.LinkSetUp(b.podNicLink)
 	if err != nil {
-		log.Log.Reason(err).Errorf("failed to bring link up for interface: %s", podInterface)
+		log.Log.Reason(err).Errorf("failed to bring link up for interface: %s", b.podInterfaceName)
 		return err
 	}
-
-	if err := b.createDefaultBridge(); err != nil {
-		return err
-	}
-
-	b.startDHCPServer()
 
 	return nil
 }
@@ -253,11 +261,11 @@ func (b *BridgePodInterface) setCachedInterface(name string) error {
 func (b *BridgePodInterface) setInterfaceRoutes() error {
 	routes, err := Handler.RouteList(b.podNicLink, netlink.FAMILY_V4)
 	if err != nil {
-		log.Log.Reason(err).Errorf("failed to get routes for %s", podInterface)
+		log.Log.Reason(err).Errorf("failed to get routes for %s", b.podInterfaceName)
 		return err
 	}
 	if len(routes) == 0 {
-		return fmt.Errorf("No gateway address found in routes for %s", podInterface)
+		return fmt.Errorf("No gateway address found in routes for %s", b.podInterfaceName)
 	}
 	b.vif.Gateway = routes[0].Gw
 	if len(routes) > 1 {
