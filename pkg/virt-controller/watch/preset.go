@@ -190,7 +190,7 @@ func applyNamespaceLimitRangeValues(vmi *kubev1.VirtualMachineInstance, limitran
 	if vmiResources.Limits == nil || !isMemoryFieldExist(vmiResources.Limits) {
 
 		namespaceMemLimit, err := getNamespaceLimits(vmi.Namespace, limitrangeInformer)
-		if err == nil {
+		if err == nil && !namespaceMemLimit.IsZero() {
 			if vmiResources.Limits == nil {
 				vmi.Spec.Domain.Resources.Limits = make(k8sv1.ResourceList)
 			}
@@ -221,9 +221,6 @@ func getNamespaceLimits(namespace string, limitrangeInformer cache.SharedIndexIn
 				}
 			}
 		}
-	}
-	if finalLimit.IsZero() {
-		return nil, fmt.Errorf("failed to find namespace memory limits")
 	}
 	return finalLimit, nil
 }
