@@ -249,6 +249,7 @@ type Devices struct {
 	Serials     []Serial     `xml:"serial"`
 	Consoles    []Console    `xml:"console"`
 	Watchdog    *Watchdog    `xml:"watchdog,omitempty"`
+	Rng         *Rng         `xml:"rng,omitempty"`
 }
 
 // BEGIN Controller -----------------------------
@@ -573,16 +574,29 @@ type Ballooning struct {
 	Model string `xml:"model,attr"`
 }
 
-type RandomGenerator struct {
-}
-
 type Watchdog struct {
 	Model  string `xml:"model,attr"`
 	Action string `xml:"action,attr"`
 	Alias  *Alias `xml:"alias,omitempty"`
 }
 
-// TODO ballooning, rng, cpu ...
+type Rng struct {
+	Model   string      `xml:"model,attr"`
+	Rate    *RngRate    `xml:"rate,omitempty"`
+	Backend *RngBackend `xml:"backend,omitempty"`
+}
+
+type RngRate struct {
+	Period uint32 `xml:"period,attr"`
+	Bytes  uint32 `xml:"bytes,attr"`
+}
+
+type RngBackend struct {
+	Model  string `xml:"model,attr"`
+	Source string `xml:",chardata"`
+}
+
+// TODO ballooning, cpu ...
 
 type SecretUsage struct {
 	Type   string `xml:"type,attr"`
