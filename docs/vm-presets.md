@@ -108,6 +108,23 @@ metadata:
   ...
 ```
 
+Priority
+------------------------
+Presets are applied sequentially to `VirtualMachineInstance`s, in a not-specified order.
+Optionally, presets may be annotated with a `priority` value. The value must be a non-negative
+integer. The `priority` value is used to sort the presets when applying them.
+Presets will be applied in decreasing priority order; if two presets have the same priority,
+they will be applied in an unspecified order.
+If priority is not specified, the default value is zero, the minimum possible priority.
+
+```yaml
+kind: VirtualMachineInstancePreset
+metadata:
+  name: example-preset
+  annotations:
+    virtualmachineinstancepresets.admission.kubevirt.io/priority: "10"
+  ...
+```
 
 Examples
 =============================

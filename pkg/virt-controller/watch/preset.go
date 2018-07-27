@@ -23,6 +23,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"reflect"
+	"sort"
+	"strconv"
 	"time"
 
 	k8sv1 "k8s.io/api/core/v1"
@@ -52,6 +54,7 @@ type VirtualMachinePresetController struct {
 
 const initializerMarking = "presets.virtualmachines." + kubev1.GroupName + "/presets-applied"
 const exclusionMarking = "virtualmachineinstancepresets.admission.kubevirt.io/exclude"
+const priorityMarking = "virtualmachineinstancepresets.admission.kubevirt.io/priority"
 
 func NewVirtualMachinePresetController(vmiPresetInformer cache.SharedIndexInformer, vmiInitInformer cache.SharedIndexInformer, queue workqueue.RateLimitingInterface, vmiInitCache cache.Store, clientset kubecli.KubevirtClient, recorder record.EventRecorder) *VirtualMachinePresetController {
 	vmii := VirtualMachinePresetController{
@@ -182,7 +185,46 @@ func listPresets(vmiPresetInformer cache.SharedIndexInformer, namespace string) 
 		result = append(result, *vmi)
 	})
 
-	return result, err
+	if err != nil {
+		return result, err
+	}
+	return sortPresets(result), nil
+}
+
+// sortPresets sorts and returns a slice of VirtualMachinePresets, using optional annotations.
+func sortPresets(presets []kubev1.VirtualMachineInstancePreset) []kubev1.VirtualMachineInstancePreset {
+	sort.Stable(byPriority(presets))
+	return presets
+}
+
+type byPriority []kubev1.VirtualMachineInstancePreset
+
+// sort.Interface.
+func (p byPriority) Len() int {
+	return len(p)
+}
+
+func (p byPriority) Swap(i, j int) {
+	p[i], p[j] = p[j], p[i]
+}
+
+// Less is part of sort.Interface. It is implemented by calling the "by" closure in the sorter.
+func (p byPriority) Less(i, j int) bool {
+	var prio1, prio2 int
+	var err1, err2 error
+	if value1, ok := p[i].Annotations[priorityMarking]; ok {
+		prio1, err1 = strconv.Atoi(value1)
+	}
+	if value2, ok := p[j].Annotations[priorityMarking]; ok {
+		prio2, err2 = strconv.Atoi(value2)
+	}
+	// only if we succesfully parsed both priorities we can make a meaningful comparation
+	if err1 != nil || err2 != nil {
+		return true
+	}
+	// intentionally using ">" here. The higher the priority, the sooner the preset should
+	// be in the sequence, so the earlier will be applied
+	return prio1 > prio2
 }
 
 // filterPresets returns list of VirtualMachinePresets which match given VirtualMachineInstance.
