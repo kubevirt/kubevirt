@@ -238,20 +238,20 @@ func (w *ObjectEventWatcher) Watch(processFunc ProcessFunc) {
 	if w.failOnWarnings {
 		f = func(event *k8sv1.Event) bool {
 			if event.Type == string(WarningEvent) {
-				log.Log.Reason(fmt.Errorf("unexpected warning event received")).Error(event.Message)
+				log.Log.Reason(fmt.Errorf("unexpected warning event received")).ObjectRef(&event.InvolvedObject).Error(event.Message)
 			} else {
-				log.Log.Infof(event.Message)
+				log.Log.ObjectRef(&event.InvolvedObject).Infof(event.Message)
 			}
-			Expect(event.Type).NotTo(Equal(string(WarningEvent)), "Unexpected Warning event received.")
+			Expect(event.Type).NotTo(Equal(string(WarningEvent)), "Unexpected Warning event received: %s,%s: %s", event.InvolvedObject.Name, event.InvolvedObject.UID, event.Message)
 			return processFunc(event)
 		}
 
 	} else {
 		f = func(event *k8sv1.Event) bool {
 			if event.Type == string(WarningEvent) {
-				log.Log.Reason(fmt.Errorf("unexpected warning event received")).Error(event.Message)
+				log.Log.ObjectRef(&event.InvolvedObject).Reason(fmt.Errorf("Warning event received")).Error(event.Message)
 			} else {
-				log.Log.Infof(event.Message)
+				log.Log.ObjectRef(&event.InvolvedObject).Infof(event.Message)
 			}
 			return processFunc(event)
 		}
@@ -267,16 +267,11 @@ func (w *ObjectEventWatcher) Watch(processFunc ProcessFunc) {
 		panic(err)
 	}
 	defer eventWatcher.Stop()
-	timedOut := false
 	done := make(chan struct{})
 
 	go func() {
 		defer GinkgoRecover()
 		for obj := range eventWatcher.ResultChan() {
-			if timedOut {
-				// If some events are still in the queue, make sure we don't process them anymore
-				break
-			}
 			if f(obj.Object.(*k8sv1.Event)) {
 				close(done)
 				break

@@ -290,6 +290,7 @@ var _ = Describe("VMIlifecycle", func() {
 				err = pkillAllLaunchers(virtClient, nodeName)
 				Expect(err).To(BeNil())
 
+				By("Waiting for the vm to be stopped")
 				tests.NewObjectEventWatcher(vmi).SinceWatchedObjectResourceVersion().Timeout(60*time.Second).WaitFor(tests.WarningEvent, v1.Stopped)
 
 				By("Checking that VirtualMachineInstance has 'Failed' phase")

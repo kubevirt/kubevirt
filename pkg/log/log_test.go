@@ -29,6 +29,8 @@ import (
 
 	v12 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	k8sv1 "k8s.io/api/core/v1"
+
 	"kubevirt.io/kubevirt/pkg/api/v1"
 )
 
@@ -273,6 +275,31 @@ func TestObject(t *testing.T) {
 	log.SetLogLevel(INFO)
 	vm := v1.VirtualMachineInstance{ObjectMeta: v12.ObjectMeta{Namespace: "test"}}
 	log.Object(&vm).Log("test", "message")
+	logEntry := logParams[0].([]interface{})
+	assert(t, logEntry[0].(string) == "level", "Logged line did not have level entry")
+	assert(t, logEntry[1].(string) == logLevelNames[INFO], "Logged line was not of level INFO")
+	assert(t, logEntry[2].(string) == "timestamp", "Logged line is not expected format")
+	assert(t, logEntry[4].(string) == "pos", "Logged line was not pos")
+	assert(t, logEntry[6].(string) == "component", "Logged line is not expected format")
+	assert(t, logEntry[7].(string) == "test", "Component was not logged")
+	assert(t, logEntry[8].(string) == "namespace", "Logged line did not contain object namespace")
+	assert(t, logEntry[10].(string) == "name", "Logged line did not contain object name")
+	assert(t, logEntry[12].(string) == "kind", "Logged line did not contain object kind")
+	assert(t, logEntry[14].(string) == "uid", "Logged line did not contain UUID")
+	tearDown()
+}
+
+func TestObjectRef(t *testing.T) {
+	setUp()
+	log := MakeLogger(MockLogger{})
+	log.SetLogLevel(INFO)
+	vmRef := &k8sv1.ObjectReference{
+		Kind:      "test",
+		Name:      "test",
+		Namespace: "test",
+		UID:       "test",
+	}
+	log.ObjectRef(vmRef).Log("test", "message")
 	logEntry := logParams[0].([]interface{})
 	assert(t, logEntry[0].(string) == "level", "Logged line did not have level entry")
 	assert(t, logEntry[1].(string) == logLevelNames[INFO], "Logged line was not of level INFO")
