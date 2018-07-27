@@ -106,6 +106,8 @@ const (
 	NamespaceTestAlternative = "kubevirt-test-alternative"
 )
 
+const LocalStorageClass = "local"
+
 var testNamespaces = []string{NamespaceTestDefault, NamespaceTestAlternative}
 
 type startType string
@@ -393,6 +395,8 @@ func newPVC(os string, size string) *k8sv1.PersistentVolumeClaim {
 	PanicOnError(err)
 
 	name := fmt.Sprintf("disk-%s", os)
+	storageClass := LocalStorageClass
+
 	return &k8sv1.PersistentVolumeClaim{
 		ObjectMeta: metav1.ObjectMeta{Name: name},
 		Spec: k8sv1.PersistentVolumeClaimSpec{
@@ -407,6 +411,7 @@ func newPVC(os string, size string) *k8sv1.PersistentVolumeClaim {
 					"kubevirt.io/test": os,
 				},
 			},
+			StorageClassName: &storageClass,
 		},
 	}
 }
@@ -419,7 +424,6 @@ func CreateHostPathPv(os string, hostPath string) {
 	PanicOnError(err)
 
 	name := fmt.Sprintf("%s-disk-for-tests", os)
-	hostPathType := k8sv1.HostPathDirectoryOrCreate
 	pv := &k8sv1.PersistentVolume{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: name,
@@ -434,9 +438,24 @@ func CreateHostPathPv(os string, hostPath string) {
 			},
 			PersistentVolumeReclaimPolicy: k8sv1.PersistentVolumeReclaimRetain,
 			PersistentVolumeSource: k8sv1.PersistentVolumeSource{
-				HostPath: &k8sv1.HostPathVolumeSource{
+				Local: &k8sv1.LocalVolumeSource{
 					Path: hostPath,
-					Type: &hostPathType,
+				},
+			},
+			StorageClassName: LocalStorageClass,
+			NodeAffinity: &k8sv1.VolumeNodeAffinity{
+				Required: &k8sv1.NodeSelector{
+					NodeSelectorTerms: []k8sv1.NodeSelectorTerm{
+						{
+							MatchExpressions: []k8sv1.NodeSelectorRequirement{
+								{
+									Key:      "kubernetes.io/hostname",
+									Operator: k8sv1.NodeSelectorOpIn,
+									Values:   []string{"node01"},
+								},
+							},
+						},
+					},
 				},
 			},
 		},
