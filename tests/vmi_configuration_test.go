@@ -328,7 +328,9 @@ var _ = Describe("Configurations", func() {
 			})
 
 			It("should have the virtio rng device present", func() {
-				rngVmi.Spec.Domain.Devices.Rng.Source = "/dev/urandom"
+				rngVmi.Spec.Domain.Devices.Rng = &v1.Rng{
+					Source: "/dev/urandom",
+				}
 
 				By("Starting a VirtualMachineInstance")
 				rngVmi, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(rngVmi)

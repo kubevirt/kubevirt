@@ -248,7 +248,9 @@ func Convert_v1_Rng_To_api_Rng(source *v1.Rng, rng *Rng, _ *ConverterContext) er
 	rng.Model = "virtio"
 
 	// default backend model, random for /dev/random and /dev/urandom
-	rng.Backend.Model = "random"
+	rng.Backend = &RngBackend{
+		Model: "random",
+	}
 
 	// the source used to get the entropy
 	if source.Source == "" {
@@ -259,7 +261,9 @@ func Convert_v1_Rng_To_api_Rng(source *v1.Rng, rng *Rng, _ *ConverterContext) er
 	// limiting factor used to limit the access to rng device
 	// used to prevend ddos from guest machine
 	if source.RateBytes != nil {
-		rng.Rate.Bytes = *source.RateBytes
+		rng.Rate = &RngRate{
+			Bytes: *source.RateBytes,
+		}
 	}
 	if source.RatePeriod != nil {
 		rng.Rate.Period = *source.RatePeriod
