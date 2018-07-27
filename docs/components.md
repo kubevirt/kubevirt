@@ -1,7 +1,5 @@
 # Components
 
-Make sure to check out the [Glossary](glossary.md) before continuing.
-
 ## Overview
 
 KubeVirt consists of a set of services:

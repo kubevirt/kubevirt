@@ -58,7 +58,6 @@ You can learn more about how KubeVirt is designed (and why it is that way),
 and learn more about the major components by taking a look at
 [our developer documentation](docs/):
 
- * [Glossary](docs/glossary.md) - Explaining the most important terms
  * [Architecture](docs/architecture.md) - High-level view on the architecture
  * [Components](docs/components.md) - Detailed look at all components
  * [API Reference](https://www.kubevirt.io/api-reference/)
