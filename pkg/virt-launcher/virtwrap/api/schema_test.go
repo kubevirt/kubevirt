@@ -189,6 +189,30 @@ var _ = Describe("Schema", func() {
 			fmt.Printf(string(buf))
 			Expect(string(buf)).To(Equal(exampleXML))
 		})
+	})
+	Context("With cpu pinning", func() {
+		var testXML = `<cputune>
+<vcpupin vcpu="0" cpuset="1"/>
+<vcpupin vcpu="1" cpuset="5"/>
+</cputune>`
+		var exampleCpuTune = CPUTune{
+			VCPUPin: []CPUTuneVCPUPin{
+				CPUTuneVCPUPin{
+					VCPU:   0,
+					CPUSet: "1",
+				},
+				CPUTuneVCPUPin{
+					VCPU:   1,
+					CPUSet: "5",
+				},
+			},
+		}
 
+		It("Unmarshal into struct", func() {
+			newCpuTune := CPUTune{}
+			err := xml.Unmarshal([]byte(testXML), &newCpuTune)
+			Expect(err).To(BeNil())
+			Expect(newCpuTune).To(Equal(exampleCpuTune))
+		})
 	})
 })
