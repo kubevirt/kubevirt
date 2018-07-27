@@ -319,6 +319,36 @@ var _ = Describe("Configurations", func() {
 				})
 			})
 		})
+
+		Context("with rng", func() {
+			var rngVmi *v1.VirtualMachineInstance
+
+			BeforeEach(func() {
+				rngVmi = tests.NewRandomVMIWithEphemeralDisk(tests.RegistryDiskFor(tests.RegistryDiskAlpine))
+			})
+
+			It("should have the virtio rng device present", func() {
+				rngVmi.Spec.Domain.Devices.Rng.Source = "/dev/urandom"
+
+				By("Starting a VirtualMachineInstance")
+				rngVmi, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(rngVmi)
+				Expect(err).ToNot(HaveOccurred())
+				tests.WaitForSuccessfulVMIStart(rngVmi)
+
+				By("Expecting the VirtualMachineInstance console")
+				expecter, err := tests.LoggedInAlpineExpecter(rngVmi)
+				Expect(err).ToNot(HaveOccurred())
+				defer expecter.Close()
+
+				By("Checking the virtio rng presence")
+				_, err = expecter.ExpectBatch([]expect.Batcher{
+					&expect.BSnd{S: "grep -c ^virtio /sys/devices/virtual/misc/hw_random/rng_available\n"},
+					&expect.BExp{R: "1"},
+				}, 250*time.Second)
+				Expect(err).ToNot(HaveOccurred())
+			}, 300)
+
+		})
 	})
 
 	Context("with CPU spec", func() {
