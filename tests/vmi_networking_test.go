@@ -158,6 +158,10 @@ var _ = Describe("Networking", func() {
 	table.DescribeTable("should be able to reach", func(destination string) {
 		var cmdCheck, addrShow, addr string
 
+		if destination == "InboundVMIWithCustomMacAddress" {
+			tests.SkipIfOpenShift("Custom MAC addresses on pod networks are not suppored")
+		}
+
 		// assuming pod network is of standard MTU = 1500 (minus 50 bytes for vxlan overhead)
 		expectedMtu := 1450
 		ipHeaderSize := 28 // IPv4 specific
