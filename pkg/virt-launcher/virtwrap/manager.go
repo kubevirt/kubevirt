@@ -157,6 +157,14 @@ func (l *LibvirtDomainManager) SyncVMI(vmi *v1.VirtualMachineInstance, useEmulat
 	// Set defaults which are not coming from the cluster
 	api.SetObjectDefaults_Domain(domain)
 
+	// Adjust guest vcpu config. Currenty will handle vCPUs to pCPUs pinning
+	if vmi.Spec.Domain.CPU != nil && vmi.Spec.Domain.CPU.DedicatedCPUPlacement {
+		if err := formatDomainCPUTune(vmi, domain); err != nil {
+			logger.Reason(err).Error("failed to format domain cputune.")
+			return nil, err
+		}
+	}
+
 	dom, err := l.virConn.LookupDomainByName(domain.Spec.Name)
 	newDomain := false
 	if err != nil {
