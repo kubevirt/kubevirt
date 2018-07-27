@@ -579,7 +579,6 @@ var _ = Describe("VirtualMachineInstance Initializer", func() {
 	})
 
 	Context("Sorting by priority", func() {
-		var vmi v1.VirtualMachineInstance
 		var preset1 v1.VirtualMachineInstancePreset
 		var preset2 v1.VirtualMachineInstancePreset
 		var preset3 v1.VirtualMachineInstancePreset
@@ -587,11 +586,7 @@ var _ = Describe("VirtualMachineInstance Initializer", func() {
 		m64, _ := resource.ParseQuantity("64M")
 		m128, _ := resource.ParseQuantity("128M")
 
-		var recorder FakeRecorder
-
 		BeforeEach(func() {
-			vmi = v1.VirtualMachineInstance{ObjectMeta: k8smetav1.ObjectMeta{Name: "test-vmi"}}
-
 			preset1 = v1.VirtualMachineInstancePreset{
 				ObjectMeta: k8smetav1.ObjectMeta{
 					Name:        "memory-64",
@@ -632,7 +627,6 @@ var _ = Describe("VirtualMachineInstance Initializer", func() {
 					},
 				},
 			}
-			recorder = NewFakeRecorder()
 		})
 
 		It("should not change the order without annotations", func() {
