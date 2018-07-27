@@ -65,6 +65,9 @@ type KubeInformerFactory interface {
 
 	// Watches for ConfigMap objects
 	ConfigMap() cache.SharedIndexInformer
+
+	// Watches for LimitRange objects
+	LimitRanges() cache.SharedIndexInformer
 }
 
 type kubeInformerFactory struct {
@@ -179,6 +182,14 @@ func (f *kubeInformerFactory) ConfigMap() cache.SharedIndexInformer {
 		fieldSelector := fields.OneTermEqualSelector("metadata.name", "kubevirt-config")
 		lw := cache.NewListWatchFromClient(restClient, "configmaps", systemNamespace, fieldSelector)
 		return cache.NewSharedIndexInformer(lw, &k8sv1.ConfigMap{}, f.defaultResync, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
+	})
+}
+
+func (f *kubeInformerFactory) LimitRanges() cache.SharedIndexInformer {
+	return f.getInformer("limitrangeInformer", func() cache.SharedIndexInformer {
+		restClient := f.clientSet.CoreV1().RESTClient()
+		lw := cache.NewListWatchFromClient(restClient, "limitranges", k8sv1.NamespaceAll, fields.Everything())
+		return cache.NewSharedIndexInformer(lw, &k8sv1.LimitRange{}, f.defaultResync, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
 	})
 }
 

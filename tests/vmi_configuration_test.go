@@ -104,6 +104,62 @@ var _ = Describe("Configurations", func() {
 				Expect(err).ToNot(HaveOccurred())
 			}, 300)
 		})
+		Context("with namespace memory limits", func() {
+			var vmi *v1.VirtualMachineInstance
+			It("should failed to schedule the pod, copy limits to vm spec", func() {
+				// create a namespace default limit
+				limitRangeObj := kubev1.LimitRange{
+
+					ObjectMeta: metav1.ObjectMeta{Name: "abc1", Namespace: tests.NamespaceTestDefault},
+					Spec: kubev1.LimitRangeSpec{
+						Limits: []kubev1.LimitRangeItem{
+							{
+								Type: kubev1.LimitTypeContainer,
+								Default: kubev1.ResourceList{
+									kubev1.ResourceMemory: resource.MustParse("32Mi"),
+								},
+							},
+						},
+					},
+				}
+				_, err := virtClient.Core().LimitRanges(tests.NamespaceTestDefault).Create(&limitRangeObj)
+				Expect(err).ToNot(HaveOccurred())
+
+				By("Starting a VirtualMachineInstance")
+				vmi = tests.NewRandomVMIWithEphemeralDisk(tests.RegistryDiskFor(tests.RegistryDiskAlpine))
+				vmi.Spec.Domain.Resources = v1.ResourceRequirements{
+					Requests: kubev1.ResourceList{
+						kubev1.ResourceMemory: resource.MustParse("64M"),
+					},
+				}
+				vmi, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
+				Expect(err).ToNot(HaveOccurred())
+
+				var vmiCondition v1.VirtualMachineInstanceCondition
+				Eventually(func() bool {
+					vmi, err := virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Get(vmi.Name, &metav1.GetOptions{})
+					Expect(err).ToNot(HaveOccurred())
+
+					if len(vmi.Status.Conditions) > 0 {
+						for _, cond := range vmi.Status.Conditions {
+							if cond.Type == v1.VirtualMachineInstanceSynchronized && cond.Status == kubev1.ConditionFalse {
+								vmiCondition = vmi.Status.Conditions[0]
+								return true
+							}
+						}
+					}
+					return false
+				}, 30*time.Second, time.Second).Should(BeTrue())
+				Expect(vmiCondition.Message).To(ContainSubstring("must be less than or equal to memory limit"))
+				Expect(vmiCondition.Reason).To(Equal("FailedCreate"))
+				vmi, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Get(vmi.Name, &metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				Expect(vmi.Spec.Domain.Resources.Limits.Memory().IsZero()).ShouldNot(BeTrue())
+				err = virtClient.Core().LimitRanges(tests.NamespaceTestDefault).Delete(limitRangeObj.Name, &metav1.DeleteOptions{})
+				Expect(err).ToNot(HaveOccurred())
+
+			})
+		})
 
 		Context("with hugepages", func() {
 			var hugepagesVmi *v1.VirtualMachineInstance

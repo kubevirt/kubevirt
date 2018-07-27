@@ -710,6 +710,8 @@ func cleanNamespaces() {
 
 		// Remove all VirtualMachineInstance Presets
 		PanicOnError(virtCli.RestClient().Delete().Namespace(namespace).Resource("virtualmachineinstancepresets").Do().Error())
+		// Remove all limit ranges
+		PanicOnError(virtCli.CoreV1().RESTClient().Delete().Namespace(namespace).Resource("limitranges").Do().Error())
 	}
 }
 
