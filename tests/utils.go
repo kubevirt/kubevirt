@@ -1387,21 +1387,13 @@ func RunKubectlCommand(args ...string) (string, error) {
 
 func SkipIfNoOc() {
 	if KubeVirtOcPath == "" {
-		var err error
-		KubeVirtOcPath, err = exec.LookPath("oc")
-		if err != nil {
-			Skip("Skip test that requires oc binary")
-		}
+		Skip("Skip test that requires oc binary")
 	}
 }
 
 func RunOcCommand(args ...string) (string, error) {
 	if KubeVirtOcPath == "" {
-		var err error
-		KubeVirtOcPath, err = exec.LookPath("oc")
-		if err != nil {
-			return "", fmt.Errorf("can not find oc binary")
-		}
+		return "", fmt.Errorf("no oc binary specified")
 	}
 
 	kubeconfig := flag.Lookup("kubeconfig").Value
@@ -1421,10 +1413,9 @@ func RunOcCommand(args ...string) (string, error) {
 	stdOutErrBytes, err := cmd.CombinedOutput()
 
 	if err != nil {
-		fmt.Printf("%s %s %s\n%s%v\n", kubeconfEnv, KubeVirtOcPath, strings.Join(args, " "), string(stdOutErrBytes), err)
-		return string(stdOutErrBytes), err
+		log.Log.Reason(err).With("output", string(stdOutErrBytes)).Errorf("oc command failed: %s %s,", KubeVirtOcPath, strings.Join(args, " "))
 	}
-	return string(stdOutErrBytes), nil
+	return string(stdOutErrBytes), err
 }
 
 func GenerateVMIJson(vmi *v1.VirtualMachineInstance) (string, error) {
@@ -1534,6 +1525,17 @@ func SkipIfVersionBelow(message string, expectedVersion string) {
 
 	if curVersion < expectedVersion {
 		Skip(message)
+	}
+}
+
+func SkipIfOpenShift(message string) {
+	virtClient, err := kubecli.GetKubevirtClient()
+	PanicOnError(err)
+
+	result := virtClient.RestClient().Get().AbsPath("/version/openshift").Do()
+
+	if result.Error() == nil {
+		Skip("Openshift detected: " + message)
 	}
 }
 
