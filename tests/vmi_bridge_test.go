@@ -49,10 +49,32 @@ var _ = Describe("Bridge", func() {
 	tests.BeforeAll(func() {
 		// create a deamon set for the network bridge device plugin
 		// taken from here: https://github.com/kubevirt/kubernetes-device-plugins/blob/master/manifests/bridge-ds.yml
+		// when running on OpenShift, we have to make sure that we have right privileges to make the pods privileged
 		runNetworkBridgeDevicePlugin := func() {
 			const repo = "quay.io/kubevirt"
 			const tag = "latest"
 			const name = "device-plugin-network-bridge"
+			const userName = "device-plugin-admin"
+
+			// Create service account for the daemon set
+			// Needed only for OpenShift, but should work on k8s as well
+			serviceAccount := k8sv1.ServiceAccount{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      userName,
+					Namespace: tests.NamespaceTestDefault,
+					Labels: map[string]string{
+						v1.AppLabel: "test",
+						"name":      name,
+					},
+				},
+			}
+			_, err = virtClient.CoreV1().ServiceAccounts(tests.NamespaceTestDefault).Create(&serviceAccount)
+			Expect(err).ToNot(HaveOccurred())
+
+			// Setting SCC for the service account is only needed for OpenShift cluster
+			// Not verifying result since this is expected to fail on anything other than OpenShift
+			tests.RunKubectlCommand("adm", "policy", "add-scc-to-user", "privileged", "-n",
+				tests.NamespaceTestDefault, "-z", userName)
 
 			ds := appsv1.DaemonSet{
 				ObjectMeta: metav1.ObjectMeta{
@@ -71,8 +93,9 @@ var _ = Describe("Bridge", func() {
 							Labels: map[string]string{"name": name},
 						},
 						Spec: k8sv1.PodSpec{
-							HostPID:     true,
-							HostNetwork: true,
+							HostPID:            true,
+							HostNetwork:        true,
+							ServiceAccountName: userName,
 							Containers: []k8sv1.Container{
 								{
 									Name:  name,
@@ -160,7 +183,7 @@ var _ = Describe("Bridge", func() {
 
 			vmi, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
 			Expect(err).ToNot(HaveOccurred())
-			tests.WaitForSuccessfulVMIStartIgnoreWarnings(vmi)
+			tests.WaitForSuccessfulVMIStartWithTimeout(vmi, 120)
 		})
 
 		It("Should create 2 interfaces on the VM", func() {
@@ -231,7 +254,7 @@ var _ = Describe("Bridge", func() {
 
 			vmi, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
 			Expect(err).ToNot(HaveOccurred())
-			tests.WaitForSuccessfulVMIStartIgnoreWarnings(vmi)
+			tests.WaitForSuccessfulVMIStartWithTimeout(vmi, 120)
 		})
 
 		It("Should create 3 interfaces on the VM", func() {
@@ -267,7 +290,7 @@ var _ = Describe("Bridge", func() {
 
 				vmi, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
 				Expect(err).ToNot(HaveOccurred())
-				tests.WaitForSuccessfulVMIStartIgnoreWarnings(vmi)
+				tests.WaitForSuccessfulVMIStartWithTimeout(vmi, 120)
 
 				// add IP addresses on the interfaces
 				expecter, err := tests.LoggedInCirrosExpecter(vmi)
