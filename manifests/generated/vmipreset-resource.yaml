@@ -46,6 +46,8 @@ spec:
                       type: string
                 devices:
                   properties:
+                    autoattachGraphicsDevice:
+                      type: boolean
                     disks:
                       items:
                         properties:
@@ -180,6 +182,8 @@ spec:
                   properties:
                     limits:
                       type: object
+                    overcommitGuestOverhead:
+                      type: boolean
                     requests:
                       type: object
               required:

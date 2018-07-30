@@ -86,6 +86,10 @@ type ResourceRequirements struct {
 	// Valid resource keys are "memory" and "cpu".
 	// +optional
 	Limits v1.ResourceList `json:"limits,omitempty"`
+	// Don't ask the scheduler to take the guest-management overhead into account. Instead
+	// put the overhead only into the requested memory limits. This can lead to crashes if
+	// all memory is in use on a node. Defaults to false.
+	OvercommitGuestOverhead bool `json:"overcommitGuestOverhead,omitempty"`
 }
 
 // CPU allow specifying the CPU topology
@@ -146,6 +150,9 @@ type Devices struct {
 	Watchdog *Watchdog `json:"watchdog,omitempty"`
 	// Interfaces describe network interfaces which are added to the vm
 	Interfaces []Interface `json:"interfaces,omitempty"`
+	// Wheater to attach the default graphics device or not.
+	// VNC will not be available if set to false. Defaults to true.
+	AutoattachGraphicsDevice *bool `json:"autoattachGraphicsDevice,omitempty"`
 }
 
 // ---

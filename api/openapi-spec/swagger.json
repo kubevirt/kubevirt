@@ -3361,6 +3361,10 @@
    "v1.DeletionPropagation": {},
    "v1.Devices": {
     "properties": {
+     "autoattachGraphicsDevice": {
+      "description": "Wheater to attach the default graphics device or not.\nVNC will not be available if set to false. Defaults to true.",
+      "type": "boolean"
+     },
      "disks": {
       "description": "Disks describes disks, cdroms, floppy and luns which are connected to the vmi",
       "type": "array",
@@ -4174,6 +4178,10 @@
      "limits": {
       "description": "Limits describes the maximum amount of compute resources allowed.\nValid resource keys are \"memory\" and \"cpu\".\n+optional",
       "type": "object"
+     },
+     "overcommitGuestOverhead": {
+      "description": "Don't ask the scheduler to take the guest-management overhead into account. Instead\nput the overhead only into the requested memory limits. This can lead to crashes if\nall memory is in use on a node. Defaults to false.",
+      "type": "boolean"
      },
      "requests": {
       "description": "Requests is a description of the initial vmi resources.\nValid resource keys are \"memory\" and \"cpu\".\n+optional",
