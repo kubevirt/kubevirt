@@ -133,6 +133,7 @@ spec:
   nfs:
     server: "nfs"
     path: /
+  storageClassName: local
 EOF
   fi
   # Run only windows tests
