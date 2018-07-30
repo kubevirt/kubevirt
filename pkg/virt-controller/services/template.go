@@ -324,7 +324,7 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 		})
 	}
 
-	command := []string{"/usr/share/kubevirt/virt-launcher/entrypoint.sh",
+	command := []string{"/usr/bin/virt-launcher",
 		"--qemu-timeout", "5m",
 		"--name", domain,
 		"--uid", string(vmi.UID),

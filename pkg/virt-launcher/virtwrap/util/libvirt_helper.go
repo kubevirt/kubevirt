@@ -7,12 +7,11 @@ import (
 	"os/exec"
 	"reflect"
 	"strings"
+	"syscall"
 	"time"
 
 	"github.com/libvirt/libvirt-go"
 	k8sv1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
-	"syscall"
 
 	"kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/log"
