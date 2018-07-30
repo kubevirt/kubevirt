@@ -348,20 +348,20 @@ func EnsureKVMPresent() {
 		// If the cfgMap is missing, default to useEmulation=false
 		// no other error is expected
 		if !errors.IsNotFound(err) {
-			Expect(err).ToNot(HaveOccurred())
+			ExpectWithOffset(1, err).ToNot(HaveOccurred())
 		}
 	}
 	if !useEmulation {
 		listOptions := metav1.ListOptions{LabelSelector: v1.AppLabel + "=virt-handler"}
 		virtHandlerPods, err := virtClient.CoreV1().Pods(metav1.NamespaceSystem).List(listOptions)
-		Expect(err).ToNot(HaveOccurred())
+		ExpectWithOffset(1, err).ToNot(HaveOccurred())
 
-		Eventually(func() bool {
+		EventuallyWithOffset(1, func() bool {
 			ready := true
 			// cluster is not ready until all nodes are ready.
 			for _, pod := range virtHandlerPods.Items {
 				virtHandlerNode, err := virtClient.CoreV1().Nodes().Get(pod.Spec.NodeName, metav1.GetOptions{})
-				Expect(err).ToNot(HaveOccurred())
+				ExpectWithOffset(1, err).ToNot(HaveOccurred())
 
 				allocatable, ok := virtHandlerNode.Status.Allocatable[services.KvmDevice]
 				ready = ready && ok
@@ -726,7 +726,7 @@ func removeNamespaces() {
 	fmt.Println("")
 	for _, namespace := range testNamespaces {
 		fmt.Printf("Waiting for namespace %s to be removed, this can take a while ...\n", namespace)
-		Eventually(func() bool { return errors.IsNotFound(virtCli.CoreV1().Namespaces().Delete(namespace, nil)) }, 180*time.Second, 1*time.Second).
+		EventuallyWithOffset(1, func() bool { return errors.IsNotFound(virtCli.CoreV1().Namespaces().Delete(namespace, nil)) }, 180*time.Second, 1*time.Second).
 			Should(BeTrue())
 	}
 }
@@ -1016,14 +1016,14 @@ func NewRandomVMIWithCustomMacAddress() *v1.VirtualMachineInstance {
 // Block until the specified VirtualMachineInstance started and return the target node name.
 func waitForVMIStart(obj runtime.Object, seconds int, ignoreWarnings bool) (nodeName string) {
 	vmi, ok := obj.(*v1.VirtualMachineInstance)
-	Expect(ok).To(BeTrue(), "Object is not of type *v1.VMI")
+	ExpectWithOffset(1, ok).To(BeTrue(), "Object is not of type *v1.VMI")
 
 	virtClient, err := kubecli.GetKubevirtClient()
-	Expect(err).ToNot(HaveOccurred())
+	ExpectWithOffset(1, err).ToNot(HaveOccurred())
 
 	// Fetch the VirtualMachineInstance, to make sure we have a resourceVersion as a starting point for the watch
 	vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &metav1.GetOptions{})
-	Expect(err).ToNot(HaveOccurred())
+	ExpectWithOffset(1, err).ToNot(HaveOccurred())
 
 	objectEventWatcher := NewObjectEventWatcher(vmi).SinceWatchedObjectResourceVersion().Timeout(time.Duration(seconds) * time.Second)
 	if ignoreWarnings != true {
@@ -1032,9 +1032,9 @@ func waitForVMIStart(obj runtime.Object, seconds int, ignoreWarnings bool) (node
 	objectEventWatcher.WaitFor(NormalEvent, v1.Started)
 
 	// FIXME the event order is wrong. First the document should be updated
-	Eventually(func() bool {
+	EventuallyWithOffset(1, func() bool {
 		vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &metav1.GetOptions{})
-		Expect(err).ToNot(HaveOccurred())
+		ExpectWithOffset(1, err).ToNot(HaveOccurred())
 
 		nodeName = vmi.Status.NodeName
 
@@ -1058,8 +1058,8 @@ func WaitForSuccessfulVMIStartWithTimeout(vmi runtime.Object, seconds int) (node
 
 func WaitForVirtualMachineToDisappearWithTimeout(vmi *v1.VirtualMachineInstance, seconds int) {
 	virtClient, err := kubecli.GetKubevirtClient()
-	Expect(err).ToNot(HaveOccurred())
-	Eventually(func() bool {
+	ExpectWithOffset(1, err).ToNot(HaveOccurred())
+	EventuallyWithOffset(1, func() bool {
 		_, err := virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &metav1.GetOptions{})
 		return errors.IsNotFound(err)
 	}, seconds, 1*time.Second).Should(BeTrue())
@@ -1076,11 +1076,11 @@ func WaitUntilVMIReady(vmi *v1.VirtualMachineInstance, expecterFactory VMIExpect
 	// Fetch the new VirtualMachineInstance with updated status
 	virtClient, err := kubecli.GetKubevirtClient()
 	vmi, err = virtClient.VirtualMachineInstance(NamespaceTestDefault).Get(vmi.Name, &metav1.GetOptions{})
-	Expect(err).ToNot(HaveOccurred())
+	ExpectWithOffset(1, err).ToNot(HaveOccurred())
 
 	// Lets make sure that the OS is up by waiting until we can login
 	expecter, err := expecterFactory(vmi)
-	Expect(err).ToNot(HaveOccurred())
+	ExpectWithOffset(1, err).ToNot(HaveOccurred())
 	expecter.Close()
 	return vmi
 }
@@ -1510,7 +1510,7 @@ func NewHelloWorldJobUDP(host string, port string) *k8sv1.Pod {
 
 func GetNodeWithHugepages(virtClient kubecli.KubevirtClient, hugepages k8sv1.ResourceName) *k8sv1.Node {
 	nodes, err := virtClient.Core().Nodes().List(metav1.ListOptions{})
-	Expect(err).ToNot(HaveOccurred())
+	ExpectWithOffset(1, err).ToNot(HaveOccurred())
 
 	for _, node := range nodes.Items {
 		if v, ok := node.Status.Capacity[hugepages]; ok && !v.IsZero() {
@@ -1526,12 +1526,12 @@ func SkipIfVersionBelow(message string, expectedVersion string) {
 	PanicOnError(err)
 
 	response, err := virtClient.RestClient().Get().AbsPath("/version").DoRaw()
-	Expect(err).ToNot(HaveOccurred())
+	ExpectWithOffset(1, err).ToNot(HaveOccurred())
 
 	var info k8sversion.Info
 
 	err = json.Unmarshal(response, &info)
-	Expect(err).ToNot(HaveOccurred())
+	ExpectWithOffset(1, err).ToNot(HaveOccurred())
 
 	curVersion := strings.Split(info.GitVersion, "+")[0]
 	curVersion = strings.Trim(curVersion, "v")
@@ -1572,7 +1572,7 @@ func StartVmOnNode(vmi *v1.VirtualMachineInstance, nodeName string) {
 	}
 
 	_, err = virtClient.VirtualMachineInstance(NamespaceTestDefault).Create(vmi)
-	Expect(err).ToNot(HaveOccurred())
+	ExpectWithOffset(1, err).ToNot(HaveOccurred())
 	WaitForSuccessfulVMIStart(vmi)
 }
 
@@ -1582,8 +1582,8 @@ func RunCommandOnVmiPod(vmi *v1.VirtualMachineInstance, command []string) string
 	PanicOnError(err)
 
 	pods, err := virtClient.CoreV1().Pods(NamespaceTestDefault).List(UnfinishedVMIPodSelector(vmi))
-	Expect(err).ToNot(HaveOccurred())
-	Expect(pods.Items).NotTo(BeEmpty())
+	ExpectWithOffset(1, err).ToNot(HaveOccurred())
+	ExpectWithOffset(1, pods.Items).NotTo(BeEmpty())
 	vmiPod := pods.Items[0]
 
 	output, err := ExecuteCommandOnPod(
@@ -1592,7 +1592,7 @@ func RunCommandOnVmiPod(vmi *v1.VirtualMachineInstance, command []string) string
 		"compute",
 		command,
 	)
-	Expect(err).ToNot(HaveOccurred())
+	ExpectWithOffset(1, err).ToNot(HaveOccurred())
 
 	return output
 }

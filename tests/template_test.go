@@ -77,7 +77,7 @@ var _ = Describe("Templates", func() {
 				ExpectWithOffset(1, out).To(Equal(message))
 
 				By("Checking if the VM exists via oc-get command.")
-				Eventually(func() bool {
+				EventuallyWithOffset(1, func() bool {
 					out, err := runOcGetCommand("vms")
 					ExpectWithOffset(1, err).ToNot(HaveOccurred())
 					return strings.Contains(out, templateParams.Name)
@@ -94,7 +94,7 @@ var _ = Describe("Templates", func() {
 				ExpectWithOffset(1, out).To(Equal(message))
 
 				By("Checking if the VM does not exist anymore via oc-get command.")
-				Eventually(func() bool {
+				EventuallyWithOffset(1, func() bool {
 					out, err := runOcGetCommand("vms")
 					ExpectWithOffset(1, err).ToNot(HaveOccurred())
 					return out == "No resources found.\n"
@@ -111,7 +111,7 @@ var _ = Describe("Templates", func() {
 				ExpectWithOffset(1, out).To(Equal(message))
 
 				By("Checking if the VMI does exist via oc-get command")
-				Eventually(func() bool {
+				EventuallyWithOffset(1, func() bool {
 					out, err := runOcGetCommand("vmis")
 					ExpectWithOffset(1, err).ToNot(HaveOccurred())
 					return strings.Contains(out, templateParams.Name)
@@ -128,7 +128,7 @@ var _ = Describe("Templates", func() {
 				ExpectWithOffset(1, out).To(Equal(message))
 
 				By("Checking if the VMI does not exist anymore via oc-get command")
-				Eventually(func() bool {
+				EventuallyWithOffset(1, func() bool {
 					out, err := runOcGetCommand("vmis")
 					ExpectWithOffset(1, err).ToNot(HaveOccurred())
 					return out == "No resources found.\n"
