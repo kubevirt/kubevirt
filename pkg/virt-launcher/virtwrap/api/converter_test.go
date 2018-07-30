@@ -319,12 +319,14 @@ var _ = Describe("Converter", func() {
       <model type="virtio"></model>
       <alias name="default"></alias>
     </interface>
+    <controller type="usb" index="0" model="none"></controller>
     <video>
       <model type="vga" heads="1" vram="16384"></model>
     </video>
     <graphics type="vnc">
-      <listen type="socket" socket="/var/run/kubevirt-private/mynamespace/testvmi/virt-vnc"></listen>
+      <listen type="socket" socket="/var/run/kubevirt-private/f4686d2c-6e8d-4335-b8fd-81bee22f4814/virt-vnc"></listen>
     </graphics>
+    <memballoon model="none"></memballoon>
     <disk device="disk" type="file">
       <source file="/var/run/kubevirt-private/vmi-disks/myvolume/disk.img"></source>
       <target bus="virtio" dev="vda"></target>
@@ -381,7 +383,7 @@ var _ = Describe("Converter", func() {
     </disk>
     <serial type="unix">
       <target port="0"></target>
-      <source mode="bind" path="/var/run/kubevirt-private/mynamespace/testvmi/virt-serial0"></source>
+      <source mode="bind" path="/var/run/kubevirt-private/f4686d2c-6e8d-4335-b8fd-81bee22f4814/virt-serial0"></source>
     </serial>
     <console type="pty">
       <target type="serial" port="0"></target>
@@ -745,6 +747,42 @@ var _ = Describe("Converter", func() {
 			Expect(err).To(BeNil())
 		})
 	})
+
+	Context("graphics and video device", func() {
+
+		table.DescribeTable("should check autoattachGraphicsDevicse", func(autoAttach *bool, devices int) {
+
+			vmi := v1.VirtualMachineInstance{
+				ObjectMeta: k8smeta.ObjectMeta{
+					Name:      "testvmi",
+					Namespace: "default",
+					UID:       "1234",
+				},
+				Spec: v1.VirtualMachineInstanceSpec{
+					Domain: v1.DomainSpec{
+						CPU: &v1.CPU{Cores: 3},
+						Resources: v1.ResourceRequirements{
+							Requests: k8sv1.ResourceList{
+								k8sv1.ResourceCPU:    resource.MustParse("1m"),
+								k8sv1.ResourceMemory: resource.MustParse("64M"),
+							},
+						},
+					},
+				},
+			}
+			vmi.Spec.Domain.Devices = v1.Devices{
+				AutoattachGraphicsDevice: autoAttach,
+			}
+			domain := vmiToDomain(&vmi, &ConverterContext{UseEmulation: true})
+			Expect(domain.Spec.Devices.Video).To(HaveLen(devices))
+			Expect(domain.Spec.Devices.Graphics).To(HaveLen(devices))
+
+		},
+			table.Entry("and add the graphics and video device if it is not set", nil, 1),
+			table.Entry("and add the graphics and video device if it is set to true", True(), 1),
+			table.Entry("and not add the graphics and video device if it is set to false", False(), 0),
+		)
+	})
 })
 
 func diskToDiskXML(disk *v1.Disk) string {
@@ -781,4 +819,14 @@ func xmlToDomainSpec(data string) *DomainSpec {
 
 func vmiToDomainXMLToDomainSpec(vmi *v1.VirtualMachineInstance, c *ConverterContext) *DomainSpec {
 	return xmlToDomainSpec(vmiToDomainXML(vmi, c))
+}
+
+func True() *bool {
+	b := true
+	return &b
+}
+
+func False() *bool {
+	b := false
+	return &b
 }

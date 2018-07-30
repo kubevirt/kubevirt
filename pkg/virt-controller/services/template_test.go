@@ -72,6 +72,7 @@ var _ = Describe("Template", func() {
 				Expect(pod.Spec.Containers[0].Command).To(Equal([]string{"/usr/share/kubevirt/virt-launcher/entrypoint.sh",
 					"--qemu-timeout", "5m",
 					"--name", "testvmi",
+					"--uid", "1234",
 					"--namespace", "testns",
 					"--kubevirt-share-dir", "/var/run/kubevirt",
 					"--readiness-file", "/tmp/healthy",
@@ -115,6 +116,7 @@ var _ = Describe("Template", func() {
 				Expect(pod.Spec.Containers[0].Command).To(Equal([]string{"/usr/share/kubevirt/virt-launcher/entrypoint.sh",
 					"--qemu-timeout", "5m",
 					"--name", "testvmi",
+					"--uid", "1234",
 					"--namespace", "default",
 					"--kubevirt-share-dir", "/var/run/kubevirt",
 					"--readiness-file", "/tmp/healthy",
@@ -284,6 +286,35 @@ var _ = Describe("Template", func() {
 				Expect(pod.Spec.Containers[0].Resources.Requests.Memory().String()).To(Equal("1099507557"))
 				Expect(pod.Spec.Containers[0].Resources.Limits.Memory().String()).To(Equal("2099507557"))
 			})
+			It("should overcommit guest overhead if selected, by only adding the overhead to memory limits", func() {
+
+				vmi := v1.VirtualMachineInstance{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "testvmi",
+						Namespace: "default",
+						UID:       "1234",
+					},
+					Spec: v1.VirtualMachineInstanceSpec{
+						Domain: v1.DomainSpec{
+							Resources: v1.ResourceRequirements{
+								OvercommitGuestOverhead: true,
+								Requests: kubev1.ResourceList{
+									kubev1.ResourceMemory: resource.MustParse("1G"),
+								},
+								Limits: kubev1.ResourceList{
+									kubev1.ResourceMemory: resource.MustParse("2G"),
+								},
+							},
+						},
+					},
+				}
+
+				pod, err := svc.RenderLaunchManifest(&vmi)
+				Expect(err).ToNot(HaveOccurred())
+
+				Expect(pod.Spec.Containers[0].Resources.Requests.Memory().String()).To(Equal("1G"))
+				Expect(pod.Spec.Containers[0].Resources.Limits.Memory().String()).To(Equal("2099507557"))
+			})
 			It("should not add unset resources", func() {
 
 				vmi := v1.VirtualMachineInstance{
@@ -315,6 +346,40 @@ var _ = Describe("Template", func() {
 				// Limits for KVM and TUN devices should be requested.
 				Expect(pod.Spec.Containers[0].Resources.Limits).ToNot(BeNil())
 			})
+
+			table.DescribeTable("should check autoattachGraphicsDevicse", func(autoAttach *bool, memory int) {
+
+				vmi := v1.VirtualMachineInstance{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "testvmi",
+						Namespace: "default",
+						UID:       "1234",
+					},
+					Spec: v1.VirtualMachineInstanceSpec{
+						Domain: v1.DomainSpec{
+
+							CPU: &v1.CPU{Cores: 3},
+							Resources: v1.ResourceRequirements{
+								Requests: kubev1.ResourceList{
+									kubev1.ResourceCPU:    resource.MustParse("1m"),
+									kubev1.ResourceMemory: resource.MustParse("64M"),
+								},
+							},
+						},
+					},
+				}
+				vmi.Spec.Domain.Devices = v1.Devices{
+					AutoattachGraphicsDevice: autoAttach,
+				}
+
+				pod, err := svc.RenderLaunchManifest(&vmi)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(pod.Spec.Containers[0].Resources.Requests.Memory().ToDec().ScaledValue(resource.Mega)).To(Equal(int64(memory)))
+			},
+				table.Entry("and consider graphics overhead if it is not set", nil, 179),
+				table.Entry("and consider graphics overhead if it is set to true", True(), 179),
+				table.Entry("and not consider graphics overhead if it is set to false", False(), 162),
+			)
 		})
 
 		Context("with hugepages constraints", func() {
@@ -629,4 +694,14 @@ func MakeFakeConfigMapWatcher(configMaps []kubev1.ConfigMap) *cache.ListWatch {
 		},
 	}
 	return cmListWatch
+}
+
+func True() *bool {
+	b := true
+	return &b
+}
+
+func False() *bool {
+	b := false
+	return &b
 }

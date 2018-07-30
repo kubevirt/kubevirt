@@ -161,15 +161,14 @@ func startWatchdogTicker(watchdogFile string, watchdogInterval time.Duration, st
 
 func initializeDirs(virtShareDir string,
 	ephemeralDiskDir string,
-	namespace string,
-	name string) {
+	uid string) {
 
 	err := virtlauncher.InitializeSharedDirectories(virtShareDir)
 	if err != nil {
 		panic(err)
 	}
 
-	err = virtlauncher.InitializePrivateDirectories(filepath.Join("/var/run/kubevirt-private", namespace, name))
+	err = virtlauncher.InitializePrivateDirectories(filepath.Join("/var/run/kubevirt-private", uid))
 	if err != nil {
 		panic(err)
 	}
@@ -250,6 +249,7 @@ func main() {
 	virtShareDir := flag.String("kubevirt-share-dir", "/var/run/kubevirt", "Shared directory between virt-handler and virt-launcher")
 	ephemeralDiskDir := flag.String("ephemeral-disk-dir", "/var/run/libvirt/kubevirt-ephemeral-disk", "Base directory for ephemeral disk data")
 	name := flag.String("name", "", "Name of the VirtualMachineInstance")
+	uid := flag.String("uid", "", "UID of the VirtualMachineInstance")
 	namespace := flag.String("namespace", "", "Namespace of the VirtualMachineInstance")
 	watchdogInterval := flag.Duration("watchdog-update-interval", defaultWatchdogInterval, "Interval at which watchdog file should be updated")
 	readinessFile := flag.String("readiness-file", "/tmp/health", "Pod looks for this file to determine when virt-launcher is initialized")
@@ -275,7 +275,7 @@ func main() {
 	vm := v1.NewVMIReferenceFromNameWithNS(*namespace, *name)
 
 	// Initialize local and shared directories
-	initializeDirs(*virtShareDir, *ephemeralDiskDir, *namespace, *name)
+	initializeDirs(*virtShareDir, *ephemeralDiskDir, *uid)
 
 	// Start libvirtd, virtlogd, and establish libvirt connection
 	stopChan := make(chan struct{})

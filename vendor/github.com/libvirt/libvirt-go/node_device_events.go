@@ -33,9 +33,7 @@ import (
 
 /*
 #cgo pkg-config: libvirt
-#include <libvirt/libvirt.h>
-#include "node_device_compat.h"
-#include "node_device_events_cfuncs.h"
+#include "node_device_events_wrapper.h"
 */
 import "C"
 
@@ -87,22 +85,23 @@ func nodeDeviceEventGenericCallback(c C.virConnectPtr, d C.virNodeDevicePtr,
 
 func (c *Connect) NodeDeviceEventLifecycleRegister(device *NodeDevice, callback NodeDeviceEventLifecycleCallback) (int, error) {
 	if C.LIBVIR_VERSION_NUMBER < 2002000 {
-		return 0, GetNotImplementedError("virConnectNodeDeviceEventRegisterAny")
+		return 0, makeNotImplementedError("virConnectNodeDeviceEventRegisterAny")
 	}
 	goCallBackId := registerCallbackId(callback)
 
-	callbackPtr := unsafe.Pointer(C.nodeDeviceEventLifecycleCallback_cgo)
+	callbackPtr := unsafe.Pointer(C.nodeDeviceEventLifecycleCallbackHelper)
 	var cdevice C.virNodeDevicePtr
 	if device != nil {
 		cdevice = device.ptr
 	}
-	ret := C.virConnectNodeDeviceEventRegisterAny_cgo(c.ptr, cdevice,
+	var err C.virError
+	ret := C.virConnectNodeDeviceEventRegisterAnyWrapper(c.ptr, cdevice,
 		C.VIR_NODE_DEVICE_EVENT_ID_LIFECYCLE,
 		C.virConnectNodeDeviceEventGenericCallback(callbackPtr),
-		C.long(goCallBackId))
+		C.long(goCallBackId), &err)
 	if ret == -1 {
 		freeCallbackId(goCallBackId)
-		return 0, GetLastError()
+		return 0, makeError(&err)
 	}
 	return int(ret), nil
 }
@@ -110,29 +109,32 @@ func (c *Connect) NodeDeviceEventLifecycleRegister(device *NodeDevice, callback 
 func (c *Connect) NodeDeviceEventUpdateRegister(device *NodeDevice, callback NodeDeviceEventGenericCallback) (int, error) {
 	goCallBackId := registerCallbackId(callback)
 
-	callbackPtr := unsafe.Pointer(C.nodeDeviceEventGenericCallback_cgo)
+	callbackPtr := unsafe.Pointer(C.nodeDeviceEventGenericCallbackHelper)
 	var cdevice C.virNodeDevicePtr
 	if device != nil {
 		cdevice = device.ptr
 	}
-	ret := C.virConnectNodeDeviceEventRegisterAny_cgo(c.ptr, cdevice,
+	var err C.virError
+	ret := C.virConnectNodeDeviceEventRegisterAnyWrapper(c.ptr, cdevice,
 		C.VIR_NODE_DEVICE_EVENT_ID_UPDATE,
 		C.virConnectNodeDeviceEventGenericCallback(callbackPtr),
-		C.long(goCallBackId))
+		C.long(goCallBackId), &err)
 	if ret == -1 {
 		freeCallbackId(goCallBackId)
-		return 0, GetLastError()
+		return 0, makeError(&err)
 	}
 	return int(ret), nil
 }
 
 func (c *Connect) NodeDeviceEventDeregister(callbackId int) error {
 	if C.LIBVIR_VERSION_NUMBER < 2002000 {
-		return GetNotImplementedError("virConnectNodeDeviceEventDeregisterAny")
+		return makeNotImplementedError("virConnectNodeDeviceEventDeregisterAny")
 	}
 	// Deregister the callback
-	if i := int(C.virConnectNodeDeviceEventDeregisterAnyCompat(c.ptr, C.int(callbackId))); i != 0 {
-		return GetLastError()
+	var err C.virError
+	ret := int(C.virConnectNodeDeviceEventDeregisterAnyWrapper(c.ptr, C.int(callbackId), &err))
+	if ret < 0 {
+		return makeError(&err)
 	}
 	return nil
 }

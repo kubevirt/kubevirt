@@ -39,9 +39,6 @@ typedef void (*virConnectDomainQemuMonitorEventCallback)(virConnectPtr conn,
                                                          void *opaque);
 #endif
 
-int virConnectDomainQemuMonitorEventDeregisterCompat(virConnectPtr conn,
-						     int callbackID);
-
 #ifndef VIR_CONNECT_DOMAIN_QEMU_MONITOR_EVENT_REGISTER_REGEX
 #define VIR_CONNECT_DOMAIN_QEMU_MONITOR_EVENT_REGISTER_REGEX (1 << 0)
 #endif

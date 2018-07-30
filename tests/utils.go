@@ -238,20 +238,20 @@ func (w *ObjectEventWatcher) Watch(processFunc ProcessFunc) {
 	if w.failOnWarnings {
 		f = func(event *k8sv1.Event) bool {
 			if event.Type == string(WarningEvent) {
-				log.Log.Reason(fmt.Errorf("unexpected warning event received")).Error(event.Message)
+				log.Log.Reason(fmt.Errorf("unexpected warning event received")).ObjectRef(&event.InvolvedObject).Error(event.Message)
 			} else {
-				log.Log.Infof(event.Message)
+				log.Log.ObjectRef(&event.InvolvedObject).Infof(event.Message)
 			}
-			Expect(event.Type).NotTo(Equal(string(WarningEvent)), "Unexpected Warning event received.")
+			Expect(event.Type).NotTo(Equal(string(WarningEvent)), "Unexpected Warning event received: %s,%s: %s", event.InvolvedObject.Name, event.InvolvedObject.UID, event.Message)
 			return processFunc(event)
 		}
 
 	} else {
 		f = func(event *k8sv1.Event) bool {
 			if event.Type == string(WarningEvent) {
-				log.Log.Reason(fmt.Errorf("unexpected warning event received")).Error(event.Message)
+				log.Log.ObjectRef(&event.InvolvedObject).Reason(fmt.Errorf("Warning event received")).Error(event.Message)
 			} else {
-				log.Log.Infof(event.Message)
+				log.Log.ObjectRef(&event.InvolvedObject).Infof(event.Message)
 			}
 			return processFunc(event)
 		}
@@ -267,16 +267,11 @@ func (w *ObjectEventWatcher) Watch(processFunc ProcessFunc) {
 		panic(err)
 	}
 	defer eventWatcher.Stop()
-	timedOut := false
 	done := make(chan struct{})
 
 	go func() {
 		defer GinkgoRecover()
 		for obj := range eventWatcher.ResultChan() {
-			if timedOut {
-				// If some events are still in the queue, make sure we don't process them anymore
-				break
-			}
 			if f(obj.Object.(*k8sv1.Event)) {
 				close(done)
 				break
@@ -710,6 +705,8 @@ func cleanNamespaces() {
 
 		// Remove all VirtualMachineInstance Presets
 		PanicOnError(virtCli.RestClient().Delete().Namespace(namespace).Resource("virtualmachineinstancepresets").Do().Error())
+		// Remove all limit ranges
+		PanicOnError(virtCli.CoreV1().RESTClient().Delete().Namespace(namespace).Resource("limitranges").Do().Error())
 	}
 }
 
@@ -1061,7 +1058,7 @@ func waitForVMIStart(obj runtime.Object, seconds int, ignoreWarnings bool) (node
 			return true
 		}
 		return false
-	}, time.Duration(seconds)*time.Second).Should(Equal(true))
+	}, time.Duration(seconds)*time.Second).Should(Equal(true), "Timed out waiting for VMI to enter Running phase")
 
 	return
 }
@@ -1185,13 +1182,15 @@ func NewConsoleExpecter(virtCli kubecli.KubevirtClient, vmi *v1.VirtualMachineIn
 	vmiReader, vmiWriter := io.Pipe()
 	expecterReader, expecterWriter := io.Pipe()
 	resCh := make(chan error)
-	go func() {
-		con, err := virtCli.VirtualMachineInstance(vmi.ObjectMeta.Namespace).SerialConsole(vmi.ObjectMeta.Name)
-		if err != nil {
-			resCh <- err
-			return
-		}
 
+	startTime := time.Now()
+	con, err := virtCli.VirtualMachineInstance(vmi.Namespace).SerialConsole(vmi.Name, timeout)
+	if err != nil {
+		return nil, nil, err
+	}
+	timeout = timeout - time.Now().Sub(startTime)
+
+	go func() {
 		resCh <- con.Stream(kubecli.StreamOptions{
 			In:  vmiReader,
 			Out: expecterWriter,
@@ -1235,7 +1234,7 @@ func RegistryDiskFor(name RegistryDisk) string {
 func CheckForTextExpecter(vmi *v1.VirtualMachineInstance, expected []expect.Batcher, wait int) error {
 	virtClient, err := kubecli.GetKubevirtClient()
 	PanicOnError(err)
-	expecter, _, err := NewConsoleExpecter(virtClient, vmi, 10*time.Second)
+	expecter, _, err := NewConsoleExpecter(virtClient, vmi, 30*time.Second)
 	if err != nil {
 		return err
 	}
@@ -1433,21 +1432,13 @@ func RunKubectlCommand(args ...string) (string, error) {
 
 func SkipIfNoOc() {
 	if KubeVirtOcPath == "" {
-		var err error
-		KubeVirtOcPath, err = exec.LookPath("oc")
-		if err != nil {
-			Skip("Skip test that requires oc binary")
-		}
+		Skip("Skip test that requires oc binary")
 	}
 }
 
 func RunOcCommand(args ...string) (string, error) {
 	if KubeVirtOcPath == "" {
-		var err error
-		KubeVirtOcPath, err = exec.LookPath("oc")
-		if err != nil {
-			return "", fmt.Errorf("can not find oc binary")
-		}
+		return "", fmt.Errorf("no oc binary specified")
 	}
 
 	kubeconfig := flag.Lookup("kubeconfig").Value
@@ -1467,10 +1458,9 @@ func RunOcCommand(args ...string) (string, error) {
 	stdOutErrBytes, err := cmd.CombinedOutput()
 
 	if err != nil {
-		fmt.Printf("%s %s %s\n%s%v\n", kubeconfEnv, KubeVirtOcPath, strings.Join(args, " "), string(stdOutErrBytes), err)
-		return string(stdOutErrBytes), err
+		log.Log.Reason(err).With("output", string(stdOutErrBytes)).Errorf("oc command failed: %s %s,", KubeVirtOcPath, strings.Join(args, " "))
 	}
-	return string(stdOutErrBytes), nil
+	return string(stdOutErrBytes), err
 }
 
 func GenerateVMIJson(vmi *v1.VirtualMachineInstance) (string, error) {
@@ -1583,7 +1573,18 @@ func SkipIfVersionBelow(message string, expectedVersion string) {
 	}
 }
 
-// StartVmOnNode will start a VMI on the specified node
+func SkipIfOpenShift(message string) {
+	virtClient, err := kubecli.GetKubevirtClient()
+	PanicOnError(err)
+
+	result := virtClient.RestClient().Get().AbsPath("/version/openshift").Do()
+
+	if result.Error() == nil {
+		Skip("Openshift detected: " + message)
+	}
+}
+
+// StartVmOnNode starts a VMI on the specified node
 func StartVmOnNode(vmi *v1.VirtualMachineInstance, nodeName string) {
 	virtClient, err := kubecli.GetKubevirtClient()
 	PanicOnError(err)
@@ -1607,7 +1608,7 @@ func StartVmOnNode(vmi *v1.VirtualMachineInstance, nodeName string) {
 	WaitForSuccessfulVMIStart(vmi)
 }
 
-// RunCommandOnVmiPod will run specified command on the virt-launcher pod
+// RunCommandOnVmiPod runs specified command on the virt-launcher pod
 func RunCommandOnVmiPod(vmi *v1.VirtualMachineInstance, command []string) string {
 	virtClient, err := kubecli.GetKubevirtClient()
 	PanicOnError(err)
@@ -1630,7 +1631,7 @@ func RunCommandOnVmiPod(vmi *v1.VirtualMachineInstance, command []string) string
 
 // GetNodeLibvirtCapabilities returns node libvirt capabilities
 func GetNodeLibvirtCapabilities(nodeName string) string {
-	// Create a virt-launcher pod, that can fetch virsh capabilities
+	// Create a virt-launcher pod to fetch virsh capabilities
 	vmi := NewRandomVMIWithEphemeralDiskAndUserdata(RegistryDiskFor(RegistryDiskCirros), "#!/bin/bash\necho 'hello'\n")
 	StartVmOnNode(vmi, nodeName)
 
@@ -1647,13 +1648,25 @@ func GetNodeCPUInfo(nodeName string) string {
 
 // KubevirtFailHandler call ginkgo.Fail with printing the additional information
 func KubevirtFailHandler(message string, callerSkip ...int) {
+	if len(callerSkip) > 0 {
+		callerSkip[0]++
+	}
+
 	virtClient, err := kubecli.GetKubevirtClient()
-	PanicOnError(err)
+	if err != nil {
+		fmt.Println(err)
+		Fail(message, callerSkip...)
+		return
+	}
 
 	for _, ns := range []string{metav1.NamespaceSystem, NamespaceTestDefault} {
 		// Get KubeVirt specific pods information
 		pods, err := virtClient.CoreV1().Pods(ns).List(metav1.ListOptions{LabelSelector: "kubevirt.io"})
-		PanicOnError(err)
+		if err != nil {
+			fmt.Println(err)
+			Fail(message, callerSkip...)
+			return
+		}
 
 		for _, pod := range pods.Items {
 			fmt.Printf("\nPod name: %s\t Pod phase: %s\n\n", pod.Name, pod.Status.Phase)
@@ -1672,10 +1685,6 @@ func KubevirtFailHandler(message string, callerSkip ...int) {
 				fmt.Printf(string(logsRaw))
 			}
 		}
-	}
-
-	if len(callerSkip) > 0 {
-		callerSkip[0]++
 	}
 	Fail(message, callerSkip...)
 }

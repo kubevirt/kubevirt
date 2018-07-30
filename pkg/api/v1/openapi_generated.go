@@ -71,7 +71,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 						},
 						"model": {
 							SchemaProps: spec.SchemaProps{
-								Description: "Model specifies the CPU model inside the VMI. List of available models https://github.com/libvirt/libvirt/blob/master/src/cpu/cpu_map.xml. You also can specify special cases like \"host-passthrough\" to get the same CPU as the node and \"host-model\" to get CPU closest to the node one. You can find more information under https://libvirt.org/formatdomain.html#elementsCPU. Defaults to host-model.",
+								Description: "Model specifies the CPU model inside the VMI. List of available models https://github.com/libvirt/libvirt/blob/master/src/cpu/cpu_map.xml. It is possible to specify special cases like \"host-passthrough\" to get the same CPU as the node and \"host-model\" to get CPU closest to the node one. For more information see https://libvirt.org/formatdomain.html#elementsCPU. Defaults to host-model.",
 								Type:        []string{"string"},
 								Format:      "",
 							},
@@ -216,6 +216,13 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 						"autoattachPodInterface": {
 							SchemaProps: spec.SchemaProps{
 								Description: "Whether to attach a pod network interface. Defaults to true.",
+								Type:        []string{"boolean"},
+								Format:      "",
+							},
+						},
+						"autoattachGraphicsDevice": {
+							SchemaProps: spec.SchemaProps{
+								Description: "Wheater to attach the default graphics device or not. VNC will not be available if set to false. Defaults to true.",
 								Type:        []string{"boolean"},
 								Format:      "",
 							},
@@ -1184,6 +1191,13 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 										},
 									},
 								},
+							},
+						},
+						"overcommitGuestOverhead": {
+							SchemaProps: spec.SchemaProps{
+								Description: "Don't ask the scheduler to take the guest-management overhead into account. Instead put the overhead only into the requested memory limits. This can lead to crashes if all memory is in use on a node. Defaults to false.",
+								Type:        []string{"boolean"},
+								Format:      "",
 							},
 						},
 					},

@@ -69,3 +69,4 @@ func fixKnownTypes(openapiSpec map[string]common.OpenAPIDefinition) {
 		},
 	}
 }
+

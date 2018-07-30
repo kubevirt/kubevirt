@@ -54,6 +54,8 @@ spec:
                               type: string
                         devices:
                           properties:
+                            autoattachGraphicsDevice:
+                              type: boolean
                             autoattachPodInterface:
                               type: boolean
                             disks:
@@ -210,6 +212,8 @@ spec:
                           properties:
                             limits:
                               type: object
+                            overcommitGuestOverhead:
+                              type: boolean
                             requests:
                               type: object
                       required:

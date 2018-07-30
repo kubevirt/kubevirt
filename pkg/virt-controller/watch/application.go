@@ -99,6 +99,8 @@ type VirtControllerApp struct {
 	vmController *VMController
 	vmInformer   cache.SharedIndexInformer
 
+	limitrangeInformer cache.SharedIndexInformer
+
 	LeaderElection leaderelectionconfig.Configuration
 
 	launcherImage    string
@@ -158,6 +160,7 @@ func Execute() {
 	app.configMapCache = app.configMapInformer.GetStore()
 
 	app.vmInformer = app.informerFactory.VirtualMachine()
+	app.limitrangeInformer = app.informerFactory.LimitRanges()
 
 	app.initCommon()
 	app.initReplicaSet()
@@ -252,7 +255,7 @@ func (vca *VirtControllerApp) initCommon() {
 	}
 	vca.templateService = services.NewTemplateService(vca.launcherImage, vca.virtShareDir, vca.imagePullSecret, vca.configMapCache)
 	vca.vmiController = NewVMIController(vca.templateService, vca.vmiInformer, vca.podInformer, vca.vmiRecorder, vca.clientSet, vca.configMapInformer)
-	vca.vmiPresetController = NewVirtualMachinePresetController(vca.vmiPresetInformer, vca.vmiInformer, vca.vmiPresetQueue, vca.vmiPresetCache, vca.clientSet, vca.vmiPresetRecorder)
+	vca.vmiPresetController = NewVirtualMachinePresetController(vca.vmiPresetInformer, vca.vmiInformer, vca.vmiPresetQueue, vca.vmiPresetCache, vca.clientSet, vca.vmiPresetRecorder, vca.limitrangeInformer)
 	vca.nodeController = NewNodeController(vca.clientSet, vca.nodeInformer, vca.vmiInformer, nil)
 }
 

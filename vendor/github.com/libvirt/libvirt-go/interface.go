@@ -28,9 +28,8 @@ package libvirt
 
 /*
 #cgo pkg-config: libvirt
-#include <libvirt/libvirt.h>
-#include <libvirt/virterror.h>
 #include <stdlib.h>
+#include "interface_wrapper.h"
 */
 import "C"
 
@@ -50,27 +49,30 @@ type Interface struct {
 
 // See also https://libvirt.org/html/libvirt-libvirt-interface.html#virInterfaceCreate
 func (n *Interface) Create(flags uint32) error {
-	result := C.virInterfaceCreate(n.ptr, C.uint(flags))
+	var err C.virError
+	result := C.virInterfaceCreateWrapper(n.ptr, C.uint(flags), &err)
 	if result == -1 {
-		return GetLastError()
+		return makeError(&err)
 	}
 	return nil
 }
 
 // See also https://libvirt.org/html/libvirt-libvirt-interface.html#virInterfaceDestroy
 func (n *Interface) Destroy(flags uint32) error {
-	result := C.virInterfaceDestroy(n.ptr, C.uint(flags))
+	var err C.virError
+	result := C.virInterfaceDestroyWrapper(n.ptr, C.uint(flags), &err)
 	if result == -1 {
-		return GetLastError()
+		return makeError(&err)
 	}
 	return nil
 }
 
 // See also https://libvirt.org/html/libvirt-libvirt-interface.html#virInterfaceIsActive
 func (n *Interface) IsActive() (bool, error) {
-	result := C.virInterfaceIsActive(n.ptr)
+	var err C.virError
+	result := C.virInterfaceIsActiveWrapper(n.ptr, &err)
 	if result == -1 {
-		return false, GetLastError()
+		return false, makeError(&err)
 	}
 	if result == 1 {
 		return true, nil
@@ -80,9 +82,10 @@ func (n *Interface) IsActive() (bool, error) {
 
 // See also https://libvirt.org/html/libvirt-libvirt-interface.html#virInterfaceGetMACString
 func (n *Interface) GetMACString() (string, error) {
-	result := C.virInterfaceGetMACString(n.ptr)
+	var err C.virError
+	result := C.virInterfaceGetMACStringWrapper(n.ptr, &err)
 	if result == nil {
-		return "", GetLastError()
+		return "", makeError(&err)
 	}
 	mac := C.GoString(result)
 	return mac, nil
@@ -90,9 +93,10 @@ func (n *Interface) GetMACString() (string, error) {
 
 // See also https://libvirt.org/html/libvirt-libvirt-interface.html#virInterfaceGetName
 func (n *Interface) GetName() (string, error) {
-	result := C.virInterfaceGetName(n.ptr)
+	var err C.virError
+	result := C.virInterfaceGetNameWrapper(n.ptr, &err)
 	if result == nil {
-		return "", GetLastError()
+		return "", makeError(&err)
 	}
 	name := C.GoString(result)
 	return name, nil
@@ -100,9 +104,10 @@ func (n *Interface) GetName() (string, error) {
 
 // See also https://libvirt.org/html/libvirt-libvirt-interface.html#virInterfaceGetXMLDesc
 func (n *Interface) GetXMLDesc(flags InterfaceXMLFlags) (string, error) {
-	result := C.virInterfaceGetXMLDesc(n.ptr, C.uint(flags))
+	var err C.virError
+	result := C.virInterfaceGetXMLDescWrapper(n.ptr, C.uint(flags), &err)
 	if result == nil {
-		return "", GetLastError()
+		return "", makeError(&err)
 	}
 	xml := C.GoString(result)
 	C.free(unsafe.Pointer(result))
@@ -111,27 +116,30 @@ func (n *Interface) GetXMLDesc(flags InterfaceXMLFlags) (string, error) {
 
 // See also https://libvirt.org/html/libvirt-libvirt-interface.html#virInterfaceUndefine
 func (n *Interface) Undefine() error {
-	result := C.virInterfaceUndefine(n.ptr)
+	var err C.virError
+	result := C.virInterfaceUndefineWrapper(n.ptr, &err)
 	if result == -1 {
-		return GetLastError()
+		return makeError(&err)
 	}
 	return nil
 }
 
 // See also https://libvirt.org/html/libvirt-libvirt-interface.html#virInterfaceFree
 func (n *Interface) Free() error {
-	ret := C.virInterfaceFree(n.ptr)
+	var err C.virError
+	ret := C.virInterfaceFreeWrapper(n.ptr, &err)
 	if ret == -1 {
-		return GetLastError()
+		return makeError(&err)
 	}
 	return nil
 }
 
 // See also https://libvirt.org/html/libvirt-libvirt-interface.html#virInterfaceRef
 func (c *Interface) Ref() error {
-	ret := C.virInterfaceRef(c.ptr)
+	var err C.virError
+	ret := C.virInterfaceRefWrapper(c.ptr, &err)
 	if ret == -1 {
-		return GetLastError()
+		return makeError(&err)
 	}
 	return nil
 }

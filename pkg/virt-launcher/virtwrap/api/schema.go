@@ -238,17 +238,29 @@ type HugePage struct {
 }
 
 type Devices struct {
-	Emulator   string      `xml:"emulator,omitempty"`
-	Interfaces []Interface `xml:"interface"`
-	Channels   []Channel   `xml:"channel"`
-	Video      []Video     `xml:"video"`
-	Graphics   []Graphics  `xml:"graphics"`
-	Ballooning *Ballooning `xml:"memballoon,omitempty"`
-	Disks      []Disk      `xml:"disk"`
-	Serials    []Serial    `xml:"serial"`
-	Consoles   []Console   `xml:"console"`
-	Watchdog   *Watchdog   `xml:"watchdog,omitempty"`
+	Emulator    string       `xml:"emulator,omitempty"`
+	Interfaces  []Interface  `xml:"interface"`
+	Channels    []Channel    `xml:"channel"`
+	Controllers []Controller `xml:"controller,omitempty"`
+	Video       []Video      `xml:"video"`
+	Graphics    []Graphics   `xml:"graphics"`
+	Ballooning  *Ballooning  `xml:"memballoon,omitempty"`
+	Disks       []Disk       `xml:"disk"`
+	Serials     []Serial     `xml:"serial"`
+	Consoles    []Console    `xml:"console"`
+	Watchdog    *Watchdog    `xml:"watchdog,omitempty"`
 }
+
+// BEGIN Controller -----------------------------
+
+// Controller represens libvirt controller element https://libvirt.org/formatdomain.html#elementsControllers
+type Controller struct {
+	Type  string `xml:"type,attr"`
+	Index string `xml:"index,attr"`
+	Model string `xml:"model,attr,omitempty"`
+}
+
+// END Controller -----------------------------
 
 // BEGIN Disk -----------------------------
 

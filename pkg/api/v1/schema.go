@@ -114,6 +114,10 @@ type ResourceRequirements struct {
 	// Valid resource keys are "memory" and "cpu".
 	// +optional
 	Limits v1.ResourceList `json:"limits,omitempty"`
+	// Don't ask the scheduler to take the guest-management overhead into account. Instead
+	// put the overhead only into the requested memory limits. This can lead to crashes if
+	// all memory is in use on a node. Defaults to false.
+	OvercommitGuestOverhead bool `json:"overcommitGuestOverhead,omitempty"`
 }
 
 // CPU allows specifying the CPU topology.
@@ -125,9 +129,9 @@ type CPU struct {
 	Cores uint32 `json:"cores,omitempty"`
 	// Model specifies the CPU model inside the VMI.
 	// List of available models https://github.com/libvirt/libvirt/blob/master/src/cpu/cpu_map.xml.
-	// You also can specify special cases like "host-passthrough" to get the same CPU as the node
+	// It is possible to specify special cases like "host-passthrough" to get the same CPU as the node
 	// and "host-model" to get CPU closest to the node one.
-	// You can find more information under https://libvirt.org/formatdomain.html#elementsCPU.
+	// For more information see https://libvirt.org/formatdomain.html#elementsCPU.
 	// Defaults to host-model.
 	// +optional
 	Model string `json:"model,omitempty"`
@@ -176,6 +180,9 @@ type Devices struct {
 	Interfaces []Interface `json:"interfaces,omitempty"`
 	// Whether to attach a pod network interface. Defaults to true.
 	AutoattachPodInterface *bool `json:"autoattachPodInterface,omitempty"`
+	// Wheater to attach the default graphics device or not.
+	// VNC will not be available if set to false. Defaults to true.
+	AutoattachGraphicsDevice *bool `json:"autoattachGraphicsDevice,omitempty"`
 }
 
 // ---
