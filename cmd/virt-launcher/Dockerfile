@@ -31,13 +31,11 @@ RUN dnf -y install \
   test $(id -u qemu) = 107 # make sure that the qemu user really is 107
 
 COPY virt-launcher /usr/bin/virt-launcher
-COPY kubevirt-sudo /etc/sudoers.d/kubevirt
 COPY .version /.version
 
 # Allow qemu to bind privileged ports
 RUN setcap CAP_NET_BIND_SERVICE=+eip /usr/bin/qemu-system-x86_64
 
-# libvirtd.sh in this image differs from upstream
 RUN mkdir -p /usr/share/kubevirt/virt-launcher
 COPY entrypoint.sh sock-connector /usr/share/kubevirt/virt-launcher/
 
