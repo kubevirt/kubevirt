@@ -83,11 +83,11 @@ The release process is mostly automatic and consists of the following steps:
 3. Push the tag to github `git push git@github.com:kubevirt/kubevirt.git $TAG`
 4. Wait for [travis](https://travis-ci.org/kubevirt/kubevirt/) to finish, and
    check that the binary artifacts got attached to the release at
-   <https://github.com/kubevirt/kubevirt/releases/tag/$TAG>
+   `https://github.com/kubevirt/kubevirt/releases/tag/$TAG`
    and that the containers were correctly tagged and pushed to
    <https://hub.docker.com/r/kubevirt/>
 5. Adjust the release details (draft, pre-release) as necessary at
-   <https://github.com/kubevirt/kubevirt/releases/tag/$TAG>
+   `https://github.com/kubevirt/kubevirt/releases/tag/$TAG`
 6. Sent a friendly announcement email to <kubevirt-dev@googlegroups.com>
 
 Stable Branches
