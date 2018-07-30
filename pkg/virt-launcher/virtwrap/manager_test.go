@@ -139,27 +139,24 @@ var _ = Describe("Manager", func() {
 		table.DescribeTable("should try to undefine a VirtualMachineInstance in state",
 			func(state libvirt.DomainState) {
 				mockConn.EXPECT().LookupDomainByName(testDomainName).Return(mockDomain, nil)
-				mockDomain.EXPECT().GetState().Return(state, 1, nil)
 				mockDomain.EXPECT().Undefine().Return(nil)
 				manager, _ := NewLibvirtDomainManager(mockConn)
-				err := manager.KillVMI(newVMI(testNamespace, testVmName))
+				err := manager.DeleteVMI(newVMI(testNamespace, testVmName))
 				Expect(err).To(BeNil())
 			},
 			table.Entry("crashed", libvirt.DOMAIN_CRASHED),
-			table.Entry("shutdown", libvirt.DOMAIN_SHUTDOWN),
 			table.Entry("shutoff", libvirt.DOMAIN_SHUTOFF),
-			table.Entry("unknown", libvirt.DOMAIN_NOSTATE),
 		)
-		table.DescribeTable("should try to destroy and undefine a VirtualMachineInstance in state",
+		table.DescribeTable("should try to destroy a VirtualMachineInstance in state",
 			func(state libvirt.DomainState) {
 				mockConn.EXPECT().LookupDomainByName(testDomainName).Return(mockDomain, nil)
 				mockDomain.EXPECT().GetState().Return(state, 1, nil)
-				mockDomain.EXPECT().Destroy().Return(nil)
-				mockDomain.EXPECT().Undefine().Return(nil)
+				mockDomain.EXPECT().DestroyFlags(libvirt.DOMAIN_DESTROY_GRACEFUL).Return(nil)
 				manager, _ := NewLibvirtDomainManager(mockConn)
 				err := manager.KillVMI(newVMI(testNamespace, testVmName))
 				Expect(err).To(BeNil())
 			},
+			table.Entry("shuttingDown", libvirt.DOMAIN_SHUTDOWN),
 			table.Entry("running", libvirt.DOMAIN_RUNNING),
 			table.Entry("paused", libvirt.DOMAIN_PAUSED),
 		)

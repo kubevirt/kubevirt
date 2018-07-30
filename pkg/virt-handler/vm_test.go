@@ -131,6 +131,9 @@ var _ = Describe("VirtualMachineInstance", func() {
 
 	initGracePeriodHelper := func(gracePeriod int64, vmi *v1.VirtualMachineInstance, dom *api.Domain) {
 		vmi.Spec.TerminationGracePeriodSeconds = &gracePeriod
+		dom.Spec.Features = &api.Features{
+			ACPI: &api.FeatureEnabled{},
+		}
 		dom.Spec.Metadata.KubeVirt.GracePeriod.DeletionGracePeriodSeconds = gracePeriod
 	}
 
@@ -141,8 +144,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 			domainFeeder.Add(domain)
 
 			client.EXPECT().Ping()
-			client.EXPECT().KillVirtualMachine(v1.NewVMIReferenceFromName("testvmi"))
-			client.EXPECT().Close()
+			client.EXPECT().DeleteDomain(v1.NewVMIReferenceFromName("testvmi"))
 			controller.Execute()
 		})
 
@@ -153,7 +155,6 @@ var _ = Describe("VirtualMachineInstance", func() {
 
 			client.EXPECT().Ping()
 			client.EXPECT().KillVirtualMachine(v1.NewVMIReferenceFromName("testvmi"))
-			client.EXPECT().Close()
 
 			controller.Execute()
 		})
@@ -212,7 +213,6 @@ var _ = Describe("VirtualMachineInstance", func() {
 
 			client.EXPECT().Ping()
 			client.EXPECT().KillVirtualMachine(v1.NewVMIReferenceFromName("testvmi"))
-			client.EXPECT().Close()
 			domainFeeder.Add(domain)
 
 			controller.Execute()
@@ -229,7 +229,6 @@ var _ = Describe("VirtualMachineInstance", func() {
 
 			client.EXPECT().Ping()
 			client.EXPECT().KillVirtualMachine(v1.NewVMIReferenceFromName("testvmi"))
-			client.EXPECT().Close()
 			domainFeeder.Add(domain)
 			controller.Execute()
 		}, 3)

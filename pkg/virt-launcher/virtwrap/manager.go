@@ -51,6 +51,7 @@ import (
 type DomainManager interface {
 	SyncVMI(*v1.VirtualMachineInstance, bool) (*api.DomainSpec, error)
 	KillVMI(*v1.VirtualMachineInstance) error
+	DeleteVMI(*v1.VirtualMachineInstance) error
 	SignalShutdownVMI(*v1.VirtualMachineInstance) error
 	ListAllDomains() ([]*api.Domain, error)
 }
@@ -246,7 +247,7 @@ func (l *LibvirtDomainManager) SignalShutdownVMI(vmi *v1.VirtualMachineInstance)
 		}
 
 		if domSpec.Metadata.KubeVirt.GracePeriod.DeletionTimestamp == nil {
-			err = dom.Shutdown()
+			err = dom.ShutdownFlags(libvirt.DOMAIN_SHUTDOWN_ACPI_POWER_BTN)
 			if err != nil {
 				log.Log.Object(vmi).Reason(err).Error("Signalling graceful shutdown failed.")
 				return err
@@ -289,8 +290,8 @@ func (l *LibvirtDomainManager) KillVMI(vmi *v1.VirtualMachineInstance) error {
 		return err
 	}
 
-	if domState == libvirt.DOMAIN_RUNNING || domState == libvirt.DOMAIN_PAUSED {
-		err = dom.Destroy()
+	if domState == libvirt.DOMAIN_RUNNING || domState == libvirt.DOMAIN_PAUSED || domState == libvirt.DOMAIN_SHUTDOWN {
+		err = dom.DestroyFlags(libvirt.DOMAIN_DESTROY_GRACEFUL)
 		if err != nil {
 			if domainerrors.IsNotFound(err) {
 				return nil
@@ -299,14 +300,30 @@ func (l *LibvirtDomainManager) KillVMI(vmi *v1.VirtualMachineInstance) error {
 			return err
 		}
 		log.Log.Object(vmi).Info("Domain stopped.")
+		return nil
 	}
+
+	log.Log.Object(vmi).Info("Domain not running or paused, nothing to do.")
+	return nil
+}
+
+func (l *LibvirtDomainManager) DeleteVMI(vmi *v1.VirtualMachineInstance) error {
+	domName := api.VMINamespaceKeyFunc(vmi)
+	dom, err := l.virConn.LookupDomainByName(domName)
+	if err != nil {
+		// If the domain does not exist, we are done
+		if domainerrors.IsNotFound(err) {
+			return nil
+		} else {
+			log.Log.Object(vmi).Reason(err).Error("Getting the domain failed.")
+			return err
+		}
+	}
+	defer dom.Free()
 
 	err = dom.Undefine()
 	if err != nil {
-		if domainerrors.IsNotFound(err) {
-			return nil
-		}
-		log.Log.Object(vmi).Reason(err).Error("Undefining the domain state failed.")
+		log.Log.Object(vmi).Reason(err).Error("Undefining the domain failed.")
 		return err
 	}
 	log.Log.Object(vmi).Info("Domain undefined.")

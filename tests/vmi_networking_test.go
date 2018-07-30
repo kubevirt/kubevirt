@@ -81,21 +81,6 @@ var _ = Describe("Networking", func() {
 		return j.Status.Phase
 	}
 
-	waitUntilVMIReady := func(vmi *v1.VirtualMachineInstance, expecterFactory tests.VMIExpecterFactory) *v1.VirtualMachineInstance {
-		// Wait for VirtualMachineInstance start
-		tests.WaitForSuccessfulVMIStart(vmi)
-
-		// Fetch the new VirtualMachineInstance with updated status
-		vmi, err := virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Get(vmi.Name, &v13.GetOptions{})
-		Expect(err).ToNot(HaveOccurred())
-
-		// Lets make sure that the OS is up by waiting until we can login
-		expecter, err := expecterFactory(vmi)
-		Expect(err).ToNot(HaveOccurred())
-		expecter.Close()
-		return vmi
-	}
-
 	startTCPServer := func(vmi *v1.VirtualMachineInstance, port int) {
 		expecter, err := tests.LoggedInCirrosExpecter(vmi)
 		Expect(err).ToNot(HaveOccurred())
@@ -147,10 +132,10 @@ var _ = Describe("Networking", func() {
 		}
 
 		// Wait for VMIs to become ready
-		inboundVMI = waitUntilVMIReady(inboundVMI, tests.LoggedInCirrosExpecter)
-		outboundVMI = waitUntilVMIReady(outboundVMI, tests.LoggedInCirrosExpecter)
-		inboundVMIWithPodNetworkSet = waitUntilVMIReady(inboundVMIWithPodNetworkSet, tests.LoggedInCirrosExpecter)
-		inboundVMIWithCustomMacAddress = waitUntilVMIReady(inboundVMIWithCustomMacAddress, tests.LoggedInCirrosExpecter)
+		inboundVMI = tests.WaitUntilVMIReady(inboundVMI, tests.LoggedInCirrosExpecter)
+		outboundVMI = tests.WaitUntilVMIReady(outboundVMI, tests.LoggedInCirrosExpecter)
+		inboundVMIWithPodNetworkSet = tests.WaitUntilVMIReady(inboundVMIWithPodNetworkSet, tests.LoggedInCirrosExpecter)
+		inboundVMIWithCustomMacAddress = tests.WaitUntilVMIReady(inboundVMIWithCustomMacAddress, tests.LoggedInCirrosExpecter)
 
 		startTCPServer(inboundVMI, testPort)
 	})
@@ -388,7 +373,7 @@ var _ = Describe("Networking", func() {
 			_, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(e1000VMI)
 			Expect(err).ToNot(HaveOccurred())
 
-			waitUntilVMIReady(e1000VMI, tests.LoggedInAlpineExpecter)
+			tests.WaitUntilVMIReady(e1000VMI, tests.LoggedInAlpineExpecter)
 			// as defined in https://vendev.org/pci/ven_8086/
 			checkNetworkVendor(e1000VMI, "0x8086", "localhost:~#")
 		})
@@ -421,7 +406,7 @@ var _ = Describe("Networking", func() {
 			_, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(deadbeafVMI)
 			Expect(err).ToNot(HaveOccurred())
 
-			waitUntilVMIReady(deadbeafVMI, tests.LoggedInAlpineExpecter)
+			tests.WaitUntilVMIReady(deadbeafVMI, tests.LoggedInAlpineExpecter)
 			checkMacAddress(deadbeafVMI, deadbeafVMI.Spec.Domain.Devices.Interfaces[0].MacAddress, "localhost:~#")
 		})
 	})
@@ -434,7 +419,7 @@ var _ = Describe("Networking", func() {
 			_, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(beafdeadVMI)
 			Expect(err).ToNot(HaveOccurred())
 
-			waitUntilVMIReady(beafdeadVMI, tests.LoggedInAlpineExpecter)
+			tests.WaitUntilVMIReady(beafdeadVMI, tests.LoggedInAlpineExpecter)
 			checkMacAddress(beafdeadVMI, "be:af:00:00:de:ad", "localhost:~#")
 		})
 	})
@@ -447,7 +432,7 @@ var _ = Describe("Networking", func() {
 			_, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(deadbeafVMI)
 			Expect(err).ToNot(HaveOccurred())
 
-			waitUntilVMIReady(deadbeafVMI, tests.LoggedInAlpineExpecter)
+			tests.WaitUntilVMIReady(deadbeafVMI, tests.LoggedInAlpineExpecter)
 			checkMacAddress(deadbeafVMI, deadbeafVMI.Spec.Domain.Devices.Interfaces[0].MacAddress, "localhost:~#")
 		})
 	})
@@ -461,7 +446,7 @@ var _ = Describe("Networking", func() {
 
 			_, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(detachedVMI)
 			Expect(err).ToNot(HaveOccurred())
-			waitUntilVMIReady(detachedVMI, tests.LoggedInCirrosExpecter)
+			tests.WaitUntilVMIReady(detachedVMI, tests.LoggedInCirrosExpecter)
 
 			err := tests.CheckForTextExpecter(detachedVMI, []expect.Batcher{
 				&expect.BSnd{S: "\n"},
