@@ -146,6 +146,16 @@ var _ = Describe("Bridge", func() {
 			// create bridge on the node
 			parameters := []string{"link", "add", name, "type", "bridge"}
 			job := tests.RenderIPRouteJob(fmt.Sprintf("ip-add-%s", name), parameters)
+
+			// make sure that both jobs are happening on the same node
+			listOptions := metav1.ListOptions{}
+			nodeList, err := virtClient.CoreV1().Nodes().List(listOptions)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(nodeList.Items).NotTo(HaveLen(0))
+			node := nodeList.Items[0]
+			nodeSelector := map[string]string{"kubernetes.io/hostname": node.Name}
+
+			job.Spec.NodeSelector = nodeSelector
 			job, err = virtClient.CoreV1().Pods(tests.NamespaceTestDefault).Create(job)
 			Expect(err).ToNot(HaveOccurred())
 			waitForPodToFinish(job)
@@ -154,6 +164,7 @@ var _ = Describe("Bridge", func() {
 
 			parameters = []string{"link", "set", "dev", name, "up"}
 			job = tests.RenderIPRouteJob(fmt.Sprintf("ip-set-%s", name), parameters)
+			job.Spec.NodeSelector = nodeSelector
 			job, err = virtClient.CoreV1().Pods(tests.NamespaceTestDefault).Create(job)
 			Expect(err).ToNot(HaveOccurred())
 			phase := waitForPodToFinish(job)
