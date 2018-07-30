@@ -36,10 +36,10 @@ if [[ $TARGET =~ openshift-.* ]]; then
   else
     export KUBEVIRT_PROVIDER="os-3.10.0"
   fi
-elif [[ $TARGET =~ .*-1.9.3-.* ]]; then
-  export KUBEVIRT_PROVIDER="k8s-1.9.3"
+elif [[ $TARGET =~ .*-1.10.4-.* ]]; then
+  export KUBEVIRT_PROVIDER="k8s-1.10.4"
 else
-  export KUBEVIRT_PROVIDER="k8s-1.10.3"
+  export KUBEVIRT_PROVIDER="k8s-1.11.0"
 fi
 
 export KUBEVIRT_NUM_NODES=2
@@ -133,6 +133,7 @@ spec:
   nfs:
     server: "nfs"
     path: /
+  storageClassName: local
 EOF
   fi
   # Run only windows tests
