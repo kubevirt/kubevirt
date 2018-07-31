@@ -7,3 +7,4 @@ sub-stages:
   - windows2016-release
 runtime_requirements:
   support_nesting_level: 2
+  isolation_level: container
