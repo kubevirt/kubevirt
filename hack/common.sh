@@ -19,7 +19,7 @@ function build_func_tests() {
     mv ${KUBEVIRT_DIR}/tests/tests.test ${TESTS_OUT_DIR}/
 }
 
-KUBEVIRT_PROVIDER=${KUBEVIRT_PROVIDER:-k8s-1.10.3}
+KUBEVIRT_PROVIDER=${KUBEVIRT_PROVIDER:-k8s-1.10.4}
 KUBEVIRT_NUM_NODES=${KUBEVIRT_NUM_NODES:-1}
 
 # Use this environment variable to set a custom pkgdir path

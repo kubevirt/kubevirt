@@ -2,7 +2,6 @@ unset binaries docker_images docker_prefix docker_tag manifest_templates \
     master_ip network_provider kubeconfig manifest_docker_prefix namespace
 
 KUBEVIRT_PROVIDER=${KUBEVIRT_PROVIDER:-${PROVIDER}}
-KUBEVIRT_PROVIDER=${KUBEVIRT_PROVIDER:-k8s-1.10.4}
 
 source ${KUBEVIRT_PATH}hack/config-default.sh source ${KUBEVIRT_PATH}hack/config-${KUBEVIRT_PROVIDER}.sh
 
