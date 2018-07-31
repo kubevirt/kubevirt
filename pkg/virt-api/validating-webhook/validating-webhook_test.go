@@ -958,6 +958,29 @@ var _ = Describe("Validating Webhook", func() {
 				Expect(causes[0].Field).To(Equal("fake.domain.devices.interfaces[0].macAddress"))
 			}
 		})
+		It("should accept valid PCI address", func() {
+			vmi := v1.NewMinimalVMI("testvm")
+			vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{*v1.DefaultNetworkInterface()}
+			vmi.Spec.Networks = []v1.Network{*v1.DefaultPodNetwork()}
+			for _, pciAddress := range []string{"0000:81:11.1", "0001:02:00.0"} {
+				vmi.Spec.Domain.Devices.Interfaces[0].PciAddress = pciAddress
+				causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec)
+				// if this is processed correctly, it should not result in any error
+				Expect(len(causes)).To(Equal(0))
+			}
+		})
+
+		It("should reject invalid PCI addresses", func() {
+			vmi := v1.NewMinimalVMI("testvm")
+			vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{*v1.DefaultNetworkInterface()}
+			vmi.Spec.Networks = []v1.Network{*v1.DefaultPodNetwork()}
+			for _, pciAddress := range []string{"0000:80.10.1", "0000:80:80:1.0", "0000:80:11.15"} {
+				vmi.Spec.Domain.Devices.Interfaces[0].PciAddress = pciAddress
+				causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec)
+				Expect(len(causes)).To(Equal(1))
+				Expect(causes[0].Field).To(Equal("fake.domain.devices.interfaces[0].pciAddress"))
+			}
+		})
 	})
 	Context("with Volume", func() {
 		table.DescribeTable("should accept valid volumes",
