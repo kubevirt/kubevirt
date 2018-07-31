@@ -3383,6 +3383,10 @@
        "$ref": "#/definitions/v1.Interface"
       }
      },
+     "rng": {
+      "description": "Whether to have random number generator from host",
+      "$ref": "#/definitions/v1.Rng"
+     },
      "watchdog": {
       "description": "Watchdog describes a watchdog device which can be added to the vmi.",
       "$ref": "#/definitions/v1.Watchdog"
@@ -4289,6 +4293,23 @@
      "requests": {
       "description": "Requests is a description of the initial vmi resources.\nValid resource keys are \"memory\" and \"cpu\".\n+optional",
       "type": "object"
+     }
+    }
+   },
+   "v1.Rng": {
+    "description": "Rng represents the random device passed from host",
+    "required": [
+     "source"
+    ],
+    "properties": {
+     "rateBytes": {
+      "type": "integer"
+     },
+     "ratePeriod": {
+      "type": "integer"
+     },
+     "source": {
+      "type": "string"
      }
     }
    },

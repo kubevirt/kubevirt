@@ -136,6 +136,18 @@ spec:
                                 required:
                                 - name
                               type: array
+                            rng:
+                              properties:
+                                rateBytes:
+                                  format: int64
+                                  type: integer
+                                ratePeriod:
+                                  format: int64
+                                  type: integer
+                                source:
+                                  type: string
+                              required:
+                              - source
                             watchdog:
                               properties:
                                 i6300esb:

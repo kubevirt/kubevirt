@@ -87,6 +87,7 @@ func (Devices) SwaggerDoc() map[string]string {
 		"interfaces":               "Interfaces describe network interfaces which are added to the vm.",
 		"autoattachPodInterface":   "Whether to attach a pod network interface. Defaults to true.",
 		"autoattachGraphicsDevice": "Wheater to attach the default graphics device or not.\nVNC will not be available if set to false. Defaults to true.",
+		"rng": "Whether to have random number generator from host",
 	}
 }
 
@@ -367,5 +368,11 @@ func (PodNetwork) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"":              "Represents the stock pod network interface.",
 		"vmNetworkCIDR": "CIDR for vm network.\nDefault 10.0.2.0/24 if not specified.",
+	}
+}
+
+func (Rng) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"": "Rng represents the random device passed from host",
 	}
 }

@@ -225,13 +225,17 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 								Description: "Wheater to attach the default graphics device or not. VNC will not be available if set to false. Defaults to true.",
 								Type:        []string{"boolean"},
 								Format:      "",
+						"rng": {
+							SchemaProps: spec.SchemaProps{
+								Description: "Whether to have random number generator from host",
+								Ref:         ref("kubevirt.io/kubevirt/pkg/api/v1.Rng"),
 							},
 						},
 					},
 				},
 			},
 			Dependencies: []string{
-				"kubevirt.io/kubevirt/pkg/api/v1.Disk", "kubevirt.io/kubevirt/pkg/api/v1.Interface", "kubevirt.io/kubevirt/pkg/api/v1.Watchdog"},
+				"kubevirt.io/kubevirt/pkg/api/v1.Disk", "kubevirt.io/kubevirt/pkg/api/v1.Interface", "kubevirt.io/kubevirt/pkg/api/v1.Rng", "kubevirt.io/kubevirt/pkg/api/v1.Watchdog"},
 		},
 		"kubevirt.io/kubevirt/pkg/api/v1.Disk": {
 			Schema: spec.Schema{
@@ -1190,6 +1194,35 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 			},
 			Dependencies: []string{
 				"k8s.io/apimachinery/pkg/api/resource.Quantity"},
+		},
+		"kubevirt.io/kubevirt/pkg/api/v1.Rng": {
+			Schema: spec.Schema{
+				SchemaProps: spec.SchemaProps{
+					Description: "Rng represents the random device passed from host",
+					Properties: map[string]spec.Schema{
+						"source": {
+							SchemaProps: spec.SchemaProps{
+								Type:   []string{"string"},
+								Format: "",
+							},
+						},
+						"rateBytes": {
+							SchemaProps: spec.SchemaProps{
+								Type:   []string{"integer"},
+								Format: "int64",
+							},
+						},
+						"ratePeriod": {
+							SchemaProps: spec.SchemaProps{
+								Type:   []string{"integer"},
+								Format: "int64",
+							},
+						},
+					},
+					Required: []string{"source"},
+				},
+			},
+			Dependencies: []string{},
 		},
 		"kubevirt.io/kubevirt/pkg/api/v1.Timer": {
 			Schema: spec.Schema{
