@@ -76,8 +76,8 @@ virtualmachineinstance (vmi), virtualmachine (vm), virtualmachineinstancereplica
 }
 
 func usage() string {
-	usage := `  # Expose SSH to a virtual machine instance called 'myvm' as a node port (5555) of the cluster:
-  virtctl expose vmi myvm --port=5555 --target-port=22 --name=myvm-ssh --type=NodePort")`
+	usage := `  # Expose SSH to a virtual machine instance called 'myvm' as a port (5555) and specify each node open up port 30001 on the cluster:
+  virtctl expose vmi myvm --port=5555 --node-port=30001 --target-port=22 --name=myvm-ssh --type=NodePort")`
 	return usage
 }
 
