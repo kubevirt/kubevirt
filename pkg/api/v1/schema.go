@@ -189,6 +189,8 @@ type Devices struct {
 	// VNC will not be available if set to false. Defaults to true.
 	AutoattachGraphicsDevice *bool `json:"autoattachGraphicsDevice,omitempty"`
 	// Whether to have random number generator from host
+	// Defaults to Rng enabled
+	// +optional
 	Rng *Rng `json:"rng,omitempty"`
 }
 
@@ -787,7 +789,13 @@ type PodNetwork struct {
 // ---
 // +k8s:openapi-gen=true
 type Rng struct {
-	Source     string  `json:"source"`
-	RateBytes  *uint32 `json:"rateBytes,omitempty"`
+	// Source sets the host source used to provide entropy
+	Source string `json:"source"`
+	// RateBytes limit the amount of bytes that the VM can read from entropy source
+	// per period
+	// +optional
+	RateBytes *uint32 `json:"rateBytes,omitempty"`
+	// RatePeriod sets the length of a read period
+	// +optional
 	RatePeriod *uint32 `json:"ratePeriod,omitempty"`
 }

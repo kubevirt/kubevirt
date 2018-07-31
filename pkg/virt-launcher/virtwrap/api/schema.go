@@ -580,19 +580,29 @@ type Watchdog struct {
 	Alias  *Alias `xml:"alias,omitempty"`
 }
 
+// Rng represents the source of entropy from host to VM
 type Rng struct {
-	Model   string      `xml:"model,attr"`
-	Rate    *RngRate    `xml:"rate,omitempty"`
+	// Model attribute specifies what type of RNG device is provided
+	Model string `xml:"model,attr"`
+	// Rate element allows limiting the rate at which entropy can be consumed from the source
+	Rate *RngRate `xml:"rate,omitempty"`
+	// Backend specifies the source of entropy to be used
 	Backend *RngBackend `xml:"backend,omitempty"`
 }
 
+// RngRate sets the limiting factor how to read from entropy source
 type RngRate struct {
+	// Period define how long is the read period
 	Period uint32 `xml:"period,attr"`
-	Bytes  uint32 `xml:"bytes,attr"`
+	// Bytes define how many bytes can guest read from entropy source
+	Bytes uint32 `xml:"bytes,attr"`
 }
 
+// RngBackend is the backend device used
 type RngBackend struct {
-	Model  string `xml:"model,attr"`
+	// Model is source model
+	Model string `xml:"model,attr"`
+	// specifies the source of entropy to be used
 	Source string `xml:",chardata"`
 }
 
