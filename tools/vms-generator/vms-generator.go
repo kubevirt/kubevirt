@@ -433,7 +433,7 @@ func getPVCForTemplate(name string) *k8sv1.PersistentVolumeClaim {
 func getBaseTemplate(vm *v1.VirtualMachine, memory string, cores string) *Template {
 
 	obj := toUnstructured(vm)
-	unstructured.SetNestedField(obj.Object, "${{CPU_CORES}}", "spec", "template", "spec", "domain", "cpu")
+	unstructured.SetNestedField(obj.Object, "${{CPU_CORES}}", "spec", "template", "spec", "domain", "cpu", "cores")
 	unstructured.SetNestedField(obj.Object, "${MEMORY}", "spec", "template", "spec", "domain", "resources", "requests", "memory")
 	obj.SetName("${NAME}")
 
