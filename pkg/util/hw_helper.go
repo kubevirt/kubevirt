@@ -35,5 +35,5 @@ func ParsePciAddress(pciAddress string) ([]string, error) {
 	if len(res) == 0 {
 		return nil, fmt.Errorf("failed to parse pci address %s", pciAddress)
 	}
-	return res, nil
+	return res[1:], nil
 }

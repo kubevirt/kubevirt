@@ -42,6 +42,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/log"
 	"kubevirt.io/kubevirt/pkg/precond"
 	"kubevirt.io/kubevirt/pkg/registry-disk"
+	"kubevirt.io/kubevirt/pkg/util"
 )
 
 const (
@@ -572,6 +573,21 @@ func Convert_v1_VirtualMachine_To_api_Domain(vmi *v1.VirtualMachineInstance, dom
 			Alias: &Alias{
 				Name: iface.Name,
 			},
+		}
+
+		// Add a pciAddress if specifed
+		if iface.PciAddress != "" {
+			dbsfFields, err := util.ParsePciAddress(iface.PciAddress)
+			if err != nil {
+				return err
+			}
+			domainIface.Address = &Address{
+				Type:     "pci",
+				Domain:   "0x" + dbsfFields[0],
+				Bus:      "0x" + dbsfFields[1],
+				Slot:     "0x" + dbsfFields[2],
+				Function: "0x" + dbsfFields[3],
+			}
 		}
 
 		if iface.Bridge != nil {
