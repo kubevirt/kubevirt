@@ -472,6 +472,15 @@ func Convert_v1_VirtualMachine_To_api_Domain(vmi *v1.VirtualMachineInstance, dom
 			return err
 		}
 		domain.Spec.Devices.Rng = newRng
+	} else {
+		// if the Rng is not present in the config, provide sane default
+		newRng := &Rng{}
+		newRng.Backend = &RngBackend{
+			Model:  "random",
+			Source: "/dev/urandom",
+		}
+		newRng.Model = "virtio"
+		domain.Spec.Devices.Rng = newRng
 	}
 
 	if vmi.Spec.Domain.Clock != nil {
