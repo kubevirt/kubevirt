@@ -565,36 +565,27 @@ func Convert_v1_VirtualMachine_To_api_Domain(vmi *v1.VirtualMachineInstance, dom
 			return fmt.Errorf("network interface type not supported for %s", iface.Name)
 		}
 
+		domainIface := Interface{
+			Model: &Model{
+				Type: getInterfaceType(&iface),
+			},
+			Alias: &Alias{
+				Name: iface.Name,
+			},
+		}
+
 		if iface.Bridge != nil {
 			// TODO:(ihar) consider abstracting interface type conversion /
 			// detection into drivers
-			domainIface := Interface{
-				Model: &Model{
-					Type: getInterfaceType(&iface),
-				},
-				Type: "bridge",
-				Source: InterfaceSource{
-					Bridge: DefaultBridgeName,
-				},
-				Alias: &Alias{
-					Name: iface.Name,
-				},
+			domainIface.Type = "bridge"
+			domainIface.Source = InterfaceSource{
+				Bridge: DefaultBridgeName,
 			}
 			if iface.BootOrder != nil {
 				domainIface.BootOrder = &BootOrder{Order: *iface.BootOrder}
 			}
-			domain.Spec.Devices.Interfaces = append(domain.Spec.Devices.Interfaces, domainIface)
 		} else if iface.Slirp != nil {
-			domainIface := Interface{
-				Model: &Model{
-					Type: getInterfaceType(&iface),
-				},
-				Type: "user",
-				Alias: &Alias{
-					Name: iface.Name,
-				},
-			}
-			domain.Spec.Devices.Interfaces = append(domain.Spec.Devices.Interfaces, domainIface)
+			domainIface.Type = "user"
 
 			// Create network interface
 			if domain.Spec.QEMUCmd == nil {
@@ -612,6 +603,7 @@ func Convert_v1_VirtualMachine_To_api_Domain(vmi *v1.VirtualMachineInstance, dom
 				return err
 			}
 		}
+		domain.Spec.Devices.Interfaces = append(domain.Spec.Devices.Interfaces, domainIface)
 	}
 
 	return nil
