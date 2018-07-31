@@ -26,6 +26,7 @@ import (
 
 const PCI_ADDRESS_PATTERN = `^([\da-fA-F]{4}):([\da-fA-F]{2}):([\da-fA-F]{2}).([0-7]{1})$`
 
+// ParsePciAddress returns an array of PCI DBSF fields (domain, bus, slot, function)
 func ParsePciAddress(pciAddress string) ([]string, error) {
 	pciAddrRegx, err := regexp.Compile(PCI_ADDRESS_PATTERN)
 	if err != nil {
