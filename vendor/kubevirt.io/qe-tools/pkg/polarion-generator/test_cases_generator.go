@@ -177,7 +177,7 @@ func parseIt(testcase *polarion_xml.TestCase, block *ginkgoBlock, funcBody *ast.
 	})
 }
 
-func parseTable(testcases *polarion_xml.TestCases, block *ginkgoBlock, exprs []ast.Expr, customFields *polarion_xml.TestCaseCustomFields) {
+func parseTable(testcases *polarion_xml.TestCases, block *ginkgoBlock, exprs []ast.Expr, customFields *polarion_xml.TestCaseCustomFields, filename string) {
 	lit := exprs[0].(*ast.BasicLit)
 	baseName := strings.Trim(lit.Value, "\"")
 
@@ -219,6 +219,9 @@ func parseTable(testcases *polarion_xml.TestCases, block *ginkgoBlock, exprs []a
 		}
 		addCustomField(&testCase.TestCaseCustomFields, "caseautomation", "automated")
 		addCustomField(&testCase.TestCaseCustomFields, "testtype", "functional")
+		addCustomField(&testCase.TestCaseCustomFields, "subtype1", "-")
+		addCustomField(&testCase.TestCaseCustomFields, "subtype2", "-")
+		addCustomField(&testCase.TestCaseCustomFields, "automation_script", filename)
 		addCustomField(&testCase.TestCaseCustomFields, "upstream", "yes")
 		testcases.TestCases = append(testcases.TestCases, *testCase)
 	}
@@ -259,7 +262,7 @@ func isFieldValueSupported(value string, supportedValues []string) bool {
 }
 
 // FillPolarionTestCases parse ginkgo format test and fill polarion test cases struct accordingly
-func FillPolarionTestCases(f *ast.File, testCases *polarion_xml.TestCases, commentMap *ast.CommentMap) error {
+func FillPolarionTestCases(f *ast.File, testCases *polarion_xml.TestCases, commentMap *ast.CommentMap, filename string) error {
 	var block *ginkgoBlock
 
 	ast.Inspect(f, func(n ast.Node) bool {
@@ -329,7 +332,7 @@ func FillPolarionTestCases(f *ast.File, testCases *polarion_xml.TestCases, comme
 			case ginkgoTable:
 				customFields := polarion_xml.TestCaseCustomFields{}
 				parseComments(x, commentMap, &customFields)
-				parseTable(testCases, block, x.Args, &customFields)
+				parseTable(testCases, block, x.Args, &customFields, filename)
 				return false
 			case ginkgoIt, ginkgoSpecify:
 				for i := len(block.rparenPos) - 1; i >= 0; i-- {
@@ -347,6 +350,9 @@ func FillPolarionTestCases(f *ast.File, testCases *polarion_xml.TestCases, comme
 				customFields := polarion_xml.TestCaseCustomFields{}
 				addCustomField(&customFields, "caseautomation", "automated")
 				addCustomField(&customFields, "testtype", "functional")
+				addCustomField(&customFields, "subtype1", "-")
+				addCustomField(&customFields, "subtype2", "-")
+				addCustomField(&customFields, "automation_script", filename)
 				addCustomField(&customFields, "upstream", "yes")
 				testCase := polarion_xml.TestCase{
 					Title:       polarion_xml.Title{Content: title},
@@ -417,7 +423,9 @@ func main() {
 		cmap := ast.NewCommentMap(fset, f, f.Comments)
 
 		// fill polarion test cases struct
-		FillPolarionTestCases(f, testCases, &cmap)
+		pathToFile := strings.Split(file, "/")
+		filenameShort := pathToFile[len(pathToFile)-1]
+		FillPolarionTestCases(f, testCases, &cmap, filenameShort)
 	}
 
 	// generate polarion test cases XML file
