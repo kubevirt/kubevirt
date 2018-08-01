@@ -32,7 +32,7 @@ export WORKSPACE="${WORKSPACE:-$PWD}"
 
 if [[ $TARGET =~ openshift-.* ]]; then
   if [[ $TARGET =~ .*-crio-.* ]]; then
-    export KUBEVIRT_PROVIDER="os-3.9.0-crio"
+    export KUBEVIRT_PROVIDER="os-3.10.0-crio"
   else
     export KUBEVIRT_PROVIDER="os-3.10.0"
   fi
