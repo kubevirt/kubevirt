@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 set -e
 
 go test -cover -v -coverprofile=.coverprofile $(go list ./pkg/...)

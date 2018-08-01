@@ -1,4 +1,4 @@
-#!/usr/bin/bash
+#!/usr/usr/bin/env bash
 
 underline() {
     echo "$2"
