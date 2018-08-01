@@ -72,6 +72,7 @@ var KubeVirtVersionTag = "latest"
 var KubeVirtRepoPrefix = "kubevirt"
 var KubeVirtKubectlPath = ""
 var KubeVirtOcPath = ""
+var KubeVirtVirtctlPath = ""
 var KubeVirtInstallNamespace = "kube-system"
 
 func init() {
@@ -79,6 +80,7 @@ func init() {
 	flag.StringVar(&KubeVirtRepoPrefix, "prefix", "kubevirt", "Set the repository prefix for all images")
 	flag.StringVar(&KubeVirtKubectlPath, "kubectl-path", "", "Set path to kubectl binary")
 	flag.StringVar(&KubeVirtOcPath, "oc-path", "", "Set path to oc binary")
+	flag.StringVar(&KubeVirtVirtctlPath, "virtctl-path", "", "Set path to virtctl binary")
 	flag.StringVar(&KubeVirtInstallNamespace, "installed-namespace", "kube-system", "Set the namespace KubeVirt is installed in")
 }
 
@@ -1402,13 +1404,38 @@ func SkipIfNoWindowsImage(virtClient kubecli.KubevirtClient) {
 	}
 }
 
-func SkipIfNoKubectl() {
-	if KubeVirtKubectlPath == "" {
-		Skip("Skip test that requires kubectl binary")
+func SkipIfNoCmd(cmdName string) {
+	var cmdPath string
+	switch strings.ToLower(cmdName) {
+	case "oc":
+		cmdPath = KubeVirtOcPath
+	case "kubectl":
+		cmdPath = KubeVirtKubectlPath
+	case "virtctl":
+		cmdPath = KubeVirtVirtctlPath
+	}
+	if cmdPath == "" {
+		Skip(fmt.Sprintf("Skip test that requires %s binary", cmdName))
 	}
 }
 
-func RunKubectlCommand(args ...string) (string, error) {
+func RunCommand(cmdName string, args ...string) (string, error) {
+	var cmdPath string
+	var err error
+	var stdOutErrBytes []byte
+	switch cmdName = strings.ToLower(cmdName); cmdName {
+	case "oc":
+		cmdPath = KubeVirtOcPath
+	case "kubectl":
+		cmdPath = KubeVirtKubectlPath
+	case "virtctl":
+		cmdPath = KubeVirtVirtctlPath
+	}
+
+	if cmdPath == "" {
+		return "", fmt.Errorf("no %s binary specified", cmdName)
+	}
+
 	kubeconfig := flag.Lookup("kubeconfig").Value
 	if kubeconfig == nil || kubeconfig.String() == "" {
 		return "", fmt.Errorf("can not find kubeconfig")
@@ -1419,46 +1446,19 @@ func RunKubectlCommand(args ...string) (string, error) {
 		args = append(args, "--server", master.String())
 	}
 
-	cmd := exec.Command(KubeVirtKubectlPath, args...)
+	cmd := exec.Command(cmdPath, args...)
 	kubeconfEnv := fmt.Sprintf("KUBECONFIG=%s", kubeconfig.String())
 	cmd.Env = append(os.Environ(), kubeconfEnv)
 
-	stdOutBytes, err := cmd.Output()
-	if err != nil {
-		return string(stdOutBytes), err
+	switch cmdName {
+	case "oc", "virtctl":
+		stdOutErrBytes, err = cmd.CombinedOutput()
+	case "kubectl":
+		stdOutErrBytes, err = cmd.Output()
 	}
-	return string(stdOutBytes), nil
-}
-
-func SkipIfNoOc() {
-	if KubeVirtOcPath == "" {
-		Skip("Skip test that requires oc binary")
-	}
-}
-
-func RunOcCommand(args ...string) (string, error) {
-	if KubeVirtOcPath == "" {
-		return "", fmt.Errorf("no oc binary specified")
-	}
-
-	kubeconfig := flag.Lookup("kubeconfig").Value
-	if kubeconfig == nil || kubeconfig.String() == "" {
-		return "", fmt.Errorf("can not find kubeconfig")
-	}
-
-	master := flag.Lookup("master").Value
-	if master != nil && master.String() != "" {
-		args = append(args, "--server", master.String())
-	}
-
-	cmd := exec.Command(KubeVirtOcPath, args...)
-	kubeconfEnv := fmt.Sprintf("KUBECONFIG=%s", kubeconfig.String())
-	cmd.Env = append(os.Environ(), kubeconfEnv)
-
-	stdOutErrBytes, err := cmd.CombinedOutput()
 
 	if err != nil {
-		log.Log.Reason(err).With("output", string(stdOutErrBytes)).Errorf("oc command failed: %s %s,", KubeVirtOcPath, strings.Join(args, " "))
+		log.Log.Reason(err).With("output", string(stdOutErrBytes)).Errorf("%s command failed: %s %s,", cmdName, cmdPath, strings.Join(args, " "))
 	}
 	return string(stdOutErrBytes), err
 }

@@ -226,7 +226,7 @@ var _ = Describe("Windows VirtualMachineInstance", func() {
 	Context("with kubectl command", func() {
 		var yamlFile string
 		BeforeEach(func() {
-			tests.SkipIfNoKubectl()
+			tests.SkipIfNoCmd("kubectl")
 			yamlFile, err = tests.GenerateVMIJson(windowsVMI)
 			Expect(err).ToNot(HaveOccurred())
 		})
@@ -241,7 +241,7 @@ var _ = Describe("Windows VirtualMachineInstance", func() {
 
 		It("should succeed to start a vmi", func() {
 			By("Starting the vmi via kubectl command")
-			_, err = tests.RunKubectlCommand("create", "-f", yamlFile)
+			_, err = tests.RunCommand("kubectl", "create", "-f", yamlFile)
 			Expect(err).ToNot(HaveOccurred())
 
 			tests.WaitForSuccessfulVMIStartWithTimeout(windowsVMI, 120)
@@ -249,13 +249,13 @@ var _ = Describe("Windows VirtualMachineInstance", func() {
 
 		It("should succeed to stop a vmi", func() {
 			By("Starting the vmi via kubectl command")
-			_, err = tests.RunKubectlCommand("create", "-f", yamlFile)
+			_, err = tests.RunCommand("kubectl", "create", "-f", yamlFile)
 			Expect(err).ToNot(HaveOccurred())
 
 			tests.WaitForSuccessfulVMIStartWithTimeout(windowsVMI, 120)
 
 			By("Deleting the vmi via kubectl command")
-			_, err = tests.RunKubectlCommand("delete", "-f", yamlFile)
+			_, err = tests.RunCommand("kubectl", "delete", "-f", yamlFile)
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Checking that the vmi does not exist anymore")
