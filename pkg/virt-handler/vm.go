@@ -22,8 +22,11 @@ package virthandler
 import (
 	goerror "errors"
 	"fmt"
+	"io/ioutil"
 	"os"
+	"path/filepath"
 	"reflect"
+	"strings"
 	"sync"
 	"time"
 
@@ -231,6 +234,10 @@ func (c *VirtualMachineController) Run(threadiness int, stopCh chan struct{}) {
 	go c.vmiInformer.Run(stopCh)
 	go c.gracefulShutdownInformer.Run(stopCh)
 	cache.WaitForCacheSync(stopCh, c.domainInformer.HasSynced, c.vmiInformer.HasSynced, c.gracefulShutdownInformer.HasSynced)
+
+	// Label the node if cpu manager is running on it
+	// This is a temporary workaround until k8s bug #66525 is resolved
+	c.addNodeCpuManagerLabel()
 
 	go c.heartBeat(c.heartBeatInterval, stopCh)
 
@@ -811,6 +818,33 @@ func (d *VirtualMachineController) heartBeat(interval time.Duration, stopCh chan
 			}
 			log.DefaultLogger().V(4).Infof("Heartbeat sent")
 		}, interval, 1.2, true, stopCh)
+	}
+}
+
+func (d *VirtualMachineController) addNodeCpuManagerLabel() {
+	entries, err := filepath.Glob("/proc/*/cmdline")
+	if err != nil {
+		log.DefaultLogger().Reason(err).Errorf("failed to set a cpu manager label on host %s", d.host)
+		return
+	}
+
+	for _, entry := range entries {
+		content, err := ioutil.ReadFile(entry)
+		if err != nil {
+			log.DefaultLogger().Reason(err).Errorf("failed to set a cpu manager label on host %s", d.host)
+			return
+		}
+
+		if strings.Contains(string(content), "kubelet") && strings.Contains(string(content), "cpu-manager-policy=static") {
+			data := []byte(fmt.Sprintf(`{"metadata": { "labels": {"%s": "true"}}}`, v1.CPUManager))
+			_, err = d.clientset.CoreV1().Nodes().Patch(d.host, types.StrategicMergePatchType, data)
+			if err != nil {
+				log.DefaultLogger().Reason(err).Errorf("failed to set a cpu manager label on host %s", d.host)
+				return
+			}
+			log.DefaultLogger().V(4).Infof("Node has CPU Manager running")
+
+		}
 	}
 }
 

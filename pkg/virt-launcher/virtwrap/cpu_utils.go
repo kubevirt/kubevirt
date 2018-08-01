@@ -32,21 +32,6 @@ import (
 
 const cpuset_path = "/sys/fs/cgroup/cpuset/cpuset.cpus"
 
-/*
-var exampleCpuTune = CPUTune{
-	VCPUPin: []CPUTuneVCPUPin{
-		CPUTuneVCPUPin{
-			VCPU:   0,
-			CPUSet: "1",
-		},
-		CPUTuneVCPUPin{
-			VCPU:   1,
-			CPUSet: "5",
-		},
-	},
-}
-*/
-
 func getPodPinnedCpus() ([]int, error) {
 	var cpuset string
 	file, err := os.Open(cpuset_path)
