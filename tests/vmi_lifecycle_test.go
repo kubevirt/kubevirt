@@ -96,6 +96,23 @@ var _ = Describe("VMIlifecycle", func() {
 				Should(ContainSubstring("Found PID for"))
 		})
 
+		It("should log libvirtd logs", func() {
+			vmi, err := virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
+			Expect(err).To(BeNil())
+			tests.WaitForSuccessfulVMIStart(vmi)
+
+			By("Getting virt-launcher logs")
+			logs := func() string { return getVirtLauncherLogs(virtClient, vmi) }
+			Eventually(logs,
+				11*time.Second,
+				500*time.Millisecond).
+				Should(ContainSubstring("info : libvirt version: "))
+			Eventually(logs,
+				2*time.Second,
+				500*time.Millisecond).
+				Should(ContainSubstring("info : hostname: " + vmi.Name))
+		})
+
 		It("should reject POST if schema is invalid", func() {
 			jsonBytes, err := json.Marshal(vmi)
 			Expect(err).To(BeNil())
