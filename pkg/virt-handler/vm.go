@@ -46,7 +46,6 @@ import (
 	"kubevirt.io/kubevirt/pkg/log"
 	"kubevirt.io/kubevirt/pkg/precond"
 	"kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
-	"kubevirt.io/kubevirt/pkg/virt-handler/device-manager"
 	"kubevirt.io/kubevirt/pkg/virt-handler/devices"
 	"kubevirt.io/kubevirt/pkg/virt-handler/isolation"
 	"kubevirt.io/kubevirt/pkg/virt-launcher"
@@ -63,7 +62,7 @@ func NewController(
 	domainInformer cache.SharedInformer,
 	gracefulShutdownInformer cache.SharedIndexInformer,
 	watchdogTimeoutSeconds int,
-	maxDevices int,
+	isolationDetector isolation.PodIsolationDetector,
 ) *VirtualMachineController {
 
 	queue := workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter())
@@ -101,7 +100,8 @@ func NewController(
 
 	c.launcherClients = make(map[string]cmdclient.LauncherClient)
 
-	c.kvmController = device_manager.NewDeviceController(c.host, maxDevices)
+	c.DevicePlugins = []devices.Device{&devices.KVM{}, &devices.TUN{}}
+	c.isolationDetector = isolationDetector
 
 	return c
 }
@@ -119,7 +119,8 @@ type VirtualMachineController struct {
 	launcherClientLock       sync.Mutex
 	heartBeatInterval        time.Duration
 	watchdogTimeoutSeconds   int
-	kvmController            *device_manager.DeviceController
+	DevicePlugins            []devices.Device
+	isolationDetector        isolation.PodIsolationDetector
 }
 
 // Determines if a domain's grace period has expired during shutdown.
@@ -214,8 +215,6 @@ func (c *VirtualMachineController) Run(threadiness int, stopCh chan struct{}) {
 	// Wait for the domain cache to be synced
 	go c.domainInformer.Run(stopCh)
 	cache.WaitForCacheSync(stopCh, c.domainInformer.HasSynced)
-
-	go c.kvmController.Run(stopCh)
 
 	// Poplulate the VirtualMachineInstance store with known Domains on the host, to get deletes since the last run
 	for _, domain := range c.domainInformer.GetStore().List() {
@@ -635,19 +634,17 @@ func (d *VirtualMachineController) processVmUpdate(origVMI *v1.VirtualMachineIns
 		return err
 	}
 
-	detector := isolation.NewSocketBasedIsolationDetector(d.virtShareDir)
-	podEnv, err := detector.Detect(vmi)
+	podEnv, err := d.isolationDetector.Detect(vmi)
 
 	if err != nil {
 		return err
 	}
 	nodeEnv := isolation.NodeIsolationResult()
 
-	// Here we would loop over registered pod modifiers
-	kvm := &devices.KVM{}
-	err = kvm.Setup(vmi, nodeEnv, podEnv)
-	if err != nil {
-		return err
+	for _, device := range d.DevicePlugins {
+		if err := device.Setup(vmi, nodeEnv, podEnv); err != nil {
+			return err
+		}
 	}
 
 	err = client.SyncVirtualMachine(vmi)
