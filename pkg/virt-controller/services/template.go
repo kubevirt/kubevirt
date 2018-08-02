@@ -23,25 +23,18 @@ import (
 	"fmt"
 	"path/filepath"
 	"strconv"
-	"strings"
 
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/client-go/tools/cache"
 
 	"kubevirt.io/kubevirt/pkg/api/v1"
+	"kubevirt.io/kubevirt/pkg/config"
 	"kubevirt.io/kubevirt/pkg/hooks"
 	"kubevirt.io/kubevirt/pkg/precond"
 	"kubevirt.io/kubevirt/pkg/registry-disk"
 	"kubevirt.io/kubevirt/pkg/util/net/dns"
 )
-
-const configMapName = "kube-system/kubevirt-config"
-const UseEmulationKey = "debug.useEmulation"
-const ImagePullPolicyKey = "dev.imagePullPolicy"
-const KvmDevice = "devices.kubevirt.io/kvm"
-const TunDevice = "devices.kubevirt.io/tun"
 
 type TemplateService interface {
 	RenderLaunchManifest(*v1.VirtualMachineInstance) (*k8sv1.Pod, error)
@@ -51,46 +44,7 @@ type templateService struct {
 	launcherImage   string
 	virtShareDir    string
 	imagePullSecret string
-	store           cache.Store
-}
-
-func getConfigMapEntry(store cache.Store, key string) (string, error) {
-
-	if obj, exists, err := store.GetByKey(configMapName); err != nil {
-		return "", err
-	} else if !exists {
-		return "", nil
-	} else {
-		return obj.(*k8sv1.ConfigMap).Data[key], nil
-	}
-}
-
-func IsEmulationAllowed(store cache.Store) (useEmulation bool, err error) {
-	var value string
-	value, err = getConfigMapEntry(store, UseEmulationKey)
-	if strings.ToLower(value) == "true" {
-		useEmulation = true
-	}
-	return
-}
-
-func GetImagePullPolicy(store cache.Store) (policy k8sv1.PullPolicy, err error) {
-	var value string
-	if value, err = getConfigMapEntry(store, ImagePullPolicyKey); err != nil || value == "" {
-		policy = k8sv1.PullIfNotPresent // Default if not specified
-	} else {
-		switch value {
-		case "Always":
-			policy = k8sv1.PullAlways
-		case "Never":
-			policy = k8sv1.PullNever
-		case "IfNotPresent":
-			policy = k8sv1.PullIfNotPresent
-		default:
-			err = fmt.Errorf("Invalid ImagePullPolicy in ConfigMap: %s", value)
-		}
-	}
-	return
+	clusterConfig   *config.ClusterConfig
 }
 
 func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (*k8sv1.Pod, error) {
@@ -262,31 +216,13 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 		"--hook-sidecars", strconv.Itoa(len(requestedHookSidecarList)),
 	}
 
-	useEmulation, err := IsEmulationAllowed(t.store)
-	if err != nil {
-		return nil, err
-	}
-
-	imagePullPolicy, err := GetImagePullPolicy(t.store)
+	imagePullPolicy, err := t.clusterConfig.GetImagePullPolicy()
 	if err != nil {
 		return nil, err
 	}
 
 	if resources.Limits == nil {
 		resources.Limits = make(k8sv1.ResourceList)
-	}
-
-	// TODO: This can be hardcoded in the current model, but will need to be revisted
-	// once dynamic network device allocation is added
-	resources.Limits[TunDevice] = resource.MustParse("1")
-
-	// FIXME: decision point: allow emulation means "it's ok to skip hw acceleration if not present"
-	// but if the KVM resource is not requested then it's guaranteed to be not present
-	// This code works for now, but the semantics are wrong. revisit this.
-	if useEmulation {
-		command = append(command, "--use-emulation")
-	} else {
-		resources.Limits[KvmDevice] = resource.MustParse("1")
 	}
 
 	// Add ports from interfaces to the pod manifest
@@ -503,13 +439,13 @@ func getPortsFromVMI(vmi *v1.VirtualMachineInstance) []k8sv1.ContainerPort {
 	return ports
 }
 
-func NewTemplateService(launcherImage string, virtShareDir string, imagePullSecret string, configMapCache cache.Store) TemplateService {
+func NewTemplateService(launcherImage string, virtShareDir string, imagePullSecret string, clusterConfig *config.ClusterConfig) TemplateService {
 	precond.MustNotBeEmpty(launcherImage)
 	svc := templateService{
 		launcherImage:   launcherImage,
 		virtShareDir:    virtShareDir,
 		imagePullSecret: imagePullSecret,
-		store:           configMapCache,
+		clusterConfig:   clusterConfig,
 	}
 	return &svc
 }
