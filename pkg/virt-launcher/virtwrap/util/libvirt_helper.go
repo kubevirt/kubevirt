@@ -7,7 +7,6 @@ import (
 	"os/exec"
 	"reflect"
 	"strings"
-	"syscall"
 	"time"
 
 	"github.com/libvirt/libvirt-go"
@@ -243,26 +242,6 @@ func NewDomain(dom cli.VirDomain) (*api.Domain, error) {
 }
 
 func SetupLibvirt() error {
-
-	// TODO: setting permissions and owners is not part of device plugins.
-	// Configure these manually right now on "/dev/kvm"
-	stats, err := os.Stat("/dev/kvm")
-	if err == nil {
-		s, ok := stats.Sys().(*syscall.Stat_t)
-		if !ok {
-			return fmt.Errorf("can't convert file stats to unix/linux stats")
-		}
-		err := os.Chown("/dev/kvm", int(s.Uid), 107)
-		if err != nil {
-			return err
-		}
-		err = os.Chmod("/dev/kvm", 0660)
-		if err != nil {
-			return err
-		}
-	} else if !os.IsNotExist(err) {
-		return err
-	}
 
 	qemuConf, err := os.OpenFile("/etc/libvirt/qemu.conf", os.O_APPEND|os.O_WRONLY, 0644)
 	if err != nil {
