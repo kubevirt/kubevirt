@@ -17,7 +17,7 @@
  *
  */
 
-package config
+package config_disk
 
 import (
 	"io/ioutil"
@@ -27,43 +27,47 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 
+	k8sv1 "k8s.io/api/core/v1"
+
 	"kubevirt.io/kubevirt/pkg/api/v1"
 )
 
-var _ = Describe("Secret", func() {
+var _ = Describe("ConfigMap", func() {
 
 	BeforeEach(func() {
 		var err error
 
-		SecretSourceDir, err = ioutil.TempDir("", "secret")
+		ConfigMapSourceDir, err = ioutil.TempDir("", "configmap")
 		Expect(err).NotTo(HaveOccurred())
-		os.MkdirAll(filepath.Join(SecretSourceDir, "secret-volume", "test-dir"), 0755)
-		os.OpenFile(filepath.Join(SecretSourceDir, "secret-volume", "test-dir", "test-file1"), os.O_RDONLY|os.O_CREATE, 0666)
-		os.OpenFile(filepath.Join(SecretSourceDir, "secret-volume", "test-file2"), os.O_RDONLY|os.O_CREATE, 0666)
+		os.MkdirAll(filepath.Join(ConfigMapSourceDir, "configmap-volume", "test-dir"), 0755)
+		os.OpenFile(filepath.Join(ConfigMapSourceDir, "configmap-volume", "test-dir", "test-file1"), os.O_RDONLY|os.O_CREATE, 0666)
+		os.OpenFile(filepath.Join(ConfigMapSourceDir, "configmap-volume", "test-file2"), os.O_RDONLY|os.O_CREATE, 0666)
 
-		SecretDisksDir, err = ioutil.TempDir("", "secret-disks")
+		ConfigMapDisksDir, err = ioutil.TempDir("", "configmap-disks")
 		Expect(err).NotTo(HaveOccurred())
 	})
 
 	AfterEach(func() {
-		os.RemoveAll(SecretSourceDir)
-		os.RemoveAll(SecretDisksDir)
+		os.RemoveAll(ConfigMapSourceDir)
+		os.RemoveAll(ConfigMapDisksDir)
 	})
 
-	It("Should create a new secret iso disk", func() {
+	It("Should create a new config map iso disk", func() {
 		vmi := v1.NewMinimalVMI("fake-vmi")
 		vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
-			Name: "secret-volume",
+			Name: "configmap-volume",
 			VolumeSource: v1.VolumeSource{
-				Secret: &v1.SecretVolumeSource{
-					SecretName: "test-secret",
+				ConfigMap: &v1.ConfigMapVolumeSource{
+					LocalObjectReference: k8sv1.LocalObjectReference{
+						Name: "test-config",
+					},
 				},
 			},
 		})
 
-		err := CreateSecretDisks(vmi)
+		err := CreateConfigMapDisks(vmi)
 		Expect(err).NotTo(HaveOccurred())
-		_, err = os.Stat(filepath.Join(SecretDisksDir, "secret-volume.iso"))
+		_, err = os.Stat(filepath.Join(ConfigMapDisksDir, "configmap-volume.iso"))
 		Expect(err).NotTo(HaveOccurred())
 	})
 

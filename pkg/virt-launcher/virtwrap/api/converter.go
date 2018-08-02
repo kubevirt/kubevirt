@@ -37,7 +37,7 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/cloud-init"
-	"kubevirt.io/kubevirt/pkg/config"
+	"kubevirt.io/kubevirt/pkg/config-disk"
 	"kubevirt.io/kubevirt/pkg/emptydisk"
 	"kubevirt.io/kubevirt/pkg/ephemeral-disk"
 	"kubevirt.io/kubevirt/pkg/log"
@@ -164,24 +164,24 @@ func Convert_v1_Volume_To_api_Disk(source *v1.Volume, disk *Disk, c *ConverterCo
 		return Convert_v1_EmptyDiskSource_To_api_Disk(source.Name, source.EmptyDisk, disk, c)
 	}
 	if source.ConfigMap != nil {
-		return Convert_v1_Config_To_api_Disk(source.Name, disk, config.ConfigMap)
+		return Convert_v1_Config_To_api_Disk(source.Name, disk, config_disk.ConfigMap)
 	}
 	if source.Secret != nil {
-		return Convert_v1_Config_To_api_Disk(source.Name, disk, config.Secret)
+		return Convert_v1_Config_To_api_Disk(source.Name, disk, config_disk.Secret)
 	}
 
 	return fmt.Errorf("disk %s references an unsupported source", disk.Alias.Name)
 }
 
-func Convert_v1_Config_To_api_Disk(volumeName string, disk *Disk, configType config.Type) error {
+func Convert_v1_Config_To_api_Disk(volumeName string, disk *Disk, configType config_disk.Type) error {
 	disk.Type = "file"
 	disk.Driver.Type = "raw"
 	switch configType {
-	case config.ConfigMap:
-		disk.Source.File = config.GetConfigMapDiskPath(volumeName)
+	case config_disk.ConfigMap:
+		disk.Source.File = config_disk.GetConfigMapDiskPath(volumeName)
 		break
-	case config.Secret:
-		disk.Source.File = config.GetSecretDiskPath(volumeName)
+	case config_disk.Secret:
+		disk.Source.File = config_disk.GetSecretDiskPath(volumeName)
 		break
 	default:
 		return fmt.Errorf("Cannot convert config '%s' to disk, unrecognized type", configType)

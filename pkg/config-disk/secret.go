@@ -17,7 +17,7 @@
  *
  */
 
-package config
+package config_disk
 
 import (
 	"path/filepath"
@@ -25,27 +25,28 @@ import (
 	"kubevirt.io/kubevirt/pkg/api/v1"
 )
 
-// GetConfigMapSourcePath returns a path to ConfigMap mounted on a pod
-func GetConfigMapSourcePath(volumeName string) string {
-	return filepath.Join(ConfigMapSourceDir, volumeName)
+// GetSecretSourcePath returns a path to Secret mounted on a pod
+func GetSecretSourcePath(volumeName string) string {
+	return filepath.Join(SecretSourceDir, volumeName)
 }
 
-// GetConfigMapDiskPath returns a path to ConfigMap iso image created based on a volume name
-func GetConfigMapDiskPath(volumeName string) string {
-	return filepath.Join(ConfigMapDisksDir, volumeName+".iso")
+// GetSecretDiskPath returns a path to Secret iso image created based on volume name
+func GetSecretDiskPath(volumeName string) string {
+	return filepath.Join(SecretDisksDir, volumeName+".iso")
 }
 
-// CreateConfigMapDisks creates ConfigMap iso disks which are attached to vmis
-func CreateConfigMapDisks(vmi *v1.VirtualMachineInstance) error {
+// CreateSecretDisks creates Secret iso disks which are attached to vmis
+func CreateSecretDisks(vmi *v1.VirtualMachineInstance) error {
 	for _, volume := range vmi.Spec.Volumes {
-		if volume.ConfigMap != nil {
+		if volume.Secret != nil {
+
 			var filesPath []string
-			filesPath, err := getFilesLayout(GetConfigMapSourcePath(volume.Name))
+			filesPath, err := getFilesLayout(GetSecretSourcePath(volume.Name))
 			if err != nil {
 				return err
 			}
 
-			err = createIsoConfigImage(GetConfigMapDiskPath(volume.Name), filesPath)
+			err = createIsoConfigImage(GetSecretDiskPath(volume.Name), filesPath)
 			if err != nil {
 				return err
 			}

@@ -38,6 +38,7 @@ import (
 	"k8s.io/client-go/tools/leaderelection/resourcelock"
 	"k8s.io/client-go/tools/record"
 
+	"kubevirt.io/kubevirt/pkg/config"
 	"kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/kubecli"
 	"kubevirt.io/kubevirt/pkg/log"
@@ -85,7 +86,6 @@ type VirtControllerApp struct {
 	vmiInformer   cache.SharedIndexInformer
 	vmiRecorder   record.EventRecorder
 
-	configMapCache    cache.Store
 	configMapInformer cache.SharedIndexInformer
 
 	rsController *VMIReplicaSet
@@ -147,7 +147,6 @@ func Execute() {
 	app.rsInformer = app.informerFactory.VMIReplicaSet()
 
 	app.configMapInformer = app.informerFactory.ConfigMap()
-	app.configMapCache = app.configMapInformer.GetStore()
 
 	app.vmInformer = app.informerFactory.VirtualMachine()
 
@@ -220,6 +219,8 @@ func (vca *VirtControllerApp) Run() {
 			Callbacks: leaderelection.LeaderCallbacks{
 				OnStartedLeading: func(stopCh <-chan struct{}) {
 					vca.informerFactory.Start(stop)
+					// wait for config map to have synchronized
+					cache.WaitForCacheSync(stop, vca.configMapInformer.HasSynced)
 					go vca.nodeController.Run(controllerThreads, stop)
 					go vca.vmiController.Run(controllerThreads, stop)
 					go vca.rsController.Run(controllerThreads, stop)
@@ -252,8 +253,8 @@ func (vca *VirtControllerApp) initCommon() {
 	if err != nil {
 		golog.Fatal(err)
 	}
-	vca.templateService = services.NewTemplateService(vca.launcherImage, vca.virtShareDir, vca.imagePullSecret, vca.configMapCache)
-	vca.vmiController = NewVMIController(vca.templateService, vca.vmiInformer, vca.podInformer, vca.vmiRecorder, vca.clientSet, vca.configMapInformer, vca.dataVolumeInformer)
+	vca.templateService = services.NewTemplateService(vca.launcherImage, vca.virtShareDir, vca.imagePullSecret, config.NewClusterConfig(vca.configMapInformer.GetStore()))
+	vca.vmiController = NewVMIController(vca.templateService, vca.vmiInformer, vca.podInformer, vca.vmiRecorder, vca.clientSet, config.NewClusterConfig(vca.configMapInformer.GetStore()), vca.dataVolumeInformer)
 	vca.nodeController = NewNodeController(vca.clientSet, vca.nodeInformer, vca.vmiInformer, nil)
 }
 

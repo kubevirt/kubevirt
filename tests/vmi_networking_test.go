@@ -42,7 +42,6 @@ import (
 	"kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/kubecli"
 	"kubevirt.io/kubevirt/pkg/log"
-	"kubevirt.io/kubevirt/pkg/virt-controller/services"
 	"kubevirt.io/kubevirt/tests"
 )
 
@@ -503,13 +502,6 @@ var _ = Describe("Networking", func() {
 			foundContainer := false
 			for _, container := range pod.Spec.Containers {
 				if container.Name == "compute" {
-					foundContainer = true
-					_, ok := container.Resources.Requests[services.TunDevice]
-					Expect(ok).To(BeFalse())
-
-					_, ok = container.Resources.Limits[services.TunDevice]
-					Expect(ok).To(BeFalse())
-
 					netAdminCap := false
 					caps := container.SecurityContext.Capabilities
 					for _, cap := range caps.Add {

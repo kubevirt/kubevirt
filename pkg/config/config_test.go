@@ -13,70 +13,158 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Copyright 2018 Red Hat, Inc.
+ * Copyright 2017 Red Hat, Inc.
  *
  */
+
 package config
 
 import (
-	"io/ioutil"
-	"os"
-	"path/filepath"
+	"time"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+	kubev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/watch"
+	"k8s.io/client-go/tools/cache"
+
+	"kubevirt.io/kubevirt/pkg/api/v1"
+	"kubevirt.io/kubevirt/pkg/log"
 )
 
-func mockCreateISOImage(output string, files []string) error {
-	_, err := os.Create(output)
-	if err != nil {
-		panic(err)
-	}
-	return nil
-}
+var _ = Describe("ConfigMap", func() {
 
-var _ = BeforeSuite(func() {
-	setIsoCreationFunction(mockCreateISOImage)
-})
+	log.Log.SetIOWriter(GinkgoWriter)
 
-var _ = Describe("Creating config images", func() {
+	var cmListWatch *cache.ListWatch
+	var cmInformer cache.SharedIndexInformer
+	var stopChan chan struct{}
 
-	Context("With creating file system layout", func() {
-		var tempConfDir string
-		var tempISODir string
-		var expectedLayout []string
+	BeforeEach(func() {
+		stopChan = make(chan struct{})
+	})
 
-		BeforeEach(func() {
-			var err error
-			tempConfDir, err = ioutil.TempDir("", "config-dir")
-			Expect(err).NotTo(HaveOccurred())
-			tempISODir, err = ioutil.TempDir("", "iso-dir")
-			Expect(err).NotTo(HaveOccurred())
-			expectedLayout = []string{"test-dir=" + tempConfDir + "/test-dir", "test-file2=" + tempConfDir + "/test-file2"}
+	AfterEach(func() {
+		close(stopChan)
+	})
 
-			os.Mkdir(filepath.Join(tempConfDir, "test-dir"), 0755)
-			os.OpenFile(filepath.Join(tempConfDir, "test-dir", "test-file1"), os.O_RDONLY|os.O_CREATE, 0666)
-			os.OpenFile(filepath.Join(tempConfDir, "test-file2"), os.O_RDONLY|os.O_CREATE, 0666)
+	It("Should return false if configmap is not present", func() {
+		cmListWatch = MakeFakeConfigMapWatcher([]kubev1.ConfigMap{})
+		cmInformer = cache.NewSharedIndexInformer(cmListWatch, &v1.VirtualMachineInstance{}, time.Second, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
+		go cmInformer.Run(stopChan)
+		cache.WaitForCacheSync(stopChan, cmInformer.HasSynced)
+		clusterConfig := NewClusterConfig(cmInformer.GetStore())
+		result, err := clusterConfig.IsUseEmulation()
+		Expect(err).ToNot(HaveOccurred())
+		Expect(result).To(BeFalse())
+	})
 
-		})
+	It("Should return false if configmap doesn't have useEmulation set", func() {
+		cfgMap := kubev1.ConfigMap{
+			ObjectMeta: metav1.ObjectMeta{
+				Namespace: "kube-system",
+				Name:      "kubevirt-config",
+			},
+			Data: map[string]string{},
+		}
+		cmListWatch = MakeFakeConfigMapWatcher([]kubev1.ConfigMap{cfgMap})
+		cmInformer = cache.NewSharedIndexInformer(cmListWatch, &v1.VirtualMachineInstance{}, time.Second, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
+		go cmInformer.Run(stopChan)
+		cache.WaitForCacheSync(stopChan, cmInformer.HasSynced)
+		cache.WaitForCacheSync(stopChan, cmInformer.HasSynced)
+		clusterConfig := NewClusterConfig(cmInformer.GetStore())
+		result, err := clusterConfig.IsUseEmulation()
+		Expect(err).ToNot(HaveOccurred())
+		Expect(result).To(BeFalse())
+	})
 
-		AfterEach(func() {
-			os.RemoveAll(tempConfDir)
-			os.RemoveAll(tempISODir)
-		})
+	It("Should return true if useEmulation = true", func() {
+		cfgMap := kubev1.ConfigMap{
+			ObjectMeta: metav1.ObjectMeta{
+				Namespace: "kube-system",
+				Name:      "kubevirt-config",
+			},
+			Data: map[string]string{"debug.useEmulation": "true"},
+		}
+		cmListWatch = MakeFakeConfigMapWatcher([]kubev1.ConfigMap{cfgMap})
+		cmInformer = cache.NewSharedIndexInformer(cmListWatch, &v1.VirtualMachineInstance{}, time.Second, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
+		go cmInformer.Run(stopChan)
+		cache.WaitForCacheSync(stopChan, cmInformer.HasSynced)
+		cache.WaitForCacheSync(stopChan, cmInformer.HasSynced)
+		clusterConfig := NewClusterConfig(cmInformer.GetStore())
+		result, err := clusterConfig.IsUseEmulation()
+		Expect(err).ToNot(HaveOccurred())
+		Expect(result).To(BeTrue())
+	})
 
-		It("Should create an appropriate file system layout for iso image", func() {
-			fsLayout, err := getFilesLayout(tempConfDir)
-			Expect(err).NotTo(HaveOccurred())
-			Expect(fsLayout).To(Equal(expectedLayout))
-		})
+	It("Should return IfNotPresent if configmap doesn't have imagePullPolicy set", func() {
+		cfgMap := kubev1.ConfigMap{
+			ObjectMeta: metav1.ObjectMeta{
+				Namespace: "kube-system",
+				Name:      "kubevirt-config",
+			},
+			Data: map[string]string{},
+		}
+		cmListWatch = MakeFakeConfigMapWatcher([]kubev1.ConfigMap{cfgMap})
+		cmInformer = cache.NewSharedIndexInformer(cmListWatch, &v1.VirtualMachineInstance{}, time.Second, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
+		go cmInformer.Run(stopChan)
+		cache.WaitForCacheSync(stopChan, cmInformer.HasSynced)
 
-		It("Should create an iso image", func() {
-			imgPath := filepath.Join(tempISODir, "volume1.iso")
-			err := createIsoConfigImage(imgPath, expectedLayout)
-			Expect(err).NotTo(HaveOccurred())
-			_, err = os.Stat(imgPath)
-			Expect(err).NotTo(HaveOccurred())
-		})
+		result, err := NewClusterConfig(cmInformer.GetStore()).GetImagePullPolicy()
+		Expect(err).ToNot(HaveOccurred())
+		Expect(result).To(Equal(kubev1.PullIfNotPresent))
+	})
+
+	It("Should return Always if imagePullPolicy = Always", func() {
+		cfgMap := kubev1.ConfigMap{
+			ObjectMeta: metav1.ObjectMeta{
+				Namespace: "kube-system",
+				Name:      "kubevirt-config",
+			},
+			Data: map[string]string{imagePullPolicyKey: "Always"},
+		}
+		cmListWatch = MakeFakeConfigMapWatcher([]kubev1.ConfigMap{cfgMap})
+		cmInformer = cache.NewSharedIndexInformer(cmListWatch, &v1.VirtualMachineInstance{}, time.Second, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
+		go cmInformer.Run(stopChan)
+		cache.WaitForCacheSync(stopChan, cmInformer.HasSynced)
+
+		result, err := NewClusterConfig(cmInformer.GetStore()).GetImagePullPolicy()
+		Expect(err).ToNot(HaveOccurred())
+		Expect(result).To(Equal(kubev1.PullAlways))
+	})
+
+	It("Should return an error if imagePullPolicy is not valid", func() {
+		cfgMap := kubev1.ConfigMap{
+			ObjectMeta: metav1.ObjectMeta{
+				Namespace: "kube-system",
+				Name:      "kubevirt-config",
+			},
+			Data: map[string]string{imagePullPolicyKey: "IHaveNoStrongFeelingsOneWayOrTheOther"},
+		}
+		cmListWatch = MakeFakeConfigMapWatcher([]kubev1.ConfigMap{cfgMap})
+		cmInformer = cache.NewSharedIndexInformer(cmListWatch, &v1.VirtualMachineInstance{}, time.Second, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
+		go cmInformer.Run(stopChan)
+		cache.WaitForCacheSync(stopChan, cmInformer.HasSynced)
+
+		_, err := NewClusterConfig(cmInformer.GetStore()).GetImagePullPolicy()
+		Expect(err).To(HaveOccurred())
 	})
 })
+
+func MakeFakeConfigMapWatcher(configMaps []kubev1.ConfigMap) *cache.ListWatch {
+	cmListWatch := &cache.ListWatch{
+		ListFunc: func(options metav1.ListOptions) (runtime.Object, error) {
+			return &kubev1.ConfigMapList{Items: configMaps}, nil
+		},
+		WatchFunc: func(options metav1.ListOptions) (watch.Interface, error) {
+			fakeWatch := watch.NewFake()
+			for _, cfgMap := range configMaps {
+				fakeWatch.Add(&cfgMap)
+			}
+			return watch.NewFake(), nil
+		},
+	}
+	return cmListWatch
+}

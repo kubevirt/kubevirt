@@ -41,7 +41,6 @@ import (
 	"kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/kubecli"
 	"kubevirt.io/kubevirt/pkg/util/net/dns"
-	"kubevirt.io/kubevirt/pkg/virt-controller/services"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/tests"
 )
@@ -85,7 +84,6 @@ var _ = Describe("VMIlifecycle", func() {
 	AfterEach(func() {
 		// Not every test causes virt-handler to restart, but a few different contexts do.
 		// This check is fast and non-intrusive if virt-handler is already running.
-		tests.EnsureKVMPresent()
 	})
 
 	Describe("Creating a VirtualMachineInstance", func() {
@@ -741,41 +739,6 @@ var _ = Describe("VMIlifecycle", func() {
 
 				Expect(domain.Spec.Type).To(Equal(expectedType))
 			})
-
-			It("should request a TUN device but not KVM", func() {
-				err := virtClient.RestClient().Post().Resource("virtualmachineinstances").Namespace(tests.NamespaceTestDefault).Body(vmi).Do().Error()
-				Expect(err).To(BeNil())
-
-				listOptions := metav1.ListOptions{}
-				var pod k8sv1.Pod
-
-				Eventually(func() error {
-					podList, err := virtClient.CoreV1().Pods(tests.NamespaceTestDefault).List(listOptions)
-					Expect(err).ToNot(HaveOccurred())
-					for _, item := range podList.Items {
-						if strings.HasPrefix(item.Name, vmi.ObjectMeta.GenerateName) {
-							pod = item
-							return nil
-						}
-					}
-					return fmt.Errorf("Associated pod for VM '%s' not found", vmi.Name)
-				}, 75, 0.5).Should(Succeed())
-
-				computeContainerFound := false
-				for _, container := range pod.Spec.Containers {
-					if container.Name == "compute" {
-						computeContainerFound = true
-
-						_, ok := container.Resources.Limits[services.KvmDevice]
-						Expect(ok).To(BeFalse(), "Container should not have requested KVM device")
-
-						_, ok = container.Resources.Limits[services.TunDevice]
-						Expect(ok).To(BeTrue(), "Container should have requested TUN device")
-					}
-				}
-
-				Expect(computeContainerFound).To(BeTrue(), "Compute container was not found in pod")
-			})
 		})
 
 		Context("VM Accelerated Mode", func() {
@@ -788,41 +751,6 @@ var _ = Describe("VMIlifecycle", func() {
 				if *useEmulation {
 					Skip("Software emulation is enabled on this cluster")
 				}
-			})
-
-			It("should request a KVM and TUN device", func() {
-				err := virtClient.RestClient().Post().Resource("virtualmachineinstances").Namespace(tests.NamespaceTestDefault).Body(vmi).Do().Error()
-				Expect(err).To(BeNil())
-
-				listOptions := metav1.ListOptions{}
-				var pod k8sv1.Pod
-
-				Eventually(func() error {
-					podList, err := virtClient.CoreV1().Pods(tests.NamespaceTestDefault).List(listOptions)
-					Expect(err).ToNot(HaveOccurred())
-					for _, item := range podList.Items {
-						if strings.HasPrefix(item.Name, vmi.ObjectMeta.GenerateName) {
-							pod = item
-							return nil
-						}
-					}
-					return fmt.Errorf("Associated pod for VM '%s' not found", vmi.Name)
-				}, 75, 0.5).Should(Succeed())
-
-				computeContainerFound := false
-				for _, container := range pod.Spec.Containers {
-					if container.Name == "compute" {
-						computeContainerFound = true
-
-						_, ok := container.Resources.Limits[services.KvmDevice]
-						Expect(ok).To(BeTrue(), "Container should have requested KVM device")
-
-						_, ok = container.Resources.Limits[services.TunDevice]
-						Expect(ok).To(BeTrue(), "Container should have requested TUN device")
-					}
-				}
-
-				Expect(computeContainerFound).To(BeTrue(), "Compute container was not found in pod")
 			})
 
 			It("should not enable emulation in virt-launcher", func() {
@@ -860,23 +788,6 @@ var _ = Describe("VMIlifecycle", func() {
 
 				Expect(computeContainerFound).To(BeTrue(), "Compute container was not found in pod")
 				Expect(emulationFlagFound).To(BeFalse(), "Expected VM pod not to have '--use-emulation' flag")
-			})
-
-			It("Should provide KVM via plugin framework", func() {
-				listOptions := metav1.ListOptions{}
-				nodeList, err := virtClient.CoreV1().Nodes().List(listOptions)
-				Expect(err).ToNot(HaveOccurred())
-
-				if len(nodeList.Items) == 0 {
-					Skip("Unable to inspect nodes in cluster")
-				}
-				node := nodeList.Items[0]
-
-				_, ok := node.Status.Allocatable[services.KvmDevice]
-				Expect(ok).To(BeTrue(), "KVM devices not allocatable on node: %s", node.Name)
-
-				_, ok = node.Status.Capacity[services.KvmDevice]
-				Expect(ok).To(BeTrue(), "No Capacity for KVM devices on node: %s", node.Name)
 			})
 		})
 	})

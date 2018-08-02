@@ -28,7 +28,7 @@ import (
 	"github.com/google/goexpect"
 	"github.com/pborman/uuid"
 
-	"kubevirt.io/kubevirt/pkg/config"
+	"kubevirt.io/kubevirt/pkg/config-disk"
 	"kubevirt.io/kubevirt/pkg/kubecli"
 	"kubevirt.io/kubevirt/tests"
 )
@@ -54,7 +54,7 @@ var _ = Describe("Config", func() {
 
 			BeforeEach(func() {
 				configMapName = "configmap-" + uuid.NewRandom().String()
-				configMapPath = config.GetConfigMapSourcePath(configMapName + "-vol")
+				configMapPath = config_disk.GetConfigMapSourcePath(configMapName + "-vol")
 
 				data := map[string]string{
 					"option1": "value1",
@@ -151,7 +151,7 @@ var _ = Describe("Config", func() {
 
 			BeforeEach(func() {
 				secretName = "secret-" + uuid.NewRandom().String()
-				secretPath = config.GetSecretSourcePath(secretName + "-vol")
+				secretPath = config_disk.GetSecretSourcePath(secretName + "-vol")
 
 				data := map[string]string{
 					"user":     "admin",
