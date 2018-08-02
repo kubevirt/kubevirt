@@ -44,6 +44,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/precond"
 	"kubevirt.io/kubevirt/pkg/testutils"
 	"kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
+	"kubevirt.io/kubevirt/pkg/virt-handler/isolation"
 	"kubevirt.io/kubevirt/pkg/virt-launcher"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/pkg/watchdog"
@@ -98,6 +99,8 @@ var _ = Describe("VirtualMachineInstance", func() {
 
 		mockWatchdog = &MockWatchdog{shareDir}
 		mockGracefulShutdown = &MockGracefulShutdown{shareDir}
+		mockIsolationDetector := isolation.NewMockPodIsolationDetector(ctrl)
+		mockIsolationDetector.EXPECT().Detect(gomock.Any()).AnyTimes()
 
 		controller = NewController(recorder,
 			virtClient,
@@ -107,8 +110,9 @@ var _ = Describe("VirtualMachineInstance", func() {
 			domainInformer,
 			gracefulShutdownInformer,
 			1,
-			10,
+			mockIsolationDetector,
 		)
+		controller.DevicePlugins = nil
 
 		testUUID = uuid.NewUUID()
 		client = cmdclient.NewMockLauncherClient(ctrl)
