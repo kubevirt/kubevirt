@@ -789,13 +789,8 @@ type PodNetwork struct {
 // ---
 // +k8s:openapi-gen=true
 type Rng struct {
+	// Enabled defines whether use or do not use Virtio Rng
+	Enabled bool `json:"enabled"`
 	// Source sets the host source used to provide entropy
 	Source string `json:"source"`
-	// RateBytes limit the amount of bytes that the VM can read from entropy source
-	// per period
-	// +optional
-	RateBytes *uint32 `json:"rateBytes,omitempty"`
-	// RatePeriod sets the length of a read period
-	// +optional
-	RatePeriod *uint32 `json:"ratePeriod,omitempty"`
 }
