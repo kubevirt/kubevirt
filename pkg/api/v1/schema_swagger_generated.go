@@ -87,7 +87,7 @@ func (Devices) SwaggerDoc() map[string]string {
 		"interfaces":               "Interfaces describe network interfaces which are added to the vm.",
 		"autoattachPodInterface":   "Whether to attach a pod network interface. Defaults to true.",
 		"autoattachGraphicsDevice": "Wheater to attach the default graphics device or not.\nVNC will not be available if set to false. Defaults to true.",
-		"rng": "Whether to have random number generator from host",
+		"rng": "Whether to have random number generator from host\nDefaults to Rng enabled\n+optional",
 	}
 }
 
@@ -373,6 +373,8 @@ func (PodNetwork) SwaggerDoc() map[string]string {
 
 func (Rng) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"": "Rng represents the random device passed from host",
+		"":        "Rng represents the random device passed from host",
+		"enabled": "Enabled defines whether use or do not use Virtio Rng",
+		"source":  "Source sets the host source used to provide entropy",
 	}
 }

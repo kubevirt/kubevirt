@@ -126,15 +126,12 @@ spec:
                       type: array
                     rng:
                       properties:
-                        rateBytes:
-                          format: int64
-                          type: integer
-                        ratePeriod:
-                          format: int64
-                          type: integer
+                        enabled:
+                          type: boolean
                         source:
                           type: string
                       required:
+                      - enabled
                       - source
                     watchdog:
                       properties:

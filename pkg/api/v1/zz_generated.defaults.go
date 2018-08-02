@@ -122,6 +122,9 @@ func SetObjectDefaults_VirtualMachine(in *VirtualMachine) {
 				SetDefaults_I6300ESBWatchdog(in.Spec.Template.Spec.Domain.Devices.Watchdog.WatchdogDevice.I6300ESB)
 			}
 		}
+		if in.Spec.Template.Spec.Domain.Devices.Rng != nil {
+			SetDefaults_Rng(in.Spec.Template.Spec.Domain.Devices.Rng)
+		}
 	}
 }
 
@@ -199,6 +202,9 @@ func SetObjectDefaults_VirtualMachineInstance(in *VirtualMachineInstance) {
 		if in.Spec.Domain.Devices.Watchdog.WatchdogDevice.I6300ESB != nil {
 			SetDefaults_I6300ESBWatchdog(in.Spec.Domain.Devices.Watchdog.WatchdogDevice.I6300ESB)
 		}
+	}
+	if in.Spec.Domain.Devices.Rng != nil {
+		SetDefaults_Rng(in.Spec.Domain.Devices.Rng)
 	}
 }
 
@@ -284,6 +290,9 @@ func SetObjectDefaults_VirtualMachineInstancePreset(in *VirtualMachineInstancePr
 				SetDefaults_I6300ESBWatchdog(in.Spec.Domain.Devices.Watchdog.WatchdogDevice.I6300ESB)
 			}
 		}
+		if in.Spec.Domain.Devices.Rng != nil {
+			SetDefaults_Rng(in.Spec.Domain.Devices.Rng)
+		}
 	}
 }
 
@@ -368,6 +377,9 @@ func SetObjectDefaults_VirtualMachineInstanceReplicaSet(in *VirtualMachineInstan
 			if in.Spec.Template.Spec.Domain.Devices.Watchdog.WatchdogDevice.I6300ESB != nil {
 				SetDefaults_I6300ESBWatchdog(in.Spec.Template.Spec.Domain.Devices.Watchdog.WatchdogDevice.I6300ESB)
 			}
+		}
+		if in.Spec.Template.Spec.Domain.Devices.Rng != nil {
+			SetDefaults_Rng(in.Spec.Template.Spec.Domain.Devices.Rng)
 		}
 	}
 }

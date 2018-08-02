@@ -3384,7 +3384,7 @@
       }
      },
      "rng": {
-      "description": "Whether to have random number generator from host",
+      "description": "Whether to have random number generator from host\nDefaults to Rng enabled\n+optional",
       "$ref": "#/definitions/v1.Rng"
      },
      "watchdog": {
@@ -4299,16 +4299,16 @@
    "v1.Rng": {
     "description": "Rng represents the random device passed from host",
     "required": [
+     "enabled",
      "source"
     ],
     "properties": {
-     "rateBytes": {
-      "type": "integer"
-     },
-     "ratePeriod": {
-      "type": "integer"
+     "enabled": {
+      "description": "Enabled defines whether use or do not use Virtio Rng",
+      "type": "boolean"
      },
      "source": {
+      "description": "Source sets the host source used to provide entropy",
       "type": "string"
      }
     }
