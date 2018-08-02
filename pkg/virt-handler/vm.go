@@ -47,6 +47,8 @@ import (
 	"kubevirt.io/kubevirt/pkg/precond"
 	"kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
 	"kubevirt.io/kubevirt/pkg/virt-handler/device-manager"
+	"kubevirt.io/kubevirt/pkg/virt-handler/devices"
+	"kubevirt.io/kubevirt/pkg/virt-handler/isolation"
 	"kubevirt.io/kubevirt/pkg/virt-launcher"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/pkg/watchdog"
@@ -632,6 +634,22 @@ func (d *VirtualMachineController) processVmUpdate(origVMI *v1.VirtualMachineIns
 	if err != nil {
 		return err
 	}
+
+	detector := isolation.NewSocketBasedIsolationDetector(d.virtShareDir)
+	podEnv, err := detector.Detect(vmi)
+
+	if err != nil {
+		return err
+	}
+	nodeEnv := isolation.NodeIsolationResult()
+
+	// Here we would loop over registered pod modifiers
+	kvm := &devices.KVM{}
+	err = kvm.Setup(vmi, nodeEnv, podEnv)
+	if err != nil {
+		return err
+	}
+
 	err = client.SyncVirtualMachine(vmi)
 	if err != nil {
 		return err

@@ -198,3 +198,9 @@ func sliceContains(controllers []string, value string) bool {
 	}
 	return false
 }
+
+func NodeIsolationResult() *IsolationResult {
+	return &IsolationResult{
+		pid: 1,
+	}
+}
