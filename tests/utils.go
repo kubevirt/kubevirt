@@ -64,7 +64,6 @@ import (
 	"kubevirt.io/kubevirt/pkg/kubecli"
 	"kubevirt.io/kubevirt/pkg/log"
 	"kubevirt.io/kubevirt/pkg/util/net/dns"
-	"kubevirt.io/kubevirt/pkg/virt-controller/services"
 	"kubevirt.io/kubevirt/pkg/virtctl"
 )
 
@@ -336,46 +335,6 @@ func BeforeTestSuitSetup() {
 
 	CreatePVC(osWindows, defaultWindowsDiskSize)
 
-	EnsureKVMPresent()
-}
-
-func EnsureKVMPresent() {
-	useEmulation := false
-	virtClient, err := kubecli.GetKubevirtClient()
-	PanicOnError(err)
-
-	options := metav1.GetOptions{}
-	cfgMap, err := virtClient.CoreV1().ConfigMaps("kube-system").Get("kubevirt-config", options)
-	if err == nil {
-		val, ok := cfgMap.Data["debug.useEmulation"]
-		useEmulation = ok && (val == "true")
-	} else {
-		// If the cfgMap is missing, default to useEmulation=false
-		// no other error is expected
-		if !errors.IsNotFound(err) {
-			ExpectWithOffset(1, err).ToNot(HaveOccurred())
-		}
-	}
-	if !useEmulation {
-		listOptions := metav1.ListOptions{LabelSelector: v1.AppLabel + "=virt-handler"}
-		virtHandlerPods, err := virtClient.CoreV1().Pods(metav1.NamespaceSystem).List(listOptions)
-		ExpectWithOffset(1, err).ToNot(HaveOccurred())
-
-		EventuallyWithOffset(1, func() bool {
-			ready := true
-			// cluster is not ready until all nodes are ready.
-			for _, pod := range virtHandlerPods.Items {
-				virtHandlerNode, err := virtClient.CoreV1().Nodes().Get(pod.Spec.NodeName, metav1.GetOptions{})
-				ExpectWithOffset(1, err).ToNot(HaveOccurred())
-
-				allocatable, ok := virtHandlerNode.Status.Allocatable[services.KvmDevice]
-				ready = ready && ok
-				ready = ready && (allocatable.Value() > 0)
-			}
-			return ready
-		}, 120*time.Second, 1*time.Second).Should(BeTrue(),
-			"KVM devices are required for testing, but are not present on cluster nodes")
-	}
 }
 
 func CreatePVC(os string, size string) {
