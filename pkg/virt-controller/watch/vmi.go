@@ -315,7 +315,16 @@ func isPodReady(pod *k8sv1.Pod) bool {
 }
 
 func isPodDownOrGoingDown(pod *k8sv1.Pod) bool {
-	return podIsDown(pod) || pod.DeletionTimestamp != nil
+	return podIsDown(pod) || isComputeContainerDown(pod) || pod.DeletionTimestamp != nil
+}
+
+func isComputeContainerDown(pod *k8sv1.Pod) bool {
+	for _, containerStatus := range pod.Status.ContainerStatuses {
+		if containerStatus.Name == "compute" {
+			return containerStatus.State.Terminated != nil
+		}
+	}
+	return false
 }
 
 func podIsDown(pod *k8sv1.Pod) bool {
