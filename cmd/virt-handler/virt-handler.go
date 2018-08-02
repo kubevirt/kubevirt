@@ -42,6 +42,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/service"
 	"kubevirt.io/kubevirt/pkg/virt-handler"
 	virtcache "kubevirt.io/kubevirt/pkg/virt-handler/cache"
+	"kubevirt.io/kubevirt/pkg/virt-handler/isolation"
 	virtlauncher "kubevirt.io/kubevirt/pkg/virt-launcher"
 	virt_api "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 )
@@ -68,7 +69,6 @@ type virtHandlerApp struct {
 	HostOverride            string
 	VirtShareDir            string
 	WatchdogTimeoutDuration time.Duration
-	MaxDevices              int
 }
 
 var _ service.Service = &virtHandlerApp{}
@@ -138,7 +138,7 @@ func (app *virtHandlerApp) Run() {
 		domainSharedInformer,
 		gracefulShutdownInformer,
 		int(app.WatchdogTimeoutDuration.Seconds()),
-		maxDevices,
+		isolation.NewSocketBasedIsolationDetector(app.VirtShareDir),
 	)
 
 	// Bootstrapping. From here on the startup order matters
@@ -164,12 +164,6 @@ func (app *virtHandlerApp) AddFlags() {
 
 	flag.DurationVar(&app.WatchdogTimeoutDuration, "watchdog-timeout", defaultWatchdogTimeout,
 		"Watchdog file timeout")
-
-	// TODO: the Device Plugin API does not allow for infinitely available (shared) devices
-	// so the current approach is to register an arbitrary number.
-	// This should be deprecated if the API allows for shared resources in the future
-	flag.IntVar(&app.MaxDevices, "max-devices", maxDevices,
-		"Number of devices to register with Kubernetes device plugin framework")
 }
 
 func main() {
