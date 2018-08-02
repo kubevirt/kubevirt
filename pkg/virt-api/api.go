@@ -54,7 +54,8 @@ import (
 	"kubevirt.io/kubevirt/pkg/service"
 	"kubevirt.io/kubevirt/pkg/version"
 	"kubevirt.io/kubevirt/pkg/virt-api/rest"
-	"kubevirt.io/kubevirt/pkg/virt-api/validating-webhook"
+	"kubevirt.io/kubevirt/pkg/virt-api/webhooks/mutating-webhook"
+	"kubevirt.io/kubevirt/pkg/virt-api/webhooks/validating-webhook"
 )
 
 const (
@@ -68,13 +69,16 @@ const (
 	virtApiCertSecretName = "kubevirt-virt-api-certs"
 
 	virtWebhookValidator = "virt-api-validator"
+	virtWebhookMutator   = "virt-api-mutator"
 
 	virtApiServiceName = "virt-api"
 
-	vmiiValidatePath      = "/virtualmachineinstances-validate"
-	vmiValidatePath       = "/virtualmachines-validate"
+	vmiValidatePath       = "/virtualmachineinstances-validate"
+	vmValidatePath        = "/virtualmachines-validate"
 	vmirsValidatePath     = "/virtualmachinereplicaset-validate"
 	vmipresetValidatePath = "/vmipreset-validate"
+
+	vmiMutatePath = "/virtualmachineinstances-mutate"
 
 	certBytesValue        = "cert-bytes"
 	keyBytesValue         = "key-bytes"
@@ -512,10 +516,22 @@ func (app *virtAPIApp) getSelfSignedCert() error {
 }
 
 func (app *virtAPIApp) createWebhook() error {
+	err := app.createValidatingWebhook()
+	if err != nil {
+		return err
+	}
+	err = app.createMutatingWebhook()
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (app *virtAPIApp) createValidatingWebhook() error {
 	namespace := getNamespace()
 	registerWebhook := false
-	vmiPath := vmiiValidatePath
-	vmPath := vmiValidatePath
+	vmiPath := vmiValidatePath
+	vmPath := vmValidatePath
 	vmirsPath := vmirsValidatePath
 	vmipresetPath := vmipresetValidatePath
 
@@ -532,7 +548,10 @@ func (app *virtAPIApp) createWebhook() error {
 		{
 			Name: "virtualmachineinstances-validator.kubevirt.io",
 			Rules: []admissionregistrationv1beta1.RuleWithOperations{{
-				Operations: []admissionregistrationv1beta1.OperationType{admissionregistrationv1beta1.Create},
+				Operations: []admissionregistrationv1beta1.OperationType{
+					admissionregistrationv1beta1.Create,
+					admissionregistrationv1beta1.Update,
+				},
 				Rule: admissionregistrationv1beta1.Rule{
 					APIGroups:   []string{v1.GroupName},
 					APIVersions: []string{v1.VirtualMachineInstanceGroupVersionKind.Version},
@@ -551,7 +570,10 @@ func (app *virtAPIApp) createWebhook() error {
 		{
 			Name: "virtualmachine-validator.kubevirt.io",
 			Rules: []admissionregistrationv1beta1.RuleWithOperations{{
-				Operations: []admissionregistrationv1beta1.OperationType{admissionregistrationv1beta1.Create},
+				Operations: []admissionregistrationv1beta1.OperationType{
+					admissionregistrationv1beta1.Create,
+					admissionregistrationv1beta1.Update,
+				},
 				Rule: admissionregistrationv1beta1.Rule{
 					APIGroups:   []string{v1.GroupName},
 					APIVersions: []string{v1.VirtualMachineGroupVersionKind.Version},
@@ -589,7 +611,10 @@ func (app *virtAPIApp) createWebhook() error {
 		{
 			Name: "virtualmachinepreset-validator.kubevirt.io",
 			Rules: []admissionregistrationv1beta1.RuleWithOperations{{
-				Operations: []admissionregistrationv1beta1.OperationType{admissionregistrationv1beta1.Create},
+				Operations: []admissionregistrationv1beta1.OperationType{
+					admissionregistrationv1beta1.Create,
+					admissionregistrationv1beta1.Update,
+				},
 				Rule: admissionregistrationv1beta1.Rule{
 					APIGroups:   []string{v1.GroupName},
 					APIVersions: []string{v1.VirtualMachineInstancePresetGroupVersionKind.Version},
@@ -637,10 +662,10 @@ func (app *virtAPIApp) createWebhook() error {
 		}
 	}
 
-	http.HandleFunc(vmiiValidatePath, func(w http.ResponseWriter, r *http.Request) {
+	http.HandleFunc(vmiValidatePath, func(w http.ResponseWriter, r *http.Request) {
 		validating_webhook.ServeVMIs(w, r)
 	})
-	http.HandleFunc(vmiValidatePath, func(w http.ResponseWriter, r *http.Request) {
+	http.HandleFunc(vmValidatePath, func(w http.ResponseWriter, r *http.Request) {
 		validating_webhook.ServeVMs(w, r)
 	})
 	http.HandleFunc(vmirsValidatePath, func(w http.ResponseWriter, r *http.Request) {
@@ -650,6 +675,78 @@ func (app *virtAPIApp) createWebhook() error {
 		validating_webhook.ServeVMIPreset(w, r)
 	})
 
+	return nil
+}
+
+func (app *virtAPIApp) createMutatingWebhook() error {
+	namespace := getNamespace()
+	registerWebhook := false
+	vmiPath := vmiMutatePath
+
+	webhookRegistration, err := app.virtCli.AdmissionregistrationV1beta1().MutatingWebhookConfigurations().Get(virtWebhookMutator, metav1.GetOptions{})
+	if err != nil {
+		if k8serrors.IsNotFound(err) {
+			registerWebhook = true
+		} else {
+			return err
+		}
+	}
+
+	webHooks := []admissionregistrationv1beta1.Webhook{
+		{
+			Name: "virtualmachineinstances-mutator.kubevirt.io",
+			Rules: []admissionregistrationv1beta1.RuleWithOperations{{
+				Operations: []admissionregistrationv1beta1.OperationType{admissionregistrationv1beta1.Create},
+				Rule: admissionregistrationv1beta1.Rule{
+					APIGroups:   []string{v1.GroupName},
+					APIVersions: []string{v1.VirtualMachineInstanceGroupVersionKind.Version},
+					Resources:   []string{"virtualmachineinstances"},
+				},
+			}},
+			ClientConfig: admissionregistrationv1beta1.WebhookClientConfig{
+				Service: &admissionregistrationv1beta1.ServiceReference{
+					Namespace: namespace,
+					Name:      virtApiServiceName,
+					Path:      &vmiPath,
+				},
+				CABundle: app.signingCertBytes,
+			},
+		},
+	}
+
+	if registerWebhook {
+		_, err := app.virtCli.AdmissionregistrationV1beta1().MutatingWebhookConfigurations().Create(&admissionregistrationv1beta1.MutatingWebhookConfiguration{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: virtWebhookMutator,
+				Labels: map[string]string{
+					v1.AppLabel: virtWebhookMutator,
+				},
+			},
+			Webhooks: webHooks,
+		})
+		if err != nil {
+			return err
+		}
+	} else {
+
+		for _, webhook := range webhookRegistration.Webhooks {
+			if webhook.ClientConfig.Service != nil && webhook.ClientConfig.Service.Namespace != namespace {
+				return fmt.Errorf("MutatingAdmissionWebhook [%s] is already registered using services endpoints in a different namespace. Existing webhook registration must be deleted before virt-api can proceed.", virtWebhookMutator)
+			}
+		}
+
+		// update registered webhook with our data
+		webhookRegistration.Webhooks = webHooks
+
+		_, err := app.virtCli.AdmissionregistrationV1beta1().MutatingWebhookConfigurations().Update(webhookRegistration)
+		if err != nil {
+			return err
+		}
+	}
+
+	http.HandleFunc(vmiMutatePath, func(w http.ResponseWriter, r *http.Request) {
+		mutating_webhook.ServeVMIs(w, r)
+	})
 	return nil
 }
 

@@ -158,8 +158,6 @@ func (c *VirtualMachinePresetController) initializeVirtualMachine(vmi *kubev1.Vi
 			vmi.Status.Phase = kubev1.Failed
 		} else {
 			logger.Object(vmi).V(4).Info("Setting default values on VirtualMachine")
-			kubev1.SetObjectDefaults_VirtualMachineInstance(vmi)
-
 			// handle namespace limitrange default values
 			applyNamespaceLimitRangeValues(vmi, c.limitrangeInformer)
 		}

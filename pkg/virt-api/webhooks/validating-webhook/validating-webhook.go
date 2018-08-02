@@ -42,6 +42,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/feature-gates"
 	"kubevirt.io/kubevirt/pkg/log"
+	"kubevirt.io/kubevirt/pkg/virt-api/webhooks"
 	"kubevirt.io/kubevirt/pkg/util"
 )
 
@@ -53,35 +54,6 @@ const (
 
 var validInterfaceModels = []string{"e1000", "e1000e", "ne2k_pci", "pcnet", "rtl8139", "virtio"}
 
-func getAdmissionReview(r *http.Request) (*v1beta1.AdmissionReview, error) {
-	var body []byte
-	if r.Body != nil {
-		if data, err := ioutil.ReadAll(r.Body); err == nil {
-			body = data
-		}
-	}
-
-	// verify the content type is accurate
-	contentType := r.Header.Get("Content-Type")
-	if contentType != "application/json" {
-		return nil, fmt.Errorf("contentType=%s, expect application/json", contentType)
-	}
-
-	ar := &v1beta1.AdmissionReview{}
-	err := json.Unmarshal(body, ar)
-	return ar, err
-}
-
-func toAdmissionResponseError(err error) *v1beta1.AdmissionResponse {
-	log.Log.Reason(err).Error("admitting vmis with generic error")
-
-	return &v1beta1.AdmissionResponse{
-		Result: &metav1.Status{
-			Message: err.Error(),
-			Code:    http.StatusBadRequest,
-		},
-	}
-}
 func toAdmissionResponse(causes []metav1.StatusCause) *v1beta1.AdmissionResponse {
 	log.Log.Infof("rejected vmi admission")
 
@@ -105,7 +77,7 @@ type admitFunc func(*v1beta1.AdmissionReview) *v1beta1.AdmissionResponse
 
 func serve(resp http.ResponseWriter, req *http.Request, admit admitFunc) {
 	response := v1beta1.AdmissionReview{}
-	review, err := getAdmissionReview(req)
+	review, err := webhooks.GetAdmissionReview(req)
 
 	if err != nil {
 		resp.WriteHeader(http.StatusBadRequest)
@@ -905,7 +877,7 @@ func admitVMIs(ar *v1beta1.AdmissionReview) *v1beta1.AdmissionResponse {
 	}
 	if ar.Request.Resource != vmiResource {
 		err := fmt.Errorf("expect resource to be '%s'", vmiResource.Resource)
-		return toAdmissionResponseError(err)
+		return webhooks.ToAdmissionResponseError(err)
 	}
 
 	raw := ar.Request.Object.Raw
@@ -913,7 +885,7 @@ func admitVMIs(ar *v1beta1.AdmissionReview) *v1beta1.AdmissionResponse {
 
 	err := json.Unmarshal(raw, &vmi)
 	if err != nil {
-		return toAdmissionResponseError(err)
+		return webhooks.ToAdmissionResponseError(err)
 	}
 
 	causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("spec"), &vmi.Spec)
@@ -938,7 +910,7 @@ func admitVMs(ar *v1beta1.AdmissionReview) *v1beta1.AdmissionResponse {
 	}
 	if ar.Request.Resource != resource {
 		err := fmt.Errorf("expect resource to be '%s'", resource.Resource)
-		return toAdmissionResponseError(err)
+		return webhooks.ToAdmissionResponseError(err)
 	}
 
 	raw := ar.Request.Object.Raw
@@ -946,7 +918,7 @@ func admitVMs(ar *v1beta1.AdmissionReview) *v1beta1.AdmissionResponse {
 
 	err := json.Unmarshal(raw, &vm)
 	if err != nil {
-		return toAdmissionResponseError(err)
+		return webhooks.ToAdmissionResponseError(err)
 	}
 
 	causes := ValidateVirtualMachineSpec(k8sfield.NewPath("spec"), &vm.Spec)
@@ -971,7 +943,7 @@ func admitVMIRS(ar *v1beta1.AdmissionReview) *v1beta1.AdmissionResponse {
 	}
 	if ar.Request.Resource != resource {
 		err := fmt.Errorf("expect resource to be '%s'", resource.Resource)
-		return toAdmissionResponseError(err)
+		return webhooks.ToAdmissionResponseError(err)
 	}
 
 	raw := ar.Request.Object.Raw
@@ -979,7 +951,7 @@ func admitVMIRS(ar *v1beta1.AdmissionReview) *v1beta1.AdmissionResponse {
 
 	err := json.Unmarshal(raw, &vmirs)
 	if err != nil {
-		return toAdmissionResponseError(err)
+		return webhooks.ToAdmissionResponseError(err)
 	}
 
 	causes := ValidateVMIRSSpec(k8sfield.NewPath("spec"), &vmirs.Spec)
@@ -1003,7 +975,7 @@ func admitVMIPreset(ar *v1beta1.AdmissionReview) *v1beta1.AdmissionResponse {
 	}
 	if ar.Request.Resource != resource {
 		err := fmt.Errorf("expect resource to be '%s'", resource.Resource)
-		return toAdmissionResponseError(err)
+		return webhooks.ToAdmissionResponseError(err)
 	}
 
 	raw := ar.Request.Object.Raw
@@ -1011,7 +983,7 @@ func admitVMIPreset(ar *v1beta1.AdmissionReview) *v1beta1.AdmissionResponse {
 
 	err := json.Unmarshal(raw, &vmipreset)
 	if err != nil {
-		return toAdmissionResponseError(err)
+		return webhooks.ToAdmissionResponseError(err)
 	}
 
 	causes := ValidateVMIPresetSpec(k8sfield.NewPath("spec"), &vmipreset.Spec)

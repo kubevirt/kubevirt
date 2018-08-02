@@ -982,37 +982,6 @@ var _ = Describe("VirtualMachineInstance Initializer", func() {
 			err := vmiPresetController.initializeVirtualMachine(vmi)
 			Expect(err).ToNot(HaveOccurred())
 		})
-
-		It("should set default values to VMI", func() {
-			vmi := v1.NewMinimalVMI("testvmi")
-			vmi.Spec = v1.VirtualMachineInstanceSpec{
-				Domain: v1.DomainSpec{
-					Devices: v1.Devices{
-						Disks: []v1.Disk{
-							{Name: "testdisk"},
-						},
-					},
-				},
-			}
-
-			virtClient.EXPECT().VirtualMachineInstance(k8smetav1.NamespaceDefault).Return(vmiInterface)
-
-			vmiInterface.EXPECT().Update(gomock.Any()).Do(func(arg interface{}) {
-				vmi := arg.(*v1.VirtualMachineInstance)
-				disk := vmi.Spec.Domain.Devices.Disks[0]
-				Expect(disk.Disk).ToNot(BeNil(), "DiskTarget should not be nil")
-				Expect(disk.Disk.Bus).ToNot(BeEmpty(), "DiskTarget's bus should not be empty")
-
-				// The copy of the VMI sent to the server should be initialized
-				_, found := vmi.Annotations[initializerMarking]
-				Expect(found).To(BeTrue(), "vmi should have been initialized")
-
-				Expect(vmi.Status.Phase).ToNot(Equal(v1.Failed))
-			}).Return(nil, nil)
-
-			err := vmiPresetController.initializeVirtualMachine(vmi)
-			Expect(err).ToNot(HaveOccurred())
-		})
 		It("should handle namespace resource defaults", func() {
 			vmi := v1.NewMinimalVMI("testvmi")
 			vmi.Spec = v1.VirtualMachineInstanceSpec{
