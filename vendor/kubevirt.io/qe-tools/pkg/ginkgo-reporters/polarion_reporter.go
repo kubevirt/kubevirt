@@ -99,7 +99,7 @@ func (reporter *PolarionReporter) SpecSuiteWillBegin(config config.GinkgoConfigT
 				Value: reporter.ProjectId,
 			},
 			{
-				Name:  "polarion-testcase-lookup-method",
+				Name:  "polarion-lookup-method",
 				Value: "name",
 			},
 			{
