@@ -65,7 +65,6 @@ var exampleXML = `<domain type="kvm" xmlns:qemu="http://libvirt.org/schemas/doma
       <alias name="mywatchdog"></alias>
     </watchdog>
     <rng model="virtio">
-      <rate period="2000" bytes="1234"></rate>
       <backend model="random">/dev/urandom</backend>
     </rng>
   </devices>
@@ -136,7 +135,6 @@ var _ = Describe("Schema", func() {
 	exampleDomain.Spec.Devices.Rng = &Rng{
 		Model:   "virtio",
 		Backend: &RngBackend{Source: "/dev/urandom", Model: "random"},
-		Rate:    &RngRate{Period: 2000, Bytes: 1234},
 	}
 	exampleDomain.Spec.Features = &Features{
 		ACPI: &FeatureEnabled{},

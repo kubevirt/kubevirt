@@ -258,17 +258,6 @@ func Convert_v1_Rng_To_api_Rng(source *v1.Rng, rng *Rng, _ *ConverterContext) er
 	}
 	rng.Backend.Source = source.Source
 
-	// limiting factor used to limit the access to rng device
-	// used to prevend ddos from guest machine
-	if source.RateBytes != nil {
-		rng.Rate = &RngRate{
-			Bytes: *source.RateBytes,
-		}
-	}
-	if source.RatePeriod != nil {
-		rng.Rate.Period = *source.RatePeriod
-	}
-
 	return nil
 }
 
@@ -466,12 +455,14 @@ func Convert_v1_VirtualMachine_To_api_Domain(vmi *v1.VirtualMachineInstance, dom
 	}
 
 	if vmi.Spec.Domain.Devices.Rng != nil {
-		newRng := &Rng{}
-		err := Convert_v1_Rng_To_api_Rng(vmi.Spec.Domain.Devices.Rng, newRng, c)
-		if err != nil {
-			return err
+		if vmi.Spec.Domain.Devices.Rng.Enabled {
+			newRng := &Rng{}
+			err := Convert_v1_Rng_To_api_Rng(vmi.Spec.Domain.Devices.Rng, newRng, c)
+			if err != nil {
+				return err
+			}
+			domain.Spec.Devices.Rng = newRng
 		}
-		domain.Spec.Devices.Rng = newRng
 	} else {
 		// if the Rng is not present in the config, provide sane default
 		newRng := &Rng{}

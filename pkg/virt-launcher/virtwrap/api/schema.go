@@ -584,8 +584,6 @@ type Watchdog struct {
 type Rng struct {
 	// Model attribute specifies what type of RNG device is provided
 	Model string `xml:"model,attr"`
-	// Rate element allows limiting the rate at which entropy can be consumed from the source
-	Rate *RngRate `xml:"rate,omitempty"`
 	// Backend specifies the source of entropy to be used
 	Backend *RngBackend `xml:"backend,omitempty"`
 }

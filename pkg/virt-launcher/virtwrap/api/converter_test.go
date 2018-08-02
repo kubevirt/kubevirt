@@ -391,6 +391,9 @@ var _ = Describe("Converter", func() {
     <watchdog model="i6300esb" action="poweroff">
       <alias name="mywatchdog"></alias>
     </watchdog>
+    <rng model="virtio">
+      <backend model="random">/dev/urandom</backend>
+    </rng>
   </devices>
   <clock offset="utc" adjustment="reset">
     <timer name="rtc" tickpolicy="catchup" present="yes" track="guest"></timer>
@@ -591,6 +594,19 @@ var _ = Describe("Converter", func() {
 
 			Expect(domainSpec.Memory.Value).To(Equal(uint64(128974848)))
 			Expect(domainSpec.Memory.Unit).To(Equal("B"))
+		})
+
+		It("should not add RNG when disabled", func() {
+			vmi.Spec.Domain.Devices.Rng.Enabled = false
+			domainSpec := vmiToDomainXMLToDomainSpec(vmi, c)
+			Expect(domainSpec.Devices.Rng).To(BeNil())
+		})
+
+		It("should set default source for RNG when enabled", func() {
+			vmi.Spec.Domain.Devices.Rng.Enabled = true
+			domainSpec := vmiToDomainXMLToDomainSpec(vmi, c)
+			Expect(domainSpec.Devices.Rng.Backend.Source).To(Equal("/dev/urandom"))
+			fmt.Println(vmiToDomainXML(vmi, c))
 		})
 
 	})
