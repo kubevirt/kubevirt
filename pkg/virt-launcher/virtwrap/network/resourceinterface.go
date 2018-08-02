@@ -40,9 +40,7 @@ const (
 	ProtocolPCI      = "PCI"
 )
 
-type ResourceInterface struct {
-	Configuration map[string]*PodInterfaceConfiguration
-}
+type ResourceInterface struct{}
 
 const environmentVariablePrefix = "NETWORK_INTERFACE_RESOURCES_"
 
@@ -56,12 +54,7 @@ type ResourceConfiguration struct {
 	Interfaces []PodInterfaceConfiguration `json:"interfaces"`
 }
 
-func (l *ResourceInterface) cachePodInterfacesFromEnvironment() {
-	// TODO: no actual caching is happening here, so we can refresh. should we add rate limit here?
-	if l.Configuration == nil {
-		l.Configuration = make(map[string]*PodInterfaceConfiguration)
-	}
-
+func getPodInterfaceFromEnvironment(networkName string) *PodInterfaceConfiguration {
 	// go through all environment variables published by any of the device plugins
 	// compliant with the "resource" network API
 	for _, e := range os.Environ() {
@@ -82,34 +75,22 @@ func (l *ResourceInterface) cachePodInterfacesFromEnvironment() {
 			}
 
 			// fetch the network name from the URL resource name
-			pair = strings.Split(conf.Name, "/")
-			if len(pair) != 2 {
-				log.Log.Warningf("Resource name: %s is not in the form: <device-plugin>/<resource>", conf.Name)
-				continue
-			}
-			resourceName := pair[1]
-
-			if len(conf.Interfaces) == 0 {
-				log.Log.Warningf("Environment variable %s contains no pod interfaces", varName)
+			resourceName := getNetworkNameFromResource(conf.Name)
+			if resourceName == "" {
 				continue
 			}
 
-			// if configuration does not exists for a resource
-			// just take the first pod interface of the first device plugin which configures this network
-			if l.Configuration[resourceName] == nil {
+			if resourceName == networkName {
+				if len(conf.Interfaces) == 0 {
+					log.Log.Warningf("Environment variable %s contains no pod interfaces", varName)
+					continue
+				}
+
+				// just take the first pod interface of the first device plugin which configures this network
 				log.Log.Infof("Add new pod interface from env var: '%s' with resource name: '%s' and pod interface name: '%s'",
 					varName, resourceName, conf.Interfaces[0].Name)
-				l.Configuration[resourceName] = &conf.Interfaces[0]
+				return &conf.Interfaces[0]
 			}
-		}
-	}
-}
-
-// find the virtual machine interface definition in the list
-func getInterfaceByName(ifaces []api.Interface, name string) *api.Interface {
-	for _, iface := range ifaces {
-		if iface.Alias.Name == name {
-			return &iface
 		}
 	}
 	return nil
@@ -122,22 +103,27 @@ func (l *ResourceInterface) Unplug() {}
 func (l *ResourceInterface) Plug(iface *v1.Interface, network *v1.Network, domain *api.Domain) error {
 
 	precond.MustNotBeNil(domain)
+	precond.MustNotBeNil(iface)
+	precond.MustNotBeNil(network)
+	precond.MustBeTrue(network.Name == iface.Name)
 
 	initHandler()
 
-	l.cachePodInterfacesFromEnvironment()
+	//l.cachePodInterfacesFromEnvironment()
 
+	resourceName := getNetworkNameFromResource(network.Resource.ResourceName)
+	podIf := getPodInterfaceFromEnvironment(resourceName)
 	// find the required network name in an environment variable published by any of the device plugins
-	if l.Configuration[network.Name] == nil {
+	if podIf == nil {
 		// no configuration exists for that resource name from any environment variable
-		errMsg := fmt.Sprintf("Resource configuration was not found for network '%s'", network.Name)
+		errMsg := fmt.Sprintf("Resource configuration was not found for resource '%s', requested by network '%s'",
+			resourceName, network.Name)
 		err := errors.New(errMsg)
 		log.Log.Reason(err).Error(errMsg)
 		return err
 	}
 
-	log.Log.Infof("Configuration for network '%s' was found", iface.Name)
-	podIf := l.Configuration[network.Name]
+	log.Log.Infof("Configuration for network '%s' was found", network.Name)
 
 	// check that the pod actually have the published interface
 	link, err := Handler.LinkByName(podIf.Name)
@@ -196,4 +182,24 @@ func (l *ResourceInterface) Plug(iface *v1.Interface, network *v1.Network, domai
 	}
 	// TODO: handle binding overrides from interface
 	return nil
+}
+
+// find the virtual machine interface definition in the list
+func getInterfaceByName(ifaces []api.Interface, name string) *api.Interface {
+	for _, iface := range ifaces {
+		if iface.Alias.Name == name {
+			return &iface
+		}
+	}
+	return nil
+}
+
+func getNetworkNameFromResource(resource string) string {
+	// fetch the network name from the URL resource name
+	pair := strings.Split(resource, "/")
+	if len(pair) != 2 {
+		log.Log.Warningf("Resource name: %s is not in the form: <device-plugin>/<resource>", resource)
+		return ""
+	}
+	return pair[1]
 }
