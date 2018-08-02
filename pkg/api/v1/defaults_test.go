@@ -244,6 +244,14 @@ var _ = Describe("Defaults", func() {
 		Expect(*timer.RTC.Enabled).To(BeTrue())
 		Expect(*timer.Hyperv.Enabled).To(BeTrue())
 	})
+
+	It("should add RNG if it is unspecified and set the default source", func() {
+		vmi := &VirtualMachineInstance{}
+		SetObjectDefaults_VirtualMachineInstance(vmi)
+		Expect(vmi.Spec.Domain.Devices.Rng.Enabled).To(BeTrue())
+		Expect(vmi.Spec.Domain.Devices.Rng.Source).To(Equal("/dev/urandom"))
+	})
+
 })
 
 var _ = Describe("Function SetDefaults_NetworkInterface()", func() {

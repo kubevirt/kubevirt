@@ -111,6 +111,12 @@ func SetDefaults_Firmware(obj *Firmware) {
 	}
 }
 
+func SetDefaults_Rng(obj *Rng) {
+	if obj.Source == "" {
+		obj.Source = "/dev/urandom"
+	}
+}
+
 func SetDefaults_VirtualMachineInstance(obj *VirtualMachineInstance) {
 	// FIXME we need proper validation and configurable defaulting instead of this
 	if _, exists := obj.Spec.Domain.Resources.Requests[v1.ResourceMemory]; !exists {
@@ -127,6 +133,11 @@ func SetDefaults_VirtualMachineInstance(obj *VirtualMachineInstance) {
 	}
 	if obj.Spec.Domain.Machine.Type == "" {
 		obj.Spec.Domain.Machine.Type = "q35"
+	}
+	if obj.Spec.Domain.Devices.Rng == nil {
+		obj.Spec.Domain.Devices.Rng = &Rng{
+			Enabled: true,
+		}
 	}
 	setDefaults_DiskFromMachineType(obj)
 	SetDefaults_NetworkInterface(obj)
