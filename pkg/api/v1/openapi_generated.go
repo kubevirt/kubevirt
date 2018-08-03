@@ -225,6 +225,8 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 								Description: "Wheater to attach the default graphics device or not. VNC will not be available if set to false. Defaults to true.",
 								Type:        []string{"boolean"},
 								Format:      "",
+							},
+						},
 						"rng": {
 							SchemaProps: spec.SchemaProps{
 								Description: "Whether to have random number generator from host Defaults to Rng enabled",
