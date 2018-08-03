@@ -12,18 +12,21 @@ import (
 	"k8s.io/apimachinery/pkg/util/clock"
 
 	"kubevirt.io/kubevirt/pkg/api/v1"
+	"kubevirt.io/kubevirt/pkg/config"
 	"kubevirt.io/kubevirt/pkg/kubecli"
 	"kubevirt.io/kubevirt/pkg/log"
 	"kubevirt.io/kubevirt/pkg/virt-handler/devices"
 )
 
-func NewReadinessChecker(clientset kubecli.KubevirtClient, host string) *ReadinessChecker {
+func NewReadinessChecker(clientset kubecli.KubevirtClient, host string, config *config.ClusterConfig) *ReadinessChecker {
 
 	return &ReadinessChecker{
 		clientset: clientset,
 		host:      host,
 		plugins: map[string]devices.Device{
-			"/dev/kvm":     &devices.KVM{},
+			"/dev/kvm": &devices.KVM{
+				ClusterConfig: config,
+			},
 			"/dev/net/tun": &devices.TUN{},
 		},
 		clock: clock.RealClock{},

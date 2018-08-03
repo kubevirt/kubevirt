@@ -36,6 +36,7 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/cloud-init"
+	"kubevirt.io/kubevirt/pkg/config"
 	"kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/kubecli"
 	"kubevirt.io/kubevirt/pkg/log"
@@ -58,6 +59,7 @@ func NewController(
 	gracefulShutdownInformer cache.SharedIndexInformer,
 	watchdogTimeoutSeconds int,
 	isolationDetector isolation.PodIsolationDetector,
+	clusterConfig *config.ClusterConfig,
 ) *VirtualMachineController {
 
 	queue := workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter())
@@ -94,7 +96,7 @@ func NewController(
 
 	c.launcherClients = make(map[string]cmdclient.LauncherClient)
 
-	c.DevicePlugins = []devices.Device{&devices.KVM{}, &devices.TUN{}}
+	c.DevicePlugins = []devices.Device{&devices.KVM{ClusterConfig: clusterConfig}, &devices.TUN{}}
 	c.isolationDetector = isolationDetector
 
 	return c
