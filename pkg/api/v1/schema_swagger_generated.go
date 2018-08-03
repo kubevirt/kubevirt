@@ -337,3 +337,11 @@ func (PodNetwork) SwaggerDoc() map[string]string {
 		"": "Represents the stock pod network interface",
 	}
 }
+
+func (HostBridge) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"":               "Represents a network which the vmi should connect to via a bridge",
+		"bridgeName":     "BridgeName holds the target device path inside of the container. If NodeBridgeName is unset, this path will also be used to look up the source bridge on the node under this path",
+		"nodeBridgeName": "NodeBridgeName points to the bridge on the node which should be used\n+optional",
+	}
+}
