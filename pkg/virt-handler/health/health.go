@@ -3,32 +3,33 @@ package health
 import (
 	"encoding/json"
 	"fmt"
-	"time"
-
-	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/apimachinery/pkg/util/wait"
-
-	v12 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/util/clock"
-
 	"io/ioutil"
 	"path/filepath"
 	"strings"
+	"time"
+
+	v12 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/clock"
+	"k8s.io/apimachinery/pkg/util/wait"
 
 	"kubevirt.io/kubevirt/pkg/api/v1"
+	"kubevirt.io/kubevirt/pkg/config"
 	"kubevirt.io/kubevirt/pkg/feature-gates"
 	"kubevirt.io/kubevirt/pkg/kubecli"
 	"kubevirt.io/kubevirt/pkg/log"
 	"kubevirt.io/kubevirt/pkg/virt-handler/devices"
 )
 
-func NewReadinessChecker(clientset kubecli.KubevirtClient, host string) *ReadinessChecker {
+func NewReadinessChecker(clientset kubecli.KubevirtClient, host string, config *config.ClusterConfig) *ReadinessChecker {
 
 	return &ReadinessChecker{
 		clientset: clientset,
 		host:      host,
 		plugins: map[string]devices.Device{
-			"/dev/kvm":     &devices.KVM{},
+			"/dev/kvm": &devices.KVM{
+				ClusterConfig: config,
+			},
 			"/dev/net/tun": &devices.TUN{},
 		},
 		clock: clock.RealClock{},

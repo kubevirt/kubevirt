@@ -39,6 +39,7 @@ import (
 	"k8s.io/client-go/kubernetes/fake"
 
 	"kubevirt.io/kubevirt/pkg/api/v1"
+	"kubevirt.io/kubevirt/pkg/config"
 	"kubevirt.io/kubevirt/pkg/kubecli"
 	"kubevirt.io/kubevirt/pkg/log"
 	"kubevirt.io/kubevirt/pkg/precond"
@@ -111,6 +112,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 			gracefulShutdownInformer,
 			1,
 			mockIsolationDetector,
+			config.NewClusterConfig(nil),
 		)
 		controller.DevicePlugins = nil
 
