@@ -276,7 +276,7 @@ func (l *LibvirtDomainManager) SyncVMI(vmi *v1.VirtualMachineInstance, useEmulat
 	podCPUSet, err := util.GetPodCPUSet()
 	if err != nil {
 		logger.Reason(err).Error("failed to read pod cpuset.")
-		return nil, err
+		return err
 	}
 
 	// Map the VirtualMachineInstance to the Domain

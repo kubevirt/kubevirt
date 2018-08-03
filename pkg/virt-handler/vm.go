@@ -22,11 +22,8 @@ package virthandler
 import (
 	goerror "errors"
 	"fmt"
-	"io/ioutil"
 	"os"
-	"path/filepath"
 	"reflect"
-	"strings"
 	"sync"
 	"time"
 
@@ -37,15 +34,9 @@ import (
 
 	"k8s.io/apimachinery/pkg/util/wait"
 
-	"encoding/json"
-
-	v12 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/types"
-
 	"kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/cloud-init"
 	"kubevirt.io/kubevirt/pkg/controller"
-	featuregates "kubevirt.io/kubevirt/pkg/feature-gates"
 	"kubevirt.io/kubevirt/pkg/host-disk"
 	"kubevirt.io/kubevirt/pkg/kubecli"
 	"kubevirt.io/kubevirt/pkg/log"
@@ -81,7 +72,6 @@ func NewController(
 		vmiInformer:              vmiInformer,
 		domainInformer:           domainInformer,
 		gracefulShutdownInformer: gracefulShutdownInformer,
-		heartBeatInterval:        1 * time.Minute,
 		watchdogTimeoutSeconds:   watchdogTimeoutSeconds,
 	}
 
@@ -122,7 +112,6 @@ type VirtualMachineController struct {
 	gracefulShutdownInformer cache.SharedIndexInformer
 	launcherClients          map[string]cmdclient.LauncherClient
 	launcherClientLock       sync.Mutex
-	heartBeatInterval        time.Duration
 	watchdogTimeoutSeconds   int
 	DevicePlugins            []devices.Device
 	isolationDetector        isolation.PodIsolationDetector
@@ -244,8 +233,6 @@ func (c *VirtualMachineController) Run(threadiness int, stopCh chan struct{}) {
 	go c.vmiInformer.Run(stopCh)
 	go c.gracefulShutdownInformer.Run(stopCh)
 	cache.WaitForCacheSync(stopCh, c.domainInformer.HasSynced, c.vmiInformer.HasSynced, c.gracefulShutdownInformer.HasSynced)
-
-	go c.heartBeat(c.heartBeatInterval, stopCh)
 
 	// Start the actual work
 	for i := 0; i < threadiness; i++ {
@@ -842,61 +829,6 @@ func (d *VirtualMachineController) updateDomainFunc(old, new interface{}) {
 	if err == nil {
 		d.Queue.Add(key)
 	}
-}
-
-func (d *VirtualMachineController) heartBeat(interval time.Duration, stopCh chan struct{}) {
-	for {
-		wait.JitterUntil(func() {
-			now, err := json.Marshal(v12.Now())
-			if err != nil {
-				log.DefaultLogger().Reason(err).Errorf("Can't determine date")
-				return
-			}
-			data := []byte(fmt.Sprintf(`{"metadata": { "labels": {"%s": "true"}, "annotations": {"%s": %s}}}`, v1.NodeSchedulable, v1.VirtHandlerHeartbeat, string(now)))
-			_, err = d.clientset.CoreV1().Nodes().Patch(d.host, types.StrategicMergePatchType, data)
-			if err != nil {
-				log.DefaultLogger().Reason(err).Errorf("Can't patch node %s", d.host)
-				return
-			}
-			log.DefaultLogger().V(4).Infof("Heartbeat sent")
-			// Label the node if cpu manager is running on it
-			// This is a temporary workaround until k8s bug #66525 is resolved
-			featuregates.ParseFeatureGatesFromConfigMap()
-			if featuregates.CPUManagerEnabled() {
-				d.updateNodeCpuManagerLabel()
-			}
-		}, interval, 1.2, true, stopCh)
-	}
-}
-
-func (d *VirtualMachineController) updateNodeCpuManagerLabel() {
-	entries, err := filepath.Glob("/proc/*/cmdline")
-	if err != nil {
-		log.DefaultLogger().Reason(err).Errorf("failed to set a cpu manager label on host %s", d.host)
-		return
-	}
-
-	isEnabled := false
-	for _, entry := range entries {
-		content, err := ioutil.ReadFile(entry)
-		if err != nil {
-			log.DefaultLogger().Reason(err).Errorf("failed to set a cpu manager label on host %s", d.host)
-			return
-		}
-		if strings.Contains(string(content), "kubelet") && strings.Contains(string(content), "cpu-manager-policy=static") {
-			isEnabled = true
-			break
-		}
-	}
-
-	data := []byte(fmt.Sprintf(`{"metadata": { "labels": {"%s": "%t"}}}`, v1.CPUManager, isEnabled))
-	_, err = d.clientset.CoreV1().Nodes().Patch(d.host, types.StrategicMergePatchType, data)
-	if err != nil {
-		log.DefaultLogger().Reason(err).Errorf("failed to set a cpu manager label on host %s", d.host)
-		return
-	}
-	log.DefaultLogger().V(4).Infof("Node has CPU Manager running")
-
 }
 
 func isACPIEnabled(vmi *v1.VirtualMachineInstance, domain *api.Domain) bool {

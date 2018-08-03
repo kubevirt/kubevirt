@@ -36,14 +36,15 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/controller"
-	inotifyinformer "kubevirt.io/kubevirt/pkg/inotify-informer"
+	"kubevirt.io/kubevirt/pkg/inotify-informer"
 	"kubevirt.io/kubevirt/pkg/kubecli"
 	"kubevirt.io/kubevirt/pkg/log"
 	"kubevirt.io/kubevirt/pkg/service"
 	"kubevirt.io/kubevirt/pkg/virt-handler"
 	virtcache "kubevirt.io/kubevirt/pkg/virt-handler/cache"
+	"kubevirt.io/kubevirt/pkg/virt-handler/health"
 	"kubevirt.io/kubevirt/pkg/virt-handler/isolation"
-	virtlauncher "kubevirt.io/kubevirt/pkg/virt-launcher"
+	"kubevirt.io/kubevirt/pkg/virt-launcher"
 	virt_api "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 )
 
@@ -144,6 +145,9 @@ func (app *virtHandlerApp) Run() {
 	// Bootstrapping. From here on the startup order matters
 	stop := make(chan struct{})
 	defer close(stop)
+
+	go health.NewReadinessChecker(virtCli, app.HostOverride).
+		HeartBeat(1*time.Minute, 3, stop)
 
 	vmController.Run(3, stop)
 }
