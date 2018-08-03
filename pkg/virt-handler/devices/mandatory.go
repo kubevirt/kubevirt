@@ -5,6 +5,8 @@ import (
 	"path/filepath"
 	"syscall"
 
+	"fmt"
+
 	"kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/virt-handler/isolation"
 )
@@ -55,14 +57,29 @@ func (k *KVM) Setup(_ *v1.VirtualMachineInstance, hostNamespaces *isolation.Isol
 			return err
 		}
 	}
-	// Set permissions to 0666 if necessary
-	if stat.Mode != 0666 {
-		err = os.Chmod(devicePath, 0666)
+	// Set permissions to 0660 if necessary
+	if stat.Mode != 0660 {
+		err = os.Chmod(devicePath, 0660)
 		if err != nil {
 			return err
 		}
 	}
 
+	return nil
+}
+
+func (k *KVM) Available() error {
+
+	devicePath := "/proc/1/root" + kvm
+	stat := syscall.Stat_t{}
+	err := syscall.Stat(devicePath, &stat)
+	if err != nil && !os.IsNotExist(err) {
+		return err
+	}
+
+	if os.IsNotExist(err) {
+		return fmt.Errorf("kvm device does not exist, is the module loaded?")
+	}
 	return nil
 }
 
@@ -101,6 +118,20 @@ func (t *TUN) Setup(_ *v1.VirtualMachineInstance, hostNamespaces *isolation.Isol
 		if err != nil {
 			return err
 		}
+	}
+	return nil
+}
+
+func (t *TUN) Available() error {
+	devicePath := "/proc/1/root" + tun
+	stat := syscall.Stat_t{}
+	err := syscall.Stat(devicePath, &stat)
+	if err != nil && !os.IsNotExist(err) {
+		return err
+	}
+
+	if os.IsNotExist(err) {
+		return fmt.Errorf("tun device does not exist, is the module loaded?")
 	}
 	return nil
 }
