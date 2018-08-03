@@ -55,9 +55,9 @@ func (k *KVM) Setup(_ *v1.VirtualMachineInstance, hostNamespaces *isolation.Isol
 			return err
 		}
 	}
-	// Set permissions to 0660 if necessary
-	if stat.Mode != 0660 {
-		err = os.Chmod(devicePath, 0660)
+	// Set permissions to 0666 if necessary
+	if stat.Mode != 0666 {
+		err = os.Chmod(devicePath, 0666)
 		if err != nil {
 			return err
 		}

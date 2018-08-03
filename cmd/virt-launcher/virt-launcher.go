@@ -29,10 +29,11 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/libvirt/libvirt-go"
 	"github.com/spf13/pflag"
 	utilwait "k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/apimachinery/pkg/watch"
+
+	"github.com/libvirt/libvirt-go"
 
 	"kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/cloud-init"
@@ -43,9 +44,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/registry-disk"
 	"kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
 	"kubevirt.io/kubevirt/pkg/virt-launcher"
-	notifyclient "kubevirt.io/kubevirt/pkg/virt-launcher/notify-client"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap"
-	virtcli "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/cli"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/cmd-server"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/util"
 	"kubevirt.io/kubevirt/pkg/watchdog"
@@ -106,35 +105,6 @@ func startCmdServer(socketPath string,
 	if err != nil {
 		panic(fmt.Errorf("failed to connect to cmd server: %v", err))
 	}
-}
-
-func createLibvirtConnection() virtcli.Connection {
-	libvirtUri := "qemu:///system"
-	domainConn, err := virtcli.NewConnection(libvirtUri, "", "", 10*time.Second)
-	if err != nil {
-		panic(fmt.Sprintf("failed to connect to libvirtd: %v", err))
-	}
-
-	return domainConn
-}
-
-func startDomainEventMonitoring(virtShareDir string, domainConn virtcli.Connection, deleteNotificationSent chan watch.Event) {
-	libvirt.EventRegisterDefaultImpl()
-
-	go func() {
-		for {
-			if res := libvirt.EventRunDefaultImpl(); res != nil {
-				log.Log.Reason(res).Error("Listening to libvirt events failed, retrying.")
-				time.Sleep(time.Second)
-			}
-		}
-	}()
-
-	err := notifyclient.StartNotifier(virtShareDir, domainConn, deleteNotificationSent)
-	if err != nil {
-		panic(err)
-	}
-
 }
 
 func startWatchdogTicker(watchdogFile string, watchdogInterval time.Duration, stopChan chan struct{}) {
@@ -308,19 +278,14 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	util.StartLibvirt(stopChan)
-	if err != nil {
-		panic(err)
-	}
+
 	util.StartVirtlog(stopChan)
 
-	domainConn := createLibvirtConnection()
-	defer domainConn.Close()
+	// Register the default libvirt event loop
+	libvirt.EventRegisterDefaultImpl()
 
-	domainManager, err := virtwrap.NewLibvirtDomainManager(domainConn)
-	if err != nil {
-		panic(err)
-	}
+	// Create a lazy domain manager which will start libvirt on the first SyncVMI call
+	domainManager, events := virtwrap.NewLazyLibvirtDomainManager(*virtShareDir, stopChan)
 
 	// Start the virt-launcher command service.
 	// Clients can use this service to tell virt-launcher
@@ -351,10 +316,6 @@ func main() {
 		}
 	}
 
-	deleteNotificationSent := make(chan watch.Event, 10)
-	// Send domain notifications to virt-handler
-	startDomainEventMonitoring(*virtShareDir, domainConn, deleteNotificationSent)
-
 	// Marking Ready allows the container's readiness check to pass.
 	// This informs virt-controller that virt-launcher is ready to handle
 	// managing virtual machines.
@@ -373,7 +334,7 @@ func main() {
 	// Now that the pid has exited, we wait for the final delete notification to be
 	// sent back to virt-handler. This delete notification contains the reason the
 	// domain exited.
-	waitForFinalNotify(deleteNotificationSent, domainManager, vm)
+	waitForFinalNotify(events, domainManager, vm)
 
 	log.Log.Info("Exiting...")
 }

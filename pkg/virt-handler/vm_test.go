@@ -302,6 +302,54 @@ var _ = Describe("VirtualMachineInstance", func() {
 			controller.Execute()
 		})
 
+		It("should update from Running to Failed if an unrecoverable error occurs in the launcher", func() {
+			vmi := v1.NewMinimalVMI("testvmi")
+			vmi.ObjectMeta.ResourceVersion = "1"
+			vmi.Status.Phase = v1.Running
+
+			updatedVMI := vmi.DeepCopy()
+			updatedVMI.Status.Phase = v1.Failed
+
+			mockWatchdog.CreateFile(vmi)
+			domain := api.NewMinimalDomain("testvmi")
+			domain.Status.Status = api.Error
+			domain.Status.Reason = api.ReasonLibvirtUnreachable
+			vmiFeeder.Add(vmi)
+			domainFeeder.Add(domain)
+
+			vmiInterface.EXPECT().Update(updatedVMI)
+			controller.Execute()
+		})
+
+		It("should propagate asynchronous sync errors from the Domain to the VMI", func() {
+			vmi := v1.NewMinimalVMI("testvmi")
+			vmi.ObjectMeta.ResourceVersion = "1"
+			vmi.Status.Phase = v1.Scheduled
+
+			mockWatchdog.CreateFile(vmi)
+			domain := api.NewMinimalDomain("testvmi")
+			domain.Status.Status = api.Running
+			domain.Status.Reason = api.ReasonUnknown
+			domain.Status.Conditions = []api.DomainCondition{{
+				Type:    api.DomainConditionSynchronized,
+				Status:  k8sv1.ConditionFalse,
+				Reason:  "blub",
+				Message: "bla",
+			}}
+			vmiFeeder.Add(vmi)
+			domainFeeder.Add(domain)
+
+			vmiInterface.EXPECT().Update(gomock.Any()).Do(func(vmi *v1.VirtualMachineInstance) {
+				Expect(vmi.Status.Conditions).To(HaveLen(1))
+				Expect(vmi.Status.Conditions[0].Type).To(Equal(v1.VirtualMachineInstanceSynchronized))
+				Expect(vmi.Status.Conditions[0].Reason).To(Equal("DomainSync"))
+				Expect(vmi.Status.Conditions[0].Message).To(Equal("bla"))
+				Expect(vmi.Status.Conditions[0].Status).To(Equal(k8sv1.ConditionFalse))
+
+			})
+			controller.Execute()
+		})
+
 		It("should move VirtualMachineInstance from Scheduled to Failed if watchdog file is missing", func() {
 			vmi := v1.NewMinimalVMI("testvmi")
 			vmi.ObjectMeta.ResourceVersion = "1"

@@ -31,19 +31,18 @@ func (_m *MockDomainManager) EXPECT() *_MockDomainManagerRecorder {
 	return _m.recorder
 }
 
-func (_m *MockDomainManager) SyncVMI(_param0 *v1.VirtualMachineInstance, _param1 bool) (*api.DomainSpec, error) {
-	ret := _m.ctrl.Call(_m, "SyncVMI", _param0, _param1)
-	ret0, _ := ret[0].(*api.DomainSpec)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
+func (_m *MockDomainManager) SyncVMI(vmi *v1.VirtualMachineInstance, useEmulation bool) error {
+	ret := _m.ctrl.Call(_m, "SyncVMI", vmi, useEmulation)
+	ret0, _ := ret[0].(error)
+	return ret0
 }
 
 func (_mr *_MockDomainManagerRecorder) SyncVMI(arg0, arg1 interface{}) *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "SyncVMI", arg0, arg1)
 }
 
-func (_m *MockDomainManager) KillVMI(_param0 *v1.VirtualMachineInstance) error {
-	ret := _m.ctrl.Call(_m, "KillVMI", _param0)
+func (_m *MockDomainManager) KillVMI(vmi *v1.VirtualMachineInstance) error {
+	ret := _m.ctrl.Call(_m, "KillVMI", vmi)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
@@ -52,8 +51,8 @@ func (_mr *_MockDomainManagerRecorder) KillVMI(arg0 interface{}) *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "KillVMI", arg0)
 }
 
-func (_m *MockDomainManager) DeleteVMI(_param0 *v1.VirtualMachineInstance) error {
-	ret := _m.ctrl.Call(_m, "DeleteVMI", _param0)
+func (_m *MockDomainManager) DeleteVMI(vmi *v1.VirtualMachineInstance) error {
+	ret := _m.ctrl.Call(_m, "DeleteVMI", vmi)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
@@ -62,8 +61,8 @@ func (_mr *_MockDomainManagerRecorder) DeleteVMI(arg0 interface{}) *gomock.Call 
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "DeleteVMI", arg0)
 }
 
-func (_m *MockDomainManager) SignalShutdownVMI(_param0 *v1.VirtualMachineInstance) error {
-	ret := _m.ctrl.Call(_m, "SignalShutdownVMI", _param0)
+func (_m *MockDomainManager) SignalShutdownVMI(vmi *v1.VirtualMachineInstance) error {
+	ret := _m.ctrl.Call(_m, "SignalShutdownVMI", vmi)
 	ret0, _ := ret[0].(error)
 	return ret0
 }

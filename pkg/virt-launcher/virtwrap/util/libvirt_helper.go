@@ -275,3 +275,15 @@ func SetupLibvirt() error {
 
 	return nil
 }
+
+func StartDomainEventMonitoring() {
+	go func() {
+		for {
+			if res := libvirt.EventRunDefaultImpl(); res != nil {
+				log.Log.Reason(res).Error("Listening to libvirt events failed, retrying.")
+				time.Sleep(time.Second)
+			}
+		}
+	}()
+
+}
