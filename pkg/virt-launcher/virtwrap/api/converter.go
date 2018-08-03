@@ -455,7 +455,7 @@ func Convert_v1_VirtualMachine_To_api_Domain(vmi *v1.VirtualMachineInstance, dom
 	}
 
 	if vmi.Spec.Domain.Devices.Rng != nil {
-		if vmi.Spec.Domain.Devices.Rng.Enabled {
+		if !vmi.Spec.Domain.Devices.Rng.Disabled {
 			newRng := &Rng{}
 			err := Convert_v1_Rng_To_api_Rng(vmi.Spec.Domain.Devices.Rng, newRng, c)
 			if err != nil {

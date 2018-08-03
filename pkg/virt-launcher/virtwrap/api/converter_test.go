@@ -597,15 +597,9 @@ var _ = Describe("Converter", func() {
 		})
 
 		It("should not add RNG when disabled", func() {
-			vmi.Spec.Domain.Devices.Rng.Enabled = false
+			vmi.Spec.Domain.Devices.Rng.Disabled = true
 			domainSpec := vmiToDomainXMLToDomainSpec(vmi, c)
 			Expect(domainSpec.Devices.Rng).To(BeNil())
-		})
-
-		It("should set default source for RNG when enabled", func() {
-			vmi.Spec.Domain.Devices.Rng.Enabled = true
-			domainSpec := vmiToDomainXMLToDomainSpec(vmi, c)
-			Expect(domainSpec.Devices.Rng.Backend.Source).To(Equal("/dev/urandom"))
 		})
 
 	})
