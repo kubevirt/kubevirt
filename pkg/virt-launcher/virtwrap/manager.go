@@ -33,14 +33,20 @@ import (
 
 	k8sv1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	"sync"
+	"time"
+
+	"k8s.io/apimachinery/pkg/watch"
+
 	"kubevirt.io/kubevirt/pkg/api/v1"
-	cloudinit "kubevirt.io/kubevirt/pkg/cloud-init"
+	"kubevirt.io/kubevirt/pkg/cloud-init"
 	"kubevirt.io/kubevirt/pkg/emptydisk"
 	"kubevirt.io/kubevirt/pkg/ephemeral-disk"
 	"kubevirt.io/kubevirt/pkg/hooks"
 	"kubevirt.io/kubevirt/pkg/log"
 	"kubevirt.io/kubevirt/pkg/registry-disk"
 	"kubevirt.io/kubevirt/pkg/util/net/dns"
+	"kubevirt.io/kubevirt/pkg/virt-launcher/notify-client"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/cli"
 	domainerrors "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/errors"
@@ -49,23 +55,120 @@ import (
 )
 
 type DomainManager interface {
-	SyncVMI(*v1.VirtualMachineInstance, bool) (*api.DomainSpec, error)
-	KillVMI(*v1.VirtualMachineInstance) error
-	DeleteVMI(*v1.VirtualMachineInstance) error
-	SignalShutdownVMI(*v1.VirtualMachineInstance) error
+	SyncVMI(vmi *v1.VirtualMachineInstance, useEmulation bool) (*api.DomainSpec, error)
+	KillVMI(vmi *v1.VirtualMachineInstance) error
+	DeleteVMI(vmi *v1.VirtualMachineInstance) error
+	SignalShutdownVMI(vmi *v1.VirtualMachineInstance) error
 	ListAllDomains() ([]*api.Domain, error)
+}
+
+type LazyLibvirtDomainManager struct {
+	pointerLock         *sync.Mutex
+	_manager            DomainManager
+	StopChan            chan struct{}
+	libvirtStarted      bool
+	callbacksRegistered bool
+	events              chan watch.Event
+	virtShareDir        string
+}
+
+func NewLazyLibvirtDomainManager(virtShareDir string, stopChan chan struct{}) (manager DomainManager, events chan watch.Event) {
+	events = make(chan watch.Event, 10)
+	return &LazyLibvirtDomainManager{
+		StopChan:     stopChan,
+		pointerLock:  &sync.Mutex{},
+		events:       events,
+		virtShareDir: virtShareDir,
+	}, events
+}
+
+func (l *LazyLibvirtDomainManager) SyncVMI(vmi *v1.VirtualMachineInstance, useEmulation bool) (*api.DomainSpec, error) {
+	err := l.connectIfNecessary()
+	if err != nil {
+		return nil, err
+	}
+	return l.get().SyncVMI(vmi, useEmulation)
+}
+
+func (l *LazyLibvirtDomainManager) KillVMI(vmi *v1.VirtualMachineInstance) error {
+	if l.get() == nil {
+		return nil
+	}
+	return l.get().KillVMI(vmi)
+}
+
+func (l *LazyLibvirtDomainManager) DeleteVMI(vmi *v1.VirtualMachineInstance) error {
+	if l.get() == nil {
+		return nil
+	}
+	return l.get().DeleteVMI(vmi)
+}
+
+func (l *LazyLibvirtDomainManager) SignalShutdownVMI(vmi *v1.VirtualMachineInstance) error {
+	if l.get() == nil {
+		return nil
+	}
+	return l.get().SignalShutdownVMI(vmi)
+}
+
+func (l *LazyLibvirtDomainManager) get() DomainManager {
+	l.pointerLock.Lock()
+	defer l.pointerLock.Unlock()
+	return l._manager
+}
+
+func (l *LazyLibvirtDomainManager) connectIfNecessary() (err error) {
+	l.pointerLock.Lock()
+	defer l.pointerLock.Unlock()
+
+	var domainCon cli.Connection
+
+	if l._manager == nil {
+		if l.libvirtStarted == false {
+			util.StartLibvirt(l.StopChan)
+			l.libvirtStarted = true
+			domainCon, err = cli.NewConnection("qemu:///system", "", "", 10*time.Second)
+			if err != nil {
+				return err
+			}
+		} else {
+			domainCon, err = cli.NewConnection("qemu:///system", "", "", 1*time.Second)
+			if err != nil {
+				return err
+			}
+		}
+		if l.callbacksRegistered == false {
+			err := eventsclient.StartNotifier(l.virtShareDir, domainCon, l.events)
+			if err != nil {
+				domainCon.Close()
+				return err
+			}
+			l.callbacksRegistered = true
+			util.StartDomainEventMonitoring()
+		}
+		l._manager = NewLibvirtDomainManager(domainCon)
+	}
+
+	return nil
+}
+
+func (l LazyLibvirtDomainManager) ListAllDomains() ([]*api.Domain, error) {
+	if l.get() == nil {
+		return nil, nil
+	}
+	return l.get().ListAllDomains()
 }
 
 type LibvirtDomainManager struct {
 	virConn cli.Connection
 }
 
-func NewLibvirtDomainManager(connection cli.Connection) (DomainManager, error) {
+func NewLibvirtDomainManager(connection cli.Connection) DomainManager {
 	manager := LibvirtDomainManager{
 		virConn: connection,
 	}
 
-	return &manager, nil
+	return &manager
 }
 
 // All local environment setup that needs to occur before VirtualMachineInstance starts
