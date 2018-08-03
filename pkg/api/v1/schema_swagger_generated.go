@@ -373,8 +373,8 @@ func (PodNetwork) SwaggerDoc() map[string]string {
 
 func (Rng) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"":        "Rng represents the random device passed from host",
-		"enabled": "Enabled defines whether use or do not use Virtio Rng",
-		"source":  "Source sets the host source used to provide entropy",
+		"":         "Rng represents the random device passed from host",
+		"disabled": "Disabled defines whether use or do not use Virtio Rng\n+optional",
+		"source":   "Source sets the host source used to provide entropy\n+optional",
 	}
 }

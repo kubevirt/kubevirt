@@ -1202,9 +1202,9 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 				SchemaProps: spec.SchemaProps{
 					Description: "Rng represents the random device passed from host",
 					Properties: map[string]spec.Schema{
-						"enabled": {
+						"disabled": {
 							SchemaProps: spec.SchemaProps{
-								Description: "Enabled defines whether use or do not use Virtio Rng",
+								Description: "Disabled defines whether use or do not use Virtio Rng",
 								Type:        []string{"boolean"},
 								Format:      "",
 							},
@@ -1217,7 +1217,6 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 							},
 						},
 					},
-					Required: []string{"enabled", "source"},
 				},
 			},
 			Dependencies: []string{},

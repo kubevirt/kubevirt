@@ -126,13 +126,10 @@ spec:
                       type: array
                     rng:
                       properties:
-                        enabled:
+                        disabled:
                           type: boolean
                         source:
                           type: string
-                      required:
-                      - enabled
-                      - source
                     watchdog:
                       properties:
                         i6300esb:

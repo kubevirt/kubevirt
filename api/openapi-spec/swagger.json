@@ -4299,16 +4299,16 @@
    "v1.Rng": {
     "description": "Rng represents the random device passed from host",
     "required": [
-     "enabled",
+     "disabled",
      "source"
     ],
     "properties": {
-     "enabled": {
-      "description": "Enabled defines whether use or do not use Virtio Rng",
+     "disabled": {
+      "description": "Disabled defines whether use or do not use Virtio Rng\n+optional",
       "type": "boolean"
      },
      "source": {
-      "description": "Source sets the host source used to provide entropy",
+      "description": "Source sets the host source used to provide entropy\n+optional",
       "type": "string"
      }
     }
