@@ -8,6 +8,7 @@ import (
 	"fmt"
 
 	"kubevirt.io/kubevirt/pkg/api/v1"
+	"kubevirt.io/kubevirt/pkg/config"
 	"kubevirt.io/kubevirt/pkg/virt-handler/isolation"
 )
 
@@ -20,6 +21,7 @@ var kvmDevice = NewKernelDevice(10, 232)
 var tunDevice = NewKernelDevice(10, 200)
 
 type KVM struct {
+	ClusterConfig *config.ClusterConfig
 }
 
 type TUN struct {
@@ -28,10 +30,19 @@ type TUN struct {
 // Setup creates /dev/kvm inside a container and sets the right permissions for qemu
 func (k *KVM) Setup(_ *v1.VirtualMachineInstance, hostNamespaces *isolation.IsolationResult, podNamespaces *isolation.IsolationResult) error {
 
+	useEmulation, err := k.ClusterConfig.IsUseEmulation()
+	if err != nil {
+		return err
+	}
+
+	if useEmulation {
+		return nil
+	}
+
 	devicePath := podNamespaces.MountRoot() + kvm
 
 	stat := syscall.Stat_t{}
-	err := syscall.Stat(devicePath, &stat)
+	err = syscall.Stat(devicePath, &stat)
 	if err != nil && !os.IsNotExist(err) {
 		return err
 	}
@@ -70,9 +81,18 @@ func (k *KVM) Setup(_ *v1.VirtualMachineInstance, hostNamespaces *isolation.Isol
 
 func (k *KVM) Available() error {
 
+	useEmulation, err := k.ClusterConfig.IsUseEmulation()
+	if err != nil {
+		return err
+	}
+
+	if useEmulation {
+		return nil
+	}
+
 	devicePath := "/proc/1/root" + kvm
 	stat := syscall.Stat_t{}
-	err := syscall.Stat(devicePath, &stat)
+	err = syscall.Stat(devicePath, &stat)
 	if err != nil && !os.IsNotExist(err) {
 		return err
 	}
