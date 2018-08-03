@@ -606,7 +606,6 @@ var _ = Describe("Converter", func() {
 			vmi.Spec.Domain.Devices.Rng.Enabled = true
 			domainSpec := vmiToDomainXMLToDomainSpec(vmi, c)
 			Expect(domainSpec.Devices.Rng.Backend.Source).To(Equal("/dev/urandom"))
-			fmt.Println(vmiToDomainXML(vmi, c))
 		})
 
 	})
