@@ -96,7 +96,7 @@ func NewController(
 
 	c.launcherClients = make(map[string]cmdclient.LauncherClient)
 
-	c.DevicePlugins = []devices.Device{&devices.KVM{ClusterConfig: clusterConfig}, &devices.TUN{}}
+	c.DevicePlugins = []devices.Device{&devices.KVM{ClusterConfig: clusterConfig}, &devices.TUN{}, &devices.HostBridge{}}
 	c.isolationDetector = isolationDetector
 
 	return c
