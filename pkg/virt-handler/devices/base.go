@@ -1,10 +1,10 @@
 package devices
 
 import (
-	"golang.org/x/sys/unix"
-
 	"fmt"
 	"os"
+
+	"golang.org/x/sys/unix"
 
 	"kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/virt-handler/isolation"
@@ -13,6 +13,10 @@ import (
 type Device interface {
 	// Right now, including bridge/veth, only setup is needed, since veths are deleted if namespaces where they are part of are deleted
 	Setup(vmi *v1.VirtualMachineInstance, hostNamespaces *isolation.IsolationResult, podNamespaces *isolation.IsolationResult) error
+
+	// Available can be used to test if kernel modules, bridges, ... are present.
+	// If nil is returned it is assumed that under normal conditions setting up the container would work
+	Available() error
 }
 
 func whitelistDevice(deviceType string, dev *KernelDevice, acl string, slice string) error {
