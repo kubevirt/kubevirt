@@ -588,14 +588,7 @@ func ValidateVirtualMachineInstanceSpec(field *k8sfield.Path, spec *v1.VirtualMa
 	}
 
 	if len(spec.Networks) > 0 && len(spec.Domain.Devices.Interfaces) > 0 {
-		for idx, network := range spec.Networks {
-			if network.Pod == nil {
-				causes = append(causes, metav1.StatusCause{
-					Type:    metav1.CauseTypeFieldValueRequired,
-					Message: fmt.Sprintf("should only accept networks with a pod network source"),
-					Field:   field.Child("networks").Index(idx).Child("pod").String(),
-				})
-			}
+		for _, network := range spec.Networks {
 			networkNameMap[network.Name] = &network
 		}
 
@@ -614,12 +607,6 @@ func ValidateVirtualMachineInstanceSpec(field *k8sfield.Path, spec *v1.VirtualMa
 				causes = append(causes, metav1.StatusCause{
 					Type:    metav1.CauseTypeFieldValueInvalid,
 					Message: fmt.Sprintf("%s '%s' not found.", field.Child("domain", "devices", "interfaces").Index(idx).Child("name").String(), iface.Name),
-					Field:   field.Child("domain", "devices", "interfaces").Index(idx).Child("name").String(),
-				})
-			} else if iface.Bridge != nil && networkData.Pod == nil {
-				causes = append(causes, metav1.StatusCause{
-					Type:    metav1.CauseTypeFieldValueInvalid,
-					Message: fmt.Sprintf("Bridge interface only implemented with pod network"),
 					Field:   field.Child("domain", "devices", "interfaces").Index(idx).Child("name").String(),
 				})
 			} else if iface.Slirp != nil && networkData.Pod == nil {

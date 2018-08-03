@@ -265,7 +265,7 @@ var _ = Describe("Pod Network", func() {
 			})
 		})
 		Context("getBinding", func() {
-			Context("for Bridge", func() {
+			Context("for HostBridge", func() {
 				It("should populate MAC address", func() {
 					domain := NewDomainWithBridgeInterface()
 					vmi := newVMIBridgeInterface("testnamespace", "testVmName")

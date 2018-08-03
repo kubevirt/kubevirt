@@ -561,56 +561,74 @@ func Convert_v1_VirtualMachine_To_api_Domain(vmi *v1.VirtualMachineInstance, dom
 			return fmt.Errorf("failed to find network %s", iface.Name)
 		}
 
-		if net.Pod == nil {
-			return fmt.Errorf("network interface type not supported for %s", iface.Name)
-		}
+		if net.Pod != nil {
+			if iface.Bridge != nil {
+				// TODO:(ihar) consider abstracting interface type conversion /
+				// detection into drivers
+				domainIface := Interface{
+					Model: &Model{
+						Type: getInterfaceType(&iface),
+					},
+					Type: "bridge",
+					Source: InterfaceSource{
+						Bridge: DefaultBridgeName,
+					},
+					Alias: &Alias{
+						Name: iface.Name,
+					},
+				}
+				if iface.BootOrder != nil {
+					domainIface.BootOrder = &BootOrder{Order: *iface.BootOrder}
+				}
+				domain.Spec.Devices.Interfaces = append(domain.Spec.Devices.Interfaces, domainIface)
+			} else if iface.Slirp != nil {
+				domainIface := Interface{
+					Model: &Model{
+						Type: getInterfaceType(&iface),
+					},
+					Type: "user",
+					Alias: &Alias{
+						Name: iface.Name,
+					},
+				}
+				domain.Spec.Devices.Interfaces = append(domain.Spec.Devices.Interfaces, domainIface)
 
-		if iface.Bridge != nil {
-			// TODO:(ihar) consider abstracting interface type conversion /
-			// detection into drivers
+				// Create network interface
+				if domain.Spec.QEMUCmd == nil {
+					domain.Spec.QEMUCmd = &Commandline{}
+				}
+
+				if domain.Spec.QEMUCmd.QEMUArg == nil {
+					domain.Spec.QEMUCmd.QEMUArg = make([]Arg, 0)
+				}
+
+				// TODO: (seba) Need to change this if multiple interface can be connected to the same network
+				// append the ports from all the interfaces connected to the same network
+				err := createSlirpNetwork(iface, *net, domain)
+				if err != nil {
+					return err
+				}
+			}
+		} else if net.HostBridge != nil {
 			domainIface := Interface{
 				Model: &Model{
 					Type: getInterfaceType(&iface),
 				},
 				Type: "bridge",
 				Source: InterfaceSource{
-					Bridge: DefaultBridgeName,
+					Bridge: net.HostBridge.BridgeName,
 				},
 				Alias: &Alias{
 					Name: iface.Name,
 				},
+			}
+			if iface.MacAddress != "" {
+				domainIface.MAC = &MAC{MAC: iface.MacAddress}
 			}
 			if iface.BootOrder != nil {
 				domainIface.BootOrder = &BootOrder{Order: *iface.BootOrder}
 			}
 			domain.Spec.Devices.Interfaces = append(domain.Spec.Devices.Interfaces, domainIface)
-		} else if iface.Slirp != nil {
-			domainIface := Interface{
-				Model: &Model{
-					Type: getInterfaceType(&iface),
-				},
-				Type: "user",
-				Alias: &Alias{
-					Name: iface.Name,
-				},
-			}
-			domain.Spec.Devices.Interfaces = append(domain.Spec.Devices.Interfaces, domainIface)
-
-			// Create network interface
-			if domain.Spec.QEMUCmd == nil {
-				domain.Spec.QEMUCmd = &Commandline{}
-			}
-
-			if domain.Spec.QEMUCmd.QEMUArg == nil {
-				domain.Spec.QEMUCmd.QEMUArg = make([]Arg, 0)
-			}
-
-			// TODO: (seba) Need to change this if multiple interface can be connected to the same network
-			// append the ports from all the interfaces connected to the same network
-			err := createSlirpNetwork(iface, *net, domain)
-			if err != nil {
-				return err
-			}
 		}
 	}
 

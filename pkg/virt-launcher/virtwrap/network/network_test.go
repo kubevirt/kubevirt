@@ -42,8 +42,8 @@ var _ = Describe("Network", func() {
 
 	Context("interface configuration", func() {
 		It("should configure bridged pod networking by default", func() {
-			NetworkInterfaceFactory = func(network *v1.Network) (NetworkInterface, error) {
-				return mockNetworkInterface, nil
+			NetworkInterfaceFactory = func(network *v1.Network) NetworkInterface {
+				return mockNetworkInterface
 			}
 			domain := &api.Domain{}
 			vm := newVMIBridgeInterface("testnamespace", "testVmName")
