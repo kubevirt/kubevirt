@@ -789,8 +789,10 @@ type PodNetwork struct {
 // ---
 // +k8s:openapi-gen=true
 type Rng struct {
-	// Enabled defines whether use or do not use Virtio Rng
-	Enabled bool `json:"enabled"`
+	// Disabled defines whether use or do not use Virtio Rng
+	// +optional
+	Disabled bool `json:"disabled"`
 	// Source sets the host source used to provide entropy
+	// +optional
 	Source string `json:"source"`
 }
