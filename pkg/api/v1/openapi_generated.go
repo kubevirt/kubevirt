@@ -27,6 +27,38 @@ import (
 
 func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenAPIDefinition {
 	return map[string]common.OpenAPIDefinition{
+		"kubevirt.io/kubevirt/pkg/api/v1.BridgeNetwork": {
+			Schema: spec.Schema{
+				SchemaProps: spec.SchemaProps{
+					Description: "Represents a network which the vmi should connect to via a bridge",
+					Properties: map[string]spec.Schema{
+						"targetName": {
+							SchemaProps: spec.SchemaProps{
+								Description: "TargetName holds the target device path inside of the container. If Type is set to \"BridgeOrCreate\" and NodeTargetName is unset, this path will also be used to look up the source bridge on the node under this path",
+								Type:        []string{"string"},
+								Format:      "",
+							},
+						},
+						"type": {
+							SchemaProps: spec.SchemaProps{
+								Description: "Type can be \"Bridge\" or \"BridgeOrCreate\". If \"Bridge\" is set. it is assumed that \"devicePath\" points to a bridge inside the container. \"BridgeOrCreate\" will create a connection via veth pair to a bridge on the node",
+								Type:        []string{"string"},
+								Format:      "",
+							},
+						},
+						"nodeTargetName": {
+							SchemaProps: spec.SchemaProps{
+								Description: "NodeTargetName points to the bridge on the node which should be used in case Type is set to \"BridgeOrCreate\"",
+								Type:        []string{"string"},
+								Format:      "",
+							},
+						},
+					},
+					Required: []string{"targetName", "type"},
+				},
+			},
+			Dependencies: []string{},
+		},
 		"kubevirt.io/kubevirt/pkg/api/v1.CDRomTarget": {
 			Schema: spec.Schema{
 				SchemaProps: spec.SchemaProps{
@@ -978,12 +1010,17 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 								Ref: ref("kubevirt.io/kubevirt/pkg/api/v1.PodNetwork"),
 							},
 						},
+						"bridge": {
+							SchemaProps: spec.SchemaProps{
+								Ref: ref("kubevirt.io/kubevirt/pkg/api/v1.BridgeNetwork"),
+							},
+						},
 					},
 					Required: []string{"name"},
 				},
 			},
 			Dependencies: []string{
-				"kubevirt.io/kubevirt/pkg/api/v1.PodNetwork"},
+				"kubevirt.io/kubevirt/pkg/api/v1.BridgeNetwork", "kubevirt.io/kubevirt/pkg/api/v1.PodNetwork"},
 		},
 		"kubevirt.io/kubevirt/pkg/api/v1.NetworkSource": {
 			Schema: spec.Schema{
@@ -995,11 +1032,16 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 								Ref: ref("kubevirt.io/kubevirt/pkg/api/v1.PodNetwork"),
 							},
 						},
+						"bridge": {
+							SchemaProps: spec.SchemaProps{
+								Ref: ref("kubevirt.io/kubevirt/pkg/api/v1.BridgeNetwork"),
+							},
+						},
 					},
 				},
 			},
 			Dependencies: []string{
-				"kubevirt.io/kubevirt/pkg/api/v1.PodNetwork"},
+				"kubevirt.io/kubevirt/pkg/api/v1.BridgeNetwork", "kubevirt.io/kubevirt/pkg/api/v1.PodNetwork"},
 		},
 		"kubevirt.io/kubevirt/pkg/api/v1.PITTimer": {
 			Schema: spec.Schema{

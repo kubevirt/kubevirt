@@ -3330,6 +3330,27 @@
      }
     }
    },
+   "v1.BridgeNetwork": {
+    "description": "Represents a network which the vmi should connect to via a bridge",
+    "required": [
+     "targetName",
+     "type"
+    ],
+    "properties": {
+     "nodeTargetName": {
+      "description": "NodeTargetName points to the bridge on the node which should be used in case Type is set to \"BridgeOrCreate\"",
+      "type": "string"
+     },
+     "targetName": {
+      "description": "TargetName holds the target device path inside of the container. If Type is set to \"BridgeOrCreate\"\nand NodeTargetName is unset, this path will also be used to look up the source bridge on the node under this path",
+      "type": "string"
+     },
+     "type": {
+      "description": "Type can be \"Bridge\" or \"BridgeOrCreate\". If \"Bridge\" is set.\nit is assumed that \"devicePath\" points to a bridge inside the\ncontainer. \"BridgeOrCreate\" will create a connection via veth pair to a bridge on the node",
+      "type": "string"
+     }
+    }
+   },
    "v1.CDRomTarget": {
     "properties": {
      "bus": {
@@ -3973,6 +3994,9 @@
      "name"
     ],
     "properties": {
+     "bridge": {
+      "$ref": "#/definitions/v1.BridgeNetwork"
+     },
      "name": {
       "description": "Network name.\nMust be a DNS_LABEL and unique within the vm.\nMore info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names",
       "type": "string"
