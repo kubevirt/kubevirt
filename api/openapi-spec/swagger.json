@@ -3856,7 +3856,14 @@
      }
     }
    },
-   "v1.InterfaceBridge": {},
+   "v1.InterfaceBridge": {
+    "properties": {
+     "delegateNetworkToGuest": {
+      "description": "Whether to delegate pod IP and MAC addresses to the guest.\nFor IP addresses, DHCP is used.\nDefaults to true.",
+      "type": "boolean"
+     }
+    }
+   },
    "v1.InterfaceSlirp": {},
    "v1.KVMTimer": {
     "properties": {

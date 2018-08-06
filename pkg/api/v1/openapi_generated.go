@@ -875,7 +875,15 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"kubevirt.io/kubevirt/pkg/api/v1.InterfaceBridge": {
 			Schema: spec.Schema{
 				SchemaProps: spec.SchemaProps{
-					Properties: map[string]spec.Schema{},
+					Properties: map[string]spec.Schema{
+						"delegateNetworkToGuest": {
+							SchemaProps: spec.SchemaProps{
+								Description: "Whether to delegate pod IP and MAC addresses to the guest. For IP addresses, DHCP is used. Defaults to true.",
+								Type:        []string{"boolean"},
+								Format:      "",
+							},
+						},
+					},
 				},
 			},
 			Dependencies: []string{},

@@ -710,7 +710,12 @@ type InterfaceBindingMethod struct {
 
 // ---
 // +k8s:openapi-gen=true
-type InterfaceBridge struct{}
+type InterfaceBridge struct {
+	// Whether to delegate pod IP and MAC addresses to the guest.
+	// For IP addresses, DHCP is used.
+	// Defaults to true.
+	DelegateNetworkToGuest *bool `json:"delegateNetworkToGuest,omitempty"`
+}
 
 // ---
 // +k8s:openapi-gen=true

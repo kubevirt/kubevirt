@@ -21,6 +21,7 @@ package tests_test
 
 import (
 	"flag"
+	"regexp"
 	"strings"
 	"time"
 
@@ -408,6 +409,61 @@ var _ = Describe("Networking", func() {
 
 			tests.WaitUntilVMIReady(deadbeafVMI, tests.LoggedInAlpineExpecter)
 			checkMacAddress(deadbeafVMI, deadbeafVMI.Spec.Domain.Devices.Interfaces[0].MacAddress, "localhost:~#")
+		})
+	})
+
+	Context("VirtualMachineInstance with delegateIp=false", func() {
+		It("should have Layer2 connectivity", func() {
+			By("checking arping to pod IP address")
+			delegateIp := false
+			// Nothing special about e1000 but this one has explicit bridge interface
+			vmi := tests.NewRandomVMIWithe1000NetworkInterface()
+			vmi.Spec.Domain.Devices.Interfaces[0].Bridge.DelegateNetworkToGuest = &delegateIp
+			_, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
+			Expect(err).ToNot(HaveOccurred())
+			waitUntilVMIReady(vmi, tests.LoggedInAlpineExpecter)
+
+			// Extract IP address of the pod
+			vmiPod := tests.GetRunningPodByLabel(vmi.Name, v1.DomainLabel, tests.NamespaceTestDefault)
+			output, err := tests.ExecuteCommandOnPod(
+				virtClient,
+				vmiPod,
+				vmiPod.Spec.Containers[0].Name,
+				[]string{"ip", "address", "show", "br1"},
+			)
+			Expect(err).ToNot(HaveOccurred())
+
+			re := regexp.MustCompile(`inet (\S+)/\d+`)
+			match := re.FindStringSubmatch(output)
+			Expect(len(match)).To(Equal(2))
+
+			// Validate that we receive ARP replies when requesting pod IP address
+			prompt := "localhost:~#"
+			err = tests.CheckForTextExpecter(vmi, []expect.Batcher{
+				&expect.BSnd{S: "\n"},
+				&expect.BExp{R: prompt},
+				// the image probably failed to bring up network and hence left
+				// the interface down; we bring it up for arping to work
+				&expect.BSnd{S: "ifconfig eth0 up\n"},
+				&expect.BExp{R: prompt},
+				// wait for the first reply, maximum wait is 3 seconds
+				&expect.BSnd{S: fmt.Sprintf("arping -I eth0 %s -f -w 3\n", match[1])},
+				&expect.BExp{R: "Received 1 replies \\(0 request\\(s\\), 0 broadcast\\(s\\)\\)"},
+				// also check the return code for arping is zero
+				&expect.BSnd{S: "echo $?\n"},
+				&expect.BExp{R: "0"},
+			}, 15)
+			Expect(err).ToNot(HaveOccurred())
+
+			// Validate the pod itself still has external connectivity
+			output, err = tests.ExecuteCommandOnPod(
+				virtClient,
+				vmiPod,
+				vmiPod.Spec.Containers[0].Name,
+				[]string{"sh", "-c", "ping -c 1 kubevirt.io > /dev/null 2>&1; echo $?"},
+			)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(strings.Contains(output, "0")).To(BeTrue())
 		})
 	})
 

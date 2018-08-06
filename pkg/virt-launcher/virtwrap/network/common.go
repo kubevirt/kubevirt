@@ -50,6 +50,7 @@ type NetworkHandler interface {
 	LinkByName(name string) (netlink.Link, error)
 	AddrList(link netlink.Link, family int) ([]netlink.Addr, error)
 	RouteList(link netlink.Link, family int) ([]netlink.Route, error)
+	RouteAdd(link netlink.Link, route *netlink.Route) error
 	AddrDel(link netlink.Link, addr *netlink.Addr) error
 	AddrAdd(link netlink.Link, addr *netlink.Addr) error
 	LinkSetDown(link netlink.Link) error
@@ -73,6 +74,9 @@ func (h *NetworkUtilsHandler) AddrList(link netlink.Link, family int) ([]netlink
 }
 func (h *NetworkUtilsHandler) RouteList(link netlink.Link, family int) ([]netlink.Route, error) {
 	return netlink.RouteList(link, family)
+}
+func (h *NetworkUtilsHandler) RouteAdd(link netlink.Link, route *netlink.Route) error {
+	return netlink.RouteAdd(route)
 }
 func (h *NetworkUtilsHandler) AddrDel(link netlink.Link, addr *netlink.Addr) error {
 	return netlink.AddrDel(link, addr)

@@ -331,7 +331,9 @@ func (InterfaceBindingMethod) SwaggerDoc() map[string]string {
 }
 
 func (InterfaceBridge) SwaggerDoc() map[string]string {
-	return map[string]string{}
+	return map[string]string{
+		"delegateNetworkToGuest": "Whether to delegate pod IP and MAC addresses to the guest.\nFor IP addresses, DHCP is used.\nDefaults to true.",
+	}
 }
 
 func (InterfaceSlirp) SwaggerDoc() map[string]string {

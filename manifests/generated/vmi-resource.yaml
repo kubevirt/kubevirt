@@ -96,7 +96,10 @@ spec:
                     interfaces:
                       items:
                         properties:
-                          bridge: {}
+                          bridge:
+                            properties:
+                              delegateNetworkToGuest:
+                                type: boolean
                           macAddress:
                             type: string
                           model:
