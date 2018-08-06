@@ -3,13 +3,13 @@ package health
 import (
 	"encoding/json"
 	"fmt"
+	"strings"
 	"time"
 
-	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/apimachinery/pkg/util/wait"
-
 	v12 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/clock"
+	"k8s.io/apimachinery/pkg/util/wait"
 
 	"kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/config"
@@ -70,8 +70,39 @@ func (l *ReadinessChecker) HeartBeat(interval time.Duration, maxErrorsPerInterva
 				log.DefaultLogger().Reason(err).Errorf("Can't determine matching networks")
 			}
 
+			toPatch := []string{}
+
 			for k, _ := range matchingNetworks {
 				fmt.Printf("matching network %s found\n", k)
+			}
+
+			networksToDelete, err := l.clusterConfig.GetNotMatchingLabelNetworksOnNode(node)
+			if err != nil {
+				log.DefaultLogger().Reason(err).Errorf("Can't determine networks to delete")
+			}
+
+			for _, name := range networksToDelete {
+				fmt.Printf("not matching network %s needs to be removed\n", name)
+				toPatch = append(toPatch, fmt.Sprintf(`{ "op": "remove", "path": "/metadata/labels/%s" }`, escape(name)))
+			}
+
+			networksToAdd, err := l.clusterConfig.GetMissingLabelNetworksOnNode(node)
+			if err != nil {
+				log.DefaultLogger().Reason(err).Errorf("Can't determine networks to add")
+			}
+
+			for _, name := range networksToAdd {
+				fmt.Printf("network %s needs to be added\n", name)
+				toPatch = append(toPatch, fmt.Sprintf(`  { "op": "add", "path": "/metadata/labels/%s", "value": "" }`, escape(name)))
+			}
+
+			if len(toPatch) > 0 {
+				patch := "[\n" + strings.Join(toPatch, ",\n") + "]"
+				fmt.Println(patch)
+				_, err = l.clientset.CoreV1().Nodes().Patch(l.host, types.JSONPatchType, []byte(patch))
+				if err != nil {
+					log.DefaultLogger().Reason(err).Errorf("Failed to patch networks")
+				}
 			}
 
 			now, err := json.Marshal(v12.Time{Time: l.clock.Now()})
@@ -89,4 +120,8 @@ func (l *ReadinessChecker) HeartBeat(interval time.Duration, maxErrorsPerInterva
 			}
 		}, interval, 1.2, true, stopCh)
 	}
+}
+
+func escape(name string) string {
+	return strings.Replace(name, "/", "~1", -1)
 }
