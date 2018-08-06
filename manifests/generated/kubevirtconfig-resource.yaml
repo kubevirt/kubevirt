@@ -1,0 +1,32 @@
+---
+apiVersion: apiextensions.k8s.io/v1beta1
+kind: CustomResourceDefinition
+metadata:
+  creationTimestamp: null
+  labels:
+    kubevirt.io: ""
+  name: kubevirtconfigs.kubevirt.io
+spec:
+  group: kubevirt.io
+  names:
+    kind: KubeVirtConfig
+    plural: kubevirtconfigs
+    singular: kubevirtconfig
+  scope: Namespaced
+  validation:
+    openAPIV3Schema:
+      properties:
+        apiVersion:
+          type: string
+        debug:
+          properties:
+            useEmulation:
+              type: boolean
+          required:
+          - useEmulation
+        kind:
+          type: string
+        metadata: {}
+        networks:
+          type: object
+  version: v1alpha2

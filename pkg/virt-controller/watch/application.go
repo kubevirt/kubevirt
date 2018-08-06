@@ -156,7 +156,7 @@ func Execute() {
 	app.rsInformer = app.informerFactory.VMIReplicaSet()
 	app.vmiPresetRecorder = app.getNewRecorder(k8sv1.NamespaceAll, "virtualmachine-preset-controller")
 
-	app.configMapInformer = app.informerFactory.ConfigMap()
+	app.configMapInformer = app.informerFactory.KubeVirtConfig()
 
 	app.vmInformer = app.informerFactory.VirtualMachine()
 	app.limitrangeInformer = app.informerFactory.LimitRanges()

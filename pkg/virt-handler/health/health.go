@@ -29,15 +29,17 @@ func NewReadinessChecker(clientset kubecli.KubevirtClient, host string, config *
 			},
 			"/dev/net/tun": &devices.TUN{},
 		},
-		clock: clock.RealClock{},
+		clock:         clock.RealClock{},
+		clusterConfig: config,
 	}
 }
 
 type ReadinessChecker struct {
-	clientset kubecli.KubevirtClient
-	host      string
-	plugins   map[string]devices.Device
-	clock     clock.Clock
+	clientset     kubecli.KubevirtClient
+	host          string
+	plugins       map[string]devices.Device
+	clock         clock.Clock
+	clusterConfig *config.ClusterConfig
 }
 
 // HeartBeat take a heartbeat inverval, a maximum of non-userfacing errors which are
@@ -55,6 +57,21 @@ func (l *ReadinessChecker) HeartBeat(interval time.Duration, maxErrorsPerInterva
 					log.DefaultLogger().Reason(err).Errorf("Check for mandatory device %s failed", dev)
 					schedulable = false
 				}
+			}
+
+			// Check for networks
+			node, err := l.clientset.CoreV1().Nodes().Get(l.host, v12.GetOptions{})
+			if err != nil {
+				log.DefaultLogger().Reason(err).Errorf("Can't fetch node")
+				return
+			}
+			matchingNetworks, err := l.clusterConfig.GetLabelNetworksForNode(node)
+			if err != nil {
+				log.DefaultLogger().Reason(err).Errorf("Can't determine matching networks")
+			}
+
+			for k, _ := range matchingNetworks {
+				fmt.Printf("matching network %s found\n", k)
 			}
 
 			now, err := json.Marshal(v12.Time{Time: l.clock.Now()})

@@ -63,8 +63,8 @@ type KubeInformerFactory interface {
 	// VirtualMachine handles the VMIs that are stopped or not running
 	VirtualMachine() cache.SharedIndexInformer
 
-	// Watches for ConfigMap objects
-	ConfigMap() cache.SharedIndexInformer
+	// Watches for KubeVirtConfig objects
+	KubeVirtConfig() cache.SharedIndexInformer
 
 	// Watches for LimitRange objects
 	LimitRanges() cache.SharedIndexInformer
@@ -175,13 +175,10 @@ func (f *kubeInformerFactory) VirtualMachine() cache.SharedIndexInformer {
 	})
 }
 
-func (f *kubeInformerFactory) ConfigMap() cache.SharedIndexInformer {
-	// We currently only monitor configmaps in the kube-system namespace
-	return f.getInformer("configMapInformer", func() cache.SharedIndexInformer {
-		restClient := f.clientSet.CoreV1().RESTClient()
-		fieldSelector := fields.OneTermEqualSelector("metadata.name", "kubevirt-config")
-		lw := cache.NewListWatchFromClient(restClient, "configmaps", systemNamespace, fieldSelector)
-		return cache.NewSharedIndexInformer(lw, &k8sv1.ConfigMap{}, f.defaultResync, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
+func (f *kubeInformerFactory) KubeVirtConfig() cache.SharedIndexInformer {
+	return f.getInformer("kubevirtconfigs", func() cache.SharedIndexInformer {
+		lw := cache.NewListWatchFromClient(f.restClient, "kubevirtconfigs", k8sv1.NamespaceAll, fields.Everything())
+		return cache.NewSharedIndexInformer(lw, &kubev1.KubeVirtConfig{}, f.defaultResync, cache.Indexers{})
 	})
 }
 

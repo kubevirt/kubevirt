@@ -34,7 +34,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/log"
 )
 
-var _ = Describe("ConfigMap", func() {
+var _ = Describe("KubeVirtConfig", func() {
 
 	log.Log.SetIOWriter(GinkgoWriter)
 
@@ -51,7 +51,7 @@ var _ = Describe("ConfigMap", func() {
 	})
 
 	It("Should return false if configmap is not present", func() {
-		cmListWatch = MakeFakeConfigMapWatcher([]kubev1.ConfigMap{})
+		cmListWatch = MakeFakeConfigMapWatcher([]v1.KubeVirtConfig{})
 		cmInformer = cache.NewSharedIndexInformer(cmListWatch, &v1.VirtualMachineInstance{}, time.Second, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
 		go cmInformer.Run(stopChan)
 		cache.WaitForCacheSync(stopChan, cmInformer.HasSynced)
@@ -62,14 +62,8 @@ var _ = Describe("ConfigMap", func() {
 	})
 
 	It("Should return false if configmap doesn't have useEmulation set", func() {
-		cfgMap := kubev1.ConfigMap{
-			ObjectMeta: metav1.ObjectMeta{
-				Namespace: "kube-system",
-				Name:      "kubevirt-config",
-			},
-			Data: map[string]string{},
-		}
-		cmListWatch = MakeFakeConfigMapWatcher([]kubev1.ConfigMap{cfgMap})
+		cfgMap := newKubeVirtConfig()
+		cmListWatch = MakeFakeConfigMapWatcher([]v1.KubeVirtConfig{*cfgMap})
 		cmInformer = cache.NewSharedIndexInformer(cmListWatch, &v1.VirtualMachineInstance{}, time.Second, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
 		go cmInformer.Run(stopChan)
 		cache.WaitForCacheSync(stopChan, cmInformer.HasSynced)
@@ -81,14 +75,12 @@ var _ = Describe("ConfigMap", func() {
 	})
 
 	It("Should return true if useEmulation = true", func() {
-		cfgMap := kubev1.ConfigMap{
-			ObjectMeta: metav1.ObjectMeta{
-				Namespace: "kube-system",
-				Name:      "kubevirt-config",
-			},
-			Data: map[string]string{"debug.useEmulation": "true"},
+		cfgMap := newKubeVirtConfig()
+		cfgMap.Debug = &v1.DebugOptions{
+			UseEmulation: true,
 		}
-		cmListWatch = MakeFakeConfigMapWatcher([]kubev1.ConfigMap{cfgMap})
+
+		cmListWatch = MakeFakeConfigMapWatcher([]v1.KubeVirtConfig{*cfgMap})
 		cmInformer = cache.NewSharedIndexInformer(cmListWatch, &v1.VirtualMachineInstance{}, time.Second, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
 		go cmInformer.Run(stopChan)
 		cache.WaitForCacheSync(stopChan, cmInformer.HasSynced)
@@ -100,14 +92,8 @@ var _ = Describe("ConfigMap", func() {
 	})
 
 	It("Should return IfNotPresent if configmap doesn't have imagePullPolicy set", func() {
-		cfgMap := kubev1.ConfigMap{
-			ObjectMeta: metav1.ObjectMeta{
-				Namespace: "kube-system",
-				Name:      "kubevirt-config",
-			},
-			Data: map[string]string{},
-		}
-		cmListWatch = MakeFakeConfigMapWatcher([]kubev1.ConfigMap{cfgMap})
+		cfgMap := newKubeVirtConfig()
+		cmListWatch = MakeFakeConfigMapWatcher([]v1.KubeVirtConfig{*cfgMap})
 		cmInformer = cache.NewSharedIndexInformer(cmListWatch, &v1.VirtualMachineInstance{}, time.Second, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
 		go cmInformer.Run(stopChan)
 		cache.WaitForCacheSync(stopChan, cmInformer.HasSynced)
@@ -118,14 +104,11 @@ var _ = Describe("ConfigMap", func() {
 	})
 
 	It("Should return Always if imagePullPolicy = Always", func() {
-		cfgMap := kubev1.ConfigMap{
-			ObjectMeta: metav1.ObjectMeta{
-				Namespace: "kube-system",
-				Name:      "kubevirt-config",
-			},
-			Data: map[string]string{imagePullPolicyKey: "Always"},
+		cfgMap := newKubeVirtConfig()
+		cfgMap.Developer = &v1.DeveloperOptions{
+			ImagePullPolicy: "Always",
 		}
-		cmListWatch = MakeFakeConfigMapWatcher([]kubev1.ConfigMap{cfgMap})
+		cmListWatch = MakeFakeConfigMapWatcher([]v1.KubeVirtConfig{*cfgMap})
 		cmInformer = cache.NewSharedIndexInformer(cmListWatch, &v1.VirtualMachineInstance{}, time.Second, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
 		go cmInformer.Run(stopChan)
 		cache.WaitForCacheSync(stopChan, cmInformer.HasSynced)
@@ -136,14 +119,11 @@ var _ = Describe("ConfigMap", func() {
 	})
 
 	It("Should return an error if imagePullPolicy is not valid", func() {
-		cfgMap := kubev1.ConfigMap{
-			ObjectMeta: metav1.ObjectMeta{
-				Namespace: "kube-system",
-				Name:      "kubevirt-config",
-			},
-			Data: map[string]string{imagePullPolicyKey: "IHaveNoStrongFeelingsOneWayOrTheOther"},
+		cfgMap := newKubeVirtConfig()
+		cfgMap.Developer = &v1.DeveloperOptions{
+			ImagePullPolicy: "IHaveNoStrongFeelingsOneWayOrTheOther",
 		}
-		cmListWatch = MakeFakeConfigMapWatcher([]kubev1.ConfigMap{cfgMap})
+		cmListWatch = MakeFakeConfigMapWatcher([]v1.KubeVirtConfig{*cfgMap})
 		cmInformer = cache.NewSharedIndexInformer(cmListWatch, &v1.VirtualMachineInstance{}, time.Second, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
 		go cmInformer.Run(stopChan)
 		cache.WaitForCacheSync(stopChan, cmInformer.HasSynced)
@@ -153,10 +133,10 @@ var _ = Describe("ConfigMap", func() {
 	})
 })
 
-func MakeFakeConfigMapWatcher(configMaps []kubev1.ConfigMap) *cache.ListWatch {
+func MakeFakeConfigMapWatcher(configMaps []v1.KubeVirtConfig) *cache.ListWatch {
 	cmListWatch := &cache.ListWatch{
 		ListFunc: func(options metav1.ListOptions) (runtime.Object, error) {
-			return &kubev1.ConfigMapList{Items: configMaps}, nil
+			return &v1.KubeVirtConfigList{Items: configMaps}, nil
 		},
 		WatchFunc: func(options metav1.ListOptions) (watch.Interface, error) {
 			fakeWatch := watch.NewFake()
@@ -167,4 +147,13 @@ func MakeFakeConfigMapWatcher(configMaps []kubev1.ConfigMap) *cache.ListWatch {
 		},
 	}
 	return cmListWatch
+}
+
+func newKubeVirtConfig() *v1.KubeVirtConfig {
+	return &v1.KubeVirtConfig{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: "kube-system",
+			Name:      "kubevirt-config",
+		},
+	}
 }

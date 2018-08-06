@@ -137,7 +137,7 @@ func (app *virtHandlerApp) Run() {
 
 	// Synchronize with cluster config
 	factory := controller.NewKubeInformerFactory(virtCli.RestClient(), virtCli)
-	configMapInformer := factory.ConfigMap()
+	configMapInformer := factory.KubeVirtConfig()
 	factory.Start(stop)
 	cache.WaitForCacheSync(stop, configMapInformer.HasSynced)
 	clusterConfig := config.NewClusterConfig(configMapInformer.GetStore())
