@@ -27,6 +27,7 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	golog "log"
 	"os"
 	"os/exec"
 	"reflect"
@@ -321,6 +322,8 @@ func BeforeTestCleanup() {
 }
 
 func BeforeTestSuitSetup() {
+	// Forward expecter library output to GinkgoWriter
+	golog.SetOutput(GinkgoWriter)
 
 	log.InitializeLogging("tests")
 	log.Log.SetIOWriter(GinkgoWriter)
