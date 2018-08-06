@@ -844,6 +844,13 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 								Format:      "",
 							},
 						},
+						"bootorder": {
+							SchemaProps: spec.SchemaProps{
+								Description: "Boot order for this interface. any number larger than zero gives the order in which this interface will be used for bootting among all other devices (interfaces and disks)",
+								Type:        []string{"string"},
+								Format:      "",
+							},
+						},
 					},
 					Required: []string{"name"},
 				},

@@ -543,6 +543,15 @@ func Convert_v1_VirtualMachine_To_api_Domain(vmi *v1.VirtualMachineInstance, dom
 		return "virtio"
 	}
 
+	getBootOrder := func(iface *v1.Interface, network *v1.Network) *BootOrder {
+		// TODO: should take network into account deciding whether boot order is suported
+		order, err := strconv.ParseUint(iface.BootOrder, 10, 0)
+		if err != nil || order < 1 {
+			return nil
+		}
+		return &BootOrder{Order: uint(order)}
+	}
+
 	networks := map[string]*v1.Network{}
 	for _, network := range vmi.Spec.Networks {
 		networks[network.Name] = network.DeepCopy()
@@ -572,6 +581,7 @@ func Convert_v1_VirtualMachine_To_api_Domain(vmi *v1.VirtualMachineInstance, dom
 				Alias: &Alias{
 					Name: iface.Name,
 				},
+				BootOrder: getBootOrder(&iface, net),
 			}
 			domain.Spec.Devices.Interfaces = append(domain.Spec.Devices.Interfaces, domainIface)
 		} else if iface.Slirp != nil {

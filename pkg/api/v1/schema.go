@@ -697,6 +697,10 @@ type Interface struct {
 	Ports []Port `json:"ports,omitempty"`
 	// Interface MAC address. For example: de:ad:00:00:be:af or DE-AD-00-00-BE-AF.
 	MacAddress string `json:"macAddress,omitempty"`
+	// Boot order for this interface.
+	// any number larger than zero gives the order in which this interface will be used
+	// for bootting among all other devices (interfaces and disks)
+	BootOrder string `json:"bootorder,omitempty"`
 }
 
 // Represents the method which will be used to connect the interface to the guest.

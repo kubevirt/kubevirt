@@ -321,6 +321,7 @@ func (Interface) SwaggerDoc() map[string]string {
 		"model":      "Interface model.\nOne of: e1000, e1000e, ne2k_pci, pcnet, rtl8139, virtio.\nDefaults to virtio.",
 		"ports":      "List of ports to be forwarded to the virtual machine.",
 		"macAddress": "Interface MAC address. For example: de:ad:00:00:be:af or DE-AD-00-00-BE-AF.",
+		"bootorder":  "Boot order for this interface.\nany number larger than zero gives the order in which this interface will be used\nfor bootting among all other devices (interfaces and disks)",
 	}
 }
 

@@ -3829,6 +3829,10 @@
      "name"
     ],
     "properties": {
+     "bootorder": {
+      "description": "Boot order for this interface.\nany number larger than zero gives the order in which this interface will be used\nfor bootting among all other devices (interfaces and disks)",
+      "type": "string"
+     },
      "bridge": {
       "$ref": "#/definitions/v1.InterfaceBridge"
      },
