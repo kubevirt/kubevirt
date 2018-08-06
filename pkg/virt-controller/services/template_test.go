@@ -665,7 +665,7 @@ var _ = Describe("Template", func() {
 					Namespace: "kube-system",
 					Name:      "kubevirt-config",
 				},
-				Data: map[string]string{"debug.useEmulation": "true"},
+				Data: map[string]string{UseEmulationKey: "true"},
 			}
 			cmListWatch = MakeFakeConfigMapWatcher([]kubev1.ConfigMap{cfgMap})
 			cmInformer = cache.NewSharedIndexInformer(cmListWatch, &v1.VirtualMachineInstance{}, time.Second, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
@@ -676,6 +676,62 @@ var _ = Describe("Template", func() {
 			result, err := IsEmulationAllowed(cmStore)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(result).To(BeTrue())
+		})
+
+		It("Should return IfNotPresent if configmap doesn't have imagePullPolicy set", func() {
+			cfgMap := kubev1.ConfigMap{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace: "kube-system",
+					Name:      "kubevirt-config",
+				},
+				Data: map[string]string{},
+			}
+			cmListWatch = MakeFakeConfigMapWatcher([]kubev1.ConfigMap{cfgMap})
+			cmInformer = cache.NewSharedIndexInformer(cmListWatch, &v1.VirtualMachineInstance{}, time.Second, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
+			cmStore = cmInformer.GetStore()
+			go cmInformer.Run(stopChan)
+			cache.WaitForCacheSync(stopChan, cmInformer.HasSynced)
+
+			result, err := GetImagePullPolicy(cmStore)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(result).To(Equal(kubev1.PullIfNotPresent))
+		})
+
+		It("Should return Always if imagePullPolicy = Always", func() {
+			cfgMap := kubev1.ConfigMap{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace: "kube-system",
+					Name:      "kubevirt-config",
+				},
+				Data: map[string]string{ImagePullPolicyKey: "Always"},
+			}
+			cmListWatch = MakeFakeConfigMapWatcher([]kubev1.ConfigMap{cfgMap})
+			cmInformer = cache.NewSharedIndexInformer(cmListWatch, &v1.VirtualMachineInstance{}, time.Second, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
+			cmStore = cmInformer.GetStore()
+			go cmInformer.Run(stopChan)
+			cache.WaitForCacheSync(stopChan, cmInformer.HasSynced)
+
+			result, err := GetImagePullPolicy(cmStore)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(result).To(Equal(kubev1.PullAlways))
+		})
+
+		It("Should return an error if imagePullPolicy is not valid", func() {
+			cfgMap := kubev1.ConfigMap{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace: "kube-system",
+					Name:      "kubevirt-config",
+				},
+				Data: map[string]string{ImagePullPolicyKey: "IHaveNoStrongFeelingsOneWayOrTheOther"},
+			}
+			cmListWatch = MakeFakeConfigMapWatcher([]kubev1.ConfigMap{cfgMap})
+			cmInformer = cache.NewSharedIndexInformer(cmListWatch, &v1.VirtualMachineInstance{}, time.Second, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
+			cmStore = cmInformer.GetStore()
+			go cmInformer.Run(stopChan)
+			cache.WaitForCacheSync(stopChan, cmInformer.HasSynced)
+
+			_, err := GetImagePullPolicy(cmStore)
+			Expect(err).To(HaveOccurred())
 		})
 	})
 })

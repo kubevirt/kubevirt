@@ -14,7 +14,7 @@ SYNC_VENDOR=${SYNC_VENDOR:-false}
 TEMPFILE=".rsynctemp"
 
 # Build the build container
-(cd ${DOCKER_DIR} && docker build . -q -t ${BUILDER})
+(cd ${DOCKER_DIR} && docker build . -t ${BUILDER})
 
 # Create the persistent docker volume
 if [ -z "$(docker volume list | grep ${BUILDER})" ]; then

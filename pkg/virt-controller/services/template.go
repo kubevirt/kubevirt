@@ -38,7 +38,8 @@ import (
 )
 
 const configMapName = "kube-system/kubevirt-config"
-const useEmulationKey = "debug.useEmulation"
+const UseEmulationKey = "debug.useEmulation"
+const ImagePullPolicyKey = "dev.imagePullPolicy"
 const KvmDevice = "devices.kubevirt.io/kvm"
 const TunDevice = "devices.kubevirt.io/tun"
 
@@ -53,21 +54,43 @@ type templateService struct {
 	store           cache.Store
 }
 
-func IsEmulationAllowed(store cache.Store) (bool, error) {
-	obj, exists, err := store.GetByKey(configMapName)
-	if err != nil {
-		return false, err
+func getConfigMapEntry(store cache.Store, key string) (string, error) {
+
+	if obj, exists, err := store.GetByKey(configMapName); err != nil {
+		return "", err
+	} else if !exists {
+		return "", nil
+	} else {
+		return obj.(*k8sv1.ConfigMap).Data[key], nil
 	}
-	if !exists {
-		return exists, nil
+}
+
+func IsEmulationAllowed(store cache.Store) (useEmulation bool, err error) {
+	var value string
+	value, err = getConfigMapEntry(store, UseEmulationKey)
+	if strings.ToLower(value) == "true" {
+		useEmulation = true
 	}
-	useEmulation := false
-	cm := obj.(*k8sv1.ConfigMap)
-	emu, ok := cm.Data[useEmulationKey]
-	if ok {
-		useEmulation = (strings.ToLower(emu) == "true")
+	return
+}
+
+func GetImagePullPolicy(store cache.Store) (policy k8sv1.PullPolicy, err error) {
+	var value string
+	if value, err = getConfigMapEntry(store, ImagePullPolicyKey); err != nil || value == "" {
+		policy = k8sv1.PullIfNotPresent // Default if not specified
+	} else {
+		switch value {
+		case "Always":
+			policy = k8sv1.PullAlways
+		case "Never":
+			policy = k8sv1.PullNever
+		case "IfNotPresent":
+			policy = k8sv1.PullIfNotPresent
+		default:
+			err = fmt.Errorf("Invalid ImagePullPolicy in ConfigMap: %s", value)
+		}
 	}
-	return useEmulation, nil
+	return
 }
 
 func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (*k8sv1.Pod, error) {
@@ -244,6 +267,11 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 		return nil, err
 	}
 
+	imagePullPolicy, err := GetImagePullPolicy(t.store)
+	if err != nil {
+		return nil, err
+	}
+
 	if resources.Limits == nil {
 		resources.Limits = make(k8sv1.ResourceList)
 	}
@@ -268,7 +296,7 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 	container := k8sv1.Container{
 		Name:            "compute",
 		Image:           t.launcherImage,
-		ImagePullPolicy: k8sv1.PullIfNotPresent,
+		ImagePullPolicy: imagePullPolicy,
 		SecurityContext: &k8sv1.SecurityContext{
 			RunAsUser: &userId,
 			// Privileged mode is disabled.
