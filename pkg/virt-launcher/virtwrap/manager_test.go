@@ -139,36 +139,33 @@ var _ = Describe("Manager", func() {
 		table.DescribeTable("should try to undefine a VirtualMachineInstance in state",
 			func(state libvirt.DomainState) {
 				mockConn.EXPECT().LookupDomainByName(testDomainName).Return(mockDomain, nil)
-				mockDomain.EXPECT().GetState().Return(state, 1, nil)
 				mockDomain.EXPECT().Undefine().Return(nil)
 				manager, _ := NewLibvirtDomainManager(mockConn)
-				err := manager.KillVMI(newVMI(testNamespace, testVmName))
+				err := manager.DeleteVMI(newVMI(testNamespace, testVmName))
 				Expect(err).To(BeNil())
 			},
 			table.Entry("crashed", libvirt.DOMAIN_CRASHED),
-			table.Entry("shutdown", libvirt.DOMAIN_SHUTDOWN),
 			table.Entry("shutoff", libvirt.DOMAIN_SHUTOFF),
-			table.Entry("unknown", libvirt.DOMAIN_NOSTATE),
 		)
-		table.DescribeTable("should try to destroy and undefine a VirtualMachineInstance in state",
+		table.DescribeTable("should try to destroy a VirtualMachineInstance in state",
 			func(state libvirt.DomainState) {
 				mockConn.EXPECT().LookupDomainByName(testDomainName).Return(mockDomain, nil)
 				mockDomain.EXPECT().GetState().Return(state, 1, nil)
-				mockDomain.EXPECT().Destroy().Return(nil)
-				mockDomain.EXPECT().Undefine().Return(nil)
+				mockDomain.EXPECT().DestroyFlags(libvirt.DOMAIN_DESTROY_GRACEFUL).Return(nil)
 				manager, _ := NewLibvirtDomainManager(mockConn)
 				err := manager.KillVMI(newVMI(testNamespace, testVmName))
 				Expect(err).To(BeNil())
 			},
+			table.Entry("shuttingDown", libvirt.DOMAIN_SHUTDOWN),
 			table.Entry("running", libvirt.DOMAIN_RUNNING),
 			table.Entry("paused", libvirt.DOMAIN_PAUSED),
 		)
 	})
 
 	table.DescribeTable("on successful list all domains",
-		func(state libvirt.DomainState, kubevirtState api.LifeCycle) {
+		func(state libvirt.DomainState, kubevirtState api.LifeCycle, libvirtReason int, kubevirtReason api.StateChangeReason) {
 
-			mockDomain.EXPECT().GetState().Return(state, -1, nil)
+			mockDomain.EXPECT().GetState().Return(state, libvirtReason, nil)
 			mockDomain.EXPECT().GetName().Return("test", nil)
 			x, err := xml.Marshal(api.NewMinimalDomainSpec("test"))
 			Expect(err).To(BeNil())
@@ -186,12 +183,14 @@ var _ = Describe("Manager", func() {
 
 			Expect(&domain.Spec).To(Equal(api.NewMinimalDomainSpec("test")))
 			Expect(domain.Status.Status).To(Equal(kubevirtState))
+			Expect(domain.Status.Reason).To(Equal(kubevirtReason))
 		},
-		table.Entry("crashed", libvirt.DOMAIN_CRASHED, api.Crashed),
-		table.Entry("shutoff", libvirt.DOMAIN_SHUTOFF, api.Shutoff),
-		table.Entry("shutdown", libvirt.DOMAIN_SHUTDOWN, api.Shutdown),
-		table.Entry("unknown", libvirt.DOMAIN_NOSTATE, api.NoState),
-		table.Entry("running", libvirt.DOMAIN_RUNNING, api.Running),
+		table.Entry("crashed", libvirt.DOMAIN_CRASHED, api.Crashed, int(libvirt.DOMAIN_CRASHED_UNKNOWN), api.ReasonUnknown),
+		table.Entry("shutoff", libvirt.DOMAIN_SHUTOFF, api.Shutoff, int(libvirt.DOMAIN_SHUTOFF_DESTROYED), api.ReasonDestroyed),
+		table.Entry("shutdown", libvirt.DOMAIN_SHUTDOWN, api.Shutdown, int(libvirt.DOMAIN_SHUTDOWN_USER), api.ReasonUser),
+		table.Entry("unknown", libvirt.DOMAIN_NOSTATE, api.NoState, int(libvirt.DOMAIN_NOSTATE_UNKNOWN), api.ReasonUnknown),
+		table.Entry("running", libvirt.DOMAIN_RUNNING, api.Running, int(libvirt.DOMAIN_RUNNING_UNKNOWN), api.ReasonUnknown),
+		table.Entry("paused", libvirt.DOMAIN_PAUSED, api.Paused, int(libvirt.DOMAIN_PAUSED_STARTING_UP), api.ReasonPausedStartingUp),
 	)
 
 	// TODO: test error reporting on non successful VirtualMachineInstance syncs and kill attempts

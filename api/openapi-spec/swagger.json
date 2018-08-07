@@ -3314,18 +3314,18 @@
     }
    },
    "v1.Affinity": {
-    "description": "Affinity groups all the affinity rules related to a VirtualMachineInstance",
+    "description": "Affinity is a group of affinity scheduling rules.",
     "properties": {
      "nodeAffinity": {
-      "description": "Node affinity support",
+      "description": "Describes node affinity scheduling rules for the pod.",
       "$ref": "#/definitions/v1.NodeAffinity"
      },
      "podAffinity": {
-      "description": "Pod affinity support",
+      "description": "Describes pod affinity scheduling rules (e.g. co-locate this pod in the same node, zone, etc. as some other pod(s)).",
       "$ref": "#/definitions/v1.PodAffinity"
      },
      "podAntiAffinity": {
-      "description": "Pod anti-affinity support",
+      "description": "Describes pod anti-affinity scheduling rules (e.g. avoid putting this pod in the same node, zone, etc. as some other pod(s)).",
       "$ref": "#/definitions/v1.PodAntiAffinity"
      }
     }
@@ -3354,7 +3354,7 @@
       "type": "integer"
      },
      "model": {
-      "description": "Model specifies the CPU model inside the VMI.\nList of available models https://github.com/libvirt/libvirt/blob/master/src/cpu/cpu_map.xml.\n+optional",
+      "description": "Model specifies the CPU model inside the VMI.\nList of available models https://github.com/libvirt/libvirt/blob/master/src/cpu/cpu_map.xml.\nIt is possible to specify special cases like \"host-passthrough\" to get the same CPU as the node\nand \"host-model\" to get CPU closest to the node one.\nFor more information see https://libvirt.org/formatdomain.html#elementsCPU.\nDefaults to host-model.\n+optional",
       "type": "string"
      }
     }
@@ -3440,6 +3440,14 @@
    "v1.DeletionPropagation": {},
    "v1.Devices": {
     "properties": {
+     "autoattachGraphicsDevice": {
+      "description": "Wheater to attach the default graphics device or not.\nVNC will not be available if set to false. Defaults to true.",
+      "type": "boolean"
+     },
+     "autoattachPodInterface": {
+      "description": "Whether to attach a pod network interface. Defaults to true.",
+      "type": "boolean"
+     },
      "disks": {
       "description": "Disks describes disks, cdroms, floppy and luns which are connected to the vmi.",
       "type": "array",
@@ -4352,6 +4360,10 @@
        "$ref": "#/definitions/resource.Quantity"
       }
      },
+     "overcommitGuestOverhead": {
+      "description": "Don't ask the scheduler to take the guest-management overhead into account. Instead\nput the overhead only into the requested memory limits. This can lead to crashes if\nall memory is in use on a node. Defaults to false.",
+      "type": "boolean"
+     },
      "requests": {
       "description": "Requests is a description of the initial vmi resources.\nValid resource keys are \"memory\" and \"cpu\".\n+optional",
       "type": "object",
@@ -4488,6 +4500,32 @@
      "rtc": {
       "description": "RTC (Real Time Clock) - a continuously running timer with periodic interrupts.",
       "$ref": "#/definitions/v1.RTCTimer"
+     }
+    }
+   },
+   "v1.Toleration": {
+    "description": "The pod this Toleration is attached to tolerates any taint that matches the triple \u003ckey,value,effect\u003e using the matching operator \u003coperator\u003e.",
+    "properties": {
+     "effect": {
+      "description": "Effect indicates the taint effect to match. Empty means match all taint effects. When specified, allowed values are NoSchedule, PreferNoSchedule and NoExecute.",
+      "type": "string"
+     },
+     "key": {
+      "description": "Key is the taint key that the toleration applies to. Empty means match all taint keys. If the key is empty, operator must be Exists; this combination means to match all values and all keys.",
+      "type": "string"
+     },
+     "operator": {
+      "description": "Operator represents a key's relationship to the value. Valid operators are Exists and Equal. Defaults to Equal. Exists is equivalent to wildcard for value, so that a pod can tolerate all taints of a particular category.",
+      "type": "string"
+     },
+     "tolerationSeconds": {
+      "description": "TolerationSeconds represents the period of time the toleration (which must be of effect NoExecute, otherwise this field is ignored) tolerates the taint. By default, it is not set, which means tolerate the taint forever (do not evict). Zero and negative values will be treated as 0 (evict immediately) by the system.",
+      "type": "integer",
+      "format": "int64"
+     },
+     "value": {
+      "description": "Value is the taint value the toleration matches to. If the operator is Exists, the value should be empty, otherwise just a regular string.",
+      "type": "string"
      }
     }
    },
@@ -4848,6 +4886,13 @@
       "description": "Grace period observed after signalling a VirtualMachineInstance to stop after which the VirtualMachineInstance is force terminated.",
       "type": "integer",
       "format": "int64"
+     },
+     "tolerations": {
+      "description": "If toleration is specified, obey all the toleration rules.",
+      "type": "array",
+      "items": {
+       "$ref": "#/definitions/v1.Toleration"
+      }
      },
      "volumes": {
       "description": "List of volumes that can be mounted by disks belonging to the vmi.",

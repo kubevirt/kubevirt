@@ -44,6 +44,11 @@ import (
 	"kubevirt.io/kubevirt/pkg/registry-disk"
 )
 
+const (
+	CPUModeHostPassthrough = "host-passthrough"
+	CPUModeHostModel       = "host-model"
+)
+
 type ConverterContext struct {
 	UseEmulation   bool
 	Secrets        map[string]*k8sv1.Secret
@@ -141,7 +146,7 @@ func Convert_v1_Volume_To_api_Disk(source *v1.Volume, disk *Disk, c *ConverterCo
 	}
 
 	if source.PersistentVolumeClaim != nil {
-		return Covert_v1_FilesystemVolumeSource_To_api_Disk(source.Name, disk, c)
+		return Convert_v1_FilesystemVolumeSource_To_api_Disk(source.Name, disk, c)
 	}
 
 	if source.Ephemeral != nil {
@@ -154,7 +159,8 @@ func Convert_v1_Volume_To_api_Disk(source *v1.Volume, disk *Disk, c *ConverterCo
 	return fmt.Errorf("disk %s references an unsupported source", disk.Alias.Name)
 }
 
-func Covert_v1_FilesystemVolumeSource_To_api_Disk(volumeName string, disk *Disk, c *ConverterContext) error {
+// Convert_v1_FilesystemVolumeSource_To_api_Disk takes a FS source and builds the KVM Disk representation
+func Convert_v1_FilesystemVolumeSource_To_api_Disk(volumeName string, disk *Disk, c *ConverterContext) error {
 
 	disk.Type = "file"
 	disk.Driver.Type = "raw"
@@ -211,7 +217,7 @@ func Convert_v1_EphemeralVolumeSource_To_api_Disk(volumeName string, source *v1.
 	disk.BackingStore = &BackingStore{}
 
 	backingDisk := &Disk{Driver: &DiskDriver{}}
-	err := Covert_v1_FilesystemVolumeSource_To_api_Disk(volumeName, backingDisk, c)
+	err := Convert_v1_FilesystemVolumeSource_To_api_Disk(volumeName, backingDisk, c)
 	if err != nil {
 		return err
 	}
@@ -460,13 +466,17 @@ func Convert_v1_VirtualMachine_To_api_Domain(vmi *v1.VirtualMachineInstance, dom
 
 		// Set VM CPU model and vendor
 		if vmi.Spec.Domain.CPU.Model != "" {
-			domain.Spec.CPU.Mode = "custom"
-			domain.Spec.CPU.Model = vmi.Spec.Domain.CPU.Model
+			if vmi.Spec.Domain.CPU.Model == CPUModeHostModel || vmi.Spec.Domain.CPU.Model == CPUModeHostPassthrough {
+				domain.Spec.CPU.Mode = vmi.Spec.Domain.CPU.Model
+			} else {
+				domain.Spec.CPU.Mode = "custom"
+				domain.Spec.CPU.Model = vmi.Spec.Domain.CPU.Model
+			}
 		}
 	}
 
 	if vmi.Spec.Domain.CPU == nil || vmi.Spec.Domain.CPU.Model == "" {
-		domain.Spec.CPU.Mode = "host-model"
+		domain.Spec.CPU.Mode = CPUModeHostModel
 	}
 
 	// Add mandatory console device
@@ -490,20 +500,32 @@ func Convert_v1_VirtualMachine_To_api_Domain(vmi *v1.VirtualMachineInstance, dom
 			},
 			Source: &SerialSource{
 				Mode: "bind",
-				Path: fmt.Sprintf("/var/run/kubevirt-private/%s/%s/virt-serial%d", vmi.ObjectMeta.Namespace, vmi.ObjectMeta.Name, serialPort),
+				Path: fmt.Sprintf("/var/run/kubevirt-private/%s/virt-serial%d", vmi.ObjectMeta.UID, serialPort),
 			},
 		},
 	}
 
-	// Add mandatory vnc device
-	domain.Spec.Devices.Graphics = []Graphics{
-		{
-			Listen: &GraphicsListen{
-				Type:   "socket",
-				Socket: fmt.Sprintf("/var/run/kubevirt-private/%s/%s/virt-vnc", vmi.ObjectMeta.Namespace, vmi.ObjectMeta.Name),
+	if vmi.Spec.Domain.Devices.AutoattachGraphicsDevice == nil || *vmi.Spec.Domain.Devices.AutoattachGraphicsDevice == true {
+		var heads uint = 1
+		var vram uint = 16384
+		domain.Spec.Devices.Video = []Video{
+			{
+				Model: VideoModel{
+					Type:  "vga",
+					Heads: &heads,
+					VRam:  &vram,
+				},
 			},
-			Type: "vnc",
-		},
+		}
+		domain.Spec.Devices.Graphics = []Graphics{
+			{
+				Listen: &GraphicsListen{
+					Type:   "socket",
+					Socket: fmt.Sprintf("/var/run/kubevirt-private/%s/virt-vnc", vmi.ObjectMeta.UID),
+				},
+				Type: "vnc",
+			},
+		}
 	}
 
 	getInterfaceType := func(iface *v1.Interface) string {

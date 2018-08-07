@@ -28,10 +28,8 @@ package libvirt
 
 /*
 #cgo pkg-config: libvirt
-#include <libvirt/libvirt.h>
-#include <libvirt/virterror.h>
 #include <stdlib.h>
-#include "secret_compat.h"
+#include "secret_wrapper.h"
 */
 import "C"
 
@@ -69,27 +67,30 @@ type Secret struct {
 
 // See also https://libvirt.org/html/libvirt-libvirt-secret.html#virSecretFree
 func (s *Secret) Free() error {
-	ret := C.virSecretFree(s.ptr)
+	var err C.virError
+	ret := C.virSecretFreeWrapper(s.ptr, &err)
 	if ret == -1 {
-		return GetLastError()
+		return makeError(&err)
 	}
 	return nil
 }
 
 // See also https://libvirt.org/html/libvirt-libvirt-secret.html#virSecretRef
 func (c *Secret) Ref() error {
-	ret := C.virSecretRef(c.ptr)
+	var err C.virError
+	ret := C.virSecretRefWrapper(c.ptr, &err)
 	if ret == -1 {
-		return GetLastError()
+		return makeError(&err)
 	}
 	return nil
 }
 
 // See also https://libvirt.org/html/libvirt-libvirt-secret.html#virSecretUndefine
 func (s *Secret) Undefine() error {
-	result := C.virSecretUndefine(s.ptr)
+	var err C.virError
+	result := C.virSecretUndefineWrapper(s.ptr, &err)
 	if result == -1 {
-		return GetLastError()
+		return makeError(&err)
 	}
 	return nil
 }
@@ -98,9 +99,10 @@ func (s *Secret) Undefine() error {
 func (s *Secret) GetUUID() ([]byte, error) {
 	var cUuid [C.VIR_UUID_BUFLEN](byte)
 	cuidPtr := unsafe.Pointer(&cUuid)
-	result := C.virSecretGetUUID(s.ptr, (*C.uchar)(cuidPtr))
+	var err C.virError
+	result := C.virSecretGetUUIDWrapper(s.ptr, (*C.uchar)(cuidPtr), &err)
 	if result != 0 {
-		return []byte{}, GetLastError()
+		return []byte{}, makeError(&err)
 	}
 	return C.GoBytes(cuidPtr, C.VIR_UUID_BUFLEN), nil
 }
@@ -109,36 +111,40 @@ func (s *Secret) GetUUID() ([]byte, error) {
 func (s *Secret) GetUUIDString() (string, error) {
 	var cUuid [C.VIR_UUID_STRING_BUFLEN](C.char)
 	cuidPtr := unsafe.Pointer(&cUuid)
-	result := C.virSecretGetUUIDString(s.ptr, (*C.char)(cuidPtr))
+	var err C.virError
+	result := C.virSecretGetUUIDStringWrapper(s.ptr, (*C.char)(cuidPtr), &err)
 	if result != 0 {
-		return "", GetLastError()
+		return "", makeError(&err)
 	}
 	return C.GoString((*C.char)(cuidPtr)), nil
 }
 
 // See also https://libvirt.org/html/libvirt-libvirt-secret.html#virSecretGetUsageID
 func (s *Secret) GetUsageID() (string, error) {
-	result := C.virSecretGetUsageID(s.ptr)
+	var err C.virError
+	result := C.virSecretGetUsageIDWrapper(s.ptr, &err)
 	if result == nil {
-		return "", GetLastError()
+		return "", makeError(&err)
 	}
 	return C.GoString(result), nil
 }
 
 // See also https://libvirt.org/html/libvirt-libvirt-secret.html#virSecretGetUsageType
 func (s *Secret) GetUsageType() (SecretUsageType, error) {
-	result := SecretUsageType(C.virSecretGetUsageType(s.ptr))
+	var err C.virError
+	result := SecretUsageType(C.virSecretGetUsageTypeWrapper(s.ptr, &err))
 	if result == -1 {
-		return 0, GetLastError()
+		return 0, makeError(&err)
 	}
 	return result, nil
 }
 
 // See also https://libvirt.org/html/libvirt-libvirt-secret.html#virSecretGetXMLDesc
 func (s *Secret) GetXMLDesc(flags uint32) (string, error) {
-	result := C.virSecretGetXMLDesc(s.ptr, C.uint(flags))
+	var err C.virError
+	result := C.virSecretGetXMLDescWrapper(s.ptr, C.uint(flags), &err)
 	if result == nil {
-		return "", GetLastError()
+		return "", makeError(&err)
 	}
 	xml := C.GoString(result)
 	C.free(unsafe.Pointer(result))
@@ -149,9 +155,10 @@ func (s *Secret) GetXMLDesc(flags uint32) (string, error) {
 func (s *Secret) GetValue(flags uint32) ([]byte, error) {
 	var cvalue_size C.size_t
 
-	cvalue := C.virSecretGetValue(s.ptr, &cvalue_size, C.uint(flags))
+	var err C.virError
+	cvalue := C.virSecretGetValueWrapper(s.ptr, &cvalue_size, C.uint(flags), &err)
 	if cvalue == nil {
-		return nil, GetLastError()
+		return nil, makeError(&err)
 	}
 	defer C.free(unsafe.Pointer(cvalue))
 	ret := C.GoBytes(unsafe.Pointer(cvalue), C.int(cvalue_size))
@@ -166,10 +173,11 @@ func (s *Secret) SetValue(value []byte, flags uint32) error {
 		cvalue[i] = C.uchar(value[i])
 	}
 
-	result := C.virSecretSetValue(s.ptr, &cvalue[0], C.size_t(len(value)), C.uint(flags))
+	var err C.virError
+	result := C.virSecretSetValueWrapper(s.ptr, &cvalue[0], C.size_t(len(value)), C.uint(flags), &err)
 
 	if result == -1 {
-		return GetLastError()
+		return makeError(&err)
 	}
 
 	return nil

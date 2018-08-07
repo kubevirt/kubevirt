@@ -40,7 +40,7 @@ spec:
       containers:
         - name: virt-api
           image: {{.DockerPrefix}}/virt-api:{{.DockerTag}}
-          imagePullPolicy: IfNotPresent
+          imagePullPolicy: {{.ImagePullPolicy}}
           command:
               - "virt-api"
               - "--port"

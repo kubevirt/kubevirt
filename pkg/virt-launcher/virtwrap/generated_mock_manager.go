@@ -52,6 +52,16 @@ func (_mr *_MockDomainManagerRecorder) KillVMI(arg0 interface{}) *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "KillVMI", arg0)
 }
 
+func (_m *MockDomainManager) DeleteVMI(_param0 *v1.VirtualMachineInstance) error {
+	ret := _m.ctrl.Call(_m, "DeleteVMI", _param0)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+func (_mr *_MockDomainManagerRecorder) DeleteVMI(arg0 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "DeleteVMI", arg0)
+}
+
 func (_m *MockDomainManager) SignalShutdownVMI(_param0 *v1.VirtualMachineInstance) error {
 	ret := _m.ctrl.Call(_m, "SignalShutdownVMI", _param0)
 	ret0, _ := ret[0].(error)

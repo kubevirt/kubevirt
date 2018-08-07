@@ -1,8 +1,7 @@
 unset binaries docker_images docker_prefix docker_tag manifest_templates \
-    master_ip network_provider kubeconfig manifest_docker_prefix namespace
+    master_ip network_provider kubeconfig manifest_docker_prefix namespace image_pull_policy
 
 KUBEVIRT_PROVIDER=${KUBEVIRT_PROVIDER:-${PROVIDER}}
-KUBEVIRT_PROVIDER=${KUBEVIRT_PROVIDER:-k8s-1.10.3}
 
 source ${KUBEVIRT_PATH}hack/config-default.sh source ${KUBEVIRT_PATH}hack/config-${KUBEVIRT_PROVIDER}.sh
 
@@ -14,4 +13,4 @@ test -f "hack/config-provider-${KUBEVIRT_PROVIDER}.sh" && source hack/config-pro
 test -f "hack/config-local.sh" && source hack/config-local.sh
 
 export binaries docker_images docker_prefix docker_tag manifest_templates \
-    master_ip network_provider kubeconfig namespace
+    master_ip network_provider kubeconfig namespace image_pull_policy

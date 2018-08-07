@@ -12,18 +12,17 @@ const (
 )
 
 func SetDefaults_Devices(devices *Devices) {
-	// Use vga as video device, since it is better than cirrus
-	// and does not require guest drivers
-	var heads uint = 1
-	var vram uint = 16384
-	devices.Video = []Video{
+	// Set default controllers, "none" means that controller disabled
+	devices.Controllers = []Controller{
 		{
-			Model: VideoModel{
-				Type:  "vga",
-				Heads: &heads,
-				VRam:  &vram,
-			},
+			Type:  "usb",
+			Index: "0",
+			Model: "none",
 		},
+	}
+	// Set default memballoon, "none" means that controller disabled
+	devices.Ballooning = &Ballooning{
+		Model: "none",
 	}
 
 }

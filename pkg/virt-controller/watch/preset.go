@@ -26,6 +26,7 @@ import (
 	"time"
 
 	k8sv1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 	k8smetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
@@ -42,25 +43,27 @@ import (
 )
 
 type VirtualMachinePresetController struct {
-	vmiPresetInformer cache.SharedIndexInformer
-	vmiInitInformer   cache.SharedIndexInformer
-	clientset         kubecli.KubevirtClient
-	queue             workqueue.RateLimitingInterface
-	recorder          record.EventRecorder
-	store             cache.Store
+	vmiPresetInformer  cache.SharedIndexInformer
+	vmiInitInformer    cache.SharedIndexInformer
+	clientset          kubecli.KubevirtClient
+	queue              workqueue.RateLimitingInterface
+	recorder           record.EventRecorder
+	store              cache.Store
+	limitrangeInformer cache.SharedIndexInformer
 }
 
 const initializerMarking = "presets.virtualmachines." + kubev1.GroupName + "/presets-applied"
 const exclusionMarking = "virtualmachineinstancepresets.admission.kubevirt.io/exclude"
 
-func NewVirtualMachinePresetController(vmiPresetInformer cache.SharedIndexInformer, vmiInitInformer cache.SharedIndexInformer, queue workqueue.RateLimitingInterface, vmiInitCache cache.Store, clientset kubecli.KubevirtClient, recorder record.EventRecorder) *VirtualMachinePresetController {
+func NewVirtualMachinePresetController(vmiPresetInformer cache.SharedIndexInformer, vmiInitInformer cache.SharedIndexInformer, queue workqueue.RateLimitingInterface, vmiInitCache cache.Store, clientset kubecli.KubevirtClient, recorder record.EventRecorder, limitrangeInformer cache.SharedIndexInformer) *VirtualMachinePresetController {
 	vmii := VirtualMachinePresetController{
-		vmiPresetInformer: vmiPresetInformer,
-		vmiInitInformer:   vmiInitInformer,
-		clientset:         clientset,
-		queue:             queue,
-		recorder:          recorder,
-		store:             vmiInitCache,
+		vmiPresetInformer:  vmiPresetInformer,
+		vmiInitInformer:    vmiInitInformer,
+		clientset:          clientset,
+		queue:              queue,
+		recorder:           recorder,
+		store:              vmiInitCache,
+		limitrangeInformer: limitrangeInformer,
 	}
 	return &vmii
 }
@@ -156,6 +159,9 @@ func (c *VirtualMachinePresetController) initializeVirtualMachine(vmi *kubev1.Vi
 		} else {
 			logger.Object(vmi).V(4).Info("Setting default values on VirtualMachine")
 			kubev1.SetObjectDefaults_VirtualMachineInstance(vmi)
+
+			// handle namespace limitrange default values
+			applyNamespaceLimitRangeValues(vmi, c.limitrangeInformer)
 		}
 	} else {
 		logger.Object(vmi).Infof("VirtualMachineInstance is excluded from VirtualMachinePresets")
@@ -170,6 +176,53 @@ func (c *VirtualMachinePresetController) initializeVirtualMachine(vmi *kubev1.Vi
 		return err
 	}
 	return nil
+}
+
+func applyNamespaceLimitRangeValues(vmi *kubev1.VirtualMachineInstance, limitrangeInformer cache.SharedIndexInformer) {
+	isMemoryFieldExist := func(resource k8sv1.ResourceList) bool {
+		_, ok := resource[k8sv1.ResourceMemory]
+		return ok
+	}
+
+	vmiResources := vmi.Spec.Domain.Resources
+
+	// Copy namespace memory limits (if exists) to the VM spec
+	if vmiResources.Limits == nil || !isMemoryFieldExist(vmiResources.Limits) {
+
+		namespaceMemLimit, err := getNamespaceLimits(vmi.Namespace, limitrangeInformer)
+		if err == nil && !namespaceMemLimit.IsZero() {
+			if vmiResources.Limits == nil {
+				vmi.Spec.Domain.Resources.Limits = make(k8sv1.ResourceList)
+			}
+			vmi.Spec.Domain.Resources.Limits[k8sv1.ResourceMemory] = *namespaceMemLimit
+		}
+	}
+
+}
+
+func getNamespaceLimits(namespace string, limitrangeInformer cache.SharedIndexInformer) (*resource.Quantity, error) {
+	finalLimit := &resource.Quantity{Format: resource.BinarySI}
+
+	// there can be multiple LimitRange values set for the same resource in
+	// a namespace, we need to find the minimal
+	limits, err := limitrangeInformer.GetIndexer().ByIndex(cache.NamespaceIndex, namespace)
+	if err != nil {
+		return nil, err
+	}
+
+	for _, limit := range limits {
+		for _, val := range limit.(*k8sv1.LimitRange).Spec.Limits {
+			mem := val.Default.Memory()
+			if val.Type == k8sv1.LimitTypeContainer {
+				if !mem.IsZero() {
+					if finalLimit.IsZero() != (mem.Cmp(*finalLimit) < 0) {
+						finalLimit = mem
+					}
+				}
+			}
+		}
+	}
+	return finalLimit, nil
 }
 
 // listPresets returns all VirtualMachinePresets by namespace

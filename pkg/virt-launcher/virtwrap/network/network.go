@@ -50,10 +50,6 @@ func SetupNetworkInterfaces(vmi *v1.VirtualMachineInstance, domain *api.Domain) 
 		networks[network.Name] = network.DeepCopy()
 	}
 
-	if len(networks) == 0 {
-		return fmt.Errorf("no networks were specified on a vm spec")
-	}
-
 	for _, iface := range vmi.Spec.Domain.Devices.Interfaces {
 
 		network, ok := networks[iface.Name]

@@ -58,6 +58,7 @@ type LauncherClient interface {
 	SyncVirtualMachine(vmi *v1.VirtualMachineInstance) error
 	ShutdownVirtualMachine(vmi *v1.VirtualMachineInstance) error
 	KillVirtualMachine(vmi *v1.VirtualMachineInstance) error
+	DeleteDomain(vmi *v1.VirtualMachineInstance) error
 	GetDomain() (*api.Domain, bool, error)
 	Ping() error
 	Close()
@@ -153,6 +154,17 @@ func (c *VirtLauncherClient) ShutdownVirtualMachine(vmi *v1.VirtualMachineInstan
 
 func (c *VirtLauncherClient) KillVirtualMachine(vmi *v1.VirtualMachineInstance) error {
 	cmd := "Launcher.Kill"
+
+	args := &Args{
+		VMI: vmi,
+	}
+	_, err := c.genericSendCmd(args, cmd)
+
+	return err
+}
+
+func (c *VirtLauncherClient) DeleteDomain(vmi *v1.VirtualMachineInstance) error {
+	cmd := "Launcher.Delete"
 
 	args := &Args{
 		VMI: vmi,

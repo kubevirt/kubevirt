@@ -538,6 +538,19 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 
 			controller.Execute()
 		})
+		It("should update the virtual machine to failed if compute container is terminated while still scheduling", func() {
+			vmi := NewPendingVirtualMachine("testvmi")
+			pod := NewPodForVirtualMachine(vmi, k8sv1.PodPending)
+			pod.Status.ContainerStatuses = append(pod.Status.ContainerStatuses, k8sv1.ContainerStatus{Name: "compute", State: k8sv1.ContainerState{Terminated: &k8sv1.ContainerStateTerminated{}}})
+			vmi.Status.Phase = v1.Scheduling
+
+			addVirtualMachine(vmi)
+			podFeeder.Add(pod)
+
+			shouldExpectVirtualMachineFailedState(vmi)
+
+			controller.Execute()
+		})
 		table.DescribeTable("should remove the finalizer if no pod is present and the vmi is in ", func(phase v1.VirtualMachineInstancePhase) {
 			vmi := NewPendingVirtualMachine("testvmi")
 			vmi.Status.Phase = phase
@@ -625,7 +638,7 @@ func NewPodForVirtualMachine(vmi *v1.VirtualMachineInstance, phase k8sv1.PodPhas
 		Status: k8sv1.PodStatus{
 			Phase: phase,
 			ContainerStatuses: []k8sv1.ContainerStatus{
-				{Ready: true},
+				{Ready: true, Name: "test"},
 			},
 		},
 	}

@@ -27,6 +27,7 @@ package kubecli
 
 import (
 	"io"
+	"time"
 
 	k8smetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
@@ -74,7 +75,7 @@ type VirtualMachineInstanceInterface interface {
 	Update(*v1.VirtualMachineInstance) (*v1.VirtualMachineInstance, error)
 	Delete(name string, options *k8smetav1.DeleteOptions) error
 	Patch(name string, pt types.PatchType, data []byte, subresources ...string) (result *v1.VirtualMachineInstance, err error)
-	SerialConsole(name string) (StreamInterface, error)
+	SerialConsole(name string, timeout time.Duration) (StreamInterface, error)
 	VNC(name string) (StreamInterface, error)
 }
 

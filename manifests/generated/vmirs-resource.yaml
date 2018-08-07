@@ -37,11 +37,7 @@ spec:
                 metadata: {}
                 spec:
                   properties:
-                    affinity:
-                      properties:
-                        nodeAffinity: {}
-                        podAffinity: {}
-                        podAntiAffinity: {}
+                    affinity: {}
                     domain:
                       properties:
                         clock:
@@ -62,6 +58,10 @@ spec:
                               type: string
                         devices:
                           properties:
+                            autoattachGraphicsDevice:
+                              type: boolean
+                            autoattachPodInterface:
+                              type: boolean
                             disks:
                               items:
                                 properties:
@@ -216,6 +216,8 @@ spec:
                           properties:
                             limits:
                               type: object
+                            overcommitGuestOverhead:
+                              type: boolean
                             requests:
                               type: object
                       required:
@@ -241,6 +243,9 @@ spec:
                     terminationGracePeriodSeconds:
                       format: int64
                       type: integer
+                    tolerations:
+                      items: {}
+                      type: array
                     volumes:
                       items:
                         properties:
@@ -304,8 +309,3 @@ spec:
               format: int32
               type: integer
   version: v1alpha2
-status:
-  acceptedNames:
-    kind: ""
-    plural: ""
-  conditions: null

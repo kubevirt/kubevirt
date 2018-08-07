@@ -96,10 +96,10 @@ func (l *LibvirtConnection) NewStream(flags libvirt.StreamFlags) (Stream, error)
 	if err := l.reconnectIfNecessary(); err != nil {
 		return nil, err
 	}
-	defer l.checkConnectionLost()
 
 	s, err := l.Connect.NewStream(flags)
 	if err != nil {
+		l.checkConnectionLost(err)
 		return nil, err
 	}
 	return &VirStream{Stream: s}, nil
@@ -114,10 +114,10 @@ func (l *LibvirtConnection) DomainEventLifecycleRegister(callback libvirt.Domain
 	if err = l.reconnectIfNecessary(); err != nil {
 		return
 	}
-	defer l.checkConnectionLost()
 
 	l.callbacks = append(l.callbacks, callback)
 	_, err = l.Connect.DomainEventLifecycleRegister(nil, callback)
+	l.checkConnectionLost(err)
 	return
 }
 
@@ -125,18 +125,19 @@ func (l *LibvirtConnection) LookupDomainByName(name string) (dom VirDomain, err 
 	if err = l.reconnectIfNecessary(); err != nil {
 		return
 	}
-	defer l.checkConnectionLost()
 
-	return l.Connect.LookupDomainByName(name)
+	domain, err := l.Connect.LookupDomainByName(name)
+	l.checkConnectionLost(err)
+	return domain, err
 }
 
 func (l *LibvirtConnection) DomainDefineXML(xml string) (dom VirDomain, err error) {
 	if err = l.reconnectIfNecessary(); err != nil {
 		return
 	}
-	defer l.checkConnectionLost()
 
 	dom, err = l.Connect.DomainDefineXML(xml)
+	l.checkConnectionLost(err)
 	return
 }
 
@@ -144,10 +145,10 @@ func (l *LibvirtConnection) ListAllDomains(flags libvirt.ConnectListAllDomainsFl
 	if err := l.reconnectIfNecessary(); err != nil {
 		return nil, err
 	}
-	defer l.checkConnectionLost()
 
 	virDoms, err := l.Connect.ListAllDomains(flags)
 	if err != nil {
+		l.checkConnectionLost(err)
 		return nil, err
 	}
 	doms := make([]VirDomain, len(virDoms))
@@ -184,7 +185,7 @@ func (l *LibvirtConnection) installWatchdog(checkInterval time.Duration) {
 					l.reconnectLock.Unlock()
 				} else {
 					// Do the usual error check to determine if the connection is lost
-					l.checkConnectionLost()
+					l.checkConnectionLost(err)
 				}
 			}
 		}
@@ -214,16 +215,20 @@ func (l *LibvirtConnection) reconnectIfNecessary() (err error) {
 	return nil
 }
 
-func (l *LibvirtConnection) checkConnectionLost() {
+func (l *LibvirtConnection) checkConnectionLost(err error) {
 	l.reconnectLock.Lock()
 	defer l.reconnectLock.Unlock()
 
-	err := libvirt.GetLastError()
 	if errors.IsOk(err) {
 		return
 	}
 
-	switch err.Code {
+	libvirtError, ok := err.(libvirt.Error)
+	if !ok {
+		return
+	}
+
+	switch libvirtError.Code {
 	case
 		libvirt.ERR_INTERNAL_ERROR,
 		libvirt.ERR_INVALID_CONN,
@@ -233,7 +238,7 @@ func (l *LibvirtConnection) checkConnectionLost() {
 		libvirt.ERR_SYSTEM_ERROR,
 		libvirt.ERR_RPC:
 		l.alive = false
-		log.Log.With("code", err.Code).Reason(err).Error("Connection to libvirt lost.")
+		log.Log.With("code", libvirtError.Code).Reason(libvirtError).Error("Connection to libvirt lost.")
 	}
 }
 
@@ -241,12 +246,12 @@ type VirDomain interface {
 	GetState() (libvirt.DomainState, int, error)
 	Create() error
 	Resume() error
-	Destroy() error
-	Shutdown() error
+	DestroyFlags(flags libvirt.DomainDestroyFlags) error
+	ShutdownFlags(flags libvirt.DomainShutdownFlags) error
+	Undefine() error
 	GetName() (string, error)
 	GetUUIDString() (string, error)
 	GetXMLDesc(flags libvirt.DomainXMLFlags) (string, error)
-	Undefine() error
 	OpenConsole(devname string, stream *libvirt.Stream, flags libvirt.DomainConsoleFlags) error
 	Free() error
 }

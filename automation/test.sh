@@ -32,14 +32,14 @@ export WORKSPACE="${WORKSPACE:-$PWD}"
 
 if [[ $TARGET =~ openshift-.* ]]; then
   if [[ $TARGET =~ .*-crio-.* ]]; then
-    export KUBEVIRT_PROVIDER="os-3.9.0-crio"
+    export KUBEVIRT_PROVIDER="os-3.10.0-crio"
   else
     export KUBEVIRT_PROVIDER="os-3.10.0"
   fi
-elif [[ $TARGET =~ .*-1.9.3-.* ]]; then
-  export KUBEVIRT_PROVIDER="k8s-1.9.3"
+elif [[ $TARGET =~ .*-1.10.4-.* ]]; then
+  export KUBEVIRT_PROVIDER="k8s-1.10.4"
 else
-  export KUBEVIRT_PROVIDER="k8s-1.10.3"
+  export KUBEVIRT_PROVIDER="k8s-1.11.0"
 fi
 
 export KUBEVIRT_NUM_NODES=2
@@ -115,8 +115,9 @@ kubectl version
 ginko_params="--ginkgo.noColor --junit-output=$WORKSPACE/junit.xml"
 
 # Prepare PV for windows testing
-if [[ -d $NFS_WINDOWS_DIR ]] && [[ $TARGET =~ windows.* ]]; then
-  kubectl create -f - <<EOF
+if [[ $TARGET =~ windows.* ]]; then
+  if [[ -d $NFS_WINDOWS_DIR ]]; then
+    kubectl create -f - <<EOF
 ---
 apiVersion: v1
 kind: PersistentVolume
@@ -132,7 +133,10 @@ spec:
   nfs:
     server: "nfs"
     path: /
+  storageClassName: local
 EOF
+  fi
+  # Run only windows tests
   ginko_params="$ginko_params --ginkgo.focus=Windows"
 fi
 

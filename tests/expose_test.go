@@ -16,12 +16,12 @@ import (
 	v1 "kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/kubecli"
 	"kubevirt.io/kubevirt/pkg/virtctl/expose"
-	"kubevirt.io/kubevirt/pkg/virtctl/vm"
 	"kubevirt.io/kubevirt/tests"
 )
 
 func newLabeledVM(label string, virtClient kubecli.KubevirtClient) (vmi *v1.VirtualMachineInstance) {
-	vmi = tests.NewRandomVMIWithEphemeralDiskAndUserdata(tests.RegistryDiskFor(tests.RegistryDiskCirros), "#!/bin/bash\necho 'hello'\n")
+	ports := []v1.Port{{Name: "http", Port: 80}}
+	vmi = tests.NewRandomVMIWithBridgeInterfaceEphemeralDiskAndUserdata(tests.RegistryDiskFor(tests.RegistryDiskCirros), "#!/bin/bash\necho 'hello'\n", ports)
 	vmi.Labels = map[string]string{"expose": label}
 	vmi, err := virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
 	Expect(err).ToNot(HaveOccurred())
@@ -67,8 +67,8 @@ var _ = Describe("Expose", func() {
 
 		Context("Expose ClusterIP service", func() {
 			const servicePort = "27017"
-			const serviceName = "cluster-ip-vm"
-			It("Should expose a Cluster IP service on a VM and connect to it", func() {
+			const serviceName = "cluster-ip-vmi"
+			It("Should expose a Cluster IP service on a VMI and connect to it", func() {
 				By("Exposing the service via virtctl command")
 				virtctl := tests.NewRepeatableVirtctlCommand(expose.COMMAND_EXPOSE, "virtualmachineinstance", "--namespace",
 					tcpVM.Namespace, tcpVM.Name, "--port", servicePort, "--name", serviceName, "--target-port", strconv.Itoa(testPort))
@@ -80,7 +80,7 @@ var _ = Describe("Expose", func() {
 				Expect(err).ToNot(HaveOccurred())
 				serviceIP := svc.Spec.ClusterIP
 
-				By("Starting a pod which tries to reach the VM via ClusterIP")
+				By("Starting a pod which tries to reach the VMI via ClusterIP")
 				job := tests.NewHelloWorldJob(serviceIP, servicePort)
 				job, err = virtClient.CoreV1().Pods(tcpVM.Namespace).Create(job)
 				Expect(err).ToNot(HaveOccurred())
@@ -95,12 +95,38 @@ var _ = Describe("Expose", func() {
 			})
 		})
 
+		Context("Expose ClusterIP service with string target-port", func() {
+			const servicePort = "27017"
+			const serviceName = "cluster-ip-target-vmi"
+			It("Should expose a ClusterIP service and connect to the vm on port 80", func() {
+				virtctl := tests.NewRepeatableVirtctlCommand(expose.COMMAND_EXPOSE, "virtualmachineinstance", "--namespace",
+					tcpVM.Namespace, tcpVM.Name, "--port", servicePort, "--name", serviceName, "--target-port", "http")
+				err := virtctl()
+				Expect(err).ToNot(HaveOccurred())
+
+				By("Waiting for kubernetes to create the relevant endpoint")
+				getEndpoint := func() error {
+					_, err := virtClient.CoreV1().Endpoints(tests.NamespaceTestDefault).Get(serviceName, k8smetav1.GetOptions{})
+					return err
+				}
+				Eventually(getEndpoint, 60, 1).Should(BeNil())
+
+				endpoints, err := virtClient.CoreV1().Endpoints(tests.NamespaceTestDefault).Get(serviceName, k8smetav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+
+				Expect(len(endpoints.Subsets)).To(Equal(1))
+				endpoint := endpoints.Subsets[0]
+				Expect(len(endpoint.Ports)).To(Equal(1))
+				Expect(endpoint.Ports[0].Port).To(Equal(int32(80)))
+			})
+		})
+
 		Context("Expose NodePort service", func() {
 			const servicePort = "27017"
-			const serviceName = "node-port-vm"
+			const serviceName = "node-port-vmi"
 			const nodePort = "30017"
 
-			It("Should expose a NodePort service on a VM and connect to it", func() {
+			It("Should expose a NodePort service on a VMI and connect to it", func() {
 				By("Exposing the service via virtctl command")
 				virtctl := tests.NewRepeatableVirtctlCommand(expose.COMMAND_EXPOSE, "virtualmachineinstance", "--namespace",
 					tcpVM.Namespace, tcpVM.Name, "--port", servicePort, "--name", serviceName, "--target-port", strconv.Itoa(testPort),
@@ -120,7 +146,7 @@ var _ = Describe("Expose", func() {
 					Expect(node.Status.Addresses).ToNot(BeEmpty())
 					nodeIP := node.Status.Addresses[0].Address
 
-					By("Starting a pod which tries to reach the VM via NodePort")
+					By("Starting a pod which tries to reach the VMI via NodePort")
 					job := tests.NewHelloWorldJob(nodeIP, nodePort)
 					job, err = virtClient.CoreV1().Pods(tcpVM.Namespace).Create(job)
 					Expect(err).ToNot(HaveOccurred())
@@ -137,7 +163,7 @@ var _ = Describe("Expose", func() {
 		})
 	})
 
-	Context("Expose UDP service on a VM", func() {
+	Context("Expose UDP service on a VMI", func() {
 		var udpVM *v1.VirtualMachineInstance
 		tests.BeforeAll(func() {
 			udpVM = newLabeledVM("udp-vm", virtClient)
@@ -146,9 +172,9 @@ var _ = Describe("Expose", func() {
 
 		Context("Expose ClusterIP UDP service", func() {
 			const servicePort = "28017"
-			const serviceName = "cluster-ip-udp-vm"
+			const serviceName = "cluster-ip-udp-vmi"
 
-			It("Should expose a ClusterIP service on a VM and connect to it", func() {
+			It("Should expose a ClusterIP service on a VMI and connect to it", func() {
 				By("Exposing the service via virtctl command")
 				virtctl := tests.NewRepeatableVirtctlCommand(expose.COMMAND_EXPOSE, "virtualmachineinstance", "--namespace",
 					udpVM.Namespace, udpVM.Name, "--port", servicePort, "--name", serviceName, "--target-port", strconv.Itoa(testPort),
@@ -161,7 +187,7 @@ var _ = Describe("Expose", func() {
 				Expect(err).ToNot(HaveOccurred())
 				serviceIP := svc.Spec.ClusterIP
 
-				By("Starting a pod which tries to reach the VM via ClusterIP")
+				By("Starting a pod which tries to reach the VMI via ClusterIP")
 				job := tests.NewHelloWorldJobUDP(serviceIP, servicePort)
 				job, err = virtClient.CoreV1().Pods(udpVM.Namespace).Create(job)
 				Expect(err).ToNot(HaveOccurred())
@@ -178,10 +204,10 @@ var _ = Describe("Expose", func() {
 
 		Context("Expose NodePort UDP service", func() {
 			const servicePort = "29017"
-			const serviceName = "node-port-udp-vm"
+			const serviceName = "node-port-udp-vmi"
 			const nodePort = "31017"
 
-			It("Should expose a NodePort service on a VM and connect to it", func() {
+			It("Should expose a NodePort service on a VMI and connect to it", func() {
 				By("Exposing the service via virtctl command")
 				virtctl := tests.NewRepeatableVirtctlCommand(expose.COMMAND_EXPOSE, "virtualmachineinstance", "--namespace",
 					udpVM.Namespace, udpVM.Name, "--port", servicePort, "--name", serviceName, "--target-port", strconv.Itoa(testPort),
@@ -194,7 +220,7 @@ var _ = Describe("Expose", func() {
 				Expect(err).ToNot(HaveOccurred())
 				serviceIP := svc.Spec.ClusterIP
 
-				By("Starting a pod which tries to reach the VM via ClusterIP")
+				By("Starting a pod which tries to reach the VMI via ClusterIP")
 				job := tests.NewHelloWorldJobUDP(serviceIP, servicePort)
 				job, err = virtClient.CoreV1().Pods(udpVM.Namespace).Create(job)
 				Expect(err).ToNot(HaveOccurred())
@@ -207,7 +233,7 @@ var _ = Describe("Expose", func() {
 					Expect(node.Status.Addresses).ToNot(BeEmpty())
 					nodeIP := node.Status.Addresses[0].Address
 
-					By("Starting a pod which tries to reach the VM via NodePort")
+					By("Starting a pod which tries to reach the VMI via NodePort")
 					job := tests.NewHelloWorldJobUDP(nodeIP, nodePort)
 					job, err = virtClient.CoreV1().Pods(udpVM.Namespace).Create(job)
 					Expect(err).ToNot(HaveOccurred())
@@ -224,7 +250,7 @@ var _ = Describe("Expose", func() {
 		})
 	})
 
-	Context("Expose service on a VM replica set", func() {
+	Context("Expose service on a VMI replica set", func() {
 		var vmrs *v1.VirtualMachineInstanceReplicaSet
 		tests.BeforeAll(func() {
 			By("Creating a VMRS object with 2 replicas")
@@ -244,7 +270,7 @@ var _ = Describe("Expose", func() {
 				return int(rs.Status.ReadyReplicas)
 			}, 120*time.Second, 1*time.Second).Should(Equal(numberOfVMs))
 
-			By("add an 'hello world' server on each VM in the replica set")
+			By("add an 'hello world' server on each VMI in the replica set")
 			// TODO: add label to list options
 			// check size of list
 			// remove check for owner
@@ -259,7 +285,7 @@ var _ = Describe("Expose", func() {
 
 		Context("Expose ClusterIP service", func() {
 			const servicePort = "27017"
-			const serviceName = "cluster-ip-vmrs"
+			const serviceName = "cluster-ip-vmirs"
 
 			It("Should create a ClusterIP service on VMRS and connect to it", func() {
 				By("Expose a service on the VMRS using virtctl")
@@ -273,7 +299,7 @@ var _ = Describe("Expose", func() {
 				Expect(err).ToNot(HaveOccurred())
 				serviceIP := svc.Spec.ClusterIP
 
-				By("Starting a pod which tries to reach the VM via ClusterIP")
+				By("Starting a pod which tries to reach the VMI via ClusterIP")
 				job := tests.NewHelloWorldJob(serviceIP, servicePort)
 				job, err = virtClient.CoreV1().Pods(vmrs.Namespace).Create(job)
 				Expect(err).ToNot(HaveOccurred())
@@ -289,60 +315,60 @@ var _ = Describe("Expose", func() {
 		})
 	})
 
-	Context("Expose service on an Offline VM", func() {
+	Context("Expose service on an VM", func() {
 		const servicePort = "27017"
-		const serviceName = "cluster-ip-ovm"
-		var ovm *v1.VirtualMachine
+		const serviceName = "cluster-ip-vm"
+		var vm *v1.VirtualMachine
 
 		tests.BeforeAll(func() {
-			By("Creating an OVM object")
+			By("Creating an VM object")
 			template := tests.NewRandomVMIWithEphemeralDiskAndUserdata(tests.RegistryDiskFor(tests.RegistryDiskCirros), "#!/bin/bash\necho 'hello'\n")
-			template.Labels = map[string]string{"expose": "vmirs"}
-			ovm = NewRandomVirtualMachine(template, false)
+			template.Labels = map[string]string{"expose": "vm"}
+			vm = NewRandomVirtualMachine(template, false)
 
-			By("Creating the OVM")
-			_, err := virtClient.VirtualMachine(tests.NamespaceTestDefault).Create(ovm)
+			By("Creating the VM")
+			_, err := virtClient.VirtualMachine(tests.NamespaceTestDefault).Create(vm)
 			Expect(err).ToNot(HaveOccurred())
 
-			By("Exposing a service on the OVM using virtctl")
+			By("Exposing a service on the VM using virtctl")
 			virtctl := tests.NewRepeatableVirtctlCommand(expose.COMMAND_EXPOSE, "virtualmachine", "--namespace",
-				ovm.Namespace, ovm.Name, "--port", servicePort, "--name", serviceName, "--target-port", strconv.Itoa(testPort))
+				vm.Namespace, vm.Name, "--port", servicePort, "--name", serviceName, "--target-port", strconv.Itoa(testPort))
 			err = virtctl()
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Calling the start command")
-			virtctl = tests.NewRepeatableVirtctlCommand(vm.COMMAND_START, "--namespace", ovm.Namespace, ovm.Name)
+			virtctl = tests.NewRepeatableVirtctlCommand("start", "--namespace", vm.Namespace, vm.Name)
 			err = virtctl()
 			Expect(err).ToNot(HaveOccurred())
 
-			By("Getting the status of the OVM")
+			By("Getting the status of the VMI")
 			Eventually(func() bool {
-				ovm, err = virtClient.VirtualMachine(ovm.Namespace).Get(ovm.Name, &k8smetav1.GetOptions{})
+				vm, err = virtClient.VirtualMachine(vm.Namespace).Get(vm.Name, &k8smetav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
-				return ovm.Status.Ready
+				return vm.Status.Ready
 			}, 120*time.Second, 1*time.Second).Should(BeTrue())
 
-			By("Getting the running VM")
-			var vm *v1.VirtualMachineInstance
+			By("Getting the running VMI")
+			var vmi *v1.VirtualMachineInstance
 			Eventually(func() bool {
-				vm, err = virtClient.VirtualMachineInstance(ovm.Namespace).Get(ovm.Name, &k8smetav1.GetOptions{})
+				vmi, err = virtClient.VirtualMachineInstance(vm.Namespace).Get(vm.Name, &k8smetav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
-				return vm.Status.Phase == v1.Running
+				return vmi.Status.Phase == v1.Running
 			}, 120*time.Second, 1*time.Second).Should(BeTrue())
 
-			generateHelloWorldServer(vm, virtClient, testPort, "tcp")
+			generateHelloWorldServer(vmi, virtClient, testPort, "tcp")
 		})
 
 		Context("Expose ClusterIP service", func() {
 			It("Connect to ClusterIP services that was set when VM was offline", func() {
 				By("Getting back the cluster IP given for the service")
-				svc, err := virtClient.CoreV1().Services(ovm.Namespace).Get(serviceName, k8smetav1.GetOptions{})
+				svc, err := virtClient.CoreV1().Services(vm.Namespace).Get(serviceName, k8smetav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				serviceIP := svc.Spec.ClusterIP
 
-				By("Starting a pod which tries to reach the VM via ClusterIP")
+				By("Starting a pod which tries to reach the VMI via ClusterIP")
 				job := tests.NewHelloWorldJob(serviceIP, servicePort)
-				job, err = virtClient.CoreV1().Pods(ovm.Namespace).Create(job)
+				job, err = virtClient.CoreV1().Pods(vm.Namespace).Create(job)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Waiting for the pod to report a successful connection attempt")

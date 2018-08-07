@@ -72,6 +72,7 @@ var _ = Describe("Template", func() {
 				Expect(pod.Spec.Containers[0].Command).To(Equal([]string{"/usr/share/kubevirt/virt-launcher/entrypoint.sh",
 					"--qemu-timeout", "5m",
 					"--name", "testvmi",
+					"--uid", "1234",
 					"--namespace", "testns",
 					"--kubevirt-share-dir", "/var/run/kubevirt",
 					"--readiness-file", "/tmp/healthy",
@@ -115,6 +116,7 @@ var _ = Describe("Template", func() {
 				Expect(pod.Spec.Containers[0].Command).To(Equal([]string{"/usr/share/kubevirt/virt-launcher/entrypoint.sh",
 					"--qemu-timeout", "5m",
 					"--name", "testvmi",
+					"--uid", "1234",
 					"--namespace", "default",
 					"--kubevirt-share-dir", "/var/run/kubevirt",
 					"--readiness-file", "/tmp/healthy",
@@ -135,7 +137,7 @@ var _ = Describe("Template", func() {
 				vmi := v1.VirtualMachineInstance{
 					ObjectMeta: metav1.ObjectMeta{Name: "testvmi", Namespace: "default", UID: "1234"},
 					Spec: v1.VirtualMachineInstanceSpec{
-						Affinity: &v1.Affinity{NodeAffinity: &nodeAffinity},
+						Affinity: &kubev1.Affinity{NodeAffinity: &nodeAffinity},
 						Domain:   v1.DomainSpec{},
 					},
 				}
@@ -150,7 +152,7 @@ var _ = Describe("Template", func() {
 				vm := v1.VirtualMachineInstance{
 					ObjectMeta: metav1.ObjectMeta{Name: "testvm", Namespace: "default", UID: "1234"},
 					Spec: v1.VirtualMachineInstanceSpec{
-						Affinity: &v1.Affinity{PodAffinity: &podAffinity},
+						Affinity: &kubev1.Affinity{PodAffinity: &podAffinity},
 						Domain:   v1.DomainSpec{},
 					},
 				}
@@ -165,7 +167,7 @@ var _ = Describe("Template", func() {
 				vm := v1.VirtualMachineInstance{
 					ObjectMeta: metav1.ObjectMeta{Name: "testvm", Namespace: "default", UID: "1234"},
 					Spec: v1.VirtualMachineInstanceSpec{
-						Affinity: &v1.Affinity{PodAntiAffinity: &podAntiAffinity},
+						Affinity: &kubev1.Affinity{PodAntiAffinity: &podAntiAffinity},
 						Domain:   v1.DomainSpec{},
 					},
 				}
@@ -173,6 +175,24 @@ var _ = Describe("Template", func() {
 				Expect(err).ToNot(HaveOccurred())
 
 				Expect(pod.Spec.Affinity).To(BeEquivalentTo(&kubev1.Affinity{PodAntiAffinity: &podAntiAffinity}))
+			})
+
+			It("should add tolerations to pod", func() {
+				podToleration := kubev1.Toleration{Key: "test"}
+				vm := v1.VirtualMachineInstance{
+					ObjectMeta: metav1.ObjectMeta{Name: "testvm", Namespace: "default", UID: "1234"},
+					Spec: v1.VirtualMachineInstanceSpec{
+						Tolerations: []kubev1.Toleration{
+							{
+								Key: podToleration.Key,
+							},
+						},
+						Domain: v1.DomainSpec{},
+					},
+				}
+				pod, err := svc.RenderLaunchManifest(&vm)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(pod.Spec.Tolerations).To(BeEquivalentTo([]kubev1.Toleration{{Key: podToleration.Key}}))
 			})
 
 			It("should use the hostname and subdomain if specified on the vm", func() {
@@ -266,6 +286,35 @@ var _ = Describe("Template", func() {
 				Expect(pod.Spec.Containers[0].Resources.Requests.Memory().String()).To(Equal("1099507557"))
 				Expect(pod.Spec.Containers[0].Resources.Limits.Memory().String()).To(Equal("2099507557"))
 			})
+			It("should overcommit guest overhead if selected, by only adding the overhead to memory limits", func() {
+
+				vmi := v1.VirtualMachineInstance{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "testvmi",
+						Namespace: "default",
+						UID:       "1234",
+					},
+					Spec: v1.VirtualMachineInstanceSpec{
+						Domain: v1.DomainSpec{
+							Resources: v1.ResourceRequirements{
+								OvercommitGuestOverhead: true,
+								Requests: kubev1.ResourceList{
+									kubev1.ResourceMemory: resource.MustParse("1G"),
+								},
+								Limits: kubev1.ResourceList{
+									kubev1.ResourceMemory: resource.MustParse("2G"),
+								},
+							},
+						},
+					},
+				}
+
+				pod, err := svc.RenderLaunchManifest(&vmi)
+				Expect(err).ToNot(HaveOccurred())
+
+				Expect(pod.Spec.Containers[0].Resources.Requests.Memory().String()).To(Equal("1G"))
+				Expect(pod.Spec.Containers[0].Resources.Limits.Memory().String()).To(Equal("2099507557"))
+			})
 			It("should not add unset resources", func() {
 
 				vmi := v1.VirtualMachineInstance{
@@ -297,6 +346,40 @@ var _ = Describe("Template", func() {
 				// Limits for KVM and TUN devices should be requested.
 				Expect(pod.Spec.Containers[0].Resources.Limits).ToNot(BeNil())
 			})
+
+			table.DescribeTable("should check autoattachGraphicsDevicse", func(autoAttach *bool, memory int) {
+
+				vmi := v1.VirtualMachineInstance{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "testvmi",
+						Namespace: "default",
+						UID:       "1234",
+					},
+					Spec: v1.VirtualMachineInstanceSpec{
+						Domain: v1.DomainSpec{
+
+							CPU: &v1.CPU{Cores: 3},
+							Resources: v1.ResourceRequirements{
+								Requests: kubev1.ResourceList{
+									kubev1.ResourceCPU:    resource.MustParse("1m"),
+									kubev1.ResourceMemory: resource.MustParse("64M"),
+								},
+							},
+						},
+					},
+				}
+				vmi.Spec.Domain.Devices = v1.Devices{
+					AutoattachGraphicsDevice: autoAttach,
+				}
+
+				pod, err := svc.RenderLaunchManifest(&vmi)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(pod.Spec.Containers[0].Resources.Requests.Memory().ToDec().ScaledValue(resource.Mega)).To(Equal(int64(memory)))
+			},
+				table.Entry("and consider graphics overhead if it is not set", nil, 179),
+				table.Entry("and consider graphics overhead if it is set to true", True(), 179),
+				table.Entry("and not consider graphics overhead if it is set to false", False(), 162),
+			)
 		})
 
 		Context("with hugepages constraints", func() {
@@ -582,7 +665,7 @@ var _ = Describe("Template", func() {
 					Namespace: "kube-system",
 					Name:      "kubevirt-config",
 				},
-				Data: map[string]string{"debug.useEmulation": "true"},
+				Data: map[string]string{UseEmulationKey: "true"},
 			}
 			cmListWatch = MakeFakeConfigMapWatcher([]kubev1.ConfigMap{cfgMap})
 			cmInformer = cache.NewSharedIndexInformer(cmListWatch, &v1.VirtualMachineInstance{}, time.Second, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
@@ -593,6 +676,62 @@ var _ = Describe("Template", func() {
 			result, err := IsEmulationAllowed(cmStore)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(result).To(BeTrue())
+		})
+
+		It("Should return IfNotPresent if configmap doesn't have imagePullPolicy set", func() {
+			cfgMap := kubev1.ConfigMap{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace: "kube-system",
+					Name:      "kubevirt-config",
+				},
+				Data: map[string]string{},
+			}
+			cmListWatch = MakeFakeConfigMapWatcher([]kubev1.ConfigMap{cfgMap})
+			cmInformer = cache.NewSharedIndexInformer(cmListWatch, &v1.VirtualMachineInstance{}, time.Second, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
+			cmStore = cmInformer.GetStore()
+			go cmInformer.Run(stopChan)
+			cache.WaitForCacheSync(stopChan, cmInformer.HasSynced)
+
+			result, err := GetImagePullPolicy(cmStore)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(result).To(Equal(kubev1.PullIfNotPresent))
+		})
+
+		It("Should return Always if imagePullPolicy = Always", func() {
+			cfgMap := kubev1.ConfigMap{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace: "kube-system",
+					Name:      "kubevirt-config",
+				},
+				Data: map[string]string{ImagePullPolicyKey: "Always"},
+			}
+			cmListWatch = MakeFakeConfigMapWatcher([]kubev1.ConfigMap{cfgMap})
+			cmInformer = cache.NewSharedIndexInformer(cmListWatch, &v1.VirtualMachineInstance{}, time.Second, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
+			cmStore = cmInformer.GetStore()
+			go cmInformer.Run(stopChan)
+			cache.WaitForCacheSync(stopChan, cmInformer.HasSynced)
+
+			result, err := GetImagePullPolicy(cmStore)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(result).To(Equal(kubev1.PullAlways))
+		})
+
+		It("Should return an error if imagePullPolicy is not valid", func() {
+			cfgMap := kubev1.ConfigMap{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace: "kube-system",
+					Name:      "kubevirt-config",
+				},
+				Data: map[string]string{ImagePullPolicyKey: "IHaveNoStrongFeelingsOneWayOrTheOther"},
+			}
+			cmListWatch = MakeFakeConfigMapWatcher([]kubev1.ConfigMap{cfgMap})
+			cmInformer = cache.NewSharedIndexInformer(cmListWatch, &v1.VirtualMachineInstance{}, time.Second, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
+			cmStore = cmInformer.GetStore()
+			go cmInformer.Run(stopChan)
+			cache.WaitForCacheSync(stopChan, cmInformer.HasSynced)
+
+			_, err := GetImagePullPolicy(cmStore)
+			Expect(err).To(HaveOccurred())
 		})
 	})
 })
@@ -611,4 +750,14 @@ func MakeFakeConfigMapWatcher(configMaps []kubev1.ConfigMap) *cache.ListWatch {
 		},
 	}
 	return cmListWatch
+}
+
+func True() *bool {
+	b := true
+	return &b
+}
+
+func False() *bool {
+	b := false
+	return &b
 }

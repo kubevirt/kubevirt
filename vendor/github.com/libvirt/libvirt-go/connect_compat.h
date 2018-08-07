@@ -47,24 +47,6 @@
 #define VIR_CONNECT_COMPARE_CPU_FAIL_INCOMPATIBLE 1 << 0
 #endif
 
-int virNodeGetFreePagesCompat(virConnectPtr conn,
-			      unsigned int npages,
-			      unsigned int *pages,
-			      int startcell,
-			      unsigned int cellcount,
-			      unsigned long long *counts,
-			      unsigned int flags);
-
-
-/* 1.2.7 */
-
-char * virConnectGetDomainCapabilitiesCompat(virConnectPtr conn,
-					     const char *emulatorbin,
-					     const char *arch,
-					     const char *machine,
-					     const char *virttype,
-					     unsigned int flags);
-
 
 /* 1.2.8 */
 
@@ -118,18 +100,6 @@ struct _virDomainStatsRecord {
 };
 #endif
 
-int virConnectGetAllDomainStatsCompat(virConnectPtr conn,
-				      unsigned int stats,
-				      virDomainStatsRecordPtr **retStats,
-				      unsigned int flags);
-
-int virDomainListGetStatsCompat(virDomainPtr *doms,
-				unsigned int stats,
-				virDomainStatsRecordPtr **retStats,
-				unsigned int flags);
-
-void virDomainStatsRecordListFreeCompat(virDomainStatsRecordPtr *stats);
-
 
 /* 1.2.9 */
 #ifndef VIR_NODE_ALLOC_PAGES_ADD
@@ -139,14 +109,6 @@ void virDomainStatsRecordListFreeCompat(virDomainStatsRecordPtr *stats);
 #ifndef VIR_NODE_ALLOC_PAGES_SET
 #define VIR_NODE_ALLOC_PAGES_SET 1 << 0
 #endif
-
-int virNodeAllocPagesCompat(virConnectPtr conn,
-			    unsigned int npages,
-			    unsigned int *pageSizes,
-			    unsigned long long *pageCounts,
-			    int startCell,
-			    unsigned int cellCount,
-			    unsigned int flags);
 
 
 /* 1.2.11 */
@@ -178,10 +140,6 @@ int virNodeAllocPagesCompat(virConnectPtr conn,
 #define VIR_CONNECT_GET_ALL_DOMAINS_STATS_BACKING 1 << 30
 #endif
 
-virDomainPtr virDomainDefineXMLFlagsCompat(virConnectPtr conn,
-					   const char *xml,
-					   unsigned int flags);
-
 /* 1.2.14 */
 
 #ifndef VIR_CONNECT_BASELINE_CPU_MIGRATABLE
@@ -210,6 +168,33 @@ virDomainPtr virDomainDefineXMLFlagsCompat(virConnectPtr conn,
 
 #ifndef VIR_CONNECT_LIST_NODE_DEVICES_CAP_CCW_DEV
 #define VIR_CONNECT_LIST_NODE_DEVICES_CAP_CCW_DEV 1 << 15
+#endif
+
+
+/* 4.5.0 */
+
+#ifndef VIR_NODE_SEV_CBITPOS
+#define VIR_NODE_SEV_CBITPOS "cbitpos"
+#endif
+
+#ifndef VIR_NODE_SEV_REDUCED_PHYS_BITS
+#define VIR_NODE_SEV_REDUCED_PHYS_BITS "reduced-phys-bits"
+#endif
+
+#ifndef VIR_NODE_SEV_PDH
+#define VIR_NODE_SEV_PDH "pdh"
+#endif
+
+#ifndef VIR_NODE_SEV_CERT_CHAIN
+#define VIR_NODE_SEV_CERT_CHAIN "cert-chain"
+#endif
+
+#if LIBVIR_VERSION_NUMBER < 4005000
+typedef struct _virNWFilterBinding *virNWFilterBindingPtr;
+#endif
+
+#ifndef VIR_CONNECT_GET_ALL_DOMAINS_STATS_NOWAIT
+#define VIR_CONNECT_GET_ALL_DOMAINS_STATS_NOWAIT 1 << 29
 #endif
 
 #endif /* LIBVIRT_GO_CONNECT_COMPAT_H__ */

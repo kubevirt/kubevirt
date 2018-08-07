@@ -29,11 +29,11 @@ import:
 - package: github.com/evanphx/json-patch
   version: ba18e35c5c1b36ef6334cad706eb681153d2d379
 - package: k8s.io/client-go
-  version: kubernetes-1.9.7
+  version: kubernetes-1.10.5
 - package: k8s.io/apimachinery
-  version: kubernetes-1.9.7
+  version: kubernetes-1.10.5
 - package: k8s.io/kube-aggregator
-  version: kubernetes-1.9.7
+  version: kubernetes-1.10.5
 - package: github.com/fsnotify/fsnotify
   version: ^1.4.2
 - package: github.com/mailru/easyjson
@@ -44,10 +44,11 @@ import:
 - package: github.com/vishvananda/netlink
   version: d35d6b58e1cb692b27b94fc403170bf44058ac3e
 - package: github.com/libvirt/libvirt-go
-  version: v3.7.0
+  version: d5e0adac44d4365a2d97e259f51ab76cc3c01b20
 - package: github.com/gorilla/websocket
   version: 0647012449a1878977514a346b26637dd022446c
 - package: google.golang.org/grpc
+  version: v1.13.0
 - package: google.golang.org/genproto
   version: 09f6ed296fc66555a25fe4ce95173148778dfa85
   subpackages:
@@ -59,11 +60,11 @@ import:
 - package: github.com/spf13/pflag
   version: 1.0.1
 - package: k8s.io/apiextensions-apiserver
-  version: kubernetes-1.9.7
+  version: kubernetes-1.10.5
 - package: github.com/ant31/crd-validation
-  version: eabcf70a1bd73e9296fa0c5f57de604689200a1b
+  version: 30f8a35d0ac2d8a2825c78ff47885979e3ee1121
 - package: kubevirt.io/qe-tools
-  version: 13fc8573324cd2af42c88043b5a7c6e03bf39f95
+  version: v0.1.2
   repo: https://github.com/kubevirt/qe-tools.git
 - package: github.com/golang/protobuf
   subpackages:

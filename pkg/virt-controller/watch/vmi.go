@@ -208,7 +208,7 @@ func (c *VMIController) execute(key string) error {
 		return nil
 	}
 
-	// If neddsSync is true (expectations fulfilled) we can make save assumptions if virt-handler or virt-controller owns the pod
+	// If needsSync is true (expectations fulfilled) we can make save assumptions if virt-handler or virt-controller owns the pod
 	needsSync := c.podExpectations.SatisfiedExpectations(key) && c.handoverExpectations.SatisfiedExpectations(key)
 
 	var syncErr syncError = nil
@@ -315,7 +315,16 @@ func isPodReady(pod *k8sv1.Pod) bool {
 }
 
 func isPodDownOrGoingDown(pod *k8sv1.Pod) bool {
-	return podIsDown(pod) || pod.DeletionTimestamp != nil
+	return podIsDown(pod) || isComputeContainerDown(pod) || pod.DeletionTimestamp != nil
+}
+
+func isComputeContainerDown(pod *k8sv1.Pod) bool {
+	for _, containerStatus := range pod.Status.ContainerStatuses {
+		if containerStatus.Name == "compute" {
+			return containerStatus.State.Terminated != nil
+		}
+	}
+	return false
 }
 
 func podIsDown(pod *k8sv1.Pod) bool {

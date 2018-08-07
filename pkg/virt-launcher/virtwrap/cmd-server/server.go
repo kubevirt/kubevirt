@@ -119,6 +119,28 @@ func (s *Launcher) Shutdown(args *cmdclient.Args, reply *cmdclient.Reply) error 
 	return nil
 }
 
+func (s *Launcher) Delete(args *cmdclient.Args, reply *cmdclient.Reply) error {
+	reply.Success = true
+
+	vmi, err := getVmfromClientArgs(args)
+	if err != nil {
+		reply.Success = false
+		reply.Message = err.Error()
+		return nil
+	}
+
+	err = s.domainManager.DeleteVMI(vmi)
+	if err != nil {
+		log.Log.Object(vmi).Reason(err).Errorf("Failed to signal deletion for vmi")
+		reply.Success = false
+		reply.Message = err.Error()
+		return nil
+	}
+
+	log.Log.Object(vmi).Info("Signaled vmi deletion")
+	return nil
+}
+
 func (s *Launcher) GetDomain(args *cmdclient.Args, reply *cmdclient.Reply) error {
 
 	reply.Success = true

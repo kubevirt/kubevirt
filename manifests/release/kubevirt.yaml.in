@@ -390,7 +390,7 @@ spec:
       containers:
         - name: virt-api
           image: {{.DockerPrefix}}/virt-api:{{.DockerTag}}
-          imagePullPolicy: IfNotPresent
+          imagePullPolicy: {{.ImagePullPolicy}}
           command:
               - "virt-api"
               - "--port"
@@ -436,7 +436,7 @@ spec:
       containers:
         - name: virt-controller
           image: {{.DockerPrefix}}/virt-controller:{{.DockerTag}}
-          imagePullPolicy: IfNotPresent
+          imagePullPolicy: {{.ImagePullPolicy}}
           command:
               - "virt-controller"
               - "--launcher-image"
@@ -497,7 +497,7 @@ spec:
             - containerPort: 8185
               hostPort: 8185
           image: {{.DockerPrefix}}/virt-handler:{{.DockerTag}}
-          imagePullPolicy: IfNotPresent
+          imagePullPolicy: {{.ImagePullPolicy}}
           command:
             - "virt-handler"
             - "-v"

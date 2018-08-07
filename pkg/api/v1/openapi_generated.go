@@ -27,35 +27,6 @@ import (
 
 func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenAPIDefinition {
 	return map[string]common.OpenAPIDefinition{
-		"kubevirt.io/kubevirt/pkg/api/v1.Affinity": {
-			Schema: spec.Schema{
-				SchemaProps: spec.SchemaProps{
-					Description: "Affinity groups all the affinity rules related to a VirtualMachineInstance",
-					Properties: map[string]spec.Schema{
-						"nodeAffinity": {
-							SchemaProps: spec.SchemaProps{
-								Description: "Node affinity support",
-								Ref:         ref("k8s.io/api/core/v1.NodeAffinity"),
-							},
-						},
-						"podAffinity": {
-							SchemaProps: spec.SchemaProps{
-								Description: "Pod affinity support",
-								Ref:         ref("k8s.io/api/core/v1.PodAffinity"),
-							},
-						},
-						"podAntiAffinity": {
-							SchemaProps: spec.SchemaProps{
-								Description: "Pod anti-affinity support",
-								Ref:         ref("k8s.io/api/core/v1.PodAntiAffinity"),
-							},
-						},
-					},
-				},
-			},
-			Dependencies: []string{
-				"k8s.io/api/core/v1.NodeAffinity", "k8s.io/api/core/v1.PodAffinity", "k8s.io/api/core/v1.PodAntiAffinity"},
-		},
 		"kubevirt.io/kubevirt/pkg/api/v1.CDRomTarget": {
 			Schema: spec.Schema{
 				SchemaProps: spec.SchemaProps{
@@ -100,7 +71,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 						},
 						"model": {
 							SchemaProps: spec.SchemaProps{
-								Description: "Model specifies the CPU model inside the VMI. List of available models https://github.com/libvirt/libvirt/blob/master/src/cpu/cpu_map.xml.",
+								Description: "Model specifies the CPU model inside the VMI. List of available models https://github.com/libvirt/libvirt/blob/master/src/cpu/cpu_map.xml. It is possible to specify special cases like \"host-passthrough\" to get the same CPU as the node and \"host-model\" to get CPU closest to the node one. For more information see https://libvirt.org/formatdomain.html#elementsCPU. Defaults to host-model.",
 								Type:        []string{"string"},
 								Format:      "",
 							},
@@ -240,6 +211,20 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 										},
 									},
 								},
+							},
+						},
+						"autoattachPodInterface": {
+							SchemaProps: spec.SchemaProps{
+								Description: "Whether to attach a pod network interface. Defaults to true.",
+								Type:        []string{"boolean"},
+								Format:      "",
+							},
+						},
+						"autoattachGraphicsDevice": {
+							SchemaProps: spec.SchemaProps{
+								Description: "Wheater to attach the default graphics device or not. VNC will not be available if set to false. Defaults to true.",
+								Type:        []string{"boolean"},
+								Format:      "",
 							},
 						},
 					},
@@ -1173,6 +1158,13 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 								},
 							},
 						},
+						"overcommitGuestOverhead": {
+							SchemaProps: spec.SchemaProps{
+								Description: "Don't ask the scheduler to take the guest-management overhead into account. Instead put the overhead only into the requested memory limits. This can lead to crashes if all memory is in use on a node. Defaults to false.",
+								Type:        []string{"boolean"},
+								Format:      "",
+							},
+						},
 					},
 				},
 			},
@@ -1793,7 +1785,20 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 						"affinity": {
 							SchemaProps: spec.SchemaProps{
 								Description: "If affinity is specifies, obey all the affinity rules",
-								Ref:         ref("kubevirt.io/kubevirt/pkg/api/v1.Affinity"),
+								Ref:         ref("k8s.io/api/core/v1.Affinity"),
+							},
+						},
+						"tolerations": {
+							SchemaProps: spec.SchemaProps{
+								Description: "If toleration is specified, obey all the toleration rules.",
+								Type:        []string{"array"},
+								Items: &spec.SchemaOrArray{
+									Schema: &spec.Schema{
+										SchemaProps: spec.SchemaProps{
+											Ref: ref("k8s.io/api/core/v1.Toleration"),
+										},
+									},
+								},
 							},
 						},
 						"terminationGracePeriodSeconds": {
@@ -1848,7 +1853,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 				},
 			},
 			Dependencies: []string{
-				"kubevirt.io/kubevirt/pkg/api/v1.Affinity", "kubevirt.io/kubevirt/pkg/api/v1.DomainSpec", "kubevirt.io/kubevirt/pkg/api/v1.Network", "kubevirt.io/kubevirt/pkg/api/v1.Volume"},
+				"k8s.io/api/core/v1.Affinity", "k8s.io/api/core/v1.Toleration", "kubevirt.io/kubevirt/pkg/api/v1.DomainSpec", "kubevirt.io/kubevirt/pkg/api/v1.Network", "kubevirt.io/kubevirt/pkg/api/v1.Volume"},
 		},
 		"kubevirt.io/kubevirt/pkg/api/v1.VirtualMachineInstanceStatus": {
 			Schema: spec.Schema{

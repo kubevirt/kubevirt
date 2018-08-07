@@ -765,6 +765,7 @@ var _ = Describe("VirtualMachineInstance Initializer", func() {
 		var recorder *record.FakeRecorder
 
 		var vmiPresetQueue *testutils.MockWorkQueue
+		var resourcesInformer cache.SharedIndexInformer
 
 		flavorKey := fmt.Sprintf("%s/flavor", v1.GroupName)
 		presetFlavor := "test-case"
@@ -784,7 +785,8 @@ var _ = Describe("VirtualMachineInstance Initializer", func() {
 
 			recorder = record.NewFakeRecorder(100)
 
-			vmiPresetController = NewVirtualMachinePresetController(vmiPresetInformer, vmiInformer, vmiPresetQueue, vmiInitCache, virtClient, recorder)
+			resourcesInformer, _ = testutils.NewFakeInformerFor(&k8sv1.LimitRangeList{})
+			vmiPresetController = NewVirtualMachinePresetController(vmiPresetInformer, vmiInformer, vmiPresetQueue, vmiInitCache, virtClient, recorder, resourcesInformer)
 
 			// create a reference preset
 			selector := k8smetav1.LabelSelector{MatchLabels: map[string]string{flavorKey: presetFlavor}}
@@ -1010,6 +1012,71 @@ var _ = Describe("VirtualMachineInstance Initializer", func() {
 
 			err := vmiPresetController.initializeVirtualMachine(vmi)
 			Expect(err).ToNot(HaveOccurred())
+		})
+		It("should handle namespace resource defaults", func() {
+			vmi := v1.NewMinimalVMI("testvmi")
+			vmi.Spec = v1.VirtualMachineInstanceSpec{
+				Domain: v1.DomainSpec{
+					Devices: v1.Devices{
+						Disks: []v1.Disk{
+							{Name: "testdisk"},
+						},
+					},
+				},
+			}
+
+			obj1 := k8sv1.LimitRange{
+
+				ObjectMeta: k8smetav1.ObjectMeta{Name: "abc", Namespace: "default"},
+				Spec: k8sv1.LimitRangeSpec{
+					Limits: []k8sv1.LimitRangeItem{
+						{
+							Type: k8sv1.LimitTypeContainer,
+							Default: k8sv1.ResourceList{
+								k8sv1.ResourceMemory: resource.MustParse("256Mi"),
+							},
+						},
+					},
+				},
+			}
+
+			obj2 := k8sv1.LimitRange{
+
+				ObjectMeta: k8smetav1.ObjectMeta{Name: "abc1", Namespace: "default"},
+				Spec: k8sv1.LimitRangeSpec{
+					Limits: []k8sv1.LimitRangeItem{
+						{
+							Type: k8sv1.LimitTypeContainer,
+							Default: k8sv1.ResourceList{
+								k8sv1.ResourceMemory: resource.MustParse("128Mi"),
+							},
+						},
+					},
+				},
+			}
+
+			By("verifying that namespace limitrange defaults are set when vm memory limits are not set")
+			res := resourcesInformer.GetIndexer()
+			res.Add(&obj1)
+			applyNamespaceLimitRangeValues(vmi, resourcesInformer)
+			Expect(vmi.Spec.Domain.Resources.Limits.Memory().String()).To(Equal("256Mi"))
+
+			By("setting the minimal namespace memory limit value")
+			// remove previosuly set limits
+			vmi.Spec.Domain.Resources = v1.ResourceRequirements{}
+			res.Add(&obj2)
+			applyNamespaceLimitRangeValues(vmi, resourcesInformer)
+			Expect(vmi.Spec.Domain.Resources.Limits.Memory().String()).To(Equal("128Mi"))
+
+			By("verifying that namespace limits are not set when vm spec provides limits")
+			vmResources := v1.ResourceRequirements{
+				Limits: k8sv1.ResourceList{
+					k8sv1.ResourceMemory: resource.MustParse("2G"),
+				},
+			}
+			vmi.Spec.Domain.Resources = vmResources
+			applyNamespaceLimitRangeValues(vmi, resourcesInformer)
+			Expect(vmi.Spec.Domain.Resources.Limits.Memory().String()).To(Equal("2G"))
 		})
 	})
 })

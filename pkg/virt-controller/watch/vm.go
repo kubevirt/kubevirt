@@ -132,7 +132,7 @@ func (c *VMController) execute(key string) error {
 
 	logger := log.Log.Object(VM)
 
-	logger.Info("Started processing VM")
+	logger.V(4).Info("Started processing VM")
 
 	//TODO default vm if necessary, the aggregated apiserver will do that in the future
 	if VM.Spec.Template == nil {
@@ -183,7 +183,6 @@ func (c *VMController) execute(key string) error {
 
 	// Scale up or down, if all expected creates and deletes were report by the listener
 	if needsSync && VM.ObjectMeta.DeletionTimestamp == nil {
-		logger.Infof("Creating or the VirtualMachineInstance: %t", VM.Spec.Running)
 		createErr = c.startStop(VM, vmi)
 	}
 
@@ -259,7 +258,6 @@ func (c *VMController) startStop(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualM
 	if vm.Spec.Running == false {
 		log.Log.Object(vm).V(4).Info("It is false delete")
 		if vmi == nil {
-			log.Log.Info("vmi is nil")
 			// vmi should not run and is not running
 			return nil
 		}
@@ -374,7 +372,6 @@ func setupStableFirmwareUUID(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachi
 	}
 
 	vmi.Spec.Domain.Firmware.UUID = types.UID(uuid.NewSHA1(firmwareUUIDns, []byte(vmi.ObjectMeta.Name)).String())
-	logger.Infof("Setting stabile UUID '%s' (was '%s')", vmi.Spec.Domain.Firmware.UUID, existingUUID)
 }
 
 // filterActiveVMIs takes a list of VMIs and returns all VMIs which are not in a final state
@@ -456,7 +453,7 @@ func (c *VMController) addVirtualMachine(obj interface{}) {
 
 	// If it has a ControllerRef, that's all that matters.
 	if controllerRef := controller.GetControllerOf(vmi); controllerRef != nil {
-		log.Log.Object(vmi).Info("Looking for VirtualMachineInstance Ref")
+		log.Log.Object(vmi).V(4).Info("Looking for VirtualMachineInstance Ref")
 		vm := c.resolveControllerRef(vmi.Namespace, controllerRef)
 		if vm == nil {
 			log.Log.Object(vmi).Errorf("Cant find the matching VM for VirtualMachineInstance: %s", vmi.Name)
@@ -467,7 +464,7 @@ func (c *VMController) addVirtualMachine(obj interface{}) {
 			log.Log.Object(vmi).Errorf("Cannot parse key of VM: %s for VirtualMachineInstance: %s", vm.Name, vmi.Name)
 			return
 		}
-		log.Log.Object(vmi).Infof("VirtualMachineInstance created bacause %s was added.", vmi.Name)
+		log.Log.Object(vmi).V(4).Infof("VirtualMachineInstance created because %s was added.", vmi.Name)
 		c.expectations.CreationObserved(vmKey)
 		c.enqueueVm(vm)
 		return
@@ -678,7 +675,7 @@ func (c *VMController) getVirtualMachineBaseName(vm *virtv1.VirtualMachine) stri
 func (c *VMController) processFailure(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance, createErr error) {
 	reason := ""
 	message := ""
-	log.Log.Object(vm).Infof("Processing failure status:: shouldRun: %t; noErr: %t; noVm: %t", vm.Spec.Running, createErr != nil, vmi != nil)
+	log.Log.Object(vm).V(4).Infof("Processing failure status:: shouldRun: %t; noErr: %t; noVm: %t", vm.Spec.Running, createErr != nil, vmi != nil)
 
 	if createErr != nil {
 		if vm.Spec.Running == true {
@@ -702,7 +699,7 @@ func (c *VMController) processFailure(vm *virtv1.VirtualMachine, vmi *virtv1.Vir
 		return
 	}
 
-	log.Log.Object(vm).Info("Removing failure")
+	log.Log.Object(vm).V(4).Info("Removing failure")
 	c.removeCondition(vm, virtv1.VirtualMachineFailure)
 }
 

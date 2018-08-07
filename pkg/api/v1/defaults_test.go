@@ -272,4 +272,26 @@ var _ = Describe("Function SetDefaults_NetworkInterface()", func() {
 		Expect(vmi.Spec.Networks[0].Name).To(Equal("testnet"))
 		Expect(vmi.Spec.Networks[0].Pod).To(BeNil())
 	})
+
+	It("should not append pod interface if it's explicitly disabled", func() {
+		autoAttach := false
+		vmi := &VirtualMachineInstance{}
+		vmi.Spec.Domain.Devices.AutoattachPodInterface = &autoAttach
+
+		SetDefaults_NetworkInterface(vmi)
+		Expect(len(vmi.Spec.Domain.Devices.Interfaces)).To(Equal(0))
+		Expect(len(vmi.Spec.Networks)).To(Equal(0))
+	})
+
+	It("should append pod interface if auto attach is true", func() {
+		autoAttach := true
+		vmi := &VirtualMachineInstance{}
+		vmi.Spec.Domain.Devices.AutoattachPodInterface = &autoAttach
+		SetDefaults_NetworkInterface(vmi)
+		Expect(len(vmi.Spec.Domain.Devices.Interfaces)).To(Equal(1))
+		Expect(vmi.Spec.Domain.Devices.Interfaces[0].Name).To(Equal("default"))
+		Expect(vmi.Spec.Networks[0].Name).To(Equal("default"))
+		Expect(vmi.Spec.Networks[0].Pod).ToNot(BeNil())
+	})
+
 })

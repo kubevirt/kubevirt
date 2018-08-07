@@ -327,6 +327,21 @@ var _ = Describe("Validating Webhook", func() {
 	})
 
 	Context("with VirtualMachineInstance spec", func() {
+		It("should accept valid subdomain name", func() {
+			vmi := v1.NewMinimalVMI("testvmi")
+			vmi.Spec.Subdomain = "testsubdomain"
+
+			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec)
+			Expect(len(causes)).To(Equal(0))
+		})
+		It("should reject invalid subdomain name", func() {
+			vmi := v1.NewMinimalVMI("testvmi")
+			vmi.Spec.Subdomain = "bad+domain"
+
+			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec)
+			Expect(len(causes)).To(Equal(1))
+			Expect(causes[0].Field).To(Equal("fake.subdomain"))
+		})
 		It("should accept disk and volume lists equal to max element length", func() {
 			vmi := v1.NewMinimalVMI("testvmi")
 
@@ -577,7 +592,7 @@ var _ = Describe("Validating Webhook", func() {
 			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vm.Spec)
 			Expect(len(causes)).To(Equal(0))
 		})
-		It("should accept interface lists with more than one element", func() {
+		It("should reject interface lists with more than one interface with the same name", func() {
 			vm := v1.NewMinimalVMI("testvm")
 			vm.Spec.Domain.Devices.Interfaces = []v1.Interface{
 				*v1.DefaultNetworkInterface(),
@@ -585,17 +600,20 @@ var _ = Describe("Validating Webhook", func() {
 			vm.Spec.Networks = []v1.Network{*v1.DefaultPodNetwork()}
 
 			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vm.Spec)
-			// if this is processed correctly, it should not result in any error
-			Expect(len(causes)).To(Equal(0))
+			// if this is processed correctly, it should result an error
+			Expect(len(causes)).To(Equal(1))
+			Expect(causes[0].Field).To(Equal("fake.domain.devices.interfaces[1].name"))
 		})
 		It("should accept network lists with more than one element", func() {
 			vm := v1.NewMinimalVMI("testvm")
-			vm.Spec.Networks = []v1.Network{
-				*v1.DefaultPodNetwork(),
-				*v1.DefaultPodNetwork()}
+			vm.Spec.Domain.Devices.Interfaces = []v1.Interface{{Name: "default", InterfaceBindingMethod: v1.InterfaceBindingMethod{Bridge: &v1.InterfaceBridge{}}},
+				{Name: "default2", InterfaceBindingMethod: v1.InterfaceBindingMethod{Bridge: &v1.InterfaceBridge{}}}}
+			vm.Spec.Networks = []v1.Network{{Name: "default", NetworkSource: v1.NetworkSource{Pod: &v1.PodNetwork{}}},
+				{Name: "default2", NetworkSource: v1.NetworkSource{Pod: &v1.PodNetwork{}}}}
 			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vm.Spec)
-			// if this is processed correctly, it should not result in any error
-			Expect(len(causes)).To(Equal(0))
+			// if this is processed correctly, it should result an error only about duplicate pod network configuration
+			Expect(len(causes)).To(Equal(1))
+			Expect(causes[0].Message).To(Equal("more than one interface is connected to a pod network in fake.interfaces"))
 		})
 
 		It("should accept valid interface models", func() {
@@ -821,8 +839,9 @@ var _ = Describe("Validating Webhook", func() {
 			}
 
 			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vm.Spec)
-			Expect(len(causes)).To(Equal(1))
-			Expect(causes[0].Field).To(Equal("fake.domain.devices.interfaces[1].ports[0].name"))
+			Expect(len(causes)).To(Equal(2))
+			Expect(causes[0].Field).To(Equal("fake.domain.devices.interfaces[1].name"))
+			Expect(causes[1].Field).To(Equal("fake.domain.devices.interfaces[1].ports[0].name"))
 		})
 		It("should allow interface with two same ports and protocol", func() {
 			vm := v1.NewMinimalVMI("testvm")

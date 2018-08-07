@@ -14,7 +14,7 @@ SYNC_VENDOR=${SYNC_VENDOR:-false}
 TEMPFILE=".rsynctemp"
 
 # Build the build container
-(cd ${DOCKER_DIR} && docker build . -q -t ${BUILDER})
+(cd ${DOCKER_DIR} && docker build . -t ${BUILDER})
 
 # Create the persistent docker volume
 if [ -z "$(docker volume list | grep ${BUILDER})" ]; then
@@ -22,10 +22,10 @@ if [ -z "$(docker volume list | grep ${BUILDER})" ]; then
 fi
 
 # Make sure that the output directory exists
-docker run -v "${BUILDER}:/root:rw,z" --rm ${BUILDER} mkdir -p /root/go/src/kubevirt.io/kubevirt/_out
+docker run -v "${BUILDER}:/root:rw,z" --security-opt label:disable --rm ${BUILDER} mkdir -p /root/go/src/kubevirt.io/kubevirt/_out
 
 # Start an rsyncd instance and make sure it gets stopped after the script exits
-RSYNC_CID=$(docker run -d -v "${BUILDER}:/root:rw,z" --expose 873 -P ${BUILDER} /usr/bin/rsync --no-detach --daemon --verbose)
+RSYNC_CID=$(docker run -d -v "${BUILDER}:/root:rw,z" --security-opt label:disable --expose 873 -P ${BUILDER} /usr/bin/rsync --no-detach --daemon --verbose)
 
 function finish() {
     docker stop ${RSYNC_CID} >/dev/null 2>&1 &
@@ -68,7 +68,7 @@ _rsync --delete --exclude 'cluster/**/.kubectl' --exclude 'cluster/**/.oc' --exc
 
 # Run the command
 test -t 1 && USE_TTY="-it"
-docker run --rm -v "${BUILDER}:/root:rw,z" ${USE_TTY} -w "/root/go/src/kubevirt.io/kubevirt" ${BUILDER} "$@"
+docker run --rm -v "${BUILDER}:/root:rw,z" --security-opt label:disable ${USE_TTY} -w "/root/go/src/kubevirt.io/kubevirt" ${BUILDER} "$@"
 
 # Copy the whole kubevirt data out to get generated sources and formatting changes
 _rsync --exclude '.glide*' --exclude 'cluster/**/.kubectl' --exclude 'cluster/**/.oc' --exclude 'cluster/**/.kubeconfig' --exclude "_out" --exclude "vendor" --exclude ".vagrant" --exclude ".git" "rsync://root@127.0.0.1:${RSYNCD_PORT}/build" ${KUBEVIRT_DIR}/

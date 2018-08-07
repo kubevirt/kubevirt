@@ -33,9 +33,7 @@ import (
 
 /*
 #cgo pkg-config: libvirt
-#include <libvirt/libvirt.h>
-#include "network_compat.h"
-#include "network_events_cfuncs.h"
+#include "network_events_wrapper.h"
 */
 import "C"
 
@@ -71,32 +69,35 @@ func networkEventLifecycleCallback(c C.virConnectPtr, n C.virNetworkPtr,
 func (c *Connect) NetworkEventLifecycleRegister(net *Network, callback NetworkEventLifecycleCallback) (int, error) {
 	goCallBackId := registerCallbackId(callback)
 	if C.LIBVIR_VERSION_NUMBER < 1002001 {
-		return 0, GetNotImplementedError("virConnectNetworkEventRegisterAny")
+		return 0, makeNotImplementedError("virConnectNetworkEventRegisterAny")
 	}
 
-	callbackPtr := unsafe.Pointer(C.networkEventLifecycleCallback_cgo)
+	callbackPtr := unsafe.Pointer(C.networkEventLifecycleCallbackHelper)
 	var cnet C.virNetworkPtr
 	if net != nil {
 		cnet = net.ptr
 	}
-	ret := C.virConnectNetworkEventRegisterAny_cgo(c.ptr, cnet,
+	var err C.virError
+	ret := C.virConnectNetworkEventRegisterAnyWrapper(c.ptr, cnet,
 		C.VIR_NETWORK_EVENT_ID_LIFECYCLE,
 		C.virConnectNetworkEventGenericCallback(callbackPtr),
-		C.long(goCallBackId))
+		C.long(goCallBackId), &err)
 	if ret == -1 {
 		freeCallbackId(goCallBackId)
-		return 0, GetLastError()
+		return 0, makeError(&err)
 	}
 	return int(ret), nil
 }
 
 func (c *Connect) NetworkEventDeregister(callbackId int) error {
 	if C.LIBVIR_VERSION_NUMBER < 1002001 {
-		return GetNotImplementedError("virConnectNetworkEventDeregisterAny")
+		return makeNotImplementedError("virConnectNetworkEventDeregisterAny")
 	}
 	// Deregister the callback
-	if i := int(C.virConnectNetworkEventDeregisterAnyCompat(c.ptr, C.int(callbackId))); i != 0 {
-		return GetLastError()
+	var err C.virError
+	ret := int(C.virConnectNetworkEventDeregisterAnyWrapper(c.ptr, C.int(callbackId), &err))
+	if ret < 0 {
+		return makeError(&err)
 	}
 	return nil
 }

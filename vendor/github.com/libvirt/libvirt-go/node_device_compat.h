@@ -51,8 +51,5 @@ typedef void (*virConnectNodeDeviceEventGenericCallback)(virConnectPtr conn,
                                                          void *opaque);
 #endif
 
-int virConnectNodeDeviceEventDeregisterAnyCompat(virConnectPtr conn,
-						 int callbackID);
-
 
 #endif /* LIBVIRT_GO_NODE_DEVICE_COMPAT_H__ */

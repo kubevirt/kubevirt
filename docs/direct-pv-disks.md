@@ -25,7 +25,7 @@ This section describes how Persistent Volumes are referenced in the `VMI`
 Resource type.
 
 In general the referencing is aligned with how pods are consuming Persistent
-Volume Claims as described [here](https://kubernetes.io/docs/api-reference/v1.5/#persistentvolumeclaimvolumesource-v1)
+Volume Claims as described [here](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.11/#persistentvolumeclaim-v1-core)
 
 Today the `VMI.spec.domain` reflects much of [libvirt's domain xml specification](http://libvirt.org/formatdomain.html#elementsDisks). To
 communicate the new storage type through the API, an additional disk type

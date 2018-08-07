@@ -63,8 +63,8 @@ var _ = Describe("Templates", func() {
 			return func() {
 				By("Generating VM JSON from the Template via oc-process command")
 				_, err := runOcProcessCommand(templateJsonFile, templateParams, vmJsonFile)
-				Expect(err).ToNot(HaveOccurred())
-				Expect(vmJsonFile).To(BeAnExistingFile())
+				ExpectWithOffset(1, err).ToNot(HaveOccurred())
+				ExpectWithOffset(1, vmJsonFile).To(BeAnExistingFile())
 			}
 		}
 
@@ -72,14 +72,14 @@ var _ = Describe("Templates", func() {
 			return func() {
 				By("Creating VM via oc-create command")
 				out, err := runOcCreateCommand(vmJsonFile)
-				Expect(err).ToNot(HaveOccurred())
+				ExpectWithOffset(1, err).ToNot(HaveOccurred())
 				message := fmt.Sprintf("virtualmachine.kubevirt.io \"%s\" created\n", templateParams.Name)
-				Expect(out).To(Equal(message))
+				ExpectWithOffset(1, out).To(Equal(message))
 
 				By("Checking if the VM exists via oc-get command.")
-				Eventually(func() bool {
+				EventuallyWithOffset(1, func() bool {
 					out, err := runOcGetCommand("vms")
-					Expect(err).ToNot(HaveOccurred())
+					ExpectWithOffset(1, err).ToNot(HaveOccurred())
 					return strings.Contains(out, templateParams.Name)
 				}, time.Duration(60)*time.Second).Should(BeTrue(), "Timed out waiting for VM to apppear")
 			}
@@ -89,14 +89,14 @@ var _ = Describe("Templates", func() {
 			return func() {
 				By("Deleting the VM via oc-delete command")
 				out, err := runOcDeleteCommand(templateParams.Name)
-				Expect(err).ToNot(HaveOccurred())
+				ExpectWithOffset(1, err).ToNot(HaveOccurred())
 				message := fmt.Sprintf("virtualmachine.kubevirt.io \"%s\" deleted\n", templateParams.Name)
-				Expect(out).To(Equal(message))
+				ExpectWithOffset(1, out).To(Equal(message))
 
 				By("Checking if the VM does not exist anymore via oc-get command.")
-				Eventually(func() bool {
+				EventuallyWithOffset(1, func() bool {
 					out, err := runOcGetCommand("vms")
-					Expect(err).ToNot(HaveOccurred())
+					ExpectWithOffset(1, err).ToNot(HaveOccurred())
 					return out == "No resources found.\n"
 				}, time.Duration(60)*time.Second).Should(BeTrue(), "Timed out waiting for VM to disappear")
 			}
@@ -106,14 +106,14 @@ var _ = Describe("Templates", func() {
 			return func() {
 				By("Launching VMI via oc-patch command")
 				out, err := runOcPatchCommand(templateParams.Name, "{\"spec\":{\"running\":true}}")
-				Expect(err).ToNot(HaveOccurred())
+				ExpectWithOffset(1, err).ToNot(HaveOccurred())
 				message := fmt.Sprintf("virtualmachine.kubevirt.io \"%s\" patched\n", templateParams.Name)
-				Expect(out).To(Equal(message))
+				ExpectWithOffset(1, out).To(Equal(message))
 
 				By("Checking if the VMI does exist via oc-get command")
-				Eventually(func() bool {
+				EventuallyWithOffset(1, func() bool {
 					out, err := runOcGetCommand("vmis")
-					Expect(err).ToNot(HaveOccurred())
+					ExpectWithOffset(1, err).ToNot(HaveOccurred())
 					return strings.Contains(out, templateParams.Name)
 				}, time.Duration(60)*time.Second).Should(BeTrue(), "Timed out waiting for VMI to appear")
 			}
@@ -123,14 +123,14 @@ var _ = Describe("Templates", func() {
 			return func() {
 				By("Terminating the VMI via oc-patch command")
 				out, err := runOcPatchCommand(templateParams.Name, "{\"spec\":{\"running\":false}}")
-				Expect(err).ToNot(HaveOccurred())
+				ExpectWithOffset(1, err).ToNot(HaveOccurred())
 				message := fmt.Sprintf("virtualmachine.kubevirt.io \"%s\" patched\n", templateParams.Name)
-				Expect(out).To(Equal(message))
+				ExpectWithOffset(1, out).To(Equal(message))
 
 				By("Checking if the VMI does not exist anymore via oc-get command")
-				Eventually(func() bool {
+				EventuallyWithOffset(1, func() bool {
 					out, err := runOcGetCommand("vmis")
-					Expect(err).ToNot(HaveOccurred())
+					ExpectWithOffset(1, err).ToNot(HaveOccurred())
 					return out == "No resources found.\n"
 				}, time.Duration(60)*time.Second).Should(BeTrue(), "Timed out waiting for VMI to disappear")
 			}
@@ -140,9 +140,9 @@ var _ = Describe("Templates", func() {
 			return func() {
 				if _, err := os.Stat(file); !os.IsNotExist(err) {
 					err := os.Remove(file)
-					Expect(err).ToNot(HaveOccurred())
+					ExpectWithOffset(1, err).ToNot(HaveOccurred())
 				}
-				Expect(file).NotTo(BeAnExistingFile())
+				ExpectWithOffset(1, file).NotTo(BeAnExistingFile())
 			}
 		}
 

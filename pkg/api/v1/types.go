@@ -139,7 +139,9 @@ type VirtualMachineInstanceSpec struct {
 	// +optional
 	NodeSelector map[string]string `json:"nodeSelector,omitempty"`
 	// If affinity is specifies, obey all the affinity rules
-	Affinity *Affinity `json:"affinity,omitempty"`
+	Affinity *k8sv1.Affinity `json:"affinity,omitempty"`
+	// If toleration is specified, obey all the toleration rules.
+	Tolerations []k8sv1.Toleration `json:"tolerations,omitempty"`
 	// Grace period observed after signalling a VirtualMachineInstance to stop after which the VirtualMachineInstance is force terminated.
 	TerminationGracePeriodSeconds *int64 `json:"terminationGracePeriodSeconds,omitempty"`
 	// List of volumes that can be mounted by disks belonging to the vmi.
@@ -155,20 +157,6 @@ type VirtualMachineInstanceSpec struct {
 	Subdomain string `json:"subdomain,omitempty"`
 	// List of networks that can be attached to a vm's virtual interface.
 	Networks []Network `json:"networks,omitempty"`
-}
-
-// Affinity groups all the affinity rules related to a VirtualMachineInstance
-// ---
-// +k8s:openapi-gen=true
-type Affinity struct {
-	// Node affinity support
-	NodeAffinity *k8sv1.NodeAffinity `json:"nodeAffinity,omitempty"`
-
-	// Pod affinity support
-	PodAffinity *k8sv1.PodAffinity `json:"podAffinity,omitempty"`
-
-	// Pod anti-affinity support
-	PodAntiAffinity *k8sv1.PodAntiAffinity `json:"podAntiAffinity,omitempty"`
 }
 
 // VirtualMachineInstanceStatus represents information about the status of a VirtualMachineInstance. Status may trail the actual
@@ -331,12 +319,29 @@ const (
 )
 
 const (
-	AppLabel             string = "kubevirt.io"
-	DomainLabel          string = "kubevirt.io/domain"
-	CreatedByAnnotation  string = "kubevirt.io/created-by"
-	OwnedByAnnotation    string = "kubevirt.io/owned-by"
-	NodeNameLabel        string = "kubevirt.io/nodeName"
-	NodeSchedulable      string = "kubevirt.io/schedulable"
+	// This label marks resources that belong to KubeVirt. An optional value
+	// may indicate which specific KubeVirt component a resource belongs to.
+	AppLabel string = "kubevirt.io"
+	// This label is used to match virtual machine instances represented as
+	// libvirt XML domains with their pods. Among other things, the label is
+	// used to detect virtual machines with dead pods. Used on Pod.
+	DomainLabel string = "kubevirt.io/domain"
+	// This annotation is used to match virtual machine instance IDs with pods.
+	// Similar to kubevirt.io/domain. Used on Pod.
+	CreatedByAnnotation string = "kubevirt.io/created-by"
+	// This annotation defines which KubeVirt component owns the resource. Used
+	// on Pod.
+	OwnedByAnnotation string = "kubevirt.io/owned-by"
+	// This label describes which cluster node runs the virtual machine
+	// instance. Needed because with CRDs we can't use field selectors. Used on
+	// VirtualMachineInstance.
+	NodeNameLabel string = "kubevirt.io/nodeName"
+	// This label declares whether a particular node is available for
+	// scheduling virtual machine instances on it. Used on Node.
+	NodeSchedulable string = "kubevirt.io/schedulable"
+	// This annotation is regularly updated by virt-handler to help determine
+	// if a particular node is alive and hence should be available for new
+	// virtual machine instance scheduling. Used on Node.
 	VirtHandlerHeartbeat string = "kubevirt.io/heartbeat"
 
 	VirtualMachineInstanceFinalizer string = "foregroundDeleteVirtualMachine"

@@ -52,9 +52,6 @@ typedef void (*virConnectSecretEventGenericCallback)(virConnectPtr conn,
 						     void *opaque);
 #endif
 
-int virConnectSecretEventDeregisterAnyCompat(virConnectPtr conn,
-					     int callbackID);
-
 /* 2.2.1 */
 
 #ifndef VIR_SECRET_USAGE_TYPE_TLS
