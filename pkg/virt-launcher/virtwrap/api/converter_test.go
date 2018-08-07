@@ -34,7 +34,6 @@ import (
 
 	"fmt"
 	"os"
-	"strconv"
 
 	"kubevirt.io/kubevirt/pkg/api/v1"
 )
@@ -696,10 +695,8 @@ var _ = Describe("Converter", func() {
 			net2 := v1.DefaultPodNetwork()
 			iface1.Name = name1
 			iface2.Name = name2
-			bootOrder := 1
-			invalidOrder := 0
-			iface1.BootOrder = strconv.Itoa(bootOrder)
-			iface2.BootOrder = strconv.Itoa(invalidOrder)
+			bootOrder := uint(1)
+			iface1.BootOrder = &bootOrder
 			net1.Name = name1
 			net2.Name = name2
 			vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{*iface1, *iface2}

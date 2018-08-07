@@ -277,7 +277,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 						},
 						"bootOrder": {
 							SchemaProps: spec.SchemaProps{
-								Description: "BootOrder is an integer value > 0, used to determine ordering of boot devices. Lower values take precedence. Disks without a boot order are not tried if a disk with a boot order exists.",
+								Description: "BootOrder is an integer value > 0, used to determine ordering of boot devices. Lower values take precedence. Each disk or interface that has a boot order must have a unique value. Disks without a boot order are not tried if a disk with a boot order exists.",
 								Type:        []string{"integer"},
 								Format:      "int32",
 							},
@@ -844,11 +844,11 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 								Format:      "",
 							},
 						},
-						"bootorder": {
+						"bootOrder": {
 							SchemaProps: spec.SchemaProps{
-								Description: "Boot order for this interface. any number larger than zero gives the order in which this interface will be used for bootting among all other devices (interfaces and disks)",
-								Type:        []string{"string"},
-								Format:      "",
+								Description: "BootOrder is an integer value > 0, used to determine ordering of boot devices. Lower values take precedence. Each interface or disk that has a boot order must have a unique value. Interfaces without a boot order are not tried.",
+								Type:        []string{"integer"},
+								Format:      "int32",
 							},
 						},
 					},

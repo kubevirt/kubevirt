@@ -3475,7 +3475,7 @@
     ],
     "properties": {
      "bootOrder": {
-      "description": "BootOrder is an integer value \u003e 0, used to determine ordering of boot devices.\nLower values take precedence.\nDisks without a boot order are not tried if a disk with a boot order exists.\n+optional",
+      "description": "BootOrder is an integer value \u003e 0, used to determine ordering of boot devices.\nLower values take precedence.\nEach disk or interface that has a boot order must have a unique value.\nDisks without a boot order are not tried if a disk with a boot order exists.\n+optional",
       "type": "integer",
       "format": "integer"
      },
@@ -3829,9 +3829,10 @@
      "name"
     ],
     "properties": {
-     "bootorder": {
-      "description": "Boot order for this interface.\nany number larger than zero gives the order in which this interface will be used\nfor bootting among all other devices (interfaces and disks)",
-      "type": "string"
+     "bootOrder": {
+      "description": "BootOrder is an integer value \u003e 0, used to determine ordering of boot devices.\nLower values take precedence.\nEach interface or disk that has a boot order must have a unique value.\nInterfaces without a boot order are not tried.\n+optional",
+      "type": "integer",
+      "format": "integer"
      },
      "bridge": {
       "$ref": "#/definitions/v1.InterfaceBridge"

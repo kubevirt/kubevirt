@@ -198,6 +198,7 @@ type Disk struct {
 	DiskDevice `json:",inline"`
 	// BootOrder is an integer value > 0, used to determine ordering of boot devices.
 	// Lower values take precedence.
+	// Each disk or interface that has a boot order must have a unique value.
 	// Disks without a boot order are not tried if a disk with a boot order exists.
 	// +optional
 	BootOrder *uint `json:"bootOrder,omitempty"`
@@ -697,10 +698,12 @@ type Interface struct {
 	Ports []Port `json:"ports,omitempty"`
 	// Interface MAC address. For example: de:ad:00:00:be:af or DE-AD-00-00-BE-AF.
 	MacAddress string `json:"macAddress,omitempty"`
-	// Boot order for this interface.
-	// any number larger than zero gives the order in which this interface will be used
-	// for bootting among all other devices (interfaces and disks)
-	BootOrder string `json:"bootorder,omitempty"`
+	// BootOrder is an integer value > 0, used to determine ordering of boot devices.
+	// Lower values take precedence.
+	// Each interface or disk that has a boot order must have a unique value.
+	// Interfaces without a boot order are not tried.
+	// +optional
+	BootOrder *uint `json:"bootOrder,omitempty"`
 }
 
 // Represents the method which will be used to connect the interface to the guest.

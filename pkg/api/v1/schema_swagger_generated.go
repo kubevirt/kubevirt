@@ -93,7 +93,7 @@ func (Disk) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"name":       "Name is the device name",
 		"volumeName": "Name of the volume which is referenced.\nMust match the Name of a Volume.",
-		"bootOrder":  "BootOrder is an integer value > 0, used to determine ordering of boot devices.\nLower values take precedence.\nDisks without a boot order are not tried if a disk with a boot order exists.\n+optional",
+		"bootOrder":  "BootOrder is an integer value > 0, used to determine ordering of boot devices.\nLower values take precedence.\nEach disk or interface that has a boot order must have a unique value.\nDisks without a boot order are not tried if a disk with a boot order exists.\n+optional",
 		"serial":     "Serial provides the ability to specify a serial number for the disk device.\n+optional",
 	}
 }
@@ -321,7 +321,7 @@ func (Interface) SwaggerDoc() map[string]string {
 		"model":      "Interface model.\nOne of: e1000, e1000e, ne2k_pci, pcnet, rtl8139, virtio.\nDefaults to virtio.",
 		"ports":      "List of ports to be forwarded to the virtual machine.",
 		"macAddress": "Interface MAC address. For example: de:ad:00:00:be:af or DE-AD-00-00-BE-AF.",
-		"bootorder":  "Boot order for this interface.\nany number larger than zero gives the order in which this interface will be used\nfor bootting among all other devices (interfaces and disks)",
+		"bootOrder":  "BootOrder is an integer value > 0, used to determine ordering of boot devices.\nLower values take precedence.\nEach interface or disk that has a boot order must have a unique value.\nInterfaces without a boot order are not tried.\n+optional",
 	}
 }
 

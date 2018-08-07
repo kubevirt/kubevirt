@@ -107,8 +107,9 @@ spec:
                             interfaces:
                               items:
                                 properties:
-                                  bootorder:
-                                    type: string
+                                  bootOrder:
+                                    format: int32
+                                    type: integer
                                   bridge: {}
                                   macAddress:
                                     type: string

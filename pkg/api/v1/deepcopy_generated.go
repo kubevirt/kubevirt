@@ -862,6 +862,15 @@ func (in *Interface) DeepCopyInto(out *Interface) {
 		*out = make([]Port, len(*in))
 		copy(*out, *in)
 	}
+	if in.BootOrder != nil {
+		in, out := &in.BootOrder, &out.BootOrder
+		if *in == nil {
+			*out = nil
+		} else {
+			*out = new(uint)
+			**out = **in
+		}
+	}
 	return
 }
 
