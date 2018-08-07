@@ -382,8 +382,15 @@ func Convert_v1_VirtualMachine_To_api_Domain(vmi *v1.VirtualMachineInstance, dom
 		}
 	}
 
+	// Take memory from the requested memory
 	if v, ok := vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory]; ok {
 		if domain.Spec.Memory, err = QuantityToByte(v); err != nil {
+			return err
+		}
+	}
+	// In case that guest memory is explicitly set, override it
+	if vmi.Spec.Domain.Memory != nil && vmi.Spec.Domain.Memory.Guest != nil {
+		if domain.Spec.Memory, err = QuantityToByte(*vmi.Spec.Domain.Memory.Guest); err != nil {
 			return err
 		}
 	}

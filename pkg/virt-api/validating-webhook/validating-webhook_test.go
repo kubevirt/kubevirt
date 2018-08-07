@@ -529,6 +529,59 @@ var _ = Describe("Validating Webhook", func() {
 			Expect(len(causes)).To(Equal(1))
 			Expect(causes[0].Field).To(Equal("fake.domain.resources.requests.memory"))
 		})
+		It("should reject smaller guest memory than requested memory", func() {
+			vmi := v1.NewMinimalVMI("testvmi")
+			guestMemory := resource.MustParse("1Mi")
+
+			vmi.Spec.Domain.Resources.Requests = k8sv1.ResourceList{
+				k8sv1.ResourceMemory: resource.MustParse("64Mi"),
+			}
+			vmi.Spec.Domain.Memory = &v1.Memory{Guest: &guestMemory}
+
+			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec)
+			Expect(len(causes)).To(Equal(1))
+			Expect(causes[0].Field).To(Equal("fake.domain.memory.guest"))
+		})
+		It("should reject bigger guest memory than the memory limit", func() {
+			vmi := v1.NewMinimalVMI("testvmi")
+			guestMemory := resource.MustParse("128Mi")
+
+			vmi.Spec.Domain.Resources.Limits = k8sv1.ResourceList{
+				k8sv1.ResourceMemory: resource.MustParse("64Mi"),
+			}
+			vmi.Spec.Domain.Memory = &v1.Memory{Guest: &guestMemory}
+
+			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec)
+			Expect(len(causes)).To(Equal(1))
+			Expect(causes[0].Field).To(Equal("fake.domain.memory.guest"))
+		})
+		It("should allow guest memory which is between requests and limits", func() {
+			vmi := v1.NewMinimalVMI("testvmi")
+			guestMemory := resource.MustParse("100Mi")
+
+			vmi.Spec.Domain.Resources.Limits = k8sv1.ResourceList{
+				k8sv1.ResourceMemory: resource.MustParse("128Mi"),
+			}
+			vmi.Spec.Domain.Resources.Requests = k8sv1.ResourceList{
+				k8sv1.ResourceMemory: resource.MustParse("64Mi"),
+			}
+			vmi.Spec.Domain.Memory = &v1.Memory{Guest: &guestMemory}
+
+			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec)
+			Expect(causes).To(BeEmpty())
+		})
+		It("should allow setting guest memory when no limit is set", func() {
+			vmi := v1.NewMinimalVMI("testvmi")
+			guestMemory := resource.MustParse("100Mi")
+
+			vmi.Spec.Domain.Resources.Requests = k8sv1.ResourceList{
+				k8sv1.ResourceMemory: resource.MustParse("64Mi"),
+			}
+			vmi.Spec.Domain.Memory = &v1.Memory{Guest: &guestMemory}
+
+			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec)
+			Expect(causes).To(BeEmpty())
+		})
 		It("should reject not divisable by hugepages.size requests.memory", func() {
 			vmi := v1.NewMinimalVMI("testvmi")
 

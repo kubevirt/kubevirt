@@ -955,11 +955,17 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 								Ref:         ref("kubevirt.io/kubevirt/pkg/api/v1.Hugepages"),
 							},
 						},
+						"guest": {
+							SchemaProps: spec.SchemaProps{
+								Description: "Guest allows to specifying the amount of memory which is visible inside the Guest OS. The Guest must lie between Requests and Limits from the resources section. Defaults to the requested memory in the resources section if not specified.",
+								Ref:         ref("k8s.io/apimachinery/pkg/api/resource.Quantity"),
+							},
+						},
 					},
 				},
 			},
 			Dependencies: []string{
-				"kubevirt.io/kubevirt/pkg/api/v1.Hugepages"},
+				"k8s.io/apimachinery/pkg/api/resource.Quantity", "kubevirt.io/kubevirt/pkg/api/v1.Hugepages"},
 		},
 		"kubevirt.io/kubevirt/pkg/api/v1.Network": {
 			Schema: spec.Schema{

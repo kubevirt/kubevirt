@@ -104,6 +104,36 @@ var _ = Describe("Configurations", func() {
 				Expect(err).ToNot(HaveOccurred())
 			}, 300)
 		})
+
+		Context("with diverging guest memory from requested memory", func() {
+			It("should show the requested guest memory inside the VMI", func() {
+				vmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(tests.RegistryDiskFor(tests.RegistryDiskCirros), "#!/bin/bash\necho 'hello'\n")
+				guestMemory := resource.MustParse("64M")
+				vmi.Spec.Domain.Resources.Requests[kubev1.ResourceMemory] = resource.MustParse("64M")
+				guestMemory.Add(*vmi.Spec.Domain.Resources.Requests.Memory())
+				vmi.Spec.Domain.Memory = &v1.Memory{
+					Guest: &guestMemory,
+				}
+
+				vmi, err := virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
+				Expect(err).ToNot(HaveOccurred())
+				tests.WaitForSuccessfulVMIStart(vmi)
+
+				expecter, err := tests.LoggedInCirrosExpecter(vmi)
+				Expect(err).ToNot(HaveOccurred())
+				defer expecter.Close()
+
+				res, err := expecter.ExpectBatch([]expect.Batcher{
+					&expect.BSnd{S: "free -m | grep Mem: | tr -s ' ' | cut -d' ' -f2\n"},
+					&expect.BExp{R: "105"},
+				}, 10*time.Second)
+				log.DefaultLogger().Object(vmi).Infof("%v", res)
+				Expect(err).ToNot(HaveOccurred())
+
+			})
+
+		})
+
 		Context("with namespace memory limits", func() {
 			var vmi *v1.VirtualMachineInstance
 			It("should failed to schedule the pod, copy limits to vm spec", func() {

@@ -3961,6 +3961,10 @@
    "v1.Memory": {
     "description": "Memory allows specifying the VirtualMachineInstance memory features.",
     "properties": {
+     "guest": {
+      "description": "Guest allows to specifying the amount of memory which is visible inside the Guest OS.\nThe Guest must lie between Requests and Limits from the resources section.\nDefaults to the requested memory in the resources section if not specified.\n+ optional",
+      "type": "string"
+     },
      "hugepages": {
       "description": "Hugepages allow to use hugepages for the VirtualMachineInstance instead of regular memory.\n+optional",
       "$ref": "#/definitions/v1.Hugepages"
