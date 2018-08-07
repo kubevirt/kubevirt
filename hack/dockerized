@@ -15,7 +15,7 @@ TEMPFILE=".rsynctemp"
 
 # Reduce verbosity if an automated build
 BUILD_QUIET=
-if [ -n "$JOB_NAME" -o -n "$TRAVIS_BUILD_ID" ];then
+if [ -n "$JOB_NAME" -o -n "$TRAVIS_BUILD_ID" ]; then
     BUILD_QUIET="-q"
 fi
 
