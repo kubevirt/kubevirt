@@ -25,22 +25,66 @@ import (
 	"io/ioutil"
 	"log"
 
-	"github.com/emicklei/go-restful-openapi"
+	"github.com/emicklei/go-restful"
+	openapispec "github.com/go-openapi/spec"
 	"github.com/spf13/pflag"
 
+	openapibuilder "k8s.io/kube-openapi/pkg/builder"
+	openapicommon "k8s.io/kube-openapi/pkg/common"
+
+	kubev1 "kubevirt.io/kubevirt/pkg/api/v1"
 	klog "kubevirt.io/kubevirt/pkg/log"
 	"kubevirt.io/kubevirt/pkg/virt-api"
 )
 
 func dumpOpenApiSpec(dumppath *string) {
-	openapispec := restfulspec.BuildSwagger(virt_api.CreateOpenAPIConfig())
-	data, err := json.MarshalIndent(openapispec, " ", " ")
+	spec, err := openapibuilder.BuildOpenAPISpec(restful.RegisteredWebServices(), createOpenAPIConfig())
+	if err != nil {
+		log.Fatal(err)
+	}
+	data, err := json.MarshalIndent(spec, " ", " ")
 	if err != nil {
 		log.Fatal(err)
 	}
 	err = ioutil.WriteFile(*dumppath, data, 0644)
 	if err != nil {
 		log.Fatal(err)
+	}
+}
+
+func createOpenAPIConfig() *openapicommon.Config {
+	security := make([]map[string][]string, 1)
+	security[0] = map[string][]string{"BearerToken": {}}
+	return &openapicommon.Config{
+		GetDefinitions: kubev1.GetOpenAPIDefinitions,
+		ProtocolList:   []string{"https"},
+		IgnorePrefixes: []string{"/swaggerapi"},
+		Info: &openapispec.Info{
+			InfoProps: openapispec.InfoProps{
+				Title:       "KubeVirt API",
+				Description: "This is KubeVirt API an add-on for Kubernetes.",
+				Contact: &openapispec.ContactInfo{
+					Name:  "kubevirt-dev",
+					Email: "kubevirt-dev@googlegroups.com",
+					URL:   "https://github.com/kubevirt/kubevirt",
+				},
+				License: &openapispec.License{
+					Name: "Apache 2.0",
+					URL:  "https://www.apache.org/licenses/LICENSE-2.0",
+				},
+			},
+		},
+		SecurityDefinitions: &openapispec.SecurityDefinitions{
+			"BearerToken": &openapispec.SecurityScheme{
+				SecuritySchemeProps: openapispec.SecuritySchemeProps{
+					Type:        "apiKey",
+					Name:        "authorization",
+					In:          "header",
+					Description: "Bearer Token authentication",
+				},
+			},
+		},
+		DefaultSecurity: security,
 	}
 }
 

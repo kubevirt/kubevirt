@@ -325,6 +325,7 @@ func (app *virtAPIApp) Compose() {
 	})
 }
 
+// TODO:
 func (app *virtAPIApp) ConfigureOpenAPIService() {
 	restful.DefaultContainer.Add(restfulspec.NewOpenAPIService(CreateOpenAPIConfig()))
 	http.Handle("/swagger-ui/", http.StripPrefix("/swagger-ui/", http.FileServer(http.Dir(app.SwaggerUI))))
