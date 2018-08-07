@@ -357,7 +357,7 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 		podLabels[k] = v
 	}
 	podLabels[v1.AppLabel] = "virt-launcher"
-	podLabels[v1.DomainLabel] = domain
+	podLabels[v1.CreatedByLabel] = string(vmi.UID)
 
 	containers = append(containers, container)
 
@@ -383,8 +383,8 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 			GenerateName: "virt-launcher-" + domain + "-",
 			Labels:       podLabels,
 			Annotations: map[string]string{
-				v1.CreatedByAnnotation: string(vmi.UID),
-				v1.OwnedByAnnotation:   "virt-controller",
+				v1.DomainAnnotation:  domain,
+				v1.OwnedByAnnotation: "virt-controller",
 			},
 		},
 		Spec: k8sv1.PodSpec{

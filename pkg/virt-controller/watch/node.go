@@ -231,7 +231,7 @@ func (c *NodeController) virtualMachinesOnNode(nodeName string) ([]*virtv1.Virtu
 }
 
 func (c *NodeController) podsOnNode(nodeName string) ([]*v1.Pod, error) {
-	labelSelector, err := labels.Parse(virtv1.DomainLabel)
+	labelSelector, err := labels.Parse(virtv1.CreatedByLabel)
 	handlerNodeSelector := fields.ParseSelectorOrDie("spec.nodeName=" + nodeName)
 	if err != nil {
 		return nil, err
@@ -260,11 +260,11 @@ func filterStuckVirtualMachinesWithoutPods(vmis []*virtv1.VirtualMachineInstance
 		if !ok {
 			podsForVMI = map[string]*v1.Pod{}
 		}
-		name := pod.Labels[virtv1.DomainLabel]
-		if len(name) == 0 {
+		vmUID := pod.Labels[virtv1.CreatedByLabel]
+		if len(vmUID) == 0 {
 			continue
 		}
-		podsForVMI[name] = pod
+		podsForVMI[vmUID] = pod
 		podsPerNamespace[pod.Namespace] = podsForVMI
 	}
 
@@ -272,7 +272,7 @@ func filterStuckVirtualMachinesWithoutPods(vmis []*virtv1.VirtualMachineInstance
 	for _, vmi := range vmis {
 		if vmi.IsScheduled() || vmi.IsRunning() {
 			if podsForVMI, exists := podsPerNamespace[vmi.Namespace]; exists {
-				if _, exists := podsForVMI[vmi.Name]; exists {
+				if _, exists := podsForVMI[string(vmi.UID)]; exists {
 					continue
 				}
 			}

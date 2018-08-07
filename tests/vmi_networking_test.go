@@ -164,7 +164,7 @@ var _ = Describe("Networking", func() {
 		}
 
 		By("checking br1 MTU inside the pod")
-		vmiPod := tests.GetRunningPodByLabel(outboundVMI.Name, v1.DomainLabel, tests.NamespaceTestDefault)
+		vmiPod := tests.GetRunningPodByVirtualMachineInstance(outboundVMI, tests.NamespaceTestDefault)
 		output, err := tests.ExecuteCommandOnPod(
 			virtClient,
 			vmiPod,

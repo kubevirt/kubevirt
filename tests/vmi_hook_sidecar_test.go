@@ -127,8 +127,8 @@ func getVmDomainXml(virtCli kubecli.KubevirtClient, vmi *v1.VirtualMachineInstan
 
 func getVmPodName(virtCli kubecli.KubevirtClient, vmi *v1.VirtualMachineInstance) string {
 	namespace := vmi.GetObjectMeta().GetNamespace()
-	domain := vmi.GetObjectMeta().GetName()
-	labelSelector := fmt.Sprintf("kubevirt.io/domain in (%s)", domain)
+	uid := vmi.GetObjectMeta().GetUID()
+	labelSelector := fmt.Sprintf(v1.CreatedByLabel + "=" + string(uid))
 
 	pods, err := virtCli.CoreV1().Pods(namespace).List(metav1.ListOptions{LabelSelector: labelSelector})
 	Expect(err).ToNot(HaveOccurred())

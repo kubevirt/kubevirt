@@ -88,7 +88,7 @@ var _ = Describe("Configurations", func() {
 				By("Checking the requested amount of memory allocated for a guest")
 				Expect(vmi.Spec.Domain.Resources.Requests.Memory().String()).To(Equal("64M"))
 
-				readyPod := tests.GetRunningPodByLabel(vmi.Name, v1.DomainLabel, tests.NamespaceTestDefault)
+				readyPod := tests.GetRunningPodByVirtualMachineInstance(vmi, tests.NamespaceTestDefault)
 				var computeContainer *kubev1.Container
 				for _, container := range readyPod.Spec.Containers {
 					println(container.Name)
