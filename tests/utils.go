@@ -71,6 +71,7 @@ var KubeVirtVersionTag = "latest"
 var KubeVirtRepoPrefix = "kubevirt"
 var KubeVirtKubectlPath = ""
 var KubeVirtOcPath = ""
+var KubeVirtVirtctlPath = ""
 var KubeVirtInstallNamespace = "kube-system"
 
 func init() {
@@ -78,6 +79,7 @@ func init() {
 	flag.StringVar(&KubeVirtRepoPrefix, "prefix", "kubevirt", "Set the repository prefix for all images")
 	flag.StringVar(&KubeVirtKubectlPath, "kubectl-path", "", "Set path to kubectl binary")
 	flag.StringVar(&KubeVirtOcPath, "oc-path", "", "Set path to oc binary")
+	flag.StringVar(&KubeVirtVirtctlPath, "virtctl-path", "", "Set path to virtctl binary")
 	flag.StringVar(&KubeVirtInstallNamespace, "installed-namespace", "kube-system", "Set the namespace KubeVirt is installed in")
 }
 
@@ -1488,7 +1490,6 @@ func RunVirtctlCommand(args ...string) (string, error) {
 	stdOutErrBytes, err := cmd.CombinedOutput()
 
 	if err != nil {
-		fmt.Printf("%s %s %s\n%s%v\n", kubeconfEnv, KubeVirtVirtctlPath, strings.Join(args, " "), string(stdOutErrBytes), err)
 		return string(stdOutErrBytes), err
 	}
 	return string(stdOutErrBytes), nil
