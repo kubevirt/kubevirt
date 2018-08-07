@@ -166,6 +166,15 @@ rules:
       - ''
     resources:
       - nodes
+    verbs:
+      - get
+      - list
+      - watch
+      - update
+      - patch
+  - apiGroups:
+      - ''
+    resources:
       - persistentvolumeclaims
     verbs:
       - get

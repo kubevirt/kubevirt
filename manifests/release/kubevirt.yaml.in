@@ -243,13 +243,16 @@ rules:
   - apiGroups:
       - ''
     resources:
-      - pods/finalizers
+      - nodes
     verbs:
+      - get
+      - list
+      - watch
       - update
+      - patch
   - apiGroups:
       - ''
     resources:
-      - nodes
       - persistentvolumeclaims
     verbs:
       - get
