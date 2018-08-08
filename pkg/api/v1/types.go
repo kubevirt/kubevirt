@@ -60,6 +60,8 @@ var SubresourceGroupVersion = schema.GroupVersion{Group: SubresourceGroupName, V
 // GroupVersionKind
 var VirtualMachineInstanceGroupVersionKind = schema.GroupVersionKind{Group: GroupName, Version: GroupVersion.Version, Kind: "VirtualMachineInstance"}
 
+var KubeVirtConfigGroupVersionKind = schema.GroupVersionKind{Group: GroupName, Version: GroupVersion.Version, Kind: "KubeVirtConfig"}
+
 var VirtualMachineInstanceReplicaSetGroupVersionKind = schema.GroupVersionKind{Group: GroupName, Version: GroupVersion.Version, Kind: "VirtualMachineInstanceReplicaSet"}
 
 var VirtualMachineInstancePresetGroupVersionKind = schema.GroupVersionKind{Group: GroupName, Version: GroupVersion.Version, Kind: "VirtualMachineInstancePreset"}
@@ -85,6 +87,8 @@ func addKnownTypes(scheme *runtime.Scheme) error {
 		&metav1.GetOptions{},
 		&VirtualMachine{},
 		&VirtualMachineList{},
+		&KubeVirtConfig{},
+		&KubeVirtConfigList{},
 	)
 	return nil
 }
@@ -768,3 +772,66 @@ const (
 	// etc. or deleted due to kubelet being down or finalizers are failing.
 	VirtualMachineFailure VirtualMachineConditionType = "Failure"
 )
+
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+// +k8s:openapi-gen=true
+type KubeVirtConfig struct {
+	metav1.TypeMeta   `json:",inline"`
+	metav1.ObjectMeta `json:"metadata,omitempty"`
+
+	Debug     *DebugOptions            `json:"debug,omitempty"`
+	Developer *DeveloperOptions        `json:"dev,omitempty"`
+	Networks  map[string]NetworkConfig `json:"networks,omitempty"`
+}
+
+// +k8s:openapi-gen=true
+type DebugOptions struct {
+	UseEmulation bool `json:"useEmulation"`
+}
+
+// +k8s:openapi-gen=true
+type DeveloperOptions struct {
+	ImagePullPolicy string `json:"imagePullPolicy,omitempty"`
+}
+
+// +k8s:openapi-gen=true
+type NetworkConfig struct {
+	LabelNetwork *LabelNetwork `json:"labelNetwork"`
+}
+
+// +k8s:openapi-gen=true
+type LabelNetwork struct {
+	Definitions []LabelNetworkDefinition `json:"definitions"`
+}
+
+// +k8s:openapi-gen=true
+type LabelNetworkDefinition struct {
+	NodeSelector map[string]string `json:"nodeSelector,omitempty"`
+	Bridge       *BridgeNetwork    `json:"bridge"`
+}
+
+func (c *KubeVirtConfig) IsUseEmulation() bool {
+	if c.Debug == nil {
+		return false
+	}
+	return c.Debug.UseEmulation
+}
+
+// Required to satisfy Object interface
+func (c *KubeVirtConfig) GetObjectKind() schema.ObjectKind {
+	return &c.TypeMeta
+}
+
+// Required to satisfy ObjectMetaAccessor interface
+func (c *KubeVirtConfig) GetObjectMeta() metav1.Object {
+	return &c.ObjectMeta
+}
+
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+// +k8s:openapi-gen=true
+type KubeVirtConfigList struct {
+	metav1.TypeMeta `json:",inline"`
+	metav1.ListMeta `json:"metadata"`
+
+	Items []KubeVirtConfig `json:"items"`
+}

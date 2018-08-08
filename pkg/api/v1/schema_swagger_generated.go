@@ -367,3 +367,12 @@ func (PodNetwork) SwaggerDoc() map[string]string {
 		"vmNetworkCIDR": "CIDR for vm network.\nDefault 10.0.2.0/24 if not specified.",
 	}
 }
+
+func (BridgeNetwork) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"":               "Represents a network which the vmi should connect to via a bridge",
+		"targetName":     "TargetName holds the target device path inside of the container. If Type is set to \"BridgeOrCreate\"\nand NodeTargetName is unset, this path will also be used to look up the source bridge on the node under this path",
+		"type":           "Type can be \"Bridge\" or \"BridgeOrCreate\". If \"Bridge\" is set.\nit is assumed that \"devicePath\" points to a bridge inside the\ncontainer. \"BridgeOrCreate\" will create a connection via veth pair to a bridge on the node",
+		"nodeTargetName": "NodeTargetName points to the bridge on the node which should be used in case Type is set to \"BridgeOrCreate\"",
+	}
+}

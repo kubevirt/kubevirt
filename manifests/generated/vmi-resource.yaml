@@ -217,6 +217,17 @@ spec:
             networks:
               items:
                 properties:
+                  bridge:
+                    properties:
+                      nodeTargetName:
+                        type: string
+                      targetName:
+                        type: string
+                      type:
+                        type: string
+                    required:
+                    - targetName
+                    - type
                   name:
                     type: string
                   pod:

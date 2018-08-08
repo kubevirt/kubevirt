@@ -34,19 +34,16 @@ import (
 
 	"k8s.io/apimachinery/pkg/util/wait"
 
-	"encoding/json"
-
-	v12 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/types"
-
 	"kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/cloud-init"
+	"kubevirt.io/kubevirt/pkg/config"
 	"kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/kubecli"
 	"kubevirt.io/kubevirt/pkg/log"
 	"kubevirt.io/kubevirt/pkg/precond"
 	"kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
-	"kubevirt.io/kubevirt/pkg/virt-handler/device-manager"
+	"kubevirt.io/kubevirt/pkg/virt-handler/devices"
+	"kubevirt.io/kubevirt/pkg/virt-handler/isolation"
 	"kubevirt.io/kubevirt/pkg/virt-launcher"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/pkg/watchdog"
@@ -61,7 +58,8 @@ func NewController(
 	domainInformer cache.SharedInformer,
 	gracefulShutdownInformer cache.SharedIndexInformer,
 	watchdogTimeoutSeconds int,
-	maxDevices int,
+	isolationDetector isolation.PodIsolationDetector,
+	clusterConfig *config.ClusterConfig,
 ) *VirtualMachineController {
 
 	queue := workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter())
@@ -75,7 +73,6 @@ func NewController(
 		vmiInformer:              vmiInformer,
 		domainInformer:           domainInformer,
 		gracefulShutdownInformer: gracefulShutdownInformer,
-		heartBeatInterval:        1 * time.Minute,
 		watchdogTimeoutSeconds:   watchdogTimeoutSeconds,
 	}
 
@@ -99,7 +96,8 @@ func NewController(
 
 	c.launcherClients = make(map[string]cmdclient.LauncherClient)
 
-	c.kvmController = device_manager.NewDeviceController(c.host, maxDevices)
+	c.DevicePlugins = []devices.Device{&devices.KVM{ClusterConfig: clusterConfig}, &devices.TUN{}, &devices.Bridge{}}
+	c.isolationDetector = isolationDetector
 
 	return c
 }
@@ -115,9 +113,9 @@ type VirtualMachineController struct {
 	gracefulShutdownInformer cache.SharedIndexInformer
 	launcherClients          map[string]cmdclient.LauncherClient
 	launcherClientLock       sync.Mutex
-	heartBeatInterval        time.Duration
 	watchdogTimeoutSeconds   int
-	kvmController            *device_manager.DeviceController
+	DevicePlugins            []devices.Device
+	isolationDetector        isolation.PodIsolationDetector
 }
 
 // Determines if a domain's grace period has expired during shutdown.
@@ -213,8 +211,6 @@ func (c *VirtualMachineController) Run(threadiness int, stopCh chan struct{}) {
 	go c.domainInformer.Run(stopCh)
 	cache.WaitForCacheSync(stopCh, c.domainInformer.HasSynced)
 
-	go c.kvmController.Run(stopCh)
-
 	// Poplulate the VirtualMachineInstance store with known Domains on the host, to get deletes since the last run
 	for _, domain := range c.domainInformer.GetStore().List() {
 		d := domain.(*api.Domain)
@@ -224,8 +220,6 @@ func (c *VirtualMachineController) Run(threadiness int, stopCh chan struct{}) {
 	go c.vmiInformer.Run(stopCh)
 	go c.gracefulShutdownInformer.Run(stopCh)
 	cache.WaitForCacheSync(stopCh, c.domainInformer.HasSynced, c.vmiInformer.HasSynced, c.gracefulShutdownInformer.HasSynced)
-
-	go c.heartBeat(c.heartBeatInterval, stopCh)
 
 	// Start the actual work
 	for i := 0; i < threadiness; i++ {
@@ -632,6 +626,20 @@ func (d *VirtualMachineController) processVmUpdate(origVMI *v1.VirtualMachineIns
 	if err != nil {
 		return err
 	}
+
+	podEnv, err := d.isolationDetector.Detect(vmi)
+
+	if err != nil {
+		return err
+	}
+	nodeEnv := isolation.NodeIsolationResult()
+
+	for _, device := range d.DevicePlugins {
+		if err := device.Setup(vmi, nodeEnv, podEnv); err != nil {
+			return err
+		}
+	}
+
 	err = client.SyncVirtualMachine(vmi)
 	if err != nil {
 		return err
@@ -754,25 +762,6 @@ func (d *VirtualMachineController) updateDomainFunc(old, new interface{}) {
 	key, err := controller.KeyFunc(new)
 	if err == nil {
 		d.Queue.Add(key)
-	}
-}
-
-func (d *VirtualMachineController) heartBeat(interval time.Duration, stopCh chan struct{}) {
-	for {
-		wait.JitterUntil(func() {
-			now, err := json.Marshal(v12.Now())
-			if err != nil {
-				log.DefaultLogger().Reason(err).Errorf("Can't determine date")
-				return
-			}
-			data := []byte(fmt.Sprintf(`{"metadata": { "labels": {"%s": "true"}, "annotations": {"%s": %s}}}`, v1.NodeSchedulable, v1.VirtHandlerHeartbeat, string(now)))
-			_, err = d.clientset.CoreV1().Nodes().Patch(d.host, types.StrategicMergePatchType, data)
-			if err != nil {
-				log.DefaultLogger().Reason(err).Errorf("Can't patch node %s", d.host)
-				return
-			}
-			log.DefaultLogger().V(4).Infof("Heartbeat sent")
-		}, interval, 1.2, true, stopCh)
 	}
 }
 

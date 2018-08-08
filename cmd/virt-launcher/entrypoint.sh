@@ -8,11 +8,6 @@ _term() {
 
 trap _term SIGTERM SIGINT SIGQUIT
 
-# FIXME: The plugin framework doesn't appear to (currently) have a means
-# to specify device ownership. This needs to be re-visited if that changes
-chown :qemu /dev/kvm
-chmod 660 /dev/kvm
-
 virt-launcher $@ &
 virt_launcher_pid=$!
 while true; do

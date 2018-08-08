@@ -154,3 +154,39 @@ func (VirtualMachineCondition) SwaggerDoc() map[string]string {
 		"": "VirtualMachineCondition represents the state of VirtualMachine",
 	}
 }
+
+func (KubeVirtConfig) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"": "+k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object\n+k8s:openapi-gen=true",
+	}
+}
+
+func (DebugOptions) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"": "+k8s:openapi-gen=true",
+	}
+}
+
+func (NetworkConfig) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"": "+k8s:openapi-gen=true",
+	}
+}
+
+func (LabelNetwork) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"": "+k8s:openapi-gen=true",
+	}
+}
+
+func (LabelNetworkDefinition) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"": "+k8s:openapi-gen=true",
+	}
+}
+
+func (KubeVirtConfigList) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"": "+k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object\n+k8s:openapi-gen=true",
+	}
+}

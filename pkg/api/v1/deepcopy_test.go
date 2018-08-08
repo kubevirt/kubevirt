@@ -68,6 +68,12 @@ var _ = Describe("Generated deepcopy functions", func() {
 			&VirtualMachineInstancePreset{},
 			&VirtualMachineInstancePresetList{},
 			&VirtualMachineInstancePresetSpec{},
+			&KubeVirtConfig{},
+			&KubeVirtConfigList{},
+			&DebugOptions{},
+			&NetworkConfig{},
+			&LabelNetwork{},
+			&NetworkConfig{},
 		}
 	})
 

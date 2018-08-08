@@ -151,6 +151,26 @@ func generateVirtualMachineInstanceCrd() {
 	crdutils.MarshallCrd(crd, "yaml")
 }
 
+func generateKubeVirtConfig() {
+	crd := generateBlankCrd()
+
+	crd.ObjectMeta.Name = "kubevirtconfigs." + v1.KubeVirtConfigGroupVersionKind.Group
+	crd.Spec = extensionsv1.CustomResourceDefinitionSpec{
+		Group:   v1.KubeVirtConfigGroupVersionKind.Group,
+		Version: v1.KubeVirtConfigGroupVersionKind.Version,
+		Scope:   "Namespaced",
+
+		Names: extensionsv1.CustomResourceDefinitionNames{
+			Plural:   "kubevirtconfigs",
+			Singular: "kubevirtconfig",
+			Kind:     v1.KubeVirtConfigGroupVersionKind.Kind,
+		},
+		Validation: crdutils.GetCustomResourceValidation("kubevirt.io/kubevirt/pkg/api/v1.KubeVirtConfig", definitionWrapper),
+	}
+
+	crdutils.MarshallCrd(crd, "yaml")
+}
+
 func main() {
 	crdType := flag.String("crd-type", "", "Type of crd to generate. vmi | vmipreset | vmirs | vm")
 	flag.Parse()
@@ -164,6 +184,8 @@ func main() {
 		generateReplicaSetCrd()
 	case "vm":
 		generateVirtualMachineCrd()
+	case "kubevirtconfig":
+		generateKubeVirtConfig()
 	default:
 		panic(fmt.Errorf("unknown crd type %s", *crdType))
 	}

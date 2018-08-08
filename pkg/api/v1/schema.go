@@ -759,7 +759,8 @@ type Network struct {
 // ---
 // +k8s:openapi-gen=true
 type NetworkSource struct {
-	Pod *PodNetwork `json:"pod,omitempty"`
+	Pod    *PodNetwork    `json:"pod,omitempty"`
+	Bridge *BridgeNetwork `json:"bridge,omitempty"`
 }
 
 // Represents the stock pod network interface.
@@ -769,4 +770,28 @@ type PodNetwork struct {
 	// CIDR for vm network.
 	// Default 10.0.2.0/24 if not specified.
 	VMNetworkCIDR string `json:"vmNetworkCIDR,omitempty"`
+}
+
+type BridgeType string
+
+const (
+	// A ready to use bridge must exist in the VMI container
+	Bridge BridgeType = "Bridge"
+	// If no bridge exists in the VMI container a bridge will be created
+	BridgeOrCreate BridgeType = "BridgeOrCreate"
+)
+
+// Represents a network which the vmi should connect to via a bridge
+// ---
+// +k8s:openapi-gen=true
+type BridgeNetwork struct {
+	// TargetName holds the target device path inside of the container. If Type is set to "BridgeOrCreate"
+	// and NodeTargetName is unset, this path will also be used to look up the source bridge on the node under this path
+	TargetName string `json:"targetName"`
+	// Type can be "Bridge" or "BridgeOrCreate". If "Bridge" is set.
+	// it is assumed that "devicePath" points to a bridge inside the
+	// container. "BridgeOrCreate" will create a connection via veth pair to a bridge on the node
+	Type BridgeType `json:"type"`
+	// NodeTargetName points to the bridge on the node which should be used in case Type is set to "BridgeOrCreate"
+	NodeTargetName string `json:"nodeTargetName,omitempty"`
 }

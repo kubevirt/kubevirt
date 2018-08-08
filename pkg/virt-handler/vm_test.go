@@ -37,11 +37,13 @@ import (
 	"k8s.io/client-go/kubernetes/fake"
 
 	"kubevirt.io/kubevirt/pkg/api/v1"
+	"kubevirt.io/kubevirt/pkg/config"
 	"kubevirt.io/kubevirt/pkg/kubecli"
 	"kubevirt.io/kubevirt/pkg/log"
 	"kubevirt.io/kubevirt/pkg/precond"
 	"kubevirt.io/kubevirt/pkg/testutils"
 	"kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
+	"kubevirt.io/kubevirt/pkg/virt-handler/isolation"
 	"kubevirt.io/kubevirt/pkg/virt-launcher"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/pkg/watchdog"
@@ -95,6 +97,8 @@ var _ = Describe("VirtualMachineInstance", func() {
 
 		mockWatchdog = &MockWatchdog{shareDir}
 		mockGracefulShutdown = &MockGracefulShutdown{shareDir}
+		mockIsolationDetector := isolation.NewMockPodIsolationDetector(ctrl)
+		mockIsolationDetector.EXPECT().Detect(gomock.Any()).AnyTimes()
 
 		controller = NewController(recorder,
 			virtClient,
@@ -104,8 +108,10 @@ var _ = Describe("VirtualMachineInstance", func() {
 			domainInformer,
 			gracefulShutdownInformer,
 			1,
-			10,
+			mockIsolationDetector,
+			config.NewClusterConfig(nil),
 		)
+		controller.DevicePlugins = nil
 
 		client = cmdclient.NewMockLauncherClient(ctrl)
 		sockFile := cmdclient.SocketFromUID(shareDir, "")

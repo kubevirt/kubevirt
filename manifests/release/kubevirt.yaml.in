@@ -540,3 +540,4 @@ spec:
 {{index .GeneratedManifests "vmirs-resource.yaml"}}
 {{index .GeneratedManifests "vmipreset-resource.yaml"}}
 {{index .GeneratedManifests "vm-resource.yaml"}}
+{{index .GeneratedManifests "kubevirtconfig-resource.yaml"}}

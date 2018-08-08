@@ -237,3 +237,15 @@ func NewDomain(dom cli.VirDomain) (*api.Domain, error) {
 	domain.GetObjectMeta().SetUID(domain.Spec.Metadata.KubeVirt.UID)
 	return domain, nil
 }
+
+func StartDomainEventMonitoring() {
+	go func() {
+		for {
+			if res := libvirt.EventRunDefaultImpl(); res != nil {
+				log.Log.Reason(res).Error("Listening to libvirt events failed, retrying.")
+				time.Sleep(time.Second)
+			}
+		}
+	}()
+
+}
