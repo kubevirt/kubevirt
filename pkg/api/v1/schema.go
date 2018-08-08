@@ -116,6 +116,11 @@ type Memory struct {
 	// Hugepages allow to use hugepages for the VirtualMachineInstance instead of regular memory.
 	// +optional
 	Hugepages *Hugepages `json:"hugepages,omitempty"`
+	// Guest allows to specifying the amount of memory which is visible inside the Guest OS.
+	// The Guest must lie between Requests and Limits from the resources section.
+	// Defaults to the requested memory in the resources section if not specified.
+	// + optional
+	Guest *resource.Quantity `json:"guest,omitempty"`
 }
 
 // Hugepages allow to use hugepages for the VirtualMachineInstance instead of regular memory.

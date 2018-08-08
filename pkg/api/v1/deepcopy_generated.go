@@ -22,6 +22,7 @@ package v1
 
 import (
 	core_v1 "k8s.io/api/core/v1"
+	resource "k8s.io/apimachinery/pkg/api/resource"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	runtime "k8s.io/apimachinery/pkg/runtime"
 )
@@ -957,6 +958,15 @@ func (in *Memory) DeepCopyInto(out *Memory) {
 		} else {
 			*out = new(Hugepages)
 			**out = **in
+		}
+	}
+	if in.Guest != nil {
+		in, out := &in.Guest, &out.Guest
+		if *in == nil {
+			*out = nil
+		} else {
+			*out = new(resource.Quantity)
+			**out = (*in).DeepCopy()
 		}
 	}
 	return
