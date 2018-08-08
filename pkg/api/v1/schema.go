@@ -43,7 +43,7 @@ type HostDisk struct {
 	Type HostDiskType `json:"type"`
 	// Capacity of the sparse disk
 	// +optional
-	Capacity resource.Quantity `json:"capacity"`
+	Capacity resource.Quantity `json:"capacity,omitempty"`
 }
 
 // Represents a cloud-init nocloud user data source.

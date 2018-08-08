@@ -303,6 +303,34 @@ func validateVolumes(field *k8sfield.Path, volumes []v1.Volume) []metav1.StatusC
 				})
 			}
 		}
+
+		// validate HostDisk data
+		if hostDisk := volume.HostDisk; hostDisk != nil {
+			if hostDisk.Path == "" {
+				causes = append(causes, metav1.StatusCause{
+					Type:    metav1.CauseTypeFieldValueNotFound,
+					Message: fmt.Sprintf("%s is required for hostDisk volume", field.Index(idx).Child("hostDisk", "path").String()),
+					Field:   field.Index(idx).Child("hostDisk", "path").String(),
+				})
+			}
+
+			if hostDisk.Type != v1.HostDiskExists && hostDisk.Type != v1.HostDiskExistsOrCreate {
+				causes = append(causes, metav1.StatusCause{
+					Type:    metav1.CauseTypeFieldValueInvalid,
+					Message: fmt.Sprintf("%s has invalid value '%s', allowed are '%s' or '%s'", field.Index(idx).Child("hostDisk", "type").String(), hostDisk.Type, v1.HostDiskExists, v1.HostDiskExistsOrCreate),
+					Field:   field.Index(idx).Child("hostDisk", "type").String(),
+				})
+			}
+
+			// if disk.img already exists and user knows that by specifying type 'Disk' it is pointless to set capacity
+			if hostDisk.Type == v1.HostDiskExists && hostDisk.Capacity != (resource.Quantity{}) {
+				causes = append(causes, metav1.StatusCause{
+					Type:    metav1.CauseTypeFieldValueInvalid,
+					Message: fmt.Sprintf("%s is allowed to pass only with %s equal to '%s'", field.Index(idx).Child("hostDisk", "capacity").String(), field.Index(idx).Child("hostDisk", "type").String(), v1.HostDiskExists),
+					Field:   field.Index(idx).Child("hostDisk", "capacity").String(),
+				})
+			}
+		}
 	}
 	return causes
 }

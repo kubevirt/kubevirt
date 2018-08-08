@@ -46,11 +46,15 @@ func dirBytesAvailable(path string) (uint64, error) {
 	return (stat.Bavail * uint64(stat.Bsize)), nil
 }
 
-func createSparseRaw(fullPath string, size int64) {
+func createSparseRaw(fullPath string, size int64) error {
 	offset := size - 1
 	f, _ := os.Create(fullPath)
 	defer f.Close()
-	f.WriteAt([]byte{0}, offset)
+	_, err := f.WriteAt([]byte{0}, offset)
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 func GetPVCDiskImgPath(volumeName string) string {
@@ -83,7 +87,10 @@ func CreateHostDisks(vmi *v1.VirtualMachineInstance) error {
 				if uint64(size) > availableSpace {
 					return errors.New(fmt.Sprintf("Unable to create %s with size %s - not enough space on the cluster", hostDisk.Path, hostDisk.Capacity.String()))
 				}
-				createSparseRaw(hostDisk.Path, size)
+				err = createSparseRaw(hostDisk.Path, size)
+				if err != nil {
+					return err
+				}
 			} else if err != nil {
 				return err
 			}
