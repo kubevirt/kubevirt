@@ -138,6 +138,9 @@ rules:
       - ''
     resources:
       - pods
+      - configmaps
+      - endpoints
+      - limitranges
     verbs:
       - get
       - list
@@ -148,7 +151,30 @@ rules:
   - apiGroups:
       - ''
     resources:
+      - events
+    verbs:
+      - update
+      - create
+      - patch
+  - apiGroups:
+      - ''
+    resources:
+      - pods/finalizers
+    verbs:
+      - update
+  - apiGroups:
+      - ''
+    resources:
       - nodes
+    verbs:
+      - get
+      - list
+      - watch
+      - update
+      - patch
+  - apiGroups:
+      - ''
+    resources:
       - persistentvolumeclaims
     verbs:
       - get
@@ -157,16 +183,9 @@ rules:
   - apiGroups:
       - kubevirt.io
     resources:
-      - virtualmachineinstances
-      - virtualmachineinstancereplicasets
+      - '*'
     verbs:
-      - get
-      - list
-      - watch
-      - delete
-      - update
-      - create
-      - deletecollection
+      - '*'
 ---
 apiVersion: v1
 kind: ServiceAccount
@@ -194,22 +213,6 @@ metadata:
 roleRef:
   kind: ClusterRole
   name: kubevirt-controller
-  apiGroup: rbac.authorization.k8s.io
-subjects:
-  - kind: ServiceAccount
-    name: kubevirt-controller
-    namespace: {{.Namespace}}
----
-apiVersion: rbac.authorization.k8s.io/v1beta1
-kind: ClusterRoleBinding
-metadata:
-  name: kubevirt-controller-cluster-admin
-  namespace: {{.Namespace}}
-  labels:
-    kubevirt.io: ""
-roleRef:
-  kind: ClusterRole
-  name: cluster-admin
   apiGroup: rbac.authorization.k8s.io
 subjects:
   - kind: ServiceAccount
