@@ -565,6 +565,20 @@ var _ = Describe("Converter", func() {
 			Expect(domainSpec.Memory.Value).To(Equal(uint64(8388608)))
 			Expect(domainSpec.Memory.Unit).To(Equal("B"))
 		})
+
+		It("should use guest memory instead of requested memory if present", func() {
+			guestMemory := resource.MustParse("123Mi")
+			vmi.Spec.Domain.Memory = &v1.Memory{
+				Guest: &guestMemory,
+			}
+			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
+
+			domainSpec := vmiToDomainXMLToDomainSpec(vmi, c)
+
+			Expect(domainSpec.Memory.Value).To(Equal(uint64(128974848)))
+			Expect(domainSpec.Memory.Unit).To(Equal("B"))
+		})
+
 	})
 	Context("Network convert", func() {
 		var vmi *v1.VirtualMachineInstance
