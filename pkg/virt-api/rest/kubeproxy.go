@@ -62,7 +62,15 @@ func GroupVersionProxyBase(ctx context.Context, gv schema.GroupVersion) (*restfu
 			Operation("getAPIResources").
 			Doc("Get KubeVirt API Resources").
 			Returns(http.StatusOK, "OK", metav1.APIResourceList{}).
-			Returns(http.StatusNotFound, "Not Found", nil),
+			Returns(http.StatusNotFound, "Not Found", &metav1.Status{
+				Status: metav1.StatusFailure,
+				Code:   http.StatusNotFound,
+				Reason: metav1.StatusReasonNotFound,
+				Details: &metav1.StatusDetails{
+					Group: gv.Group,
+				},
+				Message: fmt.Sprintf("%s of version %s not found", gv.Group, gv.Version),
+			}),
 	)
 	return ws, nil
 }
@@ -98,7 +106,7 @@ func GenericResourceProxy(ws *restful.WebService, ctx context.Context, gvr schem
 			Returns(http.StatusOK, "OK", objExample).
 			Returns(http.StatusCreated, "Created", objExample).
 			Returns(http.StatusAccepted, "Accepted", objExample).
-			Returns(http.StatusUnauthorized, "Unauthorized", nil), ws,
+			Returns(http.StatusUnauthorized, "Unauthorized", NewUnauthorized("")), ws,
 	))
 
 	ws.Route(addPutParams(
@@ -110,7 +118,7 @@ func GenericResourceProxy(ws *restful.WebService, ctx context.Context, gvr schem
 			Doc("Update a "+objKind+" object.").
 			Returns(http.StatusOK, "OK", objExample).
 			Returns(http.StatusCreated, "Create", objExample).
-			Returns(http.StatusUnauthorized, "Unauthorized", nil), ws,
+			Returns(http.StatusUnauthorized, "Unauthorized", NewUnauthorized("")), ws,
 	))
 
 	ws.Route(addDeleteParams(
@@ -122,7 +130,7 @@ func GenericResourceProxy(ws *restful.WebService, ctx context.Context, gvr schem
 			Reads(metav1.DeleteOptions{}).Writes(metav1.Status{}).
 			Doc("Delete a "+objKind+" object.").
 			Returns(http.StatusOK, "OK", metav1.Status{}).
-			Returns(http.StatusUnauthorized, "Unauthorized", nil), ws,
+			Returns(http.StatusUnauthorized, "Unauthorized", NewUnauthorized("")), ws,
 	))
 
 	ws.Route(addGetParams(
@@ -132,7 +140,7 @@ func GenericResourceProxy(ws *restful.WebService, ctx context.Context, gvr schem
 			To(endpoints.MakeGoRestfulWrapper(get)).Writes(objExample).
 			Doc("Get a "+objKind+" object.").
 			Returns(http.StatusOK, "OK", objExample).
-			Returns(http.StatusUnauthorized, "Unauthorized", nil), ws,
+			Returns(http.StatusUnauthorized, "Unauthorized", NewUnauthorized("")), ws,
 	))
 
 	ws.Route(addGetAllNamespacesListParams(
@@ -142,7 +150,7 @@ func GenericResourceProxy(ws *restful.WebService, ctx context.Context, gvr schem
 			To(endpoints.MakeGoRestfulWrapper(getListAllNamespaces)).Writes(listExample).
 			Doc("Get a list of all "+objKind+" objects.").
 			Returns(http.StatusOK, "OK", listExample).
-			Returns(http.StatusUnauthorized, "Unauthorized", nil), ws,
+			Returns(http.StatusUnauthorized, "Unauthorized", NewUnauthorized("")), ws,
 	))
 
 	ws.Route(addPatchParams(
@@ -154,7 +162,7 @@ func GenericResourceProxy(ws *restful.WebService, ctx context.Context, gvr schem
 			Writes(objExample).Reads(metav1.Patch{}).
 			Doc("Patch a "+objKind+" object.").
 			Returns(http.StatusOK, "OK", objExample).
-			Returns(http.StatusUnauthorized, "Unauthorized", nil), ws,
+			Returns(http.StatusUnauthorized, "Unauthorized", NewUnauthorized("")), ws,
 	))
 
 	// TODO, implement watch. For now it is here to provide swagger doc only
@@ -165,7 +173,7 @@ func GenericResourceProxy(ws *restful.WebService, ctx context.Context, gvr schem
 			To(NotImplementedYet).Writes(metav1.WatchEvent{}).
 			Doc("Watch a "+objKind+"List object.").
 			Returns(http.StatusOK, "OK", metav1.WatchEvent{}).
-			Returns(http.StatusUnauthorized, "Unauthorized", nil), ws,
+			Returns(http.StatusUnauthorized, "Unauthorized", NewUnauthorized("")), ws,
 	))
 
 	// TODO, implement watch. For now it is here to provide swagger doc only
@@ -176,7 +184,7 @@ func GenericResourceProxy(ws *restful.WebService, ctx context.Context, gvr schem
 			To(NotImplementedYet).Writes(metav1.WatchEvent{}).
 			Doc("Watch a "+objKind+" object.").
 			Returns(http.StatusOK, "OK", metav1.WatchEvent{}).
-			Returns(http.StatusUnauthorized, "Unauthorized", nil), ws,
+			Returns(http.StatusUnauthorized, "Unauthorized", NewUnauthorized("")), ws,
 	))
 
 	ws.Route(addGetNamespacedListParams(
@@ -187,7 +195,7 @@ func GenericResourceProxy(ws *restful.WebService, ctx context.Context, gvr schem
 			To(endpoints.MakeGoRestfulWrapper(getList)).
 			Doc("Get a list of "+objKind+" objects.").
 			Returns(http.StatusOK, "OK", listExample).
-			Returns(http.StatusUnauthorized, "Unauthorized", nil), ws,
+			Returns(http.StatusUnauthorized, "Unauthorized", NewUnauthorized("")), ws,
 	))
 
 	ws.Route(addDeleteListParams(
@@ -197,7 +205,7 @@ func GenericResourceProxy(ws *restful.WebService, ctx context.Context, gvr schem
 			To(endpoints.MakeGoRestfulWrapper(deleteList)).Writes(metav1.Status{}).
 			Doc("Delete a collection of "+objKind+" objects.").
 			Returns(http.StatusOK, "OK", metav1.Status{}).
-			Returns(http.StatusUnauthorized, "Unauthorized", nil), ws,
+			Returns(http.StatusUnauthorized, "Unauthorized", NewUnauthorized("")), ws,
 	))
 
 	return ws, nil
@@ -217,7 +225,7 @@ func ResourceProxyAutodiscovery(ctx context.Context, gvr schema.GroupVersionReso
 		Doc("Get a KubeVirt API group").
 		Operation("getAPIGroup").
 		Returns(http.StatusOK, "OK", metav1.APIGroup{}).
-		Returns(http.StatusNotFound, "Not Found", nil))
+		Returns(http.StatusNotFound, "Not Found", NewNotFound(gvr.GroupResource(), "")))
 	return ws, nil
 }
 

@@ -23,7 +23,129 @@ spec:
           type: string
         kind:
           type: string
-        metadata: {}
+        metadata:
+          properties:
+            annotations:
+              type: object
+            clusterName:
+              type: string
+            creationTimestamp:
+              properties:
+                Time:
+                  format: date-time
+                  type: string
+              required:
+              - Time
+            deletionGracePeriodSeconds:
+              format: int64
+              type: integer
+            deletionTimestamp:
+              properties:
+                Time:
+                  format: date-time
+                  type: string
+              required:
+              - Time
+            finalizers:
+              items:
+                type: string
+              type: array
+            generateName:
+              type: string
+            generation:
+              format: int64
+              type: integer
+            initializers:
+              properties:
+                pending:
+                  items:
+                    properties:
+                      name:
+                        type: string
+                    required:
+                    - name
+                  type: array
+                result:
+                  properties:
+                    apiVersion:
+                      type: string
+                    code:
+                      format: int32
+                      type: integer
+                    details:
+                      properties:
+                        causes:
+                          items:
+                            properties:
+                              field:
+                                type: string
+                              message:
+                                type: string
+                              reason:
+                                type: string
+                          type: array
+                        group:
+                          type: string
+                        kind:
+                          type: string
+                        name:
+                          type: string
+                        retryAfterSeconds:
+                          format: int32
+                          type: integer
+                        uid:
+                          type: string
+                    kind:
+                      type: string
+                    message:
+                      type: string
+                    metadata:
+                      properties:
+                        continue:
+                          type: string
+                        resourceVersion:
+                          type: string
+                        selfLink:
+                          type: string
+                    reason:
+                      type: string
+                    status:
+                      type: string
+              required:
+              - pending
+            labels:
+              type: object
+            name:
+              type: string
+            namespace:
+              type: string
+            ownerReferences:
+              items:
+                properties:
+                  apiVersion:
+                    type: string
+                  blockOwnerDeletion:
+                    type: boolean
+                  controller:
+                    type: boolean
+                  kind:
+                    type: string
+                  name:
+                    type: string
+                  uid:
+                    type: string
+                required:
+                - apiVersion
+                - kind
+                - name
+                - uid
+              type: array
+            resourceVersion:
+              type: string
+            selfLink:
+              type: string
+            uid:
+              type: string
         spec:
           properties:
             domain:
@@ -208,7 +330,25 @@ spec:
                       type: boolean
                     requests:
                       type: object
-            selector: {}
+            selector:
+              properties:
+                matchExpressions:
+                  items:
+                    properties:
+                      key:
+                        type: string
+                      operator:
+                        type: string
+                      values:
+                        items:
+                          type: string
+                        type: array
+                    required:
+                    - key
+                    - operator
+                  type: array
+                matchLabels:
+                  type: object
           required:
           - selector
   version: v1alpha2

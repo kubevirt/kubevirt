@@ -179,8 +179,12 @@ func (app *virtAPIApp) composeResources(ctx context.Context) {
 		Produces(restful.MIME_JSON).
 		Operation("checkHealth").
 		Doc("Health endpoint").
-		Returns(http.StatusOK, "OK", nil).
-		Returns(http.StatusInternalServerError, "Unhealthy", nil))
+		Returns(http.StatusOK, "OK", &metav1.Status{
+			Status:  metav1.StatusSuccess,
+			Code:    http.StatusOK,
+			Message: "Healthy",
+		}).
+		Returns(http.StatusInternalServerError, "Unhealthy", rest.NewInternalError(fmt.Errorf("Unhealthy"))))
 	ws, err = rest.ResourceProxyAutodiscovery(ctx, vmiGVR)
 	if err != nil {
 		panic(err)
@@ -212,6 +216,7 @@ func subresourceAPIGroup() metav1.APIGroup {
 func (app *virtAPIApp) composeSubresources(ctx context.Context) {
 
 	subresourcesvmiGVR := schema.GroupVersionResource{Group: v1.SubresourceGroupVersion.Group, Version: v1.SubresourceGroupVersion.Version, Resource: "virtualmachineinstances"}
+	subresourcesvmiGR := subresourcesvmiGVR.GroupResource()
 
 	subws := new(restful.WebService)
 	subws.Doc("The KubeVirt Subresource API.")
@@ -262,10 +267,10 @@ func (app *virtAPIApp) composeSubresources(ctx context.Context) {
 
 			response.WriteAsJson(list)
 		}).
-		Operation("getAPIResources").
-		Doc("Get a KubeVirt API resources").
+		Operation("getAPISubResources").
+		Doc("Get a KubeVirt API sub-resources").
 		Returns(http.StatusOK, "OK", metav1.APIResourceList{}).
-		Returns(http.StatusNotFound, "Not Found", nil))
+		Returns(http.StatusNotFound, "Not Found", rest.NewNotFound(subresourcesvmiGR, "")))
 
 	restful.Add(subws)
 
@@ -277,10 +282,10 @@ func (app *virtAPIApp) composeSubresources(ctx context.Context) {
 		To(func(request *restful.Request, response *restful.Response) {
 			response.WriteAsJson(subresourceAPIGroup())
 		}).
-		Operation("getAPIGroup").
+		Operation("getSubresourceAPIGroup").
 		Doc("Get a KubeVirt API Group").
 		Returns(http.StatusOK, "OK", metav1.APIGroup{}).
-		Returns(http.StatusNotFound, "Not Found", nil))
+		Returns(http.StatusNotFound, "Not Found", rest.NewNotFound(subresourcesvmiGR, "")))
 
 	// K8s needs the ability to query the list of API groups this endpoint supports
 	ws.Route(ws.GET("apis").
@@ -291,10 +296,10 @@ func (app *virtAPIApp) composeSubresources(ctx context.Context) {
 			list.Groups = append(list.Groups, subresourceAPIGroup())
 			response.WriteAsJson(list)
 		}).
-		Operation("getAPIGroup").
+		Operation("getSubresourceAPIGroupList").
 		Doc("Get a KubeVirt API GroupList").
 		Returns(http.StatusOK, "OK", metav1.APIGroupList{}).
-		Returns(http.StatusNotFound, "Not Found", nil))
+		Returns(http.StatusNotFound, "Not Found", rest.NewNotFound(subresourcesvmiGR, "")))
 
 	restful.Add(ws)
 }

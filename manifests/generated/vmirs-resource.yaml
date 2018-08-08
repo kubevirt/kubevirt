@@ -23,7 +23,129 @@ spec:
           type: string
         kind:
           type: string
-        metadata: {}
+        metadata:
+          properties:
+            annotations:
+              type: object
+            clusterName:
+              type: string
+            creationTimestamp:
+              properties:
+                Time:
+                  format: date-time
+                  type: string
+              required:
+              - Time
+            deletionGracePeriodSeconds:
+              format: int64
+              type: integer
+            deletionTimestamp:
+              properties:
+                Time:
+                  format: date-time
+                  type: string
+              required:
+              - Time
+            finalizers:
+              items:
+                type: string
+              type: array
+            generateName:
+              type: string
+            generation:
+              format: int64
+              type: integer
+            initializers:
+              properties:
+                pending:
+                  items:
+                    properties:
+                      name:
+                        type: string
+                    required:
+                    - name
+                  type: array
+                result:
+                  properties:
+                    apiVersion:
+                      type: string
+                    code:
+                      format: int32
+                      type: integer
+                    details:
+                      properties:
+                        causes:
+                          items:
+                            properties:
+                              field:
+                                type: string
+                              message:
+                                type: string
+                              reason:
+                                type: string
+                          type: array
+                        group:
+                          type: string
+                        kind:
+                          type: string
+                        name:
+                          type: string
+                        retryAfterSeconds:
+                          format: int32
+                          type: integer
+                        uid:
+                          type: string
+                    kind:
+                      type: string
+                    message:
+                      type: string
+                    metadata:
+                      properties:
+                        continue:
+                          type: string
+                        resourceVersion:
+                          type: string
+                        selfLink:
+                          type: string
+                    reason:
+                      type: string
+                    status:
+                      type: string
+              required:
+              - pending
+            labels:
+              type: object
+            name:
+              type: string
+            namespace:
+              type: string
+            ownerReferences:
+              items:
+                properties:
+                  apiVersion:
+                    type: string
+                  blockOwnerDeletion:
+                    type: boolean
+                  controller:
+                    type: boolean
+                  kind:
+                    type: string
+                  name:
+                    type: string
+                  uid:
+                    type: string
+                required:
+                - apiVersion
+                - kind
+                - name
+                - uid
+              type: array
+            resourceVersion:
+              type: string
+            selfLink:
+              type: string
+            uid:
+              type: string
         spec:
           properties:
             paused:
@@ -31,13 +153,354 @@ spec:
             replicas:
               format: int32
               type: integer
-            selector: {}
+            selector:
+              properties:
+                matchExpressions:
+                  items:
+                    properties:
+                      key:
+                        type: string
+                      operator:
+                        type: string
+                      values:
+                        items:
+                          type: string
+                        type: array
+                    required:
+                    - key
+                    - operator
+                  type: array
+                matchLabels:
+                  type: object
             template:
               properties:
-                metadata: {}
+                metadata:
+                  properties:
+                    annotations:
+                      type: object
+                    clusterName:
+                      type: string
+                    creationTimestamp:
+                      properties:
+                        Time:
+                          format: date-time
+                          type: string
+                      required:
+                      - Time
+                    deletionGracePeriodSeconds:
+                      format: int64
+                      type: integer
+                    deletionTimestamp:
+                      properties:
+                        Time:
+                          format: date-time
+                          type: string
+                      required:
+                      - Time
+                    finalizers:
+                      items:
+                        type: string
+                      type: array
+                    generateName:
+                      type: string
+                    generation:
+                      format: int64
+                      type: integer
+                    initializers:
+                      properties:
+                        pending:
+                          items:
+                            properties:
+                              name:
+                                type: string
+                            required:
+                            - name
+                          type: array
+                        result:
+                          properties:
+                            apiVersion:
+                              type: string
+                            code:
+                              format: int32
+                              type: integer
+                            details:
+                              properties:
+                                causes:
+                                  items:
+                                    properties:
+                                      field:
+                                        type: string
+                                      message:
+                                        type: string
+                                      reason:
+                                        type: string
+                                  type: array
+                                group:
+                                  type: string
+                                kind:
+                                  type: string
+                                name:
+                                  type: string
+                                retryAfterSeconds:
+                                  format: int32
+                                  type: integer
+                                uid:
+                                  type: string
+                            kind:
+                              type: string
+                            message:
+                              type: string
+                            metadata:
+                              properties:
+                                continue:
+                                  type: string
+                                resourceVersion:
+                                  type: string
+                                selfLink:
+                                  type: string
+                            reason:
+                              type: string
+                            status:
+                              type: string
+                      required:
+                      - pending
+                    labels:
+                      type: object
+                    name:
+                      type: string
+                    namespace:
+                      type: string
+                    ownerReferences:
+                      items:
+                        properties:
+                          apiVersion:
+                            type: string
+                          blockOwnerDeletion:
+                            type: boolean
+                          controller:
+                            type: boolean
+                          kind:
+                            type: string
+                          name:
+                            type: string
+                          uid:
+                            type: string
+                        required:
+                        - apiVersion
+                        - kind
+                        - name
+                        - uid
+                      type: array
+                    resourceVersion:
+                      type: string
+                    selfLink:
+                      type: string
+                    uid:
+                      type: string
                 spec:
                   properties:
-                    affinity: {}
+                    affinity:
+                      properties:
+                        nodeAffinity:
+                          properties:
+                            preferredDuringSchedulingIgnoredDuringExecution:
+                              items:
+                                properties:
+                                  preference:
+                                    properties:
+                                      matchExpressions:
+                                        items:
+                                          properties:
+                                            key:
+                                              type: string
+                                            operator:
+                                              type: string
+                                            values:
+                                              items:
+                                                type: string
+                                              type: array
+                                          required:
+                                          - key
+                                          - operator
+                                        type: array
+                                    required:
+                                    - matchExpressions
+                                  weight:
+                                    format: int32
+                                    type: integer
+                                required:
+                                - weight
+                                - preference
+                              type: array
+                            requiredDuringSchedulingIgnoredDuringExecution:
+                              properties:
+                                nodeSelectorTerms:
+                                  items:
+                                    properties:
+                                      matchExpressions:
+                                        items:
+                                          properties:
+                                            key:
+                                              type: string
+                                            operator:
+                                              type: string
+                                            values:
+                                              items:
+                                                type: string
+                                              type: array
+                                          required:
+                                          - key
+                                          - operator
+                                        type: array
+                                    required:
+                                    - matchExpressions
+                                  type: array
+                              required:
+                              - nodeSelectorTerms
+                        podAffinity:
+                          properties:
+                            preferredDuringSchedulingIgnoredDuringExecution:
+                              items:
+                                properties:
+                                  podAffinityTerm:
+                                    properties:
+                                      labelSelector:
+                                        properties:
+                                          matchExpressions:
+                                            items:
+                                              properties:
+                                                key:
+                                                  type: string
+                                                operator:
+                                                  type: string
+                                                values:
+                                                  items:
+                                                    type: string
+                                                  type: array
+                                              required:
+                                              - key
+                                              - operator
+                                            type: array
+                                          matchLabels:
+                                            type: object
+                                      namespaces:
+                                        items:
+                                          type: string
+                                        type: array
+                                      topologyKey:
+                                        type: string
+                                    required:
+                                    - topologyKey
+                                  weight:
+                                    format: int32
+                                    type: integer
+                                required:
+                                - weight
+                                - podAffinityTerm
+                              type: array
+                            requiredDuringSchedulingIgnoredDuringExecution:
+                              items:
+                                properties:
+                                  labelSelector:
+                                    properties:
+                                      matchExpressions:
+                                        items:
+                                          properties:
+                                            key:
+                                              type: string
+                                            operator:
+                                              type: string
+                                            values:
+                                              items:
+                                                type: string
+                                              type: array
+                                          required:
+                                          - key
+                                          - operator
+                                        type: array
+                                      matchLabels:
+                                        type: object
+                                  namespaces:
+                                    items:
+                                      type: string
+                                    type: array
+                                  topologyKey:
+                                    type: string
+                                required:
+                                - topologyKey
+                              type: array
+                        podAntiAffinity:
+                          properties:
+                            preferredDuringSchedulingIgnoredDuringExecution:
+                              items:
+                                properties:
+                                  podAffinityTerm:
+                                    properties:
+                                      labelSelector:
+                                        properties:
+                                          matchExpressions:
+                                            items:
+                                              properties:
+                                                key:
+                                                  type: string
+                                                operator:
+                                                  type: string
+                                                values:
+                                                  items:
+                                                    type: string
+                                                  type: array
+                                              required:
+                                              - key
+                                              - operator
+                                            type: array
+                                          matchLabels:
+                                            type: object
+                                      namespaces:
+                                        items:
+                                          type: string
+                                        type: array
+                                      topologyKey:
+                                        type: string
+                                    required:
+                                    - topologyKey
+                                  weight:
+                                    format: int32
+                                    type: integer
+                                required:
+                                - weight
+                                - podAffinityTerm
+                              type: array
+                            requiredDuringSchedulingIgnoredDuringExecution:
+                              items:
+                                properties:
+                                  labelSelector:
+                                    properties:
+                                      matchExpressions:
+                                        items:
+                                          properties:
+                                            key:
+                                              type: string
+                                            operator:
+                                              type: string
+                                            values:
+                                              items:
+                                                type: string
+                                              type: array
+                                          required:
+                                          - key
+                                          - operator
+                                        type: array
+                                      matchLabels:
+                                        type: object
+                                  namespaces:
+                                    items:
+                                      type: string
+                                    type: array
+                                  topologyKey:
+                                    type: string
+                                required:
+                                - topologyKey
+                              type: array
                     domain:
                       properties:
                         clock:
@@ -244,29 +707,80 @@ spec:
                       format: int64
                       type: integer
                     tolerations:
-                      items: {}
+                      items:
+                        properties:
+                          effect:
+                            type: string
+                          key:
+                            type: string
+                          operator:
+                            type: string
+                          tolerationSeconds:
+                            format: int64
+                            type: integer
+                          value:
+                            type: string
                       type: array
                     volumes:
                       items:
                         properties:
                           cloudInitNoCloud:
                             properties:
-                              secretRef: {}
+                              secretRef:
+                                properties:
+                                  name:
+                                    type: string
                               userData:
                                 type: string
                               userDataBase64:
                                 type: string
                           emptyDisk:
                             properties:
-                              capacity: {}
+                              capacity:
+                                properties:
+                                  Format:
+                                    type: string
+                                  d: {}
+                                  i:
+                                    properties:
+                                      scale:
+                                        format: int32
+                                        type: integer
+                                      value:
+                                        format: int64
+                                        type: integer
+                                    required:
+                                    - value
+                                    - scale
+                                  s:
+                                    type: string
+                                required:
+                                - i
+                                - d
+                                - s
+                                - Format
                             required:
                             - capacity
                           ephemeral:
                             properties:
-                              persistentVolumeClaim: {}
+                              persistentVolumeClaim:
+                                properties:
+                                  claimName:
+                                    type: string
+                                  readOnly:
+                                    type: boolean
+                                required:
+                                - claimName
                           name:
                             type: string
-                          persistentVolumeClaim: {}
+                          persistentVolumeClaim:
+                            properties:
+                              claimName:
+                                type: string
+                              readOnly:
+                                type: boolean
+                            required:
+                            - claimName
                           registryDisk:
                             properties:
                               image:
@@ -288,8 +802,20 @@ spec:
             conditions:
               items:
                 properties:
-                  lastProbeTime: {}
-                  lastTransitionTime: {}
+                  lastProbeTime:
+                    properties:
+                      Time:
+                        format: date-time
+                        type: string
+                    required:
+                    - Time
+                  lastTransitionTime:
+                    properties:
+                      Time:
+                        format: date-time
+                        type: string
+                    required:
+                    - Time
                   message:
                     type: string
                   reason:

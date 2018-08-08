@@ -53,39 +53,43 @@ func dumpOpenApiSpec(dumppath *string) {
 }
 
 func createOpenAPIConfig() *openapicommon.Config {
-	security := make([]map[string][]string, 1)
-	security[0] = map[string][]string{"BearerToken": {}}
 	return &openapicommon.Config{
-		GetDefinitions: kubev1.GetOpenAPIDefinitions,
-		ProtocolList:   []string{"https"},
-		IgnorePrefixes: []string{"/swaggerapi"},
-		Info: &openapispec.Info{
-			InfoProps: openapispec.InfoProps{
-				Title:       "KubeVirt API",
-				Description: "This is KubeVirt API an add-on for Kubernetes.",
-				Contact: &openapispec.ContactInfo{
-					Name:  "kubevirt-dev",
-					Email: "kubevirt-dev@googlegroups.com",
-					URL:   "https://github.com/kubevirt/kubevirt",
-				},
-				License: &openapispec.License{
-					Name: "Apache 2.0",
-					URL:  "https://www.apache.org/licenses/LICENSE-2.0",
-				},
-			},
-		},
-		SecurityDefinitions: &openapispec.SecurityDefinitions{
-			"BearerToken": &openapispec.SecurityScheme{
-				SecuritySchemeProps: openapispec.SecuritySchemeProps{
-					Type:        "apiKey",
-					Name:        "authorization",
-					In:          "header",
-					Description: "Bearer Token authentication",
-				},
-			},
-		},
-		DefaultSecurity: security,
+		GetDefinitions:  kubev1.GetOpenAPIDefinitions,
+		ProtocolList:    []string{"https"},
+		IgnorePrefixes:  []string{"/swaggerapi"},
+		PostProcessSpec: addInfoToSwaggerObject,
 	}
+}
+
+func addInfoToSwaggerObject(swo *openapispec.Swagger) (*openapispec.Swagger, error) {
+	swo.Info = &openapispec.Info{
+		InfoProps: openapispec.InfoProps{
+			Title:       "KubeVirt API",
+			Description: "This is KubeVirt API an add-on for Kubernetes.",
+			Contact: &openapispec.ContactInfo{
+				Name:  "kubevirt-dev",
+				Email: "kubevirt-dev@googlegroups.com",
+				URL:   "https://github.com/kubevirt/kubevirt",
+			},
+			License: &openapispec.License{
+				Name: "Apache 2.0",
+				URL:  "https://www.apache.org/licenses/LICENSE-2.0",
+			},
+		},
+	}
+	swo.SecurityDefinitions = openapispec.SecurityDefinitions{
+		"BearerToken": &openapispec.SecurityScheme{
+			SecuritySchemeProps: openapispec.SecuritySchemeProps{
+				Type:        "apiKey",
+				Name:        "authorization",
+				In:          "header",
+				Description: "Bearer Token authentication",
+			},
+		},
+	}
+	swo.Security = make([]map[string][]string, 1)
+	swo.Security[0] = map[string][]string{"BearerToken": {}}
+	return swo, nil
 }
 
 func main() {
