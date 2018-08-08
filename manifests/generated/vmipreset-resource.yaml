@@ -30,22 +30,14 @@ spec:
             clusterName:
               type: string
             creationTimestamp:
-              properties:
-                Time:
-                  format: date-time
-                  type: string
-              required:
-              - Time
+              format: date-time
+              type: string
             deletionGracePeriodSeconds:
               format: int64
               type: integer
             deletionTimestamp:
-              properties:
-                Time:
-                  format: date-time
-                  type: string
-              required:
-              - Time
+              format: date-time
+              type: string
             finalizers:
               items:
                 type: string

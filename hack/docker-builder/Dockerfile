@@ -35,13 +35,13 @@ RUN \
     go get -u -d k8s.io/code-generator/cmd/defaulter-gen && \
     go get -u -d k8s.io/code-generator/cmd/openapi-gen && \
     cd /go/src/k8s.io/code-generator/cmd/deepcopy-gen && \
-    git checkout release-1.9 && \
+    git checkout release-1.10 && \
     go install && \
     cd /go/src/k8s.io/code-generator/cmd/defaulter-gen && \
-    git checkout release-1.9 && \
+    git checkout release-1.10 && \
     go install && \
     cd /go/src/k8s.io/code-generator/cmd/openapi-gen && \
-    git checkout release-1.9 && \
+    git checkout release-1.10 && \
     go install && \
     go get -u -d github.com/golang/protobuf/protoc-gen-go && \
     cd /go/src/github.com/golang/protobuf/protoc-gen-go && \

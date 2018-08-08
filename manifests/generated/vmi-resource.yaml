@@ -30,22 +30,14 @@ spec:
             clusterName:
               type: string
             creationTimestamp:
-              properties:
-                Time:
-                  format: date-time
-                  type: string
-              required:
-              - Time
+              format: date-time
+              type: string
             deletionGracePeriodSeconds:
               format: int64
               type: integer
             deletionTimestamp:
-              properties:
-                Time:
-                  format: date-time
-                  type: string
-              required:
-              - Time
+              format: date-time
+              type: string
             finalizers:
               items:
                 type: string
@@ -586,28 +578,7 @@ spec:
                   emptyDisk:
                     properties:
                       capacity:
-                        properties:
-                          Format:
-                            type: string
-                          d: {}
-                          i:
-                            properties:
-                              scale:
-                                format: int32
-                                type: integer
-                              value:
-                                format: int64
-                                type: integer
-                            required:
-                            - value
-                            - scale
-                          s:
-                            type: string
-                        required:
-                        - i
-                        - d
-                        - s
-                        - Format
+                        type: string
                     required:
                     - capacity
                   ephemeral:
@@ -649,19 +620,11 @@ spec:
               items:
                 properties:
                   lastProbeTime:
-                    properties:
-                      Time:
-                        format: date-time
-                        type: string
-                    required:
-                    - Time
+                    format: date-time
+                    type: string
                   lastTransitionTime:
-                    properties:
-                      Time:
-                        format: date-time
-                        type: string
-                    required:
-                    - Time
+                    format: date-time
+                    type: string
                   message:
                     type: string
                   reason:
