@@ -524,3 +524,20 @@ var _ = Describe("Networking", func() {
 		})
 	})
 })
+
+func waitUntilVMIReady(vmi *v1.VirtualMachineInstance, expecterFactory tests.VMIExpecterFactory) *v1.VirtualMachineInstance {
+	// Wait for VirtualMachineInstance start
+	tests.WaitForSuccessfulVMIStart(vmi)
+
+	virtClient, err := kubecli.GetKubevirtClient()
+	Expect(err).ToNot(HaveOccurred())
+	// Fetch the new VirtualMachineInstance with updated status
+	vmi, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Get(vmi.Name, &v13.GetOptions{})
+	Expect(err).ToNot(HaveOccurred())
+
+	// Lets make sure that the OS is up by waiting until we can login
+	expecter, err := expecterFactory(vmi)
+	Expect(err).ToNot(HaveOccurred())
+	expecter.Close()
+	return vmi
+}
