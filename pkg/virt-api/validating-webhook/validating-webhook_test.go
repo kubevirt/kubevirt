@@ -1136,7 +1136,7 @@ var _ = Describe("Validating Webhook", func() {
 
 			causes := validateDisks(k8sfield.NewPath("fake"), vmi.Spec.Domain.Devices.Disks)
 			Expect(len(causes)).To(Equal(1))
-			Expect(causes[0].Field).To(Equal("fake[0].bootorder"))
+			Expect(causes[0].Field).To(Equal("fake[0].bootOrder"))
 		})
 
 		It("should reject invalid SN characters", func() {
@@ -1258,6 +1258,106 @@ var _ = Describe("Function getNumberOfPodInterfaces()", func() {
 		spec.Networks = []v1.Network{net1, net2}
 		spec.Domain.Devices.Interfaces = []v1.Interface{iface1, iface2}
 		Expect(getNumberOfPodInterfaces(spec)).To(Equal(2))
+	})
+	It("should work when boot order is given to interfaces", func() {
+		spec := &v1.VirtualMachineInstanceSpec{}
+		net := v1.Network{
+			NetworkSource: v1.NetworkSource{
+				Pod: &v1.PodNetwork{},
+			},
+			Name: "testnet",
+		}
+		order := uint(1)
+		iface := v1.Interface{Name: net.Name, BootOrder: &order}
+		spec.Networks = []v1.Network{net}
+		spec.Domain.Devices.Interfaces = []v1.Interface{iface}
+		causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), spec)
+		Expect(causes).To(HaveLen(0))
+	})
+	It("should fail when invalid boot order is given to interface", func() {
+		spec := &v1.VirtualMachineInstanceSpec{}
+		net := v1.Network{
+			NetworkSource: v1.NetworkSource{
+				Pod: &v1.PodNetwork{},
+			},
+			Name: "testnet",
+		}
+		order := uint(0)
+		iface := v1.Interface{Name: net.Name, BootOrder: &order}
+		spec.Networks = []v1.Network{net}
+		spec.Domain.Devices.Interfaces = []v1.Interface{iface}
+		causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), spec)
+		Expect(causes).To(HaveLen(1))
+		Expect(causes[0].Field).To(Equal("fake[0].bootOrder"))
+	})
+	It("should work when different boot orders are given to devices", func() {
+		spec := &v1.VirtualMachineInstanceSpec{}
+		net := v1.Network{
+			NetworkSource: v1.NetworkSource{
+				Pod: &v1.PodNetwork{},
+			},
+			Name: "testnet",
+		}
+		order1 := uint(7)
+		iface := v1.Interface{Name: net.Name, BootOrder: &order1}
+		spec.Networks = []v1.Network{net}
+		spec.Domain.Devices.Interfaces = []v1.Interface{iface}
+		order2 := uint(77)
+		disk := v1.Disk{
+			Name:       "testdisk",
+			VolumeName: "testvolume",
+			BootOrder:  &order2,
+			Serial:     "SN-1_a",
+			DiskDevice: v1.DiskDevice{
+				Disk: &v1.DiskTarget{},
+			},
+		}
+		spec.Domain.Devices.Disks = []v1.Disk{disk}
+		volume := v1.Volume{
+			Name: "testvolume",
+			VolumeSource: v1.VolumeSource{
+				RegistryDisk: &v1.RegistryDiskSource{},
+			},
+		}
+
+		spec.Volumes = []v1.Volume{volume}
+		spec.Domain.Devices.Disks = []v1.Disk{disk}
+		causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), spec)
+		Expect(causes).To(HaveLen(0))
+	})
+	It("should fail when same boot order is given to more than one device", func() {
+		spec := &v1.VirtualMachineInstanceSpec{}
+		net := v1.Network{
+			NetworkSource: v1.NetworkSource{
+				Pod: &v1.PodNetwork{},
+			},
+			Name: "testnet",
+		}
+		order := uint(7)
+		iface := v1.Interface{Name: net.Name, BootOrder: &order}
+		spec.Networks = []v1.Network{net}
+		spec.Domain.Devices.Interfaces = []v1.Interface{iface}
+		disk := v1.Disk{
+			Name:       "testdisk",
+			VolumeName: "testvolume",
+			BootOrder:  &order,
+			Serial:     "SN-1_a",
+			DiskDevice: v1.DiskDevice{
+				Disk: &v1.DiskTarget{},
+			},
+		}
+		spec.Domain.Devices.Disks = []v1.Disk{disk}
+		volume := v1.Volume{
+			Name: "testvolume",
+			VolumeSource: v1.VolumeSource{
+				RegistryDisk: &v1.RegistryDiskSource{},
+			},
+		}
+		spec.Volumes = []v1.Volume{volume}
+
+		causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), spec)
+		Expect(causes).To(HaveLen(1))
+		Expect(causes[0].Field).To(ContainSubstring("bootOrder"))
 	})
 })
 
