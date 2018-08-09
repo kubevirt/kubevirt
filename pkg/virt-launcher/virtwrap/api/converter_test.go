@@ -699,6 +699,29 @@ var _ = Describe("Converter", func() {
 			Expect(domain.Spec.Devices.Interfaces[1].Type).To(Equal("user"))
 			Expect(domain.Spec.Devices.Interfaces[1].Model.Type).To(Equal("e1000"))
 		})
+		It("should allow setting boot order", func() {
+			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
+			name1 := "Name1"
+			name2 := "Name2"
+			iface1 := v1.DefaultNetworkInterface()
+			iface2 := v1.DefaultNetworkInterface()
+			net1 := v1.DefaultPodNetwork()
+			net2 := v1.DefaultPodNetwork()
+			iface1.Name = name1
+			iface2.Name = name2
+			bootOrder := uint(1)
+			iface1.BootOrder = &bootOrder
+			net1.Name = name1
+			net2.Name = name2
+			vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{*iface1, *iface2}
+			vmi.Spec.Networks = []v1.Network{*net1, *net2}
+			domain := vmiToDomain(vmi, c)
+			Expect(domain).ToNot(Equal(nil))
+			Expect(domain.Spec.Devices.Interfaces).To(HaveLen(2))
+			Expect(domain.Spec.Devices.Interfaces[0].BootOrder).NotTo(BeNil())
+			Expect(domain.Spec.Devices.Interfaces[0].BootOrder.Order).To(Equal(uint(bootOrder)))
+			Expect(domain.Spec.Devices.Interfaces[1].BootOrder).To(BeNil())
+		})
 	})
 	Context("Function ParseNameservers()", func() {
 		It("should return a byte array of nameservers", func() {

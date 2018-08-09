@@ -580,6 +580,9 @@ func Convert_v1_VirtualMachine_To_api_Domain(vmi *v1.VirtualMachineInstance, dom
 					Name: iface.Name,
 				},
 			}
+			if iface.BootOrder != nil {
+				domainIface.BootOrder = &BootOrder{Order: *iface.BootOrder}
+			}
 			domain.Spec.Devices.Interfaces = append(domain.Spec.Devices.Interfaces, domainIface)
 		} else if iface.Slirp != nil {
 			domainIface := Interface{

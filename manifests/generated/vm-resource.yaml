@@ -103,6 +103,9 @@ spec:
                             interfaces:
                               items:
                                 properties:
+                                  bootOrder:
+                                    format: int32
+                                    type: integer
                                   bridge: {}
                                   macAddress:
                                     type: string
