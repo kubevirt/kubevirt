@@ -41,6 +41,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 
 	"kubevirt.io/kubevirt/pkg/api/v1"
+	"kubevirt.io/kubevirt/pkg/config"
 	"kubevirt.io/kubevirt/pkg/kubecli"
 	"kubevirt.io/kubevirt/pkg/log"
 	"kubevirt.io/kubevirt/pkg/testutils"
@@ -71,7 +72,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			update, ok := action.(testing.CreateAction)
 			Expect(ok).To(BeTrue())
 			Expect(update.GetObject().(*k8sv1.Pod).Annotations[v1.OwnedByAnnotation]).To(Equal("virt-controller"))
-			Expect(update.GetObject().(*k8sv1.Pod).Annotations[v1.CreatedByAnnotation]).To(Equal(string(uid)))
+			Expect(update.GetObject().(*k8sv1.Pod).Labels[v1.CreatedByLabel]).To(Equal(string(uid)))
 			return true, update.GetObject(), nil
 		})
 	}
@@ -137,7 +138,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 		recorder = record.NewFakeRecorder(100)
 
 		configMapInformer, _ = testutils.NewFakeInformerFor(&k8sv1.Pod{})
-		controller = NewVMIController(services.NewTemplateService("a", "b", "c", configMapInformer.GetStore()), vmiInformer, podInformer, recorder, virtClient, configMapInformer)
+		controller = NewVMIController(services.NewTemplateService("a", "b", "c", config.NewClusterConfig(configMapInformer.GetStore())), vmiInformer, podInformer, recorder, virtClient, config.NewClusterConfig(configMapInformer.GetStore()))
 		// Wrap our workqueue to have a way to detect when we are done processing updates
 		mockQueue = testutils.NewMockWorkQueue(controller.Queue)
 		controller.Queue = mockQueue
@@ -281,7 +282,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 				update, ok := action.(testing.CreateAction)
 				Expect(ok).To(BeTrue())
 				Expect(update.GetObject().(*k8sv1.Pod).Annotations[v1.OwnedByAnnotation]).To(Equal("virt-controller"))
-				Expect(update.GetObject().(*k8sv1.Pod).Annotations[v1.CreatedByAnnotation]).To(Equal(string(vmi.UID)))
+				Expect(update.GetObject().(*k8sv1.Pod).Labels[v1.CreatedByLabel]).To(Equal(string(vmi.UID)))
 				return true, update.GetObject(), nil
 			})
 
@@ -601,12 +602,12 @@ func NewPodForVirtualMachine(vmi *v1.VirtualMachineInstance, phase k8sv1.PodPhas
 			Name:      "test",
 			Namespace: vmi.Namespace,
 			Labels: map[string]string{
-				v1.AppLabel:    "virt-launcher",
-				v1.DomainLabel: vmi.Name,
+				v1.AppLabel:       "virt-launcher",
+				v1.CreatedByLabel: string(vmi.UID),
 			},
 			Annotations: map[string]string{
-				v1.CreatedByAnnotation: string(vmi.UID),
-				v1.OwnedByAnnotation:   "virt-controller",
+				v1.DomainAnnotation:  vmi.Name,
+				v1.OwnedByAnnotation: "virt-controller",
 			},
 		},
 		Status: k8sv1.PodStatus{

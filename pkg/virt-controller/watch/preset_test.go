@@ -803,6 +803,7 @@ var _ = Describe("VirtualMachineInstance Initializer", func() {
 			app.vmiInformer = cache.NewSharedIndexInformer(vmiListWatch, &v1.VirtualMachineInstance{}, time.Second, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
 			app.podInformer = cache.NewSharedIndexInformer(vmiListWatch, &v1.VirtualMachineInstance{}, time.Second, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
 			app.nodeInformer = cache.NewSharedIndexInformer(vmiListWatch, &k8sv1.Node{}, time.Second, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
+			app.configMapInformer = cache.NewSharedIndexInformer(vmiListWatch, &k8sv1.ConfigMap{}, time.Second, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
 			app.vmiPresetCache = app.vmiInformer.GetStore()
 			app.vmiPresetQueue = workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter())
 			app.vmiInformer.AddEventHandler(controller.NewResourceEventHandlerFuncsForWorkqueue(app.vmiPresetQueue))
