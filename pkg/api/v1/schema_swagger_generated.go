@@ -79,7 +79,7 @@ func (Disk) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"name":       "Name is the device name",
 		"volumeName": "Name of the volume which is referenced\nMust match the Name of a Volume.",
-		"bootOrder":  "BootOrder is an integer value > 0, used to determine ordering of boot devices.\nLower values take precedence.\nDisks without a boot order are not tried if a disk with a boot order exists.\n+optional",
+		"bootOrder":  "BootOrder is an integer value > 0, used to determine ordering of boot devices.\nLower values take precedence.\nEach disk or interface that has a boot order must have a unique value.\nDisks without a boot order are not tried if a disk with a boot order exists.\n+optional",
 	}
 }
 
@@ -302,7 +302,8 @@ func (I6300ESBWatchdog) SwaggerDoc() map[string]string {
 
 func (Interface) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"name": "Logical name of the interface as well as a reference to the associated networks\nMust match the Name of a Network",
+		"name":      "Logical name of the interface as well as a reference to the associated networks\nMust match the Name of a Network",
+		"bootOrder": "BootOrder is an integer value > 0, used to determine ordering of boot devices.\nLower values take precedence.\nEach interface or disk that has a boot order must have a unique value.\nInterfaces without a boot order are not tried.\n+optional",
 	}
 }
 

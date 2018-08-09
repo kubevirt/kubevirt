@@ -827,6 +827,15 @@ func (in *I6300ESBWatchdog) DeepCopy() *I6300ESBWatchdog {
 func (in *Interface) DeepCopyInto(out *Interface) {
 	*out = *in
 	in.InterfaceBindingMethod.DeepCopyInto(&out.InterfaceBindingMethod)
+	if in.BootOrder != nil {
+		in, out := &in.BootOrder, &out.BootOrder
+		if *in == nil {
+			*out = nil
+		} else {
+			*out = new(uint)
+			**out = **in
+		}
+	}
 	return
 }
 

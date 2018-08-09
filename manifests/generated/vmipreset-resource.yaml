@@ -91,6 +91,9 @@ spec:
                     interfaces:
                       items:
                         properties:
+                          bootOrder:
+                            format: int32
+                            type: integer
                           bridge: {}
                           name:
                             type: string

@@ -182,7 +182,7 @@ func validateDisks(field *k8sfield.Path, disks []v1.Disk) []metav1.StatusCause {
 			causes = append(causes, metav1.StatusCause{
 				Type:    metav1.CauseTypeFieldValueInvalid,
 				Message: fmt.Sprintf("%s must have a boot order > 0, if supplied", field.Index(idx).String()),
-				Field:   field.Index(idx).Child("bootorder").String(),
+				Field:   field.Index(idx).Child("bootOrder").String(),
 			})
 		}
 	}
@@ -438,6 +438,9 @@ func ValidateVirtualMachineInstanceSpec(field *k8sfield.Path, spec *v1.VirtualMa
 		volumeNameMap[volume.Name] = &volume
 	}
 
+	// used to validate uniqueness of boot orders among disks and interfaces
+	bootOrderMap := make(map[uint]bool)
+
 	// Validate disks and VolumeNames match up correctly
 	for idx, disk := range spec.Domain.Devices.Disks {
 		var matchingVolume *v1.Volume
@@ -472,6 +475,19 @@ func ValidateVirtualMachineInstanceSpec(field *k8sfield.Path, spec *v1.VirtualMa
 				Field:   field.Child("domain", "devices", "disks").Index(idx).Child("lun").String(),
 			})
 		}
+
+		// verify that there are no duplicate boot orders
+		if disk.BootOrder != nil {
+			order := *disk.BootOrder
+			if bootOrderMap[order] {
+				causes = append(causes, metav1.StatusCause{
+					Type:    metav1.CauseTypeFieldValueInvalid,
+					Message: fmt.Sprintf("Boot order for %s already set for a different device.", field.Child("domain", "devices", "disks").Index(idx).Child("bootOrder").String()),
+					Field:   field.Child("domain", "devices", "disks").Index(idx).Child("bootOrder").String(),
+				})
+			}
+			bootOrderMap[order] = true
+		}
 	}
 
 	if len(spec.Networks) > 0 && len(spec.Domain.Devices.Interfaces) > 0 {
@@ -499,6 +515,28 @@ func ValidateVirtualMachineInstanceSpec(field *k8sfield.Path, spec *v1.VirtualMa
 					Message: fmt.Sprintf("only a %s network source can be selected.", field.Child("domain", "devices", "networks").Index(0).Child("pod").String()),
 					Field:   field.Child("domain", "devices", "networks").Index(0).Child("pod").String(),
 				})
+			}
+
+			if iface.BootOrder != nil {
+				order := *iface.BootOrder
+				// Verify boot order is greater than 0, if provided
+				if order < 1 {
+					causes = append(causes, metav1.StatusCause{
+						Type:    metav1.CauseTypeFieldValueInvalid,
+						Message: fmt.Sprintf("%s must have a boot order > 0, if supplied", field.Index(idx).String()),
+						Field:   field.Index(idx).Child("bootOrder").String(),
+					})
+				} else {
+					// verify that there are no duplicate boot orders
+					if bootOrderMap[order] {
+						causes = append(causes, metav1.StatusCause{
+							Type:    metav1.CauseTypeFieldValueInvalid,
+							Message: fmt.Sprintf("Boot order for %s already set for a different device.", field.Child("domain", "devices", "interfaces").Index(idx).Child("bootOrder").String()),
+							Field:   field.Child("domain", "devices", "interfaces").Index(idx).Child("bootOrder").String(),
+						})
+					}
+					bootOrderMap[order] = true
+				}
 			}
 		}
 	}

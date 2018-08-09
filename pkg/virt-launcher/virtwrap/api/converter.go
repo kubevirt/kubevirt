@@ -538,6 +538,11 @@ func Convert_v1_VirtualMachine_To_api_Domain(vmi *v1.VirtualMachineInstance, dom
 		return nil, fmt.Errorf("failed to find network %s", name)
 	}
 
+	networks := map[string]*v1.Network{}
+	for _, network := range vmi.Spec.Networks {
+		networks[network.Name] = network.DeepCopy()
+	}
+
 	for _, iface := range vmi.Spec.Domain.Devices.Interfaces {
 		net, err := findNetwork(vmi.Spec.Networks, iface.Name)
 		if err != nil {
@@ -559,6 +564,9 @@ func Convert_v1_VirtualMachine_To_api_Domain(vmi *v1.VirtualMachineInstance, dom
 			Alias: &Alias{
 				Name: iface.Name,
 			},
+		}
+		if iface.BootOrder != nil {
+			domainIface.BootOrder = &BootOrder{Order: *iface.BootOrder}
 		}
 		domain.Spec.Devices.Interfaces = append(domain.Spec.Devices.Interfaces, domainIface)
 	}
