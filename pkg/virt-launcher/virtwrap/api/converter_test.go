@@ -294,6 +294,11 @@ var _ = Describe("Converter", func() {
 				UUID: "e4686d2c-6e8d-4335-b8fd-81bee22f4814",
 			}
 
+			threadCount := uint(3)
+			vmi.Spec.Domain.IOThreads = &v1.IOThreads{
+				ThreadCount: &(threadCount),
+			}
+
 			gracePerod := int64(5)
 			vmi.Spec.TerminationGracePeriodSeconds = &gracePerod
 
@@ -423,6 +428,7 @@ var _ = Describe("Converter", func() {
     </hyperv>
   </features>
   <cpu mode="host-model"></cpu>
+  <iothreads>3</iothreads>
 </domain>`, domainType)
 
 		var c *ConverterContext
