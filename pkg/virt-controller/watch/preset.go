@@ -377,6 +377,13 @@ func mergeDomainSpec(presetSpec *kubev1.DomainPresetSpec, vmiSpec *kubev1.Domain
 			applied = true
 		}
 	}
+	if presetSpec.IOThreads != nil {
+		if vmiSpec.IOThreads == nil {
+			vmiSpec.IOThreads = &kubev1.IOThreads{}
+			presetSpec.IOThreads.DeepCopyInto(vmiSpec.IOThreads)
+		}
+	}
+
 	return applied, presetConflicts
 }
 
