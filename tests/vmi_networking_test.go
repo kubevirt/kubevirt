@@ -45,7 +45,7 @@ import (
 	"kubevirt.io/kubevirt/tests"
 )
 
-var _ = FDescribe("Networking", func() {
+var _ = Describe("Networking", func() {
 
 	flag.Parse()
 
