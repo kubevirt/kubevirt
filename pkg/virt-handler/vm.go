@@ -427,7 +427,7 @@ func (d *VirtualMachineController) execute(key string) error {
 		syncErr = d.processVmCleanup(vmi)
 	} else if shouldUpdate {
 		log.Log.Object(vmi).V(3).Info("Processing vmi update")
-		syncErr = d.processVmUpdate(vmi)
+		syncErr = d.processVmUpdate(vmi, domain)
 	} else {
 		log.Log.Object(vmi).V(3).Info("No update processing required")
 	}
@@ -646,7 +646,7 @@ func (d *VirtualMachineController) getVerifiedLauncherClient(vmi *v1.VirtualMach
 	return
 }
 
-func (d *VirtualMachineController) processVmUpdate(origVMI *v1.VirtualMachineInstance) error {
+func (d *VirtualMachineController) processVmUpdate(origVMI *v1.VirtualMachineInstance, domain *api.Domain) error {
 
 	vmi := origVMI.DeepCopy()
 
@@ -680,8 +680,10 @@ func (d *VirtualMachineController) processVmUpdate(origVMI *v1.VirtualMachineIns
 	}
 	nodeEnv := isolation.NodeIsolationResult()
 
+	// Plugins are idempotent, the should also be capable to react to vmi changes
 	for _, device := range d.DevicePlugins {
 		if err := device.Setup(vmi, nodeEnv, podEnv); err != nil {
+			log.Log.Reason(err).Error("Setup of plugin failed.")
 			return err
 		}
 	}

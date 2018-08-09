@@ -1,11 +1,11 @@
 package devices
 
 import (
+	"fmt"
 	"os"
+	"path"
 	"path/filepath"
 	"syscall"
-
-	"fmt"
 
 	"kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/config"
@@ -17,8 +17,8 @@ const (
 	tun = "/dev/net/tun"
 )
 
-var kvmDevice = NewKernelDevice(10, 232)
-var tunDevice = NewKernelDevice(10, 200)
+var kvmDevice = NewKernelDevice("c", 10, 232)
+var tunDevice = NewKernelDevice("c", 10, 200)
 
 type KVM struct {
 	ClusterConfig *config.ClusterConfig
@@ -39,7 +39,7 @@ func (k *KVM) Setup(_ *v1.VirtualMachineInstance, hostNamespaces *isolation.Isol
 		return nil
 	}
 
-	devicePath := podNamespaces.MountRoot() + kvm
+	devicePath := path.Join(podNamespaces.MountRoot(), kvm)
 
 	stat := syscall.Stat_t{}
 	err = syscall.Stat(devicePath, &stat)
@@ -49,16 +49,16 @@ func (k *KVM) Setup(_ *v1.VirtualMachineInstance, hostNamespaces *isolation.Isol
 
 	// Create the device if necessary
 	if os.IsNotExist(err) {
-
-		// Allow the container accessing the device
-		err = whitelistDevice("c", kvmDevice, "rw", podNamespaces.Slice())
-		if err != nil {
-			return err
-		}
 		err = syscall.Mknod(devicePath, syscall.S_IFCHR, kvmDevice.MKDev())
 		if err != nil {
 			return err
 		}
+	}
+
+	// Allow the container accessing the device
+	err = whitelistDevice(kvmDevice, "rw", podNamespaces.Slice())
+	if err != nil {
+		return err
 	}
 
 	// Set group to qemu if necessary
@@ -90,7 +90,7 @@ func (k *KVM) Available() error {
 		return nil
 	}
 
-	devicePath := "/proc/1/root" + kvm
+	devicePath := path.Join("/proc/1/root", kvm)
 	stat := syscall.Stat_t{}
 	err = syscall.Stat(devicePath, &stat)
 	if err != nil && !os.IsNotExist(err) {
@@ -106,7 +106,7 @@ func (k *KVM) Available() error {
 // Setup creates /dev/net/tun inside the container to all tun/tap based operations on VMIs
 func (t *TUN) Setup(_ *v1.VirtualMachineInstance, hostNamespaces *isolation.IsolationResult, podNamespaces *isolation.IsolationResult) error {
 
-	devicePath := podNamespaces.MountRoot() + tun
+	devicePath := path.Join(podNamespaces.MountRoot(), tun)
 
 	stat := syscall.Stat_t{}
 	err := syscall.Stat(devicePath, &stat)
@@ -116,11 +116,7 @@ func (t *TUN) Setup(_ *v1.VirtualMachineInstance, hostNamespaces *isolation.Isol
 
 	// Create the device if necessary
 	if os.IsNotExist(err) {
-		// Allow the container accessing the device
-		err = whitelistDevice("c", tunDevice, "rw", podNamespaces.Slice())
-		if err != nil {
-			return err
-		}
+
 		// Create /dev/net if necessary
 		err = os.MkdirAll(filepath.Dir(devicePath), 0755)
 		if err != nil {
@@ -132,6 +128,13 @@ func (t *TUN) Setup(_ *v1.VirtualMachineInstance, hostNamespaces *isolation.Isol
 			return err
 		}
 	}
+
+	// Allow the container accessing the device
+	err = whitelistDevice(tunDevice, "rw", podNamespaces.Slice())
+	if err != nil {
+		return err
+	}
+
 	// Set permissions to 0660 if necessary
 	if stat.Mode != 0660 {
 		err = os.Chmod(devicePath, 0660)
@@ -143,7 +146,7 @@ func (t *TUN) Setup(_ *v1.VirtualMachineInstance, hostNamespaces *isolation.Isol
 }
 
 func (t *TUN) Available() error {
-	devicePath := "/proc/1/root" + tun
+	devicePath := path.Join("/proc/1/root", tun)
 	stat := syscall.Stat_t{}
 	err := syscall.Stat(devicePath, &stat)
 	if err != nil && !os.IsNotExist(err) {

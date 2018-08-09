@@ -478,7 +478,7 @@ var _ = Describe("Networking", func() {
 			Expect(err).ToNot(HaveOccurred())
 		})
 
-		It("should not request a tun device", func() {
+		It("should not request NET_ADMIN", func() {
 			By("Creating random VirtualMachineInstance")
 			autoAttach := false
 			vmi := tests.NewRandomVMIWithEphemeralDisk(tests.RegistryDiskFor(tests.RegistryDiskAlpine))
@@ -489,7 +489,7 @@ var _ = Describe("Networking", func() {
 			Expect(err).ToNot(HaveOccurred())
 			waitUntilVMIReady(vmi, tests.LoggedInAlpineExpecter)
 
-			By("Checking that the pod did not request a tun device")
+			By("Checking that the pod did not request NET_ADMIN capabilities")
 			virtClient, err := kubecli.GetKubevirtClient()
 			Expect(err).ToNot(HaveOccurred())
 
@@ -502,6 +502,7 @@ var _ = Describe("Networking", func() {
 			foundContainer := false
 			for _, container := range pod.Spec.Containers {
 				if container.Name == "compute" {
+					foundContainer = true
 					netAdminCap := false
 					caps := container.SecurityContext.Capabilities
 					for _, cap := range caps.Add {

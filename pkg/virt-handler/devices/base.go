@@ -3,11 +3,19 @@ package devices
 import (
 	"fmt"
 	"os"
+	"path"
 
 	"golang.org/x/sys/unix"
 
 	"kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/virt-handler/isolation"
+)
+
+//go:generate mockgen -source $GOFILE -package=$GOPACKAGE -destination=generated_mock_$GOFILE
+
+const (
+	cgroupPrefix     = "/proc/1/root/sys/fs/cgroup/devices"
+	allowDevicesFile = "devices.allow"
 )
 
 type Device interface {
@@ -19,14 +27,14 @@ type Device interface {
 	Available() error
 }
 
-func whitelistDevice(deviceType string, dev *KernelDevice, acl string, slice string) error {
-	f, err := os.OpenFile("/proc/1/root/sys/fs/cgroup/devices"+slice+"/devices.allow", os.O_APPEND|os.O_WRONLY, 0600)
+func whitelistDevice(dev *KernelDevice, acl string, slice string) error {
+	f, err := os.OpenFile(path.Join(cgroupPrefix, slice, allowDevicesFile), os.O_APPEND|os.O_WRONLY, 0600)
 	if err != nil {
 		return err
 	}
 	defer f.Close()
 
-	if _, err = f.WriteString(fmt.Sprintf("%s %d:%d %s\n", deviceType, dev.Major, dev.Minor, acl)); err != nil {
+	if _, err = f.WriteString(fmt.Sprintf("%s %d:%d %s\n", dev.Type, dev.Major, dev.Minor, acl)); err != nil {
 		return err
 	}
 	return nil
@@ -37,14 +45,17 @@ type KernelDevice struct {
 	Major int64
 	// Minor represents the minor device number
 	Minor int64
+	// Represents the device type
+	Type string
 }
 
 func (k *KernelDevice) MKDev() int {
 	return int(uint32(unix.Mkdev(uint32(k.Major), uint32(k.Minor))))
 }
 
-func NewKernelDevice(major int64, minor int64) *KernelDevice {
+func NewKernelDevice(deviceType string, major int64, minor int64) *KernelDevice {
 	return &KernelDevice{
+		Type:  deviceType,
 		Major: major,
 		Minor: minor,
 	}
