@@ -45,7 +45,7 @@ import (
 	"kubevirt.io/kubevirt/tests"
 )
 
-var _ = Describe("Networking", func() {
+var _ = FDescribe("Networking", func() {
 
 	flag.Parse()
 
@@ -184,7 +184,7 @@ var _ = Describe("Networking", func() {
 			}
 
 			By("checking br1 MTU inside the pod")
-			vmiPod := tests.GetRunningPodByLabel(outboundVMI.Name, v1.DomainLabel, tests.NamespaceTestDefault)
+			vmiPod := tests.GetRunningPodByLabel(string(outboundVMI.UID), v1.CreatedByLabel, tests.NamespaceTestDefault)
 			output, err := tests.ExecuteCommandOnPod(
 				virtClient,
 				vmiPod,

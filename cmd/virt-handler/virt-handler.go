@@ -35,14 +35,17 @@ import (
 	"k8s.io/client-go/tools/record"
 
 	"kubevirt.io/kubevirt/pkg/api/v1"
+	"kubevirt.io/kubevirt/pkg/config"
 	"kubevirt.io/kubevirt/pkg/controller"
-	inotifyinformer "kubevirt.io/kubevirt/pkg/inotify-informer"
+	"kubevirt.io/kubevirt/pkg/inotify-informer"
 	"kubevirt.io/kubevirt/pkg/kubecli"
 	"kubevirt.io/kubevirt/pkg/log"
 	"kubevirt.io/kubevirt/pkg/service"
 	"kubevirt.io/kubevirt/pkg/virt-handler"
 	virtcache "kubevirt.io/kubevirt/pkg/virt-handler/cache"
-	virtlauncher "kubevirt.io/kubevirt/pkg/virt-launcher"
+	"kubevirt.io/kubevirt/pkg/virt-handler/health"
+	"kubevirt.io/kubevirt/pkg/virt-handler/isolation"
+	"kubevirt.io/kubevirt/pkg/virt-launcher"
 	virt_api "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 )
 
@@ -125,6 +128,22 @@ func (app *virtHandlerApp) Run() {
 		0,
 		cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
 
+	// Bootstrapping. From here on the startup order matters
+	stop := make(chan struct{})
+	defer close(stop)
+
+	// Synchronize with cluster config
+	factory := controller.NewKubeInformerFactory(virtCli.RestClient(), virtCli)
+	configMapInformer := factory.ConfigMap()
+	factory.Start(stop)
+	cache.WaitForCacheSync(stop, configMapInformer.HasSynced)
+	clusterConfig := config.NewClusterConfig(configMapInformer.GetStore())
+
+	// Install healthcheck
+	go health.NewReadinessChecker(virtCli, app.HostOverride, clusterConfig).
+		HeartBeat(1*time.Minute, 3, stop)
+
+		// Run main controller
 	vmController := virthandler.NewController(
 		recorder,
 		virtCli,
@@ -134,12 +153,9 @@ func (app *virtHandlerApp) Run() {
 		domainSharedInformer,
 		gracefulShutdownInformer,
 		int(app.WatchdogTimeoutDuration.Seconds()),
+		isolation.NewSocketBasedIsolationDetector(app.VirtShareDir),
+		clusterConfig,
 	)
-
-	// Bootstrapping. From here on the startup order matters
-	stop := make(chan struct{})
-	defer close(stop)
-
 	vmController.Run(3, stop)
 }
 
