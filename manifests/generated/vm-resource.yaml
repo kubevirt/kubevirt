@@ -196,6 +196,11 @@ spec:
                           properties:
                             uuid:
                               type: string
+                        iothreads:
+                          properties:
+                            threadcount:
+                              format: int32
+                              type: integer
                         machine:
                           properties:
                             type:
