@@ -1,3 +1,22 @@
+/*
+ * This file is part of the KubeVirt project
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ * Copyright 2017,2018 Red Hat, Inc.
+ *
+ */
+
 package v1
 
 import (
@@ -243,6 +262,25 @@ var _ = Describe("Defaults", func() {
 		Expect(*timer.PIT.Enabled).To(BeTrue())
 		Expect(*timer.RTC.Enabled).To(BeTrue())
 		Expect(*timer.Hyperv.Enabled).To(BeTrue())
+	})
+
+	It("should add ThreadCount if not specified", func() {
+		vmi := &VirtualMachineInstance{
+			Spec: VirtualMachineInstanceSpec{
+				Domain: DomainSpec{
+					IOThreads: &IOThreads{},
+				},
+			},
+		}
+		SetObjectDefaults_VirtualMachineInstance(vmi)
+		ioThreads := vmi.Spec.Domain.IOThreads
+		Expect(*ioThreads.ThreadCount).To(Equal(uint(1)))
+	})
+
+	It("should not add IOThreads if omitted entirely", func() {
+		vmi := &VirtualMachineInstance{}
+		SetObjectDefaults_VirtualMachineInstance(vmi)
+		Expect(vmi.Spec.Domain.IOThreads).To(BeNil())
 	})
 })
 

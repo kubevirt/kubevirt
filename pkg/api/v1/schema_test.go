@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Copyright 2017 Red Hat, Inc.
+ * Copyright 2017, 2018 Red Hat, Inc.
  *
  */
 
@@ -167,6 +167,9 @@ var exampleJSON = `{
             {{.InterfaceConfig}}
           }
         ]
+      },
+      "iothreads": {
+        "threadcount": 2
       }
     },
     "volumes": [
@@ -331,6 +334,11 @@ var _ = Describe("Schema", func() {
 					Pod: &PodNetwork{},
 				},
 			},
+		}
+
+		threadCount := uint(2)
+		exampleVMI.Spec.Domain.IOThreads = &IOThreads{
+			ThreadCount: &threadCount,
 		}
 
 		SetObjectDefaults_VirtualMachineInstance(exampleVMI)
