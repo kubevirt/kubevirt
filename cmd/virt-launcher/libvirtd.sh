@@ -53,4 +53,7 @@ if [ -d "/dev/hugepages" ]; then
     echo 'hugetlbfs_mount = "/dev/hugepages"' >>/etc/libvirt/qemu.conf
 fi
 
+# Log to stderr
+echo "log_outputs = \"1:stderr\"" >> /etc/libvirt/libvirtd.conf
+
 /usr/sbin/libvirtd

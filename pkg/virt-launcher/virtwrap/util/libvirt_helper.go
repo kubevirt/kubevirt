@@ -3,6 +3,7 @@ package util
 import (
 	"encoding/xml"
 	"fmt"
+	"os"
 	"os/exec"
 	"reflect"
 	"strings"
@@ -145,6 +146,10 @@ func StartLibvirt(stopChan chan struct{}) {
 		for {
 			exitChan := make(chan struct{})
 			cmd := exec.Command("/usr/share/kubevirt/virt-launcher/libvirtd.sh")
+
+			// libvirtd logs to stderr (see configuration in libvirtd.sh)
+			// connect libvirt's stderr to our own stdout in order to see the logs in the container logs
+			cmd.Stderr = os.Stdout
 
 			err := cmd.Start()
 			if err != nil {
