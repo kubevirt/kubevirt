@@ -43,6 +43,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/precond"
 	"kubevirt.io/kubevirt/pkg/testutils"
 	"kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
+	"kubevirt.io/kubevirt/pkg/virt-handler/devices"
 	"kubevirt.io/kubevirt/pkg/virt-handler/isolation"
 	"kubevirt.io/kubevirt/pkg/virt-launcher"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
@@ -255,6 +256,41 @@ var _ = Describe("VirtualMachineInstance", func() {
 			vmiFeeder.Add(vmi)
 
 			client.EXPECT().SyncVirtualMachine(vmi)
+
+			controller.Execute()
+		})
+
+		It("should invoke device extensions if a Domain does not yet exist", func() {
+			vmi := v1.NewMinimalVMI("testvmi")
+			vmi.ObjectMeta.ResourceVersion = "1"
+			vmi.Status.Phase = v1.Scheduled
+			fakeExtension := devices.NewMockDevice(ctrl)
+			controller.DevicePlugins = []devices.Device{fakeExtension}
+
+			mockWatchdog.CreateFile(vmi)
+			vmiFeeder.Add(vmi)
+
+			fakeExtension.EXPECT().Setup(gomock.Any(), gomock.Any(), gomock.Any())
+			client.EXPECT().SyncVirtualMachine(vmi)
+
+			controller.Execute()
+		})
+
+		It("should not invoke device extensions if a Domain exist", func() {
+			vmi := v1.NewMinimalVMI("testvmi")
+			vmi.ObjectMeta.ResourceVersion = "1"
+			vmi.Status.Phase = v1.Running
+			fakeExtension := devices.NewMockDevice(ctrl)
+			controller.DevicePlugins = []devices.Device{fakeExtension}
+			domain := api.NewMinimalDomain("testvmi")
+			domain.Status.Status = api.Running
+			mockWatchdog.CreateFile(vmi)
+			domainFeeder.Add(domain)
+			vmiFeeder.Add(vmi)
+
+			client.EXPECT().SyncVirtualMachine(vmi)
+
+			fakeExtension.EXPECT().Setup(gomock.Any(), gomock.Any(), gomock.Any()).MaxTimes(0)
 
 			controller.Execute()
 		})

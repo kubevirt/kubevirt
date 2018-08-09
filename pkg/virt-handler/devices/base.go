@@ -10,6 +10,8 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-handler/isolation"
 )
 
+//go:generate mockgen -source $GOFILE -package=$GOPACKAGE -destination=generated_mock_$GOFILE
+
 type Device interface {
 	// Right now, including bridge/veth, only setup is needed, since veths are deleted if namespaces where they are part of are deleted
 	Setup(vmi *v1.VirtualMachineInstance, hostNamespaces *isolation.IsolationResult, podNamespaces *isolation.IsolationResult) error

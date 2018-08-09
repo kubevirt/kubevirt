@@ -416,7 +416,7 @@ func (d *VirtualMachineController) execute(key string) error {
 		syncErr = d.processVmCleanup(vmi)
 	} else if shouldUpdate {
 		log.Log.Object(vmi).V(3).Info("Processing vmi update")
-		syncErr = d.processVmUpdate(vmi)
+		syncErr = d.processVmUpdate(vmi, domain)
 	} else {
 		log.Log.Object(vmi).V(3).Info("No update processing required")
 	}
@@ -613,7 +613,7 @@ func (d *VirtualMachineController) getVerifiedLauncherClient(vmi *v1.VirtualMach
 	return
 }
 
-func (d *VirtualMachineController) processVmUpdate(origVMI *v1.VirtualMachineInstance) error {
+func (d *VirtualMachineController) processVmUpdate(origVMI *v1.VirtualMachineInstance, domain *api.Domain) error {
 
 	vmi := origVMI.DeepCopy()
 
@@ -635,16 +635,19 @@ func (d *VirtualMachineController) processVmUpdate(origVMI *v1.VirtualMachineIns
 		return err
 	}
 
-	podEnv, err := d.isolationDetector.Detect(vmi)
+	// No need to do the setup again if we obviously did it at least once succeed with the setup
+	if domain == nil {
+		podEnv, err := d.isolationDetector.Detect(vmi)
 
-	if err != nil {
-		return err
-	}
-	nodeEnv := isolation.NodeIsolationResult()
-
-	for _, device := range d.DevicePlugins {
-		if err := device.Setup(vmi, nodeEnv, podEnv); err != nil {
+		if err != nil {
 			return err
+		}
+		nodeEnv := isolation.NodeIsolationResult()
+
+		for _, device := range d.DevicePlugins {
+			if err := device.Setup(vmi, nodeEnv, podEnv); err != nil {
+				return err
+			}
 		}
 	}
 
