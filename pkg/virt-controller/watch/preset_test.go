@@ -682,6 +682,17 @@ var _ = Describe("VirtualMachineInstance Initializer", func() {
 			By("checking that no events were recorded")
 			Expect(len(recorder.events.eventList)).To(Equal(0))
 		})
+
+		It("Should apply IOThreads settings", func() {
+			threadCount := uint(4)
+			ioThreads := &v1.IOThreads{ThreadCount: &threadCount}
+			preset.Spec.Domain.IOThreads = ioThreads
+
+			presets := []v1.VirtualMachineInstancePreset{preset}
+			applyPresets(&vmi, presets, recorder)
+			Expect(vmi.Spec.Domain.IOThreads).ToNot(BeNil())
+			Expect(*vmi.Spec.Domain.IOThreads.ThreadCount).To(Equal(uint(4)))
+		})
 	})
 
 	Context("Filter Matching", func() {
