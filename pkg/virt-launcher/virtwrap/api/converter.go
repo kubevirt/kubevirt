@@ -555,6 +555,17 @@ func Convert_v1_VirtualMachine_To_api_Domain(vmi *v1.VirtualMachineInstance, dom
 		networks[network.Name] = network.DeepCopy()
 	}
 
+	if vmi.Spec.Domain.IOThreads != nil {
+		ioThreads := uint(1)
+		if (vmi.Spec.Domain.IOThreads != nil) && (vmi.Spec.Domain.IOThreads.ThreadCount != nil) {
+			ioThreads = *vmi.Spec.Domain.IOThreads.ThreadCount
+		}
+		if domain.Spec.IOThreads == nil {
+			domain.Spec.IOThreads = &IOThreads{}
+		}
+		domain.Spec.IOThreads.IOThreads = ioThreads
+	}
+
 	for _, iface := range vmi.Spec.Domain.Devices.Interfaces {
 		net, isExist := networks[iface.Name]
 		if !isExist {
