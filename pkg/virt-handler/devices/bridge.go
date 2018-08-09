@@ -134,6 +134,12 @@ func (HostBridge) Setup(vmi *v1.VirtualMachineInstance, hostNamespaces *isolatio
 					return fmt.Errorf("failed to move peer to the node namespace: %v", err)
 				}
 
+				// Devices can get a new index after they change their namespace
+				peerIndex, err = netlink.VethPeerIndex(veth.(*netlink.Veth))
+				if err != nil {
+					return fmt.Errorf("failed to get the peer index after the network namespace switch: %v", err)
+				}
+
 				return nil
 			})
 			if err != nil {
@@ -174,7 +180,7 @@ func (HostBridge) Setup(vmi *v1.VirtualMachineInstance, hostNamespaces *isolatio
 				if peer.Attrs().MTU != bridge.Attrs().MTU {
 					err = netlink.LinkSetMTU(peer, bridge.Attrs().MTU)
 					if err != nil {
-						return fmt.Errorf("failed to set the peer MTU to the bridges MTU: %v", err)
+						return fmt.Errorf("failed to set the peer MTU to the bridges MTU %d: %v", mtu, err)
 					}
 				}
 
@@ -251,7 +257,7 @@ func setMTUandUPByName(name string, mtu int) error {
 	if link.Attrs().MTU != mtu {
 		err = netlink.LinkSetMTU(link, mtu)
 		if err != nil {
-			return fmt.Errorf("failed to set MTU of link %s to the bridges MTU: %v", name, err)
+			return fmt.Errorf("failed to set MTU of link %s to the bridges MTU %d: %v", name, mtu, err)
 		}
 	}
 
