@@ -36,21 +36,13 @@ func (HostBridge) Setup(vmi *v1.VirtualMachineInstance, hostNamespaces *isolatio
 			var peerIndex int
 			var bridge netlink.Link
 			err = podns.Do(func(_ ns.Namespace) error {
-				links, err := netlink.LinkList()
-				if err != nil {
-					return fmt.Errorf("failed to list interfaces in the container: %v", err)
-				}
-
-				// Check if device already exists
-				for _, l := range links {
-					if l.Attrs().Name == net.HostBridge.BridgeName {
-						bridge = l
-						break
-					}
+				bridge, err = netlink.LinkByName(net.HostBridge.BridgeName)
+				if err != nil && !isNotExist(err) {
+					return fmt.Errorf("failed to check for the bridge in the container: %v", err)
 				}
 
 				// Create bridge if it does not already exist
-				if bridge == nil {
+				if isNotExist(err) {
 					bridge = &netlink.Bridge{
 						LinkAttrs: netlink.LinkAttrs{Name: net.HostBridge.BridgeName},
 					}
@@ -71,7 +63,10 @@ func (HostBridge) Setup(vmi *v1.VirtualMachineInstance, hostNamespaces *isolatio
 
 				// Create veth pair if device does not already exists
 				veth, err := netlink.LinkByName(vethName(i))
-				if err != nil {
+				if err != nil && !isNotExist(err) {
+					return fmt.Errorf("failed to check for the veth in the container: %v", err)
+				}
+				if isNotExist(err) {
 					link := &netlink.Veth{
 						LinkAttrs: netlink.LinkAttrs{
 							Name:        vethName(i),
@@ -102,10 +97,12 @@ func (HostBridge) Setup(vmi *v1.VirtualMachineInstance, hostNamespaces *isolatio
 				}
 
 				// Get veth peer. If we failed before it might already be moved to another namespace.
-				// FIXME here is the only weak point, looks like the netlink library does not properly set
-				// the namespace alias if one peer is aleady moved
+				// TODO looks like the netlink library does not properly set the namespace alias
 				peer, err := netlink.LinkByIndex(peerIndex)
-				if err != nil {
+				if err != nil && !isNotExist(err) {
+					return fmt.Errorf("failed to check for the veth peer in the container: %v", err)
+				}
+				if isNotExist(err) {
 					// ok, so we must have moved it already
 					return nil
 				}
@@ -269,4 +266,13 @@ func setMTUandUPByName(name string, mtu int) error {
 		}
 	}
 	return nil
+}
+
+func isNotExist(err error) bool {
+	if err != nil {
+		if _, ok := err.(netlink.LinkNotFoundError); ok {
+			return true
+		}
+	}
+	return false
 }
