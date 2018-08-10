@@ -338,17 +338,14 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 		}
 		if cpus.Cores != 0 {
 			resources.Limits[k8sv1.ResourceCPU] = *resource.NewQuantity(int64(cpus.Cores), resource.BinarySI)
-			resources.Requests[k8sv1.ResourceCPU] = *resource.NewQuantity(int64(cpus.Cores), resource.BinarySI)
 		} else {
 			if cpuLimit, ok := resources.Limits[k8sv1.ResourceCPU]; ok {
 				resources.Requests[k8sv1.ResourceCPU] = cpuLimit
 			} else if cpuRequest, ok := resources.Requests[k8sv1.ResourceCPU]; ok {
 				resources.Limits[k8sv1.ResourceCPU] = cpuRequest
-			} else {
-				resources.Requests[k8sv1.ResourceCPU] = *resource.NewQuantity(int64(1), resource.BinarySI)
 			}
 		}
-		resources.Requests[k8sv1.ResourceMemory] = *resources.Limits.Memory()
+		resources.Limits[k8sv1.ResourceMemory] = *resources.Requests.Memory()
 	}
 
 	command := []string{"/usr/bin/virt-launcher",
