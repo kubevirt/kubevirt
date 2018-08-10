@@ -63,7 +63,7 @@ func (s *Launcher) Sync(args *cmdclient.Args, reply *cmdclient.Reply) error {
 		return nil
 	}
 
-	_, err = s.domainManager.SyncVMI(vmi, s.useEmulation)
+	err = s.domainManager.SyncVMI(vmi, s.useEmulation)
 	if err != nil {
 		log.Log.Object(vmi).Reason(err).Errorf("Failed to sync vmi")
 		reply.Success = false

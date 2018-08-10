@@ -37,11 +37,14 @@ import (
 	"k8s.io/client-go/kubernetes/fake"
 
 	"kubevirt.io/kubevirt/pkg/api/v1"
+	"kubevirt.io/kubevirt/pkg/config"
 	"kubevirt.io/kubevirt/pkg/kubecli"
 	"kubevirt.io/kubevirt/pkg/log"
 	"kubevirt.io/kubevirt/pkg/precond"
 	"kubevirt.io/kubevirt/pkg/testutils"
 	"kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
+	"kubevirt.io/kubevirt/pkg/virt-handler/devices"
+	"kubevirt.io/kubevirt/pkg/virt-handler/isolation"
 	"kubevirt.io/kubevirt/pkg/virt-launcher"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/pkg/watchdog"
@@ -95,6 +98,8 @@ var _ = Describe("VirtualMachineInstance", func() {
 
 		mockWatchdog = &MockWatchdog{shareDir}
 		mockGracefulShutdown = &MockGracefulShutdown{shareDir}
+		mockIsolationDetector := isolation.NewMockPodIsolationDetector(ctrl)
+		mockIsolationDetector.EXPECT().Detect(gomock.Any()).AnyTimes()
 
 		controller = NewController(recorder,
 			virtClient,
@@ -104,8 +109,10 @@ var _ = Describe("VirtualMachineInstance", func() {
 			domainInformer,
 			gracefulShutdownInformer,
 			1,
-			10,
+			mockIsolationDetector,
+			config.NewClusterConfig(nil),
 		)
+		controller.DevicePlugins = nil
 
 		client = cmdclient.NewMockLauncherClient(ctrl)
 		sockFile := cmdclient.SocketFromUID(shareDir, "")
@@ -253,6 +260,41 @@ var _ = Describe("VirtualMachineInstance", func() {
 			controller.Execute()
 		})
 
+		It("should invoke device extensions if a Domain does not yet exist", func() {
+			vmi := v1.NewMinimalVMI("testvmi")
+			vmi.ObjectMeta.ResourceVersion = "1"
+			vmi.Status.Phase = v1.Scheduled
+			fakeExtension := devices.NewMockDevice(ctrl)
+			controller.DevicePlugins = []devices.Device{fakeExtension}
+
+			mockWatchdog.CreateFile(vmi)
+			vmiFeeder.Add(vmi)
+
+			fakeExtension.EXPECT().Setup(gomock.Any(), gomock.Any(), gomock.Any())
+			client.EXPECT().SyncVirtualMachine(vmi)
+
+			controller.Execute()
+		})
+
+		It("should not invoke device extensions if a Domain exist", func() {
+			vmi := v1.NewMinimalVMI("testvmi")
+			vmi.ObjectMeta.ResourceVersion = "1"
+			vmi.Status.Phase = v1.Running
+			fakeExtension := devices.NewMockDevice(ctrl)
+			controller.DevicePlugins = []devices.Device{fakeExtension}
+			domain := api.NewMinimalDomain("testvmi")
+			domain.Status.Status = api.Running
+			mockWatchdog.CreateFile(vmi)
+			domainFeeder.Add(domain)
+			vmiFeeder.Add(vmi)
+
+			client.EXPECT().SyncVirtualMachine(vmi)
+
+			fakeExtension.EXPECT().Setup(gomock.Any(), gomock.Any(), gomock.Any()).MaxTimes(0)
+
+			controller.Execute()
+		})
+
 		It("should update from Scheduled to Running, if it sees a running Domain", func() {
 			vmi := v1.NewMinimalVMI("testvmi")
 			vmi.ObjectMeta.ResourceVersion = "1"
@@ -282,6 +324,54 @@ var _ = Describe("VirtualMachineInstance", func() {
 			fakeClient := fake.NewSimpleClientset(node).CoreV1()
 			virtClient.EXPECT().CoreV1().Return(fakeClient).AnyTimes()
 
+			controller.Execute()
+		})
+
+		It("should update from Running to Failed if an unrecoverable error occurs in the launcher", func() {
+			vmi := v1.NewMinimalVMI("testvmi")
+			vmi.ObjectMeta.ResourceVersion = "1"
+			vmi.Status.Phase = v1.Running
+
+			updatedVMI := vmi.DeepCopy()
+			updatedVMI.Status.Phase = v1.Failed
+
+			mockWatchdog.CreateFile(vmi)
+			domain := api.NewMinimalDomain("testvmi")
+			domain.Status.Status = api.Error
+			domain.Status.Reason = api.ReasonLibvirtUnreachable
+			vmiFeeder.Add(vmi)
+			domainFeeder.Add(domain)
+
+			vmiInterface.EXPECT().Update(updatedVMI)
+			controller.Execute()
+		})
+
+		It("should propagate asynchronous sync errors from the Domain to the VMI", func() {
+			vmi := v1.NewMinimalVMI("testvmi")
+			vmi.ObjectMeta.ResourceVersion = "1"
+			vmi.Status.Phase = v1.Scheduled
+
+			mockWatchdog.CreateFile(vmi)
+			domain := api.NewMinimalDomain("testvmi")
+			domain.Status.Status = api.Running
+			domain.Status.Reason = api.ReasonUnknown
+			domain.Status.Conditions = []api.DomainCondition{{
+				Type:    api.DomainConditionSynchronized,
+				Status:  k8sv1.ConditionFalse,
+				Reason:  "blub",
+				Message: "bla",
+			}}
+			vmiFeeder.Add(vmi)
+			domainFeeder.Add(domain)
+
+			vmiInterface.EXPECT().Update(gomock.Any()).Do(func(vmi *v1.VirtualMachineInstance) {
+				Expect(vmi.Status.Conditions).To(HaveLen(1))
+				Expect(vmi.Status.Conditions[0].Type).To(Equal(v1.VirtualMachineInstanceSynchronized))
+				Expect(vmi.Status.Conditions[0].Reason).To(Equal("DomainSync"))
+				Expect(vmi.Status.Conditions[0].Message).To(Equal("bla"))
+				Expect(vmi.Status.Conditions[0].Status).To(Equal(k8sv1.ConditionFalse))
+
+			})
 			controller.Execute()
 		})
 

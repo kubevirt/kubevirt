@@ -697,7 +697,7 @@ type Interface struct {
 	// TODO:(ihar) switch to enums once opengen-api supports them. See: https://github.com/kubernetes/kube-openapi/issues/51
 	Model string `json:"model,omitempty"`
 	// BindingMethod specifies the method which will be used to connect the interface to the guest.
-	// Defaults to Bridge.
+	// Defaults to HostBridge.
 	InterfaceBindingMethod `json:",inline"`
 	// List of ports to be forwarded to the virtual machine.
 	Ports []Port `json:"ports,omitempty"`
@@ -766,7 +766,8 @@ type Network struct {
 // ---
 // +k8s:openapi-gen=true
 type NetworkSource struct {
-	Pod *PodNetwork `json:"pod,omitempty"`
+	Pod        *PodNetwork `json:"pod,omitempty"`
+	HostBridge *HostBridge `json:"hostBridge,omitempty"`
 }
 
 // Represents the stock pod network interface.
@@ -776,4 +777,17 @@ type PodNetwork struct {
 	// CIDR for vm network.
 	// Default 10.0.2.0/24 if not specified.
 	VMNetworkCIDR string `json:"vmNetworkCIDR,omitempty"`
+}
+
+type BridgeType string
+
+// Represents a network which the vmi should connect to via a bridge
+// ---
+// +k8s:openapi-gen=true
+type HostBridge struct {
+	// BridgeName holds the target device path inside of the container. If NodeBridgeName is unset, this path will also be used to look up the source bridge on the node under this path
+	BridgeName string `json:"bridgeName"`
+	// NodeBridgeName points to the bridge on the node which should be used
+	// +optional
+	NodeBridgeName string `json:"nodeBridgeName,omitempty"`
 }

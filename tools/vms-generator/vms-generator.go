@@ -53,6 +53,7 @@ const (
 	vmiWindows         = "vmi-windows"
 	vmiSlirp           = "vmi-slirp"
 	vmiWithHookSidecar = "vmi-with-sidecar-hook"
+	vmiBridge          = "vmi-bridge"
 	vmTemplateFedora   = "vm-template-fedora"
 	vmTemplateRHEL7    = "vm-template-rhel7"
 	vmTemplateWindows  = "vm-template-windows2012r2"
@@ -593,6 +594,26 @@ func getVMIWithHookSidecar() *v1.VirtualMachineInstance {
 	return vmi
 }
 
+func getVMIWithBridge() *v1.VirtualMachineInstance {
+	vmi := getBaseVMI(vmiBridge)
+	vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("1024M")
+
+	vmi.Spec.Networks = append(vmi.Spec.Networks, v1.Network{Name: "default",
+		NetworkSource: v1.NetworkSource{Pod: &v1.PodNetwork{}}})
+	vmi.Spec.Networks = append(vmi.Spec.Networks, v1.Network{Name: "red",
+		NetworkSource: v1.NetworkSource{HostBridge: &v1.HostBridge{BridgeName: "red"}}})
+
+	addRegistryDisk(&vmi.Spec, fmt.Sprintf("%s/%s:%s", dockerPrefix, imageFedora, dockerTag), busVirtio)
+	addNoCloudDiskWitUserData(&vmi.Spec, "#cloud-config\npassword: fedora\nchpasswd: { expire: False }")
+
+	vmi.Spec.Domain.Devices.Interfaces = append(vmi.Spec.Domain.Devices.Interfaces, v1.Interface{Name: "default",
+		InterfaceBindingMethod: v1.InterfaceBindingMethod{Bridge: &v1.InterfaceBridge{}}})
+	vmi.Spec.Domain.Devices.Interfaces = append(vmi.Spec.Domain.Devices.Interfaces, v1.Interface{Name: "red",
+		InterfaceBindingMethod: v1.InterfaceBindingMethod{Bridge: &v1.InterfaceBridge{}}})
+
+	return vmi
+}
+
 func main() {
 	flag.StringVar(&dockerPrefix, "docker-prefix", dockerPrefix, "")
 	flag.StringVar(&dockerTag, "docker-tag", dockerTag, "")
@@ -614,6 +635,7 @@ func main() {
 		vmiWindows:         getVMIWindows(),
 		vmiSlirp:           getVMISlirp(),
 		vmiWithHookSidecar: getVMIWithHookSidecar(),
+		vmiBridge:          getVMIWithBridge(),
 	}
 
 	var vmireplicasets = map[string]*v1.VirtualMachineInstanceReplicaSet{

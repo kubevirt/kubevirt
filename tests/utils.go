@@ -64,7 +64,6 @@ import (
 	"kubevirt.io/kubevirt/pkg/kubecli"
 	"kubevirt.io/kubevirt/pkg/log"
 	"kubevirt.io/kubevirt/pkg/util/net/dns"
-	"kubevirt.io/kubevirt/pkg/virt-controller/services"
 	"kubevirt.io/kubevirt/pkg/virtctl"
 )
 
@@ -336,46 +335,6 @@ func BeforeTestSuitSetup() {
 
 	CreatePVC(osWindows, defaultWindowsDiskSize)
 
-	EnsureKVMPresent()
-}
-
-func EnsureKVMPresent() {
-	useEmulation := false
-	virtClient, err := kubecli.GetKubevirtClient()
-	PanicOnError(err)
-
-	options := metav1.GetOptions{}
-	cfgMap, err := virtClient.CoreV1().ConfigMaps("kube-system").Get("kubevirt-config", options)
-	if err == nil {
-		val, ok := cfgMap.Data["debug.useEmulation"]
-		useEmulation = ok && (val == "true")
-	} else {
-		// If the cfgMap is missing, default to useEmulation=false
-		// no other error is expected
-		if !errors.IsNotFound(err) {
-			ExpectWithOffset(1, err).ToNot(HaveOccurred())
-		}
-	}
-	if !useEmulation {
-		listOptions := metav1.ListOptions{LabelSelector: v1.AppLabel + "=virt-handler"}
-		virtHandlerPods, err := virtClient.CoreV1().Pods(metav1.NamespaceSystem).List(listOptions)
-		ExpectWithOffset(1, err).ToNot(HaveOccurred())
-
-		EventuallyWithOffset(1, func() bool {
-			ready := true
-			// cluster is not ready until all nodes are ready.
-			for _, pod := range virtHandlerPods.Items {
-				virtHandlerNode, err := virtClient.CoreV1().Nodes().Get(pod.Spec.NodeName, metav1.GetOptions{})
-				ExpectWithOffset(1, err).ToNot(HaveOccurred())
-
-				allocatable, ok := virtHandlerNode.Status.Allocatable[services.KvmDevice]
-				ready = ready && ok
-				ready = ready && (allocatable.Value() > 0)
-			}
-			return ready
-		}, 120*time.Second, 1*time.Second).Should(BeTrue(),
-			"KVM devices are required for testing, but are not present on cluster nodes")
-	}
 }
 
 func CreatePVC(os string, size string) {
@@ -1017,6 +976,21 @@ func NewRandomVMIWithSlirpInterfaceEphemeralDiskAndUserdata(containerImage strin
 	return vmi
 }
 
+func NewRandomVMIWithBridgeNetworkEphemeralDiskAndUserdata(containerImage, userData, networkName, bridgeName string) *v1.VirtualMachineInstance {
+	vmi := NewRandomVMIWithEphemeralDiskAndUserdata(containerImage, userData)
+	vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{
+		{Name: "default",
+			InterfaceBindingMethod: v1.InterfaceBindingMethod{Bridge: &v1.InterfaceBridge{}}},
+		{Name: networkName,
+			InterfaceBindingMethod: v1.InterfaceBindingMethod{Bridge: &v1.InterfaceBridge{}}},
+	}
+	vmi.Spec.Networks = []v1.Network{
+		*v1.DefaultPodNetwork(),
+		v1.Network{Name: networkName, NetworkSource: v1.NetworkSource{HostBridge: &v1.HostBridge{BridgeName: bridgeName}}},
+	}
+	return vmi
+}
+
 func NewRandomVMIWithBridgeInterfaceEphemeralDiskAndUserdata(containerImage string, userData string, Ports []v1.Port) *v1.VirtualMachineInstance {
 	vmi := NewRandomVMIWithEphemeralDiskAndUserdata(containerImage, userData)
 	vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{{Name: "default", Ports: Ports, InterfaceBindingMethod: v1.InterfaceBindingMethod{Bridge: &v1.InterfaceBridge{}}}}
@@ -1169,6 +1143,39 @@ func RenderJob(name string, cmd []string, args []string) *k8sv1.Pod {
 				},
 			},
 			HostPID: true,
+			SecurityContext: &k8sv1.PodSecurityContext{
+				RunAsUser: new(int64),
+			},
+		},
+	}
+
+	return &job
+}
+
+func RenderIPRouteJob(name string, args []string) *k8sv1.Pod {
+	job := k8sv1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			GenerateName: name,
+			Labels: map[string]string{
+				v1.AppLabel: "test",
+			},
+		},
+		Spec: k8sv1.PodSpec{
+			RestartPolicy: k8sv1.RestartPolicyNever,
+			Containers: []k8sv1.Container{
+				{
+					Name:    name,
+					Image:   fmt.Sprintf("%s/iproute:%s", KubeVirtRepoPrefix, KubeVirtVersionTag),
+					Command: []string{"ip"},
+					Args:    args,
+					SecurityContext: &k8sv1.SecurityContext{
+						Privileged: NewBool(true),
+						RunAsUser:  new(int64),
+					},
+				},
+			},
+			HostPID:     true,
+			HostNetwork: true,
 			SecurityContext: &k8sv1.PodSecurityContext{
 				RunAsUser: new(int64),
 			},

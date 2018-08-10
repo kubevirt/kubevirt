@@ -231,6 +231,14 @@ spec:
                     networks:
                       items:
                         properties:
+                          hostBridge:
+                            properties:
+                              bridgeName:
+                                type: string
+                              nodeBridgeName:
+                                type: string
+                            required:
+                            - bridgeName
                           name:
                             type: string
                           pod:
