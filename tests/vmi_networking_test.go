@@ -527,6 +527,34 @@ var _ = Describe("Networking", func() {
 			checkPciAddress(testVMI, testVMI.Spec.Domain.Devices.Interfaces[0].PciAddress, "\\$")
 		})
 	})
+
+	Context("VirtualMachineInstance with multus macvlan interface", func() {
+		BeforeEach(func() {
+			tests.SkipIfNoMultusProvider(virtClient)
+		})
+
+		It("should create a virtual machine with one interface", func() {
+			By("checking eth0 have 192.168.66.200 ip address")
+			detachedVMI := tests.NewRandomVMIWithEphemeralDiskAndUserdata(tests.RegistryDiskFor(tests.RegistryDiskCirros), "#!/bin/bash\necho 'hello'\n")
+			detachedVMI.Spec.Domain.Devices.Interfaces = []v1.Interface{{Name: "macvlan-conf", InterfaceBindingMethod: v1.InterfaceBindingMethod{Bridge: &v1.InterfaceBridge{}}}}
+			detachedVMI.Spec.Networks = []v1.Network{{Name: "macvlan-conf", NetworkSource: v1.NetworkSource{Multus: &v1.MultusNetwork{}}}}
+
+			_, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(detachedVMI)
+			Expect(err).ToNot(HaveOccurred())
+			tests.WaitUntilVMIReady(detachedVMI, tests.LoggedInCirrosExpecter)
+
+			cmdCheck := fmt.Sprintf("ping %s -c 1 -w 5\n", "192.168.66.2")
+			err = tests.CheckForTextExpecter(outboundVMI, []expect.Batcher{
+				&expect.BSnd{S: "\n"},
+				&expect.BExp{R: "\\$ "},
+				&expect.BSnd{S: cmdCheck},
+				&expect.BExp{R: "\\$ "},
+				&expect.BSnd{S: "echo $?\n"},
+				&expect.BExp{R: "0"},
+			}, 180)
+			Expect(err).ToNot(HaveOccurred())
+		})
+	})
 })
 
 func waitUntilVMIReady(vmi *v1.VirtualMachineInstance, expecterFactory tests.VMIExpecterFactory) *v1.VirtualMachineInstance {

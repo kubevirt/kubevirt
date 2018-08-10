@@ -1404,6 +1404,13 @@ func SkipIfNoWindowsImage(virtClient kubecli.KubevirtClient) {
 	}
 }
 
+func SkipIfNoMultusProvider(virtClient kubecli.KubevirtClient) {
+	_, err := virtClient.ExtensionsV1beta1().DaemonSets("kube-system").Get("kube-multus-ds-amd64", metav1.GetOptions{})
+	if err != nil {
+		Skip("Skip multus tests that required multus cni plugin")
+	}
+}
+
 func SkipIfNoCmd(cmdName string) {
 	var cmdPath string
 	switch strings.ToLower(cmdName) {
