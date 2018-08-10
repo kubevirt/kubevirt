@@ -40,6 +40,7 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/kubecli"
+	"kubevirt.io/kubevirt/pkg/util/net/dns"
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/tests"
@@ -110,7 +111,7 @@ var _ = Describe("VMIlifecycle", func() {
 			Eventually(logs,
 				2*time.Second,
 				500*time.Millisecond).
-				Should(ContainSubstring("info : hostname: " + vmi.Name))
+				Should(ContainSubstring("info : hostname: " + dns.SanitizeHostname(vmi)))
 		})
 
 		It("should reject POST if schema is invalid", func() {
