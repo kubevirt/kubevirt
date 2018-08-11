@@ -323,10 +323,10 @@ func validateVolumes(field *k8sfield.Path, volumes []v1.Volume) []metav1.StatusC
 			}
 
 			// if disk.img already exists and user knows that by specifying type 'Disk' it is pointless to set capacity
-			if hostDisk.Type == v1.HostDiskExists && hostDisk.Capacity != (resource.Quantity{}) {
+			if hostDisk.Type == v1.HostDiskExists && !hostDisk.Capacity.IsZero() {
 				causes = append(causes, metav1.StatusCause{
 					Type:    metav1.CauseTypeFieldValueInvalid,
-					Message: fmt.Sprintf("%s is allowed to pass only with %s equal to '%s'", field.Index(idx).Child("hostDisk", "capacity").String(), field.Index(idx).Child("hostDisk", "type").String(), v1.HostDiskExists),
+					Message: fmt.Sprintf("%s is allowed to pass only with %s equal to '%s'", field.Index(idx).Child("hostDisk", "capacity").String(), field.Index(idx).Child("hostDisk", "type").String(), v1.HostDiskExistsOrCreate),
 					Field:   field.Index(idx).Child("hostDisk", "capacity").String(),
 				})
 			}

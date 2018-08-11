@@ -22,6 +22,7 @@ package tests_test
 import (
 	"flag"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/google/goexpect"
@@ -305,6 +306,32 @@ var _ = Describe("Storage", func() {
 					tests.WaitForVirtualMachineToDisappearWithTimeout(obj, 120)
 				}
 			})
+		})
+
+		Context("With a HostDisk defined", func() {
+			table.DescribeTable("should be sucessfully started", func(hostDiskType v1.HostDiskType) {
+				By("starting VirtualMachineInstance")
+				vmi := tests.NewRandomVMIWithHostDisk(hostDiskType)
+				RunVMIAndExpectLaunch(vmi, false, 10)
+
+				By("checking if disk.img exists")
+				vmiPod := tests.GetRunningPodByLabel(vmi.Name, v1.CreatedByLabel, tests.NamespaceTestDefault)
+				output, err := tests.ExecuteCommandOnPod(
+					virtClient,
+					vmiPod,
+					vmiPod.Spec.Containers[0].Name,
+					[]string{"find", "/data", "-name", "disk.img", "-size", "1G"},
+				)
+				Expect(strings.Contains(output, "/data/disk.img")).To(BeTrue())
+
+				err = virtClient.VirtualMachineInstance(vmi.Namespace).Delete(vmi.Name, &metav1.DeleteOptions{})
+				Expect(err).To(BeNil())
+
+				tests.WaitForVirtualMachineToDisappearWithTimeout(vmi, 120)
+			},
+				table.Entry("with 'DiskExistsOrCreate` type", v1.HostDiskExistsOrCreate),
+				table.Entry("with 'DiskExists` type", v1.HostDiskExists),
+			)
 		})
 	})
 })
