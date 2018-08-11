@@ -48,13 +48,17 @@ type NetworkInterface interface {
 func SetupNetworkInterfaces(vmi *v1.VirtualMachineInstance, domain *api.Domain) error {
 	// prepare networks map
 	networks := map[string]*v1.Network{}
+	multusNetworks := map[string]int{}
+	multusNetworkNumber := 0
 	for _, network := range vmi.Spec.Networks {
 		networks[network.Name] = network.DeepCopy()
+		if network.Multus != nil {
+			multusNetworkNumber++
+			multusNetworks[network.Name] = multusNetworkNumber
+		}
 	}
 
-	multusNetworkNumber := 0
 	for _, iface := range vmi.Spec.Domain.Devices.Interfaces {
-
 		network, ok := networks[iface.Name]
 		if !ok {
 			return fmt.Errorf("failed to find a network %s", iface.Name)
@@ -65,8 +69,7 @@ func SetupNetworkInterfaces(vmi *v1.VirtualMachineInstance, domain *api.Domain) 
 		}
 
 		if networks[iface.Name].Multus != nil {
-			multusNetworkNumber++
-			podInterfaceName = fmt.Sprintf("net%d", multusNetworkNumber)
+			podInterfaceName = fmt.Sprintf("net%d", multusNetworks[iface.Name])
 		} else {
 			podInterfaceName = podInterface
 		}
