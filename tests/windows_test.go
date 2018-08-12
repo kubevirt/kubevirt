@@ -254,6 +254,7 @@ var _ = Describe("Windows VirtualMachineInstance", func() {
 
 			tests.WaitForSuccessfulVMIStartWithTimeout(windowsVMI, 120)
 
+			podSelector := tests.UnfinishedVMIPodSelector(windowsVMI)
 			By("Deleting the vmi via kubectl command")
 			_, err = tests.RunKubectlCommand("delete", "-f", yamlFile)
 			Expect(err).ToNot(HaveOccurred())
@@ -264,7 +265,7 @@ var _ = Describe("Windows VirtualMachineInstance", func() {
 
 			By("Checking that the vmi pod terminated")
 			Eventually(func() int {
-				pods, err := virtClient.CoreV1().Pods(tests.NamespaceTestDefault).List(tests.UnfinishedVMIPodSelector(windowsVMI))
+				pods, err := virtClient.CoreV1().Pods(tests.NamespaceTestDefault).List(podSelector)
 				Expect(err).ToNot(HaveOccurred())
 				return len(pods.Items)
 			}, 75, 0.5).Should(Equal(0))
