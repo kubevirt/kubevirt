@@ -892,8 +892,9 @@ var _ = Describe("VMIlifecycle", func() {
 				Expect(err).ToNot(HaveOccurred())
 				tests.WaitForSuccessfulVMIStart(obj)
 
+				podSelector := tests.UnfinishedVMIPodSelector(vmi)
 				By("Verifying VirtualMachineInstance's pod is active")
-				pods, err := virtClient.CoreV1().Pods(tests.NamespaceTestDefault).List(tests.UnfinishedVMIPodSelector(vmi))
+				pods, err := virtClient.CoreV1().Pods(tests.NamespaceTestDefault).List(podSelector)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(len(pods.Items)).To(Equal(1))
 
@@ -902,7 +903,7 @@ var _ = Describe("VMIlifecycle", func() {
 
 				By("Verifying VirtualMachineInstance's pod terminates")
 				Eventually(func() int {
-					pods, err := virtClient.CoreV1().Pods(tests.NamespaceTestDefault).List(tests.UnfinishedVMIPodSelector(vmi))
+					pods, err := virtClient.CoreV1().Pods(tests.NamespaceTestDefault).List(podSelector)
 					Expect(err).ToNot(HaveOccurred())
 					return len(pods.Items)
 				}, 75, 0.5).Should(Equal(0))
