@@ -556,11 +556,12 @@ func Convert_v1_VirtualMachine_To_api_Domain(vmi *v1.VirtualMachineInstance, dom
 			return err
 		}
 
+		var domainIface *Interface
 		if net.Pod != nil {
 			if iface.Bridge != nil {
 				// TODO:(ihar) consider abstracting interface type conversion /
 				// detection into drivers
-				domainIface := Interface{
+				domainIface = &Interface{
 					Model: &Model{
 						Type: interfaceType,
 					},
@@ -572,10 +573,9 @@ func Convert_v1_VirtualMachine_To_api_Domain(vmi *v1.VirtualMachineInstance, dom
 						Name: iface.Name,
 					},
 				}
-				domain.Spezc.Devices.Interfaces = append(domain.Spec.Devices.Interfaces, domainIface)
 			}
 		} else if net.HostBridge != nil {
-			domainIface := Interface{
+			domainIface = &Interface{
 				Model: &Model{
 					Type: interfaceType,
 				},
@@ -587,7 +587,13 @@ func Convert_v1_VirtualMachine_To_api_Domain(vmi *v1.VirtualMachineInstance, dom
 					Name: iface.Name,
 				},
 			}
-			domain.Spec.Devices.Interfaces = append(domain.Spec.Devices.Interfaces, domainIface)
+		}
+
+		if domainIface != nil {
+			if iface.BootOrder != nil {
+				domainIface.BootOrder = &BootOrder{Order: *iface.BootOrder}
+			}
+			domain.Spec.Devices.Interfaces = append(domain.Spec.Devices.Interfaces, *domainIface)
 		}
 	}
 
