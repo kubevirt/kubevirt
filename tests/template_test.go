@@ -53,7 +53,7 @@ var _ = Describe("Templates", func() {
 	)
 
 	BeforeEach(func() {
-		tests.SkipIfNoOc()
+		tests.SkipIfNoCmd("oc")
 		tests.BeforeTestCleanup()
 	})
 
@@ -224,7 +224,7 @@ type TemplateParams struct {
 func runOcProcessCommand(templateJsonFile string, templateParams TemplateParams, vmJsonFile string) (string, error) {
 	templateParamArgs := []string{"-p", "NAME=" + templateParams.Name, "-p", "CPU_CORES=" + templateParams.CpuCores}
 	args := append([]string{"process", "-f", templateJsonFile}, templateParamArgs...)
-	out, err := tests.RunOcCommand(args...)
+	out, err := tests.RunCommand("oc", args...)
 	if err != nil {
 		return out, err
 	}
@@ -236,22 +236,22 @@ func runOcProcessCommand(templateJsonFile string, templateParams TemplateParams,
 }
 
 func runOcCreateCommand(vmJsonFile string) (string, error) {
-	out, err := tests.RunOcCommand("create", "-f", vmJsonFile)
+	out, err := tests.RunCommand("oc", "create", "-f", vmJsonFile)
 	return out, err
 }
 
 func runOcPatchCommand(vmName string, patch string) (string, error) {
-	out, err := tests.RunOcCommand("patch", "virtualmachine", vmName, "--type", "merge", "-p", patch)
+	out, err := tests.RunCommand("oc", "patch", "virtualmachine", vmName, "--type", "merge", "-p", patch)
 	return out, err
 }
 
 func runOcDeleteCommand(vmName string) (string, error) {
-	out, err := tests.RunOcCommand("delete", "vm", vmName)
+	out, err := tests.RunCommand("oc", "delete", "vm", vmName)
 	return out, err
 }
 
 func runOcGetCommand(resourceType string) (string, error) {
-	out, err := tests.RunOcCommand("get", resourceType)
+	out, err := tests.RunCommand("oc", "get", resourceType)
 	return out, err
 }
 

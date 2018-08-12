@@ -82,7 +82,7 @@ var _ = Describe("HookSidecars", func() {
 
 			It("should update domain XML with SM BIOS properties", func() {
 				By("Reading domain XML using virsh")
-				tests.SkipIfNoKubectl()
+				tests.SkipIfNoCmd("kubectl")
 				vmi, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
 				tests.WaitForSuccessfulVMIStart(vmi)
 				domainXml := getVmDomainXml(virtClient, vmi)
@@ -115,11 +115,11 @@ func getHookSidecarLogs(virtCli kubecli.KubevirtClient, vmi *v1.VirtualMachineIn
 func getVmDomainXml(virtCli kubecli.KubevirtClient, vmi *v1.VirtualMachineInstance) string {
 	podName := getVmPodName(virtCli, vmi)
 
-	vmNameListRaw, err := tests.RunKubectlCommand("exec", "-ti", "--namespace", vmi.GetObjectMeta().GetNamespace(), podName, "--container", "compute", "--", "virsh", "list", "--name")
+	vmNameListRaw, err := tests.RunCommand("kubectl", "exec", "-ti", "--namespace", vmi.GetObjectMeta().GetNamespace(), podName, "--container", "compute", "--", "virsh", "list", "--name")
 	Expect(err).ToNot(HaveOccurred())
 
 	vmName := strings.Split(vmNameListRaw, "\n")[0]
-	vmDomainXML, err := tests.RunKubectlCommand("exec", "-ti", "--namespace", vmi.GetObjectMeta().GetNamespace(), podName, "--container", "compute", "--", "virsh", "dumpxml", vmName)
+	vmDomainXML, err := tests.RunCommand("kubectl", "exec", "-ti", "--namespace", vmi.GetObjectMeta().GetNamespace(), podName, "--container", "compute", "--", "virsh", "dumpxml", vmName)
 	Expect(err).ToNot(HaveOccurred())
 
 	return vmDomainXML
