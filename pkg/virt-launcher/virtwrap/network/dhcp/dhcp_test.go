@@ -56,7 +56,7 @@ var _ = Describe("DHCP", func() {
 		})
 
 		It("should build OpenShift routes correctly", func() {
-			expected := []byte{0, 10, 129, 0, 1, 14, 10, 128, 0, 0, 0, 0, 4, 224, 0, 0, 0, 0}
+			expected := []byte{14, 10, 128, 0, 0, 0, 0, 4, 224, 0, 0, 0, 0, 0, 10, 129, 0, 1}
 			gatewayRoute := netlink.Route{Gw: net.IPv4(10, 129, 0, 1)}
 			staticRoute1 := netlink.Route{
 				Dst: &net.IPNet{
@@ -76,7 +76,7 @@ var _ = Describe("DHCP", func() {
 		})
 
 		It("should build Calico routes correctly", func() {
-			expected := []byte{0, 169, 254, 1, 1, 32, 169, 254, 1, 1, 0, 0, 0, 0}
+			expected := []byte{32, 169, 254, 1, 1, 0, 0, 0, 0, 0, 169, 254, 1, 1}
 			gatewayRoute := netlink.Route{Gw: net.IPv4(169, 254, 1, 1)}
 			staticRoute1 := netlink.Route{
 				Dst: &net.IPNet{
