@@ -178,7 +178,7 @@ var _ = Describe("Networking", func() {
 
 			switch destination {
 			case "Internet":
-				addr = "www.google.com"
+				addr = "www.kubevirt.io"
 			case "InboundVMI":
 				addr = inboundVMI.Status.Interfaces[0].IP
 			}

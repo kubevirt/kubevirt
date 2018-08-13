@@ -145,6 +145,8 @@ const (
 	SecretLabel = "kubevirt.io/secret"
 )
 
+const LocalStorageClass = "local"
+
 type ProcessFunc func(event *k8sv1.Event) (done bool)
 
 type ObjectEventWatcher struct {
@@ -347,7 +349,9 @@ func newPVC(os string, size string) *k8sv1.PersistentVolumeClaim {
 	quantity, err := resource.ParseQuantity(size)
 	PanicOnError(err)
 
+	storageClass := LocalStorageClass
 	name := fmt.Sprintf("disk-%s", os)
+
 	return &k8sv1.PersistentVolumeClaim{
 		ObjectMeta: metav1.ObjectMeta{Name: name},
 		Spec: k8sv1.PersistentVolumeClaimSpec{
@@ -362,6 +366,7 @@ func newPVC(os string, size string) *k8sv1.PersistentVolumeClaim {
 					"kubevirt.io/test": os,
 				},
 			},
+			StorageClassName: &storageClass,
 		},
 	}
 }
@@ -394,6 +399,7 @@ func CreateHostPathPv(os string, hostPath string) {
 					Type: &hostPathType,
 				},
 			},
+			StorageClassName: LocalStorageClass,
 		},
 	}
 
@@ -1204,7 +1210,11 @@ func LoggedInCirrosExpecter(vmi *v1.VirtualMachineInstance) (expect.Expecter, er
 	if err != nil {
 		return nil, err
 	}
+
 	hostName := vmi.Name
+	if vmi.Spec.Hostname != "" {
+		hostName = vmi.Spec.Hostname
+	}
 
 	// Do not login, if we already logged in
 	err = expecter.Send("\n")

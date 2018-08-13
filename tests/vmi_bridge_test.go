@@ -38,7 +38,7 @@ import (
 	"kubevirt.io/kubevirt/tests"
 )
 
-var _ = Describe("Bridge", func() {
+var _ = FDescribe("Bridge", func() {
 
 	bridgeIP := map[string]string{"red": "172.16.98.1", "blue": "172.16.99.1"}
 
@@ -46,6 +46,32 @@ var _ = Describe("Bridge", func() {
 
 	virtClient, err := kubecli.GetKubevirtClient()
 	tests.PanicOnError(err)
+
+	var nodeWithBridges *k8sv1.Node
+
+	createBridgeVMI := func(networkName1 string, networkName2 string) *v1.VirtualMachineInstance {
+		vmi := tests.NewRandomVMIWithBridgeNetworkEphemeralDiskAndUserdata(
+			tests.RegistryDiskFor(tests.RegistryDiskCirros),
+			"#!/bin/bash\necho 'hello'\n",
+			networkName1,
+			networkName2,
+		)
+		vmi.Spec.Affinity = &v1.Affinity{
+			NodeAffinity: &k8sv1.NodeAffinity{
+				RequiredDuringSchedulingIgnoredDuringExecution: &k8sv1.NodeSelector{
+					NodeSelectorTerms: []k8sv1.NodeSelectorTerm{
+						{
+							MatchExpressions: []k8sv1.NodeSelectorRequirement{
+								{Key: "kubernetes.io/hostname", Operator: k8sv1.NodeSelectorOpIn, Values: []string{nodeWithBridges.Name}},
+							},
+						},
+					},
+				},
+			},
+		}
+		return vmi
+	}
+
 	tests.BeforeAll(func() {
 		waitForPodToFinish := func(pod *k8sv1.Pod) k8sv1.PodPhase {
 			Eventually(func() k8sv1.PodPhase {
@@ -68,8 +94,8 @@ var _ = Describe("Bridge", func() {
 			nodeList, err := virtClient.CoreV1().Nodes().List(listOptions)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(nodeList.Items).NotTo(HaveLen(0))
-			node := nodeList.Items[0]
-			nodeSelector := map[string]string{"kubernetes.io/hostname": node.Name}
+			nodeWithBridges = &nodeList.Items[0]
+			nodeSelector := map[string]string{"kubernetes.io/hostname": nodeWithBridges.Name}
 
 			job.Spec.NodeSelector = nodeSelector
 			job, err = virtClient.CoreV1().Pods(tests.NamespaceTestDefault).Create(job)
@@ -107,11 +133,7 @@ var _ = Describe("Bridge", func() {
 		const networkName = "red"
 		const macAddress = "de:ad:00:00:be:af"
 		tests.BeforeAll(func() {
-			vmi = tests.NewRandomVMIWithBridgeNetworkEphemeralDiskAndUserdata(tests.RegistryDiskFor(tests.RegistryDiskCirros),
-				"#!/bin/bash\necho 'hello'\n",
-				networkName,
-				networkName)
-
+			vmi = createBridgeVMI(networkName, networkName)
 			vmi, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
 			Expect(err).ToNot(HaveOccurred())
 			tests.WaitForSuccessfulVMIStartWithTimeout(vmi, 120)
@@ -178,11 +200,7 @@ var _ = Describe("Bridge", func() {
 		const networkName1 = "red"
 		const networkName2 = "blue"
 		tests.BeforeAll(func() {
-			vmi = tests.NewRandomVMIWithBridgeNetworkEphemeralDiskAndUserdata(tests.RegistryDiskFor(tests.RegistryDiskCirros),
-				"#!/bin/bash\necho 'hello'\n",
-				networkName1,
-				networkName1)
-
+			vmi = createBridgeVMI(networkName1, networkName1)
 			// add the "blue" interface and network
 			vmi.Spec.Domain.Devices.Interfaces = append(vmi.Spec.Domain.Devices.Interfaces,
 				v1.Interface{Name: networkName2,
@@ -234,10 +252,7 @@ var _ = Describe("Bridge", func() {
 		const ifaceName1 = "eth1"
 		const ifaceName2 = "eth2"
 		tests.BeforeAll(func() {
-			vmi = tests.NewRandomVMIWithBridgeNetworkEphemeralDiskAndUserdata(tests.RegistryDiskFor(tests.RegistryDiskCirros),
-				"#!/bin/bash\necho 'hello'\n",
-				networkName+"1",
-				networkName)
+			vmi = createBridgeVMI(networkName+"1", networkName)
 
 			// add another interface to the same network
 			vmi.Spec.Domain.Devices.Interfaces = append(vmi.Spec.Domain.Devices.Interfaces,
@@ -308,10 +323,7 @@ var _ = Describe("Bridge", func() {
 
 		tests.BeforeAll(func() {
 			createVMWithNetworkandIP := func(networkName string, cidr string) (vmi *v1.VirtualMachineInstance) {
-				vmi = tests.NewRandomVMIWithBridgeNetworkEphemeralDiskAndUserdata(tests.RegistryDiskFor(tests.RegistryDiskCirros),
-					"#!/bin/bash\necho 'hello'\n",
-					networkName,
-					networkName)
+				vmi = createBridgeVMI(networkName, networkName)
 
 				vmi, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
 				Expect(err).ToNot(HaveOccurred())
@@ -346,8 +358,8 @@ var _ = Describe("Bridge", func() {
 func addIPToVMI(cidr string, ifaceName string, vmi *v1.VirtualMachineInstance) {
 	// add IP addresses on the interfaces
 	expecter, err := tests.LoggedInCirrosExpecter(vmi)
-	defer expecter.Close()
 	Expect(err).ToNot(HaveOccurred())
+	defer expecter.Close()
 
 	out, err := expecter.ExpectBatch([]expect.Batcher{
 		&expect.BSnd{S: "\n"},
@@ -361,8 +373,8 @@ func addIPToVMI(cidr string, ifaceName string, vmi *v1.VirtualMachineInstance) {
 
 func pingExpectOK(ip string, ifaceName string, vmi *v1.VirtualMachineInstance) {
 	expecter, err := tests.LoggedInCirrosExpecter(vmi)
-	defer expecter.Close()
 	Expect(err).ToNot(HaveOccurred())
+	defer expecter.Close()
 
 	out, err := expecter.ExpectBatch([]expect.Batcher{
 		&expect.BSnd{S: "\n"},
