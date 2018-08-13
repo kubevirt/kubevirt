@@ -12,6 +12,8 @@ import (
 	"kubevirt.io/kubevirt/pkg/virtctl/templates"
 )
 
+var clientOnly bool
+
 func VersionCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "version",
@@ -23,6 +25,7 @@ func VersionCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
 			return v.Run(cmd, args)
 		},
 	}
+	cmd.Flags().BoolVarP(&clientOnly, "client", "c", clientOnly, "Client version only (no server required).")
 	cmd.SetUsageTemplate(templates.UsageTemplate())
 	return cmd
 }
@@ -40,16 +43,19 @@ type Version struct {
 func (v *Version) Run(cmd *cobra.Command, args []string) error {
 	fmt.Printf("Client Version: %s\n", fmt.Sprintf("%#v", version.Get()))
 
-	virCli, err := kubecli.GetKubevirtClientFromClientConfig(v.clientConfig)
-	if err != nil {
-		return err
+	if !clientOnly {
+		virCli, err := kubecli.GetKubevirtClientFromClientConfig(v.clientConfig)
+		if err != nil {
+			return err
+		}
+
+		serverInfo, err := virCli.ServerVersion().Get()
+		if err != nil {
+			return err
+		}
+
+		fmt.Printf("Server Version: %s\n", fmt.Sprintf("%#v", serverInfo))
 	}
 
-	serverInfo, err := virCli.ServerVersion().Get()
-	if err != nil {
-		return err
-	}
-
-	fmt.Printf("Server Version: %s\n", fmt.Sprintf("%#v", serverInfo))
 	return nil
 }
