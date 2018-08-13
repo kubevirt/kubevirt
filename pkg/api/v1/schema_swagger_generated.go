@@ -4,7 +4,7 @@ package v1
 
 func (HostDisk) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"":         "Represents a disk created on the cluster level\n--\n+k8s:openapi-gen=true",
+		"":         "Represents a disk created on the cluster level",
 		"path":     "The path to HostDisk image located on the cluster",
 		"type":     "Contains information if disk.img exists or should be created\nallowed options are 'Disk' and 'DiskOrCreate'",
 		"capacity": "Capacity of the sparse disk\n+optional",

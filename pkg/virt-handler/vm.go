@@ -452,9 +452,10 @@ func (d *VirtualMachineController) execute(key string) error {
 	return nil
 }
 
-func (d *VirtualMachineController) injectPVCHostDisks(vmi *v1.VirtualMachineInstance) error {
-	// if persistent volume claim is defined in spec,
-	// a hostDisk will be injected based on PersistentVolumeClaim
+func (d *VirtualMachineController) replacePVCByHostDisk(vmi *v1.VirtualMachineInstance) error {
+	// if PVC is defined then it is replaced by HostDisk
+	// PersistenVolumeClaim is mounted into pod as directory from node filesystem
+	// it is not attached as independent block device
 	for i := range vmi.Spec.Volumes {
 		if volumeSource := &vmi.Spec.Volumes[i].VolumeSource; volumeSource.PersistentVolumeClaim != nil {
 			pvcSize, err := hostdisk.GetPVCSize(volumeSource.PersistentVolumeClaim.ClaimName, vmi.Namespace, d.clientset)
@@ -655,7 +656,7 @@ func (d *VirtualMachineController) processVmUpdate(origVMI *v1.VirtualMachineIns
 		return goerror.New(fmt.Sprintf("Can not update a VirtualMachineInstance with expired watchdog."))
 	}
 
-	err = d.injectPVCHostDisks(vmi)
+	err = d.replacePVCByHostDisk(vmi)
 	if err != nil {
 		return err
 	}

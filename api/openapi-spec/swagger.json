@@ -3668,7 +3668,7 @@
     }
    },
    "v1.HostDisk": {
-    "description": "Represents a disk created on the cluster level\n--\n+k8s:openapi-gen=true",
+    "description": "Represents a disk created on the cluster level",
     "required": [
      "path",
      "type"

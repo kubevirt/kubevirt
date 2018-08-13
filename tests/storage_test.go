@@ -22,6 +22,7 @@ package tests_test
 import (
 	"flag"
 	"fmt"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -29,6 +30,8 @@ import (
 	. "github.com/onsi/ginkgo"
 	"github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
+	"github.com/pborman/uuid"
+	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
@@ -309,29 +312,115 @@ var _ = Describe("Storage", func() {
 		})
 
 		Context("With a HostDisk defined", func() {
-			table.DescribeTable("should be sucessfully started", func(hostDiskType v1.HostDiskType) {
-				By("starting VirtualMachineInstance")
-				vmi := tests.NewRandomVMIWithHostDisk(hostDiskType)
-				RunVMIAndExpectLaunch(vmi, false, 10)
 
-				By("checking if disk.img exists")
-				vmiPod := tests.GetRunningPodByVirtualMachineInstance(vmi, tests.NamespaceTestDefault)
-				output, err := tests.ExecuteCommandOnPod(
-					virtClient,
-					vmiPod,
-					vmiPod.Spec.Containers[0].Name,
-					[]string{"find", "/data", "-name", "disk.img", "-size", "1G"},
-				)
-				Expect(strings.Contains(output, "/data/disk.img")).To(BeTrue())
+			Context("With 'DiskExistsOrCreate' type", func() {
+				diskName := "disk-" + uuid.NewRandom().String() + ".img"
+				// do not choose a specific node to run the test
+				nodeName := ""
 
-				err = virtClient.VirtualMachineInstance(vmi.Namespace).Delete(vmi.Name, &metav1.DeleteOptions{})
-				Expect(err).To(BeNil())
+				It("Should create a disk image and start", func() {
+					By("Starting VirtualMachineInstance")
+					vmi := tests.NewRandomVMIWithHostDisk(diskName, v1.HostDiskExistsOrCreate, nodeName)
+					RunVMIAndExpectLaunch(vmi, false, 30)
 
-				tests.WaitForVirtualMachineToDisappearWithTimeout(vmi, 120)
-			},
-				table.Entry("with 'DiskExistsOrCreate` type", v1.HostDiskExistsOrCreate),
-				table.Entry("with 'DiskExists` type", v1.HostDiskExists),
-			)
+					By("Checking if disk.img has been created")
+					vmiPod := tests.GetRunningPodByVirtualMachineInstance(vmi, tests.NamespaceTestDefault)
+					output, err := tests.ExecuteCommandOnPod(
+						virtClient,
+						vmiPod,
+						vmiPod.Spec.Containers[0].Name,
+						[]string{"find", tests.HostDiskDir, "-name", diskName, "-size", "1G"},
+					)
+					Expect(strings.Contains(output, filepath.Join(tests.HostDiskDir, diskName))).To(BeTrue())
+
+					err = virtClient.VirtualMachineInstance(vmi.Namespace).Delete(vmi.Name, &metav1.DeleteOptions{})
+					Expect(err).To(BeNil())
+
+					tests.WaitForVirtualMachineToDisappearWithTimeout(vmi, 120)
+				})
+			})
+
+			Context("With 'DiskExists' type", func() {
+				// it is mandatory to run a pod which is creating a disk image
+				// on the same node with a HostDisk VMI
+				var nodeName string
+				diskName := "disk-" + uuid.NewRandom().String() + ".img"
+
+				tests.BeforeAll(func() {
+					// create a disk image before test
+					job := tests.NewCreateHostDiskJob(tests.HostDiskDir, diskName)
+					job, err = virtClient.CoreV1().Pods(tests.NamespaceTestDefault).Create(job)
+					Expect(err).To(BeNil())
+					getStatus := func() k8sv1.PodPhase {
+						pod, err := virtClient.CoreV1().Pods(tests.NamespaceTestDefault).Get(job.Name, metav1.GetOptions{})
+						Expect(err).ToNot(HaveOccurred())
+						if pod.Spec.NodeName != "" && nodeName == "" {
+							nodeName = pod.Spec.NodeName
+						}
+						return pod.Status.Phase
+					}
+					Eventually(getStatus, 120, 1).Should(Equal(k8sv1.PodSucceeded))
+				})
+
+				It("Should use existing disk image and start", func() {
+					By("Starting VirtualMachineInstance")
+					vmi := tests.NewRandomVMIWithHostDisk(diskName, v1.HostDiskExists, nodeName)
+					RunVMIAndExpectLaunch(vmi, false, 30)
+
+					By("Checking if disk.img exists")
+					vmiPod := tests.GetRunningPodByVirtualMachineInstance(vmi, tests.NamespaceTestDefault)
+					output, err := tests.ExecuteCommandOnPod(
+						virtClient,
+						vmiPod,
+						vmiPod.Spec.Containers[0].Name,
+						[]string{"find", tests.HostDiskDir, "-name", diskName},
+					)
+					Expect(strings.Contains(output, filepath.Join(tests.HostDiskDir, diskName))).To(BeTrue())
+
+					err = virtClient.VirtualMachineInstance(vmi.Namespace).Delete(vmi.Name, &metav1.DeleteOptions{})
+					Expect(err).To(BeNil())
+
+					tests.WaitForVirtualMachineToDisappearWithTimeout(vmi, 120)
+				})
+			})
+
+		})
+
+		Context("With a multiple empty PVCs", func() {
+
+			var pvcs = [...]string{"empty-pvc1", "empty-pvc2", "empty-pvc3"}
+
+			BeforeEach(func() {
+				for _, pvc := range pvcs {
+					tests.CreateHostPathPv(pvc, filepath.Join(tests.HostPathBase, pvc))
+					tests.CreatePVC(pvc, "1G")
+				}
+			}, 120)
+
+			AfterEach(func() {
+				for _, pvc := range pvcs {
+					tests.DeletePVC(pvc)
+					tests.DeletePV(pvc)
+				}
+			}, 120)
+
+			It("Should initialize an empty PVC by creating a disk.img", func() {
+				for _, pvc := range pvcs {
+					By("starting VirtualMachineInstance")
+					vmi := tests.NewRandomVMIWithPVC("disk-" + pvc)
+					RunVMIAndExpectLaunch(vmi, false, 90)
+
+					By("Checking if disk.img exists")
+					vmiPod := tests.GetRunningPodByVirtualMachineInstance(vmi, tests.NamespaceTestDefault)
+					output, _ := tests.ExecuteCommandOnPod(
+						virtClient,
+						vmiPod,
+						vmiPod.Spec.Containers[0].Name,
+						[]string{"find", "/var/run/kubevirt-private/vmi-disks/disk0/", "-name", "disk.img", "-size", "1G"},
+					)
+					Expect(strings.Contains(output, "disk.img")).To(BeTrue())
+				}
+			})
 		})
 	})
 })

@@ -252,6 +252,8 @@ func validateVolumes(field *k8sfield.Path, volumes []v1.Volume) []metav1.StatusC
 					Field:   field.Index(idx).Child("name").String(),
 				})
 			}
+			volumeSourceSetCount++
+		}
 
 		if volumeSourceSetCount != 1 {
 			causes = append(causes, metav1.StatusCause{

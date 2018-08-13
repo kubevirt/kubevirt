@@ -1195,6 +1195,7 @@ var _ = Describe("Validating Webhook", func() {
 			table.Entry("with ephemeral volume source", v1.VolumeSource{Ephemeral: &v1.EphemeralVolumeSource{}}),
 			table.Entry("with emptyDisk volume source", v1.VolumeSource{EmptyDisk: &v1.EmptyDiskSource{}}),
 			table.Entry("with dataVolume volume source", v1.VolumeSource{DataVolume: &v1.DataVolumeSource{Name: "fake"}}),
+			table.Entry("with hostDisk volume source", v1.VolumeSource{HostDisk: &v1.HostDisk{Path: "fake", Type: v1.HostDiskExistsOrCreate}}),
 		)
 		It("should reject DataVolume when feature gate is disabled", func() {
 			vmi := v1.NewMinimalVMI("testvmi")
@@ -1300,6 +1301,68 @@ var _ = Describe("Validating Webhook", func() {
 			causes := validateVolumes(k8sfield.NewPath("fake"), vmi.Spec.Volumes)
 			Expect(len(causes)).To(Equal(1))
 			Expect(causes[0].Field).To(Equal("fake[0].cloudInitNoCloud.userDataBase64"))
+		})
+
+		It("should reject hostDisk without required parameters", func() {
+			vmi := v1.NewMinimalVMI("testvmi")
+			vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
+				VolumeSource: v1.VolumeSource{
+					HostDisk: &v1.HostDisk{},
+				},
+			})
+
+			causes := validateVolumes(k8sfield.NewPath("fake"), vmi.Spec.Volumes)
+			Expect(len(causes)).To(Equal(2))
+			Expect(causes[0].Field).To(Equal("fake[0].hostDisk.path"))
+			Expect(causes[1].Field).To(Equal("fake[0].hostDisk.type"))
+		})
+
+		It("should reject hostDisk without given 'path'", func() {
+			vmi := v1.NewMinimalVMI("testvmi")
+			vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
+				VolumeSource: v1.VolumeSource{
+					HostDisk: &v1.HostDisk{
+						Type: v1.HostDiskExistsOrCreate,
+					},
+				},
+			})
+
+			causes := validateVolumes(k8sfield.NewPath("fake"), vmi.Spec.Volumes)
+			Expect(len(causes)).To(Equal(1))
+			Expect(causes[0].Field).To(Equal("fake[0].hostDisk.path"))
+		})
+
+		It("should reject hostDisk with invalid type", func() {
+			vmi := v1.NewMinimalVMI("testvmi")
+			vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
+				VolumeSource: v1.VolumeSource{
+					HostDisk: &v1.HostDisk{
+						Path: "fakePath",
+						Type: "fakeType",
+					},
+				},
+			})
+
+			causes := validateVolumes(k8sfield.NewPath("fake"), vmi.Spec.Volumes)
+			Expect(len(causes)).To(Equal(1))
+			Expect(causes[0].Field).To(Equal("fake[0].hostDisk.type"))
+		})
+
+		It("should reject hostDisk when the capacity is specified with a `DiskExists` type", func() {
+			vmi := v1.NewMinimalVMI("testvmi")
+			vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
+				VolumeSource: v1.VolumeSource{
+					HostDisk: &v1.HostDisk{
+						Path:     "fakePath",
+						Type:     v1.HostDiskExists,
+						Capacity: resource.MustParse("1Gi"),
+					},
+				},
+			})
+
+			causes := validateVolumes(k8sfield.NewPath("fake"), vmi.Spec.Volumes)
+			Expect(len(causes)).To(Equal(1))
+			Expect(causes[0].Field).To(Equal("fake[0].hostDisk.capacity"))
 		})
 	})
 	Context("with Disk", func() {

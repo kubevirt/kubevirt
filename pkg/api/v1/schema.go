@@ -33,7 +33,7 @@ import (
 */
 
 // Represents a disk created on the cluster level
-// --
+// ---
 // +k8s:openapi-gen=true
 type HostDisk struct {
 	// The path to HostDisk image located on the cluster

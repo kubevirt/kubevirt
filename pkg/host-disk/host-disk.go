@@ -20,7 +20,6 @@
 package hostdisk
 
 import (
-	"errors"
 	"fmt"
 	"os"
 	"path"
@@ -85,7 +84,7 @@ func CreateHostDisks(vmi *v1.VirtualMachineInstance) error {
 				}
 				size, _ := hostDisk.Capacity.AsInt64()
 				if uint64(size) > availableSpace {
-					return errors.New(fmt.Sprintf("Unable to create %s with size %s - not enough space on the cluster", hostDisk.Path, hostDisk.Capacity.String()))
+					return fmt.Errorf("Unable to create %s with size %s - not enough space on the cluster", hostDisk.Path, hostDisk.Capacity.String())
 				}
 				err = createSparseRaw(hostDisk.Path, size)
 				if err != nil {
