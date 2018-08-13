@@ -180,13 +180,13 @@ var _ = Describe("Networking", func() {
 
 			switch destination {
 			case "Internet":
-				addr = "www.google.com"
+				addr = "www.kubevirt.io"
 			case "InboundVMI":
 				addr = inboundVMI.Status.Interfaces[0].IP
 			}
 
 			By("checking br1 MTU inside the pod")
-			vmiPod := tests.GetRunningPodByLabel(outboundVMI.Name, v1.DomainLabel, tests.NamespaceTestDefault)
+			vmiPod := tests.GetRunningPodByLabel(string(outboundVMI.UID), v1.CreatedByLabel, tests.NamespaceTestDefault)
 			output, err := tests.ExecuteCommandOnPod(
 				virtClient,
 				vmiPod,

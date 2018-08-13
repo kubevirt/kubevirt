@@ -10,6 +10,10 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/watch"
 
+	"k8s.io/apimachinery/pkg/types"
+
+	"k8s.io/api/core/v1"
+
 	"kubevirt.io/kubevirt/pkg/log"
 	notifyserver "kubevirt.io/kubevirt/pkg/virt-handler/notify-server"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
@@ -69,6 +73,21 @@ func (c *DomainEventClient) SendDomainEvent(event watch.Event) error {
 	}
 
 	return nil
+}
+
+func (c *DomainEventClient) SendErrorDomainEvent(name string, namespace string, uid types.UID, reason api.StateChangeReason, err error) error {
+	domain := api.NewDomainReferenceFromName(namespace, name)
+	domain.GetObjectMeta().SetUID(uid)
+	domain.Spec.Metadata.KubeVirt.UID = uid
+	domain.Status.Status = api.Error
+	domain.Status.Reason = reason
+	domain.Status.Conditions = []api.DomainCondition{{
+		Type:    api.DomainConditionSynchronized,
+		Status:  v1.ConditionFalse,
+		Reason:  string(reason),
+		Message: err.Error(),
+	}}
+	return c.SendDomainEvent(watch.Event{Type: watch.Modified, Object: domain})
 }
 
 func newWatchEventError(err error) watch.Event {

@@ -3644,6 +3644,22 @@
      }
     }
    },
+   "v1.HostBridge": {
+    "description": "Represents a network which the vmi should connect to via a bridge",
+    "required": [
+     "bridgeName"
+    ],
+    "properties": {
+     "bridgeName": {
+      "description": "BridgeName holds the target device path inside of the container. If NodeBridgeName is unset, this path will also be used to look up the source bridge on the node under this path",
+      "type": "string"
+     },
+     "nodeBridgeName": {
+      "description": "NodeBridgeName points to the bridge on the node which should be used\n+optional",
+      "type": "string"
+     }
+    }
+   },
    "v1.Hugepages": {
     "description": "Hugepages allow to use hugepages for the VirtualMachineInstance instead of regular memory.",
     "properties": {
@@ -3841,6 +3857,9 @@
      "name"
     ],
     "properties": {
+     "hostBridge": {
+      "$ref": "#/definitions/v1.HostBridge"
+     },
      "name": {
       "description": "Network name\nMust be a DNS_LABEL and unique within the vm.\nMore info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names",
       "type": "string"

@@ -66,12 +66,12 @@ func SetupNetworkInterfaces(vmi *v1.VirtualMachineInstance, domain *api.Domain) 
 		if !ok {
 			return fmt.Errorf("failed to find a network %s", iface.Name)
 		}
-		vif, err := NetworkInterfaceFactory(network)
-		if err != nil {
-			return err
+		vif := NetworkInterfaceFactory(network)
+		if vif == nil {
+			continue
 		}
 
-		err = vif.Plug(&iface, network, domain)
+		err := vif.Plug(&iface, network, domain)
 		if err != nil {
 			return err
 		}
@@ -80,9 +80,9 @@ func SetupNetworkInterfaces(vmi *v1.VirtualMachineInstance, domain *api.Domain) 
 }
 
 // a factory to get suitable network interface
-func getNetworkClass(network *v1.Network) (NetworkInterface, error) {
+func getNetworkClass(network *v1.Network) NetworkInterface {
 	if network.Pod != nil {
-		return new(PodInterface), nil
+		return new(PodInterface)
 	}
-	return nil, fmt.Errorf("Not implemented")
+	return nil
 }
