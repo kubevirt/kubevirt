@@ -22,6 +22,7 @@ package virtctl
 
 import (
 	"io/ioutil"
+	"os"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -44,7 +45,11 @@ tree:
   longdesc: ""
   example: ""
   command: ./virtctl console
-  flags: []
+  flags:
+  - name: timeout
+    shorthand: ""
+    desc: The number of minutes to wait for the virtual machine instance to be ready.
+    defvalue: "5"
   tree: []
 - name: expose
   shortdesc: Expose a virtual machine as a new service.
@@ -92,7 +97,7 @@ tree:
     shorthand: ""
     desc: Name or number for the port on the VM that the service should direct traffic
       to. Optional.
-    defvalue: "0"
+    defvalue: ""
   - name: type
     shorthand: ""
     desc: 'Type for this service: ClusterIP, NodePort, or LoadBalancer.'
@@ -131,15 +136,19 @@ tree:
 var _ = Describe("Kubevirt Root Client", func() {
 	var command *cobra.Command
 	var plugin *kubecli.Plugin
-	workDir, err := ioutil.TempDir("", "kubevirt-test")
-	Expect(err).ToNot(HaveOccurred())
+	var workDir string
 
 	BeforeEach(func() {
+		workDir, err := ioutil.TempDir("", "kubevirt-test")
+		Expect(err).ToNot(HaveOccurred())
 		command = NewVirtctlCommand()
 		plugin = kubecli.MakePluginConfiguration(workDir, command)
 	})
 
-	FContext("With example yaml check install command", func() {
+	AfterEach(func() {
+		os.RemoveAll(workDir)
+	})
+	Context("With example yaml check install command", func() {
 		It("Marshal struct into yaml", func() {
 			yamlData, err := yaml.Marshal(plugin)
 			Expect(err).ToNot(HaveOccurred())
