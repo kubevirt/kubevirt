@@ -145,6 +145,25 @@ func (h *DHCPHandler) ServeDHCP(p dhcp.Packet, msgType dhcp.MessageType, options
 	}
 }
 
+func sortRoutes(routes []netlink.Route) []netlink.Route {
+	// Default route must come last, otherwise it may not get applied
+	// because there is no route to its gateway yet
+	var sortedRoutes []netlink.Route
+	var defaultRoutes []netlink.Route
+	for _, route := range routes {
+		if route.Dst == nil {
+			defaultRoutes = append(defaultRoutes, route)
+			continue
+		}
+		sortedRoutes = append(sortedRoutes, route)
+	}
+	for _, defaultRoute := range defaultRoutes {
+		sortedRoutes = append(sortedRoutes, defaultRoute)
+	}
+
+	return sortedRoutes
+}
+
 func formClasslessRoutes(routes *[]netlink.Route) (formattedRoutes []byte) {
 	// See RFC4332 for additional information
 	// (https://tools.ietf.org/html/rfc3442)
@@ -155,7 +174,8 @@ func formClasslessRoutes(routes *[]netlink.Route) (formattedRoutes []byte) {
 	//		would result in the following structure:
 	//      []byte{8, 10, 10, 1, 2, 3, 24, 192, 168, 1, 192, 168, 2, 3}
 
-	for _, route := range *routes {
+	sortedRoutes := sortRoutes(*routes)
+	for _, route := range sortedRoutes {
 		if route.Dst == nil {
 			route.Dst = &net.IPNet{
 				IP:   net.IPv4(0, 0, 0, 0),
