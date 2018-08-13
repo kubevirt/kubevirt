@@ -703,6 +703,31 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 			},
 			Dependencies: []string{},
 		},
+		"kubevirt.io/kubevirt/pkg/api/v1.HostBridge": {
+			Schema: spec.Schema{
+				SchemaProps: spec.SchemaProps{
+					Description: "Represents a network which the vmi should connect to via a bridge",
+					Properties: map[string]spec.Schema{
+						"bridgeName": {
+							SchemaProps: spec.SchemaProps{
+								Description: "BridgeName holds the target device path inside of the container. If NodeBridgeName is unset, this path will also be used to look up the source bridge on the node under this path",
+								Type:        []string{"string"},
+								Format:      "",
+							},
+						},
+						"nodeBridgeName": {
+							SchemaProps: spec.SchemaProps{
+								Description: "NodeBridgeName points to the bridge on the node which should be used",
+								Type:        []string{"string"},
+								Format:      "",
+							},
+						},
+					},
+					Required: []string{"bridgeName"},
+				},
+			},
+			Dependencies: []string{},
+		},
 		"kubevirt.io/kubevirt/pkg/api/v1.Hugepages": {
 			Schema: spec.Schema{
 				SchemaProps: spec.SchemaProps{
@@ -903,12 +928,17 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 								Ref: ref("kubevirt.io/kubevirt/pkg/api/v1.PodNetwork"),
 							},
 						},
+						"hostBridge": {
+							SchemaProps: spec.SchemaProps{
+								Ref: ref("kubevirt.io/kubevirt/pkg/api/v1.HostBridge"),
+							},
+						},
 					},
 					Required: []string{"name"},
 				},
 			},
 			Dependencies: []string{
-				"kubevirt.io/kubevirt/pkg/api/v1.PodNetwork"},
+				"kubevirt.io/kubevirt/pkg/api/v1.HostBridge", "kubevirt.io/kubevirt/pkg/api/v1.PodNetwork"},
 		},
 		"kubevirt.io/kubevirt/pkg/api/v1.NetworkSource": {
 			Schema: spec.Schema{
@@ -920,11 +950,16 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 								Ref: ref("kubevirt.io/kubevirt/pkg/api/v1.PodNetwork"),
 							},
 						},
+						"hostBridge": {
+							SchemaProps: spec.SchemaProps{
+								Ref: ref("kubevirt.io/kubevirt/pkg/api/v1.HostBridge"),
+							},
+						},
 					},
 				},
 			},
 			Dependencies: []string{
-				"kubevirt.io/kubevirt/pkg/api/v1.PodNetwork"},
+				"kubevirt.io/kubevirt/pkg/api/v1.HostBridge", "kubevirt.io/kubevirt/pkg/api/v1.PodNetwork"},
 		},
 		"kubevirt.io/kubevirt/pkg/api/v1.PITTimer": {
 			Schema: spec.Schema{

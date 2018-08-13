@@ -555,27 +555,46 @@ func Convert_v1_VirtualMachine_To_api_Domain(vmi *v1.VirtualMachineInstance, dom
 		if err != nil {
 			return err
 		}
-		if net.Pod == nil {
-			return fmt.Errorf("network interface type not supported for %s", iface.Name)
+
+		var domainIface *Interface
+		if net.Pod != nil {
+			if iface.Bridge != nil {
+				// TODO:(ihar) consider abstracting interface type conversion /
+				// detection into drivers
+				domainIface = &Interface{
+					Model: &Model{
+						Type: interfaceType,
+					},
+					Type: "bridge",
+					Source: InterfaceSource{
+						Bridge: DefaultBridgeName,
+					},
+					Alias: &Alias{
+						Name: iface.Name,
+					},
+				}
+			}
+		} else if net.HostBridge != nil {
+			domainIface = &Interface{
+				Model: &Model{
+					Type: interfaceType,
+				},
+				Type: "bridge",
+				Source: InterfaceSource{
+					Bridge: net.HostBridge.BridgeName,
+				},
+				Alias: &Alias{
+					Name: iface.Name,
+				},
+			}
 		}
-		// TODO:(ihar) consider abstracting interface type conversion /
-		// detection into drivers
-		domainIface := Interface{
-			Model: &Model{
-				Type: interfaceType,
-			},
-			Type: "bridge",
-			Source: InterfaceSource{
-				Bridge: DefaultBridgeName,
-			},
-			Alias: &Alias{
-				Name: iface.Name,
-			},
+
+		if domainIface != nil {
+			if iface.BootOrder != nil {
+				domainIface.BootOrder = &BootOrder{Order: *iface.BootOrder}
+			}
+			domain.Spec.Devices.Interfaces = append(domain.Spec.Devices.Interfaces, *domainIface)
 		}
-		if iface.BootOrder != nil {
-			domainIface.BootOrder = &BootOrder{Order: *iface.BootOrder}
-		}
-		domain.Spec.Devices.Interfaces = append(domain.Spec.Devices.Interfaces, domainIface)
 	}
 
 	return nil

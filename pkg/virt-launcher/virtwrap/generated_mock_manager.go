@@ -31,11 +31,10 @@ func (_m *MockDomainManager) EXPECT() *_MockDomainManagerRecorder {
 	return _m.recorder
 }
 
-func (_m *MockDomainManager) SyncVMI(_param0 *v1.VirtualMachineInstance, _param1 bool) (*api.DomainSpec, error) {
+func (_m *MockDomainManager) SyncVMI(_param0 *v1.VirtualMachineInstance, _param1 bool) error {
 	ret := _m.ctrl.Call(_m, "SyncVMI", _param0, _param1)
-	ret0, _ := ret[0].(*api.DomainSpec)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
+	ret0, _ := ret[0].(error)
+	return ret0
 }
 
 func (_mr *_MockDomainManagerRecorder) SyncVMI(arg0, arg1 interface{}) *gomock.Call {

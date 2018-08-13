@@ -548,15 +548,6 @@ func ValidateVirtualMachineInstanceSpec(field *k8sfield.Path, spec *v1.VirtualMa
 				})
 			}
 
-			// verify that pod network is selected
-			if spec.Networks[0].Pod == nil {
-				causes = append(causes, metav1.StatusCause{
-					Type:    metav1.CauseTypeFieldValueInvalid,
-					Message: fmt.Sprintf("only a %s network source can be selected.", field.Child("domain", "devices", "networks").Index(0).Child("pod").String()),
-					Field:   field.Child("domain", "devices", "networks").Index(0).Child("pod").String(),
-				})
-			}
-
 			if iface.BootOrder != nil {
 				order := *iface.BootOrder
 				// Verify boot order is greater than 0, if provided
