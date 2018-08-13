@@ -1,5 +1,5 @@
-hash: 87b9fb302cc750d77807248a23e9531a0584837ad60c5203f1d0799dd9426001
-updated: 2018-07-31T12:49:37.536460791Z
+hash: 4f58d6fcb6d4caea9a6a8eec68ca4be683efebe051144582cc2c31ac0a68a5d2
+updated: 2018-08-13T16:59:25.886360229Z
 imports:
 - name: cloud.google.com/go
   version: 3b1ae45394a234c385be014e9a488f2bb6eef821
@@ -56,7 +56,7 @@ imports:
 - name: github.com/go-openapi/jsonreference
   version: 3fb327e6747da3043567ee86abd02bb6376b6be2
 - name: github.com/go-openapi/spec
-  version: bce47c9386f9ecd6b86f450478a80103c3fe1402
+  version: 384415f06ee238aae1df5caad877de6ceac3a5c4
 - name: github.com/go-openapi/swag
   version: becd2f08beafcca035645a8a101e0e3e18140458
 - name: github.com/go-stack/stack
@@ -75,7 +75,7 @@ imports:
   subpackages:
   - lru
 - name: github.com/golang/mock
-  version: 22bbf0ddf08105dfa364d0a2fa619dfa71014af5
+  version: 5f7a43820b4647d500f43b4ffcf344eaf01bcad5
   subpackages:
   - gomock
 - name: github.com/golang/protobuf
@@ -133,7 +133,7 @@ imports:
 - name: github.com/kr/logfmt
   version: b84e30acd515aadc4b783ad4ff83aff3299bdfe0
 - name: github.com/krolaw/dhcp4
-  version: 4abfceffa76a675ea43d133e49aad64c821d32bf
+  version: 054a8f9eea918b9693b7b24ab027788e5a6182da
   subpackages:
   - conn
 - name: github.com/libvirt/libvirt-go
@@ -170,7 +170,7 @@ imports:
   - reporters/stenographer/support/go-isatty
   - types
 - name: github.com/onsi/gomega
-  version: b6ea1ea48f981d0f615a154a45eabb9dd466556d
+  version: 4bbecc8c2307673cacf6e7c9275015b6c87ebe48
   subpackages:
   - format
   - ghttp
@@ -272,7 +272,7 @@ imports:
   subpackages:
   - rate
 - name: google.golang.org/appengine
-  version: d1d14a4f7b9509a25ea8dc059e6820bbfb387beb
+  version: 4216e58b9158e5f1c906f1aca75162a46a2ec88a
   subpackages:
   - internal
   - internal/app_identity
