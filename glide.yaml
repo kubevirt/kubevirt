@@ -39,6 +39,7 @@ import:
 - package: github.com/mailru/easyjson
   version: 2f5df55504ebc322e4d52d34df6a1f5b503bf26d
 - package: github.com/emicklei/go-restful-openapi
+  version: 7712e8a6e8096e7103b96a400519d38fb1e348f8
 - package: github.com/go-openapi/spec
 - package: github.com/emicklei/go-restful-swagger12
 - package: github.com/vishvananda/netlink
