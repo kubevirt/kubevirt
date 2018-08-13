@@ -49,7 +49,7 @@ var _ = Describe("Template", func() {
 	Describe("Rendering", func() {
 		Context("launch template with correct parameters", func() {
 			It("should work", func() {
-
+				trueVar := true
 				annotations := map[string]string{
 					hooks.HookSidecarListAnnotationName: `[{"image": "some-image:v1", "imagePullPolicy": "IfNotPresent"}]`,
 				}
@@ -66,6 +66,14 @@ var _ = Describe("Template", func() {
 					v1.DomainAnnotation:  "testvmi",
 					v1.OwnedByAnnotation: "virt-controller",
 				}))
+				Expect(pod.ObjectMeta.OwnerReferences).To(Equal([]metav1.OwnerReference{{
+					APIVersion:         "",
+					Kind:               "",
+					Name:               "testvmi",
+					UID:                "1234",
+					Controller:         &trueVar,
+					BlockOwnerDeletion: &trueVar,
+				}}))
 				Expect(pod.ObjectMeta.GenerateName).To(Equal("virt-launcher-testvmi-"))
 				Expect(pod.Spec.NodeSelector).To(Equal(map[string]string{
 					v1.NodeSchedulable: "true",

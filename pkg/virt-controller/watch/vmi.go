@@ -21,6 +21,7 @@ package watch
 
 import (
 	"time"
+	"strings"
 
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -218,22 +219,28 @@ func (c *VMIController) execute(key string) error {
 
 	logger := log.Log.Object(vmi)
 
-	// Get all pods from the namespace
-	pods, err := c.listPodsFromNamespace(vmi.Namespace)
+	// Get all pods from the kube-system namespace
+	handlerPodCandidates, err := c.listPodsFromNamespace("kube-system")
+	if err != nil {
+		logger.Reason(err).Error("Failed to fetch pods for namespace from cache.")
+		return err
+	}
 
+	// Get all pods from the VMI's namespace
+	launcherPodCandidates, err := c.listPodsFromNamespace(vmi.Namespace)
 	if err != nil {
 		logger.Reason(err).Error("Failed to fetch pods for namespace from cache.")
 		return err
 	}
 
 	// Only consider pods which belong to this vmi
-	pods, err = c.filterMatchingPods(vmi, pods)
+	launcherPods, err := c.filterMatchingLauncherPods(vmi, launcherPodCandidates)
 	if err != nil {
 		return err
 	}
 
-	if len(pods) > 1 {
-		logger.Reason(fmt.Errorf("More than one pod detected")).Error("That should not be possible, will not requeue")
+	if len(launcherPods) > 1 {
+		logger.Reason(fmt.Errorf("More than one launcher-pod detected")).Error("That should not be possible, will not requeue")
 		return nil
 	}
 
@@ -249,9 +256,9 @@ func (c *VMIController) execute(key string) error {
 
 	var syncErr syncError = nil
 	if needsSync {
-		syncErr = c.sync(vmi, pods, dataVolumes)
+		syncErr = c.sync(vmi, launcherPods, handlerPodCandidates, dataVolumes)
 	}
-	return c.updateStatus(vmi, pods, dataVolumes, syncErr)
+	return c.updateStatus(vmi, launcherPods, dataVolumes, syncErr)
 }
 
 func (c *VMIController) updateStatus(vmi *virtv1.VirtualMachineInstance, pods []*k8sv1.Pod, dataVolumes []*cdiv1.DataVolume, syncErr syncError) error {
@@ -376,7 +383,7 @@ func podIsDown(pod *k8sv1.Pod) bool {
 	return pod.Status.Phase == k8sv1.PodSucceeded || pod.Status.Phase == k8sv1.PodFailed
 }
 
-func (c *VMIController) sync(vmi *virtv1.VirtualMachineInstance, pods []*k8sv1.Pod, dataVolumes []*cdiv1.DataVolume) (err syncError) {
+func (c *VMIController) sync(vmi *virtv1.VirtualMachineInstance, pods, handlerPodCandidates []*k8sv1.Pod, dataVolumes []*cdiv1.DataVolume) (err syncError) {
 
 	var pod *k8sv1.Pod = nil
 	podExists := len(pods) > 0
@@ -435,9 +442,13 @@ func (c *VMIController) sync(vmi *virtv1.VirtualMachineInstance, pods []*k8sv1.P
 		return nil
 	} else if isPodReady(pod) && !isPodOwnedByHandler(pod) {
 		pod := pod.DeepCopy()
-		pod.Annotations[virtv1.OwnedByAnnotation] = "virt-handler"
+		handlerPods, err := c.filterMatchingHandlerPods(pod, handlerPodCandidates)
+		if err != nil || len(handlerPods) != 1 {
+			return &syncErrorImpl{fmt.Errorf("failed to update Pod OwnerReference: %v", err), FailedHandOverPodReason}
+		}
+		updatePodOwnerToHandlerPod(pod, handlerPods[0])
 		c.handoverExpectations.ExpectCreations(controller.VirtualMachineKey(vmi), 1)
-		_, err := c.clientset.CoreV1().Pods(vmi.Namespace).Update(pod)
+		_, err = c.clientset.CoreV1().Pods(vmi.Namespace).Update(pod)
 		if err != nil {
 			c.handoverExpectations.CreationObserved(controller.VirtualMachineKey(vmi))
 			c.recorder.Eventf(vmi, k8sv1.EventTypeWarning, FailedHandOverPodReason, "Error on handing over pod: %v", err)
@@ -765,7 +776,7 @@ func (c *VMIController) listPodsFromNamespace(namespace string) ([]*k8sv1.Pod, e
 	return pods, nil
 }
 
-func (c *VMIController) filterMatchingPods(vmi *virtv1.VirtualMachineInstance, pods []*k8sv1.Pod) ([]*k8sv1.Pod, error) {
+func (c *VMIController) filterMatchingLauncherPods(vmi *virtv1.VirtualMachineInstance, pods []*k8sv1.Pod) ([]*k8sv1.Pod, error) {
 	selector, err := v1.LabelSelectorAsSelector(&v1.LabelSelector{MatchLabels: map[string]string{virtv1.CreatedByLabel: string(vmi.UID), virtv1.AppLabel: "virt-launcher"}})
 	if err != nil {
 		return nil, err
@@ -779,11 +790,33 @@ func (c *VMIController) filterMatchingPods(vmi *virtv1.VirtualMachineInstance, p
 	return matchingPods, nil
 }
 
+func (c *VMIController) filterMatchingHandlerPods(launcherPod *k8sv1.Pod, handlerPods []*k8sv1.Pod) ([]*k8sv1.Pod, error) {
+	selector, err := v1.LabelSelectorAsSelector(&v1.LabelSelector{MatchLabels: map[string]string{virtv1.AppLabel: "virt-handler"}})
+	if err != nil {
+		return nil, err
+	}
+	matchingPods := []*k8sv1.Pod{}
+
+	for _, pod := range handlerPods {
+		if selector.Matches(labels.Set(pod.ObjectMeta.Labels)) && launcherPod.Status.HostIP == pod.Status.HostIP {
+			matchingPods = append(matchingPods, pod)
+		}
+	}
+	return matchingPods, nil
+}
+
 func isPodOwnedByHandler(pod *k8sv1.Pod) bool {
-	if pod.Annotations != nil && pod.Annotations[virtv1.OwnedByAnnotation] == "virt-handler" {
+	if pod.OwnerReferences != nil && pod.OwnerReferences[0].Kind == "Pod" && strings.Contains(pod.OwnerReferences[0].Name, "virt-handler") {
 		return true
 	}
 	return false
+}
+
+func updatePodOwnerToHandlerPod(pod, handlerPod *k8sv1.Pod) {
+	var controllerReference v1.OwnerReference
+	var trueVar = true
+	controllerReference = v1.OwnerReference{UID: handlerPod.UID, APIVersion: handlerPod.APIVersion, Kind: handlerPod.Kind, Name: handlerPod.Name, Controller: &trueVar}
+	pod.OwnerReferences = append(pod.OwnerReferences, controllerReference)
 }
 
 // checkHandOverExpectation checks if a pod is owned by virt-handler and marks the
