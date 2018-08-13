@@ -196,7 +196,9 @@ func (b definitionBuilder) buildProperty(field reflect.StructField, model *spec.
 		prop.Type = []string{stringt}
 		return jsonName, modelDescription, prop
 	case fieldKind == reflect.Map:
-		jsonName, prop := b.buildMapTypeProperty(field, jsonName, modelName)
+		// if it's a map, it's unstructured, and swagger can't handle it
+		objectType := "object"
+		prop.Type = []string{objectType}
 		return jsonName, modelDescription, prop
 	}
 
