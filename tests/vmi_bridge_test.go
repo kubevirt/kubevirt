@@ -38,7 +38,7 @@ import (
 	"kubevirt.io/kubevirt/tests"
 )
 
-var _ = FDescribe("Bridge", func() {
+var _ = Describe("Bridge", func() {
 
 	bridgeIP := map[string]string{"red": "172.16.98.1", "blue": "172.16.99.1"}
 
@@ -134,6 +134,10 @@ var _ = FDescribe("Bridge", func() {
 		const macAddress = "de:ad:00:00:be:af"
 		tests.BeforeAll(func() {
 			vmi = createBridgeVMI(networkName, networkName)
+
+			// set the MAC address on the L2 interface
+			vmi.Spec.Domain.Devices.Interfaces[1].MacAddress = macAddress
+
 			vmi, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
 			Expect(err).ToNot(HaveOccurred())
 			tests.WaitForSuccessfulVMIStartWithTimeout(vmi, 120)
