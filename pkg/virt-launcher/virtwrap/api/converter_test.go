@@ -563,6 +563,45 @@ var _ = Describe("Converter", func() {
 			Expect(domainSpec.Memory.Unit).To(Equal("B"))
 		})
 
+		It("should use guest memory instead of requested memory if present", func() {
+			guestMemory := resource.MustParse("123Mi")
+			vmi.Spec.Domain.Memory = &v1.Memory{
+				Guest: &guestMemory,
+			}
+			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
+
+			domainSpec := vmiToDomainXMLToDomainSpec(vmi, c)
+
+			Expect(domainSpec.Memory.Value).To(Equal(uint64(128974848)))
+			Expect(domainSpec.Memory.Unit).To(Equal("B"))
+		})
+
+	})
+	Context("Network convert", func() {
+		var vmi *v1.VirtualMachineInstance
+		var c *ConverterContext
+
+		BeforeEach(func() {
+			vmi = &v1.VirtualMachineInstance{
+				ObjectMeta: k8smeta.ObjectMeta{
+					Name:      "testvmi",
+					Namespace: "mynamespace",
+				},
+			}
+
+			c = &ConverterContext{
+				VirtualMachine: vmi,
+				Secrets: map[string]*k8sv1.Secret{
+					"mysecret": {
+						Data: map[string][]byte{
+							"node.session.auth.username": []byte("admin"),
+						},
+					},
+				},
+				AllowEmulation: true,
+			}
+		})
+
 		It("should fail to convert if non-pod interfaces are present", func() {
 			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
 			name := "otherName"

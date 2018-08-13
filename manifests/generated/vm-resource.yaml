@@ -189,6 +189,7 @@ spec:
                           - type
                         memory:
                           properties:
+                            guest: {}
                             hugepages:
                               properties:
                                 pageSize:

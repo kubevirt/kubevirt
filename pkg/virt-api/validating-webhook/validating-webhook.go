@@ -370,6 +370,16 @@ func ValidateVirtualMachineInstanceSpec(field *k8sfield.Path, spec *v1.VirtualMa
 		})
 	}
 
+	if spec.Domain.Memory != nil && spec.Domain.Memory.Hugepages != nil && spec.Domain.Memory.Guest != nil {
+		causes = append(causes, metav1.StatusCause{
+			Type: metav1.CauseTypeFieldValueInvalid,
+			Message: fmt.Sprintf("'%s' and '%s' must not be set at the same time",
+				field.Child("domain", "memory", "guest").String(),
+				field.Child("domain", "memory", "hugepages", "size").String()),
+			Field: field.Child("domain", "resources", "requests", "memory").String(),
+		})
+	}
+
 	// Validate hugepages
 	if spec.Domain.Memory != nil && spec.Domain.Memory.Hugepages != nil {
 		hugepagesSize, err := resource.ParseQuantity(spec.Domain.Memory.Hugepages.PageSize)
@@ -408,6 +418,36 @@ func ValidateVirtualMachineInstanceSpec(field *k8sfield.Path, spec *v1.VirtualMa
 					Field: field.Child("domain", "resources", "requests", "memory").String(),
 				})
 			}
+		}
+	}
+	// Validate hugepages
+	if spec.Domain.Memory != nil && spec.Domain.Memory.Guest != nil {
+		requests := spec.Domain.Resources.Requests.Memory().Value()
+		limits := spec.Domain.Resources.Limits.Memory().Value()
+		guest := spec.Domain.Memory.Guest.Value()
+		if requests > guest {
+			causes = append(causes, metav1.StatusCause{
+				Type: metav1.CauseTypeFieldValueInvalid,
+				Message: fmt.Sprintf("%s '%s' must be equal to or larger than the requested memory %s '%s'",
+					field.Child("domain", "memory", "guest").String(),
+					spec.Domain.Memory.Guest,
+					field.Child("domain", "resources", "requests", "memory").String(),
+					spec.Domain.Resources.Requests.Memory(),
+				),
+				Field: field.Child("domain", "memory", "guest").String(),
+			})
+		}
+		if limits < guest && limits != 0 {
+			causes = append(causes, metav1.StatusCause{
+				Type: metav1.CauseTypeFieldValueInvalid,
+				Message: fmt.Sprintf("%s '%s' must be equal to or less than the memory limit %s '%s'",
+					field.Child("domain", "memory", "guest").String(),
+					spec.Domain.Memory.Guest,
+					field.Child("domain", "resources", "limits", "memory").String(),
+					spec.Domain.Resources.Limits.Memory(),
+				),
+				Field: field.Child("domain", "memory", "guest").String(),
+			})
 		}
 	}
 
