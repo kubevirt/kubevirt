@@ -587,6 +587,9 @@ func Convert_v1_VirtualMachine_To_api_Domain(vmi *v1.VirtualMachineInstance, dom
 					Name: iface.Name,
 				},
 			}
+			if iface.MacAddress != "" {
+				domainIface.MAC = &MAC{MAC: iface.MacAddress}
+			}
 		}
 
 		if domainIface != nil {

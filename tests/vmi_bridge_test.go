@@ -49,12 +49,12 @@ var _ = FDescribe("Bridge", func() {
 
 	var nodeWithBridges *k8sv1.Node
 
-	createBridgeVMI := func(networkName1 string, networkName2 string) *v1.VirtualMachineInstance {
+	createBridgeVMI := func(networkName string, bridgeName string) *v1.VirtualMachineInstance {
 		vmi := tests.NewRandomVMIWithBridgeNetworkEphemeralDiskAndUserdata(
 			tests.RegistryDiskFor(tests.RegistryDiskCirros),
 			"#!/bin/bash\necho 'hello'\n",
-			networkName1,
-			networkName2,
+			networkName,
+			bridgeName,
 		)
 		vmi.Spec.Affinity = &v1.Affinity{
 			NodeAffinity: &k8sv1.NodeAffinity{
@@ -134,6 +134,8 @@ var _ = FDescribe("Bridge", func() {
 		const macAddress = "de:ad:00:00:be:af"
 		tests.BeforeAll(func() {
 			vmi = createBridgeVMI(networkName, networkName)
+			Expect(vmi.Spec.Domain.Devices.Interfaces).To(HaveLen(2))
+			vmi.Spec.Domain.Devices.Interfaces[1].MacAddress = macAddress
 			vmi, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
 			Expect(err).ToNot(HaveOccurred())
 			tests.WaitForSuccessfulVMIStartWithTimeout(vmi, 120)
