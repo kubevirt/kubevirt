@@ -701,10 +701,24 @@ type Network struct {
 // ---
 // +k8s:openapi-gen=true
 type NetworkSource struct {
-	Pod *PodNetwork `json:"pod,omitempty"`
+	Pod        *PodNetwork `json:"pod,omitempty"`
+	HostBridge *HostBridge `json:"hostBridge,omitempty"`
 }
 
 // Represents the stock pod network interface
 // ---
 // +k8s:openapi-gen=true
 type PodNetwork struct{}
+
+type BridgeType string
+
+// Represents a network which the vmi should connect to via a bridge
+// ---
+// +k8s:openapi-gen=true
+type HostBridge struct {
+	// BridgeName holds the target device path inside of the container. If NodeBridgeName is unset, this path will also be used to look up the source bridge on the node under this path
+	BridgeName string `json:"bridgeName"`
+	// NodeBridgeName points to the bridge on the node which should be used
+	// +optional
+	NodeBridgeName string `json:"nodeBridgeName,omitempty"`
+}

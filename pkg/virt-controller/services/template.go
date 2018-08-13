@@ -22,20 +22,16 @@ package services
 import (
 	"path/filepath"
 	"strconv"
-	"strings"
 
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/client-go/tools/cache"
 
 	"kubevirt.io/kubevirt/pkg/api/v1"
+	"kubevirt.io/kubevirt/pkg/config"
 	"kubevirt.io/kubevirt/pkg/precond"
 	"kubevirt.io/kubevirt/pkg/registry-disk"
 )
-
-const configMapName = "kube-system/kubevirt-config"
-const allowEmulationKey = "debug.allowEmulation"
 
 type TemplateService interface {
 	RenderLaunchManifest(*v1.VirtualMachineInstance) (*k8sv1.Pod, error)
@@ -45,26 +41,7 @@ type templateService struct {
 	launcherImage   string
 	virtShareDir    string
 	imagePullSecret string
-	store           cache.Store
-}
-
-func IsEmulationAllowed(store cache.Store) (bool, error) {
-	obj, exists, err := store.GetByKey(configMapName)
-	if err != nil {
-		return false, err
-	}
-	if !exists {
-		return exists, nil
-	}
-	allowEmulation := false
-	cm := obj.(*k8sv1.ConfigMap)
-	emu, ok := cm.Data[allowEmulationKey]
-	if ok {
-		// TODO: is this too specific? should we just look for the existence of
-		// the 'allowEmulation' key itself regardless of content?
-		allowEmulation = (strings.ToLower(emu) == "true")
-	}
-	return allowEmulation, nil
+	clusterConfig   *config.ClusterConfig
 }
 
 func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (*k8sv1.Pod, error) {
@@ -215,19 +192,16 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 		"--grace-period-seconds", strconv.Itoa(int(gracePeriodSeconds)),
 	}
 
-	allowEmulation, err := IsEmulationAllowed(t.store)
+	imagePullPolicy, err := t.clusterConfig.GetImagePullPolicy()
 	if err != nil {
 		return nil, err
-	}
-	if allowEmulation {
-		command = append(command, "--allow-emulation")
 	}
 
 	// VirtualMachineInstance target container
 	container := k8sv1.Container{
 		Name:            "compute",
 		Image:           t.launcherImage,
-		ImagePullPolicy: k8sv1.PullIfNotPresent,
+		ImagePullPolicy: imagePullPolicy,
 		// Privileged mode is required for /dev/kvm and the
 		// ability to create macvtap devices
 		SecurityContext: &k8sv1.SecurityContext{
@@ -284,7 +258,7 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 		podLabels[k] = v
 	}
 	podLabels[v1.AppLabel] = "virt-launcher"
-	podLabels[v1.DomainLabel] = domain
+	podLabels[v1.CreatedByLabel] = string(vmi.UID)
 
 	containers = append(containers, container)
 
@@ -299,8 +273,8 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 			GenerateName: "virt-launcher-" + domain + "-",
 			Labels:       podLabels,
 			Annotations: map[string]string{
-				v1.CreatedByAnnotation: string(vmi.UID),
-				v1.OwnedByAnnotation:   "virt-controller",
+				v1.DomainAnnotation:  domain,
+				v1.OwnedByAnnotation: "virt-controller",
 			},
 		},
 		Spec: k8sv1.PodSpec{
@@ -388,13 +362,13 @@ func getMemoryOverhead(domain v1.DomainSpec) *resource.Quantity {
 	return overhead
 }
 
-func NewTemplateService(launcherImage string, virtShareDir string, imagePullSecret string, configMapCache cache.Store) TemplateService {
+func NewTemplateService(launcherImage string, virtShareDir string, imagePullSecret string, clusterConfig *config.ClusterConfig) TemplateService {
 	precond.MustNotBeEmpty(launcherImage)
 	svc := templateService{
 		launcherImage:   launcherImage,
 		virtShareDir:    virtShareDir,
 		imagePullSecret: imagePullSecret,
-		store:           configMapCache,
+		clusterConfig:   clusterConfig,
 	}
 	return &svc
 }

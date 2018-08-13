@@ -55,6 +55,8 @@ import (
 
 	"k8s.io/apimachinery/pkg/labels"
 
+	"regexp"
+
 	"kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/kubecli"
@@ -142,6 +144,8 @@ const VMIResource = "virtualmachineinstances"
 const (
 	SecretLabel = "kubevirt.io/secret"
 )
+
+const LocalStorageClass = "local"
 
 type ProcessFunc func(event *k8sv1.Event) (done bool)
 
@@ -328,6 +332,7 @@ func BeforeTestSuitSetup() {
 	CreatePVC(osAlpineHostPath, defaultDiskSize)
 
 	CreatePVC(osWindows, defaultWindowsDiskSize)
+
 }
 
 func CreatePVC(os string, size string) {
@@ -344,7 +349,9 @@ func newPVC(os string, size string) *k8sv1.PersistentVolumeClaim {
 	quantity, err := resource.ParseQuantity(size)
 	PanicOnError(err)
 
+	storageClass := LocalStorageClass
 	name := fmt.Sprintf("disk-%s", os)
+
 	return &k8sv1.PersistentVolumeClaim{
 		ObjectMeta: metav1.ObjectMeta{Name: name},
 		Spec: k8sv1.PersistentVolumeClaimSpec{
@@ -359,6 +366,7 @@ func newPVC(os string, size string) *k8sv1.PersistentVolumeClaim {
 					"kubevirt.io/test": os,
 				},
 			},
+			StorageClassName: &storageClass,
 		},
 	}
 }
@@ -391,6 +399,7 @@ func CreateHostPathPv(os string, hostPath string) {
 					Type: &hostPathType,
 				},
 			},
+			StorageClassName: LocalStorageClass,
 		},
 	}
 
@@ -582,6 +591,16 @@ func DeletePV(os string) {
 	if !errors.IsNotFound(err) {
 		PanicOnError(err)
 	}
+}
+
+func GetRunningPodByVirtualMachineInstance(vmi *v1.VirtualMachineInstance, namespace string) *k8sv1.Pod {
+	virtCli, err := kubecli.GetKubevirtClient()
+	PanicOnError(err)
+
+	vmi, err = virtCli.VirtualMachineInstance(namespace).Get(vmi.Name, &metav1.GetOptions{})
+	Expect(err).ToNot(HaveOccurred())
+
+	return GetRunningPodByLabel(string(vmi.GetUID()), v1.CreatedByLabel, namespace)
 }
 
 func GetRunningPodByLabel(label string, labelType string, namespace string) *k8sv1.Pod {
@@ -932,6 +951,34 @@ func NewRandomVMIWithWatchdog() *v1.VirtualMachineInstance {
 	return vmi
 }
 
+func NewRandomVMIWithBridgeNetworkEphemeralDiskAndUserdata(containerImage, userData, networkName, bridgeName string) *v1.VirtualMachineInstance {
+	vmi := NewRandomVMIWithEphemeralDiskAndUserdata(containerImage, userData)
+	vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{
+		{Name: "default",
+			InterfaceBindingMethod: v1.InterfaceBindingMethod{Bridge: &v1.InterfaceBridge{}}},
+		{Name: networkName,
+			InterfaceBindingMethod: v1.InterfaceBindingMethod{Bridge: &v1.InterfaceBridge{}}},
+	}
+	vmi.Spec.Networks = []v1.Network{
+		*v1.DefaultPodNetwork(),
+		v1.Network{Name: networkName, NetworkSource: v1.NetworkSource{HostBridge: &v1.HostBridge{BridgeName: bridgeName}}},
+	}
+	return vmi
+}
+
+func NewRandomVMIWithBridgeInterfaceEphemeralDiskAndUserdata(containerImage string, userData string) *v1.VirtualMachineInstance {
+	vmi := NewRandomVMIWithEphemeralDiskAndUserdata(containerImage, userData)
+	vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{{Name: "default", InterfaceBindingMethod: v1.InterfaceBindingMethod{Bridge: &v1.InterfaceBridge{}}}}
+	vmi.Spec.Networks = []v1.Network{*v1.DefaultPodNetwork()}
+
+	return vmi
+}
+
+func AddExplicitPodNetworkInterface(vmi *v1.VirtualMachineInstance) {
+	vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{*v1.DefaultNetworkInterface()}
+	vmi.Spec.Networks = []v1.Network{*v1.DefaultPodNetwork()}
+}
+
 func NewRandomVMIWithe1000NetworkInterface() *v1.VirtualMachineInstance {
 	// Use alpine because cirros dhcp client starts prematurily before link is ready
 	vmi := NewRandomVMIWithEphemeralDisk(RegistryDiskFor(RegistryDiskAlpine))
@@ -1064,6 +1111,39 @@ func RenderJob(name string, cmd []string, args []string) *k8sv1.Pod {
 	return &job
 }
 
+func RenderIPRouteJob(name string, args []string) *k8sv1.Pod {
+	job := k8sv1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			GenerateName: name,
+			Labels: map[string]string{
+				v1.AppLabel: "test",
+			},
+		},
+		Spec: k8sv1.PodSpec{
+			RestartPolicy: k8sv1.RestartPolicyNever,
+			Containers: []k8sv1.Container{
+				{
+					Name:    name,
+					Image:   fmt.Sprintf("%s/iproute:%s", KubeVirtRepoPrefix, KubeVirtVersionTag),
+					Command: []string{"ip"},
+					Args:    args,
+					SecurityContext: &k8sv1.SecurityContext{
+						Privileged: NewBool(true),
+						RunAsUser:  new(int64),
+					},
+				},
+			},
+			HostPID:     true,
+			HostNetwork: true,
+			SecurityContext: &k8sv1.PodSecurityContext{
+				RunAsUser: new(int64),
+			},
+		},
+	}
+
+	return &job
+}
+
 func NewConsoleExpecter(virtCli kubecli.KubevirtClient, vmi *v1.VirtualMachineInstance, timeout time.Duration, opts ...expect.Option) (expect.Expecter, <-chan error, error) {
 	vmiReader, vmiWriter := io.Pipe()
 	expecterReader, expecterWriter := io.Pipe()
@@ -1138,23 +1218,40 @@ func LoggedInCirrosExpecter(vmi *v1.VirtualMachineInstance) (expect.Expecter, er
 	if err != nil {
 		return nil, err
 	}
-	vmiName := vmi.Name
+
+	hostName := vmi.Name
 	if vmi.Spec.Hostname != "" {
-		vmiName = vmi.Spec.Hostname
+		hostName = vmi.Spec.Hostname
 	}
+
+	// Do not login, if we already logged in
+	err = expecter.Send("\n")
+	if err != nil {
+		expecter.Close()
+		return nil, err
+	}
+	_, _, err = expecter.Expect(regexp.MustCompile(`\$`), 10*time.Second)
+	if err == nil {
+		return expecter, nil
+	}
+
 	b := append([]expect.Batcher{
 		&expect.BSnd{S: "\n"},
 		&expect.BSnd{S: "\n"},
 		&expect.BExp{R: "login as 'cirros' user. default password: 'gocubsgo'. use 'sudo' for root."},
 		&expect.BSnd{S: "\n"},
-		&expect.BExp{R: vmiName + " login:"},
+		&expect.BExp{R: hostName + " login:"},
 		&expect.BSnd{S: "cirros\n"},
 		&expect.BExp{R: "Password:"},
 		&expect.BSnd{S: "gocubsgo\n"},
-		&expect.BExp{R: "$"}})
-	res, err := expecter.ExpectBatch(b, 180*time.Second)
-	log.DefaultLogger().Object(vmi).V(4).Infof("%v", res)
-	return expecter, err
+		&expect.BExp{R: "\\$"}})
+	resp, err := expecter.ExpectBatch(b, 180*time.Second)
+	if err != nil {
+		log.DefaultLogger().Object(vmi).Infof("Login: %v", resp)
+		expecter.Close()
+		return nil, err
+	}
+	return expecter, nil
 }
 
 func LoggedInAlpineExpecter(vmi *v1.VirtualMachineInstance) (expect.Expecter, error) {
@@ -1321,10 +1418,16 @@ func NotDeleted(vmis *v1.VirtualMachineInstanceList) (notDeleted []v1.VirtualMac
 }
 
 func UnfinishedVMIPodSelector(vmi *v1.VirtualMachineInstance) metav1.ListOptions {
+	virtClient, err := kubecli.GetKubevirtClient()
+	PanicOnError(err)
+
+	vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &metav1.GetOptions{})
+	Expect(err).ToNot(HaveOccurred())
+
 	fieldSelector := fields.ParseSelectorOrDie(
 		"status.phase!=" + string(k8sv1.PodFailed) +
 			",status.phase!=" + string(k8sv1.PodSucceeded))
-	labelSelector, err := labels.Parse(fmt.Sprintf(v1.AppLabel+"=virt-launcher,"+v1.DomainLabel+" in (%s)", vmi.GetName()))
+	labelSelector, err := labels.Parse(fmt.Sprintf(v1.AppLabel + "=virt-launcher," + v1.CreatedByLabel + "=" + string(vmi.GetUID())))
 	if err != nil {
 		panic(err)
 	}
