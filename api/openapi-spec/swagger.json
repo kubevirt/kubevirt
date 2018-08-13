@@ -3714,6 +3714,10 @@
      "bridge": {
       "$ref": "#/definitions/v1.InterfaceBridge"
      },
+     "macAddress": {
+      "description": "Interface MAC address. For example: de:ad:00:00:be:af or DE-AD-00-00-BE-AF.",
+      "type": "string"
+     },
      "name": {
       "description": "Logical name of the interface as well as a reference to the associated networks\nMust match the Name of a Network",
       "type": "string"
