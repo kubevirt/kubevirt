@@ -602,19 +602,6 @@ var _ = Describe("Converter", func() {
 			}
 		})
 
-		It("should fail to convert if non-pod interfaces are present", func() {
-			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
-			name := "otherName"
-			iface := v1.DefaultNetworkInterface()
-			net := v1.DefaultPodNetwork()
-			iface.Name = name
-			net.Name = name
-			net.Pod = nil
-			vmi.Spec.Domain.Devices.Interfaces = append(vmi.Spec.Domain.Devices.Interfaces, *iface)
-			vmi.Spec.Networks = append(vmi.Spec.Networks, *net)
-			Expect(Convert_v1_VirtualMachine_To_api_Domain(vmi, &Domain{}, c)).ToNot(Succeed())
-		})
-
 		It("should allow setting boot order", func() {
 			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
 			name1 := "Name1"
