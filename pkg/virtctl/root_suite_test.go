@@ -26,7 +26,7 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-func TestOfflinevm(t *testing.T) {
+func TestRoot(t *testing.T) {
 	RegisterFailHandler(Fail)
 	RunSpecs(t, "root Suite")
 }

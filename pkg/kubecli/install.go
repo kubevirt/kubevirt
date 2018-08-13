@@ -32,10 +32,6 @@ import (
 	yaml "gopkg.in/yaml.v2"
 )
 
-var (
-	kubectlPluginPath string
-)
-
 // Plugin holds everything needed to register a
 // plugin as a command. Usually comes from a descriptor file.
 type Plugin struct {
@@ -66,7 +62,7 @@ type Flag struct {
 }
 
 func InstallVirtPlugin(cmd *cobra.Command) error {
-	err := getPluginFolder()
+	kubectlPluginPath, err := getPluginFolder()
 	if err != nil {
 		return err
 	}
@@ -77,39 +73,34 @@ func InstallVirtPlugin(cmd *cobra.Command) error {
 		return err
 	}
 
-	plugin := MakePluginConfiguration(cmd)
+	plugin := MakePluginConfiguration(kubectlPluginPath, cmd)
 
-	err = writePluginYaml(plugin)
+	err = writePluginYaml(kubectlPluginPath, plugin)
 	if err != nil {
 		return err
 	}
 
-	return copyVirtctlFile()
+	return copyVirtctlFile(kubectlPluginPath)
 }
 
-func getPluginFolder() error {
-	globalPluginPath := os.Getenv("KUBECTL_PLUGINS_PATH")
-	if len(globalPluginPath) > 0 {
-		kubectlPluginPath = filepath.Join(globalPluginPath, "virt")
-		return nil
+func getPluginFolder() (string, error) {
+
+	if globalPluginPath, define := os.LookupEnv("KUBECTL_PLUGINS_PATH"); define {
+		return filepath.Join(globalPluginPath, "virt"), nil
 	}
 
-	xdgDataPath := os.Getenv("XDG_DATA_DIRS")
-	if len(xdgDataPath) > 0 {
-		kubectlPluginPath = filepath.Join(xdgDataPath, "kubectl", "plugins", "virt")
-		return nil
+	if xdgDataPath, define := os.LookupEnv("XDG_DATA_DIRS"); define {
+		return filepath.Join(xdgDataPath, "kubectl", "plugins", "virt"), nil
 	}
 
-	userHomeDir := os.Getenv("HOME")
-	if len(userHomeDir) > 0 {
-		kubectlPluginPath = filepath.Join(userHomeDir, ".kube", "plugins", "virt")
-		return nil
+	if userHomeDir, define := os.LookupEnv("HOME"); define {
+		return filepath.Join(userHomeDir, ".kube", "plugins", "virt"), nil
 	}
 
-	return fmt.Errorf("Fail to find kubernetes plugin folder")
+	return "", fmt.Errorf("Fail to find kubernetes plugin folder")
 }
 
-func MakePluginConfiguration(cmd *cobra.Command) *Plugin {
+func MakePluginConfiguration(kubectlPluginPath string, cmd *cobra.Command) *Plugin {
 	tree := make(Plugins, 0)
 	for _, command := range cmd.Commands() {
 		if command.Name() != "install" && command.Name() != "options" {
@@ -129,7 +120,7 @@ func MakePluginConfiguration(cmd *cobra.Command) *Plugin {
 	return plugin
 }
 
-func writePluginYaml(plugin *Plugin) error {
+func writePluginYaml(kubectlPluginPath string, plugin *Plugin) error {
 	yamlData, err := yaml.Marshal(plugin)
 	if err != nil {
 		return err
@@ -138,7 +129,7 @@ func writePluginYaml(plugin *Plugin) error {
 	return ioutil.WriteFile(filepath.Join(kubectlPluginPath, "plugin.yaml"), yamlData, 0644)
 }
 
-func copyVirtctlFile() error {
+func copyVirtctlFile(kubectlPluginPath string) error {
 	dst := filepath.Join(kubectlPluginPath, "virtctl")
 
 	srcfd, err := os.Open(os.Args[0])
@@ -163,5 +154,4 @@ func copyVirtctlFile() error {
 	}
 
 	return os.Chmod(dst, srcinfo.Mode())
-
 }

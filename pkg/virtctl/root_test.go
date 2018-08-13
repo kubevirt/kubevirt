@@ -21,6 +21,8 @@
 package virtctl
 
 import (
+	"io/ioutil"
+
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 
@@ -129,13 +131,15 @@ tree:
 var _ = Describe("Kubevirt Root Client", func() {
 	var command *cobra.Command
 	var plugin *kubecli.Plugin
+	workDir, err := ioutil.TempDir("", "kubevirt-test")
+	Expect(err).ToNot(HaveOccurred())
 
 	BeforeEach(func() {
 		command = NewVirtctlCommand()
-		plugin = kubecli.MakePluginConfiguration(command)
+		plugin = kubecli.MakePluginConfiguration(workDir, command)
 	})
 
-	Context("With example yaml check install command", func() {
+	FContext("With example yaml check install command", func() {
 		It("Marshal struct into yaml", func() {
 			yamlData, err := yaml.Marshal(plugin)
 			Expect(err).ToNot(HaveOccurred())
