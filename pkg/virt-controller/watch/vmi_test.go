@@ -27,6 +27,7 @@ import (
 	k8sv1 "k8s.io/api/core/v1"
 
 	"github.com/golang/mock/gomock"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes/fake"
 	"k8s.io/client-go/tools/cache/testing"
@@ -580,6 +581,34 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			controller.Execute()
 
 			testutils.ExpectEvent(recorder, FailedHandOverPodReason)
+		})
+		It("should set an error condition if when pod cannot guarantee resources when cpu pinning has been requested", func() {
+			vmi := NewPendingVirtualMachine("testvmi")
+			vmi.Spec.Domain.CPU = &v1.CPU{DedicatedCPUPlacement: true}
+			pod := NewPodForVirtualMachine(vmi, k8sv1.PodRunning)
+			pod.Spec = k8sv1.PodSpec{
+				Containers: []k8sv1.Container{
+					k8sv1.Container{
+						Name: "test",
+						Resources: k8sv1.ResourceRequirements{
+							Requests: k8sv1.ResourceList{
+								k8sv1.ResourceCPU: resource.MustParse("800m"),
+							},
+						},
+					},
+				},
+			}
+
+			addVirtualMachine(vmi)
+			podFeeder.Add(pod)
+
+			vmiInterface.EXPECT().Update(gomock.Any()).Do(func(arg interface{}) {
+				Expect(arg.(*v1.VirtualMachineInstance).Status.Conditions[0].Reason).To(Equal(FailedGuaranteePodResourcesReason))
+			}).Return(vmi, nil)
+
+			controller.Execute()
+
+			testutils.ExpectEvent(recorder, FailedGuaranteePodResourcesReason)
 		})
 		It("should set an error condition if creating the virtual machine pod fails", func() {
 			vmi := NewPendingVirtualMachine("testvmi")

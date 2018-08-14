@@ -40,6 +40,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/kubecli"
 	"kubevirt.io/kubevirt/pkg/log"
+	"kubevirt.io/kubevirt/pkg/util/qos"
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
 
 	cdiv1 "kubevirt.io/containerized-data-importer/pkg/apis/datavolumecontroller/v1alpha1"
@@ -84,6 +85,9 @@ const (
 	// SuccessfulDataVolumeDeleteReason is added in an event when a dynamically generated
 	// dataVolume is successfully deleted
 	SuccessfulDataVolumeDeleteReason = "SuccessfulDataVolumeDelete"
+	// FailedGuaranteePodResourcesReason is added in an event and in a vmi controller condition
+	// when a pod has been created without a Guaranteed resources.
+	FailedGuaranteePodResourcesReason = "FailedGuaranteeResources"
 )
 
 func NewVMIController(templateService services.TemplateService,
@@ -435,6 +439,15 @@ func (c *VMIController) sync(vmi *virtv1.VirtualMachineInstance, pods []*k8sv1.P
 		return nil
 	} else if isPodReady(pod) && !isPodOwnedByHandler(pod) {
 		pod := pod.DeepCopy()
+
+		// fail vmi creation if CPU pinning has been requested but the Pod QOS is not Guaranteed
+		podQosClass := qos.GetPodQOS(pod)
+		if podQosClass != k8sv1.PodQOSGuaranteed && vmi.Spec.Domain.CPU != nil && vmi.Spec.Domain.CPU.DedicatedCPUPlacement {
+			c.handoverExpectations.CreationObserved(controller.VirtualMachineKey(vmi))
+			c.recorder.Eventf(vmi, k8sv1.EventTypeWarning, FailedGuaranteePodResourcesReason, "failed to guarantee pod resources")
+			return &syncErrorImpl{fmt.Errorf("failed to guarantee pod resources"), FailedGuaranteePodResourcesReason}
+		}
+
 		pod.Annotations[virtv1.OwnedByAnnotation] = "virt-handler"
 		c.handoverExpectations.ExpectCreations(controller.VirtualMachineKey(vmi), 1)
 		_, err := c.clientset.CoreV1().Pods(vmi.Namespace).Update(pod)
