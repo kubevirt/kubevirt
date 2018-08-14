@@ -415,6 +415,12 @@ func NewVMIReferenceFromNameWithNS(namespace string, name string) *VirtualMachin
 	return vmi
 }
 
+func NewVMIReferenceWithUUID(namespace string, name string, uuid types.UID) *VirtualMachineInstance {
+	vmi := NewVMIReferenceFromNameWithNS(namespace, name)
+	vmi.UID = uuid
+	return vmi
+}
+
 type VMISelector struct {
 	// Name of the VirtualMachineInstance to migrate
 	Name string `json:"name" valid:"required"`

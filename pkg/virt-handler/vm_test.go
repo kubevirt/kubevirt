@@ -29,6 +29,8 @@ import (
 	"github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/uuid"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/cache/testing"
 	"k8s.io/client-go/tools/record"
@@ -70,6 +72,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 
 	var err error
 	var shareDir string
+	var testUUID types.UID
 	var stop chan struct{}
 
 	log.Log.SetIOWriter(GinkgoWriter)
@@ -107,8 +110,9 @@ var _ = Describe("VirtualMachineInstance", func() {
 			10,
 		)
 
+		testUUID = uuid.NewUUID()
 		client = cmdclient.NewMockLauncherClient(ctrl)
-		sockFile := cmdclient.SocketFromUID(shareDir, "")
+		sockFile := cmdclient.SocketFromUID(shareDir, string(testUUID))
 		controller.addLauncherClient(client, sockFile)
 
 		mockQueue = testutils.NewMockWorkQueue(controller.Queue)
@@ -140,26 +144,29 @@ var _ = Describe("VirtualMachineInstance", func() {
 	Context("VirtualMachineInstance controller gets informed about a Domain change through the Domain controller", func() {
 
 		It("should delete non-running Domains if no cluster wide equivalent and no grace period info exists", func() {
-			domain := api.NewMinimalDomain("testvmi")
+			domain := api.NewMinimalDomainWithUUID("testvmi", testUUID)
 			domainFeeder.Add(domain)
 
 			client.EXPECT().Ping()
-			client.EXPECT().DeleteDomain(v1.NewVMIReferenceFromName("testvmi"))
+			client.EXPECT().DeleteDomain(v1.NewVMIReferenceWithUUID(metav1.NamespaceDefault, "testvmi", testUUID))
 			controller.Execute()
 		})
 
 		It("should delete running Domains if no cluster wide equivalent exists and no grace period info exists", func() {
-			domain := api.NewMinimalDomain("testvmi")
+			domain := api.NewMinimalDomainWithUUID("testvmi", testUUID)
 			domain.Status.Status = api.Running
 			domainFeeder.Add(domain)
 
 			client.EXPECT().Ping()
-			client.EXPECT().KillVirtualMachine(v1.NewVMIReferenceFromName("testvmi"))
+			client.EXPECT().KillVirtualMachine(v1.NewVMIReferenceWithUUID(metav1.NamespaceDefault, "testvmi", testUUID))
 
 			controller.Execute()
 		})
 
 		It("should perform cleanup of local ephemeral data if domain and vmi are deleted", func() {
+			mockSockFile := cmdclient.SocketFromUID(shareDir, "")
+			controller.addLauncherClient(client, mockSockFile)
+
 			mockQueue.Add("default/testvmi")
 			client.EXPECT().Close()
 			controller.Execute()
@@ -167,9 +174,10 @@ var _ = Describe("VirtualMachineInstance", func() {
 
 		It("should attempt graceful shutdown of Domain if trigger file exists.", func() {
 			vmi := v1.NewMinimalVMI("testvmi")
+			vmi.UID = testUUID
 			vmi.Status.Phase = v1.Running
 
-			domain := api.NewMinimalDomain("testvmi")
+			domain := api.NewMinimalDomainWithUUID("testvmi", testUUID)
 			domain.Status.Status = api.Running
 
 			initGracePeriodHelper(1, vmi, domain)
@@ -177,7 +185,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 			mockGracefulShutdown.TriggerShutdown(vmi)
 
 			client.EXPECT().Ping()
-			client.EXPECT().ShutdownVirtualMachine(v1.NewVMIReferenceFromName("testvmi"))
+			client.EXPECT().ShutdownVirtualMachine(v1.NewVMIReferenceWithUUID(metav1.NamespaceDefault, "testvmi", testUUID))
 			domainFeeder.Add(domain)
 
 			controller.Execute()
@@ -185,14 +193,15 @@ var _ = Describe("VirtualMachineInstance", func() {
 
 		It("should attempt graceful shutdown of Domain if no cluster wide equivalent exists", func() {
 			vmi := v1.NewMinimalVMI("testvmi")
-			domain := api.NewMinimalDomain("testvmi")
+			vmi.UID = testUUID
+			domain := api.NewMinimalDomainWithUUID("testvmi", testUUID)
 			domain.Status.Status = api.Running
 
 			initGracePeriodHelper(1, vmi, domain)
 			mockWatchdog.CreateFile(vmi)
 
 			client.EXPECT().Ping()
-			client.EXPECT().ShutdownVirtualMachine(v1.NewVMIReferenceFromName("testvmi"))
+			client.EXPECT().ShutdownVirtualMachine(v1.NewVMIReferenceWithUUID(metav1.NamespaceDefault, "testvmi", testUUID))
 			domainFeeder.Add(domain)
 
 			controller.Execute()
@@ -200,7 +209,8 @@ var _ = Describe("VirtualMachineInstance", func() {
 
 		It("should attempt force terminate Domain if grace period expires", func() {
 			vmi := v1.NewMinimalVMI("testvmi")
-			domain := api.NewMinimalDomain("testvmi")
+			vmi.UID = testUUID
+			domain := api.NewMinimalDomainWithUUID("testvmi", testUUID)
 			domain.Status.Status = api.Running
 
 			initGracePeriodHelper(1, vmi, domain)
@@ -212,23 +222,24 @@ var _ = Describe("VirtualMachineInstance", func() {
 			mockGracefulShutdown.TriggerShutdown(vmi)
 
 			client.EXPECT().Ping()
-			client.EXPECT().KillVirtualMachine(v1.NewVMIReferenceFromName("testvmi"))
+			client.EXPECT().KillVirtualMachine(v1.NewVMIReferenceWithUUID(metav1.NamespaceDefault, "testvmi", testUUID))
 			domainFeeder.Add(domain)
 
 			controller.Execute()
 		}, 3)
 
 		It("should immediately kill domain with grace period of 0", func() {
-			domain := api.NewMinimalDomain("testvmi")
+			domain := api.NewMinimalDomainWithUUID("testvmi", testUUID)
 			domain.Status.Status = api.Running
 			vmi := v1.NewMinimalVMI("testvmi")
+			vmi.UID = testUUID
 
 			initGracePeriodHelper(0, vmi, domain)
 			mockWatchdog.CreateFile(vmi)
 			mockGracefulShutdown.TriggerShutdown(vmi)
 
 			client.EXPECT().Ping()
-			client.EXPECT().KillVirtualMachine(v1.NewVMIReferenceFromName("testvmi"))
+			client.EXPECT().KillVirtualMachine(v1.NewVMIReferenceWithUUID(metav1.NamespaceDefault, "testvmi", testUUID))
 			domainFeeder.Add(domain)
 			controller.Execute()
 		}, 3)
@@ -242,6 +253,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 
 		It("should create the Domain if it sees the first time on a new VirtualMachineInstance", func() {
 			vmi := v1.NewMinimalVMI("testvmi")
+			vmi.UID = testUUID
 			vmi.ObjectMeta.ResourceVersion = "1"
 			vmi.Status.Phase = v1.Scheduled
 
@@ -255,6 +267,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 
 		It("should update from Scheduled to Running, if it sees a running Domain", func() {
 			vmi := v1.NewMinimalVMI("testvmi")
+			vmi.UID = testUUID
 			vmi.ObjectMeta.ResourceVersion = "1"
 			vmi.Status.Phase = v1.Scheduled
 
@@ -262,7 +275,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 			updatedVMI.Status.Phase = v1.Running
 
 			mockWatchdog.CreateFile(vmi)
-			domain := api.NewMinimalDomain("testvmi")
+			domain := api.NewMinimalDomainWithUUID("testvmi", testUUID)
 			domain.Status.Status = api.Running
 			vmiFeeder.Add(vmi)
 			domainFeeder.Add(domain)
@@ -324,6 +337,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 
 		It("should remove an error condition if a synchronization run succeeds", func() {
 			vmi := v1.NewMinimalVMI("testvmi")
+			vmi.UID = testUUID
 			vmi.ObjectMeta.ResourceVersion = "1"
 			vmi.Status.Phase = v1.Scheduled
 			vmi.Status.Conditions = []v1.VirtualMachineInstanceCondition{
