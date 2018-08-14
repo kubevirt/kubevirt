@@ -7,7 +7,7 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-func TestOfflinevm(t *testing.T) {
+func TestVm(t *testing.T) {
 	RegisterFailHandler(Fail)
 	RunSpecs(t, "vm Suite")
 }

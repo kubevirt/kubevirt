@@ -147,10 +147,10 @@ func (o *Command) RunE(cmd *cobra.Command, args []string) error {
 		// remove unwanted labels
 		delete(serviceSelector, "kubevirt.io/nodeName")
 	case "vm", "vms", "virtualmachine", "virtualmachines":
-		// get the offline VM
+		// get the VM
 		vm, err := virtClient.VirtualMachine(namespace).Get(vmName, &options)
 		if err != nil {
-			return fmt.Errorf("error fetching OfflineVirtual: %v", err)
+			return fmt.Errorf("error fetching Virtual Machine: %v", err)
 		}
 		serviceSelector = vm.Spec.Template.ObjectMeta.Labels
 	case "vmirs", "vmirss", "virtualmachineinstancereplicaset", "virtualmachineinstancereplicasets":
