@@ -766,7 +766,8 @@ type Network struct {
 // ---
 // +k8s:openapi-gen=true
 type NetworkSource struct {
-	Pod *PodNetwork `json:"pod,omitempty"`
+	Pod      *PodNetwork      `json:"pod,omitempty"`
+	Resource *ResourceNetwork `json:"resource,omitempty"`
 }
 
 // Represents the stock pod network interface.
@@ -776,4 +777,18 @@ type PodNetwork struct {
 	// CIDR for vm network.
 	// Default 10.0.2.0/24 if not specified.
 	VMNetworkCIDR string `json:"vmNetworkCIDR,omitempty"`
+}
+
+// Represents a network that was exposed to the pod using a device plugin.
+// ---
+// +k8s:openapi-gen=true
+type ResourceNetwork struct {
+	// URL describing the name of the device plugin and the resource it exposes to the pod.
+	// The device plugin will publish the information about the name of the pod's interface and binding mechanism in
+	// an environment variable. Name of variable would start with: "NETWORK_INTERFACE_RESOURCES_" and its content would
+	// be json formatted.
+	ResourceName string `json:"resourceName"`
+	// Name of the environment variable holding information about the name of the pod's interface and binding mechanism.
+	// If not set, all environment variables with names starting with "NETWORK_INTERFACE_RESOURCES_" will be searched for the desired resource.
+	EnvVarName string `json:"envVarName,omitempty"`
 }

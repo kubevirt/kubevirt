@@ -289,6 +289,13 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 		resources.Limits[KvmDevice] = resource.MustParse("1")
 	}
 
+	// find out if there are networks defined for the VM which requires network resources
+	for _, net := range vmi.Spec.Networks {
+		if net.Resource != nil {
+			resources.Limits[k8sv1.ResourceName(net.Resource.ResourceName)] = resource.MustParse("1")
+		}
+	}
+
 	// Add ports from interfaces to the pod manifest
 	ports := getPortsFromVMI(vmi)
 

@@ -3906,6 +3906,9 @@
      },
      "pod": {
       "$ref": "#/definitions/v1.PodNetwork"
+     },
+     "resource": {
+      "$ref": "#/definitions/v1.ResourceNetwork"
      }
     }
    },
@@ -4268,6 +4271,22 @@
      },
      "imagePullSecret": {
       "description": "ImagePullSecret is the name of the Docker registry secret required to pull the image. The secret must already exist.",
+      "type": "string"
+     }
+    }
+   },
+   "v1.ResourceNetwork": {
+    "description": "Represents a network that was exposed to the pod using a device plugin.",
+    "required": [
+     "resourceName"
+    ],
+    "properties": {
+     "envVarName": {
+      "description": "Name of the environment variable holding information about the name of the pod's interface and binding mechanism.\nIf not set, all environment variables with names starting with \"NETWORK_INTERFACE_RESOURCES_\" will be searched for the desired resource.",
+      "type": "string"
+     },
+     "resourceName": {
+      "description": "URL describing the name of the device plugin and the resource it exposes to the pod.\nThe device plugin will publish the information about the name of the pod's interface and binding mechanism in\nan environment variable. Name of variable would start with: \"NETWORK_INTERFACE_RESOURCES_\" and its content would\nbe json formatted.",
       "type": "string"
      }
     }

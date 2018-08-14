@@ -226,6 +226,14 @@ spec:
                     properties:
                       vmNetworkCIDR:
                         type: string
+                  resource:
+                    properties:
+                      envVarName:
+                        type: string
+                      resourceName:
+                        type: string
+                    required:
+                    - resourceName
                 required:
                 - name
               type: array

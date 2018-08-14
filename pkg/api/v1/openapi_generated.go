@@ -991,12 +991,17 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 								Ref: ref("kubevirt.io/kubevirt/pkg/api/v1.PodNetwork"),
 							},
 						},
+						"resource": {
+							SchemaProps: spec.SchemaProps{
+								Ref: ref("kubevirt.io/kubevirt/pkg/api/v1.ResourceNetwork"),
+							},
+						},
 					},
 					Required: []string{"name"},
 				},
 			},
 			Dependencies: []string{
-				"kubevirt.io/kubevirt/pkg/api/v1.PodNetwork"},
+				"kubevirt.io/kubevirt/pkg/api/v1.PodNetwork", "kubevirt.io/kubevirt/pkg/api/v1.ResourceNetwork"},
 		},
 		"kubevirt.io/kubevirt/pkg/api/v1.NetworkSource": {
 			Schema: spec.Schema{
@@ -1008,11 +1013,16 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 								Ref: ref("kubevirt.io/kubevirt/pkg/api/v1.PodNetwork"),
 							},
 						},
+						"resource": {
+							SchemaProps: spec.SchemaProps{
+								Ref: ref("kubevirt.io/kubevirt/pkg/api/v1.ResourceNetwork"),
+							},
+						},
 					},
 				},
 			},
 			Dependencies: []string{
-				"kubevirt.io/kubevirt/pkg/api/v1.PodNetwork"},
+				"kubevirt.io/kubevirt/pkg/api/v1.PodNetwork", "kubevirt.io/kubevirt/pkg/api/v1.ResourceNetwork"},
 		},
 		"kubevirt.io/kubevirt/pkg/api/v1.PITTimer": {
 			Schema: spec.Schema{
@@ -1137,6 +1147,31 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 						},
 					},
 					Required: []string{"image"},
+				},
+			},
+			Dependencies: []string{},
+		},
+		"kubevirt.io/kubevirt/pkg/api/v1.ResourceNetwork": {
+			Schema: spec.Schema{
+				SchemaProps: spec.SchemaProps{
+					Description: "Represents a network that was exposed to the pod using a device plugin.",
+					Properties: map[string]spec.Schema{
+						"resourceName": {
+							SchemaProps: spec.SchemaProps{
+								Description: "URL describing the name of the device plugin and the resource it exposes to the pod. The device plugin will publish the information about the name of the pod's interface and binding mechanism in an environment variable. Name of variable would start with: \"NETWORK_INTERFACE_RESOURCES_\" and its content would be json formatted.",
+								Type:        []string{"string"},
+								Format:      "",
+							},
+						},
+						"envVarName": {
+							SchemaProps: spec.SchemaProps{
+								Description: "Name of the environment variable holding information about the name of the pod's interface and binding mechanism. If not set, all environment variables with names starting with \"NETWORK_INTERFACE_RESOURCES_\" will be searched for the desired resource.",
+								Type:        []string{"string"},
+								Format:      "",
+							},
+						},
+					},
+					Required: []string{"resourceName"},
 				},
 			},
 			Dependencies: []string{},

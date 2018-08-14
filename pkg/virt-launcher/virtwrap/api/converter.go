@@ -24,6 +24,7 @@ import (
 	"bytes"
 	"fmt"
 	"io/ioutil"
+	"math/rand"
 	"net"
 	"os"
 	"path/filepath"
@@ -47,6 +48,8 @@ import (
 const (
 	CPUModeHostPassthrough = "host-passthrough"
 	CPUModeHostModel       = "host-model"
+	TargetDevicePrefix     = "net-"
+	MaxInterfaceNameLen    = 15
 )
 
 type ConverterContext struct {
@@ -550,6 +553,60 @@ func Convert_v1_VirtualMachine_To_api_Domain(vmi *v1.VirtualMachineInstance, dom
 		return "virtio"
 	}
 
+	getBridgeName := func(network *v1.Network) string {
+		if network.Pod != nil {
+			// using the default name
+			return DefaultBridgeName
+		} else if network.Resource != nil {
+			// generating a name based on the resource name
+			// make sure that name does not collide with bridge name for pod network
+			if len(network.Name)+len(DefaultBridgeName)+1 <= MaxInterfaceNameLen {
+				return DefaultBridgeName + "-" + network.Name
+			}
+			// make sure that name is not truncated by system, which may cause collisions
+			randomName := randInterfaceName(DefaultBridgeName)
+			log.Log.Infof("Network name exceed %d bytes, generating a random name: '%s'",
+				MaxInterfaceNameLen, randomName)
+			return randomName
+		}
+		return ""
+	}
+
+	getAliasName := func(iface *v1.Interface, network *v1.Network) string {
+		return iface.Name
+	}
+
+	getTargetDevice := func(network *v1.Network) *InterfaceTarget {
+		// set target name for anything else than the pod networks
+		// note that this name is not set on the guest, it will be set
+		// on the launcher pod's side of the veth
+		// which will have the same MAC as the interface on the guest)
+		if network.Pod == nil {
+			if len(network.Name)+len(TargetDevicePrefix) <= MaxInterfaceNameLen {
+				return &InterfaceTarget{Device: TargetDevicePrefix + network.Name}
+			}
+			// make sure that name is not truncated by system, which may cause collisions
+			return &InterfaceTarget{Device: randInterfaceName(TargetDevicePrefix)}
+		}
+		return nil
+	}
+
+	getMAC := func(iface *v1.Interface, network *v1.Network) *MAC {
+		// in cases other than pod network, setting the MAC address should not
+		// be an issue
+		if network.Pod == nil && iface.MacAddress != "" {
+			mac, err := net.ParseMAC(iface.MacAddress)
+			if err != nil {
+				log.Log.Reason(err).Warningf("Failed to set MAC address '%s' on interface",
+					iface.MacAddress,
+					err.Error())
+				return nil
+			}
+			return &MAC{MAC: mac.String()}
+		}
+		return nil
+	}
+
 	networks := map[string]*v1.Network{}
 	for _, network := range vmi.Spec.Networks {
 		networks[network.Name] = network.DeepCopy()
@@ -561,7 +618,7 @@ func Convert_v1_VirtualMachine_To_api_Domain(vmi *v1.VirtualMachineInstance, dom
 			return fmt.Errorf("failed to find network %s", iface.Name)
 		}
 
-		if net.Pod == nil {
+		if net.Pod == nil && net.Resource == nil {
 			return fmt.Errorf("network interface type not supported for %s", iface.Name)
 		}
 
@@ -574,11 +631,13 @@ func Convert_v1_VirtualMachine_To_api_Domain(vmi *v1.VirtualMachineInstance, dom
 				},
 				Type: "bridge",
 				Source: InterfaceSource{
-					Bridge: DefaultBridgeName,
+					Bridge: getBridgeName(net),
 				},
+				Target: getTargetDevice(net),
 				Alias: &Alias{
-					Name: iface.Name,
+					Name: getAliasName(&iface, net),
 				},
+				MAC: getMAC(&iface, net),
 			}
 			if iface.BootOrder != nil {
 				domainIface.BootOrder = &BootOrder{Order: *iface.BootOrder}
@@ -591,7 +650,7 @@ func Convert_v1_VirtualMachine_To_api_Domain(vmi *v1.VirtualMachineInstance, dom
 				},
 				Type: "user",
 				Alias: &Alias{
-					Name: iface.Name,
+					Name: getAliasName(&iface, net),
 				},
 			}
 			domain.Spec.Devices.Interfaces = append(domain.Spec.Devices.Interfaces, domainIface)
@@ -820,4 +879,18 @@ func ParseSearchDomains(content string) ([]string, error) {
 	}
 
 	return searchDomains, nil
+}
+
+func randString(length int) string {
+	const letterBytes = "abcdefghijklmnopqrstuvwxyz0123456789"
+	b := make([]byte, length)
+	for i := range b {
+		b[i] = letterBytes[rand.Intn(len(letterBytes))]
+	}
+	return string(b)
+
+}
+func randInterfaceName(interfaceNamePrefix string) string {
+	suffixLength := MaxInterfaceNameLen - len(interfaceNamePrefix)
+	return interfaceNamePrefix + randString(suffixLength)
 }

@@ -1019,6 +1019,21 @@ func NewRandomVMIWithSlirpInterfaceEphemeralDiskAndUserdata(containerImage strin
 	return vmi
 }
 
+func NewRandomVMIWithResourceNetworkEphemeralDiskAndUserdata(containerImage, userData, networkName, resourceName string) *v1.VirtualMachineInstance {
+	vmi := NewRandomVMIWithEphemeralDiskAndUserdata(containerImage, userData)
+	vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{
+		{Name: "default",
+			InterfaceBindingMethod: v1.InterfaceBindingMethod{Bridge: &v1.InterfaceBridge{}}},
+		{Name: networkName,
+			InterfaceBindingMethod: v1.InterfaceBindingMethod{Bridge: &v1.InterfaceBridge{}}},
+	}
+	vmi.Spec.Networks = []v1.Network{
+		*v1.DefaultPodNetwork(),
+		v1.Network{Name: networkName, NetworkSource: v1.NetworkSource{Resource: &v1.ResourceNetwork{ResourceName: resourceName}}},
+	}
+	return vmi
+}
+
 func NewRandomVMIWithBridgeInterfaceEphemeralDiskAndUserdata(containerImage string, userData string, Ports []v1.Port) *v1.VirtualMachineInstance {
 	vmi := NewRandomVMIWithEphemeralDiskAndUserdata(containerImage, userData)
 	vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{{Name: "default", Ports: Ports, InterfaceBindingMethod: v1.InterfaceBindingMethod{Bridge: &v1.InterfaceBridge{}}}}
@@ -1171,6 +1186,39 @@ func RenderJob(name string, cmd []string, args []string) *k8sv1.Pod {
 				},
 			},
 			HostPID: true,
+			SecurityContext: &k8sv1.PodSecurityContext{
+				RunAsUser: new(int64),
+			},
+		},
+	}
+
+	return &job
+}
+
+func RenderIPRouteJob(name string, args []string) *k8sv1.Pod {
+	job := k8sv1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			GenerateName: name,
+			Labels: map[string]string{
+				v1.AppLabel: "test",
+			},
+		},
+		Spec: k8sv1.PodSpec{
+			RestartPolicy: k8sv1.RestartPolicyNever,
+			Containers: []k8sv1.Container{
+				{
+					Name:    name,
+					Image:   fmt.Sprintf("%s/iproute:%s", KubeVirtRepoPrefix, KubeVirtVersionTag),
+					Command: []string{"ip"},
+					Args:    args,
+					SecurityContext: &k8sv1.SecurityContext{
+						Privileged: NewBool(true),
+						RunAsUser:  new(int64),
+					},
+				},
+			},
+			HostPID:     true,
+			HostNetwork: true,
 			SecurityContext: &k8sv1.PodSecurityContext{
 				RunAsUser: new(int64),
 			},
