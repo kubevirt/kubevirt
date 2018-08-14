@@ -323,6 +323,7 @@ func (Interface) SwaggerDoc() map[string]string {
 		"ports":      "List of ports to be forwarded to the virtual machine.",
 		"macAddress": "Interface MAC address. For example: de:ad:00:00:be:af or DE-AD-00-00-BE-AF.",
 		"bootOrder":  "BootOrder is an integer value > 0, used to determine ordering of boot devices.\nLower values take precedence.\nEach interface or disk that has a boot order must have a unique value.\nInterfaces without a boot order are not tried.\n+optional",
+		"pciAddress": "If specified, the virtual network interface will be placed on the guests pci address with the specifed PCI address. For example: 0000:81:01.10\n+optional",
 	}
 }
 

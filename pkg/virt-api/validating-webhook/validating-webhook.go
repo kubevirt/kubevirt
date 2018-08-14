@@ -41,6 +41,7 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/log"
+	"kubevirt.io/kubevirt/pkg/util"
 )
 
 const (
@@ -744,6 +745,17 @@ func ValidateVirtualMachineInstanceSpec(field *k8sfield.Path, spec *v1.VirtualMa
 						})
 					}
 					bootOrderMap[order] = true
+				}
+			}
+			// verify that the specified pci address is valid
+			if iface.PciAddress != "" {
+				_, err := util.ParsePciAddress(iface.PciAddress)
+				if err != nil {
+					causes = append(causes, metav1.StatusCause{
+						Type:    metav1.CauseTypeFieldValueInvalid,
+						Message: fmt.Sprintf("interface %s has malformed PCI address (%s).", field.Child("domain", "devices", "interfaces").Index(idx).Child("name").String(), iface.PciAddress),
+						Field:   field.Child("domain", "devices", "interfaces").Index(idx).Child("pciAddress").String(),
+					})
 				}
 			}
 		}

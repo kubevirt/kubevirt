@@ -106,6 +106,8 @@ spec:
                             type: string
                           name:
                             type: string
+                          pciAddress:
+                            type: string
                           ports:
                             items:
                               properties:

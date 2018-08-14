@@ -510,6 +510,20 @@ var _ = Describe("Converter", func() {
 			Expect(domain.Spec.Devices.Interfaces[0].Model.Type).To(Equal("e1000"))
 		})
 
+		It("should set nic pci address when specified", func() {
+			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
+			vmi.Spec.Domain.Devices.Interfaces[0].PciAddress = "0000:81:01.0"
+			test_address := Address{
+				Type:     "pci",
+				Domain:   "0x0000",
+				Bus:      "0x81",
+				Slot:     "0x01",
+				Function: "0x0",
+			}
+			domain := vmiToDomain(vmi, c)
+			Expect(*domain.Spec.Devices.Interfaces[0].Address).To(Equal(test_address))
+		})
+
 		It("should calculate memory in bytes", func() {
 			By("specifying memory 64M")
 			m64, _ := resource.ParseQuantity("64M")

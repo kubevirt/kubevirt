@@ -42,6 +42,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/log"
 	"kubevirt.io/kubevirt/pkg/precond"
 	"kubevirt.io/kubevirt/pkg/registry-disk"
+	"kubevirt.io/kubevirt/pkg/util"
 )
 
 const (
@@ -565,36 +566,42 @@ func Convert_v1_VirtualMachine_To_api_Domain(vmi *v1.VirtualMachineInstance, dom
 			return fmt.Errorf("network interface type not supported for %s", iface.Name)
 		}
 
+		domainIface := Interface{
+			Model: &Model{
+				Type: getInterfaceType(&iface),
+			},
+			Alias: &Alias{
+				Name: iface.Name,
+			},
+		}
+
+		// Add a pciAddress if specifed
+		if iface.PciAddress != "" {
+			dbsfFields, err := util.ParsePciAddress(iface.PciAddress)
+			if err != nil {
+				return err
+			}
+			domainIface.Address = &Address{
+				Type:     "pci",
+				Domain:   "0x" + dbsfFields[0],
+				Bus:      "0x" + dbsfFields[1],
+				Slot:     "0x" + dbsfFields[2],
+				Function: "0x" + dbsfFields[3],
+			}
+		}
+
 		if iface.Bridge != nil {
 			// TODO:(ihar) consider abstracting interface type conversion /
 			// detection into drivers
-			domainIface := Interface{
-				Model: &Model{
-					Type: getInterfaceType(&iface),
-				},
-				Type: "bridge",
-				Source: InterfaceSource{
-					Bridge: DefaultBridgeName,
-				},
-				Alias: &Alias{
-					Name: iface.Name,
-				},
+			domainIface.Type = "bridge"
+			domainIface.Source = InterfaceSource{
+				Bridge: DefaultBridgeName,
 			}
 			if iface.BootOrder != nil {
 				domainIface.BootOrder = &BootOrder{Order: *iface.BootOrder}
 			}
-			domain.Spec.Devices.Interfaces = append(domain.Spec.Devices.Interfaces, domainIface)
 		} else if iface.Slirp != nil {
-			domainIface := Interface{
-				Model: &Model{
-					Type: getInterfaceType(&iface),
-				},
-				Type: "user",
-				Alias: &Alias{
-					Name: iface.Name,
-				},
-			}
-			domain.Spec.Devices.Interfaces = append(domain.Spec.Devices.Interfaces, domainIface)
+			domainIface.Type = "user"
 
 			// Create network interface
 			if domain.Spec.QEMUCmd == nil {
@@ -612,6 +619,7 @@ func Convert_v1_VirtualMachine_To_api_Domain(vmi *v1.VirtualMachineInstance, dom
 				return err
 			}
 		}
+		domain.Spec.Devices.Interfaces = append(domain.Spec.Devices.Interfaces, domainIface)
 	}
 
 	return nil

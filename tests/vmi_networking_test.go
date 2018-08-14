@@ -399,6 +399,16 @@ var _ = Describe("Networking", func() {
 		Expect(err).ToNot(HaveOccurred())
 	}
 
+	checkPciAddress := func(vmi *v1.VirtualMachineInstance, expectedPciAddress string, prompt string) {
+		err := tests.CheckForTextExpecter(vmi, []expect.Batcher{
+			&expect.BSnd{S: "\n"},
+			&expect.BExp{R: prompt},
+			&expect.BSnd{S: "grep INTERFACE /sys/bus/pci/devices/" + expectedPciAddress + "/*/net/eth0/uevent|awk -F= '{ print $2 }'\n"},
+			&expect.BExp{R: "eth0"},
+		}, 15)
+		Expect(err).ToNot(HaveOccurred())
+	}
+
 	Context("VirtualMachineInstance with custom MAC address", func() {
 		It("should configure custom MAC address", func() {
 			By("checking eth0 MAC address")
@@ -455,6 +465,20 @@ var _ = Describe("Networking", func() {
 				&expect.BExp{R: "1"},
 			}, 15)
 			Expect(err).ToNot(HaveOccurred())
+		})
+	})
+
+	Context("VirtualMachineInstance with custom PCI address", func() {
+		It("should configure custom Pci address", func() {
+			By("checking eth0 Pci address")
+			testVMI := tests.NewRandomVMIWithEphemeralDiskAndUserdata(tests.RegistryDiskFor(tests.RegistryDiskCirros), "#!/bin/bash\necho 'hello'\n")
+			tests.AddExplicitPodNetworkInterface(testVMI)
+			testVMI.Spec.Domain.Devices.Interfaces[0].PciAddress = "0000:81:00.1"
+			_, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(testVMI)
+			Expect(err).ToNot(HaveOccurred())
+
+			tests.WaitUntilVMIReady(testVMI, tests.LoggedInCirrosExpecter)
+			checkPciAddress(testVMI, testVMI.Spec.Domain.Devices.Interfaces[0].PciAddress, "\\$")
 		})
 	})
 })
