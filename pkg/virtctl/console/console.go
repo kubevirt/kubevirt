@@ -41,7 +41,7 @@ var timeout int
 func NewCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "console (vmi)",
-		Short:   "Connect to a console of a virtual machine.",
+		Short:   "Connect to a console of a VMI.",
 		Example: usage(),
 		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
