@@ -763,7 +763,7 @@ type VirtualMachineCondition struct {
 type VirtualMachineConditionType string
 
 const (
-	// VirtualMachineFailure is added in a offline virtual machine when its vmi
+	// VirtualMachineFailure is added in a virtual machine when its vmi
 	// fails to be created due to insufficient quota, limit ranges, pod security policy, node selectors,
 	// etc. or deleted due to kubelet being down or finalizers are failing.
 	VirtualMachineFailure VirtualMachineConditionType = "Failure"

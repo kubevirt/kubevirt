@@ -39,8 +39,8 @@ const (
 
 func NewStartCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:     "start (vmi)",
-		Short:   "Start a virtual machine which is managed by an offline virtual machine.",
+		Use:     "start (vm)",
+		Short:   "Start a VirtualMachine.",
 		Example: usage(COMMAND_START),
 		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -54,8 +54,8 @@ func NewStartCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
 
 func NewStopCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
 	return &cobra.Command{
-		Use:     "stop (vmi)",
-		Short:   "Stop a virtual machine which is managed by an offline virtual machine.",
+		Use:     "stop (vm)",
+		Short:   "Stop a VirtualMachine.",
 		Example: usage(COMMAND_STOP),
 		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {

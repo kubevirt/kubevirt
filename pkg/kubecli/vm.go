@@ -44,50 +44,50 @@ type vm struct {
 }
 
 // Create new VirtualMachine in the cluster to specified namespace
-func (o *vm) Create(offlinevm *v1.VirtualMachine) (*v1.VirtualMachine, error) {
-	newOvmi := &v1.VirtualMachine{}
+func (o *vm) Create(vm *v1.VirtualMachine) (*v1.VirtualMachine, error) {
+	newVm := &v1.VirtualMachine{}
 	err := o.restClient.Post().
 		Resource(o.resource).
 		Namespace(o.namespace).
-		Body(offlinevm).
+		Body(vm).
 		Do().
-		Into(newOvmi)
+		Into(newVm)
 
-	newOvmi.SetGroupVersionKind(v1.VirtualMachineGroupVersionKind)
+	newVm.SetGroupVersionKind(v1.VirtualMachineGroupVersionKind)
 
-	return newOvmi, err
+	return newVm, err
 }
 
 // Get the OfflineVirtual machine from the cluster by its name and namespace
 func (o *vm) Get(name string, options *k8smetav1.GetOptions) (*v1.VirtualMachine, error) {
-	newOvm := &v1.VirtualMachine{}
+	newVm := &v1.VirtualMachine{}
 	err := o.restClient.Get().
 		Resource(o.resource).
 		Namespace(o.namespace).
 		Name(name).
 		VersionedParams(options, scheme.ParameterCodec).
 		Do().
-		Into(newOvm)
+		Into(newVm)
 
-	newOvm.SetGroupVersionKind(v1.VirtualMachineGroupVersionKind)
+	newVm.SetGroupVersionKind(v1.VirtualMachineGroupVersionKind)
 
-	return newOvm, err
+	return newVm, err
 }
 
 // Update the VirtualMachine instance in the cluster in given namespace
-func (o *vm) Update(offlinevm *v1.VirtualMachine) (*v1.VirtualMachine, error) {
-	updatedOvmi := &v1.VirtualMachine{}
+func (o *vm) Update(vm *v1.VirtualMachine) (*v1.VirtualMachine, error) {
+	updatedVm := &v1.VirtualMachine{}
 	err := o.restClient.Put().
 		Resource(o.resource).
 		Namespace(o.namespace).
-		Name(offlinevm.Name).
-		Body(offlinevm).
+		Name(vm.Name).
+		Body(vm).
 		Do().
-		Into(updatedOvmi)
+		Into(updatedVm)
 
-	updatedOvmi.SetGroupVersionKind(v1.VirtualMachineGroupVersionKind)
+	updatedVm.SetGroupVersionKind(v1.VirtualMachineGroupVersionKind)
 
-	return updatedOvmi, err
+	return updatedVm, err
 }
 
 // Delete the defined VirtualMachine in the cluster in defined namespace
@@ -105,19 +105,19 @@ func (o *vm) Delete(name string, options *k8smetav1.DeleteOptions) error {
 
 // List all VirtualMachines in given namespace
 func (o *vm) List(options *k8smetav1.ListOptions) (*v1.VirtualMachineList, error) {
-	newOvmList := &v1.VirtualMachineList{}
+	newVmList := &v1.VirtualMachineList{}
 	err := o.restClient.Get().
 		Resource(o.resource).
 		Namespace(o.namespace).
 		VersionedParams(options, scheme.ParameterCodec).
 		Do().
-		Into(newOvmList)
+		Into(newVmList)
 
-	for _, vm := range newOvmList.Items {
+	for _, vm := range newVmList.Items {
 		vm.SetGroupVersionKind(v1.VirtualMachineGroupVersionKind)
 	}
 
-	return newOvmList, err
+	return newVmList, err
 }
 
 func (v *vm) Patch(name string, pt types.PatchType, data []byte, subresources ...string) (result *v1.VirtualMachine, err error) {

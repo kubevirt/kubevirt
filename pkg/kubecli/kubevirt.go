@@ -97,7 +97,7 @@ type VMIPresetInterface interface {
 }
 
 // VirtualMachineInterface provides convenience methods to work with
-// offline virtual machines inside the cluster
+// virtual machines inside the cluster
 type VirtualMachineInterface interface {
 	Get(name string, options *k8smetav1.GetOptions) (*v1.VirtualMachine, error)
 	List(opts *k8smetav1.ListOptions) (*v1.VirtualMachineList, error)
