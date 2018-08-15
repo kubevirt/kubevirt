@@ -582,20 +582,6 @@ func Convert_v1_VirtualMachine_To_api_Domain(vmi *v1.VirtualMachineInstance, dom
 			dbsfFields, err := util.ParsePciAddress(iface.PciAddress)
 			if err != nil {
 				return err
-		if iface.Bridge != nil {
-			// TODO:(ihar) consider abstracting interface type conversion /
-			// detection into drivers
-			domainIface := Interface{
-				Model: &Model{
-					Type: getInterfaceType(&iface),
-				},
-				Type: "bridge",
-				Source: InterfaceSource{
-					Bridge: DefaultBridgeName,
-				},
-				Alias: &Alias{
-					Name: iface.Name,
-				},
 			}
 			domainIface.Address = &Address{
 				Type:     "pci",
