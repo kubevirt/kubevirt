@@ -146,9 +146,9 @@ func (app *SubresourceAPIApp) ConsoleRequestHandler(request *restful.Request, re
 	app.requestHandler(request, response, vmi, cmd)
 }
 
-func (app *SubresourceAPIApp) findPod(namespace string, uid string) (string, error) {
+func (app *SubresourceAPIApp) findPod(namespace string, name string) (string, error) {
 	fieldSelector := fields.ParseSelectorOrDie("status.phase==" + string(k8sv1.PodRunning))
-	labelSelector, err := labels.Parse(fmt.Sprintf(v1.AppLabel + "=virt-launcher," + v1.CreatedByLabel + "=" + uid))
+	labelSelector, err := labels.Parse(fmt.Sprintf(v1.AppLabel+"=virt-launcher,"+v1.DomainLabel+" in (%s)", name))
 	if err != nil {
 		return "", err
 	}
@@ -184,7 +184,7 @@ func (app *SubresourceAPIApp) remoteExecInfo(vmi *v1.VirtualMachineInstance) (st
 		return podName, http.StatusBadRequest, goerror.New(fmt.Sprintf("Unable to connect to VirtualMachineInstance because phase is %s instead of %s", vmi.Status.Phase, v1.Running))
 	}
 
-	podName, err := app.findPod(vmi.Namespace, string(vmi.UID))
+	podName, err := app.findPod(vmi.Namespace, vmi.Name)
 	if err != nil {
 		return podName, http.StatusBadRequest, fmt.Errorf("unable to find matching pod for remote execution: %v", err)
 	}
