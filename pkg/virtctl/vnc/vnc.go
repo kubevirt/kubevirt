@@ -43,7 +43,7 @@ const FLAG = "vnc"
 func NewCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "vnc (vmi)",
-		Short:   "Open a vnc connection to a VMI.",
+		Short:   "Open a vnc connection to a virtual machine instance.",
 		Example: usage(),
 		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {

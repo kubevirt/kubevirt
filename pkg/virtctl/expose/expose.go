@@ -40,7 +40,7 @@ var namespace string
 func NewExposeCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "expose TYPE NAME",
-		Short: "Expose a VMI, VM, or VMIRS as a new service.",
+		Short: "Expose a virtual machine instance, virtual machine, or virtual machine instance replica set as a new service.",
 		Long: `Looks up a virtual machine instance, virtual machine or virtual machine instance replica set by name and use its selector as the selector for a new service on the specified port.
 A virtual machine instance replica set will be exposed as a service only if its selector is convertible to a selector that service supports, i.e. when the selector contains only the matchLabels component.
 Note that if no port is specified via --port and the exposed resource has multiple ports, all will be re-used by the new service. 
