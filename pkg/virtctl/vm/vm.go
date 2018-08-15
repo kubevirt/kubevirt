@@ -40,7 +40,7 @@ const (
 func NewStartCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "start (vm)",
-		Short:   "Start a VirtualMachine.",
+		Short:   "Start a virtual machine.",
 		Example: usage(COMMAND_START),
 		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
