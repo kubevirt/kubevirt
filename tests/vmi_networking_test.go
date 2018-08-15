@@ -45,7 +45,7 @@ import (
 	"kubevirt.io/kubevirt/tests"
 )
 
-var _ = Describe("Networking", func() {
+var _ = FDescribe("Networking", func() {
 
 	flag.Parse()
 
@@ -66,7 +66,7 @@ var _ = Describe("Networking", func() {
 		logs := virtClient.CoreV1().Pods(inboundVMI.Namespace).GetLogs(pod.Name, &v12.PodLogOptions{SinceSeconds: &s})
 		rawLogs, err := logs.DoRaw()
 		Expect(err).ToNot(HaveOccurred())
-		log.Log.Infof("%v", rawLogs)
+		log.Log.Infof("%v", string(rawLogs))
 	}
 
 	waitForPodToFinish := func(pod *v12.Pod) v12.PodPhase {
@@ -186,7 +186,7 @@ var _ = Describe("Networking", func() {
 			}
 
 			By("checking br1 MTU inside the pod")
-			vmiPod := tests.GetRunningPodByLabel(string(outboundVMI.UID), v1.CreatedByLabel, tests.NamespaceTestDefault)
+			vmiPod := tests.GetRunningPodByLabel(outboundVMI.Name, v1.DomainLabel, tests.NamespaceTestDefault)
 			output, err := tests.ExecuteCommandOnPod(
 				virtClient,
 				vmiPod,

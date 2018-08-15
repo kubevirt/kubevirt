@@ -56,11 +56,6 @@ var _ = Describe("VMIlifecycle", func() {
 		vmi = tests.NewRandomVMIWithEphemeralDisk(tests.RegistryDiskFor(tests.RegistryDiskAlpine))
 	})
 
-	AfterEach(func() {
-		// Not every test causes virt-handler to restart, but a few different contexts do.
-		// This check is fast and non-intrusive if virt-handler is already running.
-	})
-
 	Describe("Creating a VirtualMachineInstance", func() {
 		It("should success", func() {
 			_, err := virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
@@ -399,7 +394,7 @@ var _ = Describe("VMIlifecycle", func() {
 
 				// Delete vmi pod
 				pods, err := virtClient.CoreV1().Pods(vmi.Namespace).List(metav1.ListOptions{
-					LabelSelector: v1.CreatedByLabel + "=" + string(vmi.GetUID()),
+					LabelSelector: v1.DomainLabel + " = " + vmi.Name,
 				})
 				Expect(err).ToNot(HaveOccurred())
 				Expect(pods.Items).To(HaveLen(1))
@@ -788,9 +783,9 @@ func renderPkillAllJob(processName string) *k8sv1.Pod {
 
 func getVirtLauncherLogs(virtCli kubecli.KubevirtClient, vmi *v1.VirtualMachineInstance) string {
 	namespace := vmi.GetObjectMeta().GetNamespace()
-	uid := vmi.GetObjectMeta().GetUID()
+	domain := vmi.GetObjectMeta().GetName()
 
-	labelSelector := fmt.Sprintf(v1.CreatedByLabel + "=" + string(uid))
+	labelSelector := fmt.Sprintf("kubevirt.io/domain in (%s)", domain)
 
 	pods, err := virtCli.CoreV1().Pods(namespace).List(metav1.ListOptions{LabelSelector: labelSelector})
 	Expect(err).ToNot(HaveOccurred())
