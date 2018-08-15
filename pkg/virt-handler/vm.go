@@ -450,7 +450,9 @@ func (d *VirtualMachineController) closeLauncherClient(vmi *v1.VirtualMachineIns
 	d.launcherClientLock.Lock()
 	defer d.launcherClientLock.Unlock()
 
-	sockFile := cmdclient.SocketFromNamespaceName(d.virtShareDir, vmi.Namespace, vmi.Name)
+	namespace := vmi.ObjectMeta.Namespace
+	name := vmi.ObjectMeta.Name
+	sockFile := cmdclient.SocketFromNamespaceName(d.virtShareDir, namespace, name)
 
 	client, ok := d.launcherClients[sockFile]
 	if ok == false {
@@ -479,7 +481,9 @@ func (d *VirtualMachineController) getLauncherClient(vmi *v1.VirtualMachineInsta
 	d.launcherClientLock.Lock()
 	defer d.launcherClientLock.Unlock()
 
-	sockFile := cmdclient.SocketFromNamespaceName(d.virtShareDir, vmi.Namespace, vmi.Name)
+	namespace := vmi.ObjectMeta.Namespace
+	name := vmi.ObjectMeta.Name
+	sockFile := cmdclient.SocketFromNamespaceName(d.virtShareDir, namespace, name)
 
 	client, ok := d.launcherClients[sockFile]
 	if ok {

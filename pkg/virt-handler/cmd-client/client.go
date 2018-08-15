@@ -26,11 +26,13 @@ package cmdclient
 */
 
 import (
+	goerror "errors"
 	"fmt"
 	"io"
 	"io/ioutil"
 	"net/rpc"
 	"path/filepath"
+	"strings"
 
 	"net"
 	"os"
@@ -95,6 +97,18 @@ func SocketsDirectory(baseDir string) string {
 func SocketFromNamespaceName(baseDir string, namespace string, name string) string {
 	sockFile := namespace + "_" + name + "_sock"
 	return filepath.Join(SocketsDirectory(baseDir), sockFile)
+}
+
+func DomainFromSocketPath(socketPath string) (*api.Domain, error) {
+	splitName := strings.SplitN(filepath.Base(socketPath), "_", 3)
+	if len(splitName) != 3 {
+		return nil, goerror.New(fmt.Sprintf("malformed domain socket %s", socketPath))
+	}
+	namespace := splitName[0]
+	name := splitName[1]
+	domain := api.NewDomainReferenceFromName(namespace, name)
+
+	return domain, nil
 }
 
 func GetClient(socketPath string) (LauncherClient, error) {

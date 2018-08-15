@@ -50,12 +50,12 @@ var _ = Describe("Template", func() {
 
 				Expect(pod.Spec.Containers[0].Image).To(Equal("kubevirt/virt-launcher"))
 				Expect(pod.ObjectMeta.Labels).To(Equal(map[string]string{
-					v1.AppLabel:       "virt-launcher",
-					v1.CreatedByLabel: "1234",
+					v1.AppLabel:    "virt-launcher",
+					v1.DomainLabel: "testvmi",
 				}))
 				Expect(pod.ObjectMeta.Annotations).To(Equal(map[string]string{
-					v1.DomainAnnotation:  "testvmi",
-					v1.OwnedByAnnotation: "virt-controller",
+					v1.CreatedByAnnotation: "1234",
+					v1.OwnedByAnnotation:   "virt-controller",
 				}))
 				Expect(pod.ObjectMeta.GenerateName).To(Equal("virt-launcher-testvmi-"))
 				Expect(pod.Spec.NodeSelector).To(Equal(map[string]string{
@@ -88,8 +88,8 @@ var _ = Describe("Template", func() {
 
 				Expect(pod.Spec.Containers[0].Image).To(Equal("kubevirt/virt-launcher"))
 				Expect(pod.ObjectMeta.Labels).To(Equal(map[string]string{
-					v1.AppLabel:       "virt-launcher",
-					v1.CreatedByLabel: "1234",
+					v1.AppLabel:    "virt-launcher",
+					v1.DomainLabel: "testvmi",
 				}))
 				Expect(pod.ObjectMeta.GenerateName).To(Equal("virt-launcher-testvmi-"))
 				Expect(pod.Spec.NodeSelector).To(Equal(map[string]string{
@@ -190,10 +190,10 @@ var _ = Describe("Template", func() {
 
 				Expect(pod.Labels).To(Equal(
 					map[string]string{
-						"key1":            "val1",
-						"key2":            "val2",
-						v1.AppLabel:       "virt-launcher",
-						v1.CreatedByLabel: "1234",
+						"key1":         "val1",
+						"key2":         "val2",
+						v1.AppLabel:    "virt-launcher",
+						v1.DomainLabel: "testvmi",
 					},
 				))
 			})
