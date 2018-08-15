@@ -180,15 +180,7 @@ func (d *VirtualMachineController) updateVMIStatus(vmi *v1.VirtualMachineInstanc
 		return err
 	}
 
-	// In case we have no syncError from direct communication,
-	// let's check if we got asynchronous error reports from virt-launcher
-	if syncError == nil {
-		cond := d.checkDomainForSyncErrors(domain)
-		if cond != nil {
-			syncError = fmt.Errorf(cond.Message)
-		}
-	}
-	controller.NewVirtualMachineInstanceConditionManager().CheckFailure(vmi, syncError, "DomainSync")
+	controller.NewVirtualMachineInstanceConditionManager().CheckFailure(vmi, syncError, "Synchronizing with the Domain failed.")
 
 	if !reflect.DeepEqual(oldStatus, vmi.Status) {
 		_, err = d.clientset.VirtualMachineInstance(vmi.ObjectMeta.Namespace).Update(vmi)
@@ -613,23 +605,6 @@ func (d *VirtualMachineController) setVmPhaseForStatusReason(domain *api.Domain,
 	vmi.Status.Phase = phase
 	return nil
 }
-
-// checkDomainForSyncErrors returns a synchronization error if present
-func (d *VirtualMachineController) checkDomainForSyncErrors(domain *api.Domain) *api.DomainCondition {
-	if domain == nil {
-		return nil
-	}
-	for _, cond := range domain.Status.Conditions {
-		if cond.Type == api.DomainConditionSynchronized {
-			if cond.Status == k8sv1.ConditionFalse {
-				return &cond
-			}
-			return nil
-		}
-	}
-	return nil
-}
-
 func (d *VirtualMachineController) calculateVmPhaseForStatusReason(domain *api.Domain, vmi *v1.VirtualMachineInstance) (v1.VirtualMachineInstancePhase, error) {
 
 	if domain == nil {
@@ -664,11 +639,6 @@ func (d *VirtualMachineController) calculateVmPhaseForStatusReason(domain *api.D
 			}
 		case api.Running, api.Paused, api.Blocked, api.PMSuspended:
 			return v1.Running, nil
-		case api.Error:
-			switch domain.Status.Reason {
-			case api.ReasonLibvirtUnreachable:
-				return v1.Failed, nil
-			}
 		}
 	}
 	return vmi.Status.Phase, nil
