@@ -331,29 +331,12 @@ const (
 )
 
 const (
-	// This label marks resources that belong to KubeVirt. An optional value
-	// may indicate which specific KubeVirt component a resource belongs to.
-	AppLabel string = "kubevirt.io"
-	// This annotation is used to match virtual machine instances represented as
-	// libvirt XML domains with their pods. Among other things, the annotation is
-	// used to detect virtual machines with dead pods. Used on Pod.
-	DomainAnnotation string = "kubevirt.io/domain"
-	// This label is used to match virtual machine instance IDs with pods.
-	// Similar to kubevirt.io/domain. Used on Pod.
-	CreatedByLabel string = "kubevirt.io/created-by"
-	// This annotation defines which KubeVirt component owns the resource. Used
-	// on Pod.
-	OwnedByAnnotation string = "kubevirt.io/owned-by"
-	// This label describes which cluster node runs the virtual machine
-	// instance. Needed because with CRDs we can't use field selectors. Used on
-	// VirtualMachineInstance.
-	NodeNameLabel string = "kubevirt.io/nodeName"
-	// This label declares whether a particular node is available for
-	// scheduling virtual machine instances on it. Used on Node.
-	NodeSchedulable string = "kubevirt.io/schedulable"
-	// This annotation is regularly updated by virt-handler to help determine
-	// if a particular node is alive and hence should be available for new
-	// virtual machine instance scheduling. Used on Node.
+	AppLabel             string = "kubevirt.io"
+	DomainLabel          string = "kubevirt.io/domain"
+	CreatedByAnnotation  string = "kubevirt.io/created-by"
+	OwnedByAnnotation    string = "kubevirt.io/owned-by"
+	NodeNameLabel        string = "kubevirt.io/nodeName"
+	NodeSchedulable      string = "kubevirt.io/schedulable"
 	VirtHandlerHeartbeat string = "kubevirt.io/heartbeat"
 	InterfaceModel       string = "alpha.kubevirt.io/interface-model"
 	// TODO remove InterfaceModel when we have proper api for network models

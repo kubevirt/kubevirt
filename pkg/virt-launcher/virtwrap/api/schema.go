@@ -42,9 +42,6 @@ type LifeCycle string
 type StateChangeReason string
 
 const (
-	// TODO migrate most of the lifecycle stuff to conditions
-	// this is better extensible and will help us to stay compatible with
-	// different virt-handler and virt-launcher versions
 	NoState     LifeCycle = "NoState"
 	Running     LifeCycle = "Running"
 	Blocked     LifeCycle = "Blocked"
@@ -53,11 +50,6 @@ const (
 	Shutoff     LifeCycle = "Shutoff"
 	Crashed     LifeCycle = "Crashed"
 	PMSuspended LifeCycle = "PMSuspended"
-	Error       LifeCycle = "Error"
-
-	// Error reasons
-	ReasonLibvirtUnreachable StateChangeReason = "LibvirtUnreachable"
-	ReasonDomainSyncError    StateChangeReason = "SyncError"
 
 	// Common reasons
 	ReasonUnknown StateChangeReason = "Unknown"
@@ -88,24 +80,8 @@ type Domain struct {
 }
 
 type DomainStatus struct {
-	Status     LifeCycle
-	Reason     StateChangeReason
-	Conditions []DomainCondition
-}
-
-type DomainConditionType string
-
-const (
-	DomainConditionSynchronized = "Synchronized"
-)
-
-type DomainCondition struct {
-	Type               DomainConditionType
-	Status             kubev1.ConditionStatus
-	LastProbeTime      metav1.Time
-	LastTransitionTime metav1.Time
-	Reason             string
-	Message            string
+	Status LifeCycle
+	Reason StateChangeReason
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
