@@ -3,6 +3,9 @@ sub-stages:
   - k8s-1.10.4-release
   - openshift-3.10-release
   - openshift-3.10-crio-release
+  - windows2016-release
 runtime_requirements:
   support_nesting_level: 2
   isolation_level: container
+reporting:
+  style: stdci
