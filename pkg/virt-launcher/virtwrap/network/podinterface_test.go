@@ -255,16 +255,14 @@ var _ = Describe("Pod Network", func() {
 		})
 		Context("getBinding", func() {
 			Context("for Bridge", func() {
-				It("should populate MAC address", func() {
+				It("should create bridged interface", func() {
 					domain := NewDomainWithBridgeInterface()
 					vmi := newVMIBridgeInterface("testnamespace", "testVmName")
 					api.SetObjectDefaults_Domain(domain)
-					vmi.Spec.Domain.Devices.Interfaces[0].MacAddress = "de-ad-00-00-be-af"
 					driver, err := getBinding(&vmi.Spec.Domain.Devices.Interfaces[0])
 					Expect(err).ToNot(HaveOccurred())
-					bridge, ok := driver.(*BridgePodInterface)
+					_, ok := driver.(*BridgePodInterface)
 					Expect(ok).To(BeTrue())
-					Expect(bridge.vif.MAC.String()).To(Equal("de:ad:00:00:be:af"))
 				})
 			})
 		})

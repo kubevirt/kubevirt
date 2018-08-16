@@ -23,7 +23,6 @@ package network
 
 import (
 	"fmt"
-	"net"
 
 	"github.com/vishvananda/netlink"
 
@@ -105,20 +104,8 @@ func (l *PodInterface) Plug(iface *v1.Interface, network *v1.Network, domain *ap
 }
 
 func getBinding(iface *v1.Interface) (BindMechanism, error) {
-	populateMacAddress := func(vif *VIF, iface *v1.Interface) error {
-		if iface.MacAddress != "" {
-			macAddress, err := net.ParseMAC(iface.MacAddress)
-			if err != nil {
-				return err
-			}
-			vif.MAC = macAddress
-		}
-		return nil
-	}
-
 	vif := &VIF{Name: podInterface}
 	if iface.Bridge != nil {
-		populateMacAddress(vif, iface)
 		return &BridgePodInterface{iface: iface, vif: vif}, nil
 	}
 	return nil, fmt.Errorf("Not implemented")
@@ -154,15 +141,13 @@ func (b *BridgePodInterface) discoverPodNetworkInterface() error {
 		return err
 	}
 
-	if len(b.vif.MAC) == 0 {
-		// Get interface MAC address
-		mac, err := Handler.GetMacDetails(podInterface)
-		if err != nil {
-			log.Log.Reason(err).Errorf("failed to get MAC for %s", podInterface)
-			return err
-		}
-		b.vif.MAC = mac
+	// Get interface MAC address
+	mac, err := Handler.GetMacDetails(podInterface)
+	if err != nil {
+		log.Log.Reason(err).Errorf("failed to get MAC for %s", podInterface)
+		return err
 	}
+	b.vif.MAC = mac
 
 	// Get interface MTU
 	b.vif.Mtu = uint16(b.podNicLink.Attrs().MTU)
