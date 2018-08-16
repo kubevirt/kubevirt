@@ -110,7 +110,6 @@ var _ = Describe("Networking", func() {
 
 			if withPodNetwork {
 				v1.SetDefaults_NetworkInterface(inboundVMI)
-				inboundVMI.Spec.Domain.Devices.Interfaces[0].MacAddress = "de:ad:00:00:be:af"
 				v1.SetDefaults_NetworkInterface(outboundVMI)
 				for _, networkVMI := range []*v1.VirtualMachineInstance{inboundVMI, outboundVMI} {
 					Expect(networkVMI.Spec.Domain.Devices.Interfaces).ToNot(BeZero())

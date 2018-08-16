@@ -90,11 +90,14 @@ var _ = Describe("Bridge", func() {
 			job := tests.RenderIPRouteJob(fmt.Sprintf("ip-add-%s", name), parameters)
 
 			// make sure that both jobs are happening on the same node
-			listOptions := metav1.ListOptions{}
+			listOptions := metav1.ListOptions{LabelSelector: v1.NodeSchedulable + "=true"}
 			nodeList, err := virtClient.CoreV1().Nodes().List(listOptions)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(nodeList.Items).NotTo(HaveLen(0))
 			nodeWithBridges = &nodeList.Items[0]
+			if len(nodeList.Items) >= 2 {
+				nodeWithBridges = &nodeList.Items[1]
+			}
 			nodeSelector := map[string]string{"kubernetes.io/hostname": nodeWithBridges.Name}
 
 			job.Spec.NodeSelector = nodeSelector
