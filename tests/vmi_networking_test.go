@@ -110,7 +110,6 @@ var _ = Describe("Networking", func() {
 
 			if withPodNetwork {
 				v1.SetDefaults_NetworkInterface(inboundVMI)
-				inboundVMI.Spec.Domain.Devices.Interfaces[0].MacAddress = "de:ad:00:00:be:af"
 				v1.SetDefaults_NetworkInterface(outboundVMI)
 				for _, networkVMI := range []*v1.VirtualMachineInstance{inboundVMI, outboundVMI} {
 					Expect(networkVMI.Spec.Domain.Devices.Interfaces).ToNot(BeZero())
@@ -405,46 +404,6 @@ var _ = Describe("Networking", func() {
 				// as defined in https://vendev.org/pci/ven_1af4/
 				checkNetworkVendor(networkVMI, "0x1af4", "\\$ ")
 			}
-		})
-	})
-
-	checkMacAddress := func(vmi *v1.VirtualMachineInstance, expectedMacAddress string, prompt string) {
-		expecter, _, err := tests.NewConsoleExpecter(virtClient, vmi, 10*time.Second)
-		defer expecter.Close()
-		Expect(err).ToNot(HaveOccurred())
-
-		out, err := expecter.ExpectBatch([]expect.Batcher{
-			&expect.BSnd{S: "\n"},
-			&expect.BExp{R: prompt},
-			&expect.BSnd{S: "cat /sys/class/net/eth0/address\n"},
-			&expect.BExp{R: expectedMacAddress},
-		}, 15*time.Second)
-		log.Log.Infof("%v", out)
-		Expect(err).ToNot(HaveOccurred())
-	}
-
-	Context("VirtualMachineInstance with custom MAC address", func() {
-		It("should configure custom MAC address", func() {
-			By("checking eth0 MAC address")
-			deadbeafVMI := tests.NewRandomVMIWithCustomMacAddress()
-			_, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(deadbeafVMI)
-			Expect(err).ToNot(HaveOccurred())
-
-			waitUntilVMIReady(deadbeafVMI, tests.LoggedInAlpineExpecter)
-			checkMacAddress(deadbeafVMI, deadbeafVMI.Spec.Domain.Devices.Interfaces[0].MacAddress, "localhost:~#")
-		})
-	})
-
-	Context("VirtualMachineInstance with custom MAC address in non-conventional format", func() {
-		It("should configure custom MAC address", func() {
-			By("checking eth0 MAC address")
-			beafdeadVMI := tests.NewRandomVMIWithCustomMacAddress()
-			beafdeadVMI.Spec.Domain.Devices.Interfaces[0].MacAddress = "BE-AF-00-00-DE-AD"
-			_, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(beafdeadVMI)
-			Expect(err).ToNot(HaveOccurred())
-
-			waitUntilVMIReady(beafdeadVMI, tests.LoggedInAlpineExpecter)
-			checkMacAddress(beafdeadVMI, "be:af:00:00:de:ad", "localhost:~#")
 		})
 	})
 })

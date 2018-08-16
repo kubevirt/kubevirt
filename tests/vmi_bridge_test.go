@@ -90,11 +90,14 @@ var _ = Describe("Bridge", func() {
 			job := tests.RenderIPRouteJob(fmt.Sprintf("ip-add-%s", name), parameters)
 
 			// make sure that both jobs are happening on the same node
-			listOptions := metav1.ListOptions{}
+			listOptions := metav1.ListOptions{LabelSelector: v1.NodeSchedulable + "=true"}
 			nodeList, err := virtClient.CoreV1().Nodes().List(listOptions)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(nodeList.Items).NotTo(HaveLen(0))
 			nodeWithBridges = &nodeList.Items[0]
+			if len(nodeList.Items) >= 2 {
+				nodeWithBridges = &nodeList.Items[1]
+			}
 			nodeSelector := map[string]string{"kubernetes.io/hostname": nodeWithBridges.Name}
 
 			job.Spec.NodeSelector = nodeSelector
@@ -128,11 +131,12 @@ var _ = Describe("Bridge", func() {
 		addBridgeToHost("blue")
 	})
 
-	Context("Exposing a network to the VM via bridge device plugin", func() {
+	Context("Exposing a network to the VM via host bridge", func() {
 		var vmi *v1.VirtualMachineInstance
 		const networkName = "red"
 		const macAddress = "de:ad:00:00:be:af"
-		tests.BeforeAll(func() {
+
+		BeforeEach(func() {
 			vmi = createBridgeVMI(networkName, networkName)
 			Expect(vmi.Spec.Domain.Devices.Interfaces).To(HaveLen(2))
 			vmi.Spec.Domain.Devices.Interfaces[1].MacAddress = macAddress
@@ -141,59 +145,66 @@ var _ = Describe("Bridge", func() {
 			tests.WaitForSuccessfulVMIStartWithTimeout(vmi, 120)
 		})
 
-		It("Should create 2 interfaces on the VM", func() {
-			const ifaceName = "eth1"
-			expecter, err := tests.LoggedInCirrosExpecter(vmi)
-			Expect(err).ToNot(HaveOccurred())
-			defer expecter.Close()
-
-			out, err := expecter.ExpectBatch([]expect.Batcher{
-				&expect.BSnd{S: "\n"},
-				&expect.BExp{R: "\\$ "},
-				&expect.BSnd{S: fmt.Sprintf("ip link show %s &> /dev/null; echo $?\n", ifaceName)},
-				&expect.BExp{R: "0"},
-			}, 180*time.Second)
-			log.Log.Infof("%v", out)
+		AfterEach(func() {
+			err := virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Delete(vmi.Name, &metav1.DeleteOptions{})
 			Expect(err).ToNot(HaveOccurred())
 		})
 
-		It("VM should be able to connect to the outside world over the default interface", func() {
-			expecter, err := tests.LoggedInCirrosExpecter(vmi)
-			defer expecter.Close()
-			Expect(err).ToNot(HaveOccurred())
+		Context("will be using one VMI", func() {
+			It("Should create 2 interfaces on the VM", func() {
+				const ifaceName = "eth1"
+				expecter, err := tests.LoggedInCirrosExpecter(vmi)
+				Expect(err).ToNot(HaveOccurred())
+				defer expecter.Close()
 
-			out, err := expecter.ExpectBatch([]expect.Batcher{
-				&expect.BSnd{S: "\n"},
-				&expect.BExp{R: "\\$ "},
-				&expect.BSnd{S: "curl -o /dev/null -s -w \"%{http_code}\\n\" -k https://google.com\n"},
-				&expect.BExp{R: "301"},
-			}, 180*time.Second)
-			log.Log.Infof("%v", out)
-			Expect(err).ToNot(HaveOccurred())
-		})
+				out, err := expecter.ExpectBatch([]expect.Batcher{
+					&expect.BSnd{S: "\n"},
+					&expect.BExp{R: "\\$ "},
+					&expect.BSnd{S: fmt.Sprintf("ip link show %s &> /dev/null; echo $?\n", ifaceName)},
+					&expect.BExp{R: "0"},
+				}, 180*time.Second)
+				log.Log.Infof("%v", out)
+				Expect(err).ToNot(HaveOccurred())
+			})
 
-		It("Should have MAC address set correctly", func() {
-			const ifaceName = "eth1"
-			expecter, err := tests.LoggedInCirrosExpecter(vmi)
-			Expect(err).ToNot(HaveOccurred())
-			defer expecter.Close()
+			It("VM should be able to connect to the outside world over the default interface", func() {
+				expecter, err := tests.LoggedInCirrosExpecter(vmi)
+				defer expecter.Close()
+				Expect(err).ToNot(HaveOccurred())
 
-			out, err := expecter.ExpectBatch([]expect.Batcher{
-				&expect.BSnd{S: "\n"},
-				&expect.BExp{R: "\\$ "},
-				&expect.BSnd{S: fmt.Sprintf("ip link show %s | tail -1 | awk '{print $2}'\n", ifaceName)},
-				&expect.BExp{R: macAddress},
-			}, 180*time.Second)
-			log.Log.Infof("%v", out)
-			Expect(err).ToNot(HaveOccurred())
-		})
+				out, err := expecter.ExpectBatch([]expect.Batcher{
+					&expect.BSnd{S: "\n"},
+					&expect.BExp{R: "\\$ "},
+					&expect.BSnd{S: "curl -o /dev/null -s -w \"%{http_code}\\n\" -k https://google.com\n"},
+					&expect.BExp{R: "301"},
+				}, 180*time.Second)
+				log.Log.Infof("%v", out)
+				Expect(err).ToNot(HaveOccurred())
+			})
 
-		It("VM should be able to ping its bridge", func() {
-			const IP = "172.16.98.100"
-			const ifaceName = "eth1"
-			addIPToVMI(IP+"/24", ifaceName, vmi)
+			It("Should have MAC address set correctly", func() {
+				const ifaceName = "eth1"
+				expecter, err := tests.LoggedInCirrosExpecter(vmi)
+				Expect(err).ToNot(HaveOccurred())
+				defer expecter.Close()
 
-			pingExpectOK(bridgeIP[networkName], ifaceName, vmi)
+				out, err := expecter.ExpectBatch([]expect.Batcher{
+					&expect.BSnd{S: "\n"},
+					&expect.BExp{R: "\\$ "},
+					&expect.BSnd{S: fmt.Sprintf("ip link show %s | tail -1 | awk '{print $2}'\n", ifaceName)},
+					&expect.BExp{R: macAddress},
+				}, 180*time.Second)
+				log.Log.Infof("%v", out)
+				Expect(err).ToNot(HaveOccurred())
+			})
+
+			It("VM should be able to ping its bridge", func() {
+				const IP = "172.16.98.100"
+				const ifaceName = "eth1"
+				addIPToVMI(IP+"/24", ifaceName, vmi)
+
+				pingExpectOK(bridgeIP[networkName], ifaceName, vmi)
+			})
 		})
 	})
 
@@ -201,7 +212,8 @@ var _ = Describe("Bridge", func() {
 		var vmi *v1.VirtualMachineInstance
 		const networkName1 = "red"
 		const networkName2 = "blue"
-		tests.BeforeAll(func() {
+
+		BeforeEach(func() {
 			vmi = createBridgeVMI(networkName1, networkName1)
 			// add the "blue" interface and network
 			vmi.Spec.Domain.Devices.Interfaces = append(vmi.Spec.Domain.Devices.Interfaces,
@@ -217,32 +229,39 @@ var _ = Describe("Bridge", func() {
 			tests.WaitForSuccessfulVMIStartWithTimeout(vmi, 120)
 		})
 
-		It("Should create 3 interfaces on the VM", func() {
-			const ifaceName = "eth2"
-			expecter, err := tests.LoggedInCirrosExpecter(vmi)
-			Expect(err).ToNot(HaveOccurred())
-			defer expecter.Close()
-
-			out, err := expecter.ExpectBatch([]expect.Batcher{
-				&expect.BSnd{S: "\n"},
-				&expect.BExp{R: "\\$ "},
-				&expect.BSnd{S: fmt.Sprintf("ip link show %s &> /dev/null; echo $?\n", ifaceName)},
-				&expect.BExp{R: "0"},
-			}, 180*time.Second)
-			log.Log.Infof("%v", out)
+		AfterEach(func() {
+			err := virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Delete(vmi.Name, &metav1.DeleteOptions{})
 			Expect(err).ToNot(HaveOccurred())
 		})
 
-		It("VM should be able to ping its bridges on different networks", func() {
-			const IP1 = "172.16.98.10"
-			const IP2 = "172.16.99.10"
-			const ifaceName1 = "eth1"
-			const ifaceName2 = "eth2"
-			addIPToVMI(IP1+"/24", ifaceName1, vmi)
-			addIPToVMI(IP2+"/24", ifaceName2, vmi)
+		Context("will be using one VMI", func() {
+			It("Should create 3 interfaces on the VM", func() {
+				const ifaceName = "eth2"
+				expecter, err := tests.LoggedInCirrosExpecter(vmi)
+				Expect(err).ToNot(HaveOccurred())
+				defer expecter.Close()
 
-			pingExpectOK(bridgeIP[networkName1], ifaceName1, vmi)
-			pingExpectOK(bridgeIP[networkName2], ifaceName2, vmi)
+				out, err := expecter.ExpectBatch([]expect.Batcher{
+					&expect.BSnd{S: "\n"},
+					&expect.BExp{R: "\\$ "},
+					&expect.BSnd{S: fmt.Sprintf("ip link show %s &> /dev/null; echo $?\n", ifaceName)},
+					&expect.BExp{R: "0"},
+				}, 180*time.Second)
+				log.Log.Infof("%v", out)
+				Expect(err).ToNot(HaveOccurred())
+			})
+
+			It("VM should be able to ping its bridges on different networks", func() {
+				const IP1 = "172.16.98.10"
+				const IP2 = "172.16.99.10"
+				const ifaceName1 = "eth1"
+				const ifaceName2 = "eth2"
+				addIPToVMI(IP1+"/24", ifaceName1, vmi)
+				addIPToVMI(IP2+"/24", ifaceName2, vmi)
+
+				pingExpectOK(bridgeIP[networkName1], ifaceName1, vmi)
+				pingExpectOK(bridgeIP[networkName2], ifaceName2, vmi)
+			})
 		})
 	})
 
@@ -253,7 +272,8 @@ var _ = Describe("Bridge", func() {
 		const IP2 = "172.16.99.40"
 		const ifaceName1 = "eth1"
 		const ifaceName2 = "eth2"
-		tests.BeforeAll(func() {
+
+		BeforeEach(func() {
 			vmi = createBridgeVMI(networkName+"1", networkName)
 
 			// add another interface to the same network
@@ -274,44 +294,51 @@ var _ = Describe("Bridge", func() {
 			addIPToVMI(IP2+"/24", ifaceName2, vmi)
 		})
 
-		It("Should create 3 interfaces on the VM", func() {
-			const ifaceName = "eth2"
-			expecter, err := tests.LoggedInCirrosExpecter(vmi)
-			Expect(err).ToNot(HaveOccurred())
-			defer expecter.Close()
-
-			out, err := expecter.ExpectBatch([]expect.Batcher{
-				&expect.BSnd{S: "\n"},
-				&expect.BExp{R: "\\$ "},
-				&expect.BSnd{S: fmt.Sprintf("ip link show %s &> /dev/null; echo $?\n", ifaceName)},
-				&expect.BExp{R: "0"},
-			}, 180*time.Second)
-			log.Log.Infof("%v", out)
+		AfterEach(func() {
+			err := virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Delete(vmi.Name, &metav1.DeleteOptions{})
 			Expect(err).ToNot(HaveOccurred())
 		})
 
-		It("VM should be able to connect to the outside world over the default interface", func() {
-			expecter, err := tests.LoggedInCirrosExpecter(vmi)
-			defer expecter.Close()
-			Expect(err).ToNot(HaveOccurred())
+		Context("will be using one VMI", func() {
+			It("Should create 3 interfaces on the VM", func() {
+				const ifaceName = "eth2"
+				expecter, err := tests.LoggedInCirrosExpecter(vmi)
+				Expect(err).ToNot(HaveOccurred())
+				defer expecter.Close()
 
-			out, err := expecter.ExpectBatch([]expect.Batcher{
-				&expect.BSnd{S: "\n"},
-				&expect.BExp{R: "\\$ "},
-				&expect.BSnd{S: "curl -o /dev/null -s -w \"%{http_code}\\n\" -k https://google.com\n"},
-				&expect.BExp{R: "301"},
-			}, 180*time.Second)
-			log.Log.Infof("%v", out)
-			Expect(err).ToNot(HaveOccurred())
-		})
+				out, err := expecter.ExpectBatch([]expect.Batcher{
+					&expect.BSnd{S: "\n"},
+					&expect.BExp{R: "\\$ "},
+					&expect.BSnd{S: fmt.Sprintf("ip link show %s &> /dev/null; echo $?\n", ifaceName)},
+					&expect.BExp{R: "0"},
+				}, 180*time.Second)
+				log.Log.Infof("%v", out)
+				Expect(err).ToNot(HaveOccurred())
+			})
 
-		It("VMs should be able to ping the bridge on via different interfaces", func() {
-			pingExpectOK(bridgeIP[networkName], ifaceName1, vmi)
-			pingExpectOK(bridgeIP[networkName], ifaceName2, vmi)
-		})
+			It("VM should be able to connect to the outside world over the default interface", func() {
+				expecter, err := tests.LoggedInCirrosExpecter(vmi)
+				defer expecter.Close()
+				Expect(err).ToNot(HaveOccurred())
 
-		It("Ping should fail over the default interface", func() {
-			pingExpectFail(bridgeIP[networkName], "eth0", vmi)
+				out, err := expecter.ExpectBatch([]expect.Batcher{
+					&expect.BSnd{S: "\n"},
+					&expect.BExp{R: "\\$ "},
+					&expect.BSnd{S: "curl -o /dev/null -s -w \"%{http_code}\\n\" -k https://google.com\n"},
+					&expect.BExp{R: "301"},
+				}, 180*time.Second)
+				log.Log.Infof("%v", out)
+				Expect(err).ToNot(HaveOccurred())
+			})
+
+			It("VMs should be able to ping the bridge on via different interfaces", func() {
+				pingExpectOK(bridgeIP[networkName], ifaceName1, vmi)
+				pingExpectOK(bridgeIP[networkName], ifaceName2, vmi)
+			})
+
+			It("Ping should fail over the default interface", func() {
+				pingExpectFail(bridgeIP[networkName], "eth0", vmi)
+			})
 		})
 	})
 
@@ -323,7 +350,7 @@ var _ = Describe("Bridge", func() {
 		const IP2 = "172.16.98.60"
 		const ifaceName = "eth1"
 
-		tests.BeforeAll(func() {
+		BeforeEach(func() {
 			createVMWithNetworkandIP := func(networkName string, cidr string) (vmi *v1.VirtualMachineInstance) {
 				vmi = createBridgeVMI(networkName, networkName)
 
@@ -339,20 +366,29 @@ var _ = Describe("Bridge", func() {
 			vmi2 = createVMWithNetworkandIP(networkName, IP2+"/24")
 		})
 
-		It("VMs should be able to ping the bridge", func() {
-			pingExpectOK(bridgeIP[networkName], ifaceName, vmi1)
-			pingExpectOK(bridgeIP[networkName], ifaceName, vmi2)
+		AfterEach(func() {
+			err := virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Delete(vmi1.Name, &metav1.DeleteOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Delete(vmi2.Name, &metav1.DeleteOptions{})
+			Expect(err).ToNot(HaveOccurred())
 		})
 
-		It("Ping should fail over the default interface", func() {
-			pingExpectFail(bridgeIP[networkName], "eth0", vmi1)
-			pingExpectFail(bridgeIP[networkName], "eth0", vmi2)
-		})
+		Context("will be using two VMIs", func() {
+			It("VMs should be able to ping the bridge", func() {
+				pingExpectOK(bridgeIP[networkName], ifaceName, vmi1)
+				pingExpectOK(bridgeIP[networkName], ifaceName, vmi2)
+			})
 
-		It("VMs should be able to ping one another", func() {
-			Skip("ping between 2 VMs don't work")
-			pingExpectOK(IP2, ifaceName, vmi1)
-			pingExpectOK(IP1, ifaceName, vmi2)
+			It("Ping should fail over the default interface", func() {
+				pingExpectFail(bridgeIP[networkName], "eth0", vmi1)
+				pingExpectFail(bridgeIP[networkName], "eth0", vmi2)
+			})
+
+			It("VMs should be able to ping one another", func() {
+				Skip("ping between 2 VMs don't work")
+				pingExpectOK(IP2, ifaceName, vmi1)
+				pingExpectOK(IP1, ifaceName, vmi2)
+			})
 		})
 	})
 })
