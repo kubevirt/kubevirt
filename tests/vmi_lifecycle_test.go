@@ -56,11 +56,6 @@ var _ = Describe("VMIlifecycle", func() {
 		vmi = tests.NewRandomVMIWithEphemeralDisk(tests.RegistryDiskFor(tests.RegistryDiskAlpine))
 	})
 
-	AfterEach(func() {
-		// Not every test causes virt-handler to restart, but a few different contexts do.
-		// This check is fast and non-intrusive if virt-handler is already running.
-	})
-
 	Describe("Creating a VirtualMachineInstance", func() {
 		It("should success", func() {
 			_, err := virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
@@ -399,7 +394,7 @@ var _ = Describe("VMIlifecycle", func() {
 
 				// Delete vmi pod
 				pods, err := virtClient.CoreV1().Pods(vmi.Namespace).List(metav1.ListOptions{
-					LabelSelector: v1.CreatedByLabel + "=" + string(vmi.GetUID()),
+					LabelSelector: v1.DomainLabel + " = " + vmi.Name,
 				})
 				Expect(err).ToNot(HaveOccurred())
 				Expect(pods.Items).To(HaveLen(1))
@@ -487,7 +482,7 @@ var _ = Describe("VMIlifecycle", func() {
 				By("Deleting the VirtualMachineInstance")
 				_, err = virtClient.RestClient().Delete().Resource("virtualmachineinstances").Namespace(vmi.GetObjectMeta().GetNamespace()).Name(vmi.GetObjectMeta().GetName()).Do().Get()
 				Expect(err).To(BeNil())
-				tests.NewObjectEventWatcher(vmi).SinceWatchedObjectResourceVersion().WaitFor(tests.NormalEvent, v1.Deleted)
+				tests.NewObjectEventWatcher(vmi).Timeout(30*time.Second).SinceWatchedObjectResourceVersion().WaitFor(tests.NormalEvent, v1.Deleted)
 				tests.WaitForVirtualMachineToDisappearWithTimeout(vmi, 120)
 
 				// Check if the stop event was logged
@@ -708,7 +703,7 @@ var _ = Describe("VMIlifecycle", func() {
 				// Delete the VirtualMachineInstance and wait for the confirmation of the delete
 				By("Deleting the VirtualMachineInstance")
 				Expect(virtClient.VirtualMachineInstance(vmi.Namespace).Delete(obj.Name, &metav1.DeleteOptions{})).To(Succeed())
-				tests.NewObjectEventWatcher(obj).SinceWatchedObjectResourceVersion().WaitFor(tests.NormalEvent, v1.Deleted)
+				tests.NewObjectEventWatcher(obj).Timeout(30*time.Second).SinceWatchedObjectResourceVersion().WaitFor(tests.NormalEvent, v1.Deleted)
 
 				// Check if the graceful shutdown was logged
 				By("Checking that virt-handler logs VirtualMachineInstance graceful shutdown")
@@ -776,8 +771,7 @@ var _ = Describe("VMIlifecycle", func() {
 
 			// Wait for some time and see if a sync event happens on the stopped VirtualMachineInstance
 			By("Checking that virt-handler does not try to sync stopped VirtualMachineInstance")
-			event := tests.NewObjectEventWatcher(obj).SinceWatchedObjectResourceVersion().Timeout(5*time.Second).
-				SinceWatchedObjectResourceVersion().WaitFor(tests.WarningEvent, v1.SyncFailed)
+			event := tests.NewObjectEventWatcher(obj).SinceWatchedObjectResourceVersion().Timeout(5*time.Second).WaitFor(tests.WarningEvent, v1.SyncFailed)
 			Expect(event).To(BeNil(), "virt-handler tried to sync on a VirtualMachineInstance in final state")
 		})
 	})
@@ -789,9 +783,9 @@ func renderPkillAllJob(processName string) *k8sv1.Pod {
 
 func getVirtLauncherLogs(virtCli kubecli.KubevirtClient, vmi *v1.VirtualMachineInstance) string {
 	namespace := vmi.GetObjectMeta().GetNamespace()
-	uid := vmi.GetObjectMeta().GetUID()
+	domain := vmi.GetObjectMeta().GetName()
 
-	labelSelector := fmt.Sprintf(v1.CreatedByLabel + "=" + string(uid))
+	labelSelector := fmt.Sprintf("kubevirt.io/domain in (%s)", domain)
 
 	pods, err := virtCli.CoreV1().Pods(namespace).List(metav1.ListOptions{LabelSelector: labelSelector})
 	Expect(err).ToNot(HaveOccurred())

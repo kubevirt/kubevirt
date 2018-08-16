@@ -27,23 +27,24 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/libvirt/libvirt-go"
 	"github.com/spf13/pflag"
 	utilwait "k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/apimachinery/pkg/watch"
 
-	"github.com/libvirt/libvirt-go"
-
 	"kubevirt.io/kubevirt/pkg/api/v1"
-	"kubevirt.io/kubevirt/pkg/cloud-init"
-	"kubevirt.io/kubevirt/pkg/ephemeral-disk"
+	cloudinit "kubevirt.io/kubevirt/pkg/cloud-init"
+	ephemeraldisk "kubevirt.io/kubevirt/pkg/ephemeral-disk"
 	"kubevirt.io/kubevirt/pkg/log"
-	"kubevirt.io/kubevirt/pkg/registry-disk"
-	"kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
-	"kubevirt.io/kubevirt/pkg/virt-launcher"
+	registrydisk "kubevirt.io/kubevirt/pkg/registry-disk"
+	cmdclient "kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
+	virtlauncher "kubevirt.io/kubevirt/pkg/virt-launcher"
+	notifyclient "kubevirt.io/kubevirt/pkg/virt-launcher/notify-client"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap"
-	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/cmd-server"
+	virtcli "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/cli"
+	cmdserver "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/cmd-server"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/util"
-	"kubevirt.io/kubevirt/pkg/watchdog"
+	watchdog "kubevirt.io/kubevirt/pkg/watchdog"
 )
 
 const defaultStartTimeout = 3 * time.Minute
@@ -101,6 +102,35 @@ func startCmdServer(socketPath string,
 	if err != nil {
 		panic(fmt.Errorf("failed to connect to cmd server: %v", err))
 	}
+}
+
+func createLibvirtConnection() virtcli.Connection {
+	libvirtUri := "qemu:///system"
+	domainConn, err := virtcli.NewConnection(libvirtUri, "", "", 10*time.Second)
+	if err != nil {
+		panic(fmt.Sprintf("failed to connect to libvirtd: %v", err))
+	}
+
+	return domainConn
+}
+
+func startDomainEventMonitoring(virtShareDir string, domainConn virtcli.Connection, deleteNotificationSent chan watch.Event) {
+	libvirt.EventRegisterDefaultImpl()
+
+	go func() {
+		for {
+			if res := libvirt.EventRunDefaultImpl(); res != nil {
+				log.Log.Reason(res).Error("Listening to libvirt events failed, retrying.")
+				time.Sleep(time.Second)
+			}
+		}
+	}()
+
+	err := notifyclient.StartNotifier(virtShareDir, domainConn, deleteNotificationSent)
+	if err != nil {
+		panic(err)
+	}
+
 }
 
 func startWatchdogTicker(watchdogFile string, watchdogInterval time.Duration, stopChan chan struct{}) {
@@ -242,13 +272,16 @@ func main() {
 	stopChan := make(chan struct{})
 	defer close(stopChan)
 
+	util.StartLibvirt(stopChan)
 	util.StartVirtlog(stopChan)
 
-	// Register the default libvirt event loop
-	libvirt.EventRegisterDefaultImpl()
+	domainConn := createLibvirtConnection()
+	defer domainConn.Close()
 
-	// Create a lazy domain manager which will start libvirt on the first SyncVMI call
-	domainManager, events := virtwrap.NewLazyLibvirtDomainManager(*virtShareDir, stopChan)
+	domainManager, err := virtwrap.NewLibvirtDomainManager(domainConn)
+	if err != nil {
+		panic(err)
+	}
 
 	// Start the virt-launcher command service.
 	// Clients can use this service to tell virt-launcher
@@ -265,7 +298,7 @@ func main() {
 	gracefulShutdownTriggerFile := virtlauncher.GracefulShutdownTriggerFromNamespaceName(*virtShareDir,
 		*namespace,
 		*name)
-	err := virtlauncher.GracefulShutdownTriggerClear(gracefulShutdownTriggerFile)
+	err = virtlauncher.GracefulShutdownTriggerClear(gracefulShutdownTriggerFile)
 	if err != nil {
 		log.Log.Reason(err).Errorf("Error clearing shutdown trigger file %s.", gracefulShutdownTriggerFile)
 		panic(err)
@@ -278,6 +311,10 @@ func main() {
 			syscall.Kill(pid, syscall.SIGTERM)
 		}
 	}
+
+	deleteNotificationSent := make(chan watch.Event, 10)
+	// Send domain notifications to virt-handler
+	startDomainEventMonitoring(*virtShareDir, domainConn, deleteNotificationSent)
 
 	// Marking Ready allows the container's readiness check to pass.
 	// This informs virt-controller that virt-launcher is ready to handle
@@ -297,7 +334,7 @@ func main() {
 	// Now that the pid has exited, we wait for the final delete notification to be
 	// sent back to virt-handler. This delete notification contains the reason the
 	// domain exited.
-	waitForFinalNotify(events, domainManager, vm)
+	waitForFinalNotify(deleteNotificationSent, domainManager, vm)
 
 	log.Log.Info("Exiting...")
 }

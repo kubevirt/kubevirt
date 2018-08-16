@@ -27,7 +27,6 @@ import (
 	"github.com/google/goexpect"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	"github.com/pborman/uuid"
 
 	kubev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -170,7 +169,7 @@ var _ = Describe("CloudInit UserData", func() {
 				}
 				idx = i
 
-				secretID := fmt.Sprintf("%s-test-secret", uuid.NewRandom().String())
+				secretID := fmt.Sprintf("%s-test-secret", vmi.Name)
 				spec := volume.CloudInitNoCloud
 				spec.UserDataSecretRef = &kubev1.LocalObjectReference{Name: secretID}
 

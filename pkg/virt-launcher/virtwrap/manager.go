@@ -33,20 +33,12 @@ import (
 
 	k8sv1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	"sync"
-	"time"
-
-	"k8s.io/apimachinery/pkg/watch"
-
-	"os"
-
 	"kubevirt.io/kubevirt/pkg/api/v1"
-	"kubevirt.io/kubevirt/pkg/cloud-init"
+	cloudinit "kubevirt.io/kubevirt/pkg/cloud-init"
 	"kubevirt.io/kubevirt/pkg/emptydisk"
 	"kubevirt.io/kubevirt/pkg/ephemeral-disk"
 	"kubevirt.io/kubevirt/pkg/log"
 	"kubevirt.io/kubevirt/pkg/registry-disk"
-	"kubevirt.io/kubevirt/pkg/virt-launcher/notify-client"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/cli"
 	domainerrors "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/errors"
@@ -55,137 +47,22 @@ import (
 )
 
 type DomainManager interface {
-	SyncVMI(*v1.VirtualMachineInstance, bool) error
+	SyncVMI(*v1.VirtualMachineInstance, bool) (*api.DomainSpec, error)
 	KillVMI(*v1.VirtualMachineInstance) error
 	SignalShutdownVMI(*v1.VirtualMachineInstance) error
 	ListAllDomains() ([]*api.Domain, error)
-}
-
-type LazyLibvirtDomainManager struct {
-	pointerLock  *sync.Mutex
-	_manager     DomainManager
-	StopChan     chan struct{}
-	events       chan watch.Event
-	virtShareDir string
-	initOnce     *sync.Once
-}
-
-func NewLazyLibvirtDomainManager(virtShareDir string, stopChan chan struct{}) (manager DomainManager, events chan watch.Event) {
-	events = make(chan watch.Event, 10)
-	return &LazyLibvirtDomainManager{
-		StopChan:     stopChan,
-		pointerLock:  &sync.Mutex{},
-		events:       events,
-		virtShareDir: virtShareDir,
-		initOnce:     &sync.Once{},
-	}, events
-}
-
-func (l *LazyLibvirtDomainManager) SyncVMI(vmi *v1.VirtualMachineInstance, useEmulation bool) error {
-	pending, err := l.initialSync(vmi, useEmulation)
-	if err != nil {
-		return err
-	}
-	if pending {
-		return nil
-	}
-	return l.get().SyncVMI(vmi, useEmulation)
-}
-
-func (l *LazyLibvirtDomainManager) KillVMI(vmi *v1.VirtualMachineInstance) error {
-	if l.get() == nil {
-		return nil
-	}
-	return l.get().KillVMI(vmi)
-}
-
-func (l *LazyLibvirtDomainManager) SignalShutdownVMI(vmi *v1.VirtualMachineInstance) error {
-	if l.get() == nil {
-		return nil
-	}
-	return l.get().SignalShutdownVMI(vmi)
-}
-
-func (l *LazyLibvirtDomainManager) get() DomainManager {
-	l.pointerLock.Lock()
-	defer l.pointerLock.Unlock()
-	return l._manager
-}
-
-func (l *LazyLibvirtDomainManager) initialSync(vmi *v1.VirtualMachineInstance, useEmulation bool) (pending bool, err error) {
-	l.pointerLock.Lock()
-	defer l.pointerLock.Unlock()
-
-	var domainCon cli.Connection
-
-	if l._manager == nil {
-		l.initOnce.Do(func() {
-			util.StartLibvirt(l.StopChan)
-			go func() {
-				domainCon, err = cli.NewConnection("qemu:///system", "", "", 10*time.Second)
-				if err != nil {
-					log.Log.Object(vmi).Reason(err).Error("Could not establish initial connection with libvirt, exiting.")
-					l.fatalError(vmi, err)
-				}
-				util.StartDomainEventMonitoring()
-				err = eventsclient.StartNotifier(l.virtShareDir, domainCon, l.events)
-				if err != nil {
-					log.Log.Object(vmi).Reason(err).Error("Could not establish initial connection with libvirt, exiting.")
-					l.fatalError(vmi, err)
-				}
-				manager := NewLibvirtDomainManager(domainCon)
-				err := manager.SyncVMI(vmi, useEmulation)
-				if err != nil {
-					log.Log.Object(vmi).Reason(err).Error("Initial synchronization with libvirt failed.")
-					l.syncError(vmi, api.ReasonDomainSyncError, err)
-				}
-
-				l.pointerLock.Lock()
-				defer l.pointerLock.Unlock()
-				l._manager = manager
-			}()
-		})
-		return true, nil
-	}
-
-	return false, nil
-}
-
-func (l LazyLibvirtDomainManager) fatalError(vmi *v1.VirtualMachineInstance, syncError error) {
-	l.syncError(vmi, api.ReasonLibvirtUnreachable, syncError)
-	os.Exit(1)
-}
-
-func (l LazyLibvirtDomainManager) syncError(vmi *v1.VirtualMachineInstance, reason api.StateChangeReason, syncError error) {
-	cli, err := eventsclient.NewDomainEventClient(l.virtShareDir)
-	if err != nil {
-		log.Log.Object(vmi).Reason(err).Error("Can't inform virt-handler about a sync error.")
-		return
-	}
-	err = cli.SendErrorDomainEvent(vmi.Name, vmi.Namespace, vmi.UID, reason, syncError)
-	if err != nil {
-		log.Log.Object(vmi).Reason(err).Error("Can't inform virt-handler about a sync error.")
-		return
-	}
-}
-
-func (l LazyLibvirtDomainManager) ListAllDomains() ([]*api.Domain, error) {
-	if l.get() == nil {
-		return nil, nil
-	}
-	return l.get().ListAllDomains()
 }
 
 type LibvirtDomainManager struct {
 	virConn cli.Connection
 }
 
-func NewLibvirtDomainManager(connection cli.Connection) DomainManager {
+func NewLibvirtDomainManager(connection cli.Connection) (DomainManager, error) {
 	manager := LibvirtDomainManager{
 		virConn: connection,
 	}
 
-	return &manager
+	return &manager, nil
 }
 
 // All local environment setup that needs to occur before VirtualMachineInstance starts
@@ -238,7 +115,7 @@ func (l *LibvirtDomainManager) preStartHook(vmi *v1.VirtualMachineInstance, doma
 	return domain, err
 }
 
-func (l *LibvirtDomainManager) SyncVMI(vmi *v1.VirtualMachineInstance, useEmulation bool) error {
+func (l *LibvirtDomainManager) SyncVMI(vmi *v1.VirtualMachineInstance, allowEmulation bool) (*api.DomainSpec, error) {
 	logger := log.Log.Object(vmi)
 
 	domain := &api.Domain{}
@@ -246,11 +123,11 @@ func (l *LibvirtDomainManager) SyncVMI(vmi *v1.VirtualMachineInstance, useEmulat
 	// Map the VirtualMachineInstance to the Domain
 	c := &api.ConverterContext{
 		VirtualMachine: vmi,
-		AllowEmulation: useEmulation,
+		AllowEmulation: allowEmulation,
 	}
 	if err := api.Convert_v1_VirtualMachine_To_api_Domain(vmi, domain, c); err != nil {
 		logger.Error("Conversion failed.")
-		return err
+		return nil, err
 	}
 
 	// Set defaults which are not coming from the cluster
@@ -265,23 +142,23 @@ func (l *LibvirtDomainManager) SyncVMI(vmi *v1.VirtualMachineInstance, useEmulat
 			domain, err = l.preStartHook(vmi, domain)
 			if err != nil {
 				logger.Reason(err).Error("pre start setup for VirtualMachineInstance failed.")
-				return err
+				return nil, err
 			}
 			dom, err = util.SetDomainSpec(l.virConn, vmi, domain.Spec)
 			if err != nil {
-				return err
+				return nil, err
 			}
 			logger.Info("Domain defined.")
 		} else {
 			logger.Reason(err).Error("Getting the domain failed.")
-			return err
+			return nil, err
 		}
 	}
 	defer dom.Free()
 	domState, _, err := dom.GetState()
 	if err != nil {
 		logger.Reason(err).Error("Getting the domain state failed.")
-		return err
+		return nil, err
 	}
 
 	// To make sure, that we set the right qemu wrapper arguments,
@@ -289,7 +166,7 @@ func (l *LibvirtDomainManager) SyncVMI(vmi *v1.VirtualMachineInstance, useEmulat
 	if !newDomain && cli.IsDown(domState) {
 		dom, err = util.SetDomainSpec(l.virConn, vmi, domain.Spec)
 		if err != nil {
-			return err
+			return nil, err
 		}
 	}
 
@@ -300,7 +177,7 @@ func (l *LibvirtDomainManager) SyncVMI(vmi *v1.VirtualMachineInstance, useEmulat
 		err = dom.Create()
 		if err != nil {
 			logger.Reason(err).Error("Starting the VirtualMachineInstance failed.")
-			return err
+			return nil, err
 		}
 		logger.Info("Domain started.")
 	} else if cli.IsPaused(domState) {
@@ -308,7 +185,7 @@ func (l *LibvirtDomainManager) SyncVMI(vmi *v1.VirtualMachineInstance, useEmulat
 		err := dom.Resume()
 		if err != nil {
 			logger.Reason(err).Error("Resuming the VirtualMachineInstance failed.")
-			return err
+			return nil, err
 		}
 		logger.Info("Domain resumed.")
 	} else {
@@ -317,18 +194,18 @@ func (l *LibvirtDomainManager) SyncVMI(vmi *v1.VirtualMachineInstance, useEmulat
 
 	xmlstr, err := dom.GetXMLDesc(0)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	var newSpec api.DomainSpec
 	err = xml.Unmarshal([]byte(xmlstr), &newSpec)
 	if err != nil {
 		logger.Reason(err).Error("Parsing domain XML failed.")
-		return err
+		return nil, err
 	}
 
 	// TODO: check if VirtualMachineInstance Spec and Domain Spec are equal or if we have to sync
-	return nil
+	return &newSpec, nil
 }
 
 func (l *LibvirtDomainManager) getDomainSpec(dom cli.VirDomain) (*api.DomainSpec, error) {
