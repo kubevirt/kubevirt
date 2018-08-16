@@ -422,7 +422,10 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 		Resources: resources,
 		Ports:     ports,
 	}
-
+	// add a CAP_SYS_NICE capability to allow setting cpu affinity
+	if vmi.Spec.Domain.CPU != nil && vmi.Spec.Domain.CPU.DedicatedCPUPlacement {
+		container.SecurityContext.Capabilities.Add = append(container.SecurityContext.Capabilities.Add, "SYS_NICE")
+	}
 	containers := registrydisk.GenerateContainers(vmi, "libvirt-runtime", "/var/run/libvirt")
 
 	volumes = append(volumes, k8sv1.Volume{
