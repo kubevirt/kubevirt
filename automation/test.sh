@@ -36,21 +36,59 @@ if [[ $TARGET =~ openshift-.* ]]; then
   else
     export KUBEVIRT_PROVIDER="os-3.10.0"
   fi
-elif [[ $TARGET =~ .*-1.10.4-.* ]]; then
-  export KUBEVIRT_PROVIDER="k8s-1.10.4"
 else
-  export KUBEVIRT_PROVIDER="k8s-1.11.0"
+  export KUBEVIRT_PROVIDER="k8s-1.10.4"
 fi
 
 export KUBEVIRT_NUM_NODES=2
-export NFS_WINDOWS_DIR=${NFS_WINDOWS_DIR:-/home/nfs/images/windows2016}
+export WINDOWS_NFS_DIR=${WINDOWS_NFS_DIR:-/var/lib/stdci/shared/kubevirt-images/windows2016}
+export WINDOWS_LOCK_PATH=${WINDOWS_LOCK_PATH:-/var/lib/stdci/shared/download_windows_image.lock}
+
+wait_for_windows_lock() {
+  local max_lock_attempts=60
+  local lock_wait_interval=60
+
+  for ((i = 0; i < $max_lock_attempts; i++)); do
+      if (set -o noclobber; > $WINDOWS_LOCK_PATH) 2> /dev/null; then
+          echo "Acquired lock: $WINDOWS_LOCK_PATH"
+          return
+      fi
+      sleep $lock_wait_interval
+  done
+  echo "Timed out waiting for lock: $WINDOWS_LOCK_PATH" >&2
+  exit 1
+}
+
+release_windows_lock() {      
+  if [[ -e "$WINDOWS_LOCK_PATH" ]]; then
+      rm -f "$WINDOWS_LOCK_PATH"
+      echo "Released lock: $WINDOWS_LOCK_PATH"
+  fi
+}
+
+if [[ $TARGET =~ windows.* ]]; then
+  # Create images directory
+  if [[ ! -d $WINDOWS_NFS_DIR ]]; then
+    mkdir -p $WINDOWS_NFS_DIR
+  fi
+
+  # Download windows image
+  if wait_for_windows_lock; then
+    if [[ ! -f "$WINDOWS_NFS_DIR/disk.img" ]]; then
+      curl http://templates.ovirt.org/kubevirt/win01.img > $WINDOWS_NFS_DIR/disk.img
+    fi
+    release_windows_lock
+  else
+    exit 1
+  fi
+fi
 
 kubectl() { cluster/kubectl.sh "$@"; }
 
 export NAMESPACE="${NAMESPACE:-kube-system}"
 
 # Make sure that the VM is properly shut down on exit
-trap '{ make cluster-down; }' EXIT SIGINT SIGTERM SIGSTOP
+trap '{ release_windows_lock; make cluster-down; }' EXIT SIGINT SIGTERM SIGSTOP
 
 make cluster-down
 make cluster-up
@@ -116,8 +154,7 @@ ginko_params="--ginkgo.noColor --junit-output=$WORKSPACE/junit.xml"
 
 # Prepare PV for windows testing
 if [[ $TARGET =~ windows.* ]]; then
-  if [[ -d $NFS_WINDOWS_DIR ]]; then
-    kubectl create -f - <<EOF
+  kubectl create -f - <<EOF
 ---
 apiVersion: v1
 kind: PersistentVolume
@@ -135,7 +172,6 @@ spec:
     path: /
   storageClassName: local
 EOF
-  fi
   # Run only windows tests
   ginko_params="$ginko_params --ginkgo.focus=Windows"
 fi
