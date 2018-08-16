@@ -36,10 +36,8 @@ if [[ $TARGET =~ openshift-.* ]]; then
   else
     export KUBEVIRT_PROVIDER="os-3.10.0"
   fi
-elif [[ $TARGET =~ .*-1.10.4-.* ]]; then
-  export KUBEVIRT_PROVIDER="k8s-1.10.4"
 else
-  export KUBEVIRT_PROVIDER="k8s-1.11.0"
+  export KUBEVIRT_PROVIDER="k8s-1.10.4"
 fi
 
 export KUBEVIRT_NUM_NODES=2
