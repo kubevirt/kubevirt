@@ -113,9 +113,13 @@ func GenerateContainers(vmi *v1.VirtualMachineInstance, podVolumeName string, po
 			diskContainerName := fmt.Sprintf("volume%s", volume.Name)
 			diskContainerImage := volume.RegistryDisk.Image
 			resources := kubev1.ResourceRequirements{}
-			resources.Limits = make(kubev1.ResourceList)
-			resources.Limits[kubev1.ResourceCPU] = resource.MustParse("50m")
-			resources.Limits[kubev1.ResourceMemory] = resource.MustParse("64Ki")
+			if vmi.Spec.Domain.CPU != nil && vmi.Spec.Domain.CPU.DedicatedCPUPlacement {
+				resources.Limits = make(kubev1.ResourceList)
+				// TODO(vladikr): adjust the correct cpu/mem values - this is mainly needed to allow QemuImg to run correctly
+				resources.Limits[kubev1.ResourceCPU] = resource.MustParse("200m")
+				// k8s minimum memory reservation is linuxMinMemory = 4194304
+				resources.Limits[kubev1.ResourceMemory] = resource.MustParse("64M")
+			}
 			containers = append(containers, kubev1.Container{
 				Name:            diskContainerName,
 				Image:           diskContainerImage,
