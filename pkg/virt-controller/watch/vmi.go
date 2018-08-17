@@ -41,6 +41,8 @@ import (
 	"kubevirt.io/kubevirt/pkg/kubecli"
 	"kubevirt.io/kubevirt/pkg/log"
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
+
+	cdiv1 "kubevirt.io/containerized-data-importer/pkg/apis/datavolumecontroller/v1alpha1"
 )
 
 // Reasons for vmi events
@@ -74,16 +76,17 @@ func NewVMIController(templateService services.TemplateService,
 	dataVolumeInformer cache.SharedIndexInformer) *VMIController {
 
 	c := &VMIController{
-		templateService:      templateService,
-		Queue:                workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter()),
-		vmiInformer:          vmiInformer,
-		podInformer:          podInformer,
-		recorder:             recorder,
-		clientset:            clientset,
-		podExpectations:      controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectations()),
-		handoverExpectations: controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectations()),
-		configMapInformer:    configMapInformer,
-		dataVolumeInformer:   dataVolumeInformer,
+		templateService:        templateService,
+		Queue:                  workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter()),
+		vmiInformer:            vmiInformer,
+		podInformer:            podInformer,
+		recorder:               recorder,
+		clientset:              clientset,
+		podExpectations:        controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectations()),
+		dataVolumeExpectations: controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectations()),
+		handoverExpectations:   controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectations()),
+		configMapInformer:      configMapInformer,
+		dataVolumeInformer:     dataVolumeInformer,
 	}
 
 	c.vmiInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
@@ -96,6 +99,12 @@ func NewVMIController(templateService services.TemplateService,
 		AddFunc:    c.addPod,
 		DeleteFunc: c.deletePod,
 		UpdateFunc: c.updatePod,
+	})
+
+	c.dataVolumeInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
+		AddFunc:    c.addDataVolume,
+		DeleteFunc: c.deleteDataVolume,
+		UpdateFunc: c.updateDataVolume,
 	})
 
 	return c
@@ -120,16 +129,17 @@ func (e *syncErrorImpl) Reason() string {
 }
 
 type VMIController struct {
-	templateService      services.TemplateService
-	clientset            kubecli.KubevirtClient
-	Queue                workqueue.RateLimitingInterface
-	vmiInformer          cache.SharedIndexInformer
-	podInformer          cache.SharedIndexInformer
-	recorder             record.EventRecorder
-	podExpectations      *controller.UIDTrackingControllerExpectations
-	handoverExpectations *controller.UIDTrackingControllerExpectations
-	configMapInformer    cache.SharedIndexInformer
-	dataVolumeInformer   cache.SharedIndexInformer
+	templateService        services.TemplateService
+	clientset              kubecli.KubevirtClient
+	Queue                  workqueue.RateLimitingInterface
+	vmiInformer            cache.SharedIndexInformer
+	podInformer            cache.SharedIndexInformer
+	recorder               record.EventRecorder
+	podExpectations        *controller.UIDTrackingControllerExpectations
+	dataVolumeExpectations *controller.UIDTrackingControllerExpectations
+	handoverExpectations   *controller.UIDTrackingControllerExpectations
+	configMapInformer      cache.SharedIndexInformer
+	dataVolumeInformer     cache.SharedIndexInformer
 }
 
 func (c *VMIController) Run(threadiness int, stopCh chan struct{}) {
@@ -402,6 +412,114 @@ func (c *VMIController) sync(vmi *virtv1.VirtualMachineInstance, pods []*k8sv1.P
 	return nil
 }
 
+func (c *VMIController) addDataVolume(obj interface{}) {
+	dataVolume := obj.(*cdiv1.DataVolume)
+	if dataVolume.DeletionTimestamp != nil {
+		c.deleteDataVolume(dataVolume)
+		return
+	}
+	controllerRef := c.getControllerOfDataVolume(dataVolume)
+	vmiOwner := c.resolveControllerRef(dataVolume.Namespace, controllerRef)
+	if vmiOwner != nil {
+		vmiKey, err := controller.KeyFunc(vmiOwner)
+		if err != nil {
+			return
+		}
+		log.Log.V(4).Object(dataVolume).Infof("DataVolume created")
+		c.dataVolumeExpectations.CreationObserved(vmiKey)
+		c.enqueueVirtualMachine(vmiOwner)
+	} else {
+		vmis, err := c.listVMIsMatchingDataVolume(dataVolume.Namespace, dataVolume.Name)
+		if err != nil {
+			return
+		}
+		for _, vmi := range vmis {
+			c.enqueueVirtualMachine(vmi)
+		}
+	}
+}
+func (c *VMIController) updateDataVolume(old, cur interface{}) {
+	curDataVolume := cur.(*cdiv1.DataVolume)
+	oldDataVolume := old.(*cdiv1.DataVolume)
+	if curDataVolume.ResourceVersion == oldDataVolume.ResourceVersion {
+		// Periodic resync will send update events for all known DataVolumes.
+		// Two different versions of the same dataVolume will always
+		// have different RVs.
+		return
+	}
+	labelChanged := !reflect.DeepEqual(curDataVolume.Labels, oldDataVolume.Labels)
+	if curDataVolume.DeletionTimestamp != nil {
+		// having a DataVOlume marked for deletion is enough
+		// to count as a deletion expectation
+		c.deleteDataVolume(curDataVolume)
+		if labelChanged {
+			// we don't need to check the oldDataVolume.DeletionTimestamp
+			// because DeletionTimestamp cannot be unset.
+			c.deleteDataVolume(oldDataVolume)
+		}
+		return
+	}
+	curControllerRef := c.getControllerOfDataVolume(curDataVolume)
+	oldControllerRef := c.getControllerOfDataVolume(oldDataVolume)
+	controllerRefChanged := !reflect.DeepEqual(curControllerRef, oldControllerRef)
+	if controllerRefChanged && oldControllerRef != nil {
+		// The ControllerRef was changed. Sync the old controller, if any.
+		if vmiOwner := c.resolveControllerRef(oldDataVolume.Namespace, oldControllerRef); vmiOwner != nil {
+			c.enqueueVirtualMachine(vmiOwner)
+		}
+	}
+	vmiOwner := c.resolveControllerRef(curDataVolume.Namespace, curControllerRef)
+	if vmiOwner != nil {
+		log.Log.V(4).Object(curDataVolume).Infof("DataVolume updated")
+		c.enqueueVirtualMachine(vmiOwner)
+	} else {
+		vmis, err := c.listVMIsMatchingDataVolume(curDataVolume.Namespace, curDataVolume.Name)
+		if err != nil {
+			return
+		}
+		for _, vmi := range vmis {
+			c.enqueueVirtualMachine(vmi)
+		}
+	}
+}
+func (c *VMIController) deleteDataVolume(obj interface{}) {
+	dataVolume, ok := obj.(*cdiv1.DataVolume)
+	// When a delete is dropped, the relist will notice a dataVolume in the store not
+	// in the list, leading to the insertion of a tombstone object which contains
+	// the deleted key/value. Note that this value might be stale. If the dataVolume
+	// changed labels the new vmi will not be woken up till the periodic resync.
+	if !ok {
+		tombstone, ok := obj.(cache.DeletedFinalStateUnknown)
+		if !ok {
+			log.Log.Reason(fmt.Errorf("couldn't get object from tombstone %+v", obj)).Error("Failed to process delete notification")
+			return
+		}
+		dataVolume, ok = tombstone.Obj.(*cdiv1.DataVolume)
+		if !ok {
+			log.Log.Reason(fmt.Errorf("tombstone contained object that is not a dataVolume %#v", obj)).Error("Failed to process delete notification")
+			return
+		}
+	}
+	controllerRef := c.getControllerOfDataVolume(dataVolume)
+	vmiOwner := c.resolveControllerRef(dataVolume.Namespace, controllerRef)
+	if vmiOwner != nil {
+		vmiKey, err := controller.KeyFunc(vmiOwner)
+		if err != nil {
+			return
+		}
+		c.dataVolumeExpectations.DeletionObserved(vmiKey, controller.DataVolumeKey(dataVolume))
+		c.enqueueVirtualMachine(vmiOwner)
+	} else {
+		vmis, err := c.listVMIsMatchingDataVolume(dataVolume.Namespace, dataVolume.Name)
+		if err != nil {
+			return
+		}
+		for _, vmi := range vmis {
+			c.enqueueVirtualMachine(vmi)
+		}
+	}
+}
+
 // When a pod is created, enqueue the vmi that manages it and update its podExpectations.
 func (c *VMIController) addPod(obj interface{}) {
 	pod := obj.(*k8sv1.Pod)
@@ -555,6 +673,27 @@ func (c *VMIController) resolveControllerRef(namespace string, controllerRef *v1
 }
 
 // listPodsFromNamespace takes a namespace and returns all Pods from the pod cache which run in this namespace
+func (c *VMIController) listVMIsMatchingDataVolume(namespace string, dataVolumeName string) ([]*virtv1.VirtualMachineInstance, error) {
+	objs, err := c.vmiInformer.GetIndexer().ByIndex(cache.NamespaceIndex, namespace)
+	if err != nil {
+		return nil, err
+	}
+	vmis := []*virtv1.VirtualMachineInstance{}
+	for _, obj := range objs {
+		vmi := obj.(*virtv1.VirtualMachineInstance)
+		for _, volume := range vmi.Spec.Volumes {
+			if volume.DataVolume == nil {
+				continue
+			} else if volume.DataVolume.Name != dataVolumeName {
+				continue
+			}
+			vmis = append(vmis, vmi)
+		}
+	}
+	return vmis, nil
+}
+
+// listPodsFromNamespace takes a namespace and returns all Pods from the pod cache which run in this namespace
 func (c *VMIController) listPodsFromNamespace(namespace string) ([]*k8sv1.Pod, error) {
 	objs, err := c.podInformer.GetIndexer().ByIndex(cache.NamespaceIndex, namespace)
 	if err != nil {
@@ -603,6 +742,17 @@ func (c *VMIController) getControllerOf(pod *k8sv1.Pod) *v1.OwnerReference {
 		Kind:               virtv1.VirtualMachineInstanceGroupVersionKind.Kind,
 		Name:               pod.Annotations[virtv1.DomainAnnotation],
 		UID:                types.UID(pod.Labels[virtv1.CreatedByLabel]),
+		Controller:         &t,
+		BlockOwnerDeletion: &t,
+	}
+}
+
+func (c *VMIController) getControllerOfDataVolume(dataVolume *cdiv1.DataVolume) *v1.OwnerReference {
+	t := true
+	return &v1.OwnerReference{
+		Kind:               virtv1.VirtualMachineInstanceGroupVersionKind.Kind,
+		Name:               dataVolume.Annotations[virtv1.DomainAnnotation],
+		UID:                types.UID(dataVolume.Annotations[virtv1.CreatedByLabel]),
 		Controller:         &t,
 		BlockOwnerDeletion: &t,
 	}
