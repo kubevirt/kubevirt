@@ -50,8 +50,7 @@ objects:
               name: disk0
               volumeName: disk0-pvc
             interfaces:
-            - bridge: {}
-              model: e1000
+            - model: e1000
               name: default
           features:
             acpi: {}

@@ -26,8 +26,7 @@ spec:
         name: pvcdisk
         volumeName: pvcvolume
       interfaces:
-      - bridge: {}
-        model: e1000
+      - model: e1000
         name: default
     features:
       acpi: {}

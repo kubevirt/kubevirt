@@ -169,7 +169,7 @@ func DefaultNetworkInterface() *Interface {
 	iface := &Interface{
 		Name: "default",
 		InterfaceBindingMethod: InterfaceBindingMethod{
-			Bridge: &InterfaceBridge{},
+			Bridge: "",
 		},
 	}
 	return iface

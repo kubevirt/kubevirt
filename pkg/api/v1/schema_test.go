@@ -341,7 +341,7 @@ var _ = Describe("Schema", func() {
 				Interface{
 					Name: "default",
 					InterfaceBindingMethod: InterfaceBindingMethod{
-						Bridge: &InterfaceBridge{},
+						Bridge: "",
 					},
 				},
 			}
@@ -361,7 +361,7 @@ var _ = Describe("Schema", func() {
 				Interface{
 					Name: "default",
 					InterfaceBindingMethod: InterfaceBindingMethod{
-						Bridge: &InterfaceBridge{},
+						Bridge: "",
 					},
 				},
 			}

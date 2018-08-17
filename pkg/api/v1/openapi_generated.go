@@ -816,7 +816,8 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 						},
 						"bridge": {
 							SchemaProps: spec.SchemaProps{
-								Ref: ref("kubevirt.io/kubevirt/pkg/api/v1.InterfaceBridge"),
+								Type:   []string{"string"},
+								Format: "",
 							},
 						},
 						"slirp": {
@@ -863,7 +864,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 				},
 			},
 			Dependencies: []string{
-				"kubevirt.io/kubevirt/pkg/api/v1.InterfaceBridge", "kubevirt.io/kubevirt/pkg/api/v1.InterfaceSlirp", "kubevirt.io/kubevirt/pkg/api/v1.Port"},
+				"kubevirt.io/kubevirt/pkg/api/v1.InterfaceSlirp", "kubevirt.io/kubevirt/pkg/api/v1.Port"},
 		},
 		"kubevirt.io/kubevirt/pkg/api/v1.InterfaceBindingMethod": {
 			Schema: spec.Schema{
@@ -872,7 +873,8 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 					Properties: map[string]spec.Schema{
 						"bridge": {
 							SchemaProps: spec.SchemaProps{
-								Ref: ref("kubevirt.io/kubevirt/pkg/api/v1.InterfaceBridge"),
+								Type:   []string{"string"},
+								Format: "",
 							},
 						},
 						"slirp": {
@@ -884,15 +886,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 				},
 			},
 			Dependencies: []string{
-				"kubevirt.io/kubevirt/pkg/api/v1.InterfaceBridge", "kubevirt.io/kubevirt/pkg/api/v1.InterfaceSlirp"},
-		},
-		"kubevirt.io/kubevirt/pkg/api/v1.InterfaceBridge": {
-			Schema: spec.Schema{
-				SchemaProps: spec.SchemaProps{
-					Properties: map[string]spec.Schema{},
-				},
-			},
-			Dependencies: []string{},
+				"kubevirt.io/kubevirt/pkg/api/v1.InterfaceSlirp"},
 		},
 		"kubevirt.io/kubevirt/pkg/api/v1.InterfaceSlirp": {
 			Schema: spec.Schema{

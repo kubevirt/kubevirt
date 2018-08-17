@@ -123,7 +123,7 @@ func getBinding(iface *v1.Interface, domain *api.Domain) (BindMechanism, error) 
 		return nil
 	}
 
-	if iface.Bridge != nil {
+	if iface.Bridge != "" {
 		vif := &VIF{Name: podInterface}
 		populateMacAddress(vif, iface)
 		return &BridgePodInterface{iface: iface, vif: vif, domain: domain, podInterfaceNum: podInterfaceNum}, nil

@@ -333,10 +333,6 @@ func (InterfaceBindingMethod) SwaggerDoc() map[string]string {
 	}
 }
 
-func (InterfaceBridge) SwaggerDoc() map[string]string {
-	return map[string]string{}
-}
-
 func (InterfaceSlirp) SwaggerDoc() map[string]string {
 	return map[string]string{}
 }

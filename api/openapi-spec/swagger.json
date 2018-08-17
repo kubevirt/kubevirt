@@ -3756,7 +3756,7 @@
       "format": "integer"
      },
      "bridge": {
-      "$ref": "#/definitions/v1.InterfaceBridge"
+      "type": "string"
      },
      "macAddress": {
       "description": "Interface MAC address. For example: de:ad:00:00:be:af or DE-AD-00-00-BE-AF.",
@@ -3786,7 +3786,6 @@
      }
     }
    },
-   "v1.InterfaceBridge": {},
    "v1.InterfaceSlirp": {},
    "v1.KVMTimer": {
     "properties": {

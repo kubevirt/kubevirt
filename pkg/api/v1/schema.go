@@ -719,13 +719,9 @@ type Interface struct {
 // ---
 // +k8s:openapi-gen=true
 type InterfaceBindingMethod struct {
-	Bridge *InterfaceBridge `json:"bridge,omitempty"`
-	Slirp  *InterfaceSlirp  `json:"slirp,omitempty"`
+	Bridge string          `json:"bridge,omitempty"`
+	Slirp  *InterfaceSlirp `json:"slirp,omitempty"`
 }
-
-// ---
-// +k8s:openapi-gen=true
-type InterfaceBridge struct{}
 
 // ---
 // +k8s:openapi-gen=true

@@ -106,7 +106,8 @@ spec:
                                   bootOrder:
                                     format: int32
                                     type: integer
-                                  bridge: {}
+                                  bridge:
+                                    type: string
                                   macAddress:
                                     type: string
                                   model:
