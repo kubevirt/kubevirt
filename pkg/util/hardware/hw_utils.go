@@ -17,45 +17,18 @@
  *
  */
 
-package virtwrap
+package hardware
 
 import (
-	"bufio"
-	"fmt"
-	"os"
 	"strconv"
 	"strings"
-
-	"kubevirt.io/kubevirt/pkg/api/v1"
-	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 )
 
-const cpuset_path = "/sys/fs/cgroup/cpuset/cpuset.cpus"
-
-func getPodPinnedCpus() ([]int, error) {
-	var cpuset string
-	file, err := os.Open(cpuset_path)
-	if err != nil {
-		return nil, err
-	}
-	defer file.Close()
-	scanner := bufio.NewScanner(file)
-	if scanner.Scan() {
-		cpuset = scanner.Text()
-	}
-	if err := scanner.Err(); err != nil {
-		return nil, err
-	}
-	cpusList, err := parseCPUSetLine(cpuset)
-	if err != nil {
-		return nil, fmt.Errorf("failed to parse cpuset file: %v", err)
-	}
-	return cpusList, nil
-}
+const CPUSET_PATH = "/sys/fs/cgroup/cpuset/cpuset.cpus"
 
 // Parse linux cpuset into an array of ints
 // See: http://man7.org/linux/man-pages/man7/cpuset.7.html#FORMATS
-func parseCPUSetLine(cpusetLine string) (cpusList []int, err error) {
+func ParseCPUSetLine(cpusetLine string) (cpusList []int, err error) {
 	elements := strings.Split(cpusetLine, ",")
 	for _, item := range elements {
 		cpuRange := strings.Split(item, "-")
@@ -82,21 +55,4 @@ func parseCPUSetLine(cpusetLine string) (cpusList []int, err error) {
 		}
 	}
 	return
-}
-
-func formatDomainCPUTune(vmi *v1.VirtualMachineInstance, domain *api.Domain) error {
-	availableCpus, err := getPodPinnedCpus()
-	if err != nil || len(availableCpus) == 0 {
-		return fmt.Errorf("failed for get pods pinned cpus: %v", err)
-	}
-
-	cpuTune := api.CPUTune{}
-	for idx := 0; idx < int(vmi.Spec.Domain.CPU.Cores); idx++ {
-		vcpupin := api.CPUTuneVCPUPin{}
-		vcpupin.VCPU = uint(idx)
-		vcpupin.CPUSet = strconv.Itoa(availableCpus[idx])
-		cpuTune.VCPUPin = append(cpuTune.VCPUPin, vcpupin)
-	}
-	domain.Spec.CPUTune = &cpuTune
-	return nil
 }
