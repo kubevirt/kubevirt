@@ -461,10 +461,19 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 	containers = append(containers, container)
 
 	for i, requestedHookSidecar := range requestedHookSidecarList {
+		resources := k8sv1.ResourceRequirements{}
+		// add default cpu and memory limits to enable cpu pinning if requested
+		// TODO(vladikr): make the hookSidecar express resources
+		if vmi.Spec.Domain.CPU != nil && vmi.Spec.Domain.CPU.DedicatedCPUPlacement {
+			resources.Limits = make(k8sv1.ResourceList)
+			resources.Limits[k8sv1.ResourceCPU] = resource.MustParse("200m")
+			resources.Limits[k8sv1.ResourceMemory] = resource.MustParse("64M")
+		}
 		containers = append(containers, k8sv1.Container{
 			Name:            fmt.Sprintf("hook-sidecar-%d", i),
 			Image:           requestedHookSidecar.Image,
 			ImagePullPolicy: requestedHookSidecar.ImagePullPolicy,
+			Resources:       resources,
 			VolumeMounts: []k8sv1.VolumeMount{
 				k8sv1.VolumeMount{
 					Name:      "hook-sidecar-sockets",
