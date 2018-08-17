@@ -3328,6 +3328,17 @@
      }
     }
    },
+   "v1.DataVolumeSource": {
+    "required": [
+     "name"
+    ],
+    "properties": {
+     "name": {
+      "description": "Name represents the name of the DataVolume in the same namespace",
+      "type": "string"
+     }
+    }
+   },
    "v1.DeleteOptions": {
     "description": "DeleteOptions may be provided when deleting an API object.",
     "properties": {
@@ -4937,6 +4948,10 @@
      "cloudInitNoCloud": {
       "description": "CloudInitNoCloud represents a cloud-init NoCloud user-data source.\nThe NoCloud data will be added as a disk to the vmi. A proper cloud-init installation is required inside the guest.\nMore info: http://cloudinit.readthedocs.io/en/latest/topics/datasources/nocloud.html\n+optional",
       "$ref": "#/definitions/v1.CloudInitNoCloudSource"
+     },
+     "dataVolume": {
+      "description": "DataVolume represents the dynamic creation a PVC for this volume as well as\nthe process of populating that PVC with a disk image.\n+optional",
+      "$ref": "#/definitions/v1.DataVolumeSource"
      },
      "emptyDisk": {
       "description": "EmptyDisk represents a temporary disk which shares the vmis lifecycle.\nMore info: https://kubevirt.gitbooks.io/user-guide/disks-and-volumes.html\n+optional",
