@@ -510,13 +510,13 @@ var _ = Describe("Configurations", func() {
 			Expect(err).ToNot(HaveOccurred())
 		})
 	})
-	FDescribe("VirtualMachineInstance with CPU pinning", func() {
+	Describe("VirtualMachineInstance with CPU pinning", func() {
 		var nodes *kubev1.NodeList
 		BeforeEach(func() {
 			nodes, err = virtClient.CoreV1().Nodes().List(metav1.ListOptions{})
 			tests.PanicOnError(err)
 			if len(nodes.Items) == 1 {
-				Skip("Skip network test that requires multiple nodes when only one node is present.")
+				Skip("Skip cpu pinning test that requires multiple nodes when only one node is present.")
 			}
 		})
 		Context("with cpu pinning enabled", func() {

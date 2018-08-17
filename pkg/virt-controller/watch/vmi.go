@@ -442,7 +442,7 @@ func (c *VMIController) sync(vmi *virtv1.VirtualMachineInstance, pods []*k8sv1.P
 
 		// fail vmi creation if CPU pinning has been requested but the Pod QOS is not Guaranteed
 		podQosClass := qos.GetPodQOS(pod)
-		if podQosClass != k8sv1.PodQOSGuaranteed && vmi.Spec.Domain.CPU != nil && vmi.Spec.Domain.CPU.DedicatedCPUPlacement {
+		if podQosClass != k8sv1.PodQOSGuaranteed && vmi.IsCPUDedicated() {
 			c.handoverExpectations.CreationObserved(controller.VirtualMachineKey(vmi))
 			c.recorder.Eventf(vmi, k8sv1.EventTypeWarning, FailedGuaranteePodResourcesReason, "failed to guarantee pod resources")
 			return &syncErrorImpl{fmt.Errorf("failed to guarantee pod resources"), FailedGuaranteePodResourcesReason}

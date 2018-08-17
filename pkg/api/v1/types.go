@@ -215,6 +215,11 @@ func (v *VirtualMachineInstance) IsUnprocessed() bool {
 	return v.Status.Phase == Pending || v.Status.Phase == VmPhaseUnset
 }
 
+// Checks if CPU pinning has been requested
+func (v *VirtualMachineInstance) IsCPUDedicated() bool {
+	return v.Spec.Domain.CPU != nil && v.Spec.Domain.CPU.DedicatedCPUPlacement
+}
+
 // Required to satisfy Object interface
 func (vl *VirtualMachineInstanceList) GetObjectKind() schema.ObjectKind {
 	return &vl.TypeMeta

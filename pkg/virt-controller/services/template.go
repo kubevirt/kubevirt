@@ -325,8 +325,7 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 	}
 
 	// Handle CPU pinning
-	cpus := vmi.Spec.Domain.CPU
-	if cpus != nil && cpus.DedicatedCPUPlacement {
+	if vmi.IsCPUDedicated() {
 		// schedule only on nodes with a running cpu manager
 		if vmi.Spec.NodeSelector == nil {
 			vmi.Spec.NodeSelector = make(map[string]string)
@@ -336,8 +335,9 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 		if resources.Limits == nil {
 			resources.Limits = make(k8sv1.ResourceList)
 		}
-		if cpus.Cores != 0 {
-			resources.Limits[k8sv1.ResourceCPU] = *resource.NewQuantity(int64(cpus.Cores), resource.BinarySI)
+		cores := vmi.Spec.Domain.CPU.Cores
+		if cores != 0 {
+			resources.Limits[k8sv1.ResourceCPU] = *resource.NewQuantity(int64(cores), resource.BinarySI)
 		} else {
 			if cpuLimit, ok := resources.Limits[k8sv1.ResourceCPU]; ok {
 				resources.Requests[k8sv1.ResourceCPU] = cpuLimit
@@ -423,7 +423,7 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 		Ports:     ports,
 	}
 	// add a CAP_SYS_NICE capability to allow setting cpu affinity
-	if vmi.Spec.Domain.CPU != nil && vmi.Spec.Domain.CPU.DedicatedCPUPlacement {
+	if vmi.IsCPUDedicated() {
 		container.SecurityContext.Capabilities.Add = append(container.SecurityContext.Capabilities.Add, "SYS_NICE")
 	}
 	containers := registrydisk.GenerateContainers(vmi, "libvirt-runtime", "/var/run/libvirt")
@@ -464,7 +464,7 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 		resources := k8sv1.ResourceRequirements{}
 		// add default cpu and memory limits to enable cpu pinning if requested
 		// TODO(vladikr): make the hookSidecar express resources
-		if vmi.Spec.Domain.CPU != nil && vmi.Spec.Domain.CPU.DedicatedCPUPlacement {
+		if vmi.IsCPUDedicated() {
 			resources.Limits = make(k8sv1.ResourceList)
 			resources.Limits[k8sv1.ResourceCPU] = resource.MustParse("200m")
 			resources.Limits[k8sv1.ResourceMemory] = resource.MustParse("64M")
