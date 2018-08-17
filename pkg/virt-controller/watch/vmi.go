@@ -65,6 +65,9 @@ const (
 	// SuccessfulHandOverPodReason is added in an event
 	// when the pod ownership transfer from the controller to virt-hander succeeds.
 	SuccessfulHandOverPodReason = "SuccessfulHandOver"
+	// FailedDataVolumeReason is added in an event when a DataVolume in a vmi's volumes
+	// list has failed
+	FailedDataVolumeReason = "FailedDataVolume"
 )
 
 func NewVMIController(templateService services.TemplateService,
@@ -148,7 +151,7 @@ func (c *VMIController) Run(threadiness int, stopCh chan struct{}) {
 	log.Log.Info("Starting vmi controller.")
 
 	// Wait for cache sync before we start the pod controller
-	cache.WaitForCacheSync(stopCh, c.vmiInformer.HasSynced, c.podInformer.HasSynced, c.configMapInformer.HasSynced)
+	cache.WaitForCacheSync(stopCh, c.vmiInformer.HasSynced, c.podInformer.HasSynced, c.configMapInformer.HasSynced, c.dataVolumeInformer.HasSynced)
 
 	// Start the actual work
 	for i := 0; i < threadiness; i++ {
@@ -227,22 +230,41 @@ func (c *VMIController) execute(key string) error {
 		return nil
 	}
 
+	// Get all dataVolumes from the namespace
+	dataVolumes, err := c.listDataVolumesFromNamespace(vmi.Namespace)
+	if err != nil {
+		logger.Reason(err).Error("Failed to fetch dataVolumes for namespace from cache.")
+		return err
+	}
+	// Only consider dataVolumes which belong to this vmi
+	dataVolumes, err = c.filterMatchingDataVolumes(vmi, dataVolumes)
+	if err != nil {
+		return err
+	}
+
 	// If needsSync is true (expectations fulfilled) we can make save assumptions if virt-handler or virt-controller owns the pod
-	needsSync := c.podExpectations.SatisfiedExpectations(key) && c.handoverExpectations.SatisfiedExpectations(key)
+	needsSync := c.podExpectations.SatisfiedExpectations(key) && c.handoverExpectations.SatisfiedExpectations(key) && c.dataVolumeExpectations.SatisfiedExpectations(key)
 
 	var syncErr syncError = nil
 	if needsSync {
-		syncErr = c.sync(vmi, pods)
+		syncErr = c.sync(vmi, pods, dataVolumes)
 	}
-	return c.updateStatus(vmi, pods, syncErr)
+	return c.updateStatus(vmi, pods, dataVolumes, syncErr)
 }
 
-func (c *VMIController) updateStatus(vmi *virtv1.VirtualMachineInstance, pods []*k8sv1.Pod, syncErr syncError) error {
+func (c *VMIController) updateStatus(vmi *virtv1.VirtualMachineInstance, pods []*k8sv1.Pod, dataVolumes []*cdiv1.DataVolume, syncErr syncError) error {
 
 	var pod *k8sv1.Pod = nil
 	podExists := len(pods) > 0
 	if podExists {
 		pod = pods[0]
+	}
+
+	hasFailedDataVolume := false
+	for _, dataVolume := range dataVolumes {
+		if dataVolume.Status.Phase == cdiv1.Failed {
+			hasFailedDataVolume = true
+		}
 	}
 
 	conditionManager := controller.NewVirtualMachineInstanceConditionManager()
@@ -254,6 +276,8 @@ func (c *VMIController) updateStatus(vmi *virtv1.VirtualMachineInstance, pods []
 		if podExists {
 			vmiCopy.Status.Phase = virtv1.Scheduling
 		} else if vmi.DeletionTimestamp != nil {
+			vmiCopy.Status.Phase = virtv1.Failed
+		} else if hasFailedDataVolume {
 			vmiCopy.Status.Phase = virtv1.Failed
 		} else {
 			vmiCopy.Status.Phase = virtv1.Pending
@@ -350,7 +374,7 @@ func podIsDown(pod *k8sv1.Pod) bool {
 	return pod.Status.Phase == k8sv1.PodSucceeded || pod.Status.Phase == k8sv1.PodFailed
 }
 
-func (c *VMIController) sync(vmi *virtv1.VirtualMachineInstance, pods []*k8sv1.Pod) (err syncError) {
+func (c *VMIController) sync(vmi *virtv1.VirtualMachineInstance, pods []*k8sv1.Pod, dataVolumes []*cdiv1.DataVolume) (err syncError) {
 
 	var pod *k8sv1.Pod = nil
 	podExists := len(pods) > 0
@@ -384,6 +408,15 @@ func (c *VMIController) sync(vmi *virtv1.VirtualMachineInstance, pods []*k8sv1.P
 		if !vmi.IsUnprocessed() {
 			return nil
 		}
+
+		// ensure that all dataVolumes associated with the VMI are ready before creating the pod
+		dataVolumesReady, syncErr := c.handleSyncDataVolumes(vmi, dataVolumes)
+		if syncErr != nil {
+			return syncErr
+		} else if !dataVolumesReady {
+			return nil
+		}
+
 		c.podExpectations.ExpectCreations(vmiKey, 1)
 		templatePod, err := c.templateService.RenderLaunchManifest(vmi)
 		if err != nil {
@@ -410,6 +443,38 @@ func (c *VMIController) sync(vmi *virtv1.VirtualMachineInstance, pods []*k8sv1.P
 		c.recorder.Eventf(vmi, k8sv1.EventTypeNormal, SuccessfulHandOverPodReason, "Pod owner ship transferred to the node %s", pod.Name)
 	}
 	return nil
+}
+
+func (c *VMIController) handleSyncDataVolumes(vmi *virtv1.VirtualMachineInstance, dataVolumes []*cdiv1.DataVolume) (bool, syncError) {
+
+	ready := true
+
+	for _, volume := range vmi.Spec.Volumes {
+		if volume.VolumeSource.DataVolume == nil {
+			continue
+		}
+
+		exists := false
+		for _, dataVolume := range dataVolumes {
+			if dataVolume.Name == volume.VolumeSource.DataVolume.Name {
+				exists = true
+				if dataVolume.Status.Phase != cdiv1.Succeeded {
+					ready = false
+					if dataVolume.Status.Phase == cdiv1.Failed {
+						c.recorder.Eventf(vmi, k8sv1.EventTypeWarning, FailedDataVolumeReason, "DataVolume %s failed", dataVolume.Name)
+						return ready, &syncErrorImpl{fmt.Errorf("DataVolume %s for volume %s failed", dataVolume.Name, volume.Name), FailedDataVolumeReason}
+					}
+				}
+				break
+			}
+		}
+
+		if !exists {
+			ready = false
+		}
+	}
+
+	return ready, nil
 }
 
 func (c *VMIController) addDataVolume(obj interface{}) {
@@ -682,15 +747,28 @@ func (c *VMIController) listVMIsMatchingDataVolume(namespace string, dataVolumeN
 	for _, obj := range objs {
 		vmi := obj.(*virtv1.VirtualMachineInstance)
 		for _, volume := range vmi.Spec.Volumes {
-			if volume.DataVolume == nil {
+			if volume.VolumeSource.DataVolume == nil {
 				continue
-			} else if volume.DataVolume.Name != dataVolumeName {
+			} else if volume.VolumeSource.DataVolume.Name != dataVolumeName {
 				continue
 			}
 			vmis = append(vmis, vmi)
 		}
 	}
 	return vmis, nil
+}
+
+func (c *VMIController) listDataVolumesFromNamespace(namespace string) ([]*cdiv1.DataVolume, error) {
+	objs, err := c.dataVolumeInformer.GetIndexer().ByIndex(cache.NamespaceIndex, namespace)
+	if err != nil {
+		return nil, err
+	}
+	dataVolumes := []*cdiv1.DataVolume{}
+	for _, obj := range objs {
+		dataVolume := obj.(*cdiv1.DataVolume)
+		dataVolumes = append(dataVolumes, dataVolume)
+	}
+	return dataVolumes, nil
 }
 
 // listPodsFromNamespace takes a namespace and returns all Pods from the pod cache which run in this namespace
@@ -705,6 +783,24 @@ func (c *VMIController) listPodsFromNamespace(namespace string) ([]*k8sv1.Pod, e
 		pods = append(pods, pod)
 	}
 	return pods, nil
+}
+
+func (c *VMIController) filterMatchingDataVolumes(vmi *virtv1.VirtualMachineInstance, dataVolumes []*cdiv1.DataVolume) ([]*cdiv1.DataVolume, error) {
+	matchingDataVolumes := []*cdiv1.DataVolume{}
+	for _, dataVolume := range dataVolumes {
+		controllerRef := controller.GetControllerOf(dataVolume)
+		if controllerRef == nil {
+			continue
+		}
+		ownerVMI := c.resolveControllerRef(dataVolume.Namespace, controllerRef)
+		if ownerVMI == nil {
+			continue
+		} else if ownerVMI.UID != vmi.UID {
+			continue
+		}
+		matchingDataVolumes = append(matchingDataVolumes, dataVolume)
+	}
+	return matchingDataVolumes, nil
 }
 
 func (c *VMIController) filterMatchingPods(vmi *virtv1.VirtualMachineInstance, pods []*k8sv1.Pod) ([]*k8sv1.Pod, error) {

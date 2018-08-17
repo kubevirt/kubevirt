@@ -153,6 +153,17 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 				Name: volume.RegistryDisk.ImagePullSecret,
 			})
 		}
+		if volume.DataVolume != nil {
+			volumesMounts = append(volumesMounts, volumeMount)
+			volumes = append(volumes, k8sv1.Volume{
+				Name: volume.Name,
+				VolumeSource: k8sv1.VolumeSource{
+					PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{
+						ClaimName: volume.Name,
+					},
+				},
+			})
+		}
 	}
 
 	if t.imagePullSecret != "" {
