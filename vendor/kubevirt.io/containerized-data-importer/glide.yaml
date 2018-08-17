@@ -1,0 +1,19 @@
+package: github.com/yard-turkey/vm-image-import
+import:
+- package: github.com/golang/glog
+- package: github.com/gorilla/mux
+  version: ^1.6.1
+- package: github.com/minio/minio-go
+  version: ^4.0.6
+- package: k8s.io/apimachinery
+  version: kubernetes-1.10.3
+- package: k8s.io/code-generator
+  version: kubernetes-1.10.3
+- package: k8s.io/client-go
+  version: kubernetes-1.10.3
+- package: k8s.io/gengo
+- package: github.com/ulikunitz/xz
+- package: kubevirt.io/qe-tools
+  version: 13fc8573324cd2af42c88043b5a7c6e03bf39f95
+  repo: https://github.com/kubevirt/qe-tools.git
+- package: github.com/spf13/pflag

@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: "target-pvc"
+  namespace: "target-ns"
+  labels:
+    app: Host-Assisted-Cloning
+  annotations:
+    k8s.io/CloneRequest: "source-ns/golden-pvc"
+spec:
+  accessModes:
+  - ReadWriteOnce
+  resources:
+    requests:
+      storage: 10Gi
