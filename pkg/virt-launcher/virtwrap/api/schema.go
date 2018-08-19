@@ -610,6 +610,16 @@ func NewMinimalDomain(name string) *Domain {
 	return NewMinimalDomainWithNS(kubev1.NamespaceDefault, name)
 }
 
+func NewMinimalDomainWithUUID(name string, uuid types.UID) *Domain {
+	domain := NewMinimalDomainWithNS(kubev1.NamespaceDefault, name)
+	domain.Spec.Metadata = Metadata{
+		KubeVirt: KubeVirtMetadata{
+			UID: uuid,
+		},
+	}
+	return domain
+}
+
 func NewMinimalDomainWithNS(namespace string, name string) *Domain {
 	domain := NewDomainReferenceFromName(namespace, name)
 	domain.Spec = *NewMinimalDomainSpec(namespace + "_" + name)

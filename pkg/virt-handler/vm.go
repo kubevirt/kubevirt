@@ -218,7 +218,13 @@ func (c *VirtualMachineController) Run(threadiness int, stopCh chan struct{}) {
 	// Poplulate the VirtualMachineInstance store with known Domains on the host, to get deletes since the last run
 	for _, domain := range c.domainInformer.GetStore().List() {
 		d := domain.(*api.Domain)
-		c.vmiInformer.GetStore().Add(v1.NewVMIReferenceFromNameWithNS(d.ObjectMeta.Namespace, d.ObjectMeta.Name))
+		c.vmiInformer.GetStore().Add(
+			v1.NewVMIReferenceWithUUID(
+				d.ObjectMeta.Namespace,
+				d.ObjectMeta.Name,
+				d.Spec.Metadata.KubeVirt.UID,
+			),
+		)
 	}
 
 	go c.vmiInformer.Run(stopCh)
@@ -318,6 +324,10 @@ func (d *VirtualMachineController) execute(key string) error {
 	domain, domainExists, err := d.getDomainFromCache(key)
 	if err != nil {
 		return err
+	}
+
+	if !vmiExists && domainExists {
+		vmi.UID = domain.Spec.Metadata.KubeVirt.UID
 	}
 
 	// Ignore domains from an older VMI
