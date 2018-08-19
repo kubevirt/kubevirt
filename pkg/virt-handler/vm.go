@@ -316,9 +316,9 @@ func (d *VirtualMachineController) execute(key string) error {
 		return err
 	}
 
-	log.Log.V(3).Infof("Processing vmi %v, existing: %v\n", vmi.Name, vmiExists)
+	log.Log.V(3).Infof("Processing vmi %v, existing: %v", vmi.Name, vmiExists)
 	if vmiExists {
-		log.Log.V(3).Infof("vmi is in phase: %v\n", vmi.Status.Phase)
+		log.Log.V(3).Infof("vmi is in phase: %v", vmi.Status.Phase)
 	}
 
 	domain, domainExists, err := d.getDomainFromCache(key)
@@ -336,9 +336,9 @@ func (d *VirtualMachineController) execute(key string) error {
 		return nil
 	}
 
-	log.Log.V(3).Infof("Domain: existing: %v\n", domainExists)
+	log.Log.V(3).Infof("Domain: existing: %v", domainExists)
 	if domainExists {
-		log.Log.V(3).Infof("Domain status: %v, reason: %v\n", domain.Status.Status, domain.Status.Reason)
+		log.Log.V(3).Infof("Domain status: %v, reason: %v", domain.Status.Status, domain.Status.Reason)
 	}
 
 	domainAlive := domainExists &&
@@ -495,6 +495,7 @@ func (d *VirtualMachineController) closeLauncherClient(vmi *v1.VirtualMachineIns
 	client.Close()
 	delete(d.launcherClients, sockFile)
 
+	log.Log.V(3).Object(vmi).Infof("Remove socket file %s", sockFile)
 	os.RemoveAll(sockFile)
 }
 

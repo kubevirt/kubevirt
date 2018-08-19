@@ -38,8 +38,8 @@ func WatchdogFileDirectory(baseDir string) string {
 	return filepath.Join(baseDir, "watchdog-files")
 }
 
-func WatchdogFileFromNamespaceName(baseDir string, namespace string, name string) string {
-	watchdogFile := namespace + "_" + name
+func WatchdogFileFromNamespaceNameUID(baseDir string, namespace string, name string, uid string) string {
+	watchdogFile := namespace + "_" + name + "_" + uid
 	return filepath.Join(baseDir, "watchdog-files", watchdogFile)
 }
 
@@ -47,10 +47,21 @@ func WatchdogFileRemove(baseDir string, vmi *v1.VirtualMachineInstance) error {
 	namespace := precond.MustNotBeEmpty(vmi.GetObjectMeta().GetNamespace())
 	domain := precond.MustNotBeEmpty(vmi.GetObjectMeta().GetName())
 
-	file := WatchdogFileFromNamespaceName(baseDir, namespace, domain)
+	path := WatchdogFileFromNamespaceNameUID(baseDir, namespace, domain, string(vmi.UID))
+	files, err := filepath.Glob(path + "*")
+	if err != nil {
+		log.Log.Reason(err).Errorf("failed to get files from %s", path)
+		return err
+	}
 
-	log.Log.V(3).Infof("Remove watchdog file %s", file)
-	return diskutils.RemoveFile(file)
+	for _, file := range files {
+		log.Log.V(3).Object(vmi).Infof("Remove watchdog file %s", file)
+		err := diskutils.RemoveFile(file)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func WatchdogFileUpdate(watchdogFile string) error {
@@ -67,7 +78,7 @@ func WatchdogFileExists(baseDir string, vmi *v1.VirtualMachineInstance) (bool, e
 	namespace := precond.MustNotBeEmpty(vmi.GetObjectMeta().GetNamespace())
 	domain := precond.MustNotBeEmpty(vmi.GetObjectMeta().GetName())
 
-	filePath := WatchdogFileFromNamespaceName(baseDir, namespace, domain)
+	filePath := WatchdogFileFromNamespaceNameUID(baseDir, namespace, domain, string(vmi.UID))
 	exists, err := diskutils.FileExists(filePath)
 	if err != nil {
 		log.Log.Reason(err).Errorf("Error encountered while attempting to verify if watchdog file at path %s exists.", filePath)
@@ -81,7 +92,7 @@ func WatchdogFileIsExpired(timeoutSeconds int, baseDir string, vmi *v1.VirtualMa
 	namespace := precond.MustNotBeEmpty(vmi.GetObjectMeta().GetNamespace())
 	domain := precond.MustNotBeEmpty(vmi.GetObjectMeta().GetName())
 
-	filePath := WatchdogFileFromNamespaceName(baseDir, namespace, domain)
+	filePath := WatchdogFileFromNamespaceNameUID(baseDir, namespace, domain, string(vmi.UID))
 
 	exists, err := diskutils.FileExists(filePath)
 	if err != nil {
@@ -125,12 +136,12 @@ func GetExpiredDomains(timeoutSeconds int, virtShareDir string) ([]*api.Domain, 
 	for _, file := range files {
 		if isExpired(now, timeoutSeconds, file) == true {
 			key := file.Name()
-			namespace, name, err := splitFileNamespaceName(key)
+			namespace, name, uid, err := splitFileNamespaceName(key)
 			if err != nil {
 				log.Log.Reason(err).Errorf("Invalid key (%s) detected during watchdog tick, ignoring and continuing.", key)
 				continue
 			}
-			domain := api.NewMinimalDomainWithNS(namespace, name)
+			domain := api.NewMinimalDomainWithUUID(namespace, name, uid)
 			domains = append(domains, domain)
 		}
 	}
@@ -138,14 +149,15 @@ func GetExpiredDomains(timeoutSeconds int, virtShareDir string) ([]*api.Domain, 
 	return domains, nil
 }
 
-func splitFileNamespaceName(fullPath string) (namespace string, domain string, err error) {
+func splitFileNamespaceName(fullPath string) (namespace string, domain string, uid string, err error) {
 	fileName := filepath.Base(fullPath)
 	namespaceName := strings.Split(fileName, "_")
-	if len(namespaceName) != 2 {
-		return "", "", fmt.Errorf("Invalid file path: %s", fullPath)
+	if len(namespaceName) != 3 {
+		return "", "", "", fmt.Errorf("Invalid file path: %s", fullPath)
 	}
 
 	namespace = namespaceName[0]
 	domain = namespaceName[1]
-	return namespace, domain, nil
+	uid = namespaceName[2]
+	return namespace, domain, uid, nil
 }
