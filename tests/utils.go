@@ -1691,6 +1691,17 @@ func KubevirtFailHandler(message string, callerSkip ...int) {
 				fmt.Printf(string(logsRaw))
 			}
 		}
+
+		vmis, err := virtClient.VirtualMachineInstance(ns).List(&metav1.ListOptions{})
+		if err != nil {
+			fmt.Println(err)
+			Fail(message, callerSkip...)
+			return
+		}
+
+		for _, vmi := range vmis.Items {
+			fmt.Printf("%v\n", vmi)
+		}
 	}
 	Fail(message, callerSkip...)
 }
