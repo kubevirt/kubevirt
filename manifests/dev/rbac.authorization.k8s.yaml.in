@@ -186,6 +186,12 @@ rules:
       - '*'
     verbs:
       - '*'
+  - apiGroups:
+      - cdi.kubevirt.io
+    resources:
+      - '*'
+    verbs:
+      - '*'
 ---
 apiVersion: v1
 kind: ServiceAccount
