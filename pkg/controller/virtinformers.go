@@ -32,6 +32,7 @@ import (
 	"k8s.io/client-go/tools/cache"
 
 	cdiv1 "kubevirt.io/containerized-data-importer/pkg/apis/datavolumecontroller/v1alpha1"
+	cdiv1informers "kubevirt.io/containerized-data-importer/pkg/client/informers/externalversions"
 
 	kubev1 "kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/kubecli"
@@ -186,8 +187,9 @@ func (f *kubeInformerFactory) VirtualMachine() cache.SharedIndexInformer {
 
 func (f *kubeInformerFactory) DataVolume() cache.SharedIndexInformer {
 	return f.getInformer("dataVolumeInformer", func() cache.SharedIndexInformer {
-		lw := cache.NewListWatchFromClient(f.restClient, "datavolumes", k8sv1.NamespaceAll, fields.Everything())
-		return cache.NewSharedIndexInformer(lw, &cdiv1.DataVolume{}, f.defaultResync, cache.Indexers{})
+		cdiClient := f.clientSet.CdiClient()
+		cdiInformerFactory := cdiv1informers.NewSharedInformerFactory(cdiClient, f.defaultResync)
+		return cdiInformerFactory.Cdi().V1alpha1().DataVolumes().Informer()
 	})
 }
 

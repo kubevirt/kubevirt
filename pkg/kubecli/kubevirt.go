@@ -45,6 +45,7 @@ type KubevirtClient interface {
 	VirtualMachine(namespace string) VirtualMachineInterface
 	ServerVersion() *ServerVersion
 	RestClient() *rest.RESTClient
+	CdiClient() *cdiclient.Clientset
 	kubernetes.Interface
 }
 
