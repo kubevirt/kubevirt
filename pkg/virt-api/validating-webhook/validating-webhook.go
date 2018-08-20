@@ -40,6 +40,7 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 
 	"kubevirt.io/kubevirt/pkg/api/v1"
+	"kubevirt.io/kubevirt/pkg/feature-gates"
 	"kubevirt.io/kubevirt/pkg/log"
 	"kubevirt.io/kubevirt/pkg/util"
 )
@@ -258,6 +259,16 @@ func validateVolumes(field *k8sfield.Path, volumes []v1.Volume) []metav1.StatusC
 			volumeSourceSetCount++
 		}
 		if volume.EmptyDisk != nil {
+			volumeSourceSetCount++
+		}
+		if volume.DataVolume != nil {
+			if !featuregates.DataVolumesEnabled() {
+				causes = append(causes, metav1.StatusCause{
+					Type:    metav1.CauseTypeFieldValueInvalid,
+					Message: "DataVolume feature gate is not enabled",
+					Field:   field.Index(idx).String(),
+				})
+			}
 			volumeSourceSetCount++
 		}
 

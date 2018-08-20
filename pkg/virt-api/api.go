@@ -46,6 +46,7 @@ import (
 	aggregatorclient "k8s.io/kube-aggregator/pkg/client/clientset_generated/clientset"
 
 	"kubevirt.io/kubevirt/pkg/api/v1"
+	featuregates "kubevirt.io/kubevirt/pkg/feature-gates"
 	"kubevirt.io/kubevirt/pkg/healthz"
 	"kubevirt.io/kubevirt/pkg/kubecli"
 	"kubevirt.io/kubevirt/pkg/log"
@@ -115,6 +116,8 @@ func NewVirtApi() VirtApi {
 }
 
 func (app *virtAPIApp) Execute() {
+	featuregates.ParseFeatureGatesFromConfigMap()
+
 	virtCli, err := kubecli.GetKubevirtClient()
 	if err != nil {
 		panic(err)
