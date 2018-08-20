@@ -4,4 +4,4 @@ set -e
 
 source cluster/os-3.10.0/provider.sh
 
-image="os-3.10.0-crio@sha256:8f93b2e8a561b72ee19c0b9b225019c51fe5d1f1fdbee88c46b8f7336e95e815"
+image="os-3.10.0-crio@sha256:36cc53fd72fbd247810b38618c0f3fa058c17bcb6744b0512193eba0728ebf05"
