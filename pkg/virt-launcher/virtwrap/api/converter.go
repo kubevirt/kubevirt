@@ -556,7 +556,7 @@ func Convert_v1_VirtualMachine_To_api_Domain(vmi *v1.VirtualMachineInstance, dom
 		if network.Multus == nil && network.Pod == nil {
 			return fmt.Errorf("fail network %s must have a network type", network.Name)
 		}
-		if network.Multus == nil && network.Pod == nil {
+		if network.Multus != nil && network.Pod != nil {
 			return fmt.Errorf("fail network %s must have only one network type", network.Name)
 		}
 		networks[network.Name] = network.DeepCopy()
