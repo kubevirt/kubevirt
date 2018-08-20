@@ -159,7 +159,7 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 				Name: volume.Name,
 				VolumeSource: k8sv1.VolumeSource{
 					PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{
-						ClaimName: volume.Name,
+						ClaimName: volume.DataVolume.Name,
 					},
 				},
 			})
