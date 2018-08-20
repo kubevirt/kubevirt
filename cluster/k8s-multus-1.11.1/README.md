@@ -1,6 +1,6 @@
 # Kubernetes 1.11.1 with multus network plugin in ephemeral containers
 
-Provides a pre-deployed Kubernetes with version 1.10.4 purely in docker
+Provides a pre-deployed Kubernetes with version 1.11.1 purely in docker
 containers with qemu. The provided VMs are completely ephemeral and are
 recreated on every cluster restart. The KubeVirt containers are built on the
 local machine and are the pushed to a registry which is exposed at

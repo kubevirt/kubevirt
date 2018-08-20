@@ -1,4 +1,4 @@
-# Kubernetes 1.11.0 with multus network plugin in ephemeral containers
+# Kubernetes 1.10.4 with multus network plugin in ephemeral containers
 
 Provides a pre-deployed Kubernetes with version 1.10.4 purely in docker
 containers with qemu. The provided VMs are completely ephemeral and are
@@ -9,7 +9,7 @@ local machine and are the pushed to a registry which is exposed at
 ## Bringing the cluster up
 
 ```bash
-export KUBEVIRT_PROVIDER=k8s-multus-1.11.0
+export KUBEVIRT_PROVIDER=k8s-multus-1.10.4
 export KUBEVIRT_NUM_NODES=2 # master + one nodes
 make cluster-up
 ```
@@ -19,14 +19,14 @@ The cluster can be accessed as usual:
 ```bash
 $ cluster/kubectl.sh get nodes
 NAME      STATUS     ROLES     AGE       VERSION
-node01    NotReady   master    31s       v1.11.0
-node02    NotReady   <none>    5s        v1.11.0
+node01    NotReady   master    31s       v1.10.4
+node02    NotReady   <none>    5s        v1.10.4
 ```
 
 ## Bringing the cluster down
 
 ```bash
-export KUBEVIRT_PROVIDER=k8s-multus-1.11.0
+export KUBEVIRT_PROVIDER=k8s-multus-1.10.4
 make cluster-down
 ```
 
