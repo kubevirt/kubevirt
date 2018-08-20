@@ -230,15 +230,10 @@ func (c *VMIController) execute(key string) error {
 		return nil
 	}
 
-	// Get all dataVolumes from the namespace
-	dataVolumes, err := c.listDataVolumesFromNamespace(vmi.Namespace)
+	// Get all dataVolumes associated with this vmi
+	dataVolumes, err := c.listMatchingDataVolumes(vmi)
 	if err != nil {
 		logger.Reason(err).Error("Failed to fetch dataVolumes for namespace from cache.")
-		return err
-	}
-	// Only consider dataVolumes which belong to this vmi
-	dataVolumes, err = c.filterMatchingDataVolumes(vmi, dataVolumes)
-	if err != nil {
 		return err
 	}
 
@@ -414,6 +409,7 @@ func (c *VMIController) sync(vmi *virtv1.VirtualMachineInstance, pods []*k8sv1.P
 		if syncErr != nil {
 			return syncErr
 		} else if !dataVolumesReady {
+			log.Log.V(3).Object(vmi).Infof("Delaying pod creation while DataVolume populates")
 			return nil
 		}
 
@@ -459,6 +455,7 @@ func (c *VMIController) handleSyncDataVolumes(vmi *virtv1.VirtualMachineInstance
 			if dataVolume.Name == volume.VolumeSource.DataVolume.Name {
 				exists = true
 				if dataVolume.Status.Phase != cdiv1.Succeeded {
+					log.Log.V(3).Object(vmi).Infof("DataVolume %s not ready. Phase=%s", dataVolume.Name, dataVolume.Status.Phase)
 					ready = false
 					if dataVolume.Status.Phase == cdiv1.Failed {
 						c.recorder.Eventf(vmi, k8sv1.EventTypeWarning, FailedDataVolumeReason, "DataVolume %s failed", dataVolume.Name)
@@ -470,6 +467,7 @@ func (c *VMIController) handleSyncDataVolumes(vmi *virtv1.VirtualMachineInstance
 		}
 
 		if !exists {
+			log.Log.V(3).Object(vmi).Infof("DataVolume %s not found", volume.VolumeSource.DataVolume.Name)
 			ready = false
 		}
 	}
@@ -490,7 +488,7 @@ func (c *VMIController) addDataVolume(obj interface{}) {
 		if err != nil {
 			return
 		}
-		log.Log.V(4).Object(dataVolume).Infof("DataVolume created")
+		log.Log.V(4).Object(dataVolume).Infof("DataVolume created for vmi owner %s", vmiOwner.Name)
 		c.dataVolumeExpectations.CreationObserved(vmiKey)
 		c.enqueueVirtualMachine(vmiOwner)
 	} else {
@@ -499,6 +497,7 @@ func (c *VMIController) addDataVolume(obj interface{}) {
 			return
 		}
 		for _, vmi := range vmis {
+			log.Log.V(4).Object(dataVolume).Infof("DataVolume created for vmi %s", vmi.Name)
 			c.enqueueVirtualMachine(vmi)
 		}
 	}
@@ -533,16 +532,19 @@ func (c *VMIController) updateDataVolume(old, cur interface{}) {
 			c.enqueueVirtualMachine(vmiOwner)
 		}
 	}
+	log.Log.V(4).Object(curDataVolume).Infof("DataVolume updated")
 	vmiOwner := c.resolveControllerRef(curDataVolume.Namespace, curControllerRef)
 	if vmiOwner != nil {
-		log.Log.V(4).Object(curDataVolume).Infof("DataVolume updated")
 		c.enqueueVirtualMachine(vmiOwner)
+		log.Log.V(4).Object(curDataVolume).Infof("DataVolume updated for vmi %s", vmiOwner.Name)
 	} else {
 		vmis, err := c.listVMIsMatchingDataVolume(curDataVolume.Namespace, curDataVolume.Name)
 		if err != nil {
+			log.Log.V(4).Object(curDataVolume).Errorf("Error encountered during datavolume update: %v", err)
 			return
 		}
 		for _, vmi := range vmis {
+			log.Log.V(4).Object(curDataVolume).Infof("DataVolume updated for vmi %s", vmi.Name)
 			c.enqueueVirtualMachine(vmi)
 		}
 	}
@@ -758,16 +760,23 @@ func (c *VMIController) listVMIsMatchingDataVolume(namespace string, dataVolumeN
 	return vmis, nil
 }
 
-func (c *VMIController) listDataVolumesFromNamespace(namespace string) ([]*cdiv1.DataVolume, error) {
-	objs, err := c.dataVolumeInformer.GetIndexer().ByIndex(cache.NamespaceIndex, namespace)
-	if err != nil {
-		return nil, err
-	}
+func (c *VMIController) listMatchingDataVolumes(vmi *virtv1.VirtualMachineInstance) ([]*cdiv1.DataVolume, error) {
+
 	dataVolumes := []*cdiv1.DataVolume{}
-	for _, obj := range objs {
+	for _, volume := range vmi.Spec.Volumes {
+		if volume.VolumeSource.DataVolume == nil {
+			continue
+		}
+		obj, exists, err := c.dataVolumeInformer.GetStore().GetByKey(fmt.Sprintf("%s/%s", vmi.Namespace, volume.VolumeSource.DataVolume.Name))
 		dataVolume := obj.(*cdiv1.DataVolume)
-		dataVolumes = append(dataVolumes, dataVolume)
+
+		if err != nil {
+			return dataVolumes, err
+		} else if exists {
+			dataVolumes = append(dataVolumes, dataVolume)
+		}
 	}
+
 	return dataVolumes, nil
 }
 
@@ -783,24 +792,6 @@ func (c *VMIController) listPodsFromNamespace(namespace string) ([]*k8sv1.Pod, e
 		pods = append(pods, pod)
 	}
 	return pods, nil
-}
-
-func (c *VMIController) filterMatchingDataVolumes(vmi *virtv1.VirtualMachineInstance, dataVolumes []*cdiv1.DataVolume) ([]*cdiv1.DataVolume, error) {
-	matchingDataVolumes := []*cdiv1.DataVolume{}
-	for _, dataVolume := range dataVolumes {
-		controllerRef := controller.GetControllerOf(dataVolume)
-		if controllerRef == nil {
-			continue
-		}
-		ownerVMI := c.resolveControllerRef(dataVolume.Namespace, controllerRef)
-		if ownerVMI == nil {
-			continue
-		} else if ownerVMI.UID != vmi.UID {
-			continue
-		}
-		matchingDataVolumes = append(matchingDataVolumes, dataVolume)
-	}
-	return matchingDataVolumes, nil
 }
 
 func (c *VMIController) filterMatchingPods(vmi *virtv1.VirtualMachineInstance, pods []*k8sv1.Pod) ([]*k8sv1.Pod, error) {
