@@ -47,6 +47,8 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-controller/leaderelectionconfig"
 	"kubevirt.io/kubevirt/pkg/virt-controller/rest"
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
+
+	featuregates "kubevirt.io/kubevirt/pkg/feature-gates"
 )
 
 const (
@@ -118,6 +120,8 @@ func Execute() {
 	var err error
 	var app VirtControllerApp = VirtControllerApp{}
 
+	featuregates.ParseFeatureGatesFromConfigMap()
+
 	app.LeaderElection = leaderelectionconfig.DefaultLeaderElectionConfiguration()
 
 	service.Setup(&app)
@@ -164,7 +168,16 @@ func Execute() {
 	app.vmInformer = app.informerFactory.VirtualMachine()
 	app.limitrangeInformer = app.informerFactory.LimitRanges()
 
-	app.dataVolumeInformer = app.informerFactory.DataVolume()
+	if featuregates.DataVolumesEnabled() {
+		app.dataVolumeInformer = app.informerFactory.DataVolume()
+		log.Log.Infof("DataVolume integration enabled")
+	} else {
+		// Add a dummy DataVolume informer in the event datavolume support
+		// is disabled. This lets the controller continue to work without
+		// requiring a separate branching code path.
+		app.dataVolumeInformer = app.informerFactory.DummyDataVolume()
+		log.Log.Infof("DataVolume integration disabled")
+	}
 
 	app.initCommon()
 	app.initReplicaSet()
