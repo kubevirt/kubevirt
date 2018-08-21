@@ -83,8 +83,7 @@ func (o *VNC) Run(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	value := os.Getenv("KUBECTL_PLUGINS_CURRENT_NAMESPACE")
-	if value != "" {
+	if value, ok := os.LookupEnv("KUBECTL_PLUGINS_CURRENT_NAMESPACE"); ok {
 		namespace = value
 	}
 

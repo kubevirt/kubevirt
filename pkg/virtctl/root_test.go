@@ -41,7 +41,7 @@ command: ./virtctl
 flags: []
 tree:
 - name: console
-  shortdesc: Connect to a console of a virtual machine.
+  shortdesc: Connect to a console of a virtual machine instance.
   longdesc: ""
   example: ""
   command: ./virtctl console
@@ -52,7 +52,8 @@ tree:
     defvalue: "5"
   tree: []
 - name: expose
-  shortdesc: Expose a virtual machine as a new service.
+  shortdesc: Expose a virtual machine instance, virtual machine, or virtual machine
+    instance replica set as a new service.
   longdesc: ""
   example: ""
   command: ./virtctl expose
@@ -111,7 +112,7 @@ tree:
   flags: []
   tree: []
 - name: stop
-  shortdesc: Stop a virtual machine instace which is managed by a virtual machine.
+  shortdesc: Stop a virtual machine instance which is managed by a virtual machine.
   longdesc: ""
   example: ""
   command: ./virtctl stop
@@ -125,7 +126,7 @@ tree:
   flags: []
   tree: []
 - name: vnc
-  shortdesc: Open a vnc connection to a virtual machine.
+  shortdesc: Open a vnc connection to a virtual machine instance.
   longdesc: ""
   example: ""
   command: ./virtctl vnc

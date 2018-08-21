@@ -68,15 +68,13 @@ func InstallVirtPlugin(cmd *cobra.Command) error {
 	}
 
 	// Create virt folder
-	err = os.MkdirAll(kubectlPluginPath, os.ModePerm)
-	if err != nil {
+	if err := os.MkdirAll(kubectlPluginPath, os.ModePerm); err != nil {
 		return err
 	}
 
 	plugin := MakePluginConfiguration(kubectlPluginPath, cmd)
 
-	err = writePluginYaml(kubectlPluginPath, plugin)
-	if err != nil {
+	if err := writePluginYaml(kubectlPluginPath, plugin); err != nil {
 		return err
 	}
 
