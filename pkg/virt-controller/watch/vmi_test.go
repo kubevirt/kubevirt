@@ -45,6 +45,9 @@ import (
 	"kubevirt.io/kubevirt/pkg/log"
 	"kubevirt.io/kubevirt/pkg/testutils"
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
+
+	cdiv1 "kubevirt.io/containerized-data-importer/pkg/apis/datavolumecontroller/v1alpha1"
+	//cdifake "kubevirt.io/containerized-data-importer/pkg/client/clientset/versioned/fake"
 )
 
 var _ = Describe("VirtualMachineInstance watcher", func() {
@@ -56,7 +59,6 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 	var podSource *framework.FakeControllerSource
 	var vmiInformer cache.SharedIndexInformer
 	var podInformer cache.SharedIndexInformer
-	var dataVolumeInformer cache.SharedIndexInformer
 	var stop chan struct{}
 	var controller *VMIController
 	var recorder *record.FakeRecorder
@@ -65,6 +67,10 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 	var virtClient *kubecli.MockKubevirtClient
 	var kubeClient *fake.Clientset
 	var configMapInformer cache.SharedIndexInformer
+
+	var dataVolumeSource *framework.FakeControllerSource
+	var dataVolumeInformer cache.SharedIndexInformer
+	var dataVolumeFeeder *testutils.DataVolumeFeeder
 
 	shouldExpectPodCreation := func(uid types.UID) {
 		// Expect pod creation
@@ -131,7 +137,12 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 	syncCaches := func(stop chan struct{}) {
 		go vmiInformer.Run(stop)
 		go podInformer.Run(stop)
-		Expect(cache.WaitForCacheSync(stop, vmiInformer.HasSynced, podInformer.HasSynced)).To(BeTrue())
+
+		go dataVolumeInformer.Run(stop)
+		Expect(cache.WaitForCacheSync(stop,
+			vmiInformer.HasSynced,
+			podInformer.HasSynced,
+			dataVolumeInformer.HasSynced)).To(BeTrue())
 	}
 
 	BeforeEach(func() {
@@ -142,7 +153,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 
 		vmiInformer, vmiSource = testutils.NewFakeInformerFor(&v1.VirtualMachineInstance{})
 		podInformer, podSource = testutils.NewFakeInformerFor(&k8sv1.Pod{})
-		dataVolumeInformer, _ = testutils.NewFakeInformerFor(&v1.VirtualMachineInstance{})
+		dataVolumeInformer, dataVolumeSource = testutils.NewFakeInformerFor(&cdiv1.DataVolume{})
 		recorder = record.NewFakeRecorder(100)
 
 		configMapInformer, _ = testutils.NewFakeInformerFor(&k8sv1.Pod{})
@@ -158,6 +169,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 		mockQueue = testutils.NewMockWorkQueue(controller.Queue)
 		controller.Queue = mockQueue
 		podFeeder = testutils.NewPodFeeder(mockQueue, podSource)
+		dataVolumeFeeder = testutils.NewDataVolumeFeeder(mockQueue, dataVolumeSource)
 
 		// Set up mock client
 		virtClient.EXPECT().VirtualMachineInstance(k8sv1.NamespaceDefault).Return(vmiInterface).AnyTimes()
@@ -183,6 +195,99 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 		vmiSource.Add(vmi)
 		mockQueue.Wait()
 	}
+	Context("On valid VirtualMachineInstance given with DataVolume source", func() {
+
+		It("should create a corresponding Pod on VMI creation when DataVolume is ready", func() {
+			vmi := NewPendingVirtualMachine("testvmi")
+
+			vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
+				Name: "test1",
+				VolumeSource: v1.VolumeSource{
+					DataVolume: &v1.DataVolumeSource{
+						Name: "test1",
+					},
+				},
+			})
+
+			dataVolume := &cdiv1.DataVolume{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test1",
+					Namespace: vmi.Namespace,
+				},
+				Status: cdiv1.DataVolumeStatus{
+					Phase: cdiv1.Succeeded,
+				},
+			}
+
+			addVirtualMachine(vmi)
+			dataVolumeFeeder.Add(dataVolume)
+			shouldExpectPodCreation(vmi.UID)
+
+			controller.Execute()
+			testutils.ExpectEvent(recorder, SuccessfulCreatePodReason)
+		})
+
+		It("should not create a corresponding Pod on VMI creation when DataVolume is pending", func() {
+			vmi := NewPendingVirtualMachine("testvmi")
+
+			vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
+				Name: "test1",
+				VolumeSource: v1.VolumeSource{
+					DataVolume: &v1.DataVolumeSource{
+						Name: "test1",
+					},
+				},
+			})
+
+			dataVolume := &cdiv1.DataVolume{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test1",
+					Namespace: vmi.Namespace,
+				},
+				Status: cdiv1.DataVolumeStatus{
+					Phase: cdiv1.Pending,
+				},
+			}
+
+			addVirtualMachine(vmi)
+			dataVolumeFeeder.Add(dataVolume)
+
+			controller.Execute()
+		})
+
+		It("VMI should fail if DataVolume fails to import", func() {
+			vmi := NewPendingVirtualMachine("testvmi")
+
+			vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
+				Name: "test1",
+				VolumeSource: v1.VolumeSource{
+					DataVolume: &v1.DataVolumeSource{
+						Name: "test1",
+					},
+				},
+			})
+
+			dataVolume := &cdiv1.DataVolume{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test1",
+					Namespace: vmi.Namespace,
+				},
+				Status: cdiv1.DataVolumeStatus{
+					Phase: cdiv1.Failed,
+				},
+			}
+
+			addVirtualMachine(vmi)
+			dataVolumeFeeder.Add(dataVolume)
+
+			vmiInterface.EXPECT().Update(gomock.Any()).Do(func(arg interface{}) {
+				Expect(arg.(*v1.VirtualMachineInstance).Status.Phase).To(Equal(v1.Failed))
+			}).Return(vmi, nil)
+
+			controller.Execute()
+			testutils.ExpectEvent(recorder, FailedDataVolumeReason)
+		})
+	})
 
 	Context("On valid VirtualMachineInstance given", func() {
 		It("should create a corresponding Pod on VirtualMachineInstance creation", func() {
