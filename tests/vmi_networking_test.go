@@ -483,30 +483,34 @@ var _ = Describe("Networking", func() {
 			virtClient, err := kubecli.GetKubevirtClient()
 			Expect(err).ToNot(HaveOccurred())
 
-			labelSelector := fmt.Sprintf("kubevirt.io/domain=%s", vmi.ObjectMeta.Name)
-
 			By("Looking up pod using VMI's label")
-			pods, err := virtClient.CoreV1().Pods(tests.NamespaceTestDefault).List(
-				v13.ListOptions{LabelSelector: labelSelector},
-			)
+			pods, err := virtClient.CoreV1().Pods(tests.NamespaceTestDefault).List(tests.UnfinishedVMIPodSelector(vmi))
 			Expect(err).ToNot(HaveOccurred())
-
-			Expect(len(pods.Items)).To(Equal(1))
-
-			found := false
+			Expect(pods.Items).NotTo(BeEmpty())
 			pod := pods.Items[0]
+
+			foundContainer := false
 			for _, container := range pod.Spec.Containers {
 				if container.Name == "compute" {
-					found = true
+					foundContainer = true
 					_, ok := container.Resources.Requests[services.TunDevice]
 					Expect(ok).To(BeFalse())
 
 					_, ok = container.Resources.Limits[services.TunDevice]
 					Expect(ok).To(BeFalse())
+
+					netAdminCap := false
+					caps := container.SecurityContext.Capabilities
+					for _, cap := range caps.Add {
+						if cap == "NET_ADMIN" {
+							netAdminCap = true
+						}
+					}
+					Expect(netAdminCap).To(BeFalse(), "Compute container should not have NET_ADMIN capability")
 				}
 			}
 
-			Expect(found).To(BeTrue(), "Did not find 'compute' container in pod")
+			Expect(foundContainer).To(BeTrue(), "Did not find 'compute' container in pod")
 		})
 	})
 
