@@ -253,6 +253,21 @@ var _ = Describe("Pod Network", func() {
 				Expect(idx).To(Equal(2))
 			})
 		})
+		Context("getBinding", func() {
+			Context("for Bridge", func() {
+				It("should populate MAC address", func() {
+					domain := NewDomainWithBridgeInterface()
+					vmi := newVMIBridgeInterface("testnamespace", "testVmName")
+					api.SetObjectDefaults_Domain(domain)
+					vmi.Spec.Domain.Devices.Interfaces[0].MacAddress = "de-ad-00-00-be-af"
+					driver, err := getBinding(&vmi.Spec.Domain.Devices.Interfaces[0])
+					Expect(err).ToNot(HaveOccurred())
+					bridge, ok := driver.(*BridgePodInterface)
+					Expect(ok).To(BeTrue())
+					Expect(bridge.vif.MAC.String()).To(Equal("de:ad:00:00:be:af"))
+				})
+			})
+		})
 	})
 })
 
@@ -272,8 +287,31 @@ func newVM(namespace string, name string) *v1.VirtualMachineInstance {
 	return vmi
 }
 
-func NewDomainWithPodNetwork() *api.Domain {
+func newVMIBridgeInterface(namespace string, name string) *v1.VirtualMachineInstance {
+	vmi := newVM(namespace, name)
+	vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{*v1.DefaultNetworkInterface()}
+	v1.SetObjectDefaults_VirtualMachineInstance(vmi)
+	return vmi
+}
 
+func NewDomainWithPodNetwork() *api.Domain {
+	domain := &api.Domain{}
+	domain.Spec.Devices.Interfaces = []api.Interface{{
+		Model: &api.Model{
+			Type: "virtio",
+		},
+		Type: "bridge",
+		Source: api.InterfaceSource{
+			Bridge: api.DefaultBridgeName,
+		},
+		Alias: &api.Alias{
+			Name: "default",
+		}},
+	}
+	return domain
+}
+
+func NewDomainWithBridgeInterface() *api.Domain {
 	domain := &api.Domain{}
 	domain.Spec.Devices.Interfaces = []api.Interface{{
 		Model: &api.Model{
