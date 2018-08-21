@@ -269,6 +269,14 @@ func validateVolumes(field *k8sfield.Path, volumes []v1.Volume) []metav1.StatusC
 					Field:   field.Index(idx).String(),
 				})
 			}
+
+			if volume.DataVolume.Name == "" {
+				causes = append(causes, metav1.StatusCause{
+					Type:    metav1.CauseTypeFieldValueRequired,
+					Message: "DataVolume 'name' must be set",
+					Field:   field.Index(idx).Child("name").String(),
+				})
+			}
 			volumeSourceSetCount++
 		}
 
