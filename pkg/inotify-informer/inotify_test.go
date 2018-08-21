@@ -72,8 +72,8 @@ var _ = Describe("Inotify", func() {
 			Expect(err).ToNot(HaveOccurred())
 
 			// create two files
-			Expect(os.Create(tmpDir + "/" + "default_testvmi")).ToNot(BeNil())
-			Expect(os.Create(tmpDir + "/" + "default1_testvmi1")).ToNot(BeNil())
+			Expect(os.Create(tmpDir + "/" + "default_testvmi_123-123-123-123")).ToNot(BeNil())
+			Expect(os.Create(tmpDir + "/" + "default1_testvmi1_123-123-123-123")).ToNot(BeNil())
 
 			queue = workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter())
 			informer = cache.NewSharedIndexInformer(
@@ -99,7 +99,7 @@ var _ = Describe("Inotify", func() {
 		It("should detect multiple creations and deletions", func() {
 			num := 5
 			key := "default2/test.vmi2"
-			fileName := tmpDir + "/" + "default2_test.vmi2"
+			fileName := tmpDir + "/" + "default2_test.vmi2_123-123-123-123"
 
 			for i := 0; i < num; i++ {
 				Expect(os.Create(fileName)).ToNot(BeNil())

@@ -71,16 +71,17 @@ type DirectoryListWatcher struct {
 	backgroundWatcherStarted bool
 }
 
-func splitFileNamespaceName(fullPath string) (namespace string, domain string, err error) {
+func splitFileNamespaceNameUID(fullPath string) (namespace string, domain string, uid string, err error) {
 	fileName := filepath.Base(fullPath)
-	namespaceName := strings.Split(fileName, "_")
-	if len(namespaceName) != 2 {
-		return "", "", fmt.Errorf("Invalid file path: %s", fullPath)
+	namespaceNameUID := strings.Split(fileName, "_")
+	if len(namespaceNameUID) != 3 {
+		return "", "", "", fmt.Errorf("Invalid file path: %s", fullPath)
 	}
 
-	namespace = namespaceName[0]
-	domain = namespaceName[1]
-	return namespace, domain, nil
+	namespace = namespaceNameUID[0]
+	domain = namespaceNameUID[1]
+	uid = namespaceNameUID[2]
+	return namespace, domain, uid, nil
 }
 
 func (d *DirectoryListWatcher) startBackground() error {
@@ -126,12 +127,12 @@ func (d *DirectoryListWatcher) startBackground() error {
 				}
 
 				if sendEvent {
-					namespace, name, err := splitFileNamespaceName(event.Name)
+					namespace, name, uid, err := splitFileNamespaceNameUID(event.Name)
 					if err != nil {
 						log.Log.Reason(err).Error("Invalid content detected, ignoring and continuing.")
 						continue
 					}
-					d.eventChan <- watch.Event{Type: e, Object: api.NewMinimalDomainWithNS(namespace, name)}
+					d.eventChan <- watch.Event{Type: e, Object: api.NewMinimalDomainWithUUID(namespace, name, uid)}
 				}
 			case err := <-d.watcher.Errors:
 				d.eventChan <- watch.Event{
@@ -170,12 +171,12 @@ func (d *DirectoryListWatcher) List(options v1.ListOptions) (runtime.Object, err
 		Items: []api.Domain{},
 	}
 	for _, file := range files {
-		namespace, name, err := splitFileNamespaceName(file.Name())
+		namespace, name, uid, err := splitFileNamespaceNameUID(file.Name())
 		if err != nil {
 			log.Log.Reason(err).Error("Invalid content detected, ignoring and continuing.")
 			continue
 		}
-		domainList.Items = append(domainList.Items, *api.NewMinimalDomainWithNS(namespace, name))
+		domainList.Items = append(domainList.Items, *api.NewMinimalDomainWithUUID(namespace, name, uid))
 
 	}
 	return domainList, nil

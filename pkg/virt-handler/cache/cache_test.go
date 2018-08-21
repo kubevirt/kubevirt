@@ -51,6 +51,8 @@ var _ = Describe("Domain informer", func() {
 	var ctrl *gomock.Controller
 	var domainManager *virtwrap.MockDomainManager
 
+	uid := "123-123-123-123"
+
 	BeforeEach(func() {
 		stopChan = make(chan struct{})
 
@@ -149,7 +151,7 @@ var _ = Describe("Domain informer", func() {
 				watchdogTimeout:          1,
 			}
 
-			watchdogFile := watchdog.WatchdogFileFromNamespaceName(shareDir, "default", "test")
+			watchdogFile := watchdog.WatchdogFileFromNamespaceNameUID(shareDir, "default", "test", uid)
 			os.MkdirAll(filepath.Dir(watchdogFile), 0755)
 			watchdog.WatchdogFileUpdate(watchdogFile)
 

@@ -144,7 +144,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 	Context("VirtualMachineInstance controller gets informed about a Domain change through the Domain controller", func() {
 
 		It("should delete non-running Domains if no cluster wide equivalent and no grace period info exists", func() {
-			domain := api.NewMinimalDomainWithUUID("testvmi", testUUID)
+			domain := api.NewMinimalDomainWithUUID(metav1.NamespaceDefault, "testvmi", string(testUUID))
 			domainFeeder.Add(domain)
 
 			client.EXPECT().Ping()
@@ -153,7 +153,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 		})
 
 		It("should delete running Domains if no cluster wide equivalent exists and no grace period info exists", func() {
-			domain := api.NewMinimalDomainWithUUID("testvmi", testUUID)
+			domain := api.NewMinimalDomainWithUUID(metav1.NamespaceDefault, "testvmi", string(testUUID))
 			domain.Status.Status = api.Running
 			domainFeeder.Add(domain)
 
@@ -177,7 +177,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 			vmi.UID = testUUID
 			vmi.Status.Phase = v1.Running
 
-			domain := api.NewMinimalDomainWithUUID("testvmi", testUUID)
+			domain := api.NewMinimalDomainWithUUID(metav1.NamespaceDefault, "testvmi", string(testUUID))
 			domain.Status.Status = api.Running
 
 			initGracePeriodHelper(1, vmi, domain)
@@ -194,7 +194,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 		It("should attempt graceful shutdown of Domain if no cluster wide equivalent exists", func() {
 			vmi := v1.NewMinimalVMI("testvmi")
 			vmi.UID = testUUID
-			domain := api.NewMinimalDomainWithUUID("testvmi", testUUID)
+			domain := api.NewMinimalDomainWithUUID(metav1.NamespaceDefault, "testvmi", string(testUUID))
 			domain.Status.Status = api.Running
 
 			initGracePeriodHelper(1, vmi, domain)
@@ -210,7 +210,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 		It("should attempt force terminate Domain if grace period expires", func() {
 			vmi := v1.NewMinimalVMI("testvmi")
 			vmi.UID = testUUID
-			domain := api.NewMinimalDomainWithUUID("testvmi", testUUID)
+			domain := api.NewMinimalDomainWithUUID(metav1.NamespaceDefault, "testvmi", string(testUUID))
 			domain.Status.Status = api.Running
 
 			initGracePeriodHelper(1, vmi, domain)
@@ -229,7 +229,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 		}, 3)
 
 		It("should immediately kill domain with grace period of 0", func() {
-			domain := api.NewMinimalDomainWithUUID("testvmi", testUUID)
+			domain := api.NewMinimalDomainWithUUID(metav1.NamespaceDefault, "testvmi", string(testUUID))
 			domain.Status.Status = api.Running
 			vmi := v1.NewMinimalVMI("testvmi")
 			vmi.UID = testUUID
@@ -275,7 +275,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 			updatedVMI.Status.Phase = v1.Running
 
 			mockWatchdog.CreateFile(vmi)
-			domain := api.NewMinimalDomainWithUUID("testvmi", testUUID)
+			domain := api.NewMinimalDomainWithUUID(metav1.NamespaceDefault, "testvmi", string(testUUID))
 			domain.Status.Status = api.Running
 			vmiFeeder.Add(vmi)
 			domainFeeder.Add(domain)
@@ -382,7 +382,7 @@ func (m *MockGracefulShutdown) TriggerShutdown(vmi *v1.VirtualMachineInstance) {
 
 	namespace := precond.MustNotBeEmpty(vmi.GetObjectMeta().GetNamespace())
 	domain := precond.MustNotBeEmpty(vmi.GetObjectMeta().GetName())
-	triggerFile := virtlauncher.GracefulShutdownTriggerFromNamespaceName(m.baseDir, namespace, domain)
+	triggerFile := virtlauncher.GracefulShutdownTriggerFromNamespaceNameUID(m.baseDir, namespace, domain, string(vmi.UID))
 	err := virtlauncher.GracefulShutdownTriggerInitiate(triggerFile)
 	Expect(err).NotTo(HaveOccurred())
 }
@@ -394,7 +394,12 @@ type MockWatchdog struct {
 func (m *MockWatchdog) CreateFile(vmi *v1.VirtualMachineInstance) {
 	Expect(os.MkdirAll(watchdog.WatchdogFileDirectory(m.baseDir), os.ModePerm)).To(Succeed())
 	err := watchdog.WatchdogFileUpdate(
-		watchdog.WatchdogFileFromNamespaceName(m.baseDir, vmi.ObjectMeta.Namespace, vmi.ObjectMeta.Name),
+		watchdog.WatchdogFileFromNamespaceNameUID(
+			m.baseDir,
+			vmi.ObjectMeta.Namespace,
+			vmi.ObjectMeta.Name,
+			string(vmi.UID),
+		),
 	)
 	Expect(err).NotTo(HaveOccurred())
 }

@@ -60,8 +60,8 @@ func GracefulShutdownTriggerDir(baseDir string) string {
 	return filepath.Join(baseDir, "graceful-shutdown-trigger")
 }
 
-func GracefulShutdownTriggerFromNamespaceName(baseDir string, namespace string, name string) string {
-	triggerFile := namespace + "_" + name
+func GracefulShutdownTriggerFromNamespaceNameUID(baseDir string, namespace string, name string, uid string) string {
+	triggerFile := namespace + "_" + name + "_" + uid
 	return filepath.Join(baseDir, "graceful-shutdown-trigger", triggerFile)
 }
 
@@ -69,9 +69,21 @@ func VmGracefulShutdownTriggerClear(baseDir string, vmi *v1.VirtualMachineInstan
 	namespace := precond.MustNotBeEmpty(vmi.GetObjectMeta().GetNamespace())
 	domain := precond.MustNotBeEmpty(vmi.GetObjectMeta().GetName())
 
-	triggerFile := GracefulShutdownTriggerFromNamespaceName(baseDir, namespace, domain)
+	path := GracefulShutdownTriggerFromNamespaceNameUID(baseDir, namespace, domain, string(vmi.UID))
+	triggerFiles, err := filepath.Glob(path + "*")
+	if err != nil {
+		log.Log.Reason(err).Errorf("failed to get files from %s", path)
+		return err
+	}
 
-	return diskutils.RemoveFile(triggerFile)
+	for _, file := range triggerFiles {
+		log.Log.V(3).Object(vmi).Infof("Remove graceful shutdown trigger file %s", file)
+		err := diskutils.RemoveFile(file)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func GracefulShutdownTriggerClear(triggerFile string) error {
@@ -82,11 +94,11 @@ func VmHasGracefulShutdownTrigger(baseDir string, vmi *v1.VirtualMachineInstance
 	namespace := precond.MustNotBeEmpty(vmi.GetObjectMeta().GetNamespace())
 	domain := precond.MustNotBeEmpty(vmi.GetObjectMeta().GetName())
 
-	return hasGracefulShutdownTrigger(baseDir, namespace, domain)
+	return hasGracefulShutdownTrigger(baseDir, namespace, domain, string(vmi.UID))
 }
 
-func hasGracefulShutdownTrigger(baseDir string, namespace string, name string) (bool, error) {
-	triggerFile := GracefulShutdownTriggerFromNamespaceName(baseDir, namespace, name)
+func hasGracefulShutdownTrigger(baseDir string, namespace string, name string, uid string) (bool, error) {
+	triggerFile := GracefulShutdownTriggerFromNamespaceNameUID(baseDir, namespace, name, uid)
 
 	return diskutils.FileExists(triggerFile)
 }

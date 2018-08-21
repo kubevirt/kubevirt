@@ -299,14 +299,18 @@ func main() {
 	socketPath := cmdclient.SocketFromUID(*virtShareDir, *uid)
 	startCmdServer(socketPath, domainManager, stopChan, options)
 
-	watchdogFile := watchdog.WatchdogFileFromNamespaceName(*virtShareDir,
+	watchdogFile := watchdog.WatchdogFileFromNamespaceNameUID(*virtShareDir,
 		*namespace,
-		*name)
+		*name,
+		*uid,
+	)
 	startWatchdogTicker(watchdogFile, *watchdogInterval, stopChan)
 
-	gracefulShutdownTriggerFile := virtlauncher.GracefulShutdownTriggerFromNamespaceName(*virtShareDir,
+	gracefulShutdownTriggerFile := virtlauncher.GracefulShutdownTriggerFromNamespaceNameUID(*virtShareDir,
 		*namespace,
-		*name)
+		*name,
+		*uid,
+	)
 	err = virtlauncher.GracefulShutdownTriggerClear(gracefulShutdownTriggerFile)
 	if err != nil {
 		log.Log.Reason(err).Errorf("Error clearing shutdown trigger file %s.", gracefulShutdownTriggerFile)

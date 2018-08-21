@@ -27,6 +27,8 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 
+	"k8s.io/apimachinery/pkg/types"
+
 	v1 "kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/precond"
 )
@@ -51,7 +53,7 @@ var _ = Describe("Watchdog", func() {
 
 		It("should detect expired watchdog files", func() {
 
-			fileName := tmpWatchdogDir + "/default_expiredvmi"
+			fileName := tmpWatchdogDir + "/default_expiredvmi_123-123-123-123"
 			Expect(os.Create(fileName)).ToNot(BeNil())
 
 			domains, err := GetExpiredDomains(1, tmpVirtShareDir)
@@ -71,12 +73,13 @@ var _ = Describe("Watchdog", func() {
 		})
 
 		It("should successfully remove watchdog file", func() {
-
+			uid := "123-123-123-123"
 			vmi := v1.NewMinimalVMI("tvmi")
+			vmi.UID = types.UID("123-123-123-123")
 			namespace := precond.MustNotBeEmpty(vmi.GetObjectMeta().GetNamespace())
 			domain := precond.MustNotBeEmpty(vmi.GetObjectMeta().GetName())
 
-			fileName := WatchdogFileFromNamespaceName(tmpVirtShareDir, namespace, domain)
+			fileName := WatchdogFileFromNamespaceNameUID(tmpVirtShareDir, namespace, domain, uid)
 			Expect(os.Create(fileName)).ToNot(BeNil())
 			domains, err := GetExpiredDomains(1, tmpVirtShareDir)
 			Expect(err).ToNot(HaveOccurred())
@@ -129,8 +132,8 @@ var _ = Describe("Watchdog", func() {
 			dir := WatchdogFileDirectory(tmpVirtShareDir)
 			Expect(dir).To(Equal(tmpVirtShareDir + "/watchdog-files"))
 
-			dir = WatchdogFileFromNamespaceName(tmpVirtShareDir, "tnamespace", "tvmi")
-			Expect(dir).To(Equal(tmpVirtShareDir + "/watchdog-files/tnamespace_tvmi"))
+			dir = WatchdogFileFromNamespaceNameUID(tmpVirtShareDir, "tnamespace", "tvmi", "123-123-123-123")
+			Expect(dir).To(Equal(tmpVirtShareDir + "/watchdog-files/tnamespace_tvmi_123-123-123-123"))
 		})
 
 		AfterEach(func() {

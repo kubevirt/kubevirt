@@ -110,7 +110,12 @@ var _ = Describe("VirtLauncher", func() {
 
 	BeforeEach(func() {
 		InitializeSharedDirectories(tmpDir)
-		triggerFile := GracefulShutdownTriggerFromNamespaceName(tmpDir, "fakenamespace", "fakedomain")
+		triggerFile := GracefulShutdownTriggerFromNamespaceNameUID(
+			tmpDir,
+			"fakenamespace",
+			"fakedomain",
+			"123-123-123-123",
+		)
 		shutdownCallback := func(pid int) {
 			syscall.Kill(pid, syscall.SIGTERM)
 		}
@@ -199,7 +204,12 @@ var _ = Describe("VirtLauncher", func() {
 
 				time.Sleep(time.Second)
 
-				exists, err := hasGracefulShutdownTrigger(tmpDir, "fakenamespace", "fakedomain")
+				exists, err := hasGracefulShutdownTrigger(
+					tmpDir,
+					"fakenamespace",
+					"fakedomain",
+					"123-123-123-123",
+				)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(exists).To(Equal(false))
 
@@ -207,7 +217,12 @@ var _ = Describe("VirtLauncher", func() {
 
 				time.Sleep(time.Second)
 
-				exists, err = hasGracefulShutdownTrigger(tmpDir, "fakenamespace", "fakedomain")
+				exists, err = hasGracefulShutdownTrigger(
+					tmpDir,
+					"fakenamespace",
+					"fakedomain",
+					"123-123-123-123",
+				)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(exists).To(Equal(true))
 			})
