@@ -768,11 +768,11 @@ func (c *VMIController) listMatchingDataVolumes(vmi *virtv1.VirtualMachineInstan
 			continue
 		}
 		obj, exists, err := c.dataVolumeInformer.GetStore().GetByKey(fmt.Sprintf("%s/%s", vmi.Namespace, volume.VolumeSource.DataVolume.Name))
-		dataVolume := obj.(*cdiv1.DataVolume)
 
 		if err != nil {
 			return dataVolumes, err
 		} else if exists {
+			dataVolume := obj.(*cdiv1.DataVolume)
 			dataVolumes = append(dataVolumes, dataVolume)
 		}
 	}

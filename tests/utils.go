@@ -66,6 +66,8 @@ import (
 	"kubevirt.io/kubevirt/pkg/util/net/dns"
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
 	"kubevirt.io/kubevirt/pkg/virtctl"
+
+	cdiv1 "kubevirt.io/containerized-data-importer/pkg/apis/datavolumecontroller/v1alpha1"
 )
 
 var KubeVirtVersionTag = "latest"
@@ -85,6 +87,10 @@ func init() {
 }
 
 type EventType string
+
+const (
+	AlpineHttpUrl = "http://cdi-http-import-server.kube-system/images/alpine.iso"
+)
 
 const (
 	NormalEvent  EventType = "Normal"
@@ -741,6 +747,7 @@ func cleanNamespaces() {
 		PanicOnError(virtCli.RestClient().Delete().Namespace(namespace).Resource("virtualmachineinstancepresets").Do().Error())
 		// Remove all limit ranges
 		PanicOnError(virtCli.CoreV1().RESTClient().Delete().Namespace(namespace).Resource("limitranges").Do().Error())
+
 	}
 }
 
@@ -789,6 +796,42 @@ func PanicOnError(err error) {
 	}
 }
 
+func NewRandomDataVolumeWithHttpImport(imageUrl string, namespace string) *cdiv1.DataVolume {
+
+	name := "test-datavolume-" + rand.String(12)
+	storageClassName := "local"
+	quantity, err := resource.ParseQuantity("2Gi")
+	PanicOnError(err)
+	dataVolume := &cdiv1.DataVolume{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: namespace,
+		},
+		Spec: cdiv1.DataVolumeSpec{
+			Source: cdiv1.DataVolumeSource{
+				HTTP: &cdiv1.DataVolumeSourceHTTP{
+					URL: imageUrl,
+				},
+			},
+			PVC: &k8sv1.PersistentVolumeClaimSpec{
+				AccessModes: []k8sv1.PersistentVolumeAccessMode{k8sv1.ReadWriteOnce},
+				Resources: k8sv1.ResourceRequirements{
+					Requests: k8sv1.ResourceList{
+						"storage": quantity,
+					},
+				},
+				StorageClassName: &storageClassName,
+			},
+		},
+	}
+
+	dataVolume.TypeMeta = metav1.TypeMeta{
+		APIVersion: "cdi.kubevirt.io/v1alpha1",
+		Kind:       "DataVolume",
+	}
+	return dataVolume
+}
+
 func NewRandomVMI() *v1.VirtualMachineInstance {
 	return NewRandomVMIWithNS(NamespaceTestDefault)
 }
@@ -798,6 +841,35 @@ func NewRandomVMIWithNS(namespace string) *v1.VirtualMachineInstance {
 
 	t := defaultTestGracePeriod
 	vmi.Spec.TerminationGracePeriodSeconds = &t
+	return vmi
+}
+
+func NewRandomVMIWithDataVolume(dataVolumeName string) *v1.VirtualMachineInstance {
+	vmi := NewRandomVMI()
+
+	vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("64M")
+
+	diskName := "disk0"
+	bus := "virtio"
+	vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
+		Name:       diskName,
+		VolumeName: diskName,
+		DiskDevice: v1.DiskDevice{
+			Disk: &v1.DiskTarget{
+				Bus: bus,
+			},
+		},
+	})
+	vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
+		Name: diskName,
+		VolumeSource: v1.VolumeSource{
+			DataVolume: &v1.DataVolumeSource{
+				Name: dataVolumeName,
+			},
+		},
+	})
+
+	vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("512M")
 	return vmi
 }
 
@@ -1704,4 +1776,24 @@ func KubevirtFailHandler(message string, callerSkip ...int) {
 		}
 	}
 	Fail(message, callerSkip...)
+}
+
+func HasCDI() bool {
+	hasCDI := false
+	virtClient, err := kubecli.GetKubevirtClient()
+	PanicOnError(err)
+	options := metav1.GetOptions{}
+	cfgMap, err := virtClient.CoreV1().ConfigMaps("kube-system").Get("kubevirt-config", options)
+	if err == nil {
+		val, ok := cfgMap.Data["feature-gates"]
+		if !ok {
+			return hasCDI
+		}
+		hasCDI = strings.Contains(val, "DataVolumes")
+	} else {
+		if !errors.IsNotFound(err) {
+			PanicOnError(err)
+		}
+	}
+	return hasCDI
 }
