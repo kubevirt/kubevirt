@@ -26,6 +26,9 @@ spec:
         metadata: {}
         spec:
           properties:
+            dataVolumeTemplates:
+              items: {}
+              type: array
             running:
               type: boolean
             template:

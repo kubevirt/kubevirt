@@ -2041,12 +2041,25 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 								Ref:         ref("kubevirt.io/kubevirt/pkg/api/v1.VirtualMachineInstanceTemplateSpec"),
 							},
 						},
+						"dataVolumeTemplates": {
+							SchemaProps: spec.SchemaProps{
+								Description: "dataVolumeTemplates is a list of dataVolumes that the VirtualMachineInstance template can reference.",
+								Type:        []string{"array"},
+								Items: &spec.SchemaOrArray{
+									Schema: &spec.Schema{
+										SchemaProps: spec.SchemaProps{
+											Ref: ref("kubevirt.io/containerized-data-importer/pkg/apis/datavolumecontroller/v1alpha1.DataVolume"),
+										},
+									},
+								},
+							},
+						},
 					},
 					Required: []string{"running", "template"},
 				},
 			},
 			Dependencies: []string{
-				"kubevirt.io/kubevirt/pkg/api/v1.VirtualMachineInstanceTemplateSpec"},
+				"kubevirt.io/containerized-data-importer/pkg/apis/datavolumecontroller/v1alpha1.DataVolume", "kubevirt.io/kubevirt/pkg/api/v1.VirtualMachineInstanceTemplateSpec"},
 		},
 		"kubevirt.io/kubevirt/pkg/api/v1.VirtualMachineStatus": {
 			Schema: spec.Schema{
