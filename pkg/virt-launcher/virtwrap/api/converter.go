@@ -37,6 +37,7 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/cloud-init"
+	"kubevirt.io/kubevirt/pkg/config"
 	"kubevirt.io/kubevirt/pkg/emptydisk"
 	"kubevirt.io/kubevirt/pkg/ephemeral-disk"
 	"kubevirt.io/kubevirt/pkg/log"
@@ -160,8 +161,30 @@ func Convert_v1_Volume_To_api_Disk(source *v1.Volume, disk *Disk, c *ConverterCo
 	if source.EmptyDisk != nil {
 		return Convert_v1_EmptyDiskSource_To_api_Disk(source.Name, source.EmptyDisk, disk, c)
 	}
+	if source.ConfigMap != nil {
+		return Convert_v1_Config_To_api_Disk(source.Name, disk, config.ConfigMap)
+	}
+	// add secret here
 
 	return fmt.Errorf("disk %s references an unsupported source", disk.Alias.Name)
+}
+
+func Convert_v1_Config_To_api_Disk(volumeName string, disk *Disk, configType config.Type) error {
+	disk.Type = "file"
+	disk.Driver.Type = "raw"
+
+	switch configType {
+	case config.ConfigMap:
+		disk.Source.File = config.GetConfigMapDiskPath(volumeName)
+		break
+	case config.Secret:
+		disk.Source.File = config.GetSecretDiskPath(volumeName)
+		break
+	default:
+		return fmt.Errorf("Cannot convert config '%s' to disk, unrecognized type", configType)
+	}
+
+	return nil
 }
 
 // Convert_v1_FilesystemVolumeSource_To_api_Disk takes a FS source and builds the KVM Disk representation

@@ -34,7 +34,6 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/api/v1"
 	cloudinit "kubevirt.io/kubevirt/pkg/cloud-init"
-	configmap "kubevirt.io/kubevirt/pkg/config-map"
 	ephemeraldisk "kubevirt.io/kubevirt/pkg/ephemeral-disk"
 	"kubevirt.io/kubevirt/pkg/hooks"
 	"kubevirt.io/kubevirt/pkg/log"
@@ -189,12 +188,17 @@ func initializeDirs(virtShareDir string,
 		panic(err)
 	}
 
-	err = configmap.SetLocalDirectory(ephemeralDiskDir + "/config-map-data")
+	err = virtlauncher.InitializeDisksDirectories(filepath.Join("/var/run/kubevirt-private", "vm-disks"))
 	if err != nil {
 		panic(err)
 	}
 
-	err = virtlauncher.InitializeDisksDirectories(filepath.Join("/var/run/kubevirt-private", "vm-disks"))
+	err = virtlauncher.InitializeDisksDirectories(filepath.Join("/var/run/kubevirt-private", "config-map-disks"))
+	if err != nil {
+		panic(err)
+	}
+
+	err = virtlauncher.InitializeDisksDirectories(filepath.Join("/var/run/kubevirt-private", "secrets-disks"))
 	if err != nil {
 		panic(err)
 	}

@@ -35,6 +35,7 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/api/v1"
 	cloudinit "kubevirt.io/kubevirt/pkg/cloud-init"
+	"kubevirt.io/kubevirt/pkg/config"
 	"kubevirt.io/kubevirt/pkg/emptydisk"
 	"kubevirt.io/kubevirt/pkg/ephemeral-disk"
 	"kubevirt.io/kubevirt/pkg/hooks"
@@ -118,6 +119,10 @@ func (l *LibvirtDomainManager) preStartHook(vmi *v1.VirtualMachineInstance, doma
 	// create empty disks if they exist
 	if err := emptydisk.CreateTemporaryDisks(vmi); err != nil {
 		return domain, fmt.Errorf("creating empty disks failed: %v", err)
+	}
+	// create ConfigMap disks if they exists
+	if err := config.CreateConfigMapDisks(vmi); err != nil {
+		return domain, fmt.Errorf("creating config map disks failed: %v", err)
 	}
 
 	hooksManager := hooks.GetManager()
