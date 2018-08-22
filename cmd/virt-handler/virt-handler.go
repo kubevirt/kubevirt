@@ -43,6 +43,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/service"
 	"kubevirt.io/kubevirt/pkg/virt-handler"
 	virtcache "kubevirt.io/kubevirt/pkg/virt-handler/cache"
+	"kubevirt.io/kubevirt/pkg/virt-handler/devices/bridge"
 	"kubevirt.io/kubevirt/pkg/virt-handler/health"
 	"kubevirt.io/kubevirt/pkg/virt-handler/isolation"
 	"kubevirt.io/kubevirt/pkg/virt-launcher"
@@ -177,9 +178,33 @@ func (app *virtHandlerApp) AddFlags() {
 		"Watchdog file timeout")
 }
 
+var podNamespaces string
+var hostNamespaces string
+var nodeBridgeName string
+var bridgeName string
+var interfaceIndex int
+var networkName string
+var createBridge bool
+
 func main() {
+	flag.BoolVar(&createBridge, "create-bridge", false, "Run the bridge create code")
+	flag.StringVar(&podNamespaces, "pod-namespace", "", "pod namespace")
+	flag.StringVar(&hostNamespaces, "host-namespace", "", "host namespace")
+	flag.StringVar(&nodeBridgeName, "node-bridge-name", "", "node bridge name")
+	flag.StringVar(&bridgeName, "bridge-name", "", "bridge name")
+	flag.StringVar(&networkName, "network-name", "", "network name")
+	flag.IntVar(&interfaceIndex, "interface-index", 0, "interface index number")
+
 	app := &virtHandlerApp{}
 	service.Setup(app)
-	log.InitializeLogging("virt-handler")
-	app.Run()
+
+	if !createBridge {
+		log.InitializeLogging("virt-handler")
+		app.Run()
+	}
+
+	err := bridge.CreateBridge(podNamespaces, hostNamespaces, nodeBridgeName, bridgeName, networkName, interfaceIndex)
+	if err != nil {
+		panic(err)
+	}
 }
