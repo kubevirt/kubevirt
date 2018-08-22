@@ -52,17 +52,17 @@ var exampleXML = `<domain type="kvm" xmlns:qemu="http://libvirt.org/schemas/doma
       </source>
       <target dev="vda"></target>
       <driver name="qemu" type="raw"></driver>
-      <alias name="mydisk"></alias>
+      <alias name="ua-mydisk"></alias>
     </disk>
     <disk device="disk" type="file">
       <source file="/var/run/libvirt/cloud-init-dir/mynamespace/testvmi/noCloud.iso"></source>
       <target dev="vdb"></target>
       <driver name="qemu" type="raw"></driver>
-      <alias name="mydisk1"></alias>
+      <alias name="ua-mydisk1"></alias>
     </disk>
     <console type="pty"></console>
     <watchdog model="i6300esb" action="poweroff">
-      <alias name="mywatchdog"></alias>
+      <alias name="ua-mywatchdog"></alias>
     </watchdog>
   </devices>
   <metadata>
