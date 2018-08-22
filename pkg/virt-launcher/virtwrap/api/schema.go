@@ -85,6 +85,8 @@ const (
 	ReasonPausedStartingUp     StateChangeReason = "StartingUp"
 	ReasonPausedPostcopy       StateChangeReason = "Postcopy"
 	ReasonPausedPostcopyFailed StateChangeReason = "PostcopyFailed"
+
+	UserAliasPrefix = "ua-"
 )
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
@@ -424,6 +426,25 @@ type InterfaceTarget struct {
 
 type Alias struct {
 	Name string `xml:"name,attr"`
+}
+
+type UserAlias Alias
+
+func (alias Alias) MarshalXML(e *xml.Encoder, start xml.StartElement) error {
+	userAlias := UserAlias(alias)
+	userAlias.Name = UserAliasPrefix + userAlias.Name
+	return e.EncodeElement(userAlias, start)
+}
+
+func (alias *Alias) UnmarshalXML(d *xml.Decoder, start xml.StartElement) error {
+	var userAlias UserAlias
+	err := d.DecodeElement(&userAlias, &start)
+	if err != nil {
+		return err
+	}
+	*alias = Alias(userAlias)
+	alias.Name = alias.Name[len(UserAliasPrefix):]
+	return nil
 }
 
 // END Inteface -----------------------------
