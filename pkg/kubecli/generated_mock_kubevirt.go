@@ -115,9 +115,9 @@ func (_mr *_MockKubevirtClientRecorder) RestClient() *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "RestClient")
 }
 
-func (_m *MockKubevirtClient) CdiClient() *versioned.Clientset {
+func (_m *MockKubevirtClient) CdiClient() versioned.Interface {
 	ret := _m.ctrl.Call(_m, "CdiClient")
-	ret0, _ := ret[0].(*versioned.Clientset)
+	ret0, _ := ret[0].(versioned.Interface)
 	return ret0
 }
 

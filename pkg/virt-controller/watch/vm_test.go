@@ -10,7 +10,9 @@ import (
 	. "github.com/onsi/gomega"
 	k8sv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/testing"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/cache/testing"
 	"k8s.io/client-go/tools/record"
@@ -18,6 +20,7 @@ import (
 	virtv1 "kubevirt.io/kubevirt/pkg/api/v1"
 
 	cdiv1 "kubevirt.io/containerized-data-importer/pkg/apis/datavolumecontroller/v1alpha1"
+	cdifake "kubevirt.io/containerized-data-importer/pkg/client/clientset/versioned/fake"
 
 	"kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/kubecli"
@@ -36,15 +39,19 @@ var _ = Describe("VirtualMachine", func() {
 		var vmiInformer cache.SharedIndexInformer
 		var vmInformer cache.SharedIndexInformer
 		var dataVolumeInformer cache.SharedIndexInformer
+		var dataVolumeSource *framework.FakeControllerSource
 		var stop chan struct{}
 		var controller *VMController
 		var recorder *record.FakeRecorder
 		var mockQueue *testutils.MockWorkQueue
 		var vmiFeeder *testutils.VirtualMachineFeeder
+		var dataVolumeFeeder *testutils.DataVolumeFeeder
+		var cdiClient *cdifake.Clientset
 
 		syncCaches := func(stop chan struct{}) {
 			go vmiInformer.Run(stop)
 			go vmInformer.Run(stop)
+			go dataVolumeInformer.Run(stop)
 			Expect(cache.WaitForCacheSync(stop, vmiInformer.HasSynced, vmInformer.HasSynced)).To(BeTrue())
 		}
 
@@ -55,7 +62,7 @@ var _ = Describe("VirtualMachine", func() {
 			vmiInterface = kubecli.NewMockVirtualMachineInstanceInterface(ctrl)
 			vmInterface = kubecli.NewMockVirtualMachineInterface(ctrl)
 
-			dataVolumeInformer, _ = testutils.NewFakeInformerFor(&cdiv1.DataVolume{})
+			dataVolumeInformer, dataVolumeSource = testutils.NewFakeInformerFor(&cdiv1.DataVolume{})
 			vmiInformer, vmiSource = testutils.NewFakeInformerFor(&v1.VirtualMachineInstance{})
 			vmInformer, vmSource = testutils.NewFakeInformerFor(&v1.VirtualMachine{})
 			recorder = record.NewFakeRecorder(100)
@@ -65,11 +72,32 @@ var _ = Describe("VirtualMachine", func() {
 			mockQueue = testutils.NewMockWorkQueue(controller.Queue)
 			controller.Queue = mockQueue
 			vmiFeeder = testutils.NewVirtualMachineFeeder(mockQueue, vmiSource)
+			dataVolumeFeeder = testutils.NewDataVolumeFeeder(mockQueue, dataVolumeSource)
 
 			// Set up mock client
 			virtClient.EXPECT().VirtualMachineInstance(metav1.NamespaceDefault).Return(vmiInterface).AnyTimes()
 			virtClient.EXPECT().VirtualMachine(metav1.NamespaceDefault).Return(vmInterface).AnyTimes()
+
+			cdiClient = cdifake.NewSimpleClientset()
+			virtClient.EXPECT().CdiClient().Return(cdiClient).AnyTimes()
+			cdiClient.Fake.PrependReactor("*", "*", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
+				Expect(action).To(BeNil())
+				return true, nil, nil
+			})
+
 		})
+
+		shouldExpectDataVolumeCreation := func(uid types.UID, idx *int) {
+			cdiClient.Fake.PrependReactor("create", "datavolumes", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
+				update, ok := action.(testing.CreateAction)
+				Expect(ok).To(BeTrue())
+				*idx++
+				dataVolume := update.GetObject().(*cdiv1.DataVolume)
+				Expect(dataVolume.ObjectMeta.OwnerReferences[0].UID).To(Equal(uid))
+				Expect(dataVolume.Annotations[v1.OwnedByAnnotation]).To(Equal("virt-controller"))
+				return true, update.GetObject(), nil
+			})
+		}
 
 		addVirtualMachine := func(vm *v1.VirtualMachine) {
 			syncCaches(stop)
@@ -77,7 +105,151 @@ var _ = Describe("VirtualMachine", func() {
 			vmSource.Add(vm)
 			mockQueue.Wait()
 		}
+		It("should create missing DataVolume for VirtualMachineInstance", func() {
+			vm, _ := DefaultVirtualMachine(true)
+			vm.Spec.Template.Spec.Volumes = append(vm.Spec.Template.Spec.Volumes, v1.Volume{
+				Name: "test1",
+				VolumeSource: v1.VolumeSource{
+					DataVolume: &v1.DataVolumeSource{
+						Name: "dv1",
+					},
+				},
+			})
+			vm.Spec.Template.Spec.Volumes = append(vm.Spec.Template.Spec.Volumes, v1.Volume{
+				Name: "test1",
+				VolumeSource: v1.VolumeSource{
+					DataVolume: &v1.DataVolumeSource{
+						Name: "dv2",
+					},
+				},
+			})
 
+			vm.Spec.DataVolumeTemplates = append(vm.Spec.DataVolumeTemplates, cdiv1.DataVolume{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "dv1",
+				},
+			})
+			vm.Spec.DataVolumeTemplates = append(vm.Spec.DataVolumeTemplates, cdiv1.DataVolume{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "dv2",
+				},
+			})
+			addVirtualMachine(vm)
+
+			existingDataVolume := createDataVolumeManifest(&vm.Spec.DataVolumeTemplates[1], vm)
+			existingDataVolume.Namespace = "default"
+			dataVolumeFeeder.Add(existingDataVolume)
+			createCount := 0
+			shouldExpectDataVolumeCreation(vm.UID, &createCount)
+			controller.Execute()
+			Expect(createCount).To(Equal(1))
+			testutils.ExpectEvent(recorder, SuccessfulDataVolumeCreateReason)
+		})
+
+		It("should only start VMI once DataVolumes are complete", func() {
+
+			vm, vmi := DefaultVirtualMachine(true)
+			vm.Spec.Template.Spec.Volumes = append(vm.Spec.Template.Spec.Volumes, v1.Volume{
+				Name: "test1",
+				VolumeSource: v1.VolumeSource{
+					DataVolume: &v1.DataVolumeSource{
+						Name: "dv1",
+					},
+				},
+			})
+			vm.Spec.DataVolumeTemplates = append(vm.Spec.DataVolumeTemplates, cdiv1.DataVolume{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "dv1",
+				},
+			})
+
+			existingDataVolume := createDataVolumeManifest(&vm.Spec.DataVolumeTemplates[0], vm)
+
+			existingDataVolume.Namespace = "default"
+			existingDataVolume.Status.Phase = cdiv1.Succeeded
+			addVirtualMachine(vm)
+			dataVolumeFeeder.Add(existingDataVolume)
+			// expect creation called
+			vmiInterface.EXPECT().Create(gomock.Any()).Do(func(arg interface{}) {
+				Expect(arg.(*v1.VirtualMachineInstance).ObjectMeta.Name).To(Equal("testvmi"))
+			}).Return(vmi, nil)
+			// expect update status is called
+			vmInterface.EXPECT().Update(gomock.Any()).Do(func(arg interface{}) {
+				Expect(arg.(*v1.VirtualMachine).Status.Created).To(BeFalse())
+				Expect(arg.(*v1.VirtualMachine).Status.Ready).To(BeFalse())
+			}).Return(nil, nil)
+			controller.Execute()
+			testutils.ExpectEvent(recorder, SuccessfulCreateVirtualMachineReason)
+		})
+
+		It("should Not delete Datavolumes when VMI is stopped", func() {
+
+			vm, vmi := DefaultVirtualMachine(false)
+			vm.Spec.Template.Spec.Volumes = append(vm.Spec.Template.Spec.Volumes, v1.Volume{
+				Name: "test1",
+				VolumeSource: v1.VolumeSource{
+					DataVolume: &v1.DataVolumeSource{
+						Name: "dv1",
+					},
+				},
+			})
+			vm.Spec.DataVolumeTemplates = append(vm.Spec.DataVolumeTemplates, cdiv1.DataVolume{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "dv1",
+				},
+			})
+
+			existingDataVolume := createDataVolumeManifest(&vm.Spec.DataVolumeTemplates[0], vm)
+
+			existingDataVolume.Namespace = "default"
+			existingDataVolume.Status.Phase = cdiv1.Succeeded
+			addVirtualMachine(vm)
+
+			dataVolumeFeeder.Add(existingDataVolume)
+			vmiFeeder.Add(vmi)
+			vmiInterface.EXPECT().Delete(gomock.Any(), gomock.Any()).Return(nil)
+			vmInterface.EXPECT().Update(gomock.Any()).Times(1).Return(vm, nil)
+			controller.Execute()
+			testutils.ExpectEvent(recorder, SuccessfulDeleteVirtualMachineReason)
+		})
+
+		It("should create multiple DataVolumes for VirtualMachineInstance", func() {
+			vm, _ := DefaultVirtualMachine(true)
+			vm.Spec.Template.Spec.Volumes = append(vm.Spec.Template.Spec.Volumes, v1.Volume{
+				Name: "test1",
+				VolumeSource: v1.VolumeSource{
+					DataVolume: &v1.DataVolumeSource{
+						Name: "dv1",
+					},
+				},
+			})
+			vm.Spec.Template.Spec.Volumes = append(vm.Spec.Template.Spec.Volumes, v1.Volume{
+				Name: "test1",
+				VolumeSource: v1.VolumeSource{
+					DataVolume: &v1.DataVolumeSource{
+						Name: "dv2",
+					},
+				},
+			})
+
+			vm.Spec.DataVolumeTemplates = append(vm.Spec.DataVolumeTemplates, cdiv1.DataVolume{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "dv1",
+				},
+			})
+			vm.Spec.DataVolumeTemplates = append(vm.Spec.DataVolumeTemplates, cdiv1.DataVolume{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "dv2",
+				},
+			})
+			addVirtualMachine(vm)
+
+			createCount := 0
+			shouldExpectDataVolumeCreation(vm.UID, &createCount)
+			controller.Execute()
+			Expect(createCount).To(Equal(2))
+			testutils.ExpectEvent(recorder, SuccessfulDataVolumeCreateReason)
+		})
 		It("should create missing VirtualMachineInstance", func() {
 			vm, vmi := DefaultVirtualMachine(true)
 
