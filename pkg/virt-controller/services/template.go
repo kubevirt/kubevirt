@@ -45,6 +45,7 @@ const KvmDevice = "devices.kubevirt.io/kvm"
 const TunDevice = "devices.kubevirt.io/tun"
 
 const CAP_NET_ADMIN = "NET_ADMIN"
+const CAP_SYS_NICE = "SYS_NICE"
 
 type TemplateService interface {
 	RenderLaunchManifest(*v1.VirtualMachineInstance) (*k8sv1.Pod, error)
@@ -422,10 +423,6 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 		Resources: resources,
 		Ports:     ports,
 	}
-	// add a CAP_SYS_NICE capability to allow setting cpu affinity
-	if vmi.IsCPUDedicated() {
-		container.SecurityContext.Capabilities.Add = append(container.SecurityContext.Capabilities.Add, "SYS_NICE")
-	}
 	containers := registrydisk.GenerateContainers(vmi, "libvirt-runtime", "/var/run/libvirt")
 
 	volumes = append(volumes, k8sv1.Volume{
@@ -551,6 +548,10 @@ func getRequiredCapabilities(vmi *v1.VirtualMachineInstance) []k8sv1.Capability 
 		(vmi.Spec.Domain.Devices.AutoattachPodInterface == nil) ||
 		(*vmi.Spec.Domain.Devices.AutoattachPodInterface == true) {
 		res = append(res, CAP_NET_ADMIN)
+	}
+	// add a CAP_SYS_NICE capability to allow setting cpu affinity
+	if vmi.IsCPUDedicated() {
+		res = append(res, CAP_SYS_NICE)
 	}
 	return res
 }

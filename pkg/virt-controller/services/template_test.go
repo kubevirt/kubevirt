@@ -186,6 +186,15 @@ var _ = Describe("Template", func() {
 				mem := resource.MustParse("64M")
 				Expect(pod.Spec.Containers[1].Resources.Limits.Memory().Cmp(mem)).To(BeZero())
 				Expect(pod.Spec.Containers[1].Resources.Limits.Cpu().Cmp(cpu)).To(BeZero())
+
+				found := false
+				caps := pod.Spec.Containers[0].SecurityContext.Capabilities
+				for _, cap := range caps.Add {
+					if cap == CAP_SYS_NICE {
+						found = true
+					}
+				}
+				Expect(found).To(BeTrue(), "Expected compute container to be granted SYS_NICE capability")
 			})
 			It("should add node affinity to pod", func() {
 				nodeAffinity := kubev1.NodeAffinity{}
