@@ -245,30 +245,6 @@ var _ = Describe("Defaults", func() {
 		Expect(*timer.Hyperv.Enabled).To(BeTrue())
 	})
 
-	It("should add RNG if it is unspecified and set the default source", func() {
-		vmi := &VirtualMachineInstance{}
-		SetObjectDefaults_VirtualMachineInstance(vmi)
-		Expect(vmi.Spec.Domain.Devices.Rng.Source).To(Equal("/dev/urandom"))
-	})
-
-	It("should not add RNG if it disabled", func() {
-		vmi := &VirtualMachineInstance{}
-		vmi.Spec.Domain.Devices.Rng = &Rng{
-			Disabled: true,
-		}
-		SetObjectDefaults_VirtualMachineInstance(vmi)
-		Expect(vmi.Spec.Domain.Devices.Rng.Source).To(Equal(""))
-	})
-
-	It("should not change RNG source if it is present", func() {
-		vmi := &VirtualMachineInstance{}
-		vmi.Spec.Domain.Devices.Rng = &Rng{
-			Source: "/dev/random",
-		}
-		SetObjectDefaults_VirtualMachineInstance(vmi)
-		Expect(vmi.Spec.Domain.Devices.Rng.Source).To(Equal("/dev/random"))
-	})
-
 })
 
 var _ = Describe("Function SetDefaults_NetworkInterface()", func() {

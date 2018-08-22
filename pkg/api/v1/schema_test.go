@@ -167,10 +167,7 @@ var exampleJSON = `{
             {{.InterfaceConfig}}
           }
         ],
-        "rng": {
-          "disabled": true,
-          "source": "/dev/urandom"
-        }
+        "rng": {}
       }
     },
     "volumes": [
@@ -266,10 +263,7 @@ var _ = Describe("Schema", func() {
 			},
 		}
 
-		exampleVMI.Spec.Domain.Devices.Rng = &Rng{
-			Disabled: true,
-			Source:   "/dev/urandom",
-		}
+		exampleVMI.Spec.Domain.Devices.Rng = &Rng{}
 
 		exampleVMI.Spec.Volumes = []Volume{
 			{

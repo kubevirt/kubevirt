@@ -124,12 +124,7 @@ spec:
                         required:
                         - name
                       type: array
-                    rng:
-                      properties:
-                        disabled:
-                          type: boolean
-                        source:
-                          type: string
+                    rng: {}
                     watchdog:
                       properties:
                         i6300esb:

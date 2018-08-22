@@ -247,16 +247,13 @@ func Convert_v1_Rng_To_api_Rng(source *v1.Rng, rng *Rng, _ *ConverterContext) er
 	// default rng model for KVM/QEMU virtualization
 	rng.Model = "virtio"
 
-	// default backend model, random for /dev/random and /dev/urandom
+	// default backend model, random
 	rng.Backend = &RngBackend{
 		Model: "random",
 	}
 
-	// the source used to get the entropy
-	if source.Source == "" {
-		return fmt.Errorf("rng can't be mapped, no source provided")
-	}
-	rng.Backend.Source = source.Source
+	// the default source for rng is dev urandom
+	rng.Backend.Source = "/dev/urandom"
 
 	return nil
 }
@@ -455,14 +452,12 @@ func Convert_v1_VirtualMachine_To_api_Domain(vmi *v1.VirtualMachineInstance, dom
 	}
 
 	if vmi.Spec.Domain.Devices.Rng != nil {
-		if !vmi.Spec.Domain.Devices.Rng.Disabled {
-			newRng := &Rng{}
-			err := Convert_v1_Rng_To_api_Rng(vmi.Spec.Domain.Devices.Rng, newRng, c)
-			if err != nil {
-				return err
-			}
-			domain.Spec.Devices.Rng = newRng
+		newRng := &Rng{}
+		err := Convert_v1_Rng_To_api_Rng(vmi.Spec.Domain.Devices.Rng, newRng, c)
+		if err != nil {
+			return err
 		}
+		domain.Spec.Devices.Rng = newRng
 	}
 
 	if vmi.Spec.Domain.Clock != nil {

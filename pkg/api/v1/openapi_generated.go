@@ -229,7 +229,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 						},
 						"rng": {
 							SchemaProps: spec.SchemaProps{
-								Description: "Whether to have random number generator from host Defaults to Rng enabled",
+								Description: "Whether to have random number generator from host",
 								Ref:         ref("kubevirt.io/kubevirt/pkg/api/v1.Rng"),
 							},
 						},
@@ -1201,22 +1201,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 			Schema: spec.Schema{
 				SchemaProps: spec.SchemaProps{
 					Description: "Rng represents the random device passed from host",
-					Properties: map[string]spec.Schema{
-						"disabled": {
-							SchemaProps: spec.SchemaProps{
-								Description: "Disabled defines whether use or do not use Virtio Rng",
-								Type:        []string{"boolean"},
-								Format:      "",
-							},
-						},
-						"source": {
-							SchemaProps: spec.SchemaProps{
-								Description: "Source sets the host source used to provide entropy",
-								Type:        []string{"string"},
-								Format:      "",
-							},
-						},
-					},
+					Properties:  map[string]spec.Schema{},
 				},
 			},
 			Dependencies: []string{},

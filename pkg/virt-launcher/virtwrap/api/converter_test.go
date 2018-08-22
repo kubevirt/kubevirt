@@ -446,6 +446,7 @@ var _ = Describe("Converter", func() {
 
 		It("should be converted to a libvirt Domain with vmi defaults set", func() {
 			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
+			vmi.Spec.Domain.Devices.Rng = &v1.Rng{}
 			Expect(vmiToDomainXML(vmi, c)).To(Equal(convertedDomain))
 		})
 
@@ -596,10 +597,15 @@ var _ = Describe("Converter", func() {
 			Expect(domainSpec.Memory.Unit).To(Equal("B"))
 		})
 
-		It("should not add RNG when disabled", func() {
-			vmi.Spec.Domain.Devices.Rng.Disabled = true
+		It("should not add RNG when not present", func() {
 			domainSpec := vmiToDomainXMLToDomainSpec(vmi, c)
 			Expect(domainSpec.Devices.Rng).To(BeNil())
+		})
+
+		It("should add RNG when present", func() {
+			vmi.Spec.Domain.Devices.Rng = &v1.Rng{}
+			domainSpec := vmiToDomainXMLToDomainSpec(vmi, c)
+			Expect(domainSpec.Devices.Rng).ToNot(BeNil())
 		})
 
 	})

@@ -3384,7 +3384,7 @@
       }
      },
      "rng": {
-      "description": "Whether to have random number generator from host\nDefaults to Rng enabled\n+optional",
+      "description": "Whether to have random number generator from host\n+optional",
       "$ref": "#/definitions/v1.Rng"
      },
      "watchdog": {
@@ -4297,21 +4297,7 @@
     }
    },
    "v1.Rng": {
-    "description": "Rng represents the random device passed from host",
-    "required": [
-     "disabled",
-     "source"
-    ],
-    "properties": {
-     "disabled": {
-      "description": "Disabled defines whether use or do not use Virtio Rng\n+optional",
-      "type": "boolean"
-     },
-     "source": {
-      "description": "Source sets the host source used to provide entropy\n+optional",
-      "type": "string"
-     }
-    }
+    "description": "Rng represents the random device passed from host"
    },
    "v1.ServerAddressByClientCIDR": {
     "description": "ServerAddressByClientCIDR helps the client to determine the server address that they should use, depending on the clientCIDR that they match.",
