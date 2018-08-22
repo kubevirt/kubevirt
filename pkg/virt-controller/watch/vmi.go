@@ -65,9 +65,25 @@ const (
 	// SuccessfulHandOverPodReason is added in an event
 	// when the pod ownership transfer from the controller to virt-hander succeeds.
 	SuccessfulHandOverPodReason = "SuccessfulHandOver"
-	// FailedDataVolumeReason is added in an event when a DataVolume in a vmi's volumes
-	// list has failed
-	FailedDataVolumeReason = "FailedDataVolume"
+
+	// FailedDataVolumeImportReason is added in an event when a dynamically generated
+	// dataVolume reaches the failed status phase.
+	FailedDataVolumeImportReason = "FailedDataVolumeImport"
+	// FailedDataVolumeCreateReason is added in an event when posting a dynamically
+	// generated dataVolume to the cluster fails.
+	FailedDataVolumeCreateReason = "FailedDataVolumeCreate"
+	// FailedDataVolumeDeleteReason is added in an event when deleting a dynamically
+	// generated dataVolume in the cluster fails.
+	FailedDataVolumeDeleteReason = "FailedDataVolumeDelete"
+	// SuccessfulDataVolumeCreateReason is added in an event when a dynamically generated
+	// dataVolume is successfully created
+	SuccessfulDataVolumeCreateReason = "SuccessfulDataVolumeCreate"
+	// SuccessfulDataVolumeImportReason is added in an event when a dynamically generated
+	// dataVolume is successfully imports its data
+	SuccessfulDataVolumeImportReason = "SuccessfulDataVolumeImport"
+	// SuccessfulDataVolumeDeleteReason is added in an event when a dynamically generated
+	// dataVolume is successfully deleted
+	SuccessfulDataVolumeDeleteReason = "SuccessfulDataVolumeDelete"
 )
 
 func NewVMIController(templateService services.TemplateService,
@@ -458,8 +474,8 @@ func (c *VMIController) handleSyncDataVolumes(vmi *virtv1.VirtualMachineInstance
 					log.Log.V(3).Object(vmi).Infof("DataVolume %s not ready. Phase=%s", dataVolume.Name, dataVolume.Status.Phase)
 					ready = false
 					if dataVolume.Status.Phase == cdiv1.Failed {
-						c.recorder.Eventf(vmi, k8sv1.EventTypeWarning, FailedDataVolumeReason, "DataVolume %s failed", dataVolume.Name)
-						return ready, &syncErrorImpl{fmt.Errorf("DataVolume %s for volume %s failed", dataVolume.Name, volume.Name), FailedDataVolumeReason}
+						c.recorder.Eventf(vmi, k8sv1.EventTypeWarning, FailedDataVolumeImportReason, "DataVolume %s failed", dataVolume.Name)
+						return ready, &syncErrorImpl{fmt.Errorf("DataVolume %s for volume %s failed", dataVolume.Name, volume.Name), FailedDataVolumeImportReason}
 					}
 				}
 				break

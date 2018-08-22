@@ -285,7 +285,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			}).Return(vmi, nil)
 
 			controller.Execute()
-			testutils.ExpectEvent(recorder, FailedDataVolumeReason)
+			testutils.ExpectEvent(recorder, FailedDataVolumeImportReason)
 		})
 	})
 
