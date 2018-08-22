@@ -4,8 +4,6 @@ import (
 	"fmt"
 	"math/rand"
 
-	"github.com/vishvananda/netlink"
-
 	"os/exec"
 
 	"kubevirt.io/kubevirt/pkg/api/v1"
@@ -30,19 +28,9 @@ func (HostBridge) Setup(vmi *v1.VirtualMachineInstance, hostNamespaces *isolatio
 			if output, err := c.CombinedOutput(); err != nil {
 				return fmt.Errorf(string(output))
 			}
-
-			return nil
 		}
 	}
 	return nil
-}
-
-func vethName(index int) string {
-	return fmt.Sprintf("k6tveth%d", index)
-}
-
-func randomPeerName() string {
-	return "k6t" + randString(10)
 }
 
 func (HostBridge) Available() error {
@@ -56,38 +44,4 @@ func randString(length int) string {
 		b[i] = letterBytes[rand.Intn(len(letterBytes))]
 	}
 	return string(b)
-}
-
-func setMTUandUPByName(name string, mtu int) error {
-
-	link, err := netlink.LinkByName(name)
-	if err != nil {
-		return err
-	}
-
-	// Make sure that MTUs match
-	if link.Attrs().MTU != mtu {
-		err = netlink.LinkSetMTU(link, mtu)
-		if err != nil {
-			return fmt.Errorf("failed to set MTU of link %s to the bridges MTU %d: %v", name, mtu, err)
-		}
-	}
-
-	// Bring the link peer in the container up
-	if link.Attrs().OperState != netlink.OperUp {
-		err = netlink.LinkSetUp(link)
-		if err != nil {
-			return fmt.Errorf("failed to set the link %s to up: %v", name, err)
-		}
-	}
-	return nil
-}
-
-func isNotExist(err error) bool {
-	if err != nil {
-		if _, ok := err.(netlink.LinkNotFoundError); ok {
-			return true
-		}
-	}
-	return false
 }
