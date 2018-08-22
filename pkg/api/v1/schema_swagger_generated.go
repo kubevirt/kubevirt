@@ -127,8 +127,9 @@ func (DiskDevice) SwaggerDoc() map[string]string {
 
 func (DiskTarget) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"bus":      "Bus indicates the type of disk device to emulate.\nsupported values: virtio, sata, scsi, ide.",
-		"readonly": "ReadOnly.\nDefaults to false.",
+		"bus":        "Bus indicates the type of disk device to emulate.\nsupported values: virtio, sata, scsi, ide.",
+		"readonly":   "ReadOnly.\nDefaults to false.",
+		"pciAddress": "If specified, the virtual disk will be placed on the guests pci address with the specifed PCI address. For example: 0000:81:01.10\n+optional",
 	}
 }
 

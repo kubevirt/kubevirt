@@ -273,6 +273,9 @@ type DiskTarget struct {
 	// ReadOnly.
 	// Defaults to false.
 	ReadOnly bool `json:"readonly,omitempty"`
+	// If specified, the virtual disk will be placed on the guests pci address with the specifed PCI address. For example: 0000:81:01.10
+	// +optional
+	PciAddress string `json:"pciAddress,omitempty"`
 }
 
 // ---

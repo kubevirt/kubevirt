@@ -86,6 +86,8 @@ spec:
                                     properties:
                                       bus:
                                         type: string
+                                      pciAddress:
+                                        type: string
                                       readonly:
                                         type: boolean
                                   floppy:
