@@ -20,6 +20,7 @@
 package services_test
 
 import (
+	"testing"
 	"time"
 
 	. "kubevirt.io/kubevirt/pkg/virt-controller/services"
@@ -613,6 +614,86 @@ var _ = Describe("Template", func() {
 				Expect(pod.Spec.Containers[0].Ports[1].Protocol).To(Equal(kubev1.Protocol("TCP")))
 			})
 		})
+
+		Context("with pod networking", func() {
+			It("Should require tun device by default", func() {
+				vmi := v1.VirtualMachineInstance{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "testvmi", Namespace: "default", UID: "1234",
+					},
+				}
+				pod, err := svc.RenderLaunchManifest(&vmi)
+				Expect(err).ToNot(HaveOccurred())
+
+				tun, ok := pod.Spec.Containers[0].Resources.Limits[TunDevice]
+				Expect(ok).To(BeTrue())
+				Expect(int(tun.Value())).To(Equal(1))
+
+				found := false
+				caps := pod.Spec.Containers[0].SecurityContext.Capabilities
+				for _, cap := range caps.Add {
+					if cap == CAP_NET_ADMIN {
+						found = true
+					}
+				}
+				Expect(found).To(BeTrue(), "Expected compute container to be granted NET_ADMIN capability")
+			})
+
+			It("Should require tun device if explicitly requested", func() {
+				domain := v1.DomainSpec{}
+				autoAttach := true
+				domain.Devices.AutoattachPodInterface = &autoAttach
+
+				vmi := v1.VirtualMachineInstance{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "testvmi", Namespace: "default", UID: "1234",
+					},
+					Spec: v1.VirtualMachineInstanceSpec{Domain: domain},
+				}
+				pod, err := svc.RenderLaunchManifest(&vmi)
+				Expect(err).ToNot(HaveOccurred())
+
+				tun, ok := pod.Spec.Containers[0].Resources.Limits[TunDevice]
+				Expect(ok).To(BeTrue())
+				Expect(int(tun.Value())).To(Equal(1))
+
+				found := false
+				caps := pod.Spec.Containers[0].SecurityContext.Capabilities
+				for _, cap := range caps.Add {
+					if cap == CAP_NET_ADMIN {
+						found = true
+					}
+				}
+				Expect(found).To(BeTrue(), "Expected compute container to be granted NET_ADMIN capability")
+			})
+
+			It("Should not require tun device if explicitly rejected", func() {
+				domain := v1.DomainSpec{}
+				autoAttach := false
+				domain.Devices.AutoattachPodInterface = &autoAttach
+
+				vmi := v1.VirtualMachineInstance{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "testvmi", Namespace: "default", UID: "1234",
+					},
+					Spec: v1.VirtualMachineInstanceSpec{Domain: domain},
+				}
+				pod, err := svc.RenderLaunchManifest(&vmi)
+				Expect(err).ToNot(HaveOccurred())
+
+				_, ok := pod.Spec.Containers[0].Resources.Limits[TunDevice]
+				Expect(ok).To(BeFalse())
+
+				found := false
+				caps := pod.Spec.Containers[0].SecurityContext.Capabilities
+				for _, cap := range caps.Add {
+					if cap == CAP_NET_ADMIN {
+						found = true
+					}
+				}
+				Expect(found).To(BeFalse(), "Expected compute container to not be granted NET_ADMIN capability")
+			})
+		})
 	})
 	Describe("ConfigMap", func() {
 		var cmListWatch *cache.ListWatch
@@ -760,4 +841,9 @@ func True() *bool {
 func False() *bool {
 	b := false
 	return &b
+}
+
+func TestTemplate(t *testing.T) {
+	RegisterFailHandler(Fail)
+	RunSpecs(t, "Template")
 }

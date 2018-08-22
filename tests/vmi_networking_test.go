@@ -42,6 +42,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/kubecli"
 	"kubevirt.io/kubevirt/pkg/log"
+	"kubevirt.io/kubevirt/pkg/virt-controller/services"
 	"kubevirt.io/kubevirt/tests"
 )
 
@@ -466,6 +467,51 @@ var _ = Describe("Networking", func() {
 			}, 15)
 			Expect(err).ToNot(HaveOccurred())
 		})
+
+		It("should not request a tun device", func() {
+			By("Creating random VirtualMachineInstance")
+			autoAttach := false
+			vmi := tests.NewRandomVMIWithEphemeralDisk(tests.RegistryDiskFor(tests.RegistryDiskAlpine))
+
+			vmi.Spec.Domain.Devices.AutoattachPodInterface = &autoAttach
+
+			_, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
+			Expect(err).ToNot(HaveOccurred())
+			waitUntilVMIReady(vmi, tests.LoggedInAlpineExpecter)
+
+			By("Checking that the pod did not request a tun device")
+			virtClient, err := kubecli.GetKubevirtClient()
+			Expect(err).ToNot(HaveOccurred())
+
+			By("Looking up pod using VMI's label")
+			pods, err := virtClient.CoreV1().Pods(tests.NamespaceTestDefault).List(tests.UnfinishedVMIPodSelector(vmi))
+			Expect(err).ToNot(HaveOccurred())
+			Expect(pods.Items).NotTo(BeEmpty())
+			pod := pods.Items[0]
+
+			foundContainer := false
+			for _, container := range pod.Spec.Containers {
+				if container.Name == "compute" {
+					foundContainer = true
+					_, ok := container.Resources.Requests[services.TunDevice]
+					Expect(ok).To(BeFalse())
+
+					_, ok = container.Resources.Limits[services.TunDevice]
+					Expect(ok).To(BeFalse())
+
+					netAdminCap := false
+					caps := container.SecurityContext.Capabilities
+					for _, cap := range caps.Add {
+						if cap == "NET_ADMIN" {
+							netAdminCap = true
+						}
+					}
+					Expect(netAdminCap).To(BeFalse(), "Compute container should not have NET_ADMIN capability")
+				}
+			}
+
+			Expect(foundContainer).To(BeTrue(), "Did not find 'compute' container in pod")
+		})
 	})
 
 	Context("VirtualMachineInstance with custom PCI address", func() {
@@ -482,3 +528,20 @@ var _ = Describe("Networking", func() {
 		})
 	})
 })
+
+func waitUntilVMIReady(vmi *v1.VirtualMachineInstance, expecterFactory tests.VMIExpecterFactory) *v1.VirtualMachineInstance {
+	// Wait for VirtualMachineInstance start
+	tests.WaitForSuccessfulVMIStart(vmi)
+
+	virtClient, err := kubecli.GetKubevirtClient()
+	Expect(err).ToNot(HaveOccurred())
+	// Fetch the new VirtualMachineInstance with updated status
+	vmi, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Get(vmi.Name, &v13.GetOptions{})
+	Expect(err).ToNot(HaveOccurred())
+
+	// Lets make sure that the OS is up by waiting until we can login
+	expecter, err := expecterFactory(vmi)
+	Expect(err).ToNot(HaveOccurred())
+	expecter.Close()
+	return vmi
+}
