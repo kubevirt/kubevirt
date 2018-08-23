@@ -160,6 +160,27 @@ func validateDisks(field *k8sfield.Path, disks []v1.Disk) []metav1.StatusCause {
 			})
 		}
 
+		// Verify pci address
+		if disk.Disk != nil && disk.Disk.PciAddress != "" {
+			if disk.Disk.Bus != "virtio" {
+				causes = append(causes, metav1.StatusCause{
+					Type:    metav1.CauseTypeFieldValueInvalid,
+					Message: fmt.Sprintf("disk %s - setting a PCI address is only possible with bus type virtio.", field.Child("domain", "devices", "disks", "disk").Index(idx).Child("name").String()),
+					Field:   field.Child("domain", "devices", "disks", "disk").Index(idx).Child("pciAddress").String(),
+				})
+			}
+
+			_, err := util.ParsePciAddress(disk.Disk.PciAddress)
+			if err != nil {
+				causes = append(causes, metav1.StatusCause{
+					Type:    metav1.CauseTypeFieldValueInvalid,
+					Message: fmt.Sprintf("disk %s has malformed PCI address (%s).", field.Child("domain", "devices", "disks", "disk").Index(idx).Child("name").String(), disk.Disk.PciAddress),
+					Field:   field.Child("domain", "devices", "disks", "disk").Index(idx).Child("pciAddress").String(),
+				})
+			}
+
+		}
+
 		// Verify boot order is greater than 0, if provided
 		if disk.BootOrder != nil && *disk.BootOrder < 1 {
 			causes = append(causes, metav1.StatusCause{
