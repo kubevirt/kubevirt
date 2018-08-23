@@ -20,6 +20,8 @@ FROM fedora:27
 
 MAINTAINER "The KubeVirt Project" <kubevirt-dev@googlegroups.com>
 
+RUN dnf -y install iproute && dnf clean all
+
 COPY virt-handler /usr/bin/virt-handler
 
 ENTRYPOINT [ "/usr/bin/virt-handler" ]

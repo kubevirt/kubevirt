@@ -1,14 +1,16 @@
 package devices
 
 import (
+	"bytes"
 	"fmt"
 	"math/rand"
+	"os/exec"
+	"regexp"
 
 	"github.com/vishvananda/netlink"
 
 	"kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/virt-handler/isolation"
-	"kubevirt.io/kubevirt/pkg/virt-handler/ns"
 )
 
 type HostBridge struct {
@@ -17,14 +19,8 @@ type HostBridge struct {
 func (HostBridge) Setup(vmi *v1.VirtualMachineInstance, hostNamespaces *isolation.IsolationResult, podNamespaces *isolation.IsolationResult) error {
 	for i, net := range vmi.Spec.Networks {
 		if net.HostBridge != nil {
-			podns, err := ns.GetNS(podNamespaces.NetNamespace())
-			if err != nil {
-				return err
-			}
-			nodens, err := ns.GetNS(hostNamespaces.NetNamespace())
-			if err != nil {
-				return err
-			}
+			podNetNS := podNamespaces.NetNamespace()
+			nodeNetNS := hostNamespaces.NetNamespace()
 
 			// Set defaults
 			if net.HostBridge.NodeBridgeName == "" {
@@ -33,190 +29,113 @@ func (HostBridge) Setup(vmi *v1.VirtualMachineInstance, hostNamespaces *isolatio
 
 			// First let's create the veth pair and move one part into the host namespace
 			// Note: It's important to create the veth pair inside the container, to inherit automatic cleanup for the veth pairs in case of errors.
-			var peerIndex int
-			var bridge netlink.Link
-			err = podns.Do(func(_ ns.Namespace) error {
-				bridge, err = netlink.LinkByName(net.HostBridge.BridgeName)
-				if err != nil && !isNotExist(err) {
-					return fmt.Errorf("failed to check for the bridge in the container: %v", err)
-				}
+			linkExist := isLinkExistUnderNS(podNetNS, net.HostBridge.BridgeName)
 
-				// Create bridge if it does not already exist
-				if isNotExist(err) {
-					bridge = &netlink.Bridge{
-						LinkAttrs: netlink.LinkAttrs{Name: net.HostBridge.BridgeName},
-					}
-					err := netlink.LinkAdd(bridge)
-					if err != nil {
-						return fmt.Errorf("failed to create bridge %s in the container: %v", net.HostBridge.BridgeName, err)
-					}
-					bridge, err = netlink.LinkByName(net.HostBridge.BridgeName)
-					if err != nil {
-						return fmt.Errorf("failed to get bridge %s on the node namespace: %v", net.HostBridge.NodeBridgeName, err)
-					}
-				}
-
-				// If the bridge we create is already up we are done
-				if bridge.Attrs().OperState == netlink.OperUp {
-					return nil
-				}
-
-				// Create veth pair if device does not already exists
-				veth, err := netlink.LinkByName(vethName(i))
-				if err != nil && !isNotExist(err) {
-					return fmt.Errorf("failed to check for the veth in the container: %v", err)
-				}
-				if isNotExist(err) {
-					link := &netlink.Veth{
-						LinkAttrs: netlink.LinkAttrs{
-							Name:        vethName(i),
-							MasterIndex: bridge.Attrs().Index,
-						},
-						PeerName: randomPeerName()}
-					err := netlink.LinkAdd(link)
-					if err != nil {
-						return fmt.Errorf("failed to create veth pair in the container: %v", err)
-					}
-
-					// Get device after creation
-					veth, err = netlink.LinkByName(vethName(i))
-					if err != nil {
-						return fmt.Errorf("failed to get veth in the container: %v", err)
-					}
-				}
-
-				// Check if it is really a veth
-				if _, ok := veth.(*netlink.Veth); !ok {
-					return fmt.Errorf("link %s is of type %s, expected a veth", veth.Attrs().Name, veth.Type())
-				}
-
-				// Get veth peer index
-				peerIndex, err = netlink.VethPeerIndex(veth.(*netlink.Veth))
+			if !linkExist {
+				_, err := execIPLinkUnderNetNS(
+					podNetNS, "add", net.HostBridge.BridgeName, "type", "bridge",
+				)
 				if err != nil {
-					return fmt.Errorf("failed to get peerIndex in the container: %v", err)
+					return err
 				}
+			}
 
-				// Get veth peer. If we failed before it might already be moved to another namespace.
-				// TODO looks like the netlink library does not properly set the namespace alias
-				peer, err := netlink.LinkByIndex(peerIndex)
-				if err != nil && !isNotExist(err) {
-					return fmt.Errorf("failed to check for the veth peer in the container: %v", err)
-				}
-				if isNotExist(err) {
-					// ok, so we must have moved it already
-					return nil
-				}
-
-				// Check if it is really a veth
-				if _, ok := peer.(*netlink.Veth); !ok {
-					// ok, so the peer is already moved and we got an index from another namespace
-					// this is not even of veth type
-					return nil
-				}
-
-				// Cross check that this veth is really the expected peer
-				vethIndex, err := netlink.VethPeerIndex(peer.(*netlink.Veth))
-				if err != nil {
-					return fmt.Errorf("failed to get vethIndex for peer in the container: %v", err)
-				}
-
-				if vethIndex != veth.Attrs().Index {
-					// this is a veth but not the one we expected, we got an index from another namespace
-					return nil
-				}
-
-				// Move veth peer
-				err = netlink.LinkSetNsPid(peer, 1)
-				if err != nil {
-					return fmt.Errorf("failed to move peer to the node namespace: %v", err)
-				}
-
-				// Devices can get a new index after they change their namespace
-				peerIndex, err = netlink.VethPeerIndex(veth.(*netlink.Veth))
-				if err != nil {
-					return fmt.Errorf("failed to get the peer index after the network namespace switch: %v", err)
-				}
-
-				return nil
-			})
+			// Check bridge state under pod namespace
+			linkUp, err := isLinkUp(podNetNS, net.HostBridge.BridgeName)
 			if err != nil {
-				return fmt.Errorf("could not setup link %s for network %s: %v", net.HostBridge.BridgeName, net.Name, err)
+				return err
 			}
-
-			// If the bridge we create is already up we are done
-			if bridge.Attrs().OperState == netlink.OperUp {
+			if linkUp {
 				return nil
 			}
 
-			// Second let's connect the veth to the host bridge
-			var mtu int
-			err = nodens.Do(func(_ ns.Namespace) error {
-				bridge, err := netlink.LinkByName(net.HostBridge.NodeBridgeName)
-				if err != nil {
-					return fmt.Errorf("failed to get bridge %s on the node namespace: %v", net.HostBridge.NodeBridgeName, err)
-				}
+			// Configure veth under pod namespace
+			linkExist = isLinkExistUnderNS(podNetNS, vethName(i))
 
-				// Check if it is really a bridge
-				if _, ok := bridge.(*netlink.Bridge); !ok {
-					return fmt.Errorf("link %s is of type %s, expected a bridge", bridge.Attrs().Name, bridge.Type())
-				}
-
-				// Get veth peer in this namespace
-				peer, err := netlink.LinkByIndex(peerIndex)
-				if err != nil {
-					return fmt.Errorf("failed to get the peer with index %d in the node namespace: %v", peerIndex, err)
-				}
-
-				// Connect bridge with the peer
-				err = netlink.LinkSetMaster(peer, bridge.(*netlink.Bridge))
-				if err != nil {
-					return fmt.Errorf("failed to connect the peer with index %d with the bridge %s: %v", peerIndex, bridge.Attrs().Name, err)
-				}
-
-				// Make sure that MTUs match
-				if peer.Attrs().MTU != bridge.Attrs().MTU {
-					err = netlink.LinkSetMTU(peer, bridge.Attrs().MTU)
-					if err != nil {
-						return fmt.Errorf("failed to set the peer MTU to the bridges MTU %d: %v", mtu, err)
-					}
-				}
-
-				// Bring the peer up
-				if peer.Attrs().OperState != netlink.OperUp {
-					err = netlink.LinkSetUp(peer)
-					if err != nil {
-						return fmt.Errorf("failed to set the peer in the node namespace to up: %v", err)
-					}
-				}
-				mtu = bridge.Attrs().MTU
-
-				return nil
-			})
-
-			if err != nil {
-				return fmt.Errorf("could not prepare root namespace part for network %s: %v", net.Name, err)
-			}
-
-			// Last let's go back to the container and lets finalize the device configuration there
-			err = podns.Do(func(_ ns.Namespace) error {
-
-				err = setMTUandUPByName(vethName(i), mtu)
+			peerName := randomPeerName()
+			if !linkExist {
+				_, err = execIPLinkUnderNetNS(
+					podNetNS, "add", vethName(i), "type", "veth", "peer", "name", peerName,
+				)
 				if err != nil {
 					return err
 				}
 
-				err = setMTUandUPByName(net.HostBridge.BridgeName, mtu)
+				_, err = execIPLinkUnderNetNS(
+					podNetNS, "set", vethName(i), "master", net.HostBridge.BridgeName,
+				)
 				if err != nil {
 					return err
 				}
 
-				return nil
-			})
-
-			if err != nil {
-				return fmt.Errorf("could not finalize link %s for network %s: %v", net.HostBridge.BridgeName, net.Name, err)
+				_, err = execIPLinkUnderNetNS(podNetNS, "set", peerName, "netns", "1")
+				if err != nil {
+					return err
+				}
 			}
 
+			// Check bridge state under pod namespace
+			linkUp, err = isLinkUp(podNetNS, net.HostBridge.BridgeName)
+			if err != nil {
+				return err
+			}
+			if linkUp {
+				return nil
+			}
+
+			// Connect veth to node bridge
+			linkExist = isLinkExistUnderNS(nodeNetNS, net.HostBridge.NodeBridgeName)
+			if !linkExist {
+				return fmt.Errorf("failed to get bridge %s on the node namespace: %v", net.HostBridge.NodeBridgeName, err)
+			}
+
+			_, err = execIPLinkUnderNetNS(nodeNetNS, "show", "type", "bridge", net.HostBridge.NodeBridgeName)
+			if err != nil {
+				return fmt.Errorf("link %s is not bridge type", net.HostBridge.NodeBridgeName)
+			}
+
+			_, err = execIPLinkUnderNetNS(
+				nodeNetNS, "set", peerName, "master", net.HostBridge.NodeBridgeName,
+			)
+			if err != nil {
+				return err
+			}
+
+			// Set bridge MTU on the veth
+			nodeBridgeMTU, err := getLinkMTU(nodeNetNS, net.HostBridge.NodeBridgeName)
+			if err != nil {
+				return err
+			}
+
+			_, err = execIPLinkUnderNetNS(nodeNetNS, "set", peerName, "mtu", nodeBridgeMTU)
+			if err != nil {
+				return err
+			}
+
+			linkUp, err = isLinkUp(nodeNetNS, peerName)
+			if err != nil {
+				return err
+			}
+			if !linkUp {
+				_, err = execIPLinkUnderNetNS(nodeNetNS, "set", peerName, "up")
+				if err != nil {
+					return err
+				}
+			}
+
+			// Do a final configuration under pod namespace
+			for _, iface := range []string{vethName(i), net.HostBridge.BridgeName} {
+
+				_, err = execIPLinkUnderNetNS(podNetNS, "set", iface, "mtu", nodeBridgeMTU)
+				if err != nil {
+					return err
+				}
+
+				_, err = execIPLinkUnderNetNS(podNetNS, "set", iface, "up")
+				if err != nil {
+					return err
+				}
+			}
 		}
 	}
 	return nil
@@ -275,4 +194,56 @@ func isNotExist(err error) bool {
 		}
 	}
 	return false
+}
+
+func execIPLinkUnderNetNS(nsPath string, args ...string) ([]byte, error) {
+	var stdout, stderr bytes.Buffer
+
+	args = append([]string{"--net=" + nsPath, "ip", "link"}, args...)
+	c := exec.Command("nsenter", args...)
+	c.Stdout = &stdout
+	c.Stderr = &stderr
+	if err := c.Run(); err != nil {
+		return nil, fmt.Errorf("%s: %s", string(stderr.Bytes()), err)
+	}
+
+	return stdout.Bytes(), nil
+}
+
+func isLinkExistUnderNS(nsPath string, linkName string) bool {
+	_, err := execIPLinkUnderNetNS(nsPath, "show", linkName)
+	if err != nil {
+		return false
+	}
+	return true
+}
+
+func isLinkUp(nsPath string, linkName string) (bool, error) {
+	// Check bridge state under specified namespace
+	nsLink, err := execIPLinkUnderNetNS(nsPath, "show", linkName)
+	if err != nil {
+		return false, err
+	}
+	stateRegex := regexp.MustCompile(`state\s(\w+)\s`)
+	state := stateRegex.FindStringSubmatch(string(nsLink))
+	if state == nil || len(state) < 2 {
+		return false, fmt.Errorf("failed to find state stat for the link %s", linkName)
+	}
+
+	return state[1] == "UP", nil
+}
+
+func getLinkMTU(nsPath string, linkName string) (string, error) {
+	// Check bridge state under specified namespace
+	nsLink, err := execIPLinkUnderNetNS(nsPath, "show", linkName)
+	if err != nil {
+		return "", err
+	}
+	mtuRegex := regexp.MustCompile(`mtu\s(\d+)\s`)
+	mtu := mtuRegex.FindStringSubmatch(string(nsLink))
+	if mtu == nil || len(mtu) < 2 {
+		return "", fmt.Errorf("failed to find state stat for the link %s", linkName)
+	}
+
+	return mtu[1], nil
 }
