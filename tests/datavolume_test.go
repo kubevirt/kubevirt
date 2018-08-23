@@ -21,6 +21,7 @@ package tests_test
 
 import (
 	"flag"
+	"fmt"
 	"time"
 
 	. "github.com/onsi/ginkgo"
@@ -92,6 +93,33 @@ var _ = Describe("DataVolume Integration", func() {
 				}
 				err = virtClient.CdiClient().CdiV1alpha1().DataVolumes(dataVolume.Namespace).Delete(dataVolume.Name, &metav1.DeleteOptions{})
 				Expect(err).To(BeNil())
+			})
+		})
+	})
+
+	Describe("Starting a VirtualMachine with a DataVolume", func() {
+		Context("using Alpine import", func() {
+			It("should be successfully started and stopped multiple times", func() {
+				vm := tests.NewRandomVMWithDataVolume(tests.AlpineHttpUrl, tests.NamespaceTestDefault)
+				vm, err = virtClient.VirtualMachine(tests.NamespaceTestDefault).Create(vm)
+				Expect(err).ToNot(HaveOccurred())
+				num := 2
+				By("Starting and stopping the VirtualMachine number of times")
+				for i := 0; i < num; i++ {
+					By(fmt.Sprintf("Doing run: %d", i))
+					vm = tests.StartVirtualMachine(vm)
+					// Verify console on last iteration to verify the VirtualMachineInstance is still booting properly
+					// after being restarted multiple times
+					if i == num {
+						By("Checking that the VirtualMachineInstance console has expected output")
+						vmi, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(vm.Name, &metav1.GetOptions{})
+						Expect(err).ToNot(HaveOccurred())
+						expecter, err := tests.LoggedInAlpineExpecter(vmi)
+						Expect(err).To(BeNil())
+						expecter.Close()
+					}
+					vm = tests.StopVirtualMachine(vm)
+				}
 			})
 		})
 	})
