@@ -14,7 +14,6 @@
  * limitations under the License.
  *
  * Copyright 2018 Red Hat, Inc.
- * Copyright 2018 The Kubernetes Authors.
  *
  */
 package virtctl

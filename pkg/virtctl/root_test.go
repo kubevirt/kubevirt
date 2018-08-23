@@ -14,7 +14,6 @@
  * limitations under the License.
  *
  * Copyright 2018 Red Hat, Inc.
- * Copyright 2018 The Kubernetes Authors.
  *
  */
 
@@ -28,7 +27,7 @@ import (
 	. "github.com/onsi/gomega"
 
 	"github.com/spf13/cobra"
-	yaml "gopkg.in/yaml.v2"
+	"gopkg.in/yaml.v2"
 
 	"kubevirt.io/kubevirt/pkg/kubecli"
 )
@@ -123,7 +122,11 @@ tree:
   longdesc: ""
   example: ""
   command: ./virtctl version
-  flags: []
+  flags:
+  - name: client
+    shorthand: ""
+    desc: Client version only (no server required).
+    defvalue: "false"
   tree: []
 - name: vnc
   shortdesc: Open a vnc connection to a virtual machine instance.
