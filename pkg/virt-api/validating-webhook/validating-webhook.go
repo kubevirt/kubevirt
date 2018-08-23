@@ -797,6 +797,38 @@ func ValidateVirtualMachineSpec(field *k8sfield.Path, spec *v1.VirtualMachineSpe
 	}
 
 	causes = append(causes, ValidateVirtualMachineInstanceSpec(field.Child("template", "spec"), &spec.Template.Spec)...)
+
+	if len(spec.DataVolumeTemplates) > 0 {
+
+		for idx, dataVolume := range spec.DataVolumeTemplates {
+			if dataVolume.Name == "" {
+				causes = append(causes, metav1.StatusCause{
+					Type:    metav1.CauseTypeFieldValueRequired,
+					Message: fmt.Sprintf("'name' field must not be empty for DataVolumeTemplate entry %s.", field.Child("dataVolumeTemplate").Index(idx).String()),
+					Field:   field.Child("dataVolumeTemplate").Index(idx).Child("name").String(),
+				})
+			}
+
+			dataVolumeRefFound := false
+			for _, volume := range spec.Template.Spec.Volumes {
+				if volume.VolumeSource.DataVolume == nil {
+					continue
+				} else if volume.VolumeSource.DataVolume.Name == dataVolume.Name {
+					dataVolumeRefFound = true
+					break
+				}
+			}
+
+			if !dataVolumeRefFound {
+				causes = append(causes, metav1.StatusCause{
+					Type:    metav1.CauseTypeFieldValueRequired,
+					Message: fmt.Sprintf("DataVolumeTemplate entry %s must be referenced in the VMI template's 'volumes' list", field.Child("dataVolumeTemplate").Index(idx).String()),
+					Field:   field.Child("dataVolumeTemplate").Index(idx).String(),
+				})
+			}
+		}
+	}
+
 	return causes
 }
 
