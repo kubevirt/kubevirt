@@ -361,8 +361,8 @@ var _ = Describe("Configurations", func() {
 
 				By("Checking the virtio rng presence")
 				_, err = expecter.ExpectBatch([]expect.Batcher{
-					&expect.BSnd{S: "grep -c ^virtio /sys/devices/virtual/misc/hw_random/rng_available\n"},
-					&expect.BExp{R: "0"},
+					&expect.BSnd{S: "[[ ! -e /sys/devices/virtual/misc/hw_random/rng_available ]] && echo non\n"},
+					&expect.BExp{R: "non"},
 				}, 400*time.Second)
 				Expect(err).ToNot(HaveOccurred())
 			})
