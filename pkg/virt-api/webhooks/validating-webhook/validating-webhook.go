@@ -23,7 +23,6 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	"net"
 	"net/http"
 	"regexp"
@@ -42,8 +41,8 @@ import (
 	"kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/feature-gates"
 	"kubevirt.io/kubevirt/pkg/log"
-	"kubevirt.io/kubevirt/pkg/virt-api/webhooks"
 	"kubevirt.io/kubevirt/pkg/util"
+	"kubevirt.io/kubevirt/pkg/virt-api/webhooks"
 )
 
 const (
@@ -898,8 +897,19 @@ func admitVMIs(ar *v1beta1.AdmissionReview) *v1beta1.AdmissionResponse {
 	return &reviewResponse
 }
 
-func ServeVMIs(resp http.ResponseWriter, req *http.Request) {
+func ServeVMICreate(resp http.ResponseWriter, req *http.Request) {
 	serve(resp, req, admitVMIs)
+}
+
+func ServeVMIUpdate(resp http.ResponseWriter, req *http.Request) {
+	serve(resp, req, func(ar *v1beta1.AdmissionReview) *v1beta1.AdmissionResponse {
+		return toAdmissionResponse([]metav1.StatusCause{
+			metav1.StatusCause{
+				Type:    metav1.CauseTypeFieldValueNotSupported,
+				Message: "update of VMI object is restricted",
+			},
+		})
+	})
 }
 
 func admitVMs(ar *v1beta1.AdmissionReview) *v1beta1.AdmissionResponse {

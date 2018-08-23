@@ -73,7 +73,8 @@ const (
 
 	virtApiServiceName = "virt-api"
 
-	vmiValidatePath       = "/virtualmachineinstances-validate"
+	vmiCreateValidatePath = "/virtualmachineinstances-validate-create"
+	vmiUpdateValidatePath = "/virtualmachineinstances-validate-update"
 	vmValidatePath        = "/virtualmachines-validate"
 	vmirsValidatePath     = "/virtualmachinereplicaset-validate"
 	vmipresetValidatePath = "/vmipreset-validate"
@@ -530,7 +531,8 @@ func (app *virtAPIApp) createWebhook() error {
 func (app *virtAPIApp) createValidatingWebhook() error {
 	namespace := getNamespace()
 	registerWebhook := false
-	vmiPath := vmiValidatePath
+	vmiPathCreate := vmiCreateValidatePath
+	vmiPathUpdate := vmiUpdateValidatePath
 	vmPath := vmValidatePath
 	vmirsPath := vmirsValidatePath
 	vmipresetPath := vmipresetValidatePath
@@ -546,10 +548,30 @@ func (app *virtAPIApp) createValidatingWebhook() error {
 
 	webHooks := []admissionregistrationv1beta1.Webhook{
 		{
-			Name: "virtualmachineinstances-validator.kubevirt.io",
+			Name: "virtualmachineinstances-create-validator.kubevirt.io",
 			Rules: []admissionregistrationv1beta1.RuleWithOperations{{
 				Operations: []admissionregistrationv1beta1.OperationType{
 					admissionregistrationv1beta1.Create,
+				},
+				Rule: admissionregistrationv1beta1.Rule{
+					APIGroups:   []string{v1.GroupName},
+					APIVersions: []string{v1.VirtualMachineInstanceGroupVersionKind.Version},
+					Resources:   []string{"virtualmachineinstances"},
+				},
+			}},
+			ClientConfig: admissionregistrationv1beta1.WebhookClientConfig{
+				Service: &admissionregistrationv1beta1.ServiceReference{
+					Namespace: namespace,
+					Name:      virtApiServiceName,
+					Path:      &vmiPathCreate,
+				},
+				CABundle: app.signingCertBytes,
+			},
+		},
+		{
+			Name: "virtualmachineinstances-update-validator.kubevirt.io",
+			Rules: []admissionregistrationv1beta1.RuleWithOperations{{
+				Operations: []admissionregistrationv1beta1.OperationType{
 					admissionregistrationv1beta1.Update,
 				},
 				Rule: admissionregistrationv1beta1.Rule{
@@ -562,7 +584,7 @@ func (app *virtAPIApp) createValidatingWebhook() error {
 				Service: &admissionregistrationv1beta1.ServiceReference{
 					Namespace: namespace,
 					Name:      virtApiServiceName,
-					Path:      &vmiPath,
+					Path:      &vmiPathUpdate,
 				},
 				CABundle: app.signingCertBytes,
 			},
@@ -662,8 +684,11 @@ func (app *virtAPIApp) createValidatingWebhook() error {
 		}
 	}
 
-	http.HandleFunc(vmiValidatePath, func(w http.ResponseWriter, r *http.Request) {
-		validating_webhook.ServeVMIs(w, r)
+	http.HandleFunc(vmiCreateValidatePath, func(w http.ResponseWriter, r *http.Request) {
+		validating_webhook.ServeVMICreate(w, r)
+	})
+	http.HandleFunc(vmiUpdateValidatePath, func(w http.ResponseWriter, r *http.Request) {
+		validating_webhook.ServeVMIUpdate(w, r)
 	})
 	http.HandleFunc(vmValidatePath, func(w http.ResponseWriter, r *http.Request) {
 		validating_webhook.ServeVMs(w, r)
