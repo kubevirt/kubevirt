@@ -57,7 +57,7 @@ var _ = Describe("Converter", func() {
   <source></source>
   <target bus="virtio" dev="vda"></target>
   <driver name="qemu" type=""></driver>
-  <alias name="mydisk"></alias>
+  <alias name="ua-mydisk"></alias>
   <boot order="1"></boot>
 </Disk>`
 			xml := diskToDiskXML(kubevirtDisk)
@@ -79,7 +79,7 @@ var _ = Describe("Converter", func() {
   <source></source>
   <target bus="virtio" dev="vda"></target>
   <driver name="qemu" type=""></driver>
-  <alias name="mydisk"></alias>
+  <alias name="ua-mydisk"></alias>
 </Disk>`
 			xml := diskToDiskXML(kubevirtDisk)
 			fmt.Println(xml)
@@ -317,7 +317,7 @@ var _ = Describe("Converter", func() {
     <interface type="bridge">
       <source bridge="br1"></source>
       <model type="virtio"></model>
-      <alias name="default"></alias>
+      <alias name="ua-default"></alias>
     </interface>
     <controller type="usb" index="0" model="none"></controller>
     <video>
@@ -331,51 +331,51 @@ var _ = Describe("Converter", func() {
       <source file="/var/run/kubevirt-private/vmi-disks/myvolume/disk.img"></source>
       <target bus="virtio" dev="vda"></target>
       <driver name="qemu" type="raw"></driver>
-      <alias name="mydisk"></alias>
+      <alias name="ua-mydisk"></alias>
     </disk>
     <disk device="disk" type="file">
       <source file="/var/run/libvirt/cloud-init-dir/mynamespace/testvmi/noCloud.iso"></source>
       <target bus="virtio" dev="vdb"></target>
       <driver name="qemu" type="raw"></driver>
-      <alias name="mydisk1"></alias>
+      <alias name="ua-mydisk1"></alias>
     </disk>
     <disk device="cdrom" type="file">
       <source file="/var/run/libvirt/cloud-init-dir/mynamespace/testvmi/noCloud.iso"></source>
       <target bus="sata" dev="sda" tray="closed"></target>
       <driver name="qemu" type="raw"></driver>
-      <alias name="cdrom_tray_unspecified"></alias>
+      <alias name="ua-cdrom_tray_unspecified"></alias>
     </disk>
     <disk device="cdrom" type="file">
       <source file="/var/run/kubevirt-private/vmi-disks/volume1/disk.img"></source>
       <target bus="sata" dev="sdb" tray="open"></target>
       <driver name="qemu" type="raw"></driver>
       <readonly></readonly>
-      <alias name="cdrom_tray_open"></alias>
+      <alias name="ua-cdrom_tray_open"></alias>
     </disk>
     <disk device="floppy" type="file">
       <source file="/var/run/kubevirt-private/vmi-disks/volume2/disk.img"></source>
       <target bus="fdc" dev="fda" tray="closed"></target>
       <driver name="qemu" type="raw"></driver>
-      <alias name="floppy_tray_unspecified"></alias>
+      <alias name="ua-floppy_tray_unspecified"></alias>
     </disk>
     <disk device="floppy" type="file">
       <source file="/var/run/kubevirt-private/vmi-disks/volume3/disk.img"></source>
       <target bus="fdc" dev="fdb" tray="open"></target>
       <driver name="qemu" type="raw"></driver>
       <readonly></readonly>
-      <alias name="floppy_tray_open"></alias>
+      <alias name="ua-floppy_tray_open"></alias>
     </disk>
     <disk device="disk" type="file">
       <source file="/var/run/kubevirt-private/vmi-disks/volume4/disk.img"></source>
       <target bus="sata" dev="sdc"></target>
       <driver name="qemu" type="raw"></driver>
-      <alias name="should_default_to_disk"></alias>
+      <alias name="ua-should_default_to_disk"></alias>
     </disk>
     <disk device="disk" type="file">
       <source file="/var/run/libvirt/kubevirt-ephemeral-disk/volume5/disk.qcow2"></source>
       <target bus="sata" dev="sdd"></target>
       <driver name="qemu" type="qcow2"></driver>
-      <alias name="ephemeral_pvc"></alias>
+      <alias name="ua-ephemeral_pvc"></alias>
       <backingStore type="file">
         <format type="raw"></format>
         <source file="/var/run/kubevirt-private/vmi-disks/volume5/disk.img"></source>
@@ -389,7 +389,7 @@ var _ = Describe("Converter", func() {
       <target type="serial" port="0"></target>
     </console>
     <watchdog model="i6300esb" action="poweroff">
-      <alias name="mywatchdog"></alias>
+      <alias name="ua-mywatchdog"></alias>
     </watchdog>
   </devices>
   <clock offset="utc" adjustment="reset">
