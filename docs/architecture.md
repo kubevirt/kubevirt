@@ -46,8 +46,7 @@ required state.
 This same mechanism is used by KubeVirt. Thus KubeVirt delivers three things
 to provide the new functionality:
 
-1. Additional types - so called 3rd party resources - are added to the
-   Kubernetes API
+1. Additional types - so called [Custom Resource Definition](https://kubernetes.io/docs/concepts/extend-kubernetes/api-extension/custom-resources/) (CRD) - are added to the Kubernetes API
 2. Additional controllers for cluster wide logic associated with this new types
 3. Additional daemons for node specific logic associated with new types
 
