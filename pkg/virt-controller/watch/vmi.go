@@ -95,17 +95,16 @@ func NewVMIController(templateService services.TemplateService,
 	dataVolumeInformer cache.SharedIndexInformer) *VMIController {
 
 	c := &VMIController{
-		templateService:        templateService,
-		Queue:                  workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter()),
-		vmiInformer:            vmiInformer,
-		podInformer:            podInformer,
-		recorder:               recorder,
-		clientset:              clientset,
-		podExpectations:        controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectations()),
-		dataVolumeExpectations: controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectations()),
-		handoverExpectations:   controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectations()),
-		configMapInformer:      configMapInformer,
-		dataVolumeInformer:     dataVolumeInformer,
+		templateService:      templateService,
+		Queue:                workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter()),
+		vmiInformer:          vmiInformer,
+		podInformer:          podInformer,
+		recorder:             recorder,
+		clientset:            clientset,
+		podExpectations:      controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectations()),
+		handoverExpectations: controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectations()),
+		configMapInformer:    configMapInformer,
+		dataVolumeInformer:   dataVolumeInformer,
 	}
 
 	c.vmiInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
@@ -148,17 +147,16 @@ func (e *syncErrorImpl) Reason() string {
 }
 
 type VMIController struct {
-	templateService        services.TemplateService
-	clientset              kubecli.KubevirtClient
-	Queue                  workqueue.RateLimitingInterface
-	vmiInformer            cache.SharedIndexInformer
-	podInformer            cache.SharedIndexInformer
-	recorder               record.EventRecorder
-	podExpectations        *controller.UIDTrackingControllerExpectations
-	dataVolumeExpectations *controller.UIDTrackingControllerExpectations
-	handoverExpectations   *controller.UIDTrackingControllerExpectations
-	configMapInformer      cache.SharedIndexInformer
-	dataVolumeInformer     cache.SharedIndexInformer
+	templateService      services.TemplateService
+	clientset            kubecli.KubevirtClient
+	Queue                workqueue.RateLimitingInterface
+	vmiInformer          cache.SharedIndexInformer
+	podInformer          cache.SharedIndexInformer
+	recorder             record.EventRecorder
+	podExpectations      *controller.UIDTrackingControllerExpectations
+	handoverExpectations *controller.UIDTrackingControllerExpectations
+	configMapInformer    cache.SharedIndexInformer
+	dataVolumeInformer   cache.SharedIndexInformer
 }
 
 func (c *VMIController) Run(threadiness int, stopCh chan struct{}) {
@@ -254,7 +252,7 @@ func (c *VMIController) execute(key string) error {
 	}
 
 	// If needsSync is true (expectations fulfilled) we can make save assumptions if virt-handler or virt-controller owns the pod
-	needsSync := c.podExpectations.SatisfiedExpectations(key) && c.handoverExpectations.SatisfiedExpectations(key) && c.dataVolumeExpectations.SatisfiedExpectations(key)
+	needsSync := c.podExpectations.SatisfiedExpectations(key) && c.handoverExpectations.SatisfiedExpectations(key)
 
 	var syncErr syncError = nil
 	if needsSync {
@@ -497,25 +495,14 @@ func (c *VMIController) addDataVolume(obj interface{}) {
 		c.deleteDataVolume(dataVolume)
 		return
 	}
-	controllerRef := c.getControllerOfDataVolume(dataVolume)
-	vmiOwner := c.resolveControllerRef(dataVolume.Namespace, controllerRef)
-	if vmiOwner != nil {
-		vmiKey, err := controller.KeyFunc(vmiOwner)
-		if err != nil {
-			return
-		}
-		log.Log.V(4).Object(dataVolume).Infof("DataVolume created for vmi owner %s", vmiOwner.Name)
-		c.dataVolumeExpectations.CreationObserved(vmiKey)
-		c.enqueueVirtualMachine(vmiOwner)
-	} else {
-		vmis, err := c.listVMIsMatchingDataVolume(dataVolume.Namespace, dataVolume.Name)
-		if err != nil {
-			return
-		}
-		for _, vmi := range vmis {
-			log.Log.V(4).Object(dataVolume).Infof("DataVolume created for vmi %s", vmi.Name)
-			c.enqueueVirtualMachine(vmi)
-		}
+
+	vmis, err := c.listVMIsMatchingDataVolume(dataVolume.Namespace, dataVolume.Name)
+	if err != nil {
+		return
+	}
+	for _, vmi := range vmis {
+		log.Log.V(4).Object(dataVolume).Infof("DataVolume created for vmi %s", vmi.Name)
+		c.enqueueVirtualMachine(vmi)
 	}
 }
 func (c *VMIController) updateDataVolume(old, cur interface{}) {
@@ -539,30 +526,15 @@ func (c *VMIController) updateDataVolume(old, cur interface{}) {
 		}
 		return
 	}
-	curControllerRef := c.getControllerOfDataVolume(curDataVolume)
-	oldControllerRef := c.getControllerOfDataVolume(oldDataVolume)
-	controllerRefChanged := !reflect.DeepEqual(curControllerRef, oldControllerRef)
-	if controllerRefChanged && oldControllerRef != nil {
-		// The ControllerRef was changed. Sync the old controller, if any.
-		if vmiOwner := c.resolveControllerRef(oldDataVolume.Namespace, oldControllerRef); vmiOwner != nil {
-			c.enqueueVirtualMachine(vmiOwner)
-		}
+
+	vmis, err := c.listVMIsMatchingDataVolume(curDataVolume.Namespace, curDataVolume.Name)
+	if err != nil {
+		log.Log.V(4).Object(curDataVolume).Errorf("Error encountered during datavolume update: %v", err)
+		return
 	}
-	log.Log.V(4).Object(curDataVolume).Infof("DataVolume updated")
-	vmiOwner := c.resolveControllerRef(curDataVolume.Namespace, curControllerRef)
-	if vmiOwner != nil {
-		c.enqueueVirtualMachine(vmiOwner)
-		log.Log.V(4).Object(curDataVolume).Infof("DataVolume updated for vmi %s", vmiOwner.Name)
-	} else {
-		vmis, err := c.listVMIsMatchingDataVolume(curDataVolume.Namespace, curDataVolume.Name)
-		if err != nil {
-			log.Log.V(4).Object(curDataVolume).Errorf("Error encountered during datavolume update: %v", err)
-			return
-		}
-		for _, vmi := range vmis {
-			log.Log.V(4).Object(curDataVolume).Infof("DataVolume updated for vmi %s", vmi.Name)
-			c.enqueueVirtualMachine(vmi)
-		}
+	for _, vmi := range vmis {
+		log.Log.V(4).Object(curDataVolume).Infof("DataVolume updated for vmi %s", vmi.Name)
+		c.enqueueVirtualMachine(vmi)
 	}
 }
 func (c *VMIController) deleteDataVolume(obj interface{}) {
@@ -583,23 +555,13 @@ func (c *VMIController) deleteDataVolume(obj interface{}) {
 			return
 		}
 	}
-	controllerRef := c.getControllerOfDataVolume(dataVolume)
-	vmiOwner := c.resolveControllerRef(dataVolume.Namespace, controllerRef)
-	if vmiOwner != nil {
-		vmiKey, err := controller.KeyFunc(vmiOwner)
-		if err != nil {
-			return
-		}
-		c.dataVolumeExpectations.DeletionObserved(vmiKey, controller.DataVolumeKey(dataVolume))
-		c.enqueueVirtualMachine(vmiOwner)
-	} else {
-		vmis, err := c.listVMIsMatchingDataVolume(dataVolume.Namespace, dataVolume.Name)
-		if err != nil {
-			return
-		}
-		for _, vmi := range vmis {
-			c.enqueueVirtualMachine(vmi)
-		}
+	vmis, err := c.listVMIsMatchingDataVolume(dataVolume.Namespace, dataVolume.Name)
+	if err != nil {
+		return
+	}
+	for _, vmi := range vmis {
+		log.Log.V(4).Object(dataVolume).Infof("DataVolume deleted for vmi %s", vmi.Name)
+		c.enqueueVirtualMachine(vmi)
 	}
 }
 
