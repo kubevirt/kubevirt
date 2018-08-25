@@ -32,7 +32,6 @@ import (
 	"reflect"
 
 	"k8s.io/apimachinery/pkg/apis/meta/v1"
-
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
 
@@ -332,7 +331,23 @@ func (c *VMIController) updateStatus(vmi *virtv1.VirtualMachineInstance, pods []
 		if !podExists {
 			controller.RemoveFinalizer(vmiCopy, virtv1.VirtualMachineInstanceFinalizer)
 		}
-	case vmi.IsRunning() || vmi.IsScheduled():
+	case vmi.IsRunning():
+		if !conditionManager.HasCondition(vmiCopy, virtv1.VirtualMachineInstanceReady) {
+			conditionManager.AddCondition(vmiCopy, &virtv1.VirtualMachineInstanceCondition{
+				Type:               virtv1.VirtualMachineInstanceReady,
+				Reason:             "",
+				Message:            "",
+				LastTransitionTime: v1.Now(),
+				LastProbeTime:      v1.Now(),
+				Status:             k8sv1.ConditionTrue,
+			})
+		}
+		if isPodDownOrGoingDown(pod) {
+			if conditionManager.HasCondition(vmiCopy, virtv1.VirtualMachineInstanceReady) {
+				conditionManager.RemoveCondition(vmiCopy, virtv1.VirtualMachineInstanceReady)
+			}
+		}
+	case vmi.IsScheduled():
 		// Don't process states where the vmi is clearly owned by virt-handler
 		return nil
 	default:

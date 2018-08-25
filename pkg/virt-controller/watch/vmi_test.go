@@ -124,6 +124,15 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 		}).Return(vmi, nil)
 	}
 
+	shouldExpectVirtualMachineRunnningState := func(vmi *v1.VirtualMachineInstance) {
+		vmiInterface.EXPECT().Update(gomock.Any()).Do(func(arg interface{}) {
+			Expect(arg.(*v1.VirtualMachineInstance).Status.Phase).To(Equal(v1.Running))
+			Expect(arg.(*v1.VirtualMachineInstance).Status.Conditions).To(HaveLen(1))
+			cond := arg.(*v1.VirtualMachineInstance).Status.Conditions[0]
+			Expect(cond.Type).To(Equal(v1.VirtualMachineInstanceReady))
+		}).Return(vmi, nil)
+	}
+
 	shouldExpectVirtualMachineFailedState := func(vmi *v1.VirtualMachineInstance) {
 		vmiInterface.EXPECT().Update(gomock.Any()).Do(func(arg interface{}) {
 			Expect(arg.(*v1.VirtualMachineInstance).Status.Phase).To(Equal(v1.Failed))
@@ -311,6 +320,10 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 
 			if vmi.IsUnprocessed() {
 				shouldExpectVirtualMachineSchedulingState(vmi)
+			}
+
+			if vmi.IsRunning() {
+				shouldExpectVirtualMachineRunnningState(vmi)
 			}
 
 			controller.Execute()

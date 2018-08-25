@@ -12,13 +12,17 @@ type VirtualMachineConditionManager struct {
 
 func (d *VirtualMachineConditionManager) CheckFailure(vmi *v1.VirtualMachineInstance, syncErr error, reason string) (changed bool) {
 	if syncErr != nil && !d.HasCondition(vmi, v1.VirtualMachineInstanceSynchronized) {
-		vmi.Status.Conditions = append(vmi.Status.Conditions, v1.VirtualMachineInstanceCondition{
+		d.AddCondition(vmi, &v1.VirtualMachineInstanceCondition{
 			Type:               v1.VirtualMachineInstanceSynchronized,
 			Reason:             reason,
 			Message:            syncErr.Error(),
 			LastTransitionTime: metav1.Now(),
 			Status:             k8sv1.ConditionFalse,
 		})
+		if d.HasCondition(vmi, v1.VirtualMachineInstanceReady) {
+			// Remove Ready condition from the VM
+			d.RemoveCondition(vmi, v1.VirtualMachineInstanceReady)
+		}
 		return true
 	} else if syncErr == nil && d.HasCondition(vmi, v1.VirtualMachineInstanceSynchronized) {
 		d.RemoveCondition(vmi, v1.VirtualMachineInstanceSynchronized)
@@ -45,6 +49,17 @@ func (d *VirtualMachineConditionManager) RemoveCondition(vmi *v1.VirtualMachineI
 		conds = append(conds, c)
 	}
 	vmi.Status.Conditions = conds
+}
+
+func (d *VirtualMachineConditionManager) AddCondition(vmi *v1.VirtualMachineInstance, cond *v1.VirtualMachineInstanceCondition) {
+	vmi.Status.Conditions = append(vmi.Status.Conditions, v1.VirtualMachineInstanceCondition{
+		Type:               cond.Type,
+		Reason:             cond.Reason,
+		Message:            cond.Message,
+		LastTransitionTime: cond.LastTransitionTime,
+		LastProbeTime:      cond.LastProbeTime,
+		Status:             cond.Status,
+	})
 }
 
 // AddPodCondition add pod condition to the VM.
