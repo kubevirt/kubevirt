@@ -137,6 +137,7 @@ const (
 const (
 	osAlpineHostPath = "alpine-host-path"
 	osWindows        = "windows"
+	osRhel           = "rhel"
 	CustomHostPath   = "custom-host-path"
 )
 
@@ -149,12 +150,14 @@ const (
 const (
 	DiskAlpineHostPath = "disk-alpine-host-path"
 	DiskWindows        = "disk-windows"
+	DiskRhel           = "disk-rhel"
 	DiskCustomHostPath = "disk-custom-host-path"
 )
 
 const (
 	defaultDiskSize        = "1Gi"
 	defaultWindowsDiskSize = "30Gi"
+	defaultRhelDiskSize    = "15Gi"
 )
 
 const VMIResource = "virtualmachineinstances"
@@ -320,6 +323,7 @@ func AfterTestSuitCleanup() {
 	cleanupServiceAccounts()
 
 	DeletePVC(osWindows)
+	DeletePVC(osRhel)
 
 	DeletePVC(osAlpineHostPath)
 	DeletePV(osAlpineHostPath)
@@ -345,6 +349,7 @@ func BeforeTestSuitSetup() {
 	CreatePVC(osAlpineHostPath, defaultDiskSize)
 
 	CreatePVC(osWindows, defaultWindowsDiskSize)
+	CreatePVC(osRhel, defaultRhelDiskSize)
 
 	EnsureKVMPresent()
 }
@@ -1657,6 +1662,17 @@ func SkipIfNoWindowsImage(virtClient kubecli.KubevirtClient) {
 	} else if windowsPv.Status.Phase == k8sv1.VolumeReleased {
 		windowsPv.Spec.ClaimRef = nil
 		_, err = virtClient.CoreV1().PersistentVolumes().Update(windowsPv)
+		Expect(err).ToNot(HaveOccurred())
+	}
+}
+
+func SkipIfNoRhelImage(virtClient kubecli.KubevirtClient) {
+	rhelPv, err := virtClient.CoreV1().PersistentVolumes().Get(DiskRhel, metav1.GetOptions{})
+	if err != nil || rhelPv.Status.Phase == k8sv1.VolumePending || rhelPv.Status.Phase == k8sv1.VolumeFailed {
+		Skip(fmt.Sprintf("Skip RHEL tests that requires PVC %s", DiskRhel))
+	} else if rhelPv.Status.Phase == k8sv1.VolumeReleased {
+		rhelPv.Spec.ClaimRef = nil
+		_, err = virtClient.CoreV1().PersistentVolumes().Update(rhelPv)
 		Expect(err).ToNot(HaveOccurred())
 	}
 }

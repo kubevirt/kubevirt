@@ -30,6 +30,7 @@ import (
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+	k8sv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -42,7 +43,7 @@ import (
 var _ = Describe("Templates", func() {
 	flag.Parse()
 
-	_, err := kubecli.GetKubevirtClient()
+	virtClient, err := kubecli.GetKubevirtClient()
 	tests.PanicOnError(err)
 
 	var (
@@ -192,13 +193,28 @@ var _ = Describe("Templates", func() {
 
 		Context("with given Fedora Template", func() {
 			BeforeEach(func() {
-				template = newTemplate(TemplateMeta{
+				template = newFedoraTemplate(TemplateMeta{
 					Name:        "vm-template-fedora",
 					Description: "OCP KubeVirt Fedora 27 VM template",
 					Label:       "fedora27",
 					IconClass:   "icon-fedora",
 					Image:       "registry:5000/kubevirt/fedora-cloud-registry-disk-demo:latest",
 					UserData:    "#cloud-config\npassword: fedora\nchpasswd: { expire: False }",
+				})
+			})
+
+			testGivenTemplate()
+		})
+
+		Context("with given RHEL Template", func() {
+			BeforeEach(func() {
+				tests.SkipIfNoRhelImage(virtClient)
+				template = newRhelTemplate(TemplateMeta{
+					Name:        "vm-template-rhel",
+					Description: "OCP KubeVirt Red Hat Enterprise Linux 7.5 VM template",
+					Label:       "rhel7",
+					IconClass:   "icon-rhel",
+					PvcName:     tests.DiskRhel,
 				})
 			})
 
@@ -214,6 +230,7 @@ type TemplateMeta struct {
 	IconClass   string
 	Image       string
 	UserData    string
+	PvcName     string
 }
 
 type TemplateParams struct {
@@ -303,7 +320,7 @@ func templateParameters(memory string, cores string) []tests.Parameter {
 	}
 }
 
-func newTemplate(templateMeta TemplateMeta) *tests.Template {
+func newFedoraTemplate(templateMeta TemplateMeta) *tests.Template {
 	gracePeriod := int64(0)
 	vmSpec := &v1.VirtualMachine{
 		Spec: v1.VirtualMachineSpec{
@@ -348,6 +365,76 @@ func newTemplate(templateMeta TemplateMeta) *tests.Template {
 							VolumeSource: v1.VolumeSource{
 								CloudInitNoCloud: &v1.CloudInitNoCloudSource{
 									UserData: templateMeta.UserData,
+								},
+							},
+						},
+					},
+				},
+				ObjectMeta: metav1.ObjectMeta{
+					Labels: map[string]string{
+						"kubevirt-vm": "vm-${NAME}",
+					},
+				},
+			},
+		},
+		TypeMeta: metav1.TypeMeta{
+			APIVersion: "kubevirt.io/v1alpha2",
+			Kind:       "VirtualMachine",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Labels: map[string]string{
+				"kubevirt-vm": "vm-${NAME}",
+			},
+			Name: "${NAME}",
+		},
+	}
+
+	template := newBaseTemplate(vmSpec, "4096Mi", "4")
+	template.ObjectMeta = metav1.ObjectMeta{
+		Name: templateMeta.Name,
+		Annotations: map[string]string{
+			"description": templateMeta.Description,
+			"tags":        "kubevirt,ocp,template,linux,virtualmachine",
+			"iconClass":   templateMeta.IconClass,
+		},
+		Labels: map[string]string{
+			"kubevirt.io/os":                        templateMeta.Label,
+			"miq.github.io/kubevirt-is-vm-template": "true",
+		},
+	}
+	return template
+}
+
+func newRhelTemplate(templateMeta TemplateMeta) *tests.Template {
+	gracePeriod := int64(0)
+	vmSpec := &v1.VirtualMachine{
+		Spec: v1.VirtualMachineSpec{
+			Template: &v1.VirtualMachineInstanceTemplateSpec{
+				Spec: v1.VirtualMachineInstanceSpec{
+					TerminationGracePeriodSeconds: &gracePeriod,
+					Domain: v1.DomainSpec{
+						Devices: v1.Devices{
+							Disks: []v1.Disk{
+								{
+									Name:       "disk0",
+									VolumeName: "disk0-pvc",
+									DiskDevice: v1.DiskDevice{
+										Disk: &v1.DiskTarget{
+											Bus: "virtio",
+										},
+									},
+								},
+							},
+						},
+					},
+					Volumes: []v1.Volume{
+						{
+							Name: "disk0-pvc",
+							VolumeSource: v1.VolumeSource{
+								Ephemeral: &v1.EphemeralVolumeSource{
+									PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{
+										ClaimName: templateMeta.PvcName,
+									},
 								},
 							},
 						},
