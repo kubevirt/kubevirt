@@ -261,20 +261,20 @@ func filterPresets(list []kubev1.VirtualMachineInstancePreset, vmi *kubev1.Virtu
 
 func checkMergeConflicts(presetSpec *kubev1.DomainPresetSpec, vmiSpec *kubev1.DomainSpec) error {
 	errors := []error{}
-	if len(presetSpec.Resources.Requests) > 0 {
-		for key, presetReq := range presetSpec.Resources.Requests {
-			if vmiReq, ok := vmiSpec.Resources.Requests[key]; ok {
-				if presetReq != vmiReq {
-					errors = append(errors, fmt.Errorf("spec.resources.requests[%s]: %v != %v", key, presetReq, vmiReq))
-				}
-			}
-		}
-	}
+
+	// resource request never conflicts: we pick the union of the requests, and the larger value among overlapping requests
+
+	// same for cpu cores.
 	if presetSpec.CPU != nil && vmiSpec.CPU != nil {
-		if !reflect.DeepEqual(presetSpec.CPU, vmiSpec.CPU) {
-			errors = append(errors, fmt.Errorf("spec.cpu: %v != %v", presetSpec.CPU, vmiSpec.CPU))
+		// TODO: check cpu model compatibility, maybe using libvirt APIs. For the moment, check for strict rquality.
+		if !reflect.DeepEqual(presetSpec.CPU.Model, vmiSpec.CPU.Model) {
+			errors = append(errors, fmt.Errorf("spec.cpu.model: %v != %v", presetSpec.CPU.Model, vmiSpec.CPU.Model))
 		}
 	}
+
+	// TODO: check Memory?
+	// TODO: check Machine?
+
 	if presetSpec.Firmware != nil && vmiSpec.Firmware != nil {
 		if !reflect.DeepEqual(presetSpec.Firmware, vmiSpec.Firmware) {
 			errors = append(errors, fmt.Errorf("spec.firmware: %v != %v", presetSpec.Firmware, vmiSpec.Firmware))
@@ -314,23 +314,30 @@ func mergeDomainSpec(presetSpec *kubev1.DomainPresetSpec, vmiSpec *kubev1.Domain
 	if len(presetSpec.Resources.Requests) > 0 {
 		if vmiSpec.Resources.Requests == nil {
 			vmiSpec.Resources.Requests = k8sv1.ResourceList{}
-			for key, val := range presetSpec.Resources.Requests {
-				vmiSpec.Resources.Requests[key] = val
-			}
 		}
-		if reflect.DeepEqual(vmiSpec.Resources.Requests, presetSpec.Resources.Requests) {
-			applied = true
+		for key, val := range presetSpec.Resources.Requests {
+			curVal := vmiSpec.Resources.Requests[key]
+			if val.Cmp(curVal) != -1 {
+				vmiSpec.Resources.Requests[key] = val
+				applied = true
+			}
 		}
 	}
 	if presetSpec.CPU != nil {
 		if vmiSpec.CPU == nil {
 			vmiSpec.CPU = &kubev1.CPU{}
-			presetSpec.CPU.DeepCopyInto(vmiSpec.CPU)
+			vmiSpec.CPU.Model = presetSpec.CPU.Model
+			applied = true
 		}
-		if reflect.DeepEqual(vmiSpec.CPU, presetSpec.CPU) {
+		if presetSpec.CPU.Cores > vmiSpec.CPU.Cores {
+			vmiSpec.CPU.Cores = presetSpec.CPU.Cores
 			applied = true
 		}
 	}
+
+	// TODO: handle Memory
+	// TODO: handle Machine
+
 	if presetSpec.Firmware != nil {
 		if vmiSpec.Firmware == nil {
 			vmiSpec.Firmware = &kubev1.Firmware{}

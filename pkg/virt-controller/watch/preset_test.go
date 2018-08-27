@@ -213,26 +213,24 @@ var _ = Describe("VirtualMachineInstance Initializer", func() {
 			vmi.Annotations = map[string]string{}
 			applyPresets(&vmi, []v1.VirtualMachineInstancePreset{preset}, recorder)
 
-			By("checking annotations were applied and CPU count remains the same")
-			Expect(len(vmi.Annotations)).To(Equal(1))
+			By("checking annotations were not applied because CPU count remains the same")
 			Expect(int(vmi.Spec.Domain.CPU.Cores)).To(Equal(4))
 			Expect(len(recorder.events.eventList)).To(Equal(0))
 
-			By("showing an override occurred")
+			By("showing a legal override")
 			preset.Spec.Domain.CPU = &v1.CPU{Cores: 6}
 			err = checkMergeConflicts(preset.Spec.Domain, &vmi.Spec.Domain)
-			Expect(err).To(HaveOccurred())
+			Expect(err).ToNot(HaveOccurred())
 
 			By("applying overridden preset")
 			vmi.Annotations = map[string]string{}
 			applyPresets(&vmi, []v1.VirtualMachineInstancePreset{preset}, recorder)
 
-			By("checking annotations were not applied and CPU count remains the same")
-			Expect(len(vmi.Annotations)).To(Equal(0))
-			Expect(int(vmi.Spec.Domain.CPU.Cores)).To(Equal(4))
+			By("checking annotations were applied and CPU count was updated")
+			Expect(len(vmi.Annotations)).To(Equal(1))
+			Expect(int(vmi.Spec.Domain.CPU.Cores)).To(Equal(6))
 
-			Expect(len(recorder.events.eventList)).To(Equal(1))
-			Expect(recorder.events.eventList[0].eventtype).To(Equal(k8sv1.EventTypeNormal))
+			Expect(len(recorder.events.eventList)).To(Equal(0))
 		})
 
 		It("Should detect Resource overrides", func() {
@@ -243,19 +241,18 @@ var _ = Describe("VirtualMachineInstance Initializer", func() {
 
 			By("demonstrating that override occurs")
 			err := checkMergeConflicts(preset.Spec.Domain, &vmi.Spec.Domain)
-			Expect(err).To(HaveOccurred())
+			Expect(err).NotTo(HaveOccurred())
 
 			By("applying mismatch preset")
 			vmi.Annotations = map[string]string{}
 			applyPresets(&vmi, []v1.VirtualMachineInstancePreset{preset}, recorder)
 
-			By("checking preset was not applied")
+			By("checking preset was applied overriding old value")
 			memory, ok := vmi.Spec.Domain.Resources.Requests["memory"]
 			Expect(ok).To(BeTrue())
-			Expect(int(memory.Value())).To(Equal(64000000))
-			Expect(len(vmi.Annotations)).To(Equal(0))
-			Expect(len(recorder.events.eventList)).To(Equal(1))
-			Expect(recorder.events.eventList[0].eventtype).To(Equal(k8sv1.EventTypeNormal))
+			Expect(int(memory.Value())).To(Equal(128000000))
+			Expect(len(vmi.Annotations)).To(Equal(1))
+			Expect(len(recorder.events.eventList)).To(Equal(0))
 
 			preset.Spec.Domain.Resources = v1.ResourceRequirements{Requests: k8sv1.ResourceList{
 				"memory": memory,
@@ -273,7 +270,7 @@ var _ = Describe("VirtualMachineInstance Initializer", func() {
 			By("checking vmi settings remain the same")
 			memory, ok = vmi.Spec.Domain.Resources.Requests["memory"]
 			Expect(ok).To(BeTrue())
-			Expect(int(memory.Value())).To(Equal(64000000))
+			Expect(int(memory.Value())).To(Equal(128000000))
 			Expect(len(vmi.Annotations)).To(Equal(1))
 			Expect(len(recorder.events.eventList)).To(Equal(0))
 		})
@@ -477,10 +474,10 @@ var _ = Describe("VirtualMachineInstance Initializer", func() {
 			recorder = NewFakeRecorder()
 		})
 
-		It("should detect conflicts between presets", func() {
+		It("should detect overrides between presets", func() {
 			presets := []v1.VirtualMachineInstancePreset{preset1, preset2}
 			err := checkPresetConflicts(presets)
-			Expect(err).To(HaveOccurred())
+			Expect(err).NotTo(HaveOccurred())
 		})
 
 		It("should not return an error for no conflict", func() {
@@ -504,17 +501,18 @@ var _ = Describe("VirtualMachineInstance Initializer", func() {
 
 			By("applying presets")
 			res := applyPresets(&vmi, presets, recorder)
-			Expect(res).To(BeFalse())
+			Expect(res).To(BeTrue())
 
-			By("checking annotations were not applied")
-			annotation, ok := vmi.Annotations["virtualmachinepreset.kubevirt.io/memory-64"]
-			Expect(annotation).To(Equal(""))
-			Expect(ok).To(BeFalse())
-			Expect(len(recorder.events.eventList)).To(Equal(1))
-			Expect(recorder.events.eventList[0].eventtype).To(Equal(k8sv1.EventTypeWarning))
+			By("checking annotations were applied")
+			_, ok := vmi.Annotations["virtualmachinepreset.kubevirt.io/memory-64"]
+			Expect(ok).To(BeTrue())
+			_, ok = vmi.Annotations["virtualmachinepreset.kubevirt.io/memory-128"]
+			Expect(ok).To(BeTrue())
+			Expect(len(recorder.events.eventList)).To(Equal(0))
 
 			By("checking settings were not applied to VirtualMachineInstance")
-			Expect(vmi.Spec.Domain.Resources.Requests).To(BeNil())
+			Expect(vmi.Spec.Domain.Resources.Requests).NotTo(BeNil())
+			Expect(len(vmi.Spec.Domain.Resources.Requests)).To(Equal(1))
 		})
 
 		It("should not apply any presets if any conflict", func() {
@@ -527,19 +525,23 @@ var _ = Describe("VirtualMachineInstance Initializer", func() {
 
 			By("applying presets")
 			res := applyPresets(&vmi, presets, recorder)
-			Expect(res).To(BeFalse())
+			Expect(res).To(BeTrue())
 
-			By("checking annotations were not applied")
-			annotation, ok := vmi.Annotations["virtualmachinepreset.kubevirt.io/cpu-4"]
-			Expect(annotation).To(Equal(""))
-			Expect(ok).To(BeFalse())
+			By("checking annotations were applied")
+			_, ok := vmi.Annotations["virtualmachinepreset.kubevirt.io/memory-64"]
+			Expect(ok).To(BeTrue())
+			_, ok = vmi.Annotations["virtualmachinepreset.kubevirt.io/memory-128"]
+			Expect(ok).To(BeTrue())
+			_, ok = vmi.Annotations["virtualmachinepreset.kubevirt.io/cpu-4"]
+			Expect(ok).To(BeTrue())
 
-			Expect(len(recorder.events.eventList)).To(Equal(1))
-			Expect(recorder.events.eventList[0].eventtype).To(Equal(k8sv1.EventTypeWarning))
+			Expect(len(recorder.events.eventList)).To(Equal(0))
 
-			By("checking settings were not applied to VirtualMachineInstance")
-			Expect(vmi.Spec.Domain.Resources.Requests).To(BeNil())
-			Expect(vmi.Spec.Domain.CPU).To(BeNil())
+			By("checking settings were applied to VirtualMachineInstance")
+			Expect(vmi.Spec.Domain.CPU).NotTo(BeNil())
+			Expect(int(vmi.Spec.Domain.CPU.Cores)).To(Equal(4))
+			Expect(vmi.Spec.Domain.Resources.Requests).NotTo(BeNil())
+			Expect(len(vmi.Spec.Domain.Resources.Requests)).To(Equal(1))
 		})
 
 		It("should apply presets that don't conflict", func() {
