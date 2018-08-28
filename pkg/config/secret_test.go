@@ -20,13 +20,15 @@
 package config
 
 import (
-	. "github.com/onsi/ginkgo"
-	. "github.com/onsi/gomega"
 	"io/ioutil"
 	"os"
 	"path/filepath"
 
+	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/gomega"
+
 	k8sv1 "k8s.io/api/core/v1"
+
 	"kubevirt.io/kubevirt/pkg/api/v1"
 )
 

@@ -174,7 +174,6 @@ func Convert_v1_Volume_To_api_Disk(source *v1.Volume, disk *Disk, c *ConverterCo
 func Convert_v1_Config_To_api_Disk(volumeName string, disk *Disk, configType config.Type) error {
 	disk.Type = "file"
 	disk.Driver.Type = "raw"
-	disk.ReadOnly = toApiReadOnly(true)
 	switch configType {
 	case config.ConfigMap:
 		disk.Source.File = config.GetConfigMapDiskPath(volumeName)
