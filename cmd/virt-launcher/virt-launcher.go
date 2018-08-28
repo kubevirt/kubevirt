@@ -292,7 +292,14 @@ func main() {
 	stopChan := make(chan struct{})
 	defer close(stopChan)
 
+	err = util.SetupLibvirt()
+	if err != nil {
+		panic(err)
+	}
 	util.StartLibvirt(stopChan)
+	if err != nil {
+		panic(err)
+	}
 	util.StartVirtlog(stopChan)
 
 	domainConn := createLibvirtConnection()
