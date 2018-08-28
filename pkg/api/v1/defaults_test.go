@@ -189,13 +189,18 @@ var _ = Describe("Defaults", func() {
 
 		Expect(disks[0].CDRom.Tray).To(Equal(TrayStateClosed))
 		Expect(*disks[0].CDRom.ReadOnly).To(Equal(true))
+		Expect(disks[0].DedicatedIOThread).To(BeNil())
 		Expect(disks[1].CDRom.Tray).To(Equal(TrayStateOpen))
 		Expect(*disks[1].CDRom.ReadOnly).To(Equal(false))
+		Expect(disks[1].DedicatedIOThread).To(BeNil())
 		Expect(disks[2].Floppy.Tray).To(Equal(TrayStateClosed))
 		Expect(disks[2].Floppy.ReadOnly).To(Equal(false))
+		Expect(disks[2].DedicatedIOThread).To(BeNil())
 		Expect(disks[3].Floppy.Tray).To(Equal(TrayStateOpen))
 		Expect(disks[3].Floppy.Tray).To(Equal(TrayStateOpen))
+		Expect(disks[3].DedicatedIOThread).To(BeNil())
 		Expect(disks[4].Disk).ToNot(BeNil())
+		Expect(disks[4].DedicatedIOThread).To(BeNil())
 	})
 
 	It("should set the default watchdog and the default watchdog action", func() {
@@ -245,6 +250,11 @@ var _ = Describe("Defaults", func() {
 		Expect(*timer.Hyperv.Enabled).To(BeTrue())
 	})
 
+	It("should omit IOThreads by default", func() {
+		vmi := &VirtualMachineInstance{}
+		SetObjectDefaults_VirtualMachineInstance(vmi)
+		Expect(vmi.Spec.Domain.UseIOThreads).To(BeNil())
+	})
 })
 
 var _ = Describe("Function SetDefaults_NetworkInterface()", func() {
