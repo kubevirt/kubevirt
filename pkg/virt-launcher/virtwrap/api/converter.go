@@ -636,6 +636,29 @@ func Convert_v1_VirtualMachine_To_api_Domain(vmi *v1.VirtualMachineInstance, dom
 		}
 	}
 
+	// useIOThreads implies 1 thread
+	// an extra thread will be added for each disk that requests a dedicated one
+	ioThreadCount := 0
+	useIOThreads := false
+	if (vmi.Spec.Domain.UseIOThreads != nil) && (*vmi.Spec.Domain.UseIOThreads == true) {
+		useIOThreads = true
+	}
+	for _, diskDevice := range vmi.Spec.Domain.Devices.Disks {
+		if (diskDevice.DedicatedIOThread != nil) && (*diskDevice.DedicatedIOThread == true) {
+			useIOThreads = true
+			ioThreadCount += 1
+		}
+	}
+	if useIOThreads == true {
+		ioThreadCount += 1
+	}
+	if ioThreadCount != 0 {
+		if domain.Spec.IOThreads == nil {
+			domain.Spec.IOThreads = &IOThreads{}
+		}
+		domain.Spec.IOThreads.IOThreads = uint(ioThreadCount)
+	}
+
 	for _, iface := range vmi.Spec.Domain.Devices.Interfaces {
 		net, isExist := networks[iface.Name]
 		if !isExist {
