@@ -383,7 +383,7 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 		v1.OwnedByAnnotation: "virt-controller",
 	}
 
-	multusNetworks := getMultusinterfaceList(vmi)
+	multusNetworks := getMultusInterfaceList(vmi)
 	if len(multusNetworks) > 0 {
 		annotationsList["k8s.v1.cni.cncf.io/networks"] = multusNetworks
 	}
@@ -527,19 +527,16 @@ func getPortsFromVMI(vmi *v1.VirtualMachineInstance) []k8sv1.ContainerPort {
 	return ports
 }
 
-func getMultusinterfaceList(vmi *v1.VirtualMachineInstance) string {
-	ifaceList := ""
+func getMultusInterfaceList(vmi *v1.VirtualMachineInstance) string {
+	ifaceList := make([]string, 0)
 
 	for _, network := range vmi.Spec.Networks {
 		if network.Multus != nil {
-			ifaceList += network.Name + ","
+			ifaceList = append(ifaceList, network.Multus.NetworkName)
 		}
 	}
 
-	if len(ifaceList) > 0 {
-		ifaceList = ifaceList[:len(ifaceList)-1]
-	}
-	return ifaceList
+	return strings.Join(ifaceList, ",")
 }
 
 func NewTemplateService(launcherImage string, virtShareDir string, imagePullSecret string, configMapCache cache.Store) TemplateService {

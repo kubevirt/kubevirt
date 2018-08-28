@@ -315,7 +315,7 @@ var _ = Describe("Converter", func() {
   </sysinfo>
   <devices>
     <interface type="bridge">
-      <source bridge="br1"></source>
+      <source bridge="br-eth0"></source>
       <model type="virtio"></model>
       <alias name="ua-default"></alias>
     </interface>

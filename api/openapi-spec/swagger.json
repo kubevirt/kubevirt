@@ -3899,7 +3899,16 @@
     }
    },
    "v1.MultusNetwork": {
-    "description": "Represents the multus cni network."
+    "description": "Represents the multus cni network.",
+    "required": [
+     "networkName"
+    ],
+    "properties": {
+     "networkName": {
+      "description": "References to a NetworkAttachmentDefinition CRD object in the same namespace.",
+      "type": "string"
+     }
+    }
    },
    "v1.Network": {
     "description": "Network represents a network type and a resource that should be connected to the vm.",

@@ -58,7 +58,7 @@ type NetworkHandler interface {
 	ParseAddr(s string) (*netlink.Addr, error)
 	SetRandomMac(iface string) (net.HardwareAddr, error)
 	GetMacDetails(iface string) (net.HardwareAddr, error)
-	StartDHCP(nic *VIF, serverAddr *netlink.Addr)
+	StartDHCP(nic *VIF, serverAddr *netlink.Addr, bridgeInterfaceName string)
 }
 
 type NetworkUtilsHandler struct{}
@@ -128,8 +128,8 @@ func (h *NetworkUtilsHandler) SetRandomMac(iface string) (net.HardwareAddr, erro
 	return currentMac, nil
 }
 
-func (h *NetworkUtilsHandler) StartDHCP(nic *VIF, serverAddr *netlink.Addr) {
-	log.Log.Infof("StartDHCP network Nic: %+v\n", nic)
+func (h *NetworkUtilsHandler) StartDHCP(nic *VIF, serverAddr *netlink.Addr, bridgeInterfaceName string) {
+	log.Log.V(4).Infof("StartDHCP network Nic: %+v", nic)
 	nameservers, searchDomains, err := api.GetResolvConfDetailsFromPod()
 	if err != nil {
 		log.Log.Errorf("Failed to get DNS servers from resolv.conf: %v", err)
@@ -143,7 +143,7 @@ func (h *NetworkUtilsHandler) StartDHCP(nic *VIF, serverAddr *netlink.Addr) {
 			nic.MAC,
 			nic.IP.IP,
 			nic.IP.Mask,
-			api.DefaultBridgeName,
+			bridgeInterfaceName,
 			serverAddr.IP,
 			nic.Gateway,
 			nameservers,

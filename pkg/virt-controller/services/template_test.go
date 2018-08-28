@@ -89,7 +89,7 @@ var _ = Describe("Template", func() {
 			})
 		})
 		Context("with multus annotation", func() {
-			It("shold add multus networks in the pod annotation", func() {
+			It("should add multus networks in the pod annotation", func() {
 				vmi := v1.VirtualMachineInstance{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      "testvmi",
@@ -98,8 +98,8 @@ var _ = Describe("Template", func() {
 					},
 					Spec: v1.VirtualMachineInstanceSpec{
 						Domain: v1.DomainSpec{},
-						Networks: []v1.Network{{Name: "default", NetworkSource: v1.NetworkSource{Multus: &v1.MultusNetwork{}}},
-							{Name: "test1", NetworkSource: v1.NetworkSource{Multus: &v1.MultusNetwork{}}}},
+						Networks: []v1.Network{{Name: "default", NetworkSource: v1.NetworkSource{Multus: &v1.MultusNetwork{NetworkName: "default"}}},
+							{Name: "test1", NetworkSource: v1.NetworkSource{Multus: &v1.MultusNetwork{NetworkName: "test1"}}}},
 					},
 				}
 

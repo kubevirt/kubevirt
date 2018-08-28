@@ -1,4 +1,1 @@
-git
-rsync
-docker
-make
+check-patch.packages.el7

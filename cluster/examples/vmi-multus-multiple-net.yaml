@@ -3,8 +3,8 @@ kind: VirtualMachineInstance
 metadata:
   creationTimestamp: null
   labels:
-    special: vmi-multus
-  name: vmi-multus
+    special: vmi-multus-multiple-net
+  name: vmi-multus-multiple-net
 spec:
   domain:
     devices:
@@ -19,7 +19,9 @@ spec:
         volumeName: cloudinitvolume
       interfaces:
       - bridge: {}
-        name: macvlan-conf
+        name: default
+      - bridge: {}
+        name: ptp
     machine:
       type: ""
     resources:
@@ -28,8 +30,9 @@ spec:
   networks:
   - name: default
     pod: {}
-  - multus: {}
-    name: macvlan-conf
+  - multus:
+      networkName: ptp-conf
+    name: ptp
   terminationGracePeriodSeconds: 0
   volumes:
   - name: registryvolume
@@ -39,5 +42,6 @@ spec:
       userData: |
         #!/bin/bash
         echo "fedora" |passwd fedora --stdin
+        dhclient eth1
     name: cloudinitvolume
 status: {}

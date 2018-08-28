@@ -785,4 +785,7 @@ type PodNetwork struct {
 // Represents the multus cni network.
 // ---
 // +k8s:openapi-gen=true
-type MultusNetwork struct{}
+type MultusNetwork struct {
+	// References to a NetworkAttachmentDefinition CRD object in the same namespace.
+	NetworkName string `json:"networkName"`
+}

@@ -229,7 +229,12 @@ spec:
                     networks:
                       items:
                         properties:
-                          multus: {}
+                          multus:
+                            properties:
+                              networkName:
+                                type: string
+                            required:
+                            - networkName
                           name:
                             type: string
                           pod:

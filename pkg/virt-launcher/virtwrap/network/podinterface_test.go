@@ -22,6 +22,7 @@ package network
 import (
 	"encoding/xml"
 	"errors"
+	"fmt"
 	"io/ioutil"
 	"net"
 	"os"
@@ -80,12 +81,12 @@ var _ = Describe("Pod Network", func() {
 			},
 		}
 
-		bridgeAddr, _ = netlink.ParseAddr(bridgeFakeIP)
+		bridgeAddr, _ = netlink.ParseAddr(fmt.Sprintf(bridgeFakeIP, 0))
 		testNic = &VIF{Name: podInterface,
 			IP:      fakeAddr,
 			MAC:     fakeMac,
 			Gateway: gw}
-		interfaceXml = []byte(`<Interface type="bridge"><source bridge="br1"></source><model type="virtio"></model><mac address="12:34:56:78:9a:bc"></mac><alias name="ua-default"></alias></Interface>`)
+		interfaceXml = []byte(`<Interface type="bridge"><source bridge="br-eth0"></source><model type="virtio"></model><mac address="12:34:56:78:9a:bc"></mac><alias name="ua-default"></alias></Interface>`)
 	})
 
 	AfterEach(func() {
@@ -105,9 +106,9 @@ var _ = Describe("Pod Network", func() {
 		mockNetwork.EXPECT().LinkAdd(bridgeTest).Return(nil)
 		mockNetwork.EXPECT().LinkByName(api.DefaultBridgeName).Return(bridgeTest, nil)
 		mockNetwork.EXPECT().LinkSetUp(bridgeTest).Return(nil)
-		mockNetwork.EXPECT().ParseAddr(bridgeFakeIP).Return(bridgeAddr, nil)
+		mockNetwork.EXPECT().ParseAddr(fmt.Sprintf(bridgeFakeIP, 0)).Return(bridgeAddr, nil)
 		mockNetwork.EXPECT().AddrAdd(bridgeTest, bridgeAddr).Return(nil)
-		mockNetwork.EXPECT().StartDHCP(testNic, bridgeAddr)
+		mockNetwork.EXPECT().StartDHCP(testNic, bridgeAddr, api.DefaultBridgeName)
 
 		err := SetupPodNetwork(vm, domain)
 		Expect(err).To(BeNil())
@@ -159,7 +160,7 @@ var _ = Describe("Pod Network", func() {
 				mockNetwork.EXPECT().LinkAdd(bridgeTest).Return(nil)
 				mockNetwork.EXPECT().LinkByName(api.DefaultBridgeName).Return(bridgeTest, nil)
 				mockNetwork.EXPECT().LinkSetUp(bridgeTest).Return(nil)
-				mockNetwork.EXPECT().ParseAddr(bridgeFakeIP).Return(bridgeAddr, nil)
+				mockNetwork.EXPECT().ParseAddr(fmt.Sprintf(bridgeFakeIP, 0)).Return(bridgeAddr, nil)
 				mockNetwork.EXPECT().AddrAdd(bridgeTest, bridgeAddr).Return(nil)
 				mockNetwork.EXPECT().RouteList(dummy, netlink.FAMILY_V4).Return(routeList, nil)
 				mockNetwork.EXPECT().GetMacDetails(podInterface).Return(fakeMac, nil)

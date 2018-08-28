@@ -372,6 +372,7 @@ func (PodNetwork) SwaggerDoc() map[string]string {
 
 func (MultusNetwork) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"": "Represents the multus cni network.",
+		"":            "Represents the multus cni network.",
+		"networkName": "References to a NetworkAttachmentDefinition CRD object in the same namespace.",
 	}
 }

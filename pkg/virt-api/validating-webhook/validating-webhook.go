@@ -602,7 +602,15 @@ func ValidateVirtualMachineInstanceSpec(field *k8sfield.Path, spec *v1.VirtualMa
 				causes = append(causes, metav1.StatusCause{
 					Type:    metav1.CauseTypeFieldValueRequired,
 					Message: fmt.Sprintf("should have only one network type"),
-					Field:   field.Child("networks").Index(idx).Child("pod").String(),
+					Field:   field.Child("networks").Index(idx).String(),
+				})
+			}
+
+			if network.Multus != nil && network.Multus.NetworkName == "" {
+				causes = append(causes, metav1.StatusCause{
+					Type:    metav1.CauseTypeFieldValueRequired,
+					Message: fmt.Sprintf("multus network must have a networkName"),
+					Field:   field.Child("networks").Index(idx).Child("multus").String(),
 				})
 			}
 

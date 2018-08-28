@@ -33,13 +33,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 )
 
-var bridgeFakeIP = "169.254.75.86/32"
-
-// DefaultProtocol is the default port protocol
-const DefaultProtocol string = "TCP"
-
-// DefaultVMCIDR is the default CIDR for vm network
-const DefaultVMCIDR = "10.0.2.0/24"
+var bridgeFakeIP = "169.254.75.1%d/32"
 
 type BindMechanism interface {
 	discoverPodNetworkInterface() error
@@ -124,9 +118,14 @@ func getBinding(iface *v1.Interface, domain *api.Domain, podInterfaceName string
 	}
 
 	if iface.Bridge != nil {
-		vif := &VIF{Name: podInterface}
+		vif := &VIF{Name: podInterfaceName}
 		populateMacAddress(vif, iface)
-		return &BridgePodInterface{iface: iface, vif: vif, domain: domain, podInterfaceNum: podInterfaceNum, podInterfaceName: podInterfaceName}, nil
+		return &BridgePodInterface{iface: iface,
+			vif:                 vif,
+			domain:              domain,
+			podInterfaceNum:     podInterfaceNum,
+			podInterfaceName:    podInterfaceName,
+			bridgeInterfaceName: fmt.Sprintf("br-%s", podInterfaceName)}, nil
 	}
 	if iface.Slirp != nil {
 		return &SlirpPodInterface{iface: iface, domain: domain, podInterfaceNum: podInterfaceNum}, nil
@@ -135,13 +134,14 @@ func getBinding(iface *v1.Interface, domain *api.Domain, podInterfaceName string
 }
 
 type BridgePodInterface struct {
-	vif              *VIF
-	iface            *v1.Interface
-	podNicLink       netlink.Link
-	domain           *api.Domain
-	isLayer2         bool
-	podInterfaceNum  int
-	podInterfaceName string
+	vif                 *VIF
+	iface               *v1.Interface
+	podNicLink          netlink.Link
+	domain              *api.Domain
+	isLayer2            bool
+	podInterfaceNum     int
+	podInterfaceName    string
+	bridgeInterfaceName string
 }
 
 func (b *BridgePodInterface) discoverPodNetworkInterface() error {
@@ -188,7 +188,7 @@ func (b *BridgePodInterface) discoverPodNetworkInterface() error {
 }
 
 func (b *BridgePodInterface) preparePodNetworkInterfaces() error {
-	if err := b.createDefaultBridge(); err != nil {
+	if err := b.createBridge(); err != nil {
 		return err
 	}
 
@@ -227,8 +227,8 @@ func (b *BridgePodInterface) preparePodNetworkInterfaces() error {
 
 func (b *BridgePodInterface) startDHCPServer() {
 	// Start DHCP Server
-	fakeServerAddr, _ := netlink.ParseAddr(bridgeFakeIP)
-	Handler.StartDHCP(b.vif, fakeServerAddr)
+	fakeServerAddr, _ := netlink.ParseAddr(fmt.Sprintf(bridgeFakeIP, b.podInterfaceNum))
+	Handler.StartDHCP(b.vif, fakeServerAddr, b.bridgeInterfaceName)
 }
 
 func (b *BridgePodInterface) decorateConfig() error {
@@ -275,11 +275,11 @@ func (b *BridgePodInterface) setInterfaceRoutes() error {
 	return nil
 }
 
-func (b *BridgePodInterface) createDefaultBridge() error {
+func (b *BridgePodInterface) createBridge() error {
 	// Create a bridge
 	bridge := &netlink.Bridge{
 		LinkAttrs: netlink.LinkAttrs{
-			Name: api.DefaultBridgeName,
+			Name: b.bridgeInterfaceName,
 		},
 	}
 	err := Handler.LinkAdd(bridge)
@@ -291,14 +291,14 @@ func (b *BridgePodInterface) createDefaultBridge() error {
 
 	err = Handler.LinkSetUp(bridge)
 	if err != nil {
-		log.Log.Reason(err).Errorf("failed to bring link up for interface: %s", api.DefaultBridgeName)
+		log.Log.Reason(err).Errorf("failed to bring link up for interface: %s", b.bridgeInterfaceName)
 		return err
 	}
 
 	// set fake ip on a bridge
-	fakeaddr, err := Handler.ParseAddr(bridgeFakeIP)
+	fakeaddr, err := Handler.ParseAddr(fmt.Sprintf(bridgeFakeIP, b.podInterfaceNum))
 	if err != nil {
-		log.Log.Reason(err).Errorf("failed to bring link up for interface: %s", api.DefaultBridgeName)
+		log.Log.Reason(err).Errorf("failed to bring link up for interface: %s", b.bridgeInterfaceName)
 		return err
 	}
 

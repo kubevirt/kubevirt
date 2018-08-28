@@ -985,7 +985,16 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 			Schema: spec.Schema{
 				SchemaProps: spec.SchemaProps{
 					Description: "Represents the multus cni network.",
-					Properties:  map[string]spec.Schema{},
+					Properties: map[string]spec.Schema{
+						"networkName": {
+							SchemaProps: spec.SchemaProps{
+								Description: "References to a NetworkAttachmentDefinition CRD object in the same namespace.",
+								Type:        []string{"string"},
+								Format:      "",
+							},
+						},
+					},
+					Required: []string{"networkName"},
 				},
 			},
 			Dependencies: []string{},

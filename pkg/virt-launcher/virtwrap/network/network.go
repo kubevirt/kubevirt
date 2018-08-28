@@ -49,12 +49,10 @@ func SetupNetworkInterfaces(vmi *v1.VirtualMachineInstance, domain *api.Domain) 
 	// prepare networks map
 	networks := map[string]*v1.Network{}
 	multusNetworks := map[string]int{}
-	multusNetworkNumber := 0
 	for _, network := range vmi.Spec.Networks {
 		networks[network.Name] = network.DeepCopy()
 		if network.Multus != nil {
-			multusNetworkNumber++
-			multusNetworks[network.Name] = multusNetworkNumber
+			multusNetworks[network.Name] = len(multusNetworks) + 1
 		}
 	}
 
