@@ -164,6 +164,7 @@ var _ = Describe("Converter", func() {
 							Bus: "virtio",
 						},
 					},
+					DedicatedIOThread: &_true,
 				},
 				{
 					Name:       "mydisk1",
@@ -173,6 +174,7 @@ var _ = Describe("Converter", func() {
 							Bus: "virtio",
 						},
 					},
+					DedicatedIOThread: &_true,
 				},
 				{
 					Name:       "cdrom_tray_unspecified",
@@ -182,6 +184,7 @@ var _ = Describe("Converter", func() {
 							ReadOnly: &_false,
 						},
 					},
+					DedicatedIOThread: &_false,
 				},
 				{
 					Name:       "cdrom_tray_open",
@@ -478,6 +481,7 @@ var _ = Describe("Converter", func() {
     </hyperv>
   </features>
   <cpu mode="host-model"></cpu>
+  <iothreads>3</iothreads>
 </domain>`, domainType)
 
 		var c *ConverterContext
