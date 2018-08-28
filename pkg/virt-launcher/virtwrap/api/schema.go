@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Copyright 2017 Red Hat, Inc.
+ * Copyright 2017,2018 Red Hat, Inc.
  *
  */
 
@@ -131,6 +131,7 @@ type DomainSpec struct {
 	CPU           CPU            `xml:"cpu"`
 	VCPU          *VCPU          `xml:"vcpu"`
 	CPUTune       *CPUTune       `xml:"cputune"`
+	IOThreads     *IOThreads     `xml:"iothreads,omitempty"`
 }
 
 type CPUTune struct {
@@ -635,7 +636,11 @@ type RngBackend struct {
 	Source string `xml:",chardata"`
 }
 
-// TODO ballooning, cpu ...
+type IOThreads struct {
+	IOThreads uint `xml:",chardata"`
+}
+
+// TODO ballooning, rng, cpu ...
 
 type SecretUsage struct {
 	Type   string `xml:"type,attr"`
