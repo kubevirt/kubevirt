@@ -29,6 +29,7 @@
 set -ex
 
 export WORKSPACE="${WORKSPACE:-$PWD}"
+readonly ARTIFACTS_PATH="$WORKSPACE/exported-artifacts"
 
 if [[ $TARGET =~ openshift-.* ]]; then
   if [[ $TARGET =~ .*-crio-.* ]]; then
@@ -61,7 +62,7 @@ wait_for_windows_lock() {
   exit 1
 }
 
-release_windows_lock() {      
+release_windows_lock() {
   if [[ -e "$WINDOWS_LOCK_PATH" ]]; then
       rm -f "$WINDOWS_LOCK_PATH"
       echo "Released lock: $WINDOWS_LOCK_PATH"
@@ -152,7 +153,9 @@ done
 
 kubectl version
 
-ginko_params="--ginkgo.noColor --junit-output=$WORKSPACE/junit.xml"
+mkdir -p "$ARTIFACTS_PATH"
+
+ginko_params="--ginkgo.noColor --junit-output=$ARTIFACTS_PATH/tests.junit.xml"
 
 # Prepare PV for windows testing
 if [[ $TARGET =~ windows.* ]]; then
