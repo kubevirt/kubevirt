@@ -2,7 +2,7 @@ kind: ServiceAccount
 apiVersion: v1
 metadata:
   name: cdi-sa
-  namespace: {{ .Namespace }}
+  namespace: default  # update accordingly based on the namespace you are deploying in
   labels:
     cdi.kubevirt.io: ""
 ---
@@ -10,7 +10,6 @@ kind: ClusterRole
 apiVersion: rbac.authorization.k8s.io/v1
 metadata:
   name: cdi
-  namespace: {{ .Namespace }}
   labels:
     cdi.kubevirt.io: ""
 rules:
@@ -27,9 +26,6 @@ rules:
   resources: ["pods"]
   verbs: ["get", "list", "watch", "create", "delete"]
 - apiGroups: [""]
-  resources: ["pods/finalizers"]
-  verbs: ["update"]
-- apiGroups: [""]
   resources: ["secrets"]
   verbs: ["get", "list", "watch", "create"]
 - apiGroups: ["cdi.kubevirt.io"]
@@ -42,7 +38,6 @@ apiVersion: rbac.authorization.k8s.io/v1beta1
 kind: ClusterRoleBinding
 metadata:
   name: cdi-sa
-  namespace: {{ .Namespace }}
   labels:
     cdi.kubevirt.io: ""
 roleRef:
@@ -52,13 +47,13 @@ roleRef:
 subjects:
   - kind: ServiceAccount
     name: cdi-sa
-    namespace: {{ .Namespace }}
+    namespace: default  # update accordingly based on the namespace you are deploying in
 ---
 apiVersion: apps/v1beta2
 kind: Deployment
 metadata:
   name: cdi-deployment
-  namespace: {{ .Namespace }}
+  namespace: default  # update accordingly based on the namespace you are deploying in
   labels:
     cdi.kubevirt.io: ""
     app: containerized-data-importer

@@ -13,7 +13,6 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
-
 	. "kubevirt.io/containerized-data-importer/pkg/common"
 )
 
@@ -63,18 +62,45 @@ func (c *ImportController) objFromKey(informer cache.SharedIndexInformer, key in
 	return obj, nil
 }
 
-func checkPVC(pvc *v1.PersistentVolumeClaim) bool {
-	if pvc.DeletionTimestamp != nil {
-		return false
-	}
-
+// checkPVC verifies that the passed-in pvc is one we care about. Specifically, it must have the
+// endpoint annotation and it must not already be "in-progress". If the pvc passes these filters
+// then true is returned and the importer pod will be created. `AnnEndPoint` indicates that the
+// pvc is targeted for the importer pod. `AnnImportPod` indicates the  pvc is being processed.
+// Note: there is a race condition where the AnnImportPod annotation is not seen in time and as
+//   a result the importer pod can be created twice (or more, presumably). To reduce this window
+//   a Get api call can be requested in order to get the latest copy of the pvc before verifying
+//   its annotations.
+func checkPVC(client kubernetes.Interface, pvc *v1.PersistentVolumeClaim, get bool) (ok bool, newPvc *v1.PersistentVolumeClaim, err error) {
 	// check if we have proper AnnEndPoint annotation
 	if !metav1.HasAnnotation(pvc.ObjectMeta, AnnEndpoint) {
 		glog.V(Vadmin).Infof("pvc annotation %q not found, skipping pvc\n", AnnEndpoint)
-		return false
+		return false, pvc, nil
+	}
+	//check if the pvc is being processed
+	if metav1.HasAnnotation(pvc.ObjectMeta, AnnImportPod) {
+		glog.V(Vadmin).Infof("pvc annotation %q exists indicating in-progress or completed, skipping pvc\n", AnnImportPod)
+		return false, pvc, nil
 	}
 
-	return true
+	if !get {
+		return true, pvc, nil // done checking this pvc, assume it's good to go
+	}
+
+	// get latest pvc object to help mitigate race and timing issues with latency between the
+	// store and work queue to double check if we are already processing
+	glog.V(Vdebug).Infof("checkPVC: getting latest version of pvc for in-process annotation")
+	newPvc, err = client.CoreV1().PersistentVolumeClaims(pvc.Namespace).Get(pvc.Name, metav1.GetOptions{})
+	if err != nil {
+		glog.Infof("checkPVC: pvc %q Get error: %v\n", pvc.Name, err)
+		return false, pvc, err
+	}
+	// check if we are processing this pvc now that we have the lastest copy
+	if metav1.HasAnnotation(newPvc.ObjectMeta, AnnImportPod) {
+		glog.V(Vadmin).Infof("latest pvc annotation %q exists indicating in-progress or completed, skipping pvc\n", AnnImportPod)
+		return false, newPvc, nil
+	}
+	//continue to process pvc
+	return true, newPvc, nil
 }
 
 // returns the endpoint string which contains the full path URI of the target object to be copied.
@@ -211,8 +237,6 @@ func MakeImporterPodSpec(image, verbose, pullPolicy, ep, secret string, pvc *v1.
 	// importer pod name contains the pvc name
 	podName := fmt.Sprintf("%s-%s-", IMPORTER_PODNAME, pvc.Name)
 
-	blockOwnerDeletion := true
-	isController := true
 	pod := &v1.Pod{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "Pod",
@@ -225,18 +249,9 @@ func MakeImporterPodSpec(image, verbose, pullPolicy, ep, secret string, pvc *v1.
 			},
 			Labels: map[string]string{
 				CDI_LABEL_KEY: CDI_LABEL_VALUE,
-				// this label is used when searching for a pvc's import pod.
-				LabelImportPvc: pvc.Name,
 			},
 			OwnerReferences: []metav1.OwnerReference{
-				metav1.OwnerReference{
-					APIVersion:         "v1",
-					Kind:               "PersistentVolumeClaim",
-					Name:               pvc.Name,
-					UID:                pvc.GetUID(),
-					BlockOwnerDeletion: &blockOwnerDeletion,
-					Controller:         &isController,
-				},
+				*metav1.NewControllerRef(pvc, v1.SchemeGroupVersion.WithKind("PersistentVolumeClaim")),
 			},
 		},
 		Spec: v1.PodSpec{

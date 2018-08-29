@@ -4,6 +4,6 @@ RUN dnf install -y qemu-img
 
 RUN mkdir /data
 
-COPY ./cdi-importer /usr/bin/cdi-importer
+COPY ./cdi-importer /cdi-importer
 
-ENTRYPOINT ["/usr/bin/cdi-importer", "-alsologtostderr"]
+ENTRYPOINT ["./cdi-importer", "-alsologtostderr"]

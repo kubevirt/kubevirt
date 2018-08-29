@@ -1,32 +1,27 @@
 package framework
 
 import (
-	"archive/tar"
-	"compress/gzip"
-	"io"
 	"os"
 	"os/exec"
-	"path/filepath"
 	"strings"
 
 	"github.com/pkg/errors"
-	"github.com/ulikunitz/xz"
 	"kubevirt.io/containerized-data-importer/pkg/image"
+	"path/filepath"
+	"fmt"
 )
 
 var formatTable = map[string]func(string, string) (string, error){
-	image.ExtGz:    toGz,
-	image.ExtXz:    toXz,
-	image.ExtTar:   toTar,
-	image.ExtQcow2: toQcow2,
-	"":             toNoop,
+	image.ExtGz:    gzCmd,
+	image.ExtXz:    xzCmd,
+	image.ExtTar:   tarCmd,
+	image.ExtQcow2: qcow2Cmd,
+	"":             noopCmd,
 }
 
-// FormatTestData accepts the path of a single file (srcFile) and attempts to generate an output
-// file in the format defined by targetFormats (e.g. ".tar", ".gz" will produce a .tar.gz formatted file).  The output file is written to the directory in `tgtDir`.
-// returns:
-//		(string) Path of output file
-//		(error)  Errors that occur during formatting
+// create file based on targetFormat extensions and return created file's name.
+// note: intermediate files are removed.
+// TODO the path is retuning with the first section /Users/ missing.  I think the URL package is considering /Users/ as the server
 func FormatTestData(srcFile, tgtDir string, targetFormats ...string) (string, error) {
 	var err error
 	for _, tf := range targetFormats {
@@ -43,87 +38,48 @@ func FormatTestData(srcFile, tgtDir string, targetFormats ...string) (string, er
 	return srcFile, nil
 }
 
-func toTar(src, tgtDir string) (string, error) {
-	tgtFile, tgtPath, err := createTargetFile(src, tgtDir, image.ExtTar)
-	defer tgtFile.Close()
+func tarCmd(src, tgtDir string) (string, error) {
+	base := filepath.Base(src)
+	tgt := filepath.Join(tgtDir, base+image.ExtTar)
+	args := []string{"-cf", tgt, src}
 
-	w := tar.NewWriter(tgtFile)
-	defer w.Close()
-
-	srcFile, err := os.Open(src)
-	if err != nil {
-		return "", errors.Wrapf(err, "Error opening file %s", src)
+	if err := doCmdAndVerifyFile(tgt, "tar", args...); err != nil {
+		return "", err
 	}
-	defer srcFile.Close()
-
-	srcFileInfo, err := srcFile.Stat()
-	if err != nil {
-		return "", errors.Wrapf(err, "Error stating file %s", src)
-	}
-
-	hdr, err := tar.FileInfoHeader(srcFileInfo, "")
-	if err != nil {
-		return "", errors.Wrapf(err, "Error generating tar file header for %s", src)
-	}
-
-	err = w.WriteHeader(hdr)
-	if err != nil {
-		return "", errors.Wrapf(err, "Error writing tar header to %s", tgtPath)
-	}
-
-	_, err = io.Copy(w, srcFile)
-	if err != nil {
-		return "", errors.Wrapf(err, "Error writing to file %s", tgtPath)
-	}
-	return tgtPath, nil
+	return tgt, nil
 }
 
-func toGz(src, tgtDir string) (string, error) {
-	tgtFile, tgtPath, err := createTargetFile(src, tgtDir, image.ExtGz)
-	defer tgtFile.Close()
-
-	w := gzip.NewWriter(tgtFile)
-	defer w.Close()
-
-	srcFile, err := os.Open(src)
+func gzCmd(src, tgtDir string) (string, error) {
+	src, err := copyIfNotPresent(src, tgtDir)
 	if err != nil {
-		return "", errors.Wrapf(err, "Error opening file %s", src)
+		return "", err
 	}
-	defer srcFile.Close()
-
-	_, err = io.Copy(w, srcFile)
-	if err != nil {
-		return "", errors.Wrapf(err, "Error writing to file %s", tgtPath)
+	base := filepath.Base(src)
+	tgt := filepath.Join(tgtDir, base+image.ExtGz)
+	if err := doCmdAndVerifyFile(tgt, "gzip", src); err != nil {
+		return "", err
 	}
-	return tgtPath, nil
+	return tgt, nil
 }
 
-func toXz(src, tgtDir string) (string, error) {
-	tgtFile, tgtPath, err := createTargetFile(src, tgtDir, image.ExtXz)
-	defer tgtFile.Close()
-
-	w, err := xz.NewWriter(tgtFile)
+func xzCmd(src, tgtDir string) (string, error) {
+	src, err := copyIfNotPresent(src, tgtDir)
 	if err != nil {
-		return "", errors.Wrapf(err, "Error getting xz writer for file %s", tgtPath)
+		return "", err
 	}
-	defer w.Close()
-
-	srcFile, err := os.Open(src)
-	if err != nil {
-		return "", errors.Wrapf(err, "Error opening file %s", src)
+	base := filepath.Base(src)
+	tgt := filepath.Join(tgtDir, base+image.ExtXz)
+	if err := doCmdAndVerifyFile(tgt, "xz", src); err != nil {
+		return "", err
 	}
-	defer srcFile.Close()
-
-	_, err = io.Copy(w, srcFile)
-	if err != nil {
-		return "", errors.Wrapf(err, "Error writing to file %s", tgtPath)
-	}
-	return tgtPath, nil
+	return tgt, nil
 }
 
-func toQcow2(srcfile, tgtDir string) (string, error) {
-	base := strings.TrimSuffix(filepath.Base(srcfile), ".iso")
-	tgt := filepath.Join(tgtDir, base+image.ExtQcow2)
+func qcow2Cmd(srcfile, tgtDir string) (string, error) {
+	tgt := strings.Replace(filepath.Base(srcfile), ".iso", image.ExtQcow2, 1)
+	fmt.Printf("[fileConversion.go:L80] %s<%T>: %+v\n", "tgt", tgt, tgt)
+	tgt = filepath.Join(tgtDir, tgt)
+	fmt.Printf("[fileConversion.go:L82] %s<%T>: %+v\n", "tgt", tgt, tgt)
 	args := []string{"convert", "-f", "raw", "-O", "qcow2", srcfile, tgt}
 
 	if err := doCmdAndVerifyFile(tgt, "qemu-img", args...); err != nil {
@@ -132,14 +88,19 @@ func toQcow2(srcfile, tgtDir string) (string, error) {
 	return tgt, nil
 }
 
-func toNoop(src, tgtDir string) (string, error) {
-	return copyIfNotPresent(src, tgtDir)
+func noopCmd(src, tgtDir string) (string, error) {
+	newSrc, err := copyIfNotPresent(src, tgtDir)
+	if err != nil {
+		return "", err
+	}
+	return newSrc, nil
 }
 
 func doCmdAndVerifyFile(tgt, cmd string, args ...string) error {
 	if err := doCmd(cmd, args...); err != nil {
 		return err
 	}
+	fmt.Printf("Verifying file creation\n")
 	if _, err := os.Stat(tgt); err != nil {
 		return errors.Wrapf(err, "Failed to stat file %q", tgt)
 	}
@@ -147,39 +108,27 @@ func doCmdAndVerifyFile(tgt, cmd string, args ...string) error {
 }
 
 func doCmd(osCmd string, osArgs ...string) error {
+	fmt.Printf("command: %s %s\n", osCmd, osArgs)
 	cmd := exec.Command(osCmd, osArgs...)
 	cout, err := cmd.CombinedOutput()
 	if err != nil {
 		return errors.Wrapf(err, "OS command `%s %v` errored: %v\nStdout/Stderr: %s", osCmd, strings.Join(osArgs, " "), err, string(cout))
 	}
+	fmt.Printf("Command succeeded\n")
 	return nil
 }
 
-// copyIfNotPresent checks for the src file in the tgtDir.  If it is not there, it attempts to copy it from src to tgtdir.
+// copyIfNotPresent checks for the src file in the tgtDir.  If it is not there, it attempts to copy if from src to tgtdir.
 // If a copy is performed, the path to the copy is returned.
-// If the file already exists, the original src string is returned.
+// If no copy is performed, the original src string is returned.
 func copyIfNotPresent(src, tgtDir string) (string, error) {
-	ret := filepath.Join(tgtDir, filepath.Base(src))
-	_, err := os.Stat(ret)
-	if err != nil && !os.IsNotExist(err) {
-		return "", errors.Wrap(err, "Unexpected error stating file")
-	}
-	if os.IsNotExist(err) {
-		if err = doCmd("cp", src, ret); err != nil {
+	base := filepath.Base(src)
+	// Only copy the source image if it does not exist in the temp directory
+	if _, err := os.Stat(filepath.Join(tgtDir, base)); err != nil {
+		if err := doCmd("cp", "-f", src, tgtDir); err != nil {
 			return "", err
 		}
+		src = filepath.Join(tgtDir, base)
 	}
-	return ret, nil
-}
-
-// createTargetFile is a simple helper to create a file with the provided extension in the target directory.
-// returns a pointer to the new file, path to the new file, or an error. It is the responsibility of the caller to
-// close the file.
-func createTargetFile(src, tgtDir, ext string) (*os.File, string, error) {
-	tgt := filepath.Join(tgtDir, filepath.Base(src)+ext)
-	tgtFile, err := os.Create(tgt)
-	if err != nil {
-		return nil, "", errors.Wrap(err, "Error creating file")
-	}
-	return tgtFile, tgt, nil
+	return src, nil
 }

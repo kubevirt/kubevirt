@@ -47,9 +47,10 @@ script:
 - "sed \"s#cdi.kubevirt.io/storage.import.endpoint:.*#cdi.kubevirt.io/storage.import.endpoint: \"$SRC#\"\" manifests/example/golden-pvc.yaml | kubectl apply -f -"
 - k_wait_all_running pods
 - kubectl get pods --all-namespaces
-- make goveralls && make test-functional
+- if [[ ${TRAVIS_PULL_REQUEST} == 'false' ]]; then make goveralls && make test-functional; else make test; fi
 
 before_deploy:
+- git remote set-url origin https://"${GH_USER}":"${GH_TOKEN}"@github.com/kubevirt/containerized-data-importer.git
 - docker login -u="$DOCKER_USER" -p="$DOCKER_PASS"
 
 deploy:
@@ -82,7 +83,6 @@ deploy:
   file:
   - _out/cmd/cdi-controller/cdi-controller
   - _out/cmd/cdi-importer/cdi-importer
-  - _out/cmd/cdi-cloner/cloner_startup.sh
+  - _out/cmd/cdi-cloner/script.sh
   - manifests/generated/cdi-controller.yaml
-  - manifests/generated/cdi-controller.yaml.j2
   - manifests/example/*

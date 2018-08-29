@@ -28,14 +28,8 @@ DOCKER_REPO=${DOCKER_REPO:-kubevirt}
 DOCKER_TAG=${DOCKER_TAG:-latest}
 VERBOSITY=${VERBOSITY:-1}
 PULL_POLICY=${PULL_POLICY:-IfNotPresent}
-NAMESPACE=${NAMESPACE:-kube-system}
 
 function allPkgs {
-    ret=$(sed "s,kubevirt.io/containerized-data-importer,${CDI_DIR},g" <(go list ./... | grep -v "pkg/client" | sort -u ))
+    ret=$(sed "s,kubevirt.io/containerized-data-importer,${CDI_DIR},g" <(go list ./... | grep -v -E "vendor|pkg/client" | sort -u ))
     echo "$ret"
 }
-
-KUBERNETES_IMAGE="k8s-1.10.4@sha256:486064eddea289b17e150e6600fefc89dab9164d5cba07153c02888a35fed4f1"
-OPENSHIFT_IMAGE="os-3.10.0@sha256:14ffc4a28e24a2510c9b455b56f35f6193a00b71c9150705f6afec41b003fc76"
-
-KUBEVIRT_PROVIDER=${KUBEVIRT_PROVIDER:-k8s-1.10.4}

@@ -1,5 +1,5 @@
-hash: 2be113978d51b493e5be7572468b5b1c71be8e186c92fa4c47ac49bcbb967139
-updated: 2018-08-08T09:25:53.00543483-04:00
+hash: db75d5eb043fb5282eb0d854dd74a3e97c2b5276068cbcd8ea8277e92c8baa95
+updated: 2018-06-07T14:46:21.073189029-04:00
 imports:
 - name: github.com/davecgh/go-spew
   version: 782f4967f2dc4564575ca782fe2d04090b5faca8
@@ -8,7 +8,7 @@ imports:
 - name: github.com/ghodss/yaml
   version: 73d445a93680fa1a78ae23a5839bad48f32ba1ee
 - name: github.com/go-ini/ini
-  version: d58d458bec3cb5adec4b7ddb41131855eac0b33f
+  version: 06f5f3d67269ccec1fe5fe4134ba6e982984f7f5
 - name: github.com/gogo/protobuf
   version: c0656edd0d9eab7c66d1eb0c568f9039345796f7
   subpackages:
@@ -44,13 +44,6 @@ imports:
   - simplelru
 - name: github.com/howeyc/gopass
   version: bf9dde6d0d2c004a008c27aaee91170c786f6db8
-- name: github.com/hpcloud/tail
-  version: a1dbeea552b7c8df4b542c66073e393de198a800
-  subpackages:
-  - ratelimiter
-  - util
-  - watch
-  - winfile
 - name: github.com/imdario/mergo
   version: 6633656539c1639d9d78127b7d47c622b5d7b6dc
 - name: github.com/json-iterator/go
@@ -65,27 +58,7 @@ imports:
   - pkg/s3utils
   - pkg/set
 - name: github.com/mitchellh/go-homedir
-  version: 58046073cbffe2f25d425fe1331102f55cf719de
-- name: github.com/onsi/ginkgo
-  version: 11459a886d9cd66b319dac7ef1e917ee221372c9
-  subpackages:
-  - config
-  - internal/codelocation
-  - internal/containernode
-  - internal/failer
-  - internal/leafnodes
-  - internal/remote
-  - internal/spec
-  - internal/spec_iterator
-  - internal/specrunner
-  - internal/suite
-  - internal/testingtproxy
-  - internal/writer
-  - reporters
-  - reporters/stenographer
-  - reporters/stenographer/support/go-colorable
-  - reporters/stenographer/support/go-isatty
-  - types
+  version: 3864e76763d94a6df2f9960b16a20a33da9f9a66
 - name: github.com/pkg/errors
   version: 816c9085562cd7ee03e7f8188a1cfd942858cded
 - name: github.com/spf13/pflag
@@ -138,12 +111,8 @@ imports:
   version: f51c12702a4d776e4c1fa9b0fabab841babae631
   subpackages:
   - rate
-- name: gopkg.in/fsnotify/fsnotify.v1
-  version: c2828203cd70a50dcccfb2761f8b1f8ceef9a8e9
 - name: gopkg.in/inf.v0
   version: 3887ee99ecf07df5b447e9b00d9c0b2adaa9f3e4
-- name: gopkg.in/tomb.v1
-  version: c131134a1947e9afd9cecfe11f4c6dff0732ae58
 - name: gopkg.in/yaml.v2
   version: 670d4cfef0544295bc27a114dbac37980d83185a
 - name: k8s.io/api
@@ -358,7 +327,6 @@ imports:
   - rest/watch
   - testing
   - tools/auth
-  - tools/bootstrap/token/api
   - tools/cache
   - tools/cache/testing
   - tools/clientcmd
@@ -380,18 +348,32 @@ imports:
 - name: k8s.io/code-generator
   version: 69d88fb997c52c32288a40f5efb62add0a7c8e04
 - name: k8s.io/gengo
-  version: c42f3cdacc394f43077ff17e327d1b351c0304e4
+  version: 020f9f03e7e2d20e457f98f0464fb2f7548439f4
 - name: k8s.io/kube-openapi
   version: 39cb288412c48cb533ba4be5d6c28620b9a0c1b4
   subpackages:
   - pkg/util/proto
-- name: kubevirt.io/qe-tools
-  version: 13fc8573324cd2af42c88043b5a7c6e03bf39f95
-  repo: https://github.com/kubevirt/qe-tools.git
-  subpackages:
-  - pkg/ginkgo-reporters
-  - pkg/polarion-xml
 testImports:
+- name: github.com/onsi/ginkgo
+  version: 11459a886d9cd66b319dac7ef1e917ee221372c9
+  subpackages:
+  - config
+  - internal/codelocation
+  - internal/containernode
+  - internal/failer
+  - internal/leafnodes
+  - internal/remote
+  - internal/spec
+  - internal/spec_iterator
+  - internal/specrunner
+  - internal/suite
+  - internal/testingtproxy
+  - internal/writer
+  - reporters
+  - reporters/stenographer
+  - reporters/stenographer/support/go-colorable
+  - reporters/stenographer/support/go-isatty
+  - types
 - name: github.com/onsi/gomega
   version: dcabb60a477c2b6f456df65037cb6708210fbb02
   subpackages:

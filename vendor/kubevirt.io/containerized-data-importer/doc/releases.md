@@ -1,10 +1,5 @@
 # Version and Release
 
-* [Overview](#overview)
-* [Version Scheme](#version-scheme)
-* [Releasing a New Version](#releasing-a-new-version)
-    * [Verifying the Release](#verifying-the-release)
-    * [Travis CI](#travis-ci)
 ### Overview
 
 ### Version Scheme
@@ -19,46 +14,41 @@ CDI adheres to the [semantic version definitions](https://semver.org/) format of
 
 ### Releasing a New Version
 
-Release branches are used to isolate a stable version of CDI.  Git tags are used within these release branches to track incrementing of Minor and Patch versions.  When a Major version is incremented, a new stable branch should be created corresponding to the release.
+ The version number is tracked in several files in CDI as well as through a git tag.  To reduce the chance of human error, a help script is used to change the version in all known locations.
 
-- Release branches should adhere to the `release-v#.#.#` pattern.
+     DO NOT EDIT ANY VERSION STRINGS IN CDI!!
 
-- Tags should adhere to the `v#.#.#(-alpha.#)` pattern.
+1. Set the new release version
 
-When creating a new release branch, follow the below process.  This assumes that `origin` references a fork of `kubevirt/containerized-data-importer` and you have added the main repository as the remote alias `<upstream>`.  If you have cloned `kubevirt/containerized-data-importer` directly, omit the `<upstream>` alias.
+    A recipe has been provided in `Makefile` to handle version setting. Use ONLY this command to set versions. Do NOT edit the values manually.
 
-1. Make sure you have the latest upstream code
+        $ make  set-version VERSION=v#.#.#
 
-    `$ git pull <upstream> master`
+    The `set-version` recipe will locate files in CDI containing the current version value, substitute in the new version, then commit and tag the changes.  The user will be shown a list of files to be changed and prompted to continue before the substitutions are made.
 
-1. Create a new branch from `<upstream>/master`
+1. Verify the changes
 
-    `$ git checkout <upstream>/master -b release-v#.#.#`
+    Before publishing the changes, make one last check to verify the correct version value has been substituted in.
 
-1. Create a tag corresponding to the version
+        $ git diff HEAD~1
 
-    `$ git tag -a -m "Release of version v#.#.#" v#.#.#`
+1. Push the changes to Github
 
-1. Push the new branch and tag to the main kubevirt repo.  (If you have cloned the main repo directly, use `origin` for <`upstream`>)
+        $ git push upstream master && git push upstream --tags
 
-    `$ git push -u <upstream> release-v#.#.# && git push <upstream> --tags`
+   Travis CI will detect the new tag and execute the deploy script.  This will publish the newly updated controller manifest and CDI binaries to git releases.
 
-CI will be triggered when a tag matching `v#.#.#(-alpha.#)` is pushed.  The automation will handle release artifact testing, building, and publishing.
-
-Following the release, `make release-description` should be executed to generate a github release description template.  The `Notable Changes` section should be filled in manually, briefly listing major changes that the new release includes.  Copy/Paste this template into the corresponding github release.
 
 #### Verifying the Release
 
 ##### Images
 
--  Check hub.docker.com/r/kubevirt repository for the newly tagged images. If you do not see the tags corresponding to the version, check the travis build log for errors.
+-  Check hub.docker.com/r/kubevirt repository for the newly tagged images. If you do not see the tags corresponding to the version, something has gone wrong.
 
    [CDI-Controller](https://hub.docker.com/r/kubevirt/cdi-controller/tags/)
 
    [CDI-Importer](https://hub.docker.com/r/kubevirt/cdi-importer/)
 
-   [CDI-Cloner](https://hub.docker.com/r/kubevirt/cdi-cloner/)
-
-##### Travis CI
+##### Travis CI Jobs
 
 Track the CI job for the pushed tag.  Navigate to the [CDI Travis dashboard](https://travis-ci.org/kubevirt/containerized-data-importer/branches) and select the left most colored box (either Green, Yellow, or Red) for the branch corresponding to the version 

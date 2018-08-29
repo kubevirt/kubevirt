@@ -35,7 +35,7 @@ var knownHeaders = Headers{
 	},
 	"tar": Header{
 		Format:      "tar",
-		magicNumber: []byte{0x75, 0x73, 0x74, 0x61, 0x72},
+		magicNumber: []byte{0x75, 0x73, 0x74, 0x61, 0x72, 0x20},
 		mgOffset:    0x101,
 		SizeOff:     124,
 		SizeLen:     8,

@@ -33,18 +33,6 @@ for tmpl in ${templates}; do
         -docker-repo="${DOCKER_REPO}" \
         -docker-tag="${DOCKER_TAG}" \
         -verbosity="${VERBOSITY}" \
-        -pull-policy="${PULL_POLICY}" \
-        -namespace="${NAMESPACE}"
+        -pull-policy="${PULL_POLICY}"
     ) 1>"${MANIFEST_GENERATED_DIR}/${outFile}"
-
-    (${generator} -template="${tmpl}" \
-            -docker-repo="{{ docker_prefix }}" \
-            -docker-tag="{{ docker_tag }}" \
-            -verbosity="{{ verbosity }}" \
-            -pull-policy="{{ pull_policy }}" \
-            -namespace="{{ namespace }}"
-        ) 1>"${MANIFEST_GENERATED_DIR}/${outFile}.j2"
 done
-
-# Remove empty lines at the end of files which are added by go templating
-find ${MANIFEST_GENERATED_DIR}/ -type f -exec sed -i {} -e '${/^$/d;}' \;

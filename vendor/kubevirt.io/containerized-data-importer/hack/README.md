@@ -1,17 +1,5 @@
 ## Getting Started For Developers
 
-* [Download CDI](#download-cdi)
-    * [Lint, Test, Build](#lint-test-build)
-        * [Make Targets](#make-targets)
-        * [Make Variables](#make-variables)
-        * [Execute Functional Tests](#execute-functional-tests)
-        * [Submit PRs](#submit-prs)
-        * [Releases](#releases)
-        * [Vendoring Dependencies](#vendoring-dependencies)
-        * [S3 Compatible Client Setup](#s3-compatible-client-setup)
-            * [AWS S3 CLI](#aws-s3-cli)
-            * [Minio CLI](#minio-cli)
-
 ### Download CDI
 
 To download the source directly, simply
@@ -54,10 +42,7 @@ The standard workflow is performed inside a helper container to normalize the bu
 - `vet`: lint all CDI packages
 - `format`: Execute `shfmt`, `goimports`, and `go vet` on all CDI packages.  Writes back to the source files.
 - `publish`: CI ONLY - this recipe is not intended for use by developers
-- 'cluster-up': Start a default Kubernetes or Open Shift cluster. set KUBEVIRT_PROVIDER environment variable to either 'k8s-1.10.4' or 'os-3.10.0' to select the type of cluster. set KUBEVIRT_NUM_NODES to something higher than 1 to have more than one node.
-- 'cluster-down': Stop the cluster, doing a make cluster-down && make cluster-up will basically restart the cluster into an empty fresh state.
-- 'cluster-sync': Builds the controller/importer/cloner, and pushes it into a running cluster. The cluster must be up before running a cluster sync. Also generates a manifest and applies it to the running cluster after pushing the images to it.
-- 'functest': Run functional end to end tests against a running cluster. See [execute functional tests](#execute-functional-tests)
+
 #### Make Variables
 
 Several variables are provided to alter the targets of the above `Makefile` recipes.
@@ -70,35 +55,9 @@ These may be passed to a target as `$ make VARIABLE=value target`
 - `VERBOSITY`: (default: 1) Set global log level verbosity
 - `PULL_POLICY`: (default: IfNotPresent) Set global CDI pull policy
 
-#### Execute Functional Tests
-Environment Variables and Supported Values
-
-| Env Variable       | Default       | Additional Values  |
-|--------------------|---------------|--------------------|
-|KUBEVIRT_PROVIDER   | k8s-1.10.4    | os-3.10.0          |
-|NUM_NODES           | 1             | 2-5                |
-
-To Run Tests
-```
- make cluster-up
- make cluster-sync
- make functest
-```
-
-Clean Up
-```
- make cluster-down
-```
-
-**End to End Functional Tests currently only run on bare-metal - they will not run in a VM/Cloud environment (i.e. GCE, AWS, etc...)**
-
 ### Submit PRs
 
 All PRs should originate from forks of kubevirt.io/containerized-data-importer.  Work should not be done directly in the upstream repository.  Open new working branches from master/HEAD of your forked repository and push them to your remote repo.  Then submit PRs of the working branch against the upstream master branch.
-
-### Releases
-
-Release practices are described in the [release doc](/doc/releases.md).
 
 ### Vendoring Dependencies
 

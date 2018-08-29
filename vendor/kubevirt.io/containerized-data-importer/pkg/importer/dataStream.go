@@ -1,9 +1,5 @@
 package importer
 
-// DEPRECATION NOTICE: Support for local (file://) endpoints will be removed from CDI in the next
-// release. There is no replacement and no work-around. All import endpoints must reference http(s)
-// or s3 endpoints\n")
-
 import (
 	"archive/tar"
 	"bytes"
@@ -23,7 +19,7 @@ import (
 	"github.com/golang/glog"
 	"github.com/minio/minio-go"
 	"github.com/pkg/errors"
-	"github.com/ulikunitz/xz"
+	"github.com/xi2/xz"
 	. "kubevirt.io/containerized-data-importer/pkg/common"
 	"kubevirt.io/containerized-data-importer/pkg/image"
 )
@@ -60,6 +56,7 @@ const (
 	RdrFile
 	RdrGz
 	RdrMulti
+	RdrQcow2
 	RdrTar
 	RdrXz
 )
@@ -70,6 +67,7 @@ var rdrTypM = map[string]int{
 	"http":  RdrHttp,
 	"https": RdrHttp,
 	"local": RdrFile,
+	"qcow2": RdrQcow2,
 	"s3":    RdrS3,
 	"tar":   RdrTar,
 	"xz":    RdrXz,
@@ -79,7 +77,7 @@ var rdrTypM = map[string]int{
 // Note: the caller must close the `Readers` in reverse order. See Close().
 func NewDataStream(endpt, accKey, secKey string) (*dataStream, error) {
 	if len(accKey) == 0 || len(secKey) == 0 {
-		glog.V(Vadmin).Infof("%s and/or %s are empty\n", IMPORTER_ACCESS_KEY_ID, IMPORTER_SECRET_KEY)
+		glog.Warningf("%s and/or %s env variables are empty\n", IMPORTER_ACCESS_KEY_ID, IMPORTER_SECRET_KEY)
 	}
 	ep, err := ParseEndpoint(endpt)
 	if err != nil {
@@ -92,18 +90,19 @@ func NewDataStream(endpt, accKey, secKey string) (*dataStream, error) {
 		secretKey:   secKey,
 	}
 
-	// establish readers for endpoint's formats and do initial calc of size of raw endpt
+	// establish readers for each nested format types in the endpoint
 	err = ds.constructReaders()
 	if err != nil {
 		return nil, errors.Wrapf(err, "unable to construct readers")
 	}
+	if ds.Size > 0 { // done, we determined the size of the original endpoint file
+		return ds, nil
+	}
 
-	// if the endpoint's file size is zero and it's an iso file then compute its orig size
-	if ds.Size == 0 {
-		ds.Size, err = ds.isoSize()
-		if err != nil {
-			return nil, errors.Wrapf(err, "unable to calculate iso file size")
-		}
+	// the endpoint's file size is zero, if it's an iso file then compute its orig size
+	ds.Size, err = ds.isoSize()
+	if err != nil {
+		return nil, errors.Wrapf(err, "unable to calculate iso file size")
 	}
 	glog.V(Vdebug).Infof("NewDataStream: endpoint %q's computed byte size: %d", ep, ds.Size)
 	return ds, nil
@@ -135,7 +134,7 @@ func (d *dataStream) dataStreamSelector() (err error) {
 	default:
 		return errors.Errorf("invalid url scheme: %q", scheme)
 	}
-	if err == nil && r != nil {
+	if err == nil {
 		d.appendReader(rdrTypM[scheme], r)
 	}
 	return err
@@ -184,10 +183,8 @@ func (d dataStream) http() (io.ReadCloser, error) {
 }
 
 func (d dataStream) local() (io.ReadCloser, error) {
-	// temporary local import deprecation notice
-	glog.Warningf("\nDEPRECATION NOTICE:\n   Support for local (file://) endpoints will be removed from CDI in the next release.\n   There is no replacement and no work-around.\n   All import endpoints must reference http(s) or s3 endpoints\n")
 	fn := d.Url.Path
-
+	glog.Warning("the file:/// protocol is intended *only* for debugging and testing. Files outside of the container cannot be accessed.")
 	f, err := os.Open(fn)
 	if err != nil {
 		return nil, errors.Wrapf(err, "could not open file %q", fn)
@@ -207,44 +204,27 @@ func CopyImage(dest, endpoint, accessKey, secKey string) error {
 	return ds.copy(dest)
 }
 
-// DEPRECATION NOTICE: Support for local (file://) endpoints will be removed from CDI in the next
-// release. There is no replacement and no work-around. All import endpoints must reference http(s)
-// or s3 endpoints\n")
-//
 // Read the endpoint and determine the file composition (eg. .iso.tar.gz) based on the magic number in
 // each known file format header. Set the Reader slice in the receiver and set the Size field to each
 // reader's original size. Note: if, when this method returns, the Size is still 0 then another method
-// will compute the final size. See '*' note below.
+// will compute the final size.
 // The reader order starts with the lowest level reader, eg. http, used to read file content. The next
 // readers are combinations of decompression/archive readers and bytes multi-readers. The multi-readers
 // are created so that header data (interpreted by the current reader) is present for the next reader.
 // Thus, the last reader in the reader stack is always a multi-reader. Readers are closed in reverse
 // order, see the Close method. If a format doesn't natively support Close() a no-op Closer is wrapped
 // around the native Reader so that all Readers can be consider ReadClosers.
-//
 // Examples:
 //   Filename                    Readers (mr == multi-reader)
 //   --------                    ----------------------------
-//   "https://foo.iso"           [http, mr, mr*]
-//   "s3://foo.iso"              [s3, mr, mr*]
-//   "https://foo.iso.tar"       [http, mr, tar, mr]
-//   "https://foo.iso.gz"        [http, mr, gz, mr, mr*]
-//   "https://foo.iso.tar.gz"    [http, mr, gz, mr, tar, mr]
-//   "https://foo.iso.xz"        [http, mr, xz, mr, mr*]
-//   "file://foo.iso.tar.xz"     [file, mr, xz, mr]
+//   "https:/foo.tar.gz"         [http, mr, gz, mr, tar, mr]
+//   "file:/foo.tar.xz"          [file, mr, xz, mr, tar, mr]
+//   "s3://foo-iso"              [s3, mr]
 //   "https://foo.qcow2"         [http, mr]		     note: there is no qcow2 reader
 //   "https://foo.qcow2.tar.gz"  [http, mr, gz, mr, tar, mr] note: there is no qcow2 reader
-//
-//   * in .iso.gz and .iso.xz files (not tar'd) the size of the orig file is not available in their
-//     respective headers. All tar'd and .qcow2 files have the original file size in their headers.
-//     For .iso, .iso.gz and .iso.xz files the Size() func reads a much larger header structure to
-//     calculate these sizes. This entails using another byte reader and thus there will be two
-//     consecutive multi-readers for these file types.
-//
-// Assumptions:
-//   A particular header format only appears once in the data stream. Eg. foo.gz.gz is not supported.
 // Note: file extensions are ignored.
 // Note: readers are not closed here, see dataStream.Close().
+// Assumption: a particular header format only appears once in the data stream. Eg. foo.gz.gz is not supported.
 func (d *dataStream) constructReaders() error {
 	glog.V(Vadmin).Infof("create the initial Reader based on the endpoint's %q scheme", d.Url.Scheme)
 	// create the scheme-specific source reader and append it to dataStream readers stack
@@ -254,8 +234,6 @@ func (d *dataStream) constructReaders() error {
 	}
 
 	// loop through all supported file formats until we do not find a header we recognize
-	// note: iso file headers are not processed here due to their much larger size and if
-	//   the iso file is tar'd we can get its size via the tar hdr -- see intro comments.
 	knownHdrs := image.CopyKnownHdrs() // need local copy since keys are removed
 	glog.V(Vdebug).Infof("constructReaders: checking compression and archive formats: %s\n", d.Url.Path)
 	for {
@@ -263,6 +241,8 @@ func (d *dataStream) constructReaders() error {
 		if err != nil {
 			return errors.WithMessage(err, "could not process image header")
 		}
+		// append multi-reader so that the header data is re-read by subsequent readers
+		d.appendReader(RdrMulti, bytes.NewReader(d.buf))
 		if hdr == nil {
 			break // done processing headers, we have the orig source file
 		}
@@ -272,13 +252,7 @@ func (d *dataStream) constructReaders() error {
 		if err != nil {
 			return errors.WithMessage(err, "could not create compression/unarchive reader")
 		}
-		// exit loop if hdr is qcow2 since that's the equivalent of a raw (iso) file,
-		// mentioned above as the orig source file
-		if hdr.Format == "qcow2" {
-			break
-		}
 	}
-
 	if len(d.Readers) <= 2 {
 		// 1st rdr is source, 2nd rdr is multi-rdr, >2 means we have additional formats
 		glog.V(Vdebug).Infof("constructReaders: no headers found for file %q\n", d.Url.Path)
@@ -287,7 +261,7 @@ func (d *dataStream) constructReaders() error {
 	return nil
 }
 
-// Append to the receiver's reader stack the passed in reader. If the reader type is multi-reader
+// Append to the receiver's reader stack the passed in reader. If the reader type is a multi-reader
 // then wrap a multi-reader around the passed in reader. If the reader is not a Closer then wrap a
 // nop closer.
 func (d *dataStream) appendReader(rType int, x interface{}) {
@@ -296,7 +270,7 @@ func (d *dataStream) appendReader(rType int, x interface{}) {
 	}
 	r, ok := x.(io.Reader)
 	if !ok {
-		glog.Errorf("internal error: unexpected reader type passed to appendReader()")
+		glog.Errorf("internal error: unexecected reader type passed to appendReader()")
 		return
 	}
 	if rType == RdrMulti {
@@ -331,7 +305,7 @@ func (d *dataStream) fileFormatSelector(hdr *image.Header) (err error) {
 	default:
 		return errors.Errorf("mismatch between supported file formats and this header type: %q", fFmt)
 	}
-	if err == nil && r != nil {
+	if err == nil {
 		d.appendReader(rdrTypM[fFmt], r)
 	}
 	return err
@@ -371,7 +345,7 @@ func (d dataStream) qcow2NopReader(h *image.Header) (io.Reader, int64, error) {
 //  order to get its original size. For now 0 is returned.
 //TODO: support gz size.
 func (d dataStream) xzReader() (io.Reader, int64, error) {
-	xz, err := xz.NewReader(d.topReader())
+	xz, err := xz.NewReader(d.topReader(), 0) //note: default dict size may be too small
 	if err != nil {
 		return nil, 0, errors.Wrap(err, "could not create xz reader")
 	}
@@ -394,7 +368,6 @@ func (d dataStream) tarReader() (io.Reader, int64, error) {
 
 // If the raw endpoint is an ISO file then set the receiver's Size via the iso metadata.
 // ISO reference: http://alumnus.caltech.edu/~pje/iso9660.html
-// Note: no error is returned if the enpoint does not match the expected iso format.
 func (d *dataStream) isoSize() (int64, error) {
 	// iso id values
 	const (
@@ -432,13 +405,13 @@ func (d *dataStream) isoSize() (int64, error) {
 	if err != nil {
 		return 0, errors.Wrapf(err, "attempting to read ISO primary volume descriptor")
 	}
+
 	// append multi-reader so that the iso data can be re-read by subsequent readers
 	d.appendReader(RdrMulti, bytes.NewReader(buf))
 
 	// ensure we have an iso file by checking the type and id value
 	vdtyp, err := strconv.Atoi(hex.EncodeToString(buf[typeOff : typeOff+typeLen]))
 	if err != nil {
-		glog.Errorf("isoSize: Atoi error on endpoint %q: %v", d.Url.Path, err)
 		return 0, nil
 	}
 	if vdtyp != primaryVD && string(buf[idOff:idOff+idLen]) != id {
@@ -450,31 +423,24 @@ func (d *dataStream) isoSize() (int64, error) {
 	s := hex.EncodeToString(buf[sectorSizeOff : sectorSizeOff+sectorSizeLen])
 	sectSize, err := strconv.ParseInt(s, 16, 64)
 	if err != nil {
-		glog.Errorf("isoSize: sector size ParseInt error on endpoint %q: %v", d.Url.Path, err)
 		return 0, nil
 	}
 	// get the number sectors
 	s = hex.EncodeToString(buf[numSectorsOff : numSectorsOff+numSectorsLen])
 	numSects, err := strconv.ParseInt(s, 16, 64)
 	if err != nil {
-		glog.Errorf("isoSize: sector count ParseInt error on endpoint %q: %v", d.Url.Path, err)
 		return 0, nil
 	}
 	return int64(numSects * sectSize), nil
 }
 
-// Return the matching header, if one is found, from the passed-in map of known headers. After a
-// successful read append a multi-reader to the receiver's reader stack.
-// Note: .iso files are not detected here but rather in the Size() function.
+// Return the matching header, if one is found, from the passed-in map of known headers.
 // Note: knownHdrs is passed by reference and modified.
-func (d *dataStream) matchHeader(knownHdrs *image.Headers) (*image.Header, error) {
+func (d dataStream) matchHeader(knownHdrs *image.Headers) (*image.Header, error) {
 	_, err := d.Read(d.buf) // read current header
 	if err != nil {
 		return nil, err
 	}
-	// append multi-reader so that the header data can be re-read by subsequent readers
-	d.appendReader(RdrMulti, bytes.NewReader(d.buf))
-
 	// loop through known headers until a match
 	for format, kh := range *knownHdrs {
 		if kh.Match(d.buf) {

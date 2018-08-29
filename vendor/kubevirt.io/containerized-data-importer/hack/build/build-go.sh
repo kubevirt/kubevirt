@@ -34,7 +34,7 @@ targets="$@"
 
 if [ "${go_opt}" == "test" ]; then
 	if [ -z "${targets}" ]; then
-            targets="${CDI_PKGS}"
+        targets="${CDI_PKGS}"
 	fi
 	for tgt in ${targets}; do
         (
@@ -47,12 +47,11 @@ elif [ "${go_opt}" == "build" ]; then
         targets="${BINARIES}"
     fi
 	for tgt in ${targets}; do
-		BIN_NAME=$(basename ${tgt})
-		BIN_PATH=${tgt%/}
+		BIN_NAME=$(basename $tgt)
 		if [[ "${BIN_NAME}" == "${CLONER}" ]]; then
 		    continue
 		fi
-		outFile=${OUT_DIR}/${BIN_PATH}/${BIN_NAME}
+		outFile=${CMD_OUT_DIR}/${BIN_NAME}/${BIN_NAME}
 		outLink=${BIN_DIR}/${BIN_NAME}
 		rm -f ${outFile}
 		rm -f ${outLink}

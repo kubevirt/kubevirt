@@ -39,12 +39,6 @@ type DataVolumeSpec struct {
 type DataVolumeSource struct {
 	HTTP *DataVolumeSourceHTTP `json:"http,omitempty"`
 	S3   *DataVolumeSourceS3   `json:"s3,omitempty"`
-	PVC *PersistentVolumeClaim `json:"pvc,omitempty"`
-}
-
-type PersistentVolumeClaim struct {
-	Namespace string `json:"namespace,omitempty"`
-	Name string `json:"name,omitempty"`
 }
 
 type DataVolumeSourceS3 struct {

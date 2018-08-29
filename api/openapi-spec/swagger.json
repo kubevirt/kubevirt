@@ -5094,9 +5094,6 @@
      "http": {
       "$ref": "#/definitions/v1alpha1.DataVolumeSourceHTTP"
      },
-     "pvc": {
-      "$ref": "#/definitions/v1alpha1.PersistentVolumeClaim"
-     },
      "s3": {
       "$ref": "#/definitions/v1alpha1.DataVolumeSourceS3"
      }
@@ -5136,16 +5133,6 @@
    "v1alpha1.DataVolumeStatus": {
     "properties": {
      "phase": {
-      "type": "string"
-     }
-    }
-   },
-   "v1alpha1.PersistentVolumeClaim": {
-    "properties": {
-     "name": {
-      "type": "string"
-     },
-     "namespace": {
       "type": "string"
      }
     }

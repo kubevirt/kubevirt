@@ -12,32 +12,32 @@
 #See the License for the specific language governing permissions and
 #limitations under the License.
 
+DOCKER=1
+
 .PHONY: build build-controller build-importer \
 		docker docker-controller docker-cloner docker-importer \
-		cluster-sync cluster-sync-controller cluster-sync-cloner cluster-sync-importer \
 		test test-functional test-unit \
 		publish \
 		vet \
 		format \
 		manifests \
-		goveralls \
-		release-description
-
-DOCKER=1
-ifeq (${DOCKER}, 1)
-DO=./hack/build/in-docker.sh
-else
-DO=eval
-endif
+		goveralls
 
 all: docker
 
 clean:
-	${DO} "./hack/build/build-go.sh clean; rm -rf bin/* _out/* manifests/generated/* .coverprofile release-announcement"
+ifeq (${DOCKER}, 1)
+	./hack/build/in-docker "./hack/build/build-go.sh clean; rm -rf bin/* _out/* manifests/generated/* .coverprofile"
+else
+	./hack/build/build-go.sh clean; rm -rf bin/* _out/* manifests/generated/* .coverprofile
+endif
 
 build:
-	${DO} "./hack/build/build-go.sh clean && ./hack/build/build-go.sh build ${WHAT} && DOCKER_REPO=${DOCKER_REPO} DOCKER_TAG=${DOCKER_TAG} VERBOSITY=${VERBOSITY} PULL_POLICY=${PULL_POLICY} ./hack/build/build-manifests.sh ${WHAT} && ./hack/build/build-copy-artifacts.sh ${WHAT}"
-
+ifeq (${DOCKER}, 1)
+	./hack/build/in-docker "./hack/build/build-go.sh clean && ./hack/build/build-go.sh build ${WHAT} && DOCKER_REPO=${DOCKER_REPO} DOCKER_TAG=${DOCKER_TAG} VERBOSITY=${VERBOSITY} PULL_POLICY=${PULL_POLICY} ./hack/build/build-manifests.sh ${WHAT} && ./hack/build/build-copy-artifacts.sh ${WHAT}"
+else
+	./hack/build/build-go.sh clean && ./hack/build/build-go.sh build ${WHAT} && ./hack/build/build-manifests.sh && ./hack/build/build-copy-artifacts.sh ${WHAT}
+endif
 
 build-controller: WHAT = cmd/cdi-controller
 build-controller: build
@@ -46,7 +46,11 @@ build-importer: build
 # Note, the cloner is a bash script and has nothing to build
 
 test:
-	 ${DO} "./hack/build/build-go.sh test ${WHAT}"
+ifeq (${DOCKER}, 1)
+	./hack/build/in-docker "./hack/build/build-go.sh test ${WHAT}"
+else
+	./hack/build/build-go.sh test ${WHAT}
+endif
 
 test-unit: WHAT = pkg/
 test-unit: test
@@ -77,39 +81,25 @@ publish: docker
 	./hack/build/build-docker.sh publish ${WHAT}
 
 vet:
-	${DO} "./hack/build/build-go.sh vet ${WHAT}"
+ifeq (${DOCKER}, 1)
+	./hack/build/in-docker "./hack/build/build-go.sh vet ${WHAT}"
+else
+	./hack/build/build-go.sh vet ${WHAT}
+endif
 
 format:
-	${DO} "./hack/build/format.sh"
+ifeq (${DOCKER}, 1)
+	./hack/build/in-docker "./hack/build/format.sh"
+else
+	./hack/build/format.sh
+endif
 
 manifests:
-	${DO} "DOCKER_REPO=${DOCKER_REPO} DOCKER_TAG=${DOCKER_TAG} VERBOSITY=${VERBOSITY} PULL_POLICY=${PULL_POLICY} ./hack/build/build-manifests.sh"
+ifeq (${DOCKER}, 1)
+	./hack/build/in-docker "DOCKER_REPO=${DOCKER_REPO} DOCKER_TAG=${DOCKER_TAG} VERBOSITY=${VERBOSITY} PULL_POLICY=${PULL_POLICY} ./hack/build/build-manifests.sh"
+else
+	./hack/build/build-manifests.sh
+endif
 
 goveralls:
-	${DO} "TRAVIS_JOB_ID=${TRAVIS_JOB_ID} TRAVIS_PULL_REQUEST=${TRAVIS_PULL_REQUEST} TRAVIS_BRANCH=${TRAVIS_BRANCH} ./hack/build/goveralls.sh"
-
-release-description:
-	./hack/build/release-description.sh ${RELREF} ${PREREF}
-
-cluster-up:
-	./cluster/up.sh
-
-cluster-down:
-	./cluster/down.sh
-
-cluster-sync: build ${WHAT}
-	./cluster/sync.sh ${WHAT}
-
-cluster-sync-controller: WHAT = cmd/cdi-controller
-cluster-sync-controller: cluster-sync
-cluster-sync-importer: WHAT = cmd/cdi-importer
-cluster-sync-importer: cluster-sync
-cluster-sync-cloner: WHAT = cmd/cdi-cloner
-cluster-sync-cloner: cluster-sync
-
-functest: .functest-image-host
-	./hack/build/functests.sh
-
-.functest-image-host: WHAT=tools/cdi-func-test-file-host-init
-.functest-image-host:  manifests build
-	./hack/build/build-cdi-func-test-file-host.sh
+	./hack/build/in-docker "TRAVIS_JOB_ID=${TRAVIS_JOB_ID} TRAVIS_PULL_REQUEST=${TRAVIS_PULL_REQUEST} TRAVIS_BRANCH=${TRAVIS_BRANCH} ./hack/build/goveralls.sh"

@@ -40,7 +40,4 @@ func main() {
 		os.Exit(1)
 	}
 	glog.V(Vuser).Infoln("import complete")
-
-	// temporary local import deprecation notice
-	glog.Warningf("\nDEPRECATION NOTICE:\n   Support for local (file://) endpoints will be removed from CDI in the next release.\n   There is no replacement and no work-around.\n   All import endpoints must reference http(s) or s3 endpoints\n")
 }
