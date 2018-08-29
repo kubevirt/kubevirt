@@ -272,6 +272,9 @@ spec:
                               persistentVolumeClaim: {}
                           name:
                             type: string
+                          networkDisk:
+                            properties:
+                              http: {}
                           persistentVolumeClaim: {}
                           registryDisk:
                             properties:

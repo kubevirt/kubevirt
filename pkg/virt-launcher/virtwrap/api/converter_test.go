@@ -217,6 +217,15 @@ var _ = Describe("Converter", func() {
 					Name:       "ephemeral_pvc",
 					VolumeName: "volume5",
 				},
+				{
+					Name:       "network-cdrom",
+					VolumeName: "volume6",
+					DiskDevice: v1.DiskDevice{
+						CDRom: &v1.CDRomTarget{
+							Tray: v1.TrayStateClosed,
+						},
+					},
+				},
 			}
 			vmi.Spec.Volumes = []v1.Volume{
 				{
@@ -281,6 +290,19 @@ var _ = Describe("Converter", func() {
 						Ephemeral: &v1.EphemeralVolumeSource{
 							PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{
 								ClaimName: "testclaim",
+							},
+						},
+					},
+				},
+				{
+					Name: "volume6",
+					VolumeSource: v1.VolumeSource{
+						NetworkDisk: &v1.NetworkDiskSource{
+							HTTP: &v1.HTTPNetworkDiskSource{
+								Protocol:  "http",
+								ImagePath: "/dir/to/my.iso",
+								HostName:  "my.server.com",
+								Port:      "80",
 							},
 						},
 					},
@@ -380,6 +402,15 @@ var _ = Describe("Converter", func() {
         <format type="raw"></format>
         <source file="/var/run/kubevirt-private/vmi-disks/volume5/disk.img"></source>
       </backingStore>
+    </disk>
+    <disk device="cdrom" type="network">
+      <source protocol="http" name="/dir/to/my.iso">
+        <host name="my.server.com" port="80"></host>
+      </source>
+      <target bus="sata" dev="sde" tray="closed"></target>
+      <driver name="qemu" type="raw"></driver>
+      <readonly></readonly>
+      <alias name="network-cdrom"></alias>
     </disk>
     <serial type="unix">
       <target port="0"></target>

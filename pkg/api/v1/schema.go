@@ -329,8 +329,13 @@ type VolumeSource struct {
 	// More info: https://kubevirt.gitbooks.io/user-guide/disks-and-volumes.html
 	// +optional
 	EmptyDisk *EmptyDiskSource `json:"emptyDisk,omitempty"`
+	// NetworkDisk represents a network attached disk
+	// Primarily we're using this to stream from things like an https source, but it can
+	// also be extended for direct connects from qemu to things like rbd, iscsi etc
+	NetworkDisk *NetworkDiskSource `json:"networkDisk,omitempty"`
 }
 
+// EphemeralVolumeSource Represents an ephemeral volumes source for a VMI.
 // ---
 // +k8s:openapi-gen=true
 type EphemeralVolumeSource struct {
@@ -341,7 +346,7 @@ type EphemeralVolumeSource struct {
 	PersistentVolumeClaim *v1.PersistentVolumeClaimVolumeSource `json:"persistentVolumeClaim,omitempty"`
 }
 
-// EmptyDisk represents a temporary disk which shares the vmis lifecycle.
+// EmptyDiskSource represents a temporary disk which shares the vmis lifecycle.
 // ---
 // +k8s:openapi-gen=true
 type EmptyDiskSource struct {
@@ -349,7 +354,7 @@ type EmptyDiskSource struct {
 	Capacity resource.Quantity `json:"capacity"`
 }
 
-// Represents a docker image with an embedded disk.
+// RegistryDiskSource Represents a docker image with an embedded disk.
 // ---
 // +k8s:openapi-gen=true
 type RegistryDiskSource struct {
@@ -359,6 +364,26 @@ type RegistryDiskSource struct {
 	ImagePullSecret string `json:"imagePullSecret,omitempty"`
 }
 
+// NetworkDiskSource Represents a network disk.  Currently we only implement HTTP Sources
+// ---
+// +k8s:openapi-gen=true
+type NetworkDiskSource struct {
+	HTTP *HTTPNetworkDiskSource `json:"http,omitempty"`
+}
+
+// HTTPNetworkDiskSource Represents an HTTP or HTTPS based Network Disk Source
+type HTTPNetworkDiskSource struct {
+	// Protocol specifies either http or https
+	Protocol string `json:"protocol,omitempty"`
+	// ImagePath is the full path to the image being used
+	ImagePath string `json:"imagePath,omitempty"`
+	// HostName is the DNS Name/IP of the source (ie 'dl-cdn.alpinelinux.org')
+	HostName string `json:"hostName,omitempty"`
+	// Port is the port to connect to HostName on
+	Port string `json:"port,omitempty"`
+}
+
+// ClockOffset provides a mechanism for setting the VMIs UTC offset and TZ.
 // Exactly one of its members must be set.
 // ---
 // +k8s:openapi-gen=true
@@ -371,7 +396,7 @@ type ClockOffset struct {
 	Timezone *ClockOffsetTimezone `json:"timezone,omitempty"`
 }
 
-// UTC sets the guest clock to UTC on each boot.
+// ClockOffsetUTC sets the guest clock to UTC on each boot.
 // ---
 // +k8s:openapi-gen=true
 type ClockOffsetUTC struct {

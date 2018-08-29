@@ -3302,7 +3302,7 @@
    },
    "v1.ClockOffsetTimezone": {},
    "v1.ClockOffsetUTC": {
-    "description": "UTC sets the guest clock to UTC on each boot.",
+    "description": "ClockOffsetUTC sets the guest clock to UTC on each boot.",
     "properties": {
      "offsetSeconds": {
       "description": "OffsetSeconds specifies an offset in seconds, relative to UTC. If set,\nguest changes to the clock will be kept during reboots and not reset.",
@@ -3518,7 +3518,7 @@
     }
    },
    "v1.EmptyDiskSource": {
-    "description": "EmptyDisk represents a temporary disk which shares the vmis lifecycle.",
+    "description": "EmptyDiskSource represents a temporary disk which shares the vmis lifecycle.",
     "required": [
      "capacity"
     ],
@@ -3530,6 +3530,7 @@
     }
    },
    "v1.EphemeralVolumeSource": {
+    "description": "EphemeralVolumeSource Represents an ephemeral volumes source for a VMI.",
     "properties": {
      "persistentVolumeClaim": {
       "description": "PersistentVolumeClaimVolumeSource represents a reference to a PersistentVolumeClaim in the same namespace.\nDirectly attached to the vmi via qemu.\nMore info: https://kubernetes.io/docs/concepts/storage/persistent-volumes#persistentvolumeclaims\n+optional",
@@ -3684,6 +3685,27 @@
      },
      "tickPolicy": {
       "description": "TickPolicy determines what happens when QEMU misses a deadline for injecting a tick to the guest.\nOne of \"delay\", \"catchup\", \"merge\", \"discard\".",
+      "type": "string"
+     }
+    }
+   },
+   "v1.HTTPNetworkDiskSource": {
+    "description": "HTTPNetworkDiskSource Represents an HTTP or HTTPS based Network Disk Source",
+    "properties": {
+     "hostName": {
+      "description": "HostName is the DNS Name/IP of the source (ie 'dl-cdn.alpinelinux.org')",
+      "type": "string"
+     },
+     "imagePath": {
+      "description": "ImagePath is the full path to the image being used",
+      "type": "string"
+     },
+     "port": {
+      "description": "Port is the port to connect to HostName on",
+      "type": "string"
+     },
+     "protocol": {
+      "description": "Protocol specifies either http or https",
       "type": "string"
      }
     }
@@ -3910,6 +3932,14 @@
      },
      "pod": {
       "$ref": "#/definitions/v1.PodNetwork"
+     }
+    }
+   },
+   "v1.NetworkDiskSource": {
+    "description": "NetworkDiskSource Represents a network disk.  Currently we only implement HTTP Sources",
+    "properties": {
+     "http": {
+      "$ref": "#/definitions/v1.HTTPNetworkDiskSource"
      }
     }
    },
@@ -4261,7 +4291,7 @@
     }
    },
    "v1.RegistryDiskSource": {
-    "description": "Represents a docker image with an embedded disk.",
+    "description": "RegistryDiskSource Represents a docker image with an embedded disk.",
     "required": [
      "image"
     ],
@@ -4942,6 +4972,10 @@
      "name": {
       "description": "Volume's name.\nMust be a DNS_LABEL and unique within the vmi.\nMore info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names",
       "type": "string"
+     },
+     "networkDisk": {
+      "description": "NetworkDisk represents a network attached disk\nPrimarily we're using this to stream from things like an https source, but it can\nalso be extended for direct connects from qemu to things like rbd, iscsi etc",
+      "$ref": "#/definitions/v1.NetworkDiskSource"
      },
      "persistentVolumeClaim": {
       "description": "PersistentVolumeClaimVolumeSource represents a reference to a PersistentVolumeClaim in the same namespace.\nDirectly attached to the vmi via qemu.\nMore info: https://kubernetes.io/docs/concepts/storage/persistent-volumes#persistentvolumeclaims\n+optional",
