@@ -770,6 +770,15 @@ func ValidateVirtualMachineInstanceSpec(field *k8sfield.Path, spec *v1.VirtualMa
 				}
 			}
 		}
+
+		// Validate that every network was assign to an interface
+		if len(networkInterfaceMap) != len(networkNameMap) {
+			causes = append(causes, metav1.StatusCause{
+				Type:    metav1.CauseTypeFieldValueRequired,
+				Message: fmt.Sprintf("every network must be mapped to an interface."),
+				Field:   field.Child("networks").String(),
+			})
+		}
 	}
 
 	causes = append(causes, validateDomainSpec(field.Child("domain"), &spec.Domain)...)

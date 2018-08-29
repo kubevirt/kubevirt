@@ -26,8 +26,6 @@ spec:
       requests:
         memory: 1024M
   networks:
-  - name: default
-    pod: {}
   - multus:
       networkName: ptp-conf
     name: ptp

@@ -35,7 +35,6 @@ if [[ $TARGET =~ openshift-.* ]]; then
     export KUBEVIRT_PROVIDER="os-3.10.0-crio"
   elif [[ $TARGET =~ .*-multus-.* ]]; then
     export KUBEVIRT_PROVIDER="os-3.10.0-multus"
-    docker pull docker.io/kubevirtci/os-3.10.0-multus@sha256:d9a8df2ba545e579c933d96d33406a1a6b0dca37a81469fbc08bbb1d557d02f3
   else
     export KUBEVIRT_PROVIDER="os-3.10.0"
   fi
