@@ -99,6 +99,17 @@ var _ = Describe("VirtualMachine", func() {
 			})
 		}
 
+		shouldExpectDataVolumeDeletion := func(uid types.UID, name string) {
+			cdiClient.Fake.PrependReactor("delete", "datavolumes", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
+				update, ok := action.(testing.DeleteAction)
+				Expect(ok).To(BeTrue())
+
+				deletionName := update.GetName()
+				Expect(deletionName).To(Equal(name))
+				return true, nil, nil
+			})
+		}
+
 		addVirtualMachine := func(vm *v1.VirtualMachine) {
 			syncCaches(stop)
 			mockQueue.ExpectAdds(1)
@@ -144,6 +155,57 @@ var _ = Describe("VirtualMachine", func() {
 			controller.Execute()
 			Expect(createCount).To(Equal(1))
 			testutils.ExpectEvent(recorder, SuccessfulDataVolumeCreateReason)
+		})
+
+		It("should delete failed DataVolume for VirtualMachineInstance", func() {
+			vm, _ := DefaultVirtualMachine(true)
+			vm.Spec.Template.Spec.Volumes = append(vm.Spec.Template.Spec.Volumes, v1.Volume{
+				Name: "test1",
+				VolumeSource: v1.VolumeSource{
+					DataVolume: &v1.DataVolumeSource{
+						Name: "dv1",
+					},
+				},
+			})
+			vm.Spec.Template.Spec.Volumes = append(vm.Spec.Template.Spec.Volumes, v1.Volume{
+				Name: "test1",
+				VolumeSource: v1.VolumeSource{
+					DataVolume: &v1.DataVolumeSource{
+						Name: "dv2",
+					},
+				},
+			})
+
+			vm.Spec.DataVolumeTemplates = append(vm.Spec.DataVolumeTemplates, cdiv1.DataVolume{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "dv1",
+				},
+			})
+			vm.Spec.DataVolumeTemplates = append(vm.Spec.DataVolumeTemplates, cdiv1.DataVolume{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "dv2",
+				},
+			})
+			addVirtualMachine(vm)
+
+			existingDataVolume1 := createDataVolumeManifest(&vm.Spec.DataVolumeTemplates[0], vm)
+			existingDataVolume1.Namespace = "default"
+			existingDataVolume1.Status.Phase = cdiv1.Failed
+
+			existingDataVolume2 := createDataVolumeManifest(&vm.Spec.DataVolumeTemplates[1], vm)
+			existingDataVolume2.Namespace = "default"
+			existingDataVolume2.Status.Phase = cdiv1.Succeeded
+
+			dataVolumeFeeder.Add(existingDataVolume1)
+			dataVolumeFeeder.Add(existingDataVolume2)
+
+			shouldExpectDataVolumeDeletion(vm.UID, existingDataVolume2.Name)
+
+			vmInterface.EXPECT().Update(gomock.Any()).Times(1).Return(vm, nil)
+
+			controller.Execute()
+
+			testutils.ExpectEvent(recorder, FailedDataVolumeImportReason)
 		})
 
 		It("should only start VMI once DataVolumes are complete", func() {

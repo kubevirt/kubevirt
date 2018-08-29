@@ -348,6 +348,18 @@ func (c *VMController) handleDataVolumes(vm *virtv1.VirtualMachine, dataVolumes 
 			ready = false
 			if curDataVolume.Status.Phase == cdiv1.Failed {
 				c.recorder.Eventf(vm, k8score.EventTypeWarning, FailedDataVolumeImportReason, "DataVolume %s failed to import disk image", curDataVolume.Name)
+
+				// By deleting the failed DataVolume, a new DataVolume will be
+				// created to take it's place.
+				if curDataVolume.DeletionTimestamp != nil {
+					c.dataVolumeExpectations.ExpectDeletions(vmKey, []string{controller.DataVolumeKey(curDataVolume)})
+					err := c.clientset.CdiClient().CdiV1alpha1().DataVolumes(curDataVolume.Namespace).Delete(curDataVolume.Name, &v1.DeleteOptions{})
+					if err != nil {
+						c.dataVolumeExpectations.DeletionObserved(vmKey, controller.DataVolumeKey(curDataVolume))
+						return ready, err
+					}
+				}
+
 				return ready, fmt.Errorf("DataVolume %s failed to import", curDataVolume.Name)
 			}
 		}
