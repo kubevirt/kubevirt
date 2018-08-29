@@ -20,6 +20,7 @@
 package watch
 
 import (
+	"sync"
 	"time"
 
 	"github.com/pborman/uuid"
@@ -175,7 +176,10 @@ func (c *VMController) execute(key string) error {
 		}
 		return fresh, nil
 	})
-	cm := controller.NewVirtualMachineControllerRefManager(controller.RealVirtualMachineControl{Clientset: c.clientset}, VM, nil, virtv1.VirtualMachineGroupVersionKind, canAdoptFunc)
+	cm := controller.NewVirtualMachineControllerRefManager(
+		controller.RealVirtualMachineControl{
+			Clientset: c.clientset,
+		}, VM, nil, virtv1.VirtualMachineGroupVersionKind, canAdoptFunc)
 
 	var vmi *virtv1.VirtualMachineInstance
 	vmiObj, exist, err := c.vmiInformer.GetStore().GetByKey(vmKey)
@@ -201,6 +205,13 @@ func (c *VMController) execute(key string) error {
 		return err
 	}
 
+	if len(dataVolumes) != 0 {
+		dataVolumes, err = cm.ClaimMatchedDataVolumes(dataVolumes)
+		if err != nil {
+			return err
+		}
+	}
+
 	var createErr error
 
 	// Scale up or down, if all expected creates and deletes were report by the listener
@@ -219,7 +230,11 @@ func (c *VMController) execute(key string) error {
 	// If the controller is going to be deleted and the orphan finalizer is the next one, release the VMIs. Don't update the status
 	// TODO: Workaround for https://github.com/kubernetes/kubernetes/issues/56348, remove it once it is fixed
 	if VM.ObjectMeta.DeletionTimestamp != nil && controller.HasFinalizer(VM, v1.FinalizerOrphanDependents) {
-		return c.orphan(cm, vmi)
+		err = c.orphan(cm, vmi)
+		if err != nil {
+			return err
+		}
+		return c.orphanDataVolumes(cm, dataVolumes)
 	}
 
 	if createErr != nil {
@@ -276,6 +291,34 @@ func (c *VMController) orphan(cm *controller.VirtualMachineControllerRefManager,
 		}
 	}(vmi)
 
+	select {
+	case err := <-errChan:
+		return err
+	default:
+	}
+	return nil
+}
+
+func (c *VMController) orphanDataVolumes(cm *controller.VirtualMachineControllerRefManager, dataVolumes []*cdiv1.DataVolume) error {
+
+	if len(dataVolumes) == 0 {
+		return nil
+	}
+
+	var wg sync.WaitGroup
+	errChan := make(chan error, len(dataVolumes))
+	wg.Add(len(dataVolumes))
+
+	for _, dataVolume := range dataVolumes {
+		go func(dataVolume *cdiv1.DataVolume) {
+			defer wg.Done()
+			err := cm.ReleaseDataVolume(dataVolume)
+			if err != nil {
+				errChan <- err
+			}
+		}(dataVolume)
+	}
+	wg.Wait()
 	select {
 	case err := <-errChan:
 		return err

@@ -30,6 +30,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 
+	cdiv1 "kubevirt.io/containerized-data-importer/pkg/apis/datavolumecontroller/v1alpha1"
 	virtv1 "kubevirt.io/kubevirt/pkg/api/v1"
 )
 
@@ -186,6 +187,120 @@ func TestClaimVirtualMachine(t *testing.T) {
 	}
 }
 
+func newDataVolume(name string, owner metav1.Object) *cdiv1.DataVolume {
+	dataVolume := &cdiv1.DataVolume{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: metav1.NamespaceDefault,
+		},
+	}
+	if owner != nil {
+		dataVolume.OwnerReferences = []metav1.OwnerReference{*newControllerRef(owner)}
+	}
+
+	return dataVolume
+}
+
+func TestClaimDataVolume(t *testing.T) {
+	controllerKind := schema.GroupVersionKind{}
+	type test struct {
+		name        string
+		manager     *VirtualMachineControllerRefManager
+		datavolumes []*cdiv1.DataVolume
+		filters     []func(*cdiv1.DataVolume) bool
+		claimed     []*cdiv1.DataVolume
+		released    []*cdiv1.DataVolume
+		expectError bool
+	}
+	var tests = []test{
+		func() test {
+			controller := v1.ReplicationController{}
+			controller.UID = types.UID(controllerUID)
+			now := metav1.Now()
+			controller.DeletionTimestamp = &now
+			return test{
+				name: "Controller marked for deletion can not claim datavolumes",
+				manager: NewVirtualMachineControllerRefManager(&FakeVirtualMachineControl{},
+					&controller,
+					productionLabelSelector,
+					controllerKind,
+					func() error { return nil }),
+				datavolumes: []*cdiv1.DataVolume{newDataVolume("datavolume1", nil), newDataVolume("datavolume2", nil)},
+				claimed:     nil,
+			}
+		}(),
+		func() test {
+			controller := v1.ReplicationController{}
+			controller.UID = types.UID(controllerUID)
+			now := metav1.Now()
+			controller.DeletionTimestamp = &now
+			return test{
+				name: "Controller marked for deletion can not claim new datavolumes",
+				manager: NewVirtualMachineControllerRefManager(&FakeVirtualMachineControl{},
+					&controller,
+					productionLabelSelector,
+					controllerKind,
+					func() error { return nil }),
+				datavolumes: []*cdiv1.DataVolume{newDataVolume("datavolume1", &controller), newDataVolume("datavolume2", nil)},
+				claimed:     []*cdiv1.DataVolume{newDataVolume("datavolume1", &controller)},
+			}
+		}(),
+		func() test {
+			controller := v1.ReplicationController{}
+			controller2 := v1.ReplicationController{}
+			controller.UID = types.UID(controllerUID)
+			controller2.UID = types.UID("AAAAA")
+			return test{
+				name: "Controller can not claim datavolumes owned by another controller",
+				manager: NewVirtualMachineControllerRefManager(&FakeVirtualMachineControl{},
+					&controller,
+					productionLabelSelector,
+					controllerKind,
+					func() error { return nil }),
+				datavolumes: []*cdiv1.DataVolume{newDataVolume("datavolume1", &controller), newDataVolume("datavolume2", &controller2)},
+				claimed:     []*cdiv1.DataVolume{newDataVolume("datavolume1", &controller)},
+			}
+		}(),
+		func() test {
+			controller := v1.ReplicationController{}
+			controller.UID = types.UID(controllerUID)
+			datavolumeToDelete1 := newDataVolume("datavolume1", &controller)
+			datavolumeToDelete2 := newDataVolume("datavolume2", nil)
+			now := metav1.Now()
+			datavolumeToDelete1.DeletionTimestamp = &now
+			datavolumeToDelete2.DeletionTimestamp = &now
+
+			return test{
+				name: "Controller does not claim orphaned datavolumes marked for deletion",
+				manager: NewVirtualMachineControllerRefManager(&FakeVirtualMachineControl{},
+					&controller,
+					productionLabelSelector,
+					controllerKind,
+					func() error { return nil }),
+				datavolumes: []*cdiv1.DataVolume{datavolumeToDelete1, datavolumeToDelete2},
+				claimed:     []*cdiv1.DataVolume{datavolumeToDelete1},
+			}
+		}(),
+	}
+	for _, test := range tests {
+		claimed, err := test.manager.ClaimMatchedDataVolumes(test.datavolumes)
+		if test.expectError && err == nil {
+			t.Errorf("Test case `%s`, expected error but got nil", test.name)
+		} else if !reflect.DeepEqual(test.claimed, claimed) {
+			t.Errorf("Test case `%s`, claimed wrong datavolumes. Expected %v, got %v", test.name, datavolumeToStringSlice(test.claimed), datavolumeToStringSlice(claimed))
+		}
+
+	}
+}
+
+func datavolumeToStringSlice(dataVolumes []*cdiv1.DataVolume) []string {
+	var names []string
+	for _, dv := range dataVolumes {
+		names = append(names, dv.Name)
+	}
+	return names
+}
+
 func virtualmachineToStringSlice(virtualmachines []*virtv1.VirtualMachineInstance) []string {
 	var names []string
 	for _, virtualmachine := range virtualmachines {
@@ -204,6 +319,15 @@ type FakeVirtualMachineControl struct {
 var _ VirtualMachineControlInterface = &FakeVirtualMachineControl{}
 
 func (f *FakeVirtualMachineControl) PatchVirtualMachine(namespace, name string, data []byte) error {
+	f.Lock()
+	defer f.Unlock()
+	f.Patches = append(f.Patches, data)
+	if f.Err != nil {
+		return f.Err
+	}
+	return nil
+}
+func (f *FakeVirtualMachineControl) PatchDataVolume(namespace, name string, data []byte) error {
 	f.Lock()
 	defer f.Unlock()
 	f.Patches = append(f.Patches, data)
