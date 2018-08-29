@@ -32,6 +32,7 @@ RUN dnf -y install \
 
 COPY virt-launcher /usr/bin/virt-launcher
 COPY kubevirt-sudo /etc/sudoers.d/kubevirt
+COPY .version /.version
 
 # Allow qemu to bind privileged ports
 RUN setcap CAP_NET_BIND_SERVICE=+eip /usr/bin/qemu-system-x86_64
