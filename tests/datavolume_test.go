@@ -26,6 +26,7 @@ import (
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"kubevirt.io/kubevirt/pkg/api/v1"
@@ -120,6 +121,40 @@ var _ = Describe("DataVolume Integration", func() {
 					}
 					vm = tests.StopVirtualMachine(vm)
 				}
+				Expect(virtClient.VirtualMachine(vm.Namespace).Delete(vm.Name, &metav1.DeleteOptions{})).To(Succeed())
+			})
+
+			It("should remove owner references on DataVolume if VM is orphan deleted.", func() {
+				vm := tests.NewRandomVMWithDataVolume(tests.AlpineHttpUrl, tests.NamespaceTestDefault)
+				vm, err = virtClient.VirtualMachine(tests.NamespaceTestDefault).Create(vm)
+				Expect(err).ToNot(HaveOccurred())
+
+				// Check for owner reference
+				Eventually(func() []metav1.OwnerReference {
+					dataVolume, _ := virtClient.CdiClient().CdiV1alpha1().DataVolumes(vm.Namespace).Get(vm.Spec.DataVolumeTemplates[0].Name, metav1.GetOptions{})
+					return dataVolume.OwnerReferences
+				}, 100*time.Second, 1*time.Second).ShouldNot(BeEmpty())
+
+				// Delete the VM with orphan Propagation
+				orphanPolicy := metav1.DeletePropagationOrphan
+				Expect(virtClient.VirtualMachine(vm.Namespace).
+					Delete(vm.Name, &metav1.DeleteOptions{PropagationPolicy: &orphanPolicy})).To(Succeed())
+
+				// Wait until the offlinevmi is deleted
+				Eventually(func() bool {
+					_, err := virtClient.VirtualMachine(vm.Namespace).Get(vm.Name, &metav1.GetOptions{})
+					if errors.IsNotFound(err) {
+						return true
+					}
+					return false
+				}, 100*time.Second, 1*time.Second).Should(BeTrue())
+
+				dataVolume, err := virtClient.CdiClient().CdiV1alpha1().DataVolumes(vm.Namespace).Get(vm.Spec.DataVolumeTemplates[0].Name, metav1.GetOptions{})
+				Expect(dataVolume.OwnerReferences).To(BeEmpty())
+				Expect(err).ToNot(HaveOccurred())
+
+				err = virtClient.CdiClient().CdiV1alpha1().DataVolumes(vm.Namespace).Delete(dataVolume.Name, &metav1.DeleteOptions{})
+				Expect(err).ToNot(HaveOccurred())
 			})
 		})
 	})
