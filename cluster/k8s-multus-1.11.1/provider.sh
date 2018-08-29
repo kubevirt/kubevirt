@@ -2,7 +2,7 @@
 
 set -e
 
-image="k8s-multus-1.11.1@sha256:748045ec8a8436af817eef7fa96669b3452e39013cf70e18b104d676c76899d2"
+image="k8s-multus-1.11.1@sha256:ce7b961a449e20cf0628fba4deb90a8f399271659a0dd98eecdd249ec6c9d4b0"
 
 source cluster/ephemeral-provider-common.sh
 

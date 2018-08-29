@@ -86,7 +86,7 @@ var _ = Describe("Pod Network", func() {
 			IP:      fakeAddr,
 			MAC:     fakeMac,
 			Gateway: gw}
-		interfaceXml = []byte(`<Interface type="bridge"><source bridge="br-eth0"></source><model type="virtio"></model><mac address="12:34:56:78:9a:bc"></mac><alias name="ua-default"></alias></Interface>`)
+		interfaceXml = []byte(`<Interface type="bridge"><source bridge="k6t-eth0"></source><model type="virtio"></model><mac address="12:34:56:78:9a:bc"></mac><alias name="ua-default"></alias></Interface>`)
 	})
 
 	AfterEach(func() {

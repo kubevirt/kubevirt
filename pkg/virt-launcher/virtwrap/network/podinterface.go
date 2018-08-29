@@ -125,7 +125,7 @@ func getBinding(iface *v1.Interface, domain *api.Domain, podInterfaceName string
 			domain:              domain,
 			podInterfaceNum:     podInterfaceNum,
 			podInterfaceName:    podInterfaceName,
-			bridgeInterfaceName: fmt.Sprintf("br-%s", podInterfaceName)}, nil
+			bridgeInterfaceName: fmt.Sprintf("k6t-%s", podInterfaceName)}, nil
 	}
 	if iface.Slirp != nil {
 		return &SlirpPodInterface{iface: iface, domain: domain, podInterfaceNum: podInterfaceNum}, nil

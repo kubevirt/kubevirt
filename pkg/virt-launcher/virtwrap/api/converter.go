@@ -602,7 +602,7 @@ func Convert_v1_VirtualMachine_To_api_Domain(vmi *v1.VirtualMachineInstance, dom
 			domainIface.Type = "bridge"
 			if value, ok := multusNetworks[iface.Name]; ok {
 				domainIface.Source = InterfaceSource{
-					Bridge: fmt.Sprintf("br-net%d", value),
+					Bridge: fmt.Sprintf("k6t-net%d", value),
 				}
 			} else {
 				domainIface.Source = InterfaceSource{
