@@ -4944,7 +4944,7 @@
     ],
     "properties": {
      "dataVolumeTemplates": {
-      "description": "dataVolumeTemplates is a list of dataVolumes that the VirtualMachineInstance template can reference.",
+      "description": "dataVolumeTemplates is a list of dataVolumes that the VirtualMachineInstance template can reference.\nDataVolumes in this list are dynamically created for the VirtualMachine and are tied to the VirtualMachine's life-cycle.",
       "type": "array",
       "items": {
        "$ref": "#/definitions/v1alpha1.DataVolume"

@@ -2043,7 +2043,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 						},
 						"dataVolumeTemplates": {
 							SchemaProps: spec.SchemaProps{
-								Description: "dataVolumeTemplates is a list of dataVolumes that the VirtualMachineInstance template can reference.",
+								Description: "dataVolumeTemplates is a list of dataVolumes that the VirtualMachineInstance template can reference. DataVolumes in this list are dynamically created for the VirtualMachine and are tied to the VirtualMachine's life-cycle.",
 								Type:        []string{"array"},
 								Items: &spec.SchemaOrArray{
 									Schema: &spec.Schema{

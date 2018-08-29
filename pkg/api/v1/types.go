@@ -731,6 +731,7 @@ type VirtualMachineSpec struct {
 	Template *VirtualMachineInstanceTemplateSpec `json:"template"`
 
 	// dataVolumeTemplates is a list of dataVolumes that the VirtualMachineInstance template can reference.
+	// DataVolumes in this list are dynamically created for the VirtualMachine and are tied to the VirtualMachine's life-cycle.
 	DataVolumeTemplates []cdiv1.DataVolume `json:"dataVolumeTemplates,omitempty"`
 }
 
