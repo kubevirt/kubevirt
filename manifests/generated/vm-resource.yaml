@@ -132,6 +132,7 @@ spec:
                                 required:
                                 - name
                               type: array
+                            rng: {}
                             watchdog:
                               properties:
                                 i6300esb:

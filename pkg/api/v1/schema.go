@@ -188,6 +188,9 @@ type Devices struct {
 	// Wheater to attach the default graphics device or not.
 	// VNC will not be available if set to false. Defaults to true.
 	AutoattachGraphicsDevice *bool `json:"autoattachGraphicsDevice,omitempty"`
+	// Whether to have random number generator from host
+	// +optional
+	Rng *Rng `json:"rng,omitempty"`
 }
 
 // ---
@@ -779,4 +782,10 @@ type PodNetwork struct {
 	// CIDR for vm network.
 	// Default 10.0.2.0/24 if not specified.
 	VMNetworkCIDR string `json:"vmNetworkCIDR,omitempty"`
+}
+
+// Rng represents the random device passed from host
+// ---
+// +k8s:openapi-gen=true
+type Rng struct {
 }

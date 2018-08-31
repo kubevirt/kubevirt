@@ -242,6 +242,22 @@ func Convert_v1_Watchdog_To_api_Watchdog(source *v1.Watchdog, watchdog *Watchdog
 	return fmt.Errorf("watchdog %s can't be mapped, no watchdog type specified", source.Name)
 }
 
+func Convert_v1_Rng_To_api_Rng(source *v1.Rng, rng *Rng, _ *ConverterContext) error {
+
+	// default rng model for KVM/QEMU virtualization
+	rng.Model = "virtio"
+
+	// default backend model, random
+	rng.Backend = &RngBackend{
+		Model: "random",
+	}
+
+	// the default source for rng is dev urandom
+	rng.Backend.Source = "/dev/urandom"
+
+	return nil
+}
+
 func Convert_v1_Clock_To_api_Clock(source *v1.Clock, clock *Clock, c *ConverterContext) error {
 	if source.UTC != nil {
 		clock.Offset = "utc"
@@ -433,6 +449,15 @@ func Convert_v1_VirtualMachine_To_api_Domain(vmi *v1.VirtualMachineInstance, dom
 			return err
 		}
 		domain.Spec.Devices.Watchdog = newWatchdog
+	}
+
+	if vmi.Spec.Domain.Devices.Rng != nil {
+		newRng := &Rng{}
+		err := Convert_v1_Rng_To_api_Rng(vmi.Spec.Domain.Devices.Rng, newRng, c)
+		if err != nil {
+			return err
+		}
+		domain.Spec.Devices.Rng = newRng
 	}
 
 	if vmi.Spec.Domain.Clock != nil {

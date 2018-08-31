@@ -3383,6 +3383,10 @@
        "$ref": "#/definitions/v1.Interface"
       }
      },
+     "rng": {
+      "description": "Whether to have random number generator from host\n+optional",
+      "$ref": "#/definitions/v1.Rng"
+     },
      "watchdog": {
       "description": "Watchdog describes a watchdog device which can be added to the vmi.",
       "$ref": "#/definitions/v1.Watchdog"
@@ -4291,6 +4295,9 @@
       "type": "object"
      }
     }
+   },
+   "v1.Rng": {
+    "description": "Rng represents the random device passed from host"
    },
    "v1.ServerAddressByClientCIDR": {
     "description": "ServerAddressByClientCIDR helps the client to determine the server address that they should use, depending on the clientCIDR that they match.",
