@@ -40,6 +40,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/kubecli"
 	"kubevirt.io/kubevirt/pkg/log"
+	"kubevirt.io/kubevirt/pkg/util/subresources"
 	"kubevirt.io/kubevirt/tests"
 )
 
@@ -120,10 +121,14 @@ var _ = Describe("VNC", func() {
 			})
 		})
 
-		table.DescribeTable("should upgrade subresource connections if an origin header is given", func(subresource string) {
+		table.DescribeTable("should upgrade websocket connection which look like coming from a browser", func(subresource string) {
 			config, err := kubecli.GetKubevirtClientConfig()
 			Expect(err).ToNot(HaveOccurred())
-			rt, err := upgradeCheckRoundTripperFromConfig(config)
+			// Browsers need a subprotocol, since they will have to use the subprotocol mechanism to forward the bearer token.
+			// As a consequence they need a subprotocol match.
+			rt, err := upgradeCheckRoundTripperFromConfig(config, []string{"fantasy.protocol", subresources.PlainStreamProtocolName})
+			Expect(err).ToNot(HaveOccurred())
+			wrappedRoundTripper, err := rest.HTTPWrappersForConfig(config, rt)
 			Expect(err).ToNot(HaveOccurred())
 			req, err := kubecli.RequestFromConfig(config, vmi.Name, vmi.Namespace, subresource)
 
@@ -132,22 +137,38 @@ var _ = Describe("VNC", func() {
 				req.Header = http.Header{}
 			}
 			req.Header.Add("Origin", config.Host)
-			_, err = rt.RoundTrip(req)
+			_, err = wrappedRoundTripper.RoundTrip(req)
 			Expect(err).ToNot(HaveOccurred())
+			Expect(rt.Response.Header.Get("Sec-Websocket-Protocol")).To(Equal(subresources.PlainStreamProtocolName))
 		},
 			table.Entry("for vnc", "vnc"),
 			table.Entry("for serial console", "console"),
 		)
+
+		It("should upgrade websocket connections without a subprotocol given", func() {
+			config, err := kubecli.GetKubevirtClientConfig()
+			Expect(err).ToNot(HaveOccurred())
+			// If no subprotocol is given, we still want to upgrade to be backward compatible
+			rt, err := upgradeCheckRoundTripperFromConfig(config, nil)
+			Expect(err).ToNot(HaveOccurred())
+			wrappedRoundTripper, err := rest.HTTPWrappersForConfig(config, rt)
+			Expect(err).ToNot(HaveOccurred())
+			req, err := kubecli.RequestFromConfig(config, vmi.Name, vmi.Namespace, "vnc")
+			_, err = wrappedRoundTripper.RoundTrip(req)
+			Expect(err).ToNot(HaveOccurred())
+		})
 	})
 })
 
 // checkUpgradeRoundTripper checks if an upgrade confirmation is received from the server
 type checkUpgradeRoundTripper struct {
-	Dialer *websocket.Dialer
+	Dialer   *websocket.Dialer
+	Response *http.Response
 }
 
-func (t checkUpgradeRoundTripper) RoundTrip(r *http.Request) (*http.Response, error) {
+func (t *checkUpgradeRoundTripper) RoundTrip(r *http.Request) (*http.Response, error) {
 	conn, resp, err := t.Dialer.Dial(r.URL.String(), r.Header)
+	t.Response = resp
 	Expect(err).ToNot(HaveOccurred(), fmt.Sprintf("%v: %d", err, resp.StatusCode))
 	Expect(resp.StatusCode).To(Equal(http.StatusSwitchingProtocols))
 	conn.Close()
@@ -155,7 +176,7 @@ func (t checkUpgradeRoundTripper) RoundTrip(r *http.Request) (*http.Response, er
 }
 
 // upgradeCheckRoundTripperFromConfig returns a wrapped roundtripper which checks if an upgrade confirmation from servers is received
-func upgradeCheckRoundTripperFromConfig(config *rest.Config) (http.RoundTripper, error) {
+func upgradeCheckRoundTripperFromConfig(config *rest.Config, subprotocols []string) (*checkUpgradeRoundTripper, error) {
 
 	// Configure TLS
 	tlsConfig, err := rest.TLSConfigFor(config)
@@ -169,13 +190,11 @@ func upgradeCheckRoundTripperFromConfig(config *rest.Config) (http.RoundTripper,
 		TLSClientConfig: tlsConfig,
 		WriteBufferSize: kubecli.WebsocketMessageBufferSize,
 		ReadBufferSize:  kubecli.WebsocketMessageBufferSize,
+		Subprotocols:    subprotocols,
 	}
 
 	// Create a roundtripper which will pass in the final underlying websocket connection to a callback
-	rt := &checkUpgradeRoundTripper{
+	return &checkUpgradeRoundTripper{
 		Dialer: dialer,
-	}
-
-	// Make sure we inherit all relevant security headers
-	return rest.HTTPWrappersForConfig(config, rt)
+	}, nil
 }

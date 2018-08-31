@@ -41,6 +41,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/kubecli"
 	"kubevirt.io/kubevirt/pkg/log"
+	"kubevirt.io/kubevirt/pkg/util/subresources"
 )
 
 type SubresourceAPIApp struct {
@@ -62,6 +63,7 @@ func (app *SubresourceAPIApp) requestHandler(request *restful.Request, response 
 		CheckOrigin: func(_ *http.Request) bool {
 			return true
 		},
+		Subprotocols: []string{subresources.PlainStreamProtocolName},
 	}
 
 	clientSocket, err := upgrader.Upgrade(response.ResponseWriter, request.Request, nil)
