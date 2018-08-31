@@ -154,6 +154,13 @@ func (VolumeSource) SwaggerDoc() map[string]string {
 		"registryDisk":          "RegistryDisk references a docker image, embedding a qcow or raw disk.\nMore info: https://kubevirt.gitbooks.io/user-guide/registry-disk.html\n+optional",
 		"ephemeral":             "Ephemeral is a special volume source that \"wraps\" specified source and provides copy-on-write image on top of it.\n+optional",
 		"emptyDisk":             "EmptyDisk represents a temporary disk which shares the vmis lifecycle.\nMore info: https://kubevirt.gitbooks.io/user-guide/disks-and-volumes.html\n+optional",
+		"dataVolume":            "DataVolume represents the dynamic creation a PVC for this volume as well as\nthe process of populating that PVC with a disk image.\n+optional",
+	}
+}
+
+func (DataVolumeSource) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"name": "Name represents the name of the DataVolume in the same namespace",
 	}
 }
 

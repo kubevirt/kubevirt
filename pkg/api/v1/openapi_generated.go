@@ -177,6 +177,23 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 			Dependencies: []string{
 				"k8s.io/api/core/v1.LocalObjectReference"},
 		},
+		"kubevirt.io/kubevirt/pkg/api/v1.DataVolumeSource": {
+			Schema: spec.Schema{
+				SchemaProps: spec.SchemaProps{
+					Properties: map[string]spec.Schema{
+						"name": {
+							SchemaProps: spec.SchemaProps{
+								Description: "Name represents the name of the DataVolume in the same namespace",
+								Type:        []string{"string"},
+								Format:      "",
+							},
+						},
+					},
+					Required: []string{"name"},
+				},
+			},
+			Dependencies: []string{},
+		},
 		"kubevirt.io/kubevirt/pkg/api/v1.Devices": {
 			Schema: spec.Schema{
 				SchemaProps: spec.SchemaProps{
@@ -2024,12 +2041,25 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 								Ref:         ref("kubevirt.io/kubevirt/pkg/api/v1.VirtualMachineInstanceTemplateSpec"),
 							},
 						},
+						"dataVolumeTemplates": {
+							SchemaProps: spec.SchemaProps{
+								Description: "dataVolumeTemplates is a list of dataVolumes that the VirtualMachineInstance template can reference. DataVolumes in this list are dynamically created for the VirtualMachine and are tied to the VirtualMachine's life-cycle.",
+								Type:        []string{"array"},
+								Items: &spec.SchemaOrArray{
+									Schema: &spec.Schema{
+										SchemaProps: spec.SchemaProps{
+											Ref: ref("kubevirt.io/containerized-data-importer/pkg/apis/datavolumecontroller/v1alpha1.DataVolume"),
+										},
+									},
+								},
+							},
+						},
 					},
 					Required: []string{"running", "template"},
 				},
 			},
 			Dependencies: []string{
-				"kubevirt.io/kubevirt/pkg/api/v1.VirtualMachineInstanceTemplateSpec"},
+				"kubevirt.io/containerized-data-importer/pkg/apis/datavolumecontroller/v1alpha1.DataVolume", "kubevirt.io/kubevirt/pkg/api/v1.VirtualMachineInstanceTemplateSpec"},
 		},
 		"kubevirt.io/kubevirt/pkg/api/v1.VirtualMachineStatus": {
 			Schema: spec.Schema{
@@ -2111,12 +2141,18 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 								Ref:         ref("kubevirt.io/kubevirt/pkg/api/v1.EmptyDiskSource"),
 							},
 						},
+						"dataVolume": {
+							SchemaProps: spec.SchemaProps{
+								Description: "DataVolume represents the dynamic creation a PVC for this volume as well as the process of populating that PVC with a disk image.",
+								Ref:         ref("kubevirt.io/kubevirt/pkg/api/v1.DataVolumeSource"),
+							},
+						},
 					},
 					Required: []string{"name"},
 				},
 			},
 			Dependencies: []string{
-				"k8s.io/api/core/v1.PersistentVolumeClaimVolumeSource", "kubevirt.io/kubevirt/pkg/api/v1.CloudInitNoCloudSource", "kubevirt.io/kubevirt/pkg/api/v1.EmptyDiskSource", "kubevirt.io/kubevirt/pkg/api/v1.EphemeralVolumeSource", "kubevirt.io/kubevirt/pkg/api/v1.RegistryDiskSource"},
+				"k8s.io/api/core/v1.PersistentVolumeClaimVolumeSource", "kubevirt.io/kubevirt/pkg/api/v1.CloudInitNoCloudSource", "kubevirt.io/kubevirt/pkg/api/v1.DataVolumeSource", "kubevirt.io/kubevirt/pkg/api/v1.EmptyDiskSource", "kubevirt.io/kubevirt/pkg/api/v1.EphemeralVolumeSource", "kubevirt.io/kubevirt/pkg/api/v1.RegistryDiskSource"},
 		},
 		"kubevirt.io/kubevirt/pkg/api/v1.VolumeSource": {
 			Schema: spec.Schema{
@@ -2153,11 +2189,17 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 								Ref:         ref("kubevirt.io/kubevirt/pkg/api/v1.EmptyDiskSource"),
 							},
 						},
+						"dataVolume": {
+							SchemaProps: spec.SchemaProps{
+								Description: "DataVolume represents the dynamic creation a PVC for this volume as well as the process of populating that PVC with a disk image.",
+								Ref:         ref("kubevirt.io/kubevirt/pkg/api/v1.DataVolumeSource"),
+							},
+						},
 					},
 				},
 			},
 			Dependencies: []string{
-				"k8s.io/api/core/v1.PersistentVolumeClaimVolumeSource", "kubevirt.io/kubevirt/pkg/api/v1.CloudInitNoCloudSource", "kubevirt.io/kubevirt/pkg/api/v1.EmptyDiskSource", "kubevirt.io/kubevirt/pkg/api/v1.EphemeralVolumeSource", "kubevirt.io/kubevirt/pkg/api/v1.RegistryDiskSource"},
+				"k8s.io/api/core/v1.PersistentVolumeClaimVolumeSource", "kubevirt.io/kubevirt/pkg/api/v1.CloudInitNoCloudSource", "kubevirt.io/kubevirt/pkg/api/v1.DataVolumeSource", "kubevirt.io/kubevirt/pkg/api/v1.EmptyDiskSource", "kubevirt.io/kubevirt/pkg/api/v1.EphemeralVolumeSource", "kubevirt.io/kubevirt/pkg/api/v1.RegistryDiskSource"},
 		},
 		"kubevirt.io/kubevirt/pkg/api/v1.Watchdog": {
 			Schema: spec.Schema{

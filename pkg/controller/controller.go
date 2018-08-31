@@ -36,6 +36,8 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/log"
+
+	cdiv1 "kubevirt.io/containerized-data-importer/pkg/apis/datavolumecontroller/v1alpha1"
 )
 
 const (
@@ -119,6 +121,10 @@ func VirtualMachineKey(vmi *v1.VirtualMachineInstance) string {
 
 func PodKey(pod *k8sv1.Pod) string {
 	return fmt.Sprintf("%v/%v", pod.Namespace, pod.Name)
+}
+
+func DataVolumeKey(dataVolume *cdiv1.DataVolume) string {
+	return fmt.Sprintf("%v/%v", dataVolume.Namespace, dataVolume.Name)
 }
 
 func VirtualMachineKeys(vmis []*v1.VirtualMachineInstance) []string {

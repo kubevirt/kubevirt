@@ -332,6 +332,17 @@ type VolumeSource struct {
 	// More info: https://kubevirt.gitbooks.io/user-guide/disks-and-volumes.html
 	// +optional
 	EmptyDisk *EmptyDiskSource `json:"emptyDisk,omitempty"`
+	// DataVolume represents the dynamic creation a PVC for this volume as well as
+	// the process of populating that PVC with a disk image.
+	// +optional
+	DataVolume *DataVolumeSource `json:"dataVolume,omitempty"`
+}
+
+// ---
+// +k8s:openapi-gen=true
+type DataVolumeSource struct {
+	// Name represents the name of the DataVolume in the same namespace
+	Name string `json:"name"`
 }
 
 // ---

@@ -1,0 +1,101 @@
+kind: ServiceAccount
+apiVersion: v1
+metadata:
+  name: cdi-sa
+  namespace: default  # update accordingly based on the namespace you are deploying in
+  labels:
+    cdi.kubevirt.io: ""
+---
+kind: ClusterRole
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: cdi
+  labels:
+    cdi.kubevirt.io: ""
+rules:
+- apiGroups: [""]
+  resources: ["events"]
+  verbs: ["create", "update", "patch"]
+- apiGroups: [""]
+  resources: ["persistentvolumeclaims"]
+  verbs: ["get", "list", "watch", "create", "update", "patch"]
+- apiGroups: [""]
+  resources: ["persistentvolumeclaims/finalizers"]
+  verbs: ["update"]
+- apiGroups: [""]
+  resources: ["pods"]
+  verbs: ["get", "list", "watch", "create", "delete"]
+- apiGroups: [""]
+  resources: ["secrets"]
+  verbs: ["get", "list", "watch", "create"]
+- apiGroups: ["cdi.kubevirt.io"]
+  resources:
+   - '*'
+  verbs:
+   - '*'
+---
+apiVersion: rbac.authorization.k8s.io/v1beta1
+kind: ClusterRoleBinding
+metadata:
+  name: cdi-sa
+  labels:
+    cdi.kubevirt.io: ""
+roleRef:
+  kind: ClusterRole
+  name: cdi
+  apiGroup: rbac.authorization.k8s.io
+subjects:
+  - kind: ServiceAccount
+    name: cdi-sa
+    namespace: default  # update accordingly based on the namespace you are deploying in
+---
+apiVersion: apps/v1beta2
+kind: Deployment
+metadata:
+  name: cdi-deployment
+  namespace: default  # update accordingly based on the namespace you are deploying in
+  labels:
+    cdi.kubevirt.io: ""
+    app: containerized-data-importer
+spec:
+  selector:
+    matchLabels:
+      app: containerized-data-importer
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: containerized-data-importer
+    spec:
+      serviceAccountName: cdi-sa
+      containers:
+      - name: cdi-controller
+        image: {{ .DockerRepo }}/cdi-controller:{{ .DockerTag }}
+        imagePullPolicy: {{ .PullPolicy }}
+        args: ["-v={{ .Verbosity }}"] # default verbosity; change to 2 or 3 for more detailed logging
+        env:
+        - name: IMPORTER_IMAGE
+          value: {{ .DockerRepo }}/cdi-importer:{{ .DockerTag }}
+        - name: CLONER_IMAGE
+          value: {{ .DockerRepo }}/cdi-cloner:{{ .DockerTag }}
+        - name: PULL_POLICY
+          value: {{ .PullPolicy }}
+---
+apiVersion: apiextensions.k8s.io/v1beta1
+kind: CustomResourceDefinition
+metadata:
+  labels:
+    cdi.kubevirt.io: ""
+  name: datavolumes.cdi.kubevirt.io
+spec:
+  group: cdi.kubevirt.io
+  names:
+    kind: DataVolume
+    plural: datavolumes
+    shortNames:
+    - dv
+    - dvs
+    singular: datavolume
+  scope: Namespaced
+  version: v1alpha1
+

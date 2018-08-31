@@ -70,6 +70,9 @@ import:
 - package: github.com/golang/protobuf
   subpackages:
   - proto
+- package: kubevirt.io/containerized-data-importer
+  repo:    https://github.com/kubevirt/containerized-data-importer.git
+  version: v1.1.1
 testImport:
 - package: github.com/elazarl/goproxy
   version: 07b16b6e30fcac0ad8c0435548e743bcf2ca7e92

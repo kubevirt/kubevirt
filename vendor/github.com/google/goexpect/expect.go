@@ -1020,7 +1020,9 @@ func (e *GExpect) waitForSession(r chan error, wait func() error, sIn io.WriteCl
 			nr, err := out.Read(buf)
 			if err != nil || !e.check() {
 				if err == io.EOF {
-					log.Printf("read closing down: %v", err)
+					if e.verbose {
+						log.Printf("read closing down: %v", err)
+					}
 					return
 				}
 				return
@@ -1140,7 +1142,9 @@ func (e *GExpect) read(done chan struct{}, ptySync *sync.WaitGroup) {
 		nr, err := e.pty.Master.Read(buf)
 		if err != nil || !e.check() {
 			if err == io.EOF {
-				log.Printf("read closing down: %v", err)
+				if e.verbose {
+					log.Printf("read closing down: %v", err)
+				}
 				return
 			}
 			return

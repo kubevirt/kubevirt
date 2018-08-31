@@ -252,6 +252,12 @@ spec:
                         type: string
                       userDataBase64:
                         type: string
+                  dataVolume:
+                    properties:
+                      name:
+                        type: string
+                    required:
+                    - name
                   emptyDisk:
                     properties:
                       capacity: {}

@@ -30,10 +30,11 @@ import (
 	"time"
 
 	k8smetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 
-	"k8s.io/apimachinery/pkg/types"
+	cdiclient "kubevirt.io/containerized-data-importer/pkg/client/clientset/versioned"
 
 	"kubevirt.io/kubevirt/pkg/api/v1"
 )
@@ -44,6 +45,7 @@ type KubevirtClient interface {
 	VirtualMachine(namespace string) VirtualMachineInterface
 	ServerVersion() *ServerVersion
 	RestClient() *rest.RESTClient
+	CdiClient() cdiclient.Interface
 	kubernetes.Interface
 }
 
@@ -52,7 +54,12 @@ type kubevirt struct {
 	kubeconfig string
 	restClient *rest.RESTClient
 	config     *rest.Config
+	cdiClient  *cdiclient.Clientset
 	*kubernetes.Clientset
+}
+
+func (k kubevirt) CdiClient() cdiclient.Interface {
+	return k.cdiClient
 }
 
 func (k kubevirt) RestClient() *rest.RESTClient {
