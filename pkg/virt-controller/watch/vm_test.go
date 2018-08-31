@@ -2,6 +2,8 @@ package watch
 
 import (
 	"fmt"
+	"strconv"
+	"time"
 
 	"github.com/pborman/uuid"
 
@@ -99,14 +101,33 @@ var _ = Describe("VirtualMachine", func() {
 			})
 		}
 
-		shouldExpectDataVolumeDeletion := func(uid types.UID, name string) {
+		shouldExpectDataVolumeDeletion := func(uid types.UID, idx *int) {
 			cdiClient.Fake.PrependReactor("delete", "datavolumes", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
-				update, ok := action.(testing.DeleteAction)
+				_, ok := action.(testing.DeleteAction)
 				Expect(ok).To(BeTrue())
 
-				deletionName := update.GetName()
-				Expect(deletionName).To(Equal(name))
+				*idx++
 				return true, nil, nil
+			})
+		}
+
+		shouldExpectDataVolumeUpdate := func(uid types.UID, name string) {
+			cdiClient.Fake.PrependReactor("update", "datavolumes", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
+				update, ok := action.(testing.UpdateAction)
+				Expect(ok).To(BeTrue())
+				dataVolume := update.GetObject().(*cdiv1.DataVolume)
+
+				Expect(dataVolume.Name).To(Equal(name))
+				now := time.Now().UTC().Unix()
+				deleteAfterStr, ok := dataVolume.Annotations[dataVolumeDeleteAfterTimestampAnno]
+				Expect(ok).To(BeTrue())
+
+				deleteAfterTimestamp, err := strconv.ParseInt(deleteAfterStr, 10, 64)
+				Expect(err).To(BeNil())
+
+				Expect(deleteAfterTimestamp > now).To(BeTrue())
+
+				return true, update.GetObject(), nil
 			})
 		}
 
@@ -116,6 +137,7 @@ var _ = Describe("VirtualMachine", func() {
 			vmSource.Add(vm)
 			mockQueue.Wait()
 		}
+
 		It("should create missing DataVolume for VirtualMachineInstance", func() {
 			vm, _ := DefaultVirtualMachine(true)
 			vm.Spec.Template.Spec.Volumes = append(vm.Spec.Template.Spec.Volumes, v1.Volume{
@@ -191,6 +213,7 @@ var _ = Describe("VirtualMachine", func() {
 			existingDataVolume1 := createDataVolumeManifest(&vm.Spec.DataVolumeTemplates[0], vm)
 			existingDataVolume1.Namespace = "default"
 			existingDataVolume1.Status.Phase = cdiv1.Failed
+			existingDataVolume1.Annotations[dataVolumeDeleteAfterTimestampAnno] = strconv.FormatInt(time.Now().UTC().Unix(), 10)
 
 			existingDataVolume2 := createDataVolumeManifest(&vm.Spec.DataVolumeTemplates[1], vm)
 			existingDataVolume2.Namespace = "default"
@@ -199,7 +222,60 @@ var _ = Describe("VirtualMachine", func() {
 			dataVolumeFeeder.Add(existingDataVolume1)
 			dataVolumeFeeder.Add(existingDataVolume2)
 
-			shouldExpectDataVolumeDeletion(vm.UID, existingDataVolume2.Name)
+			deletionCount := 0
+			shouldExpectDataVolumeDeletion(vm.UID, &deletionCount)
+
+			vmInterface.EXPECT().Update(gomock.Any()).Times(1).Return(vm, nil)
+
+			controller.Execute()
+
+			Expect(deletionCount).To(Equal(1))
+			testutils.ExpectEvent(recorder, FailedDataVolumeImportReason)
+		})
+
+		It("should not delete failed DataVolume for VirtualMachineInstance unless deletion timestamp expires ", func() {
+			vm, _ := DefaultVirtualMachine(true)
+			vm.Spec.Template.Spec.Volumes = append(vm.Spec.Template.Spec.Volumes, v1.Volume{
+				Name: "test1",
+				VolumeSource: v1.VolumeSource{
+					DataVolume: &v1.DataVolumeSource{
+						Name: "dv1",
+					},
+				},
+			})
+			vm.Spec.Template.Spec.Volumes = append(vm.Spec.Template.Spec.Volumes, v1.Volume{
+				Name: "test1",
+				VolumeSource: v1.VolumeSource{
+					DataVolume: &v1.DataVolumeSource{
+						Name: "dv2",
+					},
+				},
+			})
+
+			vm.Spec.DataVolumeTemplates = append(vm.Spec.DataVolumeTemplates, cdiv1.DataVolume{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "dv1",
+				},
+			})
+			vm.Spec.DataVolumeTemplates = append(vm.Spec.DataVolumeTemplates, cdiv1.DataVolume{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "dv2",
+				},
+			})
+			addVirtualMachine(vm)
+
+			existingDataVolume1 := createDataVolumeManifest(&vm.Spec.DataVolumeTemplates[0], vm)
+			existingDataVolume1.Namespace = "default"
+			existingDataVolume1.Status.Phase = cdiv1.Failed
+
+			existingDataVolume2 := createDataVolumeManifest(&vm.Spec.DataVolumeTemplates[1], vm)
+			existingDataVolume2.Namespace = "default"
+			existingDataVolume2.Status.Phase = cdiv1.Succeeded
+
+			dataVolumeFeeder.Add(existingDataVolume1)
+			dataVolumeFeeder.Add(existingDataVolume2)
+
+			shouldExpectDataVolumeUpdate(vm.UID, existingDataVolume1.Name)
 
 			vmInterface.EXPECT().Update(gomock.Any()).Times(1).Return(vm, nil)
 
