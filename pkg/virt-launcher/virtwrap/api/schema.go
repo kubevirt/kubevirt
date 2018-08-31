@@ -269,9 +269,14 @@ type Devices struct {
 
 // Controller represens libvirt controller element https://libvirt.org/formatdomain.html#elementsControllers
 type Controller struct {
-	Type  string `xml:"type,attr"`
-	Index string `xml:"index,attr"`
-	Model string `xml:"model,attr,omitempty"`
+	Type   string            `xml:"type,attr"`
+	Index  string            `xml:"index,attr"`
+	Model  string            `xml:"model,attr,omitempty"`
+	Driver *ControllerDriver `xml:"driver,omitempty"`
+}
+
+type ControllerDriver struct {
+	IOThread *uint `xml:"iothread,attr,omitempty"`
 }
 
 // END Controller -----------------------------
@@ -325,6 +330,7 @@ type DiskDriver struct {
 	IO          string `xml:"io,attr,omitempty"`
 	Name        string `xml:"name,attr"`
 	Type        string `xml:"type,attr"`
+	IOThread    *uint  `xml:"iothread,attr,omitempty"`
 }
 
 type DiskSourceHost struct {

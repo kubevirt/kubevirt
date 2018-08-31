@@ -49,6 +49,7 @@ import (
 const (
 	CPUModeHostPassthrough = "host-passthrough"
 	CPUModeHostModel       = "host-model"
+	defaultIOThread        = uint(1)
 )
 
 type ConverterContext struct {
@@ -460,6 +461,31 @@ func Convert_v1_VirtualMachine_To_api_Domain(vmi *v1.VirtualMachineInstance, dom
 		volumes[volume.Name] = volume.DeepCopy()
 	}
 
+	// useIOThreads implies 1 thread
+	// an extra thread will be added for each disk that requests a dedicated one
+	ioThreadCount := 0
+	useIOThreads := false
+	if (vmi.Spec.Domain.UseIOThreads != nil) && (*vmi.Spec.Domain.UseIOThreads == true) {
+		useIOThreads = true
+	}
+	for _, diskDevice := range vmi.Spec.Domain.Devices.Disks {
+		if (diskDevice.DedicatedIOThread != nil) && (*diskDevice.DedicatedIOThread == true) {
+			useIOThreads = true
+			ioThreadCount += 1
+		}
+	}
+	// If there's only one disk, only one IOThread is needed
+	if (useIOThreads == true) && (len(vmi.Spec.Domain.Devices.Disks) > 1) {
+		ioThreadCount += 1
+	}
+	if ioThreadCount != 0 {
+		if domain.Spec.IOThreads == nil {
+			domain.Spec.IOThreads = &IOThreads{}
+		}
+		domain.Spec.IOThreads.IOThreads = uint(ioThreadCount)
+	}
+
+	currentIOThread := defaultIOThread
 	devicePerBus := make(map[string]int)
 	for _, disk := range vmi.Spec.Domain.Devices.Disks {
 		newDisk := Disk{}
@@ -476,6 +502,32 @@ func Convert_v1_VirtualMachine_To_api_Domain(vmi *v1.VirtualMachineInstance, dom
 		if err != nil {
 			return err
 		}
+
+		if useIOThreads {
+			ioThreadId := defaultIOThread
+			if (disk.DedicatedIOThread != nil) && (*disk.DedicatedIOThread) {
+				if len(vmi.Spec.Domain.Devices.Disks) > 1 {
+					currentIOThread += 1
+				}
+				ioThreadId = currentIOThread
+
+				logger := log.DefaultLogger()
+				logger.Infof("Bus for this disk: %s", newDisk.Target.Bus)
+
+				if newDisk.Target.Bus == "scsi" {
+					newController := Controller{
+						Type:  "scsi",
+						Model: "virtio-scsi",
+						Driver: &ControllerDriver{
+							IOThread: &ioThreadId,
+						},
+					}
+					domain.Spec.Devices.Controllers = append(domain.Spec.Devices.Controllers, newController)
+				}
+			}
+			newDisk.Driver.IOThread = &ioThreadId
+		}
+
 		domain.Spec.Devices.Disks = append(domain.Spec.Devices.Disks, newDisk)
 	}
 
@@ -634,29 +686,6 @@ func Convert_v1_VirtualMachine_To_api_Domain(vmi *v1.VirtualMachineInstance, dom
 		if network.Multus != nil {
 			multusNetworks[network.Name] = len(multusNetworks) + 1
 		}
-	}
-
-	// useIOThreads implies 1 thread
-	// an extra thread will be added for each disk that requests a dedicated one
-	ioThreadCount := 0
-	useIOThreads := false
-	if (vmi.Spec.Domain.UseIOThreads != nil) && (*vmi.Spec.Domain.UseIOThreads == true) {
-		useIOThreads = true
-	}
-	for _, diskDevice := range vmi.Spec.Domain.Devices.Disks {
-		if (diskDevice.DedicatedIOThread != nil) && (*diskDevice.DedicatedIOThread == true) {
-			useIOThreads = true
-			ioThreadCount += 1
-		}
-	}
-	if useIOThreads == true {
-		ioThreadCount += 1
-	}
-	if ioThreadCount != 0 {
-		if domain.Spec.IOThreads == nil {
-			domain.Spec.IOThreads = &IOThreads{}
-		}
-		domain.Spec.IOThreads.IOThreads = uint(ioThreadCount)
 	}
 
 	for _, iface := range vmi.Spec.Domain.Devices.Interfaces {
