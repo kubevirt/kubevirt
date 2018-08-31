@@ -20,12 +20,14 @@
 package watch
 
 import (
+	"strconv"
 	"sync"
 	"time"
 
 	"github.com/pborman/uuid"
 
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/rand"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/record"
@@ -45,6 +47,15 @@ import (
 	"kubevirt.io/kubevirt/pkg/log"
 
 	cdiv1 "kubevirt.io/containerized-data-importer/pkg/apis/datavolumecontroller/v1alpha1"
+)
+
+// TODO remove the dataVolume deletion retry logic once CDI fixes this issue.
+// We're working around the fact that DataVolumes aren't eventually consistent by
+// attempting to delete/recreate the datavolumes when they fail to import
+// https://github.com/kubevirt/containerized-data-importer/issues/400
+const (
+	dataVolumeDeleteAfterTimestampAnno = "kubevirt.io/delete-after-timestamp"
+	dataVolumeDeleteJitterSeconds      = 100
 )
 
 func NewVMController(vmiInformer cache.SharedIndexInformer,
@@ -390,20 +401,47 @@ func (c *VMController) handleDataVolumes(vm *virtv1.VirtualMachine, dataVolumes 
 			// ready = false because encountered DataVolume that is not populated yet
 			ready = false
 			if curDataVolume.Status.Phase == cdiv1.Failed {
+
 				c.recorder.Eventf(vm, k8score.EventTypeWarning, FailedDataVolumeImportReason, "DataVolume %s failed to import disk image", curDataVolume.Name)
 
-				// By deleting the failed DataVolume, a new DataVolume will be
-				// created to take it's place.
-				if curDataVolume.DeletionTimestamp != nil {
-					c.dataVolumeExpectations.ExpectDeletions(vmKey, []string{controller.DataVolumeKey(curDataVolume)})
-					err := c.clientset.CdiClient().CdiV1alpha1().DataVolumes(curDataVolume.Namespace).Delete(curDataVolume.Name, &v1.DeleteOptions{})
+				now := time.Now().UTC().Unix()
+				deleteAfterStr, ok := curDataVolume.Annotations[dataVolumeDeleteAfterTimestampAnno]
+				var deleteAfterTimestamp int64
+				if ok {
+					deleteAfterTimestamp, err = strconv.ParseInt(deleteAfterStr, 10, 64)
 					if err != nil {
-						c.dataVolumeExpectations.DeletionObserved(vmKey, controller.DataVolumeKey(curDataVolume))
+						// No reason to return an error here
+						// we just clobber the annotation with a valid value later if it can't be parsed as an int.
+						deleteAfterTimestamp = 0
+						log.Log.Errorf("failed to parse deletion timestamp for datavolume %s/%s: %v", curDataVolume.Namespace, curDataVolume.Name, err)
+					}
+				}
+
+				if deleteAfterTimestamp == 0 {
+					dataVolumeCopy := curDataVolume.DeepCopy()
+					deleteAfterTimestamp := now + int64(rand.Intn(dataVolumeDeleteJitterSeconds)+10)
+					dataVolumeCopy.Annotations[dataVolumeDeleteAfterTimestampAnno] = strconv.FormatInt(deleteAfterTimestamp, 10)
+					_, err := c.clientset.CdiClient().CdiV1alpha1().DataVolumes(dataVolumeCopy.Namespace).Update(dataVolumeCopy)
+					if err != nil {
 						return ready, err
 					}
 				}
 
-				return ready, fmt.Errorf("DataVolume %s failed to import", curDataVolume.Name)
+				if curDataVolume.DeletionTimestamp == nil {
+					if deleteAfterTimestamp >= now {
+						// By deleting the failed DataVolume,
+						// a new DataVolume will be created to take it's place.
+						c.dataVolumeExpectations.ExpectDeletions(vmKey, []string{controller.DataVolumeKey(curDataVolume)})
+						err := c.clientset.CdiClient().CdiV1alpha1().DataVolumes(curDataVolume.Namespace).Delete(curDataVolume.Name, &v1.DeleteOptions{})
+						if err != nil {
+							c.dataVolumeExpectations.DeletionObserved(vmKey, controller.DataVolumeKey(curDataVolume))
+							return ready, err
+						}
+					} else {
+						timeLeft := now - deleteAfterTimestamp
+						c.Queue.AddAfter(vmKey, time.Duration(timeLeft)*time.Second)
+					}
+				}
 			}
 		}
 	}
