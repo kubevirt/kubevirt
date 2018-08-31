@@ -581,6 +581,27 @@ var _ = Describe("Converter", func() {
 			})
 		})
 
+		It("should set disk pci address when specified", func() {
+			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
+			vmi.Spec.Domain.Devices.Disks[0].Disk.PciAddress = "0000:81:01.0"
+			test_address := Address{
+				Type:     "pci",
+				Domain:   "0x0000",
+				Bus:      "0x81",
+				Slot:     "0x01",
+				Function: "0x0",
+			}
+			domain := vmiToDomain(vmi, c)
+			Expect(*domain.Spec.Devices.Disks[0].Address).To(Equal(test_address))
+		})
+
+		It("should fail disk config pci address is set with a non virtio bus", func() {
+			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
+			vmi.Spec.Domain.Devices.Disks[0].Disk.PciAddress = "0000:81:01.0"
+			vmi.Spec.Domain.Devices.Disks[0].Disk.Bus = "scsi"
+			Expect(Convert_v1_VirtualMachine_To_api_Domain(vmi, &Domain{}, c)).ToNot(Succeed())
+		})
+
 		It("should select explicitly chosen network model", func() {
 			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
 			vmi.Spec.Domain.Devices.Interfaces[0].Model = "e1000"
