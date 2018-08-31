@@ -21,6 +21,7 @@ func (DomainSpec) SwaggerDoc() map[string]string {
 		"clock":     "Clock sets the clock and timers of the vmi.\n+optional",
 		"features":  "Features like acpi, apic, hyperv.\n+optional",
 		"devices":   "Devices allows adding disks, network interfaces, ...",
+		"iothreads": "Settings for dedicated IOThreads for this vmi.",
 	}
 }
 
@@ -34,6 +35,7 @@ func (DomainPresetSpec) SwaggerDoc() map[string]string {
 		"clock":     "Clock sets the clock and timers of the vmi.\n+optional",
 		"features":  "Features like acpi, apic, hyperv.\n+optional",
 		"devices":   "Devices allows adding disks, network interfaces, ...\n+optional",
+		"iothreads": "Settings for dedicated IOThreads for this vmi.",
 	}
 }
 
@@ -80,13 +82,19 @@ func (Firmware) SwaggerDoc() map[string]string {
 	}
 }
 
+func (IOThreads) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"threadcount": "Number of dedicated IOThreads to allocate. Defaults to 1.",
+	}
+}
+
 func (Devices) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"disks":                    "Disks describes disks, cdroms, floppy and luns which are connected to the vmi.",
 		"watchdog":                 "Watchdog describes a watchdog device which can be added to the vmi.",
-		"interfaces":               "Interfaces describe network interfaces which are added to the vm.",
+		"interfaces":               "Interfaces describe network interfaces which are added to the vmi.",
 		"autoattachPodInterface":   "Whether to attach a pod network interface. Defaults to true.",
-		"autoattachGraphicsDevice": "Wheater to attach the default graphics device or not.\nVNC will not be available if set to false. Defaults to true.",
+		"autoattachGraphicsDevice": "Whether to attach the default graphics device or not.\nVNC will not be available if set to false. Defaults to true.",
 	}
 }
 

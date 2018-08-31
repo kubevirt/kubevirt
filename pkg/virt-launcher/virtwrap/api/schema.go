@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Copyright 2017 Red Hat, Inc.
+ * Copyright 2017,2018 Red Hat, Inc.
  *
  */
 
@@ -130,6 +130,7 @@ type DomainSpec struct {
 	Features      *Features      `xml:"features,omitempty"`
 	CPU           CPU            `xml:"cpu"`
 	VCPU          *VCPU          `xml:"vcpu"`
+	IOThreads     *IOThreads     `xml:"iothreads,omitempty"`
 }
 
 type VCPU struct {
@@ -601,6 +602,10 @@ type Watchdog struct {
 	Model  string `xml:"model,attr"`
 	Action string `xml:"action,attr"`
 	Alias  *Alias `xml:"alias,omitempty"`
+}
+
+type IOThreads struct {
+	IOThreads uint `xml:",chardata"`
 }
 
 // TODO ballooning, rng, cpu ...

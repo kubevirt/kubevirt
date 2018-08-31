@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Copyright 2017 Red Hat, Inc.
+ * Copyright 2017, 2018 Red Hat, Inc.
  *
  */
 
@@ -73,6 +73,8 @@ type DomainSpec struct {
 	Features *Features `json:"features,omitempty"`
 	// Devices allows adding disks, network interfaces, ...
 	Devices Devices `json:"devices"`
+	// Settings for dedicated IOThreads for this vmi.
+	IOThreads *IOThreads `json:"iothreads,omitempty"`
 }
 
 // ---
@@ -101,6 +103,8 @@ type DomainPresetSpec struct {
 	// Devices allows adding disks, network interfaces, ...
 	// +optional
 	Devices Devices `json:"devices,omitempty"`
+	// Settings for dedicated IOThreads for this vmi.
+	IOThreads *IOThreads `json:"iothreads,omitempty"`
 }
 
 // ---
@@ -176,16 +180,23 @@ type Firmware struct {
 
 // ---
 // +k8s:openapi-gen=true
+type IOThreads struct {
+	// Number of dedicated IOThreads to allocate. Defaults to 1.
+	ThreadCount *uint `json:"threadcount,omitempty"`
+}
+
+// ---
+// +k8s:openapi-gen=true
 type Devices struct {
 	// Disks describes disks, cdroms, floppy and luns which are connected to the vmi.
 	Disks []Disk `json:"disks,omitempty"`
 	// Watchdog describes a watchdog device which can be added to the vmi.
 	Watchdog *Watchdog `json:"watchdog,omitempty"`
-	// Interfaces describe network interfaces which are added to the vm.
+	// Interfaces describe network interfaces which are added to the vmi.
 	Interfaces []Interface `json:"interfaces,omitempty"`
 	// Whether to attach a pod network interface. Defaults to true.
 	AutoattachPodInterface *bool `json:"autoattachPodInterface,omitempty"`
-	// Wheater to attach the default graphics device or not.
+	// Whether to attach the default graphics device or not.
 	// VNC will not be available if set to false. Defaults to true.
 	AutoattachGraphicsDevice *bool `json:"autoattachGraphicsDevice,omitempty"`
 }
