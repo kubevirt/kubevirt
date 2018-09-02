@@ -24,12 +24,50 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"sync"
 
 	v1beta1 "k8s.io/api/admission/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	"k8s.io/client-go/tools/cache"
+
+	"kubevirt.io/kubevirt/pkg/controller"
+	"kubevirt.io/kubevirt/pkg/kubecli"
 	"kubevirt.io/kubevirt/pkg/log"
 )
+
+var webhookInformers *Informers
+var once sync.Once
+
+type Informers struct {
+	VMIInformer cache.SharedIndexInformer
+}
+
+func GetInformers() *Informers {
+	once.Do(func() {
+		webhookInformers = newInformers()
+	})
+	return webhookInformers
+}
+
+// SetInformers created for unittest usage only
+func SetInformers(informers *Informers) {
+	once.Do(func() {
+		webhookInformers = informers
+	})
+}
+
+func newInformers() *Informers {
+	kubeClient, err := kubecli.GetKubevirtClient()
+	if err != nil {
+		panic(err)
+	}
+	kubeInformerFactory := controller.NewKubeInformerFactory(kubeClient.RestClient(), kubeClient)
+	kubeInformerFactory.VMI()
+	return &Informers{
+		VMIInformer: kubeInformerFactory.VMI(),
+	}
+}
 
 // GetAdmissionReview
 func GetAdmissionReview(r *http.Request) (*v1beta1.AdmissionReview, error) {

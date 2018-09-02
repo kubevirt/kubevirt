@@ -25,6 +25,7 @@ import (
 	"fmt"
 	"net"
 	"net/http"
+	"reflect"
 	"regexp"
 	"strings"
 
@@ -868,21 +869,28 @@ func ValidateVMIRSSpec(field *k8sfield.Path, spec *v1.VirtualMachineInstanceRepl
 	return causes
 }
 
-func admitVMIs(ar *v1beta1.AdmissionReview) *v1beta1.AdmissionResponse {
+func getAdmissionReviewVMI(ar *v1beta1.AdmissionReview) (*v1.VirtualMachineInstance, error) {
 	vmiResource := metav1.GroupVersionResource{
 		Group:    v1.VirtualMachineInstanceGroupVersionKind.Group,
 		Version:  v1.VirtualMachineInstanceGroupVersionKind.Version,
 		Resource: "virtualmachineinstances",
 	}
 	if ar.Request.Resource != vmiResource {
-		err := fmt.Errorf("expect resource to be '%s'", vmiResource.Resource)
-		return webhooks.ToAdmissionResponseError(err)
+		return nil, fmt.Errorf("expect resource to be '%s'", vmiResource.Resource)
 	}
 
 	raw := ar.Request.Object.Raw
 	vmi := v1.VirtualMachineInstance{}
 
 	err := json.Unmarshal(raw, &vmi)
+	if err != nil {
+		return nil, err
+	}
+	return &vmi, nil
+}
+
+func admitVMICreate(ar *v1beta1.AdmissionReview) *v1beta1.AdmissionResponse {
+	vmi, err := getAdmissionReviewVMI(ar)
 	if err != nil {
 		return webhooks.ToAdmissionResponseError(err)
 	}
@@ -898,18 +906,47 @@ func admitVMIs(ar *v1beta1.AdmissionReview) *v1beta1.AdmissionResponse {
 }
 
 func ServeVMICreate(resp http.ResponseWriter, req *http.Request) {
-	serve(resp, req, admitVMIs)
+	serve(resp, req, admitVMICreate)
 }
 
-func ServeVMIUpdate(resp http.ResponseWriter, req *http.Request) {
-	serve(resp, req, func(ar *v1beta1.AdmissionReview) *v1beta1.AdmissionResponse {
+func admitVMIUpdate(ar *v1beta1.AdmissionReview) *v1beta1.AdmissionResponse {
+	// Get new VMI from admission response
+	newVMI, err := getAdmissionReviewVMI(ar)
+	if err != nil {
+		return webhooks.ToAdmissionResponseError(err)
+	}
+
+	// Get old VMI from the cache
+	informers := webhooks.GetInformers()
+	cacheKey := fmt.Sprintf("%s/%s", newVMI.Namespace, newVMI.Name)
+	obj, exists, err := informers.VMIInformer.GetStore().GetByKey(cacheKey)
+	if err != nil {
+		return webhooks.ToAdmissionResponseError(err)
+	}
+
+	if !exists {
+		return webhooks.ToAdmissionResponseError(
+			fmt.Errorf("the VMI %s does not exist under the cache", newVMI.Name),
+		)
+	}
+	oldVMI := obj.(*v1.VirtualMachineInstance)
+	// Reject VMI update if VMI spec changed
+	if !reflect.DeepEqual(newVMI.Spec, oldVMI.Spec) {
 		return toAdmissionResponse([]metav1.StatusCause{
 			metav1.StatusCause{
 				Type:    metav1.CauseTypeFieldValueNotSupported,
 				Message: "update of VMI object is restricted",
 			},
 		})
-	})
+	}
+
+	reviewResponse := v1beta1.AdmissionResponse{}
+	reviewResponse.Allowed = true
+	return &reviewResponse
+}
+
+func ServeVMIUpdate(resp http.ResponseWriter, req *http.Request) {
+	serve(resp, req, admitVMIUpdate)
 }
 
 func admitVMs(ar *v1beta1.AdmissionReview) *v1beta1.AdmissionResponse {

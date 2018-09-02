@@ -54,6 +54,8 @@ import (
 	"kubevirt.io/kubevirt/pkg/service"
 	"kubevirt.io/kubevirt/pkg/version"
 	"kubevirt.io/kubevirt/pkg/virt-api/rest"
+
+	"kubevirt.io/kubevirt/pkg/virt-api/webhooks"
 	"kubevirt.io/kubevirt/pkg/virt-api/webhooks/mutating-webhook"
 	"kubevirt.io/kubevirt/pkg/virt-api/webhooks/validating-webhook"
 )
@@ -920,7 +922,6 @@ func (app *virtAPIApp) startTLS() error {
 }
 
 func (app *virtAPIApp) Run() {
-
 	// get client Cert
 	err := app.getClientCert()
 	if err != nil {
@@ -938,6 +939,13 @@ func (app *virtAPIApp) Run() {
 	if err != nil {
 		panic(err)
 	}
+
+	// Run informers for webhooks usage
+	webhookInformers := webhooks.GetInformers()
+
+	stopChan := make(chan struct{}, 1)
+	defer close(stopChan)
+	go webhookInformers.VMIInformer.Run(stopChan)
 
 	// Verify/create webhook endpoint.
 	err = app.createWebhook()
