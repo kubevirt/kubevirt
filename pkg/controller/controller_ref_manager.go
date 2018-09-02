@@ -34,6 +34,8 @@ import (
 	virtv1 "kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/kubecli"
 	"kubevirt.io/kubevirt/pkg/log"
+
+	cdiv1 "kubevirt.io/containerized-data-importer/pkg/apis/datavolumecontroller/v1alpha1"
 )
 
 // GetControllerOf returns the controllerRef if controllee has a controller,
@@ -224,6 +226,49 @@ func (m *VirtualMachineControllerRefManager) ClaimVirtualMachines(vmis []*virtv1
 	return claimed, utilerrors.NewAggregate(errlist)
 }
 
+// ClaimDataVolume tries to take ownership of a list of DataVolumes.
+//
+// It will reconcile the following:
+//   * Adopt orphans if the selector matches.
+//   * Release owned objects if the selector no longer matches.
+//
+// Optional: If one or more filters are specified, a DataVolume will only be claimed if
+// all filters return true.
+//
+// A non-nil error is returned if some form of reconciliation was attempted and
+// failed. Usually, controllers should try again later in case reconciliation
+// is still needed.
+//
+// If the error is nil, either the reconciliation succeeded, or no
+// reconciliation was necessary. The list of DataVolumes that you now own is returned.
+func (m *VirtualMachineControllerRefManager) ClaimMatchedDataVolumes(dataVolumes []*cdiv1.DataVolume, filters ...func(machine *cdiv1.DataVolume) bool) ([]*cdiv1.DataVolume, error) {
+	var claimed []*cdiv1.DataVolume
+	var errlist []error
+
+	match := func(obj metav1.Object) bool {
+		return true
+
+	}
+	adopt := func(obj metav1.Object) error {
+		return m.AdoptDataVolume(obj.(*cdiv1.DataVolume))
+	}
+	release := func(obj metav1.Object) error {
+		return m.ReleaseDataVolume(obj.(*cdiv1.DataVolume))
+	}
+
+	for _, dataVolume := range dataVolumes {
+		ok, err := m.ClaimObject(dataVolume, match, adopt, release)
+		if err != nil {
+			errlist = append(errlist, err)
+			continue
+		}
+		if ok {
+			claimed = append(claimed, dataVolume)
+		}
+	}
+	return claimed, utilerrors.NewAggregate(errlist)
+}
+
 // ClaimVirtualMachineByName tries to take ownership of a VirtualMachineInstance.
 //
 // It will reconcile the following:
@@ -313,8 +358,52 @@ func (m *VirtualMachineControllerRefManager) ReleaseVirtualMachine(vmi *virtv1.V
 	return err
 }
 
+// AdoptDataVolume sends a patch to take control of the dataVolume. It returns the error if
+// the patching fails.
+func (m *VirtualMachineControllerRefManager) AdoptDataVolume(dataVolume *cdiv1.DataVolume) error {
+	if err := m.CanAdopt(); err != nil {
+		return fmt.Errorf("can't adopt DataVolume %v/%v (%v): %v", dataVolume.Namespace, dataVolume.Name, dataVolume.UID, err)
+	}
+	// Note that ValidateOwnerReferences() will reject this patch if another
+	// OwnerReference exists with controller=true.
+	addControllerPatch := fmt.Sprintf(
+		`{"metadata":{"ownerReferences":[{"apiVersion":"%s","kind":"%s","name":"%s","uid":"%s","controller":true,"blockOwnerDeletion":true}],"uid":"%s"}}`,
+		m.controllerKind.GroupVersion(), m.controllerKind.Kind,
+		m.Controller.GetName(), m.Controller.GetUID(), dataVolume.UID)
+	return m.virtualMachineControl.PatchVirtualMachine(dataVolume.Namespace, dataVolume.Name, []byte(addControllerPatch))
+}
+
+// ReleaseDataVolume sends a patch to free the dataVolume from the control of the controller.
+// It returns the error if the patching fails. 404 and 422 errors are ignored.
+func (m *VirtualMachineControllerRefManager) ReleaseDataVolume(dataVolume *cdiv1.DataVolume) error {
+	log.Log.V(2).Object(dataVolume).Infof("patching dataVolume to remove its controllerRef to %s/%s:%s",
+		m.controllerKind.GroupVersion(), m.controllerKind.Kind, m.Controller.GetName())
+	// TODO CRDs don't support strategic merge, therefore replace the onwerReferences list with a merge patch
+	deleteOwnerRefPatch := fmt.Sprint(`{"metadata":{"ownerReferences":[]}}`)
+	err := m.virtualMachineControl.PatchDataVolume(dataVolume.Namespace, dataVolume.Name, []byte(deleteOwnerRefPatch))
+	if err != nil {
+		if errors.IsNotFound(err) {
+			// If no longer exists, ignore it.
+			return nil
+		}
+		if errors.IsInvalid(err) {
+			// Invalid error will be returned in two cases: 1. the dataVolume
+			// has no owner reference, 2. the uid of the dataVolume doesn't
+			// match, which means the dataVolume is deleted and then recreated.
+			// In both cases, the error can be ignored.
+
+			// TODO: If the dataVolume has owner references, but none of them
+			// has the owner.UID, server will silently ignore the patch.
+			// Investigate why.
+			return nil
+		}
+	}
+	return err
+}
+
 type VirtualMachineControlInterface interface {
 	PatchVirtualMachine(namespace, name string, data []byte) error
+	PatchDataVolume(namespace, name string, data []byte) error
 }
 
 type RealVirtualMachineControl struct {
@@ -324,6 +413,12 @@ type RealVirtualMachineControl struct {
 func (r RealVirtualMachineControl) PatchVirtualMachine(namespace, name string, data []byte) error {
 	// TODO should be a strategic merge patch, but not possible until https://github.com/kubernetes/kubernetes/issues/56348 is resolved
 	_, err := r.Clientset.VirtualMachineInstance(namespace).Patch(name, types.MergePatchType, data)
+	return err
+}
+
+func (r RealVirtualMachineControl) PatchDataVolume(namespace, name string, data []byte) error {
+	// TODO should be a strategic merge patch, but not possible until https://github.com/kubernetes/kubernetes/issues/56348 is resolved
+	_, err := r.Clientset.CdiClient().CdiV1alpha1().DataVolumes(namespace).Patch(name, types.MergePatchType, data)
 	return err
 }
 

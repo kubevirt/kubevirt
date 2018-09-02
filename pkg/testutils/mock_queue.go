@@ -12,6 +12,8 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
+
+	cdiv1 "kubevirt.io/containerized-data-importer/pkg/apis/datavolumecontroller/v1alpha1"
 )
 
 /*
@@ -152,6 +154,36 @@ func (v *DomainFeeder) Delete(vmi *api.Domain) {
 
 func NewDomainFeeder(queue *MockWorkQueue, source *framework.FakeControllerSource) *DomainFeeder {
 	return &DomainFeeder{
+		MockQueue: queue,
+		Source:    source,
+	}
+}
+
+type DataVolumeFeeder struct {
+	MockQueue *MockWorkQueue
+	Source    *framework.FakeControllerSource
+}
+
+func (v *DataVolumeFeeder) Add(dataVolume *cdiv1.DataVolume) {
+	v.MockQueue.ExpectAdds(1)
+	v.Source.Add(dataVolume)
+	v.MockQueue.Wait()
+}
+
+func (v *DataVolumeFeeder) Modify(dataVolume *cdiv1.DataVolume) {
+	v.MockQueue.ExpectAdds(1)
+	v.Source.Modify(dataVolume)
+	v.MockQueue.Wait()
+}
+
+func (v *DataVolumeFeeder) Delete(dataVolume *cdiv1.DataVolume) {
+	v.MockQueue.ExpectAdds(1)
+	v.Source.Delete(dataVolume)
+	v.MockQueue.Wait()
+}
+
+func NewDataVolumeFeeder(queue *MockWorkQueue, source *framework.FakeControllerSource) *DataVolumeFeeder {
+	return &DataVolumeFeeder{
 		MockQueue: queue,
 		Source:    source,
 	}

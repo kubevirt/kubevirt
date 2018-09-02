@@ -23,6 +23,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"os"
 	"strings"
 
 	. "github.com/onsi/ginkgo"
@@ -37,6 +38,8 @@ import (
 	k8sfield "k8s.io/apimachinery/pkg/util/validation/field"
 
 	v1 "kubevirt.io/kubevirt/pkg/api/v1"
+
+	cdiv1 "kubevirt.io/containerized-data-importer/pkg/apis/datavolumecontroller/v1alpha1"
 )
 
 var _ = Describe("Validating Webhook", func() {
@@ -252,6 +255,108 @@ var _ = Describe("Validating Webhook", func() {
 
 			resp := admitVMs(ar)
 			Expect(resp.Allowed).To(Equal(true))
+		})
+
+		It("should accept valid DataVolumeTemplate", func() {
+			vmi := v1.NewMinimalVMI("testvmi")
+			vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
+				Name:       "testdisk",
+				VolumeName: "testvolume",
+			})
+			vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
+				Name: "testvolume",
+				VolumeSource: v1.VolumeSource{
+					DataVolume: &v1.DataVolumeSource{
+						Name: "dv1",
+					},
+				},
+			})
+
+			vm := &v1.VirtualMachine{
+				Spec: v1.VirtualMachineSpec{
+					Running: false,
+					Template: &v1.VirtualMachineInstanceTemplateSpec{
+						Spec: vmi.Spec,
+					},
+				},
+			}
+
+			vm.Spec.DataVolumeTemplates = append(vm.Spec.DataVolumeTemplates, cdiv1.DataVolume{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "dv1",
+				},
+			})
+
+			vmBytes, _ := json.Marshal(&vm)
+
+			ar := &v1beta1.AdmissionReview{
+				Request: &v1beta1.AdmissionRequest{
+					Resource: metav1.GroupVersionResource{
+						Group:    v1.VirtualMachineGroupVersionKind.Group,
+						Version:  v1.VirtualMachineGroupVersionKind.Version,
+						Resource: "virtualmachines",
+					},
+					Object: runtime.RawExtension{
+						Raw: vmBytes,
+					},
+				},
+			}
+
+			os.Setenv("FEATURE_GATES", "DataVolumes")
+			resp := admitVMs(ar)
+			Expect(resp.Allowed).To(Equal(true))
+		})
+
+		It("should reject invalid DataVolumeTemplate with no Volume reference in VMI template", func() {
+			vmi := v1.NewMinimalVMI("testvmi")
+			vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
+				Name:       "testdisk",
+				VolumeName: "testvolume",
+			})
+			vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
+				Name: "testvolume",
+				VolumeSource: v1.VolumeSource{
+					DataVolume: &v1.DataVolumeSource{
+						Name: "WRONG-DATAVOLUME",
+					},
+				},
+			})
+
+			vm := &v1.VirtualMachine{
+				Spec: v1.VirtualMachineSpec{
+					Running: false,
+					Template: &v1.VirtualMachineInstanceTemplateSpec{
+						Spec: vmi.Spec,
+					},
+				},
+			}
+
+			vm.Spec.DataVolumeTemplates = append(vm.Spec.DataVolumeTemplates, cdiv1.DataVolume{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "dv1",
+				},
+			})
+
+			vmBytes, _ := json.Marshal(&vm)
+
+			ar := &v1beta1.AdmissionReview{
+				Request: &v1beta1.AdmissionRequest{
+					Resource: metav1.GroupVersionResource{
+						Group:    v1.VirtualMachineGroupVersionKind.Group,
+						Version:  v1.VirtualMachineGroupVersionKind.Version,
+						Resource: "virtualmachines",
+					},
+					Object: runtime.RawExtension{
+						Raw: vmBytes,
+					},
+				},
+			}
+
+			os.Setenv("FEATURE_GATES", "DataVolumes")
+			resp := admitVMs(ar)
+			Expect(resp.Allowed).To(Equal(false))
+			Expect(len(resp.Result.Details.Causes)).To(Equal(1))
+			Expect(resp.Result.Details.Causes[0].Field).To(Equal("spec.dataVolumeTemplate[0]"))
 		})
 	})
 	Context("with VMIPreset admission review", func() {
@@ -1044,6 +1149,7 @@ var _ = Describe("Validating Webhook", func() {
 					VolumeSource: volumeSource,
 				})
 
+				os.Setenv("FEATURE_GATES", "DataVolumes")
 				causes := validateVolumes(k8sfield.NewPath("fake"), vmi.Spec.Volumes)
 				Expect(len(causes)).To(Equal(0))
 			},
@@ -1052,7 +1158,21 @@ var _ = Describe("Validating Webhook", func() {
 			table.Entry("with registryDisk volume source", v1.VolumeSource{RegistryDisk: &v1.RegistryDiskSource{}}),
 			table.Entry("with ephemeral volume source", v1.VolumeSource{Ephemeral: &v1.EphemeralVolumeSource{}}),
 			table.Entry("with emptyDisk volume source", v1.VolumeSource{EmptyDisk: &v1.EmptyDiskSource{}}),
+			table.Entry("with dataVolume volume source", v1.VolumeSource{DataVolume: &v1.DataVolumeSource{Name: "fake"}}),
 		)
+		It("should reject DataVolume when feature gate is disabled", func() {
+			vmi := v1.NewMinimalVMI("testvmi")
+
+			vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
+				Name:         "testvolume",
+				VolumeSource: v1.VolumeSource{DataVolume: &v1.DataVolumeSource{Name: "fake"}},
+			})
+
+			os.Setenv("FEATURE_GATES", "")
+			causes := validateVolumes(k8sfield.NewPath("fake"), vmi.Spec.Volumes)
+			Expect(len(causes)).To(Equal(1))
+			Expect(causes[0].Field).To(Equal("fake[0]"))
+		})
 		It("should reject volume with no volume source set", func() {
 			vmi := v1.NewMinimalVMI("testvmi")
 

@@ -21,6 +21,7 @@ set -e
 
 source hack/common.sh
 source hack/config.sh
+source hack/version.sh
 
 if [ -z "$1" ]; then
     target="build"
@@ -40,6 +41,8 @@ for arg in $args; do
     if [ "${target}" = "build" ]; then
         (
             cd ${CMD_OUT_DIR}/${BIN_NAME}/
+            kubevirt::version::get_version_vars
+            echo "$KUBEVIRT_GIT_VERSION" >.version
             docker $target -t ${docker_prefix}/${BIN_NAME}:${docker_tag} --label ${job_prefix} --label ${BIN_NAME} .
         )
     elif [ "${target}" = "push" ]; then

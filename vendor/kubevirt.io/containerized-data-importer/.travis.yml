@@ -1,0 +1,88 @@
+sudo: required
+
+language: go
+
+go_import_path: kubevirt.io/containerized-data-importer
+
+go:
+- 1.10.x
+
+services:
+- docker
+
+env:
+  global:
+  - DOCKER_TAG=$TRAVIS_TAG CHANGE_MINIKUBE_NONE_USER=true K8S_VER=1.9.0 MK_VER=0.25.2 K6T_VER=0.4.0 SRC="http://www.tinycorelinux.net/9.x/x86/release/Core-current.iso"
+  - secure: RWxtzwVEpMvaJlPUuRo+m6Kv9kJJFID7E0tdbE57d1XJN5nEq9ryxsTu8GIVHDPKIoUs0zqt4MtWi+4Wwb+21B2IoXJiHtc1YUex3L/6h64ztgH0iBjd/2Kv2piN4XVY9eYOUcu0PsSU0+Fv785rNfy2/LOi+3Bgs5d20AU9SZs2QDwKBlgWBXeJx7/aqLeytTUUX4tshBfQsxZkhYfVJgNcA1oUGtGS+zjeYVbmveLYQriOdQsfoWcfSZGumRSVH+jH7YCC2MXvIOfL131aOYm6CS0DlJTR3LDuBtI+9tP5C7eF+4nPO/kkIZzpz9RwkOZK2Ejn6D//unHgbyHqzoU4n4YZxw2DUonwXxCYieQ2nEZI5CQeoKXwV26ufdTvFGUYfYMUUnyk8phlP13eZEIoHNFJR2yeCSVSC6p82kpO0Drl+HJpnpo86IePwlcAp6tOekcGiDuM8i8bRmgPtWQzNxsE34OZ7v1j3S2nCrOgO8S9AE262nM3FsIGXCl2KTtKUDOSx0/1xx27tZhsqGDMOksdfdE6msFTJ1cEU53KoJfyyr1UUAtHfIpGLYu67C3tveBB4pcgvZ8SyiP50O8SQkQWX1ovJPj4kZYEx3PKAvTiwvDcCXU21uJH60Qa3lugiNfabmoX4mxjkRgiUswkW4P/Tc9avVa6g6EKnqA=
+
+notifications:
+  irc:
+    channels:
+    - chat.freenode.net#kubevirt
+    on_success: change
+    on_failure: always
+
+install:
+  - make docker
+  - make manifests
+
+before_script:
+- curl -Lo kubectl https://storage.googleapis.com/kubernetes-release/release/v$K8S_VER/bin/linux/amd64/kubectl
+  && chmod +x kubectl && sudo mv kubectl /usr/local/bin/
+- curl -Lo minikube https://storage.googleapis.com/minikube/releases/v$MK_VER/minikube-linux-amd64
+  && chmod +x minikube && sudo mv minikube /usr/local/bin/
+- sudo minikube start --vm-driver=none --kubernetes-version=v$K8S_VER
+- minikube update-context
+- JSONPATH='{range .items[*]}{@.metadata.name}:{range @.status.conditions[*]}{@.type}={@.status};{end}{end}';
+  until kubectl get nodes -o jsonpath="$JSONPATH" 2>&1 | grep -q "Ready=True"; do
+  sleep 1; done
+- k_wait_all_running() { while [[ "$(kubectl get $1 --all-namespaces --field-selector=status.phase!=Running
+  | wc -l)" -gt 1 ]]; do kubectl get $1 --all-namespaces ; sleep 6; done ; }
+- kubectl apply -f https://github.com/kubevirt/kubevirt/releases/download/v$K6T_VER/kubevirt.yaml
+- k_wait_all_running pods
+
+script:
+- kubectl apply -f manifests/generated/cdi-controller.yaml
+- kubectl apply -f manifests/example/endpoint-secret.yaml
+- "sed \"s#cdi.kubevirt.io/storage.import.endpoint:.*#cdi.kubevirt.io/storage.import.endpoint: \"$SRC#\"\" manifests/example/golden-pvc.yaml | kubectl apply -f -"
+- k_wait_all_running pods
+- kubectl get pods --all-namespaces
+- if [[ ${TRAVIS_PULL_REQUEST} == 'false' ]]; then make goveralls && make test-functional; else make test; fi
+
+before_deploy:
+- git remote set-url origin https://"${GH_USER}":"${GH_TOKEN}"@github.com/kubevirt/containerized-data-importer.git
+- docker login -u="$DOCKER_USER" -p="$DOCKER_PASS"
+
+deploy:
+  # Release :latest images
+- provider: script
+  script: make publish
+  skip_cleanup: true
+  on:
+    branch: master
+    repo: kubevirt/containerized-data-importer
+ # Release versioned images
+- provider: script
+  script: make publish
+  branches:
+      only: /v[0-9]+\.[0-9]+\.[0-9]+(-alpha\.[0-9]+){0,1}/
+  on:
+    tags: true
+    repo: kubevirt/containerized-data-importer
+- provider: releases
+  branches:
+    only: /v[0-9]+\.[0-9]+\.[0-9]+(-alpha\.[0-9]+){0,1}/
+  on:
+    tags: true
+    repo: kubevirt/containerized-data-importer
+  api_key:
+    secure: vJBZnfjNdprDA85YLp/kOUFxhYJRmxIx3r5EMk3FFnXYGJf0upyQUwFcU4TP6bJfgif2JgjuMAim92pyQvKcM9GH9vxWdmQPNBJwQUkNmzlBDhoIrH2O0SWw2IeuXqfHgD88TB+6S90lTK+FmsG2Y/bpf4QZxMvplzfjoPY76I/UQ6q0jC2pvOlduZpMXtJ+4e9uKp8zGW2pzNuw0d37pA66QJ2vFGq27farQijywmkPJmYZ1xvcpqTSklMonGLy8g8WSoOjD7VNvGIQfLALmU6XynQ/nF/LXbuCzB4/xq7GqmFPzDeKFmN7Gpv8U9QMhICCRsNCXeJuNs5wDrLJCseS8oAr+VWhCTvYsfCvIheTNrBaXJa9o9DVGgGtIP86NHb01PfVXb1iKEKPYo7xatDCxSVjaQwx1tbWuHoY3+E6z2zBMhZc/jwG5rYzQ/cvMaHOEgAFUkl9K5xV0ojhKrXyujf4nC/QJkyS7S6N+FvIGLseZywpH+1tIAXJ5kJFbJ0Y7Fkz6a4uQUd4TxpwXayqlXenE0uWawYURlevexDt3RWs2+vBTwg29lHVxcrdd8n3beFixp23V/wXg0B2j8EKUJXh/G8JXQ5LmPYXoQRiSwWqdAuhZF5HeuVXHuvRUzN7ADF3cQPT1JpG1786WqxkbK2OyL8bMV0a1KNdr/4=
+  overwrite: true
+  skip_cleanup: true
+  file_glob: true
+  file:
+  - _out/cmd/cdi-controller/cdi-controller
+  - _out/cmd/cdi-importer/cdi-importer
+  - _out/cmd/cdi-cloner/script.sh
+  - manifests/generated/cdi-controller.yaml
+  - manifests/example/*

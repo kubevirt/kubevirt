@@ -251,6 +251,7 @@ type Devices struct {
 	Serials     []Serial     `xml:"serial"`
 	Consoles    []Console    `xml:"console"`
 	Watchdog    *Watchdog    `xml:"watchdog,omitempty"`
+	Rng         *Rng         `xml:"rng,omitempty"`
 }
 
 // BEGIN Controller -----------------------------
@@ -594,16 +595,37 @@ type Ballooning struct {
 	Model string `xml:"model,attr"`
 }
 
-type RandomGenerator struct {
-}
-
 type Watchdog struct {
 	Model  string `xml:"model,attr"`
 	Action string `xml:"action,attr"`
 	Alias  *Alias `xml:"alias,omitempty"`
 }
 
-// TODO ballooning, rng, cpu ...
+// Rng represents the source of entropy from host to VM
+type Rng struct {
+	// Model attribute specifies what type of RNG device is provided
+	Model string `xml:"model,attr"`
+	// Backend specifies the source of entropy to be used
+	Backend *RngBackend `xml:"backend,omitempty"`
+}
+
+// RngRate sets the limiting factor how to read from entropy source
+type RngRate struct {
+	// Period define how long is the read period
+	Period uint32 `xml:"period,attr"`
+	// Bytes define how many bytes can guest read from entropy source
+	Bytes uint32 `xml:"bytes,attr"`
+}
+
+// RngBackend is the backend device used
+type RngBackend struct {
+	// Model is source model
+	Model string `xml:"model,attr"`
+	// specifies the source of entropy to be used
+	Source string `xml:",chardata"`
+}
+
+// TODO ballooning, cpu ...
 
 type SecretUsage struct {
 	Type   string `xml:"type,attr"`

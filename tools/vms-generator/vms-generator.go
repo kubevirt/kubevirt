@@ -41,6 +41,8 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/virt-api/validating-webhook"
+
+	cdiv1 "kubevirt.io/containerized-data-importer/pkg/apis/datavolumecontroller/v1alpha1"
 )
 
 const (
@@ -61,8 +63,9 @@ const (
 )
 
 const (
-	vmCirros         = "vm-cirros"
-	vmAlpineMultiPvc = "vm-alpine-multipvc"
+	vmCirros           = "vm-cirros"
+	vmAlpineMultiPvc   = "vm-alpine-multipvc"
+	vmAlpineDataVolume = "vm-alpine-datavolume"
 )
 
 const vmiReplicaSetCirros = "vmi-replicaset-cirros"
@@ -186,6 +189,28 @@ func addEmptyDisk(spec *v1.VirtualMachineInstanceSpec, size string) *v1.VirtualM
 		VolumeSource: v1.VolumeSource{
 			EmptyDisk: &v1.EmptyDiskSource{
 				Capacity: resource.MustParse(size),
+			},
+		},
+	})
+	return spec
+}
+
+func addDataVolumeDisk(spec *v1.VirtualMachineInstanceSpec, dataVolumeName string, bus string, diskName string, volumeName string) *v1.VirtualMachineInstanceSpec {
+	spec.Domain.Devices.Disks = append(spec.Domain.Devices.Disks, v1.Disk{
+		Name:       diskName,
+		VolumeName: volumeName,
+		DiskDevice: v1.DiskDevice{
+			Disk: &v1.DiskTarget{
+				Bus: bus,
+			},
+		},
+	})
+
+	spec.Volumes = append(spec.Volumes, v1.Volume{
+		Name: volumeName,
+		VolumeSource: v1.VolumeSource{
+			DataVolume: &v1.DataVolumeSource{
+				Name: dataVolumeName,
 			},
 		},
 	})
@@ -527,6 +552,45 @@ func templateParameters(memory string, cores string) []Parameter {
 	}
 }
 
+func getVMDataVolume() *v1.VirtualMachine {
+	vm := getBaseVM(vmAlpineDataVolume, map[string]string{
+		"kubevirt.io/vm": vmAlpineDataVolume,
+	})
+
+	quantity, err := resource.ParseQuantity("2Gi")
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "%s\n", err)
+		panic(err)
+	}
+	storageClassName := "local"
+	dataVolume := cdiv1.DataVolume{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "alpine-dv",
+		},
+		Spec: cdiv1.DataVolumeSpec{
+			Source: cdiv1.DataVolumeSource{
+				HTTP: &cdiv1.DataVolumeSourceHTTP{
+					URL: "http://cdi-http-import-server.kube-system/images/alpine.iso",
+				},
+			},
+			PVC: &k8sv1.PersistentVolumeClaimSpec{
+				AccessModes: []k8sv1.PersistentVolumeAccessMode{k8sv1.ReadWriteOnce},
+				Resources: k8sv1.ResourceRequirements{
+					Requests: k8sv1.ResourceList{
+						"storage": quantity,
+					},
+				},
+				StorageClassName: &storageClassName,
+			},
+		},
+	}
+
+	vm.Spec.DataVolumeTemplates = append(vm.Spec.DataVolumeTemplates, dataVolume)
+	addDataVolumeDisk(&vm.Spec.Template.Spec, "alpine-dv", busVirtio, "datavolumedisk1", "datavolumevolume1")
+
+	return vm
+}
+
 func getVMMultiPvc() *v1.VirtualMachine {
 	vm := getBaseVM(vmAlpineMultiPvc, map[string]string{
 		"kubevirt.io/vm": vmAlpineMultiPvc,
@@ -626,9 +690,13 @@ func main() {
 	genDir := flag.String("generated-vms-dir", "", "")
 	flag.Parse()
 
+	// Required to validate DataVolume usage
+	os.Setenv("FEATURE_GATES", "DataVolumes")
+
 	var vms = map[string]*v1.VirtualMachine{
-		vmCirros:         getVMCirros(),
-		vmAlpineMultiPvc: getVMMultiPvc(),
+		vmCirros:           getVMCirros(),
+		vmAlpineMultiPvc:   getVMMultiPvc(),
+		vmAlpineDataVolume: getVMDataVolume(),
 	}
 
 	var vmis = map[string]*v1.VirtualMachineInstance{

@@ -391,6 +391,9 @@ var _ = Describe("Converter", func() {
     <watchdog model="i6300esb" action="poweroff">
       <alias name="ua-mywatchdog"></alias>
     </watchdog>
+    <rng model="virtio">
+      <backend model="random">/dev/urandom</backend>
+    </rng>
   </devices>
   <clock offset="utc" adjustment="reset">
     <timer name="rtc" tickpolicy="catchup" present="yes" track="guest"></timer>
@@ -443,6 +446,7 @@ var _ = Describe("Converter", func() {
 
 		It("should be converted to a libvirt Domain with vmi defaults set", func() {
 			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
+			vmi.Spec.Domain.Devices.Rng = &v1.Rng{}
 			Expect(vmiToDomainXML(vmi, c)).To(Equal(convertedDomain))
 		})
 
@@ -591,6 +595,17 @@ var _ = Describe("Converter", func() {
 
 			Expect(domainSpec.Memory.Value).To(Equal(uint64(128974848)))
 			Expect(domainSpec.Memory.Unit).To(Equal("B"))
+		})
+
+		It("should not add RNG when not present", func() {
+			domainSpec := vmiToDomainXMLToDomainSpec(vmi, c)
+			Expect(domainSpec.Devices.Rng).To(BeNil())
+		})
+
+		It("should add RNG when present", func() {
+			vmi.Spec.Domain.Devices.Rng = &v1.Rng{}
+			domainSpec := vmiToDomainXMLToDomainSpec(vmi, c)
+			Expect(domainSpec.Devices.Rng).ToNot(BeNil())
 		})
 
 	})

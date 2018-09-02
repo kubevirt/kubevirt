@@ -244,6 +244,7 @@ var _ = Describe("Defaults", func() {
 		Expect(*timer.RTC.Enabled).To(BeTrue())
 		Expect(*timer.Hyperv.Enabled).To(BeTrue())
 	})
+
 })
 
 var _ = Describe("Function SetDefaults_NetworkInterface()", func() {

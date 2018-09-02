@@ -134,9 +134,10 @@ func (VirtualMachineList) SwaggerDoc() map[string]string {
 
 func (VirtualMachineSpec) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"":         "VirtualMachineSpec describes how the proper VirtualMachine\nshould look like",
-		"running":  "Running controls whether the associatied VirtualMachineInstance is created or not",
-		"template": "Template is the direct specification of VirtualMachineInstance",
+		"":                    "VirtualMachineSpec describes how the proper VirtualMachine\nshould look like",
+		"running":             "Running controls whether the associatied VirtualMachineInstance is created or not",
+		"template":            "Template is the direct specification of VirtualMachineInstance",
+		"dataVolumeTemplates": "dataVolumeTemplates is a list of dataVolumes that the VirtualMachineInstance template can reference.\nDataVolumes in this list are dynamically created for the VirtualMachine and are tied to the VirtualMachine's life-cycle.",
 	}
 }
 

@@ -28,7 +28,7 @@ with the device.
 ### VerboseWriter
 
 The VerboseWriter option can be used to change where the verbose session logs are written.
-Using this option will start writing verbose output to the provided io.Writer instead of the glog default.
+Using this option will start writing verbose output to the provided io.Writer instead of the log default.
 
 See the [ExampleVerbose](https://github.com/google/goexpect/blob/5c8d637b0287a2ae7bb805554056728c453871e4/expect_test.go#L585) code for an example of how to use this. 
 
@@ -79,10 +79,10 @@ package main
 import (
 	"flag"
 	"fmt"
+	"log"
 	"regexp"
 	"time"
 
-	"github.com/golang/glog"
 	"github.com/google/goexpect"
 	"github.com/google/goterm/term"
 )
@@ -108,7 +108,7 @@ func main() {
 
 	e, _, err := expect.Spawn(fmt.Sprintf("telnet %s", *addr), -1)
 	if err != nil {
-		glog.Exit(err)
+		log.Fatal(err)
 	}
 	defer e.Close()
 
@@ -157,9 +157,9 @@ package main
 import (
 	"flag"
 	"fmt"
+	"log"
 	"time"
 
-	"github.com/golang/glog"
 	"github.com/google/goexpect"
 	"github.com/google/goterm/term"
 )
@@ -180,7 +180,7 @@ func main() {
 
 	e, _, err := expect.Spawn(fmt.Sprintf("ftp %s", *addr), -1)
 	if err != nil {
-		glog.Exit(err)
+		log.Fatal(err)
 	}
 	defer e.Close()
 
@@ -230,7 +230,7 @@ Interaction:
 + router#
 ```
 
-*ssh_example.to*
+*ssh_example.go*
 
 ```
 package main
@@ -238,6 +238,7 @@ package main
 import (
 	"flag"
 	"fmt"
+	"log"
 	"regexp"
 	"time"
 
@@ -245,7 +246,6 @@ import (
 
 	"google.golang.org/grpc/codes"
 
-	"github.com/golang/glog"
 	"github.com/google/goexpect"
 	"github.com/google/goterm/term"
 )
@@ -271,13 +271,13 @@ func main() {
 		HostKeyCallback: ssh.InsecureIgnoreHostKey(),
 	})
 	if err != nil {
-		glog.Exitf("ssh.Dial(%q) failed: %v", *addr, err)
+		log.Fatalf("ssh.Dial(%q) failed: %v", *addr, err)
 	}
 	defer sshClt.Close()
 
 	e, _, err := expect.SpawnSSH(sshClt, timeout)
 	if err != nil {
-		glog.Exit(err)
+		log.Fatal(err)
 	}
 	defer e.Close()
 

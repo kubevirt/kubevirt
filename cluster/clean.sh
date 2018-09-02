@@ -58,10 +58,28 @@ for i in ${namespaces[@]}; do
     _kubectl -n ${i} delete roles -l 'kubevirt.io'
     _kubectl -n ${i} delete clusterroles -l 'kubevirt.io'
     _kubectl -n ${i} delete serviceaccounts -l 'kubevirt.io'
+    _kubectl -n ${i} delete configmaps -l 'kubevirt.io'
     # FIXME this is workaroung to make CI happy. Can be removed in few days.
     if [ $(_kubectl -n ${i} get crd offlinevirtualmachines.kubevirt.io | wc -l) -gt 0 ]; then
         _kubectl -n ${i} delete crd 'offlinevirtualmachines.kubevirt.io'
     fi
+done
+
+# delete all traces of CDI
+for i in ${namespaces[@]}; do
+    _kubectl -n ${i} delete deployment -l 'cdi.kubevirt.io'
+    _kubectl -n ${i} delete services -l 'cdi.kubevirt.io'
+    _kubectl -n ${i} delete apiservices -l 'cdi.kubevirt.io'
+    _kubectl -n ${i} delete validatingwebhookconfiguration -l 'cdi.kubevirt.io'
+    _kubectl -n ${i} delete secrets -l 'cdi.kubevirt.io'
+    _kubectl -n ${i} delete pvc -l 'cdi.kubevirt.io'
+    _kubectl -n ${i} delete customresourcedefinitions -l 'cdi.kubevirt.io'
+    _kubectl -n ${i} delete pods -l 'cdi.kubevirt.io'
+    _kubectl -n ${i} delete clusterrolebinding -l 'cdi.kubevirt.io'
+    _kubectl -n ${i} delete rolebinding -l 'cdi.kubevirt.io'
+    _kubectl -n ${i} delete roles -l 'cdi.kubevirt.io'
+    _kubectl -n ${i} delete clusterroles -l 'cdi.kubevirt.io'
+    _kubectl -n ${i} delete serviceaccounts -l 'cdi.kubevirt.io'
 done
 
 sleep 2

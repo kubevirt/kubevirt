@@ -1,5 +1,5 @@
 binaries="cmd/virt-controller cmd/virt-launcher cmd/virt-handler cmd/virtctl cmd/fake-qemu-process cmd/virt-api cmd/subresource-access-test cmd/example-hook-sidecar"
-docker_images="cmd/virt-controller cmd/virt-launcher cmd/virt-handler cmd/virt-api images/disks-images-provider images/vm-killer cmd/registry-disk-v1alpha images/cirros-registry-disk-demo images/fedora-cloud-registry-disk-demo images/alpine-registry-disk-demo cmd/subresource-access-test images/winrmcli cmd/example-hook-sidecar"
+docker_images="cmd/virt-controller cmd/virt-launcher cmd/virt-handler cmd/virt-api images/disks-images-provider images/vm-killer cmd/registry-disk-v1alpha images/cirros-registry-disk-demo images/fedora-cloud-registry-disk-demo images/alpine-registry-disk-demo cmd/subresource-access-test images/winrmcli cmd/example-hook-sidecar images/cdi-http-import-server"
 docker_prefix=${DOCKER_PREFIX:-kubevirt}
 docker_tag=${DOCKER_TAG:-latest}
 master_ip=192.168.200.2

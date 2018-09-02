@@ -37,6 +37,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 
 	"kubevirt.io/kubevirt/pkg/api/v1"
+	"kubevirt.io/kubevirt/pkg/util/subresources"
 )
 
 const (
@@ -178,6 +179,7 @@ func roundTripperFromConfig(config *rest.Config, callback RoundTripCallback) (ht
 		TLSClientConfig: tlsConfig,
 		WriteBufferSize: WebsocketMessageBufferSize,
 		ReadBufferSize:  WebsocketMessageBufferSize,
+		Subprotocols:    []string{subresources.PlainStreamProtocolName},
 	}
 
 	// Create a roundtripper which will pass in the final underlying websocket connection to a callback

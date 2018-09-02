@@ -20,11 +20,14 @@
 package watch
 
 import (
+	"strconv"
+	"sync"
 	"time"
 
 	"github.com/pborman/uuid"
 
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/rand"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/record"
@@ -42,17 +45,34 @@ import (
 	"kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/kubecli"
 	"kubevirt.io/kubevirt/pkg/log"
+
+	cdiv1 "kubevirt.io/containerized-data-importer/pkg/apis/datavolumecontroller/v1alpha1"
 )
 
-func NewVMController(vmiInformer cache.SharedIndexInformer, vmiVMInformer cache.SharedIndexInformer, recorder record.EventRecorder, clientset kubecli.KubevirtClient) *VMController {
+// TODO remove the dataVolume deletion retry logic once CDI fixes this issue.
+// We're working around the fact that DataVolumes aren't eventually consistent by
+// attempting to delete/recreate the datavolumes when they fail to import
+// https://github.com/kubevirt/containerized-data-importer/issues/400
+const (
+	dataVolumeDeleteAfterTimestampAnno = "kubevirt.io/delete-after-timestamp"
+	dataVolumeDeleteJitterSeconds      = 100
+)
+
+func NewVMController(vmiInformer cache.SharedIndexInformer,
+	vmiVMInformer cache.SharedIndexInformer,
+	dataVolumeInformer cache.SharedIndexInformer,
+	recorder record.EventRecorder,
+	clientset kubecli.KubevirtClient) *VMController {
 
 	c := &VMController{
-		Queue:         workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter()),
-		vmiInformer:   vmiInformer,
-		vmiVMInformer: vmiVMInformer,
-		recorder:      recorder,
-		clientset:     clientset,
-		expectations:  controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectations()),
+		Queue:                  workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter()),
+		vmiInformer:            vmiInformer,
+		vmiVMInformer:          vmiVMInformer,
+		dataVolumeInformer:     dataVolumeInformer,
+		recorder:               recorder,
+		clientset:              clientset,
+		expectations:           controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectations()),
+		dataVolumeExpectations: controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectations()),
 	}
 
 	c.vmiVMInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
@@ -67,16 +87,24 @@ func NewVMController(vmiInformer cache.SharedIndexInformer, vmiVMInformer cache.
 		UpdateFunc: c.updateVirtualMachine,
 	})
 
+	c.dataVolumeInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
+		AddFunc:    c.addDataVolume,
+		DeleteFunc: c.deleteDataVolume,
+		UpdateFunc: c.updateDataVolume,
+	})
+
 	return c
 }
 
 type VMController struct {
-	clientset     kubecli.KubevirtClient
-	Queue         workqueue.RateLimitingInterface
-	vmiInformer   cache.SharedIndexInformer
-	vmiVMInformer cache.SharedIndexInformer
-	recorder      record.EventRecorder
-	expectations  *controller.UIDTrackingControllerExpectations
+	clientset              kubecli.KubevirtClient
+	Queue                  workqueue.RateLimitingInterface
+	vmiInformer            cache.SharedIndexInformer
+	vmiVMInformer          cache.SharedIndexInformer
+	dataVolumeInformer     cache.SharedIndexInformer
+	recorder               record.EventRecorder
+	expectations           *controller.UIDTrackingControllerExpectations
+	dataVolumeExpectations *controller.UIDTrackingControllerExpectations
 }
 
 func (c *VMController) Run(threadiness int, stopCh chan struct{}) {
@@ -85,7 +113,7 @@ func (c *VMController) Run(threadiness int, stopCh chan struct{}) {
 	log.Log.Info("Starting VirtualMachine controller.")
 
 	// Wait for cache sync before we start the controller
-	cache.WaitForCacheSync(stopCh, c.vmiInformer.HasSynced, c.vmiVMInformer.HasSynced)
+	cache.WaitForCacheSync(stopCh, c.vmiInformer.HasSynced, c.vmiVMInformer.HasSynced, c.dataVolumeInformer.HasSynced)
 
 	// Start the actual work
 	for i := 0; i < threadiness; i++ {
@@ -140,7 +168,7 @@ func (c *VMController) execute(key string) error {
 		return nil
 	}
 
-	needsSync := c.expectations.SatisfiedExpectations(key)
+	needsSync := c.expectations.SatisfiedExpectations(key) && c.dataVolumeExpectations.SatisfiedExpectations(key)
 
 	vmKey, err := controller.KeyFunc(VM)
 	if err != nil {
@@ -159,7 +187,10 @@ func (c *VMController) execute(key string) error {
 		}
 		return fresh, nil
 	})
-	cm := controller.NewVirtualMachineControllerRefManager(controller.RealVirtualMachineControl{Clientset: c.clientset}, VM, nil, virtv1.VirtualMachineGroupVersionKind, canAdoptFunc)
+	cm := controller.NewVirtualMachineControllerRefManager(
+		controller.RealVirtualMachineControl{
+			Clientset: c.clientset,
+		}, VM, nil, virtv1.VirtualMachineGroupVersionKind, canAdoptFunc)
 
 	var vmi *virtv1.VirtualMachineInstance
 	vmiObj, exist, err := c.vmiInformer.GetStore().GetByKey(vmKey)
@@ -179,17 +210,42 @@ func (c *VMController) execute(key string) error {
 		}
 	}
 
+	dataVolumes, err := c.listDataVolumesForVM(VM)
+	if err != nil {
+		logger.Reason(err).Error("Failed to fetch dataVolumes for namespace from cache.")
+		return err
+	}
+
+	if len(dataVolumes) != 0 {
+		dataVolumes, err = cm.ClaimMatchedDataVolumes(dataVolumes)
+		if err != nil {
+			return err
+		}
+	}
+
 	var createErr error
 
 	// Scale up or down, if all expected creates and deletes were report by the listener
 	if needsSync && VM.ObjectMeta.DeletionTimestamp == nil {
-		createErr = c.startStop(VM, vmi)
+
+		dataVolumesReady, err := c.handleDataVolumes(VM, dataVolumes)
+		if err != nil {
+			createErr = err
+		} else if dataVolumesReady == true {
+			createErr = c.startStop(VM, vmi)
+		} else {
+			log.Log.Object(VM).V(3).Infof("Waiting on DataVolumes to be ready. %d datavolumes found", len(dataVolumes))
+		}
 	}
 
 	// If the controller is going to be deleted and the orphan finalizer is the next one, release the VMIs. Don't update the status
 	// TODO: Workaround for https://github.com/kubernetes/kubernetes/issues/56348, remove it once it is fixed
 	if VM.ObjectMeta.DeletionTimestamp != nil && controller.HasFinalizer(VM, v1.FinalizerOrphanDependents) {
-		return c.orphan(cm, vmi)
+		err = c.orphan(cm, vmi)
+		if err != nil {
+			return err
+		}
+		return c.orphanDataVolumes(cm, dataVolumes)
 	}
 
 	if createErr != nil {
@@ -203,6 +259,29 @@ func (c *VMController) execute(key string) error {
 	}
 
 	return createErr
+}
+
+func (c *VMController) listDataVolumesForVM(vm *virtv1.VirtualMachine) ([]*cdiv1.DataVolume, error) {
+
+	var dataVolumes []*cdiv1.DataVolume
+
+	if len(vm.Spec.DataVolumeTemplates) == 0 {
+		return dataVolumes, nil
+	}
+
+	for _, template := range vm.Spec.DataVolumeTemplates {
+		// get DataVolume from cache for each templated dataVolume
+		obj, exists, err := c.dataVolumeInformer.GetStore().GetByKey(fmt.Sprintf("%s/%s", vm.Namespace, template.Name))
+
+		if err != nil {
+			return dataVolumes, err
+		} else if !exists {
+			continue
+		}
+
+		dataVolumes = append(dataVolumes, obj.(*cdiv1.DataVolume))
+	}
+	return dataVolumes, nil
 }
 
 // orphan removes the owner reference of all VMIs which are owned by the controller instance.
@@ -229,6 +308,144 @@ func (c *VMController) orphan(cm *controller.VirtualMachineControllerRefManager,
 	default:
 	}
 	return nil
+}
+
+func (c *VMController) orphanDataVolumes(cm *controller.VirtualMachineControllerRefManager, dataVolumes []*cdiv1.DataVolume) error {
+
+	if len(dataVolumes) == 0 {
+		return nil
+	}
+
+	var wg sync.WaitGroup
+	errChan := make(chan error, len(dataVolumes))
+	wg.Add(len(dataVolumes))
+
+	for _, dataVolume := range dataVolumes {
+		go func(dataVolume *cdiv1.DataVolume) {
+			defer wg.Done()
+			err := cm.ReleaseDataVolume(dataVolume)
+			if err != nil {
+				errChan <- err
+			}
+		}(dataVolume)
+	}
+	wg.Wait()
+	select {
+	case err := <-errChan:
+		return err
+	default:
+	}
+	return nil
+}
+
+func createDataVolumeManifest(dataVolume *cdiv1.DataVolume, vm *virtv1.VirtualMachine) *cdiv1.DataVolume {
+
+	newDataVolume := dataVolume.DeepCopy()
+
+	labels := map[string]string{}
+	annotations := map[string]string{}
+
+	labels[virtv1.CreatedByLabel] = string(vm.UID)
+	annotations[virtv1.OwnedByAnnotation] = "virt-controller"
+
+	for k, v := range dataVolume.Labels {
+		annotations[k] = v
+	}
+	for k, v := range dataVolume.Labels {
+		labels[k] = v
+	}
+	newDataVolume.ObjectMeta.Labels = labels
+	newDataVolume.ObjectMeta.Annotations = annotations
+
+	tr := true
+	newDataVolume.ObjectMeta.OwnerReferences = []v1.OwnerReference{{
+		APIVersion:         virtv1.VirtualMachineGroupVersionKind.GroupVersion().String(),
+		Kind:               virtv1.VirtualMachineGroupVersionKind.Kind,
+		Name:               vm.Name,
+		UID:                vm.UID,
+		Controller:         &tr,
+		BlockOwnerDeletion: &tr,
+	}}
+	return newDataVolume
+}
+
+func (c *VMController) handleDataVolumes(vm *virtv1.VirtualMachine, dataVolumes []*cdiv1.DataVolume) (bool, error) {
+	ready := true
+	vmKey, err := controller.KeyFunc(vm)
+	if err != nil {
+		return ready, err
+	}
+	for _, template := range vm.Spec.DataVolumeTemplates {
+		var curDataVolume *cdiv1.DataVolume
+		exists := false
+		for _, curDataVolume = range dataVolumes {
+			if curDataVolume.Name == template.Name {
+				exists = true
+				break
+			}
+		}
+		if !exists {
+			// ready = false because encountered DataVolume that is not created yet
+			ready = false
+			newDataVolume := createDataVolumeManifest(&template, vm)
+
+			c.dataVolumeExpectations.ExpectCreations(vmKey, 1)
+			curDataVolume, err = c.clientset.CdiClient().CdiV1alpha1().DataVolumes(vm.Namespace).Create(newDataVolume)
+			if err != nil {
+				c.recorder.Eventf(vm, k8score.EventTypeWarning, FailedDataVolumeCreateReason, "Error creating DataVolume %s: %v", newDataVolume.Name, err)
+				c.dataVolumeExpectations.CreationObserved(vmKey)
+				return ready, fmt.Errorf("Failed to create DataVolume: %v", err)
+			}
+			c.recorder.Eventf(vm, k8score.EventTypeNormal, SuccessfulDataVolumeCreateReason, "Created DataVolume %s", curDataVolume.Name)
+		} else if curDataVolume.Status.Phase != cdiv1.Succeeded {
+			// ready = false because encountered DataVolume that is not populated yet
+			ready = false
+			if curDataVolume.Status.Phase == cdiv1.Failed {
+
+				c.recorder.Eventf(vm, k8score.EventTypeWarning, FailedDataVolumeImportReason, "DataVolume %s failed to import disk image", curDataVolume.Name)
+
+				now := time.Now().UTC().Unix()
+				deleteAfterStr, ok := curDataVolume.Annotations[dataVolumeDeleteAfterTimestampAnno]
+				var deleteAfterTimestamp int64
+				if ok {
+					deleteAfterTimestamp, err = strconv.ParseInt(deleteAfterStr, 10, 64)
+					if err != nil {
+						// No reason to return an error here
+						// we just clobber the annotation with a valid value later if it can't be parsed as an int.
+						deleteAfterTimestamp = 0
+						log.Log.Errorf("failed to parse deletion timestamp for datavolume %s/%s: %v", curDataVolume.Namespace, curDataVolume.Name, err)
+					}
+				}
+
+				if deleteAfterTimestamp == 0 {
+					dataVolumeCopy := curDataVolume.DeepCopy()
+					deleteAfterTimestamp := now + int64(rand.Intn(dataVolumeDeleteJitterSeconds)+10)
+					dataVolumeCopy.Annotations[dataVolumeDeleteAfterTimestampAnno] = strconv.FormatInt(deleteAfterTimestamp, 10)
+					_, err := c.clientset.CdiClient().CdiV1alpha1().DataVolumes(dataVolumeCopy.Namespace).Update(dataVolumeCopy)
+					if err != nil {
+						return ready, err
+					}
+				}
+
+				if curDataVolume.DeletionTimestamp == nil {
+					if deleteAfterTimestamp >= now {
+						// By deleting the failed DataVolume,
+						// a new DataVolume will be created to take it's place.
+						c.dataVolumeExpectations.ExpectDeletions(vmKey, []string{controller.DataVolumeKey(curDataVolume)})
+						err := c.clientset.CdiClient().CdiV1alpha1().DataVolumes(curDataVolume.Namespace).Delete(curDataVolume.Name, &v1.DeleteOptions{})
+						if err != nil {
+							c.dataVolumeExpectations.DeletionObserved(vmKey, controller.DataVolumeKey(curDataVolume))
+							return ready, err
+						}
+					} else {
+						timeLeft := now - deleteAfterTimestamp
+						c.Queue.AddAfter(vmKey, time.Duration(timeLeft)*time.Second)
+					}
+				}
+			}
+		}
+	}
+	return ready, nil
 }
 
 func (c *VMController) startStop(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance) error {
@@ -584,6 +801,107 @@ func (c *VMController) deleteVirtualMachine(obj interface{}) {
 		return
 	}
 	c.expectations.DeletionObserved(vmKey, controller.VirtualMachineKey(vmi))
+	c.enqueueVm(vm)
+}
+
+func (c *VMController) addDataVolume(obj interface{}) {
+	dataVolume := obj.(*cdiv1.DataVolume)
+	if dataVolume.DeletionTimestamp != nil {
+		c.deleteDataVolume(dataVolume)
+		return
+	}
+	controllerRef := controller.GetControllerOf(dataVolume)
+	if controllerRef == nil {
+		return
+	}
+	log.Log.Object(dataVolume).Info("Looking for DataVolume Ref")
+	vm := c.resolveControllerRef(dataVolume.Namespace, controllerRef)
+	if vm == nil {
+		log.Log.Object(dataVolume).Errorf("Cant find the matching VM for DataVolume: %s", dataVolume.Name)
+		return
+	}
+	vmKey, err := controller.KeyFunc(vm)
+	if err != nil {
+		log.Log.Object(dataVolume).Errorf("Cannot parse key of VM: %s for DataVolume: %s", vm.Name, dataVolume.Name)
+		return
+	}
+	log.Log.Object(dataVolume).Infof("DataVolume created because %s was added.", dataVolume.Name)
+	c.dataVolumeExpectations.CreationObserved(vmKey)
+	c.enqueueVm(vm)
+}
+func (c *VMController) updateDataVolume(old, cur interface{}) {
+	curDataVolume := cur.(*cdiv1.DataVolume)
+	oldDataVolume := old.(*cdiv1.DataVolume)
+	if curDataVolume.ResourceVersion == oldDataVolume.ResourceVersion {
+		// Periodic resync will send update events for all known DataVolumes.
+		// Two different versions of the same dataVolume will always
+		// have different RVs.
+		return
+	}
+	labelChanged := !reflect.DeepEqual(curDataVolume.Labels, oldDataVolume.Labels)
+	if curDataVolume.DeletionTimestamp != nil {
+		// having a DataVOlume marked for deletion is enough
+		// to count as a deletion expectation
+		c.deleteDataVolume(curDataVolume)
+		if labelChanged {
+			// we don't need to check the oldDataVolume.DeletionTimestamp
+			// because DeletionTimestamp cannot be unset.
+			c.deleteDataVolume(oldDataVolume)
+		}
+		return
+	}
+	curControllerRef := controller.GetControllerOf(curDataVolume)
+	oldControllerRef := controller.GetControllerOf(oldDataVolume)
+	controllerRefChanged := !reflect.DeepEqual(curControllerRef, oldControllerRef)
+	if controllerRefChanged && oldControllerRef != nil {
+		// The ControllerRef was changed. Sync the old controller, if any.
+		if vm := c.resolveControllerRef(oldDataVolume.Namespace, oldControllerRef); vm != nil {
+			c.enqueueVm(vm)
+		}
+	}
+	if curControllerRef == nil {
+		return
+	}
+	vm := c.resolveControllerRef(curDataVolume.Namespace, curControllerRef)
+	if vm == nil {
+		return
+	}
+	log.Log.V(4).Object(curDataVolume).Infof("DataVolume updated")
+	c.enqueueVm(vm)
+}
+
+func (c *VMController) deleteDataVolume(obj interface{}) {
+	dataVolume, ok := obj.(*cdiv1.DataVolume)
+	// When a delete is dropped, the relist will notice a dataVolume in the store not
+	// in the list, leading to the insertion of a tombstone object which contains
+	// the deleted key/value. Note that this value might be stale. If the dataVolume
+	// changed labels the new vmi will not be woken up till the periodic resync.
+	if !ok {
+		tombstone, ok := obj.(cache.DeletedFinalStateUnknown)
+		if !ok {
+			log.Log.Reason(fmt.Errorf("couldn't get object from tombstone %+v", obj)).Error("Failed to process delete notification")
+			return
+		}
+		dataVolume, ok = tombstone.Obj.(*cdiv1.DataVolume)
+		if !ok {
+			log.Log.Reason(fmt.Errorf("tombstone contained object that is not a dataVolume %#v", obj)).Error("Failed to process delete notification")
+			return
+		}
+	}
+	controllerRef := controller.GetControllerOf(dataVolume)
+	if controllerRef == nil {
+		// No controller should care about orphans being deleted.
+		return
+	}
+	vm := c.resolveControllerRef(dataVolume.Namespace, controllerRef)
+	if vm == nil {
+		return
+	}
+	vmKey, err := controller.KeyFunc(vm)
+	if err != nil {
+		return
+	}
+	c.dataVolumeExpectations.DeletionObserved(vmKey, controller.DataVolumeKey(dataVolume))
 	c.enqueueVm(vm)
 }
 

@@ -21,5 +21,6 @@ FROM fedora:28
 MAINTAINER "The KubeVirt Project" <kubevirt-dev@googlegroups.com>
 
 COPY virt-handler /usr/bin/virt-handler
+COPY .version /.version
 
 ENTRYPOINT [ "/usr/bin/virt-handler" ]

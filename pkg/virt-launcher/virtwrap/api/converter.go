@@ -150,6 +150,10 @@ func Convert_v1_Volume_To_api_Disk(source *v1.Volume, disk *Disk, c *ConverterCo
 		return Convert_v1_FilesystemVolumeSource_To_api_Disk(source.Name, disk, c)
 	}
 
+	if source.DataVolume != nil {
+		return Convert_v1_FilesystemVolumeSource_To_api_Disk(source.Name, disk, c)
+	}
+
 	if source.Ephemeral != nil {
 		return Convert_v1_EphemeralVolumeSource_To_api_Disk(source.Name, source.Ephemeral, disk, c)
 	}
@@ -240,6 +244,22 @@ func Convert_v1_Watchdog_To_api_Watchdog(source *v1.Watchdog, watchdog *Watchdog
 		return nil
 	}
 	return fmt.Errorf("watchdog %s can't be mapped, no watchdog type specified", source.Name)
+}
+
+func Convert_v1_Rng_To_api_Rng(source *v1.Rng, rng *Rng, _ *ConverterContext) error {
+
+	// default rng model for KVM/QEMU virtualization
+	rng.Model = "virtio"
+
+	// default backend model, random
+	rng.Backend = &RngBackend{
+		Model: "random",
+	}
+
+	// the default source for rng is dev urandom
+	rng.Backend.Source = "/dev/urandom"
+
+	return nil
 }
 
 func Convert_v1_Clock_To_api_Clock(source *v1.Clock, clock *Clock, c *ConverterContext) error {
@@ -433,6 +453,15 @@ func Convert_v1_VirtualMachine_To_api_Domain(vmi *v1.VirtualMachineInstance, dom
 			return err
 		}
 		domain.Spec.Devices.Watchdog = newWatchdog
+	}
+
+	if vmi.Spec.Domain.Devices.Rng != nil {
+		newRng := &Rng{}
+		err := Convert_v1_Rng_To_api_Rng(vmi.Spec.Domain.Devices.Rng, newRng, c)
+		if err != nil {
+			return err
+		}
+		domain.Spec.Devices.Rng = newRng
 	}
 
 	if vmi.Spec.Domain.Clock != nil {

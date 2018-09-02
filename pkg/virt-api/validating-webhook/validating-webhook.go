@@ -40,6 +40,7 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 
 	"kubevirt.io/kubevirt/pkg/api/v1"
+	"kubevirt.io/kubevirt/pkg/feature-gates"
 	"kubevirt.io/kubevirt/pkg/log"
 	"kubevirt.io/kubevirt/pkg/util"
 )
@@ -258,6 +259,24 @@ func validateVolumes(field *k8sfield.Path, volumes []v1.Volume) []metav1.StatusC
 			volumeSourceSetCount++
 		}
 		if volume.EmptyDisk != nil {
+			volumeSourceSetCount++
+		}
+		if volume.DataVolume != nil {
+			if !featuregates.DataVolumesEnabled() {
+				causes = append(causes, metav1.StatusCause{
+					Type:    metav1.CauseTypeFieldValueInvalid,
+					Message: "DataVolume feature gate is not enabled",
+					Field:   field.Index(idx).String(),
+				})
+			}
+
+			if volume.DataVolume.Name == "" {
+				causes = append(causes, metav1.StatusCause{
+					Type:    metav1.CauseTypeFieldValueRequired,
+					Message: "DataVolume 'name' must be set",
+					Field:   field.Index(idx).Child("name").String(),
+				})
+			}
 			volumeSourceSetCount++
 		}
 
@@ -798,6 +817,38 @@ func ValidateVirtualMachineSpec(field *k8sfield.Path, spec *v1.VirtualMachineSpe
 	}
 
 	causes = append(causes, ValidateVirtualMachineInstanceSpec(field.Child("template", "spec"), &spec.Template.Spec)...)
+
+	if len(spec.DataVolumeTemplates) > 0 {
+
+		for idx, dataVolume := range spec.DataVolumeTemplates {
+			if dataVolume.Name == "" {
+				causes = append(causes, metav1.StatusCause{
+					Type:    metav1.CauseTypeFieldValueRequired,
+					Message: fmt.Sprintf("'name' field must not be empty for DataVolumeTemplate entry %s.", field.Child("dataVolumeTemplate").Index(idx).String()),
+					Field:   field.Child("dataVolumeTemplate").Index(idx).Child("name").String(),
+				})
+			}
+
+			dataVolumeRefFound := false
+			for _, volume := range spec.Template.Spec.Volumes {
+				if volume.VolumeSource.DataVolume == nil {
+					continue
+				} else if volume.VolumeSource.DataVolume.Name == dataVolume.Name {
+					dataVolumeRefFound = true
+					break
+				}
+			}
+
+			if !dataVolumeRefFound {
+				causes = append(causes, metav1.StatusCause{
+					Type:    metav1.CauseTypeFieldValueRequired,
+					Message: fmt.Sprintf("DataVolumeTemplate entry %s must be referenced in the VMI template's 'volumes' list", field.Child("dataVolumeTemplate").Index(idx).String()),
+					Field:   field.Child("dataVolumeTemplate").Index(idx).String(),
+				})
+			}
+		}
+	}
+
 	return causes
 }
 

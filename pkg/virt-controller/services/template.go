@@ -153,6 +153,17 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 				Name: volume.RegistryDisk.ImagePullSecret,
 			})
 		}
+		if volume.DataVolume != nil {
+			volumesMounts = append(volumesMounts, volumeMount)
+			volumes = append(volumes, k8sv1.Volume{
+				Name: volume.Name,
+				VolumeSource: k8sv1.VolumeSource{
+					PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{
+						ClaimName: volume.DataVolume.Name,
+					},
+				},
+			})
+		}
 	}
 
 	if t.imagePullSecret != "" {
@@ -440,7 +451,9 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 
 func getRequiredCapabilities(vmi *v1.VirtualMachineInstance) []k8sv1.Capability {
 	res := []k8sv1.Capability{}
-	if (vmi.Spec.Domain.Devices.AutoattachPodInterface == nil) || (*vmi.Spec.Domain.Devices.AutoattachPodInterface == true) {
+	if (len(vmi.Spec.Domain.Devices.Interfaces) > 0) ||
+		(vmi.Spec.Domain.Devices.AutoattachPodInterface == nil) ||
+		(*vmi.Spec.Domain.Devices.AutoattachPodInterface == true) {
 		res = append(res, CAP_NET_ADMIN)
 	}
 	return res

@@ -26,5 +26,6 @@ WORKDIR /home/virt-api
 USER 1001
 
 COPY virt-api /usr/bin/virt-api
+COPY .version /.version
 
 ENTRYPOINT [ "/usr/bin/virt-api" ]
