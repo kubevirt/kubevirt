@@ -660,7 +660,7 @@ func getVMIPresetSmall() *v1.VirtualMachineInstancePreset {
 		"kubevirt.io/vmPreset": vmiPresetSmall,
 	})
 
-	vmPreset.Spec.Domain = &v1.DomainPresetSpec{
+	vmPreset.Spec.Domain = &v1.DomainSpec{
 		Resources: v1.ResourceRequirements{
 			Requests: k8sv1.ResourceList{
 				k8sv1.ResourceMemory: resource.MustParse("64M"),

@@ -215,6 +215,8 @@ spec:
                       type: boolean
                     requests:
                       type: object
+              required:
+              - devices
             selector: {}
           required:
           - selector

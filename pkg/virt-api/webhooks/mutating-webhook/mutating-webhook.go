@@ -93,7 +93,19 @@ func mutateVMIs(ar *v1beta1.AdmissionReview) *v1beta1.AdmissionResponse {
 		return webhooks.ToAdmissionResponseError(err)
 	}
 
+	informers := webhooks.GetInformers()
+
+	// Apply presets
+	err = applyPresets(&vmi, informers.VMIPresetInformer)
+	if err != nil {
+		return webhooks.ToAdmissionResponseError(err)
+	}
+
+	// Apply namespace limits
+	applyNamespaceLimitRangeValues(&vmi, informers.NamespaceLimitsInformer)
+
 	// Set VMI defaults
+	log.Log.Object(&vmi).V(4).Info("Apply defaults")
 	kubev1.SetObjectDefaults_VirtualMachineInstance(&vmi)
 
 	var patch []patchOperation

@@ -195,7 +195,7 @@ var _ = Describe("VirtualMachineInstance Initializer", func() {
 						VolumeName: "testvolume",
 						DiskDevice: v1.DiskDevice{Disk: &v1.DiskTarget{Bus: "virtio", ReadOnly: true}}}}},
 			}}}
-			preset = v1.VirtualMachineInstancePreset{Spec: v1.VirtualMachineInstancePresetSpec{Domain: &v1.DomainPresetSpec{}}}
+			preset = v1.VirtualMachineInstancePreset{Spec: v1.VirtualMachineInstancePresetSpec{Domain: &v1.DomainSpec{}}}
 			recorder = NewFakeRecorder()
 		})
 
@@ -436,7 +436,7 @@ var _ = Describe("VirtualMachineInstance Initializer", func() {
 				ObjectMeta: k8smetav1.ObjectMeta{Name: "memory-64"},
 				Spec: v1.VirtualMachineInstancePresetSpec{
 					Selector: k8smetav1.LabelSelector{MatchLabels: map[string]string{"kubevirt.io/m64": "memory-64"}},
-					Domain: &v1.DomainPresetSpec{
+					Domain: &v1.DomainSpec{
 						Resources: v1.ResourceRequirements{
 							Requests: k8sv1.ResourceList{"memory": m64},
 						},
@@ -447,7 +447,7 @@ var _ = Describe("VirtualMachineInstance Initializer", func() {
 				ObjectMeta: k8smetav1.ObjectMeta{Name: "memory-128"},
 				Spec: v1.VirtualMachineInstancePresetSpec{
 					Selector: k8smetav1.LabelSelector{MatchLabels: map[string]string{"kubevirt.io/m128": "memory-128"}},
-					Domain: &v1.DomainPresetSpec{
+					Domain: &v1.DomainSpec{
 						Resources: v1.ResourceRequirements{
 							Requests: k8sv1.ResourceList{"memory": m128},
 						},
@@ -458,7 +458,7 @@ var _ = Describe("VirtualMachineInstance Initializer", func() {
 				ObjectMeta: k8smetav1.ObjectMeta{Name: "cpu-4"},
 				Spec: v1.VirtualMachineInstancePresetSpec{
 					Selector: k8smetav1.LabelSelector{MatchLabels: map[string]string{"kubevirt.io/cpu": "cpu-4"}},
-					Domain: &v1.DomainPresetSpec{
+					Domain: &v1.DomainSpec{
 						CPU: &v1.CPU{Cores: 4},
 					},
 				},
@@ -467,7 +467,7 @@ var _ = Describe("VirtualMachineInstance Initializer", func() {
 				ObjectMeta: k8smetav1.ObjectMeta{Name: "duplicate-mem"},
 				Spec: v1.VirtualMachineInstancePresetSpec{
 					Selector: k8smetav1.LabelSelector{MatchLabels: map[string]string{"kubevirt.io/m64": "memory-64"}},
-					Domain: &v1.DomainPresetSpec{
+					Domain: &v1.DomainSpec{
 						Resources: v1.ResourceRequirements{
 							Requests: k8sv1.ResourceList{"memory": m64},
 						},
@@ -588,7 +588,7 @@ var _ = Describe("VirtualMachineInstance Initializer", func() {
 		BeforeEach(func() {
 			vmi = v1.VirtualMachineInstance{Spec: v1.VirtualMachineInstanceSpec{Domain: v1.DomainSpec{}}}
 			vmi.ObjectMeta.Name = "testvmi"
-			preset = v1.VirtualMachineInstancePreset{Spec: v1.VirtualMachineInstancePresetSpec{Domain: &v1.DomainPresetSpec{}}}
+			preset = v1.VirtualMachineInstancePreset{Spec: v1.VirtualMachineInstancePresetSpec{Domain: &v1.DomainSpec{}}}
 			preset.ObjectMeta.Name = "test-preset"
 			recorder = NewFakeRecorder()
 		})
@@ -702,15 +702,15 @@ var _ = Describe("VirtualMachineInstance Initializer", func() {
 			vmi.ObjectMeta.Name = "testvmi"
 			vmi.ObjectMeta.Labels = map[string]string{flavorKey: "matching"}
 
-			matchingPreset = v1.VirtualMachineInstancePreset{Spec: v1.VirtualMachineInstancePresetSpec{Domain: &v1.DomainPresetSpec{}}}
+			matchingPreset = v1.VirtualMachineInstancePreset{Spec: v1.VirtualMachineInstancePresetSpec{Domain: &v1.DomainSpec{}}}
 			matchingPreset.ObjectMeta.Name = matchingPresetName
 			matchingPreset.Spec.Selector = matchingLabel
 
-			nonmatchingPreset = v1.VirtualMachineInstancePreset{Spec: v1.VirtualMachineInstancePresetSpec{Domain: &v1.DomainPresetSpec{}}}
+			nonmatchingPreset = v1.VirtualMachineInstancePreset{Spec: v1.VirtualMachineInstancePresetSpec{Domain: &v1.DomainSpec{}}}
 			nonmatchingPreset.ObjectMeta.Name = "unrelated-preset"
 			nonmatchingPreset.Spec.Selector = mismatchLabel
 
-			errorPreset = v1.VirtualMachineInstancePreset{Spec: v1.VirtualMachineInstancePresetSpec{Domain: &v1.DomainPresetSpec{}}}
+			errorPreset = v1.VirtualMachineInstancePreset{Spec: v1.VirtualMachineInstancePresetSpec{Domain: &v1.DomainSpec{}}}
 			errorPreset.ObjectMeta.Name = "broken-preset"
 			errorPreset.Spec.Selector = errorLabel
 			recorder = NewFakeRecorder()

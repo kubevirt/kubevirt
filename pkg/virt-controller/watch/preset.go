@@ -257,7 +257,7 @@ func filterPresets(list []kubev1.VirtualMachineInstancePreset, vmi *kubev1.Virtu
 	return matchingPresets
 }
 
-func checkMergeConflicts(presetSpec *kubev1.DomainPresetSpec, vmiSpec *kubev1.DomainSpec) error {
+func checkMergeConflicts(presetSpec *kubev1.DomainSpec, vmiSpec *kubev1.DomainSpec) error {
 	errors := []error{}
 	if len(presetSpec.Resources.Requests) > 0 {
 		for key, presetReq := range presetSpec.Resources.Requests {
@@ -305,7 +305,7 @@ func checkMergeConflicts(presetSpec *kubev1.DomainPresetSpec, vmiSpec *kubev1.Do
 	return nil
 }
 
-func mergeDomainSpec(presetSpec *kubev1.DomainPresetSpec, vmiSpec *kubev1.DomainSpec) (bool, error) {
+func mergeDomainSpec(presetSpec *kubev1.DomainSpec, vmiSpec *kubev1.DomainSpec) (bool, error) {
 	presetConflicts := checkMergeConflicts(presetSpec, vmiSpec)
 	applied := false
 
@@ -391,7 +391,7 @@ func checkPresetConflicts(presets []kubev1.VirtualMachineInstancePreset) error {
 				return err
 			}
 
-			err = checkMergeConflicts(preset.Spec.Domain, visitedDomain)
+			err = checkMergeConflicts(preset.Spec.Domain, visited.Spec.Domain)
 			if err != nil {
 				errors = append(errors, fmt.Errorf("presets '%s' and '%s' conflict: %v", preset.Name, visited.Name, err))
 			}

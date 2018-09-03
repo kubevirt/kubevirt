@@ -398,7 +398,7 @@ var _ = Describe("Validating Webhook", func() {
 	Context("with VMIPreset admission review", func() {
 		It("reject invalid VirtualMachineInstance spec", func() {
 			vmi := v1.NewMinimalVMI("testvmi")
-			vmiPDomain := &v1.DomainPresetSpec{}
+			vmiPDomain := &v1.DomainSpec{}
 			vmiDomainByte, _ := json.Marshal(vmi.Spec.Domain)
 			Expect(json.Unmarshal(vmiDomainByte, &vmiPDomain)).To(BeNil())
 
@@ -444,7 +444,7 @@ var _ = Describe("Validating Webhook", func() {
 
 			vmiPreset := &v1.VirtualMachineInstancePreset{
 				Spec: v1.VirtualMachineInstancePresetSpec{
-					Domain: &v1.DomainPresetSpec{},
+					Domain: &v1.DomainSpec{},
 				},
 			}
 			vmiPresetBytes, _ := json.Marshal(&vmiPreset)

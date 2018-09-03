@@ -646,14 +646,14 @@ type VirtualMachineInstancePresetSpec struct {
 	// Required.
 	Selector metav1.LabelSelector `json:"selector"`
 	// Domain is the same object type as contained in VirtualMachineInstanceSpec
-	Domain *DomainPresetSpec `json:"domain,omitempty"`
+	Domain *DomainSpec `json:"domain,omitempty"`
 }
 
 func NewVirtualMachinePreset(name string, selector metav1.LabelSelector) *VirtualMachineInstancePreset {
 	return &VirtualMachineInstancePreset{
 		Spec: VirtualMachineInstancePresetSpec{
 			Selector: selector,
-			Domain:   &DomainPresetSpec{},
+			Domain:   &DomainSpec{},
 		},
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,

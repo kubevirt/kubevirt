@@ -616,7 +616,10 @@ func (app *virtAPIApp) createValidatingWebhook() error {
 		{
 			Name: "virtualmachinereplicaset-validator.kubevirt.io",
 			Rules: []admissionregistrationv1beta1.RuleWithOperations{{
-				Operations: []admissionregistrationv1beta1.OperationType{admissionregistrationv1beta1.Create},
+				Operations: []admissionregistrationv1beta1.OperationType{
+					admissionregistrationv1beta1.Create,
+					admissionregistrationv1beta1.Update,
+				},
 				Rule: admissionregistrationv1beta1.Rule{
 					APIGroups:   []string{v1.GroupName},
 					APIVersions: []string{v1.VirtualMachineInstanceReplicaSetGroupVersionKind.Version},
@@ -723,7 +726,9 @@ func (app *virtAPIApp) createMutatingWebhook() error {
 		{
 			Name: "virtualmachineinstances-mutator.kubevirt.io",
 			Rules: []admissionregistrationv1beta1.RuleWithOperations{{
-				Operations: []admissionregistrationv1beta1.OperationType{admissionregistrationv1beta1.Create},
+				Operations: []admissionregistrationv1beta1.OperationType{
+					admissionregistrationv1beta1.Create,
+				},
 				Rule: admissionregistrationv1beta1.Rule{
 					APIGroups:   []string{v1.GroupName},
 					APIVersions: []string{v1.VirtualMachineInstanceGroupVersionKind.Version},
@@ -946,6 +951,8 @@ func (app *virtAPIApp) Run() {
 	stopChan := make(chan struct{}, 1)
 	defer close(stopChan)
 	go webhookInformers.VMIInformer.Run(stopChan)
+	go webhookInformers.VMIPresetInformer.Run(stopChan)
+	go webhookInformers.NamespaceLimitsInformer.Run(stopChan)
 
 	// Verify/create webhook endpoint.
 	err = app.createWebhook()

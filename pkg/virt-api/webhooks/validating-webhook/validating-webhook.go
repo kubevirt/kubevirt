@@ -312,7 +312,7 @@ func validateDevices(field *k8sfield.Path, devices *v1.Devices) []metav1.StatusC
 	return causes
 }
 
-func validateDomainPresetSpec(field *k8sfield.Path, spec *v1.DomainPresetSpec) []metav1.StatusCause {
+func validateDomainPresetSpec(field *k8sfield.Path, spec *v1.DomainSpec) []metav1.StatusCause {
 	var causes []metav1.StatusCause
 	causes = append(causes, validateDevices(field.Child("devices"), &spec.Devices)...)
 	return causes
