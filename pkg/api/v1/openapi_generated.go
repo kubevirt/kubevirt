@@ -711,6 +711,38 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 			},
 			Dependencies: []string{},
 		},
+		"kubevirt.io/kubevirt/pkg/api/v1.HostDisk": {
+			Schema: spec.Schema{
+				SchemaProps: spec.SchemaProps{
+					Description: "Represents a disk created on the cluster level --",
+					Properties: map[string]spec.Schema{
+						"path": {
+							SchemaProps: spec.SchemaProps{
+								Description: "The path to HostDisk image located on the cluster",
+								Type:        []string{"string"},
+								Format:      "",
+							},
+						},
+						"type": {
+							SchemaProps: spec.SchemaProps{
+								Description: "Contains information if disk.img exists or should be created allowed options are 'Disk' and 'DiskOrCreate'",
+								Type:        []string{"string"},
+								Format:      "",
+							},
+						},
+						"capacity": {
+							SchemaProps: spec.SchemaProps{
+								Description: "Capacity of the sparse disk",
+								Ref:         ref("k8s.io/apimachinery/pkg/api/resource.Quantity"),
+							},
+						},
+					},
+					Required: []string{"path", "type"},
+				},
+			},
+			Dependencies: []string{
+				"k8s.io/apimachinery/pkg/api/resource.Quantity"},
+		},
 		"kubevirt.io/kubevirt/pkg/api/v1.Hugepages": {
 			Schema: spec.Schema{
 				SchemaProps: spec.SchemaProps{
@@ -2081,6 +2113,12 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 								Format:      "",
 							},
 						},
+						"hostDisk": {
+							SchemaProps: spec.SchemaProps{
+								Description: "HostDisk represents a disk created on the cluster level",
+								Ref:         ref("kubevirt.io/kubevirt/pkg/api/v1.HostDisk"),
+							},
+						},
 						"persistentVolumeClaim": {
 							SchemaProps: spec.SchemaProps{
 								Description: "PersistentVolumeClaimVolumeSource represents a reference to a PersistentVolumeClaim in the same namespace. Directly attached to the vmi via qemu. More info: https://kubernetes.io/docs/concepts/storage/persistent-volumes#persistentvolumeclaims",
@@ -2122,13 +2160,23 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 				},
 			},
 			Dependencies: []string{
+<<<<<<< HEAD
 				"k8s.io/api/core/v1.PersistentVolumeClaimVolumeSource", "kubevirt.io/kubevirt/pkg/api/v1.CloudInitNoCloudSource", "kubevirt.io/kubevirt/pkg/api/v1.DataVolumeSource", "kubevirt.io/kubevirt/pkg/api/v1.EmptyDiskSource", "kubevirt.io/kubevirt/pkg/api/v1.EphemeralVolumeSource", "kubevirt.io/kubevirt/pkg/api/v1.RegistryDiskSource"},
+=======
+				"k8s.io/api/core/v1.PersistentVolumeClaimVolumeSource", "kubevirt.io/kubevirt/pkg/api/v1.CloudInitNoCloudSource", "kubevirt.io/kubevirt/pkg/api/v1.EmptyDiskSource", "kubevirt.io/kubevirt/pkg/api/v1.EphemeralVolumeSource", "kubevirt.io/kubevirt/pkg/api/v1.HostDisk", "kubevirt.io/kubevirt/pkg/api/v1.RegistryDiskSource"},
+>>>>>>> 7b66abc92... - output from 'make generate'
 		},
 		"kubevirt.io/kubevirt/pkg/api/v1.VolumeSource": {
 			Schema: spec.Schema{
 				SchemaProps: spec.SchemaProps{
 					Description: "Represents the source of a volume to mount. Only one of its members may be specified.",
 					Properties: map[string]spec.Schema{
+						"hostDisk": {
+							SchemaProps: spec.SchemaProps{
+								Description: "HostDisk represents a disk created on the cluster level",
+								Ref:         ref("kubevirt.io/kubevirt/pkg/api/v1.HostDisk"),
+							},
+						},
 						"persistentVolumeClaim": {
 							SchemaProps: spec.SchemaProps{
 								Description: "PersistentVolumeClaimVolumeSource represents a reference to a PersistentVolumeClaim in the same namespace. Directly attached to the vmi via qemu. More info: https://kubernetes.io/docs/concepts/storage/persistent-volumes#persistentvolumeclaims",

@@ -11,8 +11,8 @@ spec:
       disks:
       - disk:
           bus: virtio
-        name: hostdisk
-        volumeName: hostdisk-example
+        name: host-disk
+        volumeName: hostdiskvolume
     machine:
       type: ""
     resources:
@@ -20,9 +20,9 @@ spec:
         memory: 64M
   terminationGracePeriodSeconds: 0
   volumes:
-  - name: hostdisk-example
-    hostDisk:
+  - hostDisk:
+      capacity: 1Gi
       path: /data/disk.img
       type: DiskOrCreate
-      capacity: 1Gi
+    name: hostdiskvolume
 status: {}

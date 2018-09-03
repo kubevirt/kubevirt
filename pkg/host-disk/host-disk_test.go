@@ -28,6 +28,7 @@ import (
 	. "github.com/onsi/gomega"
 
 	"k8s.io/apimachinery/pkg/api/resource"
+
 	"kubevirt.io/kubevirt/pkg/api/v1"
 )
 

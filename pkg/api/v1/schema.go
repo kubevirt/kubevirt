@@ -32,13 +32,13 @@ import (
  ATTENTION: Rerun code generators when comments on structs or fields are modified.
 */
 
-// Represents a disk created on a cluster level
+// Represents a disk created on the cluster level
 // --
 // +k8s:openapi-gen=true
 type HostDisk struct {
-	// Path to host disk located on the cluster
+	// The path to HostDisk image located on the cluster
 	Path string `json:"path"`
-	// Contains information if disk exists or should be created
+	// Contains information if disk.img exists or should be created
 	// allowed options are 'Disk' and 'DiskOrCreate'
 	Type HostDiskType `json:"type"`
 	// Capacity of the sparse disk

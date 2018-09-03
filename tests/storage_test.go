@@ -315,7 +315,7 @@ var _ = Describe("Storage", func() {
 				RunVMIAndExpectLaunch(vmi, false, 10)
 
 				By("checking if disk.img exists")
-				vmiPod := tests.GetRunningPodByLabel(vmi.Name, v1.CreatedByLabel, tests.NamespaceTestDefault)
+				vmiPod := tests.GetRunningPodByVirtualMachineInstance(vmi, tests.NamespaceTestDefault)
 				output, err := tests.ExecuteCommandOnPod(
 					virtClient,
 					vmiPod,

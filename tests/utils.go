@@ -1082,6 +1082,15 @@ func NewRandomVMIWithHostDisk(diskType v1.HostDiskType) *v1.VirtualMachineInstan
 	vmi := NewRandomVMI()
 
 	vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("64M")
+	vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
+		Name:       "host-disk",
+		VolumeName: "host-disk",
+		DiskDevice: v1.DiskDevice{
+			Disk: &v1.DiskTarget{
+				Bus: "virtio",
+			},
+		},
+	})
 	vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
 		Name: "host-disk",
 		VolumeSource: v1.VolumeSource{
