@@ -45,6 +45,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/cloud-init"
 	"kubevirt.io/kubevirt/pkg/controller"
+	featuregates "kubevirt.io/kubevirt/pkg/feature-gates"
 	"kubevirt.io/kubevirt/pkg/host-disk"
 	"kubevirt.io/kubevirt/pkg/kubecli"
 	"kubevirt.io/kubevirt/pkg/log"
@@ -237,7 +238,10 @@ func (c *VirtualMachineController) Run(threadiness int, stopCh chan struct{}) {
 
 	// Label the node if cpu manager is running on it
 	// This is a temporary workaround until k8s bug #66525 is resolved
-	c.addNodeCpuManagerLabel()
+	featuregates.ParseFeatureGatesFromConfigMap()
+	if featuregates.CPUManagerEnabled() {
+		c.addNodeCpuManagerLabel()
+	}
 
 	go c.heartBeat(c.heartBeatInterval, stopCh)
 
