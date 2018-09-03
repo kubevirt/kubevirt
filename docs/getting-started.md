@@ -173,12 +173,12 @@ tap networking device attached.
 $ ./cluster/kubectl.sh create -f cluster/examples/vmi-ephemeral.yaml
 vm "vmi-ephemeral" created
 
-$ ./cluster/kubectl.sh get pods
+$ ./cluster/kubectl.sh -n kube-system get pods
 NAME                              READY     STATUS    RESTARTS   AGE
 virt-api                          1/1       Running   1          10h
 virt-controller                   1/1       Running   1          10h
 virt-handler-z90mp                1/1       Running   1          10h
-virt-launcher-vmi-ephemeral9q7es   1/1       Running   0          10s
+virt-launcher-vmi-ephemeral9q7es  1/1       Running   0          10s
 
 $ ./cluster/kubectl.sh get vmis
 NAME           LABELS                        DATA
