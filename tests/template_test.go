@@ -37,6 +37,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/kubecli"
 	"kubevirt.io/kubevirt/tests"
+	"github.com/davecgh/go-spew/spew"
 )
 
 var _ = Describe("Templates", func() {
@@ -58,6 +59,7 @@ var _ = Describe("Templates", func() {
 	})
 
 	Describe("Launching VMI from VM Template", func() {
+		spew.Dump("MMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMM")
 
 		assertGeneratedVMJson := func() {
 			By("Generating VM JSON from the Template via oc-process command")
@@ -127,63 +129,22 @@ var _ = Describe("Templates", func() {
 		}
 
 		assertRemovedFile := func(file string) {
-				if _, err := os.Stat(file); !os.IsNotExist(err) {
-					err := os.Remove(file)
-					ExpectWithOffset(1, err).ToNot(HaveOccurred())
-				}
-				ExpectWithOffset(1, file).NotTo(BeAnExistingFile())
-		}
-
-		testGivenTemplate := func() {
-			It("should succeed to generate a VM JSON file using oc-process command", func() {
-				assertGeneratedVMJson()
-			})
-
-			Context("with given VM JSON from the Template", func() {
-				JustBeforeEach(func() {
-					assertGeneratedVMJson()
-				})
-
-				AfterEach(func() {
-					assertDeletedVM()
-				})
-
-				It("should succeed to create a VM using oc-create command", func() {
-					assertGeneratedVMJson()
-				})
-
-				Context("with given VM from the VM JSON", func() {
-					JustBeforeEach(func() {
-						assertCreatedVM()
-					})
-
-					It("should succeed to launch a VMI using oc-patch command", func() {
-						assertLaunchedVMI()
-					})
-
-					Context("with given VMI from the VM", func() {
-						JustBeforeEach(func() {
-							assertLaunchedVMI()
-						})
-
-						It("should succeed to terminate the VMI using oc-patch command", func() {
-							assertTerminatedVMI()
-						})
-					})
-				})
-			})
+			if _, err := os.Stat(file); !os.IsNotExist(err) {
+				err := os.Remove(file)
+				ExpectWithOffset(1, err).ToNot(HaveOccurred())
+			}
+			ExpectWithOffset(1, file).NotTo(BeAnExistingFile())
 		}
 
 		BeforeEach(func() {
-			templateParams = TemplateParams{
-				Name:     "testvm",
-				CpuCores: "2",
-			}
+			spew.Dump("1")
+			templateParams = TemplateParams{Name: "testvm", CpuCores: "2"}
 			vmJsonFile = fmt.Sprintf("%s.json", templateParams.Name)
 			Expect(vmJsonFile).NotTo(BeAnExistingFile())
 		})
 
 		JustBeforeEach(func() {
+			spew.Dump("2")
 			var err error
 			templateJsonFile, err = tests.GenerateTemplateJson(template)
 			Expect(err).ToNot(HaveOccurred())
@@ -191,12 +152,14 @@ var _ = Describe("Templates", func() {
 		})
 
 		AfterEach(func() {
+			spew.Dump("3")
 			assertRemovedFile(vmJsonFile)
 			assertRemovedFile(templateJsonFile)
 		})
 
 		Context("with given Fedora Template", func() {
 			BeforeEach(func() {
+				spew.Dump("4")
 				template = newTemplate(TemplateMeta{
 					Name:        "vm-template-fedora",
 					Description: "OCP KubeVirt Fedora 27 VM template",
@@ -207,7 +170,47 @@ var _ = Describe("Templates", func() {
 				})
 			})
 
-			testGivenTemplate()
+			It("should succeed to generate a VM JSON file using oc-process command", func() {
+				assertGeneratedVMJson()
+			})
+
+			Context("with given VM JSON from the Template", func() {
+				JustBeforeEach(func() {
+					spew.Dump("5")
+					assertGeneratedVMJson()
+				})
+
+				AfterEach(func() {
+					spew.Dump("6")
+					assertDeletedVM()
+				})
+
+				It("should succeed to create a VM using oc-create command", func() {
+					assertGeneratedVMJson()
+				})
+
+				Context("with given VM from the VM JSON", func() {
+					JustBeforeEach(func() {
+						spew.Dump("7")
+						assertCreatedVM()
+					})
+
+					It("should succeed to launch a VMI using oc-patch command", func() {
+						assertLaunchedVMI()
+					})
+
+					Context("with given VMI from the VM", func() {
+						JustBeforeEach(func() {
+							spew.Dump("8")
+							assertLaunchedVMI()
+						})
+
+						It("should succeed to terminate the VMI using oc-patch command", func() {
+							assertTerminatedVMI()
+						})
+					})
+				})
+			})
 		})
 	})
 })
