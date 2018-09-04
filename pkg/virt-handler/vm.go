@@ -236,13 +236,6 @@ func (c *VirtualMachineController) Run(threadiness int, stopCh chan struct{}) {
 	go c.gracefulShutdownInformer.Run(stopCh)
 	cache.WaitForCacheSync(stopCh, c.domainInformer.HasSynced, c.vmiInformer.HasSynced, c.gracefulShutdownInformer.HasSynced)
 
-	// Label the node if cpu manager is running on it
-	// This is a temporary workaround until k8s bug #66525 is resolved
-	featuregates.ParseFeatureGatesFromConfigMap()
-	if featuregates.CPUManagerEnabled() {
-		c.addNodeCpuManagerLabel()
-	}
-
 	go c.heartBeat(c.heartBeatInterval, stopCh)
 
 	// Start the actual work
@@ -821,35 +814,44 @@ func (d *VirtualMachineController) heartBeat(interval time.Duration, stopCh chan
 				return
 			}
 			log.DefaultLogger().V(4).Infof("Heartbeat sent")
+			// Label the node if cpu manager is running on it
+			// This is a temporary workaround until k8s bug #66525 is resolved
+			featuregates.ParseFeatureGatesFromConfigMap()
+			if featuregates.CPUManagerEnabled() {
+				d.updateNodeCpuManagerLabel()
+			}
 		}, interval, 1.2, true, stopCh)
 	}
 }
 
-func (d *VirtualMachineController) addNodeCpuManagerLabel() {
+func (d *VirtualMachineController) updateNodeCpuManagerLabel() {
 	entries, err := filepath.Glob("/proc/*/cmdline")
 	if err != nil {
 		log.DefaultLogger().Reason(err).Errorf("failed to set a cpu manager label on host %s", d.host)
 		return
 	}
 
+	isEnabled := false
 	for _, entry := range entries {
 		content, err := ioutil.ReadFile(entry)
 		if err != nil {
 			log.DefaultLogger().Reason(err).Errorf("failed to set a cpu manager label on host %s", d.host)
 			return
 		}
-
 		if strings.Contains(string(content), "kubelet") && strings.Contains(string(content), "cpu-manager-policy=static") {
-			data := []byte(fmt.Sprintf(`{"metadata": { "labels": {"%s": "true"}}}`, v1.CPUManager))
-			_, err = d.clientset.CoreV1().Nodes().Patch(d.host, types.StrategicMergePatchType, data)
-			if err != nil {
-				log.DefaultLogger().Reason(err).Errorf("failed to set a cpu manager label on host %s", d.host)
-				return
-			}
-			log.DefaultLogger().V(4).Infof("Node has CPU Manager running")
-
+			isEnabled = true
+			break
 		}
 	}
+
+	data := []byte(fmt.Sprintf(`{"metadata": { "labels": {"%s": "%t"}}}`, v1.CPUManager, isEnabled))
+	_, err = d.clientset.CoreV1().Nodes().Patch(d.host, types.StrategicMergePatchType, data)
+	if err != nil {
+		log.DefaultLogger().Reason(err).Errorf("failed to set a cpu manager label on host %s", d.host)
+		return
+	}
+	log.DefaultLogger().V(4).Infof("Node has CPU Manager running")
+
 }
 
 func isACPIEnabled(vmi *v1.VirtualMachineInstance, domain *api.Domain) bool {
