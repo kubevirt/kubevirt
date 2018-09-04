@@ -17,28 +17,19 @@ objects:
     creationTimestamp: null
     labels:
       kubevirt-vm: vm-${NAME}
+      kubevirt.io/os: win2k12r2
     name: ${NAME}
   spec:
     running: false
     template:
-      metadata:
-        creationTimestamp: null
-        labels:
-          kubevirt-vm: vm-${NAME}
       spec:
+        terminationGracePeriodSeconds: 0
         domain:
-          clock:
-            timer:
-              hpet:
-                present: false
-              hyperv: {}
-              pit:
-                tickPolicy: delay
-              rtc:
-                tickPolicy: catchup
-            utc: {}
           cpu:
             cores: ${{CPU_CORES}}
+          resources:
+            requests:
+              memory: ${MEMORY}
           devices:
             disks:
             - disk:
@@ -53,25 +44,9 @@ objects:
             - bridge: {}
               model: e1000
               name: default
-          features:
-            acpi: {}
-            apic: {}
-            hyperv:
-              relaxed: {}
-              spinlocks:
-                spinlocks: 8191
-              vapic: {}
-          firmware:
-            uuid: 5d307ca9-b3ef-428c-8861-06e72d69f223
-          machine:
-            type: q35
-          resources:
-            requests:
-              memory: ${MEMORY}
         networks:
         - name: default
           pod: {}
-        terminationGracePeriodSeconds: 0
         volumes:
         - name: pvcvolume
           persistentVolumeClaim:
