@@ -75,6 +75,7 @@ var _ = Describe("Mutating Webhook Namespace Limits", func() {
 			vmiCopy.Spec.Domain.Resources.Limits = k8sv1.ResourceList{
 				k8sv1.ResourceMemory: memory,
 			}
+			By("Applying namespace range values on the VMI")
 			applyNamespaceLimitRangeValues(vmiCopy, namespaceLimitInformer)
 
 			Expect(vmiCopy.Spec.Domain.Resources.Limits.Memory().String()).To(Equal("64M"))
@@ -84,6 +85,7 @@ var _ = Describe("Mutating Webhook Namespace Limits", func() {
 	When("VMI does not have limits under spec", func() {
 		It("should apply namespace limits", func() {
 			vmiCopy := vmi.DeepCopy()
+			By("Applying namespace range values on the VMI")
 			applyNamespaceLimitRangeValues(vmiCopy, namespaceLimitInformer)
 
 			Expect(vmiCopy.Spec.Domain.Resources.Limits.Memory().String()).To(Equal("128M"))
@@ -97,6 +99,7 @@ var _ = Describe("Mutating Webhook Namespace Limits", func() {
 				namespaceLimitCopy.Spec.Limits[0].Default[k8sv1.ResourceMemory] = zeroMemory
 				namespaceLimitInformer.GetIndexer().Update(namespaceLimitCopy)
 
+				By("Applying namespace range values on the VMI")
 				applyNamespaceLimitRangeValues(vmiCopy, namespaceLimitInformer)
 				_, ok := vmiCopy.Spec.Domain.Resources.Limits[k8sv1.ResourceMemory]
 				Expect(ok).To(Equal(false))
@@ -132,6 +135,7 @@ var _ = Describe("Mutating Webhook Namespace Limits", func() {
 
 			It("should apply range with minimal limit", func() {
 				vmiCopy := vmi.DeepCopy()
+				By("Applying namespace range values on the VMI")
 				applyNamespaceLimitRangeValues(vmiCopy, namespaceLimitInformer)
 
 				Expect(vmiCopy.Spec.Domain.Resources.Limits.Memory().String()).To(Equal("76M"))

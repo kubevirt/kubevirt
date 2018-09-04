@@ -7,7 +7,7 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-func TestValidatingWebhook(t *testing.T) {
+func TestMutatingWebhook(t *testing.T) {
 	RegisterFailHandler(Fail)
 	RunSpecs(t, "MutatingWebhook Suite")
 }
