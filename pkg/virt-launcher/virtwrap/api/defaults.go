@@ -8,7 +8,7 @@ const (
 	nameserverPrefix    = "nameserver"
 	DefaultProtocol     = "TCP"
 	DefaultVMCIDR       = "10.0.2.0/24"
-	DefaultBridgeName   = "br1"
+	DefaultBridgeName   = "k6t-eth0"
 )
 
 func SetDefaults_Devices(devices *Devices) {

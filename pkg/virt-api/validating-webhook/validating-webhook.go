@@ -609,14 +609,31 @@ func ValidateVirtualMachineInstanceSpec(field *k8sfield.Path, spec *v1.VirtualMa
 
 	if len(spec.Networks) > 0 && len(spec.Domain.Devices.Interfaces) > 0 {
 		for idx, network := range spec.Networks {
-			if network.Pod == nil {
+			if network.Pod == nil && network.Multus == nil {
 				causes = append(causes, metav1.StatusCause{
 					Type:    metav1.CauseTypeFieldValueRequired,
-					Message: fmt.Sprintf("should only accept networks with a pod network source"),
+					Message: fmt.Sprintf("should have a network type"),
 					Field:   field.Child("networks").Index(idx).Child("pod").String(),
 				})
 			}
-			networkNameMap[network.Name] = &network
+
+			if network.Pod != nil && network.Multus != nil {
+				causes = append(causes, metav1.StatusCause{
+					Type:    metav1.CauseTypeFieldValueRequired,
+					Message: fmt.Sprintf("should have only one network type"),
+					Field:   field.Child("networks").Index(idx).String(),
+				})
+			}
+
+			if network.Multus != nil && network.Multus.NetworkName == "" {
+				causes = append(causes, metav1.StatusCause{
+					Type:    metav1.CauseTypeFieldValueRequired,
+					Message: fmt.Sprintf("multus network must have a networkName"),
+					Field:   field.Child("networks").Index(idx).Child("multus").String(),
+				})
+			}
+
+			networkNameMap[spec.Networks[idx].Name] = &spec.Networks[idx]
 		}
 
 		// Make sure interfaces and networks are 1to1 related
@@ -634,12 +651,6 @@ func ValidateVirtualMachineInstanceSpec(field *k8sfield.Path, spec *v1.VirtualMa
 				causes = append(causes, metav1.StatusCause{
 					Type:    metav1.CauseTypeFieldValueInvalid,
 					Message: fmt.Sprintf("%s '%s' not found.", field.Child("domain", "devices", "interfaces").Index(idx).Child("name").String(), iface.Name),
-					Field:   field.Child("domain", "devices", "interfaces").Index(idx).Child("name").String(),
-				})
-			} else if iface.Bridge != nil && networkData.Pod == nil {
-				causes = append(causes, metav1.StatusCause{
-					Type:    metav1.CauseTypeFieldValueInvalid,
-					Message: fmt.Sprintf("Bridge interface only implemented with pod network"),
 					Field:   field.Child("domain", "devices", "interfaces").Index(idx).Child("name").String(),
 				})
 			} else if iface.Slirp != nil && networkData.Pod == nil {
@@ -777,6 +788,15 @@ func ValidateVirtualMachineInstanceSpec(field *k8sfield.Path, spec *v1.VirtualMa
 					})
 				}
 			}
+		}
+
+		// Validate that every network was assign to an interface
+		if len(networkInterfaceMap) != len(networkNameMap) {
+			causes = append(causes, metav1.StatusCause{
+				Type:    metav1.CauseTypeFieldValueRequired,
+				Message: fmt.Sprintf("every network must be mapped to an interface."),
+				Field:   field.Child("networks").String(),
+			})
 		}
 	}
 
