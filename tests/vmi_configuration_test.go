@@ -34,6 +34,7 @@ import (
 	kubev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 
 	"kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/kubecli"
@@ -520,6 +521,26 @@ var _ = Describe("Configurations", func() {
 			}
 		})
 		Context("with cpu pinning enabled", func() {
+			It("should set the cpumanager label to false when it's not running", func() {
+
+				By("adding a cpumanger=true lable to a node")
+				nodes, err := virtClient.CoreV1().Nodes().List(metav1.ListOptions{LabelSelector: v1.CPUManager + "=" + "false"})
+				Expect(err).ToNot(HaveOccurred())
+				Expect(nodes.Items).To(HaveLen(1))
+
+				node := &nodes.Items[0]
+				node, err = virtClient.CoreV1().Nodes().Patch(node.Name, types.StrategicMergePatchType, []byte(fmt.Sprintf(`{"metadata": { "labels": {"%s": "true"}}}`, v1.CPUManager)))
+				Expect(err).ToNot(HaveOccurred())
+				// wait one heartbeat
+				time.Sleep(60 * time.Second)
+
+				By("setting the cpumanager label back to false")
+				Eventually(func() string {
+					n, err := virtClient.CoreV1().Nodes().Get(node.Name, metav1.GetOptions{})
+					Expect(err).ToNot(HaveOccurred())
+					return n.Labels[v1.CPUManager]
+				}, 2*time.Minute, 2*time.Second).Should(Equal("false"))
+			})
 			It("non master node should have a cpumanager label", func() {
 				cpuManagerEnabled := false
 				for idx := 1; idx < len(nodes.Items); idx++ {
