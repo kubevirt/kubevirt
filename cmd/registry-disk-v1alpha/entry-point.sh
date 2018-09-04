@@ -53,6 +53,10 @@ else
 fi
 echo "copied $IMAGE_PATH to $COPY_PATH.${IMAGE_EXTENSION}"
 
+if [ "$EXIT_AFTER_COPY" = "true" ]; then
+	exit 0
+fi
+
 touch /tmp/healthy
 while [ -f "${COPY_PATH}.${IMAGE_EXTENSION}" ]; do
 	sleep 5

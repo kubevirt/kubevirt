@@ -98,12 +98,6 @@ func SetFilePermissions(vmi *v1.VirtualMachineInstance) error {
 func GenerateContainers(vmi *v1.VirtualMachineInstance, podVolumeName string, podVolumeMountDir string) []kubev1.Container {
 	var containers []kubev1.Container
 
-	initialDelaySeconds := 2
-	timeoutSeconds := 5
-	periodSeconds := 5
-	successThreshold := 2
-	failureThreshold := 5
-
 	// Make VirtualMachineInstance Image Wrapper Containers
 	for _, volume := range vmi.Spec.Volumes {
 		if volume.RegistryDisk != nil {
@@ -122,29 +116,16 @@ func GenerateContainers(vmi *v1.VirtualMachineInstance, podVolumeName string, po
 						Name:  "COPY_PATH",
 						Value: volumeMountDir + "/" + filePrefix,
 					},
+					{
+						Name:  "EXIT_AFTER_COPY",
+						Value: "true",
+					},
 				},
 				VolumeMounts: []kubev1.VolumeMount{
 					{
 						Name:      podVolumeName,
 						MountPath: podVolumeMountDir,
 					},
-				},
-				// The readiness probes ensure the volume coversion and copy finished
-				// before the container is marked as "Ready: True"
-				ReadinessProbe: &kubev1.Probe{
-					Handler: kubev1.Handler{
-						Exec: &kubev1.ExecAction{
-							Command: []string{
-								"cat",
-								"/tmp/healthy",
-							},
-						},
-					},
-					InitialDelaySeconds: int32(initialDelaySeconds),
-					PeriodSeconds:       int32(periodSeconds),
-					TimeoutSeconds:      int32(timeoutSeconds),
-					SuccessThreshold:    int32(successThreshold),
-					FailureThreshold:    int32(failureThreshold),
 				},
 			})
 		}

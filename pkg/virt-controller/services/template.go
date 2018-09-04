@@ -111,6 +111,7 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 	var privileged bool = false
 	var volumesMounts []k8sv1.VolumeMount
 	var imagePullSecrets []k8sv1.LocalObjectReference
+	var containers []k8sv1.Container
 
 	gracePeriodSeconds := v1.DefaultGracePeriodSeconds
 	if vmi.Spec.TerminationGracePeriodSeconds != nil {
@@ -339,7 +340,7 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 		Ports:     ports,
 	}
 
-	containers := registrydisk.GenerateContainers(vmi, "libvirt-runtime", "/var/run/libvirt")
+	initContainers := registrydisk.GenerateContainers(vmi, "libvirt-runtime", "/var/run/libvirt")
 
 	volumes = append(volumes, k8sv1.Volume{
 		Name: "virt-share-dir",
@@ -411,6 +412,7 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 			TerminationGracePeriodSeconds: &gracePeriodKillAfter,
 			RestartPolicy:                 k8sv1.RestartPolicyNever,
 			Containers:                    containers,
+			InitContainers:                initContainers,
 			NodeSelector:                  nodeSelector,
 			Volumes:                       volumes,
 			ImagePullSecrets:              imagePullSecrets,
