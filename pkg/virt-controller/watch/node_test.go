@@ -343,7 +343,6 @@ func NewRunningVirtualMachine(vmiName string, node *k8sv1.Node) *virtv1.VirtualM
 	vmi.UID = types.UID(uuid.NewRandom().String())
 	vmi.Status.Phase = virtv1.Running
 	vmi.Status.NodeName = node.Name
-	addInitializedAnnotation(vmi)
 	vmi.Labels = map[string]string{
 		virtv1.NodeNameLabel: node.Name,
 	}

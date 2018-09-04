@@ -216,13 +216,6 @@ func (c *VMIController) execute(key string) error {
 	}
 	vmi := obj.(*virtv1.VirtualMachineInstance)
 
-	// If the VirtualMachineInstance is exists still, don't process the VirtualMachineInstance until it is fully initialized.
-	// Initialization is handled by the initialization controller and must take place
-	// before the VirtualMachineInstance is acted upon.
-	if !isVirtualMachineInitialized(vmi) {
-		return nil
-	}
-
 	logger := log.Log.Object(vmi)
 
 	// Get all pods from the namespace

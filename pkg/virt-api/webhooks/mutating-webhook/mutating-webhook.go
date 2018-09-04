@@ -108,12 +108,22 @@ func mutateVMIs(ar *v1beta1.AdmissionReview) *v1beta1.AdmissionResponse {
 	log.Log.Object(&vmi).V(4).Info("Apply defaults")
 	kubev1.SetObjectDefaults_VirtualMachineInstance(&vmi)
 
+	// Add foreground finalizer
+	vmi.Finalizers = append(vmi.Finalizers, v1.VirtualMachineInstanceFinalizer)
+
 	var patch []patchOperation
 	var value interface{}
 	value = vmi.Spec
 	patch = append(patch, patchOperation{
 		Op:    "replace",
 		Path:  "/spec",
+		Value: value,
+	})
+
+	value = vmi.ObjectMeta
+	patch = append(patch, patchOperation{
+		Op:    "replace",
+		Path:  "/metadata",
 		Value: value,
 	})
 

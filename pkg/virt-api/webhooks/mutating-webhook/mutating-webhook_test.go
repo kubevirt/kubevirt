@@ -49,7 +49,7 @@ var _ = Describe("Mutating Webhook", func() {
 		memory, _ := resource.ParseQuantity("64M")
 		limitMemory, _ := resource.ParseQuantity("128M")
 
-		getVMISpecFromResponse := func() *v1.VirtualMachineInstanceSpec {
+		getVMISpecMetaFromResponse := func() (*v1.VirtualMachineInstanceSpec, *k8sv1.ObjectMeta) {
 			vmiBytes, err := json.Marshal(vmi)
 			Expect(err).ToNot(HaveOccurred())
 			By("Creating the test admissions review from the VMI")
@@ -67,14 +67,16 @@ var _ = Describe("Mutating Webhook", func() {
 
 			By("Getting the VMI spec from the response")
 			vmiSpec := &v1.VirtualMachineInstanceSpec{}
+			vmiMeta := &k8sv1.ObjectMeta{}
 			patch := []patchOperation{
 				{Value: vmiSpec},
+				{Value: vmiMeta},
 			}
 			err = json.Unmarshal(resp.Patch, &patch)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(patch).NotTo(BeEmpty())
 
-			return vmiSpec
+			return vmiSpec, vmiMeta
 		}
 
 		BeforeEach(func() {
@@ -132,19 +134,24 @@ var _ = Describe("Mutating Webhook", func() {
 		})
 
 		It("should apply presets on VMI create", func() {
-			vmiSpec := getVMISpecFromResponse()
+			vmiSpec, _ := getVMISpecMetaFromResponse()
 			Expect(vmiSpec.Domain.CPU).ToNot(BeNil())
 			Expect(vmiSpec.Domain.CPU.Cores).To(Equal(uint32(4)))
 		})
 
 		It("should apply namespace limit ranges on VMI create", func() {
-			vmiSpec := getVMISpecFromResponse()
+			vmiSpec, _ := getVMISpecMetaFromResponse()
 			Expect(vmiSpec.Domain.Resources.Limits.Memory().String()).To(Equal("128M"))
 		})
 
 		It("should apply defaults on VMI create", func() {
-			vmiSpec := getVMISpecFromResponse()
+			vmiSpec, _ := getVMISpecMetaFromResponse()
 			Expect(vmiSpec.Domain.Machine.Type).To(Equal("q35"))
+		})
+
+		It("should apply foreground finalizer on VMI create", func() {
+			_, vmiMeta := getVMISpecMetaFromResponse()
+			Expect(vmiMeta.Finalizers).To(ContainElement(v1.VirtualMachineInstanceFinalizer))
 		})
 	})
 })

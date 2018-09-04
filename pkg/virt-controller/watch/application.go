@@ -37,7 +37,6 @@ import (
 	"k8s.io/client-go/tools/leaderelection"
 	"k8s.io/client-go/tools/leaderelection/resourcelock"
 	"k8s.io/client-go/tools/record"
-	"k8s.io/client-go/util/workqueue"
 
 	"kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/kubecli"
@@ -84,13 +83,7 @@ type VirtControllerApp struct {
 	vmiCache      cache.Store
 	vmiController *VMIController
 	vmiInformer   cache.SharedIndexInformer
-
-	vmiPresetCache      cache.Store
-	vmiPresetController *VirtualMachinePresetController
-	vmiPresetQueue      workqueue.RateLimitingInterface
-	vmiPresetInformer   cache.SharedIndexInformer
-	vmiPresetRecorder   record.EventRecorder
-	vmiRecorder         record.EventRecorder
+	vmiRecorder   record.EventRecorder
 
 	configMapCache    cache.Store
 	configMapInformer cache.SharedIndexInformer
@@ -153,14 +146,7 @@ func Execute() {
 	app.vmiCache = app.vmiInformer.GetStore()
 	app.vmiRecorder = app.getNewRecorder(k8sv1.NamespaceAll, "virtualmachine-controller")
 
-	app.vmiPresetQueue = workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter())
-	app.vmiPresetCache = app.vmiInformer.GetStore()
-	app.vmiInformer.AddEventHandler(controller.NewResourceEventHandlerFuncsForWorkqueue(app.vmiPresetQueue))
-
-	app.vmiPresetInformer = app.informerFactory.VirtualMachinePreset()
-
 	app.rsInformer = app.informerFactory.VMIReplicaSet()
-	app.vmiPresetRecorder = app.getNewRecorder(k8sv1.NamespaceAll, "virtualmachine-preset-controller")
 
 	app.configMapInformer = app.informerFactory.ConfigMap()
 	app.configMapCache = app.configMapInformer.GetStore()
@@ -240,7 +226,6 @@ func (vca *VirtControllerApp) Run() {
 					go vca.nodeController.Run(controllerThreads, stop)
 					go vca.vmiController.Run(controllerThreads, stop)
 					go vca.rsController.Run(controllerThreads, stop)
-					go vca.vmiPresetController.Run(controllerThreads, stop)
 					go vca.vmController.Run(controllerThreads, stop)
 					close(vca.readyChan)
 				},
@@ -272,7 +257,6 @@ func (vca *VirtControllerApp) initCommon() {
 	}
 	vca.templateService = services.NewTemplateService(vca.launcherImage, vca.virtShareDir, vca.imagePullSecret, vca.configMapCache)
 	vca.vmiController = NewVMIController(vca.templateService, vca.vmiInformer, vca.podInformer, vca.vmiRecorder, vca.clientSet, vca.configMapInformer, vca.dataVolumeInformer)
-	vca.vmiPresetController = NewVirtualMachinePresetController(vca.vmiPresetInformer, vca.vmiInformer, vca.vmiPresetQueue, vca.vmiPresetCache, vca.clientSet, vca.vmiPresetRecorder, vca.limitrangeInformer)
 	vca.nodeController = NewNodeController(vca.clientSet, vca.nodeInformer, vca.vmiInformer, nil)
 }
 
