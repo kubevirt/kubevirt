@@ -35,7 +35,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/testutils"
 )
 
-var _ = Describe("VirtualMachineInstance Initializer", func() {
+var _ = Describe("Mutating Webhook Presets", func() {
 	Context("Annotate Presets", func() {
 		It("should properly annotate a VirtualMachineInstance", func() {
 			vmi := v1.VirtualMachineInstance{}
