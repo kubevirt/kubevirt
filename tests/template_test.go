@@ -59,7 +59,6 @@ var _ = Describe("Templates", func() {
 	})
 
 	Describe("Launching VMI from VM Template", func() {
-		spew.Dump("MMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMM")
 
 		assertGeneratedVMJson := func() {
 			By("Generating VM JSON from the Template via oc-process command")
@@ -141,6 +140,15 @@ var _ = Describe("Templates", func() {
 			templateParams = TemplateParams{Name: "testvm", CpuCores: "2"}
 			vmJsonFile = fmt.Sprintf("%s.json", templateParams.Name)
 			Expect(vmJsonFile).NotTo(BeAnExistingFile())
+
+			template = newTemplate(TemplateMeta{
+				Name:        "vm-template-fedora",
+				Description: "OCP KubeVirt Fedora 27 VM template",
+				Label:       "fedora27",
+				IconClass:   "icon-fedora",
+				Image:       "registry:5000/kubevirt/fedora-cloud-registry-disk-demo:latest",
+				UserData:    "#cloud-config\npassword: fedora\nchpasswd: { expire: False }",
+			})
 		})
 
 		JustBeforeEach(func() {
@@ -153,63 +161,57 @@ var _ = Describe("Templates", func() {
 
 		AfterEach(func() {
 			spew.Dump("3")
+			assertDeletedVM()
 			assertRemovedFile(vmJsonFile)
 			assertRemovedFile(templateJsonFile)
 		})
 
 		Context("with given Fedora Template", func() {
-			BeforeEach(func() {
-				spew.Dump("4")
-				template = newTemplate(TemplateMeta{
-					Name:        "vm-template-fedora",
-					Description: "OCP KubeVirt Fedora 27 VM template",
-					Label:       "fedora27",
-					IconClass:   "icon-fedora",
-					Image:       "registry:5000/kubevirt/fedora-cloud-registry-disk-demo:latest",
-					UserData:    "#cloud-config\npassword: fedora\nchpasswd: { expire: False }",
-				})
-			})
 
-			It("should succeed to generate a VM JSON file using oc-process command", func() {
-				assertGeneratedVMJson()
-			})
+
+			//It("should succeed to generate a VM JSON file using oc-process command", func() {
+			//	assertGeneratedVMJson()
+			//})
 
 			Context("with given VM JSON from the Template", func() {
-				JustBeforeEach(func() {
-					spew.Dump("5")
-					assertGeneratedVMJson()
-				})
+				//JustBeforeEach(func() {
+				//	spew.Dump("5")
+				//	assertGeneratedVMJson()
+				//})
 
-				AfterEach(func() {
-					spew.Dump("6")
-					assertDeletedVM()
-				})
+				//AfterEach(func() {
+				//	spew.Dump("6")
+				//	assertDeletedVM()
+				//})
 
 				It("should succeed to create a VM using oc-create command", func() {
 					assertGeneratedVMJson()
+					assertCreatedVM()
+					assertLaunchedVMI()
+					assertTerminatedVMI()
 				})
 
-				Context("with given VM from the VM JSON", func() {
-					JustBeforeEach(func() {
-						spew.Dump("7")
-						assertCreatedVM()
-					})
-
-					It("should succeed to launch a VMI using oc-patch command", func() {
-						assertLaunchedVMI()
-					})
-
-					Context("with given VMI from the VM", func() {
-						JustBeforeEach(func() {
-							spew.Dump("8")
-							assertLaunchedVMI()
-						})
-
-						It("should succeed to terminate the VMI using oc-patch command", func() {
-							assertTerminatedVMI()
-						})
-					})
-				})
+				//Context("with given VM from the VM JSON", func() {
+				//	JustBeforeEach(func() {
+				//		spew.Dump("7")
+				//		assertCreatedVM()
+				//	})
+				//
+				//	It("should succeed to launch a VMI using oc-patch command", func() {
+				//		assertLaunchedVMI()
+				//	})
+				//
+				//	Context("with given VMI from the VM", func() {
+				//		JustBeforeEach(func() {
+				//			spew.Dump("8")
+				//			assertLaunchedVMI()
+				//		})
+				//
+				//		It("should succeed to terminate the VMI using oc-patch command", func() {
+				//			assertTerminatedVMI()
+				//		})
+				//	})
+				//})
 			})
 		})
 	})
