@@ -20,7 +20,6 @@
 package tests_test
 
 import (
-	"encoding/json"
 	"flag"
 	"fmt"
 	"io/ioutil"
@@ -30,14 +29,10 @@ import (
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	k8sv1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"k8s.io/apimachinery/pkg/runtime"
 
-	"kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/kubecli"
 	"kubevirt.io/kubevirt/tests"
+	vmsgen "kubevirt.io/kubevirt/tools/vms-generator/utils"
 )
 
 var _ = Describe("Templates", func() {
@@ -47,8 +42,8 @@ var _ = Describe("Templates", func() {
 	tests.PanicOnError(err)
 
 	var (
-		template         *tests.Template
-		templateParams   TemplateParams
+		template         *vmsgen.Template
+		parameters       templateParams
 		templateJsonFile string
 		vmJsonFile       string
 	)
@@ -58,12 +53,12 @@ var _ = Describe("Templates", func() {
 		tests.BeforeTestCleanup()
 	})
 
-	Describe("Launching VMI from VM Template", func() {
+	Describe("Creating VM from Template", func() {
 
 		assertGeneratedVMJson := func() func() {
 			return func() {
 				By("Generating VM JSON from the Template via oc-process command")
-				_, err := runOcProcessCommand(templateJsonFile, templateParams, vmJsonFile)
+				_, err := runOcProcessCommand(templateJsonFile, parameters, vmJsonFile)
 				ExpectWithOffset(1, err).ToNot(HaveOccurred())
 				ExpectWithOffset(1, vmJsonFile).To(BeAnExistingFile())
 			}
@@ -74,14 +69,14 @@ var _ = Describe("Templates", func() {
 				By("Creating VM via oc-create command")
 				out, err := runOcCreateCommand(vmJsonFile)
 				ExpectWithOffset(1, err).ToNot(HaveOccurred())
-				message := fmt.Sprintf("virtualmachine.kubevirt.io \"%s\" created\n", templateParams.Name)
-				ExpectWithOffset(1, out).To(Equal(message))
+				message := fmt.Sprintf("virtualmachine.kubevirt.io \"%s\" created\n", parameters.name)
+				ExpectWithOffset(1, out).To(ContainSubstring(message))
 
 				By("Checking if the VM exists via oc-get command.")
 				EventuallyWithOffset(1, func() bool {
 					out, err := runOcGetCommand("vms")
 					ExpectWithOffset(1, err).ToNot(HaveOccurred())
-					return strings.Contains(out, templateParams.Name)
+					return strings.Contains(out, parameters.name)
 				}, time.Duration(60)*time.Second).Should(BeTrue(), "Timed out waiting for VM to apppear")
 			}
 		}
@@ -89,10 +84,10 @@ var _ = Describe("Templates", func() {
 		assertDeletedVM := func() func() {
 			return func() {
 				By("Deleting the VM via oc-delete command")
-				out, err := runOcDeleteCommand(templateParams.Name)
+				out, err := runOcDeleteCommand(parameters.name)
 				ExpectWithOffset(1, err).ToNot(HaveOccurred())
-				message := fmt.Sprintf("virtualmachine.kubevirt.io \"%s\" deleted\n", templateParams.Name)
-				ExpectWithOffset(1, out).To(Equal(message))
+				message := fmt.Sprintf("virtualmachine.kubevirt.io \"%s\" deleted\n", parameters.name)
+				ExpectWithOffset(1, out).To(ContainSubstring(message))
 
 				By("Checking if the VM does not exist anymore via oc-get command.")
 				EventuallyWithOffset(1, func() bool {
@@ -103,30 +98,30 @@ var _ = Describe("Templates", func() {
 			}
 		}
 
-		assertLaunchedVMI := func() func() {
+		assertStartedVM := func() func() {
 			return func() {
-				By("Launching VMI via oc-patch command")
-				out, err := runOcPatchCommand(templateParams.Name, "{\"spec\":{\"running\":true}}")
+				By("Starting VM via oc-patch command")
+				out, err := runOcPatchCommand(parameters.name, "{\"spec\":{\"running\":true}}")
 				ExpectWithOffset(1, err).ToNot(HaveOccurred())
-				message := fmt.Sprintf("virtualmachine.kubevirt.io \"%s\" patched\n", templateParams.Name)
-				ExpectWithOffset(1, out).To(Equal(message))
+				message := fmt.Sprintf("virtualmachine.kubevirt.io \"%s\" patched\n", parameters.name)
+				ExpectWithOffset(1, out).To(ContainSubstring(message))
 
 				By("Checking if the VMI does exist via oc-get command")
 				EventuallyWithOffset(1, func() bool {
 					out, err := runOcGetCommand("vmis")
 					ExpectWithOffset(1, err).ToNot(HaveOccurred())
-					return strings.Contains(out, templateParams.Name)
+					return strings.Contains(out, parameters.name)
 				}, time.Duration(60)*time.Second).Should(BeTrue(), "Timed out waiting for VMI to appear")
 			}
 		}
 
-		assertTerminatedVMI := func() func() {
+		assertStoppedVM := func() func() {
 			return func() {
-				By("Terminating the VMI via oc-patch command")
-				out, err := runOcPatchCommand(templateParams.Name, "{\"spec\":{\"running\":false}}")
+				By("Stopping the VM via oc-patch command")
+				out, err := runOcPatchCommand(parameters.name, "{\"spec\":{\"running\":false}}")
 				ExpectWithOffset(1, err).ToNot(HaveOccurred())
-				message := fmt.Sprintf("virtualmachine.kubevirt.io \"%s\" patched\n", templateParams.Name)
-				ExpectWithOffset(1, out).To(Equal(message))
+				message := fmt.Sprintf("virtualmachine.kubevirt.io \"%s\" patched\n", parameters.name)
+				ExpectWithOffset(1, out).To(ContainSubstring(message))
 
 				By("Checking if the VMI does not exist anymore via oc-get command")
 				EventuallyWithOffset(1, func() bool {
@@ -150,32 +145,32 @@ var _ = Describe("Templates", func() {
 		testGivenTemplate := func() {
 			It("should succeed to generate a VM JSON file using oc-process command", assertGeneratedVMJson())
 
-			Context("with given VM JSON from the Template", func() {
+			Context("with the given VM JSON", func() {
 				JustBeforeEach(assertGeneratedVMJson())
 				AfterEach(assertDeletedVM())
 
 				It("should succeed to create a VM using oc-create command", assertCreatedVM())
 
-				Context("with given VM from the VM JSON", func() {
+				Context("with the given created VM", func() {
 					JustBeforeEach(assertCreatedVM())
 
-					It("should succeed to launch a VMI using oc-patch command", assertLaunchedVMI())
+					It("should succeed to start the VM using oc-patch command", assertStartedVM())
 
-					Context("with given VMI from the VM", func() {
-						JustBeforeEach(assertLaunchedVMI())
+					Context("with the given running VM", func() {
+						JustBeforeEach(assertStartedVM())
 
-						It("should succeed to terminate the VMI using oc-patch command", assertTerminatedVMI())
+						It("should succeed to stop the VM using oc-patch command", assertStoppedVM())
 					})
 				})
 			})
 		}
 
 		BeforeEach(func() {
-			templateParams = TemplateParams{
-				Name:     "testvm",
-				CpuCores: "2",
+			parameters = templateParams{
+				name:     "testvm",
+				cpuCores: "2",
 			}
-			vmJsonFile = fmt.Sprintf("%s.json", templateParams.Name)
+			vmJsonFile = fmt.Sprintf("%s.json", parameters.name)
 			Expect(vmJsonFile).NotTo(BeAnExistingFile())
 		})
 
@@ -193,14 +188,7 @@ var _ = Describe("Templates", func() {
 
 		Context("with given Fedora Template", func() {
 			BeforeEach(func() {
-				template = newFedoraTemplate(TemplateMeta{
-					Name:        "vm-template-fedora",
-					Description: "OCP KubeVirt Fedora 27 VM template",
-					Label:       "fedora27",
-					IconClass:   "icon-fedora",
-					Image:       "registry:5000/kubevirt/fedora-cloud-registry-disk-demo:latest",
-					UserData:    "#cloud-config\npassword: fedora\nchpasswd: { expire: False }",
-				})
+				template = vmsgen.GetTestTemplateFedora()
 			})
 
 			testGivenTemplate()
@@ -209,13 +197,7 @@ var _ = Describe("Templates", func() {
 		Context("with given RHEL Template", func() {
 			BeforeEach(func() {
 				tests.SkipIfNoRhelImage(virtClient)
-				template = newRhelTemplate(TemplateMeta{
-					Name:        "vm-template-rhel",
-					Description: "OCP KubeVirt Red Hat Enterprise Linux 7.5 VM template",
-					Label:       "rhel7",
-					IconClass:   "icon-rhel",
-					PvcName:     tests.DiskRhel,
-				})
+				template = vmsgen.GetTestTemplateRHEL7()
 			})
 
 			testGivenTemplate()
@@ -223,24 +205,15 @@ var _ = Describe("Templates", func() {
 	})
 })
 
-type TemplateMeta struct {
-	Name        string
-	Description string
-	Label       string
-	IconClass   string
-	Image       string
-	UserData    string
-	PvcName     string
+type templateParams struct {
+	name     string
+	cpuCores string
+	memory   string
 }
 
-type TemplateParams struct {
-	Name     string
-	CpuCores string
-}
-
-func runOcProcessCommand(templateJsonFile string, templateParams TemplateParams, vmJsonFile string) (string, error) {
-	templateParamArgs := []string{"-p", "NAME=" + templateParams.Name, "-p", "CPU_CORES=" + templateParams.CpuCores}
-	args := append([]string{"process", "-f", templateJsonFile}, templateParamArgs...)
+func runOcProcessCommand(templateJsonFile string, parameters templateParams, vmJsonFile string) (string, error) {
+	parameterArgs := []string{"-p", "NAME=" + parameters.name, "-p", "CPU_CORES=" + parameters.cpuCores}
+	args := append([]string{"process", "-f", templateJsonFile}, parameterArgs...)
 	out, err := tests.RunCommand("oc", args...)
 	if err != nil {
 		return out, err
@@ -253,224 +226,17 @@ func runOcProcessCommand(templateJsonFile string, templateParams TemplateParams,
 }
 
 func runOcCreateCommand(vmJsonFile string) (string, error) {
-	out, err := tests.RunCommand("oc", "create", "-f", vmJsonFile)
-	return out, err
+	return tests.RunCommand("oc", "create", "-f", vmJsonFile)
 }
 
 func runOcPatchCommand(vmName string, patch string) (string, error) {
-	out, err := tests.RunCommand("oc", "patch", "virtualmachine", vmName, "--type", "merge", "-p", patch)
-	return out, err
+	return tests.RunCommand("oc", "patch", "virtualmachine", vmName, "--type", "merge", "-p", patch)
 }
 
 func runOcDeleteCommand(vmName string) (string, error) {
-	out, err := tests.RunCommand("oc", "delete", "vm", vmName)
-	return out, err
+	return tests.RunCommand("oc", "delete", "vm", vmName)
 }
 
 func runOcGetCommand(resourceType string) (string, error) {
-	out, err := tests.RunCommand("oc", "get", resourceType)
-	return out, err
-}
-
-func newBaseTemplate(vm *v1.VirtualMachine, memory string, cores string) *tests.Template {
-	obj := toUnstructured(vm)
-	unstructured.SetNestedField(obj.Object, "${{CPU_CORES}}", "spec", "template", "spec", "domain", "cpu", "cores")
-	unstructured.SetNestedField(obj.Object, "${MEMORY}", "spec", "template", "spec", "domain", "resources", "requests", "memory")
-	obj.SetName("${NAME}")
-
-	return &tests.Template{
-		TypeMeta: metav1.TypeMeta{
-			Kind:       "Template",
-			APIVersion: "v1",
-		},
-		Objects: []runtime.Object{
-			obj,
-		},
-		Parameters: templateParameters(memory, cores),
-	}
-}
-
-func toUnstructured(object runtime.Object) *unstructured.Unstructured {
-	raw, err := json.Marshal(object)
-	if err != nil {
-		panic(err)
-	}
-	var objmap map[string]interface{}
-	err = json.Unmarshal(raw, &objmap)
-
-	return &unstructured.Unstructured{Object: objmap}
-}
-
-func templateParameters(memory string, cores string) []tests.Parameter {
-	return []tests.Parameter{
-		{
-			Name:        "NAME",
-			Description: "Name for the new VM",
-		},
-		{
-			Name:        "MEMORY",
-			Description: "Amount of memory",
-			Value:       memory,
-		},
-		{
-			Name:        "CPU_CORES",
-			Description: "Amount of cores",
-			Value:       cores,
-		},
-	}
-}
-
-func newFedoraTemplate(templateMeta TemplateMeta) *tests.Template {
-	gracePeriod := int64(0)
-	vmSpec := &v1.VirtualMachine{
-		Spec: v1.VirtualMachineSpec{
-			Template: &v1.VirtualMachineInstanceTemplateSpec{
-				Spec: v1.VirtualMachineInstanceSpec{
-					TerminationGracePeriodSeconds: &gracePeriod,
-					Domain: v1.DomainSpec{
-						Devices: v1.Devices{
-							Disks: []v1.Disk{
-								{
-									Name:       "registrydisk",
-									VolumeName: "registryvolume",
-									DiskDevice: v1.DiskDevice{
-										Disk: &v1.DiskTarget{
-											Bus: "virtio",
-										},
-									},
-								},
-								{
-									Name:       "cloudinitdisk",
-									VolumeName: "cloudinitvolume",
-									DiskDevice: v1.DiskDevice{
-										Disk: &v1.DiskTarget{
-											Bus: "virtio",
-										},
-									},
-								},
-							},
-						},
-					},
-					Volumes: []v1.Volume{
-						{
-							Name: "registryvolume",
-							VolumeSource: v1.VolumeSource{
-								RegistryDisk: &v1.RegistryDiskSource{
-									Image: templateMeta.Image,
-								},
-							},
-						},
-						{
-							Name: "cloudinitvolume",
-							VolumeSource: v1.VolumeSource{
-								CloudInitNoCloud: &v1.CloudInitNoCloudSource{
-									UserData: templateMeta.UserData,
-								},
-							},
-						},
-					},
-				},
-				ObjectMeta: metav1.ObjectMeta{
-					Labels: map[string]string{
-						"kubevirt-vm": "vm-${NAME}",
-					},
-				},
-			},
-		},
-		TypeMeta: metav1.TypeMeta{
-			APIVersion: "kubevirt.io/v1alpha2",
-			Kind:       "VirtualMachine",
-		},
-		ObjectMeta: metav1.ObjectMeta{
-			Labels: map[string]string{
-				"kubevirt-vm": "vm-${NAME}",
-			},
-			Name: "${NAME}",
-		},
-	}
-
-	template := newBaseTemplate(vmSpec, "4096Mi", "4")
-	template.ObjectMeta = metav1.ObjectMeta{
-		Name: templateMeta.Name,
-		Annotations: map[string]string{
-			"description": templateMeta.Description,
-			"tags":        "kubevirt,ocp,template,linux,virtualmachine",
-			"iconClass":   templateMeta.IconClass,
-		},
-		Labels: map[string]string{
-			"kubevirt.io/os":                        templateMeta.Label,
-			"miq.github.io/kubevirt-is-vm-template": "true",
-		},
-	}
-	return template
-}
-
-func newRhelTemplate(templateMeta TemplateMeta) *tests.Template {
-	gracePeriod := int64(0)
-	vmSpec := &v1.VirtualMachine{
-		Spec: v1.VirtualMachineSpec{
-			Template: &v1.VirtualMachineInstanceTemplateSpec{
-				Spec: v1.VirtualMachineInstanceSpec{
-					TerminationGracePeriodSeconds: &gracePeriod,
-					Domain: v1.DomainSpec{
-						Devices: v1.Devices{
-							Disks: []v1.Disk{
-								{
-									Name:       "disk0",
-									VolumeName: "disk0-pvc",
-									DiskDevice: v1.DiskDevice{
-										Disk: &v1.DiskTarget{
-											Bus: "virtio",
-										},
-									},
-								},
-							},
-						},
-					},
-					Volumes: []v1.Volume{
-						{
-							Name: "disk0-pvc",
-							VolumeSource: v1.VolumeSource{
-								Ephemeral: &v1.EphemeralVolumeSource{
-									PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{
-										ClaimName: templateMeta.PvcName,
-									},
-								},
-							},
-						},
-					},
-				},
-				ObjectMeta: metav1.ObjectMeta{
-					Labels: map[string]string{
-						"kubevirt-vm": "vm-${NAME}",
-					},
-				},
-			},
-		},
-		TypeMeta: metav1.TypeMeta{
-			APIVersion: "kubevirt.io/v1alpha2",
-			Kind:       "VirtualMachine",
-		},
-		ObjectMeta: metav1.ObjectMeta{
-			Labels: map[string]string{
-				"kubevirt-vm": "vm-${NAME}",
-			},
-			Name: "${NAME}",
-		},
-	}
-
-	template := newBaseTemplate(vmSpec, "4096Mi", "4")
-	template.ObjectMeta = metav1.ObjectMeta{
-		Name: templateMeta.Name,
-		Annotations: map[string]string{
-			"description": templateMeta.Description,
-			"tags":        "kubevirt,ocp,template,linux,virtualmachine",
-			"iconClass":   templateMeta.IconClass,
-		},
-		Labels: map[string]string{
-			"kubevirt.io/os":                        templateMeta.Label,
-			"miq.github.io/kubevirt-is-vm-template": "true",
-		},
-	}
-	return template
+	return tests.RunCommand("oc", "get", resourceType)
 }

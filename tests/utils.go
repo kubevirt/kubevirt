@@ -67,6 +67,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/util/net/dns"
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
 	"kubevirt.io/kubevirt/pkg/virtctl"
+	vmsgen "kubevirt.io/kubevirt/tools/vms-generator/utils"
 
 	cdiv1 "kubevirt.io/containerized-data-importer/pkg/apis/datavolumecontroller/v1alpha1"
 )
@@ -1775,7 +1776,7 @@ func GenerateVMIJson(vmi *v1.VirtualMachineInstance) (string, error) {
 	return jsonFile, nil
 }
 
-func GenerateTemplateJson(template *Template) (string, error) {
+func GenerateTemplateJson(template *vmsgen.Template) (string, error) {
 	data, err := json.Marshal(template)
 	if err != nil {
 		return "", fmt.Errorf("failed to generate json for vm template %s", template.Name)
