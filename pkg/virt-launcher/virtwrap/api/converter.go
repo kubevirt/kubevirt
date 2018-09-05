@@ -636,8 +636,15 @@ func Convert_v1_VirtualMachine_To_api_Domain(vmi *v1.VirtualMachineInstance, dom
 			// detection into drivers
 			domainIface.Type = "bridge"
 			if value, ok := cniNetworks[iface.Name]; ok {
+				prefix := ""
+				// no error check, we assume that CNI type was set correctly
+				if net.Cni.Multus != nil {
+					prefix = "net"
+				} else if net.Cni.Kuryr != nil || net.Cni.Genie != nil {
+					prefix = "eth"
+				}
 				domainIface.Source = InterfaceSource{
-					Bridge: fmt.Sprintf("k6t-net%d", value),
+					Bridge: fmt.Sprintf("k6t-%s%d", prefix, value),
 				}
 			} else {
 				domainIface.Source = InterfaceSource{
