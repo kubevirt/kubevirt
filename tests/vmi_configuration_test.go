@@ -40,7 +40,6 @@ import (
 	"kubevirt.io/kubevirt/pkg/kubecli"
 	"kubevirt.io/kubevirt/pkg/log"
 	hw_utils "kubevirt.io/kubevirt/pkg/util/hardware"
-	"kubevirt.io/kubevirt/pkg/util/qos"
 
 	"kubevirt.io/kubevirt/tests"
 )
@@ -570,7 +569,7 @@ var _ = Describe("Configurations", func() {
 
 				By("Checking that the pod QOS is guaranteed")
 				readyPod := tests.GetRunningPodByVirtualMachineInstance(cpuVmi, tests.NamespaceTestDefault)
-				podQos := qos.GetPodQOS(readyPod)
+				podQos := readyPod.Status.QOSClass
 				Expect(podQos).To(Equal(kubev1.PodQOSGuaranteed))
 
 				var computeContainer *kubev1.Container

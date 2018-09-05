@@ -40,7 +40,6 @@ import (
 	"kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/kubecli"
 	"kubevirt.io/kubevirt/pkg/log"
-	"kubevirt.io/kubevirt/pkg/util/qos"
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
 
 	cdiv1 "kubevirt.io/containerized-data-importer/pkg/apis/datavolumecontroller/v1alpha1"
@@ -441,7 +440,7 @@ func (c *VMIController) sync(vmi *virtv1.VirtualMachineInstance, pods []*k8sv1.P
 		pod := pod.DeepCopy()
 
 		// fail vmi creation if CPU pinning has been requested but the Pod QOS is not Guaranteed
-		podQosClass := qos.GetPodQOS(pod)
+		podQosClass := pod.Status.QOSClass
 		if podQosClass != k8sv1.PodQOSGuaranteed && vmi.IsCPUDedicated() {
 			c.handoverExpectations.CreationObserved(controller.VirtualMachineKey(vmi))
 			c.recorder.Eventf(vmi, k8sv1.EventTypeWarning, FailedGuaranteePodResourcesReason, "failed to guarantee pod resources")
