@@ -293,19 +293,9 @@ func (c *VMController) orphan(cm *controller.VirtualMachineControllerRefManager,
 		return nil
 	}
 
-	errChan := make(chan error, 1)
-
-	go func(vmi *virtv1.VirtualMachineInstance) {
-		err := cm.ReleaseVirtualMachine(vmi)
-		if err != nil {
-			errChan <- err
-		}
-	}(vmi)
-
-	select {
-	case err := <-errChan:
+	err := cm.ReleaseVirtualMachine(vmi)
+	if err != nil {
 		return err
-	default:
 	}
 	return nil
 }
