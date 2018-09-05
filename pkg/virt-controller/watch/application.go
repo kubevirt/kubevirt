@@ -94,8 +94,6 @@ type VirtControllerApp struct {
 	vmController *VMController
 	vmInformer   cache.SharedIndexInformer
 
-	limitrangeInformer cache.SharedIndexInformer
-
 	dataVolumeInformer cache.SharedIndexInformer
 
 	LeaderElection leaderelectionconfig.Configuration
@@ -152,7 +150,6 @@ func Execute() {
 	app.configMapCache = app.configMapInformer.GetStore()
 
 	app.vmInformer = app.informerFactory.VirtualMachine()
-	app.limitrangeInformer = app.informerFactory.LimitRanges()
 
 	if featuregates.DataVolumesEnabled() {
 		app.dataVolumeInformer = app.informerFactory.DataVolume()

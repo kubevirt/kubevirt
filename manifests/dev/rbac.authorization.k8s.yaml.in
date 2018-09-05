@@ -156,7 +156,6 @@ rules:
       - pods
       - configmaps
       - endpoints
-      - limitranges
     verbs:
       - get
       - list

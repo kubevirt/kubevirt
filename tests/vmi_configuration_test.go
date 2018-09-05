@@ -136,7 +136,7 @@ var _ = Describe("Configurations", func() {
 
 		Context("with namespace memory limits above VMI required memory", func() {
 			var vmi *v1.VirtualMachineInstance
-			It("should failed to schedule the VMI", func() {
+			It("should failed to start the VMI", func() {
 				// create a namespace default limit
 				limitRangeObj := kubev1.LimitRange{
 
