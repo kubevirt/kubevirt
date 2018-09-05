@@ -129,21 +129,6 @@ var _ = Describe("VMIlifecycle", func() {
 				500*time.Millisecond).
 				Should(ContainSubstring("info : hostname: " + dns.SanitizeHostname(vmi)))
 		})
-
-		It("should reject POST if schema is invalid", func() {
-			jsonBytes, err := json.Marshal(vmi)
-			Expect(err).To(BeNil())
-
-			// change the name of a required field (like domain) so validation will fail
-			jsonString := strings.Replace(string(jsonBytes), "domain", "not-a-domain", -1)
-
-			result := virtClient.RestClient().Post().Resource("virtualmachineinstances").Namespace(tests.NamespaceTestDefault).Body([]byte(jsonString)).SetHeader("Content-Type", "application/json").Do()
-
-			// Verify validation failed.
-			statusCode := 0
-			result.StatusCode(&statusCode)
-			Expect(statusCode).To(Equal(http.StatusUnprocessableEntity))
-		})
 		It("should reject POST if validation webhook deems the spec invalid", func() {
 
 			// Add a disk that doesn't map to a volume.

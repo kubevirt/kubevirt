@@ -503,7 +503,7 @@ var _ = Describe("Mutating Webhook Presets", func() {
 			presetInformer, _ = testutils.NewFakeInformerFor(&v1.VirtualMachineInstancePreset{})
 		})
 
-		When("VMI has exclusion annotation", func(){
+		When("VMI has exclusion annotation", func() {
 			It("Should be skipped", func() {
 				preset.Spec.Domain.CPU = &v1.CPU{Cores: 4}
 				presetInformer.GetIndexer().Add(preset)

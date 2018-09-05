@@ -127,6 +127,20 @@ rules:
       - get
       - list
       - watch
+  - apiGroups:
+      - ''
+    resources:
+      - limitranges
+    verbs:
+      - watch
+      - list
+  - apiGroups:
+      - kubevirt.io
+    resources:
+      - virtualmachineinstancepresets
+    verbs:
+      - watch
+      - list
 ---
 apiVersion: rbac.authorization.k8s.io/v1beta1
 kind: ClusterRole

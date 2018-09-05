@@ -215,14 +215,14 @@ func applyPresets(vmi *kubev1.VirtualMachineInstance, presetInformer cache.Share
 	if err != nil {
 		return err
 	}
-	
+
 	presets, err = filterPresets(presets, vmi)
 	if err != nil {
 		return err
 	}
 
 	if len(presets) == 0 {
-		log.Log.Object(vmi).Infof("Unable to find any preset that can be accepted to the VMI %s", vmi.Name)
+		log.Log.Object(vmi).V(4).Infof("Unable to find any preset that can be accepted to the VMI %s", vmi.Name)
 		return nil
 	}
 
@@ -254,10 +254,10 @@ func annotateVMI(vmi *kubev1.VirtualMachineInstance, preset kubev1.VirtualMachin
 	vmi.Annotations[annotationKey] = kubev1.GroupVersion.String()
 }
 
-func isVMIExcluded(vmi *kubev1.VirtualMachineInstance) bool {	
-	if vmi.Annotations != nil {	
-		excluded, ok := vmi.Annotations[exclusionMarking]	
-		return ok && (excluded == "true")	
-	}	
+func isVMIExcluded(vmi *kubev1.VirtualMachineInstance) bool {
+	if vmi.Annotations != nil {
+		excluded, ok := vmi.Annotations[exclusionMarking]
+		return ok && (excluded == "true")
+	}
 	return false
 }

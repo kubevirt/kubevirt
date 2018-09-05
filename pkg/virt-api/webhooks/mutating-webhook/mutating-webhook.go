@@ -98,7 +98,12 @@ func mutateVMIs(ar *v1beta1.AdmissionReview) *v1beta1.AdmissionResponse {
 	// Apply presets
 	err = applyPresets(&vmi, informers.VMIPresetInformer)
 	if err != nil {
-		return webhooks.ToAdmissionResponseError(err)
+		return &v1beta1.AdmissionResponse{
+			Result: &metav1.Status{
+				Message: err.Error(),
+				Code:    http.StatusUnprocessableEntity,
+			},
+		}
 	}
 
 	// Apply namespace limits
