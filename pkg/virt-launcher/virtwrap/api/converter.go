@@ -55,6 +55,7 @@ type ConverterContext struct {
 	UseEmulation   bool
 	Secrets        map[string]*k8sv1.Secret
 	VirtualMachine *v1.VirtualMachineInstance
+	CPUSet         []int
 }
 
 func Convert_v1_Disk_To_api_Disk(diskDevice *v1.Disk, disk *Disk, devicePerBus map[string]int) error {
@@ -548,6 +549,14 @@ func Convert_v1_VirtualMachine_To_api_Domain(vmi *v1.VirtualMachineInstance, dom
 		domain.Spec.CPU.Mode = CPUModeHostModel
 	}
 
+	// Adjust guest vcpu config. Currenty will handle vCPUs to pCPUs pinning
+	if vmi.IsCPUDedicated() {
+		if err := formatDomainCPUTune(vmi, domain, c); err != nil {
+			log.Log.Reason(err).Error("failed to format domain cputune.")
+			return err
+		}
+	}
+
 	// Add mandatory console device
 	var serialPort uint = 0
 	var serialType string = "serial"
@@ -696,6 +705,22 @@ func Convert_v1_VirtualMachine_To_api_Domain(vmi *v1.VirtualMachineInstance, dom
 		domain.Spec.Devices.Interfaces = append(domain.Spec.Devices.Interfaces, domainIface)
 	}
 
+	return nil
+}
+
+func formatDomainCPUTune(vmi *v1.VirtualMachineInstance, domain *Domain, c *ConverterContext) error {
+	if len(c.CPUSet) == 0 {
+		return fmt.Errorf("failed for get pods pinned cpus")
+	}
+
+	cpuTune := CPUTune{}
+	for idx := 0; idx < int(vmi.Spec.Domain.CPU.Cores); idx++ {
+		vcpupin := CPUTuneVCPUPin{}
+		vcpupin.VCPU = uint(idx)
+		vcpupin.CPUSet = strconv.Itoa(c.CPUSet[idx])
+		cpuTune.VCPUPin = append(cpuTune.VCPUPin, vcpupin)
+	}
+	domain.Spec.CPUTune = &cpuTune
 	return nil
 }
 

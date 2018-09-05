@@ -143,11 +143,17 @@ func (l *LibvirtDomainManager) SyncVMI(vmi *v1.VirtualMachineInstance, useEmulat
 	logger := log.Log.Object(vmi)
 
 	domain := &api.Domain{}
+	podCPUSet, err := util.GetPodCPUSet()
+	if err != nil {
+		logger.Reason(err).Error("failed to read pod cpuset.")
+		return nil, err
+	}
 
 	// Map the VirtualMachineInstance to the Domain
 	c := &api.ConverterContext{
 		VirtualMachine: vmi,
 		UseEmulation:   useEmulation,
+		CPUSet:         podCPUSet,
 	}
 	if err := api.Convert_v1_VirtualMachine_To_api_Domain(vmi, domain, c); err != nil {
 		logger.Error("Conversion failed.")
@@ -156,14 +162,6 @@ func (l *LibvirtDomainManager) SyncVMI(vmi *v1.VirtualMachineInstance, useEmulat
 
 	// Set defaults which are not coming from the cluster
 	api.SetObjectDefaults_Domain(domain)
-
-	// Adjust guest vcpu config. Currenty will handle vCPUs to pCPUs pinning
-	if vmi.IsCPUDedicated() {
-		if err := util.FormatDomainCPUTune(vmi, domain); err != nil {
-			logger.Reason(err).Error("failed to format domain cputune.")
-			return nil, err
-		}
-	}
 
 	dom, err := l.virConn.LookupDomainByName(domain.Spec.Name)
 	newDomain := false

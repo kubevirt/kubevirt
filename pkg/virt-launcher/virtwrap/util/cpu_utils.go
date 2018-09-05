@@ -23,14 +23,11 @@ import (
 	"bufio"
 	"fmt"
 	"os"
-	"strconv"
 
-	"kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/util/hardware"
-	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 )
 
-func getPodPinnedCpus() ([]int, error) {
+func GetPodCPUSet() ([]int, error) {
 	var cpuset string
 	file, err := os.Open(hardware.CPUSET_PATH)
 	if err != nil {
@@ -49,21 +46,4 @@ func getPodPinnedCpus() ([]int, error) {
 		return nil, fmt.Errorf("failed to parse cpuset file: %v", err)
 	}
 	return cpusList, nil
-}
-
-func FormatDomainCPUTune(vmi *v1.VirtualMachineInstance, domain *api.Domain) error {
-	availableCpus, err := getPodPinnedCpus()
-	if err != nil || len(availableCpus) == 0 {
-		return fmt.Errorf("failed for get pods pinned cpus: %v", err)
-	}
-
-	cpuTune := api.CPUTune{}
-	for idx := 0; idx < int(vmi.Spec.Domain.CPU.Cores); idx++ {
-		vcpupin := api.CPUTuneVCPUPin{}
-		vcpupin.VCPU = uint(idx)
-		vcpupin.CPUSet = strconv.Itoa(availableCpus[idx])
-		cpuTune.VCPUPin = append(cpuTune.VCPUPin, vcpupin)
-	}
-	domain.Spec.CPUTune = &cpuTune
-	return nil
 }

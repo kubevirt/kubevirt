@@ -539,6 +539,11 @@ func (in *ConverterContext) DeepCopyInto(out *ConverterContext) {
 			(*in).DeepCopyInto(*out)
 		}
 	}
+	if in.CPUSet != nil {
+		in, out := &in.CPUSet, &out.CPUSet
+		*out = make([]int, len(*in))
+		copy(*out, *in)
+	}
 	return
 }
 
