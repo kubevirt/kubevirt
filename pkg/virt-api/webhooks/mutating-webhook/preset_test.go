@@ -128,7 +128,7 @@ var _ = Describe("Mutating Webhook Presets", func() {
 
 			By("applying matching preset")
 			vmi.Annotations = map[string]string{}
-			presetInformer.GetIndexer().Update(preset)
+			presetInformer.GetIndexer().Add(preset)
 			applyPresets(&vmi, presetInformer)
 
 			By("checking annotations were applied and CPU count remains the same")
@@ -142,7 +142,7 @@ var _ = Describe("Mutating Webhook Presets", func() {
 
 			By("applying overridden preset")
 			vmi.Annotations = map[string]string{}
-			presetInformer.GetIndexer().Update(preset)
+			presetInformer.GetIndexer().Add(preset)
 			applyPresets(&vmi, presetInformer)
 
 			By("checking annotations were not applied and CPU count remains the same")
@@ -501,6 +501,19 @@ var _ = Describe("Mutating Webhook Presets", func() {
 			preset = &v1.VirtualMachineInstancePreset{Spec: v1.VirtualMachineInstancePresetSpec{Domain: &v1.DomainSpec{}}}
 			preset.Name = "test-preset"
 			presetInformer, _ = testutils.NewFakeInformerFor(&v1.VirtualMachineInstancePreset{})
+		})
+
+		When("VMI has exclusion annotation", func(){
+			It("Should be skipped", func() {
+				preset.Spec.Domain.CPU = &v1.CPU{Cores: 4}
+				presetInformer.GetIndexer().Add(preset)
+
+				vmiCopy := vmi.DeepCopy()
+				vmiCopy.Annotations = make(map[string]string)
+				vmiCopy.Annotations[exclusionMarking] = "true"
+				applyPresets(vmiCopy, presetInformer)
+				Expect(vmi.Spec.Domain.CPU).To(BeNil())
+			})
 		})
 
 		It("Should apply CPU settings", func() {

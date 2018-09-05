@@ -34,6 +34,8 @@ import (
 	"kubevirt.io/kubevirt/pkg/log"
 )
 
+const exclusionMarking = "virtualmachineinstancepresets.admission.kubevirt.io/exclude"
+
 // listPresets returns all VirtualMachinePresets by namespace
 func listPresets(vmiPresetInformer cache.SharedIndexInformer, namespace string) ([]kubev1.VirtualMachineInstancePreset, error) {
 	indexer := vmiPresetInformer.GetIndexer()
@@ -204,10 +206,16 @@ func checkPresetConflicts(presets []kubev1.VirtualMachineInstancePreset) error {
 }
 
 func applyPresets(vmi *kubev1.VirtualMachineInstance, presetInformer cache.SharedIndexInformer) error {
+	if isVMIExcluded(vmi) {
+		log.Log.Object(vmi).Info("VMI excluded from preset logic")
+		return nil
+	}
+
 	presets, err := listPresets(presetInformer, vmi.Namespace)
 	if err != nil {
 		return err
 	}
+	
 	presets, err = filterPresets(presets, vmi)
 	if err != nil {
 		return err
@@ -244,4 +252,12 @@ func annotateVMI(vmi *kubev1.VirtualMachineInstance, preset kubev1.VirtualMachin
 	}
 	annotationKey := fmt.Sprintf("virtualmachinepreset.%s/%s", kubev1.GroupName, preset.Name)
 	vmi.Annotations[annotationKey] = kubev1.GroupVersion.String()
+}
+
+func isVMIExcluded(vmi *kubev1.VirtualMachineInstance) bool {	
+	if vmi.Annotations != nil {	
+		excluded, ok := vmi.Annotations[exclusionMarking]	
+		return ok && (excluded == "true")	
+	}	
+	return false
 }
