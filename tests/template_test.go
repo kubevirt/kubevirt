@@ -37,6 +37,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/kubecli"
 	"kubevirt.io/kubevirt/tests"
+	"github.com/davecgh/go-spew/spew"
 )
 
 var _ = Describe("Templates", func() {
@@ -59,126 +60,99 @@ var _ = Describe("Templates", func() {
 
 	Describe("Launching VMI from VM Template", func() {
 
-		assertGeneratedVMJson := func() func() {
-			return func() {
-				By("Generating VM JSON from the Template via oc-process command")
-				_, err := runOcProcessCommand(templateJsonFile, templateParams, vmJsonFile)
+		assertGeneratedVMJson := func() {
+			By("Generating VM JSON from the Template via oc-process command")
+			_, err := runOcProcessCommand(templateJsonFile, templateParams, vmJsonFile)
+			ExpectWithOffset(1, err).ToNot(HaveOccurred())
+			ExpectWithOffset(1, vmJsonFile).To(BeAnExistingFile())
+		}
+
+		assertCreatedVM := func() {
+			By("Creating VM via oc-create command")
+			out, err := runOcCreateCommand(vmJsonFile)
+			ExpectWithOffset(1, err).ToNot(HaveOccurred())
+			message := fmt.Sprintf("virtualmachine.kubevirt.io \"%s\" created\n", templateParams.Name)
+			ExpectWithOffset(1, out).To(Equal(message))
+
+			By("Checking if the VM exists via oc-get command.")
+			EventuallyWithOffset(1, func() bool {
+				out, err := runOcGetCommand("vms")
 				ExpectWithOffset(1, err).ToNot(HaveOccurred())
-				ExpectWithOffset(1, vmJsonFile).To(BeAnExistingFile())
-			}
+				return strings.Contains(out, templateParams.Name)
+			}, time.Duration(60)*time.Second).Should(BeTrue(), "Timed out waiting for VM to apppear")
 		}
 
-		assertCreatedVM := func() func() {
-			return func() {
-				By("Creating VM via oc-create command")
-				out, err := runOcCreateCommand(vmJsonFile)
+		assertDeletedVM := func() {
+			By("Deleting the VM via oc-delete command")
+			out, err := runOcDeleteCommand(templateParams.Name)
+			ExpectWithOffset(1, err).ToNot(HaveOccurred())
+			message := fmt.Sprintf("virtualmachine.kubevirt.io \"%s\" deleted\n", templateParams.Name)
+			ExpectWithOffset(1, out).To(Equal(message))
+
+			By("Checking if the VM does not exist anymore via oc-get command.")
+			EventuallyWithOffset(1, func() bool {
+				out, err := runOcGetCommand("vms")
 				ExpectWithOffset(1, err).ToNot(HaveOccurred())
-				message := fmt.Sprintf("virtualmachine.kubevirt.io \"%s\" created\n", templateParams.Name)
-				ExpectWithOffset(1, out).To(Equal(message))
-
-				By("Checking if the VM exists via oc-get command.")
-				EventuallyWithOffset(1, func() bool {
-					out, err := runOcGetCommand("vms")
-					ExpectWithOffset(1, err).ToNot(HaveOccurred())
-					return strings.Contains(out, templateParams.Name)
-				}, time.Duration(60)*time.Second).Should(BeTrue(), "Timed out waiting for VM to apppear")
-			}
+				return out == "No resources found.\n"
+			}, time.Duration(60)*time.Second).Should(BeTrue(), "Timed out waiting for VM to disappear")
 		}
 
-		assertDeletedVM := func() func() {
-			return func() {
-				By("Deleting the VM via oc-delete command")
-				out, err := runOcDeleteCommand(templateParams.Name)
+		assertLaunchedVMI := func() {
+			By("Launching VMI via oc-patch command")
+			out, err := runOcPatchCommand(templateParams.Name, "{\"spec\":{\"running\":true}}")
+			ExpectWithOffset(1, err).ToNot(HaveOccurred())
+			message := fmt.Sprintf("virtualmachine.kubevirt.io \"%s\" patched\n", templateParams.Name)
+			ExpectWithOffset(1, out).To(Equal(message))
+
+			By("Checking if the VMI does exist via oc-get command")
+			EventuallyWithOffset(1, func() bool {
+				out, err := runOcGetCommand("vmis")
 				ExpectWithOffset(1, err).ToNot(HaveOccurred())
-				message := fmt.Sprintf("virtualmachine.kubevirt.io \"%s\" deleted\n", templateParams.Name)
-				ExpectWithOffset(1, out).To(Equal(message))
-
-				By("Checking if the VM does not exist anymore via oc-get command.")
-				EventuallyWithOffset(1, func() bool {
-					out, err := runOcGetCommand("vms")
-					ExpectWithOffset(1, err).ToNot(HaveOccurred())
-					return out == "No resources found.\n"
-				}, time.Duration(60)*time.Second).Should(BeTrue(), "Timed out waiting for VM to disappear")
-			}
+				return strings.Contains(out, templateParams.Name)
+			}, time.Duration(60)*time.Second).Should(BeTrue(), "Timed out waiting for VMI to appear")
 		}
 
-		assertLaunchedVMI := func() func() {
-			return func() {
-				By("Launching VMI via oc-patch command")
-				out, err := runOcPatchCommand(templateParams.Name, "{\"spec\":{\"running\":true}}")
+		assertTerminatedVMI := func() {
+			By("Terminating the VMI via oc-patch command")
+			out, err := runOcPatchCommand(templateParams.Name, "{\"spec\":{\"running\":false}}")
+			ExpectWithOffset(1, err).ToNot(HaveOccurred())
+			message := fmt.Sprintf("virtualmachine.kubevirt.io \"%s\" patched\n", templateParams.Name)
+			ExpectWithOffset(1, out).To(Equal(message))
+
+			By("Checking if the VMI does not exist anymore via oc-get command")
+			EventuallyWithOffset(1, func() bool {
+				out, err := runOcGetCommand("vmis")
 				ExpectWithOffset(1, err).ToNot(HaveOccurred())
-				message := fmt.Sprintf("virtualmachine.kubevirt.io \"%s\" patched\n", templateParams.Name)
-				ExpectWithOffset(1, out).To(Equal(message))
-
-				By("Checking if the VMI does exist via oc-get command")
-				EventuallyWithOffset(1, func() bool {
-					out, err := runOcGetCommand("vmis")
-					ExpectWithOffset(1, err).ToNot(HaveOccurred())
-					return strings.Contains(out, templateParams.Name)
-				}, time.Duration(60)*time.Second).Should(BeTrue(), "Timed out waiting for VMI to appear")
-			}
+				return out == "No resources found.\n"
+			}, time.Duration(60)*time.Second).Should(BeTrue(), "Timed out waiting for VMI to disappear")
 		}
 
-		assertTerminatedVMI := func() func() {
-			return func() {
-				By("Terminating the VMI via oc-patch command")
-				out, err := runOcPatchCommand(templateParams.Name, "{\"spec\":{\"running\":false}}")
+		assertRemovedFile := func(file string) {
+			if _, err := os.Stat(file); !os.IsNotExist(err) {
+				err := os.Remove(file)
 				ExpectWithOffset(1, err).ToNot(HaveOccurred())
-				message := fmt.Sprintf("virtualmachine.kubevirt.io \"%s\" patched\n", templateParams.Name)
-				ExpectWithOffset(1, out).To(Equal(message))
-
-				By("Checking if the VMI does not exist anymore via oc-get command")
-				EventuallyWithOffset(1, func() bool {
-					out, err := runOcGetCommand("vmis")
-					ExpectWithOffset(1, err).ToNot(HaveOccurred())
-					return out == "No resources found.\n"
-				}, time.Duration(60)*time.Second).Should(BeTrue(), "Timed out waiting for VMI to disappear")
 			}
-		}
-
-		assertRemovedFile := func(file string) func() {
-			return func() {
-				if _, err := os.Stat(file); !os.IsNotExist(err) {
-					err := os.Remove(file)
-					ExpectWithOffset(1, err).ToNot(HaveOccurred())
-				}
-				ExpectWithOffset(1, file).NotTo(BeAnExistingFile())
-			}
-		}
-
-		testGivenTemplate := func() {
-			It("should succeed to generate a VM JSON file using oc-process command", assertGeneratedVMJson())
-
-			Context("with given VM JSON from the Template", func() {
-				JustBeforeEach(assertGeneratedVMJson())
-				AfterEach(assertDeletedVM())
-
-				It("should succeed to create a VM using oc-create command", assertCreatedVM())
-
-				Context("with given VM from the VM JSON", func() {
-					JustBeforeEach(assertCreatedVM())
-
-					It("should succeed to launch a VMI using oc-patch command", assertLaunchedVMI())
-
-					Context("with given VMI from the VM", func() {
-						JustBeforeEach(assertLaunchedVMI())
-
-						It("should succeed to terminate the VMI using oc-patch command", assertTerminatedVMI())
-					})
-				})
-			})
+			ExpectWithOffset(1, file).NotTo(BeAnExistingFile())
 		}
 
 		BeforeEach(func() {
-			templateParams = TemplateParams{
-				Name:     "testvm",
-				CpuCores: "2",
-			}
+			spew.Dump("1")
+			templateParams = TemplateParams{Name: "testvm", CpuCores: "2"}
 			vmJsonFile = fmt.Sprintf("%s.json", templateParams.Name)
 			Expect(vmJsonFile).NotTo(BeAnExistingFile())
+
+			template = newTemplate(TemplateMeta{
+				Name:        "vm-template-fedora",
+				Description: "OCP KubeVirt Fedora 27 VM template",
+				Label:       "fedora27",
+				IconClass:   "icon-fedora",
+				Image:       "registry:5000/kubevirt/fedora-cloud-registry-disk-demo:latest",
+				UserData:    "#cloud-config\npassword: fedora\nchpasswd: { expire: False }",
+			})
 		})
 
 		JustBeforeEach(func() {
+			spew.Dump("2")
 			var err error
 			templateJsonFile, err = tests.GenerateTemplateJson(template)
 			Expect(err).ToNot(HaveOccurred())
@@ -186,23 +160,59 @@ var _ = Describe("Templates", func() {
 		})
 
 		AfterEach(func() {
-			assertRemovedFile(vmJsonFile)()
-			assertRemovedFile(templateJsonFile)()
+			spew.Dump("3")
+			assertDeletedVM()
+			assertRemovedFile(vmJsonFile)
+			assertRemovedFile(templateJsonFile)
 		})
 
 		Context("with given Fedora Template", func() {
-			BeforeEach(func() {
-				template = newTemplate(TemplateMeta{
-					Name:        "vm-template-fedora",
-					Description: "OCP KubeVirt Fedora 27 VM template",
-					Label:       "fedora27",
-					IconClass:   "icon-fedora",
-					Image:       "registry:5000/kubevirt/fedora-cloud-registry-disk-demo:latest",
-					UserData:    "#cloud-config\npassword: fedora\nchpasswd: { expire: False }",
-				})
-			})
 
-			testGivenTemplate()
+
+			//It("should succeed to generate a VM JSON file using oc-process command", func() {
+			//	assertGeneratedVMJson()
+			//})
+
+			Context("with given VM JSON from the Template", func() {
+				//JustBeforeEach(func() {
+				//	spew.Dump("5")
+				//	assertGeneratedVMJson()
+				//})
+
+				//AfterEach(func() {
+				//	spew.Dump("6")
+				//	assertDeletedVM()
+				//})
+
+				It("should succeed to create a VM using oc-create command", func() {
+					assertGeneratedVMJson()
+					assertCreatedVM()
+					assertLaunchedVMI()
+					assertTerminatedVMI()
+				})
+
+				//Context("with given VM from the VM JSON", func() {
+				//	JustBeforeEach(func() {
+				//		spew.Dump("7")
+				//		assertCreatedVM()
+				//	})
+				//
+				//	It("should succeed to launch a VMI using oc-patch command", func() {
+				//		assertLaunchedVMI()
+				//	})
+				//
+				//	Context("with given VMI from the VM", func() {
+				//		JustBeforeEach(func() {
+				//			spew.Dump("8")
+				//			assertLaunchedVMI()
+				//		})
+				//
+				//		It("should succeed to terminate the VMI using oc-patch command", func() {
+				//			assertTerminatedVMI()
+				//		})
+				//	})
+				//})
+			})
 		})
 	})
 })
