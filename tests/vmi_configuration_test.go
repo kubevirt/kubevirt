@@ -531,8 +531,6 @@ var _ = Describe("Configurations", func() {
 				node := &nodes.Items[0]
 				node, err = virtClient.CoreV1().Nodes().Patch(node.Name, types.StrategicMergePatchType, []byte(fmt.Sprintf(`{"metadata": { "labels": {"%s": "true"}}}`, v1.CPUManager)))
 				Expect(err).ToNot(HaveOccurred())
-				// wait one heartbeat
-				time.Sleep(60 * time.Second)
 
 				By("setting the cpumanager label back to false")
 				Eventually(func() string {
