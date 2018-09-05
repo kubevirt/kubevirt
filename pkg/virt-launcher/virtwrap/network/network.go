@@ -38,20 +38,25 @@ var interfaceCacheFile = "/var/run/kubevirt-private/interface-cache-%s.json"
 var qemuArgCacheFile = "/var/run/kubevirt-private/qemu-arg-%s.json"
 var NetworkInterfaceFactory = getNetworkClass
 
+var podInterfaceName = podInterface
+
 type NetworkInterface interface {
-	Plug(iface *v1.Interface, network *v1.Network, domain *api.Domain) error
+	Plug(iface *v1.Interface, network *v1.Network, domain *api.Domain, podInterfaceName string) error
 	Unplug()
 }
 
 func SetupNetworkInterfaces(vmi *v1.VirtualMachineInstance, domain *api.Domain) error {
 	// prepare networks map
 	networks := map[string]*v1.Network{}
+	multusNetworks := map[string]int{}
 	for _, network := range vmi.Spec.Networks {
 		networks[network.Name] = network.DeepCopy()
+		if network.Multus != nil {
+			multusNetworks[network.Name] = len(multusNetworks) + 1
+		}
 	}
 
 	for _, iface := range vmi.Spec.Domain.Devices.Interfaces {
-
 		network, ok := networks[iface.Name]
 		if !ok {
 			return fmt.Errorf("failed to find a network %s", iface.Name)
@@ -61,7 +66,13 @@ func SetupNetworkInterfaces(vmi *v1.VirtualMachineInstance, domain *api.Domain) 
 			return err
 		}
 
-		err = vif.Plug(&iface, network, domain)
+		if networks[iface.Name].Multus != nil {
+			podInterfaceName = fmt.Sprintf("net%d", multusNetworks[iface.Name])
+		} else {
+			podInterfaceName = podInterface
+		}
+
+		err = vif.Plug(&iface, network, domain, podInterfaceName)
 		if err != nil {
 			return err
 		}
@@ -71,7 +82,7 @@ func SetupNetworkInterfaces(vmi *v1.VirtualMachineInstance, domain *api.Domain) 
 
 // a factory to get suitable network interface
 func getNetworkClass(network *v1.Network) (NetworkInterface, error) {
-	if network.Pod != nil {
+	if network.Pod != nil || network.Multus != nil {
 		return new(PodInterface), nil
 	}
 	return nil, fmt.Errorf("Network not implemented")

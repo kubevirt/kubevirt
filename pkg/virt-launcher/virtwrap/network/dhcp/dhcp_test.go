@@ -55,6 +55,11 @@ var _ = Describe("DHCP", func() {
 			Expect(dhcpRoutes).To(Equal(expected))
 		})
 
+		It("should not panic", func() {
+			dhcpRoutes := formClasslessRoutes(nil)
+			Expect(dhcpRoutes).To(Equal([]byte{}))
+		})
+
 		It("should build OpenShift routes correctly", func() {
 			expected := []byte{14, 10, 128, 0, 0, 0, 0, 4, 224, 0, 0, 0, 0, 0, 10, 129, 0, 1}
 			gatewayRoute := netlink.Route{Gw: net.IPv4(10, 129, 0, 1)}

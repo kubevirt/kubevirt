@@ -46,18 +46,20 @@ import (
 )
 
 const (
-	vmiEphemeral       = "vmi-ephemeral"
-	vmiFlavorSmall     = "vmi-flavor-small"
-	vmiSata            = "vmi-sata"
-	vmiFedora          = "vmi-fedora"
-	vmiNoCloud         = "vmi-nocloud"
-	vmiPVC             = "vmi-pvc"
-	vmiWindows         = "vmi-windows"
-	vmiSlirp           = "vmi-slirp"
-	vmiWithHookSidecar = "vmi-with-sidecar-hook"
-	vmTemplateFedora   = "vm-template-fedora"
-	vmTemplateRHEL7    = "vm-template-rhel7"
-	vmTemplateWindows  = "vm-template-windows2012r2"
+	vmiEphemeral         = "vmi-ephemeral"
+	vmiFlavorSmall       = "vmi-flavor-small"
+	vmiSata              = "vmi-sata"
+	vmiFedora            = "vmi-fedora"
+	vmiNoCloud           = "vmi-nocloud"
+	vmiPVC               = "vmi-pvc"
+	vmiWindows           = "vmi-windows"
+	vmiSlirp             = "vmi-slirp"
+	vmiWithHookSidecar   = "vmi-with-sidecar-hook"
+	vmiMultusPtp         = "vmi-multus-ptp"
+	vmiMultusMultipleNet = "vmi-multus-multiple-net"
+	vmTemplateFedora     = "vm-template-fedora"
+	vmTemplateRHEL7      = "vm-template-rhel7"
+	vmTemplateWindows    = "vm-template-windows2012r2"
 )
 
 const (
@@ -271,6 +273,31 @@ func getVMISlirp() *v1.VirtualMachineInstance {
 	slirp := &v1.InterfaceSlirp{}
 	ports := []v1.Port{v1.Port{Name: "http", Protocol: "TCP", Port: 80}}
 	vm.Spec.Domain.Devices.Interfaces = []v1.Interface{v1.Interface{Name: "testSlirp", Ports: ports, InterfaceBindingMethod: v1.InterfaceBindingMethod{Slirp: slirp}}}
+
+	return vm
+}
+
+func getVMIMultusPtp() *v1.VirtualMachineInstance {
+	vm := getBaseVMI(vmiMultusPtp)
+	vm.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("1024M")
+	vm.Spec.Networks = []v1.Network{{Name: "ptp", NetworkSource: v1.NetworkSource{Multus: &v1.MultusNetwork{NetworkName: "ptp-conf"}}}}
+	addRegistryDisk(&vm.Spec, fmt.Sprintf("%s/%s:%s", dockerPrefix, imageFedora, dockerTag), busVirtio)
+	addNoCloudDiskWitUserData(&vm.Spec, "#!/bin/bash\necho \"fedora\" |passwd fedora --stdin\n")
+
+	vm.Spec.Domain.Devices.Interfaces = []v1.Interface{{Name: "ptp", InterfaceBindingMethod: v1.InterfaceBindingMethod{Bridge: &v1.InterfaceBridge{}}}}
+
+	return vm
+}
+
+func getVMIMultusMultipleNet() *v1.VirtualMachineInstance {
+	vm := getBaseVMI(vmiMultusMultipleNet)
+	vm.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("1024M")
+	vm.Spec.Networks = []v1.Network{*v1.DefaultPodNetwork(), {Name: "ptp", NetworkSource: v1.NetworkSource{Multus: &v1.MultusNetwork{NetworkName: "ptp-conf"}}}}
+	addRegistryDisk(&vm.Spec, fmt.Sprintf("%s/%s:%s", dockerPrefix, imageFedora, dockerTag), busVirtio)
+	addNoCloudDiskWitUserData(&vm.Spec, "#!/bin/bash\necho \"fedora\" |passwd fedora --stdin\ndhclient eth1\n")
+
+	vm.Spec.Domain.Devices.Interfaces = []v1.Interface{{Name: "default", InterfaceBindingMethod: v1.InterfaceBindingMethod{Bridge: &v1.InterfaceBridge{}}},
+		{Name: "ptp", InterfaceBindingMethod: v1.InterfaceBindingMethod{Bridge: &v1.InterfaceBridge{}}}}
 
 	return vm
 }
@@ -673,15 +700,17 @@ func main() {
 	}
 
 	var vmis = map[string]*v1.VirtualMachineInstance{
-		vmiEphemeral:       getVMIEphemeral(),
-		vmiFlavorSmall:     getVMIFlavorSmall(),
-		vmiSata:            getVMISata(),
-		vmiFedora:          getVMIEphemeralFedora(),
-		vmiNoCloud:         getVMINoCloud(),
-		vmiPVC:             getVMIPvc(),
-		vmiWindows:         getVMIWindows(),
-		vmiSlirp:           getVMISlirp(),
-		vmiWithHookSidecar: getVMIWithHookSidecar(),
+		vmiEphemeral:         getVMIEphemeral(),
+		vmiFlavorSmall:       getVMIFlavorSmall(),
+		vmiSata:              getVMISata(),
+		vmiFedora:            getVMIEphemeralFedora(),
+		vmiNoCloud:           getVMINoCloud(),
+		vmiPVC:               getVMIPvc(),
+		vmiWindows:           getVMIWindows(),
+		vmiSlirp:             getVMISlirp(),
+		vmiWithHookSidecar:   getVMIWithHookSidecar(),
+		vmiMultusPtp:         getVMIMultusPtp(),
+		vmiMultusMultipleNet: getVMIMultusMultipleNet(),
 	}
 
 	var vmireplicasets = map[string]*v1.VirtualMachineInstanceReplicaSet{

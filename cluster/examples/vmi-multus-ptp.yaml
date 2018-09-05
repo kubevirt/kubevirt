@@ -1,0 +1,42 @@
+apiVersion: kubevirt.io/v1alpha2
+kind: VirtualMachineInstance
+metadata:
+  creationTimestamp: null
+  labels:
+    special: vmi-multus-ptp
+  name: vmi-multus-ptp
+spec:
+  domain:
+    devices:
+      disks:
+      - disk:
+          bus: virtio
+        name: registrydisk
+        volumeName: registryvolume
+      - disk:
+          bus: virtio
+        name: cloudinitdisk
+        volumeName: cloudinitvolume
+      interfaces:
+      - bridge: {}
+        name: ptp
+    machine:
+      type: ""
+    resources:
+      requests:
+        memory: 1024M
+  networks:
+  - multus:
+      networkName: ptp-conf
+    name: ptp
+  terminationGracePeriodSeconds: 0
+  volumes:
+  - name: registryvolume
+    registryDisk:
+      image: registry:5000/kubevirt/fedora-cloud-registry-disk-demo:devel
+  - cloudInitNoCloud:
+      userData: |
+        #!/bin/bash
+        echo "fedora" |passwd fedora --stdin
+    name: cloudinitvolume
+status: {}

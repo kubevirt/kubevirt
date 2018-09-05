@@ -315,7 +315,7 @@ var _ = Describe("Converter", func() {
   </sysinfo>
   <devices>
     <interface type="bridge">
-      <source bridge="br1"></source>
+      <source bridge="k6t-eth0"></source>
       <model type="virtio"></model>
       <alias name="ua-default"></alias>
     </interface>
@@ -634,7 +634,7 @@ var _ = Describe("Converter", func() {
 			}
 		})
 
-		It("should fail to convert if non-pod interfaces are present", func() {
+		It("should fail to convert if non network source are present", func() {
 			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
 			name := "otherName"
 			iface := v1.DefaultNetworkInterface()

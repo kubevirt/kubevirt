@@ -383,3 +383,10 @@ func (Rng) SwaggerDoc() map[string]string {
 		"": "Rng represents the random device passed from host",
 	}
 }
+
+func (MultusNetwork) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"":            "Represents the multus cni network.",
+		"networkName": "References to a NetworkAttachmentDefinition CRD object in the same namespace.",
+	}
+}

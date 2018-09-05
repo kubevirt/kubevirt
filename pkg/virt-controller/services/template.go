@@ -389,15 +389,22 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 
 	hostName := dns.SanitizeHostname(vmi)
 
+	annotationsList := map[string]string{
+		v1.DomainAnnotation:  domain,
+		v1.OwnedByAnnotation: "virt-controller",
+	}
+
+	multusNetworks := getMultusInterfaceList(vmi)
+	if len(multusNetworks) > 0 {
+		annotationsList["k8s.v1.cni.cncf.io/networks"] = multusNetworks
+	}
+
 	// TODO use constants for podLabels
 	pod := k8sv1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
 			GenerateName: "virt-launcher-" + domain + "-",
 			Labels:       podLabels,
-			Annotations: map[string]string{
-				v1.DomainAnnotation:  domain,
-				v1.OwnedByAnnotation: "virt-controller",
-			},
+			Annotations:  annotationsList,
 		},
 		Spec: k8sv1.PodSpec{
 			Hostname:  hostName,
@@ -444,7 +451,9 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 
 func getRequiredCapabilities(vmi *v1.VirtualMachineInstance) []k8sv1.Capability {
 	res := []k8sv1.Capability{}
-	if (vmi.Spec.Domain.Devices.AutoattachPodInterface == nil) || (*vmi.Spec.Domain.Devices.AutoattachPodInterface == true) {
+	if (len(vmi.Spec.Domain.Devices.Interfaces) > 0) ||
+		(vmi.Spec.Domain.Devices.AutoattachPodInterface == nil) ||
+		(*vmi.Spec.Domain.Devices.AutoattachPodInterface == true) {
 		res = append(res, CAP_NET_ADMIN)
 	}
 	return res
@@ -529,6 +538,18 @@ func getPortsFromVMI(vmi *v1.VirtualMachineInstance) []k8sv1.ContainerPort {
 	}
 
 	return ports
+}
+
+func getMultusInterfaceList(vmi *v1.VirtualMachineInstance) string {
+	ifaceList := make([]string, 0)
+
+	for _, network := range vmi.Spec.Networks {
+		if network.Multus != nil {
+			ifaceList = append(ifaceList, network.Multus.NetworkName)
+		}
+	}
+
+	return strings.Join(ifaceList, ",")
 }
 
 func NewTemplateService(launcherImage string, virtShareDir string, imagePullSecret string, configMapCache cache.Store) TemplateService {
