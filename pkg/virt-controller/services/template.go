@@ -395,14 +395,16 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 	}
 
 	cniNetworks, cniType := getCniInterfaceList(vmi)
-	if len(cniNetworks) > 0 && cniType != nil {
-		switch cniType.(type) {
-		case v1.MultusNetwork, v1.KuryrNetwork:
+	if len(cniNetworks) > 0 {
+		if cniType == nil {
+			return nil, fmt.Errorf("unknown CNI: %v", cniType)
+		}
+		if cniType.Multus != nil || cniType.Kuryr != nil {
 			annotationsList["k8s.v1.cni.cncf.io/networks"] = cniNetworks
-		case v1.GenieNetwork:
+		} else if cniType.Genie != nil {
 			annotationsList["cni"] = cniNetworks
-		default:
-			return nil, fmt.Errorf("unknown CNI")
+		} else {
+			return nil, fmt.Errorf("unknown CNI: %v", cniType)
 		}
 	}
 
@@ -549,27 +551,22 @@ func getPortsFromVMI(vmi *v1.VirtualMachineInstance) []k8sv1.ContainerPort {
 	return ports
 }
 
-func getCniInterfaceList(vmi *v1.VirtualMachineInstance) (cniList string, cniType interface{}) {
+func getCniInterfaceList(vmi *v1.VirtualMachineInstance) (ifaceListString string, cniType *v1.CniNetwork) {
 	ifaceList := make([]string, 0)
-	cniType = v1.MultusNetwork{}
 
 	for _, network := range vmi.Spec.Networks {
 		if network.Cni != nil {
 			// no error checking for the type, as it is done from the outside
 			if cniType == nil {
-				if network.Cni.Multus != nil {
-					cniType = network.Cni.Multus
-				} else if network.Cni.Kuryr != nil {
-					cniType = network.Cni.Kuryr
-				} else if network.Cni.Genie != nil {
-					cniType = network.Cni.Genie
-				}
+				// set the type for the first network
+				// all other networks must have same type
+				cniType = network.Cni
 			}
 			ifaceList = append(ifaceList, network.Cni.NetworkName)
 		}
 	}
 
-	cniList = strings.Join(ifaceList, ",")
+	ifaceListString = strings.Join(ifaceList, ",")
 	return
 }
 
