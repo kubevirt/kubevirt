@@ -3328,6 +3328,27 @@
      }
     }
    },
+   "v1.CniNetwork": {
+    "description": "Represents the cni network.",
+    "required": [
+     "networkName"
+    ],
+    "properties": {
+     "genie": {
+      "$ref": "#/definitions/v1.GenieNetwork"
+     },
+     "kuryr": {
+      "$ref": "#/definitions/v1.KuryrNetwork"
+     },
+     "multus": {
+      "$ref": "#/definitions/v1.MultusNetwork"
+     },
+     "networkName": {
+      "description": "References to a NetworkAttachmentDefinition CRD object in the same namespace.\nIn case of genie, it references the CNI plugin name.",
+      "type": "string"
+     }
+    }
+   },
    "v1.DataVolumeSource": {
     "required": [
      "name"
@@ -3674,6 +3695,9 @@
      }
     }
    },
+   "v1.GenieNetwork": {
+    "description": "GenieNetwork represent the genie cni network."
+   },
    "v1.GroupVersionForDiscovery": {
     "description": "GroupVersion contains the \"group/version\" and \"version\" string of a version. It is made a struct to keep extensibility.",
     "required": [
@@ -3811,6 +3835,9 @@
      }
     }
    },
+   "v1.KuryrNetwork": {
+    "description": "KuryrNetwork represent the kuryr cni network."
+   },
    "v1.LabelSelector": {
     "description": "A label selector is a label query over a set of resources. The result of matchLabels and matchExpressions are ANDed. An empty label selector matches all objects. A null label selector matches no objects.",
     "properties": {
@@ -3914,16 +3941,7 @@
     }
    },
    "v1.MultusNetwork": {
-    "description": "Represents the multus cni network.",
-    "required": [
-     "networkName"
-    ],
-    "properties": {
-     "networkName": {
-      "description": "References to a NetworkAttachmentDefinition CRD object in the same namespace.",
-      "type": "string"
-     }
-    }
+    "description": "MultusNetwork represent the multus cni network."
    },
    "v1.Network": {
     "description": "Network represents a network type and a resource that should be connected to the vm.",
@@ -3931,8 +3949,8 @@
      "name"
     ],
     "properties": {
-     "multus": {
-      "$ref": "#/definitions/v1.MultusNetwork"
+     "cni": {
+      "$ref": "#/definitions/v1.CniNetwork"
      },
      "name": {
       "description": "Network name.\nMust be a DNS_LABEL and unique within the vm.\nMore info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names",

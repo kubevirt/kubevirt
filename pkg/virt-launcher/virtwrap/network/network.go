@@ -48,11 +48,19 @@ type NetworkInterface interface {
 func SetupNetworkInterfaces(vmi *v1.VirtualMachineInstance, domain *api.Domain) error {
 	// prepare networks map
 	networks := map[string]*v1.Network{}
-	multusNetworks := map[string]int{}
+	cniNetworks := map[string]int{}
 	for _, network := range vmi.Spec.Networks {
 		networks[network.Name] = network.DeepCopy()
-		if network.Multus != nil {
-			multusNetworks[network.Name] = len(multusNetworks) + 1
+		if network.Cni != nil {
+			if networks[network.Name].Cni.Multus != nil || networks[network.Name].Cni.Kuryr != nil {
+				// multus and kuryr pod interfaces start from 1
+				cniNetworks[network.Name] = len(cniNetworks) + 1
+			} else if networks[network.Name].Cni.Genie != nil {
+				// genie pod interfaces start from 0
+				cniNetworks[network.Name] = len(cniNetworks)
+			} else {
+				return fmt.Errorf("CNI missing")
+			}
 		}
 	}
 
@@ -66,8 +74,16 @@ func SetupNetworkInterfaces(vmi *v1.VirtualMachineInstance, domain *api.Domain) 
 			return err
 		}
 
-		if networks[iface.Name].Multus != nil {
-			podInterfaceName = fmt.Sprintf("net%d", multusNetworks[iface.Name])
+		if networks[iface.Name].Cni != nil {
+			if networks[iface.Name].Cni.Multus != nil {
+				// multus pod interfaces named netX
+				podInterfaceName = fmt.Sprintf("net%d", cniNetworks[iface.Name])
+			} else if networks[iface.Name].Cni.Kuryr != nil || networks[iface.Name].Cni.Genie != nil {
+				// kuryr and genie pod interfaces named ethX
+				podInterfaceName = fmt.Sprintf("eth%d", cniNetworks[iface.Name])
+			} else {
+				return fmt.Errorf("CNI missing")
+			}
 		} else {
 			podInterfaceName = podInterface
 		}
@@ -82,7 +98,7 @@ func SetupNetworkInterfaces(vmi *v1.VirtualMachineInstance, domain *api.Domain) 
 
 // a factory to get suitable network interface
 func getNetworkClass(network *v1.Network) (NetworkInterface, error) {
-	if network.Pod != nil || network.Multus != nil {
+	if network.Pod != nil || network.Cni != nil {
 		return new(PodInterface), nil
 	}
 	return nil, fmt.Errorf("Network not implemented")

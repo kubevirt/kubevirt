@@ -234,8 +234,11 @@ spec:
                     networks:
                       items:
                         properties:
-                          multus:
+                          cni:
                             properties:
+                              genie: {}
+                              kuryr: {}
+                              multus: {}
                               networkName:
                                 type: string
                             required:

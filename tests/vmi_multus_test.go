@@ -68,7 +68,14 @@ var _ = Describe("Multus Networking", func() {
 			// The virtual machine needs to run on the default namespace because the network-attachment-definitions.k8s.cni.cncf.io are there
 			detachedVMI.Namespace = "default"
 			detachedVMI.Spec.Domain.Devices.Interfaces = []v1.Interface{{Name: "ptp", InterfaceBindingMethod: v1.InterfaceBindingMethod{Bridge: &v1.InterfaceBridge{}}}}
-			detachedVMI.Spec.Networks = []v1.Network{{Name: "ptp", NetworkSource: v1.NetworkSource{Multus: &v1.MultusNetwork{NetworkName: "ptp-conf"}}}}
+			detachedVMI.Spec.Networks = []v1.Network{
+				{Name: "ptp", NetworkSource: v1.NetworkSource{
+					Cni: &v1.CniNetwork{
+						Multus:      &v1.MultusNetwork{},
+						NetworkName: "ptp-conf",
+					},
+				}},
+			}
 
 			_, err = virtClient.VirtualMachineInstance("default").Create(detachedVMI)
 			Expect(err).ToNot(HaveOccurred())
@@ -94,8 +101,18 @@ var _ = Describe("Multus Networking", func() {
 			detachedVMI.Namespace = "default"
 			detachedVMI.Spec.Domain.Devices.Interfaces = []v1.Interface{{Name: "default", InterfaceBindingMethod: v1.InterfaceBindingMethod{Bridge: &v1.InterfaceBridge{}}},
 				{Name: "ptp", InterfaceBindingMethod: v1.InterfaceBindingMethod{Bridge: &v1.InterfaceBridge{}}}}
-			detachedVMI.Spec.Networks = []v1.Network{{Name: "default", NetworkSource: v1.NetworkSource{Pod: &v1.PodNetwork{}}},
-				{Name: "ptp", NetworkSource: v1.NetworkSource{Multus: &v1.MultusNetwork{NetworkName: "ptp-conf"}}}}
+			detachedVMI.Spec.Networks = []v1.Network{
+				{Name: "default",
+					NetworkSource: v1.NetworkSource{
+						Pod: &v1.PodNetwork{},
+					}},
+				{Name: "ptp", NetworkSource: v1.NetworkSource{
+					Cni: &v1.CniNetwork{
+						Multus:      &v1.MultusNetwork{},
+						NetworkName: "ptp-conf",
+					},
+				}},
+			}
 
 			_, err = virtClient.VirtualMachineInstance("default").Create(detachedVMI)
 			Expect(err).ToNot(HaveOccurred())

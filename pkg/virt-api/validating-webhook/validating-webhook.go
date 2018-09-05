@@ -608,8 +608,11 @@ func ValidateVirtualMachineInstanceSpec(field *k8sfield.Path, spec *v1.VirtualMa
 	}
 
 	if len(spec.Networks) > 0 && len(spec.Domain.Devices.Interfaces) > 0 {
+		multusExists := false
+		kuryrExists := false
+		genieExists := false
 		for idx, network := range spec.Networks {
-			if network.Pod == nil && network.Multus == nil {
+			if network.Pod == nil && network.Cni == nil {
 				causes = append(causes, metav1.StatusCause{
 					Type:    metav1.CauseTypeFieldValueRequired,
 					Message: fmt.Sprintf("should have a network type"),
@@ -617,7 +620,7 @@ func ValidateVirtualMachineInstanceSpec(field *k8sfield.Path, spec *v1.VirtualMa
 				})
 			}
 
-			if network.Pod != nil && network.Multus != nil {
+			if network.Pod != nil && network.Cni != nil {
 				causes = append(causes, metav1.StatusCause{
 					Type:    metav1.CauseTypeFieldValueRequired,
 					Message: fmt.Sprintf("should have only one network type"),
@@ -625,12 +628,57 @@ func ValidateVirtualMachineInstanceSpec(field *k8sfield.Path, spec *v1.VirtualMa
 				})
 			}
 
-			if network.Multus != nil && network.Multus.NetworkName == "" {
-				causes = append(causes, metav1.StatusCause{
-					Type:    metav1.CauseTypeFieldValueRequired,
-					Message: fmt.Sprintf("multus network must have a networkName"),
-					Field:   field.Child("networks").Index(idx).Child("multus").String(),
-				})
+			if network.Cni != nil {
+				if network.Cni.NetworkName == "" {
+					causes = append(causes, metav1.StatusCause{
+						Type:    metav1.CauseTypeFieldValueRequired,
+						Message: fmt.Sprintf("CNI network must have a networkName"),
+						Field:   field.Child("networks").Index(idx).Child("cni").String(),
+					})
+				}
+
+				if network.Cni.Multus != nil {
+					if kuryrExists || genieExists {
+						causes = append(causes, metav1.StatusCause{
+							Type:    metav1.CauseTypeFieldValueRequired,
+							Message: fmt.Sprintf("all networks must belong to one CNI"),
+							Field:   field.Child("networks").Index(idx).Child("cni").String(),
+						})
+					} else {
+						multusExists = true
+					}
+				}
+
+				if network.Cni.Kuryr != nil {
+					if multusExists || genieExists {
+						causes = append(causes, metav1.StatusCause{
+							Type:    metav1.CauseTypeFieldValueRequired,
+							Message: fmt.Sprintf("all networks must belong to one CNI"),
+							Field:   field.Child("networks").Index(idx).Child("cni").String(),
+						})
+					} else {
+						kuryrExists = true
+					}
+				}
+
+				if network.Cni.Genie != nil {
+					if multusExists || kuryrExists {
+						causes = append(causes, metav1.StatusCause{
+							Type:    metav1.CauseTypeFieldValueRequired,
+							Message: fmt.Sprintf("all networks must belong to one CNI"),
+							Field:   field.Child("networks").Index(idx).Child("cni").String(),
+						})
+					} else {
+						genieExists = true
+					}
+				}
+				if network.Cni.Multus == nil && network.Cni.Kuryr == nil && network.Cni.Genie == nil {
+					causes = append(causes, metav1.StatusCause{
+						Type:    metav1.CauseTypeFieldValueRequired,
+						Message: fmt.Sprintf("one CNI must be specified per network"),
+						Field:   field.Child("networks").Index(idx).Child("cni").String(),
+					})
+				}
 			}
 
 			networkNameMap[spec.Networks[idx].Name] = &spec.Networks[idx]

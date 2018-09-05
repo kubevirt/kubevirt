@@ -581,17 +581,23 @@ func Convert_v1_VirtualMachine_To_api_Domain(vmi *v1.VirtualMachineInstance, dom
 	}
 
 	networks := map[string]*v1.Network{}
-	multusNetworks := map[string]int{}
+	cniNetworks := map[string]int{}
 	for _, network := range vmi.Spec.Networks {
-		if network.Multus == nil && network.Pod == nil {
+		if network.Cni == nil && network.Pod == nil {
 			return fmt.Errorf("fail network %s must have a network type", network.Name)
 		}
-		if network.Multus != nil && network.Pod != nil {
+		if network.Cni != nil && network.Pod != nil {
 			return fmt.Errorf("fail network %s must have only one network type", network.Name)
 		}
 		networks[network.Name] = network.DeepCopy()
-		if network.Multus != nil {
-			multusNetworks[network.Name] = len(multusNetworks) + 1
+		if network.Cni != nil {
+			if network.Cni.Multus != nil || network.Cni.Kuryr != nil {
+				cniNetworks[network.Name] = len(cniNetworks) + 1
+			} else if network.Cni.Genie != nil {
+				cniNetworks[network.Name] = len(cniNetworks)
+			} else {
+				return fmt.Errorf("CNI missing")
+			}
 		}
 	}
 
@@ -629,7 +635,7 @@ func Convert_v1_VirtualMachine_To_api_Domain(vmi *v1.VirtualMachineInstance, dom
 			// TODO:(ihar) consider abstracting interface type conversion /
 			// detection into drivers
 			domainIface.Type = "bridge"
-			if value, ok := multusNetworks[iface.Name]; ok {
+			if value, ok := cniNetworks[iface.Name]; ok {
 				domainIface.Source = InterfaceSource{
 					Bridge: fmt.Sprintf("k6t-net%d", value),
 				}

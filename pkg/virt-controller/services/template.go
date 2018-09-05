@@ -394,9 +394,16 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 		v1.OwnedByAnnotation: "virt-controller",
 	}
 
-	multusNetworks := getMultusInterfaceList(vmi)
-	if len(multusNetworks) > 0 {
-		annotationsList["k8s.v1.cni.cncf.io/networks"] = multusNetworks
+	cniNetworks, cniType := getCniInterfaceList(vmi)
+	if len(cniNetworks) > 0 && cniType != nil {
+		switch cniType.(type) {
+		case v1.MultusNetwork, v1.KuryrNetwork:
+			annotationsList["k8s.v1.cni.cncf.io/networks"] = cniNetworks
+		case v1.GenieNetwork:
+			annotationsList["cni"] = cniNetworks
+		default:
+			return nil, fmt.Errorf("unknown CNI")
+		}
 	}
 
 	// TODO use constants for podLabels
@@ -461,7 +468,9 @@ func getRequiredCapabilities(vmi *v1.VirtualMachineInstance) []k8sv1.Capability 
 
 func getRequiredResources(vmi *v1.VirtualMachineInstance) k8sv1.ResourceList {
 	res := k8sv1.ResourceList{}
-	if (vmi.Spec.Domain.Devices.AutoattachPodInterface == nil) || (*vmi.Spec.Domain.Devices.AutoattachPodInterface == true) {
+	if (len(vmi.Spec.Domain.Devices.Interfaces) > 0) ||
+		(vmi.Spec.Domain.Devices.AutoattachPodInterface == nil) ||
+		(*vmi.Spec.Domain.Devices.AutoattachPodInterface == true) {
 		res[TunDevice] = resource.MustParse("1")
 	}
 	return res
@@ -540,16 +549,28 @@ func getPortsFromVMI(vmi *v1.VirtualMachineInstance) []k8sv1.ContainerPort {
 	return ports
 }
 
-func getMultusInterfaceList(vmi *v1.VirtualMachineInstance) string {
+func getCniInterfaceList(vmi *v1.VirtualMachineInstance) (cniList string, cniType interface{}) {
 	ifaceList := make([]string, 0)
+	cniType = v1.MultusNetwork{}
 
 	for _, network := range vmi.Spec.Networks {
-		if network.Multus != nil {
-			ifaceList = append(ifaceList, network.Multus.NetworkName)
+		if network.Cni != nil {
+			// no error checking for the type, as it is done from the outside
+			if cniType == nil {
+				if network.Cni.Multus != nil {
+					cniType = network.Cni.Multus
+				} else if network.Cni.Kuryr != nil {
+					cniType = network.Cni.Kuryr
+				} else if network.Cni.Genie != nil {
+					cniType = network.Cni.Genie
+				}
+			}
+			ifaceList = append(ifaceList, network.Cni.NetworkName)
 		}
 	}
 
-	return strings.Join(ifaceList, ",")
+	cniList = strings.Join(ifaceList, ",")
+	return
 }
 
 func NewTemplateService(launcherImage string, virtShareDir string, imagePullSecret string, configMapCache cache.Store) TemplateService {

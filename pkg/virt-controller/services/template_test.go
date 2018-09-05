@@ -98,8 +98,22 @@ var _ = Describe("Template", func() {
 					},
 					Spec: v1.VirtualMachineInstanceSpec{
 						Domain: v1.DomainSpec{},
-						Networks: []v1.Network{{Name: "default", NetworkSource: v1.NetworkSource{Multus: &v1.MultusNetwork{NetworkName: "default"}}},
-							{Name: "test1", NetworkSource: v1.NetworkSource{Multus: &v1.MultusNetwork{NetworkName: "test1"}}}},
+						Networks: []v1.Network{
+							{Name: "default",
+								NetworkSource: v1.NetworkSource{
+									Cni: &v1.CniNetwork{
+										Multus:      &v1.MultusNetwork{},
+										NetworkName: "default",
+									},
+								}},
+							{Name: "test1",
+								NetworkSource: v1.NetworkSource{
+									Cni: &v1.CniNetwork{
+										Multus:      &v1.MultusNetwork{},
+										NetworkName: "test1",
+									},
+								}},
+						},
 					},
 				}
 

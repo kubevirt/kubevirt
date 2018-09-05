@@ -386,7 +386,25 @@ func (Rng) SwaggerDoc() map[string]string {
 
 func (MultusNetwork) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"":            "Represents the multus cni network.",
-		"networkName": "References to a NetworkAttachmentDefinition CRD object in the same namespace.",
+		"": "MultusNetwork represent the multus cni network.",
+	}
+}
+
+func (KuryrNetwork) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"": "KuryrNetwork represent the kuryr cni network.",
+	}
+}
+
+func (GenieNetwork) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"": "GenieNetwork represent the genie cni network.",
+	}
+}
+
+func (CniNetwork) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"":            "Represents the cni network.",
+		"networkName": "References to a NetworkAttachmentDefinition CRD object in the same namespace.\nIn case of genie, it references the CNI plugin name.",
 	}
 }
