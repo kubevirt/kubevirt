@@ -608,9 +608,11 @@ func ValidateVirtualMachineInstanceSpec(field *k8sfield.Path, spec *v1.VirtualMa
 	}
 
 	if len(spec.Networks) > 0 && len(spec.Domain.Devices.Interfaces) > 0 {
+		cniTypesCount := 0
 		multusExists := false
 		kuryrExists := false
 		genieExists := false
+		podExists := false
 		for idx, network := range spec.Networks {
 			if network.Pod == nil && network.Cni == nil {
 				causes = append(causes, metav1.StatusCause{
@@ -620,12 +622,22 @@ func ValidateVirtualMachineInstanceSpec(field *k8sfield.Path, spec *v1.VirtualMa
 				})
 			}
 
-			if network.Pod != nil && network.Cni != nil {
-				causes = append(causes, metav1.StatusCause{
-					Type:    metav1.CauseTypeFieldValueRequired,
-					Message: fmt.Sprintf("should have only one network type"),
-					Field:   field.Child("networks").Index(idx).String(),
-				})
+			if network.Pod != nil {
+				podExists = true
+				if network.Cni != nil {
+					causes = append(causes, metav1.StatusCause{
+						Type:    metav1.CauseTypeFieldValueRequired,
+						Message: fmt.Sprintf("should have only one network type"),
+						Field:   field.Child("networks").Index(idx).String(),
+					})
+				}
+				if genieExists {
+					causes = append(causes, metav1.StatusCause{
+						Type:    metav1.CauseTypeFieldValueRequired,
+						Message: fmt.Sprintf("cannot combine pod and Genie CNI networks"),
+						Field:   field.Child("networks").Index(idx).Child("cni").String(),
+					})
+				}
 			}
 
 			if network.Cni != nil {
@@ -637,45 +649,38 @@ func ValidateVirtualMachineInstanceSpec(field *k8sfield.Path, spec *v1.VirtualMa
 					})
 				}
 
-				if network.Cni.Multus != nil {
-					if kuryrExists || genieExists {
-						causes = append(causes, metav1.StatusCause{
-							Type:    metav1.CauseTypeFieldValueRequired,
-							Message: fmt.Sprintf("all networks must belong to one CNI"),
-							Field:   field.Child("networks").Index(idx).Child("cni").String(),
-						})
-					} else {
-						multusExists = true
-					}
+				if network.Cni.Multus != nil && !multusExists {
+					cniTypesCount++
+					multusExists = true
+				}
+				if network.Cni.Kuryr != nil && !kuryrExists {
+					cniTypesCount++
+					kuryrExists = true
+				}
+				if network.Cni.Genie != nil && !genieExists {
+					cniTypesCount++
+					genieExists = true
+				}
+				if cniTypesCount > 1 {
+					causes = append(causes, metav1.StatusCause{
+						Type:    metav1.CauseTypeFieldValueRequired,
+						Message: fmt.Sprintf("all networks must belong to one CNI"),
+						Field:   field.Child("networks").Index(idx).Child("cni").String(),
+					})
 				}
 
-				if network.Cni.Kuryr != nil {
-					if multusExists || genieExists {
-						causes = append(causes, metav1.StatusCause{
-							Type:    metav1.CauseTypeFieldValueRequired,
-							Message: fmt.Sprintf("all networks must belong to one CNI"),
-							Field:   field.Child("networks").Index(idx).Child("cni").String(),
-						})
-					} else {
-						kuryrExists = true
-					}
-				}
-
-				if network.Cni.Genie != nil {
-					if multusExists || kuryrExists {
-						causes = append(causes, metav1.StatusCause{
-							Type:    metav1.CauseTypeFieldValueRequired,
-							Message: fmt.Sprintf("all networks must belong to one CNI"),
-							Field:   field.Child("networks").Index(idx).Child("cni").String(),
-						})
-					} else {
-						genieExists = true
-					}
-				}
 				if network.Cni.Multus == nil && network.Cni.Kuryr == nil && network.Cni.Genie == nil {
 					causes = append(causes, metav1.StatusCause{
 						Type:    metav1.CauseTypeFieldValueRequired,
 						Message: fmt.Sprintf("one CNI must be specified per network"),
+						Field:   field.Child("networks").Index(idx).Child("cni").String(),
+					})
+				}
+
+				if network.Cni.Genie != nil && podExists {
+					causes = append(causes, metav1.StatusCause{
+						Type:    metav1.CauseTypeFieldValueRequired,
+						Message: fmt.Sprintf("cannot combine pod and Genie CNI networks"),
 						Field:   field.Child("networks").Index(idx).Child("cni").String(),
 					})
 				}

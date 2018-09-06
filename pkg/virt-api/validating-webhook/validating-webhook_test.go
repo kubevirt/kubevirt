@@ -866,7 +866,185 @@ var _ = Describe("Validating Webhook", func() {
 			}
 
 			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vm.Spec)
-			Expect(len(causes)).To(Equal(0))
+			Expect(causes).To(BeEmpty())
+		})
+		It("should accept networks with a genie network source and bridge interface", func() {
+			vm := v1.NewMinimalVMI("testvm")
+			vm.Spec.Domain.Devices.Interfaces = []v1.Interface{*v1.DefaultNetworkInterface()}
+			vm.Spec.Networks = []v1.Network{
+				v1.Network{
+					Name: "default",
+					NetworkSource: v1.NetworkSource{
+						Cni: &v1.CniNetwork{
+							Genie:       &v1.GenieNetwork{},
+							NetworkName: "default",
+						},
+					},
+				},
+			}
+
+			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vm.Spec)
+			Expect(causes).To(BeEmpty())
+		})
+		It("should accept networks with a kuryr network source and bridge interface", func() {
+			vm := v1.NewMinimalVMI("testvm")
+			vm.Spec.Domain.Devices.Interfaces = []v1.Interface{*v1.DefaultNetworkInterface()}
+			vm.Spec.Networks = []v1.Network{
+				v1.Network{
+					Name: "default",
+					NetworkSource: v1.NetworkSource{
+						Cni: &v1.CniNetwork{
+							Kuryr:       &v1.KuryrNetwork{},
+							NetworkName: "default",
+						},
+					},
+				},
+			}
+
+			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vm.Spec)
+			Expect(causes).To(BeEmpty())
+		})
+		It("should reject CNI network with no type", func() {
+			vm := v1.NewMinimalVMI("testvm")
+			vm.Spec.Domain.Devices.Interfaces = []v1.Interface{*v1.DefaultNetworkInterface()}
+			vm.Spec.Networks = []v1.Network{
+				v1.Network{
+					Name: "default",
+					NetworkSource: v1.NetworkSource{
+						Cni: &v1.CniNetwork{
+							NetworkName: "default",
+						},
+					},
+				},
+			}
+
+			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vm.Spec)
+			Expect(causes).To(HaveLen(1))
+			Expect(causes[0].Field).To(Equal("fake.networks[0].cni"))
+		})
+		It("should reject when multiple types defined for a CNI network", func() {
+			vm := v1.NewMinimalVMI("testvm")
+			vm.Spec.Domain.Devices.Interfaces = []v1.Interface{*v1.DefaultNetworkInterface()}
+			vm.Spec.Networks = []v1.Network{
+				v1.Network{
+					Name: "default",
+					NetworkSource: v1.NetworkSource{
+						Cni: &v1.CniNetwork{
+							Multus:      &v1.MultusNetwork{},
+							Genie:       &v1.GenieNetwork{},
+							NetworkName: "default",
+						},
+					},
+				},
+			}
+
+			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vm.Spec)
+			Expect(causes).To(HaveLen(1))
+			Expect(causes[0].Field).To(Equal("fake.networks[0].cni"))
+		})
+		It("should allow multiple networks of same CNI type", func() {
+			vm := v1.NewMinimalVMI("testvm")
+			vm.Spec.Domain.Devices.Interfaces = []v1.Interface{
+				*v1.DefaultNetworkInterface(),
+				*v1.DefaultNetworkInterface(),
+				*v1.DefaultNetworkInterface(),
+			}
+			vm.Spec.Domain.Devices.Interfaces[0].Name = "multus1"
+			vm.Spec.Domain.Devices.Interfaces[1].Name = "multus2"
+			// 3rd network is the default pod network, name is "default"
+			vm.Spec.Networks = []v1.Network{
+				v1.Network{
+					Name: "default",
+					NetworkSource: v1.NetworkSource{
+						Pod: &v1.PodNetwork{},
+					},
+				},
+				v1.Network{
+					Name: "multus1",
+					NetworkSource: v1.NetworkSource{
+						Cni: &v1.CniNetwork{
+							Multus:      &v1.MultusNetwork{},
+							NetworkName: "default",
+						},
+					},
+				},
+				v1.Network{
+					Name: "multus2",
+					NetworkSource: v1.NetworkSource{
+						Cni: &v1.CniNetwork{
+							Multus:      &v1.MultusNetwork{},
+							NetworkName: "default",
+						},
+					},
+				},
+			}
+
+			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vm.Spec)
+			Expect(causes).To(BeEmpty())
+		})
+		It("should reject when CNI networks of different types are defined", func() {
+			vm := v1.NewMinimalVMI("testvm")
+			vm.Spec.Domain.Devices.Interfaces = []v1.Interface{
+				*v1.DefaultNetworkInterface(),
+				*v1.DefaultNetworkInterface(),
+			}
+			vm.Spec.Domain.Devices.Interfaces[0].Name = "multus"
+			vm.Spec.Domain.Devices.Interfaces[1].Name = "genie"
+			vm.Spec.Networks = []v1.Network{
+				v1.Network{
+					Name: "multus",
+					NetworkSource: v1.NetworkSource{
+						Cni: &v1.CniNetwork{
+							Multus:      &v1.MultusNetwork{},
+							Genie:       &v1.GenieNetwork{},
+							NetworkName: "default",
+						},
+					},
+				},
+				v1.Network{
+					Name: "genie",
+					NetworkSource: v1.NetworkSource{
+						Cni: &v1.CniNetwork{
+							Genie:       &v1.GenieNetwork{},
+							NetworkName: "default",
+						},
+					},
+				},
+			}
+
+			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vm.Spec)
+			Expect(causes).To(HaveLen(2))
+			Expect(causes[0].Field).To(Equal("fake.networks[0].cni"))
+		})
+		It("should reject pod and Genie CNI networks combination", func() {
+			vm := v1.NewMinimalVMI("testvm")
+			vm.Spec.Domain.Devices.Interfaces = []v1.Interface{
+				*v1.DefaultNetworkInterface(),
+				*v1.DefaultNetworkInterface(),
+			}
+			// 1st network is the default pod network, name is "default"
+			vm.Spec.Domain.Devices.Interfaces[1].Name = "genie"
+			vm.Spec.Networks = []v1.Network{
+				v1.Network{
+					Name: "default",
+					NetworkSource: v1.NetworkSource{
+						Pod: &v1.PodNetwork{},
+					},
+				},
+				v1.Network{
+					Name: "genie",
+					NetworkSource: v1.NetworkSource{
+						Cni: &v1.CniNetwork{
+							Genie:       &v1.GenieNetwork{},
+							NetworkName: "default",
+						},
+					},
+				},
+			}
+
+			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vm.Spec)
+			Expect(causes).To(HaveLen(1))
+			Expect(causes[0].Field).To(Equal("fake.networks[1].cni"))
 		})
 		It("should reject multus network source without networkName", func() {
 			vm := v1.NewMinimalVMI("testvm")
@@ -883,7 +1061,7 @@ var _ = Describe("Validating Webhook", func() {
 			}
 
 			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vm.Spec)
-			Expect(len(causes)).To(Equal(1))
+			Expect(causes).To(HaveLen(1))
 			Expect(causes[0].Field).To(Equal("fake.networks[0].cni"))
 		})
 		It("should reject networks with a multus network source and slirp interface", func() {
