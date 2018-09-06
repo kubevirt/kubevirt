@@ -461,8 +461,6 @@ func Convert_v1_VirtualMachine_To_api_Domain(vmi *v1.VirtualMachineInstance, dom
 		volumes[volume.Name] = volume.DeepCopy()
 	}
 
-	// useIOThreads implies 1 thread
-	// an extra thread will be added for each disk that requests a dedicated one
 	ioThreadCount := 0
 	useIOThreads := false
 	useDedicatedThreads := false
@@ -474,17 +472,15 @@ func Convert_v1_VirtualMachine_To_api_Domain(vmi *v1.VirtualMachineInstance, dom
 		}
 	}
 	for _, diskDevice := range vmi.Spec.Domain.Devices.Disks {
+		dedicatedThread := useDedicatedThreads
 		if diskDevice.DedicatedIOThread != nil {
-			if *diskDevice.DedicatedIOThread == true {
-				useIOThreads = true
-				ioThreadCount += 1
-			}
+			dedicatedThread = *diskDevice.DedicatedIOThread
+		}
+		if dedicatedThread {
+			useIOThreads = true
+			ioThreadCount += 1
 		} else {
-			if useDedicatedThreads {
-				ioThreadCount += 1
-			} else {
-				sharedThread = true
-			}
+			sharedThread = true
 		}
 	}
 	// Only allocate a shared thread if it's actually needed
@@ -521,7 +517,12 @@ func Convert_v1_VirtualMachine_To_api_Domain(vmi *v1.VirtualMachineInstance, dom
 
 		if useIOThreads {
 			ioThreadId := defaultIOThread
-			if (disk.DedicatedIOThread != nil) && (*disk.DedicatedIOThread) {
+			dedicatedThread := useDedicatedThreads
+			if disk.DedicatedIOThread != nil {
+				dedicatedThread = *disk.DedicatedIOThread
+			}
+
+			if dedicatedThread {
 				ioThreadId = currentIOThread
 				currentIOThread += 1
 
