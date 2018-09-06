@@ -872,7 +872,7 @@ var _ = Describe("Converter", func() {
 
 	Context("graphics and video device", func() {
 
-		table.DescribeTable("should check autoattachGraphicsDevicse", func(autoAttach *bool, devices int) {
+		table.DescribeTable("should check autoAttachGraphicsDevices", func(autoAttach *bool, devices int) {
 
 			vmi := v1.VirtualMachineInstance{
 				ObjectMeta: k8smeta.ObjectMeta{
@@ -903,6 +903,113 @@ var _ = Describe("Converter", func() {
 			table.Entry("and add the graphics and video device if it is not set", nil, 1),
 			table.Entry("and add the graphics and video device if it is set to true", True(), 1),
 			table.Entry("and not add the graphics and video device if it is set to false", False(), 0),
+		)
+	})
+
+	Context("IOThreads", func() {
+		_false := false
+		_true := true
+
+		table.DescribeTable("Should use correct IOThreads policies", func(policy string, threadCount int, threadIDs []int) {
+			vmi := v1.VirtualMachineInstance{
+				ObjectMeta: k8smeta.ObjectMeta{
+					Name:      "testvmi",
+					Namespace: "default",
+					UID:       "1234",
+				},
+				Spec: v1.VirtualMachineInstanceSpec{
+					Domain: v1.DomainSpec{
+						IOThreadsPolicy: &policy,
+						Devices: v1.Devices{
+							Disks: []v1.Disk{
+								{
+									Name:       "dedicated",
+									VolumeName: "volume0",
+									DiskDevice: v1.DiskDevice{
+										Disk: &v1.DiskTarget{
+											Bus: "virtio",
+										},
+									},
+									DedicatedIOThread: &_true,
+								},
+								{
+									Name:       "shared",
+									VolumeName: "volume1",
+									DiskDevice: v1.DiskDevice{
+										Disk: &v1.DiskTarget{
+											Bus: "virtio",
+										},
+									},
+									DedicatedIOThread: &_false,
+								},
+								{
+									Name:       "omitted1",
+									VolumeName: "volume2",
+									DiskDevice: v1.DiskDevice{
+										Disk: &v1.DiskTarget{
+											Bus: "virtio",
+										},
+									},
+								},
+								{
+									Name:       "omitted2",
+									VolumeName: "volume3",
+									DiskDevice: v1.DiskDevice{
+										Disk: &v1.DiskTarget{
+											Bus: "virtio",
+										},
+									},
+								},
+							},
+						},
+					},
+					Volumes: []v1.Volume{
+						{
+							Name: "volume0",
+							VolumeSource: v1.VolumeSource{
+								PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{
+									ClaimName: "testclaim",
+								},
+							},
+						},
+						{
+							Name: "volume1",
+							VolumeSource: v1.VolumeSource{
+								PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{
+									ClaimName: "testclaim",
+								},
+							},
+						},
+						{
+							Name: "volume2",
+							VolumeSource: v1.VolumeSource{
+								PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{
+									ClaimName: "testclaim",
+								},
+							},
+						},
+						{
+							Name: "volume3",
+							VolumeSource: v1.VolumeSource{
+								PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{
+									ClaimName: "testclaim",
+								},
+							},
+						},
+					},
+				},
+			}
+
+			domain := vmiToDomain(&vmi, &ConverterContext{UseEmulation: true})
+			Expect(domain.Spec.IOThreads).ToNot(BeNil())
+			Expect(int(domain.Spec.IOThreads.IOThreads)).To(Equal(threadCount))
+			for idx, disk := range domain.Spec.Devices.Disks {
+				Expect(disk.Driver.IOThread).ToNot(BeNil())
+				Expect(int(*disk.Driver.IOThread)).To(Equal(threadIDs[idx]))
+			}
+		},
+			table.Entry("using a shared policy", "shared", 2, []int{2, 1, 1, 1}),
+			table.Entry("using a dedicated policy", "dedicated", 4, []int{2, 1, 3, 4}),
 		)
 	})
 })
