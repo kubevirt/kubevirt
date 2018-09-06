@@ -3389,7 +3389,7 @@
    "v1.Devices": {
     "properties": {
      "autoattachGraphicsDevice": {
-      "description": "Wheater to attach the default graphics device or not.\nVNC will not be available if set to false. Defaults to true.",
+      "description": "Whether to attach the default graphics device or not.\nVNC will not be available if set to false. Defaults to true.",
       "type": "boolean"
      },
      "autoattachPodInterface": {
@@ -3404,7 +3404,7 @@
       }
      },
      "interfaces": {
-      "description": "Interfaces describe network interfaces which are added to the vm.",
+      "description": "Interfaces describe network interfaces which are added to the vmi.",
       "type": "array",
       "items": {
        "$ref": "#/definitions/v1.Interface"
@@ -3434,6 +3434,10 @@
      "cdrom": {
       "description": "Attach a volume as a cdrom to the vmi.",
       "$ref": "#/definitions/v1.CDRomTarget"
+     },
+     "dedicatedIOThread": {
+      "description": "dedicatedIOThread indicates this disk should have an exclusive IO Thread.\nEnabling this implies useIOThreads = true.\nDefaults to false.\n+optional",
+      "type": "boolean"
      },
      "disk": {
       "description": "Attach a volume as a disk to the vmi.",
@@ -3497,6 +3501,10 @@
      "firmware": {
       "description": "Firmware.\n+optional",
       "$ref": "#/definitions/v1.Firmware"
+     },
+     "ioThreadsPolicy": {
+      "description": "Controls whether or not disks will share IOThreads.\nOmitting IOThreadsPolicy disables use of IOThreads.\nOne of: shared, dedicated\n+optional",
+      "type": "string"
      },
      "machine": {
       "description": "Machine type.\n+optional",

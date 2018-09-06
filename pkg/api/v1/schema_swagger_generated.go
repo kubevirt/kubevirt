@@ -37,14 +37,15 @@ func (CloudInitNoCloudSource) SwaggerDoc() map[string]string {
 
 func (DomainSpec) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"resources": "Resources describes the Compute Resources required by this vmi.",
-		"cpu":       "CPU allow specified the detailed CPU topology inside the vmi.\n+optional",
-		"memory":    "Memory allow specifying the VMI memory features.\n+optional",
-		"machine":   "Machine type.\n+optional",
-		"firmware":  "Firmware.\n+optional",
-		"clock":     "Clock sets the clock and timers of the vmi.\n+optional",
-		"features":  "Features like acpi, apic, hyperv.\n+optional",
-		"devices":   "Devices allows adding disks, network interfaces, ...",
+		"resources":       "Resources describes the Compute Resources required by this vmi.",
+		"cpu":             "CPU allow specified the detailed CPU topology inside the vmi.\n+optional",
+		"memory":          "Memory allow specifying the VMI memory features.\n+optional",
+		"machine":         "Machine type.\n+optional",
+		"firmware":        "Firmware.\n+optional",
+		"clock":           "Clock sets the clock and timers of the vmi.\n+optional",
+		"features":        "Features like acpi, apic, hyperv.\n+optional",
+		"devices":         "Devices allows adding disks, network interfaces, ...",
+		"ioThreadsPolicy": "Controls whether or not disks will share IOThreads.\nOmitting IOThreadsPolicy disables use of IOThreads.\nOne of: shared, dedicated\n+optional",
 	}
 }
 
@@ -96,19 +97,20 @@ func (Devices) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"disks":                    "Disks describes disks, cdroms, floppy and luns which are connected to the vmi.",
 		"watchdog":                 "Watchdog describes a watchdog device which can be added to the vmi.",
-		"interfaces":               "Interfaces describe network interfaces which are added to the vm.",
+		"interfaces":               "Interfaces describe network interfaces which are added to the vmi.",
 		"autoattachPodInterface":   "Whether to attach a pod network interface. Defaults to true.",
-		"autoattachGraphicsDevice": "Wheater to attach the default graphics device or not.\nVNC will not be available if set to false. Defaults to true.",
+		"autoattachGraphicsDevice": "Whether to attach the default graphics device or not.\nVNC will not be available if set to false. Defaults to true.",
 		"rng": "Whether to have random number generator from host\n+optional",
 	}
 }
 
 func (Disk) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"name":       "Name is the device name",
-		"volumeName": "Name of the volume which is referenced.\nMust match the Name of a Volume.",
-		"bootOrder":  "BootOrder is an integer value > 0, used to determine ordering of boot devices.\nLower values take precedence.\nEach disk or interface that has a boot order must have a unique value.\nDisks without a boot order are not tried if a disk with a boot order exists.\n+optional",
-		"serial":     "Serial provides the ability to specify a serial number for the disk device.\n+optional",
+		"name":              "Name is the device name",
+		"volumeName":        "Name of the volume which is referenced.\nMust match the Name of a Volume.",
+		"bootOrder":         "BootOrder is an integer value > 0, used to determine ordering of boot devices.\nLower values take precedence.\nEach disk or interface that has a boot order must have a unique value.\nDisks without a boot order are not tried if a disk with a boot order exists.\n+optional",
+		"serial":            "Serial provides the ability to specify a serial number for the disk device.\n+optional",
+		"dedicatedIOThread": "dedicatedIOThread indicates this disk should have an exclusive IO Thread.\nEnabling this implies useIOThreads = true.\nDefaults to false.\n+optional",
 	}
 }
 

@@ -300,6 +300,15 @@ func (in *Disk) DeepCopyInto(out *Disk) {
 			**out = **in
 		}
 	}
+	if in.DedicatedIOThread != nil {
+		in, out := &in.DedicatedIOThread, &out.DedicatedIOThread
+		if *in == nil {
+			*out = nil
+		} else {
+			*out = new(bool)
+			**out = **in
+		}
+	}
 	return
 }
 
@@ -432,6 +441,15 @@ func (in *DomainSpec) DeepCopyInto(out *DomainSpec) {
 		}
 	}
 	in.Devices.DeepCopyInto(&out.Devices)
+	if in.IOThreadsPolicy != nil {
+		in, out := &in.IOThreadsPolicy, &out.IOThreadsPolicy
+		if *in == nil {
+			*out = nil
+		} else {
+			*out = new(string)
+			**out = **in
+		}
+	}
 	return
 }
 
