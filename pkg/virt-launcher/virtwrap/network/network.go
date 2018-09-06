@@ -58,8 +58,6 @@ func SetupNetworkInterfaces(vmi *v1.VirtualMachineInstance, domain *api.Domain) 
 			} else if networks[network.Name].Cni.Genie != nil {
 				// genie pod interfaces start from 0
 				cniNetworks[network.Name] = len(cniNetworks)
-			} else {
-				return fmt.Errorf("CNI missing")
 			}
 		}
 	}
@@ -81,8 +79,6 @@ func SetupNetworkInterfaces(vmi *v1.VirtualMachineInstance, domain *api.Domain) 
 			} else if networks[iface.Name].Cni.Kuryr != nil || networks[iface.Name].Cni.Genie != nil {
 				// kuryr and genie pod interfaces named ethX
 				podInterfaceName = fmt.Sprintf("eth%d", cniNetworks[iface.Name])
-			} else {
-				return fmt.Errorf("CNI missing")
 			}
 		} else {
 			podInterfaceName = podInterface

@@ -55,11 +55,82 @@ var _ = Describe("Network", func() {
 			err := SetupNetworkInterfaces(vm, domain)
 			Expect(err).To(BeNil())
 		})
-
 		It("should accept empty network list", func() {
 			vmi := newVMI("testnamespace", "testVmName")
 			domain := &api.Domain{}
 			err := SetupNetworkInterfaces(vmi, domain)
+			Expect(err).To(BeNil())
+		})
+		It("should configure networking with multus", func() {
+			NetworkInterfaceFactory = func(network *v1.Network) (NetworkInterface, error) {
+				return mockNetworkInterface, nil
+			}
+			const multusInterfaceName = "net1"
+			domain := &api.Domain{}
+			vm := newVMIBridgeInterface("testnamespace", "testVmName")
+			api.SetObjectDefaults_Domain(domain)
+			iface := v1.DefaultNetworkInterface()
+			cniNet := &v1.Network{
+				Name: "default",
+				NetworkSource: v1.NetworkSource{
+					Cni: &v1.CniNetwork{
+						Multus:      &v1.MultusNetwork{},
+						NetworkName: "default",
+					},
+				},
+			}
+			vm.Spec.Networks = []v1.Network{*cniNet}
+
+			mockNetworkInterface.EXPECT().Plug(iface, cniNet, domain, "net1")
+			err := SetupNetworkInterfaces(vm, domain)
+			Expect(err).To(BeNil())
+		})
+		It("should configure networking with genie", func() {
+			NetworkInterfaceFactory = func(network *v1.Network) (NetworkInterface, error) {
+				return mockNetworkInterface, nil
+			}
+			const genieInterfaceName = "eth0"
+			domain := &api.Domain{}
+			vm := newVMIBridgeInterface("testnamespace", "testVmName")
+			api.SetObjectDefaults_Domain(domain)
+			iface := v1.DefaultNetworkInterface()
+			cniNet := &v1.Network{
+				Name: "default",
+				NetworkSource: v1.NetworkSource{
+					Cni: &v1.CniNetwork{
+						Genie:       &v1.GenieNetwork{},
+						NetworkName: "default",
+					},
+				},
+			}
+			vm.Spec.Networks = []v1.Network{*cniNet}
+
+			mockNetworkInterface.EXPECT().Plug(iface, cniNet, domain, genieInterfaceName)
+			err := SetupNetworkInterfaces(vm, domain)
+			Expect(err).To(BeNil())
+		})
+		It("should configure networking with kuryr", func() {
+			NetworkInterfaceFactory = func(network *v1.Network) (NetworkInterface, error) {
+				return mockNetworkInterface, nil
+			}
+			const kuryrInterfaceName = "eth1"
+			domain := &api.Domain{}
+			vm := newVMIBridgeInterface("testnamespace", "testVmName")
+			api.SetObjectDefaults_Domain(domain)
+			iface := v1.DefaultNetworkInterface()
+			cniNet := &v1.Network{
+				Name: "default",
+				NetworkSource: v1.NetworkSource{
+					Cni: &v1.CniNetwork{
+						Kuryr:       &v1.KuryrNetwork{},
+						NetworkName: "default",
+					},
+				},
+			}
+
+			vm.Spec.Networks = []v1.Network{*cniNet}
+			mockNetworkInterface.EXPECT().Plug(iface, cniNet, domain, kuryrInterfaceName)
+			err := SetupNetworkInterfaces(vm, domain)
 			Expect(err).To(BeNil())
 		})
 	})
