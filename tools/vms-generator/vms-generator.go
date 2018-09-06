@@ -46,20 +46,21 @@ import (
 )
 
 const (
-	vmiEphemeral       = "vmi-ephemeral"
-	vmiFlavorSmall     = "vmi-flavor-small"
-	vmiSata            = "vmi-sata"
-	vmiFedora          = "vmi-fedora"
-	vmiNoCloud         = "vmi-nocloud"
-	vmiPVC             = "vmi-pvc"
-	vmiHostDisk        = "vmi-host-disk"
-	vmiWindows         = "vmi-windows"
-	vmiSlirp           = "vmi-slirp"
-	vmiWithHookSidecar = "vmi-with-sidecar-hook"
-	vmTemplateFedora   = "vm-template-fedora"
-	vmTemplateRHEL7    = "vm-template-rhel7"
-	vmTemplateWindows  = "vm-template-windows2012r2"
-	vmiHostDisk        = "vmi-host-disk"
+	vmiEphemeral         = "vmi-ephemeral"
+	vmiFlavorSmall       = "vmi-flavor-small"
+	vmiSata              = "vmi-sata"
+	vmiFedora            = "vmi-fedora"
+	vmiNoCloud           = "vmi-nocloud"
+	vmiPVC               = "vmi-pvc"
+	vmiWindows           = "vmi-windows"
+	vmiSlirp             = "vmi-slirp"
+	vmiWithHookSidecar   = "vmi-with-sidecar-hook"
+	vmiMultusPtp         = "vmi-multus-ptp"
+	vmiMultusMultipleNet = "vmi-multus-multiple-net"
+	vmiHostDisk          = "vmi-host-disk"
+	vmTemplateFedora     = "vm-template-fedora"
+	vmTemplateRHEL7      = "vm-template-rhel7"
+	vmTemplateWindows    = "vm-template-windows2012r2"
 )
 
 const (
@@ -731,17 +732,18 @@ func main() {
 	}
 
 	var vmis = map[string]*v1.VirtualMachineInstance{
-		vmiEphemeral:       getVMIEphemeral(),
-		vmiFlavorSmall:     getVMIFlavorSmall(),
-		vmiSata:            getVMISata(),
-		vmiFedora:          getVMIEphemeralFedora(),
-		vmiNoCloud:         getVMINoCloud(),
-		vmiPVC:             getVMIPvc(),
-		vmiHostDisk:        getVMIHostDisk(),
-		vmiWindows:         getVMIWindows(),
-		vmiSlirp:           getVMISlirp(),
-		vmiWithHookSidecar: getVMIWithHookSidecar(),
-		vmiHostDisk:        getVMIHostDisk(),
+		vmiEphemeral:         getVMIEphemeral(),
+		vmiFlavorSmall:       getVMIFlavorSmall(),
+		vmiSata:              getVMISata(),
+		vmiFedora:            getVMIEphemeralFedora(),
+		vmiNoCloud:           getVMINoCloud(),
+		vmiPVC:               getVMIPvc(),
+		vmiWindows:           getVMIWindows(),
+		vmiSlirp:             getVMISlirp(),
+		vmiWithHookSidecar:   getVMIWithHookSidecar(),
+		vmiMultusPtp:         getVMIMultusPtp(),
+		vmiMultusMultipleNet: getVMIMultusMultipleNet(),
+		vmiHostDisk:          getVMIHostDisk(),
 	}
 
 	var vmireplicasets = map[string]*v1.VirtualMachineInstanceReplicaSet{
