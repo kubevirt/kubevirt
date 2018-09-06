@@ -253,7 +253,7 @@ var _ = Describe("Defaults", func() {
 	It("should omit IOThreads by default", func() {
 		vmi := &VirtualMachineInstance{}
 		SetObjectDefaults_VirtualMachineInstance(vmi)
-		Expect(vmi.Spec.Domain.UseIOThreads).To(BeNil())
+		Expect(vmi.Spec.Domain.IOThreadsPolicy).To(BeNil())
 	})
 })
 

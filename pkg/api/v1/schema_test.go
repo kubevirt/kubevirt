@@ -171,7 +171,7 @@ var exampleJSON = `{
         ],
         "rng": {}
       },
-      "useIOThreads": true
+      "ioThreadsPolicy": "shared"
     },
     "volumes": [
       {
@@ -340,7 +340,8 @@ var _ = Describe("Schema", func() {
 				},
 			},
 		}
-		exampleVMI.Spec.Domain.UseIOThreads = _true
+		policy := "shared"
+		exampleVMI.Spec.Domain.IOThreadsPolicy = &policy
 
 		SetObjectDefaults_VirtualMachineInstance(exampleVMI)
 	})
