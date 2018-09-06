@@ -578,6 +578,76 @@ var _ = Describe("VirtualMachineInstance Initializer", func() {
 		})
 	})
 
+	Context("Sorting by priority", func() {
+		var preset1 v1.VirtualMachineInstancePreset
+		var preset2 v1.VirtualMachineInstancePreset
+		var preset3 v1.VirtualMachineInstancePreset
+
+		m64, _ := resource.ParseQuantity("64M")
+		m128, _ := resource.ParseQuantity("128M")
+
+		BeforeEach(func() {
+			preset1 = v1.VirtualMachineInstancePreset{
+				ObjectMeta: k8smetav1.ObjectMeta{
+					Name:        "memory-64",
+					Annotations: make(map[string]string),
+				},
+				Spec: v1.VirtualMachineInstancePresetSpec{
+					Selector: k8smetav1.LabelSelector{MatchLabels: map[string]string{"kubevirt.io/m64": "memory-64"}},
+					Domain: &v1.DomainPresetSpec{
+						Resources: v1.ResourceRequirements{
+							Requests: k8sv1.ResourceList{"memory": m64},
+						},
+					},
+				},
+			}
+			preset2 = v1.VirtualMachineInstancePreset{
+				ObjectMeta: k8smetav1.ObjectMeta{
+					Name:        "memory-128",
+					Annotations: make(map[string]string),
+				},
+				Spec: v1.VirtualMachineInstancePresetSpec{
+					Selector: k8smetav1.LabelSelector{MatchLabels: map[string]string{"kubevirt.io/m128": "memory-128"}},
+					Domain: &v1.DomainPresetSpec{
+						Resources: v1.ResourceRequirements{
+							Requests: k8sv1.ResourceList{"memory": m128},
+						},
+					},
+				},
+			}
+			preset3 = v1.VirtualMachineInstancePreset{
+				ObjectMeta: k8smetav1.ObjectMeta{
+					Name:        "cpu-4",
+					Annotations: make(map[string]string),
+				},
+				Spec: v1.VirtualMachineInstancePresetSpec{
+					Selector: k8smetav1.LabelSelector{MatchLabels: map[string]string{"kubevirt.io/cpu": "cpu-4"}},
+					Domain: &v1.DomainPresetSpec{
+						CPU: &v1.CPU{Cores: 4},
+					},
+				},
+			}
+		})
+
+		It("should not change the order without annotations", func() {
+			presets := []v1.VirtualMachineInstancePreset{preset1, preset2, preset3}
+			sortPresets(presets)
+			Expect(presets[0].Name).To(Equal("memory-64"))
+			Expect(presets[1].Name).To(Equal("memory-128"))
+			Expect(presets[2].Name).To(Equal("cpu-4"))
+		})
+
+		It("should enforce priorities", func() {
+			presets := []v1.VirtualMachineInstancePreset{preset1, preset2, preset3}
+			preset1.Annotations[priorityMarking] = "1"
+			preset2.Annotations[priorityMarking] = "9"
+			sortPresets(presets)
+			Expect(presets[0].Name).To(Equal("memory-128"))
+			Expect(presets[1].Name).To(Equal("memory-64"))
+			Expect(presets[2].Name).To(Equal("cpu-4"))
+		})
+	})
+
 	Context("Apply Presets", func() {
 		var vmi v1.VirtualMachineInstance
 		var preset v1.VirtualMachineInstancePreset
