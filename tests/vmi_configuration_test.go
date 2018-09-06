@@ -134,9 +134,9 @@ var _ = Describe("Configurations", func() {
 
 		})
 
-		Context("with namespace memory limits", func() {
+		Context("with namespace memory limits above VMI required memory", func() {
 			var vmi *v1.VirtualMachineInstance
-			It("should failed to schedule the pod, copy limits to vm spec", func() {
+			It("should failed to start the VMI", func() {
 				// create a namespace default limit
 				limitRangeObj := kubev1.LimitRange{
 
@@ -163,31 +163,7 @@ var _ = Describe("Configurations", func() {
 					},
 				}
 				vmi, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
-				Expect(err).ToNot(HaveOccurred())
-
-				var vmiCondition v1.VirtualMachineInstanceCondition
-				Eventually(func() bool {
-					vmi, err := virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Get(vmi.Name, &metav1.GetOptions{})
-					Expect(err).ToNot(HaveOccurred())
-
-					if len(vmi.Status.Conditions) > 0 {
-						for _, cond := range vmi.Status.Conditions {
-							if cond.Type == v1.VirtualMachineInstanceSynchronized && cond.Status == kubev1.ConditionFalse {
-								vmiCondition = vmi.Status.Conditions[0]
-								return true
-							}
-						}
-					}
-					return false
-				}, 30*time.Second, time.Second).Should(BeTrue())
-				Expect(vmiCondition.Message).To(ContainSubstring("must be less than or equal to memory limit"))
-				Expect(vmiCondition.Reason).To(Equal("FailedCreate"))
-				vmi, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Get(vmi.Name, &metav1.GetOptions{})
-				Expect(err).ToNot(HaveOccurred())
-				Expect(vmi.Spec.Domain.Resources.Limits.Memory().IsZero()).ShouldNot(BeTrue())
-				err = virtClient.Core().LimitRanges(tests.NamespaceTestDefault).Delete(limitRangeObj.Name, &metav1.DeleteOptions{})
-				Expect(err).ToNot(HaveOccurred())
-
+				Expect(err).To(HaveOccurred())
 			})
 		})
 

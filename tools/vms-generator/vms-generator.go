@@ -40,7 +40,7 @@ import (
 	k8sfield "k8s.io/apimachinery/pkg/util/validation/field"
 
 	"kubevirt.io/kubevirt/pkg/api/v1"
-	"kubevirt.io/kubevirt/pkg/virt-api/validating-webhook"
+	"kubevirt.io/kubevirt/pkg/virt-api/webhooks/validating-webhook"
 
 	cdiv1 "kubevirt.io/containerized-data-importer/pkg/apis/datavolumecontroller/v1alpha1"
 )
@@ -660,7 +660,7 @@ func getVMIPresetSmall() *v1.VirtualMachineInstancePreset {
 		"kubevirt.io/vmPreset": vmiPresetSmall,
 	})
 
-	vmPreset.Spec.Domain = &v1.DomainPresetSpec{
+	vmPreset.Spec.Domain = &v1.DomainSpec{
 		Resources: v1.ResourceRequirements{
 			Requests: k8sv1.ResourceList{
 				k8sv1.ResourceMemory: resource.MustParse("64M"),

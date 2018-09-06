@@ -47,7 +47,6 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
 
 	cdiv1 "kubevirt.io/containerized-data-importer/pkg/apis/datavolumecontroller/v1alpha1"
-	//cdifake "kubevirt.io/containerized-data-importer/pkg/client/clientset/versioned/fake"
 )
 
 var _ = Describe("VirtualMachineInstance watcher", func() {
@@ -98,7 +97,6 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 		vmiInterface.EXPECT().Update(gomock.Any()).Do(func(arg interface{}) {
 			Expect(arg.(*v1.VirtualMachineInstance).Status.Phase).To(Equal(v1.Scheduled))
 			Expect(arg.(*v1.VirtualMachineInstance).Status.Conditions).To(BeEmpty())
-			Expect(arg.(*v1.VirtualMachineInstance).Finalizers).To(ContainElement(v1.VirtualMachineInstanceFinalizer))
 		}).Return(vmi, nil)
 	}
 
@@ -122,7 +120,6 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 		vmiInterface.EXPECT().Update(gomock.Any()).Do(func(arg interface{}) {
 			Expect(arg.(*v1.VirtualMachineInstance).Status.Phase).To(Equal(v1.Scheduling))
 			Expect(arg.(*v1.VirtualMachineInstance).Status.Conditions).To(BeEmpty())
-			Expect(arg.(*v1.VirtualMachineInstance).Finalizers).To(ContainElement(v1.VirtualMachineInstanceFinalizer))
 		}).Return(vmi, nil)
 	}
 
@@ -130,7 +127,6 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 		vmiInterface.EXPECT().Update(gomock.Any()).Do(func(arg interface{}) {
 			Expect(arg.(*v1.VirtualMachineInstance).Status.Phase).To(Equal(v1.Failed))
 			Expect(arg.(*v1.VirtualMachineInstance).Status.Conditions).To(BeEmpty())
-			Expect(arg.(*v1.VirtualMachineInstance).Finalizers).To(ContainElement(v1.VirtualMachineInstanceFinalizer))
 		}).Return(vmi, nil)
 	}
 
@@ -470,7 +466,6 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 					Expect(arg.(*v1.VirtualMachineInstance).Status.Conditions[0].Reason).To(Equal("Unschedulable"))
 					Expect(arg.(*v1.VirtualMachineInstance).Status.Conditions[0].Status).To(Equal(k8sv1.ConditionFalse))
 					Expect(arg.(*v1.VirtualMachineInstance).Status.Conditions[0].Type).To(Equal(v1.VirtualMachineInstanceConditionType(k8sv1.PodScheduled)))
-					Expect(arg.(*v1.VirtualMachineInstance).Finalizers).To(ContainElement(v1.VirtualMachineInstanceFinalizer))
 				}).Return(vmi, nil)
 
 				controller.Execute()
@@ -668,6 +663,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 		table.DescribeTable("should remove the finalizer if no pod is present and the vmi is in ", func(phase v1.VirtualMachineInstancePhase) {
 			vmi := NewPendingVirtualMachine("testvmi")
 			vmi.Status.Phase = phase
+			vmi.Finalizers = append(vmi.Finalizers, v1.VirtualMachineInstanceFinalizer)
 			Expect(vmi.Finalizers).To(ContainElement(v1.VirtualMachineInstanceFinalizer))
 
 			addVirtualMachine(vmi)
@@ -711,7 +707,6 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 		table.DescribeTable("should move the vmi to failed if pod is not handed over", func(phase k8sv1.PodPhase) {
 			vmi := NewPendingVirtualMachine("testvmi")
 			vmi.Status.Phase = v1.Scheduling
-			Expect(vmi.Finalizers).To(ContainElement(v1.VirtualMachineInstanceFinalizer))
 			pod := NewPodForVirtualMachine(vmi, phase)
 
 			addVirtualMachine(vmi)
@@ -731,7 +726,6 @@ func NewPendingVirtualMachine(name string) *v1.VirtualMachineInstance {
 	vmi := v1.NewMinimalVMI(name)
 	vmi.UID = "1234"
 	vmi.Status.Phase = v1.Pending
-	addInitializedAnnotation(vmi)
 	return vmi
 }
 
