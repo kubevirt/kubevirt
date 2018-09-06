@@ -465,17 +465,30 @@ func Convert_v1_VirtualMachine_To_api_Domain(vmi *v1.VirtualMachineInstance, dom
 	// an extra thread will be added for each disk that requests a dedicated one
 	ioThreadCount := 0
 	useIOThreads := false
-	if (vmi.Spec.Domain.UseIOThreads != nil) && (*vmi.Spec.Domain.UseIOThreads == true) {
+	useDedicatedThreads := false
+	sharedThread := false
+	if vmi.Spec.Domain.IOThreadsPolicy != nil {
 		useIOThreads = true
-	}
-	for _, diskDevice := range vmi.Spec.Domain.Devices.Disks {
-		if (diskDevice.DedicatedIOThread != nil) && (*diskDevice.DedicatedIOThread == true) {
-			useIOThreads = true
-			ioThreadCount += 1
+		if *vmi.Spec.Domain.IOThreadsPolicy == "dedicated" {
+			useDedicatedThreads = true
 		}
 	}
-	// If there's only one disk, only one IOThread is needed
-	if (useIOThreads == true) && (len(vmi.Spec.Domain.Devices.Disks) > 1) {
+	for _, diskDevice := range vmi.Spec.Domain.Devices.Disks {
+		if diskDevice.DedicatedIOThread != nil {
+			if *diskDevice.DedicatedIOThread == true {
+				useIOThreads = true
+				ioThreadCount += 1
+			}
+		} else {
+			if useDedicatedThreads {
+				ioThreadCount += 1
+			} else {
+				sharedThread = true
+			}
+		}
+	}
+	// Only allocate a shared thread if it's actually needed
+	if sharedThread {
 		ioThreadCount += 1
 	}
 	if ioThreadCount != 0 {
@@ -486,6 +499,9 @@ func Convert_v1_VirtualMachine_To_api_Domain(vmi *v1.VirtualMachineInstance, dom
 	}
 
 	currentIOThread := defaultIOThread
+	if sharedThread {
+		currentIOThread += 1
+	}
 	devicePerBus := make(map[string]int)
 	for _, disk := range vmi.Spec.Domain.Devices.Disks {
 		newDisk := Disk{}
@@ -506,10 +522,8 @@ func Convert_v1_VirtualMachine_To_api_Domain(vmi *v1.VirtualMachineInstance, dom
 		if useIOThreads {
 			ioThreadId := defaultIOThread
 			if (disk.DedicatedIOThread != nil) && (*disk.DedicatedIOThread) {
-				if len(vmi.Spec.Domain.Devices.Disks) > 1 {
-					currentIOThread += 1
-				}
 				ioThreadId = currentIOThread
+				currentIOThread += 1
 
 				logger := log.DefaultLogger()
 				logger.Infof("Bus for this disk: %s", newDisk.Target.Bus)

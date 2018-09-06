@@ -111,11 +111,11 @@ type DomainSpec struct {
 	Features *Features `json:"features,omitempty"`
 	// Devices allows adding disks, network interfaces, ...
 	Devices Devices `json:"devices"`
-	// Setting UseIOThreads to true will enable IOThreads and
-	// allocate one thread for disk IO. One additional IOThread
-	// will be allocated per disk with dedicatedIOThread enabled.
+	// Controls whether or not disks will share IOThreads.
+	// Omitting IOThreadsPolicy disables use of IOThreads.
+	// One of: shared, dedicated
 	// +optional
-	UseIOThreads *bool `json:"useIOThreads,omitempty"`
+	IOThreadsPolicy *string `json:"ioThreadsPolicy,omitempty"`
 }
 
 // ---
