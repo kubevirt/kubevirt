@@ -104,7 +104,12 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 		kubeClient.Fake.PrependReactor("update", "pods", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
 			update, ok := action.(testing.UpdateAction)
 			Expect(ok).To(BeTrue())
-			Expect(update.GetObject().(*k8sv1.Pod).Annotations[v1.OwnedByAnnotation]).To(Equal("virt-handler"))
+			Expect(update.GetObject().(*k8sv1.Pod).GetOwnerReferences()).To(Equal([]metav1.OwnerReference{{
+				APIVersion: v1.GroupVersion.String(),
+				Kind:       "VirtualMachineInstance",
+				Name:       "testvmi",
+				UID:        "1234",
+			}}))
 			return true, update.GetObject(), nil
 		})
 	}
