@@ -3331,13 +3331,6 @@
    "v1.ConfigMapVolumeSource": {
     "description": "ConfigMapVolumeSource adapts a ConfigMap into a volume.\nMore info: https://kubernetes.io/docs/concepts/storage/volumes/#configmap",
     "properties": {
-     "items": {
-      "description": "If unspecified, each key-value pair in the Data field of the referenced\nConfigMap will be projected into the volume as a file whose name is the\nkey and content is the value. If specified, the listed keys will be\nprojected into the specified paths, and unlisted keys will not be\npresent. If a key is specified which is not present in the ConfigMap,\nthe volume setup will error unless it is marked optional. Paths must be\nrelative and may not contain the '..' path or start with '..'.\n+optional",
-      "type": "array",
-      "items": {
-       "$ref": "#/definitions/v1.KeyToPath"
-      }
-     },
      "name": {
       "description": "Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names",
       "type": "string"
@@ -3813,28 +3806,6 @@
      "present": {
       "description": "Enabled set to false makes sure that the machine type or a preset can't add the timer.\nDefaults to true.\n+optional",
       "type": "boolean"
-     }
-    }
-   },
-   "v1.KeyToPath": {
-    "description": "Maps a string key to a path within a volume.",
-    "required": [
-     "key",
-     "path"
-    ],
-    "properties": {
-     "key": {
-      "description": "The key to project.",
-      "type": "string"
-     },
-     "mode": {
-      "description": "Optional: mode bits to use on this file, must be a value between 0 and 0777. If not specified, the volume defaultMode will be used. This might be in conflict with other options that affect the file mode, like fsGroup, and the result can be other mode bits set.",
-      "type": "integer",
-      "format": "int32"
-     },
-     "path": {
-      "description": "The relative path of the file to map the key to. May not be an absolute path. May not contain the path element '..'. May not start with the string '..'.",
-      "type": "string"
      }
     }
    },
@@ -4389,13 +4360,6 @@
    "v1.SecretVolumeSource": {
     "description": "SecretVolumeSource adapts a Secret into a volume.",
     "properties": {
-     "items": {
-      "description": "If unspecified, each key-value pair in the Data field of the referenced\nSecret will be projected into the volume as a file whose name is the\nkey and content is the value. If specified, the listed keys will be\nprojected into the specified paths, and unlisted keys will not be\npresent. If a key is specified which is not present in the Secret,\nthe volume setup will error unless it is marked optional. Paths must be\nrelative and may not contain the '..' path or start with '..'.\n+optional",
-      "type": "array",
-      "items": {
-       "$ref": "#/definitions/v1.KeyToPath"
-      }
-     },
      "optional": {
       "description": "Specify whether the Secret or it's keys must be defined\n+optional",
       "type": "boolean"

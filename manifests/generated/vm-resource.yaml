@@ -270,9 +270,6 @@ spec:
                                 type: string
                           configMap:
                             properties:
-                              items:
-                                items: {}
-                                type: array
                               name:
                                 type: string
                               optional:
@@ -314,9 +311,6 @@ spec:
                             - image
                           secret:
                             properties:
-                              items:
-                                items: {}
-                                type: array
                               optional:
                                 type: boolean
                               secretName:

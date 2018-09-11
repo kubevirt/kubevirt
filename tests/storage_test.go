@@ -21,7 +21,6 @@ package tests_test
 
 import (
 	"flag"
-	"fmt"
 	"path/filepath"
 	"strings"
 	"time"
@@ -308,7 +307,7 @@ var _ = Describe("Storage", func() {
 				It("Should create a disk image and start", func() {
 					By("Starting VirtualMachineInstance")
 					vmi := tests.NewRandomVMIWithHostDisk(diskPath, v1.HostDiskExistsOrCreate, nodeName)
-					RunVMIAndExpectLaunch(vmi, false, 30)
+					tests.RunVMIAndExpectLaunch(vmi, false, 30)
 
 					By("Checking if disk.img has been created")
 					vmiPod := tests.GetRunningPodByVirtualMachineInstance(vmi, tests.NamespaceTestDefault)
@@ -360,7 +359,7 @@ var _ = Describe("Storage", func() {
 				It("Should use existing disk image and start", func() {
 					By("Starting VirtualMachineInstance")
 					vmi := tests.NewRandomVMIWithHostDisk(diskPath, v1.HostDiskExists, nodeName)
-					RunVMIAndExpectLaunch(vmi, false, 30)
+					tests.RunVMIAndExpectLaunch(vmi, false, 30)
 
 					By("Checking if disk.img exists")
 					vmiPod := tests.GetRunningPodByVirtualMachineInstance(vmi, tests.NamespaceTestDefault)
@@ -406,7 +405,7 @@ var _ = Describe("Storage", func() {
 				for _, pvc := range pvcs {
 					By("starting VirtualMachineInstance")
 					vmi := tests.NewRandomVMIWithPVC("disk-" + pvc)
-					RunVMIAndExpectLaunch(vmi, false, 90)
+					tests.RunVMIAndExpectLaunch(vmi, false, 90)
 
 					By("Checking if disk.img exists")
 					vmiPod := tests.GetRunningPodByVirtualMachineInstance(vmi, tests.NamespaceTestDefault)

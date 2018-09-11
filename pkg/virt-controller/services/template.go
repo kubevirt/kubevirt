@@ -201,7 +201,6 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 				VolumeSource: k8sv1.VolumeSource{
 					ConfigMap: &k8sv1.ConfigMapVolumeSource{
 						LocalObjectReference: volume.ConfigMap.LocalObjectReference,
-						Items:                volume.ConfigMap.Items,
 						Optional:             volume.ConfigMap.Optional,
 					},
 				},
@@ -220,7 +219,6 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 				VolumeSource: k8sv1.VolumeSource{
 					Secret: &k8sv1.SecretVolumeSource{
 						SecretName: volume.Secret.SecretName,
-						Items:      volume.Secret.Items,
 						Optional:   volume.Secret.Optional,
 					},
 				},

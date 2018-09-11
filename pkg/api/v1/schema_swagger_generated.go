@@ -11,6 +11,21 @@ func (HostDisk) SwaggerDoc() map[string]string {
 	}
 }
 
+func (ConfigMapVolumeSource) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"":         "ConfigMapVolumeSource adapts a ConfigMap into a volume.\nMore info: https://kubernetes.io/docs/concepts/storage/volumes/#configmap",
+		"optional": "Specify whether the ConfigMap or it's keys must be defined\n+optional",
+	}
+}
+
+func (SecretVolumeSource) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"":           "SecretVolumeSource adapts a Secret into a volume.",
+		"secretName": "Name of the secret in the pod's namespace to use.\nMore info: https://kubernetes.io/docs/concepts/storage/volumes#secret\n+optional",
+		"optional":   "Specify whether the Secret or it's keys must be defined\n+optional",
+	}
+}
+
 func (CloudInitNoCloudSource) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"":               "Represents a cloud-init nocloud user data source.\nMore info: http://cloudinit.readthedocs.io/en/latest/topics/datasources/nocloud.html",
