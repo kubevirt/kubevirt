@@ -257,6 +257,9 @@ func validateVolumes(field *k8sfield.Path, volumes []v1.Volume) []metav1.StatusC
 		if volume.ConfigMap != nil {
 			volumeSourceSetCount++
 		}
+		if volume.Secret != nil {
+			volumeSourceSetCount++
+		}
 
 		if volumeSourceSetCount != 1 {
 			causes = append(causes, metav1.StatusCause{
@@ -338,6 +341,10 @@ func validateVolumes(field *k8sfield.Path, volumes []v1.Volume) []metav1.StatusC
 		}
 
 		if volume.ConfigMap != nil {
+			// TODO: add validation
+		}
+
+		if volume.Secret != nil {
 			// TODO: add validation
 		}
 	}

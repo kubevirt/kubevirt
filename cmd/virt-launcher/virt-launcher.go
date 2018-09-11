@@ -198,7 +198,7 @@ func initializeDirs(virtShareDir string,
 		panic(err)
 	}
 
-	err = virtlauncher.InitializeDisksDirectories(filepath.Join("/var/run/kubevirt-private", "secrets-disks"))
+	err = virtlauncher.InitializeDisksDirectories(filepath.Join("/var/run/kubevirt-private", "secret-disks"))
 	if err != nil {
 		panic(err)
 	}

@@ -304,11 +304,6 @@ type VolumeSource struct {
 	// HostDisk represents a disk created on the cluster level
 	// +optional
 	HostDisk *HostDisk `json:"hostDisk,omitempty"`
-	// ConfigMap represents a reference to a ConfigMap in the same namespace.
-	// Directly attached to the vmi via qemu.
-	// More info: https://kubernetes.io/docs/tasks/configure-pod-container/configure-pod-configmap/
-	// +optional
-	ConfigMap *ConfigMapSource `json:"configMap,omitempty"`
 	// PersistentVolumeClaimVolumeSource represents a reference to a PersistentVolumeClaim in the same namespace.
 	// Directly attached to the vmi via qemu.
 	// More info: https://kubernetes.io/docs/concepts/storage/persistent-volumes#persistentvolumeclaims
@@ -334,6 +329,14 @@ type VolumeSource struct {
 	// the process of populating that PVC with a disk image.
 	// +optional
 	DataVolume *DataVolumeSource `json:"dataVolume,omitempty"`
+	// ConfigMap represents a reference to a ConfigMap in the same namespace.
+	// More info: https://kubernetes.io/docs/tasks/configure-pod-container/configure-pod-configmap/
+	// +optional
+	ConfigMap *ConfigMapSource `json:"configMap,omitempty"`
+	// Secret represents a reference to a secrets data in the same namespace.
+	// More info: https://kubernetes.io/docs/concepts/configuration/secret/
+	// +optional
+	Secret *v1.SecretVolumeSource `json:"secret,omitempty"`
 }
 
 // ---

@@ -164,7 +164,9 @@ func Convert_v1_Volume_To_api_Disk(source *v1.Volume, disk *Disk, c *ConverterCo
 	if source.ConfigMap != nil {
 		return Convert_v1_Config_To_api_Disk(source.Name, disk, config.ConfigMap)
 	}
-	// add secret here
+	if source.Secret != nil {
+		return Convert_v1_Config_To_api_Disk(source.Name, disk, config.Secret)
+	}
 
 	return fmt.Errorf("disk %s references an unsupported source", disk.Alias.Name)
 }
