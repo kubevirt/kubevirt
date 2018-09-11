@@ -269,6 +269,7 @@ func (app *virtAPIApp) composeSubresources(ctx context.Context) {
 			list.Kind = "APIResourceList"
 			list.GroupVersion = v1.SubresourceGroupVersion.Group + "/" + v1.SubresourceGroupVersion.Version
 			list.APIVersion = v1.SubresourceGroupVersion.Version
+			list.APIResources = []metav1.APIResource{}
 
 			response.WriteAsJson(list)
 		}).
