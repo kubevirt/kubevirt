@@ -116,6 +116,7 @@ func (dpi *GenericDevicePlugin) Start(stop chan struct{}) error {
 		return fmt.Errorf("gRPC server already started")
 	}
 
+	logger := log.DefaultLogger()
 	dpi.stop = stop
 
 	err := dpi.cleanup()
@@ -125,19 +126,30 @@ func (dpi *GenericDevicePlugin) Start(stop chan struct{}) error {
 
 	sock, err := net.Listen("unix", dpi.socketPath)
 	if err != nil {
+		logger.Errorf("[%s] Error creating GRPC server socket: %v", dpi.deviceName, err)
 		return err
 	}
 
 	dpi.server = grpc.NewServer([]grpc.ServerOption{}...)
 	pluginapi.RegisterDevicePluginServer(dpi.server, dpi)
 
-	dpi.Register()
+	err = dpi.Register()
+	if err != nil {
+		logger.Errorf("[%s] Error registering with device plugin manager: %v", dpi.deviceName, err)
+		return err
+	}
 
 	go dpi.server.Serve(sock)
 
 	err = waitForGrpcServer(dpi.socketPath, connectionTimeout)
+	if err != nil {
+		// this err is returned at the end of the Start function
+		logger.Errorf("[%s] Error connecting to GRPC server: %v", dpi.deviceName, err)
+	}
 
 	go dpi.healthCheck()
+
+	logger.V(3).Infof("[%s] Device plugin server ready", dpi.deviceName)
 
 	return err
 }
