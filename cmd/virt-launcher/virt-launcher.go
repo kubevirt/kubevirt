@@ -390,14 +390,24 @@ func ForkAndMonitor(qemuProcessCommandPrefix string) error {
 		return err
 	}
 
-	sigs := make(chan os.Signal, 1)
-	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT)
+	sigs := make(chan os.Signal, 10)
+	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT, syscall.SIGCHLD)
 	go func() {
 		for sig := range sigs {
-			log.Log.V(3).Log("signalling virt-launcher to shut down")
-			err := cmd.Process.Signal(syscall.SIGTERM)
-			if err != nil {
-				log.Log.Reason(err).Errorf("received signal %s but can't signal virt-launcher to shut down", sig.String())
+			switch sig {
+			case syscall.SIGCHLD:
+				var wstatus syscall.WaitStatus
+				wpid, err := syscall.Wait4(-1, &wstatus, syscall.WNOHANG, nil)
+				if err != nil {
+					log.Log.Reason(err).Errorf("Failed to reap process %d", wpid)
+				}
+			default:
+				log.Log.V(3).Log("signalling virt-launcher to shut down")
+				err := cmd.Process.Signal(syscall.SIGTERM)
+				sig.Signal()
+				if err != nil {
+					log.Log.Reason(err).Errorf("received signal %s but can't signal virt-launcher to shut down", sig.String())
+				}
 			}
 		}
 	}()
