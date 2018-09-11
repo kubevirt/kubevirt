@@ -46,6 +46,10 @@ type HostDisk struct {
 	Capacity resource.Quantity `json:"capacity,omitempty"`
 }
 
+type ConfigMapSource struct {
+	ConfigMapName string `json:"configMapName"`
+}
+
 // Represents a cloud-init nocloud user data source.
 // More info: http://cloudinit.readthedocs.io/en/latest/topics/datasources/nocloud.html
 // ---
@@ -300,6 +304,11 @@ type VolumeSource struct {
 	// HostDisk represents a disk created on the cluster level
 	// +optional
 	HostDisk *HostDisk `json:"hostDisk,omitempty"`
+	// ConfigMap represents a reference to a ConfigMap in the same namespace.
+	// Directly attached to the vmi via qemu.
+	// More info: https://kubernetes.io/docs/tasks/configure-pod-container/configure-pod-configmap/
+	// +optional
+	ConfigMap *ConfigMapSource `json:"configMap,omitempty"`
 	// PersistentVolumeClaimVolumeSource represents a reference to a PersistentVolumeClaim in the same namespace.
 	// Directly attached to the vmi via qemu.
 	// More info: https://kubernetes.io/docs/concepts/storage/persistent-volumes#persistentvolumeclaims

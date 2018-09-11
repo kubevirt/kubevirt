@@ -32,6 +32,7 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/hooks"
+	"kubevirt.io/kubevirt/pkg/log"
 	"kubevirt.io/kubevirt/pkg/precond"
 	"kubevirt.io/kubevirt/pkg/registry-disk"
 	"kubevirt.io/kubevirt/pkg/util/net/dns"
@@ -184,6 +185,24 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 				VolumeSource: k8sv1.VolumeSource{
 					PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{
 						ClaimName: volume.DataVolume.Name,
+					},
+				},
+			})
+		}
+		if volume.ConfigMap != nil {
+			// attach a config map to the pod
+			volumesMounts = append(volumesMounts, k8sv1.VolumeMount{
+				Name:      volume.Name,
+				MountPath: filepath.Join("/var/run/kubevirt-private/configmap", volume.Name),
+				ReadOnly:  true,
+			})
+			volumes = append(volumes, k8sv1.Volume{
+				Name: volume.Name,
+				VolumeSource: k8sv1.VolumeSource{
+					ConfigMap: &k8sv1.ConfigMapVolumeSource{
+						LocalObjectReference: k8sv1.LocalObjectReference{
+							Name: volume.ConfigMap.ConfigMapName,
+						},
 					},
 				},
 			})
