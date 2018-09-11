@@ -195,6 +195,7 @@ var _ = Describe("Template", func() {
 					}
 				}
 				Expect(found).To(BeTrue(), "Expected compute container to be granted SYS_NICE capability")
+				Expect(pod.Spec.NodeSelector).Should(HaveKeyWithValue(v1.CPUManager, "true"))
 			})
 			It("should add node affinity to pod", func() {
 				nodeAffinity := kubev1.NodeAffinity{}

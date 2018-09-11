@@ -101,6 +101,7 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 	precond.MustNotBeNil(vmi)
 	domain := precond.MustNotBeEmpty(vmi.GetObjectMeta().GetName())
 	namespace := precond.MustNotBeEmpty(vmi.GetObjectMeta().GetNamespace())
+	nodeSelector := map[string]string{}
 
 	initialDelaySeconds := 2
 	timeoutSeconds := 5
@@ -328,10 +329,7 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 	// Handle CPU pinning
 	if vmi.IsCPUDedicated() {
 		// schedule only on nodes with a running cpu manager
-		if vmi.Spec.NodeSelector == nil {
-			vmi.Spec.NodeSelector = make(map[string]string)
-		}
-		vmi.Spec.NodeSelector[v1.CPUManager] = "true"
+		nodeSelector[v1.CPUManager] = "true"
 
 		if resources.Limits == nil {
 			resources.Limits = make(k8sv1.ResourceList)
@@ -440,7 +438,6 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 		},
 	})
 
-	nodeSelector := map[string]string{}
 	for k, v := range vmi.Spec.NodeSelector {
 		nodeSelector[k] = v
 
