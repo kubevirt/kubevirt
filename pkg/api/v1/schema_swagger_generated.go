@@ -2,6 +2,15 @@
 
 package v1
 
+func (HostDisk) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"":         "Represents a disk created on the cluster level",
+		"path":     "The path to HostDisk image located on the cluster",
+		"type":     "Contains information if disk.img exists or should be created\nallowed options are 'Disk' and 'DiskOrCreate'",
+		"capacity": "Capacity of the sparse disk\n+optional",
+	}
+}
+
 func (CloudInitNoCloudSource) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"":               "Represents a cloud-init nocloud user data source.\nMore info: http://cloudinit.readthedocs.io/en/latest/topics/datasources/nocloud.html",
@@ -135,7 +144,8 @@ func (Volume) SwaggerDoc() map[string]string {
 
 func (VolumeSource) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"": "Represents the source of a volume to mount.\nOnly one of its members may be specified.",
+		"":                      "Represents the source of a volume to mount.\nOnly one of its members may be specified.",
+		"hostDisk":              "HostDisk represents a disk created on the cluster level\n+optional",
 		"persistentVolumeClaim": "PersistentVolumeClaimVolumeSource represents a reference to a PersistentVolumeClaim in the same namespace.\nDirectly attached to the vmi via qemu.\nMore info: https://kubernetes.io/docs/concepts/storage/persistent-volumes#persistentvolumeclaims\n+optional",
 		"cloudInitNoCloud":      "CloudInitNoCloud represents a cloud-init NoCloud user-data source.\nThe NoCloud data will be added as a disk to the vmi. A proper cloud-init installation is required inside the guest.\nMore info: http://cloudinit.readthedocs.io/en/latest/topics/datasources/nocloud.html\n+optional",
 		"registryDisk":          "RegistryDisk references a docker image, embedding a qcow or raw disk.\nMore info: https://kubevirt.gitbooks.io/user-guide/registry-disk.html\n+optional",

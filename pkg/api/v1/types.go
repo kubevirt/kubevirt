@@ -780,3 +780,15 @@ const (
 	// etc. or deleted due to kubelet being down or finalizers are failing.
 	VirtualMachineFailure VirtualMachineConditionType = "Failure"
 )
+
+// ---
+// +k8s:openapi-gen=true
+type HostDiskType string
+
+const (
+	// if disk does not exist at the given path,
+	// a disk image will be created there
+	HostDiskExistsOrCreate HostDiskType = "DiskOrCreate"
+	// a disk image must exist at given disk path
+	HostDiskExists HostDiskType = "Disk"
+)

@@ -3667,6 +3667,27 @@
      }
     }
    },
+   "v1.HostDisk": {
+    "description": "Represents a disk created on the cluster level",
+    "required": [
+     "path",
+     "type"
+    ],
+    "properties": {
+     "capacity": {
+      "description": "Capacity of the sparse disk\n+optional",
+      "type": "string"
+     },
+     "path": {
+      "description": "The path to HostDisk image located on the cluster",
+      "type": "string"
+     },
+     "type": {
+      "description": "Contains information if disk.img exists or should be created\nallowed options are 'Disk' and 'DiskOrCreate'",
+      "type": "string"
+     }
+    }
+   },
    "v1.Hugepages": {
     "description": "Hugepages allow to use hugepages for the VirtualMachineInstance instead of regular memory.",
     "properties": {
@@ -4980,6 +5001,10 @@
      "ephemeral": {
       "description": "Ephemeral is a special volume source that \"wraps\" specified source and provides copy-on-write image on top of it.\n+optional",
       "$ref": "#/definitions/v1.EphemeralVolumeSource"
+     },
+     "hostDisk": {
+      "description": "HostDisk represents a disk created on the cluster level\n+optional",
+      "$ref": "#/definitions/v1.HostDisk"
      },
      "name": {
       "description": "Volume's name.\nMust be a DNS_LABEL and unique within the vmi.\nMore info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names",

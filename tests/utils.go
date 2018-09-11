@@ -30,6 +30,7 @@ import (
 	golog "log"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"reflect"
 	"regexp"
 	"strconv"
@@ -140,8 +141,9 @@ const (
 )
 
 const (
-	HostPathAlpine = "/tmp/hostImages/alpine"
-	HostPathCustom = "/tmp/hostImages/custom"
+	HostPathBase   = "/tmp/hostImages/"
+	HostPathAlpine = HostPathBase + "alpine"
+	HostPathCustom = HostPathBase + "custom"
 )
 
 const (
@@ -422,19 +424,21 @@ func newPVC(os string, size string) *k8sv1.PersistentVolumeClaim {
 	}
 }
 
-func CreateHostPathPv(os string, hostPath string) {
+func CreateHostPathPv(osName string, hostPath string) {
 	virtCli, err := kubecli.GetKubevirtClient()
 	PanicOnError(err)
 
 	quantity, err := resource.ParseQuantity("1Gi")
 	PanicOnError(err)
 
-	name := fmt.Sprintf("%s-disk-for-tests", os)
+	hostPathType := k8sv1.HostPathDirectoryOrCreate
+
+	name := fmt.Sprintf("%s-disk-for-tests", osName)
 	pv := &k8sv1.PersistentVolume{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: name,
 			Labels: map[string]string{
-				"kubevirt.io/test": os,
+				"kubevirt.io/test": osName,
 			},
 		},
 		Spec: k8sv1.PersistentVolumeSpec{
@@ -444,8 +448,9 @@ func CreateHostPathPv(os string, hostPath string) {
 			},
 			PersistentVolumeReclaimPolicy: k8sv1.PersistentVolumeReclaimRetain,
 			PersistentVolumeSource: k8sv1.PersistentVolumeSource{
-				Local: &k8sv1.LocalVolumeSource{
+				HostPath: &k8sv1.HostPathVolumeSource{
 					Path: hostPath,
+					Type: &hostPathType,
 				},
 			},
 			StorageClassName: LocalStorageClass,
@@ -1078,6 +1083,54 @@ func NewRandomVMIWithEphemeralPVC(claimName string) *v1.VirtualMachineInstance {
 	return vmi
 }
 
+func NewRandomVMIWithHostDisk(diskPath string, diskType v1.HostDiskType, nodeName string) *v1.VirtualMachineInstance {
+	vmi := NewRandomVMI()
+
+	vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
+		Name:       "host-disk",
+		VolumeName: "host-disk",
+		DiskDevice: v1.DiskDevice{
+			Disk: &v1.DiskTarget{
+				Bus: "virtio",
+			},
+		},
+	})
+	vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
+		Name: "host-disk",
+		VolumeSource: v1.VolumeSource{
+			HostDisk: &v1.HostDisk{
+				Path: diskPath,
+				Type: diskType,
+			},
+		},
+	})
+	if nodeName != "" {
+		vmi.Spec.Affinity = &k8sv1.Affinity{
+			NodeAffinity: &k8sv1.NodeAffinity{
+				RequiredDuringSchedulingIgnoredDuringExecution: &k8sv1.NodeSelector{
+					NodeSelectorTerms: []k8sv1.NodeSelectorTerm{
+						{
+							MatchExpressions: []k8sv1.NodeSelectorRequirement{
+								{
+									Key:      "kubernetes.io/hostname",
+									Operator: k8sv1.NodeSelectorOpIn,
+									Values:   []string{nodeName},
+								},
+							},
+						},
+					},
+				},
+			},
+		}
+	}
+
+	if diskType == v1.HostDiskExistsOrCreate {
+		vmi.Spec.Volumes[0].HostDisk.Capacity = resource.MustParse(defaultDiskSize)
+	}
+
+	return vmi
+}
+
 func NewRandomVMIWithWatchdog() *v1.VirtualMachineInstance {
 	vmi := NewRandomVMIWithEphemeralDisk(RegistryDiskFor(RegistryDiskAlpine))
 
@@ -1637,6 +1690,78 @@ func UnfinishedVMIPodSelector(vmi *v1.VirtualMachineInstance) metav1.ListOptions
 		panic(err)
 	}
 	return metav1.ListOptions{FieldSelector: fieldSelector.String(), LabelSelector: labelSelector.String()}
+}
+
+func RemoveHostDiskImage(diskPath string, nodeName string) {
+	virtClient, err := kubecli.GetKubevirtClient()
+	PanicOnError(err)
+
+	job := newDeleteHostDisksJob(diskPath)
+	// remove a disk image from a specific node
+	job.Spec.Affinity = &k8sv1.Affinity{
+		NodeAffinity: &k8sv1.NodeAffinity{
+			RequiredDuringSchedulingIgnoredDuringExecution: &k8sv1.NodeSelector{
+				NodeSelectorTerms: []k8sv1.NodeSelectorTerm{
+					{
+						MatchExpressions: []k8sv1.NodeSelectorRequirement{
+							{
+								Key:      "kubernetes.io/hostname",
+								Operator: k8sv1.NodeSelectorOpIn,
+								Values:   []string{nodeName},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+	job, err = virtClient.CoreV1().Pods(NamespaceTestDefault).Create(job)
+	PanicOnError(err)
+
+	getStatus := func() k8sv1.PodPhase {
+		pod, err := virtClient.CoreV1().Pods(NamespaceTestDefault).Get(job.Name, metav1.GetOptions{})
+		Expect(err).ToNot(HaveOccurred())
+		return pod.Status.Phase
+	}
+	Eventually(getStatus, 30, 1).Should(Equal(k8sv1.PodSucceeded))
+}
+
+func CreateHostDiskImage(diskPath string) *k8sv1.Pod {
+	hostPathType := k8sv1.HostPathDirectoryOrCreate
+	dir := filepath.Dir(diskPath)
+
+	args := []string{fmt.Sprintf(`dd if=/dev/zero of=%s bs=1 count=0 seek=1G && ls -l %s`, diskPath, dir)}
+	job := renderHostPathJob("hostdisk-create-job", dir, hostPathType, []string{"/bin/bash", "-c"}, args)
+
+	return job
+}
+
+func newDeleteHostDisksJob(diskPath string) *k8sv1.Pod {
+	hostPathType := k8sv1.HostPathDirectoryOrCreate
+
+	args := []string{fmt.Sprintf(`rm -f %s`, diskPath)}
+	job := renderHostPathJob("hostdisk-delete-job", filepath.Dir(diskPath), hostPathType, []string{"/bin/bash", "-c"}, args)
+
+	return job
+}
+
+func renderHostPathJob(jobName string, dir string, hostPathType k8sv1.HostPathType, cmd []string, args []string) *k8sv1.Pod {
+	job := RenderJob(jobName, cmd, args)
+	job.Spec.Containers[0].VolumeMounts = append(job.Spec.Containers[0].VolumeMounts, k8sv1.VolumeMount{
+		Name:      "hostpath-mount",
+		MountPath: dir,
+	})
+	job.Spec.Volumes = append(job.Spec.Volumes, k8sv1.Volume{
+		Name: "hostpath-mount",
+		VolumeSource: k8sv1.VolumeSource{
+			HostPath: &k8sv1.HostPathVolumeSource{
+				Path: dir,
+				Type: &hostPathType,
+			},
+		},
+	})
+
+	return job
 }
 
 // NewHelloWorldJob takes a DNS entry or an IP and a port which it will use create a pod

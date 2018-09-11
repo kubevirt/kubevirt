@@ -272,6 +272,16 @@ spec:
                   ephemeral:
                     properties:
                       persistentVolumeClaim: {}
+                  hostDisk:
+                    properties:
+                      capacity: {}
+                      path:
+                        type: string
+                      type:
+                        type: string
+                    required:
+                    - path
+                    - type
                   name:
                     type: string
                   persistentVolumeClaim: {}
