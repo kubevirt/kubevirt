@@ -1231,7 +1231,6 @@ func AddConfigMapDisk(vmi *v1.VirtualMachineInstance, configMapName string) {
 func NewRandomVMIWithSecret(secretName string) *v1.VirtualMachineInstance {
 	vmi := NewRandomVMIWithPVC(DiskAlpineHostPath)
 	AddSecretDisk(vmi, secretName)
-
 	return vmi
 }
 

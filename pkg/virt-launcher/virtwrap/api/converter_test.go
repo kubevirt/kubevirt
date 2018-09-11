@@ -419,13 +419,13 @@ var _ = Describe("Converter", func() {
       <source file="/var/run/kubevirt-private/secret-disks/volume6.iso"></source>
       <target bus="sata" dev="sde"></target>
       <driver name="qemu" type="raw"></driver>
-      <alias name="secret_test"></alias>
+      <alias name="ua-secret_test"></alias>
     </disk>
     <disk device="disk" type="file">
       <source file="/var/run/kubevirt-private/config-map-disks/volume7.iso"></source>
       <target bus="sata" dev="sdf"></target>
       <driver name="qemu" type="raw"></driver>
-      <alias name="configmap_test"></alias>
+      <alias name="ua-configmap_test"></alias>
     </disk>
     <serial type="unix">
       <target port="0"></target>

@@ -3328,6 +3328,18 @@
      }
     }
    },
+   "v1.ConfigMapSource": {
+    "description": "ConfigMapSource represents a reference to a ConfigMap in the same namespace.\nMore info: https://kubernetes.io/docs/tasks/configure-pod-container/configure-pod-configmap/",
+    "required": [
+     "configMapName"
+    ],
+    "properties": {
+     "configMapName": {
+      "description": "ConfigMapName is the name of a ConfigMap in the same namespace.",
+      "type": "string"
+     }
+    }
+   },
    "v1.DataVolumeSource": {
     "required": [
      "name"
@@ -3793,6 +3805,28 @@
      "present": {
       "description": "Enabled set to false makes sure that the machine type or a preset can't add the timer.\nDefaults to true.\n+optional",
       "type": "boolean"
+     }
+    }
+   },
+   "v1.KeyToPath": {
+    "description": "Maps a string key to a path within a volume.",
+    "required": [
+     "key",
+     "path"
+    ],
+    "properties": {
+     "key": {
+      "description": "The key to project.",
+      "type": "string"
+     },
+     "mode": {
+      "description": "Optional: mode bits to use on this file, must be a value between 0 and 0777. If not specified, the volume defaultMode will be used. This might be in conflict with other options that affect the file mode, like fsGroup, and the result can be other mode bits set.",
+      "type": "integer",
+      "format": "int32"
+     },
+     "path": {
+      "description": "The relative path of the file to map the key to. May not be an absolute path. May not contain the path element '..'. May not start with the string '..'.",
+      "type": "string"
      }
     }
    },
@@ -4343,6 +4377,31 @@
    },
    "v1.Rng": {
     "description": "Rng represents the random device passed from host"
+   },
+   "v1.SecretVolumeSource": {
+    "description": "Adapts a Secret into a volume.\n\nThe contents of the target Secret's Data field will be presented in a volume as files using the keys in the Data field as the file names. Secret volumes support ownership management and SELinux relabeling.",
+    "properties": {
+     "defaultMode": {
+      "description": "Optional: mode bits to use on created files by default. Must be a value between 0 and 0777. Defaults to 0644. Directories within the path are not affected by this setting. This might be in conflict with other options that affect the file mode, like fsGroup, and the result can be other mode bits set.",
+      "type": "integer",
+      "format": "int32"
+     },
+     "items": {
+      "description": "If unspecified, each key-value pair in the Data field of the referenced Secret will be projected into the volume as a file whose name is the key and content is the value. If specified, the listed keys will be projected into the specified paths, and unlisted keys will not be present. If a key is specified which is not present in the Secret, the volume setup will error unless it is marked optional. Paths must be relative and may not contain the '..' path or start with '..'.",
+      "type": "array",
+      "items": {
+       "$ref": "#/definitions/v1.KeyToPath"
+      }
+     },
+     "optional": {
+      "description": "Specify whether the Secret or it's keys must be defined",
+      "type": "boolean"
+     },
+     "secretName": {
+      "description": "Name of the secret in the pod's namespace to use. More info: https://kubernetes.io/docs/concepts/storage/volumes#secret",
+      "type": "string"
+     }
+    }
    },
    "v1.ServerAddressByClientCIDR": {
     "description": "ServerAddressByClientCIDR helps the client to determine the server address that they should use, depending on the clientCIDR that they match.",
@@ -4990,6 +5049,10 @@
       "description": "CloudInitNoCloud represents a cloud-init NoCloud user-data source.\nThe NoCloud data will be added as a disk to the vmi. A proper cloud-init installation is required inside the guest.\nMore info: http://cloudinit.readthedocs.io/en/latest/topics/datasources/nocloud.html\n+optional",
       "$ref": "#/definitions/v1.CloudInitNoCloudSource"
      },
+     "configMap": {
+      "description": "ConfigMapSource represents a reference to a ConfigMap in the same namespace.\nMore info: https://kubernetes.io/docs/tasks/configure-pod-container/configure-pod-configmap/\n+optional",
+      "$ref": "#/definitions/v1.ConfigMapSource"
+     },
      "dataVolume": {
       "description": "DataVolume represents the dynamic creation a PVC for this volume as well as\nthe process of populating that PVC with a disk image.\n+optional",
       "$ref": "#/definitions/v1.DataVolumeSource"
@@ -5017,6 +5080,10 @@
      "registryDisk": {
       "description": "RegistryDisk references a docker image, embedding a qcow or raw disk.\nMore info: https://kubevirt.gitbooks.io/user-guide/registry-disk.html\n+optional",
       "$ref": "#/definitions/v1.RegistryDiskSource"
+     },
+     "secret": {
+      "description": "SecretVolumeSource represents a reference to a secret data in the same namespace.\nMore info: https://kubernetes.io/docs/concepts/configuration/secret/\n+optional",
+      "$ref": "#/definitions/v1.SecretVolumeSource"
      }
     }
    },

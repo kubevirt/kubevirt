@@ -25,8 +25,12 @@ import (
 	"path/filepath"
 )
 
-// Type represents allowed config types like ConfigMap or Secret
-type Type string
+type (
+	// Type represents allowed config types like ConfigMap or Secret
+	Type string
+
+	isoCreationFunc func(output string, files []string) error
+)
 
 const (
 	// ConfigMap respresents a configmap type,
@@ -49,7 +53,14 @@ var (
 	ConfigMapDisksDir = mountBaseDir + "/config-map-disks"
 	// SecretDisksDir represents a path to Secrets iso images
 	SecretDisksDir = mountBaseDir + "/secret-disks"
+
+	createISOImage = defaultCreateIsoImage
 )
+
+// The unit test suite uses this function
+func setIsoCreationFunction(isoFunc isoCreationFunc) {
+	createISOImage = isoFunc
+}
 
 func getFilesLayout(dirPath string) ([]string, error) {
 	var filesPath []string
@@ -64,7 +75,7 @@ func getFilesLayout(dirPath string) ([]string, error) {
 	return filesPath, nil
 }
 
-func createIsoConfigImage(output string, files []string) error {
+func defaultCreateIsoImage(output string, files []string) error {
 	var args []string
 	args = append(args, "-output")
 	args = append(args, output)
@@ -77,6 +88,14 @@ func createIsoConfigImage(output string, files []string) error {
 
 	cmd := exec.Command("genisoimage", args...)
 	err := cmd.Run()
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func createIsoConfigImage(output string, files []string) error {
+	err := createISOImage(output, files)
 	if err != nil {
 		return err
 	}

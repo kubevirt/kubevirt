@@ -177,6 +177,24 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 			Dependencies: []string{
 				"k8s.io/api/core/v1.LocalObjectReference"},
 		},
+		"kubevirt.io/kubevirt/pkg/api/v1.ConfigMapSource": {
+			Schema: spec.Schema{
+				SchemaProps: spec.SchemaProps{
+					Description: "ConfigMapSource represents a reference to a ConfigMap in the same namespace. More info: https://kubernetes.io/docs/tasks/configure-pod-container/configure-pod-configmap/",
+					Properties: map[string]spec.Schema{
+						"configMapName": {
+							SchemaProps: spec.SchemaProps{
+								Description: "ConfigMapName is the name of a ConfigMap in the same namespace.",
+								Type:        []string{"string"},
+								Format:      "",
+							},
+						},
+					},
+					Required: []string{"configMapName"},
+				},
+			},
+			Dependencies: []string{},
+		},
 		"kubevirt.io/kubevirt/pkg/api/v1.DataVolumeSource": {
 			Schema: spec.Schema{
 				SchemaProps: spec.SchemaProps{
@@ -2155,6 +2173,18 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 								Ref:         ref("kubevirt.io/kubevirt/pkg/api/v1.DataVolumeSource"),
 							},
 						},
+						"configMap": {
+							SchemaProps: spec.SchemaProps{
+								Description: "ConfigMapSource represents a reference to a ConfigMap in the same namespace. More info: https://kubernetes.io/docs/tasks/configure-pod-container/configure-pod-configmap/",
+								Ref:         ref("kubevirt.io/kubevirt/pkg/api/v1.ConfigMapSource"),
+							},
+						},
+						"secret": {
+							SchemaProps: spec.SchemaProps{
+								Description: "SecretVolumeSource represents a reference to a secret data in the same namespace. More info: https://kubernetes.io/docs/concepts/configuration/secret/",
+								Ref:         ref("k8s.io/api/core/v1.SecretVolumeSource"),
+							},
+						},
 					},
 					Required: []string{"name"},
 				},
@@ -2207,6 +2237,18 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 							SchemaProps: spec.SchemaProps{
 								Description: "DataVolume represents the dynamic creation a PVC for this volume as well as the process of populating that PVC with a disk image.",
 								Ref:         ref("kubevirt.io/kubevirt/pkg/api/v1.DataVolumeSource"),
+							},
+						},
+						"configMap": {
+							SchemaProps: spec.SchemaProps{
+								Description: "ConfigMapSource represents a reference to a ConfigMap in the same namespace. More info: https://kubernetes.io/docs/tasks/configure-pod-container/configure-pod-configmap/",
+								Ref:         ref("kubevirt.io/kubevirt/pkg/api/v1.ConfigMapSource"),
+							},
+						},
+						"secret": {
+							SchemaProps: spec.SchemaProps{
+								Description: "SecretVolumeSource represents a reference to a secret data in the same namespace. More info: https://kubernetes.io/docs/concepts/configuration/secret/",
+								Ref:         ref("k8s.io/api/core/v1.SecretVolumeSource"),
 							},
 						},
 					},

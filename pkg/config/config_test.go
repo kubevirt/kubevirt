@@ -27,7 +27,20 @@ import (
 	. "github.com/onsi/gomega"
 )
 
+func mockCreateISOImage(output string, files []string) error {
+	_, err := os.Create(output)
+	if err != nil {
+		panic(err)
+	}
+	return nil
+}
+
+var _ = BeforeSuite(func() {
+	setIsoCreationFunction(mockCreateISOImage)
+})
+
 var _ = Describe("Creating config images", func() {
+
 	Context("With creating file system layout", func() {
 		var tempConfDir string
 		var tempISODir string

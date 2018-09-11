@@ -46,9 +46,10 @@ type HostDisk struct {
 	Capacity resource.Quantity `json:"capacity,omitempty"`
 }
 
-// ConfigMap represents a reference to a ConfigMap in the same namespace.
+// ConfigMapSource represents a reference to a ConfigMap in the same namespace.
 // More info: https://kubernetes.io/docs/tasks/configure-pod-container/configure-pod-configmap/
-// +optional
+// ---
+// +k8s:openapi-gen=true
 type ConfigMapSource struct {
 	// ConfigMapName is the name of a ConfigMap in the same namespace.
 	ConfigMapName string `json:"configMapName"`
@@ -333,11 +334,11 @@ type VolumeSource struct {
 	// the process of populating that PVC with a disk image.
 	// +optional
 	DataVolume *DataVolumeSource `json:"dataVolume,omitempty"`
-	// ConfigMap represents a reference to a ConfigMap in the same namespace.
+	// ConfigMapSource represents a reference to a ConfigMap in the same namespace.
 	// More info: https://kubernetes.io/docs/tasks/configure-pod-container/configure-pod-configmap/
 	// +optional
 	ConfigMap *ConfigMapSource `json:"configMap,omitempty"`
-	// Secret represents a reference to a secrets data in the same namespace.
+	// SecretVolumeSource represents a reference to a secret data in the same namespace.
 	// More info: https://kubernetes.io/docs/concepts/configuration/secret/
 	// +optional
 	Secret *v1.SecretVolumeSource `json:"secret,omitempty"`
