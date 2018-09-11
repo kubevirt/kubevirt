@@ -200,9 +200,9 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 				Name: volume.Name,
 				VolumeSource: k8sv1.VolumeSource{
 					ConfigMap: &k8sv1.ConfigMapVolumeSource{
-						LocalObjectReference: k8sv1.LocalObjectReference{
-							Name: volume.ConfigMap.ConfigMapName,
-						},
+						LocalObjectReference: volume.ConfigMap.LocalObjectReference,
+						Items:                volume.ConfigMap.Items,
+						Optional:             volume.ConfigMap.Optional,
 					},
 				},
 			})
@@ -218,7 +218,11 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 			volumes = append(volumes, k8sv1.Volume{
 				Name: volume.Name,
 				VolumeSource: k8sv1.VolumeSource{
-					Secret: volume.Secret,
+					Secret: &k8sv1.SecretVolumeSource{
+						SecretName: volume.Secret.SecretName,
+						Items:      volume.Secret.Items,
+						Optional:   volume.Secret.Optional,
+					},
 				},
 			})
 		}

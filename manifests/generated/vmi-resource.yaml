@@ -260,10 +260,13 @@ spec:
                         type: string
                   configMap:
                     properties:
-                      configMapName:
+                      items:
+                        items: {}
+                        type: array
+                      name:
                         type: string
-                    required:
-                    - configMapName
+                      optional:
+                        type: boolean
                   dataVolume:
                     properties:
                       name:
@@ -299,7 +302,15 @@ spec:
                         type: string
                     required:
                     - image
-                  secret: {}
+                  secret:
+                    properties:
+                      items:
+                        items: {}
+                        type: array
+                      optional:
+                        type: boolean
+                      secretName:
+                        type: string
                 required:
                 - name
               type: array

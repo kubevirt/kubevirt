@@ -1217,8 +1217,10 @@ func AddConfigMapDisk(vmi *v1.VirtualMachineInstance, configMapName string) {
 	vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
 		Name: volumeName,
 		VolumeSource: v1.VolumeSource{
-			ConfigMap: &v1.ConfigMapSource{
-				ConfigMapName: configMapName,
+			ConfigMap: &v1.ConfigMapVolumeSource{
+				LocalObjectReference: k8sv1.LocalObjectReference{
+					Name: configMapName,
+				},
 			},
 		},
 	})
@@ -1239,7 +1241,7 @@ func AddSecretDisk(vmi *v1.VirtualMachineInstance, secretName string) {
 	vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
 		Name: volumeName,
 		VolumeSource: v1.VolumeSource{
-			Secret: &k8sv1.SecretVolumeSource{
+			Secret: &v1.SecretVolumeSource{
 				SecretName: secretName,
 			},
 		},

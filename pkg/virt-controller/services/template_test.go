@@ -723,8 +723,10 @@ var _ = Describe("Template", func() {
 					{
 						Name: "configmap-volume",
 						VolumeSource: v1.VolumeSource{
-							ConfigMap: &v1.ConfigMapSource{
-								ConfigMapName: "test-configmap",
+							ConfigMap: &v1.ConfigMapVolumeSource{
+								LocalObjectReference: kubev1.LocalObjectReference{
+									Name: "test-configmap",
+								},
 							},
 						},
 					},
@@ -752,7 +754,7 @@ var _ = Describe("Template", func() {
 					{
 						Name: "secret-volume",
 						VolumeSource: v1.VolumeSource{
-							Secret: &kubev1.SecretVolumeSource{
+							Secret: &v1.SecretVolumeSource{
 								SecretName: "test-secret",
 							},
 						},

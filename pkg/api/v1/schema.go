@@ -46,13 +46,46 @@ type HostDisk struct {
 	Capacity resource.Quantity `json:"capacity,omitempty"`
 }
 
-// ConfigMapSource represents a reference to a ConfigMap in the same namespace.
-// More info: https://kubernetes.io/docs/tasks/configure-pod-container/configure-pod-configmap/
+// ConfigMapVolumeSource adapts a ConfigMap into a volume.
+// More info: https://kubernetes.io/docs/concepts/storage/volumes/#configmap
 // ---
 // +k8s:openapi-gen=true
-type ConfigMapSource struct {
-	// ConfigMapName is the name of a ConfigMap in the same namespace.
-	ConfigMapName string `json:"configMapName"`
+type ConfigMapVolumeSource struct {
+	v1.LocalObjectReference `json:",inline"`
+	// If unspecified, each key-value pair in the Data field of the referenced
+	// ConfigMap will be projected into the volume as a file whose name is the
+	// key and content is the value. If specified, the listed keys will be
+	// projected into the specified paths, and unlisted keys will not be
+	// present. If a key is specified which is not present in the ConfigMap,
+	// the volume setup will error unless it is marked optional. Paths must be
+	// relative and may not contain the '..' path or start with '..'.
+	// +optional
+	Items []v1.KeyToPath `json:"items,omitempty"`
+	// Specify whether the ConfigMap or it's keys must be defined
+	// +optional
+	Optional *bool `json:"optional,omitempty"`
+}
+
+// SecretVolumeSource adapts a Secret into a volume.
+// ---
+// +k8s:openapi-gen=true
+type SecretVolumeSource struct {
+	// Name of the secret in the pod's namespace to use.
+	// More info: https://kubernetes.io/docs/concepts/storage/volumes#secret
+	// +optional
+	SecretName string `json:"secretName,omitempty"`
+	// If unspecified, each key-value pair in the Data field of the referenced
+	// Secret will be projected into the volume as a file whose name is the
+	// key and content is the value. If specified, the listed keys will be
+	// projected into the specified paths, and unlisted keys will not be
+	// present. If a key is specified which is not present in the Secret,
+	// the volume setup will error unless it is marked optional. Paths must be
+	// relative and may not contain the '..' path or start with '..'.
+	// +optional
+	Items []v1.KeyToPath `json:"items,omitempty"`
+	// Specify whether the Secret or it's keys must be defined
+	// +optional
+	Optional *bool `json:"optional,omitempty"`
 }
 
 // Represents a cloud-init nocloud user data source.
@@ -337,11 +370,11 @@ type VolumeSource struct {
 	// ConfigMapSource represents a reference to a ConfigMap in the same namespace.
 	// More info: https://kubernetes.io/docs/tasks/configure-pod-container/configure-pod-configmap/
 	// +optional
-	ConfigMap *ConfigMapSource `json:"configMap,omitempty"`
+	ConfigMap *ConfigMapVolumeSource `json:"configMap,omitempty"`
 	// SecretVolumeSource represents a reference to a secret data in the same namespace.
 	// More info: https://kubernetes.io/docs/concepts/configuration/secret/
 	// +optional
-	Secret *v1.SecretVolumeSource `json:"secret,omitempty"`
+	Secret *SecretVolumeSource `json:"secret,omitempty"`
 }
 
 // ---

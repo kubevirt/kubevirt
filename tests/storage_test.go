@@ -180,10 +180,9 @@ var _ = Describe("Storage", func() {
 				Expect(err).To(BeNil())
 				defer expecter.Close()
 
-				snQuery := fmt.Sprintf("sudo find /sys -type f -regex \".*/block/vdb/serial\" | xargs cat && echo %s\n", diskSerial)
 				By("Checking for the specified serial number")
 				res, err := expecter.ExpectBatch([]expect.Batcher{
-					&expect.BSnd{S: snQuery},
+					&expect.BSnd{S: "sudo find /sys -type f -regex \".*/block/.*/serial\" | xargs cat\n"},
 					&expect.BExp{R: diskSerial},
 				}, 10*time.Second)
 				log.DefaultLogger().Object(vmi).Infof("%v", res)

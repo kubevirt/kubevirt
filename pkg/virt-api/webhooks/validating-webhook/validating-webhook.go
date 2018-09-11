@@ -341,11 +341,11 @@ func validateVolumes(field *k8sfield.Path, volumes []v1.Volume) []metav1.StatusC
 		}
 
 		if volume.ConfigMap != nil {
-			if volume.ConfigMap.ConfigMapName == "" {
+			if volume.ConfigMap.LocalObjectReference.Name == "" {
 				causes = append(causes, metav1.StatusCause{
 					Type:    metav1.CauseTypeFieldValueInvalid,
-					Message: fmt.Sprintf("%s is a required field", field.Index(idx).Child("configMap", "configMapName").String()),
-					Field:   field.Index(idx).Child("configMap", "configMapName").String(),
+					Message: fmt.Sprintf("%s is a required field", field.Index(idx).Child("configMap", "name").String()),
+					Field:   field.Index(idx).Child("configMap", "name").String(),
 				})
 			}
 		}

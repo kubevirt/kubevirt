@@ -27,8 +27,6 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 
-	k8sv1 "k8s.io/api/core/v1"
-
 	"kubevirt.io/kubevirt/pkg/api/v1"
 )
 
@@ -57,7 +55,7 @@ var _ = Describe("Secret", func() {
 		vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
 			Name: "secret-volume",
 			VolumeSource: v1.VolumeSource{
-				Secret: &k8sv1.SecretVolumeSource{
+				Secret: &v1.SecretVolumeSource{
 					SecretName: "test-secret",
 				},
 			},

@@ -177,23 +177,43 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 			Dependencies: []string{
 				"k8s.io/api/core/v1.LocalObjectReference"},
 		},
-		"kubevirt.io/kubevirt/pkg/api/v1.ConfigMapSource": {
+		"kubevirt.io/kubevirt/pkg/api/v1.ConfigMapVolumeSource": {
 			Schema: spec.Schema{
 				SchemaProps: spec.SchemaProps{
-					Description: "ConfigMapSource represents a reference to a ConfigMap in the same namespace. More info: https://kubernetes.io/docs/tasks/configure-pod-container/configure-pod-configmap/",
+					Description: "ConfigMapVolumeSource adapts a ConfigMap into a volume. More info: https://kubernetes.io/docs/concepts/storage/volumes/#configmap",
 					Properties: map[string]spec.Schema{
-						"configMapName": {
+						"name": {
 							SchemaProps: spec.SchemaProps{
-								Description: "ConfigMapName is the name of a ConfigMap in the same namespace.",
+								Description: "Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names",
 								Type:        []string{"string"},
 								Format:      "",
 							},
 						},
+						"items": {
+							SchemaProps: spec.SchemaProps{
+								Description: "If unspecified, each key-value pair in the Data field of the referenced ConfigMap will be projected into the volume as a file whose name is the key and content is the value. If specified, the listed keys will be projected into the specified paths, and unlisted keys will not be present. If a key is specified which is not present in the ConfigMap, the volume setup will error unless it is marked optional. Paths must be relative and may not contain the '..' path or start with '..'.",
+								Type:        []string{"array"},
+								Items: &spec.SchemaOrArray{
+									Schema: &spec.Schema{
+										SchemaProps: spec.SchemaProps{
+											Ref: ref("k8s.io/api/core/v1.KeyToPath"),
+										},
+									},
+								},
+							},
+						},
+						"optional": {
+							SchemaProps: spec.SchemaProps{
+								Description: "Specify whether the ConfigMap or it's keys must be defined",
+								Type:        []string{"boolean"},
+								Format:      "",
+							},
+						},
 					},
-					Required: []string{"configMapName"},
 				},
 			},
-			Dependencies: []string{},
+			Dependencies: []string{
+				"k8s.io/api/core/v1.KeyToPath"},
 		},
 		"kubevirt.io/kubevirt/pkg/api/v1.DataVolumeSource": {
 			Schema: spec.Schema{
@@ -1243,6 +1263,44 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 			},
 			Dependencies: []string{},
 		},
+		"kubevirt.io/kubevirt/pkg/api/v1.SecretVolumeSource": {
+			Schema: spec.Schema{
+				SchemaProps: spec.SchemaProps{
+					Description: "SecretVolumeSource adapts a Secret into a volume.",
+					Properties: map[string]spec.Schema{
+						"secretName": {
+							SchemaProps: spec.SchemaProps{
+								Description: "Name of the secret in the pod's namespace to use. More info: https://kubernetes.io/docs/concepts/storage/volumes#secret",
+								Type:        []string{"string"},
+								Format:      "",
+							},
+						},
+						"items": {
+							SchemaProps: spec.SchemaProps{
+								Description: "If unspecified, each key-value pair in the Data field of the referenced Secret will be projected into the volume as a file whose name is the key and content is the value. If specified, the listed keys will be projected into the specified paths, and unlisted keys will not be present. If a key is specified which is not present in the Secret, the volume setup will error unless it is marked optional. Paths must be relative and may not contain the '..' path or start with '..'.",
+								Type:        []string{"array"},
+								Items: &spec.SchemaOrArray{
+									Schema: &spec.Schema{
+										SchemaProps: spec.SchemaProps{
+											Ref: ref("k8s.io/api/core/v1.KeyToPath"),
+										},
+									},
+								},
+							},
+						},
+						"optional": {
+							SchemaProps: spec.SchemaProps{
+								Description: "Specify whether the Secret or it's keys must be defined",
+								Type:        []string{"boolean"},
+								Format:      "",
+							},
+						},
+					},
+				},
+			},
+			Dependencies: []string{
+				"k8s.io/api/core/v1.KeyToPath"},
+		},
 		"kubevirt.io/kubevirt/pkg/api/v1.Timer": {
 			Schema: spec.Schema{
 				SchemaProps: spec.SchemaProps{
@@ -2176,13 +2234,13 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 						"configMap": {
 							SchemaProps: spec.SchemaProps{
 								Description: "ConfigMapSource represents a reference to a ConfigMap in the same namespace. More info: https://kubernetes.io/docs/tasks/configure-pod-container/configure-pod-configmap/",
-								Ref:         ref("kubevirt.io/kubevirt/pkg/api/v1.ConfigMapSource"),
+								Ref:         ref("kubevirt.io/kubevirt/pkg/api/v1.ConfigMapVolumeSource"),
 							},
 						},
 						"secret": {
 							SchemaProps: spec.SchemaProps{
 								Description: "SecretVolumeSource represents a reference to a secret data in the same namespace. More info: https://kubernetes.io/docs/concepts/configuration/secret/",
-								Ref:         ref("k8s.io/api/core/v1.SecretVolumeSource"),
+								Ref:         ref("kubevirt.io/kubevirt/pkg/api/v1.SecretVolumeSource"),
 							},
 						},
 					},
@@ -2242,13 +2300,13 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 						"configMap": {
 							SchemaProps: spec.SchemaProps{
 								Description: "ConfigMapSource represents a reference to a ConfigMap in the same namespace. More info: https://kubernetes.io/docs/tasks/configure-pod-container/configure-pod-configmap/",
-								Ref:         ref("kubevirt.io/kubevirt/pkg/api/v1.ConfigMapSource"),
+								Ref:         ref("kubevirt.io/kubevirt/pkg/api/v1.ConfigMapVolumeSource"),
 							},
 						},
 						"secret": {
 							SchemaProps: spec.SchemaProps{
 								Description: "SecretVolumeSource represents a reference to a secret data in the same namespace. More info: https://kubernetes.io/docs/concepts/configuration/secret/",
-								Ref:         ref("k8s.io/api/core/v1.SecretVolumeSource"),
+								Ref:         ref("kubevirt.io/kubevirt/pkg/api/v1.SecretVolumeSource"),
 							},
 						},
 					},

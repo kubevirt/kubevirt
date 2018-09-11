@@ -64,6 +64,7 @@ func Convert_v1_Disk_To_api_Disk(diskDevice *v1.Disk, disk *Disk, devicePerBus m
 		disk.Target.Bus = diskDevice.Disk.Bus
 		disk.Target.Device = makeDeviceName(diskDevice.Disk.Bus, devicePerBus)
 		disk.ReadOnly = toApiReadOnly(diskDevice.Disk.ReadOnly)
+		disk.Serial = diskDevice.Serial
 	} else if diskDevice.LUN != nil {
 		disk.Device = "lun"
 		disk.Target.Bus = diskDevice.LUN.Bus
