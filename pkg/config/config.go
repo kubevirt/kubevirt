@@ -37,7 +37,9 @@ const (
 	Secret Type = "secret"
 
 	mountBaseDir = "/var/run/kubevirt-private"
+)
 
+var (
 	// ConfigMapSourceDir represents a location where ConfigMap is attached to the pod
 	ConfigMapSourceDir = mountBaseDir + "/config-map"
 	// SecretSourceDir represents a location where Secrets is attached to the pod
@@ -49,7 +51,7 @@ const (
 	SecretDisksDir = mountBaseDir + "/secret-disks"
 )
 
-func getFilesLayout(dirPath string, volumeName string) ([]string, error) {
+func getFilesLayout(dirPath string) ([]string, error) {
 	var filesPath []string
 	files, err := ioutil.ReadDir(dirPath)
 	if err != nil {
@@ -74,7 +76,7 @@ func createIsoConfigImage(output string, files []string) error {
 	args = append(args, files...)
 
 	cmd := exec.Command("genisoimage", args...)
-	err := cmd.Start()
+	err := cmd.Run()
 	if err != nil {
 		return err
 	}

@@ -18,3 +18,53 @@
  */
 
 package config
+
+import (
+	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/gomega"
+	"io/ioutil"
+	"os"
+	"path/filepath"
+
+	k8sv1 "k8s.io/api/core/v1"
+	"kubevirt.io/kubevirt/pkg/api/v1"
+)
+
+var _ = Describe("Secret", func() {
+
+	BeforeEach(func() {
+		var err error
+
+		SecretSourceDir, err = ioutil.TempDir("", "secret")
+		Expect(err).NotTo(HaveOccurred())
+		os.MkdirAll(filepath.Join(SecretSourceDir, "secret-volume", "test-dir"), 0755)
+		os.OpenFile(filepath.Join(SecretSourceDir, "secret-volume", "test-dir", "test-file1"), os.O_RDONLY|os.O_CREATE, 0666)
+		os.OpenFile(filepath.Join(SecretSourceDir, "secret-volume", "test-file2"), os.O_RDONLY|os.O_CREATE, 0666)
+
+		SecretDisksDir, err = ioutil.TempDir("", "secret-disks")
+		Expect(err).NotTo(HaveOccurred())
+	})
+
+	AfterEach(func() {
+		os.RemoveAll(SecretSourceDir)
+		os.RemoveAll(SecretDisksDir)
+	})
+
+	It("Should create a new secret iso disk", func() {
+		vmi := v1.NewMinimalVMI("fake-vmi")
+		vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
+			Name: "secret-volume",
+			VolumeSource: v1.VolumeSource{
+				Secret: &k8sv1.SecretVolumeSource{
+					SecretName: "test-secret",
+				},
+			},
+		})
+
+		err := CreateSecretDisks(vmi)
+		Expect(err).NotTo(HaveOccurred())
+		_, err = os.Stat(filepath.Join(SecretDisksDir, "secret-volume.iso"))
+		Expect(err).NotTo(HaveOccurred())
+	})
+
+})

@@ -46,7 +46,11 @@ type HostDisk struct {
 	Capacity resource.Quantity `json:"capacity,omitempty"`
 }
 
+// ConfigMap represents a reference to a ConfigMap in the same namespace.
+// More info: https://kubernetes.io/docs/tasks/configure-pod-container/configure-pod-configmap/
+// +optional
 type ConfigMapSource struct {
+	// ConfigMapName is the name of a ConfigMap in the same namespace.
 	ConfigMapName string `json:"configMapName"`
 }
 

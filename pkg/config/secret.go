@@ -25,6 +25,11 @@ import (
 	"kubevirt.io/kubevirt/pkg/api/v1"
 )
 
+// GetSecretSourcePath returns a path to Secret mounted on a pod
+func GetSecretSourcePath(volumeName string) string {
+	return filepath.Join(SecretSourceDir, volumeName)
+}
+
 // GetSecretDiskPath returns a path to Secret iso image created based on volume name
 func GetSecretDiskPath(volumeName string) string {
 	return filepath.Join(SecretDisksDir, volumeName+".iso")
@@ -36,7 +41,7 @@ func CreateSecretDisks(vmi *v1.VirtualMachineInstance) error {
 		if volume.Secret != nil {
 
 			var filesPath []string
-			filesPath, err := getFilesLayout(filepath.Join(SecretSourceDir, volume.Name), volume.Name)
+			filesPath, err := getFilesLayout(GetSecretSourcePath(volume.Name))
 			if err != nil {
 				return err
 			}

@@ -18,3 +18,52 @@
  */
 
 package config
+
+import (
+	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/gomega"
+	"io/ioutil"
+	"os"
+	"path/filepath"
+
+	"kubevirt.io/kubevirt/pkg/api/v1"
+)
+
+var _ = Describe("ConfigMap", func() {
+
+	BeforeEach(func() {
+		var err error
+
+		ConfigMapSourceDir, err = ioutil.TempDir("", "configmap")
+		Expect(err).NotTo(HaveOccurred())
+		os.MkdirAll(filepath.Join(ConfigMapSourceDir, "configmap-volume", "test-dir"), 0755)
+		os.OpenFile(filepath.Join(ConfigMapSourceDir, "configmap-volume", "test-dir", "test-file1"), os.O_RDONLY|os.O_CREATE, 0666)
+		os.OpenFile(filepath.Join(ConfigMapSourceDir, "configmap-volume", "test-file2"), os.O_RDONLY|os.O_CREATE, 0666)
+
+		ConfigMapDisksDir, err = ioutil.TempDir("", "configmap-disks")
+		Expect(err).NotTo(HaveOccurred())
+	})
+
+	AfterEach(func() {
+		os.RemoveAll(ConfigMapSourceDir)
+		os.RemoveAll(ConfigMapDisksDir)
+	})
+
+	It("Should create a new config map iso disk", func() {
+		vmi := v1.NewMinimalVMI("fake-vmi")
+		vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
+			Name: "configmap-volume",
+			VolumeSource: v1.VolumeSource{
+				ConfigMap: &v1.ConfigMapSource{
+					ConfigMapName: "test-config",
+				},
+			},
+		})
+
+		err := CreateConfigMapDisks(vmi)
+		Expect(err).NotTo(HaveOccurred())
+		_, err = os.Stat(filepath.Join(ConfigMapDisksDir, "configmap-volume.iso"))
+		Expect(err).NotTo(HaveOccurred())
+	})
+
+})

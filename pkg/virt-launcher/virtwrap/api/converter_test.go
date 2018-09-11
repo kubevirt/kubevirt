@@ -217,6 +217,14 @@ var _ = Describe("Converter", func() {
 					Name:       "ephemeral_pvc",
 					VolumeName: "volume5",
 				},
+				{
+					Name:       "secret_test",
+					VolumeName: "volume6",
+				},
+				{
+					Name:       "configmap_test",
+					VolumeName: "volume7",
+				},
 			}
 			vmi.Spec.Volumes = []v1.Volume{
 				{
@@ -292,6 +300,22 @@ var _ = Describe("Converter", func() {
 							PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{
 								ClaimName: "testclaim",
 							},
+						},
+					},
+				},
+				{
+					Name: "volume6",
+					VolumeSource: v1.VolumeSource{
+						Secret: &k8sv1.SecretVolumeSource{
+							SecretName: "testsecret",
+						},
+					},
+				},
+				{
+					Name: "volume7",
+					VolumeSource: v1.VolumeSource{
+						ConfigMap: &v1.ConfigMapSource{
+							ConfigMapName: "testconfig",
 						},
 					},
 				},
@@ -390,6 +414,20 @@ var _ = Describe("Converter", func() {
         <format type="raw"></format>
         <source file="/var/run/kubevirt-private/vmi-disks/volume5/disk.img"></source>
       </backingStore>
+    </disk>
+    <disk device="disk" type="file">
+      <source file="/var/run/kubevirt-private/secret-disks/volume6.iso"></source>
+      <target bus="sata" dev="sde"></target>
+      <driver name="qemu" type="raw"></driver>
+      <readonly></readonly>
+      <alias name="secret_test"></alias>
+    </disk>
+    <disk device="disk" type="file">
+      <source file="/var/run/kubevirt-private/config-map-disks/volume7.iso"></source>
+      <target bus="sata" dev="sdf"></target>
+      <driver name="qemu" type="raw"></driver>
+      <readonly></readonly>
+      <alias name="configmap_test"></alias>
     </disk>
     <serial type="unix">
       <target port="0"></target>

@@ -341,11 +341,23 @@ func validateVolumes(field *k8sfield.Path, volumes []v1.Volume) []metav1.StatusC
 		}
 
 		if volume.ConfigMap != nil {
-			// TODO: add validation
+			if volume.ConfigMap.ConfigMapName == "" {
+				causes = append(causes, metav1.StatusCause{
+					Type:    metav1.CauseTypeFieldValueInvalid,
+					Message: fmt.Sprintf("%s is a required field", field.Index(idx).Child("configMap", "configMapName").String()),
+					Field:   field.Index(idx).Child("configMap", "configMapName").String(),
+				})
+			}
 		}
 
 		if volume.Secret != nil {
-			// TODO: add validation
+			if volume.Secret.SecretName == "" {
+				causes = append(causes, metav1.StatusCause{
+					Type:    metav1.CauseTypeFieldValueInvalid,
+					Message: fmt.Sprintf("%s is a required field", field.Index(idx).Child("secret", "secretName").String()),
+					Field:   field.Index(idx).Child("secret", "secretName").String(),
+				})
+			}
 		}
 	}
 	return causes

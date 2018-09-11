@@ -20,12 +20,16 @@
 package config
 
 import (
-	"path/filepath"
-
 	"kubevirt.io/kubevirt/pkg/api/v1"
+	"path/filepath"
 )
 
-// GetConfigMapDiskPath returns path to ConfigMap iso image created based on a volume name
+// GetConfigMapSourcePath returns a path to ConfigMap mounted on a pod
+func GetConfigMapSourcePath(volumeName string) string {
+	return filepath.Join(ConfigMapSourceDir, volumeName)
+}
+
+// GetConfigMapDiskPath returns a path to ConfigMap iso image created based on a volume name
 func GetConfigMapDiskPath(volumeName string) string {
 	return filepath.Join(ConfigMapDisksDir, volumeName+".iso")
 }
@@ -34,9 +38,8 @@ func GetConfigMapDiskPath(volumeName string) string {
 func CreateConfigMapDisks(vmi *v1.VirtualMachineInstance) error {
 	for _, volume := range vmi.Spec.Volumes {
 		if volume.ConfigMap != nil {
-
 			var filesPath []string
-			filesPath, err := getFilesLayout(filepath.Join(ConfigMapSourceDir, volume.Name), volume.Name)
+			filesPath, err := getFilesLayout(GetConfigMapSourcePath(volume.Name))
 			if err != nil {
 				return err
 			}

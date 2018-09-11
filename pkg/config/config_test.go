@@ -16,5 +16,54 @@
  * Copyright 2018 Red Hat, Inc.
  *
  */
-
 package config
+
+import (
+	"io/ioutil"
+	"os"
+	"path/filepath"
+
+	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/gomega"
+)
+
+var _ = Describe("Creating config images", func() {
+	Context("With creating file system layout", func() {
+		var tempConfDir string
+		var tempISODir string
+		var expectedLayout []string
+
+		BeforeEach(func() {
+			var err error
+			tempConfDir, err = ioutil.TempDir("", "config-dir")
+			Expect(err).NotTo(HaveOccurred())
+			tempISODir, err = ioutil.TempDir("", "iso-dir")
+			Expect(err).NotTo(HaveOccurred())
+			expectedLayout = []string{"test-dir=" + tempConfDir + "/test-dir", "test-file2=" + tempConfDir + "/test-file2"}
+
+			os.Mkdir(filepath.Join(tempConfDir, "test-dir"), 0755)
+			os.OpenFile(filepath.Join(tempConfDir, "test-dir", "test-file1"), os.O_RDONLY|os.O_CREATE, 0666)
+			os.OpenFile(filepath.Join(tempConfDir, "test-file2"), os.O_RDONLY|os.O_CREATE, 0666)
+
+		})
+
+		AfterEach(func() {
+			os.RemoveAll(tempConfDir)
+			os.RemoveAll(tempISODir)
+		})
+
+		It("Should create an appropriate file system layout for iso image", func() {
+			fsLayout, err := getFilesLayout(tempConfDir)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(fsLayout).To(Equal(expectedLayout))
+		})
+
+		It("Should create an iso image", func() {
+			imgPath := filepath.Join(tempISODir, "volume1.iso")
+			err := createIsoConfigImage(imgPath, expectedLayout)
+			Expect(err).NotTo(HaveOccurred())
+			_, err = os.Stat(imgPath)
+			Expect(err).NotTo(HaveOccurred())
+		})
+	})
+})
