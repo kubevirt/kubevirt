@@ -388,6 +388,32 @@ func EnsureKVMPresent() {
 	}
 }
 
+func CreateConfigMap(name string, data map[string]string) {
+	virtCli, err := kubecli.GetKubevirtClient()
+	PanicOnError(err)
+	_, err = virtCli.CoreV1().ConfigMaps(NamespaceTestDefault).Create(&k8sv1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{Name: name},
+		Data:       data,
+	})
+
+	if !errors.IsAlreadyExists(err) {
+		PanicOnError(err)
+	}
+}
+
+func CreateSecret(name string, data map[string]string) {
+	virtCli, err := kubecli.GetKubevirtClient()
+	PanicOnError(err)
+
+	_, err = virtCli.CoreV1().Secrets(NamespaceTestDefault).Create(&k8sv1.Secret{
+		ObjectMeta: metav1.ObjectMeta{Name: name},
+		StringData: data,
+	})
+	if !errors.IsAlreadyExists(err) {
+		PanicOnError(err)
+	}
+}
+
 func CreatePVC(os string, size string) {
 	virtCli, err := kubecli.GetKubevirtClient()
 	PanicOnError(err)
@@ -640,6 +666,26 @@ func cleanupServiceAccounts() {
 	cleanupServiceAccount(EditServiceAccountName)
 }
 
+func DeleteConfigMap(name string) {
+	virtCli, err := kubecli.GetKubevirtClient()
+	PanicOnError(err)
+
+	err = virtCli.CoreV1().ConfigMaps(NamespaceTestDefault).Delete(name, nil)
+	if !errors.IsNotFound(err) {
+		PanicOnError(err)
+	}
+}
+
+func DeleteSecret(name string) {
+	virtCli, err := kubecli.GetKubevirtClient()
+	PanicOnError(err)
+
+	err = virtCli.CoreV1().Secrets(NamespaceTestDefault).Delete(name, nil)
+	if !errors.IsNotFound(err) {
+		PanicOnError(err)
+	}
+}
+
 func DeletePVC(os string) {
 	virtCli, err := kubecli.GetKubevirtClient()
 	PanicOnError(err)
@@ -660,6 +706,21 @@ func DeletePV(os string) {
 	if !errors.IsNotFound(err) {
 		PanicOnError(err)
 	}
+}
+
+func RunVMIAndExpectLaunch(vmi *v1.VirtualMachineInstance, withAuth bool, timeout int) *v1.VirtualMachineInstance {
+	By("Starting a VirtualMachineInstance")
+	virtCli, err := kubecli.GetKubevirtClient()
+	PanicOnError(err)
+
+	var obj *v1.VirtualMachineInstance
+	Eventually(func() error {
+		obj, err = virtCli.VirtualMachineInstance(NamespaceTestDefault).Create(vmi)
+		return err
+	}, timeout, 1*time.Second).ShouldNot(HaveOccurred())
+	By("Waiting until the VirtualMachineInstance will start")
+	WaitForSuccessfulVMIStartWithTimeout(obj, timeout)
+	return obj
 }
 
 func GetRunningPodByVirtualMachineInstance(vmi *v1.VirtualMachineInstance, namespace string) *k8sv1.Pod {
@@ -1143,6 +1204,52 @@ func NewRandomVMIWithWatchdog() *v1.VirtualMachineInstance {
 		},
 	}
 	return vmi
+}
+
+func NewRandomVMIWithConfigMap(configMapName string) *v1.VirtualMachineInstance {
+	vmi := NewRandomVMIWithPVC(DiskAlpineHostPath)
+	AddConfigMapDisk(vmi, configMapName)
+	return vmi
+}
+
+func AddConfigMapDisk(vmi *v1.VirtualMachineInstance, configMapName string) {
+	volumeName := configMapName + "-vol"
+	vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
+		Name: volumeName,
+		VolumeSource: v1.VolumeSource{
+			ConfigMap: &v1.ConfigMapVolumeSource{
+				LocalObjectReference: k8sv1.LocalObjectReference{
+					Name: configMapName,
+				},
+			},
+		},
+	})
+	vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
+		Name:       configMapName + "-disk",
+		VolumeName: volumeName,
+	})
+}
+
+func NewRandomVMIWithSecret(secretName string) *v1.VirtualMachineInstance {
+	vmi := NewRandomVMIWithPVC(DiskAlpineHostPath)
+	AddSecretDisk(vmi, secretName)
+	return vmi
+}
+
+func AddSecretDisk(vmi *v1.VirtualMachineInstance, secretName string) {
+	volumeName := secretName + "-vol"
+	vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
+		Name: volumeName,
+		VolumeSource: v1.VolumeSource{
+			Secret: &v1.SecretVolumeSource{
+				SecretName: secretName,
+			},
+		},
+	})
+	vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
+		Name:       secretName + "-disk",
+		VolumeName: volumeName,
+	})
 }
 
 func NewRandomVMIWithSlirpInterfaceEphemeralDiskAndUserdata(containerImage string, userData string, Ports []v1.Port) *v1.VirtualMachineInstance {

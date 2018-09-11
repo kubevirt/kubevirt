@@ -254,6 +254,12 @@ func validateVolumes(field *k8sfield.Path, volumes []v1.Volume) []metav1.StatusC
 			}
 			volumeSourceSetCount++
 		}
+		if volume.ConfigMap != nil {
+			volumeSourceSetCount++
+		}
+		if volume.Secret != nil {
+			volumeSourceSetCount++
+		}
 
 		if volumeSourceSetCount != 1 {
 			causes = append(causes, metav1.StatusCause{
@@ -330,6 +336,26 @@ func validateVolumes(field *k8sfield.Path, volumes []v1.Volume) []metav1.StatusC
 					Type:    metav1.CauseTypeFieldValueInvalid,
 					Message: fmt.Sprintf("%s is allowed to pass only with %s equal to '%s'", field.Index(idx).Child("hostDisk", "capacity").String(), field.Index(idx).Child("hostDisk", "type").String(), v1.HostDiskExistsOrCreate),
 					Field:   field.Index(idx).Child("hostDisk", "capacity").String(),
+				})
+			}
+		}
+
+		if volume.ConfigMap != nil {
+			if volume.ConfigMap.LocalObjectReference.Name == "" {
+				causes = append(causes, metav1.StatusCause{
+					Type:    metav1.CauseTypeFieldValueInvalid,
+					Message: fmt.Sprintf("%s is a required field", field.Index(idx).Child("configMap", "name").String()),
+					Field:   field.Index(idx).Child("configMap", "name").String(),
+				})
+			}
+		}
+
+		if volume.Secret != nil {
+			if volume.Secret.SecretName == "" {
+				causes = append(causes, metav1.StatusCause{
+					Type:    metav1.CauseTypeFieldValueInvalid,
+					Message: fmt.Sprintf("%s is a required field", field.Index(idx).Child("secret", "secretName").String()),
+					Field:   field.Index(idx).Child("secret", "secretName").String(),
 				})
 			}
 		}

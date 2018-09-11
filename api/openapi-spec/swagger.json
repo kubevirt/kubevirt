@@ -3328,6 +3328,19 @@
      }
     }
    },
+   "v1.ConfigMapVolumeSource": {
+    "description": "ConfigMapVolumeSource adapts a ConfigMap into a volume.\nMore info: https://kubernetes.io/docs/concepts/storage/volumes/#configmap",
+    "properties": {
+     "name": {
+      "description": "Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names",
+      "type": "string"
+     },
+     "optional": {
+      "description": "Specify whether the ConfigMap or it's keys must be defined\n+optional",
+      "type": "boolean"
+     }
+    }
+   },
    "v1.DataVolumeSource": {
     "required": [
      "name"
@@ -4344,6 +4357,19 @@
    "v1.Rng": {
     "description": "Rng represents the random device passed from host"
    },
+   "v1.SecretVolumeSource": {
+    "description": "SecretVolumeSource adapts a Secret into a volume.",
+    "properties": {
+     "optional": {
+      "description": "Specify whether the Secret or it's keys must be defined\n+optional",
+      "type": "boolean"
+     },
+     "secretName": {
+      "description": "Name of the secret in the pod's namespace to use.\nMore info: https://kubernetes.io/docs/concepts/storage/volumes#secret\n+optional",
+      "type": "string"
+     }
+    }
+   },
    "v1.ServerAddressByClientCIDR": {
     "description": "ServerAddressByClientCIDR helps the client to determine the server address that they should use, depending on the clientCIDR that they match.",
     "required": [
@@ -4990,6 +5016,10 @@
       "description": "CloudInitNoCloud represents a cloud-init NoCloud user-data source.\nThe NoCloud data will be added as a disk to the vmi. A proper cloud-init installation is required inside the guest.\nMore info: http://cloudinit.readthedocs.io/en/latest/topics/datasources/nocloud.html\n+optional",
       "$ref": "#/definitions/v1.CloudInitNoCloudSource"
      },
+     "configMap": {
+      "description": "ConfigMapSource represents a reference to a ConfigMap in the same namespace.\nMore info: https://kubernetes.io/docs/tasks/configure-pod-container/configure-pod-configmap/\n+optional",
+      "$ref": "#/definitions/v1.ConfigMapVolumeSource"
+     },
      "dataVolume": {
       "description": "DataVolume represents the dynamic creation a PVC for this volume as well as\nthe process of populating that PVC with a disk image.\n+optional",
       "$ref": "#/definitions/v1.DataVolumeSource"
@@ -5017,6 +5047,10 @@
      "registryDisk": {
       "description": "RegistryDisk references a docker image, embedding a qcow or raw disk.\nMore info: https://kubevirt.gitbooks.io/user-guide/registry-disk.html\n+optional",
       "$ref": "#/definitions/v1.RegistryDiskSource"
+     },
+     "secret": {
+      "description": "SecretVolumeSource represents a reference to a secret data in the same namespace.\nMore info: https://kubernetes.io/docs/concepts/configuration/secret/\n+optional",
+      "$ref": "#/definitions/v1.SecretVolumeSource"
      }
     }
    },

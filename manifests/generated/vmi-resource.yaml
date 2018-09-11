@@ -258,6 +258,12 @@ spec:
                         type: string
                       userDataBase64:
                         type: string
+                  configMap:
+                    properties:
+                      name:
+                        type: string
+                      optional:
+                        type: boolean
                   dataVolume:
                     properties:
                       name:
@@ -293,6 +299,12 @@ spec:
                         type: string
                     required:
                     - image
+                  secret:
+                    properties:
+                      optional:
+                        type: boolean
+                      secretName:
+                        type: string
                 required:
                 - name
               type: array

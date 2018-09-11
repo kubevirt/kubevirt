@@ -46,6 +46,30 @@ type HostDisk struct {
 	Capacity resource.Quantity `json:"capacity,omitempty"`
 }
 
+// ConfigMapVolumeSource adapts a ConfigMap into a volume.
+// More info: https://kubernetes.io/docs/concepts/storage/volumes/#configmap
+// ---
+// +k8s:openapi-gen=true
+type ConfigMapVolumeSource struct {
+	v1.LocalObjectReference `json:",inline"`
+	// Specify whether the ConfigMap or it's keys must be defined
+	// +optional
+	Optional *bool `json:"optional,omitempty"`
+}
+
+// SecretVolumeSource adapts a Secret into a volume.
+// ---
+// +k8s:openapi-gen=true
+type SecretVolumeSource struct {
+	// Name of the secret in the pod's namespace to use.
+	// More info: https://kubernetes.io/docs/concepts/storage/volumes#secret
+	// +optional
+	SecretName string `json:"secretName,omitempty"`
+	// Specify whether the Secret or it's keys must be defined
+	// +optional
+	Optional *bool `json:"optional,omitempty"`
+}
+
 // Represents a cloud-init nocloud user data source.
 // More info: http://cloudinit.readthedocs.io/en/latest/topics/datasources/nocloud.html
 // ---
@@ -325,6 +349,14 @@ type VolumeSource struct {
 	// the process of populating that PVC with a disk image.
 	// +optional
 	DataVolume *DataVolumeSource `json:"dataVolume,omitempty"`
+	// ConfigMapSource represents a reference to a ConfigMap in the same namespace.
+	// More info: https://kubernetes.io/docs/tasks/configure-pod-container/configure-pod-configmap/
+	// +optional
+	ConfigMap *ConfigMapVolumeSource `json:"configMap,omitempty"`
+	// SecretVolumeSource represents a reference to a secret data in the same namespace.
+	// More info: https://kubernetes.io/docs/concepts/configuration/secret/
+	// +optional
+	Secret *SecretVolumeSource `json:"secret,omitempty"`
 }
 
 // ---
