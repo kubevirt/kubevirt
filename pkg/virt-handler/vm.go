@@ -129,7 +129,7 @@ type VirtualMachineController struct {
 // If the grace period has started but not expired, timeLeft represents
 // the time in seconds left until the period expires.
 // If the grace period has not started, timeLeft will be set to -1.
-func (d *VirtualMachineController) hasGracePeriodExpired(dom *api.Domain) (hasExpired bool, timeLeft int) {
+func (d *VirtualMachineController) hasGracePeriodExpired(dom *api.Domain) (hasExpired bool, timeLeft int64) {
 
 	hasExpired = false
 	timeLeft = 0
@@ -165,7 +165,7 @@ func (d *VirtualMachineController) hasGracePeriodExpired(dom *api.Domain) (hasEx
 		return
 	}
 
-	timeLeft = int(gracePeriod - diff)
+	timeLeft = int64(gracePeriod - diff)
 	if timeLeft < 1 {
 		timeLeft = 1
 	}
@@ -578,6 +578,20 @@ func (d *VirtualMachineController) processVmShutdown(vmi *v1.VirtualMachineInsta
 				}
 
 				log.Log.Object(vmi).Infof("Signaled graceful shutdown for %s", vmi.GetObjectMeta().GetName())
+
+				// Make sure that we don't hot-loop in case we send the first domain notification
+				if timeLeft == -1 {
+					timeLeft = 5
+					if vmi.Spec.TerminationGracePeriodSeconds != nil && *vmi.Spec.TerminationGracePeriodSeconds < timeLeft {
+						timeLeft = *vmi.Spec.TerminationGracePeriodSeconds
+					}
+				}
+				// In case we have a long grace period, we want to resend the graceful shutdown every 5 seconds
+				// That's important since a booting OS can miss ACPI signals
+				if timeLeft > 5 {
+					timeLeft = 5
+				}
+
 				// pending graceful shutdown.
 				d.Queue.AddAfter(controller.VirtualMachineKey(vmi), time.Duration(timeLeft)*time.Second)
 				d.recorder.Event(vmi, k8sv1.EventTypeNormal, v1.ShuttingDown.String(), "Signaled Graceful Shutdown")
