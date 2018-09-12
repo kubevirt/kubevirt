@@ -742,19 +742,13 @@ var _ = Describe("Converter", func() {
 				v1.Network{
 					Name: "red1",
 					NetworkSource: v1.NetworkSource{
-						Cni: &v1.CniNetwork{
-							Multus:      &v1.MultusNetwork{},
-							NetworkName: "red",
-						},
+						Multus: &v1.CniNetwork{NetworkName: "red"},
 					},
 				},
 				v1.Network{
 					Name: "red2",
 					NetworkSource: v1.NetworkSource{
-						Cni: &v1.CniNetwork{
-							Multus:      &v1.MultusNetwork{},
-							NetworkName: "red",
-						},
+						Multus: &v1.CniNetwork{NetworkName: "red"},
 					},
 				},
 				v1.Network{
@@ -784,19 +778,13 @@ var _ = Describe("Converter", func() {
 				v1.Network{
 					Name: "red1",
 					NetworkSource: v1.NetworkSource{
-						Cni: &v1.CniNetwork{
-							Genie:       &v1.GenieNetwork{},
-							NetworkName: "red",
-						},
+						Genie: &v1.CniNetwork{NetworkName: "red"},
 					},
 				},
 				v1.Network{
 					Name: "red2",
 					NetworkSource: v1.NetworkSource{
-						Cni: &v1.CniNetwork{
-							Genie:       &v1.GenieNetwork{},
-							NetworkName: "red",
-						},
+						Genie: &v1.CniNetwork{NetworkName: "red"},
 					},
 				},
 			}
@@ -821,19 +809,13 @@ var _ = Describe("Converter", func() {
 				v1.Network{
 					Name: "red1",
 					NetworkSource: v1.NetworkSource{
-						Cni: &v1.CniNetwork{
-							Kuryr:       &v1.KuryrNetwork{},
-							NetworkName: "red",
-						},
+						Kuryr: &v1.CniNetwork{NetworkName: "red"},
 					},
 				},
 				v1.Network{
 					Name: "red2",
 					NetworkSource: v1.NetworkSource{
-						Cni: &v1.CniNetwork{
-							Kuryr:       &v1.KuryrNetwork{},
-							NetworkName: "red",
-						},
+						Kuryr: &v1.CniNetwork{NetworkName: "red"},
 					},
 				},
 				v1.Network{

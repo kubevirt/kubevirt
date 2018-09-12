@@ -384,24 +384,6 @@ func (Rng) SwaggerDoc() map[string]string {
 	}
 }
 
-func (MultusNetwork) SwaggerDoc() map[string]string {
-	return map[string]string{
-		"": "MultusNetwork represent the multus cni network.",
-	}
-}
-
-func (KuryrNetwork) SwaggerDoc() map[string]string {
-	return map[string]string{
-		"": "KuryrNetwork represent the kuryr cni network.",
-	}
-}
-
-func (GenieNetwork) SwaggerDoc() map[string]string {
-	return map[string]string{
-		"": "GenieNetwork represent the genie cni network.",
-	}
-}
-
 func (CniNetwork) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"":            "Represents the cni network.",

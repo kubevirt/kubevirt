@@ -70,10 +70,7 @@ var _ = Describe("Multus Networking", func() {
 			detachedVMI.Spec.Domain.Devices.Interfaces = []v1.Interface{{Name: "ptp", InterfaceBindingMethod: v1.InterfaceBindingMethod{Bridge: &v1.InterfaceBridge{}}}}
 			detachedVMI.Spec.Networks = []v1.Network{
 				{Name: "ptp", NetworkSource: v1.NetworkSource{
-					Cni: &v1.CniNetwork{
-						Multus:      &v1.MultusNetwork{},
-						NetworkName: "ptp-conf",
-					},
+					Multus: &v1.CniNetwork{NetworkName: "ptp-conf"},
 				}},
 			}
 
@@ -107,10 +104,7 @@ var _ = Describe("Multus Networking", func() {
 						Pod: &v1.PodNetwork{},
 					}},
 				{Name: "ptp", NetworkSource: v1.NetworkSource{
-					Cni: &v1.CniNetwork{
-						Multus:      &v1.MultusNetwork{},
-						NetworkName: "ptp-conf",
-					},
+					Multus: &v1.CniNetwork{NetworkName: "ptp-conf"},
 				}},
 			}
 

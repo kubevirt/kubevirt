@@ -73,10 +73,7 @@ var _ = Describe("Network", func() {
 			cniNet := &v1.Network{
 				Name: "default",
 				NetworkSource: v1.NetworkSource{
-					Cni: &v1.CniNetwork{
-						Multus:      &v1.MultusNetwork{},
-						NetworkName: "default",
-					},
+					Multus: &v1.CniNetwork{NetworkName: "default"},
 				},
 			}
 			vm.Spec.Networks = []v1.Network{*cniNet}
@@ -97,10 +94,7 @@ var _ = Describe("Network", func() {
 			cniNet := &v1.Network{
 				Name: "default",
 				NetworkSource: v1.NetworkSource{
-					Cni: &v1.CniNetwork{
-						Genie:       &v1.GenieNetwork{},
-						NetworkName: "default",
-					},
+					Genie: &v1.CniNetwork{NetworkName: "default"},
 				},
 			}
 			vm.Spec.Networks = []v1.Network{*cniNet}
@@ -121,10 +115,7 @@ var _ = Describe("Network", func() {
 			cniNet := &v1.Network{
 				Name: "default",
 				NetworkSource: v1.NetworkSource{
-					Cni: &v1.CniNetwork{
-						Kuryr:       &v1.KuryrNetwork{},
-						NetworkName: "default",
-					},
+					Kuryr: &v1.CniNetwork{NetworkName: "default"},
 				},
 			}
 

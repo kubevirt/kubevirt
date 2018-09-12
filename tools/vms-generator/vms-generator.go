@@ -284,10 +284,7 @@ func getVMIMultusPtp() *v1.VirtualMachineInstance {
 		{
 			Name: "ptp",
 			NetworkSource: v1.NetworkSource{
-				Cni: &v1.CniNetwork{
-					Multus:      &v1.MultusNetwork{},
-					NetworkName: "ptp-conf",
-				},
+				Multus: &v1.CniNetwork{NetworkName: "ptp-conf"},
 			},
 		},
 	}
@@ -307,10 +304,7 @@ func getVMIMultusMultipleNet() *v1.VirtualMachineInstance {
 		{
 			Name: "ptp",
 			NetworkSource: v1.NetworkSource{
-				Cni: &v1.CniNetwork{
-					Multus:      &v1.MultusNetwork{},
-					NetworkName: "ptp-conf",
-				},
+				Multus: &v1.CniNetwork{NetworkName: "ptp-conf"},
 			},
 		},
 	}

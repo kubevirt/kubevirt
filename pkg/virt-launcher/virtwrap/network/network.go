@@ -51,14 +51,12 @@ func SetupNetworkInterfaces(vmi *v1.VirtualMachineInstance, domain *api.Domain) 
 	cniNetworks := map[string]int{}
 	for _, network := range vmi.Spec.Networks {
 		networks[network.Name] = network.DeepCopy()
-		if network.Cni != nil {
-			if networks[network.Name].Cni.Multus != nil || networks[network.Name].Cni.Kuryr != nil {
-				// multus and kuryr pod interfaces start from 1
-				cniNetworks[network.Name] = len(cniNetworks) + 1
-			} else if networks[network.Name].Cni.Genie != nil {
-				// genie pod interfaces start from 0
-				cniNetworks[network.Name] = len(cniNetworks)
-			}
+		if networks[network.Name].Multus != nil || networks[network.Name].Kuryr != nil {
+			// multus and kuryr pod interfaces start from 1
+			cniNetworks[network.Name] = len(cniNetworks) + 1
+		} else if networks[network.Name].Genie != nil {
+			// genie pod interfaces start from 0
+			cniNetworks[network.Name] = len(cniNetworks)
 		}
 	}
 
@@ -72,14 +70,12 @@ func SetupNetworkInterfaces(vmi *v1.VirtualMachineInstance, domain *api.Domain) 
 			return err
 		}
 
-		if networks[iface.Name].Cni != nil {
-			if networks[iface.Name].Cni.Multus != nil {
-				// multus pod interfaces named netX
-				podInterfaceName = fmt.Sprintf("net%d", cniNetworks[iface.Name])
-			} else if networks[iface.Name].Cni.Kuryr != nil || networks[iface.Name].Cni.Genie != nil {
-				// kuryr and genie pod interfaces named ethX
-				podInterfaceName = fmt.Sprintf("eth%d", cniNetworks[iface.Name])
-			}
+		if networks[iface.Name].Multus != nil {
+			// multus pod interfaces named netX
+			podInterfaceName = fmt.Sprintf("net%d", cniNetworks[iface.Name])
+		} else if networks[iface.Name].Kuryr != nil || networks[iface.Name].Genie != nil {
+			// kuryr and genie pod interfaces named ethX
+			podInterfaceName = fmt.Sprintf("eth%d", cniNetworks[iface.Name])
 		} else {
 			podInterfaceName = podInterface
 		}
@@ -94,7 +90,7 @@ func SetupNetworkInterfaces(vmi *v1.VirtualMachineInstance, domain *api.Domain) 
 
 // a factory to get suitable network interface
 func getNetworkClass(network *v1.Network) (NetworkInterface, error) {
-	if network.Pod != nil || network.Cni != nil {
+	if network.Pod != nil || network.Multus != nil || network.Genie != nil || network.Kuryr != nil {
 		return new(PodInterface), nil
 	}
 	return nil, fmt.Errorf("Network not implemented")

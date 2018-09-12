@@ -182,21 +182,6 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 				SchemaProps: spec.SchemaProps{
 					Description: "Represents the cni network.",
 					Properties: map[string]spec.Schema{
-						"multus": {
-							SchemaProps: spec.SchemaProps{
-								Ref: ref("kubevirt.io/kubevirt/pkg/api/v1.MultusNetwork"),
-							},
-						},
-						"kuryr": {
-							SchemaProps: spec.SchemaProps{
-								Ref: ref("kubevirt.io/kubevirt/pkg/api/v1.KuryrNetwork"),
-							},
-						},
-						"genie": {
-							SchemaProps: spec.SchemaProps{
-								Ref: ref("kubevirt.io/kubevirt/pkg/api/v1.GenieNetwork"),
-							},
-						},
 						"networkName": {
 							SchemaProps: spec.SchemaProps{
 								Description: "References to a NetworkAttachmentDefinition CRD object in the same namespace. In case of genie, it references the CNI plugin name.",
@@ -208,8 +193,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 					Required: []string{"networkName"},
 				},
 			},
-			Dependencies: []string{
-				"kubevirt.io/kubevirt/pkg/api/v1.GenieNetwork", "kubevirt.io/kubevirt/pkg/api/v1.KuryrNetwork", "kubevirt.io/kubevirt/pkg/api/v1.MultusNetwork"},
+			Dependencies: []string{},
 		},
 		"kubevirt.io/kubevirt/pkg/api/v1.DataVolumeSource": {
 			Schema: spec.Schema{
@@ -780,15 +764,6 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 			},
 			Dependencies: []string{},
 		},
-		"kubevirt.io/kubevirt/pkg/api/v1.GenieNetwork": {
-			Schema: spec.Schema{
-				SchemaProps: spec.SchemaProps{
-					Description: "GenieNetwork represent the genie cni network.",
-					Properties:  map[string]spec.Schema{},
-				},
-			},
-			Dependencies: []string{},
-		},
 		"kubevirt.io/kubevirt/pkg/api/v1.HPETTimer": {
 			Schema: spec.Schema{
 				SchemaProps: spec.SchemaProps{
@@ -984,15 +959,6 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 			},
 			Dependencies: []string{},
 		},
-		"kubevirt.io/kubevirt/pkg/api/v1.KuryrNetwork": {
-			Schema: spec.Schema{
-				SchemaProps: spec.SchemaProps{
-					Description: "KuryrNetwork represent the kuryr cni network.",
-					Properties:  map[string]spec.Schema{},
-				},
-			},
-			Dependencies: []string{},
-		},
 		"kubevirt.io/kubevirt/pkg/api/v1.LunTarget": {
 			Schema: spec.Schema{
 				SchemaProps: spec.SchemaProps{
@@ -1056,15 +1022,6 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 			Dependencies: []string{
 				"k8s.io/apimachinery/pkg/api/resource.Quantity", "kubevirt.io/kubevirt/pkg/api/v1.Hugepages"},
 		},
-		"kubevirt.io/kubevirt/pkg/api/v1.MultusNetwork": {
-			Schema: spec.Schema{
-				SchemaProps: spec.SchemaProps{
-					Description: "MultusNetwork represent the multus cni network.",
-					Properties:  map[string]spec.Schema{},
-				},
-			},
-			Dependencies: []string{},
-		},
 		"kubevirt.io/kubevirt/pkg/api/v1.Network": {
 			Schema: spec.Schema{
 				SchemaProps: spec.SchemaProps{
@@ -1082,7 +1039,17 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 								Ref: ref("kubevirt.io/kubevirt/pkg/api/v1.PodNetwork"),
 							},
 						},
-						"cni": {
+						"multus": {
+							SchemaProps: spec.SchemaProps{
+								Ref: ref("kubevirt.io/kubevirt/pkg/api/v1.CniNetwork"),
+							},
+						},
+						"kuryr": {
+							SchemaProps: spec.SchemaProps{
+								Ref: ref("kubevirt.io/kubevirt/pkg/api/v1.CniNetwork"),
+							},
+						},
+						"genie": {
 							SchemaProps: spec.SchemaProps{
 								Ref: ref("kubevirt.io/kubevirt/pkg/api/v1.CniNetwork"),
 							},
@@ -1104,7 +1071,17 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 								Ref: ref("kubevirt.io/kubevirt/pkg/api/v1.PodNetwork"),
 							},
 						},
-						"cni": {
+						"multus": {
+							SchemaProps: spec.SchemaProps{
+								Ref: ref("kubevirt.io/kubevirt/pkg/api/v1.CniNetwork"),
+							},
+						},
+						"kuryr": {
+							SchemaProps: spec.SchemaProps{
+								Ref: ref("kubevirt.io/kubevirt/pkg/api/v1.CniNetwork"),
+							},
+						},
+						"genie": {
 							SchemaProps: spec.SchemaProps{
 								Ref: ref("kubevirt.io/kubevirt/pkg/api/v1.CniNetwork"),
 							},

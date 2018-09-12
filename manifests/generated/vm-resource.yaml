@@ -233,11 +233,20 @@ spec:
                     networks:
                       items:
                         properties:
-                          cni:
+                          genie:
                             properties:
-                              genie: {}
-                              kuryr: {}
-                              multus: {}
+                              networkName:
+                                type: string
+                            required:
+                            - networkName
+                          kuryr:
+                            properties:
+                              networkName:
+                                type: string
+                            required:
+                            - networkName
+                          multus:
+                            properties:
                               networkName:
                                 type: string
                             required:

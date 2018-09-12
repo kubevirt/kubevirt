@@ -607,6 +607,10 @@ func ValidateVirtualMachineInstanceSpec(field *k8sfield.Path, spec *v1.VirtualMa
 		}
 	}
 
+	cniExists := func(netSource v1.NetworkSource) bool {
+		return netSource.Multus != nil || netSource.Kuryr != nil || netSource.Genie != nil
+	}
+
 	if len(spec.Networks) > 0 && len(spec.Domain.Devices.Interfaces) > 0 {
 		cniTypesCount := 0
 		multusExists := false
@@ -614,17 +618,17 @@ func ValidateVirtualMachineInstanceSpec(field *k8sfield.Path, spec *v1.VirtualMa
 		genieExists := false
 		podExists := false
 		for idx, network := range spec.Networks {
-			if network.Pod == nil && network.Cni == nil {
+			if network.Pod == nil && !cniExists(network.NetworkSource) {
 				causes = append(causes, metav1.StatusCause{
 					Type:    metav1.CauseTypeFieldValueRequired,
 					Message: fmt.Sprintf("should have a network type"),
-					Field:   field.Child("networks").Index(idx).Child("pod").String(),
+					Field:   field.Child("networks").Index(idx).String(),
 				})
 			}
 
 			if network.Pod != nil {
 				podExists = true
-				if network.Cni != nil {
+				if cniExists(network.NetworkSource) {
 					causes = append(causes, metav1.StatusCause{
 						Type:    metav1.CauseTypeFieldValueRequired,
 						Message: fmt.Sprintf("should have only one network type"),
@@ -635,53 +639,58 @@ func ValidateVirtualMachineInstanceSpec(field *k8sfield.Path, spec *v1.VirtualMa
 					causes = append(causes, metav1.StatusCause{
 						Type:    metav1.CauseTypeFieldValueRequired,
 						Message: fmt.Sprintf("cannot combine pod and Genie CNI networks"),
-						Field:   field.Child("networks").Index(idx).Child("cni").String(),
+						Field:   field.Child("networks").Index(idx).String(),
 					})
 				}
 			}
 
-			if network.Cni != nil {
-				if network.Cni.NetworkName == "" {
+			if cniExists(network.NetworkSource) {
+
+				networkNameExists := false
+
+				if network.NetworkSource.Multus != nil {
+					if !multusExists {
+						cniTypesCount++
+						multusExists = true
+					}
+					networkNameExists = network.Multus.NetworkName != ""
+				}
+				if network.NetworkSource.Kuryr != nil {
+					if !kuryrExists {
+						cniTypesCount++
+						kuryrExists = true
+					}
+					networkNameExists = network.Kuryr.NetworkName != ""
+				}
+				if network.NetworkSource.Genie != nil {
+					if !genieExists {
+						cniTypesCount++
+						genieExists = true
+					}
+					networkNameExists = network.Genie.NetworkName != ""
+				}
+
+				if !networkNameExists {
 					causes = append(causes, metav1.StatusCause{
 						Type:    metav1.CauseTypeFieldValueRequired,
 						Message: fmt.Sprintf("CNI network must have a networkName"),
-						Field:   field.Child("networks").Index(idx).Child("cni").String(),
+						Field:   field.Child("networks").Index(idx).String(),
 					})
 				}
 
-				if network.Cni.Multus != nil && !multusExists {
-					cniTypesCount++
-					multusExists = true
-				}
-				if network.Cni.Kuryr != nil && !kuryrExists {
-					cniTypesCount++
-					kuryrExists = true
-				}
-				if network.Cni.Genie != nil && !genieExists {
-					cniTypesCount++
-					genieExists = true
-				}
 				if cniTypesCount > 1 {
 					causes = append(causes, metav1.StatusCause{
 						Type:    metav1.CauseTypeFieldValueRequired,
 						Message: fmt.Sprintf("all networks must belong to one CNI"),
-						Field:   field.Child("networks").Index(idx).Child("cni").String(),
+						Field:   field.Child("networks").Index(idx).String(),
 					})
 				}
 
-				if network.Cni.Multus == nil && network.Cni.Kuryr == nil && network.Cni.Genie == nil {
-					causes = append(causes, metav1.StatusCause{
-						Type:    metav1.CauseTypeFieldValueRequired,
-						Message: fmt.Sprintf("one CNI must be specified per network"),
-						Field:   field.Child("networks").Index(idx).Child("cni").String(),
-					})
-				}
-
-				if network.Cni.Genie != nil && podExists {
+				if genieExists && podExists {
 					causes = append(causes, metav1.StatusCause{
 						Type:    metav1.CauseTypeFieldValueRequired,
 						Message: fmt.Sprintf("cannot combine pod and Genie CNI networks"),
-						Field:   field.Child("networks").Index(idx).Child("cni").String(),
+						Field:   field.Child("networks").Index(idx).String(),
 					})
 				}
 			}

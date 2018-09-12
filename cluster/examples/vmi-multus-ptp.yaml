@@ -26,8 +26,7 @@ spec:
       requests:
         memory: 1024M
   networks:
-  - cni:
-      multus: {}
+  - multus:
       networkName: ptp-conf
     name: ptp
   terminationGracePeriodSeconds: 0

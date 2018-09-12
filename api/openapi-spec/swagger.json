@@ -3334,15 +3334,6 @@
      "networkName"
     ],
     "properties": {
-     "genie": {
-      "$ref": "#/definitions/v1.GenieNetwork"
-     },
-     "kuryr": {
-      "$ref": "#/definitions/v1.KuryrNetwork"
-     },
-     "multus": {
-      "$ref": "#/definitions/v1.MultusNetwork"
-     },
      "networkName": {
       "description": "References to a NetworkAttachmentDefinition CRD object in the same namespace.\nIn case of genie, it references the CNI plugin name.",
       "type": "string"
@@ -3695,9 +3686,6 @@
      }
     }
    },
-   "v1.GenieNetwork": {
-    "description": "GenieNetwork represent the genie cni network."
-   },
    "v1.GroupVersionForDiscovery": {
     "description": "GroupVersion contains the \"group/version\" and \"version\" string of a version. It is made a struct to keep extensibility.",
     "required": [
@@ -3835,9 +3823,6 @@
      }
     }
    },
-   "v1.KuryrNetwork": {
-    "description": "KuryrNetwork represent the kuryr cni network."
-   },
    "v1.LabelSelector": {
     "description": "A label selector is a label query over a set of resources. The result of matchLabels and matchExpressions are ANDed. An empty label selector matches all objects. A null label selector matches no objects.",
     "properties": {
@@ -3940,16 +3925,19 @@
      }
     }
    },
-   "v1.MultusNetwork": {
-    "description": "MultusNetwork represent the multus cni network."
-   },
    "v1.Network": {
     "description": "Network represents a network type and a resource that should be connected to the vm.",
     "required": [
      "name"
     ],
     "properties": {
-     "cni": {
+     "genie": {
+      "$ref": "#/definitions/v1.CniNetwork"
+     },
+     "kuryr": {
+      "$ref": "#/definitions/v1.CniNetwork"
+     },
+     "multus": {
       "$ref": "#/definitions/v1.CniNetwork"
      },
      "name": {

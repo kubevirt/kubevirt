@@ -30,8 +30,7 @@ spec:
   networks:
   - name: default
     pod: {}
-  - cni:
-      multus: {}
+  - multus:
       networkName: ptp-conf
     name: ptp
   terminationGracePeriodSeconds: 0

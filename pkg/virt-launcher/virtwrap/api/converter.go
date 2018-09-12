@@ -583,22 +583,28 @@ func Convert_v1_VirtualMachine_To_api_Domain(vmi *v1.VirtualMachineInstance, dom
 	networks := map[string]*v1.Network{}
 	cniNetworks := map[string]int{}
 	for _, network := range vmi.Spec.Networks {
-		if network.Cni == nil && network.Pod == nil {
-			return fmt.Errorf("fail network %s must have a network type", network.Name)
+		numberOfSources := 0
+		if network.Pod != nil {
+			numberOfSources++
 		}
-		if network.Cni != nil && network.Pod != nil {
+		if network.Multus != nil {
+			cniNetworks[network.Name] = len(cniNetworks) + 1
+			numberOfSources++
+		}
+		if network.Kuryr != nil {
+			cniNetworks[network.Name] = len(cniNetworks) + 1
+			numberOfSources++
+		}
+		if network.Genie != nil {
+			cniNetworks[network.Name] = len(cniNetworks)
+			numberOfSources++
+		}
+		if numberOfSources == 0 {
+			return fmt.Errorf("fail network %s must have a network type", network.Name)
+		} else if numberOfSources > 1 {
 			return fmt.Errorf("fail network %s must have only one network type", network.Name)
 		}
 		networks[network.Name] = network.DeepCopy()
-		if network.Cni != nil {
-			if network.Cni.Multus != nil || network.Cni.Kuryr != nil {
-				cniNetworks[network.Name] = len(cniNetworks) + 1
-			} else if network.Cni.Genie != nil {
-				cniNetworks[network.Name] = len(cniNetworks)
-			} else {
-				return fmt.Errorf("CNI missing")
-			}
-		}
 	}
 
 	for _, iface := range vmi.Spec.Domain.Devices.Interfaces {
@@ -638,9 +644,9 @@ func Convert_v1_VirtualMachine_To_api_Domain(vmi *v1.VirtualMachineInstance, dom
 			if value, ok := cniNetworks[iface.Name]; ok {
 				prefix := ""
 				// no error check, we assume that CNI type was set correctly
-				if net.Cni.Multus != nil {
+				if net.Multus != nil {
 					prefix = "net"
-				} else if net.Cni.Kuryr != nil || net.Cni.Genie != nil {
+				} else if net.Kuryr != nil || net.Genie != nil {
 					prefix = "eth"
 				}
 				domainIface.Source = InterfaceSource{

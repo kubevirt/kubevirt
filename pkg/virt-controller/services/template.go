@@ -394,18 +394,9 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 		v1.OwnedByAnnotation: "virt-controller",
 	}
 
-	cniNetworks, cniType := getCniInterfaceList(vmi)
+	cniNetworks, cniAnnotation := getCniInterfaceList(vmi)
 	if len(cniNetworks) > 0 {
-		if cniType == nil {
-			return nil, fmt.Errorf("unknown CNI: %v", cniType)
-		}
-		if cniType.Multus != nil || cniType.Kuryr != nil {
-			annotationsList["k8s.v1.cni.cncf.io/networks"] = cniNetworks
-		} else if cniType.Genie != nil {
-			annotationsList["cni"] = cniNetworks
-		} else {
-			return nil, fmt.Errorf("unknown CNI: %v", cniType)
-		}
+		annotationsList[cniAnnotation] = cniNetworks
 	}
 
 	// TODO use constants for podLabels
@@ -551,18 +542,27 @@ func getPortsFromVMI(vmi *v1.VirtualMachineInstance) []k8sv1.ContainerPort {
 	return ports
 }
 
-func getCniInterfaceList(vmi *v1.VirtualMachineInstance) (ifaceListString string, cniType *v1.CniNetwork) {
+func getCniInterfaceList(vmi *v1.VirtualMachineInstance) (ifaceListString string, cniAnnotation string) {
 	ifaceList := make([]string, 0)
 
 	for _, network := range vmi.Spec.Networks {
-		if network.Cni != nil {
-			// no error checking for the type, as it is done from the outside
-			if cniType == nil {
-				// set the type for the first network
-				// all other networks must have same type
-				cniType = network.Cni
+		// set the type for the first network
+		// all other networks must have same type
+		if network.Multus != nil {
+			ifaceList = append(ifaceList, network.Multus.NetworkName)
+			if cniAnnotation == "" {
+				cniAnnotation = "k8s.v1.cni.cncf.io/networks"
 			}
-			ifaceList = append(ifaceList, network.Cni.NetworkName)
+		} else if network.Kuryr != nil {
+			ifaceList = append(ifaceList, network.Kuryr.NetworkName)
+			if cniAnnotation == "" {
+				cniAnnotation = "k8s.v1.cni.cncf.io/networks"
+			}
+		} else if network.Genie != nil {
+			ifaceList = append(ifaceList, network.Genie.NetworkName)
+			if cniAnnotation == "" {
+				cniAnnotation = "cni"
+			}
 		}
 	}
 
