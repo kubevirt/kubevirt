@@ -20,7 +20,6 @@
 package featuregates
 
 import (
-	"io/ioutil"
 	"os"
 	"strings"
 	"time"
@@ -32,6 +31,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 
 	"kubevirt.io/kubevirt/pkg/kubecli"
+	"kubevirt.io/kubevirt/pkg/util"
 )
 
 const featureGateEnvVar = "FEATURE_GATES"
@@ -40,15 +40,6 @@ const (
 	dataVolumesGate = "DataVolumes"
 	cpuManager      = "CPUManager"
 )
-
-func getNamespace() string {
-	if data, err := ioutil.ReadFile("/var/run/secrets/kubernetes.io/serviceaccount/namespace"); err == nil {
-		if ns := strings.TrimSpace(string(data)); len(ns) > 0 {
-			return ns
-		}
-	}
-	return metav1.NamespaceSystem
-}
 
 func ParseFeatureGatesFromConfigMap() {
 	virtClient, err := kubecli.GetKubevirtClient()
@@ -60,7 +51,7 @@ func ParseFeatureGatesFromConfigMap() {
 	var curErr error
 	err = wait.PollImmediate(time.Second*1, time.Second*10, func() (bool, error) {
 
-		cfgMap, curErr = virtClient.CoreV1().ConfigMaps(getNamespace()).Get("kubevirt-config", metav1.GetOptions{})
+		cfgMap, curErr = virtClient.CoreV1().ConfigMaps(util.GetNamespace()).Get("kubevirt-config", metav1.GetOptions{})
 
 		if curErr != nil {
 			if errors.IsNotFound(curErr) {

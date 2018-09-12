@@ -38,9 +38,8 @@ import (
 	"kubevirt.io/kubevirt/pkg/kubecli"
 	"kubevirt.io/kubevirt/pkg/log"
 	"kubevirt.io/kubevirt/pkg/testutils"
+	"kubevirt.io/kubevirt/pkg/util"
 )
-
-const systemNamespace = "kube-system"
 
 type newSharedInformer func() cache.SharedIndexInformer
 
@@ -205,7 +204,7 @@ func (f *kubeInformerFactory) ConfigMap() cache.SharedIndexInformer {
 	return f.getInformer("configMapInformer", func() cache.SharedIndexInformer {
 		restClient := f.clientSet.CoreV1().RESTClient()
 		fieldSelector := fields.OneTermEqualSelector("metadata.name", "kubevirt-config")
-		lw := cache.NewListWatchFromClient(restClient, "configmaps", systemNamespace, fieldSelector)
+		lw := cache.NewListWatchFromClient(restClient, "configmaps", util.GetNamespace(), fieldSelector)
 		return cache.NewSharedIndexInformer(lw, &k8sv1.ConfigMap{}, f.defaultResync, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
 	})
 }

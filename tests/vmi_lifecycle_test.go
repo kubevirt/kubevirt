@@ -926,8 +926,6 @@ var _ = Describe("VMIlifecycle", func() {
 
 				handlerName := virtHandlerPod.GetObjectMeta().GetName()
 				handlerNamespace := virtHandlerPod.GetObjectMeta().GetNamespace()
-				seconds := int64(120)
-				logsQuery := virtClient.CoreV1().Pods(handlerNamespace).GetLogs(handlerName, &k8sv1.PodLogOptions{SinceSeconds: &seconds, Container: "virt-handler"})
 
 				By("Setting a VirtualMachineInstance termination grace period to 5")
 				var gracePeriod int64
@@ -941,6 +939,8 @@ var _ = Describe("VMIlifecycle", func() {
 				obj, err := virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
 				Expect(err).ToNot(HaveOccurred())
 				tests.WaitForSuccessfulVMIStart(obj)
+				now := metav1.Now()
+				logsQuery := virtClient.CoreV1().Pods(handlerNamespace).GetLogs(handlerName, &k8sv1.PodLogOptions{SinceTime: &now, Container: "virt-handler"})
 
 				// Delete the VirtualMachineInstance and wait for the confirmation of the delete
 				By("Deleting the VirtualMachineInstance")
