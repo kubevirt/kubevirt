@@ -130,6 +130,16 @@ type DomainSpec struct {
 	Features      *Features      `xml:"features,omitempty"`
 	CPU           CPU            `xml:"cpu"`
 	VCPU          *VCPU          `xml:"vcpu"`
+	CPUTune       *CPUTune       `xml:"cputune"`
+}
+
+type CPUTune struct {
+	VCPUPin []CPUTuneVCPUPin `xml:"vcpupin"`
+}
+
+type CPUTuneVCPUPin struct {
+	VCPU   uint   `xml:"vcpu,attr"`
+	CPUSet string `xml:"cpuset,attr"`
 }
 
 type VCPU struct {

@@ -154,7 +154,49 @@ var _ = Describe("Template", func() {
 				Expect(pod.Spec.Containers[0].VolumeMounts[0].MountPath).To(Equal("/var/run/kubevirt"))
 				Expect(*pod.Spec.TerminationGracePeriodSeconds).To(Equal(int64(60)))
 			})
+			It("should add default cpu/memory resources to the sidecar container if cpu pinning was requested", func() {
+				nodeSelector := map[string]string{
+					"kubernetes.io/hostname": "master",
+					v1.NodeSchedulable:       "true",
+				}
+				annotations := map[string]string{
+					hooks.HookSidecarListAnnotationName: `[{"image": "some-image:v1", "imagePullPolicy": "IfNotPresent"}]`,
+				}
+				vmi := v1.VirtualMachineInstance{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:        "testvmi",
+						Namespace:   "default",
+						UID:         "1234",
+						Annotations: annotations,
+					},
+					Spec: v1.VirtualMachineInstanceSpec{
+						NodeSelector: nodeSelector,
+						Domain: v1.DomainSpec{
+							CPU: &v1.CPU{
+								Cores: 2,
+								DedicatedCPUPlacement: true,
+							},
+						},
+					},
+				}
 
+				pod, err := svc.RenderLaunchManifest(&vmi)
+				Expect(err).ToNot(HaveOccurred())
+				cpu := resource.MustParse("200m")
+				mem := resource.MustParse("64M")
+				Expect(pod.Spec.Containers[1].Resources.Limits.Memory().Cmp(mem)).To(BeZero())
+				Expect(pod.Spec.Containers[1].Resources.Limits.Cpu().Cmp(cpu)).To(BeZero())
+
+				found := false
+				caps := pod.Spec.Containers[0].SecurityContext.Capabilities
+				for _, cap := range caps.Add {
+					if cap == CAP_SYS_NICE {
+						found = true
+					}
+				}
+				Expect(found).To(BeTrue(), "Expected compute container to be granted SYS_NICE capability")
+				Expect(pod.Spec.NodeSelector).Should(HaveKeyWithValue(v1.CPUManager, "true"))
+			})
 			It("should add node affinity to pod", func() {
 				nodeAffinity := kubev1.NodeAffinity{}
 				vmi := v1.VirtualMachineInstance{

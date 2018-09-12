@@ -76,6 +76,13 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 								Format:      "",
 							},
 						},
+						"dedicatedCpuPlacement": {
+							SchemaProps: spec.SchemaProps{
+								Description: "DedicatedCPUPlacement requests the scheduler to place the VirtualMachineInstance on a node with enough dedicated pCPUs and pin the vCPUs to it.",
+								Type:        []string{"boolean"},
+								Format:      "",
+							},
+						},
 					},
 				},
 			},

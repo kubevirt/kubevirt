@@ -143,11 +143,17 @@ func (l *LibvirtDomainManager) SyncVMI(vmi *v1.VirtualMachineInstance, useEmulat
 	logger := log.Log.Object(vmi)
 
 	domain := &api.Domain{}
+	podCPUSet, err := util.GetPodCPUSet()
+	if err != nil {
+		logger.Reason(err).Error("failed to read pod cpuset.")
+		return nil, err
+	}
 
 	// Map the VirtualMachineInstance to the Domain
 	c := &api.ConverterContext{
 		VirtualMachine: vmi,
 		UseEmulation:   useEmulation,
+		CPUSet:         podCPUSet,
 	}
 	if err := api.Convert_v1_VirtualMachine_To_api_Domain(vmi, domain, c); err != nil {
 		logger.Error("Conversion failed.")

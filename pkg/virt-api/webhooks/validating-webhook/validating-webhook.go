@@ -557,6 +557,95 @@ func ValidateVirtualMachineInstanceSpec(field *k8sfield.Path, spec *v1.VirtualMa
 		}
 	}
 
+	// Validate CPU pinning
+	if spec.Domain.CPU != nil && spec.Domain.CPU.DedicatedCPUPlacement {
+		requestsMem := spec.Domain.Resources.Requests.Memory().Value()
+		limitsMem := spec.Domain.Resources.Limits.Memory().Value()
+		requestsCPU := spec.Domain.Resources.Requests.Cpu().Value()
+		limitsCPU := spec.Domain.Resources.Limits.Cpu().Value()
+		vmCores := int64(spec.Domain.CPU.Cores)
+		// memory should be provided
+		if limitsMem == 0 && requestsMem == 0 {
+			causes = append(causes, metav1.StatusCause{
+				Type: metav1.CauseTypeFieldValueInvalid,
+				Message: fmt.Sprintf("%s or %s should be provided",
+					field.Child("domain", "resources", "requests", "memory").String(),
+					field.Child("domain", "resources", "limits", "memory").String(),
+				),
+				Field: field.Child("domain", "resources", "limits", "memory").String(),
+			})
+		}
+
+		// provided CPU requests must be an interger
+		if requestsCPU > 0 && requestsCPU*1000 != spec.Domain.Resources.Requests.Cpu().MilliValue() {
+			causes = append(causes, metav1.StatusCause{
+				Type:    metav1.CauseTypeFieldValueInvalid,
+				Message: "provided resources CPU requests must be an interger",
+				Field:   field.Child("domain", "resources", "requests", "cpu").String(),
+			})
+		}
+
+		// provided CPU limits must be an interger
+		if limitsCPU > 0 && limitsCPU*1000 != spec.Domain.Resources.Limits.Cpu().MilliValue() {
+			causes = append(causes, metav1.StatusCause{
+				Type:    metav1.CauseTypeFieldValueInvalid,
+				Message: "provided resources CPU limits must be an interger",
+				Field:   field.Child("domain", "resources", "limits", "cpu").String(),
+			})
+		}
+
+		// resources requests must be equal to limits
+		if requestsMem > 0 && limitsMem > 0 && requestsMem != limitsMem {
+			causes = append(causes, metav1.StatusCause{
+				Type: metav1.CauseTypeFieldValueInvalid,
+				Message: fmt.Sprintf("%s must be equal to %s",
+					field.Child("domain", "resources", "requests", "memory").String(),
+					field.Child("domain", "resources", "limits", "memory").String(),
+				),
+				Field: field.Child("domain", "resources", "requests", "memory").String(),
+			})
+		}
+
+		// cpu amount should be provided
+		if requestsCPU == 0 && limitsCPU == 0 && vmCores == 0 {
+			causes = append(causes, metav1.StatusCause{
+				Type: metav1.CauseTypeFieldValueInvalid,
+				Message: fmt.Sprintf("either %s or %s or %s must be provided when DedicatedCPUPlacement is true ",
+					field.Child("domain", "resources", "requests", "cpu").String(),
+					field.Child("domain", "resources", "limits", "cpu").String(),
+					field.Child("domain", "cpu", "cores").String(),
+				),
+				Field: field.Child("domain", "cpu", "dedicatedCpuPlacement").String(),
+			})
+		}
+
+		// cpu amount must be provided
+		if requestsCPU > 0 && limitsCPU > 0 && requestsCPU != limitsCPU {
+			causes = append(causes, metav1.StatusCause{
+				Type: metav1.CauseTypeFieldValueInvalid,
+				Message: fmt.Sprintf("%s or %s must be equal when DedicatedCPUPlacement is true ",
+					field.Child("domain", "resources", "requests", "cpu").String(),
+					field.Child("domain", "resources", "limits", "cpu").String(),
+				),
+				Field: field.Child("domain", "cpu", "dedicatedCpuPlacement").String(),
+			})
+		}
+
+		// cpu resource and cpu cores should not be provided together - unless both are equal
+		if (requestsCPU > 0 || limitsCPU > 0) && vmCores > 0 &&
+			requestsCPU != vmCores && limitsCPU != vmCores {
+			causes = append(causes, metav1.StatusCause{
+				Type: metav1.CauseTypeFieldValueInvalid,
+				Message: fmt.Sprintf("%s or %s must not be provided at the same time with %s when DedicatedCPUPlacement is true ",
+					field.Child("domain", "resources", "requests", "cpu").String(),
+					field.Child("domain", "resources", "limits", "cpu").String(),
+					field.Child("domain", "cpu", "cores").String(),
+				),
+				Field: field.Child("domain", "cpu", "dedicatedCpuPlacement").String(),
+			})
+		}
+	}
+
 	if len(spec.Domain.Devices.Interfaces) > arrayLenMax {
 		causes = append(causes, metav1.StatusCause{
 			Type:    metav1.CauseTypeFieldValueInvalid,

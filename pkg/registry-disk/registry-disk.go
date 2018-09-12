@@ -25,6 +25,7 @@ import (
 	"os"
 
 	kubev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 
 	"kubevirt.io/kubevirt/pkg/api/v1"
 	diskutils "kubevirt.io/kubevirt/pkg/ephemeral-disk-utils"
@@ -111,7 +112,14 @@ func GenerateContainers(vmi *v1.VirtualMachineInstance, podVolumeName string, po
 			volumeMountDir := generateVolumeMountDir(vmi, volume.Name)
 			diskContainerName := fmt.Sprintf("volume%s", volume.Name)
 			diskContainerImage := volume.RegistryDisk.Image
-
+			resources := kubev1.ResourceRequirements{}
+			if vmi.IsCPUDedicated() {
+				resources.Limits = make(kubev1.ResourceList)
+				// TODO(vladikr): adjust the correct cpu/mem values - this is mainly needed to allow QemuImg to run correctly
+				resources.Limits[kubev1.ResourceCPU] = resource.MustParse("200m")
+				// k8s minimum memory reservation is linuxMinMemory = 4194304
+				resources.Limits[kubev1.ResourceMemory] = resource.MustParse("64M")
+			}
 			containers = append(containers, kubev1.Container{
 				Name:            diskContainerName,
 				Image:           diskContainerImage,
@@ -129,6 +137,8 @@ func GenerateContainers(vmi *v1.VirtualMachineInstance, podVolumeName string, po
 						MountPath: podVolumeMountDir,
 					},
 				},
+				Resources: resources,
+
 				// The readiness probes ensure the volume coversion and copy finished
 				// before the container is marked as "Ready: True"
 				ReadinessProbe: &kubev1.Probe{

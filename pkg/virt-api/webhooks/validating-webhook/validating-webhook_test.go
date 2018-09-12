@@ -1176,6 +1176,81 @@ var _ = Describe("Validating Webhook", func() {
 			}
 		})
 	})
+	Context("with cpu pinning", func() {
+		var vmi *v1.VirtualMachineInstance
+		BeforeEach(func() {
+			vmi = v1.NewMinimalVMI("testvmi")
+			vmi.Spec.Domain.CPU = &v1.CPU{DedicatedCPUPlacement: true}
+		})
+		It("should reject specs without cpu reqirements", func() {
+			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec)
+			Expect(len(causes)).To(Equal(1))
+			Expect(causes[0].Field).To(Equal("fake.domain.cpu.dedicatedCpuPlacement"))
+		})
+		It("should reject specs without inconsistent cpu reqirements", func() {
+			vmi.Spec.Domain.CPU.Cores = 4
+			vmi.Spec.Domain.Resources.Limits = k8sv1.ResourceList{
+				k8sv1.ResourceCPU: resource.MustParse("2"),
+			}
+			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec)
+			Expect(len(causes)).To(Equal(1))
+			Expect(causes[0].Field).To(Equal("fake.domain.cpu.dedicatedCpuPlacement"))
+		})
+		It("should reject specs with non-integer cpu limits values", func() {
+			vmi.Spec.Domain.Resources.Limits = k8sv1.ResourceList{
+				k8sv1.ResourceCPU: resource.MustParse("800m"),
+			}
+			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec)
+			Expect(len(causes)).To(Equal(1))
+			Expect(causes[0].Field).To(Equal("fake.domain.resources.limits.cpu"))
+		})
+		It("should reject specs with non-integer cpu requests values", func() {
+			vmi.Spec.Domain.Resources.Requests = k8sv1.ResourceList{
+				k8sv1.ResourceCPU:    resource.MustParse("800m"),
+				k8sv1.ResourceMemory: resource.MustParse("8Mi"),
+			}
+			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec)
+			Expect(len(causes)).To(Equal(1))
+			Expect(causes[0].Field).To(Equal("fake.domain.resources.requests.cpu"))
+		})
+		It("should not allow cpu overcommit", func() {
+			vmi.Spec.Domain.Resources.Limits = k8sv1.ResourceList{
+				k8sv1.ResourceCPU:    resource.MustParse("4"),
+				k8sv1.ResourceMemory: resource.MustParse("8Mi"),
+			}
+			vmi.Spec.Domain.Resources.Requests = k8sv1.ResourceList{
+				k8sv1.ResourceCPU:    resource.MustParse("2"),
+				k8sv1.ResourceMemory: resource.MustParse("8Mi"),
+			}
+			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec)
+			Expect(len(causes)).To(Equal(1))
+			Expect(causes[0].Field).To(Equal("fake.domain.cpu.dedicatedCpuPlacement"))
+		})
+		It("should reject specs without a memory specification", func() {
+			vmi.Spec.Domain.Resources.Limits = k8sv1.ResourceList{
+				k8sv1.ResourceCPU: resource.MustParse("4"),
+			}
+			vmi.Spec.Domain.Resources.Requests = k8sv1.ResourceList{
+				k8sv1.ResourceCPU: resource.MustParse("4"),
+			}
+			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec)
+			Expect(len(causes)).To(Equal(1))
+			Expect(causes[0].Field).To(Equal("fake.domain.resources.limits.memory"))
+		})
+		It("should reject specs with inconsistent memory specification", func() {
+			vmi.Spec.Domain.Resources.Limits = k8sv1.ResourceList{
+				k8sv1.ResourceCPU:    resource.MustParse("1"),
+				k8sv1.ResourceMemory: resource.MustParse("8Mi"),
+			}
+			vmi.Spec.Domain.Resources.Requests = k8sv1.ResourceList{
+				k8sv1.ResourceCPU:    resource.MustParse("1"),
+				k8sv1.ResourceMemory: resource.MustParse("4Mi"),
+			}
+			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec)
+			Expect(len(causes)).To(Equal(1))
+			Expect(causes[0].Field).To(Equal("fake.domain.resources.requests.memory"))
+		})
+	})
 	Context("with Volume", func() {
 		table.DescribeTable("should accept valid volumes",
 			func(volumeSource v1.VolumeSource) {

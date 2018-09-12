@@ -53,6 +53,8 @@ spec:
                             cores:
                               format: int64
                               type: integer
+                            dedicatedCpuPlacement:
+                              type: boolean
                             model:
                               type: string
                         devices:
