@@ -1,2 +1,0 @@
-Defaults closefrom_override
-qemu    ALL=(ALL)       NOPASSWD: ALL

@@ -23,6 +23,8 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"os/exec"
+	"os/signal"
 	"path/filepath"
 	"syscall"
 	"time"
@@ -33,19 +35,20 @@ import (
 	"k8s.io/apimachinery/pkg/watch"
 
 	"kubevirt.io/kubevirt/pkg/api/v1"
-	cloudinit "kubevirt.io/kubevirt/pkg/cloud-init"
-	ephemeraldisk "kubevirt.io/kubevirt/pkg/ephemeral-disk"
+	"kubevirt.io/kubevirt/pkg/cloud-init"
+	"kubevirt.io/kubevirt/pkg/config"
+	"kubevirt.io/kubevirt/pkg/ephemeral-disk"
 	"kubevirt.io/kubevirt/pkg/hooks"
 	"kubevirt.io/kubevirt/pkg/log"
-	registrydisk "kubevirt.io/kubevirt/pkg/registry-disk"
-	cmdclient "kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
-	virtlauncher "kubevirt.io/kubevirt/pkg/virt-launcher"
+	"kubevirt.io/kubevirt/pkg/registry-disk"
+	"kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
+	"kubevirt.io/kubevirt/pkg/virt-launcher"
 	notifyclient "kubevirt.io/kubevirt/pkg/virt-launcher/notify-client"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap"
 	virtcli "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/cli"
-	cmdserver "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/cmd-server"
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/cmd-server"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/util"
-	watchdog "kubevirt.io/kubevirt/pkg/watchdog"
+	"kubevirt.io/kubevirt/pkg/watchdog"
 )
 
 const defaultStartTimeout = 3 * time.Minute
@@ -192,6 +195,16 @@ func initializeDirs(virtShareDir string,
 	if err != nil {
 		panic(err)
 	}
+
+	err = virtlauncher.InitializeDisksDirectories(config.ConfigMapDisksDir)
+	if err != nil {
+		panic(err)
+	}
+
+	err = virtlauncher.InitializeDisksDirectories(config.SecretDisksDir)
+	if err != nil {
+		panic(err)
+	}
 }
 
 func waitForDomainUUID(timeout time.Duration, domainManager virtwrap.DomainManager) string {
@@ -256,6 +269,7 @@ func main() {
 	gracePeriodSeconds := flag.Int("grace-period-seconds", 30, "Grace period to observe before sending SIGTERM to vm process")
 	useEmulation := flag.Bool("use-emulation", false, "Use software emulation")
 	hookSidecars := flag.Uint("hook-sidecars", 0, "Number of requested hook sidecars, virt-launcher will wait for all of them to become available")
+	noFork := flag.Bool("no-fork", false, "Fork and let virt-launcher watch itself to react to crashes if set to false")
 
 	// set new default verbosity, was set to 0 by glog
 	flag.Set("v", "2")
@@ -264,6 +278,15 @@ func main() {
 	pflag.Parse()
 
 	log.InitializeLogging("virt-launcher")
+
+	if !*noFork {
+		err := ForkAndMonitor("qemu-system")
+		if err != nil {
+			log.Log.Reason(err).Error("monitoring virt-launcher failed")
+			os.Exit(1)
+		}
+		return
+	}
 
 	// Block until all requested hookSidecars are ready
 	hookManager := hooks.GetManager()
@@ -281,7 +304,14 @@ func main() {
 	stopChan := make(chan struct{})
 	defer close(stopChan)
 
+	err = util.SetupLibvirt()
+	if err != nil {
+		panic(err)
+	}
 	util.StartLibvirt(stopChan)
+	if err != nil {
+		panic(err)
+	}
 	util.StartVirtlog(stopChan)
 
 	domainConn := createLibvirtConnection()
@@ -346,4 +376,74 @@ func main() {
 	waitForFinalNotify(deleteNotificationSent, domainManager, vm)
 
 	log.Log.Info("Exiting...")
+}
+
+// ForkAndMonitor itself to give qemu an extra grace period to properly terminate
+// in case of virt-launcher crashes
+func ForkAndMonitor(qemuProcessCommandPrefix string) error {
+	cmd := exec.Command(os.Args[0], append(os.Args[1:], "--no-fork", "true")...)
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+
+	if err := cmd.Start(); err != nil {
+		log.Log.Reason(err).Error("failed to fork virt-launcher")
+		return err
+	}
+
+	sigs := make(chan os.Signal, 10)
+	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT, syscall.SIGCHLD)
+	go func() {
+		for sig := range sigs {
+			switch sig {
+			case syscall.SIGCHLD:
+				var wstatus syscall.WaitStatus
+				wpid, err := syscall.Wait4(-1, &wstatus, syscall.WNOHANG, nil)
+				if err != nil {
+					log.Log.Reason(err).Errorf("Failed to reap process %d", wpid)
+				}
+			default:
+				log.Log.V(3).Log("signalling virt-launcher to shut down")
+				err := cmd.Process.Signal(syscall.SIGTERM)
+				sig.Signal()
+				if err != nil {
+					log.Log.Reason(err).Errorf("received signal %s but can't signal virt-launcher to shut down", sig.String())
+				}
+			}
+		}
+	}()
+
+	// wait for virt-launcher and collect the exit code
+	exitCode := 0
+	if err := cmd.Wait(); err != nil {
+		exitCode = 1
+		if exiterr, ok := err.(*exec.ExitError); ok {
+			if status, ok := exiterr.Sys().(syscall.WaitStatus); ok {
+				exitCode = status.ExitStatus()
+			}
+		}
+		log.Log.Reason(err).Error("dirty virt-launcher shutdown")
+	}
+	// give qemu some time to shut down in case it survived virt-handler
+	pid, _ := virtlauncher.FindPid(qemuProcessCommandPrefix)
+	if pid > 0 {
+		p, err := os.FindProcess(pid)
+		if err != nil {
+			return err
+		}
+		// Signal qemu to shutdown
+		err = p.Signal(syscall.SIGTERM)
+		if err != nil {
+			return err
+		}
+		// Wait for 10 seconds for the qemu process to disappear
+		err = utilwait.PollImmediate(1*time.Second, 10*time.Second, func() (bool, error) {
+			pid, _ := virtlauncher.FindPid(qemuProcessCommandPrefix)
+			if pid == 0 {
+				return true, nil
+			}
+			return false, nil
+		})
+	}
+	os.Exit(exitCode)
+	return nil
 }

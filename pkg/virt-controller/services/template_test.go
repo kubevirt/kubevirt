@@ -70,7 +70,7 @@ var _ = Describe("Template", func() {
 				Expect(pod.Spec.NodeSelector).To(Equal(map[string]string{
 					v1.NodeSchedulable: "true",
 				}))
-				Expect(pod.Spec.Containers[0].Command).To(Equal([]string{"/usr/share/kubevirt/virt-launcher/entrypoint.sh",
+				Expect(pod.Spec.Containers[0].Command).To(Equal([]string{"/usr/bin/virt-launcher",
 					"--qemu-timeout", "5m",
 					"--name", "testvmi",
 					"--uid", "1234",
@@ -204,7 +204,7 @@ var _ = Describe("Template", func() {
 					"kubernetes.io/hostname": "master",
 					v1.NodeSchedulable:       "true",
 				}))
-				Expect(pod.Spec.Containers[0].Command).To(Equal([]string{"/usr/share/kubevirt/virt-launcher/entrypoint.sh",
+				Expect(pod.Spec.Containers[0].Command).To(Equal([]string{"/usr/bin/virt-launcher",
 					"--qemu-timeout", "5m",
 					"--name", "testvmi",
 					"--uid", "1234",
@@ -782,6 +782,66 @@ var _ = Describe("Template", func() {
 					}
 				}
 				Expect(found).To(BeFalse(), "Expected compute container to not be granted NET_ADMIN capability")
+			})
+		})
+
+		Context("with a configMap volume source", func() {
+			It("Should add the ConfigMap to template", func() {
+				volumes := []v1.Volume{
+					{
+						Name: "configmap-volume",
+						VolumeSource: v1.VolumeSource{
+							ConfigMap: &v1.ConfigMapVolumeSource{
+								LocalObjectReference: kubev1.LocalObjectReference{
+									Name: "test-configmap",
+								},
+							},
+						},
+					},
+				}
+				vmi := v1.VirtualMachineInstance{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "testvmi", Namespace: "default", UID: "1234",
+					},
+					Spec: v1.VirtualMachineInstanceSpec{Volumes: volumes, Domain: v1.DomainSpec{}},
+				}
+
+				pod, err := svc.RenderLaunchManifest(&vmi)
+				Expect(err).ToNot(HaveOccurred())
+
+				Expect(pod.Spec.Volumes).ToNot(BeEmpty())
+				Expect(len(pod.Spec.Volumes)).To(Equal(3))
+				Expect(pod.Spec.Volumes[0].ConfigMap).ToNot(BeNil())
+				Expect(pod.Spec.Volumes[0].ConfigMap.LocalObjectReference.Name).To(Equal("test-configmap"))
+			})
+		})
+
+		Context("with a secret volume source", func() {
+			It("should add the Secret to template", func() {
+				volumes := []v1.Volume{
+					{
+						Name: "secret-volume",
+						VolumeSource: v1.VolumeSource{
+							Secret: &v1.SecretVolumeSource{
+								SecretName: "test-secret",
+							},
+						},
+					},
+				}
+				vmi := v1.VirtualMachineInstance{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "testvmi", Namespace: "default", UID: "1234",
+					},
+					Spec: v1.VirtualMachineInstanceSpec{Volumes: volumes, Domain: v1.DomainSpec{}},
+				}
+
+				pod, err := svc.RenderLaunchManifest(&vmi)
+				Expect(err).ToNot(HaveOccurred())
+
+				Expect(pod.Spec.Volumes).ToNot(BeEmpty())
+				Expect(len(pod.Spec.Volumes)).To(Equal(3))
+				Expect(pod.Spec.Volumes[0].Secret).ToNot(BeNil())
+				Expect(pod.Spec.Volumes[0].Secret.SecretName).To(Equal("test-secret"))
 			})
 		})
 	})

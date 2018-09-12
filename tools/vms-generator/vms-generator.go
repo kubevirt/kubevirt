@@ -40,7 +40,7 @@ import (
 	k8sfield "k8s.io/apimachinery/pkg/util/validation/field"
 
 	"kubevirt.io/kubevirt/pkg/api/v1"
-	"kubevirt.io/kubevirt/pkg/virt-api/validating-webhook"
+	"kubevirt.io/kubevirt/pkg/virt-api/webhooks/validating-webhook"
 
 	cdiv1 "kubevirt.io/containerized-data-importer/pkg/apis/datavolumecontroller/v1alpha1"
 )
@@ -57,6 +57,7 @@ const (
 	vmiWithHookSidecar   = "vmi-with-sidecar-hook"
 	vmiMultusPtp         = "vmi-multus-ptp"
 	vmiMultusMultipleNet = "vmi-multus-multiple-net"
+	vmiHostDisk          = "vmi-host-disk"
 	vmTemplateFedora     = "vm-template-fedora"
 	vmTemplateRHEL7      = "vm-template-rhel7"
 	vmTemplateWindows    = "vm-template-windows2012r2"
@@ -239,6 +240,30 @@ func addPVCDisk(spec *v1.VirtualMachineInstanceSpec, claimName string, bus strin
 	return spec
 }
 
+func addHostDisk(spec *v1.VirtualMachineInstanceSpec, path string, hostDiskType v1.HostDiskType, size string) *v1.VirtualMachineInstanceSpec {
+	spec.Domain.Devices.Disks = append(spec.Domain.Devices.Disks, v1.Disk{
+		Name:       "host-disk",
+		VolumeName: "hostdiskvolume",
+		DiskDevice: v1.DiskDevice{
+			Disk: &v1.DiskTarget{
+				Bus: busVirtio,
+			},
+		},
+	})
+
+	spec.Volumes = append(spec.Volumes, v1.Volume{
+		Name: "hostdiskvolume",
+		VolumeSource: v1.VolumeSource{
+			HostDisk: &v1.HostDisk{
+				Path:     path,
+				Type:     hostDiskType,
+				Capacity: resource.MustParse(size),
+			},
+		},
+	})
+	return spec
+}
+
 func getVMIEphemeral() *v1.VirtualMachineInstance {
 	vmi := getBaseVMI(vmiEphemeral)
 
@@ -340,6 +365,13 @@ func getVMIPvc() *v1.VirtualMachineInstance {
 	vmi := getBaseVMI(vmiPVC)
 
 	addPVCDisk(&vmi.Spec, "disk-alpine", busVirtio, "pvcdisk", "pvcvolume")
+	return vmi
+}
+
+func getVMIHostDisk() *v1.VirtualMachineInstance {
+	vmi := getBaseVMI(vmiHostDisk)
+
+	addHostDisk(&vmi.Spec, "/data/disk.img", v1.HostDiskExistsOrCreate, "1Gi")
 	return vmi
 }
 
@@ -675,7 +707,7 @@ func getVMIPresetSmall() *v1.VirtualMachineInstancePreset {
 		"kubevirt.io/vmPreset": vmiPresetSmall,
 	})
 
-	vmPreset.Spec.Domain = &v1.DomainPresetSpec{
+	vmPreset.Spec.Domain = &v1.DomainSpec{
 		Resources: v1.ResourceRequirements{
 			Requests: k8sv1.ResourceList{
 				k8sv1.ResourceMemory: resource.MustParse("64M"),
@@ -726,6 +758,7 @@ func main() {
 		vmiWithHookSidecar:   getVMIWithHookSidecar(),
 		vmiMultusPtp:         getVMIMultusPtp(),
 		vmiMultusMultipleNet: getVMIMultusMultipleNet(),
+		vmiHostDisk:          getVMIHostDisk(),
 	}
 
 	var vmireplicasets = map[string]*v1.VirtualMachineInstanceReplicaSet{

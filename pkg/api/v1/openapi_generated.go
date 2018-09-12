@@ -195,6 +195,30 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 			},
 			Dependencies: []string{},
 		},
+		"kubevirt.io/kubevirt/pkg/api/v1.ConfigMapVolumeSource": {
+			Schema: spec.Schema{
+				SchemaProps: spec.SchemaProps{
+					Description: "ConfigMapVolumeSource adapts a ConfigMap into a volume. More info: https://kubernetes.io/docs/concepts/storage/volumes/#configmap",
+					Properties: map[string]spec.Schema{
+						"name": {
+							SchemaProps: spec.SchemaProps{
+								Description: "Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names",
+								Type:        []string{"string"},
+								Format:      "",
+							},
+						},
+						"optional": {
+							SchemaProps: spec.SchemaProps{
+								Description: "Specify whether the ConfigMap or it's keys must be defined",
+								Type:        []string{"boolean"},
+								Format:      "",
+							},
+						},
+					},
+				},
+			},
+			Dependencies: []string{},
+		},
 		"kubevirt.io/kubevirt/pkg/api/v1.DataVolumeSource": {
 			Schema: spec.Schema{
 				SchemaProps: spec.SchemaProps{
@@ -394,64 +418,6 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 				},
 			},
 			Dependencies: []string{},
-		},
-		"kubevirt.io/kubevirt/pkg/api/v1.DomainPresetSpec": {
-			Schema: spec.Schema{
-				SchemaProps: spec.SchemaProps{
-					Properties: map[string]spec.Schema{
-						"resources": {
-							SchemaProps: spec.SchemaProps{
-								Description: "Resources describes the Compute Resources required by this vmi.",
-								Ref:         ref("kubevirt.io/kubevirt/pkg/api/v1.ResourceRequirements"),
-							},
-						},
-						"cpu": {
-							SchemaProps: spec.SchemaProps{
-								Description: "CPU allow specified the detailed CPU topology inside the vmi.",
-								Ref:         ref("kubevirt.io/kubevirt/pkg/api/v1.CPU"),
-							},
-						},
-						"memory": {
-							SchemaProps: spec.SchemaProps{
-								Description: "Memory allow specifying the VMI memory features.",
-								Ref:         ref("kubevirt.io/kubevirt/pkg/api/v1.Memory"),
-							},
-						},
-						"machine": {
-							SchemaProps: spec.SchemaProps{
-								Description: "Machine type.",
-								Ref:         ref("kubevirt.io/kubevirt/pkg/api/v1.Machine"),
-							},
-						},
-						"firmware": {
-							SchemaProps: spec.SchemaProps{
-								Description: "Firmware.",
-								Ref:         ref("kubevirt.io/kubevirt/pkg/api/v1.Firmware"),
-							},
-						},
-						"clock": {
-							SchemaProps: spec.SchemaProps{
-								Description: "Clock sets the clock and timers of the vmi.",
-								Ref:         ref("kubevirt.io/kubevirt/pkg/api/v1.Clock"),
-							},
-						},
-						"features": {
-							SchemaProps: spec.SchemaProps{
-								Description: "Features like acpi, apic, hyperv.",
-								Ref:         ref("kubevirt.io/kubevirt/pkg/api/v1.Features"),
-							},
-						},
-						"devices": {
-							SchemaProps: spec.SchemaProps{
-								Description: "Devices allows adding disks, network interfaces, ...",
-								Ref:         ref("kubevirt.io/kubevirt/pkg/api/v1.Devices"),
-							},
-						},
-					},
-				},
-			},
-			Dependencies: []string{
-				"kubevirt.io/kubevirt/pkg/api/v1.CPU", "kubevirt.io/kubevirt/pkg/api/v1.Clock", "kubevirt.io/kubevirt/pkg/api/v1.Devices", "kubevirt.io/kubevirt/pkg/api/v1.Features", "kubevirt.io/kubevirt/pkg/api/v1.Firmware", "kubevirt.io/kubevirt/pkg/api/v1.Machine", "kubevirt.io/kubevirt/pkg/api/v1.Memory", "kubevirt.io/kubevirt/pkg/api/v1.ResourceRequirements"},
 		},
 		"kubevirt.io/kubevirt/pkg/api/v1.DomainSpec": {
 			Schema: spec.Schema{
@@ -786,6 +752,38 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 				},
 			},
 			Dependencies: []string{},
+		},
+		"kubevirt.io/kubevirt/pkg/api/v1.HostDisk": {
+			Schema: spec.Schema{
+				SchemaProps: spec.SchemaProps{
+					Description: "Represents a disk created on the cluster level",
+					Properties: map[string]spec.Schema{
+						"path": {
+							SchemaProps: spec.SchemaProps{
+								Description: "The path to HostDisk image located on the cluster",
+								Type:        []string{"string"},
+								Format:      "",
+							},
+						},
+						"type": {
+							SchemaProps: spec.SchemaProps{
+								Description: "Contains information if disk.img exists or should be created allowed options are 'Disk' and 'DiskOrCreate'",
+								Type:        []string{"string"},
+								Format:      "",
+							},
+						},
+						"capacity": {
+							SchemaProps: spec.SchemaProps{
+								Description: "Capacity of the sparse disk",
+								Ref:         ref("k8s.io/apimachinery/pkg/api/resource.Quantity"),
+							},
+						},
+					},
+					Required: []string{"path", "type"},
+				},
+			},
+			Dependencies: []string{
+				"k8s.io/apimachinery/pkg/api/resource.Quantity"},
 		},
 		"kubevirt.io/kubevirt/pkg/api/v1.Hugepages": {
 			Schema: spec.Schema{
@@ -1271,6 +1269,30 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 			},
 			Dependencies: []string{},
 		},
+		"kubevirt.io/kubevirt/pkg/api/v1.SecretVolumeSource": {
+			Schema: spec.Schema{
+				SchemaProps: spec.SchemaProps{
+					Description: "SecretVolumeSource adapts a Secret into a volume.",
+					Properties: map[string]spec.Schema{
+						"secretName": {
+							SchemaProps: spec.SchemaProps{
+								Description: "Name of the secret in the pod's namespace to use. More info: https://kubernetes.io/docs/concepts/storage/volumes#secret",
+								Type:        []string{"string"},
+								Format:      "",
+							},
+						},
+						"optional": {
+							SchemaProps: spec.SchemaProps{
+								Description: "Specify whether the Secret or it's keys must be defined",
+								Type:        []string{"boolean"},
+								Format:      "",
+							},
+						},
+					},
+				},
+			},
+			Dependencies: []string{},
+		},
 		"kubevirt.io/kubevirt/pkg/api/v1.Timer": {
 			Schema: spec.Schema{
 				SchemaProps: spec.SchemaProps{
@@ -1644,7 +1666,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 						"domain": {
 							SchemaProps: spec.SchemaProps{
 								Description: "Domain is the same object type as contained in VirtualMachineInstanceSpec",
-								Ref:         ref("kubevirt.io/kubevirt/pkg/api/v1.DomainPresetSpec"),
+								Ref:         ref("kubevirt.io/kubevirt/pkg/api/v1.DomainSpec"),
 							},
 						},
 					},
@@ -1652,7 +1674,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 				},
 			},
 			Dependencies: []string{
-				"k8s.io/apimachinery/pkg/apis/meta/v1.LabelSelector", "kubevirt.io/kubevirt/pkg/api/v1.DomainPresetSpec"},
+				"k8s.io/apimachinery/pkg/apis/meta/v1.LabelSelector", "kubevirt.io/kubevirt/pkg/api/v1.DomainSpec"},
 		},
 		"kubevirt.io/kubevirt/pkg/api/v1.VirtualMachineInstanceReplicaSet": {
 			Schema: spec.Schema{
@@ -2159,6 +2181,12 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 								Format:      "",
 							},
 						},
+						"hostDisk": {
+							SchemaProps: spec.SchemaProps{
+								Description: "HostDisk represents a disk created on the cluster level",
+								Ref:         ref("kubevirt.io/kubevirt/pkg/api/v1.HostDisk"),
+							},
+						},
 						"persistentVolumeClaim": {
 							SchemaProps: spec.SchemaProps{
 								Description: "PersistentVolumeClaimVolumeSource represents a reference to a PersistentVolumeClaim in the same namespace. Directly attached to the vmi via qemu. More info: https://kubernetes.io/docs/concepts/storage/persistent-volumes#persistentvolumeclaims",
@@ -2193,6 +2221,18 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 							SchemaProps: spec.SchemaProps{
 								Description: "DataVolume represents the dynamic creation a PVC for this volume as well as the process of populating that PVC with a disk image.",
 								Ref:         ref("kubevirt.io/kubevirt/pkg/api/v1.DataVolumeSource"),
+							},
+						},
+						"configMap": {
+							SchemaProps: spec.SchemaProps{
+								Description: "ConfigMapSource represents a reference to a ConfigMap in the same namespace. More info: https://kubernetes.io/docs/tasks/configure-pod-container/configure-pod-configmap/",
+								Ref:         ref("kubevirt.io/kubevirt/pkg/api/v1.ConfigMapVolumeSource"),
+							},
+						},
+						"secret": {
+							SchemaProps: spec.SchemaProps{
+								Description: "SecretVolumeSource represents a reference to a secret data in the same namespace. More info: https://kubernetes.io/docs/concepts/configuration/secret/",
+								Ref:         ref("kubevirt.io/kubevirt/pkg/api/v1.SecretVolumeSource"),
 							},
 						},
 					},
@@ -2200,13 +2240,19 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 				},
 			},
 			Dependencies: []string{
-				"k8s.io/api/core/v1.PersistentVolumeClaimVolumeSource", "kubevirt.io/kubevirt/pkg/api/v1.CloudInitNoCloudSource", "kubevirt.io/kubevirt/pkg/api/v1.DataVolumeSource", "kubevirt.io/kubevirt/pkg/api/v1.EmptyDiskSource", "kubevirt.io/kubevirt/pkg/api/v1.EphemeralVolumeSource", "kubevirt.io/kubevirt/pkg/api/v1.RegistryDiskSource"},
+				"k8s.io/api/core/v1.PersistentVolumeClaimVolumeSource", "kubevirt.io/kubevirt/pkg/api/v1.CloudInitNoCloudSource", "kubevirt.io/kubevirt/pkg/api/v1.ConfigMapVolumeSource", "kubevirt.io/kubevirt/pkg/api/v1.DataVolumeSource", "kubevirt.io/kubevirt/pkg/api/v1.EmptyDiskSource", "kubevirt.io/kubevirt/pkg/api/v1.EphemeralVolumeSource", "kubevirt.io/kubevirt/pkg/api/v1.HostDisk", "kubevirt.io/kubevirt/pkg/api/v1.RegistryDiskSource", "kubevirt.io/kubevirt/pkg/api/v1.SecretVolumeSource"},
 		},
 		"kubevirt.io/kubevirt/pkg/api/v1.VolumeSource": {
 			Schema: spec.Schema{
 				SchemaProps: spec.SchemaProps{
 					Description: "Represents the source of a volume to mount. Only one of its members may be specified.",
 					Properties: map[string]spec.Schema{
+						"hostDisk": {
+							SchemaProps: spec.SchemaProps{
+								Description: "HostDisk represents a disk created on the cluster level",
+								Ref:         ref("kubevirt.io/kubevirt/pkg/api/v1.HostDisk"),
+							},
+						},
 						"persistentVolumeClaim": {
 							SchemaProps: spec.SchemaProps{
 								Description: "PersistentVolumeClaimVolumeSource represents a reference to a PersistentVolumeClaim in the same namespace. Directly attached to the vmi via qemu. More info: https://kubernetes.io/docs/concepts/storage/persistent-volumes#persistentvolumeclaims",
@@ -2243,11 +2289,23 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 								Ref:         ref("kubevirt.io/kubevirt/pkg/api/v1.DataVolumeSource"),
 							},
 						},
+						"configMap": {
+							SchemaProps: spec.SchemaProps{
+								Description: "ConfigMapSource represents a reference to a ConfigMap in the same namespace. More info: https://kubernetes.io/docs/tasks/configure-pod-container/configure-pod-configmap/",
+								Ref:         ref("kubevirt.io/kubevirt/pkg/api/v1.ConfigMapVolumeSource"),
+							},
+						},
+						"secret": {
+							SchemaProps: spec.SchemaProps{
+								Description: "SecretVolumeSource represents a reference to a secret data in the same namespace. More info: https://kubernetes.io/docs/concepts/configuration/secret/",
+								Ref:         ref("kubevirt.io/kubevirt/pkg/api/v1.SecretVolumeSource"),
+							},
+						},
 					},
 				},
 			},
 			Dependencies: []string{
-				"k8s.io/api/core/v1.PersistentVolumeClaimVolumeSource", "kubevirt.io/kubevirt/pkg/api/v1.CloudInitNoCloudSource", "kubevirt.io/kubevirt/pkg/api/v1.DataVolumeSource", "kubevirt.io/kubevirt/pkg/api/v1.EmptyDiskSource", "kubevirt.io/kubevirt/pkg/api/v1.EphemeralVolumeSource", "kubevirt.io/kubevirt/pkg/api/v1.RegistryDiskSource"},
+				"k8s.io/api/core/v1.PersistentVolumeClaimVolumeSource", "kubevirt.io/kubevirt/pkg/api/v1.CloudInitNoCloudSource", "kubevirt.io/kubevirt/pkg/api/v1.ConfigMapVolumeSource", "kubevirt.io/kubevirt/pkg/api/v1.DataVolumeSource", "kubevirt.io/kubevirt/pkg/api/v1.EmptyDiskSource", "kubevirt.io/kubevirt/pkg/api/v1.EphemeralVolumeSource", "kubevirt.io/kubevirt/pkg/api/v1.HostDisk", "kubevirt.io/kubevirt/pkg/api/v1.RegistryDiskSource", "kubevirt.io/kubevirt/pkg/api/v1.SecretVolumeSource"},
 		},
 		"kubevirt.io/kubevirt/pkg/api/v1.Watchdog": {
 			Schema: spec.Schema{

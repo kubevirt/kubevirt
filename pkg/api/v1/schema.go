@@ -32,6 +32,44 @@ import (
  ATTENTION: Rerun code generators when comments on structs or fields are modified.
 */
 
+// Represents a disk created on the cluster level
+// ---
+// +k8s:openapi-gen=true
+type HostDisk struct {
+	// The path to HostDisk image located on the cluster
+	Path string `json:"path"`
+	// Contains information if disk.img exists or should be created
+	// allowed options are 'Disk' and 'DiskOrCreate'
+	Type HostDiskType `json:"type"`
+	// Capacity of the sparse disk
+	// +optional
+	Capacity resource.Quantity `json:"capacity,omitempty"`
+}
+
+// ConfigMapVolumeSource adapts a ConfigMap into a volume.
+// More info: https://kubernetes.io/docs/concepts/storage/volumes/#configmap
+// ---
+// +k8s:openapi-gen=true
+type ConfigMapVolumeSource struct {
+	v1.LocalObjectReference `json:",inline"`
+	// Specify whether the ConfigMap or it's keys must be defined
+	// +optional
+	Optional *bool `json:"optional,omitempty"`
+}
+
+// SecretVolumeSource adapts a Secret into a volume.
+// ---
+// +k8s:openapi-gen=true
+type SecretVolumeSource struct {
+	// Name of the secret in the pod's namespace to use.
+	// More info: https://kubernetes.io/docs/concepts/storage/volumes#secret
+	// +optional
+	SecretName string `json:"secretName,omitempty"`
+	// Specify whether the Secret or it's keys must be defined
+	// +optional
+	Optional *bool `json:"optional,omitempty"`
+}
+
 // Represents a cloud-init nocloud user data source.
 // More info: http://cloudinit.readthedocs.io/en/latest/topics/datasources/nocloud.html
 // ---
@@ -73,34 +111,6 @@ type DomainSpec struct {
 	Features *Features `json:"features,omitempty"`
 	// Devices allows adding disks, network interfaces, ...
 	Devices Devices `json:"devices"`
-}
-
-// ---
-// +k8s:openapi-gen=true
-type DomainPresetSpec struct {
-	// Resources describes the Compute Resources required by this vmi.
-	Resources ResourceRequirements `json:"resources,omitempty"`
-	// CPU allow specified the detailed CPU topology inside the vmi.
-	// +optional
-	CPU *CPU `json:"cpu,omitempty"`
-	// Memory allow specifying the VMI memory features.
-	// +optional
-	Memory *Memory `json:"memory,omitempty"`
-	// Machine type.
-	// +optional
-	Machine Machine `json:"machine,omitempty"`
-	// Firmware.
-	// +optional
-	Firmware *Firmware `json:"firmware,omitempty"`
-	// Clock sets the clock and timers of the vmi.
-	// +optional
-	Clock *Clock `json:"clock,omitempty"`
-	// Features like acpi, apic, hyperv.
-	// +optional
-	Features *Features `json:"features,omitempty"`
-	// Devices allows adding disks, network interfaces, ...
-	// +optional
-	Devices Devices `json:"devices,omitempty"`
 }
 
 // ---
@@ -311,6 +321,9 @@ type Volume struct {
 // ---
 // +k8s:openapi-gen=true
 type VolumeSource struct {
+	// HostDisk represents a disk created on the cluster level
+	// +optional
+	HostDisk *HostDisk `json:"hostDisk,omitempty"`
 	// PersistentVolumeClaimVolumeSource represents a reference to a PersistentVolumeClaim in the same namespace.
 	// Directly attached to the vmi via qemu.
 	// More info: https://kubernetes.io/docs/concepts/storage/persistent-volumes#persistentvolumeclaims
@@ -336,6 +349,14 @@ type VolumeSource struct {
 	// the process of populating that PVC with a disk image.
 	// +optional
 	DataVolume *DataVolumeSource `json:"dataVolume,omitempty"`
+	// ConfigMapSource represents a reference to a ConfigMap in the same namespace.
+	// More info: https://kubernetes.io/docs/tasks/configure-pod-container/configure-pod-configmap/
+	// +optional
+	ConfigMap *ConfigMapVolumeSource `json:"configMap,omitempty"`
+	// SecretVolumeSource represents a reference to a secret data in the same namespace.
+	// More info: https://kubernetes.io/docs/concepts/configuration/secret/
+	// +optional
+	Secret *SecretVolumeSource `json:"secret,omitempty"`
 }
 
 // ---

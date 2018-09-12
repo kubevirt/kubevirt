@@ -2,6 +2,30 @@
 
 package v1
 
+func (HostDisk) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"":         "Represents a disk created on the cluster level",
+		"path":     "The path to HostDisk image located on the cluster",
+		"type":     "Contains information if disk.img exists or should be created\nallowed options are 'Disk' and 'DiskOrCreate'",
+		"capacity": "Capacity of the sparse disk\n+optional",
+	}
+}
+
+func (ConfigMapVolumeSource) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"":         "ConfigMapVolumeSource adapts a ConfigMap into a volume.\nMore info: https://kubernetes.io/docs/concepts/storage/volumes/#configmap",
+		"optional": "Specify whether the ConfigMap or it's keys must be defined\n+optional",
+	}
+}
+
+func (SecretVolumeSource) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"":           "SecretVolumeSource adapts a Secret into a volume.",
+		"secretName": "Name of the secret in the pod's namespace to use.\nMore info: https://kubernetes.io/docs/concepts/storage/volumes#secret\n+optional",
+		"optional":   "Specify whether the Secret or it's keys must be defined\n+optional",
+	}
+}
+
 func (CloudInitNoCloudSource) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"":               "Represents a cloud-init nocloud user data source.\nMore info: http://cloudinit.readthedocs.io/en/latest/topics/datasources/nocloud.html",
@@ -21,19 +45,6 @@ func (DomainSpec) SwaggerDoc() map[string]string {
 		"clock":     "Clock sets the clock and timers of the vmi.\n+optional",
 		"features":  "Features like acpi, apic, hyperv.\n+optional",
 		"devices":   "Devices allows adding disks, network interfaces, ...",
-	}
-}
-
-func (DomainPresetSpec) SwaggerDoc() map[string]string {
-	return map[string]string{
-		"resources": "Resources describes the Compute Resources required by this vmi.",
-		"cpu":       "CPU allow specified the detailed CPU topology inside the vmi.\n+optional",
-		"memory":    "Memory allow specifying the VMI memory features.\n+optional",
-		"machine":   "Machine type.\n+optional",
-		"firmware":  "Firmware.\n+optional",
-		"clock":     "Clock sets the clock and timers of the vmi.\n+optional",
-		"features":  "Features like acpi, apic, hyperv.\n+optional",
-		"devices":   "Devices allows adding disks, network interfaces, ...\n+optional",
 	}
 }
 
@@ -148,13 +159,16 @@ func (Volume) SwaggerDoc() map[string]string {
 
 func (VolumeSource) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"": "Represents the source of a volume to mount.\nOnly one of its members may be specified.",
+		"":                      "Represents the source of a volume to mount.\nOnly one of its members may be specified.",
+		"hostDisk":              "HostDisk represents a disk created on the cluster level\n+optional",
 		"persistentVolumeClaim": "PersistentVolumeClaimVolumeSource represents a reference to a PersistentVolumeClaim in the same namespace.\nDirectly attached to the vmi via qemu.\nMore info: https://kubernetes.io/docs/concepts/storage/persistent-volumes#persistentvolumeclaims\n+optional",
 		"cloudInitNoCloud":      "CloudInitNoCloud represents a cloud-init NoCloud user-data source.\nThe NoCloud data will be added as a disk to the vmi. A proper cloud-init installation is required inside the guest.\nMore info: http://cloudinit.readthedocs.io/en/latest/topics/datasources/nocloud.html\n+optional",
 		"registryDisk":          "RegistryDisk references a docker image, embedding a qcow or raw disk.\nMore info: https://kubevirt.gitbooks.io/user-guide/registry-disk.html\n+optional",
 		"ephemeral":             "Ephemeral is a special volume source that \"wraps\" specified source and provides copy-on-write image on top of it.\n+optional",
 		"emptyDisk":             "EmptyDisk represents a temporary disk which shares the vmis lifecycle.\nMore info: https://kubevirt.gitbooks.io/user-guide/disks-and-volumes.html\n+optional",
 		"dataVolume":            "DataVolume represents the dynamic creation a PVC for this volume as well as\nthe process of populating that PVC with a disk image.\n+optional",
+		"configMap":             "ConfigMapSource represents a reference to a ConfigMap in the same namespace.\nMore info: https://kubernetes.io/docs/tasks/configure-pod-container/configure-pod-configmap/\n+optional",
+		"secret":                "SecretVolumeSource represents a reference to a secret data in the same namespace.\nMore info: https://kubernetes.io/docs/concepts/configuration/secret/\n+optional",
 	}
 }
 

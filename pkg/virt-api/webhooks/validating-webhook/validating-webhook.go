@@ -23,9 +23,9 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	"net"
 	"net/http"
+	"reflect"
 	"regexp"
 	"strings"
 
@@ -43,6 +43,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/feature-gates"
 	"kubevirt.io/kubevirt/pkg/log"
 	"kubevirt.io/kubevirt/pkg/util"
+	"kubevirt.io/kubevirt/pkg/virt-api/webhooks"
 )
 
 const (
@@ -53,35 +54,6 @@ const (
 
 var validInterfaceModels = []string{"e1000", "e1000e", "ne2k_pci", "pcnet", "rtl8139", "virtio"}
 
-func getAdmissionReview(r *http.Request) (*v1beta1.AdmissionReview, error) {
-	var body []byte
-	if r.Body != nil {
-		if data, err := ioutil.ReadAll(r.Body); err == nil {
-			body = data
-		}
-	}
-
-	// verify the content type is accurate
-	contentType := r.Header.Get("Content-Type")
-	if contentType != "application/json" {
-		return nil, fmt.Errorf("contentType=%s, expect application/json", contentType)
-	}
-
-	ar := &v1beta1.AdmissionReview{}
-	err := json.Unmarshal(body, ar)
-	return ar, err
-}
-
-func toAdmissionResponseError(err error) *v1beta1.AdmissionResponse {
-	log.Log.Reason(err).Error("admitting vmis with generic error")
-
-	return &v1beta1.AdmissionResponse{
-		Result: &metav1.Status{
-			Message: err.Error(),
-			Code:    http.StatusBadRequest,
-		},
-	}
-}
 func toAdmissionResponse(causes []metav1.StatusCause) *v1beta1.AdmissionResponse {
 	log.Log.Infof("rejected vmi admission")
 
@@ -105,7 +77,7 @@ type admitFunc func(*v1beta1.AdmissionReview) *v1beta1.AdmissionResponse
 
 func serve(resp http.ResponseWriter, req *http.Request, admit admitFunc) {
 	response := v1beta1.AdmissionReview{}
-	review, err := getAdmissionReview(req)
+	review, err := webhooks.GetAdmissionReview(req)
 
 	if err != nil {
 		resp.WriteHeader(http.StatusBadRequest)
@@ -261,6 +233,9 @@ func validateVolumes(field *k8sfield.Path, volumes []v1.Volume) []metav1.StatusC
 		if volume.EmptyDisk != nil {
 			volumeSourceSetCount++
 		}
+		if volume.HostDisk != nil {
+			volumeSourceSetCount++
+		}
 		if volume.DataVolume != nil {
 			if !featuregates.DataVolumesEnabled() {
 				causes = append(causes, metav1.StatusCause{
@@ -277,6 +252,12 @@ func validateVolumes(field *k8sfield.Path, volumes []v1.Volume) []metav1.StatusC
 					Field:   field.Index(idx).Child("name").String(),
 				})
 			}
+			volumeSourceSetCount++
+		}
+		if volume.ConfigMap != nil {
+			volumeSourceSetCount++
+		}
+		if volume.Secret != nil {
 			volumeSourceSetCount++
 		}
 
@@ -330,6 +311,54 @@ func validateVolumes(field *k8sfield.Path, volumes []v1.Volume) []metav1.StatusC
 				})
 			}
 		}
+
+		// validate HostDisk data
+		if hostDisk := volume.HostDisk; hostDisk != nil {
+			if hostDisk.Path == "" {
+				causes = append(causes, metav1.StatusCause{
+					Type:    metav1.CauseTypeFieldValueNotFound,
+					Message: fmt.Sprintf("%s is required for hostDisk volume", field.Index(idx).Child("hostDisk", "path").String()),
+					Field:   field.Index(idx).Child("hostDisk", "path").String(),
+				})
+			}
+
+			if hostDisk.Type != v1.HostDiskExists && hostDisk.Type != v1.HostDiskExistsOrCreate {
+				causes = append(causes, metav1.StatusCause{
+					Type:    metav1.CauseTypeFieldValueInvalid,
+					Message: fmt.Sprintf("%s has invalid value '%s', allowed are '%s' or '%s'", field.Index(idx).Child("hostDisk", "type").String(), hostDisk.Type, v1.HostDiskExists, v1.HostDiskExistsOrCreate),
+					Field:   field.Index(idx).Child("hostDisk", "type").String(),
+				})
+			}
+
+			// if disk.img already exists and user knows that by specifying type 'Disk' it is pointless to set capacity
+			if hostDisk.Type == v1.HostDiskExists && !hostDisk.Capacity.IsZero() {
+				causes = append(causes, metav1.StatusCause{
+					Type:    metav1.CauseTypeFieldValueInvalid,
+					Message: fmt.Sprintf("%s is allowed to pass only with %s equal to '%s'", field.Index(idx).Child("hostDisk", "capacity").String(), field.Index(idx).Child("hostDisk", "type").String(), v1.HostDiskExistsOrCreate),
+					Field:   field.Index(idx).Child("hostDisk", "capacity").String(),
+				})
+			}
+		}
+
+		if volume.ConfigMap != nil {
+			if volume.ConfigMap.LocalObjectReference.Name == "" {
+				causes = append(causes, metav1.StatusCause{
+					Type:    metav1.CauseTypeFieldValueInvalid,
+					Message: fmt.Sprintf("%s is a required field", field.Index(idx).Child("configMap", "name").String()),
+					Field:   field.Index(idx).Child("configMap", "name").String(),
+				})
+			}
+		}
+
+		if volume.Secret != nil {
+			if volume.Secret.SecretName == "" {
+				causes = append(causes, metav1.StatusCause{
+					Type:    metav1.CauseTypeFieldValueInvalid,
+					Message: fmt.Sprintf("%s is a required field", field.Index(idx).Child("secret", "secretName").String()),
+					Field:   field.Index(idx).Child("secret", "secretName").String(),
+				})
+			}
+		}
 	}
 	return causes
 }
@@ -340,7 +369,7 @@ func validateDevices(field *k8sfield.Path, devices *v1.Devices) []metav1.StatusC
 	return causes
 }
 
-func validateDomainPresetSpec(field *k8sfield.Path, spec *v1.DomainPresetSpec) []metav1.StatusCause {
+func validateDomainPresetSpec(field *k8sfield.Path, spec *v1.DomainSpec) []metav1.StatusCause {
 	var causes []metav1.StatusCause
 	causes = append(causes, validateDevices(field.Child("devices"), &spec.Devices)...)
 	return causes
@@ -959,15 +988,14 @@ func ValidateVMIRSSpec(field *k8sfield.Path, spec *v1.VirtualMachineInstanceRepl
 	return causes
 }
 
-func admitVMIs(ar *v1beta1.AdmissionReview) *v1beta1.AdmissionResponse {
+func getAdmissionReviewVMI(ar *v1beta1.AdmissionReview) (*v1.VirtualMachineInstance, error) {
 	vmiResource := metav1.GroupVersionResource{
 		Group:    v1.VirtualMachineInstanceGroupVersionKind.Group,
 		Version:  v1.VirtualMachineInstanceGroupVersionKind.Version,
 		Resource: "virtualmachineinstances",
 	}
 	if ar.Request.Resource != vmiResource {
-		err := fmt.Errorf("expect resource to be '%s'", vmiResource.Resource)
-		return toAdmissionResponseError(err)
+		return nil, fmt.Errorf("expect resource to be '%s'", vmiResource.Resource)
 	}
 
 	raw := ar.Request.Object.Raw
@@ -975,7 +1003,15 @@ func admitVMIs(ar *v1beta1.AdmissionReview) *v1beta1.AdmissionResponse {
 
 	err := json.Unmarshal(raw, &vmi)
 	if err != nil {
-		return toAdmissionResponseError(err)
+		return nil, err
+	}
+	return &vmi, nil
+}
+
+func admitVMICreate(ar *v1beta1.AdmissionReview) *v1beta1.AdmissionResponse {
+	vmi, err := getAdmissionReviewVMI(ar)
+	if err != nil {
+		return webhooks.ToAdmissionResponseError(err)
 	}
 
 	causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("spec"), &vmi.Spec)
@@ -988,8 +1024,48 @@ func admitVMIs(ar *v1beta1.AdmissionReview) *v1beta1.AdmissionResponse {
 	return &reviewResponse
 }
 
-func ServeVMIs(resp http.ResponseWriter, req *http.Request) {
-	serve(resp, req, admitVMIs)
+func ServeVMICreate(resp http.ResponseWriter, req *http.Request) {
+	serve(resp, req, admitVMICreate)
+}
+
+func admitVMIUpdate(ar *v1beta1.AdmissionReview) *v1beta1.AdmissionResponse {
+	// Get new VMI from admission response
+	newVMI, err := getAdmissionReviewVMI(ar)
+	if err != nil {
+		return webhooks.ToAdmissionResponseError(err)
+	}
+
+	// Get old VMI from the cache
+	informers := webhooks.GetInformers()
+	cacheKey := fmt.Sprintf("%s/%s", newVMI.Namespace, newVMI.Name)
+	obj, exists, err := informers.VMIInformer.GetStore().GetByKey(cacheKey)
+	if err != nil {
+		return webhooks.ToAdmissionResponseError(err)
+	}
+
+	if !exists {
+		return webhooks.ToAdmissionResponseError(
+			fmt.Errorf("the VMI %s does not exist under the cache", newVMI.Name),
+		)
+	}
+	oldVMI := obj.(*v1.VirtualMachineInstance)
+	// Reject VMI update if VMI spec changed
+	if !reflect.DeepEqual(newVMI.Spec, oldVMI.Spec) {
+		return toAdmissionResponse([]metav1.StatusCause{
+			metav1.StatusCause{
+				Type:    metav1.CauseTypeFieldValueNotSupported,
+				Message: "update of VMI object is restricted",
+			},
+		})
+	}
+
+	reviewResponse := v1beta1.AdmissionResponse{}
+	reviewResponse.Allowed = true
+	return &reviewResponse
+}
+
+func ServeVMIUpdate(resp http.ResponseWriter, req *http.Request) {
+	serve(resp, req, admitVMIUpdate)
 }
 
 func admitVMs(ar *v1beta1.AdmissionReview) *v1beta1.AdmissionResponse {
@@ -1000,7 +1076,7 @@ func admitVMs(ar *v1beta1.AdmissionReview) *v1beta1.AdmissionResponse {
 	}
 	if ar.Request.Resource != resource {
 		err := fmt.Errorf("expect resource to be '%s'", resource.Resource)
-		return toAdmissionResponseError(err)
+		return webhooks.ToAdmissionResponseError(err)
 	}
 
 	raw := ar.Request.Object.Raw
@@ -1008,7 +1084,7 @@ func admitVMs(ar *v1beta1.AdmissionReview) *v1beta1.AdmissionResponse {
 
 	err := json.Unmarshal(raw, &vm)
 	if err != nil {
-		return toAdmissionResponseError(err)
+		return webhooks.ToAdmissionResponseError(err)
 	}
 
 	causes := ValidateVirtualMachineSpec(k8sfield.NewPath("spec"), &vm.Spec)
@@ -1033,7 +1109,7 @@ func admitVMIRS(ar *v1beta1.AdmissionReview) *v1beta1.AdmissionResponse {
 	}
 	if ar.Request.Resource != resource {
 		err := fmt.Errorf("expect resource to be '%s'", resource.Resource)
-		return toAdmissionResponseError(err)
+		return webhooks.ToAdmissionResponseError(err)
 	}
 
 	raw := ar.Request.Object.Raw
@@ -1041,7 +1117,7 @@ func admitVMIRS(ar *v1beta1.AdmissionReview) *v1beta1.AdmissionResponse {
 
 	err := json.Unmarshal(raw, &vmirs)
 	if err != nil {
-		return toAdmissionResponseError(err)
+		return webhooks.ToAdmissionResponseError(err)
 	}
 
 	causes := ValidateVMIRSSpec(k8sfield.NewPath("spec"), &vmirs.Spec)
@@ -1065,7 +1141,7 @@ func admitVMIPreset(ar *v1beta1.AdmissionReview) *v1beta1.AdmissionResponse {
 	}
 	if ar.Request.Resource != resource {
 		err := fmt.Errorf("expect resource to be '%s'", resource.Resource)
-		return toAdmissionResponseError(err)
+		return webhooks.ToAdmissionResponseError(err)
 	}
 
 	raw := ar.Request.Object.Raw
@@ -1073,7 +1149,7 @@ func admitVMIPreset(ar *v1beta1.AdmissionReview) *v1beta1.AdmissionResponse {
 
 	err := json.Unmarshal(raw, &vmipreset)
 	if err != nil {
-		return toAdmissionResponseError(err)
+		return webhooks.ToAdmissionResponseError(err)
 	}
 
 	causes := ValidateVMIPresetSpec(k8sfield.NewPath("spec"), &vmipreset.Spec)

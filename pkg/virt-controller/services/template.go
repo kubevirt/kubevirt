@@ -31,6 +31,7 @@ import (
 	"k8s.io/client-go/tools/cache"
 
 	"kubevirt.io/kubevirt/pkg/api/v1"
+	"kubevirt.io/kubevirt/pkg/config"
 	"kubevirt.io/kubevirt/pkg/hooks"
 	"kubevirt.io/kubevirt/pkg/precond"
 	"kubevirt.io/kubevirt/pkg/registry-disk"
@@ -153,6 +154,30 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 				Name: volume.RegistryDisk.ImagePullSecret,
 			})
 		}
+		if volume.HostDisk != nil {
+			var hostPathType k8sv1.HostPathType
+
+			switch hostType := volume.HostDisk.Type; hostType {
+			case v1.HostDiskExists:
+				hostPathType = k8sv1.HostPathDirectory
+			case v1.HostDiskExistsOrCreate:
+				hostPathType = k8sv1.HostPathDirectoryOrCreate
+			}
+
+			volumesMounts = append(volumesMounts, k8sv1.VolumeMount{
+				Name:      volume.Name,
+				MountPath: filepath.Dir(volume.HostDisk.Path),
+			})
+			volumes = append(volumes, k8sv1.Volume{
+				Name: volume.Name,
+				VolumeSource: k8sv1.VolumeSource{
+					HostPath: &k8sv1.HostPathVolumeSource{
+						Path: filepath.Dir(volume.HostDisk.Path),
+						Type: &hostPathType,
+					},
+				},
+			})
+		}
 		if volume.DataVolume != nil {
 			volumesMounts = append(volumesMounts, volumeMount)
 			volumes = append(volumes, k8sv1.Volume{
@@ -160,6 +185,41 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 				VolumeSource: k8sv1.VolumeSource{
 					PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{
 						ClaimName: volume.DataVolume.Name,
+					},
+				},
+			})
+		}
+		if volume.ConfigMap != nil {
+			// attach a ConfigMap to the pod
+			volumesMounts = append(volumesMounts, k8sv1.VolumeMount{
+				Name:      volume.Name,
+				MountPath: filepath.Join(config.ConfigMapSourceDir, volume.Name),
+				ReadOnly:  true,
+			})
+			volumes = append(volumes, k8sv1.Volume{
+				Name: volume.Name,
+				VolumeSource: k8sv1.VolumeSource{
+					ConfigMap: &k8sv1.ConfigMapVolumeSource{
+						LocalObjectReference: volume.ConfigMap.LocalObjectReference,
+						Optional:             volume.ConfigMap.Optional,
+					},
+				},
+			})
+		}
+
+		if volume.Secret != nil {
+			// attach a Secret to the pod
+			volumesMounts = append(volumesMounts, k8sv1.VolumeMount{
+				Name:      volume.Name,
+				MountPath: filepath.Join(config.SecretSourceDir, volume.Name),
+				ReadOnly:  true,
+			})
+			volumes = append(volumes, k8sv1.Volume{
+				Name: volume.Name,
+				VolumeSource: k8sv1.VolumeSource{
+					Secret: &k8sv1.SecretVolumeSource{
+						SecretName: volume.Secret.SecretName,
+						Optional:   volume.Secret.Optional,
 					},
 				},
 			})
@@ -264,7 +324,7 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 		})
 	}
 
-	command := []string{"/usr/share/kubevirt/virt-launcher/entrypoint.sh",
+	command := []string{"/usr/bin/virt-launcher",
 		"--qemu-timeout", "5m",
 		"--name", domain,
 		"--uid", string(vmi.UID),

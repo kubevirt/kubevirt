@@ -38,13 +38,15 @@ import (
 	k8sfield "k8s.io/apimachinery/pkg/util/validation/field"
 
 	v1 "kubevirt.io/kubevirt/pkg/api/v1"
+	"kubevirt.io/kubevirt/pkg/testutils"
+	"kubevirt.io/kubevirt/pkg/virt-api/webhooks"
 
 	cdiv1 "kubevirt.io/containerized-data-importer/pkg/apis/datavolumecontroller/v1alpha1"
 )
 
 var _ = Describe("Validating Webhook", func() {
 	Context("with VirtualMachineInstance admission review", func() {
-		It("reject invalid VirtualMachineInstance spec", func() {
+		It("should reject invalid VirtualMachineInstance spec on create", func() {
 			vmi := v1.NewMinimalVMI("testvmi")
 			vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
 				Name:       "testdisk",
@@ -61,12 +63,12 @@ var _ = Describe("Validating Webhook", func() {
 				},
 			}
 
-			resp := admitVMIs(ar)
+			resp := admitVMICreate(ar)
 			Expect(resp.Allowed).To(Equal(false))
 			Expect(len(resp.Result.Details.Causes)).To(Equal(1))
 			Expect(resp.Result.Details.Causes[0].Field).To(Equal("spec.domain.devices.disks[0].volumeName"))
 		})
-		It("should accept valid vmi spec", func() {
+		It("should accept valid vmi spec on create", func() {
 			vmi := v1.NewMinimalVMI("testvmi")
 			vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
 				Name:       "testdisk",
@@ -88,8 +90,42 @@ var _ = Describe("Validating Webhook", func() {
 					},
 				},
 			}
-			resp := admitVMIs(ar)
+			resp := admitVMICreate(ar)
 			Expect(resp.Allowed).To(Equal(true))
+		})
+		It("should reject valid VirtualMachineInstance spec on update", func() {
+			vmi := v1.NewMinimalVMI("testvmi")
+
+			vmiInformer, _ := testutils.NewFakeInformerFor(&v1.VirtualMachineInstance{})
+			vmiInformer.GetIndexer().Add(vmi)
+			webhooks.SetInformers(&webhooks.Informers{VMIInformer: vmiInformer})
+
+			updateVmi := vmi.DeepCopy()
+			updateVmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
+				Name:       "testdisk",
+				VolumeName: "testvolume",
+			})
+			updateVmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
+				Name: "testvolume",
+				VolumeSource: v1.VolumeSource{
+					RegistryDisk: &v1.RegistryDiskSource{},
+				},
+			})
+			vmiBytes, _ := json.Marshal(&updateVmi)
+
+			ar := &v1beta1.AdmissionReview{
+				Request: &v1beta1.AdmissionRequest{
+					Resource: metav1.GroupVersionResource{Group: v1.VirtualMachineInstanceGroupVersionKind.Group, Version: v1.VirtualMachineInstanceGroupVersionKind.Version, Resource: "virtualmachineinstances"},
+					Object: runtime.RawExtension{
+						Raw: vmiBytes,
+					},
+				},
+			}
+
+			resp := admitVMIUpdate(ar)
+			Expect(resp.Allowed).To(Equal(false))
+			Expect(len(resp.Result.Details.Causes)).To(Equal(1))
+			Expect(resp.Result.Details.Causes[0].Message).To(Equal("update of VMI object is restricted"))
 		})
 	})
 	Context("with VMIRS admission review", func() {
@@ -362,7 +398,7 @@ var _ = Describe("Validating Webhook", func() {
 	Context("with VMIPreset admission review", func() {
 		It("reject invalid VirtualMachineInstance spec", func() {
 			vmi := v1.NewMinimalVMI("testvmi")
-			vmiPDomain := &v1.DomainPresetSpec{}
+			vmiPDomain := &v1.DomainSpec{}
 			vmiDomainByte, _ := json.Marshal(vmi.Spec.Domain)
 			Expect(json.Unmarshal(vmiDomainByte, &vmiPDomain)).To(BeNil())
 
@@ -408,7 +444,7 @@ var _ = Describe("Validating Webhook", func() {
 
 			vmiPreset := &v1.VirtualMachineInstancePreset{
 				Spec: v1.VirtualMachineInstancePresetSpec{
-					Domain: &v1.DomainPresetSpec{},
+					Domain: &v1.DomainSpec{},
 				},
 			}
 			vmiPresetBytes, _ := json.Marshal(&vmiPreset)
@@ -1300,6 +1336,9 @@ var _ = Describe("Validating Webhook", func() {
 			table.Entry("with ephemeral volume source", v1.VolumeSource{Ephemeral: &v1.EphemeralVolumeSource{}}),
 			table.Entry("with emptyDisk volume source", v1.VolumeSource{EmptyDisk: &v1.EmptyDiskSource{}}),
 			table.Entry("with dataVolume volume source", v1.VolumeSource{DataVolume: &v1.DataVolumeSource{Name: "fake"}}),
+			table.Entry("with hostDisk volume source", v1.VolumeSource{HostDisk: &v1.HostDisk{Path: "fake", Type: v1.HostDiskExistsOrCreate}}),
+			table.Entry("with configMap volume source", v1.VolumeSource{ConfigMap: &v1.ConfigMapVolumeSource{LocalObjectReference: k8sv1.LocalObjectReference{Name: "fake"}}}),
+			table.Entry("with secret volume source", v1.VolumeSource{Secret: &v1.SecretVolumeSource{SecretName: "fake"}}),
 		)
 		It("should reject DataVolume when feature gate is disabled", func() {
 			vmi := v1.NewMinimalVMI("testvmi")
@@ -1406,7 +1445,98 @@ var _ = Describe("Validating Webhook", func() {
 			Expect(len(causes)).To(Equal(1))
 			Expect(causes[0].Field).To(Equal("fake[0].cloudInitNoCloud.userDataBase64"))
 		})
+
+		It("should reject hostDisk without required parameters", func() {
+			vmi := v1.NewMinimalVMI("testvmi")
+			vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
+				VolumeSource: v1.VolumeSource{
+					HostDisk: &v1.HostDisk{},
+				},
+			})
+
+			causes := validateVolumes(k8sfield.NewPath("fake"), vmi.Spec.Volumes)
+			Expect(len(causes)).To(Equal(2))
+			Expect(causes[0].Field).To(Equal("fake[0].hostDisk.path"))
+			Expect(causes[1].Field).To(Equal("fake[0].hostDisk.type"))
+		})
+
+		It("should reject hostDisk without given 'path'", func() {
+			vmi := v1.NewMinimalVMI("testvmi")
+			vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
+				VolumeSource: v1.VolumeSource{
+					HostDisk: &v1.HostDisk{
+						Type: v1.HostDiskExistsOrCreate,
+					},
+				},
+			})
+
+			causes := validateVolumes(k8sfield.NewPath("fake"), vmi.Spec.Volumes)
+			Expect(len(causes)).To(Equal(1))
+			Expect(causes[0].Field).To(Equal("fake[0].hostDisk.path"))
+		})
+
+		It("should reject hostDisk with invalid type", func() {
+			vmi := v1.NewMinimalVMI("testvmi")
+			vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
+				VolumeSource: v1.VolumeSource{
+					HostDisk: &v1.HostDisk{
+						Path: "fakePath",
+						Type: "fakeType",
+					},
+				},
+			})
+
+			causes := validateVolumes(k8sfield.NewPath("fake"), vmi.Spec.Volumes)
+			Expect(len(causes)).To(Equal(1))
+			Expect(causes[0].Field).To(Equal("fake[0].hostDisk.type"))
+		})
+
+		It("should reject hostDisk when the capacity is specified with a `DiskExists` type", func() {
+			vmi := v1.NewMinimalVMI("testvmi")
+			vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
+				VolumeSource: v1.VolumeSource{
+					HostDisk: &v1.HostDisk{
+						Path:     "fakePath",
+						Type:     v1.HostDiskExists,
+						Capacity: resource.MustParse("1Gi"),
+					},
+				},
+			})
+
+			causes := validateVolumes(k8sfield.NewPath("fake"), vmi.Spec.Volumes)
+			Expect(len(causes)).To(Equal(1))
+			Expect(causes[0].Field).To(Equal("fake[0].hostDisk.capacity"))
+		})
+
+		It("should reject a configMap without the configMapName field", func() {
+			vmi := v1.NewMinimalVMI("testvmi")
+
+			vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
+				VolumeSource: v1.VolumeSource{
+					ConfigMap: &v1.ConfigMapVolumeSource{},
+				},
+			})
+
+			causes := validateVolumes(k8sfield.NewPath("fake"), vmi.Spec.Volumes)
+			Expect(len(causes)).To(Equal(1))
+			Expect(causes[0].Field).To(Equal("fake[0].configMap.name"))
+		})
+
+		It("should reject a secret without the secretName field", func() {
+			vmi := v1.NewMinimalVMI("testvmi")
+
+			vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
+				VolumeSource: v1.VolumeSource{
+					Secret: &v1.SecretVolumeSource{},
+				},
+			})
+
+			causes := validateVolumes(k8sfield.NewPath("fake"), vmi.Spec.Volumes)
+			Expect(len(causes)).To(Equal(1))
+			Expect(causes[0].Field).To(Equal("fake[0].secret.secretName"))
+		})
 	})
+
 	Context("with Disk", func() {
 		table.DescribeTable("should accept valid disks",
 			func(disk v1.Disk) {

@@ -281,6 +281,12 @@ spec:
                                 type: string
                               userDataBase64:
                                 type: string
+                          configMap:
+                            properties:
+                              name:
+                                type: string
+                              optional:
+                                type: boolean
                           dataVolume:
                             properties:
                               name:
@@ -295,6 +301,16 @@ spec:
                           ephemeral:
                             properties:
                               persistentVolumeClaim: {}
+                          hostDisk:
+                            properties:
+                              capacity: {}
+                              path:
+                                type: string
+                              type:
+                                type: string
+                            required:
+                            - path
+                            - type
                           name:
                             type: string
                           persistentVolumeClaim: {}
@@ -306,6 +322,12 @@ spec:
                                 type: string
                             required:
                             - image
+                          secret:
+                            properties:
+                              optional:
+                                type: boolean
+                              secretName:
+                                type: string
                         required:
                         - name
                       type: array

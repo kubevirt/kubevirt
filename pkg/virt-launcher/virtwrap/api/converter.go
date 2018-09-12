@@ -37,6 +37,7 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/cloud-init"
+	"kubevirt.io/kubevirt/pkg/config"
 	"kubevirt.io/kubevirt/pkg/emptydisk"
 	"kubevirt.io/kubevirt/pkg/ephemeral-disk"
 	"kubevirt.io/kubevirt/pkg/log"
@@ -63,6 +64,7 @@ func Convert_v1_Disk_To_api_Disk(diskDevice *v1.Disk, disk *Disk, devicePerBus m
 		disk.Target.Bus = diskDevice.Disk.Bus
 		disk.Target.Device = makeDeviceName(diskDevice.Disk.Bus, devicePerBus)
 		disk.ReadOnly = toApiReadOnly(diskDevice.Disk.ReadOnly)
+		disk.Serial = diskDevice.Serial
 	} else if diskDevice.LUN != nil {
 		disk.Device = "lun"
 		disk.Target.Bus = diskDevice.LUN.Bus
@@ -146,8 +148,8 @@ func Convert_v1_Volume_To_api_Disk(source *v1.Volume, disk *Disk, c *ConverterCo
 		return Convert_v1_CloudInitNoCloudSource_To_api_Disk(source.CloudInitNoCloud, disk, c)
 	}
 
-	if source.PersistentVolumeClaim != nil {
-		return Convert_v1_FilesystemVolumeSource_To_api_Disk(source.Name, disk, c)
+	if source.HostDisk != nil {
+		return Convert_v1_HostDisk_To_api_Disk(source.HostDisk.Path, disk, c)
 	}
 
 	if source.DataVolume != nil {
@@ -160,8 +162,31 @@ func Convert_v1_Volume_To_api_Disk(source *v1.Volume, disk *Disk, c *ConverterCo
 	if source.EmptyDisk != nil {
 		return Convert_v1_EmptyDiskSource_To_api_Disk(source.Name, source.EmptyDisk, disk, c)
 	}
+	if source.ConfigMap != nil {
+		return Convert_v1_Config_To_api_Disk(source.Name, disk, config.ConfigMap)
+	}
+	if source.Secret != nil {
+		return Convert_v1_Config_To_api_Disk(source.Name, disk, config.Secret)
+	}
 
 	return fmt.Errorf("disk %s references an unsupported source", disk.Alias.Name)
+}
+
+func Convert_v1_Config_To_api_Disk(volumeName string, disk *Disk, configType config.Type) error {
+	disk.Type = "file"
+	disk.Driver.Type = "raw"
+	switch configType {
+	case config.ConfigMap:
+		disk.Source.File = config.GetConfigMapDiskPath(volumeName)
+		break
+	case config.Secret:
+		disk.Source.File = config.GetSecretDiskPath(volumeName)
+		break
+	default:
+		return fmt.Errorf("Cannot convert config '%s' to disk, unrecognized type", configType)
+	}
+
+	return nil
 }
 
 // Convert_v1_FilesystemVolumeSource_To_api_Disk takes a FS source and builds the KVM Disk representation
@@ -174,6 +199,13 @@ func Convert_v1_FilesystemVolumeSource_To_api_Disk(volumeName string, disk *Disk
 		"vmi-disks",
 		volumeName,
 		"disk.img")
+	return nil
+}
+
+func Convert_v1_HostDisk_To_api_Disk(path string, disk *Disk, c *ConverterContext) error {
+	disk.Type = "file"
+	disk.Driver.Type = "raw"
+	disk.Source.File = path
 	return nil
 }
 
