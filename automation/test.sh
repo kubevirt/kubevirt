@@ -48,30 +48,49 @@ else
 fi
 
 export KUBEVIRT_NUM_NODES=2
+export RHEL_NFS_DIR=${RHEL_NFS_DIR:-/var/lib/stdci/shared/kubevirt-images/rhel7}
+export RHEL_LOCK_PATH=${RHEL_LOCK_PATH:-/var/lib/stdci/shared/download_rhel_image.lock}
 export WINDOWS_NFS_DIR=${WINDOWS_NFS_DIR:-/var/lib/stdci/shared/kubevirt-images/windows2016}
 export WINDOWS_LOCK_PATH=${WINDOWS_LOCK_PATH:-/var/lib/stdci/shared/download_windows_image.lock}
 
-wait_for_windows_lock() {
+wait_for_download_lock() {
   local max_lock_attempts=60
   local lock_wait_interval=60
 
   for ((i = 0; i < $max_lock_attempts; i++)); do
-      if (set -o noclobber; > $WINDOWS_LOCK_PATH) 2> /dev/null; then
-          echo "Acquired lock: $WINDOWS_LOCK_PATH"
+      if (set -o noclobber; > $1) 2> /dev/null; then
+          echo "Acquired lock: $1"
           return
       fi
       sleep $lock_wait_interval
   done
-  echo "Timed out waiting for lock: $WINDOWS_LOCK_PATH" >&2
+  echo "Timed out waiting for lock: $1" >&2
   exit 1
 }
 
-release_windows_lock() {
-  if [[ -e "$WINDOWS_LOCK_PATH" ]]; then
-      rm -f "$WINDOWS_LOCK_PATH"
-      echo "Released lock: $WINDOWS_LOCK_PATH"
+release_download_lock() { 
+  if [[ -e "$1" ]]; then
+    rm -f "$1"
+    echo "Released lock: $1"
   fi
 }
+
+if [[ $TARGET =~ openshift.* ]]; then
+    # Create images directory
+    if [[ ! -d $RHEL_NFS_DIR ]]; then
+        mkdir -p $RHEL_NFS_DIR
+    fi
+
+    # Download RHEL image
+    if wait_for_download_lock $RHEL_LOCK_PATH; then
+        if [[ ! -f "$RHEL_NFS_DIR/disk.img" ]]; then
+            curl http://templates.ovirt.org/kubevirt/rhel7.img > $RHEL_NFS_DIR/disk.img
+        fi
+        release_download_lock $RHEL_LOCK_PATH
+    else
+        exit 1
+    fi
+fi
 
 if [[ $TARGET =~ windows.* ]]; then
   # Create images directory
@@ -79,12 +98,12 @@ if [[ $TARGET =~ windows.* ]]; then
     mkdir -p $WINDOWS_NFS_DIR
   fi
 
-  # Download windows image
-  if wait_for_windows_lock; then
+  # Download Windows image
+  if wait_for_download_lock $WINDOWS_LOCK_PATH; then
     if [[ ! -f "$WINDOWS_NFS_DIR/disk.img" ]]; then
       curl http://templates.ovirt.org/kubevirt/win01.img > $WINDOWS_NFS_DIR/disk.img
     fi
-    release_windows_lock
+    release_download_lock $WINDOWS_LOCK_PATH
   else
     exit 1
   fi
@@ -95,7 +114,7 @@ kubectl() { cluster/kubectl.sh "$@"; }
 export NAMESPACE="${NAMESPACE:-kube-system}"
 
 # Make sure that the VM is properly shut down on exit
-trap '{ release_windows_lock; make cluster-down; }' EXIT SIGINT SIGTERM SIGSTOP
+trap '{ release_download_lock $RHEL_LOCK_PATH; release_download_lock $WINDOWS_LOCK_PATH; make cluster-down; }' EXIT SIGINT SIGTERM SIGSTOP
 
 make cluster-down
 make cluster-up
@@ -161,7 +180,7 @@ mkdir -p "$ARTIFACTS_PATH"
 
 ginko_params="--ginkgo.noColor --junit-output=$ARTIFACTS_PATH/tests.junit.xml"
 
-# Prepare PV for windows testing
+# Prepare PV for Windows testing
 if [[ $TARGET =~ windows.* ]]; then
   kubectl create -f - <<EOF
 ---
@@ -181,9 +200,32 @@ spec:
     path: /
   storageClassName: local
 EOF
-  # Run only windows tests
+  # Run only Windows tests
   ginko_params="$ginko_params --ginkgo.focus=Windows"
 fi
+
+# Prepare RHEL PV for Template testing
+if [[ $TARGET =~ openshift-.* ]]; then
+  kubectl create -f - <<EOF
+---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: disk-rhel
+  labels:
+    kubevirt.io/test: "rhel"
+spec:
+  capacity:
+    storage: 15Gi
+  accessModes:
+    - ReadWriteOnce
+  nfs:
+    server: "nfs"
+    path: /
+  storageClassName: local
+EOF
+fi
+
 
 # Run functional tests
 FUNC_TEST_ARGS=$ginko_params make functest

@@ -67,6 +67,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/util/net/dns"
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
 	"kubevirt.io/kubevirt/pkg/virtctl"
+	vmsgen "kubevirt.io/kubevirt/tools/vms-generator/utils"
 
 	cdiv1 "kubevirt.io/containerized-data-importer/pkg/apis/datavolumecontroller/v1alpha1"
 )
@@ -137,6 +138,7 @@ const (
 const (
 	osAlpineHostPath = "alpine-host-path"
 	osWindows        = "windows"
+	osRhel           = "rhel"
 	CustomHostPath   = "custom-host-path"
 )
 
@@ -149,12 +151,14 @@ const (
 const (
 	DiskAlpineHostPath = "disk-alpine-host-path"
 	DiskWindows        = "disk-windows"
+	DiskRhel           = "disk-rhel"
 	DiskCustomHostPath = "disk-custom-host-path"
 )
 
 const (
 	defaultDiskSize        = "1Gi"
 	defaultWindowsDiskSize = "30Gi"
+	defaultRhelDiskSize    = "15Gi"
 )
 
 const VMIResource = "virtualmachineinstances"
@@ -320,6 +324,7 @@ func AfterTestSuitCleanup() {
 	cleanupServiceAccounts()
 
 	DeletePVC(osWindows)
+	DeletePVC(osRhel)
 
 	DeletePVC(osAlpineHostPath)
 	DeletePV(osAlpineHostPath)
@@ -345,6 +350,7 @@ func BeforeTestSuitSetup() {
 	CreatePVC(osAlpineHostPath, defaultDiskSize)
 
 	CreatePVC(osWindows, defaultWindowsDiskSize)
+	CreatePVC(osRhel, defaultRhelDiskSize)
 
 	EnsureKVMPresent()
 }
@@ -1661,6 +1667,17 @@ func SkipIfNoWindowsImage(virtClient kubecli.KubevirtClient) {
 	}
 }
 
+func SkipIfNoRhelImage(virtClient kubecli.KubevirtClient) {
+	rhelPv, err := virtClient.CoreV1().PersistentVolumes().Get(DiskRhel, metav1.GetOptions{})
+	if err != nil || rhelPv.Status.Phase == k8sv1.VolumePending || rhelPv.Status.Phase == k8sv1.VolumeFailed {
+		Skip(fmt.Sprintf("Skip RHEL tests that requires PVC %s", DiskRhel))
+	} else if rhelPv.Status.Phase == k8sv1.VolumeReleased {
+		rhelPv.Spec.ClaimRef = nil
+		_, err = virtClient.CoreV1().PersistentVolumes().Update(rhelPv)
+		Expect(err).ToNot(HaveOccurred())
+	}
+}
+
 func SkipIfNoMultusProvider(virtClient kubecli.KubevirtClient) {
 	_, err := virtClient.ExtensionsV1beta1().DaemonSets("kube-system").Get("kube-multus-ds-amd64", metav1.GetOptions{})
 	if err != nil {
@@ -1759,7 +1776,7 @@ func GenerateVMIJson(vmi *v1.VirtualMachineInstance) (string, error) {
 	return jsonFile, nil
 }
 
-func GenerateTemplateJson(template *Template) (string, error) {
+func GenerateTemplateJson(template *vmsgen.Template) (string, error) {
 	data, err := json.Marshal(template)
 	if err != nil {
 		return "", fmt.Errorf("failed to generate json for vm template %s", template.Name)

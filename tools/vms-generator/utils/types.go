@@ -24,10 +24,10 @@
  *
  */
 
-package tests
+package utils
 
 import (
-	k8sv1 "k8s.io/api/core/v1"
+	kapi "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 )
@@ -37,8 +37,8 @@ import (
 
 // Template contains the inputs needed to produce a Config.
 type Template struct {
-	metav1.TypeMeta   `json:",inline"`
-	metav1.ObjectMeta `json:"metadata,omitempty"`
+	metav1.TypeMeta
+	metav1.ObjectMeta `json:"metadata"`
 
 	// message is an optional instructional message that will
 	// be displayed when this template is instantiated.
@@ -50,7 +50,7 @@ type Template struct {
 
 	// parameters is an optional array of Parameters used during the
 	// Template to Config transformation.
-	Parameters []Parameter `json:"parameters"`
+	Parameters []Parameter `json:"parameters,omitempty"`
 
 	// objects is an array of resources to include in this template.
 	// If a namespace value is hardcoded in the object, it will be removed
@@ -62,7 +62,7 @@ type Template struct {
 
 	// objectLabels is an optional set of labels that are applied to every
 	// object during the Template to Config transformation.
-	ObjectLabels map[string]string `json:"labels,omitempty"`
+	ObjectLabels map[string]string `json:"objectLabels,omitempty"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
@@ -128,7 +128,7 @@ type TemplateInstanceSpec struct {
 
 	// Secret is a reference to a Secret object containing the necessary
 	// template parameters.
-	Secret *k8sv1.LocalObjectReference
+	Secret *kapi.LocalObjectReference
 
 	// Requester holds the identity of the agent requesting the template
 	// instantiation.
@@ -172,7 +172,7 @@ type TemplateInstanceCondition struct {
 	// Type of the condition, currently Ready or InstantiateFailure.
 	Type TemplateInstanceConditionType
 	// Status of the condition, one of True, False or Unknown.
-	Status k8sv1.ConditionStatus
+	Status kapi.ConditionStatus
 	// LastTransitionTime is the last time a condition status transitioned from
 	// one state to another.
 	LastTransitionTime metav1.Time
@@ -200,7 +200,7 @@ const (
 // TemplateInstanceObject references an object created by a TemplateInstance.
 type TemplateInstanceObject struct {
 	// ref is a reference to the created object.
-	Ref k8sv1.ObjectReference
+	Ref kapi.ObjectReference
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
@@ -232,11 +232,11 @@ type BrokerTemplateInstance struct {
 type BrokerTemplateInstanceSpec struct {
 	// TemplateInstance is a reference to a TemplateInstance object residing
 	// in a namespace.
-	TemplateInstance k8sv1.ObjectReference
+	TemplateInstance kapi.ObjectReference
 
 	// Secret is a reference to a Secret object residing in a namespace,
 	// containing the necessary template parameters.
-	Secret k8sv1.ObjectReference
+	Secret kapi.ObjectReference
 
 	// BindingIDs is a list of 'binding_id's provided during successive bind
 	// calls to the template service broker.
