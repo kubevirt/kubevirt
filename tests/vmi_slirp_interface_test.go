@@ -24,7 +24,7 @@ import (
 	"strings"
 	"time"
 
-	expect "github.com/google/goexpect"
+	"github.com/google/goexpect"
 	. "github.com/onsi/ginkgo"
 	"github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
@@ -82,11 +82,12 @@ var _ = Describe("Slirp", func() {
 			virtClient,
 			vmiPod,
 			vmiPod.Spec.Containers[1].Name,
-			[]string{"netstat", "-tnlp"},
+			[]string{"cat", "/proc/net/tcp"},
 		)
 		log.Log.Infof("%v", output)
 		Expect(err).ToNot(HaveOccurred())
-		Expect(strings.Contains(output, "0.0.0.0:80")).To(BeTrue())
+		// :0050 is port 80, 0A is listening
+		Expect(strings.Contains(output, "0: 00000000:0050 00000000:0000 0A")).To(BeTrue())
 
 		By("return \"Hello World!\" when connecting to localhost on port 80")
 		output, err = tests.ExecuteCommandOnPod(

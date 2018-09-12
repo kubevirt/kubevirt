@@ -203,7 +203,7 @@ func (mon *monitor) refresh() {
 	if mon.pid == 0 {
 		var err error
 
-		mon.pid, err = findPid(mon.cmdlineMatchStr)
+		mon.pid, err = FindPid(mon.cmdlineMatchStr)
 		if err != nil {
 
 			log.Log.Infof("Still missing PID for %s, %v", mon.cmdlineMatchStr, err)
@@ -315,7 +315,7 @@ func pidExists(pid int) (bool, error) {
 	return true, nil
 }
 
-func findPid(commandNamePrefix string) (int, error) {
+func FindPid(commandNamePrefix string) (int, error) {
 	entries, err := filepath.Glob("/proc/*/cmdline")
 	if err != nil {
 		return 0, err

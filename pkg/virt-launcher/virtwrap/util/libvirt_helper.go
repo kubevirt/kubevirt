@@ -7,6 +7,7 @@ import (
 	"os/exec"
 	"reflect"
 	"strings"
+	"syscall"
 	"time"
 
 	"github.com/libvirt/libvirt-go"
@@ -141,13 +142,11 @@ func StartLibvirt(stopChan chan struct{}) {
 	// doesn't exit until virt-launcher is ready for it to. Virt-launcher traps signals
 	// to perform special shutdown logic. These processes need to live in the same
 	// container.
-
 	go func() {
 		for {
 			exitChan := make(chan struct{})
-			cmd := exec.Command("/usr/share/kubevirt/virt-launcher/libvirtd.sh")
+			cmd := exec.Command("/usr/sbin/libvirtd")
 
-			// libvirtd logs to stderr (see configuration in libvirtd.sh)
 			// connect libvirt's stderr to our own stdout in order to see the logs in the container logs
 			cmd.Stderr = os.Stdout
 
@@ -241,4 +240,59 @@ func NewDomain(dom cli.VirDomain) (*api.Domain, error) {
 	domain := api.NewDomainReferenceFromName(namespace, name)
 	domain.GetObjectMeta().SetUID(domain.Spec.Metadata.KubeVirt.UID)
 	return domain, nil
+}
+
+func SetupLibvirt() error {
+
+	// TODO: setting permissions and owners is not part of device plugins.
+	// Configure these manually right now on "/dev/kvm"
+	stats, err := os.Stat("/dev/kvm")
+	if err == nil {
+		s, ok := stats.Sys().(*syscall.Stat_t)
+		if !ok {
+			return fmt.Errorf("can't convert file stats to unix/linux stats")
+		}
+		err := os.Chown("/dev/kvm", int(s.Uid), 107)
+		if err != nil {
+			return err
+		}
+		err = os.Chmod("/dev/kvm", 0660)
+		if err != nil {
+			return err
+		}
+	} else if !os.IsNotExist(err) {
+		return err
+	}
+
+	qemuConf, err := os.OpenFile("/etc/libvirt/qemu.conf", os.O_APPEND|os.O_WRONLY, 0644)
+	if err != nil {
+		return err
+	}
+	defer qemuConf.Close()
+	// We are in a container, don't try to stuff qemu inside special cgroups
+	_, err = qemuConf.WriteString("cgroup_controllers = [ ]\n")
+	if err != nil {
+		return err
+	}
+
+	// If hugepages exist, tell libvirt about them
+	_, err = os.Stat("/dev/hugepages")
+	if err == nil {
+		_, err = qemuConf.WriteString("hugetlbfs_mount = \"/dev/hugepages\"\n")
+	} else if !os.IsNotExist(err) {
+		return err
+	}
+
+	// Let libvirt log to stderr
+	libvirtConf, err := os.OpenFile("/etc/libvirt/libvirtd.conf", os.O_APPEND|os.O_WRONLY, 0644)
+	if err != nil {
+		return err
+	}
+	defer libvirtConf.Close()
+	_, err = libvirtConf.WriteString("log_outputs = \"1:stderr\"\n")
+	if err != nil {
+		return err
+	}
+
+	return nil
 }

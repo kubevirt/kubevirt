@@ -23,22 +23,16 @@ MAINTAINER "The KubeVirt Project" <kubevirt-dev@googlegroups.com>
 RUN dnf -y install \
   socat \
   genisoimage \
-  util-linux \
-  libcgroup-tools \
-  ethtool \
-  net-tools \
-  sudo && dnf -y clean all && \
+  && dnf -y clean all && \
   test $(id -u qemu) = 107 # make sure that the qemu user really is 107
 
 COPY virt-launcher /usr/bin/virt-launcher
-COPY kubevirt-sudo /etc/sudoers.d/kubevirt
 COPY .version /.version
 
 # Allow qemu to bind privileged ports
 RUN setcap CAP_NET_BIND_SERVICE=+eip /usr/bin/qemu-system-x86_64
 
-# libvirtd.sh in this image differs from upstream
 RUN mkdir -p /usr/share/kubevirt/virt-launcher
-COPY entrypoint.sh libvirtd.sh sock-connector /usr/share/kubevirt/virt-launcher/
+COPY sock-connector /usr/share/kubevirt/virt-launcher/
 
-ENTRYPOINT [ "/usr/share/kubevirt/virt-launcher/entrypoint.sh" ]
+ENTRYPOINT [ "/usr/bin/virt-launcher" ]
