@@ -71,19 +71,17 @@ import (
 	cdiv1 "kubevirt.io/containerized-data-importer/pkg/apis/datavolumecontroller/v1alpha1"
 )
 
-var KubeVirtVersionTag = "latest"
-var KubeVirtRepoPrefix = "kubevirt"
-var KubeVirtKubectlPath = ""
-var KubeVirtOcPath = ""
-var KubeVirtVirtctlPath = ""
-var KubeVirtInstallNamespace = "kube-system"
+var KubeVirtVersionTag string
+var KubeVirtRepoPrefix string
+var KubeVirtInstallNamespace string
+var KubeVirtKubectlPath, KubeVirtOcPath, KubeVirtVirtctlPath string
 
 func init() {
 	flag.StringVar(&KubeVirtVersionTag, "tag", "latest", "Set the image tag or digest to use")
 	flag.StringVar(&KubeVirtRepoPrefix, "prefix", "kubevirt", "Set the repository prefix for all images")
-	flag.StringVar(&KubeVirtKubectlPath, "kubectl-path", "", "Set path to kubectl binary")
-	flag.StringVar(&KubeVirtOcPath, "oc-path", "", "Set path to oc binary")
-	flag.StringVar(&KubeVirtVirtctlPath, "virtctl-path", "", "Set path to virtctl binary")
+	flag.StringVar(&KubeVirtKubectlPath, "kubectl-path", "/usr/bin/kubectl", "Set path to kubectl binary")
+	flag.StringVar(&KubeVirtOcPath, "oc-path", "/usr/bin/oc", "Set path to oc binary")
+	flag.StringVar(&KubeVirtVirtctlPath, "virtctl-path", "/usr/bin/virtctl", "Set path to virtctl binary")
 	flag.StringVar(&KubeVirtInstallNamespace, "installed-namespace", "kube-system", "Set the namespace KubeVirt is installed in")
 }
 
