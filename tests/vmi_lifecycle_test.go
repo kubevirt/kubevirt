@@ -945,7 +945,8 @@ var _ = Describe("VMIlifecycle", func() {
 				// Delete the VirtualMachineInstance and wait for the confirmation of the delete
 				By("Deleting the VirtualMachineInstance")
 				Expect(virtClient.VirtualMachineInstance(vmi.Namespace).Delete(obj.Name, &metav1.DeleteOptions{})).To(Succeed())
-				tests.NewObjectEventWatcher(obj).SinceWatchedObjectResourceVersion().WaitFor(tests.NormalEvent, v1.Deleted)
+				event := tests.NewObjectEventWatcher(obj).SinceWatchedObjectResourceVersion().Timeout(30*time.Second).WaitFor(tests.NormalEvent, v1.Deleted)
+				Expect(event).ToNot(BeNil())
 
 				// Check if the graceful shutdown was logged
 				By("Checking that virt-handler logs VirtualMachineInstance graceful shutdown")

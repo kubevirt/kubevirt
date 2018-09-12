@@ -94,7 +94,7 @@ func newWatchEventError(err error) watch.Event {
 	return watch.Event{Type: watch.Error, Object: &metav1.Status{Status: metav1.StatusFailure, Message: err.Error()}}
 }
 
-func libvirtEventCallback(d cli.VirDomain, event *libvirt.DomainEventLifecycle, client *DomainEventClient, deleteNotificationSent chan watch.Event) {
+func libvirtEventCallback(d cli.VirDomain, event *libvirt.DomainEventLifecycle, client *DomainEventClient, events chan watch.Event) {
 
 	// check for reconnects, and emit an error to force a resync
 	if event == nil {
@@ -140,10 +140,12 @@ func libvirtEventCallback(d cli.VirDomain, event *libvirt.DomainEventLifecycle, 
 	case api.ReasonNonExistent:
 		event := watch.Event{Type: watch.Deleted, Object: domain}
 		client.SendDomainEvent(event)
-		deleteNotificationSent <- event
+		events <- event
 	default:
 		if event.Event == libvirt.DOMAIN_EVENT_DEFINED && libvirt.DomainEventDefinedDetailType(event.Detail) == libvirt.DOMAIN_EVENT_DEFINED_ADDED {
-			client.SendDomainEvent(watch.Event{Type: watch.Added, Object: domain})
+			event := watch.Event{Type: watch.Added, Object: domain}
+			client.SendDomainEvent(event)
+			events <- event
 		} else {
 			client.SendDomainEvent(watch.Event{Type: watch.Modified, Object: domain})
 		}
