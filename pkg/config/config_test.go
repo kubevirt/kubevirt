@@ -56,8 +56,7 @@ var _ = Describe("ConfigMap", func() {
 		go cmInformer.Run(stopChan)
 		cache.WaitForCacheSync(stopChan, cmInformer.HasSynced)
 		clusterConfig := NewClusterConfig(cmInformer.GetStore())
-		result, err := clusterConfig.IsUseEmulation()
-		Expect(err).ToNot(HaveOccurred())
+		result := clusterConfig.IsUseEmulation()
 		Expect(result).To(BeFalse())
 	})
 
@@ -75,8 +74,7 @@ var _ = Describe("ConfigMap", func() {
 		cache.WaitForCacheSync(stopChan, cmInformer.HasSynced)
 		cache.WaitForCacheSync(stopChan, cmInformer.HasSynced)
 		clusterConfig := NewClusterConfig(cmInformer.GetStore())
-		result, err := clusterConfig.IsUseEmulation()
-		Expect(err).ToNot(HaveOccurred())
+		result := clusterConfig.IsUseEmulation()
 		Expect(result).To(BeFalse())
 	})
 
@@ -94,8 +92,7 @@ var _ = Describe("ConfigMap", func() {
 		cache.WaitForCacheSync(stopChan, cmInformer.HasSynced)
 		cache.WaitForCacheSync(stopChan, cmInformer.HasSynced)
 		clusterConfig := NewClusterConfig(cmInformer.GetStore())
-		result, err := clusterConfig.IsUseEmulation()
-		Expect(err).ToNot(HaveOccurred())
+		result := clusterConfig.IsUseEmulation()
 		Expect(result).To(BeTrue())
 	})
 

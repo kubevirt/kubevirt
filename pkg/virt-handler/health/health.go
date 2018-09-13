@@ -15,7 +15,6 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/config"
-	"kubevirt.io/kubevirt/pkg/feature-gates"
 	"kubevirt.io/kubevirt/pkg/kubecli"
 	"kubevirt.io/kubevirt/pkg/log"
 	"kubevirt.io/kubevirt/pkg/virt-handler/devices"
@@ -32,15 +31,17 @@ func NewReadinessChecker(clientset kubecli.KubevirtClient, host string, config *
 			},
 			"/dev/net/tun": &devices.TUN{},
 		},
-		clock: clock.RealClock{},
+		clock:         clock.RealClock{},
+		clusterConfig: config,
 	}
 }
 
 type ReadinessChecker struct {
-	clientset kubecli.KubevirtClient
-	host      string
-	plugins   map[string]devices.Device
-	clock     clock.Clock
+	clientset     kubecli.KubevirtClient
+	host          string
+	plugins       map[string]devices.Device
+	clock         clock.Clock
+	clusterConfig *config.ClusterConfig
 }
 
 // HeartBeat take a heartbeat interval, a maximum of non-userfacing errors which are
@@ -75,8 +76,7 @@ func (l *ReadinessChecker) HeartBeat(interval time.Duration, maxErrorsPerInterva
 			}
 			// Label the node if cpu manager is running on it
 			// This is a temporary workaround until k8s bug #66525 is resolved
-			featuregates.ParseFeatureGatesFromConfigMap()
-			if featuregates.CPUManagerEnabled() {
+			if l.clusterConfig.CPUManagerEnabled() {
 				l.updateNodeCpuManagerLabel()
 			}
 		}, interval, 1.2, true, stopCh)

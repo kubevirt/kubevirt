@@ -15,7 +15,10 @@ import (
 	"github.com/onsi/ginkgo/extensions/table"
 	"k8s.io/apimachinery/pkg/util/clock"
 
+	"k8s.io/client-go/tools/cache"
+
 	v13 "kubevirt.io/kubevirt/pkg/api/v1"
+	"kubevirt.io/kubevirt/pkg/config"
 	"kubevirt.io/kubevirt/pkg/kubecli"
 	"kubevirt.io/kubevirt/pkg/log"
 	"kubevirt.io/kubevirt/pkg/virt-handler/devices"
@@ -50,10 +53,11 @@ var _ = Describe("Health", func() {
 		go func() {
 			GinkgoRecover()
 			checker := &ReadinessChecker{
-				clientset: client,
-				host:      "testhost",
-				plugins:   map[string]devices.Device{"test": device},
-				clock:     clock.NewFakeClock(now.Time),
+				clientset:     client,
+				host:          "testhost",
+				plugins:       map[string]devices.Device{"test": device},
+				clock:         clock.NewFakeClock(now.Time),
+				clusterConfig: config.NewClusterConfig(cache.NewStore(cache.DeletionHandlingMetaNamespaceKeyFunc)),
 			}
 			checker.HeartBeat(1*time.Second, 100, stop)
 		}()

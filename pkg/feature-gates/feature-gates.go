@@ -38,7 +38,6 @@ const featureGateEnvVar = "FEATURE_GATES"
 
 const (
 	dataVolumesGate = "DataVolumes"
-	cpuManager      = "CPUManager"
 )
 
 func ParseFeatureGatesFromConfigMap() {
@@ -78,8 +77,4 @@ func ParseFeatureGatesFromConfigMap() {
 
 func DataVolumesEnabled() bool {
 	return strings.Contains(os.Getenv(featureGateEnvVar), dataVolumesGate)
-}
-
-func CPUManagerEnabled() bool {
-	return strings.Contains(os.Getenv(featureGateEnvVar), cpuManager)
 }

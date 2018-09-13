@@ -30,10 +30,7 @@ type TUN struct {
 // Setup creates /dev/kvm inside a container and sets the right permissions for qemu
 func (k *KVM) Setup(_ *v1.VirtualMachineInstance, hostNamespaces *isolation.IsolationResult, podNamespaces *isolation.IsolationResult) error {
 
-	useEmulation, err := k.ClusterConfig.IsUseEmulation()
-	if err != nil {
-		return err
-	}
+	useEmulation := k.ClusterConfig.IsUseEmulation()
 
 	if useEmulation {
 		return nil
@@ -42,7 +39,7 @@ func (k *KVM) Setup(_ *v1.VirtualMachineInstance, hostNamespaces *isolation.Isol
 	devicePath := path.Join(podNamespaces.MountRoot(), kvm)
 
 	stat := syscall.Stat_t{}
-	err = syscall.Stat(devicePath, &stat)
+	err := syscall.Stat(devicePath, &stat)
 	if err != nil && !os.IsNotExist(err) {
 		return err
 	}
@@ -81,10 +78,7 @@ func (k *KVM) Setup(_ *v1.VirtualMachineInstance, hostNamespaces *isolation.Isol
 
 func (k *KVM) Available() error {
 
-	useEmulation, err := k.ClusterConfig.IsUseEmulation()
-	if err != nil {
-		return err
-	}
+	useEmulation := k.ClusterConfig.IsUseEmulation()
 
 	if useEmulation {
 		return nil
@@ -92,7 +86,7 @@ func (k *KVM) Available() error {
 
 	devicePath := path.Join("/proc/1/root", kvm)
 	stat := syscall.Stat_t{}
-	err = syscall.Stat(devicePath, &stat)
+	err := syscall.Stat(devicePath, &stat)
 	if err != nil && !os.IsNotExist(err) {
 		return err
 	}
