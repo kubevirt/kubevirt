@@ -38,10 +38,12 @@ var _ = Describe("Console", func() {
 
 	flag.Parse()
 
-	virtClient, err := kubecli.GetKubevirtClient()
-	tests.PanicOnError(err)
+	var virtClient kubecli.KubevirtClient
+	var err error
 
 	BeforeEach(func() {
+		virtClient, err = kubecli.GetKubevirtClient()
+		tests.PanicOnError(err)
 		tests.BeforeTestCleanup()
 	})
 

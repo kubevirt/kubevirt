@@ -48,8 +48,12 @@ var _ = Describe("VNC", func() {
 
 	flag.Parse()
 
-	virtClient, err := kubecli.GetKubevirtClient()
+	var virtClient kubecli.KubevirtClient
+	var err error
+
+	virtClient, err = kubecli.GetKubevirtClient()
 	tests.PanicOnError(err)
+
 	var vmi *v1.VirtualMachineInstance
 
 	Describe("A new VirtualMachineInstance", func() {

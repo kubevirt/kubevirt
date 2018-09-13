@@ -41,13 +41,18 @@ var _ = Describe("HookSidecars", func() {
 
 	flag.Parse()
 
-	virtClient, err := kubecli.GetKubevirtClient()
-	tests.PanicOnError(err)
+	var virtClient kubecli.KubevirtClient
+	var err error
 
 	var vmi *v1.VirtualMachineInstance
 
 	BeforeEach(func() {
+		virtClient, err = kubecli.GetKubevirtClient()
+		tests.PanicOnError(err)
 		tests.BeforeTestCleanup()
+	})
+
+	JustBeforeEach(func() {
 		vmi = tests.NewRandomVMIWithEphemeralDisk(tests.RegistryDiskFor(tests.RegistryDiskAlpine))
 		vmi.ObjectMeta.Annotations = map[string]string{
 			"hooks.kubevirt.io/hookSidecars":              fmt.Sprintf(`[{"image": "%s/%s:%s", "imagePullPolicy": "IfNotPresent"}]`, tests.KubeVirtRepoPrefix, hookSidecarImage, tests.KubeVirtVersionTag),
