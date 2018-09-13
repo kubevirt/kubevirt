@@ -132,6 +132,8 @@ spec:
           volumeMounts:
           - name: images
             mountPath: /hostImages
+          - name: local-storage
+            mountPath: /local-storage
           securityContext:
             privileged: true
           readinessProbe:	
@@ -145,4 +147,8 @@ spec:
         - name: images
           hostPath:
             path: /tmp/hostImages
+            type: DirectoryOrCreate
+        - name: local-storage
+          hostPath:
+            path: /mnt/local-storage
             type: DirectoryOrCreate
