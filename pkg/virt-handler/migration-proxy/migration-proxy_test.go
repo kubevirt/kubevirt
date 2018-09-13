@@ -20,8 +20,9 @@
 package migrationproxy
 
 import (
-	"bufio"
+	"io/ioutil"
 	"net"
+	"os"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"

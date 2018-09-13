@@ -491,6 +491,9 @@ func (d *VirtualMachineController) processVmCleanup(vmi *v1.VirtualMachineInstan
 	}
 
 	d.closeLauncherClient(vmi)
+
+	os.RemoveAll(filepath.Join(d.virtShareDir, "libvirt-runtimes", string(vmi.UID)))
+
 	return nil
 }
 

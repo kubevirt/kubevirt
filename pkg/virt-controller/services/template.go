@@ -463,7 +463,9 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 	volumes = append(volumes, k8sv1.Volume{
 		Name: "libvirt-runtime",
 		VolumeSource: k8sv1.VolumeSource{
-			EmptyDir: &k8sv1.EmptyDirVolumeSource{},
+			HostPath: &k8sv1.HostPathVolumeSource{
+				Path: filepath.Join(t.virtShareDir, "libvirt-runtimes", string(vmi.UID)),
+			},
 		},
 	})
 
