@@ -38,19 +38,13 @@ var _ = Describe("Console", func() {
 
 	flag.Parse()
 
-	var virtClient kubecli.KubevirtClient
-	var err error
-
+	virtClient, err := kubecli.GetKubevirtClient()
 	tests.PanicOnError(err)
 
 	BeforeEach(func() {
 		tests.BeforeTestCleanup()
 	})
 
-	JustBeforeEach(func() {
-		By("Opening new virtClient")
-		virtClient, err = kubecli.GetKubevirtClient()
-	})
 
 	RunVMIAndWaitForStart := func(vmi *v1.VirtualMachineInstance) {
 		By("Creating a new VirtualMachineInstance")
