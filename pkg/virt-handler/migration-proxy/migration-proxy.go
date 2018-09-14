@@ -68,7 +68,7 @@ func NewMigrationProxyManager(virtShareDir string) ProxyManager {
 	}
 }
 
-func sourceUnixFile(virtShareDir string, key string) string {
+func SourceUnixFile(virtShareDir string, key string) string {
 	return filepath.Join(virtShareDir, "migrationproxy", key+"-source.sock")
 }
 
@@ -152,7 +152,7 @@ func (m *migrationProxyManager) StartSourceListener(key string, targetAddress st
 			curProxy.StopListening()
 		}
 	}
-	filePath := sourceUnixFile(m.virtShareDir, key)
+	filePath := SourceUnixFile(m.virtShareDir, key)
 
 	os.RemoveAll(filePath)
 	proxy := NewSourceProxy(filePath, targetAddress)
@@ -177,7 +177,7 @@ func (m *migrationProxyManager) StopSourceListener(key string) {
 		curProxy.StopListening()
 		delete(m.sourceProxies, key)
 	}
-	filePath := sourceUnixFile(m.virtShareDir, key)
+	filePath := SourceUnixFile(m.virtShareDir, key)
 	os.RemoveAll(filePath)
 }
 
