@@ -20,6 +20,7 @@
 package migrationproxy
 
 import (
+	"fmt"
 	"io/ioutil"
 	"net"
 	"os"
@@ -91,7 +92,7 @@ var _ = Describe("MigrationProxy", func() {
 
 				defer libvirtdListener.Close()
 
-				targetProxy := NewTargetProxy("0.0.0.0:12345", libvirtdSock)
+				targetProxy := NewTargetProxy("0.0.0.0", 12345, libvirtdSock)
 				sourceProxy := NewSourceProxy(sourceSock, "127.0.0.1:12345")
 				defer targetProxy.StopListening()
 				defer sourceProxy.StopListening()
@@ -113,6 +114,44 @@ var _ = Describe("MigrationProxy", func() {
 				}()
 
 				conn, err := net.Dial("unix", sourceSock)
+				Expect(err).ShouldNot(HaveOccurred())
+
+				message := "some message"
+				messageBytes := []byte(message)
+				sentLen, err := conn.Write(messageBytes)
+				Expect(err).ShouldNot(HaveOccurred())
+
+				Expect(sentLen).To(Equal(len(messageBytes)))
+
+				num := <-numBytes
+				Expect(num).To(Equal(sentLen))
+			})
+
+			It("by creating both ends with a manager and sending a message", func() {
+				libvirtdSock := tmpDir + "/libvirtd-sock"
+				libvirtdListener, err := net.Listen("unix", libvirtdSock)
+
+				Expect(err).ShouldNot(HaveOccurred())
+
+				manager := NewMigrationProxyManager(tmpDir)
+				manager.StartTargetListener("mykey", libvirtdSock)
+				manager.StartSourceListener("mykey", fmt.Sprintf("127.0.0.1:%d", manager.GetTargetListenerPort("mykey")))
+
+				defer manager.StopTargetListener("myKey")
+				defer manager.StopSourceListener("myKey")
+
+				numBytes := make(chan int)
+				go func() {
+					fd, err := libvirtdListener.Accept()
+					Expect(err).ShouldNot(HaveOccurred())
+
+					var bytes [1024]byte
+					n, err := fd.Read(bytes[0:])
+					Expect(err).ShouldNot(HaveOccurred())
+					numBytes <- n
+				}()
+
+				conn, err := net.Dial("unix", manager.GetSourceListenerFile("mykey"))
 				Expect(err).ShouldNot(HaveOccurred())
 
 				message := "some message"

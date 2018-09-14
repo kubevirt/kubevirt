@@ -30,6 +30,16 @@ import (
 	"kubevirt.io/kubevirt/pkg/log"
 )
 
+type ProxyManager interface {
+	StartTargetListener(key string, targetUnixFile string) error
+	GetTargetListenerPort(key string) int
+	StopTargetListener(key string)
+
+	StartSourceListener(key string, targetAddress string) error
+	GetSourceListenerFile(key string) string
+	StopSourceListener(key string)
+}
+
 type migrationProxyManager struct {
 	virtShareDir  string
 	sourceProxies map[string]*migrationProxy
@@ -50,7 +60,7 @@ type migrationProxy struct {
 	listener net.Listener
 }
 
-func NewMigrationProxyManager(virtShareDir string) *migrationProxyManager {
+func NewMigrationProxyManager(virtShareDir string) ProxyManager {
 	return &migrationProxyManager{
 		virtShareDir:  virtShareDir,
 		sourceProxies: make(map[string]*migrationProxy),
@@ -86,6 +96,8 @@ func (m *migrationProxyManager) StartTargetListener(key string, targetUnixFile s
 		proxy.StopListening()
 		return err
 	}
+
+	log.Log.Infof("Proxy Target listening on port %d for key %s", proxy.tcpBindPort, key)
 
 	m.targetProxies[key] = proxy
 	return nil
@@ -151,6 +163,7 @@ func (m *migrationProxyManager) StartSourceListener(key string, targetAddress st
 		return err
 	}
 
+	log.Log.Infof("Proxy Source listening on unix file %s for key %s", filePath, key)
 	m.sourceProxies[key] = proxy
 	return nil
 }
@@ -162,9 +175,10 @@ func (m *migrationProxyManager) StopSourceListener(key string) {
 	curProxy, exists := m.sourceProxies[key]
 	if exists {
 		curProxy.StopListening()
-		os.RemoveAll(curProxy.unixSocketPath)
 		delete(m.sourceProxies, key)
 	}
+	filePath := sourceUnixFile(m.virtShareDir, key)
+	os.RemoveAll(filePath)
 }
 
 // SRC POD ENV(migration unix socket) <-> HOST ENV (tcp client) <-----> HOST ENV (tcp server) <-> TARGET POD ENV (libvirtd unix socket)
