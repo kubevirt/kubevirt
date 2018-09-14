@@ -182,7 +182,7 @@ func createSocket(socketPath string) (net.Listener, error) {
 func RunServer(socketPath string,
 	domainManager virtwrap.DomainManager,
 	stopChan chan struct{},
-	options *ServerOptions) error {
+	options *ServerOptions) (chan struct{}, error) {
 
 	useEmulation := false
 	if options != nil {
@@ -196,8 +196,10 @@ func RunServer(socketPath string,
 	rpcServer.Register(server)
 	sock, err := createSocket(socketPath)
 	if err != nil {
-		return err
+		return nil, err
 	}
+
+	done := make(chan struct{})
 
 	go func() {
 		select {
@@ -205,6 +207,7 @@ func RunServer(socketPath string,
 			sock.Close()
 			os.Remove(socketPath)
 			log.Log.Info("closing cmd server socket")
+			close(done)
 		}
 	}()
 
@@ -212,7 +215,7 @@ func RunServer(socketPath string,
 		rpcServer.Accept(sock)
 	}()
 
-	return nil
+	return done, nil
 }
 
 func (s *Launcher) Ping(args *cmdclient.Args, reply *cmdclient.Reply) error {

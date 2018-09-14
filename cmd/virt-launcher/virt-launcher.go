@@ -31,6 +31,7 @@ import (
 
 	"github.com/libvirt/libvirt-go"
 	"github.com/spf13/pflag"
+	"k8s.io/apimachinery/pkg/types"
 	utilwait "k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/apimachinery/pkg/watch"
 
@@ -67,7 +68,7 @@ func markReady(readinessFile string) {
 func startCmdServer(socketPath string,
 	domainManager virtwrap.DomainManager,
 	stopChan chan struct{},
-	options *cmdserver.ServerOptions) {
+	options *cmdserver.ServerOptions) chan struct{} {
 
 	err := os.RemoveAll(socketPath)
 	if err != nil {
@@ -81,7 +82,7 @@ func startCmdServer(socketPath string,
 		panic(err)
 	}
 
-	err = cmdserver.RunServer(socketPath, domainManager, stopChan, options)
+	done, err := cmdserver.RunServer(socketPath, domainManager, stopChan, options)
 	if err != nil {
 		log.Log.Reason(err).Error("Failed to start virt-launcher cmd server")
 		panic(err)
@@ -107,6 +108,8 @@ func startCmdServer(socketPath string,
 	if err != nil {
 		panic(fmt.Errorf("failed to connect to cmd server: %v", err))
 	}
+
+	return done
 }
 
 func createLibvirtConnection() virtcli.Connection {
@@ -119,7 +122,7 @@ func createLibvirtConnection() virtcli.Connection {
 	return domainConn
 }
 
-func startDomainEventMonitoring(virtShareDir string, domainConn virtcli.Connection, deleteNotificationSent chan watch.Event) {
+func startDomainEventMonitoring(virtShareDir string, domainConn virtcli.Connection, deleteNotificationSent chan watch.Event, vmiUID types.UID) {
 	libvirt.EventRegisterDefaultImpl()
 
 	go func() {
@@ -131,22 +134,24 @@ func startDomainEventMonitoring(virtShareDir string, domainConn virtcli.Connecti
 		}
 	}()
 
-	err := notifyclient.StartNotifier(virtShareDir, domainConn, deleteNotificationSent)
+	err := notifyclient.StartNotifier(virtShareDir, domainConn, deleteNotificationSent, vmiUID)
 	if err != nil {
 		panic(err)
 	}
 
 }
 
-func startWatchdogTicker(watchdogFile string, watchdogInterval time.Duration, stopChan chan struct{}) {
+func startWatchdogTicker(watchdogFile string, watchdogInterval time.Duration, stopChan chan struct{}) (done chan struct{}) {
 	err := watchdog.WatchdogFileUpdate(watchdogFile)
 	if err != nil {
 		panic(err)
 	}
 
 	log.Log.Infof("Watchdog file created at %s", watchdogFile)
+	done = make(chan struct{})
 
 	go func() {
+		defer close(done)
 
 		ticker := time.NewTicker(watchdogInterval).C
 		for {
@@ -161,6 +166,7 @@ func startWatchdogTicker(watchdogFile string, watchdogInterval time.Duration, st
 			}
 		}
 	}()
+	return done
 }
 
 func initializeDirs(virtShareDir string,
@@ -215,7 +221,11 @@ func waitForDomainUUID(timeout time.Duration, events chan watch.Event, stop chan
 	case <-ticker:
 		panic(fmt.Errorf("timed out waiting for domain to be defined"))
 	case e := <-events:
-		if e.Object != nil {
+		if e.Type == watch.Deleted {
+			// we are done already
+			return nil
+		}
+		if e.Object != nil && e.Type == watch.Added {
 			domain := e.Object.(*api.Domain)
 			log.Log.Infof("Detected domain with UUID %s", domain.Spec.UUID)
 			return domain
@@ -296,7 +306,6 @@ func main() {
 
 	// Start libvirtd, virtlogd, and establish libvirt connection
 	stopChan := make(chan struct{})
-	defer close(stopChan)
 
 	err = util.SetupLibvirt()
 	if err != nil {
@@ -321,12 +330,12 @@ func main() {
 	// to start/stop virtual machines
 	options := cmdserver.NewServerOptions(*useEmulation)
 	socketPath := cmdclient.SocketFromUID(*virtShareDir, *uid)
-	startCmdServer(socketPath, domainManager, stopChan, options)
+	cmdServerDone := startCmdServer(socketPath, domainManager, stopChan, options)
 
 	watchdogFile := watchdog.WatchdogFileFromNamespaceName(*virtShareDir,
 		*namespace,
 		*name)
-	startWatchdogTicker(watchdogFile, *watchdogInterval, stopChan)
+	watchdogDone := startWatchdogTicker(watchdogFile, *watchdogInterval, stopChan)
 
 	gracefulShutdownTriggerFile := virtlauncher.GracefulShutdownTriggerFromNamespaceName(*virtShareDir,
 		*namespace,
@@ -344,6 +353,11 @@ func main() {
 			syscall.Kill(pid, syscall.SIGTERM)
 		}
 	}
+
+	events := make(chan watch.Event, 10)
+	// Send domain notifications to virt-handler
+	startDomainEventMonitoring(*virtShareDir, domainConn, events, vm.UID)
+
 	c := make(chan os.Signal, 1)
 	signal.Notify(c, os.Interrupt,
 		syscall.SIGHUP,
@@ -358,10 +372,6 @@ func main() {
 		log.Log.Infof("Received signal %s", s.String())
 		close(signalStopChan)
 	}()
-
-	events := make(chan watch.Event, 10)
-	// Send domain notifications to virt-handler
-	startDomainEventMonitoring(*virtShareDir, domainConn, events)
 
 	// Marking Ready allows the container's readiness check to pass.
 	// This informs virt-controller that virt-launcher is ready to handle
@@ -378,12 +388,16 @@ func main() {
 		// This is a wait loop that monitors the qemu pid. When the pid
 		// exits, the wait loop breaks.
 		mon.RunForever(*qemuTimeout, signalStopChan)
+
+		// Now that the pid has exited, we wait for the final delete notification to be
+		// sent back to virt-handler. This delete notification contains the reason the
+		// domain exited.
+		waitForFinalNotify(events, domainManager, vm)
 	}
 
-	// Now that the pid has exited, we wait for the final delete notification to be
-	// sent back to virt-handler. This delete notification contains the reason the
-	// domain exited.
-	waitForFinalNotify(events, domainManager, vm)
+	close(stopChan)
+	<-cmdServerDone
+	<-watchdogDone
 
 	log.Log.Info("Exiting...")
 }

@@ -165,11 +165,13 @@ var _ = Describe("Manager", func() {
 	table.DescribeTable("on successful list all domains",
 		func(state libvirt.DomainState, kubevirtState api.LifeCycle, libvirtReason int, kubevirtReason api.StateChangeReason) {
 
-			mockDomain.EXPECT().GetState().Return(state, libvirtReason, nil)
+			mockDomain.EXPECT().GetState().Return(state, libvirtReason, nil).AnyTimes()
 			mockDomain.EXPECT().GetName().Return("test", nil)
 			x, err := xml.Marshal(api.NewMinimalDomainSpec("test"))
 			Expect(err).To(BeNil())
-			mockDomain.EXPECT().GetXMLDesc(gomock.Eq(libvirt.DOMAIN_XML_MIGRATABLE)).Return(string(x), nil)
+			if !cli.IsDown(state) {
+				mockDomain.EXPECT().GetXMLDesc(gomock.Eq(libvirt.DOMAIN_XML_MIGRATABLE)).Return(string(x), nil)
+			}
 			mockDomain.EXPECT().GetXMLDesc(gomock.Eq(libvirt.DOMAIN_XML_INACTIVE)).Return(string(x), nil)
 			mockConn.EXPECT().ListAllDomains(gomock.Eq(libvirt.CONNECT_LIST_DOMAINS_ACTIVE|libvirt.CONNECT_LIST_DOMAINS_INACTIVE)).Return([]cli.VirDomain{mockDomain}, nil)
 

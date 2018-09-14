@@ -335,9 +335,18 @@ func (d *VirtualMachineController) execute(key string) error {
 		vmi.UID = domain.Spec.Metadata.KubeVirt.UID
 	}
 
-	// Ignore domains from an older VMI
 	if vmiExists && domainExists && domain.Spec.Metadata.KubeVirt.UID != vmi.UID {
-		log.Log.Object(vmi).Info("Ignoring domain from an older VMI, will be handled by its own VMI.")
+		oldVMI := v1.NewVMIReferenceFromNameWithNS(vmi.Namespace, vmi.Name)
+		oldVMI.UID = domain.Spec.Metadata.KubeVirt.UID
+		expired, err := watchdog.WatchdogFileIsExpired(d.watchdogTimeoutSeconds, d.virtShareDir, oldVMI)
+		if err != nil {
+			return err
+		}
+		// If we found an outdated domain which is also not alive anymore, clean up
+		if expired {
+			return d.processVmCleanup(oldVMI)
+		}
+		// if the watchdog still gets updated, we are not allowed to clean up
 		return nil
 	}
 

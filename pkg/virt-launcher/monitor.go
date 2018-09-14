@@ -51,7 +51,7 @@ type monitor struct {
 }
 
 type ProcessMonitor interface {
-	RunForever(startTimeout time.Duration, stopChan chan struct{})
+	RunForever(startTimeout time.Duration, signalStopChan chan struct{})
 }
 
 func GracefulShutdownTriggerDir(baseDir string) string {
@@ -240,7 +240,7 @@ func (mon *monitor) refresh() {
 	return
 }
 
-func (mon *monitor) monitorLoop(startTimeout time.Duration, stopChan chan struct{}) {
+func (mon *monitor) monitorLoop(startTimeout time.Duration, signalStopChan chan struct{}) {
 	// random value, no real rationale
 	rate := 1 * time.Second
 
@@ -260,8 +260,7 @@ func (mon *monitor) monitorLoop(startTimeout time.Duration, stopChan chan struct
 		select {
 		case <-ticker.C:
 			mon.refresh()
-		case <-stopChan:
-
+		case <-signalStopChan:
 			if mon.gracePeriodStartTime != 0 {
 				continue
 			}
@@ -277,9 +276,9 @@ func (mon *monitor) monitorLoop(startTimeout time.Duration, stopChan chan struct
 	ticker.Stop()
 }
 
-func (mon *monitor) RunForever(startTimeout time.Duration, stopChan chan struct{}) {
+func (mon *monitor) RunForever(startTimeout time.Duration, signalStopChan chan struct{}) {
 
-	mon.monitorLoop(startTimeout, stopChan)
+	mon.monitorLoop(startTimeout, signalStopChan)
 }
 
 func readProcCmdline(pathname string) ([]string, error) {

@@ -207,6 +207,48 @@ var _ = Describe("VirtualMachineInstance", func() {
 			controller.Execute()
 		}, 3)
 
+		It("should do nothing if vmi and domain do not match", func() {
+			vmi := v1.NewMinimalVMI("testvmi")
+			vmi.UID = testUUID
+			oldVMI := v1.NewMinimalVMI("testvmi")
+			oldVMI.UID = "other uuid"
+			domain := api.NewMinimalDomainWithUUID("testvmi", "other uuid")
+			domain.Status.Status = api.Running
+
+			initGracePeriodHelper(1, vmi, domain)
+			mockWatchdog.CreateFile(oldVMI)
+			vmiFeeder.Add(vmi)
+			domainFeeder.Add(domain)
+
+			controller.Execute()
+			Expect(mockQueue.Len()).To(Equal(0))
+			Expect(mockQueue.GetRateLimitedEnqueueCount()).To(Equal(0))
+			_, err := os.Stat(mockWatchdog.File(oldVMI))
+			Expect(os.IsNotExist(err)).To(BeFalse())
+		}, 3)
+
+		It("should cleanup if vmi and domain do not match and watchdog is expired", func() {
+			vmi := v1.NewMinimalVMI("testvmi")
+			vmi.UID = testUUID
+			oldVMI := v1.NewMinimalVMI("testvmi")
+			oldVMI.UID = "other uuid"
+			domain := api.NewMinimalDomainWithUUID("testvmi", "other uuid")
+			domain.Status.Status = api.Running
+
+			initGracePeriodHelper(1, vmi, domain)
+			mockWatchdog.CreateFile(oldVMI)
+			// the domain is dead because the watchdog is expired
+			mockWatchdog.Expire(oldVMI)
+			vmiFeeder.Add(vmi)
+			domainFeeder.Add(domain)
+
+			controller.Execute()
+			Expect(mockQueue.Len()).To(Equal(0))
+			Expect(mockQueue.GetRateLimitedEnqueueCount()).To(Equal(0))
+			_, err := os.Stat(mockWatchdog.File(oldVMI))
+			Expect(os.IsNotExist(err)).To(BeTrue())
+		}, 3)
+
 		It("should attempt force terminate Domain if grace period expires", func() {
 			vmi := v1.NewMinimalVMI("testvmi")
 			vmi.UID = testUUID
@@ -397,4 +439,14 @@ func (m *MockWatchdog) CreateFile(vmi *v1.VirtualMachineInstance) {
 		watchdog.WatchdogFileFromNamespaceName(m.baseDir, vmi.ObjectMeta.Namespace, vmi.ObjectMeta.Name),
 	)
 	Expect(err).NotTo(HaveOccurred())
+}
+
+func (m *MockWatchdog) Expire(vmi *v1.VirtualMachineInstance) {
+	watchdogFile := watchdog.WatchdogFileFromNamespaceName(m.baseDir, vmi.ObjectMeta.Namespace, vmi.ObjectMeta.Name)
+	expireDate := time.Now().Add(time.Duration(-1) * time.Minute)
+	os.Chtimes(watchdogFile, expireDate, expireDate)
+}
+
+func (m *MockWatchdog) File(vmi *v1.VirtualMachineInstance) string {
+	return watchdog.WatchdogFileFromNamespaceName(m.baseDir, vmi.ObjectMeta.Namespace, vmi.ObjectMeta.Name)
 }
