@@ -9,9 +9,9 @@ The agents responsible for each step are identified by corresponding colored sha
 
 #### Assumptions
 
-- (Optional) A "golden" namespace which is restricted from oridnary users. This is to prevent a non-privileged user from trigger the import of a potentially large VM image.  In tire kicking setups, "default" is an acceptable namespace.
+- (Optional) A "golden" namespace which is restricted from ordinary users. This is to prevent a non-privileged user from trigger the import of a potentially large VM image.  In tire kicking setups, "default" is an acceptable namespace.
 
-- (Required) A Kubernetes Storage Class which defines the storage provisioner. The "golden" pvc expects dynamic provisioning to be enabled in the cluster.  Ommiting the `storageClass` field completely will signal the storage controller to select the "default" provisioner, if it exists.
+- (Required) A Kubernetes Storage Class which defines the storage provisioner. The "golden" PVC expects dynamic provisioning to be enabled in the cluster.  Omitting the `storageClass` field completely will signal the storage controller to select the "default" provisioner, if it exists.
 
 #### Event Sequence
 
@@ -19,7 +19,7 @@ The agents responsible for each step are identified by corresponding colored sha
 
 1. (Optional) If the source repo requires authentication credentials to access the source endpoint, then the admin can create one or more secrets in the "golden" namespace, which contain the credentials in base64 encoding.
 
-1. The admin creates the "golden" PVC in the "golden" namespace.  This PVC requires dynamic provisioning and should either specify the desired Storage Class or omit the feild entirely (to signal the "default" Storage Class).  These PVCs, with annotations defined [below](#components), signal the controller to launch the ephemeral importer pod.
+1. The admin creates the "golden" PVC in the "golden" namespace.  This PVC requires dynamic provisioning and should either specify the desired Storage Class or omit the field entirely (to signal the "default" Storage Class).  These PVCs, with annotations defined [below](#components), signal the controller to launch the ephemeral importer pod.
 
 1. When a PVC is created, the dynamic provisioner referenced by the Storage Class will create a Persistent Volume representing the actual storage volume.
 
@@ -60,10 +60,6 @@ The controller scans PVCs within its namespace by looking for specific annotatio
 
 
 ## Included Manifests
-
-###### cdi-controller-deployment.yaml
-
-Defines the spec used by the controller. There should be nothing to edit in this file unless the "golden" namespace is desired to be hard-coded. Note: no namespace is supplied since the controller is excpected to be created from the "golden" namespace.
 
 ###### endpoint-secret.yaml
 

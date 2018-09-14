@@ -3,7 +3,7 @@
 # lib.sh
 
 # doIncrement replaces the oldVersion value with the newVersion in the given file
-function setNewVersion(){
+function setNewVersion() {
     local file=$1
     local oldVersion=$2
     local newVersion=$3
@@ -16,8 +16,9 @@ function setNewVersion(){
 # Parameters:
 #   $1: the new version tag
 #   $@: Known files containing an updated version value
-function commitAndTag(){
-    local new_tag_name="$1"; shift
+function commitAndTag() {
+    local new_tag_name="$1"
+    shift
     local files="$@"
     printf "Adding changed files\n"
     for f in "$files"; do
@@ -30,10 +31,10 @@ function commitAndTag(){
     git tag -f -a -m "Update Version" $new_tag_name
 }
 
-function verifyOnMaster(){
+function verifyOnMaster() {
     local branch="master"
     printf "Verifying current branch is %s\n" "$branch"
-    if [  "$(git rev-parse --abbrev-ref HEAD)" != "$branch" ]; then
+    if [ "$(git rev-parse --abbrev-ref HEAD)" != "$branch" ]; then
         printf "Please checkout %s branch before continuing.\n" $branch
         exit 1
     fi
@@ -64,7 +65,7 @@ function verifyNoDiff() {
     printf "Verified local master matches %s\n" "$upstream"
 }
 
-function verifyVersionFormat(){
+function verifyVersionFormat() {
     printf "Validating version format\n"
     local newVersion="$1"
     # TODO improve regex to handle *-alpha.# suffixes
@@ -74,7 +75,7 @@ function verifyVersionFormat(){
     fi
 }
 
-function getCurrentVersion(){
+function getCurrentVersion() {
     local cv="$(git describe --tags --abbrev=0 HEAD)"
     if [ -z $cv ]; then
         exit 1
@@ -82,10 +83,10 @@ function getCurrentVersion(){
     printf $cv
 }
 
-function getVersionedFiles(){
+function getVersionedFiles() {
     local curVersion=$1
     local repoRoot=$2
-    local verFiles="$(grep -rl --exclude-dir={vender,bin,.git} --exclude={glide.*,.git*} "$curVersion" $repoRoot/ 2>/dev/null )"
+    local verFiles="$(grep -rl --exclude-dir={vender,bin,.git} --exclude={glide.*,.git*} "$curVersion" $repoRoot/ 2>/dev/null)"
     if [ -z "$verFiles" ]; then
         printf "" # this func exec'd inside subshell, so return null string
         exit 1
@@ -93,7 +94,7 @@ function getVersionedFiles(){
     printf "$(echo $verFiles | tr '\n' ' ')"
 }
 
-function acceptChanges(){
+function acceptChanges() {
     local curVersion=$1
     local newVersion=$2
     local targetFiles=$3
@@ -103,13 +104,13 @@ function acceptChanges(){
     read -n 1 -p "Do you accept these changes [N|y]: " key
     printf "\n"
     case "$key" in
-        y|Y)
-            printf "Continuing with version update\n"
-            ;;
+    y | Y)
+        printf "Continuing with version update\n"
+        ;;
 
-        ?)
-            printf "Aborting\n"
-            exit 1
-            ;;
+    ?)
+        printf "Aborting\n"
+        exit 1
+        ;;
     esac
 }

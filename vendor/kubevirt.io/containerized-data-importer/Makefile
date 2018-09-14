@@ -12,50 +12,64 @@
 #See the License for the specific language governing permissions and
 #limitations under the License.
 
-DOCKER=1
-
-.PHONY: build build-controller build-importer \
-		docker docker-controller docker-cloner docker-importer \
-		test test-functional test-unit \
+.PHONY: build build-controller build-importer build-apiserver build-uploadproxy build-uploadserver build-functest-image-init build-functest-image-http build-functest \
+		docker docker-controller docker-cloner docker-importer docker-apiserver docker-uploadproxy docker-uploadserver docker-functest-image-init docker-functest-image-http\
+		cluster-sync cluster-sync-controller cluster-sync-cloner cluster-sync-importer cluster-sync-apiserver cluster-sync-uploadproxy cluster-sync-uploadserver \
+		test test-functional test-unit test-lint \
 		publish \
 		vet \
 		format \
 		manifests \
-		goveralls
+		goveralls \
+		release-description
+
+DOCKER=1
+ifeq (${DOCKER}, 1)
+DO=./hack/build/in-docker.sh
+else
+DO=eval
+endif
 
 all: docker
 
 clean:
-ifeq (${DOCKER}, 1)
-	./hack/build/in-docker "./hack/build/build-go.sh clean; rm -rf bin/* _out/* manifests/generated/* .coverprofile"
-else
-	./hack/build/build-go.sh clean; rm -rf bin/* _out/* manifests/generated/* .coverprofile
-endif
+	${DO} "./hack/build/build-go.sh clean; rm -rf bin/* _out/* manifests/generated/* .coverprofile release-announcement"
 
 build:
-ifeq (${DOCKER}, 1)
-	./hack/build/in-docker "./hack/build/build-go.sh clean && ./hack/build/build-go.sh build ${WHAT} && DOCKER_REPO=${DOCKER_REPO} DOCKER_TAG=${DOCKER_TAG} VERBOSITY=${VERBOSITY} PULL_POLICY=${PULL_POLICY} ./hack/build/build-manifests.sh ${WHAT} && ./hack/build/build-copy-artifacts.sh ${WHAT}"
-else
-	./hack/build/build-go.sh clean && ./hack/build/build-go.sh build ${WHAT} && ./hack/build/build-manifests.sh && ./hack/build/build-copy-artifacts.sh ${WHAT}
-endif
+	${DO} "./hack/build/build-go.sh clean && ./hack/build/build-go.sh build ${WHAT} && ./hack/build/build-cdi-func-test-file-host.sh && DOCKER_REPO=${DOCKER_REPO} DOCKER_TAG=${DOCKER_TAG} VERBOSITY=${VERBOSITY} PULL_POLICY=${PULL_POLICY} ./hack/build/build-manifests.sh ${WHAT} && ./hack/build/build-copy-artifacts.sh ${WHAT}"
 
 build-controller: WHAT = cmd/cdi-controller
 build-controller: build
 build-importer: WHAT = cmd/cdi-importer
 build-importer: build
+build-apiserver: WHAT = cmd/cdi-apiserver
+build-apiserver: build
+build-uploadproxy: WHAT = cmd/cdi-uploadproxy
+build-uploadproxy: build
+build-uploadserver: WHAT = cmd/cdi-uploadserver
+build-uploadserver: build
 # Note, the cloner is a bash script and has nothing to build
+build-functest-image-init: WHAT = tools/cdi-func-test-file-host-init
+build-functest-image-init:
+build-functest:
+	${DO} ./hack/build/build-functest.sh
 
-test:
-ifeq (${DOCKER}, 1)
-	./hack/build/in-docker "./hack/build/build-go.sh test ${WHAT}"
-else
-	./hack/build/build-go.sh test ${WHAT}
-endif
+# WHAT must match go tool style package paths for test targets (e.g. ./path/to/my/package/...)
+test: test-unit test-functional test-lint
 
-test-unit: WHAT = pkg/
-test-unit: test
-test-functional: WHAT = test/
-test-functional: test
+test-unit: WHAT = ./pkg/...
+test-unit:
+	${DO} "./hack/build/run-tests.sh ${WHAT}"
+
+test-functional:  WHAT = ./tests/...
+test-functional:
+	./hack/build/run-functional-tests.sh ${WHAT} "${TEST_ARGS}"
+
+test-functional-ci: build-functest test-functional
+
+# test-lint runs gofmt and golint tests against src files
+test-lint:
+	${DO} "./hack/build/run-lint-checks.sh"
 
 docker: build
 	./hack/build/build-docker.sh build ${WHAT}
@@ -66,6 +80,19 @@ docker-importer: WHAT = cmd/cdi-importer
 docker-importer: docker
 docker-cloner: WHAT = cmd/cdi-cloner
 docker-cloner: docker
+docker-apiserver: WHAT = cmd/cdi-apiserver
+docker-apiserver: docker
+docker-uploadproxy: WHAT = cmd/cdi-uploadproxy
+docker-uploadproxy: docker
+docker-uploadserver: WHAT = cmd/cdi-uploadserver
+docker-uploadserver: docker
+
+docker-functest-image: docker-functest-image-http docker-functest-image-init
+docker-functest-image-init: WHAT = tools/cdi-func-test-file-host-init
+docker-functest-image-init: docker
+docker-functest-image-http: WHAT = tools/cdi-func-test-file-host-http
+docker-functest-image-http: # no code to compile, just build image
+	./hack/build/build-cdi-func-test-file-host.sh && ./hack/build/build-docker.sh build ${WHAT}
 
 push: docker
 	./hack/build/build-docker.sh push ${WHAT}
@@ -76,30 +103,59 @@ push-importer: WHAT = cmd/cdi-importer
 push-importer: push
 push-cloner: WHAT = cdm/cdi-cloner
 push-cloner: push
+push-apiserver: WHAT = cmd/cdi-apiserver
+push-apiserver: push
+push-uploadproxy: WHAT = cmd/cdi-uploadproxy
+push-uploadproxy: push
+push-uploadserver: WHAT = cmd/cdi-uploadserver
+push-uploadserver: push
 
 publish: docker
 	./hack/build/build-docker.sh publish ${WHAT}
 
 vet:
-ifeq (${DOCKER}, 1)
-	./hack/build/in-docker "./hack/build/build-go.sh vet ${WHAT}"
-else
-	./hack/build/build-go.sh vet ${WHAT}
-endif
+	${DO} "./hack/build/build-go.sh vet ${WHAT}"
 
 format:
-ifeq (${DOCKER}, 1)
-	./hack/build/in-docker "./hack/build/format.sh"
-else
-	./hack/build/format.sh
-endif
+	${DO} "./hack/build/format.sh"
 
 manifests:
-ifeq (${DOCKER}, 1)
-	./hack/build/in-docker "DOCKER_REPO=${DOCKER_REPO} DOCKER_TAG=${DOCKER_TAG} VERBOSITY=${VERBOSITY} PULL_POLICY=${PULL_POLICY} ./hack/build/build-manifests.sh"
-else
-	./hack/build/build-manifests.sh
-endif
+	${DO} "DOCKER_REPO=${DOCKER_REPO} DOCKER_TAG=${DOCKER_TAG} VERBOSITY=${VERBOSITY} PULL_POLICY=${PULL_POLICY} ./hack/build/build-manifests.sh"
 
 goveralls:
-	./hack/build/in-docker "TRAVIS_JOB_ID=${TRAVIS_JOB_ID} TRAVIS_PULL_REQUEST=${TRAVIS_PULL_REQUEST} TRAVIS_BRANCH=${TRAVIS_BRANCH} ./hack/build/goveralls.sh"
+	${DO} "TRAVIS_JOB_ID=${TRAVIS_JOB_ID} TRAVIS_PULL_REQUEST=${TRAVIS_PULL_REQUEST} TRAVIS_BRANCH=${TRAVIS_BRANCH} ./hack/build/goveralls.sh"
+
+release-description:
+	./hack/build/release-description.sh ${RELREF} ${PREREF}
+
+cluster-up:
+	./cluster/up.sh
+
+cluster-down:
+	./cluster/down.sh
+
+cluster-clean:
+	./cluster/clean.sh
+
+cluster-sync: cluster-clean build ${WHAT}
+	./cluster/sync.sh ${WHAT}
+
+cluster-sync-controller: WHAT = cmd/cdi-controller
+cluster-sync-controller: cluster-sync
+cluster-sync-importer: WHAT = cmd/cdi-importer
+cluster-sync-importer: cluster-sync
+cluster-sync-cloner: WHAT = cmd/cdi-cloner
+cluster-sync-cloner: cluster-sync
+cluster-sync-apiserver: WHAT = cmd/cdi-apiserver
+cluster-sync-apiserver: cluster-sync
+cluster-sync-uploadproxy: WHAT = cmd/cdi-uploadproxy
+cluster-sync-uploadproxy: cluster-sync
+cluster-sync-uploadserver: WHAT = cmd/cdi-uploadserver
+cluster-sync-uploadserver: cluster-sync
+
+functest:
+	./hack/build/functests.sh
+
+functest-image-host: WHAT=tools/cdi-func-test-file-host-init
+functest-image-host:  manifests build
+	${DO} ./hack/build/build-cdi-func-test-file-host.sh && ./hack/build/build-docker.sh "tools/cdi-func-test-file-host-init tools/cdi-func-test-file-host-http"

@@ -9,7 +9,7 @@ spec:
   pvc:
     storageClassName: "hostpath"
     accessModes:
-      - ReadWriteMany
+      - ReadWriteOnce
     resources:
       requests:
         storage: 500Mi

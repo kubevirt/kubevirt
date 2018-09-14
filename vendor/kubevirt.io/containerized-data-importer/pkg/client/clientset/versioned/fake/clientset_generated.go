@@ -27,6 +27,8 @@ import (
 	clientset "kubevirt.io/containerized-data-importer/pkg/client/clientset/versioned"
 	cdiv1alpha1 "kubevirt.io/containerized-data-importer/pkg/client/clientset/versioned/typed/datavolumecontroller/v1alpha1"
 	fakecdiv1alpha1 "kubevirt.io/containerized-data-importer/pkg/client/clientset/versioned/typed/datavolumecontroller/v1alpha1/fake"
+	uploadv1alpha1 "kubevirt.io/containerized-data-importer/pkg/client/clientset/versioned/typed/uploadcontroller/v1alpha1"
+	fakeuploadv1alpha1 "kubevirt.io/containerized-data-importer/pkg/client/clientset/versioned/typed/uploadcontroller/v1alpha1/fake"
 )
 
 // NewSimpleClientset returns a clientset that will respond with the provided objects.
@@ -78,4 +80,14 @@ func (c *Clientset) CdiV1alpha1() cdiv1alpha1.CdiV1alpha1Interface {
 // Cdi retrieves the CdiV1alpha1Client
 func (c *Clientset) Cdi() cdiv1alpha1.CdiV1alpha1Interface {
 	return &fakecdiv1alpha1.FakeCdiV1alpha1{Fake: &c.Fake}
+}
+
+// UploadV1alpha1 retrieves the UploadV1alpha1Client
+func (c *Clientset) UploadV1alpha1() uploadv1alpha1.UploadV1alpha1Interface {
+	return &fakeuploadv1alpha1.FakeUploadV1alpha1{Fake: &c.Fake}
+}
+
+// Upload retrieves the UploadV1alpha1Client
+func (c *Clientset) Upload() uploadv1alpha1.UploadV1alpha1Interface {
+	return &fakeuploadv1alpha1.FakeUploadV1alpha1{Fake: &c.Fake}
 }

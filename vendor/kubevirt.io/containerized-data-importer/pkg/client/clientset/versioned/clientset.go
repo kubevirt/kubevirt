@@ -24,6 +24,7 @@ import (
 	rest "k8s.io/client-go/rest"
 	flowcontrol "k8s.io/client-go/util/flowcontrol"
 	cdiv1alpha1 "kubevirt.io/containerized-data-importer/pkg/client/clientset/versioned/typed/datavolumecontroller/v1alpha1"
+	uploadv1alpha1 "kubevirt.io/containerized-data-importer/pkg/client/clientset/versioned/typed/uploadcontroller/v1alpha1"
 )
 
 type Interface interface {
@@ -31,13 +32,17 @@ type Interface interface {
 	CdiV1alpha1() cdiv1alpha1.CdiV1alpha1Interface
 	// Deprecated: please explicitly pick a version if possible.
 	Cdi() cdiv1alpha1.CdiV1alpha1Interface
+	UploadV1alpha1() uploadv1alpha1.UploadV1alpha1Interface
+	// Deprecated: please explicitly pick a version if possible.
+	Upload() uploadv1alpha1.UploadV1alpha1Interface
 }
 
 // Clientset contains the clients for groups. Each group has exactly one
 // version included in a Clientset.
 type Clientset struct {
 	*discovery.DiscoveryClient
-	cdiV1alpha1 *cdiv1alpha1.CdiV1alpha1Client
+	cdiV1alpha1    *cdiv1alpha1.CdiV1alpha1Client
+	uploadV1alpha1 *uploadv1alpha1.UploadV1alpha1Client
 }
 
 // CdiV1alpha1 retrieves the CdiV1alpha1Client
@@ -49,6 +54,17 @@ func (c *Clientset) CdiV1alpha1() cdiv1alpha1.CdiV1alpha1Interface {
 // Please explicitly pick a version.
 func (c *Clientset) Cdi() cdiv1alpha1.CdiV1alpha1Interface {
 	return c.cdiV1alpha1
+}
+
+// UploadV1alpha1 retrieves the UploadV1alpha1Client
+func (c *Clientset) UploadV1alpha1() uploadv1alpha1.UploadV1alpha1Interface {
+	return c.uploadV1alpha1
+}
+
+// Deprecated: Upload retrieves the default version of UploadClient.
+// Please explicitly pick a version.
+func (c *Clientset) Upload() uploadv1alpha1.UploadV1alpha1Interface {
+	return c.uploadV1alpha1
 }
 
 // Discovery retrieves the DiscoveryClient
@@ -71,6 +87,10 @@ func NewForConfig(c *rest.Config) (*Clientset, error) {
 	if err != nil {
 		return nil, err
 	}
+	cs.uploadV1alpha1, err = uploadv1alpha1.NewForConfig(&configShallowCopy)
+	if err != nil {
+		return nil, err
+	}
 
 	cs.DiscoveryClient, err = discovery.NewDiscoveryClientForConfig(&configShallowCopy)
 	if err != nil {
@@ -85,6 +105,7 @@ func NewForConfig(c *rest.Config) (*Clientset, error) {
 func NewForConfigOrDie(c *rest.Config) *Clientset {
 	var cs Clientset
 	cs.cdiV1alpha1 = cdiv1alpha1.NewForConfigOrDie(c)
+	cs.uploadV1alpha1 = uploadv1alpha1.NewForConfigOrDie(c)
 
 	cs.DiscoveryClient = discovery.NewDiscoveryClientForConfigOrDie(c)
 	return &cs
@@ -94,6 +115,7 @@ func NewForConfigOrDie(c *rest.Config) *Clientset {
 func New(c rest.Interface) *Clientset {
 	var cs Clientset
 	cs.cdiV1alpha1 = cdiv1alpha1.New(c)
+	cs.uploadV1alpha1 = uploadv1alpha1.New(c)
 
 	cs.DiscoveryClient = discovery.NewDiscoveryClient(c)
 	return &cs

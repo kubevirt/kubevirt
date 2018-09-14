@@ -1,0 +1,5 @@
+/var/run/libvirt
+/var/lib/libvirt/boot
+/var/cache:/var/host_cache
+/var/run/docker.sock:/var/run/docker.sock
+/var/lib/stdci/shared:/var/lib/stdci/shared

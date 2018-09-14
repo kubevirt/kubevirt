@@ -24,6 +24,7 @@ import (
 	schema "k8s.io/apimachinery/pkg/runtime/schema"
 	cache "k8s.io/client-go/tools/cache"
 	v1alpha1 "kubevirt.io/containerized-data-importer/pkg/apis/datavolumecontroller/v1alpha1"
+	uploadcontrollerv1alpha1 "kubevirt.io/containerized-data-importer/pkg/apis/uploadcontroller/v1alpha1"
 )
 
 // GenericInformer is type of SharedIndexInformer which will locate and delegate to other
@@ -55,6 +56,10 @@ func (f *sharedInformerFactory) ForResource(resource schema.GroupVersionResource
 	// Group=cdi.kubevirt.io, Version=v1alpha1
 	case v1alpha1.SchemeGroupVersion.WithResource("datavolumes"):
 		return &genericInformer{resource: resource.GroupResource(), informer: f.Cdi().V1alpha1().DataVolumes().Informer()}, nil
+
+		// Group=upload.cdi.kubevirt.io, Version=v1alpha1
+	case uploadcontrollerv1alpha1.SchemeGroupVersion.WithResource("uploadtokenrequests"):
+		return &genericInformer{resource: resource.GroupResource(), informer: f.Upload().V1alpha1().UploadTokenRequests().Informer()}, nil
 
 	}
 

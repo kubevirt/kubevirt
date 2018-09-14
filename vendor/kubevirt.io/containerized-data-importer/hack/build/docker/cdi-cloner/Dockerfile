@@ -1,3 +1,5 @@
 FROM fedora:28
-ADD script.sh /tmp/script.sh
-RUN chmod +x /tmp/script.sh
+ADD cloner_startup.sh /usr/bin/cloner_startup.sh
+RUN chmod +x /usr/bin/cloner_startup.sh
+
+ENTRYPOINT [ "/usr/bin/cloner_startup.sh" ]

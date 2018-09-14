@@ -21,6 +21,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
+// DataVolume provides a representation of our data volume
 // +genclient
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 type DataVolume struct {
@@ -31,50 +32,87 @@ type DataVolume struct {
 	Status DataVolumeStatus `json:"status"`
 }
 
+// DataVolumeSpec defines our specification for a DataVolume type
 type DataVolumeSpec struct {
-	Source DataVolumeSource                  `json:"source"`
-	PVC    *corev1.PersistentVolumeClaimSpec `json:"pvc"`
+	//Source is the src of the data for the requested DataVolume
+	Source DataVolumeSource `json:"source"`
+	//PVC is a pointer to the PVC Spec we want to use
+	PVC *corev1.PersistentVolumeClaimSpec `json:"pvc"`
 }
 
+// DataVolumeSource represents the source for our Data Volume, this can be HTTP, S3 or an existing PVC
 type DataVolumeSource struct {
 	HTTP *DataVolumeSourceHTTP `json:"http,omitempty"`
 	S3   *DataVolumeSourceS3   `json:"s3,omitempty"`
+	PVC  *DataVolumeSourcePVC  `json:"pvc,omitempty"`
 }
 
+// DataVolumeSourcePVC provides the parameters to create a Data Volume from an existing PVC
+type DataVolumeSourcePVC struct {
+	Namespace string `json:"namespace,omitempty"`
+	Name      string `json:"name,omitempty"`
+}
+
+// DataVolumeSourceS3 provides the parameters to create a Data Volume from an S3 source
 type DataVolumeSourceS3 struct {
-	URL       string `json:"url,omitempty"`
+	//URL is the url of the S3 source
+	URL string `json:"url,omitempty"`
+	//SecretRef provides the secret reference needed to access the S3 source
 	SecretRef string `json:"secretRef,omitempty"`
 }
 
+// DataVolumeSourceHTTP provides the parameters to create a Data Volume from an HTTP source
 type DataVolumeSourceHTTP struct {
+	//URL is the URL of the http source
 	URL string `json:"url,omitempty"`
+	//SecretRef provides the secret reference needed to access the HTTP source
+	SecretRef string `json:"secretRef,omitempty"`
 }
 
+// DataVolumeStatus provides the parameters to store the phase of the Data Volume
 type DataVolumeStatus struct {
+	//Phase is the current phase of the data volume
 	Phase DataVolumePhase `json:"phase,omitempty"`
 }
 
+//DataVolumeList provides the needed parameters to do request a list of Data Volumes from the system
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 type DataVolumeList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata"`
 
+	// Items provides a list of DataVolumes
 	Items []DataVolume `json:"items"`
 }
 
+// DataVolumePhase is the current phase of the DataVolume
 type DataVolumePhase string
 
 const (
+	// PhaseUnset represents a data volume with no current phase
 	PhaseUnset DataVolumePhase = ""
 
-	Pending  DataVolumePhase = "Pending"
+	// Pending represents a data volume with a current phase of Pending
+	Pending DataVolumePhase = "Pending"
+	// PVCBound represents a data volume with a current phase of PVCBound
 	PVCBound DataVolumePhase = "PVCBound"
 
+	// ImportScheduled represents a data volume with a current phase of ImportScheduled
 	ImportScheduled DataVolumePhase = "ImportScheduled"
 
+	// ImportInProgress represents a data volume with a current phase of ImportInProgress
 	ImportInProgress DataVolumePhase = "ImportInProgress"
 
+	// CloneScheduled represents a data volume with a current phase of CloneScheduled
+	CloneScheduled DataVolumePhase = "CloneScheduled"
+
+	// CloneInProgress represents a data volume with a current phase of CloneInProgress
+	CloneInProgress DataVolumePhase = "CloneInProgress"
+
+	// Succeeded represents a DataVolumePhase of Succeeded
 	Succeeded DataVolumePhase = "Succeeded"
-	Failed    DataVolumePhase = "Failed"
-	Unknown   DataVolumePhase = "Unknown"
+	// Failed represents a DataVolumePhase of Failed
+	Failed DataVolumePhase = "Failed"
+	// Unknown represents a DataVolumePhase of Unknown
+	Unknown DataVolumePhase = "Unknown"
 )

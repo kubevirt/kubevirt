@@ -30,6 +30,7 @@ import (
 	versioned "kubevirt.io/containerized-data-importer/pkg/client/clientset/versioned"
 	datavolumecontroller "kubevirt.io/containerized-data-importer/pkg/client/informers/externalversions/datavolumecontroller"
 	internalinterfaces "kubevirt.io/containerized-data-importer/pkg/client/informers/externalversions/internalinterfaces"
+	uploadcontroller "kubevirt.io/containerized-data-importer/pkg/client/informers/externalversions/uploadcontroller"
 )
 
 type sharedInformerFactory struct {
@@ -124,8 +125,13 @@ type SharedInformerFactory interface {
 	WaitForCacheSync(stopCh <-chan struct{}) map[reflect.Type]bool
 
 	Cdi() datavolumecontroller.Interface
+	Upload() uploadcontroller.Interface
 }
 
 func (f *sharedInformerFactory) Cdi() datavolumecontroller.Interface {
 	return datavolumecontroller.New(f, f.namespace, f.tweakListOptions)
+}
+
+func (f *sharedInformerFactory) Upload() uploadcontroller.Interface {
+	return uploadcontroller.New(f, f.namespace, f.tweakListOptions)
 }
