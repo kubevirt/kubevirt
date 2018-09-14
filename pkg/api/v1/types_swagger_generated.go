@@ -99,6 +99,30 @@ func (VirtualMachineInstanceTemplateSpec) SwaggerDoc() map[string]string {
 	}
 }
 
+func (VirtualMachineInstanceMigration) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"": "VirtualMachineInstanceMigration represents the object tracking a VMI's migration\nto another host in the cluster",
+	}
+}
+
+func (VirtualMachineInstanceMigrationList) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"": "VirtualMachineInstanceMigrationList is a list of VirtualMachineMigrations",
+	}
+}
+
+func (VirtualMachineInstanceMigrationSpec) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"vmiName": "The name of the VMI to perform the migration on. VMI must exist in the migration objects namespace",
+	}
+}
+
+func (VirtualMachineInstanceMigrationStatus) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"": "VirtualMachineInstanceMigration reprents information pertaining to a VMI's migration.",
+	}
+}
+
 func (VirtualMachineInstancePreset) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"spec": "VirtualMachineInstance Spec contains the VirtualMachineInstance specification.",

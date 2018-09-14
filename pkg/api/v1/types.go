@@ -69,6 +69,8 @@ var VirtualMachineInstancePresetGroupVersionKind = schema.GroupVersionKind{Group
 
 var VirtualMachineGroupVersionKind = schema.GroupVersionKind{Group: GroupName, Version: GroupVersion.Version, Kind: "VirtualMachine"}
 
+var VirtualMachineInstanceMigrationGroupVersionKind = schema.GroupVersionKind{Group: GroupName, Version: GroupVersion.Version, Kind: "VirtualMachineInstanceMigration"}
+
 // Adds the list of known types to api.Scheme.
 func addKnownTypes(scheme *runtime.Scheme) error {
 	scheme.AddKnownTypes(GroupVersion,
@@ -80,6 +82,8 @@ func addKnownTypes(scheme *runtime.Scheme) error {
 		&VirtualMachineInstanceReplicaSetList{},
 		&VirtualMachineInstancePreset{},
 		&VirtualMachineInstancePresetList{},
+		&VirtualMachineInstanceMigration{},
+		&VirtualMachineInstanceMigrationList{},
 		&metav1.GetOptions{},
 		&VirtualMachine{},
 		&VirtualMachineList{},
@@ -614,6 +618,67 @@ func (vl *VirtualMachineInstanceReplicaSetList) GetObjectKind() schema.ObjectKin
 func (vl *VirtualMachineInstanceReplicaSetList) GetListMeta() meta.List {
 	return &vl.ListMeta
 }
+
+// VirtualMachineInstanceMigration represents the object tracking a VMI's migration
+// to another host in the cluster
+// ---
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+// +k8s:openapi-gen=true
+type VirtualMachineInstanceMigration struct {
+	metav1.TypeMeta   `json:",inline"`
+	metav1.ObjectMeta `json:"metadata,omitempty"`
+	Spec              VirtualMachineInstanceMigrationSpec   `json:"spec,omitempty" valid:"required"`
+	Status            VirtualMachineInstanceMigrationStatus `json:"status,omitempty"`
+}
+
+// Required to satisfy Object interface
+func (v *VirtualMachineInstanceMigration) GetObjectKind() schema.ObjectKind {
+	return &v.TypeMeta
+}
+
+// Required to satisfy ObjectMetaAccessor interface
+func (v *VirtualMachineInstanceMigration) GetObjectMeta() metav1.Object {
+	return &v.ObjectMeta
+}
+
+// VirtualMachineInstanceMigrationList is a list of VirtualMachineMigrations
+// ---
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+// +k8s:openapi-gen=true
+type VirtualMachineInstanceMigrationList struct {
+	metav1.TypeMeta `json:",inline"`
+	ListMeta        metav1.ListMeta                   `json:"metadata,omitempty"`
+	Items           []VirtualMachineInstanceMigration `json:"items"`
+}
+
+// Required to satisfy Object interface
+func (vl *VirtualMachineInstanceMigrationList) GetObjectKind() schema.ObjectKind {
+	return &vl.TypeMeta
+}
+
+// Required to satisfy ListMetaAccessor interface
+func (vl *VirtualMachineInstanceMigrationList) GetListMeta() meta.List {
+	return &vl.ListMeta
+}
+
+// ---
+// +k8s:openapi-gen=true
+type VirtualMachineInstanceMigrationSpec struct {
+	// The name of the VMI to perform the migration on. VMI must exist in the migration objects namespace
+	VMIName string `json:"vmiName,omitempty" valid:"required"`
+}
+
+// VirtualMachineInstanceMigration reprents information pertaining to a VMI's migration.
+// ---
+// +k8s:openapi-gen=true
+type VirtualMachineInstanceMigrationStatus struct {
+	Phase VirtualMachineInstanceMigrationPhase `json:"phase,omitempty"`
+}
+
+// VirtualMachineInstanceMigrationPhase is a label for the condition of a VirtualMachineInstanceMigration at the current time.
+// ---
+// +k8s:openapi-gen=true
+type VirtualMachineInstanceMigrationPhase string
 
 // ---
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
