@@ -20,17 +20,27 @@
 package migrationproxy
 
 import (
+	"fmt"
 	"io"
 	"net"
 	"os"
 	"path/filepath"
+	"sync"
 
 	"kubevirt.io/kubevirt/pkg/log"
 )
 
+type migrationProxyManager struct {
+	virtShareDir  string
+	sourceProxies map[string]*migrationProxy
+	targetProxies map[string]*migrationProxy
+	managerLock   sync.Mutex
+}
+
 type migrationProxy struct {
 	unixSocketPath string
 	tcpBindAddress string
+	tcpBindPort    int
 	targetAddress  string
 	targetProtocol string
 	stopChan       chan struct{}
@@ -38,6 +48,123 @@ type migrationProxy struct {
 	fdChan         chan net.Conn
 
 	listener net.Listener
+}
+
+func NewMigrationProxyManager(virtShareDir string) *migrationProxyManager {
+	return &migrationProxyManager{
+		virtShareDir:  virtShareDir,
+		sourceProxies: make(map[string]*migrationProxy),
+		targetProxies: make(map[string]*migrationProxy),
+	}
+}
+
+func sourceUnixFile(virtShareDir string, key string) string {
+	return filepath.Join(virtShareDir, "migrationproxy", key+"-source.sock")
+}
+
+func (m *migrationProxyManager) StartTargetListener(key string, targetUnixFile string) error {
+	m.managerLock.Lock()
+	defer m.managerLock.Unlock()
+
+	curProxy, exists := m.targetProxies[key]
+
+	if exists {
+		if curProxy.targetAddress == targetUnixFile {
+			// No Op, already exists
+			return nil
+		} else {
+			// stop the current proxy and point it somewhere new.
+			curProxy.StopListening()
+		}
+	}
+
+	// 0 means random port is used
+	proxy := NewTargetProxy("0.0.0.0", 0, targetUnixFile)
+
+	err := proxy.StartListening()
+	if err != nil {
+		proxy.StopListening()
+		return err
+	}
+
+	m.targetProxies[key] = proxy
+	return nil
+
+}
+
+func (m *migrationProxyManager) GetSourceListenerFile(key string) string {
+	m.managerLock.Lock()
+	defer m.managerLock.Unlock()
+
+	curProxy, exists := m.sourceProxies[key]
+	if exists {
+		return curProxy.unixSocketPath
+	}
+	return ""
+}
+
+func (m *migrationProxyManager) GetTargetListenerPort(key string) int {
+	m.managerLock.Lock()
+	defer m.managerLock.Unlock()
+
+	curProxy, exists := m.targetProxies[key]
+	if exists {
+		return curProxy.tcpBindPort
+	}
+	return 0
+}
+
+func (m *migrationProxyManager) StopTargetListener(key string) {
+	m.managerLock.Lock()
+	defer m.managerLock.Unlock()
+
+	curProxy, exists := m.targetProxies[key]
+	if exists {
+		curProxy.StopListening()
+		delete(m.targetProxies, key)
+	}
+}
+
+func (m *migrationProxyManager) StartSourceListener(key string, targetAddress string) error {
+	m.managerLock.Lock()
+	defer m.managerLock.Unlock()
+
+	curProxy, exists := m.sourceProxies[key]
+
+	if exists {
+		if curProxy.targetAddress == targetAddress {
+			// No Op, already exists
+			return nil
+		} else {
+			// stop the current proxy and point it somewhere new.
+			curProxy.StopListening()
+		}
+	}
+	filePath := sourceUnixFile(m.virtShareDir, key)
+
+	os.RemoveAll(filePath)
+	proxy := NewSourceProxy(filePath, targetAddress)
+
+	err := proxy.StartListening()
+	if err != nil {
+		proxy.StopListening()
+		return err
+	}
+
+	m.sourceProxies[key] = proxy
+	return nil
+}
+
+func (m *migrationProxyManager) StopSourceListener(key string) {
+	m.managerLock.Lock()
+	defer m.managerLock.Unlock()
+
+	curProxy, exists := m.sourceProxies[key]
+	if exists {
+		curProxy.StopListening()
+		os.RemoveAll(curProxy.unixSocketPath)
+		delete(m.sourceProxies, key)
+	}
 }
 
 // SRC POD ENV(migration unix socket) <-> HOST ENV (tcp client) <-----> HOST ENV (tcp server) <-> TARGET POD ENV (libvirtd unix socket)
@@ -55,10 +182,11 @@ func NewSourceProxy(unixSocketPath string, tcpTargetAddress string) *migrationPr
 }
 
 // Target proxy listens on a tcp socket and pipes to a libvirtd unix socket
-func NewTargetProxy(tcpBindAddress string, libvirtdSocketPath string) *migrationProxy {
+func NewTargetProxy(tcpBindAddress string, tcpBindPort int, libvirtdSocketPath string) *migrationProxy {
 
 	return &migrationProxy{
 		tcpBindAddress: tcpBindAddress,
+		tcpBindPort:    tcpBindPort,
 		targetAddress:  libvirtdSocketPath,
 		targetProtocol: "unix",
 		stopChan:       make(chan struct{}),
@@ -69,10 +197,15 @@ func NewTargetProxy(tcpBindAddress string, libvirtdSocketPath string) *migration
 }
 
 func (m *migrationProxy) createTcpListener() error {
-	listener, err := net.Listen("tcp", m.tcpBindAddress)
+	listener, err := net.Listen("tcp", fmt.Sprintf("%s:%d", m.tcpBindAddress, m.tcpBindPort))
 	if err != nil {
 		log.Log.Reason(err).Error("failed to create unix socket for proxy service")
 		return err
+	}
+
+	if m.tcpBindPort == 0 {
+		// update the random port that was selected
+		m.tcpBindPort = listener.Addr().(*net.TCPAddr).Port
 	}
 
 	m.listener = listener
