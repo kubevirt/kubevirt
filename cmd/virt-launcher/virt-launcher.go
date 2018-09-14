@@ -66,7 +66,7 @@ func markReady(readinessFile string) {
 func startCmdServer(socketPath string,
 	domainManager virtwrap.DomainManager,
 	stopChan chan struct{},
-	options *cmdserver.ServerOptions) {
+	options *cmdserver.ServerOptions) chan struct{} {
 
 	err := os.RemoveAll(socketPath)
 	if err != nil {
@@ -80,7 +80,7 @@ func startCmdServer(socketPath string,
 		panic(err)
 	}
 
-	err = cmdserver.RunServer(socketPath, domainManager, stopChan, options)
+	done, err := cmdserver.RunServer(socketPath, domainManager, stopChan, options)
 	if err != nil {
 		log.Log.Reason(err).Error("Failed to start virt-launcher cmd server")
 		panic(err)
@@ -106,6 +106,8 @@ func startCmdServer(socketPath string,
 	if err != nil {
 		panic(fmt.Errorf("failed to connect to cmd server: %v", err))
 	}
+
+	return done
 }
 
 func startWatchdogTicker(watchdogFile string, watchdogInterval time.Duration, stopChan chan struct{}) {
@@ -266,7 +268,6 @@ func main() {
 
 	// Start libvirtd, virtlogd, and establish libvirt connection
 	stopChan := make(chan struct{})
-	defer close(stopChan)
 
 	err = util.SetupLibvirt()
 	if err != nil {
@@ -286,7 +287,7 @@ func main() {
 	// to start/stop virtual machines
 	options := cmdserver.NewServerOptions(*useEmulation)
 	socketPath := cmdclient.SocketFromUID(*virtShareDir, *uid)
-	startCmdServer(socketPath, domainManager, stopChan, options)
+	cmdServerDone := startCmdServer(socketPath, domainManager, stopChan, options)
 
 	watchdogFile := watchdog.WatchdogFileFromNamespaceName(*virtShareDir,
 		*namespace,
@@ -345,6 +346,9 @@ func main() {
 	// sent back to virt-handler. This delete notification contains the reason the
 	// domain exited.
 	waitForFinalNotify(events, domainManager, vm)
+
+	close(stopChan)
+	<-cmdServerDone
 
 	log.Log.Info("Exiting...")
 }
