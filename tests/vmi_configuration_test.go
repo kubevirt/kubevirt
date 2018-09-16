@@ -718,14 +718,9 @@ var _ = Describe("Configurations", func() {
 			vmi = tests.NewRandomVMIWithEphemeralDiskAndUserdata(containerImage, "echo hi!\n")
 			// sata
 			tests.AddEphemeralDisk(vmi, "disk2", "sata", containerImage)
-			// ide
-			tests.AddEphemeralDisk(vmi, "disk3", "ide", containerImage)
 			// floppy
-			tests.AddEphemeralFloppy(vmi, "disk4", containerImage)
-			// NOTE: we have one disk per bus, so we expect vda, sda, hda, fda
-
-			// We need ide support for the test, q35 does not support ide
-			vmi.Spec.Domain.Machine.Type = "pc"
+			tests.AddEphemeralFloppy(vmi, "disk3", containerImage)
+			// NOTE: we have one disk per bus, so we expect vda, sda, fda
 		})
 		checkPciAddress := func(vmi *v1.VirtualMachineInstance, expectedPciAddress string, prompt string) {
 			err := tests.CheckForTextExpecter(vmi, []expect.Batcher{
@@ -737,7 +732,7 @@ var _ = Describe("Configurations", func() {
 			Expect(err).ToNot(HaveOccurred())
 		}
 
-		// FIXME ide and floppy is not recognized by the used image right now
+		// FIXME floppy is not recognized by the used image right now
 		It("should have all the device nodes", func() {
 			vmi, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
 			Expect(err).ToNot(HaveOccurred())
