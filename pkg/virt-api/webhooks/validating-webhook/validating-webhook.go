@@ -116,17 +116,24 @@ func validateDisks(field *k8sfield.Path, disks []v1.Disk) []metav1.StatusCause {
 		}
 		// Verify only a single device type is set.
 		deviceTargetSetCount := 0
+		var diskType, bus string
 		if disk.Disk != nil {
 			deviceTargetSetCount++
+			diskType = "disk"
+			bus = disk.Disk.Bus
 		}
 		if disk.LUN != nil {
 			deviceTargetSetCount++
+			diskType = "lun"
+			bus = disk.LUN.Bus
 		}
 		if disk.Floppy != nil {
 			deviceTargetSetCount++
 		}
 		if disk.CDRom != nil {
 			deviceTargetSetCount++
+			diskType = "cdrom"
+			bus = disk.CDRom.Bus
 		}
 
 		// NOTE: not setting a device target is okay. We default to Disk.
@@ -166,6 +173,32 @@ func validateDisks(field *k8sfield.Path, disks []v1.Disk) []metav1.StatusCause {
 				Message: fmt.Sprintf("%s must have a boot order > 0, if supplied", field.Index(idx).String()),
 				Field:   field.Index(idx).Child("bootOrder").String(),
 			})
+		}
+
+		// Verify bus is supported, if provided
+		if len(bus) > 0 {
+			if bus == "ide" {
+				causes = append(causes, metav1.StatusCause{
+					Type:    metav1.CauseTypeFieldValueInvalid,
+					Message: "IDE bus is not supported",
+					Field:   field.Index(idx).Child(diskType, "bus").String(),
+				})
+			} else {
+				buses := []string{"virtio", "sata", "scsi"}
+				validBus := false
+				for _, b := range buses {
+					if b == bus {
+						validBus = true
+					}
+				}
+				if !validBus {
+					causes = append(causes, metav1.StatusCause{
+						Type:    metav1.CauseTypeFieldValueInvalid,
+						Message: fmt.Sprintf("%s is set with an unrecognized bus %s, must be one of: %v", field.Index(idx).String(), bus, buses),
+						Field:   field.Index(idx).Child(diskType, "bus").String(),
+					})
+				}
+			}
 		}
 
 		// Verify serial number is made up of valid characters for libvirt, if provided

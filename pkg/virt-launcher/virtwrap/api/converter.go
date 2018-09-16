@@ -177,9 +177,6 @@ func makeDeviceName(bus string, devicePerBus map[string]int) string {
 		prefix = "sd"
 	case "fdc":
 		prefix = "fd"
-	case "ide":
-		log.Log.Error("IDE bus is not supported")
-		return ""
 	default:
 		log.Log.Errorf("Unrecognized bus '%s'", bus)
 		return ""
