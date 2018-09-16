@@ -1,8 +1,6 @@
 package v1
 
 import (
-	"strings"
-
 	"github.com/pborman/uuid"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -129,12 +127,14 @@ func SetDefaults_VirtualMachineInstance(obj *VirtualMachineInstance) {
 		obj.Spec.Domain.Machine.Type = "q35"
 	}
 
-	setDefaults_DiskFromMachineType(obj)
+	setDefaults_Disk(obj)
 	SetDefaults_NetworkInterface(obj)
 }
 
-func setDefaults_DiskFromMachineType(obj *VirtualMachineInstance) {
-	bus := diskBusFromMachine(obj.Spec.Domain.Machine.Type)
+func setDefaults_Disk(obj *VirtualMachineInstance) {
+	// Setting SATA as the default bus since it is typically supported out of the box by
+	// guest operating systems (we support only q35 and therefore IDE is not supported)
+	bus := "sata"
 
 	for i := range obj.Spec.Domain.Devices.Disks {
 		disk := &obj.Spec.Domain.Devices.Disks[i].DiskDevice
@@ -194,16 +194,6 @@ func DefaultPodNetwork() *Network {
 		},
 	}
 	return defaultNet
-}
-
-func diskBusFromMachine(machine string) string {
-	// catches: "q35", "pc-q35-*"
-	// see /path/to/qemu-kvm -machine help
-	if strings.HasPrefix(machine, "pc-q35") || strings.HasPrefix(machine, "q35") {
-		return "sata"
-	}
-	// safe fallback for x86_64, but very slow
-	return "ide"
 }
 
 func t(v bool) *bool {

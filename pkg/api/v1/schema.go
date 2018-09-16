@@ -283,7 +283,7 @@ type DiskDevice struct {
 // +k8s:openapi-gen=true
 type DiskTarget struct {
 	// Bus indicates the type of disk device to emulate.
-	// supported values: virtio, sata, scsi, ide.
+	// supported values: virtio, sata, scsi.
 	Bus string `json:"bus,omitempty"`
 	// ReadOnly.
 	// Defaults to false.
@@ -297,7 +297,7 @@ type DiskTarget struct {
 // +k8s:openapi-gen=true
 type LunTarget struct {
 	// Bus indicates the type of disk device to emulate.
-	// supported values: virtio, sata, scsi, ide.
+	// supported values: virtio, sata, scsi.
 	Bus string `json:"bus,omitempty"`
 	// ReadOnly.
 	// Defaults to false.
@@ -333,7 +333,7 @@ const (
 // +k8s:openapi-gen=true
 type CDRomTarget struct {
 	// Bus indicates the type of disk device to emulate.
-	// supported values: virtio, sata, scsi, ide.
+	// supported values: virtio, sata, scsi.
 	Bus string `json:"bus,omitempty"`
 	// ReadOnly.
 	// Defaults to true.
