@@ -228,7 +228,7 @@ func remoteExecHelper(podName string, namespace string, cmd []string, in io.Read
 		Stdin:     true,
 		Stdout:    true,
 		Stderr:    true,
-		TTY:       true,
+		TTY:       false,
 	}, scheme.ParameterCodec)
 
 	// execute request
