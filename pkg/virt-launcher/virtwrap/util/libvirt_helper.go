@@ -12,6 +12,8 @@ import (
 	"github.com/libvirt/libvirt-go"
 	k8sv1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	"k8s.io/apimachinery/pkg/types"
+
 	"kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/log"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
@@ -101,15 +103,22 @@ func SetDomainSpec(virConn cli.Connection, vmi *v1.VirtualMachineInstance, wante
 	return dom, nil
 }
 
-func GetDomainSpec(dom cli.VirDomain) (*api.DomainSpec, error) {
-	spec, err := GetDomainSpecWithFlags(dom, libvirt.DOMAIN_XML_MIGRATABLE)
+func GetDomainSpec(status libvirt.DomainState, dom cli.VirDomain) (*api.DomainSpec, error) {
+
+	var spec *api.DomainSpec
+	inactiveSpec, err := GetDomainSpecWithFlags(dom, libvirt.DOMAIN_XML_INACTIVE)
 	if err != nil {
 		return nil, err
 	}
 
-	inactiveSpec, err := GetDomainSpecWithFlags(dom, libvirt.DOMAIN_XML_INACTIVE)
-	if err != nil {
-		return nil, err
+	spec = inactiveSpec
+	// libvirt (the whole server) sometimes block indefinitely if a guest-shutdown was performed
+	// and we immediately ask it after the successful shutdown for a migratable xml.
+	if !cli.IsDown(status) {
+		spec, err = GetDomainSpecWithFlags(dom, libvirt.DOMAIN_XML_MIGRATABLE)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	if !reflect.DeepEqual(spec.Metadata, inactiveSpec.Metadata) {
@@ -118,7 +127,6 @@ func GetDomainSpec(dom cli.VirDomain) (*api.DomainSpec, error) {
 		metadata := &inactiveSpec.Metadata
 		metadata.DeepCopyInto(&spec.Metadata)
 	}
-
 	return spec, nil
 }
 
@@ -224,8 +232,11 @@ func SplitVMINamespaceKey(domainName string) (namespace, name string) {
 // VMINamespaceKeyFunc constructs the domain name with a namespace prefix i.g.
 // namespace_name.
 func VMINamespaceKeyFunc(vmi *v1.VirtualMachineInstance) string {
-	domName := fmt.Sprintf("%s_%s", vmi.GetObjectMeta().GetNamespace(), vmi.GetObjectMeta().GetName())
-	return domName
+	return DomainFromNamespaceName(vmi.Namespace, vmi.Name)
+}
+
+func DomainFromNamespaceName(namespace, name string) string {
+	return fmt.Sprintf("%s_%s", namespace, name)
 }
 
 func NewDomain(dom cli.VirDomain) (*api.Domain, error) {
@@ -239,6 +250,15 @@ func NewDomain(dom cli.VirDomain) (*api.Domain, error) {
 	domain := api.NewDomainReferenceFromName(namespace, name)
 	domain.GetObjectMeta().SetUID(domain.Spec.Metadata.KubeVirt.UID)
 	return domain, nil
+}
+
+func NewDomainFromName(name string, vmiUID types.UID) *api.Domain {
+	namespace, name := SplitVMINamespaceKey(name)
+
+	domain := api.NewDomainReferenceFromName(namespace, name)
+	domain.Spec.Metadata.KubeVirt.UID = vmiUID
+	domain.GetObjectMeta().SetUID(domain.Spec.Metadata.KubeVirt.UID)
+	return domain
 }
 
 func SetupLibvirt() error {

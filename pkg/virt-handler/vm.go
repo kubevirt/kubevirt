@@ -333,8 +333,14 @@ func (d *VirtualMachineController) execute(key string) error {
 		vmi.UID = domain.Spec.Metadata.KubeVirt.UID
 	}
 
-	// Ignore domains from an older VMI
+	// Ignore domains from an older VMI but delete watchdog file,
+	// by definition there can only be one VMI with the same name run at the same time.
+	// When we delete the watchdog file we trigger a DELETE for the damain cache for the stale entry
 	if vmiExists && domainExists && domain.Spec.Metadata.KubeVirt.UID != vmi.UID {
+		err := watchdog.WatchdogFileRemove(d.virtShareDir, vmi)
+		if err != nil {
+			return fmt.Errorf("failed to remove watchdog file from stale domain entry: %v", err)
+		}
 		log.Log.Object(vmi).Info("Ignoring domain from an older VMI, will be handled by its own VMI.")
 		return nil
 	}
@@ -497,6 +503,13 @@ func (d *VirtualMachineController) processVmCleanup(vmi *v1.VirtualMachineInstan
 	}
 
 	err = virtlauncher.VmGracefulShutdownTriggerClear(d.virtShareDir, vmi)
+	if err != nil {
+		return err
+	}
+
+	// in case of dirty virt-launcher shutdown, socket files may be left over
+	socket := cmdclient.SocketFromUID(d.virtShareDir, string(vmi.UID))
+	err = os.RemoveAll(socket)
 	if err != nil {
 		return err
 	}

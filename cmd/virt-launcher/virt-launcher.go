@@ -110,20 +110,24 @@ func startCmdServer(socketPath string,
 	return done
 }
 
-func startWatchdogTicker(watchdogFile string, watchdogInterval time.Duration, stopChan chan struct{}) {
+func startWatchdogTicker(watchdogFile string, watchdogInterval time.Duration, stopChan chan struct{}) (done chan struct{}) {
 	err := watchdog.WatchdogFileUpdate(watchdogFile)
 	if err != nil {
 		panic(err)
 	}
 
 	log.Log.Infof("Watchdog file created at %s", watchdogFile)
+	done = make(chan struct{})
 
 	go func() {
+		defer close(done)
 
 		ticker := time.NewTicker(watchdogInterval).C
 		for {
 			select {
 			case <-stopChan:
+				err := os.RemoveAll(watchdogFile)
+				log.Log.Reason(err).Errorf("Failed to delete watchdog file: %v", err)
 				return
 			case <-ticker:
 				err := watchdog.WatchdogFileUpdate(watchdogFile)
@@ -133,6 +137,7 @@ func startWatchdogTicker(watchdogFile string, watchdogInterval time.Duration, st
 			}
 		}
 	}()
+	return done
 }
 
 func initializeDirs(virtShareDir string,
@@ -282,17 +287,19 @@ func main() {
 	// Create a lazy domain manager which will start libvirt on the first SyncVMI call
 	domainManager, events := virtwrap.NewLazyLibvirtDomainManager(*virtShareDir, stopChan)
 
+	// Create watchdog file before we create the communcation socket,
+	// that makes it easier for virt-launcher to detect orphan socket files
+	watchdogFile := watchdog.WatchdogFileFromNamespaceName(*virtShareDir,
+		*namespace,
+		*name)
+	watchdogDone := startWatchdogTicker(watchdogFile, *watchdogInterval, stopChan)
+
 	// Start the virt-launcher command service.
 	// Clients can use this service to tell virt-launcher
 	// to start/stop virtual machines
 	options := cmdserver.NewServerOptions(*useEmulation)
 	socketPath := cmdclient.SocketFromUID(*virtShareDir, *uid)
 	cmdServerDone := startCmdServer(socketPath, domainManager, stopChan, options)
-
-	watchdogFile := watchdog.WatchdogFileFromNamespaceName(*virtShareDir,
-		*namespace,
-		*name)
-	startWatchdogTicker(watchdogFile, *watchdogInterval, stopChan)
 
 	gracefulShutdownTriggerFile := virtlauncher.GracefulShutdownTriggerFromNamespaceName(*virtShareDir,
 		*namespace,
@@ -349,6 +356,7 @@ func main() {
 
 	close(stopChan)
 	<-cmdServerDone
+	<-watchdogDone
 
 	log.Log.Info("Exiting...")
 }
