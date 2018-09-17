@@ -45,7 +45,6 @@ var _ = Describe("Console", func() {
 		tests.BeforeTestCleanup()
 	})
 
-
 	RunVMIAndWaitForStart := func(vmi *v1.VirtualMachineInstance) {
 		By("Creating a new VirtualMachineInstance")
 		Expect(virtClient.RestClient().Post().Resource("virtualmachineinstances").Namespace(tests.NamespaceTestDefault).Body(vmi).Do().Error()).To(Succeed())
