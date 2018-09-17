@@ -15,7 +15,10 @@ ignore:
 - github.com/gogo/protobuf/test/typedeclimport/subpkg
 - github.com/gogo/protobuf/test/issue312
 - github.com/spf13/cobra/doc
+- github.com/prometheus/procfs/nfs
 import:
+- package: github.com/prometheus/client_golang
+  version: 0.8.0
 - package: github.com/go-kit/kit
   version: fe6fe28ba0d54b39f27e79cddba4911b7e4fffc7
   subpackages:

@@ -1,3 +1,13 @@
+## 1.4.2
+
+### Fixes:
+
+- Add go.mod and go.sum files to define the gomega go module [f3de367, a085d30]
+- Work around go vet issue with Go v1.11 (#300) [40dd6ad]
+- Better output when using with go XUnit-style tests, fixes #255 (#297) [29a4b97]
+- Fix MatchJSON fail to parse json.RawMessage (#298) [ae19f1b]
+- show threshold in failure message of BeNumericallyMatcher (#293) [4bbecc8]
+
 ## 1.4.1
 
 ### Fixes:

@@ -1,5 +1,5 @@
-hash: 1c532cd979e3aeb7c98ec1ee7a6f440470b2231663fb00336aeec5c87955bf14
-updated: 2018-08-29T14:12:18.294708542Z
+hash: c99eb512acb71fb736229a3fcd8bf31aced2a27b4a3d5fafd02ad1628442b5e6
+updated: 2018-09-17T10:49:16.831763001Z
 imports:
 - name: cloud.google.com/go
   version: 3b1ae45394a234c385be014e9a488f2bb6eef821
@@ -19,6 +19,10 @@ imports:
   - autorest/adal
   - autorest/azure
   - autorest/date
+- name: github.com/beorn7/perks
+  version: 3a771d992973f24aa725d07868b467d1ddfceafb
+  subpackages:
+  - quantile
 - name: github.com/davecgh/go-spew
   version: 782f4967f2dc4564575ca782fe2d04090b5faca8
   subpackages:
@@ -58,7 +62,7 @@ imports:
 - name: github.com/go-openapi/spec
   version: f1468acb3b29cdd5c5f6fa29435d2d2d6e6c9ff1
 - name: github.com/go-openapi/swag
-  version: 0dc164b7900e799f72456fa00bbdfbd362deed9b
+  version: dd0dad036e67ae93c27dc64337b3f76296f3a5f0
 - name: github.com/go-stack/stack
   version: 2fee6af1a9795aafbe0253a0cfbdf668e1fb8a9a
 - name: github.com/gogo/protobuf
@@ -144,12 +148,16 @@ imports:
   - buffer
   - jlexer
   - jwriter
+- name: github.com/matttproud/golang_protobuf_extensions
+  version: fc2b8d3a73c4867e51861bbdd5ae3c1f0869dd6a
+  subpackages:
+  - pbutil
 - name: github.com/modern-go/concurrent
   version: bacd9c7ef1dd9b15be4a9909b8ac7a4e313eec94
 - name: github.com/modern-go/reflect2
   version: 05fbef0ca5da472bbf96c9322b84a53edc03c9fd
 - name: github.com/onsi/ginkgo
-  version: 3774a09d95489ccaa16032e0770d08ea77ba6184
+  version: 2445fc1ddb3b4d9738f16af50182d47878701cc3
   subpackages:
   - config
   - extensions/table
@@ -170,7 +178,7 @@ imports:
   - reporters/stenographer/support/go-isatty
   - types
 - name: github.com/onsi/gomega
-  version: 38ca19236de6fbe62537be60136602cf095daa35
+  version: 7615b9433f86a8bdf29709bf288bc4fd0636a369
   subpackages:
   - format
   - ghttp
@@ -186,6 +194,24 @@ imports:
   - types
 - name: github.com/pborman/uuid
   version: ca53cad383cad2479bbba7f7a1a05797ec1386e4
+- name: github.com/prometheus/client_golang
+  version: c5b7fccd204277076155f10851dad72b76a49317
+  subpackages:
+  - prometheus
+- name: github.com/prometheus/client_model
+  version: fa8ad6fec33561be4280a8f0514318c79d7f6cb6
+  subpackages:
+  - go
+- name: github.com/prometheus/common
+  version: 13ba4ddd0caa9c28ca7b7bffe1dfa9ed8d5ef207
+  subpackages:
+  - expfmt
+  - internal/bitbucket.org/ww/goautoneg
+  - model
+- name: github.com/prometheus/procfs
+  version: 65c1f6f8f0fc1e2185eb9863a3bc751496404259
+  subpackages:
+  - xfs
 - name: github.com/PuerkitoBio/purell
   version: 8a290539e2e8629dbc4e6bad948158f790ec31f4
 - name: github.com/PuerkitoBio/urlesc
