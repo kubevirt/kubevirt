@@ -134,6 +134,7 @@ func (m *migrationProxyManager) StopTargetListener(key string) {
 	if exists {
 		curProxy.StopListening()
 		delete(m.targetProxies, key)
+		log.Log.Infof("Stopping proxy target %s listening on %d", key, curProxy.tcpBindPort)
 	}
 }
 

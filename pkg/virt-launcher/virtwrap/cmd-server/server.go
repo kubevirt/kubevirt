@@ -53,6 +53,30 @@ func getVmfromClientArgs(args *cmdclient.Args) (*v1.VirtualMachineInstance, erro
 	return args.VMI, nil
 }
 
+func (s *Launcher) SyncMigrationTarget(args *cmdclient.Args, reply *cmdclient.Reply) error {
+
+	reply.Success = true
+
+	vmi, err := getVmfromClientArgs(args)
+	if err != nil {
+		reply.Success = false
+		reply.Message = err.Error()
+		return nil
+	}
+
+	err = s.domainManager.PrepareMigrationTarget(vmi, s.useEmulation)
+	if err != nil {
+		log.Log.Object(vmi).Reason(err).Errorf("Failed to prepare migration target pod")
+		reply.Success = false
+		reply.Message = err.Error()
+		return nil
+	}
+
+	log.Log.Object(vmi).Info("Prepared migration target pod")
+	return nil
+
+}
+
 func (s *Launcher) Sync(args *cmdclient.Args, reply *cmdclient.Reply) error {
 	reply.Success = true
 

@@ -33,12 +33,13 @@ func (VirtualMachineInstanceSpec) SwaggerDoc() map[string]string {
 
 func (VirtualMachineInstanceStatus) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"":           "VirtualMachineInstanceStatus represents information about the status of a VirtualMachineInstance. Status may trail the actual\nstate of a system.",
-		"nodeName":   "NodeName is the name where the VirtualMachineInstance is currently running.",
-		"reason":     "A brief CamelCase message indicating details about why the VMI is in this state. e.g. 'NodeUnresponsive'\n+optional",
-		"conditions": "Conditions are specific points in VirtualMachineInstance's pod runtime.",
-		"phase":      "Phase is the status of the VirtualMachineInstance in kubernetes world. It is not the VirtualMachineInstance status, but partially correlates to it.",
-		"interfaces": "Interfaces represent the details of available network interfaces.",
+		"":               "VirtualMachineInstanceStatus represents information about the status of a VirtualMachineInstance. Status may trail the actual\nstate of a system.",
+		"nodeName":       "NodeName is the name where the VirtualMachineInstance is currently running.",
+		"reason":         "A brief CamelCase message indicating details about why the VMI is in this state. e.g. 'NodeUnresponsive'\n+optional",
+		"conditions":     "Conditions are specific points in VirtualMachineInstance's pod runtime.",
+		"phase":          "Phase is the status of the VirtualMachineInstance in kubernetes world. It is not the VirtualMachineInstance status, but partially correlates to it.",
+		"interfaces":     "Interfaces represent the details of available network interfaces.",
+		"migrationState": "Represents the status of a live migration",
 	}
 }
 
@@ -50,6 +51,19 @@ func (VirtualMachineInstanceNetworkInterface) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"ipAddress": "IP address of a Virtual Machine interface",
 		"mac":       "Hardware address of a Virtual Machine interface",
+	}
+}
+
+func (VirtualMachineInstanceMigrationState) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"startTimestamp":    "The time the migration action began",
+		"endTimestamp":      "The time the migration action ended",
+		"targetNodeAddress": "The address of the target node to use for the migration",
+		"targetNode":        "The target node that the VMI is moving to",
+		"sourceNode":        "The source node that the VMI originated on",
+		"completed":         "Indicates the migration completed",
+		"failed":            "Indicates that the migration failed",
+		"migrationUid":      "The VirtualMachineInstanceMigration object associated with this migration",
 	}
 }
 

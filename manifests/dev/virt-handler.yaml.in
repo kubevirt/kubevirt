@@ -26,6 +26,7 @@ spec:
     spec:
       serviceAccountName: kubevirt-privileged
       hostPID: true
+      hostNetwork: true
       containers:
         - name: virt-handler
           ports:
@@ -42,6 +43,8 @@ spec:
             - "8443"
             - "--hostname-override"
             - "$(NODE_NAME)"
+            - "-v"
+            - "5"
           securityContext:
             privileged: true
           volumeMounts:

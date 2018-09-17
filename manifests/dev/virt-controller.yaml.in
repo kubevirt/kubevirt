@@ -33,6 +33,8 @@ spec:
               - "{{.DockerPrefix}}/virt-launcher:{{.DockerTag}}"
               - "--port"
               - "8443"
+              - "-v"
+              - "5"
           ports:
             - containerPort: 8443
               name: "virt-controller"

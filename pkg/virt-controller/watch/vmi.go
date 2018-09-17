@@ -90,6 +90,10 @@ const (
 	// FailedPvcNotFoundReason is added in an event
 	// when a PVC for a volume was not found.
 	FailedPvcNotFoundReason = "FailedPvcNotFound"
+	// SuccessfulMigrationReason is added when a migration attempt completes successfully
+	SuccessfulMigrationReason = "SuccessfulMigration"
+	// FailedMigrationReason is added when a migration attempt fails
+	FailedMigrationReason = "FailedMigration"
 )
 
 func NewVMIController(templateService services.TemplateService,
@@ -802,7 +806,19 @@ func (c *VMIController) listPodsFromNamespace(namespace string) ([]*k8sv1.Pod, e
 }
 
 func (c *VMIController) filterMatchingPods(vmi *virtv1.VirtualMachineInstance, pods []*k8sv1.Pod) ([]*k8sv1.Pod, error) {
-	selector, err := v1.LabelSelectorAsSelector(&v1.LabelSelector{MatchLabels: map[string]string{virtv1.CreatedByLabel: string(vmi.UID), virtv1.AppLabel: "virt-launcher"}})
+	selector, err := v1.LabelSelectorAsSelector(&v1.LabelSelector{
+		MatchLabels: map[string]string{
+			virtv1.CreatedByLabel: string(vmi.UID),
+			virtv1.AppLabel:       "virt-launcher",
+		},
+		MatchExpressions: []v1.LabelSelectorRequirement{
+			v1.LabelSelectorRequirement{
+				Key:      virtv1.MigrationJobLabel,
+				Operator: v1.LabelSelectorOpDoesNotExist,
+			},
+		},
+	},
+	)
 	if err != nil {
 		return nil, err
 	}

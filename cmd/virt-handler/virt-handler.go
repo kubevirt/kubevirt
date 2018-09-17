@@ -110,7 +110,11 @@ func (app *virtHandlerApp) Run() {
 		panic(err)
 	}
 
-	l, err := labels.Parse(fmt.Sprintf(v1.NodeNameLabel+" in (%s)", app.HostOverride))
+	vmiSourceLabel, err := labels.Parse(fmt.Sprintf(v1.NodeNameLabel+" in (%s)", app.HostOverride))
+	if err != nil {
+		panic(err)
+	}
+	vmiTargetLabel, err := labels.Parse(fmt.Sprintf(v1.MigrationTargetNodeNameLabel+" in (%s)", app.HostOverride))
 	if err != nil {
 		panic(err)
 	}
@@ -123,8 +127,15 @@ func (app *virtHandlerApp) Run() {
 		panic(err)
 	}
 
-	vmSharedInformer := cache.NewSharedIndexInformer(
-		controller.NewListWatchFromClient(virtCli.RestClient(), "virtualmachineinstances", k8sv1.NamespaceAll, fields.Everything(), l),
+	vmSourceSharedInformer := cache.NewSharedIndexInformer(
+		controller.NewListWatchFromClient(virtCli.RestClient(), "virtualmachineinstances", k8sv1.NamespaceAll, fields.Everything(), vmiSourceLabel),
+		&v1.VirtualMachineInstance{},
+		0,
+		cache.Indexers{},
+	)
+
+	vmTargetSharedInformer := cache.NewSharedIndexInformer(
+		controller.NewListWatchFromClient(virtCli.RestClient(), "virtualmachineinstances", k8sv1.NamespaceAll, fields.Everything(), vmiTargetLabel),
 		&v1.VirtualMachineInstance{},
 		0,
 		cache.Indexers{},
@@ -144,7 +155,8 @@ func (app *virtHandlerApp) Run() {
 		virtCli,
 		app.HostOverride,
 		app.VirtShareDir,
-		vmSharedInformer,
+		vmSourceSharedInformer,
+		vmTargetSharedInformer,
 		domainSharedInformer,
 		gracefulShutdownInformer,
 		int(app.WatchdogTimeoutDuration.Seconds()),

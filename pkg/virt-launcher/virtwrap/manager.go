@@ -56,6 +56,8 @@ type DomainManager interface {
 	DeleteVMI(*v1.VirtualMachineInstance) error
 	SignalShutdownVMI(*v1.VirtualMachineInstance) error
 	ListAllDomains() ([]*api.Domain, error)
+	MigrateVMI(*v1.VirtualMachineInstance) error
+	PrepareMigrationTarget(*v1.VirtualMachineInstance, bool) error
 }
 
 type LibvirtDomainManager struct {
@@ -68,6 +70,41 @@ func NewLibvirtDomainManager(connection cli.Connection) (DomainManager, error) {
 	}
 
 	return &manager, nil
+}
+
+func (l *LibvirtDomainManager) MigrateVMI(vmi *v1.VirtualMachineInstance) error {
+	// TODO
+	// check migration info in vmi
+	// create target uri
+	// exec migration command
+
+	return nil
+}
+
+func (l *LibvirtDomainManager) PrepareMigrationTarget(vmi *v1.VirtualMachineInstance, useEmulation bool) error {
+
+	logger := log.Log.Object(vmi)
+
+	domain := &api.Domain{}
+	podCPUSet, err := util.GetPodCPUSet()
+	if err != nil {
+		logger.Reason(err).Error("failed to read pod cpuset.")
+		return err
+	}
+
+	// Map the VirtualMachineInstance to the Domain
+	c := &api.ConverterContext{
+		VirtualMachine: vmi,
+		UseEmulation:   useEmulation,
+		CPUSet:         podCPUSet,
+	}
+	if err := api.Convert_v1_VirtualMachine_To_api_Domain(vmi, domain, c); err != nil {
+		logger.Error("Conversion failed.")
+		return err
+	}
+
+	_, err = l.preStartHook(vmi, domain)
+	return nil
 }
 
 // All local environment setup that needs to occur before VirtualMachineInstance starts

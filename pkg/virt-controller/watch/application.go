@@ -100,6 +100,9 @@ type VirtControllerApp struct {
 
 	dataVolumeInformer cache.SharedIndexInformer
 
+	migrationController *MigrationController
+	migrationInformer   cache.SharedIndexInformer
+
 	LeaderElection leaderelectionconfig.Configuration
 
 	launcherImage    string
@@ -157,6 +160,8 @@ func Execute() {
 	app.persistentVolumeClaimCache = app.persistentVolumeClaimInformer.GetStore()
 
 	app.vmInformer = app.informerFactory.VirtualMachine()
+
+	app.migrationInformer = app.informerFactory.VirtualMachineInstanceMigration()
 
 	if featuregates.DataVolumesEnabled() {
 		app.dataVolumeInformer = app.informerFactory.DataVolume()
@@ -234,6 +239,7 @@ func (vca *VirtControllerApp) Run() {
 					go vca.vmiController.Run(controllerThreads, stop)
 					go vca.rsController.Run(controllerThreads, stop)
 					go vca.vmController.Run(controllerThreads, stop)
+					go vca.migrationController.Run(controllerThreads, stop)
 					cache.WaitForCacheSync(stopCh, vca.persistentVolumeClaimInformer.HasSynced)
 					close(vca.readyChan)
 				},
@@ -267,6 +273,7 @@ func (vca *VirtControllerApp) initCommon() {
 	vca.vmiController = NewVMIController(vca.templateService, vca.vmiInformer, vca.podInformer, vca.vmiRecorder, vca.clientSet, vca.configMapInformer, vca.dataVolumeInformer)
 	recorder := vca.getNewRecorder(k8sv1.NamespaceAll, "node-controller")
 	vca.nodeController = NewNodeController(vca.clientSet, vca.nodeInformer, vca.vmiInformer, recorder)
+	vca.migrationController = NewMigrationController(vca.templateService, vca.vmiInformer, vca.podInformer, vca.migrationInformer, vca.vmiRecorder, vca.clientSet)
 }
 
 func (vca *VirtControllerApp) initReplicaSet() {

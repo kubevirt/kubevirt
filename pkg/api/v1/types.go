@@ -178,6 +178,8 @@ type VirtualMachineInstanceStatus struct {
 	Phase VirtualMachineInstancePhase `json:"phase,omitempty"`
 	// Interfaces represent the details of available network interfaces.
 	Interfaces []VirtualMachineInstanceNetworkInterface `json:"interfaces,omitempty"`
+	// Represents the status of a live migration
+	MigrationState *VirtualMachineInstanceMigrationState `json:"migrationState,omitempty"`
 }
 
 // Required to satisfy Object interface
@@ -292,6 +294,10 @@ type VirtualMachineInstanceCondition struct {
 	Message            string                              `json:"message,omitempty"`
 }
 
+func (m *VirtualMachineInstanceMigration) IsFinal() bool {
+	return m.Status.Phase == MigrationFailed || m.Status.Phase == MigrationSucceeded
+}
+
 // ---
 // +k8s:openapi-gen=true
 type VirtualMachineInstanceNetworkInterface struct {
@@ -299,6 +305,25 @@ type VirtualMachineInstanceNetworkInterface struct {
 	IP string `json:"ipAddress,omitempty"`
 	// Hardware address of a Virtual Machine interface
 	MAC string `json:"mac,omitempty"`
+}
+
+type VirtualMachineInstanceMigrationState struct {
+	// The time the migration action began
+	StartTimestamp *metav1.Time `json:"startTimestamp,omitempty"`
+	// The time the migration action ended
+	EndTimestamp *metav1.Time `json:"endTimestamp,omitempty"`
+	// The address of the target node to use for the migration
+	TargetNodeAddress string `json:"targetNodeAddress,omitempty"`
+	// The target node that the VMI is moving to
+	TargetNode string `json:"targetNode,omitempty"`
+	// The source node that the VMI originated on
+	SourceNode string `json:"sourceNode,omitempty"`
+	// Indicates the migration completed
+	Completed bool `json:"completed,omitempty"`
+	// Indicates that the migration failed
+	Failed bool `json:"failed,omitempty"`
+	// The VirtualMachineInstanceMigration object associated with this migration
+	MigrationUID types.UID `json:"migrationUid,omitempty"`
 }
 
 // VirtualMachineInstancePhase is a label for the condition of a VirtualMachineInstance at the current time.
@@ -337,9 +362,14 @@ const (
 	// libvirt XML domains with their pods. Among other things, the annotation is
 	// used to detect virtual machines with dead pods. Used on Pod.
 	DomainAnnotation string = "kubevirt.io/domain"
+	// Represents the name of the migration job this target pod is associated with
+	MigrationJobNameAnnotation string = "kubevirt.io/migrationJobName"
 	// This label is used to match virtual machine instance IDs with pods.
 	// Similar to kubevirt.io/domain. Used on Pod.
 	CreatedByLabel string = "kubevirt.io/created-by"
+	// This label is used to indicate that this pod is the target of an active
+	// migration job.
+	MigrationJobLabel string = "kubevirt.io/migration-job"
 	// This annotation defines which KubeVirt component owns the resource. Used
 	// on Pod.
 	OwnedByAnnotation string = "kubevirt.io/owned-by"
@@ -347,6 +377,10 @@ const (
 	// instance. Needed because with CRDs we can't use field selectors. Used on
 	// VirtualMachineInstance.
 	NodeNameLabel string = "kubevirt.io/nodeName"
+	// This label describes which cluster node runs the target Pod for a Virtual
+	// Machine Instance migration job. Needed because with CRDs we can't use field
+	// selectors. Used on VirtualMachineInstance.
+	MigrationTargetNodeNameLabel string = "kubevirt.io/migrationTargetNodeName"
 	// This label declares whether a particular node is available for
 	// scheduling virtual machine instances on it. Used on Node.
 	NodeSchedulable string = "kubevirt.io/schedulable"
@@ -387,6 +421,7 @@ const (
 	Started      SyncEvent = "Started"
 	ShuttingDown SyncEvent = "ShuttingDown"
 	Stopped      SyncEvent = "Stopped"
+	Migrated     SyncEvent = "Migrated"
 	SyncFailed   SyncEvent = "SyncFailed"
 	Resumed      SyncEvent = "Resumed"
 )
@@ -679,6 +714,27 @@ type VirtualMachineInstanceMigrationStatus struct {
 // ---
 // +k8s:openapi-gen=true
 type VirtualMachineInstanceMigrationPhase string
+
+// These are the valid migration phases
+const (
+	MigrationPhaseUnset VirtualMachineInstanceMigrationPhase = ""
+	// The migration is accepted by the system
+	MigrationPending VirtualMachineInstanceMigrationPhase = "Pending"
+	// The migration's target pod is being scheduled
+	MigrationScheduling VirtualMachineInstanceMigrationPhase = "Scheduling"
+	// The migration's target pod is running
+	MigrationScheduled VirtualMachineInstanceMigrationPhase = "Scheduled"
+	// The migration's target pod is being prepared for migration
+	MigrationPreparingTarget VirtualMachineInstanceMigrationPhase = "PreparingTarget"
+	// The migration's target pod is prepared and ready for migration
+	MigrationTargetReady VirtualMachineInstanceMigrationPhase = "TargetReady"
+	// The migration is in progress
+	MigrationRunning VirtualMachineInstanceMigrationPhase = "Running"
+	// The migration passed
+	MigrationSucceeded VirtualMachineInstanceMigrationPhase = "Succeeded"
+	// The migration failed
+	MigrationFailed VirtualMachineInstanceMigrationPhase = "Failed"
+)
 
 // ---
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object

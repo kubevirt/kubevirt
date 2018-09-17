@@ -4672,6 +4672,42 @@
      }
     }
    },
+   "v1.VirtualMachineInstanceMigrationState": {
+    "properties": {
+     "completed": {
+      "description": "Indicates the migration completed",
+      "type": "boolean"
+     },
+     "endTimestamp": {
+      "description": "The time the migration action ended",
+      "type": "string"
+     },
+     "failed": {
+      "description": "Indicates that the migration failed",
+      "type": "boolean"
+     },
+     "migrationUid": {
+      "description": "The VirtualMachineInstanceMigration object associated with this migration",
+      "type": "string"
+     },
+     "sourceNode": {
+      "description": "The source node that the VMI originated on",
+      "type": "string"
+     },
+     "startTimestamp": {
+      "description": "The time the migration action began",
+      "type": "string"
+     },
+     "targetNode": {
+      "description": "The target node that the VMI is moving to",
+      "type": "string"
+     },
+     "targetNodeAddress": {
+      "description": "The address of the target node to use for the migration",
+      "type": "string"
+     }
+    }
+   },
    "v1.VirtualMachineInstanceNetworkInterface": {
     "properties": {
      "ipAddress": {
@@ -4933,6 +4969,10 @@
       "items": {
        "$ref": "#/definitions/v1.VirtualMachineInstanceNetworkInterface"
       }
+     },
+     "migrationState": {
+      "description": "Represents the status of a live migration",
+      "$ref": "#/definitions/v1.VirtualMachineInstanceMigrationState"
      },
      "nodeName": {
       "description": "NodeName is the name where the VirtualMachineInstance is currently running.",

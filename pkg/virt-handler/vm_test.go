@@ -57,7 +57,8 @@ var _ = Describe("VirtualMachineInstance", func() {
 	var ctrl *gomock.Controller
 	var controller *VirtualMachineController
 	var vmiSource *framework.FakeControllerSource
-	var vmiInformer cache.SharedIndexInformer
+	var vmiSourceInformer cache.SharedIndexInformer
+	var vmiTargetInformer cache.SharedIndexInformer
 	var domainSource *framework.FakeControllerSource
 	var domainInformer cache.SharedIndexInformer
 	var gracefulShutdownInformer cache.SharedIndexInformer
@@ -86,7 +87,8 @@ var _ = Describe("VirtualMachineInstance", func() {
 
 		Expect(err).ToNot(HaveOccurred())
 
-		vmiInformer, vmiSource = testutils.NewFakeInformerFor(&v1.VirtualMachineInstance{})
+		vmiSourceInformer, vmiSource = testutils.NewFakeInformerFor(&v1.VirtualMachineInstance{})
+		vmiTargetInformer, _ = testutils.NewFakeInformerFor(&v1.VirtualMachineInstance{})
 		domainInformer, domainSource = testutils.NewFakeInformerFor(&api.Domain{})
 		gracefulShutdownInformer, _ = testutils.NewFakeInformerFor(&api.Domain{})
 		recorder = record.NewFakeRecorder(100)
@@ -103,7 +105,8 @@ var _ = Describe("VirtualMachineInstance", func() {
 			virtClient,
 			host,
 			shareDir,
-			vmiInformer,
+			vmiSourceInformer,
+			vmiTargetInformer,
 			domainInformer,
 			gracefulShutdownInformer,
 			1,
@@ -121,10 +124,11 @@ var _ = Describe("VirtualMachineInstance", func() {
 		vmiFeeder = testutils.NewVirtualMachineFeeder(mockQueue, vmiSource)
 		domainFeeder = testutils.NewDomainFeeder(mockQueue, domainSource)
 
-		go vmiInformer.Run(stop)
+		go vmiSourceInformer.Run(stop)
+		go vmiTargetInformer.Run(stop)
 		go domainInformer.Run(stop)
 		go gracefulShutdownInformer.Run(stop)
-		Expect(cache.WaitForCacheSync(stop, vmiInformer.HasSynced, domainInformer.HasSynced, gracefulShutdownInformer.HasSynced)).To(BeTrue())
+		Expect(cache.WaitForCacheSync(stop, vmiSourceInformer.HasSynced, vmiTargetInformer.HasSynced, domainInformer.HasSynced, gracefulShutdownInformer.HasSynced)).To(BeTrue())
 	})
 
 	AfterEach(func() {
