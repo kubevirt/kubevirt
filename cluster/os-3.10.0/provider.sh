@@ -2,7 +2,7 @@
 
 set -e
 
-image="os-3.10.0@sha256:a94fa5a213405147879bd4498c48a2deee0e5d0db4ece2482494b70d1e9c92b7"
+image="os-3.10.0@sha256:45e0b2797134c147da5f3cba1ca768340ef6da1f7d52978c81b6813421833501"
 
 source cluster/ephemeral-provider-common.sh
 
