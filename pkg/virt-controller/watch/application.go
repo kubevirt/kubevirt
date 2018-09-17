@@ -28,6 +28,7 @@ import (
 	"time"
 
 	"github.com/emicklei/go-restful"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	flag "github.com/spf13/pflag"
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/kubernetes/scheme"
@@ -39,6 +40,7 @@ import (
 	"k8s.io/client-go/tools/record"
 
 	"kubevirt.io/kubevirt/pkg/controller"
+	featuregates "kubevirt.io/kubevirt/pkg/feature-gates"
 	"kubevirt.io/kubevirt/pkg/kubecli"
 	"kubevirt.io/kubevirt/pkg/log"
 	"kubevirt.io/kubevirt/pkg/registry-disk"
@@ -46,8 +48,6 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-controller/leaderelectionconfig"
 	"kubevirt.io/kubevirt/pkg/virt-controller/rest"
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
-
-	featuregates "kubevirt.io/kubevirt/pkg/feature-gates"
 )
 
 const (
@@ -175,6 +175,7 @@ func (vca *VirtControllerApp) Run() {
 	go func() {
 		httpLogger := logger.With("service", "http")
 		httpLogger.Level(log.INFO).Log("action", "listening", "interface", vca.BindAddress, "port", vca.Port)
+		http.Handle("/metrics", promhttp.Handler())
 		if err := http.ListenAndServe(vca.Address(), nil); err != nil {
 			golog.Fatal(err)
 		}

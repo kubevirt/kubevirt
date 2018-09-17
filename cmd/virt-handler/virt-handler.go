@@ -21,10 +21,11 @@ package main
 
 import (
 	"fmt"
+	"net/http"
 	"os"
-
 	"time"
 
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	flag "github.com/spf13/pflag"
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/fields"
@@ -39,6 +40,9 @@ import (
 	inotifyinformer "kubevirt.io/kubevirt/pkg/inotify-informer"
 	"kubevirt.io/kubevirt/pkg/kubecli"
 	"kubevirt.io/kubevirt/pkg/log"
+	_ "kubevirt.io/kubevirt/pkg/monitoring/client/prometheus"    // import for prometheus metrics
+	_ "kubevirt.io/kubevirt/pkg/monitoring/reflector/prometheus" // import for prometheus metrics
+	_ "kubevirt.io/kubevirt/pkg/monitoring/workqueue/prometheus" // import for prometheus metrics
 	"kubevirt.io/kubevirt/pkg/service"
 	"kubevirt.io/kubevirt/pkg/virt-handler"
 	virtcache "kubevirt.io/kubevirt/pkg/virt-handler/cache"
@@ -145,7 +149,14 @@ func (app *virtHandlerApp) Run() {
 	stop := make(chan struct{})
 	defer close(stop)
 
-	vmController.Run(3, stop)
+	go vmController.Run(3, stop)
+
+	http.Handle("/metrics", promhttp.Handler())
+	err = http.ListenAndServe(app.ServiceListen.Address(), nil)
+	if err != nil {
+		log.Log.Reason(err).Error("Serving prometheus failed.")
+		panic(err)
+	}
 }
 
 func (app *virtHandlerApp) AddFlags() {
