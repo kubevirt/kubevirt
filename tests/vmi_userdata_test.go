@@ -87,6 +87,7 @@ var _ = Describe("CloudInit UserData", func() {
 				vmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(tests.RegistryDiskFor(tests.RegistryDiskCirros), userData)
 				LaunchVMI(vmi)
 				VerifyUserDataVMI(vmi, []expect.Batcher{
+					&expect.BSnd{S: "\n"},
 					&expect.BExp{R: expectedUserData},
 				}, time.Second*120)
 			})
@@ -144,6 +145,7 @@ var _ = Describe("CloudInit UserData", func() {
 
 				By("executing a user-data script")
 				VerifyUserDataVMI(vmi, []expect.Batcher{
+					&expect.BSnd{S: "\n"},
 					&expect.BExp{R: expectedUserData},
 				}, time.Second*120)
 
@@ -197,6 +199,7 @@ var _ = Describe("CloudInit UserData", func() {
 			}
 			LaunchVMI(vmi)
 			VerifyUserDataVMI(vmi, []expect.Batcher{
+				&expect.BSnd{S: "\n"},
 				&expect.BExp{R: expectedUserData},
 			}, time.Second*120)
 
