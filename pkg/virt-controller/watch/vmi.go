@@ -254,7 +254,17 @@ func (c *VMIController) execute(key string) error {
 	if needsSync {
 		syncErr = c.sync(vmi, pods, dataVolumes)
 	}
-	return c.updateStatus(vmi, pods, dataVolumes, syncErr)
+	err = c.updateStatus(vmi, pods, dataVolumes, syncErr)
+	if err != nil {
+		return err
+	}
+
+	if syncErr != nil {
+		return syncErr
+	}
+
+	return nil
+
 }
 
 func (c *VMIController) updateStatus(vmi *virtv1.VirtualMachineInstance, pods []*k8sv1.Pod, dataVolumes []*cdiv1.DataVolume, syncErr syncError) error {
