@@ -3090,8 +3090,7 @@
     "description": "APIGroup contains the name, the supported versions, and the preferred version of a group.",
     "required": [
      "name",
-     "versions",
-     "serverAddressByClientCIDRs"
+     "versions"
     ],
     "properties": {
      "apiVersion": {
@@ -4001,13 +4000,17 @@
     }
    },
    "v1.NodeSelectorTerm": {
-    "description": "A null or empty node selector term matches no objects.",
-    "required": [
-     "matchExpressions"
-    ],
+    "description": "A null or empty node selector term matches no objects. The requirements of them are ANDed. The TopologySelectorTerm type implements a subset of the NodeSelectorTerm.",
     "properties": {
      "matchExpressions": {
-      "description": "Required. A list of node selector requirements. The requirements are ANDed.",
+      "description": "A list of node selector requirements by node's labels.",
+      "type": "array",
+      "items": {
+       "$ref": "#/definitions/v1.NodeSelectorRequirement"
+      }
+     },
+     "matchFields": {
+      "description": "A list of node selector requirements by node's fields.",
       "type": "array",
       "items": {
        "$ref": "#/definitions/v1.NodeSelectorRequirement"

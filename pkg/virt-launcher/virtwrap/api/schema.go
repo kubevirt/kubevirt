@@ -92,7 +92,7 @@ const (
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 type Domain struct {
 	metav1.TypeMeta
-	ObjectMeta kubev1.ObjectMeta
+	ObjectMeta metav1.ObjectMeta
 	Spec       DomainSpec
 	Status     DomainStatus
 }
@@ -682,7 +682,7 @@ func NewMinimalDomainWithNS(namespace string, name string) *Domain {
 func NewDomainReferenceFromName(namespace string, name string) *Domain {
 	return &Domain{
 		Spec: DomainSpec{},
-		ObjectMeta: kubev1.ObjectMeta{
+		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
 			Namespace: namespace,
 		},

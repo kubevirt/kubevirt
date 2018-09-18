@@ -80,8 +80,8 @@ var _ = Describe("Kubevirt VirtualMachineInstanceReplicaSet Client", func() {
 		))
 		fetchedVMIReplicaSetList, err := client.ReplicaSet(k8sv1.NamespaceDefault).List(k8smetav1.ListOptions{})
 
-		Expect(server.ReceivedRequests()).To(HaveLen(1))
 		Expect(err).ToNot(HaveOccurred())
+		Expect(server.ReceivedRequests()).To(HaveLen(1))
 		Expect(fetchedVMIReplicaSetList.Items).To(HaveLen(1))
 		Expect(fetchedVMIReplicaSetList.Items[0]).To(Equal(*rs))
 	})
