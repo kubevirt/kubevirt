@@ -426,14 +426,14 @@ var _ = Describe("Converter", func() {
       <source file="/var/run/kubevirt-private/secret-disks/volume6.iso"></source>
       <target bus="sata" dev="sde"></target>
       <serial>D23YZ9W6WA5DJ487</serial>
-      <driver name="qemu" type="raw"></driver>
+      <driver name="qemu" type="raw" iothread="1"></driver>
       <alias name="ua-secret_test"></alias>
     </disk>
     <disk device="disk" type="file">
       <source file="/var/run/kubevirt-private/config-map-disks/volume7.iso"></source>
       <target bus="sata" dev="sdf"></target>
       <serial>CVLY623300HK240D</serial>
-      <driver name="qemu" type="raw"></driver>
+      <driver name="qemu" type="raw" iothread="1"></driver>
       <alias name="ua-configmap_test"></alias>
     </disk>
     <serial type="unix">
@@ -910,7 +910,7 @@ var _ = Describe("Converter", func() {
 		_false := false
 		_true := true
 
-		table.DescribeTable("Should use correct IOThreads policies", func(policy string, threadCount int, threadIDs []int) {
+		table.DescribeTable("Should use correct IOThreads policies", func(policy string, cpuCores int, threadCount int, threadIDs []int) {
 			vmi := v1.VirtualMachineInstance{
 				ObjectMeta: k8smeta.ObjectMeta{
 					Name:      "testvmi",
@@ -920,6 +920,9 @@ var _ = Describe("Converter", func() {
 				Spec: v1.VirtualMachineInstanceSpec{
 					Domain: v1.DomainSpec{
 						IOThreadsPolicy: &policy,
+						CPU: &v1.CPU{
+							Cores: uint32(cpuCores),
+						},
 						Devices: v1.Devices{
 							Disks: []v1.Disk{
 								{
@@ -960,6 +963,33 @@ var _ = Describe("Converter", func() {
 										},
 									},
 								},
+								{
+									Name:       "omitted3",
+									VolumeName: "volume4",
+									DiskDevice: v1.DiskDevice{
+										Disk: &v1.DiskTarget{
+											Bus: "virtio",
+										},
+									},
+								},
+								{
+									Name:       "omitted4",
+									VolumeName: "volume5",
+									DiskDevice: v1.DiskDevice{
+										Disk: &v1.DiskTarget{
+											Bus: "virtio",
+										},
+									},
+								},
+								{
+									Name:       "omitted5",
+									VolumeName: "volume5",
+									DiskDevice: v1.DiskDevice{
+										Disk: &v1.DiskTarget{
+											Bus: "virtio",
+										},
+									},
+								},
 							},
 						},
 					},
@@ -967,32 +997,70 @@ var _ = Describe("Converter", func() {
 						{
 							Name: "volume0",
 							VolumeSource: v1.VolumeSource{
-								PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{
-									ClaimName: "testclaim",
+								Ephemeral: &v1.EphemeralVolumeSource{
+									PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{
+										ClaimName: "testclaim",
+									},
 								},
 							},
 						},
 						{
 							Name: "volume1",
 							VolumeSource: v1.VolumeSource{
-								PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{
-									ClaimName: "testclaim",
+								Ephemeral: &v1.EphemeralVolumeSource{
+									PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{
+										ClaimName: "testclaim",
+									},
 								},
 							},
 						},
 						{
 							Name: "volume2",
 							VolumeSource: v1.VolumeSource{
-								PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{
-									ClaimName: "testclaim",
+								Ephemeral: &v1.EphemeralVolumeSource{
+									PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{
+										ClaimName: "testclaim",
+									},
 								},
 							},
 						},
 						{
 							Name: "volume3",
 							VolumeSource: v1.VolumeSource{
-								PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{
-									ClaimName: "testclaim",
+								Ephemeral: &v1.EphemeralVolumeSource{
+									PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{
+										ClaimName: "testclaim",
+									},
+								},
+							},
+						},
+						{
+							Name: "volume4",
+							VolumeSource: v1.VolumeSource{
+								Ephemeral: &v1.EphemeralVolumeSource{
+									PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{
+										ClaimName: "testclaim",
+									},
+								},
+							},
+						},
+						{
+							Name: "volume5",
+							VolumeSource: v1.VolumeSource{
+								Ephemeral: &v1.EphemeralVolumeSource{
+									PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{
+										ClaimName: "testclaim",
+									},
+								},
+							},
+						},
+						{
+							Name: "volume6",
+							VolumeSource: v1.VolumeSource{
+								Ephemeral: &v1.EphemeralVolumeSource{
+									PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{
+										ClaimName: "testclaim",
+									},
 								},
 							},
 						},
@@ -1008,8 +1076,14 @@ var _ = Describe("Converter", func() {
 				Expect(int(*disk.Driver.IOThread)).To(Equal(threadIDs[idx]))
 			}
 		},
-			table.Entry("using a shared policy", "shared", 2, []int{2, 1, 1, 1}),
-			table.Entry("using a dedicated policy", "dedicated", 4, []int{2, 1, 3, 4}),
+			table.Entry("using a shared policy with 1 CPU", "shared", 1, 2, []int{2, 1, 1, 1, 1, 1, 1}),
+			table.Entry("using a shared policy with 2 CPUs", "shared", 2, 2, []int{2, 1, 1, 1, 1, 1, 1}),
+			table.Entry("using a shared policy with 3 CPUs", "shared", 2, 2, []int{2, 1, 1, 1, 1, 1, 1}),
+			table.Entry("using an auto policy with 1 CPU", "auto", 1, 2, []int{2, 1, 1, 1, 1, 1, 1}),
+			table.Entry("using an auto policy with 2 CPUs", "auto", 2, 4, []int{4, 1, 2, 3, 1, 2, 3}),
+			table.Entry("using an auto policy with 3 CPUs", "auto", 3, 6, []int{6, 1, 2, 3, 4, 5, 1}),
+			table.Entry("using an auto policy with 4 CPUs", "auto", 4, 7, []int{7, 1, 2, 3, 4, 5, 6}),
+			table.Entry("using an auto policy with 5 CPUs", "auto", 5, 7, []int{7, 1, 2, 3, 4, 5, 6}),
 		)
 	})
 })
