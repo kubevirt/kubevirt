@@ -470,10 +470,15 @@ func Convert_v1_VirtualMachine_To_api_Domain(vmi *v1.VirtualMachineInstance, dom
 		useIOThreads = true
 
 		if (*vmi.Spec.Domain.IOThreadsPolicy) == "auto" {
-			threadPoolLimit = 2
-			if vmi.Spec.Domain.CPU != nil {
-				threadPoolLimit = 2 * int(vmi.Spec.Domain.CPU.Cores)
+			numCPUs := 1
+			// Requested CPU's is guaranteed to be no greater than the limit
+			if cpuRequests, ok := vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceCPU]; ok {
+				numCPUs = int(cpuRequests.Value())
+			} else if cpuLimit, ok := vmi.Spec.Domain.Resources.Limits[k8sv1.ResourceCPU]; ok {
+				numCPUs = int(cpuLimit.Value())
 			}
+
+			threadPoolLimit = numCPUs * 2
 		}
 	}
 	for _, diskDevice := range vmi.Spec.Domain.Devices.Disks {
@@ -534,20 +539,6 @@ func Convert_v1_VirtualMachine_To_api_Domain(vmi *v1.VirtualMachineInstance, dom
 			if dedicatedThread {
 				ioThreadId = currentDedicatedThread
 				currentDedicatedThread += 1
-
-				logger := log.DefaultLogger()
-				logger.Infof("Bus for this disk: %s", newDisk.Target.Bus)
-
-				if newDisk.Target.Bus == "scsi" {
-					newController := Controller{
-						Type:  "scsi",
-						Model: "virtio-scsi",
-						Driver: &ControllerDriver{
-							IOThread: &ioThreadId,
-						},
-					}
-					domain.Spec.Devices.Controllers = append(domain.Spec.Devices.Controllers, newController)
-				}
 			} else {
 				ioThreadId = currentAutoThread
 				// increment the threadId to be used next but wrap around at the thread limit
