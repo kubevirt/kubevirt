@@ -53,7 +53,7 @@ const (
 )
 
 var validInterfaceModels = []string{"e1000", "e1000e", "ne2k_pci", "pcnet", "rtl8139", "virtio"}
-var validIOThreadsPolicies = []string{"shared", "dedicated"}
+var validIOThreadsPolicies = []string{"shared", "auto"}
 
 func toAdmissionResponse(causes []metav1.StatusCause) *v1beta1.AdmissionResponse {
 	log.Log.Infof("rejected vmi admission")
