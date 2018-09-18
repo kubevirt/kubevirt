@@ -461,32 +461,43 @@ func Convert_v1_VirtualMachine_To_api_Domain(vmi *v1.VirtualMachineInstance, dom
 		volumes[volume.Name] = volume.DeepCopy()
 	}
 
-	ioThreadCount := 0
+	dedicatedThreads := 0
+	autoThreads := 0
 	useIOThreads := false
-	useDedicatedThreads := false
-	sharedThread := false
+	threadPoolLimit := 1
+
 	if vmi.Spec.Domain.IOThreadsPolicy != nil {
 		useIOThreads = true
-		if *vmi.Spec.Domain.IOThreadsPolicy == "dedicated" {
-			useDedicatedThreads = true
+
+		if (*vmi.Spec.Domain.IOThreadsPolicy) == "auto" {
+			threadPoolLimit = 2
+			if vmi.Spec.Domain.CPU != nil {
+				threadPoolLimit = 2 * int(vmi.Spec.Domain.CPU.Cores)
+			}
 		}
 	}
 	for _, diskDevice := range vmi.Spec.Domain.Devices.Disks {
-		dedicatedThread := useDedicatedThreads
+		dedicatedThread := false
 		if diskDevice.DedicatedIOThread != nil {
 			dedicatedThread = *diskDevice.DedicatedIOThread
 		}
 		if dedicatedThread {
 			useIOThreads = true
-			ioThreadCount += 1
+			dedicatedThreads += 1
 		} else {
-			sharedThread = true
+			autoThreads += 1
 		}
 	}
-	// Only allocate a shared thread if it's actually needed
-	if sharedThread {
-		ioThreadCount += 1
+
+	if (autoThreads + dedicatedThreads) > threadPoolLimit {
+		autoThreads = threadPoolLimit - dedicatedThreads
+		// We need at least one shared thread
+		if autoThreads < 1 {
+			autoThreads = 1
+		}
 	}
+
+	ioThreadCount := (autoThreads + dedicatedThreads)
 	if ioThreadCount != 0 {
 		if domain.Spec.IOThreads == nil {
 			domain.Spec.IOThreads = &IOThreads{}
@@ -494,10 +505,8 @@ func Convert_v1_VirtualMachine_To_api_Domain(vmi *v1.VirtualMachineInstance, dom
 		domain.Spec.IOThreads.IOThreads = uint(ioThreadCount)
 	}
 
-	currentIOThread := defaultIOThread
-	if sharedThread {
-		currentIOThread += 1
-	}
+	currentAutoThread := defaultIOThread
+	currentDedicatedThread := uint(autoThreads + 1)
 	devicePerBus := make(map[string]int)
 	for _, disk := range vmi.Spec.Domain.Devices.Disks {
 		newDisk := Disk{}
@@ -517,14 +526,14 @@ func Convert_v1_VirtualMachine_To_api_Domain(vmi *v1.VirtualMachineInstance, dom
 
 		if useIOThreads {
 			ioThreadId := defaultIOThread
-			dedicatedThread := useDedicatedThreads
+			dedicatedThread := false
 			if disk.DedicatedIOThread != nil {
 				dedicatedThread = *disk.DedicatedIOThread
 			}
 
 			if dedicatedThread {
-				ioThreadId = currentIOThread
-				currentIOThread += 1
+				ioThreadId = currentDedicatedThread
+				currentDedicatedThread += 1
 
 				logger := log.DefaultLogger()
 				logger.Infof("Bus for this disk: %s", newDisk.Target.Bus)
@@ -539,6 +548,11 @@ func Convert_v1_VirtualMachine_To_api_Domain(vmi *v1.VirtualMachineInstance, dom
 					}
 					domain.Spec.Devices.Controllers = append(domain.Spec.Devices.Controllers, newController)
 				}
+			} else {
+				ioThreadId = currentAutoThread
+				// increment the threadId to be used next but wrap around at the thread limit
+				// the odd math here is because thread ID's start at 1, not 0
+				currentAutoThread = (currentAutoThread % uint(autoThreads)) + 1
 			}
 			newDisk.Driver.IOThread = &ioThreadId
 		}
