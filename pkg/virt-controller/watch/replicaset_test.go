@@ -527,6 +527,38 @@ var _ = Describe("Replicaset", func() {
 
 			testutils.ExpectEvents(recorder, SuccessfulDeleteVirtualMachineReason, FailedDeleteVirtualMachineReason)
 		})
+		It("should back off if a sync error occurs", func() {
+			rs, vmi := DefaultReplicaSet(0)
+			vmi1 := vmi.DeepCopy()
+			vmi1.ObjectMeta.Name = "test1"
+
+			addReplicaSet(rs)
+			vmiFeeder.Add(vmi)
+			vmiFeeder.Add(vmi1)
+
+			// Let first one succeed
+			vmiInterface.EXPECT().Delete(vmi.ObjectMeta.Name, gomock.Any()).Return(nil)
+			// Let second one fail
+			vmiInterface.EXPECT().Delete(vmi1.ObjectMeta.Name, gomock.Any()).Return(fmt.Errorf("failure"))
+
+			// We should see the failed condition, replicas should stay at 2
+			rsInterface.EXPECT().Update(gomock.Any()).Do(func(obj interface{}) {
+				objRS := obj.(*v1.VirtualMachineInstanceReplicaSet)
+				Expect(objRS.Status.Replicas).To(Equal(int32(2)))
+				Expect(objRS.Status.Conditions).To(HaveLen(1))
+				cond := objRS.Status.Conditions[0]
+				Expect(cond.Type).To(Equal(v1.VirtualMachineInstanceReplicaSetReplicaFailure))
+				Expect(cond.Reason).To(Equal("FailedDelete"))
+				Expect(cond.Message).To(Equal("failure"))
+				Expect(cond.Status).To(Equal(k8sv1.ConditionTrue))
+			})
+
+			controller.Execute()
+			Expect(mockQueue.GetRateLimitedEnqueueCount()).To(Equal(1))
+			Expect(mockQueue.Len()).To(Equal(0))
+
+			testutils.ExpectEvents(recorder, SuccessfulDeleteVirtualMachineReason, FailedDeleteVirtualMachineReason)
+		})
 
 		It("should update the replica count but keep the failed state", func() {
 			rs, vmi := DefaultReplicaSet(3)
@@ -583,6 +615,7 @@ var _ = Describe("Replicaset", func() {
 			})
 
 			controller.Execute()
+			Expect(mockQueue.GetRateLimitedEnqueueCount()).To(Equal(0))
 			testutils.ExpectEvent(recorder, SuccessfulCreateVirtualMachineReason)
 			testutils.ExpectEvent(recorder, SuccessfulCreateVirtualMachineReason)
 		})

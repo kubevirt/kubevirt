@@ -598,6 +598,30 @@ var _ = Describe("VirtualMachine", func() {
 
 			testutils.ExpectEvents(recorder, FailedDeleteVirtualMachineReason)
 		})
+
+		It("should back off if a sync error occurs", func() {
+			vm, vmi := DefaultVirtualMachine(false)
+
+			addVirtualMachine(vm)
+			vmiFeeder.Add(vmi)
+
+			vmiInterface.EXPECT().Delete(vmi.ObjectMeta.Name, gomock.Any()).Return(fmt.Errorf("failure"))
+
+			vmInterface.EXPECT().Update(gomock.Any()).Do(func(obj interface{}) {
+				objVM := obj.(*v1.VirtualMachine)
+				Expect(objVM.Status.Conditions).To(HaveLen(1))
+				cond := objVM.Status.Conditions[0]
+				Expect(cond.Type).To(Equal(v1.VirtualMachineFailure))
+				Expect(cond.Reason).To(Equal("FailedDelete"))
+				Expect(cond.Message).To(Equal("failure"))
+				Expect(cond.Status).To(Equal(k8sv1.ConditionTrue))
+			})
+
+			controller.Execute()
+			Expect(mockQueue.Len()).To(Equal(0))
+			Expect(mockQueue.GetRateLimitedEnqueueCount()).To(Equal(1))
+			testutils.ExpectEvents(recorder, FailedDeleteVirtualMachineReason)
+		})
 	})
 })
 
