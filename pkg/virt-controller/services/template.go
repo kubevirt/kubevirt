@@ -334,7 +334,10 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 		if resources.Limits == nil {
 			resources.Limits = make(k8sv1.ResourceList)
 		}
-		cores := vmi.Spec.Domain.CPU.Cores
+		cores := uint32(0)
+		if vmi.Spec.Domain.CPU != nil {
+			cores = vmi.Spec.Domain.CPU.Cores
+		}
 		if cores != 0 {
 			resources.Limits[k8sv1.ResourceCPU] = *resource.NewQuantity(int64(cores), resource.BinarySI)
 		} else {
