@@ -920,8 +920,10 @@ var _ = Describe("Converter", func() {
 				Spec: v1.VirtualMachineInstanceSpec{
 					Domain: v1.DomainSpec{
 						IOThreadsPolicy: &policy,
-						CPU: &v1.CPU{
-							Cores: uint32(cpuCores),
+						Resources: v1.ResourceRequirements{
+							Requests: k8sv1.ResourceList{
+								k8sv1.ResourceCPU: resource.MustParse(fmt.Sprintf("%d", cpuCores)),
+							},
 						},
 						Devices: v1.Devices{
 							Disks: []v1.Disk{
