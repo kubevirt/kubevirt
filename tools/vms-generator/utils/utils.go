@@ -468,7 +468,7 @@ func GetTestTemplateFedora() *Template {
 }
 
 func newTemplateFedoraWithDockerTag(dockerTag string) *Template {
-	vm := getBaseVM("", map[string]string{"kubevirt-vm": "vm-${NAME}"})
+	vm := getBaseVM("", map[string]string{"kubevirt-vm": "vm-${NAME}", "kubevirt.io/os": "fedora27"})
 	addRegistryDisk(&vm.Spec.Template.Spec, fmt.Sprintf("%s/%s:%s", DockerPrefix, imageFedora, dockerTag), busVirtio)
 	addNoCloudDiskWitUserData(&vm.Spec.Template.Spec, "#cloud-config\npassword: fedora\nchpasswd: { expire: False }")
 
@@ -489,7 +489,7 @@ func newTemplateFedoraWithDockerTag(dockerTag string) *Template {
 }
 
 func GetTemplateRHEL7() *Template {
-	vm := getBaseVM("", map[string]string{"kubevirt-vm": "vm-${NAME}"})
+	vm := getBaseVM("", map[string]string{"kubevirt-vm": "vm-${NAME}", "kubevirt.io/os": "rhel-7.4"})
 	addPVCDisk(&vm.Spec.Template.Spec, "linux-vm-pvc-${NAME}", busVirtio, "disk0", "disk0-pvc")
 
 	pvc := getPVCForTemplate("linux-vm-pvc-${NAME}")
@@ -500,7 +500,7 @@ func GetTemplateRHEL7() *Template {
 }
 
 func GetTestTemplateRHEL7() *Template {
-	vm := getBaseVM("", map[string]string{"kubevirt-vm": "vm-${NAME}"})
+	vm := getBaseVM("", map[string]string{"kubevirt-vm": "vm-${NAME}", "kubevirt.io/os": "rhel-7.4"})
 	addEphemeralPVCDisk(&vm.Spec.Template.Spec, "disk-rhel", busSata, "pvcdisk", "pvcvolume")
 
 	return newTemplateForRHEL7VM(vm)
@@ -524,7 +524,7 @@ func newTemplateForRHEL7VM(vm *v1.VirtualMachine) *Template {
 }
 
 func GetTemplateWindows() *Template {
-	vm := getBaseVM("", map[string]string{"kubevirt-vm": "vm-${NAME}"})
+	vm := getBaseVM("", map[string]string{"kubevirt-vm": "vm-${NAME}", "kubevirt.io/os": "win2k12r2"})
 	windows := GetVMIWindows()
 	vm.Spec.Template.Spec = windows.Spec
 	vm.Spec.Template.ObjectMeta.Annotations = windows.ObjectMeta.Annotations

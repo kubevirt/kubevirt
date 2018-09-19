@@ -17,6 +17,7 @@ objects:
     creationTimestamp: null
     labels:
       kubevirt-vm: vm-${NAME}
+      kubevirt.io/os: fedora27
     name: ${NAME}
   spec:
     running: false
@@ -25,6 +26,7 @@ objects:
         creationTimestamp: null
         labels:
           kubevirt-vm: vm-${NAME}
+          kubevirt.io/os: fedora27
       spec:
         domain:
           cpu:
