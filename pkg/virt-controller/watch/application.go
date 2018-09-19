@@ -38,12 +38,9 @@ import (
 	"k8s.io/client-go/tools/leaderelection"
 	"k8s.io/client-go/tools/leaderelection/resourcelock"
 	"k8s.io/client-go/tools/record"
+	"k8s.io/client-go/util/certificate"
 
-	"kubevirt.io/kubevirt/pkg/certificates"
-
-	"kubevirt.io/kubevirt/pkg/virt-controller/watch/drain/disruptionbudget"
-	"kubevirt.io/kubevirt/pkg/virt-controller/watch/drain/evacuation"
-
+	"kubevirt.io/kubevirt/pkg/certificate/bootstrap"
 	containerdisk "kubevirt.io/kubevirt/pkg/container-disk"
 	"kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/kubecli"
@@ -54,6 +51,8 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-controller/leaderelectionconfig"
 	"kubevirt.io/kubevirt/pkg/virt-controller/rest"
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
+	"kubevirt.io/kubevirt/pkg/virt-controller/watch/drain/disruptionbudget"
+	"kubevirt.io/kubevirt/pkg/virt-controller/watch/drain/evacuation"
 )
 
 const (
@@ -195,17 +194,21 @@ func Execute() {
 
 func (vca *VirtControllerApp) Run() {
 	logger := log.Log
-
 	certsDirectory, err := ioutil.TempDir("", "certsdir")
 	if err != nil {
 		panic(err)
 	}
-	defer os.RemoveAll(certsDirectory)
 
-	certStore, err := certificates.GenerateSelfSignedCert(certsDirectory, "virt-controller", vca.kubevirtNamespace)
+	certStore, err := certificate.NewFileStore("kubevirt-client", certsDirectory, certsDirectory, "", "")
 	if err != nil {
-		glog.Fatalf("unable to generate certificates: %v", err)
+		glog.Fatalf("unable to initialize certificae store: %v", err)
 	}
+
+	err = bootstrap.LoadClientCertForService(vca.clientSet, certStore, "virt-controller", vca.kubevirtNamespace)
+	if err != nil {
+		glog.Fatalf("failed to request or fetch the certificate: %v", err)
+	}
+
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	go func() {

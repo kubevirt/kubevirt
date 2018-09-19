@@ -29,7 +29,7 @@ import (
 	"path/filepath"
 	"sync"
 
-	restful "github.com/emicklei/go-restful"
+	"github.com/emicklei/go-restful"
 	restfulspec "github.com/emicklei/go-restful-openapi"
 	"github.com/go-openapi/spec"
 	"github.com/prometheus/client_golang/prometheus/promhttp"

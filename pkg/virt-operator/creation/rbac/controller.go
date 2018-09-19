@@ -142,6 +142,17 @@ func newControllerClusterRole() *rbacv1.ClusterRole {
 					"",
 				},
 				Resources: []string{
+					"secrets",
+				},
+				Verbs: []string{
+					"get", "list", "delete", "update", "create",
+				},
+			},
+			{
+				APIGroups: []string{
+					"",
+				},
+				Resources: []string{
 					"pods", "configmaps", "endpoints",
 				},
 				Verbs: []string{
@@ -223,6 +234,22 @@ func newControllerClusterRole() *rbacv1.ClusterRole {
 				},
 				Verbs: []string{
 					"get", "list", "watch",
+				},
+			},
+			{
+				APIGroups: []string{
+					"certificates.k8s.io",
+				},
+				Resources: []string{
+					"certificatesigningrequests",
+				},
+				Verbs: []string{
+					"create",
+					"update",
+					"get",
+					"delete",
+					"watch",
+					"list",
 				},
 			},
 		},

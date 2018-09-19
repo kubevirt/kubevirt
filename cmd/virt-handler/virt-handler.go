@@ -21,7 +21,6 @@ package main
 
 import (
 	"fmt"
-	"io/ioutil"
 	"net/http"
 	"os"
 	"time"
@@ -32,15 +31,17 @@ import (
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes/scheme"
 	k8coresv1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/record"
+	"k8s.io/client-go/util/certificate"
 
-	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
+	"kubevirt.io/kubevirt/pkg/util"
 
 	v1 "kubevirt.io/kubevirt/pkg/api/v1"
-	"kubevirt.io/kubevirt/pkg/certificates"
+	"kubevirt.io/kubevirt/pkg/certificate/bootstrap"
 	"kubevirt.io/kubevirt/pkg/controller"
 	inotifyinformer "kubevirt.io/kubevirt/pkg/inotify-informer"
 	"kubevirt.io/kubevirt/pkg/kubecli"
@@ -50,7 +51,7 @@ import (
 	promvm "kubevirt.io/kubevirt/pkg/monitoring/vms/prometheus"  // import for prometheus metrics
 	_ "kubevirt.io/kubevirt/pkg/monitoring/workqueue/prometheus" // import for prometheus metrics
 	"kubevirt.io/kubevirt/pkg/service"
-	"kubevirt.io/kubevirt/pkg/util"
+	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	virthandler "kubevirt.io/kubevirt/pkg/virt-handler"
 	virtcache "kubevirt.io/kubevirt/pkg/virt-handler/cache"
 	virtlauncher "kubevirt.io/kubevirt/pkg/virt-launcher"
@@ -72,6 +73,8 @@ const (
 
 	virtShareDir = "/var/run/kubevirt"
 
+	certificateDir = "/var/run/kubevirt-certificates"
+
 	// This value is derived from default MaxPods in Kubelet Config
 	maxDevices = 110
 )
@@ -81,6 +84,7 @@ type virtHandlerApp struct {
 	HostOverride            string
 	PodIpAddress            string
 	VirtShareDir            string
+	CertDir                 string
 	WatchdogTimeoutDuration time.Duration
 	MaxDevices              int
 }
@@ -180,29 +184,27 @@ func (app *virtHandlerApp) Run() {
 		virtconfig.NewClusterConfig(factory.ConfigMap().GetStore(), namespace),
 	)
 
-	certsDirectory, err := ioutil.TempDir("", "certsdir")
-	if err != nil {
-		panic(err)
-	}
-	defer os.RemoveAll(certsDirectory)
-
-	certStore, err := certificates.GenerateSelfSignedCert(certsDirectory, "virt-handler", namespace)
-	if err != nil {
-		glog.Fatalf("unable to generate certificates: %v", err)
-	}
-
-	promvm.SetupCollector(app.VirtShareDir)
-
-	// Bootstrapping. From here on the startup order matters
 	stop := make(chan struct{})
 	defer close(stop)
+
+	store, err := certificate.NewFileStore("kubevirt-client", app.CertDir, app.CertDir, "", "")
+	if err != nil {
+		glog.Fatalf("unable to initialize certificae store: %v", err)
+	}
+
+	err = bootstrap.LoadClientCertForNode(virtCli.CertificatesV1beta1(), store, types.NodeName(app.HostOverride))
+	if err != nil {
+		glog.Fatalf("failed to request or fetch the certificate: %v", err)
+	}
 	factory.Start(stop)
 	cache.WaitForCacheSync(stop, factory.ConfigMap().HasSynced)
 
 	go vmController.Run(3, stop)
 
+	promvm.SetupCollector(app.VirtShareDir)
+
 	http.Handle("/metrics", promhttp.Handler())
-	err = http.ListenAndServeTLS(app.ServiceListen.Address(), certStore.CurrentPath(), certStore.CurrentPath(), nil)
+	err = http.ListenAndServeTLS(app.ServiceListen.Address(), store.CurrentPath(), store.CurrentPath(), nil)
 	if err != nil {
 		log.Log.Reason(err).Error("Serving prometheus failed.")
 		panic(err)
@@ -224,6 +226,9 @@ func (app *virtHandlerApp) AddFlags() {
 		"The pod ip address")
 
 	flag.StringVar(&app.VirtShareDir, "kubevirt-share-dir", virtShareDir,
+		"Shared directory between virt-handler and virt-launcher")
+
+	flag.StringVar(&app.CertDir, "cert-dir", certificateDir,
 		"Shared directory between virt-handler and virt-launcher")
 
 	flag.DurationVar(&app.WatchdogTimeoutDuration, "watchdog-timeout", defaultWatchdogTimeout,

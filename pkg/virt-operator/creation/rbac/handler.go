@@ -201,6 +201,22 @@ func newHandlerClusterRole() *rbacv1.ClusterRole {
 					"create", "patch",
 				},
 			},
+			{
+				APIGroups: []string{
+					"certificates.k8s.io",
+				},
+				Resources: []string{
+					"certificatesigningrequests",
+				},
+				Verbs: []string{
+					"create",
+					"update",
+					"get",
+					"delete",
+					"watch",
+					"list",
+				},
+			},
 		},
 	}
 }
