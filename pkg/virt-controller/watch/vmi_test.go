@@ -388,6 +388,25 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 
 			testutils.ExpectEvent(recorder, FailedCreatePodReason)
 		})
+		It("should back-off if a sync error occurs", func() {
+			vmi := NewPendingVirtualMachine("testvmi")
+
+			addVirtualMachine(vmi)
+
+			kubeClient.Fake.PrependReactor("create", "pods", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
+				return true, nil, fmt.Errorf("random error")
+			})
+
+			vmiInterface.EXPECT().Update(gomock.Any()).Do(func(arg interface{}) {
+				Expect(arg.(*v1.VirtualMachineInstance).Status.Conditions[0].Reason).To(Equal("FailedCreate"))
+			}).Return(vmi, nil)
+
+			controller.Execute()
+			Expect(controller.Queue.Len()).To(Equal(0))
+			Expect(mockQueue.GetRateLimitedEnqueueCount()).To(Equal(1))
+
+			testutils.ExpectEvent(recorder, FailedCreatePodReason)
+		})
 		It("should remove the error condition if the sync finally succeeds", func() {
 			vmi := NewPendingVirtualMachine("testvmi")
 			vmi.Status.Conditions = []v1.VirtualMachineInstanceCondition{{Type: v1.VirtualMachineInstanceSynchronized}}
@@ -408,7 +427,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			}).Return(vmi, nil)
 
 			controller.Execute()
-
+			Expect(mockQueue.GetRateLimitedEnqueueCount()).To(Equal(0))
 			testutils.ExpectEvent(recorder, SuccessfulCreatePodReason)
 		})
 		table.DescribeTable("should move the vmi to scheduling state if a pod exists", func(phase k8sv1.PodPhase, isReady bool) {

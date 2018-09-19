@@ -13,6 +13,8 @@ import (
 	"kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 
+	"sync/atomic"
+
 	cdiv1 "kubevirt.io/containerized-data-importer/pkg/apis/datavolumecontroller/v1alpha1"
 )
 
@@ -34,7 +36,8 @@ a controller is set up, and an execution will process this scenario.
 */
 type MockWorkQueue struct {
 	workqueue.RateLimitingInterface
-	addWG *sync.WaitGroup
+	addWG            *sync.WaitGroup
+	rateLimitedEnque int32
 }
 
 func (q *MockWorkQueue) Add(obj interface{}) {
@@ -42,6 +45,15 @@ func (q *MockWorkQueue) Add(obj interface{}) {
 	if q.addWG != nil {
 		q.addWG.Done()
 	}
+}
+
+func (q *MockWorkQueue) AddRateLimited(item interface{}) {
+	q.RateLimitingInterface.AddRateLimited(item)
+	atomic.AddInt32(&q.rateLimitedEnque, 1)
+}
+
+func (q *MockWorkQueue) GetRateLimitedEnqueueCount() int {
+	return int(atomic.LoadInt32(&q.rateLimitedEnque))
 }
 
 // ExpectAdds allows setting the amount of expected enqueues.
@@ -60,7 +72,7 @@ func (q *MockWorkQueue) Wait() {
 }
 
 func NewMockWorkQueue(queue workqueue.RateLimitingInterface) *MockWorkQueue {
-	return &MockWorkQueue{queue, nil}
+	return &MockWorkQueue{queue, nil, 0}
 }
 
 func NewFakeInformerFor(obj runtime.Object) (cache.SharedIndexInformer, *framework.FakeControllerSource) {
