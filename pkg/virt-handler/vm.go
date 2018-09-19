@@ -466,11 +466,19 @@ func (d *VirtualMachineController) execute(key string) error {
 }
 
 func (d *VirtualMachineController) replacePVCByHostDisk(vmi *v1.VirtualMachineInstance) error {
-	// if PVC is defined then it is replaced by HostDisk
-	// PersistenVolumeClaim is mounted into pod as directory from node filesystem
-	// it is not attached as independent block device
+	// if PVC is defined and it's not a BlockMode PVC, then it is replaced by HostDisk
+	// Filesystem PersistenVolumeClaim is mounted into pod as directory from node filesystem
 	for i := range vmi.Spec.Volumes {
 		if volumeSource := &vmi.Spec.Volumes[i].VolumeSource; volumeSource.PersistentVolumeClaim != nil {
+
+			isBlockVolumePVC, err := hostdisk.IsBlockVolumePVC(volumeSource.PersistentVolumeClaim.ClaimName, vmi.Namespace, d.clientset)
+			if err != nil {
+				return err
+			}
+			if isBlockVolumePVC {
+				continue
+			}
+
 			pvcSize, err := hostdisk.GetPVCSize(volumeSource.PersistentVolumeClaim.ClaimName, vmi.Namespace, d.clientset)
 			if err != nil {
 				return err

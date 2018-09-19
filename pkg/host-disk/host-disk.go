@@ -60,6 +60,19 @@ func GetPVCDiskImgPath(volumeName string) string {
 	return path.Join(pvcBaseDir, volumeName, "disk.img")
 }
 
+func IsBlockVolumePVC(pvcName string, namespace string, clientset kubecli.KubevirtClient) (bool, error) {
+	precond.CheckNotNil(pvcName)
+	precond.CheckNotEmpty(namespace)
+	precond.CheckNotNil(clientset)
+
+	pvc, err := clientset.CoreV1().PersistentVolumeClaims(namespace).Get(pvcName, metav1.GetOptions{})
+	if err != nil {
+		return false, err
+	}
+
+	return pvc.Spec.VolumeMode != nil && *pvc.Spec.VolumeMode == k8sv1.PersistentVolumeBlock, nil
+}
+
 func GetPVCSize(pvcName string, namespace string, clientset kubecli.KubevirtClient) (resource.Quantity, error) {
 	precond.CheckNotNil(pvcName)
 	precond.CheckNotEmpty(namespace)
