@@ -199,34 +199,50 @@ func getFilesystemVolumePath(volumeName string) string {
 	return filepath.Join(string(filepath.Separator), "var", "run", "kubevirt-private", "vm-disks", volumeName, "disk.img")
 }
 
-func isFilesystemVolume(volumeName string) (bool, error) {
-	path := getFilesystemVolumePath(volumeName)
-	_, err := os.Stat(path)
+func getBlockDeviceVolumePath(volumeName string) string {
+	return filepath.Join(string(filepath.Separator), "dev", volumeName)
+}
+
+func isBlockDeviceVolume(volumeName string) (bool, error) {
+	// check for block device
+	path := getBlockDeviceVolumePath(volumeName)
+	fileInfo, err := os.Stat(path)
 	if err == nil {
-		return true, nil
+		if (fileInfo.Mode() & os.ModeDevice) != 0 {
+			return true, nil
+		}
+		return false, fmt.Errorf("found %v, but it's not a block device", path)
 	}
 	if os.IsNotExist(err) {
-		return false, nil
+		// cross check: is it a filesystem volume
+		path = getFilesystemVolumePath(volumeName)
+		fileInfo, err := os.Stat(path)
+		if err == nil {
+			if fileInfo.Mode().IsRegular() {
+				return false, nil
+			}
+			return false, fmt.Errorf("found %v, but it's not a regular file", path)
+		}
+		if os.IsNotExist(err) {
+			return false, fmt.Errorf("neither found block device nor regular file for volume %v", volumeName)
+		}
 	}
-	return true, err
+	return false, fmt.Errorf("error checking for block device: %v", err)
 }
 
 func Convert_v1_PersistentVolumeClaim_To_api_Disk(name string, claimName string, disk *Disk, c *ConverterContext) error {
-	isFilesystem, err := isFilesystemVolume(name)
+	isBlockDevice, err := isBlockDeviceVolume(name)
 	if err != nil {
 		return err
 	}
-	// FIXME: need to decide how to detect devices vs filesystems
-	if isFilesystem {
-		return Convert_v1_FilesystemVolumeSource_To_api_Disk(name, disk, c)
-
+	if isBlockDevice {
+		return Convert_v1_BlockVolumeSource_To_api_Disk(name, disk, c)
 	}
-	return Convert_v1_BlockVolumeSource_To_api_Disk(name, disk, c)
+	return Convert_v1_FilesystemVolumeSource_To_api_Disk(name, disk, c)
 }
 
 // Convert_v1_FilesystemVolumeSource_To_api_Disk takes a FS source and builds the KVM Disk representation
 func Convert_v1_FilesystemVolumeSource_To_api_Disk(volumeName string, disk *Disk, c *ConverterContext) error {
-
 	disk.Type = "file"
 	disk.Driver.Type = "raw"
 	disk.Source.File = getFilesystemVolumePath(volumeName)
@@ -234,15 +250,9 @@ func Convert_v1_FilesystemVolumeSource_To_api_Disk(volumeName string, disk *Disk
 }
 
 func Convert_v1_BlockVolumeSource_To_api_Disk(volumeName string, disk *Disk, c *ConverterContext) error {
-	// A bug in Kubernetes prevents this from working. But there's a fix already merged:
-	// https://github.com/kubernetes/kubernetes/pull/61549
-	// See also:
-	// https://github.com/kubernetes/kubernetes/issues/62560
-	// https://github.com/kubernetes/kubernetes/issues/54108
-	// https://github.com/kubernetes/kubernetes/issues/58251
 	disk.Type = "block"
 	disk.Driver.Type = "raw"
-	disk.Source.Dev = filepath.Join(string(filepath.Separator), "dev", volumeName)
+	disk.Source.Dev = getBlockDeviceVolumePath(volumeName)
 	return nil
 }
 
