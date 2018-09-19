@@ -162,8 +162,6 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 		}
 		if volume.PersistentVolumeClaim != nil {
 			logger := log.DefaultLogger()
-			// FIXME: We should create an event and mark the VMI as failed if the referenced
-			// PVC is not found
 			isBlock, err := isPVCBlock(namespace, volume.PersistentVolumeClaim.ClaimName)
 			if err != nil {
 				logger.Errorf("error checking for PVC: %v", err)
