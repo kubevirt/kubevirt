@@ -419,5 +419,22 @@ var _ = Describe("Storage", func() {
 				}
 			})
 		})
+
+		Context("With Cirros BlockMode PVC", func() {
+			It("should be successfully started", func() {
+				// Start the VirtualMachineInstance with the PVC attached
+				vmi := tests.NewRandomVMIWithPVC(tests.BlockPVCCirros)
+				// Without userdata the hostname isn't set correctly and the login expecter fails...
+				tests.AddUserData(vmi, "#!/bin/bash\necho 'hello'\n")
+
+				tests.RunVMIAndExpectLaunch(vmi, false, 90)
+
+				By("Checking that the VirtualMachineInstance console has expected output")
+				expecter, err := tests.LoggedInCirrosExpecter(vmi)
+				Expect(err).To(BeNil())
+				expecter.Close()
+			})
+		})
+
 	})
 })

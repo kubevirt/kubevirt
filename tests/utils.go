@@ -153,6 +153,7 @@ const (
 	DiskWindows        = "disk-windows"
 	DiskRhel           = "disk-rhel"
 	DiskCustomHostPath = "disk-custom-host-path"
+	BlockPVCCirros     = "local-block-storage-cirros"
 )
 
 const (
@@ -352,6 +353,11 @@ func BeforeTestSuitSetup() {
 	CreatePVC(osWindows, defaultWindowsDiskSize)
 	CreatePVC(osRhel, defaultRhelDiskSize)
 
+	// create PVC for cirros block device PV, which is provided by local volume provider
+	selector := make(map[string]string)
+	selector["blockstorage"] = "cirros"
+	CreateBlockVolumePVC(BlockPVCCirros, selector, "1Gi")
+
 	EnsureKVMPresent()
 }
 
@@ -452,6 +458,41 @@ func newPVC(os string, size string) *k8sv1.PersistentVolumeClaim {
 				},
 			},
 			StorageClassName: &storageClass,
+		},
+	}
+}
+
+func CreateBlockVolumePVC(name string, labelSelector map[string]string, size string) {
+	virtCli, err := kubecli.GetKubevirtClient()
+	PanicOnError(err)
+
+	_, err = virtCli.CoreV1().PersistentVolumeClaims(NamespaceTestDefault).Create(newBlockVolumePVC(name, labelSelector, size))
+	if !errors.IsAlreadyExists(err) {
+		PanicOnError(err)
+	}
+}
+
+func newBlockVolumePVC(name string, labelSelector map[string]string, size string) *k8sv1.PersistentVolumeClaim {
+	quantity, err := resource.ParseQuantity(size)
+	PanicOnError(err)
+
+	storageClass := LocalStorageClass
+	volumeMode := k8sv1.PersistentVolumeBlock
+
+	return &k8sv1.PersistentVolumeClaim{
+		ObjectMeta: metav1.ObjectMeta{Name: name},
+		Spec: k8sv1.PersistentVolumeClaimSpec{
+			AccessModes: []k8sv1.PersistentVolumeAccessMode{k8sv1.ReadWriteOnce},
+			Resources: k8sv1.ResourceRequirements{
+				Requests: k8sv1.ResourceList{
+					"storage": quantity,
+				},
+			},
+			Selector: &metav1.LabelSelector{
+				MatchLabels: labelSelector,
+			},
+			StorageClassName: &storageClass,
+			VolumeMode:       &volumeMode,
 		},
 	}
 }
@@ -1052,7 +1093,11 @@ func AddEphemeralFloppy(vmi *v1.VirtualMachineInstance, name string, image strin
 
 func NewRandomVMIWithEphemeralDiskAndUserdata(containerImage string, userData string) *v1.VirtualMachineInstance {
 	vmi := NewRandomVMIWithEphemeralDisk(containerImage)
+	AddUserData(vmi, userData)
+	return vmi
+}
 
+func AddUserData(vmi *v1.VirtualMachineInstance, userData string) {
 	vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
 		Name:       "disk1",
 		VolumeName: "disk1",
@@ -1070,7 +1115,6 @@ func NewRandomVMIWithEphemeralDiskAndUserdata(containerImage string, userData st
 			},
 		},
 	})
-	return vmi
 }
 
 func NewRandomVMIWithPVC(claimName string) *v1.VirtualMachineInstance {
