@@ -29,5 +29,4 @@ if ! [ -S "$SOCKET" ]; then
 	exit 1
 fi
 
-stty -echo
-socat unix-connect:/$SOCKET stdio,cfmakeraw
+socat unix-connect:/$SOCKET stdio
