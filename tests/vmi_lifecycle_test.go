@@ -66,7 +66,7 @@ func addNodeAffinityToVMI(vmi *v1.VirtualMachineInstance, nodeName string) {
 	}
 }
 
-var _ = Describe("VMIlifecycle", func() {
+var _ = FDescribe("VMIlifecycle", func() {
 
 	flag.Parse()
 
@@ -236,7 +236,7 @@ var _ = Describe("VMIlifecycle", func() {
 						}
 					}
 					By("Starting a VirtualMachineInstance")
-					obj, err := virtClient.RestClient().Post().Resource("virtualmachineinstances").Namespace(tests.NamespaceTestDefault).Body(vmi).Do().Get()
+					obj, err := virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
 					Expect(err).To(BeNil())
 
 					By("Checking that VirtualMachineInstance was restarted twice")
@@ -1059,13 +1059,10 @@ var _ = Describe("VMIlifecycle", func() {
 	Describe("Killed VirtualMachineInstance", func() {
 		It("should be in Failed phase", func() {
 			By("Starting a VirtualMachineInstance")
-			obj, err := virtClient.RestClient().Post().Resource("virtualmachineinstances").Namespace(tests.NamespaceTestDefault).Body(vmi).Do().Get()
+			obj, err := virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
 			Expect(err).To(BeNil())
 
 			nodeName := tests.WaitForSuccessfulVMIStart(obj)
-			_, ok := obj.(*v1.VirtualMachineInstance)
-			Expect(ok).To(BeTrue(), "Object is not of type *v1.VirtualMachineInstance")
-			Expect(err).ToNot(HaveOccurred())
 
 			By("Killing the VirtualMachineInstance")
 			time.Sleep(10 * time.Second)
@@ -1076,23 +1073,19 @@ var _ = Describe("VMIlifecycle", func() {
 
 			By("Checking that the VirtualMachineInstance has 'Failed' phase")
 			Expect(func() v1.VirtualMachineInstancePhase {
-				vmi := &v1.VirtualMachineInstance{}
-				err := virtClient.RestClient().Get().Resource("virtualmachineinstances").Namespace(tests.NamespaceTestDefault).Name(obj.(*v1.VirtualMachineInstance).ObjectMeta.Name).Do().Into(vmi)
+				failedVMI, err := virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Get(vmi.Name, &metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
-				return vmi.Status.Phase
+				return failedVMI.Status.Phase
 			}()).To(Equal(v1.Failed))
 
 		})
 
 		It("should be left alone by virt-handler", func() {
 			By("Starting a VirtualMachineInstance")
-			obj, err := virtClient.RestClient().Post().Resource("virtualmachineinstances").Namespace(tests.NamespaceTestDefault).Body(vmi).Do().Get()
+			obj, err := virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
 			Expect(err).To(BeNil())
 
 			nodeName := tests.WaitForSuccessfulVMIStart(obj)
-			_, ok := obj.(*v1.VirtualMachineInstance)
-			Expect(ok).To(BeTrue(), "Object is not of type *v1.VirtualMachineInstance")
-			Expect(err).ToNot(HaveOccurred())
 
 			By("Killing the VirtualMachineInstance")
 			err = pkillAllVMIs(virtClient, nodeName)
