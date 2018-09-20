@@ -57,6 +57,7 @@ type LauncherClient interface {
 	SyncMigrationTarget(vmi *v1.VirtualMachineInstance) error
 	ShutdownVirtualMachine(vmi *v1.VirtualMachineInstance) error
 	KillVirtualMachine(vmi *v1.VirtualMachineInstance) error
+	MigrateVirtualMachine(vmi *v1.VirtualMachineInstance) error
 	DeleteDomain(vmi *v1.VirtualMachineInstance) error
 	GetDomain() (*api.Domain, bool, error)
 	Ping() error
@@ -130,6 +131,17 @@ func (c *VirtLauncherClient) genericSendCmd(args *Args, cmd string) (*Reply, err
 
 func (c *VirtLauncherClient) ShutdownVirtualMachine(vmi *v1.VirtualMachineInstance) error {
 	cmd := "Launcher.Shutdown"
+
+	args := &Args{
+		VMI: vmi,
+	}
+	_, err := c.genericSendCmd(args, cmd)
+
+	return err
+}
+
+func (c *VirtLauncherClient) MigrateVirtualMachine(vmi *v1.VirtualMachineInstance) error {
+	cmd := "Launcher.Migrate"
 
 	args := &Args{
 		VMI: vmi,

@@ -29,9 +29,12 @@ import (
 	"encoding/xml"
 	"fmt"
 	"os"
+	"sync"
+	"time"
 
 	"github.com/libvirt/libvirt-go"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	utilwait "k8s.io/apimachinery/pkg/util/wait"
 
 	"kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/cloud-init"
@@ -62,6 +65,9 @@ type DomainManager interface {
 
 type LibvirtDomainManager struct {
 	virConn cli.Connection
+
+	// Anytime a get and a set is done on the domain, this lock must be held.
+	domainModifyLock sync.Mutex
 }
 
 func NewLibvirtDomainManager(connection cli.Connection) (DomainManager, error) {
@@ -72,11 +78,166 @@ func NewLibvirtDomainManager(connection cli.Connection) (DomainManager, error) {
 	return &manager, nil
 }
 
+func (l *LibvirtDomainManager) initializeMigrationMetadata(vmi *v1.VirtualMachineInstance) (bool, error) {
+	l.domainModifyLock.Lock()
+	defer l.domainModifyLock.Unlock()
+
+	domName := api.VMINamespaceKeyFunc(vmi)
+	dom, err := l.virConn.LookupDomainByName(domName)
+	if err != nil {
+		log.Log.Object(vmi).Reason(err).Error("Getting the domain for migration failed.")
+		return false, err
+	}
+
+	defer dom.Free()
+	domainSpec, err := l.getDomainSpec(dom)
+	if err != nil {
+		return false, err
+	}
+
+	migrationMetadata := domainSpec.Metadata.KubeVirt.Migration
+	if migrationMetadata != nil && migrationMetadata.UID == vmi.Status.MigrationState.MigrationUID {
+		if migrationMetadata.EndTimestamp == nil {
+			// don't stomp on currently executing migrations
+			return true, nil
+
+		} else {
+			// Don't allow the same migration UID to be executed twice.
+			// Migration attempts are like pods. One shot.
+			return false, fmt.Errorf("migration job already executed")
+		}
+	}
+
+	now := metav1.Now()
+	domainSpec.Metadata.KubeVirt.Migration = &api.MigrationMetadata{
+		UID:            vmi.Status.MigrationState.MigrationUID,
+		StartTimestamp: &now,
+	}
+	_, err = util.SetDomainSpec(l.virConn, vmi, *domainSpec)
+	if err != nil {
+		return false, err
+	}
+	return false, nil
+}
+
+func (l *LibvirtDomainManager) setMigrationResult(vmi *v1.VirtualMachineInstance, failed bool, reason string) error {
+
+	connectionInterval := 10 * time.Second
+	connectionTimeout := 60 * time.Second
+
+	err := utilwait.PollImmediate(connectionInterval, connectionTimeout, func() (done bool, err error) {
+		err = l.setMigrationResultHelper(vmi, failed, reason)
+		if err != nil {
+			return false, nil
+		}
+		return true, nil
+	})
+
+	if err != nil {
+		log.Log.Object(vmi).Reason(err).Error("Unable to post migration results to libvirt after multiple tries")
+		return err
+	}
+	return nil
+
+}
+
+func (l *LibvirtDomainManager) setMigrationResultHelper(vmi *v1.VirtualMachineInstance, failed bool, reason string) error {
+
+	l.domainModifyLock.Lock()
+	defer l.domainModifyLock.Unlock()
+
+	domName := api.VMINamespaceKeyFunc(vmi)
+	dom, err := l.virConn.LookupDomainByName(domName)
+	if err != nil {
+		if domainerrors.IsNotFound(err) {
+			return nil
+
+		} else {
+			log.Log.Object(vmi).Reason(err).Error("Getting the domain for completed migration failed.")
+		}
+		return err
+	}
+
+	defer dom.Free()
+	domainSpec, err := l.getDomainSpec(dom)
+	if err != nil {
+		return err
+	}
+
+	migrationMetadata := domainSpec.Metadata.KubeVirt.Migration
+	if migrationMetadata != nil {
+		// nothing to report if migration metadata is empty
+		return nil
+	}
+
+	now := metav1.Now()
+
+	if failed {
+		domainSpec.Metadata.KubeVirt.Migration.Failed = true
+		domainSpec.Metadata.KubeVirt.Migration.FailureReason = reason
+	} else {
+		domainSpec.Metadata.KubeVirt.Migration.Completed = true
+	}
+	domainSpec.Metadata.KubeVirt.Migration.EndTimestamp = &now
+
+	_, err = util.SetDomainSpec(l.virConn, vmi, *domainSpec)
+	if err != nil {
+		return err
+	}
+	return nil
+
+}
+
+func (l *LibvirtDomainManager) asyncMigrate(vmi *v1.VirtualMachineInstance) {
+
+	go func(l *LibvirtDomainManager, vmi *v1.VirtualMachineInstance) {
+		// For a tunnelled migration, this is always the uri
+		dstUri := "qemu+tcp://127.0.0.1:22222/system"
+
+		destConn, err := libvirt.NewConnect(dstUri)
+		if err != nil {
+			log.Log.Object(vmi).Reason(err).Error("Failed to establish connection with target pod's libvirtd for migration.")
+			return
+		}
+
+		domName := api.VMINamespaceKeyFunc(vmi)
+		dom, err := l.virConn.LookupDomainByName(domName)
+		if err != nil {
+			log.Log.Object(vmi).Reason(err).Error("Live migration failed.")
+			l.setMigrationResult(vmi, true, fmt.Sprintf("%v", err))
+			return
+		}
+
+		migrateFlags := libvirt.MIGRATE_LIVE | libvirt.MIGRATE_PEER2PEER | libvirt.MIGRATE_TUNNELLED | libvirt.MIGRATE_NON_SHARED_DISK
+		_, err = dom.Migrate(destConn, migrateFlags, "", "", 0)
+		if err != nil {
+
+			log.Log.Object(vmi).Reason(err).Error("Live migration failed.")
+			l.setMigrationResult(vmi, true, fmt.Sprintf("%v", err))
+			return
+		}
+
+		log.Log.Object(vmi).Infof("Live migration succeeded.")
+		l.setMigrationResult(vmi, false, "")
+	}(l, vmi)
+}
+
 func (l *LibvirtDomainManager) MigrateVMI(vmi *v1.VirtualMachineInstance) error {
-	// TODO
-	// check migration info in vmi
-	// create target uri
-	// exec migration command
+
+	if vmi.Status.MigrationState == nil {
+		return fmt.Errorf("cannot migration VMI until migrationState is ready")
+	}
+
+	inProgress, err := l.initializeMigrationMetadata(vmi)
+	if err != nil {
+		return err
+	}
+
+	if inProgress {
+		return nil
+	}
+
+	l.asyncMigrate(vmi)
 
 	return nil
 }
@@ -177,6 +338,9 @@ func (l *LibvirtDomainManager) preStartHook(vmi *v1.VirtualMachineInstance, doma
 }
 
 func (l *LibvirtDomainManager) SyncVMI(vmi *v1.VirtualMachineInstance, useEmulation bool) (*api.DomainSpec, error) {
+	l.domainModifyLock.Lock()
+	defer l.domainModifyLock.Unlock()
+
 	logger := log.Log.Object(vmi)
 
 	domain := &api.Domain{}
@@ -326,6 +490,9 @@ func (l *LibvirtDomainManager) getDomainSpec(dom cli.VirDomain) (*api.DomainSpec
 }
 
 func (l *LibvirtDomainManager) SignalShutdownVMI(vmi *v1.VirtualMachineInstance) error {
+	l.domainModifyLock.Lock()
+	defer l.domainModifyLock.Unlock()
+
 	domName := util.VMINamespaceKeyFunc(vmi)
 	dom, err := l.virConn.LookupDomainByName(domName)
 	if err != nil {

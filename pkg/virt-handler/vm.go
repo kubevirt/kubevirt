@@ -249,6 +249,23 @@ func (d *VirtualMachineController) updateVMIStatus(vmi *v1.VirtualMachineInstanc
 		return err
 	}
 
+	if domain.Spec.Metadata.KubeVirt.Migration != nil && vmi.Status.MigrationState != nil {
+		migrationMetadata := domain.Spec.Metadata.KubeVirt.Migration
+		if migrationMetadata.UID == vmi.Status.MigrationState.MigrationUID {
+
+			if vmi.Status.MigrationState.EndTimestamp == nil && migrationMetadata.EndTimestamp != nil {
+				if migrationMetadata.Failed {
+					d.recorder.Event(vmi, k8sv1.EventTypeWarning, v1.Migrated.String(), fmt.Sprintf("VirtualMachineInstance migration uid %s failed. reason:%s", string(migrationMetadata.UID), migrationMetadata.FailureReason))
+				}
+			}
+
+			vmi.Status.MigrationState.StartTimestamp = migrationMetadata.StartTimestamp
+			vmi.Status.MigrationState.EndTimestamp = migrationMetadata.EndTimestamp
+			vmi.Status.MigrationState.Completed = migrationMetadata.Completed
+			vmi.Status.MigrationState.Failed = migrationMetadata.Failed
+		}
+	}
+
 	controller.NewVirtualMachineInstanceConditionManager().CheckFailure(vmi, syncError, "Synchronizing with the Domain failed.")
 
 	if !reflect.DeepEqual(oldStatus, vmi.Status) {
@@ -845,6 +862,19 @@ func (d *VirtualMachineController) isMigrationTarget(vmi *v1.VirtualMachineInsta
 	return false
 }
 
+func (d *VirtualMachineController) isMigrationSource(vmi *v1.VirtualMachineInstance) bool {
+
+	if vmi.Status.MigrationState != nil &&
+		vmi.Status.MigrationState.SourceNode == d.host &&
+		vmi.Status.MigrationState.TargetNodeAddress != "" &&
+		!vmi.Status.MigrationState.Completed {
+
+		return true
+	}
+	return false
+
+}
+
 func (d *VirtualMachineController) handleMigrationProxy(vmi *v1.VirtualMachineInstance) error {
 
 	// handle starting/stopping target migration proxy
@@ -859,11 +889,7 @@ func (d *VirtualMachineController) handleMigrationProxy(vmi *v1.VirtualMachineIn
 
 	// handle starting/stopping source migration proxy.
 	// start the source proxy once we know the target address
-	if vmi.Status.MigrationState != nil &&
-		vmi.Status.MigrationState.SourceNode == d.host &&
-		vmi.Status.MigrationState.TargetNodeAddress != "" &&
-		!vmi.Status.MigrationState.Completed {
-
+	if d.isMigrationSource(vmi) {
 		err := d.migrationProxy.StartSourceListener(string(vmi.UID), vmi.Status.MigrationState.TargetNodeAddress)
 		if err != nil {
 			return err
@@ -903,6 +929,7 @@ func (d *VirtualMachineController) processVmUpdate(origVMI *v1.VirtualMachineIns
 		return err
 	}
 
+	// this adds, removes, and replaces migration proxy connections as needed
 	err = d.handleMigrationProxy(vmi)
 	if err != nil {
 		return err
@@ -914,6 +941,13 @@ func (d *VirtualMachineController) processVmUpdate(origVMI *v1.VirtualMachineIns
 			return err
 		}
 		d.recorder.Event(vmi, k8sv1.EventTypeNormal, v1.Created.String(), "VirtualMachineInstance Migration Target Prepared.")
+	} else if d.isMigrationSource(vmi) {
+		err = client.MigrateVirtualMachine(vmi)
+		if err != nil {
+			return err
+		}
+		d.recorder.Event(vmi, k8sv1.EventTypeNormal, v1.Created.String(), "VirtualMachineInstance migrated.")
+
 	} else {
 		err = client.SyncVirtualMachine(vmi)
 		if err != nil {
