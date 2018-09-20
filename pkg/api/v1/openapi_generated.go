@@ -583,7 +583,7 @@ func schema_kubevirt_pkg_api_v1_DomainSpec(ref common.ReferenceCallback) common.
 					},
 					"ioThreadsPolicy": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Controls whether or not disks will share IOThreads. Omitting IOThreadsPolicy disables use of IOThreads. One of: shared, dedicated",
+							Description: "Controls whether or not disks will share IOThreads. Omitting IOThreadsPolicy disables use of IOThreads. One of: shared, auto",
 							Type:        []string{"string"},
 							Format:      "",
 						},

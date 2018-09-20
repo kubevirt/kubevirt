@@ -45,7 +45,7 @@ func (DomainSpec) SwaggerDoc() map[string]string {
 		"clock":           "Clock sets the clock and timers of the vmi.\n+optional",
 		"features":        "Features like acpi, apic, hyperv.\n+optional",
 		"devices":         "Devices allows adding disks, network interfaces, ...",
-		"ioThreadsPolicy": "Controls whether or not disks will share IOThreads.\nOmitting IOThreadsPolicy disables use of IOThreads.\nOne of: shared, dedicated\n+optional",
+		"ioThreadsPolicy": "Controls whether or not disks will share IOThreads.\nOmitting IOThreadsPolicy disables use of IOThreads.\nOne of: shared, auto\n+optional",
 	}
 }
 
