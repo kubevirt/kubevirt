@@ -47,13 +47,13 @@ var _ = Describe("VMIDefaults", func() {
 			Domain: v1.DomainSpec{
 				Devices: v1.Devices{
 					Disks: []v1.Disk{
-						{Name: "testdisk", VolumeName: "testvolume"},
+						{Name: "testdisk"},
 					},
 				},
 			},
 			Volumes: []v1.Volume{
 				{
-					Name: "testvolume",
+					Name: "testdisk",
 					VolumeSource: v1.VolumeSource{
 						ContainerDisk: &v1.ContainerDiskSource{
 							Image: "dummy",

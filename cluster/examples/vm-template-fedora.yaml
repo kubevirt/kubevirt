@@ -35,12 +35,10 @@ objects:
             disks:
             - disk:
                 bus: virtio
-              name: containerdisk
-              volumeName: registryvolume
+              name: registrydisk
             - disk:
                 bus: virtio
               name: cloudinitdisk
-              volumeName: cloudinitvolume
           machine:
             type: ""
           resources:
@@ -50,13 +48,13 @@ objects:
         volumes:
         - containerDisk:
             image: registry:5000/kubevirt/fedora-cloud-container-disk-demo:devel
-          name: registryvolume
+          name: registrydisk
         - cloudInitNoCloud:
             userData: |-
               #cloud-config
               password: fedora
               chpasswd: { expire: False }
-          name: cloudinitvolume
+          name: cloudinitdisk
   status: {}
 parameters:
 - description: Name for the new VM

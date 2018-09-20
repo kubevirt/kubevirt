@@ -541,13 +541,6 @@ func schema_kubevirt_pkg_api_v1_Disk(ref common.ReferenceCallback) common.OpenAP
 							Format:      "",
 						},
 					},
-					"volumeName": {
-						SchemaProps: spec.SchemaProps{
-							Description: "Name of the volume which is referenced. Must match the Name of a Volume.",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
 					"disk": {
 						SchemaProps: spec.SchemaProps{
 							Description: "Attach a volume as a disk to the vmi.",
@@ -601,7 +594,7 @@ func schema_kubevirt_pkg_api_v1_Disk(ref common.ReferenceCallback) common.OpenAP
 						},
 					},
 				},
-				Required: []string{"name", "volumeName"},
+				Required: []string{"name"},
 			},
 		},
 		Dependencies: []string{

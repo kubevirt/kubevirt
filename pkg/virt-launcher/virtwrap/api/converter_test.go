@@ -41,9 +41,8 @@ var _ = Describe("Converter", func() {
 		It("Should add boot order when provided", func() {
 			order := uint(1)
 			kubevirtDisk := &v1.Disk{
-				Name:       "mydisk",
-				BootOrder:  &order,
-				VolumeName: "myvolume",
+				Name:      "mydisk",
+				BootOrder: &order,
 				DiskDevice: v1.DiskDevice{
 					Disk: &v1.DiskTarget{
 						Bus: "virtio",
@@ -63,8 +62,7 @@ var _ = Describe("Converter", func() {
 
 		It("Should omit boot order when not provided", func() {
 			kubevirtDisk := &v1.Disk{
-				Name:       "mydisk",
-				VolumeName: "myvolume",
+				Name: "mydisk",
 				DiskDevice: v1.DiskDevice{
 					Disk: &v1.DiskTarget{
 						Bus: "virtio",
@@ -154,8 +152,7 @@ var _ = Describe("Converter", func() {
 			vmi.Spec.Domain.Resources.Requests = make(k8sv1.ResourceList)
 			vmi.Spec.Domain.Devices.Disks = []v1.Disk{
 				{
-					Name:       "mydisk",
-					VolumeName: "myvolume",
+					Name: "myvolume",
 					DiskDevice: v1.DiskDevice{
 						Disk: &v1.DiskTarget{
 							Bus: "virtio",
@@ -164,8 +161,7 @@ var _ = Describe("Converter", func() {
 					DedicatedIOThread: &_true,
 				},
 				{
-					Name:       "mydisk1",
-					VolumeName: "nocloud",
+					Name: "nocloud",
 					DiskDevice: v1.DiskDevice{
 						Disk: &v1.DiskTarget{
 							Bus: "virtio",
@@ -174,8 +170,7 @@ var _ = Describe("Converter", func() {
 					DedicatedIOThread: &_true,
 				},
 				{
-					Name:       "cdrom_tray_unspecified",
-					VolumeName: "volume0",
+					Name: "cdrom_tray_unspecified",
 					DiskDevice: v1.DiskDevice{
 						CDRom: &v1.CDRomTarget{
 							ReadOnly: &_false,
@@ -184,8 +179,7 @@ var _ = Describe("Converter", func() {
 					DedicatedIOThread: &_false,
 				},
 				{
-					Name:       "cdrom_tray_open",
-					VolumeName: "volume1",
+					Name: "cdrom_tray_open",
 					DiskDevice: v1.DiskDevice{
 						CDRom: &v1.CDRomTarget{
 							Tray: v1.TrayStateOpen,
@@ -193,15 +187,13 @@ var _ = Describe("Converter", func() {
 					},
 				},
 				{
-					Name:       "floppy_tray_unspecified",
-					VolumeName: "volume2",
+					Name: "floppy_tray_unspecified",
 					DiskDevice: v1.DiskDevice{
 						Floppy: &v1.FloppyTarget{},
 					},
 				},
 				{
-					Name:       "floppy_tray_open",
-					VolumeName: "volume3",
+					Name: "floppy_tray_open",
 					DiskDevice: v1.DiskDevice{
 						Floppy: &v1.FloppyTarget{
 							Tray:     v1.TrayStateOpen,
@@ -210,32 +202,26 @@ var _ = Describe("Converter", func() {
 					},
 				},
 				{
-					Name:       "should_default_to_disk",
-					VolumeName: "volume4",
+					Name: "should_default_to_disk",
 				},
 				{
-					Name:       "ephemeral_pvc",
-					VolumeName: "volume5",
-					Cache:      "none",
+					Name:  "ephemeral_pvc",
+					Cache: "none",
 				},
 				{
-					Name:       "secret_test",
-					VolumeName: "volume6",
-					Serial:     "D23YZ9W6WA5DJ487",
+					Name:   "secret_test",
+					Serial: "D23YZ9W6WA5DJ487",
 				},
 				{
-					Name:       "configmap_test",
-					VolumeName: "volume7",
-					Serial:     "CVLY623300HK240D",
+					Name:   "configmap_test",
+					Serial: "CVLY623300HK240D",
 				},
 				{
-					Name:       "pvc_block_test",
-					VolumeName: "volume8",
-					Cache:      "writethrough",
+					Name:  "pvc_block_test",
+					Cache: "writethrough",
 				},
 				{
-					Name:       "serviceaccount_test",
-					VolumeName: "volume9",
+					Name: "serviceaccount_test",
 				},
 			}
 			vmi.Spec.Volumes = []v1.Volume{
@@ -258,7 +244,7 @@ var _ = Describe("Converter", func() {
 					},
 				},
 				{
-					Name: "volume0",
+					Name: "cdrom_tray_unspecified",
 					VolumeSource: v1.VolumeSource{
 						CloudInitNoCloud: &v1.CloudInitNoCloudSource{
 							UserDataBase64: "1234",
@@ -266,7 +252,7 @@ var _ = Describe("Converter", func() {
 					},
 				},
 				{
-					Name: "volume1",
+					Name: "cdrom_tray_open",
 					VolumeSource: v1.VolumeSource{
 						HostDisk: &v1.HostDisk{
 							Path:     "/var/run/kubevirt-private/vmi-disks/volume1/disk.img",
@@ -276,7 +262,7 @@ var _ = Describe("Converter", func() {
 					},
 				},
 				{
-					Name: "volume2",
+					Name: "floppy_tray_unspecified",
 					VolumeSource: v1.VolumeSource{
 						HostDisk: &v1.HostDisk{
 							Path:     "/var/run/kubevirt-private/vmi-disks/volume2/disk.img",
@@ -286,7 +272,7 @@ var _ = Describe("Converter", func() {
 					},
 				},
 				{
-					Name: "volume3",
+					Name: "floppy_tray_open",
 					VolumeSource: v1.VolumeSource{
 						HostDisk: &v1.HostDisk{
 							Path:     "/var/run/kubevirt-private/vmi-disks/volume3/disk.img",
@@ -296,7 +282,7 @@ var _ = Describe("Converter", func() {
 					},
 				},
 				{
-					Name: "volume4",
+					Name: "should_default_to_disk",
 					VolumeSource: v1.VolumeSource{
 						HostDisk: &v1.HostDisk{
 							Path:     "/var/run/kubevirt-private/vmi-disks/volume4/disk.img",
@@ -306,7 +292,7 @@ var _ = Describe("Converter", func() {
 					},
 				},
 				{
-					Name: "volume5",
+					Name: "ephemeral_pvc",
 					VolumeSource: v1.VolumeSource{
 						Ephemeral: &v1.EphemeralVolumeSource{
 							PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{
@@ -316,7 +302,7 @@ var _ = Describe("Converter", func() {
 					},
 				},
 				{
-					Name: "volume6",
+					Name: "secret_test",
 					VolumeSource: v1.VolumeSource{
 						Secret: &v1.SecretVolumeSource{
 							SecretName: "testsecret",
@@ -324,7 +310,7 @@ var _ = Describe("Converter", func() {
 					},
 				},
 				{
-					Name: "volume7",
+					Name: "configmap_test",
 					VolumeSource: v1.VolumeSource{
 						ConfigMap: &v1.ConfigMapVolumeSource{
 							LocalObjectReference: k8sv1.LocalObjectReference{
@@ -334,7 +320,7 @@ var _ = Describe("Converter", func() {
 					},
 				},
 				{
-					Name: "volume8",
+					Name: "pvc_block_test",
 					VolumeSource: v1.VolumeSource{
 						PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{
 							ClaimName: "testblock",
@@ -398,13 +384,13 @@ var _ = Describe("Converter", func() {
       <source file="/var/run/kubevirt-private/vmi-disks/myvolume/disk.img"></source>
       <target bus="virtio" dev="vda"></target>
       <driver name="qemu" type="raw" iothread="2"></driver>
-      <alias name="ua-mydisk"></alias>
+      <alias name="ua-myvolume"></alias>
     </disk>
     <disk device="disk" type="file">
       <source file="/var/run/libvirt/cloud-init-dir/mynamespace/testvmi/noCloud.iso"></source>
       <target bus="virtio" dev="vdb"></target>
       <driver name="qemu" type="raw" iothread="3"></driver>
-      <alias name="ua-mydisk1"></alias>
+      <alias name="ua-nocloud"></alias>
     </disk>
     <disk device="cdrom" type="file">
       <source file="/var/run/libvirt/cloud-init-dir/mynamespace/testvmi/noCloud.iso"></source>
@@ -439,31 +425,31 @@ var _ = Describe("Converter", func() {
       <alias name="ua-should_default_to_disk"></alias>
     </disk>
     <disk device="disk" type="file">
-      <source file="/var/run/libvirt/kubevirt-ephemeral-disk/volume5/disk.qcow2"></source>
+      <source file="/var/run/libvirt/kubevirt-ephemeral-disk/ephemeral_pvc/disk.qcow2"></source>
       <target bus="sata" dev="sdd"></target>
       <driver cache="none" name="qemu" type="qcow2" iothread="1"></driver>
       <alias name="ua-ephemeral_pvc"></alias>
       <backingStore type="file">
         <format type="raw"></format>
-        <source file="/var/run/kubevirt-private/vmi-disks/volume5/disk.img"></source>
+        <source file="/var/run/kubevirt-private/vmi-disks/ephemeral_pvc/disk.img"></source>
       </backingStore>
     </disk>
     <disk device="disk" type="file">
-      <source file="/var/run/kubevirt-private/secret-disks/volume6.iso"></source>
+      <source file="/var/run/kubevirt-private/secret-disks/secret_test.iso"></source>
       <target bus="sata" dev="sde"></target>
       <serial>D23YZ9W6WA5DJ487</serial>
       <driver name="qemu" type="raw" iothread="1"></driver>
       <alias name="ua-secret_test"></alias>
     </disk>
     <disk device="disk" type="file">
-      <source file="/var/run/kubevirt-private/config-map-disks/volume7.iso"></source>
+      <source file="/var/run/kubevirt-private/config-map-disks/configmap_test.iso"></source>
       <target bus="sata" dev="sdf"></target>
       <serial>CVLY623300HK240D</serial>
       <driver name="qemu" type="raw" iothread="1"></driver>
       <alias name="ua-configmap_test"></alias>
     </disk>
     <disk device="disk" type="block">
-      <source dev="/dev/volume8"></source>
+      <source dev="/dev/pvc_block_test"></source>
       <target bus="sata" dev="sdg"></target>
       <driver cache="writethrough" name="qemu" type="raw" iothread="1"></driver>
       <alias name="ua-pvc_block_test"></alias>
@@ -528,7 +514,7 @@ var _ = Describe("Converter", func() {
 		var c *ConverterContext
 
 		isBlockPVCMap := make(map[string]bool)
-		isBlockPVCMap["volume8"] = true
+		isBlockPVCMap["pvc_block_test"] = true
 		BeforeEach(func() {
 			c = &ConverterContext{
 				VirtualMachine: vmi,
@@ -1138,8 +1124,7 @@ var _ = Describe("Converter", func() {
 						Devices: v1.Devices{
 							Disks: []v1.Disk{
 								{
-									Name:       "dedicated",
-									VolumeName: "volume0",
+									Name: "dedicated",
 									DiskDevice: v1.DiskDevice{
 										Disk: &v1.DiskTarget{
 											Bus: "virtio",
@@ -1148,8 +1133,7 @@ var _ = Describe("Converter", func() {
 									DedicatedIOThread: &_true,
 								},
 								{
-									Name:       "shared",
-									VolumeName: "volume1",
+									Name: "shared",
 									DiskDevice: v1.DiskDevice{
 										Disk: &v1.DiskTarget{
 											Bus: "virtio",
@@ -1158,8 +1142,7 @@ var _ = Describe("Converter", func() {
 									DedicatedIOThread: &_false,
 								},
 								{
-									Name:       "omitted1",
-									VolumeName: "volume2",
+									Name: "omitted1",
 									DiskDevice: v1.DiskDevice{
 										Disk: &v1.DiskTarget{
 											Bus: "virtio",
@@ -1167,8 +1150,7 @@ var _ = Describe("Converter", func() {
 									},
 								},
 								{
-									Name:       "omitted2",
-									VolumeName: "volume3",
+									Name: "omitted2",
 									DiskDevice: v1.DiskDevice{
 										Disk: &v1.DiskTarget{
 											Bus: "virtio",
@@ -1176,8 +1158,7 @@ var _ = Describe("Converter", func() {
 									},
 								},
 								{
-									Name:       "omitted3",
-									VolumeName: "volume4",
+									Name: "omitted3",
 									DiskDevice: v1.DiskDevice{
 										Disk: &v1.DiskTarget{
 											Bus: "virtio",
@@ -1185,8 +1166,7 @@ var _ = Describe("Converter", func() {
 									},
 								},
 								{
-									Name:       "omitted4",
-									VolumeName: "volume5",
+									Name: "omitted4",
 									DiskDevice: v1.DiskDevice{
 										Disk: &v1.DiskTarget{
 											Bus: "virtio",
@@ -1194,8 +1174,7 @@ var _ = Describe("Converter", func() {
 									},
 								},
 								{
-									Name:       "omitted5",
-									VolumeName: "volume5",
+									Name: "omitted5",
 									DiskDevice: v1.DiskDevice{
 										Disk: &v1.DiskTarget{
 											Bus: "virtio",
@@ -1207,7 +1186,7 @@ var _ = Describe("Converter", func() {
 					},
 					Volumes: []v1.Volume{
 						{
-							Name: "volume0",
+							Name: "dedicated",
 							VolumeSource: v1.VolumeSource{
 								Ephemeral: &v1.EphemeralVolumeSource{
 									PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{
@@ -1217,7 +1196,7 @@ var _ = Describe("Converter", func() {
 							},
 						},
 						{
-							Name: "volume1",
+							Name: "shared",
 							VolumeSource: v1.VolumeSource{
 								Ephemeral: &v1.EphemeralVolumeSource{
 									PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{
@@ -1227,7 +1206,7 @@ var _ = Describe("Converter", func() {
 							},
 						},
 						{
-							Name: "volume2",
+							Name: "omitted1",
 							VolumeSource: v1.VolumeSource{
 								Ephemeral: &v1.EphemeralVolumeSource{
 									PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{
@@ -1237,7 +1216,7 @@ var _ = Describe("Converter", func() {
 							},
 						},
 						{
-							Name: "volume3",
+							Name: "omitted2",
 							VolumeSource: v1.VolumeSource{
 								Ephemeral: &v1.EphemeralVolumeSource{
 									PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{
@@ -1247,7 +1226,7 @@ var _ = Describe("Converter", func() {
 							},
 						},
 						{
-							Name: "volume4",
+							Name: "omitted3",
 							VolumeSource: v1.VolumeSource{
 								Ephemeral: &v1.EphemeralVolumeSource{
 									PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{
@@ -1257,7 +1236,7 @@ var _ = Describe("Converter", func() {
 							},
 						},
 						{
-							Name: "volume5",
+							Name: "omitted4",
 							VolumeSource: v1.VolumeSource{
 								Ephemeral: &v1.EphemeralVolumeSource{
 									PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{
@@ -1267,7 +1246,7 @@ var _ = Describe("Converter", func() {
 							},
 						},
 						{
-							Name: "volume6",
+							Name: "omitted5",
 							VolumeSource: v1.VolumeSource{
 								Ephemeral: &v1.EphemeralVolumeSource{
 									PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{
@@ -1313,8 +1292,7 @@ var _ = Describe("Converter", func() {
 			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
 			vmi.Spec.Domain.Devices.Disks = []v1.Disk{
 				{
-					Name:       "mydisk",
-					VolumeName: "myvolume",
+					Name: "mydisk",
 					DiskDevice: v1.DiskDevice{
 						Disk: &v1.DiskTarget{
 							Bus: "virtio",
@@ -1324,7 +1302,7 @@ var _ = Describe("Converter", func() {
 			}
 			vmi.Spec.Volumes = []v1.Volume{
 				{
-					Name: "myvolume",
+					Name: "mydisk",
 					VolumeSource: v1.VolumeSource{
 						HostDisk: &v1.HostDisk{
 							Path:     "/var/run/kubevirt-private/vmi-disks/myvolume/disk.img",

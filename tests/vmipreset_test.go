@@ -109,8 +109,7 @@ var _ = Describe("VMIPreset", func() {
 			}
 			// disk with two targets is invalid
 			preset.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
-				Name:       "testdisk",
-				VolumeName: "testvolume",
+				Name: "testdisk",
 				DiskDevice: v1.DiskDevice{
 					Disk:   &v1.DiskTarget{},
 					Floppy: &v1.FloppyTarget{},

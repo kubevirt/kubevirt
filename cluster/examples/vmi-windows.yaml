@@ -24,7 +24,6 @@ spec:
       - disk:
           bus: sata
         name: pvcdisk
-        volumeName: pvcvolume
       interfaces:
       - bridge: {}
         model: e1000
@@ -49,6 +48,6 @@ spec:
     pod: {}
   terminationGracePeriodSeconds: 0
   volumes:
-  - name: pvcvolume
+  - name: pvcdisk
     persistentVolumeClaim:
       claimName: disk-windows

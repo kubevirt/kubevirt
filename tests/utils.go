@@ -1265,8 +1265,7 @@ func NewRandomVMIWithDataVolume(dataVolumeName string) *v1.VirtualMachineInstanc
 	diskName := "disk0"
 	bus := "virtio"
 	vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
-		Name:       diskName,
-		VolumeName: diskName,
+		Name: diskName,
 		DiskDevice: v1.DiskDevice{
 			Disk: &v1.DiskTarget{
 				Bus: bus,
@@ -1338,8 +1337,7 @@ func NewRandomVMIWithEphemeralDisk(containerImage string) *v1.VirtualMachineInst
 
 func AddEphemeralDisk(vmi *v1.VirtualMachineInstance, name string, bus string, image string) *v1.VirtualMachineInstance {
 	vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
-		Name:       name,
-		VolumeName: name,
+		Name: name,
 		DiskDevice: v1.DiskDevice{
 			Disk: &v1.DiskTarget{
 				Bus: bus,
@@ -1370,8 +1368,7 @@ func AddBootOrderToDisk(vmi *v1.VirtualMachineInstance, diskName string, bootord
 
 func AddPVCDisk(vmi *v1.VirtualMachineInstance, name string, bus string, claimName string) *v1.VirtualMachineInstance {
 	vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
-		Name:       name,
-		VolumeName: name,
+		Name: name,
 		DiskDevice: v1.DiskDevice{
 			Disk: &v1.DiskTarget{
 				Bus: bus,
@@ -1392,8 +1389,7 @@ func AddPVCDisk(vmi *v1.VirtualMachineInstance, name string, bus string, claimNa
 
 func AddEphemeralFloppy(vmi *v1.VirtualMachineInstance, name string, image string) *v1.VirtualMachineInstance {
 	vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
-		Name:       name,
-		VolumeName: name,
+		Name: name,
 		DiskDevice: v1.DiskDevice{
 			Floppy: &v1.FloppyTarget{},
 		},
@@ -1440,8 +1436,7 @@ func NewRandomVMIWithEphemeralDiskAndUserdata(containerImage string, userData st
 
 func AddUserData(vmi *v1.VirtualMachineInstance, name string, userData string) {
 	vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
-		Name:       name,
-		VolumeName: name,
+		Name: name,
 		DiskDevice: v1.DiskDevice{
 			Disk: &v1.DiskTarget{
 				Bus: "virtio",
@@ -1464,8 +1459,7 @@ func NewRandomVMIWithPVC(claimName string) *v1.VirtualMachineInstance {
 
 	vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("64M")
 	vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
-		Name:       "disk0",
-		VolumeName: "disk0",
+		Name: "disk0",
 		DiskDevice: v1.DiskDevice{
 			Disk: &v1.DiskTarget{
 				Bus: "virtio",
@@ -1588,8 +1582,7 @@ func NewRandomVMIWithCDRom(claimName string) *v1.VirtualMachineInstance {
 
 	vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("64M")
 	vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
-		Name:       "disk0",
-		VolumeName: "disk0",
+		Name: "disk0",
 		DiskDevice: v1.DiskDevice{
 			CDRom: &v1.CDRomTarget{
 				// Do not specify ReadOnly flag so that
@@ -1614,8 +1607,7 @@ func NewRandomVMIWithEphemeralPVC(claimName string) *v1.VirtualMachineInstance {
 
 	vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("64M")
 	vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
-		Name:       "disk0",
-		VolumeName: "disk0",
+		Name: "disk0",
 		DiskDevice: v1.DiskDevice{
 			Disk: &v1.DiskTarget{
 				Bus: "sata",
@@ -1646,8 +1638,7 @@ func AddHostDisk(vmi *v1.VirtualMachineInstance, path string, diskType v1.HostDi
 	}
 
 	vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
-		Name:       name,
-		VolumeName: name,
+		Name: name,
 		DiskDevice: v1.DiskDevice{
 			Disk: &v1.DiskTarget{
 				Bus: "virtio",
@@ -1708,9 +1699,8 @@ func NewRandomVMIWithConfigMap(configMapName string) *v1.VirtualMachineInstance 
 }
 
 func AddConfigMapDisk(vmi *v1.VirtualMachineInstance, configMapName string) {
-	volumeName := configMapName + "-vol"
 	vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
-		Name: volumeName,
+		Name: configMapName + "-disk",
 		VolumeSource: v1.VolumeSource{
 			ConfigMap: &v1.ConfigMapVolumeSource{
 				LocalObjectReference: k8sv1.LocalObjectReference{
@@ -1720,8 +1710,7 @@ func AddConfigMapDisk(vmi *v1.VirtualMachineInstance, configMapName string) {
 		},
 	})
 	vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
-		Name:       configMapName + "-disk",
-		VolumeName: volumeName,
+		Name: configMapName + "-disk",
 	})
 }
 
@@ -1732,9 +1721,8 @@ func NewRandomVMIWithSecret(secretName string) *v1.VirtualMachineInstance {
 }
 
 func AddSecretDisk(vmi *v1.VirtualMachineInstance, secretName string) {
-	volumeName := secretName + "-vol"
 	vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
-		Name: volumeName,
+		Name: secretName + "-disk",
 		VolumeSource: v1.VolumeSource{
 			Secret: &v1.SecretVolumeSource{
 				SecretName: secretName,
@@ -1742,8 +1730,7 @@ func AddSecretDisk(vmi *v1.VirtualMachineInstance, secretName string) {
 		},
 	})
 	vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
-		Name:       secretName + "-disk",
-		VolumeName: volumeName,
+		Name: secretName + "-disk",
 	})
 }
 
@@ -1764,8 +1751,7 @@ func AddServiceAccountDisk(vmi *v1.VirtualMachineInstance, serviceAccountName st
 		},
 	})
 	vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
-		Name:       serviceAccountName + "-disk",
-		VolumeName: volumeName,
+		Name: serviceAccountName + "-disk",
 	})
 }
 

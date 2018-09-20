@@ -213,8 +213,7 @@ var _ = Describe("VirtualMachineInstanceReplicaSet", func() {
 		// Add a disk that doesn't map to a volume.
 		// This should get rejected which tells us the webhook validator is working.
 		newRS.Spec.Template.Spec.Domain.Devices.Disks = append(newRS.Spec.Template.Spec.Domain.Devices.Disks, v1.Disk{
-			Name:       "testdisk",
-			VolumeName: "testvolume",
+			Name: "testdisk",
 		})
 
 		result := virtClient.RestClient().Post().Resource("virtualmachineinstancereplicasets").Namespace(tests.NamespaceTestDefault).Body(newRS).Do()

@@ -60,16 +60,15 @@ var _ = Describe("ContainerDisk", func() {
 		Expect(err).NotTo(HaveOccurred())
 	}
 
-	AppendEphemeralPVC := func(vmi *v1.VirtualMachineInstance, diskName string, volumeName string, claimName string) {
+	AppendEphemeralPVC := func(vmi *v1.VirtualMachineInstance, diskName string, claimName string) {
 		vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
-			Name:       diskName,
-			VolumeName: volumeName,
+			Name: diskName,
 			DiskDevice: v1.DiskDevice{
 				Disk: &v1.DiskTarget{},
 			},
 		})
 		vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
-			Name: volumeName,
+			Name: diskName,
 			VolumeSource: v1.VolumeSource{
 				Ephemeral: &v1.EphemeralVolumeSource{
 					PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{
@@ -80,10 +79,10 @@ var _ = Describe("ContainerDisk", func() {
 		})
 
 		By("Creating a backing image for the PVC")
-		createBackingImageForPVC(volumeName)
+		createBackingImageForPVC(diskName)
 
 		// Test the test infra itself: make sure that the backing file has been created.
-		_, err := os.Stat(filepath.Join(pvcBaseDir, volumeName, "disk.img"))
+		_, err := os.Stat(filepath.Join(pvcBaseDir, diskName, "disk.img"))
 		Expect(err).NotTo(HaveOccurred())
 	}
 
@@ -113,14 +112,14 @@ var _ = Describe("ContainerDisk", func() {
 				vmi := v1.NewMinimalVMI("fake-vmi")
 
 				By("Adding a single ephemeral-backed PVC to the VirtualMachineInstance")
-				AppendEphemeralPVC(vmi, "fake-disk", "fake-volume", "fake-pvc")
+				AppendEphemeralPVC(vmi, "fake-disk", "fake-pvc")
 
 				By("Creating VirtualMachineInstance disk image that corresponds to the VMIs PVC")
 				err := CreateEphemeralImages(vmi)
 				Expect(err).NotTo(HaveOccurred())
 
 				// Now we can test the behavior - the COW image must exist.
-				_, err = os.Stat(filepath.Join(mountBaseDir, "fake-volume", "disk.qcow2"))
+				_, err = os.Stat(filepath.Join(mountBaseDir, "fake-disk", "disk.qcow2"))
 				Expect(err).NotTo(HaveOccurred())
 			})
 		})
@@ -131,25 +130,25 @@ var _ = Describe("ContainerDisk", func() {
 				vmi := v1.NewMinimalVMI("fake-vmi")
 
 				By("Adding multiple ephemeral-backed PVCs to the VirtualMachineInstance")
-				AppendEphemeralPVC(vmi, "fake-disk1", "fake-volume1", "fake-pvc1")
-				AppendEphemeralPVC(vmi, "fake-disk2", "fake-volume2", "fake-pvc2")
-				AppendEphemeralPVC(vmi, "fake-disk3", "fake-volume3", "fake-pvc3")
+				AppendEphemeralPVC(vmi, "fake-disk1", "fake-pvc1")
+				AppendEphemeralPVC(vmi, "fake-disk2", "fake-pvc2")
+				AppendEphemeralPVC(vmi, "fake-disk3", "fake-pvc3")
 
 				By("Creating VirtualMachineInstance disk image that corresponds to the VMIs PVC")
 				err := CreateEphemeralImages(vmi)
 				Expect(err).NotTo(HaveOccurred())
 
 				// Now we can test the behavior - the COW image must exist.
-				_, err = os.Stat(filepath.Join(mountBaseDir, "fake-volume1", "disk.qcow2"))
+				_, err = os.Stat(filepath.Join(mountBaseDir, "fake-disk1", "disk.qcow2"))
 				Expect(err).NotTo(HaveOccurred())
-				_, err = os.Stat(filepath.Join(mountBaseDir, "fake-volume2", "disk.qcow2"))
+				_, err = os.Stat(filepath.Join(mountBaseDir, "fake-disk2", "disk.qcow2"))
 				Expect(err).NotTo(HaveOccurred())
-				_, err = os.Stat(filepath.Join(mountBaseDir, "fake-volume3", "disk.qcow2"))
+				_, err = os.Stat(filepath.Join(mountBaseDir, "fake-disk3", "disk.qcow2"))
 				Expect(err).NotTo(HaveOccurred())
 			})
 			It("Should create ephemeral images in an idempotent way", func() {
 				vmi := v1.NewMinimalVMI("fake-vmi")
-				AppendEphemeralPVC(vmi, "fake-disk1", "fake-volume1", "fake-pvc1")
+				AppendEphemeralPVC(vmi, "fake-disk1", "fake-pvc1")
 				err := CreateEphemeralImages(vmi)
 				Expect(err).NotTo(HaveOccurred())
 				err = CreateEphemeralImages(vmi)

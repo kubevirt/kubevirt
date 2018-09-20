@@ -4245,8 +4245,7 @@
    },
    "v1.Disk": {
     "required": [
-     "name",
-     "volumeName"
+     "name"
     ],
     "properties": {
      "bootOrder": {
@@ -4284,10 +4283,6 @@
      },
      "serial": {
       "description": "Serial provides the ability to specify a serial number for the disk device.\n+optional",
-      "type": "string"
-     },
-     "volumeName": {
-      "description": "Name of the volume which is referenced.\nMust match the Name of a Volume.",
       "type": "string"
      }
     }

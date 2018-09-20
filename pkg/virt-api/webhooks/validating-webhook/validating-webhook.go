@@ -490,7 +490,6 @@ func ValidateVirtualMachineInstanceMandatoryFields(field *k8sfield.Path, spec *v
 
 func ValidateVirtualMachineInstanceSpec(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec) []metav1.StatusCause {
 	var causes []metav1.StatusCause
-	volumeToDiskIndexMap := make(map[string]int)
 	volumeNameMap := make(map[string]*v1.Volume)
 	networkNameMap := make(map[string]*v1.Network)
 
@@ -797,29 +796,17 @@ func ValidateVirtualMachineInstanceSpec(field *k8sfield.Path, spec *v1.VirtualMa
 	// used to validate uniqueness of boot orders among disks and interfaces
 	bootOrderMap := make(map[uint]bool)
 
-	// Validate disks and VolumeNames match up correctly
+	// Validate disks and volumes match up correctly
 	for idx, disk := range spec.Domain.Devices.Disks {
 		var matchingVolume *v1.Volume
 
-		matchingVolume, volumeExists := volumeNameMap[disk.VolumeName]
+		matchingVolume, volumeExists := volumeNameMap[disk.Name]
 
 		if !volumeExists {
 			causes = append(causes, metav1.StatusCause{
 				Type:    metav1.CauseTypeFieldValueInvalid,
-				Message: fmt.Sprintf("%s '%s' not found.", field.Child("domain", "devices", "disks").Index(idx).Child("volumeName").String(), disk.VolumeName),
-				Field:   field.Child("domain", "devices", "disks").Index(idx).Child("volumeName").String(),
-			})
-		}
-
-		// verify no other disk maps to this volume
-		otherIdx, ok := volumeToDiskIndexMap[disk.VolumeName]
-		if !ok {
-			volumeToDiskIndexMap[disk.VolumeName] = idx
-		} else {
-			causes = append(causes, metav1.StatusCause{
-				Type:    metav1.CauseTypeFieldValueInvalid,
-				Message: fmt.Sprintf("%s and %s reference the same volumeName.", field.Child("domain", "devices", "disks").Index(idx).String(), field.Child("domain", "devices", "disks").Index(otherIdx).String()),
-				Field:   field.Child("domain", "devices", "disks").Index(idx).Child("volumeName").String(),
+				Message: fmt.Sprintf("%s '%s' not found.", field.Child("domain", "devices", "disks").Index(idx).Child("Name").String(), disk.Name),
+				Field:   field.Child("domain", "devices", "disks").Index(idx).Child("name").String(),
 			})
 		}
 

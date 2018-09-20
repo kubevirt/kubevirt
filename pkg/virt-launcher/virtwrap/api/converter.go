@@ -694,9 +694,9 @@ func Convert_v1_VirtualMachine_To_api_Domain(vmi *v1.VirtualMachineInstance, dom
 		if err != nil {
 			return err
 		}
-		volume := volumes[disk.VolumeName]
+		volume := volumes[disk.Name]
 		if volume == nil {
-			return fmt.Errorf("No matching volume with name %s found", disk.VolumeName)
+			return fmt.Errorf("No matching volume with name %s found", disk.Name)
 		}
 		err = Convert_v1_Volume_To_api_Disk(volume, &newDisk, c)
 		if err != nil {

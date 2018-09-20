@@ -249,9 +249,6 @@ type Devices struct {
 type Disk struct {
 	// Name is the device name
 	Name string `json:"name"`
-	// Name of the volume which is referenced.
-	// Must match the Name of a Volume.
-	VolumeName string `json:"volumeName"`
 	// DiskDevice specifies as which device the disk should be added to the guest.
 	// Defaults to Disk.
 	DiskDevice `json:",inline"`
