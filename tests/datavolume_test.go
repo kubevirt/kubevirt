@@ -140,7 +140,7 @@ var _ = Describe("DataVolume Integration", func() {
 				Expect(virtClient.VirtualMachine(vm.Namespace).
 					Delete(vm.Name, &metav1.DeleteOptions{PropagationPolicy: &orphanPolicy})).To(Succeed())
 
-				// Wait until the offlinevmi is deleted
+				// Wait until the virtual machine instance is deleted
 				Eventually(func() bool {
 					_, err := virtClient.VirtualMachine(vm.Namespace).Get(vm.Name, &metav1.GetOptions{})
 					if errors.IsNotFound(err) {

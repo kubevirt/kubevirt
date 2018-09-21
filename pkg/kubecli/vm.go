@@ -58,7 +58,7 @@ func (o *vm) Create(vm *v1.VirtualMachine) (*v1.VirtualMachine, error) {
 	return newVm, err
 }
 
-// Get the OfflineVirtual machine from the cluster by its name and namespace
+// Get the Virtual machine from the cluster by its name and namespace
 func (o *vm) Get(name string, options *k8smetav1.GetOptions) (*v1.VirtualMachine, error) {
 	newVm := &v1.VirtualMachine{}
 	err := o.restClient.Get().
