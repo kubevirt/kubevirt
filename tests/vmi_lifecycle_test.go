@@ -66,7 +66,7 @@ func addNodeAffinityToVMI(vmi *v1.VirtualMachineInstance, nodeName string) {
 	}
 }
 
-var _ = FDescribe("VMIlifecycle", func() {
+var _ = Describe("VMIlifecycle", func() {
 
 	flag.Parse()
 
