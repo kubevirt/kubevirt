@@ -367,9 +367,8 @@ const (
 	// This label is used to match virtual machine instance IDs with pods.
 	// Similar to kubevirt.io/domain. Used on Pod.
 	CreatedByLabel string = "kubevirt.io/created-by"
-	// This label is used to indicate that this pod is the target of an active
-	// migration job.
-	MigrationJobLabel string = "kubevirt.io/migration-job"
+	// This label is used to indicate that this pod is the target of a migration job.
+	MigrationJobLabel string = "kubevirt.io/migrationJobUID"
 	// This annotation defines which KubeVirt component owns the resource. Used
 	// on Pod.
 	OwnedByAnnotation string = "kubevirt.io/owned-by"

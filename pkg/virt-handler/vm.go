@@ -249,7 +249,7 @@ func (d *VirtualMachineController) updateVMIStatus(vmi *v1.VirtualMachineInstanc
 		return err
 	}
 
-	if domain.Spec.Metadata.KubeVirt.Migration != nil && vmi.Status.MigrationState != nil {
+	if domain != nil && domain.Spec.Metadata.KubeVirt.Migration != nil && vmi.Status.MigrationState != nil {
 		migrationMetadata := domain.Spec.Metadata.KubeVirt.Migration
 		if migrationMetadata.UID == vmi.Status.MigrationState.MigrationUID {
 

@@ -344,7 +344,7 @@ func (c *MigrationController) updateStatus(migration *virtv1.VirtualMachineInsta
 	// 2. update vmi, exit on error
 	// 3. update the migration, exit on error
 	if podExists {
-		if !reflect.DeepEqual(pod.Labels, podCopy.Labels) {
+		if !reflect.DeepEqual(pod.Labels, podCopy.Labels) || !reflect.DeepEqual(pod.Annotations, podCopy.Annotations) {
 			_, err := c.clientset.CoreV1().Pods(vmi.Namespace).Update(podCopy)
 			if err != nil {
 				return err
