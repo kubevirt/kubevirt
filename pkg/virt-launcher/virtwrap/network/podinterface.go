@@ -222,6 +222,12 @@ func (b *BridgePodInterface) preparePodNetworkInterfaces() error {
 		return err
 	}
 
+	err = Handler.LinkSetLearningOff(b.podNicLink)
+	if err != nil {
+		log.Log.Reason(err).Errorf("failed to disable mac learning for interface: %s", b.podInterfaceName)
+		return err
+	}
+
 	return nil
 }
 

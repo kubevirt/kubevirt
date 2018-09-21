@@ -103,6 +103,7 @@ var _ = Describe("Pod Network", func() {
 		mockNetwork.EXPECT().LinkSetDown(dummy).Return(nil)
 		mockNetwork.EXPECT().SetRandomMac(podInterface).Return(updateFakeMac, nil)
 		mockNetwork.EXPECT().LinkSetUp(dummy).Return(nil)
+		mockNetwork.EXPECT().LinkSetLearningOff(dummy).Return(nil)
 		mockNetwork.EXPECT().LinkAdd(bridgeTest).Return(nil)
 		mockNetwork.EXPECT().LinkByName(api.DefaultBridgeName).Return(bridgeTest, nil)
 		mockNetwork.EXPECT().LinkSetUp(bridgeTest).Return(nil)
