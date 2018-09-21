@@ -25,6 +25,7 @@ import (
 	"os"
 	"time"
 
+	"github.com/golang/glog"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	flag "github.com/spf13/pflag"
 	k8sv1 "k8s.io/api/core/v1"
@@ -34,6 +35,8 @@ import (
 	k8coresv1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/record"
+
+	"kubevirt.io/kubevirt/pkg/certificates"
 
 	"kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/controller"
@@ -148,11 +151,14 @@ func (app *virtHandlerApp) Run() {
 	// Bootstrapping. From here on the startup order matters
 	stop := make(chan struct{})
 	defer close(stop)
-
+	certStore, err := certificates.GenerateSelfSignedCert("virt-handler", certificates.GetNamespace())
+	if err != nil {
+		glog.Fatalf("unable to generate certificates: %v", err)
+	}
 	go vmController.Run(3, stop)
 
 	http.Handle("/metrics", promhttp.Handler())
-	err = http.ListenAndServe(app.ServiceListen.Address(), nil)
+	err = http.ListenAndServeTLS(app.ServiceListen.Address(), certStore.CurrentPath(), certStore.CurrentPath(), nil)
 	if err != nil {
 		log.Log.Reason(err).Error("Serving prometheus failed.")
 		panic(err)

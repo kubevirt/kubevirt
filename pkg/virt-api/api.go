@@ -27,7 +27,6 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
-	"strings"
 
 	"github.com/emicklei/go-restful"
 	"github.com/emicklei/go-restful-openapi"
@@ -44,6 +43,8 @@ import (
 	"k8s.io/client-go/util/cert/triple"
 	apiregistrationv1beta1 "k8s.io/kube-aggregator/pkg/apis/apiregistration/v1beta1"
 	aggregatorclient "k8s.io/kube-aggregator/pkg/client/clientset_generated/clientset"
+
+	"kubevirt.io/kubevirt/pkg/certificates"
 
 	"kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/feature-gates"
@@ -440,19 +441,10 @@ func (app *virtAPIApp) getClientCert() error {
 	return nil
 }
 
-func getNamespace() string {
-	if data, err := ioutil.ReadFile("/var/run/secrets/kubernetes.io/serviceaccount/namespace"); err == nil {
-		if ns := strings.TrimSpace(string(data)); len(ns) > 0 {
-			return ns
-		}
-	}
-	return metav1.NamespaceSystem
-}
-
 func (app *virtAPIApp) getSelfSignedCert() error {
 	var ok bool
 
-	namespace := getNamespace()
+	namespace := certificates.GetNamespace()
 	generateCerts := false
 	secret, err := app.virtCli.CoreV1().Secrets(namespace).Get(virtApiCertSecretName, metav1.GetOptions{})
 	if err != nil {
@@ -531,7 +523,7 @@ func (app *virtAPIApp) createWebhook() error {
 }
 
 func (app *virtAPIApp) createValidatingWebhook() error {
-	namespace := getNamespace()
+	namespace := certificates.GetNamespace()
 	registerWebhook := false
 	vmiPathCreate := vmiCreateValidatePath
 	vmiPathUpdate := vmiUpdateValidatePath
@@ -709,7 +701,7 @@ func (app *virtAPIApp) createValidatingWebhook() error {
 }
 
 func (app *virtAPIApp) createMutatingWebhook() error {
-	namespace := getNamespace()
+	namespace := certificates.GetNamespace()
 	registerWebhook := false
 	vmiPath := vmiMutatePath
 
@@ -783,7 +775,7 @@ func (app *virtAPIApp) createMutatingWebhook() error {
 }
 
 func (app *virtAPIApp) createSubresourceApiservice() error {
-	namespace := getNamespace()
+	namespace := certificates.GetNamespace()
 	config, err := kubecli.GetConfig()
 	if err != nil {
 		return err

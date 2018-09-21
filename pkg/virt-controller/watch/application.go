@@ -28,6 +28,7 @@ import (
 	"time"
 
 	"github.com/emicklei/go-restful"
+	"github.com/golang/glog"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	flag "github.com/spf13/pflag"
 	k8sv1 "k8s.io/api/core/v1"
@@ -38,6 +39,8 @@ import (
 	"k8s.io/client-go/tools/leaderelection"
 	"k8s.io/client-go/tools/leaderelection/resourcelock"
 	"k8s.io/client-go/tools/record"
+
+	"kubevirt.io/kubevirt/pkg/certificates"
 
 	"kubevirt.io/kubevirt/pkg/controller"
 	featuregates "kubevirt.io/kubevirt/pkg/feature-gates"
@@ -170,13 +173,17 @@ func Execute() {
 
 func (vca *VirtControllerApp) Run() {
 	logger := log.Log
+	certStore, err := certificates.GenerateSelfSignedCert("virt-controller", certificates.GetNamespace())
+	if err != nil {
+		glog.Fatalf("unable to generate certificates: %v", err)
+	}
 	stop := make(chan struct{})
 	defer close(stop)
 	go func() {
 		httpLogger := logger.With("service", "http")
 		httpLogger.Level(log.INFO).Log("action", "listening", "interface", vca.BindAddress, "port", vca.Port)
 		http.Handle("/metrics", promhttp.Handler())
-		if err := http.ListenAndServe(vca.Address(), nil); err != nil {
+		if err := http.ListenAndServeTLS(vca.Address(), certStore.CurrentPath(), certStore.CurrentPath(), nil); err != nil {
 			golog.Fatal(err)
 		}
 	}()
