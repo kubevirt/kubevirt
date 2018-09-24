@@ -294,8 +294,23 @@ type VirtualMachineInstanceCondition struct {
 	Message            string                              `json:"message,omitempty"`
 }
 
+// The migration phase indicates that the job has completed
 func (m *VirtualMachineInstanceMigration) IsFinal() bool {
 	return m.Status.Phase == MigrationFailed || m.Status.Phase == MigrationSucceeded
+}
+
+// The migration phase indicates that the target pod should have already been created
+func (m *VirtualMachineInstanceMigration) TargetIsCreated() bool {
+	return m.Status.Phase != MigrationPhaseUnset &&
+		m.Status.Phase != MigrationPending
+}
+
+// The migration phase indicates that job has been handed off to the VMI controllers to complete.
+func (m *VirtualMachineInstanceMigration) TargetIsHandedOff() bool {
+	return m.Status.Phase != MigrationPhaseUnset &&
+		m.Status.Phase != MigrationPending &&
+		m.Status.Phase != MigrationScheduling &&
+		m.Status.Phase != MigrationScheduled
 }
 
 // ---
