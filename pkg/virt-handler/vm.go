@@ -200,23 +200,34 @@ func (d *VirtualMachineController) updateVMIStatus(vmi *v1.VirtualMachineInstanc
 
 	oldStatus := vmi.DeepCopy().Status
 
-	// only update the VMI's phase if this node owns the VMI
+	// Only update the VMI's phase if this node owns the VMI.
 	if vmi.Status.NodeName != "" && vmi.Status.NodeName != d.host {
-		// not owned by this host anymore
+		// not owned by this host, likely the result of a migration
 		return nil
 	}
 
-	// handle migrations differently. If a migration is encountered
-	// we have to ack the migration by changing the VMI's node to the
-	// target node.
+	// handle migrations differently than normal status updates.
 	//
-	// this is the migration ACK
+	// When a successful migration is detected, we must transfer ownership of the VMI
+	// from the source node (this node) to the target node (node the domain was migrated to).
+	//
+	// Transfer owership by...
+	// 1. Marking vmi.Status.MigationState as completed
+	// 2. Update the vmi.Status.NodeName to reflect the target node's name
+	// 3. Update the VMI's NodeNameLabel annotation to reflect the target node's name
+	//
+	// After a migration, the VMI's phase is no longer owned by this node. Only the
+	// MigrationState status field is elgible to be mutated.
 	if domainMigrated(domain) {
 		migrationHost := ""
 		if vmi.Status.MigrationState != nil {
 			migrationHost = vmi.Status.MigrationState.TargetNode
 		}
 
+		// If we can't detect where the migration went to, then we have no
+		// way of transfering ownership. The only option here is to move the
+		// vmi to failed.  The cluster vmi controller will then tear down the
+		// resulting pods.
 		if migrationHost == "" {
 			// migrated to unknown host.
 			vmi.Status.Phase = v1.Failed
@@ -243,12 +254,7 @@ func (d *VirtualMachineController) updateVMIStatus(vmi *v1.VirtualMachineInstanc
 		return nil
 	}
 
-	// Calculate the new VirtualMachineInstance state based on what libvirt reported
-	err = d.setVmPhaseForStatusReason(domain, vmi)
-	if err != nil {
-		return err
-	}
-
+	// Update migration progress if domain reports anything in the migration metadata.
 	if domain != nil && domain.Spec.Metadata.KubeVirt.Migration != nil && vmi.Status.MigrationState != nil {
 		migrationMetadata := domain.Spec.Metadata.KubeVirt.Migration
 		if migrationMetadata.UID == vmi.Status.MigrationState.MigrationUID {
@@ -264,6 +270,12 @@ func (d *VirtualMachineController) updateVMIStatus(vmi *v1.VirtualMachineInstanc
 			vmi.Status.MigrationState.Completed = migrationMetadata.Completed
 			vmi.Status.MigrationState.Failed = migrationMetadata.Failed
 		}
+	}
+
+	// Calculate the new VirtualMachineInstance state based on what libvirt reported
+	err = d.setVmPhaseForStatusReason(domain, vmi)
+	if err != nil {
+		return err
 	}
 
 	controller.NewVirtualMachineInstanceConditionManager().CheckFailure(vmi, syncError, "Synchronizing with the Domain failed.")
@@ -453,7 +465,7 @@ func (d *VirtualMachineController) executeTargetNode(key string,
 			if err != nil {
 				return err
 			}
-			d.recorder.Event(vmi, k8sv1.EventTypeNormal, v1.Created.String(), fmt.Sprintf("Migration Target is listening at %s", curAddress))
+			d.recorder.Event(vmi, k8sv1.EventTypeNormal, v1.PreparingTarget.String(), fmt.Sprintf("Migration Target is listening at %s", curAddress))
 		}
 		return nil
 	}
@@ -940,13 +952,13 @@ func (d *VirtualMachineController) processVmUpdate(origVMI *v1.VirtualMachineIns
 		if err != nil {
 			return err
 		}
-		d.recorder.Event(vmi, k8sv1.EventTypeNormal, v1.Created.String(), "VirtualMachineInstance Migration Target Prepared.")
+		d.recorder.Event(vmi, k8sv1.EventTypeNormal, v1.PreparingTarget.String(), "VirtualMachineInstance Migration Target Prepared.")
 	} else if d.isMigrationSource(vmi) {
 		err = client.MigrateVirtualMachine(vmi)
 		if err != nil {
 			return err
 		}
-		d.recorder.Event(vmi, k8sv1.EventTypeNormal, v1.Created.String(), "VirtualMachineInstance migrated.")
+		d.recorder.Event(vmi, k8sv1.EventTypeNormal, v1.Migrating.String(), "VirtualMachineInstance is migrating.")
 
 	} else {
 		err = client.SyncVirtualMachine(vmi)
