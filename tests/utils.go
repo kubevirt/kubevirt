@@ -1598,9 +1598,23 @@ func NewRepeatableVirtctlCommand(args ...string) func() error {
 }
 
 func ExecuteCommandOnPod(virtCli kubecli.KubevirtClient, pod *k8sv1.Pod, containerName string, command []string) (string, error) {
+	stdout, stderr, err := ExecuteCommandOnPodV2(virtCli, pod, containerName, command)
+
+	if err != nil {
+		return "", err
+	}
+
+	if len(stderr) > 0 {
+		return "", fmt.Errorf("stderr: %v", stderr)
+	}
+
+	return stdout, nil
+}
+
+func ExecuteCommandOnPodV2(virtCli kubecli.KubevirtClient, pod *k8sv1.Pod, containerName string, command []string) (stdout, stderr string, err error) {
 	var (
-		stdout bytes.Buffer
-		stderr bytes.Buffer
+		stdoutBuf bytes.Buffer
+		stderrBuf bytes.Buffer
 	)
 
 	req := virtCli.CoreV1().RESTClient().Post().
@@ -1621,29 +1635,25 @@ func ExecuteCommandOnPod(virtCli kubecli.KubevirtClient, pod *k8sv1.Pod, contain
 
 	config, err := kubecli.GetKubevirtClientConfig()
 	if err != nil {
-		return "", err
+		return "", "", err
 	}
 
 	exec, err := remotecommand.NewSPDYExecutor(config, "POST", req.URL())
 	if err != nil {
-		return "", err
+		return "", "", err
 	}
 
 	err = exec.Stream(remotecommand.StreamOptions{
-		Stdout: &stdout,
-		Stderr: &stderr,
+		Stdout: &stdoutBuf,
+		Stderr: &stderrBuf,
 		Tty:    false,
 	})
 
 	if err != nil {
-		return "", err
+		return "", "", err
 	}
 
-	if stderr.Len() > 0 {
-		return "", fmt.Errorf("stderr: %v", stderr.String())
-	}
-
-	return stdout.String(), nil
+	return stdoutBuf.String(), stderrBuf.String(), nil
 }
 
 func BeforeAll(fn func()) {

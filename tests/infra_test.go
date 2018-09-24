@@ -51,10 +51,53 @@ var _ = Describe("Infrastructure", func() {
 	})
 
 	Describe("Prometheus Endpoints", func() {
-		It("Should be exposed and accessible for all kubevirt components", func() {
+		It("should be exposed and and registered on the metrics endpoint", func() {
 			endpoint, err := virtClient.CoreV1().Endpoints(metav1.NamespaceSystem).Get("kubevirt-prometheus-metrics", metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
-			virtClient.CoreV1().Pods(metav1.NamespaceSystem).List(metav1.ListOptions{LabelSelector: "prometheus.kubevirt.io"})
+			l, err := labels.Parse("prometheus.kubevirt.io")
+			Expect(err).ToNot(HaveOccurred())
+			pods, err := virtClient.CoreV1().Pods(metav1.NamespaceSystem).List(metav1.ListOptions{LabelSelector: l.String()})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(endpoint.Subsets).To(HaveLen(1))
+
+			By("checking if the endpoint contains the metrics port and only one matching subset")
+			Expect(endpoint.Subsets[0].Ports).To(HaveLen(1))
+			Expect(endpoint.Subsets[0].Ports[0].Name).To(Equal("metrics"))
+			Expect(endpoint.Subsets[0].Ports[0].Port).To(Equal(int32(8443)))
+
+			By("checking if  the IPs in the subset match the KubeVirt system Pod count")
+			Expect(len(pods.Items)).To(BeNumerically(">=", 3), "At least one api, controller and handler need to be present")
+			Expect(endpoint.Subsets[0].Addresses).To(HaveLen(len(pods.Items)))
+
+			ips := map[string]string{}
+			for _, ep := range endpoint.Subsets[0].Addresses {
+				ips[ep.IP] = ""
+			}
+			for _, pod := range pods.Items {
+				Expect(ips).To(HaveKey(pod.Status.PodIP), fmt.Sprintf("IP of Pod %s not found in metrics endpoint", pod.Name))
+			}
+		})
+		It("should return Prometheus metrics", func() {
+			endpoint, err := virtClient.CoreV1().Endpoints(metav1.NamespaceSystem).Get("kubevirt-prometheus-metrics", metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			l, err := labels.Parse("kubevirt.io=virt-handler")
+			Expect(err).ToNot(HaveOccurred())
+			pods, err := virtClient.CoreV1().Pods(metav1.NamespaceSystem).List(metav1.ListOptions{LabelSelector: l.String()})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(pods.Items).ToNot(BeEmpty())
+
+			for _, ep := range endpoint.Subsets[0].Addresses {
+				stdout, _, err := tests.ExecuteCommandOnPodV2(virtClient,
+					&pods.Items[0], "virt-handler",
+					[]string{
+						"curl",
+						"-L",
+						"-k",
+						fmt.Sprintf("https://%s:%s/metrics", ep.IP, "8443"),
+					})
+				Expect(err).ToNot(HaveOccurred())
+				Expect(stdout).To(ContainSubstring("go_goroutines"))
+			}
 		})
 	})
 
