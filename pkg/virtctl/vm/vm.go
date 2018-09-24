@@ -21,6 +21,7 @@ package vm
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/spf13/cobra"
 	k8smetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -39,8 +40,8 @@ const (
 
 func NewStartCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:     "start (vm)",
-		Short:   "Start a virtual machine.",
+		Use:     "start vm",
+		Short:   "Start a VirtualMachine.",
 		Example: usage(COMMAND_START),
 		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -53,8 +54,8 @@ func NewStartCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
 }
 
 func NewStopCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
-	return &cobra.Command{
-		Use:     "stop (vm)",
+	cmd := &cobra.Command{
+		Use:     "stop vm",
 		Short:   "Stop a VirtualMachine.",
 		Example: usage(COMMAND_STOP),
 		Args:    cobra.ExactArgs(1),
@@ -63,6 +64,8 @@ func NewStopCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
 			return c.Run(cmd, args)
 		},
 	}
+	cmd.SetUsageTemplate(templates.UsageTemplate())
+	return cmd
 }
 
 type Command struct {
@@ -75,8 +78,8 @@ func NewCommand(command string) *Command {
 }
 
 func usage(cmd string) string {
-	usage := "#Start a virtual machine called 'myvmi':\n"
-	usage += fmt.Sprintf("virtctl %s myvmi", cmd)
+	usage := fmt.Sprintf("  # %s a VirtualMachine called 'myvm':\n", strings.Title(cmd))
+	usage += fmt.Sprintf("  virtctl %s myvm", cmd)
 	return usage
 }
 
@@ -122,7 +125,7 @@ func (o *Command) Run(cmd *cobra.Command, args []string) error {
 		if running {
 			stateMsg = "running"
 		}
-		return fmt.Errorf("Error: VirtualMachineInstance '%s' is already %s", vmiName, stateMsg)
+		return fmt.Errorf("Error: VirtualMachine '%s' is already %s", vmiName, stateMsg)
 	}
 
 	cmd.Printf("VM %s was scheduled to %s\n", vmiName, o.command)
