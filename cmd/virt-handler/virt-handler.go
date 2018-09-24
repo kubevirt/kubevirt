@@ -21,6 +21,7 @@ package main
 
 import (
 	"fmt"
+	"io/ioutil"
 	"net/http"
 	"os"
 	"time"
@@ -35,6 +36,8 @@ import (
 	k8coresv1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/record"
+
+	"kubevirt.io/kubevirt/pkg/util"
 
 	"kubevirt.io/kubevirt/pkg/certificates"
 
@@ -148,13 +151,22 @@ func (app *virtHandlerApp) Run() {
 		maxDevices,
 	)
 
-	// Bootstrapping. From here on the startup order matters
-	stop := make(chan struct{})
-	defer close(stop)
-	certStore, err := certificates.GenerateSelfSignedCert("virt-handler", certificates.GetNamespace())
+	certsDirectory, err := ioutil.TempDir("", "certsdir")
+	if err != nil {
+		panic(err)
+	}
+	defer os.RemoveAll(certsDirectory)
+	namespace, err := util.GetNamespace()
+	if err != nil {
+		glog.Fatalf("Error searching for namespace: %v", err)
+	}
+	certStore, err := certificates.GenerateSelfSignedCert(certsDirectory, "virt-handler", namespace)
 	if err != nil {
 		glog.Fatalf("unable to generate certificates: %v", err)
 	}
+	// Bootstrapping. From here on the startup order matters
+	stop := make(chan struct{})
+	defer close(stop)
 	go vmController.Run(3, stop)
 
 	http.Handle("/metrics", promhttp.Handler())

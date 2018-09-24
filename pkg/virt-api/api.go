@@ -44,7 +44,7 @@ import (
 	apiregistrationv1beta1 "k8s.io/kube-aggregator/pkg/apis/apiregistration/v1beta1"
 	aggregatorclient "k8s.io/kube-aggregator/pkg/client/clientset_generated/clientset"
 
-	"kubevirt.io/kubevirt/pkg/certificates"
+	"kubevirt.io/kubevirt/pkg/util"
 
 	"kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/feature-gates"
@@ -109,6 +109,7 @@ type virtAPIApp struct {
 	keyBytes                   []byte
 	clientCABytes              []byte
 	requestHeaderClientCABytes []byte
+	namespace                  string
 }
 
 var _ service.Service = &virtAPIApp{}
@@ -140,6 +141,10 @@ func (app *virtAPIApp) Execute() {
 	app.virtCli = virtCli
 
 	app.certsDirectory, err = ioutil.TempDir("", "certsdir")
+	if err != nil {
+		panic(err)
+	}
+	app.namespace, err = util.GetNamespace()
 	if err != nil {
 		panic(err)
 	}
@@ -392,7 +397,7 @@ func deserializeStrings(in string) ([]string, error) {
 }
 
 func (app *virtAPIApp) getClientCert() error {
-	authConfigMap, err := app.virtCli.CoreV1().ConfigMaps(metav1.NamespaceSystem).Get("extension-apiserver-authentication", metav1.GetOptions{})
+	authConfigMap, err := app.virtCli.CoreV1().ConfigMaps(app.namespace).Get("extension-apiserver-authentication", metav1.GetOptions{})
 	if err != nil {
 		return err
 	}
@@ -444,9 +449,8 @@ func (app *virtAPIApp) getClientCert() error {
 func (app *virtAPIApp) getSelfSignedCert() error {
 	var ok bool
 
-	namespace := certificates.GetNamespace()
 	generateCerts := false
-	secret, err := app.virtCli.CoreV1().Secrets(namespace).Get(virtApiCertSecretName, metav1.GetOptions{})
+	secret, err := app.virtCli.CoreV1().Secrets(app.namespace).Get(virtApiCertSecretName, metav1.GetOptions{})
 	if err != nil {
 		if k8serrors.IsNotFound(err) {
 			generateCerts = true
@@ -460,9 +464,9 @@ func (app *virtAPIApp) getSelfSignedCert() error {
 		caKeyPair, _ := triple.NewCA("kubevirt.io")
 		keyPair, _ := triple.NewServerKeyPair(
 			caKeyPair,
-			"virt-api."+namespace+".pod.cluster.local",
+			"virt-api."+app.namespace+".pod.cluster.local",
 			"virt-api",
-			namespace,
+			app.namespace,
 			"cluster.local",
 			nil,
 			nil,
@@ -475,7 +479,7 @@ func (app *virtAPIApp) getSelfSignedCert() error {
 		secret := k8sv1.Secret{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      virtApiCertSecretName,
-				Namespace: namespace,
+				Namespace: app.namespace,
 				Labels: map[string]string{
 					v1.AppLabel: "virt-api-aggregator",
 				},
@@ -487,7 +491,7 @@ func (app *virtAPIApp) getSelfSignedCert() error {
 				signingCertBytesValue: app.signingCertBytes,
 			},
 		}
-		_, err := app.virtCli.CoreV1().Secrets(namespace).Create(&secret)
+		_, err := app.virtCli.CoreV1().Secrets(app.namespace).Create(&secret)
 		if err != nil {
 			return err
 		}
@@ -523,7 +527,6 @@ func (app *virtAPIApp) createWebhook() error {
 }
 
 func (app *virtAPIApp) createValidatingWebhook() error {
-	namespace := certificates.GetNamespace()
 	registerWebhook := false
 	vmiPathCreate := vmiCreateValidatePath
 	vmiPathUpdate := vmiUpdateValidatePath
@@ -555,7 +558,7 @@ func (app *virtAPIApp) createValidatingWebhook() error {
 			}},
 			ClientConfig: admissionregistrationv1beta1.WebhookClientConfig{
 				Service: &admissionregistrationv1beta1.ServiceReference{
-					Namespace: namespace,
+					Namespace: app.namespace,
 					Name:      virtApiServiceName,
 					Path:      &vmiPathCreate,
 				},
@@ -576,7 +579,7 @@ func (app *virtAPIApp) createValidatingWebhook() error {
 			}},
 			ClientConfig: admissionregistrationv1beta1.WebhookClientConfig{
 				Service: &admissionregistrationv1beta1.ServiceReference{
-					Namespace: namespace,
+					Namespace: app.namespace,
 					Name:      virtApiServiceName,
 					Path:      &vmiPathUpdate,
 				},
@@ -598,7 +601,7 @@ func (app *virtAPIApp) createValidatingWebhook() error {
 			}},
 			ClientConfig: admissionregistrationv1beta1.WebhookClientConfig{
 				Service: &admissionregistrationv1beta1.ServiceReference{
-					Namespace: namespace,
+					Namespace: app.namespace,
 					Name:      virtApiServiceName,
 					Path:      &vmPath,
 				},
@@ -620,7 +623,7 @@ func (app *virtAPIApp) createValidatingWebhook() error {
 			}},
 			ClientConfig: admissionregistrationv1beta1.WebhookClientConfig{
 				Service: &admissionregistrationv1beta1.ServiceReference{
-					Namespace: namespace,
+					Namespace: app.namespace,
 					Name:      virtApiServiceName,
 					Path:      &vmirsPath,
 				},
@@ -642,7 +645,7 @@ func (app *virtAPIApp) createValidatingWebhook() error {
 			}},
 			ClientConfig: admissionregistrationv1beta1.WebhookClientConfig{
 				Service: &admissionregistrationv1beta1.ServiceReference{
-					Namespace: namespace,
+					Namespace: app.namespace,
 					Name:      virtApiServiceName,
 					Path:      &vmipresetPath,
 				},
@@ -667,7 +670,7 @@ func (app *virtAPIApp) createValidatingWebhook() error {
 	} else {
 
 		for _, webhook := range webhookRegistration.Webhooks {
-			if webhook.ClientConfig.Service != nil && webhook.ClientConfig.Service.Namespace != namespace {
+			if webhook.ClientConfig.Service != nil && webhook.ClientConfig.Service.Namespace != app.namespace {
 				return fmt.Errorf("ValidatingAdmissionWebhook [%s] is already registered using services endpoints in a different namespace. Existing webhook registration must be deleted before virt-api can proceed.", virtWebhookValidator)
 			}
 		}
@@ -701,7 +704,10 @@ func (app *virtAPIApp) createValidatingWebhook() error {
 }
 
 func (app *virtAPIApp) createMutatingWebhook() error {
-	namespace := certificates.GetNamespace()
+	namespace, err := util.GetNamespace()
+	if err != nil {
+		return err
+	}
 	registerWebhook := false
 	vmiPath := vmiMutatePath
 
@@ -775,7 +781,10 @@ func (app *virtAPIApp) createMutatingWebhook() error {
 }
 
 func (app *virtAPIApp) createSubresourceApiservice() error {
-	namespace := certificates.GetNamespace()
+	namespace, err := util.GetNamespace()
+	if err != nil {
+		return err
+	}
 	config, err := kubecli.GetConfig()
 	if err != nil {
 		return err
