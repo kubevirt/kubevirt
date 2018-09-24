@@ -333,7 +333,13 @@ func (c *VMIController) updateStatus(vmi *virtv1.VirtualMachineInstance, pod *k8
 			vmiCopy.Status.Phase = virtv1.Failed
 		}
 	case vmi.IsFinal():
-		if !podExists {
+		allDeleted, err := c.allPodsDeleted(vmi)
+		if err != nil {
+			return err
+		}
+
+		if allDeleted {
+			log.Log.V(3).Object(vmi).Infof("All pods have been deleted, removing finalizer")
 			controller.RemoveFinalizer(vmiCopy, virtv1.VirtualMachineInstanceFinalizer)
 		}
 	case vmi.IsRunning() || vmi.IsScheduled():
@@ -769,6 +775,29 @@ func (c *VMIController) listMatchingDataVolumes(vmi *virtv1.VirtualMachineInstan
 	return dataVolumes, nil
 }
 
+func (c *VMIController) allPodsDeleted(vmi *virtv1.VirtualMachineInstance) (bool, error) {
+	pods, err := c.listPodsFromNamespace(vmi.Namespace)
+	if err != nil {
+		return false, err
+	}
+
+	selector, err := v1.LabelSelectorAsSelector(&v1.LabelSelector{
+		MatchLabels: map[string]string{
+			virtv1.CreatedByLabel: string(vmi.UID),
+			virtv1.AppLabel:       "virt-launcher",
+		},
+	})
+
+	for _, pod := range pods {
+		if selector.Matches(labels.Set(pod.ObjectMeta.Labels)) {
+			return false, nil
+		}
+	}
+
+	return true, nil
+
+}
+
 func (c *VMIController) deleteAllMatchingPods(vmi *virtv1.VirtualMachineInstance) error {
 	pods, err := c.listPodsFromNamespace(vmi.Namespace)
 	if err != nil {
@@ -797,7 +826,7 @@ func (c *VMIController) deleteAllMatchingPods(vmi *virtv1.VirtualMachineInstance
 		err := c.clientset.CoreV1().Pods(vmi.Namespace).Delete(pod.Name, &v1.DeleteOptions{})
 		if err != nil {
 			c.podExpectations.DeletionObserved(vmiKey, controller.PodKey(pod))
-			c.recorder.Eventf(vmi, k8sv1.EventTypeWarning, FailedDeletePodReason, "Faled to delete virtual machine pod %s", pod.Name)
+			c.recorder.Eventf(vmi, k8sv1.EventTypeWarning, FailedDeletePodReason, "Failed to delete virtual machine pod %s", pod.Name)
 			return err
 		}
 		c.recorder.Eventf(vmi, k8sv1.EventTypeNormal, SuccessfulDeletePodReason, "Deleted virtual machine pod %s", pod.Name)
