@@ -38,8 +38,8 @@ var _ = Describe("Health Monitoring", func() {
 
 	flag.Parse()
 
-	virtClient, err := kubecli.GetKubevirtClient()
-	tests.PanicOnError(err)
+	var virtClient kubecli.KubevirtClient
+	var err error
 
 	launchVMI := func(vmi *v1.VirtualMachineInstance) {
 		By("Starting a VirtualMachineInstance")
@@ -50,6 +50,8 @@ var _ = Describe("Health Monitoring", func() {
 	}
 
 	BeforeEach(func() {
+		virtClient, err = kubecli.GetKubevirtClient()
+		tests.PanicOnError(err)
 		tests.BeforeTestCleanup()
 	})
 

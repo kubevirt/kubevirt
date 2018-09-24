@@ -70,15 +70,20 @@ var _ = Describe("VMIlifecycle", func() {
 
 	flag.Parse()
 
-	virtClient, err := kubecli.GetKubevirtClient()
-	tests.PanicOnError(err)
+	var virtClient kubecli.KubevirtClient
+	var err error
 
 	var vmi *v1.VirtualMachineInstance
 
 	var useEmulation *bool
 
 	BeforeEach(func() {
+		virtClient, err = kubecli.GetKubevirtClient()
+		tests.PanicOnError(err)
 		tests.BeforeTestCleanup()
+	})
+
+	JustBeforeEach(func() {
 		vmi = tests.NewRandomVMIWithEphemeralDisk(tests.RegistryDiskFor(tests.RegistryDiskAlpine))
 	})
 

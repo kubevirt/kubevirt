@@ -43,12 +43,17 @@ var _ = Describe("Networkpolicy", func() {
 
 	flag.Parse()
 
-	virtClient, err := kubecli.GetKubevirtClient()
-	tests.PanicOnError(err)
+	var virtClient kubecli.KubevirtClient
+	var err error
 
 	var vmia *v1.VirtualMachineInstance
 	var vmib *v1.VirtualMachineInstance
 	var vmic *v1.VirtualMachineInstance
+
+	BeforeEach(func() {
+		virtClient, err = kubecli.GetKubevirtClient()
+		tests.PanicOnError(err)
+	})
 
 	tests.BeforeAll(func() {
 		tests.SkipIfUseFlannel(virtClient)

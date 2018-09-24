@@ -57,8 +57,8 @@ const (
 var _ = Describe("Windows VirtualMachineInstance", func() {
 	flag.Parse()
 
-	virtClient, err := kubecli.GetKubevirtClient()
-	tests.PanicOnError(err)
+	var virtClient kubecli.KubevirtClient
+	var err error
 
 	var windowsVMI *v1.VirtualMachineInstance
 
@@ -119,11 +119,18 @@ var _ = Describe("Windows VirtualMachineInstance", func() {
 	}
 
 	tests.BeforeAll(func() {
+		virtClient, err = kubecli.GetKubevirtClient()
+		tests.PanicOnError(err)
 		tests.SkipIfNoWindowsImage(virtClient)
 	})
 
 	BeforeEach(func() {
+		virtClient, err = kubecli.GetKubevirtClient()
+		tests.PanicOnError(err)
 		tests.BeforeTestCleanup()
+	})
+
+	JustBeforeEach(func() {
 		windowsVMI = tests.NewRandomVMI()
 		windowsVMI.Spec = windowsVMISpec
 		tests.AddExplicitPodNetworkInterface(windowsVMI)

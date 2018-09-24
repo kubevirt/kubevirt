@@ -54,8 +54,14 @@ var _ = Describe("Expose", func() {
 
 	flag.Parse()
 
-	virtClient, err := kubecli.GetKubevirtClient()
-	tests.PanicOnError(err)
+	var virtClient kubecli.KubevirtClient
+	var err error
+
+	BeforeEach(func() {
+		virtClient, err = kubecli.GetKubevirtClient()
+		tests.PanicOnError(err)
+	})
+
 	const testPort = 1500
 
 	Context("Expose service on a VM", func() {

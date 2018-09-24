@@ -42,12 +42,20 @@ var _ = Describe("Multus Networking", func() {
 
 	flag.Parse()
 
-	virtClient, err := kubecli.GetKubevirtClient()
-	tests.PanicOnError(err)
+	var virtClient kubecli.KubevirtClient
+	var err error
+
 	var detachedVMI *v1.VirtualMachineInstance
 
 	tests.BeforeAll(func() {
+		virtClient, err = kubecli.GetKubevirtClient()
+		tests.PanicOnError(err)
 		tests.SkipIfNoMultusProvider(virtClient)
+	})
+
+	BeforeEach(func() {
+		virtClient, err = kubecli.GetKubevirtClient()
+		tests.PanicOnError(err)
 		tests.BeforeTestCleanup()
 	})
 

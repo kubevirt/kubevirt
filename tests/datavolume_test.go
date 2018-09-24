@@ -37,10 +37,12 @@ import (
 var _ = Describe("DataVolume Integration", func() {
 	flag.Parse()
 
-	virtClient, err := kubecli.GetKubevirtClient()
-	tests.PanicOnError(err)
+	var virtClient kubecli.KubevirtClient
+	var err error
 
 	BeforeEach(func() {
+		virtClient, err = kubecli.GetKubevirtClient()
+		tests.PanicOnError(err)
 		tests.BeforeTestCleanup()
 		if !tests.HasCDI() {
 			Skip("Skip DataVolume tests when CDI is not present")

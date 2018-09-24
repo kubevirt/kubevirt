@@ -42,8 +42,8 @@ import (
 var _ = Describe("VMIPreset", func() {
 	flag.Parse()
 
-	virtClient, err := kubecli.GetKubevirtClient()
-	tests.PanicOnError(err)
+	var virtClient kubecli.KubevirtClient
+	var err error
 
 	var vmi *v1.VirtualMachineInstance
 	var memoryPreset *v1.VirtualMachineInstancePreset
@@ -59,7 +59,12 @@ var _ = Describe("VMIPreset", func() {
 	cores := 7
 
 	BeforeEach(func() {
+		virtClient, err = kubecli.GetKubevirtClient()
+		tests.PanicOnError(err)
 		tests.BeforeTestCleanup()
+	})
+
+	JustBeforeEach(func() {
 		vmi = tests.NewRandomVMIWithEphemeralDisk(tests.RegistryDiskFor(tests.RegistryDiskAlpine))
 		vmi.Labels = map[string]string{flavorKey: memoryFlavor}
 
