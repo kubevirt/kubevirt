@@ -1005,10 +1005,14 @@ func (app *virtAPIApp) Run() {
 
 	stopChan := make(chan struct{}, 1)
 	defer close(stopChan)
+	go webhookInformers.VMIInformer.Run(stopChan)
 	go webhookInformers.VMIPresetInformer.Run(stopChan)
 	go webhookInformers.NamespaceLimitsInformer.Run(stopChan)
 
-	cache.WaitForCacheSync(stopChan, webhookInformers.NamespaceLimitsInformer.HasSynced, webhookInformers.NamespaceLimitsInformer.HasSynced)
+	cache.WaitForCacheSync(stopChan,
+		webhookInformers.VMIInformer.HasSynced,
+		webhookInformers.VMIPresetInformer.HasSynced,
+		webhookInformers.NamespaceLimitsInformer.HasSynced)
 
 	// Verify/create webhook endpoint.
 	err = app.createWebhook()
