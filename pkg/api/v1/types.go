@@ -785,6 +785,9 @@ const (
 	// fails to be created due to insufficient quota, limit ranges, pod security policy, node selectors,
 	// etc. or deleted due to kubelet being down or finalizers are failing.
 	VirtualMachineFailure VirtualMachineConditionType = "Failure"
+
+	// VirtualMachineReady means virtual machine is running and ready.
+	VirtualMachineReady VirtualMachineConditionType = "Ready"
 )
 
 // ---

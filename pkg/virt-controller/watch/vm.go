@@ -917,6 +917,16 @@ func (c *VMController) enqueueVm(obj interface{}) {
 	c.Queue.Add(key)
 }
 
+func (c *VMController) addConditionType(vm *virtv1.VirtualMachine, condType virtv1.VirtualMachineConditionType) {
+	vm.Status.Conditions = append(vm.Status.Conditions, virtv1.VirtualMachineCondition{
+		Type:               condType,
+		Reason:             "",
+		Message:            "",
+		LastTransitionTime: v1.Now(),
+		Status:             k8score.ConditionTrue,
+	})
+}
+
 func (c *VMController) hasCondition(vm *virtv1.VirtualMachine, cond virtv1.VirtualMachineConditionType) bool {
 	for _, c := range vm.Status.Conditions {
 		if c.Type == cond {
@@ -957,6 +967,17 @@ func (c *VMController) updateStatus(vm *virtv1.VirtualMachine, vmi *virtv1.Virtu
 	// Set created and ready flags
 	vm.Status.Created = created
 	vm.Status.Ready = ready
+
+	// Add/Remove Ready condition if necessary
+	if createErr != nil && !c.hasCondition(vm, virtv1.VirtualMachineFailure) {
+		if vm.Status.Ready {
+			if !c.hasCondition(vm, virtv1.VirtualMachineReady) {
+				c.addConditionType(vm, virtv1.VirtualMachineReady)
+			}
+		} else {
+			c.removeCondition(vm, virtv1.VirtualMachineReady)
+		}
+	}
 
 	// Add/Remove Failure condition if necessary
 	if !(errMatch) {

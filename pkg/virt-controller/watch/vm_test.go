@@ -586,12 +586,15 @@ var _ = Describe("VirtualMachine", func() {
 
 			vmInterface.EXPECT().Update(gomock.Any()).Do(func(obj interface{}) {
 				objVM := obj.(*v1.VirtualMachine)
-				Expect(objVM.Status.Conditions).To(HaveLen(1))
-				cond := objVM.Status.Conditions[0]
-				Expect(cond.Type).To(Equal(v1.VirtualMachineFailure))
-				Expect(cond.Reason).To(Equal("FailedDelete"))
-				Expect(cond.Message).To(Equal("failure"))
-				Expect(cond.Status).To(Equal(k8sv1.ConditionTrue))
+				Expect(objVM.Status.Conditions).To(HaveLen(2))
+				cond0 := objVM.Status.Conditions[0]
+				Expect(cond0.Type).To(Equal(v1.VirtualMachineReady))
+				Expect(cond0.Status).To(Equal(k8sv1.ConditionTrue))
+				cond1 := objVM.Status.Conditions[1]
+				Expect(cond1.Type).To(Equal(v1.VirtualMachineFailure))
+				Expect(cond1.Reason).To(Equal("FailedDelete"))
+				Expect(cond1.Message).To(Equal("failure"))
+				Expect(cond1.Status).To(Equal(k8sv1.ConditionTrue))
 			})
 
 			controller.Execute()
@@ -609,12 +612,15 @@ var _ = Describe("VirtualMachine", func() {
 
 			vmInterface.EXPECT().Update(gomock.Any()).Do(func(obj interface{}) {
 				objVM := obj.(*v1.VirtualMachine)
-				Expect(objVM.Status.Conditions).To(HaveLen(1))
-				cond := objVM.Status.Conditions[0]
-				Expect(cond.Type).To(Equal(v1.VirtualMachineFailure))
-				Expect(cond.Reason).To(Equal("FailedDelete"))
-				Expect(cond.Message).To(Equal("failure"))
-				Expect(cond.Status).To(Equal(k8sv1.ConditionTrue))
+				Expect(objVM.Status.Conditions).To(HaveLen(2))
+				cond0 := objVM.Status.Conditions[0]
+				Expect(cond0.Type).To(Equal(v1.VirtualMachineReady))
+				Expect(cond0.Status).To(Equal(k8sv1.ConditionTrue))
+				cond1 := objVM.Status.Conditions[1]
+				Expect(cond1.Type).To(Equal(v1.VirtualMachineFailure))
+				Expect(cond1.Reason).To(Equal("FailedDelete"))
+				Expect(cond1.Message).To(Equal("failure"))
+				Expect(cond1.Status).To(Equal(k8sv1.ConditionTrue))
 			})
 
 			controller.Execute()
