@@ -1047,6 +1047,20 @@ func ValidateVMIRSSpec(field *k8sfield.Path, spec *v1.VirtualMachineInstanceRepl
 	return causes
 }
 
+func ValidateVirtualMachineInstanceMigrationSpec(field *k8sfield.Path, spec *v1.VirtualMachineInstanceMigrationSpec) []metav1.StatusCause {
+	var causes []metav1.StatusCause
+
+	if spec.VMIName == "" {
+		return append(causes, metav1.StatusCause{
+			Type:    metav1.CauseTypeFieldValueRequired,
+			Message: fmt.Sprintf("vmiName is missing"),
+			Field:   field.Child("vmiName").String(),
+		})
+	}
+
+	return causes
+}
+
 func getAdmissionReviewVMI(ar *v1beta1.AdmissionReview) (new *v1.VirtualMachineInstance, old *v1.VirtualMachineInstance, err error) {
 	vmiResource := metav1.GroupVersionResource{
 		Group:    v1.VirtualMachineInstanceGroupVersionKind.Group,
@@ -1221,4 +1235,113 @@ func admitVMIPreset(ar *v1beta1.AdmissionReview) *v1beta1.AdmissionResponse {
 
 func ServeVMIPreset(resp http.ResponseWriter, req *http.Request) {
 	serve(resp, req, admitVMIPreset)
+}
+
+func getAdmissionReviewMigration(ar *v1beta1.AdmissionReview) (new *v1.VirtualMachineInstanceMigration, old *v1.VirtualMachineInstanceMigration, err error) {
+	migrationResource := metav1.GroupVersionResource{
+		Group:    v1.VirtualMachineInstanceMigrationGroupVersionKind.Group,
+		Version:  v1.VirtualMachineInstanceMigrationGroupVersionKind.Version,
+		Resource: "virtualmachineinstancemigrations",
+	}
+	if ar.Request.Resource != migrationResource {
+		return nil, nil, fmt.Errorf("expect resource to be '%s'", migrationResource)
+	}
+
+	raw := ar.Request.Object.Raw
+	newMigration := v1.VirtualMachineInstanceMigration{}
+
+	err = json.Unmarshal(raw, &newMigration)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	if ar.Request.Operation == v1beta1.Update {
+		raw := ar.Request.OldObject.Raw
+		oldMigration := v1.VirtualMachineInstanceMigration{}
+		err = json.Unmarshal(raw, &oldMigration)
+		if err != nil {
+			return nil, nil, err
+		}
+		return &newMigration, &oldMigration, nil
+	}
+
+	return &newMigration, nil, nil
+}
+
+func admitMigrationCreate(ar *v1beta1.AdmissionReview) *v1beta1.AdmissionResponse {
+	migration, _, err := getAdmissionReviewMigration(ar)
+	if err != nil {
+		return webhooks.ToAdmissionResponseError(err)
+	}
+
+	if !featuregates.LiveMigrationEnabled() {
+		return webhooks.ToAdmissionResponseError(fmt.Errorf("LiveMigration feature gate is not enabled in kubevirt-config"))
+	}
+
+	causes := ValidateVirtualMachineInstanceMigrationSpec(k8sfield.NewPath("spec"), &migration.Spec)
+	if len(causes) > 0 {
+		return toAdmissionResponse(causes)
+	}
+
+	informers := webhooks.GetInformers()
+	cacheKey := fmt.Sprintf("%s/%s", migration.Namespace, migration.Spec.VMIName)
+	obj, exists, err := informers.VMIInformer.GetStore().GetByKey(cacheKey)
+	if err != nil {
+		return webhooks.ToAdmissionResponseError(err)
+	}
+
+	// ensure VMI exists for the migration
+	if !exists {
+		return webhooks.ToAdmissionResponseError(fmt.Errorf("the VMI %s does not exist under the cache", migration.Spec.VMIName))
+	}
+	vmi := obj.(*v1.VirtualMachineInstance)
+
+	// Don't allow introducing a migration job for a VMI that has already finalized
+	if vmi.IsFinal() {
+		return webhooks.ToAdmissionResponseError(fmt.Errorf("Cannot migrated VMI in finalized state."))
+	}
+
+	// Don't allow new migration jobs to be introduced when previous migration jobs
+	// are already in flight.
+	if vmi.Status.MigrationState != nil &&
+		string(vmi.Status.MigrationState.MigrationUID) != "" &&
+		!vmi.Status.MigrationState.Completed &&
+		!vmi.Status.MigrationState.Failed {
+
+		return webhooks.ToAdmissionResponseError(fmt.Errorf("in-flight migration detected. Active migration job (%s) is currently already in progress for VMI %s.", string(vmi.Status.MigrationState.MigrationUID), vmi.Name))
+	}
+
+	reviewResponse := v1beta1.AdmissionResponse{}
+	reviewResponse.Allowed = true
+	return &reviewResponse
+}
+
+func ServeMigrationCreate(resp http.ResponseWriter, req *http.Request) {
+	serve(resp, req, admitMigrationCreate)
+}
+
+func admitMigrationUpdate(ar *v1beta1.AdmissionReview) *v1beta1.AdmissionResponse {
+	// Get new migration from admission response
+	newMigration, oldMigration, err := getAdmissionReviewMigration(ar)
+	if err != nil {
+		return webhooks.ToAdmissionResponseError(err)
+	}
+
+	// Reject Migration update if spec changed
+	if !reflect.DeepEqual(newMigration.Spec, oldMigration.Spec) {
+		return toAdmissionResponse([]metav1.StatusCause{
+			metav1.StatusCause{
+				Type:    metav1.CauseTypeFieldValueNotSupported,
+				Message: "update of Migration object's spec is restricted",
+			},
+		})
+	}
+
+	reviewResponse := v1beta1.AdmissionResponse{}
+	reviewResponse.Allowed = true
+	return &reviewResponse
+}
+
+func ServeMigrationUpdate(resp http.ResponseWriter, req *http.Request) {
+	serve(resp, req, admitMigrationUpdate)
 }
