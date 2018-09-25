@@ -937,17 +937,17 @@ const (
 
 // ---
 // +k8s:openapi-gen=true
-type DriverCache string
+type DiskCache string
 
 const (
 	// CacheNone - I/O from the guest is not cached on the host, but may be kept in a writeback disk cache.
-	CacheNone DriverCache = "none"
+	CacheNone DiskCache = "none"
 	// CacheWriteThrough - I/O from the guest is cached on the host but written through to the physical medium.
-	CacheWriteThrough DriverCache = "writethrough"
+	CacheWriteThrough DiskCache = "writethrough"
 	// CacheWriteBack - I/O from the guest is cached on the host.
-	CacheWriteBack DriverCache = "writeback"
+	CacheWriteBack DiskCache = "writeback"
 	// CacheDirectSync - similar to writethrough, but I/O from the guest bypasses the host page cache.
-	CacheDirectSync DriverCache = "directsync"
+	CacheDirectSync DiskCache = "directsync"
 	// CacheUnsafe - the host may cache all disk I/O, and sync requests from guest are ignored.
-	CacheUnsafe DriverCache = "unsafe"
+	CacheUnsafe DiskCache = "unsafe"
 )

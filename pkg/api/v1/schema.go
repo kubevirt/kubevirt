@@ -251,11 +251,17 @@ type Disk struct {
 	// Serial provides the ability to specify a serial number for the disk device.
 	// +optional
 	Serial string `json:"serial,omitempty"`
+<<<<<<< HEAD
 	// dedicatedIOThread indicates this disk should have an exclusive IO Thread.
 	// Enabling this implies useIOThreads = true.
 	// Defaults to false.
 	// +optional
 	DedicatedIOThread *bool `json:"dedicatedIOThread,omitempty"`
+=======
+	// Cache specifies which kvm disk cache mode should be used
+	// +optional
+	Cache DiskCache `json:"cache,omitempty"`
+>>>>>>> ebafdd1d... set cache in converter
 }
 
 // Represents the target of a volume to mount.

@@ -98,8 +98,10 @@ func Convert_v1_Disk_To_api_Disk(diskDevice *v1.Disk, disk *Disk, devicePerBus m
 			disk.ReadOnly = toApiReadOnly(true)
 		}
 	}
+	mode := setDiskCacheMode(diskDevice.Cache)
 	disk.Driver = &DiskDriver{
-		Name: "qemu",
+		Name:  "qemu",
+		Cache: mode,
 	}
 	if numQueues != nil {
 		disk.Driver.Queues = numQueues
@@ -110,6 +112,11 @@ func Convert_v1_Disk_To_api_Disk(diskDevice *v1.Disk, disk *Disk, devicePerBus m
 	}
 
 	return nil
+}
+
+func setDiskCacheMode(mode v1.DiskCache) string {
+
+	return string(mode)
 }
 
 func makeDeviceName(bus string, devicePerBus map[string]int) string {
