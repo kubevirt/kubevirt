@@ -1015,28 +1015,40 @@ func ValidateVMIRSSpec(field *k8sfield.Path, spec *v1.VirtualMachineInstanceRepl
 	return causes
 }
 
-func getAdmissionReviewVMI(ar *v1beta1.AdmissionReview) (*v1.VirtualMachineInstance, error) {
+func getAdmissionReviewVMI(ar *v1beta1.AdmissionReview) (new *v1.VirtualMachineInstance, old *v1.VirtualMachineInstance, err error) {
 	vmiResource := metav1.GroupVersionResource{
 		Group:    v1.VirtualMachineInstanceGroupVersionKind.Group,
 		Version:  v1.VirtualMachineInstanceGroupVersionKind.Version,
 		Resource: "virtualmachineinstances",
 	}
 	if ar.Request.Resource != vmiResource {
-		return nil, fmt.Errorf("expect resource to be '%s'", vmiResource.Resource)
+		return nil, nil, fmt.Errorf("expect resource to be '%s'", vmiResource.Resource)
 	}
 
 	raw := ar.Request.Object.Raw
-	vmi := v1.VirtualMachineInstance{}
+	newVMI := v1.VirtualMachineInstance{}
 
-	err := json.Unmarshal(raw, &vmi)
+	err = json.Unmarshal(raw, &newVMI)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
-	return &vmi, nil
+
+	if ar.Request.Operation == v1beta1.Update {
+		raw := ar.Request.OldObject.Raw
+		oldVMI := v1.VirtualMachineInstance{}
+
+		err = json.Unmarshal(raw, &oldVMI)
+		if err != nil {
+			return nil, nil, err
+		}
+		return &newVMI, &oldVMI, nil
+	}
+
+	return &newVMI, nil, nil
 }
 
 func admitVMICreate(ar *v1beta1.AdmissionReview) *v1beta1.AdmissionResponse {
-	vmi, err := getAdmissionReviewVMI(ar)
+	vmi, _, err := getAdmissionReviewVMI(ar)
 	if err != nil {
 		return webhooks.ToAdmissionResponseError(err)
 	}
@@ -1057,25 +1069,11 @@ func ServeVMICreate(resp http.ResponseWriter, req *http.Request) {
 
 func admitVMIUpdate(ar *v1beta1.AdmissionReview) *v1beta1.AdmissionResponse {
 	// Get new VMI from admission response
-	newVMI, err := getAdmissionReviewVMI(ar)
+	newVMI, oldVMI, err := getAdmissionReviewVMI(ar)
 	if err != nil {
 		return webhooks.ToAdmissionResponseError(err)
 	}
 
-	// Get old VMI from the cache
-	informers := webhooks.GetInformers()
-	cacheKey := fmt.Sprintf("%s/%s", newVMI.Namespace, newVMI.Name)
-	obj, exists, err := informers.VMIInformer.GetStore().GetByKey(cacheKey)
-	if err != nil {
-		return webhooks.ToAdmissionResponseError(err)
-	}
-
-	if !exists {
-		return webhooks.ToAdmissionResponseError(
-			fmt.Errorf("the VMI %s does not exist under the cache", newVMI.Name),
-		)
-	}
-	oldVMI := obj.(*v1.VirtualMachineInstance)
 	// Reject VMI update if VMI spec changed
 	if !reflect.DeepEqual(newVMI.Spec, oldVMI.Spec) {
 		return toAdmissionResponse([]metav1.StatusCause{
