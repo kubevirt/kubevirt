@@ -52,6 +52,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"kubevirt.io/kubevirt/pkg/api/v1.Features":                                  schema_kubevirt_pkg_api_v1_Features(ref),
 		"kubevirt.io/kubevirt/pkg/api/v1.Firmware":                                  schema_kubevirt_pkg_api_v1_Firmware(ref),
 		"kubevirt.io/kubevirt/pkg/api/v1.FloppyTarget":                              schema_kubevirt_pkg_api_v1_FloppyTarget(ref),
+		"kubevirt.io/kubevirt/pkg/api/v1.GuestAgent":                                schema_kubevirt_pkg_api_v1_GuestAgent(ref),
 		"kubevirt.io/kubevirt/pkg/api/v1.HPETTimer":                                 schema_kubevirt_pkg_api_v1_HPETTimer(ref),
 		"kubevirt.io/kubevirt/pkg/api/v1.HostDisk":                                  schema_kubevirt_pkg_api_v1_HostDisk(ref),
 		"kubevirt.io/kubevirt/pkg/api/v1.Hugepages":                                 schema_kubevirt_pkg_api_v1_Hugepages(ref),
@@ -861,25 +862,32 @@ func schema_kubevirt_pkg_api_v1_FloppyTarget(ref common.ReferenceCallback) commo
 				},
 			},
 		},
-		"kubevirt.io/kubevirt/pkg/api/v1.GuestAgent": {
-			Schema: spec.Schema{
-				SchemaProps: spec.SchemaProps{
-					Description: "Represents the guest agent configuration object",
-					Properties:  map[string]spec.Schema{},
-				},
+		Dependencies: []string{},
+	}
+}
+
+func schema_kubevirt_pkg_api_v1_GuestAgent(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "Represents the guest agent configuration object",
+				Properties:  map[string]spec.Schema{},
 			},
-			Dependencies: []string{},
 		},
-		"kubevirt.io/kubevirt/pkg/api/v1.HPETTimer": {
-			Schema: spec.Schema{
-				SchemaProps: spec.SchemaProps{
-					Properties: map[string]spec.Schema{
-						"tickPolicy": {
-							SchemaProps: spec.SchemaProps{
-								Description: "TickPolicy determines what happens when QEMU misses a deadline for injecting a tick to the guest. One of \"delay\", \"catchup\", \"merge\", \"discard\".",
-								Type:        []string{"string"},
-								Format:      "",
-							},
+		Dependencies: []string{},
+	}
+}
+
+func schema_kubevirt_pkg_api_v1_HPETTimer(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Properties: map[string]spec.Schema{
+					"tickPolicy": {
+						SchemaProps: spec.SchemaProps{
+							Description: "TickPolicy determines what happens when QEMU misses a deadline for injecting a tick to the guest. One of \"delay\", \"catchup\", \"merge\", \"discard\".",
+							Type:        []string{"string"},
+							Format:      "",
 						},
 					},
 					"present": {
@@ -2129,32 +2137,37 @@ func schema_kubevirt_pkg_api_v1_VirtualMachineInstanceReplicaSetStatus(ref commo
 				},
 			},
 		},
-		"kubevirt.io/kubevirt/pkg/api/v1.VirtualMachineInstanceSpec": {
-			Schema: spec.Schema{
-				SchemaProps: spec.SchemaProps{
-					Description: "VirtualMachineInstanceSpec is a description of a VirtualMachineInstance.",
-					Properties: map[string]spec.Schema{
-						"guestAgent": {
-							SchemaProps: spec.SchemaProps{
-								Ref: ref("kubevirt.io/kubevirt/pkg/api/v1.GuestAgent"),
-							},
+		Dependencies: []string{
+			"kubevirt.io/kubevirt/pkg/api/v1.VirtualMachineInstanceReplicaSetCondition"},
+	}
+}
+
+func schema_kubevirt_pkg_api_v1_VirtualMachineInstanceSpec(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "VirtualMachineInstanceSpec is a description of a VirtualMachineInstance.",
+				Properties: map[string]spec.Schema{
+					"guestAgent": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("kubevirt.io/kubevirt/pkg/api/v1.GuestAgent"),
 						},
-						"domain": {
-							SchemaProps: spec.SchemaProps{
-								Description: "Specification of the desired behavior of the VirtualMachineInstance on the host.",
-								Ref:         ref("kubevirt.io/kubevirt/pkg/api/v1.DomainSpec"),
-							},
+					},
+					"domain": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Specification of the desired behavior of the VirtualMachineInstance on the host.",
+							Ref:         ref("kubevirt.io/kubevirt/pkg/api/v1.DomainSpec"),
 						},
-						"nodeSelector": {
-							SchemaProps: spec.SchemaProps{
-								Description: "NodeSelector is a selector which must be true for the vmi to fit on a node. Selector which must match a node's labels for the vmi to be scheduled on that node. More info: https://kubernetes.io/docs/concepts/configuration/assign-pod-node/",
-								Type:        []string{"object"},
-								AdditionalProperties: &spec.SchemaOrBool{
-									Schema: &spec.Schema{
-										SchemaProps: spec.SchemaProps{
-											Type:   []string{"string"},
-											Format: "",
-										},
+					},
+					"nodeSelector": {
+						SchemaProps: spec.SchemaProps{
+							Description: "NodeSelector is a selector which must be true for the vmi to fit on a node. Selector which must match a node's labels for the vmi to be scheduled on that node. More info: https://kubernetes.io/docs/concepts/configuration/assign-pod-node/",
+							Type:        []string{"object"},
+							AdditionalProperties: &spec.SchemaOrBool{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Type:   []string{"string"},
+										Format: "",
 									},
 								},
 							},
@@ -2229,11 +2242,9 @@ func schema_kubevirt_pkg_api_v1_VirtualMachineInstanceReplicaSetStatus(ref commo
 				},
 				Required: []string{"domain"},
 			},
-			Dependencies: []string{
-				"k8s.io/api/core/v1.Affinity", "k8s.io/api/core/v1.Toleration", "kubevirt.io/kubevirt/pkg/api/v1.DomainSpec", "kubevirt.io/kubevirt/pkg/api/v1.GuestAgent", "kubevirt.io/kubevirt/pkg/api/v1.Network", "kubevirt.io/kubevirt/pkg/api/v1.Volume"},
 		},
 		Dependencies: []string{
-			"k8s.io/api/core/v1.Affinity", "k8s.io/api/core/v1.Toleration", "kubevirt.io/kubevirt/pkg/api/v1.DomainSpec", "kubevirt.io/kubevirt/pkg/api/v1.Network", "kubevirt.io/kubevirt/pkg/api/v1.Volume"},
+			"k8s.io/api/core/v1.Affinity", "k8s.io/api/core/v1.Toleration", "kubevirt.io/kubevirt/pkg/api/v1.DomainSpec", "kubevirt.io/kubevirt/pkg/api/v1.GuestAgent", "kubevirt.io/kubevirt/pkg/api/v1.Network", "kubevirt.io/kubevirt/pkg/api/v1.Volume"},
 	}
 }
 
