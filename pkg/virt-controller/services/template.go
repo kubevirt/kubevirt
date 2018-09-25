@@ -139,7 +139,7 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 		}
 		if volume.PersistentVolumeClaim != nil {
 			logger := log.DefaultLogger()
-			isBlock, err := types.IsPVCBlock(t.persistentVolumeClaimStore, namespace, volume.PersistentVolumeClaim.ClaimName)
+			isBlock, err := types.IsPVCBlockFromStore(t.persistentVolumeClaimStore, namespace, volume.PersistentVolumeClaim.ClaimName)
 			if err != nil {
 				logger.Errorf("error checking for PVC: %v", err)
 				return nil, err

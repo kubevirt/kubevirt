@@ -23,10 +23,13 @@ import (
 	"fmt"
 
 	k8sv1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/tools/cache"
+
+	"kubevirt.io/kubevirt/pkg/kubecli"
 )
 
-func IsPVCBlock(store cache.Store, namespace string, claimName string) (bool, error) {
+func IsPVCBlockFromStore(store cache.Store, namespace string, claimName string) (bool, error) {
 	pvc, err := getPersistentVolumeClaim(store, namespace, claimName)
 	if err != nil {
 		return false, err
@@ -34,12 +37,18 @@ func IsPVCBlock(store cache.Store, namespace string, claimName string) (bool, er
 	if pvc == nil {
 		return false, fmt.Errorf("unknown persistentvolumeclaim: %v/%v", namespace, claimName)
 	}
-	// We do not need to consider the data in a PersistentVolume (as of Kubernetes 1.9)
-	// If a PVC does not specify VolumeMode and the PV specifies VolumeMode = Block
-	// the claim will not be bound. So for the sake of a boolean answer, if the PVC's
-	// VolumeMode is Block, that unambiguously answers the question
-	isBlock := pvc.Spec.VolumeMode != nil && *pvc.Spec.VolumeMode == k8sv1.PersistentVolumeBlock
-	return isBlock, nil
+	return isPVCBlock(pvc), nil
+}
+
+func IsPVCBlockFromClient(client kubecli.KubevirtClient, namespace string, claimName string) (bool, error) {
+	pvc, err := client.CoreV1().PersistentVolumeClaims(namespace).Get(claimName, v1.GetOptions{})
+	if err != nil {
+		return false, err
+	}
+	if pvc == nil {
+		return false, fmt.Errorf("unknown persistentvolumeclaim: %v/%v", namespace, claimName)
+	}
+	return isPVCBlock(pvc), nil
 }
 
 func getPersistentVolumeClaim(store cache.Store, namespace string, name string) (*k8sv1.PersistentVolumeClaim, error) {
@@ -53,4 +62,12 @@ func getPersistentVolumeClaim(store cache.Store, namespace string, name string) 
 		}
 		return nil, fmt.Errorf("this is not a PVC! %v", obj)
 	}
+}
+
+func isPVCBlock(pvc *k8sv1.PersistentVolumeClaim) bool {
+	// We do not need to consider the data in a PersistentVolume (as of Kubernetes 1.9)
+	// If a PVC does not specify VolumeMode and the PV specifies VolumeMode = Block
+	// the claim will not be bound. So for the sake of a boolean answer, if the PVC's
+	// VolumeMode is Block, that unambiguously answers the question
+	return pvc.Spec.VolumeMode != nil && *pvc.Spec.VolumeMode == k8sv1.PersistentVolumeBlock
 }

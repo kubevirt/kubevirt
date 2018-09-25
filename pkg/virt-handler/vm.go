@@ -66,7 +66,6 @@ func NewController(
 	virtShareDir string,
 	vmiInformer cache.SharedIndexInformer,
 	domainInformer cache.SharedInformer,
-	persistentVolumeClaimInformer cache.SharedIndexInformer,
 	gracefulShutdownInformer cache.SharedIndexInformer,
 	watchdogTimeoutSeconds int,
 	maxDevices int,
@@ -75,17 +74,16 @@ func NewController(
 	queue := workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter())
 
 	c := &VirtualMachineController{
-		Queue:                         queue,
-		recorder:                      recorder,
-		clientset:                     clientset,
-		host:                          host,
-		virtShareDir:                  virtShareDir,
-		vmiInformer:                   vmiInformer,
-		domainInformer:                domainInformer,
-		persistentVolumeClaimInformer: persistentVolumeClaimInformer,
-		gracefulShutdownInformer:      gracefulShutdownInformer,
-		heartBeatInterval:             1 * time.Minute,
-		watchdogTimeoutSeconds:        watchdogTimeoutSeconds,
+		Queue:                    queue,
+		recorder:                 recorder,
+		clientset:                clientset,
+		host:                     host,
+		virtShareDir:             virtShareDir,
+		vmiInformer:              vmiInformer,
+		domainInformer:           domainInformer,
+		gracefulShutdownInformer: gracefulShutdownInformer,
+		heartBeatInterval:        1 * time.Minute,
+		watchdogTimeoutSeconds:   watchdogTimeoutSeconds,
 	}
 
 	vmiInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
@@ -114,20 +112,19 @@ func NewController(
 }
 
 type VirtualMachineController struct {
-	recorder                      record.EventRecorder
-	clientset                     kubecli.KubevirtClient
-	host                          string
-	virtShareDir                  string
-	Queue                         workqueue.RateLimitingInterface
-	vmiInformer                   cache.SharedIndexInformer
-	domainInformer                cache.SharedInformer
-	persistentVolumeClaimInformer cache.SharedIndexInformer
-	gracefulShutdownInformer      cache.SharedIndexInformer
-	launcherClients               map[string]cmdclient.LauncherClient
-	launcherClientLock            sync.Mutex
-	heartBeatInterval             time.Duration
-	watchdogTimeoutSeconds        int
-	kvmController                 *device_manager.DeviceController
+	recorder                 record.EventRecorder
+	clientset                kubecli.KubevirtClient
+	host                     string
+	virtShareDir             string
+	Queue                    workqueue.RateLimitingInterface
+	vmiInformer              cache.SharedIndexInformer
+	domainInformer           cache.SharedInformer
+	gracefulShutdownInformer cache.SharedIndexInformer
+	launcherClients          map[string]cmdclient.LauncherClient
+	launcherClientLock       sync.Mutex
+	heartBeatInterval        time.Duration
+	watchdogTimeoutSeconds   int
+	kvmController            *device_manager.DeviceController
 }
 
 // Determines if a domain's grace period has expired during shutdown.
@@ -238,7 +235,6 @@ func (c *VirtualMachineController) Run(threadiness int, stopCh chan struct{}) {
 	}
 
 	go c.vmiInformer.Run(stopCh)
-	go c.persistentVolumeClaimInformer.Run(stopCh)
 	go c.gracefulShutdownInformer.Run(stopCh)
 	cache.WaitForCacheSync(stopCh, c.domainInformer.HasSynced, c.vmiInformer.HasSynced, c.gracefulShutdownInformer.HasSynced)
 
@@ -477,7 +473,7 @@ func (d *VirtualMachineController) replacePVCByHostDisk(vmi *v1.VirtualMachineIn
 	for i := range vmi.Spec.Volumes {
 		if volumeSource := &vmi.Spec.Volumes[i].VolumeSource; volumeSource.PersistentVolumeClaim != nil {
 
-			isBlockVolumePVC, err := util.IsPVCBlock(d.persistentVolumeClaimInformer.GetStore(), vmi.Namespace, volumeSource.PersistentVolumeClaim.ClaimName)
+			isBlockVolumePVC, err := util.IsPVCBlockFromClient(d.clientset, vmi.Namespace, volumeSource.PersistentVolumeClaim.ClaimName)
 			if err != nil {
 				return err
 			}

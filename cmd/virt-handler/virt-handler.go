@@ -22,7 +22,6 @@ package main
 import (
 	"fmt"
 	"io/ioutil"
-	"math/rand"
 	"net/http"
 	"os"
 	"time"
@@ -44,7 +43,7 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/controller"
-	inotifyinformer "kubevirt.io/kubevirt/pkg/inotify-informer"
+	"kubevirt.io/kubevirt/pkg/inotify-informer"
 	"kubevirt.io/kubevirt/pkg/kubecli"
 	"kubevirt.io/kubevirt/pkg/log"
 	_ "kubevirt.io/kubevirt/pkg/monitoring/client/prometheus"    // import for prometheus metrics
@@ -53,7 +52,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/service"
 	"kubevirt.io/kubevirt/pkg/virt-handler"
 	virtcache "kubevirt.io/kubevirt/pkg/virt-handler/cache"
-	virtlauncher "kubevirt.io/kubevirt/pkg/virt-launcher"
+	"kubevirt.io/kubevirt/pkg/virt-launcher"
 	virt_api "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 )
 
@@ -131,11 +130,6 @@ func (app *virtHandlerApp) Run() {
 		cache.Indexers{},
 	)
 
-	pvcSharedInformer := cache.NewSharedIndexInformer(
-		cache.NewListWatchFromClient(virtCli.CoreV1().RESTClient(), "persistentvolumeclaims", k8sv1.NamespaceAll, fields.Everything()),
-		&k8sv1.PersistentVolumeClaim{}, resyncPeriod(12*time.Hour), cache.Indexers{},
-	)
-
 	virtlauncher.InitializeSharedDirectories(app.VirtShareDir)
 
 	gracefulShutdownInformer := cache.NewSharedIndexInformer(
@@ -152,7 +146,6 @@ func (app *virtHandlerApp) Run() {
 		app.VirtShareDir,
 		vmSharedInformer,
 		domainSharedInformer,
-		pvcSharedInformer,
 		gracefulShutdownInformer,
 		int(app.WatchdogTimeoutDuration.Seconds()),
 		maxDevices,
@@ -182,12 +175,6 @@ func (app *virtHandlerApp) Run() {
 		log.Log.Reason(err).Error("Serving prometheus failed.")
 		panic(err)
 	}
-}
-
-// resyncPeriod computes the time interval a shared informer waits before resyncing with the api server
-func resyncPeriod(minResyncPeriod time.Duration) time.Duration {
-	factor := rand.Float64() + 1
-	return time.Duration(float64(minResyncPeriod.Nanoseconds()) * factor)
 }
 
 func (app *virtHandlerApp) AddFlags() {
