@@ -33,11 +33,11 @@ import (
 	"kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/config"
 	"kubevirt.io/kubevirt/pkg/hooks"
-	"kubevirt.io/kubevirt/pkg/kubecli"
 	"kubevirt.io/kubevirt/pkg/log"
 	"kubevirt.io/kubevirt/pkg/precond"
 	"kubevirt.io/kubevirt/pkg/registry-disk"
 	"kubevirt.io/kubevirt/pkg/util/net/dns"
+	"kubevirt.io/kubevirt/pkg/util/types"
 )
 
 const configMapName = "kube-system/kubevirt-config"
@@ -54,10 +54,11 @@ type TemplateService interface {
 }
 
 type templateService struct {
-	launcherImage   string
-	virtShareDir    string
-	imagePullSecret string
-	store           cache.Store
+	launcherImage              string
+	virtShareDir               string
+	imagePullSecret            string
+	configMapStore             cache.Store
+	persistentVolumeClaimStore cache.Store
 }
 
 func getConfigMapEntry(store cache.Store, key string) (string, error) {
@@ -99,30 +100,6 @@ func GetImagePullPolicy(store cache.Store) (policy k8sv1.PullPolicy, err error) 
 	return
 }
 
-// return true if a PersistentVolumeClaim uses VolumeMode = Block
-func isPVCBlock(namespace string, claimName string) (bool, error) {
-	// FIXME: using a client to make synchronous calls is suboptimal
-	// ideally this would be using a cache/informer
-	client, err := kubecli.GetKubevirtClient()
-	if err != nil {
-		return false, err
-	}
-	opts := metav1.GetOptions{}
-	pvc, err := client.CoreV1().PersistentVolumeClaims(namespace).Get(claimName, opts)
-	if err != nil {
-		return false, err
-	}
-	if pvc == nil {
-		return false, fmt.Errorf("unknown persistentvolumeclaim: %s", claimName)
-	}
-	// We do not need to consider the data in a PersistentVolume (as of Kubernetes 1.9)
-	// If a PVC does not specify VolumeMode and the PV specifies VolumeMode = Block
-	// the claim will not be bound. So for the sake of a boolean answer, if the PVC's
-	// VolumeMode is Block, that unambiguously answers the question
-	isBlock := pvc.Spec.VolumeMode != nil && *pvc.Spec.VolumeMode == k8sv1.PersistentVolumeBlock
-	return isBlock, nil
-}
-
 func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (*k8sv1.Pod, error) {
 	precond.MustNotBeNil(vmi)
 	domain := precond.MustNotBeEmpty(vmi.GetObjectMeta().GetName())
@@ -162,7 +139,7 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 		}
 		if volume.PersistentVolumeClaim != nil {
 			logger := log.DefaultLogger()
-			isBlock, err := isPVCBlock(namespace, volume.PersistentVolumeClaim.ClaimName)
+			isBlock, err := types.IsPVCBlock(t.persistentVolumeClaimStore, namespace, volume.PersistentVolumeClaim.ClaimName)
 			if err != nil {
 				logger.Errorf("error checking for PVC: %v", err)
 				return nil, err
@@ -403,12 +380,12 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 		"--hook-sidecars", strconv.Itoa(len(requestedHookSidecarList)),
 	}
 
-	useEmulation, err := IsEmulationAllowed(t.store)
+	useEmulation, err := IsEmulationAllowed(t.configMapStore)
 	if err != nil {
 		return nil, err
 	}
 
-	imagePullPolicy, err := GetImagePullPolicy(t.store)
+	imagePullPolicy, err := GetImagePullPolicy(t.configMapStore)
 	if err != nil {
 		return nil, err
 	}
@@ -692,13 +669,14 @@ func getMultusInterfaceList(vmi *v1.VirtualMachineInstance) string {
 	return strings.Join(ifaceList, ",")
 }
 
-func NewTemplateService(launcherImage string, virtShareDir string, imagePullSecret string, configMapCache cache.Store) TemplateService {
+func NewTemplateService(launcherImage string, virtShareDir string, imagePullSecret string, configMapCache cache.Store, persistentVolumeClaimCache cache.Store) TemplateService {
 	precond.MustNotBeEmpty(launcherImage)
 	svc := templateService{
-		launcherImage:   launcherImage,
-		virtShareDir:    virtShareDir,
-		imagePullSecret: imagePullSecret,
-		store:           configMapCache,
+		launcherImage:              launcherImage,
+		virtShareDir:               virtShareDir,
+		imagePullSecret:            imagePullSecret,
+		configMapStore:             configMapCache,
+		persistentVolumeClaimStore: persistentVolumeClaimCache,
 	}
 	return &svc
 }
