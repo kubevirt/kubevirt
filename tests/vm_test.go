@@ -202,6 +202,23 @@ var _ = Describe("VirtualMachine", func() {
 			}, 300*time.Second, 1*time.Second).Should(BeTrue())
 		})
 
+		It("should be Ready when VMIs start running, not ready when WMIs stop", func() {
+			currVMI := newVirtualMachine(false)
+			currVMI = startVMI(currVMI)
+			Eventually(func() v1.VirtualMachineConditionType {
+				vm, err := virtClient.VirtualMachine(tests.NamespaceTestDefault).Get(currVMI.Name, &v12.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				return vm.Status.Conditions[0].Type
+			}, 300*time.Second, 1*time.Second).Should(Equal(v1.VirtualMachineReady))
+
+			currVMI = stopVMI(currVMI)
+			Eventually(func() bool {
+				vm, err := virtClient.VirtualMachine(tests.NamespaceTestDefault).Get(currVMI.Name, &v12.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				return len(vm.Status.Conditions) == 0
+			}, 300*time.Second, 1*time.Second).Should(BeTrue())
+		})
+
 		It("should remove VirtualMachineInstance once the VMI is marked for deletion", func() {
 			newVMI := newVirtualMachine(true)
 			// Delete it
