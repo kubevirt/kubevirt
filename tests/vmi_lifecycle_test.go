@@ -676,7 +676,7 @@ var _ = Describe("VMIlifecycle", func() {
 						}
 					}
 					return fmt.Errorf("Associated pod for VirtualMachineInstance '%s' not found", vmi.Name)
-				}, 75, 0.5).Should(Succeed(), "Should find the right VMI pod")
+				}, 75, 2).Should(Succeed(), "Should find the right VMI pod")
 
 				emulationFlagFound := false
 				computeContainerFound := false
