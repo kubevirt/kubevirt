@@ -1729,8 +1729,7 @@ func (in *MigrationMetadata) DeepCopyInto(out *MigrationMetadata) {
 		if *in == nil {
 			*out = nil
 		} else {
-			*out = new(meta_v1.Time)
-			(*in).DeepCopyInto(*out)
+			*out = (*in).DeepCopy()
 		}
 	}
 	if in.EndTimestamp != nil {
@@ -1738,8 +1737,7 @@ func (in *MigrationMetadata) DeepCopyInto(out *MigrationMetadata) {
 		if *in == nil {
 			*out = nil
 		} else {
-			*out = new(meta_v1.Time)
-			(*in).DeepCopyInto(*out)
+			*out = (*in).DeepCopy()
 		}
 	}
 	return

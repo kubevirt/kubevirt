@@ -671,7 +671,7 @@ func (app *virtAPIApp) createValidatingWebhook() error {
 			}},
 			ClientConfig: admissionregistrationv1beta1.WebhookClientConfig{
 				Service: &admissionregistrationv1beta1.ServiceReference{
-					Namespace: namespace,
+					Namespace: app.namespace,
 					Name:      virtApiServiceName,
 					Path:      &migrationCreatePath,
 				},
@@ -692,7 +692,7 @@ func (app *virtAPIApp) createValidatingWebhook() error {
 			}},
 			ClientConfig: admissionregistrationv1beta1.WebhookClientConfig{
 				Service: &admissionregistrationv1beta1.ServiceReference{
-					Namespace: namespace,
+					Namespace: app.namespace,
 					Name:      virtApiServiceName,
 					Path:      &migrationUpdatePath,
 				},
