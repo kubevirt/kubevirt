@@ -1320,7 +1320,8 @@ func waitForVMIStart(obj runtime.Object, seconds int, ignoreWarnings bool) (node
 		nodeName = vmi.Status.NodeName
 
 		// wait on both phase and graphics
-		if vmi.Status.Phase == v1.Running {
+		if vmi.Status.Phase == v1.Running &&
+			len(vmi.Status.Conditions) > 0 && vmi.Status.Conditions[0].Type == v1.VirtualMachineInstanceReady {
 			return true
 		}
 		return false
