@@ -22,20 +22,24 @@ spec:
       name: virt-handler
       labels:
         kubevirt.io: virt-handler
+        prometheus.kubevirt.io: ""
     spec:
       serviceAccountName: kubevirt-privileged
       hostPID: true
       containers:
         - name: virt-handler
           ports:
-            - containerPort: 8185
-              hostPort: 8185
+            - containerPort: 8443
+              name: "metrics"
+              protocol: "TCP"
           image: {{.DockerPrefix}}/virt-handler:{{.DockerTag}}
           imagePullPolicy: {{.ImagePullPolicy}}
           command:
             - "virt-handler"
             - "-v"
             - "3"
+            - "--port"
+            - "8443"
             - "--hostname-override"
             - "$(NODE_NAME)"
           securityContext:

@@ -48,7 +48,7 @@ var _ = Describe("Virt-api", func() {
 
 	log.Log.SetIOWriter(GinkgoWriter)
 
-	app := virtAPIApp{}
+	app := virtAPIApp{namespace: metav1.NamespaceSystem}
 	BeforeEach(func() {
 		server = ghttp.NewServer()
 		tmpDir, err := ioutil.TempDir("", "api_tmp_dir")
