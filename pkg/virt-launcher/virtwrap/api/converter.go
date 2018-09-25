@@ -139,6 +139,22 @@ func toApiReadOnly(src bool) *ReadOnly {
 	return nil
 }
 
+// Convert_v1_Agent_To_api_Channel creates the channel for guest agent communication
+func Convert_v1_Agent_To_api_Channel(source *v1.GuestAgent, channel *Channel) error {
+
+	channel.Type = "unix"
+	channel.Source = ChannelSource{
+		Mode: "bind",
+		Path: "/var/lib/libvirt/qemu/f16x86_64.agent",
+	}
+	channel.Target = &ChannelTarget{
+		Name: "org.qemu.guest_agent.0",
+		Type: "virtio",
+	}
+
+	return nil
+}
+
 func Convert_v1_Volume_To_api_Disk(source *v1.Volume, disk *Disk, c *ConverterContext) error {
 
 	if source.RegistryDisk != nil {
@@ -421,6 +437,15 @@ func Convert_v1_VirtualMachine_To_api_Domain(vmi *v1.VirtualMachineInstance, dom
 	}
 
 	// Spec metadata
+	if vmi.Spec.GuestAgent != nil {
+		newChannel := &Channel{}
+		err := Convert_v1_Agent_To_api_Channel(vmi.Spec.GuestAgent, newChannel)
+		if err != nil {
+			return err
+		}
+		domain.Spec.Devices.Channels = append(domain.Spec.Devices.Channels, *newChannel)
+	}
+
 	domain.Spec.Metadata.KubeVirt.UID = vmi.UID
 	if vmi.Spec.TerminationGracePeriodSeconds != nil {
 		domain.Spec.Metadata.KubeVirt.GracePeriod.DeletionGracePeriodSeconds = *vmi.Spec.TerminationGracePeriodSeconds

@@ -107,6 +107,7 @@ var _ = Describe("Converter", func() {
 				},
 			}
 			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
+			vmi.Spec.GuestAgent = &v1.GuestAgent{}
 			vmi.Spec.Domain.Devices.Watchdog = &v1.Watchdog{
 				Name: "mywatchdog",
 				WatchdogDevice: v1.WatchdogDevice{
@@ -357,6 +358,10 @@ var _ = Describe("Converter", func() {
       <model type="virtio"></model>
       <alias name="ua-default"></alias>
     </interface>
+    <channel type="unix">
+      <source mode="bind" path="/var/lib/libvirt/qemu/f16x86_64.agent"></source>
+      <target name="org.qemu.guest_agent.0" type="virtio"></target>
+    </channel>
     <controller type="usb" index="0" model="none"></controller>
     <video>
       <model type="vga" heads="1" vram="16384"></model>

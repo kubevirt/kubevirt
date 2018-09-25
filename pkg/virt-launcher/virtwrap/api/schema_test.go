@@ -41,6 +41,10 @@ var exampleXML = `<domain type="kvm" xmlns:qemu="http://libvirt.org/schemas/doma
     <baseBoard></baseBoard>
   </sysinfo>
   <devices>
+    <channel type="unix">
+      <source mode="bind" path="/var/lib/libvirt/qemu/f16x86_64.agent"></source>
+      <target name="org.qemu.guest_agent.0" type="virtio"></target>
+    </channel>
     <controller type="usb" index="0" model="none"></controller>
     <video>
       <model type="vga" heads="1" vram="16384"></model>
@@ -135,6 +139,13 @@ var _ = Describe("Schema", func() {
 	exampleDomain.Spec.Devices.Rng = &Rng{
 		Model:   "virtio",
 		Backend: &RngBackend{Source: "/dev/urandom", Model: "random"},
+	}
+	exampleDomain.Spec.Devices.Channels = []Channel{
+		{
+			Source: ChannelSource{Mode: "bind", Path: "/var/lib/libvirt/qemu/f16x86_64.agent"},
+			Target: &ChannelTarget{Name: "org.qemu.guest_agent.0", Type: "virtio"},
+			Type:   "unix",
+		},
 	}
 	exampleDomain.Spec.Features = &Features{
 		ACPI: &FeatureEnabled{},
