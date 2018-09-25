@@ -4,4 +4,4 @@ set -e
 
 source cluster/os-3.10.0/provider.sh
 
-image="os-3.10.0-multus@sha256:410d8efbbaf6b84139e130aae1f7e127327e672167304dc4b9ec4a95261446a4"
+image="os-3.10.0-multus@sha256:fa6d763af28634417200ee35e095cc56d8ad4039e58f70c3a04a59d498011ec5"
