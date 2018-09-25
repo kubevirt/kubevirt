@@ -834,3 +834,9 @@ type MultusNetwork struct {
 	// References to a NetworkAttachmentDefinition CRD object in the same namespace.
 	NetworkName string `json:"networkName"`
 }
+
+// Represents the guest agent configuration object
+// ---
+// +k8s:openapi-gen=true
+type GuestAgent struct {
+}

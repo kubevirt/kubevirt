@@ -231,6 +231,7 @@ spec:
                               type: object
                       required:
                       - devices
+                    guestAgent: {}
                     hostname:
                       type: string
                     networks:

@@ -43,6 +43,7 @@ var exampleJSON = `{
     "creationTimestamp": null
   },
   "spec": {
+    "guestAgent": {},
     "domain": {
       "resources": {
         "requests": {
@@ -209,6 +210,9 @@ var _ = Describe("Schema", func() {
 
 	BeforeEach(func() {
 		exampleVMI = NewMinimalVMI("testvmi")
+
+		exampleVMI.Spec.GuestAgent = &GuestAgent{}
+
 		exampleVMI.Spec.Domain.Devices.Disks = []Disk{
 			{
 				Name:       "disk0",

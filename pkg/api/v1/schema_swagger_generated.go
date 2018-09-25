@@ -405,3 +405,9 @@ func (MultusNetwork) SwaggerDoc() map[string]string {
 		"networkName": "References to a NetworkAttachmentDefinition CRD object in the same namespace.",
 	}
 }
+
+func (GuestAgent) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"": "Represents the guest agent configuration object",
+	}
+}

@@ -127,6 +127,8 @@ type VirtualMachineInstanceList struct {
 // ---
 // +k8s:openapi-gen=true
 type VirtualMachineInstanceSpec struct {
+	GuestAgent *GuestAgent `json:"guestAgent,omitempty"`
+
 	// Specification of the desired behavior of the VirtualMachineInstance on the host.
 	Domain DomainSpec `json:"domain"`
 	// NodeSelector is a selector which must be true for the vmi to fit on a node.

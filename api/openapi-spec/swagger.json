@@ -3671,6 +3671,9 @@
      }
     }
    },
+   "v1.GuestAgent": {
+    "description": "Represents the guest agent configuration object"
+   },
    "v1.HPETTimer": {
     "properties": {
      "present": {
@@ -4863,6 +4866,9 @@
      "domain": {
       "description": "Specification of the desired behavior of the VirtualMachineInstance on the host.",
       "$ref": "#/definitions/v1.DomainSpec"
+     },
+     "guestAgent": {
+      "$ref": "#/definitions/v1.GuestAgent"
      },
      "hostname": {
       "description": "Specifies the hostname of the vmi\nIf not specified, the hostname will be set to the name of the vmi, if dhcp or cloud-init is configured properly.\n+optional",
