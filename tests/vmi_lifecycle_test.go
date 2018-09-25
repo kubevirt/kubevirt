@@ -29,6 +29,8 @@ import (
 
 	"github.com/google/goexpect"
 
+	"kubevirt.io/kubevirt/pkg/virt-controller/watch"
+
 	. "github.com/onsi/ginkgo"
 	"github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
@@ -452,7 +454,10 @@ var _ = Describe("VMIlifecycle", func() {
 					failedVMI, err := virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &metav1.GetOptions{})
 					Expect(err).ToNot(HaveOccurred(), "Should get vmi successfully")
 					return failedVMI.Status.Phase
-				}, 180*time.Second, 1*time.Second).Should(Equal(v1.Failed), "VMI should be failed")
+				}, 180*time.Second, 1*time.Second).Should(Equal(v1.Failed))
+				failedVMI, err := virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				Expect(failedVMI.Status.Reason).To(Equal(watch.NodeUnresponsiveReason))
 			})
 
 			AfterEach(func() {

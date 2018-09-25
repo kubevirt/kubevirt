@@ -258,7 +258,8 @@ func (vca *VirtControllerApp) initCommon() {
 	}
 	vca.templateService = services.NewTemplateService(vca.launcherImage, vca.virtShareDir, vca.imagePullSecret, vca.configMapCache)
 	vca.vmiController = NewVMIController(vca.templateService, vca.vmiInformer, vca.podInformer, vca.vmiRecorder, vca.clientSet, vca.configMapInformer, vca.dataVolumeInformer)
-	vca.nodeController = NewNodeController(vca.clientSet, vca.nodeInformer, vca.vmiInformer, nil)
+	recorder := vca.getNewRecorder(k8sv1.NamespaceAll, "node-controller")
+	vca.nodeController = NewNodeController(vca.clientSet, vca.nodeInformer, vca.vmiInformer, recorder)
 }
 
 func (vca *VirtControllerApp) initReplicaSet() {

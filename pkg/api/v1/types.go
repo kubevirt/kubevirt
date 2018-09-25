@@ -162,6 +162,9 @@ type VirtualMachineInstanceSpec struct {
 type VirtualMachineInstanceStatus struct {
 	// NodeName is the name where the VirtualMachineInstance is currently running.
 	NodeName string `json:"nodeName,omitempty"`
+	// A brief CamelCase message indicating details about why the VMI is in this state. e.g. 'NodeUnresponsive'
+	// +optional
+	Reason string `json:"reason,omitempty"`
 	// Conditions are specific points in VirtualMachineInstance's pod runtime.
 	Conditions []VirtualMachineInstanceCondition `json:"conditions,omitempty"`
 	// Phase is the status of the VirtualMachineInstance in kubernetes world. It is not the VirtualMachineInstance status, but partially correlates to it.
