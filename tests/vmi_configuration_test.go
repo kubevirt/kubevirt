@@ -40,6 +40,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/kubecli"
 	"kubevirt.io/kubevirt/pkg/log"
 	hw_utils "kubevirt.io/kubevirt/pkg/util/hardware"
+	wrapapi "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 
 	"kubevirt.io/kubevirt/tests"
 )
@@ -344,6 +345,42 @@ var _ = Describe("Configurations", func() {
 					&expect.BExp{R: "non"},
 				}, 400*time.Second)
 				Expect(err).ToNot(HaveOccurred())
+			})
+		})
+
+		Context("with guestAgent", func() {
+			var agentVMI *v1.VirtualMachineInstance
+			BeforeEach(func() {
+				agentVMI = tests.NewRandomVMIWithEphemeralDisk(tests.RegistryDiskFor(tests.RegistryDiskAlpine))
+			})
+
+			It("there should be agent channel when enabled", func() {
+				agentVMI.Spec.GuestAgent = &v1.GuestAgent{}
+				By("Starting a VirtualMachineInstance")
+				agentVMI, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(agentVMI)
+				Expect(err).ToNot(HaveOccurred(), "Should create VMI successfully")
+				tests.WaitForSuccessfulVMIStart(agentVMI)
+
+				getOptions := metav1.GetOptions{}
+				var freshVMI *v1.VirtualMachineInstance
+
+				freshVMI, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Get(agentVMI.Name, &getOptions)
+				Expect(err).ToNot(HaveOccurred(), "Should get VMI ")
+
+				domain := &wrapapi.Domain{}
+				context := &wrapapi.ConverterContext{
+					VirtualMachine: freshVMI,
+					UseEmulation:   true,
+				}
+				wrapapi.Convert_v1_VirtualMachine_To_api_Domain(freshVMI, domain, context)
+
+				Expect(domain.Spec.Devices.Channels).To(Equal([]wrapapi.Channel{
+					{
+						Source: wrapapi.ChannelSource{Mode: "bind", Path: "/var/lib/libvirt/qemu/f16x86_64.agent"},
+						Target: &wrapapi.ChannelTarget{Name: "org.qemu.guest_agent.0", Type: "virtio"},
+						Type:   "unix",
+					},
+				}))
 			})
 		})
 	})
