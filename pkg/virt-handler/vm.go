@@ -184,6 +184,37 @@ func (d *VirtualMachineController) hasGracePeriodExpired(dom *api.Domain) (hasEx
 	return
 }
 
+func (d *VirtualMachineController) migrationTargetDelayExpired(vmi *v1.VirtualMachineInstance) bool {
+	// give the target node 30 seconds to discover the libvirt domain via the domain informer
+	// before allowing the VMI to be processed
+	migrationTargetDelayTimeout := 60
+
+	if vmi.IsFinal() {
+		// vmi is down, no need to wait for migrated domain to showup in cache.
+		return true
+	} else if vmi.Status.MigrationState == nil {
+		// if no migration is in progress, there's no reason to wait for domain.
+		return true
+	} else if vmi.Status.MigrationState.TargetNode != d.host {
+		// this is not the target of a migration
+		return true
+	} else if vmi.Status.MigrationState.EndTimestamp == nil {
+		// the migration has not finished
+		return true
+	}
+
+	nowUnix := time.Now().UTC().Unix()
+	migrationEndUnix := vmi.Status.MigrationState.EndTimestamp.Time.UTC().Unix()
+
+	diff := nowUnix - migrationEndUnix
+
+	if diff > int64(migrationTargetDelayTimeout) {
+
+		return true
+	}
+	return false
+}
+
 func domainMigrated(domain *api.Domain) bool {
 	if domain != nil && domain.Status.Status == api.Shutoff && domain.Status.Reason == api.ReasonMigrated {
 		return true
@@ -203,6 +234,25 @@ func (d *VirtualMachineController) updateVMIStatus(vmi *v1.VirtualMachineInstanc
 	// Only update the VMI's phase if this node owns the VMI.
 	if vmi.Status.NodeName != "" && vmi.Status.NodeName != d.host {
 		// not owned by this host, likely the result of a migration
+		return nil
+	} else if domain == nil && !d.migrationTargetDelayExpired(vmi) {
+		// If no domain exists and this node is the target of a recent migration,
+		// wait the duration of the migration target delay before allowing the
+		// VMI without a domain to be processed.
+		//
+		// This accounts for the race condition between the domain informer
+		// reporting that the new domain is online on the target node, and VMI
+		// reporting that it is active on the target node.
+		//
+		// For example, I the VMI's node is updated to the target node because
+		// a migration has completed on the source node, but the target node's
+		// domain informer hasn't had the chance to update the cache in time, it
+		// would look like the domain crashed on the target node because no libvirt
+		// domain would be present immediately.
+		//
+		// The migration target delay period allows the domain cache to catch up
+		// to the VMI so we accurately process the status of the VMI here.
+		log.Log.Object(vmi).V(3).Infof("Waiting on migrated domain to populated before processing vmi status.")
 		return nil
 	}
 
@@ -224,6 +274,11 @@ func (d *VirtualMachineController) updateVMIStatus(vmi *v1.VirtualMachineInstanc
 			migrationHost = vmi.Status.MigrationState.TargetNode
 		}
 
+		if vmi.Status.MigrationState.EndTimestamp == nil {
+			now := v12.NewTime(time.Now())
+			vmi.Status.MigrationState.EndTimestamp = &now
+		}
+
 		// If we can't detect where the migration went to, then we have no
 		// way of transfering ownership. The only option here is to move the
 		// vmi to failed.  The cluster vmi controller will then tear down the
@@ -240,8 +295,6 @@ func (d *VirtualMachineController) updateVMIStatus(vmi *v1.VirtualMachineInstanc
 			vmi.Labels[v1.NodeNameLabel] = migrationHost
 			vmi.Status.NodeName = migrationHost
 			vmi.Status.MigrationState.Completed = true
-			now := v12.NewTime(time.Now())
-			vmi.Status.MigrationState.EndTimestamp = &now
 			d.recorder.Event(vmi, k8sv1.EventTypeNormal, v1.Migrated.String(), fmt.Sprintf("The VirtualMachineInstance migrated to node %s.", migrationHost))
 		}
 
@@ -265,8 +318,12 @@ func (d *VirtualMachineController) updateVMIStatus(vmi *v1.VirtualMachineInstanc
 				}
 			}
 
-			vmi.Status.MigrationState.StartTimestamp = migrationMetadata.StartTimestamp
-			vmi.Status.MigrationState.EndTimestamp = migrationMetadata.EndTimestamp
+			if vmi.Status.MigrationState.StartTimestamp == nil {
+				vmi.Status.MigrationState.StartTimestamp = migrationMetadata.StartTimestamp
+			}
+			if vmi.Status.MigrationState.EndTimestamp == nil {
+				vmi.Status.MigrationState.EndTimestamp = migrationMetadata.EndTimestamp
+			}
 			vmi.Status.MigrationState.Completed = migrationMetadata.Completed
 			vmi.Status.MigrationState.Failed = migrationMetadata.Failed
 		}
