@@ -44,7 +44,8 @@ var _ = Describe("Template", func() {
 
 	log.Log.SetIOWriter(GinkgoWriter)
 	configCache := cache.NewIndexer(cache.DeletionHandlingMetaNamespaceKeyFunc, nil)
-	svc := NewTemplateService("kubevirt/virt-launcher", "/var/run/kubevirt", "pull-secret-1", configCache)
+	pvcCache := cache.NewIndexer(cache.DeletionHandlingMetaNamespaceKeyFunc, nil)
+	svc := NewTemplateService("kubevirt/virt-launcher", "/var/run/kubevirt", "pull-secret-1", configCache, pvcCache)
 
 	Describe("Rendering", func() {
 		Context("launch template with correct parameters", func() {
@@ -498,19 +499,28 @@ var _ = Describe("Template", func() {
 			)
 		})
 
-		Context("with pvc source", func() {
-			It("should add pvc to template", func() {
+		Context("with file mode pvc source", func() {
+			It("should add volume to template", func() {
+				namespace := "testns"
+				pvcName := "pvcFile"
+				pvc := kubev1.PersistentVolumeClaim{
+					TypeMeta:   metav1.TypeMeta{Kind: "PersistentVolumeClaim", APIVersion: "v1"},
+					ObjectMeta: metav1.ObjectMeta{Namespace: namespace, Name: pvcName},
+				}
+				err := pvcCache.Add(&pvc)
+				Expect(err).ToNot(HaveOccurred())
+
 				volumes := []v1.Volume{
 					{
 						Name: "pvc-volume",
 						VolumeSource: v1.VolumeSource{
-							PersistentVolumeClaim: &kubev1.PersistentVolumeClaimVolumeSource{ClaimName: "nfs-pvc"},
+							PersistentVolumeClaim: &kubev1.PersistentVolumeClaimVolumeSource{ClaimName: pvcName},
 						},
 					},
 				}
 				vmi := v1.VirtualMachineInstance{
 					ObjectMeta: metav1.ObjectMeta{
-						Name: "testvmi", Namespace: "default", UID: "1234",
+						Name: "testvmi", Namespace: namespace, UID: "1234",
 					},
 					Spec: v1.VirtualMachineInstanceSpec{Volumes: volumes, Domain: v1.DomainSpec{}},
 				}
@@ -518,10 +528,55 @@ var _ = Describe("Template", func() {
 				pod, err := svc.RenderLaunchManifest(&vmi)
 				Expect(err).ToNot(HaveOccurred())
 
+				Expect(pod.Spec.Containers[0].VolumeDevices).To(BeEmpty())
+
 				Expect(pod.Spec.Volumes).ToNot(BeEmpty())
 				Expect(len(pod.Spec.Volumes)).To(Equal(3))
 				Expect(pod.Spec.Volumes[0].PersistentVolumeClaim).ToNot(BeNil())
-				Expect(pod.Spec.Volumes[0].PersistentVolumeClaim.ClaimName).To(Equal("nfs-pvc"))
+				Expect(pod.Spec.Volumes[0].PersistentVolumeClaim.ClaimName).To(Equal(pvcName))
+			})
+		})
+
+		Context("with blockdevice mode pvc source", func() {
+			It("should add device to template", func() {
+				namespace := "testns"
+				pvcName := "pvcDevice"
+				mode := kubev1.PersistentVolumeBlock
+				pvc := kubev1.PersistentVolumeClaim{
+					TypeMeta:   metav1.TypeMeta{Kind: "PersistentVolumeClaim", APIVersion: "v1"},
+					ObjectMeta: metav1.ObjectMeta{Namespace: namespace, Name: pvcName},
+					Spec: kubev1.PersistentVolumeClaimSpec{
+						VolumeMode: &mode,
+					},
+				}
+				err := pvcCache.Add(&pvc)
+				Expect(err).ToNot(HaveOccurred())
+				volumeName := "pvc-volume"
+				volumes := []v1.Volume{
+					{
+						Name: volumeName,
+						VolumeSource: v1.VolumeSource{
+							PersistentVolumeClaim: &kubev1.PersistentVolumeClaimVolumeSource{ClaimName: pvcName},
+						},
+					},
+				}
+				vmi := v1.VirtualMachineInstance{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "testvmi", Namespace: namespace, UID: "1234",
+					},
+					Spec: v1.VirtualMachineInstanceSpec{Volumes: volumes, Domain: v1.DomainSpec{}},
+				}
+
+				pod, err := svc.RenderLaunchManifest(&vmi)
+				Expect(err).ToNot(HaveOccurred())
+
+				Expect(pod.Spec.Containers[0].VolumeDevices).ToNot(BeEmpty())
+				Expect(pod.Spec.Containers[0].VolumeDevices[0].Name).To(Equal(volumeName))
+
+				Expect(pod.Spec.Volumes).ToNot(BeEmpty())
+				Expect(len(pod.Spec.Volumes)).To(Equal(3))
+				Expect(pod.Spec.Volumes[0].PersistentVolumeClaim).ToNot(BeNil())
+				Expect(pod.Spec.Volumes[0].PersistentVolumeClaim.ClaimName).To(Equal(pvcName))
 			})
 		})
 

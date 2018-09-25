@@ -196,7 +196,7 @@ func Convert_v1_Config_To_api_Disk(volumeName string, disk *Disk, configType con
 }
 
 func getFilesystemVolumePath(volumeName string) string {
-	return filepath.Join(string(filepath.Separator), "var", "run", "kubevirt-private", "vm-disks", volumeName, "disk.img")
+	return filepath.Join(string(filepath.Separator), "var", "run", "kubevirt-private", "vmi-disks", volumeName, "disk.img")
 }
 
 func getBlockDeviceVolumePath(volumeName string) string {
