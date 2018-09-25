@@ -26,6 +26,8 @@ import (
 	"os/signal"
 	"time"
 
+	"kubevirt.io/kubevirt/pkg/virtctl/util"
+
 	"github.com/spf13/cobra"
 	"golang.org/x/crypto/ssh/terminal"
 	"k8s.io/client-go/tools/clientcmd"
@@ -43,6 +45,7 @@ func NewCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
 		Example: usage(),
 		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			util.LoadEnvVariables(cmd)
 			c := Console{clientConfig: clientConfig}
 			return c.Run(cmd, args)
 		},

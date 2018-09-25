@@ -75,7 +75,7 @@ tree:
     defvalue: ""
   - name: name
     shorthand: ""
-    desc: Name of the service created for the exposure of the VM
+    desc: Name of the service created for the exposure of the VM.
     defvalue: ""
   - name: node-port
     shorthand: ""
@@ -83,7 +83,7 @@ tree:
     defvalue: "0"
   - name: port
     shorthand: ""
-    desc: The port that the service should serve on
+    desc: The port that the service should serve on.
     defvalue: "0"
   - name: port-name
     shorthand: ""
@@ -103,22 +103,72 @@ tree:
     desc: 'Type for this service: ClusterIP, NodePort, or LoadBalancer.'
     defvalue: ClusterIP
   tree: []
+- name: image-upload
+  shortdesc: Upload a VM image to a PersistentVolumeClaim.
+  longdesc: ""
+  example: ""
+  command: ./virtctl image-upload
+  flags:
+  - name: access-mode
+    shorthand: ""
+    desc: The access mode for the PVC.
+    defvalue: ReadWriteOnce
+  - name: image-path
+    shorthand: ""
+    desc: Path to the local VM image.
+    defvalue: ""
+  - name: insecure
+    shorthand: ""
+    desc: Allow insecure server connections when using HTTPS.
+    defvalue: "false"
+  - name: no-create
+    shorthand: ""
+    desc: Don't attempt to create a new PVC.
+    defvalue: "false"
+  - name: pvc-name
+    shorthand: ""
+    desc: The destination PVC.
+    defvalue: ""
+  - name: pvc-size
+    shorthand: ""
+    desc: The size of the PVC to create (ex. 10Gi, 500Mi).
+    defvalue: ""
+  - name: storage-class
+    shorthand: ""
+    desc: The storage class for the PVC.
+    defvalue: ""
+  - name: uploadproxy-url
+    shorthand: ""
+    desc: The URL of the cdi-upload proxy service.
+    defvalue: ""
+  - name: wait-secs
+    shorthand: ""
+    desc: Seconds to wait for upload pod to start.
+    defvalue: "60"
+  tree: []
+- name: restart
+  shortdesc: Restart a virtual machine.
+  longdesc: ""
+  example: ""
+  command: ./virtctl restart
+  flags: []
+  tree: []
 - name: start
-  shortdesc: Start a virtual machine instance which is managed by a virtual machine.
+  shortdesc: Start a virtual machine.
   longdesc: ""
   example: ""
   command: ./virtctl start
   flags: []
   tree: []
 - name: stop
-  shortdesc: Stop a virtual machine instance which is managed by a virtual machine.
+  shortdesc: Stop a virtual machine.
   longdesc: ""
   example: ""
   command: ./virtctl stop
   flags: []
   tree: []
 - name: version
-  shortdesc: Print the client and server version information
+  shortdesc: Print the client and server version information.
   longdesc: ""
   example: ""
   command: ./virtctl version

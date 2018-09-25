@@ -22,6 +22,8 @@ package version
 import (
 	"fmt"
 
+	"kubevirt.io/kubevirt/pkg/virtctl/util"
+
 	"github.com/spf13/cobra"
 	"k8s.io/client-go/tools/clientcmd"
 
@@ -39,6 +41,7 @@ func VersionCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
 		Example: usage(),
 		Args:    cobra.ExactArgs(0),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			util.LoadEnvVariables(cmd)
 			v := Version{clientConfig: clientConfig}
 			return v.Run(cmd, args)
 		},
@@ -66,6 +69,9 @@ func (v *Version) Run(cmd *cobra.Command, args []string) error {
 		if err != nil {
 			return err
 		}
+
+		test, _ := v.clientConfig.ClientConfig()
+		fmt.Printf("%s\n", test.Host)
 
 		serverInfo, err := virCli.ServerVersion().Get()
 		if err != nil {

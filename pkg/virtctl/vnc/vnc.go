@@ -30,6 +30,8 @@ import (
 	"runtime"
 	"time"
 
+	"kubevirt.io/kubevirt/pkg/virtctl/util"
+
 	"github.com/golang/glog"
 	"github.com/spf13/cobra"
 	"k8s.io/client-go/tools/clientcmd"
@@ -65,6 +67,7 @@ func NewCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
 		Example: usage(),
 		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			util.LoadEnvVariables(cmd)
 			c := VNC{clientConfig: clientConfig}
 			return c.Run(cmd, args)
 		},

@@ -21,8 +21,10 @@ package vm
 
 import (
 	"fmt"
-	"strings"
 	"os"
+	"strings"
+
+	"kubevirt.io/kubevirt/pkg/virtctl/util"
 
 	"github.com/spf13/cobra"
 	k8smetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -46,6 +48,7 @@ func NewStartCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
 		Example: usage(COMMAND_START),
 		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			util.LoadEnvVariables(cmd)
 			c := Command{command: COMMAND_START, clientConfig: clientConfig}
 			return c.Run(cmd, args)
 		},
@@ -61,6 +64,7 @@ func NewStopCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
 		Example: usage(COMMAND_STOP),
 		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			util.LoadEnvVariables(cmd)
 			c := Command{command: COMMAND_STOP, clientConfig: clientConfig}
 			return c.Run(cmd, args)
 		},
@@ -76,6 +80,7 @@ func NewRestartCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
 		Example: usage(COMMAND_RESTART),
 		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			util.LoadEnvVariables(cmd)
 			c := Command{command: COMMAND_RESTART, clientConfig: clientConfig}
 			return c.Run(cmd, args)
 		},

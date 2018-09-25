@@ -21,7 +21,10 @@ package expose
 
 import (
 	"fmt"
+	"os"
 	"strings"
+
+	"kubevirt.io/kubevirt/pkg/virtctl/util"
 
 	"github.com/spf13/cobra"
 	v1 "k8s.io/api/core/v1"
@@ -71,6 +74,7 @@ virtualmachineinstance (vmi), virtualmachine (vm), virtualmachineinstancereplica
 		Example: usage(),
 		Args:    cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			util.LoadEnvVariables(cmd)
 			c := Command{command: COMMAND_EXPOSE, clientConfig: clientConfig}
 			return c.RunE(cmd, args)
 		},
@@ -143,6 +147,10 @@ func (o *Command) RunE(cmd *cobra.Command, args []string) error {
 	namespace, _, err := o.clientConfig.Namespace()
 	if err != nil {
 		return err
+	}
+
+	if value, ok := os.LookupEnv("KUBECTL_PLUGINS_CURRENT_NAMESPACE"); ok {
+		namespace = value
 	}
 
 	// get the client

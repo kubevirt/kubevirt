@@ -27,6 +27,8 @@ import (
 	"os"
 	"time"
 
+	"kubevirt.io/kubevirt/pkg/virtctl/util"
+
 	"github.com/spf13/cobra"
 	pb "gopkg.in/cheggaaa/pb.v1"
 	v1 "k8s.io/api/core/v1"
@@ -95,6 +97,7 @@ func NewImageUploadCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
 		Example: usage(),
 		Args:    cobra.ExactArgs(0),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			util.LoadEnvVariables(cmd)
 			v := command{clientConfig: clientConfig}
 			return v.run(cmd, args)
 		},
