@@ -142,10 +142,11 @@ var _ = Describe("VirtLauncher", func() {
 			})
 
 			It("verify start timeout works", func() {
+				stopChan := make(chan struct{})
 				done := make(chan string)
 
 				go func() {
-					mon.RunForever(time.Second)
+					mon.RunForever(time.Second, stopChan)
 					done <- "exit"
 				}()
 				noExitCheck := time.After(3 * time.Second)
@@ -161,17 +162,17 @@ var _ = Describe("VirtLauncher", func() {
 			})
 
 			It("verify monitor loop exits when signal arrives and no pid is present", func() {
-				signalChannel := make(chan os.Signal, 1)
+				stopChan := make(chan struct{})
 				done := make(chan string)
 
 				go func() {
-					mon.monitorLoop(1*time.Second, signalChannel)
+					mon.monitorLoop(1*time.Second, stopChan)
 					done <- "exit"
 				}()
 
 				time.Sleep(time.Second)
 
-				signalChannel <- syscall.SIGQUIT
+				close(stopChan)
 				noExitCheck := time.After(5 * time.Second)
 				exited := false
 
@@ -185,7 +186,7 @@ var _ = Describe("VirtLauncher", func() {
 			})
 
 			It("verify graceful shutdown trigger works", func() {
-				signalChannel := make(chan os.Signal, 1)
+				stopChan := make(chan struct{})
 				done := make(chan string)
 
 				StartProcess()
@@ -193,7 +194,7 @@ var _ = Describe("VirtLauncher", func() {
 				go func() { CleanupProcess() }()
 
 				go func() {
-					mon.monitorLoop(1*time.Second, signalChannel)
+					mon.monitorLoop(1*time.Second, stopChan)
 					done <- "exit"
 				}()
 
@@ -203,7 +204,7 @@ var _ = Describe("VirtLauncher", func() {
 				Expect(err).ToNot(HaveOccurred())
 				Expect(exists).To(Equal(false))
 
-				signalChannel <- syscall.SIGQUIT
+				close(stopChan)
 
 				time.Sleep(time.Second)
 
@@ -213,7 +214,7 @@ var _ = Describe("VirtLauncher", func() {
 			})
 
 			It("verify grace period works", func() {
-				signalChannel := make(chan os.Signal, 1)
+				stopChan := make(chan struct{})
 				done := make(chan string)
 
 				StartProcess()
@@ -221,11 +222,11 @@ var _ = Describe("VirtLauncher", func() {
 				go func() { CleanupProcess() }()
 				go func() {
 					mon.gracePeriod = 1
-					mon.monitorLoop(1*time.Second, signalChannel)
+					mon.monitorLoop(1*time.Second, stopChan)
 					done <- "exit"
 				}()
 
-				signalChannel <- syscall.SIGTERM
+				close(stopChan)
 				noExitCheck := time.After(5 * time.Second)
 				exited := false
 

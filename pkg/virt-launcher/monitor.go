@@ -23,19 +23,17 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
-	"os/signal"
 	"path/filepath"
 	"strconv"
 	"strings"
-	"syscall"
 	"time"
 
 	"kubevirt.io/kubevirt/pkg/api/v1"
 	diskutils "kubevirt.io/kubevirt/pkg/ephemeral-disk-utils"
 	"kubevirt.io/kubevirt/pkg/log"
 	"kubevirt.io/kubevirt/pkg/precond"
-	cmdclient "kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
-	watchdog "kubevirt.io/kubevirt/pkg/watchdog"
+	"kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
+	"kubevirt.io/kubevirt/pkg/watchdog"
 )
 
 type OnShutdownCallback func(pid int)
@@ -53,7 +51,7 @@ type monitor struct {
 }
 
 type ProcessMonitor interface {
-	RunForever(startTimeout time.Duration)
+	RunForever(startTimeout time.Duration, signalStopChan chan struct{})
 }
 
 func GracefulShutdownTriggerDir(baseDir string) string {
@@ -242,7 +240,7 @@ func (mon *monitor) refresh() {
 	return
 }
 
-func (mon *monitor) monitorLoop(startTimeout time.Duration, signalChan chan os.Signal) {
+func (mon *monitor) monitorLoop(startTimeout time.Duration, signalStopChan chan struct{}) {
 	// random value, no real rationale
 	rate := 1 * time.Second
 
@@ -262,9 +260,7 @@ func (mon *monitor) monitorLoop(startTimeout time.Duration, signalChan chan os.S
 		select {
 		case <-ticker.C:
 			mon.refresh()
-		case s := <-signalChan:
-			log.Log.Infof("Received signal %d.", s)
-
+		case <-signalStopChan:
 			if mon.gracePeriodStartTime != 0 {
 				continue
 			}
@@ -280,16 +276,9 @@ func (mon *monitor) monitorLoop(startTimeout time.Duration, signalChan chan os.S
 	ticker.Stop()
 }
 
-func (mon *monitor) RunForever(startTimeout time.Duration) {
-	c := make(chan os.Signal, 1)
-	signal.Notify(c, os.Interrupt,
-		syscall.SIGHUP,
-		syscall.SIGINT,
-		syscall.SIGTERM,
-		syscall.SIGQUIT,
-	)
+func (mon *monitor) RunForever(startTimeout time.Duration, signalStopChan chan struct{}) {
 
-	mon.monitorLoop(startTimeout, c)
+	mon.monitorLoop(startTimeout, signalStopChan)
 }
 
 func readProcCmdline(pathname string) ([]string, error) {
