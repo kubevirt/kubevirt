@@ -28,6 +28,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"syscall"
 
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -98,10 +99,8 @@ func Convert_v1_Disk_To_api_Disk(diskDevice *v1.Disk, disk *Disk, devicePerBus m
 			disk.ReadOnly = toApiReadOnly(true)
 		}
 	}
-	mode := setDiskCacheMode(diskDevice.Cache)
 	disk.Driver = &DiskDriver{
-		Name:  "qemu",
-		Cache: mode,
+		Name: "qemu",
 	}
 	if numQueues != nil {
 		disk.Driver.Queues = numQueues
@@ -114,9 +113,34 @@ func Convert_v1_Disk_To_api_Disk(diskDevice *v1.Disk, disk *Disk, devicePerBus m
 	return nil
 }
 
-func setDiskCacheMode(mode v1.DiskCache) string {
+func setDriverCacheMode(disk *Disk, mode v1.DriverCache) error {
+	supportDirectIO := true
+	if mode == "" || mode == v1.CacheNone {
+		f, err := os.OpenFile(disk.Source.File, syscall.O_RDONLY|syscall.O_DIRECT, 0)
+		f.Close()
+		if err != nil && !os.IsNotExist(err) {
+			supportDirectIO = false
+		}
+	}
 
-	return string(mode)
+	// if user set a cache mode = 'none' and fs does not support direct I/O then return an error
+	if mode == v1.CacheNone && !supportDirectIO {
+		return fmt.Errorf("Unable to use '%s' cache mode, file system where %s is stored does not support direct I/O", mode, disk.Source.File)
+	}
+
+	if mode == "" {
+		// if user did not set a cache mode and fs supports direct I/O then set cache = 'none'
+		// else set cache = 'writethrough'
+		if supportDirectIO {
+			disk.Driver.Cache = string(v1.CacheNone)
+		} else {
+			disk.Driver.Cache = string(v1.CacheWriteThrough)
+		}
+	} else {
+		disk.Driver.Cache = string(mode)
+	}
+
+	return nil
 }
 
 func makeDeviceName(bus string, devicePerBus map[string]int) string {
@@ -619,6 +643,10 @@ func Convert_v1_VirtualMachine_To_api_Domain(vmi *v1.VirtualMachineInstance, dom
 			newDisk.Driver.IOThread = &ioThreadId
 		}
 
+		err = setDriverCacheMode(&newDisk, disk.Cache)
+		if err != nil {
+			return err
+		}
 		domain.Spec.Devices.Disks = append(domain.Spec.Devices.Disks, newDisk)
 	}
 
