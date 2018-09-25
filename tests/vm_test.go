@@ -211,9 +211,12 @@ var _ = Describe("VirtualMachine", func() {
 			// Wait until VMIs are gone
 			Eventually(func() bool {
 				vmi, err := virtClient.VirtualMachineInstance(newVM.Namespace).Get(newVM.Name, &v12.GetOptions{})
+				if errors.IsNotFound(err) {
+					return true
+				}
 				Expect(err).ToNot(HaveOccurred(), "Should get the VMI")
 				return vmi.GetObjectMeta().GetDeletionTimestamp() != nil
-			}, 30*time.Second, 2*time.Second).Should(BeTrue(), "The VirtualMachineInstance is marked for deletion")
+			}, 75*time.Second, 2*time.Second).Should(BeTrue(), "The VirtualMachineInstance is marked for deletion or is already deleted")
 		})
 
 		It("should remove owner references on the VirtualMachineInstance if it is orphan deleted", func() {
