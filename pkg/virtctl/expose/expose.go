@@ -39,7 +39,7 @@ var namespace string
 // generate a new "expose" command
 func NewExposeCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "expose TYPE NAME",
+		Use:   "expose (TYPE NAME)",
 		Short: "Expose a virtual machine instance, virtual machine, or virtual machine instance replica set as a new service.",
 		Long: `Looks up a virtual machine instance, virtual machine or virtual machine instance replica set by name and use its selector as the selector for a new service on the specified port.
 A virtual machine instance replica set will be exposed as a service only if its selector is convertible to a selector that service supports, i.e. when the selector contains only the matchLabels component.
@@ -58,12 +58,12 @@ virtualmachineinstance (vmi), virtualmachine (vm), virtualmachineinstancereplica
 	}
 
 	// flags for the "expose" command
-	cmd.Flags().StringVar(&serviceName, "name", "", "Name of the service created for the exposure of the VM")
+	cmd.Flags().StringVar(&serviceName, "name", "", "Name of the service created for the exposure of the VM.")
 	cmd.MarkFlagRequired("name")
 	cmd.Flags().StringVar(&clusterIP, "cluster-ip", "", "ClusterIP to be assigned to the service. Leave empty to auto-allocate, or set to 'None' to create a headless service.")
 	cmd.Flags().StringVar(&externalIP, "external-ip", "", "Additional external IP address (not managed by the cluster) to accept for the service. If this IP is routed to a node, the service can be accessed by this IP in addition to its generated service IP. Optional.")
 	cmd.Flags().StringVar(&loadBalancerIP, "load-balancer-ip", "", "IP to assign to the Load Balancer. If empty, an ephemeral IP will be created and used.")
-	cmd.Flags().Int32Var(&port, "port", 0, "The port that the service should serve on")
+	cmd.Flags().Int32Var(&port, "port", 0, "The port that the service should serve on.")
 	cmd.MarkFlagRequired("port")
 	cmd.Flags().StringVar(&strProtocol, "protocol", "TCP", "The network protocol for the service to be created.")
 	cmd.Flags().StringVar(&strTargetPort, "target-port", "", "Name or number for the port on the VM that the service should direct traffic to. Optional.")
