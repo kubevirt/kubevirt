@@ -27,8 +27,11 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
 	"kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/kubecli"
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/tests"
 )
 
@@ -45,16 +48,51 @@ var _ = Describe("IOThreads", func() {
 		vmi = tests.NewRandomVMIWithEphemeralDisk(tests.RegistryDiskFor(tests.RegistryDiskAlpine))
 	})
 
-	Context("CRD Validation", func() {
+	Context("IOThreads Policies", func() {
 
-		It("Should reject POST if ioThreadsPolicy is invalid", func() {
-			policy := "invalid_policy"
+		It("Should honor shared ioThreadsPolicy", func() {
+			policy := v1.IOThreadsPolicyShared
 			vmi.Spec.Domain.IOThreadsPolicy = &policy
 
 			_, err := virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
-			Expect(err).To(HaveOccurred())
-			errorMessage := fmt.Sprintf("Invalid IOThreadsPolicy (%s)", policy)
-			Expect(strings.Contains(err.Error(), errorMessage), "Expected error message to say: %s", errorMessage)
+			Expect(err).ToNot(HaveOccurred())
+
+			listOptions := metav1.ListOptions{}
+
+			Eventually(func() int {
+				podList, err := virtClient.CoreV1().Pods(tests.NamespaceTestDefault).List(listOptions)
+				Expect(err).ToNot(HaveOccurred())
+				return len(podList.Items)
+			}, 75, 0.5).Should(Equal(1))
+
+			Eventually(func() error {
+				podList, err := virtClient.CoreV1().Pods(tests.NamespaceTestDefault).List(listOptions)
+				Expect(err).ToNot(HaveOccurred())
+				for _, item := range podList.Items {
+					if strings.HasPrefix(item.Name, vmi.ObjectMeta.GenerateName) {
+						return nil
+					}
+				}
+				return fmt.Errorf("Associated pod for VirtualMachineInstance '%s' not found", vmi.Name)
+			}, 75, 0.5).Should(Succeed())
+
+			getOptions := metav1.GetOptions{}
+			var newVMI *v1.VirtualMachineInstance
+
+			newVMI, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Get(vmi.Name, &getOptions)
+			Expect(err).ToNot(HaveOccurred())
+
+			domain := &api.Domain{}
+			context := &api.ConverterContext{
+				VirtualMachine: newVMI,
+				UseEmulation:   true,
+			}
+			api.Convert_v1_VirtualMachine_To_api_Domain(newVMI, domain, context)
+
+			expectedIOThreads := 1
+			Expect(int(domain.Spec.IOThreads.IOThreads)).To(Equal(expectedIOThreads))
+
+			Expect(len(newVMI.Spec.Domain.Devices.Disks)).To(Equal(1))
 		})
 
 	})
