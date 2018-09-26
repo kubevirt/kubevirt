@@ -36,8 +36,8 @@ before_script:
 - JSONPATH='{range .items[*]}{@.metadata.name}:{range @.status.conditions[*]}{@.type}={@.status};{end}{end}';
   until kubectl get nodes -o jsonpath="$JSONPATH" 2>&1 | grep -q "Ready=True"; do
   sleep 1; done
-- k_wait_all_running() { while [[ "$(kubectl get $1 --all-namespaces --field-selector=status.phase!=Running
-  | wc -l)" -gt 1 ]]; do kubectl get $1 --all-namespaces ; sleep 6; done ; }
+- k_wait_all_running() { while [[ "$(kubectl get $1 --all-namespaces --field-selector=status.phase!=Running | wc -l)" -gt 1 ]];
+  do kubectl get $1 --all-namespaces ; sleep 6; done ; }
 - kubectl apply -f https://github.com/kubevirt/kubevirt/releases/download/v$K6T_VER/kubevirt.yaml
 - k_wait_all_running pods
 
@@ -47,10 +47,10 @@ script:
 - "sed \"s#cdi.kubevirt.io/storage.import.endpoint:.*#cdi.kubevirt.io/storage.import.endpoint: \"$SRC#\"\" manifests/example/golden-pvc.yaml | kubectl apply -f -"
 - k_wait_all_running pods
 - kubectl get pods --all-namespaces
-- if [[ ${TRAVIS_PULL_REQUEST} == 'false' ]]; then make goveralls && make test-functional; else make test; fi
+- make goveralls
+- make test-lint
 
 before_deploy:
-- git remote set-url origin https://"${GH_USER}":"${GH_TOKEN}"@github.com/kubevirt/containerized-data-importer.git
 - docker login -u="$DOCKER_USER" -p="$DOCKER_PASS"
 
 deploy:
@@ -83,6 +83,7 @@ deploy:
   file:
   - _out/cmd/cdi-controller/cdi-controller
   - _out/cmd/cdi-importer/cdi-importer
-  - _out/cmd/cdi-cloner/script.sh
+  - _out/cmd/cdi-cloner/cloner_startup.sh
   - manifests/generated/cdi-controller.yaml
+  - manifests/generated/cdi-controller.yaml.j2
   - manifests/example/*

@@ -1,14 +1,22 @@
-hash: db75d5eb043fb5282eb0d854dd74a3e97c2b5276068cbcd8ea8277e92c8baa95
-updated: 2018-06-07T14:46:21.073189029-04:00
+hash: 5e0806ce615b5f75c7fdb18fb908c86d2736e3099252adaff74e31e74314fba2
+updated: 2018-08-30T20:09:10.641503414-04:00
 imports:
 - name: github.com/davecgh/go-spew
   version: 782f4967f2dc4564575ca782fe2d04090b5faca8
   subpackages:
   - spew
+- name: github.com/docker/spdystream
+  version: 449fdfce4d962303d702fec724ef0ad181c92528
+  subpackages:
+  - spdy
+- name: github.com/emicklei/go-restful
+  version: 26b41036311f2da8242db402557a0dbd09dc83da
+  subpackages:
+  - log
 - name: github.com/ghodss/yaml
   version: 73d445a93680fa1a78ae23a5839bad48f32ba1ee
 - name: github.com/go-ini/ini
-  version: 06f5f3d67269ccec1fe5fe4134ba6e982984f7f5
+  version: 5cf292cae48347c2490ac1a58fe36735fb78df7e
 - name: github.com/gogo/protobuf
   version: c0656edd0d9eab7c66d1eb0c568f9039345796f7
   subpackages:
@@ -58,21 +66,66 @@ imports:
   - pkg/s3utils
   - pkg/set
 - name: github.com/mitchellh/go-homedir
-  version: 3864e76763d94a6df2f9960b16a20a33da9f9a66
+  version: ae18d6b8b3205b561c79e8e5f69bff09736185f4
+- name: github.com/onsi/ginkgo
+  version: 9eda700730cba42af70d53180f9dcce9266bc2bc
+  subpackages:
+  - config
+  - extensions/table
+  - internal/codelocation
+  - internal/containernode
+  - internal/failer
+  - internal/leafnodes
+  - internal/remote
+  - internal/spec
+  - internal/spec_iterator
+  - internal/specrunner
+  - internal/suite
+  - internal/testingtproxy
+  - internal/writer
+  - reporters
+  - reporters/stenographer
+  - reporters/stenographer/support/go-colorable
+  - reporters/stenographer/support/go-isatty
+  - types
+- name: github.com/onsi/gomega
+  version: dcabb60a477c2b6f456df65037cb6708210fbb02
+  subpackages:
+  - format
+  - internal/assertion
+  - internal/asyncassertion
+  - internal/oraclematcher
+  - internal/testingtsupport
+  - matchers
+  - matchers/support/goraph/bipartitegraph
+  - matchers/support/goraph/edge
+  - matchers/support/goraph/node
+  - matchers/support/goraph/util
+  - types
 - name: github.com/pkg/errors
   version: 816c9085562cd7ee03e7f8188a1cfd942858cded
 - name: github.com/spf13/pflag
   version: 4c012f6dcd9546820e378d0bdda4d8fc772cdfea
+- name: github.com/ulikunitz/xz
+  version: 636d36a76670e6c700f22fd5f4588679ff2896c4
+  subpackages:
+  - internal/hash
+  - internal/xlog
+  - lzma
 - name: github.com/xi2/xz
   version: 48954b6210f8d154cb5f8484d3a3e1f83489309e
 - name: golang.org/x/crypto
   version: 81e90905daefcd6fd217b62423c0908922eadb30
   subpackages:
+  - ed25519
+  - ed25519/internal/edwards25519
+  - pbkdf2
   - ssh/terminal
 - name: golang.org/x/net
   version: 1c05540f6879653db88113bc4a2b70aec4bd491f
   subpackages:
   - context
+  - context/ctxhttp
   - html
   - html/atom
   - html/charset
@@ -80,7 +133,6 @@ imports:
   - http2/hpack
   - idna
   - lex/httplex
-  - websocket
 - name: golang.org/x/sys
   version: 95c6576299259db960f6c5b9b69ea52422860fce
   subpackages:
@@ -113,6 +165,11 @@ imports:
   - rate
 - name: gopkg.in/inf.v0
   version: 3887ee99ecf07df5b447e9b00d9c0b2adaa9f3e4
+- name: gopkg.in/square/go-jose.v2
+  version: 8254d6c783765f38c8675fae4427a1fe73fbd09d
+  subpackages:
+  - cipher
+  - json
 - name: gopkg.in/yaml.v2
   version: 670d4cfef0544295bc27a114dbac37980d83185a
 - name: k8s.io/api
@@ -176,10 +233,13 @@ imports:
   - pkg/util/diff
   - pkg/util/errors
   - pkg/util/framer
+  - pkg/util/httpstream
+  - pkg/util/httpstream/spdy
   - pkg/util/intstr
   - pkg/util/json
   - pkg/util/mergepatch
   - pkg/util/net
+  - pkg/util/remotecommand
   - pkg/util/runtime
   - pkg/util/sets
   - pkg/util/strategicpatch
@@ -190,6 +250,7 @@ imports:
   - pkg/version
   - pkg/watch
   - third_party/forked/golang/json
+  - third_party/forked/golang/netutil
   - third_party/forked/golang/reflect
 - name: k8s.io/client-go
   version: 29ae1f00c3d8bb759d6246c357573a9af3c659c1
@@ -327,6 +388,7 @@ imports:
   - rest/watch
   - testing
   - tools/auth
+  - tools/bootstrap/token/api
   - tools/cache
   - tools/cache/testing
   - tools/clientcmd
@@ -337,9 +399,13 @@ imports:
   - tools/pager
   - tools/record
   - tools/reference
+  - tools/remotecommand
   - transport
+  - transport/spdy
   - util/buffer
   - util/cert
+  - util/cert/triple
+  - util/exec
   - util/flowcontrol
   - util/homedir
   - util/integer
@@ -348,43 +414,25 @@ imports:
 - name: k8s.io/code-generator
   version: 69d88fb997c52c32288a40f5efb62add0a7c8e04
 - name: k8s.io/gengo
-  version: 020f9f03e7e2d20e457f98f0464fb2f7548439f4
+  version: 4242d8e6c5dba56827bb7bcf14ad11cda38f3991
+- name: k8s.io/kube-aggregator
+  version: a305d191dfc1956bfaa9500f0d2f3481e0e3ffb2
+  subpackages:
+  - pkg/apis/apiregistration
+  - pkg/apis/apiregistration/v1
+  - pkg/apis/apiregistration/v1beta1
+  - pkg/client/clientset_generated/clientset
+  - pkg/client/clientset_generated/clientset/scheme
+  - pkg/client/clientset_generated/clientset/typed/apiregistration/v1
+  - pkg/client/clientset_generated/clientset/typed/apiregistration/v1beta1
 - name: k8s.io/kube-openapi
   version: 39cb288412c48cb533ba4be5d6c28620b9a0c1b4
   subpackages:
   - pkg/util/proto
-testImports:
-- name: github.com/onsi/ginkgo
-  version: 11459a886d9cd66b319dac7ef1e917ee221372c9
+- name: kubevirt.io/qe-tools
+  version: 13fc8573324cd2af42c88043b5a7c6e03bf39f95
+  repo: https://github.com/kubevirt/qe-tools.git
   subpackages:
-  - config
-  - internal/codelocation
-  - internal/containernode
-  - internal/failer
-  - internal/leafnodes
-  - internal/remote
-  - internal/spec
-  - internal/spec_iterator
-  - internal/specrunner
-  - internal/suite
-  - internal/testingtproxy
-  - internal/writer
-  - reporters
-  - reporters/stenographer
-  - reporters/stenographer/support/go-colorable
-  - reporters/stenographer/support/go-isatty
-  - types
-- name: github.com/onsi/gomega
-  version: dcabb60a477c2b6f456df65037cb6708210fbb02
-  subpackages:
-  - format
-  - internal/assertion
-  - internal/asyncassertion
-  - internal/oraclematcher
-  - internal/testingtsupport
-  - matchers
-  - matchers/support/goraph/bipartitegraph
-  - matchers/support/goraph/edge
-  - matchers/support/goraph/node
-  - matchers/support/goraph/util
-  - types
+  - pkg/ginkgo-reporters
+  - pkg/polarion-xml
+testImports: []

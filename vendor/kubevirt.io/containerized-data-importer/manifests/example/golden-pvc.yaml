@@ -13,3 +13,5 @@ spec:
   resources:
     requests:
       storage: 10Gi
+  # Optional: Set the storage class or omit to accept the default
+  # storageClassName: local

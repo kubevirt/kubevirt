@@ -1,5 +1,10 @@
 # Version and Release
 
+* [Overview](#overview)
+* [Version Scheme](#version-scheme)
+* [Releasing a New Version](#releasing-a-new-version)
+    * [Verifying the Release](#verifying-the-release)
+    * [Travis CI](#travis-ci)
 ### Overview
 
 ### Version Scheme
@@ -14,41 +19,48 @@ CDI adheres to the [semantic version definitions](https://semver.org/) format of
 
 ### Releasing a New Version
 
- The version number is tracked in several files in CDI as well as through a git tag.  To reduce the chance of human error, a help script is used to change the version in all known locations.
+Release branches are used to isolate a stable version of CDI.  Git tags are used within these release branches to track incrementing of Minor and Patch versions.  When a Major version is incremented, a new stable branch should be created corresponding to the release.
 
-     DO NOT EDIT ANY VERSION STRINGS IN CDI!!
+- Release branches should adhere to the `release-v#.#.#` pattern.
 
-1. Set the new release version
+- Tags should adhere to the `v#.#.#(-alpha.#)` pattern.
 
-    A recipe has been provided in `Makefile` to handle version setting. Use ONLY this command to set versions. Do NOT edit the values manually.
+When creating a new release branch, follow the below process.  This assumes that `origin` references a fork of `kubevirt/containerized-data-importer` and you have added the main repository as the remote alias `<upstream>`.  If you have cloned `kubevirt/containerized-data-importer` directly, omit the `<upstream>` alias.
 
-        $ make  set-version VERSION=v#.#.#
+1. Make sure you have the latest upstream code
 
-    The `set-version` recipe will locate files in CDI containing the current version value, substitute in the new version, then commit and tag the changes.  The user will be shown a list of files to be changed and prompted to continue before the substitutions are made.
+    `$ git fetch <upstream>`
 
-1. Verify the changes
+1. Checkout the release branch locally
 
-    Before publishing the changes, make one last check to verify the correct version value has been substituted in.
+    `$ git checkout release-v#.#`
 
-        $ git diff HEAD~1
+    e.g. `$ git checkout release-v1.1`
 
-1. Push the changes to Github
+1. Create an annotated tag corresponding to the version
 
-        $ git push upstream master && git push upstream --tags
+    `$ git tag -a -m "v#.#.#" v#.#.#`
 
-   Travis CI will detect the new tag and execute the deploy script.  This will publish the newly updated controller manifest and CDI binaries to git releases.
+1. Push the new branch and tag to the main kubevirt repo.  (If you have cloned the main repo directly, use `origin` for <`upstream`>)
 
+    `$ git push v#.#.#`
+
+CI will be triggered when a tag matching `v#.#.#(-alpha.#)` is pushed.  The automation will handle release artifact testing, building, and publishing.
+
+Following the release, `make release-description` should be executed to generate a github release description template.  The `Notable Changes` section should be filled in manually, briefly listing major changes that the new release includes.  Copy/Paste this template into the corresponding github release.
 
 #### Verifying the Release
 
 ##### Images
 
--  Check hub.docker.com/r/kubevirt repository for the newly tagged images. If you do not see the tags corresponding to the version, something has gone wrong.
+-  Check hub.docker.com/r/kubevirt repository for the newly tagged images. If you do not see the tags corresponding to the version, check the travis build log for errors.
 
    [CDI-Controller](https://hub.docker.com/r/kubevirt/cdi-controller/tags/)
 
    [CDI-Importer](https://hub.docker.com/r/kubevirt/cdi-importer/)
 
-##### Travis CI Jobs
+   [CDI-Cloner](https://hub.docker.com/r/kubevirt/cdi-cloner/)
+
+##### Travis CI
 
 Track the CI job for the pushed tag.  Navigate to the [CDI Travis dashboard](https://travis-ci.org/kubevirt/containerized-data-importer/branches) and select the left most colored box (either Green, Yellow, or Red) for the branch corresponding to the version 

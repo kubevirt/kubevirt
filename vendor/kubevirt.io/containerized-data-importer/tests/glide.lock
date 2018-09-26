@@ -1,0 +1,92 @@
+hash: b8f34b31a1bf74c0b9568d6f3567bfac9a7a5cd02570ded5d1a407b51e1542ce
+updated: 2018-07-31T16:05:46.969645374-04:00
+imports:
+- name: github.com/golang/glog
+  version: 23def4e6c14b4da8ac2ed8007337bc5eb5007998
+- name: github.com/gorilla/mux
+  version: e3702bed27f0d39777b0b37b664b6280e8ef8fbf
+- name: github.com/minio/minio-go
+  version: 9e124ec59547551cb3f1324f73623bbb30650cf8
+- name: github.com/onsi/ginkgo
+  version: 11459a886d9cd66b319dac7ef1e917ee221372c9
+  subpackages:
+  - config
+  - internal/codelocation
+  - internal/containernode
+  - internal/failer
+  - internal/leafnodes
+  - internal/remote
+  - internal/spec
+  - internal/spec_iterator
+  - internal/specrunner
+  - internal/suite
+  - internal/testingtproxy
+  - internal/writer
+  - reporters
+  - reporters/stenographer
+  - reporters/stenographer/support/go-colorable
+  - reporters/stenographer/support/go-isatty
+  - types
+- name: github.com/xi2/xz
+  version: 48954b6210f8d154cb5f8484d3a3e1f83489309e
+- name: github.com/yard-turkey/vm-image-import
+  version: 723e22259d5fd569046a1453781ae233924d84e7
+- name: golang.org/x/sys
+  version: 95c6576299259db960f6c5b9b69ea52422860fce
+  subpackages:
+  - unix
+- name: k8s.io/apimachinery
+  version: e386b2658ed20923da8cc9250e552f082899a1ee
+- name: k8s.io/client-go
+  version: b0722d92a7c1f91106a7cb0f5437821b5cd51a41
+- name: k8s.io/code-generator
+  version: 9de8e796a74d16d2a285165727d04c185ebca6dc
+- name: k8s.io/gengo
+  version: fdcf9f9480fdd5bf2b3c3df9bf4ecd22b25b87e2
+- name: kubevirt.io/qe-tools
+  version: 13fc8573324cd2af42c88043b5a7c6e03bf39f95
+  repo: https://github.com/kubevirt/qe-tools.git
+  subpackages:
+  - pkg/ginkgo-reporters
+  - pkg/polarion-xml
+testImports:
+- name: github.com/onsi/gomega
+  version: dcabb60a477c2b6f456df65037cb6708210fbb02
+  subpackages:
+  - format
+  - internal/assertion
+  - internal/asyncassertion
+  - internal/oraclematcher
+  - internal/testingtsupport
+  - matchers
+  - matchers/support/goraph/bipartitegraph
+  - matchers/support/goraph/edge
+  - matchers/support/goraph/node
+  - matchers/support/goraph/util
+  - types
+- name: golang.org/x/net
+  version: 1c05540f6879653db88113bc4a2b70aec4bd491f
+  subpackages:
+  - html
+  - html/atom
+  - html/charset
+- name: golang.org/x/text
+  version: b19bf474d317b857955b12035d2c5acb57ce8b01
+  subpackages:
+  - encoding
+  - encoding/charmap
+  - encoding/htmlindex
+  - encoding/internal
+  - encoding/internal/identifier
+  - encoding/japanese
+  - encoding/korean
+  - encoding/simplifiedchinese
+  - encoding/traditionalchinese
+  - encoding/unicode
+  - internal/tag
+  - internal/utf8internal
+  - language
+  - runes
+  - transform
+- name: gopkg.in/yaml.v2
+  version: 670d4cfef0544295bc27a114dbac37980d83185a

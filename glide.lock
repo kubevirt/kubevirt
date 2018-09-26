@@ -1,5 +1,5 @@
-hash: e57121f72794b48bcf70191b5a7261b97a39314654eef8446b66fef3bc28cb63
-updated: 2018-09-17T14:32:43.419193743Z
+hash: 6e9e2ce81edeb5789893f4369e854a8ec66a3bf12488299fffb037d5f72e95d6
+updated: 2018-09-25T07:19:42.538982054Z
 imports:
 - name: cloud.google.com/go
   version: 3b1ae45394a234c385be014e9a488f2bb6eef821
@@ -307,7 +307,7 @@ imports:
   subpackages:
   - rate
 - name: google.golang.org/appengine
-  version: 03cac3b07182cfb08c0d0c0b6ee72a1ceb151c92
+  version: ae0ab99deb4dc413a2b4bd6c8bdd0eb67f1e4d06
   subpackages:
   - internal
   - internal/app_identity
@@ -573,21 +573,28 @@ imports:
   - pkg/common
   - pkg/util/proto
 - name: kubevirt.io/containerized-data-importer
-  version: e6093ee9aa1e0763e797aaf08468844e3c26466a
+  version: 3096ecec40cb06401cce09537c4eeecd4e2d9b89
   repo: https://github.com/kubevirt/containerized-data-importer.git
   subpackages:
   - pkg/apis/datavolumecontroller
   - pkg/apis/datavolumecontroller/v1alpha1
+  - pkg/apis/uploadcontroller
+  - pkg/apis/uploadcontroller/v1alpha1
   - pkg/client/clientset/versioned
   - pkg/client/clientset/versioned/fake
   - pkg/client/clientset/versioned/scheme
   - pkg/client/clientset/versioned/typed/datavolumecontroller/v1alpha1
   - pkg/client/clientset/versioned/typed/datavolumecontroller/v1alpha1/fake
+  - pkg/client/clientset/versioned/typed/uploadcontroller/v1alpha1
+  - pkg/client/clientset/versioned/typed/uploadcontroller/v1alpha1/fake
   - pkg/client/informers/externalversions
   - pkg/client/informers/externalversions/datavolumecontroller
   - pkg/client/informers/externalversions/datavolumecontroller/v1alpha1
   - pkg/client/informers/externalversions/internalinterfaces
+  - pkg/client/informers/externalversions/uploadcontroller
+  - pkg/client/informers/externalversions/uploadcontroller/v1alpha1
   - pkg/client/listers/datavolumecontroller/v1alpha1
+  - pkg/client/listers/uploadcontroller/v1alpha1
 - name: kubevirt.io/qe-tools
   version: cfa2a5aff14e51a06fc637f97c941d392cf1acb6
   repo: https://github.com/kubevirt/qe-tools.git

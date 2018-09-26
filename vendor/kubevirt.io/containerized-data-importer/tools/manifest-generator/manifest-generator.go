@@ -13,32 +13,54 @@
 package main
 
 import (
-	"text/template"
-	"os"
 	"flag"
+	"os"
+	"text/template"
+
 	"github.com/golang/glog"
 )
 
 type data struct {
-	DockerRepo string
-	DockerTag  string
-	Verbosity  int
-	PullPolicy string
+	DockerRepo        string
+	DockerTag         string
+	ControllerImage   string
+	ImporterImage     string
+	ClonerImage       string
+	APIServerImage    string
+	UploadProxyImage  string
+	UploadServerImage string
+	Verbosity         string
+	PullPolicy        string
+	Namespace         string
 }
 
-func main () {
+func main() {
 	dockerRepo := flag.String("docker-repo", "", "")
 	dockertag := flag.String("docker-tag", "", "")
+	controllerImage := flag.String("controller-image", "", "")
+	importerImage := flag.String("importer-image", "", "")
+	clonerImage := flag.String("cloner-image", "", "")
+	apiServerImage := flag.String("apiserver-image", "", "")
+	uploadProxyImage := flag.String("uploadproxy-image", "", "")
+	uploadServerImage := flag.String("uploadserver-image", "", "")
 	templFile := flag.String("template", "", "")
-	verbosity := flag.Int("verbosity", 1, "")
+	verbosity := flag.String("verbosity", "1", "")
 	pullPolicy := flag.String("pull-policy", "", "")
+	namespace := flag.String("namespace", "", "")
 	flag.Parse()
 
 	data := &data{
-		Verbosity:  *verbosity,
-		DockerRepo: *dockerRepo,
-		DockerTag:  *dockertag,
-		PullPolicy: *pullPolicy,
+		Verbosity:         *verbosity,
+		DockerRepo:        *dockerRepo,
+		DockerTag:         *dockertag,
+		ControllerImage:   *controllerImage,
+		ImporterImage:     *importerImage,
+		ClonerImage:       *clonerImage,
+		APIServerImage:    *apiServerImage,
+		UploadProxyImage:  *uploadProxyImage,
+		UploadServerImage: *uploadServerImage,
+		PullPolicy:        *pullPolicy,
+		Namespace:         *namespace,
 	}
 
 	file, err := os.OpenFile(*templFile, os.O_RDONLY, 0)

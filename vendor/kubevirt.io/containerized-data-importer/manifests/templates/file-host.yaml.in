@@ -1,0 +1,102 @@
+---
+apiVersion: apps/v1beta2
+kind: Deployment
+metadata:
+  name: cdi-file-host
+  namespace: {{ .Namespace }}
+  labels:
+    cdi.kubevirt.io: ""
+    cdi.kubevirt.io/testing: ""
+spec:
+  selector:
+    matchLabels:
+      cdi.kubevirt.io/testing: ""
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        cdi.kubevirt.io/testing: ""
+    spec:
+      initContainers:
+      - name: init
+        image: {{ .DockerRepo }}/cdi-func-test-file-host-init:{{ .DockerTag }}
+        imagePullPolicy: {{ .PullPolicy }}
+        args: ["-inFile", "/tmp/source/tinyCore.iso", "-outDir", "/tmp/shared/images"]
+        volumeMounts:
+        - name: "images"
+          mountPath: "/tmp/shared"
+      containers:
+      - name: http
+        image: {{ .DockerRepo }}/cdi-func-test-file-host-http:{{ .DockerTag }}
+        imagePullPolicy: {{ .PullPolicy }}
+        command: ["/usr/sbin/nginx"]
+        ports:
+        - name: http-no-auth
+          containerPort: 80
+        - name: http-auth
+          containerPort: 81
+        volumeMounts:
+        - name: "images"
+          mountPath: "/tmp/shared/"
+        readinessProbe:
+          httpGet:
+            path: /
+            port: 80
+          initialDelaySeconds: 20
+          periodSeconds: 20
+        livenessProbe:
+          httpGet:
+            path: /
+            port: 80
+          initialDelaySeconds: 20
+          periodSeconds: 20
+      - name: s3
+        image: minio/minio:RELEASE.2018-08-02T23-11-36Z
+        imagePullPolicy: {{ .PullPolicy }}
+        env:
+        - name: MINIO_ACCESS_KEY
+          value: "admin"
+        - name: MINIO_SECRET_KEY
+          value: "password"
+        args: ["server", "--address", ":9000", "/tmp/shared"]
+        volumeMounts:
+        - name: "images"
+          mountPath: "/tmp/shared"
+        readinessProbe:
+          httpGet:
+            path: /minio/health/ready
+            port: 9000
+          initialDelaySeconds: 20
+          periodSeconds: 20
+        livenessProbe:
+          httpGet:
+            path: /minio/health/live
+            port: 9000
+          initialDelaySeconds: 20
+          periodSeconds: 20
+      volumes:
+      - name: "images"
+        emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: cdi-file-host
+  namespace: {{ .Namespace }}
+  labels:
+    cdi.kubevirt.io: ""
+    cdi.kubevirt.io/testing: ""
+spec:
+  selector:
+      cdi.kubevirt.io/testing: ""
+  type: NodePort
+  ports:
+  - name: http-auth
+    port: 81
+    targetPort: 81
+  - name: http-no-auth
+    port: 80
+    targetPort: 80
+  - name: s3
+    port: 9000
+    targetPort: 9000

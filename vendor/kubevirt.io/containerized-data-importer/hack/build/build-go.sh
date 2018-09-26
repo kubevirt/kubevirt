@@ -24,46 +24,47 @@ mkdir -p ${BIN_DIR}
 mkdir -p ${CMD_OUT_DIR}
 
 if [ -z "$1" ]; then
-	go_opt="build"
+    go_opt="build"
 else
-	go_opt=$1
-	shift
+    go_opt=$1
+    shift
 fi
 
 targets="$@"
 
 if [ "${go_opt}" == "test" ]; then
-	if [ -z "${targets}" ]; then
+    if [ -z "${targets}" ]; then
         targets="${CDI_PKGS}"
-	fi
-	for tgt in ${targets}; do
+    fi
+    for tgt in ${targets}; do
         (
             cd $tgt
             go test -v ./...
         )
-	done
+    done
 elif [ "${go_opt}" == "build" ]; then
     if [ -z "${targets}" ]; then
         targets="${BINARIES}"
     fi
-	for tgt in ${targets}; do
-		BIN_NAME=$(basename $tgt)
-		if [[ "${BIN_NAME}" == "${CLONER}" ]]; then
-		    continue
-		fi
-		outFile=${CMD_OUT_DIR}/${BIN_NAME}/${BIN_NAME}
-		outLink=${BIN_DIR}/${BIN_NAME}
-		rm -f ${outFile}
-		rm -f ${outLink}
-		(
-			cd $tgt
+    for tgt in ${targets}; do
+        BIN_NAME=$(basename ${tgt})
+        BIN_PATH=${tgt%/}
+        if [[ "${BIN_NAME}" == "${CLONER}" ]]; then
+            continue
+        fi
+        outFile=${OUT_DIR}/${BIN_PATH}/${BIN_NAME}
+        outLink=${BIN_DIR}/${BIN_NAME}
+        rm -f ${outFile}
+        rm -f ${outLink}
+        (
+            cd $tgt
 
             # Only build executables for linux amd64
-			GOOS=linux GOARCH=amd64 go build -o ${outFile} -ldflags '-extldflags "static"'
+            GOOS=linux GOARCH=amd64 go build -o ${outFile} -ldflags '-extldflags "static"'
 
-			ln -sf ${outFile} ${outLink}
-		)
-	done
+            ln -sf ${outFile} ${outLink}
+        )
+    done
 else # Pass go commands directly on to packages except vendor
     if [ -z ${targets} ]; then
         targets=$(allPkgs) # pkg/client is generated code, ignore it

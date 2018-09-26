@@ -5143,6 +5143,9 @@
      "http": {
       "$ref": "#/definitions/v1alpha1.DataVolumeSourceHTTP"
      },
+     "pvc": {
+      "$ref": "#/definitions/v1alpha1.DataVolumeSourcePVC"
+     },
      "s3": {
       "$ref": "#/definitions/v1alpha1.DataVolumeSourceS3"
      }
@@ -5150,7 +5153,20 @@
    },
    "v1alpha1.DataVolumeSourceHTTP": {
     "properties": {
+     "secretRef": {
+      "type": "string"
+     },
      "url": {
+      "type": "string"
+     }
+    }
+   },
+   "v1alpha1.DataVolumeSourcePVC": {
+    "properties": {
+     "name": {
+      "type": "string"
+     },
+     "namespace": {
       "type": "string"
      }
     }
