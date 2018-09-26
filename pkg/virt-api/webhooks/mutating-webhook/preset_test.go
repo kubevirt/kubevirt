@@ -323,11 +323,11 @@ var _ = Describe("Mutating Webhook Presets", func() {
 		})
 
 		It("Should detect ioThreadsPolicy overrides", func() {
-			sharedPolicy := "shared"
+			sharedPolicy := v1.IOThreadsPolicyShared
 			preset.Spec.Domain.IOThreadsPolicy = &sharedPolicy
 
-			dedicatedPolicy := "dedicated"
-			vmi.Spec.Domain.IOThreadsPolicy = &dedicatedPolicy
+			automaticPolicy := v1.IOThreadsPolicyAuto
+			vmi.Spec.Domain.IOThreadsPolicy = &automaticPolicy
 
 			By("showing that an override occurs")
 			err := checkMergeConflicts(preset.Spec.Domain, &vmi.Spec.Domain)
@@ -339,9 +339,9 @@ var _ = Describe("Mutating Webhook Presets", func() {
 			applyPresets(&vmi, presetInformer)
 
 			Expect(len(vmi.Annotations)).To(Equal(0), "There should not be annotations if presets weren't applied")
-			Expect(*vmi.Spec.Domain.IOThreadsPolicy).To(Equal(dedicatedPolicy), "IOThreads policy should not have been overridden")
+			Expect(*vmi.Spec.Domain.IOThreadsPolicy).To(Equal(automaticPolicy), "IOThreads policy should not have been overridden")
 
-			preset.Spec.Domain.IOThreadsPolicy = &dedicatedPolicy
+			preset.Spec.Domain.IOThreadsPolicy = &automaticPolicy
 
 			By("showing that settings were not changed")
 			err = checkMergeConflicts(preset.Spec.Domain, &vmi.Spec.Domain)
@@ -352,7 +352,7 @@ var _ = Describe("Mutating Webhook Presets", func() {
 			applyPresets(&vmi, presetInformer)
 
 			Expect(len(vmi.Annotations)).To(Equal(1), "There should be an annotation indicating presets were applied")
-			Expect(*vmi.Spec.Domain.IOThreadsPolicy).To(Equal(dedicatedPolicy), "IOThreadsPolicy should not have been changed")
+			Expect(*vmi.Spec.Domain.IOThreadsPolicy).To(Equal(automaticPolicy), "IOThreadsPolicy should not have been changed")
 		})
 	})
 
@@ -625,7 +625,7 @@ var _ = Describe("Mutating Webhook Presets", func() {
 		})
 
 		It("Should apply IOThreads settings", func() {
-			ioThreads := "shared"
+			ioThreads := v1.IOThreadsPolicyShared
 			preset.Spec.Domain.IOThreadsPolicy = &ioThreads
 
 			presetInformer.GetIndexer().Add(preset)

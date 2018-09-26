@@ -910,7 +910,7 @@ var _ = Describe("Converter", func() {
 		_false := false
 		_true := true
 
-		table.DescribeTable("Should use correct IOThreads policies", func(policy string, cpuCores int, threadCount int, threadIDs []int) {
+		table.DescribeTable("Should use correct IOThreads policies", func(policy v1.IOThreadsPolicy, cpuCores int, threadCount int, threadIDs []int) {
 			vmi := v1.VirtualMachineInstance{
 				ObjectMeta: k8smeta.ObjectMeta{
 					Name:      "testvmi",
