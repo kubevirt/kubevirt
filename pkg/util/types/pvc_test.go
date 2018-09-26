@@ -72,19 +72,19 @@ var _ = Describe("PVC utils test", func() {
 		It("should detect filesystem device for empty VolumeMode", func() {
 			isBlock, err := IsPVCBlockFromStore(pvcCache, namespace, file1Name)
 			Expect(err).ToNot(HaveOccurred())
-			Expect(isBlock).To(Equal(false))
+			Expect(isBlock).To(Equal(false), "Is filesystem PVC")
 		})
 
 		It("should detect filesystem device for filesystem VolumeMode", func() {
 			isBlock, err := IsPVCBlockFromStore(pvcCache, namespace, file2Name)
 			Expect(err).ToNot(HaveOccurred())
-			Expect(isBlock).To(Equal(false))
+			Expect(isBlock).To(Equal(false), "Is filesystem PVC")
 		})
 
 		It("should detect block device for block VolumeMode", func() {
 			isBlock, err := IsPVCBlockFromStore(pvcCache, namespace, blockName)
 			Expect(err).ToNot(HaveOccurred())
-			Expect(isBlock).To(Equal(true))
+			Expect(isBlock).To(Equal(true), "Is blockdevice PVC")
 		})
 	})
 
@@ -102,19 +102,19 @@ var _ = Describe("PVC utils test", func() {
 		It("should detect filesystem device for empty VolumeMode", func() {
 			isBlock, err := IsPVCBlockFromClient(virtClient, namespace, file1Name)
 			Expect(err).ToNot(HaveOccurred())
-			Expect(isBlock).To(Equal(false))
+			Expect(isBlock).To(Equal(false), "Is filesystem PVC")
 		})
 
 		It("should detect filesystem device for filesystem VolumeMode", func() {
 			isBlock, err := IsPVCBlockFromClient(virtClient, namespace, file2Name)
 			Expect(err).ToNot(HaveOccurred())
-			Expect(isBlock).To(Equal(false))
+			Expect(isBlock).To(Equal(false), "Is filesystem PVC")
 		})
 
 		It("should detect block device for block VolumeMode", func() {
 			isBlock, err := IsPVCBlockFromClient(virtClient, namespace, blockName)
 			Expect(err).ToNot(HaveOccurred())
-			Expect(isBlock).To(Equal(true))
+			Expect(isBlock).To(Equal(true), "Is blockdevice PVC")
 		})
 	})
 

@@ -508,7 +508,7 @@ var _ = Describe("Template", func() {
 					ObjectMeta: metav1.ObjectMeta{Namespace: namespace, Name: pvcName},
 				}
 				err := pvcCache.Add(&pvc)
-				Expect(err).ToNot(HaveOccurred())
+				Expect(err).ToNot(HaveOccurred(), "Added PVC to cache successfully")
 
 				volumes := []v1.Volume{
 					{
@@ -526,14 +526,14 @@ var _ = Describe("Template", func() {
 				}
 
 				pod, err := svc.RenderLaunchManifest(&vmi)
-				Expect(err).ToNot(HaveOccurred())
+				Expect(err).ToNot(HaveOccurred(), "Render manifest successfully")
 
-				Expect(pod.Spec.Containers[0].VolumeDevices).To(BeEmpty())
+				Expect(pod.Spec.Containers[0].VolumeDevices).To(BeEmpty(), "No devices in manifest for 1st container")
 
-				Expect(pod.Spec.Volumes).ToNot(BeEmpty())
-				Expect(len(pod.Spec.Volumes)).To(Equal(3))
-				Expect(pod.Spec.Volumes[0].PersistentVolumeClaim).ToNot(BeNil())
-				Expect(pod.Spec.Volumes[0].PersistentVolumeClaim.ClaimName).To(Equal(pvcName))
+				Expect(pod.Spec.Volumes).ToNot(BeEmpty(), "Some volumes in manifest")
+				Expect(len(pod.Spec.Volumes)).To(Equal(3), "3 volumes in manifest")
+				Expect(pod.Spec.Volumes[0].PersistentVolumeClaim).ToNot(BeNil(), "Found PVC volume")
+				Expect(pod.Spec.Volumes[0].PersistentVolumeClaim.ClaimName).To(Equal(pvcName), "Found PVC volume with correct name")
 			})
 		})
 
@@ -550,7 +550,7 @@ var _ = Describe("Template", func() {
 					},
 				}
 				err := pvcCache.Add(&pvc)
-				Expect(err).ToNot(HaveOccurred())
+				Expect(err).ToNot(HaveOccurred(), "Added PVC to cache successfully")
 				volumeName := "pvc-volume"
 				volumes := []v1.Volume{
 					{
@@ -568,15 +568,15 @@ var _ = Describe("Template", func() {
 				}
 
 				pod, err := svc.RenderLaunchManifest(&vmi)
-				Expect(err).ToNot(HaveOccurred())
+				Expect(err).ToNot(HaveOccurred(), "Render manifest successfully")
 
-				Expect(pod.Spec.Containers[0].VolumeDevices).ToNot(BeEmpty())
-				Expect(pod.Spec.Containers[0].VolumeDevices[0].Name).To(Equal(volumeName))
+				Expect(pod.Spec.Containers[0].VolumeDevices).ToNot(BeEmpty(), "Found devices for 1st container")
+				Expect(pod.Spec.Containers[0].VolumeDevices[0].Name).To(Equal(volumeName), "Found device with correct name for 1st container")
 
-				Expect(pod.Spec.Volumes).ToNot(BeEmpty())
-				Expect(len(pod.Spec.Volumes)).To(Equal(3))
-				Expect(pod.Spec.Volumes[0].PersistentVolumeClaim).ToNot(BeNil())
-				Expect(pod.Spec.Volumes[0].PersistentVolumeClaim.ClaimName).To(Equal(pvcName))
+				Expect(pod.Spec.Volumes).ToNot(BeEmpty(), "Some volumes in manifest")
+				Expect(len(pod.Spec.Volumes)).To(Equal(3), "3 volumes in manifest")
+				Expect(pod.Spec.Volumes[0].PersistentVolumeClaim).ToNot(BeNil(), "Found PVC volume")
+				Expect(pod.Spec.Volumes[0].PersistentVolumeClaim.ClaimName).To(Equal(pvcName), "Found PVC volume with correct name")
 			})
 		})
 

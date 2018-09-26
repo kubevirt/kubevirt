@@ -431,7 +431,7 @@ var _ = Describe("Storage", func() {
 
 				By("Checking that the VirtualMachineInstance console has expected output")
 				expecter, err := tests.LoggedInCirrosExpecter(vmi)
-				Expect(err).To(BeNil())
+				Expect(err).To(BeNil(), "Cirros login successfully")
 				expecter.Close()
 			})
 		})
