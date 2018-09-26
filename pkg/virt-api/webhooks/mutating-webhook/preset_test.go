@@ -338,8 +338,8 @@ var _ = Describe("Mutating Webhook Presets", func() {
 			presetInformer.GetIndexer().Add(preset)
 			applyPresets(&vmi, presetInformer)
 
-			Expect(len(vmi.Annotations)).To(Equal(0))
-			Expect(*vmi.Spec.Domain.IOThreadsPolicy).To(Equal(dedicatedPolicy))
+			Expect(len(vmi.Annotations)).To(Equal(0), "There should not be annotations if presets weren't applied")
+			Expect(*vmi.Spec.Domain.IOThreadsPolicy).To(Equal(dedicatedPolicy), "IOThreads policy should not have been overridden")
 
 			preset.Spec.Domain.IOThreadsPolicy = &dedicatedPolicy
 
@@ -351,8 +351,8 @@ var _ = Describe("Mutating Webhook Presets", func() {
 			presetInformer.GetIndexer().Add(preset)
 			applyPresets(&vmi, presetInformer)
 
-			Expect(len(vmi.Annotations)).To(Equal(1))
-			Expect(*vmi.Spec.Domain.IOThreadsPolicy).To(Equal(dedicatedPolicy))
+			Expect(len(vmi.Annotations)).To(Equal(1), "There should be an annotation indicating presets were applied")
+			Expect(*vmi.Spec.Domain.IOThreadsPolicy).To(Equal(dedicatedPolicy), "IOThreadsPolicy should not have been changed")
 		})
 	})
 
@@ -631,8 +631,8 @@ var _ = Describe("Mutating Webhook Presets", func() {
 			presetInformer.GetIndexer().Add(preset)
 			applyPresets(&vmi, presetInformer)
 
-			Expect(vmi.Spec.Domain.IOThreadsPolicy).ToNot(BeNil())
-			Expect(*vmi.Spec.Domain.IOThreadsPolicy).To(Equal(ioThreads))
+			Expect(vmi.Spec.Domain.IOThreadsPolicy).ToNot(BeNil(), "IOThreads policy should have been applied by preset")
+			Expect(*vmi.Spec.Domain.IOThreadsPolicy).To(Equal(ioThreads), "Expected IOThreadsPolicy to be 'shared' (set by preset)")
 		})
 	})
 
