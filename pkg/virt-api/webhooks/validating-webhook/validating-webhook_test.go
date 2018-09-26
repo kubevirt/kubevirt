@@ -30,18 +30,15 @@ import (
 	"github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
 
-	v1beta1 "k8s.io/api/admission/v1beta1"
+	"k8s.io/api/admission/v1beta1"
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	k8sfield "k8s.io/apimachinery/pkg/util/validation/field"
 
-	v1 "kubevirt.io/kubevirt/pkg/api/v1"
-	"kubevirt.io/kubevirt/pkg/testutils"
-	"kubevirt.io/kubevirt/pkg/virt-api/webhooks"
-
 	cdiv1 "kubevirt.io/containerized-data-importer/pkg/apis/datavolumecontroller/v1alpha1"
+	"kubevirt.io/kubevirt/pkg/api/v1"
 )
 
 var _ = Describe("Validating Webhook", func() {
@@ -96,10 +93,6 @@ var _ = Describe("Validating Webhook", func() {
 		It("should reject valid VirtualMachineInstance spec on update", func() {
 			vmi := v1.NewMinimalVMI("testvmi")
 
-			vmiInformer, _ := testutils.NewFakeInformerFor(&v1.VirtualMachineInstance{})
-			vmiInformer.GetIndexer().Add(vmi)
-			webhooks.SetInformers(&webhooks.Informers{VMIInformer: vmiInformer})
-
 			updateVmi := vmi.DeepCopy()
 			updateVmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
 				Name:       "testdisk",
@@ -111,14 +104,19 @@ var _ = Describe("Validating Webhook", func() {
 					RegistryDisk: &v1.RegistryDiskSource{},
 				},
 			})
-			vmiBytes, _ := json.Marshal(&updateVmi)
+			newVMIBytes, _ := json.Marshal(&updateVmi)
+			oldVMIBytes, _ := json.Marshal(&vmi)
 
 			ar := &v1beta1.AdmissionReview{
 				Request: &v1beta1.AdmissionRequest{
 					Resource: metav1.GroupVersionResource{Group: v1.VirtualMachineInstanceGroupVersionKind.Group, Version: v1.VirtualMachineInstanceGroupVersionKind.Version, Resource: "virtualmachineinstances"},
 					Object: runtime.RawExtension{
-						Raw: vmiBytes,
+						Raw: newVMIBytes,
 					},
+					OldObject: runtime.RawExtension{
+						Raw: oldVMIBytes,
+					},
+					Operation: v1beta1.Update,
 				},
 			}
 
