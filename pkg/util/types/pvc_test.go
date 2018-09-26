@@ -20,8 +20,12 @@
 package types
 
 import (
+	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+	"k8s.io/client-go/kubernetes/fake"
+
+	"kubevirt.io/kubevirt/pkg/kubecli"
 
 	kubev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -58,12 +62,13 @@ var _ = Describe("PVC utils test", func() {
 		},
 	}
 
-	pvcCache := cache.NewIndexer(cache.DeletionHandlingMetaNamespaceKeyFunc, nil)
-	pvcCache.Add(&filePvc1)
-	pvcCache.Add(&filePvc2)
-	pvcCache.Add(&blockPvc)
+	Context("PVC block device test with store", func() {
 
-	Context("PVC block device test", func() {
+		pvcCache := cache.NewIndexer(cache.DeletionHandlingMetaNamespaceKeyFunc, nil)
+		pvcCache.Add(&filePvc1)
+		pvcCache.Add(&filePvc2)
+		pvcCache.Add(&blockPvc)
+
 		It("should detect filesystem device for empty VolumeMode", func() {
 			isBlock, err := IsPVCBlockFromStore(pvcCache, namespace, file1Name)
 			Expect(err).ToNot(HaveOccurred())
@@ -82,4 +87,35 @@ var _ = Describe("PVC utils test", func() {
 			Expect(isBlock).To(Equal(true))
 		})
 	})
+
+	Context("PVC block device test with client", func() {
+
+		ctrl := gomock.NewController(GinkgoT())
+		virtClient := kubecli.NewMockKubevirtClient(ctrl)
+		kubeClient := fake.NewSimpleClientset()
+		virtClient.EXPECT().CoreV1().Return(kubeClient.CoreV1()).AnyTimes()
+
+		kubeClient.CoreV1().PersistentVolumeClaims(namespace).Create(&filePvc1)
+		kubeClient.CoreV1().PersistentVolumeClaims(namespace).Create(&filePvc2)
+		kubeClient.CoreV1().PersistentVolumeClaims(namespace).Create(&blockPvc)
+
+		It("should detect filesystem device for empty VolumeMode", func() {
+			isBlock, err := IsPVCBlockFromClient(virtClient, namespace, file1Name)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(isBlock).To(Equal(false))
+		})
+
+		It("should detect filesystem device for filesystem VolumeMode", func() {
+			isBlock, err := IsPVCBlockFromClient(virtClient, namespace, file2Name)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(isBlock).To(Equal(false))
+		})
+
+		It("should detect block device for block VolumeMode", func() {
+			isBlock, err := IsPVCBlockFromClient(virtClient, namespace, blockName)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(isBlock).To(Equal(true))
+		})
+	})
+
 })

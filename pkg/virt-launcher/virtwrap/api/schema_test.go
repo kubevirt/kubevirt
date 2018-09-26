@@ -60,6 +60,12 @@ var exampleXML = `<domain type="kvm" xmlns:qemu="http://libvirt.org/schemas/doma
       <driver name="qemu" type="raw"></driver>
       <alias name="ua-mydisk1"></alias>
     </disk>
+    <disk device="disk" type="block">
+      <source dev="/dev/testdev"></source>
+      <target dev="vdc"></target>
+      <driver name="qemu" type="raw"></driver>
+      <alias name="ua-mydisk2"></alias>
+    </disk>
     <console type="pty"></console>
     <watchdog model="i6300esb" action="poweroff">
       <alias name="ua-mywatchdog"></alias>
@@ -114,6 +120,18 @@ var _ = Describe("Schema", func() {
 			Target: DiskTarget{Device: "vdb"},
 			Alias: &Alias{
 				Name: "mydisk1",
+			},
+		},
+		{Type: "block",
+			Device: "disk",
+			Driver: &DiskDriver{Name: "qemu",
+				Type: "raw"},
+			Source: DiskSource{
+				Dev: "/dev/testdev",
+			},
+			Target: DiskTarget{Device: "vdc"},
+			Alias: &Alias{
+				Name: "mydisk2",
 			},
 		},
 	}
