@@ -59,7 +59,6 @@ for i in ${namespaces[@]}; do
     _kubectl -n ${i} delete clusterroles -l 'kubevirt.io'
     _kubectl -n ${i} delete serviceaccounts -l 'kubevirt.io'
     _kubectl -n ${i} delete configmaps -l 'kubevirt.io'
-    _kubectl -n ${i} delete crd -l 'kubevirt.io'
 done
 
 # delete all traces of CDI
