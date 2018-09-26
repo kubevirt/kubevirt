@@ -53,7 +53,7 @@ const (
 )
 
 var validInterfaceModels = []string{"e1000", "e1000e", "ne2k_pci", "pcnet", "rtl8139", "virtio"}
-var validIOThreadsPolicies = []string{"shared", "auto"}
+var validIOThreadsPolicies = []v1.IOThreadsPolicy{v1.IOThreadsPolicyShared, v1.IOThreadsPolicyAuto}
 
 func toAdmissionResponse(causes []metav1.StatusCause) *v1beta1.AdmissionResponse {
 	log.Log.Infof("rejected vmi admission")
@@ -920,7 +920,7 @@ func ValidateVirtualMachineInstanceSpec(field *k8sfield.Path, spec *v1.VirtualMa
 	}
 
 	if spec.Domain.IOThreadsPolicy != nil {
-		isValidPolicy := func(policy string) bool {
+		isValidPolicy := func(policy v1.IOThreadsPolicy) bool {
 			for _, p := range validIOThreadsPolicies {
 				if policy == p {
 					return true

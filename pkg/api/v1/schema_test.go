@@ -340,7 +340,7 @@ var _ = Describe("Schema", func() {
 				},
 			},
 		}
-		policy := "shared"
+		policy := IOThreadsPolicyShared
 		exampleVMI.Spec.Domain.IOThreadsPolicy = &policy
 
 		SetObjectDefaults_VirtualMachineInstance(exampleVMI)

@@ -446,7 +446,7 @@ func (in *DomainSpec) DeepCopyInto(out *DomainSpec) {
 		if *in == nil {
 			*out = nil
 		} else {
-			*out = new(string)
+			*out = new(IOThreadsPolicy)
 			**out = **in
 		}
 	}

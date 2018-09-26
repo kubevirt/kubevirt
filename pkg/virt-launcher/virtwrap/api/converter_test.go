@@ -1078,14 +1078,14 @@ var _ = Describe("Converter", func() {
 				Expect(int(*disk.Driver.IOThread)).To(Equal(threadIDs[idx]))
 			}
 		},
-			table.Entry("using a shared policy with 1 CPU", "shared", 1, 2, []int{2, 1, 1, 1, 1, 1, 1}),
-			table.Entry("using a shared policy with 2 CPUs", "shared", 2, 2, []int{2, 1, 1, 1, 1, 1, 1}),
-			table.Entry("using a shared policy with 3 CPUs", "shared", 2, 2, []int{2, 1, 1, 1, 1, 1, 1}),
-			table.Entry("using an auto policy with 1 CPU", "auto", 1, 2, []int{2, 1, 1, 1, 1, 1, 1}),
-			table.Entry("using an auto policy with 2 CPUs", "auto", 2, 4, []int{4, 1, 2, 3, 1, 2, 3}),
-			table.Entry("using an auto policy with 3 CPUs", "auto", 3, 6, []int{6, 1, 2, 3, 4, 5, 1}),
-			table.Entry("using an auto policy with 4 CPUs", "auto", 4, 7, []int{7, 1, 2, 3, 4, 5, 6}),
-			table.Entry("using an auto policy with 5 CPUs", "auto", 5, 7, []int{7, 1, 2, 3, 4, 5, 6}),
+			table.Entry("using a shared policy with 1 CPU", v1.IOThreadsPolicyShared, 1, 2, []int{2, 1, 1, 1, 1, 1, 1}),
+			table.Entry("using a shared policy with 2 CPUs", v1.IOThreadsPolicyShared, 2, 2, []int{2, 1, 1, 1, 1, 1, 1}),
+			table.Entry("using a shared policy with 3 CPUs", v1.IOThreadsPolicyShared, 2, 2, []int{2, 1, 1, 1, 1, 1, 1}),
+			table.Entry("using an auto policy with 1 CPU", v1.IOThreadsPolicyAuto, 1, 2, []int{2, 1, 1, 1, 1, 1, 1}),
+			table.Entry("using an auto policy with 2 CPUs", v1.IOThreadsPolicyAuto, 2, 4, []int{4, 1, 2, 3, 1, 2, 3}),
+			table.Entry("using an auto policy with 3 CPUs", v1.IOThreadsPolicyAuto, 3, 6, []int{6, 1, 2, 3, 4, 5, 1}),
+			table.Entry("using an auto policy with 4 CPUs", v1.IOThreadsPolicyAuto, 4, 7, []int{7, 1, 2, 3, 4, 5, 6}),
+			table.Entry("using an auto policy with 5 CPUs", v1.IOThreadsPolicyAuto, 5, 7, []int{7, 1, 2, 3, 4, 5, 6}),
 		)
 	})
 })

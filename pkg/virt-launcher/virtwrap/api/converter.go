@@ -469,7 +469,7 @@ func Convert_v1_VirtualMachine_To_api_Domain(vmi *v1.VirtualMachineInstance, dom
 	if vmi.Spec.Domain.IOThreadsPolicy != nil {
 		useIOThreads = true
 
-		if (*vmi.Spec.Domain.IOThreadsPolicy) == "auto" {
+		if (*vmi.Spec.Domain.IOThreadsPolicy) == v1.IOThreadsPolicyAuto {
 			numCPUs := 1
 			// Requested CPU's is guaranteed to be no greater than the limit
 			if cpuRequests, ok := vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceCPU]; ok {

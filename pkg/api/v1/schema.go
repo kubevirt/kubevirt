@@ -25,6 +25,13 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 )
 
+type IOThreadsPolicy string
+
+const (
+	IOThreadsPolicyShared IOThreadsPolicy = "shared"
+	IOThreadsPolicyAuto   IOThreadsPolicy = "auto"
+)
+
 //go:generate swagger-doc
 //go:generate openapi-gen -i . --output-package=kubevirt.io/kubevirt/pkg/api/v1  --go-header-file ../../../hack/boilerplate/boilerplate.go.txt
 
@@ -115,7 +122,7 @@ type DomainSpec struct {
 	// Omitting IOThreadsPolicy disables use of IOThreads.
 	// One of: shared, auto
 	// +optional
-	IOThreadsPolicy *string `json:"ioThreadsPolicy,omitempty"`
+	IOThreadsPolicy *IOThreadsPolicy `json:"ioThreadsPolicy,omitempty"`
 }
 
 // ---
