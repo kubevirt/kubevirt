@@ -343,4 +343,6 @@ spec:
               type: string
             phase:
               type: string
+            reason:
+              type: string
   version: v1alpha2

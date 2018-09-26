@@ -23,6 +23,12 @@ import (
 	"kubevirt.io/kubevirt/pkg/log"
 )
 
+const (
+	// NodeUnresponsiveReason is in various places as reason to indicate that
+	// an action was taken because virt-handler became unresponsive.
+	NodeUnresponsiveReason = "NodeUnresponsive"
+)
+
 // NodeController is the main NodeController struct.
 type NodeController struct {
 	clientset        kubecli.KubevirtClient
@@ -164,6 +170,7 @@ func (c *NodeController) execute(key string) error {
 		return fmt.Errorf("failed to determine if node %s is responsive: %v", nodeName, err)
 	} else if unresponsive {
 		if nodeExists && node.Labels[virtv1.NodeSchedulable] == "true" {
+			c.recorder.Event(node, v1.EventTypeNormal, NodeUnresponsiveReason, "virt-handler is not responsive, marking node as unresponsive")
 			data := []byte(fmt.Sprintf(`{"metadata": { "labels": {"%s": "false"}}}`, virtv1.NodeSchedulable))
 			_, err = c.clientset.CoreV1().Nodes().Patch(nodeName, types.StrategicMergePatchType, data)
 			if err != nil {
@@ -181,18 +188,26 @@ func (c *NodeController) execute(key string) error {
 			}
 			return nil
 		}
-		pods, err := c.podsOnNode(nodeName)
+		pods, err := c.alivePodsOnNode(nodeName)
 		if err != nil {
 			logger.Reason(err).Error("Failed fetch pods for node")
 			return err
 		}
+
 		vmis = filterStuckVirtualMachinesWithoutPods(vmis, pods)
 
 		errs := []string{}
 		// Do sequential updates, we don't want to create update storms in situations where something might already be wrong
 		for _, vmi := range vmis {
+			c.recorder.Event(vmi, v1.EventTypeNormal, NodeUnresponsiveReason, fmt.Sprintf("virt-handler on node %s is not responsive, marking VMI as failed", vmi.Status.NodeName))
 			logger.V(2).Infof("Moving vmi %s in namespace %s on unresponsive node to failed state", vmi.Name, vmi.Namespace)
-			_, err := c.clientset.VirtualMachineInstance(vmi.Namespace).Patch(vmi.Name, types.JSONPatchType, []byte(fmt.Sprintf("[{ \"op\": \"replace\", \"path\": \"/status/phase\", \"value\": \"%s\" }]", virtv1.Failed)))
+			phasePatch := fmt.Sprintf(`{ "op": "replace", "path": "/status/phase", "value": "%s" }`, virtv1.Failed)
+			operation := "add"
+			if vmi.Status.Reason != "" {
+				operation = "replace"
+			}
+			reasonPatch := fmt.Sprintf(`{ "op": "%s", "path": "/status/reason", "value": "%s" }`, operation, NodeUnresponsiveReason)
+			_, err := c.clientset.VirtualMachineInstance(vmi.Namespace).Patch(vmi.Name, types.JSONPatchType, []byte(fmt.Sprintf("[%s, %s]", phasePatch, reasonPatch)))
 			if err != nil {
 				errs = append(errs, fmt.Sprintf("failed to move vmi %s in namespace %s to final state: %v", vmi.Name, vmi.Namespace, err))
 				logger.Reason(err).Errorf("Failed to move vmi %s in namespace %s to final state", vmi.Name, vmi.Namespace)
@@ -230,7 +245,7 @@ func (c *NodeController) virtualMachinesOnNode(nodeName string) ([]*virtv1.Virtu
 	return vmis, nil
 }
 
-func (c *NodeController) podsOnNode(nodeName string) ([]*v1.Pod, error) {
+func (c *NodeController) alivePodsOnNode(nodeName string) ([]*v1.Pod, error) {
 	labelSelector, err := labels.Parse(virtv1.CreatedByLabel)
 	handlerNodeSelector := fields.ParseSelectorOrDie("spec.nodeName=" + nodeName)
 	if err != nil {
@@ -247,7 +262,10 @@ func (c *NodeController) podsOnNode(nodeName string) ([]*v1.Pod, error) {
 	pods := []*v1.Pod{}
 
 	for i := range list.Items {
-		pods = append(pods, &list.Items[i])
+		phase := list.Items[i].Status.Phase
+		if phase != v1.PodFailed && phase != v1.PodSucceeded {
+			pods = append(pods, &list.Items[i])
+		}
 	}
 	return pods, nil
 }

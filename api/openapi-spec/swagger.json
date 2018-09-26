@@ -4928,6 +4928,10 @@
      "phase": {
       "description": "Phase is the status of the VirtualMachineInstance in kubernetes world. It is not the VirtualMachineInstance status, but partially correlates to it.",
       "type": "string"
+     },
+     "reason": {
+      "description": "A brief CamelCase message indicating details about why the VMI is in this state. e.g. 'NodeUnresponsive'\n+optional",
+      "type": "string"
      }
     }
    },
