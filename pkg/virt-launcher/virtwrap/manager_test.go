@@ -83,8 +83,8 @@ var _ = Describe("Manager", func() {
 			mockDomain.EXPECT().GetXMLDesc(libvirt.DomainXMLFlags(0)).Return(string(xml), nil)
 			manager, _ := NewLibvirtDomainManager(mockConn)
 			newspec, err := manager.SyncVMI(vmi, true)
-			Expect(newspec).ToNot(BeNil())
 			Expect(err).To(BeNil())
+			Expect(newspec).ToNot(BeNil())
 		})
 		It("should leave a defined and started VirtualMachineInstance alone", func() {
 			vmi := newVMI(testNamespace, testVmName)
@@ -96,8 +96,8 @@ var _ = Describe("Manager", func() {
 			mockDomain.EXPECT().GetXMLDesc(libvirt.DomainXMLFlags(0)).Return(string(xml), nil)
 			manager, _ := NewLibvirtDomainManager(mockConn)
 			newspec, err := manager.SyncVMI(vmi, true)
-			Expect(newspec).ToNot(BeNil())
 			Expect(err).To(BeNil())
+			Expect(newspec).ToNot(BeNil())
 		})
 		table.DescribeTable("should try to start a VirtualMachineInstance in state",
 			func(state libvirt.DomainState) {
@@ -112,8 +112,8 @@ var _ = Describe("Manager", func() {
 				mockDomain.EXPECT().GetXMLDesc(libvirt.DomainXMLFlags(0)).Return(string(xml), nil)
 				manager, _ := NewLibvirtDomainManager(mockConn)
 				newspec, err := manager.SyncVMI(vmi, true)
-				Expect(newspec).ToNot(BeNil())
 				Expect(err).To(BeNil())
+				Expect(newspec).ToNot(BeNil())
 			},
 			table.Entry("crashed", libvirt.DOMAIN_CRASHED),
 			table.Entry("shutdown", libvirt.DOMAIN_SHUTDOWN),
@@ -131,8 +131,8 @@ var _ = Describe("Manager", func() {
 			mockDomain.EXPECT().GetXMLDesc(libvirt.DomainXMLFlags(0)).Return(string(xml), nil)
 			manager, _ := NewLibvirtDomainManager(mockConn)
 			newspec, err := manager.SyncVMI(vmi, true)
-			Expect(newspec).ToNot(BeNil())
 			Expect(err).To(BeNil())
+			Expect(newspec).ToNot(BeNil())
 		})
 	})
 	Context("on successful VirtualMachineInstance kill", func() {

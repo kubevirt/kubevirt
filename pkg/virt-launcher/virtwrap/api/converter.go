@@ -57,6 +57,7 @@ type ConverterContext struct {
 	Secrets        map[string]*k8sv1.Secret
 	VirtualMachine *v1.VirtualMachineInstance
 	CPUSet         []int
+	IsBlockPVC     map[string]bool
 }
 
 func Convert_v1_Disk_To_api_Disk(diskDevice *v1.Disk, disk *Disk, devicePerBus map[string]int) error {
@@ -155,7 +156,7 @@ func Convert_v1_Volume_To_api_Disk(source *v1.Volume, disk *Disk, c *ConverterCo
 	}
 
 	if source.PersistentVolumeClaim != nil {
-		return Convert_v1_PersistentVolumeClaim_To_api_Disk(source.Name, source.PersistentVolumeClaim.ClaimName, disk, c)
+		return Convert_v1_PersistentVolumeClaim_To_api_Disk(source.Name, disk, c)
 	}
 
 	if source.DataVolume != nil {
@@ -195,47 +196,16 @@ func Convert_v1_Config_To_api_Disk(volumeName string, disk *Disk, configType con
 	return nil
 }
 
-func getFilesystemVolumePath(volumeName string) string {
+func GetFilesystemVolumePath(volumeName string) string {
 	return filepath.Join(string(filepath.Separator), "var", "run", "kubevirt-private", "vmi-disks", volumeName, "disk.img")
 }
 
-func getBlockDeviceVolumePath(volumeName string) string {
+func GetBlockDeviceVolumePath(volumeName string) string {
 	return filepath.Join(string(filepath.Separator), "dev", volumeName)
 }
 
-func isBlockDeviceVolume(volumeName string) (bool, error) {
-	// check for block device
-	path := getBlockDeviceVolumePath(volumeName)
-	fileInfo, err := os.Stat(path)
-	if err == nil {
-		if (fileInfo.Mode() & os.ModeDevice) != 0 {
-			return true, nil
-		}
-		return false, fmt.Errorf("found %v, but it's not a block device", path)
-	}
-	if os.IsNotExist(err) {
-		// cross check: is it a filesystem volume
-		path = getFilesystemVolumePath(volumeName)
-		fileInfo, err := os.Stat(path)
-		if err == nil {
-			if fileInfo.Mode().IsRegular() {
-				return false, nil
-			}
-			return false, fmt.Errorf("found %v, but it's not a regular file", path)
-		}
-		if os.IsNotExist(err) {
-			return false, fmt.Errorf("neither found block device nor regular file for volume %v", volumeName)
-		}
-	}
-	return false, fmt.Errorf("error checking for block device: %v", err)
-}
-
-func Convert_v1_PersistentVolumeClaim_To_api_Disk(name string, claimName string, disk *Disk, c *ConverterContext) error {
-	isBlockDevice, err := isBlockDeviceVolume(name)
-	if err != nil {
-		return err
-	}
-	if isBlockDevice {
+func Convert_v1_PersistentVolumeClaim_To_api_Disk(name string, disk *Disk, c *ConverterContext) error {
+	if c.IsBlockPVC[name] {
 		return Convert_v1_BlockVolumeSource_To_api_Disk(name, disk, c)
 	}
 	return Convert_v1_FilesystemVolumeSource_To_api_Disk(name, disk, c)
@@ -245,14 +215,14 @@ func Convert_v1_PersistentVolumeClaim_To_api_Disk(name string, claimName string,
 func Convert_v1_FilesystemVolumeSource_To_api_Disk(volumeName string, disk *Disk, c *ConverterContext) error {
 	disk.Type = "file"
 	disk.Driver.Type = "raw"
-	disk.Source.File = getFilesystemVolumePath(volumeName)
+	disk.Source.File = GetFilesystemVolumePath(volumeName)
 	return nil
 }
 
 func Convert_v1_BlockVolumeSource_To_api_Disk(volumeName string, disk *Disk, c *ConverterContext) error {
 	disk.Type = "block"
 	disk.Driver.Type = "raw"
-	disk.Source.Dev = getBlockDeviceVolumePath(volumeName)
+	disk.Source.Dev = GetBlockDeviceVolumePath(volumeName)
 	return nil
 }
 

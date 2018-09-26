@@ -28,13 +28,13 @@ package virtwrap
 import (
 	"encoding/xml"
 	"fmt"
+	"os"
 
 	"github.com/libvirt/libvirt-go"
-
-	k8sv1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"kubevirt.io/kubevirt/pkg/api/v1"
-	cloudinit "kubevirt.io/kubevirt/pkg/cloud-init"
+	"kubevirt.io/kubevirt/pkg/cloud-init"
 	"kubevirt.io/kubevirt/pkg/config"
 	"kubevirt.io/kubevirt/pkg/emptydisk"
 	"kubevirt.io/kubevirt/pkg/ephemeral-disk"
@@ -149,11 +149,26 @@ func (l *LibvirtDomainManager) SyncVMI(vmi *v1.VirtualMachineInstance, useEmulat
 		return nil, err
 	}
 
+	// Check if PVC volumes are block volumes
+	isBlockPVCMap := make(map[string]bool)
+	for _, volume := range vmi.Spec.Volumes {
+		if volume.VolumeSource.PersistentVolumeClaim != nil {
+			isBlockPVC, err := isBlockDeviceVolume(volume.Name)
+			if err != nil {
+				logger.Reason(err).Errorf("failed to detect volume mode for Volume %v and PVC %v.",
+					volume.Name, volume.VolumeSource.PersistentVolumeClaim.ClaimName)
+				return nil, err
+			}
+			isBlockPVCMap[volume.Name] = isBlockPVC
+		}
+	}
+
 	// Map the VirtualMachineInstance to the Domain
 	c := &api.ConverterContext{
 		VirtualMachine: vmi,
 		UseEmulation:   useEmulation,
 		CPUSet:         podCPUSet,
+		IsBlockPVC:     isBlockPVCMap,
 	}
 	if err := api.Convert_v1_VirtualMachine_To_api_Domain(vmi, domain, c); err != nil {
 		logger.Error("Conversion failed.")
@@ -238,6 +253,33 @@ func (l *LibvirtDomainManager) SyncVMI(vmi *v1.VirtualMachineInstance, useEmulat
 	return &newSpec, nil
 }
 
+func isBlockDeviceVolume(volumeName string) (bool, error) {
+	// check for block device
+	path := api.GetBlockDeviceVolumePath(volumeName)
+	fileInfo, err := os.Stat(path)
+	if err == nil {
+		if (fileInfo.Mode() & os.ModeDevice) != 0 {
+			return true, nil
+		}
+		return false, fmt.Errorf("found %v, but it's not a block device", path)
+	}
+	if os.IsNotExist(err) {
+		// cross check: is it a filesystem volume
+		path = api.GetFilesystemVolumePath(volumeName)
+		fileInfo, err := os.Stat(path)
+		if err == nil {
+			if fileInfo.Mode().IsRegular() {
+				return false, nil
+			}
+			return false, fmt.Errorf("found %v, but it's not a regular file", path)
+		}
+		if os.IsNotExist(err) {
+			return false, fmt.Errorf("neither found block device nor regular file for volume %v", volumeName)
+		}
+	}
+	return false, fmt.Errorf("error checking for block device: %v", err)
+}
+
 func (l *LibvirtDomainManager) getDomainSpec(dom cli.VirDomain) (*api.DomainSpec, error) {
 	state, _, err := dom.GetState()
 	if err != nil {
@@ -281,7 +323,7 @@ func (l *LibvirtDomainManager) SignalShutdownVMI(vmi *v1.VirtualMachineInstance)
 			}
 			log.Log.Object(vmi).Infof("Signaled graceful shutdown for %s", vmi.GetObjectMeta().GetName())
 
-			now := k8sv1.Now()
+			now := metav1.Now()
 			domSpec.Metadata.KubeVirt.GracePeriod.DeletionTimestamp = &now
 			_, err = util.SetDomainSpec(l.virConn, vmi, *domSpec)
 			if err != nil {

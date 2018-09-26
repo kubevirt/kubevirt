@@ -577,6 +577,13 @@ func (in *ConverterContext) DeepCopyInto(out *ConverterContext) {
 		*out = make([]int, len(*in))
 		copy(*out, *in)
 	}
+	if in.IsBlockPVC != nil {
+		in, out := &in.IsBlockPVC, &out.IsBlockPVC
+		*out = make(map[string]bool, len(*in))
+		for key, val := range *in {
+			(*out)[key] = val
+		}
+	}
 	return
 }
 
