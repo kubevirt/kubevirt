@@ -128,6 +128,8 @@ spec:
                         required:
                         - name
                       type: array
+                    multiQueue:
+                      type: boolean
                     rng: {}
                     watchdog:
                       properties:

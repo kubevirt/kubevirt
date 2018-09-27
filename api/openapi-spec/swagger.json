@@ -3410,6 +3410,10 @@
        "$ref": "#/definitions/v1.Interface"
       }
      },
+     "multiQueue": {
+      "description": "Whether or not to enable virtio multi-queue\n+optional",
+      "type": "boolean"
+     },
      "rng": {
       "description": "Whether to have random number generator from host\n+optional",
       "$ref": "#/definitions/v1.Rng"
