@@ -275,11 +275,15 @@ type Controller struct {
 	Driver *ControllerDriver `xml:"driver,omitempty"`
 }
 
+// END Controller -----------------------------
+
+// BEGIN ControllerDriver
 type ControllerDriver struct {
 	IOThread *uint `xml:"iothread,attr,omitempty"`
+	Queues   *uint `xml:"queues,attr,omitempty"`
 }
 
-// END Controller -----------------------------
+// END ControllerDriver
 
 // BEGIN Disk -----------------------------
 
@@ -331,6 +335,7 @@ type DiskDriver struct {
 	Name        string `xml:"name,attr"`
 	Type        string `xml:"type,attr"`
 	IOThread    *uint  `xml:"iothread,attr,omitempty"`
+	Queues      *uint  `xml:"queues,attr,omitempty"`
 }
 
 type DiskSourceHost struct {

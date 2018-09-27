@@ -1093,7 +1093,7 @@ var _ = Describe("Converter", func() {
 func diskToDiskXML(disk *v1.Disk) string {
 	devicePerBus := make(map[string]int)
 	libvirtDisk := &Disk{}
-	Expect(Convert_v1_Disk_To_api_Disk(disk, libvirtDisk, devicePerBus)).To(Succeed())
+	Expect(Convert_v1_Disk_To_api_Disk(disk, libvirtDisk, devicePerBus, nil)).To(Succeed())
 	data, err := xml.MarshalIndent(libvirtDisk, "", "  ")
 	Expect(err).ToNot(HaveOccurred())
 	return string(data)
