@@ -8,7 +8,7 @@ function prepare_config() {
     cat >hack/config-provider-external.sh <<EOF
 docker_tag=devel
 docker_prefix=${DOCKER_PREFIX}
-manifest_docker_prefix=${DOCKER_PREFIX}/kubevirt
+manifest_docker_prefix=${DOCKER_PREFIX}
 image_pull_policy=${IMAGE_PULL_POLICY:-Always}
 EOF
 }
