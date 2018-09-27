@@ -147,10 +147,10 @@ func (_mr *_MockNetworkHandlerRecorder) GetMacDetails(arg0 interface{}) *gomock.
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "GetMacDetails", arg0)
 }
 
-func (_m *MockNetworkHandler) StartDHCP(nic *VIF, serverAddr *netlink.Addr, bridgeInterfaceName string) {
-	_m.ctrl.Call(_m, "StartDHCP", nic, serverAddr, bridgeInterfaceName)
+func (_m *MockNetworkHandler) StartDHCP(nic *VIF, serverAddr *netlink.Addr, bridgeInterfaceName string, name string, namespace string) {
+	_m.ctrl.Call(_m, "StartDHCP", nic, serverAddr, bridgeInterfaceName, name, namespace)
 }
 
-func (_mr *_MockNetworkHandlerRecorder) StartDHCP(arg0, arg1, arg2 interface{}) *gomock.Call {
-	return _mr.mock.ctrl.RecordCall(_mr.mock, "StartDHCP", arg0, arg1, arg2)
+func (_mr *_MockNetworkHandlerRecorder) StartDHCP(arg0, arg1, arg2, arg3, arg4 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "StartDHCP", arg0, arg1, arg2, arg3, arg4)
 }

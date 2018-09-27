@@ -1,0 +1,41 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: pxeserver
+  labels:
+    kubevirt.io: "pxe"
+spec:
+  clusterIP: 10.102.211.168
+  ports:
+    - port: 80
+      targetPort: 8080
+      protocol: TCP
+  selector:
+    kubevirt.io: pxe
+---
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: pxeserver
+  labels:
+    kubevirt.io: "pxe"
+spec:
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        kubevirt.io: pxe
+        prometheus.kubevirt.io: ""
+    spec:
+      containers:
+        - name: pxeserver
+          image: {{.DockerPrefix}}/pxe:{{.DockerTag}}
+          imagePullPolicy: {{.ImagePullPolicy}}
+          command:
+              - "pxe"
+          ports:
+            - containerPort: 8080
+              name: "pxe"
+              protocol: "TCP"
+          securityContext:
+            runAsNonRoot: true

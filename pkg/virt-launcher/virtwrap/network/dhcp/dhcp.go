@@ -24,6 +24,7 @@ import (
 	"encoding/binary"
 	"fmt"
 	"net"
+	"path/filepath"
 	"regexp"
 	"strings"
 	"time"
@@ -57,19 +58,26 @@ func SingleClientDHCPServer(
 	dnsIPs [][]byte,
 	routes *[]netlink.Route,
 	searchDomains []string,
-	mtu uint16) error {
+	mtu uint16,
+	name string,
+	namespace string,
+) error {
 
 	log.Log.Info("Starting SingleClientDHCPServer")
 
+	pxeServer := strings.Join([]string{"pxeserver", searchDomains[0]}, ".")
+	syslinux := "http://" + filepath.Join(pxeServer, namespace, name, "pxelinux.0")
+
 	mtuArray := make([]byte, 2)
 	binary.BigEndian.PutUint16(mtuArray, mtu)
-
 	dhcpOptions := dhcp.Options{
 		dhcp.OptionSubnetMask:       []byte(clientMask),
 		dhcp.OptionRouter:           []byte(routerIP),
 		dhcp.OptionDomainNameServer: bytes.Join(dnsIPs, nil),
 		dhcp.OptionInterfaceMTU:     mtuArray,
+		dhcp.OptionBootFileName:     []byte(syslinux),
 	}
+	fmt.Println(syslinux)
 
 	netRoutes := formClasslessRoutes(routes)
 
