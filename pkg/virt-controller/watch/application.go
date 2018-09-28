@@ -66,6 +66,8 @@ const (
 
 	ephemeralDiskDir = "/var/run/libvirt/kubevirt-ephemeral-disk"
 
+	registryDiskDir = "/var/run/kubevirt-registry-disk"
+
 	controllerThreads = 3
 )
 
@@ -103,6 +105,7 @@ type VirtControllerApp struct {
 	imagePullSecret  string
 	virtShareDir     string
 	ephemeralDiskDir string
+	registryDiskDir  string
 	readyChan        chan bool
 }
 
@@ -252,7 +255,7 @@ func (vca *VirtControllerApp) getNewRecorder(namespace string, componentName str
 func (vca *VirtControllerApp) initCommon() {
 	var err error
 
-	registrydisk.SetLocalDirectory(vca.ephemeralDiskDir + "/registry-disk-data")
+	registrydisk.SetLocalDirectory(vca.registryDiskDir)
 	if err != nil {
 		golog.Fatal(err)
 	}
@@ -315,4 +318,8 @@ func (vca *VirtControllerApp) AddFlags() {
 
 	flag.StringVar(&vca.ephemeralDiskDir, "ephemeral-disk-dir", ephemeralDiskDir,
 		"Base directory for ephemeral disk data")
+
+	flag.StringVar(&vca.registryDiskDir, "registry-disk-dir", registryDiskDir,
+		"Base directory for registry disk host share mount")
+
 }

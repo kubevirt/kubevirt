@@ -128,6 +128,10 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 		Name:      "libvirt-runtime",
 		MountPath: "/var/run/libvirt",
 	})
+	volumesMounts = append(volumesMounts, k8sv1.VolumeMount{
+		Name:      "registry-disk-share",
+		MountPath: registrydisk.GetVMIBaseDir(vmi),
+	})
 	for _, volume := range vmi.Spec.Volumes {
 		volumeMount := k8sv1.VolumeMount{
 			Name:      volume.Name,
@@ -424,13 +428,21 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 		Resources: resources,
 		Ports:     ports,
 	}
-	containers := registrydisk.GenerateContainers(vmi, "libvirt-runtime", "/var/run/libvirt")
+	containers := registrydisk.GenerateContainers(vmi, "registry-disk-share")
 
 	volumes = append(volumes, k8sv1.Volume{
 		Name: "virt-share-dir",
 		VolumeSource: k8sv1.VolumeSource{
 			HostPath: &k8sv1.HostPathVolumeSource{
 				Path: t.virtShareDir,
+			},
+		},
+	})
+	volumes = append(volumes, k8sv1.Volume{
+		Name: "registry-disk-share",
+		VolumeSource: k8sv1.VolumeSource{
+			HostPath: &k8sv1.HostPathVolumeSource{
+				Path: registrydisk.GetVMIBaseDir(vmi),
 			},
 		},
 	})

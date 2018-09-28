@@ -29,7 +29,6 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/api/v1"
 	diskutils "kubevirt.io/kubevirt/pkg/ephemeral-disk-utils"
-	"kubevirt.io/kubevirt/pkg/precond"
 )
 
 const filePrefix = "disk-image"
@@ -38,13 +37,11 @@ var registryDiskOwner = "qemu"
 
 var mountBaseDir = "/var/run/libvirt/kubevirt-disk-dir"
 
-func generateVMIBaseDir(vmi *v1.VirtualMachineInstance) string {
-	domain := precond.MustNotBeEmpty(vmi.GetObjectMeta().GetName())
-	namespace := precond.MustNotBeEmpty(vmi.GetObjectMeta().GetNamespace())
-	return fmt.Sprintf("%s/%s/%s", mountBaseDir, namespace, domain)
+func GetVMIBaseDir(vmi *v1.VirtualMachineInstance) string {
+	return fmt.Sprintf("%s/vmi-%s", mountBaseDir, string(vmi.UID))
 }
 func generateVolumeMountDir(vmi *v1.VirtualMachineInstance, volumeName string) string {
-	baseDir := generateVMIBaseDir(vmi)
+	baseDir := GetVMIBaseDir(vmi)
 	return fmt.Sprintf("%s/disk_%s", baseDir, volumeName)
 }
 
@@ -96,7 +93,7 @@ func SetFilePermissions(vmi *v1.VirtualMachineInstance) error {
 
 // The controller uses this function to generate the container
 // specs for hosting the container registry disks.
-func GenerateContainers(vmi *v1.VirtualMachineInstance, podVolumeName string, podVolumeMountDir string) []kubev1.Container {
+func GenerateContainers(vmi *v1.VirtualMachineInstance, podVolumeName string) []kubev1.Container {
 	var containers []kubev1.Container
 
 	initialDelaySeconds := 2
@@ -134,7 +131,7 @@ func GenerateContainers(vmi *v1.VirtualMachineInstance, podVolumeName string, po
 				VolumeMounts: []kubev1.VolumeMount{
 					{
 						Name:      podVolumeName,
-						MountPath: podVolumeMountDir,
+						MountPath: GetVMIBaseDir(vmi),
 					},
 				},
 				Resources: resources,

@@ -43,7 +43,7 @@ var _ = Describe("RegistryDisk", func() {
 		appendRegistryDisk(vmi, "r0")
 
 		// create a fake disk file
-		volumeMountDir := generateVMIBaseDir(vmi)
+		volumeMountDir := GetVMIBaseDir(vmi)
 		err = os.MkdirAll(volumeMountDir+"/disk_r0", 0750)
 		Expect(err).ToNot(HaveOccurred())
 
@@ -88,7 +88,7 @@ var _ = Describe("RegistryDisk", func() {
 				vmi := v1.NewMinimalVMI("fake-vmi")
 				appendRegistryDisk(vmi, "r1")
 				appendRegistryDisk(vmi, "r0")
-				containers := GenerateContainers(vmi, "libvirt-runtime", "/var/run/libvirt")
+				containers := GenerateContainers(vmi, "some-vol")
 				Expect(err).ToNot(HaveOccurred())
 
 				Expect(len(containers)).To(Equal(2))

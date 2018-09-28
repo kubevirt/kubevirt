@@ -486,12 +486,12 @@ var _ = Describe("Template", func() {
 				Expect(hugepagesRequest.ToDec().ScaledValue(resource.Mega)).To(Equal(int64(64)))
 				Expect(hugepagesLimit.ToDec().ScaledValue(resource.Mega)).To(Equal(int64(64)))
 
-				Expect(len(pod.Spec.Volumes)).To(Equal(3))
+				Expect(len(pod.Spec.Volumes)).To(Equal(4))
 				Expect(pod.Spec.Volumes[0].EmptyDir).ToNot(BeNil())
 				Expect(pod.Spec.Volumes[0].EmptyDir.Medium).To(Equal(kubev1.StorageMediumHugePages))
 
-				Expect(len(pod.Spec.Containers[0].VolumeMounts)).To(Equal(3))
-				Expect(pod.Spec.Containers[0].VolumeMounts[2].MountPath).To(Equal("/dev/hugepages"))
+				Expect(len(pod.Spec.Containers[0].VolumeMounts)).To(Equal(4))
+				Expect(pod.Spec.Containers[0].VolumeMounts[3].MountPath).To(Equal("/dev/hugepages"))
 			},
 				table.Entry("hugepages-2Mi", "2Mi"),
 				table.Entry("hugepages-1Gi", "1Gi"),
@@ -519,7 +519,7 @@ var _ = Describe("Template", func() {
 				Expect(err).ToNot(HaveOccurred())
 
 				Expect(pod.Spec.Volumes).ToNot(BeEmpty())
-				Expect(len(pod.Spec.Volumes)).To(Equal(3))
+				Expect(len(pod.Spec.Volumes)).To(Equal(4))
 				Expect(pod.Spec.Volumes[0].PersistentVolumeClaim).ToNot(BeNil())
 				Expect(pod.Spec.Volumes[0].PersistentVolumeClaim.ClaimName).To(Equal("nfs-pvc"))
 			})
@@ -784,7 +784,7 @@ var _ = Describe("Template", func() {
 				Expect(err).ToNot(HaveOccurred())
 
 				Expect(pod.Spec.Volumes).ToNot(BeEmpty())
-				Expect(len(pod.Spec.Volumes)).To(Equal(3))
+				Expect(len(pod.Spec.Volumes)).To(Equal(4))
 				Expect(pod.Spec.Volumes[0].ConfigMap).ToNot(BeNil())
 				Expect(pod.Spec.Volumes[0].ConfigMap.LocalObjectReference.Name).To(Equal("test-configmap"))
 			})
@@ -813,7 +813,7 @@ var _ = Describe("Template", func() {
 				Expect(err).ToNot(HaveOccurred())
 
 				Expect(pod.Spec.Volumes).ToNot(BeEmpty())
-				Expect(len(pod.Spec.Volumes)).To(Equal(3))
+				Expect(len(pod.Spec.Volumes)).To(Equal(4))
 				Expect(pod.Spec.Volumes[0].Secret).ToNot(BeNil())
 				Expect(pod.Spec.Volumes[0].Secret.SecretName).To(Equal("test-secret"))
 			})

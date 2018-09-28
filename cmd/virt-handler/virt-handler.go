@@ -49,6 +49,7 @@ import (
 	_ "kubevirt.io/kubevirt/pkg/monitoring/client/prometheus"    // import for prometheus metrics
 	_ "kubevirt.io/kubevirt/pkg/monitoring/reflector/prometheus" // import for prometheus metrics
 	_ "kubevirt.io/kubevirt/pkg/monitoring/workqueue/prometheus" // import for prometheus metrics
+	"kubevirt.io/kubevirt/pkg/registry-disk"
 	"kubevirt.io/kubevirt/pkg/service"
 	"kubevirt.io/kubevirt/pkg/virt-handler"
 	virtcache "kubevirt.io/kubevirt/pkg/virt-handler/cache"
@@ -69,6 +70,8 @@ const (
 
 	virtShareDir = "/var/run/kubevirt"
 
+	registryDiskDir = "/var/run/kubevirt-registry-disk"
+
 	// This value is derived from default MaxPods in Kubelet Config
 	maxDevices = 110
 )
@@ -77,6 +80,7 @@ type virtHandlerApp struct {
 	service.ServiceListen
 	HostOverride            string
 	VirtShareDir            string
+	RegistryDiskDir         string
 	WatchdogTimeoutDuration time.Duration
 	MaxDevices              int
 }
@@ -131,6 +135,11 @@ func (app *virtHandlerApp) Run() {
 	)
 
 	virtlauncher.InitializeSharedDirectories(app.VirtShareDir)
+
+	registrydisk.SetLocalDirectory(app.RegistryDiskDir)
+	if err != nil {
+		panic(err)
+	}
 
 	gracefulShutdownInformer := cache.NewSharedIndexInformer(
 		inotifyinformer.NewFileListWatchFromClient(
@@ -190,6 +199,9 @@ func (app *virtHandlerApp) AddFlags() {
 
 	flag.StringVar(&app.VirtShareDir, "kubevirt-share-dir", virtShareDir,
 		"Shared directory between virt-handler and virt-launcher")
+
+	flag.StringVar(&app.RegistryDiskDir, "kubevirt-registry-disk-dir", registryDiskDir,
+		"Host mount directory for registry disk")
 
 	flag.DurationVar(&app.WatchdogTimeoutDuration, "watchdog-timeout", defaultWatchdogTimeout,
 		"Watchdog file timeout")
