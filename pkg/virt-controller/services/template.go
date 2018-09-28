@@ -128,9 +128,11 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 		Name:      "libvirt-runtime",
 		MountPath: "/var/run/libvirt",
 	})
+	propMode := k8sv1.MountPropagationHostToContainer
 	volumesMounts = append(volumesMounts, k8sv1.VolumeMount{
-		Name:      "registry-disk-share",
-		MountPath: registrydisk.GetVMIBaseDir(vmi),
+		Name:             "registry-disk-share",
+		MountPath:        registrydisk.GetVMIBaseDir(vmi),
+		MountPropagation: &propMode,
 	})
 	for _, volume := range vmi.Spec.Volumes {
 		volumeMount := k8sv1.VolumeMount{

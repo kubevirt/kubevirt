@@ -396,6 +396,8 @@ type RegistryDiskSource struct {
 	Image string `json:"image"`
 	// ImagePullSecret is the name of the Docker registry secret required to pull the image. The secret must already exist.
 	ImagePullSecret string `json:"imagePullSecret,omitempty"`
+	// AllowMountPropagation toggles whether or not the registry disk container is allowed to bind mount the disk to the compute pod instead of making a full copy.
+	AllowMountPropagation bool `json:"allowMountPropagation,omitempty"`
 }
 
 // Exactly one of its members must be set.

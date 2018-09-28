@@ -295,6 +295,8 @@ spec:
                   persistentVolumeClaim: {}
                   registryDisk:
                     properties:
+                      allowMountPropagation:
+                        type: boolean
                       image:
                         type: string
                       imagePullSecret:

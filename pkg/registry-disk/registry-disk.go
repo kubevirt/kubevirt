@@ -105,6 +105,14 @@ func GenerateContainers(vmi *v1.VirtualMachineInstance, podVolumeName string) []
 	// Make VirtualMachineInstance Image Wrapper Containers
 	for _, volume := range vmi.Spec.Volumes {
 		if volume.RegistryDisk != nil {
+			propMode := kubev1.MountPropagationNone
+			isPriv := false
+			allowPropagation := "false"
+			if volume.RegistryDisk.AllowMountPropagation {
+				propMode = kubev1.MountPropagationBidirectional
+				isPriv = true
+				allowPropagation = "true"
+			}
 
 			volumeMountDir := generateVolumeMountDir(vmi, volume.Name)
 			diskContainerName := fmt.Sprintf("volume%s", volume.Name)
@@ -127,14 +135,23 @@ func GenerateContainers(vmi *v1.VirtualMachineInstance, podVolumeName string) []
 						Name:  "COPY_PATH",
 						Value: volumeMountDir + "/" + filePrefix,
 					},
+					{
+						Name:  "MOUNT_PROPAGATION",
+						Value: allowPropagation,
+					},
 				},
 				VolumeMounts: []kubev1.VolumeMount{
 					{
-						Name:      podVolumeName,
-						MountPath: GetVMIBaseDir(vmi),
+						Name:             podVolumeName,
+						MountPath:        GetVMIBaseDir(vmi),
+						MountPropagation: &propMode,
 					},
 				},
 				Resources: resources,
+
+				SecurityContext: &kubev1.SecurityContext{
+					Privileged: &isPriv,
+				},
 
 				// The readiness probes ensure the volume coversion and copy finished
 				// before the container is marked as "Ready: True"

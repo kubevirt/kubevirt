@@ -4335,6 +4335,10 @@
      "image"
     ],
     "properties": {
+     "allowMountPropagation": {
+      "description": "AllowMountPropagation toggles whether or not the registry disk container is allowed to bind mount the disk to the compute pod instead of making a full copy.",
+      "type": "boolean"
+     },
      "image": {
       "description": "Image is the name of the image with the embedded disk.",
       "type": "string"

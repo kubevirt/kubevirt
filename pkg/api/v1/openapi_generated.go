@@ -1405,6 +1405,13 @@ func schema_kubevirt_pkg_api_v1_RegistryDiskSource(ref common.ReferenceCallback)
 							Format:      "",
 						},
 					},
+					"allowMountPropagation": {
+						SchemaProps: spec.SchemaProps{
+							Description: "AllowMountPropagation toggles whether or not the registry disk container is allowed to bind mount the disk to the compute pod instead of making a full copy.",
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
 				},
 				Required: []string{"image"},
 			},
