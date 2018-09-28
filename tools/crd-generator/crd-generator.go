@@ -46,6 +46,25 @@ func generateBlankCrd() *extensionsv1.CustomResourceDefinition {
 		},
 	}
 }
+func generatePXE() {
+	crd := generateBlankCrd()
+
+	crd.ObjectMeta.Name = "pxes." + v1.PXEGroupVersionKind.Group
+	crd.Spec = extensionsv1.CustomResourceDefinitionSpec{
+		Group:   v1.PXEGroupVersionKind.Group,
+		Version: v1.PXEGroupVersionKind.Version,
+		Scope:   "Namespaced",
+
+		Names: extensionsv1.CustomResourceDefinitionNames{
+			Plural:   "pxes",
+			Singular: "pxe",
+			Kind:     v1.PXEGroupVersionKind.Kind,
+		},
+		Validation: crdutils.GetCustomResourceValidation("kubevirt.io/kubevirt/pkg/api/v1.PXE", definitionWrapper),
+	}
+
+	crdutils.MarshallCrd(crd, "yaml")
+}
 
 func generateVirtualMachineCrd() {
 	crd := generateBlankCrd()
@@ -164,6 +183,8 @@ func main() {
 		generateReplicaSetCrd()
 	case "vm":
 		generateVirtualMachineCrd()
+	case "pxe":
+		generatePXE()
 	default:
 		panic(fmt.Errorf("unknown crd type %s", *crdType))
 	}

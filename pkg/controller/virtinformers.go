@@ -27,6 +27,8 @@ import (
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/labels"
 
+	"kubevirt.io/containerized-data-importer/pkg/util"
+
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
@@ -78,6 +80,8 @@ type KubeInformerFactory interface {
 
 	// Fake CDI DataVolume informer used when feature gate is disabled
 	DummyDataVolume() cache.SharedIndexInformer
+
+	PXE() cache.SharedIndexInformer
 }
 
 type kubeInformerFactory struct {
@@ -215,6 +219,13 @@ func (f *kubeInformerFactory) LimitRanges() cache.SharedIndexInformer {
 		restClient := f.clientSet.CoreV1().RESTClient()
 		lw := cache.NewListWatchFromClient(restClient, "limitranges", k8sv1.NamespaceAll, fields.Everything())
 		return cache.NewSharedIndexInformer(lw, &k8sv1.LimitRange{}, f.defaultResync, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
+	})
+}
+
+func (f *kubeInformerFactory) PXE() cache.SharedIndexInformer {
+	return f.getInformer("pxeInformer", func() cache.SharedIndexInformer {
+		lw := cache.NewListWatchFromClient(f.restClient, "pxes", util.GetNamespace(), fields.Everything())
+		return cache.NewSharedIndexInformer(lw, &kubev1.PXE{}, f.defaultResync, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
 	})
 }
 

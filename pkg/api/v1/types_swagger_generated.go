@@ -156,3 +156,21 @@ func (VirtualMachineCondition) SwaggerDoc() map[string]string {
 		"": "VirtualMachineCondition represents the state of VirtualMachine",
 	}
 }
+
+func (PXE) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"": "+k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object\n+k8s:openapi-gen=true",
+	}
+}
+
+func (PXEConfig) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"selector": "This is a label selector which selects Pods. This field follows standard label\nselector semantics; if present but empty, it selects all pods.",
+	}
+}
+
+func (PXEList) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"": "+k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object\n+k8s:openapi-gen=true",
+	}
+}

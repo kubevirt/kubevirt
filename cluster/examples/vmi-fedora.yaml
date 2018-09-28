@@ -4,14 +4,10 @@ metadata:
   creationTimestamp: null
   labels:
     special: vmi-fedora
-  name: vmi-fedora4
+  name: vmi-fedora
 spec:
   domain:
     devices:
-      interfaces:
-      - bridge: {}
-        name: default
-        bootOrder: 1
       disks:
       - disk:
           bus: virtio
@@ -37,7 +33,4 @@ spec:
         password: fedora
         chpasswd: { expire: False }
     name: cloudinitvolume
-  networks:
-  - name: default
-    pod: {}
 status: {}

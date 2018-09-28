@@ -69,6 +69,8 @@ var VirtualMachineInstancePresetGroupVersionKind = schema.GroupVersionKind{Group
 
 var VirtualMachineGroupVersionKind = schema.GroupVersionKind{Group: GroupName, Version: GroupVersion.Version, Kind: "VirtualMachine"}
 
+var PXEGroupVersionKind = schema.GroupVersionKind{Group: GroupName, Version: GroupVersion.Version, Kind: "PXE"}
+
 // Adds the list of known types to api.Scheme.
 func addKnownTypes(scheme *runtime.Scheme) error {
 	scheme.AddKnownTypes(GroupVersion,
@@ -83,6 +85,8 @@ func addKnownTypes(scheme *runtime.Scheme) error {
 		&metav1.GetOptions{},
 		&VirtualMachine{},
 		&VirtualMachineList{},
+		&PXE{},
+		&PXEList{},
 	)
 	return nil
 }
@@ -795,3 +799,47 @@ const (
 	// a disk image must exist at given disk path
 	HostDiskExists HostDiskType = "Disk"
 )
+
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+// +k8s:openapi-gen=true
+type PXE struct {
+	metav1.TypeMeta   `json:",inline"`
+	metav1.ObjectMeta `json:"metadata,omitempty"`
+	Configs           []PXEConfig `json:"configs,omitempty"`
+}
+
+type PXEConfig struct {
+	Content string `json:"content"`
+
+	// This is a label selector which selects Pods. This field follows standard label
+	// selector semantics; if present but empty, it selects all pods.
+	Selector *metav1.LabelSelector `json:"selector,omitempty"`
+}
+
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+// +k8s:openapi-gen=true
+type PXEList struct {
+	metav1.TypeMeta `json:",inline"`
+	ListMeta        metav1.ListMeta `json:"metadata,omitempty"`
+	Items           []PXE           `json:"items"`
+}
+
+// Required to satisfy Object interface
+func (p *PXE) GetObjectKind() schema.ObjectKind {
+	return &p.TypeMeta
+}
+
+// Required to satisfy ObjectMetaAccessor interface
+func (p *PXE) GetObjectMeta() metav1.Object {
+	return &p.ObjectMeta
+}
+
+// Required to satisfy Object interface
+func (pl *PXEList) GetObjectKind() schema.ObjectKind {
+	return &pl.TypeMeta
+}
+
+// Required to satisfy ListMetaAccessor interface
+func (pl *PXEList) GetListMeta() meta.List {
+	return &pl.ListMeta
+}

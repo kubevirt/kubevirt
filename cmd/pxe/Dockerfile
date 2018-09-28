@@ -28,7 +28,11 @@ RUN dnf -y install \
 # Create non-root user
 RUN useradd -u 1001 --create-home -s /bin/bash pxe
 WORKDIR /home/pxe
+
+RUN mkdir -p /images && chown pxe:pxe /images
+
 USER 1001
+
 
 COPY pxe /usr/bin/pxe
 COPY .version /.version
