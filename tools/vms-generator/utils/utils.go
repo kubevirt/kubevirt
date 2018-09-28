@@ -39,21 +39,22 @@ import (
 )
 
 const (
-	VmiEphemeral         = "vmi-ephemeral"
-	VmiFlavorSmall       = "vmi-flavor-small"
-	VmiSata              = "vmi-sata"
-	VmiFedora            = "vmi-fedora"
-	VmiNoCloud           = "vmi-nocloud"
-	VmiPVC               = "vmi-pvc"
-	VmiWindows           = "vmi-windows"
-	VmiSlirp             = "vmi-slirp"
-	VmiWithHookSidecar   = "vmi-with-sidecar-hook"
-	VmiMultusPtp         = "vmi-multus-ptp"
-	VmiMultusMultipleNet = "vmi-multus-multiple-net"
-	VmiHostDisk          = "vmi-host-disk"
-	VmTemplateFedora     = "vm-template-fedora"
-	VmTemplateRHEL7      = "vm-template-rhel7"
-	VmTemplateWindows    = "vm-template-windows2012r2"
+	VmiEphemeral              = "vmi-ephemeral"
+	VmiFlavorSmall            = "vmi-flavor-small"
+	VmiSata                   = "vmi-sata"
+	VmiFedora                 = "vmi-fedora"
+	VmiFedoraMountPropagation = "vmi-fedora-mount-propagation"
+	VmiNoCloud                = "vmi-nocloud"
+	VmiPVC                    = "vmi-pvc"
+	VmiWindows                = "vmi-windows"
+	VmiSlirp                  = "vmi-slirp"
+	VmiWithHookSidecar        = "vmi-with-sidecar-hook"
+	VmiMultusPtp              = "vmi-multus-ptp"
+	VmiMultusMultipleNet      = "vmi-multus-multiple-net"
+	VmiHostDisk               = "vmi-host-disk"
+	VmTemplateFedora          = "vm-template-fedora"
+	VmTemplateRHEL7           = "vm-template-rhel7"
+	VmTemplateWindows         = "vm-template-windows2012r2"
 )
 
 const (
@@ -112,6 +113,34 @@ func getBaseVMI(name string) *v1.VirtualMachineInstance {
 		},
 		Spec: *baseVMISpec,
 	}
+}
+
+func addRegistryDiskMountPropagation(spec *v1.VirtualMachineInstanceSpec, image string, bus string) *v1.VirtualMachineInstanceSpec {
+	spec.Domain.Devices = v1.Devices{
+		Disks: []v1.Disk{
+			{
+				Name:       "registrydisk",
+				VolumeName: "registryvolume",
+				DiskDevice: v1.DiskDevice{
+					Disk: &v1.DiskTarget{
+						Bus: bus,
+					},
+				},
+			},
+		},
+	}
+	spec.Volumes = []v1.Volume{
+		{
+			Name: "registryvolume",
+			VolumeSource: v1.VolumeSource{
+				RegistryDisk: &v1.RegistryDiskSource{
+					Image: image,
+					AllowMountPropagation: true,
+				},
+			},
+		},
+	}
+	return spec
 }
 
 func addRegistryDisk(spec *v1.VirtualMachineInstanceSpec, image string, bus string) *v1.VirtualMachineInstanceSpec {
@@ -299,6 +328,15 @@ func GetVMIEphemeralFedora() *v1.VirtualMachineInstance {
 	vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("1024M")
 
 	addRegistryDisk(&vmi.Spec, fmt.Sprintf("%s/%s:%s", DockerPrefix, imageFedora, DockerTag), busVirtio)
+	addNoCloudDiskWitUserData(&vmi.Spec, "#cloud-config\npassword: fedora\nchpasswd: { expire: False }")
+	return vmi
+}
+
+func GetVMIEphemeralFedoraMountPropagation() *v1.VirtualMachineInstance {
+	vmi := getBaseVMI(VmiFedoraMountPropagation)
+	vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("1024M")
+
+	addRegistryDiskMountPropagation(&vmi.Spec, fmt.Sprintf("%s/%s:%s", DockerPrefix, imageFedora, DockerTag), busVirtio)
 	addNoCloudDiskWitUserData(&vmi.Spec, "#cloud-config\npassword: fedora\nchpasswd: { expire: False }")
 	return vmi
 }

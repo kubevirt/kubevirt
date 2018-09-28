@@ -53,18 +53,19 @@ func main() {
 	}
 
 	var vmis = map[string]*v1.VirtualMachineInstance{
-		utils.VmiEphemeral:         utils.GetVMIEphemeral(),
-		utils.VmiFlavorSmall:       utils.GetVMIFlavorSmall(),
-		utils.VmiSata:              utils.GetVMISata(),
-		utils.VmiFedora:            utils.GetVMIEphemeralFedora(),
-		utils.VmiNoCloud:           utils.GetVMINoCloud(),
-		utils.VmiPVC:               utils.GetVMIPvc(),
-		utils.VmiWindows:           utils.GetVMIWindows(),
-		utils.VmiSlirp:             utils.GetVMISlirp(),
-		utils.VmiWithHookSidecar:   utils.GetVMIWithHookSidecar(),
-		utils.VmiMultusPtp:         utils.GetVMIMultusPtp(),
-		utils.VmiMultusMultipleNet: utils.GetVMIMultusMultipleNet(),
-		utils.VmiHostDisk:          utils.GetVMIHostDisk(),
+		utils.VmiEphemeral:              utils.GetVMIEphemeral(),
+		utils.VmiFlavorSmall:            utils.GetVMIFlavorSmall(),
+		utils.VmiSata:                   utils.GetVMISata(),
+		utils.VmiFedora:                 utils.GetVMIEphemeralFedora(),
+		utils.VmiFedoraMountPropagation: utils.GetVMIEphemeralFedoraMountPropagation(),
+		utils.VmiNoCloud:                utils.GetVMINoCloud(),
+		utils.VmiPVC:                    utils.GetVMIPvc(),
+		utils.VmiWindows:                utils.GetVMIWindows(),
+		utils.VmiSlirp:                  utils.GetVMISlirp(),
+		utils.VmiWithHookSidecar:        utils.GetVMIWithHookSidecar(),
+		utils.VmiMultusPtp:              utils.GetVMIMultusPtp(),
+		utils.VmiMultusMultipleNet:      utils.GetVMIMultusMultipleNet(),
+		utils.VmiHostDisk:               utils.GetVMIHostDisk(),
 	}
 
 	var vmireplicasets = map[string]*v1.VirtualMachineInstanceReplicaSet{
