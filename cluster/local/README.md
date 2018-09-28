@@ -25,3 +25,7 @@ $ cluster/kubectl.sh get nodes
 NAME     STATUS   ROLES    AGE     VERSION
 kubdev   Ready    <none>   5m20s   v1.12.0-beta.2
 ```
+
+Note: you may need to cherry-pick
+[acdb1b0e9855ab671f2972f10605d20cad26284b](https://github.com/kubernetes/kubernetes/commit/acdb1b0e9855ab671f2972f10605d20cad26284b)
+if it's not present in your kubernetes tree yet.
