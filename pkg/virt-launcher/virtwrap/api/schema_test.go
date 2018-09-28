@@ -41,7 +41,9 @@ var exampleXML = `<domain type="kvm" xmlns:qemu="http://libvirt.org/schemas/doma
     <baseBoard></baseBoard>
   </sysinfo>
   <devices>
-    <controller type="usb" index="0" model="none"></controller>
+    <controller type="usb" index="0" model="none">
+      <driver queues="2"></driver>
+    </controller>
     <video>
       <model type="vga" heads="1" vram="16384"></model>
     </video>
@@ -136,6 +138,14 @@ var _ = Describe("Schema", func() {
 	exampleDomain.Spec.Devices.Rng = &Rng{
 		Model:   "virtio",
 		Backend: &RngBackend{Source: "/dev/urandom", Model: "random"},
+	}
+	exampleDomain.Spec.Devices.Controllers = []Controller{
+		{
+			Type:   "usb",
+			Model:  "none",
+			Index:  "0",
+			Driver: ControllerDriver{Queues: "2"},
+		},
 	}
 	exampleDomain.Spec.Features = &Features{
 		ACPI: &FeatureEnabled{},

@@ -360,7 +360,9 @@ var _ = Describe("Converter", func() {
       <model type="virtio"></model>
       <alias name="ua-default"></alias>
     </interface>
-    <controller type="usb" index="0" model="none"></controller>
+    <controller type="usb" index="0" model="none">
+      <driver></driver>
+    </controller>
     <video>
       <model type="vga" heads="1" vram="16384"></model>
     </video>
