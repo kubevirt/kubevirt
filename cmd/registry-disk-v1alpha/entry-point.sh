@@ -17,8 +17,6 @@
 # Copyright 2017 Red Hat, Inc.
 #
 
-# https://fedoraproject.org/wiki/Scsi-target-utils_Quickstart_Guide
-
 trap 'echo "Graceful exit"; exit 0' SIGINT SIGQUIT SIGTERM
 
 if [ -z "$COPY_PATH" ]; then
@@ -34,24 +32,59 @@ fi
 
 IMAGE_PATH=/disk/$IMAGE_NAME
 IMAGE_EXTENSION=$(echo $IMAGE_NAME | sed  -n -e 's/^.*\.\(.*\)$/\1/p')
+IMAGE_FILE_NAME=$(basename $COPY_PATH)
+IMAGE_DESTINATION_DIR=$(dirname $COPY_PATH)
 
-mkdir -p $COPY_PATH
-echo $IMAGE_NAME | grep -q -e "raw" -e "qcow2"
-if [ $? -ne 0 ]; then
+function requires_conversion() {
+	echo $IMAGE_NAME | grep -q -e "raw" -e "qcow2"
+	return $?
+}
+
+function copy_with_conversion() {
 	IMAGE_EXTENSION="raw"
 	/usr/bin/qemu-img convert $IMAGE_PATH ${COPY_PATH}.${IMAGE_EXTENSION}
 	if [ $? -ne 0 ]; then
 		echo "Failed to convert image $IMAGE_PATH to .raw file"
 		exit 1
 	fi
-else 
+	echo "copied $IMAGE_PATH to $COPY_PATH.${IMAGE_EXTENSION}"
+}
+
+function copy_direct() {
 	cp $IMAGE_PATH ${COPY_PATH}.${IMAGE_EXTENSION}
 	if [ $? -ne 0 ]; then
 		echo "Failed to copy $IMAGE_PATH to $COPY_PATH.${IMAGE_EXTENSION}"
 		exit 1
 	fi
+	echo "copied $IMAGE_PATH to $COPY_PATH.${IMAGE_EXTENSION}"
+}
+
+
+function bind_mount() {
+	mv $IMAGE_PATH /disk/$IMAGE_FILE_NAME.${IMAGE_EXTENSION}
+	mount --bind /disk $IMAGE_DESTINATION_DIR
+	if [ $? -ne 0 ]; then
+		echo "Failed to bind mount /disk to $IMAGE_DESTINATION_DIR"
+		exit 1
+	fi
+	echo "bind mounted /disk to $IMAGE_DESTINATION_DIR"
+}
+
+mkdir -p $COPY_PATH
+requires_conversion
+if [ $? -ne 0 ]; then
+	# If the image isn't in raw or qcow, conversion is required
+	# which results in a copy of the image.
+	copy_with_conversion
+elif [ "$MOUNT_PROPAGATION" = "true" ]; then
+	# If mount propagation is enabled, just bind mount the
+	# disk into the destination folder.
+	bind_mount
+else
+	# If mount propation is not enabled, simply copy the image
+	# into the destination folder. 
+	copy_direct
 fi
-echo "copied $IMAGE_PATH to $COPY_PATH.${IMAGE_EXTENSION}"
 
 touch /tmp/healthy
 while [ -f "${COPY_PATH}.${IMAGE_EXTENSION}" ]; do
