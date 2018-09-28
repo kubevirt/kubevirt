@@ -3,6 +3,23 @@
 This provider allows developing against bleeding-edge Kubernetes code. The
 k8s sources will be compiled and a single-node cluster will be started.
 
+## Environment preparation
+
+Since the `local` provider deploys the cluster on the host and not inside
+virtual machines, you may need to adjust some settings on the node.
+
+Specifically, you may need to make sure that your firewall of choice doesn't
+block connectivity between cluster IP and service pods. If you experience
+connectivity issues, consider tweaking or disabling your firewall. Also, make
+sure forwarding is enabled on the host:
+
+```bash
+$ systemctl disable firewalld
+$ systemctl stop firewalld
+$ iptables -P FORWARD ACCEPT
+$ sysctl net.ipv4.conf.all.forwarding=1
+```
+
 ## Bringing the cluster up
 
 First get the k8s sources:
