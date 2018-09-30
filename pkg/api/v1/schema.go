@@ -751,6 +751,9 @@ type Interface struct {
 	// If specified, the virtual network interface will be placed on the guests pci address with the specifed PCI address. For example: 0000:81:01.10
 	// +optional
 	PciAddress string `json:"pciAddress,omitempty"`
+	// Backend driver name.
+	// One of: qemu, vhost
+	Driver string `json:"driver,omitempty"`
 }
 
 // Represents the method which will be used to connect the interface to the guest.

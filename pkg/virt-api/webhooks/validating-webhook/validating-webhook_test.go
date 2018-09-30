@@ -1173,6 +1173,57 @@ var _ = Describe("Validating Webhook", func() {
 				Expect(causes[0].Field).To(Equal("fake.domain.devices.interfaces[0].pciAddress"))
 			}
 		})
+
+		It("should accept valid driver", func() {
+			vmi := v1.NewMinimalVMI("testvm")
+			vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{*v1.DefaultNetworkInterface()}
+			vmi.Spec.Networks = []v1.Network{*v1.DefaultPodNetwork()}
+			for _, driver := range []string{"qemu", "vhost"} {
+				vmi.Spec.Domain.Devices.Interfaces[0].Driver = driver
+				causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec)
+				// if this is processed correctly, it should not result in any error
+				Expect(len(causes)).To(Equal(0))
+			}
+		})
+		It("should reject invalid driver", func() {
+			vmi := v1.NewMinimalVMI("testvm")
+			vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{*v1.DefaultNetworkInterface()}
+			vmi.Spec.Networks = []v1.Network{*v1.DefaultPodNetwork()}
+			vmi.Spec.Domain.Devices.Interfaces[0].Driver = "invalid_driver"
+			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec)
+			Expect(len(causes)).To(Equal(1))
+			Expect(causes[0].Field).To(Equal("fake.domain.devices.interfaces[0].driver"))
+		})
+		It("should reject invalid combination of interface binding method and driver", func() {
+			vmi := v1.NewMinimalVMI("testvm")
+			vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{v1.Interface{
+				Name: "default",
+				InterfaceBindingMethod: v1.InterfaceBindingMethod{
+					Slirp: &v1.InterfaceSlirp{},
+				},
+				Driver: "vhost",
+			}}
+			vmi.Spec.Networks = []v1.Network{*v1.DefaultPodNetwork()}
+			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec)
+			Expect(len(causes)).To(Equal(1))
+			Expect(causes[0].Field).To(Equal("fake.domain.devices.interfaces[0].driver"))
+		})
+		It("should reject invalid combination of interface model and driver", func() {
+			vmi := v1.NewMinimalVMI("testvm")
+			vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{*v1.DefaultNetworkInterface()}
+			vmi.Spec.Networks = []v1.Network{*v1.DefaultPodNetwork()}
+			// virtio works with all drivers, so we omit empty model case (default: virtio).
+			for _, model := range validInterfaceModels {
+				if model == "virtio" {
+					continue
+				}
+				vmi.Spec.Domain.Devices.Interfaces[0].Model = model
+				vmi.Spec.Domain.Devices.Interfaces[0].Driver = "vhost"
+				causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec)
+				Expect(len(causes)).To(Equal(1))
+				Expect(causes[0].Field).To(Equal("fake.domain.devices.interfaces[0].driver"))
+			}
+		})
 	})
 	Context("with cpu pinning", func() {
 		var vmi *v1.VirtualMachineInstance

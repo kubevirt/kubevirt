@@ -3774,6 +3774,10 @@
      "bridge": {
       "$ref": "#/definitions/v1.InterfaceBridge"
      },
+     "driver": {
+      "description": "Backend driver name.\nOne of: qemu, vhost",
+      "type": "string"
+     },
      "macAddress": {
       "description": "Interface MAC address. For example: de:ad:00:00:be:af or DE-AD-00-00-BE-AF.",
       "type": "string"

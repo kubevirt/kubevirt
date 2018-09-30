@@ -284,6 +284,11 @@ func SetupLibvirt() error {
 		return err
 	}
 
+	_, err = os.Stat("/dev/vhost-net")
+	if err != nil && !os.IsNotExist(err) {
+		return err
+	}
+
 	qemuConf, err := os.OpenFile("/etc/libvirt/qemu.conf", os.O_APPEND|os.O_WRONLY, 0644)
 	if err != nil {
 		return err

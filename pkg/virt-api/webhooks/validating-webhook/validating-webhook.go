@@ -895,6 +895,7 @@ func ValidateVirtualMachineInstanceSpec(field *k8sfield.Path, spec *v1.VirtualMa
 					bootOrderMap[order] = true
 				}
 			}
+
 			// verify that the specified pci address is valid
 			if iface.PciAddress != "" {
 				_, err := util.ParsePciAddress(iface.PciAddress)
@@ -903,6 +904,31 @@ func ValidateVirtualMachineInstanceSpec(field *k8sfield.Path, spec *v1.VirtualMa
 						Type:    metav1.CauseTypeFieldValueInvalid,
 						Message: fmt.Sprintf("interface %s has malformed PCI address (%s).", field.Child("domain", "devices", "interfaces").Index(idx).Child("name").String(), iface.PciAddress),
 						Field:   field.Child("domain", "devices", "interfaces").Index(idx).Child("pciAddress").String(),
+					})
+				}
+			}
+
+			// verify that the interface driver is valid
+			if iface.Slirp != nil {
+				if iface.Driver != "" && iface.Driver != "qemu" {
+					causes = append(causes, metav1.StatusCause{
+						Type:    metav1.CauseTypeFieldValueInvalid,
+						Message: fmt.Sprintf("Slirp interface works with qemu driver only"),
+						Field:   field.Child("domain", "devices", "interfaces").Index(idx).Child("driver").String(),
+					})
+				}
+			} else if iface.Bridge != nil {
+				if iface.Driver != "" && iface.Driver != "qemu" && iface.Driver != "vhost" {
+					causes = append(causes, metav1.StatusCause{
+						Type:    metav1.CauseTypeFieldValueInvalid,
+						Message: fmt.Sprintf("Bridge interface works with qemu or vhost driver only"),
+						Field:   field.Child("domain", "devices", "interfaces").Index(idx).Child("driver").String(),
+					})
+				} else if iface.Driver == "vhost" && iface.Model != "" && iface.Model != "virtio" {
+					causes = append(causes, metav1.StatusCause{
+						Type:    metav1.CauseTypeFieldValueInvalid,
+						Message: fmt.Sprintf("vhost driver can be used with virtio model only"),
+						Field:   field.Child("domain", "devices", "interfaces").Index(idx).Child("driver").String(),
 					})
 				}
 			}

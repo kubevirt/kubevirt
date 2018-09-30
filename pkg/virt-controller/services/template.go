@@ -43,6 +43,7 @@ const UseEmulationKey = "debug.useEmulation"
 const ImagePullPolicyKey = "dev.imagePullPolicy"
 const KvmDevice = "devices.kubevirt.io/kvm"
 const TunDevice = "devices.kubevirt.io/tun"
+const VhostNetDevice = "devices.kubevirt.io/vhost-net"
 
 const CAP_NET_ADMIN = "NET_ADMIN"
 const CAP_SYS_NICE = "SYS_NICE"
@@ -560,6 +561,11 @@ func getRequiredResources(vmi *v1.VirtualMachineInstance) k8sv1.ResourceList {
 	res := k8sv1.ResourceList{}
 	if (vmi.Spec.Domain.Devices.AutoattachPodInterface == nil) || (*vmi.Spec.Domain.Devices.AutoattachPodInterface == true) {
 		res[TunDevice] = resource.MustParse("1")
+	}
+	for _, iface := range vmi.Spec.Domain.Devices.Interfaces {
+		if iface.Driver == "vhost" {
+			res[VhostNetDevice] = resource.MustParse("1")
+		}
 	}
 	return res
 }

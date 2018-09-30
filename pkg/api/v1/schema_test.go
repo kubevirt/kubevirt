@@ -382,6 +382,28 @@ var _ = Describe("Schema", func() {
 			Expect(err).To(BeNil())
 			Expect(string(buf)).To(Equal(exampleJSONParsed))
 		})
+		It("Marshal struct into json with driver configure", func() {
+			exampleVMI.Spec.Domain.Devices.Interfaces = []Interface{
+				Interface{
+					Name: "default",
+					InterfaceBindingMethod: InterfaceBindingMethod{
+						Bridge: &InterfaceBridge{}},
+					Driver: "vhost",
+				},
+			}
+			networkTemplateData := NetworkTemplateConfig{InterfaceConfig: `"bridge": {},
+            "driver": "vhost"`}
+
+			tmpl, err := template.New("vmexample").Parse(exampleJSON)
+			Expect(err).To(BeNil())
+			var tpl bytes.Buffer
+			err = tmpl.Execute(&tpl, networkTemplateData)
+			Expect(err).To(BeNil())
+			exampleJSONParsed := tpl.String()
+			buf, err := json.MarshalIndent(*exampleVMI, "", "  ")
+			Expect(err).To(BeNil())
+			Expect(string(buf)).To(Equal(exampleJSONParsed))
+		})
 	})
 	Context("With example schema in json use pod network and slirp interface", func() {
 		It("Unmarshal json into struct", func() {

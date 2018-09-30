@@ -1048,6 +1048,13 @@ func schema_kubevirt_pkg_api_v1_Interface(ref common.ReferenceCallback) common.O
 							Format:      "",
 						},
 					},
+					"driver": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Backend driver name. One of: qemu, vhost",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
 				},
 				Required: []string{"name"},
 			},

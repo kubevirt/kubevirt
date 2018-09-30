@@ -803,6 +803,38 @@ var _ = Describe("Converter", func() {
 			Expect(domain.Spec.Devices.Interfaces[0].BootOrder.Order).To(Equal(uint(bootOrder)))
 			Expect(domain.Spec.Devices.Interfaces[1].BootOrder).To(BeNil())
 		})
+		table.DescribeTable("should allow setting driver", func(drivers []string) {
+			for i, driver := range drivers {
+				name := fmt.Sprintf("Name%d", i)
+				iface := v1.DefaultNetworkInterface()
+				net := v1.DefaultPodNetwork()
+				iface.Name = name
+				iface.Driver = driver
+				net.Name = name
+				vmi.Spec.Domain.Devices.Interfaces = append(vmi.Spec.Domain.Devices.Interfaces, *iface)
+				vmi.Spec.Networks = append(vmi.Spec.Networks, *net)
+			}
+			domain := vmiToDomain(vmi, c)
+
+			Expect(len(domain.Spec.Devices.Interfaces)).To(Equal(len(drivers)))
+			for i, driver := range drivers {
+				if driver == "" {
+					// If empty, then the domain defaults to 'vhost' if vhost device is present,
+					// but silently falls back to 'qemu' without error. (Since 0.8.8)
+					Expect(domain.Spec.Devices.Interfaces[i].Driver).To(BeNil())
+				} else {
+					Expect(domain.Spec.Devices.Interfaces[i].Driver.Name).To(Equal(driver))
+				}
+			}
+		},
+			table.Entry("one interface backed by default driver", []string{""}),
+			table.Entry("one interface backed by qemu driver", []string{"qemu"}),
+			table.Entry("one interface backed by vhost driver", []string{"vhost"}),
+			table.Entry("two interfaces backed by two default drivers", []string{"", ""}),
+			table.Entry("two interfaces backed by qemu driver and default one", []string{"qemu", ""}),
+			table.Entry("two interfaces backed by default driver and qemu one", []string{"", "qemu"}),
+			table.Entry("two interfaces backed by vhost driver and qemu one", []string{"vhost", "qemu"}),
+		)
 	})
 	Context("Function ParseNameservers()", func() {
 		It("should return a byte array of nameservers", func() {

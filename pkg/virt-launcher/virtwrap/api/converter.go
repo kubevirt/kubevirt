@@ -702,6 +702,13 @@ func Convert_v1_VirtualMachine_To_api_Domain(vmi *v1.VirtualMachineInstance, dom
 				return err
 			}
 		}
+		if iface.Driver != "" {
+			if iface.Driver != "qemu" && iface.Driver != "vhost" {
+				log.Log.Infof("The network interface driver type of %s is not supported. Silently ignored and fallback to default one.", iface.Name)
+			} else {
+				domainIface.Driver = &InterfaceDriver{Name: iface.Driver}
+			}
+		}
 		domain.Spec.Devices.Interfaces = append(domain.Spec.Devices.Interfaces, domainIface)
 	}
 
