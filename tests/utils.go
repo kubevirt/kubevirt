@@ -2103,7 +2103,7 @@ func KubevirtFailHandler(message string, callerSkip ...int) {
 
 	for _, ns := range []string{metav1.NamespaceSystem, NamespaceTestDefault} {
 		// Get KubeVirt specific pods information
-		pods, err := virtClient.CoreV1().Pods(ns).List(metav1.ListOptions{LabelSelector: "kubevirt.io"})
+		pods, err := virtClient.CoreV1().Pods(ns).List(metav1.ListOptions{LabelSelector: "kubevirt.io,cdi.kubevirt.io"})
 		if err != nil {
 			fmt.Println(err)
 			Fail(message, callerSkip...)

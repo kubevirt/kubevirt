@@ -68,6 +68,7 @@ spec:
     metadata:
       labels:
         app: containerized-data-importer
+        cdi.kubevirt.io: ""
     spec:
       serviceAccountName: cdi-sa
       containers:
