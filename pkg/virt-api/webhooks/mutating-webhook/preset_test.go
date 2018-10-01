@@ -497,15 +497,15 @@ var _ = Describe("Mutating Webhook Presets", func() {
 
 			By("checking annotations were applied")
 			annotation, ok := vmi.Annotations["virtualmachinepreset.kubevirt.io/memory-64"]
-			Expect(annotation).To(Equal("kubevirt.io/v1alpha2"))
+			Expect(annotation).To(Equal("kubevirt.io/v1alpha3"))
 			Expect(ok).To(BeTrue())
 
 			annotation, ok = vmi.Annotations["virtualmachinepreset.kubevirt.io/cpu-4"]
-			Expect(annotation).To(Equal("kubevirt.io/v1alpha2"))
+			Expect(annotation).To(Equal("kubevirt.io/v1alpha3"))
 			Expect(ok).To(BeTrue())
 
 			annotation, ok = vmi.Annotations["virtualmachinepreset.kubevirt.io/duplicate-mem"]
-			Expect(annotation).To(Equal("kubevirt.io/v1alpha2"))
+			Expect(annotation).To(Equal("kubevirt.io/v1alpha3"))
 			Expect(ok).To(BeTrue())
 
 			By("checking settings were applied")
@@ -554,7 +554,7 @@ var _ = Describe("Mutating Webhook Presets", func() {
 
 			Expect(vmi.Spec.Domain.CPU).ToNot(BeNil())
 			Expect(vmi.Spec.Domain.CPU.Cores).To(Equal(uint32(4)))
-			Expect(vmi.Annotations["virtualmachinepreset.kubevirt.io/test-preset"]).To(Equal("kubevirt.io/v1alpha2"))
+			Expect(vmi.Annotations["virtualmachinepreset.kubevirt.io/test-preset"]).To(Equal("kubevirt.io/v1alpha3"))
 
 		})
 
@@ -567,7 +567,7 @@ var _ = Describe("Mutating Webhook Presets", func() {
 			applyPresets(&vmi, presetInformer)
 
 			Expect(vmi.Spec.Domain.Resources.Requests["memory"]).To(Equal(memory))
-			Expect(vmi.Annotations["virtualmachinepreset.kubevirt.io/test-preset"]).To(Equal("kubevirt.io/v1alpha2"))
+			Expect(vmi.Annotations["virtualmachinepreset.kubevirt.io/test-preset"]).To(Equal("kubevirt.io/v1alpha3"))
 		})
 
 		It("Should apply Firmware settings", func() {
@@ -579,7 +579,7 @@ var _ = Describe("Mutating Webhook Presets", func() {
 
 			Expect(vmi.Spec.Domain.Firmware).ToNot(BeNil())
 			Expect(vmi.Spec.Domain.Firmware.UUID).To(Equal(uuid))
-			Expect(vmi.Annotations["virtualmachinepreset.kubevirt.io/test-preset"]).To(Equal("kubevirt.io/v1alpha2"))
+			Expect(vmi.Annotations["virtualmachinepreset.kubevirt.io/test-preset"]).To(Equal("kubevirt.io/v1alpha3"))
 		})
 
 		It("Should apply Clock settings", func() {
@@ -592,7 +592,7 @@ var _ = Describe("Mutating Webhook Presets", func() {
 			applyPresets(&vmi, presetInformer)
 
 			Expect(vmi.Spec.Domain.Clock).To(Equal(clock))
-			Expect(vmi.Annotations["virtualmachinepreset.kubevirt.io/test-preset"]).To(Equal("kubevirt.io/v1alpha2"))
+			Expect(vmi.Annotations["virtualmachinepreset.kubevirt.io/test-preset"]).To(Equal("kubevirt.io/v1alpha3"))
 		})
 
 		It("Should apply Feature settings", func() {
@@ -607,7 +607,7 @@ var _ = Describe("Mutating Webhook Presets", func() {
 			applyPresets(&vmi, presetInformer)
 
 			Expect(vmi.Spec.Domain.Features).To(Equal(features))
-			Expect(vmi.Annotations["virtualmachinepreset.kubevirt.io/test-preset"]).To(Equal("kubevirt.io/v1alpha2"))
+			Expect(vmi.Annotations["virtualmachinepreset.kubevirt.io/test-preset"]).To(Equal("kubevirt.io/v1alpha3"))
 		})
 
 		It("Should apply Watchdog settings", func() {
@@ -619,7 +619,7 @@ var _ = Describe("Mutating Webhook Presets", func() {
 			applyPresets(&vmi, presetInformer)
 
 			Expect(vmi.Spec.Domain.Devices.Watchdog).To(Equal(watchdog))
-			Expect(vmi.Annotations["virtualmachinepreset.kubevirt.io/test-preset"]).To(Equal("kubevirt.io/v1alpha2"))
+			Expect(vmi.Annotations["virtualmachinepreset.kubevirt.io/test-preset"]).To(Equal("kubevirt.io/v1alpha3"))
 		})
 
 		It("Should apply IOThreads settings", func() {

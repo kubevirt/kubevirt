@@ -35,11 +35,11 @@ type NetworkTemplateConfig struct {
 
 var exampleJSON = `{
   "kind": "VirtualMachineInstance",
-  "apiVersion": "kubevirt.io/v1alpha2",
+  "apiVersion": "kubevirt.io/v1alpha3",
   "metadata": {
     "name": "testvmi",
     "namespace": "default",
-    "selfLink": "/apis/kubevirt.io/v1alpha2/namespaces/default/virtualmachineinstances/testvmi",
+    "selfLink": "/apis/kubevirt.io/v1alpha3/namespaces/default/virtualmachineinstances/testvmi",
     "creationTimestamp": null
   },
   "spec": {

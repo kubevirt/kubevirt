@@ -36,7 +36,7 @@ var _ = Describe("Kubevirt VirtualMachine Client", func() {
 
 	var server *ghttp.Server
 	var client KubevirtClient
-	basePath := "/apis/kubevirt.io/v1alpha2/namespaces/default/virtualmachines"
+	basePath := "/apis/kubevirt.io/v1alpha3/namespaces/default/virtualmachines"
 	vmiPath := basePath + "/testvm"
 	subBasePath := "/apis/subresources.kubevirt.io/v1alpha2/namespaces/default/virtualmachines"
 	subVMIPath := subBasePath + "/testvm"

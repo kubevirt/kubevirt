@@ -37,7 +37,7 @@ import (
 )
 
 func newValidPatchRequest() *http.Request {
-	request, _ := http.NewRequest("PATCH", "/apis/kubevirt.io/v1alpha2/namespaces/default/virtualmachineinstances/test", nil)
+	request, _ := http.NewRequest("PATCH", "/apis/kubevirt.io/v1alpha3/namespaces/default/virtualmachineinstances/test", nil)
 	request.Body = toReader("[{\"op\": \"replace\", \"path\": \"/email\", \"value\":\"newmail\"}]")
 	request.Header.Set("Content-Type", rest.MIME_JSON_PATCH)
 	return request
@@ -76,7 +76,7 @@ var _ = Describe("Patch", func() {
 		handler = http.Handler(restful.NewContainer().Add(ws))
 
 		target := MakeGoRestfulWrapper(NewHandlerBuilder().Patch().Endpoint(testPatchEndpoint).Build(ctx))
-		ws.Route(ws.PATCH("/apis/kubevirt.io/v1alpha2/namespaces/{namespace}/virtualmachineinstances/{name}").To(target))
+		ws.Route(ws.PATCH("/apis/kubevirt.io/v1alpha3/namespaces/{namespace}/virtualmachineinstances/{name}").To(target))
 
 		request = newValidPatchRequest()
 		recorder = httptest.NewRecorder()
