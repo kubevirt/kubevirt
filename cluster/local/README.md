@@ -14,8 +14,7 @@ connectivity issues, consider tweaking or disabling your firewall. Also, make
 sure forwarding is enabled on the host:
 
 ```bash
-$ systemctl disable firewalld
-$ systemctl stop firewalld
+$ systemctl disable firewalld --now
 $ iptables -P FORWARD ACCEPT
 $ sysctl net.ipv4.conf.all.forwarding=1
 ```
