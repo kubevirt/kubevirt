@@ -133,6 +133,10 @@ func libvirtEventCallback(c cli.Connection, domain *api.Domain, event *libvirt.D
 			event := watch.Event{Type: watch.Added, Object: domain}
 			client.SendDomainEvent(event)
 			events <- event
+		} else if event.Event == libvirt.DOMAIN_EVENT_STARTED && libvirt.DomainEventStartedDetailType(event.Detail) == libvirt.DOMAIN_EVENT_STARTED_MIGRATED {
+			event := watch.Event{Type: watch.Added, Object: domain}
+			client.SendDomainEvent(event)
+			events <- event
 		} else {
 			client.SendDomainEvent(watch.Event{Type: watch.Modified, Object: domain})
 		}
