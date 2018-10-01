@@ -93,7 +93,8 @@ const (
 )
 
 const (
-	AlpineHttpUrl = "http://cdi-http-import-server.kube-system/images/alpine.iso"
+	AlpineHttpUrl     = "http://cdi-http-import-server.kube-system/images/alpine.iso"
+	GuestAgentHttpUrl = "http://cdi-http-import-server.kube-system/qemu-ga"
 )
 
 const (
@@ -1646,7 +1647,7 @@ const (
 
 // RegistryDiskFor takes the name of an image and returns the full
 // registry diks image path.
-// Supported values are: cirros, fedora, alpine
+// Supported values are: cirros, fedora, alpine, guest-agent
 func RegistryDiskFor(name RegistryDisk) string {
 	switch name {
 	case RegistryDiskCirros, RegistryDiskAlpine, RegistryDiskFedora:
@@ -1723,6 +1724,33 @@ func LoggedInAlpineExpecter(vmi *v1.VirtualMachineInstance) (expect.Expecter, er
 		&expect.BExp{R: "localhost login:"},
 		&expect.BSnd{S: "root\n"},
 		&expect.BExp{R: "localhost:~#"}})
+	res, err := expecter.ExpectBatch(b, 180*time.Second)
+	if err != nil {
+		log.DefaultLogger().Object(vmi).Infof("Login: %v", res)
+		expecter.Close()
+		return nil, err
+	}
+	return expecter, err
+}
+
+// LoggedInFedoraExpecter return prepared and ready to use console expecter for
+// Fedora test VM
+func LoggedInFedoraExpecter(vmi *v1.VirtualMachineInstance) (expect.Expecter, error) {
+	virtClient, err := kubecli.GetKubevirtClient()
+	PanicOnError(err)
+	expecter, _, err := NewConsoleExpecter(virtClient, vmi, 10*time.Second)
+	if err != nil {
+		return nil, err
+	}
+	b := append([]expect.Batcher{
+		&expect.BSnd{S: "\n"},
+		&expect.BExp{R: "login:"},
+		&expect.BSnd{S: "fedora\n"},
+		&expect.BExp{R: "Password:"},
+		&expect.BSnd{S: "fedora\n"},
+		&expect.BExp{R: "$"},
+		&expect.BSnd{S: "sudo su\n"},
+		&expect.BExp{R: "#"}})
 	res, err := expecter.ExpectBatch(b, 180*time.Second)
 	if err != nil {
 		log.DefaultLogger().Object(vmi).Infof("Login: %v", res)
@@ -1834,32 +1862,10 @@ func GetRunningVirtualMachineInstanceDomainXML(virtClient kubecli.KubevirtClient
 		virtClient,
 		vmiPod,
 		vmiPod.Spec.Containers[containerIdx].Name,
-		[]string{"ls", "/etc/libvirt/qemu/"},
+		[]string{"virsh", "dumpxml", vmi.Namespace + "_" + vmi.Name},
 	)
 	if err != nil {
-		return "", fmt.Errorf("unable to list domain xml files (remotely on pod): %v", err)
-	}
-	Expect(err).ToNot(HaveOccurred())
-
-	fn := ""
-	for _, line := range strings.Split(stdout, "\n") {
-		if strings.Contains(line, vmi.Name) {
-			fn = line
-		}
-	}
-	if fn == "" {
-		return "", fmt.Errorf("libvirt domxml file not found")
-	}
-	fn = fmt.Sprintf("/etc/libvirt/qemu/%s", fn)
-
-	stdout, _, err = ExecuteCommandOnPodV2(
-		virtClient,
-		vmiPod,
-		vmiPod.Spec.Containers[containerIdx].Name,
-		[]string{"cat", fn},
-	)
-	if err != nil {
-		return "", fmt.Errorf("could not cat libvirt domxml (remotely on pod): %v", err)
+		return "", fmt.Errorf("could not dump libvirt domxml (remotely on pod): %v", err)
 	}
 	return stdout, err
 }

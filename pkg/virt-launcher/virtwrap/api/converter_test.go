@@ -26,6 +26,8 @@ import (
 	"reflect"
 
 	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/gomega"
+
 	"github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
 	k8sv1 "k8s.io/api/core/v1"
@@ -381,6 +383,9 @@ var _ = Describe("Converter", func() {
       <model type="virtio"></model>
       <alias name="ua-default"></alias>
     </interface>
+    <channel type="unix">
+      <target name="org.qemu.guest_agent.0" type="virtio"></target>
+    </channel>
     <controller type="usb" index="0" model="none"></controller>
     <video>
       <model type="vga" heads="1" vram="16384"></model>
