@@ -414,3 +414,36 @@ func doLogPos(severity LogLevel, fileName string, lineNumber int, args ...interf
 		"msg", fmt.Sprint(args...),
 	)
 }
+
+func LogLibvirtLogLine(line string) {
+	fragments := strings.SplitN(line, ": ", 5)
+	if len(fragments) != 5 {
+		now := time.Now()
+		logger.Log(
+			"level", "info",
+			"timestamp", now.Format("2006-01-02T15:04:05.000000Z"),
+			"component", c,
+			"subcomponent", "libvirt",
+			"msg", line,
+		)
+		return
+	}
+	severity := strings.ToLower(strings.TrimSpace(fragments[2]))
+
+	if severity == "debug" {
+		severity = "info"
+	}
+
+	pos := strings.TrimSpace(fragments[3])
+	msg := strings.TrimSpace(fragments[4])
+
+	now := time.Now()
+	logger.Log(
+		"level", severity,
+		"timestamp", now.Format("2006-01-02T15:04:05.000000Z"),
+		"pos", pos,
+		"component", c,
+		"subcomponent", "libvirt",
+		"msg", msg,
+	)
+}

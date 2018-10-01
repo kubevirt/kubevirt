@@ -1,6 +1,7 @@
 package util
 
 import (
+	"bufio"
 	"encoding/xml"
 	"fmt"
 	"os"
@@ -12,6 +13,8 @@ import (
 
 	"github.com/libvirt/libvirt-go"
 	k8sv1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	"github.com/golang/glog"
 
 	"k8s.io/apimachinery/pkg/types"
 
@@ -150,15 +153,31 @@ func StartLibvirt(stopChan chan struct{}) {
 	// doesn't exit until virt-launcher is ready for it to. Virt-launcher traps signals
 	// to perform special shutdown logic. These processes need to live in the same
 	// container.
+
 	go func() {
 		for {
 			exitChan := make(chan struct{})
 			cmd := exec.Command("/usr/sbin/libvirtd")
 
 			// connect libvirt's stderr to our own stdout in order to see the logs in the container logs
-			cmd.Stderr = os.Stdout
+			reader, err := cmd.StderrPipe()
+			if err != nil {
+				log.Log.Reason(err).Error("failed to start libvirtd")
+				panic(err)
+			}
 
-			err := cmd.Start()
+			go func() {
+				scanner := bufio.NewScanner(reader)
+				for scanner.Scan() {
+					glog.LogLibvirtLogLine(scanner.Text())
+				}
+
+				if err := scanner.Err(); err != nil {
+					log.Log.Reason(err).Error("failed to read libvirt logs")
+				}
+			}()
+
+			err = cmd.Start()
 			if err != nil {
 				log.Log.Reason(err).Error("failed to start libvirtd")
 				panic(err)
