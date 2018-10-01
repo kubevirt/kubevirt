@@ -1089,6 +1089,86 @@ var _ = Describe("Converter", func() {
 			table.Entry("using an auto policy with 4 CPUs", v1.IOThreadsPolicyAuto, 4, 7, []int{7, 1, 2, 3, 4, 5, 6}),
 			table.Entry("using an auto policy with 5 CPUs", v1.IOThreadsPolicyAuto, 5, 7, []int{7, 1, 2, 3, 4, 5, 6}),
 		)
+
+	})
+	
+	Context("virtio block multi-queue", func() {
+		var vmi *v1.VirtualMachineInstance
+
+		BeforeEach(func() {
+			vmi = &v1.VirtualMachineInstance{
+				ObjectMeta: k8smeta.ObjectMeta{
+					Name:      "testvmi",
+					Namespace: "mynamespace",
+				},
+			}
+			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
+			vmi.Spec.Domain.Devices.Disks = []v1.Disk{
+				{
+					Name:       "mydisk",
+					VolumeName: "myvolume",
+					DiskDevice: v1.DiskDevice{
+						Disk: &v1.DiskTarget{
+							Bus: "virtio",
+						},
+					},
+				},
+			}
+			vmi.Spec.Volumes = []v1.Volume{
+				{
+					Name: "myvolume",
+					VolumeSource: v1.VolumeSource{
+						HostDisk: &v1.HostDisk{
+							Path:     "/var/run/kubevirt-private/vmi-disks/myvolume/disk.img",
+							Type:     v1.HostDiskExistsOrCreate,
+							Capacity: resource.MustParse("1Gi"),
+						},
+					},
+				},
+			}
+
+			vmi.Spec.Domain.Devices.MultiQueue = True()
+			vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceCPU] = resource.MustParse("2")
+		})
+
+		It("should assign queues to a device if requested", func() {
+			expectedQueues := "2"
+
+			v1Disk := v1.Disk{
+				DiskDevice: v1.DiskDevice{
+					Disk: &v1.DiskTarget{},
+				},
+			}
+			apiDisk := Disk{}
+			devicePerBus := map[string]int{}
+			numQueues := int64(2)
+			Convert_v1_Disk_To_api_Disk(&v1Disk, &apiDisk, devicePerBus, &numQueues)
+			Expect(apiDisk.Device).To(Equal("disk"), "expected disk device to be defined")
+			Expect(apiDisk.Driver.Queues).To(Equal(expectedQueues), "expected queues to be 2")
+		})
+
+		It("should not assign queues to a device if omitted", func() {
+			emptyString := ""
+
+			v1Disk := v1.Disk{
+				DiskDevice: v1.DiskDevice{
+					Disk: &v1.DiskTarget{},
+				},
+			}
+			apiDisk := Disk{}
+			devicePerBus := map[string]int{}
+			Convert_v1_Disk_To_api_Disk(&v1Disk, &apiDisk, devicePerBus, nil)
+			Expect(apiDisk.Device).To(Equal("disk"), "expected disk device to be defined")
+			Expect(apiDisk.Driver.Queues).To(Equal(emptyString), "expected no queues to be requested")
+		})
+
+		It("should honor multiQueue setting", func() {
+			expectedQueues := "2"
+
+			domain := vmiToDomain(vmi, &ConverterContext{UseEmulation: true})
+			Expect(domain.Spec.Devices.Disks[0].Driver.Queues).To(Equal(expectedQueues),
+				"expected number of queues to equal number of requested CPUs")
+		})
 	})
 })
 
