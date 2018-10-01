@@ -87,6 +87,7 @@ var _ = Describe("Configurations", func() {
 					&expect.BSnd{S: "grep -c ^processor /proc/cpuinfo\n"},
 					&expect.BExp{R: "3"},
 				}, 250*time.Second)
+				Expect(err).ToNot(HaveOccurred())
 
 				By("Checking the requested amount of memory allocated for a guest")
 				Expect(vmi.Spec.Domain.Resources.Requests.Memory().String()).To(Equal("64M"))
@@ -105,6 +106,61 @@ var _ = Describe("Configurations", func() {
 				Expect(computeContainer.Resources.Requests.Memory().ToDec().ScaledValue(resource.Mega)).To(Equal(int64(179)))
 
 				Expect(err).ToNot(HaveOccurred())
+			}, 300)
+
+			It("should map cores to queues", func() {
+				_true := true
+				vmi.Spec.Domain.Resources = v1.ResourceRequirements{
+					Requests: kubev1.ResourceList{
+						kubev1.ResourceMemory: resource.MustParse("64M"),
+						kubev1.ResourceCPU:    resource.MustParse("3"),
+					},
+				}
+				vmi.Spec.Domain.Devices.MultiQueue = &_true
+
+				By("Starting a VirtualMachineInstance")
+				vmi, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
+				Expect(err).ToNot(HaveOccurred())
+				tests.WaitForSuccessfulVMIStart(vmi)
+
+				vmiPod := tests.GetRunningPodByVirtualMachineInstance(vmi, tests.NamespaceTestDefault)
+
+				found := false
+				containerIdx := 0
+				for idx, container := range vmiPod.Spec.Containers {
+					if container.Name == "compute" {
+						containerIdx = idx
+						found = true
+					}
+				}
+				Expect(found).To(BeTrue(), "could not find compute container for pod")
+
+				output, err := tests.ExecuteCommandOnPod(
+					virtClient,
+					vmiPod,
+					vmiPod.Spec.Containers[containerIdx].Name,
+					[]string{"ls", "/etc/libvirt/qemu/"},
+				)
+				Expect(err).ToNot(HaveOccurred())
+
+				fn := ""
+				for _, line := range strings.Split(output, "\n") {
+					if strings.Contains(line, vmi.Name) {
+						fn = line
+					}
+				}
+				Expect(fn).ToNot(Equal(""), "libvirt DomXML file not found")
+				fn = fmt.Sprintf("/etc/libvirt/qemu/%s", fn)
+
+				output, err = tests.ExecuteCommandOnPod(
+					virtClient,
+					vmiPod,
+					vmiPod.Spec.Containers[containerIdx].Name,
+					[]string{"grep", "queues", fn},
+				)
+				Expect(err).ToNot(HaveOccurred())
+
+				Expect(output).To(ContainSubstring("queues='3'"))
 			}, 300)
 		})
 
