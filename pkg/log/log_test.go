@@ -27,6 +27,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/golang/glog"
 	v12 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	k8sv1 "k8s.io/api/core/v1"
@@ -96,7 +97,7 @@ func TestBadLevel(t *testing.T) {
 func TestGoodLevel(t *testing.T) {
 	setUp()
 	l := Logger("test")
-	error := l.SetLogLevel(INFO)
+	error := l.SetLogLevel(glog.INFO)
 	assert(t, error == nil, "Unable to set log level")
 	tearDown()
 }
@@ -118,14 +119,14 @@ func TestComponent(t *testing.T) {
 func TestInfoCutoff(t *testing.T) {
 	setUp()
 	log := MakeLogger(MockLogger{})
-	log.SetLogLevel(WARNING)
-	assert(t, log.filterLevel == WARNING, "Unable to set log level")
+	log.SetLogLevel(glog.WARNING)
+	assert(t, log.filterLevel == glog.WARNING, "Unable to set log level")
 
-	log = log.Level(INFO)
+	log = log.Level(glog.INFO)
 	log.Log("This is an info message")
 	assert(t, !logCalled, "Info log entry should not have been recorded")
 
-	log = log.Level(WARNING)
+	log = log.Level(glog.WARNING)
 	log.Log("This is a warning message")
 	assert(t, logCalled, "Warning log entry should have been recorded")
 	tearDown()
@@ -181,13 +182,13 @@ func TestCachedLoggers(t *testing.T) {
 	log.SetLogger(logger)
 
 	// set a value on this log class
-	log.SetLogLevel(ERROR)
+	log.SetLogLevel(glog.ERROR)
 	// obtain a new filtered logger and prove it reflects that same log level
 
 	log2 := Logger("test")
 
-	assert(t, log.filterLevel == ERROR, "Log object was not correctly filtered")
-	assert(t, log2.filterLevel == ERROR, "Log object was not cached")
+	assert(t, log.filterLevel == glog.ERROR, "Log object was not correctly filtered")
+	assert(t, log2.filterLevel == glog.ERROR, "Log object was not cached")
 	tearDown()
 }
 
@@ -195,10 +196,10 @@ func TestWarningCutoff(t *testing.T) {
 	setUp()
 	log := MakeLogger(MockLogger{})
 
-	log.Level(WARNING).Log("message", "test warning message")
+	log.Level(glog.WARNING).Log("message", "test warning message")
 	assert(t, logCalled, "Warning level message should have been recorded")
 
-	log.Level(ERROR).Log("error", "test error message")
+	log.Level(glog.ERROR).Log("error", "test error message")
 	assert(t, logCalled, "Error level message should have been recorded")
 	tearDown()
 }
@@ -207,20 +208,20 @@ func TestLogConcurrency(t *testing.T) {
 	setUp()
 	log := MakeLogger(MockLogger{})
 	// create a new log object from the previous one.
-	log2 := log.Level(WARNING)
+	log2 := log.Level(glog.WARNING)
 	assert(t, log.currentLogLevel != log2.currentLogLevel, "log and log2 should not have the same log level")
-	assert(t, log.currentLogLevel == INFO, "Calling Warning() did not create a new log object")
+	assert(t, log.currentLogLevel == glog.INFO, "Calling Warning() did not create a new log object")
 	tearDown()
 }
 
 func TestInfoMessage(t *testing.T) {
 	setUp()
 	log := MakeLogger(MockLogger{})
-	log.SetLogLevel(INFO)
-	log.Level(INFO).Log("test", "message")
+	log.SetLogLevel(glog.INFO)
+	log.Level(glog.INFO).Log("test", "message")
 	logEntry := logParams[0].([]interface{})
 	assert(t, logEntry[0].(string) == "level", "Logged line did not have level entry")
-	assert(t, logEntry[1].(string) == logLevelNames[INFO], "Logged line was not INFO level")
+	assert(t, logEntry[1].(string) == glog.LogLevelNames[glog.INFO], "Logged line was not glog.INFO level")
 	assert(t, logEntry[2].(string) == "timestamp", "Logged line is not expected format")
 	assert(t, logEntry[6].(string) == "component", "Logged line is not expected format")
 	assert(t, logEntry[7].(string) == "test", "Component was not logged")
@@ -230,11 +231,11 @@ func TestInfoMessage(t *testing.T) {
 func TestWarningMessage(t *testing.T) {
 	setUp()
 	log := MakeLogger(MockLogger{})
-	log.SetLogLevel(WARNING)
-	log.Level(WARNING).Log("test", "message")
+	log.SetLogLevel(glog.WARNING)
+	log.Level(glog.WARNING).Log("test", "message")
 	logEntry := logParams[0].([]interface{})
 	assert(t, logEntry[0].(string) == "level", "Logged line did not have level entry")
-	assert(t, logEntry[1].(string) == logLevelNames[WARNING], "Logged line was not WARNING level")
+	assert(t, logEntry[1].(string) == glog.LogLevelNames[glog.WARNING], "Logged line was not glog.WARNING level")
 	assert(t, logEntry[2].(string) == "timestamp", "Logged line is not expected format")
 	assert(t, logEntry[6].(string) == "component", "Logged line is not expected format")
 	assert(t, logEntry[7].(string) == "test", "Component was not logged")
@@ -244,11 +245,11 @@ func TestWarningMessage(t *testing.T) {
 func TestErrorMessage(t *testing.T) {
 	setUp()
 	log := MakeLogger(MockLogger{})
-	log.SetLogLevel(ERROR)
-	log.Level(ERROR).Log("test", "message")
+	log.SetLogLevel(glog.ERROR)
+	log.Level(glog.ERROR).Log("test", "message")
 	logEntry := logParams[0].([]interface{})
 	assert(t, logEntry[0].(string) == "level", "Logged line did not have level entry")
-	assert(t, logEntry[1].(string) == logLevelNames[ERROR], "Logged line was not ERROR level")
+	assert(t, logEntry[1].(string) == glog.LogLevelNames[glog.ERROR], "Logged line was not glog.ERROR level")
 	assert(t, logEntry[2].(string) == "timestamp", "Logged line is not expected format")
 	assert(t, logEntry[6].(string) == "component", "Logged line is not expected format")
 	assert(t, logEntry[7].(string) == "test", "Component was not logged")
@@ -258,11 +259,11 @@ func TestErrorMessage(t *testing.T) {
 func TestCriticalMessage(t *testing.T) {
 	setUp()
 	log := MakeLogger(MockLogger{})
-	log.SetLogLevel(CRITICAL)
-	log.Level(CRITICAL).Log("test", "message")
+	log.SetLogLevel(glog.FATAL)
+	log.Level(glog.FATAL).Log("test", "message")
 	logEntry := logParams[0].([]interface{})
 	assert(t, logEntry[0].(string) == "level", "Logged line did not have level entry")
-	assert(t, logEntry[1].(string) == logLevelNames[CRITICAL], "Logged line was not CRITICAL level")
+	assert(t, logEntry[1].(string) == glog.LogLevelNames[glog.FATAL], "Logged line was not glog.FATAL level")
 	assert(t, logEntry[2].(string) == "timestamp", "Logged line is not expected format")
 	assert(t, logEntry[6].(string) == "component", "Logged line is not expected format")
 	assert(t, logEntry[7].(string) == "test", "Component was not logged")
@@ -272,12 +273,12 @@ func TestCriticalMessage(t *testing.T) {
 func TestObject(t *testing.T) {
 	setUp()
 	log := MakeLogger(MockLogger{})
-	log.SetLogLevel(INFO)
+	log.SetLogLevel(glog.INFO)
 	vm := v1.VirtualMachineInstance{ObjectMeta: v12.ObjectMeta{Namespace: "test"}}
 	log.Object(&vm).Log("test", "message")
 	logEntry := logParams[0].([]interface{})
 	assert(t, logEntry[0].(string) == "level", "Logged line did not have level entry")
-	assert(t, logEntry[1].(string) == logLevelNames[INFO], "Logged line was not of level INFO")
+	assert(t, logEntry[1].(string) == glog.LogLevelNames[glog.INFO], "Logged line was not of level glog.INFO")
 	assert(t, logEntry[2].(string) == "timestamp", "Logged line is not expected format")
 	assert(t, logEntry[4].(string) == "pos", "Logged line was not pos")
 	assert(t, logEntry[6].(string) == "component", "Logged line is not expected format")
@@ -292,7 +293,7 @@ func TestObject(t *testing.T) {
 func TestObjectRef(t *testing.T) {
 	setUp()
 	log := MakeLogger(MockLogger{})
-	log.SetLogLevel(INFO)
+	log.SetLogLevel(glog.INFO)
 	vmRef := &k8sv1.ObjectReference{
 		Kind:      "test",
 		Name:      "test",
@@ -302,7 +303,7 @@ func TestObjectRef(t *testing.T) {
 	log.ObjectRef(vmRef).Log("test", "message")
 	logEntry := logParams[0].([]interface{})
 	assert(t, logEntry[0].(string) == "level", "Logged line did not have level entry")
-	assert(t, logEntry[1].(string) == logLevelNames[INFO], "Logged line was not of level INFO")
+	assert(t, logEntry[1].(string) == glog.LogLevelNames[glog.INFO], "Logged line was not of level glog.INFO")
 	assert(t, logEntry[2].(string) == "timestamp", "Logged line is not expected format")
 	assert(t, logEntry[4].(string) == "pos", "Logged line was not pos")
 	assert(t, logEntry[6].(string) == "component", "Logged line is not expected format")
@@ -317,9 +318,9 @@ func TestObjectRef(t *testing.T) {
 func TestError(t *testing.T) {
 	setUp()
 	log := MakeLogger(MockLogger{})
-	log.SetLogLevel(INFO)
+	log.SetLogLevel(glog.INFO)
 	err := errors.New("Test error")
-	log.Level(ERROR).Log(err)
+	log.Level(glog.ERROR).Log(err)
 	assert(t, logCalled, "Error was not logged via .Log()")
 
 	logCalled = false
@@ -340,13 +341,13 @@ func TestError(t *testing.T) {
 func TestMultipleLevels(t *testing.T) {
 	setUp()
 	log := MakeLogger(MockLogger{})
-	log.SetLogLevel(INFO)
+	log.SetLogLevel(glog.INFO)
 	// change levels more than once
-	log.Level(WARNING).Level(INFO).Level(WARNING).msg("test")
+	log.Level(glog.WARNING).Level(glog.INFO).Level(glog.WARNING).msg("test")
 
 	logEntry := logParams[0].([]interface{})
 	assert(t, logEntry[0].(string) == "level", "Logged line did not have level entry")
-	assert(t, logEntry[1].(string) == logLevelNames[WARNING], "Logged line was not of level WARNING")
+	assert(t, logEntry[1].(string) == glog.LogLevelNames[glog.WARNING], "Logged line was not of level glog.WARNING")
 	assert(t, logEntry[2].(string) == "timestamp", "Logged line is not expected format")
 	assert(t, logEntry[4].(string) == "pos", "Logged line was not pos")
 	assert(t, logEntry[6].(string) == "component", "Logged line is not expected format")
@@ -359,7 +360,7 @@ func TestMultipleLevels(t *testing.T) {
 func TestLogVerbosity(t *testing.T) {
 	setUp()
 	log := MakeLogger(MockLogger{})
-	log.SetLogLevel(INFO)
+	log.SetLogLevel(glog.INFO)
 	log.SetVerbosityLevel(2)
 	log.V(2).Log("msg", "test")
 
@@ -372,7 +373,7 @@ func TestLogVerbosity(t *testing.T) {
 func TestMsgVerbosity(t *testing.T) {
 	setUp()
 	log := MakeLogger(MockLogger{})
-	log.SetLogLevel(INFO)
+	log.SetLogLevel(glog.INFO)
 	log.SetVerbosityLevel(2)
 	log.V(2).msg("test")
 
@@ -384,7 +385,7 @@ func TestMsgVerbosity(t *testing.T) {
 func TestMsgfVerbosity(t *testing.T) {
 	setUp()
 	log := MakeLogger(MockLogger{})
-	log.SetLogLevel(INFO)
+	log.SetLogLevel(glog.INFO)
 	log.SetVerbosityLevel(2)
 	log.V(2).msgf("%s", "test")
 

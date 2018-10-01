@@ -1,6 +1,7 @@
 package: kubevirt.io/kubevirt
 ignore:
 - github.com/go-kit/kit/examples
+- github.com/golang/glog
 - github.com/googleapis/gnostic/plugins
 - github.com/go-kit/kit/log/levels
 - github.com/go-kit/kit/metrics/influxdb
