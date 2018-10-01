@@ -61,6 +61,8 @@ type templateService struct {
 	persistentVolumeClaimStore cache.Store
 }
 
+type PvcNotFoundError error
+
 func getConfigMapEntry(store cache.Store, key string) (string, error) {
 
 	if obj, exists, err := store.GetByKey(configMapName); err != nil {
@@ -139,12 +141,15 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 		}
 		if volume.PersistentVolumeClaim != nil {
 			logger := log.DefaultLogger()
-			isBlock, err := types.IsPVCBlockFromStore(t.persistentVolumeClaimStore, namespace, volume.PersistentVolumeClaim.ClaimName)
+			claimName := volume.PersistentVolumeClaim.ClaimName
+			_, exists, isBlock, err := types.IsPVCBlockFromStore(t.persistentVolumeClaimStore, namespace, claimName)
 			if err != nil {
-				logger.Errorf("error checking for PVC: %v", err)
+				logger.Errorf("error getting PVC: %v", claimName)
 				return nil, err
-			}
-			if isBlock {
+			} else if !exists {
+				logger.Errorf("didn't find PVC %v", claimName)
+				return nil, PvcNotFoundError(fmt.Errorf("didn't find PVC %v", claimName))
+			} else if isBlock {
 				devicePath := filepath.Join(string(filepath.Separator), "dev", volume.Name)
 				device := k8sv1.VolumeDevice{
 					Name:       volume.Name,

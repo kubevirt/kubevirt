@@ -87,6 +87,9 @@ const (
 	// FailedGuaranteePodResourcesReason is added in an event and in a vmi controller condition
 	// when a pod has been created without a Guaranteed resources.
 	FailedGuaranteePodResourcesReason = "FailedGuaranteeResources"
+	// FailedPvcNotFoundReason is added in an event
+	// when a PVC for a volume was not found.
+	FailedPvcNotFoundReason = "FailedPvcNotFound"
 )
 
 func NewVMIController(templateService services.TemplateService,
@@ -296,6 +299,15 @@ func (c *VMIController) updateStatus(vmi *virtv1.VirtualMachineInstance, pods []
 			vmiCopy.Status.Phase = virtv1.Failed
 		} else {
 			vmiCopy.Status.Phase = virtv1.Pending
+			if syncErr != nil && syncErr.Reason() == FailedPvcNotFoundReason {
+				condition := virtv1.VirtualMachineInstanceCondition{
+					Type:    virtv1.VirtualMachineInstanceConditionType(k8sv1.PodScheduled),
+					Reason:  k8sv1.PodReasonUnschedulable,
+					Message: syncErr.Error(),
+					Status:  k8sv1.ConditionFalse,
+				}
+				vmiCopy.Status.Conditions = append(vmiCopy.Status.Conditions, condition)
+			}
 		}
 	case vmi.IsScheduling():
 		switch {
@@ -435,7 +447,9 @@ func (c *VMIController) sync(vmi *virtv1.VirtualMachineInstance, pods []*k8sv1.P
 
 		c.podExpectations.ExpectCreations(vmiKey, 1)
 		templatePod, err := c.templateService.RenderLaunchManifest(vmi)
-		if err != nil {
+		if _, ok := err.(services.PvcNotFoundError); ok {
+			return &syncErrorImpl{fmt.Errorf("failed to render launch manifest: %v", err), FailedPvcNotFoundReason}
+		} else if err != nil {
 			return &syncErrorImpl{fmt.Errorf("failed to render launch manifest: %v", err), FailedCreatePodReason}
 		}
 		pod, err := c.clientset.CoreV1().Pods(vmi.GetNamespace()).Create(templatePod)

@@ -21,6 +21,7 @@ package tests_test
 
 import (
 	"flag"
+	"fmt"
 	"path/filepath"
 	"strings"
 	"time"
@@ -436,5 +437,35 @@ var _ = Describe("Storage", func() {
 			})
 		})
 
+		Context("With not existing PVC", func() {
+			It("should get unschedulable condition", func() {
+				// Start the VirtualMachineInstance
+				pvcName := "nonExistingPVC"
+				vmi := tests.NewRandomVMIWithPVC(pvcName)
+
+				tests.RunVMI(vmi, 10)
+
+				virtClient, err := kubecli.GetKubevirtClient()
+				Expect(err).ToNot(HaveOccurred())
+
+				Eventually(func() bool {
+					vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &metav1.GetOptions{})
+					Expect(err).ToNot(HaveOccurred())
+
+					if vmi.Status.Phase != v1.Pending {
+						return false
+					}
+					if len(vmi.Status.Conditions) == 0 {
+						return false
+					}
+					Expect(vmi.Status.Conditions[0].Type).To(Equal(v1.VirtualMachineInstanceConditionType(k8sv1.PodScheduled)))
+					Expect(vmi.Status.Conditions[0].Reason).To(Equal(k8sv1.PodReasonUnschedulable))
+					Expect(vmi.Status.Conditions[0].Status).To(Equal(k8sv1.ConditionFalse))
+					Expect(vmi.Status.Conditions[0].Message).To(Equal(fmt.Sprintf("failed to render launch manifest: didn't find PVC %v", pvcName)))
+					return true
+				}, time.Duration(10)*time.Second).Should(Equal(true), "Timed out waiting for VMI to get Unschedulable condition")
+
+			})
+		})
 	})
 })

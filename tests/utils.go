@@ -755,7 +755,7 @@ func DeletePV(os string) {
 	}
 }
 
-func RunVMIAndExpectLaunch(vmi *v1.VirtualMachineInstance, withAuth bool, timeout int) *v1.VirtualMachineInstance {
+func RunVMI(vmi *v1.VirtualMachineInstance, timeout int) *v1.VirtualMachineInstance {
 	By("Starting a VirtualMachineInstance")
 	virtCli, err := kubecli.GetKubevirtClient()
 	PanicOnError(err)
@@ -765,6 +765,11 @@ func RunVMIAndExpectLaunch(vmi *v1.VirtualMachineInstance, withAuth bool, timeou
 		obj, err = virtCli.VirtualMachineInstance(NamespaceTestDefault).Create(vmi)
 		return err
 	}, timeout, 1*time.Second).ShouldNot(HaveOccurred())
+	return obj
+}
+
+func RunVMIAndExpectLaunch(vmi *v1.VirtualMachineInstance, withAuth bool, timeout int) *v1.VirtualMachineInstance {
+	obj := RunVMI(vmi, timeout)
 	By("Waiting until the VirtualMachineInstance will start")
 	WaitForSuccessfulVMIStartWithTimeout(obj, timeout)
 	return obj

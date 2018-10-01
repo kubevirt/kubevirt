@@ -30,8 +30,6 @@ import (
 	"sync"
 	"time"
 
-	util "kubevirt.io/kubevirt/pkg/util/types"
-
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/record"
@@ -47,7 +45,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/cloud-init"
 	"kubevirt.io/kubevirt/pkg/controller"
-	featuregates "kubevirt.io/kubevirt/pkg/feature-gates"
+	"kubevirt.io/kubevirt/pkg/feature-gates"
 	"kubevirt.io/kubevirt/pkg/host-disk"
 	"kubevirt.io/kubevirt/pkg/kubecli"
 	"kubevirt.io/kubevirt/pkg/log"
@@ -467,36 +465,6 @@ func (d *VirtualMachineController) execute(key string) error {
 	return nil
 }
 
-func (d *VirtualMachineController) replacePVCByHostDisk(vmi *v1.VirtualMachineInstance) error {
-	// if PVC is defined and it's not a BlockMode PVC, then it is replaced by HostDisk
-	// Filesystem PersistenVolumeClaim is mounted into pod as directory from node filesystem
-	for i := range vmi.Spec.Volumes {
-		if volumeSource := &vmi.Spec.Volumes[i].VolumeSource; volumeSource.PersistentVolumeClaim != nil {
-
-			isBlockVolumePVC, err := util.IsPVCBlockFromClient(d.clientset, vmi.Namespace, volumeSource.PersistentVolumeClaim.ClaimName)
-			if err != nil {
-				return err
-			}
-			if isBlockVolumePVC {
-				continue
-			}
-
-			pvcSize, err := hostdisk.GetPVCSize(volumeSource.PersistentVolumeClaim.ClaimName, vmi.Namespace, d.clientset)
-			if err != nil {
-				return err
-			}
-			volumeSource.HostDisk = &v1.HostDisk{
-				Path:     hostdisk.GetPVCDiskImgPath(vmi.Spec.Volumes[i].Name),
-				Type:     v1.HostDiskExistsOrCreate,
-				Capacity: pvcSize,
-			}
-			// PersistenVolumeClaim is replaced by HostDisk
-			volumeSource.PersistentVolumeClaim = nil
-		}
-	}
-	return nil
-}
-
 func (d *VirtualMachineController) injectCloudInitSecrets(vmi *v1.VirtualMachineInstance) error {
 	cloudInitSpec := cloudinit.GetCloudInitNoCloudSource(vmi)
 	if cloudInitSpec == nil {
@@ -693,7 +661,7 @@ func (d *VirtualMachineController) processVmUpdate(origVMI *v1.VirtualMachineIns
 		return goerror.New(fmt.Sprintf("Can not update a VirtualMachineInstance with expired watchdog."))
 	}
 
-	err = d.replacePVCByHostDisk(vmi)
+	err = hostdisk.ReplacePVCByHostDisk(vmi, d.clientset)
 	if err != nil {
 		return err
 	}

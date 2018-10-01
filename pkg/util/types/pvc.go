@@ -22,6 +22,8 @@ package types
 import (
 	"fmt"
 
+	"k8s.io/apimachinery/pkg/api/errors"
+
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/tools/cache"
@@ -29,39 +31,25 @@ import (
 	"kubevirt.io/kubevirt/pkg/kubecli"
 )
 
-func IsPVCBlockFromStore(store cache.Store, namespace string, claimName string) (bool, error) {
-	pvc, err := getPersistentVolumeClaim(store, namespace, claimName)
-	if err != nil {
-		return false, err
+func IsPVCBlockFromStore(store cache.Store, namespace string, claimName string) (pvc *k8sv1.PersistentVolumeClaim, exists bool, isBlockDevice bool, err error) {
+	obj, exists, err := store.GetByKey(namespace + "/" + claimName)
+	if err != nil || !exists {
+		return nil, exists, false, err
 	}
-	if pvc == nil {
-		return false, fmt.Errorf("unknown persistentvolumeclaim: %v/%v", namespace, claimName)
+	if pvc, ok := obj.(*k8sv1.PersistentVolumeClaim); ok {
+		return obj.(*k8sv1.PersistentVolumeClaim), true, isPVCBlock(pvc), nil
 	}
-	return isPVCBlock(pvc), nil
+	return nil, false, false, fmt.Errorf("this is not a PVC! %v", obj)
 }
 
-func IsPVCBlockFromClient(client kubecli.KubevirtClient, namespace string, claimName string) (bool, error) {
-	pvc, err := client.CoreV1().PersistentVolumeClaims(namespace).Get(claimName, v1.GetOptions{})
-	if err != nil {
-		return false, err
+func IsPVCBlockFromClient(client kubecli.KubevirtClient, namespace string, claimName string) (pvc *k8sv1.PersistentVolumeClaim, exists bool, isBlockDevice bool, err error) {
+	pvc, err = client.CoreV1().PersistentVolumeClaims(namespace).Get(claimName, v1.GetOptions{})
+	if errors.IsNotFound(err) {
+		return nil, false, false, nil
+	} else if err != nil {
+		return nil, false, false, err
 	}
-	if pvc == nil {
-		return false, fmt.Errorf("unknown persistentvolumeclaim: %v/%v", namespace, claimName)
-	}
-	return isPVCBlock(pvc), nil
-}
-
-func getPersistentVolumeClaim(store cache.Store, namespace string, name string) (*k8sv1.PersistentVolumeClaim, error) {
-	if obj, exists, err := store.GetByKey(namespace + "/" + name); err != nil {
-		return nil, err
-	} else if !exists {
-		return nil, nil
-	} else {
-		if pvc, ok := obj.(*k8sv1.PersistentVolumeClaim); ok {
-			return pvc, nil
-		}
-		return nil, fmt.Errorf("this is not a PVC! %v", obj)
-	}
+	return pvc, true, isPVCBlock(pvc), nil
 }
 
 func isPVCBlock(pvc *k8sv1.PersistentVolumeClaim) bool {
