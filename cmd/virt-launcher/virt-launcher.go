@@ -215,9 +215,22 @@ func initializeDirs(virtShareDir string,
 	}
 }
 
-func waitForDomainUUID(timeout time.Duration, events chan watch.Event, stop chan struct{}) *api.Domain {
-	ticker := time.NewTicker(timeout).C
+func waitForDomainUUID(timeout time.Duration, events chan watch.Event, stop chan struct{}, domainManager virtwrap.DomainManager) *api.Domain {
 
+	// Here's a useless loop in a goroutine
+	// that magically makes events work properly
+	go func() {
+		for {
+			_, err := domainManager.ListAllDomains()
+			if err != nil {
+				log.Log.Reason(err).Error("failed to retrieve domains from libvirt")
+				continue
+			}
+			time.Sleep(5 * time.Second)
+		}
+	}()
+
+	ticker := time.NewTicker(timeout).C
 	select {
 	case <-ticker:
 		panic(fmt.Errorf("timed out waiting for domain to be defined"))
@@ -390,7 +403,7 @@ func main() {
 	// managing virtual machines.
 	markReady(*readinessFile)
 
-	domain := waitForDomainUUID(*qemuTimeout, events, signalStopChan)
+	domain := waitForDomainUUID(*qemuTimeout, events, signalStopChan, domainManager)
 	if domain != nil {
 		mon := virtlauncher.NewProcessMonitor(domain.Spec.UUID,
 			gracefulShutdownTriggerFile,
