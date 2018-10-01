@@ -212,6 +212,7 @@ var _ = Describe("Schema", func() {
 
 	BeforeEach(func() {
 		exampleVMI = NewMinimalVMI("testvmi")
+
 		exampleVMI.Spec.Domain.Devices.Disks = []Disk{
 			{
 				Name:       "disk0",

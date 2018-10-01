@@ -573,7 +573,7 @@ type Timer struct {
 
 type Channel struct {
 	Type   string         `xml:"type,attr"`
-	Source ChannelSource  `xml:"source,omitempty"`
+	Source *ChannelSource `xml:"source,omitempty"`
 	Target *ChannelTarget `xml:"target,omitempty"`
 }
 
@@ -582,6 +582,7 @@ type ChannelTarget struct {
 	Type    string `xml:"type,attr"`
 	Address string `xml:"address,attr,omitempty"`
 	Port    uint   `xml:"port,attr,omitempty"`
+	State   string `xml:"state,attr,omitempty"`
 }
 
 type ChannelSource struct {
