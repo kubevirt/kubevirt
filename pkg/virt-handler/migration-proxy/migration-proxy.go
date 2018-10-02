@@ -324,9 +324,9 @@ func (m *migrationProxy) StartListening() error {
 			case fd := <-fdChan:
 				go handleConnection(fd, targetAddress, targetProtocol, stopChan)
 			case <-stopChan:
-				break
+				return
 			case <-listenErrChan:
-				break
+				return
 			}
 		}
 
