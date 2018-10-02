@@ -169,7 +169,7 @@ var exampleJSON = `{
             {{.InterfaceConfig}}
           }
         ],
-        "rng": {}
+        "rng": {},
         "multiQueue": true
       },
       "ioThreadsPolicy": "shared"

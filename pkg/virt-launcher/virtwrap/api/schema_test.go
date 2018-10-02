@@ -122,6 +122,7 @@ var _ = Describe("Schema", func() {
 
 	var heads uint = 1
 	var vram uint = 16384
+	var numQueues uint = 2
 	exampleDomain.Spec.Devices.Video = []Video{
 		{Model: VideoModel{Type: "vga", Heads: &heads, VRam: &vram}},
 	}
@@ -144,7 +145,7 @@ var _ = Describe("Schema", func() {
 			Type:   "usb",
 			Model:  "none",
 			Index:  "0",
-			Driver: ControllerDriver{Queues: "2"},
+			Driver: &ControllerDriver{Queues: &numQueues},
 		},
 	}
 	exampleDomain.Spec.Features = &Features{

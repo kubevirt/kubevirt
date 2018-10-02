@@ -360,9 +360,7 @@ var _ = Describe("Converter", func() {
       <model type="virtio"></model>
       <alias name="ua-default"></alias>
     </interface>
-    <controller type="usb" index="0" model="none">
-      <driver></driver>
-    </controller>
+    <controller type="usb" index="0" model="none"></controller>
     <video>
       <model type="vga" heads="1" vram="16384"></model>
     </video>
@@ -1091,7 +1089,7 @@ var _ = Describe("Converter", func() {
 		)
 
 	})
-	
+
 	Context("virtio block multi-queue", func() {
 		var vmi *v1.VirtualMachineInstance
 
@@ -1132,7 +1130,7 @@ var _ = Describe("Converter", func() {
 		})
 
 		It("should assign queues to a device if requested", func() {
-			expectedQueues := "2"
+			expectedQueues := uint(2)
 
 			v1Disk := v1.Disk{
 				DiskDevice: v1.DiskDevice{
@@ -1141,15 +1139,13 @@ var _ = Describe("Converter", func() {
 			}
 			apiDisk := Disk{}
 			devicePerBus := map[string]int{}
-			numQueues := int64(2)
+			numQueues := uint(2)
 			Convert_v1_Disk_To_api_Disk(&v1Disk, &apiDisk, devicePerBus, &numQueues)
 			Expect(apiDisk.Device).To(Equal("disk"), "expected disk device to be defined")
-			Expect(apiDisk.Driver.Queues).To(Equal(expectedQueues), "expected queues to be 2")
+			Expect(*(apiDisk.Driver.Queues)).To(Equal(expectedQueues), "expected queues to be 2")
 		})
 
 		It("should not assign queues to a device if omitted", func() {
-			emptyString := ""
-
 			v1Disk := v1.Disk{
 				DiskDevice: v1.DiskDevice{
 					Disk: &v1.DiskTarget{},
@@ -1159,14 +1155,14 @@ var _ = Describe("Converter", func() {
 			devicePerBus := map[string]int{}
 			Convert_v1_Disk_To_api_Disk(&v1Disk, &apiDisk, devicePerBus, nil)
 			Expect(apiDisk.Device).To(Equal("disk"), "expected disk device to be defined")
-			Expect(apiDisk.Driver.Queues).To(Equal(emptyString), "expected no queues to be requested")
+			Expect(apiDisk.Driver.Queues).To(BeNil(), "expected no queues to be requested")
 		})
 
 		It("should honor multiQueue setting", func() {
-			expectedQueues := "2"
+			var expectedQueues uint = 2
 
 			domain := vmiToDomain(vmi, &ConverterContext{UseEmulation: true})
-			Expect(domain.Spec.Devices.Disks[0].Driver.Queues).To(Equal(expectedQueues),
+			Expect(*(domain.Spec.Devices.Disks[0].Driver.Queues)).To(Equal(expectedQueues),
 				"expected number of queues to equal number of requested CPUs")
 		})
 	})
