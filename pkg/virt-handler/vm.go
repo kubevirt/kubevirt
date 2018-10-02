@@ -62,6 +62,7 @@ func NewController(
 	recorder record.EventRecorder,
 	clientset kubecli.KubevirtClient,
 	host string,
+	ipAddress string,
 	virtShareDir string,
 	vmiSourceInformer cache.SharedIndexInformer,
 	vmiTargetInformer cache.SharedIndexInformer,
@@ -78,6 +79,7 @@ func NewController(
 		recorder:                 recorder,
 		clientset:                clientset,
 		host:                     host,
+		ipAddress:                ipAddress,
 		virtShareDir:             virtShareDir,
 		vmiSourceInformer:        vmiSourceInformer,
 		vmiTargetInformer:        vmiTargetInformer,
@@ -123,6 +125,7 @@ type VirtualMachineController struct {
 	recorder                 record.EventRecorder
 	clientset                kubecli.KubevirtClient
 	host                     string
+	ipAddress                string
 	virtShareDir             string
 	Queue                    workqueue.RateLimitingInterface
 	vmiSourceInformer        cache.SharedIndexInformer
@@ -525,7 +528,7 @@ func (d *VirtualMachineController) migrationTargetExecute(key string,
 		if vmi.Status.MigrationState != nil {
 			hostAddress = vmi.Status.MigrationState.TargetNodeAddress
 		}
-		curAddress := fmt.Sprintf("%s:%d", d.host, curPort)
+		curAddress := fmt.Sprintf("%s:%d", d.ipAddress, curPort)
 		if hostAddress != curAddress {
 			vmiCopy := vmi.DeepCopy()
 			vmiCopy.Status.MigrationState.TargetNodeAddress = curAddress

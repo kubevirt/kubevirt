@@ -67,6 +67,8 @@ const (
 
 	hostOverride = ""
 
+	podIpAddress = ""
+
 	virtShareDir = "/var/run/kubevirt"
 
 	// This value is derived from default MaxPods in Kubelet Config
@@ -76,6 +78,7 @@ const (
 type virtHandlerApp struct {
 	service.ServiceListen
 	HostOverride            string
+	PodIpAddress            string
 	VirtShareDir            string
 	WatchdogTimeoutDuration time.Duration
 	MaxDevices              int
@@ -91,6 +94,10 @@ func (app *virtHandlerApp) Run() {
 			panic(err)
 		}
 		app.HostOverride = defaultHostName
+	}
+
+	if app.PodIpAddress == "" {
+		panic(fmt.Errorf("no pod ip detected"))
 	}
 
 	logger := log.Log
@@ -154,6 +161,7 @@ func (app *virtHandlerApp) Run() {
 		recorder,
 		virtCli,
 		app.HostOverride,
+		app.PodIpAddress,
 		app.VirtShareDir,
 		vmSourceSharedInformer,
 		vmTargetSharedInformer,
@@ -199,6 +207,9 @@ func (app *virtHandlerApp) AddFlags() {
 
 	flag.StringVar(&app.HostOverride, "hostname-override", hostOverride,
 		"Name under which the node is registered in Kubernetes, where this virt-handler instance is running on")
+
+	flag.StringVar(&app.PodIpAddress, "pod-ip-address", podIpAddress,
+		"The pod ip address")
 
 	flag.StringVar(&app.VirtShareDir, "kubevirt-share-dir", virtShareDir,
 		"Shared directory between virt-handler and virt-launcher")

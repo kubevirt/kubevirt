@@ -84,6 +84,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 		Expect(err).ToNot(HaveOccurred())
 
 		host := "master"
+		podIpAddress := "10.10.10.10"
 
 		Expect(err).ToNot(HaveOccurred())
 
@@ -104,6 +105,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 		controller = NewController(recorder,
 			virtClient,
 			host,
+			podIpAddress,
 			shareDir,
 			vmiSourceInformer,
 			vmiTargetInformer,

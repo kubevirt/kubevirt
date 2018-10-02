@@ -26,7 +26,6 @@ spec:
     spec:
       serviceAccountName: kubevirt-privileged
       hostPID: true
-      hostNetwork: true
       containers:
         - name: virt-handler
           ports:
@@ -43,6 +42,8 @@ spec:
             - "8443"
             - "--hostname-override"
             - "$(NODE_NAME)"
+            - "--pod-ip-address"
+            - "$(MY_POD_IP)"
             - "-v"
             - "5"
           securityContext:
@@ -61,6 +62,10 @@ spec:
               valueFrom:
                 fieldRef:
                   fieldPath: spec.nodeName
+            - name: MY_POD_IP
+              valueFrom:
+                fieldRef:
+                  fieldPath: status.podIP
       volumes:
         - name: libvirt-runtime
           hostPath:
