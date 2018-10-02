@@ -20,6 +20,7 @@
 package services_test
 
 import (
+	"errors"
 	"testing"
 	"time"
 
@@ -44,7 +45,8 @@ var _ = Describe("Template", func() {
 
 	log.Log.SetIOWriter(GinkgoWriter)
 	configCache := cache.NewIndexer(cache.DeletionHandlingMetaNamespaceKeyFunc, nil)
-	svc := NewTemplateService("kubevirt/virt-launcher", "/var/run/kubevirt", "pull-secret-1", configCache)
+	pvcCache := cache.NewIndexer(cache.DeletionHandlingMetaNamespaceKeyFunc, nil)
+	svc := NewTemplateService("kubevirt/virt-launcher", "/var/run/kubevirt", "pull-secret-1", configCache, pvcCache)
 
 	Describe("Rendering", func() {
 		Context("launch template with correct parameters", func() {
@@ -498,30 +500,119 @@ var _ = Describe("Template", func() {
 			)
 		})
 
-		Context("with pvc source", func() {
-			It("should add pvc to template", func() {
+		Context("with file mode pvc source", func() {
+			It("should add volume to template", func() {
+				namespace := "testns"
+				pvcName := "pvcFile"
+				pvc := kubev1.PersistentVolumeClaim{
+					TypeMeta:   metav1.TypeMeta{Kind: "PersistentVolumeClaim", APIVersion: "v1"},
+					ObjectMeta: metav1.ObjectMeta{Namespace: namespace, Name: pvcName},
+				}
+				err := pvcCache.Add(&pvc)
+				Expect(err).ToNot(HaveOccurred(), "Added PVC to cache successfully")
+
+				volumeName := "pvc-volume"
 				volumes := []v1.Volume{
 					{
-						Name: "pvc-volume",
+						Name: volumeName,
 						VolumeSource: v1.VolumeSource{
-							PersistentVolumeClaim: &kubev1.PersistentVolumeClaimVolumeSource{ClaimName: "nfs-pvc"},
+							PersistentVolumeClaim: &kubev1.PersistentVolumeClaimVolumeSource{ClaimName: pvcName},
 						},
 					},
 				}
 				vmi := v1.VirtualMachineInstance{
 					ObjectMeta: metav1.ObjectMeta{
-						Name: "testvmi", Namespace: "default", UID: "1234",
+						Name: "testvmi", Namespace: namespace, UID: "1234",
 					},
 					Spec: v1.VirtualMachineInstanceSpec{Volumes: volumes, Domain: v1.DomainSpec{}},
 				}
 
 				pod, err := svc.RenderLaunchManifest(&vmi)
-				Expect(err).ToNot(HaveOccurred())
+				Expect(err).ToNot(HaveOccurred(), "Render manifest successfully")
 
-				Expect(pod.Spec.Volumes).ToNot(BeEmpty())
-				Expect(len(pod.Spec.Volumes)).To(Equal(3))
-				Expect(pod.Spec.Volumes[0].PersistentVolumeClaim).ToNot(BeNil())
-				Expect(pod.Spec.Volumes[0].PersistentVolumeClaim.ClaimName).To(Equal("nfs-pvc"))
+				Expect(pod.Spec.Containers[0].VolumeDevices).To(BeEmpty(), "No devices in manifest for 1st container")
+
+				Expect(pod.Spec.Containers[0].VolumeMounts).ToNot(BeEmpty(), "Some mounts in manifest for 1st container")
+				Expect(len(pod.Spec.Containers[0].VolumeMounts)).To(Equal(3), "3 mounts in manifest for 1st container")
+				Expect(pod.Spec.Containers[0].VolumeMounts[2].Name).To(Equal(volumeName), "1st mount in manifest for 1st container has correct name")
+
+				Expect(pod.Spec.Volumes).ToNot(BeEmpty(), "Found some volumes in manifest")
+				Expect(len(pod.Spec.Volumes)).To(Equal(3), "Found 3 volumes in manifest")
+				Expect(pod.Spec.Volumes[0].PersistentVolumeClaim).ToNot(BeNil(), "Found PVC volume")
+				Expect(pod.Spec.Volumes[0].PersistentVolumeClaim.ClaimName).To(Equal(pvcName), "Found PVC volume with correct name")
+			})
+		})
+
+		Context("with blockdevice mode pvc source", func() {
+			It("should add device to template", func() {
+				namespace := "testns"
+				pvcName := "pvcDevice"
+				mode := kubev1.PersistentVolumeBlock
+				pvc := kubev1.PersistentVolumeClaim{
+					TypeMeta:   metav1.TypeMeta{Kind: "PersistentVolumeClaim", APIVersion: "v1"},
+					ObjectMeta: metav1.ObjectMeta{Namespace: namespace, Name: pvcName},
+					Spec: kubev1.PersistentVolumeClaimSpec{
+						VolumeMode: &mode,
+					},
+				}
+				err := pvcCache.Add(&pvc)
+				Expect(err).ToNot(HaveOccurred(), "Added PVC to cache successfully")
+				volumeName := "pvc-volume"
+				volumes := []v1.Volume{
+					{
+						Name: volumeName,
+						VolumeSource: v1.VolumeSource{
+							PersistentVolumeClaim: &kubev1.PersistentVolumeClaimVolumeSource{ClaimName: pvcName},
+						},
+					},
+				}
+				vmi := v1.VirtualMachineInstance{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "testvmi", Namespace: namespace, UID: "1234",
+					},
+					Spec: v1.VirtualMachineInstanceSpec{Volumes: volumes, Domain: v1.DomainSpec{}},
+				}
+
+				pod, err := svc.RenderLaunchManifest(&vmi)
+				Expect(err).ToNot(HaveOccurred(), "Render manifest successfully")
+
+				Expect(pod.Spec.Containers[0].VolumeDevices).ToNot(BeEmpty(), "Found some devices for 1st container")
+				Expect(len(pod.Spec.Containers[0].VolumeDevices)).To(Equal(1), "Found 1 device for 1st container")
+				Expect(pod.Spec.Containers[0].VolumeDevices[0].Name).To(Equal(volumeName), "Found device for 1st container with correct name")
+
+				Expect(pod.Spec.Containers[0].VolumeMounts).ToNot(BeEmpty(), "Found some mounts in manifest for 1st container")
+				Expect(len(pod.Spec.Containers[0].VolumeMounts)).To(Equal(2), "Found 2 mounts in manifest for 1st container")
+
+				Expect(pod.Spec.Volumes).ToNot(BeEmpty(), "Found some volumes in manifest")
+				Expect(len(pod.Spec.Volumes)).To(Equal(3), "Found 3 volumes in manifest")
+				Expect(pod.Spec.Volumes[0].PersistentVolumeClaim).ToNot(BeNil(), "Found PVC volume")
+				Expect(pod.Spec.Volumes[0].PersistentVolumeClaim.ClaimName).To(Equal(pvcName), "Found PVC volume with correct name")
+			})
+		})
+
+		Context("with non existing pvc source", func() {
+			It("should result in an error", func() {
+				namespace := "testns"
+				pvcName := "pvcNotExisting"
+				volumeName := "pvc-volume"
+				volumes := []v1.Volume{
+					{
+						Name: volumeName,
+						VolumeSource: v1.VolumeSource{
+							PersistentVolumeClaim: &kubev1.PersistentVolumeClaimVolumeSource{ClaimName: pvcName},
+						},
+					},
+				}
+				vmi := v1.VirtualMachineInstance{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "testvmi", Namespace: namespace, UID: "1234",
+					},
+					Spec: v1.VirtualMachineInstanceSpec{Volumes: volumes, Domain: v1.DomainSpec{}},
+				}
+
+				_, err := svc.RenderLaunchManifest(&vmi)
+				Expect(err).To(HaveOccurred(), "Render manifest results in an error")
+				Expect(err).To(BeAssignableToTypeOf(PvcNotFoundError(errors.New(""))), "Render manifest results in an PvsNotFoundError")
 			})
 		})
 

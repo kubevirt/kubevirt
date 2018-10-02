@@ -22,6 +22,13 @@ set -euo pipefail
 # gracefully handle the TERM signal sent when deleting the daemonset
 trap 'exit' TERM
 
+echo "converting cirros image from qcow2 to raw, and copying it to local-storage directory, and creating a loopback device from it"
+# /local-storage will be mapped to the host dir, which will also be used by the local storage provider
+qemu-img convert -f qcow2 -O raw /images/cirros/disk.img /local-storage/cirros.img.raw
+LOOP_DEVICE=$(losetup --find --show /local-storage/cirros.img.raw)
+rm -f /local-storage/cirros-block-device
+ln -s $LOOP_DEVICE /local-storage/cirros-block-device
+
 echo "copy all images to host mount directory"
 cp -R /images/* /hostImages/
 

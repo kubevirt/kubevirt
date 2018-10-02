@@ -57,6 +57,7 @@ type ConverterContext struct {
 	Secrets        map[string]*k8sv1.Secret
 	VirtualMachine *v1.VirtualMachineInstance
 	CPUSet         []int
+	IsBlockPVC     map[string]bool
 }
 
 func Convert_v1_Disk_To_api_Disk(diskDevice *v1.Disk, disk *Disk, devicePerBus map[string]int) error {
@@ -154,6 +155,10 @@ func Convert_v1_Volume_To_api_Disk(source *v1.Volume, disk *Disk, c *ConverterCo
 		return Convert_v1_HostDisk_To_api_Disk(source.HostDisk.Path, disk, c)
 	}
 
+	if source.PersistentVolumeClaim != nil {
+		return Convert_v1_PersistentVolumeClaim_To_api_Disk(source.Name, disk, c)
+	}
+
 	if source.DataVolume != nil {
 		return Convert_v1_FilesystemVolumeSource_To_api_Disk(source.Name, disk, c)
 	}
@@ -191,16 +196,33 @@ func Convert_v1_Config_To_api_Disk(volumeName string, disk *Disk, configType con
 	return nil
 }
 
+func GetFilesystemVolumePath(volumeName string) string {
+	return filepath.Join(string(filepath.Separator), "var", "run", "kubevirt-private", "vmi-disks", volumeName, "disk.img")
+}
+
+func GetBlockDeviceVolumePath(volumeName string) string {
+	return filepath.Join(string(filepath.Separator), "dev", volumeName)
+}
+
+func Convert_v1_PersistentVolumeClaim_To_api_Disk(name string, disk *Disk, c *ConverterContext) error {
+	if c.IsBlockPVC[name] {
+		return Convert_v1_BlockVolumeSource_To_api_Disk(name, disk, c)
+	}
+	return Convert_v1_FilesystemVolumeSource_To_api_Disk(name, disk, c)
+}
+
 // Convert_v1_FilesystemVolumeSource_To_api_Disk takes a FS source and builds the KVM Disk representation
 func Convert_v1_FilesystemVolumeSource_To_api_Disk(volumeName string, disk *Disk, c *ConverterContext) error {
-
 	disk.Type = "file"
 	disk.Driver.Type = "raw"
-	disk.Source.File = filepath.Join(
-		"/var/run/kubevirt-private",
-		"vmi-disks",
-		volumeName,
-		"disk.img")
+	disk.Source.File = GetFilesystemVolumePath(volumeName)
+	return nil
+}
+
+func Convert_v1_BlockVolumeSource_To_api_Disk(volumeName string, disk *Disk, c *ConverterContext) error {
+	disk.Type = "block"
+	disk.Driver.Type = "raw"
+	disk.Source.Dev = GetBlockDeviceVolumePath(volumeName)
 	return nil
 }
 

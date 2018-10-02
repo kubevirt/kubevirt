@@ -89,6 +89,9 @@ type VirtControllerApp struct {
 	configMapCache    cache.Store
 	configMapInformer cache.SharedIndexInformer
 
+	persistentVolumeClaimCache    cache.Store
+	persistentVolumeClaimInformer cache.SharedIndexInformer
+
 	rsController *VMIReplicaSet
 	rsInformer   cache.SharedIndexInformer
 
@@ -149,6 +152,9 @@ func Execute() {
 
 	app.configMapInformer = app.informerFactory.ConfigMap()
 	app.configMapCache = app.configMapInformer.GetStore()
+
+	app.persistentVolumeClaimInformer = app.informerFactory.PersistentVolumeClaim()
+	app.persistentVolumeClaimCache = app.persistentVolumeClaimInformer.GetStore()
 
 	app.vmInformer = app.informerFactory.VirtualMachine()
 
@@ -228,6 +234,7 @@ func (vca *VirtControllerApp) Run() {
 					go vca.vmiController.Run(controllerThreads, stop)
 					go vca.rsController.Run(controllerThreads, stop)
 					go vca.vmController.Run(controllerThreads, stop)
+					cache.WaitForCacheSync(stopCh, vca.persistentVolumeClaimInformer.HasSynced)
 					close(vca.readyChan)
 				},
 				OnStoppedLeading: func() {
@@ -256,7 +263,7 @@ func (vca *VirtControllerApp) initCommon() {
 	if err != nil {
 		golog.Fatal(err)
 	}
-	vca.templateService = services.NewTemplateService(vca.launcherImage, vca.virtShareDir, vca.imagePullSecret, vca.configMapCache)
+	vca.templateService = services.NewTemplateService(vca.launcherImage, vca.virtShareDir, vca.imagePullSecret, vca.configMapCache, vca.persistentVolumeClaimCache)
 	vca.vmiController = NewVMIController(vca.templateService, vca.vmiInformer, vca.podInformer, vca.vmiRecorder, vca.clientSet, vca.configMapInformer, vca.dataVolumeInformer)
 	recorder := vca.getNewRecorder(k8sv1.NamespaceAll, "node-controller")
 	vca.nodeController = NewNodeController(vca.clientSet, vca.nodeInformer, vca.vmiInformer, recorder)

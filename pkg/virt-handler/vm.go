@@ -45,7 +45,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/cloud-init"
 	"kubevirt.io/kubevirt/pkg/controller"
-	featuregates "kubevirt.io/kubevirt/pkg/feature-gates"
+	"kubevirt.io/kubevirt/pkg/feature-gates"
 	"kubevirt.io/kubevirt/pkg/host-disk"
 	"kubevirt.io/kubevirt/pkg/kubecli"
 	"kubevirt.io/kubevirt/pkg/log"
@@ -465,28 +465,6 @@ func (d *VirtualMachineController) execute(key string) error {
 	return nil
 }
 
-func (d *VirtualMachineController) replacePVCByHostDisk(vmi *v1.VirtualMachineInstance) error {
-	// if PVC is defined then it is replaced by HostDisk
-	// PersistenVolumeClaim is mounted into pod as directory from node filesystem
-	// it is not attached as independent block device
-	for i := range vmi.Spec.Volumes {
-		if volumeSource := &vmi.Spec.Volumes[i].VolumeSource; volumeSource.PersistentVolumeClaim != nil {
-			pvcSize, err := hostdisk.GetPVCSize(volumeSource.PersistentVolumeClaim.ClaimName, vmi.Namespace, d.clientset)
-			if err != nil {
-				return err
-			}
-			volumeSource.HostDisk = &v1.HostDisk{
-				Path:     hostdisk.GetPVCDiskImgPath(vmi.Spec.Volumes[i].Name),
-				Type:     v1.HostDiskExistsOrCreate,
-				Capacity: pvcSize,
-			}
-			// PersistenVolumeClaim is replaced by HostDisk
-			volumeSource.PersistentVolumeClaim = nil
-		}
-	}
-	return nil
-}
-
 func (d *VirtualMachineController) injectCloudInitSecrets(vmi *v1.VirtualMachineInstance) error {
 	cloudInitSpec := cloudinit.GetCloudInitNoCloudSource(vmi)
 	if cloudInitSpec == nil {
@@ -683,7 +661,7 @@ func (d *VirtualMachineController) processVmUpdate(origVMI *v1.VirtualMachineIns
 		return goerror.New(fmt.Sprintf("Can not update a VirtualMachineInstance with expired watchdog."))
 	}
 
-	err = d.replacePVCByHostDisk(vmi)
+	err = hostdisk.ReplacePVCByHostDisk(vmi, d.clientset)
 	if err != nil {
 		return err
 	}

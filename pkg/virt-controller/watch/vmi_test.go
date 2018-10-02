@@ -67,6 +67,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 	var virtClient *kubecli.MockKubevirtClient
 	var kubeClient *fake.Clientset
 	var configMapInformer cache.SharedIndexInformer
+	var pvcInformer cache.SharedIndexInformer
 
 	var dataVolumeSource *framework.FakeControllerSource
 	var dataVolumeInformer cache.SharedIndexInformer
@@ -153,9 +154,10 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 		dataVolumeInformer, dataVolumeSource = testutils.NewFakeInformerFor(&cdiv1.DataVolume{})
 		recorder = record.NewFakeRecorder(100)
 
-		configMapInformer, _ = testutils.NewFakeInformerFor(&k8sv1.Pod{})
+		configMapInformer, _ = testutils.NewFakeInformerFor(&k8sv1.ConfigMap{})
+		pvcInformer, _ = testutils.NewFakeInformerFor(&k8sv1.PersistentVolumeClaim{})
 		controller = NewVMIController(
-			services.NewTemplateService("a", "b", "c", configMapInformer.GetStore()),
+			services.NewTemplateService("a", "b", "c", configMapInformer.GetStore(), pvcInformer.GetStore()),
 			vmiInformer,
 			podInformer,
 			recorder,

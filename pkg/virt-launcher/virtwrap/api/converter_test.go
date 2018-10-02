@@ -230,6 +230,10 @@ var _ = Describe("Converter", func() {
 					VolumeName: "volume7",
 					Serial:     "CVLY623300HK240D",
 				},
+				{
+					Name:       "pvc_block_test",
+					VolumeName: "volume8",
+				},
 			}
 			vmi.Spec.Volumes = []v1.Volume{
 				{
@@ -323,6 +327,14 @@ var _ = Describe("Converter", func() {
 							LocalObjectReference: k8sv1.LocalObjectReference{
 								Name: "testconfig",
 							},
+						},
+					},
+				},
+				{
+					Name: "volume8",
+					VolumeSource: v1.VolumeSource{
+						PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{
+							ClaimName: "testblock",
 						},
 					},
 				},
@@ -436,6 +448,12 @@ var _ = Describe("Converter", func() {
       <driver name="qemu" type="raw" iothread="1"></driver>
       <alias name="ua-configmap_test"></alias>
     </disk>
+    <disk device="disk" type="block">
+      <source dev="/dev/volume8"></source>
+      <target bus="sata" dev="sdg"></target>
+      <driver name="qemu" type="raw" iothread="1"></driver>
+      <alias name="ua-pvc_block_test"></alias>
+    </disk>
     <serial type="unix">
       <target port="0"></target>
       <source mode="bind" path="/var/run/kubevirt-private/f4686d2c-6e8d-4335-b8fd-81bee22f4814/virt-serial0"></source>
@@ -486,6 +504,8 @@ var _ = Describe("Converter", func() {
 
 		var c *ConverterContext
 
+		isBlockPVCMap := make(map[string]bool)
+		isBlockPVCMap["volume8"] = true
 		BeforeEach(func() {
 			c = &ConverterContext{
 				VirtualMachine: vmi,
@@ -497,6 +517,7 @@ var _ = Describe("Converter", func() {
 					},
 				},
 				UseEmulation: true,
+				IsBlockPVC:   isBlockPVCMap,
 			}
 		})
 
