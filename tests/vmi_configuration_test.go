@@ -123,44 +123,9 @@ var _ = Describe("Configurations", func() {
 				Expect(err).ToNot(HaveOccurred())
 				tests.WaitForSuccessfulVMIStart(vmi)
 
-				vmiPod := tests.GetRunningPodByVirtualMachineInstance(vmi, tests.NamespaceTestDefault)
-
-				found := false
-				containerIdx := 0
-				for idx, container := range vmiPod.Spec.Containers {
-					if container.Name == "compute" {
-						containerIdx = idx
-						found = true
-					}
-				}
-				Expect(found).To(BeTrue(), "could not find compute container for pod")
-
-				output, err := tests.ExecuteCommandOnPod(
-					virtClient,
-					vmiPod,
-					vmiPod.Spec.Containers[containerIdx].Name,
-					[]string{"ls", "/etc/libvirt/qemu/"},
-				)
+				domXml, err := tests.GetRunningVirtualMachineInstanceDomainXML(virtClient, vmi)
 				Expect(err).ToNot(HaveOccurred())
-
-				fn := ""
-				for _, line := range strings.Split(output, "\n") {
-					if strings.Contains(line, vmi.Name) {
-						fn = line
-					}
-				}
-				Expect(fn).ToNot(Equal(""), "libvirt DomXML file not found")
-				fn = fmt.Sprintf("/etc/libvirt/qemu/%s", fn)
-
-				output, err = tests.ExecuteCommandOnPod(
-					virtClient,
-					vmiPod,
-					vmiPod.Spec.Containers[containerIdx].Name,
-					[]string{"grep", "queues", fn},
-				)
-				Expect(err).ToNot(HaveOccurred())
-
-				Expect(output).To(ContainSubstring("queues='3'"))
+				Expect(domXml).To(ContainSubstring("queues='3'"))
 			}, 300)
 		})
 
