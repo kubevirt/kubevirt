@@ -34,10 +34,13 @@ import (
 	kubev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 
 	"kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/kubecli"
 	"kubevirt.io/kubevirt/pkg/log"
+	hw_utils "kubevirt.io/kubevirt/pkg/util/hardware"
+
 	"kubevirt.io/kubevirt/tests"
 )
 
@@ -462,6 +465,7 @@ var _ = Describe("Configurations", func() {
 				}, 10*time.Second)
 			})
 		})
+
 	})
 
 	Context("New VirtualMachineInstance with all supported drives", func() {
@@ -506,5 +510,142 @@ var _ = Describe("Configurations", func() {
 			Expect(err).ToNot(HaveOccurred())
 		})
 	})
+	Describe("VirtualMachineInstance with CPU pinning", func() {
+		var nodes *kubev1.NodeList
+		BeforeEach(func() {
+			nodes, err = virtClient.CoreV1().Nodes().List(metav1.ListOptions{})
+			tests.PanicOnError(err)
+			if len(nodes.Items) == 1 {
+				Skip("Skip cpu pinning test that requires multiple nodes when only one node is present.")
+			}
+		})
+		Context("with cpu pinning enabled", func() {
+			It("should set the cpumanager label to false when it's not running", func() {
 
+				By("adding a cpumanger=true lable to a node")
+				nodes, err := virtClient.CoreV1().Nodes().List(metav1.ListOptions{LabelSelector: v1.CPUManager + "=" + "false"})
+				Expect(err).ToNot(HaveOccurred())
+				Expect(nodes.Items).To(HaveLen(1))
+
+				node := &nodes.Items[0]
+				node, err = virtClient.CoreV1().Nodes().Patch(node.Name, types.StrategicMergePatchType, []byte(fmt.Sprintf(`{"metadata": { "labels": {"%s": "true"}}}`, v1.CPUManager)))
+				Expect(err).ToNot(HaveOccurred())
+
+				By("setting the cpumanager label back to false")
+				Eventually(func() string {
+					n, err := virtClient.CoreV1().Nodes().Get(node.Name, metav1.GetOptions{})
+					Expect(err).ToNot(HaveOccurred())
+					return n.Labels[v1.CPUManager]
+				}, 2*time.Minute, 2*time.Second).Should(Equal("false"))
+			})
+			It("non master node should have a cpumanager label", func() {
+				cpuManagerEnabled := false
+				for idx := 1; idx < len(nodes.Items); idx++ {
+					labels := nodes.Items[idx].GetLabels()
+					for label, val := range labels {
+						if label == "cpumanager" && val == "true" {
+							cpuManagerEnabled = true
+						}
+					}
+				}
+				Expect(cpuManagerEnabled).To(BeTrue())
+			})
+			It("should be scheduled on a node with running cpu manager", func() {
+				cpuVmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(tests.RegistryDiskFor(tests.RegistryDiskCirros), "#!/bin/bash\necho 'hello'\n")
+				cpuVmi.Spec.Domain.CPU = &v1.CPU{
+					Cores: 2,
+					DedicatedCPUPlacement: true,
+				}
+				cpuVmi.Spec.Domain.Resources = v1.ResourceRequirements{
+					Requests: kubev1.ResourceList{
+						kubev1.ResourceMemory: resource.MustParse("64M"),
+					},
+				}
+				By("Starting a VirtualMachineInstance")
+				_, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(cpuVmi)
+				Expect(err).ToNot(HaveOccurred())
+				node := tests.WaitForSuccessfulVMIStart(cpuVmi)
+				Expect(node).NotTo(ContainSubstring("node01"))
+
+				By("Checking that the pod QOS is guaranteed")
+				readyPod := tests.GetRunningPodByVirtualMachineInstance(cpuVmi, tests.NamespaceTestDefault)
+				podQos := readyPod.Status.QOSClass
+				Expect(podQos).To(Equal(kubev1.PodQOSGuaranteed))
+
+				var computeContainer *kubev1.Container
+				for _, container := range readyPod.Spec.Containers {
+					if container.Name == "compute" {
+						computeContainer = &container
+					}
+				}
+				if computeContainer == nil {
+					tests.PanicOnError(fmt.Errorf("could not find the compute container"))
+				}
+
+				output, err := tests.ExecuteCommandOnPod(
+					virtClient,
+					readyPod,
+					readyPod.Spec.Containers[0].Name,
+					[]string{"cat", hw_utils.CPUSET_PATH},
+				)
+				log.Log.Infof("%v", output)
+				Expect(err).ToNot(HaveOccurred())
+				output = strings.TrimSuffix(output, "\n")
+				pinnedCPUsList, err := hw_utils.ParseCPUSetLine(output)
+				Expect(err).ToNot(HaveOccurred())
+
+				Expect(len(pinnedCPUsList)).To(Equal(int(cpuVmi.Spec.Domain.CPU.Cores)))
+
+			})
+			It("should fail the vmi creation if the requested resources are inconsistent", func() {
+				cpuVmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(tests.RegistryDiskFor(tests.RegistryDiskCirros), "#!/bin/bash\necho 'hello'\n")
+				cpuVmi.Spec.Domain.CPU = &v1.CPU{
+					Cores: 2,
+					DedicatedCPUPlacement: true,
+				}
+				cpuVmi.Spec.Domain.Resources = v1.ResourceRequirements{
+					Requests: kubev1.ResourceList{
+						kubev1.ResourceCPU:    resource.MustParse("3"),
+						kubev1.ResourceMemory: resource.MustParse("64M"),
+					},
+				}
+				By("Starting a VirtualMachineInstance")
+				_, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(cpuVmi)
+				Expect(err).To(HaveOccurred())
+			})
+			It("should fail the vmi creation if cpu is not an integer", func() {
+				cpuVmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(tests.RegistryDiskFor(tests.RegistryDiskCirros), "#!/bin/bash\necho 'hello'\n")
+				cpuVmi.Spec.Domain.CPU = &v1.CPU{
+					DedicatedCPUPlacement: true,
+				}
+				cpuVmi.Spec.Domain.Resources = v1.ResourceRequirements{
+					Requests: kubev1.ResourceList{
+						kubev1.ResourceCPU:    resource.MustParse("300m"),
+						kubev1.ResourceMemory: resource.MustParse("64M"),
+					},
+				}
+				By("Starting a VirtualMachineInstance")
+				_, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(cpuVmi)
+				Expect(err).To(HaveOccurred())
+			})
+			It("should fail the vmi creation if Guaranteed QOS cannot be set", func() {
+				cpuVmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(tests.RegistryDiskFor(tests.RegistryDiskCirros), "#!/bin/bash\necho 'hello'\n")
+				cpuVmi.Spec.Domain.CPU = &v1.CPU{
+					DedicatedCPUPlacement: true,
+				}
+				cpuVmi.Spec.Domain.Resources = v1.ResourceRequirements{
+					Requests: kubev1.ResourceList{
+						kubev1.ResourceCPU:    resource.MustParse("2"),
+						kubev1.ResourceMemory: resource.MustParse("64M"),
+					},
+					Limits: kubev1.ResourceList{
+						kubev1.ResourceCPU: resource.MustParse("4"),
+					},
+				}
+				By("Starting a VirtualMachineInstance")
+				_, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(cpuVmi)
+				Expect(err).To(HaveOccurred())
+			})
+		})
+	})
 })

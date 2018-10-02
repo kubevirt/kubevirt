@@ -22,7 +22,6 @@ package tests_test
 import (
 	"flag"
 	"io"
-	"strings"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -99,7 +98,7 @@ var _ = Describe("VNC", func() {
 						log.Log.Info("zero bytes read from vnc socket.")
 						return
 					}
-					readStop <- strings.TrimSpace(string(buf[0:n]))
+					readStop <- string(buf[0:n])
 				}()
 
 				response := ""
@@ -116,7 +115,7 @@ var _ = Describe("VNC", func() {
 				// This verifies that the test is able to establish a connection with VNC and
 				// communicate.
 				By("Checking the response from VNC server")
-				Expect(response).To(Equal("RFB 003.008"))
+				Expect(response).To(Equal("RFB 003.008\n"))
 				Expect(err).To(BeNil())
 			})
 		})

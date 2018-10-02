@@ -106,6 +106,11 @@ func checkMergeConflicts(presetSpec *kubev1.DomainSpec, vmiSpec *kubev1.DomainSp
 			errors = append(errors, fmt.Errorf("spec.devices.watchdog: %v != %v", presetSpec.Devices.Watchdog, vmiSpec.Devices.Watchdog))
 		}
 	}
+	if presetSpec.IOThreadsPolicy != nil && vmiSpec.IOThreadsPolicy != nil {
+		if !reflect.DeepEqual(presetSpec.IOThreadsPolicy, vmiSpec.IOThreadsPolicy) {
+			errors = append(errors, fmt.Errorf("spec.ioThreadsPolicy: %v != %v", presetSpec.IOThreadsPolicy, vmiSpec.IOThreadsPolicy))
+		}
+	}
 
 	if len(errors) > 0 {
 		return utilerrors.NewAggregate(errors)
@@ -183,6 +188,16 @@ func mergeDomainSpec(presetSpec *kubev1.DomainSpec, vmiSpec *kubev1.DomainSpec) 
 			applied = true
 		}
 	}
+	if presetSpec.IOThreadsPolicy != nil {
+		if vmiSpec.IOThreadsPolicy == nil {
+			ioThreadsPolicy := *presetSpec.IOThreadsPolicy
+			vmiSpec.IOThreadsPolicy = &(ioThreadsPolicy)
+		}
+		if reflect.DeepEqual(vmiSpec.IOThreadsPolicy, presetSpec.IOThreadsPolicy) {
+			applied = true
+		}
+	}
+
 	return applied, presetConflicts
 }
 

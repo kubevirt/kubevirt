@@ -43,6 +43,8 @@ spec:
                     cores:
                       format: int64
                       type: integer
+                    dedicatedCpuPlacement:
+                      type: boolean
                     model:
                       type: string
                 devices:
@@ -65,6 +67,8 @@ spec:
                                 type: boolean
                               tray:
                                 type: string
+                          dedicatedIOThread:
+                            type: boolean
                           disk:
                             properties:
                               bus:
@@ -195,6 +199,8 @@ spec:
                   properties:
                     uuid:
                       type: string
+                ioThreadsPolicy:
+                  type: string
                 machine:
                   properties:
                     type:
@@ -352,5 +358,7 @@ spec:
             nodeName:
               type: string
             phase:
+              type: string
+            reason:
               type: string
   version: v1alpha2

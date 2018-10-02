@@ -1,0 +1,7 @@
+apiVersion: upload.cdi.kubevirt.io/v1alpha1
+kind: UploadTokenRequest
+metadata:
+  name: upload-test
+  namespace: default
+spec:
+  pvcName: upload-test

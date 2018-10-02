@@ -1,5 +1,5 @@
-hash: 1c532cd979e3aeb7c98ec1ee7a6f440470b2231663fb00336aeec5c87955bf14
-updated: 2018-08-29T14:12:18.294708542Z
+hash: 6e9e2ce81edeb5789893f4369e854a8ec66a3bf12488299fffb037d5f72e95d6
+updated: 2018-09-25T07:19:42.538982054Z
 imports:
 - name: cloud.google.com/go
   version: 3b1ae45394a234c385be014e9a488f2bb6eef821
@@ -13,12 +13,16 @@ imports:
 - name: github.com/asaskevich/govalidator
   version: f9ffefc3facfbe0caee3fea233cbb6e8208f4541
 - name: github.com/Azure/go-autorest
-  version: d4e6b95c12a08b4de2d48b45d5b4d594e5d32fab
+  version: 1ff28809256a84bb6966640ff3d0371af82ccba4
   subpackages:
   - autorest
   - autorest/adal
   - autorest/azure
   - autorest/date
+- name: github.com/beorn7/perks
+  version: 3a771d992973f24aa725d07868b467d1ddfceafb
+  subpackages:
+  - quantile
 - name: github.com/davecgh/go-spew
   version: 782f4967f2dc4564575ca782fe2d04090b5faca8
   subpackages:
@@ -58,7 +62,7 @@ imports:
 - name: github.com/go-openapi/spec
   version: f1468acb3b29cdd5c5f6fa29435d2d2d6e6c9ff1
 - name: github.com/go-openapi/swag
-  version: 0dc164b7900e799f72456fa00bbdfbd362deed9b
+  version: dd0dad036e67ae93c27dc64337b3f76296f3a5f0
 - name: github.com/go-stack/stack
   version: 2fee6af1a9795aafbe0253a0cfbdf668e1fb8a9a
 - name: github.com/gogo/protobuf
@@ -79,13 +83,15 @@ imports:
   subpackages:
   - gomock
 - name: github.com/golang/protobuf
-  version: 1643683e1b54a9e88ad26d98f81400c8c9d9f4f9
+  version: b4deda0973fb4c70b50d226b1af49f3da59f5265
   subpackages:
   - proto
   - ptypes
   - ptypes/any
   - ptypes/duration
   - ptypes/timestamp
+- name: github.com/google/btree
+  version: 7d79101e329e5a3adf994758c578dab82b90c017
 - name: github.com/google/goexpect
   version: 88b7cf98484152f464f685e94dc4334205362983
 - name: github.com/google/gofuzz
@@ -101,7 +107,7 @@ imports:
   - compiler
   - extensions
 - name: github.com/gophercloud/gophercloud
-  version: 6da026c32e2d622cc242d32984259c77237aefe1
+  version: 781450b3c4fcb4f5182bcc5133adb4b2e4a09d1d
   subpackages:
   - openstack
   - openstack/identity/v2/tenants
@@ -111,12 +117,14 @@ imports:
   - pagination
 - name: github.com/gorilla/websocket
   version: 0647012449a1878977514a346b26637dd022446c
+- name: github.com/gregjones/httpcache
+  version: 787624de3eb7bd915c329cba748687a3b22666a6
+  subpackages:
+  - diskcache
 - name: github.com/hashicorp/golang-lru
   version: a0d98a5f288019575c6d1f4bb1573fef2d1fcdc4
   subpackages:
   - simplelru
-- name: github.com/howeyc/gopass
-  version: bf9dde6d0d2c004a008c27aaee91170c786f6db8
 - name: github.com/hpcloud/tail
   version: a1dbeea552b7c8df4b542c66073e393de198a800
   subpackages:
@@ -144,12 +152,16 @@ imports:
   - buffer
   - jlexer
   - jwriter
+- name: github.com/matttproud/golang_protobuf_extensions
+  version: fc2b8d3a73c4867e51861bbdd5ae3c1f0869dd6a
+  subpackages:
+  - pbutil
 - name: github.com/modern-go/concurrent
   version: bacd9c7ef1dd9b15be4a9909b8ac7a4e313eec94
 - name: github.com/modern-go/reflect2
   version: 05fbef0ca5da472bbf96c9322b84a53edc03c9fd
 - name: github.com/onsi/ginkgo
-  version: 3774a09d95489ccaa16032e0770d08ea77ba6184
+  version: 2445fc1ddb3b4d9738f16af50182d47878701cc3
   subpackages:
   - config
   - extensions/table
@@ -170,7 +182,7 @@ imports:
   - reporters/stenographer/support/go-isatty
   - types
 - name: github.com/onsi/gomega
-  version: 38ca19236de6fbe62537be60136602cf095daa35
+  version: 7615b9433f86a8bdf29709bf288bc4fd0636a369
   subpackages:
   - format
   - ghttp
@@ -186,6 +198,27 @@ imports:
   - types
 - name: github.com/pborman/uuid
   version: ca53cad383cad2479bbba7f7a1a05797ec1386e4
+- name: github.com/peterbourgon/diskv
+  version: 5f041e8faa004a95c88a202771f4cc3e991971e6
+- name: github.com/prometheus/client_golang
+  version: c5b7fccd204277076155f10851dad72b76a49317
+  subpackages:
+  - prometheus
+  - prometheus/promhttp
+- name: github.com/prometheus/client_model
+  version: 5c3871d89910bfb32f5fcab2aa4b9ec68e65a99f
+  subpackages:
+  - go
+- name: github.com/prometheus/common
+  version: 13ba4ddd0caa9c28ca7b7bffe1dfa9ed8d5ef207
+  subpackages:
+  - expfmt
+  - internal/bitbucket.org/ww/goautoneg
+  - model
+- name: github.com/prometheus/procfs
+  version: 65c1f6f8f0fc1e2185eb9863a3bc751496404259
+  subpackages:
+  - xfs
 - name: github.com/PuerkitoBio/purell
   version: 8a290539e2e8629dbc4e6bad948158f790ec31f4
 - name: github.com/PuerkitoBio/urlesc
@@ -205,11 +238,13 @@ imports:
 - name: github.com/vishvananda/netns
   version: 13995c7128ccc8e51e9a6bd2b551020a27180abd
 - name: golang.org/x/crypto
-  version: 81e90905daefcd6fd217b62423c0908922eadb30
+  version: 49796115aa4b964c318aad4f3084fdb41e9aa067
   subpackages:
   - curve25519
   - ed25519
   - ed25519/internal/edwards25519
+  - internal/chacha20
+  - poly1305
   - ssh
   - ssh/terminal
 - name: golang.org/x/net
@@ -272,7 +307,7 @@ imports:
   subpackages:
   - rate
 - name: google.golang.org/appengine
-  version: 03cac3b07182cfb08c0d0c0b6ee72a1ceb151c92
+  version: ae0ab99deb4dc413a2b4bd6c8bdd0eb67f1e4d06
   subpackages:
   - internal
   - internal/app_identity
@@ -325,7 +360,7 @@ imports:
 - name: gopkg.in/yaml.v2
   version: 670d4cfef0544295bc27a114dbac37980d83185a
 - name: k8s.io/api
-  version: 6c0bbc3e58fab96285be9b6ed41b12b58c737a96
+  version: 4e7be11eab3ffcfc1876898b8272df53785a9504
   subpackages:
   - admission/v1beta1
   - admissionregistration/v1alpha1
@@ -353,24 +388,22 @@ imports:
   - rbac/v1alpha1
   - rbac/v1beta1
   - scheduling/v1alpha1
+  - scheduling/v1beta1
   - settings/v1alpha1
   - storage/v1
   - storage/v1alpha1
   - storage/v1beta1
 - name: k8s.io/apiextensions-apiserver
-  version: 80db67131e8de08bc0767eaeb9c1fd768a7ca30f
+  version: b05d9bb7cc74a62c5daac9cef31894343e5d2c9b
   subpackages:
   - pkg/apis/apiextensions
   - pkg/apis/apiextensions/v1beta1
 - name: k8s.io/apimachinery
-  version: e386b2658ed20923da8cc9250e552f082899a1ee
+  version: def12e63c512da17043b4f0293f52d1006603d9f
   subpackages:
   - pkg/api/errors
   - pkg/api/meta
   - pkg/api/resource
-  - pkg/apimachinery
-  - pkg/apimachinery/announced
-  - pkg/apimachinery/registered
   - pkg/apis/meta/internalversion
   - pkg/apis/meta/v1
   - pkg/apis/meta/v1/unstructured
@@ -416,7 +449,7 @@ imports:
   - third_party/forked/golang/netutil
   - third_party/forked/golang/reflect
 - name: k8s.io/client-go
-  version: b0722d92a7c1f91106a7cb0f5437821b5cd51a41
+  version: 2cefa64ff137e128daeddbd1775cd775708a05bf
   subpackages:
   - discovery
   - discovery/fake
@@ -471,6 +504,8 @@ imports:
   - kubernetes/typed/rbac/v1beta1/fake
   - kubernetes/typed/scheduling/v1alpha1
   - kubernetes/typed/scheduling/v1alpha1/fake
+  - kubernetes/typed/scheduling/v1beta1
+  - kubernetes/typed/scheduling/v1beta1/fake
   - kubernetes/typed/settings/v1alpha1
   - kubernetes/typed/settings/v1alpha1/fake
   - kubernetes/typed/storage/v1
@@ -481,6 +516,7 @@ imports:
   - kubernetes/typed/storage/v1beta1/fake
   - pkg/apis/clientauthentication
   - pkg/apis/clientauthentication/v1alpha1
+  - pkg/apis/clientauthentication/v1beta1
   - pkg/version
   - plugin/pkg/client/auth
   - plugin/pkg/client/auth/azure
@@ -511,6 +547,9 @@ imports:
   - util/buffer
   - util/cert
   - util/cert/triple
+  - util/certificate
+  - util/certificate/csr
+  - util/connrotation
   - util/exec
   - util/flowcontrol
   - util/homedir
@@ -519,7 +558,7 @@ imports:
   - util/retry
   - util/workqueue
 - name: k8s.io/kube-aggregator
-  version: 17ac113ae4c7531a48e26aab9cb4c485bbd3f3df
+  version: 07bfdba27d43fe6b7eea965213b3aad555de2457
   subpackages:
   - pkg/apis/apiregistration
   - pkg/apis/apiregistration/v1
@@ -529,26 +568,33 @@ imports:
   - pkg/client/clientset_generated/clientset/typed/apiregistration/v1
   - pkg/client/clientset_generated/clientset/typed/apiregistration/v1beta1
 - name: k8s.io/kube-openapi
-  version: 39cb288412c48cb533ba4be5d6c28620b9a0c1b4
+  version: 91cfa479c814065e420cee7ed227db0f63a5854e
   subpackages:
   - pkg/common
   - pkg/util/proto
 - name: kubevirt.io/containerized-data-importer
-  version: e6093ee9aa1e0763e797aaf08468844e3c26466a
+  version: 3096ecec40cb06401cce09537c4eeecd4e2d9b89
   repo: https://github.com/kubevirt/containerized-data-importer.git
   subpackages:
   - pkg/apis/datavolumecontroller
   - pkg/apis/datavolumecontroller/v1alpha1
+  - pkg/apis/uploadcontroller
+  - pkg/apis/uploadcontroller/v1alpha1
   - pkg/client/clientset/versioned
   - pkg/client/clientset/versioned/fake
   - pkg/client/clientset/versioned/scheme
   - pkg/client/clientset/versioned/typed/datavolumecontroller/v1alpha1
   - pkg/client/clientset/versioned/typed/datavolumecontroller/v1alpha1/fake
+  - pkg/client/clientset/versioned/typed/uploadcontroller/v1alpha1
+  - pkg/client/clientset/versioned/typed/uploadcontroller/v1alpha1/fake
   - pkg/client/informers/externalversions
   - pkg/client/informers/externalversions/datavolumecontroller
   - pkg/client/informers/externalversions/datavolumecontroller/v1alpha1
   - pkg/client/informers/externalversions/internalinterfaces
+  - pkg/client/informers/externalversions/uploadcontroller
+  - pkg/client/informers/externalversions/uploadcontroller/v1alpha1
   - pkg/client/listers/datavolumecontroller/v1alpha1
+  - pkg/client/listers/uploadcontroller/v1alpha1
 - name: kubevirt.io/qe-tools
   version: cfa2a5aff14e51a06fc637f97c941d392cf1acb6
   repo: https://github.com/kubevirt/qe-tools.git

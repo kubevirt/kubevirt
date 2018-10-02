@@ -12,4 +12,15 @@ import:
 - package: k8s.io/client-go
   version: kubernetes-1.10.3
 - package: k8s.io/gengo
+- package: github.com/ulikunitz/xz
+- package: kubevirt.io/qe-tools
+  version: 13fc8573324cd2af42c88043b5a7c6e03bf39f95
+  repo: https://github.com/kubevirt/qe-tools.git
+- package: github.com/spf13/pflag
 - package: github.com/xi2/xz
+- package: k8s.io/kube-aggregator
+  version: kubernetes-1.10.3
+- package: github.com/emicklei/go-restful
+  version: v2.6.0
+- package: gopkg.in/square/go-jose.v2
+  version: ^2.1.8

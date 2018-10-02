@@ -84,6 +84,9 @@ const (
 	// SuccessfulDataVolumeDeleteReason is added in an event when a dynamically generated
 	// dataVolume is successfully deleted
 	SuccessfulDataVolumeDeleteReason = "SuccessfulDataVolumeDelete"
+	// FailedGuaranteePodResourcesReason is added in an event and in a vmi controller condition
+	// when a pod has been created without a Guaranteed resources.
+	FailedGuaranteePodResourcesReason = "FailedGuaranteeResources"
 )
 
 func NewVMIController(templateService services.TemplateService,
@@ -251,7 +254,17 @@ func (c *VMIController) execute(key string) error {
 	if needsSync {
 		syncErr = c.sync(vmi, pods, dataVolumes)
 	}
-	return c.updateStatus(vmi, pods, dataVolumes, syncErr)
+	err = c.updateStatus(vmi, pods, dataVolumes, syncErr)
+	if err != nil {
+		return err
+	}
+
+	if syncErr != nil {
+		return syncErr
+	}
+
+	return nil
+
 }
 
 func (c *VMIController) updateStatus(vmi *virtv1.VirtualMachineInstance, pods []*k8sv1.Pod, dataVolumes []*cdiv1.DataVolume, syncErr syncError) error {
@@ -435,6 +448,15 @@ func (c *VMIController) sync(vmi *virtv1.VirtualMachineInstance, pods []*k8sv1.P
 		return nil
 	} else if isPodReady(pod) && !isPodOwnedByHandler(pod) {
 		pod := pod.DeepCopy()
+
+		// fail vmi creation if CPU pinning has been requested but the Pod QOS is not Guaranteed
+		podQosClass := pod.Status.QOSClass
+		if podQosClass != k8sv1.PodQOSGuaranteed && vmi.IsCPUDedicated() {
+			c.handoverExpectations.CreationObserved(controller.VirtualMachineKey(vmi))
+			c.recorder.Eventf(vmi, k8sv1.EventTypeWarning, FailedGuaranteePodResourcesReason, "failed to guarantee pod resources")
+			return &syncErrorImpl{fmt.Errorf("failed to guarantee pod resources"), FailedGuaranteePodResourcesReason}
+		}
+
 		pod.Annotations[virtv1.OwnedByAnnotation] = "virt-handler"
 		c.handoverExpectations.ExpectCreations(controller.VirtualMachineKey(vmi), 1)
 		_, err := c.clientset.CoreV1().Pods(vmi.Namespace).Update(pod)
@@ -443,7 +465,7 @@ func (c *VMIController) sync(vmi *virtv1.VirtualMachineInstance, pods []*k8sv1.P
 			c.recorder.Eventf(vmi, k8sv1.EventTypeWarning, FailedHandOverPodReason, "Error on handing over pod: %v", err)
 			return &syncErrorImpl{fmt.Errorf("failed to hand over pod to virt-handler: %v", err), FailedHandOverPodReason}
 		}
-		c.recorder.Eventf(vmi, k8sv1.EventTypeNormal, SuccessfulHandOverPodReason, "Pod owner ship transferred to the node %s", pod.Name)
+		c.recorder.Eventf(vmi, k8sv1.EventTypeNormal, SuccessfulHandOverPodReason, "Pod ownership transferred to the node %s", pod.Name)
 	}
 	return nil
 }

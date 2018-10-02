@@ -1,13 +1,16 @@
 #!/bin/bash
 
 SOCKET=$1
-function serial_cleanup() {
-	local pid_file=${SOCKET}.pid
-	local file_name=$(basename $SOCKET)
 
+function is_console() {
+	[[ $(basename $SOCKET) =~ .*serial.* ]]
+}
+
+function serial_cleanup() {
 	# if this is a serial connection, see if there is a previous
 	# connection that must be cleaned up before starting a new one.
-	if [[ $file_name =~ .*serial.* ]]; then
+	if is_console; then
+		local pid_file=${SOCKET}.pid
 		local pid=$(cat $pid_file 2>/dev/null)
 		local my_pid=$$
 		if [ -n "$pid" ] && [ -f "/proc/$pid/cmdline" ]; then
@@ -29,5 +32,9 @@ if ! [ -S "$SOCKET" ]; then
 	exit 1
 fi
 
-stty -echo
-socat unix-connect:/$SOCKET stdio,cfmakeraw
+if is_console; then
+    stty -echo
+    socat unix-connect:/$SOCKET stdio,cfmakeraw
+else
+    socat unix-connect:/$SOCKET stdio
+fi

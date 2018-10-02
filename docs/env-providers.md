@@ -47,6 +47,20 @@ export KUBEVIRT_PROVIDER=local # choose this provider
 make cluster-up
 ```
 
+## External
+
+Uses an existing (external) Kubernetes cluster.
+
+Requires:
+ * A working Kubernetes cluster with properly configured worker nodes.
+ * A running docker daemon
+
+Usage:
+
+```bash
+export KUBEVIRT_PROVIDER=external # choose this provider
+make cluster-up
+```
 ## New Providers
 
  * Create a `cluster/$KUBEVIRT_PROVIDER` directory

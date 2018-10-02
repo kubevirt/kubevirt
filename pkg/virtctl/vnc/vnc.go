@@ -42,7 +42,7 @@ const FLAG = "vnc"
 
 func NewCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:     "vnc (vmi)",
+		Use:     "vnc (VMI)",
 		Short:   "Open a vnc connection to a virtual machine instance.",
 		Example: usage(),
 		Args:    cobra.ExactArgs(1),
@@ -190,7 +190,7 @@ func (o *VNC) Run(cmd *cobra.Command, args []string) error {
 }
 
 func usage() string {
-	usage := "# Connect to testvmi via remote-viewer:\n"
-	usage += "./virtctl vnc testvmi"
+	usage := "  # Connect to 'testvmi' via remote-viewer:\n"
+	usage += "  virtctl vnc testvmi"
 	return usage
 }

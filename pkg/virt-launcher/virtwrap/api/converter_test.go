@@ -164,6 +164,7 @@ var _ = Describe("Converter", func() {
 							Bus: "virtio",
 						},
 					},
+					DedicatedIOThread: &_true,
 				},
 				{
 					Name:       "mydisk1",
@@ -173,6 +174,7 @@ var _ = Describe("Converter", func() {
 							Bus: "virtio",
 						},
 					},
+					DedicatedIOThread: &_true,
 				},
 				{
 					Name:       "cdrom_tray_unspecified",
@@ -182,6 +184,7 @@ var _ = Describe("Converter", func() {
 							ReadOnly: &_false,
 						},
 					},
+					DedicatedIOThread: &_false,
 				},
 				{
 					Name:       "cdrom_tray_open",
@@ -368,51 +371,51 @@ var _ = Describe("Converter", func() {
     <disk device="disk" type="file">
       <source file="/var/run/kubevirt-private/vmi-disks/myvolume/disk.img"></source>
       <target bus="virtio" dev="vda"></target>
-      <driver name="qemu" type="raw"></driver>
+      <driver name="qemu" type="raw" iothread="2"></driver>
       <alias name="ua-mydisk"></alias>
     </disk>
     <disk device="disk" type="file">
       <source file="/var/run/libvirt/cloud-init-dir/mynamespace/testvmi/noCloud.iso"></source>
       <target bus="virtio" dev="vdb"></target>
-      <driver name="qemu" type="raw"></driver>
+      <driver name="qemu" type="raw" iothread="3"></driver>
       <alias name="ua-mydisk1"></alias>
     </disk>
     <disk device="cdrom" type="file">
       <source file="/var/run/libvirt/cloud-init-dir/mynamespace/testvmi/noCloud.iso"></source>
       <target bus="sata" dev="sda" tray="closed"></target>
-      <driver name="qemu" type="raw"></driver>
+      <driver name="qemu" type="raw" iothread="1"></driver>
       <alias name="ua-cdrom_tray_unspecified"></alias>
     </disk>
     <disk device="cdrom" type="file">
       <source file="/var/run/kubevirt-private/vmi-disks/volume1/disk.img"></source>
       <target bus="sata" dev="sdb" tray="open"></target>
-      <driver name="qemu" type="raw"></driver>
+      <driver name="qemu" type="raw" iothread="1"></driver>
       <readonly></readonly>
       <alias name="ua-cdrom_tray_open"></alias>
     </disk>
     <disk device="floppy" type="file">
       <source file="/var/run/kubevirt-private/vmi-disks/volume2/disk.img"></source>
       <target bus="fdc" dev="fda" tray="closed"></target>
-      <driver name="qemu" type="raw"></driver>
+      <driver name="qemu" type="raw" iothread="1"></driver>
       <alias name="ua-floppy_tray_unspecified"></alias>
     </disk>
     <disk device="floppy" type="file">
       <source file="/var/run/kubevirt-private/vmi-disks/volume3/disk.img"></source>
       <target bus="fdc" dev="fdb" tray="open"></target>
-      <driver name="qemu" type="raw"></driver>
+      <driver name="qemu" type="raw" iothread="1"></driver>
       <readonly></readonly>
       <alias name="ua-floppy_tray_open"></alias>
     </disk>
     <disk device="disk" type="file">
       <source file="/var/run/kubevirt-private/vmi-disks/volume4/disk.img"></source>
       <target bus="sata" dev="sdc"></target>
-      <driver name="qemu" type="raw"></driver>
+      <driver name="qemu" type="raw" iothread="1"></driver>
       <alias name="ua-should_default_to_disk"></alias>
     </disk>
     <disk device="disk" type="file">
       <source file="/var/run/libvirt/kubevirt-ephemeral-disk/volume5/disk.qcow2"></source>
       <target bus="sata" dev="sdd"></target>
-      <driver name="qemu" type="qcow2"></driver>
+      <driver name="qemu" type="qcow2" iothread="1"></driver>
       <alias name="ua-ephemeral_pvc"></alias>
       <backingStore type="file">
         <format type="raw"></format>
@@ -423,14 +426,14 @@ var _ = Describe("Converter", func() {
       <source file="/var/run/kubevirt-private/secret-disks/volume6.iso"></source>
       <target bus="sata" dev="sde"></target>
       <serial>D23YZ9W6WA5DJ487</serial>
-      <driver name="qemu" type="raw"></driver>
+      <driver name="qemu" type="raw" iothread="1"></driver>
       <alias name="ua-secret_test"></alias>
     </disk>
     <disk device="disk" type="file">
       <source file="/var/run/kubevirt-private/config-map-disks/volume7.iso"></source>
       <target bus="sata" dev="sdf"></target>
       <serial>CVLY623300HK240D</serial>
-      <driver name="qemu" type="raw"></driver>
+      <driver name="qemu" type="raw" iothread="1"></driver>
       <alias name="ua-configmap_test"></alias>
     </disk>
     <serial type="unix">
@@ -478,6 +481,7 @@ var _ = Describe("Converter", func() {
     </hyperv>
   </features>
   <cpu mode="host-model"></cpu>
+  <iothreads>3</iothreads>
 </domain>`, domainType)
 
 		var c *ConverterContext
@@ -973,7 +977,7 @@ var _ = Describe("Converter", func() {
 
 	Context("graphics and video device", func() {
 
-		table.DescribeTable("should check autoattachGraphicsDevicse", func(autoAttach *bool, devices int) {
+		table.DescribeTable("should check autoAttachGraphicsDevices", func(autoAttach *bool, devices int) {
 
 			vmi := v1.VirtualMachineInstance{
 				ObjectMeta: k8smeta.ObjectMeta{
@@ -1004,6 +1008,189 @@ var _ = Describe("Converter", func() {
 			table.Entry("and add the graphics and video device if it is not set", nil, 1),
 			table.Entry("and add the graphics and video device if it is set to true", True(), 1),
 			table.Entry("and not add the graphics and video device if it is set to false", False(), 0),
+		)
+	})
+
+	Context("IOThreads", func() {
+		_false := false
+		_true := true
+
+		table.DescribeTable("Should use correct IOThreads policies", func(policy v1.IOThreadsPolicy, cpuCores int, threadCount int, threadIDs []int) {
+			vmi := v1.VirtualMachineInstance{
+				ObjectMeta: k8smeta.ObjectMeta{
+					Name:      "testvmi",
+					Namespace: "default",
+					UID:       "1234",
+				},
+				Spec: v1.VirtualMachineInstanceSpec{
+					Domain: v1.DomainSpec{
+						IOThreadsPolicy: &policy,
+						Resources: v1.ResourceRequirements{
+							Requests: k8sv1.ResourceList{
+								k8sv1.ResourceCPU: resource.MustParse(fmt.Sprintf("%d", cpuCores)),
+							},
+						},
+						Devices: v1.Devices{
+							Disks: []v1.Disk{
+								{
+									Name:       "dedicated",
+									VolumeName: "volume0",
+									DiskDevice: v1.DiskDevice{
+										Disk: &v1.DiskTarget{
+											Bus: "virtio",
+										},
+									},
+									DedicatedIOThread: &_true,
+								},
+								{
+									Name:       "shared",
+									VolumeName: "volume1",
+									DiskDevice: v1.DiskDevice{
+										Disk: &v1.DiskTarget{
+											Bus: "virtio",
+										},
+									},
+									DedicatedIOThread: &_false,
+								},
+								{
+									Name:       "omitted1",
+									VolumeName: "volume2",
+									DiskDevice: v1.DiskDevice{
+										Disk: &v1.DiskTarget{
+											Bus: "virtio",
+										},
+									},
+								},
+								{
+									Name:       "omitted2",
+									VolumeName: "volume3",
+									DiskDevice: v1.DiskDevice{
+										Disk: &v1.DiskTarget{
+											Bus: "virtio",
+										},
+									},
+								},
+								{
+									Name:       "omitted3",
+									VolumeName: "volume4",
+									DiskDevice: v1.DiskDevice{
+										Disk: &v1.DiskTarget{
+											Bus: "virtio",
+										},
+									},
+								},
+								{
+									Name:       "omitted4",
+									VolumeName: "volume5",
+									DiskDevice: v1.DiskDevice{
+										Disk: &v1.DiskTarget{
+											Bus: "virtio",
+										},
+									},
+								},
+								{
+									Name:       "omitted5",
+									VolumeName: "volume5",
+									DiskDevice: v1.DiskDevice{
+										Disk: &v1.DiskTarget{
+											Bus: "virtio",
+										},
+									},
+								},
+							},
+						},
+					},
+					Volumes: []v1.Volume{
+						{
+							Name: "volume0",
+							VolumeSource: v1.VolumeSource{
+								Ephemeral: &v1.EphemeralVolumeSource{
+									PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{
+										ClaimName: "testclaim",
+									},
+								},
+							},
+						},
+						{
+							Name: "volume1",
+							VolumeSource: v1.VolumeSource{
+								Ephemeral: &v1.EphemeralVolumeSource{
+									PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{
+										ClaimName: "testclaim",
+									},
+								},
+							},
+						},
+						{
+							Name: "volume2",
+							VolumeSource: v1.VolumeSource{
+								Ephemeral: &v1.EphemeralVolumeSource{
+									PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{
+										ClaimName: "testclaim",
+									},
+								},
+							},
+						},
+						{
+							Name: "volume3",
+							VolumeSource: v1.VolumeSource{
+								Ephemeral: &v1.EphemeralVolumeSource{
+									PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{
+										ClaimName: "testclaim",
+									},
+								},
+							},
+						},
+						{
+							Name: "volume4",
+							VolumeSource: v1.VolumeSource{
+								Ephemeral: &v1.EphemeralVolumeSource{
+									PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{
+										ClaimName: "testclaim",
+									},
+								},
+							},
+						},
+						{
+							Name: "volume5",
+							VolumeSource: v1.VolumeSource{
+								Ephemeral: &v1.EphemeralVolumeSource{
+									PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{
+										ClaimName: "testclaim",
+									},
+								},
+							},
+						},
+						{
+							Name: "volume6",
+							VolumeSource: v1.VolumeSource{
+								Ephemeral: &v1.EphemeralVolumeSource{
+									PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{
+										ClaimName: "testclaim",
+									},
+								},
+							},
+						},
+					},
+				},
+			}
+
+			domain := vmiToDomain(&vmi, &ConverterContext{UseEmulation: true})
+			Expect(domain.Spec.IOThreads).ToNot(BeNil())
+			Expect(int(domain.Spec.IOThreads.IOThreads)).To(Equal(threadCount))
+			for idx, disk := range domain.Spec.Devices.Disks {
+				Expect(disk.Driver.IOThread).ToNot(BeNil())
+				Expect(int(*disk.Driver.IOThread)).To(Equal(threadIDs[idx]))
+			}
+		},
+			table.Entry("using a shared policy with 1 CPU", v1.IOThreadsPolicyShared, 1, 2, []int{2, 1, 1, 1, 1, 1, 1}),
+			table.Entry("using a shared policy with 2 CPUs", v1.IOThreadsPolicyShared, 2, 2, []int{2, 1, 1, 1, 1, 1, 1}),
+			table.Entry("using a shared policy with 3 CPUs", v1.IOThreadsPolicyShared, 2, 2, []int{2, 1, 1, 1, 1, 1, 1}),
+			table.Entry("using an auto policy with 1 CPU", v1.IOThreadsPolicyAuto, 1, 2, []int{2, 1, 1, 1, 1, 1, 1}),
+			table.Entry("using an auto policy with 2 CPUs", v1.IOThreadsPolicyAuto, 2, 4, []int{4, 1, 2, 3, 1, 2, 3}),
+			table.Entry("using an auto policy with 3 CPUs", v1.IOThreadsPolicyAuto, 3, 6, []int{6, 1, 2, 3, 4, 5, 1}),
+			table.Entry("using an auto policy with 4 CPUs", v1.IOThreadsPolicyAuto, 4, 7, []int{7, 1, 2, 3, 4, 5, 6}),
+			table.Entry("using an auto policy with 5 CPUs", v1.IOThreadsPolicyAuto, 5, 7, []int{7, 1, 2, 3, 4, 5, 6}),
 		)
 	})
 })

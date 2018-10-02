@@ -49,12 +49,14 @@ import (
 const (
 	CPUModeHostPassthrough = "host-passthrough"
 	CPUModeHostModel       = "host-model"
+	defaultIOThread        = uint(1)
 )
 
 type ConverterContext struct {
 	UseEmulation   bool
 	Secrets        map[string]*k8sv1.Secret
 	VirtualMachine *v1.VirtualMachineInstance
+	CPUSet         []int
 }
 
 func Convert_v1_Disk_To_api_Disk(diskDevice *v1.Disk, disk *Disk, devicePerBus map[string]int) error {
@@ -459,6 +461,57 @@ func Convert_v1_VirtualMachine_To_api_Domain(vmi *v1.VirtualMachineInstance, dom
 		volumes[volume.Name] = volume.DeepCopy()
 	}
 
+	dedicatedThreads := 0
+	autoThreads := 0
+	useIOThreads := false
+	threadPoolLimit := 1
+
+	if vmi.Spec.Domain.IOThreadsPolicy != nil {
+		useIOThreads = true
+
+		if (*vmi.Spec.Domain.IOThreadsPolicy) == v1.IOThreadsPolicyAuto {
+			numCPUs := 1
+			// Requested CPU's is guaranteed to be no greater than the limit
+			if cpuRequests, ok := vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceCPU]; ok {
+				numCPUs = int(cpuRequests.Value())
+			} else if cpuLimit, ok := vmi.Spec.Domain.Resources.Limits[k8sv1.ResourceCPU]; ok {
+				numCPUs = int(cpuLimit.Value())
+			}
+
+			threadPoolLimit = numCPUs * 2
+		}
+	}
+	for _, diskDevice := range vmi.Spec.Domain.Devices.Disks {
+		dedicatedThread := false
+		if diskDevice.DedicatedIOThread != nil {
+			dedicatedThread = *diskDevice.DedicatedIOThread
+		}
+		if dedicatedThread {
+			useIOThreads = true
+			dedicatedThreads += 1
+		} else {
+			autoThreads += 1
+		}
+	}
+
+	if (autoThreads + dedicatedThreads) > threadPoolLimit {
+		autoThreads = threadPoolLimit - dedicatedThreads
+		// We need at least one shared thread
+		if autoThreads < 1 {
+			autoThreads = 1
+		}
+	}
+
+	ioThreadCount := (autoThreads + dedicatedThreads)
+	if ioThreadCount != 0 {
+		if domain.Spec.IOThreads == nil {
+			domain.Spec.IOThreads = &IOThreads{}
+		}
+		domain.Spec.IOThreads.IOThreads = uint(ioThreadCount)
+	}
+
+	currentAutoThread := defaultIOThread
+	currentDedicatedThread := uint(autoThreads + 1)
 	devicePerBus := make(map[string]int)
 	for _, disk := range vmi.Spec.Domain.Devices.Disks {
 		newDisk := Disk{}
@@ -475,6 +528,26 @@ func Convert_v1_VirtualMachine_To_api_Domain(vmi *v1.VirtualMachineInstance, dom
 		if err != nil {
 			return err
 		}
+
+		if useIOThreads {
+			ioThreadId := defaultIOThread
+			dedicatedThread := false
+			if disk.DedicatedIOThread != nil {
+				dedicatedThread = *disk.DedicatedIOThread
+			}
+
+			if dedicatedThread {
+				ioThreadId = currentDedicatedThread
+				currentDedicatedThread += 1
+			} else {
+				ioThreadId = currentAutoThread
+				// increment the threadId to be used next but wrap around at the thread limit
+				// the odd math here is because thread ID's start at 1, not 0
+				currentAutoThread = (currentAutoThread % uint(autoThreads)) + 1
+			}
+			newDisk.Driver.IOThread = &ioThreadId
+		}
+
 		domain.Spec.Devices.Disks = append(domain.Spec.Devices.Disks, newDisk)
 	}
 
@@ -546,6 +619,14 @@ func Convert_v1_VirtualMachine_To_api_Domain(vmi *v1.VirtualMachineInstance, dom
 
 	if vmi.Spec.Domain.CPU == nil || vmi.Spec.Domain.CPU.Model == "" {
 		domain.Spec.CPU.Mode = CPUModeHostModel
+	}
+
+	// Adjust guest vcpu config. Currenty will handle vCPUs to pCPUs pinning
+	if vmi.IsCPUDedicated() {
+		if err := formatDomainCPUTune(vmi, domain, c); err != nil {
+			log.Log.Reason(err).Error("failed to format domain cputune.")
+			return err
+		}
 	}
 
 	// Add mandatory console device
@@ -715,6 +796,22 @@ func Convert_v1_VirtualMachine_To_api_Domain(vmi *v1.VirtualMachineInstance, dom
 		domain.Spec.Devices.Interfaces = append(domain.Spec.Devices.Interfaces, domainIface)
 	}
 
+	return nil
+}
+
+func formatDomainCPUTune(vmi *v1.VirtualMachineInstance, domain *Domain, c *ConverterContext) error {
+	if len(c.CPUSet) == 0 {
+		return fmt.Errorf("failed for get pods pinned cpus")
+	}
+
+	cpuTune := CPUTune{}
+	for idx := 0; idx < int(vmi.Spec.Domain.CPU.Cores); idx++ {
+		vcpupin := CPUTuneVCPUPin{}
+		vcpupin.VCPU = uint(idx)
+		vcpupin.CPUSet = strconv.Itoa(c.CPUSet[idx])
+		cpuTune.VCPUPin = append(cpuTune.VCPUPin, vcpupin)
+	}
+	domain.Spec.CPUTune = &cpuTune
 	return nil
 }
 

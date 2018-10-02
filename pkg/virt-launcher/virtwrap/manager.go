@@ -143,11 +143,17 @@ func (l *LibvirtDomainManager) SyncVMI(vmi *v1.VirtualMachineInstance, useEmulat
 	logger := log.Log.Object(vmi)
 
 	domain := &api.Domain{}
+	podCPUSet, err := util.GetPodCPUSet()
+	if err != nil {
+		logger.Reason(err).Error("failed to read pod cpuset.")
+		return nil, err
+	}
 
 	// Map the VirtualMachineInstance to the Domain
 	c := &api.ConverterContext{
 		VirtualMachine: vmi,
 		UseEmulation:   useEmulation,
+		CPUSet:         podCPUSet,
 	}
 	if err := api.Convert_v1_VirtualMachine_To_api_Domain(vmi, domain, c); err != nil {
 		logger.Error("Conversion failed.")
@@ -197,7 +203,7 @@ func (l *LibvirtDomainManager) SyncVMI(vmi *v1.VirtualMachineInstance, useEmulat
 	// TODO Suspend, Pause, ..., for now we only support reaching the running state
 	// TODO for migration and error detection we also need the state change reason
 	// TODO blocked state
-	if cli.IsDown(domState) {
+	if cli.IsDown(domState) && !vmi.IsRunning() && !vmi.IsFinal() {
 		err = dom.Create()
 		if err != nil {
 			logger.Reason(err).Error("Starting the VirtualMachineInstance failed.")
@@ -233,7 +239,11 @@ func (l *LibvirtDomainManager) SyncVMI(vmi *v1.VirtualMachineInstance, useEmulat
 }
 
 func (l *LibvirtDomainManager) getDomainSpec(dom cli.VirDomain) (*api.DomainSpec, error) {
-	return util.GetDomainSpec(dom)
+	state, _, err := dom.GetState()
+	if err != nil {
+		return nil, err
+	}
+	return util.GetDomainSpec(state, dom)
 }
 
 func (l *LibvirtDomainManager) SignalShutdownVMI(vmi *v1.VirtualMachineInstance) error {
@@ -363,7 +373,7 @@ func (l *LibvirtDomainManager) ListAllDomains() ([]*api.Domain, error) {
 			}
 			return list, err
 		}
-		spec, err := util.GetDomainSpec(dom)
+		spec, err := l.getDomainSpec(dom)
 		if err != nil {
 			if domainerrors.IsNotFound(err) {
 				continue

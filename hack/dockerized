@@ -13,8 +13,14 @@ SYNC_VENDOR=${SYNC_VENDOR:-false}
 
 TEMPFILE=".rsynctemp"
 
+# Reduce verbosity if an automated build
+BUILD_QUIET=
+if [ -n "$JOB_NAME" -o -n "$TRAVIS_BUILD_ID" ]; then
+    BUILD_QUIET="-q"
+fi
+
 # Build the build container
-(cd ${DOCKER_DIR} && docker build . -t ${BUILDER})
+(cd ${DOCKER_DIR} && docker build . ${BUILD_QUIET} -t ${BUILDER})
 
 # Create the persistent docker volume
 if [ -z "$(docker volume list | grep ${BUILDER})" ]; then

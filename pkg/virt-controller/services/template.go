@@ -45,6 +45,7 @@ const KvmDevice = "devices.kubevirt.io/kvm"
 const TunDevice = "devices.kubevirt.io/tun"
 
 const CAP_NET_ADMIN = "NET_ADMIN"
+const CAP_SYS_NICE = "SYS_NICE"
 
 type TemplateService interface {
 	RenderLaunchManifest(*v1.VirtualMachineInstance) (*k8sv1.Pod, error)
@@ -100,6 +101,7 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 	precond.MustNotBeNil(vmi)
 	domain := precond.MustNotBeEmpty(vmi.GetObjectMeta().GetName())
 	namespace := precond.MustNotBeEmpty(vmi.GetObjectMeta().GetNamespace())
+	nodeSelector := map[string]string{}
 
 	initialDelaySeconds := 2
 	timeoutSeconds := 5
@@ -324,6 +326,30 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 		})
 	}
 
+	// Handle CPU pinning
+	if vmi.IsCPUDedicated() {
+		// schedule only on nodes with a running cpu manager
+		nodeSelector[v1.CPUManager] = "true"
+
+		if resources.Limits == nil {
+			resources.Limits = make(k8sv1.ResourceList)
+		}
+		cores := uint32(0)
+		if vmi.Spec.Domain.CPU != nil {
+			cores = vmi.Spec.Domain.CPU.Cores
+		}
+		if cores != 0 {
+			resources.Limits[k8sv1.ResourceCPU] = *resource.NewQuantity(int64(cores), resource.BinarySI)
+		} else {
+			if cpuLimit, ok := resources.Limits[k8sv1.ResourceCPU]; ok {
+				resources.Requests[k8sv1.ResourceCPU] = cpuLimit
+			} else if cpuRequest, ok := resources.Requests[k8sv1.ResourceCPU]; ok {
+				resources.Limits[k8sv1.ResourceCPU] = cpuRequest
+			}
+		}
+		resources.Limits[k8sv1.ResourceMemory] = *resources.Requests.Memory()
+	}
+
 	command := []string{"/usr/bin/virt-launcher",
 		"--qemu-timeout", "5m",
 		"--name", domain,
@@ -398,7 +424,6 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 		Resources: resources,
 		Ports:     ports,
 	}
-
 	containers := registrydisk.GenerateContainers(vmi, "libvirt-runtime", "/var/run/libvirt")
 
 	volumes = append(volumes, k8sv1.Volume{
@@ -416,7 +441,6 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 		},
 	})
 
-	nodeSelector := map[string]string{}
 	for k, v := range vmi.Spec.NodeSelector {
 		nodeSelector[k] = v
 
@@ -434,10 +458,19 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 	containers = append(containers, container)
 
 	for i, requestedHookSidecar := range requestedHookSidecarList {
+		resources := k8sv1.ResourceRequirements{}
+		// add default cpu and memory limits to enable cpu pinning if requested
+		// TODO(vladikr): make the hookSidecar express resources
+		if vmi.IsCPUDedicated() {
+			resources.Limits = make(k8sv1.ResourceList)
+			resources.Limits[k8sv1.ResourceCPU] = resource.MustParse("200m")
+			resources.Limits[k8sv1.ResourceMemory] = resource.MustParse("64M")
+		}
 		containers = append(containers, k8sv1.Container{
 			Name:            fmt.Sprintf("hook-sidecar-%d", i),
 			Image:           requestedHookSidecar.Image,
 			ImagePullPolicy: requestedHookSidecar.ImagePullPolicy,
+			Resources:       resources,
 			VolumeMounts: []k8sv1.VolumeMount{
 				k8sv1.VolumeMount{
 					Name:      "hook-sidecar-sockets",
@@ -515,6 +548,10 @@ func getRequiredCapabilities(vmi *v1.VirtualMachineInstance) []k8sv1.Capability 
 		(vmi.Spec.Domain.Devices.AutoattachPodInterface == nil) ||
 		(*vmi.Spec.Domain.Devices.AutoattachPodInterface == true) {
 		res = append(res, CAP_NET_ADMIN)
+	}
+	// add a CAP_SYS_NICE capability to allow setting cpu affinity
+	if vmi.IsCPUDedicated() {
+		res = append(res, CAP_SYS_NICE)
 	}
 	return res
 }

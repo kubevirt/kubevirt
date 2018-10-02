@@ -187,15 +187,20 @@ var _ = Describe("Defaults", func() {
 		SetObjectDefaults_VirtualMachineInstance(vmi)
 		disks := vmi.Spec.Domain.Devices.Disks
 
-		Expect(disks[0].CDRom.Tray).To(Equal(TrayStateClosed))
-		Expect(*disks[0].CDRom.ReadOnly).To(Equal(true))
-		Expect(disks[1].CDRom.Tray).To(Equal(TrayStateOpen))
-		Expect(*disks[1].CDRom.ReadOnly).To(Equal(false))
-		Expect(disks[2].Floppy.Tray).To(Equal(TrayStateClosed))
-		Expect(disks[2].Floppy.ReadOnly).To(Equal(false))
-		Expect(disks[3].Floppy.Tray).To(Equal(TrayStateOpen))
-		Expect(disks[3].Floppy.Tray).To(Equal(TrayStateOpen))
-		Expect(disks[4].Disk).ToNot(BeNil())
+		Expect(disks[0].CDRom.Tray).To(Equal(TrayStateClosed), "Default tray state for CDROM should be closed")
+		Expect(*disks[0].CDRom.ReadOnly).To(Equal(true), "Default ReadOnly state for CDROM should be true")
+		Expect(disks[0].DedicatedIOThread).To(BeNil(), "Default DedicatedIOThread state should be nil")
+		Expect(disks[1].CDRom.Tray).To(Equal(TrayStateOpen), "Tray state was explictly set to open")
+		Expect(*disks[1].CDRom.ReadOnly).To(Equal(false), "ReadOnly state was explicitly set to true")
+		Expect(disks[1].DedicatedIOThread).To(BeNil(), "Default DedicatedIOThread state should be nil")
+		Expect(disks[2].Floppy.Tray).To(Equal(TrayStateClosed), "Default tray state for Floppy should be closed")
+		Expect(disks[2].Floppy.ReadOnly).To(Equal(false), "Default ReadOnly state for Floppy should be false")
+		Expect(disks[2].DedicatedIOThread).To(BeNil(), "Default DedicatedIOThread state should be nil")
+		Expect(disks[3].Floppy.Tray).To(Equal(TrayStateOpen), "TrayState was explicity set to open")
+		Expect(disks[3].Floppy.ReadOnly).To(Equal(true), "ReadOnly was explicity set to true")
+		Expect(disks[3].DedicatedIOThread).To(BeNil(), "Default DedicatedIOThread state should be nil")
+		Expect(disks[4].Disk).ToNot(BeNil(), "Default type should be Disk")
+		Expect(disks[4].DedicatedIOThread).To(BeNil(), "Default DedicatedIOThread state should be nil")
 	})
 
 	It("should set the default watchdog and the default watchdog action", func() {
@@ -245,6 +250,11 @@ var _ = Describe("Defaults", func() {
 		Expect(*timer.Hyperv.Enabled).To(BeTrue())
 	})
 
+	It("should omit IOThreads by default", func() {
+		vmi := &VirtualMachineInstance{}
+		SetObjectDefaults_VirtualMachineInstance(vmi)
+		Expect(vmi.Spec.Domain.IOThreadsPolicy).To(BeNil(), "Default IOThreadsPolicy should be nil")
+	})
 })
 
 var _ = Describe("Function SetDefaults_NetworkInterface()", func() {

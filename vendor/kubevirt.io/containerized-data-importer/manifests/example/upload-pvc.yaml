@@ -1,0 +1,14 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: upload-test
+  labels:
+    app: containerized-data-importer
+  annotations:
+    cdi.kubevirt.io/storage.upload.target: ""
+spec:
+  accessModes:
+  - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi

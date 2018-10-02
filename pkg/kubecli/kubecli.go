@@ -157,9 +157,12 @@ var GetKubevirtClientFromClientConfig = func(cmdConfig clientcmd.ClientConfig) (
 
 func GetKubevirtClientFromRESTConfig(config *rest.Config) (KubevirtClient, error) {
 	config.GroupVersion = &v1.GroupVersion
-	config.NegotiatedSerializer = serializer.DirectCodecFactory{CodecFactory: scheme.Codecs}
+	config.NegotiatedSerializer = serializer.DirectCodecFactory{CodecFactory: v1.Codecs}
 	config.APIPath = "/apis"
 	config.ContentType = runtime.ContentTypeJSON
+	if config.UserAgent == "" {
+		config.UserAgent = restclient.DefaultKubernetesUserAgent()
+	}
 
 	restClient, err := rest.RESTClientFor(config)
 	if err != nil {

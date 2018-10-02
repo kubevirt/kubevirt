@@ -53,6 +53,7 @@ const (
 )
 
 var validInterfaceModels = []string{"e1000", "e1000e", "ne2k_pci", "pcnet", "rtl8139", "virtio"}
+var validIOThreadsPolicies = []v1.IOThreadsPolicy{v1.IOThreadsPolicyShared, v1.IOThreadsPolicyAuto}
 
 func toAdmissionResponse(causes []metav1.StatusCause) *v1beta1.AdmissionResponse {
 	log.Log.Infof("rejected vmi admission")
@@ -557,6 +558,95 @@ func ValidateVirtualMachineInstanceSpec(field *k8sfield.Path, spec *v1.VirtualMa
 		}
 	}
 
+	// Validate CPU pinning
+	if spec.Domain.CPU != nil && spec.Domain.CPU.DedicatedCPUPlacement {
+		requestsMem := spec.Domain.Resources.Requests.Memory().Value()
+		limitsMem := spec.Domain.Resources.Limits.Memory().Value()
+		requestsCPU := spec.Domain.Resources.Requests.Cpu().Value()
+		limitsCPU := spec.Domain.Resources.Limits.Cpu().Value()
+		vmCores := int64(spec.Domain.CPU.Cores)
+		// memory should be provided
+		if limitsMem == 0 && requestsMem == 0 {
+			causes = append(causes, metav1.StatusCause{
+				Type: metav1.CauseTypeFieldValueInvalid,
+				Message: fmt.Sprintf("%s or %s should be provided",
+					field.Child("domain", "resources", "requests", "memory").String(),
+					field.Child("domain", "resources", "limits", "memory").String(),
+				),
+				Field: field.Child("domain", "resources", "limits", "memory").String(),
+			})
+		}
+
+		// provided CPU requests must be an interger
+		if requestsCPU > 0 && requestsCPU*1000 != spec.Domain.Resources.Requests.Cpu().MilliValue() {
+			causes = append(causes, metav1.StatusCause{
+				Type:    metav1.CauseTypeFieldValueInvalid,
+				Message: "provided resources CPU requests must be an interger",
+				Field:   field.Child("domain", "resources", "requests", "cpu").String(),
+			})
+		}
+
+		// provided CPU limits must be an interger
+		if limitsCPU > 0 && limitsCPU*1000 != spec.Domain.Resources.Limits.Cpu().MilliValue() {
+			causes = append(causes, metav1.StatusCause{
+				Type:    metav1.CauseTypeFieldValueInvalid,
+				Message: "provided resources CPU limits must be an interger",
+				Field:   field.Child("domain", "resources", "limits", "cpu").String(),
+			})
+		}
+
+		// resources requests must be equal to limits
+		if requestsMem > 0 && limitsMem > 0 && requestsMem != limitsMem {
+			causes = append(causes, metav1.StatusCause{
+				Type: metav1.CauseTypeFieldValueInvalid,
+				Message: fmt.Sprintf("%s must be equal to %s",
+					field.Child("domain", "resources", "requests", "memory").String(),
+					field.Child("domain", "resources", "limits", "memory").String(),
+				),
+				Field: field.Child("domain", "resources", "requests", "memory").String(),
+			})
+		}
+
+		// cpu amount should be provided
+		if requestsCPU == 0 && limitsCPU == 0 && vmCores == 0 {
+			causes = append(causes, metav1.StatusCause{
+				Type: metav1.CauseTypeFieldValueInvalid,
+				Message: fmt.Sprintf("either %s or %s or %s must be provided when DedicatedCPUPlacement is true ",
+					field.Child("domain", "resources", "requests", "cpu").String(),
+					field.Child("domain", "resources", "limits", "cpu").String(),
+					field.Child("domain", "cpu", "cores").String(),
+				),
+				Field: field.Child("domain", "cpu", "dedicatedCpuPlacement").String(),
+			})
+		}
+
+		// cpu amount must be provided
+		if requestsCPU > 0 && limitsCPU > 0 && requestsCPU != limitsCPU {
+			causes = append(causes, metav1.StatusCause{
+				Type: metav1.CauseTypeFieldValueInvalid,
+				Message: fmt.Sprintf("%s or %s must be equal when DedicatedCPUPlacement is true ",
+					field.Child("domain", "resources", "requests", "cpu").String(),
+					field.Child("domain", "resources", "limits", "cpu").String(),
+				),
+				Field: field.Child("domain", "cpu", "dedicatedCpuPlacement").String(),
+			})
+		}
+
+		// cpu resource and cpu cores should not be provided together - unless both are equal
+		if (requestsCPU > 0 || limitsCPU > 0) && vmCores > 0 &&
+			requestsCPU != vmCores && limitsCPU != vmCores {
+			causes = append(causes, metav1.StatusCause{
+				Type: metav1.CauseTypeFieldValueInvalid,
+				Message: fmt.Sprintf("%s or %s must not be provided at the same time with %s when DedicatedCPUPlacement is true ",
+					field.Child("domain", "resources", "requests", "cpu").String(),
+					field.Child("domain", "resources", "limits", "cpu").String(),
+					field.Child("domain", "cpu", "cores").String(),
+				),
+				Field: field.Child("domain", "cpu", "dedicatedCpuPlacement").String(),
+			})
+		}
+	}
+
 	if len(spec.Domain.Devices.Interfaces) > arrayLenMax {
 		causes = append(causes, metav1.StatusCause{
 			Type:    metav1.CauseTypeFieldValueInvalid,
@@ -891,6 +981,24 @@ func ValidateVirtualMachineInstanceSpec(field *k8sfield.Path, spec *v1.VirtualMa
 		}
 	}
 
+	if spec.Domain.IOThreadsPolicy != nil {
+		isValidPolicy := func(policy v1.IOThreadsPolicy) bool {
+			for _, p := range validIOThreadsPolicies {
+				if policy == p {
+					return true
+				}
+			}
+			return false
+		}
+		if !isValidPolicy(*spec.Domain.IOThreadsPolicy) {
+			causes = append(causes, metav1.StatusCause{
+				Type:    metav1.CauseTypeFieldValueInvalid,
+				Message: fmt.Sprintf("Invalid IOThreadsPolicy (%s)", *spec.Domain.IOThreadsPolicy),
+				Field:   field.Child("domain", "ioThreadsPolicy").String(),
+			})
+		}
+	}
+
 	causes = append(causes, validateDomainSpec(field.Child("domain"), &spec.Domain)...)
 	causes = append(causes, validateVolumes(field.Child("volumes"), spec.Volumes)...)
 	return causes
@@ -988,28 +1096,40 @@ func ValidateVMIRSSpec(field *k8sfield.Path, spec *v1.VirtualMachineInstanceRepl
 	return causes
 }
 
-func getAdmissionReviewVMI(ar *v1beta1.AdmissionReview) (*v1.VirtualMachineInstance, error) {
+func getAdmissionReviewVMI(ar *v1beta1.AdmissionReview) (new *v1.VirtualMachineInstance, old *v1.VirtualMachineInstance, err error) {
 	vmiResource := metav1.GroupVersionResource{
 		Group:    v1.VirtualMachineInstanceGroupVersionKind.Group,
 		Version:  v1.VirtualMachineInstanceGroupVersionKind.Version,
 		Resource: "virtualmachineinstances",
 	}
 	if ar.Request.Resource != vmiResource {
-		return nil, fmt.Errorf("expect resource to be '%s'", vmiResource.Resource)
+		return nil, nil, fmt.Errorf("expect resource to be '%s'", vmiResource.Resource)
 	}
 
 	raw := ar.Request.Object.Raw
-	vmi := v1.VirtualMachineInstance{}
+	newVMI := v1.VirtualMachineInstance{}
 
-	err := json.Unmarshal(raw, &vmi)
+	err = json.Unmarshal(raw, &newVMI)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
-	return &vmi, nil
+
+	if ar.Request.Operation == v1beta1.Update {
+		raw := ar.Request.OldObject.Raw
+		oldVMI := v1.VirtualMachineInstance{}
+
+		err = json.Unmarshal(raw, &oldVMI)
+		if err != nil {
+			return nil, nil, err
+		}
+		return &newVMI, &oldVMI, nil
+	}
+
+	return &newVMI, nil, nil
 }
 
 func admitVMICreate(ar *v1beta1.AdmissionReview) *v1beta1.AdmissionResponse {
-	vmi, err := getAdmissionReviewVMI(ar)
+	vmi, _, err := getAdmissionReviewVMI(ar)
 	if err != nil {
 		return webhooks.ToAdmissionResponseError(err)
 	}
@@ -1030,25 +1150,11 @@ func ServeVMICreate(resp http.ResponseWriter, req *http.Request) {
 
 func admitVMIUpdate(ar *v1beta1.AdmissionReview) *v1beta1.AdmissionResponse {
 	// Get new VMI from admission response
-	newVMI, err := getAdmissionReviewVMI(ar)
+	newVMI, oldVMI, err := getAdmissionReviewVMI(ar)
 	if err != nil {
 		return webhooks.ToAdmissionResponseError(err)
 	}
 
-	// Get old VMI from the cache
-	informers := webhooks.GetInformers()
-	cacheKey := fmt.Sprintf("%s/%s", newVMI.Namespace, newVMI.Name)
-	obj, exists, err := informers.VMIInformer.GetStore().GetByKey(cacheKey)
-	if err != nil {
-		return webhooks.ToAdmissionResponseError(err)
-	}
-
-	if !exists {
-		return webhooks.ToAdmissionResponseError(
-			fmt.Errorf("the VMI %s does not exist under the cache", newVMI.Name),
-		)
-	}
-	oldVMI := obj.(*v1.VirtualMachineInstance)
 	// Reject VMI update if VMI spec changed
 	if !reflect.DeepEqual(newVMI.Spec, oldVMI.Spec) {
 		return toAdmissionResponse([]metav1.StatusCause{

@@ -21,10 +21,13 @@ package main
 
 import (
 	"fmt"
+	"io/ioutil"
+	"net/http"
 	"os"
-
 	"time"
 
+	"github.com/golang/glog"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	flag "github.com/spf13/pflag"
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/fields"
@@ -34,11 +37,18 @@ import (
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/record"
 
+	"kubevirt.io/kubevirt/pkg/util"
+
+	"kubevirt.io/kubevirt/pkg/certificates"
+
 	"kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/controller"
 	inotifyinformer "kubevirt.io/kubevirt/pkg/inotify-informer"
 	"kubevirt.io/kubevirt/pkg/kubecli"
 	"kubevirt.io/kubevirt/pkg/log"
+	_ "kubevirt.io/kubevirt/pkg/monitoring/client/prometheus"    // import for prometheus metrics
+	_ "kubevirt.io/kubevirt/pkg/monitoring/reflector/prometheus" // import for prometheus metrics
+	_ "kubevirt.io/kubevirt/pkg/monitoring/workqueue/prometheus" // import for prometheus metrics
 	"kubevirt.io/kubevirt/pkg/service"
 	"kubevirt.io/kubevirt/pkg/virt-handler"
 	virtcache "kubevirt.io/kubevirt/pkg/virt-handler/cache"
@@ -141,11 +151,30 @@ func (app *virtHandlerApp) Run() {
 		maxDevices,
 	)
 
+	certsDirectory, err := ioutil.TempDir("", "certsdir")
+	if err != nil {
+		panic(err)
+	}
+	defer os.RemoveAll(certsDirectory)
+	namespace, err := util.GetNamespace()
+	if err != nil {
+		glog.Fatalf("Error searching for namespace: %v", err)
+	}
+	certStore, err := certificates.GenerateSelfSignedCert(certsDirectory, "virt-handler", namespace)
+	if err != nil {
+		glog.Fatalf("unable to generate certificates: %v", err)
+	}
 	// Bootstrapping. From here on the startup order matters
 	stop := make(chan struct{})
 	defer close(stop)
+	go vmController.Run(3, stop)
 
-	vmController.Run(3, stop)
+	http.Handle("/metrics", promhttp.Handler())
+	err = http.ListenAndServeTLS(app.ServiceListen.Address(), certStore.CurrentPath(), certStore.CurrentPath(), nil)
+	if err != nil {
+		log.Log.Reason(err).Error("Serving prometheus failed.")
+		panic(err)
+	}
 }
 
 func (app *virtHandlerApp) AddFlags() {

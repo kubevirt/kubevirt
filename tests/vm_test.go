@@ -204,7 +204,6 @@ var _ = Describe("VirtualMachine", func() {
 
 		It("should remove VirtualMachineInstance once the VMI is marked for deletion", func() {
 			newVMI := newVirtualMachine(true)
-			// Create a offlinevmi with vmi
 			// Delete it
 			Expect(virtClient.VirtualMachine(newVMI.Namespace).Delete(newVMI.Name, &v12.DeleteOptions{})).To(Succeed())
 			// Wait until VMIs are gone
@@ -228,7 +227,7 @@ var _ = Describe("VirtualMachine", func() {
 			orphanPolicy := v12.DeletePropagationOrphan
 			Expect(virtClient.VirtualMachine(newVMI.Namespace).
 				Delete(newVMI.Name, &v12.DeleteOptions{PropagationPolicy: &orphanPolicy})).To(Succeed())
-			// Wait until the offlinevmi is deleted
+			// Wait until the virtual machine is deleted
 			Eventually(func() bool {
 				_, err := virtClient.VirtualMachine(newVMI.Namespace).Get(newVMI.Name, &v12.GetOptions{})
 				if errors.IsNotFound(err) {

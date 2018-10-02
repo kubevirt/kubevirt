@@ -3090,8 +3090,7 @@
     "description": "APIGroup contains the name, the supported versions, and the preferred version of a group.",
     "required": [
      "name",
-     "versions",
-     "serverAddressByClientCIDRs"
+     "versions"
     ],
     "properties": {
      "apiVersion": {
@@ -3274,6 +3273,10 @@
       "description": "Cores specifies the number of cores inside the vmi.\nMust be a value greater or equal 1.",
       "type": "integer"
      },
+     "dedicatedCpuPlacement": {
+      "description": "DedicatedCPUPlacement requests the scheduler to place the VirtualMachineInstance on a node\nwith enough dedicated pCPUs and pin the vCPUs to it.\n+optional",
+      "type": "boolean"
+     },
      "model": {
       "description": "Model specifies the CPU model inside the VMI.\nList of available models https://github.com/libvirt/libvirt/blob/master/src/cpu/cpu_map.xml.\nIt is possible to specify special cases like \"host-passthrough\" to get the same CPU as the node\nand \"host-model\" to get CPU closest to the node one.\nFor more information see https://libvirt.org/formatdomain.html#elementsCPU.\nDefaults to host-model.\n+optional",
       "type": "string"
@@ -3398,7 +3401,7 @@
    "v1.Devices": {
     "properties": {
      "autoattachGraphicsDevice": {
-      "description": "Wheater to attach the default graphics device or not.\nVNC will not be available if set to false. Defaults to true.",
+      "description": "Whether to attach the default graphics device or not.\nVNC will not be available if set to false. Defaults to true.",
       "type": "boolean"
      },
      "autoattachPodInterface": {
@@ -3413,7 +3416,7 @@
       }
      },
      "interfaces": {
-      "description": "Interfaces describe network interfaces which are added to the vm.",
+      "description": "Interfaces describe network interfaces which are added to the vmi.",
       "type": "array",
       "items": {
        "$ref": "#/definitions/v1.Interface"
@@ -3443,6 +3446,10 @@
      "cdrom": {
       "description": "Attach a volume as a cdrom to the vmi.",
       "$ref": "#/definitions/v1.CDRomTarget"
+     },
+     "dedicatedIOThread": {
+      "description": "dedicatedIOThread indicates this disk should have an exclusive IO Thread.\nEnabling this implies useIOThreads = true.\nDefaults to false.\n+optional",
+      "type": "boolean"
      },
      "disk": {
       "description": "Attach a volume as a disk to the vmi.",
@@ -3506,6 +3513,10 @@
      "firmware": {
       "description": "Firmware.\n+optional",
       "$ref": "#/definitions/v1.Firmware"
+     },
+     "ioThreadsPolicy": {
+      "description": "Controls whether or not disks will share IOThreads.\nOmitting IOThreadsPolicy disables use of IOThreads.\nOne of: shared, auto\n+optional",
+      "$ref": "#/definitions/v1.IOThreadsPolicy"
      },
      "machine": {
       "description": "Machine type.\n+optional",
@@ -3739,6 +3750,7 @@
      }
     }
    },
+   "v1.IOThreadsPolicy": {},
    "v1.Initializer": {
     "description": "Initializer is information about an initializer that has not yet completed.",
     "required": [
@@ -4003,13 +4015,17 @@
     }
    },
    "v1.NodeSelectorTerm": {
-    "description": "A null or empty node selector term matches no objects.",
-    "required": [
-     "matchExpressions"
-    ],
+    "description": "A null or empty node selector term matches no objects. The requirements of them are ANDed. The TopologySelectorTerm type implements a subset of the NodeSelectorTerm.",
     "properties": {
      "matchExpressions": {
-      "description": "Required. A list of node selector requirements. The requirements are ANDed.",
+      "description": "A list of node selector requirements by node's labels.",
+      "type": "array",
+      "items": {
+       "$ref": "#/definitions/v1.NodeSelectorRequirement"
+      }
+     },
+     "matchFields": {
+      "description": "A list of node selector requirements by node's fields.",
       "type": "array",
       "items": {
        "$ref": "#/definitions/v1.NodeSelectorRequirement"
@@ -4927,6 +4943,10 @@
      "phase": {
       "description": "Phase is the status of the VirtualMachineInstance in kubernetes world. It is not the VirtualMachineInstance status, but partially correlates to it.",
       "type": "string"
+     },
+     "reason": {
+      "description": "A brief CamelCase message indicating details about why the VMI is in this state. e.g. 'NodeUnresponsive'\n+optional",
+      "type": "string"
      }
     }
    },
@@ -5138,6 +5158,9 @@
      "http": {
       "$ref": "#/definitions/v1alpha1.DataVolumeSourceHTTP"
      },
+     "pvc": {
+      "$ref": "#/definitions/v1alpha1.DataVolumeSourcePVC"
+     },
      "s3": {
       "$ref": "#/definitions/v1alpha1.DataVolumeSourceS3"
      }
@@ -5145,7 +5168,20 @@
    },
    "v1alpha1.DataVolumeSourceHTTP": {
     "properties": {
+     "secretRef": {
+      "type": "string"
+     },
      "url": {
+      "type": "string"
+     }
+    }
+   },
+   "v1alpha1.DataVolumeSourcePVC": {
+    "properties": {
+     "name": {
+      "type": "string"
+     },
+     "namespace": {
       "type": "string"
      }
     }

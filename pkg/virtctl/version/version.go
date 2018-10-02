@@ -17,7 +17,7 @@ var clientOnly bool
 func VersionCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "version",
-		Short:   "Print the client and server version information",
+		Short:   "Print the client and server version information.",
 		Example: usage(),
 		Args:    cobra.ExactArgs(0),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -31,8 +31,8 @@ func VersionCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
 }
 
 func usage() string {
-	usage := "# Print the client and server versions for the current context \n"
-	usage += "virtctl version"
+	usage := "  # Print the client and server versions for the current context:\n"
+	usage += "  virtctl version"
 	return usage
 }
 
@@ -54,7 +54,7 @@ func (v *Version) Run(cmd *cobra.Command, args []string) error {
 			return err
 		}
 
-		fmt.Printf("Server Version: %s\n", fmt.Sprintf("%#v", serverInfo))
+		fmt.Printf("Server Version: %s\n", fmt.Sprintf("%#v", *serverInfo))
 	}
 
 	return nil

@@ -230,7 +230,7 @@ func (c *VMIReplicaSet) execute(key string) error {
 		logger.Reason(err).Error("Updating the replicaset status failed.")
 	}
 
-	return err
+	return scaleErr
 }
 
 // orphan removes the owner reference of all VMIs which are owned by the controller instance.

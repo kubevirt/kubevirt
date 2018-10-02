@@ -21,5 +21,5 @@ source "${script_dir}"/common.sh
 source "${script_dir}"/config.sh
 
 shfmt -i 4 -w ${CDI_DIR}/hack ${CLONER_MAIN}
-goimports -w -local kubevirt.io ${CDI_DIR}/cmd/ ${CDI_DIR}/pkg/ ${CDI_DIR}/test/
+goimports -w -local kubevirt.io ${CDI_DIR}/cmd/ ${CDI_DIR}/pkg/ ${CDI_DIR}/tests/
 (cd ${CDI_DIR} && go vet $(go list ./... | grep -v -E "vendor|pkg/client" | sort -u))

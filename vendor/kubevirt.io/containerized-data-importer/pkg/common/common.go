@@ -1,54 +1,81 @@
 package common
 
 import (
-	"k8s.io/api/core/v1"
 	"time"
+
+	"k8s.io/api/core/v1"
 )
 
 // Common types and constants used by the importer and controller.
 // TODO: maybe the vm cloner can use these common values
 
 const (
-	CDI_LABEL_KEY          = "app"
-	CDI_LABEL_VALUE        = "containerized-data-importer"
-	CDI_LABEL_SELECTOR     = CDI_LABEL_KEY + "=" + CDI_LABEL_VALUE
+	// CDILabelKey provides a constant for CDI PVC labels
+	CDILabelKey = "app"
+	// CDILabelValue provides a constant  for CDI PVC label values
+	CDILabelValue = "containerized-data-importer"
+	// CDILabelSelector provides a constant to use for the selector to identify CDI objects in list
+	CDILabelSelector = CDILabelKey + "=" + CDILabelValue
+
+	// CDIComponentLabel can be added to all CDI resources
+	CDIComponentLabel = "cdi.kubevirt.io"
 
 	// host file constants:
-	IMPORTER_WRITE_DIR  = "/data"
-	IMPORTER_WRITE_FILE = "disk.img"
-	IMPORTER_WRITE_PATH = IMPORTER_WRITE_DIR + "/" + IMPORTER_WRITE_FILE
-	// importer container constants:
-	IMPORTER_PODNAME    = "importer"
-	IMPORTER_DATA_DIR   = "/data"
-	IMPORTER_S3_HOST    = "s3.amazonaws.com"
-	DEFAULT_PULL_POLICY = string(v1.PullIfNotPresent)
-	// env var names
-	PULL_POLICY            = "PULL_POLICY"
-	IMPORTER_ENDPOINT      = "IMPORTER_ENDPOINT"
-	IMPORTER_ACCESS_KEY_ID = "IMPORTER_ACCESS_KEY_ID"
-	IMPORTER_SECRET_KEY    = "IMPORTER_SECRET_KEY"
+	importerWriteDir = "/data"
+	// ImporterWriteFile provides a constant for our importer/datastream_ginkgo_test and to build ImporterWritePath
+	ImporterWriteFile = "disk.img"
+	//ImporterWritePath provides a constant for for the cmd/cdi-importer/importer.go executable
+	ImporterWritePath = importerWriteDir + "/" + ImporterWriteFile
 
-	CLONING_LABEL_KEY     = "cloning"
-	CLONING_LABEL_VALUE   = "host-assisted-cloning"
-	CLONING_TOPOLOGY_KEY  = "kubernetes.io/hostname"
-	CLONER_SOURCE_PODNAME = "clone-source-pod"
-	CLONER_TARGET_PODNAME = "clone-target-pod"
-	CLONER_IMAGE_PATH     = "/tmp/clone/image"
-	CLONER_SOCKET_PATH    = "/tmp/clone/socket"
-	CLONER_SCRIPT_ARGS    = "/tmp/script.sh"
+	// ImporterPodName provides a constant to use as a prefix for Pods created by CDI (controller only)
+	ImporterPodName = "importer"
+	// ImporterDataDir provides a constant for the controller pkg to use as a hardcoded path to where content is transferred to/from (controller only)
+	ImporterDataDir = "/data"
+	// ImporterS3Host provides an S3 string used by importer/dataStream.go only
+	ImporterS3Host = "s3.amazonaws.com"
+	// DefaultPullPolicy imports k8s "IfNotPresent" string for the import_controller_gingko_test and the cdi-controller executable
+	DefaultPullPolicy = string(v1.PullIfNotPresent)
 
-	// key names expected in credential secret
+	// PullPolicy provides a constant to capture our env variable "PULL_POLICY" (only used by cmd/cdi-controller/controller.go)
+	PullPolicy = "PULL_POLICY"
+	// ImporterEndpoint provides a constant to capture our env variable "IMPOTER_ENDPOINT"
+	ImporterEndpoint = "IMPORTER_ENDPOINT"
+	// ImporterAccessKeyID provides a constant to capture our env variable "IMPORTER_ACCES_KEY_ID"
+	ImporterAccessKeyID = "IMPORTER_ACCESS_KEY_ID"
+	// ImporterSecretKey provides a constant to capture our env variable "IMPORTER_SECRET_KEY"
+	ImporterSecretKey = "IMPORTER_SECRET_KEY"
+
+	// CloningLabelKey provides a constant to use as a label name for pod affinity (controller pkg only)
+	CloningLabelKey = "cloning"
+	// CloningLabelValue provides a constant to use as a label value for pod affinity (controller pkg only)
+	CloningLabelValue = "host-assisted-cloning"
+	// CloningTopologyKey  (controller pkg only)
+	CloningTopologyKey = "kubernetes.io/hostname"
+	// ClonerSourcePodName (controller pkg only)
+	ClonerSourcePodName = "clone-source-pod"
+	// ClonerTargetPodName (controller pkg only)
+	ClonerTargetPodName = "clone-target-pod"
+	// ClonerImagePath (controller pkg only)
+	ClonerImagePath = "/tmp/clone/image"
+	// ClonerSocketPath (controller pkg only)
+	ClonerSocketPath = "/tmp/clone/socket"
+
+	// UploadServerCDILabel is the label applied to upload server resources
+	UploadServerCDILabel = "cdi-upload-server"
+
+	// UploadServerPodname is name of the upload server pod container
+	UploadServerPodname = UploadServerCDILabel
+
+	// UploadServerDataDir is the destination directoryfor uploads
+	UploadServerDataDir = ImporterDataDir
+	// UploadServerServiceLabel is the label selector for upload server services
+	UploadServerServiceLabel = "service"
+
+	// KeyAccess provides a constant to the accessKeyId label using in controller pkg and transport_test.go
 	KeyAccess = "accessKeyId"
+	// KeySecret provides a constant to the secretKey label using in controller pkg and transport_test.go
 	KeySecret = "secretKey"
 
-	// Shared informer resync period.
-	DEFAULT_RESYNC_PERIOD = 10 * time.Minute
-
-	// logging verbosity
-	Vuser           = 1
-	Vadmin          = 2
-	Vdebug          = 3
-	DEFAULT_VERBOSE = Vuser
-	// the length of the random generated cloning label
-	GENERATED_CLONING_LABEL_LEN = 10
+	// DefaultResyncPeriod sets a 10 minute resync period, used in the controller pkg and the controller cmd executable
+	DefaultResyncPeriod = 10 * time.Minute
 )

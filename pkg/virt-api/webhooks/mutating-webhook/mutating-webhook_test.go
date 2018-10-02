@@ -49,7 +49,7 @@ var _ = Describe("Mutating Webhook", func() {
 		memory, _ := resource.ParseQuantity("64M")
 		limitMemory, _ := resource.ParseQuantity("128M")
 
-		getVMISpecMetaFromResponse := func() (*v1.VirtualMachineInstanceSpec, *k8sv1.ObjectMeta) {
+		getVMISpecMetaFromResponse := func() (*v1.VirtualMachineInstanceSpec, *k8smetav1.ObjectMeta) {
 			vmiBytes, err := json.Marshal(vmi)
 			Expect(err).ToNot(HaveOccurred())
 			By("Creating the test admissions review from the VMI")
@@ -67,7 +67,7 @@ var _ = Describe("Mutating Webhook", func() {
 
 			By("Getting the VMI spec from the response")
 			vmiSpec := &v1.VirtualMachineInstanceSpec{}
-			vmiMeta := &k8sv1.ObjectMeta{}
+			vmiMeta := &k8smetav1.ObjectMeta{}
 			patch := []patchOperation{
 				{Value: vmiSpec},
 				{Value: vmiMeta},

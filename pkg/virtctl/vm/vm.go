@@ -21,6 +21,7 @@ package vm
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/spf13/cobra"
 	k8smetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -39,7 +40,7 @@ const (
 
 func NewStartCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:     "start (vm)",
+		Use:     "start (VM)",
 		Short:   "Start a virtual machine.",
 		Example: usage(COMMAND_START),
 		Args:    cobra.ExactArgs(1),
@@ -53,9 +54,9 @@ func NewStartCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
 }
 
 func NewStopCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
-	return &cobra.Command{
-		Use:     "stop (vm)",
-		Short:   "Stop a VirtualMachine.",
+	cmd := &cobra.Command{
+		Use:     "stop (VM)",
+		Short:   "Stop a virtual machine.",
 		Example: usage(COMMAND_STOP),
 		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -63,6 +64,8 @@ func NewStopCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
 			return c.Run(cmd, args)
 		},
 	}
+	cmd.SetUsageTemplate(templates.UsageTemplate())
+	return cmd
 }
 
 type Command struct {
@@ -75,8 +78,8 @@ func NewCommand(command string) *Command {
 }
 
 func usage(cmd string) string {
-	usage := "#Start a virtual machine called 'myvmi':\n"
-	usage += fmt.Sprintf("virtctl %s myvmi", cmd)
+	usage := fmt.Sprintf("  # %s a virtual machine called 'myvm':\n", strings.Title(cmd))
+	usage += fmt.Sprintf("  virtctl %s myvm", cmd)
 	return usage
 }
 

@@ -1,5 +1,5 @@
-FROM fedora:27
+FROM fedora:28
 
-COPY ./cdi-controller /cdi-controller
+COPY ./cdi-controller /usr/bin/cdi-controller
 
-ENTRYPOINT [ "/cdi-controller", "-alsologtostderr"]
+ENTRYPOINT [ "/usr/bin/cdi-controller", "-alsologtostderr"]

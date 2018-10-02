@@ -34,15 +34,16 @@ import (
 
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
-	"k8s.io/apimachinery/pkg/apimachinery/announced"
-	"k8s.io/apimachinery/pkg/apimachinery/registered"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/client-go/kubernetes/scheme"
 
 	"kubevirt.io/kubevirt/pkg/precond"
+
+	"k8s.io/apimachinery/pkg/runtime/serializer"
+
+	"k8s.io/client-go/kubernetes/scheme"
 
 	cdiv1 "kubevirt.io/containerized-data-importer/pkg/apis/datavolumecontroller/v1alpha1"
 )
@@ -68,11 +69,6 @@ var VirtualMachineInstancePresetGroupVersionKind = schema.GroupVersionKind{Group
 
 var VirtualMachineGroupVersionKind = schema.GroupVersionKind{Group: GroupName, Version: GroupVersion.Version, Kind: "VirtualMachine"}
 
-var (
-	groupFactoryRegistry = make(announced.APIGroupFactoryRegistry)
-	registry             = registered.NewOrDie(GroupVersion.String())
-)
-
 // Adds the list of known types to api.Scheme.
 func addKnownTypes(scheme *runtime.Scheme) error {
 	scheme.AddKnownTypes(GroupVersion,
@@ -91,19 +87,17 @@ func addKnownTypes(scheme *runtime.Scheme) error {
 	return nil
 }
 
+var (
+	Scheme         = runtime.NewScheme()
+	Codecs         = serializer.NewCodecFactory(Scheme)
+	ParameterCodec = runtime.NewParameterCodec(Scheme)
+	SchemeBuilder  = runtime.NewSchemeBuilder(addKnownTypes)
+	AddToScheme    = SchemeBuilder.AddToScheme
+)
+
 func init() {
-	SchemeBuilder := runtime.NewSchemeBuilder(addKnownTypes)
-	if err := announced.NewGroupMetaFactory(
-		&announced.GroupMetaFactoryArgs{
-			GroupName:              GroupName,
-			VersionPreferenceOrder: []string{GroupVersion.Version},
-		},
-		announced.VersionToSchemeFunc{
-			GroupVersion.Version: SchemeBuilder.AddToScheme,
-		},
-	).Announce(groupFactoryRegistry).RegisterAndEnable(registry, scheme.Scheme); err != nil {
-		panic(err)
-	}
+	AddToScheme(Scheme)
+	AddToScheme(scheme.Scheme)
 }
 
 // VirtualMachineInstance is *the* VirtualMachineInstance Definition. It represents a virtual machine in the runtime environment of kubernetes.
@@ -168,6 +162,9 @@ type VirtualMachineInstanceSpec struct {
 type VirtualMachineInstanceStatus struct {
 	// NodeName is the name where the VirtualMachineInstance is currently running.
 	NodeName string `json:"nodeName,omitempty"`
+	// A brief CamelCase message indicating details about why the VMI is in this state. e.g. 'NodeUnresponsive'
+	// +optional
+	Reason string `json:"reason,omitempty"`
 	// Conditions are specific points in VirtualMachineInstance's pod runtime.
 	Conditions []VirtualMachineInstanceCondition `json:"conditions,omitempty"`
 	// Phase is the status of the VirtualMachineInstance in kubernetes world. It is not the VirtualMachineInstance status, but partially correlates to it.
@@ -213,6 +210,11 @@ func (v *VirtualMachineInstance) IsUnknown() bool {
 
 func (v *VirtualMachineInstance) IsUnprocessed() bool {
 	return v.Status.Phase == Pending || v.Status.Phase == VmPhaseUnset
+}
+
+// Checks if CPU pinning has been requested
+func (v *VirtualMachineInstance) IsCPUDedicated() bool {
+	return v.Spec.Domain.CPU != nil && v.Spec.Domain.CPU.DedicatedCPUPlacement
 }
 
 // Required to satisfy Object interface
@@ -347,6 +349,7 @@ const (
 	VirtHandlerHeartbeat string = "kubevirt.io/heartbeat"
 
 	VirtualMachineInstanceFinalizer string = "foregroundDeleteVirtualMachine"
+	CPUManager                      string = "cpumanager"
 )
 
 func NewVMI(name string, uid types.UID) *VirtualMachineInstance {

@@ -1,0 +1,15 @@
+apiVersion: cdi.kubevirt.io/v1alpha1
+kind: DataVolume
+metadata:
+  name: cloner-datavolume
+spec:
+  source:
+    pvc:
+      namespace: "source-ns"
+      name: "my-data-volume"
+  pvc:
+    accessModes:
+      - ReadWriteOnce
+    resources:
+      requests:
+        storage: 500Mi

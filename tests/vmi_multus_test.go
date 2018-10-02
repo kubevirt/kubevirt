@@ -112,19 +112,8 @@ var _ = Describe("Multus Networking", func() {
 			Expect(err).ToNot(HaveOccurred())
 			tests.WaitUntilVMIReadyWithNamespace("default", detachedVMI, tests.LoggedInCirrosExpecter)
 
-			cmdCheck := fmt.Sprintf("ping %s -c 1 -w 5\n", "10.1.1.1")
-			err = tests.CheckForTextExpecter(detachedVMI, []expect.Batcher{
-				&expect.BSnd{S: "\n"},
-				&expect.BExp{R: "\\$ "},
-				&expect.BSnd{S: cmdCheck},
-				&expect.BExp{R: "\\$ "},
-				&expect.BSnd{S: "echo $?\n"},
-				&expect.BExp{R: "0"},
-			}, 180)
-			Expect(err).ToNot(HaveOccurred())
-
 			By("checking virtual machine instance as two interfaces")
-			cmdCheck = fmt.Sprintf("ip link show %s\n", "eth0")
+			cmdCheck := fmt.Sprintf("ip link show %s\n", "eth0")
 			err = tests.CheckForTextExpecter(detachedVMI, []expect.Batcher{
 				&expect.BSnd{S: "\n"},
 				&expect.BExp{R: "\\$ "},

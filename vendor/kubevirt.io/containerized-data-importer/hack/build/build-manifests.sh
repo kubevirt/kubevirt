@@ -32,7 +32,28 @@ for tmpl in ${templates}; do
     (${generator} -template="${tmpl}" \
         -docker-repo="${DOCKER_REPO}" \
         -docker-tag="${DOCKER_TAG}" \
+        -controller-image="${CONTROLLER_IMAGE_NAME}" \
+        -importer-image="${IMPORTER_IMAGE_NAME}" \
+        -cloner-image="${CLONER_IMAGE_NAME}" \
+        -apiserver-image=${APISERVER_IMAGE_NAME} \
+        -uploadproxy-image=${UPLOADPROXY_IMAGE_NAME} \
+        -uploadserver-image=${UPLOADSERVER_IMAGE_NAME} \
         -verbosity="${VERBOSITY}" \
-        -pull-policy="${PULL_POLICY}"
+        -pull-policy="${PULL_POLICY}" \
+        -namespace="${NAMESPACE}"
     ) 1>"${MANIFEST_GENERATED_DIR}/${outFile}"
+
+    (${generator} -template="${tmpl}" \
+        -docker-repo="{{ docker_prefix }}" \
+        -docker-tag="{{ docker_tag }}" \
+        -controller-image="{{ controller_image }}" \
+        -importer-image="{{ importer_image }}" \
+        -cloner-image="{{ cloner_image }}" \
+        -verbosity="{{ verbosity }}" \
+        -pull-policy="{{ pull_policy }}" \
+        -namespace="{{ cdi_namespace }}"
+    ) 1>"${MANIFEST_GENERATED_DIR}/${outFile}.j2"
 done
+
+# Remove empty lines at the end of files which are added by go templating
+find ${MANIFEST_GENERATED_DIR}/ -type f -exec sed -i {} -e '${/^$/d;}' \;

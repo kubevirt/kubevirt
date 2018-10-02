@@ -67,6 +67,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/util/net/dns"
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
 	"kubevirt.io/kubevirt/pkg/virtctl"
+	vmsgen "kubevirt.io/kubevirt/tools/vms-generator/utils"
 
 	cdiv1 "kubevirt.io/containerized-data-importer/pkg/apis/datavolumecontroller/v1alpha1"
 )
@@ -137,6 +138,7 @@ const (
 const (
 	osAlpineHostPath = "alpine-host-path"
 	osWindows        = "windows"
+	osRhel           = "rhel"
 	CustomHostPath   = "custom-host-path"
 )
 
@@ -149,12 +151,14 @@ const (
 const (
 	DiskAlpineHostPath = "disk-alpine-host-path"
 	DiskWindows        = "disk-windows"
+	DiskRhel           = "disk-rhel"
 	DiskCustomHostPath = "disk-custom-host-path"
 )
 
 const (
 	defaultDiskSize        = "1Gi"
 	defaultWindowsDiskSize = "30Gi"
+	defaultRhelDiskSize    = "15Gi"
 )
 
 const VMIResource = "virtualmachineinstances"
@@ -320,6 +324,7 @@ func AfterTestSuitCleanup() {
 	cleanupServiceAccounts()
 
 	DeletePVC(osWindows)
+	DeletePVC(osRhel)
 
 	DeletePVC(osAlpineHostPath)
 	DeletePV(osAlpineHostPath)
@@ -345,6 +350,7 @@ func BeforeTestSuitSetup() {
 	CreatePVC(osAlpineHostPath, defaultDiskSize)
 
 	CreatePVC(osWindows, defaultWindowsDiskSize)
+	CreatePVC(osRhel, defaultRhelDiskSize)
 
 	EnsureKVMPresent()
 }
@@ -1592,9 +1598,23 @@ func NewRepeatableVirtctlCommand(args ...string) func() error {
 }
 
 func ExecuteCommandOnPod(virtCli kubecli.KubevirtClient, pod *k8sv1.Pod, containerName string, command []string) (string, error) {
+	stdout, stderr, err := ExecuteCommandOnPodV2(virtCli, pod, containerName, command)
+
+	if err != nil {
+		return "", err
+	}
+
+	if len(stderr) > 0 {
+		return "", fmt.Errorf("stderr: %v", stderr)
+	}
+
+	return stdout, nil
+}
+
+func ExecuteCommandOnPodV2(virtCli kubecli.KubevirtClient, pod *k8sv1.Pod, containerName string, command []string) (stdout, stderr string, err error) {
 	var (
-		stdout bytes.Buffer
-		stderr bytes.Buffer
+		stdoutBuf bytes.Buffer
+		stderrBuf bytes.Buffer
 	)
 
 	req := virtCli.CoreV1().RESTClient().Post().
@@ -1615,29 +1635,25 @@ func ExecuteCommandOnPod(virtCli kubecli.KubevirtClient, pod *k8sv1.Pod, contain
 
 	config, err := kubecli.GetKubevirtClientConfig()
 	if err != nil {
-		return "", err
+		return "", "", err
 	}
 
 	exec, err := remotecommand.NewSPDYExecutor(config, "POST", req.URL())
 	if err != nil {
-		return "", err
+		return "", "", err
 	}
 
 	err = exec.Stream(remotecommand.StreamOptions{
-		Stdout: &stdout,
-		Stderr: &stderr,
+		Stdout: &stdoutBuf,
+		Stderr: &stderrBuf,
 		Tty:    false,
 	})
 
 	if err != nil {
-		return "", err
+		return "", "", err
 	}
 
-	if stderr.Len() > 0 {
-		return "", fmt.Errorf("stderr: %v", stderr.String())
-	}
-
-	return stdout.String(), nil
+	return stdoutBuf.String(), stderrBuf.String(), nil
 }
 
 func BeforeAll(fn func()) {
@@ -1657,6 +1673,17 @@ func SkipIfNoWindowsImage(virtClient kubecli.KubevirtClient) {
 	} else if windowsPv.Status.Phase == k8sv1.VolumeReleased {
 		windowsPv.Spec.ClaimRef = nil
 		_, err = virtClient.CoreV1().PersistentVolumes().Update(windowsPv)
+		Expect(err).ToNot(HaveOccurred())
+	}
+}
+
+func SkipIfNoRhelImage(virtClient kubecli.KubevirtClient) {
+	rhelPv, err := virtClient.CoreV1().PersistentVolumes().Get(DiskRhel, metav1.GetOptions{})
+	if err != nil || rhelPv.Status.Phase == k8sv1.VolumePending || rhelPv.Status.Phase == k8sv1.VolumeFailed {
+		Skip(fmt.Sprintf("Skip RHEL tests that requires PVC %s", DiskRhel))
+	} else if rhelPv.Status.Phase == k8sv1.VolumeReleased {
+		rhelPv.Spec.ClaimRef = nil
+		_, err = virtClient.CoreV1().PersistentVolumes().Update(rhelPv)
 		Expect(err).ToNot(HaveOccurred())
 	}
 }
@@ -1759,7 +1786,7 @@ func GenerateVMIJson(vmi *v1.VirtualMachineInstance) (string, error) {
 	return jsonFile, nil
 }
 
-func GenerateTemplateJson(template *Template) (string, error) {
+func GenerateTemplateJson(template *vmsgen.Template) (string, error) {
 	data, err := json.Marshal(template)
 	if err != nil {
 		return "", fmt.Errorf("failed to generate json for vm template %s", template.Name)

@@ -43,17 +43,23 @@ import (
 	cdischeme "kubevirt.io/containerized-data-importer/pkg/client/clientset/versioned/scheme"
 	informers "kubevirt.io/containerized-data-importer/pkg/client/informers/externalversions/datavolumecontroller/v1alpha1"
 	listers "kubevirt.io/containerized-data-importer/pkg/client/listers/datavolumecontroller/v1alpha1"
+	expectations "kubevirt.io/containerized-data-importer/pkg/expectations"
 )
 
 const controllerAgentName = "datavolume-controller"
 
 const (
-	SuccessSynced         = "Synced"
-	ErrResourceExists     = "ErrResourceExists"
+	// SuccessSynced provides a const to represent a Synced status
+	SuccessSynced = "Synced"
+	// ErrResourceExists provides a const to indicate a resource exists error
+	ErrResourceExists = "ErrResourceExists"
+	// MessageResourceExists provides a const to form a resource exists error message
 	MessageResourceExists = "Resource %q already exists and is not managed by DataVolume"
+	// MessageResourceSynced provides a const to standardize a Resource Synced message
 	MessageResourceSynced = "DataVolume synced successfully"
 )
 
+// DataVolumeController represents the CDI Data Volume Controller
 type DataVolumeController struct {
 	// kubeclientset is a standard kubernetes clientset
 	kubeclientset kubernetes.Interface
@@ -68,8 +74,12 @@ type DataVolumeController struct {
 
 	workqueue workqueue.RateLimitingInterface
 	recorder  record.EventRecorder
+
+	pvcExpectations *expectations.UIDTrackingControllerExpectations
 }
 
+// NewDataVolumeController sets up a Data Volume Controller, and return a pointer to
+// the newly created Controller
 func NewDataVolumeController(
 	kubeclientset kubernetes.Interface,
 	cdiClientSet clientset.Interface,
@@ -80,9 +90,9 @@ func NewDataVolumeController(
 	// Add datavolume-controller types to the default Kubernetes Scheme so Events can be
 	// logged for datavolume-controller types.
 	cdischeme.AddToScheme(scheme.Scheme)
-	glog.V(4).Info("Creating event broadcaster")
+	glog.V(3).Info("Creating event broadcaster")
 	eventBroadcaster := record.NewBroadcaster()
-	eventBroadcaster.StartLogging(glog.Infof)
+	eventBroadcaster.StartLogging(glog.V(2).Infof)
 	eventBroadcaster.StartRecordingToSink(&typedcorev1.EventSinkImpl{Interface: kubeclientset.CoreV1().Events("")})
 	recorder := eventBroadcaster.NewRecorder(scheme.Scheme, corev1.EventSource{Component: controllerAgentName})
 
@@ -95,9 +105,10 @@ func NewDataVolumeController(
 		dataVolumesSynced: dataVolumeInformer.Informer().HasSynced,
 		workqueue:         workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "DataVolumes"),
 		recorder:          recorder,
+		pvcExpectations:   expectations.NewUIDTrackingControllerExpectations(expectations.NewControllerExpectations()),
 	}
 
-	glog.Info("Setting up event handlers")
+	glog.V(2).Info("Setting up event handlers")
 
 	// Set up an event handler for when DataVolume resources change
 	dataVolumeInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
@@ -109,7 +120,7 @@ func NewDataVolumeController(
 	// Set up an event handler for when PVC resources change
 	// handleObject function ensures we filter PVCs not created by this controller
 	pvcInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
-		AddFunc: controller.handleObject,
+		AddFunc: controller.handleAddObject,
 		UpdateFunc: func(old, new interface{}) {
 			newDepl := new.(*corev1.PersistentVolumeClaim)
 			oldDepl := old.(*corev1.PersistentVolumeClaim)
@@ -118,9 +129,9 @@ func NewDataVolumeController(
 				// Two different versions of the same PVCs will always have different RVs.
 				return
 			}
-			controller.handleObject(new)
+			controller.handleUpdateObject(new)
 		},
-		DeleteFunc: controller.handleObject,
+		DeleteFunc: controller.handleDeleteObject,
 	})
 
 	return controller
@@ -135,23 +146,23 @@ func (c *DataVolumeController) Run(threadiness int, stopCh <-chan struct{}) erro
 	defer c.workqueue.ShutDown()
 
 	// Start the informer factories to begin populating the informer caches
-	glog.Info("Starting DataVolume controller")
+	glog.V(2).Info("Starting DataVolume controller")
 
 	// Wait for the caches to be synced before starting workers
-	glog.Info("Waiting for informer caches to sync")
+	glog.V(2).Info("Waiting for informer caches to sync")
 	if ok := cache.WaitForCacheSync(stopCh, c.pvcsSynced, c.dataVolumesSynced); !ok {
 		return errors.Errorf("failed to wait for caches to sync")
 	}
 
-	glog.Info("Starting workers")
+	glog.V(2).Info("Starting workers")
 	// Launch two workers to process DataVolume resources
 	for i := 0; i < threadiness; i++ {
 		go wait.Until(c.runWorker, time.Second, stopCh)
 	}
 
-	glog.Info("Started workers")
+	glog.V(2).Info("Started workers")
 	<-stopCh
-	glog.Info("Shutting down workers")
+	glog.V(2).Info("Shutting down workers")
 
 	return nil
 }
@@ -205,7 +216,7 @@ func (c *DataVolumeController) processNextWorkItem() bool {
 		// Finally, if no error occurs we Forget this item so it does not
 		// get queued again until another change happens.
 		c.workqueue.Forget(obj)
-		glog.Infof("Successfully synced '%s'", key)
+		glog.V(2).Infof("Successfully synced '%s'", key)
 		return nil
 	}(obj)
 
@@ -221,6 +232,9 @@ func (c *DataVolumeController) processNextWorkItem() bool {
 // converge the two. It then updates the Status block of the DataVolume resource
 // with the current status of the resource.
 func (c *DataVolumeController) syncHandler(key string) error {
+
+	exists := true
+
 	// Convert the namespace/name string into a distinct namespace and name
 	namespace, name, err := cache.SplitMetaNamespaceKey(key)
 	if err != nil {
@@ -235,6 +249,7 @@ func (c *DataVolumeController) syncHandler(key string) error {
 		// processing.
 		if k8serrors.IsNotFound(err) {
 			runtime.HandleError(errors.Errorf("dataVolume '%s' in work queue no longer exists", key))
+			c.pvcExpectations.DeleteExpectations(key)
 			return nil
 		}
 
@@ -243,25 +258,33 @@ func (c *DataVolumeController) syncHandler(key string) error {
 
 	// Get the pvc with the name specified in DataVolume.spec
 	pvc, err := c.pvcLister.PersistentVolumeClaims(dataVolume.Namespace).Get(dataVolume.Name)
-
 	// If the resource doesn't exist, we'll create it
 	if k8serrors.IsNotFound(err) {
+		exists = false
+	} else if err != nil {
+		return err
+	}
+
+	// If the PVC is not controlled by this DataVolume resource, we should log
+	// a warning to the event recorder and return
+	if pvc != nil && !metav1.IsControlledBy(pvc, dataVolume) {
+		msg := fmt.Sprintf(MessageResourceExists, pvc.Name)
+		c.recorder.Event(dataVolume, corev1.EventTypeWarning, ErrResourceExists, msg)
+		return errors.Errorf(msg)
+	}
+
+	needsSync := c.pvcExpectations.SatisfiedExpectations(key)
+	if !exists && needsSync {
 		newPvc, err := newPersistentVolumeClaim(dataVolume)
 		if err != nil {
 			return err
 		}
+		c.pvcExpectations.ExpectCreations(key, 1)
 		pvc, err = c.kubeclientset.CoreV1().PersistentVolumeClaims(dataVolume.Namespace).Create(newPvc)
 		if err != nil {
+			c.pvcExpectations.CreationObserved(key)
 			return err
 		}
-	}
-
-	// If the PVC is not controlled by this DataVolume resource, we should log
-	// a warning to the event recorder and ret
-	if !metav1.IsControlledBy(pvc, dataVolume) {
-		msg := fmt.Sprintf(MessageResourceExists, pvc.Name)
-		c.recorder.Event(dataVolume, corev1.EventTypeWarning, ErrResourceExists, msg)
-		return errors.Errorf(msg)
 	}
 
 	// Finally, we update the status block of the DataVolume resource to reflect the
@@ -275,44 +298,85 @@ func (c *DataVolumeController) syncHandler(key string) error {
 	return nil
 }
 
+func (c *DataVolumeController) updateImportStatusPhase(pvc *corev1.PersistentVolumeClaim, dataVolumeCopy *cdiv1.DataVolume) {
+	phase, ok := pvc.Annotations[AnnPodPhase]
+	if ok {
+		switch phase {
+		case string(corev1.PodPending):
+			// TODO: Use a more generic Scheduled, like maybe TransferScheduled.
+			dataVolumeCopy.Status.Phase = cdiv1.ImportScheduled
+		case string(corev1.PodRunning):
+			// TODO: Use a more generic In Progess, like maybe TransferInProgress.
+			dataVolumeCopy.Status.Phase = cdiv1.ImportInProgress
+		case string(corev1.PodFailed):
+			dataVolumeCopy.Status.Phase = cdiv1.Failed
+		case string(corev1.PodSucceeded):
+			dataVolumeCopy.Status.Phase = cdiv1.Succeeded
+		}
+	}
+}
+
+func (c *DataVolumeController) updateCloneStatusPhase(pvc *corev1.PersistentVolumeClaim, dataVolumeCopy *cdiv1.DataVolume) {
+	phase, ok := pvc.Annotations[AnnPodPhase]
+	if ok {
+		switch phase {
+		case string(corev1.PodPending):
+			// TODO: Use a more generic Scheduled, like maybe TransferScheduled.
+			dataVolumeCopy.Status.Phase = cdiv1.CloneScheduled
+		case string(corev1.PodRunning):
+			// TODO: Use a more generic In Progess, like maybe TransferInProgress.
+			dataVolumeCopy.Status.Phase = cdiv1.CloneInProgress
+		case string(corev1.PodFailed):
+			dataVolumeCopy.Status.Phase = cdiv1.Failed
+		case string(corev1.PodSucceeded):
+			dataVolumeCopy.Status.Phase = cdiv1.Succeeded
+		}
+	}
+}
+
 func (c *DataVolumeController) updateDataVolumeStatus(dataVolume *cdiv1.DataVolume, pvc *corev1.PersistentVolumeClaim) error {
 	dataVolumeCopy := dataVolume.DeepCopy()
 	var err error
 
-	switch pvc.Status.Phase {
-	case corev1.ClaimPending:
-		dataVolumeCopy.Status.Phase = cdiv1.Pending
-	case corev1.ClaimBound:
-		switch dataVolumeCopy.Status.Phase {
-		case cdiv1.Pending:
-			dataVolumeCopy.Status.Phase = cdiv1.PVCBound
-		case cdiv1.Unknown:
-			dataVolumeCopy.Status.Phase = cdiv1.PVCBound
+	curPhase := dataVolumeCopy.Status.Phase
+	if pvc == nil {
+		if curPhase != cdiv1.PhaseUnset && curPhase != cdiv1.Pending {
+
+			// if pvc doesn't exist and we're not still initializing, then
+			// something has gone wrong. Perhaps the PVC was deleted out from
+			// underneath the DataVolume
+			dataVolumeCopy.Status.Phase = cdiv1.Failed
 		}
 
-		_, ok := pvc.Annotations[AnnImportPod]
-		if ok {
-			dataVolumeCopy.Status.Phase = cdiv1.ImportScheduled
-		}
-
-		podPhase, ok := pvc.Annotations[AnnPodPhase]
-		if ok {
-			switch podPhase {
-			case string(corev1.PodPending):
-				dataVolumeCopy.Status.Phase = cdiv1.ImportScheduled
-			case string(corev1.PodRunning):
-				dataVolumeCopy.Status.Phase = cdiv1.ImportInProgress
-			case string(corev1.PodFailed):
-				dataVolumeCopy.Status.Phase = cdiv1.Failed
-			case string(corev1.PodSucceeded):
-				dataVolumeCopy.Status.Phase = cdiv1.Succeeded
+	} else {
+		switch pvc.Status.Phase {
+		case corev1.ClaimPending:
+			dataVolumeCopy.Status.Phase = cdiv1.Pending
+		case corev1.ClaimBound:
+			switch dataVolumeCopy.Status.Phase {
+			case cdiv1.Pending:
+				dataVolumeCopy.Status.Phase = cdiv1.PVCBound
+			case cdiv1.Unknown:
+				dataVolumeCopy.Status.Phase = cdiv1.PVCBound
 			}
-		}
-	case corev1.ClaimLost:
-		dataVolumeCopy.Status.Phase = cdiv1.Failed
-	default:
-		if pvc.Status.Phase != "" {
-			dataVolumeCopy.Status.Phase = cdiv1.Unknown
+
+			_, ok := pvc.Annotations[AnnImportPod]
+			if ok {
+				dataVolumeCopy.Status.Phase = cdiv1.ImportScheduled
+				c.updateImportStatusPhase(pvc, dataVolumeCopy)
+			}
+			_, ok = pvc.Annotations[AnnCloneRequest]
+			if ok {
+				dataVolumeCopy.Status.Phase = cdiv1.CloneScheduled
+				c.updateCloneStatusPhase(pvc, dataVolumeCopy)
+			}
+
+		case corev1.ClaimLost:
+			dataVolumeCopy.Status.Phase = cdiv1.Failed
+		default:
+			if pvc.Status.Phase != "" {
+				dataVolumeCopy.Status.Phase = cdiv1.Unknown
+			}
 		}
 	}
 
@@ -336,12 +400,22 @@ func (c *DataVolumeController) enqueueDataVolume(obj interface{}) {
 	c.workqueue.AddRateLimited(key)
 }
 
+func (c *DataVolumeController) handleAddObject(obj interface{}) {
+	c.handleObject(obj, "add")
+}
+func (c *DataVolumeController) handleUpdateObject(obj interface{}) {
+	c.handleObject(obj, "update")
+}
+func (c *DataVolumeController) handleDeleteObject(obj interface{}) {
+	c.handleObject(obj, "delete")
+}
+
 // handleObject will take any resource implementing metav1.Object and attempt
 // to find the DataVolume resource that 'owns' it. It does this by looking at the
 // objects metadata.ownerReferences field for an appropriate OwnerReference.
 // It then enqueues that DataVolume resource to be processed. If the object does not
 // have an appropriate OwnerReference, it will simply be skipped.
-func (c *DataVolumeController) handleObject(obj interface{}) {
+func (c *DataVolumeController) handleObject(obj interface{}, verb string) {
 	var object metav1.Object
 	var ok bool
 	if object, ok = obj.(metav1.Object); !ok {
@@ -355,9 +429,9 @@ func (c *DataVolumeController) handleObject(obj interface{}) {
 			runtime.HandleError(errors.Errorf("error decoding object tombstone, invalid type"))
 			return
 		}
-		glog.V(4).Infof("Recovered deleted object '%s' from tombstone", object.GetName())
+		glog.V(3).Infof("Recovered deleted object '%s' from tombstone", object.GetName())
 	}
-	glog.V(4).Infof("Processing object: %s", object.GetName())
+	glog.V(3).Infof("Processing object: %s", object.GetName())
 	if ownerRef := metav1.GetControllerOf(object); ownerRef != nil {
 		// If this object is not owned by a DataVolume, we should not do anything more
 		// with it.
@@ -367,10 +441,19 @@ func (c *DataVolumeController) handleObject(obj interface{}) {
 
 		dataVolume, err := c.dataVolumesLister.DataVolumes(object.GetNamespace()).Get(ownerRef.Name)
 		if err != nil {
-			glog.V(4).Infof("ignoring orphaned object '%s' of dataVolume '%s'", object.GetSelfLink(), ownerRef.Name)
+			glog.V(3).Infof("ignoring orphaned object '%s' of dataVolume '%s'", object.GetSelfLink(), ownerRef.Name)
 			return
 		}
 
+		if verb == "add" {
+			dataVolumeKey, err := cache.MetaNamespaceKeyFunc(dataVolume)
+			if err != nil {
+				runtime.HandleError(err)
+				return
+			}
+
+			c.pvcExpectations.CreationObserved(dataVolumeKey)
+		}
 		c.enqueueDataVolume(dataVolume)
 		return
 	}
@@ -396,11 +479,21 @@ func newPersistentVolumeClaim(dataVolume *cdiv1.DataVolume) (*corev1.PersistentV
 
 	if dataVolume.Spec.Source.HTTP != nil {
 		annotations[AnnEndpoint] = dataVolume.Spec.Source.HTTP.URL
+		if dataVolume.Spec.Source.HTTP.SecretRef != "" {
+			annotations[AnnSecret] = dataVolume.Spec.Source.HTTP.SecretRef
+		}
 	} else if dataVolume.Spec.Source.S3 != nil {
 		annotations[AnnEndpoint] = dataVolume.Spec.Source.S3.URL
 		if dataVolume.Spec.Source.S3.SecretRef != "" {
 			annotations[AnnSecret] = dataVolume.Spec.Source.S3.SecretRef
 		}
+	} else if dataVolume.Spec.Source.PVC != nil {
+		if dataVolume.Spec.Source.PVC.Namespace != "" {
+			annotations[AnnCloneRequest] = dataVolume.Spec.Source.PVC.Namespace + "/" + dataVolume.Spec.Source.PVC.Name
+		} else {
+			annotations[AnnCloneRequest] = dataVolume.Namespace + "/" + dataVolume.Spec.Source.PVC.Name
+		}
+
 	} else {
 		return nil, errors.Errorf("no source set for datavolume")
 	}

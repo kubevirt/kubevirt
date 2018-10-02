@@ -22,8 +22,11 @@ package virthandler
 import (
 	goerror "errors"
 	"fmt"
+	"io/ioutil"
 	"os"
+	"path/filepath"
 	"reflect"
+	"strings"
 	"sync"
 	"time"
 
@@ -42,6 +45,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/cloud-init"
 	"kubevirt.io/kubevirt/pkg/controller"
+	featuregates "kubevirt.io/kubevirt/pkg/feature-gates"
 	"kubevirt.io/kubevirt/pkg/host-disk"
 	"kubevirt.io/kubevirt/pkg/kubecli"
 	"kubevirt.io/kubevirt/pkg/log"
@@ -125,7 +129,7 @@ type VirtualMachineController struct {
 // If the grace period has started but not expired, timeLeft represents
 // the time in seconds left until the period expires.
 // If the grace period has not started, timeLeft will be set to -1.
-func (d *VirtualMachineController) hasGracePeriodExpired(dom *api.Domain) (hasExpired bool, timeLeft int) {
+func (d *VirtualMachineController) hasGracePeriodExpired(dom *api.Domain) (hasExpired bool, timeLeft int64) {
 
 	hasExpired = false
 	timeLeft = 0
@@ -161,7 +165,7 @@ func (d *VirtualMachineController) hasGracePeriodExpired(dom *api.Domain) (hasEx
 		return
 	}
 
-	timeLeft = int(gracePeriod - diff)
+	timeLeft = int64(gracePeriod - diff)
 	if timeLeft < 1 {
 		timeLeft = 1
 	}
@@ -331,9 +335,18 @@ func (d *VirtualMachineController) execute(key string) error {
 		vmi.UID = domain.Spec.Metadata.KubeVirt.UID
 	}
 
-	// Ignore domains from an older VMI
 	if vmiExists && domainExists && domain.Spec.Metadata.KubeVirt.UID != vmi.UID {
-		log.Log.Object(vmi).Info("Ignoring domain from an older VMI, will be handled by its own VMI.")
+		oldVMI := v1.NewVMIReferenceFromNameWithNS(vmi.Namespace, vmi.Name)
+		oldVMI.UID = domain.Spec.Metadata.KubeVirt.UID
+		expired, err := watchdog.WatchdogFileIsExpired(d.watchdogTimeoutSeconds, d.virtShareDir, oldVMI)
+		if err != nil {
+			return err
+		}
+		// If we found an outdated domain which is also not alive anymore, clean up
+		if expired {
+			return d.processVmCleanup(oldVMI)
+		}
+		// if the watchdog still gets updated, we are not allowed to clean up
 		return nil
 	}
 
@@ -574,6 +587,20 @@ func (d *VirtualMachineController) processVmShutdown(vmi *v1.VirtualMachineInsta
 				}
 
 				log.Log.Object(vmi).Infof("Signaled graceful shutdown for %s", vmi.GetObjectMeta().GetName())
+
+				// Make sure that we don't hot-loop in case we send the first domain notification
+				if timeLeft == -1 {
+					timeLeft = 5
+					if vmi.Spec.TerminationGracePeriodSeconds != nil && *vmi.Spec.TerminationGracePeriodSeconds < timeLeft {
+						timeLeft = *vmi.Spec.TerminationGracePeriodSeconds
+					}
+				}
+				// In case we have a long grace period, we want to resend the graceful shutdown every 5 seconds
+				// That's important since a booting OS can miss ACPI signals
+				if timeLeft > 5 {
+					timeLeft = 5
+				}
+
 				// pending graceful shutdown.
 				d.Queue.AddAfter(controller.VirtualMachineKey(vmi), time.Duration(timeLeft)*time.Second)
 				d.recorder.Event(vmi, k8sv1.EventTypeNormal, v1.ShuttingDown.String(), "Signaled Graceful Shutdown")
@@ -810,8 +837,44 @@ func (d *VirtualMachineController) heartBeat(interval time.Duration, stopCh chan
 				return
 			}
 			log.DefaultLogger().V(4).Infof("Heartbeat sent")
+			// Label the node if cpu manager is running on it
+			// This is a temporary workaround until k8s bug #66525 is resolved
+			featuregates.ParseFeatureGatesFromConfigMap()
+			if featuregates.CPUManagerEnabled() {
+				d.updateNodeCpuManagerLabel()
+			}
 		}, interval, 1.2, true, stopCh)
 	}
+}
+
+func (d *VirtualMachineController) updateNodeCpuManagerLabel() {
+	entries, err := filepath.Glob("/proc/*/cmdline")
+	if err != nil {
+		log.DefaultLogger().Reason(err).Errorf("failed to set a cpu manager label on host %s", d.host)
+		return
+	}
+
+	isEnabled := false
+	for _, entry := range entries {
+		content, err := ioutil.ReadFile(entry)
+		if err != nil {
+			log.DefaultLogger().Reason(err).Errorf("failed to set a cpu manager label on host %s", d.host)
+			return
+		}
+		if strings.Contains(string(content), "kubelet") && strings.Contains(string(content), "cpu-manager-policy=static") {
+			isEnabled = true
+			break
+		}
+	}
+
+	data := []byte(fmt.Sprintf(`{"metadata": { "labels": {"%s": "%t"}}}`, v1.CPUManager, isEnabled))
+	_, err = d.clientset.CoreV1().Nodes().Patch(d.host, types.StrategicMergePatchType, data)
+	if err != nil {
+		log.DefaultLogger().Reason(err).Errorf("failed to set a cpu manager label on host %s", d.host)
+		return
+	}
+	log.DefaultLogger().V(4).Infof("Node has CPU Manager running")
+
 }
 
 func isACPIEnabled(vmi *v1.VirtualMachineInstance, domain *api.Domain) bool {

@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Copyright 2017 Red Hat, Inc.
+ * Copyright 2017, 2018 Red Hat, Inc.
  *
  */
 
@@ -84,6 +84,7 @@ var exampleXML = `<domain type="kvm" xmlns:qemu="http://libvirt.org/schemas/doma
     <topology sockets="1" cores="2" threads="1"></topology>
   </cpu>
   <vcpu placement="static">2</vcpu>
+  <iothreads>2</iothreads>
 </domain>`
 
 var _ = Describe("Schema", func() {
@@ -158,6 +159,7 @@ var _ = Describe("Schema", func() {
 	exampleDomain.Spec.CPU.Model = "Conroe"
 	exampleDomain.Spec.Metadata.KubeVirt.UID = "f4686d2c-6e8d-4335-b8fd-81bee22f4814"
 	exampleDomain.Spec.Metadata.KubeVirt.GracePeriod.DeletionGracePeriodSeconds = 5
+	exampleDomain.Spec.IOThreads = &IOThreads{IOThreads: 2}
 
 	Context("With schema", func() {
 		It("Generate expected libvirt xml", func() {
@@ -189,6 +191,30 @@ var _ = Describe("Schema", func() {
 			fmt.Printf(string(buf))
 			Expect(string(buf)).To(Equal(exampleXML))
 		})
+	})
+	Context("With cpu pinning", func() {
+		var testXML = `<cputune>
+<vcpupin vcpu="0" cpuset="1"/>
+<vcpupin vcpu="1" cpuset="5"/>
+</cputune>`
+		var exampleCpuTune = CPUTune{
+			VCPUPin: []CPUTuneVCPUPin{
+				CPUTuneVCPUPin{
+					VCPU:   0,
+					CPUSet: "1",
+				},
+				CPUTuneVCPUPin{
+					VCPU:   1,
+					CPUSet: "5",
+				},
+			},
+		}
 
+		It("Unmarshal into struct", func() {
+			newCpuTune := CPUTune{}
+			err := xml.Unmarshal([]byte(testXML), &newCpuTune)
+			Expect(err).To(BeNil())
+			Expect(newCpuTune).To(Equal(exampleCpuTune))
+		})
 	})
 })

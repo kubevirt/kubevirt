@@ -24,10 +24,10 @@ import (
 	golog "log"
 	"net/http"
 	"os"
-	"strings"
-	"time"
 
 	"github.com/emicklei/go-restful"
+	"github.com/golang/glog"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	flag "github.com/spf13/pflag"
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/kubernetes/scheme"
@@ -38,7 +38,12 @@ import (
 	"k8s.io/client-go/tools/leaderelection/resourcelock"
 	"k8s.io/client-go/tools/record"
 
+	"kubevirt.io/kubevirt/pkg/util"
+
+	"kubevirt.io/kubevirt/pkg/certificates"
+
 	"kubevirt.io/kubevirt/pkg/controller"
+	"kubevirt.io/kubevirt/pkg/feature-gates"
 	"kubevirt.io/kubevirt/pkg/kubecli"
 	"kubevirt.io/kubevirt/pkg/log"
 	"kubevirt.io/kubevirt/pkg/registry-disk"
@@ -46,8 +51,6 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-controller/leaderelectionconfig"
 	"kubevirt.io/kubevirt/pkg/virt-controller/rest"
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
-
-	featuregates "kubevirt.io/kubevirt/pkg/feature-gates"
 )
 
 const (
@@ -62,8 +65,6 @@ const (
 	virtShareDir = "/var/run/kubevirt"
 
 	ephemeralDiskDir = "/var/run/libvirt/kubevirt-ephemeral-disk"
-
-	resyncPeriod = 30 * time.Second
 
 	controllerThreads = 3
 )
@@ -170,12 +171,27 @@ func Execute() {
 
 func (vca *VirtControllerApp) Run() {
 	logger := log.Log
+
+	certsDirectory, err := ioutil.TempDir("", "certsdir")
+	if err != nil {
+		panic(err)
+	}
+	defer os.RemoveAll(certsDirectory)
+	namespace, err := util.GetNamespace()
+	if err != nil {
+		golog.Fatalf("Error searching for namespace: %v", err)
+	}
+	certStore, err := certificates.GenerateSelfSignedCert(certsDirectory, "virt-controller", namespace)
+	if err != nil {
+		glog.Fatalf("unable to generate certificates: %v", err)
+	}
 	stop := make(chan struct{})
 	defer close(stop)
 	go func() {
 		httpLogger := logger.With("service", "http")
 		httpLogger.Level(log.INFO).Log("action", "listening", "interface", vca.BindAddress, "port", vca.Port)
-		if err := http.ListenAndServe(vca.Address(), nil); err != nil {
+		http.Handle("/metrics", promhttp.Handler())
+		if err := http.ListenAndServeTLS(vca.Address(), certStore.CurrentPath(), certStore.CurrentPath(), nil); err != nil {
 			golog.Fatal(err)
 		}
 	}()
@@ -185,18 +201,6 @@ func (vca *VirtControllerApp) Run() {
 	id, err := os.Hostname()
 	if err != nil {
 		golog.Fatalf("unable to get hostname: %v", err)
-	}
-
-	var namespace string
-	if data, err := ioutil.ReadFile("/var/run/secrets/kubernetes.io/serviceaccount/namespace"); err == nil {
-		if ns := strings.TrimSpace(string(data)); len(ns) > 0 {
-			namespace = ns
-		}
-	} else if os.IsNotExist(err) {
-		// TODO: Replace leaderelectionconfig.DefaultNamespace with a flag
-		namespace = leaderelectionconfig.DefaultNamespace
-	} else {
-		golog.Fatalf("Error searching for namespace in /var/run/secrets/kubernetes.io/serviceaccount/namespace: %v", err)
 	}
 
 	rl, err := resourcelock.New(vca.LeaderElection.ResourceLock,
@@ -254,7 +258,8 @@ func (vca *VirtControllerApp) initCommon() {
 	}
 	vca.templateService = services.NewTemplateService(vca.launcherImage, vca.virtShareDir, vca.imagePullSecret, vca.configMapCache)
 	vca.vmiController = NewVMIController(vca.templateService, vca.vmiInformer, vca.podInformer, vca.vmiRecorder, vca.clientSet, vca.configMapInformer, vca.dataVolumeInformer)
-	vca.nodeController = NewNodeController(vca.clientSet, vca.nodeInformer, vca.vmiInformer, nil)
+	recorder := vca.getNewRecorder(k8sv1.NamespaceAll, "node-controller")
+	vca.nodeController = NewNodeController(vca.clientSet, vca.nodeInformer, vca.vmiInformer, recorder)
 }
 
 func (vca *VirtControllerApp) initReplicaSet() {
