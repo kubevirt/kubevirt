@@ -451,7 +451,7 @@ var _ = Describe("Converter", func() {
     <disk device="disk" type="block">
       <source dev="/dev/volume8"></source>
       <target bus="sata" dev="sdg"></target>
-      <driver name="qemu" type="raw"></driver>
+      <driver name="qemu" type="raw" iothread="1"></driver>
       <alias name="ua-pvc_block_test"></alias>
     </disk>
     <serial type="unix">
