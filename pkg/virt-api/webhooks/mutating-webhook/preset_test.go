@@ -245,7 +245,7 @@ var _ = Describe("Mutating Webhook Presets", func() {
 				Timer: &v1.Timer{HPET: &v1.HPETTimer{TickPolicy: v1.HPETTickPolicyDelay}},
 			}
 
-			By("showing that an ovveride does not occur")
+			By("showing that an overide does not occur")
 			err = checkMergeConflicts(preset.Spec.Domain, &vmi.Spec.Domain)
 			Expect(err).ToNot(HaveOccurred())
 
@@ -279,7 +279,7 @@ var _ = Describe("Mutating Webhook Presets", func() {
 				Hyperv: &v1.FeatureHyperv{},
 			}
 
-			By("showing that an ovveride does not occur")
+			By("showing that an overide does not occur")
 			err = checkMergeConflicts(preset.Spec.Domain, &vmi.Spec.Domain)
 			Expect(err).ToNot(HaveOccurred())
 
@@ -309,7 +309,7 @@ var _ = Describe("Mutating Webhook Presets", func() {
 
 			preset.Spec.Domain.Devices.Watchdog = &v1.Watchdog{Name: "testcase", WatchdogDevice: v1.WatchdogDevice{I6300ESB: &v1.I6300ESBWatchdog{Action: v1.WatchdogActionReset}}}
 
-			By("showing that an ovveride does not occur")
+			By("showing that an overide does not occur")
 			err = checkMergeConflicts(preset.Spec.Domain, &vmi.Spec.Domain)
 			Expect(err).ToNot(HaveOccurred())
 
@@ -320,6 +320,39 @@ var _ = Describe("Mutating Webhook Presets", func() {
 
 			Expect(len(vmi.Annotations)).To(Equal(1))
 			Expect(vmi.Spec.Domain.Devices.Watchdog.Name).To(Equal("testcase"))
+		})
+
+		It("Should detect ioThreadsPolicy overrides", func() {
+			sharedPolicy := v1.IOThreadsPolicyShared
+			preset.Spec.Domain.IOThreadsPolicy = &sharedPolicy
+
+			automaticPolicy := v1.IOThreadsPolicyAuto
+			vmi.Spec.Domain.IOThreadsPolicy = &automaticPolicy
+
+			By("showing that an override occurs")
+			err := checkMergeConflicts(preset.Spec.Domain, &vmi.Spec.Domain)
+			Expect(err).To(HaveOccurred())
+
+			By("showing presets are not applied")
+			vmi.Annotations = map[string]string{}
+			presetInformer.GetIndexer().Add(preset)
+			applyPresets(&vmi, presetInformer)
+
+			Expect(len(vmi.Annotations)).To(Equal(0), "There should not be annotations if presets weren't applied")
+			Expect(*vmi.Spec.Domain.IOThreadsPolicy).To(Equal(automaticPolicy), "IOThreads policy should not have been overridden")
+
+			preset.Spec.Domain.IOThreadsPolicy = &automaticPolicy
+
+			By("showing that settings were not changed")
+			err = checkMergeConflicts(preset.Spec.Domain, &vmi.Spec.Domain)
+			Expect(err).ToNot(HaveOccurred())
+
+			vmi.Annotations = map[string]string{}
+			presetInformer.GetIndexer().Add(preset)
+			applyPresets(&vmi, presetInformer)
+
+			Expect(len(vmi.Annotations)).To(Equal(1), "There should be an annotation indicating presets were applied")
+			Expect(*vmi.Spec.Domain.IOThreadsPolicy).To(Equal(automaticPolicy), "IOThreadsPolicy should not have been changed")
 		})
 	})
 
@@ -589,6 +622,17 @@ var _ = Describe("Mutating Webhook Presets", func() {
 
 			Expect(vmi.Spec.Domain.Devices.Watchdog).To(Equal(watchdog))
 			Expect(vmi.Annotations["virtualmachinepreset.kubevirt.io/test-preset"]).To(Equal("kubevirt.io/v1alpha2"))
+		})
+
+		It("Should apply IOThreads settings", func() {
+			ioThreads := v1.IOThreadsPolicyShared
+			preset.Spec.Domain.IOThreadsPolicy = &ioThreads
+
+			presetInformer.GetIndexer().Add(preset)
+			applyPresets(&vmi, presetInformer)
+
+			Expect(vmi.Spec.Domain.IOThreadsPolicy).ToNot(BeNil(), "IOThreads policy should have been applied by preset")
+			Expect(*vmi.Spec.Domain.IOThreadsPolicy).To(Equal(ioThreads), "Expected IOThreadsPolicy to be 'shared' (set by preset)")
 		})
 	})
 

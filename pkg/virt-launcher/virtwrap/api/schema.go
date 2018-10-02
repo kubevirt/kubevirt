@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Copyright 2017 Red Hat, Inc.
+ * Copyright 2017,2018 Red Hat, Inc.
  *
  */
 
@@ -131,6 +131,7 @@ type DomainSpec struct {
 	CPU           CPU            `xml:"cpu"`
 	VCPU          *VCPU          `xml:"vcpu"`
 	CPUTune       *CPUTune       `xml:"cputune"`
+	IOThreads     *IOThreads     `xml:"iothreads,omitempty"`
 }
 
 type CPUTune struct {
@@ -268,9 +269,14 @@ type Devices struct {
 
 // Controller represens libvirt controller element https://libvirt.org/formatdomain.html#elementsControllers
 type Controller struct {
-	Type  string `xml:"type,attr"`
-	Index string `xml:"index,attr"`
-	Model string `xml:"model,attr,omitempty"`
+	Type   string            `xml:"type,attr"`
+	Index  string            `xml:"index,attr"`
+	Model  string            `xml:"model,attr,omitempty"`
+	Driver *ControllerDriver `xml:"driver,omitempty"`
+}
+
+type ControllerDriver struct {
+	IOThread *uint `xml:"iothread,attr,omitempty"`
 }
 
 // END Controller -----------------------------
@@ -324,6 +330,7 @@ type DiskDriver struct {
 	IO          string `xml:"io,attr,omitempty"`
 	Name        string `xml:"name,attr"`
 	Type        string `xml:"type,attr"`
+	IOThread    *uint  `xml:"iothread,attr,omitempty"`
 }
 
 type DiskSourceHost struct {
@@ -635,7 +642,11 @@ type RngBackend struct {
 	Source string `xml:",chardata"`
 }
 
-// TODO ballooning, cpu ...
+type IOThreads struct {
+	IOThreads uint `xml:",chardata"`
+}
+
+// TODO ballooning, rng, cpu ...
 
 type SecretUsage struct {
 	Type   string `xml:"type,attr"`

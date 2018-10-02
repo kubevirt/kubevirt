@@ -126,7 +126,8 @@ var exampleJSON = `{
             "volumeName": "volume0",
             "disk": {
               "bus": "virtio"
-            }
+            },
+            "dedicatedIOThread": true
           },
           {
             "name": "cdrom0",
@@ -169,7 +170,8 @@ var exampleJSON = `{
           }
         ],
         "rng": {}
-      }
+      },
+      "ioThreadsPolicy": "shared"
     },
     "volumes": [
       {
@@ -219,6 +221,7 @@ var _ = Describe("Schema", func() {
 						ReadOnly: false,
 					},
 				},
+				DedicatedIOThread: _true,
 			},
 			{
 				Name:       "cdrom0",
@@ -337,6 +340,8 @@ var _ = Describe("Schema", func() {
 				},
 			},
 		}
+		policy := IOThreadsPolicyShared
+		exampleVMI.Spec.Domain.IOThreadsPolicy = &policy
 
 		SetObjectDefaults_VirtualMachineInstance(exampleVMI)
 	})

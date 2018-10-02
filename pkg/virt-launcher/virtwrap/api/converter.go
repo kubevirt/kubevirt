@@ -49,6 +49,7 @@ import (
 const (
 	CPUModeHostPassthrough = "host-passthrough"
 	CPUModeHostModel       = "host-model"
+	defaultIOThread        = uint(1)
 )
 
 type ConverterContext struct {
@@ -460,6 +461,57 @@ func Convert_v1_VirtualMachine_To_api_Domain(vmi *v1.VirtualMachineInstance, dom
 		volumes[volume.Name] = volume.DeepCopy()
 	}
 
+	dedicatedThreads := 0
+	autoThreads := 0
+	useIOThreads := false
+	threadPoolLimit := 1
+
+	if vmi.Spec.Domain.IOThreadsPolicy != nil {
+		useIOThreads = true
+
+		if (*vmi.Spec.Domain.IOThreadsPolicy) == v1.IOThreadsPolicyAuto {
+			numCPUs := 1
+			// Requested CPU's is guaranteed to be no greater than the limit
+			if cpuRequests, ok := vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceCPU]; ok {
+				numCPUs = int(cpuRequests.Value())
+			} else if cpuLimit, ok := vmi.Spec.Domain.Resources.Limits[k8sv1.ResourceCPU]; ok {
+				numCPUs = int(cpuLimit.Value())
+			}
+
+			threadPoolLimit = numCPUs * 2
+		}
+	}
+	for _, diskDevice := range vmi.Spec.Domain.Devices.Disks {
+		dedicatedThread := false
+		if diskDevice.DedicatedIOThread != nil {
+			dedicatedThread = *diskDevice.DedicatedIOThread
+		}
+		if dedicatedThread {
+			useIOThreads = true
+			dedicatedThreads += 1
+		} else {
+			autoThreads += 1
+		}
+	}
+
+	if (autoThreads + dedicatedThreads) > threadPoolLimit {
+		autoThreads = threadPoolLimit - dedicatedThreads
+		// We need at least one shared thread
+		if autoThreads < 1 {
+			autoThreads = 1
+		}
+	}
+
+	ioThreadCount := (autoThreads + dedicatedThreads)
+	if ioThreadCount != 0 {
+		if domain.Spec.IOThreads == nil {
+			domain.Spec.IOThreads = &IOThreads{}
+		}
+		domain.Spec.IOThreads.IOThreads = uint(ioThreadCount)
+	}
+
+	currentAutoThread := defaultIOThread
+	currentDedicatedThread := uint(autoThreads + 1)
 	devicePerBus := make(map[string]int)
 	for _, disk := range vmi.Spec.Domain.Devices.Disks {
 		newDisk := Disk{}
@@ -476,6 +528,26 @@ func Convert_v1_VirtualMachine_To_api_Domain(vmi *v1.VirtualMachineInstance, dom
 		if err != nil {
 			return err
 		}
+
+		if useIOThreads {
+			ioThreadId := defaultIOThread
+			dedicatedThread := false
+			if disk.DedicatedIOThread != nil {
+				dedicatedThread = *disk.DedicatedIOThread
+			}
+
+			if dedicatedThread {
+				ioThreadId = currentDedicatedThread
+				currentDedicatedThread += 1
+			} else {
+				ioThreadId = currentAutoThread
+				// increment the threadId to be used next but wrap around at the thread limit
+				// the odd math here is because thread ID's start at 1, not 0
+				currentAutoThread = (currentAutoThread % uint(autoThreads)) + 1
+			}
+			newDisk.Driver.IOThread = &ioThreadId
+		}
+
 		domain.Spec.Devices.Disks = append(domain.Spec.Devices.Disks, newDisk)
 	}
 

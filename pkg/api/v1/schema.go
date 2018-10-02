@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Copyright 2017 Red Hat, Inc.
+ * Copyright 2017, 2018 Red Hat, Inc.
  *
  */
 
@@ -23,6 +23,13 @@ import (
 	"k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/apimachinery/pkg/types"
+)
+
+type IOThreadsPolicy string
+
+const (
+	IOThreadsPolicyShared IOThreadsPolicy = "shared"
+	IOThreadsPolicyAuto   IOThreadsPolicy = "auto"
 )
 
 //go:generate swagger-doc
@@ -111,6 +118,11 @@ type DomainSpec struct {
 	Features *Features `json:"features,omitempty"`
 	// Devices allows adding disks, network interfaces, ...
 	Devices Devices `json:"devices"`
+	// Controls whether or not disks will share IOThreads.
+	// Omitting IOThreadsPolicy disables use of IOThreads.
+	// One of: shared, auto
+	// +optional
+	IOThreadsPolicy *IOThreadsPolicy `json:"ioThreadsPolicy,omitempty"`
 }
 
 // ---
@@ -195,11 +207,11 @@ type Devices struct {
 	Disks []Disk `json:"disks,omitempty"`
 	// Watchdog describes a watchdog device which can be added to the vmi.
 	Watchdog *Watchdog `json:"watchdog,omitempty"`
-	// Interfaces describe network interfaces which are added to the vm.
+	// Interfaces describe network interfaces which are added to the vmi.
 	Interfaces []Interface `json:"interfaces,omitempty"`
 	// Whether to attach a pod network interface. Defaults to true.
 	AutoattachPodInterface *bool `json:"autoattachPodInterface,omitempty"`
-	// Wheater to attach the default graphics device or not.
+	// Whether to attach the default graphics device or not.
 	// VNC will not be available if set to false. Defaults to true.
 	AutoattachGraphicsDevice *bool `json:"autoattachGraphicsDevice,omitempty"`
 	// Whether to have random number generator from host
@@ -227,6 +239,11 @@ type Disk struct {
 	// Serial provides the ability to specify a serial number for the disk device.
 	// +optional
 	Serial string `json:"serial,omitempty"`
+	// dedicatedIOThread indicates this disk should have an exclusive IO Thread.
+	// Enabling this implies useIOThreads = true.
+	// Defaults to false.
+	// +optional
+	DedicatedIOThread *bool `json:"dedicatedIOThread,omitempty"`
 }
 
 // Represents the target of a volume to mount.

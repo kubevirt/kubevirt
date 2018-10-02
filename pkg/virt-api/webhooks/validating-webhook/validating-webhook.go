@@ -53,6 +53,7 @@ const (
 )
 
 var validInterfaceModels = []string{"e1000", "e1000e", "ne2k_pci", "pcnet", "rtl8139", "virtio"}
+var validIOThreadsPolicies = []v1.IOThreadsPolicy{v1.IOThreadsPolicyShared, v1.IOThreadsPolicyAuto}
 
 func toAdmissionResponse(causes []metav1.StatusCause) *v1beta1.AdmissionResponse {
 	log.Log.Infof("rejected vmi admission")
@@ -914,6 +915,24 @@ func ValidateVirtualMachineInstanceSpec(field *k8sfield.Path, spec *v1.VirtualMa
 				Type:    metav1.CauseTypeFieldValueRequired,
 				Message: fmt.Sprintf("every network must be mapped to an interface."),
 				Field:   field.Child("networks").String(),
+			})
+		}
+	}
+
+	if spec.Domain.IOThreadsPolicy != nil {
+		isValidPolicy := func(policy v1.IOThreadsPolicy) bool {
+			for _, p := range validIOThreadsPolicies {
+				if policy == p {
+					return true
+				}
+			}
+			return false
+		}
+		if !isValidPolicy(*spec.Domain.IOThreadsPolicy) {
+			causes = append(causes, metav1.StatusCause{
+				Type:    metav1.CauseTypeFieldValueInvalid,
+				Message: fmt.Sprintf("Invalid IOThreadsPolicy (%s)", *spec.Domain.IOThreadsPolicy),
+				Field:   field.Child("domain", "ioThreadsPolicy").String(),
 			})
 		}
 	}

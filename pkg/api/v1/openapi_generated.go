@@ -352,7 +352,7 @@ func schema_kubevirt_pkg_api_v1_Devices(ref common.ReferenceCallback) common.Ope
 					},
 					"interfaces": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Interfaces describe network interfaces which are added to the vm.",
+							Description: "Interfaces describe network interfaces which are added to the vmi.",
 							Type:        []string{"array"},
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
@@ -372,7 +372,7 @@ func schema_kubevirt_pkg_api_v1_Devices(ref common.ReferenceCallback) common.Ope
 					},
 					"autoattachGraphicsDevice": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Wheater to attach the default graphics device or not. VNC will not be available if set to false. Defaults to true.",
+							Description: "Whether to attach the default graphics device or not. VNC will not be available if set to false. Defaults to true.",
 							Type:        []string{"boolean"},
 							Format:      "",
 						},
@@ -445,6 +445,13 @@ func schema_kubevirt_pkg_api_v1_Disk(ref common.ReferenceCallback) common.OpenAP
 						SchemaProps: spec.SchemaProps{
 							Description: "Serial provides the ability to specify a serial number for the disk device.",
 							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"dedicatedIOThread": {
+						SchemaProps: spec.SchemaProps{
+							Description: "dedicatedIOThread indicates this disk should have an exclusive IO Thread. Enabling this implies useIOThreads = true. Defaults to false.",
+							Type:        []string{"boolean"},
 							Format:      "",
 						},
 					},
@@ -572,6 +579,13 @@ func schema_kubevirt_pkg_api_v1_DomainSpec(ref common.ReferenceCallback) common.
 						SchemaProps: spec.SchemaProps{
 							Description: "Devices allows adding disks, network interfaces, ...",
 							Ref:         ref("kubevirt.io/kubevirt/pkg/api/v1.Devices"),
+						},
+					},
+					"ioThreadsPolicy": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Controls whether or not disks will share IOThreads. Omitting IOThreadsPolicy disables use of IOThreads. One of: shared, auto",
+							Type:        []string{"string"},
+							Format:      "",
 						},
 					},
 				},
