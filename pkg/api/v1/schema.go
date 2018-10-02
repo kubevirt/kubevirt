@@ -753,8 +753,21 @@ type Interface struct {
 	PciAddress string `json:"pciAddress,omitempty"`
 	// Backend driver name.
 	// One of: qemu, vhost
-	Driver string `json:"driver,omitempty"`
+	// +optional
+	Driver InterfaceDriver `json:"driver,omitempty"`
 }
+
+// InterfaceDriver represents a backend driver type for an network interface.
+// ---
+// +k8s:openapi-gen=true
+type InterfaceDriver string
+
+const (
+	// InterfaceDriverQEMU indicates that the backend for a network interface is QEMU userland NIC emulation.
+	InterfaceDriverQEMU InterfaceDriver = "qemu"
+	// InterfaceDriverVhost indicates that the backend for a network interface is vhost-net device.
+	InterfaceDriverVhost InterfaceDriver = "vhost"
+)
 
 // Represents the method which will be used to connect the interface to the guest.
 // Only one of its members may be specified.

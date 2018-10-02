@@ -909,22 +909,22 @@ func ValidateVirtualMachineInstanceSpec(field *k8sfield.Path, spec *v1.VirtualMa
 			}
 
 			// verify that the interface driver is valid
-			if iface.Slirp != nil {
-				if iface.Driver != "" && iface.Driver != "qemu" {
+			if iface.Slirp != nil && iface.Driver != "" {
+				if iface.Driver != v1.InterfaceDriverQEMU {
 					causes = append(causes, metav1.StatusCause{
 						Type:    metav1.CauseTypeFieldValueInvalid,
 						Message: fmt.Sprintf("Slirp interface works with qemu driver only"),
 						Field:   field.Child("domain", "devices", "interfaces").Index(idx).Child("driver").String(),
 					})
 				}
-			} else if iface.Bridge != nil {
-				if iface.Driver != "" && iface.Driver != "qemu" && iface.Driver != "vhost" {
+			} else if iface.Bridge != nil && iface.Driver != "" {
+				if iface.Driver != v1.InterfaceDriverQEMU && iface.Driver != v1.InterfaceDriverVhost {
 					causes = append(causes, metav1.StatusCause{
 						Type:    metav1.CauseTypeFieldValueInvalid,
 						Message: fmt.Sprintf("Bridge interface works with qemu or vhost driver only"),
 						Field:   field.Child("domain", "devices", "interfaces").Index(idx).Child("driver").String(),
 					})
-				} else if iface.Driver == "vhost" && iface.Model != "" && iface.Model != "virtio" {
+				} else if iface.Driver == v1.InterfaceDriverVhost && iface.Model != "" && iface.Model != "virtio" {
 					causes = append(causes, metav1.StatusCause{
 						Type:    metav1.CauseTypeFieldValueInvalid,
 						Message: fmt.Sprintf("vhost driver can be used with virtio model only"),

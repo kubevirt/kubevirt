@@ -563,7 +563,7 @@ func getRequiredResources(vmi *v1.VirtualMachineInstance) k8sv1.ResourceList {
 		res[TunDevice] = resource.MustParse("1")
 	}
 	for _, iface := range vmi.Spec.Domain.Devices.Interfaces {
-		if iface.Driver == "vhost" {
+		if iface.Driver == v1.InterfaceDriverVhost {
 			res[VhostNetDevice] = resource.MustParse("1")
 		}
 	}

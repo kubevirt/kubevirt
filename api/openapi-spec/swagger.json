@@ -3775,7 +3775,7 @@
       "$ref": "#/definitions/v1.InterfaceBridge"
      },
      "driver": {
-      "description": "Backend driver name.\nOne of: qemu, vhost",
+      "description": "Backend driver name.\nOne of: qemu, vhost\n+optional",
       "type": "string"
      },
      "macAddress": {

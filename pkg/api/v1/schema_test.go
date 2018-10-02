@@ -388,7 +388,7 @@ var _ = Describe("Schema", func() {
 					Name: "default",
 					InterfaceBindingMethod: InterfaceBindingMethod{
 						Bridge: &InterfaceBridge{}},
-					Driver: "vhost",
+					Driver: InterfaceDriverVhost,
 				},
 			}
 			networkTemplateData := NetworkTemplateConfig{InterfaceConfig: `"bridge": {},

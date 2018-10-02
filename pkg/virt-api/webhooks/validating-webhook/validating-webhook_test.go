@@ -1178,7 +1178,7 @@ var _ = Describe("Validating Webhook", func() {
 			vmi := v1.NewMinimalVMI("testvm")
 			vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{*v1.DefaultNetworkInterface()}
 			vmi.Spec.Networks = []v1.Network{*v1.DefaultPodNetwork()}
-			for _, driver := range []string{"qemu", "vhost"} {
+			for _, driver := range []v1.InterfaceDriver{v1.InterfaceDriverQEMU, v1.InterfaceDriverVhost} {
 				vmi.Spec.Domain.Devices.Interfaces[0].Driver = driver
 				causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec)
 				// if this is processed correctly, it should not result in any error
@@ -1201,7 +1201,7 @@ var _ = Describe("Validating Webhook", func() {
 				InterfaceBindingMethod: v1.InterfaceBindingMethod{
 					Slirp: &v1.InterfaceSlirp{},
 				},
-				Driver: "vhost",
+				Driver: v1.InterfaceDriverVhost,
 			}}
 			vmi.Spec.Networks = []v1.Network{*v1.DefaultPodNetwork()}
 			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec)
@@ -1218,7 +1218,7 @@ var _ = Describe("Validating Webhook", func() {
 					continue
 				}
 				vmi.Spec.Domain.Devices.Interfaces[0].Model = model
-				vmi.Spec.Domain.Devices.Interfaces[0].Driver = "vhost"
+				vmi.Spec.Domain.Devices.Interfaces[0].Driver = v1.InterfaceDriverVhost
 				causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec)
 				Expect(len(causes)).To(Equal(1))
 				Expect(causes[0].Field).To(Equal("fake.domain.devices.interfaces[0].driver"))
