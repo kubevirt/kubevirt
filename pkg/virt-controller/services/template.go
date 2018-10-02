@@ -57,6 +57,7 @@ type TemplateService interface {
 type templateService struct {
 	launcherImage              string
 	virtShareDir               string
+	libvirtRuntimesDir         string
 	imagePullSecret            string
 	configMapStore             cache.Store
 	persistentVolumeClaimStore cache.Store
@@ -464,7 +465,7 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 		Name: "libvirt-runtime",
 		VolumeSource: k8sv1.VolumeSource{
 			HostPath: &k8sv1.HostPathVolumeSource{
-				Path: filepath.Join(t.virtShareDir, "libvirt-runtimes", string(vmi.UID)),
+				Path: filepath.Join(t.libvirtRuntimesDir, string(vmi.UID)),
 			},
 		},
 	})
@@ -691,6 +692,7 @@ func NewTemplateService(launcherImage string, virtShareDir string, imagePullSecr
 	svc := templateService{
 		launcherImage:              launcherImage,
 		virtShareDir:               virtShareDir,
+		libvirtRuntimesDir:         virtShareDir + "-libvirt-runtimes",
 		imagePullSecret:            imagePullSecret,
 		configMapStore:             configMapCache,
 		persistentVolumeClaimStore: persistentVolumeClaimCache,

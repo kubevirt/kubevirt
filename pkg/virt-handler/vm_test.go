@@ -442,7 +442,7 @@ type MockWatchdog struct {
 func (m *MockWatchdog) CreateFile(vmi *v1.VirtualMachineInstance) {
 	Expect(os.MkdirAll(watchdog.WatchdogFileDirectory(m.baseDir), os.ModePerm)).To(Succeed())
 	err := watchdog.WatchdogFileUpdate(
-		watchdog.WatchdogFileFromNamespaceName(m.baseDir, vmi.ObjectMeta.Namespace, vmi.ObjectMeta.Name),
+		watchdog.WatchdogFileFromNamespaceName(m.baseDir, vmi.ObjectMeta.Namespace, vmi.ObjectMeta.Name), string(vmi.UID),
 	)
 	Expect(err).NotTo(HaveOccurred())
 }

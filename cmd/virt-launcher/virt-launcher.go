@@ -142,8 +142,8 @@ func startDomainEventMonitoring(virtShareDir string, domainConn virtcli.Connecti
 
 }
 
-func startWatchdogTicker(watchdogFile string, watchdogInterval time.Duration, stopChan chan struct{}) (done chan struct{}) {
-	err := watchdog.WatchdogFileUpdate(watchdogFile)
+func startWatchdogTicker(watchdogFile string, watchdogInterval time.Duration, stopChan chan struct{}, uid string) (done chan struct{}) {
+	err := watchdog.WatchdogFileUpdate(watchdogFile, uid)
 	if err != nil {
 		panic(err)
 	}
@@ -160,7 +160,7 @@ func startWatchdogTicker(watchdogFile string, watchdogInterval time.Duration, st
 			case <-stopChan:
 				return
 			case <-ticker:
-				err := watchdog.WatchdogFileUpdate(watchdogFile)
+				err := watchdog.WatchdogFileUpdate(watchdogFile, uid)
 				if err != nil {
 					panic(err)
 				}
@@ -349,7 +349,7 @@ func main() {
 	watchdogFile := watchdog.WatchdogFileFromNamespaceName(*virtShareDir,
 		*namespace,
 		*name)
-	watchdogDone := startWatchdogTicker(watchdogFile, *watchdogInterval, stopChan)
+	watchdogDone := startWatchdogTicker(watchdogFile, *watchdogInterval, stopChan, *uid)
 
 	gracefulShutdownTriggerFile := virtlauncher.GracefulShutdownTriggerFromNamespaceName(*virtShareDir,
 		*namespace,

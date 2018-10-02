@@ -81,6 +81,7 @@ func NewController(
 		host:                     host,
 		ipAddress:                ipAddress,
 		virtShareDir:             virtShareDir,
+		libvirtRuntimesDir:       virtShareDir + "-libvirt-runtimes",
 		vmiSourceInformer:        vmiSourceInformer,
 		vmiTargetInformer:        vmiTargetInformer,
 		domainInformer:           domainInformer,
@@ -127,6 +128,7 @@ type VirtualMachineController struct {
 	host                     string
 	ipAddress                string
 	virtShareDir             string
+	libvirtRuntimesDir       string
 	Queue                    workqueue.RateLimitingInterface
 	vmiSourceInformer        cache.SharedIndexInformer
 	vmiTargetInformer        cache.SharedIndexInformer
@@ -723,6 +725,16 @@ func (d *VirtualMachineController) execute(key string) error {
 		vmi.UID = domain.Spec.Metadata.KubeVirt.UID
 	}
 
+	// As a last effort, if the UID still can't be determined attempt
+	// to retrieve it from the watchdog file
+	if string(vmi.UID) == "" {
+		uid := watchdog.WatchdogFileGetUid(d.virtShareDir, vmi)
+		if uid != "" {
+			log.Log.Object(vmi).V(3).Infof("Watchdog file provided %s as UID", uid)
+			vmi.UID = types.UID(uid)
+		}
+	}
+
 	if vmiExists && domainExists && domain.Spec.Metadata.KubeVirt.UID != vmi.UID {
 		oldVMI := v1.NewVMIReferenceFromNameWithNS(vmi.Namespace, vmi.Name)
 		oldVMI.UID = domain.Spec.Metadata.KubeVirt.UID
@@ -810,21 +822,30 @@ func (d *VirtualMachineController) injectCloudInitSecrets(vmi *v1.VirtualMachine
 }
 
 func (d *VirtualMachineController) processVmCleanup(vmi *v1.VirtualMachineInstance) error {
-	err := watchdog.WatchdogFileRemove(d.virtShareDir, vmi)
-	if err != nil {
-		return err
-	}
-
-	err = virtlauncher.VmGracefulShutdownTriggerClear(d.virtShareDir, vmi)
+	err := virtlauncher.VmGracefulShutdownTriggerClear(d.virtShareDir, vmi)
 	if err != nil {
 		return err
 	}
 
 	d.closeLauncherClient(vmi)
 
-	os.RemoveAll(filepath.Join(d.virtShareDir, "libvirt-runtimes", string(vmi.UID)))
+	if string(vmi.UID) != "" {
+		libvirtDir := filepath.Join(d.libvirtRuntimesDir, string(vmi.UID))
+		err = os.RemoveAll(libvirtDir)
+		if err != nil {
+			return err
+		}
+		log.Log.Object(vmi).V(3).Infof("Deleted libvirt runtime dir at host mount %s.", libvirtDir)
+	}
+
 	d.migrationProxy.StopTargetListener(string(vmi.UID))
 	d.migrationProxy.StopSourceListener(string(vmi.UID))
+
+	// Watch dog file must be the last thing removed here
+	err = watchdog.WatchdogFileRemove(d.virtShareDir, vmi)
+	if err != nil {
+		return err
+	}
 
 	return nil
 }
@@ -1025,7 +1046,7 @@ func (d *VirtualMachineController) handleMigrationProxy(vmi *v1.VirtualMachineIn
 
 	// handle starting/stopping target migration proxy
 	if d.isPreMigrationTarget(vmi) {
-		err := d.migrationProxy.StartTargetListener(string(vmi.UID), filepath.Join(d.virtShareDir, "libvirt-runtimes", string(vmi.UID), "libvirt-sock"))
+		err := d.migrationProxy.StartTargetListener(string(vmi.UID), filepath.Join(d.libvirtRuntimesDir, string(vmi.UID), "libvirt-sock"))
 		if err != nil {
 			return err
 		}
