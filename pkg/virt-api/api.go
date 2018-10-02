@@ -39,6 +39,7 @@ import (
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/cert"
 	"k8s.io/client-go/util/cert/triple"
 	apiregistrationv1beta1 "k8s.io/kube-aggregator/pkg/apis/apiregistration/v1beta1"
@@ -952,9 +953,10 @@ func (app *virtAPIApp) Run() {
 
 	stopChan := make(chan struct{}, 1)
 	defer close(stopChan)
-	go webhookInformers.VMIInformer.Run(stopChan)
 	go webhookInformers.VMIPresetInformer.Run(stopChan)
 	go webhookInformers.NamespaceLimitsInformer.Run(stopChan)
+
+	cache.WaitForCacheSync(stopChan, webhookInformers.NamespaceLimitsInformer.HasSynced, webhookInformers.NamespaceLimitsInformer.HasSynced)
 
 	// Verify/create webhook endpoint.
 	err = app.createWebhook()

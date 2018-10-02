@@ -40,7 +40,6 @@ var webhookInformers *Informers
 var once sync.Once
 
 type Informers struct {
-	VMIInformer             cache.SharedIndexInformer
 	VMIPresetInformer       cache.SharedIndexInformer
 	NamespaceLimitsInformer cache.SharedIndexInformer
 }
@@ -67,7 +66,6 @@ func newInformers() *Informers {
 	kubeInformerFactory := controller.NewKubeInformerFactory(kubeClient.RestClient(), kubeClient)
 	kubeInformerFactory.VMI()
 	return &Informers{
-		VMIInformer:             kubeInformerFactory.VMI(),
 		VMIPresetInformer:       kubeInformerFactory.VirtualMachinePreset(),
 		NamespaceLimitsInformer: kubeInformerFactory.LimitRanges(),
 	}
