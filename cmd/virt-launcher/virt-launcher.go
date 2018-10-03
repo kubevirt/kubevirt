@@ -43,7 +43,6 @@ import (
 	"kubevirt.io/kubevirt/pkg/log"
 	"kubevirt.io/kubevirt/pkg/registry-disk"
 	"kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
-	"kubevirt.io/kubevirt/pkg/virt-handler/migration-proxy"
 	"kubevirt.io/kubevirt/pkg/virt-launcher"
 	notifyclient "kubevirt.io/kubevirt/pkg/virt-launcher/notify-client"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap"
@@ -334,7 +333,7 @@ func main() {
 	domainConn := createLibvirtConnection()
 	defer domainConn.Close()
 
-	domainManager, err := virtwrap.NewLibvirtDomainManager(domainConn)
+	domainManager, err := virtwrap.NewLibvirtDomainManager(domainConn, *virtShareDir)
 	if err != nil {
 		panic(err)
 	}
@@ -359,17 +358,6 @@ func main() {
 		log.Log.Reason(err).Errorf("Error clearing shutdown trigger file %s.", gracefulShutdownTriggerFile)
 		panic(err)
 	}
-
-	// Start local migration proxy.
-
-	migrationProxy := migrationproxy.NewTargetProxy("127.0.0.1", 22222, migrationproxy.SourceUnixFile(*virtShareDir, *uid))
-
-	err = migrationProxy.StartListening()
-	if err != nil {
-		panic(err)
-	}
-
-	defer migrationProxy.StopListening()
 
 	shutdownCallback := func(pid int) {
 		err := domainManager.KillVMI(vm)

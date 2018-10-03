@@ -46,6 +46,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/log"
 	"kubevirt.io/kubevirt/pkg/registry-disk"
 	"kubevirt.io/kubevirt/pkg/util/net/dns"
+	"kubevirt.io/kubevirt/pkg/virt-handler/migration-proxy"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/cli"
 	domainerrors "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/errors"
@@ -68,11 +69,14 @@ type LibvirtDomainManager struct {
 
 	// Anytime a get and a set is done on the domain, this lock must be held.
 	domainModifyLock sync.Mutex
+
+	virtShareDir string
 }
 
-func NewLibvirtDomainManager(connection cli.Connection) (DomainManager, error) {
+func NewLibvirtDomainManager(connection cli.Connection, virtShareDir string) (DomainManager, error) {
 	manager := LibvirtDomainManager{
-		virConn: connection,
+		virConn:      connection,
+		virtShareDir: virtShareDir,
 	}
 
 	return &manager, nil
@@ -191,6 +195,22 @@ func (l *LibvirtDomainManager) setMigrationResultHelper(vmi *v1.VirtualMachineIn
 func (l *LibvirtDomainManager) asyncMigrate(vmi *v1.VirtualMachineInstance) {
 
 	go func(l *LibvirtDomainManager, vmi *v1.VirtualMachineInstance) {
+
+		// Start local migration proxy.
+		//
+		// Right now Libvirt won't let us perform a migration using a unix socket, so
+		// we have to create this local host tcp server that forwards the traffic
+		// to libvirt in order to trick libvirt into doing what we want.
+		migrationProxy := migrationproxy.NewTargetProxy("127.0.0.1", 22222, migrationproxy.SourceUnixFile(l.virtShareDir, string(vmi.UID)))
+
+		err := migrationProxy.StartListening()
+		if err != nil {
+			l.setMigrationResult(vmi, true, fmt.Sprintf("%v", err))
+			return
+		}
+
+		defer migrationProxy.StopListening()
+
 		// For a tunnelled migration, this is always the uri
 		dstUri := "qemu+tcp://127.0.0.1:22222/system"
 
