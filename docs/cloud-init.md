@@ -26,7 +26,7 @@ adheres to the specific datasource standard in use.
 http://cloudinit.readthedocs.io/en/latest/topics/datasources/nocloud.html
 
 The **NoCloud** data source involves generating an iso with userdata and
-metadata in it, and attaching that iso the the VMI instance. The fedora-atomic
+metadata in it, and attaching that iso the VMI instance. The fedora-atomic
 project supports this datasource for their VMI images. 
 
 To associated userdata with a VMI instance using the NoCloud data source, all
