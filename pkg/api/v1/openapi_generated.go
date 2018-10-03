@@ -383,9 +383,9 @@ func schema_kubevirt_pkg_api_v1_Devices(ref common.ReferenceCallback) common.Ope
 							Ref:         ref("kubevirt.io/kubevirt/pkg/api/v1.Rng"),
 						},
 					},
-					"multiQueue": {
+					"blockMultiQueue": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Whether or not to enable virtio multi-queue",
+							Description: "Whether or not to enable virtio multi-queue for block devices",
 							Type:        []string{"boolean"},
 							Format:      "",
 						},

@@ -100,8 +100,8 @@ func (Devices) SwaggerDoc() map[string]string {
 		"interfaces":               "Interfaces describe network interfaces which are added to the vmi.",
 		"autoattachPodInterface":   "Whether to attach a pod network interface. Defaults to true.",
 		"autoattachGraphicsDevice": "Whether to attach the default graphics device or not.\nVNC will not be available if set to false. Defaults to true.",
-		"rng":        "Whether to have random number generator from host\n+optional",
-		"multiQueue": "Whether or not to enable virtio multi-queue\n+optional",
+		"rng":             "Whether to have random number generator from host\n+optional",
+		"blockMultiQueue": "Whether or not to enable virtio multi-queue for block devices\n+optional",
 	}
 }
 

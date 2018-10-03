@@ -53,6 +53,8 @@ spec:
                       type: boolean
                     autoattachPodInterface:
                       type: boolean
+                    blockMultiQueue:
+                      type: boolean
                     disks:
                       items:
                         properties:
@@ -129,8 +131,6 @@ spec:
                         required:
                         - name
                       type: array
-                    multiQueue:
-                      type: boolean
                     rng: {}
                     watchdog:
                       properties:

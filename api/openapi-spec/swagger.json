@@ -3396,6 +3396,10 @@
       "description": "Whether to attach a pod network interface. Defaults to true.",
       "type": "boolean"
      },
+     "blockMultiQueue": {
+      "description": "Whether or not to enable virtio multi-queue for block devices\n+optional",
+      "type": "boolean"
+     },
      "disks": {
       "description": "Disks describes disks, cdroms, floppy and luns which are connected to the vmi.",
       "type": "array",
@@ -3409,10 +3413,6 @@
       "items": {
        "$ref": "#/definitions/v1.Interface"
       }
-     },
-     "multiQueue": {
-      "description": "Whether or not to enable virtio multi-queue\n+optional",
-      "type": "boolean"
      },
      "rng": {
       "description": "Whether to have random number generator from host\n+optional",
