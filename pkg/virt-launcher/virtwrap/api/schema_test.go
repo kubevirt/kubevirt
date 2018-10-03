@@ -41,7 +41,7 @@ var exampleXML = `<domain type="kvm" xmlns:qemu="http://libvirt.org/schemas/doma
     <baseBoard></baseBoard>
   </sysinfo>
   <devices>
-    <controller type="usb" index="0" model="none">
+    <controller type="raw" index="0" model="none">
       <driver queues="2"></driver>
     </controller>
     <video>
@@ -142,7 +142,7 @@ var _ = Describe("Schema", func() {
 	}
 	exampleDomain.Spec.Devices.Controllers = []Controller{
 		{
-			Type:   "usb",
+			Type:   "raw",
 			Model:  "none",
 			Index:  "0",
 			Driver: &ControllerDriver{Queues: &numQueues},
