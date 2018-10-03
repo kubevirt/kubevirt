@@ -648,6 +648,29 @@ func ValidateVirtualMachineInstanceSpec(field *k8sfield.Path, spec *v1.VirtualMa
 		}
 	}
 
+	// Validate emulated machine
+	if len(spec.Domain.Machine.Type) > 0 {
+		machine := spec.Domain.Machine.Type
+		supportedMachines := virtconfig.SupportedEmulatedMachines()
+		var match = false
+		for _, val := range supportedMachines {
+			if regexp.MustCompile(val).MatchString(machine) {
+				match = true
+			}
+		}
+		if !match {
+			causes = append(causes, metav1.StatusCause{
+				Type: metav1.CauseTypeFieldValueInvalid,
+				Message: fmt.Sprintf("%s is not supported: %s (allowed values: %v)",
+					field.Child("domain", "machine", "type").String(),
+					machine,
+					supportedMachines,
+				),
+				Field: field.Child("domain", "machine", "type").String(),
+			})
+		}
+	}
+
 	// Validate CPU pinning
 	if spec.Domain.CPU != nil && spec.Domain.CPU.DedicatedCPUPlacement {
 		requestsMem := spec.Domain.Resources.Requests.Memory().Value()
