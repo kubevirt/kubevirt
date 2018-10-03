@@ -134,6 +134,7 @@ func SetDefaults_VirtualMachineInstance(obj *VirtualMachineInstance) {
 func setDefaults_Disk(obj *VirtualMachineInstance) {
 	// Setting SATA as the default bus since it is typically supported out of the box by
 	// guest operating systems (we support only q35 and therefore IDE is not supported)
+	// TODO: consider making this OS-specific (VIRTIO for linux, SATA for others)
 	bus := "sata"
 
 	for i := range obj.Spec.Domain.Devices.Disks {
