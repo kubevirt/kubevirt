@@ -35,6 +35,7 @@ import (
 	"os"
 
 	"kubevirt.io/kubevirt/pkg/log"
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 )
 
 const (
@@ -57,7 +58,8 @@ func SingleClientDHCPServer(
 	dnsIPs [][]byte,
 	routes *[]netlink.Route,
 	searchDomains []string,
-	mtu uint16) error {
+	mtu uint16,
+	customDHCPOptions []api.DHCPOption) error {
 
 	log.Log.Info("Starting SingleClientDHCPServer")
 
@@ -90,6 +92,12 @@ func SingleClientDHCPServer(
 		return fmt.Errorf("reading the pods hostname failed: %v", err)
 	}
 	dhcpOptions[dhcp.OptionHostName] = []byte(hostname)
+
+	for _, customDHCPOption := range customDHCPOptions {
+		log.Log.Infof("Setting dhcp option %s to %s", customDHCPOption.OptionCode, customDHCPOption.OptionValue)
+		optionCode := dhcp.OptionCode(customDHCPOption.OptionCode)
+		dhcpOptions[optionCode] = []byte(customDHCPOption.OptionValue)
+	}
 
 	handler := &DHCPHandler{
 		clientIP:      clientIP,
