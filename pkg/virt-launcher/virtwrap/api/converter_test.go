@@ -1125,7 +1125,7 @@ var _ = Describe("Converter", func() {
 				},
 			}
 
-			vmi.Spec.Domain.Devices.MultiQueue = True()
+			vmi.Spec.Domain.Devices.BlockMultiQueue = True()
 			vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceCPU] = resource.MustParse("2")
 		})
 

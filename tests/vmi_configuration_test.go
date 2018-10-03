@@ -116,7 +116,7 @@ var _ = Describe("Configurations", func() {
 						kubev1.ResourceCPU:    resource.MustParse("3"),
 					},
 				}
-				vmi.Spec.Domain.Devices.MultiQueue = &_true
+				vmi.Spec.Domain.Devices.BlockMultiQueue = &_true
 
 				By("Starting a VirtualMachineInstance")
 				vmi, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)

@@ -517,7 +517,7 @@ func Convert_v1_VirtualMachine_To_api_Domain(vmi *v1.VirtualMachineInstance, dom
 	currentDedicatedThread := uint(autoThreads + 1)
 
 	var numQueues *uint
-	if (vmi.Spec.Domain.Devices.MultiQueue != nil) && (*vmi.Spec.Domain.Devices.MultiQueue) {
+	if (vmi.Spec.Domain.Devices.BlockMultiQueue != nil) && (*vmi.Spec.Domain.Devices.BlockMultiQueue) {
 		// Requested CPU's is guaranteed to be no greater than the limit
 		if cpuRequests, ok := vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceCPU]; ok {
 			numCPUs := uint(cpuRequests.Value())
