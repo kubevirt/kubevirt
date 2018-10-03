@@ -189,23 +189,16 @@ func (d *VirtualMachineController) hasGracePeriodExpired(dom *api.Domain) (hasEx
 	return
 }
 
-func (d *VirtualMachineController) isPostMigrationWaitPeriod(vmi *v1.VirtualMachineInstance) bool {
-	// give the target node 30 seconds to discover the libvirt domain via the domain informer
-	// before allowing the VMI to be processed
+func (d *VirtualMachineController) hasTargetDetectedDomain(vmi *v1.VirtualMachineInstance) (bool, int64) {
+	// give the target node 60 seconds to discover the libvirt domain via the domain informer
+	// before allowing the VMI to be processed. This closes the gap between the
+	// VMI's status getting updated to reflect the new source node, and the domain
+	// informer firing the event to alert the source node of the new domain.
 	migrationTargetDelayTimeout := 60
 
-	if vmi.IsFinal() {
-		// vmi is down, no need to wait for migrated domain to showup in cache.
-		return false
-	} else if vmi.Status.MigrationState == nil {
-		// if no migration is in progress, there's no reason to wait for domain.
-		return false
-	} else if vmi.Status.MigrationState.TargetNode != d.host {
-		// this is not the target of a migration
-		return false
-	} else if vmi.Status.MigrationState.EndTimestamp == nil {
-		// the migration has not finished
-		return false
+	if vmi.Status.MigrationState != nil && vmi.Status.MigrationState.TargetNodeDomainDetected {
+
+		return true, 0
 	}
 
 	nowUnix := time.Now().UTC().Unix()
@@ -214,12 +207,20 @@ func (d *VirtualMachineController) isPostMigrationWaitPeriod(vmi *v1.VirtualMach
 	diff := nowUnix - migrationEndUnix
 
 	if diff > int64(migrationTargetDelayTimeout) {
-
-		return false
+		return false, 0
 	}
 
-	// we're within post migration wait period.
-	return true
+	timeLeft := int64(migrationTargetDelayTimeout) - diff
+
+	enqueueTime := timeLeft
+	if enqueueTime < 5 {
+		enqueueTime = 5
+	}
+
+	// re-enqueue the key to ensure it gets processed again within the right time.
+	d.Queue.AddAfter(controller.VirtualMachineKey(vmi), time.Duration(enqueueTime)*time.Second)
+
+	return false, timeLeft
 }
 
 func domainMigrated(domain *api.Domain) bool {
@@ -262,10 +263,12 @@ func (d *VirtualMachineController) updateVMIStatus(vmi *v1.VirtualMachineInstanc
 			migrationHost = vmi.Status.MigrationState.TargetNode
 		}
 
-		if vmi.Status.MigrationState.EndTimestamp == nil {
+		if vmi.Status.MigrationState != nil && vmi.Status.MigrationState.EndTimestamp == nil {
 			now := v12.NewTime(time.Now())
 			vmi.Status.MigrationState.EndTimestamp = &now
 		}
+
+		targetNodeDetectedDomain, timeLeft := d.hasTargetDetectedDomain(vmi)
 
 		// If we can't detect where the migration went to, then we have no
 		// way of transfering ownership. The only option here is to move the
@@ -278,8 +281,20 @@ func (d *VirtualMachineController) updateVMIStatus(vmi *v1.VirtualMachineInstanc
 			vmi.Status.MigrationState.Failed = true
 
 			d.recorder.Event(vmi, k8sv1.EventTypeWarning, v1.Migrated.String(), fmt.Sprintf("The VirtualMachineInstance migrated to unknown host."))
-		} else if vmi.Status.MigrationState != nil {
-			// this is the migration ACK
+		} else if !targetNodeDetectedDomain {
+			if timeLeft <= 0 {
+				vmi.Status.Phase = v1.Failed
+				vmi.Status.MigrationState.Completed = true
+				vmi.Status.MigrationState.Failed = true
+
+				d.recorder.Event(vmi, k8sv1.EventTypeWarning, v1.Migrated.String(), fmt.Sprintf("The VirtualMachineInstance's domain was never observed on the target after the migration completed within the timeout period."))
+			} else {
+				log.Log.Object(vmi).Info("Waiting on the target node to observe the migrated domain before performing the handoff")
+			}
+		} else if vmi.Status.MigrationState != nil && vmi.Status.MigrationState.TargetNodeDomainDetected {
+			// this is the migration ACK.
+			// At this point we know that the migration has completed and that
+			// the target node has seen the domain event.
 			vmi.Labels[v1.NodeNameLabel] = migrationHost
 			vmi.Status.NodeName = migrationHost
 			vmi.Status.MigrationState.Completed = true
@@ -511,11 +526,20 @@ func (d *VirtualMachineController) migrationTargetExecute(key string,
 		}
 	} else if shouldUpdate {
 		log.Log.Object(vmi).V(3).Info("Processing vmi migration target update")
+		vmiCopy := vmi.DeepCopy()
 
-		// prepare the POD for the migration
-		err := d.processVmUpdate(vmi)
-		if err != nil {
-			return err
+		if !domainExists {
+			// prepare the POD for the migration
+			err := d.processVmUpdate(vmi)
+			if err != nil {
+				return err
+			}
+		}
+
+		if domainExists && vmi.Status.MigrationState != nil {
+			// record that we've see the domain populated on the target's node
+			log.Log.Object(vmi).Info("The target node received the migrated domain")
+			vmiCopy.Status.MigrationState.TargetNodeDomainDetected = true
 		}
 
 		// get the migration listener port
@@ -532,14 +556,19 @@ func (d *VirtualMachineController) migrationTargetExecute(key string,
 		}
 		curAddress := fmt.Sprintf("%s:%d", d.ipAddress, curPort)
 		if hostAddress != curAddress {
-			vmiCopy := vmi.DeepCopy()
+			d.recorder.Event(vmi, k8sv1.EventTypeNormal, v1.PreparingTarget.String(), fmt.Sprintf("Migration Target is listening at %s", curAddress))
 			vmiCopy.Status.MigrationState.TargetNodeAddress = curAddress
-			_, err = d.clientset.VirtualMachineInstance(vmi.ObjectMeta.Namespace).Update(vmiCopy)
+		}
+
+		// update the VMI if necessary
+		if !reflect.DeepEqual(vmi.Status, vmiCopy.Status) {
+			vmiCopy.Status.MigrationState.TargetNodeAddress = curAddress
+			_, err := d.clientset.VirtualMachineInstance(vmi.ObjectMeta.Namespace).Update(vmiCopy)
 			if err != nil {
 				return err
 			}
-			d.recorder.Event(vmi, k8sv1.EventTypeNormal, v1.PreparingTarget.String(), fmt.Sprintf("Migration Target is listening at %s", curAddress))
 		}
+
 		return nil
 	}
 
@@ -765,28 +794,6 @@ func (d *VirtualMachineController) execute(key string) error {
 			vmiExists,
 			domain,
 			domainExists)
-	} else if !domainExists && d.isPostMigrationWaitPeriod(vmi) {
-		// 2. POST-MIGRATION TARGET DOMAIN DETECTION WAIT PERIOD
-		//
-		// If no domain exists and this node is the target of a recent migration,
-		// wait the duration of the migration target delay before allowing the
-		// VMI without a domain to be processed.
-		//
-		// This accounts for the race condition between the domain informer
-		// reporting that the new domain is online on the target node, and VMI
-		// reporting that it is active on the target node.
-		//
-		// For example, If the VMI's node is updated to the target node because
-		// a migration has completed on the source node, but the target node's
-		// domain informer hasn't had the chance to update the cache in time, it
-		// would look like the domain crashed on the target node because no libvirt
-		// domain would be present immediately.
-		//
-		// The migration target delay period allows the domain cache to catch up
-		// to the VMI so we accurately process the status of the VMI here.
-		log.Log.Object(vmi).V(3).Infof("Waiting on migrated domain to populated before processing vmi status.")
-		return nil
-
 	} else if vmiExists && d.isOrphanedMigrationSource(vmi) {
 		// 3. POST-MIGRATION SOURCE CLEANUP
 		//

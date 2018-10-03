@@ -327,6 +327,8 @@ type VirtualMachineInstanceMigrationState struct {
 	StartTimestamp *metav1.Time `json:"startTimestamp,omitempty"`
 	// The time the migration action ended
 	EndTimestamp *metav1.Time `json:"endTimestamp,omitempty"`
+	// The Target Node has seen the Domain Start Event
+	TargetNodeDomainDetected bool `json:"targetNodeDomainDetected,omitempty"`
 	// The address of the target node to use for the migration
 	TargetNodeAddress string `json:"targetNodeAddress,omitempty"`
 	// The target node that the VMI is moving to

@@ -4705,6 +4705,10 @@
      "targetNodeAddress": {
       "description": "The address of the target node to use for the migration",
       "type": "string"
+     },
+     "targetNodeDomainDetected": {
+      "description": "The Target Node has seen the Domain Start Event",
+      "type": "boolean"
      }
     }
    },
