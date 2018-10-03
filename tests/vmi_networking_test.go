@@ -119,6 +119,16 @@ var _ = Describe("Networking", func() {
 		Expect(err).ToNot(HaveOccurred())
 	}
 
+	checkLearningState := func(vmi *v1.VirtualMachineInstance, expectedValue string, prompt string) {
+		err := tests.CheckForTextExpecter(vmi, []expect.Batcher{
+			&expect.BSnd{S: "\n"},
+			&expect.BExp{R: prompt},
+			&expect.BSnd{S: "cat /sys/class/net/eth0/brport/learning\n"},
+			&expect.BExp{R: expectedValue},
+		}, 15)
+		Expect(err).ToNot(HaveOccurred())
+	}
+
 	Describe("Multiple virtual machines connectivity", func() {
 		tests.BeforeAll(func() {
 			tests.BeforeTestCleanup()
@@ -550,6 +560,22 @@ var _ = Describe("Networking", func() {
 
 			tests.WaitUntilVMIReady(testVMI, tests.LoggedInCirrosExpecter)
 			checkPciAddress(testVMI, testVMI.Spec.Domain.Devices.Interfaces[0].PciAddress, "\\$")
+		})
+	})
+
+	Context("VirtualMachineInstance with learning disabled on pod interface", func() {
+		BeforeEach(func() {
+			tests.BeforeTestCleanup()
+		})
+
+		It("should disable learning on pod iface", func() {
+			By("checking learning flag")
+			learningDisabledVMI := tests.NewRandomVMI()
+			_, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(learningDisabledVMI)
+			Expect(err).ToNot(HaveOccurred())
+
+			tests.WaitUntilVMIReady(learningDisabledVMI, tests.LoggedInAlpineExpecter)
+			checkLearningState(learningDisabledVMI, "0", "localhost:~#")
 		})
 	})
 })
