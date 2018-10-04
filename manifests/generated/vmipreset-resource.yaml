@@ -101,8 +101,6 @@ spec:
                             format: int32
                             type: integer
                           bridge: {}
-                          driver:
-                            type: string
                           macAddress:
                             type: string
                           model:

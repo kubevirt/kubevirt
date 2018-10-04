@@ -376,7 +376,7 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 		resources.Limits = make(k8sv1.ResourceList)
 	}
 
-	extraResources := getRequiredResources(vmi)
+	extraResources := getRequiredResources(vmi, useEmulation)
 	for key, val := range extraResources {
 		resources.Limits[key] = val
 	}
@@ -557,13 +557,17 @@ func getRequiredCapabilities(vmi *v1.VirtualMachineInstance) []k8sv1.Capability 
 	return res
 }
 
-func getRequiredResources(vmi *v1.VirtualMachineInstance) k8sv1.ResourceList {
+func getRequiredResources(vmi *v1.VirtualMachineInstance, useEmulation bool) k8sv1.ResourceList {
 	res := k8sv1.ResourceList{}
 	if (vmi.Spec.Domain.Devices.AutoattachPodInterface == nil) || (*vmi.Spec.Domain.Devices.AutoattachPodInterface == true) {
 		res[TunDevice] = resource.MustParse("1")
 	}
 	for _, iface := range vmi.Spec.Domain.Devices.Interfaces {
-		if iface.Driver == v1.InterfaceDriverVhost {
+		if !useEmulation && (iface.Model == "" || iface.Model == "virtio") {
+			// Note that about network interface, useEmulation does not make
+			// any difference on eventual Domain xml, but uniformly making
+			// /dev/vhost-net unavailable and libvirt implicitly fallback
+			// to use QEMU userland NIC emulation.
 			res[VhostNetDevice] = resource.MustParse("1")
 		}
 	}

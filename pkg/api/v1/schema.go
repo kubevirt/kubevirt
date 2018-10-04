@@ -751,23 +751,7 @@ type Interface struct {
 	// If specified, the virtual network interface will be placed on the guests pci address with the specifed PCI address. For example: 0000:81:01.10
 	// +optional
 	PciAddress string `json:"pciAddress,omitempty"`
-	// Backend driver name.
-	// One of: qemu, vhost
-	// +optional
-	Driver InterfaceDriver `json:"driver,omitempty"`
 }
-
-// InterfaceDriver represents a backend driver type for an network interface.
-// ---
-// +k8s:openapi-gen=true
-type InterfaceDriver string
-
-const (
-	// InterfaceDriverQEMU indicates that the backend for a network interface is QEMU userland NIC emulation.
-	InterfaceDriverQEMU InterfaceDriver = "qemu"
-	// InterfaceDriverVhost indicates that the backend for a network interface is vhost-net device.
-	InterfaceDriverVhost InterfaceDriver = "vhost"
-)
 
 // Represents the method which will be used to connect the interface to the guest.
 // Only one of its members may be specified.

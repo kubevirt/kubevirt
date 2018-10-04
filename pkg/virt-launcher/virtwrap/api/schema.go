@@ -399,7 +399,6 @@ type Interface struct {
 	LinkState           *LinkState       `xml:"link,omitempty"`
 	FilterRef           *FilterRef       `xml:"filterref,omitempty"`
 	Alias               *Alias           `xml:"alias,omitempty"`
-	Driver              *InterfaceDriver `xml:"driver,omitempty"`
 }
 
 type LinkState struct {
@@ -457,10 +456,6 @@ func (alias *Alias) UnmarshalXML(d *xml.Decoder, start xml.StartElement) error {
 	*alias = Alias(userAlias)
 	alias.Name = alias.Name[len(UserAliasPrefix):]
 	return nil
-}
-
-type InterfaceDriver struct {
-	Name string `xml:"name,attr"`
 }
 
 // END Inteface -----------------------------

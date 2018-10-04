@@ -56,7 +56,6 @@ var _ = Describe("Networking", func() {
 	var inboundVMI *v1.VirtualMachineInstance
 	var inboundVMIWithPodNetworkSet *v1.VirtualMachineInstance
 	var inboundVMIWithCustomMacAddress *v1.VirtualMachineInstance
-	var inboundVMIWithDriverSetToVhostNet *v1.VirtualMachineInstance
 	var outboundVMI *v1.VirtualMachineInstance
 
 	const testPort = 1500
@@ -147,14 +146,8 @@ var _ = Describe("Networking", func() {
 			Expect(inboundVMIWithCustomMacAddress.Spec.Domain.Devices.Interfaces).NotTo(BeEmpty())
 			inboundVMIWithCustomMacAddress.Spec.Domain.Devices.Interfaces[0].MacAddress = "de:ad:00:00:be:af"
 
-			// inboundVMIWithDriverSetToVhostNet utilises vhost-net as its interfaces backend driver
-			inboundVMIWithDriverSetToVhostNet = tests.NewRandomVMIWithEphemeralDiskAndUserdata(tests.RegistryDiskFor(tests.RegistryDiskCirros), "#!/bin/bash\necho 'hello'\n")
-			v1.SetDefaults_NetworkInterface(inboundVMIWithDriverSetToVhostNet)
-			Expect(inboundVMIWithDriverSetToVhostNet.Spec.Domain.Devices.Interfaces).NotTo(BeEmpty())
-			inboundVMIWithDriverSetToVhostNet.Spec.Domain.Devices.Interfaces[0].Driver = v1.InterfaceDriverVhost
-
 			// Create VMIs
-			for _, networkVMI := range []*v1.VirtualMachineInstance{inboundVMI, outboundVMI, inboundVMIWithPodNetworkSet, inboundVMIWithCustomMacAddress, inboundVMIWithDriverSetToVhostNet} {
+			for _, networkVMI := range []*v1.VirtualMachineInstance{inboundVMI, outboundVMI, inboundVMIWithPodNetworkSet, inboundVMIWithCustomMacAddress} {
 				_, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(networkVMI)
 				Expect(err).ToNot(HaveOccurred())
 			}
@@ -164,7 +157,6 @@ var _ = Describe("Networking", func() {
 			outboundVMI = tests.WaitUntilVMIReady(outboundVMI, tests.LoggedInCirrosExpecter)
 			inboundVMIWithPodNetworkSet = tests.WaitUntilVMIReady(inboundVMIWithPodNetworkSet, tests.LoggedInCirrosExpecter)
 			inboundVMIWithCustomMacAddress = tests.WaitUntilVMIReady(inboundVMIWithCustomMacAddress, tests.LoggedInCirrosExpecter)
-			inboundVMIWithDriverSetToVhostNet = tests.WaitUntilVMIReady(inboundVMIWithDriverSetToVhostNet, tests.LoggedInCirrosExpecter)
 
 			startTCPServer(inboundVMI, testPort)
 		})
@@ -190,8 +182,6 @@ var _ = Describe("Networking", func() {
 				addr = inboundVMIWithPodNetworkSet.Status.Interfaces[0].IP
 			case "InboundVMIWithCustomMacAddress":
 				addr = inboundVMIWithCustomMacAddress.Status.Interfaces[0].IP
-			case "InboundVMIWithDriverSetToVhostNet":
-				addr = inboundVMIWithDriverSetToVhostNet.Status.Interfaces[0].IP
 			}
 
 			By("checking k6t-eth0 MTU inside the pod")
@@ -257,7 +247,6 @@ var _ = Describe("Networking", func() {
 			table.Entry("the Inbound VirtualMachineInstance", "InboundVMI"),
 			table.Entry("the Inbound VirtualMachineInstance with pod network connectivity explicitly set", "InboundVMIWithPodNetworkSet"),
 			table.Entry("the Inbound VirtualMachineInstance with custom MAC address", "InboundVMIWithCustomMacAddress"),
-			table.Entry("the Inbound VirtualMachineInstance with its backend driver set to vhost-net", "InboundVMIWithDriverSetToVhostNet"),
 			table.Entry("the internet", "Internet"),
 		)
 

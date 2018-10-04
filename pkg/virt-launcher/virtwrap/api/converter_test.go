@@ -803,30 +803,6 @@ var _ = Describe("Converter", func() {
 			Expect(domain.Spec.Devices.Interfaces[0].BootOrder.Order).To(Equal(uint(bootOrder)))
 			Expect(domain.Spec.Devices.Interfaces[1].BootOrder).To(BeNil())
 		})
-		table.DescribeTable("should allow setting driver", func(drivers []v1.InterfaceDriver) {
-			for i, driver := range drivers {
-				name := fmt.Sprintf("Name%d", i)
-				iface := v1.DefaultNetworkInterface()
-				net := v1.DefaultPodNetwork()
-				iface.Name = name
-				iface.Driver = driver
-				net.Name = name
-				vmi.Spec.Domain.Devices.Interfaces = append(vmi.Spec.Domain.Devices.Interfaces, *iface)
-				vmi.Spec.Networks = append(vmi.Spec.Networks, *net)
-			}
-			domain := vmiToDomain(vmi, c)
-
-			Expect(len(domain.Spec.Devices.Interfaces)).To(Equal(len(drivers)))
-			for i, driver := range drivers {
-				Expect(domain.Spec.Devices.Interfaces[i].Driver.Name).To(Equal(string(driver)))
-			}
-		},
-			table.Entry("one interface backed by qemu driver", []v1.InterfaceDriver{v1.InterfaceDriverQEMU}),
-			table.Entry("one interface backed by vhost driver", []v1.InterfaceDriver{v1.InterfaceDriverVhost}),
-			table.Entry("two interfaces backed by qemu drivers explicitly", []v1.InterfaceDriver{v1.InterfaceDriverVhost, v1.InterfaceDriverQEMU}),
-			table.Entry("two interfaces backed by vhost drivers", []v1.InterfaceDriver{v1.InterfaceDriverVhost, v1.InterfaceDriverQEMU}),
-			table.Entry("one interface backed by vhost driver and another by qemu", []v1.InterfaceDriver{v1.InterfaceDriverVhost, v1.InterfaceDriverQEMU}),
-		)
 	})
 	Context("Function ParseNameservers()", func() {
 		It("should return a byte array of nameservers", func() {
