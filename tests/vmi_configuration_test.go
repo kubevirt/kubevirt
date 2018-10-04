@@ -437,7 +437,7 @@ var _ = Describe("Configurations", func() {
 		Context("with guestAgent", func() {
 			var agentVMI *v1.VirtualMachineInstance
 
-			FIt("should have attached a guest agent channel by default", func() {
+			It("should have attached a guest agent channel by default", func() {
 
 				agentVMI = tests.NewRandomVMIWithEphemeralDisk(tests.RegistryDiskFor(tests.RegistryDiskAlpine))
 				By("Starting a VirtualMachineInstance")

@@ -23,6 +23,12 @@ type DomainEventClient struct {
 	client *rpc.Client
 }
 
+type LibvirtEvent struct {
+	Domain     string
+	Event      *libvirt.DomainEventLifecycle
+	AgentEvent *libvirt.DomainEventAgentLifecycle
+}
+
 func NewDomainEventClient(virtShareDir string) (*DomainEventClient, error) {
 	socketPath := filepath.Join(virtShareDir, "domain-notify.sock")
 	conn, err := rpc.Dial("unix", socketPath)
@@ -76,13 +82,8 @@ func newWatchEventError(err error) watch.Event {
 	return watch.Event{Type: watch.Error, Object: &metav1.Status{Status: metav1.StatusFailure, Message: err.Error()}}
 }
 
-func libvirtEventCallback(c cli.Connection, domain *api.Domain, event *libvirt.DomainEventLifecycle, client *DomainEventClient, events chan watch.Event) {
+func libvirtEventCallback(c cli.Connection, domain *api.Domain, libvirtEvent LibvirtEvent, client *DomainEventClient, events chan watch.Event) {
 
-	// check for reconnects, and emit an error to force a resync
-	if event == nil {
-		client.SendDomainEvent(newWatchEventError(fmt.Errorf("Libvirt reconnect")))
-		return
-	}
 	d, err := c.LookupDomainByName(util.DomainFromNamespaceName(domain.ObjectMeta.Namespace, domain.ObjectMeta.Name))
 	if err != nil {
 		if !domainerrors.IsNotFound(err) {
@@ -108,7 +109,8 @@ func libvirtEventCallback(c cli.Connection, domain *api.Domain, event *libvirt.D
 		} else {
 			domain.SetState(util.ConvState(status), util.ConvReason(status, reason))
 		}
-		spec, err := util.GetDomainSpec(status, d)
+
+		spec, err := util.GetDomainSpecWithRuntimeInfo(status, d)
 		if err != nil {
 			if !domainerrors.IsNotFound(err) {
 				log.Log.Reason(err).Error("Could not fetch the Domain specification.")
@@ -125,49 +127,62 @@ func libvirtEventCallback(c cli.Connection, domain *api.Domain, event *libvirt.D
 
 	switch domain.Status.Reason {
 	case api.ReasonNonExistent:
-		event := watch.Event{Type: watch.Deleted, Object: domain}
-		client.SendDomainEvent(event)
-		events <- event
+		watchEvent := watch.Event{Type: watch.Deleted, Object: domain}
+		client.SendDomainEvent(watchEvent)
+		events <- watchEvent
 	default:
-		if event.Event == libvirt.DOMAIN_EVENT_DEFINED && libvirt.DomainEventDefinedDetailType(event.Detail) == libvirt.DOMAIN_EVENT_DEFINED_ADDED {
-			event := watch.Event{Type: watch.Added, Object: domain}
-			client.SendDomainEvent(event)
-			events <- event
-		} else if event.Event == libvirt.DOMAIN_EVENT_STARTED && libvirt.DomainEventStartedDetailType(event.Detail) == libvirt.DOMAIN_EVENT_STARTED_MIGRATED {
-			event := watch.Event{Type: watch.Added, Object: domain}
-			client.SendDomainEvent(event)
-			events <- event
-		} else {
-			client.SendDomainEvent(watch.Event{Type: watch.Modified, Object: domain})
+		if libvirtEvent.Event != nil {
+			if libvirtEvent.Event.Event == libvirt.DOMAIN_EVENT_DEFINED && libvirt.DomainEventDefinedDetailType(libvirtEvent.Event.Detail) == libvirt.DOMAIN_EVENT_DEFINED_ADDED {
+				event := watch.Event{Type: watch.Added, Object: domain}
+				client.SendDomainEvent(event)
+				events <- event
+			} else if libvirtEvent.Event.Event == libvirt.DOMAIN_EVENT_STARTED && libvirt.DomainEventStartedDetailType(libvirtEvent.Event.Detail) == libvirt.DOMAIN_EVENT_STARTED_MIGRATED {
+				event := watch.Event{Type: watch.Added, Object: domain}
+				client.SendDomainEvent(event)
+				events <- event
+			}
 		}
+		client.SendDomainEvent(watch.Event{Type: watch.Modified, Object: domain})
 	}
 }
 
 func StartNotifier(virtShareDir string, domainConn cli.Connection, deleteNotificationSent chan watch.Event, vmiUID types.UID) error {
-	type LibvirtEvent struct {
-		Domain string
-		Event  *libvirt.DomainEventLifecycle
-	}
 
 	eventChan := make(chan LibvirtEvent, 10)
+	reconnectChan := make(chan bool, 10)
+
+	domainConn.SetReconnectChan(reconnectChan)
 
 	// Run the event process logic in a separate go-routine to not block libvirt
 	go func() {
-		for event := range eventChan {
-			// TODO don't make a client every single time
-			client, err := NewDomainEventClient(virtShareDir)
-			if err != nil {
-				log.Log.Reason(err).Error("Unable to create domain event notify client")
-				continue
-			}
+		for {
+			select {
+			case event := <-eventChan:
+				// TODO don't make a client every single time
+				client, err := NewDomainEventClient(virtShareDir)
+				if err != nil {
+					log.Log.Reason(err).Error("Unable to create domain event notify client")
+					continue
+				}
 
-			libvirtEventCallback(domainConn, util.NewDomainFromName(event.Domain, vmiUID), event.Event, client, deleteNotificationSent)
-			log.Log.Info("processed event")
+				libvirtEventCallback(domainConn, util.NewDomainFromName(event.Domain, vmiUID), event, client, deleteNotificationSent)
+				log.Log.Info("processed event")
+			case <-reconnectChan:
+				// TODO don't make a client every single time
+				client, err := NewDomainEventClient(virtShareDir)
+				if err != nil {
+					log.Log.Reason(err).Error("Unable to create domain event notify client")
+					continue
+				}
+
+				client.SendDomainEvent(newWatchEventError(fmt.Errorf("Libvirt reconnect")))
+				return
+			}
 		}
 	}()
 
-	entrypointCallback := func(c *libvirt.Connect, d *libvirt.Domain, event *libvirt.DomainEventLifecycle) {
-		log.Log.Infof("Libvirt event %d with reason %d received", event.Event, event.Detail)
+	domainEventLifecycleCallback := func(c *libvirt.Connect, d *libvirt.Domain, event *libvirt.DomainEventLifecycle) {
+		log.Log.Infof("DomainLifecycle event %d with reason %d received", event.Event, event.Detail)
 		name, err := d.GetName()
 		if err != nil {
 			log.Log.Reason(err).Info("Could not determine name of libvirt domain in event callback.")
@@ -178,11 +193,30 @@ func StartNotifier(virtShareDir string, domainConn cli.Connection, deleteNotific
 			log.Log.Infof("Libvirt event channel is full, dropping event.")
 		}
 	}
-	err := domainConn.DomainEventLifecycleRegister(entrypointCallback)
+	err := domainConn.DomainEventLifecycleRegister(domainEventLifecycleCallback)
 	if err != nil {
 		log.Log.Reason(err).Errorf("failed to register event callback with libvirt")
 		return err
 	}
+
+	agentEventLifecycleCallback := func(c *libvirt.Connect, d *libvirt.Domain, event *libvirt.DomainEventAgentLifecycle) {
+		log.Log.Infof("GuestAgentLifecycle event state %d with reason %d received", event.State, event.Reason)
+		name, err := d.GetName()
+		if err != nil {
+			log.Log.Reason(err).Info("Could not determine name of libvirt domain in event callback.")
+		}
+		select {
+		case eventChan <- LibvirtEvent{Domain: name}:
+		default:
+			log.Log.Infof("Libvirt event channel is full, dropping event.")
+		}
+	}
+	err = domainConn.AgentEventLifecycleRegister(agentEventLifecycleCallback)
+	if err != nil {
+		log.Log.Reason(err).Errorf("failed to register event callback with libvirt")
+		return err
+	}
+
 	log.Log.Infof("Registered libvirt event notify callback")
 	return nil
 }
