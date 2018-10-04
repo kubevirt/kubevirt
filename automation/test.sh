@@ -123,7 +123,7 @@ if [ -n "${JOB_NAME}" ]; then
 namespace=${NAMESPACE}
 EOF
 else
-  export NAMESPACE="${NAMESPACE:-kube-system}"
+  export NAMESPACE="${NAMESPACE:-kubevirt}"
 fi
 
 
