@@ -119,15 +119,10 @@ var _ = Describe("Networking", func() {
 		Expect(err).ToNot(HaveOccurred())
 	}
 
-	checkLearningState := func(vmi *v1.VirtualMachineInstance, expectedValue string, prompt string) {
-		err := tests.CheckForTextExpecter(vmi, []expect.Batcher{
-			&expect.BSnd{S: "\n"},
-			&expect.BExp{R: prompt},
-			&expect.BSnd{S: "cat /sys/class/net/eth0/brport/learning\n"},
-			&expect.BExp{R: expectedValue},
-		}, 15)
-		Expect(err).ToNot(HaveOccurred())
-	}
+	checkLearningState := func(vmi *v1.VirtualMachineInstance, expectedValue string) {
+        output := tests.RunCommandOnVmiPod(vmi, []string{"cat", "/sys/class/net/eth0/brport/learning"})
+        Expect(output).To(Equal(expectedValue))
+    }
 
 	Describe("Multiple virtual machines connectivity", func() {
 		tests.BeforeAll(func() {
@@ -575,7 +570,7 @@ var _ = Describe("Networking", func() {
 			Expect(err).ToNot(HaveOccurred())
 
 			tests.WaitUntilVMIReady(learningDisabledVMI, tests.LoggedInAlpineExpecter)
-			checkLearningState(learningDisabledVMI, "0", "localhost:~#")
+			checkLearningState(learningDisabledVMI, "0")
 		})
 	})
 })
