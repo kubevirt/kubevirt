@@ -1127,7 +1127,7 @@ var _ = Describe("VMIlifecycle", func() {
 func shouldUseEmulation(virtClient kubecli.KubevirtClient) bool {
 	useEmulation := false
 	options := metav1.GetOptions{}
-	cfgMap, err := virtClient.CoreV1().ConfigMaps("kube-system").Get("kubevirt-config", options)
+	cfgMap, err := virtClient.CoreV1().ConfigMaps(tests.KubeVirtInstallNamespace).Get("kubevirt-config", options)
 	if err == nil {
 		val, ok := cfgMap.Data["debug.useEmulation"]
 		useEmulation = ok && (val == "true")

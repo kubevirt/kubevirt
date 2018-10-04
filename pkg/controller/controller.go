@@ -44,7 +44,7 @@ const (
 	BurstReplicas uint = 250
 )
 
-// NewListWatchFromClient creates a new ListWatch from the specified client, resource, namespace and field selector.
+// NewListWatchFromClient creates a new ListWatch from the specified client, resource, kubevirtNamespace and field selector.
 func NewListWatchFromClient(c cache.Getter, resource string, namespace string, fieldSelector fields.Selector, labelSelector labels.Selector) *cache.ListWatch {
 	listFunc := func(options metav1.ListOptions) (runtime.Object, error) {
 		options.FieldSelector = fieldSelector.String()

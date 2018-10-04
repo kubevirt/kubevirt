@@ -51,11 +51,11 @@ var _ = Describe("Infrastructure", func() {
 
 	Describe("Prometheus Endpoints", func() {
 		It("should be exposed and and registered on the metrics endpoint", func() {
-			endpoint, err := virtClient.CoreV1().Endpoints(metav1.NamespaceSystem).Get("kubevirt-prometheus-metrics", metav1.GetOptions{})
+			endpoint, err := virtClient.CoreV1().Endpoints(tests.KubeVirtInstallNamespace).Get("kubevirt-prometheus-metrics", metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			l, err := labels.Parse("prometheus.kubevirt.io")
 			Expect(err).ToNot(HaveOccurred())
-			pods, err := virtClient.CoreV1().Pods(metav1.NamespaceSystem).List(metav1.ListOptions{LabelSelector: l.String()})
+			pods, err := virtClient.CoreV1().Pods(tests.KubeVirtInstallNamespace).List(metav1.ListOptions{LabelSelector: l.String()})
 			Expect(err).ToNot(HaveOccurred())
 			Expect(endpoint.Subsets).To(HaveLen(1))
 
@@ -77,11 +77,11 @@ var _ = Describe("Infrastructure", func() {
 			}
 		})
 		It("should return Prometheus metrics", func() {
-			endpoint, err := virtClient.CoreV1().Endpoints(metav1.NamespaceSystem).Get("kubevirt-prometheus-metrics", metav1.GetOptions{})
+			endpoint, err := virtClient.CoreV1().Endpoints(tests.KubeVirtInstallNamespace).Get("kubevirt-prometheus-metrics", metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			l, err := labels.Parse("kubevirt.io=virt-handler")
 			Expect(err).ToNot(HaveOccurred())
-			pods, err := virtClient.CoreV1().Pods(metav1.NamespaceSystem).List(metav1.ListOptions{LabelSelector: l.String()})
+			pods, err := virtClient.CoreV1().Pods(tests.KubeVirtInstallNamespace).List(metav1.ListOptions{LabelSelector: l.String()})
 			Expect(err).ToNot(HaveOccurred())
 			Expect(pods.Items).ToNot(BeEmpty())
 
@@ -112,18 +112,18 @@ var _ = Describe("Infrastructure", func() {
 				Eventually(func() string {
 					leaderPodName := getLeader()
 
-					Expect(virtClient.CoreV1().Pods(leaderelectionconfig.DefaultNamespace).Delete(leaderPodName, &metav1.DeleteOptions{})).To(BeNil())
+					Expect(virtClient.CoreV1().Pods(tests.KubeVirtInstallNamespace).Delete(leaderPodName, &metav1.DeleteOptions{})).To(BeNil())
 
 					Eventually(getLeader, 30*time.Second, 5*time.Second).ShouldNot(Equal(leaderPodName))
 
-					leaderPod, err := virtClient.CoreV1().Pods(leaderelectionconfig.DefaultNamespace).Get(getLeader(), metav1.GetOptions{})
+					leaderPod, err := virtClient.CoreV1().Pods(tests.KubeVirtInstallNamespace).Get(getLeader(), metav1.GetOptions{})
 					Expect(err).To(BeNil())
 
 					return leaderPod.Name
 				}, 90*time.Second, 5*time.Second).Should(Equal(newLeaderPod.Name))
 
 				Expect(func() k8sv1.ConditionStatus {
-					leaderPod, err := virtClient.CoreV1().Pods(leaderelectionconfig.DefaultNamespace).Get(newLeaderPod.Name, metav1.GetOptions{})
+					leaderPod, err := virtClient.CoreV1().Pods(tests.KubeVirtInstallNamespace).Get(newLeaderPod.Name, metav1.GetOptions{})
 					Expect(err).To(BeNil())
 
 					for _, condition := range leaderPod.Status.Conditions {
@@ -149,7 +149,7 @@ func getLeader() string {
 	virtClient, err := kubecli.GetKubevirtClient()
 	tests.PanicOnError(err)
 
-	controllerEndpoint, err := virtClient.CoreV1().Endpoints(leaderelectionconfig.DefaultNamespace).Get(leaderelectionconfig.DefaultEndpointName, metav1.GetOptions{})
+	controllerEndpoint, err := virtClient.CoreV1().Endpoints(tests.KubeVirtInstallNamespace).Get(leaderelectionconfig.DefaultEndpointName, metav1.GetOptions{})
 	tests.PanicOnError(err)
 
 	var record resourcelock.LeaderElectionRecord
@@ -164,7 +164,7 @@ func getNewLeaderPod(virtClient kubecli.KubevirtClient) *k8sv1.Pod {
 	labelSelector, err := labels.Parse(fmt.Sprint(v1.AppLabel + "=virt-controller"))
 	tests.PanicOnError(err)
 	fieldSelector := fields.ParseSelectorOrDie("status.phase=" + string(k8sv1.PodRunning))
-	controllerPods, err := virtClient.CoreV1().Pods(leaderelectionconfig.DefaultNamespace).List(
+	controllerPods, err := virtClient.CoreV1().Pods(tests.KubeVirtInstallNamespace).List(
 		metav1.ListOptions{LabelSelector: labelSelector.String(), FieldSelector: fieldSelector.String()})
 	leaderPodName := getLeader()
 	for _, pod := range controllerPods.Items {

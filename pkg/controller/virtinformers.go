@@ -38,8 +38,6 @@ import (
 	"kubevirt.io/kubevirt/pkg/testutils"
 )
 
-const systemNamespace = "kube-system"
-
 type newSharedInformer func() cache.SharedIndexInformer
 
 type KubeInformerFactory interface {
@@ -90,18 +88,20 @@ type kubeInformerFactory struct {
 	lock          sync.Mutex
 	defaultResync time.Duration
 
-	informers        map[string]cache.SharedIndexInformer
-	startedInformers map[string]bool
+	informers         map[string]cache.SharedIndexInformer
+	startedInformers  map[string]bool
+	kubevirtNamespace string
 }
 
-func NewKubeInformerFactory(restClient *rest.RESTClient, clientSet kubecli.KubevirtClient) KubeInformerFactory {
+func NewKubeInformerFactory(restClient *rest.RESTClient, clientSet kubecli.KubevirtClient, kubevirtNamespace string) KubeInformerFactory {
 	return &kubeInformerFactory{
 		restClient: restClient,
 		clientSet:  clientSet,
 		// Resulting resync period will be between 12 and 24 hours, like the default for k8s
-		defaultResync:    resyncPeriod(12 * time.Hour),
-		informers:        make(map[string]cache.SharedIndexInformer),
-		startedInformers: make(map[string]bool),
+		defaultResync:     resyncPeriod(12 * time.Hour),
+		informers:         make(map[string]cache.SharedIndexInformer),
+		startedInformers:  make(map[string]bool),
+		kubevirtNamespace: kubevirtNamespace,
 	}
 }
 
@@ -212,11 +212,10 @@ func (f *kubeInformerFactory) DummyDataVolume() cache.SharedIndexInformer {
 }
 
 func (f *kubeInformerFactory) ConfigMap() cache.SharedIndexInformer {
-	// We currently only monitor configmaps in the kube-system namespace
 	return f.getInformer("configMapInformer", func() cache.SharedIndexInformer {
 		restClient := f.clientSet.CoreV1().RESTClient()
 		fieldSelector := fields.OneTermEqualSelector("metadata.name", "kubevirt-config")
-		lw := cache.NewListWatchFromClient(restClient, "configmaps", systemNamespace, fieldSelector)
+		lw := cache.NewListWatchFromClient(restClient, "configmaps", f.kubevirtNamespace, fieldSelector)
 		return cache.NewSharedIndexInformer(lw, &k8sv1.ConfigMap{}, f.defaultResync, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
 	})
 }

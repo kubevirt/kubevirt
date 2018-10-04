@@ -40,6 +40,8 @@ import (
 	. "kubevirt.io/kubevirt/pkg/virt-controller/services"
 )
 
+const namespaceKubevirt = "kubevirt"
+
 var _ = Describe("Template", func() {
 
 	log.Log.SetIOWriter(GinkgoWriter)
@@ -945,7 +947,7 @@ var _ = Describe("Template", func() {
 		It("Should return false if configmap doesn't have useEmulation set", func() {
 			cfgMap := kubev1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{
-					Namespace: "kube-system",
+					Namespace: namespaceKubevirt,
 					Name:      "kubevirt-config",
 				},
 				Data: map[string]string{},
@@ -964,7 +966,7 @@ var _ = Describe("Template", func() {
 		It("Should return true if useEmulation = true", func() {
 			cfgMap := kubev1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{
-					Namespace: "kube-system",
+					Namespace: namespaceKubevirt,
 					Name:      "kubevirt-config",
 				},
 				Data: map[string]string{UseEmulationKey: "true"},
@@ -983,7 +985,7 @@ var _ = Describe("Template", func() {
 		It("Should return IfNotPresent if configmap doesn't have imagePullPolicy set", func() {
 			cfgMap := kubev1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{
-					Namespace: "kube-system",
+					Namespace: namespaceKubevirt,
 					Name:      "kubevirt-config",
 				},
 				Data: map[string]string{},
@@ -1002,7 +1004,7 @@ var _ = Describe("Template", func() {
 		It("Should return Always if imagePullPolicy = Always", func() {
 			cfgMap := kubev1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{
-					Namespace: "kube-system",
+					Namespace: namespaceKubevirt,
 					Name:      "kubevirt-config",
 				},
 				Data: map[string]string{ImagePullPolicyKey: "Always"},
@@ -1021,7 +1023,7 @@ var _ = Describe("Template", func() {
 		It("Should return an error if imagePullPolicy is not valid", func() {
 			cfgMap := kubev1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{
-					Namespace: "kube-system",
+					Namespace: namespaceKubevirt,
 					Name:      "kubevirt-config",
 				},
 				Data: map[string]string{ImagePullPolicyKey: "IHaveNoStrongFeelingsOneWayOrTheOther"},

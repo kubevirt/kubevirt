@@ -103,11 +103,12 @@ type VirtControllerApp struct {
 
 	LeaderElection leaderelectionconfig.Configuration
 
-	launcherImage    string
-	imagePullSecret  string
-	virtShareDir     string
-	ephemeralDiskDir string
-	readyChan        chan bool
+	launcherImage     string
+	imagePullSecret   string
+	virtShareDir      string
+	ephemeralDiskDir  string
+	readyChan         chan bool
+	kubevirtNamespace string
 }
 
 var _ service.Service = &VirtControllerApp{}
@@ -139,8 +140,11 @@ func Execute() {
 	restful.Add(webService)
 
 	// Bootstrapping. From here on the initialization order is important
-
-	app.informerFactory = controller.NewKubeInformerFactory(app.restClient, app.clientSet)
+	app.kubevirtNamespace, err = util.GetNamespace()
+	if err != nil {
+		golog.Fatalf("Error searching for namespace: %v", err)
+	}
+	app.informerFactory = controller.NewKubeInformerFactory(app.restClient, app.clientSet, app.kubevirtNamespace)
 
 	app.vmiInformer = app.informerFactory.VMI()
 	app.podInformer = app.informerFactory.KubeVirtPod()
@@ -186,11 +190,8 @@ func (vca *VirtControllerApp) Run() {
 		panic(err)
 	}
 	defer os.RemoveAll(certsDirectory)
-	namespace, err := util.GetNamespace()
-	if err != nil {
-		golog.Fatalf("Error searching for namespace: %v", err)
-	}
-	certStore, err := certificates.GenerateSelfSignedCert(certsDirectory, "virt-controller", namespace)
+
+	certStore, err := certificates.GenerateSelfSignedCert(certsDirectory, "virt-controller", vca.kubevirtNamespace)
 	if err != nil {
 		glog.Fatalf("unable to generate certificates: %v", err)
 	}
@@ -213,7 +214,7 @@ func (vca *VirtControllerApp) Run() {
 	}
 
 	rl, err := resourcelock.New(vca.LeaderElection.ResourceLock,
-		namespace,
+		vca.kubevirtNamespace,
 		leaderelectionconfig.DefaultEndpointName,
 		vca.clientSet.CoreV1(),
 		resourcelock.ResourceLockConfig{

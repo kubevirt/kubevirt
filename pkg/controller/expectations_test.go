@@ -35,6 +35,8 @@ import (
 	"k8s.io/client-go/tools/cache"
 )
 
+const namespaceKubevirt = "kubevirt"
+
 // ValidSecurityContextWithContainerDefaults creates a valid security context provider based on
 // empty container defaults.  Used for testing.
 func ValidSecurityContextWithContainerDefaults() *v1.SecurityContext {
@@ -62,7 +64,7 @@ func newReplicationController(replicas int) *v1.ReplicationController {
 		ObjectMeta: metav1.ObjectMeta{
 			UID:             uuid.NewUUID(),
 			Name:            "foobar",
-			Namespace:       metav1.NamespaceSystem,
+			Namespace:       namespaceKubevirt,
 			ResourceVersion: "18",
 		},
 		Spec: v1.ReplicationControllerSpec{
@@ -96,7 +98,7 @@ func newReplicationController(replicas int) *v1.ReplicationController {
 	return rc
 }
 
-// create count pods with the given phase for the given rc (same selectors and namespace), and add them to the store.
+// create count pods with the given phase for the given rc (same selectors and kubevirtNamespace), and add them to the store.
 func newPodList(store cache.Store, count int, status v1.PodPhase, rc *v1.ReplicationController) *v1.PodList {
 	pods := []v1.Pod{}
 	for i := 0; i < count; i++ {

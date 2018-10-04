@@ -36,11 +36,12 @@ import (
 	"kubevirt.io/kubevirt/pkg/log"
 	"kubevirt.io/kubevirt/pkg/precond"
 	"kubevirt.io/kubevirt/pkg/registry-disk"
+	"kubevirt.io/kubevirt/pkg/util"
 	"kubevirt.io/kubevirt/pkg/util/net/dns"
 	"kubevirt.io/kubevirt/pkg/util/types"
 )
 
-const configMapName = "kube-system/kubevirt-config"
+const configMapName = "kubevirt-config"
 const UseEmulationKey = "debug.useEmulation"
 const ImagePullPolicyKey = "dev.imagePullPolicy"
 const KvmDevice = "devices.kubevirt.io/kvm"
@@ -67,7 +68,12 @@ type PvcNotFoundError error
 
 func getConfigMapEntry(store cache.Store, key string) (string, error) {
 
-	if obj, exists, err := store.GetByKey(configMapName); err != nil {
+	namespace, err := util.GetNamespace()
+	if err != nil {
+		return "", err
+	}
+
+	if obj, exists, err := store.GetByKey(namespace + "/" + configMapName); err != nil {
 		return "", err
 	} else if !exists {
 		return "", nil

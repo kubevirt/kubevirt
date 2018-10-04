@@ -25,6 +25,15 @@ source hack/config.sh
 
 echo "Deploying ..."
 
+# Create the installation namespace if it does not exist already
+_kubectl apply -f - <<EOF
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: ${namespace}
+EOF
+
 # Deploy the right manifests for the right target
 if [[ -z $TARGET ]] || [[ $TARGET =~ .*-dev ]]; then
     _kubectl create -f ${MANIFESTS_OUT_DIR}/dev -R $i

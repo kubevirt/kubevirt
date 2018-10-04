@@ -31,7 +31,6 @@ const (
 	DefaultLeaseDuration = 15 * time.Second
 	DefaultRenewDeadline = 10 * time.Second
 	DefaultRetryPeriod   = 2 * time.Second
-	DefaultNamespace     = "kube-system"
 	DefaultEndpointName  = "virt-controller"
 )
 

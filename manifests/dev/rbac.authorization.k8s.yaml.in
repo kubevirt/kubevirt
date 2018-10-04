@@ -116,6 +116,16 @@ rules:
   - apiGroups:
       - ''
     resources:
+      - configmaps
+    resourceNames:
+      - extension-apiserver-authentication
+    verbs:
+      - get
+      - list
+      - watch
+  - apiGroups:
+      - ''
+    resources:
       - pods/exec
     verbs:
       - create
