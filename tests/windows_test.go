@@ -30,6 +30,8 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 
+	"kubevirt.io/kubevirt/pkg/util/net/dns"
+
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -172,12 +174,12 @@ var _ = Describe("Windows VirtualMachineInstance", func() {
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Starting the windows VirtualMachineInstance")
-			vmi, err := virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(windowsVMI)
+			windowsVMI, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(windowsVMI)
 			Expect(err).To(BeNil())
-			tests.WaitForSuccessfulVMIStartWithTimeout(vmi, 180)
+			tests.WaitForSuccessfulVMIStartWithTimeout(windowsVMI, 180)
 
-			vmi, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Get(vmi.Name, &metav1.GetOptions{})
-			vmiIp = vmi.Status.Interfaces[0].IP
+			windowsVMI, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Get(windowsVMI.Name, &metav1.GetOptions{})
+			vmiIp = windowsVMI.Status.Interfaces[0].IP
 			cli = []string{
 				winrmCliCmd,
 				"-hostname",
@@ -220,6 +222,47 @@ var _ = Describe("Windows VirtualMachineInstance", func() {
 
 			By("Checking that the Windows VirtualMachineInstance has expected IP address")
 			Expect(output).Should(ContainSubstring(vmiIp))
+		}, 360)
+		It("should have the domain set properly", func() {
+			command := append(cli, "wmic nicconfig get dnsdomain")
+			By(fmt.Sprintf("Running \"%s\" command via winrm-cli", command))
+
+			By("fetching /etc/resolv.conf from the VMI Pod")
+			resolvConf := tests.RunCommandOnVmiPod(windowsVMI, []string{"cat", "/etc/resolv.conf"})
+
+			By("extracting the search domain of the VMI")
+			searchDomains, err := dns.ParseSearchDomains(resolvConf)
+			Expect(err).ToNot(HaveOccurred())
+			searchDomain := ""
+			for _, s := range searchDomains {
+				if len(searchDomain) < len(s) {
+					searchDomain = s
+				}
+			}
+			Expect(searchDomain).To(HavePrefix(windowsVMI.Namespace), "should contain a searchdomain with the namespace of the VMI")
+
+			By("first making sure that we can execute VMI commands")
+			Eventually(func() error {
+				output, err = tests.ExecuteCommandOnPod(
+					virtClient,
+					winrmcliPod,
+					winrmcliPod.Spec.Containers[0].Name,
+					command,
+				)
+				return err
+			}, time.Minute*5, time.Second*15).ShouldNot(HaveOccurred())
+
+			By("repeatedly trying to get the search domain, since it may take some time until the domain is set")
+			Eventually(func() string {
+				output, err = tests.ExecuteCommandOnPod(
+					virtClient,
+					winrmcliPod,
+					winrmcliPod.Spec.Containers[0].Name,
+					command,
+				)
+				Expect(err).ToNot(HaveOccurred())
+				return output
+			}, time.Minute*1, time.Second*10).Should(MatchRegexp(`DNSDomain[\n\r\t ]+` + searchDomain + `[\n\r\t ]+`))
 		}, 360)
 	})
 
