@@ -127,6 +127,35 @@ type DomainSpec struct {
 
 // ---
 // +k8s:openapi-gen=true
+type PresetDomainSpec struct {
+	// Resources describes the Compute Resources required by this vmi.
+	Resources ResourceRequirements `json:"resources,omitempty"`
+	// CPU allow specified the detailed CPU topology inside the vmi.
+	// +optional
+	CPU *CPU `json:"cpu,omitempty"`
+	// Memory allow specifying the VMI memory features.
+	// +optional
+	Memory *Memory `json:"memory,omitempty"`
+	// Machine type.
+	// +optional
+	Machine Machine `json:"machine,omitempty"`
+	// Clock sets the clock and timers of the vmi.
+	// +optional
+	Clock *Clock `json:"clock,omitempty"`
+	// Features like acpi, apic, hyperv.
+	// +optional
+	Features *Features `json:"features,omitempty"`
+	// Devices allows adding disks, network interfaces, ...
+	Devices Devices `json:"devices"`
+	// Controls whether or not disks will share IOThreads.
+	// Omitting IOThreadsPolicy disables use of IOThreads.
+	// One of: shared, auto
+	// +optional
+	IOThreadsPolicy *IOThreadsPolicy `json:"ioThreadsPolicy,omitempty"`
+}
+
+// ---
+// +k8s:openapi-gen=true
 type ResourceRequirements struct {
 	// Requests is a description of the initial vmi resources.
 	// Valid resource keys are "memory" and "cpu".
