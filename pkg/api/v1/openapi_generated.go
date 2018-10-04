@@ -71,6 +71,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"kubevirt.io/kubevirt/pkg/api/v1.PITTimer":                                  schema_kubevirt_pkg_api_v1_PITTimer(ref),
 		"kubevirt.io/kubevirt/pkg/api/v1.PodNetwork":                                schema_kubevirt_pkg_api_v1_PodNetwork(ref),
 		"kubevirt.io/kubevirt/pkg/api/v1.Port":                                      schema_kubevirt_pkg_api_v1_Port(ref),
+		"kubevirt.io/kubevirt/pkg/api/v1.PresetDomainSpec":                          schema_kubevirt_pkg_api_v1_PresetDomainSpec(ref),
 		"kubevirt.io/kubevirt/pkg/api/v1.RTCTimer":                                  schema_kubevirt_pkg_api_v1_RTCTimer(ref),
 		"kubevirt.io/kubevirt/pkg/api/v1.RegistryDiskSource":                        schema_kubevirt_pkg_api_v1_RegistryDiskSource(ref),
 		"kubevirt.io/kubevirt/pkg/api/v1.ResourceRequirements":                      schema_kubevirt_pkg_api_v1_ResourceRequirements(ref),
@@ -1366,6 +1367,69 @@ func schema_kubevirt_pkg_api_v1_Port(ref common.ReferenceCallback) common.OpenAP
 	}
 }
 
+func schema_kubevirt_pkg_api_v1_PresetDomainSpec(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Properties: map[string]spec.Schema{
+					"resources": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Resources describes the Compute Resources required by this vmi.",
+							Ref:         ref("kubevirt.io/kubevirt/pkg/api/v1.ResourceRequirements"),
+						},
+					},
+					"cpu": {
+						SchemaProps: spec.SchemaProps{
+							Description: "CPU allow specified the detailed CPU topology inside the vmi.",
+							Ref:         ref("kubevirt.io/kubevirt/pkg/api/v1.CPU"),
+						},
+					},
+					"memory": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Memory allow specifying the VMI memory features.",
+							Ref:         ref("kubevirt.io/kubevirt/pkg/api/v1.Memory"),
+						},
+					},
+					"machine": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Machine type.",
+							Ref:         ref("kubevirt.io/kubevirt/pkg/api/v1.Machine"),
+						},
+					},
+					"clock": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Clock sets the clock and timers of the vmi.",
+							Ref:         ref("kubevirt.io/kubevirt/pkg/api/v1.Clock"),
+						},
+					},
+					"features": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Features like acpi, apic, hyperv.",
+							Ref:         ref("kubevirt.io/kubevirt/pkg/api/v1.Features"),
+						},
+					},
+					"devices": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Devices allows adding disks, network interfaces, ...",
+							Ref:         ref("kubevirt.io/kubevirt/pkg/api/v1.Devices"),
+						},
+					},
+					"ioThreadsPolicy": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Controls whether or not disks will share IOThreads. Omitting IOThreadsPolicy disables use of IOThreads. One of: shared, auto",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+				},
+				Required: []string{"devices"},
+			},
+		},
+		Dependencies: []string{
+			"kubevirt.io/kubevirt/pkg/api/v1.CPU", "kubevirt.io/kubevirt/pkg/api/v1.Clock", "kubevirt.io/kubevirt/pkg/api/v1.Devices", "kubevirt.io/kubevirt/pkg/api/v1.Features", "kubevirt.io/kubevirt/pkg/api/v1.Machine", "kubevirt.io/kubevirt/pkg/api/v1.Memory", "kubevirt.io/kubevirt/pkg/api/v1.ResourceRequirements"},
+	}
+}
+
 func schema_kubevirt_pkg_api_v1_RTCTimer(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -1913,7 +1977,7 @@ func schema_kubevirt_pkg_api_v1_VirtualMachineInstancePresetSpec(ref common.Refe
 					"domain": {
 						SchemaProps: spec.SchemaProps{
 							Description: "Domain is the same object type as contained in VirtualMachineInstanceSpec",
-							Ref:         ref("kubevirt.io/kubevirt/pkg/api/v1.DomainSpec"),
+							Ref:         ref("kubevirt.io/kubevirt/pkg/api/v1.PresetDomainSpec"),
 						},
 					},
 				},
@@ -1921,7 +1985,7 @@ func schema_kubevirt_pkg_api_v1_VirtualMachineInstancePresetSpec(ref common.Refe
 			},
 		},
 		Dependencies: []string{
-			"k8s.io/apimachinery/pkg/apis/meta/v1.LabelSelector", "kubevirt.io/kubevirt/pkg/api/v1.DomainSpec"},
+			"k8s.io/apimachinery/pkg/apis/meta/v1.LabelSelector", "kubevirt.io/kubevirt/pkg/api/v1.PresetDomainSpec"},
 	}
 }
 

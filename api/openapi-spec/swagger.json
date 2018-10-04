@@ -4322,6 +4322,45 @@
      }
     }
    },
+   "v1.PresetDomainSpec": {
+    "required": [
+     "devices"
+    ],
+    "properties": {
+     "clock": {
+      "description": "Clock sets the clock and timers of the vmi.\n+optional",
+      "$ref": "#/definitions/v1.Clock"
+     },
+     "cpu": {
+      "description": "CPU allow specified the detailed CPU topology inside the vmi.\n+optional",
+      "$ref": "#/definitions/v1.CPU"
+     },
+     "devices": {
+      "description": "Devices allows adding disks, network interfaces, ...",
+      "$ref": "#/definitions/v1.Devices"
+     },
+     "features": {
+      "description": "Features like acpi, apic, hyperv.\n+optional",
+      "$ref": "#/definitions/v1.Features"
+     },
+     "ioThreadsPolicy": {
+      "description": "Controls whether or not disks will share IOThreads.\nOmitting IOThreadsPolicy disables use of IOThreads.\nOne of: shared, auto\n+optional",
+      "$ref": "#/definitions/v1.IOThreadsPolicy"
+     },
+     "machine": {
+      "description": "Machine type.\n+optional",
+      "$ref": "#/definitions/v1.Machine"
+     },
+     "memory": {
+      "description": "Memory allow specifying the VMI memory features.\n+optional",
+      "$ref": "#/definitions/v1.Memory"
+     },
+     "resources": {
+      "description": "Resources describes the Compute Resources required by this vmi.",
+      "$ref": "#/definitions/v1.ResourceRequirements"
+     }
+    }
+   },
    "v1.RTCTimer": {
     "properties": {
      "present": {
@@ -4731,7 +4770,7 @@
     "properties": {
      "domain": {
       "description": "Domain is the same object type as contained in VirtualMachineInstanceSpec",
-      "$ref": "#/definitions/v1.DomainSpec"
+      "$ref": "#/definitions/v1.PresetDomainSpec"
      },
      "selector": {
       "description": "Selector is a label query over a set of VMIs.\nRequired.",

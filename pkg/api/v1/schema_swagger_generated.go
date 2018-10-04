@@ -49,6 +49,19 @@ func (DomainSpec) SwaggerDoc() map[string]string {
 	}
 }
 
+func (PresetDomainSpec) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"resources":       "Resources describes the Compute Resources required by this vmi.",
+		"cpu":             "CPU allow specified the detailed CPU topology inside the vmi.\n+optional",
+		"memory":          "Memory allow specifying the VMI memory features.\n+optional",
+		"machine":         "Machine type.\n+optional",
+		"clock":           "Clock sets the clock and timers of the vmi.\n+optional",
+		"features":        "Features like acpi, apic, hyperv.\n+optional",
+		"devices":         "Devices allows adding disks, network interfaces, ...",
+		"ioThreadsPolicy": "Controls whether or not disks will share IOThreads.\nOmitting IOThreadsPolicy disables use of IOThreads.\nOne of: shared, auto\n+optional",
+	}
+}
+
 func (ResourceRequirements) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"requests":                "Requests is a description of the initial vmi resources.\nValid resource keys are \"memory\" and \"cpu\".\n+optional",

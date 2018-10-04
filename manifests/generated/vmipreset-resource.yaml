@@ -194,10 +194,6 @@ spec:
                           properties:
                             enabled:
                               type: boolean
-                firmware:
-                  properties:
-                    uuid:
-                      type: string
                 ioThreadsPolicy:
                   type: string
                 machine:

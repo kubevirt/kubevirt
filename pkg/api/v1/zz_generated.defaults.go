@@ -211,9 +211,6 @@ func SetObjectDefaults_VirtualMachineInstanceList(in *VirtualMachineInstanceList
 
 func SetObjectDefaults_VirtualMachineInstancePreset(in *VirtualMachineInstancePreset) {
 	if in.Spec.Domain != nil {
-		if in.Spec.Domain.Firmware != nil {
-			SetDefaults_Firmware(in.Spec.Domain.Firmware)
-		}
 		if in.Spec.Domain.Clock != nil {
 			if in.Spec.Domain.Clock.Timer != nil {
 				if in.Spec.Domain.Clock.Timer.HPET != nil {
