@@ -101,7 +101,7 @@ var _ = Describe("Mutating Webhook", func() {
 					Name: "test-preset",
 				},
 				Spec: v1.VirtualMachineInstancePresetSpec{
-					Domain: &v1.DomainSpec{
+					Domain: &v1.PresetDomainSpec{
 						CPU: &v1.CPU{Cores: 4},
 					},
 					Selector: selector,
