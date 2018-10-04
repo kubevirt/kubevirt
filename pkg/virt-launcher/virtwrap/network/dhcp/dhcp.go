@@ -61,6 +61,45 @@ func SingleClientDHCPServer(
 
 	log.Log.Info("Starting SingleClientDHCPServer")
 
+	hostname, err := os.Hostname()
+	if err != nil {
+		return fmt.Errorf("reading the pods hostname failed: %v", err)
+	}
+
+	options, err := prepareDHCPOptions(clientMask, routerIP, dnsIPs, routes, searchDomains, mtu, hostname)
+	if err != nil {
+		return err
+	}
+
+	handler := &DHCPHandler{
+		clientIP:      clientIP,
+		clientMAC:     clientMAC,
+		serverIP:      serverIP.To4(),
+		leaseDuration: infiniteLease,
+		options:       options,
+	}
+
+	l, err := dhcpConn.NewUDP4BoundListener(serverIface, ":67")
+	if err != nil {
+		return err
+	}
+	defer l.Close()
+	err = dhcp.Serve(l, handler)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func prepareDHCPOptions(
+	clientMask net.IPMask,
+	routerIP net.IP,
+	dnsIPs [][]byte,
+	routes *[]netlink.Route,
+	searchDomains []string,
+	mtu uint16,
+	hostname string) (dhcp.Options, error) {
+
 	mtuArray := make([]byte, 2)
 	binary.BigEndian.PutUint16(mtuArray, mtu)
 
@@ -79,36 +118,20 @@ func SingleClientDHCPServer(
 
 	searchDomainBytes, err := convertSearchDomainsToBytes(searchDomains)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	if searchDomainBytes != nil {
 		dhcpOptions[dhcp.OptionDomainSearch] = searchDomainBytes
 	}
 
-	hostname, err := os.Hostname()
-	if err != nil {
-		return fmt.Errorf("reading the pods hostname failed: %v", err)
-	}
 	dhcpOptions[dhcp.OptionHostName] = []byte(hostname)
 
-	handler := &DHCPHandler{
-		clientIP:      clientIP,
-		clientMAC:     clientMAC,
-		serverIP:      serverIP.To4(),
-		leaseDuration: infiniteLease,
-		options:       dhcpOptions,
+	// Windows will ask for the domain name and use it for DNS resolution
+	domainName := getDomainName(searchDomains)
+	if len(domainName) > 0 {
+		dhcpOptions[dhcp.OptionDomainName] = []byte(domainName)
 	}
-
-	l, err := dhcpConn.NewUDP4BoundListener(serverIface, ":67")
-	if err != nil {
-		return err
-	}
-	defer l.Close()
-	err = dhcp.Serve(l, handler)
-	if err != nil {
-		return err
-	}
-	return nil
+	return dhcpOptions, nil
 }
 
 type DHCPHandler struct {
@@ -248,4 +271,15 @@ func isValidSearchDomain(domain string) bool {
 		return false
 	}
 	return searchDomainValidationRegex.MatchString(domain)
+}
+
+//getDomainName returns the longest search domain entry, which is the most exact equivalent to a domain
+func getDomainName(searchDomains []string) string {
+	selected := ""
+	for _, d := range searchDomains {
+		if len(d) > len(selected) {
+			selected = d
+		}
+	}
+	return selected
 }
