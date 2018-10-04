@@ -22,6 +22,7 @@ import (
 	"bytes"
 	"flag"
 	"fmt"
+	"io"
 	stdLog "log"
 	"os"
 	"path/filepath"
@@ -54,6 +55,10 @@ var logger log2.Logger
 var v int
 var c string
 
+const (
+	libvirtTimestampFormat = "2006-01-02 15:04:05.999-0700"
+)
+
 func init() {
 	flag.String("v", "2", "log level for V logs")
 	logger = log2.NewJSONLogger(os.Stderr)
@@ -62,6 +67,20 @@ func init() {
 func Setup(component string, verbosity int) {
 	v = verbosity
 	c = component
+	CopyStandardLogTo(LogLevelNames[INFO])
+}
+
+// SetIOWriter takes a writer to which the logger should write. Useful for redirecting logs during testing.
+func SetIOWriter(w io.Writer) {
+	logger = log2.NewJSONLogger(w)
+	CopyStandardLogTo(LogLevelNames[INFO])
+}
+
+//SetupWithLogger is mostly useful for testing
+func SetupWithLogger(l log2.Logger, component string, verbosity int) {
+	v = verbosity
+	c = component
+	logger = l
 	CopyStandardLogTo(LogLevelNames[INFO])
 }
 
@@ -416,6 +435,11 @@ func doLogPos(severity LogLevel, fileName string, lineNumber int, args ...interf
 }
 
 func LogLibvirtLogLine(line string) {
+
+	if len(strings.TrimSpace(line)) == 0 {
+		return
+	}
+
 	fragments := strings.SplitN(line, ": ", 5)
 	if len(fragments) != 5 {
 		now := time.Now()
@@ -434,16 +458,39 @@ func LogLibvirtLogLine(line string) {
 		severity = "info"
 	}
 
+	t, err := time.Parse(libvirtTimestampFormat, strings.TrimSpace(fragments[0]))
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
 	pos := strings.TrimSpace(fragments[3])
 	msg := strings.TrimSpace(fragments[4])
 
-	now := time.Now()
-	logger.Log(
-		"level", severity,
-		"timestamp", now.Format("2006-01-02T15:04:05.000000Z"),
-		"pos", pos,
-		"component", c,
-		"subcomponent", "libvirt",
-		"msg", msg,
-	)
+	// check if we really got a position
+	isPos := false
+	if split := strings.Split(pos, ":"); len(split) == 2 {
+		if _, err := strconv.Atoi(split[1]); err == nil {
+			isPos = true
+		}
+	}
+
+	if !isPos {
+		msg = strings.TrimSpace(fragments[3] + ": " + fragments[4])
+		logger.Log(
+			"level", severity,
+			"timestamp", t.Format("2006-01-02T15:04:05.000000Z"),
+			"component", c,
+			"subcomponent", "libvirt",
+			"msg", msg,
+		)
+	} else {
+		logger.Log(
+			"level", severity,
+			"timestamp", t.Format("2006-01-02T15:04:05.000000Z"),
+			"pos", pos,
+			"component", c,
+			"subcomponent", "libvirt",
+			"msg", msg,
+		)
+	}
 }
