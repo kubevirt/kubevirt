@@ -827,7 +827,6 @@ type Network struct {
 type NetworkSource struct {
 	Pod    *PodNetwork `json:"pod,omitempty"`
 	Multus *CniNetwork `json:"multus,omitempty"`
-	Kuryr  *CniNetwork `json:"kuryr,omitempty"`
 	Genie  *CniNetwork `json:"genie,omitempty"`
 }
 

@@ -235,12 +235,6 @@ spec:
                         type: string
                     required:
                     - networkName
-                  kuryr:
-                    properties:
-                      networkName:
-                        type: string
-                    required:
-                    - networkName
                   multus:
                     properties:
                       networkName:

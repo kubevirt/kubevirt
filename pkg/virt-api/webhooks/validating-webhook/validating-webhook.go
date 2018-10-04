@@ -727,13 +727,12 @@ func ValidateVirtualMachineInstanceSpec(field *k8sfield.Path, spec *v1.VirtualMa
 	}
 
 	cniExists := func(netSource v1.NetworkSource) bool {
-		return netSource.Multus != nil || netSource.Kuryr != nil || netSource.Genie != nil
+		return netSource.Multus != nil || netSource.Genie != nil
 	}
 
 	if len(spec.Networks) > 0 && len(spec.Domain.Devices.Interfaces) > 0 {
 		cniTypesCount := 0
 		multusExists := false
-		kuryrExists := false
 		genieExists := false
 		podExists := false
 		for idx, network := range spec.Networks {
@@ -773,13 +772,6 @@ func ValidateVirtualMachineInstanceSpec(field *k8sfield.Path, spec *v1.VirtualMa
 						multusExists = true
 					}
 					networkNameExists = network.Multus.NetworkName != ""
-				}
-				if network.NetworkSource.Kuryr != nil {
-					if !kuryrExists {
-						cniTypesCount++
-						kuryrExists = true
-					}
-					networkNameExists = network.Kuryr.NetworkName != ""
 				}
 				if network.NetworkSource.Genie != nil {
 					if !genieExists {

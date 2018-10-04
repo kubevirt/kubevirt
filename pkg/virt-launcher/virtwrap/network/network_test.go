@@ -103,26 +103,5 @@ var _ = Describe("Network", func() {
 			err := SetupNetworkInterfaces(vm, domain)
 			Expect(err).To(BeNil())
 		})
-		It("should configure networking with kuryr", func() {
-			NetworkInterfaceFactory = func(network *v1.Network) (NetworkInterface, error) {
-				return mockNetworkInterface, nil
-			}
-			const kuryrInterfaceName = "eth1"
-			domain := &api.Domain{}
-			vm := newVMIBridgeInterface("testnamespace", "testVmName")
-			api.SetObjectDefaults_Domain(domain)
-			iface := v1.DefaultNetworkInterface()
-			cniNet := &v1.Network{
-				Name: "default",
-				NetworkSource: v1.NetworkSource{
-					Kuryr: &v1.CniNetwork{NetworkName: "default"},
-				},
-			}
-
-			vm.Spec.Networks = []v1.Network{*cniNet}
-			mockNetworkInterface.EXPECT().Plug(iface, cniNet, domain, kuryrInterfaceName)
-			err := SetupNetworkInterfaces(vm, domain)
-			Expect(err).To(BeNil())
-		})
 	})
 })

@@ -650,11 +650,6 @@ func getCniInterfaceList(vmi *v1.VirtualMachineInstance) (ifaceListString string
 			if cniAnnotation == "" {
 				cniAnnotation = "k8s.v1.cni.cncf.io/networks"
 			}
-		} else if network.Kuryr != nil {
-			ifaceList = append(ifaceList, network.Kuryr.NetworkName)
-			if cniAnnotation == "" {
-				cniAnnotation = "k8s.v1.cni.cncf.io/networks"
-			}
 		} else if network.Genie != nil {
 			ifaceList = append(ifaceList, network.Genie.NetworkName)
 			if cniAnnotation == "" {

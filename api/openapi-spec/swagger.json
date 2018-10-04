@@ -3944,9 +3944,6 @@
      "genie": {
       "$ref": "#/definitions/v1.CniNetwork"
      },
-     "kuryr": {
-      "$ref": "#/definitions/v1.CniNetwork"
-     },
      "multus": {
       "$ref": "#/definitions/v1.CniNetwork"
      },
