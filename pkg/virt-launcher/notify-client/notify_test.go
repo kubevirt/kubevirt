@@ -96,7 +96,7 @@ var _ = Describe("Domain notify", func() {
 			}
 			mockDomain.EXPECT().GetXMLDesc(gomock.Eq(libvirt.DOMAIN_XML_INACTIVE)).Return(string(x), nil)
 
-			libvirtEventCallback(mockCon, util.NewDomainFromName("test", "1234"), &libvirt.DomainEventLifecycle{Event: event}, client, deleteNotificationSent)
+			libvirtEventCallback(mockCon, util.NewDomainFromName("test", "1234"), LibvirtEvent{Event: &libvirt.DomainEventLifecycle{Event: event}}, client, deleteNotificationSent)
 
 			timedOut := false
 			timeout := time.After(2 * time.Second)
@@ -127,7 +127,7 @@ var _ = Describe("Domain notify", func() {
 			mockDomain.EXPECT().GetState().Return(libvirt.DOMAIN_NOSTATE, -1, libvirt.Error{Code: libvirt.ERR_NO_DOMAIN})
 			mockDomain.EXPECT().GetName().Return("test", nil).AnyTimes()
 
-			libvirtEventCallback(mockCon, util.NewDomainFromName("test", "1234"), &libvirt.DomainEventLifecycle{Event: libvirt.DOMAIN_EVENT_UNDEFINED}, client, deleteNotificationSent)
+			libvirtEventCallback(mockCon, util.NewDomainFromName("test", "1234"), LibvirtEvent{Event: &libvirt.DomainEventLifecycle{Event: libvirt.DOMAIN_EVENT_UNDEFINED}}, client, deleteNotificationSent)
 
 			timedOut := false
 			timeout := time.After(2 * time.Second)

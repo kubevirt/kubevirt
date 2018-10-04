@@ -104,10 +104,27 @@ func SetDomainSpec(virConn cli.Connection, vmi *v1.VirtualMachineInstance, wante
 	return dom, nil
 }
 
+// GetDomainSpecWithRuntimeInfo return the active domain XML with runtime information embedded
+func GetDomainSpecWithRuntimeInfo(status libvirt.DomainState, dom cli.VirDomain) (*api.DomainSpec, error) {
+
+	// get libvirt xml with runtime status
+	activeSpec, err := GetDomainSpecWithFlags(dom, 0)
+	if err != nil {
+		return nil, err
+	}
+
+	return activeSpec, nil
+}
+
+// GetDomainSpec return the domain XML without runtime information.
+// The result XML is merged from inactive XML and migratable XML.
 func GetDomainSpec(status libvirt.DomainState, dom cli.VirDomain) (*api.DomainSpec, error) {
 
-	var spec *api.DomainSpec
-	inactiveSpec, err := GetDomainSpecWithFlags(dom, libvirt.DOMAIN_XML_INACTIVE)
+	var spec, inactiveSpec *api.DomainSpec
+	var err error
+
+	inactiveSpec, err = GetDomainSpecWithFlags(dom, libvirt.DOMAIN_XML_INACTIVE)
+
 	if err != nil {
 		return nil, err
 	}

@@ -254,6 +254,9 @@ const (
 	// If there happens any error while trying to synchronize the VirtualMachineInstance with the Domain,
 	// this is reported as false.
 	VirtualMachineInstanceSynchronized VirtualMachineInstanceConditionType = "Synchronized"
+
+	// Reflects whether the QEMU guest agent is connected through the channel
+	VirtualMachineInstanceAgentConnected VirtualMachineInstanceConditionType = "AgentConnected"
 )
 
 // ---

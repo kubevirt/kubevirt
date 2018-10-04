@@ -360,9 +360,9 @@ type DiskSourceHost struct {
 }
 
 type BackingStore struct {
-	Type   string             `xml:"type,attr"`
-	Format BackingStoreFormat `xml:"format"`
-	Source *DiskSource        `xml:"source"`
+	Type   string              `xml:"type,attr,omitempty"`
+	Format *BackingStoreFormat `xml:"format,omitempty"`
+	Source *DiskSource         `xml:"source,omitempty"`
 }
 
 type BackingStoreFormat struct {
