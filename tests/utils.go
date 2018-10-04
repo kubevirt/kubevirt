@@ -1988,6 +1988,12 @@ func GetNodeWithHugepages(virtClient kubecli.KubevirtClient, hugepages k8sv1.Res
 	return nil
 }
 
+func GetAllSchedulableNodes(virtClient kubecli.KubevirtClient) *k8sv1.NodeList {
+	nodes, err := virtClient.CoreV1().Nodes().List(metav1.ListOptions{LabelSelector: "kubevirt.io/schedulable=true"})
+	Expect(err).ToNot(HaveOccurred(), "Should list compute nodes")
+	return nodes
+}
+
 // SkipIfVersionBelow will skip tests if it runs on an environment with k8s version below specified
 func SkipIfVersionBelow(message string, expectedVersion string) {
 	virtClient, err := kubecli.GetKubevirtClient()
