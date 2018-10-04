@@ -1,0 +1,499 @@
+/*
+ * This file is part of the KubeVirt project
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ * Copyright 2017 Red Hat, Inc.
+ *
+ */
+
+package watch
+
+import (
+	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/gomega"
+	"k8s.io/client-go/tools/cache"
+
+	k8sv1 "k8s.io/api/core/v1"
+
+	"github.com/golang/mock/gomock"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/kubernetes/fake"
+	"k8s.io/client-go/tools/cache/testing"
+	"k8s.io/client-go/tools/record"
+
+	"github.com/onsi/ginkgo/extensions/table"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/client-go/testing"
+
+	"k8s.io/apimachinery/pkg/types"
+
+	"kubevirt.io/kubevirt/pkg/api/v1"
+	"kubevirt.io/kubevirt/pkg/kubecli"
+	"kubevirt.io/kubevirt/pkg/log"
+	"kubevirt.io/kubevirt/pkg/testutils"
+	"kubevirt.io/kubevirt/pkg/virt-controller/services"
+)
+
+var _ = Describe("Migration watcher", func() {
+	log.Log.SetIOWriter(GinkgoWriter)
+
+	var ctrl *gomock.Controller
+	var vmiInterface *kubecli.MockVirtualMachineInstanceInterface
+	var migrationInterface *kubecli.MockVirtualMachineInstanceMigrationInterface
+	var migrationSource *framework.FakeControllerSource
+	var vmiSource *framework.FakeControllerSource
+	var podSource *framework.FakeControllerSource
+	var vmiInformer cache.SharedIndexInformer
+	var podInformer cache.SharedIndexInformer
+	var migrationInformer cache.SharedIndexInformer
+	var stop chan struct{}
+	var controller *MigrationController
+	var recorder *record.FakeRecorder
+	var mockQueue *testutils.MockWorkQueue
+	var podFeeder *testutils.PodFeeder
+	var virtClient *kubecli.MockKubevirtClient
+	var kubeClient *fake.Clientset
+	var configMapInformer cache.SharedIndexInformer
+	var pvcInformer cache.SharedIndexInformer
+
+	shouldExpectPodCreation := func(uid types.UID, migrationUid types.UID) {
+		// Expect pod creation
+		kubeClient.Fake.PrependReactor("create", "pods", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
+			update, ok := action.(testing.CreateAction)
+			Expect(ok).To(BeTrue())
+			Expect(update.GetObject().(*k8sv1.Pod).Annotations[v1.OwnedByAnnotation]).To(Equal("virt-controller"))
+			Expect(update.GetObject().(*k8sv1.Pod).Labels[v1.CreatedByLabel]).To(Equal(string(uid)))
+			Expect(update.GetObject().(*k8sv1.Pod).Labels[v1.MigrationJobLabel]).To(Equal(string(migrationUid)))
+			return true, update.GetObject(), nil
+		})
+	}
+
+	shouldExpectMigrationSchedulingState := func(migration *v1.VirtualMachineInstanceMigration) {
+		migrationInterface.EXPECT().Update(gomock.Any()).Do(func(arg interface{}) {
+			Expect(arg.(*v1.VirtualMachineInstanceMigration).Status.Phase).To(Equal(v1.MigrationScheduling))
+		}).Return(migration, nil)
+	}
+
+	shouldExpectMigrationPreparingTargetState := func(migration *v1.VirtualMachineInstanceMigration) {
+		migrationInterface.EXPECT().Update(gomock.Any()).Do(func(arg interface{}) {
+			Expect(arg.(*v1.VirtualMachineInstanceMigration).Status.Phase).To(Equal(v1.MigrationPreparingTarget))
+		}).Return(migration, nil)
+	}
+
+	shouldExpectMigrationTargetReadyState := func(migration *v1.VirtualMachineInstanceMigration) {
+		migrationInterface.EXPECT().Update(gomock.Any()).Do(func(arg interface{}) {
+			Expect(arg.(*v1.VirtualMachineInstanceMigration).Status.Phase).To(Equal(v1.MigrationTargetReady))
+		}).Return(migration, nil)
+	}
+
+	shouldExpectMigrationRunningState := func(migration *v1.VirtualMachineInstanceMigration) {
+		migrationInterface.EXPECT().Update(gomock.Any()).Do(func(arg interface{}) {
+			Expect(arg.(*v1.VirtualMachineInstanceMigration).Status.Phase).To(Equal(v1.MigrationRunning))
+		}).Return(migration, nil)
+	}
+
+	shouldExpectMigrationCompletedState := func(migration *v1.VirtualMachineInstanceMigration) {
+		migrationInterface.EXPECT().Update(gomock.Any()).Do(func(arg interface{}) {
+			Expect(arg.(*v1.VirtualMachineInstanceMigration).Status.Phase).To(Equal(v1.MigrationSucceeded))
+		}).Return(migration, nil)
+	}
+
+	shouldExpectMigrationFailedState := func(migration *v1.VirtualMachineInstanceMigration) {
+		migrationInterface.EXPECT().Update(gomock.Any()).Do(func(arg interface{}) {
+			Expect(arg.(*v1.VirtualMachineInstanceMigration).Status.Phase).To(Equal(v1.MigrationFailed))
+		}).Return(migration, nil)
+	}
+
+	shouldExpectVirtualMachineMigrationState := func(vmi *v1.VirtualMachineInstance, migrationUid types.UID) {
+		vmiInterface.EXPECT().Update(gomock.Any()).Do(func(arg interface{}) {
+			Expect(arg.(*v1.VirtualMachineInstance).Status.MigrationState).ToNot(BeNil())
+			Expect(arg.(*v1.VirtualMachineInstance).Status.MigrationState.MigrationUID).To(Equal(migrationUid))
+		}).Return(vmi, nil)
+	}
+
+	shouldExpectVirtualMachineHandoff := func(vmi *v1.VirtualMachineInstance, migrationUid types.UID, targetNode string) {
+		vmiInterface.EXPECT().Update(gomock.Any()).Do(func(arg interface{}) {
+			Expect(arg.(*v1.VirtualMachineInstance).Status.MigrationState).ToNot(BeNil())
+			Expect(arg.(*v1.VirtualMachineInstance).Status.MigrationState.MigrationUID).To(Equal(migrationUid))
+
+			Expect(arg.(*v1.VirtualMachineInstance).Status.MigrationState.SourceNode).To(Equal(vmi.Status.NodeName))
+			Expect(arg.(*v1.VirtualMachineInstance).Status.MigrationState.TargetNode).To(Equal(targetNode))
+			Expect(arg.(*v1.VirtualMachineInstance).Labels[v1.MigrationTargetNodeNameLabel]).To(Equal(targetNode))
+
+		}).Return(vmi, nil)
+	}
+
+	syncCaches := func(stop chan struct{}) {
+		go vmiInformer.Run(stop)
+		go podInformer.Run(stop)
+		go migrationInformer.Run(stop)
+
+		Expect(cache.WaitForCacheSync(stop,
+			vmiInformer.HasSynced,
+			podInformer.HasSynced,
+			migrationInformer.HasSynced)).To(BeTrue())
+	}
+
+	BeforeEach(func() {
+		stop = make(chan struct{})
+		ctrl = gomock.NewController(GinkgoT())
+		virtClient = kubecli.NewMockKubevirtClient(ctrl)
+		migrationInterface = kubecli.NewMockVirtualMachineInstanceMigrationInterface(ctrl)
+		vmiInterface = kubecli.NewMockVirtualMachineInstanceInterface(ctrl)
+
+		vmiInformer, vmiSource = testutils.NewFakeInformerFor(&v1.VirtualMachineInstance{})
+		migrationInformer, migrationSource = testutils.NewFakeInformerFor(&v1.VirtualMachineInstanceMigration{})
+		podInformer, podSource = testutils.NewFakeInformerFor(&k8sv1.Pod{})
+		recorder = record.NewFakeRecorder(100)
+
+		configMapInformer, _ = testutils.NewFakeInformerFor(&k8sv1.ConfigMap{})
+		pvcInformer, _ = testutils.NewFakeInformerFor(&k8sv1.PersistentVolumeClaim{})
+
+		controller = NewMigrationController(
+			services.NewTemplateService("a", "b", "c", configMapInformer.GetStore(), pvcInformer.GetStore()),
+			vmiInformer,
+			podInformer,
+			migrationInformer,
+			recorder,
+			virtClient)
+		// Wrap our workqueue to have a way to detect when we are done processing updates
+		mockQueue = testutils.NewMockWorkQueue(controller.Queue)
+		controller.Queue = mockQueue
+		podFeeder = testutils.NewPodFeeder(mockQueue, podSource)
+
+		// Set up mock client
+		kubeClient = fake.NewSimpleClientset()
+		virtClient.EXPECT().VirtualMachineInstanceMigration(k8sv1.NamespaceDefault).Return(migrationInterface).AnyTimes()
+		virtClient.EXPECT().VirtualMachineInstance(k8sv1.NamespaceDefault).Return(vmiInterface).AnyTimes()
+		virtClient.EXPECT().CoreV1().Return(kubeClient.CoreV1()).AnyTimes()
+
+		// Make sure that all unexpected calls to kubeClient will fail
+		kubeClient.Fake.PrependReactor("*", "*", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
+			Expect(action).To(BeNil())
+			return true, nil, nil
+		})
+		syncCaches(stop)
+	})
+
+	AfterEach(func() {
+		close(stop)
+		// Ensure that we add checks for expected events to every test
+		Expect(recorder.Events).To(BeEmpty())
+		ctrl.Finish()
+	})
+
+	addVirtualMachine := func(vmi *v1.VirtualMachineInstance) {
+		mockQueue.ExpectAdds(1)
+		vmiSource.Add(vmi)
+		mockQueue.Wait()
+	}
+
+	addMigration := func(migration *v1.VirtualMachineInstanceMigration) {
+		mockQueue.ExpectAdds(1)
+		migrationSource.Add(migration)
+		mockQueue.Wait()
+	}
+
+	Context("Migration object in pending state", func() {
+		It("should create target pod", func() {
+			vmi := newVirtualMachine("testvmi", v1.Running)
+			migration := newMigration("testmigration", vmi.Name, v1.MigrationPending)
+
+			addMigration(migration)
+			addVirtualMachine(vmi)
+			shouldExpectPodCreation(vmi.UID, migration.UID)
+
+			controller.Execute()
+
+			testutils.ExpectEvent(recorder, SuccessfulCreatePodReason)
+		})
+
+		It("should create target pod and override previous completed migration state", func() {
+			vmi := newVirtualMachine("testvmi", v1.Running)
+			migration := newMigration("testmigration", vmi.Name, v1.MigrationPending)
+
+			vmi.Status.MigrationState = &v1.VirtualMachineInstanceMigrationState{
+				MigrationUID: "1111-2222-3333-4444",
+			}
+			addMigration(migration)
+			addVirtualMachine(vmi)
+			shouldExpectVirtualMachineMigrationState(vmi, migration.UID)
+			shouldExpectPodCreation(vmi.UID, migration.UID)
+
+			controller.Execute()
+
+			testutils.ExpectEvent(recorder, SuccessfulCreatePodReason)
+		})
+
+		It("should place migration in scheduling state if pod exists", func() {
+			vmi := newVirtualMachine("testvmi", v1.Running)
+			migration := newMigration("testmigration", vmi.Name, v1.MigrationPending)
+			pod := newTargetPodForVirtualMachine(vmi, migration, k8sv1.PodPending)
+
+			addMigration(migration)
+			addVirtualMachine(vmi)
+			podFeeder.Add(pod)
+
+			shouldExpectMigrationSchedulingState(migration)
+			controller.Execute()
+		})
+	})
+	Context("Migration should immediately fail if", func() {
+
+		table.DescribeTable("vmi moves to final state", func(phase v1.VirtualMachineInstanceMigrationPhase) {
+			vmi := newVirtualMachine("testvmi", v1.Succeeded)
+			vmi.DeletionTimestamp = now()
+			migration := newMigration("testmigration", vmi.Name, phase)
+			vmi.Status.MigrationState = &v1.VirtualMachineInstanceMigrationState{
+				MigrationUID: migration.UID,
+			}
+			pod := newTargetPodForVirtualMachine(vmi, migration, k8sv1.PodRunning)
+
+			addMigration(migration)
+			addVirtualMachine(vmi)
+			podFeeder.Add(pod)
+
+			shouldExpectMigrationFailedState(migration)
+
+			controller.Execute()
+
+			testutils.ExpectEvent(recorder, FailedMigrationReason)
+		},
+			table.Entry("in running state", v1.MigrationRunning),
+			table.Entry("in unset state", v1.MigrationPhaseUnset),
+			table.Entry("in pending state", v1.MigrationPending),
+			table.Entry("in scheduled state", v1.MigrationScheduled),
+			table.Entry("in scheduling state", v1.MigrationScheduling),
+			table.Entry("in target ready state", v1.MigrationTargetReady),
+		)
+		table.DescribeTable("Pod moves to final state", func(phase v1.VirtualMachineInstanceMigrationPhase) {
+			vmi := newVirtualMachine("testvmi", v1.Running)
+			migration := newMigration("testmigration", vmi.Name, phase)
+			vmi.Status.MigrationState = &v1.VirtualMachineInstanceMigrationState{
+				MigrationUID: migration.UID,
+			}
+			pod := newTargetPodForVirtualMachine(vmi, migration, k8sv1.PodSucceeded)
+			pod.Spec.NodeName = "node01"
+
+			addMigration(migration)
+			addVirtualMachine(vmi)
+			podFeeder.Add(pod)
+
+			shouldExpectMigrationFailedState(migration)
+
+			controller.Execute()
+
+			testutils.ExpectEvent(recorder, FailedMigrationReason)
+		},
+			table.Entry("in running state", v1.MigrationRunning),
+			table.Entry("in unset state", v1.MigrationPhaseUnset),
+			table.Entry("in pending state", v1.MigrationPending),
+			table.Entry("in scheduled state", v1.MigrationScheduled),
+			table.Entry("in scheduling state", v1.MigrationScheduling),
+			table.Entry("in target ready state", v1.MigrationTargetReady),
+		)
+		table.DescribeTable("VMI's migrate state moves to final state", func(phase v1.VirtualMachineInstanceMigrationPhase) {
+			vmi := newVirtualMachine("testvmi", v1.Running)
+			migration := newMigration("testmigration", vmi.Name, phase)
+			vmi.Status.MigrationState = &v1.VirtualMachineInstanceMigrationState{
+				MigrationUID:   migration.UID,
+				Failed:         true,
+				Completed:      true,
+				StartTimestamp: now(),
+				EndTimestamp:   now(),
+			}
+			pod := newTargetPodForVirtualMachine(vmi, migration, k8sv1.PodRunning)
+			pod.Spec.NodeName = "node01"
+
+			addMigration(migration)
+			addVirtualMachine(vmi)
+			podFeeder.Add(pod)
+
+			shouldExpectMigrationFailedState(migration)
+
+			controller.Execute()
+
+			testutils.ExpectEvent(recorder, FailedMigrationReason)
+		},
+			table.Entry("in running state", v1.MigrationRunning),
+			table.Entry("in unset state", v1.MigrationPhaseUnset),
+			table.Entry("in pending state", v1.MigrationPending),
+			table.Entry("in scheduled state", v1.MigrationScheduled),
+			table.Entry("in scheduling state", v1.MigrationScheduling),
+			table.Entry("in target ready state", v1.MigrationTargetReady),
+		)
+	})
+	Context("Migration object ", func() {
+
+		It("should hand pod over to target virt-handler", func() {
+			vmi := newVirtualMachine("testvmi", v1.Running)
+			vmi.Status.NodeName = "node02"
+			migration := newMigration("testmigration", vmi.Name, v1.MigrationScheduled)
+			pod := newTargetPodForVirtualMachine(vmi, migration, k8sv1.PodPending)
+			pod.Spec.NodeName = "node01"
+
+			addMigration(migration)
+			addVirtualMachine(vmi)
+			podFeeder.Add(pod)
+
+			shouldExpectVirtualMachineHandoff(vmi, migration.UID, "node01")
+
+			controller.Execute()
+			testutils.ExpectEvent(recorder, SuccessfulHandOverPodReason)
+		})
+		It("should transition to preparing target phase", func() {
+			vmi := newVirtualMachine("testvmi", v1.Running)
+			vmi.Status.NodeName = "node02"
+			migration := newMigration("testmigration", vmi.Name, v1.MigrationScheduled)
+			pod := newTargetPodForVirtualMachine(vmi, migration, k8sv1.PodPending)
+			pod.Spec.NodeName = "node01"
+
+			vmi.Status.MigrationState = &v1.VirtualMachineInstanceMigrationState{
+				MigrationUID: migration.UID,
+				TargetNode:   "node01",
+				SourceNode:   "node02",
+			}
+			vmi.Labels[v1.MigrationTargetNodeNameLabel] = "node01"
+			addMigration(migration)
+			addVirtualMachine(vmi)
+			podFeeder.Add(pod)
+
+			shouldExpectMigrationPreparingTargetState(migration)
+
+			controller.Execute()
+		})
+		It("should transition to target prepared phase", func() {
+			vmi := newVirtualMachine("testvmi", v1.Running)
+			vmi.Status.NodeName = "node02"
+			migration := newMigration("testmigration", vmi.Name, v1.MigrationPreparingTarget)
+			pod := newTargetPodForVirtualMachine(vmi, migration, k8sv1.PodPending)
+			pod.Spec.NodeName = "node01"
+
+			vmi.Status.MigrationState = &v1.VirtualMachineInstanceMigrationState{
+				MigrationUID:      migration.UID,
+				TargetNode:        "node01",
+				SourceNode:        "node02",
+				TargetNodeAddress: "10.10.10.10:1234",
+			}
+			addMigration(migration)
+			addVirtualMachine(vmi)
+			podFeeder.Add(pod)
+
+			shouldExpectMigrationTargetReadyState(migration)
+
+			controller.Execute()
+		})
+		It("should transition to running phase", func() {
+			vmi := newVirtualMachine("testvmi", v1.Running)
+			vmi.Status.NodeName = "node02"
+			migration := newMigration("testmigration", vmi.Name, v1.MigrationTargetReady)
+			pod := newTargetPodForVirtualMachine(vmi, migration, k8sv1.PodPending)
+			pod.Spec.NodeName = "node01"
+
+			vmi.Status.MigrationState = &v1.VirtualMachineInstanceMigrationState{
+				MigrationUID:      migration.UID,
+				TargetNode:        "node01",
+				SourceNode:        "node02",
+				TargetNodeAddress: "10.10.10.10:1234",
+				StartTimestamp:    now(),
+			}
+			addMigration(migration)
+			addVirtualMachine(vmi)
+			podFeeder.Add(pod)
+
+			shouldExpectMigrationRunningState(migration)
+
+			controller.Execute()
+		})
+		It("should transition to completed phase", func() {
+			vmi := newVirtualMachine("testvmi", v1.Running)
+			vmi.Status.NodeName = "node02"
+			migration := newMigration("testmigration", vmi.Name, v1.MigrationRunning)
+			pod := newTargetPodForVirtualMachine(vmi, migration, k8sv1.PodPending)
+			pod.Spec.NodeName = "node01"
+
+			vmi.Status.MigrationState = &v1.VirtualMachineInstanceMigrationState{
+				MigrationUID:      migration.UID,
+				TargetNode:        "node01",
+				SourceNode:        "node02",
+				TargetNodeAddress: "10.10.10.10:1234",
+				StartTimestamp:    now(),
+				EndTimestamp:      now(),
+				Failed:            false,
+				Completed:         true,
+			}
+			addMigration(migration)
+			addVirtualMachine(vmi)
+			podFeeder.Add(pod)
+
+			shouldExpectMigrationCompletedState(migration)
+
+			controller.Execute()
+			testutils.ExpectEvent(recorder, SuccessfulMigrationReason)
+		})
+	})
+})
+
+func newMigration(name string, vmiName string, phase v1.VirtualMachineInstanceMigrationPhase) *v1.VirtualMachineInstanceMigration {
+
+	migration := &v1.VirtualMachineInstanceMigration{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: "default",
+		},
+		Spec: v1.VirtualMachineInstanceMigrationSpec{
+			VMIName: vmiName,
+		},
+	}
+	migration.TypeMeta = metav1.TypeMeta{
+		APIVersion: v1.GroupVersion.String(),
+		Kind:       "VirtualMachineInstanceMigration",
+	}
+	migration.UID = "1234"
+	migration.Status.Phase = phase
+	return migration
+}
+
+func newVirtualMachine(name string, phase v1.VirtualMachineInstancePhase) *v1.VirtualMachineInstance {
+	vmi := v1.NewMinimalVMI(name)
+	vmi.UID = "1234"
+	vmi.Status.Phase = phase
+	vmi.ObjectMeta.Labels = make(map[string]string)
+	return vmi
+}
+
+func newTargetPodForVirtualMachine(vmi *v1.VirtualMachineInstance, migration *v1.VirtualMachineInstanceMigration, phase k8sv1.PodPhase) *k8sv1.Pod {
+	return &k8sv1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test",
+			Namespace: vmi.Namespace,
+			Labels: map[string]string{
+				v1.AppLabel:          "virt-launcher",
+				v1.CreatedByLabel:    string(vmi.UID),
+				v1.MigrationJobLabel: string(migration.UID),
+			},
+			Annotations: map[string]string{
+				v1.DomainAnnotation:           vmi.Name,
+				v1.OwnedByAnnotation:          "virt-controller",
+				v1.MigrationJobNameAnnotation: migration.Name,
+			},
+		},
+		Status: k8sv1.PodStatus{
+			Phase: phase,
+			ContainerStatuses: []k8sv1.ContainerStatus{
+				{Ready: true, Name: "test"},
+			},
+		},
+	}
+}

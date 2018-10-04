@@ -268,6 +268,13 @@ func (c *MigrationController) updateStatus(migration *virtv1.VirtualMachineInsta
 		migrationCopy.Status.Phase = virtv1.MigrationFailed
 		c.recorder.Eventf(migration, k8sv1.EventTypeWarning, FailedMigrationReason, "VMI's migration state was taken over by another migration job during active migration.")
 		log.Log.Object(migration).Error("vmi's migration state was taken over by another migration object")
+	} else if vmi.Status.MigrationState != nil &&
+		vmi.Status.MigrationState.MigrationUID == migration.UID &&
+		vmi.Status.MigrationState.Failed {
+
+		migrationCopy.Status.Phase = virtv1.MigrationFailed
+		c.recorder.Eventf(migration, k8sv1.EventTypeWarning, FailedMigrationReason, "Source node reported migration failed")
+		log.Log.Object(migration).Error("VMI reported migration failed.")
 	} else {
 
 		switch migration.Status.Phase {
@@ -295,7 +302,7 @@ func (c *MigrationController) updateStatus(migration *virtv1.VirtualMachineInsta
 				migrationCopy.Status.Phase = virtv1.MigrationScheduled
 			}
 		case virtv1.MigrationScheduled:
-			if vmi.Status.MigrationState != nil {
+			if vmi.Status.MigrationState != nil && vmi.Status.MigrationState.TargetNode != "" {
 				migrationCopy.Status.Phase = virtv1.MigrationPreparingTarget
 			}
 		case virtv1.MigrationPreparingTarget:
@@ -311,10 +318,6 @@ func (c *MigrationController) updateStatus(migration *virtv1.VirtualMachineInsta
 				migrationCopy.Status.Phase = virtv1.MigrationSucceeded
 				c.recorder.Eventf(migration, k8sv1.EventTypeNormal, SuccessfulMigrationReason, "Source node reported migration succeeded")
 				log.Log.Object(migration).Infof("VMI reported migration succeeded.")
-			} else if vmi.Status.MigrationState.Failed {
-				migrationCopy.Status.Phase = virtv1.MigrationFailed
-				c.recorder.Eventf(migration, k8sv1.EventTypeWarning, FailedMigrationReason, "Source node reported migration failed")
-				log.Log.Object(migration).Error("VMI reported migration failed.")
 			}
 		}
 	}
@@ -380,6 +383,12 @@ func (c *MigrationController) sync(migration *virtv1.VirtualMachineInstanceMigra
 	if vmi == nil || vmi.DeletionTimestamp != nil {
 		// nothing to do with a deleted vmi
 		return nil
+	} else if vmi.Status.MigrationState != nil &&
+		vmi.Status.MigrationState.MigrationUID == migration.UID &&
+		vmi.Status.MigrationState.EndTimestamp != nil {
+
+		// nothing to do here, the migration is done
+		return nil
 	}
 
 	canMigrate, err := c.canMigrateVMI(migration, vmi)
@@ -394,7 +403,7 @@ func (c *MigrationController) sync(migration *virtv1.VirtualMachineInstanceMigra
 	switch migration.Status.Phase {
 	case virtv1.MigrationPending:
 
-		if vmi.Status.MigrationState != nil {
+		if vmi.Status.MigrationState != nil && vmi.Status.MigrationState.MigrationUID != migration.UID {
 			vmiCopy := vmi.DeepCopy()
 			// initialize the vmi's migration state
 			vmiCopy.Status.MigrationState = &virtv1.VirtualMachineInstanceMigrationState{
@@ -415,7 +424,7 @@ func (c *MigrationController) sync(migration *virtv1.VirtualMachineInstanceMigra
 	case virtv1.MigrationScheduled:
 		// once target pod is scheduled, alert the VMI of the migration by
 		// setting the target and source nodes. This kicks off the preparation stage.
-		if podExists {
+		if podExists && !podIsDown(pod) {
 			vmiCopy := vmi.DeepCopy()
 			vmiCopy.Status.MigrationState = &virtv1.VirtualMachineInstanceMigrationState{
 				MigrationUID: migration.UID,
@@ -427,12 +436,15 @@ func (c *MigrationController) sync(migration *virtv1.VirtualMachineInstanceMigra
 			// the vmi and prepare the local environment for the migration
 			vmiCopy.ObjectMeta.Labels[virtv1.MigrationTargetNodeNameLabel] = pod.Spec.NodeName
 
-			_, err := c.clientset.VirtualMachineInstance(vmi.Namespace).Update(vmiCopy)
-			if err != nil {
-				c.recorder.Eventf(migration, k8sv1.EventTypeWarning, FailedHandOverPodReason, fmt.Sprintf("Failed to set MigrationStat in VMI status. :%v", err))
-				return err
+			if !reflect.DeepEqual(vmi.Status, vmiCopy.Status) ||
+				!reflect.DeepEqual(vmi.Labels, vmiCopy.Labels) {
+				_, err := c.clientset.VirtualMachineInstance(vmi.Namespace).Update(vmiCopy)
+				if err != nil {
+					c.recorder.Eventf(migration, k8sv1.EventTypeWarning, FailedHandOverPodReason, fmt.Sprintf("Failed to set MigrationStat in VMI status. :%v", err))
+					return err
+				}
+				c.recorder.Eventf(migration, k8sv1.EventTypeNormal, SuccessfulHandOverPodReason, "Migration target pod is ready for preparation by virt-handler.")
 			}
-			c.recorder.Eventf(migration, k8sv1.EventTypeNormal, SuccessfulHandOverPodReason, "Migration target pod is ready for preparation by virt-handler.")
 		}
 	}
 	return nil
