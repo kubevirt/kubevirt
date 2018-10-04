@@ -65,7 +65,7 @@ func filterPresets(list []kubev1.VirtualMachineInstancePreset, vmi *kubev1.Virtu
 	return matchingPresets, nil
 }
 
-func checkMergeConflicts(presetSpec *kubev1.DomainSpec, vmiSpec *kubev1.DomainSpec) error {
+func checkMergeConflicts(presetSpec *kubev1.PresetDomainSpec, vmiSpec *kubev1.PresetDomainSpec) error {
 	errors := []error{}
 	if len(presetSpec.Resources.Requests) > 0 {
 		for key, presetReq := range presetSpec.Resources.Requests {
@@ -79,11 +79,6 @@ func checkMergeConflicts(presetSpec *kubev1.DomainSpec, vmiSpec *kubev1.DomainSp
 	if presetSpec.CPU != nil && vmiSpec.CPU != nil {
 		if !reflect.DeepEqual(presetSpec.CPU, vmiSpec.CPU) {
 			errors = append(errors, fmt.Errorf("spec.cpu: %v != %v", presetSpec.CPU, vmiSpec.CPU))
-		}
-	}
-	if presetSpec.Firmware != nil && vmiSpec.Firmware != nil {
-		if !reflect.DeepEqual(presetSpec.Firmware, vmiSpec.Firmware) {
-			errors = append(errors, fmt.Errorf("spec.firmware: %v != %v", presetSpec.Firmware, vmiSpec.Firmware))
 		}
 	}
 	if presetSpec.Clock != nil && vmiSpec.Clock != nil {
@@ -118,8 +113,8 @@ func checkMergeConflicts(presetSpec *kubev1.DomainSpec, vmiSpec *kubev1.DomainSp
 	return nil
 }
 
-func mergeDomainSpec(presetSpec *kubev1.DomainSpec, vmiSpec *kubev1.DomainSpec) (bool, error) {
-	presetConflicts := checkMergeConflicts(presetSpec, vmiSpec)
+func mergeDomainSpec(presetSpec *kubev1.PresetDomainSpec, vmiSpec *kubev1.DomainSpec) (bool, error) {
+	overrides := []error{}
 	applied := false
 
 	if len(presetSpec.Resources.Requests) > 0 {
@@ -131,6 +126,15 @@ func mergeDomainSpec(presetSpec *kubev1.DomainSpec, vmiSpec *kubev1.DomainSpec) 
 		}
 		if reflect.DeepEqual(vmiSpec.Resources.Requests, presetSpec.Resources.Requests) {
 			applied = true
+		} else {
+			// list which specific key(s) mismatched as opposed to the entire structure
+			for key, presetReq := range presetSpec.Resources.Requests {
+				if vmiReq, ok := vmiSpec.Resources.Requests[key]; ok {
+					if presetReq != vmiReq {
+						overrides = append(overrides, fmt.Errorf("spec.resources.requests[%s]: %v != %v", key, presetReq, vmiReq))
+					}
+				}
+			}
 		}
 	}
 	if presetSpec.CPU != nil {
@@ -140,15 +144,8 @@ func mergeDomainSpec(presetSpec *kubev1.DomainSpec, vmiSpec *kubev1.DomainSpec) 
 		}
 		if reflect.DeepEqual(vmiSpec.CPU, presetSpec.CPU) {
 			applied = true
-		}
-	}
-	if presetSpec.Firmware != nil {
-		if vmiSpec.Firmware == nil {
-			vmiSpec.Firmware = &kubev1.Firmware{}
-			presetSpec.Firmware.DeepCopyInto(vmiSpec.Firmware)
-		}
-		if reflect.DeepEqual(vmiSpec.Firmware, presetSpec.Firmware) {
-			applied = true
+		} else {
+			overrides = append(overrides, fmt.Errorf("spec.cpu: %v != %v", presetSpec.CPU, vmiSpec.CPU))
 		}
 	}
 	if presetSpec.Clock != nil {
@@ -158,6 +155,8 @@ func mergeDomainSpec(presetSpec *kubev1.DomainSpec, vmiSpec *kubev1.DomainSpec) 
 		}
 		if reflect.DeepEqual(vmiSpec.Clock, presetSpec.Clock) {
 			applied = true
+		} else {
+			overrides = append(overrides, fmt.Errorf("spec.clock.clockoffset: %v != %v", presetSpec.Clock.ClockOffset, vmiSpec.Clock.ClockOffset))
 		}
 
 		if presetSpec.Clock.Timer != nil {
@@ -167,6 +166,8 @@ func mergeDomainSpec(presetSpec *kubev1.DomainSpec, vmiSpec *kubev1.DomainSpec) 
 			}
 			if reflect.DeepEqual(vmiSpec.Clock.Timer, presetSpec.Clock.Timer) {
 				applied = true
+			} else {
+				overrides = append(overrides, fmt.Errorf("spec.clock.timer: %v != %v", presetSpec.Clock.Timer, vmiSpec.Clock.Timer))
 			}
 		}
 	}
@@ -177,6 +178,8 @@ func mergeDomainSpec(presetSpec *kubev1.DomainSpec, vmiSpec *kubev1.DomainSpec) 
 		}
 		if reflect.DeepEqual(vmiSpec.Features, presetSpec.Features) {
 			applied = true
+		} else {
+			overrides = append(overrides, fmt.Errorf("spec.features: %v != %v", presetSpec.Features, vmiSpec.Features))
 		}
 	}
 	if presetSpec.Devices.Watchdog != nil {
@@ -186,6 +189,8 @@ func mergeDomainSpec(presetSpec *kubev1.DomainSpec, vmiSpec *kubev1.DomainSpec) 
 		}
 		if reflect.DeepEqual(vmiSpec.Devices.Watchdog, presetSpec.Devices.Watchdog) {
 			applied = true
+		} else {
+			overrides = append(overrides, fmt.Errorf("spec.devices.watchdog: %v != %v", presetSpec.Devices.Watchdog, vmiSpec.Devices.Watchdog))
 		}
 	}
 	if presetSpec.IOThreadsPolicy != nil {
@@ -195,10 +200,15 @@ func mergeDomainSpec(presetSpec *kubev1.DomainSpec, vmiSpec *kubev1.DomainSpec) 
 		}
 		if reflect.DeepEqual(vmiSpec.IOThreadsPolicy, presetSpec.IOThreadsPolicy) {
 			applied = true
+		} else {
+			overrides = append(overrides, fmt.Errorf("spec.ioThreadsPolicy: %v != %v", presetSpec.IOThreadsPolicy, vmiSpec.IOThreadsPolicy))
 		}
 	}
 
-	return applied, presetConflicts
+	if len(overrides) > 0 {
+		return applied, utilerrors.NewAggregate(overrides)
+	}
+	return applied, nil
 }
 
 // Compare the domain of every preset to ensure they can all be applied cleanly
