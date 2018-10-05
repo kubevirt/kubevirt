@@ -1,5 +1,5 @@
-hash: 6e9e2ce81edeb5789893f4369e854a8ec66a3bf12488299fffb037d5f72e95d6
-updated: 2018-09-25T07:19:42.538982054Z
+hash: 0e02c777c8be7b2671fa76cd5c5a95220b946d75c26ea25bcfa5ae8534833e54
+updated: 2018-10-04T12:48:58.163436245Z
 imports:
 - name: cloud.google.com/go
   version: 3b1ae45394a234c385be014e9a488f2bb6eef821
@@ -93,7 +93,7 @@ imports:
 - name: github.com/google/btree
   version: 7d79101e329e5a3adf994758c578dab82b90c017
 - name: github.com/google/goexpect
-  version: 88b7cf98484152f464f685e94dc4334205362983
+  version: b18097df138928108f35d9eb94955cc12954c0d5
 - name: github.com/google/gofuzz
   version: 44d81051d367757e1c7c6a5a86423ece9afcf63c
 - name: github.com/google/goterm
@@ -141,7 +141,7 @@ imports:
 - name: github.com/kr/logfmt
   version: b84e30acd515aadc4b783ad4ff83aff3299bdfe0
 - name: github.com/krolaw/dhcp4
-  version: 054a8f9eea918b9693b7b24ab027788e5a6182da
+  version: 7cead472c414711982509839c1a6a324d4c70ce6
   subpackages:
   - conn
 - name: github.com/libvirt/libvirt-go
@@ -354,13 +354,13 @@ imports:
 - name: gopkg.in/inf.v0
   version: 3887ee99ecf07df5b447e9b00d9c0b2adaa9f3e4
 - name: gopkg.in/ini.v1
-  version: 5cf292cae48347c2490ac1a58fe36735fb78df7e
+  version: 7b294651033cd7d9e7f0d9ffa1b75ed1e198e737
 - name: gopkg.in/tomb.v1
   version: c131134a1947e9afd9cecfe11f4c6dff0732ae58
 - name: gopkg.in/yaml.v2
   version: 670d4cfef0544295bc27a114dbac37980d83185a
 - name: k8s.io/api
-  version: 4e7be11eab3ffcfc1876898b8272df53785a9504
+  version: 2d6f90ab1293a1fb871cf149423ebb72aa7423aa
   subpackages:
   - admission/v1beta1
   - admissionregistration/v1alpha1
@@ -394,12 +394,12 @@ imports:
   - storage/v1alpha1
   - storage/v1beta1
 - name: k8s.io/apiextensions-apiserver
-  version: b05d9bb7cc74a62c5daac9cef31894343e5d2c9b
+  version: 408db4a50408e2149acbd657bceb2480c13cb0a4
   subpackages:
   - pkg/apis/apiextensions
   - pkg/apis/apiextensions/v1beta1
 - name: k8s.io/apimachinery
-  version: def12e63c512da17043b4f0293f52d1006603d9f
+  version: 103fd098999dc9c0c88536f5c9ad2e5da39373ae
   subpackages:
   - pkg/api/errors
   - pkg/api/meta
@@ -449,7 +449,7 @@ imports:
   - third_party/forked/golang/netutil
   - third_party/forked/golang/reflect
 - name: k8s.io/client-go
-  version: 2cefa64ff137e128daeddbd1775cd775708a05bf
+  version: 1f13a808da65775f22cbf47862c4e5898d8f4ca1
   subpackages:
   - discovery
   - discovery/fake
@@ -558,7 +558,7 @@ imports:
   - util/retry
   - util/workqueue
 - name: k8s.io/kube-aggregator
-  version: 07bfdba27d43fe6b7eea965213b3aad555de2457
+  version: 8e086f01c3c3620eca0eb45024cf7eafc0c54ba1
   subpackages:
   - pkg/apis/apiregistration
   - pkg/apis/apiregistration/v1
