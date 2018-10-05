@@ -825,8 +825,10 @@ type Network struct {
 // ---
 // +k8s:openapi-gen=true
 type NetworkSource struct {
-	Pod    *PodNetwork    `json:"pod,omitempty"`
-	Multus *MultusNetwork `json:"multus,omitempty"`
+	Pod    *PodNetwork `json:"pod,omitempty"`
+	Multus *CniNetwork `json:"multus,omitempty"`
+	Kuryr  *CniNetwork `json:"kuryr,omitempty"`
+	Genie  *CniNetwork `json:"genie,omitempty"`
 }
 
 // Represents the stock pod network interface.
@@ -844,10 +846,11 @@ type PodNetwork struct {
 type Rng struct {
 }
 
-// Represents the multus cni network.
+// Represents the cni network.
 // ---
 // +k8s:openapi-gen=true
-type MultusNetwork struct {
+type CniNetwork struct {
 	// References to a NetworkAttachmentDefinition CRD object in the same namespace.
+	// In case of genie, it references the CNI plugin name.
 	NetworkName string `json:"networkName"`
 }

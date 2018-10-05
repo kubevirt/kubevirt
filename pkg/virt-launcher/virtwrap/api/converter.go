@@ -716,18 +716,30 @@ func Convert_v1_VirtualMachine_To_api_Domain(vmi *v1.VirtualMachineInstance, dom
 	}
 
 	networks := map[string]*v1.Network{}
-	multusNetworks := map[string]int{}
+	cniNetworks := map[string]int{}
 	for _, network := range vmi.Spec.Networks {
-		if network.Multus == nil && network.Pod == nil {
-			return fmt.Errorf("fail network %s must have a network type", network.Name)
+		numberOfSources := 0
+		if network.Pod != nil {
+			numberOfSources++
 		}
-		if network.Multus != nil && network.Pod != nil {
+		if network.Multus != nil {
+			cniNetworks[network.Name] = len(cniNetworks) + 1
+			numberOfSources++
+		}
+		if network.Kuryr != nil {
+			cniNetworks[network.Name] = len(cniNetworks) + 1
+			numberOfSources++
+		}
+		if network.Genie != nil {
+			cniNetworks[network.Name] = len(cniNetworks)
+			numberOfSources++
+		}
+		if numberOfSources == 0 {
+			return fmt.Errorf("fail network %s must have a network type", network.Name)
+		} else if numberOfSources > 1 {
 			return fmt.Errorf("fail network %s must have only one network type", network.Name)
 		}
 		networks[network.Name] = network.DeepCopy()
-		if network.Multus != nil {
-			multusNetworks[network.Name] = len(multusNetworks) + 1
-		}
 	}
 
 	for _, iface := range vmi.Spec.Domain.Devices.Interfaces {
@@ -764,9 +776,16 @@ func Convert_v1_VirtualMachine_To_api_Domain(vmi *v1.VirtualMachineInstance, dom
 			// TODO:(ihar) consider abstracting interface type conversion /
 			// detection into drivers
 			domainIface.Type = "bridge"
-			if value, ok := multusNetworks[iface.Name]; ok {
+			if value, ok := cniNetworks[iface.Name]; ok {
+				prefix := ""
+				// no error check, we assume that CNI type was set correctly
+				if net.Multus != nil {
+					prefix = "net"
+				} else if net.Kuryr != nil || net.Genie != nil {
+					prefix = "eth"
+				}
 				domainIface.Source = InterfaceSource{
-					Bridge: fmt.Sprintf("k6t-net%d", value),
+					Bridge: fmt.Sprintf("k6t-%s%d", prefix, value),
 				}
 			} else {
 				domainIface.Source = InterfaceSource{

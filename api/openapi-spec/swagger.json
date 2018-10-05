@@ -3331,6 +3331,18 @@
      }
     }
    },
+   "v1.CniNetwork": {
+    "description": "Represents the cni network.",
+    "required": [
+     "networkName"
+    ],
+    "properties": {
+     "networkName": {
+      "description": "References to a NetworkAttachmentDefinition CRD object in the same namespace.\nIn case of genie, it references the CNI plugin name.",
+      "type": "string"
+     }
+    }
+   },
    "v1.ConfigMapVolumeSource": {
     "description": "ConfigMapVolumeSource adapts a ConfigMap into a volume.\nMore info: https://kubernetes.io/docs/concepts/storage/volumes/#configmap",
     "properties": {
@@ -3923,26 +3935,20 @@
      }
     }
    },
-   "v1.MultusNetwork": {
-    "description": "Represents the multus cni network.",
-    "required": [
-     "networkName"
-    ],
-    "properties": {
-     "networkName": {
-      "description": "References to a NetworkAttachmentDefinition CRD object in the same namespace.",
-      "type": "string"
-     }
-    }
-   },
    "v1.Network": {
     "description": "Network represents a network type and a resource that should be connected to the vm.",
     "required": [
      "name"
     ],
     "properties": {
+     "genie": {
+      "$ref": "#/definitions/v1.CniNetwork"
+     },
+     "kuryr": {
+      "$ref": "#/definitions/v1.CniNetwork"
+     },
      "multus": {
-      "$ref": "#/definitions/v1.MultusNetwork"
+      "$ref": "#/definitions/v1.CniNetwork"
      },
      "name": {
       "description": "Network name.\nMust be a DNS_LABEL and unique within the vm.\nMore info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names",
