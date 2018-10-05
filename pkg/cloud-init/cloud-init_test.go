@@ -131,7 +131,6 @@ var _ = Describe("CloudInit", func() {
 			Context("with multiple data dirs and files", func() {
 				It("should list all VirtualMachineInstance's", func() {
 					var domains []string
-					fmt.Println(tmpDir)
 					domains = append(domains, "fakens1/fakedomain1")
 					domains = append(domains, "fakens1/fakedomain2")
 					domains = append(domains, "fakens2/fakedomain1")

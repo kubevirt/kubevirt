@@ -128,6 +128,7 @@ func DefaultLogger() *FilteredLogger {
 
 func (l *FilteredLogger) SetIOWriter(w io.Writer) {
 	l.logContext = log.NewContext(log.NewJSONLogger(w))
+	glog.SetIOWriter(w)
 }
 
 func (l *FilteredLogger) SetLogger(logger log.Logger) *FilteredLogger {

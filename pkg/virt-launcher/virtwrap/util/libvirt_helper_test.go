@@ -35,6 +35,7 @@ const (
 2018-10-04 09:20:44.174+0000: 26: error : virDBusGetSystemBus:109 : internal error: Unable to get DBus system bus connection: Failed to connect to socket /run/dbus/system_bus_socket: No such file or directory
 2018-10-04 09:20:44.177+0000: 26: warning : qemuInterfaceOpenVhostNet:687 : Unable to open vhost-net. Opened so far 0, requested 1
 2018-10-04 09:20:44.284+0000: 26: error : virCgroupDetect:714 : At least one cgroup controller is required: No such device or address
+2018-10-04 13:39:13.905+0000: 26: error : virCgroupDetect:715 : At least one cgroup controller is required: No such device or address
 `
 
 	formattedLogs = `{"component":"test","level":"info","msg":"libvirt version: 4.2.0, package: 1.fc28 (Unknown, 2018-04-04-03:04:18, a0570af3fea64d0ba2df52242c71403f)","subcomponent":"libvirt","timestamp":"2018-10-04T09:20:33.702000Z"}
@@ -55,16 +56,18 @@ const (
 {"component":"test","level":"warning","msg":"Failed to get host power management capabilities","pos":"virQEMUCapsInit:1229","subcomponent":"libvirt","timestamp":"2018-10-04T09:20:34.474000Z"}
 {"component":"test","level":"error","msg":"internal error: Unable to get DBus system bus connection: Failed to connect to socket /run/dbus/system_bus_socket: No such file or directory","pos":"virDBusGetSystemBus:109","subcomponent":"libvirt","timestamp":"2018-10-04T09:20:44.174000Z"}
 {"component":"test","level":"warning","msg":"Unable to open vhost-net. Opened so far 0, requested 1","pos":"qemuInterfaceOpenVhostNet:687","subcomponent":"libvirt","timestamp":"2018-10-04T09:20:44.177000Z"}
-{"component":"test","level":"error","msg":"At least one cgroup controller is required: No such device or address","pos":"virCgroupDetect:714","subcomponent":"libvirt","timestamp":"2018-10-04T09:20:44.284000Z"}`
+{"component":"test","level":"error","msg":"At least one cgroup controller is required: No such device or address","pos":"virCgroupDetect:714","subcomponent":"libvirt","timestamp":"2018-10-04T09:20:44.284000Z"}
+{"component":"test","level":"error","msg":"At least one cgroup controller is required: No such device or address","pos":"virCgroupDetect:715","subcomponent":"libvirt","timestamp":"2018-10-04T13:39:13.905000Z"}`
 )
 
 var _ = Describe("LibvirtHelper", func() {
-	buffer := bytes.NewBuffer(nil)
-
-	logger := log.NewContext(log.NewJSONLogger(buffer))
-	glog.SetupWithLogger(logger, "test", 10)
 
 	It("should parse libvirt logs", func() {
+		buffer := bytes.NewBuffer(nil)
+
+		logger := log.NewContext(log.NewJSONLogger(buffer))
+		glog.SetupWithLogger(logger, "test", 10)
+
 		scanner := bufio.NewScanner(strings.NewReader(logs))
 		for scanner.Scan() {
 			glog.LogLibvirtLogLine(scanner.Text())

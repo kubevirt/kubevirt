@@ -1059,6 +1059,7 @@ func False() *bool {
 }
 
 func TestTemplate(t *testing.T) {
+	log.Log.SetIOWriter(GinkgoWriter)
 	RegisterFailHandler(Fail)
 	RunSpecs(t, "Template")
 }

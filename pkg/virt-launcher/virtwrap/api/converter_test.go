@@ -61,7 +61,6 @@ var _ = Describe("Converter", func() {
   <boot order="1"></boot>
 </Disk>`
 			xml := diskToDiskXML(kubevirtDisk)
-			fmt.Println(xml)
 			Expect(xml).To(Equal(convertedDisk))
 		})
 
@@ -82,7 +81,6 @@ var _ = Describe("Converter", func() {
   <alias name="ua-mydisk"></alias>
 </Disk>`
 			xml := diskToDiskXML(kubevirtDisk)
-			fmt.Println(xml)
 			Expect(xml).To(Equal(convertedDisk))
 		})
 

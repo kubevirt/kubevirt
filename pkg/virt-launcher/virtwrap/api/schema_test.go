@@ -21,7 +21,6 @@ package api
 
 import (
 	"encoding/xml"
-	"fmt"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -206,7 +205,6 @@ var _ = Describe("Schema", func() {
 		It("Marshal into xml", func() {
 			buf, err := xml.MarshalIndent(exampleDomain.Spec, "", "  ")
 			Expect(err).To(BeNil())
-			fmt.Printf(string(buf))
 			Expect(string(buf)).To(Equal(exampleXML))
 		})
 	})
