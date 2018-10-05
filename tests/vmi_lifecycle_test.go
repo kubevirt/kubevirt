@@ -610,9 +610,8 @@ var _ = Describe("VMIlifecycle", func() {
 		Context("with non default namespace", func() {
 			table.DescribeTable("should log libvirt start and stop lifecycle events of the domain", func(namespace string) {
 
-				nodes, err := virtClient.CoreV1().Nodes().List(metav1.ListOptions{})
-				Expect(err).ToNot(HaveOccurred())
-				Expect(nodes.Items).ToNot(BeEmpty())
+				nodes := tests.GetAllSchedulableNodes(virtClient)
+				Expect(nodes.Items).ToNot(BeEmpty(), "There should be some compute node")
 				node := nodes.Items[0].Name
 
 				By("Creating a VirtualMachineInstance with different namespace")
@@ -878,12 +877,10 @@ var _ = Describe("VMIlifecycle", func() {
 			})
 
 			It("Should provide KVM via plugin framework", func() {
-				listOptions := metav1.ListOptions{}
-				nodeList, err := virtClient.CoreV1().Nodes().List(listOptions)
-				Expect(err).ToNot(HaveOccurred())
+				nodeList := tests.GetAllSchedulableNodes(virtClient)
 
 				if len(nodeList.Items) == 0 {
-					Skip("Unable to inspect nodes in cluster")
+					Skip("There are no compute nodes in cluster")
 				}
 				node := nodeList.Items[0]
 
@@ -1020,9 +1017,8 @@ var _ = Describe("VMIlifecycle", func() {
 		})
 		Context("with grace period greater than 0", func() {
 			It("should run graceful shutdown", func() {
-				nodes, err := virtClient.CoreV1().Nodes().List(metav1.ListOptions{})
-				Expect(err).ToNot(HaveOccurred())
-				Expect(nodes.Items).ToNot(BeEmpty())
+				nodes := tests.GetAllSchedulableNodes(virtClient)
+				Expect(nodes.Items).ToNot(BeEmpty(), "There should be some compute node")
 				node := nodes.Items[0].Name
 
 				virtHandlerPod, err := kubecli.NewVirtHandlerClient(virtClient).ForNode(node).Pod()
