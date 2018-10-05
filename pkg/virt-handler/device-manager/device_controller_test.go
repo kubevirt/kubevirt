@@ -5,13 +5,10 @@ import (
 	"io/ioutil"
 	"os"
 	"path"
-	"testing"
 	"time"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-
-	"kubevirt.io/kubevirt/pkg/log"
 )
 
 type FakePlugin struct {
@@ -186,9 +183,3 @@ var _ = Describe("Device Controller", func() {
 		})
 	})
 })
-
-func TestController(t *testing.T) {
-	log.Log.SetIOWriter(GinkgoWriter)
-	RegisterFailHandler(Fail)
-	RunSpecs(t, "Device Controller")
-}
