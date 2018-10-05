@@ -20,6 +20,7 @@
 package virthandler
 
 import (
+	"fmt"
 	"io/ioutil"
 	"os"
 	"time"
@@ -76,6 +77,8 @@ var _ = Describe("VirtualMachineInstance", func() {
 	var testUUID types.UID
 	var stop chan struct{}
 
+	var host string
+
 	log.Log.SetIOWriter(GinkgoWriter)
 
 	BeforeEach(func() {
@@ -83,7 +86,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 		shareDir, err = ioutil.TempDir("", "kubevirt-share")
 		Expect(err).ToNot(HaveOccurred())
 
-		host := "master"
+		host = "master"
 		podIpAddress := "10.10.10.10"
 
 		Expect(err).ToNot(HaveOccurred())
@@ -418,6 +421,124 @@ var _ = Describe("VirtualMachineInstance", func() {
 			table.Entry("succeeded", v1.Succeeded),
 			table.Entry("failed", v1.Failed),
 		)
+
+		It("should leave VirtualMachineInstance phase alone if not the current active node", func() {
+			vmi := v1.NewMinimalVMI("testvmi")
+			vmi.ObjectMeta.ResourceVersion = "1"
+			vmi.Status.Phase = v1.Running
+			vmi.Status.NodeName = "othernode"
+
+			// no domain would result in a failure, but the NodeName is not
+			// equal to controller.host's node, so we know that this node
+			// does not own the vmi right now.
+
+			vmiFeeder.Add(vmi)
+			controller.Execute()
+		})
+
+		It("should prepare migration target", func() {
+			vmi := v1.NewMinimalVMI("testvmi")
+			vmi.UID = testUUID
+			vmi.ObjectMeta.ResourceVersion = "1"
+			vmi.Status.Phase = v1.Running
+			vmi.Labels = make(map[string]string)
+			vmi.Status.NodeName = "othernode"
+			vmi.Labels[v1.MigrationTargetNodeNameLabel] = host
+			vmi.Status.MigrationState = &v1.VirtualMachineInstanceMigrationState{
+				TargetNode:   host,
+				SourceNode:   "othernode",
+				MigrationUID: "123",
+			}
+
+			mockWatchdog.CreateFile(vmi)
+			vmiFeeder.Add(vmi)
+
+			// since a random port is generated, we have to create the proxy
+			// here in order to know what port will be in the update.
+			err := controller.handleMigrationProxy(vmi)
+			Expect(err).NotTo(HaveOccurred())
+
+			curPort := controller.migrationProxy.GetTargetListenerPort(string(vmi.UID))
+			updatedVmi := vmi.DeepCopy()
+			updatedVmi.Status.MigrationState.TargetNodeAddress = fmt.Sprintf("%s:%d", controller.ipAddress, curPort)
+
+			client.EXPECT().Ping()
+			client.EXPECT().SyncMigrationTarget(vmi)
+
+			vmiInterface.EXPECT().Update(updatedVmi)
+
+			controller.Execute()
+		}, 3)
+
+		It("should migrate vmi once target address is known", func() {
+			vmi := v1.NewMinimalVMI("testvmi")
+			vmi.UID = testUUID
+			vmi.ObjectMeta.ResourceVersion = "1"
+			vmi.Status.Phase = v1.Running
+			vmi.Labels = make(map[string]string)
+			vmi.Status.NodeName = host
+			vmi.Labels[v1.MigrationTargetNodeNameLabel] = "othernode"
+			vmi.Status.MigrationState = &v1.VirtualMachineInstanceMigrationState{
+				TargetNode:        "othernode",
+				TargetNodeAddress: "127.0.0.1:12345",
+				SourceNode:        host,
+				MigrationUID:      "123",
+			}
+
+			mockWatchdog.CreateFile(vmi)
+			domain := api.NewMinimalDomainWithUUID("testvmi", testUUID)
+			domain.Status.Status = api.Running
+			domainFeeder.Add(domain)
+			vmiFeeder.Add(vmi)
+
+			client.EXPECT().MigrateVirtualMachine(vmi)
+
+			controller.Execute()
+		}, 3)
+
+		It("Handoff domain to other node after completed migration", func() {
+			vmi := v1.NewMinimalVMI("testvmi")
+			vmi.UID = testUUID
+			vmi.ObjectMeta.ResourceVersion = "1"
+			vmi.Status.Phase = v1.Running
+			vmi.Labels = make(map[string]string)
+			vmi.Status.NodeName = host
+			vmi.Labels[v1.MigrationTargetNodeNameLabel] = "othernode"
+			vmi.Status.MigrationState = &v1.VirtualMachineInstanceMigrationState{
+				TargetNode:               "othernode",
+				TargetNodeAddress:        "127.0.0.1:12345",
+				SourceNode:               host,
+				MigrationUID:             "123",
+				TargetNodeDomainDetected: true,
+			}
+
+			mockWatchdog.CreateFile(vmi)
+			domain := api.NewMinimalDomainWithUUID("testvmi", testUUID)
+			domain.Status.Status = api.Shutoff
+			domain.Status.Reason = api.ReasonMigrated
+
+			now := metav1.Time{Time: time.Unix(time.Now().UTC().Unix(), 0)}
+			domain.Spec.Metadata.KubeVirt.Migration = &api.MigrationMetadata{
+				UID:            "123",
+				StartTimestamp: &now,
+				EndTimestamp:   &now,
+				Completed:      true,
+			}
+
+			domainFeeder.Add(domain)
+			vmiFeeder.Add(vmi)
+
+			vmiUpdated := vmi.DeepCopy()
+			vmiUpdated.Status.MigrationState.Completed = true
+			vmiUpdated.Status.MigrationState.StartTimestamp = &now
+			vmiUpdated.Status.MigrationState.EndTimestamp = &now
+			vmiUpdated.Status.NodeName = "othernode"
+			vmiUpdated.Labels[v1.NodeNameLabel] = "othernode"
+
+			vmiInterface.EXPECT().Update(vmiUpdated)
+
+			controller.Execute()
+		}, 3)
 	})
 })
 

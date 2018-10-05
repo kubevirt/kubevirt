@@ -252,6 +252,29 @@ func waitForDomainUUID(timeout time.Duration, events chan watch.Event, stop chan
 func waitForFinalNotify(deleteNotificationSent chan watch.Event,
 	domainManager virtwrap.DomainManager,
 	vm *v1.VirtualMachineInstance) {
+
+	log.Log.Info("Waiting on final notifications to be sent to virt-handler.")
+
+	// First attempt to wait for domain event to occur as a part of the normal shutdown flow.
+	// If that fails, call Kill on the domain and wait for the event again.
+	// If that that fails, exit. We did our best to shutdown the domain gracefully. We can't block
+	// the pod forever. Virt-handler will learn of the domain's exit through the watchdog file expire.
+
+	killTimeout := time.After(15 * time.Second)
+	timedOut := false
+	for timedOut == false {
+		select {
+		case e := <-deleteNotificationSent:
+			if e.Type == watch.Deleted {
+				log.Log.Info("Final Delete notification sent")
+				return
+			}
+		case <-killTimeout:
+			log.Log.Info("Timed out waiting for final delete notification. Attempting to kill domain")
+			timedOut = true
+		}
+	}
+
 	// There are many conditions that can cause the qemu pid to exit that
 	// don't involve the VirtualMachineInstance's domain from being deleted from libvirt.
 	//
@@ -260,17 +283,22 @@ func waitForFinalNotify(deleteNotificationSent chan watch.Event,
 	// a graceful shutdown.
 	domainManager.KillVMI(vm)
 
-	log.Log.Info("Waiting on final notifications to be sent to virt-handler.")
-
 	// We don't want to block here forever. If the delete does not occur, that could mean
 	// something is wrong with libvirt. In this situation, virt-handler will detect that
 	// the domain went away eventually, however the exit status will be unknown.
-	timeout := time.After(30 * time.Second)
-	select {
-	case <-deleteNotificationSent:
-		log.Log.Info("Final Delete notification sent")
-	case <-timeout:
-		log.Log.Info("Timed out waiting for final delete notification.")
+	finalTimeout := time.After(30 * time.Second)
+	for {
+		select {
+		case e := <-deleteNotificationSent:
+			if e.Type == watch.Deleted {
+				log.Log.Info("Final Delete notification sent after calling kill.")
+				return
+			}
+			return
+		case <-finalTimeout:
+			log.Log.Info("Timed out waiting for final delete notification after calling kill.")
+			return
+		}
 	}
 }
 
@@ -320,6 +348,11 @@ func main() {
 	// Start libvirtd, virtlogd, and establish libvirt connection
 	stopChan := make(chan struct{})
 
+	watchdogFile := watchdog.WatchdogFileFromNamespaceName(*virtShareDir,
+		*namespace,
+		*name)
+	watchdogDone := startWatchdogTicker(watchdogFile, *watchdogInterval, stopChan, *uid)
+
 	err = util.SetupLibvirt()
 	if err != nil {
 		panic(err)
@@ -344,11 +377,6 @@ func main() {
 	options := cmdserver.NewServerOptions(*useEmulation)
 	socketPath := cmdclient.SocketFromUID(*virtShareDir, *uid)
 	cmdServerDone := startCmdServer(socketPath, domainManager, stopChan, options)
-
-	watchdogFile := watchdog.WatchdogFileFromNamespaceName(*virtShareDir,
-		*namespace,
-		*name)
-	watchdogDone := startWatchdogTicker(watchdogFile, *watchdogInterval, stopChan, *uid)
 
 	gracefulShutdownTriggerFile := virtlauncher.GracefulShutdownTriggerFromNamespaceName(*virtShareDir,
 		*namespace,

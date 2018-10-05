@@ -115,13 +115,6 @@ var _ = Describe("Migration watcher", func() {
 		}).Return(migration, nil)
 	}
 
-	shouldExpectVirtualMachineMigrationState := func(vmi *v1.VirtualMachineInstance, migrationUid types.UID) {
-		vmiInterface.EXPECT().Update(gomock.Any()).Do(func(arg interface{}) {
-			Expect(arg.(*v1.VirtualMachineInstance).Status.MigrationState).ToNot(BeNil())
-			Expect(arg.(*v1.VirtualMachineInstance).Status.MigrationState.MigrationUID).To(Equal(migrationUid))
-		}).Return(vmi, nil)
-	}
-
 	shouldExpectVirtualMachineHandoff := func(vmi *v1.VirtualMachineInstance, migrationUid types.UID, targetNode string) {
 		vmiInterface.EXPECT().Update(gomock.Any()).Do(func(arg interface{}) {
 			Expect(arg.(*v1.VirtualMachineInstance).Status.MigrationState).ToNot(BeNil())
@@ -212,23 +205,6 @@ var _ = Describe("Migration watcher", func() {
 
 			addMigration(migration)
 			addVirtualMachine(vmi)
-			shouldExpectPodCreation(vmi.UID, migration.UID)
-
-			controller.Execute()
-
-			testutils.ExpectEvent(recorder, SuccessfulCreatePodReason)
-		})
-
-		It("should create target pod and override previous completed migration state", func() {
-			vmi := newVirtualMachine("testvmi", v1.Running)
-			migration := newMigration("testmigration", vmi.Name, v1.MigrationPending)
-
-			vmi.Status.MigrationState = &v1.VirtualMachineInstanceMigrationState{
-				MigrationUID: "1111-2222-3333-4444",
-			}
-			addMigration(migration)
-			addVirtualMachine(vmi)
-			shouldExpectVirtualMachineMigrationState(vmi, migration.UID)
 			shouldExpectPodCreation(vmi.UID, migration.UID)
 
 			controller.Execute()
@@ -352,6 +328,27 @@ var _ = Describe("Migration watcher", func() {
 			controller.Execute()
 			testutils.ExpectEvent(recorder, SuccessfulHandOverPodReason)
 		})
+
+		It("should hand pod over to target virt-handler overriding previous state", func() {
+			vmi := newVirtualMachine("testvmi", v1.Running)
+			vmi.Status.NodeName = "node02"
+			vmi.Status.MigrationState = &v1.VirtualMachineInstanceMigrationState{
+				MigrationUID: "1111-2222-3333-4444",
+			}
+			migration := newMigration("testmigration", vmi.Name, v1.MigrationScheduled)
+			pod := newTargetPodForVirtualMachine(vmi, migration, k8sv1.PodPending)
+			pod.Spec.NodeName = "node01"
+
+			addMigration(migration)
+			addVirtualMachine(vmi)
+			podFeeder.Add(pod)
+
+			shouldExpectVirtualMachineHandoff(vmi, migration.UID, "node01")
+
+			controller.Execute()
+			testutils.ExpectEvent(recorder, SuccessfulHandOverPodReason)
+		})
+
 		It("should transition to preparing target phase", func() {
 			vmi := newVirtualMachine("testvmi", v1.Running)
 			vmi.Status.NodeName = "node02"

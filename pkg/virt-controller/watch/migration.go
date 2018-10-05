@@ -252,7 +252,7 @@ func (c *MigrationController) updateStatus(migration *virtv1.VirtualMachineInsta
 	} else if podExists && podIsDown(pod) {
 		migrationCopy.Status.Phase = virtv1.MigrationFailed
 		c.recorder.Eventf(migration, k8sv1.EventTypeWarning, FailedMigrationReason, "Migration failed because target pod shutdown during migration")
-		log.Log.Object(migration).Error("target pod shutdown during migration")
+		log.Log.Object(migration).Errorf("target pod %s/%s shutdown during migration", pod.Namespace, pod.Name)
 	} else if migration.TargetIsCreated() && !podExists {
 		migrationCopy.Status.Phase = virtv1.MigrationFailed
 		c.recorder.Eventf(migration, k8sv1.EventTypeWarning, FailedMigrationReason, "Migration target pod was removed during active migration.")
@@ -402,19 +402,6 @@ func (c *MigrationController) sync(migration *virtv1.VirtualMachineInstanceMigra
 
 	switch migration.Status.Phase {
 	case virtv1.MigrationPending:
-
-		if vmi.Status.MigrationState != nil && vmi.Status.MigrationState.MigrationUID != migration.UID {
-			vmiCopy := vmi.DeepCopy()
-			// initialize the vmi's migration state
-			vmiCopy.Status.MigrationState = &virtv1.VirtualMachineInstanceMigrationState{
-				MigrationUID: migration.UID,
-			}
-			_, err := c.clientset.VirtualMachineInstance(vmi.Namespace).Update(vmiCopy)
-			if err != nil {
-				return err
-			}
-		}
-
 		// migration was accepted into the system, now see if we
 		// should create the target pod
 		if !podExists && vmi.IsRunning() {

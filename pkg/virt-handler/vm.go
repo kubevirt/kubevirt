@@ -245,6 +245,28 @@ func (d *VirtualMachineController) updateVMIStatus(vmi *v1.VirtualMachineInstanc
 		return nil
 	}
 
+	// Update migration progress if domain reports anything in the migration metadata.
+	if domain != nil && domain.Spec.Metadata.KubeVirt.Migration != nil && vmi.Status.MigrationState != nil {
+		migrationMetadata := domain.Spec.Metadata.KubeVirt.Migration
+		if migrationMetadata.UID == vmi.Status.MigrationState.MigrationUID {
+
+			if vmi.Status.MigrationState.EndTimestamp == nil && migrationMetadata.EndTimestamp != nil {
+				if migrationMetadata.Failed {
+					d.recorder.Event(vmi, k8sv1.EventTypeWarning, v1.Migrated.String(), fmt.Sprintf("VirtualMachineInstance migration uid %s failed. reason:%s", string(migrationMetadata.UID), migrationMetadata.FailureReason))
+				}
+			}
+
+			if vmi.Status.MigrationState.StartTimestamp == nil {
+				vmi.Status.MigrationState.StartTimestamp = migrationMetadata.StartTimestamp
+			}
+			if vmi.Status.MigrationState.EndTimestamp == nil {
+				vmi.Status.MigrationState.EndTimestamp = migrationMetadata.EndTimestamp
+			}
+			vmi.Status.MigrationState.Completed = migrationMetadata.Completed
+			vmi.Status.MigrationState.Failed = migrationMetadata.Failed
+		}
+	}
+
 	// handle migrations differently than normal status updates.
 	//
 	// When a successful migration is detected, we must transfer ownership of the VMI
@@ -308,28 +330,6 @@ func (d *VirtualMachineController) updateVMIStatus(vmi *v1.VirtualMachineInstanc
 			}
 		}
 		return nil
-	}
-
-	// Update migration progress if domain reports anything in the migration metadata.
-	if domain != nil && domain.Spec.Metadata.KubeVirt.Migration != nil && vmi.Status.MigrationState != nil {
-		migrationMetadata := domain.Spec.Metadata.KubeVirt.Migration
-		if migrationMetadata.UID == vmi.Status.MigrationState.MigrationUID {
-
-			if vmi.Status.MigrationState.EndTimestamp == nil && migrationMetadata.EndTimestamp != nil {
-				if migrationMetadata.Failed {
-					d.recorder.Event(vmi, k8sv1.EventTypeWarning, v1.Migrated.String(), fmt.Sprintf("VirtualMachineInstance migration uid %s failed. reason:%s", string(migrationMetadata.UID), migrationMetadata.FailureReason))
-				}
-			}
-
-			if vmi.Status.MigrationState.StartTimestamp == nil {
-				vmi.Status.MigrationState.StartTimestamp = migrationMetadata.StartTimestamp
-			}
-			if vmi.Status.MigrationState.EndTimestamp == nil {
-				vmi.Status.MigrationState.EndTimestamp = migrationMetadata.EndTimestamp
-			}
-			vmi.Status.MigrationState.Completed = migrationMetadata.Completed
-			vmi.Status.MigrationState.Failed = migrationMetadata.Failed
-		}
 	}
 
 	// Calculate the new VirtualMachineInstance state based on what libvirt reported
@@ -528,12 +528,17 @@ func (d *VirtualMachineController) migrationTargetExecute(key string,
 		log.Log.Object(vmi).V(3).Info("Processing vmi migration target update")
 		vmiCopy := vmi.DeepCopy()
 
-		if !domainExists {
-			// prepare the POD for the migration
-			err := d.processVmUpdate(vmi)
-			if err != nil {
-				return err
-			}
+		// if the vmi previous lived on this node, we need to make sure
+		// we aren't holding on to a previous client connection that is dead.
+		// THis function reaps the client connection if it is dead.
+		//
+		// A new client connection will be created on demand when needed
+		d.removeStaleClientConnections(vmi)
+
+		// prepare the POD for the migration
+		err := d.processVmUpdate(vmi)
+		if err != nil {
+			return err
 		}
 
 		if domainExists && vmi.Status.MigrationState != nil {
@@ -998,6 +1003,32 @@ func (d *VirtualMachineController) processVmDelete(vmi *v1.VirtualMachineInstanc
 
 	return nil
 
+}
+
+func (d *VirtualMachineController) removeStaleClientConnections(vmi *v1.VirtualMachineInstance) {
+
+	_, err := d.getVerifiedLauncherClient(vmi)
+	if err == nil {
+		// current client connection is good.
+		return
+	}
+
+	// remove old stale client connection
+
+	// maps require locks for concurrent access
+	d.launcherClientLock.Lock()
+	defer d.launcherClientLock.Unlock()
+	sockFile := cmdclient.SocketFromUID(d.virtShareDir, string(vmi.GetUID()))
+
+	client, ok := d.launcherClients[sockFile]
+	if !ok {
+		// no client connection to reap
+		return
+	}
+
+	// close the connection but do not delete the file
+	client.Close()
+	delete(d.launcherClients, sockFile)
 }
 
 func (d *VirtualMachineController) getVerifiedLauncherClient(vmi *v1.VirtualMachineInstance) (client cmdclient.LauncherClient, err error) {

@@ -136,7 +136,6 @@ var _ = Describe("Migrations", func() {
 
 					// check VMI, confirm migration state
 					confirmVMIPostMigration(vmi, migrationUID)
-
 				}
 				// delete VMI
 				By("Deleting the VMI")
