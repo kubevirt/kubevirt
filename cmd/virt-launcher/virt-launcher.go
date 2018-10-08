@@ -305,7 +305,7 @@ func waitForFinalNotify(deleteNotificationSent chan watch.Event,
 func main() {
 	qemuTimeout := flag.Duration("qemu-timeout", defaultStartTimeout, "Amount of time to wait for qemu")
 	virtShareDir := flag.String("kubevirt-share-dir", "/var/run/kubevirt", "Shared directory between virt-handler and virt-launcher")
-	ephemeralDiskDir := flag.String("ephemeral-disk-dir", "/var/run/libvirt/kubevirt-ephemeral-disk", "Base directory for ephemeral disk data")
+	ephemeralDiskDir := flag.String("ephemeral-disk-dir", "/var/run/kubevirt-ephemeral-disks", "Base directory for ephemeral disk data")
 	name := flag.String("name", "", "Name of the VirtualMachineInstance")
 	uid := flag.String("uid", "", "UID of the VirtualMachineInstance")
 	namespace := flag.String("namespace", "", "Namespace of the VirtualMachineInstance")

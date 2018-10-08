@@ -168,7 +168,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 		configMapInformer, _ = testutils.NewFakeInformerFor(&k8sv1.ConfigMap{})
 		pvcInformer, _ = testutils.NewFakeInformerFor(&k8sv1.PersistentVolumeClaim{})
 		controller = NewVMIController(
-			services.NewTemplateService("a", "b", "c", configMapInformer.GetStore(), pvcInformer.GetStore()),
+			services.NewTemplateService("a", "b", "c", "d", "e", configMapInformer.GetStore(), pvcInformer.GetStore()),
 			vmiInformer,
 			podInformer,
 			recorder,

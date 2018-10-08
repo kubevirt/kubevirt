@@ -154,7 +154,7 @@ var _ = Describe("Migration watcher", func() {
 		pvcInformer, _ = testutils.NewFakeInformerFor(&k8sv1.PersistentVolumeClaim{})
 
 		controller = NewMigrationController(
-			services.NewTemplateService("a", "b", "c", configMapInformer.GetStore(), pvcInformer.GetStore()),
+			services.NewTemplateService("a", "b", "c", "d", "e", configMapInformer.GetStore(), pvcInformer.GetStore()),
 			vmiInformer,
 			podInformer,
 			migrationInformer,

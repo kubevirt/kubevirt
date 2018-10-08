@@ -64,7 +64,9 @@ const (
 
 	virtShareDir = "/var/run/kubevirt"
 
-	ephemeralDiskDir = "/var/run/libvirt/kubevirt-ephemeral-disk"
+	ephemeralDiskDir = virtShareDir + "-ephemeral-disks"
+
+	libvirtRuntimesDir = virtShareDir + "-libvirt-runtimes"
 
 	controllerThreads = 3
 )
@@ -105,11 +107,12 @@ type VirtControllerApp struct {
 
 	LeaderElection leaderelectionconfig.Configuration
 
-	launcherImage    string
-	imagePullSecret  string
-	virtShareDir     string
-	ephemeralDiskDir string
-	readyChan        chan bool
+	launcherImage      string
+	imagePullSecret    string
+	virtShareDir       string
+	libvirtRuntimesDir string
+	ephemeralDiskDir   string
+	readyChan          chan bool
 }
 
 var _ service.Service = &VirtControllerApp{}
@@ -269,7 +272,14 @@ func (vca *VirtControllerApp) initCommon() {
 	if err != nil {
 		golog.Fatal(err)
 	}
-	vca.templateService = services.NewTemplateService(vca.launcherImage, vca.virtShareDir, vca.imagePullSecret, vca.configMapCache, vca.persistentVolumeClaimCache)
+	vca.templateService = services.NewTemplateService(vca.launcherImage,
+		vca.virtShareDir,
+		vca.libvirtRuntimesDir,
+		vca.ephemeralDiskDir,
+		vca.imagePullSecret,
+		vca.configMapCache,
+		vca.persistentVolumeClaimCache)
+
 	vca.vmiController = NewVMIController(vca.templateService, vca.vmiInformer, vca.podInformer, vca.vmiRecorder, vca.clientSet, vca.configMapInformer, vca.dataVolumeInformer)
 	recorder := vca.getNewRecorder(k8sv1.NamespaceAll, "node-controller")
 	vca.nodeController = NewNodeController(vca.clientSet, vca.nodeInformer, vca.vmiInformer, recorder)
@@ -326,6 +336,9 @@ func (vca *VirtControllerApp) AddFlags() {
 
 	flag.StringVar(&vca.virtShareDir, "kubevirt-share-dir", virtShareDir,
 		"Shared directory between virt-handler and virt-launcher")
+
+	flag.StringVar(&vca.libvirtRuntimesDir, "libvirt-runtimes-dr", libvirtRuntimesDir,
+		"Shared directory between virt-handler and virt-launcher used for libvirt runtimes")
 
 	flag.StringVar(&vca.ephemeralDiskDir, "ephemeral-disk-dir", ephemeralDiskDir,
 		"Base directory for ephemeral disk data")
