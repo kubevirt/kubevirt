@@ -441,7 +441,7 @@ func LogLibvirtLogLine(line string) {
 	}
 
 	fragments := strings.SplitN(line, ": ", 5)
-	if len(fragments) != 5 {
+	if len(fragments) < 4 {
 		now := time.Now()
 		logger.Log(
 			"level", "info",
