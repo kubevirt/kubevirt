@@ -127,6 +127,21 @@ var _ = Describe("Configurations", func() {
 				Expect(err).ToNot(HaveOccurred())
 				Expect(domXml).To(ContainSubstring("queues='3'"))
 			}, 300)
+
+			It("should reject queues without cores", func() {
+				_true := true
+				vmi.Spec.Domain.Resources = v1.ResourceRequirements{
+					Requests: kubev1.ResourceList{
+						kubev1.ResourceMemory: resource.MustParse("64M"),
+					},
+				}
+				vmi.Spec.Domain.Devices.BlockMultiQueue = &_true
+
+				By("Starting a VirtualMachineInstance")
+				vmi, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
+				Expect(err).To(HaveOccurred())
+				Expect(err.Error()).To(ContainSubstring("the server rejected our request due to an error in our request"))
+			}, 300)
 		})
 
 		Context("with diverging guest memory from requested memory", func() {

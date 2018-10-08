@@ -32,6 +32,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 
 	v1beta1 "k8s.io/api/admission/v1beta1"
+	k8sv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/validation"
@@ -915,6 +916,18 @@ func ValidateVirtualMachineInstanceSpec(field *k8sfield.Path, spec *v1.VirtualMa
 				Type:    metav1.CauseTypeFieldValueRequired,
 				Message: fmt.Sprintf("every network must be mapped to an interface."),
 				Field:   field.Child("networks").String(),
+			})
+		}
+	}
+
+	if spec.Domain.Devices.BlockMultiQueue != nil {
+		_, requestOk := spec.Domain.Resources.Requests[k8sv1.ResourceCPU]
+		_, limitOK := spec.Domain.Resources.Limits[k8sv1.ResourceCPU]
+		if (requestOk == false) && (limitOK == false) {
+			causes = append(causes, metav1.StatusCause{
+				Type:    metav1.CauseTypeFieldValueInvalid,
+				Message: fmt.Sprintf("MultiQueue for block devices can't be used without specifying CPU's."),
+				Field:   field.Child("domain", "devices", "blockMultiQueue").String(),
 			})
 		}
 	}
