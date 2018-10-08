@@ -726,84 +726,60 @@ func ValidateVirtualMachineInstanceSpec(field *k8sfield.Path, spec *v1.VirtualMa
 		}
 	}
 
-	cniExists := func(netSource v1.NetworkSource) bool {
-		return netSource.Multus != nil || netSource.Genie != nil
-	}
-
 	if len(spec.Networks) > 0 && len(spec.Domain.Devices.Interfaces) > 0 {
-		cniTypesCount := 0
 		multusExists := false
 		genieExists := false
 		podExists := false
+
 		for idx, network := range spec.Networks {
-			if network.Pod == nil && !cniExists(network.NetworkSource) {
+
+			cniTypesCount := 0
+			// network name not needed by default
+			networkNameExistsOrNotNeeded := true
+
+			if network.Pod != nil {
+				cniTypesCount++
+				podExists = true
+			}
+
+			if network.NetworkSource.Multus != nil {
+				cniTypesCount++
+				multusExists = true
+				networkNameExistsOrNotNeeded = network.Multus.NetworkName != ""
+			}
+
+			if network.NetworkSource.Genie != nil {
+				cniTypesCount++
+				genieExists = true
+				networkNameExistsOrNotNeeded = network.Genie.NetworkName != ""
+			}
+
+			if cniTypesCount == 0 {
 				causes = append(causes, metav1.StatusCause{
 					Type:    metav1.CauseTypeFieldValueRequired,
 					Message: fmt.Sprintf("should have a network type"),
 					Field:   field.Child("networks").Index(idx).String(),
 				})
+			} else if cniTypesCount > 1 {
+				causes = append(causes, metav1.StatusCause{
+					Type:    metav1.CauseTypeFieldValueRequired,
+					Message: fmt.Sprintf("should have only one network type"),
+					Field:   field.Child("networks").Index(idx).String(),
+				})
+			} else if genieExists && (podExists || multusExists) {
+				causes = append(causes, metav1.StatusCause{
+					Type:    metav1.CauseTypeFieldValueRequired,
+					Message: fmt.Sprintf("cannot combine Genie with other CNIs across networks"),
+					Field:   field.Child("networks").Index(idx).String(),
+				})
 			}
 
-			if network.Pod != nil {
-				podExists = true
-				if cniExists(network.NetworkSource) {
-					causes = append(causes, metav1.StatusCause{
-						Type:    metav1.CauseTypeFieldValueRequired,
-						Message: fmt.Sprintf("should have only one network type"),
-						Field:   field.Child("networks").Index(idx).String(),
-					})
-				}
-				if genieExists {
-					causes = append(causes, metav1.StatusCause{
-						Type:    metav1.CauseTypeFieldValueRequired,
-						Message: fmt.Sprintf("cannot combine pod and Genie CNI networks"),
-						Field:   field.Child("networks").Index(idx).String(),
-					})
-				}
-			}
-
-			if cniExists(network.NetworkSource) {
-
-				networkNameExists := false
-
-				if network.NetworkSource.Multus != nil {
-					if !multusExists {
-						cniTypesCount++
-						multusExists = true
-					}
-					networkNameExists = network.Multus.NetworkName != ""
-				}
-				if network.NetworkSource.Genie != nil {
-					if !genieExists {
-						cniTypesCount++
-						genieExists = true
-					}
-					networkNameExists = network.Genie.NetworkName != ""
-				}
-
-				if !networkNameExists {
-					causes = append(causes, metav1.StatusCause{
-						Type:    metav1.CauseTypeFieldValueRequired,
-						Message: fmt.Sprintf("CNI network must have a networkName"),
-						Field:   field.Child("networks").Index(idx).String(),
-					})
-				}
-
-				if cniTypesCount > 1 {
-					causes = append(causes, metav1.StatusCause{
-						Type:    metav1.CauseTypeFieldValueRequired,
-						Message: fmt.Sprintf("all networks must belong to one CNI"),
-						Field:   field.Child("networks").Index(idx).String(),
-					})
-				}
-
-				if genieExists && podExists {
-					causes = append(causes, metav1.StatusCause{
-						Type:    metav1.CauseTypeFieldValueRequired,
-						Message: fmt.Sprintf("cannot combine pod and Genie CNI networks"),
-						Field:   field.Child("networks").Index(idx).String(),
-					})
-				}
+			if !networkNameExistsOrNotNeeded {
+				causes = append(causes, metav1.StatusCause{
+					Type:    metav1.CauseTypeFieldValueRequired,
+					Message: fmt.Sprintf("CNI delegating plugin must have a networkName"),
+					Field:   field.Child("networks").Index(idx).String(),
+				})
 			}
 
 			networkNameMap[spec.Networks[idx].Name] = &spec.Networks[idx]

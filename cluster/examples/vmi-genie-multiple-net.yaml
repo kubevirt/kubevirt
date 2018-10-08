@@ -28,10 +28,10 @@ spec:
       requests:
         memory: 1024M
   networks:
-  - multus:
+  - genie:
       networkName: flannel
     name: default
-  - multus:
+  - genie:
       networkName: ptp
     name: ptp
   terminationGracePeriodSeconds: 0

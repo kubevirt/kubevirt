@@ -26,7 +26,7 @@ spec:
       requests:
         memory: 1024M
   networks:
-  - multus:
+  - genie:
       networkName: ptp
     name: ptp
   terminationGracePeriodSeconds: 0

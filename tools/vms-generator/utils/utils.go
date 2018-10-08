@@ -349,7 +349,7 @@ func GetVMIGeniePtp() *v1.VirtualMachineInstance {
 	vm := getBaseVMI(VmiGeniePtp)
 	vm.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("1024M")
 	vm.Spec.Networks = []v1.Network{
-		{Name: "ptp", NetworkSource: v1.NetworkSource{Multus: &v1.CniNetwork{NetworkName: "ptp"}}},
+		{Name: "ptp", NetworkSource: v1.NetworkSource{Genie: &v1.CniNetwork{NetworkName: "ptp"}}},
 	}
 	addRegistryDisk(&vm.Spec, fmt.Sprintf("%s/%s:%s", DockerPrefix, imageFedora, DockerTag), busVirtio)
 	addNoCloudDiskWitUserData(&vm.Spec, "#!/bin/bash\necho \"fedora\" | passwd fedora --stdin\n")
@@ -365,8 +365,8 @@ func GetVMIGenieMultipleNet() *v1.VirtualMachineInstance {
 	vm := getBaseVMI(VmiGenieMultipleNet)
 	vm.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("1024M")
 	vm.Spec.Networks = []v1.Network{
-		{Name: "default", NetworkSource: v1.NetworkSource{Multus: &v1.CniNetwork{NetworkName: "flannel"}}},
-		{Name: "ptp", NetworkSource: v1.NetworkSource{Multus: &v1.CniNetwork{NetworkName: "ptp"}}},
+		{Name: "default", NetworkSource: v1.NetworkSource{Genie: &v1.CniNetwork{NetworkName: "flannel"}}},
+		{Name: "ptp", NetworkSource: v1.NetworkSource{Genie: &v1.CniNetwork{NetworkName: "ptp"}}},
 	}
 	addRegistryDisk(&vm.Spec, fmt.Sprintf("%s/%s:%s", DockerPrefix, imageFedora, DockerTag), busVirtio)
 	addNoCloudDiskWitUserData(&vm.Spec, "#!/bin/bash\necho \"fedora\" | passwd fedora --stdin\ndhclient eth1\n")
