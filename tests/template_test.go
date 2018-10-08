@@ -58,7 +58,7 @@ var _ = Describe("Templates", func() {
 		assertGeneratedVMJson := func() func() {
 			return func() {
 				By("Generating VM JSON from the Template via oc-process command")
-				_, err := runOcProcessCommand(templateJsonFile, parameters, vmJsonFile)
+				_, _, err := runOcProcessCommand(templateJsonFile, parameters, vmJsonFile)
 				ExpectWithOffset(1, err).ToNot(HaveOccurred())
 				ExpectWithOffset(1, vmJsonFile).To(BeAnExistingFile())
 			}
@@ -67,14 +67,14 @@ var _ = Describe("Templates", func() {
 		assertCreatedVM := func() func() {
 			return func() {
 				By("Creating VM via oc-create command")
-				out, err := runOcCreateCommand(vmJsonFile)
+				out, _, err := runOcCreateCommand(vmJsonFile)
 				ExpectWithOffset(1, err).ToNot(HaveOccurred())
 				message := fmt.Sprintf("virtualmachine.kubevirt.io \"%s\" created\n", parameters.name)
 				ExpectWithOffset(1, out).To(ContainSubstring(message))
 
 				By("Checking if the VM exists via oc-get command.")
 				EventuallyWithOffset(1, func() bool {
-					out, err := runOcGetCommand("vms")
+					out, _, err := runOcGetCommand("vms")
 					ExpectWithOffset(1, err).ToNot(HaveOccurred())
 					return strings.Contains(out, parameters.name)
 				}, time.Duration(60)*time.Second).Should(BeTrue(), "Timed out waiting for VM to apppear")
@@ -84,14 +84,14 @@ var _ = Describe("Templates", func() {
 		assertDeletedVM := func() func() {
 			return func() {
 				By("Deleting the VM via oc-delete command")
-				out, err := runOcDeleteCommand(parameters.name)
+				out, _, err := runOcDeleteCommand(parameters.name)
 				ExpectWithOffset(1, err).ToNot(HaveOccurred())
 				message := fmt.Sprintf("virtualmachine.kubevirt.io \"%s\" deleted\n", parameters.name)
 				ExpectWithOffset(1, out).To(ContainSubstring(message))
 
 				By("Checking if the VM does not exist anymore via oc-get command.")
 				EventuallyWithOffset(1, func() bool {
-					out, err := runOcGetCommand("vms")
+					out, _, err := runOcGetCommand("vms")
 					ExpectWithOffset(1, err).ToNot(HaveOccurred())
 					return out == "No resources found.\n"
 				}, time.Duration(60)*time.Second).Should(BeTrue(), "Timed out waiting for VM to disappear")
@@ -101,14 +101,14 @@ var _ = Describe("Templates", func() {
 		assertStartedVM := func() func() {
 			return func() {
 				By("Starting VM via oc-patch command")
-				out, err := runOcPatchCommand(parameters.name, "{\"spec\":{\"running\":true}}")
+				out, _, err := runOcPatchCommand(parameters.name, "{\"spec\":{\"running\":true}}")
 				ExpectWithOffset(1, err).ToNot(HaveOccurred())
 				message := fmt.Sprintf("virtualmachine.kubevirt.io \"%s\" patched\n", parameters.name)
 				ExpectWithOffset(1, out).To(ContainSubstring(message))
 
 				By("Checking if the VMI does exist via oc-get command")
 				EventuallyWithOffset(1, func() bool {
-					out, err := runOcGetCommand("vmis")
+					out, _, err := runOcGetCommand("vmis")
 					ExpectWithOffset(1, err).ToNot(HaveOccurred())
 					return strings.Contains(out, parameters.name)
 				}, time.Duration(60)*time.Second).Should(BeTrue(), "Timed out waiting for VMI to appear")
@@ -118,14 +118,14 @@ var _ = Describe("Templates", func() {
 		assertStoppedVM := func() func() {
 			return func() {
 				By("Stopping the VM via oc-patch command")
-				out, err := runOcPatchCommand(parameters.name, "{\"spec\":{\"running\":false}}")
+				out, _, err := runOcPatchCommand(parameters.name, "{\"spec\":{\"running\":false}}")
 				ExpectWithOffset(1, err).ToNot(HaveOccurred())
 				message := fmt.Sprintf("virtualmachine.kubevirt.io \"%s\" patched\n", parameters.name)
 				ExpectWithOffset(1, out).To(ContainSubstring(message))
 
 				By("Checking if the VMI does not exist anymore via oc-get command")
 				EventuallyWithOffset(1, func() bool {
-					out, err := runOcGetCommand("vmis")
+					out, _, err := runOcGetCommand("vmis")
 					ExpectWithOffset(1, err).ToNot(HaveOccurred())
 					return out == "No resources found.\n"
 				}, time.Duration(60)*time.Second).Should(BeTrue(), "Timed out waiting for VMI to disappear")
@@ -211,32 +211,32 @@ type templateParams struct {
 	memory   string
 }
 
-func runOcProcessCommand(templateJsonFile string, parameters templateParams, vmJsonFile string) (string, error) {
+func runOcProcessCommand(templateJsonFile string, parameters templateParams, vmJsonFile string) (string, string, error) {
 	parameterArgs := []string{"-p", "NAME=" + parameters.name, "-p", "CPU_CORES=" + parameters.cpuCores}
 	args := append([]string{"process", "-f", templateJsonFile}, parameterArgs...)
-	out, err := tests.RunCommand("oc", args...)
+	out, stderr, err := tests.RunCommand("oc", args...)
 	if err != nil {
-		return out, err
+		return out, stderr, err
 	}
 	err = ioutil.WriteFile(vmJsonFile, []byte(out), 0644)
 	if err != nil {
-		return out, fmt.Errorf("failed to write json file %s", vmJsonFile)
+		return out, stderr, fmt.Errorf("failed to write json file %s", vmJsonFile)
 	}
-	return out, err
+	return out, stderr, err
 }
 
-func runOcCreateCommand(vmJsonFile string) (string, error) {
+func runOcCreateCommand(vmJsonFile string) (string, string, error) {
 	return tests.RunCommand("oc", "create", "-f", vmJsonFile)
 }
 
-func runOcPatchCommand(vmName string, patch string) (string, error) {
+func runOcPatchCommand(vmName string, patch string) (string, string, error) {
 	return tests.RunCommand("oc", "patch", "virtualmachine", vmName, "--type", "merge", "-p", patch)
 }
 
-func runOcDeleteCommand(vmName string) (string, error) {
+func runOcDeleteCommand(vmName string) (string, string, error) {
 	return tests.RunCommand("oc", "delete", "vm", vmName)
 }
 
-func runOcGetCommand(resourceType string) (string, error) {
+func runOcGetCommand(resourceType string) (string, string, error) {
 	return tests.RunCommand("oc", "get", resourceType)
 }

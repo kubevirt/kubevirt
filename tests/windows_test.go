@@ -241,7 +241,7 @@ var _ = Describe("Windows VirtualMachineInstance", func() {
 
 		It("should succeed to start a vmi", func() {
 			By("Starting the vmi via kubectl command")
-			_, err = tests.RunCommand("kubectl", "create", "-f", yamlFile)
+			_, _, err = tests.RunCommand("kubectl", "create", "-f", yamlFile)
 			Expect(err).ToNot(HaveOccurred())
 
 			tests.WaitForSuccessfulVMIStartWithTimeout(windowsVMI, 120)
@@ -249,14 +249,14 @@ var _ = Describe("Windows VirtualMachineInstance", func() {
 
 		It("should succeed to stop a vmi", func() {
 			By("Starting the vmi via kubectl command")
-			_, err = tests.RunCommand("kubectl", "create", "-f", yamlFile)
+			_, _, err = tests.RunCommand("kubectl", "create", "-f", yamlFile)
 			Expect(err).ToNot(HaveOccurred())
 
 			tests.WaitForSuccessfulVMIStartWithTimeout(windowsVMI, 120)
 
 			podSelector := tests.UnfinishedVMIPodSelector(windowsVMI)
 			By("Deleting the vmi via kubectl command")
-			_, err = tests.RunCommand("kubectl", "delete", "-f", yamlFile)
+			_, _, err = tests.RunCommand("kubectl", "delete", "-f", yamlFile)
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Checking that the vmi does not exist anymore")

@@ -23,6 +23,7 @@ import (
 	"bytes"
 	"encoding/base64"
 	"encoding/json"
+	goerrors "errors"
 	"flag"
 	"fmt"
 	"io"
@@ -1755,7 +1756,7 @@ func SkipIfUseFlannel(virtClient kubecli.KubevirtClient) {
 
 func SkipIfNotUseNetworkPolicy(virtClient kubecli.KubevirtClient) {
 	expectedRes := "openshift-ovs-networkpolicy"
-	out, _ := RunCommand("kubectl", "get", "clusternetwork")
+	out, _, _ := RunCommand("kubectl", "get", "clusternetwork")
 	//we don't check the result here, because this cmd is openshift only and will be failed on k8s cluster
 	if !strings.Contains(out, expectedRes) {
 		Skip("Skip networkpolicy test that require openshift-ovs-networkpolicy plugin")
@@ -1777,11 +1778,22 @@ func SkipIfNoCmd(cmdName string) {
 	}
 }
 
-func RunCommand(cmdName string, args ...string) (string, error) {
-	var cmdPath string
-	var err error
-	var stdOutErrBytes []byte
-	switch cmdName = strings.ToLower(cmdName); cmdName {
+func RunCommand(cmdName string, args ...string) (string, string, error) {
+	return RunCommandWithNS(NamespaceTestDefault, cmdName, args...)
+}
+
+func RunCommandWithNS(namespace string, cmdName string, args ...string) (string, string, error) {
+	cmdPath := ""
+	commandString := func() string {
+		c := cmdPath
+		if cmdPath == "" {
+			c = cmdName
+		}
+		return strings.Join(append([]string{c}, args...), " ")
+	}
+
+	cmdName = strings.ToLower(cmdName)
+	switch cmdName {
 	case "oc":
 		cmdPath = KubeVirtOcPath
 	case "kubectl":
@@ -1791,34 +1803,48 @@ func RunCommand(cmdName string, args ...string) (string, error) {
 	}
 
 	if cmdPath == "" {
-		return "", fmt.Errorf("no %s binary specified", cmdName)
+		err := fmt.Errorf("no %s binary specified", cmdName)
+		log.Log.Reason(err).With("command", commandString()).Error("command failed")
+		return "", "", fmt.Errorf("command failed: %v", err)
 	}
 
 	kubeconfig := flag.Lookup("kubeconfig").Value
 	if kubeconfig == nil || kubeconfig.String() == "" {
-		return "", fmt.Errorf("can not find kubeconfig")
+		err := goerrors.New("cannot find kubeconfig")
+		log.Log.Reason(err).With("command", commandString()).Error("command failed")
+		return "", "", fmt.Errorf("command failed: %v", err)
 	}
 
 	master := flag.Lookup("master").Value
 	if master != nil && master.String() != "" {
 		args = append(args, "--server", master.String())
 	}
+	if namespace != "" {
+		args = append(args, "-n", namespace)
+	}
 
 	cmd := exec.Command(cmdPath, args...)
 	kubeconfEnv := fmt.Sprintf("KUBECONFIG=%s", kubeconfig.String())
 	cmd.Env = append(os.Environ(), kubeconfEnv)
 
-	switch cmdName {
-	case "oc", "virtctl":
-		stdOutErrBytes, err = cmd.CombinedOutput()
-	case "kubectl":
-		stdOutErrBytes, err = cmd.Output()
+	var output, stderr bytes.Buffer
+	captureOutputBuffers := func() (string, string) {
+		trimNullChars := func(buf bytes.Buffer) string {
+			return string(bytes.Trim(buf.Bytes(), "\x00"))
+		}
+		return trimNullChars(output), trimNullChars(stderr)
 	}
 
-	if err != nil {
-		log.Log.Reason(err).With("output", string(stdOutErrBytes)).Errorf("%s command failed: %s %s,", cmdName, cmdPath, strings.Join(args, " "))
+	cmd.Stdout, cmd.Stderr = &output, &stderr
+
+	if err := cmd.Run(); err != nil {
+		outputString, stderrString := captureOutputBuffers()
+		log.Log.Reason(err).With("command", commandString(), "output", outputString, "stderr", stderrString).Error("command failed: cannot run command")
+		return outputString, stderrString, fmt.Errorf("command failed: cannot run command %q: %v", commandString(), err)
 	}
-	return string(stdOutErrBytes), err
+
+	outputString, stderrString := captureOutputBuffers()
+	return outputString, stderrString, nil
 }
 
 func GenerateVMIJson(vmi *v1.VirtualMachineInstance) (string, error) {
