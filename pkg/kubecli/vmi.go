@@ -330,7 +330,11 @@ func (v *vmis) asyncSubresourceHelper(name string, resource string) (StreamInter
 		response, err := wrappedRoundTripper.RoundTrip(req)
 
 		if err != nil {
-			errChan <- &AsyncSubresourceError{err: err.Error(), StatusCode: response.StatusCode}
+			statusCode := 0
+			if response != nil {
+				statusCode = response.StatusCode
+			}
+			errChan <- &AsyncSubresourceError{err: err.Error(), StatusCode: statusCode}
 			return
 		}
 
