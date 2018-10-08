@@ -120,9 +120,9 @@ var _ = Describe("Networking", func() {
 	}
 
 	checkLearningState := func(vmi *v1.VirtualMachineInstance, expectedValue string) {
-        output := tests.RunCommandOnVmiPod(vmi, []string{"cat", "/sys/class/net/eth0/brport/learning"})
-        Expect(output).To(Equal(expectedValue))
-    }
+		output := tests.RunCommandOnVmiPod(vmi, []string{"cat", "/sys/class/net/eth0/brport/learning"})
+		Expect(output).To(Equal(expectedValue))
+	}
 
 	Describe("Multiple virtual machines connectivity", func() {
 		tests.BeforeAll(func() {
