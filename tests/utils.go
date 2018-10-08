@@ -2102,15 +2102,26 @@ func KubevirtFailHandler(message string, callerSkip ...int) {
 	}
 
 	for _, ns := range []string{metav1.NamespaceSystem, NamespaceTestDefault} {
+		pods := []k8sv1.Pod{}
 		// Get KubeVirt specific pods information
-		pods, err := virtClient.CoreV1().Pods(ns).List(metav1.ListOptions{LabelSelector: "kubevirt.io,cdi.kubevirt.io"})
+		kubevirtPods, err := virtClient.CoreV1().Pods(ns).List(metav1.ListOptions{LabelSelector: "kubevirt.io"})
 		if err != nil {
 			fmt.Println(err)
 			Fail(message, callerSkip...)
 			return
 		}
+		pods = append(pods, kubevirtPods.Items...)
 
-		for _, pod := range pods.Items {
+		// Get CDI specific pods information
+		cdiPods, err := virtClient.CoreV1().Pods(ns).List(metav1.ListOptions{LabelSelector: "cdi.kubevirt.io"})
+		if err != nil {
+			fmt.Println(err)
+			Fail(message, callerSkip...)
+			return
+		}
+		pods = append(pods, cdiPods.Items...)
+
+		for _, pod := range pods {
 			fmt.Printf("\nPod name: %s\t Pod phase: %s\n\n", pod.Name, pod.Status.Phase)
 			var tailLines int64 = 15
 			var containerName = ""
