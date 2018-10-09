@@ -84,6 +84,9 @@ func addKnownTypes(scheme *runtime.Scheme) error {
 		&VirtualMachine{},
 		&VirtualMachineList{},
 	)
+	scheme.AddKnownTypes(metav1.Unversioned,
+		&metav1.Status{},
+	)
 	return nil
 }
 

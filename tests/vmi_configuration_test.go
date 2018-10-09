@@ -159,14 +159,18 @@ var _ = Describe("Configurations", func() {
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Starting a VirtualMachineInstance")
-				vmi = tests.NewRandomVMIWithEphemeralDisk(tests.RegistryDiskFor(tests.RegistryDiskAlpine))
-				vmi.Spec.Domain.Resources = v1.ResourceRequirements{
-					Requests: kubev1.ResourceList{
-						kubev1.ResourceMemory: resource.MustParse("64M"),
-					},
-				}
-				vmi, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
-				Expect(err).To(HaveOccurred())
+				// Retrying up to 5 sec, then if you still succeeds in VMI creation, things must be going wrong.
+				Eventually(func() error {
+					vmi = tests.NewRandomVMIWithEphemeralDisk(tests.RegistryDiskFor(tests.RegistryDiskAlpine))
+					vmi.Spec.Domain.Resources = v1.ResourceRequirements{
+						Requests: kubev1.ResourceList{
+							kubev1.ResourceMemory: resource.MustParse("64M"),
+						},
+					}
+					vmi, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
+					virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Delete(vmi.Name, &metav1.DeleteOptions{})
+					return err
+				}, 5*time.Second, 1*time.Second).Should(MatchError("admission webhook \"virtualmachineinstances-create-validator.kubevirt.io\" denied the request:  spec.domain.resources.requests.memory '64M' is greater than spec.domain.resources.limits.memory '32Mi'"))
 			})
 		})
 
