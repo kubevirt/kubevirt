@@ -1,0 +1,39 @@
+apiVersion: extensions/v1beta1
+kind: DaemonSet
+metadata:
+  name: collectd-node-agent
+  namespace: kube-system
+  labels:
+    app: collectd-node-agent
+spec:
+  template:
+    metadata:
+      labels:
+        name: collectd-node-agent
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "9090"
+    spec:
+      serviceAccountName: kubevirt-privileged
+      hostNetwork: true
+      hostPID: true
+      nodeSelector:
+        node-role.kubernetes.io/infra: "true"
+      containers:
+      - name: collectd
+        ports:
+        - containerPort: 9091
+          protocol: TCP
+        image: fromanirh/collectd:0.3.5
+        imagePullPolicy: IfNotPresent
+        volumeMounts:
+        - name: collectd-config
+          mountPath: /etc/collectd
+      volumes:
+      - name: collectd-config
+        configMap:
+          name: collectd-config
+          items:
+          - key: node-collectd.conf
+            path: collectd.conf
+
