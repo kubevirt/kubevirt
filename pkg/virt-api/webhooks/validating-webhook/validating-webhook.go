@@ -920,7 +920,7 @@ func ValidateVirtualMachineInstanceSpec(field *k8sfield.Path, spec *v1.VirtualMa
 		}
 	}
 
-	if spec.Domain.Devices.BlockMultiQueue != nil {
+	if (spec.Domain.Devices.BlockMultiQueue != nil) && (*spec.Domain.Devices.BlockMultiQueue == true) {
 		_, requestOk := spec.Domain.Resources.Requests[k8sv1.ResourceCPU]
 		_, limitOK := spec.Domain.Resources.Limits[k8sv1.ResourceCPU]
 		if (requestOk == false) && (limitOK == false) {
