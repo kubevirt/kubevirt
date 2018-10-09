@@ -768,6 +768,15 @@ type Interface struct {
 	// If specified, the virtual network interface will be placed on the guests pci address with the specifed PCI address. For example: 0000:81:01.10
 	// +optional
 	PciAddress string `json:"pciAddress,omitempty"`
+	// Custom DHCP options that may be needed.
+	// +optional
+	DHCPOptions []DHCPOption `json:"dhcpOptions,omitempty"`
+}
+
+// +k8s:openapi-gen=true
+type DHCPOption struct {
+	OptionCode  byte   `json:"optionCode"`
+	OptionValue string `json:"optionValue"`
 }
 
 // Represents the method which will be used to connect the interface to the guest.

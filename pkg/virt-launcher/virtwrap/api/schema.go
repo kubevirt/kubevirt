@@ -407,6 +407,12 @@ type Interface struct {
 	LinkState           *LinkState       `xml:"link,omitempty"`
 	FilterRef           *FilterRef       `xml:"filterref,omitempty"`
 	Alias               *Alias           `xml:"alias,omitempty"`
+	DHCPOptions         []DHCPOption     `xml:"dhcpOptions,omitempty"`
+}
+
+type DHCPOption struct {
+	OptionCode  byte   `xml:"optionCode"`
+	OptionValue string `xml:"optionValue"`
 }
 
 type LinkState struct {

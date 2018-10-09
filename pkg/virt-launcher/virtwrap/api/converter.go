@@ -745,6 +745,13 @@ func Convert_v1_VirtualMachine_To_api_Domain(vmi *v1.VirtualMachineInstance, dom
 			},
 		}
 
+		for _, customDHCPOption := range iface.DHCPOptions {
+			domainIface.DHCPOptions = append(domainIface.DHCPOptions, DHCPOption{
+				OptionCode:  customDHCPOption.OptionCode,
+				OptionValue: customDHCPOption.OptionValue,
+			})
+		}
+
 		// Add a pciAddress if specifed
 		if iface.PciAddress != "" {
 			dbsfFields, err := util.ParsePciAddress(iface.PciAddress)

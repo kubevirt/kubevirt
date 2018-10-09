@@ -58,7 +58,7 @@ type NetworkHandler interface {
 	ParseAddr(s string) (*netlink.Addr, error)
 	SetRandomMac(iface string) (net.HardwareAddr, error)
 	GetMacDetails(iface string) (net.HardwareAddr, error)
-	StartDHCP(nic *VIF, serverAddr *netlink.Addr, bridgeInterfaceName string)
+	StartDHCP(nic *VIF, serverAddr *netlink.Addr, bridgeInterfaceName string, dhcpOptions []api.DHCPOption)
 }
 
 type NetworkUtilsHandler struct{}
@@ -128,7 +128,7 @@ func (h *NetworkUtilsHandler) SetRandomMac(iface string) (net.HardwareAddr, erro
 	return currentMac, nil
 }
 
-func (h *NetworkUtilsHandler) StartDHCP(nic *VIF, serverAddr *netlink.Addr, bridgeInterfaceName string) {
+func (h *NetworkUtilsHandler) StartDHCP(nic *VIF, serverAddr *netlink.Addr, bridgeInterfaceName string, dhcpOptions []api.DHCPOption) {
 	log.Log.V(4).Infof("StartDHCP network Nic: %+v", nic)
 	nameservers, searchDomains, err := api.GetResolvConfDetailsFromPod()
 	if err != nil {
@@ -150,6 +150,7 @@ func (h *NetworkUtilsHandler) StartDHCP(nic *VIF, serverAddr *netlink.Addr, brid
 			nic.Routes,
 			searchDomains,
 			nic.Mtu,
+			dhcpOptions,
 		); err != nil {
 			log.Log.Errorf("failed to run DHCP: %v", err)
 			panic(err)
