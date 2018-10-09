@@ -14,8 +14,6 @@ import (
 	"github.com/libvirt/libvirt-go"
 	k8sv1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	"github.com/golang/glog"
-
 	"k8s.io/apimachinery/pkg/types"
 
 	"kubevirt.io/kubevirt/pkg/api/v1"
@@ -169,7 +167,7 @@ func StartLibvirt(stopChan chan struct{}) {
 			go func() {
 				scanner := bufio.NewScanner(reader)
 				for scanner.Scan() {
-					glog.LogLibvirtLogLine(scanner.Text())
+					log.LogLibvirtLogLine(log.Log, scanner.Text())
 				}
 
 				if err := scanner.Err(); err != nil {

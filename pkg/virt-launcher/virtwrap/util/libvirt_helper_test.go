@@ -7,9 +7,10 @@ import (
 	"strings"
 
 	"github.com/go-kit/kit/log"
-	"github.com/golang/glog"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+
+	kubevirtlog "kubevirt.io/kubevirt/pkg/log"
 )
 
 const (
@@ -65,12 +66,13 @@ var _ = Describe("LibvirtHelper", func() {
 	It("should parse libvirt logs", func() {
 		buffer := bytes.NewBuffer(nil)
 
+		kubevirtlog.InitializeLogging("test")
 		logger := log.NewContext(log.NewJSONLogger(buffer))
-		glog.SetupWithLogger(logger, "test", 10)
+		klog := kubevirtlog.MakeLogger(logger)
 
 		scanner := bufio.NewScanner(strings.NewReader(logs))
 		for scanner.Scan() {
-			glog.LogLibvirtLogLine(scanner.Text())
+			kubevirtlog.LogLibvirtLogLine(klog, scanner.Text())
 		}
 
 		scanner = bufio.NewScanner(buffer)

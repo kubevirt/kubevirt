@@ -27,6 +27,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -38,6 +39,10 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	k8sruntime "k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/tools/cache"
+)
+
+const (
+	libvirtTimestampFormat = "2006-01-02 15:04:05.999-0700"
 )
 
 var lock sync.Mutex
@@ -312,4 +317,65 @@ func (l FilteredLogger) Critical(msg string) {
 
 func (l FilteredLogger) Criticalf(msg string, args ...interface{}) {
 	l.Level(glog.FATAL).msgf(msg, args...)
+}
+
+func LogLibvirtLogLine(logger *FilteredLogger, line string) {
+
+	if len(strings.TrimSpace(line)) == 0 {
+		return
+	}
+
+	fragments := strings.SplitN(line, ": ", 5)
+	if len(fragments) < 4 {
+		now := time.Now()
+		logger.logContext.Log(
+			"level", "info",
+			"timestamp", now.Format("2006-01-02T15:04:05.000000Z"),
+			"component", logger.component,
+			"subcomponent", "libvirt",
+			"msg", line,
+		)
+		return
+	}
+	severity := strings.ToLower(strings.TrimSpace(fragments[2]))
+
+	if severity == "debug" {
+		severity = "info"
+	}
+
+	t, err := time.Parse(libvirtTimestampFormat, strings.TrimSpace(fragments[0]))
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+	pos := strings.TrimSpace(fragments[3])
+	msg := strings.TrimSpace(fragments[4])
+
+	// check if we really got a position
+	isPos := false
+	if split := strings.Split(pos, ":"); len(split) == 2 {
+		if _, err := strconv.Atoi(split[1]); err == nil {
+			isPos = true
+		}
+	}
+
+	if !isPos {
+		msg = strings.TrimSpace(fragments[3] + ": " + fragments[4])
+		logger.logContext.Log(
+			"level", severity,
+			"timestamp", t.Format("2006-01-02T15:04:05.000000Z"),
+			"component", logger.component,
+			"subcomponent", "libvirt",
+			"msg", msg,
+		)
+	} else {
+		logger.logContext.Log(
+			"level", severity,
+			"timestamp", t.Format("2006-01-02T15:04:05.000000Z"),
+			"pos", pos,
+			"component", logger.component,
+			"subcomponent", "libvirt",
+			"msg", msg,
+		)
+	}
 }

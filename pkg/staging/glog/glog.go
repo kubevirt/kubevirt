@@ -52,12 +52,8 @@ var LogLevelNames = map[LogLevel]string{
 }
 
 var logger log2.Logger
-var v int
-var c string
-
-const (
-	libvirtTimestampFormat = "2006-01-02 15:04:05.999-0700"
-)
+var glogVerbosity int
+var glogComponent string
 
 func init() {
 	flag.String("v", "2", "log level for V logs")
@@ -65,22 +61,14 @@ func init() {
 }
 
 func Setup(component string, verbosity int) {
-	v = verbosity
-	c = component
+	glogVerbosity = verbosity
+	glogComponent = component
 	CopyStandardLogTo(LogLevelNames[INFO])
 }
 
 // SetIOWriter takes a writer to which the logger should write. Useful for redirecting logs during testing.
 func SetIOWriter(w io.Writer) {
 	logger = log2.NewJSONLogger(w)
-	CopyStandardLogTo(LogLevelNames[INFO])
-}
-
-//SetupWithLogger is mostly useful for testing
-func SetupWithLogger(l log2.Logger, component string, verbosity int) {
-	v = verbosity
-	c = component
-	logger = l
 	CopyStandardLogTo(LogLevelNames[INFO])
 }
 
@@ -117,16 +105,16 @@ var Stats struct {
 }
 
 // level is exported because it appears in the arguments to V and is
-// the type of the v flag, which can be set programmatically.
+// the type of the glogVerbosity flag, which can be set programmatically.
 // It's a distinct type because we want to discriminate it from logType.
 // Variables of type level are only changed under logging.mu.
-// The -v flag is read only with atomic ops, so the state of the logging
+// The -glogVerbosity flag is read only with atomic ops, so the state of the logging
 // module is consistent.
 
 // level is treated as a sync/atomic int32.
 
-// level specifies a level of v for V logs. *level implements
-// flag.Value; the -v flag is of type level and should be modified
+// level specifies a level of glogVerbosity for V logs. *level implements
+// flag.Value; the -glogVerbosity flag is of type level and should be modified
 // only through the flag.Value interface.
 type Level int32
 
@@ -216,7 +204,7 @@ func (lb logBridge) Write(b []byte) (n int, err error) {
 // See the documentation of V for more information.
 type Verbose bool
 
-// V reports whether v at the call site is at least the requested level.
+// V reports whether glogVerbosity at the call site is at least the requested level.
 // The returned value is a boolean of type Verbose, which implements Info, Infoln
 // and Infof. These methods will write to the Info log if called.
 // Thus, one may write either
@@ -227,21 +215,21 @@ type Verbose bool
 // not evaluate its arguments.
 //
 // Whether an individual call to V generates a log record depends on the setting of
-// the -v and --vmodule flags; both are off by default. If the level in the call to
-// V is at least the value of -v, or of -vmodule for the source file containing the
+// the -glogVerbosity and --vmodule flags; both are off by default. If the level in the call to
+// V is at least the value of -glogVerbosity, or of -vmodule for the source file containing the
 // call, the V call will log.
 func V(level Level) Verbose {
 	// This function tries hard to be cheap unless there's work to do.
 	// The fast path is two atomic loads and compares.
 
 	// Here is a cheap but safe test to see if V logging is enabled globally.
-	if v >= int(level) {
+	if glogVerbosity >= int(level) {
 		return Verbose(true)
 	}
 	return Verbose(false)
 }
 
-// Info is equivalent to the global Info function, guarded by the value of v.
+// Info is equivalent to the global Info function, guarded by the value of glogVerbosity.
 // See the documentation of V for usage.
 func (v Verbose) Info(args ...interface{}) {
 	if v {
@@ -249,7 +237,7 @@ func (v Verbose) Info(args ...interface{}) {
 	}
 }
 
-// Infoln is equivalent to the global Infoln function, guarded by the value of v.
+// Infoln is equivalent to the global Infoln function, guarded by the value of glogVerbosity.
 // See the documentation of V for usage.
 func (v Verbose) Infoln(args ...interface{}) {
 	if v {
@@ -257,7 +245,7 @@ func (v Verbose) Infoln(args ...interface{}) {
 	}
 }
 
-// Infof is equivalent to the global Infof function, guarded by the value of v.
+// Infof is equivalent to the global Infof function, guarded by the value of glogVerbosity.
 // See the documentation of V for usage.
 func (v Verbose) Infof(format string, args ...interface{}) {
 	if v {
@@ -406,7 +394,7 @@ func doLogf(skipFrames int, severity LogLevel, format string, args ...interface{
 		"level", LogLevelNames[severity],
 		"timestamp", now.Format("2006-01-02T15:04:05.000000Z"),
 		"pos", fmt.Sprintf("%s:%d", filepath.Base(fileName), lineNumber),
-		"component", c,
+		"component", glogComponent,
 		"msg", fmt.Sprintf(format, args...),
 	)
 }
@@ -418,7 +406,7 @@ func doLog(skipFrames int, severity LogLevel, args ...interface{}) {
 		"level", LogLevelNames[severity],
 		"timestamp", now.Format("2006-01-02T15:04:05.000000Z"),
 		"pos", fmt.Sprintf("%s:%d", filepath.Base(fileName), lineNumber),
-		"component", c,
+		"component", glogComponent,
 		"msg", fmt.Sprint(args...),
 	)
 }
@@ -429,68 +417,7 @@ func doLogPos(severity LogLevel, fileName string, lineNumber int, args ...interf
 		"level", LogLevelNames[severity],
 		"timestamp", now.Format("2006-01-02T15:04:05.000000Z"),
 		"pos", fmt.Sprintf("%s:%d", filepath.Base(fileName), lineNumber),
-		"component", c,
+		"component", glogComponent,
 		"msg", fmt.Sprint(args...),
 	)
-}
-
-func LogLibvirtLogLine(line string) {
-
-	if len(strings.TrimSpace(line)) == 0 {
-		return
-	}
-
-	fragments := strings.SplitN(line, ": ", 5)
-	if len(fragments) < 4 {
-		now := time.Now()
-		logger.Log(
-			"level", "info",
-			"timestamp", now.Format("2006-01-02T15:04:05.000000Z"),
-			"component", c,
-			"subcomponent", "libvirt",
-			"msg", line,
-		)
-		return
-	}
-	severity := strings.ToLower(strings.TrimSpace(fragments[2]))
-
-	if severity == "debug" {
-		severity = "info"
-	}
-
-	t, err := time.Parse(libvirtTimestampFormat, strings.TrimSpace(fragments[0]))
-	if err != nil {
-		fmt.Println(err)
-		return
-	}
-	pos := strings.TrimSpace(fragments[3])
-	msg := strings.TrimSpace(fragments[4])
-
-	// check if we really got a position
-	isPos := false
-	if split := strings.Split(pos, ":"); len(split) == 2 {
-		if _, err := strconv.Atoi(split[1]); err == nil {
-			isPos = true
-		}
-	}
-
-	if !isPos {
-		msg = strings.TrimSpace(fragments[3] + ": " + fragments[4])
-		logger.Log(
-			"level", severity,
-			"timestamp", t.Format("2006-01-02T15:04:05.000000Z"),
-			"component", c,
-			"subcomponent", "libvirt",
-			"msg", msg,
-		)
-	} else {
-		logger.Log(
-			"level", severity,
-			"timestamp", t.Format("2006-01-02T15:04:05.000000Z"),
-			"pos", pos,
-			"component", c,
-			"subcomponent", "libvirt",
-			"msg", msg,
-		)
-	}
 }
