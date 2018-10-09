@@ -120,7 +120,7 @@ func libvirtEventCallback(c cli.Connection, domain *api.Domain, event *libvirt.D
 			domain.ObjectMeta.UID = spec.Metadata.KubeVirt.UID
 		}
 
-		log.Log.Infof("kubevirt domain status: %v (%v):%v (%v)", domain.Status.Status, status, domain.Status.Reason, reason)
+		log.Log.Infof("kubevirt domain status: %v(%v):%v(%v)", domain.Status.Status, status, domain.Status.Reason, reason)
 	}
 
 	switch domain.Status.Reason {

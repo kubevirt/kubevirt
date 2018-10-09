@@ -23,6 +23,7 @@ import (
 	"strings"
 
 	"github.com/emicklei/go-restful"
+	"github.com/golang/glog"
 
 	"kubevirt.io/kubevirt/pkg/log"
 )
@@ -36,7 +37,7 @@ func RequestLoggingFilter() restful.FilterFunction {
 			}
 		}
 		chain.ProcessFilter(req, resp)
-		log.Log.Level(log.INFO).
+		log.Log.Level(glog.INFO).
 			With("remoteAddress", strings.Split(req.Request.RemoteAddr, ":")[0]).
 			With("username", username).
 			With("method", req.Request.Method).

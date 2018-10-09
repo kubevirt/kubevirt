@@ -7,9 +7,8 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"flag"
-
 	"kubevirt.io/kubevirt/pkg/kubecli"
+	"kubevirt.io/kubevirt/pkg/log"
 	"kubevirt.io/kubevirt/pkg/virtctl/console"
 	"kubevirt.io/kubevirt/pkg/virtctl/expose"
 	"kubevirt.io/kubevirt/pkg/virtctl/templates"
@@ -39,7 +38,6 @@ func NewVirtctlCommand() *cobra.Command {
 	optionsCmd.SetUsageTemplate(templates.OptionsUsageTemplate())
 	//TODO: Add a ClientConfigFactory which allows substituting the KubeVirt client with a mock for unit testing
 	clientConfig := kubecli.DefaultClientConfig(rootCmd.PersistentFlags())
-	flag.CommandLine.Set("logtostderr", "true")
 	AddGlogFlags(rootCmd.PersistentFlags())
 	rootCmd.SetUsageTemplate(templates.MainUsageTemplate())
 	rootCmd.AddCommand(
@@ -55,6 +53,7 @@ func NewVirtctlCommand() *cobra.Command {
 }
 
 func Execute() {
+	log.InitializeLogging("virtctl")
 	if err := NewVirtctlCommand().Execute(); err != nil {
 		fmt.Println(strings.TrimSpace(err.Error()))
 		os.Exit(1)

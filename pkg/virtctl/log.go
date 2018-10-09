@@ -34,13 +34,7 @@ func AddGlogFlags(fs *pflag.FlagSet) {
 	global := flag.CommandLine
 	local := pflag.NewFlagSet(os.Args[0], pflag.ExitOnError)
 
-	register(global, local, "logtostderr")
-	register(global, local, "alsologtostderr")
 	register(global, local, "v")
-	register(global, local, "stderrthreshold")
-	register(global, local, "vmodule")
-	register(global, local, "log_backtrace_at")
-	register(global, local, "log_dir")
 
 	fs.AddFlagSet(local)
 }

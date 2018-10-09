@@ -42,7 +42,6 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/kubecli"
-	"kubevirt.io/kubevirt/pkg/util/net/dns"
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/tests"
@@ -125,11 +124,11 @@ var _ = Describe("VMIlifecycle", func() {
 			Eventually(logs,
 				11*time.Second,
 				500*time.Millisecond).
-				Should(ContainSubstring("info : libvirt version: "))
+				Should(ContainSubstring("libvirt version: "))
 			Eventually(logs,
 				2*time.Second,
 				500*time.Millisecond).
-				Should(ContainSubstring("info : hostname: " + dns.SanitizeHostname(vmi)))
+				Should(And(ContainSubstring("internal error: Cannot probe for supported suspend types"), ContainSubstring(`"subcomponent":"libvirt"`)))
 		})
 		It("should reject POST if validation webhook deems the spec invalid", func() {
 
@@ -626,7 +625,7 @@ var _ = Describe("VMIlifecycle", func() {
 					data, err := logsQuery.DoRaw()
 					Expect(err).ToNot(HaveOccurred(), "Should get logs from virthandler")
 					return string(data)
-				}, 30, 0.5).Should(MatchRegexp("(name=%s)[^\n]+(kind=Domain)[^\n]+(Domain is in state Running)", vmi.GetObjectMeta().GetName()), "Should verify from logs that domain is running")
+				}, 30, 0.5).Should(MatchRegexp(`"kind":"Domain","level":"info","msg":"Domain is in state Running reason Unknown","name":"%s"`, vmi.GetObjectMeta().GetName()), "Should verify from logs that domain is running")
 				// Check the VirtualMachineInstance Namespace
 				Expect(vmi.GetObjectMeta().GetNamespace()).To(Equal(namespace), "VMI should run in the right namespace")
 
@@ -643,7 +642,7 @@ var _ = Describe("VMIlifecycle", func() {
 					data, err := logsQuery.DoRaw()
 					Expect(err).ToNot(HaveOccurred(), "Should get the virthandler logs")
 					return string(data)
-				}, 30, 0.5).Should(MatchRegexp("(name=%s)[^\n]+(kind=Domain)[^\n]+(Domain deleted)", vmi.GetObjectMeta().GetName()), "Logs should confirm pod deletion")
+				}, 30, 0.5).Should(MatchRegexp(`"kind":"Domain","level":"info","msg":"Domain deleted","name":"%s"`, vmi.GetObjectMeta().GetName()), "Logs should confirm pod deletion")
 
 			},
 				table.Entry(tests.NamespaceTestDefault, tests.NamespaceTestDefault),
