@@ -91,6 +91,8 @@ func init() {
 
 type EventType string
 
+const TempDirPrefix = "kubevirt-test"
+
 const (
 	AlpineHttpUrl = "http://cdi-http-import-server.kube-system/images/alpine.iso"
 )
@@ -1965,13 +1967,17 @@ func GenerateVMIJson(vmi *v1.VirtualMachineInstance) (string, error) {
 func GenerateTemplateJson(template *vmsgen.Template) (string, error) {
 	data, err := json.Marshal(template)
 	if err != nil {
-		return "", fmt.Errorf("failed to generate json for vm template %s", template.Name)
+		return "", fmt.Errorf("failed to generate json for template %q: %v", template.Name, err)
 	}
 
-	jsonFile := fmt.Sprintf("%s.json", template.Name)
-	err = ioutil.WriteFile(jsonFile, data, 0644)
+	dir, err := ioutil.TempDir("", TempDirPrefix+"-")
 	if err != nil {
-		return "", fmt.Errorf("failed to write json file %s", jsonFile)
+		return "", fmt.Errorf("failed to create a temporary directory in %q: %v", os.TempDir(), err)
+	}
+
+	jsonFile := filepath.Join(dir, template.Name+".json")
+	if err = ioutil.WriteFile(jsonFile, data, 0644); err != nil {
+		return "", fmt.Errorf("failed to write json to file %q: %v", jsonFile, err)
 	}
 	return jsonFile, nil
 }
