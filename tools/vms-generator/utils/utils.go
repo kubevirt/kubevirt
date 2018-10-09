@@ -468,16 +468,8 @@ func GetVMCirros() *v1.VirtualMachine {
 }
 
 func GetTemplateFedora() *Template {
-	return newTemplateFedoraWithDockerTag(DockerTag)
-}
-
-func GetTestTemplateFedora() *Template {
-	return newTemplateFedoraWithDockerTag("latest")
-}
-
-func newTemplateFedoraWithDockerTag(dockerTag string) *Template {
 	vm := getBaseVM("", map[string]string{"kubevirt-vm": "vm-${NAME}", "kubevirt.io/os": "fedora27"})
-	addRegistryDisk(&vm.Spec.Template.Spec, fmt.Sprintf("%s/%s:%s", DockerPrefix, imageFedora, dockerTag), busVirtio)
+	addRegistryDisk(&vm.Spec.Template.Spec, fmt.Sprintf("%s/%s:%s", DockerPrefix, imageFedora, DockerTag), busVirtio)
 	addNoCloudDiskWitUserData(&vm.Spec.Template.Spec, "#cloud-config\npassword: fedora\nchpasswd: { expire: False }")
 
 	template := getBaseTemplate(vm, "4096Mi", "4")

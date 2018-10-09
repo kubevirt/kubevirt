@@ -248,7 +248,7 @@ var _ = Describe("Templates", func() {
 		AfterEach(AssertTestCleanupSuccess())
 
 		Context("with Fedora Template", func() {
-			BeforeEach(AssertTemplateSetupSuccess(vmsgen.GetTestTemplateFedora(), nil))
+			BeforeEach(AssertTemplateSetupSuccess(vmsgen.GetTemplateFedora(), nil))
 
 			AssertTemplateTestSuccess()
 		})
