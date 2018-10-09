@@ -155,12 +155,22 @@ func (c *MigrationController) execute(key string) error {
 		return err
 	}
 
-	if vmiExists {
-		vmi = vmiObj.(*virtv1.VirtualMachineInstance)
-		targetPods, err = c.listMatchingTargetPods(migration, vmi)
-		if err != nil {
-			return err
+	if !vmiExists {
+		if migration.DeletionTimestamp == nil {
+			logger.V(3).Infof("Deleting migration for deleted vmi %s/%s", migration.Namespace, migration.Spec.VMIName)
+			err := c.clientset.VirtualMachineInstanceMigration(migration.Namespace).Delete(migration.Name, &v1.DeleteOptions{})
+			if err != nil {
+				return err
+			}
 		}
+		// nothing to process for a migration that's being deleted
+		return nil
+	}
+
+	vmi = vmiObj.(*virtv1.VirtualMachineInstance)
+	targetPods, err = c.listMatchingTargetPods(migration, vmi)
+	if err != nil {
+		return err
 	}
 
 	needsSync := c.podExpectations.SatisfiedExpectations(key) && vmiExists

@@ -439,6 +439,14 @@ var _ = Describe("Migration watcher", func() {
 			controller.Execute()
 			testutils.ExpectEvent(recorder, SuccessfulMigrationReason)
 		})
+		It("should delete itself if VMI no longer exists", func() {
+			migration := newMigration("testmigration", "somevmi", v1.MigrationRunning)
+			addMigration(migration)
+
+			migrationInterface.EXPECT().Delete(gomock.Any(), gomock.Any()).Times(1).Return(nil)
+
+			controller.Execute()
+		})
 	})
 })
 
