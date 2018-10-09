@@ -54,7 +54,7 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 			vmi := v1.NewMinimalVMI("testvmi")
 			vmi.Status.Phase = v1.Running
 			vmi.ObjectMeta.SetUID(uuid.NewUUID())
-			templateService := services.NewTemplateService("whatever", "whatever", "whatever", "whatever", "whatever", configCache, pvcCache)
+			templateService := services.NewTemplateService("whatever", "whatever", "whatever", "whatever", configCache, pvcCache)
 
 			pod, err := templateService.RenderLaunchManifest(vmi)
 			Expect(err).ToNot(HaveOccurred())

@@ -52,6 +52,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/precond"
 	"kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
 	"kubevirt.io/kubevirt/pkg/virt-handler/device-manager"
+	"kubevirt.io/kubevirt/pkg/virt-handler/isolation"
 	"kubevirt.io/kubevirt/pkg/virt-handler/migration-proxy"
 	"kubevirt.io/kubevirt/pkg/virt-launcher"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
@@ -81,7 +82,6 @@ func NewController(
 		host:                     host,
 		ipAddress:                ipAddress,
 		virtShareDir:             virtShareDir,
-		libvirtRuntimesDir:       virtShareDir + "-libvirt-runtimes",
 		vmiSourceInformer:        vmiSourceInformer,
 		vmiTargetInformer:        vmiTargetInformer,
 		domainInformer:           domainInformer,
@@ -89,6 +89,7 @@ func NewController(
 		heartBeatInterval:        1 * time.Minute,
 		watchdogTimeoutSeconds:   watchdogTimeoutSeconds,
 		migrationProxy:           migrationproxy.NewMigrationProxyManager(virtShareDir),
+		podIsolationDetector:     isolation.NewSocketBasedIsolationDetector(virtShareDir),
 	}
 
 	vmiSourceInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
@@ -128,7 +129,6 @@ type VirtualMachineController struct {
 	host                     string
 	ipAddress                string
 	virtShareDir             string
-	libvirtRuntimesDir       string
 	Queue                    workqueue.RateLimitingInterface
 	vmiSourceInformer        cache.SharedIndexInformer
 	vmiTargetInformer        cache.SharedIndexInformer
@@ -140,6 +140,7 @@ type VirtualMachineController struct {
 	watchdogTimeoutSeconds   int
 	kvmController            *device_manager.DeviceController
 	migrationProxy           migrationproxy.ProxyManager
+	podIsolationDetector     isolation.PodIsolationDetector
 }
 
 // Determines if a domain's grace period has expired during shutdown.
@@ -841,15 +842,6 @@ func (d *VirtualMachineController) processVmCleanup(vmi *v1.VirtualMachineInstan
 
 	d.closeLauncherClient(vmi)
 
-	if string(vmi.UID) != "" {
-		libvirtDir := filepath.Join(d.libvirtRuntimesDir, string(vmi.UID))
-		err = os.RemoveAll(libvirtDir)
-		if err != nil {
-			return err
-		}
-		log.Log.Object(vmi).V(3).Infof("Deleted libvirt runtime dir at host mount %s.", libvirtDir)
-	}
-
 	d.migrationProxy.StopTargetListener(string(vmi.UID))
 	d.migrationProxy.StopSourceListener(string(vmi.UID))
 
@@ -1084,7 +1076,16 @@ func (d *VirtualMachineController) handleMigrationProxy(vmi *v1.VirtualMachineIn
 
 	// handle starting/stopping target migration proxy
 	if d.isPreMigrationTarget(vmi) {
-		err := d.migrationProxy.StartTargetListener(string(vmi.UID), filepath.Join(d.libvirtRuntimesDir, string(vmi.UID), "libvirt-sock"))
+
+		res, err := d.podIsolationDetector.Detect(vmi)
+		if err != nil {
+			return err
+		}
+
+		// Get Socket File.
+		socketFile := fmt.Sprintf("/proc/%d/root/var/run/libvirt/libvirt-sock", res.Pid())
+
+		err = d.migrationProxy.StartTargetListener(string(vmi.UID), socketFile)
 		if err != nil {
 			return err
 		}

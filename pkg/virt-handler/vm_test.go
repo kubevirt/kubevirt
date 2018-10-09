@@ -22,6 +22,7 @@ package virthandler
 import (
 	"fmt"
 	"io/ioutil"
+	"net"
 	"os"
 	"time"
 
@@ -453,9 +454,17 @@ var _ = Describe("VirtualMachineInstance", func() {
 			mockWatchdog.CreateFile(vmi)
 			vmiFeeder.Add(vmi)
 
+			// something has to be listening to the cmd socket
+			// for the proxy to work.
+			os.MkdirAll(cmdclient.SocketsDirectory(shareDir), os.ModePerm)
+			socketFile := cmdclient.SocketFromUID(shareDir, string(vmi.UID))
+			socket, err := net.Listen("unix", socketFile)
+			Expect(err).NotTo(HaveOccurred())
+			defer socket.Close()
+
 			// since a random port is generated, we have to create the proxy
 			// here in order to know what port will be in the update.
-			err := controller.handleMigrationProxy(vmi)
+			err = controller.handleMigrationProxy(vmi)
 			Expect(err).NotTo(HaveOccurred())
 
 			curPort := controller.migrationProxy.GetTargetListenerPort(string(vmi.UID))

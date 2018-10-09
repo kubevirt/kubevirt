@@ -48,7 +48,6 @@ var _ = Describe("Template", func() {
 	pvcCache := cache.NewIndexer(cache.DeletionHandlingMetaNamespaceKeyFunc, nil)
 	svc := NewTemplateService("kubevirt/virt-launcher",
 		"/var/run/kubevirt",
-		"/var/run/kubevirt-libvirt-runtimes",
 		"/var/run/kubevirt-ephemeral-disks",
 		"pull-secret-1",
 		configCache,

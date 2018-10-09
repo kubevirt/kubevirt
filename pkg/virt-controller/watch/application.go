@@ -66,8 +66,6 @@ const (
 
 	ephemeralDiskDir = virtShareDir + "-ephemeral-disks"
 
-	libvirtRuntimesDir = virtShareDir + "-libvirt-runtimes"
-
 	controllerThreads = 3
 )
 
@@ -107,12 +105,11 @@ type VirtControllerApp struct {
 
 	LeaderElection leaderelectionconfig.Configuration
 
-	launcherImage      string
-	imagePullSecret    string
-	virtShareDir       string
-	libvirtRuntimesDir string
-	ephemeralDiskDir   string
-	readyChan          chan bool
+	launcherImage    string
+	imagePullSecret  string
+	virtShareDir     string
+	ephemeralDiskDir string
+	readyChan        chan bool
 }
 
 var _ service.Service = &VirtControllerApp{}
@@ -274,7 +271,6 @@ func (vca *VirtControllerApp) initCommon() {
 	}
 	vca.templateService = services.NewTemplateService(vca.launcherImage,
 		vca.virtShareDir,
-		vca.libvirtRuntimesDir,
 		vca.ephemeralDiskDir,
 		vca.imagePullSecret,
 		vca.configMapCache,
@@ -336,9 +332,6 @@ func (vca *VirtControllerApp) AddFlags() {
 
 	flag.StringVar(&vca.virtShareDir, "kubevirt-share-dir", virtShareDir,
 		"Shared directory between virt-handler and virt-launcher")
-
-	flag.StringVar(&vca.libvirtRuntimesDir, "libvirt-runtimes-dr", libvirtRuntimesDir,
-		"Shared directory between virt-handler and virt-launcher used for libvirt runtimes")
 
 	flag.StringVar(&vca.ephemeralDiskDir, "ephemeral-disk-dir", ephemeralDiskDir,
 		"Base directory for ephemeral disk data")

@@ -57,7 +57,6 @@ type TemplateService interface {
 type templateService struct {
 	launcherImage              string
 	virtShareDir               string
-	libvirtRuntimesDir         string
 	ephemeralDiskDir           string
 	imagePullSecret            string
 	configMapStore             cache.Store
@@ -138,10 +137,12 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 		Name:      "virt-share-dir",
 		MountPath: t.virtShareDir,
 	})
+
 	volumeMounts = append(volumeMounts, k8sv1.VolumeMount{
 		Name:      "libvirt-runtime",
 		MountPath: "/var/run/libvirt",
 	})
+
 	for _, volume := range vmi.Spec.Volumes {
 		volumeMount := k8sv1.VolumeMount{
 			Name:      volume.Name,
@@ -471,9 +472,7 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 	volumes = append(volumes, k8sv1.Volume{
 		Name: "libvirt-runtime",
 		VolumeSource: k8sv1.VolumeSource{
-			HostPath: &k8sv1.HostPathVolumeSource{
-				Path: filepath.Join(t.libvirtRuntimesDir, string(vmi.UID)),
-			},
+			EmptyDir: &k8sv1.EmptyDirVolumeSource{},
 		},
 	})
 	volumes = append(volumes, k8sv1.Volume{
@@ -702,7 +701,6 @@ func getMultusInterfaceList(vmi *v1.VirtualMachineInstance) string {
 
 func NewTemplateService(launcherImage string,
 	virtShareDir string,
-	libvirtRuntimesDir string,
 	ephemeralDiskDir string,
 	imagePullSecret string,
 	configMapCache cache.Store,
@@ -712,7 +710,6 @@ func NewTemplateService(launcherImage string,
 	svc := templateService{
 		launcherImage:              launcherImage,
 		virtShareDir:               virtShareDir,
-		libvirtRuntimesDir:         libvirtRuntimesDir,
 		ephemeralDiskDir:           ephemeralDiskDir,
 		imagePullSecret:            imagePullSecret,
 		configMapStore:             configMapCache,
