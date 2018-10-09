@@ -954,6 +954,14 @@ func NewRandomVMI() *v1.VirtualMachineInstance {
 	return NewRandomVMIWithNS(NamespaceTestDefault)
 }
 
+func NewRandomLongNameVMI() *v1.VirtualMachineInstance {
+	vmi := v1.NewMinimalVMIWithNS(NamespaceTestDefault, "testvmi"+rand.String(63))
+
+	t := defaultTestGracePeriod
+	vmi.Spec.TerminationGracePeriodSeconds = &t
+	return vmi
+}
+
 func NewRandomVMIWithNS(namespace string) *v1.VirtualMachineInstance {
 	vmi := v1.NewMinimalVMIWithNS(namespace, "testvmi"+rand.String(48))
 
@@ -1016,6 +1024,14 @@ func NewRandomVMIWithEphemeralDiskAndUserdataHighMemory(containerImage string, u
 
 func NewRandomVMIWithEphemeralDisk(containerImage string) *v1.VirtualMachineInstance {
 	vmi := NewRandomVMI()
+
+	vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("64M")
+	AddEphemeralDisk(vmi, "disk0", "virtio", containerImage)
+	return vmi
+}
+
+func NewRandomLongNameVMIWithEphemeralDisk(containerImage string) *v1.VirtualMachineInstance {
+	vmi := NewRandomLongNameVMI()
 
 	vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("64M")
 	AddEphemeralDisk(vmi, "disk0", "virtio", containerImage)

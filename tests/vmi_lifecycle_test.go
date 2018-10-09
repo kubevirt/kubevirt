@@ -176,6 +176,24 @@ var _ = Describe("VMIlifecycle", func() {
 			Expect(statusCode).To(Equal(http.StatusUnprocessableEntity), "The entity should be unprocessable")
 		})
 
+		Context("when name is longer than 63 characters", func() {
+			BeforeEach(func() {
+				vmi = tests.NewRandomLongNameVMIWithEphemeralDisk(tests.RegistryDiskFor(tests.RegistryDiskAlpine))
+				Expect(len(vmi.Name)).To(BeNumerically(">", 63), "VirtualMachineInstance %q name is not longer than 63 characters", vmi.Name)
+			})
+			It("should start it", func() {
+				By("Creating a VirtualMachineInstance with a long name")
+				vmi, err := virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
+				Expect(err).ToNot(HaveOccurred(), "cannot create VirtualMachineInstance %q: %v", vmi.Name, err)
+				Expect(len(vmi.Name)).To(BeNumerically(">", 63), "VirtualMachineInstance %q name is not longer than 63 characters", vmi.Name)
+				By("Waiting until it starts")
+				tests.WaitForSuccessfulVMIStart(vmi)
+				vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred(), "cannot fetch VirtualMachineInstance %q: %v", vmi.Name, err)
+				Expect(vmi.IsReady()).To(BeTrue(), "VirtualMachineInstance %q is not ready: %v", vmi.Name, vmi.Status.Phase)
+			})
+		})
+
 		Context("when it already exist", func() {
 			It("should be rejected", func() {
 				By("Creating a VirtualMachineInstance")
