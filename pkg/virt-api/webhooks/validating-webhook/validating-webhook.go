@@ -926,7 +926,7 @@ func ValidateVirtualMachineInstanceSpec(field *k8sfield.Path, spec *v1.VirtualMa
 		if (requestOk == false) && (limitOK == false) {
 			causes = append(causes, metav1.StatusCause{
 				Type:    metav1.CauseTypeFieldValueInvalid,
-				Message: fmt.Sprintf("MultiQueue for block devices can't be used without specifying CPU's."),
+				Message: fmt.Sprintf("MultiQueue for block devices can't be used without specifying CPU requests or limits."),
 				Field:   field.Child("domain", "devices", "blockMultiQueue").String(),
 			})
 		}
