@@ -61,6 +61,7 @@ func main() {
 		utils.VmiBlockPVC:          utils.GetVMIBlockPvc(),
 		utils.VmiWindows:           utils.GetVMIWindows(),
 		utils.VmiSlirp:             utils.GetVMISlirp(),
+		utils.VmiSRIOV:             utils.GetVMISRIOV(),
 		utils.VmiWithHookSidecar:   utils.GetVMIWithHookSidecar(),
 		utils.VmiMultusPtp:         utils.GetVMIMultusPtp(),
 		utils.VmiMultusMultipleNet: utils.GetVMIMultusMultipleNet(),

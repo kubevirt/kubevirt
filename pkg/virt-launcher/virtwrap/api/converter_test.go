@@ -1333,6 +1333,40 @@ var _ = Describe("Converter", func() {
 	})
 })
 
+var _ = Describe("getSRIOVPciAddresses", func() {
+	It("returns empty slice", func() {
+		Expect(len(getSRIOVPciAddresses())).To(Equal(0))
+	})
+	It("gracefully handles trailing comma", func() {
+		os.Setenv("SRIOV-VF-PCI-ADDR", "0000:81:11.1,")
+		addrs := getSRIOVPciAddresses()
+		Expect(len(addrs)).To(Equal(1))
+		Expect(addrs[0]).To(Equal("0000:81:11.1"))
+	})
+	It("returns multiple PCI addresses", func() {
+		os.Setenv("SRIOV-VF-PCI-ADDR", "0000:81:11.1,0001:02:00.0")
+		addrs := getSRIOVPciAddresses()
+		Expect(len(addrs)).To(Equal(2))
+		Expect(addrs[0]).To(Equal("0000:81:11.1"))
+		Expect(addrs[1]).To(Equal("0001:02:00.0"))
+	})
+})
+
+var _ = Describe("popSRIOVPciAddress", func() {
+	It("fails on empty slice", func() {
+		_, _, err := popSRIOVPciAddress([]string{})
+		Expect(err).To(HaveOccurred())
+	})
+	It("pops the next address from a non-empty slice", func() {
+		addrs := []string{"0000:81:11.1", "0001:02:00.0"}
+		addr, rest, err := popSRIOVPciAddress(addrs)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(addr).To(Equal("0000:81:11.1"))
+		Expect(len(rest)).To(Equal(1))
+		Expect(rest[0]).To(Equal("0001:02:00.0"))
+	})
+})
+
 func diskToDiskXML(disk *v1.Disk) string {
 	devicePerBus := make(map[string]int)
 	libvirtDisk := &Disk{}
