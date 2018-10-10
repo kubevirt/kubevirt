@@ -140,7 +140,8 @@ var _ = Describe("Configurations", func() {
 				By("Starting a VirtualMachineInstance")
 				vmi, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
 				Expect(err).To(HaveOccurred())
-				Expect(err.Error()).To(ContainSubstring("the server rejected our request due to an error in our request"))
+				regexp := "(MultiQueue for block devices|the server rejected our request)"
+				Expect(err.Error()).To(MatchRegexp(regexp))
 			}, 300)
 
 			It("should not enforce explicitly rejected queues without cores", func() {
