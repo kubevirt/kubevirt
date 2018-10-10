@@ -386,13 +386,14 @@ func EnsureKVMPresent() {
 				virtHandlerNode, err := virtClient.CoreV1().Nodes().Get(pod.Spec.NodeName, metav1.GetOptions{})
 				ExpectWithOffset(1, err).ToNot(HaveOccurred())
 
-				allocatable, ok := virtHandlerNode.Status.Allocatable[services.KvmDevice]
+				kvmAllocatable, ok := virtHandlerNode.Status.Allocatable[services.KvmDevice]
+				vhostNetAllocatable, ok := virtHandlerNode.Status.Allocatable[services.VhostNetDevice]
 				ready = ready && ok
-				ready = ready && (allocatable.Value() > 0)
+				ready = ready && (kvmAllocatable.Value() > 0) && (vhostNetAllocatable.Value() > 0)
 			}
 			return ready
 		}, 120*time.Second, 1*time.Second).Should(BeTrue(),
-			"KVM devices are required for testing, but are not present on cluster nodes")
+			"Both KVM devices and vhost-net devices are required for testing, but are not present on cluster nodes")
 	}
 }
 

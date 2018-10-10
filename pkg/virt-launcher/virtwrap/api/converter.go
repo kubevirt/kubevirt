@@ -443,6 +443,18 @@ func Convert_v1_VirtualMachine_To_api_Domain(vmi *v1.VirtualMachineInstance, dom
 		return err
 	}
 
+	virtioNetProhibited := false
+	if _, err := os.Stat("/dev/vhost-net"); os.IsNotExist(err) {
+		if c.UseEmulation {
+			logger := log.DefaultLogger()
+			logger.Infof("In-kernel virtio-net device emulation '/dev/vhost-net' not present. Falling back to QEMU userland emulation.")
+		} else {
+			virtioNetProhibited = true
+		}
+	} else if err != nil {
+		return err
+	}
+
 	// Spec metadata
 	domain.Spec.Metadata.KubeVirt.UID = vmi.UID
 	if vmi.Spec.TerminationGracePeriodSeconds != nil {
@@ -736,13 +748,20 @@ func Convert_v1_VirtualMachine_To_api_Domain(vmi *v1.VirtualMachineInstance, dom
 			return fmt.Errorf("failed to find network %s", iface.Name)
 		}
 
+		ifaceType := getInterfaceType(&iface)
 		domainIface := Interface{
 			Model: &Model{
-				Type: getInterfaceType(&iface),
+				Type: ifaceType,
 			},
 			Alias: &Alias{
 				Name: iface.Name,
 			},
+		}
+
+		// if UseEmulation unset and at least one NIC model is virtio,
+		// /dev/vhost-net must be present as we should have asked for it.
+		if ifaceType == "virtio" && virtioNetProhibited {
+			return fmt.Errorf("In-kernel virtio-net device emulation '/dev/vhost-net' not present")
 		}
 
 		// Add a pciAddress if specifed
