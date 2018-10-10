@@ -1173,6 +1173,36 @@ var _ = Describe("Validating Webhook", func() {
 				Expect(causes[0].Field).To(Equal("fake.domain.devices.interfaces[0].pciAddress"))
 			}
 		})
+
+		It("should reject BlockMultiQueue without CPU settings", func() {
+			_true := true
+			vmi := v1.NewMinimalVMI("testvm")
+			vmi.Spec.Domain.Devices.BlockMultiQueue = &_true
+
+			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec)
+			Expect(len(causes)).To(Equal(1))
+			Expect(causes[0].Field).To(Equal("fake.domain.devices.blockMultiQueue"))
+		})
+
+		It("should allow BlockMultiQueue with CPU settings", func() {
+			_true := true
+			vmi := v1.NewMinimalVMI("testvm")
+			vmi.Spec.Domain.Devices.BlockMultiQueue = &_true
+			vmi.Spec.Domain.Resources.Limits = k8sv1.ResourceList{}
+			vmi.Spec.Domain.Resources.Limits[k8sv1.ResourceCPU] = resource.MustParse("5")
+
+			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec)
+			Expect(len(causes)).To(Equal(0))
+		})
+
+		It("should ignore CPU settings for explicitly rejected BlockMultiQueue", func() {
+			_false := false
+			vmi := v1.NewMinimalVMI("testvm")
+			vmi.Spec.Domain.Devices.BlockMultiQueue = &_false
+
+			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec)
+			Expect(len(causes)).To(Equal(0))
+		})
 	})
 	Context("with cpu pinning", func() {
 		var vmi *v1.VirtualMachineInstance
