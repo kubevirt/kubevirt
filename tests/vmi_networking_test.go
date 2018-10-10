@@ -121,7 +121,7 @@ var _ = Describe("Networking", func() {
 
 	checkLearningState := func(vmi *v1.VirtualMachineInstance, expectedValue string) {
 		output := tests.RunCommandOnVmiPod(vmi, []string{"cat", "/sys/class/net/eth0/brport/learning"})
-		Expect(output).To(Equal(expectedValue))
+		ExpectWithOffset(1, strings.TrimSpace(output)).To(Equal(expectedValue))
 	}
 
 	Describe("Multiple virtual machines connectivity", func() {
@@ -565,7 +565,7 @@ var _ = Describe("Networking", func() {
 
 		It("should disable learning on pod iface", func() {
 			By("checking learning flag")
-			learningDisabledVMI := tests.NewRandomVMI()
+			learningDisabledVMI := tests.NewRandomVMIWithEphemeralDiskAndUserdata(tests.RegistryDiskFor(tests.RegistryDiskAlpine), "#!/bin/bash\necho 'hello'\n")
 			_, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(learningDisabledVMI)
 			Expect(err).ToNot(HaveOccurred())
 
