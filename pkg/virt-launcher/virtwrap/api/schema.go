@@ -268,6 +268,7 @@ type Devices struct {
 	Emulator    string       `xml:"emulator,omitempty"`
 	Interfaces  []Interface  `xml:"interface"`
 	Channels    []Channel    `xml:"channel"`
+	HostDevices []HostDevice `xml:"hostdev,omitempty"`
 	Controllers []Controller `xml:"controller,omitempty"`
 	Video       []Video      `xml:"video"`
 	Graphics    []Graphics   `xml:"graphics"`
@@ -278,6 +279,20 @@ type Devices struct {
 	Watchdog    *Watchdog    `xml:"watchdog,omitempty"`
 	Rng         *Rng         `xml:"rng,omitempty"`
 }
+
+// BEGIN HostDevice -----------------------------
+type HostDevice struct {
+	Source    HostDeviceSource `xml:"source"`
+	Type      string           `xml:"type,attr"`
+	BootOrder *BootOrder       `xml:"boot,omitempty"`
+	Managed   string           `xml:"managed,attr"`
+}
+
+type HostDeviceSource struct {
+	Address *Address `xml:"address,omitempty"`
+}
+
+// END HostDevice -----------------------------
 
 // BEGIN Controller -----------------------------
 
@@ -455,10 +470,11 @@ type FilterRef struct {
 }
 
 type InterfaceSource struct {
-	Network string `xml:"network,attr,omitempty"`
-	Device  string `xml:"dev,attr,omitempty"`
-	Bridge  string `xml:"bridge,attr,omitempty"`
-	Mode    string `xml:"mode,attr,omitempty"`
+	Network string   `xml:"network,attr,omitempty"`
+	Device  string   `xml:"dev,attr,omitempty"`
+	Bridge  string   `xml:"bridge,attr,omitempty"`
+	Mode    string   `xml:"mode,attr,omitempty"`
+	Address *Address `xml:"address,omitempty"`
 }
 
 type Model struct {

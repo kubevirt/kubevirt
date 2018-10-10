@@ -4540,10 +4540,14 @@
      },
      "slirp": {
       "$ref": "#/definitions/v1.InterfaceSlirp"
+     },
+     "sriov": {
+      "$ref": "#/definitions/v1.InterfaceSRIOV"
      }
     }
    },
    "v1.InterfaceBridge": {},
+   "v1.InterfaceSRIOV": {},
    "v1.InterfaceSlirp": {},
    "v1.KVMTimer": {
     "properties": {

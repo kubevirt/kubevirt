@@ -110,6 +110,15 @@ func GetImagePullPolicy(store cache.Store) (policy k8sv1.PullPolicy, err error) 
 	return
 }
 
+func isSRIOVVmi(vmi *v1.VirtualMachineInstance) bool {
+	for _, iface := range vmi.Spec.Domain.Devices.Interfaces {
+		if iface.SRIOV != nil {
+			return true
+		}
+	}
+	return false
+}
+
 func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (*k8sv1.Pod, error) {
 	precond.MustNotBeNil(vmi)
 	domain := precond.MustNotBeEmpty(vmi.GetObjectMeta().GetName())
@@ -125,6 +134,7 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 	var volumes []k8sv1.Volume
 	var volumeDevices []k8sv1.VolumeDevice
 	var userId int64 = 0
+	// Privileged mode is disabled by default.
 	var privileged bool = false
 	var volumeMounts []k8sv1.VolumeMount
 	var imagePullSecrets []k8sv1.LocalObjectReference
@@ -148,6 +158,60 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 		Name:      "libvirt-runtime",
 		MountPath: "/var/run/libvirt",
 	})
+
+	if isSRIOVVmi(vmi) {
+		// libvirt needs this volume to unbind the device from kernel
+		// driver, and register it with vfio userspace driver
+		volumeMounts = append(volumeMounts, k8sv1.VolumeMount{
+			Name:      "pci-bus",
+			MountPath: "/sys/bus/pci/",
+		})
+		volumes = append(volumes, k8sv1.Volume{
+			Name: "pci-bus",
+			VolumeSource: k8sv1.VolumeSource{
+				HostPath: &k8sv1.HostPathVolumeSource{
+					Path: "/sys/bus/pci/",
+				},
+			},
+		})
+
+		// libvirt needs this volume to determine iommu group assigned
+		// to the device
+		volumeMounts = append(volumeMounts, k8sv1.VolumeMount{
+			Name:      "pci-devices",
+			MountPath: "/sys/devices/",
+		})
+		volumes = append(volumes, k8sv1.Volume{
+			Name: "pci-devices",
+			VolumeSource: k8sv1.VolumeSource{
+				HostPath: &k8sv1.HostPathVolumeSource{
+					Path: "/sys/devices/",
+				},
+			},
+		})
+
+		// libvirt uses vfio-pci to pass host devices through
+		volumeMounts = append(volumeMounts, k8sv1.VolumeMount{
+			Name:      "dev-vfio",
+			MountPath: "/dev/vfio/",
+		})
+		volumes = append(volumes, k8sv1.Volume{
+			Name: "dev-vfio",
+			VolumeSource: k8sv1.VolumeSource{
+				HostPath: &k8sv1.HostPathVolumeSource{
+					Path: "/dev/vfio/",
+				},
+			},
+		})
+
+		// todo: revisit when SR-IOV DP registers /dev/vfio/NN with pod
+		// device group:
+		// https://github.com/intel/sriov-network-device-plugin/pull/26
+		//
+		// Run virt-launcher compute container privileged to allow qemu
+		// to open /dev/vfio/NN for PCI passthrough
+		privileged = true
+	}
 
 	serviceAccountName := ""
 
@@ -443,8 +507,7 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 		Image:           t.launcherImage,
 		ImagePullPolicy: imagePullPolicy,
 		SecurityContext: &k8sv1.SecurityContext{
-			RunAsUser: &userId,
-			// Privileged mode is disabled.
+			RunAsUser:  &userId,
 			Privileged: &privileged,
 			Capabilities: &k8sv1.Capabilities{
 				Add: capabilities,

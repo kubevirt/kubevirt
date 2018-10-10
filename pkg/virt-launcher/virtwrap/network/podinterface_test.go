@@ -289,6 +289,24 @@ var _ = Describe("Pod Network", func() {
 				})
 			})
 		})
+		Context("SRIOV Plug", func() {
+			It("Does not crash", func() {
+				// Plug doesn't do anything for sriov so it's enough to pass an empty domain
+				domain := &api.Domain{}
+				// Same for network
+				net := &v1.Network{}
+
+				iface := &v1.Interface{
+					Name: "sriov",
+					InterfaceBindingMethod: v1.InterfaceBindingMethod{
+						SRIOV: &v1.InterfaceSRIOV{},
+					},
+				}
+				podiface := PodInterface{}
+				err := podiface.Plug(iface, net, domain, "fakeiface")
+				Expect(err).ToNot(HaveOccurred())
+			})
+		})
 		Context("Slirp Plug", func() {
 			It("Should create an interface in the qemu command line and remove it from the interfaces", func() {
 				domain := NewDomainWithSlirpInterface()

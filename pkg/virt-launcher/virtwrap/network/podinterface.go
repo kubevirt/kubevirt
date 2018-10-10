@@ -61,6 +61,11 @@ func (l *PodInterface) Plug(iface *v1.Interface, network *v1.Network, domain *ap
 	precond.MustNotBeNil(domain)
 	initHandler()
 
+	// There is nothing to plug for SR-IOV devices
+	if iface.SRIOV != nil {
+		return nil
+	}
+
 	driver, err := getBinding(iface, domain, podInterfaceName)
 	if err != nil {
 		return err

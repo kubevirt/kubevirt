@@ -741,6 +741,48 @@ var _ = Describe("Template", func() {
 			})
 		})
 
+		Context("with sriov interface", func() {
+			It("should run privileged", func() {
+				sriovInterface := v1.InterfaceSRIOV{}
+				domain := v1.DomainSpec{}
+				domain.Devices.Interfaces = []v1.Interface{{Name: "testnet", InterfaceBindingMethod: v1.InterfaceBindingMethod{SRIOV: &sriovInterface}}}
+				vmi := v1.VirtualMachineInstance{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "testvmi", Namespace: "default", UID: "1234",
+					},
+					Spec: v1.VirtualMachineInstanceSpec{Domain: domain},
+				}
+
+				pod, err := svc.RenderLaunchManifest(&vmi)
+				Expect(err).ToNot(HaveOccurred())
+
+				Expect(len(pod.Spec.Containers)).To(Equal(1))
+				Expect(*pod.Spec.Containers[0].SecurityContext.Privileged).To(Equal(true))
+			})
+			It("should mount pci related host directories", func() {
+				sriovInterface := v1.InterfaceSRIOV{}
+				domain := v1.DomainSpec{}
+				domain.Devices.Interfaces = []v1.Interface{{Name: "testnet", InterfaceBindingMethod: v1.InterfaceBindingMethod{SRIOV: &sriovInterface}}}
+				vmi := v1.VirtualMachineInstance{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "testvmi", Namespace: "default", UID: "1234",
+					},
+					Spec: v1.VirtualMachineInstanceSpec{Domain: domain},
+				}
+
+				pod, err := svc.RenderLaunchManifest(&vmi)
+				Expect(err).ToNot(HaveOccurred())
+
+				Expect(len(pod.Spec.Containers)).To(Equal(1))
+				// Skip first three mounts that are generic for all launcher pods
+				Expect(pod.Spec.Containers[0].VolumeMounts[3].MountPath).To(Equal("/sys/bus/pci/"))
+				Expect(pod.Spec.Containers[0].VolumeMounts[4].MountPath).To(Equal("/sys/devices/"))
+				Expect(pod.Spec.Containers[0].VolumeMounts[5].MountPath).To(Equal("/dev/vfio/"))
+				Expect(pod.Spec.Volumes[0].HostPath.Path).To(Equal("/sys/bus/pci/"))
+				Expect(pod.Spec.Volumes[1].HostPath.Path).To(Equal("/sys/devices/"))
+				Expect(pod.Spec.Volumes[2].HostPath.Path).To(Equal("/dev/vfio/"))
+			})
+		})
 		Context("with slirp interface", func() {
 			It("Should have empty port list in the pod manifest", func() {
 				slirpInterface := v1.InterfaceSlirp{}

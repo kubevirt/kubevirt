@@ -46,6 +46,7 @@ const (
 	VmiBlockPVC          = "vmi-block-pvc"
 	VmiWindows           = "vmi-windows"
 	VmiSlirp             = "vmi-slirp"
+	VmiSRIOV             = "vmi-sriov"
 	VmiWithHookSidecar   = "vmi-with-sidecar-hook"
 	VmiMultusPtp         = "vmi-multus-ptp"
 	VmiMultusMultipleNet = "vmi-multus-multiple-net"
@@ -325,6 +326,21 @@ func GetVMISlirp() *v1.VirtualMachineInstance {
 	slirp := &v1.InterfaceSlirp{}
 	ports := []v1.Port{v1.Port{Name: "http", Protocol: "TCP", Port: 80}}
 	vm.Spec.Domain.Devices.Interfaces = []v1.Interface{v1.Interface{Name: "testSlirp", Ports: ports, InterfaceBindingMethod: v1.InterfaceBindingMethod{Slirp: slirp}}}
+
+	return vm
+}
+
+func GetVMISRIOV() *v1.VirtualMachineInstance {
+	vm := getBaseVMI(VmiSRIOV)
+	vm.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("1024M")
+	vm.Spec.Domain.Resources.Requests["intel.com/sriov"] = resource.MustParse("1")
+	vm.Spec.Domain.Resources.Limits = k8sv1.ResourceList{"intel.com/sriov": resource.MustParse("1")}
+	vm.Spec.Networks = []v1.Network{*v1.DefaultPodNetwork(), {Name: "sriov-net", NetworkSource: v1.NetworkSource{Multus: &v1.CniNetwork{NetworkName: "sriov-net"}}}}
+	addRegistryDisk(&vm.Spec, fmt.Sprintf("%s/%s:%s", DockerPrefix, imageFedora, DockerTag), busVirtio)
+	addNoCloudDiskWitUserData(&vm.Spec, "#!/bin/bash\necho \"fedora\" |passwd fedora --stdin\ndhclient eth1\n")
+
+	vm.Spec.Domain.Devices.Interfaces = []v1.Interface{{Name: "default", InterfaceBindingMethod: v1.InterfaceBindingMethod{Bridge: &v1.InterfaceBridge{}}},
+		{Name: "sriov-net", InterfaceBindingMethod: v1.InterfaceBindingMethod{SRIOV: &v1.InterfaceSRIOV{}}}}
 
 	return vm
 }

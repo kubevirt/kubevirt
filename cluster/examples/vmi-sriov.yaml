@@ -1,0 +1,50 @@
+apiVersion: kubevirt.io/v1alpha2
+kind: VirtualMachineInstance
+metadata:
+  creationTimestamp: null
+  labels:
+    special: vmi-sriov
+  name: vmi-sriov
+spec:
+  domain:
+    devices:
+      disks:
+      - disk:
+          bus: virtio
+        name: registrydisk
+        volumeName: registryvolume
+      - disk:
+          bus: virtio
+        name: cloudinitdisk
+        volumeName: cloudinitvolume
+      interfaces:
+      - bridge: {}
+        name: default
+      - name: sriov-net
+        sriov: {}
+    machine:
+      type: ""
+    resources:
+      limits:
+        intel.com/sriov: "1"
+      requests:
+        intel.com/sriov: "1"
+        memory: 1024M
+  networks:
+  - name: default
+    pod: {}
+  - multus:
+      networkName: sriov-net
+    name: sriov-net
+  terminationGracePeriodSeconds: 0
+  volumes:
+  - name: registryvolume
+    registryDisk:
+      image: registry:5000/kubevirt/fedora-cloud-registry-disk-demo:devel
+  - cloudInitNoCloud:
+      userData: |
+        #!/bin/bash
+        echo "fedora" |passwd fedora --stdin
+        dhclient eth1
+    name: cloudinitvolume
+status: {}

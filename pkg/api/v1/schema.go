@@ -803,6 +803,7 @@ type Interface struct {
 type InterfaceBindingMethod struct {
 	Bridge *InterfaceBridge `json:"bridge,omitempty"`
 	Slirp  *InterfaceSlirp  `json:"slirp,omitempty"`
+	SRIOV  *InterfaceSRIOV  `json:"sriov,omitempty"`
 }
 
 // ---
@@ -812,6 +813,10 @@ type InterfaceBridge struct{}
 // ---
 // +k8s:openapi-gen=true
 type InterfaceSlirp struct{}
+
+// ---
+// +k8s:openapi-gen=true
+type InterfaceSRIOV struct{}
 
 // Port repesents a port to expose from the virtual machine.
 // Default protocol TCP.
