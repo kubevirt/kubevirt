@@ -1,14 +1,10 @@
 package api
 
 const (
-	defaultDNS          = "8.8.8.8"
-	resolvConf          = "/etc/resolv.conf"
-	defaultSearchDomain = "cluster.local"
-	domainSearchPrefix  = "search"
-	nameserverPrefix    = "nameserver"
-	DefaultProtocol     = "TCP"
-	DefaultVMCIDR       = "10.0.2.0/24"
-	DefaultBridgeName   = "k6t-eth0"
+	resolvConf        = "/etc/resolv.conf"
+	DefaultProtocol   = "TCP"
+	DefaultVMCIDR     = "10.0.2.0/24"
+	DefaultBridgeName = "k6t-eth0"
 )
 
 func SetDefaults_Devices(devices *Devices) {

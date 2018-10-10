@@ -20,17 +20,17 @@
 package api
 
 import (
-	"bufio"
 	"bytes"
 	"fmt"
 	"io/ioutil"
 	"net"
 	"os"
 	"path/filepath"
-	"regexp"
 
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
+
+	"kubevirt.io/kubevirt/pkg/util/net/dns"
 
 	"strconv"
 	"strings"
@@ -968,12 +968,12 @@ func GetResolvConfDetailsFromPod() ([][]byte, []string, error) {
 		return nil, nil, err
 	}
 
-	nameservers, err := ParseNameservers(string(b))
+	nameservers, err := dns.ParseNameservers(string(b))
 	if err != nil {
 		return nil, nil, err
 	}
 
-	searchDomains, err := ParseSearchDomains(string(b))
+	searchDomains, err := dns.ParseSearchDomains(string(b))
 	if err != nil {
 		return nil, nil, err
 	}
@@ -982,62 +982,4 @@ func GetResolvConfDetailsFromPod() ([][]byte, []string, error) {
 	log.Log.Reason(err).Infof("Found search domains in %s: %s", resolvConf, strings.Join(searchDomains, " "))
 
 	return nameservers, searchDomains, err
-}
-
-func ParseNameservers(content string) ([][]byte, error) {
-	var nameservers [][]byte
-
-	re, err := regexp.Compile("([0-9]{1,3}.?){4}")
-	if err != nil {
-		return nameservers, err
-	}
-
-	scanner := bufio.NewScanner(strings.NewReader(content))
-
-	for scanner.Scan() {
-		line := scanner.Text()
-		if strings.HasPrefix(line, nameserverPrefix) {
-			nameserver := re.FindString(line)
-			if nameserver != "" {
-				nameservers = append(nameservers, net.ParseIP(nameserver).To4())
-			}
-		}
-	}
-
-	if err = scanner.Err(); err != nil {
-		return nameservers, err
-	}
-
-	// apply a default DNS if none found from pod
-	if len(nameservers) == 0 {
-		nameservers = append(nameservers, net.ParseIP(defaultDNS).To4())
-	}
-
-	return nameservers, nil
-}
-
-func ParseSearchDomains(content string) ([]string, error) {
-	var searchDomains []string
-
-	scanner := bufio.NewScanner(strings.NewReader(content))
-
-	for scanner.Scan() {
-		line := scanner.Text()
-		if strings.HasPrefix(line, domainSearchPrefix) {
-			doms := strings.Fields(strings.TrimPrefix(line, domainSearchPrefix))
-			for _, dom := range doms {
-				searchDomains = append(searchDomains, dom)
-			}
-		}
-	}
-
-	if err := scanner.Err(); err != nil {
-		return nil, err
-	}
-
-	if len(searchDomains) == 0 {
-		searchDomains = append(searchDomains, defaultSearchDomain)
-	}
-
-	return searchDomains, nil
 }

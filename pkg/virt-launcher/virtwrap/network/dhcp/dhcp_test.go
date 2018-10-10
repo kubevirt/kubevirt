@@ -22,6 +22,7 @@ package dhcp
 import (
 	"net"
 
+	"github.com/krolaw/dhcp4"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"github.com/vishvananda/netlink"
@@ -129,6 +130,20 @@ var _ = Describe("DHCP", func() {
 		})
 	})
 
+	Context("function getDomainName", func() {
+		It("should return the longest search domain entry", func() {
+			searchDomains := []string{
+				"pix3ob5ymm5jbsjessf0o4e84uvij588rz23iz0o.com",
+				"3wg5xngig6vzfqjww4kocnky3c9dqjpwkewzlwpf.com",
+				"t4lanpt7z4ix58nvxl4d.com",
+				"14wg5xngig6vzfqjww4kocnky3c9dqjpwkewzlwpf.com",
+				"4wg5xngig6vzfqjww4kocnky3c9dqjpwkewzlwpf.com",
+			}
+			domain := getDomainName(searchDomains)
+			Expect(domain).To(Equal("14wg5xngig6vzfqjww4kocnky3c9dqjpwkewzlwpf.com"))
+		})
+	})
+
 	Context("function isValidSearchDomain(domain string) bool", func() {
 		createBytes := func(size int) []byte {
 			b := make([]byte, size)
@@ -180,6 +195,22 @@ var _ = Describe("DHCP", func() {
 
 		It("should accept a partial search domain", func() {
 			Expect(isValidSearchDomain("local")).To(BeTrue())
+		})
+	})
+
+	Context("Options returned by prepareDHCPOptions", func() {
+		It("should contain the domain name option", func() {
+			searchDomains := []string{
+				"pix3ob5ymm5jbsjessf0o4e84uvij588rz23iz0o.com",
+				"3wg5xngig6vzfqjww4kocnky3c9dqjpwkewzlwpf.com",
+				"t4lanpt7z4ix58nvxl4d.com",
+				"14wg5xngig6vzfqjww4kocnky3c9dqjpwkewzlwpf.com",
+				"4wg5xngig6vzfqjww4kocnky3c9dqjpwkewzlwpf.com",
+			}
+			ip := net.ParseIP("192.168.2.1")
+			options, err := prepareDHCPOptions(ip.DefaultMask(), ip, nil, nil, searchDomains, 1500, "myhost")
+			Expect(err).ToNot(HaveOccurred())
+			Expect(options[dhcp4.OptionDomainName]).To(Equal([]byte("14wg5xngig6vzfqjww4kocnky3c9dqjpwkewzlwpf.com")))
 		})
 	})
 })
