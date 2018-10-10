@@ -839,13 +839,26 @@ func Convert_v1_VirtualMachine_To_api_Domain(vmi *v1.VirtualMachineInstance, dom
 	return nil
 }
 
+func calculateRequestedVCPUs(vmi *v1.VirtualMachineInstance) uint32 {
+	cores := uint32(0)
+	if vmi.Spec.Domain.CPU != nil && vmi.Spec.Domain.CPU.Cores != 0 {
+		return vmi.Spec.Domain.CPU.Cores
+	}
+	if cpuRequests, ok := vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceCPU]; ok {
+		cores = uint32(cpuRequests.Value())
+	} else if cpuLimit, ok := vmi.Spec.Domain.Resources.Limits[k8sv1.ResourceCPU]; ok {
+		cores = uint32(cpuLimit.Value())
+	}
+	return cores
+}
+
 func formatDomainCPUTune(vmi *v1.VirtualMachineInstance, domain *Domain, c *ConverterContext) error {
 	if len(c.CPUSet) == 0 {
 		return fmt.Errorf("failed for get pods pinned cpus")
 	}
-
+	vcpus := calculateRequestedVCPUs(vmi)
 	cpuTune := CPUTune{}
-	for idx := 0; idx < int(vmi.Spec.Domain.CPU.Cores); idx++ {
+	for idx := 0; idx < int(vcpus); idx++ {
 		vcpupin := CPUTuneVCPUPin{}
 		vcpupin.VCPU = uint(idx)
 		vcpupin.CPUSet = strconv.Itoa(c.CPUSet[idx])
