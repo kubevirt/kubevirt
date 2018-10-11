@@ -93,6 +93,11 @@ type EventType string
 const TempDirPrefix = "kubevirt-test"
 
 const (
+	defaultEventuallyTimeout         = 5 * time.Second
+	defaultEventuallyPollingInterval = 1 * time.Second
+)
+
+const (
 	AlpineHttpUrl = "http://cdi-http-import-server.kube-system/images/alpine.iso"
 )
 
@@ -358,6 +363,9 @@ func BeforeTestSuitSetup() {
 	CreateBlockVolumePVC(BlockPVCCirros, selector, "1Gi")
 
 	EnsureKVMPresent()
+
+	SetDefaultEventuallyTimeout(defaultEventuallyTimeout)
+	SetDefaultEventuallyPollingInterval(defaultEventuallyPollingInterval)
 }
 
 func EnsureKVMPresent() {
@@ -1373,7 +1381,7 @@ func waitForVMIStart(obj runtime.Object, seconds int, ignoreWarnings bool) (node
 			return true
 		}
 		return false
-	}, time.Duration(seconds)*time.Second).Should(Equal(true), "Timed out waiting for VMI to enter Running phase")
+	}, time.Duration(seconds)*time.Second, 1*time.Second).Should(Equal(true), "Timed out waiting for VMI to enter Running phase")
 
 	return
 }
