@@ -169,7 +169,8 @@ var exampleJSON = `{
             {{.InterfaceConfig}}
           }
         ],
-        "rng": {}
+        "rng": {},
+        "blockMultiQueue": true
       },
       "ioThreadsPolicy": "shared"
     },
@@ -268,6 +269,7 @@ var _ = Describe("Schema", func() {
 		}
 
 		exampleVMI.Spec.Domain.Devices.Rng = &Rng{}
+		exampleVMI.Spec.Domain.Devices.BlockMultiQueue = _true
 
 		exampleVMI.Spec.Volumes = []Volume{
 			{

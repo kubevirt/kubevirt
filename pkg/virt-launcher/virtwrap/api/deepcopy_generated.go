@@ -805,6 +805,15 @@ func (in *DiskDriver) DeepCopyInto(out *DiskDriver) {
 			**out = **in
 		}
 	}
+	if in.Queues != nil {
+		in, out := &in.Queues, &out.Queues
+		if *in == nil {
+			*out = nil
+		} else {
+			*out = new(uint)
+			**out = **in
+		}
+	}
 	return
 }
 

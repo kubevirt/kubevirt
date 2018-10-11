@@ -60,7 +60,7 @@ type ConverterContext struct {
 	IsBlockPVC     map[string]bool
 }
 
-func Convert_v1_Disk_To_api_Disk(diskDevice *v1.Disk, disk *Disk, devicePerBus map[string]int) error {
+func Convert_v1_Disk_To_api_Disk(diskDevice *v1.Disk, disk *Disk, devicePerBus map[string]int, numQueues *uint) error {
 
 	if diskDevice.Disk != nil {
 		disk.Device = "disk"
@@ -92,6 +92,9 @@ func Convert_v1_Disk_To_api_Disk(diskDevice *v1.Disk, disk *Disk, devicePerBus m
 	}
 	disk.Driver = &DiskDriver{
 		Name: "qemu",
+	}
+	if numQueues != nil {
+		disk.Driver.Queues = numQueues
 	}
 	disk.Alias = &Alias{Name: diskDevice.Name}
 	if diskDevice.BootOrder != nil {
@@ -546,11 +549,24 @@ func Convert_v1_VirtualMachine_To_api_Domain(vmi *v1.VirtualMachineInstance, dom
 
 	currentAutoThread := defaultIOThread
 	currentDedicatedThread := uint(autoThreads + 1)
+
+	var numQueues *uint
+	if (vmi.Spec.Domain.Devices.BlockMultiQueue != nil) && (*vmi.Spec.Domain.Devices.BlockMultiQueue) {
+		// Requested CPU's is guaranteed to be no greater than the limit
+		if cpuRequests, ok := vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceCPU]; ok {
+			numCPUs := uint(cpuRequests.Value())
+			numQueues = &numCPUs
+		} else if cpuLimit, ok := vmi.Spec.Domain.Resources.Limits[k8sv1.ResourceCPU]; ok {
+			numCPUs := uint(cpuLimit.Value())
+			numQueues = &numCPUs
+		}
+	}
+
 	devicePerBus := make(map[string]int)
 	for _, disk := range vmi.Spec.Domain.Devices.Disks {
 		newDisk := Disk{}
 
-		err := Convert_v1_Disk_To_api_Disk(&disk, &newDisk, devicePerBus)
+		err := Convert_v1_Disk_To_api_Disk(&disk, &newDisk, devicePerBus, numQueues)
 		if err != nil {
 			return err
 		}

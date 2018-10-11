@@ -87,6 +87,7 @@ var _ = Describe("Configurations", func() {
 					&expect.BSnd{S: "grep -c ^processor /proc/cpuinfo\n"},
 					&expect.BExp{R: "3"},
 				}, 250*time.Second)
+				Expect(err).ToNot(HaveOccurred())
 
 				By("Checking the requested amount of memory allocated for a guest")
 				Expect(vmi.Spec.Domain.Resources.Requests.Memory().String()).To(Equal("64M"))
@@ -105,6 +106,61 @@ var _ = Describe("Configurations", func() {
 				Expect(computeContainer.Resources.Requests.Memory().ToDec().ScaledValue(resource.Mega)).To(Equal(int64(179)))
 
 				Expect(err).ToNot(HaveOccurred())
+			}, 300)
+
+			It("should map cores to queues", func() {
+				_true := true
+				vmi.Spec.Domain.Resources = v1.ResourceRequirements{
+					Requests: kubev1.ResourceList{
+						kubev1.ResourceMemory: resource.MustParse("64M"),
+						kubev1.ResourceCPU:    resource.MustParse("3"),
+					},
+				}
+				vmi.Spec.Domain.Devices.BlockMultiQueue = &_true
+
+				By("Starting a VirtualMachineInstance")
+				vmi, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
+				Expect(err).ToNot(HaveOccurred())
+				tests.WaitForSuccessfulVMIStart(vmi)
+
+				domXml, err := tests.GetRunningVirtualMachineInstanceDomainXML(virtClient, vmi)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(domXml).To(ContainSubstring("queues='3'"))
+			}, 300)
+
+			It("should reject queues without cores", func() {
+				_true := true
+				vmi.Spec.Domain.Resources = v1.ResourceRequirements{
+					Requests: kubev1.ResourceList{
+						kubev1.ResourceMemory: resource.MustParse("64M"),
+					},
+				}
+				vmi.Spec.Domain.Devices.BlockMultiQueue = &_true
+
+				By("Starting a VirtualMachineInstance")
+				vmi, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
+				Expect(err).To(HaveOccurred())
+				regexp := "(MultiQueue for block devices|the server rejected our request)"
+				Expect(err.Error()).To(MatchRegexp(regexp))
+			}, 300)
+
+			It("should not enforce explicitly rejected queues without cores", func() {
+				_false := false
+				vmi.Spec.Domain.Resources = v1.ResourceRequirements{
+					Requests: kubev1.ResourceList{
+						kubev1.ResourceMemory: resource.MustParse("64M"),
+					},
+				}
+				vmi.Spec.Domain.Devices.BlockMultiQueue = &_false
+
+				By("Starting a VirtualMachineInstance")
+				vmi, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
+				Expect(err).ToNot(HaveOccurred())
+				tests.WaitForSuccessfulVMIStart(vmi)
+
+				domXml, err := tests.GetRunningVirtualMachineInstanceDomainXML(virtClient, vmi)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(domXml).ToNot(ContainSubstring("queues='"))
 			}, 300)
 		})
 

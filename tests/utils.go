@@ -1705,6 +1705,55 @@ func ExecuteCommandOnPodV2(virtCli kubecli.KubevirtClient, pod *k8sv1.Pod, conta
 	return stdoutBuf.String(), stderrBuf.String(), nil
 }
 
+func GetRunningVirtualMachineInstanceDomainXML(virtClient kubecli.KubevirtClient, vmi *v1.VirtualMachineInstance) (string, error) {
+	vmiPod := GetRunningPodByVirtualMachineInstance(vmi, NamespaceTestDefault)
+
+	found := false
+	containerIdx := 0
+	for idx, container := range vmiPod.Spec.Containers {
+		if container.Name == "compute" {
+			containerIdx = idx
+			found = true
+		}
+	}
+	if !found {
+		return "", fmt.Errorf("could not find compute container for pod")
+	}
+
+	stdout, _, err := ExecuteCommandOnPodV2(
+		virtClient,
+		vmiPod,
+		vmiPod.Spec.Containers[containerIdx].Name,
+		[]string{"ls", "/etc/libvirt/qemu/"},
+	)
+	if err != nil {
+		return "", fmt.Errorf("unable to list domain xml files (remotely on pod): %v", err)
+	}
+	Expect(err).ToNot(HaveOccurred())
+
+	fn := ""
+	for _, line := range strings.Split(stdout, "\n") {
+		if strings.Contains(line, vmi.Name) {
+			fn = line
+		}
+	}
+	if fn == "" {
+		return "", fmt.Errorf("libvirt domxml file not found")
+	}
+	fn = fmt.Sprintf("/etc/libvirt/qemu/%s", fn)
+
+	stdout, _, err = ExecuteCommandOnPodV2(
+		virtClient,
+		vmiPod,
+		vmiPod.Spec.Containers[containerIdx].Name,
+		[]string{"cat", fn},
+	)
+	if err != nil {
+		return "", fmt.Errorf("could not cat libvirt domxml (remotely on pod): %v", err)
+	}
+	return stdout, err
+}
+
 func BeforeAll(fn func()) {
 	first := true
 	BeforeEach(func() {

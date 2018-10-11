@@ -53,6 +53,8 @@ spec:
                       type: boolean
                     autoattachPodInterface:
                       type: boolean
+                    blockMultiQueue:
+                      type: boolean
                     disks:
                       items:
                         properties:
