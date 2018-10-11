@@ -262,6 +262,7 @@ func (l *LibvirtDomainManager) MigrateVMI(vmi *v1.VirtualMachineInstance) error 
 	return nil
 }
 
+// Prepares the target pod environment by executing the preStartHook
 func (l *LibvirtDomainManager) PrepareMigrationTarget(vmi *v1.VirtualMachineInstance, useEmulation bool) error {
 
 	logger := log.Log.Object(vmi)
@@ -299,6 +300,9 @@ func (l *LibvirtDomainManager) PrepareMigrationTarget(vmi *v1.VirtualMachineInst
 // made to the domain will get set in libvirt after this function exits.
 func (l *LibvirtDomainManager) preStartHook(vmi *v1.VirtualMachineInstance, domain *api.Domain) (*api.Domain, error) {
 
+	logger := log.Log.Object(vmi)
+
+	logger.Info("Executing PreStartHook on VMI pod environment")
 	// ensure registry disk files have correct ownership privileges
 	err := registrydisk.SetFilePermissions(vmi)
 	if err != nil {
