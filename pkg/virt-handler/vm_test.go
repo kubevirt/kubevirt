@@ -182,6 +182,24 @@ var _ = Describe("VirtualMachineInstance", func() {
 			controller.Execute()
 		})
 
+		It("should not attempt graceful shutdown of Domain if domain is already down.", func() {
+			vmi := v1.NewMinimalVMI("testvmi")
+			vmi.UID = testUUID
+			vmi.Status.Phase = v1.Running
+
+			domain := api.NewMinimalDomainWithUUID("testvmi", testUUID)
+			domain.Status.Status = api.Crashed
+
+			initGracePeriodHelper(1, vmi, domain)
+			mockWatchdog.CreateFile(vmi)
+			mockGracefulShutdown.TriggerShutdown(vmi)
+
+			client.EXPECT().Ping()
+			client.EXPECT().DeleteDomain(v1.NewVMIReferenceWithUUID(metav1.NamespaceDefault, "testvmi", testUUID))
+			domainFeeder.Add(domain)
+
+			controller.Execute()
+		}, 3)
 		It("should attempt graceful shutdown of Domain if trigger file exists.", func() {
 			vmi := v1.NewMinimalVMI("testvmi")
 			vmi.UID = testUUID

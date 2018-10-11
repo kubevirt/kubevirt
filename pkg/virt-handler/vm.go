@@ -620,8 +620,12 @@ func (d *VirtualMachineController) defaultExecute(key string,
 	if err != nil {
 		return err
 	} else if gracefulShutdown && vmi.IsRunning() {
-		log.Log.Object(vmi).V(3).Info("Shutting down due to graceful shutdown signal.")
-		shouldShutdown = true
+		if domainAlive {
+			log.Log.Object(vmi).V(3).Info("Shutting down due to graceful shutdown signal.")
+			shouldShutdown = true
+		} else {
+			shouldDelete = true
+		}
 	}
 
 	// Determine removal of VirtualMachineInstance from cache should result in deletion.
@@ -645,7 +649,7 @@ func (d *VirtualMachineController) defaultExecute(key string,
 
 	// Determine if VirtualMachineInstance is being deleted.
 	if vmiExists && vmi.ObjectMeta.DeletionTimestamp != nil {
-		if vmi.IsRunning() || domainAlive {
+		if domainAlive {
 			log.Log.Object(vmi).V(3).Info("Shutting down domain for VirtualMachineInstance with deletion timestamp.")
 			shouldShutdown = true
 		} else if domainExists {
@@ -1342,6 +1346,7 @@ func (d *VirtualMachineController) updateNodeCpuManagerLabel() {
 func isACPIEnabled(vmi *v1.VirtualMachineInstance, domain *api.Domain) bool {
 	zero := int64(0)
 	return vmi.Spec.TerminationGracePeriodSeconds != &zero &&
+		domain != nil &&
 		domain.Spec.Features != nil &&
 		domain.Spec.Features.ACPI != nil
 }
