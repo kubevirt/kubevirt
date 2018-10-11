@@ -685,6 +685,13 @@ func Convert_v1_VirtualMachine_To_api_Domain(vmi *v1.VirtualMachineInstance, dom
 			log.Log.Reason(err).Error("failed to format domain cputune.")
 			return err
 		}
+		if useIOThreads {
+			if err := formatDomainIOThreadPin(vmi, domain, c); err != nil {
+				log.Log.Reason(err).Error("failed to format domain iothread pinning.")
+				return err
+			}
+
+		}
 	}
 
 	// Add mandatory console device
@@ -865,6 +872,46 @@ func formatDomainCPUTune(vmi *v1.VirtualMachineInstance, domain *Domain, c *Conv
 		cpuTune.VCPUPin = append(cpuTune.VCPUPin, vcpupin)
 	}
 	domain.Spec.CPUTune = &cpuTune
+	return nil
+}
+
+func appendDomainIOThreadPin(domain *Domain, thread uint, cpuset string) {
+	iothreadPin := CPUTuneIOThreadPin{}
+	iothreadPin.IOThread = thread
+	iothreadPin.CPUSet = cpuset
+	domain.Spec.CPUTune.IOThreadPin = append(domain.Spec.CPUTune.IOThreadPin, iothreadPin)
+}
+
+func formatDomainIOThreadPin(vmi *v1.VirtualMachineInstance, domain *Domain, c *ConverterContext) error {
+	iothreads := int(domain.Spec.IOThreads.IOThreads)
+	vcpus := int(calculateRequestedVCPUs(vmi))
+
+	if iothreads >= vcpus {
+		// pin an IOThread on a CPU
+		for thread := 1; thread <= iothreads; thread++ {
+			cpuset := fmt.Sprintf("%d", c.CPUSet[thread%vcpus])
+			appendDomainIOThreadPin(domain, uint(thread), cpuset)
+		}
+	} else {
+		// pin IOThreads to a set of cpus
+		series := vcpus % iothreads
+		curr := 0
+		cpus := vcpus
+		thread := 1
+		for cpus > 0 {
+			remainder := vcpus/iothreads - 1
+			if thread <= series {
+				remainder += 1
+			}
+			end := curr + remainder
+			slice := strings.Trim(strings.Join(strings.Fields(fmt.Sprint(c.CPUSet[curr:end+1])), ","), "[]")
+			appendDomainIOThreadPin(domain, uint(thread), slice)
+
+			cpus -= remainder + 1
+			curr = end + 1
+			thread += 1
+		}
+	}
 	return nil
 }
 
