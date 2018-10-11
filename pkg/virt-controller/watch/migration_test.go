@@ -67,7 +67,7 @@ var _ = Describe("Migration watcher", func() {
 	var configMapInformer cache.SharedIndexInformer
 	var pvcInformer cache.SharedIndexInformer
 
-	shouldExpectPodCreation := func(uid types.UID, migrationUid types.UID) {
+	shouldExpectPodCreation := func(uid types.UID, migrationUid types.UID, expectedAntiAffinityCount int, expectedAffinityCount int, expectedNodeAffinityCount int) {
 		// Expect pod creation
 		kubeClient.Fake.PrependReactor("create", "pods", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
 			update, ok := action.(testing.CreateAction)
@@ -75,6 +75,19 @@ var _ = Describe("Migration watcher", func() {
 			Expect(update.GetObject().(*k8sv1.Pod).Annotations[v1.OwnedByAnnotation]).To(Equal("virt-controller"))
 			Expect(update.GetObject().(*k8sv1.Pod).Labels[v1.CreatedByLabel]).To(Equal(string(uid)))
 			Expect(update.GetObject().(*k8sv1.Pod).Labels[v1.MigrationJobLabel]).To(Equal(string(migrationUid)))
+			Expect(update.GetObject().(*k8sv1.Pod).Labels[v1.MigrationJobLabel]).To(Equal(string(migrationUid)))
+
+			Expect(update.GetObject().(*k8sv1.Pod).Spec.Affinity).ToNot(BeNil())
+			Expect(update.GetObject().(*k8sv1.Pod).Spec.Affinity.PodAntiAffinity).ToNot(BeNil())
+			Expect(len(update.GetObject().(*k8sv1.Pod).Spec.Affinity.PodAntiAffinity.RequiredDuringSchedulingIgnoredDuringExecution)).To(Equal(expectedAntiAffinityCount))
+
+			if expectedAffinityCount > 0 {
+				Expect(len(update.GetObject().(*k8sv1.Pod).Spec.Affinity.PodAffinity.RequiredDuringSchedulingIgnoredDuringExecution)).To(Equal(expectedAffinityCount))
+			}
+			if expectedNodeAffinityCount > 0 {
+				Expect(len(update.GetObject().(*k8sv1.Pod).Spec.Affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution.NodeSelectorTerms)).To(Equal(expectedNodeAffinityCount))
+			}
+
 			return true, update.GetObject(), nil
 		})
 	}
@@ -205,7 +218,65 @@ var _ = Describe("Migration watcher", func() {
 
 			addMigration(migration)
 			addVirtualMachine(vmi)
-			shouldExpectPodCreation(vmi.UID, migration.UID)
+			shouldExpectPodCreation(vmi.UID, migration.UID, 1, 0, 0)
+
+			controller.Execute()
+
+			testutils.ExpectEvent(recorder, SuccessfulCreatePodReason)
+		})
+
+		It("should create target pod and not override existing affinity rules", func() {
+			vmi := newVirtualMachine("testvmi", v1.Running)
+			antiAffinityTerm := k8sv1.PodAffinityTerm{
+				LabelSelector: &metav1.LabelSelector{
+					MatchLabels: map[string]string{
+						"somelabel": "somekey",
+					},
+				},
+				TopologyKey: "kubernetes.io/hostname",
+			}
+			affinityTerm := k8sv1.PodAffinityTerm{
+				LabelSelector: &metav1.LabelSelector{
+					MatchLabels: map[string]string{
+						"someotherlabel": "someotherkey",
+					},
+				},
+				TopologyKey: "kubernetes.io/hostname",
+			}
+			antiAffinityRule := &k8sv1.PodAntiAffinity{
+				RequiredDuringSchedulingIgnoredDuringExecution: []k8sv1.PodAffinityTerm{antiAffinityTerm},
+			}
+			affinityRule := &k8sv1.PodAffinity{
+				RequiredDuringSchedulingIgnoredDuringExecution: []k8sv1.PodAffinityTerm{affinityTerm},
+			}
+
+			nodeAffinityRule := &k8sv1.NodeAffinity{
+				RequiredDuringSchedulingIgnoredDuringExecution: &k8sv1.NodeSelector{
+					NodeSelectorTerms: []k8sv1.NodeSelectorTerm{
+						{
+							MatchExpressions: []k8sv1.NodeSelectorRequirement{
+								{
+									Key:      "kubernetes.io/hostname",
+									Operator: k8sv1.NodeSelectorOpIn,
+									Values:   []string{"somenode"},
+								},
+							},
+						},
+					},
+				},
+			}
+
+			vmi.Spec.Affinity = &k8sv1.Affinity{
+				NodeAffinity:    nodeAffinityRule,
+				PodAntiAffinity: antiAffinityRule,
+				PodAffinity:     affinityRule,
+			}
+
+			migration := newMigration("testmigration", vmi.Name, v1.MigrationPending)
+
+			addMigration(migration)
+			addVirtualMachine(vmi)
+			shouldExpectPodCreation(vmi.UID, migration.UID, 2, 1, 1)
 
 			controller.Execute()
 
