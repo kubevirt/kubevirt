@@ -115,11 +115,13 @@ func getHookSidecarLogs(virtCli kubecli.KubevirtClient, vmi *v1.VirtualMachineIn
 func getVmDomainXml(virtCli kubecli.KubevirtClient, vmi *v1.VirtualMachineInstance) string {
 	podName := getVmPodName(virtCli, vmi)
 
-	vmNameListRaw, err := tests.RunCommand("kubectl", "exec", "-ti", "--namespace", vmi.GetObjectMeta().GetNamespace(), podName, "--container", "compute", "--", "virsh", "list", "--name")
+	// passing an empty namespace allows to position --namespace argument correctly
+	vmNameListRaw, _, err := tests.RunCommandWithNS("", "kubectl", "exec", "-ti", "--namespace", vmi.GetObjectMeta().GetNamespace(), podName, "--container", "compute", "--", "virsh", "list", "--name")
 	Expect(err).ToNot(HaveOccurred())
 
 	vmName := strings.Split(vmNameListRaw, "\n")[0]
-	vmDomainXML, err := tests.RunCommand("kubectl", "exec", "-ti", "--namespace", vmi.GetObjectMeta().GetNamespace(), podName, "--container", "compute", "--", "virsh", "dumpxml", vmName)
+	// passing an empty namespace allows to position --namespace argument correctly
+	vmDomainXML, _, err := tests.RunCommandWithNS("", "kubectl", "exec", "-ti", "--namespace", vmi.GetObjectMeta().GetNamespace(), podName, "--container", "compute", "--", "virsh", "dumpxml", vmName)
 	Expect(err).ToNot(HaveOccurred())
 
 	return vmDomainXML

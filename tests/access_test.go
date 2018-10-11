@@ -98,21 +98,21 @@ var _ = Describe("User Access", func() {
 				By(fmt.Sprintf("verifying VIEW sa for verb %s", verb))
 				expectedRes, _ := viewVerbs[verb]
 				as := fmt.Sprintf("system:serviceaccount:%s:%s", namespace, view)
-				result, _ := tests.RunCommand("kubectl", "auth", "can-i", "--as", as, verb, resource)
+				result, _, _ := tests.RunCommand("kubectl", "auth", "can-i", "--as", as, verb, resource)
 				Expect(result).To(ContainSubstring(expectedRes))
 
 				// EDIT
 				By(fmt.Sprintf("verifying EDIT sa for verb %s", verb))
 				expectedRes, _ = editVerbs[verb]
 				as = fmt.Sprintf("system:serviceaccount:%s:%s", namespace, edit)
-				result, _ = tests.RunCommand("kubectl", "auth", "can-i", "--as", as, verb, resource)
+				result, _, _ = tests.RunCommand("kubectl", "auth", "can-i", "--as", as, verb, resource)
 				Expect(result).To(ContainSubstring(expectedRes))
 
 				// ADMIN
 				By(fmt.Sprintf("verifying ADMIN sa for verb %s", verb))
 				expectedRes, _ = adminVerbs[verb]
 				as = fmt.Sprintf("system:serviceaccount:%s:%s", namespace, admin)
-				result, _ = tests.RunCommand("kubectl", "auth", "can-i", "--as", as, verb, resource)
+				result, _, _ = tests.RunCommand("kubectl", "auth", "can-i", "--as", as, verb, resource)
 				Expect(result).To(ContainSubstring(expectedRes))
 
 				// DEFAULT - the default should always return 'no' for ever verb.
@@ -120,7 +120,7 @@ var _ = Describe("User Access", func() {
 				By(fmt.Sprintf("verifying DEFAULT sa for verb %s", verb))
 				expectedRes = "no"
 				as = fmt.Sprintf("system:serviceaccount:%s:default", namespace)
-				result, _ = tests.RunCommand("kubectl", "auth", "can-i", "--as", as, verb, resource)
+				result, _, _ = tests.RunCommand("kubectl", "auth", "can-i", "--as", as, verb, resource)
 				Expect(result).To(ContainSubstring(expectedRes))
 			}
 		},
