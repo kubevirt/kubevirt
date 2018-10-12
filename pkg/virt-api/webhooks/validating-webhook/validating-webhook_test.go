@@ -1586,6 +1586,16 @@ var _ = Describe("Validating Webhook", func() {
 			}
 		})
 
+		It("should reject nic multi queue without CPU settings", func() {
+			_true := true
+			vmi := v1.NewMinimalVMI("testvm")
+			vmi.Spec.Domain.Devices.NetworkInterfaceMultiQueue = &_true
+
+			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec)
+			Expect(len(causes)).To(Equal(1))
+			Expect(causes[0].Field).To(Equal("fake.domain.devices.networkInterfaceMultiqueue"))
+		})
+
 		It("should reject BlockMultiQueue without CPU settings", func() {
 			_true := true
 			vmi := v1.NewMinimalVMI("testvm")
