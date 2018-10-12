@@ -527,12 +527,12 @@ func schema_kubevirt_pkg_api_v1_DiskTarget(ref common.ReferenceCallback) common.
 							Type:        []string{"boolean"},
 							Format:      "",
 						},
-						"pciAddress": {
-							SchemaProps: spec.SchemaProps{
-								Description: "If specified, the virtual disk will be placed on the guests pci address with the specifed PCI address. For example: 0000:81:01.10",
-								Type:        []string{"string"},
-								Format:      "",
-							},
+					},
+					"pciAddress": {
+						SchemaProps: spec.SchemaProps{
+							Description: "If specified, the virtual disk will be placed on the guests pci address with the specifed PCI address. For example: 0000:81:01.10",
+							Type:        []string{"string"},
+							Format:      "",
 						},
 					},
 				},
