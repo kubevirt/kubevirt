@@ -632,7 +632,9 @@ func Convert_v1_VirtualMachine_To_api_Domain(vmi *v1.VirtualMachineInstance, dom
 	currentDedicatedThread := uint(autoThreads + 1)
 
 	var numQueues *uint
-	if (vmi.Spec.Domain.Devices.BlockMultiQueue != nil) && (*vmi.Spec.Domain.Devices.BlockMultiQueue) {
+	virtioBlkMQRequested := (vmi.Spec.Domain.Devices.BlockMultiQueue != nil) && (*vmi.Spec.Domain.Devices.BlockMultiQueue)
+	virtioNetMQRequested := (vmi.Spec.Domain.Devices.NetworkInterfaceMultiQueue != nil) && (*vmi.Spec.Domain.Devices.NetworkInterfaceMultiQueue)
+	if virtioBlkMQRequested || virtioNetMQRequested {
 		// Requested CPU's is guaranteed to be no greater than the limit
 		if cpuRequests, ok := vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceCPU]; ok {
 			numCPUs := uint(cpuRequests.Value())
@@ -879,6 +881,8 @@ func Convert_v1_VirtualMachine_To_api_Domain(vmi *v1.VirtualMachineInstance, dom
 		// /dev/vhost-net must be present as we should have asked for it.
 		if ifaceType == "virtio" && virtioNetProhibited {
 			return fmt.Errorf("In-kernel virtio-net device emulation '/dev/vhost-net' not present")
+		} else if ifaceType == "virtio" && virtioNetMQRequested {
+			domainIface.Driver = &InterfaceDriver{Name: "vhost", Queues: numQueues}
 		}
 
 		// Add a pciAddress if specifed

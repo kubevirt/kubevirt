@@ -1295,6 +1295,37 @@ var _ = Describe("Converter", func() {
 			Expect(isExpectedThreadsLayout).To(BeTrue())
 		})
 	})
+	Context("virtio-net multi-queue", func() {
+		var vmi *v1.VirtualMachineInstance
+
+		BeforeEach(func() {
+			vmi = &v1.VirtualMachineInstance{
+				ObjectMeta: k8smeta.ObjectMeta{
+					Name:      "testvmi",
+					Namespace: "mynamespace",
+				},
+			}
+			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
+
+			vmi.Spec.Domain.Devices.NetworkInterfaceMultiQueue = True()
+			vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceCPU] = resource.MustParse("2")
+		})
+
+		It("should assign queues to a device if requested", func() {
+			var expectedQueues uint = 2
+
+			domain := vmiToDomain(vmi, &ConverterContext{UseEmulation: false})
+			Expect(*(domain.Spec.Devices.Interfaces[0].Driver.Queues)).To(Equal(expectedQueues),
+				"expected number of queues to equal number of requested CPUs")
+		})
+
+		It("should not assign queues to a non-virtio devices", func() {
+			vmi.Spec.Domain.Devices.Interfaces[0].Model = "e1000"
+			domain := vmiToDomain(vmi, &ConverterContext{UseEmulation: false})
+			Expect(domain.Spec.Devices.Interfaces[0].Driver).To(BeNil(),
+				"queues should not be set for models other than virtio")
+		})
+	})
 })
 
 func diskToDiskXML(disk *v1.Disk) string {
