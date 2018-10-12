@@ -307,8 +307,8 @@ type DiskAuth struct {
 }
 
 type DiskSecret struct {
-	Type  string `xml:"type,attr"`
-	Usage string `xml:"usage,attr"`
+	Type  string `xml:"type,attr,omitempty"`
+	Usage string `xml:"usage,attr,omitempty"`
 }
 
 type ReadOnly struct{}
