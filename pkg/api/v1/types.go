@@ -69,6 +69,8 @@ var VirtualMachineInstancePresetGroupVersionKind = schema.GroupVersionKind{Group
 
 var VirtualMachineGroupVersionKind = schema.GroupVersionKind{Group: GroupName, Version: GroupVersion.Version, Kind: "VirtualMachine"}
 
+var VirtualMachineInstanceMigrationGroupVersionKind = schema.GroupVersionKind{Group: GroupName, Version: GroupVersion.Version, Kind: "VirtualMachineInstanceMigration"}
+
 // Adds the list of known types to api.Scheme.
 func addKnownTypes(scheme *runtime.Scheme) error {
 	scheme.AddKnownTypes(GroupVersion,
@@ -80,6 +82,8 @@ func addKnownTypes(scheme *runtime.Scheme) error {
 		&VirtualMachineInstanceReplicaSetList{},
 		&VirtualMachineInstancePreset{},
 		&VirtualMachineInstancePresetList{},
+		&VirtualMachineInstanceMigration{},
+		&VirtualMachineInstanceMigrationList{},
 		&metav1.GetOptions{},
 		&VirtualMachine{},
 		&VirtualMachineList{},
@@ -174,6 +178,8 @@ type VirtualMachineInstanceStatus struct {
 	Phase VirtualMachineInstancePhase `json:"phase,omitempty"`
 	// Interfaces represent the details of available network interfaces.
 	Interfaces []VirtualMachineInstanceNetworkInterface `json:"interfaces,omitempty"`
+	// Represents the status of a live migration
+	MigrationState *VirtualMachineInstanceMigrationState `json:"migrationState,omitempty"`
 }
 
 // Required to satisfy Object interface
@@ -288,6 +294,25 @@ type VirtualMachineInstanceCondition struct {
 	Message            string                              `json:"message,omitempty"`
 }
 
+// The migration phase indicates that the job has completed
+func (m *VirtualMachineInstanceMigration) IsFinal() bool {
+	return m.Status.Phase == MigrationFailed || m.Status.Phase == MigrationSucceeded
+}
+
+// The migration phase indicates that the target pod should have already been created
+func (m *VirtualMachineInstanceMigration) TargetIsCreated() bool {
+	return m.Status.Phase != MigrationPhaseUnset &&
+		m.Status.Phase != MigrationPending
+}
+
+// The migration phase indicates that job has been handed off to the VMI controllers to complete.
+func (m *VirtualMachineInstanceMigration) TargetIsHandedOff() bool {
+	return m.Status.Phase != MigrationPhaseUnset &&
+		m.Status.Phase != MigrationPending &&
+		m.Status.Phase != MigrationScheduling &&
+		m.Status.Phase != MigrationScheduled
+}
+
 // ---
 // +k8s:openapi-gen=true
 type VirtualMachineInstanceNetworkInterface struct {
@@ -295,6 +320,27 @@ type VirtualMachineInstanceNetworkInterface struct {
 	IP string `json:"ipAddress,omitempty"`
 	// Hardware address of a Virtual Machine interface
 	MAC string `json:"mac,omitempty"`
+}
+
+type VirtualMachineInstanceMigrationState struct {
+	// The time the migration action began
+	StartTimestamp *metav1.Time `json:"startTimestamp,omitempty"`
+	// The time the migration action ended
+	EndTimestamp *metav1.Time `json:"endTimestamp,omitempty"`
+	// The Target Node has seen the Domain Start Event
+	TargetNodeDomainDetected bool `json:"targetNodeDomainDetected,omitempty"`
+	// The address of the target node to use for the migration
+	TargetNodeAddress string `json:"targetNodeAddress,omitempty"`
+	// The target node that the VMI is moving to
+	TargetNode string `json:"targetNode,omitempty"`
+	// The source node that the VMI originated on
+	SourceNode string `json:"sourceNode,omitempty"`
+	// Indicates the migration completed
+	Completed bool `json:"completed,omitempty"`
+	// Indicates that the migration failed
+	Failed bool `json:"failed,omitempty"`
+	// The VirtualMachineInstanceMigration object associated with this migration
+	MigrationUID types.UID `json:"migrationUid,omitempty"`
 }
 
 // VirtualMachineInstancePhase is a label for the condition of a VirtualMachineInstance at the current time.
@@ -333,9 +379,13 @@ const (
 	// libvirt XML domains with their pods. Among other things, the annotation is
 	// used to detect virtual machines with dead pods. Used on Pod.
 	DomainAnnotation string = "kubevirt.io/domain"
+	// Represents the name of the migration job this target pod is associated with
+	MigrationJobNameAnnotation string = "kubevirt.io/migrationJobName"
 	// This label is used to match virtual machine instance IDs with pods.
 	// Similar to kubevirt.io/domain. Used on Pod.
 	CreatedByLabel string = "kubevirt.io/created-by"
+	// This label is used to indicate that this pod is the target of a migration job.
+	MigrationJobLabel string = "kubevirt.io/migrationJobUID"
 	// This annotation defines which KubeVirt component owns the resource. Used
 	// on Pod.
 	OwnedByAnnotation string = "kubevirt.io/owned-by"
@@ -343,6 +393,10 @@ const (
 	// instance. Needed because with CRDs we can't use field selectors. Used on
 	// VirtualMachineInstance.
 	NodeNameLabel string = "kubevirt.io/nodeName"
+	// This label describes which cluster node runs the target Pod for a Virtual
+	// Machine Instance migration job. Needed because with CRDs we can't use field
+	// selectors. Used on VirtualMachineInstance.
+	MigrationTargetNodeNameLabel string = "kubevirt.io/migrationTargetNodeName"
 	// This label declares whether a particular node is available for
 	// scheduling virtual machine instances on it. Used on Node.
 	NodeSchedulable string = "kubevirt.io/schedulable"
@@ -376,15 +430,18 @@ func NewVMI(name string, uid types.UID) *VirtualMachineInstance {
 type SyncEvent string
 
 const (
-	Created      SyncEvent = "Created"
-	Deleted      SyncEvent = "Deleted"
-	PresetFailed SyncEvent = "PresetFailed"
-	Override     SyncEvent = "Override"
-	Started      SyncEvent = "Started"
-	ShuttingDown SyncEvent = "ShuttingDown"
-	Stopped      SyncEvent = "Stopped"
-	SyncFailed   SyncEvent = "SyncFailed"
-	Resumed      SyncEvent = "Resumed"
+	Created         SyncEvent = "Created"
+	Deleted         SyncEvent = "Deleted"
+	PresetFailed    SyncEvent = "PresetFailed"
+	Override        SyncEvent = "Override"
+	Started         SyncEvent = "Started"
+	ShuttingDown    SyncEvent = "ShuttingDown"
+	Stopped         SyncEvent = "Stopped"
+	PreparingTarget SyncEvent = "PreparingTarget"
+	Migrating       SyncEvent = "Migrating"
+	Migrated        SyncEvent = "Migrated"
+	SyncFailed      SyncEvent = "SyncFailed"
+	Resumed         SyncEvent = "Resumed"
 )
 
 func (s SyncEvent) String() string {
@@ -614,6 +671,88 @@ func (vl *VirtualMachineInstanceReplicaSetList) GetObjectKind() schema.ObjectKin
 func (vl *VirtualMachineInstanceReplicaSetList) GetListMeta() meta.List {
 	return &vl.ListMeta
 }
+
+// VirtualMachineInstanceMigration represents the object tracking a VMI's migration
+// to another host in the cluster
+// ---
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+// +k8s:openapi-gen=true
+type VirtualMachineInstanceMigration struct {
+	metav1.TypeMeta   `json:",inline"`
+	metav1.ObjectMeta `json:"metadata,omitempty"`
+	Spec              VirtualMachineInstanceMigrationSpec   `json:"spec,omitempty" valid:"required"`
+	Status            VirtualMachineInstanceMigrationStatus `json:"status,omitempty"`
+}
+
+// Required to satisfy Object interface
+func (v *VirtualMachineInstanceMigration) GetObjectKind() schema.ObjectKind {
+	return &v.TypeMeta
+}
+
+// Required to satisfy ObjectMetaAccessor interface
+func (v *VirtualMachineInstanceMigration) GetObjectMeta() metav1.Object {
+	return &v.ObjectMeta
+}
+
+// VirtualMachineInstanceMigrationList is a list of VirtualMachineMigrations
+// ---
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+// +k8s:openapi-gen=true
+type VirtualMachineInstanceMigrationList struct {
+	metav1.TypeMeta `json:",inline"`
+	ListMeta        metav1.ListMeta                   `json:"metadata,omitempty"`
+	Items           []VirtualMachineInstanceMigration `json:"items"`
+}
+
+// Required to satisfy Object interface
+func (vl *VirtualMachineInstanceMigrationList) GetObjectKind() schema.ObjectKind {
+	return &vl.TypeMeta
+}
+
+// Required to satisfy ListMetaAccessor interface
+func (vl *VirtualMachineInstanceMigrationList) GetListMeta() meta.List {
+	return &vl.ListMeta
+}
+
+// ---
+// +k8s:openapi-gen=true
+type VirtualMachineInstanceMigrationSpec struct {
+	// The name of the VMI to perform the migration on. VMI must exist in the migration objects namespace
+	VMIName string `json:"vmiName,omitempty" valid:"required"`
+}
+
+// VirtualMachineInstanceMigration reprents information pertaining to a VMI's migration.
+// ---
+// +k8s:openapi-gen=true
+type VirtualMachineInstanceMigrationStatus struct {
+	Phase VirtualMachineInstanceMigrationPhase `json:"phase,omitempty"`
+}
+
+// VirtualMachineInstanceMigrationPhase is a label for the condition of a VirtualMachineInstanceMigration at the current time.
+// ---
+// +k8s:openapi-gen=true
+type VirtualMachineInstanceMigrationPhase string
+
+// These are the valid migration phases
+const (
+	MigrationPhaseUnset VirtualMachineInstanceMigrationPhase = ""
+	// The migration is accepted by the system
+	MigrationPending VirtualMachineInstanceMigrationPhase = "Pending"
+	// The migration's target pod is being scheduled
+	MigrationScheduling VirtualMachineInstanceMigrationPhase = "Scheduling"
+	// The migration's target pod is running
+	MigrationScheduled VirtualMachineInstanceMigrationPhase = "Scheduled"
+	// The migration's target pod is being prepared for migration
+	MigrationPreparingTarget VirtualMachineInstanceMigrationPhase = "PreparingTarget"
+	// The migration's target pod is prepared and ready for migration
+	MigrationTargetReady VirtualMachineInstanceMigrationPhase = "TargetReady"
+	// The migration is in progress
+	MigrationRunning VirtualMachineInstanceMigrationPhase = "Running"
+	// The migration passed
+	MigrationSucceeded VirtualMachineInstanceMigrationPhase = "Succeeded"
+	// The migration failed
+	MigrationFailed VirtualMachineInstanceMigrationPhase = "Failed"
+)
 
 // ---
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object

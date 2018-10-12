@@ -57,6 +57,7 @@ type TemplateService interface {
 type templateService struct {
 	launcherImage              string
 	virtShareDir               string
+	ephemeralDiskDir           string
 	imagePullSecret            string
 	configMapStore             cache.Store
 	persistentVolumeClaimStore cache.Store
@@ -128,13 +129,20 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 	}
 
 	volumeMounts = append(volumeMounts, k8sv1.VolumeMount{
+		Name:      "ephemeral-disks",
+		MountPath: t.ephemeralDiskDir,
+	})
+
+	volumeMounts = append(volumeMounts, k8sv1.VolumeMount{
 		Name:      "virt-share-dir",
 		MountPath: t.virtShareDir,
 	})
+
 	volumeMounts = append(volumeMounts, k8sv1.VolumeMount{
 		Name:      "libvirt-runtime",
 		MountPath: "/var/run/libvirt",
 	})
+
 	for _, volume := range vmi.Spec.Volumes {
 		volumeMount := k8sv1.VolumeMount{
 			Name:      volume.Name,
@@ -381,6 +389,7 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 		"--uid", string(vmi.UID),
 		"--namespace", namespace,
 		"--kubevirt-share-dir", t.virtShareDir,
+		"--ephemeral-disk-dir", t.ephemeralDiskDir,
 		"--readiness-file", "/tmp/healthy",
 		"--grace-period-seconds", strconv.Itoa(int(gracePeriodSeconds)),
 		"--hook-sidecars", strconv.Itoa(len(requestedHookSidecarList)),
@@ -450,7 +459,7 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 		Resources: resources,
 		Ports:     ports,
 	}
-	containers := registrydisk.GenerateContainers(vmi, "libvirt-runtime", "/var/run/libvirt")
+	containers := registrydisk.GenerateContainers(vmi, "ephemeral-disks", t.ephemeralDiskDir)
 
 	volumes = append(volumes, k8sv1.Volume{
 		Name: "virt-share-dir",
@@ -462,6 +471,12 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 	})
 	volumes = append(volumes, k8sv1.Volume{
 		Name: "libvirt-runtime",
+		VolumeSource: k8sv1.VolumeSource{
+			EmptyDir: &k8sv1.EmptyDirVolumeSource{},
+		},
+	})
+	volumes = append(volumes, k8sv1.Volume{
+		Name: "ephemeral-disks",
 		VolumeSource: k8sv1.VolumeSource{
 			EmptyDir: &k8sv1.EmptyDirVolumeSource{},
 		},
@@ -684,11 +699,18 @@ func getMultusInterfaceList(vmi *v1.VirtualMachineInstance) string {
 	return strings.Join(ifaceList, ",")
 }
 
-func NewTemplateService(launcherImage string, virtShareDir string, imagePullSecret string, configMapCache cache.Store, persistentVolumeClaimCache cache.Store) TemplateService {
+func NewTemplateService(launcherImage string,
+	virtShareDir string,
+	ephemeralDiskDir string,
+	imagePullSecret string,
+	configMapCache cache.Store,
+	persistentVolumeClaimCache cache.Store) TemplateService {
+
 	precond.MustNotBeEmpty(launcherImage)
 	svc := templateService{
 		launcherImage:              launcherImage,
 		virtShareDir:               virtShareDir,
+		ephemeralDiskDir:           ephemeralDiskDir,
 		imagePullSecret:            imagePullSecret,
 		configMapStore:             configMapCache,
 		persistentVolumeClaimStore: persistentVolumeClaimCache,

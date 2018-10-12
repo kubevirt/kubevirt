@@ -345,6 +345,7 @@ spec:
                   mac:
                     type: string
               type: array
+            migrationState: {}
             nodeName:
               type: string
             phase:

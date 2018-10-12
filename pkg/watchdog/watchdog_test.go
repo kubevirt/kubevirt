@@ -117,7 +117,7 @@ var _ = Describe("Watchdog", func() {
 			Expect(os.Create(fileName)).ToNot(BeNil())
 
 			for i := 0; i < 4; i++ {
-				WatchdogFileUpdate(fileName)
+				WatchdogFileUpdate(fileName, "somestring")
 				time.Sleep(time.Second * 1)
 				domains, err := GetExpiredDomains(2, tmpVirtShareDir)
 				Expect(err).ToNot(HaveOccurred())

@@ -67,6 +67,9 @@ type KubeInformerFactory interface {
 	// VirtualMachine handles the VMIs that are stopped or not running
 	VirtualMachine() cache.SharedIndexInformer
 
+	// Watches VirtualMachineInstanceMigration objects
+	VirtualMachineInstanceMigration() cache.SharedIndexInformer
+
 	// Watches for ConfigMap objects
 	ConfigMap() cache.SharedIndexInformer
 
@@ -158,6 +161,13 @@ func (f *kubeInformerFactory) VirtualMachinePreset() cache.SharedIndexInformer {
 	return f.getInformer("vmiPresetInformer", func() cache.SharedIndexInformer {
 		lw := cache.NewListWatchFromClient(f.restClient, "virtualmachineinstancepresets", k8sv1.NamespaceAll, fields.Everything())
 		return cache.NewSharedIndexInformer(lw, &kubev1.VirtualMachineInstancePreset{}, f.defaultResync, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
+	})
+}
+
+func (f *kubeInformerFactory) VirtualMachineInstanceMigration() cache.SharedIndexInformer {
+	return f.getInformer("vmimInformer", func() cache.SharedIndexInformer {
+		lw := cache.NewListWatchFromClient(f.restClient, "virtualmachineinstancemigrations", k8sv1.NamespaceAll, fields.Everything())
+		return cache.NewSharedIndexInformer(lw, &kubev1.VirtualMachineInstanceMigration{}, f.defaultResync, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
 	})
 }
 

@@ -36,7 +36,7 @@ const filePrefix = "disk-image"
 
 var registryDiskOwner = "qemu"
 
-var mountBaseDir = "/var/run/libvirt/kubevirt-disk-dir"
+var mountBaseDir = "/var/run/kubevirt-ephemeral-disks/registry-disk-data"
 
 func generateVMIBaseDir(vmi *v1.VirtualMachineInstance) string {
 	domain := precond.MustNotBeEmpty(vmi.GetObjectMeta().GetName())

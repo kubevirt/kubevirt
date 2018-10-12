@@ -44,7 +44,7 @@ func main() {
 	flag.Parse()
 
 	// Required to validate DataVolume usage
-	os.Setenv("FEATURE_GATES", "DataVolumes")
+	os.Setenv("FEATURE_GATES", "DataVolumes,LiveMigration")
 
 	var vms = map[string]*v1.VirtualMachine{
 		utils.VmCirros:           utils.GetVMCirros(),
@@ -54,6 +54,7 @@ func main() {
 
 	var vmis = map[string]*v1.VirtualMachineInstance{
 		utils.VmiEphemeral:         utils.GetVMIEphemeral(),
+		utils.VmiMigratable:        utils.GetVMIMigratable(),
 		utils.VmiFlavorSmall:       utils.GetVMIFlavorSmall(),
 		utils.VmiSata:              utils.GetVMISata(),
 		utils.VmiFedora:            utils.GetVMIEphemeralFedora(),
@@ -74,6 +75,10 @@ func main() {
 
 	var vmipresets = map[string]*v1.VirtualMachineInstancePreset{
 		utils.VmiPresetSmall: utils.GetVMIPresetSmall(),
+	}
+
+	var migrations = map[string]*v1.VirtualMachineInstanceMigration{
+		utils.VmiMigration: utils.GetVMIMigration(),
 	}
 
 	var templates = map[string]*utils.Template{
@@ -136,6 +141,12 @@ func main() {
 
 	for name, obj := range vmipresets {
 		causes := validating_webhook.ValidateVMIPresetSpec(k8sfield.NewPath("spec"), &obj.Spec)
+		handleCauses(causes, name, "vmi preset")
+		handleError(dumpObject(name, *obj))
+	}
+
+	for name, obj := range migrations {
+		causes := validating_webhook.ValidateVirtualMachineInstanceMigrationSpec(k8sfield.NewPath("spec"), &obj.Spec)
 		handleCauses(causes, name, "vmi preset")
 		handleError(dumpObject(name, *obj))
 	}

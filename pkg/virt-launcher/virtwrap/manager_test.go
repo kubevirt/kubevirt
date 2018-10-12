@@ -51,8 +51,6 @@ var _ = Describe("Manager", func() {
 		ctrl = gomock.NewController(GinkgoT())
 		mockConn = cli.NewMockConnection(ctrl)
 		mockDomain = cli.NewMockVirDomain(ctrl)
-		// Make sure that we always free the domain after use
-		mockDomain.EXPECT().Free()
 	})
 
 	expectIsolationDetectionForVMI := func(vmi *v1.VirtualMachineInstance) *api.DomainSpec {
@@ -69,6 +67,8 @@ var _ = Describe("Manager", func() {
 
 	Context("on successful VirtualMachineInstance sync", func() {
 		It("should define and start a new VirtualMachineInstance", func() {
+			// Make sure that we always free the domain after use
+			mockDomain.EXPECT().Free()
 			StubOutNetworkForTest()
 			vmi := newVMI(testNamespace, testVmName)
 			mockConn.EXPECT().LookupDomainByName(testDomainName).Return(mockDomain, libvirt.Error{Code: libvirt.ERR_NO_DOMAIN})
@@ -81,12 +81,14 @@ var _ = Describe("Manager", func() {
 			mockDomain.EXPECT().GetState().Return(libvirt.DOMAIN_SHUTDOWN, 1, nil)
 			mockDomain.EXPECT().Create().Return(nil)
 			mockDomain.EXPECT().GetXMLDesc(libvirt.DomainXMLFlags(0)).Return(string(xml), nil)
-			manager, _ := NewLibvirtDomainManager(mockConn)
+			manager, _ := NewLibvirtDomainManager(mockConn, "fake")
 			newspec, err := manager.SyncVMI(vmi, true)
 			Expect(err).To(BeNil())
 			Expect(newspec).ToNot(BeNil())
 		})
 		It("should leave a defined and started VirtualMachineInstance alone", func() {
+			// Make sure that we always free the domain after use
+			mockDomain.EXPECT().Free()
 			vmi := newVMI(testNamespace, testVmName)
 			domainSpec := expectIsolationDetectionForVMI(vmi)
 			xml, err := xml.Marshal(domainSpec)
@@ -94,13 +96,15 @@ var _ = Describe("Manager", func() {
 			mockConn.EXPECT().LookupDomainByName(testDomainName).Return(mockDomain, nil)
 			mockDomain.EXPECT().GetState().Return(libvirt.DOMAIN_RUNNING, 1, nil)
 			mockDomain.EXPECT().GetXMLDesc(libvirt.DomainXMLFlags(0)).Return(string(xml), nil)
-			manager, _ := NewLibvirtDomainManager(mockConn)
+			manager, _ := NewLibvirtDomainManager(mockConn, "fake")
 			newspec, err := manager.SyncVMI(vmi, true)
 			Expect(err).To(BeNil())
 			Expect(newspec).ToNot(BeNil())
 		})
 		table.DescribeTable("should try to start a VirtualMachineInstance in state",
 			func(state libvirt.DomainState) {
+				// Make sure that we always free the domain after use
+				mockDomain.EXPECT().Free()
 				vmi := newVMI(testNamespace, testVmName)
 				domainSpec := expectIsolationDetectionForVMI(vmi)
 				xml, err := xml.Marshal(domainSpec)
@@ -110,7 +114,7 @@ var _ = Describe("Manager", func() {
 				mockConn.EXPECT().DomainDefineXML(string(xml)).Return(mockDomain, nil)
 				mockDomain.EXPECT().Create().Return(nil)
 				mockDomain.EXPECT().GetXMLDesc(libvirt.DomainXMLFlags(0)).Return(string(xml), nil)
-				manager, _ := NewLibvirtDomainManager(mockConn)
+				manager, _ := NewLibvirtDomainManager(mockConn, "fake")
 				newspec, err := manager.SyncVMI(vmi, true)
 				Expect(err).To(BeNil())
 				Expect(newspec).ToNot(BeNil())
@@ -121,6 +125,8 @@ var _ = Describe("Manager", func() {
 			table.Entry("unknown", libvirt.DOMAIN_NOSTATE),
 		)
 		It("should resume a paused VirtualMachineInstance", func() {
+			// Make sure that we always free the domain after use
+			mockDomain.EXPECT().Free()
 			vmi := newVMI(testNamespace, testVmName)
 			domainSpec := expectIsolationDetectionForVMI(vmi)
 			xml, err := xml.Marshal(domainSpec)
@@ -129,18 +135,63 @@ var _ = Describe("Manager", func() {
 			mockDomain.EXPECT().GetState().Return(libvirt.DOMAIN_PAUSED, 1, nil)
 			mockDomain.EXPECT().Resume().Return(nil)
 			mockDomain.EXPECT().GetXMLDesc(libvirt.DomainXMLFlags(0)).Return(string(xml), nil)
-			manager, _ := NewLibvirtDomainManager(mockConn)
+			manager, _ := NewLibvirtDomainManager(mockConn, "fake")
 			newspec, err := manager.SyncVMI(vmi, true)
 			Expect(err).To(BeNil())
 			Expect(newspec).ToNot(BeNil())
 		})
 	})
+
+	Context("on successful VirtualMachineInstance migrate", func() {
+		It("should prepare the target pod", func() {
+
+			StubOutNetworkForTest()
+			vmi := newVMI(testNamespace, testVmName)
+
+			manager, _ := NewLibvirtDomainManager(mockConn, "fake")
+			err := manager.PrepareMigrationTarget(vmi, true)
+			Expect(err).To(BeNil())
+		})
+
+		It("should detect inprogress migration job", func() {
+			// Make sure that we always free the domain after use
+			mockDomain.EXPECT().Free()
+
+			vmi := newVMI(testNamespace, testVmName)
+			vmi.Status.MigrationState = &v1.VirtualMachineInstanceMigrationState{
+				MigrationUID: "111222333",
+			}
+
+			domainSpec := expectIsolationDetectionForVMI(vmi)
+			domainSpec.Metadata.KubeVirt.Migration = &api.MigrationMetadata{
+
+				UID: vmi.Status.MigrationState.MigrationUID,
+			}
+
+			manager, _ := NewLibvirtDomainManager(mockConn, "fake")
+
+			mockConn.EXPECT().LookupDomainByName(testDomainName).Return(mockDomain, nil)
+			mockDomain.EXPECT().GetState().Return(libvirt.DOMAIN_RUNNING, 1, nil)
+
+			xml, err := xml.Marshal(domainSpec)
+			Expect(err).To(BeNil())
+
+			mockDomain.EXPECT().GetXMLDesc(gomock.Eq(libvirt.DOMAIN_XML_MIGRATABLE)).Return(string(xml), nil)
+			mockDomain.EXPECT().GetXMLDesc(gomock.Eq(libvirt.DOMAIN_XML_INACTIVE)).Return(string(xml), nil)
+
+			err = manager.MigrateVMI(vmi)
+			Expect(err).To(BeNil())
+		})
+	})
+
 	Context("on successful VirtualMachineInstance kill", func() {
 		table.DescribeTable("should try to undefine a VirtualMachineInstance in state",
 			func(state libvirt.DomainState) {
+				// Make sure that we always free the domain after use
+				mockDomain.EXPECT().Free()
 				mockConn.EXPECT().LookupDomainByName(testDomainName).Return(mockDomain, nil)
 				mockDomain.EXPECT().Undefine().Return(nil)
-				manager, _ := NewLibvirtDomainManager(mockConn)
+				manager, _ := NewLibvirtDomainManager(mockConn, "fake")
 				err := manager.DeleteVMI(newVMI(testNamespace, testVmName))
 				Expect(err).To(BeNil())
 			},
@@ -149,10 +200,12 @@ var _ = Describe("Manager", func() {
 		)
 		table.DescribeTable("should try to destroy a VirtualMachineInstance in state",
 			func(state libvirt.DomainState) {
+				// Make sure that we always free the domain after use
+				mockDomain.EXPECT().Free()
 				mockConn.EXPECT().LookupDomainByName(testDomainName).Return(mockDomain, nil)
 				mockDomain.EXPECT().GetState().Return(state, 1, nil)
 				mockDomain.EXPECT().DestroyFlags(libvirt.DOMAIN_DESTROY_GRACEFUL).Return(nil)
-				manager, _ := NewLibvirtDomainManager(mockConn)
+				manager, _ := NewLibvirtDomainManager(mockConn, "fake")
 				err := manager.KillVMI(newVMI(testNamespace, testVmName))
 				Expect(err).To(BeNil())
 			},
@@ -165,6 +218,8 @@ var _ = Describe("Manager", func() {
 	table.DescribeTable("on successful list all domains",
 		func(state libvirt.DomainState, kubevirtState api.LifeCycle, libvirtReason int, kubevirtReason api.StateChangeReason) {
 
+			// Make sure that we always free the domain after use
+			mockDomain.EXPECT().Free()
 			mockDomain.EXPECT().GetState().Return(state, libvirtReason, nil).AnyTimes()
 			mockDomain.EXPECT().GetName().Return("test", nil)
 			x, err := xml.Marshal(api.NewMinimalDomainSpec("test"))
@@ -175,7 +230,7 @@ var _ = Describe("Manager", func() {
 			mockDomain.EXPECT().GetXMLDesc(gomock.Eq(libvirt.DOMAIN_XML_INACTIVE)).Return(string(x), nil)
 			mockConn.EXPECT().ListAllDomains(gomock.Eq(libvirt.CONNECT_LIST_DOMAINS_ACTIVE|libvirt.CONNECT_LIST_DOMAINS_INACTIVE)).Return([]cli.VirDomain{mockDomain}, nil)
 
-			manager, _ := NewLibvirtDomainManager(mockConn)
+			manager, _ := NewLibvirtDomainManager(mockConn, "fake")
 			doms, err := manager.ListAllDomains()
 
 			Expect(len(doms)).To(Equal(1))

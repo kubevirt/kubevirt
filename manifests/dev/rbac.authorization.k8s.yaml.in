@@ -123,6 +123,7 @@ rules:
       - kubevirt.io
     resources:
       - virtualmachineinstances
+      - virtualmachineinstancemigrations
     verbs:
       - get
       - list

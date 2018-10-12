@@ -32,8 +32,16 @@ func GetInvalidKubevirtClientFromClientConfig(cmdConfig clientcmd.ClientConfig) 
 	return nil, errors.New("invalid fake client")
 }
 
+func NewMinimalMigration(name string) *v1.VirtualMachineInstanceMigration {
+	return &v1.VirtualMachineInstanceMigration{TypeMeta: k8smetav1.TypeMeta{APIVersion: v1.GroupVersion.String(), Kind: "VirtualMachineInstanceMigration"}, ObjectMeta: k8smetav1.ObjectMeta{Name: name}}
+}
+
 func NewMinimalVM(name string) *v1.VirtualMachine {
 	return &v1.VirtualMachine{TypeMeta: k8smetav1.TypeMeta{APIVersion: v1.GroupVersion.String(), Kind: "VirtualMachine"}, ObjectMeta: k8smetav1.ObjectMeta{Name: name}}
+}
+
+func NewMigrationList(migrations ...v1.VirtualMachineInstanceMigration) *v1.VirtualMachineInstanceMigrationList {
+	return &v1.VirtualMachineInstanceMigrationList{TypeMeta: k8smetav1.TypeMeta{APIVersion: v1.GroupVersion.String(), Kind: "VirtualMachineInstanceMigrationList"}, Items: migrations}
 }
 
 func NewVMList(vms ...v1.VirtualMachine) *v1.VirtualMachineList {

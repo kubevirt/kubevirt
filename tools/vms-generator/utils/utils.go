@@ -40,6 +40,7 @@ import (
 
 const (
 	VmiEphemeral         = "vmi-ephemeral"
+	VmiMigratable        = "vmi-migratable"
 	VmiFlavorSmall       = "vmi-flavor-small"
 	VmiSata              = "vmi-sata"
 	VmiFedora            = "vmi-fedora"
@@ -67,12 +68,15 @@ const VmiReplicaSetCirros = "vmi-replicaset-cirros"
 
 const VmiPresetSmall = "vmi-preset-small"
 
+const VmiMigration = "migration-job"
+
 const (
 	busVirtio = "virtio"
 	busSata   = "sata"
 )
 
 const (
+	imageAlpine = "alpine-registry-disk-demo"
 	imageCirros = "cirros-registry-disk-demo"
 	imageFedora = "fedora-cloud-registry-disk-demo"
 )
@@ -279,6 +283,13 @@ func addHostDisk(spec *v1.VirtualMachineInstanceSpec, path string, hostDiskType 
 		},
 	})
 	return spec
+}
+
+func GetVMIMigratable() *v1.VirtualMachineInstance {
+	vmi := getBaseVMI(VmiMigratable)
+
+	addRegistryDisk(&vmi.Spec, fmt.Sprintf("%s/%s:%s", DockerPrefix, imageAlpine, DockerTag), busVirtio)
+	return vmi
 }
 
 func GetVMIEphemeral() *v1.VirtualMachineInstance {
@@ -718,6 +729,21 @@ func getBaseVMIPreset(name string, selectorLabels map[string]string) *v1.Virtual
 			Selector: metav1.LabelSelector{
 				MatchLabels: selectorLabels,
 			},
+		},
+	}
+}
+
+func GetVMIMigration() *v1.VirtualMachineInstanceMigration {
+	return &v1.VirtualMachineInstanceMigration{
+		TypeMeta: metav1.TypeMeta{
+			APIVersion: apiVersion,
+			Kind:       "VirtualMachineInstanceMigration",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name: VmiMigration,
+		},
+		Spec: v1.VirtualMachineInstanceMigrationSpec{
+			VMIName: VmiMigratable,
 		},
 	}
 }

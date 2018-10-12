@@ -874,6 +874,9 @@ func cleanNamespaces() {
 		// Remove all limit ranges
 		PanicOnError(virtCli.CoreV1().RESTClient().Delete().Namespace(namespace).Resource("limitranges").Do().Error())
 
+		// Remove all Migration Objects
+		PanicOnError(virtCli.RestClient().Delete().Namespace(namespace).Resource("virtualmachineinstancemigrations").Do().Error())
+
 	}
 }
 
@@ -1020,6 +1023,25 @@ func NewRandomVMIWithEphemeralDiskAndUserdataHighMemory(containerImage string, u
 
 	vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("512M")
 	return vmi
+}
+
+func NewRandomMigration(vmiName string, namespace string) *v1.VirtualMachineInstanceMigration {
+	migration := &v1.VirtualMachineInstanceMigration{
+
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-migration-" + rand.String(30),
+			Namespace: namespace,
+		},
+		Spec: v1.VirtualMachineInstanceMigrationSpec{
+			VMIName: vmiName,
+		},
+	}
+	migration.TypeMeta = metav1.TypeMeta{
+		APIVersion: v1.GroupVersion.String(),
+		Kind:       "VirtualMachineInstanceMigration",
+	}
+
+	return migration
 }
 
 func NewRandomVMIWithEphemeralDisk(containerImage string) *v1.VirtualMachineInstance {

@@ -116,6 +116,10 @@ func NewResourceEventHandlerFuncsForFunc(f func(interface{})) cache.ResourceEven
 	}
 }
 
+func MigrationKey(migration *v1.VirtualMachineInstanceMigration) string {
+	return fmt.Sprintf("%v/%v", migration.ObjectMeta.Namespace, migration.ObjectMeta.Name)
+}
+
 func VirtualMachineKey(vmi *v1.VirtualMachineInstance) string {
 	return fmt.Sprintf("%v/%v", vmi.ObjectMeta.Namespace, vmi.ObjectMeta.Name)
 }

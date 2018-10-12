@@ -42,6 +42,7 @@ var once sync.Once
 type Informers struct {
 	VMIPresetInformer       cache.SharedIndexInformer
 	NamespaceLimitsInformer cache.SharedIndexInformer
+	VMIInformer             cache.SharedIndexInformer
 }
 
 func GetInformers() *Informers {
@@ -66,6 +67,7 @@ func newInformers() *Informers {
 	kubeInformerFactory := controller.NewKubeInformerFactory(kubeClient.RestClient(), kubeClient)
 	kubeInformerFactory.VMI()
 	return &Informers{
+		VMIInformer:             kubeInformerFactory.VMI(),
 		VMIPresetInformer:       kubeInformerFactory.VirtualMachinePreset(),
 		NamespaceLimitsInformer: kubeInformerFactory.LimitRanges(),
 	}
