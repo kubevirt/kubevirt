@@ -325,6 +325,10 @@ spec:
                                 type: boolean
                               secretName:
                                 type: string
+                          serviceAccount:
+                            properties:
+                              serviceAccountName:
+                                type: string
                         required:
                         - name
                       type: array

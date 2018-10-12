@@ -228,6 +228,10 @@ var _ = Describe("Converter", func() {
 					Name:       "pvc_block_test",
 					VolumeName: "volume8",
 				},
+				{
+					Name:       "serviceaccount_test",
+					VolumeName: "volume9",
+				},
 			}
 			vmi.Spec.Volumes = []v1.Volume{
 				{
@@ -329,6 +333,14 @@ var _ = Describe("Converter", func() {
 					VolumeSource: v1.VolumeSource{
 						PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{
 							ClaimName: "testblock",
+						},
+					},
+				},
+				{
+					Name: "volume9",
+					VolumeSource: v1.VolumeSource{
+						ServiceAccount: &v1.ServiceAccountVolumeSource{
+							ServiceAccountName: "testaccount",
 						},
 					},
 				},
@@ -447,6 +459,12 @@ var _ = Describe("Converter", func() {
       <target bus="sata" dev="sdg"></target>
       <driver name="qemu" type="raw" iothread="1"></driver>
       <alias name="ua-pvc_block_test"></alias>
+    </disk>
+    <disk device="disk" type="file">
+      <source file="/var/run/kubevirt-private/service-account-disk/service-account.iso"></source>
+      <target bus="sata" dev="sdh"></target>
+      <driver name="qemu" type="raw" iothread="1"></driver>
+      <alias name="ua-serviceaccount_test"></alias>
     </disk>
     <serial type="unix">
       <target port="0"></target>

@@ -1332,6 +1332,28 @@ func AddSecretDisk(vmi *v1.VirtualMachineInstance, secretName string) {
 	})
 }
 
+func NewRandomVMIWithServiceAccount(serviceAccountName string) *v1.VirtualMachineInstance {
+	vmi := NewRandomVMIWithPVC(DiskAlpineHostPath)
+	AddServiceAccountDisk(vmi, serviceAccountName)
+	return vmi
+}
+
+func AddServiceAccountDisk(vmi *v1.VirtualMachineInstance, serviceAccountName string) {
+	volumeName := serviceAccountName + "-vol"
+	vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
+		Name: volumeName,
+		VolumeSource: v1.VolumeSource{
+			ServiceAccount: &v1.ServiceAccountVolumeSource{
+				ServiceAccountName: serviceAccountName,
+			},
+		},
+	})
+	vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
+		Name:       serviceAccountName + "-disk",
+		VolumeName: volumeName,
+	})
+}
+
 func NewRandomVMIWithSlirpInterfaceEphemeralDiskAndUserdata(containerImage string, userData string, Ports []v1.Port) *v1.VirtualMachineInstance {
 	vmi := NewRandomVMIWithEphemeralDiskAndUserdata(containerImage, userData)
 	vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{{Name: "default", Ports: Ports, InterfaceBindingMethod: v1.InterfaceBindingMethod{Slirp: &v1.InterfaceSlirp{}}}}

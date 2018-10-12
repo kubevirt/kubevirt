@@ -232,4 +232,47 @@ var _ = Describe("Config", func() {
 		})
 
 	})
+
+	Context("With a ServiceAccount defined", func() {
+
+		virtClient, err := kubecli.GetKubevirtClient()
+		tests.PanicOnError(err)
+
+		serviceAccountPath := config.ServiceAccountSourceDir
+
+		It("Should be the fs layout the same for a pod and vmi", func() {
+			By("Running VMI")
+			vmi := tests.NewRandomVMIWithServiceAccount("default")
+			tests.RunVMIAndExpectLaunch(vmi, false, 90)
+
+			By("Checking if ServiceAccount has been attached to the pod")
+			vmiPod := tests.GetRunningPodByVirtualMachineInstance(vmi, tests.NamespaceTestDefault)
+			podOutput, err := tests.ExecuteCommandOnPod(
+				virtClient,
+				vmiPod,
+				vmiPod.Spec.Containers[0].Name,
+				[]string{"cat",
+					serviceAccountPath + "/namespace",
+				},
+			)
+			Expect(err).To(BeNil())
+			Expect(podOutput).To(Equal(tests.NamespaceTestDefault))
+
+			By("Checking mounted iso image")
+			expecter, err := tests.LoggedInAlpineExpecter(vmi)
+			Expect(err).ToNot(HaveOccurred())
+			defer expecter.Close()
+
+			_, err = expecter.ExpectBatch([]expect.Batcher{
+				// mount service account iso image
+				&expect.BSnd{S: "mount /dev/sda /mnt\n"},
+				&expect.BSnd{S: "echo $?\n"},
+				&expect.BExp{R: "0"},
+				&expect.BSnd{S: "cat /mnt/namespace\n"},
+				&expect.BExp{R: tests.NamespaceTestDefault},
+			}, 200*time.Second)
+			Expect(err).ToNot(HaveOccurred())
+		})
+
+	})
 })

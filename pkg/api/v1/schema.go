@@ -77,6 +77,15 @@ type SecretVolumeSource struct {
 	Optional *bool `json:"optional,omitempty"`
 }
 
+// ServiceAccountVolumeSource adapts a ServiceAccount into a volume.
+// ---
+// +k8s:openapi-gen=true
+type ServiceAccountVolumeSource struct {
+	// Name of the service account in the pod's namespace to use.
+	// More info: https://kubernetes.io/docs/tasks/configure-pod-container/configure-service-account/
+	ServiceAccountName string `json:"serviceAccountName,omitempty"`
+}
+
 // Represents a cloud-init nocloud user data source.
 // More info: http://cloudinit.readthedocs.io/en/latest/topics/datasources/nocloud.html
 // ---
@@ -384,6 +393,11 @@ type VolumeSource struct {
 	// More info: https://kubernetes.io/docs/concepts/configuration/secret/
 	// +optional
 	Secret *SecretVolumeSource `json:"secret,omitempty"`
+	// ServiceAccountVolumeSource represents a reference to a service account.
+	// There can only be one volume of this type!
+	// More info: https://kubernetes.io/docs/tasks/configure-pod-container/configure-service-account/
+	// +optional
+	ServiceAccount *ServiceAccountVolumeSource `json:"serviceAccount,omitempty"`
 }
 
 // ---

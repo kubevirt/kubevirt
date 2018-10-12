@@ -235,6 +235,10 @@ func validateVolumes(field *k8sfield.Path, volumes []v1.Volume) []metav1.StatusC
 		// We won't process anything over the limit
 		return causes
 	}
+
+	// check that we have max 1 serviceAccount volume
+	serviceAccountVolumeCount := 0
+
 	for idx, volume := range volumes {
 		// verify name is unique
 		otherIdx, ok := nameMap[volume.Name]
@@ -291,6 +295,10 @@ func validateVolumes(field *k8sfield.Path, volumes []v1.Volume) []metav1.StatusC
 		}
 		if volume.Secret != nil {
 			volumeSourceSetCount++
+		}
+		if volume.ServiceAccount != nil {
+			volumeSourceSetCount++
+			serviceAccountVolumeCount++
 		}
 
 		if volumeSourceSetCount != 1 {
@@ -391,7 +399,26 @@ func validateVolumes(field *k8sfield.Path, volumes []v1.Volume) []metav1.StatusC
 				})
 			}
 		}
+
+		if volume.ServiceAccount != nil {
+			if volume.ServiceAccount.ServiceAccountName == "" {
+				causes = append(causes, metav1.StatusCause{
+					Type:    metav1.CauseTypeFieldValueInvalid,
+					Message: fmt.Sprintf("%s is a required field", field.Index(idx).Child("serviceAccount", "serviceAccountName").String()),
+					Field:   field.Index(idx).Child("serviceAccount", "serviceAccountName").String(),
+				})
+			}
+		}
 	}
+
+	if serviceAccountVolumeCount > 1 {
+		causes = append(causes, metav1.StatusCause{
+			Type:    metav1.CauseTypeFieldValueInvalid,
+			Message: fmt.Sprintf("%s must have max one serviceAccount volume set", field.String()),
+			Field:   field.String(),
+		})
+	}
+
 	return causes
 }
 
