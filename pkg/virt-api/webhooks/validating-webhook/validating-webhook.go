@@ -1007,7 +1007,7 @@ func ValidateVirtualMachineInstanceSpec(field *k8sfield.Path, spec *v1.VirtualMa
 					})
 				}
 			}
-			if iface.Model == "virtio" {
+			if iface.Model == "virtio" || iface.Model == "" {
 				isVirtioNicRequested = true
 			}
 
