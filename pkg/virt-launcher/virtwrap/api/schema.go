@@ -427,6 +427,12 @@ type Interface struct {
 	LinkState           *LinkState       `xml:"link,omitempty"`
 	FilterRef           *FilterRef       `xml:"filterref,omitempty"`
 	Alias               *Alias           `xml:"alias,omitempty"`
+	Driver              *InterfaceDriver `xml:"driver,omitempty"`
+}
+
+type InterfaceDriver struct {
+	Name   string `xml:"name,attr"`
+	Queues *uint  `xml:"queues,attr,omitempty"`
 }
 
 type LinkState struct {
