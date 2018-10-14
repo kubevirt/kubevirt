@@ -676,7 +676,7 @@ var _ = Describe("Configurations", func() {
 				Expect(len(pinnedCPUsList)).To(Equal(int(cpuVmi.Spec.Domain.CPU.Cores)))
 
 				By("Expecting the VirtualMachineInstance console")
-                                expecter, err := tests.LoggedInCirrosExpecter(cpuVmi)
+				expecter, err := tests.LoggedInCirrosExpecter(cpuVmi)
 				Expect(err).ToNot(HaveOccurred())
 				defer expecter.Close()
 
@@ -704,7 +704,7 @@ var _ = Describe("Configurations", func() {
 				Expect(node).NotTo(ContainSubstring("node01"))
 
 				By("Expecting the VirtualMachineInstance console")
-                                expecter, err := tests.LoggedInCirrosExpecter(cpuVmi)
+				expecter, err := tests.LoggedInCirrosExpecter(cpuVmi)
 				Expect(err).ToNot(HaveOccurred())
 				defer expecter.Close()
 

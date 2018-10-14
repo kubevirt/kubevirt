@@ -893,12 +893,15 @@ func formatDomainIOThreadPin(vmi *v1.VirtualMachineInstance, domain *Domain, c *
 			appendDomainIOThreadPin(domain, uint(thread), cpuset)
 		}
 	} else {
-		// pin IOThreads to a set of cpus
+		// the following will pin IOThreads to a set of cpus of a balanced size
+		// for example, for 3 threads and 8 cpus the output will look like:
+		// thread cpus
+		//   1    0,1,2
+		//   2    3,4,5
+		//   3    6,7
 		series := vcpus % iothreads
 		curr := 0
-		cpus := vcpus
-		thread := 1
-		for cpus > 0 {
+		for thread := 1; thread <= iothreads; thread++ {
 			remainder := vcpus/iothreads - 1
 			if thread <= series {
 				remainder += 1
@@ -906,10 +909,7 @@ func formatDomainIOThreadPin(vmi *v1.VirtualMachineInstance, domain *Domain, c *
 			end := curr + remainder
 			slice := strings.Trim(strings.Join(strings.Fields(fmt.Sprint(c.CPUSet[curr:end+1])), ","), "[]")
 			appendDomainIOThreadPin(domain, uint(thread), slice)
-
-			cpus -= remainder + 1
 			curr = end + 1
-			thread += 1
 		}
 	}
 	return nil
