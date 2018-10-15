@@ -40,11 +40,13 @@ import (
 
 const (
 	VmiEphemeral         = "vmi-ephemeral"
+	VmiMigratable        = "vmi-migratable"
 	VmiFlavorSmall       = "vmi-flavor-small"
 	VmiSata              = "vmi-sata"
 	VmiFedora            = "vmi-fedora"
 	VmiNoCloud           = "vmi-nocloud"
 	VmiPVC               = "vmi-pvc"
+	VmiBlockPVC          = "vmi-block-pvc"
 	VmiWindows           = "vmi-windows"
 	VmiSlirp             = "vmi-slirp"
 	VmiWithHookSidecar   = "vmi-with-sidecar-hook"
@@ -68,12 +70,15 @@ const VmiReplicaSetCirros = "vmi-replicaset-cirros"
 
 const VmiPresetSmall = "vmi-preset-small"
 
+const VmiMigration = "migration-job"
+
 const (
 	busVirtio = "virtio"
 	busSata   = "sata"
 )
 
 const (
+	imageAlpine = "alpine-registry-disk-demo"
 	imageCirros = "cirros-registry-disk-demo"
 	imageFedora = "fedora-cloud-registry-disk-demo"
 )
@@ -282,6 +287,13 @@ func addHostDisk(spec *v1.VirtualMachineInstanceSpec, path string, hostDiskType 
 	return spec
 }
 
+func GetVMIMigratable() *v1.VirtualMachineInstance {
+	vmi := getBaseVMI(VmiMigratable)
+
+	addRegistryDisk(&vmi.Spec, fmt.Sprintf("%s/%s:%s", DockerPrefix, imageAlpine, DockerTag), busVirtio)
+	return vmi
+}
+
 func GetVMIEphemeral() *v1.VirtualMachineInstance {
 	vmi := getBaseVMI(VmiEphemeral)
 
@@ -404,6 +416,13 @@ func GetVMIPvc() *v1.VirtualMachineInstance {
 	return vmi
 }
 
+func GetVMIBlockPvc() *v1.VirtualMachineInstance {
+	vmi := getBaseVMI(VmiBlockPVC)
+
+	addPVCDisk(&vmi.Spec, "local-block-storage-cirros", busVirtio, "blockpvcdisk", "blockpvcvolume")
+	return vmi
+}
+
 func GetVMIHostDisk() *v1.VirtualMachineInstance {
 	vmi := getBaseVMI(VmiHostDisk)
 	addHostDisk(&vmi.Spec, "/data/disk.img", v1.HostDiskExistsOrCreate, "1Gi")
@@ -495,16 +514,8 @@ func GetVMCirros() *v1.VirtualMachine {
 }
 
 func GetTemplateFedora() *Template {
-	return newTemplateFedoraWithDockerTag(DockerTag)
-}
-
-func GetTestTemplateFedora() *Template {
-	return newTemplateFedoraWithDockerTag("latest")
-}
-
-func newTemplateFedoraWithDockerTag(dockerTag string) *Template {
 	vm := getBaseVM("", map[string]string{"kubevirt-vm": "vm-${NAME}", "kubevirt.io/os": "fedora27"})
-	addRegistryDisk(&vm.Spec.Template.Spec, fmt.Sprintf("%s/%s:%s", DockerPrefix, imageFedora, dockerTag), busVirtio)
+	addRegistryDisk(&vm.Spec.Template.Spec, fmt.Sprintf("%s/%s:%s", DockerPrefix, imageFedora, DockerTag), busVirtio)
 	addNoCloudDiskWitUserData(&vm.Spec.Template.Spec, "#cloud-config\npassword: fedora\nchpasswd: { expire: False }")
 
 	template := getBaseTemplate(vm, "4096Mi", "4")
@@ -753,6 +764,21 @@ func getBaseVMIPreset(name string, selectorLabels map[string]string) *v1.Virtual
 			Selector: metav1.LabelSelector{
 				MatchLabels: selectorLabels,
 			},
+		},
+	}
+}
+
+func GetVMIMigration() *v1.VirtualMachineInstanceMigration {
+	return &v1.VirtualMachineInstanceMigration{
+		TypeMeta: metav1.TypeMeta{
+			APIVersion: apiVersion,
+			Kind:       "VirtualMachineInstanceMigration",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name: VmiMigration,
+		},
+		Spec: v1.VirtualMachineInstanceMigrationSpec{
+			VMIName: VmiMigratable,
 		},
 	}
 }

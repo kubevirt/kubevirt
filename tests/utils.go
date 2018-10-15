@@ -23,11 +23,11 @@ import (
 	"bytes"
 	"encoding/base64"
 	"encoding/json"
+	goerrors "errors"
 	"flag"
 	"fmt"
 	"io"
 	"io/ioutil"
-	golog "log"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -89,6 +89,13 @@ func init() {
 }
 
 type EventType string
+
+const TempDirPrefix = "kubevirt-test"
+
+const (
+	defaultEventuallyTimeout         = 5 * time.Second
+	defaultEventuallyPollingInterval = 1 * time.Second
+)
 
 const (
 	AlpineHttpUrl = "http://cdi-http-import-server.kube-system/images/alpine.iso"
@@ -153,6 +160,7 @@ const (
 	DiskWindows        = "disk-windows"
 	DiskRhel           = "disk-rhel"
 	DiskCustomHostPath = "disk-custom-host-path"
+	BlockPVCCirros     = "local-block-storage-cirros"
 )
 
 const (
@@ -337,9 +345,6 @@ func BeforeTestCleanup() {
 }
 
 func BeforeTestSuitSetup() {
-	// Forward expecter library output to GinkgoWriter
-	golog.SetOutput(GinkgoWriter)
-
 	log.InitializeLogging("tests")
 	log.Log.SetIOWriter(GinkgoWriter)
 
@@ -352,7 +357,15 @@ func BeforeTestSuitSetup() {
 	CreatePVC(osWindows, defaultWindowsDiskSize)
 	CreatePVC(osRhel, defaultRhelDiskSize)
 
+	// create PVC for cirros block device PV, which is provided by local volume provider
+	selector := make(map[string]string)
+	selector["blockstorage"] = "cirros"
+	CreateBlockVolumePVC(BlockPVCCirros, selector, "1Gi")
+
 	EnsureKVMPresent()
+
+	SetDefaultEventuallyTimeout(defaultEventuallyTimeout)
+	SetDefaultEventuallyPollingInterval(defaultEventuallyPollingInterval)
 }
 
 func EnsureKVMPresent() {
@@ -384,13 +397,14 @@ func EnsureKVMPresent() {
 				virtHandlerNode, err := virtClient.CoreV1().Nodes().Get(pod.Spec.NodeName, metav1.GetOptions{})
 				ExpectWithOffset(1, err).ToNot(HaveOccurred())
 
-				allocatable, ok := virtHandlerNode.Status.Allocatable[services.KvmDevice]
+				kvmAllocatable, ok := virtHandlerNode.Status.Allocatable[services.KvmDevice]
+				vhostNetAllocatable, ok := virtHandlerNode.Status.Allocatable[services.VhostNetDevice]
 				ready = ready && ok
-				ready = ready && (allocatable.Value() > 0)
+				ready = ready && (kvmAllocatable.Value() > 0) && (vhostNetAllocatable.Value() > 0)
 			}
 			return ready
 		}, 120*time.Second, 1*time.Second).Should(BeTrue(),
-			"KVM devices are required for testing, but are not present on cluster nodes")
+			"Both KVM devices and vhost-net devices are required for testing, but are not present on cluster nodes")
 	}
 }
 
@@ -452,6 +466,41 @@ func newPVC(os string, size string) *k8sv1.PersistentVolumeClaim {
 				},
 			},
 			StorageClassName: &storageClass,
+		},
+	}
+}
+
+func CreateBlockVolumePVC(name string, labelSelector map[string]string, size string) {
+	virtCli, err := kubecli.GetKubevirtClient()
+	PanicOnError(err)
+
+	_, err = virtCli.CoreV1().PersistentVolumeClaims(NamespaceTestDefault).Create(newBlockVolumePVC(name, labelSelector, size))
+	if !errors.IsAlreadyExists(err) {
+		PanicOnError(err)
+	}
+}
+
+func newBlockVolumePVC(name string, labelSelector map[string]string, size string) *k8sv1.PersistentVolumeClaim {
+	quantity, err := resource.ParseQuantity(size)
+	PanicOnError(err)
+
+	storageClass := LocalStorageClass
+	volumeMode := k8sv1.PersistentVolumeBlock
+
+	return &k8sv1.PersistentVolumeClaim{
+		ObjectMeta: metav1.ObjectMeta{Name: name},
+		Spec: k8sv1.PersistentVolumeClaimSpec{
+			AccessModes: []k8sv1.PersistentVolumeAccessMode{k8sv1.ReadWriteOnce},
+			Resources: k8sv1.ResourceRequirements{
+				Requests: k8sv1.ResourceList{
+					"storage": quantity,
+				},
+			},
+			Selector: &metav1.LabelSelector{
+				MatchLabels: labelSelector,
+			},
+			StorageClassName: &storageClass,
+			VolumeMode:       &volumeMode,
 		},
 	}
 }
@@ -714,7 +763,7 @@ func DeletePV(os string) {
 	}
 }
 
-func RunVMIAndExpectLaunch(vmi *v1.VirtualMachineInstance, withAuth bool, timeout int) *v1.VirtualMachineInstance {
+func RunVMI(vmi *v1.VirtualMachineInstance, timeout int) *v1.VirtualMachineInstance {
 	By("Starting a VirtualMachineInstance")
 	virtCli, err := kubecli.GetKubevirtClient()
 	PanicOnError(err)
@@ -724,6 +773,11 @@ func RunVMIAndExpectLaunch(vmi *v1.VirtualMachineInstance, withAuth bool, timeou
 		obj, err = virtCli.VirtualMachineInstance(NamespaceTestDefault).Create(vmi)
 		return err
 	}, timeout, 1*time.Second).ShouldNot(HaveOccurred())
+	return obj
+}
+
+func RunVMIAndExpectLaunch(vmi *v1.VirtualMachineInstance, withAuth bool, timeout int) *v1.VirtualMachineInstance {
+	obj := RunVMI(vmi, timeout)
 	By("Waiting until the VirtualMachineInstance will start")
 	WaitForSuccessfulVMIStartWithTimeout(obj, timeout)
 	return obj
@@ -819,6 +873,9 @@ func cleanNamespaces() {
 		PanicOnError(virtCli.RestClient().Delete().Namespace(namespace).Resource("virtualmachineinstancepresets").Do().Error())
 		// Remove all limit ranges
 		PanicOnError(virtCli.CoreV1().RESTClient().Delete().Namespace(namespace).Resource("limitranges").Do().Error())
+
+		// Remove all Migration Objects
+		PanicOnError(virtCli.RestClient().Delete().Namespace(namespace).Resource("virtualmachineinstancemigrations").Do().Error())
 
 	}
 }
@@ -968,6 +1025,25 @@ func NewRandomVMIWithEphemeralDiskAndUserdataHighMemory(containerImage string, u
 	return vmi
 }
 
+func NewRandomMigration(vmiName string, namespace string) *v1.VirtualMachineInstanceMigration {
+	migration := &v1.VirtualMachineInstanceMigration{
+
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-migration-" + rand.String(30),
+			Namespace: namespace,
+		},
+		Spec: v1.VirtualMachineInstanceMigrationSpec{
+			VMIName: vmiName,
+		},
+	}
+	migration.TypeMeta = metav1.TypeMeta{
+		APIVersion: v1.GroupVersion.String(),
+		Kind:       "VirtualMachineInstanceMigration",
+	}
+
+	return migration
+}
+
 func NewRandomVMIWithEphemeralDisk(containerImage string) *v1.VirtualMachineInstance {
 	vmi := NewRandomVMI()
 
@@ -1052,7 +1128,11 @@ func AddEphemeralFloppy(vmi *v1.VirtualMachineInstance, name string, image strin
 
 func NewRandomVMIWithEphemeralDiskAndUserdata(containerImage string, userData string) *v1.VirtualMachineInstance {
 	vmi := NewRandomVMIWithEphemeralDisk(containerImage)
+	AddUserData(vmi, userData)
+	return vmi
+}
 
+func AddUserData(vmi *v1.VirtualMachineInstance, userData string) {
 	vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
 		Name:       "disk1",
 		VolumeName: "disk1",
@@ -1070,7 +1150,6 @@ func NewRandomVMIWithEphemeralDiskAndUserdata(containerImage string, userData st
 			},
 		},
 	})
-	return vmi
 }
 
 func NewRandomVMIWithPVC(claimName string) *v1.VirtualMachineInstance {
@@ -1324,7 +1403,7 @@ func waitForVMIStart(obj runtime.Object, seconds int, ignoreWarnings bool) (node
 			return true
 		}
 		return false
-	}, time.Duration(seconds)*time.Second).Should(Equal(true), "Timed out waiting for VMI to enter Running phase")
+	}, time.Duration(seconds)*time.Second, 1*time.Second).Should(Equal(true), "Timed out waiting for VMI to enter Running phase")
 
 	return
 }
@@ -1656,6 +1735,55 @@ func ExecuteCommandOnPodV2(virtCli kubecli.KubevirtClient, pod *k8sv1.Pod, conta
 	return stdoutBuf.String(), stderrBuf.String(), nil
 }
 
+func GetRunningVirtualMachineInstanceDomainXML(virtClient kubecli.KubevirtClient, vmi *v1.VirtualMachineInstance) (string, error) {
+	vmiPod := GetRunningPodByVirtualMachineInstance(vmi, NamespaceTestDefault)
+
+	found := false
+	containerIdx := 0
+	for idx, container := range vmiPod.Spec.Containers {
+		if container.Name == "compute" {
+			containerIdx = idx
+			found = true
+		}
+	}
+	if !found {
+		return "", fmt.Errorf("could not find compute container for pod")
+	}
+
+	stdout, _, err := ExecuteCommandOnPodV2(
+		virtClient,
+		vmiPod,
+		vmiPod.Spec.Containers[containerIdx].Name,
+		[]string{"ls", "/etc/libvirt/qemu/"},
+	)
+	if err != nil {
+		return "", fmt.Errorf("unable to list domain xml files (remotely on pod): %v", err)
+	}
+	Expect(err).ToNot(HaveOccurred())
+
+	fn := ""
+	for _, line := range strings.Split(stdout, "\n") {
+		if strings.Contains(line, vmi.Name) {
+			fn = line
+		}
+	}
+	if fn == "" {
+		return "", fmt.Errorf("libvirt domxml file not found")
+	}
+	fn = fmt.Sprintf("/etc/libvirt/qemu/%s", fn)
+
+	stdout, _, err = ExecuteCommandOnPodV2(
+		virtClient,
+		vmiPod,
+		vmiPod.Spec.Containers[containerIdx].Name,
+		[]string{"cat", fn},
+	)
+	if err != nil {
+		return "", fmt.Errorf("could not cat libvirt domxml (remotely on pod): %v", err)
+	}
+	return stdout, err
+}
+
 func BeforeAll(fn func()) {
 	first := true
 	BeforeEach(func() {
@@ -1713,7 +1841,7 @@ func SkipIfUseFlannel(virtClient kubecli.KubevirtClient) {
 
 func SkipIfNotUseNetworkPolicy(virtClient kubecli.KubevirtClient) {
 	expectedRes := "openshift-ovs-networkpolicy"
-	out, _ := RunCommand("kubectl", "get", "clusternetwork")
+	out, _, _ := RunCommand("kubectl", "get", "clusternetwork")
 	//we don't check the result here, because this cmd is openshift only and will be failed on k8s cluster
 	if !strings.Contains(out, expectedRes) {
 		Skip("Skip networkpolicy test that require openshift-ovs-networkpolicy plugin")
@@ -1735,11 +1863,22 @@ func SkipIfNoCmd(cmdName string) {
 	}
 }
 
-func RunCommand(cmdName string, args ...string) (string, error) {
-	var cmdPath string
-	var err error
-	var stdOutErrBytes []byte
-	switch cmdName = strings.ToLower(cmdName); cmdName {
+func RunCommand(cmdName string, args ...string) (string, string, error) {
+	return RunCommandWithNS(NamespaceTestDefault, cmdName, args...)
+}
+
+func RunCommandWithNS(namespace string, cmdName string, args ...string) (string, string, error) {
+	cmdPath := ""
+	commandString := func() string {
+		c := cmdPath
+		if cmdPath == "" {
+			c = cmdName
+		}
+		return strings.Join(append([]string{c}, args...), " ")
+	}
+
+	cmdName = strings.ToLower(cmdName)
+	switch cmdName {
 	case "oc":
 		cmdPath = KubeVirtOcPath
 	case "kubectl":
@@ -1749,34 +1888,149 @@ func RunCommand(cmdName string, args ...string) (string, error) {
 	}
 
 	if cmdPath == "" {
-		return "", fmt.Errorf("no %s binary specified", cmdName)
+		err := fmt.Errorf("no %s binary specified", cmdName)
+		log.Log.Reason(err).With("command", commandString()).Error("command failed")
+		return "", "", fmt.Errorf("command failed: %v", err)
 	}
 
 	kubeconfig := flag.Lookup("kubeconfig").Value
 	if kubeconfig == nil || kubeconfig.String() == "" {
-		return "", fmt.Errorf("can not find kubeconfig")
+		err := goerrors.New("cannot find kubeconfig")
+		log.Log.Reason(err).With("command", commandString()).Error("command failed")
+		return "", "", fmt.Errorf("command failed: %v", err)
 	}
 
 	master := flag.Lookup("master").Value
 	if master != nil && master.String() != "" {
 		args = append(args, "--server", master.String())
 	}
+	if namespace != "" {
+		args = append(args, "-n", namespace)
+	}
 
 	cmd := exec.Command(cmdPath, args...)
 	kubeconfEnv := fmt.Sprintf("KUBECONFIG=%s", kubeconfig.String())
 	cmd.Env = append(os.Environ(), kubeconfEnv)
 
-	switch cmdName {
-	case "oc", "virtctl":
-		stdOutErrBytes, err = cmd.CombinedOutput()
-	case "kubectl":
-		stdOutErrBytes, err = cmd.Output()
+	var output, stderr bytes.Buffer
+	captureOutputBuffers := func() (string, string) {
+		trimNullChars := func(buf bytes.Buffer) string {
+			return string(bytes.Trim(buf.Bytes(), "\x00"))
+		}
+		return trimNullChars(output), trimNullChars(stderr)
 	}
 
-	if err != nil {
-		log.Log.Reason(err).With("output", string(stdOutErrBytes)).Errorf("%s command failed: %s %s,", cmdName, cmdPath, strings.Join(args, " "))
+	cmd.Stdout, cmd.Stderr = &output, &stderr
+
+	if err := cmd.Run(); err != nil {
+		outputString, stderrString := captureOutputBuffers()
+		log.Log.Reason(err).With("command", commandString(), "output", outputString, "stderr", stderrString).Error("command failed: cannot run command")
+		return outputString, stderrString, fmt.Errorf("command failed: cannot run command %q: %v", commandString(), err)
 	}
-	return string(stdOutErrBytes), err
+
+	outputString, stderrString := captureOutputBuffers()
+	return outputString, stderrString, nil
+}
+
+func RunCommandPipe(commands ...[]string) (string, string, error) {
+	return RunCommandPipeWithNS(NamespaceTestDefault, commands...)
+}
+
+func RunCommandPipeWithNS(namespace string, commands ...[]string) (string, string, error) {
+	commandPipeString := func() string {
+		commandStrings := []string{}
+		for _, command := range commands {
+			commandStrings = append(commandStrings, strings.Join(command, " "))
+		}
+		return strings.Join(commandStrings, " | ")
+	}
+
+	if len(commands) < 2 {
+		err := goerrors.New("requires at least two commands")
+		log.Log.Reason(err).With("command", commandPipeString()).Error("command pipe failed")
+		return "", "", fmt.Errorf("command pipe failed: %v", err)
+	}
+
+	for i, command := range commands {
+		cmdPath := ""
+		cmdName := strings.ToLower(command[0])
+		switch cmdName {
+		case "oc":
+			cmdPath = KubeVirtOcPath
+		case "kubectl":
+			cmdPath = KubeVirtKubectlPath
+		case "virtctl":
+			cmdPath = KubeVirtVirtctlPath
+		}
+		if cmdPath == "" {
+			err := fmt.Errorf("no %s binary specified", cmdName)
+			log.Log.Reason(err).With("command", commandPipeString()).Error("command pipe failed")
+			return "", "", fmt.Errorf("command pipe failed: %v", err)
+		}
+		commands[i][0] = cmdPath
+	}
+
+	kubeconfig := flag.Lookup("kubeconfig").Value
+	if kubeconfig == nil || kubeconfig.String() == "" {
+		err := goerrors.New("cannot find kubeconfig")
+		log.Log.Reason(err).With("command", commandPipeString()).Error("command pipe failed")
+		return "", "", fmt.Errorf("command pipe failed: %v", err)
+	}
+	kubeconfEnv := fmt.Sprintf("KUBECONFIG=%s", kubeconfig.String())
+
+	master := flag.Lookup("master").Value
+	cmds := make([]*exec.Cmd, len(commands))
+	for i := range cmds {
+		if master != nil && master.String() != "" {
+			commands[i] = append(commands[i], "--server", master.String())
+		}
+		if namespace != "" {
+			commands[i] = append(commands[i], "-n", namespace)
+		}
+		cmds[i] = exec.Command(commands[i][0], commands[i][1:]...)
+		cmds[i].Env = append(os.Environ(), kubeconfEnv)
+	}
+
+	var output, stderr bytes.Buffer
+	captureOutputBuffers := func() (string, string) {
+		trimNullChars := func(buf bytes.Buffer) string {
+			return string(bytes.Trim(buf.Bytes(), "\x00"))
+		}
+		return trimNullChars(output), trimNullChars(stderr)
+	}
+
+	last := len(cmds) - 1
+	for i, cmd := range cmds[:last] {
+		var err error
+		if cmds[i+1].Stdin, err = cmd.StdoutPipe(); err != nil {
+			cmdArgString := strings.Join(cmd.Args, " ")
+			log.Log.Reason(err).With("command", commandPipeString()).Errorf("command pipe failed: cannot attach stdout pipe to command %q", cmdArgString)
+			return "", "", fmt.Errorf("command pipe failed: cannot attach stdout pipe to command %q: %v", cmdArgString, err)
+		}
+		cmd.Stderr = &stderr
+	}
+	cmds[last].Stdout, cmds[last].Stderr = &output, &stderr
+
+	for _, cmd := range cmds {
+		if err := cmd.Start(); err != nil {
+			outputString, stderrString := captureOutputBuffers()
+			cmdArgString := strings.Join(cmd.Args, " ")
+			log.Log.Reason(err).With("command", commandPipeString(), "output", outputString, "stderr", stderrString).Errorf("command pipe failed: cannot start command %q", cmdArgString)
+			return outputString, stderrString, fmt.Errorf("command pipe failed: cannot start command %q: %v", cmdArgString, err)
+		}
+	}
+
+	for _, cmd := range cmds {
+		if err := cmd.Wait(); err != nil {
+			outputString, stderrString := captureOutputBuffers()
+			cmdArgString := strings.Join(cmd.Args, " ")
+			log.Log.Reason(err).With("command", commandPipeString(), "output", outputString, "stderr", stderrString).Errorf("command pipe failed: error while waiting for command %q", cmdArgString)
+			return outputString, stderrString, fmt.Errorf("command pipe failed: error while waiting for command %q: %v", cmdArgString, err)
+		}
+	}
+
+	outputString, stderrString := captureOutputBuffers()
+	return outputString, stderrString, nil
 }
 
 func GenerateVMIJson(vmi *v1.VirtualMachineInstance) (string, error) {
@@ -1796,13 +2050,17 @@ func GenerateVMIJson(vmi *v1.VirtualMachineInstance) (string, error) {
 func GenerateTemplateJson(template *vmsgen.Template) (string, error) {
 	data, err := json.Marshal(template)
 	if err != nil {
-		return "", fmt.Errorf("failed to generate json for vm template %s", template.Name)
+		return "", fmt.Errorf("failed to generate json for template %q: %v", template.Name, err)
 	}
 
-	jsonFile := fmt.Sprintf("%s.json", template.Name)
-	err = ioutil.WriteFile(jsonFile, data, 0644)
+	dir, err := ioutil.TempDir("", TempDirPrefix+"-")
 	if err != nil {
-		return "", fmt.Errorf("failed to write json file %s", jsonFile)
+		return "", fmt.Errorf("failed to create a temporary directory in %q: %v", os.TempDir(), err)
+	}
+
+	jsonFile := filepath.Join(dir, template.Name+".json")
+	if err = ioutil.WriteFile(jsonFile, data, 0644); err != nil {
+		return "", fmt.Errorf("failed to write json to file %q: %v", jsonFile, err)
 	}
 	return jsonFile, nil
 }
@@ -1944,6 +2202,12 @@ func GetNodeWithHugepages(virtClient kubecli.KubevirtClient, hugepages k8sv1.Res
 		}
 	}
 	return nil
+}
+
+func GetAllSchedulableNodes(virtClient kubecli.KubevirtClient) *k8sv1.NodeList {
+	nodes, err := virtClient.CoreV1().Nodes().List(metav1.ListOptions{LabelSelector: "kubevirt.io/schedulable=true"})
+	Expect(err).ToNot(HaveOccurred(), "Should list compute nodes")
+	return nodes
 }
 
 // SkipIfVersionBelow will skip tests if it runs on an environment with k8s version below specified

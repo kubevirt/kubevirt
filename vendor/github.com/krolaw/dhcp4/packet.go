@@ -197,6 +197,8 @@ func (p *Packet) PadToMinSize() {
 	}
 }
 
+//go:generate stringer -type=OpCode
+
 // OpCodes
 const (
 	BootRequest OpCode = 1 // From Client

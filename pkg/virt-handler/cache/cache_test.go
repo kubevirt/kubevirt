@@ -151,7 +151,7 @@ var _ = Describe("Domain informer", func() {
 
 			watchdogFile := watchdog.WatchdogFileFromNamespaceName(shareDir, "default", "test")
 			os.MkdirAll(filepath.Dir(watchdogFile), 0755)
-			watchdog.WatchdogFileUpdate(watchdogFile)
+			watchdog.WatchdogFileUpdate(watchdogFile, "somestring")
 
 			err = d.startBackground()
 			Expect(err).ToNot(HaveOccurred())

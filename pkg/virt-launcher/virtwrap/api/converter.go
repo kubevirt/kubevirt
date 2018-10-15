@@ -20,17 +20,17 @@
 package api
 
 import (
-	"bufio"
 	"bytes"
 	"fmt"
 	"io/ioutil"
 	"net"
 	"os"
 	"path/filepath"
-	"regexp"
 
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
+
+	"kubevirt.io/kubevirt/pkg/util/net/dns"
 
 	"strconv"
 	"strings"
@@ -57,9 +57,10 @@ type ConverterContext struct {
 	Secrets        map[string]*k8sv1.Secret
 	VirtualMachine *v1.VirtualMachineInstance
 	CPUSet         []int
+	IsBlockPVC     map[string]bool
 }
 
-func Convert_v1_Disk_To_api_Disk(diskDevice *v1.Disk, disk *Disk, devicePerBus map[string]int) error {
+func Convert_v1_Disk_To_api_Disk(diskDevice *v1.Disk, disk *Disk, devicePerBus map[string]int, numQueues *uint) error {
 
 	if diskDevice.Disk != nil {
 		disk.Device = "disk"
@@ -91,6 +92,9 @@ func Convert_v1_Disk_To_api_Disk(diskDevice *v1.Disk, disk *Disk, devicePerBus m
 	}
 	disk.Driver = &DiskDriver{
 		Name: "qemu",
+	}
+	if numQueues != nil {
+		disk.Driver.Queues = numQueues
 	}
 	disk.Alias = &Alias{Name: diskDevice.Name}
 	if diskDevice.BootOrder != nil {
@@ -154,6 +158,10 @@ func Convert_v1_Volume_To_api_Disk(source *v1.Volume, disk *Disk, c *ConverterCo
 		return Convert_v1_HostDisk_To_api_Disk(source.HostDisk.Path, disk, c)
 	}
 
+	if source.PersistentVolumeClaim != nil {
+		return Convert_v1_PersistentVolumeClaim_To_api_Disk(source.Name, disk, c)
+	}
+
 	if source.DataVolume != nil {
 		return Convert_v1_FilesystemVolumeSource_To_api_Disk(source.Name, disk, c)
 	}
@@ -191,16 +199,33 @@ func Convert_v1_Config_To_api_Disk(volumeName string, disk *Disk, configType con
 	return nil
 }
 
+func GetFilesystemVolumePath(volumeName string) string {
+	return filepath.Join(string(filepath.Separator), "var", "run", "kubevirt-private", "vmi-disks", volumeName, "disk.img")
+}
+
+func GetBlockDeviceVolumePath(volumeName string) string {
+	return filepath.Join(string(filepath.Separator), "dev", volumeName)
+}
+
+func Convert_v1_PersistentVolumeClaim_To_api_Disk(name string, disk *Disk, c *ConverterContext) error {
+	if c.IsBlockPVC[name] {
+		return Convert_v1_BlockVolumeSource_To_api_Disk(name, disk, c)
+	}
+	return Convert_v1_FilesystemVolumeSource_To_api_Disk(name, disk, c)
+}
+
 // Convert_v1_FilesystemVolumeSource_To_api_Disk takes a FS source and builds the KVM Disk representation
 func Convert_v1_FilesystemVolumeSource_To_api_Disk(volumeName string, disk *Disk, c *ConverterContext) error {
-
 	disk.Type = "file"
 	disk.Driver.Type = "raw"
-	disk.Source.File = filepath.Join(
-		"/var/run/kubevirt-private",
-		"vmi-disks",
-		volumeName,
-		"disk.img")
+	disk.Source.File = GetFilesystemVolumePath(volumeName)
+	return nil
+}
+
+func Convert_v1_BlockVolumeSource_To_api_Disk(volumeName string, disk *Disk, c *ConverterContext) error {
+	disk.Type = "block"
+	disk.Driver.Type = "raw"
+	disk.Source.Dev = GetBlockDeviceVolumePath(volumeName)
 	return nil
 }
 
@@ -421,6 +446,18 @@ func Convert_v1_VirtualMachine_To_api_Domain(vmi *v1.VirtualMachineInstance, dom
 		return err
 	}
 
+	virtioNetProhibited := false
+	if _, err := os.Stat("/dev/vhost-net"); os.IsNotExist(err) {
+		if c.UseEmulation {
+			logger := log.DefaultLogger()
+			logger.Infof("In-kernel virtio-net device emulation '/dev/vhost-net' not present. Falling back to QEMU userland emulation.")
+		} else {
+			virtioNetProhibited = true
+		}
+	} else if err != nil {
+		return err
+	}
+
 	// Spec metadata
 	domain.Spec.Metadata.KubeVirt.UID = vmi.UID
 	if vmi.Spec.TerminationGracePeriodSeconds != nil {
@@ -512,11 +549,24 @@ func Convert_v1_VirtualMachine_To_api_Domain(vmi *v1.VirtualMachineInstance, dom
 
 	currentAutoThread := defaultIOThread
 	currentDedicatedThread := uint(autoThreads + 1)
+
+	var numQueues *uint
+	if (vmi.Spec.Domain.Devices.BlockMultiQueue != nil) && (*vmi.Spec.Domain.Devices.BlockMultiQueue) {
+		// Requested CPU's is guaranteed to be no greater than the limit
+		if cpuRequests, ok := vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceCPU]; ok {
+			numCPUs := uint(cpuRequests.Value())
+			numQueues = &numCPUs
+		} else if cpuLimit, ok := vmi.Spec.Domain.Resources.Limits[k8sv1.ResourceCPU]; ok {
+			numCPUs := uint(cpuLimit.Value())
+			numQueues = &numCPUs
+		}
+	}
+
 	devicePerBus := make(map[string]int)
 	for _, disk := range vmi.Spec.Domain.Devices.Disks {
 		newDisk := Disk{}
 
-		err := Convert_v1_Disk_To_api_Disk(&disk, &newDisk, devicePerBus)
+		err := Convert_v1_Disk_To_api_Disk(&disk, &newDisk, devicePerBus, numQueues)
 		if err != nil {
 			return err
 		}
@@ -722,13 +772,20 @@ func Convert_v1_VirtualMachine_To_api_Domain(vmi *v1.VirtualMachineInstance, dom
 			return fmt.Errorf("failed to find network %s", iface.Name)
 		}
 
+		ifaceType := getInterfaceType(&iface)
 		domainIface := Interface{
 			Model: &Model{
-				Type: getInterfaceType(&iface),
+				Type: ifaceType,
 			},
 			Alias: &Alias{
 				Name: iface.Name,
 			},
+		}
+
+		// if UseEmulation unset and at least one NIC model is virtio,
+		// /dev/vhost-net must be present as we should have asked for it.
+		if ifaceType == "virtio" && virtioNetProhibited {
+			return fmt.Errorf("In-kernel virtio-net device emulation '/dev/vhost-net' not present")
 		}
 
 		// Add a pciAddress if specifed
@@ -942,12 +999,12 @@ func GetResolvConfDetailsFromPod() ([][]byte, []string, error) {
 		return nil, nil, err
 	}
 
-	nameservers, err := ParseNameservers(string(b))
+	nameservers, err := dns.ParseNameservers(string(b))
 	if err != nil {
 		return nil, nil, err
 	}
 
-	searchDomains, err := ParseSearchDomains(string(b))
+	searchDomains, err := dns.ParseSearchDomains(string(b))
 	if err != nil {
 		return nil, nil, err
 	}
@@ -956,62 +1013,4 @@ func GetResolvConfDetailsFromPod() ([][]byte, []string, error) {
 	log.Log.Reason(err).Infof("Found search domains in %s: %s", resolvConf, strings.Join(searchDomains, " "))
 
 	return nameservers, searchDomains, err
-}
-
-func ParseNameservers(content string) ([][]byte, error) {
-	var nameservers [][]byte
-
-	re, err := regexp.Compile("([0-9]{1,3}.?){4}")
-	if err != nil {
-		return nameservers, err
-	}
-
-	scanner := bufio.NewScanner(strings.NewReader(content))
-
-	for scanner.Scan() {
-		line := scanner.Text()
-		if strings.HasPrefix(line, nameserverPrefix) {
-			nameserver := re.FindString(line)
-			if nameserver != "" {
-				nameservers = append(nameservers, net.ParseIP(nameserver).To4())
-			}
-		}
-	}
-
-	if err = scanner.Err(); err != nil {
-		return nameservers, err
-	}
-
-	// apply a default DNS if none found from pod
-	if len(nameservers) == 0 {
-		nameservers = append(nameservers, net.ParseIP(defaultDNS).To4())
-	}
-
-	return nameservers, nil
-}
-
-func ParseSearchDomains(content string) ([]string, error) {
-	var searchDomains []string
-
-	scanner := bufio.NewScanner(strings.NewReader(content))
-
-	for scanner.Scan() {
-		line := scanner.Text()
-		if strings.HasPrefix(line, domainSearchPrefix) {
-			doms := strings.Fields(strings.TrimPrefix(line, domainSearchPrefix))
-			for _, dom := range doms {
-				searchDomains = append(searchDomains, dom)
-			}
-		}
-	}
-
-	if err := scanner.Err(); err != nil {
-		return nil, err
-	}
-
-	if len(searchDomains) == 0 {
-		searchDomains = append(searchDomains, defaultSearchDomain)
-	}
-
-	return searchDomains, nil
 }

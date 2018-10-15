@@ -67,8 +67,14 @@ type KubeInformerFactory interface {
 	// VirtualMachine handles the VMIs that are stopped or not running
 	VirtualMachine() cache.SharedIndexInformer
 
+	// Watches VirtualMachineInstanceMigration objects
+	VirtualMachineInstanceMigration() cache.SharedIndexInformer
+
 	// Watches for ConfigMap objects
 	ConfigMap() cache.SharedIndexInformer
+
+	// Watches for PersistentVolumeClaim objects
+	PersistentVolumeClaim() cache.SharedIndexInformer
 
 	// Watches for LimitRange objects
 	LimitRanges() cache.SharedIndexInformer
@@ -158,6 +164,13 @@ func (f *kubeInformerFactory) VirtualMachinePreset() cache.SharedIndexInformer {
 	})
 }
 
+func (f *kubeInformerFactory) VirtualMachineInstanceMigration() cache.SharedIndexInformer {
+	return f.getInformer("vmimInformer", func() cache.SharedIndexInformer {
+		lw := cache.NewListWatchFromClient(f.restClient, "virtualmachineinstancemigrations", k8sv1.NamespaceAll, fields.Everything())
+		return cache.NewSharedIndexInformer(lw, &kubev1.VirtualMachineInstanceMigration{}, f.defaultResync, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
+	})
+}
+
 func (f *kubeInformerFactory) KubeVirtPod() cache.SharedIndexInformer {
 	return f.getInformer("kubeVirtPodInformer", func() cache.SharedIndexInformer {
 		// Watch all pods with the kubevirt app label
@@ -207,6 +220,14 @@ func (f *kubeInformerFactory) ConfigMap() cache.SharedIndexInformer {
 		fieldSelector := fields.OneTermEqualSelector("metadata.name", "kubevirt-config")
 		lw := cache.NewListWatchFromClient(restClient, "configmaps", systemNamespace, fieldSelector)
 		return cache.NewSharedIndexInformer(lw, &k8sv1.ConfigMap{}, f.defaultResync, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
+	})
+}
+
+func (f *kubeInformerFactory) PersistentVolumeClaim() cache.SharedIndexInformer {
+	return f.getInformer("persistentVolumeClaimInformer", func() cache.SharedIndexInformer {
+		restClient := f.clientSet.CoreV1().RESTClient()
+		lw := cache.NewListWatchFromClient(restClient, "persistentvolumeclaims", k8sv1.NamespaceAll, fields.Everything())
+		return cache.NewSharedIndexInformer(lw, &k8sv1.PersistentVolumeClaim{}, f.defaultResync, cache.Indexers{})
 	})
 }
 

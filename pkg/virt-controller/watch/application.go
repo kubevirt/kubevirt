@@ -64,7 +64,7 @@ const (
 
 	virtShareDir = "/var/run/kubevirt"
 
-	ephemeralDiskDir = "/var/run/libvirt/kubevirt-ephemeral-disk"
+	ephemeralDiskDir = virtShareDir + "-ephemeral-disks"
 
 	controllerThreads = 3
 )
@@ -89,6 +89,9 @@ type VirtControllerApp struct {
 	configMapCache    cache.Store
 	configMapInformer cache.SharedIndexInformer
 
+	persistentVolumeClaimCache    cache.Store
+	persistentVolumeClaimInformer cache.SharedIndexInformer
+
 	rsController *VMIReplicaSet
 	rsInformer   cache.SharedIndexInformer
 
@@ -96,6 +99,9 @@ type VirtControllerApp struct {
 	vmInformer   cache.SharedIndexInformer
 
 	dataVolumeInformer cache.SharedIndexInformer
+
+	migrationController *MigrationController
+	migrationInformer   cache.SharedIndexInformer
 
 	LeaderElection leaderelectionconfig.Configuration
 
@@ -150,7 +156,12 @@ func Execute() {
 	app.configMapInformer = app.informerFactory.ConfigMap()
 	app.configMapCache = app.configMapInformer.GetStore()
 
+	app.persistentVolumeClaimInformer = app.informerFactory.PersistentVolumeClaim()
+	app.persistentVolumeClaimCache = app.persistentVolumeClaimInformer.GetStore()
+
 	app.vmInformer = app.informerFactory.VirtualMachine()
+
+	app.migrationInformer = app.informerFactory.VirtualMachineInstanceMigration()
 
 	if featuregates.DataVolumesEnabled() {
 		app.dataVolumeInformer = app.informerFactory.DataVolume()
@@ -189,7 +200,7 @@ func (vca *VirtControllerApp) Run() {
 	defer close(stop)
 	go func() {
 		httpLogger := logger.With("service", "http")
-		httpLogger.Level(log.INFO).Log("action", "listening", "interface", vca.BindAddress, "port", vca.Port)
+		httpLogger.Level(glog.INFO).Log("action", "listening", "interface", vca.BindAddress, "port", vca.Port)
 		http.Handle("/metrics", promhttp.Handler())
 		if err := http.ListenAndServeTLS(vca.Address(), certStore.CurrentPath(), certStore.CurrentPath(), nil); err != nil {
 			golog.Fatal(err)
@@ -228,6 +239,8 @@ func (vca *VirtControllerApp) Run() {
 					go vca.vmiController.Run(controllerThreads, stop)
 					go vca.rsController.Run(controllerThreads, stop)
 					go vca.vmController.Run(controllerThreads, stop)
+					go vca.migrationController.Run(controllerThreads, stop)
+					cache.WaitForCacheSync(stopCh, vca.persistentVolumeClaimInformer.HasSynced)
 					close(vca.readyChan)
 				},
 				OnStoppedLeading: func() {
@@ -256,10 +269,17 @@ func (vca *VirtControllerApp) initCommon() {
 	if err != nil {
 		golog.Fatal(err)
 	}
-	vca.templateService = services.NewTemplateService(vca.launcherImage, vca.virtShareDir, vca.imagePullSecret, vca.configMapCache)
+	vca.templateService = services.NewTemplateService(vca.launcherImage,
+		vca.virtShareDir,
+		vca.ephemeralDiskDir,
+		vca.imagePullSecret,
+		vca.configMapCache,
+		vca.persistentVolumeClaimCache)
+
 	vca.vmiController = NewVMIController(vca.templateService, vca.vmiInformer, vca.podInformer, vca.vmiRecorder, vca.clientSet, vca.configMapInformer, vca.dataVolumeInformer)
 	recorder := vca.getNewRecorder(k8sv1.NamespaceAll, "node-controller")
 	vca.nodeController = NewNodeController(vca.clientSet, vca.nodeInformer, vca.vmiInformer, recorder)
+	vca.migrationController = NewMigrationController(vca.templateService, vca.vmiInformer, vca.podInformer, vca.migrationInformer, vca.vmiRecorder, vca.clientSet)
 }
 
 func (vca *VirtControllerApp) initReplicaSet() {

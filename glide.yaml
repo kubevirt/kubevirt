@@ -1,6 +1,7 @@
 package: kubevirt.io/kubevirt
 ignore:
 - github.com/go-kit/kit/examples
+- github.com/golang/glog
 - github.com/googleapis/gnostic/plugins
 - github.com/go-kit/kit/log/levels
 - github.com/go-kit/kit/metrics/influxdb
@@ -32,11 +33,11 @@ import:
 - package: github.com/evanphx/json-patch
   version: ba18e35c5c1b36ef6334cad706eb681153d2d379
 - package: k8s.io/client-go
-  version: kubernetes-1.11.3
+  version: kubernetes-1.11.2
 - package: k8s.io/apimachinery
-  version: kubernetes-1.11.3
+  version: kubernetes-1.11.2
 - package: k8s.io/kube-aggregator
-  version: kubernetes-1.11.3
+  version: kubernetes-1.11.2
 - package: github.com/fsnotify/fsnotify
   version: ^1.4.2
 - package: github.com/mailru/easyjson
@@ -64,7 +65,7 @@ import:
 - package: github.com/spf13/pflag
   version: 1.0.1
 - package: k8s.io/apiextensions-apiserver
-  version: kubernetes-1.11.3
+  version: kubernetes-1.11.2
 - package: github.com/ant31/crd-validation
   version: 30f8a35d0ac2d8a2825c78ff47885979e3ee1121
 - package: kubevirt.io/qe-tools

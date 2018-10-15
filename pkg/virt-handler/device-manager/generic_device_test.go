@@ -4,7 +4,6 @@ import (
 	"io/ioutil"
 	"os"
 	"path"
-	"testing"
 	"time"
 
 	. "github.com/onsi/ginkgo"
@@ -72,8 +71,3 @@ var _ = Describe("Generic Device", func() {
 		}, 5*time.Second).Should(Equal(pluginapi.Healthy))
 	})
 })
-
-func TestGenericDevice(t *testing.T) {
-	RegisterFailHandler(Fail)
-	RunSpecs(t, "Generic Device")
-}

@@ -21,6 +21,7 @@ package tests_test
 
 import (
 	"flag"
+	"fmt"
 	"path/filepath"
 	"strings"
 	"time"
@@ -65,7 +66,7 @@ var _ = Describe("Storage", func() {
 
 				By("Checking that the VirtualMachineInstance console has expected output")
 				expecter, err := tests.LoggedInAlpineExpecter(vmi)
-				Expect(err).To(BeNil())
+				Expect(err).ToNot(HaveOccurred())
 				expecter.Close()
 			},
 				table.Entry("with Disk PVC", tests.NewRandomVMIWithPVC),
@@ -85,12 +86,12 @@ var _ = Describe("Storage", func() {
 					if i == num {
 						By("Checking that the VirtualMachineInstance console has expected output")
 						expecter, err := tests.LoggedInAlpineExpecter(vmi)
-						Expect(err).To(BeNil())
+						Expect(err).ToNot(HaveOccurred())
 						expecter.Close()
 					}
 
 					err = virtClient.VirtualMachineInstance(vmi.Namespace).Delete(vmi.Name, &metav1.DeleteOptions{})
-					Expect(err).To(BeNil())
+					Expect(err).ToNot(HaveOccurred())
 					tests.WaitForVirtualMachineToDisappearWithTimeout(vmi, 120)
 				}
 			},
@@ -125,7 +126,7 @@ var _ = Describe("Storage", func() {
 				tests.RunVMIAndExpectLaunch(vmi, false, 90)
 
 				expecter, err := tests.LoggedInCirrosExpecter(vmi)
-				Expect(err).To(BeNil())
+				Expect(err).ToNot(HaveOccurred())
 				defer expecter.Close()
 
 				By("Checking that /dev/vdc has a capacity of 2Gi")
@@ -134,7 +135,7 @@ var _ = Describe("Storage", func() {
 					&expect.BExp{R: "2147483648"}, // 2Gi in bytes
 				}, 10*time.Second)
 				log.DefaultLogger().Object(vmi).Infof("%v", res)
-				Expect(err).To(BeNil())
+				Expect(err).ToNot(HaveOccurred())
 
 				By("Checking if we can write to /dev/vdc")
 				res, err = expecter.ExpectBatch([]expect.Batcher{
@@ -144,7 +145,7 @@ var _ = Describe("Storage", func() {
 					&expect.BExp{R: "0"},
 				}, 20*time.Second)
 				log.DefaultLogger().Object(vmi).Infof("%v", res)
-				Expect(err).To(BeNil())
+				Expect(err).ToNot(HaveOccurred())
 			})
 
 		})
@@ -176,7 +177,7 @@ var _ = Describe("Storage", func() {
 				tests.RunVMIAndExpectLaunch(vmi, false, 90)
 
 				expecter, err := tests.LoggedInCirrosExpecter(vmi)
-				Expect(err).To(BeNil())
+				Expect(err).ToNot(HaveOccurred())
 				defer expecter.Close()
 
 				By("Checking for the specified serial number")
@@ -185,7 +186,7 @@ var _ = Describe("Storage", func() {
 					&expect.BExp{R: diskSerial},
 				}, 10*time.Second)
 				log.DefaultLogger().Object(vmi).Infof("%v", res)
-				Expect(err).To(BeNil())
+				Expect(err).ToNot(HaveOccurred())
 			})
 
 		})
@@ -199,7 +200,7 @@ var _ = Describe("Storage", func() {
 
 				By("Checking that the VirtualMachineInstance console has expected output")
 				expecter, err := tests.LoggedInAlpineExpecter(vmi)
-				Expect(err).To(BeNil())
+				Expect(err).ToNot(HaveOccurred())
 				expecter.Close()
 			})
 
@@ -288,7 +289,7 @@ var _ = Describe("Storage", func() {
 					}
 
 					err = virtClient.VirtualMachineInstance(vmi.Namespace).Delete(vmi.Name, &metav1.DeleteOptions{})
-					Expect(err).To(BeNil())
+					Expect(err).ToNot(HaveOccurred())
 
 					tests.WaitForVirtualMachineToDisappearWithTimeout(obj, 120)
 				}
@@ -321,7 +322,7 @@ var _ = Describe("Storage", func() {
 					Expect(strings.Contains(output, diskPath)).To(BeTrue())
 
 					err = virtClient.VirtualMachineInstance(vmi.Namespace).Delete(vmi.Name, &metav1.DeleteOptions{})
-					Expect(err).To(BeNil())
+					Expect(err).ToNot(HaveOccurred())
 
 					tests.WaitForVirtualMachineToDisappearWithTimeout(vmi, 120)
 				})
@@ -344,7 +345,7 @@ var _ = Describe("Storage", func() {
 					// create a disk image before test
 					job := tests.CreateHostDiskImage(diskPath)
 					job, err = virtClient.CoreV1().Pods(tests.NamespaceTestDefault).Create(job)
-					Expect(err).To(BeNil())
+					Expect(err).ToNot(HaveOccurred())
 					getStatus := func() k8sv1.PodPhase {
 						pod, err := virtClient.CoreV1().Pods(tests.NamespaceTestDefault).Get(job.Name, metav1.GetOptions{})
 						Expect(err).ToNot(HaveOccurred())
@@ -372,7 +373,7 @@ var _ = Describe("Storage", func() {
 					Expect(strings.Contains(output, diskPath)).To(BeTrue())
 
 					err = virtClient.VirtualMachineInstance(vmi.Namespace).Delete(vmi.Name, &metav1.DeleteOptions{})
-					Expect(err).To(BeNil())
+					Expect(err).ToNot(HaveOccurred())
 
 					tests.WaitForVirtualMachineToDisappearWithTimeout(vmi, 120)
 				})
@@ -417,6 +418,53 @@ var _ = Describe("Storage", func() {
 					)
 					Expect(strings.Contains(output, "disk.img")).To(BeTrue())
 				}
+			})
+		})
+
+		Context("With Cirros BlockMode PVC", func() {
+			It("should be successfully started", func() {
+				// Start the VirtualMachineInstance with the PVC attached
+				vmi := tests.NewRandomVMIWithPVC(tests.BlockPVCCirros)
+				// Without userdata the hostname isn't set correctly and the login expecter fails...
+				tests.AddUserData(vmi, "#!/bin/bash\necho 'hello'\n")
+
+				tests.RunVMIAndExpectLaunch(vmi, false, 90)
+
+				By("Checking that the VirtualMachineInstance console has expected output")
+				expecter, err := tests.LoggedInCirrosExpecter(vmi)
+				Expect(err).ToNot(HaveOccurred(), "Cirros login successfully")
+				expecter.Close()
+			})
+		})
+
+		Context("With not existing PVC", func() {
+			It("should get unschedulable condition", func() {
+				// Start the VirtualMachineInstance
+				pvcName := "nonExistingPVC"
+				vmi := tests.NewRandomVMIWithPVC(pvcName)
+
+				tests.RunVMI(vmi, 10)
+
+				virtClient, err := kubecli.GetKubevirtClient()
+				Expect(err).ToNot(HaveOccurred())
+
+				Eventually(func() bool {
+					vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &metav1.GetOptions{})
+					Expect(err).ToNot(HaveOccurred())
+
+					if vmi.Status.Phase != v1.Pending {
+						return false
+					}
+					if len(vmi.Status.Conditions) == 0 {
+						return false
+					}
+					Expect(vmi.Status.Conditions[0].Type).To(Equal(v1.VirtualMachineInstanceConditionType(k8sv1.PodScheduled)))
+					Expect(vmi.Status.Conditions[0].Reason).To(Equal(k8sv1.PodReasonUnschedulable))
+					Expect(vmi.Status.Conditions[0].Status).To(Equal(k8sv1.ConditionFalse))
+					Expect(vmi.Status.Conditions[0].Message).To(Equal(fmt.Sprintf("failed to render launch manifest: didn't find PVC %v", pvcName)))
+					return true
+				}, time.Duration(10)*time.Second).Should(Equal(true), "Timed out waiting for VMI to get Unschedulable condition")
+
 			})
 		})
 	})

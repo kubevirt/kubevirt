@@ -204,6 +204,16 @@ type Metadata struct {
 type KubeVirtMetadata struct {
 	UID         types.UID           `xml:"uid"`
 	GracePeriod GracePeriodMetadata `xml:"graceperiod,omitempty"`
+	Migration   *MigrationMetadata  `xml:"migration,omitempty"`
+}
+
+type MigrationMetadata struct {
+	UID            types.UID    `xml:"uid,omitempty"`
+	StartTimestamp *metav1.Time `xml:"startTimestamp,omitempty"`
+	EndTimestamp   *metav1.Time `xml:"endTimestamp,omitempty"`
+	Completed      bool         `xml:"completed,omitempty"`
+	Failed         bool         `xml:"failed,omitempty"`
+	FailureReason  string       `xml:"failureReason,omitempty"`
 }
 
 type GracePeriodMetadata struct {
@@ -275,11 +285,14 @@ type Controller struct {
 	Driver *ControllerDriver `xml:"driver,omitempty"`
 }
 
+// END Controller -----------------------------
+
+// BEGIN ControllerDriver
 type ControllerDriver struct {
 	IOThread *uint `xml:"iothread,attr,omitempty"`
 }
 
-// END Controller -----------------------------
+// END ControllerDriver
 
 // BEGIN Disk -----------------------------
 
@@ -304,13 +317,14 @@ type DiskAuth struct {
 }
 
 type DiskSecret struct {
-	Type  string `xml:"type,attr"`
-	Usage string `xml:"usage,attr"`
+	Type  string `xml:"type,attr,omitempty"`
+	Usage string `xml:"usage,attr,omitempty"`
 }
 
 type ReadOnly struct{}
 
 type DiskSource struct {
+	Dev           string          `xml:"dev,attr,omitempty"`
 	File          string          `xml:"file,attr,omitempty"`
 	StartupPolicy string          `xml:"startupPolicy,attr,omitempty"`
 	Protocol      string          `xml:"protocol,attr,omitempty"`
@@ -331,6 +345,7 @@ type DiskDriver struct {
 	Name        string `xml:"name,attr"`
 	Type        string `xml:"type,attr"`
 	IOThread    *uint  `xml:"iothread,attr,omitempty"`
+	Queues      *uint  `xml:"queues,attr,omitempty"`
 }
 
 type DiskSourceHost struct {

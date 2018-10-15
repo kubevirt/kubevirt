@@ -1,0 +1,169 @@
+/*
+ * This file is part of the KubeVirt project
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ * Copyright 2018 Red Hat, Inc.
+ *
+ */
+
+package migrationproxy
+
+import (
+	"fmt"
+	"io/ioutil"
+	"net"
+	"os"
+
+	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/gomega"
+)
+
+var _ = Describe("MigrationProxy", func() {
+	tmpDir, _ := ioutil.TempDir("", "migrationproxytest")
+
+	BeforeEach(func() {
+		os.MkdirAll(tmpDir, 0755)
+	})
+
+	AfterEach(func() {
+		os.RemoveAll(tmpDir)
+	})
+
+	Describe("migration proxy", func() {
+		Context("verify proxy connections work", func() {
+			It("by verifying source proxy works", func() {
+				sourceSock := tmpDir + "/source-sock"
+
+				listener, err := net.Listen("tcp", "127.0.0.1:12345")
+				Expect(err).ShouldNot(HaveOccurred())
+
+				defer listener.Close()
+
+				sourceProxy := NewSourceProxy(sourceSock, "127.0.0.1:12345")
+				defer sourceProxy.StopListening()
+
+				err = sourceProxy.StartListening()
+				Expect(err).ShouldNot(HaveOccurred())
+
+				numBytes := make(chan int)
+				go func() {
+					var bytes [1024]byte
+					fd, err := listener.Accept()
+					Expect(err).ShouldNot(HaveOccurred())
+					n, err := fd.Read(bytes[0:])
+					if err != nil {
+						Expect(err).ShouldNot(HaveOccurred())
+					} else {
+						numBytes <- n
+					}
+				}()
+
+				conn, err := net.Dial("unix", sourceSock)
+				Expect(err).ShouldNot(HaveOccurred())
+
+				message := "some message"
+				messageBytes := []byte(message)
+				sentLen, err := conn.Write(messageBytes)
+				Expect(err).ShouldNot(HaveOccurred())
+
+				Expect(sentLen).To(Equal(len(messageBytes)))
+
+				num := <-numBytes
+				Expect(num).To(Equal(sentLen))
+			})
+
+			It("by creating both ends and sending a message", func() {
+				sourceSock := tmpDir + "/source-sock"
+				libvirtdSock := tmpDir + "/libvirtd-sock"
+				libvirtdListener, err := net.Listen("unix", libvirtdSock)
+
+				Expect(err).ShouldNot(HaveOccurred())
+
+				defer libvirtdListener.Close()
+
+				targetProxy := NewTargetProxy("0.0.0.0", 12345, libvirtdSock)
+				sourceProxy := NewSourceProxy(sourceSock, "127.0.0.1:12345")
+				defer targetProxy.StopListening()
+				defer sourceProxy.StopListening()
+
+				err = targetProxy.StartListening()
+				Expect(err).ShouldNot(HaveOccurred())
+				err = sourceProxy.StartListening()
+				Expect(err).ShouldNot(HaveOccurred())
+
+				numBytes := make(chan int)
+				go func() {
+					fd, err := libvirtdListener.Accept()
+					Expect(err).ShouldNot(HaveOccurred())
+
+					var bytes [1024]byte
+					n, err := fd.Read(bytes[0:])
+					Expect(err).ShouldNot(HaveOccurred())
+					numBytes <- n
+				}()
+
+				conn, err := net.Dial("unix", sourceSock)
+				Expect(err).ShouldNot(HaveOccurred())
+
+				message := "some message"
+				messageBytes := []byte(message)
+				sentLen, err := conn.Write(messageBytes)
+				Expect(err).ShouldNot(HaveOccurred())
+
+				Expect(sentLen).To(Equal(len(messageBytes)))
+
+				num := <-numBytes
+				Expect(num).To(Equal(sentLen))
+			})
+
+			It("by creating both ends with a manager and sending a message", func() {
+				libvirtdSock := tmpDir + "/libvirtd-sock"
+				libvirtdListener, err := net.Listen("unix", libvirtdSock)
+
+				Expect(err).ShouldNot(HaveOccurred())
+
+				manager := NewMigrationProxyManager(tmpDir)
+				manager.StartTargetListener("mykey", libvirtdSock)
+				manager.StartSourceListener("mykey", fmt.Sprintf("127.0.0.1:%d", manager.GetTargetListenerPort("mykey")))
+
+				defer manager.StopTargetListener("myKey")
+				defer manager.StopSourceListener("myKey")
+
+				numBytes := make(chan int)
+				go func() {
+					fd, err := libvirtdListener.Accept()
+					Expect(err).ShouldNot(HaveOccurred())
+
+					var bytes [1024]byte
+					n, err := fd.Read(bytes[0:])
+					Expect(err).ShouldNot(HaveOccurred())
+					numBytes <- n
+				}()
+
+				conn, err := net.Dial("unix", manager.GetSourceListenerFile("mykey"))
+				Expect(err).ShouldNot(HaveOccurred())
+
+				message := "some message"
+				messageBytes := []byte(message)
+				sentLen, err := conn.Write(messageBytes)
+				Expect(err).ShouldNot(HaveOccurred())
+
+				Expect(sentLen).To(Equal(len(messageBytes)))
+
+				num := <-numBytes
+				Expect(num).To(Equal(sentLen))
+			})
+		})
+	})
+})

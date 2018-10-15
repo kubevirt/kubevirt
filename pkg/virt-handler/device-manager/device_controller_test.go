@@ -5,7 +5,6 @@ import (
 	"io/ioutil"
 	"os"
 	"path"
-	"testing"
 	"time"
 
 	. "github.com/onsi/ginkgo"
@@ -184,8 +183,3 @@ var _ = Describe("Device Controller", func() {
 		})
 	})
 })
-
-func TestController(t *testing.T) {
-	RegisterFailHandler(Fail)
-	RunSpecs(t, "Device Controller")
-}

@@ -21,7 +21,6 @@ package api
 
 import (
 	"encoding/xml"
-	"net"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -61,7 +60,6 @@ var _ = Describe("Converter", func() {
   <boot order="1"></boot>
 </Disk>`
 			xml := diskToDiskXML(kubevirtDisk)
-			fmt.Println(xml)
 			Expect(xml).To(Equal(convertedDisk))
 		})
 
@@ -82,7 +80,6 @@ var _ = Describe("Converter", func() {
   <alias name="ua-mydisk"></alias>
 </Disk>`
 			xml := diskToDiskXML(kubevirtDisk)
-			fmt.Println(xml)
 			Expect(xml).To(Equal(convertedDisk))
 		})
 
@@ -230,6 +227,10 @@ var _ = Describe("Converter", func() {
 					VolumeName: "volume7",
 					Serial:     "CVLY623300HK240D",
 				},
+				{
+					Name:       "pvc_block_test",
+					VolumeName: "volume8",
+				},
 			}
 			vmi.Spec.Volumes = []v1.Volume{
 				{
@@ -323,6 +324,14 @@ var _ = Describe("Converter", func() {
 							LocalObjectReference: k8sv1.LocalObjectReference{
 								Name: "testconfig",
 							},
+						},
+					},
+				},
+				{
+					Name: "volume8",
+					VolumeSource: v1.VolumeSource{
+						PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{
+							ClaimName: "testblock",
 						},
 					},
 				},
@@ -436,6 +445,12 @@ var _ = Describe("Converter", func() {
       <driver name="qemu" type="raw" iothread="1"></driver>
       <alias name="ua-configmap_test"></alias>
     </disk>
+    <disk device="disk" type="block">
+      <source dev="/dev/volume8"></source>
+      <target bus="sata" dev="sdg"></target>
+      <driver name="qemu" type="raw" iothread="1"></driver>
+      <alias name="ua-pvc_block_test"></alias>
+    </disk>
     <serial type="unix">
       <target port="0"></target>
       <source mode="bind" path="/var/run/kubevirt-private/f4686d2c-6e8d-4335-b8fd-81bee22f4814/virt-serial0"></source>
@@ -486,6 +501,8 @@ var _ = Describe("Converter", func() {
 
 		var c *ConverterContext
 
+		isBlockPVCMap := make(map[string]bool)
+		isBlockPVCMap["volume8"] = true
 		BeforeEach(func() {
 			c = &ConverterContext{
 				VirtualMachine: vmi,
@@ -497,6 +514,7 @@ var _ = Describe("Converter", func() {
 					},
 				},
 				UseEmulation: true,
+				IsBlockPVC:   isBlockPVCMap,
 			}
 		})
 
@@ -875,67 +893,6 @@ var _ = Describe("Converter", func() {
 			Expect(domain.Spec.Devices.Interfaces[1].BootOrder).To(BeNil())
 		})
 	})
-	Context("Function ParseNameservers()", func() {
-		It("should return a byte array of nameservers", func() {
-			ns1, ns2 := []uint8{8, 8, 8, 8}, []uint8{8, 8, 4, 4}
-			resolvConf := "nameserver 8.8.8.8\nnameserver 8.8.4.4\n"
-			nameservers, err := ParseNameservers(resolvConf)
-			Expect(nameservers).To(Equal([][]uint8{ns1, ns2}))
-			Expect(err).To(BeNil())
-		})
-
-		It("should ignore non-nameserver lines and malformed nameserver lines", func() {
-			ns1, ns2 := []uint8{8, 8, 8, 8}, []uint8{8, 8, 4, 4}
-			resolvConf := "search example.com\nnameserver 8.8.8.8\nnameserver 8.8.4.4\nnameserver mynameserver\n"
-			nameservers, err := ParseNameservers(resolvConf)
-			Expect(nameservers).To(Equal([][]uint8{ns1, ns2}))
-			Expect(err).To(BeNil())
-		})
-
-		It("should return a default nameserver if none is parsed", func() {
-			nameservers, err := ParseNameservers("")
-			expectedDNS := net.ParseIP(defaultDNS).To4()
-			Expect(nameservers).To(Equal([][]uint8{expectedDNS}))
-			Expect(err).To(BeNil())
-		})
-	})
-
-	Context("Function ParseSearchDomains()", func() {
-		It("should return a string of search domains", func() {
-			resolvConf := "search cluster.local svc.cluster.local example.com\nnameserver 8.8.8.8\n"
-			searchDomains, err := ParseSearchDomains(resolvConf)
-			Expect(searchDomains).To(Equal([]string{"cluster.local", "svc.cluster.local", "example.com"}))
-			Expect(err).To(BeNil())
-		})
-
-		It("should handle multi-line search domains", func() {
-			resolvConf := "search cluster.local\nsearch svc.cluster.local example.com\nnameserver 8.8.8.8\n"
-			searchDomains, err := ParseSearchDomains(resolvConf)
-			Expect(searchDomains).To(Equal([]string{"cluster.local", "svc.cluster.local", "example.com"}))
-			Expect(err).To(BeNil())
-		})
-
-		It("should clean up extra whitespace between search domains", func() {
-			resolvConf := "search cluster.local\tsvc.cluster.local    example.com\nnameserver 8.8.8.8\n"
-			searchDomains, err := ParseSearchDomains(resolvConf)
-			Expect(searchDomains).To(Equal([]string{"cluster.local", "svc.cluster.local", "example.com"}))
-			Expect(err).To(BeNil())
-		})
-
-		It("should handle non-presence of search domains by returning default search domain", func() {
-			resolvConf := fmt.Sprintf("nameserver %s\n", defaultDNS)
-			searchDomains, err := ParseSearchDomains(resolvConf)
-			Expect(searchDomains).To(Equal([]string{defaultSearchDomain}))
-			Expect(err).To(BeNil())
-		})
-
-		It("should allow partial search domains", func() {
-			resolvConf := "search local\nnameserver 8.8.8.8\n"
-			searchDomains, err := ParseSearchDomains(resolvConf)
-			Expect(searchDomains).To(Equal([]string{"local"}))
-			Expect(err).To(BeNil())
-		})
-	})
 
 	Context("graphics and video device", func() {
 
@@ -1154,13 +1111,91 @@ var _ = Describe("Converter", func() {
 			table.Entry("using an auto policy with 4 CPUs", v1.IOThreadsPolicyAuto, 4, 7, []int{7, 1, 2, 3, 4, 5, 6}),
 			table.Entry("using an auto policy with 5 CPUs", v1.IOThreadsPolicyAuto, 5, 7, []int{7, 1, 2, 3, 4, 5, 6}),
 		)
+
+	})
+
+	Context("virtio block multi-queue", func() {
+		var vmi *v1.VirtualMachineInstance
+
+		BeforeEach(func() {
+			vmi = &v1.VirtualMachineInstance{
+				ObjectMeta: k8smeta.ObjectMeta{
+					Name:      "testvmi",
+					Namespace: "mynamespace",
+				},
+			}
+			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
+			vmi.Spec.Domain.Devices.Disks = []v1.Disk{
+				{
+					Name:       "mydisk",
+					VolumeName: "myvolume",
+					DiskDevice: v1.DiskDevice{
+						Disk: &v1.DiskTarget{
+							Bus: "virtio",
+						},
+					},
+				},
+			}
+			vmi.Spec.Volumes = []v1.Volume{
+				{
+					Name: "myvolume",
+					VolumeSource: v1.VolumeSource{
+						HostDisk: &v1.HostDisk{
+							Path:     "/var/run/kubevirt-private/vmi-disks/myvolume/disk.img",
+							Type:     v1.HostDiskExistsOrCreate,
+							Capacity: resource.MustParse("1Gi"),
+						},
+					},
+				},
+			}
+
+			vmi.Spec.Domain.Devices.BlockMultiQueue = True()
+			vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceCPU] = resource.MustParse("2")
+		})
+
+		It("should assign queues to a device if requested", func() {
+			expectedQueues := uint(2)
+
+			v1Disk := v1.Disk{
+				DiskDevice: v1.DiskDevice{
+					Disk: &v1.DiskTarget{},
+				},
+			}
+			apiDisk := Disk{}
+			devicePerBus := map[string]int{}
+			numQueues := uint(2)
+			Convert_v1_Disk_To_api_Disk(&v1Disk, &apiDisk, devicePerBus, &numQueues)
+			Expect(apiDisk.Device).To(Equal("disk"), "expected disk device to be defined")
+			Expect(*(apiDisk.Driver.Queues)).To(Equal(expectedQueues), "expected queues to be 2")
+		})
+
+		It("should not assign queues to a device if omitted", func() {
+			v1Disk := v1.Disk{
+				DiskDevice: v1.DiskDevice{
+					Disk: &v1.DiskTarget{},
+				},
+			}
+			apiDisk := Disk{}
+			devicePerBus := map[string]int{}
+			Convert_v1_Disk_To_api_Disk(&v1Disk, &apiDisk, devicePerBus, nil)
+			Expect(apiDisk.Device).To(Equal("disk"), "expected disk device to be defined")
+			Expect(apiDisk.Driver.Queues).To(BeNil(), "expected no queues to be requested")
+		})
+
+		It("should honor multiQueue setting", func() {
+			var expectedQueues uint = 2
+
+			domain := vmiToDomain(vmi, &ConverterContext{UseEmulation: true})
+			Expect(*(domain.Spec.Devices.Disks[0].Driver.Queues)).To(Equal(expectedQueues),
+				"expected number of queues to equal number of requested CPUs")
+		})
 	})
 })
 
 func diskToDiskXML(disk *v1.Disk) string {
 	devicePerBus := make(map[string]int)
 	libvirtDisk := &Disk{}
-	Expect(Convert_v1_Disk_To_api_Disk(disk, libvirtDisk, devicePerBus)).To(Succeed())
+	Expect(Convert_v1_Disk_To_api_Disk(disk, libvirtDisk, devicePerBus, nil)).To(Succeed())
 	data, err := xml.MarshalIndent(libvirtDisk, "", "  ")
 	Expect(err).ToNot(HaveOccurred())
 	return string(data)

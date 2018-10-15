@@ -24,12 +24,20 @@ import (
 	"os"
 	"path"
 
+	"github.com/golang/mock/gomock"
+	"github.com/onsi/ginkgo/extensions/table"
+	"k8s.io/client-go/kubernetes/fake"
+
+	"kubevirt.io/kubevirt/pkg/api/v1"
+	"kubevirt.io/kubevirt/pkg/kubecli"
+
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 
 	"k8s.io/apimachinery/pkg/api/resource"
 
-	"kubevirt.io/kubevirt/pkg/api/v1"
+	k8sv1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 var _ = Describe("HostDisk", func() {
@@ -224,4 +232,74 @@ var _ = Describe("HostDisk", func() {
 			Expect(true).To(Equal(os.IsNotExist(err)))
 		})
 	})
+
+	Describe("VMI with PVC volume", func() {
+
+		var virtClient *kubecli.MockKubevirtClient
+
+		BeforeEach(func() {
+			ctrl := gomock.NewController(GinkgoT())
+			virtClient = kubecli.NewMockKubevirtClient(ctrl)
+			kubeClient := fake.NewSimpleClientset()
+			virtClient.EXPECT().CoreV1().Return(kubeClient.CoreV1()).AnyTimes()
+		})
+
+		table.DescribeTable("PVC in", func(mode k8sv1.PersistentVolumeMode) {
+
+			By("Creating the PVC")
+			namespace := "testns"
+			pvcName := "pvcDevice"
+			pvc := &k8sv1.PersistentVolumeClaim{
+				TypeMeta:   metav1.TypeMeta{Kind: "PersistentVolumeClaim", APIVersion: "v1"},
+				ObjectMeta: metav1.ObjectMeta{Namespace: namespace, Name: pvcName},
+				Spec: k8sv1.PersistentVolumeClaimSpec{
+					VolumeMode: &mode,
+				},
+			}
+
+			virtClient.CoreV1().PersistentVolumeClaims(namespace).Create(pvc)
+
+			By("Creating a VMI with PVC volume")
+			volumeName := "pvc-volume"
+			volumes := []v1.Volume{
+				{
+					Name: volumeName,
+					VolumeSource: v1.VolumeSource{
+						PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{ClaimName: pvcName},
+					},
+				},
+			}
+			vmi := &v1.VirtualMachineInstance{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "testvmi", Namespace: namespace, UID: "1234",
+				},
+				Spec: v1.VirtualMachineInstanceSpec{Volumes: volumes, Domain: v1.DomainSpec{}},
+			}
+
+			By("Replacing PVCs with hostdisks")
+			ReplacePVCByHostDisk(vmi, virtClient)
+
+			Expect(len(vmi.Spec.Volumes)).To(Equal(1), "There should still be 1 volume")
+
+			if mode == k8sv1.PersistentVolumeFilesystem {
+				Expect(vmi.Spec.Volumes[0].HostDisk).NotTo(BeNil(), "There should be a hostdisk volume")
+				Expect(vmi.Spec.Volumes[0].HostDisk.Type).To(Equal(v1.HostDiskExistsOrCreate), "Correct hostdisk type")
+				Expect(vmi.Spec.Volumes[0].HostDisk.Path).NotTo(BeNil(), "Hostdisk path is filled")
+				Expect(vmi.Spec.Volumes[0].HostDisk.Capacity).NotTo(BeNil(), "Hostdisk capacity is filled")
+
+				Expect(vmi.Spec.Volumes[0].PersistentVolumeClaim).To(BeNil(), "There shouldn't be a PVC volume anymore")
+			} else if mode == k8sv1.PersistentVolumeBlock {
+				Expect(vmi.Spec.Volumes[0].HostDisk).To(BeNil(), "There should be no hostdisk volume")
+				Expect(vmi.Spec.Volumes[0].PersistentVolumeClaim).ToNot(BeNil(), "There should still be a PVC volume")
+				Expect(vmi.Spec.Volumes[0].PersistentVolumeClaim.ClaimName).To(Equal(pvcName), "There should still be the correct PVC volume")
+			} else {
+				Fail("unknown PVC mode!")
+			}
+
+		},
+			table.Entry("filemode", k8sv1.PersistentVolumeFilesystem),
+			table.Entry("blockmode", k8sv1.PersistentVolumeBlock),
+		)
+	})
+
 })

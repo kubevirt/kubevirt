@@ -20,6 +20,7 @@
 package services_test
 
 import (
+	"errors"
 	"testing"
 	"time"
 
@@ -44,7 +45,13 @@ var _ = Describe("Template", func() {
 
 	log.Log.SetIOWriter(GinkgoWriter)
 	configCache := cache.NewIndexer(cache.DeletionHandlingMetaNamespaceKeyFunc, nil)
-	svc := NewTemplateService("kubevirt/virt-launcher", "/var/run/kubevirt", "pull-secret-1", configCache)
+	pvcCache := cache.NewIndexer(cache.DeletionHandlingMetaNamespaceKeyFunc, nil)
+	svc := NewTemplateService("kubevirt/virt-launcher",
+		"/var/run/kubevirt",
+		"/var/run/kubevirt-ephemeral-disks",
+		"pull-secret-1",
+		configCache,
+		pvcCache)
 
 	Describe("Rendering", func() {
 		Context("launch template with correct parameters", func() {
@@ -76,6 +83,7 @@ var _ = Describe("Template", func() {
 					"--uid", "1234",
 					"--namespace", "testns",
 					"--kubevirt-share-dir", "/var/run/kubevirt",
+					"--ephemeral-disk-dir", "/var/run/kubevirt-ephemeral-disks",
 					"--readiness-file", "/tmp/healthy",
 					"--grace-period-seconds", "45",
 					"--hook-sidecars", "1"}))
@@ -180,6 +188,7 @@ var _ = Describe("Template", func() {
 					"--uid", "1234",
 					"--namespace", "default",
 					"--kubevirt-share-dir", "/var/run/kubevirt",
+					"--ephemeral-disk-dir", "/var/run/kubevirt-ephemeral-disks",
 					"--readiness-file", "/tmp/healthy",
 					"--grace-period-seconds", "45",
 					"--hook-sidecars", "1"}))
@@ -189,7 +198,7 @@ var _ = Describe("Template", func() {
 				Expect(pod.Spec.Containers[1].VolumeMounts[0].MountPath).To(Equal(hooks.HookSocketsSharedDirectory))
 				Expect(pod.Spec.Volumes[0].EmptyDir.Medium).To(Equal(kubev1.StorageMedium("")))
 				Expect(pod.Spec.Volumes[1].HostPath.Path).To(Equal("/var/run/kubevirt"))
-				Expect(pod.Spec.Containers[0].VolumeMounts[0].MountPath).To(Equal("/var/run/kubevirt"))
+				Expect(pod.Spec.Containers[0].VolumeMounts[1].MountPath).To(Equal("/var/run/kubevirt"))
 				Expect(*pod.Spec.TerminationGracePeriodSeconds).To(Equal(int64(60)))
 			})
 			It("should add default cpu/memory resources to the sidecar container if cpu pinning was requested", func() {
@@ -524,42 +533,131 @@ var _ = Describe("Template", func() {
 				Expect(hugepagesRequest.ToDec().ScaledValue(resource.Mega)).To(Equal(int64(64)))
 				Expect(hugepagesLimit.ToDec().ScaledValue(resource.Mega)).To(Equal(int64(64)))
 
-				Expect(len(pod.Spec.Volumes)).To(Equal(3))
+				Expect(len(pod.Spec.Volumes)).To(Equal(4))
 				Expect(pod.Spec.Volumes[0].EmptyDir).ToNot(BeNil())
 				Expect(pod.Spec.Volumes[0].EmptyDir.Medium).To(Equal(kubev1.StorageMediumHugePages))
 
-				Expect(len(pod.Spec.Containers[0].VolumeMounts)).To(Equal(3))
-				Expect(pod.Spec.Containers[0].VolumeMounts[2].MountPath).To(Equal("/dev/hugepages"))
+				Expect(len(pod.Spec.Containers[0].VolumeMounts)).To(Equal(4))
+				Expect(pod.Spec.Containers[0].VolumeMounts[3].MountPath).To(Equal("/dev/hugepages"))
 			},
 				table.Entry("hugepages-2Mi", "2Mi"),
 				table.Entry("hugepages-1Gi", "1Gi"),
 			)
 		})
 
-		Context("with pvc source", func() {
-			It("should add pvc to template", func() {
+		Context("with file mode pvc source", func() {
+			It("should add volume to template", func() {
+				namespace := "testns"
+				pvcName := "pvcFile"
+				pvc := kubev1.PersistentVolumeClaim{
+					TypeMeta:   metav1.TypeMeta{Kind: "PersistentVolumeClaim", APIVersion: "v1"},
+					ObjectMeta: metav1.ObjectMeta{Namespace: namespace, Name: pvcName},
+				}
+				err := pvcCache.Add(&pvc)
+				Expect(err).ToNot(HaveOccurred(), "Added PVC to cache successfully")
+
+				volumeName := "pvc-volume"
 				volumes := []v1.Volume{
 					{
-						Name: "pvc-volume",
+						Name: volumeName,
 						VolumeSource: v1.VolumeSource{
-							PersistentVolumeClaim: &kubev1.PersistentVolumeClaimVolumeSource{ClaimName: "nfs-pvc"},
+							PersistentVolumeClaim: &kubev1.PersistentVolumeClaimVolumeSource{ClaimName: pvcName},
 						},
 					},
 				}
 				vmi := v1.VirtualMachineInstance{
 					ObjectMeta: metav1.ObjectMeta{
-						Name: "testvmi", Namespace: "default", UID: "1234",
+						Name: "testvmi", Namespace: namespace, UID: "1234",
 					},
 					Spec: v1.VirtualMachineInstanceSpec{Volumes: volumes, Domain: v1.DomainSpec{}},
 				}
 
 				pod, err := svc.RenderLaunchManifest(&vmi)
-				Expect(err).ToNot(HaveOccurred())
+				Expect(err).ToNot(HaveOccurred(), "Render manifest successfully")
 
-				Expect(pod.Spec.Volumes).ToNot(BeEmpty())
-				Expect(len(pod.Spec.Volumes)).To(Equal(3))
-				Expect(pod.Spec.Volumes[0].PersistentVolumeClaim).ToNot(BeNil())
-				Expect(pod.Spec.Volumes[0].PersistentVolumeClaim.ClaimName).To(Equal("nfs-pvc"))
+				Expect(pod.Spec.Containers[0].VolumeDevices).To(BeEmpty(), "No devices in manifest for 1st container")
+
+				Expect(pod.Spec.Containers[0].VolumeMounts).ToNot(BeEmpty(), "Some mounts in manifest for 1st container")
+				Expect(len(pod.Spec.Containers[0].VolumeMounts)).To(Equal(4), "4 mounts in manifest for 1st container")
+				Expect(pod.Spec.Containers[0].VolumeMounts[3].Name).To(Equal(volumeName), "1st mount in manifest for 1st container has correct name")
+
+				Expect(pod.Spec.Volumes).ToNot(BeEmpty(), "Found some volumes in manifest")
+				Expect(len(pod.Spec.Volumes)).To(Equal(4), "Found 4 volumes in manifest")
+				Expect(pod.Spec.Volumes[0].PersistentVolumeClaim).ToNot(BeNil(), "Found PVC volume")
+				Expect(pod.Spec.Volumes[0].PersistentVolumeClaim.ClaimName).To(Equal(pvcName), "Found PVC volume with correct name")
+			})
+		})
+
+		Context("with blockdevice mode pvc source", func() {
+			It("should add device to template", func() {
+				namespace := "testns"
+				pvcName := "pvcDevice"
+				mode := kubev1.PersistentVolumeBlock
+				pvc := kubev1.PersistentVolumeClaim{
+					TypeMeta:   metav1.TypeMeta{Kind: "PersistentVolumeClaim", APIVersion: "v1"},
+					ObjectMeta: metav1.ObjectMeta{Namespace: namespace, Name: pvcName},
+					Spec: kubev1.PersistentVolumeClaimSpec{
+						VolumeMode: &mode,
+					},
+				}
+				err := pvcCache.Add(&pvc)
+				Expect(err).ToNot(HaveOccurred(), "Added PVC to cache successfully")
+				volumeName := "pvc-volume"
+				volumes := []v1.Volume{
+					{
+						Name: volumeName,
+						VolumeSource: v1.VolumeSource{
+							PersistentVolumeClaim: &kubev1.PersistentVolumeClaimVolumeSource{ClaimName: pvcName},
+						},
+					},
+				}
+				vmi := v1.VirtualMachineInstance{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "testvmi", Namespace: namespace, UID: "1234",
+					},
+					Spec: v1.VirtualMachineInstanceSpec{Volumes: volumes, Domain: v1.DomainSpec{}},
+				}
+
+				pod, err := svc.RenderLaunchManifest(&vmi)
+				Expect(err).ToNot(HaveOccurred(), "Render manifest successfully")
+
+				Expect(pod.Spec.Containers[0].VolumeDevices).ToNot(BeEmpty(), "Found some devices for 1st container")
+				Expect(len(pod.Spec.Containers[0].VolumeDevices)).To(Equal(1), "Found 1 device for 1st container")
+				Expect(pod.Spec.Containers[0].VolumeDevices[0].Name).To(Equal(volumeName), "Found device for 1st container with correct name")
+
+				Expect(pod.Spec.Containers[0].VolumeMounts).ToNot(BeEmpty(), "Found some mounts in manifest for 1st container")
+				Expect(len(pod.Spec.Containers[0].VolumeMounts)).To(Equal(3), "Found 3 mounts in manifest for 1st container")
+
+				Expect(pod.Spec.Volumes).ToNot(BeEmpty(), "Found some volumes in manifest")
+				Expect(len(pod.Spec.Volumes)).To(Equal(4), "Found 4 volumes in manifest")
+				Expect(pod.Spec.Volumes[0].PersistentVolumeClaim).ToNot(BeNil(), "Found PVC volume")
+				Expect(pod.Spec.Volumes[0].PersistentVolumeClaim.ClaimName).To(Equal(pvcName), "Found PVC volume with correct name")
+			})
+		})
+
+		Context("with non existing pvc source", func() {
+			It("should result in an error", func() {
+				namespace := "testns"
+				pvcName := "pvcNotExisting"
+				volumeName := "pvc-volume"
+				volumes := []v1.Volume{
+					{
+						Name: volumeName,
+						VolumeSource: v1.VolumeSource{
+							PersistentVolumeClaim: &kubev1.PersistentVolumeClaimVolumeSource{ClaimName: pvcName},
+						},
+					},
+				}
+				vmi := v1.VirtualMachineInstance{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "testvmi", Namespace: namespace, UID: "1234",
+					},
+					Spec: v1.VirtualMachineInstanceSpec{Volumes: volumes, Domain: v1.DomainSpec{}},
+				}
+
+				_, err := svc.RenderLaunchManifest(&vmi)
+				Expect(err).To(HaveOccurred(), "Render manifest results in an error")
+				Expect(err).To(BeAssignableToTypeOf(PvcNotFoundError(errors.New(""))), "Render manifest results in an PvsNotFoundError")
 			})
 		})
 
@@ -822,7 +920,7 @@ var _ = Describe("Template", func() {
 				Expect(err).ToNot(HaveOccurred())
 
 				Expect(pod.Spec.Volumes).ToNot(BeEmpty())
-				Expect(len(pod.Spec.Volumes)).To(Equal(3))
+				Expect(len(pod.Spec.Volumes)).To(Equal(4))
 				Expect(pod.Spec.Volumes[0].ConfigMap).ToNot(BeNil())
 				Expect(pod.Spec.Volumes[0].ConfigMap.LocalObjectReference.Name).To(Equal("test-configmap"))
 			})
@@ -851,7 +949,7 @@ var _ = Describe("Template", func() {
 				Expect(err).ToNot(HaveOccurred())
 
 				Expect(pod.Spec.Volumes).ToNot(BeEmpty())
-				Expect(len(pod.Spec.Volumes)).To(Equal(3))
+				Expect(len(pod.Spec.Volumes)).To(Equal(4))
 				Expect(pod.Spec.Volumes[0].Secret).ToNot(BeNil())
 				Expect(pod.Spec.Volumes[0].Secret.SecretName).To(Equal("test-secret"))
 			})
@@ -1006,6 +1104,7 @@ func False() *bool {
 }
 
 func TestTemplate(t *testing.T) {
+	log.Log.SetIOWriter(GinkgoWriter)
 	RegisterFailHandler(Fail)
 	RunSpecs(t, "Template")
 }

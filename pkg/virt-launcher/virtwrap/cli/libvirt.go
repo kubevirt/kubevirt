@@ -253,6 +253,7 @@ type VirDomain interface {
 	GetUUIDString() (string, error)
 	GetXMLDesc(flags libvirt.DomainXMLFlags) (string, error)
 	OpenConsole(devname string, stream *libvirt.Stream, flags libvirt.DomainConsoleFlags) error
+	Migrate(*libvirt.Connect, libvirt.DomainMigrateFlags, string, string, uint64) (*libvirt.Domain, error)
 	Free() error
 }
 

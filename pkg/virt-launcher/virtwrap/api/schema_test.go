@@ -21,7 +21,6 @@ package api
 
 import (
 	"encoding/xml"
-	"fmt"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -41,7 +40,7 @@ var exampleXML = `<domain type="kvm" xmlns:qemu="http://libvirt.org/schemas/doma
     <baseBoard></baseBoard>
   </sysinfo>
   <devices>
-    <controller type="usb" index="0" model="none"></controller>
+    <controller type="raw" index="0" model="none"></controller>
     <video>
       <model type="vga" heads="1" vram="16384"></model>
     </video>
@@ -59,6 +58,12 @@ var exampleXML = `<domain type="kvm" xmlns:qemu="http://libvirt.org/schemas/doma
       <target dev="vdb"></target>
       <driver name="qemu" type="raw"></driver>
       <alias name="ua-mydisk1"></alias>
+    </disk>
+    <disk device="disk" type="block">
+      <source dev="/dev/testdev"></source>
+      <target dev="vdc"></target>
+      <driver name="qemu" type="raw"></driver>
+      <alias name="ua-mydisk2"></alias>
     </disk>
     <console type="pty"></console>
     <watchdog model="i6300esb" action="poweroff">
@@ -116,6 +121,18 @@ var _ = Describe("Schema", func() {
 				Name: "mydisk1",
 			},
 		},
+		{Type: "block",
+			Device: "disk",
+			Driver: &DiskDriver{Name: "qemu",
+				Type: "raw"},
+			Source: DiskSource{
+				Dev: "/dev/testdev",
+			},
+			Target: DiskTarget{Device: "vdc"},
+			Alias: &Alias{
+				Name: "mydisk2",
+			},
+		},
 	}
 
 	var heads uint = 1
@@ -136,6 +153,13 @@ var _ = Describe("Schema", func() {
 	exampleDomain.Spec.Devices.Rng = &Rng{
 		Model:   "virtio",
 		Backend: &RngBackend{Source: "/dev/urandom", Model: "random"},
+	}
+	exampleDomain.Spec.Devices.Controllers = []Controller{
+		{
+			Type:  "raw",
+			Model: "none",
+			Index: "0",
+		},
 	}
 	exampleDomain.Spec.Features = &Features{
 		ACPI: &FeatureEnabled{},
@@ -188,7 +212,6 @@ var _ = Describe("Schema", func() {
 		It("Marshal into xml", func() {
 			buf, err := xml.MarshalIndent(exampleDomain.Spec, "", "  ")
 			Expect(err).To(BeNil())
-			fmt.Printf(string(buf))
 			Expect(string(buf)).To(Equal(exampleXML))
 		})
 	})

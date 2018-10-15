@@ -42,6 +42,7 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 	log.Log.SetIOWriter(GinkgoWriter)
 
 	configCache := cache.NewIndexer(cache.DeletionHandlingMetaNamespaceKeyFunc, nil)
+	pvcCache := cache.NewIndexer(cache.DeletionHandlingMetaNamespaceKeyFunc, nil)
 	app := SubresourceAPIApp{}
 	BeforeEach(func() {
 		server = ghttp.NewServer()
@@ -53,7 +54,7 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 			vmi := v1.NewMinimalVMI("testvmi")
 			vmi.Status.Phase = v1.Running
 			vmi.ObjectMeta.SetUID(uuid.NewUUID())
-			templateService := services.NewTemplateService("whatever", "whatever", "whatever", configCache)
+			templateService := services.NewTemplateService("whatever", "whatever", "whatever", "whatever", configCache, pvcCache)
 
 			pod, err := templateService.RenderLaunchManifest(vmi)
 			Expect(err).ToNot(HaveOccurred())

@@ -283,6 +283,17 @@ func (_mr *_MockVirDomainRecorder) OpenConsole(arg0, arg1, arg2 interface{}) *go
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "OpenConsole", arg0, arg1, arg2)
 }
 
+func (_m *MockVirDomain) Migrate(_param0 *libvirt_go.Connect, _param1 libvirt_go.DomainMigrateFlags, _param2 string, _param3 string, _param4 uint64) (*libvirt_go.Domain, error) {
+	ret := _m.ctrl.Call(_m, "Migrate", _param0, _param1, _param2, _param3, _param4)
+	ret0, _ := ret[0].(*libvirt_go.Domain)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+func (_mr *_MockVirDomainRecorder) Migrate(arg0, arg1, arg2, arg3, arg4 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "Migrate", arg0, arg1, arg2, arg3, arg4)
+}
+
 func (_m *MockVirDomain) Free() error {
 	ret := _m.ctrl.Call(_m, "Free")
 	ret0, _ := ret[0].(error)

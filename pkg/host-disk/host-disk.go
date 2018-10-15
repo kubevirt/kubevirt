@@ -25,16 +25,42 @@ import (
 	"path"
 	"syscall"
 
+	"kubevirt.io/kubevirt/pkg/util/types"
+
 	k8sv1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/resource"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/kubecli"
-	"kubevirt.io/kubevirt/pkg/precond"
 )
 
 const pvcBaseDir = "/var/run/kubevirt-private/vmi-disks"
+
+func ReplacePVCByHostDisk(vmi *v1.VirtualMachineInstance, clientset kubecli.KubevirtClient) error {
+	// If PVC is defined and it's not a BlockMode PVC, then it is replaced by HostDisk
+	// Filesystem PersistenVolumeClaim is mounted into pod as directory from node filesystem
+	for i := range vmi.Spec.Volumes {
+		if volumeSource := &vmi.Spec.Volumes[i].VolumeSource; volumeSource.PersistentVolumeClaim != nil {
+
+			pvc, exists, isBlockVolumePVC, err := types.IsPVCBlockFromClient(clientset, vmi.Namespace, volumeSource.PersistentVolumeClaim.ClaimName)
+			if err != nil {
+				return err
+			} else if !exists {
+				return fmt.Errorf("persistentvolumeclaim %v not found", volumeSource.PersistentVolumeClaim.ClaimName)
+			} else if isBlockVolumePVC {
+				continue
+			}
+
+			volumeSource.HostDisk = &v1.HostDisk{
+				Path:     getPVCDiskImgPath(vmi.Spec.Volumes[i].Name),
+				Type:     v1.HostDiskExistsOrCreate,
+				Capacity: pvc.Status.Capacity[k8sv1.ResourceStorage],
+			}
+			// PersistenVolumeClaim is replaced by HostDisk
+			volumeSource.PersistentVolumeClaim = nil
+		}
+	}
+	return nil
+}
 
 func dirBytesAvailable(path string) (uint64, error) {
 	var stat syscall.Statfs_t
@@ -56,21 +82,8 @@ func createSparseRaw(fullPath string, size int64) error {
 	return nil
 }
 
-func GetPVCDiskImgPath(volumeName string) string {
+func getPVCDiskImgPath(volumeName string) string {
 	return path.Join(pvcBaseDir, volumeName, "disk.img")
-}
-
-func GetPVCSize(pvcName string, namespace string, clientset kubecli.KubevirtClient) (resource.Quantity, error) {
-	precond.CheckNotNil(pvcName)
-	precond.CheckNotEmpty(namespace)
-	precond.CheckNotNil(clientset)
-
-	pvc, err := clientset.CoreV1().PersistentVolumeClaims(namespace).Get(pvcName, metav1.GetOptions{})
-	if err != nil {
-		return resource.Quantity{}, err
-	}
-
-	return pvc.Status.Capacity[k8sv1.ResourceStorage], nil
 }
 
 func CreateHostDisks(vmi *v1.VirtualMachineInstance) error {

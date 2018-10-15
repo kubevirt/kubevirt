@@ -28,13 +28,16 @@ package virtwrap
 import (
 	"encoding/xml"
 	"fmt"
+	"os"
+	"sync"
+	"time"
 
 	"github.com/libvirt/libvirt-go"
-
-	k8sv1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	utilwait "k8s.io/apimachinery/pkg/util/wait"
 
 	"kubevirt.io/kubevirt/pkg/api/v1"
-	cloudinit "kubevirt.io/kubevirt/pkg/cloud-init"
+	"kubevirt.io/kubevirt/pkg/cloud-init"
 	"kubevirt.io/kubevirt/pkg/config"
 	"kubevirt.io/kubevirt/pkg/emptydisk"
 	"kubevirt.io/kubevirt/pkg/ephemeral-disk"
@@ -43,6 +46,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/log"
 	"kubevirt.io/kubevirt/pkg/registry-disk"
 	"kubevirt.io/kubevirt/pkg/util/net/dns"
+	"kubevirt.io/kubevirt/pkg/virt-handler/migration-proxy"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/cli"
 	domainerrors "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/errors"
@@ -56,18 +60,233 @@ type DomainManager interface {
 	DeleteVMI(*v1.VirtualMachineInstance) error
 	SignalShutdownVMI(*v1.VirtualMachineInstance) error
 	ListAllDomains() ([]*api.Domain, error)
+	MigrateVMI(*v1.VirtualMachineInstance) error
+	PrepareMigrationTarget(*v1.VirtualMachineInstance, bool) error
 }
 
 type LibvirtDomainManager struct {
 	virConn cli.Connection
+
+	// Anytime a get and a set is done on the domain, this lock must be held.
+	domainModifyLock sync.Mutex
+
+	virtShareDir string
 }
 
-func NewLibvirtDomainManager(connection cli.Connection) (DomainManager, error) {
+func NewLibvirtDomainManager(connection cli.Connection, virtShareDir string) (DomainManager, error) {
 	manager := LibvirtDomainManager{
-		virConn: connection,
+		virConn:      connection,
+		virtShareDir: virtShareDir,
 	}
 
 	return &manager, nil
+}
+
+func (l *LibvirtDomainManager) initializeMigrationMetadata(vmi *v1.VirtualMachineInstance) (bool, error) {
+	l.domainModifyLock.Lock()
+	defer l.domainModifyLock.Unlock()
+
+	domName := api.VMINamespaceKeyFunc(vmi)
+	dom, err := l.virConn.LookupDomainByName(domName)
+	if err != nil {
+		log.Log.Object(vmi).Reason(err).Error("Getting the domain for migration failed.")
+		return false, err
+	}
+
+	defer dom.Free()
+	domainSpec, err := l.getDomainSpec(dom)
+	if err != nil {
+		return false, err
+	}
+
+	migrationMetadata := domainSpec.Metadata.KubeVirt.Migration
+	if migrationMetadata != nil && migrationMetadata.UID == vmi.Status.MigrationState.MigrationUID {
+		if migrationMetadata.EndTimestamp == nil {
+			// don't stomp on currently executing migrations
+			return true, nil
+
+		} else {
+			// Don't allow the same migration UID to be executed twice.
+			// Migration attempts are like pods. One shot.
+			return false, fmt.Errorf("migration job already executed")
+		}
+	}
+
+	now := metav1.Now()
+	domainSpec.Metadata.KubeVirt.Migration = &api.MigrationMetadata{
+		UID:            vmi.Status.MigrationState.MigrationUID,
+		StartTimestamp: &now,
+	}
+	_, err = util.SetDomainSpec(l.virConn, vmi, *domainSpec)
+	if err != nil {
+		return false, err
+	}
+	return false, nil
+}
+
+func (l *LibvirtDomainManager) setMigrationResult(vmi *v1.VirtualMachineInstance, failed bool, reason string) error {
+
+	connectionInterval := 10 * time.Second
+	connectionTimeout := 60 * time.Second
+
+	err := utilwait.PollImmediate(connectionInterval, connectionTimeout, func() (done bool, err error) {
+		err = l.setMigrationResultHelper(vmi, failed, reason)
+		if err != nil {
+			return false, nil
+		}
+		return true, nil
+	})
+
+	if err != nil {
+		log.Log.Object(vmi).Reason(err).Error("Unable to post migration results to libvirt after multiple tries")
+		return err
+	}
+	return nil
+
+}
+
+func (l *LibvirtDomainManager) setMigrationResultHelper(vmi *v1.VirtualMachineInstance, failed bool, reason string) error {
+
+	l.domainModifyLock.Lock()
+	defer l.domainModifyLock.Unlock()
+
+	domName := api.VMINamespaceKeyFunc(vmi)
+	dom, err := l.virConn.LookupDomainByName(domName)
+	if err != nil {
+		if domainerrors.IsNotFound(err) {
+			return nil
+
+		} else {
+			log.Log.Object(vmi).Reason(err).Error("Getting the domain for completed migration failed.")
+		}
+		return err
+	}
+
+	defer dom.Free()
+	domainSpec, err := l.getDomainSpec(dom)
+	if err != nil {
+		return err
+	}
+
+	migrationMetadata := domainSpec.Metadata.KubeVirt.Migration
+	if migrationMetadata != nil {
+		// nothing to report if migration metadata is empty
+		return nil
+	}
+
+	now := metav1.Now()
+
+	if failed {
+		domainSpec.Metadata.KubeVirt.Migration.Failed = true
+		domainSpec.Metadata.KubeVirt.Migration.FailureReason = reason
+	} else {
+		domainSpec.Metadata.KubeVirt.Migration.Completed = true
+	}
+	domainSpec.Metadata.KubeVirt.Migration.EndTimestamp = &now
+
+	_, err = util.SetDomainSpec(l.virConn, vmi, *domainSpec)
+	if err != nil {
+		return err
+	}
+	return nil
+
+}
+
+func (l *LibvirtDomainManager) asyncMigrate(vmi *v1.VirtualMachineInstance) {
+
+	go func(l *LibvirtDomainManager, vmi *v1.VirtualMachineInstance) {
+
+		// Start local migration proxy.
+		//
+		// Right now Libvirt won't let us perform a migration using a unix socket, so
+		// we have to create this local host tcp server that forwards the traffic
+		// to libvirt in order to trick libvirt into doing what we want.
+		migrationProxy := migrationproxy.NewTargetProxy("127.0.0.1", 22222, migrationproxy.SourceUnixFile(l.virtShareDir, string(vmi.UID)))
+
+		err := migrationProxy.StartListening()
+		if err != nil {
+			l.setMigrationResult(vmi, true, fmt.Sprintf("%v", err))
+			return
+		}
+
+		defer migrationProxy.StopListening()
+
+		// For a tunnelled migration, this is always the uri
+		dstUri := "qemu+tcp://127.0.0.1:22222/system"
+
+		destConn, err := libvirt.NewConnect(dstUri)
+		if err != nil {
+			log.Log.Object(vmi).Reason(err).Error("Failed to establish connection with target pod's libvirtd for migration.")
+			return
+		}
+
+		domName := api.VMINamespaceKeyFunc(vmi)
+		dom, err := l.virConn.LookupDomainByName(domName)
+		if err != nil {
+			log.Log.Object(vmi).Reason(err).Error("Live migration failed.")
+			l.setMigrationResult(vmi, true, fmt.Sprintf("%v", err))
+			return
+		}
+
+		migrateFlags := libvirt.MIGRATE_LIVE | libvirt.MIGRATE_PEER2PEER | libvirt.MIGRATE_TUNNELLED | libvirt.MIGRATE_NON_SHARED_DISK
+		_, err = dom.Migrate(destConn, migrateFlags, "", "", 0)
+		if err != nil {
+
+			log.Log.Object(vmi).Reason(err).Error("Live migration failed.")
+			l.setMigrationResult(vmi, true, fmt.Sprintf("%v", err))
+			return
+		}
+
+		log.Log.Object(vmi).Infof("Live migration succeeded.")
+		l.setMigrationResult(vmi, false, "")
+	}(l, vmi)
+}
+
+func (l *LibvirtDomainManager) MigrateVMI(vmi *v1.VirtualMachineInstance) error {
+
+	if vmi.Status.MigrationState == nil {
+		return fmt.Errorf("cannot migration VMI until migrationState is ready")
+	}
+
+	inProgress, err := l.initializeMigrationMetadata(vmi)
+	if err != nil {
+		return err
+	}
+
+	if inProgress {
+		return nil
+	}
+
+	l.asyncMigrate(vmi)
+
+	return nil
+}
+
+// Prepares the target pod environment by executing the preStartHook
+func (l *LibvirtDomainManager) PrepareMigrationTarget(vmi *v1.VirtualMachineInstance, useEmulation bool) error {
+
+	logger := log.Log.Object(vmi)
+
+	domain := &api.Domain{}
+	podCPUSet, err := util.GetPodCPUSet()
+	if err != nil {
+		logger.Reason(err).Error("failed to read pod cpuset.")
+		return err
+	}
+
+	// Map the VirtualMachineInstance to the Domain
+	c := &api.ConverterContext{
+		VirtualMachine: vmi,
+		UseEmulation:   useEmulation,
+		CPUSet:         podCPUSet,
+	}
+	if err := api.Convert_v1_VirtualMachine_To_api_Domain(vmi, domain, c); err != nil {
+		logger.Error("Conversion failed.")
+		return err
+	}
+
+	_, err = l.preStartHook(vmi, domain)
+	return nil
 }
 
 // All local environment setup that needs to occur before VirtualMachineInstance starts
@@ -81,6 +300,9 @@ func NewLibvirtDomainManager(connection cli.Connection) (DomainManager, error) {
 // made to the domain will get set in libvirt after this function exits.
 func (l *LibvirtDomainManager) preStartHook(vmi *v1.VirtualMachineInstance, domain *api.Domain) (*api.Domain, error) {
 
+	logger := log.Log.Object(vmi)
+
+	logger.Info("Executing PreStartHook on VMI pod environment")
 	// ensure registry disk files have correct ownership privileges
 	err := registrydisk.SetFilePermissions(vmi)
 	if err != nil {
@@ -140,6 +362,9 @@ func (l *LibvirtDomainManager) preStartHook(vmi *v1.VirtualMachineInstance, doma
 }
 
 func (l *LibvirtDomainManager) SyncVMI(vmi *v1.VirtualMachineInstance, useEmulation bool) (*api.DomainSpec, error) {
+	l.domainModifyLock.Lock()
+	defer l.domainModifyLock.Unlock()
+
 	logger := log.Log.Object(vmi)
 
 	domain := &api.Domain{}
@@ -149,11 +374,26 @@ func (l *LibvirtDomainManager) SyncVMI(vmi *v1.VirtualMachineInstance, useEmulat
 		return nil, err
 	}
 
+	// Check if PVC volumes are block volumes
+	isBlockPVCMap := make(map[string]bool)
+	for _, volume := range vmi.Spec.Volumes {
+		if volume.VolumeSource.PersistentVolumeClaim != nil {
+			isBlockPVC, err := isBlockDeviceVolume(volume.Name)
+			if err != nil {
+				logger.Reason(err).Errorf("failed to detect volume mode for Volume %v and PVC %v.",
+					volume.Name, volume.VolumeSource.PersistentVolumeClaim.ClaimName)
+				return nil, err
+			}
+			isBlockPVCMap[volume.Name] = isBlockPVC
+		}
+	}
+
 	// Map the VirtualMachineInstance to the Domain
 	c := &api.ConverterContext{
 		VirtualMachine: vmi,
 		UseEmulation:   useEmulation,
 		CPUSet:         podCPUSet,
+		IsBlockPVC:     isBlockPVCMap,
 	}
 	if err := api.Convert_v1_VirtualMachine_To_api_Domain(vmi, domain, c); err != nil {
 		logger.Error("Conversion failed.")
@@ -238,6 +478,33 @@ func (l *LibvirtDomainManager) SyncVMI(vmi *v1.VirtualMachineInstance, useEmulat
 	return &newSpec, nil
 }
 
+func isBlockDeviceVolume(volumeName string) (bool, error) {
+	// check for block device
+	path := api.GetBlockDeviceVolumePath(volumeName)
+	fileInfo, err := os.Stat(path)
+	if err == nil {
+		if (fileInfo.Mode() & os.ModeDevice) != 0 {
+			return true, nil
+		}
+		return false, fmt.Errorf("found %v, but it's not a block device", path)
+	}
+	if os.IsNotExist(err) {
+		// cross check: is it a filesystem volume
+		path = api.GetFilesystemVolumePath(volumeName)
+		fileInfo, err := os.Stat(path)
+		if err == nil {
+			if fileInfo.Mode().IsRegular() {
+				return false, nil
+			}
+			return false, fmt.Errorf("found %v, but it's not a regular file", path)
+		}
+		if os.IsNotExist(err) {
+			return false, fmt.Errorf("neither found block device nor regular file for volume %v", volumeName)
+		}
+	}
+	return false, fmt.Errorf("error checking for block device: %v", err)
+}
+
 func (l *LibvirtDomainManager) getDomainSpec(dom cli.VirDomain) (*api.DomainSpec, error) {
 	state, _, err := dom.GetState()
 	if err != nil {
@@ -247,6 +514,9 @@ func (l *LibvirtDomainManager) getDomainSpec(dom cli.VirDomain) (*api.DomainSpec
 }
 
 func (l *LibvirtDomainManager) SignalShutdownVMI(vmi *v1.VirtualMachineInstance) error {
+	l.domainModifyLock.Lock()
+	defer l.domainModifyLock.Unlock()
+
 	domName := util.VMINamespaceKeyFunc(vmi)
 	dom, err := l.virConn.LookupDomainByName(domName)
 	if err != nil {
@@ -281,7 +551,7 @@ func (l *LibvirtDomainManager) SignalShutdownVMI(vmi *v1.VirtualMachineInstance)
 			}
 			log.Log.Object(vmi).Infof("Signaled graceful shutdown for %s", vmi.GetObjectMeta().GetName())
 
-			now := k8sv1.Now()
+			now := metav1.Now()
 			domSpec.Metadata.KubeVirt.GracePeriod.DeletionTimestamp = &now
 			_, err = util.SetDomainSpec(l.virConn, vmi, *domSpec)
 			if err != nil {

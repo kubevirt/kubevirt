@@ -22,9 +22,11 @@ MAINTAINER "The KubeVirt Project" <kubevirt-dev@googlegroups.com>
 ENV container docker
 
 # Prepare all images
-RUN mkdir -p /images/custom /images/alpine /images/datavolume1 /images/datavolume2 /images/datavolume3 \
+RUN yum -y install qemu-img \
+    && mkdir -p /images/custom /images/alpine /images/cirros /images/datavolume1 /images/datavolume2 /images/datavolume3 \
     && truncate -s 64M /images/custom/disk.img \
-    && curl http://dl-cdn.alpinelinux.org/alpine/v3.7/releases/x86_64/alpine-virt-3.7.0-x86_64.iso > /images/alpine/disk.img
+    && curl http://dl-cdn.alpinelinux.org/alpine/v3.7/releases/x86_64/alpine-virt-3.7.0-x86_64.iso > /images/alpine/disk.img \
+    && curl https://download.cirros-cloud.net/0.4.0/cirros-0.4.0-x86_64-disk.img > /images/cirros/disk.img
 
 ADD entrypoint.sh /
 

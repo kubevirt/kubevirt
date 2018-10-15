@@ -30,10 +30,12 @@ import (
 )
 
 const (
-	KVMPath = "/dev/kvm"
-	KVMName = "kvm"
-	TunPath = "/dev/net/tun"
-	TunName = "tun"
+	KVMPath      = "/dev/kvm"
+	KVMName      = "kvm"
+	TunPath      = "/dev/net/tun"
+	TunName      = "tun"
+	VhostNetPath = "/dev/vhost-net"
+	VhostNetName = "vhost-net"
 )
 
 type DeviceController struct {
@@ -47,6 +49,7 @@ func NewDeviceController(host string, maxDevices int) *DeviceController {
 		devicePlugins: []GenericDevice{
 			NewGenericDevicePlugin(KVMName, KVMPath, maxDevices),
 			NewGenericDevicePlugin(TunName, TunPath, maxDevices),
+			NewGenericDevicePlugin(VhostNetName, VhostNetPath, maxDevices),
 		},
 		host:       host,
 		maxDevices: maxDevices,

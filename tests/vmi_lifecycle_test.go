@@ -39,10 +39,10 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/json"
+	"k8s.io/apimachinery/pkg/util/rand"
 
 	"kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/kubecli"
-	"kubevirt.io/kubevirt/pkg/util/net/dns"
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/tests"
@@ -125,11 +125,11 @@ var _ = Describe("VMIlifecycle", func() {
 			Eventually(logs,
 				11*time.Second,
 				500*time.Millisecond).
-				Should(ContainSubstring("info : libvirt version: "))
+				Should(ContainSubstring("libvirt version: "))
 			Eventually(logs,
 				2*time.Second,
 				500*time.Millisecond).
-				Should(ContainSubstring("info : hostname: " + dns.SanitizeHostname(vmi)))
+				Should(And(ContainSubstring("internal error: Cannot probe for supported suspend types"), ContainSubstring(`"subcomponent":"libvirt"`)))
 		})
 		It("should reject POST if validation webhook deems the spec invalid", func() {
 
@@ -174,6 +174,30 @@ var _ = Describe("VMIlifecycle", func() {
 			statusCode := 0
 			result.StatusCode(&statusCode)
 			Expect(statusCode).To(Equal(http.StatusUnprocessableEntity), "The entity should be unprocessable")
+		})
+
+		Context("when name is longer than 63 characters", func() {
+			BeforeEach(func() {
+				vmi = tests.NewRandomVMIWithEphemeralDisk(tests.RegistryDiskFor(tests.RegistryDiskAlpine))
+				vmi.Name = "testvmi" + rand.String(63)
+			})
+			It("should start it", func() {
+				By("Creating a VirtualMachineInstance with a long name")
+				vmi, err := virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
+				Expect(err).ToNot(HaveOccurred(), "cannot create VirtualMachineInstance %q: %v", vmi.Name, err)
+				Expect(len(vmi.Name)).To(BeNumerically(">", 63), "VirtualMachineInstance %q name is not longer than 63 characters", vmi.Name)
+
+				By("Waiting until it starts")
+				tests.WaitForSuccessfulVMIStart(vmi)
+				vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred(), "cannot fetch VirtualMachineInstance %q: %v", vmi.Name, err)
+				Expect(vmi.IsReady()).To(BeTrue(), "VirtualMachineInstance %q is not ready: %v", vmi.Name, vmi.Status.Phase)
+
+				By("Obtaining serial console")
+				expecter, err := tests.LoggedInAlpineExpecter(vmi)
+				Expect(err).ToNot(HaveOccurred(), "VirtualMachineInstance %q console is not accessible: %v", vmi.Name, err)
+				expecter.Close()
+			})
 		})
 
 		Context("when it already exist", func() {
@@ -598,9 +622,8 @@ var _ = Describe("VMIlifecycle", func() {
 		Context("with non default namespace", func() {
 			table.DescribeTable("should log libvirt start and stop lifecycle events of the domain", func(namespace string) {
 
-				nodes, err := virtClient.CoreV1().Nodes().List(metav1.ListOptions{})
-				Expect(err).ToNot(HaveOccurred(), "Should list nodes")
-				Expect(nodes.Items).ToNot(BeEmpty(), "There should be some node")
+				nodes := tests.GetAllSchedulableNodes(virtClient)
+				Expect(nodes.Items).ToNot(BeEmpty(), "There should be some compute node")
 				node := nodes.Items[0].Name
 
 				By("Creating a VirtualMachineInstance with different namespace")
@@ -627,7 +650,7 @@ var _ = Describe("VMIlifecycle", func() {
 					data, err := logsQuery.DoRaw()
 					Expect(err).ToNot(HaveOccurred(), "Should get logs from virthandler")
 					return string(data)
-				}, 30, 0.5).Should(MatchRegexp("(name=%s)[^\n]+(kind=Domain)[^\n]+(Domain is in state Running)", vmi.GetObjectMeta().GetName()), "Should verify from logs that domain is running")
+				}, 30, 0.5).Should(MatchRegexp(`"kind":"Domain","level":"info","msg":"Domain is in state Running reason Unknown","name":"%s"`, vmi.GetObjectMeta().GetName()), "Should verify from logs that domain is running")
 				// Check the VirtualMachineInstance Namespace
 				Expect(vmi.GetObjectMeta().GetNamespace()).To(Equal(namespace), "VMI should run in the right namespace")
 
@@ -644,7 +667,7 @@ var _ = Describe("VMIlifecycle", func() {
 					data, err := logsQuery.DoRaw()
 					Expect(err).ToNot(HaveOccurred(), "Should get the virthandler logs")
 					return string(data)
-				}, 30, 0.5).Should(MatchRegexp("(name=%s)[^\n]+(kind=Domain)[^\n]+(Domain deleted)", vmi.GetObjectMeta().GetName()), "Logs should confirm pod deletion")
+				}, 30, 0.5).Should(MatchRegexp(`"kind":"Domain","level":"info","msg":"Domain deleted","name":"%s"`, vmi.GetObjectMeta().GetName()), "Logs should confirm pod deletion")
 
 			},
 				table.Entry(tests.NamespaceTestDefault, tests.NamespaceTestDefault),
@@ -866,12 +889,10 @@ var _ = Describe("VMIlifecycle", func() {
 			})
 
 			It("Should provide KVM via plugin framework", func() {
-				listOptions := metav1.ListOptions{}
-				nodeList, err := virtClient.CoreV1().Nodes().List(listOptions)
-				Expect(err).ToNot(HaveOccurred(), "Should list nodes")
+				nodeList := tests.GetAllSchedulableNodes(virtClient)
 
 				if len(nodeList.Items) == 0 {
-					Skip("Unable to inspect nodes in cluster")
+					Skip("There are no compute nodes in cluster")
 				}
 				node := nodeList.Items[0]
 
@@ -1008,9 +1029,8 @@ var _ = Describe("VMIlifecycle", func() {
 		})
 		Context("with grace period greater than 0", func() {
 			It("should run graceful shutdown", func() {
-				nodes, err := virtClient.CoreV1().Nodes().List(metav1.ListOptions{})
-				Expect(err).ToNot(HaveOccurred(), "Should list nodes")
-				Expect(nodes.Items).ToNot(BeEmpty(), "There should be some node")
+				nodes := tests.GetAllSchedulableNodes(virtClient)
+				Expect(nodes.Items).ToNot(BeEmpty(), "There should be some compute node")
 				node := nodes.Items[0].Name
 
 				virtHandlerPod, err := kubecli.NewVirtHandlerClient(virtClient).ForNode(node).Pod()

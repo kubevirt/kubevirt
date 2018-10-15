@@ -33,9 +33,11 @@ import (
 	"kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/config"
 	"kubevirt.io/kubevirt/pkg/hooks"
+	"kubevirt.io/kubevirt/pkg/log"
 	"kubevirt.io/kubevirt/pkg/precond"
 	"kubevirt.io/kubevirt/pkg/registry-disk"
 	"kubevirt.io/kubevirt/pkg/util/net/dns"
+	"kubevirt.io/kubevirt/pkg/util/types"
 )
 
 const configMapName = "kube-system/kubevirt-config"
@@ -43,6 +45,7 @@ const UseEmulationKey = "debug.useEmulation"
 const ImagePullPolicyKey = "dev.imagePullPolicy"
 const KvmDevice = "devices.kubevirt.io/kvm"
 const TunDevice = "devices.kubevirt.io/tun"
+const VhostNetDevice = "devices.kubevirt.io/vhost-net"
 
 const CAP_NET_ADMIN = "NET_ADMIN"
 const CAP_SYS_NICE = "SYS_NICE"
@@ -52,11 +55,15 @@ type TemplateService interface {
 }
 
 type templateService struct {
-	launcherImage   string
-	virtShareDir    string
-	imagePullSecret string
-	store           cache.Store
+	launcherImage              string
+	virtShareDir               string
+	ephemeralDiskDir           string
+	imagePullSecret            string
+	configMapStore             cache.Store
+	persistentVolumeClaimStore cache.Store
 }
+
+type PvcNotFoundError error
 
 func getConfigMapEntry(store cache.Store, key string) (string, error) {
 
@@ -110,9 +117,10 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 	failureThreshold := 5
 
 	var volumes []k8sv1.Volume
+	var volumeDevices []k8sv1.VolumeDevice
 	var userId int64 = 0
 	var privileged bool = false
-	var volumesMounts []k8sv1.VolumeMount
+	var volumeMounts []k8sv1.VolumeMount
 	var imagePullSecrets []k8sv1.LocalObjectReference
 
 	gracePeriodSeconds := v1.DefaultGracePeriodSeconds
@@ -120,21 +128,46 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 		gracePeriodSeconds = *vmi.Spec.TerminationGracePeriodSeconds
 	}
 
-	volumesMounts = append(volumesMounts, k8sv1.VolumeMount{
+	volumeMounts = append(volumeMounts, k8sv1.VolumeMount{
+		Name:      "ephemeral-disks",
+		MountPath: t.ephemeralDiskDir,
+	})
+
+	volumeMounts = append(volumeMounts, k8sv1.VolumeMount{
 		Name:      "virt-share-dir",
 		MountPath: t.virtShareDir,
 	})
-	volumesMounts = append(volumesMounts, k8sv1.VolumeMount{
+
+	volumeMounts = append(volumeMounts, k8sv1.VolumeMount{
 		Name:      "libvirt-runtime",
 		MountPath: "/var/run/libvirt",
 	})
+
 	for _, volume := range vmi.Spec.Volumes {
 		volumeMount := k8sv1.VolumeMount{
 			Name:      volume.Name,
 			MountPath: filepath.Join("/var/run/kubevirt-private", "vmi-disks", volume.Name),
 		}
 		if volume.PersistentVolumeClaim != nil {
-			volumesMounts = append(volumesMounts, volumeMount)
+			logger := log.DefaultLogger()
+			claimName := volume.PersistentVolumeClaim.ClaimName
+			_, exists, isBlock, err := types.IsPVCBlockFromStore(t.persistentVolumeClaimStore, namespace, claimName)
+			if err != nil {
+				logger.Errorf("error getting PVC: %v", claimName)
+				return nil, err
+			} else if !exists {
+				logger.Errorf("didn't find PVC %v", claimName)
+				return nil, PvcNotFoundError(fmt.Errorf("didn't find PVC %v", claimName))
+			} else if isBlock {
+				devicePath := filepath.Join(string(filepath.Separator), "dev", volume.Name)
+				device := k8sv1.VolumeDevice{
+					Name:       volume.Name,
+					DevicePath: devicePath,
+				}
+				volumeDevices = append(volumeDevices, device)
+			} else {
+				volumeMounts = append(volumeMounts, volumeMount)
+			}
 			volumes = append(volumes, k8sv1.Volume{
 				Name: volume.Name,
 				VolumeSource: k8sv1.VolumeSource{
@@ -143,7 +176,7 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 			})
 		}
 		if volume.Ephemeral != nil {
-			volumesMounts = append(volumesMounts, volumeMount)
+			volumeMounts = append(volumeMounts, volumeMount)
 			volumes = append(volumes, k8sv1.Volume{
 				Name: volume.Name,
 				VolumeSource: k8sv1.VolumeSource{
@@ -166,7 +199,7 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 				hostPathType = k8sv1.HostPathDirectoryOrCreate
 			}
 
-			volumesMounts = append(volumesMounts, k8sv1.VolumeMount{
+			volumeMounts = append(volumeMounts, k8sv1.VolumeMount{
 				Name:      volume.Name,
 				MountPath: filepath.Dir(volume.HostDisk.Path),
 			})
@@ -181,7 +214,7 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 			})
 		}
 		if volume.DataVolume != nil {
-			volumesMounts = append(volumesMounts, volumeMount)
+			volumeMounts = append(volumeMounts, volumeMount)
 			volumes = append(volumes, k8sv1.Volume{
 				Name: volume.Name,
 				VolumeSource: k8sv1.VolumeSource{
@@ -193,7 +226,7 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 		}
 		if volume.ConfigMap != nil {
 			// attach a ConfigMap to the pod
-			volumesMounts = append(volumesMounts, k8sv1.VolumeMount{
+			volumeMounts = append(volumeMounts, k8sv1.VolumeMount{
 				Name:      volume.Name,
 				MountPath: filepath.Join(config.ConfigMapSourceDir, volume.Name),
 				ReadOnly:  true,
@@ -211,7 +244,7 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 
 		if volume.Secret != nil {
 			// attach a Secret to the pod
-			volumesMounts = append(volumesMounts, k8sv1.VolumeMount{
+			volumeMounts = append(volumeMounts, k8sv1.VolumeMount{
 				Name:      volume.Name,
 				MountPath: filepath.Join(config.SecretSourceDir, volume.Name),
 				ReadOnly:  true,
@@ -275,7 +308,7 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 		resources.Limits[hugepageType] = resources.Requests[k8sv1.ResourceMemory]
 
 		// Configure hugepages mount on a pod
-		volumesMounts = append(volumesMounts, k8sv1.VolumeMount{
+		volumeMounts = append(volumeMounts, k8sv1.VolumeMount{
 			Name:      "hugepages",
 			MountPath: filepath.Join("/dev/hugepages"),
 		})
@@ -320,7 +353,7 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 				EmptyDir: &k8sv1.EmptyDirVolumeSource{},
 			},
 		})
-		volumesMounts = append(volumesMounts, k8sv1.VolumeMount{
+		volumeMounts = append(volumeMounts, k8sv1.VolumeMount{
 			Name:      "hook-sidecar-sockets",
 			MountPath: hooks.HookSocketsSharedDirectory,
 		})
@@ -356,17 +389,18 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 		"--uid", string(vmi.UID),
 		"--namespace", namespace,
 		"--kubevirt-share-dir", t.virtShareDir,
+		"--ephemeral-disk-dir", t.ephemeralDiskDir,
 		"--readiness-file", "/tmp/healthy",
 		"--grace-period-seconds", strconv.Itoa(int(gracePeriodSeconds)),
 		"--hook-sidecars", strconv.Itoa(len(requestedHookSidecarList)),
 	}
 
-	useEmulation, err := IsEmulationAllowed(t.store)
+	useEmulation, err := IsEmulationAllowed(t.configMapStore)
 	if err != nil {
 		return nil, err
 	}
 
-	imagePullPolicy, err := GetImagePullPolicy(t.store)
+	imagePullPolicy, err := GetImagePullPolicy(t.configMapStore)
 	if err != nil {
 		return nil, err
 	}
@@ -375,7 +409,7 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 		resources.Limits = make(k8sv1.ResourceList)
 	}
 
-	extraResources := getRequiredResources(vmi)
+	extraResources := getRequiredResources(vmi, useEmulation)
 	for key, val := range extraResources {
 		resources.Limits[key] = val
 	}
@@ -404,8 +438,9 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 				Add: capabilities,
 			},
 		},
-		Command:      command,
-		VolumeMounts: volumesMounts,
+		Command:       command,
+		VolumeDevices: volumeDevices,
+		VolumeMounts:  volumeMounts,
 		ReadinessProbe: &k8sv1.Probe{
 			Handler: k8sv1.Handler{
 				Exec: &k8sv1.ExecAction{
@@ -424,7 +459,7 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 		Resources: resources,
 		Ports:     ports,
 	}
-	containers := registrydisk.GenerateContainers(vmi, "libvirt-runtime", "/var/run/libvirt")
+	containers := registrydisk.GenerateContainers(vmi, "ephemeral-disks", t.ephemeralDiskDir)
 
 	volumes = append(volumes, k8sv1.Volume{
 		Name: "virt-share-dir",
@@ -436,6 +471,12 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 	})
 	volumes = append(volumes, k8sv1.Volume{
 		Name: "libvirt-runtime",
+		VolumeSource: k8sv1.VolumeSource{
+			EmptyDir: &k8sv1.EmptyDirVolumeSource{},
+		},
+	})
+	volumes = append(volumes, k8sv1.Volume{
+		Name: "ephemeral-disks",
 		VolumeSource: k8sv1.VolumeSource{
 			EmptyDir: &k8sv1.EmptyDirVolumeSource{},
 		},
@@ -556,12 +597,21 @@ func getRequiredCapabilities(vmi *v1.VirtualMachineInstance) []k8sv1.Capability 
 	return res
 }
 
-func getRequiredResources(vmi *v1.VirtualMachineInstance) k8sv1.ResourceList {
+func getRequiredResources(vmi *v1.VirtualMachineInstance, useEmulation bool) k8sv1.ResourceList {
 	res := k8sv1.ResourceList{}
 	if (len(vmi.Spec.Domain.Devices.Interfaces) > 0) ||
 		(vmi.Spec.Domain.Devices.AutoattachPodInterface == nil) ||
 		(*vmi.Spec.Domain.Devices.AutoattachPodInterface == true) {
 		res[TunDevice] = resource.MustParse("1")
+	}
+	for _, iface := range vmi.Spec.Domain.Devices.Interfaces {
+		if !useEmulation && (iface.Model == "" || iface.Model == "virtio") {
+			// Note that about network interface, useEmulation does not make
+			// any difference on eventual Domain xml, but uniformly making
+			// /dev/vhost-net unavailable and libvirt implicitly fallback
+			// to use QEMU userland NIC emulation.
+			res[VhostNetDevice] = resource.MustParse("1")
+		}
 	}
 	return res
 }
@@ -662,13 +712,21 @@ func getCniInterfaceList(vmi *v1.VirtualMachineInstance) (ifaceListString string
 	return
 }
 
-func NewTemplateService(launcherImage string, virtShareDir string, imagePullSecret string, configMapCache cache.Store) TemplateService {
+func NewTemplateService(launcherImage string,
+	virtShareDir string,
+	ephemeralDiskDir string,
+	imagePullSecret string,
+	configMapCache cache.Store,
+	persistentVolumeClaimCache cache.Store) TemplateService {
+
 	precond.MustNotBeEmpty(launcherImage)
 	svc := templateService{
-		launcherImage:   launcherImage,
-		virtShareDir:    virtShareDir,
-		imagePullSecret: imagePullSecret,
-		store:           configMapCache,
+		launcherImage:              launcherImage,
+		virtShareDir:               virtShareDir,
+		ephemeralDiskDir:           ephemeralDiskDir,
+		imagePullSecret:            imagePullSecret,
+		configMapStore:             configMapCache,
+		persistentVolumeClaimStore: persistentVolumeClaimCache,
 	}
 	return &svc
 }

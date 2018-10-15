@@ -217,6 +217,9 @@ type Devices struct {
 	// Whether to have random number generator from host
 	// +optional
 	Rng *Rng `json:"rng,omitempty"`
+	// Whether or not to enable virtio multi-queue for block devices
+	// +optional
+	BlockMultiQueue *bool `json:"blockMultiQueue,omitempty"`
 }
 
 // ---

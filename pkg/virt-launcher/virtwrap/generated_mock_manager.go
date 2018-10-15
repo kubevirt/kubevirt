@@ -82,3 +82,23 @@ func (_m *MockDomainManager) ListAllDomains() ([]*api.Domain, error) {
 func (_mr *_MockDomainManagerRecorder) ListAllDomains() *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "ListAllDomains")
 }
+
+func (_m *MockDomainManager) MigrateVMI(_param0 *v1.VirtualMachineInstance) error {
+	ret := _m.ctrl.Call(_m, "MigrateVMI", _param0)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+func (_mr *_MockDomainManagerRecorder) MigrateVMI(arg0 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "MigrateVMI", arg0)
+}
+
+func (_m *MockDomainManager) PrepareMigrationTarget(_param0 *v1.VirtualMachineInstance, _param1 bool) error {
+	ret := _m.ctrl.Call(_m, "PrepareMigrationTarget", _param0, _param1)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+func (_mr *_MockDomainManagerRecorder) PrepareMigrationTarget(arg0, arg1 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "PrepareMigrationTarget", arg0, arg1)
+}

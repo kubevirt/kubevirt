@@ -76,11 +76,13 @@ const (
 
 	virtApiServiceName = "virt-api"
 
-	vmiCreateValidatePath = "/virtualmachineinstances-validate-create"
-	vmiUpdateValidatePath = "/virtualmachineinstances-validate-update"
-	vmValidatePath        = "/virtualmachines-validate"
-	vmirsValidatePath     = "/virtualmachinereplicaset-validate"
-	vmipresetValidatePath = "/vmipreset-validate"
+	vmiCreateValidatePath       = "/virtualmachineinstances-validate-create"
+	vmiUpdateValidatePath       = "/virtualmachineinstances-validate-update"
+	vmValidatePath              = "/virtualmachines-validate"
+	vmirsValidatePath           = "/virtualmachinereplicaset-validate"
+	vmipresetValidatePath       = "/vmipreset-validate"
+	migrationCreateValidatePath = "/migration-validate-create"
+	migrationUpdateValidatePath = "/migration-validate-update"
 
 	vmiMutatePath = "/virtualmachineinstances-mutate"
 
@@ -534,6 +536,8 @@ func (app *virtAPIApp) createValidatingWebhook() error {
 	vmPath := vmValidatePath
 	vmirsPath := vmirsValidatePath
 	vmipresetPath := vmipresetValidatePath
+	migrationCreatePath := migrationCreateValidatePath
+	migrationUpdatePath := migrationUpdateValidatePath
 
 	webhookRegistration, err := app.virtCli.AdmissionregistrationV1beta1().ValidatingWebhookConfigurations().Get(virtWebhookValidator, metav1.GetOptions{})
 	if err != nil {
@@ -653,6 +657,48 @@ func (app *virtAPIApp) createValidatingWebhook() error {
 				CABundle: app.signingCertBytes,
 			},
 		},
+		{
+			Name: "migration-create-validator.kubevirt.io",
+			Rules: []admissionregistrationv1beta1.RuleWithOperations{{
+				Operations: []admissionregistrationv1beta1.OperationType{
+					admissionregistrationv1beta1.Create,
+				},
+				Rule: admissionregistrationv1beta1.Rule{
+					APIGroups:   []string{v1.GroupName},
+					APIVersions: []string{v1.VirtualMachineInstanceMigrationGroupVersionKind.Version},
+					Resources:   []string{"virtualmachineinstancemigrations"},
+				},
+			}},
+			ClientConfig: admissionregistrationv1beta1.WebhookClientConfig{
+				Service: &admissionregistrationv1beta1.ServiceReference{
+					Namespace: app.namespace,
+					Name:      virtApiServiceName,
+					Path:      &migrationCreatePath,
+				},
+				CABundle: app.signingCertBytes,
+			},
+		},
+		{
+			Name: "migration-update-validator.kubevirt.io",
+			Rules: []admissionregistrationv1beta1.RuleWithOperations{{
+				Operations: []admissionregistrationv1beta1.OperationType{
+					admissionregistrationv1beta1.Update,
+				},
+				Rule: admissionregistrationv1beta1.Rule{
+					APIGroups:   []string{v1.GroupName},
+					APIVersions: []string{v1.VirtualMachineInstanceMigrationGroupVersionKind.Version},
+					Resources:   []string{"virtualmachineinstancemigrations"},
+				},
+			}},
+			ClientConfig: admissionregistrationv1beta1.WebhookClientConfig{
+				Service: &admissionregistrationv1beta1.ServiceReference{
+					Namespace: app.namespace,
+					Name:      virtApiServiceName,
+					Path:      &migrationUpdatePath,
+				},
+				CABundle: app.signingCertBytes,
+			},
+		},
 	}
 
 	if registerWebhook {
@@ -699,6 +745,12 @@ func (app *virtAPIApp) createValidatingWebhook() error {
 	})
 	http.HandleFunc(vmipresetValidatePath, func(w http.ResponseWriter, r *http.Request) {
 		validating_webhook.ServeVMIPreset(w, r)
+	})
+	http.HandleFunc(migrationCreateValidatePath, func(w http.ResponseWriter, r *http.Request) {
+		validating_webhook.ServeMigrationCreate(w, r)
+	})
+	http.HandleFunc(migrationUpdateValidatePath, func(w http.ResponseWriter, r *http.Request) {
+		validating_webhook.ServeMigrationUpdate(w, r)
 	})
 
 	return nil
@@ -953,10 +1005,14 @@ func (app *virtAPIApp) Run() {
 
 	stopChan := make(chan struct{}, 1)
 	defer close(stopChan)
+	go webhookInformers.VMIInformer.Run(stopChan)
 	go webhookInformers.VMIPresetInformer.Run(stopChan)
 	go webhookInformers.NamespaceLimitsInformer.Run(stopChan)
 
-	cache.WaitForCacheSync(stopChan, webhookInformers.NamespaceLimitsInformer.HasSynced, webhookInformers.NamespaceLimitsInformer.HasSynced)
+	cache.WaitForCacheSync(stopChan,
+		webhookInformers.VMIInformer.HasSynced,
+		webhookInformers.VMIPresetInformer.HasSynced,
+		webhookInformers.NamespaceLimitsInformer.HasSynced)
 
 	// Verify/create webhook endpoint.
 	err = app.createWebhook()

@@ -67,6 +67,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 	var virtClient *kubecli.MockKubevirtClient
 	var kubeClient *fake.Clientset
 	var configMapInformer cache.SharedIndexInformer
+	var pvcInformer cache.SharedIndexInformer
 
 	var dataVolumeSource *framework.FakeControllerSource
 	var dataVolumeInformer cache.SharedIndexInformer
@@ -80,6 +81,17 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			Expect(update.GetObject().(*k8sv1.Pod).Annotations[v1.OwnedByAnnotation]).To(Equal("virt-controller"))
 			Expect(update.GetObject().(*k8sv1.Pod).Labels[v1.CreatedByLabel]).To(Equal(string(uid)))
 			return true, update.GetObject(), nil
+		})
+	}
+
+	shouldExpectMultiplePodDeletions := func(pod *k8sv1.Pod, deletionCount *int) {
+		// Expect pod creation
+		kubeClient.Fake.PrependReactor("delete", "pods", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
+			update, ok := action.(testing.DeleteAction)
+			Expect(ok).To(BeTrue())
+			Expect(pod.Namespace).To(Equal(update.GetNamespace()))
+			*deletionCount++
+			return true, nil, nil
 		})
 	}
 
@@ -153,9 +165,10 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 		dataVolumeInformer, dataVolumeSource = testutils.NewFakeInformerFor(&cdiv1.DataVolume{})
 		recorder = record.NewFakeRecorder(100)
 
-		configMapInformer, _ = testutils.NewFakeInformerFor(&k8sv1.Pod{})
+		configMapInformer, _ = testutils.NewFakeInformerFor(&k8sv1.ConfigMap{})
+		pvcInformer, _ = testutils.NewFakeInformerFor(&k8sv1.PersistentVolumeClaim{})
 		controller = NewVMIController(
-			services.NewTemplateService("a", "b", "c", configMapInformer.GetStore()),
+			services.NewTemplateService("a", "b", "c", "d", configMapInformer.GetStore(), pvcInformer.GetStore()),
 			vmiInformer,
 			podInformer,
 			recorder,
@@ -298,16 +311,30 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 
 			testutils.ExpectEvent(recorder, SuccessfulCreatePodReason)
 		})
-		table.DescribeTable("should delete the corresponding Pod on VirtualMachineInstance deletion with vmi", func(phase v1.VirtualMachineInstancePhase) {
+		table.DescribeTable("should delete the corresponding Pods on VirtualMachineInstance deletion with vmi", func(phase v1.VirtualMachineInstancePhase) {
 			vmi := NewPendingVirtualMachine("testvmi")
 			vmi.Status.Phase = phase
 			vmi.DeletionTimestamp = now()
+
+			// 2 pods are owned by VMI
 			pod := NewPodForVirtualMachine(vmi, k8sv1.PodRunning)
+			pod2 := pod.DeepCopy()
+			pod2.UID = "123-123-123"
+			pod2.Name = "test2"
+
+			// The 3rd one is not.
+			pod3 := pod.DeepCopy()
+			pod3.UID = "123-123-123"
+			pod3.Name = "test2"
+			pod3.Annotations = make(map[string]string)
+			pod3.Labels = make(map[string]string)
 
 			addVirtualMachine(vmi)
 			podFeeder.Add(pod)
+			podFeeder.Add(pod2)
 
-			shouldExpectPodDeletion(pod)
+			deletionCount := 0
+			shouldExpectMultiplePodDeletions(pod, &deletionCount)
 
 			if vmi.IsUnprocessed() {
 				shouldExpectVirtualMachineSchedulingState(vmi)
@@ -315,6 +342,10 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 
 			controller.Execute()
 
+			// Verify only the 2 pods are deleted
+			Expect(deletionCount).To(Equal(2))
+
+			testutils.ExpectEvent(recorder, SuccessfulDeletePodReason)
 			testutils.ExpectEvent(recorder, SuccessfulDeletePodReason)
 		},
 			table.Entry("in running state", v1.Running),
@@ -560,6 +591,36 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 
 			testutils.ExpectEvent(recorder, SuccessfulHandOverPodReason)
 		})
+
+		It("should ignore migration target pods", func() {
+			vmi := NewPendingVirtualMachine("testvmi")
+			vmi.Status.Phase = v1.Running
+			vmi.Status.NodeName = "curnode"
+
+			pod := NewPodForVirtualMachine(vmi, k8sv1.PodRunning)
+			pod.Spec.NodeName = "curnode"
+
+			failedTargetPod := pod.DeepCopy()
+			failedTargetPod.Name = "targetfailure"
+			failedTargetPod.UID = "123-123-123-123"
+			failedTargetPod.Spec.NodeName = "someothernode"
+
+			failedTargetPod2 := pod.DeepCopy()
+			failedTargetPod2.Name = "targetfailure2"
+			failedTargetPod2.UID = "111-111-111-111"
+			failedTargetPod2.Spec.NodeName = "someothernode"
+
+			addVirtualMachine(vmi)
+			podFeeder.Add(failedTargetPod)
+			podFeeder.Add(pod)
+			podFeeder.Add(failedTargetPod2)
+
+			selectedPod, err := controller.currentPod(vmi)
+			Expect(err).To(BeNil())
+
+			Expect(selectedPod.UID).To(Equal(pod.UID))
+		})
+
 		It("should set an error condition if deleting the virtual machine pod fails", func() {
 			vmi := NewPendingVirtualMachine("testvmi")
 			vmi.DeletionTimestamp = now()

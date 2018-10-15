@@ -25,6 +25,8 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"k8s.io/api/core/v1"
+
+	"kubevirt.io/kubevirt/pkg/log"
 )
 
 var _ = Describe("PodSelectors", func() {
@@ -93,6 +95,7 @@ var _ = Describe("PodSelectors", func() {
 })
 
 func TestSelectors(t *testing.T) {
+	log.Log.SetIOWriter(GinkgoWriter)
 	RegisterFailHandler(Fail)
 	RunSpecs(t, "PodSelectors")
 }
