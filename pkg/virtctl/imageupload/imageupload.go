@@ -1,4 +1,4 @@
-package uploadimage
+package imageupload
 
 import (
 	"crypto/tls"
@@ -8,21 +8,17 @@ import (
 	"os"
 	"time"
 
-	"k8s.io/apimachinery/pkg/util/wait"
-
 	"github.com/spf13/cobra"
-
 	"k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
+	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/clientcmd"
 
 	uploadcdiv1 "kubevirt.io/containerized-data-importer/pkg/apis/uploadcontroller/v1alpha1"
 	cdiClientset "kubevirt.io/containerized-data-importer/pkg/client/clientset/versioned"
-
 	"kubevirt.io/kubevirt/pkg/kubecli"
 	"kubevirt.io/kubevirt/pkg/virtctl/templates"
 )
@@ -48,6 +44,26 @@ var (
 	accessMode = "ReadWriteOnce"
 	noCreate   = false
 )
+
+// HTTPClientCreator is a function that creates http clients
+type HTTPClientCreator func(bool) *http.Client
+
+var httpClientCreatorFunc HTTPClientCreator
+
+// SetHTTPClientCreator allows overriding the default http client
+// useful for unit tests
+func SetHTTPClientCreator(f HTTPClientCreator) {
+	httpClientCreatorFunc = f
+}
+
+// SetDefaultHTTPClientCreator sets the http client creator back to default
+func SetDefaultHTTPClientCreator() {
+	httpClientCreatorFunc = getHTTPClient
+}
+
+func init() {
+	SetDefaultHTTPClientCreator()
+}
 
 // NewImageUploadCommand returns a comra.Command for handling the the uploading of VM images
 func NewImageUploadCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
@@ -140,9 +156,7 @@ func (c *command) run(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
-func uploadData(uploadProxyURL, token string, reader io.Reader, insecure bool) error {
-	url := uploadProxyURL + uploadProxyURI
-	req, _ := http.NewRequest("POST", url, reader)
+func getHTTPClient(insecure bool) *http.Client {
 	client := &http.Client{}
 
 	if insecure {
@@ -150,6 +164,14 @@ func uploadData(uploadProxyURL, token string, reader io.Reader, insecure bool) e
 			TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
 		}
 	}
+
+	return client
+}
+
+func uploadData(uploadProxyURL, token string, reader io.Reader, insecure bool) error {
+	url := uploadProxyURL + uploadProxyURI
+	req, _ := http.NewRequest("POST", url, reader)
+	client := httpClientCreatorFunc(insecure)
 
 	req.Header.Add("Authorization", "Bearer "+token)
 	req.Header.Add("Content-Type", "application/octet-stream")
@@ -218,7 +240,8 @@ func createUploadPVC(client kubernetes.Interface, namespace, name, size, storage
 
 	pvc := &v1.PersistentVolumeClaim{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: name,
+			Name:      name,
+			Namespace: namespace,
 			Annotations: map[string]string{
 				uploadRequestAnnotation: "",
 			},
