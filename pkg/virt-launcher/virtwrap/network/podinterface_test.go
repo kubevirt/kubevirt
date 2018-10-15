@@ -157,10 +157,13 @@ var _ = Describe("Pod Network", func() {
 				api.SetObjectDefaults_Domain(domain)
 
 				mockNetwork.EXPECT().LinkByName(podInterface).Return(dummy, nil)
+				mockNetwork.EXPECT().LinkSetDown(dummy).Return(nil)
+				mockNetwork.EXPECT().SetRandomMac(podInterface).Return(updateFakeMac, nil)
 				mockNetwork.EXPECT().AddrList(dummy, netlink.FAMILY_V4).Return(addrList, nil)
 				mockNetwork.EXPECT().LinkAdd(bridgeTest).Return(nil)
 				mockNetwork.EXPECT().LinkByName(api.DefaultBridgeName).Return(bridgeTest, nil)
 				mockNetwork.EXPECT().LinkSetUp(bridgeTest).Return(nil)
+				mockNetwork.EXPECT().LinkSetUp(dummy).Return(nil)
 				mockNetwork.EXPECT().ParseAddr(fmt.Sprintf(bridgeFakeIP, 0)).Return(bridgeAddr, nil)
 				mockNetwork.EXPECT().AddrAdd(bridgeTest, bridgeAddr).Return(nil)
 				mockNetwork.EXPECT().RouteList(dummy, netlink.FAMILY_V4).Return(routeList, nil)
