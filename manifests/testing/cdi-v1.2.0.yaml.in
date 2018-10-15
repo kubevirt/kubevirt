@@ -81,7 +81,7 @@ spec:
       - name: cdi-controller
         image: kubevirt/cdi-controller:v1.2.0
         imagePullPolicy: IfNotPresent
-        args: ["-v=2"] # default verbosity; change to 2 or 3 for more detailed logging
+        args: ["-v=1"] # default verbosity; change to 2 or 3 for more detailed logging
         env:
         - name: IMPORTER_IMAGE
           value: kubevirt/cdi-importer:v1.2.0
@@ -250,7 +250,7 @@ spec:
       - name: cdi-apiserver-api
         image: kubevirt/cdi-apiserver:v1.2.0
         imagePullPolicy: IfNotPresent
-        args: ["-v=2"] # default verbosity; change to 2 or 3 for more detailed logging
+        args: ["-v=1"] # default verbosity; change to 2 or 3 for more detailed logging
 ---
 apiVersion: v1
 kind: Service
@@ -288,7 +288,7 @@ spec:
       - name: cdi-uploadproxy
         image: kubevirt/cdi-uploadproxy:v1.2.0
         imagePullPolicy: IfNotPresent
-        args: ["-v=2"] # default verbosity; change to 2 or 3 for more detailed logging
+        args: ["-v=1"] # default verbosity; change to 2 or 3 for more detailed logging
         env:
         - name: APISERVER_PUBLIC_KEY
           valueFrom:
