@@ -20,12 +20,12 @@
 package kubecli_test
 
 import (
+	"testing"
+
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 
 	"kubevirt.io/kubevirt/pkg/log"
-
-	"testing"
 )
 
 func TestKubecli(t *testing.T) {

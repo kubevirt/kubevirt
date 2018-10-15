@@ -24,6 +24,7 @@ import (
 	"flag"
 	"os"
 
+	"github.com/spf13/pflag"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
 	"k8s.io/client-go/kubernetes"
@@ -33,9 +34,6 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 
 	cdiclient "kubevirt.io/containerized-data-importer/pkg/client/clientset/versioned"
-
-	"github.com/spf13/pflag"
-
 	"kubevirt.io/kubevirt/pkg/api/v1"
 )
 

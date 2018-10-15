@@ -20,6 +20,7 @@
 package virthandler
 
 import (
+	"encoding/json"
 	goerror "errors"
 	"fmt"
 	"io/ioutil"
@@ -31,16 +32,12 @@ import (
 	"time"
 
 	k8sv1 "k8s.io/api/core/v1"
+	v12 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/record"
 	"k8s.io/client-go/util/workqueue"
-
-	"k8s.io/apimachinery/pkg/util/wait"
-
-	"encoding/json"
-
-	v12 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/types"
 
 	"kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/cloud-init"

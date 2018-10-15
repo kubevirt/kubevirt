@@ -20,12 +20,15 @@
 package watch
 
 import (
+	"fmt"
+	"reflect"
 	"strconv"
 	"sync"
 	"time"
 
 	"github.com/pborman/uuid"
-
+	k8score "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/rand"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -33,20 +36,11 @@ import (
 	"k8s.io/client-go/tools/record"
 	"k8s.io/client-go/util/workqueue"
 
-	"k8s.io/apimachinery/pkg/apis/meta/v1"
-
-	k8score "k8s.io/api/core/v1"
-
-	"fmt"
-
-	"reflect"
-
+	cdiv1 "kubevirt.io/containerized-data-importer/pkg/apis/datavolumecontroller/v1alpha1"
 	virtv1 "kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/kubecli"
 	"kubevirt.io/kubevirt/pkg/log"
-
-	cdiv1 "kubevirt.io/containerized-data-importer/pkg/apis/datavolumecontroller/v1alpha1"
 )
 
 // TODO remove the dataVolume deletion retry logic once CDI fixes this issue.

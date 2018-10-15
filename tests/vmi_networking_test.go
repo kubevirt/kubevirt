@@ -21,22 +21,17 @@ package tests_test
 
 import (
 	"flag"
+	"fmt"
+	"strconv"
 	"strings"
 	"time"
 
-	. "github.com/onsi/ginkgo"
-	. "github.com/onsi/gomega"
-
 	"github.com/google/goexpect"
-
-	"fmt"
-	"strconv"
-
+	. "github.com/onsi/ginkgo"
+	"github.com/onsi/ginkgo/extensions/table"
+	. "github.com/onsi/gomega"
 	v12 "k8s.io/api/core/v1"
 	v13 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
-	"github.com/onsi/ginkgo/extensions/table"
-
 	"k8s.io/apimachinery/pkg/util/intstr"
 
 	"kubevirt.io/kubevirt/pkg/api/v1"

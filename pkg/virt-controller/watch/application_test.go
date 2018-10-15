@@ -20,15 +20,14 @@
 package watch
 
 import (
-	. "github.com/onsi/ginkgo"
-	. "github.com/onsi/gomega"
-
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
 
 	"github.com/emicklei/go-restful"
+	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/gomega"
 
 	"kubevirt.io/kubevirt/pkg/rest"
 )
