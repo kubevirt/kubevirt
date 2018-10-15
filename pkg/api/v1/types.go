@@ -944,10 +944,4 @@ const (
 	CacheNone DriverCache = "none"
 	// CacheWriteThrough - I/O from the guest is cached on the host but written through to the physical medium.
 	CacheWriteThrough DriverCache = "writethrough"
-	// CacheWriteBack - I/O from the guest is cached on the host.
-	CacheWriteBack DriverCache = "writeback"
-	// CacheDirectSync - similar to writethrough, but I/O from the guest bypasses the host page cache.
-	CacheDirectSync DriverCache = "directsync"
-	// CacheUnsafe - the host may cache all disk I/O, and sync requests from guest are ignored.
-	CacheUnsafe DriverCache = "unsafe"
 )

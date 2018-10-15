@@ -115,10 +115,12 @@ func Convert_v1_Disk_To_api_Disk(diskDevice *v1.Disk, disk *Disk, devicePerBus m
 
 func setDriverCacheMode(disk *Disk, mode v1.DriverCache) error {
 	supportDirectIO := true
+
 	if mode == "" || mode == v1.CacheNone {
 		f, err := os.OpenFile(disk.Source.File, syscall.O_RDONLY|syscall.O_DIRECT, 0)
 		f.Close()
 		if err != nil && !os.IsNotExist(err) {
+			log.Log.Infof("%s file system does not support direct I/O", disk.Source.File)
 			supportDirectIO = false
 		}
 	}
@@ -128,17 +130,16 @@ func setDriverCacheMode(disk *Disk, mode v1.DriverCache) error {
 		return fmt.Errorf("Unable to use '%s' cache mode, file system where %s is stored does not support direct I/O", mode, disk.Source.File)
 	}
 
-	if mode == "" {
-		// if user did not set a cache mode and fs supports direct I/O then set cache = 'none'
-		// else set cache = 'writethrough'
-		if supportDirectIO {
-			disk.Driver.Cache = string(v1.CacheNone)
-		} else {
-			disk.Driver.Cache = string(v1.CacheWriteThrough)
-		}
-	} else {
-		disk.Driver.Cache = string(mode)
+	// if user did not set a cache mode and fs supports direct I/O then set cache = 'none'
+	// else set cache = 'writethrough
+	if mode == "" && supportDirectIO {
+		mode = v1.CacheNone
+	} else if mode == "" && !supportDirectIO {
+		mode = v1.CacheWriteThrough
 	}
+
+	disk.Driver.Cache = string(mode)
+	log.Log.Infof("Driver cache mode for %s set to %s", disk.Source.File, mode)
 
 	return nil
 }
