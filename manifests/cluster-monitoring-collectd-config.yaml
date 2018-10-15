@@ -1,0 +1,22 @@
+kind: ConfigMap
+apiVersion: v1
+metadata:
+  name: collectd-config
+  namespace: kube-system
+data:
+  node-collectd.conf: |-
+    LoadPlugin syslog
+    <Plugin syslog>
+       LogLevel info
+    </Plugin>
+    LoadPlugin write_prometheus
+    <Plugin "write_prometheus">
+      Port "9090"
+    </Plugin>
+    LoadPlugin unixsock
+    <Plugin unixsock>
+      SocketFile "/var/run/collectd.sock"
+      SocketPerms "0700"
+      DeleteSocket true
+    </Plugin>
+
