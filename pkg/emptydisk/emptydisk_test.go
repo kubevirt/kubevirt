@@ -3,12 +3,11 @@ package emptydisk
 import (
 	"io/ioutil"
 	"os"
+	"path"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"k8s.io/apimachinery/pkg/api/resource"
-
-	"path"
 
 	"kubevirt.io/kubevirt/pkg/api/v1"
 )

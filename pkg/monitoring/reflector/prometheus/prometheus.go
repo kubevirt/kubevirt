@@ -19,9 +19,8 @@ limitations under the License.
 package prometheus
 
 import (
-	"k8s.io/client-go/tools/cache"
-
 	"github.com/prometheus/client_golang/prometheus"
+	"k8s.io/client-go/tools/cache"
 )
 
 const reflectorSubsystem = "reflector"

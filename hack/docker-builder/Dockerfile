@@ -20,7 +20,7 @@ RUN \
     source /etc/profile.d/gimme.sh && \
     go get github.com/mattn/goveralls && \
     go get -u github.com/Masterminds/glide && \
-    go get golang.org/x/tools/cmd/goimports && \
+    go get -u golang.org/x/tools/cmd/goimports && \
     git clone https://github.com/mvdan/sh.git $GOPATH/src/mvdan.cc/sh && \
     cd /go/src/mvdan.cc/sh/cmd/shfmt && \
     git checkout v2.5.0 && \

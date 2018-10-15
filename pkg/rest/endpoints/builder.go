@@ -20,13 +20,11 @@
 package endpoints
 
 import (
-	"golang.org/x/net/context"
-
 	"net/http"
 
 	"github.com/go-kit/kit/endpoint"
 	kithttp "github.com/go-kit/kit/transport/http"
-
+	"golang.org/x/net/context"
 	"k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"kubevirt.io/kubevirt/pkg/precond"

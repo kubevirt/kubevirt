@@ -20,12 +20,12 @@
 package watchdog
 
 import (
+	"testing"
+
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 
 	"kubevirt.io/kubevirt/pkg/log"
-
-	"testing"
 )
 
 func TestWatchdog(t *testing.T) {

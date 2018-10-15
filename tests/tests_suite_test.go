@@ -20,15 +20,13 @@
 package tests_test
 
 import (
-	. "github.com/onsi/ginkgo"
-
-	. "github.com/onsi/gomega"
-
 	"testing"
 
-	"kubevirt.io/qe-tools/pkg/ginkgo-reporters"
+	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/gomega"
 
 	"kubevirt.io/kubevirt/tests"
+	"kubevirt.io/qe-tools/pkg/ginkgo-reporters"
 )
 
 func TestTests(t *testing.T) {

@@ -20,16 +20,14 @@
 package kubecli
 
 import (
-	"net/http"
-
 	"fmt"
+	"net/http"
 	"runtime"
 	"time"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/ghttp"
-
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"kubevirt.io/kubevirt/pkg/version"
