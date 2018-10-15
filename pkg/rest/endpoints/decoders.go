@@ -23,6 +23,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
+	"io"
 	"net/http"
 	"reflect"
 	"regexp"
@@ -35,8 +36,6 @@ import (
 	gokithttp "github.com/go-kit/kit/transport/http"
 	"golang.org/x/net/context"
 	"k8s.io/apimachinery/pkg/types"
-
-	"io"
 
 	"kubevirt.io/kubevirt/pkg/middleware"
 	"kubevirt.io/kubevirt/pkg/rest"

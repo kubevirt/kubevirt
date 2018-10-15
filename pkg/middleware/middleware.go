@@ -20,16 +20,14 @@
 package middleware
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"runtime/debug"
 
 	"github.com/go-kit/kit/endpoint"
-	"golang.org/x/net/context"
-
-	"encoding/json"
-
 	gklog "github.com/go-kit/kit/log"
+	"golang.org/x/net/context"
 	"k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/rest"
 

@@ -42,9 +42,8 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes/scheme"
 
-	"kubevirt.io/kubevirt/pkg/precond"
-
 	cdiv1 "kubevirt.io/containerized-data-importer/pkg/apis/datavolumecontroller/v1alpha1"
+	"kubevirt.io/kubevirt/pkg/precond"
 )
 
 // GroupName is the group name use in this package

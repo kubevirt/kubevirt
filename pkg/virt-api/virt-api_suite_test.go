@@ -20,10 +20,10 @@
 package virt_api
 
 import (
+	"testing"
+
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-
-	"testing"
 )
 
 func TestVirtApi(t *testing.T) {

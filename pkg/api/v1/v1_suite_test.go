@@ -20,10 +20,10 @@
 package v1
 
 import (
+	"testing"
+
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-
-	"testing"
 )
 
 func TestV1(t *testing.T) {

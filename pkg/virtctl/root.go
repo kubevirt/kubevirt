@@ -1,13 +1,12 @@
 package virtctl
 
 import (
+	"flag"
 	"fmt"
 	"os"
 	"strings"
 
 	"github.com/spf13/cobra"
-
-	"flag"
 
 	"kubevirt.io/kubevirt/pkg/kubecli"
 	"kubevirt.io/kubevirt/pkg/virtctl/console"

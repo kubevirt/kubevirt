@@ -22,7 +22,6 @@ package main
 import (
 	"fmt"
 	"os"
-
 	"time"
 
 	flag "github.com/spf13/pflag"

@@ -23,8 +23,6 @@ import (
 	"testing"
 	"time"
 
-	. "kubevirt.io/kubevirt/pkg/virt-controller/services"
-
 	. "github.com/onsi/ginkgo"
 	"github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
@@ -38,6 +36,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/hooks"
 	"kubevirt.io/kubevirt/pkg/log"
+	. "kubevirt.io/kubevirt/pkg/virt-controller/services"
 )
 
 var _ = Describe("Template", func() {
