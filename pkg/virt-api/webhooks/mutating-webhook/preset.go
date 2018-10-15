@@ -27,7 +27,6 @@ import (
 	k8smetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
-
 	"k8s.io/client-go/tools/cache"
 
 	kubev1 "kubevirt.io/kubevirt/pkg/api/v1"

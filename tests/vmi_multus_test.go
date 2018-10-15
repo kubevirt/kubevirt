@@ -21,15 +21,12 @@ package tests_test
 
 import (
 	"flag"
+	"fmt"
 	"time"
 
+	"github.com/google/goexpect"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-
-	"github.com/google/goexpect"
-
-	"fmt"
-
 	"k8s.io/apimachinery/pkg/api/errors"
 	v13 "k8s.io/apimachinery/pkg/apis/meta/v1"
 

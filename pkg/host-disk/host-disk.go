@@ -25,12 +25,11 @@ import (
 	"path"
 	"syscall"
 
-	"kubevirt.io/kubevirt/pkg/util/types"
-
 	k8sv1 "k8s.io/api/core/v1"
 
 	"kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/kubecli"
+	"kubevirt.io/kubevirt/pkg/util/types"
 )
 
 const pvcBaseDir = "/var/run/kubevirt-private/vmi-disks"

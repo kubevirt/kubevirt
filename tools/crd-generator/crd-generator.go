@@ -25,7 +25,6 @@ import (
 
 	crdutils "github.com/ant31/crd-validation/pkg"
 	"github.com/go-openapi/spec"
-
 	extensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	common "k8s.io/kube-openapi/pkg/common"

@@ -23,15 +23,13 @@ import (
 	"encoding/json"
 	"fmt"
 	"reflect"
+	"strings"
 
 	"github.com/ghodss/yaml"
+	"github.com/onsi/gomega"
 	"github.com/onsi/gomega/types"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/client-go/rest"
-
-	"strings"
-
-	"github.com/onsi/gomega"
 	"k8s.io/client-go/tools/record"
 
 	rest2 "kubevirt.io/kubevirt/pkg/rest"

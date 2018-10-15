@@ -20,12 +20,12 @@
 package hardware
 
 import (
+	"testing"
+
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 
 	"kubevirt.io/kubevirt/pkg/log"
-
-	"testing"
 )
 
 func TestHardwareUtils(t *testing.T) {

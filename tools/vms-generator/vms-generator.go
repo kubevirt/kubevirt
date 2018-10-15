@@ -27,9 +27,7 @@ import (
 	"path/filepath"
 
 	"github.com/ghodss/yaml"
-
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
 	k8sfield "k8s.io/apimachinery/pkg/util/validation/field"
 
 	"kubevirt.io/kubevirt/pkg/api/v1"
