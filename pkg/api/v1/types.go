@@ -37,15 +37,12 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	"k8s.io/apimachinery/pkg/types"
-
-	"kubevirt.io/kubevirt/pkg/precond"
-
 	"k8s.io/apimachinery/pkg/runtime/serializer"
-
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes/scheme"
 
 	cdiv1 "kubevirt.io/containerized-data-importer/pkg/apis/datavolumecontroller/v1alpha1"
+	"kubevirt.io/kubevirt/pkg/precond"
 )
 
 // GroupName is the group name use in this package

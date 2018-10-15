@@ -22,10 +22,9 @@ import (
 	"flag"
 	"time"
 
+	"github.com/google/goexpect"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-
-	"github.com/google/goexpect"
 	"github.com/pborman/uuid"
 
 	"kubevirt.io/kubevirt/pkg/config"

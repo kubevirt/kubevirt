@@ -1,10 +1,10 @@
 package isolation
 
 import (
+	"testing"
+
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-
-	"testing"
 
 	"kubevirt.io/kubevirt/pkg/log"
 )

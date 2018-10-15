@@ -20,12 +20,12 @@
 package virt_api
 
 import (
+	"testing"
+
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 
 	"kubevirt.io/kubevirt/pkg/log"
-
-	"testing"
 )
 
 func TestVirtApi(t *testing.T) {

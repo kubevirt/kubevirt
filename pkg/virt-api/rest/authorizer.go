@@ -25,7 +25,6 @@ import (
 	"strings"
 
 	"github.com/emicklei/go-restful"
-
 	authorization "k8s.io/api/authorization/v1beta1"
 	authorizationclient "k8s.io/client-go/kubernetes/typed/authorization/v1beta1"
 	restclient "k8s.io/client-go/rest"

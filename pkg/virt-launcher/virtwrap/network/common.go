@@ -28,13 +28,12 @@ import (
 	"net"
 	"os"
 
+	lmf "github.com/subgraph/libmacouflage"
 	"github.com/vishvananda/netlink"
 
 	"kubevirt.io/kubevirt/pkg/log"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/network/dhcp"
-
-	lmf "github.com/subgraph/libmacouflage"
 )
 
 type VIF struct {

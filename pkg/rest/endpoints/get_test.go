@@ -20,21 +20,18 @@
 package endpoints
 
 import (
-	. "github.com/onsi/ginkgo"
-	. "github.com/onsi/gomega"
-	ini "gopkg.in/ini.v1"
-
-	"net/http"
-
-	kithttp "github.com/go-kit/kit/transport/http"
-
 	"encoding/json"
+	"net/http"
 	"net/http/httptest"
 	"net/url"
 
 	"github.com/emicklei/go-restful"
 	"github.com/ghodss/yaml"
+	kithttp "github.com/go-kit/kit/transport/http"
+	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/gomega"
 	"golang.org/x/net/context"
+	ini "gopkg.in/ini.v1"
 
 	"kubevirt.io/kubevirt/pkg/rest"
 )

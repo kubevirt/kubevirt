@@ -21,20 +21,16 @@ package tests_test
 
 import (
 	"flag"
+	"fmt"
 	"io"
-
-	. "github.com/onsi/ginkgo"
-	. "github.com/onsi/gomega"
-
+	"net/http"
 	"time"
 
-	"net/http"
-
 	"github.com/gorilla/websocket"
+	. "github.com/onsi/ginkgo"
 	"github.com/onsi/ginkgo/extensions/table"
+	. "github.com/onsi/gomega"
 	"k8s.io/client-go/rest"
-
-	"fmt"
 
 	"kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/kubecli"

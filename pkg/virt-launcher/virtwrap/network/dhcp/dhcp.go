@@ -24,6 +24,7 @@ import (
 	"encoding/binary"
 	"fmt"
 	"net"
+	"os"
 	"regexp"
 	"strings"
 	"time"
@@ -31,8 +32,6 @@ import (
 	dhcp "github.com/krolaw/dhcp4"
 	dhcpConn "github.com/krolaw/dhcp4/conn"
 	"github.com/vishvananda/netlink"
-
-	"os"
 
 	"kubevirt.io/kubevirt/pkg/log"
 )

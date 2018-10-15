@@ -20,12 +20,12 @@
 package types
 
 import (
+	"testing"
+
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 
 	"kubevirt.io/kubevirt/pkg/log"
-
-	"testing"
 )
 
 func TestTypeUtils(t *testing.T) {

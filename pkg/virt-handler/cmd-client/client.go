@@ -29,11 +29,10 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
-	"net/rpc"
-	"path/filepath"
-
 	"net"
+	"net/rpc"
 	"os"
+	"path/filepath"
 	"syscall"
 
 	"kubevirt.io/kubevirt/pkg/api/v1"
