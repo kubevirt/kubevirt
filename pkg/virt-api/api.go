@@ -547,9 +547,12 @@ func (app *virtAPIApp) createValidatingWebhook() error {
 		}
 	}
 
+	failurePolicy := admissionregistrationv1beta1.Fail
+
 	webHooks := []admissionregistrationv1beta1.Webhook{
 		{
-			Name: "virtualmachineinstances-create-validator.kubevirt.io",
+			Name:          "virtualmachineinstances-create-validator.kubevirt.io",
+			FailurePolicy: &failurePolicy,
 			Rules: []admissionregistrationv1beta1.RuleWithOperations{{
 				Operations: []admissionregistrationv1beta1.OperationType{
 					admissionregistrationv1beta1.Create,
@@ -570,7 +573,8 @@ func (app *virtAPIApp) createValidatingWebhook() error {
 			},
 		},
 		{
-			Name: "virtualmachineinstances-update-validator.kubevirt.io",
+			Name:          "virtualmachineinstances-update-validator.kubevirt.io",
+			FailurePolicy: &failurePolicy,
 			Rules: []admissionregistrationv1beta1.RuleWithOperations{{
 				Operations: []admissionregistrationv1beta1.OperationType{
 					admissionregistrationv1beta1.Update,
@@ -591,7 +595,8 @@ func (app *virtAPIApp) createValidatingWebhook() error {
 			},
 		},
 		{
-			Name: "virtualmachine-validator.kubevirt.io",
+			Name:          "virtualmachine-validator.kubevirt.io",
+			FailurePolicy: &failurePolicy,
 			Rules: []admissionregistrationv1beta1.RuleWithOperations{{
 				Operations: []admissionregistrationv1beta1.OperationType{
 					admissionregistrationv1beta1.Create,
@@ -613,7 +618,8 @@ func (app *virtAPIApp) createValidatingWebhook() error {
 			},
 		},
 		{
-			Name: "virtualmachinereplicaset-validator.kubevirt.io",
+			Name:          "virtualmachinereplicaset-validator.kubevirt.io",
+			FailurePolicy: &failurePolicy,
 			Rules: []admissionregistrationv1beta1.RuleWithOperations{{
 				Operations: []admissionregistrationv1beta1.OperationType{
 					admissionregistrationv1beta1.Create,
@@ -635,7 +641,8 @@ func (app *virtAPIApp) createValidatingWebhook() error {
 			},
 		},
 		{
-			Name: "virtualmachinepreset-validator.kubevirt.io",
+			Name:          "virtualmachinepreset-validator.kubevirt.io",
+			FailurePolicy: &failurePolicy,
 			Rules: []admissionregistrationv1beta1.RuleWithOperations{{
 				Operations: []admissionregistrationv1beta1.OperationType{
 					admissionregistrationv1beta1.Create,
@@ -657,7 +664,8 @@ func (app *virtAPIApp) createValidatingWebhook() error {
 			},
 		},
 		{
-			Name: "migration-create-validator.kubevirt.io",
+			Name:          "migration-create-validator.kubevirt.io",
+			FailurePolicy: &failurePolicy,
 			Rules: []admissionregistrationv1beta1.RuleWithOperations{{
 				Operations: []admissionregistrationv1beta1.OperationType{
 					admissionregistrationv1beta1.Create,
@@ -678,7 +686,8 @@ func (app *virtAPIApp) createValidatingWebhook() error {
 			},
 		},
 		{
-			Name: "migration-update-validator.kubevirt.io",
+			Name:          "migration-update-validator.kubevirt.io",
+			FailurePolicy: &failurePolicy,
 			Rules: []admissionregistrationv1beta1.RuleWithOperations{{
 				Operations: []admissionregistrationv1beta1.OperationType{
 					admissionregistrationv1beta1.Update,
