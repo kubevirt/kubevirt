@@ -1314,14 +1314,14 @@ var _ = Describe("Converter", func() {
 		It("should assign queues to a device if requested", func() {
 			var expectedQueues uint = 2
 
-			domain := vmiToDomain(vmi, &ConverterContext{UseEmulation: false})
+			domain := vmiToDomain(vmi, &ConverterContext{UseEmulation: true})
 			Expect(*(domain.Spec.Devices.Interfaces[0].Driver.Queues)).To(Equal(expectedQueues),
 				"expected number of queues to equal number of requested CPUs")
 		})
 
 		It("should not assign queues to a non-virtio devices", func() {
 			vmi.Spec.Domain.Devices.Interfaces[0].Model = "e1000"
-			domain := vmiToDomain(vmi, &ConverterContext{UseEmulation: false})
+			domain := vmiToDomain(vmi, &ConverterContext{UseEmulation: true})
 			Expect(domain.Spec.Devices.Interfaces[0].Driver).To(BeNil(),
 				"queues should not be set for models other than virtio")
 		})
