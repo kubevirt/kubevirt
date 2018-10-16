@@ -1167,7 +1167,9 @@ var _ = Describe("Converter", func() {
 		It("assigns a set of cpus per iothread, if there are more vcpus that iothreads", func() {
 			vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceCPU] = resource.MustParse("16")
 			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
-			c := &ConverterContext{CPUSet: []int{5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20}}
+			c := &ConverterContext{CPUSet: []int{5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20},
+				UseEmulation: true,
+			}
 			domain := vmiToDomain(vmi, c)
 			domain.Spec.IOThreads = &IOThreads{}
 			domain.Spec.IOThreads.IOThreads = uint(6)
@@ -1189,7 +1191,7 @@ var _ = Describe("Converter", func() {
 		It("should pack iothreads equally on available vcpus, if there are more iothreads than vcpus", func() {
 			vmi.Spec.Domain.CPU.Cores = 2
 			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
-			c := &ConverterContext{CPUSet: []int{5, 6}}
+			c := &ConverterContext{CPUSet: []int{5, 6}, UseEmulation: true}
 			domain := vmiToDomain(vmi, c)
 			domain.Spec.IOThreads = &IOThreads{}
 			domain.Spec.IOThreads.IOThreads = uint(6)
