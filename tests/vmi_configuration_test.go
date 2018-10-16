@@ -548,6 +548,15 @@ var _ = Describe("Configurations", func() {
 			// We need ide support for the test, q35 does not support ide
 			vmi.Spec.Domain.Machine.Type = "pc"
 		})
+		checkPciAddress := func(vmi *v1.VirtualMachineInstance, expectedPciAddress string, prompt string) {
+			err := tests.CheckForTextExpecter(vmi, []expect.Batcher{
+				&expect.BSnd{S: "\n"},
+				&expect.BExp{R: prompt},
+				&expect.BSnd{S: "grep DEVNAME /sys/bus/pci/devices/" + expectedPciAddress + "/*/block/vda/uevent|awk -F= '{ print $2 }'\n"},
+				&expect.BExp{R: "vda"},
+			}, 15)
+			Expect(err).ToNot(HaveOccurred())
+		}
 
 		// FIXME ide and floppy is not recognized by the used image right now
 		It("should have all the device nodes", func() {
@@ -567,6 +576,17 @@ var _ = Describe("Configurations", func() {
 			log.DefaultLogger().Object(vmi).Infof("%v", res)
 
 			Expect(err).ToNot(HaveOccurred())
+		})
+
+		It("should configure custom Pci address", func() {
+			By("checking disk1 Pci address")
+			vmi.Spec.Domain.Devices.Disks[0].Disk.PciAddress = "0000:04:10.0"
+			vmi.Spec.Domain.Devices.Disks[0].Disk.Bus = "virtio"
+			vmi, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
+			Expect(err).ToNot(HaveOccurred())
+			tests.WaitUntilVMIReady(vmi, tests.LoggedInCirrosExpecter)
+
+			checkPciAddress(vmi, vmi.Spec.Domain.Devices.Disks[0].Disk.PciAddress, "\\$")
 		})
 	})
 	Describe("VirtualMachineInstance with CPU pinning", func() {

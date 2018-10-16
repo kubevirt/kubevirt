@@ -64,6 +64,16 @@ func Convert_v1_Disk_To_api_Disk(diskDevice *v1.Disk, disk *Disk, devicePerBus m
 		disk.Device = "disk"
 		disk.Target.Bus = diskDevice.Disk.Bus
 		disk.Target.Device = makeDeviceName(diskDevice.Disk.Bus, devicePerBus)
+		if diskDevice.Disk.PciAddress != "" {
+			if diskDevice.Disk.Bus != "virtio" {
+				return fmt.Errorf("setting a pci address is not allowed for non-virtio bus types, for disk %s", diskDevice.Name)
+			}
+			addr, err := decoratePciAddressField(diskDevice.Disk.PciAddress)
+			if err != nil {
+				return fmt.Errorf("failed to configure disk %s: %v", diskDevice.Name, err)
+			}
+			disk.Address = addr
+		}
 		disk.ReadOnly = toApiReadOnly(diskDevice.Disk.ReadOnly)
 		disk.Serial = diskDevice.Serial
 	} else if diskDevice.LUN != nil {
@@ -780,17 +790,11 @@ func Convert_v1_VirtualMachine_To_api_Domain(vmi *v1.VirtualMachineInstance, dom
 
 		// Add a pciAddress if specifed
 		if iface.PciAddress != "" {
-			dbsfFields, err := util.ParsePciAddress(iface.PciAddress)
+			addr, err := decoratePciAddressField(iface.PciAddress)
 			if err != nil {
-				return err
+				return fmt.Errorf("failed to configure interface %s: %v", iface.Name, err)
 			}
-			domainIface.Address = &Address{
-				Type:     "pci",
-				Domain:   "0x" + dbsfFields[0],
-				Bus:      "0x" + dbsfFields[1],
-				Slot:     "0x" + dbsfFields[2],
-				Function: "0x" + dbsfFields[3],
-			}
+			domainIface.Address = addr
 		}
 
 		if iface.Bridge != nil {
@@ -996,4 +1000,19 @@ func GetResolvConfDetailsFromPod() ([][]byte, []string, error) {
 	log.Log.Reason(err).Infof("Found search domains in %s: %s", resolvConf, strings.Join(searchDomains, " "))
 
 	return nameservers, searchDomains, err
+}
+
+func decoratePciAddressField(addressField string) (*Address, error) {
+	dbsfFields, err := util.ParsePciAddress(addressField)
+	if err != nil {
+		return nil, err
+	}
+	decoratedAddrField := &Address{
+		Type:     "pci",
+		Domain:   "0x" + dbsfFields[0],
+		Bus:      "0x" + dbsfFields[1],
+		Slot:     "0x" + dbsfFields[2],
+		Function: "0x" + dbsfFields[3],
+	}
+	return decoratedAddrField, nil
 }

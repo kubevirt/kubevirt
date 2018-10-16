@@ -1849,6 +1849,57 @@ var _ = Describe("Validating Webhook", func() {
 			Expect(causes[0].Field).To(Equal("fake[1].name"))
 		})
 
+		It("should reject disks with PCI address on a non-virtio bus ", func() {
+			vmi := v1.NewMinimalVMI("testvmi")
+
+			vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
+				Name:       "testdisk",
+				VolumeName: "testvolume1",
+				DiskDevice: v1.DiskDevice{
+					Disk: &v1.DiskTarget{
+						PciAddress: "0000:04:10.0",
+						Bus:        "scsi"},
+				},
+			})
+			causes := validateDisks(k8sfield.NewPath("fake"), vmi.Spec.Domain.Devices.Disks)
+			Expect(len(causes)).To(Equal(1))
+			Expect(causes[0].Field).To(Equal("fake.domain.devices.disks.disk[0].pciAddress"))
+		})
+
+		It("should reject disks malformed PCI addresses ", func() {
+			vmi := v1.NewMinimalVMI("testvmi")
+
+			vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
+				Name:       "testdisk",
+				VolumeName: "testvolume1",
+				DiskDevice: v1.DiskDevice{
+					Disk: &v1.DiskTarget{
+						PciAddress: "0000:81:100.a",
+						Bus:        "virtio"},
+				},
+			})
+			causes := validateDisks(k8sfield.NewPath("fake"), vmi.Spec.Domain.Devices.Disks)
+			Expect(len(causes)).To(Equal(1))
+			Expect(causes[0].Field).To(Equal("fake.domain.devices.disks.disk[0].pciAddress"))
+		})
+
+		It("should reject disks with PCI address slot smaller than 3 ", func() {
+			vmi := v1.NewMinimalVMI("testvmi")
+
+			vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
+				Name:       "testdisk",
+				VolumeName: "testvolume1",
+				DiskDevice: v1.DiskDevice{
+					Disk: &v1.DiskTarget{
+						PciAddress: "0000:04:00.1",
+						Bus:        "virtio"},
+				},
+			})
+			causes := validateDisks(k8sfield.NewPath("fake"), vmi.Spec.Domain.Devices.Disks)
+			Expect(len(causes)).To(Equal(1))
+			Expect(causes[0].Field).To(Equal("fake.domain.devices.disks.disk[0].pciAddress"))
+		})
+
 		It("should reject disk with multiple targets ", func() {
 			vmi := v1.NewMinimalVMI("testvmi")
 

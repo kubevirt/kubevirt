@@ -755,6 +755,15 @@ func (in *Disk) DeepCopyInto(out *Disk) {
 			**out = **in
 		}
 	}
+	if in.Address != nil {
+		in, out := &in.Address, &out.Address
+		if *in == nil {
+			*out = nil
+		} else {
+			*out = new(Address)
+			**out = **in
+		}
+	}
 	return
 }
 
