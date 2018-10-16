@@ -464,6 +464,27 @@ func getNumberOfPodInterfaces(spec *v1.VirtualMachineInstanceSpec) int {
 	return nPodInterfaces
 }
 
+// ValidateVirtualMachineInstanceMandatoryFields should be invoked after all defaults and presets are applied.
+// It is only meant to be used for VMI reviews, not if they are templates on other objects
+func ValidateVirtualMachineInstanceMandatoryFields(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec) []metav1.StatusCause {
+	var causes []metav1.StatusCause
+
+	requests := spec.Domain.Resources.Requests.Memory().Value()
+
+	if requests == 0 &&
+		(spec.Domain.Memory == nil || spec.Domain.Memory != nil &&
+			spec.Domain.Memory.Guest == nil && spec.Domain.Memory.Hugepages == nil) {
+		causes = append(causes, metav1.StatusCause{
+			Type: metav1.CauseTypeFieldValueRequired,
+			Message: fmt.Sprintf("no memory requested, at least one of '%s', '%s' or '%s' must be set",
+				field.Child("domain", "memory", "guest").String(),
+				field.Child("domain", "memory", "hugepages", "size").String(),
+				field.Child("domain", "resources", "requests", "memory").String()),
+		})
+	}
+	return causes
+}
+
 func ValidateVirtualMachineInstanceSpec(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec) []metav1.StatusCause {
 	var causes []metav1.StatusCause
 	volumeToDiskIndexMap := make(map[string]int)
@@ -1215,6 +1236,8 @@ func admitVMICreate(ar *v1beta1.AdmissionReview) *v1beta1.AdmissionResponse {
 	}
 
 	causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("spec"), &vmi.Spec)
+	causes = append(causes, ValidateVirtualMachineInstanceMandatoryFields(k8sfield.NewPath("spec"), &vmi.Spec)...)
+
 	if len(causes) > 0 {
 		return toAdmissionResponse(causes)
 	}
