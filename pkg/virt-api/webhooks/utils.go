@@ -20,6 +20,7 @@
 package webhooks
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
@@ -31,6 +32,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/tools/cache"
 
+	"kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/kubecli"
 	"kubevirt.io/kubevirt/pkg/log"
@@ -39,6 +41,36 @@ import (
 
 var webhookInformers *Informers
 var once sync.Once
+
+var VirtualMachineInstanceGroupVersionResource = metav1.GroupVersionResource{
+	Group:    v1.VirtualMachineInstanceGroupVersionKind.Group,
+	Version:  v1.VirtualMachineInstanceGroupVersionKind.Version,
+	Resource: "virtualmachineinstances",
+}
+
+var VirtualMachineGroupVersionResource = metav1.GroupVersionResource{
+	Group:    v1.VirtualMachineGroupVersionKind.Group,
+	Version:  v1.VirtualMachineGroupVersionKind.Version,
+	Resource: "virtualmachines",
+}
+
+var VirtualMachineInstancePresetGroupVersionResource = metav1.GroupVersionResource{
+	Group:    v1.VirtualMachineInstancePresetGroupVersionKind.Group,
+	Version:  v1.VirtualMachineInstancePresetGroupVersionKind.Version,
+	Resource: "virtualmachineinstancepresets",
+}
+
+var VirtualMachineInstanceReplicaSetGroupVersionResource = metav1.GroupVersionResource{
+	Group:    v1.VirtualMachineInstanceReplicaSetGroupVersionKind.Group,
+	Version:  v1.VirtualMachineInstanceReplicaSetGroupVersionKind.Version,
+	Resource: "virtualmachineinstancereplicasets",
+}
+
+var MigrationGroupVersionResource = metav1.GroupVersionResource{
+	Group:    v1.VirtualMachineInstanceMigrationGroupVersionKind.Group,
+	Version:  v1.VirtualMachineInstanceMigrationGroupVersionKind.Version,
+	Resource: "virtualmachineinstancemigrations",
+}
 
 type Informers struct {
 	VMIPresetInformer       cache.SharedIndexInformer
@@ -108,4 +140,12 @@ func ToAdmissionResponseError(err error) *v1beta1.AdmissionResponse {
 			Code:    http.StatusBadRequest,
 		},
 	}
+}
+
+// Unmarshal unmarshals JSON bytes into the provides interface and rejects the
+// provided JSON if it contains unknown fields.
+func Unmarshal(data []byte, v interface{}) error {
+	decoder := json.NewDecoder(bytes.NewBuffer(data))
+	decoder.DisallowUnknownFields()
+	return decoder.Decode(v)
 }

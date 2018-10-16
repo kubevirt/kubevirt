@@ -30,7 +30,7 @@ import (
 	"strconv"
 	"strings"
 
-	v1beta1 "k8s.io/api/admission/v1beta1"
+	"k8s.io/api/admission/v1beta1"
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -1181,19 +1181,15 @@ func ValidateVirtualMachineInstanceMigrationSpec(field *k8sfield.Path, spec *v1.
 }
 
 func getAdmissionReviewVMI(ar *v1beta1.AdmissionReview) (new *v1.VirtualMachineInstance, old *v1.VirtualMachineInstance, err error) {
-	vmiResource := metav1.GroupVersionResource{
-		Group:    v1.VirtualMachineInstanceGroupVersionKind.Group,
-		Version:  v1.VirtualMachineInstanceGroupVersionKind.Version,
-		Resource: "virtualmachineinstances",
-	}
-	if ar.Request.Resource != vmiResource {
-		return nil, nil, fmt.Errorf("expect resource to be '%s'", vmiResource.Resource)
+
+	if ar.Request.Resource != webhooks.VirtualMachineInstanceGroupVersionResource {
+		return nil, nil, fmt.Errorf("expect resource to be '%s'", webhooks.VirtualMachineInstanceGroupVersionResource.Resource)
 	}
 
 	raw := ar.Request.Object.Raw
 	newVMI := v1.VirtualMachineInstance{}
 
-	err = json.Unmarshal(raw, &newVMI)
+	err = webhooks.Unmarshal(raw, &newVMI)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -1202,7 +1198,7 @@ func getAdmissionReviewVMI(ar *v1beta1.AdmissionReview) (new *v1.VirtualMachineI
 		raw := ar.Request.OldObject.Raw
 		oldVMI := v1.VirtualMachineInstance{}
 
-		err = json.Unmarshal(raw, &oldVMI)
+		err = webhooks.Unmarshal(raw, &oldVMI)
 		if err != nil {
 			return nil, nil, err
 		}
@@ -1259,20 +1255,15 @@ func ServeVMIUpdate(resp http.ResponseWriter, req *http.Request) {
 }
 
 func admitVMs(ar *v1beta1.AdmissionReview) *v1beta1.AdmissionResponse {
-	resource := metav1.GroupVersionResource{
-		Group:    v1.VirtualMachineGroupVersionKind.Group,
-		Version:  v1.VirtualMachineGroupVersionKind.Version,
-		Resource: "virtualmachines",
-	}
-	if ar.Request.Resource != resource {
-		err := fmt.Errorf("expect resource to be '%s'", resource.Resource)
+	if ar.Request.Resource != webhooks.VirtualMachineGroupVersionResource {
+		err := fmt.Errorf("expect resource to be '%s'", webhooks.VirtualMachineGroupVersionResource.Resource)
 		return webhooks.ToAdmissionResponseError(err)
 	}
 
 	raw := ar.Request.Object.Raw
 	vm := v1.VirtualMachine{}
 
-	err := json.Unmarshal(raw, &vm)
+	err := webhooks.Unmarshal(raw, &vm)
 	if err != nil {
 		return webhooks.ToAdmissionResponseError(err)
 	}
@@ -1292,20 +1283,15 @@ func ServeVMs(resp http.ResponseWriter, req *http.Request) {
 }
 
 func admitVMIRS(ar *v1beta1.AdmissionReview) *v1beta1.AdmissionResponse {
-	resource := metav1.GroupVersionResource{
-		Group:    v1.VirtualMachineInstanceReplicaSetGroupVersionKind.Group,
-		Version:  v1.VirtualMachineInstanceReplicaSetGroupVersionKind.Version,
-		Resource: "virtualmachineinstancereplicasets",
-	}
-	if ar.Request.Resource != resource {
-		err := fmt.Errorf("expect resource to be '%s'", resource.Resource)
+	if ar.Request.Resource != webhooks.VirtualMachineInstanceReplicaSetGroupVersionResource {
+		err := fmt.Errorf("expect resource to be '%s'", webhooks.VirtualMachineInstanceReplicaSetGroupVersionResource.Resource)
 		return webhooks.ToAdmissionResponseError(err)
 	}
 
 	raw := ar.Request.Object.Raw
 	vmirs := v1.VirtualMachineInstanceReplicaSet{}
 
-	err := json.Unmarshal(raw, &vmirs)
+	err := webhooks.Unmarshal(raw, &vmirs)
 	if err != nil {
 		return webhooks.ToAdmissionResponseError(err)
 	}
@@ -1324,20 +1310,15 @@ func ServeVMIRS(resp http.ResponseWriter, req *http.Request) {
 	serve(resp, req, admitVMIRS)
 }
 func admitVMIPreset(ar *v1beta1.AdmissionReview) *v1beta1.AdmissionResponse {
-	resource := metav1.GroupVersionResource{
-		Group:    v1.VirtualMachineInstanceReplicaSetGroupVersionKind.Group,
-		Version:  v1.VirtualMachineInstanceReplicaSetGroupVersionKind.Version,
-		Resource: "virtualmachineinstancepresets",
-	}
-	if ar.Request.Resource != resource {
-		err := fmt.Errorf("expect resource to be '%s'", resource.Resource)
+	if ar.Request.Resource != webhooks.VirtualMachineInstancePresetGroupVersionResource {
+		err := fmt.Errorf("expect resource to be '%s'", webhooks.VirtualMachineInstancePresetGroupVersionResource.Resource)
 		return webhooks.ToAdmissionResponseError(err)
 	}
 
 	raw := ar.Request.Object.Raw
 	vmipreset := v1.VirtualMachineInstancePreset{}
 
-	err := json.Unmarshal(raw, &vmipreset)
+	err := webhooks.Unmarshal(raw, &vmipreset)
 	if err != nil {
 		return webhooks.ToAdmissionResponseError(err)
 	}
@@ -1357,19 +1338,15 @@ func ServeVMIPreset(resp http.ResponseWriter, req *http.Request) {
 }
 
 func getAdmissionReviewMigration(ar *v1beta1.AdmissionReview) (new *v1.VirtualMachineInstanceMigration, old *v1.VirtualMachineInstanceMigration, err error) {
-	migrationResource := metav1.GroupVersionResource{
-		Group:    v1.VirtualMachineInstanceMigrationGroupVersionKind.Group,
-		Version:  v1.VirtualMachineInstanceMigrationGroupVersionKind.Version,
-		Resource: "virtualmachineinstancemigrations",
-	}
-	if ar.Request.Resource != migrationResource {
-		return nil, nil, fmt.Errorf("expect resource to be '%s'", migrationResource)
+
+	if ar.Request.Resource != webhooks.MigrationGroupVersionResource {
+		return nil, nil, fmt.Errorf("expect resource to be '%s'", webhooks.MigrationGroupVersionResource)
 	}
 
 	raw := ar.Request.Object.Raw
 	newMigration := v1.VirtualMachineInstanceMigration{}
 
-	err = json.Unmarshal(raw, &newMigration)
+	err = webhooks.Unmarshal(raw, &newMigration)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -1377,7 +1354,7 @@ func getAdmissionReviewMigration(ar *v1beta1.AdmissionReview) (new *v1.VirtualMa
 	if ar.Request.Operation == v1beta1.Update {
 		raw := ar.Request.OldObject.Raw
 		oldMigration := v1.VirtualMachineInstanceMigration{}
-		err = json.Unmarshal(raw, &oldMigration)
+		err = webhooks.Unmarshal(raw, &oldMigration)
 		if err != nil {
 			return nil, nil, err
 		}

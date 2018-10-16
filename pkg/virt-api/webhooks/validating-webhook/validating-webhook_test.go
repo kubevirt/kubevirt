@@ -38,7 +38,7 @@ import (
 	"k8s.io/client-go/tools/cache"
 
 	cdiv1 "kubevirt.io/containerized-data-importer/pkg/apis/datavolumecontroller/v1alpha1"
-	v1 "kubevirt.io/kubevirt/pkg/api/v1"
+	"kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/testutils"
 	"kubevirt.io/kubevirt/pkg/virt-api/webhooks"
 )
@@ -64,7 +64,7 @@ var _ = Describe("Validating Webhook", func() {
 
 			ar := &v1beta1.AdmissionReview{
 				Request: &v1beta1.AdmissionRequest{
-					Resource: metav1.GroupVersionResource{Group: v1.VirtualMachineInstanceGroupVersionKind.Group, Version: v1.VirtualMachineInstanceGroupVersionKind.Version, Resource: "virtualmachineinstances"},
+					Resource: webhooks.VirtualMachineInstanceGroupVersionResource,
 					Object: runtime.RawExtension{
 						Raw: vmiBytes,
 					},
@@ -92,7 +92,7 @@ var _ = Describe("Validating Webhook", func() {
 
 			ar := &v1beta1.AdmissionReview{
 				Request: &v1beta1.AdmissionRequest{
-					Resource: metav1.GroupVersionResource{Group: v1.VirtualMachineInstanceGroupVersionKind.Group, Version: v1.VirtualMachineInstanceGroupVersionKind.Version, Resource: "virtualmachineinstances"},
+					Resource: webhooks.VirtualMachineInstanceGroupVersionResource,
 					Object: runtime.RawExtension{
 						Raw: vmiBytes,
 					},
@@ -101,6 +101,28 @@ var _ = Describe("Validating Webhook", func() {
 			resp := admitVMICreate(ar)
 			Expect(resp.Allowed).To(Equal(true))
 		})
+		table.DescribeTable("should reject documents containing unknown fields for", func(data string, gvr metav1.GroupVersionResource, review func(ar *v1beta1.AdmissionReview) *v1beta1.AdmissionResponse) {
+
+			ar := &v1beta1.AdmissionReview{
+				Request: &v1beta1.AdmissionRequest{
+					Resource: gvr,
+					Object: runtime.RawExtension{
+						Raw: []byte(data),
+					},
+				},
+			}
+			resp := review(ar)
+			Expect(resp.Allowed).To(BeFalse())
+			Expect(resp.Result.Message).To(Equal(`json: unknown field "unknown"`))
+		},
+			table.Entry("VirtualMachineInstance creation", `{"unknown": "field"}`, webhooks.VirtualMachineInstanceGroupVersionResource, admitVMICreate),
+			table.Entry("VirtualMachineInstance update", `{"unknown": "field"}`, webhooks.VirtualMachineInstanceGroupVersionResource, admitVMIUpdate),
+			table.Entry("VirtualMachineInstancePreset creation and update", `{"unknown": "field"}`, webhooks.VirtualMachineInstancePresetGroupVersionResource, admitVMIPreset),
+			table.Entry("Migration creation ", `{"unknown": "field"}`, webhooks.MigrationGroupVersionResource, admitMigrationCreate),
+			table.Entry("Migration update", `{"unknown": "field"}`, webhooks.MigrationGroupVersionResource, admitMigrationCreate),
+			table.Entry("VirtualMachine creation and update", `{"unknown": "field"}`, webhooks.VirtualMachineGroupVersionResource, admitVMs),
+			table.Entry("VirtualMachineInstanceReplicaSet creation and update", `{"unknown": "field"}`, webhooks.VirtualMachineInstanceReplicaSetGroupVersionResource, admitVMIRS),
+		)
 		It("should reject valid VirtualMachineInstance spec on update", func() {
 			vmi := v1.NewMinimalVMI("testvmi")
 
@@ -120,7 +142,7 @@ var _ = Describe("Validating Webhook", func() {
 
 			ar := &v1beta1.AdmissionReview{
 				Request: &v1beta1.AdmissionRequest{
-					Resource: metav1.GroupVersionResource{Group: v1.VirtualMachineInstanceGroupVersionKind.Group, Version: v1.VirtualMachineInstanceGroupVersionKind.Version, Resource: "virtualmachineinstances"},
+					Resource: webhooks.VirtualMachineInstanceGroupVersionResource,
 					Object: runtime.RawExtension{
 						Raw: newVMIBytes,
 					},
@@ -143,11 +165,7 @@ var _ = Describe("Validating Webhook", func() {
 
 			ar := &v1beta1.AdmissionReview{
 				Request: &v1beta1.AdmissionRequest{
-					Resource: metav1.GroupVersionResource{
-						Group:    v1.VirtualMachineInstanceReplicaSetGroupVersionKind.Group,
-						Version:  v1.VirtualMachineInstanceReplicaSetGroupVersionKind.Version,
-						Resource: "virtualmachineinstancereplicasets",
-					},
+					Resource: webhooks.VirtualMachineInstanceReplicaSetGroupVersionResource,
 					Object: runtime.RawExtension{
 						Raw: vmirsBytes,
 					},
@@ -211,11 +229,7 @@ var _ = Describe("Validating Webhook", func() {
 
 			ar := &v1beta1.AdmissionReview{
 				Request: &v1beta1.AdmissionRequest{
-					Resource: metav1.GroupVersionResource{
-						Group:    v1.VirtualMachineInstanceReplicaSetGroupVersionKind.Group,
-						Version:  v1.VirtualMachineInstanceReplicaSetGroupVersionKind.Version,
-						Resource: "virtualmachineinstancereplicasets",
-					},
+					Resource: webhooks.VirtualMachineInstanceReplicaSetGroupVersionResource,
 					Object: runtime.RawExtension{
 						Raw: vmirsBytes,
 					},
@@ -246,11 +260,7 @@ var _ = Describe("Validating Webhook", func() {
 
 			ar := &v1beta1.AdmissionReview{
 				Request: &v1beta1.AdmissionRequest{
-					Resource: metav1.GroupVersionResource{
-						Group:    v1.VirtualMachineGroupVersionKind.Group,
-						Version:  v1.VirtualMachineGroupVersionKind.Version,
-						Resource: "virtualmachines",
-					},
+					Resource: webhooks.VirtualMachineGroupVersionResource,
 					Object: runtime.RawExtension{
 						Raw: vmBytes,
 					},
@@ -287,11 +297,7 @@ var _ = Describe("Validating Webhook", func() {
 
 			ar := &v1beta1.AdmissionReview{
 				Request: &v1beta1.AdmissionRequest{
-					Resource: metav1.GroupVersionResource{
-						Group:    v1.VirtualMachineGroupVersionKind.Group,
-						Version:  v1.VirtualMachineGroupVersionKind.Version,
-						Resource: "virtualmachines",
-					},
+					Resource: webhooks.VirtualMachineGroupVersionResource,
 					Object: runtime.RawExtension{
 						Raw: vmBytes,
 					},
@@ -336,11 +342,7 @@ var _ = Describe("Validating Webhook", func() {
 
 			ar := &v1beta1.AdmissionReview{
 				Request: &v1beta1.AdmissionRequest{
-					Resource: metav1.GroupVersionResource{
-						Group:    v1.VirtualMachineGroupVersionKind.Group,
-						Version:  v1.VirtualMachineGroupVersionKind.Version,
-						Resource: "virtualmachines",
-					},
+					Resource: webhooks.VirtualMachineGroupVersionResource,
 					Object: runtime.RawExtension{
 						Raw: vmBytes,
 					},
@@ -386,11 +388,7 @@ var _ = Describe("Validating Webhook", func() {
 
 			ar := &v1beta1.AdmissionReview{
 				Request: &v1beta1.AdmissionRequest{
-					Resource: metav1.GroupVersionResource{
-						Group:    v1.VirtualMachineGroupVersionKind.Group,
-						Version:  v1.VirtualMachineGroupVersionKind.Version,
-						Resource: "virtualmachines",
-					},
+					Resource: webhooks.VirtualMachineGroupVersionResource,
 					Object: runtime.RawExtension{
 						Raw: vmBytes,
 					},
@@ -428,11 +426,7 @@ var _ = Describe("Validating Webhook", func() {
 
 			ar := &v1beta1.AdmissionReview{
 				Request: &v1beta1.AdmissionRequest{
-					Resource: metav1.GroupVersionResource{
-						Group:    v1.VirtualMachineInstancePresetGroupVersionKind.Group,
-						Version:  v1.VirtualMachineInstancePresetGroupVersionKind.Version,
-						Resource: "virtualmachineinstancepresets",
-					},
+					Resource: webhooks.VirtualMachineInstancePresetGroupVersionResource,
 					Object: runtime.RawExtension{
 						Raw: vmiPresetBytes,
 					},
@@ -460,11 +454,7 @@ var _ = Describe("Validating Webhook", func() {
 
 			ar := &v1beta1.AdmissionReview{
 				Request: &v1beta1.AdmissionRequest{
-					Resource: metav1.GroupVersionResource{
-						Group:    v1.VirtualMachineInstancePresetGroupVersionKind.Group,
-						Version:  v1.VirtualMachineInstancePresetGroupVersionKind.Version,
-						Resource: "virtualmachineinstancepresets",
-					},
+					Resource: webhooks.VirtualMachineInstancePresetGroupVersionResource,
 					Object: runtime.RawExtension{
 						Raw: vmiPresetBytes,
 					},
@@ -492,7 +482,7 @@ var _ = Describe("Validating Webhook", func() {
 
 			ar := &v1beta1.AdmissionReview{
 				Request: &v1beta1.AdmissionRequest{
-					Resource: metav1.GroupVersionResource{Group: v1.VirtualMachineInstanceMigrationGroupVersionKind.Group, Version: v1.VirtualMachineInstanceMigrationGroupVersionKind.Version, Resource: "virtualmachineinstancemigrations"},
+					Resource: webhooks.MigrationGroupVersionResource,
 					Object: runtime.RawExtension{
 						Raw: migrationBytes,
 					},
@@ -525,7 +515,7 @@ var _ = Describe("Validating Webhook", func() {
 
 			ar := &v1beta1.AdmissionReview{
 				Request: &v1beta1.AdmissionRequest{
-					Resource: metav1.GroupVersionResource{Group: v1.VirtualMachineInstanceMigrationGroupVersionKind.Group, Version: v1.VirtualMachineInstanceMigrationGroupVersionKind.Version, Resource: "virtualmachineinstancemigrations"},
+					Resource: webhooks.MigrationGroupVersionResource,
 					Object: runtime.RawExtension{
 						Raw: migrationBytes,
 					},
@@ -556,7 +546,7 @@ var _ = Describe("Validating Webhook", func() {
 
 			ar := &v1beta1.AdmissionReview{
 				Request: &v1beta1.AdmissionRequest{
-					Resource: metav1.GroupVersionResource{Group: v1.VirtualMachineInstanceMigrationGroupVersionKind.Group, Version: v1.VirtualMachineInstanceMigrationGroupVersionKind.Version, Resource: "virtualmachineinstancemigrations"},
+					Resource: webhooks.MigrationGroupVersionResource,
 					Object: runtime.RawExtension{
 						Raw: migrationBytes,
 					},
@@ -592,7 +582,7 @@ var _ = Describe("Validating Webhook", func() {
 
 			ar := &v1beta1.AdmissionReview{
 				Request: &v1beta1.AdmissionRequest{
-					Resource: metav1.GroupVersionResource{Group: v1.VirtualMachineInstanceMigrationGroupVersionKind.Group, Version: v1.VirtualMachineInstanceMigrationGroupVersionKind.Version, Resource: "virtualmachineinstancemigrations"},
+					Resource: webhooks.MigrationGroupVersionResource,
 					Object: runtime.RawExtension{
 						Raw: migrationBytes,
 					},
@@ -628,7 +618,7 @@ var _ = Describe("Validating Webhook", func() {
 
 			ar := &v1beta1.AdmissionReview{
 				Request: &v1beta1.AdmissionRequest{
-					Resource: metav1.GroupVersionResource{Group: v1.VirtualMachineInstanceMigrationGroupVersionKind.Group, Version: v1.VirtualMachineInstanceMigrationGroupVersionKind.Version, Resource: "virtualmachineinstancemigrations"},
+					Resource: webhooks.MigrationGroupVersionResource,
 					Object: runtime.RawExtension{
 						Raw: migrationBytes,
 					},
@@ -660,7 +650,7 @@ var _ = Describe("Validating Webhook", func() {
 
 			ar := &v1beta1.AdmissionReview{
 				Request: &v1beta1.AdmissionRequest{
-					Resource: metav1.GroupVersionResource{Group: v1.VirtualMachineInstanceMigrationGroupVersionKind.Group, Version: v1.VirtualMachineInstanceMigrationGroupVersionKind.Version, Resource: "virtualmachineinstancemigrations"},
+					Resource: webhooks.MigrationGroupVersionResource,
 					Object: runtime.RawExtension{
 						Raw: migrationBytes,
 					},
@@ -697,7 +687,7 @@ var _ = Describe("Validating Webhook", func() {
 
 			ar := &v1beta1.AdmissionReview{
 				Request: &v1beta1.AdmissionRequest{
-					Resource: metav1.GroupVersionResource{Group: v1.VirtualMachineInstanceMigrationGroupVersionKind.Group, Version: v1.VirtualMachineInstanceMigrationGroupVersionKind.Version, Resource: "virtualmachineinstancemigrations"},
+					Resource: webhooks.MigrationGroupVersionResource,
 					Object: runtime.RawExtension{
 						Raw: newMigrationBytes,
 					},
@@ -735,7 +725,7 @@ var _ = Describe("Validating Webhook", func() {
 
 			ar := &v1beta1.AdmissionReview{
 				Request: &v1beta1.AdmissionRequest{
-					Resource: metav1.GroupVersionResource{Group: v1.VirtualMachineInstanceMigrationGroupVersionKind.Group, Version: v1.VirtualMachineInstanceMigrationGroupVersionKind.Version, Resource: "virtualmachineinstancemigrations"},
+					Resource: webhooks.MigrationGroupVersionResource,
 					Object: runtime.RawExtension{
 						Raw: migrationBytes,
 					},
