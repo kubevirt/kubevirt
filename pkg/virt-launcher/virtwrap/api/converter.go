@@ -114,20 +114,29 @@ func Convert_v1_Disk_To_api_Disk(diskDevice *v1.Disk, disk *Disk, devicePerBus m
 }
 
 func setDriverCacheMode(disk *Disk, mode v1.DriverCache) error {
+	var path string
 	supportDirectIO := true
 
+	if disk.Source.File != "" {
+		path = disk.Source.File
+	} else if disk.Source.Dev != "" {
+		path = disk.Source.Dev
+	} else {
+		return fmt.Errorf("Unable to set a driver cache mode, disk is neither a block device nor a file")
+	}
+
 	if mode == "" || mode == v1.CacheNone {
-		f, err := os.OpenFile(disk.Source.File, syscall.O_RDONLY|syscall.O_DIRECT, 0)
+		f, err := os.OpenFile(path, syscall.O_RDONLY|syscall.O_DIRECT, 0)
 		f.Close()
 		if err != nil && !os.IsNotExist(err) {
-			log.Log.Infof("%s file system does not support direct I/O", disk.Source.File)
+			log.Log.Infof("%s file system does not support direct I/O", path)
 			supportDirectIO = false
 		}
 	}
 
 	// if user set a cache mode = 'none' and fs does not support direct I/O then return an error
 	if mode == v1.CacheNone && !supportDirectIO {
-		return fmt.Errorf("Unable to use '%s' cache mode, file system where %s is stored does not support direct I/O", mode, disk.Source.File)
+		return fmt.Errorf("Unable to use '%s' cache mode, file system where %s is stored does not support direct I/O", mode, path)
 	}
 
 	// if user did not set a cache mode and fs supports direct I/O then set cache = 'none'
@@ -139,7 +148,7 @@ func setDriverCacheMode(disk *Disk, mode v1.DriverCache) error {
 	}
 
 	disk.Driver.Cache = string(mode)
-	log.Log.Infof("Driver cache mode for %s set to %s", disk.Source.File, mode)
+	log.Log.Infof("Driver cache mode for %s set to %s", path, mode)
 
 	return nil
 }
@@ -648,6 +657,7 @@ func Convert_v1_VirtualMachine_To_api_Domain(vmi *v1.VirtualMachineInstance, dom
 		if err != nil {
 			return err
 		}
+
 		domain.Spec.Devices.Disks = append(domain.Spec.Devices.Disks, newDisk)
 	}
 
