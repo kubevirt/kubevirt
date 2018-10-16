@@ -111,7 +111,17 @@ fi
 
 kubectl() { cluster/kubectl.sh "$@"; }
 
-export NAMESPACE="${NAMESPACE:-kube-system}"
+
+# If run on CI use random kubevirt system-namespaces
+if [ -n "${JOB_NAME}" ]; then
+  export NAMESPACE="kubevirt-system-$(cat /dev/urandom | tr -dc 'a-zA-Z0-9' | fold -w 10 | head -n 1)"
+  cat >hack/config-local.sh <<EOF
+namespace=${NAMESPACE}
+EOF
+else
+  export NAMESPACE="${NAMESPACE:-kube-system}"
+fi
+
 
 # Make sure that the VM is properly shut down on exit
 trap '{ release_download_lock $RHEL_LOCK_PATH; release_download_lock $WINDOWS_LOCK_PATH; make cluster-down; }' EXIT SIGINT SIGTERM SIGSTOP
