@@ -65,7 +65,7 @@ func init() {
 	SetDefaultHTTPClientCreator()
 }
 
-// NewImageUploadCommand returns a comra.Command for handling the the uploading of VM images
+// NewImageUploadCommand returns a cobra.Command for handling the the uploading of VM images
 func NewImageUploadCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "image-upload",
