@@ -488,6 +488,13 @@ func schema_kubevirt_pkg_api_v1_Disk(ref common.ReferenceCallback) common.OpenAP
 							Format:      "",
 						},
 					},
+					"cache": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Cache specifies which kvm disk cache mode should be used",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
 				},
 				Required: []string{"name", "volumeName"},
 			},

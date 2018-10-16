@@ -72,6 +72,8 @@ spec:
                                   bootOrder:
                                     format: int32
                                     type: integer
+                                  cache:
+                                    type: string
                                   cdrom:
                                     properties:
                                       bus:
