@@ -56,6 +56,11 @@ import (
 const defaultStartTimeout = 3 * time.Minute
 const defaultWatchdogInterval = 5 * time.Second
 
+func init() {
+	// must registry the event impl before doing anything else.
+	libvirt.EventRegisterDefaultImpl()
+}
+
 func markReady(readinessFile string) {
 	f, err := os.OpenFile(readinessFile, os.O_RDONLY|os.O_CREATE, 0666)
 	if err != nil {
@@ -123,8 +128,6 @@ func createLibvirtConnection() virtcli.Connection {
 }
 
 func startDomainEventMonitoring(virtShareDir string, domainConn virtcli.Connection, deleteNotificationSent chan watch.Event, vmiUID types.UID) {
-	libvirt.EventRegisterDefaultImpl()
-
 	go func() {
 		for {
 			if res := libvirt.EventRunDefaultImpl(); res != nil {
@@ -138,7 +141,6 @@ func startDomainEventMonitoring(virtShareDir string, domainConn virtcli.Connecti
 	if err != nil {
 		panic(err)
 	}
-
 }
 
 func startWatchdogTicker(watchdogFile string, watchdogInterval time.Duration, stopChan chan struct{}, uid string) (done chan struct{}) {
@@ -215,19 +217,6 @@ func initializeDirs(virtShareDir string,
 }
 
 func waitForDomainUUID(timeout time.Duration, events chan watch.Event, stop chan struct{}, domainManager virtwrap.DomainManager) *api.Domain {
-
-	// Here's a useless loop in a goroutine
-	// that magically makes events work properly
-	go func() {
-		for {
-			_, err := domainManager.ListAllDomains()
-			if err != nil {
-				log.Log.Reason(err).Error("failed to retrieve domains from libvirt")
-				continue
-			}
-			time.Sleep(5 * time.Second)
-		}
-	}()
 
 	ticker := time.NewTicker(timeout).C
 	select {
