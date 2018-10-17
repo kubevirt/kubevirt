@@ -22,7 +22,6 @@ import (
 	"bytes"
 	"flag"
 	"fmt"
-	"io"
 	stdLog "log"
 	"os"
 	"path/filepath"
@@ -35,48 +34,39 @@ import (
 	log2 "github.com/go-kit/kit/log"
 )
 
-type LogLevel int32
+type logLevel int32
 
 const (
-	INFO LogLevel = iota
-	WARNING
-	ERROR
-	FATAL
+	infoLevel logLevel = iota
+	warningLevel
+	errorLevel
+	fatalLevel
 )
 
-var LogLevelNames = map[LogLevel]string{
-	INFO:    "info",
-	WARNING: "warning",
-	ERROR:   "error",
-	FATAL:   "fatal",
+var logLevelNames = map[logLevel]string{
+	infoLevel:    "info",
+	warningLevel: "warning",
+	errorLevel:   "error",
+	fatalLevel:   "fatal",
 }
 
-var logger log2.Logger
-var glogVerbosity int
+var glogVerbosity string
 var glogComponent string
+var toStderr bool
+var logger log2.Logger
 
 func init() {
-	flag.String("v", "2", "log level for V logs")
+	flag.StringVar(&glogVerbosity, "v", "2", "log level for V logs")
+	flag.StringVar(&glogComponent, "component", "", "logger component")
+	flag.BoolVar(&toStderr, "logtostderr", false, "log to standard error instead of files")
 	logger = log2.NewJSONLogger(os.Stderr)
 }
 
-func Setup(component string, verbosity int) {
-	glogVerbosity = verbosity
-	glogComponent = component
-	CopyStandardLogTo(LogLevelNames[INFO])
-}
-
-// SetIOWriter takes a writer to which the logger should write. Useful for redirecting logs during testing.
-func SetIOWriter(w io.Writer) {
-	logger = log2.NewJSONLogger(w)
-	CopyStandardLogTo(LogLevelNames[INFO])
-}
-
-func severityByName(s string) (LogLevel, bool) {
+func severityByName(s string) (logLevel, bool) {
 	s = strings.ToLower(s)
-	for i, name := range LogLevelNames {
+	for i, name := range logLevelNames {
 		if name == s {
-			return LogLevel(i), true
+			return logLevel(i), true
 		}
 	}
 	return 0, false
@@ -158,7 +148,7 @@ func Flush() {
 // severities.  Subsequent changes to the standard log's default output location
 // or format may break this behavior.
 //
-// Valid names are "INFO", "WARNING", "ERROR", and "FATAL".  If the name is not
+// Valid names are "infoLevel", "warningLevel", "errorLevel", and "fatalLevel".  If the name is not
 // recognized, CopyStandardLogTo panics.
 func CopyStandardLogTo(name string) {
 	sev, ok := severityByName(name)
@@ -173,7 +163,7 @@ func CopyStandardLogTo(name string) {
 
 // logBridge provides the Write method that enables CopyStandardLogTo to connect
 // Go's standard logs to the logs provided by this package.
-type logBridge LogLevel
+type logBridge logLevel
 
 // Write parses the standard logging line and passes its components to the
 // logger for severity(lb).
@@ -196,7 +186,7 @@ func (lb logBridge) Write(b []byte) (n int, err error) {
 		}
 	}
 
-	doLogPos(LogLevel(lb), file, line, text)
+	doLogPos(logLevel(lb), file, line, text)
 	return len(b), nil
 }
 
@@ -222,7 +212,10 @@ func V(level Level) Verbose {
 	// This function tries hard to be cheap unless there's work to do.
 	// The fast path is two atomic loads and compares.
 
-	// Here is a cheap but safe test to see if V logging is enabled globally.
+	glogVerbosity, err := strconv.Atoi(glogVerbosity)
+	if err != nil {
+		Fatalf("Verbosity level is invalid: %v", err)
+	}
 	if glogVerbosity >= int(level) {
 		return Verbose(true)
 	}
@@ -233,7 +226,7 @@ func V(level Level) Verbose {
 // See the documentation of V for usage.
 func (v Verbose) Info(args ...interface{}) {
 	if v {
-		doLog(2, INFO, args...)
+		doLog(2, infoLevel, args...)
 	}
 }
 
@@ -241,7 +234,7 @@ func (v Verbose) Info(args ...interface{}) {
 // See the documentation of V for usage.
 func (v Verbose) Infoln(args ...interface{}) {
 	if v {
-		doLog(2, INFO, args...)
+		doLog(2, infoLevel, args...)
 	}
 }
 
@@ -249,110 +242,110 @@ func (v Verbose) Infoln(args ...interface{}) {
 // See the documentation of V for usage.
 func (v Verbose) Infof(format string, args ...interface{}) {
 	if v {
-		doLogf(2, INFO, format, args...)
+		doLogf(2, infoLevel, format, args...)
 	}
 }
 
-// Info logs to the INFO log.
+// Info logs to the infoLevel log.
 // Arguments are handled in the manner of fmt.Print; a newline is appended if missing.
 func Info(args ...interface{}) {
-	doLog(2, INFO, args...)
+	doLog(2, infoLevel, args...)
 }
 
 // InfoDepth acts as Info but uses depth to determine which call frame to log.
 // InfoDepth(0, "msg") is the same as Info("msg").
 func InfoDepth(depth int, args ...interface{}) {
-	doLog(2+depth, INFO, args...)
+	doLog(2+depth, infoLevel, args...)
 }
 
-// Infoln logs to the INFO log.
+// Infoln logs to the infoLevel log.
 // Arguments are handled in the manner of fmt.Println; a newline is appended if missing.
 func Infoln(args ...interface{}) {
-	doLog(2, INFO, args...)
+	doLog(2, infoLevel, args...)
 }
 
-// Infof logs to the INFO log.
+// Infof logs to the infoLevel log.
 // Arguments are handled in the manner of fmt.Printf; a newline is appended if missing.
 func Infof(format string, args ...interface{}) {
-	doLogf(2, INFO, format, args...)
+	doLogf(2, infoLevel, format, args...)
 }
 
-// Warning logs to the WARNING and INFO logs.
+// Warning logs to the warningLevel and infoLevel logs.
 // Arguments are handled in the manner of fmt.Print; a newline is appended if missing.
 func Warning(args ...interface{}) {
-	doLog(2, WARNING, args...)
+	doLog(2, warningLevel, args...)
 }
 
 // WarningDepth acts as Warning but uses depth to determine which call frame to log.
 // WarningDepth(0, "msg") is the same as Warning("msg").
 func WarningDepth(depth int, args ...interface{}) {
-	doLog(2+depth, WARNING, args...)
+	doLog(2+depth, warningLevel, args...)
 }
 
-// Warningln logs to the WARNING and INFO logs.
+// Warningln logs to the warningLevel and infoLevel logs.
 // Arguments are handled in the manner of fmt.Println; a newline is appended if missing.
 func Warningln(args ...interface{}) {
-	doLog(2, WARNING, args...)
+	doLog(2, warningLevel, args...)
 }
 
-// Warningf logs to the WARNING and INFO logs.
+// Warningf logs to the warningLevel and infoLevel logs.
 // Arguments are handled in the manner of fmt.Printf; a newline is appended if missing.
 func Warningf(format string, args ...interface{}) {
-	doLogf(2, WARNING, format, args...)
+	doLogf(2, warningLevel, format, args...)
 }
 
-// Error logs to the ERROR, WARNING, and INFO logs.
+// Error logs to the errorLevel, warningLevel, and infoLevel logs.
 // Arguments are handled in the manner of fmt.Print; a newline is appended if missing.
 func Error(args ...interface{}) {
-	doLog(2, ERROR, args...)
+	doLog(2, errorLevel, args...)
 }
 
 // ErrorDepth acts as Error but uses depth to determine which call frame to log.
 // ErrorDepth(0, "msg") is the same as Error("msg").
 func ErrorDepth(depth int, args ...interface{}) {
-	doLog(2+depth, ERROR, args...)
+	doLog(2+depth, errorLevel, args...)
 }
 
-// Errorln logs to the ERROR, WARNING, and INFO logs.
+// Errorln logs to the errorLevel, warningLevel, and infoLevel logs.
 // Arguments are handled in the manner of fmt.Println; a newline is appended if missing.
 func Errorln(args ...interface{}) {
-	doLog(2, ERROR, args...)
+	doLog(2, errorLevel, args...)
 }
 
-// Errorf logs to the ERROR, WARNING, and INFO logs.
+// Errorf logs to the errorLevel, warningLevel, and infoLevel logs.
 // Arguments are handled in the manner of fmt.Printf; a newline is appended if missing.
 func Errorf(format string, args ...interface{}) {
-	doLogf(2, ERROR, format, args...)
+	doLogf(2, errorLevel, format, args...)
 }
 
-// Fatal logs to the FATAL, ERROR, WARNING, and INFO logs,
+// Fatal logs to the fatalLevel, errorLevel, warningLevel, and infoLevel logs,
 // including a stack trace of all running goroutines, then calls os.Exit(255).
 // Arguments are handled in the manner of fmt.Print; a newline is appended if missing.
 func Fatal(args ...interface{}) {
-	doLog(2, FATAL, args...)
+	doLog(2, fatalLevel, args...)
 	os.Exit(255)
 }
 
 // FatalDepth acts as Fatal but uses depth to determine which call frame to log.
 // FatalDepth(0, "msg") is the same as Fatal("msg").
 func FatalDepth(depth int, args ...interface{}) {
-	doLog(2+depth, FATAL, args...)
+	doLog(2+depth, fatalLevel, args...)
 	os.Exit(255)
 }
 
-// Fatalln logs to the FATAL, ERROR, WARNING, and INFO logs,
+// Fatalln logs to the fatalLevel, errorLevel, warningLevel, and infoLevel logs,
 // including a stack trace of all running goroutines, then calls os.Exit(255).
 // Arguments are handled in the manner of fmt.Println; a newline is appended if missing.
 func Fatalln(args ...interface{}) {
-	doLog(2, FATAL, args...)
+	doLog(2, fatalLevel, args...)
 	os.Exit(255)
 }
 
-// Fatalf logs to the FATAL, ERROR, WARNING, and INFO logs,
+// Fatalf logs to the fatalLevel, errorLevel, warningLevel, and infoLevel logs,
 // including a stack trace of all running goroutines, then calls os.Exit(255).
 // Arguments are handled in the manner of fmt.Printf; a newline is appended if missing.
 func Fatalf(format string, args ...interface{}) {
-	doLogf(2, FATAL, format, args...)
+	doLogf(2, fatalLevel, format, args...)
 	os.Exit(255)
 }
 
@@ -360,38 +353,41 @@ func Fatalf(format string, args ...interface{}) {
 // It allows Exit and relatives to use the Fatal logs.
 var fatalNoStacks uint32
 
-// Exit logs to the FATAL, ERROR, WARNING, and INFO logs, then calls os.Exit(1).
+// Exit logs to the fatalLevel, errorLevel, warningLevel, and infoLevel logs, then calls os.Exit(1).
 // Arguments are handled in the manner of fmt.Print; a newline is appended if missing.
 func Exit(args ...interface{}) {
-	doLog(2, FATAL, args...)
+	doLog(2, fatalLevel, args...)
 	os.Exit(1)
 }
 
 // ExitDepth acts as Exit but uses depth to determine which call frame to log.
 // ExitDepth(0, "msg") is the same as Exit("msg").
 func ExitDepth(depth int, args ...interface{}) {
-	doLog(2+depth, FATAL, args)
+	doLog(2+depth, fatalLevel, args)
 	os.Exit(1)
 }
 
-// Exitln logs to the FATAL, ERROR, WARNING, and INFO logs, then calls os.Exit(1).
+// Exitln logs to the fatalLevel, errorLevel, warningLevel, and infoLevel logs, then calls os.Exit(1).
 func Exitln(args ...interface{}) {
-	doLog(2, FATAL, args...)
+	doLog(2, fatalLevel, args...)
 	os.Exit(1)
 }
 
-// Exitf logs to the FATAL, ERROR, WARNING, and INFO logs, then calls os.Exit(1).
+// Exitf logs to the fatalLevel, errorLevel, warningLevel, and infoLevel logs, then calls os.Exit(1).
 // Arguments are handled in the manner of fmt.Printf; a newline is appended if missing.
 func Exitf(format string, args ...interface{}) {
-	doLogf(2, FATAL, format, args...)
+	doLogf(2, fatalLevel, format, args...)
 	os.Exit(1)
 }
 
-func doLogf(skipFrames int, severity LogLevel, format string, args ...interface{}) {
+func doLogf(skipFrames int, severity logLevel, format string, args ...interface{}) {
+	if !toStderr {
+		return
+	}
 	now := time.Now()
 	_, fileName, lineNumber, _ := runtime.Caller(skipFrames)
 	logger.Log(
-		"level", LogLevelNames[severity],
+		"level", logLevelNames[severity],
 		"timestamp", now.Format("2006-01-02T15:04:05.000000Z"),
 		"pos", fmt.Sprintf("%s:%d", filepath.Base(fileName), lineNumber),
 		"component", glogComponent,
@@ -399,11 +395,14 @@ func doLogf(skipFrames int, severity LogLevel, format string, args ...interface{
 	)
 }
 
-func doLog(skipFrames int, severity LogLevel, args ...interface{}) {
+func doLog(skipFrames int, severity logLevel, args ...interface{}) {
+	if !toStderr {
+		return
+	}
 	now := time.Now()
 	_, fileName, lineNumber, _ := runtime.Caller(skipFrames)
 	logger.Log(
-		"level", LogLevelNames[severity],
+		"level", logLevelNames[severity],
 		"timestamp", now.Format("2006-01-02T15:04:05.000000Z"),
 		"pos", fmt.Sprintf("%s:%d", filepath.Base(fileName), lineNumber),
 		"component", glogComponent,
@@ -411,10 +410,13 @@ func doLog(skipFrames int, severity LogLevel, args ...interface{}) {
 	)
 }
 
-func doLogPos(severity LogLevel, fileName string, lineNumber int, args ...interface{}) {
+func doLogPos(severity logLevel, fileName string, lineNumber int, args ...interface{}) {
+	if !toStderr {
+		return
+	}
 	now := time.Now()
 	logger.Log(
-		"level", LogLevelNames[severity],
+		"level", logLevelNames[severity],
 		"timestamp", now.Format("2006-01-02T15:04:05.000000Z"),
 		"pos", fmt.Sprintf("%s:%d", filepath.Base(fileName), lineNumber),
 		"component", glogComponent,

@@ -99,7 +99,7 @@ func (app *virtHandlerApp) Run() {
 	}
 
 	logger := log.Log
-	logger.V(1).Level(glog.INFO).Log("hostname", app.HostOverride)
+	logger.V(1).Level(log.INFO).Log("hostname", app.HostOverride)
 
 	// Create event recorder
 	virtCli, err := kubecli.GetKubevirtClient()

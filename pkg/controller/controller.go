@@ -23,7 +23,6 @@ import (
 	"fmt"
 	"runtime/debug"
 
-	"github.com/golang/glog"
 	k8sv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
@@ -71,7 +70,7 @@ func NewListWatchFromClient(c cache.Getter, resource string, namespace string, f
 
 func HandlePanic() {
 	if r := recover(); r != nil {
-		log.Log.Level(glog.FATAL).Log("stacktrace", debug.Stack(), "msg", r)
+		log.Log.Level(log.FATAL).Log("stacktrace", debug.Stack(), "msg", r)
 	}
 }
 

@@ -20,7 +20,6 @@
 package main
 
 import (
-	"flag"
 	"fmt"
 	"os"
 	"os/signal"
@@ -31,13 +30,12 @@ import (
 )
 
 func main() {
-	uuid := flag.String("uuid", "", "some fake arg")
+	uuid := pflag.String("uuid", "", "some fake arg")
 	c := make(chan os.Signal, 1)
 	signal.Notify(c, os.Interrupt,
 		syscall.SIGTERM,
 	)
 
-	pflag.CommandLine.AddGoFlagSet(flag.CommandLine)
 	pflag.Parse()
 	fmt.Printf("Started fake qemu process with uuid %s\n", *uuid)
 
