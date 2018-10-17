@@ -43,6 +43,10 @@ elif [[ $TARGET =~ .*-1.10.4-.* ]]; then
   export KUBEVIRT_PROVIDER="k8s-1.10.4"
 elif [[ $TARGET =~ .*-multus-1.11.1-.* ]]; then
   export KUBEVIRT_PROVIDER="k8s-multus-1.11.1"
+elif [[ $TARGET =~ .*-genie-1.11.1-.* ]]; then
+  export KUBEVIRT_PROVIDER="k8s-genie-1.11.1"
+  # Run only Genie and Networking tests
+  ginko_params="$ginko_params --ginkgo.focus=Networking|VMIlifecycle"
 else
   export KUBEVIRT_PROVIDER="k8s-1.11.0"
 fi

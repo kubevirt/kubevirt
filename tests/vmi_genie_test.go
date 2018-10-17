@@ -35,7 +35,7 @@ import (
 	"kubevirt.io/kubevirt/tests"
 )
 
-var _ = Describe("Multus Networking", func() {
+var _ = Describe("Genie Networking", func() {
 
 	flag.Parse()
 
@@ -44,11 +44,11 @@ var _ = Describe("Multus Networking", func() {
 	var detachedVMI *v1.VirtualMachineInstance
 
 	tests.BeforeAll(func() {
-		tests.SkipIfNoMultusProvider(virtClient)
+		tests.SkipIfNoGenieProvider(virtClient)
 		tests.BeforeTestCleanup()
 	})
 
-	Context("VirtualMachineInstance with cni ptp plugin interface", func() {
+	Context("VirtualMachineInstance with cni flannel and ptp plugin interface", func() {
 		AfterEach(func() {
 			virtClient.VirtualMachineInstance("default").Delete(detachedVMI.Name, &v13.DeleteOptions{})
 			fmt.Printf("Waiting for vmi %s in default namespace to be removed, this can take a while ...\n", detachedVMI.Name)
@@ -59,21 +59,18 @@ var _ = Describe("Multus Networking", func() {
 		})
 
 		It("should create a virtual machine with one interface", func() {
-			By("checking virtual machine instance can ping 10.1.1.1 using ptp cni plugin")
 			detachedVMI = tests.NewRandomVMIWithEphemeralDiskAndUserdata(tests.RegistryDiskFor(tests.RegistryDiskCirros), "#!/bin/bash\necho 'hello'\n")
 
-			// The virtual machine needs to run on the default namespace because the network-attachment-definitions.k8s.cni.cncf.io are there
-			detachedVMI.Namespace = "default"
 			detachedVMI.Spec.Domain.Devices.Interfaces = []v1.Interface{{Name: "ptp", InterfaceBindingMethod: v1.InterfaceBindingMethod{Bridge: &v1.InterfaceBridge{}}}}
 			detachedVMI.Spec.Networks = []v1.Network{
 				{Name: "ptp", NetworkSource: v1.NetworkSource{
-					Multus: &v1.CniNetwork{NetworkName: "ptp-conf"},
+					Genie: &v1.CniNetwork{NetworkName: "ptp"},
 				}},
 			}
 
-			_, err = virtClient.VirtualMachineInstance("default").Create(detachedVMI)
+			_, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(detachedVMI)
 			Expect(err).ToNot(HaveOccurred())
-			tests.WaitUntilVMIReadyWithNamespace("default", detachedVMI, tests.LoggedInCirrosExpecter)
+			tests.WaitUntilVMIReadyWithNamespace(tests.NamespaceTestDefault, detachedVMI, tests.LoggedInCirrosExpecter)
 
 			cmdCheck := fmt.Sprintf("ping %s -c 1 -w 5\n", "10.1.1.1")
 			err = tests.CheckForTextExpecter(detachedVMI, []expect.Batcher{
@@ -88,26 +85,22 @@ var _ = Describe("Multus Networking", func() {
 		})
 
 		It("should create a virtual machine with two interfaces", func() {
-			By("checking virtual machine instance can ping 10.1.1.1 using ptp cni plugin")
 			detachedVMI = tests.NewRandomVMIWithEphemeralDiskAndUserdata(tests.RegistryDiskFor(tests.RegistryDiskCirros), "#!/bin/bash\necho 'hello'\n")
 
-			// The virtual machine needs to run on the default namespace because the network-attachment-definitions.k8s.cni.cncf.io are there
-			detachedVMI.Namespace = "default"
 			detachedVMI.Spec.Domain.Devices.Interfaces = []v1.Interface{{Name: "default", InterfaceBindingMethod: v1.InterfaceBindingMethod{Bridge: &v1.InterfaceBridge{}}},
 				{Name: "ptp", InterfaceBindingMethod: v1.InterfaceBindingMethod{Bridge: &v1.InterfaceBridge{}}}}
 			detachedVMI.Spec.Networks = []v1.Network{
-				{Name: "default",
-					NetworkSource: v1.NetworkSource{
-						Pod: &v1.PodNetwork{},
-					}},
+				{Name: "default", NetworkSource: v1.NetworkSource{
+					Genie: &v1.CniNetwork{NetworkName: "flannel"},
+				}},
 				{Name: "ptp", NetworkSource: v1.NetworkSource{
-					Multus: &v1.CniNetwork{NetworkName: "ptp-conf"},
+					Genie: &v1.CniNetwork{NetworkName: "ptp"},
 				}},
 			}
 
-			_, err = virtClient.VirtualMachineInstance("default").Create(detachedVMI)
+			_, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(detachedVMI)
 			Expect(err).ToNot(HaveOccurred())
-			tests.WaitUntilVMIReadyWithNamespace("default", detachedVMI, tests.LoggedInCirrosExpecter)
+			tests.WaitUntilVMIReadyWithNamespace(tests.NamespaceTestDefault, detachedVMI, tests.LoggedInCirrosExpecter)
 
 			By("checking virtual machine instance as two interfaces")
 			cmdCheck := fmt.Sprintf("ip link show %s\n", "eth0")

@@ -35,6 +35,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"kubevirt.io/kubevirt/pkg/api/v1.ClockOffset":                               schema_kubevirt_pkg_api_v1_ClockOffset(ref),
 		"kubevirt.io/kubevirt/pkg/api/v1.ClockOffsetUTC":                            schema_kubevirt_pkg_api_v1_ClockOffsetUTC(ref),
 		"kubevirt.io/kubevirt/pkg/api/v1.CloudInitNoCloudSource":                    schema_kubevirt_pkg_api_v1_CloudInitNoCloudSource(ref),
+		"kubevirt.io/kubevirt/pkg/api/v1.CniNetwork":                                schema_kubevirt_pkg_api_v1_CniNetwork(ref),
 		"kubevirt.io/kubevirt/pkg/api/v1.ConfigMapVolumeSource":                     schema_kubevirt_pkg_api_v1_ConfigMapVolumeSource(ref),
 		"kubevirt.io/kubevirt/pkg/api/v1.DataVolumeSource":                          schema_kubevirt_pkg_api_v1_DataVolumeSource(ref),
 		"kubevirt.io/kubevirt/pkg/api/v1.Devices":                                   schema_kubevirt_pkg_api_v1_Devices(ref),
@@ -65,7 +66,6 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"kubevirt.io/kubevirt/pkg/api/v1.LunTarget":                                 schema_kubevirt_pkg_api_v1_LunTarget(ref),
 		"kubevirt.io/kubevirt/pkg/api/v1.Machine":                                   schema_kubevirt_pkg_api_v1_Machine(ref),
 		"kubevirt.io/kubevirt/pkg/api/v1.Memory":                                    schema_kubevirt_pkg_api_v1_Memory(ref),
-		"kubevirt.io/kubevirt/pkg/api/v1.MultusNetwork":                             schema_kubevirt_pkg_api_v1_MultusNetwork(ref),
 		"kubevirt.io/kubevirt/pkg/api/v1.Network":                                   schema_kubevirt_pkg_api_v1_Network(ref),
 		"kubevirt.io/kubevirt/pkg/api/v1.NetworkSource":                             schema_kubevirt_pkg_api_v1_NetworkSource(ref),
 		"kubevirt.io/kubevirt/pkg/api/v1.PITTimer":                                  schema_kubevirt_pkg_api_v1_PITTimer(ref),
@@ -281,6 +281,27 @@ func schema_kubevirt_pkg_api_v1_CloudInitNoCloudSource(ref common.ReferenceCallb
 		},
 		Dependencies: []string{
 			"k8s.io/api/core/v1.LocalObjectReference"},
+	}
+}
+
+func schema_kubevirt_pkg_api_v1_CniNetwork(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "Represents the cni network.",
+				Properties: map[string]spec.Schema{
+					"networkName": {
+						SchemaProps: spec.SchemaProps{
+							Description: "References to a NetworkAttachmentDefinition CRD object in the same namespace. In case of genie, it references the CNI plugin name.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+				},
+				Required: []string{"networkName"},
+			},
+		},
+		Dependencies: []string{},
 	}
 }
 
@@ -1227,27 +1248,6 @@ func schema_kubevirt_pkg_api_v1_Memory(ref common.ReferenceCallback) common.Open
 	}
 }
 
-func schema_kubevirt_pkg_api_v1_MultusNetwork(ref common.ReferenceCallback) common.OpenAPIDefinition {
-	return common.OpenAPIDefinition{
-		Schema: spec.Schema{
-			SchemaProps: spec.SchemaProps{
-				Description: "Represents the multus cni network.",
-				Properties: map[string]spec.Schema{
-					"networkName": {
-						SchemaProps: spec.SchemaProps{
-							Description: "References to a NetworkAttachmentDefinition CRD object in the same namespace.",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
-				},
-				Required: []string{"networkName"},
-			},
-		},
-		Dependencies: []string{},
-	}
-}
-
 func schema_kubevirt_pkg_api_v1_Network(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -1268,7 +1268,12 @@ func schema_kubevirt_pkg_api_v1_Network(ref common.ReferenceCallback) common.Ope
 					},
 					"multus": {
 						SchemaProps: spec.SchemaProps{
-							Ref: ref("kubevirt.io/kubevirt/pkg/api/v1.MultusNetwork"),
+							Ref: ref("kubevirt.io/kubevirt/pkg/api/v1.CniNetwork"),
+						},
+					},
+					"genie": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("kubevirt.io/kubevirt/pkg/api/v1.CniNetwork"),
 						},
 					},
 				},
@@ -1276,7 +1281,7 @@ func schema_kubevirt_pkg_api_v1_Network(ref common.ReferenceCallback) common.Ope
 			},
 		},
 		Dependencies: []string{
-			"kubevirt.io/kubevirt/pkg/api/v1.MultusNetwork", "kubevirt.io/kubevirt/pkg/api/v1.PodNetwork"},
+			"kubevirt.io/kubevirt/pkg/api/v1.CniNetwork", "kubevirt.io/kubevirt/pkg/api/v1.PodNetwork"},
 	}
 }
 
@@ -1293,14 +1298,19 @@ func schema_kubevirt_pkg_api_v1_NetworkSource(ref common.ReferenceCallback) comm
 					},
 					"multus": {
 						SchemaProps: spec.SchemaProps{
-							Ref: ref("kubevirt.io/kubevirt/pkg/api/v1.MultusNetwork"),
+							Ref: ref("kubevirt.io/kubevirt/pkg/api/v1.CniNetwork"),
+						},
+					},
+					"genie": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("kubevirt.io/kubevirt/pkg/api/v1.CniNetwork"),
 						},
 					},
 				},
 			},
 		},
 		Dependencies: []string{
-			"kubevirt.io/kubevirt/pkg/api/v1.MultusNetwork", "kubevirt.io/kubevirt/pkg/api/v1.PodNetwork"},
+			"kubevirt.io/kubevirt/pkg/api/v1.CniNetwork", "kubevirt.io/kubevirt/pkg/api/v1.PodNetwork"},
 	}
 }
 

@@ -540,9 +540,9 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 		v1.OwnedByAnnotation: "virt-controller",
 	}
 
-	multusNetworks := getMultusInterfaceList(vmi)
-	if len(multusNetworks) > 0 {
-		annotationsList["k8s.v1.cni.cncf.io/networks"] = multusNetworks
+	cniNetworks, cniAnnotation := getCniInterfaceList(vmi)
+	if len(cniNetworks) > 0 {
+		annotationsList[cniAnnotation] = cniNetworks
 	}
 
 	// TODO use constants for podLabels
@@ -621,7 +621,9 @@ func getRequiredCapabilities(vmi *v1.VirtualMachineInstance) []k8sv1.Capability 
 
 func getRequiredResources(vmi *v1.VirtualMachineInstance, useEmulation bool) k8sv1.ResourceList {
 	res := k8sv1.ResourceList{}
-	if (vmi.Spec.Domain.Devices.AutoattachPodInterface == nil) || (*vmi.Spec.Domain.Devices.AutoattachPodInterface == true) {
+	if (len(vmi.Spec.Domain.Devices.Interfaces) > 0) ||
+		(vmi.Spec.Domain.Devices.AutoattachPodInterface == nil) ||
+		(*vmi.Spec.Domain.Devices.AutoattachPodInterface == true) {
 		res[TunDevice] = resource.MustParse("1")
 	}
 	for _, iface := range vmi.Spec.Domain.Devices.Interfaces {
@@ -709,16 +711,27 @@ func getPortsFromVMI(vmi *v1.VirtualMachineInstance) []k8sv1.ContainerPort {
 	return ports
 }
 
-func getMultusInterfaceList(vmi *v1.VirtualMachineInstance) string {
+func getCniInterfaceList(vmi *v1.VirtualMachineInstance) (ifaceListString string, cniAnnotation string) {
 	ifaceList := make([]string, 0)
 
 	for _, network := range vmi.Spec.Networks {
+		// set the type for the first network
+		// all other networks must have same type
 		if network.Multus != nil {
 			ifaceList = append(ifaceList, network.Multus.NetworkName)
+			if cniAnnotation == "" {
+				cniAnnotation = "k8s.v1.cni.cncf.io/networks"
+			}
+		} else if network.Genie != nil {
+			ifaceList = append(ifaceList, network.Genie.NetworkName)
+			if cniAnnotation == "" {
+				cniAnnotation = "cni"
+			}
 		}
 	}
 
-	return strings.Join(ifaceList, ",")
+	ifaceListString = strings.Join(ifaceList, ",")
+	return
 }
 
 func NewTemplateService(launcherImage string,

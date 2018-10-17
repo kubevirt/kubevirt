@@ -1840,6 +1840,13 @@ func SkipIfNoMultusProvider(virtClient kubecli.KubevirtClient) {
 	}
 }
 
+func SkipIfNoGenieProvider(virtClient kubecli.KubevirtClient) {
+	_, err := virtClient.ExtensionsV1beta1().DaemonSets("kube-system").Get("genie-plugin", metav1.GetOptions{})
+	if err != nil {
+		Skip("Skip genie tests that required genie cni plugin")
+	}
+}
+
 func SkipIfUseFlannel(virtClient kubecli.KubevirtClient) {
 	labelSelector := "app=flannel"
 	flannelpod, err := virtClient.CoreV1().Pods(metav1.NamespaceSystem).List(metav1.ListOptions{LabelSelector: labelSelector})

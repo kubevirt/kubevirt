@@ -785,28 +785,58 @@ func ValidateVirtualMachineInstanceSpec(field *k8sfield.Path, spec *v1.VirtualMa
 	}
 
 	if len(spec.Networks) > 0 && len(spec.Domain.Devices.Interfaces) > 0 {
+		multusExists := false
+		genieExists := false
+		podExists := false
+
 		for idx, network := range spec.Networks {
-			if network.Pod == nil && network.Multus == nil {
+
+			cniTypesCount := 0
+			// network name not needed by default
+			networkNameExistsOrNotNeeded := true
+
+			if network.Pod != nil {
+				cniTypesCount++
+				podExists = true
+			}
+
+			if network.NetworkSource.Multus != nil {
+				cniTypesCount++
+				multusExists = true
+				networkNameExistsOrNotNeeded = network.Multus.NetworkName != ""
+			}
+
+			if network.NetworkSource.Genie != nil {
+				cniTypesCount++
+				genieExists = true
+				networkNameExistsOrNotNeeded = network.Genie.NetworkName != ""
+			}
+
+			if cniTypesCount == 0 {
 				causes = append(causes, metav1.StatusCause{
 					Type:    metav1.CauseTypeFieldValueRequired,
 					Message: fmt.Sprintf("should have a network type"),
-					Field:   field.Child("networks").Index(idx).Child("pod").String(),
+					Field:   field.Child("networks").Index(idx).String(),
 				})
-			}
-
-			if network.Pod != nil && network.Multus != nil {
+			} else if cniTypesCount > 1 {
 				causes = append(causes, metav1.StatusCause{
 					Type:    metav1.CauseTypeFieldValueRequired,
 					Message: fmt.Sprintf("should have only one network type"),
 					Field:   field.Child("networks").Index(idx).String(),
 				})
-			}
-
-			if network.Multus != nil && network.Multus.NetworkName == "" {
+			} else if genieExists && (podExists || multusExists) {
 				causes = append(causes, metav1.StatusCause{
 					Type:    metav1.CauseTypeFieldValueRequired,
-					Message: fmt.Sprintf("multus network must have a networkName"),
-					Field:   field.Child("networks").Index(idx).Child("multus").String(),
+					Message: fmt.Sprintf("cannot combine Genie with other CNIs across networks"),
+					Field:   field.Child("networks").Index(idx).String(),
+				})
+			}
+
+			if !networkNameExistsOrNotNeeded {
+				causes = append(causes, metav1.StatusCause{
+					Type:    metav1.CauseTypeFieldValueRequired,
+					Message: fmt.Sprintf("CNI delegating plugin must have a networkName"),
+					Field:   field.Child("networks").Index(idx).String(),
 				})
 			}
 
