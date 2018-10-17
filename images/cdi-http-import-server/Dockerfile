@@ -21,14 +21,15 @@ FROM fedora:27
 LABEL maintainer="The KubeVirt Project <kubevirt-dev@googlegroups.com>"
 ENV container docker
 
-RUN dnf install -y nginx \
+RUN dnf install -y nginx qemu-guest-agent \
     && dnf -y clean all
 
 RUN mkdir -p /usr/share/nginx/html/images \
     && curl http://dl-cdn.alpinelinux.org/alpine/v3.7/releases/x86_64/alpine-virt-3.7.0-x86_64.iso > /usr/share/nginx/html/images/alpine.iso \
     && rm -f /etc/nginx/nginx.conf
 
+RUN cp /usr/bin/qemu-ga /usr/share/nginx/html/
+
 ADD nginx.conf /etc/nginx/
 
 EXPOSE 80
-
