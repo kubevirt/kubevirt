@@ -48,7 +48,10 @@ var _ = Describe("Multus Networking", func() {
 
 	virtClient, err := kubecli.GetKubevirtClient()
 	tests.PanicOnError(err)
+
 	nodes, err := virtClient.CoreV1().Nodes().List(v13.ListOptions{})
+	tests.PanicOnError(err)
+
 	nodeAffinity := &k8sv1.Affinity{
 		NodeAffinity: &k8sv1.NodeAffinity{
 			RequiredDuringSchedulingIgnoredDuringExecution: &k8sv1.NodeSelector{
@@ -63,7 +66,6 @@ var _ = Describe("Multus Networking", func() {
 		},
 	}
 
-	tests.PanicOnError(err)
 	var detachedVMI *v1.VirtualMachineInstance
 	var vmiOne *v1.VirtualMachineInstance
 	var vmiTwo *v1.VirtualMachineInstance
@@ -172,7 +174,7 @@ var _ = Describe("Multus Networking", func() {
 		It("should create two virtual machines with one interface", func() {
 			By("checking virtual machine instance can ping the secondary virtual machine instance using ovs-cni plugin")
 			interfaces := []v1.Interface{{Name: "ovs", InterfaceBindingMethod: v1.InterfaceBindingMethod{Bridge: &v1.InterfaceBridge{}}}}
-			networks := []v1.Network{{Name: "ovs", NetworkSource: v1.NetworkSource{Multus: &v1.MultusNetwork{NetworkName: "ovs-net-vlan100"}}}}
+			networks := []v1.Network{{Name: "ovs", NetworkSource: v1.NetworkSource{Multus: &v1.CniNetwork{NetworkName: "ovs-net-vlan100"}}}}
 
 			vmiOne = createVMI(interfaces, networks)
 			vmiTwo = createVMI(interfaces, networks)
@@ -197,7 +199,7 @@ var _ = Describe("Multus Networking", func() {
 			interfaces := []v1.Interface{{Name: "default", InterfaceBindingMethod: v1.InterfaceBindingMethod{Bridge: &v1.InterfaceBridge{}}},
 				{Name: "ovs", InterfaceBindingMethod: v1.InterfaceBindingMethod{Bridge: &v1.InterfaceBridge{}}}}
 			networks := []v1.Network{{Name: "default", NetworkSource: v1.NetworkSource{Pod: &v1.PodNetwork{}}},
-				{Name: "ovs", NetworkSource: v1.NetworkSource{Multus: &v1.MultusNetwork{NetworkName: "ovs-net-vlan100"}}}}
+				{Name: "ovs", NetworkSource: v1.NetworkSource{Multus: &v1.CniNetwork{NetworkName: "ovs-net-vlan100"}}}}
 
 			vmiOne = createVMI(interfaces, networks)
 			vmiTwo = createVMI(interfaces, networks)
@@ -253,17 +255,6 @@ func configInterface(vmi *v1.VirtualMachineInstance, interfaceName, interfaceAdd
 	}, 15)
 	Expect(err).ToNot(HaveOccurred())
 }
-			By("checking virtual machine instance as two interfaces")
-			cmdCheck := fmt.Sprintf("ip link show %s\n", "eth0")
-			err = tests.CheckForTextExpecter(detachedVMI, []expect.Batcher{
-				&expect.BSnd{S: "\n"},
-				&expect.BExp{R: "\\$ "},
-				&expect.BSnd{S: cmdCheck},
-				&expect.BExp{R: "\\$ "},
-				&expect.BSnd{S: "echo $?\n"},
-				&expect.BExp{R: "0"},
-			}, 180)
-			Expect(err).ToNot(HaveOccurred())
 
 func checkInterface(vmi *v1.VirtualMachineInstance, interfaceName, prompt string) {
 	cmdCheck := fmt.Sprintf("ip link show %s\n", interfaceName)
