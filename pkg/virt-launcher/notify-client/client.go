@@ -24,9 +24,8 @@ type DomainEventClient struct {
 }
 
 type LibvirtEvent struct {
-	Domain     string
-	Event      *libvirt.DomainEventLifecycle
-	AgentEvent *libvirt.DomainEventAgentLifecycle
+	Domain string
+	Event  *libvirt.DomainEventLifecycle
 }
 
 func NewDomainEventClient(virtShareDir string) (*DomainEventClient, error) {
