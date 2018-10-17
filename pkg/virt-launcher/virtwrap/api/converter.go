@@ -186,6 +186,9 @@ func Convert_v1_Volume_To_api_Disk(source *v1.Volume, disk *Disk, c *ConverterCo
 	if source.Secret != nil {
 		return Convert_v1_Config_To_api_Disk(source.Name, disk, config.Secret)
 	}
+	if source.ServiceAccount != nil {
+		return Convert_v1_Config_To_api_Disk(source.Name, disk, config.ServiceAccount)
+	}
 
 	return fmt.Errorf("disk %s references an unsupported source", disk.Alias.Name)
 }
@@ -199,6 +202,9 @@ func Convert_v1_Config_To_api_Disk(volumeName string, disk *Disk, configType con
 		break
 	case config.Secret:
 		disk.Source.File = config.GetSecretDiskPath(volumeName)
+		break
+	case config.ServiceAccount:
+		disk.Source.File = config.GetServiceAccountDiskPath()
 		break
 	default:
 		return fmt.Errorf("Cannot convert config '%s' to disk, unrecognized type", configType)

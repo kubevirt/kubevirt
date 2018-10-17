@@ -350,6 +350,10 @@ func (l *LibvirtDomainManager) preStartHook(vmi *v1.VirtualMachineInstance, doma
 	if err := config.CreateSecretDisks(vmi); err != nil {
 		return domain, fmt.Errorf("creating secret disks failed: %v", err)
 	}
+	// create ServiceAccount disk if exists
+	if err := config.CreateServiceAccountDisk(vmi); err != nil {
+		return domain, fmt.Errorf("creating service account disk failed: %v", err)
+	}
 
 	hooksManager := hooks.GetManager()
 	domainSpec, err := hooksManager.OnDefineDomain(&domain.Spec, vmi)

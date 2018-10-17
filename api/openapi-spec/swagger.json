@@ -4411,6 +4411,15 @@
      }
     }
    },
+   "v1.ServiceAccountVolumeSource": {
+    "description": "ServiceAccountVolumeSource adapts a ServiceAccount into a volume.",
+    "properties": {
+     "serviceAccountName": {
+      "description": "Name of the service account in the pod's namespace to use.\nMore info: https://kubernetes.io/docs/tasks/configure-pod-container/configure-service-account/",
+      "type": "string"
+     }
+    }
+   },
    "v1.Status": {
     "description": "Status is a return value for calls that don't return other objects.",
     "properties": {
@@ -5123,6 +5132,10 @@
      "secret": {
       "description": "SecretVolumeSource represents a reference to a secret data in the same namespace.\nMore info: https://kubernetes.io/docs/concepts/configuration/secret/\n+optional",
       "$ref": "#/definitions/v1.SecretVolumeSource"
+     },
+     "serviceAccount": {
+      "description": "ServiceAccountVolumeSource represents a reference to a service account.\nThere can only be one volume of this type!\nMore info: https://kubernetes.io/docs/tasks/configure-pod-container/configure-service-account/\n+optional",
+      "$ref": "#/definitions/v1.ServiceAccountVolumeSource"
      }
     }
    },

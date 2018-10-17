@@ -149,6 +149,8 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 		MountPath: "/var/run/libvirt",
 	})
 
+	serviceAccountName := ""
+
 	for _, volume := range vmi.Spec.Volumes {
 		volumeMount := k8sv1.VolumeMount{
 			Name:      volume.Name,
@@ -264,6 +266,10 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 					},
 				},
 			})
+		}
+
+		if volume.ServiceAccount != nil {
+			serviceAccountName = volume.ServiceAccount.ServiceAccountName
 		}
 	}
 
@@ -586,6 +592,16 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 			pod.Spec.Tolerations = append(pod.Spec.Tolerations, v)
 		}
 	}
+
+	if len(serviceAccountName) > 0 {
+		pod.Spec.ServiceAccountName = serviceAccountName
+		automount := true
+		pod.Spec.AutomountServiceAccountToken = &automount
+	} else {
+		automount := false
+		pod.Spec.AutomountServiceAccountToken = &automount
+	}
+
 	return &pod, nil
 }
 

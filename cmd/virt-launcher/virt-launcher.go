@@ -214,6 +214,11 @@ func initializeDirs(virtShareDir string,
 	if err != nil {
 		panic(err)
 	}
+
+	err = virtlauncher.InitializeDisksDirectories(config.ServiceAccountDiskDir)
+	if err != nil {
+		panic(err)
+	}
 }
 
 func waitForDomainUUID(timeout time.Duration, events chan watch.Event, stop chan struct{}, domainManager virtwrap.DomainManager) *api.Domain {

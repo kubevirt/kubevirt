@@ -1587,6 +1587,7 @@ var _ = Describe("Validating Webhook", func() {
 			table.Entry("with hostDisk volume source", v1.VolumeSource{HostDisk: &v1.HostDisk{Path: "fake", Type: v1.HostDiskExistsOrCreate}}),
 			table.Entry("with configMap volume source", v1.VolumeSource{ConfigMap: &v1.ConfigMapVolumeSource{LocalObjectReference: k8sv1.LocalObjectReference{Name: "fake"}}}),
 			table.Entry("with secret volume source", v1.VolumeSource{Secret: &v1.SecretVolumeSource{SecretName: "fake"}}),
+			table.Entry("with serviceAccount volume source", v1.VolumeSource{ServiceAccount: &v1.ServiceAccountVolumeSource{ServiceAccountName: "fake"}}),
 		)
 		It("should reject DataVolume when feature gate is disabled", func() {
 			vmi := v1.NewMinimalVMI("testvmi")
@@ -1782,6 +1783,41 @@ var _ = Describe("Validating Webhook", func() {
 			causes := validateVolumes(k8sfield.NewPath("fake"), vmi.Spec.Volumes)
 			Expect(len(causes)).To(Equal(1))
 			Expect(causes[0].Field).To(Equal("fake[0].secret.secretName"))
+		})
+
+		It("should reject a serviceAccount without the serviceAccountName field", func() {
+			vmi := v1.NewMinimalVMI("testvmi")
+
+			vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
+				VolumeSource: v1.VolumeSource{
+					ServiceAccount: &v1.ServiceAccountVolumeSource{},
+				},
+			})
+
+			causes := validateVolumes(k8sfield.NewPath("fake"), vmi.Spec.Volumes)
+			Expect(len(causes)).To(Equal(1))
+			Expect(causes[0].Field).To(Equal("fake[0].serviceAccount.serviceAccountName"))
+		})
+
+		It("should reject multiple serviceAccounts", func() {
+			vmi := v1.NewMinimalVMI("testvmi")
+
+			vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
+				Name: "sa1",
+				VolumeSource: v1.VolumeSource{
+					ServiceAccount: &v1.ServiceAccountVolumeSource{ServiceAccountName: "test1"},
+				},
+			})
+			vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
+				Name: "sa2",
+				VolumeSource: v1.VolumeSource{
+					ServiceAccount: &v1.ServiceAccountVolumeSource{ServiceAccountName: "test2"},
+				},
+			})
+
+			causes := validateVolumes(k8sfield.NewPath("fake"), vmi.Spec.Volumes)
+			Expect(len(causes)).To(Equal(1))
+			Expect(causes[0].Field).To(Equal("fake"))
 		})
 	})
 

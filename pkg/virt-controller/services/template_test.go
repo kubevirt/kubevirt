@@ -1038,6 +1038,48 @@ var _ = Describe("Template", func() {
 			Expect(err).To(HaveOccurred())
 		})
 	})
+	Describe("ServiceAccountName", func() {
+
+		It("Should add service account if present", func() {
+			serviceAccountName := "testAccount"
+			volumes := []v1.Volume{
+				{
+					Name: "serviceaccount-volume",
+					VolumeSource: v1.VolumeSource{
+						ServiceAccount: &v1.ServiceAccountVolumeSource{
+							ServiceAccountName: serviceAccountName,
+						},
+					},
+				},
+			}
+			vmi := v1.VirtualMachineInstance{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "testvmi", Namespace: "default", UID: "1234",
+				},
+				Spec: v1.VirtualMachineInstanceSpec{Volumes: volumes, Domain: v1.DomainSpec{}},
+			}
+
+			pod, err := svc.RenderLaunchManifest(&vmi)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(pod.Spec.ServiceAccountName).To(Equal(serviceAccountName), "ServiceAccount matches")
+			Expect(*pod.Spec.AutomountServiceAccountToken).To(BeTrue(), "Token automount is enabled")
+		})
+
+		It("Should not add service account if not present", func() {
+			vmi := v1.VirtualMachineInstance{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "testvmi", Namespace: "default", UID: "1234",
+				},
+				Spec: v1.VirtualMachineInstanceSpec{Domain: v1.DomainSpec{}},
+			}
+
+			pod, err := svc.RenderLaunchManifest(&vmi)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(pod.Spec.ServiceAccountName).To(BeEmpty(), "ServiceAccount is empty")
+			Expect(*pod.Spec.AutomountServiceAccountToken).To(BeFalse(), "Token automount is disabled")
+		})
+
+	})
 })
 
 func MakeFakeConfigMapWatcher(configMaps []kubev1.ConfigMap) *cache.ListWatch {

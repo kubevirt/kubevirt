@@ -76,6 +76,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"kubevirt.io/kubevirt/pkg/api/v1.ResourceRequirements":                      schema_kubevirt_pkg_api_v1_ResourceRequirements(ref),
 		"kubevirt.io/kubevirt/pkg/api/v1.Rng":                                       schema_kubevirt_pkg_api_v1_Rng(ref),
 		"kubevirt.io/kubevirt/pkg/api/v1.SecretVolumeSource":                        schema_kubevirt_pkg_api_v1_SecretVolumeSource(ref),
+		"kubevirt.io/kubevirt/pkg/api/v1.ServiceAccountVolumeSource":                schema_kubevirt_pkg_api_v1_ServiceAccountVolumeSource(ref),
 		"kubevirt.io/kubevirt/pkg/api/v1.Timer":                                     schema_kubevirt_pkg_api_v1_Timer(ref),
 		"kubevirt.io/kubevirt/pkg/api/v1.VirtualMachine":                            schema_kubevirt_pkg_api_v1_VirtualMachine(ref),
 		"kubevirt.io/kubevirt/pkg/api/v1.VirtualMachineCondition":                   schema_kubevirt_pkg_api_v1_VirtualMachineCondition(ref),
@@ -1530,6 +1531,26 @@ func schema_kubevirt_pkg_api_v1_SecretVolumeSource(ref common.ReferenceCallback)
 	}
 }
 
+func schema_kubevirt_pkg_api_v1_ServiceAccountVolumeSource(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "ServiceAccountVolumeSource adapts a ServiceAccount into a volume.",
+				Properties: map[string]spec.Schema{
+					"serviceAccountName": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Name of the service account in the pod's namespace to use. More info: https://kubernetes.io/docs/tasks/configure-pod-container/configure-service-account/",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{},
+	}
+}
+
 func schema_kubevirt_pkg_api_v1_Timer(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -2676,12 +2697,18 @@ func schema_kubevirt_pkg_api_v1_Volume(ref common.ReferenceCallback) common.Open
 							Ref:         ref("kubevirt.io/kubevirt/pkg/api/v1.SecretVolumeSource"),
 						},
 					},
+					"serviceAccount": {
+						SchemaProps: spec.SchemaProps{
+							Description: "ServiceAccountVolumeSource represents a reference to a service account. There can only be one volume of this type! More info: https://kubernetes.io/docs/tasks/configure-pod-container/configure-service-account/",
+							Ref:         ref("kubevirt.io/kubevirt/pkg/api/v1.ServiceAccountVolumeSource"),
+						},
+					},
 				},
 				Required: []string{"name"},
 			},
 		},
 		Dependencies: []string{
-			"k8s.io/api/core/v1.PersistentVolumeClaimVolumeSource", "kubevirt.io/kubevirt/pkg/api/v1.CloudInitNoCloudSource", "kubevirt.io/kubevirt/pkg/api/v1.ConfigMapVolumeSource", "kubevirt.io/kubevirt/pkg/api/v1.DataVolumeSource", "kubevirt.io/kubevirt/pkg/api/v1.EmptyDiskSource", "kubevirt.io/kubevirt/pkg/api/v1.EphemeralVolumeSource", "kubevirt.io/kubevirt/pkg/api/v1.HostDisk", "kubevirt.io/kubevirt/pkg/api/v1.RegistryDiskSource", "kubevirt.io/kubevirt/pkg/api/v1.SecretVolumeSource"},
+			"k8s.io/api/core/v1.PersistentVolumeClaimVolumeSource", "kubevirt.io/kubevirt/pkg/api/v1.CloudInitNoCloudSource", "kubevirt.io/kubevirt/pkg/api/v1.ConfigMapVolumeSource", "kubevirt.io/kubevirt/pkg/api/v1.DataVolumeSource", "kubevirt.io/kubevirt/pkg/api/v1.EmptyDiskSource", "kubevirt.io/kubevirt/pkg/api/v1.EphemeralVolumeSource", "kubevirt.io/kubevirt/pkg/api/v1.HostDisk", "kubevirt.io/kubevirt/pkg/api/v1.RegistryDiskSource", "kubevirt.io/kubevirt/pkg/api/v1.SecretVolumeSource", "kubevirt.io/kubevirt/pkg/api/v1.ServiceAccountVolumeSource"},
 	}
 }
 
@@ -2745,11 +2772,17 @@ func schema_kubevirt_pkg_api_v1_VolumeSource(ref common.ReferenceCallback) commo
 							Ref:         ref("kubevirt.io/kubevirt/pkg/api/v1.SecretVolumeSource"),
 						},
 					},
+					"serviceAccount": {
+						SchemaProps: spec.SchemaProps{
+							Description: "ServiceAccountVolumeSource represents a reference to a service account. There can only be one volume of this type! More info: https://kubernetes.io/docs/tasks/configure-pod-container/configure-service-account/",
+							Ref:         ref("kubevirt.io/kubevirt/pkg/api/v1.ServiceAccountVolumeSource"),
+						},
+					},
 				},
 			},
 		},
 		Dependencies: []string{
-			"k8s.io/api/core/v1.PersistentVolumeClaimVolumeSource", "kubevirt.io/kubevirt/pkg/api/v1.CloudInitNoCloudSource", "kubevirt.io/kubevirt/pkg/api/v1.ConfigMapVolumeSource", "kubevirt.io/kubevirt/pkg/api/v1.DataVolumeSource", "kubevirt.io/kubevirt/pkg/api/v1.EmptyDiskSource", "kubevirt.io/kubevirt/pkg/api/v1.EphemeralVolumeSource", "kubevirt.io/kubevirt/pkg/api/v1.HostDisk", "kubevirt.io/kubevirt/pkg/api/v1.RegistryDiskSource", "kubevirt.io/kubevirt/pkg/api/v1.SecretVolumeSource"},
+			"k8s.io/api/core/v1.PersistentVolumeClaimVolumeSource", "kubevirt.io/kubevirt/pkg/api/v1.CloudInitNoCloudSource", "kubevirt.io/kubevirt/pkg/api/v1.ConfigMapVolumeSource", "kubevirt.io/kubevirt/pkg/api/v1.DataVolumeSource", "kubevirt.io/kubevirt/pkg/api/v1.EmptyDiskSource", "kubevirt.io/kubevirt/pkg/api/v1.EphemeralVolumeSource", "kubevirt.io/kubevirt/pkg/api/v1.HostDisk", "kubevirt.io/kubevirt/pkg/api/v1.RegistryDiskSource", "kubevirt.io/kubevirt/pkg/api/v1.SecretVolumeSource", "kubevirt.io/kubevirt/pkg/api/v1.ServiceAccountVolumeSource"},
 	}
 }
 
