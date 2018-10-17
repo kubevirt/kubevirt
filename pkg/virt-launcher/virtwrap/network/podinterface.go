@@ -188,6 +188,21 @@ func (b *BridgePodInterface) discoverPodNetworkInterface() error {
 }
 
 func (b *BridgePodInterface) preparePodNetworkInterfaces() error {
+	// Set interface link to down to change its MAC address
+	if err := Handler.LinkSetDown(b.podNicLink); err != nil {
+		log.Log.Reason(err).Errorf("failed to bring link down for interface: %s", b.podInterfaceName)
+		return err
+	}
+
+	if _, err := Handler.SetRandomMac(b.podInterfaceName); err != nil {
+		return err
+	}
+
+	if err := Handler.LinkSetUp(b.podNicLink); err != nil {
+		log.Log.Reason(err).Errorf("failed to bring link up for interface: %s", b.podInterfaceName)
+		return err
+	}
+
 	if err := b.createBridge(); err != nil {
 		return err
 	}
@@ -204,26 +219,7 @@ func (b *BridgePodInterface) preparePodNetworkInterfaces() error {
 		b.startDHCPServer()
 	}
 
-	// Set interface link to down to change its MAC address
-	err := Handler.LinkSetDown(b.podNicLink)
-	if err != nil {
-		log.Log.Reason(err).Errorf("failed to bring link down for interface: %s", b.podInterfaceName)
-		return err
-	}
-
-	_, err = Handler.SetRandomMac(b.podInterfaceName)
-	if err != nil {
-		return err
-	}
-
-	err = Handler.LinkSetUp(b.podNicLink)
-	if err != nil {
-		log.Log.Reason(err).Errorf("failed to bring link up for interface: %s", b.podInterfaceName)
-		return err
-	}
-
-	err = Handler.LinkSetLearningOff(b.podNicLink)
-	if err != nil {
+	if err := Handler.LinkSetLearningOff(b.podNicLink); err != nil {
 		log.Log.Reason(err).Errorf("failed to disable mac learning for interface: %s", b.podInterfaceName)
 		return err
 	}
