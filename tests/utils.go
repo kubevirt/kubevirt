@@ -155,7 +155,6 @@ const (
 	DiskWindows        = "disk-windows"
 	DiskRhel           = "disk-rhel"
 	DiskCustomHostPath = "disk-custom-host-path"
-	BlockPVCCirros     = "local-block-storage-cirros"
 )
 
 const (
@@ -352,11 +351,6 @@ func BeforeTestSuitSetup() {
 	CreatePVC(osWindows, defaultWindowsDiskSize)
 	CreatePVC(osRhel, defaultRhelDiskSize)
 
-	// create PVC for cirros block device PV, which is provided by local volume provider
-	selector := make(map[string]string)
-	selector["blockstorage"] = "cirros"
-	CreateBlockVolumePVC(BlockPVCCirros, selector, "1Gi")
-
 	EnsureKVMPresent()
 
 	SetDefaultEventuallyTimeout(defaultEventuallyTimeout)
@@ -461,41 +455,6 @@ func newPVC(os string, size string) *k8sv1.PersistentVolumeClaim {
 				},
 			},
 			StorageClassName: &storageClass,
-		},
-	}
-}
-
-func CreateBlockVolumePVC(name string, labelSelector map[string]string, size string) {
-	virtCli, err := kubecli.GetKubevirtClient()
-	PanicOnError(err)
-
-	_, err = virtCli.CoreV1().PersistentVolumeClaims(NamespaceTestDefault).Create(newBlockVolumePVC(name, labelSelector, size))
-	if !errors.IsAlreadyExists(err) {
-		PanicOnError(err)
-	}
-}
-
-func newBlockVolumePVC(name string, labelSelector map[string]string, size string) *k8sv1.PersistentVolumeClaim {
-	quantity, err := resource.ParseQuantity(size)
-	PanicOnError(err)
-
-	storageClass := LocalStorageClass
-	volumeMode := k8sv1.PersistentVolumeBlock
-
-	return &k8sv1.PersistentVolumeClaim{
-		ObjectMeta: metav1.ObjectMeta{Name: name},
-		Spec: k8sv1.PersistentVolumeClaimSpec{
-			AccessModes: []k8sv1.PersistentVolumeAccessMode{k8sv1.ReadWriteOnce},
-			Resources: k8sv1.ResourceRequirements{
-				Requests: k8sv1.ResourceList{
-					"storage": quantity,
-				},
-			},
-			Selector: &metav1.LabelSelector{
-				MatchLabels: labelSelector,
-			},
-			StorageClassName: &storageClass,
-			VolumeMode:       &volumeMode,
 		},
 	}
 }
@@ -1148,6 +1107,7 @@ func AddUserData(vmi *v1.VirtualMachineInstance, userData string) {
 }
 
 func NewRandomVMIWithPVC(claimName string) *v1.VirtualMachineInstance {
+
 	vmi := NewRandomVMI()
 
 	vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("64M")
@@ -1169,6 +1129,106 @@ func NewRandomVMIWithPVC(claimName string) *v1.VirtualMachineInstance {
 		},
 	})
 	return vmi
+}
+
+func CreateBlockVolumePvAndPvc(name string, size string) {
+	virtCli, err := kubecli.GetKubevirtClient()
+	PanicOnError(err)
+
+	labelSelector := make(map[string]string)
+	labelSelector["kubevirt-test"] = name
+
+	_, err = virtCli.CoreV1().PersistentVolumes().Create(newBlockVolumePV(name, labelSelector, size))
+	if !errors.IsAlreadyExists(err) {
+		PanicOnError(err)
+	}
+
+	_, err = virtCli.CoreV1().PersistentVolumeClaims(NamespaceTestDefault).Create(newBlockVolumePVC(name, labelSelector, size))
+	if !errors.IsAlreadyExists(err) {
+		PanicOnError(err)
+	}
+}
+
+func newBlockVolumePV(name string, labelSelector map[string]string, size string) *k8sv1.PersistentVolume {
+	quantity, err := resource.ParseQuantity(size)
+	PanicOnError(err)
+
+	storageClass := LocalStorageClass
+	volumeMode := k8sv1.PersistentVolumeBlock
+
+	// Note: the path depends on kubevirtci!
+	// It's configured to have a device backed by a cirros image at exactly that place on node01
+	// And the local storage provider also has access to it
+	return &k8sv1.PersistentVolume{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:   name,
+			Labels: labelSelector,
+		},
+		Spec: k8sv1.PersistentVolumeSpec{
+			AccessModes: []k8sv1.PersistentVolumeAccessMode{k8sv1.ReadWriteOnce},
+			Capacity: k8sv1.ResourceList{
+				"storage": quantity,
+			},
+			StorageClassName: storageClass,
+			VolumeMode:       &volumeMode,
+			PersistentVolumeSource: k8sv1.PersistentVolumeSource{
+				Local: &k8sv1.LocalVolumeSource{
+					Path: "/mnt/local-storage/cirros-block-device",
+				},
+			},
+			NodeAffinity: &k8sv1.VolumeNodeAffinity{
+				Required: &k8sv1.NodeSelector{
+					NodeSelectorTerms: []k8sv1.NodeSelectorTerm{
+						{
+							MatchExpressions: []k8sv1.NodeSelectorRequirement{
+								{
+									Key:      "kubernetes.io/hostname",
+									Operator: k8sv1.NodeSelectorOpIn,
+									Values:   []string{"node01"},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+}
+
+func newBlockVolumePVC(name string, labelSelector map[string]string, size string) *k8sv1.PersistentVolumeClaim {
+	quantity, err := resource.ParseQuantity(size)
+	PanicOnError(err)
+
+	storageClass := LocalStorageClass
+	volumeMode := k8sv1.PersistentVolumeBlock
+
+	return &k8sv1.PersistentVolumeClaim{
+		ObjectMeta: metav1.ObjectMeta{Name: name},
+		Spec: k8sv1.PersistentVolumeClaimSpec{
+			AccessModes: []k8sv1.PersistentVolumeAccessMode{k8sv1.ReadWriteOnce},
+			Resources: k8sv1.ResourceRequirements{
+				Requests: k8sv1.ResourceList{
+					"storage": quantity,
+				},
+			},
+			Selector: &metav1.LabelSelector{
+				MatchLabels: labelSelector,
+			},
+			StorageClassName: &storageClass,
+			VolumeMode:       &volumeMode,
+		},
+	}
+}
+
+func DeletePvAndPvc(name string) {
+	virtCli, err := kubecli.GetKubevirtClient()
+	PanicOnError(err)
+
+	err = virtCli.CoreV1().PersistentVolumes().Delete(name, &metav1.DeleteOptions{})
+	PanicOnError(err)
+
+	err = virtCli.CoreV1().PersistentVolumeClaims(NamespaceTestDefault).Delete(name, &metav1.DeleteOptions{})
+	PanicOnError(err)
 }
 
 func NewRandomVMIWithCDRom(claimName string) *v1.VirtualMachineInstance {

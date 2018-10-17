@@ -34,6 +34,7 @@ import (
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/rand"
 
 	"kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/kubecli"
@@ -422,9 +423,22 @@ var _ = Describe("Storage", func() {
 		})
 
 		Context("With Cirros BlockMode PVC", func() {
+
+			pvName := "block-pv-" + rand.String(48)
+
+			BeforeEach(func() {
+				// create a new PV and PVC (PVs can't be reused)
+				tests.CreateBlockVolumePvAndPvc(pvName, "1Gi")
+			}, 60)
+
+			AfterEach(func() {
+				// create a new PV and PVC (PVs can't be reused)
+				tests.DeletePvAndPvc(pvName)
+			}, 60)
+
 			It("should be successfully started", func() {
 				// Start the VirtualMachineInstance with the PVC attached
-				vmi := tests.NewRandomVMIWithPVC(tests.BlockPVCCirros)
+				vmi := tests.NewRandomVMIWithPVC(pvName)
 				// Without userdata the hostname isn't set correctly and the login expecter fails...
 				tests.AddUserData(vmi, "#!/bin/bash\necho 'hello'\n")
 
