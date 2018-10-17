@@ -127,7 +127,9 @@ func setDriverCacheMode(disk *Disk, mode v1.DriverCache) error {
 
 	if mode == "" || mode == v1.CacheNone {
 		f, err := os.OpenFile(path, syscall.O_RDONLY|syscall.O_DIRECT, 0)
-		f.Close()
+		if err == nil {
+			f.Close()
+		}
 		if err != nil && !os.IsNotExist(err) {
 			log.Log.Infof("%s file system does not support direct I/O", path)
 			supportDirectIO = false

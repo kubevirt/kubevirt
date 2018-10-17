@@ -524,7 +524,43 @@ var _ = Describe("Configurations", func() {
 				}, 10*time.Second)
 			})
 		})
+	})
 
+	Context("with a driver cache settings", func() {
+		table.DescribeTable("should set a default cache mode to 'none'", func(claimName string) {
+			vmi := tests.NewRandomVMIWithPVC(claimName)
+			tests.RunVMIAndExpectLaunch(vmi, false, 90)
+
+			domXml, err := tests.GetRunningVirtualMachineInstanceDomainXML(virtClient, vmi)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(domXml).To(ContainSubstring("cache='none'"))
+		},
+			table.Entry("with a disk file pvc", tests.DiskAlpineHostPath),
+			//table.Entry("with a block device pvc", tests.BlockPVCCirros),
+		)
+
+		It("should set a writethrough cache for fs which does not support direct I/O", func() {
+			// tmpfs does not support direct I/O
+			vmi := tests.NewRandomVMIWithHostDisk("/run/kubevirt-private/vm-disks/test-disk.img", v1.HostDiskExistsOrCreate, "")
+			tests.RunVMIAndExpectLaunch(vmi, false, 30)
+
+			domXml, err := tests.GetRunningVirtualMachineInstanceDomainXML(virtClient, vmi)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(domXml).To(ContainSubstring(fmt.Sprintf("cache='%s'", v1.CacheWriteThrough)))
+		})
+
+		table.DescribeTable("should set demanded cache mode", func(cache v1.DriverCache) {
+			vmi := tests.NewRandomVMIWithEphemeralDisk(tests.RegistryDiskFor(tests.RegistryDiskCirros))
+			vmi.Spec.Domain.Devices.Disks[0].Cache = cache
+			tests.RunVMIAndExpectLaunch(vmi, false, 30)
+
+			domXml, err := tests.GetRunningVirtualMachineInstanceDomainXML(virtClient, vmi)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(domXml).To(ContainSubstring(fmt.Sprintf("cache='%s'", cache)))
+		},
+			table.Entry(fmt.Sprintf("with a cache set to '%s'", v1.CacheNone), v1.CacheNone),
+			table.Entry(fmt.Sprintf("with a cache set to '%s'", v1.CacheWriteThrough), v1.CacheWriteThrough),
+		)
 	})
 
 	Context("New VirtualMachineInstance with all supported drives", func() {
