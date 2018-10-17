@@ -27,9 +27,8 @@ import (
 	"strings"
 	"testing"
 
-	v12 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
 	k8sv1 "k8s.io/api/core/v1"
+	v12 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"kubevirt.io/kubevirt/pkg/api/v1"
 )

@@ -1,10 +1,10 @@
 package log_test
 
 import (
+	"testing"
+
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-
-	"testing"
 )
 
 func TestLogging(t *testing.T) {

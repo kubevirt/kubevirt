@@ -20,13 +20,12 @@
 package rest_test
 
 import (
-	"flag"
-	"net/http"
-	"net/http/httptest"
-
 	"encoding/json"
+	"flag"
 	"fmt"
 	"io/ioutil"
+	"net/http"
+	"net/http/httptest"
 
 	"github.com/emicklei/go-restful"
 	"github.com/ghodss/yaml"

@@ -30,9 +30,8 @@ import (
 	"sync"
 	"time"
 
-	flag "github.com/spf13/pflag"
-
 	"github.com/go-kit/kit/log"
+	flag "github.com/spf13/pflag"
 	"k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	k8sruntime "k8s.io/apimachinery/pkg/runtime"

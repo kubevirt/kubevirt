@@ -20,10 +20,10 @@
 package watch
 
 import (
+	"testing"
+
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-
-	"testing"
 )
 
 func TestWatch(t *testing.T) {

@@ -34,7 +34,6 @@ import (
 	openapispec "github.com/go-openapi/spec"
 	flag "github.com/spf13/pflag"
 	"golang.org/x/net/context"
-
 	admissionregistrationv1beta1 "k8s.io/api/admissionregistration/v1beta1"
 	k8sv1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
