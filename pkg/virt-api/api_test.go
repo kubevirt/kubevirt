@@ -40,6 +40,8 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-api/rest"
 )
 
+const namespaceKubevirt = "kubevirt"
+
 var _ = Describe("Virt-api", func() {
 	var tmpDir string
 	var server *ghttp.Server
@@ -47,7 +49,7 @@ var _ = Describe("Virt-api", func() {
 
 	log.Log.SetIOWriter(GinkgoWriter)
 
-	app := virtAPIApp{namespace: metav1.NamespaceSystem}
+	app := virtAPIApp{namespace: namespaceKubevirt}
 	BeforeEach(func() {
 		server = ghttp.NewServer()
 		tmpDir, err := ioutil.TempDir("", "api_tmp_dir")
@@ -64,11 +66,11 @@ var _ = Describe("Virt-api", func() {
 		It("should generate certs the first time it is run", func(done Done) {
 			server.AppendHandlers(
 				ghttp.CombineHandlers(
-					ghttp.VerifyRequest("GET", "/api/v1/namespaces/kube-system/secrets/"+virtApiCertSecretName),
+					ghttp.VerifyRequest("GET", "/api/v1/namespaces/kubevirt/secrets/"+virtApiCertSecretName),
 					ghttp.RespondWithJSONEncoded(http.StatusNotFound, nil),
 				),
 				ghttp.CombineHandlers(
-					ghttp.VerifyRequest("POST", "/api/v1/namespaces/kube-system/secrets"),
+					ghttp.VerifyRequest("POST", "/api/v1/namespaces/kubevirt/secrets"),
 					ghttp.RespondWithJSONEncoded(http.StatusOK, nil),
 				),
 			)
@@ -86,9 +88,9 @@ var _ = Describe("Virt-api", func() {
 			caKeyPair, _ := triple.NewCA("kubevirt.io")
 			keyPair, _ := triple.NewServerKeyPair(
 				caKeyPair,
-				"virt-api.kube-system.pod.cluster.local",
+				"virt-api.kubevirt.pod.cluster.local",
 				"virt-api",
-				"kube-system",
+				namespaceKubevirt,
 				"cluster.local",
 				nil,
 				nil,
@@ -99,7 +101,7 @@ var _ = Describe("Virt-api", func() {
 			secret := k8sv1.Secret{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      virtApiCertSecretName,
-					Namespace: metav1.NamespaceSystem,
+					Namespace: namespaceKubevirt,
 					Labels: map[string]string{
 						v1.AppLabel: "virt-api-aggregator",
 					},
@@ -114,7 +116,7 @@ var _ = Describe("Virt-api", func() {
 
 			server.AppendHandlers(
 				ghttp.CombineHandlers(
-					ghttp.VerifyRequest("GET", "/api/v1/namespaces/kube-system/secrets/"+virtApiCertSecretName),
+					ghttp.VerifyRequest("GET", "/api/v1/namespaces/kubevirt/secrets/"+virtApiCertSecretName),
 					ghttp.RespondWithJSONEncoded(http.StatusOK, secret),
 				),
 			)
@@ -193,7 +195,7 @@ var _ = Describe("Virt-api", func() {
 				},
 				Spec: apiregistrationv1beta1.APIServiceSpec{
 					Service: &apiregistrationv1beta1.ServiceReference{
-						Namespace: "kube-system",
+						Namespace: namespaceKubevirt,
 						Name:      "virt-api",
 					},
 					Group:                v1.SubresourceGroupName,
@@ -205,11 +207,11 @@ var _ = Describe("Virt-api", func() {
 			}
 			server.AppendHandlers(
 				ghttp.CombineHandlers(
-					ghttp.VerifyRequest("GET", "/api/v1/namespaces/kube-system/apiservices/"+subresourceAggregatedApiName),
+					ghttp.VerifyRequest("GET", "/api/v1/namespaces/kubevirt/apiservices/"+subresourceAggregatedApiName),
 					ghttp.RespondWithJSONEncoded(http.StatusNotFound, nil),
 				),
 				ghttp.CombineHandlers(
-					ghttp.VerifyRequest("POST", "/api/v1/namespaces/kube-system/apiservices"),
+					ghttp.VerifyRequest("POST", "/api/v1/namespaces/kubevirt/apiservices"),
 					ghttp.RespondWithJSONEncoded(http.StatusOK, apiService),
 				),
 			)
@@ -228,7 +230,7 @@ var _ = Describe("Virt-api", func() {
 				},
 				Spec: apiregistrationv1beta1.APIServiceSpec{
 					Service: &apiregistrationv1beta1.ServiceReference{
-						Namespace: "kube-system",
+						Namespace: namespaceKubevirt,
 						Name:      "virt-api",
 					},
 					Group:                v1.SubresourceGroupName,
@@ -240,7 +242,7 @@ var _ = Describe("Virt-api", func() {
 			}
 			server.AppendHandlers(
 				ghttp.CombineHandlers(
-					ghttp.VerifyRequest("GET", "/api/v1/namespaces/kube-system/apiservices/"+subresourceAggregatedApiName),
+					ghttp.VerifyRequest("GET", "/api/v1/namespaces/kubevirt/apiservices/"+subresourceAggregatedApiName),
 					ghttp.RespondWithJSONEncoded(http.StatusNotFound, apiService),
 				),
 			)
@@ -260,7 +262,7 @@ var _ = Describe("Virt-api", func() {
 				},
 				Spec: apiregistrationv1beta1.APIServiceSpec{
 					Service: &apiregistrationv1beta1.ServiceReference{
-						Namespace: "kube-system",
+						Namespace: namespaceKubevirt,
 						Name:      "virt-api",
 					},
 					Group:                v1.SubresourceGroupName,
@@ -279,7 +281,7 @@ var _ = Describe("Virt-api", func() {
 				},
 				Spec: apiregistrationv1beta1.APIServiceSpec{
 					Service: &apiregistrationv1beta1.ServiceReference{
-						Namespace: "kube-system",
+						Namespace: namespaceKubevirt,
 						Name:      "virt-api",
 					},
 					Group:                v1.SubresourceGroupName,
@@ -291,11 +293,11 @@ var _ = Describe("Virt-api", func() {
 			}
 			server.AppendHandlers(
 				ghttp.CombineHandlers(
-					ghttp.VerifyRequest("GET", "/api/v1/namespaces/kube-system/apiservices/"+subresourceAggregatedApiName),
+					ghttp.VerifyRequest("GET", "/api/v1/namespaces/kubevirt/apiservices/"+subresourceAggregatedApiName),
 					ghttp.RespondWithJSONEncoded(http.StatusNotFound, apiServiceDifferent),
 				),
 				ghttp.CombineHandlers(
-					ghttp.VerifyRequest("PUT", "/api/v1/namespaces/kube-system/apiservices"),
+					ghttp.VerifyRequest("PUT", "/api/v1/namespaces/kubevirt/apiservices"),
 					ghttp.RespondWithJSONEncoded(http.StatusOK, apiServiceFixed),
 				),
 			)
