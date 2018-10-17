@@ -4,7 +4,7 @@ MAINTAINER "The KubeVirt Project" <kubevirt-dev@googlegroups.com>
 
 ENV container docker
 
-RUN dnf -y install nginx && dnf clean all -y
+RUN dnf -y update && dnf -y install nginx && dnf clean all -y
 
 ARG IMAGE_DIR=/usr/share/nginx/html/images
 

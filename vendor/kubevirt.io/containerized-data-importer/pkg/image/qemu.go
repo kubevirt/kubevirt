@@ -20,6 +20,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/url"
+	"os"
 
 	"github.com/golang/glog"
 	"github.com/pkg/errors"
@@ -54,8 +55,9 @@ func NewQEMUOperations() QEMUOperations {
 }
 
 func (o *qemuOperations) ConvertQcow2ToRaw(src, dest string) error {
-	_, err := qemuExecFunction(qemuLimits, "qemu-img", "convert", "-f", "qcow2", "-O", "raw", src, dest)
+	_, err := qemuExecFunction(qemuLimits, "qemu-img", "convert", "-p", "-f", "qcow2", "-O", "raw", src, dest)
 	if err != nil {
+		os.Remove(dest)
 		return errors.Wrap(err, "could not convert local qcow2 image to raw")
 	}
 
@@ -65,8 +67,9 @@ func (o *qemuOperations) ConvertQcow2ToRaw(src, dest string) error {
 func (o *qemuOperations) ConvertQcow2ToRawStream(url *url.URL, dest string) error {
 	jsonArg := fmt.Sprintf("json: {\"file.driver\": \"%s\", \"file.url\": \"%s\", \"file.timeout\": %d}", url.Scheme, url, networkTimeoutSecs)
 
-	_, err := qemuExecFunction(qemuLimits, "qemu-img", "convert", "-f", "qcow2", "-O", "raw", jsonArg, dest)
+	_, err := qemuExecFunction(qemuLimits, "qemu-img", "convert", "-p", "-f", "qcow2", "-O", "raw", jsonArg, dest)
 	if err != nil {
+		os.Remove(dest)
 		return errors.Wrap(err, "could not stream/convert qcow2 image to raw")
 	}
 

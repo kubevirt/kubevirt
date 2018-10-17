@@ -1,0 +1,46 @@
+apiVersion: kubevirt.io/v1alpha2
+kind: VirtualMachine
+metadata:
+  labels:
+    kubevirt.io/vm: example-vm
+  name: example-vm
+spec:
+  dataVolumeTemplates:
+  - metadata:
+      name: example-dv
+    spec:
+      pvc:
+        accessModes:
+        - ReadWriteOnce
+        resources:
+          requests:
+            storage: 64Mi
+      source:
+          http:
+             url: "https://download.cirros-cloud.net/0.4.0/cirros-0.4.0-x86_64-disk.img"
+  running: false
+  template:
+    metadata:
+      labels:
+        kubevirt.io/vm: example-vm
+    spec:
+      domain:
+        cpu:
+          cores: 1
+        devices:
+          disks:
+          - disk:
+              bus: virtio
+            name: disk0
+            volumeName: example-datavolume
+        machine:
+          type: q35
+        resources:
+          requests:
+            memory: 64Mi
+      terminationGracePeriodSeconds: 0
+      volumes:
+      - dataVolume:
+          name: example-dv
+        name: example-datavolume
+

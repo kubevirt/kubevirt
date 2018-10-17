@@ -45,12 +45,12 @@ test_args="${test_args} -ginkgo.v ${arg_master} ${arg_namespace} ${arg_kubeconfi
 echo 'Wait until all CDI Pods are ready'
 retry_counter=0
 while [ $retry_counter -lt $MAX_CDI_WAIT_RETRY ] && [ -n "$(./cluster/kubectl.sh get pods -n $CDI_NAMESPACE -o'custom-columns=status:status.containerStatuses[*].ready' --no-headers | grep false)" ]; do
-	retry_counter=$((retry_counter+1))
+    retry_counter=$((retry_counter + 1))
     sleep $CDI_WAIT_TIME
-	echo "Checking CDI pods again, count $retry_counter"
-	if [ $retry_counter -gt 1 ] && [ "$((retry_counter % 6))" -eq 0 ]; then
-		./cluster/kubectl.sh get pods -n $CDI_NAMESPACE
-	fi
+    echo "Checking CDI pods again, count $retry_counter"
+    if [ $retry_counter -gt 1 ] && [ "$((retry_counter % 6))" -eq 0 ]; then
+        ./cluster/kubectl.sh get pods -n $CDI_NAMESPACE
+    fi
 done
 
 if [ $retry_counter -eq $MAX_CDI_WAIT_RETRY ]; then

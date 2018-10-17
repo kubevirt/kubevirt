@@ -12,10 +12,11 @@ import (
 )
 
 const (
-	SecretPollPeriod   = defaultPollPeriod
-	SecretPollInterval = defaultPollInterval
+	secretPollPeriod   = defaultPollPeriod
+	secretPollInterval = defaultPollInterval
 )
 
+// NewSecretDefinition provides a fucntion to initialize a Secret data type with the provided options
 func NewSecretDefinition(labels, stringData map[string]string, data map[string][]byte, ns, prefix string) *v1.Secret {
 	return &v1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
@@ -28,8 +29,9 @@ func NewSecretDefinition(labels, stringData map[string]string, data map[string][
 	}
 }
 
+// CreateSecretFromDefinition creates and returns a pointer ot a v1.Secret using a provided v1.Secret
 func CreateSecretFromDefinition(c *kubernetes.Clientset, secret *v1.Secret) (*v1.Secret, error) {
-	err := wait.PollImmediate(SecretPollInterval, SecretPollPeriod, func() (done bool, err error) {
+	err := wait.PollImmediate(secretPollInterval, secretPollPeriod, func() (done bool, err error) {
 		secret, err = c.CoreV1().Secrets(secret.Namespace).Create(secret)
 		// success
 		if err == nil {

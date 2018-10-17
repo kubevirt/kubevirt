@@ -1,5 +1,5 @@
-hash: f22aa783232709720633f83f969764c433bc05472f77f828e0da5bcd2c9319a9
-updated: 2018-10-05T08:07:15.83267818Z
+hash: 5bc1765ffd3f10b5054e52016379d1e466e9f0afedd580ae82f3c1ef9475e7ad
+updated: 2018-10-17T14:44:40.553752937-04:00
 imports:
 - name: cloud.google.com/go
   version: 3b1ae45394a234c385be014e9a488f2bb6eef821
@@ -56,13 +56,13 @@ imports:
 - name: github.com/go-logfmt/logfmt
   version: 390ab7935ee28ec6b286364bba9b4dd6410cb3d5
 - name: github.com/go-openapi/jsonpointer
-  version: 52eb3d4b47c6a51ce2693c8e614a15a07c1af435
+  version: ef5f0afec364d3b9396b7b77b43dbe26bf1f8004
 - name: github.com/go-openapi/jsonreference
-  version: 1c6a3fa339f2743b7b0fd2b842fc455eca2fa9eb
+  version: 8483a886a90412cd6858df4ea3483dce9c8e35a3
 - name: github.com/go-openapi/spec
-  version: f1468acb3b29cdd5c5f6fa29435d2d2d6e6c9ff1
+  version: 5bae59e25b21498baea7f9d46e9c147ec106a42e
 - name: github.com/go-openapi/swag
-  version: dd0dad036e67ae93c27dc64337b3f76296f3a5f0
+  version: 5899d5c5e619fda5fa86e14795a835f473ca284c
 - name: github.com/go-stack/stack
   version: 2fee6af1a9795aafbe0253a0cfbdf668e1fb8a9a
 - name: github.com/gogo/protobuf
@@ -159,7 +159,7 @@ imports:
 - name: github.com/modern-go/reflect2
   version: 05fbef0ca5da472bbf96c9322b84a53edc03c9fd
 - name: github.com/onsi/ginkgo
-  version: 2445fc1ddb3b4d9738f16af50182d47878701cc3
+  version: aec9277ec956b65322f6ecee8196a5ff3a01be5f
   subpackages:
   - config
   - extensions/table
@@ -352,7 +352,7 @@ imports:
 - name: gopkg.in/inf.v0
   version: 3887ee99ecf07df5b447e9b00d9c0b2adaa9f3e4
 - name: gopkg.in/ini.v1
-  version: 7b294651033cd7d9e7f0d9ffa1b75ed1e198e737
+  version: 9c8236e659b76e87bf02044d06fde8683008ff3e
 - name: gopkg.in/tomb.v1
   version: c131134a1947e9afd9cecfe11f4c6dff0732ae58
 - name: gopkg.in/yaml.v2
@@ -571,7 +571,7 @@ imports:
   - pkg/common
   - pkg/util/proto
 - name: kubevirt.io/containerized-data-importer
-  version: 3096ecec40cb06401cce09537c4eeecd4e2d9b89
+  version: 8d7a20b86c9a2ed8ac31e26aab50e362f0c84475
   repo: https://github.com/kubevirt/containerized-data-importer.git
   subpackages:
   - pkg/apis/datavolumecontroller

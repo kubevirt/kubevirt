@@ -1,5 +1,5 @@
 hash: 5e0806ce615b5f75c7fdb18fb908c86d2736e3099252adaff74e31e74314fba2
-updated: 2018-08-30T20:09:10.641503414-04:00
+updated: 2018-09-28T13:34:58.423343014-04:00
 imports:
 - name: github.com/davecgh/go-spew
   version: 782f4967f2dc4564575ca782fe2d04090b5faca8
@@ -16,7 +16,7 @@ imports:
 - name: github.com/ghodss/yaml
   version: 73d445a93680fa1a78ae23a5839bad48f32ba1ee
 - name: github.com/go-ini/ini
-  version: 5cf292cae48347c2490ac1a58fe36735fb78df7e
+  version: fa25069db393aecc09b71267d0489b357781c860
 - name: github.com/gogo/protobuf
   version: c0656edd0d9eab7c66d1eb0c568f9039345796f7
   subpackages:
@@ -103,7 +103,7 @@ imports:
   - matchers/support/goraph/util
   - types
 - name: github.com/pkg/errors
-  version: 816c9085562cd7ee03e7f8188a1cfd942858cded
+  version: c059e472caf75dbe73903f6521a20abac245b17f
 - name: github.com/spf13/pflag
   version: 4c012f6dcd9546820e378d0bdda4d8fc772cdfea
 - name: github.com/ulikunitz/xz
@@ -166,7 +166,7 @@ imports:
 - name: gopkg.in/inf.v0
   version: 3887ee99ecf07df5b447e9b00d9c0b2adaa9f3e4
 - name: gopkg.in/square/go-jose.v2
-  version: 8254d6c783765f38c8675fae4427a1fe73fbd09d
+  version: ef984e69dd356202fd4e4910d4d9c24468bdf0b8
   subpackages:
   - cipher
   - json
@@ -422,9 +422,12 @@ imports:
   - pkg/apis/apiregistration/v1
   - pkg/apis/apiregistration/v1beta1
   - pkg/client/clientset_generated/clientset
+  - pkg/client/clientset_generated/clientset/fake
   - pkg/client/clientset_generated/clientset/scheme
   - pkg/client/clientset_generated/clientset/typed/apiregistration/v1
+  - pkg/client/clientset_generated/clientset/typed/apiregistration/v1/fake
   - pkg/client/clientset_generated/clientset/typed/apiregistration/v1beta1
+  - pkg/client/clientset_generated/clientset/typed/apiregistration/v1beta1/fake
 - name: k8s.io/kube-openapi
   version: 39cb288412c48cb533ba4be5d6c28620b9a0c1b4
   subpackages:

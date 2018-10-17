@@ -17,13 +17,13 @@ limitations under the License.
 package reporters
 
 import (
-	. "github.com/onsi/ginkgo"
-
+	"github.com/onsi/ginkgo"
 	"kubevirt.io/qe-tools/pkg/ginkgo-reporters"
 )
 
-func NewReporters() []Reporter {
-	reporters := make([]Reporter, 0)
+// NewReporters is a fucntion to gather new ginkgo test reporters
+func NewReporters() []ginkgo.Reporter {
+	reporters := make([]ginkgo.Reporter, 0)
 	if ginkgo_reporters.Polarion.Run {
 		reporters = append(reporters, &ginkgo_reporters.Polarion)
 	}

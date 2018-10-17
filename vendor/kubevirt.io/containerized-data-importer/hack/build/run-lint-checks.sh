@@ -20,6 +20,7 @@
 source hack/build/config.sh
 source hack/build/common.sh
 
+LINTABLE=(pkg cmd tests tools)
 ec=0
 out="$(gofmt -l -s ${SOURCE_DIRS} | grep ".*\.go")"
 if [[ ${out} ]]; then
@@ -27,13 +28,14 @@ if [[ ${out} ]]; then
     echo "${out}"
     ec=1
 fi
-
-echo "running golint on the pkg directory (golint pkg/...)"
-out="$(golint pkg/...)"
-if [[ ${out} ]]; then
+for p in "${LINTABLE[@]}"; do
+  echo "running golint on directory: ${p}"
+  out="$(golint ${p}/...)"
+  if [[ ${out} ]]; then
     echo "FAIL: following golint errors found:"
     echo "${out}"
     ec=1
-fi
+  fi
+done
 
 exit ${ec}

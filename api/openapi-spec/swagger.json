@@ -5225,6 +5225,9 @@
      },
      "s3": {
       "$ref": "#/definitions/v1alpha1.DataVolumeSourceS3"
+     },
+     "upload": {
+      "$ref": "#/definitions/v1alpha1.DataVolumeSourceUpload"
      }
     }
    },
@@ -5258,6 +5261,7 @@
      }
     }
    },
+   "v1alpha1.DataVolumeSourceUpload": {},
    "v1alpha1.DataVolumeSpec": {
     "required": [
      "source",

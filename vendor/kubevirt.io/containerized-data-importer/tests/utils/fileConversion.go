@@ -45,7 +45,7 @@ func FormatTestData(srcFile, tgtDir string, targetFormats ...string) (string, er
 }
 
 func toTar(src, tgtDir string) (string, error) {
-	tgtFile, tgtPath, err := createTargetFile(src, tgtDir, image.ExtTar)
+	tgtFile, tgtPath, _ := createTargetFile(src, tgtDir, image.ExtTar)
 	defer tgtFile.Close()
 
 	w := tar.NewWriter(tgtFile)
@@ -80,7 +80,7 @@ func toTar(src, tgtDir string) (string, error) {
 }
 
 func toGz(src, tgtDir string) (string, error) {
-	tgtFile, tgtPath, err := createTargetFile(src, tgtDir, image.ExtGz)
+	tgtFile, tgtPath, _ := createTargetFile(src, tgtDir, image.ExtGz)
 	defer tgtFile.Close()
 
 	w := gzip.NewWriter(tgtFile)
@@ -100,7 +100,7 @@ func toGz(src, tgtDir string) (string, error) {
 }
 
 func toXz(src, tgtDir string) (string, error) {
-	tgtFile, tgtPath, err := createTargetFile(src, tgtDir, image.ExtXz)
+	tgtFile, tgtPath, _ := createTargetFile(src, tgtDir, image.ExtXz)
 	defer tgtFile.Close()
 
 	w, err := xz.NewWriter(tgtFile)

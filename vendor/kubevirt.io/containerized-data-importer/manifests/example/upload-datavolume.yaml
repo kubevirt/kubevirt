@@ -1,0 +1,16 @@
+apiVersion: cdi.kubevirt.io/v1alpha1
+kind: DataVolume
+metadata:
+  name: upload-datavolume
+spec:
+  source:
+      upload:
+        target: {}
+  pvc:
+    #the storageClassName is optional, if missing we use the default storage class.
+    #storageClassName: "hostpath"
+    accessModes:
+      - ReadWriteOnce
+    resources:
+      requests:
+        storage: 500Mi

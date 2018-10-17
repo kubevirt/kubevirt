@@ -17,6 +17,7 @@ limitations under the License.
 package system
 
 import (
+	"bufio"
 	"bytes"
 	"os/exec"
 	"syscall"
@@ -68,18 +69,66 @@ func SetCPUTimeLimit(pid int, value uint64) error {
 	return limiter.SetCPUTimeLimit(pid, value)
 }
 
+// scanLinesWithCR is an alternate split function that works with carriage returns as well
+// as new lines.
+func scanLinesWithCR(data []byte, atEOF bool) (advance int, token []byte, err error) {
+	if atEOF && len(data) == 0 {
+		return 0, nil, nil
+	}
+	if i := bytes.IndexByte(data, '\r'); i >= 0 {
+		// We have a full carriage return-terminated line.
+		return i + 1, data[0:i], nil
+	}
+	if i := bytes.IndexByte(data, '\n'); i >= 0 {
+		// We have a full newline-terminated line.
+		return i + 1, data[0:i], nil
+	}
+	// If we're at EOF, we have a final, non-terminated line. Return it.
+	if atEOF {
+		return len(data), data, nil
+	}
+	// Request more data.
+	return 0, nil, nil
+}
+
+func processScanner(scanner *bufio.Scanner, buf *bytes.Buffer, done chan bool) {
+	for scanner.Scan() {
+		line := scanner.Text()
+		buf.WriteString(line)
+		glog.V(1).Info(line)
+	}
+	done <- true
+}
+
 // ExecWithLimits executes a command with process limits
 func ExecWithLimits(limits *ProcessLimitValues, command string, args ...string) ([]byte, error) {
 	var buf bytes.Buffer
-	cmd := execCommand(command, args...)
-	cmd.Stdout = &buf
-	cmd.Stderr = &buf
+	stdoutDone := make(chan bool)
+	stderrDone := make(chan bool)
 
-	err := cmd.Start()
+	cmd := execCommand(command, args...)
+	stdoutIn, err := cmd.StdoutPipe()
+	if err != nil {
+		return nil, errors.Wrapf(err, "Couldn't get stdout for %s", command)
+	}
+	stderrIn, err := cmd.StderrPipe()
+	if err != nil {
+		return nil, errors.Wrapf(err, "Couldn't get stderr for %s", command)
+	}
+
+	scanner := bufio.NewScanner(stdoutIn)
+	scanner.Split(scanLinesWithCR)
+	errScanner := bufio.NewScanner(stderrIn)
+	errScanner.Split(scanLinesWithCR)
+
+	err = cmd.Start()
 	if err != nil {
 		return nil, errors.Wrapf(err, "Couldn't start %s", command)
 	}
 	defer cmd.Process.Kill()
+
+	go processScanner(scanner, &buf, stdoutDone)
+	go processScanner(errScanner, &buf, stderrDone)
 
 	if limits != nil {
 		if limits.CPUTimeLimit > 0 {
@@ -98,13 +147,15 @@ func ExecWithLimits(limits *ProcessLimitValues, command string, args ...string) 
 	}
 
 	err = cmd.Wait()
+	<-stdoutDone
+	<-stderrDone
+
 	output := buf.Bytes()
 	if err != nil {
 		glog.Errorf("%s %s failed output is:\n", command, args)
 		glog.Errorf("%s\n", string(output))
 		return output, errors.Wrapf(err, "%s execution failed", command)
 	}
-
 	return output, nil
 }
 
