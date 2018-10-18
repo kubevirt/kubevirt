@@ -113,26 +113,57 @@ func Convert_v1_Disk_To_api_Disk(diskDevice *v1.Disk, disk *Disk, devicePerBus m
 	return nil
 }
 
+func checkDirectIOFlag(path string, isBlockDev bool) bool {
+	fileExists := true
+
+	// check if fs where disk.img file is located or block device
+	// support direct i/o
+	f, err := os.OpenFile(path, syscall.O_RDONLY|syscall.O_DIRECT, 0)
+	if err == nil {
+		f.Close()
+	}
+	if err != nil {
+		if fileExists = !os.IsNotExist(err); fileExists {
+			return false
+		}
+	}
+
+	if !fileExists && !isBlockDev {
+		path = path + ".directio_check"
+		f, err := os.OpenFile(path, syscall.O_CREAT|syscall.O_DIRECT, 755)
+		defer os.Remove(path)
+
+		if err == nil {
+			f.Close()
+			return true
+		}
+		if err != nil {
+			return false
+		}
+	}
+
+	return true
+}
+
 func setDriverCacheMode(disk *Disk, mode v1.DriverCache) error {
 	var path string
+	var blockDevice bool
 	supportDirectIO := true
 
 	if disk.Source.File != "" {
 		path = disk.Source.File
+		blockDevice = false
 	} else if disk.Source.Dev != "" {
 		path = disk.Source.Dev
+		blockDevice = true
 	} else {
 		return fmt.Errorf("Unable to set a driver cache mode, disk is neither a block device nor a file")
 	}
 
 	if mode == "" || mode == v1.CacheNone {
-		f, err := os.OpenFile(path, syscall.O_RDONLY|syscall.O_DIRECT, 0)
-		if err == nil {
-			f.Close()
-		}
-		if err != nil && !os.IsNotExist(err) {
+		supportDirectIO = checkDirectIOFlag(path, blockDevice)
+		if !supportDirectIO {
 			log.Log.Infof("%s file system does not support direct I/O", path)
-			supportDirectIO = false
 		}
 	}
 
