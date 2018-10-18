@@ -46,8 +46,6 @@ elif [[ $TARGET =~ .*-multus-1.11.1-.* ]]; then
   export KUBEVIRT_PROVIDER="k8s-multus-1.11.1"
 elif [[ $TARGET =~ .*-genie-1.11.1-.* ]]; then
   export KUBEVIRT_PROVIDER="k8s-genie-1.11.1"
-  # Run only Genie and Networking tests
-  ginko_params="$ginko_params --ginkgo.focus=Networking|VMIlifecycle"
 else
   export KUBEVIRT_PROVIDER="k8s-1.11.0"
 fi
@@ -234,6 +232,11 @@ spec:
 EOF
   # Run only Windows tests
   ginko_params="$ginko_params --ginkgo.focus=Windows"
+
+elif [[ $TARGET =~ multus.* ]] || [[ $TARGET =~ genie.* ]]; then
+  # Run networking tests only (general networking, multus, genie, ...)
+  # If multus or genie is not present the test will  be skipped base on per-test checks
+  ginko_params="$ginko_params --ginkgo.focus=Networking|VMIlifecycle|Expose|Networkpolicy"
 fi
 
 # Prepare RHEL PV for Template testing
