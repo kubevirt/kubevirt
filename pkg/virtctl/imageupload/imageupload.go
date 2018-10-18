@@ -1,14 +1,33 @@
+/*
+ * This file is part of the KubeVirt project
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ * Copyright 2018 Red Hat, Inc.
+ *
+ */
+
 package imageupload
 
 import (
 	"crypto/tls"
 	"fmt"
-	"io"
 	"net/http"
 	"os"
 	"time"
 
 	"github.com/spf13/cobra"
+	"gopkg.in/cheggaaa/pb.v1"
 	"k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -24,11 +43,12 @@ import (
 )
 
 const (
-	uploadRequestAnnotation = "cdi.kubevirt.io/storage.upload.target"
-	podPhaseAnnotation      = "cdi.kubevirt.io/storage.pod.phase"
+	// PodPhaseAnnotation is the annotation on a PVC containing the upload pod phase
+	PodPhaseAnnotation = "cdi.kubevirt.io/storage.pod.phase"
 
-	uploadPodWaitInterval = 1 * time.Second
-	uploadPodWaitTimeout  = 30 * time.Second
+	uploadRequestAnnotation = "cdi.kubevirt.io/storage.upload.target"
+
+	uploadPodWaitInterval = 2 * time.Second
 
 	uploadProxyURI = "/v1alpha1/upload"
 )
@@ -41,8 +61,9 @@ var (
 	storageClass   string
 	imagePath      string
 
-	accessMode = "ReadWriteOnce"
-	noCreate   = false
+	uploadPodWaitSecs uint = 60
+	accessMode             = "ReadWriteOnce"
+	noCreate               = false
 )
 
 // HTTPClientCreator is a function that creates http clients
@@ -88,6 +109,7 @@ func NewImageUploadCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
 	cmd.Flags().StringVar(&imagePath, "image-path", "", "Path to the local VM image.")
 	cmd.MarkFlagRequired("image-path")
 	cmd.Flags().BoolVar(&noCreate, "no-create", noCreate, "Don't attempt to create a new PVC.")
+	cmd.Flags().UintVar(&uploadPodWaitSecs, "wait-secs", uploadPodWaitSecs, "Seconds to wait for upload pod to start.")
 	cmd.SetUsageTemplate(templates.UsageTemplate())
 	return cmd
 }
@@ -134,7 +156,7 @@ func (c *command) run(cmd *cobra.Command, args []string) error {
 		fmt.Printf("Using existing PVC %s/%s\n", namespace, pvc.Name)
 	}
 
-	err = waitUploadPodRunning(virtClient, namespace, pvcName, uploadPodWaitInterval, uploadPodWaitTimeout)
+	err = waitUploadPodRunning(virtClient, namespace, pvcName, uploadPodWaitInterval, time.Duration(uploadPodWaitSecs)*time.Second)
 	if err != nil {
 		return err
 	}
@@ -168,15 +190,31 @@ func getHTTPClient(insecure bool) *http.Client {
 	return client
 }
 
-func uploadData(uploadProxyURL, token string, reader io.Reader, insecure bool) error {
+func uploadData(uploadProxyURL, token string, file *os.File, insecure bool) error {
 	url := uploadProxyURL + uploadProxyURI
-	req, _ := http.NewRequest("POST", url, reader)
+
+	fi, err := file.Stat()
+	if err != nil {
+		return err
+	}
+
+	bar := pb.New64(fi.Size()).SetUnits(pb.U_BYTES)
+	reader := bar.NewProxyReader(file)
+
 	client := httpClientCreatorFunc(insecure)
+	req, _ := http.NewRequest("POST", url, reader)
 
 	req.Header.Add("Authorization", "Bearer "+token)
 	req.Header.Add("Content-Type", "application/octet-stream")
 
+	fmt.Println()
+	bar.Start()
+
 	resp, err := client.Do(req)
+
+	bar.Finish()
+	fmt.Println()
+
 	if err != nil {
 		return err
 	}
@@ -207,16 +245,26 @@ func getUploadToken(client cdiClientset.Interface, namespace, name string) (stri
 }
 
 func waitUploadPodRunning(client kubernetes.Interface, namespace, name string, interval, timeout time.Duration) error {
+	serviceName := "cdi-upload-" + name
 	loggedStatus := false
+
 	err := wait.PollImmediate(interval, timeout, func() (bool, error) {
 		pvc, err := client.CoreV1().PersistentVolumeClaims(namespace).Get(name, metav1.GetOptions{})
 		if err != nil {
 			return false, err
 		}
 
-		value, _ := pvc.Annotations[podPhaseAnnotation]
+		endpoints, err := client.CoreV1().Endpoints(namespace).Get(serviceName, metav1.GetOptions{})
+		if err != nil {
+			if k8serrors.IsNotFound(err) {
+				return false, nil
+			}
+			return false, err
+		}
 
-		done := (value == string(v1.PodRunning))
+		podPhase, _ := pvc.Annotations[PodPhaseAnnotation]
+
+		done := (podPhase == string(v1.PodRunning)) && (len(endpoints.Subsets) > 0)
 
 		if !done && !loggedStatus {
 			fmt.Printf("Waiting for PVC %s upload pod to be running...\n", name)
@@ -224,11 +272,14 @@ func waitUploadPodRunning(client kubernetes.Interface, namespace, name string, i
 		}
 
 		if done && loggedStatus {
+			// be really sure
+			time.Sleep(interval)
 			fmt.Printf("Pod now running\n")
 		}
 
 		return done, nil
 	})
+
 	return err
 }
 
@@ -281,7 +332,7 @@ func getUploadPVC(client kubernetes.Interface, namespace, name string, shouldExi
 	}
 
 	_, isUploadPVC := pvc.Annotations[uploadRequestAnnotation]
-	podPhase, _ := pvc.Annotations[podPhaseAnnotation]
+	podPhase, _ := pvc.Annotations[PodPhaseAnnotation]
 
 	if podPhase == string(v1.PodSucceeded) {
 		return nil, fmt.Errorf("PVC %s already successfully imported/cloned/updated", name)

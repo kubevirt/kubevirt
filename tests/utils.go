@@ -1945,6 +1945,32 @@ func RunCommand(cmdName string, args ...string) (string, string, error) {
 }
 
 func RunCommandWithNS(namespace string, cmdName string, args ...string) (string, string, error) {
+	commandString, cmd, err := CreateCommandWithNS(namespace, cmdName, args...)
+	if err != nil {
+		return "", "", err
+	}
+
+	var output, stderr bytes.Buffer
+	captureOutputBuffers := func() (string, string) {
+		trimNullChars := func(buf bytes.Buffer) string {
+			return string(bytes.Trim(buf.Bytes(), "\x00"))
+		}
+		return trimNullChars(output), trimNullChars(stderr)
+	}
+
+	cmd.Stdout, cmd.Stderr = &output, &stderr
+
+	if err := cmd.Run(); err != nil {
+		outputString, stderrString := captureOutputBuffers()
+		log.Log.Reason(err).With("command", commandString, "output", outputString, "stderr", stderrString).Error("command failed: cannot run command")
+		return outputString, stderrString, fmt.Errorf("command failed: cannot run command %q: %v", commandString, err)
+	}
+
+	outputString, stderrString := captureOutputBuffers()
+	return outputString, stderrString, nil
+}
+
+func CreateCommandWithNS(namespace string, cmdName string, args ...string) (string, *exec.Cmd, error) {
 	cmdPath := ""
 	commandString := func() string {
 		c := cmdPath
@@ -1967,14 +1993,14 @@ func RunCommandWithNS(namespace string, cmdName string, args ...string) (string,
 	if cmdPath == "" {
 		err := fmt.Errorf("no %s binary specified", cmdName)
 		log.Log.Reason(err).With("command", commandString()).Error("command failed")
-		return "", "", fmt.Errorf("command failed: %v", err)
+		return "", nil, fmt.Errorf("command failed: %v", err)
 	}
 
 	kubeconfig := flag.Lookup("kubeconfig").Value
 	if kubeconfig == nil || kubeconfig.String() == "" {
 		err := goerrors.New("cannot find kubeconfig")
 		log.Log.Reason(err).With("command", commandString()).Error("command failed")
-		return "", "", fmt.Errorf("command failed: %v", err)
+		return "", nil, fmt.Errorf("command failed: %v", err)
 	}
 
 	master := flag.Lookup("master").Value
@@ -1989,24 +2015,7 @@ func RunCommandWithNS(namespace string, cmdName string, args ...string) (string,
 	kubeconfEnv := fmt.Sprintf("KUBECONFIG=%s", kubeconfig.String())
 	cmd.Env = append(os.Environ(), kubeconfEnv)
 
-	var output, stderr bytes.Buffer
-	captureOutputBuffers := func() (string, string) {
-		trimNullChars := func(buf bytes.Buffer) string {
-			return string(bytes.Trim(buf.Bytes(), "\x00"))
-		}
-		return trimNullChars(output), trimNullChars(stderr)
-	}
-
-	cmd.Stdout, cmd.Stderr = &output, &stderr
-
-	if err := cmd.Run(); err != nil {
-		outputString, stderrString := captureOutputBuffers()
-		log.Log.Reason(err).With("command", commandString(), "output", outputString, "stderr", stderrString).Error("command failed: cannot run command")
-		return outputString, stderrString, fmt.Errorf("command failed: cannot run command %q: %v", commandString(), err)
-	}
-
-	outputString, stderrString := captureOutputBuffers()
-	return outputString, stderrString, nil
+	return commandString(), cmd, nil
 }
 
 func RunCommandPipe(commands ...[]string) (string, string, error) {
