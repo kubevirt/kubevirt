@@ -119,9 +119,7 @@ func checkDirectIOFlag(path string, isBlockDev bool) bool {
 	// check if fs where disk.img file is located or block device
 	// support direct i/o
 	f, err := os.OpenFile(path, syscall.O_RDONLY|syscall.O_DIRECT, 0)
-	if err == nil {
-		f.Close()
-	}
+	defer f.Close()
 	if err != nil {
 		if fileExists = !os.IsNotExist(err); fileExists {
 			return false
@@ -131,17 +129,12 @@ func checkDirectIOFlag(path string, isBlockDev bool) bool {
 	if !fileExists && !isBlockDev {
 		path = path + ".directio_check"
 		f, err := os.OpenFile(path, syscall.O_CREAT|syscall.O_DIRECT, 755)
+		defer f.Close()
 		defer os.Remove(path)
-
-		if err == nil {
-			f.Close()
-			return true
-		}
 		if err != nil {
 			return false
 		}
 	}
-
 	return true
 }
 
