@@ -117,11 +117,11 @@ func Execute() {
 	var err error
 	var app VirtControllerApp = VirtControllerApp{}
 
-	featuregates.ParseFeatureGatesFromConfigMap()
-
 	app.LeaderElection = leaderelectionconfig.DefaultLeaderElectionConfiguration()
 
 	service.Setup(&app)
+
+	featuregates.ParseFeatureGatesFromConfigMap()
 
 	app.readyChan = make(chan bool, 1)
 
@@ -199,7 +199,7 @@ func (vca *VirtControllerApp) Run() {
 	defer close(stop)
 	go func() {
 		httpLogger := logger.With("service", "http")
-		httpLogger.Level(glog.INFO).Log("action", "listening", "interface", vca.BindAddress, "port", vca.Port)
+		httpLogger.Level(log.INFO).Log("action", "listening", "interface", vca.BindAddress, "port", vca.Port)
 		http.Handle("/metrics", promhttp.Handler())
 		if err := http.ListenAndServeTLS(vca.Address(), certStore.CurrentPath(), certStore.CurrentPath(), nil); err != nil {
 			golog.Fatal(err)

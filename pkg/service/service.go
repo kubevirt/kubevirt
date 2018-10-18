@@ -47,7 +47,9 @@ func (service *ServiceListen) Address() string {
 }
 
 func (service *ServiceListen) InitFlags() {
-	flag.CommandLine.AddGoFlagSet(goflag.CommandLine)
+	flag.CommandLine.AddGoFlag(goflag.CommandLine.Lookup("v"))
+	flag.CommandLine.AddGoFlag(goflag.CommandLine.Lookup("kubeconfig"))
+	flag.CommandLine.AddGoFlag(goflag.CommandLine.Lookup("master"))
 }
 
 func (service *ServiceListen) AddCommonFlags() {

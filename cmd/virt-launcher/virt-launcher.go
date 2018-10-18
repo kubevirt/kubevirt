@@ -20,7 +20,7 @@
 package main
 
 import (
-	"flag"
+	goflag "flag"
 	"fmt"
 	"os"
 	"os/exec"
@@ -297,23 +297,23 @@ func waitForFinalNotify(deleteNotificationSent chan watch.Event,
 }
 
 func main() {
-	qemuTimeout := flag.Duration("qemu-timeout", defaultStartTimeout, "Amount of time to wait for qemu")
-	virtShareDir := flag.String("kubevirt-share-dir", "/var/run/kubevirt", "Shared directory between virt-handler and virt-launcher")
-	ephemeralDiskDir := flag.String("ephemeral-disk-dir", "/var/run/kubevirt-ephemeral-disks", "Base directory for ephemeral disk data")
-	name := flag.String("name", "", "Name of the VirtualMachineInstance")
-	uid := flag.String("uid", "", "UID of the VirtualMachineInstance")
-	namespace := flag.String("namespace", "", "Namespace of the VirtualMachineInstance")
-	watchdogInterval := flag.Duration("watchdog-update-interval", defaultWatchdogInterval, "Interval at which watchdog file should be updated")
-	readinessFile := flag.String("readiness-file", "/tmp/health", "Pod looks for this file to determine when virt-launcher is initialized")
-	gracePeriodSeconds := flag.Int("grace-period-seconds", 30, "Grace period to observe before sending SIGTERM to vm process")
-	useEmulation := flag.Bool("use-emulation", false, "Use software emulation")
-	hookSidecars := flag.Uint("hook-sidecars", 0, "Number of requested hook sidecars, virt-launcher will wait for all of them to become available")
-	noFork := flag.Bool("no-fork", false, "Fork and let virt-launcher watch itself to react to crashes if set to false")
+	qemuTimeout := pflag.Duration("qemu-timeout", defaultStartTimeout, "Amount of time to wait for qemu")
+	virtShareDir := pflag.String("kubevirt-share-dir", "/var/run/kubevirt", "Shared directory between virt-handler and virt-launcher")
+	ephemeralDiskDir := pflag.String("ephemeral-disk-dir", "/var/run/kubevirt-ephemeral-disks", "Base directory for ephemeral disk data")
+	name := pflag.String("name", "", "Name of the VirtualMachineInstance")
+	uid := pflag.String("uid", "", "UID of the VirtualMachineInstance")
+	namespace := pflag.String("namespace", "", "Namespace of the VirtualMachineInstance")
+	watchdogInterval := pflag.Duration("watchdog-update-interval", defaultWatchdogInterval, "Interval at which watchdog file should be updated")
+	readinessFile := pflag.String("readiness-file", "/tmp/health", "Pod looks for this file to determine when virt-launcher is initialized")
+	gracePeriodSeconds := pflag.Int("grace-period-seconds", 30, "Grace period to observe before sending SIGTERM to vm process")
+	useEmulation := pflag.Bool("use-emulation", false, "Use software emulation")
+	hookSidecars := pflag.Uint("hook-sidecars", 0, "Number of requested hook sidecars, virt-launcher will wait for all of them to become available")
+	noFork := pflag.Bool("no-fork", false, "Fork and let virt-launcher watch itself to react to crashes if set to false")
 
 	// set new default verbosity, was set to 0 by glog
-	flag.Set("v", "2")
+	goflag.Set("v", "2")
 
-	pflag.CommandLine.AddGoFlagSet(flag.CommandLine)
+	pflag.CommandLine.AddGoFlag(goflag.CommandLine.Lookup("v"))
 	pflag.Parse()
 
 	log.InitializeLogging("virt-launcher")
