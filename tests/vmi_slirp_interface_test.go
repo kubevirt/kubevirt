@@ -36,7 +36,7 @@ import (
 	"kubevirt.io/kubevirt/tests"
 )
 
-var _ = Describe("Slirp", func() {
+var _ = Describe("Slirp Networking", func() {
 
 	flag.Parse()
 
