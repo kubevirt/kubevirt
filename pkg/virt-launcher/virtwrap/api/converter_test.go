@@ -169,7 +169,6 @@ var _ = Describe("Converter", func() {
 						},
 					},
 					DedicatedIOThread: &_true,
-					Cache:             "none",
 				},
 				{
 					Name:       "cdrom_tray_unspecified",
@@ -180,7 +179,6 @@ var _ = Describe("Converter", func() {
 						},
 					},
 					DedicatedIOThread: &_false,
-					Cache:             "writethrough",
 				},
 				{
 					Name:       "cdrom_tray_open",
@@ -391,13 +389,13 @@ var _ = Describe("Converter", func() {
     <disk device="disk" type="file">
       <source file="/var/run/kubevirt-private/vmi-disks/myvolume/disk.img"></source>
       <target bus="virtio" dev="vda"></target>
-      <driver cache="none" name="qemu" type="raw" iothread="2"></driver>
+      <driver cache="writethrough" name="qemu" type="raw" iothread="2"></driver>
       <alias name="ua-mydisk"></alias>
     </disk>
     <disk device="disk" type="file">
       <source file="/var/run/libvirt/cloud-init-dir/mynamespace/testvmi/noCloud.iso"></source>
       <target bus="virtio" dev="vdb"></target>
-      <driver cache="none" name="qemu" type="raw" iothread="3"></driver>
+      <driver cache="writethrough" name="qemu" type="raw" iothread="3"></driver>
       <alias name="ua-mydisk1"></alias>
     </disk>
     <disk device="cdrom" type="file">
@@ -409,33 +407,33 @@ var _ = Describe("Converter", func() {
     <disk device="cdrom" type="file">
       <source file="/var/run/kubevirt-private/vmi-disks/volume1/disk.img"></source>
       <target bus="sata" dev="sdb" tray="open"></target>
-      <driver cache="none" name="qemu" type="raw" iothread="1"></driver>
+      <driver cache="writethrough" name="qemu" type="raw" iothread="1"></driver>
       <readonly></readonly>
       <alias name="ua-cdrom_tray_open"></alias>
     </disk>
     <disk device="floppy" type="file">
       <source file="/var/run/kubevirt-private/vmi-disks/volume2/disk.img"></source>
       <target bus="fdc" dev="fda" tray="closed"></target>
-      <driver cache="none" name="qemu" type="raw" iothread="1"></driver>
+      <driver cache="writethrough" name="qemu" type="raw" iothread="1"></driver>
       <alias name="ua-floppy_tray_unspecified"></alias>
     </disk>
     <disk device="floppy" type="file">
       <source file="/var/run/kubevirt-private/vmi-disks/volume3/disk.img"></source>
       <target bus="fdc" dev="fdb" tray="open"></target>
-      <driver cache="none" name="qemu" type="raw" iothread="1"></driver>
+      <driver cache="writethrough" name="qemu" type="raw" iothread="1"></driver>
       <readonly></readonly>
       <alias name="ua-floppy_tray_open"></alias>
     </disk>
     <disk device="disk" type="file">
       <source file="/var/run/kubevirt-private/vmi-disks/volume4/disk.img"></source>
       <target bus="sata" dev="sdc"></target>
-      <driver cache="none" name="qemu" type="raw" iothread="1"></driver>
+      <driver cache="writethrough" name="qemu" type="raw" iothread="1"></driver>
       <alias name="ua-should_default_to_disk"></alias>
     </disk>
     <disk device="disk" type="file">
       <source file="/var/run/libvirt/kubevirt-ephemeral-disk/volume5/disk.qcow2"></source>
       <target bus="sata" dev="sdd"></target>
-      <driver cache="none" name="qemu" type="qcow2" iothread="1"></driver>
+      <driver cache="writethrough" name="qemu" type="qcow2" iothread="1"></driver>
       <alias name="ua-ephemeral_pvc"></alias>
       <backingStore type="file">
         <format type="raw"></format>
@@ -446,14 +444,14 @@ var _ = Describe("Converter", func() {
       <source file="/var/run/kubevirt-private/secret-disks/volume6.iso"></source>
       <target bus="sata" dev="sde"></target>
       <serial>D23YZ9W6WA5DJ487</serial>
-      <driver cache="none" name="qemu" type="raw" iothread="1"></driver>
+      <driver cache="writethrough" name="qemu" type="raw" iothread="1"></driver>
       <alias name="ua-secret_test"></alias>
     </disk>
     <disk device="disk" type="file">
       <source file="/var/run/kubevirt-private/config-map-disks/volume7.iso"></source>
       <target bus="sata" dev="sdf"></target>
       <serial>CVLY623300HK240D</serial>
-      <driver cache="none" name="qemu" type="raw" iothread="1"></driver>
+      <driver cache="writethrough" name="qemu" type="raw" iothread="1"></driver>
       <alias name="ua-configmap_test"></alias>
     </disk>
     <disk device="disk" type="block">
@@ -465,7 +463,7 @@ var _ = Describe("Converter", func() {
     <disk device="disk" type="file">
       <source file="/var/run/kubevirt-private/service-account-disk/service-account.iso"></source>
       <target bus="sata" dev="sdh"></target>
-      <driver name="qemu" type="raw" iothread="1"></driver>
+      <driver cache="writethrough" name="qemu" type="raw" iothread="1"></driver>
       <alias name="ua-serviceaccount_test"></alias>
     </disk>
     <serial type="unix">
