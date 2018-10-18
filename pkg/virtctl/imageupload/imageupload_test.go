@@ -117,11 +117,25 @@ var _ = Describe("ImageUpload", func() {
 		Expect(ok).To(BeTrue())
 	}
 
+	createEndpoints := func() *v1.Endpoints {
+		return &v1.Endpoints{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "cdi-upload-" + pvcName,
+				Namespace: pvcNamespace,
+			},
+			Subsets: []v1.EndpointSubset{
+				{},
+			},
+		}
+	}
+
 	testInit := func(statusCode int, kubeobjects ...runtime.Object) {
 		createCalled = false
 		updateCalled = false
 
-		kubeClient = fakek8sclient.NewSimpleClientset(kubeobjects...)
+		objs := append([]runtime.Object{createEndpoints()}, kubeobjects...)
+
+		kubeClient = fakek8sclient.NewSimpleClientset(objs...)
 		cdiClient = fakecdiclient.NewSimpleClientset()
 
 		kubecli.MockKubevirtClientInstance.EXPECT().CoreV1().Return(kubeClient.CoreV1()).AnyTimes()
