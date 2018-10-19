@@ -128,7 +128,24 @@ var _ = Describe("Validating Webhook", func() {
 			resp := admitVMICreate(ar)
 			Expect(resp.Allowed).To(Equal(true))
 		})
-		table.DescribeTable("should reject documents containing unknown fields for", func(data string, gvr metav1.GroupVersionResource, review func(ar *v1beta1.AdmissionReview) *v1beta1.AdmissionResponse) {
+
+		It("should allow unknown fields in the status to allow updates", func() {
+			ar := &v1beta1.AdmissionReview{
+				Request: &v1beta1.AdmissionRequest{
+					Resource: webhooks.VirtualMachineInstanceGroupVersionResource,
+					Object: runtime.RawExtension{
+						Raw: []byte(`{"very": "unknown", "spec": { "extremely": "unknown" }, "status": {"unknown": "allowed"}}`),
+					},
+				},
+			}
+			resp := admitVMICreate(ar)
+			Expect(resp.Allowed).To(BeFalse())
+			Expect(resp.Result.Message).To(Equal(`.very in body is a forbidden property, spec.extremely in body is a forbidden property, spec.domain in body is required`))
+		})
+
+		table.DescribeTable("should reject documents containing unknown or missing fields for", func(data string, validationResult string, gvr metav1.GroupVersionResource, review func(ar *v1beta1.AdmissionReview) *v1beta1.AdmissionResponse) {
+			input := map[string]interface{}{}
+			json.Unmarshal([]byte(data), &input)
 
 			ar := &v1beta1.AdmissionReview{
 				Request: &v1beta1.AdmissionRequest{
@@ -140,15 +157,50 @@ var _ = Describe("Validating Webhook", func() {
 			}
 			resp := review(ar)
 			Expect(resp.Allowed).To(BeFalse())
-			Expect(resp.Result.Message).To(Equal(`json: unknown field "unknown"`))
+			Expect(resp.Result.Message).To(Equal(validationResult))
 		},
-			table.Entry("VirtualMachineInstance creation", `{"unknown": "field"}`, webhooks.VirtualMachineInstanceGroupVersionResource, admitVMICreate),
-			table.Entry("VirtualMachineInstance update", `{"unknown": "field"}`, webhooks.VirtualMachineInstanceGroupVersionResource, admitVMIUpdate),
-			table.Entry("VirtualMachineInstancePreset creation and update", `{"unknown": "field"}`, webhooks.VirtualMachineInstancePresetGroupVersionResource, admitVMIPreset),
-			table.Entry("Migration creation ", `{"unknown": "field"}`, webhooks.MigrationGroupVersionResource, admitMigrationCreate),
-			table.Entry("Migration update", `{"unknown": "field"}`, webhooks.MigrationGroupVersionResource, admitMigrationCreate),
-			table.Entry("VirtualMachine creation and update", `{"unknown": "field"}`, webhooks.VirtualMachineGroupVersionResource, admitVMs),
-			table.Entry("VirtualMachineInstanceReplicaSet creation and update", `{"unknown": "field"}`, webhooks.VirtualMachineInstanceReplicaSetGroupVersionResource, admitVMIRS),
+			table.Entry("VirtualMachineInstance creation",
+				`{"very": "unknown", "spec": { "extremely": "unknown" }}`,
+				`.very in body is a forbidden property, spec.extremely in body is a forbidden property, spec.domain in body is required`,
+				webhooks.VirtualMachineInstanceGroupVersionResource,
+				admitVMICreate,
+			),
+			table.Entry("VirtualMachineInstance update",
+				`{"very": "unknown", "spec": { "extremely": "unknown" }}`,
+				`.very in body is a forbidden property, spec.extremely in body is a forbidden property, spec.domain in body is required`,
+				webhooks.VirtualMachineInstanceGroupVersionResource,
+				admitVMIUpdate,
+			),
+			table.Entry("VirtualMachineInstancePreset creation and update",
+				`{"very": "unknown", "spec": { "extremely": "unknown" }}`,
+				`.very in body is a forbidden property, spec.extremely in body is a forbidden property, spec.selector in body is required`,
+				webhooks.VirtualMachineInstancePresetGroupVersionResource,
+				admitVMIPreset,
+			),
+			table.Entry("Migration creation ",
+				`{"very": "unknown", "spec": { "extremely": "unknown" }}`,
+				`.very in body is a forbidden property, spec.extremely in body is a forbidden property`,
+				webhooks.MigrationGroupVersionResource,
+				admitMigrationCreate,
+			),
+			table.Entry("Migration update",
+				`{"very": "unknown", "spec": { "extremely": "unknown" }}`,
+				`.very in body is a forbidden property, spec.extremely in body is a forbidden property`,
+				webhooks.MigrationGroupVersionResource,
+				admitMigrationCreate,
+			),
+			table.Entry("VirtualMachine creation and update",
+				`{"very": "unknown", "spec": { "extremely": "unknown" }}`,
+				`.very in body is a forbidden property, spec.extremely in body is a forbidden property, spec.running in body is required, spec.template in body is required`,
+				webhooks.VirtualMachineGroupVersionResource,
+				admitVMs,
+			),
+			table.Entry("VirtualMachineInstanceReplicaSet creation and update",
+				`{"very": "unknown", "spec": { "extremely": "unknown" }}`,
+				`.very in body is a forbidden property, spec.extremely in body is a forbidden property, spec.selector in body is required, spec.template in body is required`,
+				webhooks.VirtualMachineInstanceReplicaSetGroupVersionResource,
+				admitVMIRS,
+			),
 		)
 		It("should reject valid VirtualMachineInstance spec on update", func() {
 			vmi := v1.NewMinimalVMI("testvmi")

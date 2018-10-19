@@ -20,7 +20,6 @@
 package webhooks
 
 import (
-	"bytes"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
@@ -28,8 +27,9 @@ import (
 	"sync"
 
 	"github.com/golang/glog"
-	v1beta1 "k8s.io/api/admission/v1beta1"
+	"k8s.io/api/admission/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/tools/cache"
 
 	"kubevirt.io/kubevirt/pkg/api/v1"
@@ -37,10 +37,14 @@ import (
 	"kubevirt.io/kubevirt/pkg/kubecli"
 	"kubevirt.io/kubevirt/pkg/log"
 	"kubevirt.io/kubevirt/pkg/util"
+	"kubevirt.io/kubevirt/pkg/util/openapi"
+	"kubevirt.io/kubevirt/pkg/virt-api/rest"
 )
 
 var webhookInformers *Informers
 var once sync.Once
+
+var Validator = openapi.CreateOpenAPIValidator(rest.ComposeAPIDefinitions())
 
 var VirtualMachineInstanceGroupVersionResource = metav1.GroupVersionResource{
 	Group:    v1.VirtualMachineInstanceGroupVersionKind.Group,
@@ -142,10 +146,51 @@ func ToAdmissionResponseError(err error) *v1beta1.AdmissionResponse {
 	}
 }
 
-// Unmarshal unmarshals JSON bytes into the provides interface and rejects the
-// provided JSON if it contains unknown fields.
-func Unmarshal(data []byte, v interface{}) error {
-	decoder := json.NewDecoder(bytes.NewBuffer(data))
-	decoder.DisallowUnknownFields()
-	return decoder.Decode(v)
+func ToAdmissionResponse(causes []metav1.StatusCause) *v1beta1.AdmissionResponse {
+	log.Log.Infof("rejected vmi admission")
+
+	globalMessage := ""
+	for _, cause := range causes {
+		if globalMessage == "" {
+			globalMessage = cause.Message
+		} else {
+			globalMessage = fmt.Sprintf("%s, %s", globalMessage, cause.Message)
+		}
+	}
+
+	return &v1beta1.AdmissionResponse{
+		Result: &metav1.Status{
+			Message: globalMessage,
+			Reason:  metav1.StatusReasonInvalid,
+			Code:    http.StatusUnprocessableEntity,
+			Details: &metav1.StatusDetails{
+				Causes: causes,
+			},
+		},
+	}
+}
+
+func ValidationErrorsToAdmissionResponse(errs []error) *v1beta1.AdmissionResponse {
+	var causes []metav1.StatusCause
+	for _, e := range errs {
+		causes = append(causes,
+			metav1.StatusCause{
+				Message: e.Error(),
+			},
+		)
+	}
+	return ToAdmissionResponse(causes)
+}
+
+func ValidateSchema(gvk schema.GroupVersionKind, data []byte) *v1beta1.AdmissionResponse {
+	in := map[string]interface{}{}
+	err := json.Unmarshal(data, &in)
+	if err != nil {
+		return ToAdmissionResponseError(err)
+	}
+	errs := Validator.Validate(gvk, in)
+	if len(errs) > 0 {
+		return ValidationErrorsToAdmissionResponse(errs)
+	}
+	return nil
 }
