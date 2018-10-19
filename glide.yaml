@@ -45,6 +45,19 @@ import:
 - package: github.com/emicklei/go-restful-openapi
   version: 7712e8a6e8096e7103b96a400519d38fb1e348f8
 - package: github.com/go-openapi/spec
+  version: v0.17.0
+- package: github.com/go-openapi/validate
+  version: v0.17.0
+- package: github.com/go-openapi/errors
+  version: v0.17.0
+- package: github.com/go-openapi/analysis
+  version: v0.17.0
+- package: github.com/go-openapi/strfmt
+  version: v0.17.0
+- package: github.com/go-openapi/loads
+  version: v0.17.0
+- package: github.com/go-openapi/runtime
+  version: v0.17.0
 - package: github.com/emicklei/go-restful-swagger12
 - package: github.com/vishvananda/netlink
   version: d35d6b58e1cb692b27b94fc403170bf44058ac3e
