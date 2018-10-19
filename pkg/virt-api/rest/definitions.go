@@ -20,45 +20,73 @@
 package rest
 
 import (
-	"encoding/json"
 	"fmt"
 	"net/http"
 	"reflect"
 	"strings"
-	"time"
 
-	"github.com/asaskevich/govalidator"
 	"github.com/emicklei/go-restful"
-	jsonpatch "github.com/evanphx/json-patch"
-	"github.com/go-kit/kit/endpoint"
-	"golang.org/x/net/context"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/client-go/rest"
 
-	"kubevirt.io/kubevirt/pkg/kubecli"
-	"kubevirt.io/kubevirt/pkg/middleware"
+	"kubevirt.io/kubevirt/pkg/api/v1"
 	mime "kubevirt.io/kubevirt/pkg/rest"
-	"kubevirt.io/kubevirt/pkg/rest/endpoints"
 )
 
-type ResponseHandlerFunc func(rest.Result) (interface{}, error)
+func ComposeAPIDefinitions() []*restful.WebService {
 
-func GroupVersionProxyBase(ctx context.Context, gv schema.GroupVersion) (*restful.WebService, error) {
+	vmiGVR := schema.GroupVersionResource{Group: v1.GroupVersion.Group, Version: v1.GroupVersion.Version, Resource: "virtualmachineinstances"}
+	vmirsGVR := schema.GroupVersionResource{Group: v1.GroupVersion.Group, Version: v1.GroupVersion.Version, Resource: "virtualmachineinstancereplicasets"}
+	vmipGVR := schema.GroupVersionResource{Group: v1.GroupVersion.Group, Version: v1.GroupVersion.Version, Resource: "virtualmachineinstancepresets"}
+	vmGVR := schema.GroupVersionResource{Group: v1.GroupVersion.Group, Version: v1.GroupVersion.Version, Resource: "virtualmachines"}
+	migrationGVR := schema.GroupVersionResource{Group: v1.GroupVersion.Group, Version: v1.GroupVersion.Version, Resource: "virtualmachineinstancemigrations"}
+
+	ws, err := GroupVersionProxyBase(v1.GroupVersion)
+	if err != nil {
+		panic(err)
+	}
+
+	ws, err = GenericResourceProxy(ws, vmiGVR, &v1.VirtualMachineInstance{}, v1.VirtualMachineInstanceGroupVersionKind.Kind, &v1.VirtualMachineInstanceList{})
+	if err != nil {
+		panic(err)
+	}
+
+	ws, err = GenericResourceProxy(ws, vmirsGVR, &v1.VirtualMachineInstanceReplicaSet{}, v1.VirtualMachineInstanceReplicaSetGroupVersionKind.Kind, &v1.VirtualMachineInstanceReplicaSetList{})
+	if err != nil {
+		panic(err)
+	}
+
+	ws, err = GenericResourceProxy(ws, vmipGVR, &v1.VirtualMachineInstancePreset{}, v1.VirtualMachineInstancePresetGroupVersionKind.Kind, &v1.VirtualMachineInstancePresetList{})
+	if err != nil {
+		panic(err)
+	}
+
+	ws, err = GenericResourceProxy(ws, vmGVR, &v1.VirtualMachine{}, v1.VirtualMachineGroupVersionKind.Kind, &v1.VirtualMachineList{})
+	if err != nil {
+		panic(err)
+	}
+
+	ws, err = GenericResourceProxy(ws, migrationGVR, &v1.VirtualMachineInstanceMigration{}, v1.VirtualMachineInstanceMigrationGroupVersionKind.Kind, &v1.VirtualMachineInstanceMigrationList{})
+	if err != nil {
+		panic(err)
+	}
+
+	ws1, err := ResourceProxyAutodiscovery(vmiGVR)
+	if err != nil {
+		panic(err)
+	}
+	return []*restful.WebService{ws, ws1}
+}
+
+func GroupVersionProxyBase(gv schema.GroupVersion) (*restful.WebService, error) {
 	ws := new(restful.WebService)
 	ws.Doc("The KubeVirt API, a virtual machine management.")
 	ws.Path(GroupVersionBasePath(gv))
 
-	virtClient, err := kubecli.GetKubevirtClient()
-	if err != nil {
-		return nil, err
-	}
-	autodiscover := endpoints.NewHandlerBuilder().Get().Decoder(endpoints.NoopDecoder).Endpoint(NewAutodiscoveryEndpoint(virtClient.RestClient())).Build(ctx)
 	ws.Route(
 		ws.GET("/").Produces(mime.MIME_JSON).Writes(metav1.APIResourceList{}).
-			To(endpoints.MakeGoRestfulWrapper(autodiscover)).
+			To(Noop).
 			Operation("getAPIResources").
 			Doc("Get KubeVirt API Resources").
 			Returns(http.StatusOK, "OK", metav1.APIResourceList{}).
@@ -67,33 +95,17 @@ func GroupVersionProxyBase(ctx context.Context, gv schema.GroupVersion) (*restfu
 	return ws, nil
 }
 
-func GenericResourceProxy(ws *restful.WebService, ctx context.Context, gvr schema.GroupVersionResource, objPointer runtime.Object, objKind string, objListPointer runtime.Object) (*restful.WebService, error) {
-
-	objResponseHandler := newResponseHandler(schema.GroupVersionKind{Group: gvr.Group, Version: gvr.Version, Kind: objKind}, objPointer)
-	objListResponseHandler := newResponseHandler(schema.GroupVersionKind{Group: gvr.Group, Version: gvr.Version, Kind: objKind + "List"}, objListPointer)
-	cli, err := kubecli.GetKubevirtClient()
-	if err != nil {
-		return nil, err
-	}
+func GenericResourceProxy(ws *restful.WebService, gvr schema.GroupVersionResource, objPointer runtime.Object, objKind string, objListPointer runtime.Object) (*restful.WebService, error) {
 
 	objExample := reflect.ValueOf(objPointer).Elem().Interface()
 	listExample := reflect.ValueOf(objListPointer).Elem().Interface()
-
-	delete := endpoints.NewHandlerBuilder().Delete().Endpoint(NewGenericDeleteEndpoint(cli.RestClient(), gvr, newStatusResponseHandler())).Build(ctx)
-	put := endpoints.NewHandlerBuilder().Put(objPointer).Endpoint(NewGenericPutEndpoint(cli.RestClient(), gvr, objResponseHandler)).Build(ctx)
-	patch := endpoints.NewHandlerBuilder().Patch().Endpoint(NewGenericPatchEndpoint(cli.RestClient(), gvr, objResponseHandler)).Build(ctx)
-	post := endpoints.NewHandlerBuilder().Post(objPointer).Endpoint(NewGenericPostEndpoint(cli.RestClient(), gvr, objResponseHandler)).Build(ctx)
-	get := endpoints.NewHandlerBuilder().Get().Endpoint(NewGenericGetEndpoint(cli.RestClient(), gvr, objResponseHandler)).Build(ctx)
-	getListAllNamespaces := endpoints.NewHandlerBuilder().Get().Endpoint(NewGenericGetListEndpoint(cli.RestClient(), gvr, objListResponseHandler)).Decoder(endpoints.NotNamespacedDecodeRequestFunc).Build(ctx)
-	getList := endpoints.NewHandlerBuilder().Get().Endpoint(NewGenericGetListEndpoint(cli.RestClient(), gvr, objListResponseHandler)).Decoder(endpoints.NamespaceDecodeRequestFunc).Build(ctx)
-	deleteList := endpoints.NewHandlerBuilder().Delete().Endpoint(NewGenericDeleteListEndpoint(cli.RestClient(), gvr, objListResponseHandler)).Decoder(endpoints.NamespaceDecodeRequestFunc).Build(ctx)
 
 	ws.Route(addPostParams(
 		ws.POST(ResourceBasePath(gvr)).
 			Produces(mime.MIME_JSON, mime.MIME_YAML).
 			Consumes(mime.MIME_JSON, mime.MIME_YAML).
 			Operation("createNamespaced"+objKind).
-			To(endpoints.MakeGoRestfulWrapper(post)).Reads(objExample).Writes(objExample).
+			To(Noop).Reads(objExample).Writes(objExample).
 			Doc("Create a "+objKind+" object.").
 			Returns(http.StatusOK, "OK", objExample).
 			Returns(http.StatusCreated, "Created", objExample).
@@ -106,7 +118,7 @@ func GenericResourceProxy(ws *restful.WebService, ctx context.Context, gvr schem
 			Produces(mime.MIME_JSON, mime.MIME_YAML).
 			Consumes(mime.MIME_JSON, mime.MIME_YAML).
 			Operation("replaceNamespaced"+objKind).
-			To(endpoints.MakeGoRestfulWrapper(put)).Reads(objExample).Writes(objExample).
+			To(Noop).Reads(objExample).Writes(objExample).
 			Doc("Update a "+objKind+" object.").
 			Returns(http.StatusOK, "OK", objExample).
 			Returns(http.StatusCreated, "Create", objExample).
@@ -118,7 +130,7 @@ func GenericResourceProxy(ws *restful.WebService, ctx context.Context, gvr schem
 			Produces(mime.MIME_JSON, mime.MIME_YAML).
 			Consumes(mime.MIME_JSON, mime.MIME_YAML).
 			Operation("deleteNamespaced"+objKind).
-			To(endpoints.MakeGoRestfulWrapper(delete)).
+			To(Noop).
 			Reads(metav1.DeleteOptions{}).Writes(metav1.Status{}).
 			Doc("Delete a "+objKind+" object.").
 			Returns(http.StatusOK, "OK", metav1.Status{}).
@@ -129,7 +141,7 @@ func GenericResourceProxy(ws *restful.WebService, ctx context.Context, gvr schem
 		ws.GET(ResourcePath(gvr)).
 			Produces(mime.MIME_JSON, mime.MIME_YAML, mime.MIME_JSON_STREAM).
 			Operation("readNamespaced"+objKind).
-			To(endpoints.MakeGoRestfulWrapper(get)).Writes(objExample).
+			To(Noop).Writes(objExample).
 			Doc("Get a "+objKind+" object.").
 			Returns(http.StatusOK, "OK", objExample).
 			Returns(http.StatusUnauthorized, "Unauthorized", nil), ws,
@@ -139,7 +151,7 @@ func GenericResourceProxy(ws *restful.WebService, ctx context.Context, gvr schem
 		ws.GET(gvr.Resource).
 			Produces(mime.MIME_JSON, mime.MIME_YAML, mime.MIME_JSON_STREAM).
 			Operation("list"+objKind+"ForAllNamespaces").
-			To(endpoints.MakeGoRestfulWrapper(getListAllNamespaces)).Writes(listExample).
+			To(Noop).Writes(listExample).
 			Doc("Get a list of all "+objKind+" objects.").
 			Returns(http.StatusOK, "OK", listExample).
 			Returns(http.StatusUnauthorized, "Unauthorized", nil), ws,
@@ -150,7 +162,7 @@ func GenericResourceProxy(ws *restful.WebService, ctx context.Context, gvr schem
 			Consumes(mime.MIME_JSON_PATCH, mime.MIME_MERGE_PATCH).
 			Produces(mime.MIME_JSON).
 			Operation("patchNamespaced"+objKind).
-			To(endpoints.MakeGoRestfulWrapper(patch)).
+			To(Noop).
 			Writes(objExample).Reads(metav1.Patch{}).
 			Doc("Patch a "+objKind+" object.").
 			Returns(http.StatusOK, "OK", objExample).
@@ -162,7 +174,7 @@ func GenericResourceProxy(ws *restful.WebService, ctx context.Context, gvr schem
 		ws.GET("/watch/"+gvr.Resource).
 			Produces(mime.MIME_JSON).
 			Operation("watch"+objKind+"ListForAllNamespaces").
-			To(NotImplementedYet).Writes(metav1.WatchEvent{}).
+			To(Noop).Writes(metav1.WatchEvent{}).
 			Doc("Watch a "+objKind+"List object.").
 			Returns(http.StatusOK, "OK", metav1.WatchEvent{}).
 			Returns(http.StatusUnauthorized, "Unauthorized", nil), ws,
@@ -173,7 +185,7 @@ func GenericResourceProxy(ws *restful.WebService, ctx context.Context, gvr schem
 		ws.GET("/watch"+ResourceBasePath(gvr)).
 			Operation("watchNamespaced"+objKind).
 			Produces(mime.MIME_JSON).
-			To(NotImplementedYet).Writes(metav1.WatchEvent{}).
+			To(Noop).Writes(metav1.WatchEvent{}).
 			Doc("Watch a "+objKind+" object.").
 			Returns(http.StatusOK, "OK", metav1.WatchEvent{}).
 			Returns(http.StatusUnauthorized, "Unauthorized", nil), ws,
@@ -184,7 +196,7 @@ func GenericResourceProxy(ws *restful.WebService, ctx context.Context, gvr schem
 			Produces(mime.MIME_JSON, mime.MIME_YAML, mime.MIME_JSON_STREAM).
 			Operation("listNamespaced"+objKind).
 			Writes(listExample).
-			To(endpoints.MakeGoRestfulWrapper(getList)).
+			To(Noop).
 			Doc("Get a list of "+objKind+" objects.").
 			Returns(http.StatusOK, "OK", listExample).
 			Returns(http.StatusUnauthorized, "Unauthorized", nil), ws,
@@ -194,7 +206,7 @@ func GenericResourceProxy(ws *restful.WebService, ctx context.Context, gvr schem
 		ws.DELETE(ResourceBasePath(gvr)).
 			Operation("deleteCollectionNamespaced"+objKind).
 			Produces(mime.MIME_JSON, mime.MIME_YAML).
-			To(endpoints.MakeGoRestfulWrapper(deleteList)).Writes(metav1.Status{}).
+			To(Noop).Writes(metav1.Status{}).
 			Doc("Delete a collection of "+objKind+" objects.").
 			Returns(http.StatusOK, "OK", metav1.Status{}).
 			Returns(http.StatusUnauthorized, "Unauthorized", nil), ws,
@@ -203,17 +215,12 @@ func GenericResourceProxy(ws *restful.WebService, ctx context.Context, gvr schem
 	return ws, nil
 }
 
-func ResourceProxyAutodiscovery(ctx context.Context, gvr schema.GroupVersionResource) (*restful.WebService, error) {
-	virtClient, err := kubecli.GetKubevirtClient()
-	if err != nil {
-		return nil, err
-	}
-	autodiscover := endpoints.NewHandlerBuilder().Get().Decoder(endpoints.NoopDecoder).Endpoint(NewAutodiscoveryEndpoint(virtClient.RestClient())).Build(ctx)
+func ResourceProxyAutodiscovery(gvr schema.GroupVersionResource) (*restful.WebService, error) {
 	ws := new(restful.WebService)
 	ws.Path(GroupBasePath(gvr.GroupVersion()))
 	ws.Route(ws.GET("/").
 		Produces(mime.MIME_JSON).Writes(metav1.APIGroup{}).
-		To(endpoints.MakeGoRestfulWrapper(autodiscover)).
+		To(Noop).
 		Doc("Get a KubeVirt API group").
 		Operation("getAPIGroup").
 		Returns(http.StatusOK, "OK", metav1.APIGroup{}).
@@ -338,198 +345,6 @@ func propagationPolicyParam(ws *restful.WebService) *restful.Parameter {
 	return ws.QueryParameter("propagationPolicy", "Whether and how garbage collection will be performed. Either this field or OrphanDependents may be set, but not both. The default policy is decided by the existing finalizer set in the metadata.finalizers and the resource-specific default policy. Acceptable values are: 'Orphan' - orphan the dependents; 'Background' - allow the garbage collector to delete the dependents in the background; 'Foreground' - a cascading policy that deletes all dependents in the foreground.")
 }
 
-func NewGenericDeleteEndpoint(cli *rest.RESTClient, gvr schema.GroupVersionResource, response ResponseHandlerFunc) endpoint.Endpoint {
-	return func(ctx context.Context, payload interface{}) (interface{}, error) {
-		p := payload.(*endpoints.PutObject)
-		del := p.Payload
-		if p.Payload == nil {
-			del = &metav1.DeleteOptions{}
-		}
-		result := cli.Delete().Namespace(p.Metadata.Namespace).Resource(gvr.Resource).Name(p.Metadata.Name).Body(del).Do()
-		return response(result)
-	}
-}
-
-func NewGenericGetListEndpoint(cli *rest.RESTClient, gvr schema.GroupVersionResource, response ResponseHandlerFunc) endpoint.Endpoint {
-	return func(ctx context.Context, payload interface{}) (interface{}, error) {
-		metadata := payload.(*endpoints.Metadata)
-		listOptions, err := listOptionsFromMetadata(metadata)
-		if err != nil {
-			return middleware.NewBadRequestError(err.Error()), nil
-		}
-		result := cli.Get().Namespace(metadata.Namespace).
-			Timeout(time.Duration(*listOptions.TimeoutSeconds) * time.Second).
-			Resource(gvr.Resource).Do()
-		return response(result)
-	}
-}
-
-func NewGenericDeleteListEndpoint(cli *rest.RESTClient, gvr schema.GroupVersionResource, response ResponseHandlerFunc) endpoint.Endpoint {
-	return func(ctx context.Context, payload interface{}) (interface{}, error) {
-		metadata := payload.(*endpoints.Metadata)
-		listOptions, err := listOptionsFromMetadata(metadata)
-		if err != nil {
-			return middleware.NewBadRequestError(err.Error()), nil
-		}
-		result := cli.Delete().Namespace(metadata.Namespace).
-			Timeout(time.Duration(*listOptions.TimeoutSeconds) * time.Second).
-			Resource(gvr.Resource).Do()
-		return response(result)
-	}
-}
-
-func listOptionsFromMetadata(metadata *endpoints.Metadata) (*metav1.ListOptions, error) {
-	listOptions := &metav1.ListOptions{}
-	if metadata.Headers.FieldSelector != "" {
-		listOptions.FieldSelector = metadata.Headers.FieldSelector
-	}
-	if metadata.Headers.LabelSelector != "" {
-		listOptions.LabelSelector = metadata.Headers.LabelSelector
-	}
-
-	listOptions.ResourceVersion = metadata.Headers.ResourceVersion
-	listOptions.TimeoutSeconds = &metadata.Headers.TimeoutSeconds
-	return listOptions, nil
-}
-
-func NewGenericPutEndpoint(cli *rest.RESTClient, gvr schema.GroupVersionResource, response ResponseHandlerFunc) endpoint.Endpoint {
-	return func(ctx context.Context, payload interface{}) (interface{}, error) {
-		obj := payload.(*endpoints.PutObject)
-		result := cli.Put().Namespace(obj.Metadata.Namespace).Resource(gvr.Resource).Name(obj.Metadata.Name).Body(obj.Payload).Do()
-		return response(result)
-	}
-}
-
-func NewGenericPatchEndpoint(cli *rest.RESTClient, gvr schema.GroupVersionResource, response ResponseHandlerFunc) endpoint.Endpoint {
-	return func(ctx context.Context, payload interface{}) (interface{}, error) {
-		obj := payload.(*endpoints.PatchObject)
-		result := cli.Get().Namespace(obj.Metadata.Namespace).Resource(gvr.Resource).Name(obj.Metadata.Name).Do()
-		if result.Error() != nil {
-			return middleware.NewKubernetesError(result), nil
-		}
-		// Check if we can deserialize into something we expected
-		originalBody, err := result.Get()
-		if err != nil {
-			return middleware.NewKubernetesError(result), nil
-		}
-
-		patchedBody, err := patchJson(obj.PatchType, obj.Patch, originalBody)
-		if err != nil {
-			return err, nil
-		}
-
-		ok, err := govalidator.ValidateStruct(patchedBody)
-		if !ok {
-			return middleware.NewUnprocessibleEntityError(err), nil
-		}
-
-		result = cli.Put().Namespace(obj.Metadata.Namespace).Resource(gvr.Resource).Name(obj.Metadata.Name).Body(patchedBody).Do()
-		return response(result)
-	}
-}
-
-func patchJson(patchType types.PatchType, patch interface{}, orig runtime.Object) (runtime.Object, error) {
-
-	var rawPatched []byte
-	rawOriginal, err := json.Marshal(orig)
-	if err != nil {
-		return nil, middleware.NewInternalServerError(err)
-	}
-
-	rawPatch, err := json.Marshal(patch)
-	if err != nil {
-		return nil, middleware.NewInternalServerError(err)
-	}
-
-	switch patchType {
-	case types.MergePatchType:
-		if rawPatched, err = jsonpatch.MergePatch(rawOriginal, rawPatch); err != nil {
-			return nil, middleware.NewUnprocessibleEntityError(err)
-		}
-	case types.JSONPatchType:
-		p, err := jsonpatch.DecodePatch(rawPatch)
-		if err != nil {
-			return nil, middleware.NewUnprocessibleEntityError(err)
-		}
-		if rawPatched, err = p.Apply(rawOriginal); err != nil {
-			return nil, middleware.NewUnprocessibleEntityError(err)
-		}
-	default:
-		return nil, middleware.NewInternalServerError(fmt.Errorf("Patch type %s is unknown", patchType))
-	}
-	patchedObj := reflect.New(reflect.TypeOf(orig).Elem()).Interface().(runtime.Object)
-	if err = json.Unmarshal(rawPatched, patchedObj); err != nil {
-		return nil, middleware.NewUnprocessibleEntityError(err)
-	}
-	return patchedObj, nil
-}
-
-func NewGenericPostEndpoint(cli *rest.RESTClient, gvr schema.GroupVersionResource, response ResponseHandlerFunc) endpoint.Endpoint {
-	return func(ctx context.Context, payload interface{}) (interface{}, error) {
-		obj := payload.(*endpoints.PutObject)
-		result := cli.Post().Namespace(obj.Metadata.Namespace).Resource(gvr.Resource).Body(obj.Payload).Do()
-		return response(result)
-	}
-}
-
-func NewGenericGetEndpoint(cli *rest.RESTClient, gvr schema.GroupVersionResource, response ResponseHandlerFunc) endpoint.Endpoint {
-	return func(ctx context.Context, payload interface{}) (interface{}, error) {
-		metadata := payload.(*endpoints.Metadata)
-		result := cli.Get().Namespace(metadata.Namespace).Resource(gvr.Resource).Name(metadata.Name).Do()
-		return response(result)
-	}
-}
-
-func NotImplementedYet(request *restful.Request, response *restful.Response) {
-	response.AddHeader("Content-Type", "text/plain")
-	response.WriteHeader(http.StatusInternalServerError)
-	response.Write([]byte("Not implemented yet, use the native apiserver endpoint."))
-
-}
-
-//FIXME this is basically one big workaround because version and kind are not filled by the restclient
-func newResponseHandler(gvk schema.GroupVersionKind, ptr runtime.Object) ResponseHandlerFunc {
-	return func(result rest.Result) (interface{}, error) {
-		obj, err := result.Get()
-		if err != nil {
-			return middleware.NewKubernetesError(result), nil
-		}
-		if reflect.TypeOf(obj).Elem() == reflect.TypeOf(ptr).Elem() {
-			obj.(runtime.Object).GetObjectKind().SetGroupVersionKind(gvk)
-		}
-		return obj, nil
-
-	}
-}
-
-//FIXME this is basically one big workaround because version and kind are not filled by the restclient
-func newStatusResponseHandler() ResponseHandlerFunc {
-	return func(result rest.Result) (interface{}, error) {
-		obj, err := result.Get()
-		if err != nil {
-			return middleware.NewKubernetesError(result), nil
-		}
-		if reflect.TypeOf(obj).Elem() == reflect.TypeOf(metav1.Status{}) {
-			obj.(*metav1.Status).Kind = "Status"
-			obj.(*metav1.Status).APIVersion = "v1"
-		}
-		return obj, nil
-
-	}
-}
-
-func NewAutodiscoveryEndpoint(cli *rest.RESTClient) endpoint.Endpoint {
-	return func(ctx context.Context, _ interface{}) (interface{}, error) {
-		request := ctx.Value(endpoints.ReqKey).(*restful.Request)
-		result := cli.Get().AbsPath(request.SelectedRoutePath()).SetHeader("Accept", mime.MIME_JSON).Do()
-		obj, err := result.Get()
-		if err != nil {
-			return middleware.NewKubernetesError(result), nil
-		}
-		return obj, nil
-	}
-}
-
 func GroupBasePath(gvr schema.GroupVersion) string {
 	return fmt.Sprintf("/apis/%s", gvr.Group)
 }
@@ -552,3 +367,5 @@ func SubResourcePath(subResource string) string {
 	}
 	return subResource
 }
+
+func Noop(request *restful.Request, response *restful.Response) {}
