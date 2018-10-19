@@ -223,7 +223,7 @@ func validateDisks(field *k8sfield.Path, disks []v1.Disk) []metav1.StatusCause {
 			causes = append(causes, metav1.StatusCause{
 				Type:    metav1.CauseTypeFieldValueInvalid,
 				Message: fmt.Sprintf("%s has invalid value %s", field.Index(idx).Child("cache").String(), disk.Cache),
-				Field:   field.Index(idx).Child("cacge").String(),
+				Field:   field.Index(idx).Child("cache").String(),
 			})
 		}
 	}
