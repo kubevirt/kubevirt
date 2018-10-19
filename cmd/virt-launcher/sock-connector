@@ -8,21 +8,15 @@ function is_console() {
 }
 
 function serial_cleanup() {
-	# if this is a serial connection, see if there is a previous
-	# connection that must be cleaned up before starting a new one.
-	if is_console; then
-		local pid_file=${SOCKET}.pid
-		local pid=$(cat $pid_file 2>/dev/null)
-		local my_pid=$$
-		if [ -n "$pid" ] && [ -f "/proc/$pid/cmdline" ]; then
-			local cmdline=$(cat /proc/$pid/cmdline 2>/dev/null | tr -d '\0')
-			local my_cmdline=$(cat /proc/$my_pid/cmdline 2>/dev/null | tr -d '\0')
-			if [ "$cmdline" = "$my_cmdline" ]; then
-				kill $pid > /dev/null 2>&1
-			fi
-		fi
-		echo "$$" > $pid_file
-	fi
+  # if this is a serial connection, see if there is a previous
+  # connection that must be cleaned up before starting a new one.
+  if is_console; then
+    pgrep socat | while read pid; do
+      tr '\0' '\n' < "/proc/$pid/cmdline" \
+      | grep -qE "^$PROTOCOL:/$SOCKET$" || continue
+      kill "$pid"
+    done
+  fi
 }
 
 # only one serial connection can exist at a time.
