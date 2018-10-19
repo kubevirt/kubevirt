@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 SOCKET=$1
 PROTOCOL=unix-connect
