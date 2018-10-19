@@ -217,6 +217,15 @@ func validateDisks(field *k8sfield.Path, disks []v1.Disk) []metav1.StatusCause {
 				Field:   field.Index(idx).Child("serial").String(),
 			})
 		}
+
+		// Verify if cache mode is valid
+		if disk.Cache != "" && disk.Cache != v1.CacheNone && disk.Cache != v1.CacheWriteThrough {
+			causes = append(causes, metav1.StatusCause{
+				Type:    metav1.CauseTypeFieldValueInvalid,
+				Message: fmt.Sprintf("%s has invalid value %s", field.Index(idx).Child("cache").String(), disk.Cache),
+				Field:   field.Index(idx).Child("cache").String(),
+			})
+		}
 	}
 
 	return causes

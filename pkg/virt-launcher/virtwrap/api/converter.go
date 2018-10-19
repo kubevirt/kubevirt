@@ -28,6 +28,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"syscall"
 
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -108,6 +109,72 @@ func Convert_v1_Disk_To_api_Disk(diskDevice *v1.Disk, disk *Disk, devicePerBus m
 	if diskDevice.BootOrder != nil {
 		disk.BootOrder = &BootOrder{Order: *diskDevice.BootOrder}
 	}
+
+	return nil
+}
+
+func checkDirectIOFlag(path string, isBlockDev bool) bool {
+	fileExists := true
+
+	// check if fs where disk.img file is located or block device
+	// support direct i/o
+	f, err := os.OpenFile(path, syscall.O_RDONLY|syscall.O_DIRECT, 0)
+	defer f.Close()
+	if err != nil {
+		if fileExists = !os.IsNotExist(err); fileExists {
+			return false
+		}
+	}
+
+	if !fileExists && !isBlockDev {
+		path = path + ".directio_check"
+		f, err := os.OpenFile(path, syscall.O_CREAT|syscall.O_DIRECT, 755)
+		defer f.Close()
+		defer os.Remove(path)
+		if err != nil {
+			return false
+		}
+	}
+	return true
+}
+
+func setDriverCacheMode(disk *Disk, mode v1.DriverCache) error {
+	var path string
+	var blockDevice bool
+	supportDirectIO := true
+
+	if disk.Source.File != "" {
+		path = disk.Source.File
+		blockDevice = false
+	} else if disk.Source.Dev != "" {
+		path = disk.Source.Dev
+		blockDevice = true
+	} else {
+		return fmt.Errorf("Unable to set a driver cache mode, disk is neither a block device nor a file")
+	}
+
+	if mode == "" || mode == v1.CacheNone {
+		supportDirectIO = checkDirectIOFlag(path, blockDevice)
+		if !supportDirectIO {
+			log.Log.Infof("%s file system does not support direct I/O", path)
+		}
+	}
+
+	// if user set a cache mode = 'none' and fs does not support direct I/O then return an error
+	if mode == v1.CacheNone && !supportDirectIO {
+		return fmt.Errorf("Unable to use '%s' cache mode, file system where %s is stored does not support direct I/O", mode, path)
+	}
+
+	// if user did not set a cache mode and fs supports direct I/O then set cache = 'none'
+	// else set cache = 'writethrough
+	if mode == "" && supportDirectIO {
+		mode = v1.CacheNone
+	} else if mode == "" && !supportDirectIO {
+		mode = v1.CacheWriteThrough
+	}
+
+	disk.Driver.Cache = string(mode)
+	log.Log.Infof("Driver cache mode for %s set to %s", path, mode)
 
 	return nil
 }
@@ -610,6 +677,11 @@ func Convert_v1_VirtualMachine_To_api_Domain(vmi *v1.VirtualMachineInstance, dom
 				currentAutoThread = (currentAutoThread % uint(autoThreads)) + 1
 			}
 			newDisk.Driver.IOThread = &ioThreadId
+		}
+
+		err = setDriverCacheMode(&newDisk, disk.Cache)
+		if err != nil {
+			return err
 		}
 
 		domain.Spec.Devices.Disks = append(domain.Spec.Devices.Disks, newDisk)

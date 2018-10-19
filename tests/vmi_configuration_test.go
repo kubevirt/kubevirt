@@ -35,6 +35,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/rand"
 
 	"kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/kubecli"
@@ -524,7 +525,63 @@ var _ = Describe("Configurations", func() {
 				}, 10*time.Second)
 			})
 		})
+	})
 
+	Context("with driver cache settings", func() {
+		It("should set a default cache mode to 'none'", func() {
+			vmi := tests.NewRandomVMIWithPVC(tests.DiskAlpineHostPath)
+			tests.RunVMIAndExpectLaunch(vmi, false, 60)
+
+			domXml, err := tests.GetRunningVirtualMachineInstanceDomainXML(virtClient, vmi)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(domXml).To(ContainSubstring("cache='none'"))
+		})
+
+		It("should set a writethrough cache for fs which does not support direct I/O", func() {
+			// tmpfs does not support direct I/O
+			vmi := tests.NewRandomVMIWithHostDisk("/run/kubevirt-private/vm-disks/test-disk.img", v1.HostDiskExistsOrCreate, "")
+			tests.RunVMIAndExpectLaunch(vmi, false, 60)
+
+			domXml, err := tests.GetRunningVirtualMachineInstanceDomainXML(virtClient, vmi)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(domXml).To(ContainSubstring(fmt.Sprintf("cache='%s'", v1.CacheWriteThrough)))
+		})
+
+		table.DescribeTable("should set demanded cache mode", func(cache v1.DriverCache) {
+			vmi := tests.NewRandomVMIWithEphemeralDisk(tests.RegistryDiskFor(tests.RegistryDiskCirros))
+			vmi.Spec.Domain.Devices.Disks[0].Cache = cache
+			tests.RunVMIAndExpectLaunch(vmi, false, 60)
+
+			domXml, err := tests.GetRunningVirtualMachineInstanceDomainXML(virtClient, vmi)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(domXml).To(ContainSubstring(fmt.Sprintf("cache='%s'", cache)))
+		},
+			table.Entry(fmt.Sprintf("with a cache set to '%s'", v1.CacheNone), v1.CacheNone),
+			table.Entry(fmt.Sprintf("with a cache set to '%s'", v1.CacheWriteThrough), v1.CacheWriteThrough),
+		)
+
+		Context("with a block device", func() {
+			pvName := "block-pv-" + rand.String(48)
+
+			BeforeEach(func() {
+				// create a new PV and PVC (PVs can't be reused)
+				tests.CreateBlockVolumePvAndPvc(pvName, "1Gi")
+			}, 60)
+
+			AfterEach(func() {
+				// create a new PV and PVC (PVs can't be reused)
+				tests.DeletePvAndPvc(pvName)
+			}, 60)
+
+			It("should set a default cache mode to 'none'", func() {
+				vmi := tests.NewRandomVMIWithPVC(pvName)
+				tests.RunVMIAndExpectLaunch(vmi, false, 90)
+
+				domXml, err := tests.GetRunningVirtualMachineInstanceDomainXML(virtClient, vmi)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(domXml).To(ContainSubstring("cache='none'"))
+			})
+		})
 	})
 
 	Context("New VirtualMachineInstance with all supported drives", func() {
