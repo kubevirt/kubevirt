@@ -763,6 +763,13 @@ func Convert_v1_VirtualMachine_To_api_Domain(vmi *v1.VirtualMachineInstance, dom
 			log.Log.Reason(err).Error("failed to format domain cputune.")
 			return err
 		}
+		if useIOThreads {
+			if err := formatDomainIOThreadPin(vmi, domain, c); err != nil {
+				log.Log.Reason(err).Error("failed to format domain iothread pinning.")
+				return err
+			}
+
+		}
 	}
 
 	// Add mandatory console device
@@ -932,19 +939,72 @@ func Convert_v1_VirtualMachine_To_api_Domain(vmi *v1.VirtualMachineInstance, dom
 	return nil
 }
 
+func calculateRequestedVCPUs(vmi *v1.VirtualMachineInstance) uint32 {
+	cores := uint32(0)
+	if vmi.Spec.Domain.CPU != nil && vmi.Spec.Domain.CPU.Cores != 0 {
+		return vmi.Spec.Domain.CPU.Cores
+	}
+	if cpuRequests, ok := vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceCPU]; ok {
+		cores = uint32(cpuRequests.Value())
+	} else if cpuLimit, ok := vmi.Spec.Domain.Resources.Limits[k8sv1.ResourceCPU]; ok {
+		cores = uint32(cpuLimit.Value())
+	}
+	return cores
+}
+
 func formatDomainCPUTune(vmi *v1.VirtualMachineInstance, domain *Domain, c *ConverterContext) error {
 	if len(c.CPUSet) == 0 {
 		return fmt.Errorf("failed for get pods pinned cpus")
 	}
-
+	vcpus := calculateRequestedVCPUs(vmi)
 	cpuTune := CPUTune{}
-	for idx := 0; idx < int(vmi.Spec.Domain.CPU.Cores); idx++ {
+	for idx := 0; idx < int(vcpus); idx++ {
 		vcpupin := CPUTuneVCPUPin{}
 		vcpupin.VCPU = uint(idx)
 		vcpupin.CPUSet = strconv.Itoa(c.CPUSet[idx])
 		cpuTune.VCPUPin = append(cpuTune.VCPUPin, vcpupin)
 	}
 	domain.Spec.CPUTune = &cpuTune
+	return nil
+}
+
+func appendDomainIOThreadPin(domain *Domain, thread uint, cpuset string) {
+	iothreadPin := CPUTuneIOThreadPin{}
+	iothreadPin.IOThread = thread
+	iothreadPin.CPUSet = cpuset
+	domain.Spec.CPUTune.IOThreadPin = append(domain.Spec.CPUTune.IOThreadPin, iothreadPin)
+}
+
+func formatDomainIOThreadPin(vmi *v1.VirtualMachineInstance, domain *Domain, c *ConverterContext) error {
+	iothreads := int(domain.Spec.IOThreads.IOThreads)
+	vcpus := int(calculateRequestedVCPUs(vmi))
+
+	if iothreads >= vcpus {
+		// pin an IOThread on a CPU
+		for thread := 1; thread <= iothreads; thread++ {
+			cpuset := fmt.Sprintf("%d", c.CPUSet[thread%vcpus])
+			appendDomainIOThreadPin(domain, uint(thread), cpuset)
+		}
+	} else {
+		// the following will pin IOThreads to a set of cpus of a balanced size
+		// for example, for 3 threads and 8 cpus the output will look like:
+		// thread cpus
+		//   1    0,1,2
+		//   2    3,4,5
+		//   3    6,7
+		series := vcpus % iothreads
+		curr := 0
+		for thread := 1; thread <= iothreads; thread++ {
+			remainder := vcpus/iothreads - 1
+			if thread <= series {
+				remainder += 1
+			}
+			end := curr + remainder
+			slice := strings.Trim(strings.Join(strings.Fields(fmt.Sprint(c.CPUSet[curr:end+1])), ","), "[]")
+			appendDomainIOThreadPin(domain, uint(thread), slice)
+			curr = end + 1
+		}
+	}
 	return nil
 }
 

@@ -133,12 +133,18 @@ type DomainSpec struct {
 }
 
 type CPUTune struct {
-	VCPUPin []CPUTuneVCPUPin `xml:"vcpupin"`
+	VCPUPin     []CPUTuneVCPUPin     `xml:"vcpupin"`
+	IOThreadPin []CPUTuneIOThreadPin `xml:"iothreadpin,omitempty"`
 }
 
 type CPUTuneVCPUPin struct {
 	VCPU   uint   `xml:"vcpu,attr"`
 	CPUSet string `xml:"cpuset,attr"`
+}
+
+type CPUTuneIOThreadPin struct {
+	IOThread uint   `xml:"iothread,attr"`
+	CPUSet   string `xml:"cpuset,attr"`
 }
 
 type VCPU struct {

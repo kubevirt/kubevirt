@@ -732,6 +732,45 @@ var _ = Describe("Configurations", func() {
 
 				Expect(len(pinnedCPUsList)).To(Equal(int(cpuVmi.Spec.Domain.CPU.Cores)))
 
+				By("Expecting the VirtualMachineInstance console")
+				expecter, err := tests.LoggedInCirrosExpecter(cpuVmi)
+				Expect(err).ToNot(HaveOccurred())
+				defer expecter.Close()
+
+				By("Checking the number of CPU cores under guest OS")
+				_, err = expecter.ExpectBatch([]expect.Batcher{
+					&expect.BSnd{S: "grep -c ^processor /proc/cpuinfo\n"},
+					&expect.BExp{R: "2"},
+				}, 250*time.Second)
+			})
+			It("should configure correct number of vcpus with requests.cpus", func() {
+				cpuVmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(tests.RegistryDiskFor(tests.RegistryDiskCirros), "#!/bin/bash\necho 'hello'\n")
+				cpuVmi.Spec.Domain.CPU = &v1.CPU{
+					DedicatedCPUPlacement: true,
+				}
+				cpuVmi.Spec.Domain.Resources = v1.ResourceRequirements{
+					Requests: kubev1.ResourceList{
+						kubev1.ResourceCPU:    resource.MustParse("2"),
+						kubev1.ResourceMemory: resource.MustParse("64M"),
+					},
+				}
+				By("Starting a VirtualMachineInstance")
+				_, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(cpuVmi)
+				Expect(err).ToNot(HaveOccurred())
+				node := tests.WaitForSuccessfulVMIStart(cpuVmi)
+				Expect(node).NotTo(ContainSubstring("node01"))
+
+				By("Expecting the VirtualMachineInstance console")
+				expecter, err := tests.LoggedInCirrosExpecter(cpuVmi)
+				Expect(err).ToNot(HaveOccurred())
+				defer expecter.Close()
+
+				By("Checking the number of CPU cores under guest OS")
+				_, err = expecter.ExpectBatch([]expect.Batcher{
+					&expect.BSnd{S: "grep -c ^processor /proc/cpuinfo\n"},
+					&expect.BExp{R: "2"},
+				}, 250*time.Second)
+
 			})
 			It("should fail the vmi creation if the requested resources are inconsistent", func() {
 				cpuVmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(tests.RegistryDiskFor(tests.RegistryDiskCirros), "#!/bin/bash\necho 'hello'\n")

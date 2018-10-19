@@ -23,6 +23,7 @@ import (
 	"encoding/xml"
 	"fmt"
 	"os"
+	"reflect"
 
 	. "github.com/onsi/ginkgo"
 	"github.com/onsi/ginkgo/extensions/table"
@@ -1224,6 +1225,74 @@ var _ = Describe("Converter", func() {
 			domain := vmiToDomain(vmi, &ConverterContext{UseEmulation: true})
 			Expect(*(domain.Spec.Devices.Disks[0].Driver.Queues)).To(Equal(expectedQueues),
 				"expected number of queues to equal number of requested CPUs")
+		})
+	})
+	Context("Correctly handle iothreads with dedicated cpus", func() {
+		var vmi *v1.VirtualMachineInstance
+
+		BeforeEach(func() {
+			vmi = &v1.VirtualMachineInstance{
+				ObjectMeta: k8smeta.ObjectMeta{
+					Name:      "testvmi",
+					Namespace: "default",
+					UID:       "1234",
+				},
+				Spec: v1.VirtualMachineInstanceSpec{
+					Domain: v1.DomainSpec{
+						CPU: &v1.CPU{DedicatedCPUPlacement: true},
+						Resources: v1.ResourceRequirements{
+							Requests: k8sv1.ResourceList{
+								k8sv1.ResourceMemory: resource.MustParse("64M"),
+							},
+						},
+					},
+				},
+			}
+		})
+		It("assigns a set of cpus per iothread, if there are more vcpus that iothreads", func() {
+			vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceCPU] = resource.MustParse("16")
+			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
+			c := &ConverterContext{CPUSet: []int{5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20},
+				UseEmulation: true,
+			}
+			domain := vmiToDomain(vmi, c)
+			domain.Spec.IOThreads = &IOThreads{}
+			domain.Spec.IOThreads.IOThreads = uint(6)
+
+			err := formatDomainIOThreadPin(vmi, domain, c)
+			Expect(err).ToNot(HaveOccurred())
+			expectedLayout := []CPUTuneIOThreadPin{
+				CPUTuneIOThreadPin{IOThread: 1, CPUSet: "5,6,7"},
+				CPUTuneIOThreadPin{IOThread: 2, CPUSet: "8,9,10"},
+				CPUTuneIOThreadPin{IOThread: 3, CPUSet: "11,12,13"},
+				CPUTuneIOThreadPin{IOThread: 4, CPUSet: "14,15,16"},
+				CPUTuneIOThreadPin{IOThread: 5, CPUSet: "17,18"},
+				CPUTuneIOThreadPin{IOThread: 6, CPUSet: "19,20"},
+			}
+			isExpectedThreadsLayout := reflect.DeepEqual(expectedLayout, domain.Spec.CPUTune.IOThreadPin)
+			Expect(isExpectedThreadsLayout).To(BeTrue())
+
+		})
+		It("should pack iothreads equally on available vcpus, if there are more iothreads than vcpus", func() {
+			vmi.Spec.Domain.CPU.Cores = 2
+			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
+			c := &ConverterContext{CPUSet: []int{5, 6}, UseEmulation: true}
+			domain := vmiToDomain(vmi, c)
+			domain.Spec.IOThreads = &IOThreads{}
+			domain.Spec.IOThreads.IOThreads = uint(6)
+
+			err := formatDomainIOThreadPin(vmi, domain, c)
+			Expect(err).ToNot(HaveOccurred())
+			expectedLayout := []CPUTuneIOThreadPin{
+				CPUTuneIOThreadPin{IOThread: 1, CPUSet: "6"},
+				CPUTuneIOThreadPin{IOThread: 2, CPUSet: "5"},
+				CPUTuneIOThreadPin{IOThread: 3, CPUSet: "6"},
+				CPUTuneIOThreadPin{IOThread: 4, CPUSet: "5"},
+				CPUTuneIOThreadPin{IOThread: 5, CPUSet: "6"},
+				CPUTuneIOThreadPin{IOThread: 6, CPUSet: "5"},
+			}
+			isExpectedThreadsLayout := reflect.DeepEqual(expectedLayout, domain.Spec.CPUTune.IOThreadPin)
+			Expect(isExpectedThreadsLayout).To(BeTrue())
 		})
 	})
 })
