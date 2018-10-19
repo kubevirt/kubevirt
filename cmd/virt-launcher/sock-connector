@@ -1,6 +1,7 @@
 #!/bin/bash
 
 SOCKET=$1
+PROTOCOL=unix-connect
 
 function is_console() {
 	[[ $(basename $SOCKET) =~ .*serial.* ]]
@@ -32,9 +33,15 @@ if ! [ -S "$SOCKET" ]; then
 	exit 1
 fi
 
+# define defaults for both ends of the connection
+
+TO_VIRTUAL_MACHINE="$PROTOCOL:/$SOCKET"
+FROM_CLIENT="stdio"
+
 if is_console; then
-    stty -echo
-    socat unix-connect:/$SOCKET stdio,cfmakeraw
-else
-    socat unix-connect:/$SOCKET stdio
+  # enable raw mode for console access
+  stty -echo
+  FROM_CLIENT="stdio,cfmakeraw"
 fi
+
+exec socat "$TO_VIRTUAL_MACHINE" "$FROM_CLIENT"
