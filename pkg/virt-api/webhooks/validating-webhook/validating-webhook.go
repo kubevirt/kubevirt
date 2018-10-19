@@ -858,6 +858,9 @@ func ValidateVirtualMachineInstanceSpec(field *k8sfield.Path, spec *v1.VirtualMa
 		// Make sure the port name is unique across all the interfaces
 		portForwardMap := make(map[string]struct{})
 
+		vifMQ := spec.Domain.Devices.NetworkInterfaceMultiQueue
+		isVirtioNicRequested := false
+
 		// Validate that each interface has a matching network
 		for idx, iface := range spec.Domain.Devices.Interfaces {
 
@@ -1004,6 +1007,20 @@ func ValidateVirtualMachineInstanceSpec(field *k8sfield.Path, spec *v1.VirtualMa
 					})
 				}
 			}
+			if iface.Model == "virtio" || iface.Model == "" {
+				isVirtioNicRequested = true
+			}
+
+		}
+		// Network interface multiqueue can only be set for a virtio driver
+		if vifMQ != nil && *vifMQ && !isVirtioNicRequested {
+
+			causes = append(causes, metav1.StatusCause{
+				Type:    metav1.CauseTypeFieldValueInvalid,
+				Message: fmt.Sprintf("virtio-net multiqueue request, but there are no virtio interfaces defined"),
+				Field:   field.Child("domain", "devices", "networkInterfaceMultiqueue").String(),
+			})
+
 		}
 
 		// Validate that every network was assign to an interface
@@ -1016,16 +1033,22 @@ func ValidateVirtualMachineInstanceSpec(field *k8sfield.Path, spec *v1.VirtualMa
 		}
 	}
 
-	if (spec.Domain.Devices.BlockMultiQueue != nil) && (*spec.Domain.Devices.BlockMultiQueue == true) {
-		_, requestOk := spec.Domain.Resources.Requests[k8sv1.ResourceCPU]
-		_, limitOK := spec.Domain.Resources.Limits[k8sv1.ResourceCPU]
-		if (requestOk == false) && (limitOK == false) {
-			causes = append(causes, metav1.StatusCause{
-				Type:    metav1.CauseTypeFieldValueInvalid,
-				Message: fmt.Sprintf("MultiQueue for block devices can't be used without specifying CPU requests or limits."),
-				Field:   field.Child("domain", "devices", "blockMultiQueue").String(),
-			})
-		}
+	_, requestOk := spec.Domain.Resources.Requests[k8sv1.ResourceCPU]
+	_, limitOK := spec.Domain.Resources.Limits[k8sv1.ResourceCPU]
+	isCPUResourcesSet := (requestOk == true) || (limitOK == true)
+	if !isCPUResourcesSet && (spec.Domain.Devices.BlockMultiQueue != nil) && (*spec.Domain.Devices.BlockMultiQueue == true) {
+		causes = append(causes, metav1.StatusCause{
+			Type:    metav1.CauseTypeFieldValueInvalid,
+			Message: fmt.Sprintf("MultiQueue for block devices can't be used without specifying CPU requests or limits."),
+			Field:   field.Child("domain", "devices", "blockMultiQueue").String(),
+		})
+	}
+	if !isCPUResourcesSet && (spec.Domain.Devices.NetworkInterfaceMultiQueue != nil) && (*spec.Domain.Devices.NetworkInterfaceMultiQueue == true) {
+		causes = append(causes, metav1.StatusCause{
+			Type:    metav1.CauseTypeFieldValueInvalid,
+			Message: fmt.Sprintf("MultiQueue for network interfaces can't be used without specifying CPU requests or limits."),
+			Field:   field.Child("domain", "devices", "networkInterfaceMultiqueue").String(),
+		})
 	}
 
 	if spec.Domain.IOThreadsPolicy != nil {

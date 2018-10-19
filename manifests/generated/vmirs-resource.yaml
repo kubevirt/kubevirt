@@ -146,6 +146,8 @@ spec:
                                 required:
                                 - name
                               type: array
+                            networkInterfaceMultiqueue:
+                              type: boolean
                             rng: {}
                             watchdog:
                               properties:

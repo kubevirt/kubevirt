@@ -416,6 +416,13 @@ func schema_kubevirt_pkg_api_v1_Devices(ref common.ReferenceCallback) common.Ope
 							Format:      "",
 						},
 					},
+					"networkInterfaceMultiqueue": {
+						SchemaProps: spec.SchemaProps{
+							Description: "If specified, virtual network interfaces configured with a virtio bus will also enable the vhost multiqueue feature",
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
 				},
 			},
 		},

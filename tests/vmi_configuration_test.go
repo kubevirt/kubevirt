@@ -108,7 +108,7 @@ var _ = Describe("Configurations", func() {
 				Expect(err).ToNot(HaveOccurred())
 			}, 300)
 
-			It("should map cores to queues", func() {
+			It("should map cores to virtio block queues", func() {
 				_true := true
 				vmi.Spec.Domain.Resources = v1.ResourceRequirements{
 					Requests: kubev1.ResourceList{
@@ -128,7 +128,32 @@ var _ = Describe("Configurations", func() {
 				Expect(domXml).To(ContainSubstring("queues='3'"))
 			}, 300)
 
-			It("should reject queues without cores", func() {
+			It("should map cores to virtio net queues", func() {
+				if shouldUseEmulation(virtClient) {
+					Skip("Software emulation should not be enabled for this test to run")
+				}
+
+				_true := true
+				vmi.Spec.Domain.Resources = v1.ResourceRequirements{
+					Requests: kubev1.ResourceList{
+						kubev1.ResourceMemory: resource.MustParse("64M"),
+						kubev1.ResourceCPU:    resource.MustParse("3"),
+					},
+				}
+
+				vmi.Spec.Domain.Devices.NetworkInterfaceMultiQueue = &_true
+
+				By("Starting a VirtualMachineInstance")
+				vmi, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
+				Expect(err).ToNot(HaveOccurred())
+				tests.WaitForSuccessfulVMIStart(vmi)
+
+				domXml, err := tests.GetRunningVirtualMachineInstanceDomainXML(virtClient, vmi)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(domXml).To(ContainSubstring("driver name='vhost' queues='3'"))
+			}, 300)
+
+			It("should reject virtio block queues without cores", func() {
 				_true := true
 				vmi.Spec.Domain.Resources = v1.ResourceRequirements{
 					Requests: kubev1.ResourceList{
@@ -144,7 +169,7 @@ var _ = Describe("Configurations", func() {
 				Expect(err.Error()).To(MatchRegexp(regexp))
 			}, 300)
 
-			It("should not enforce explicitly rejected queues without cores", func() {
+			It("should not enforce explicitly rejected virtio block queues without cores", func() {
 				_false := false
 				vmi.Spec.Domain.Resources = v1.ResourceRequirements{
 					Requests: kubev1.ResourceList{

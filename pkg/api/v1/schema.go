@@ -229,6 +229,9 @@ type Devices struct {
 	// Whether or not to enable virtio multi-queue for block devices
 	// +optional
 	BlockMultiQueue *bool `json:"blockMultiQueue,omitempty"`
+	// If specified, virtual network interfaces configured with a virtio bus will also enable the vhost multiqueue feature
+	// +optional
+	NetworkInterfaceMultiQueue *bool `json:"networkInterfaceMultiqueue,omitempty"`
 }
 
 // ---

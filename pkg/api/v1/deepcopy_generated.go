@@ -299,6 +299,15 @@ func (in *Devices) DeepCopyInto(out *Devices) {
 			**out = **in
 		}
 	}
+	if in.NetworkInterfaceMultiQueue != nil {
+		in, out := &in.NetworkInterfaceMultiQueue, &out.NetworkInterfaceMultiQueue
+		if *in == nil {
+			*out = nil
+		} else {
+			*out = new(bool)
+			**out = **in
+		}
+	}
 	return
 }
 
