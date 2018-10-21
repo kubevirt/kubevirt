@@ -553,8 +553,8 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 			Labels:       podLabels,
 			Annotations:  annotationsList,
 			OwnerReferences: []metav1.OwnerReference{{
-				APIVersion:         vmi.APIVersion,
-				Kind:               vmi.Kind,
+				APIVersion:         v1.VirtualMachineInstanceGroupVersionKind.GroupVersion().String(),
+				Kind:               v1.VirtualMachineInstanceGroupVersionKind.Kind,
 				Name:               vmi.Name,
 				UID:                vmi.UID,
 				Controller:         &trueVar,

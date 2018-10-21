@@ -456,9 +456,6 @@ func (c *VMIController) sync(vmi *virtv1.VirtualMachineInstance, pod *k8sv1.Pod,
 		}
 
 		pod.Annotations[virtv1.OwnedByAnnotation] = "virt-handler"
-		var controllerReference v1.OwnerReference
-		controllerReference = v1.OwnerReference{UID: vmi.UID, APIVersion: vmi.APIVersion, Kind: vmi.Kind, Name: vmi.Name}
-		pod.OwnerReferences = append(pod.OwnerReferences, controllerReference)
 		c.handoverExpectations.ExpectCreations(controller.VirtualMachineKey(vmi), 1)
 		_, err := c.clientset.CoreV1().Pods(vmi.Namespace).Update(pod)
 		if err != nil {

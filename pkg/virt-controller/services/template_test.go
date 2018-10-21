@@ -75,8 +75,8 @@ var _ = Describe("Template", func() {
 					v1.OwnedByAnnotation: "virt-controller",
 				}))
 				Expect(pod.ObjectMeta.OwnerReferences).To(Equal([]metav1.OwnerReference{{
-					APIVersion:         "",
-					Kind:               "",
+					APIVersion:         v1.VirtualMachineInstanceGroupVersionKind.GroupVersion().String(),
+					Kind:               v1.VirtualMachineInstanceGroupVersionKind.Kind,
 					Name:               "testvmi",
 					UID:                "1234",
 					Controller:         &trueVar,
