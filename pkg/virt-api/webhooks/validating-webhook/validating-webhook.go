@@ -796,6 +796,7 @@ func ValidateVirtualMachineInstanceSpec(field *k8sfield.Path, spec *v1.VirtualMa
 	if len(spec.Networks) > 0 && len(spec.Domain.Devices.Interfaces) > 0 {
 		multusExists := false
 		genieExists := false
+		kuryrExists := false
 		podExists := false
 
 		for idx, network := range spec.Networks {
@@ -821,6 +822,12 @@ func ValidateVirtualMachineInstanceSpec(field *k8sfield.Path, spec *v1.VirtualMa
 				networkNameExistsOrNotNeeded = network.Genie.NetworkName != ""
 			}
 
+			if network.NetworkSource.Kuryr != nil {
+				cniTypesCount++
+				kuryrExists = true
+				networkNameExistsOrNotNeeded = network.Kuryr.NetworkName != ""
+			}
+
 			if cniTypesCount == 0 {
 				causes = append(causes, metav1.StatusCause{
 					Type:    metav1.CauseTypeFieldValueRequired,
@@ -833,7 +840,7 @@ func ValidateVirtualMachineInstanceSpec(field *k8sfield.Path, spec *v1.VirtualMa
 					Message: fmt.Sprintf("should have only one network type"),
 					Field:   field.Child("networks").Index(idx).String(),
 				})
-			} else if genieExists && (podExists || multusExists) {
+			} else if genieExists && (podExists || multusExists || kuryrExists) {
 				causes = append(causes, metav1.StatusCause{
 					Type:    metav1.CauseTypeFieldValueRequired,
 					Message: fmt.Sprintf("cannot combine Genie with other CNIs across networks"),

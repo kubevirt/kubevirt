@@ -1146,6 +1146,15 @@ func (in *NetworkSource) DeepCopyInto(out *NetworkSource) {
 			**out = **in
 		}
 	}
+	if in.Kuryr != nil {
+		in, out := &in.Kuryr, &out.Kuryr
+		if *in == nil {
+			*out = nil
+		} else {
+			*out = new(CniNetwork)
+			**out = **in
+		}
+	}
 	return
 }
 

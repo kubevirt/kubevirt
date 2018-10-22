@@ -854,6 +854,7 @@ type NetworkSource struct {
 	Pod    *PodNetwork `json:"pod,omitempty"`
 	Multus *CniNetwork `json:"multus,omitempty"`
 	Genie  *CniNetwork `json:"genie,omitempty"`
+	Kuryr  *CniNetwork `json:"kuryr,omitempty"`
 }
 
 // Represents the stock pod network interface.

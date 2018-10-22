@@ -906,6 +906,35 @@ var _ = Describe("Converter", func() {
 			Expect(domain.Spec.Devices.Interfaces[0].Source.Bridge).To(Equal("k6t-eth0"))
 			Expect(domain.Spec.Devices.Interfaces[1].Source.Bridge).To(Equal("k6t-eth1"))
 		})
+		It("Should set domain interface source correctly for kuryr", func() {
+			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
+			vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{
+				*v1.DefaultNetworkInterface(),
+				*v1.DefaultNetworkInterface(),
+			}
+			vmi.Spec.Domain.Devices.Interfaces[0].Name = "red1"
+			vmi.Spec.Domain.Devices.Interfaces[1].Name = "red2"
+			vmi.Spec.Networks = []v1.Network{
+				v1.Network{
+					Name: "red1",
+					NetworkSource: v1.NetworkSource{
+						Kuryr: &v1.CniNetwork{NetworkName: "red"},
+					},
+				},
+				v1.Network{
+					Name: "red2",
+					NetworkSource: v1.NetworkSource{
+						Kuryr: &v1.CniNetwork{NetworkName: "red"},
+					},
+				},
+			}
+
+			domain := vmiToDomain(vmi, c)
+			Expect(domain).ToNot(Equal(nil))
+			Expect(domain.Spec.Devices.Interfaces).To(HaveLen(2))
+			Expect(domain.Spec.Devices.Interfaces[0].Source.Bridge).To(Equal("k6t-eth1"))
+			Expect(domain.Spec.Devices.Interfaces[1].Source.Bridge).To(Equal("k6t-eth2"))
+		})
 		It("should allow setting boot order", func() {
 			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
 			name1 := "Name1"

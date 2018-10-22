@@ -66,6 +66,7 @@ func main() {
 		utils.VmiMultusMultipleNet: utils.GetVMIMultusMultipleNet(),
 		utils.VmiGeniePtp:          utils.GetVMIGeniePtp(),
 		utils.VmiGenieMultipleNet:  utils.GetVMIGenieMultipleNet(),
+		utils.VmiKuryrMultipleNet:  utils.GetVMIKuryrMultipleNet(),
 		utils.VmiHostDisk:          utils.GetVMIHostDisk(),
 	}
 

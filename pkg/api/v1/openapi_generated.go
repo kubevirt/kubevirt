@@ -1290,6 +1290,11 @@ func schema_kubevirt_pkg_api_v1_Network(ref common.ReferenceCallback) common.Ope
 							Ref: ref("kubevirt.io/kubevirt/pkg/api/v1.CniNetwork"),
 						},
 					},
+					"kuryr": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("kubevirt.io/kubevirt/pkg/api/v1.CniNetwork"),
+						},
+					},
 				},
 				Required: []string{"name"},
 			},
@@ -1316,6 +1321,11 @@ func schema_kubevirt_pkg_api_v1_NetworkSource(ref common.ReferenceCallback) comm
 						},
 					},
 					"genie": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("kubevirt.io/kubevirt/pkg/api/v1.CniNetwork"),
+						},
+					},
+					"kuryr": {
 						SchemaProps: spec.SchemaProps{
 							Ref: ref("kubevirt.io/kubevirt/pkg/api/v1.CniNetwork"),
 						},

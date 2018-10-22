@@ -51,6 +51,7 @@ const (
 	VmiMultusMultipleNet = "vmi-multus-multiple-net"
 	VmiGeniePtp          = "vmi-genie-ptp"
 	VmiGenieMultipleNet  = "vmi-genie-multiple-net"
+	VmiKuryrMultipleNet  = "vmi-kuryr-multiple-net"
 	VmiHostDisk          = "vmi-host-disk"
 	VmTemplateFedora     = "vm-template-fedora"
 	VmTemplateRHEL7      = "vm-template-rhel7"
@@ -387,6 +388,20 @@ func GetVMIGenieMultipleNet() *v1.VirtualMachineInstance {
 
 	return vm
 }
+
+func GetVMIKuryrMultipleNet() *v1.VirtualMachineInstance {
+	vm := getBaseVMI(VmiKuryrMultipleNet)
+	vm.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("1024M")
+	vm.Spec.Networks = []v1.Network{*v1.DefaultPodNetwork(), {Name: "bridge-network", NetworkSource: v1.NetworkSource{Kuryr: &v1.CniNetwork{NetworkName: "bridge-network-conf"}}}}
+	addRegistryDisk(&vm.Spec, fmt.Sprintf("%s/%s:%s", DockerPrefix, imageFedora, DockerTag), busVirtio)
+	addNoCloudDiskWitUserData(&vm.Spec, "#!/bin/bash\necho \"fedora\" |passwd fedora --stdin\ndhclient eth1\n")
+
+	vm.Spec.Domain.Devices.Interfaces = []v1.Interface{{Name: "default", InterfaceBindingMethod: v1.InterfaceBindingMethod{Bridge: &v1.InterfaceBridge{}}},
+		{Name: "bridge-network", InterfaceBindingMethod: v1.InterfaceBindingMethod{Bridge: &v1.InterfaceBridge{}}}}
+
+	return vm
+}
+
 func GetVMINoCloud() *v1.VirtualMachineInstance {
 	vmi := getBaseVMI(VmiNoCloud)
 
