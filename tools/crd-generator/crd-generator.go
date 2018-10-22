@@ -64,6 +64,9 @@ func generateVirtualMachineCrd() {
 			{Name: "Running", Type: "boolean", JSONPath: ".spec.running"},
 			{Name: "Volume", Description: "Primary Volume", Type: "string", JSONPath: ".spec.volumes[0].name"},
 		},
+		Subresources: &extensionsv1.CustomResourceSubresources{
+			Status: &extensionsv1.CustomResourceSubresourceStatus{},
+		},
 	}
 
 	crdutils.MarshallCrd(crd, "yaml")
@@ -84,6 +87,9 @@ func generatePresetCrd() {
 			Kind:       v1.VirtualMachineInstancePresetGroupVersionKind.Kind,
 			ShortNames: []string{"vmipreset", "vmipresets"},
 		},
+		Subresources: &extensionsv1.CustomResourceSubresources{
+			Status: &extensionsv1.CustomResourceSubresourceStatus{},
+		},
 	}
 
 	crdutils.MarshallCrd(crd, "yaml")
@@ -103,6 +109,9 @@ func generateReplicaSetCrd() {
 			Singular:   "virtualmachineinstancereplicaset",
 			Kind:       v1.VirtualMachineInstanceReplicaSetGroupVersionKind.Kind,
 			ShortNames: []string{"vmirs", "vmirss"},
+		},
+		Subresources: &extensionsv1.CustomResourceSubresources{
+			Status: &extensionsv1.CustomResourceSubresourceStatus{},
 		},
 		AdditionalPrinterColumns: []extensionsv1.CustomResourceColumnDefinition{
 			{Name: "Desired", Type: "integer", JSONPath: ".spec.replicas",
@@ -133,6 +142,9 @@ func generateVirtualMachineInstanceMigrationCrd() {
 			Kind:       v1.VirtualMachineInstanceMigrationGroupVersionKind.Kind,
 			ShortNames: []string{"vmim", "vmims"},
 		},
+		Subresources: &extensionsv1.CustomResourceSubresources{
+			Status: &extensionsv1.CustomResourceSubresourceStatus{},
+		},
 	}
 
 	crdutils.MarshallCrd(crd, "yaml")
@@ -158,6 +170,9 @@ func generateVirtualMachineInstanceCrd() {
 			{Name: "Phase", Type: "string", JSONPath: ".status.phase"},
 			{Name: "IP", Type: "string", JSONPath: ".status.interfaces[0].ipAddress"},
 			{Name: "NodeName", Type: "string", JSONPath: ".status.nodeName"},
+		},
+		Subresources: &extensionsv1.CustomResourceSubresources{
+			Status: &extensionsv1.CustomResourceSubresourceStatus{},
 		},
 	}
 

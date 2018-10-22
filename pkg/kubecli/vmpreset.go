@@ -113,3 +113,30 @@ func (v *vmiPresets) Patch(name string, pt types.PatchType, data []byte, subreso
 		Into(result)
 	return
 }
+
+func (v *vmiPresets) PatchStatus(name string, data []byte) (result *v1.VirtualMachineInstancePreset, err error) {
+	result = &v1.VirtualMachineInstancePreset{}
+	err = v.restClient.Patch(types.StrategicMergePatchType).
+		Namespace(v.namespace).
+		Resource(v.resource).
+		SubResource("status").
+		Name(name).
+		Body(data).
+		Do().
+		Into(result)
+	return
+}
+
+func (v *vmiPresets) UpdateStatus(vmi *v1.VirtualMachineInstancePreset) (result *v1.VirtualMachineInstancePreset, err error) {
+	result = &v1.VirtualMachineInstancePreset{}
+	err = v.restClient.Put().
+		Name(vmi.ObjectMeta.Name).
+		Namespace(v.namespace).
+		Resource(v.resource).
+		SubResource("status").
+		Body(vmi).
+		Do().
+		Into(result)
+	result.SetGroupVersionKind(v1.VirtualMachineInstancePresetGroupVersionKind)
+	return
+}

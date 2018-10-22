@@ -29,4 +29,6 @@ spec:
     - vmis
     singular: virtualmachineinstance
   scope: Namespaced
+  subresources:
+    status: {}
   version: v1alpha2

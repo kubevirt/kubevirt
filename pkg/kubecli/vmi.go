@@ -438,3 +438,30 @@ func (v *vmis) Patch(name string, pt types.PatchType, data []byte, subresources 
 		Into(result)
 	return
 }
+
+func (v *vmis) PatchStatus(name string, data []byte) (result *v1.VirtualMachineInstance, err error) {
+	result = &v1.VirtualMachineInstance{}
+	err = v.restClient.Patch(types.StrategicMergePatchType).
+		Namespace(v.namespace).
+		Resource(v.resource).
+		SubResource("status").
+		Name(name).
+		Body(data).
+		Do().
+		Into(result)
+	return
+}
+
+func (v *vmis) UpdateStatus(vmi *v1.VirtualMachineInstance) (result *v1.VirtualMachineInstance, err error) {
+	result = &v1.VirtualMachineInstance{}
+	err = v.restClient.Put().
+		Name(vmi.ObjectMeta.Name).
+		Namespace(v.namespace).
+		Resource(v.resource).
+		SubResource("status").
+		Body(vmi).
+		Do().
+		Into(result)
+	result.SetGroupVersionKind(v1.VirtualMachineInstanceGroupVersionKind)
+	return
+}

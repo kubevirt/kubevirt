@@ -16,4 +16,6 @@ spec:
     - vmims
     singular: virtualmachineinstancemigration
   scope: Namespaced
+  subresources:
+    status: {}
   version: v1alpha2

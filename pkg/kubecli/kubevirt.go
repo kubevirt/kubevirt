@@ -92,6 +92,8 @@ type VirtualMachineInstanceInterface interface {
 	Patch(name string, pt types.PatchType, data []byte, subresources ...string) (result *v1.VirtualMachineInstance, err error)
 	SerialConsole(name string, timeout time.Duration) (StreamInterface, error)
 	VNC(name string) (StreamInterface, error)
+	UpdateStatus(*v1.VirtualMachineInstance) (*v1.VirtualMachineInstance, error)
+	PatchStatus(name string, data []byte) (result *v1.VirtualMachineInstance, err error)
 }
 
 type ReplicaSetInterface interface {
@@ -100,6 +102,9 @@ type ReplicaSetInterface interface {
 	Create(*v1.VirtualMachineInstanceReplicaSet) (*v1.VirtualMachineInstanceReplicaSet, error)
 	Update(*v1.VirtualMachineInstanceReplicaSet) (*v1.VirtualMachineInstanceReplicaSet, error)
 	Delete(name string, options *k8smetav1.DeleteOptions) error
+	Patch(name string, pt types.PatchType, data []byte, subresources ...string) (result *v1.VirtualMachineInstanceReplicaSet, err error)
+	UpdateStatus(*v1.VirtualMachineInstanceReplicaSet) (*v1.VirtualMachineInstanceReplicaSet, error)
+	PatchStatus(name string, data []byte) (result *v1.VirtualMachineInstanceReplicaSet, err error)
 }
 
 type VMIPresetInterface interface {
@@ -109,6 +114,8 @@ type VMIPresetInterface interface {
 	Update(*v1.VirtualMachineInstancePreset) (*v1.VirtualMachineInstancePreset, error)
 	Delete(name string, options *k8smetav1.DeleteOptions) error
 	Patch(name string, pt types.PatchType, data []byte, subresources ...string) (result *v1.VirtualMachineInstancePreset, err error)
+	UpdateStatus(*v1.VirtualMachineInstancePreset) (*v1.VirtualMachineInstancePreset, error)
+	PatchStatus(name string, data []byte) (result *v1.VirtualMachineInstancePreset, err error)
 }
 
 // VirtualMachineInterface provides convenience methods to work with
@@ -120,6 +127,8 @@ type VirtualMachineInterface interface {
 	Update(*v1.VirtualMachine) (*v1.VirtualMachine, error)
 	Delete(name string, options *k8smetav1.DeleteOptions) error
 	Patch(name string, pt types.PatchType, data []byte, subresources ...string) (result *v1.VirtualMachine, err error)
+	UpdateStatus(*v1.VirtualMachine) (*v1.VirtualMachine, error)
+	PatchStatus(name string, data []byte) (result *v1.VirtualMachine, err error)
 	Restart(name string) error
 }
 
@@ -130,4 +139,6 @@ type VirtualMachineInstanceMigrationInterface interface {
 	Update(*v1.VirtualMachineInstanceMigration) (*v1.VirtualMachineInstanceMigration, error)
 	Delete(name string, options *k8smetav1.DeleteOptions) error
 	Patch(name string, pt types.PatchType, data []byte, subresources ...string) (result *v1.VirtualMachineInstanceMigration, err error)
+	UpdateStatus(*v1.VirtualMachineInstanceMigration) (*v1.VirtualMachineInstanceMigration, error)
+	PatchStatus(name string, data []byte) (result *v1.VirtualMachineInstanceMigration, err error)
 }

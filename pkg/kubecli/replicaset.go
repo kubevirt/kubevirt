@@ -21,6 +21,7 @@ package kubecli
 
 import (
 	k8smetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
 
@@ -98,4 +99,44 @@ func (v *rc) Delete(name string, options *k8smetav1.DeleteOptions) error {
 		Body(options).
 		Do().
 		Error()
+}
+
+func (v *rc) Patch(name string, pt types.PatchType, data []byte, subresources ...string) (result *v1.VirtualMachineInstanceReplicaSet, err error) {
+	result = &v1.VirtualMachineInstanceReplicaSet{}
+	err = v.restClient.Patch(pt).
+		Namespace(v.namespace).
+		Resource(v.resource).
+		SubResource(subresources...).
+		Name(name).
+		Body(data).
+		Do().
+		Into(result)
+	return
+}
+
+func (v *rc) PatchStatus(name string, data []byte) (result *v1.VirtualMachineInstanceReplicaSet, err error) {
+	result = &v1.VirtualMachineInstanceReplicaSet{}
+	err = v.restClient.Patch(types.StrategicMergePatchType).
+		Namespace(v.namespace).
+		Resource(v.resource).
+		SubResource("status").
+		Name(name).
+		Body(data).
+		Do().
+		Into(result)
+	return
+}
+
+func (v *rc) UpdateStatus(vmi *v1.VirtualMachineInstanceReplicaSet) (result *v1.VirtualMachineInstanceReplicaSet, err error) {
+	result = &v1.VirtualMachineInstanceReplicaSet{}
+	err = v.restClient.Put().
+		Name(vmi.ObjectMeta.Name).
+		Namespace(v.namespace).
+		Resource(v.resource).
+		SubResource("status").
+		Body(vmi).
+		Do().
+		Into(result)
+	result.SetGroupVersionKind(v1.VirtualMachineInstanceReplicaSetGroupVersionKind)
+	return
 }

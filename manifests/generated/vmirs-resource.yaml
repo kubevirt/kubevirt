@@ -33,4 +33,6 @@ spec:
     - vmirss
     singular: virtualmachineinstancereplicaset
   scope: Namespaced
+  subresources:
+    status: {}
   version: v1alpha2
