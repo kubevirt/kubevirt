@@ -47,7 +47,12 @@ elif [[ $TARGET =~ .*-release ]] || [[ $TARGET =~ windows.* ]]; then
 fi
 
 # Deploy additional infra for testing
-_kubectl create -f ${MANIFESTS_OUT_DIR}/testing -R $i
+# In the case of external providers we don't control all of the various requriements here
+# rather than try and call them all out and check let's just explicitly skip deployment
+# we'll provide a new varialbe to over ride this for folks that know what they're doing
+if [[ "$KUBEVIRT_PROVIDER" != "external" ]] || [[ "$KUBEVIRT_DEPLOY_TESTS_TO_EXTERNAL_PROVIDER" == true ]]; then
+    _kubectl create -f ${MANIFESTS_OUT_DIR}/testing -R $i
+fi
 
 if [[ "$KUBEVIRT_PROVIDER" =~ os-* ]]; then
     _kubectl adm policy add-scc-to-user privileged -z kubevirt-controller -n ${namespace}
