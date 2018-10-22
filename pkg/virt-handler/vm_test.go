@@ -364,7 +364,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 			vmiFeeder.Add(vmi)
 			domainFeeder.Add(domain)
 
-			vmiInterface.EXPECT().Update(updatedVMI)
+			vmiInterface.EXPECT().UpdateStatus(updatedVMI)
 
 			node := &k8sv1.Node{
 				Status: k8sv1.NodeStatus{
@@ -419,7 +419,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 			domainFeeder.Add(domain)
 
 			client.EXPECT().SyncVirtualMachine(vmi)
-			vmiInterface.EXPECT().Update(NewVMICondMatcher(*updatedVMI))
+			vmiInterface.EXPECT().UpdateStatus(NewVMICondMatcher(*updatedVMI))
 
 			controller.Execute()
 		})
@@ -467,7 +467,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 			domainFeeder.Add(domain)
 
 			client.EXPECT().SyncVirtualMachine(vmi)
-			vmiInterface.EXPECT().Update(NewVMICondMatcher(*updatedVMI))
+			vmiInterface.EXPECT().UpdateStatus(NewVMICondMatcher(*updatedVMI))
 
 			controller.Execute()
 		})
@@ -478,7 +478,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 			vmi.Status.Phase = v1.Scheduled
 
 			vmiFeeder.Add(vmi)
-			vmiInterface.EXPECT().Update(gomock.Any()).Do(func(vmi *v1.VirtualMachineInstance) {
+			vmiInterface.EXPECT().UpdateStatus(gomock.Any()).Do(func(vmi *v1.VirtualMachineInstance) {
 				Expect(vmi.Status.Phase).To(Equal(v1.Failed))
 			})
 			controller.Execute()
@@ -490,7 +490,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 
 			mockWatchdog.CreateFile(vmi)
 			vmiFeeder.Add(vmi)
-			vmiInterface.EXPECT().Update(gomock.Any()).Do(func(vmi *v1.VirtualMachineInstance) {
+			vmiInterface.EXPECT().UpdateStatus(gomock.Any()).Do(func(vmi *v1.VirtualMachineInstance) {
 				Expect(vmi.Status.Phase).To(Equal(v1.Failed))
 			})
 			time.Sleep(2 * time.Second)
@@ -503,7 +503,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 			vmi.Status.Phase = v1.Running
 
 			vmiFeeder.Add(vmi)
-			vmiInterface.EXPECT().Update(gomock.Any()).Do(func(vmi *v1.VirtualMachineInstance) {
+			vmiInterface.EXPECT().UpdateStatus(gomock.Any()).Do(func(vmi *v1.VirtualMachineInstance) {
 				Expect(vmi.Status.Phase).To(Equal(v1.Failed))
 			})
 			controller.Execute()
@@ -534,7 +534,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 			vmiFeeder.Add(vmi)
 
 			client.EXPECT().SyncVirtualMachine(vmi)
-			vmiInterface.EXPECT().Update(updatedVMI)
+			vmiInterface.EXPECT().UpdateStatus(updatedVMI)
 
 			controller.Execute()
 		})
@@ -602,7 +602,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 			client.EXPECT().Ping()
 			client.EXPECT().SyncMigrationTarget(vmi)
 
-			vmiInterface.EXPECT().Update(updatedVmi)
+			vmiInterface.EXPECT().UpdateStatus(updatedVmi)
 
 			controller.Execute()
 		}, 3)
@@ -678,7 +678,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 			vmiUpdated.Status.NodeName = "othernode"
 			vmiUpdated.Labels[v1.NodeNameLabel] = "othernode"
 
-			vmiInterface.EXPECT().Update(vmiUpdated)
+			vmiInterface.EXPECT().UpdateStatus(vmiUpdated)
 
 			controller.Execute()
 		}, 3)
@@ -1011,7 +1011,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 			vmiFeeder.Add(vmi)
 			domainFeeder.Add(domain)
 
-			vmiInterface.EXPECT().Update(gomock.Any()).Do(func(arg interface{}) {
+			vmiInterface.EXPECT().UpdateStatus(gomock.Any()).Do(func(arg interface{}) {
 				Expect(len(arg.(*v1.VirtualMachineInstance).Status.Interfaces)).To(Equal(1))
 				Expect(arg.(*v1.VirtualMachineInstance).Status.Interfaces[0].Name).To(Equal(interface_name))
 				Expect(arg.(*v1.VirtualMachineInstance).Status.Interfaces[0].MAC).To(Equal(new_MAC))
@@ -1110,7 +1110,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 			vmiFeeder.Add(vmi)
 			domainFeeder.Add(domain)
 
-			vmiInterface.EXPECT().Update(gomock.Any()).Do(func(arg interface{}) {
+			vmiInterface.EXPECT().UpdateStatus(gomock.Any()).Do(func(arg interface{}) {
 				Expect(len(arg.(*v1.VirtualMachineInstance).Status.Interfaces)).To(Equal(2))
 				Expect(arg.(*v1.VirtualMachineInstance).Status.Interfaces[0].Name).To(Equal(old_interface_name))
 				Expect(arg.(*v1.VirtualMachineInstance).Status.Interfaces[0].MAC).To(Equal(old_MAC))
@@ -1163,7 +1163,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 			vmiFeeder.Add(vmi)
 			domainFeeder.Add(domain)
 
-			vmiInterface.EXPECT().Update(gomock.Any()).Do(func(arg interface{}) {
+			vmiInterface.EXPECT().UpdateStatus(gomock.Any()).Do(func(arg interface{}) {
 				Expect(len(arg.(*v1.VirtualMachineInstance).Status.Interfaces)).To(Equal(1))
 				Expect(arg.(*v1.VirtualMachineInstance).Status.Interfaces[0].Name).To(Equal(interface_name))
 				Expect(arg.(*v1.VirtualMachineInstance).Status.Interfaces[0].MAC).To(Equal(new_MAC))

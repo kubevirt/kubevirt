@@ -172,7 +172,7 @@ var _ = Describe("Node controller with", func() {
 			})
 
 			vmiInterface.EXPECT().List(gomock.Any()).Return(&virtv1.VirtualMachineInstanceList{Items: []virtv1.VirtualMachineInstance{*vmi}}, nil)
-			vmiInterface.EXPECT().Patch(vmi.Name, types.JSONPatchType, gomock.Any())
+			vmiInterface.EXPECT().PatchStatus(vmi.Name, gomock.Any())
 
 			controller.Execute()
 			testutils.ExpectEvent(recorder, NodeUnresponsiveReason)
@@ -192,9 +192,9 @@ var _ = Describe("Node controller with", func() {
 			})
 
 			vmiInterface.EXPECT().List(gomock.Any()).Return(&virtv1.VirtualMachineInstanceList{Items: []virtv1.VirtualMachineInstance{*vmi, *vmi1, *vmi2}}, nil)
-			vmiInterface.EXPECT().Patch(vmi.Name, types.JSONPatchType, gomock.Any()).Times(1)
-			vmiInterface.EXPECT().Patch(vmi1.Name, types.JSONPatchType, gomock.Any()).Return(nil, fmt.Errorf("some error")).Times(1)
-			vmiInterface.EXPECT().Patch(vmi2.Name, types.JSONPatchType, gomock.Any()).Times(1)
+			vmiInterface.EXPECT().PatchStatus(vmi.Name, gomock.Any()).Times(1)
+			vmiInterface.EXPECT().PatchStatus(vmi1.Name, gomock.Any()).Return(nil, fmt.Errorf("some error")).Times(1)
+			vmiInterface.EXPECT().PatchStatus(vmi2.Name, gomock.Any()).Times(1)
 
 			controller.Execute()
 			testutils.ExpectEvent(recorder, NodeUnresponsiveReason)
@@ -211,7 +211,7 @@ var _ = Describe("Node controller with", func() {
 			})
 
 			vmiInterface.EXPECT().List(gomock.Any()).Return(&virtv1.VirtualMachineInstanceList{Items: []virtv1.VirtualMachineInstance{*vmi}}, nil)
-			vmiInterface.EXPECT().Patch(vmi.Name, types.JSONPatchType, gomock.Any())
+			vmiInterface.EXPECT().PatchStatus(vmi.Name, gomock.Any())
 
 			controller.Execute()
 			testutils.ExpectEvent(recorder, NodeUnresponsiveReason)
@@ -227,7 +227,7 @@ var _ = Describe("Node controller with", func() {
 			})
 
 			vmiInterface.EXPECT().List(gomock.Any()).Return(&virtv1.VirtualMachineInstanceList{Items: []virtv1.VirtualMachineInstance{*vmi}}, nil)
-			vmiInterface.EXPECT().Patch(vmi.Name, types.JSONPatchType, gomock.Any())
+			vmiInterface.EXPECT().PatchStatus(vmi.Name, gomock.Any())
 
 			controller.Execute()
 			testutils.ExpectEvent(recorder, NodeUnresponsiveReason)
@@ -243,7 +243,7 @@ var _ = Describe("Node controller with", func() {
 			})
 
 			vmiInterface.EXPECT().List(gomock.Any()).Return(&virtv1.VirtualMachineInstanceList{Items: []virtv1.VirtualMachineInstance{*vmi}}, nil)
-			vmiInterface.EXPECT().Patch(vmi.Name, types.JSONPatchType, gomock.Any())
+			vmiInterface.EXPECT().PatchStatus(vmi.Name, gomock.Any())
 
 			controller.Execute()
 			testutils.ExpectEvent(recorder, NodeUnresponsiveReason)
@@ -259,7 +259,7 @@ var _ = Describe("Node controller with", func() {
 			})
 
 			vmiInterface.EXPECT().List(gomock.Any()).Return(&virtv1.VirtualMachineInstanceList{Items: []virtv1.VirtualMachineInstance{*vmi}}, nil)
-			vmiInterface.EXPECT().Patch(vmi.Name, types.JSONPatchType, gomock.Any())
+			vmiInterface.EXPECT().PatchStatus(vmi.Name, gomock.Any())
 
 			controller.Execute()
 			testutils.ExpectEvent(recorder, NodeUnresponsiveReason)
@@ -275,7 +275,7 @@ var _ = Describe("Node controller with", func() {
 			})
 
 			vmiInterface.EXPECT().List(gomock.Any()).Return(&virtv1.VirtualMachineInstanceList{Items: []virtv1.VirtualMachineInstance{*vmi}}, nil)
-			vmiInterface.EXPECT().Patch(vmi.Name, types.JSONPatchType, gomock.Any())
+			vmiInterface.EXPECT().PatchStatus(vmi.Name, gomock.Any())
 
 			controller.Execute()
 			testutils.ExpectEvent(recorder, NodeUnresponsiveReason)
@@ -314,7 +314,7 @@ var _ = Describe("Node controller with", func() {
 
 			vmiInterface.EXPECT().List(gomock.Any()).Return(&virtv1.VirtualMachineInstanceList{Items: []virtv1.VirtualMachineInstance{*vmi}}, nil)
 			By("checking that only a vmi with a pod gets removed")
-			vmiInterface.EXPECT().Patch(vmi.Name, types.JSONPatchType, gomock.Any())
+			vmiInterface.EXPECT().PatchStatus(vmi.Name, gomock.Any())
 
 			controller.Execute()
 			testutils.ExpectEvent(recorder, NodeUnresponsiveReason)

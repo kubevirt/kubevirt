@@ -90,49 +90,48 @@ var _ = Describe("Migration watcher", func() {
 	}
 
 	shouldExpectMigrationSchedulingState := func(migration *v1.VirtualMachineInstanceMigration) {
-		migrationInterface.EXPECT().Update(gomock.Any()).Do(func(arg interface{}) {
+		migrationInterface.EXPECT().UpdateStatus(gomock.Any()).Do(func(arg interface{}) {
 			Expect(arg.(*v1.VirtualMachineInstanceMigration).Status.Phase).To(Equal(v1.MigrationScheduling))
 		}).Return(migration, nil)
 	}
 
 	shouldExpectMigrationPreparingTargetState := func(migration *v1.VirtualMachineInstanceMigration) {
-		migrationInterface.EXPECT().Update(gomock.Any()).Do(func(arg interface{}) {
+		migrationInterface.EXPECT().UpdateStatus(gomock.Any()).Do(func(arg interface{}) {
 			Expect(arg.(*v1.VirtualMachineInstanceMigration).Status.Phase).To(Equal(v1.MigrationPreparingTarget))
 		}).Return(migration, nil)
 	}
 
 	shouldExpectMigrationTargetReadyState := func(migration *v1.VirtualMachineInstanceMigration) {
-		migrationInterface.EXPECT().Update(gomock.Any()).Do(func(arg interface{}) {
+		migrationInterface.EXPECT().UpdateStatus(gomock.Any()).Do(func(arg interface{}) {
 			Expect(arg.(*v1.VirtualMachineInstanceMigration).Status.Phase).To(Equal(v1.MigrationTargetReady))
 		}).Return(migration, nil)
 	}
 
 	shouldExpectMigrationRunningState := func(migration *v1.VirtualMachineInstanceMigration) {
-		migrationInterface.EXPECT().Update(gomock.Any()).Do(func(arg interface{}) {
+		migrationInterface.EXPECT().UpdateStatus(gomock.Any()).Do(func(arg interface{}) {
 			Expect(arg.(*v1.VirtualMachineInstanceMigration).Status.Phase).To(Equal(v1.MigrationRunning))
 		}).Return(migration, nil)
 	}
 
 	shouldExpectMigrationCompletedState := func(migration *v1.VirtualMachineInstanceMigration) {
-		migrationInterface.EXPECT().Update(gomock.Any()).Do(func(arg interface{}) {
+		migrationInterface.EXPECT().UpdateStatus(gomock.Any()).Do(func(arg interface{}) {
 			Expect(arg.(*v1.VirtualMachineInstanceMigration).Status.Phase).To(Equal(v1.MigrationSucceeded))
 		}).Return(migration, nil)
 	}
 
 	shouldExpectMigrationFailedState := func(migration *v1.VirtualMachineInstanceMigration) {
-		migrationInterface.EXPECT().Update(gomock.Any()).Do(func(arg interface{}) {
+		migrationInterface.EXPECT().UpdateStatus(gomock.Any()).Do(func(arg interface{}) {
 			Expect(arg.(*v1.VirtualMachineInstanceMigration).Status.Phase).To(Equal(v1.MigrationFailed))
 		}).Return(migration, nil)
 	}
 
 	shouldExpectVirtualMachineHandoff := func(vmi *v1.VirtualMachineInstance, migrationUid types.UID, targetNode string) {
-		vmiInterface.EXPECT().Update(gomock.Any()).Do(func(arg interface{}) {
+		vmiInterface.EXPECT().UpdateStatus(gomock.Any()).Do(func(arg interface{}) {
 			Expect(arg.(*v1.VirtualMachineInstance).Status.MigrationState).ToNot(BeNil())
 			Expect(arg.(*v1.VirtualMachineInstance).Status.MigrationState.MigrationUID).To(Equal(migrationUid))
 
 			Expect(arg.(*v1.VirtualMachineInstance).Status.MigrationState.SourceNode).To(Equal(vmi.Status.NodeName))
 			Expect(arg.(*v1.VirtualMachineInstance).Status.MigrationState.TargetNode).To(Equal(targetNode))
-			Expect(arg.(*v1.VirtualMachineInstance).Labels[v1.MigrationTargetNodeNameLabel]).To(Equal(targetNode))
 
 		}).Return(vmi, nil)
 	}
