@@ -49,6 +49,9 @@ for tmpl in ${templates}; do
         -controller-image="{{ controller_image }}" \
         -importer-image="{{ importer_image }}" \
         -cloner-image="{{ cloner_image }}" \
+        -apiserver-image="{{ apiserver_image }}" \
+        -uploadproxy-image="{{ uploadproxy_image }}" \
+        -uploadserver-image="{{ uploadserver_image }}" \
         -verbosity="{{ verbosity }}" \
         -pull-policy="{{ pull_policy }}" \
         -namespace="{{ cdi_namespace }}"

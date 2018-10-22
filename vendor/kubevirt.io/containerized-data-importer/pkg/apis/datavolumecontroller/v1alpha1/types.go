@@ -42,15 +42,21 @@ type DataVolumeSpec struct {
 
 // DataVolumeSource represents the source for our Data Volume, this can be HTTP, S3 or an existing PVC
 type DataVolumeSource struct {
-	HTTP *DataVolumeSourceHTTP `json:"http,omitempty"`
-	S3   *DataVolumeSourceS3   `json:"s3,omitempty"`
-	PVC  *DataVolumeSourcePVC  `json:"pvc,omitempty"`
+	HTTP   *DataVolumeSourceHTTP   `json:"http,omitempty"`
+	S3     *DataVolumeSourceS3     `json:"s3,omitempty"`
+	PVC    *DataVolumeSourcePVC    `json:"pvc,omitempty"`
+	UPLOAD *DataVolumeSourceUpload `json:"upload,omitempty"`
 }
 
 // DataVolumeSourcePVC provides the parameters to create a Data Volume from an existing PVC
 type DataVolumeSourcePVC struct {
 	Namespace string `json:"namespace,omitempty"`
 	Name      string `json:"name,omitempty"`
+}
+
+// DataVolumeSourceUpload provides the parameters to create a Data Volume by uploading the source
+type DataVolumeSourceUpload struct {
+	//Target string `json:"shouldUpload,omitempty"`
 }
 
 // DataVolumeSourceS3 provides the parameters to create a Data Volume from an S3 source
@@ -108,6 +114,12 @@ const (
 
 	// CloneInProgress represents a data volume with a current phase of CloneInProgress
 	CloneInProgress DataVolumePhase = "CloneInProgress"
+
+	// UploadScheduled represents a data volume with a current phase of UploadScheduled
+	UploadScheduled DataVolumePhase = "UploadScheduled"
+
+	// UploadReady represents a data volume with a current phase of UploadReady
+	UploadReady DataVolumePhase = "UploadReady"
 
 	// Succeeded represents a DataVolumePhase of Succeeded
 	Succeeded DataVolumePhase = "Succeeded"

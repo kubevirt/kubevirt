@@ -10,12 +10,14 @@ import (
 	"k8s.io/client-go/kubernetes"
 )
 
+// WaitForDeploymentReplicasReadyOrDie adds the ability to fatal out if the the replicas don't become ready
 func WaitForDeploymentReplicasReadyOrDie(c *kubernetes.Clientset, namespace, name string) {
 	if err := WaitForDeploymentReplicasReady(c, namespace, name); err != nil {
 		glog.Fatal(errors.Wrapf(err, "Failed waiting for deployment \"%s/%s\" replicas to become Ready", namespace, name))
 	}
 }
 
+// WaitForDeploymentReplicasReady will wait for replicase to become ready and return an error if they do not
 func WaitForDeploymentReplicasReady(c *kubernetes.Clientset, namespace, name string) error {
 	return wait.PollImmediate(defaultPollInterval, defaultPollPeriod, func() (done bool, err error) {
 		dep, err := c.ExtensionsV1beta1().Deployments(namespace).Get(name, metav1.GetOptions{})

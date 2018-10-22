@@ -16,10 +16,6 @@ limitations under the License.
 
 package importer
 
-// DEPRECATION NOTICE: Support for local (file://) endpoints will be removed from CDI in the next
-// release. There is no replacement and no work-around. All import endpoints must reference http(s)
-// or s3 endpoints\n")
-
 import (
 	"archive/tar"
 	"bytes"
@@ -35,6 +31,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/golang/glog"
 	"github.com/minio/minio-go"
@@ -96,6 +93,8 @@ var rdrTypM = map[string]int{
 	"xz":     rdrXz,
 	"stream": rdrStream,
 }
+
+const httpClientTimeout = time.Minute * 60
 
 // NewDataStream returns a DataStream object after validating the endpoint and constructing the reader/closer chain.
 // Note: the caller must close the `Readers` in reverse order. See Close().
@@ -160,8 +159,6 @@ func (d *DataStream) dataStreamSelector() (err error) {
 		r, err = d.s3()
 	case "http", "https":
 		r, err = d.http()
-	case "file":
-		r, err = d.local()
 	default:
 		return errors.Errorf("invalid url scheme: %q", scheme)
 	}
@@ -194,9 +191,12 @@ func (d *DataStream) s3() (io.ReadCloser, error) {
 func (d *DataStream) http() (io.ReadCloser, error) {
 	client := http.Client{
 		CheckRedirect: func(r *http.Request, via []*http.Request) error {
-			r.SetBasicAuth(d.accessKeyID, d.secretKey) // Redirects will lose basic auth, so reset them manually
+			if len(d.accessKeyID) > 0 && len(d.secretKey) > 0 {
+				r.SetBasicAuth(d.accessKeyID, d.secretKey) // Redirects will lose basic auth, so reset them manually
+			}
 			return nil
 		},
+		Timeout: httpClientTimeout,
 	}
 	req, err := http.NewRequest("GET", d.url.String(), nil)
 	if err != nil {
@@ -215,19 +215,6 @@ func (d *DataStream) http() (io.ReadCloser, error) {
 		return nil, errors.Errorf("expected status code 200, got %d. Status: %s", resp.StatusCode, resp.Status)
 	}
 	return resp.Body, nil
-}
-
-func (d *DataStream) local() (io.ReadCloser, error) {
-	// temporary local import deprecation notice
-	glog.Warningf("\nDEPRECATION NOTICE:\n   Support for local (file://) endpoints will be removed from CDI in the next release.\n   There is no replacement and no work-around.\n   All import endpoints must reference http(s) or s3 endpoints\n")
-	fn := d.url.Path
-
-	f, err := os.Open(fn)
-	if err != nil {
-		return nil, errors.Wrapf(err, "could not open file %q", fn)
-	}
-	//note: if poor perf here consider wrapping this with a buffered i/o Reader
-	return f, nil
 }
 
 // CopyImage copies the source endpoint (vm image) to the provided destination path.
@@ -256,10 +243,6 @@ func SaveStream(stream io.ReadCloser, dest string) (int64, error) {
 	return ds.Size, nil
 }
 
-// DEPRECATION NOTICE: Support for local (file://) endpoints will be removed from CDI in the next
-// release. There is no replacement and no work-around. All import endpoints must reference http(s)
-// or s3 endpoints\n")
-//
 // Read the endpoint and determine the file composition (eg. .iso.tar.gz) based on the magic number in
 // each known file format header. Set the Reader slice in the receiver and set the Size field to each
 // reader's original size. Note: if, when this method returns, the Size is still 0 then another method
@@ -280,7 +263,6 @@ func SaveStream(stream io.ReadCloser, dest string) (int64, error) {
 //   "https://foo.iso.gz"        [http, mr, gz, mr, mr*]
 //   "https://foo.iso.tar.gz"    [http, mr, gz, mr, tar, mr]
 //   "https://foo.iso.xz"        [http, mr, xz, mr, mr*]
-//   "file://foo.iso.tar.xz"     [file, mr, xz, mr]
 //   "https://foo.qcow2"         [http, mr]		     note: there is no qcow2 reader
 //   "https://foo.qcow2.tar.gz"  [http, mr, gz, mr, tar, mr] note: there is no qcow2 reader
 //

@@ -7,8 +7,7 @@ import (
 	"strings"
 	"time"
 
-	. "github.com/onsi/ginkgo"
-
+	"github.com/onsi/ginkgo"
 	k8sv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -27,7 +26,7 @@ func CDIFailHandler(message string, callerSkip ...int) {
 	if len(callerSkip) > 0 {
 		callerSkip[0]++
 	}
-	Fail(message, callerSkip...)
+	ginkgo.Fail(message, callerSkip...)
 }
 
 //RunKubectlCommand ...
@@ -48,11 +47,16 @@ func RunKubectlCommand(f *framework.Framework, args ...string) (string, error) {
 
 //PrintControllerLog ...
 func PrintControllerLog(f *framework.Framework) {
-	log, err := RunKubectlCommand(f, "logs", f.ControllerPod.Name, "-n", f.CdiInstallNs)
+	PrintPodLog(f, f.ControllerPod.Name, f.CdiInstallNs)
+}
+
+//PrintPodLog ...
+func PrintPodLog(f *framework.Framework, podName, namespace string) {
+	log, err := RunKubectlCommand(f, "logs", podName, "-n", namespace)
 	if err == nil {
-		fmt.Fprintf(GinkgoWriter, "INFO: Controller log\n%s\n", log)
+		fmt.Fprintf(ginkgo.GinkgoWriter, "INFO: Controller log\n%s\n", log)
 	} else {
-		fmt.Fprintf(GinkgoWriter, "INFO: Unable to get controller log")
+		fmt.Fprintf(ginkgo.GinkgoWriter, "INFO: Unable to get controller log\n")
 	}
 }
 
@@ -77,7 +81,7 @@ func DestroyAllTestNamespaces(client *kubernetes.Clientset) {
 		}
 		return true, nil
 	}) != nil {
-		Fail("Unable to list namespaces")
+		ginkgo.Fail("Unable to list namespaces")
 	}
 
 	for _, namespace := range namespaces.Items {

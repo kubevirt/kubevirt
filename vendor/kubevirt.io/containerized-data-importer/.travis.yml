@@ -50,6 +50,9 @@ script:
 - make goveralls
 - make test-lint
 
+after_script:
+  - curl -d "repo=github.com/kubevirt/containerized-data-importer" https://goreportcard.com/checks
+
 before_deploy:
 - docker login -u="$DOCKER_USER" -p="$DOCKER_PASS"
 

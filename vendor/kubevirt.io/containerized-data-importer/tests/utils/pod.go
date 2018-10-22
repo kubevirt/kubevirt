@@ -5,8 +5,7 @@ import (
 	"strings"
 	"time"
 
-	. "github.com/onsi/ginkgo"
-
+	"github.com/onsi/ginkgo"
 	k8sv1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -101,8 +100,8 @@ func FindPodByPrefix(clientSet *kubernetes.Clientset, namespace, prefix, labelSe
 						foundPod = true
 						result = pod
 					} else {
-						fmt.Fprintf(GinkgoWriter, "INFO: First pod name %s in namespace %s\n", result.Name, result.Namespace)
-						fmt.Fprintf(GinkgoWriter, "INFO: Second pod name %s in namespace %s\n", pod.Name, pod.Namespace)
+						fmt.Fprintf(ginkgo.GinkgoWriter, "INFO: First pod name %s in namespace %s\n", result.Name, result.Namespace)
+						fmt.Fprintf(ginkgo.GinkgoWriter, "INFO: Second pod name %s in namespace %s\n", pod.Name, pod.Namespace)
 						return true, fmt.Errorf("Multiple pods starting with prefix %q in namespace %q", prefix, namespace)
 					}
 				}
@@ -147,6 +146,7 @@ func podStatus(clientSet *kubernetes.Clientset, podName, namespace string, statu
 			}
 			return false, err
 		}
+		fmt.Fprintf(ginkgo.GinkgoWriter, "INFO: Checking POD phase: %s\n", string(pod.Status.Phase))
 		switch pod.Status.Phase {
 		case status:
 			return true, nil

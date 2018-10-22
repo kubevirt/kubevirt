@@ -1,0 +1,15 @@
+apiVersion: cdi.kubevirt.io/v1alpha1
+kind: DataVolume
+metadata:
+  name: "example-clone-dv"
+spec:
+  source:
+      pvc:
+        name: source-pvc
+        namespace: example-ns
+  pvc:
+    accessModes:
+      - ReadWriteOnce
+    resources:
+      requests:
+        storage: "128Mi"

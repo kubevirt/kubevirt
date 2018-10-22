@@ -11,11 +11,6 @@ import (
 	"k8s.io/client-go/kubernetes"
 )
 
-const (
-	ServicePollInterval = defaultPollInterval
-	ServicePollPeriod   = defaultPollPeriod
-)
-
 // GetServiceInNamespaceOrDie attempts to get the service in namespace `ns` by `name`.  Returns pointer to service on
 // success.  Panics on error.
 func GetServiceInNamespaceOrDie(c *kubernetes.Clientset, ns, name string) *v1.Service {
@@ -30,7 +25,7 @@ func GetServiceInNamespaceOrDie(c *kubernetes.Clientset, ns, name string) *v1.Se
 // api errors that may be intermittent.  Returns pointer to service (nil on error) or an error (nil on success)
 func GetServiceInNamespace(c *kubernetes.Clientset, ns, name string) (*v1.Service, error) {
 	var svc *v1.Service
-	err := wait.PollImmediate(ServicePollInterval, ServicePollPeriod, func() (done bool, err error) {
+	err := wait.PollImmediate(defaultPollInterval, defaultPollPeriod, func() (done bool, err error) {
 		svc, err = c.CoreV1().Services(ns).Get(name, metav1.GetOptions{})
 		// success
 		if err == nil {
@@ -51,7 +46,7 @@ func GetServiceInNamespace(c *kubernetes.Clientset, ns, name string) (*v1.Servic
 // api errors that may be intermittent.  Returns pointer to ServiceList (nil on error) and an error (nil on success)
 func GetServicesInNamespaceByLabel(c *kubernetes.Clientset, ns, labelSelector string) (*v1.ServiceList, error) {
 	var svcList *v1.ServiceList
-	err := wait.PollImmediate(ServicePollInterval, ServicePollPeriod, func() (done bool, err error) {
+	err := wait.PollImmediate(defaultPollInterval, defaultPollPeriod, func() (done bool, err error) {
 		svcList, err = c.CoreV1().Services(ns).List(metav1.ListOptions{
 			LabelSelector: labelSelector,
 		})

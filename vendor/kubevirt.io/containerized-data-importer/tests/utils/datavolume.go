@@ -16,18 +16,20 @@ import (
 
 const (
 	dataVolumePollInterval = 2 * time.Second
-	DataVolumeCreateTime   = 30 * time.Second
-	DataVolumeDeleteTime   = 30 * time.Second
-	DataVolumePhaseTime    = 30 * time.Second
+	dataVolumeCreateTime   = 30 * time.Second
+	dataVolumeDeleteTime   = 30 * time.Second
+	dataVolumePhaseTime    = 30 * time.Second
 )
 
 const (
+	// TinyCoreIsoURL provides a test url for the tineyCore iso image
 	TinyCoreIsoURL = "http://cdi-file-host.kube-system/tinyCore.iso"
 )
 
+// CreateDataVolumeFromDefinition is used by tests to create a testable Data Volume
 func CreateDataVolumeFromDefinition(clientSet *cdiclientset.Clientset, namespace string, def *cdiv1.DataVolume) (*cdiv1.DataVolume, error) {
 	var dataVolume *cdiv1.DataVolume
-	err := wait.PollImmediate(dataVolumePollInterval, DataVolumeCreateTime, func() (bool, error) {
+	err := wait.PollImmediate(dataVolumePollInterval, dataVolumeCreateTime, func() (bool, error) {
 		var err error
 		dataVolume, err = clientSet.CdiV1alpha1().DataVolumes(namespace).Create(def)
 		if err == nil || apierrs.IsAlreadyExists(err) {
@@ -41,9 +43,9 @@ func CreateDataVolumeFromDefinition(clientSet *cdiclientset.Clientset, namespace
 	return dataVolume, nil
 }
 
-// Delete the passed in DataVolume
+// DeleteDataVolume deletes the passed in DataVolume
 func DeleteDataVolume(clientSet *cdiclientset.Clientset, namespace string, dataVolume *cdiv1.DataVolume) error {
-	return wait.PollImmediate(dataVolumePollInterval, DataVolumeDeleteTime, func() (bool, error) {
+	return wait.PollImmediate(dataVolumePollInterval, dataVolumeDeleteTime, func() (bool, error) {
 		err := clientSet.CdiV1alpha1().DataVolumes(namespace).Delete(dataVolume.GetName(), nil)
 		if err == nil || apierrs.IsNotFound(err) {
 			return true, nil
@@ -52,6 +54,7 @@ func DeleteDataVolume(clientSet *cdiclientset.Clientset, namespace string, dataV
 	})
 }
 
+// NewDataVolumeWithPVCImport initializes a DataVolume struct with PVC annotations
 func NewDataVolumeWithPVCImport(dataVolumeName string, size string, targetPvc *k8sv1.PersistentVolumeClaim) *cdiv1.DataVolume {
 	return &cdiv1.DataVolume{
 		ObjectMeta: metav1.ObjectMeta{
@@ -76,7 +79,8 @@ func NewDataVolumeWithPVCImport(dataVolumeName string, size string, targetPvc *k
 	}
 }
 
-func NewDataVolumeWithHttpImport(dataVolumeName string, size string, httpUrl string) *cdiv1.DataVolume {
+// NewDataVolumeWithHTTPImport initializes a DataVolume struct with HTTP annotations
+func NewDataVolumeWithHTTPImport(dataVolumeName string, size string, httpURL string) *cdiv1.DataVolume {
 	return &cdiv1.DataVolume{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: dataVolumeName,
@@ -84,7 +88,7 @@ func NewDataVolumeWithHttpImport(dataVolumeName string, size string, httpUrl str
 		Spec: cdiv1.DataVolumeSpec{
 			Source: cdiv1.DataVolumeSource{
 				HTTP: &cdiv1.DataVolumeSourceHTTP{
-					URL: httpUrl,
+					URL: httpURL,
 				},
 			},
 			PVC: &k8sv1.PersistentVolumeClaimSpec{
@@ -99,9 +103,9 @@ func NewDataVolumeWithHttpImport(dataVolumeName string, size string, httpUrl str
 	}
 }
 
-// Wait for the DataVolume to be in a particular phase (Pending, Bound, or Lost)
+// WaitForDataVolumePhase waits for DV's phase to be in a particular phase (Pending, Bound, or Lost)
 func WaitForDataVolumePhase(clientSet *cdiclientset.Clientset, namespace string, phase cdiv1.DataVolumePhase, dataVolumeName string) error {
-	err := wait.PollImmediate(dataVolumePollInterval, DataVolumePhaseTime, func() (bool, error) {
+	err := wait.PollImmediate(dataVolumePollInterval, dataVolumePhaseTime, func() (bool, error) {
 		dataVolume, err := clientSet.CdiV1alpha1().DataVolumes(namespace).Get(dataVolumeName, metav1.GetOptions{})
 		if err != nil || dataVolume.Status.Phase != phase {
 			return false, err
@@ -109,7 +113,7 @@ func WaitForDataVolumePhase(clientSet *cdiclientset.Clientset, namespace string,
 		return true, nil
 	})
 	if err != nil {
-		return fmt.Errorf("DataVolume %s not in phase %s within %v", dataVolumeName, phase, DataVolumePhaseTime)
+		return fmt.Errorf("DataVolume %s not in phase %s within %v", dataVolumeName, phase, dataVolumePhaseTime)
 	}
 	return nil
 }

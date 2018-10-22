@@ -8,7 +8,7 @@ import (
 
 	"github.com/golang/glog"
 
-	. "kubevirt.io/containerized-data-importer/pkg/common"
+	"kubevirt.io/containerized-data-importer/pkg/common"
 	"kubevirt.io/containerized-data-importer/pkg/controller"
 
 	clientset "kubevirt.io/containerized-data-importer/pkg/client/clientset/versioned"
@@ -47,8 +47,8 @@ func init() {
 	uploadServerImage = getRequiredEnvVar("UPLOADSERVER_IMAGE")
 	uploadProxyServiceName = getRequiredEnvVar("UPLOADPROXY_SERVICE")
 
-	pullPolicy = DefaultPullPolicy
-	if pp := os.Getenv(PullPolicy); len(pp) != 0 {
+	pullPolicy = common.DefaultPullPolicy
+	if pp := os.Getenv(common.PullPolicy); len(pp) != 0 {
 		pullPolicy = pp
 	}
 
@@ -94,13 +94,13 @@ func main() {
 		glog.Fatalf("Error building example clientset: %s", err.Error())
 	}
 
-	cdiInformerFactory := informers.NewSharedInformerFactory(cdiClient, DefaultResyncPeriod)
-	pvcInformerFactory := k8sinformers.NewSharedInformerFactory(client, DefaultResyncPeriod)
-	podInformerFactory := k8sinformers.NewFilteredSharedInformerFactory(client, DefaultResyncPeriod, "", func(options *v1.ListOptions) {
-		options.LabelSelector = CDILabelSelector
+	cdiInformerFactory := informers.NewSharedInformerFactory(cdiClient, common.DefaultResyncPeriod)
+	pvcInformerFactory := k8sinformers.NewSharedInformerFactory(client, common.DefaultResyncPeriod)
+	podInformerFactory := k8sinformers.NewFilteredSharedInformerFactory(client, common.DefaultResyncPeriod, "", func(options *v1.ListOptions) {
+		options.LabelSelector = common.CDILabelSelector
 	})
-	serviceInformerFactory := k8sinformers.NewFilteredSharedInformerFactory(client, DefaultResyncPeriod, "", func(options *v1.ListOptions) {
-		options.LabelSelector = CDILabelSelector
+	serviceInformerFactory := k8sinformers.NewFilteredSharedInformerFactory(client, common.DefaultResyncPeriod, "", func(options *v1.ListOptions) {
+		options.LabelSelector = common.CDILabelSelector
 	})
 
 	pvcInformer := pvcInformerFactory.Core().V1().PersistentVolumeClaims()

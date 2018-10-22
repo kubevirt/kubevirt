@@ -6,6 +6,7 @@ import (
 	"strings"
 	"time"
 
+	corelisters "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/util/cert/triple"
 
 	"github.com/golang/glog"
@@ -26,6 +27,13 @@ const DataVolName = "cdi-data-vol"
 // ImagePathName provides a const to use for creating volumes in pod specs
 const ImagePathName = "image-path"
 const socketPathName = "socket-path"
+
+type podDeleteRequest struct {
+	namespace string
+	podName   string
+	podLister corelisters.PodLister
+	k8sClient kubernetes.Interface
+}
 
 func checkPVC(pvc *v1.PersistentVolumeClaim, annotation string) bool {
 	if pvc.DeletionTimestamp != nil {
@@ -216,7 +224,7 @@ func MakeImporterPodSpec(image, verbose, pullPolicy, ep, secret string, pvc *v1.
 					Args: []string{"-v=" + verbose},
 				},
 			},
-			RestartPolicy: v1.RestartPolicyNever,
+			RestartPolicy: v1.RestartPolicyOnFailure,
 			Volumes: []v1.Volume{
 				{
 					Name: DataVolName,
@@ -720,4 +728,21 @@ func MakeUploadServiceSpec(name string, pvc *v1.PersistentVolumeClaim) *v1.Servi
 		},
 	}
 	return service
+}
+
+func deletePod(req podDeleteRequest) error {
+	pod, err := req.podLister.Pods(req.namespace).Get(req.podName)
+	if k8serrors.IsNotFound(err) {
+		return nil
+	}
+	if err == nil && pod.DeletionTimestamp == nil {
+		err = req.k8sClient.CoreV1().Pods(req.namespace).Delete(req.podName, &metav1.DeleteOptions{})
+		if k8serrors.IsNotFound(err) {
+			return nil
+		}
+	}
+	if err != nil {
+		glog.V(1).Infof("error encountered deleting pod (%s): %s", req.podName, err.Error())
+	}
+	return err
 }

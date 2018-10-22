@@ -2,6 +2,7 @@ package controller
 
 import (
 	"fmt"
+
 	"github.com/golang/glog"
 	"github.com/pkg/errors"
 	"k8s.io/api/core/v1"
@@ -156,6 +157,7 @@ func (cc *CloneController) processPvcItem(pvc *v1.PersistentVolumeClaim) error {
 	//add the following annotation only if the pod pahse is succeeded, meaning job is completed
 	if phase == string(v1.PodSucceeded) {
 		anno[AnnCloneOf] = "true"
+		defer cc.deleteClonePods(sourcePod.Namespace, sourcePod.Name, targetPod.Name)
 	}
 	var lab map[string]string
 	if !checkIfLabelExists(pvc, common.CDILabelKey, common.CDILabelValue) {
@@ -166,6 +168,23 @@ func (cc *CloneController) processPvcItem(pvc *v1.PersistentVolumeClaim) error {
 		return errors.WithMessage(err, "could not update pvc %q annotation and/or label")
 	}
 	return nil
+}
+
+func (cc *CloneController) deleteClonePods(namespace, srcName, tgtName string) {
+	srcReq := podDeleteRequest{
+		namespace: namespace,
+		podName:   srcName,
+		podLister: cc.Controller.podLister,
+		k8sClient: cc.Controller.clientset,
+	}
+	tgtReq := podDeleteRequest{
+		namespace: namespace,
+		podName:   tgtName,
+		podLister: cc.Controller.podLister,
+		k8sClient: cc.Controller.clientset,
+	}
+	deletePod(srcReq)
+	deletePod(tgtReq)
 }
 
 func (c *Controller) initializeExpectations(pvcKey string) error {

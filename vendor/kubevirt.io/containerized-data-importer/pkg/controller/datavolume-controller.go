@@ -53,10 +53,68 @@ const (
 	SuccessSynced = "Synced"
 	// ErrResourceExists provides a const to indicate a resource exists error
 	ErrResourceExists = "ErrResourceExists"
+	// ErrResourceDoesntExist provides a const to indicate a resource doesn't exist error
+	ErrResourceDoesntExist = "ErrResourceDoesntExist"
+	// ErrClaimLost provides a const to indicate a claim is lost
+	ErrClaimLost = "ErrClaimLost"
+	// DataVolumeFailed provides a const to represent DataVolume failed status
+	DataVolumeFailed = "DataVolumeFailed"
+	// ImportScheduled provides a const to indicate import is scheduled
+	ImportScheduled = "ImportScheduled"
+	// ImportInProgress provides a const to indicate an import is in progress
+	ImportInProgress = "ImportInProgress"
+	// ImportFailed provides a const to indicate import has failed
+	ImportFailed = "ImportFailed"
+	// ImportSucceeded provides a const to indicate import has succeeded
+	ImportSucceeded = "ImportSucceded"
+	// CloneScheduled provides a const to indicate clone is scheduled
+	CloneScheduled = "CloneScheduled"
+	// CloneInProgress provides a const to indicate clone is in progress
+	CloneInProgress = "CloneInProgress"
+	// CloneFailed provides a const to indicate clone has failed
+	CloneFailed = "CloneFailed"
+	// CloneSucceeded provides a const to indicate clone has succeeded
+	CloneSucceeded = "CloneSucceeded"
+	// UploadScheduled provides a const to indicate upload is scheduled
+	UploadScheduled = "UploadScheduled"
+	// UploadReady provides a const to indicate upload is in progress
+	UploadReady = "UploadReady"
+	// UploadFailed provides a const to indicate upload has failed
+	UploadFailed = "UploadFailed"
+	// UploadSucceeded provides a const to indicate upload has succeeded
+	UploadSucceeded = "UploadSucceeded"
 	// MessageResourceExists provides a const to form a resource exists error message
 	MessageResourceExists = "Resource %q already exists and is not managed by DataVolume"
+	// MessageResourceDoesntExist provides a const to form a resource doesn't exist error message
+	MessageResourceDoesntExist = "Resource managed by %q doesn't exist"
 	// MessageResourceSynced provides a const to standardize a Resource Synced message
 	MessageResourceSynced = "DataVolume synced successfully"
+	// MessageErrClaimLost provides a const to form claim lost message
+	MessageErrClaimLost = "PVC %s lost"
+	// MessageImportScheduled provides a const to form import is scheduled message
+	MessageImportScheduled = "Import into %s scheduled"
+	// MessageImportInProgress provides a const to form import is in progress message
+	MessageImportInProgress = "Import into %s in progress"
+	// MessageImportFailed provides a const to form import has failed message
+	MessageImportFailed = "Failed to import into PVC %s"
+	// MessageImportSucceeded provides a const to form import has succeeded message
+	MessageImportSucceeded = "Successfully imported into PVC %s"
+	// MessageCloneScheduled provides a const to form clone is scheduled message
+	MessageCloneScheduled = "Cloning from %s/%s into %s/%s scheduled"
+	// MessageCloneInProgress provides a const to form clone is in progress message
+	MessageCloneInProgress = "Cloning from %s/%s into %s/%s in progress"
+	// MessageCloneFailed provides a const to form clone has failed message
+	MessageCloneFailed = "Cloning from %s/%s into %s/%s failed"
+	// MessageCloneSucceeded provides a const to form clone has succeeded message
+	MessageCloneSucceeded = "Successfully cloned from %s/%s into %s/%s"
+	// MessageUploadScheduled provides a const to form upload is scheduled message
+	MessageUploadScheduled = "Upload into %s scheduled"
+	// MessageUploadReady provides a const to form upload is ready message
+	MessageUploadReady = "Upload into %s ready"
+	// MessageUploadFailed provides a const to form upload has failed message
+	MessageUploadFailed = "Upload into %s failed"
+	// MessageUploadSucceeded provides a const to form upload has succeeded message
+	MessageUploadSucceeded = "Successfully uploaded into %s"
 )
 
 // DataVolumeController represents the CDI Data Volume Controller
@@ -76,6 +134,13 @@ type DataVolumeController struct {
 	recorder  record.EventRecorder
 
 	pvcExpectations *expectations.UIDTrackingControllerExpectations
+}
+
+// DataVolumeEvent reoresents event
+type DataVolumeEvent struct {
+	eventType string
+	reason    string
+	message   string
 }
 
 // NewDataVolumeController sets up a Data Volume Controller, and return a pointer to
@@ -298,38 +363,94 @@ func (c *DataVolumeController) syncHandler(key string) error {
 	return nil
 }
 
-func (c *DataVolumeController) updateImportStatusPhase(pvc *corev1.PersistentVolumeClaim, dataVolumeCopy *cdiv1.DataVolume) {
+func (c *DataVolumeController) updateImportStatusPhase(pvc *corev1.PersistentVolumeClaim, dataVolumeCopy *cdiv1.DataVolume, event *DataVolumeEvent) {
 	phase, ok := pvc.Annotations[AnnPodPhase]
 	if ok {
 		switch phase {
 		case string(corev1.PodPending):
 			// TODO: Use a more generic Scheduled, like maybe TransferScheduled.
 			dataVolumeCopy.Status.Phase = cdiv1.ImportScheduled
+			event.eventType = corev1.EventTypeNormal
+			event.reason = ImportScheduled
+			event.message = fmt.Sprintf(MessageImportScheduled, pvc.Name)
 		case string(corev1.PodRunning):
 			// TODO: Use a more generic In Progess, like maybe TransferInProgress.
 			dataVolumeCopy.Status.Phase = cdiv1.ImportInProgress
+			event.eventType = corev1.EventTypeNormal
+			event.reason = ImportInProgress
+			event.message = fmt.Sprintf(MessageImportInProgress, pvc.Name)
 		case string(corev1.PodFailed):
 			dataVolumeCopy.Status.Phase = cdiv1.Failed
+			event.eventType = corev1.EventTypeWarning
+			event.reason = ImportFailed
+			event.message = fmt.Sprintf(MessageImportFailed, pvc.Name)
 		case string(corev1.PodSucceeded):
 			dataVolumeCopy.Status.Phase = cdiv1.Succeeded
+			event.eventType = corev1.EventTypeNormal
+			event.reason = ImportSucceeded
+			event.message = fmt.Sprintf(MessageImportSucceeded, pvc.Name)
 		}
 	}
 }
 
-func (c *DataVolumeController) updateCloneStatusPhase(pvc *corev1.PersistentVolumeClaim, dataVolumeCopy *cdiv1.DataVolume) {
+func (c *DataVolumeController) updateCloneStatusPhase(pvc *corev1.PersistentVolumeClaim, dataVolumeCopy *cdiv1.DataVolume, event *DataVolumeEvent) {
 	phase, ok := pvc.Annotations[AnnPodPhase]
 	if ok {
 		switch phase {
 		case string(corev1.PodPending):
 			// TODO: Use a more generic Scheduled, like maybe TransferScheduled.
 			dataVolumeCopy.Status.Phase = cdiv1.CloneScheduled
+			event.eventType = corev1.EventTypeNormal
+			event.reason = CloneScheduled
+			event.message = fmt.Sprintf(MessageCloneScheduled, dataVolumeCopy.Spec.Source.PVC.Namespace, dataVolumeCopy.Spec.Source.PVC.Name, pvc.Namespace, pvc.Name)
 		case string(corev1.PodRunning):
 			// TODO: Use a more generic In Progess, like maybe TransferInProgress.
 			dataVolumeCopy.Status.Phase = cdiv1.CloneInProgress
+			event.eventType = corev1.EventTypeNormal
+			event.reason = CloneInProgress
+			event.message = fmt.Sprintf(MessageCloneInProgress, dataVolumeCopy.Spec.Source.PVC.Namespace, dataVolumeCopy.Spec.Source.PVC.Name, pvc.Namespace, pvc.Name)
 		case string(corev1.PodFailed):
 			dataVolumeCopy.Status.Phase = cdiv1.Failed
+			event.eventType = corev1.EventTypeWarning
+			event.reason = CloneFailed
+			event.message = fmt.Sprintf(MessageCloneFailed, dataVolumeCopy.Spec.Source.PVC.Namespace, dataVolumeCopy.Spec.Source.PVC.Name, pvc.Namespace, pvc.Name)
 		case string(corev1.PodSucceeded):
 			dataVolumeCopy.Status.Phase = cdiv1.Succeeded
+			event.eventType = corev1.EventTypeNormal
+			event.reason = CloneSucceeded
+			event.message = fmt.Sprintf(MessageCloneSucceeded, dataVolumeCopy.Spec.Source.PVC.Namespace, dataVolumeCopy.Spec.Source.PVC.Name, pvc.Namespace, pvc.Name)
+		}
+
+	}
+}
+
+func (c *DataVolumeController) updateUploadStatusPhase(pvc *corev1.PersistentVolumeClaim, dataVolumeCopy *cdiv1.DataVolume, event *DataVolumeEvent) {
+	phase, ok := pvc.Annotations[AnnPodPhase]
+	if ok {
+		switch phase {
+		case string(corev1.PodPending):
+			// TODO: Use a more generic Scheduled, like maybe TransferScheduled.
+			dataVolumeCopy.Status.Phase = cdiv1.UploadScheduled
+			event.eventType = corev1.EventTypeNormal
+			event.reason = UploadScheduled
+			event.message = fmt.Sprintf(MessageUploadScheduled, pvc.Name)
+		case string(corev1.PodRunning):
+			// TODO: Use a more generic In Progess, like maybe TransferInProgress.
+			dataVolumeCopy.Status.Phase = cdiv1.UploadReady
+			event.eventType = corev1.EventTypeNormal
+			event.reason = UploadReady
+			event.message = fmt.Sprintf(MessageUploadReady, pvc.Name)
+		case string(corev1.PodFailed):
+			dataVolumeCopy.Status.Phase = cdiv1.Failed
+			event.eventType = corev1.EventTypeWarning
+			event.reason = UploadFailed
+			event.message = fmt.Sprintf(MessageUploadFailed, pvc.Name)
+		case string(corev1.PodSucceeded):
+			dataVolumeCopy.Status.Phase = cdiv1.Succeeded
+			event.eventType = corev1.EventTypeNormal
+			event.reason = UploadSucceeded
+			event.message = fmt.Sprintf(MessageUploadSucceeded, pvc.Name)
+
 		}
 	}
 }
@@ -337,6 +458,7 @@ func (c *DataVolumeController) updateCloneStatusPhase(pvc *corev1.PersistentVolu
 func (c *DataVolumeController) updateDataVolumeStatus(dataVolume *cdiv1.DataVolume, pvc *corev1.PersistentVolumeClaim) error {
 	dataVolumeCopy := dataVolume.DeepCopy()
 	var err error
+	var event DataVolumeEvent
 
 	curPhase := dataVolumeCopy.Status.Phase
 	if pvc == nil {
@@ -346,6 +468,9 @@ func (c *DataVolumeController) updateDataVolumeStatus(dataVolume *cdiv1.DataVolu
 			// something has gone wrong. Perhaps the PVC was deleted out from
 			// underneath the DataVolume
 			dataVolumeCopy.Status.Phase = cdiv1.Failed
+			event.eventType = corev1.EventTypeWarning
+			event.reason = DataVolumeFailed
+			event.message = fmt.Sprintf(MessageResourceDoesntExist, dataVolume.Name)
 		}
 
 	} else {
@@ -363,16 +488,24 @@ func (c *DataVolumeController) updateDataVolumeStatus(dataVolume *cdiv1.DataVolu
 			_, ok := pvc.Annotations[AnnImportPod]
 			if ok {
 				dataVolumeCopy.Status.Phase = cdiv1.ImportScheduled
-				c.updateImportStatusPhase(pvc, dataVolumeCopy)
+				c.updateImportStatusPhase(pvc, dataVolumeCopy, &event)
 			}
 			_, ok = pvc.Annotations[AnnCloneRequest]
 			if ok {
 				dataVolumeCopy.Status.Phase = cdiv1.CloneScheduled
-				c.updateCloneStatusPhase(pvc, dataVolumeCopy)
+				c.updateCloneStatusPhase(pvc, dataVolumeCopy, &event)
+			}
+			_, ok = pvc.Annotations[AnnUploadRequest]
+			if ok {
+				dataVolumeCopy.Status.Phase = cdiv1.UploadScheduled
+				c.updateUploadStatusPhase(pvc, dataVolumeCopy, &event)
 			}
 
 		case corev1.ClaimLost:
 			dataVolumeCopy.Status.Phase = cdiv1.Failed
+			event.eventType = corev1.EventTypeWarning
+			event.reason = ErrClaimLost
+			event.message = fmt.Sprintf(MessageErrClaimLost, pvc.Name)
 		default:
 			if pvc.Status.Phase != "" {
 				dataVolumeCopy.Status.Phase = cdiv1.Unknown
@@ -383,6 +516,10 @@ func (c *DataVolumeController) updateDataVolumeStatus(dataVolume *cdiv1.DataVolu
 	// Only update the object if something actually changed in the status.
 	if !reflect.DeepEqual(dataVolume.Status, dataVolumeCopy.Status) {
 		_, err = c.cdiClientSet.CdiV1alpha1().DataVolumes(dataVolume.Namespace).Update(dataVolumeCopy)
+		// Emit the event only when the status change happens, not every time
+		if event.eventType != "" {
+			c.recorder.Event(dataVolume, event.eventType, event.reason, event.message)
+		}
 	}
 	return err
 }
@@ -493,7 +630,8 @@ func newPersistentVolumeClaim(dataVolume *cdiv1.DataVolume) (*corev1.PersistentV
 		} else {
 			annotations[AnnCloneRequest] = dataVolume.Namespace + "/" + dataVolume.Spec.Source.PVC.Name
 		}
-
+	} else if dataVolume.Spec.Source.UPLOAD != nil {
+		annotations[AnnUploadRequest] = ""
 	} else {
 		return nil, errors.Errorf("no source set for datavolume")
 	}

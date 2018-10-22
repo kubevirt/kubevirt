@@ -2,7 +2,7 @@ kind: ServiceAccount
 apiVersion: v1
 metadata:
   name: cdi-sa
-  namespace: {{ .Namespace }}
+  namespace: {{.Namespace}}
   labels:
     cdi.kubevirt.io: ""
 ---
@@ -47,6 +47,7 @@ apiVersion: rbac.authorization.k8s.io/v1beta1
 kind: ClusterRoleBinding
 metadata:
   name: cdi-sa
+  namespace: {{.Namespace}}
   labels:
     cdi.kubevirt.io: ""
 roleRef:
@@ -56,13 +57,13 @@ roleRef:
 subjects:
   - kind: ServiceAccount
     name: cdi-sa
-    namespace: {{ .Namespace }}
+    namespace: {{.Namespace}}
 ---
 apiVersion: apps/v1beta2
 kind: Deployment
 metadata:
   name: cdi-deployment
-  namespace: {{ .Namespace }}
+  namespace: {{.Namespace}}
   labels:
     cdi.kubevirt.io: ""
     app: containerized-data-importer
@@ -79,18 +80,18 @@ spec:
       serviceAccountName: cdi-sa
       containers:
       - name: cdi-controller
-        image: {{ .DockerRepo }}/{{ .ControllerImage }}:{{ .DockerTag }}
-        imagePullPolicy: {{ .PullPolicy }}
-        args: ["-v={{ .Verbosity }}"] # default verbosity; change to 2 or 3 for more detailed logging
+        image: kubevirt/cdi-controller:v1.3.0
+        imagePullPolicy: IfNotPresent
+        args: ["-v=1"] # default verbosity; change to 2 or 3 for more detailed logging
         env:
         - name: IMPORTER_IMAGE
-          value: {{ .DockerRepo }}/{{ .ImporterImage }}:{{ .DockerTag }}
+          value: kubevirt/cdi-importer:v1.3.0
         - name: CLONER_IMAGE
-          value: {{ .DockerRepo }}/{{ .ClonerImage }}:{{ .DockerTag }}
+          value: kubevirt/cdi-cloner:v1.3.0
         - name: UPLOADSERVER_IMAGE
-          value: {{ .DockerRepo }}/{{ .UploadServerImage }}:{{ .DockerTag }}  
+          value: kubevirt/cdi-uploadserver:v1.3.0
         - name: PULL_POLICY
-          value: {{ .PullPolicy }}
+          value: IfNotPresent
         - name: UPLOADPROXY_SERVICE
           value: cdi-uploadproxy
 ---
@@ -116,7 +117,7 @@ kind: ServiceAccount
 apiVersion: v1
 metadata:
   name: cdi-apiserver
-  namespace: {{ .Namespace }}
+  namespace: {{.Namespace}}
   labels:
     kubevirt.io: ""
 ---
@@ -124,7 +125,7 @@ apiVersion: rbac.authorization.k8s.io/v1beta1
 kind: RoleBinding
 metadata:
   name: cdi-apiserver
-  namespace: {{ .Namespace }}
+  namespace: {{.Namespace}}
   labels:
     kubevirt.io: ""
 roleRef:
@@ -134,13 +135,13 @@ roleRef:
 subjects:
   - kind: ServiceAccount
     name: cdi-apiserver
-    namespace: {{ .Namespace }}
+    namespace: {{.Namespace}}
 ---
 apiVersion: rbac.authorization.k8s.io/v1beta1
 kind: Role
 metadata:
   name: cdi-apiserver
-  namespace: {{ .Namespace }}
+  namespace: {{.Namespace}}
   labels:
     kubevirt.io: ""
 rules:
@@ -172,7 +173,7 @@ roleRef:
 subjects:
   - kind: ServiceAccount
     name: cdi-apiserver
-    namespace: {{ .Namespace }}
+    namespace: {{.Namespace}}
 ---
 apiVersion: rbac.authorization.k8s.io/v1beta1
 kind: ClusterRole
@@ -211,13 +212,13 @@ roleRef:
 subjects:
 - kind: ServiceAccount
   name: cdi-apiserver
-  namespace: {{ .Namespace }}
+  namespace: {{.Namespace}}
 ---
 apiVersion: v1
 kind: Service
 metadata:
   name: cdi-api
-  namespace: {{ .Namespace }}
+  namespace: {{.Namespace}}
   labels:
     cdi.kubevirt.io: "cdi-api"
 spec:
@@ -232,7 +233,7 @@ apiVersion: apps/v1beta2
 kind: Deployment
 metadata:
   name: cdi-api
-  namespace: {{ .Namespace }}
+  namespace: {{.Namespace}}
   labels:
     cdi.kubevirt.io: "cdi-api"
 spec:
@@ -248,15 +249,15 @@ spec:
       serviceAccountName: cdi-apiserver
       containers:
       - name: cdi-apiserver-api
-        image: {{ .DockerRepo }}/{{ .APIServerImage }}:{{ .DockerTag }}
-        imagePullPolicy: {{ .PullPolicy }}
-        args: ["-v={{ .Verbosity }}"] # default verbosity; change to 2 or 3 for more detailed logging
+        image: kubevirt/cdi-apiserver:v1.3.0
+        imagePullPolicy: IfNotPresent
+        args: ["-v=1"] # default verbosity; change to 2 or 3 for more detailed logging
 ---
 apiVersion: v1
 kind: Service
 metadata:
   name: cdi-uploadproxy
-  namespace: {{ .Namespace }}
+  namespace: {{.Namespace}}
   labels:
     cdi.kubevirt.io: "cdi-uploadproxy"
 spec:
@@ -271,7 +272,7 @@ apiVersion: apps/v1beta2
 kind: Deployment
 metadata:
   name: cdi-uploadproxy
-  namespace: {{ .Namespace }}
+  namespace: {{.Namespace}}
   labels:
     cdi.kubevirt.io: "cdi-uploadproxy"
 spec:
@@ -286,9 +287,9 @@ spec:
     spec:
       containers:
       - name: cdi-uploadproxy
-        image: {{ .DockerRepo }}/{{ .UploadProxyImage }}:{{ .DockerTag }}
-        imagePullPolicy: {{ .PullPolicy }}
-        args: ["-v={{ .Verbosity }}"] # default verbosity; change to 2 or 3 for more detailed logging
+        image: kubevirt/cdi-uploadproxy:v1.3.0
+        imagePullPolicy: IfNotPresent
+        args: ["-v=1"] # default verbosity; change to 2 or 3 for more detailed logging
         env:
         - name: APISERVER_PUBLIC_KEY
           valueFrom:
@@ -320,3 +321,4 @@ spec:
             secretKeyRef:
               name: cdi-upload-proxy-server-key
               key: tls.crt
+
