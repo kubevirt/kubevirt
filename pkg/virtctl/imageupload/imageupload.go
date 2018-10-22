@@ -116,7 +116,7 @@ func NewImageUploadCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
 
 func usage() string {
 	usage := `  # Upload a local disk image to a newly created PersistentVolumeClaim:
-	virtctl image-upload --insecure --upload-proxy-url=https://cdi-uploadproxy.mycluster.com --pvc-name=upload-pvc --pvc-size=10Gi --image-path=/images/fedora28.qcow2`
+	virtctl image-upload --upload-proxy-url=https://cdi-uploadproxy.mycluster.com --pvc-name=upload-pvc --pvc-size=10Gi --image-path=/images/fedora28.qcow2`
 	return usage
 }
 
@@ -141,18 +141,24 @@ func (c *command) run(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("Cannot obtain KubeVirt client: %v", err)
 	}
 
-	pvc, err := getUploadPVC(virtClient, namespace, pvcName, noCreate)
+	pvc, err := getAndValidateUploadPVC(virtClient, namespace, pvcName, noCreate)
 	if err != nil {
-		return err
-	}
+		if !(k8serrors.IsNotFound(err) && !noCreate) {
+			return err
+		}
 
-	if pvc == nil {
 		pvc, err = createUploadPVC(virtClient, namespace, pvcName, pvcSize, storageClass, accessMode)
 		if err != nil {
 			return err
 		}
+
 		fmt.Printf("PVC %s/%s created\n", namespace, pvc.Name)
 	} else {
+		pvc, err = ensurePVCSupportsUpload(virtClient, pvc)
+		if err != nil {
+			return err
+		}
+
 		fmt.Printf("Using existing PVC %s/%s\n", namespace, pvc.Name)
 	}
 
@@ -322,14 +328,31 @@ func createUploadPVC(client kubernetes.Interface, namespace, name, size, storage
 	return pvc, nil
 }
 
-func getUploadPVC(client kubernetes.Interface, namespace, name string, shouldExist bool) (*v1.PersistentVolumeClaim, error) {
+func ensurePVCSupportsUpload(client kubernetes.Interface, pvc *v1.PersistentVolumeClaim) (*v1.PersistentVolumeClaim, error) {
+	var err error
+	_, hasAnnotation := pvc.Annotations[uploadRequestAnnotation]
+
+	if !hasAnnotation {
+		pvc.Annotations[uploadRequestAnnotation] = ""
+		pvc, err = client.CoreV1().PersistentVolumeClaims(pvc.Namespace).Update(pvc)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	return pvc, nil
+}
+
+func getAndValidateUploadPVC(client kubernetes.Interface, namespace, name string, shouldExist bool) (*v1.PersistentVolumeClaim, error) {
 	pvc, err := client.CoreV1().PersistentVolumeClaims(namespace).Get(pvcName, metav1.GetOptions{})
 	if err != nil {
-		if k8serrors.IsNotFound(err) && !shouldExist {
-			return nil, nil
-		}
 		return nil, err
 	}
+
+	// for PVCs that exist, we ony want to use them if
+	// 1. They have not already been used AND EITHER
+	//   a. shouldExist is true
+	//   b. shouldExist is false AND the upload annotation exists
 
 	_, isUploadPVC := pvc.Annotations[uploadRequestAnnotation]
 	podPhase, _ := pvc.Annotations[PodPhaseAnnotation]
@@ -338,17 +361,8 @@ func getUploadPVC(client kubernetes.Interface, namespace, name string, shouldExi
 		return nil, fmt.Errorf("PVC %s already successfully imported/cloned/updated", name)
 	}
 
-	if !isUploadPVC {
-		if shouldExist {
-			// add the annotation for upload controller
-			pvc.Annotations[uploadRequestAnnotation] = ""
-			pvc, err = client.CoreV1().PersistentVolumeClaims(namespace).Update(pvc)
-			if err != nil {
-				return nil, err
-			}
-		} else {
-			return nil, fmt.Errorf("PVC %s not available for upload", name)
-		}
+	if !shouldExist && !isUploadPVC {
+		return nil, fmt.Errorf("PVC %s not available for upload", name)
 	}
 
 	return pvc, nil
