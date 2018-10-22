@@ -359,7 +359,7 @@ func (c *VMIController) updateStatus(vmi *virtv1.VirtualMachineInstance, pod *k8
 	if !reflect.DeepEqual(vmi.Status, vmiCopy.Status) ||
 		!reflect.DeepEqual(vmi.Finalizers, vmiCopy.Finalizers) ||
 		!reflect.DeepEqual(vmi.Annotations, vmiCopy.Annotations) {
-		_, err := c.clientset.VirtualMachineInstance(vmi.Namespace).Update(vmiCopy)
+		_, err := c.clientset.VirtualMachineInstance(vmi.Namespace).UpdateStatus(vmiCopy)
 		if err != nil {
 			return err
 		}

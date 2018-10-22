@@ -441,7 +441,7 @@ func (v *vmis) Patch(name string, pt types.PatchType, data []byte, subresources 
 
 func (v *vmis) PatchStatus(name string, data []byte) (result *v1.VirtualMachineInstance, err error) {
 	result = &v1.VirtualMachineInstance{}
-	err = v.restClient.Patch(types.StrategicMergePatchType).
+	err = v.restClient.Patch(types.JSONPatchType).
 		Namespace(v.namespace).
 		Resource(v.resource).
 		SubResource("status").
@@ -453,13 +453,36 @@ func (v *vmis) PatchStatus(name string, data []byte) (result *v1.VirtualMachineI
 }
 
 func (v *vmis) UpdateStatus(vmi *v1.VirtualMachineInstance) (result *v1.VirtualMachineInstance, err error) {
+	// FIXME we can't modify metadata in a modifying webhook for status-only, and
+	// CRs don't support field selectors either.
+	// Filed https://github.com/kubernetes/kubernetes/issues/70084
+	toUpdate := vmi
+	node := toUpdate.Status.NodeName
+	targetNode := ""
+	if toUpdate.Status.MigrationState != nil {
+		targetNode = toUpdate.Status.MigrationState.TargetNode
+	}
+	if toUpdate.ObjectMeta.Labels == nil {
+		toUpdate.ObjectMeta.Labels = map[string]string{}
+	}
+	if toUpdate.ObjectMeta.Labels[v1.NodeNameLabel] != node ||
+		toUpdate.ObjectMeta.Labels[v1.MigrationTargetNodeNameLabel] != targetNode {
+		// Set the node name labels, since CRs don't support field selectors
+		toUpdate.ObjectMeta.Labels[v1.NodeNameLabel] = node
+		toUpdate.ObjectMeta.Labels[v1.MigrationTargetNodeNameLabel] = targetNode
+		toUpdate, err = v.Update(toUpdate)
+		if err != nil {
+			return nil, err
+		}
+	}
+
 	result = &v1.VirtualMachineInstance{}
 	err = v.restClient.Put().
-		Name(vmi.ObjectMeta.Name).
+		Name(toUpdate.ObjectMeta.Name).
 		Namespace(v.namespace).
 		Resource(v.resource).
 		SubResource("status").
-		Body(vmi).
+		Body(toUpdate).
 		Do().
 		Into(result)
 	result.SetGroupVersionKind(v1.VirtualMachineInstanceGroupVersionKind)

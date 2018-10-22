@@ -666,7 +666,7 @@ func (c *VMIReplicaSet) updateStatus(rs *virtv1.VirtualMachineInstanceReplicaSet
 	// Add/Remove Failure condition if necessary
 	c.checkFailure(rs, diff, scaleErr)
 
-	_, err := c.clientset.ReplicaSet(rs.ObjectMeta.Namespace).Update(rs)
+	_, err := c.clientset.ReplicaSet(rs.ObjectMeta.Namespace).UpdateStatus(rs)
 
 	if err != nil {
 		return err

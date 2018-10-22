@@ -330,7 +330,7 @@ func (c *MigrationController) updateStatus(migration *virtv1.VirtualMachineInsta
 	}
 
 	if !reflect.DeepEqual(migration.Status, migrationCopy.Status) {
-		_, err := c.clientset.VirtualMachineInstanceMigration(migration.Namespace).Update(migrationCopy)
+		_, err := c.clientset.VirtualMachineInstanceMigration(migration.Namespace).UpdateStatus(migrationCopy)
 		if err != nil {
 			return err
 		}
@@ -433,13 +433,9 @@ func (c *MigrationController) sync(migration *virtv1.VirtualMachineInstanceMigra
 				SourceNode:   vmi.Status.NodeName,
 			}
 
-			// By setting this label, virt-handler on the target node will receive
-			// the vmi and prepare the local environment for the migration
-			vmiCopy.ObjectMeta.Labels[virtv1.MigrationTargetNodeNameLabel] = pod.Spec.NodeName
-
 			if !reflect.DeepEqual(vmi.Status, vmiCopy.Status) ||
 				!reflect.DeepEqual(vmi.Labels, vmiCopy.Labels) {
-				_, err := c.clientset.VirtualMachineInstance(vmi.Namespace).Update(vmiCopy)
+				_, err := c.clientset.VirtualMachineInstance(vmi.Namespace).UpdateStatus(vmiCopy)
 				if err != nil {
 					c.recorder.Eventf(migration, k8sv1.EventTypeWarning, FailedHandOverPodReason, fmt.Sprintf("Failed to set MigrationStat in VMI status. :%v", err))
 					return err

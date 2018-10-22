@@ -401,7 +401,7 @@ func (d *VirtualMachineController) updateVMIStatus(vmi *v1.VirtualMachineInstanc
 		}
 
 		if !reflect.DeepEqual(oldStatus, vmi.Status) {
-			_, err = d.clientset.VirtualMachineInstance(vmi.ObjectMeta.Namespace).Update(vmi)
+			_, err = d.clientset.VirtualMachineInstance(vmi.ObjectMeta.Namespace).UpdateStatus(vmi)
 			if err != nil {
 				return err
 			}
@@ -468,7 +468,7 @@ func (d *VirtualMachineController) updateVMIStatus(vmi *v1.VirtualMachineInstanc
 	condManager.CheckFailure(vmi, syncError, "Synchronizing with the Domain failed.")
 
 	if !reflect.DeepEqual(oldStatus, vmi.Status) {
-		_, err = d.clientset.VirtualMachineInstance(vmi.ObjectMeta.Namespace).Update(vmi)
+		_, err = d.clientset.VirtualMachineInstance(vmi.ObjectMeta.Namespace).UpdateStatus(vmi)
 		if err != nil {
 			return err
 		}
@@ -695,7 +695,7 @@ func (d *VirtualMachineController) migrationTargetExecute(key string,
 		// update the VMI if necessary
 		if !reflect.DeepEqual(vmi.Status, vmiCopy.Status) {
 			vmiCopy.Status.MigrationState.TargetNodeAddress = curAddress
-			_, err := d.clientset.VirtualMachineInstance(vmi.ObjectMeta.Namespace).Update(vmiCopy)
+			_, err := d.clientset.VirtualMachineInstance(vmi.ObjectMeta.Namespace).UpdateStatus(vmiCopy)
 			if err != nil {
 				return err
 			}

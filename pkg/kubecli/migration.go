@@ -134,7 +134,7 @@ func (v *migration) Patch(name string, pt types.PatchType, data []byte, subresou
 
 func (v *migration) PatchStatus(name string, data []byte) (result *v1.VirtualMachineInstanceMigration, err error) {
 	result = &v1.VirtualMachineInstanceMigration{}
-	err = v.restClient.Patch(types.StrategicMergePatchType).
+	err = v.restClient.Patch(types.JSONPatchType).
 		Namespace(v.namespace).
 		Resource(v.resource).
 		SubResource("status").

@@ -944,7 +944,7 @@ func (c *VMController) updateStatus(vm *virtv1.VirtualMachine, vmi *virtv1.Virtu
 		c.processFailure(vm, vmi, createErr)
 	}
 
-	_, err := c.clientset.VirtualMachine(vm.ObjectMeta.Namespace).Update(vm)
+	_, err := c.clientset.VirtualMachine(vm.ObjectMeta.Namespace).UpdateStatus(vm)
 
 	return err
 }

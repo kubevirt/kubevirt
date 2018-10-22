@@ -206,7 +206,7 @@ func (c *NodeController) execute(key string) error {
 				operation = "replace"
 			}
 			reasonPatch := fmt.Sprintf(`{ "op": "%s", "path": "/status/reason", "value": "%s" }`, operation, NodeUnresponsiveReason)
-			_, err := c.clientset.VirtualMachineInstance(vmi.Namespace).Patch(vmi.Name, types.JSONPatchType, []byte(fmt.Sprintf("[%s, %s]", phasePatch, reasonPatch)))
+			_, err := c.clientset.VirtualMachineInstance(vmi.Namespace).PatchStatus(vmi.Name, []byte(fmt.Sprintf("[%s, %s]", phasePatch, reasonPatch)))
 			if err != nil {
 				errs = append(errs, fmt.Sprintf("failed to move vmi %s in namespace %s to final state: %v", vmi.Name, vmi.Namespace, err))
 				logger.Reason(err).Errorf("Failed to move vmi %s in namespace %s to final state", vmi.Name, vmi.Namespace)
