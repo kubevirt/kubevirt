@@ -367,6 +367,83 @@ var _ = Describe("VirtualMachineInstance", func() {
 			controller.Execute()
 		})
 
+		It("should add guest agent condition when sees the channel connected", func() {
+			vmi := v1.NewMinimalVMI("testvmi")
+			vmi.UID = testUUID
+			vmi.ObjectMeta.ResourceVersion = "1"
+			vmi.Status.Phase = v1.Running
+
+			mockWatchdog.CreateFile(vmi)
+
+			domain := api.NewMinimalDomainWithUUID("testvmi", testUUID)
+			domain.Status.Status = api.Running
+			domain.Spec.Devices.Channels = []api.Channel{
+				{
+					Type: "unix",
+					Target: &api.ChannelTarget{
+						Name:  "org.qemu.guest_agent.0",
+						State: "connected",
+					},
+				},
+			}
+
+			updatedVMI := vmi.DeepCopy()
+			updatedVMI.Status.Conditions = []v1.VirtualMachineInstanceCondition{
+				{
+					Type:          v1.VirtualMachineInstanceAgentConnected,
+					LastProbeTime: metav1.Now(),
+					Status:        k8sv1.ConditionTrue,
+				},
+			}
+
+			vmiFeeder.Add(vmi)
+			domainFeeder.Add(domain)
+
+			client.EXPECT().SyncVirtualMachine(vmi)
+			vmiInterface.EXPECT().Update(NewVMICondMatcher(*updatedVMI))
+
+			controller.Execute()
+		})
+
+		It("should remove guest agent condition when there is no channel connected", func() {
+			vmi := v1.NewMinimalVMI("testvmi")
+			vmi.UID = testUUID
+			vmi.ObjectMeta.ResourceVersion = "1"
+			vmi.Status.Phase = v1.Running
+			vmi.Status.Conditions = []v1.VirtualMachineInstanceCondition{
+				{
+					Type:          v1.VirtualMachineInstanceAgentConnected,
+					LastProbeTime: metav1.Now(),
+					Status:        k8sv1.ConditionTrue,
+				},
+			}
+
+			mockWatchdog.CreateFile(vmi)
+
+			domain := api.NewMinimalDomainWithUUID("testvmi", testUUID)
+			domain.Status.Status = api.Running
+			domain.Spec.Devices.Channels = []api.Channel{
+				{
+					Type: "unix",
+					Target: &api.ChannelTarget{
+						Name:  "org.qemu.guest_agent.0",
+						State: "disconnected",
+					},
+				},
+			}
+
+			updatedVMI := vmi.DeepCopy()
+			updatedVMI.Status.Conditions = nil
+
+			vmiFeeder.Add(vmi)
+			domainFeeder.Add(domain)
+
+			client.EXPECT().SyncVirtualMachine(vmi)
+			vmiInterface.EXPECT().Update(NewVMICondMatcher(*updatedVMI))
+
+			controller.Execute()
+		})
+
 		It("should move VirtualMachineInstance from Scheduled to Failed if watchdog file is missing", func() {
 			vmi := v1.NewMinimalVMI("testvmi")
 			vmi.ObjectMeta.ResourceVersion = "1"
@@ -741,4 +818,35 @@ func (m *MockWatchdog) Expire(vmi *v1.VirtualMachineInstance) {
 
 func (m *MockWatchdog) File(vmi *v1.VirtualMachineInstance) string {
 	return watchdog.WatchdogFileFromNamespaceName(m.baseDir, vmi.ObjectMeta.Namespace, vmi.ObjectMeta.Name)
+}
+
+type vmiCondMatcher struct {
+	vmi v1.VirtualMachineInstance
+}
+
+func NewVMICondMatcher(vmi v1.VirtualMachineInstance) gomock.Matcher {
+	return &vmiCondMatcher{vmi}
+}
+
+func (m *vmiCondMatcher) Matches(x interface{}) bool {
+	vmi, ok := x.(*v1.VirtualMachineInstance)
+	if !ok {
+		return false
+	}
+
+	if len(m.vmi.Status.Conditions) != len(vmi.Status.Conditions) {
+		return false
+	}
+
+	for ind, _ := range vmi.Status.Conditions {
+		if m.vmi.Status.Conditions[ind].Type != vmi.Status.Conditions[ind].Type {
+			return false
+		}
+	}
+
+	return true
+}
+
+func (m *vmiCondMatcher) String() string {
+	return "conditions matches on vmis"
 }
