@@ -29,7 +29,7 @@ import (
 	"github.com/golang/glog"
 	"k8s.io/api/admission/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/client-go/tools/cache"
 
 	v1 "kubevirt.io/kubevirt/pkg/api/v1"
@@ -181,13 +181,36 @@ func ValidationErrorsToAdmissionResponse(errs []error) *v1beta1.AdmissionRespons
 	return ToAdmissionResponse(causes)
 }
 
-func ValidateSchema(gvk schema.GroupVersionKind, data []byte) *v1beta1.AdmissionResponse {
+func Validate(data []byte) *v1beta1.AdmissionResponse {
 	in := map[string]interface{}{}
 	err := json.Unmarshal(data, &in)
 	if err != nil {
 		return ToAdmissionResponseError(err)
 	}
+	obj := unstructured.Unstructured{Object: in}
+	gvk := obj.GroupVersionKind()
+	if gvk.Kind == "" {
+		return ValidationErrorsToAdmissionResponse([]error{fmt.Errorf("could not determine object kind")})
+	}
 	errs := Validator.Validate(gvk, in)
+	if len(errs) > 0 {
+		return ValidationErrorsToAdmissionResponse(errs)
+	}
+	return nil
+}
+
+func ValidateStatus(data []byte) *v1beta1.AdmissionResponse {
+	in := map[string]interface{}{}
+	err := json.Unmarshal(data, &in)
+	if err != nil {
+		return ToAdmissionResponseError(err)
+	}
+	obj := unstructured.Unstructured{Object: in}
+	gvk := obj.GroupVersionKind()
+	if gvk.Kind == "" {
+		return ValidationErrorsToAdmissionResponse([]error{fmt.Errorf("could not determine object kind")})
+	}
+	errs := Validator.ValidateStatus(gvk, in)
 	if len(errs) > 0 {
 		return ValidationErrorsToAdmissionResponse(errs)
 	}

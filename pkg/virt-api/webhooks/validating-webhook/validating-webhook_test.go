@@ -33,7 +33,9 @@ import (
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	k8sfield "k8s.io/apimachinery/pkg/util/validation/field"
 	"k8s.io/client-go/tools/cache"
@@ -264,7 +266,7 @@ var _ = Describe("Validating Webhook", func() {
 				Request: &v1beta1.AdmissionRequest{
 					Resource: webhooks.VirtualMachineInstanceGroupVersionResource,
 					Object: runtime.RawExtension{
-						Raw: []byte(`{"very": "unknown", "spec": { "extremely": "unknown" }, "status": {"unknown": "allowed"}}`),
+						Raw: []byte(makeRuntimeObject(v1.VirtualMachineInstanceGroupVersionKind, `{"very": "unknown", "spec": { "extremely": "unknown" }, "status": {"unknown": "allowed"}}`)),
 					},
 				},
 			}
@@ -290,43 +292,43 @@ var _ = Describe("Validating Webhook", func() {
 			Expect(resp.Result.Message).To(Equal(validationResult))
 		},
 			table.Entry("VirtualMachineInstance creation",
-				`{"very": "unknown", "spec": { "extremely": "unknown" }}`,
+				makeRuntimeObject(v1.VirtualMachineInstanceGroupVersionKind, `{"very": "unknown", "spec": { "extremely": "unknown" }}`),
 				`.very in body is a forbidden property, spec.extremely in body is a forbidden property, spec.domain in body is required`,
 				webhooks.VirtualMachineInstanceGroupVersionResource,
 				admitVMICreate,
 			),
 			table.Entry("VirtualMachineInstance update",
-				`{"very": "unknown", "spec": { "extremely": "unknown" }}`,
+				makeRuntimeObject(v1.VirtualMachineInstanceGroupVersionKind, `{"very": "unknown", "spec": { "extremely": "unknown" }}`),
 				`.very in body is a forbidden property, spec.extremely in body is a forbidden property, spec.domain in body is required`,
 				webhooks.VirtualMachineInstanceGroupVersionResource,
 				admitVMIUpdate,
 			),
 			table.Entry("VirtualMachineInstancePreset creation and update",
-				`{"very": "unknown", "spec": { "extremely": "unknown" }}`,
+				makeRuntimeObject(v1.VirtualMachineInstancePresetGroupVersionKind, `{"very": "unknown", "spec": { "extremely": "unknown" }}`),
 				`.very in body is a forbidden property, spec.extremely in body is a forbidden property, spec.selector in body is required`,
 				webhooks.VirtualMachineInstancePresetGroupVersionResource,
 				admitVMIPreset,
 			),
 			table.Entry("Migration creation ",
-				`{"very": "unknown", "spec": { "extremely": "unknown" }}`,
+				makeRuntimeObject(v1.VirtualMachineInstanceMigrationGroupVersionKind, `{"very": "unknown", "spec": { "extremely": "unknown" }}`),
 				`.very in body is a forbidden property, spec.extremely in body is a forbidden property`,
 				webhooks.MigrationGroupVersionResource,
 				admitMigrationCreate,
 			),
 			table.Entry("Migration update",
-				`{"very": "unknown", "spec": { "extremely": "unknown" }}`,
+				makeRuntimeObject(v1.VirtualMachineInstanceMigrationGroupVersionKind, `{"very": "unknown", "spec": { "extremely": "unknown" }}`),
 				`.very in body is a forbidden property, spec.extremely in body is a forbidden property`,
 				webhooks.MigrationGroupVersionResource,
 				admitMigrationCreate,
 			),
 			table.Entry("VirtualMachine creation and update",
-				`{"very": "unknown", "spec": { "extremely": "unknown" }}`,
+				makeRuntimeObject(v1.VirtualMachineGroupVersionKind, `{"very": "unknown", "spec": { "extremely": "unknown" }}`),
 				`.very in body is a forbidden property, spec.extremely in body is a forbidden property, spec.running in body is required, spec.template in body is required`,
 				webhooks.VirtualMachineGroupVersionResource,
 				admitVMs,
 			),
 			table.Entry("VirtualMachineInstanceReplicaSet creation and update",
-				`{"very": "unknown", "spec": { "extremely": "unknown" }}`,
+				makeRuntimeObject(v1.VirtualMachineInstanceReplicaSetGroupVersionKind, `{"very": "unknown", "spec": { "extremely": "unknown" }}`),
 				`.very in body is a forbidden property, spec.extremely in body is a forbidden property, spec.selector in body is required, spec.template in body is required`,
 				webhooks.VirtualMachineInstanceReplicaSetGroupVersionResource,
 				admitVMIRS,
@@ -389,6 +391,9 @@ var _ = Describe("Validating Webhook", func() {
 			}
 		},
 			table.Entry("with missing volume and missing labels", &v1.VirtualMachineInstanceReplicaSet{
+				TypeMeta: metav1.TypeMeta{
+					Kind: v1.VirtualMachineInstanceReplicaSetGroupVersionKind.Kind,
+				},
 				Spec: v1.VirtualMachineInstanceReplicaSetSpec{
 					Selector: &metav1.LabelSelector{
 						MatchLabels: map[string]string{"match": "this"},
@@ -403,6 +408,9 @@ var _ = Describe("Validating Webhook", func() {
 				"spec.selector",
 			}),
 			table.Entry("with mismatching label selectors", &v1.VirtualMachineInstanceReplicaSet{
+				TypeMeta: metav1.TypeMeta{
+					Kind: v1.VirtualMachineInstanceReplicaSetGroupVersionKind.Kind,
+				},
 				Spec: v1.VirtualMachineInstanceReplicaSetSpec{
 					Selector: &metav1.LabelSelector{
 						MatchLabels: map[string]string{"match": "not"},
@@ -415,6 +423,9 @@ var _ = Describe("Validating Webhook", func() {
 		)
 		It("should accept valid vmi spec", func() {
 			vmirs := &v1.VirtualMachineInstanceReplicaSet{
+				TypeMeta: metav1.TypeMeta{
+					Kind: v1.VirtualMachineInstanceReplicaSetGroupVersionKind.Kind,
+				},
 				Spec: v1.VirtualMachineInstanceReplicaSetSpec{
 					Selector: &metav1.LabelSelector{
 						MatchLabels: map[string]string{"match": "me"},
@@ -458,6 +469,9 @@ var _ = Describe("Validating Webhook", func() {
 				VolumeName: "testvolume",
 			})
 			vm := &v1.VirtualMachine{
+				TypeMeta: metav1.TypeMeta{
+					Kind: v1.VirtualMachineGroupVersionKind.Kind,
+				},
 				Spec: v1.VirtualMachineSpec{
 					Running: false,
 					Template: &v1.VirtualMachineInstanceTemplateSpec{
@@ -495,6 +509,9 @@ var _ = Describe("Validating Webhook", func() {
 			})
 
 			vm := &v1.VirtualMachine{
+				TypeMeta: metav1.TypeMeta{
+					Kind: v1.VirtualMachineGroupVersionKind.Kind,
+				},
 				Spec: v1.VirtualMachineSpec{
 					Running: false,
 					Template: &v1.VirtualMachineInstanceTemplateSpec{
@@ -533,6 +550,9 @@ var _ = Describe("Validating Webhook", func() {
 			})
 
 			vm := &v1.VirtualMachine{
+				TypeMeta: metav1.TypeMeta{
+					Kind: v1.VirtualMachineGroupVersionKind.Kind,
+				},
 				Spec: v1.VirtualMachineSpec{
 					Running: false,
 					Template: &v1.VirtualMachineInstanceTemplateSpec{
@@ -579,6 +599,9 @@ var _ = Describe("Validating Webhook", func() {
 			})
 
 			vm := &v1.VirtualMachine{
+				TypeMeta: metav1.TypeMeta{
+					Kind: v1.VirtualMachineGroupVersionKind.Kind,
+				},
 				Spec: v1.VirtualMachineSpec{
 					Running: false,
 					Template: &v1.VirtualMachineInstanceTemplateSpec{
@@ -627,6 +650,9 @@ var _ = Describe("Validating Webhook", func() {
 				},
 			})
 			vmiPreset := &v1.VirtualMachineInstancePreset{
+				TypeMeta: metav1.TypeMeta{
+					Kind: v1.VirtualMachineInstancePresetGroupVersionKind.Kind,
+				},
 				Spec: v1.VirtualMachineInstancePresetSpec{
 					Domain: vmiPDomain,
 				},
@@ -655,6 +681,9 @@ var _ = Describe("Validating Webhook", func() {
 			})
 
 			vmiPreset := &v1.VirtualMachineInstancePreset{
+				TypeMeta: metav1.TypeMeta{
+					Kind: v1.VirtualMachineInstancePresetGroupVersionKind.Kind,
+				},
 				Spec: v1.VirtualMachineInstancePresetSpec{
 					Domain: &v1.DomainSpec{},
 				},
@@ -678,6 +707,9 @@ var _ = Describe("Validating Webhook", func() {
 	Context("with VirtualMachineInstanceMigration admission review", func() {
 		It("should reject invalid Migration spec on create", func() {
 			migration := v1.VirtualMachineInstanceMigration{
+				TypeMeta: metav1.TypeMeta{
+					Kind: v1.VirtualMachineInstanceMigrationGroupVersionKind.Kind,
+				},
 				ObjectMeta: metav1.ObjectMeta{
 					Namespace: "default",
 				},
@@ -711,6 +743,9 @@ var _ = Describe("Validating Webhook", func() {
 			informers.VMIInformer.GetIndexer().Add(vmi)
 
 			migration := v1.VirtualMachineInstanceMigration{
+				TypeMeta: metav1.TypeMeta{
+					Kind: v1.VirtualMachineInstanceMigrationGroupVersionKind.Kind,
+				},
 				ObjectMeta: metav1.ObjectMeta{
 					Namespace: vmi.Namespace,
 				},
@@ -814,6 +849,9 @@ var _ = Describe("Validating Webhook", func() {
 			informers.VMIInformer.GetIndexer().Add(vmi)
 
 			migration := v1.VirtualMachineInstanceMigration{
+				TypeMeta: metav1.TypeMeta{
+					Kind: v1.VirtualMachineInstanceMigrationGroupVersionKind.Kind,
+				},
 				ObjectMeta: metav1.ObjectMeta{
 					Namespace: vmi.Namespace,
 				},
@@ -917,6 +955,9 @@ var _ = Describe("Validating Webhook", func() {
 			informers.VMIInformer.GetIndexer().Add(vmi)
 
 			migration := v1.VirtualMachineInstanceMigration{
+				TypeMeta: metav1.TypeMeta{
+					Kind: v1.VirtualMachineInstanceMigrationGroupVersionKind.Kind,
+				},
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "somemigrationthatchanged",
 					Namespace: "default",
@@ -958,6 +999,9 @@ var _ = Describe("Validating Webhook", func() {
 			informers.VMIInformer.GetIndexer().Add(vmi)
 
 			migration := v1.VirtualMachineInstanceMigration{
+				TypeMeta: metav1.TypeMeta{
+					Kind: v1.VirtualMachineInstanceMigrationGroupVersionKind.Kind,
+				},
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "somemigration",
 					Namespace: "default",
@@ -2779,4 +2823,19 @@ func newVirtualMachineBuilder() *virtualMachineBuilder {
 	return &virtualMachineBuilder{
 		labels: map[string]string{},
 	}
+}
+
+func makeRuntimeObject(gvk schema.GroupVersionKind, data string) string {
+	in := map[string]interface{}{}
+	err := json.Unmarshal([]byte(data), &in)
+	if err != nil {
+		panic(err)
+	}
+	obj := unstructured.Unstructured{Object: in}
+	obj.SetGroupVersionKind(gvk)
+	out, err := obj.MarshalJSON()
+	if err != nil {
+		panic(err)
+	}
+	return string(out)
 }

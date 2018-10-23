@@ -1331,7 +1331,7 @@ func getAdmissionReviewVMI(ar *v1beta1.AdmissionReview) (new *v1.VirtualMachineI
 }
 
 func admitVMICreate(ar *v1beta1.AdmissionReview) *v1beta1.AdmissionResponse {
-	if resp := webhooks.ValidateSchema(v1.VirtualMachineInstanceGroupVersionKind, ar.Request.Object.Raw); resp != nil {
+	if resp := webhooks.Validate(ar.Request.Object.Raw); resp != nil {
 		return resp
 	}
 
@@ -1356,9 +1356,23 @@ func ServeVMICreate(resp http.ResponseWriter, req *http.Request) {
 	serve(resp, req, admitVMICreate)
 }
 
+func admitStatus(ar *v1beta1.AdmissionReview) *v1beta1.AdmissionResponse {
+	if resp := webhooks.ValidateStatus(ar.Request.Object.Raw); resp != nil {
+		return resp
+	}
+
+	reviewResponse := v1beta1.AdmissionResponse{}
+	reviewResponse.Allowed = true
+	return &reviewResponse
+}
+
+func ServeStatusValidation(resp http.ResponseWriter, req *http.Request) {
+	serve(resp, req, admitStatus)
+}
+
 func admitVMIUpdate(ar *v1beta1.AdmissionReview) *v1beta1.AdmissionResponse {
 
-	if resp := webhooks.ValidateSchema(v1.VirtualMachineInstanceGroupVersionKind, ar.Request.Object.Raw); resp != nil {
+	if resp := webhooks.Validate(ar.Request.Object.Raw); resp != nil {
 		return resp
 	}
 	// Get new VMI from admission response
@@ -1392,7 +1406,7 @@ func admitVMs(ar *v1beta1.AdmissionReview) *v1beta1.AdmissionResponse {
 		return webhooks.ToAdmissionResponseError(err)
 	}
 
-	if resp := webhooks.ValidateSchema(v1.VirtualMachineGroupVersionKind, ar.Request.Object.Raw); resp != nil {
+	if resp := webhooks.Validate(ar.Request.Object.Raw); resp != nil {
 		return resp
 	}
 
@@ -1424,7 +1438,7 @@ func admitVMIRS(ar *v1beta1.AdmissionReview) *v1beta1.AdmissionResponse {
 		return webhooks.ToAdmissionResponseError(err)
 	}
 
-	if resp := webhooks.ValidateSchema(v1.VirtualMachineInstanceReplicaSetGroupVersionKind, ar.Request.Object.Raw); resp != nil {
+	if resp := webhooks.Validate(ar.Request.Object.Raw); resp != nil {
 		return resp
 	}
 
@@ -1455,7 +1469,7 @@ func admitVMIPreset(ar *v1beta1.AdmissionReview) *v1beta1.AdmissionResponse {
 		return webhooks.ToAdmissionResponseError(err)
 	}
 
-	if resp := webhooks.ValidateSchema(v1.VirtualMachineInstancePresetGroupVersionKind, ar.Request.Object.Raw); resp != nil {
+	if resp := webhooks.Validate(ar.Request.Object.Raw); resp != nil {
 		return resp
 	}
 
@@ -1514,7 +1528,7 @@ func admitMigrationCreate(ar *v1beta1.AdmissionReview) *v1beta1.AdmissionRespons
 		return webhooks.ToAdmissionResponseError(err)
 	}
 
-	if resp := webhooks.ValidateSchema(v1.VirtualMachineInstanceMigrationGroupVersionKind, ar.Request.Object.Raw); resp != nil {
+	if resp := webhooks.Validate(ar.Request.Object.Raw); resp != nil {
 		return resp
 	}
 
@@ -1588,7 +1602,7 @@ func admitMigrationUpdate(ar *v1beta1.AdmissionReview) *v1beta1.AdmissionRespons
 		return webhooks.ToAdmissionResponseError(err)
 	}
 
-	if resp := webhooks.ValidateSchema(v1.VirtualMachineInstanceMigrationGroupVersionKind, ar.Request.Object.Raw); resp != nil {
+	if resp := webhooks.Validate(ar.Request.Object.Raw); resp != nil {
 		return resp
 	}
 

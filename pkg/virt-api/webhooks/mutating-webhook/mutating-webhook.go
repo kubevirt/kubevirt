@@ -81,7 +81,7 @@ func mutateVMIs(ar *v1beta1.AdmissionReview) *v1beta1.AdmissionResponse {
 		return webhooks.ToAdmissionResponseError(err)
 	}
 
-	if resp := webhooks.ValidateSchema(kubev1.VirtualMachineInstanceGroupVersionKind, ar.Request.Object.Raw); resp != nil {
+	if resp := webhooks.Validate(ar.Request.Object.Raw); resp != nil {
 		return resp
 	}
 

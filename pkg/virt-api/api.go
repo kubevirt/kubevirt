@@ -75,6 +75,7 @@ const (
 	virtApiServiceName = "virt-api"
 
 	vmiCreateValidatePath       = "/virtualmachineinstances-validate-create"
+	statusValidatePath          = "/virtualmachineinstances-validate-status"
 	vmiUpdateValidatePath       = "/virtualmachineinstances-validate-update"
 	vmValidatePath              = "/virtualmachines-validate"
 	vmirsValidatePath           = "/virtualmachinereplicaset-validate"
@@ -455,6 +456,7 @@ func (app *virtAPIApp) createWebhook() error {
 func (app *virtAPIApp) createValidatingWebhook() error {
 	registerWebhook := false
 	vmiPathCreate := vmiCreateValidatePath
+	statusPath := statusValidatePath
 	vmiPathUpdate := vmiUpdateValidatePath
 	vmPath := vmValidatePath
 	vmirsPath := vmirsValidatePath
@@ -474,6 +476,29 @@ func (app *virtAPIApp) createValidatingWebhook() error {
 	failurePolicy := admissionregistrationv1beta1.Fail
 
 	webHooks := []admissionregistrationv1beta1.Webhook{
+		{
+			Name:          "kubevirt-crd-status-validator.kubevirt.io",
+			FailurePolicy: &failurePolicy,
+			Rules: []admissionregistrationv1beta1.RuleWithOperations{{
+				Operations: []admissionregistrationv1beta1.OperationType{
+					admissionregistrationv1beta1.Create,
+					admissionregistrationv1beta1.Update,
+				},
+				Rule: admissionregistrationv1beta1.Rule{
+					APIGroups:   []string{v1.GroupName},
+					APIVersions: []string{v1.VirtualMachineInstanceGroupVersionKind.Version},
+					Resources:   []string{"*/status"},
+				},
+			}},
+			ClientConfig: admissionregistrationv1beta1.WebhookClientConfig{
+				Service: &admissionregistrationv1beta1.ServiceReference{
+					Namespace: app.namespace,
+					Name:      virtApiServiceName,
+					Path:      &statusPath,
+				},
+				CABundle: app.signingCertBytes,
+			},
+		},
 		{
 			Name:          "virtualmachineinstances-create-validator.kubevirt.io",
 			FailurePolicy: &failurePolicy,
@@ -663,6 +688,9 @@ func (app *virtAPIApp) createValidatingWebhook() error {
 		}
 	}
 
+	http.HandleFunc(statusValidatePath, func(w http.ResponseWriter, r *http.Request) {
+		validating_webhook.ServeStatusValidation(w, r)
+	})
 	http.HandleFunc(vmiCreateValidatePath, func(w http.ResponseWriter, r *http.Request) {
 		validating_webhook.ServeVMICreate(w, r)
 	})

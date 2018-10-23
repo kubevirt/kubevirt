@@ -80,6 +80,9 @@ var _ = Describe("Mutating Webhook", func() {
 
 		BeforeEach(func() {
 			vmi = &v1.VirtualMachineInstance{
+				TypeMeta: k8smetav1.TypeMeta{
+					Kind: v1.VirtualMachineInstanceGroupVersionKind.Kind,
+				},
 				ObjectMeta: k8smetav1.ObjectMeta{
 					Labels: map[string]string{"test": "test"},
 				},
