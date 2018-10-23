@@ -546,11 +546,20 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 	}
 
 	// TODO use constants for podLabels
+	trueVar := true
 	pod := k8sv1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
 			GenerateName: "virt-launcher-" + domain + "-",
 			Labels:       podLabels,
 			Annotations:  annotationsList,
+			OwnerReferences: []metav1.OwnerReference{{
+				APIVersion:         v1.VirtualMachineInstanceGroupVersionKind.GroupVersion().String(),
+				Kind:               v1.VirtualMachineInstanceGroupVersionKind.Kind,
+				Name:               vmi.Name,
+				UID:                vmi.UID,
+				Controller:         &trueVar,
+				BlockOwnerDeletion: &trueVar,
+			}},
 		},
 		Spec: k8sv1.PodSpec{
 			Hostname:  hostName,
