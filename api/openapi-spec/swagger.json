@@ -3452,7 +3452,7 @@
       "format": "integer"
      },
      "cache": {
-      "description": "Cache specifies which kvm disk cache mode should be used\n+optional",
+      "description": "Cache specifies which kvm disk cache mode should be used.\n+optional",
       "type": "string"
      },
      "cdrom": {
