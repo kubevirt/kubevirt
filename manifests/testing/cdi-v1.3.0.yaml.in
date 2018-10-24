@@ -321,4 +321,3 @@ spec:
             secretKeyRef:
               name: cdi-upload-proxy-server-key
               key: tls.crt
-
