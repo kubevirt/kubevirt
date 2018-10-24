@@ -182,6 +182,7 @@ var _ = Describe("Schema", func() {
 	exampleDomain.Spec.CPU.Mode = "custom"
 	exampleDomain.Spec.CPU.Model = "Conroe"
 	exampleDomain.Spec.Metadata.KubeVirt.UID = "f4686d2c-6e8d-4335-b8fd-81bee22f4814"
+	exampleDomain.Spec.Metadata.KubeVirt.GracePeriod = &GracePeriodMetadata{}
 	exampleDomain.Spec.Metadata.KubeVirt.GracePeriod.DeletionGracePeriodSeconds = 5
 	exampleDomain.Spec.IOThreads = &IOThreads{IOThreads: 2}
 

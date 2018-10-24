@@ -291,6 +291,17 @@ func (_mr *_MockVirDomainRecorder) GetXMLDesc(arg0 interface{}) *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "GetXMLDesc", arg0)
 }
 
+func (_m *MockVirDomain) GetMetadata(tipus libvirt_go.DomainMetadataType, uri string, flags libvirt_go.DomainModificationImpact) (string, error) {
+	ret := _m.ctrl.Call(_m, "GetMetadata", tipus, uri, flags)
+	ret0, _ := ret[0].(string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+func (_mr *_MockVirDomainRecorder) GetMetadata(arg0, arg1, arg2 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "GetMetadata", arg0, arg1, arg2)
+}
+
 func (_m *MockVirDomain) OpenConsole(devname string, stream *libvirt_go.Stream, flags libvirt_go.DomainConsoleFlags) error {
 	ret := _m.ctrl.Call(_m, "OpenConsole", devname, stream, flags)
 	ret0, _ := ret[0].(error)

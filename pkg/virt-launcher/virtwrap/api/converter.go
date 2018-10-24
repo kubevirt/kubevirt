@@ -357,7 +357,10 @@ func Convert_v1_EphemeralVolumeSource_To_api_Disk(volumeName string, source *v1.
 	disk.Type = "file"
 	disk.Driver.Type = "qcow2"
 	disk.Source.File = ephemeraldisk.GetFilePath(volumeName)
-	disk.BackingStore = &BackingStore{}
+	disk.BackingStore = &BackingStore{
+		Format: &BackingStoreFormat{},
+		Source: &DiskSource{},
+	}
 
 	backingDisk := &Disk{Driver: &DiskDriver{}}
 	err := Convert_v1_FilesystemVolumeSource_To_api_Disk(volumeName, backingDisk, c)
@@ -544,7 +547,9 @@ func Convert_v1_VirtualMachine_To_api_Domain(vmi *v1.VirtualMachineInstance, dom
 
 	domain.Spec.Metadata.KubeVirt.UID = vmi.UID
 	if vmi.Spec.TerminationGracePeriodSeconds != nil {
-		domain.Spec.Metadata.KubeVirt.GracePeriod.DeletionGracePeriodSeconds = *vmi.Spec.TerminationGracePeriodSeconds
+		domain.Spec.Metadata.KubeVirt.GracePeriod = &GracePeriodMetadata{
+			DeletionGracePeriodSeconds: *vmi.Spec.TerminationGracePeriodSeconds,
+		}
 	}
 
 	domain.Spec.SysInfo = &SysInfo{}
