@@ -147,6 +147,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 		dom.Spec.Features = &api.Features{
 			ACPI: &api.FeatureEnabled{},
 		}
+		dom.Spec.Metadata.KubeVirt.GracePeriod = &api.GracePeriodMetadata{}
 		dom.Spec.Metadata.KubeVirt.GracePeriod.DeletionGracePeriodSeconds = gracePeriod
 	}
 

@@ -91,10 +91,8 @@ var _ = Describe("Domain notify", func() {
 			mockDomain.EXPECT().GetState().Return(state, -1, nil)
 			mockDomain.EXPECT().Free()
 			mockDomain.EXPECT().GetName().Return("test", nil).AnyTimes()
-			if state == libvirt.DOMAIN_RUNNING {
-				mockDomain.EXPECT().GetXMLDesc(gomock.Eq(libvirt.DOMAIN_XML_MIGRATABLE)).Return(string(x), nil)
-			}
-			mockDomain.EXPECT().GetXMLDesc(gomock.Eq(libvirt.DOMAIN_XML_INACTIVE)).Return(string(x), nil)
+			mockDomain.EXPECT().GetXMLDesc(gomock.Eq(libvirt.DomainXMLFlags(0))).Return(string(x), nil)
+			mockDomain.EXPECT().GetMetadata(libvirt.DOMAIN_METADATA_ELEMENT, "http://kubevirt.io", libvirt.DOMAIN_AFFECT_CONFIG).Return(`<kubevirt></kubevirt>`, nil)
 
 			libvirtEventCallback(mockCon, util.NewDomainFromName("test", "1234"), LibvirtEvent{Event: &libvirt.DomainEventLifecycle{Event: event}}, client, deleteNotificationSent)
 
@@ -106,7 +104,7 @@ var _ = Describe("Domain notify", func() {
 			case event := <-eventChan:
 				newDomain, ok := event.Object.(*api.Domain)
 				newDomain.Spec.XMLName = xml.Name{}
-				Expect(ok).To(Equal(true))
+				Expect(ok).To(Equal(true), "should typecase domain")
 				Expect(reflect.DeepEqual(domain.Spec, newDomain.Spec)).To(Equal(true))
 				Expect(event.Type).To(Equal(kubeEventType))
 			}
@@ -123,7 +121,7 @@ var _ = Describe("Domain notify", func() {
 	It("should receive a delete event when a VirtualMachineInstance is undefined",
 		func() {
 			mockDomain.EXPECT().Free()
-			mockDomain.EXPECT().GetXMLDesc(gomock.Eq(libvirt.DOMAIN_XML_INACTIVE)).Return("", libvirt.Error{Code: libvirt.ERR_NO_DOMAIN})
+			mockDomain.EXPECT().GetXMLDesc(gomock.Eq(libvirt.DomainXMLFlags(0))).Return("", libvirt.Error{Code: libvirt.ERR_NO_DOMAIN})
 			mockDomain.EXPECT().GetState().Return(libvirt.DOMAIN_NOSTATE, -1, libvirt.Error{Code: libvirt.ERR_NO_DOMAIN})
 			mockDomain.EXPECT().GetName().Return("test", nil).AnyTimes()
 
