@@ -69,6 +69,13 @@ var _ = Describe("Console", func() {
 		Expect(err).ToNot(HaveOccurred())
 	}
 
+	OpenConsole := func(vmi *v1.VirtualMachineInstance) (expect.Expecter, <-chan error) {
+		By("Expecting the VirtualMachineInstance console")
+		expecter, errChan, err := tests.NewConsoleExpecter(virtClient, vmi, 30*time.Second)
+		Expect(err).ToNot(HaveOccurred())
+		return expecter, errChan
+	}
+
 	Describe("A new VirtualMachineInstance", func() {
 		Context("with a serial console", func() {
 			Context("with a cirros image", func() {
@@ -101,6 +108,31 @@ var _ = Describe("Console", func() {
 				for i := 0; i < 5; i++ {
 					ExpectConsoleOutput(vmi, "login")
 				}
+			}, 220)
+
+			It("should close console connection when new console connection is opened", func() {
+				vmi := tests.NewRandomVMIWithEphemeralDisk(tests.RegistryDiskFor(tests.RegistryDiskAlpine))
+
+				RunVMIAndWaitForStart(vmi)
+
+				By("opening 1st console connection")
+				expecter, errChan := OpenConsole(vmi)
+				defer expecter.Close()
+
+				By("expecting error on 1st console connection")
+				go func() {
+					defer GinkgoRecover()
+					select {
+					case receivedErr := <-errChan:
+						Expect(receivedErr.Error()).To(ContainSubstring("closed"))
+					case <-time.After(60 * time.Second):
+						Fail("timed out waiting for closed 1st connection")
+					}
+				}()
+
+				By("opening 2nd console connection")
+				ExpectConsoleOutput(vmi, "login")
+
 			}, 220)
 
 			It("should wait until the virtual machine is in running state and return a stream interface", func() {
