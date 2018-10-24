@@ -846,6 +846,37 @@ var _ = Describe("Configurations", func() {
 				_, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(cpuVmi)
 				Expect(err).To(HaveOccurred())
 			})
+			It("should start a vm with no cpu pinning after a vm with cpu pinning on same node", func() {
+				Vmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(tests.RegistryDiskFor(tests.RegistryDiskCirros), "#!/bin/bash\necho 'hello'\n")
+				cpuVmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(tests.RegistryDiskFor(tests.RegistryDiskCirros), "#!/bin/bash\necho 'hello'\n")
+				cpuVmi.Spec.Domain.CPU = &v1.CPU{
+					DedicatedCPUPlacement: true,
+				}
+				cpuVmi.Spec.Domain.Resources = v1.ResourceRequirements{
+					Requests: kubev1.ResourceList{
+						kubev1.ResourceCPU:    resource.MustParse("2"),
+						kubev1.ResourceMemory: resource.MustParse("64M"),
+					},
+				}
+				Vmi.Spec.Domain.Resources = v1.ResourceRequirements{
+					Requests: kubev1.ResourceList{
+						kubev1.ResourceCPU: resource.MustParse("1"),
+					},
+				}
+				Vmi.Spec.NodeSelector = map[string]string{v1.CPUManager: "true"}
+
+				By("Starting a VirtualMachineInstance with dedicated cpus")
+				_, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(cpuVmi)
+				Expect(err).ToNot(HaveOccurred())
+				node := tests.WaitForSuccessfulVMIStart(cpuVmi)
+				Expect(node).To(ContainSubstring("node02"))
+
+				By("Starting a VirtualMachineInstance without dedicated cpus")
+				_, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(Vmi)
+				Expect(err).ToNot(HaveOccurred())
+				node1 := tests.WaitForSuccessfulVMIStart(Vmi)
+				Expect(node1).To(ContainSubstring("node02"))
+			})
 		})
 	})
 })
