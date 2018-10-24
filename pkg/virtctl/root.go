@@ -12,6 +12,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/virtctl/console"
 	"kubevirt.io/kubevirt/pkg/virtctl/expose"
 	"kubevirt.io/kubevirt/pkg/virtctl/imageupload"
+	"kubevirt.io/kubevirt/pkg/virtctl/list"
 	"kubevirt.io/kubevirt/pkg/virtctl/templates"
 	"kubevirt.io/kubevirt/pkg/virtctl/version"
 	"kubevirt.io/kubevirt/pkg/virtctl/vm"
@@ -47,6 +48,7 @@ func NewVirtctlCommand() *cobra.Command {
 		vm.NewStartCommand(clientConfig),
 		vm.NewStopCommand(clientConfig),
 		expose.NewExposeCommand(clientConfig),
+		list.ListCommand(clientConfig),
 		version.VersionCommand(clientConfig),
 		imageupload.NewImageUploadCommand(clientConfig),
 		optionsCmd,
