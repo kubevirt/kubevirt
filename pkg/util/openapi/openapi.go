@@ -2,6 +2,7 @@ package openapi
 
 import (
 	"encoding/json"
+	"strings"
 
 	"github.com/emicklei/go-restful"
 	"github.com/emicklei/go-restful-openapi"
@@ -61,13 +62,27 @@ func addInfoToSwaggerObject(swo *spec.Swagger) {
 func LoadOpenAPISpec(webServices []*restful.WebService) *spec.Swagger {
 	openapispec := restfulspec.BuildSwagger(CreateOpenAPIConfig(webServices))
 
-	// creationTimestamp is not required, fix it manually here until
+	// creationTimestamp, lastProbeTime and lastTransitionTime are deserialized as "null"
+	// Fix it here until
 	// https://github.com/kubernetes/kubernetes/issues/66899 is ready
-	// Otherwise CRDs can't use templates which contain metadata
+	// Otherwise CRDs can't use templates which contain metadata and controllers
+	// can't set conditions without timestamps
 	objectMeta := openapispec.Definitions["v1.ObjectMeta"]
 	prop := objectMeta.Properties["creationTimestamp"]
 	prop.Type = spec.StringOrArray{"string", "null"}
 	objectMeta.Properties["creationTimestamp"] = prop
+
+	for k, s := range openapispec.Definitions {
+		if strings.HasSuffix(k, "Condition") {
+			prop := s.Properties["lastProbeTime"]
+			prop.Type = spec.StringOrArray{"string", "null"}
+			s.Properties["lastProbeTime"] = prop
+			prop = s.Properties["lastTransitionTime"]
+			prop.Type = spec.StringOrArray{"string", "null"}
+			s.Properties["lastTransitionTime"] = prop
+		}
+	}
+
 	return openapispec
 }
 

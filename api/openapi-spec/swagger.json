@@ -5309,10 +5309,16 @@
     ],
     "properties": {
      "lastProbeTime": {
-      "type": "string"
+      "type": [
+       "string",
+       "null"
+      ]
      },
      "lastTransitionTime": {
-      "type": "string"
+      "type": [
+       "string",
+       "null"
+      ]
      },
      "message": {
       "type": "string"
@@ -5359,10 +5365,16 @@
     ],
     "properties": {
      "lastProbeTime": {
-      "type": "string"
+      "type": [
+       "string",
+       "null"
+      ]
      },
      "lastTransitionTime": {
-      "type": "string"
+      "type": [
+       "string",
+       "null"
+      ]
      },
      "message": {
       "type": "string"
@@ -5608,10 +5620,16 @@
     ],
     "properties": {
      "lastProbeTime": {
-      "type": "string"
+      "type": [
+       "string",
+       "null"
+      ]
      },
      "lastTransitionTime": {
-      "type": "string"
+      "type": [
+       "string",
+       "null"
+      ]
      },
      "message": {
       "type": "string"
