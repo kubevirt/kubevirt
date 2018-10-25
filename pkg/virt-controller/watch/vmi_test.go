@@ -762,12 +762,13 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 		table.DescribeTable("should remove the finalizer if no pod is present and the vmi is in ", func(phase v1.VirtualMachineInstancePhase) {
 			vmi := NewPendingVirtualMachine("testvmi")
 			vmi.Status.Phase = phase
+			vmi.DeletionTimestamp = now()
 			vmi.Finalizers = append(vmi.Finalizers, v1.VirtualMachineInstanceFinalizer)
 			Expect(vmi.Finalizers).To(ContainElement(v1.VirtualMachineInstanceFinalizer))
 
 			addVirtualMachine(vmi)
 
-			vmiInterface.EXPECT().UpdateStatus(gomock.Any()).Do(func(arg interface{}) {
+			vmiInterface.EXPECT().Update(gomock.Any()).Do(func(arg interface{}) {
 				Expect(arg.(*v1.VirtualMachineInstance).Status.Phase).To(Equal(phase))
 				Expect(arg.(*v1.VirtualMachineInstance).Status.Conditions).To(BeEmpty())
 				Expect(arg.(*v1.VirtualMachineInstance).Finalizers).ToNot(ContainElement(v1.VirtualMachineInstanceFinalizer))

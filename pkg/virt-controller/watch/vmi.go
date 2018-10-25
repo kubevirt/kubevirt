@@ -88,6 +88,9 @@ const (
 	SuccessfulMigrationReason = "SuccessfulMigration"
 	// FailedMigrationReason is added when a migration attempt fails
 	FailedMigrationReason = "FailedMigration"
+	// FailedRemoveFinalizer is added in an event if an action related to removing the
+	// finalizer of the VMI, which finally allows deleting it
+	FailedRemoveFinalizer = "FailedRemoveFinalizer"
 )
 
 func NewVMIController(templateService services.TemplateService,
@@ -332,15 +335,7 @@ func (c *VMIController) updateStatus(vmi *virtv1.VirtualMachineInstance, pod *k8
 			vmiCopy.Status.Phase = virtv1.Failed
 		}
 	case vmi.IsFinal():
-		allDeleted, err := c.allPodsDeleted(vmi)
-		if err != nil {
-			return err
-		}
-
-		if allDeleted {
-			log.Log.V(3).Object(vmi).Infof("All pods have been deleted, removing finalizer")
-			controller.RemoveFinalizer(vmiCopy, virtv1.VirtualMachineInstanceFinalizer)
-		}
+		// nothing to do
 	case vmi.IsRunning() || vmi.IsScheduled():
 		// Don't process states where the vmi is clearly owned by virt-handler
 		return nil
@@ -357,7 +352,6 @@ func (c *VMIController) updateStatus(vmi *virtv1.VirtualMachineInstance, pod *k8
 
 	// If we detect a change on the vmi we update the vmi
 	if !reflect.DeepEqual(vmi.Status, vmiCopy.Status) ||
-		!reflect.DeepEqual(vmi.Finalizers, vmiCopy.Finalizers) ||
 		!reflect.DeepEqual(vmi.Annotations, vmiCopy.Annotations) {
 		_, err := c.clientset.VirtualMachineInstance(vmi.Namespace).UpdateStatus(vmiCopy)
 		if err != nil {
@@ -428,6 +422,23 @@ func (c *VMIController) sync(vmi *virtv1.VirtualMachineInstance, pod *k8sv1.Pod,
 		err := c.deleteAllMatchingPods(vmi)
 		if err != nil {
 			return &syncErrorImpl{fmt.Errorf("failed to delete pod: %v", err), FailedDeletePodReason}
+		}
+		if vmi.IsFinal() {
+			allPodsDeleted, err := c.allPodsDeleted(vmi)
+
+			if err != nil {
+				return &syncErrorImpl{fmt.Errorf("failed to determine if pods are still alive: %v", err), FailedRemoveFinalizer}
+			}
+
+			if allPodsDeleted && controller.HasFinalizer(vmi, virtv1.VirtualMachineInstanceFinalizer) {
+				vmiCopy := vmi.DeepCopy()
+				controller.RemoveFinalizer(vmiCopy, virtv1.VirtualMachineInstanceFinalizer)
+				_, err := c.clientset.VirtualMachineInstance(vmi.Namespace).Update(vmiCopy)
+				if err != nil {
+					return &syncErrorImpl{fmt.Errorf("failed to remove the finalizer: %v", err), FailedRemoveFinalizer}
+				}
+			}
+
 		}
 		return nil
 	}
