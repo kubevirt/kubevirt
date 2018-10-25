@@ -355,6 +355,14 @@ func (l *LibvirtDomainManager) preStartHook(vmi *v1.VirtualMachineInstance, doma
 		return domain, fmt.Errorf("creating service account disk failed: %v", err)
 	}
 
+	// set drivers cache mode
+	for i := range domain.Spec.Devices.Disks {
+		err := api.SetDriverCacheMode(&domain.Spec.Devices.Disks[i])
+		if err != nil {
+			return domain, err
+		}
+	}
+
 	hooksManager := hooks.GetManager()
 	domainSpec, err := hooksManager.OnDefineDomain(&domain.Spec, vmi)
 	if err != nil {

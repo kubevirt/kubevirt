@@ -440,7 +440,7 @@ var _ = Describe("Storage", func() {
 				// Start the VirtualMachineInstance with the PVC attached
 				vmi := tests.NewRandomVMIWithPVC(pvName)
 				// Without userdata the hostname isn't set correctly and the login expecter fails...
-				tests.AddUserData(vmi, "#!/bin/bash\necho 'hello'\n")
+				tests.AddUserData(vmi, "cloud-init", "#!/bin/bash\necho 'hello'\n")
 
 				tests.RunVMIAndExpectLaunch(vmi, false, 90)
 
