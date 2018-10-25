@@ -30,7 +30,7 @@ import (
 	"strconv"
 	"strings"
 
-	v1beta1 "k8s.io/api/admission/v1beta1"
+	"k8s.io/api/admission/v1beta1"
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -54,25 +54,6 @@ const (
 
 var validInterfaceModels = []string{"e1000", "e1000e", "ne2k_pci", "pcnet", "rtl8139", "virtio"}
 var validIOThreadsPolicies = []v1.IOThreadsPolicy{v1.IOThreadsPolicyShared, v1.IOThreadsPolicyAuto}
-
-func toAdmissionResponse(causes []metav1.StatusCause) *v1beta1.AdmissionResponse {
-	log.Log.Infof("rejected vmi admission")
-
-	globalMessage := ""
-	for _, cause := range causes {
-		globalMessage = fmt.Sprintf("%s %s", globalMessage, cause.Message)
-	}
-
-	return &v1beta1.AdmissionResponse{
-		Result: &metav1.Status{
-			Message: globalMessage,
-			Code:    http.StatusUnprocessableEntity,
-			Details: &metav1.StatusDetails{
-				Causes: causes,
-			},
-		},
-	}
-}
 
 type admitFunc func(*v1beta1.AdmissionReview) *v1beta1.AdmissionResponse
 
@@ -462,6 +443,27 @@ func getNumberOfPodInterfaces(spec *v1.VirtualMachineInstanceSpec) int {
 		}
 	}
 	return nPodInterfaces
+}
+
+// ValidateVirtualMachineInstanceMandatoryFields should be invoked after all defaults and presets are applied.
+// It is only meant to be used for VMI reviews, not if they are templates on other objects
+func ValidateVirtualMachineInstanceMandatoryFields(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec) []metav1.StatusCause {
+	var causes []metav1.StatusCause
+
+	requests := spec.Domain.Resources.Requests.Memory().Value()
+
+	if requests == 0 &&
+		(spec.Domain.Memory == nil || spec.Domain.Memory != nil &&
+			spec.Domain.Memory.Guest == nil && spec.Domain.Memory.Hugepages == nil) {
+		causes = append(causes, metav1.StatusCause{
+			Type: metav1.CauseTypeFieldValueRequired,
+			Message: fmt.Sprintf("no memory requested, at least one of '%s', '%s' or '%s' must be set",
+				field.Child("domain", "memory", "guest").String(),
+				field.Child("domain", "memory", "hugepages", "size").String(),
+				field.Child("domain", "resources", "requests", "memory").String()),
+		})
+	}
+	return causes
 }
 
 func ValidateVirtualMachineInstanceSpec(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec) []metav1.StatusCause {
@@ -1181,13 +1183,9 @@ func ValidateVirtualMachineInstanceMigrationSpec(field *k8sfield.Path, spec *v1.
 }
 
 func getAdmissionReviewVMI(ar *v1beta1.AdmissionReview) (new *v1.VirtualMachineInstance, old *v1.VirtualMachineInstance, err error) {
-	vmiResource := metav1.GroupVersionResource{
-		Group:    v1.VirtualMachineInstanceGroupVersionKind.Group,
-		Version:  v1.VirtualMachineInstanceGroupVersionKind.Version,
-		Resource: "virtualmachineinstances",
-	}
-	if ar.Request.Resource != vmiResource {
-		return nil, nil, fmt.Errorf("expect resource to be '%s'", vmiResource.Resource)
+
+	if ar.Request.Resource != webhooks.VirtualMachineInstanceGroupVersionResource {
+		return nil, nil, fmt.Errorf("expect resource to be '%s'", webhooks.VirtualMachineInstanceGroupVersionResource.Resource)
 	}
 
 	raw := ar.Request.Object.Raw
@@ -1213,14 +1211,20 @@ func getAdmissionReviewVMI(ar *v1beta1.AdmissionReview) (new *v1.VirtualMachineI
 }
 
 func admitVMICreate(ar *v1beta1.AdmissionReview) *v1beta1.AdmissionResponse {
+	if resp := webhooks.ValidateSchema(v1.VirtualMachineInstanceGroupVersionKind, ar.Request.Object.Raw); resp != nil {
+		return resp
+	}
+
 	vmi, _, err := getAdmissionReviewVMI(ar)
 	if err != nil {
 		return webhooks.ToAdmissionResponseError(err)
 	}
 
 	causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("spec"), &vmi.Spec)
+	causes = append(causes, ValidateVirtualMachineInstanceMandatoryFields(k8sfield.NewPath("spec"), &vmi.Spec)...)
+
 	if len(causes) > 0 {
-		return toAdmissionResponse(causes)
+		return webhooks.ToAdmissionResponse(causes)
 	}
 
 	reviewResponse := v1beta1.AdmissionResponse{}
@@ -1233,6 +1237,10 @@ func ServeVMICreate(resp http.ResponseWriter, req *http.Request) {
 }
 
 func admitVMIUpdate(ar *v1beta1.AdmissionReview) *v1beta1.AdmissionResponse {
+
+	if resp := webhooks.ValidateSchema(v1.VirtualMachineInstanceGroupVersionKind, ar.Request.Object.Raw); resp != nil {
+		return resp
+	}
 	// Get new VMI from admission response
 	newVMI, oldVMI, err := getAdmissionReviewVMI(ar)
 	if err != nil {
@@ -1241,7 +1249,7 @@ func admitVMIUpdate(ar *v1beta1.AdmissionReview) *v1beta1.AdmissionResponse {
 
 	// Reject VMI update if VMI spec changed
 	if !reflect.DeepEqual(newVMI.Spec, oldVMI.Spec) {
-		return toAdmissionResponse([]metav1.StatusCause{
+		return webhooks.ToAdmissionResponse([]metav1.StatusCause{
 			metav1.StatusCause{
 				Type:    metav1.CauseTypeFieldValueNotSupported,
 				Message: "update of VMI object is restricted",
@@ -1259,14 +1267,13 @@ func ServeVMIUpdate(resp http.ResponseWriter, req *http.Request) {
 }
 
 func admitVMs(ar *v1beta1.AdmissionReview) *v1beta1.AdmissionResponse {
-	resource := metav1.GroupVersionResource{
-		Group:    v1.VirtualMachineGroupVersionKind.Group,
-		Version:  v1.VirtualMachineGroupVersionKind.Version,
-		Resource: "virtualmachines",
-	}
-	if ar.Request.Resource != resource {
-		err := fmt.Errorf("expect resource to be '%s'", resource.Resource)
+	if ar.Request.Resource != webhooks.VirtualMachineGroupVersionResource {
+		err := fmt.Errorf("expect resource to be '%s'", webhooks.VirtualMachineGroupVersionResource.Resource)
 		return webhooks.ToAdmissionResponseError(err)
+	}
+
+	if resp := webhooks.ValidateSchema(v1.VirtualMachineGroupVersionKind, ar.Request.Object.Raw); resp != nil {
+		return resp
 	}
 
 	raw := ar.Request.Object.Raw
@@ -1279,7 +1286,7 @@ func admitVMs(ar *v1beta1.AdmissionReview) *v1beta1.AdmissionResponse {
 
 	causes := ValidateVirtualMachineSpec(k8sfield.NewPath("spec"), &vm.Spec)
 	if len(causes) > 0 {
-		return toAdmissionResponse(causes)
+		return webhooks.ToAdmissionResponse(causes)
 	}
 
 	reviewResponse := v1beta1.AdmissionResponse{}
@@ -1292,14 +1299,13 @@ func ServeVMs(resp http.ResponseWriter, req *http.Request) {
 }
 
 func admitVMIRS(ar *v1beta1.AdmissionReview) *v1beta1.AdmissionResponse {
-	resource := metav1.GroupVersionResource{
-		Group:    v1.VirtualMachineInstanceReplicaSetGroupVersionKind.Group,
-		Version:  v1.VirtualMachineInstanceReplicaSetGroupVersionKind.Version,
-		Resource: "virtualmachineinstancereplicasets",
-	}
-	if ar.Request.Resource != resource {
-		err := fmt.Errorf("expect resource to be '%s'", resource.Resource)
+	if ar.Request.Resource != webhooks.VirtualMachineInstanceReplicaSetGroupVersionResource {
+		err := fmt.Errorf("expect resource to be '%s'", webhooks.VirtualMachineInstanceReplicaSetGroupVersionResource.Resource)
 		return webhooks.ToAdmissionResponseError(err)
+	}
+
+	if resp := webhooks.ValidateSchema(v1.VirtualMachineInstanceReplicaSetGroupVersionKind, ar.Request.Object.Raw); resp != nil {
+		return resp
 	}
 
 	raw := ar.Request.Object.Raw
@@ -1312,7 +1318,7 @@ func admitVMIRS(ar *v1beta1.AdmissionReview) *v1beta1.AdmissionResponse {
 
 	causes := ValidateVMIRSSpec(k8sfield.NewPath("spec"), &vmirs.Spec)
 	if len(causes) > 0 {
-		return toAdmissionResponse(causes)
+		return webhooks.ToAdmissionResponse(causes)
 	}
 
 	reviewResponse := v1beta1.AdmissionResponse{}
@@ -1324,14 +1330,13 @@ func ServeVMIRS(resp http.ResponseWriter, req *http.Request) {
 	serve(resp, req, admitVMIRS)
 }
 func admitVMIPreset(ar *v1beta1.AdmissionReview) *v1beta1.AdmissionResponse {
-	resource := metav1.GroupVersionResource{
-		Group:    v1.VirtualMachineInstanceReplicaSetGroupVersionKind.Group,
-		Version:  v1.VirtualMachineInstanceReplicaSetGroupVersionKind.Version,
-		Resource: "virtualmachineinstancepresets",
-	}
-	if ar.Request.Resource != resource {
-		err := fmt.Errorf("expect resource to be '%s'", resource.Resource)
+	if ar.Request.Resource != webhooks.VirtualMachineInstancePresetGroupVersionResource {
+		err := fmt.Errorf("expect resource to be '%s'", webhooks.VirtualMachineInstancePresetGroupVersionResource.Resource)
 		return webhooks.ToAdmissionResponseError(err)
+	}
+
+	if resp := webhooks.ValidateSchema(v1.VirtualMachineInstancePresetGroupVersionKind, ar.Request.Object.Raw); resp != nil {
+		return resp
 	}
 
 	raw := ar.Request.Object.Raw
@@ -1344,7 +1349,7 @@ func admitVMIPreset(ar *v1beta1.AdmissionReview) *v1beta1.AdmissionResponse {
 
 	causes := ValidateVMIPresetSpec(k8sfield.NewPath("spec"), &vmipreset.Spec)
 	if len(causes) > 0 {
-		return toAdmissionResponse(causes)
+		return webhooks.ToAdmissionResponse(causes)
 	}
 
 	reviewResponse := v1beta1.AdmissionResponse{}
@@ -1357,13 +1362,9 @@ func ServeVMIPreset(resp http.ResponseWriter, req *http.Request) {
 }
 
 func getAdmissionReviewMigration(ar *v1beta1.AdmissionReview) (new *v1.VirtualMachineInstanceMigration, old *v1.VirtualMachineInstanceMigration, err error) {
-	migrationResource := metav1.GroupVersionResource{
-		Group:    v1.VirtualMachineInstanceMigrationGroupVersionKind.Group,
-		Version:  v1.VirtualMachineInstanceMigrationGroupVersionKind.Version,
-		Resource: "virtualmachineinstancemigrations",
-	}
-	if ar.Request.Resource != migrationResource {
-		return nil, nil, fmt.Errorf("expect resource to be '%s'", migrationResource)
+
+	if ar.Request.Resource != webhooks.MigrationGroupVersionResource {
+		return nil, nil, fmt.Errorf("expect resource to be '%s'", webhooks.MigrationGroupVersionResource)
 	}
 
 	raw := ar.Request.Object.Raw
@@ -1393,13 +1394,17 @@ func admitMigrationCreate(ar *v1beta1.AdmissionReview) *v1beta1.AdmissionRespons
 		return webhooks.ToAdmissionResponseError(err)
 	}
 
+	if resp := webhooks.ValidateSchema(v1.VirtualMachineInstanceMigrationGroupVersionKind, ar.Request.Object.Raw); resp != nil {
+		return resp
+	}
+
 	if !featuregates.LiveMigrationEnabled() {
 		return webhooks.ToAdmissionResponseError(fmt.Errorf("LiveMigration feature gate is not enabled in kubevirt-config"))
 	}
 
 	causes := ValidateVirtualMachineInstanceMigrationSpec(k8sfield.NewPath("spec"), &migration.Spec)
 	if len(causes) > 0 {
-		return toAdmissionResponse(causes)
+		return webhooks.ToAdmissionResponse(causes)
 	}
 
 	informers := webhooks.GetInformers()
@@ -1446,9 +1451,13 @@ func admitMigrationUpdate(ar *v1beta1.AdmissionReview) *v1beta1.AdmissionRespons
 		return webhooks.ToAdmissionResponseError(err)
 	}
 
+	if resp := webhooks.ValidateSchema(v1.VirtualMachineInstanceMigrationGroupVersionKind, ar.Request.Object.Raw); resp != nil {
+		return resp
+	}
+
 	// Reject Migration update if spec changed
 	if !reflect.DeepEqual(newMigration.Spec, oldMigration.Spec) {
-		return toAdmissionResponse([]metav1.StatusCause{
+		return webhooks.ToAdmissionResponse([]metav1.StatusCause{
 			metav1.StatusCause{
 				Type:    metav1.CauseTypeFieldValueNotSupported,
 				Message: "update of Migration object's spec is restricted",

@@ -25,15 +25,17 @@ import (
 	"io/ioutil"
 	"log"
 
-	"github.com/emicklei/go-restful-openapi"
+	"github.com/emicklei/go-restful"
 	"github.com/spf13/pflag"
 
 	klog "kubevirt.io/kubevirt/pkg/log"
+	"kubevirt.io/kubevirt/pkg/util/openapi"
 	"kubevirt.io/kubevirt/pkg/virt-api"
+	"kubevirt.io/kubevirt/pkg/virt-api/rest"
 )
 
-func dumpOpenApiSpec(dumppath *string) {
-	openapispec := restfulspec.BuildSwagger(virt_api.CreateOpenAPIConfig())
+func dumpOpenApiSpec(dumppath *string, apiws []*restful.WebService) {
+	openapispec := openapi.LoadOpenAPISpec(append(apiws, restful.RegisteredWebServices()...))
 	data, err := json.MarshalIndent(openapispec, " ", " ")
 	if err != nil {
 		log.Fatal(err)
@@ -56,5 +58,5 @@ func main() {
 	// arguments for NewVirtAPIApp have no influence on the generated spec
 	app := virt_api.NewVirtApi()
 	app.Compose()
-	dumpOpenApiSpec(dumpapispecpath)
+	dumpOpenApiSpec(dumpapispecpath, rest.ComposeAPIDefinitions())
 }

@@ -117,6 +117,14 @@ type VirtualMachineInstance struct {
 	Status VirtualMachineInstanceStatus `json:"status,omitempty"`
 }
 
+func (v *VirtualMachineInstance) MarshalBinary() (data []byte, err error) {
+	return json.Marshal(*v)
+}
+
+func (v *VirtualMachineInstance) UnmarshalBinary(data []byte) error {
+	return json.Unmarshal(data, v)
+}
+
 // VirtualMachineInstanceList is a list of VirtualMachines
 // ---
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
@@ -231,38 +239,6 @@ func (vl *VirtualMachineInstanceList) GetObjectKind() schema.ObjectKind {
 // Required to satisfy ListMetaAccessor interface
 func (vl *VirtualMachineInstanceList) GetListMeta() meta.List {
 	return &vl.ListMeta
-}
-
-func (v *VirtualMachineInstance) UnmarshalJSON(data []byte) error {
-	type VMICopy VirtualMachineInstance
-	tmp := VMICopy{}
-	err := json.Unmarshal(data, &tmp)
-	if err != nil {
-		return err
-	}
-	tmp2 := VirtualMachineInstance(tmp)
-	*v = tmp2
-	return nil
-}
-
-func (vl *VirtualMachineInstanceList) UnmarshalJSON(data []byte) error {
-	type VMIListCopy VirtualMachineInstanceList
-	tmp := VMIListCopy{}
-	err := json.Unmarshal(data, &tmp)
-	if err != nil {
-		return err
-	}
-	tmp2 := VirtualMachineInstanceList(tmp)
-	*vl = tmp2
-	return nil
-}
-
-func (v *VirtualMachineInstance) MarshalBinary() (data []byte, err error) {
-	return json.Marshal(*v)
-}
-
-func (v *VirtualMachineInstance) UnmarshalBinary(data []byte) error {
-	return v.UnmarshalJSON(data)
 }
 
 // ---
@@ -635,30 +611,6 @@ func (v *VirtualMachineInstanceReplicaSet) GetObjectMeta() metav1.Object {
 	return &v.ObjectMeta
 }
 
-func (v *VirtualMachineInstanceReplicaSet) UnmarshalJSON(data []byte) error {
-	type VMIReplicaSetCopy VirtualMachineInstanceReplicaSet
-	tmp := VMIReplicaSetCopy{}
-	err := json.Unmarshal(data, &tmp)
-	if err != nil {
-		return err
-	}
-	tmp2 := VirtualMachineInstanceReplicaSet(tmp)
-	*v = tmp2
-	return nil
-}
-
-func (vl *VirtualMachineInstanceReplicaSetList) UnmarshalJSON(data []byte) error {
-	type VMIReplicaSetListCopy VirtualMachineInstanceReplicaSetList
-	tmp := VMIReplicaSetListCopy{}
-	err := json.Unmarshal(data, &tmp)
-	if err != nil {
-		return err
-	}
-	tmp2 := VirtualMachineInstanceReplicaSetList(tmp)
-	*vl = tmp2
-	return nil
-}
-
 // Required to satisfy Object interface
 func (vl *VirtualMachineInstanceReplicaSetList) GetObjectKind() schema.ObjectKind {
 	return &vl.TypeMeta
@@ -806,18 +758,6 @@ func NewVirtualMachinePreset(name string, selector metav1.LabelSelector) *Virtua
 			Kind:       VirtualMachineInstancePresetGroupVersionKind.Kind,
 		},
 	}
-}
-
-func (vl *VirtualMachineInstancePresetList) UnmarshalJSON(data []byte) error {
-	type VirtualMachinePresetListCopy VirtualMachineInstancePresetList
-	tmp := VirtualMachinePresetListCopy{}
-	err := json.Unmarshal(data, &tmp)
-	if err != nil {
-		return err
-	}
-	tmp2 := VirtualMachineInstancePresetList(tmp)
-	*vl = tmp2
-	return nil
 }
 
 // Required to satisfy Object interface
