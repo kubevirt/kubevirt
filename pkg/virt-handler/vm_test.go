@@ -566,6 +566,145 @@ var _ = Describe("VirtualMachineInstance", func() {
 			controller.Execute()
 		}, 3)
 	})
+
+	Context("VirtualMachineInstance controller gets informed about interfaces in a Domain", func() {
+		It("should update existing interface with MAC", func() {
+			vmi := v1.NewMinimalVMI("testvmi")
+			vmi.UID = testUUID
+			vmi.ObjectMeta.ResourceVersion = "1"
+			vmi.Status.Phase = v1.Scheduled
+
+			interface_name := "interface_name"
+
+			vmi.Status.Interfaces = []v1.VirtualMachineInstanceNetworkInterface{
+				v1.VirtualMachineInstanceNetworkInterface{
+					IP:   "1.1.1.1",
+					MAC:  "C0:01:BE:E7:15:G0:0D",
+					Name: interface_name,
+				},
+			}
+
+			mockWatchdog.CreateFile(vmi)
+			domain := api.NewMinimalDomainWithUUID("testvmi", testUUID)
+			domain.Status.Status = api.Running
+
+			new_MAC := "1C:CE:C0:01:BE:E7"
+
+			domain.Spec.Devices.Interfaces = []api.Interface{
+				api.Interface{
+					MAC:   &api.MAC{MAC: new_MAC},
+					Alias: &api.Alias{Name: interface_name},
+				},
+			}
+
+			vmiFeeder.Add(vmi)
+			domainFeeder.Add(domain)
+
+			vmiInterface.EXPECT().Update(gomock.Any()).Do(func(arg interface{}) {
+				Expect(len(arg.(*v1.VirtualMachineInstance).Status.Interfaces)).To(Equal(1))
+				Expect(arg.(*v1.VirtualMachineInstance).Status.Interfaces[0].Name).To(Equal(interface_name))
+				Expect(arg.(*v1.VirtualMachineInstance).Status.Interfaces[0].MAC).To(Equal(new_MAC))
+			}).Return(vmi, nil)
+
+			controller.Execute()
+		})
+
+		It("should add new vmi interfaces for new domain interfaces", func() {
+			vmi := v1.NewMinimalVMI("testvmi")
+			vmi.UID = testUUID
+			vmi.ObjectMeta.ResourceVersion = "1"
+			vmi.Status.Phase = v1.Scheduled
+
+			old_interface_name := "old_interface_name"
+			old_MAC := "C0:01:BE:E7:15:G0:0D"
+
+			vmi.Status.Interfaces = []v1.VirtualMachineInstanceNetworkInterface{
+				v1.VirtualMachineInstanceNetworkInterface{
+					IP:   "1.1.1.1",
+					MAC:  old_MAC,
+					Name: old_interface_name,
+				},
+			}
+
+			mockWatchdog.CreateFile(vmi)
+			domain := api.NewMinimalDomainWithUUID("testvmi", testUUID)
+			domain.Status.Status = api.Running
+
+			new_interface_name := "new_interface_name"
+			new_MAC := "1C:CE:C0:01:BE:E7"
+
+			domain.Spec.Devices.Interfaces = []api.Interface{
+				api.Interface{
+					MAC:   &api.MAC{MAC: new_MAC},
+					Alias: &api.Alias{Name: new_interface_name},
+				},
+			}
+
+			vmiFeeder.Add(vmi)
+			domainFeeder.Add(domain)
+
+			vmiInterface.EXPECT().Update(gomock.Any()).Do(func(arg interface{}) {
+				Expect(len(arg.(*v1.VirtualMachineInstance).Status.Interfaces)).To(Equal(2))
+				Expect(arg.(*v1.VirtualMachineInstance).Status.Interfaces[0].Name).To(Equal(old_interface_name))
+				Expect(arg.(*v1.VirtualMachineInstance).Status.Interfaces[0].MAC).To(Equal(old_MAC))
+				Expect(arg.(*v1.VirtualMachineInstance).Status.Interfaces[1].Name).To(Equal(new_interface_name))
+				Expect(arg.(*v1.VirtualMachineInstance).Status.Interfaces[1].MAC).To(Equal(new_MAC))
+			}).Return(vmi, nil)
+
+			controller.Execute()
+		})
+
+		It("should update name on status interfaces with no name", func() {
+			vmi := v1.NewMinimalVMI("testvmi")
+			vmi.UID = testUUID
+			vmi.ObjectMeta.ResourceVersion = "1"
+			vmi.Status.Phase = v1.Scheduled
+
+			interface_name := "interface_name"
+
+			vmi.Status.Interfaces = []v1.VirtualMachineInstanceNetworkInterface{
+				v1.VirtualMachineInstanceNetworkInterface{
+					IP:  "1.1.1.1",
+					MAC: "C0:01:BE:E7:15:G0:0D",
+				},
+			}
+
+			mockWatchdog.CreateFile(vmi)
+			domain := api.NewMinimalDomainWithUUID("testvmi", testUUID)
+			domain.Status.Status = api.Running
+
+			new_MAC := "1C:CE:C0:01:BE:E7"
+
+			domain.Spec.Devices.Interfaces = []api.Interface{
+				api.Interface{
+					MAC:   &api.MAC{MAC: new_MAC},
+					Alias: &api.Alias{Name: interface_name},
+				},
+			}
+
+			vmi.Spec.Networks = []v1.Network{
+				v1.Network{
+					Name:          "other_name",
+					NetworkSource: v1.NetworkSource{Multus: &v1.CniNetwork{}},
+				},
+				v1.Network{
+					Name:          interface_name,
+					NetworkSource: v1.NetworkSource{Pod: &v1.PodNetwork{}},
+				},
+			}
+
+			vmiFeeder.Add(vmi)
+			domainFeeder.Add(domain)
+
+			vmiInterface.EXPECT().Update(gomock.Any()).Do(func(arg interface{}) {
+				Expect(len(arg.(*v1.VirtualMachineInstance).Status.Interfaces)).To(Equal(1))
+				Expect(arg.(*v1.VirtualMachineInstance).Status.Interfaces[0].Name).To(Equal(interface_name))
+				Expect(arg.(*v1.VirtualMachineInstance).Status.Interfaces[0].MAC).To(Equal(new_MAC))
+			}).Return(vmi, nil)
+
+			controller.Execute()
+		})
+	})
 })
 
 type MockGracefulShutdown struct {

@@ -237,6 +237,32 @@ func (d *VirtualMachineController) updateVMIStatus(vmi *v1.VirtualMachineInstanc
 
 	oldStatus := vmi.DeepCopy().Status
 
+	if domain != nil {
+
+		// This is needed to be backwards compatible with vmi's which have status interfaces
+		// with the name not being set
+		if len(vmi.Status.Interfaces) == 1 && vmi.Status.Interfaces[0].Name == "" {
+			for _, network := range vmi.Spec.Networks {
+				if network.NetworkSource.Pod != nil {
+					vmi.Status.Interfaces[0].Name = network.Name
+				}
+			}
+		}
+
+		interfacesByName := make(map[string]int)
+		for i, existingInterface := range vmi.Status.Interfaces {
+			interfacesByName[existingInterface.Name] = i
+		}
+
+		for _, domainInterface := range domain.Spec.Devices.Interfaces {
+			if i, exists := interfacesByName[domainInterface.Alias.Name]; exists {
+				vmi.Status.Interfaces[i].MAC = domainInterface.MAC.MAC
+			} else {
+				vmi.Status.Interfaces = append(vmi.Status.Interfaces, v1.VirtualMachineInstanceNetworkInterface{MAC: domainInterface.MAC.MAC, Name: domainInterface.Alias.Name})
+			}
+		}
+	}
+
 	// Only update the VMI's phase if this node owns the VMI.
 	if vmi.Status.NodeName != "" && vmi.Status.NodeName != d.host {
 		// not owned by this host, likely the result of a migration

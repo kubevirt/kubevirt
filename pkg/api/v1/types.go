@@ -293,6 +293,9 @@ type VirtualMachineInstanceNetworkInterface struct {
 	IP string `json:"ipAddress,omitempty"`
 	// Hardware address of a Virtual Machine interface
 	MAC string `json:"mac,omitempty"`
+	// Name of the interface, corresponds to name of the network assigned to the interface
+	// TODO: remove omitempty, when api breaking changes are allowed
+	Name string `json:"name,omitempty"`
 }
 
 type VirtualMachineInstanceMigrationState struct {

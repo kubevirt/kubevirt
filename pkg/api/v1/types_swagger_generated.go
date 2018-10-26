@@ -51,6 +51,7 @@ func (VirtualMachineInstanceNetworkInterface) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"ipAddress": "IP address of a Virtual Machine interface",
 		"mac":       "Hardware address of a Virtual Machine interface",
+		"name":      "Name of the interface, corresponds to name of the network assigned to the interface",
 	}
 }
 

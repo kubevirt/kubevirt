@@ -29,6 +29,7 @@ import (
 	. "github.com/onsi/gomega"
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	v13 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"kubevirt.io/kubevirt/pkg/api/v1"
@@ -217,6 +218,48 @@ var _ = Describe("Multus Networking", func() {
 
 			By("ping between virtual machines")
 			pingVirtualMachine(vmiOne, "10.1.1.2", "localhost:~#")
+		})
+	})
+
+	Context("Single VirtualMachineInstance with ovs-cni plugin interface", func() {
+		AfterEach(func() {
+			deleteVMIs(virtClient, []*v1.VirtualMachineInstance{vmiOne})
+		})
+
+		It("should report all interfaces in Status", func() {
+			interfaces := []v1.Interface{{Name: "default", InterfaceBindingMethod: v1.InterfaceBindingMethod{Bridge: &v1.InterfaceBridge{}}},
+				{Name: "ovs", InterfaceBindingMethod: v1.InterfaceBindingMethod{Bridge: &v1.InterfaceBridge{}}}}
+			networks := []v1.Network{{Name: "default", NetworkSource: v1.NetworkSource{Pod: &v1.PodNetwork{}}},
+				{Name: "ovs", NetworkSource: v1.NetworkSource{Multus: &v1.CniNetwork{NetworkName: "ovs-net-vlan100"}}}}
+
+			vmiOne = createVMI(interfaces, networks)
+
+			tests.WaitUntilVMIReady(vmiOne, tests.LoggedInAlpineExpecter)
+
+			updatedVmi, err := virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Get(vmiOne.ObjectMeta.Name, &metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+
+			Expect(len(updatedVmi.Status.Interfaces)).To(Equal(2))
+			interfacesByName := make(map[string]v1.VirtualMachineInstanceNetworkInterface)
+			for _, ifc := range updatedVmi.Status.Interfaces {
+				interfacesByName[ifc.Name] = ifc
+			}
+
+			for _, network := range networks {
+				ifc, is_present := interfacesByName[network.Name]
+				Expect(is_present).To(BeTrue())
+				Expect(ifc.MAC).To(Not(BeZero()))
+			}
+			Expect(interfacesByName["default"].MAC).To(Not(Equal(interfacesByName["ovs"].MAC)))
+
+			err = tests.CheckForTextExpecter(updatedVmi, []expect.Batcher{
+				&expect.BSnd{S: fmt.Sprintf("ip addr show eth0 | grep %s | wc -l", interfacesByName["default"].MAC)},
+				&expect.BExp{R: "1"},
+			}, 15)
+			err = tests.CheckForTextExpecter(updatedVmi, []expect.Batcher{
+				&expect.BSnd{S: fmt.Sprintf("ip addr show eth1 | grep %s | wc -l", interfacesByName["ovs"].MAC)},
+				&expect.BExp{R: "1"},
+			}, 15)
 		})
 	})
 })
