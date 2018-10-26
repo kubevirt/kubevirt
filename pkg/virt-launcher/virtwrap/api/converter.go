@@ -182,11 +182,11 @@ func makeDeviceName(bus string, devicePerBus map[string]int) string {
 		log.Log.Errorf("Unrecognized bus '%s'", bus)
 		return ""
 	}
-	return formatDeviceName(prefix, index)
+	return FormatDeviceName(prefix, index)
 }
 
 // port of http://elixir.free-electrons.com/linux/v4.15/source/drivers/scsi/sd.c#L3211
-func formatDeviceName(prefix string, index int) string {
+func FormatDeviceName(prefix string, index int) string {
 	base := int('z' - 'a' + 1)
 	name := ""
 

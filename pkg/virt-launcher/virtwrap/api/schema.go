@@ -355,8 +355,10 @@ type DiskDriver struct {
 }
 
 type DiskSourceHost struct {
-	Name string `xml:"name,attr"`
-	Port string `xml:"port,attr,omitempty"`
+	Name      string `xml:"name,attr"`
+	Port      string `xml:"port,attr,omitempty"`
+	Transport string `xml:"transport,attr,omitempty"`
+	Socket    string `xml:"socket,attr,omitempty"`
 }
 
 type BackingStore struct {

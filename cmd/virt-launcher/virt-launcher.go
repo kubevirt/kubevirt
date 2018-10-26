@@ -49,6 +49,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	virtcli "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/cli"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/cmd-server"
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/hotplug"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/util"
 	"kubevirt.io/kubevirt/pkg/watchdog"
 )
@@ -216,6 +217,12 @@ func initializeDirs(virtShareDir string,
 	}
 
 	err = virtlauncher.InitializeDisksDirectories(config.ServiceAccountDiskDir)
+	if err != nil {
+		panic(err)
+	}
+
+	// FIXME: hotplug directory needs to be shared with host, but not all other virt-launcher pods
+	err = virtlauncher.InitializeHotplugDirectories("/var/run/kubevirt")
 	if err != nil {
 		panic(err)
 	}
@@ -412,6 +419,12 @@ func main() {
 	// This informs virt-controller that virt-launcher is ready to handle
 	// managing virtual machines.
 	markReady(*readinessFile)
+
+	go func() {
+		deviceMap := map[string]string{}
+		deviceMap["foo"] = "bar"
+		hotplug.WatchPluggableDisks(domainManager, "/var/run/kubevirt/plug_device", deviceMap, stopChan)
+	}()
 
 	domain := waitForDomainUUID(*qemuTimeout, events, signalStopChan, domainManager)
 	if domain != nil {

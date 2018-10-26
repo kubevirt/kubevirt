@@ -165,6 +165,19 @@ func InitializeSharedDirectories(baseDir string) error {
 	return nil
 }
 
+func InitializeHotplugDirectories(baseDir string) error {
+	socketPath := filepath.Join(baseDir, "plug_device")
+	err := os.MkdirAll(socketPath, 0755)
+	if err != nil {
+		return err
+	}
+	err = diskutils.SetFileOwnership("qemu", socketPath)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
 func NewProcessMonitor(cmdlineMatchStr string,
 	gracefulShutdownTriggerFile string,
 	gracePeriod int,

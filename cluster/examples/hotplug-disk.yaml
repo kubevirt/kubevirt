@@ -1,0 +1,37 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: hotplug-disk
+  namespace: default
+spec:
+  containers:
+  - command:
+    - /share_disk.sh
+    - /var/run/kubevirt-private/vmi-disks/pvcvolume/disk.img
+    - /var/run/kubevirt/plug_device/nbd_disk.sock
+    #- sleep
+    #- "10000"
+    image: registry:5000/kubevirt/hotplug-disk:devel
+    imagePullPolicy: Always
+    securityContext:
+      privileged: true
+    name: busybox
+    volumeMounts:
+    - mountPath: /var/run/kubevirt
+      name: virt-share-dir
+    - mountPath: /var/run/kubevirt-private/vmi-disks/pvcvolume
+      name: pvcvolume
+  volumes:
+  - hostPath:
+      path: /var/run/kubevirt
+      type: ""
+    name: virt-share-dir
+  - name: pvcvolume
+    persistentVolumeClaim:
+      claimName: disk-alpine
+  dnsPolicy: ClusterFirst
+  hostNetwork: true
+  restartPolicy: Always
+  schedulerName: default-scheduler
+  serviceAccount: default
+  serviceAccountName: default

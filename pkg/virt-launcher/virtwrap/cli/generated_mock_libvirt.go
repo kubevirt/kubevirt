@@ -6,6 +6,8 @@ package cli
 import (
 	gomock "github.com/golang/mock/gomock"
 	libvirt_go "github.com/libvirt/libvirt-go"
+
+	api "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 )
 
 // Mock of Connection interface
@@ -92,6 +94,26 @@ func (_m *MockConnection) NewStream(flags libvirt_go.StreamFlags) (Stream, error
 
 func (_mr *_MockConnectionRecorder) NewStream(arg0 interface{}) *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "NewStream", arg0)
+}
+
+func (_m *MockConnection) AttachDisk(dom VirDomain, disk *api.Disk) error {
+	ret := _m.ctrl.Call(_m, "AttachDisk", dom, disk)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+func (_mr *_MockConnectionRecorder) AttachDisk(arg0, arg1 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "AttachDisk", arg0, arg1)
+}
+
+func (_m *MockConnection) DetachDisk(dom VirDomain, disk *api.Disk) error {
+	ret := _m.ctrl.Call(_m, "DetachDisk", dom, disk)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+func (_mr *_MockConnectionRecorder) DetachDisk(arg0, arg1 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "DetachDisk", arg0, arg1)
 }
 
 // Mock of Stream interface

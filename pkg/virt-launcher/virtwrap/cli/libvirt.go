@@ -22,6 +22,7 @@ package cli
 //go:generate mockgen -source $GOFILE -imports "libvirt=github.com/libvirt/libvirt-go" -package=$GOPACKAGE -destination=generated_mock_$GOFILE
 
 import (
+	"encoding/xml"
 	"fmt"
 	"io"
 	"sync"
@@ -31,6 +32,7 @@ import (
 	utilwait "k8s.io/apimachinery/pkg/util/wait"
 
 	"kubevirt.io/kubevirt/pkg/log"
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/errors"
 )
 
@@ -45,6 +47,8 @@ type Connection interface {
 	DomainEventLifecycleRegister(callback libvirt.DomainEventLifecycleCallback) error
 	ListAllDomains(flags libvirt.ConnectListAllDomainsFlags) ([]VirDomain, error)
 	NewStream(flags libvirt.StreamFlags) (Stream, error)
+	AttachDisk(dom VirDomain, disk *api.Disk) error
+	DetachDisk(dom VirDomain, disk *api.Disk) error
 }
 
 type Stream interface {
@@ -156,6 +160,66 @@ func (l *LibvirtConnection) ListAllDomains(flags libvirt.ConnectListAllDomainsFl
 		doms[i] = &d
 	}
 	return doms, nil
+}
+
+func (l *LibvirtConnection) _attachDetachDisk(dom VirDomain, disk *api.Disk, attach bool) error {
+	byteData, err := xml.Marshal(disk)
+	if err != nil {
+		return err
+	}
+
+	// FIXME: the xml encoder doesn't know to lower-case the <Disk/> tag
+	// and libvirt is case sensitive/rejects it. Is there a way to cleanly
+	// hint to xml.Marshal what to do here?
+	byteData[1] = 'd'
+	byteData[len(byteData)-5] = 'd'
+
+	data := string(byteData)
+
+	//data = strings.Replace(data, "<Disk>", "<disk>", 1)
+	//data = strings.Replace(data, "</Disk>", "</disk>", 1)
+
+	log.Log.Infof("XML data being sent to libvirt:\n\n\n%s\n\n\n", data)
+
+	domName, err := dom.GetName()
+	if err != nil {
+		return err
+	}
+
+	domList, err := l.Connect.ListAllDomains(libvirt.CONNECT_LIST_DOMAINS_ACTIVE | libvirt.CONNECT_LIST_DOMAINS_INACTIVE)
+	if err != nil {
+		return err
+	}
+	found := false
+	for _, thisDom := range domList {
+		found = true
+		thisName, err := thisDom.GetName()
+		if err != nil {
+			return err
+		}
+		if domName == thisName {
+			if attach {
+				err = thisDom.AttachDevice(data)
+			} else {
+				err = thisDom.DetachDevice(data)
+			}
+			if err != nil {
+				return err
+			}
+		}
+	}
+	if !found {
+		return fmt.Errorf("domain '%s' not found", domName)
+	}
+	return nil
+}
+
+func (l *LibvirtConnection) AttachDisk(dom VirDomain, disk *api.Disk) error {
+	return l._attachDetachDisk(dom, disk, true)
+}
+
+func (l *LibvirtConnection) DetachDisk(dom VirDomain, disk *api.Disk) error {
+	return l._attachDetachDisk(dom, disk, false)
 }
 
 // Installs a watchdog which will check periodically if the libvirt connection is still alive.

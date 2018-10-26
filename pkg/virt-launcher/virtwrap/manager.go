@@ -62,6 +62,8 @@ type DomainManager interface {
 	ListAllDomains() ([]*api.Domain, error)
 	MigrateVMI(*v1.VirtualMachineInstance) error
 	PrepareMigrationTarget(*v1.VirtualMachineInstance, bool) error
+	AttachDisk(*api.Disk) error
+	DetachDisk(*api.Disk) error
 }
 
 type LibvirtDomainManager struct {
@@ -676,4 +678,26 @@ func (l *LibvirtDomainManager) ListAllDomains() ([]*api.Domain, error) {
 	}
 
 	return list, nil
+}
+
+func (l *LibvirtDomainManager) AttachDisk(disk *api.Disk) error {
+	// FIXME: this is completely the wrong approach. we should *know* which domain
+	// to attach to. Perhaps pass in VMI?
+	domList, err := l.virConn.ListAllDomains(libvirt.CONNECT_LIST_DOMAINS_ACTIVE | libvirt.CONNECT_LIST_DOMAINS_INACTIVE)
+	if err != nil {
+		return err
+	}
+	domain := domList[0]
+	return l.virConn.AttachDisk(domain, disk)
+}
+
+func (l *LibvirtDomainManager) DetachDisk(disk *api.Disk) error {
+	// FIXME: this is completely the wrong approach. we should *know* which domain
+	// to attach to. Perhaps pass in VMI?
+	domList, err := l.virConn.ListAllDomains(libvirt.CONNECT_LIST_DOMAINS_ACTIVE | libvirt.CONNECT_LIST_DOMAINS_INACTIVE)
+	if err != nil {
+		return err
+	}
+	domain := domList[0]
+	return l.virConn.DetachDisk(domain, disk)
 }
