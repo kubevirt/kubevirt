@@ -7,6 +7,19 @@ metadata:
     kubevirt.io: ""
   name: virtualmachineinstances.kubevirt.io
 spec:
+  additionalPrinterColumns:
+  - JSONPath: .metadata.creationTimestamp
+    name: Age
+    type: date
+  - JSONPath: .status.phase
+    name: Phase
+    type: string
+  - JSONPath: .status.interfaces[0].ipAddress
+    name: IP
+    type: string
+  - JSONPath: .status.nodeName
+    name: NodeName
+    type: string
   group: kubevirt.io
   names:
     kind: VirtualMachineInstance

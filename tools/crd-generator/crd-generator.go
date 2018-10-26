@@ -59,6 +59,11 @@ func generateVirtualMachineCrd() {
 			Kind:       v1.VirtualMachineGroupVersionKind.Kind,
 			ShortNames: []string{"vm", "vms"},
 		},
+		AdditionalPrinterColumns: []extensionsv1.CustomResourceColumnDefinition{
+			{Name: "Age", Type: "date", JSONPath: ".metadata.creationTimestamp"},
+			{Name: "Running", Type: "boolean", JSONPath: ".spec.running"},
+			{Name: "Volume", Description: "Primary Volume", Type: "string", JSONPath: ".spec.volumes[0].name"},
+		},
 	}
 
 	crdutils.MarshallCrd(crd, "yaml")
@@ -138,6 +143,12 @@ func generateVirtualMachineInstanceCrd() {
 			Singular:   "virtualmachineinstance",
 			Kind:       v1.VirtualMachineInstanceGroupVersionKind.Kind,
 			ShortNames: []string{"vmi", "vmis"},
+		},
+		AdditionalPrinterColumns: []extensionsv1.CustomResourceColumnDefinition{
+			{Name: "Age", Type: "date", JSONPath: ".metadata.creationTimestamp"},
+			{Name: "Phase", Type: "string", JSONPath: ".status.phase"},
+			{Name: "IP", Type: "string", JSONPath: ".status.interfaces[0].ipAddress"},
+			{Name: "NodeName", Type: "string", JSONPath: ".status.nodeName"},
 		},
 	}
 
