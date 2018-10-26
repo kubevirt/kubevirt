@@ -794,6 +794,14 @@ type Interface struct {
 	// If specified, the virtual network interface will be placed on the guests pci address with the specifed PCI address. For example: 0000:81:01.10
 	// +optional
 	PciAddress string `json:"pciAddress,omitempty"`
+	// Boot Protocol of a Virtual Machine interface
+	BootProto string `json:"bootProto,omitempty"`
+	// Ip of a Virtual Machine interface
+	Ip string `json:"ip,omitempty"`
+	// Netmask of a Virtual Machine interface
+	Netmask string `json:"netmask,omitempty"`
+	// Gateway of a Virtual Machine interface
+	Gateway string `json:"gateway,omitempty"`
 }
 
 // Represents the method which will be used to connect the interface to the guest.

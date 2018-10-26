@@ -176,11 +176,11 @@ func ResolveSecrets(source *v1.CloudInitNoCloudSource, namespace string, clients
 	return nil
 }
 
-func GenerateLocalData(vmiName string, hostname string, namespace string, source *v1.CloudInitNoCloudSource) error {
-	precond.MustNotBeEmpty(vmiName)
+func GenerateLocalData(vmi *v1.VirtualMachineInstance, hostname string, namespace string, source *v1.CloudInitNoCloudSource) error {
+	precond.MustNotBeEmpty(vmi.Name)
 	precond.MustNotBeNil(source)
 
-	domainBasePath := GetDomainBasePath(vmiName, namespace)
+	domainBasePath := GetDomainBasePath(vmi.Name, namespace)
 	err := os.MkdirAll(domainBasePath, 0755)
 	if err != nil {
 		log.Log.V(2).Reason(err).Errorf("unable to create cloud-init base path %s", domainBasePath)
@@ -188,6 +188,7 @@ func GenerateLocalData(vmiName string, hostname string, namespace string, source
 	}
 
 	metaFile := fmt.Sprintf("%s/%s", domainBasePath, "meta-data")
+	networkFile := fmt.Sprintf("%s/%s", domainBasePath, "network-config")
 	userFile := fmt.Sprintf("%s/%s", domainBasePath, "user-data")
 	iso := fmt.Sprintf("%s/%s", domainBasePath, NoCloudFile)
 	isoStaging := fmt.Sprintf("%s/%s.staging", domainBasePath, NoCloudFile)
@@ -202,10 +203,12 @@ func GenerateLocalData(vmiName string, hostname string, namespace string, source
 	} else {
 		return fmt.Errorf("userDataBase64 or userData is required for no-cloud data source")
 	}
-	metaData := []byte(fmt.Sprintf("{ \"instance-id\": \"%s.%s\", \"local-hostname\": \"%s\" }\n", vmiName, namespace, hostname))
+	metaData := []byte(fmt.Sprintf("{ \"instance-id\": \"%s.%s\", \"local-hostname\": \"%s\" }\n", vmi.Name, namespace, hostname))
+	networkData := []byte(GetNetworkData(vmi, hostname, namespace))
 
 	diskutils.RemoveFile(userFile)
 	diskutils.RemoveFile(metaFile)
+	diskutils.RemoveFile(networkFile)
 	diskutils.RemoveFile(isoStaging)
 
 	err = ioutil.WriteFile(userFile, userData, 0644)
@@ -216,15 +219,21 @@ func GenerateLocalData(vmiName string, hostname string, namespace string, source
 	if err != nil {
 		return err
 	}
+	err = ioutil.WriteFile(networkFile, networkData, 0644)
+	if err != nil {
+		return err
+	}
 
 	files := make([]string, 0, 2)
 	files = append(files, metaFile)
+	files = append(files, networkFile)
 	files = append(files, userFile)
 	err = cloudInitIsoFunc(isoStaging, files)
 	if err != nil {
 		return err
 	}
 	diskutils.RemoveFile(metaFile)
+	diskutils.RemoveFile(networkFile)
 	diskutils.RemoveFile(userFile)
 
 	err = diskutils.SetFileOwnership(cloudInitOwner, isoStaging)
@@ -257,4 +266,31 @@ func GenerateLocalData(vmiName string, hostname string, namespace string, source
 // Lists all vmis cloud-init has local data for
 func ListVmWithLocalData() ([]*v1.VirtualMachineInstance, error) {
 	return diskutils.ListVmWithEphemeralDisk(cloudInitLocalDir)
+}
+
+//Get Network Data String
+func GetNetworkData(vmi *v1.VirtualMachineInstance, hostname string, namespace string) string {
+	headerdata := "version: 1\n"
+	networkdata := ""
+	interfaces := vmi.Spec.Domain.Devices.Interfaces
+	networks := vmi.Spec.Networks
+
+	for index, _interface := range interfaces {
+		device := fmt.Sprintf("interface%d", index)
+		network := networks[index]
+		ip := _interface.Ip
+		bootproto := _interface.BootProto
+		if bootproto != "static" {
+			continue
+		}
+		netmask := _interface.Netmask
+		gateway := _interface.Gateway
+		if ip != "" && netmask != "" && gateway != "" && network.Pod == nil {
+			networkdata += fmt.Sprintf(" - type: physical\n   name: %s\n   subnets:\n    - type: static\n      address: %s\n      netmask: %s\n      gateway: %s\n", device, ip, netmask, gateway)
+		}
+	}
+	if networkdata == "" {
+		networkdata = headerdata + "config:\n" + networkdata
+	}
+	return networkdata
 }

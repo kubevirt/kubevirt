@@ -45,7 +45,7 @@ var _ = Describe("CloudInit", func() {
 		panic(err)
 	}
 	isoCreationFunc := func(isoOutFile string, inFiles []string) error {
-		if isoOutFile == "noCloud" && len(inFiles) != 2 {
+		if isoOutFile == "noCloud" && len(inFiles) != 3 {
 			return errors.New("unexpected number of files for noCloud")
 		}
 
@@ -111,10 +111,11 @@ var _ = Describe("CloudInit", func() {
 				namespace := "fake-namespace"
 				domain := "fake-domain"
 				userData := "fake\nuser\ndata\n"
+				vmi := v1.NewMinimalVMI(domain)
 				cloudInitData := &v1.CloudInitNoCloudSource{
 					UserDataBase64: base64.StdEncoding.EncodeToString([]byte(userData)),
 				}
-				err := GenerateLocalData(domain, domain, namespace, cloudInitData)
+				err := GenerateLocalData(vmi, domain, namespace, cloudInitData)
 				Expect(err).To(HaveOccurred())
 				Expect(timedOut).To(Equal(true))
 			})
@@ -168,7 +169,8 @@ var _ = Describe("CloudInit", func() {
 			verifyCloudInitIso := func(dataSource *v1.CloudInitNoCloudSource) {
 				namespace := "fake-namespace"
 				domain := "fake-domain"
-				err := GenerateLocalData(domain, domain, namespace, dataSource)
+				vmi := v1.NewMinimalVMI(domain)
+				err := GenerateLocalData(vmi, domain, namespace, dataSource)
 				Expect(err).ToNot(HaveOccurred())
 
 				// verify iso is created

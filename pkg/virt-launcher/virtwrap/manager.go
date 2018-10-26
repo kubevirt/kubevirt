@@ -314,7 +314,7 @@ func (l *LibvirtDomainManager) preStartHook(vmi *v1.VirtualMachineInstance, doma
 	if cloudInitData != nil {
 		hostname := dns.SanitizeHostname(vmi)
 
-		err := cloudinit.GenerateLocalData(vmi.Name, hostname, vmi.Namespace, cloudInitData)
+		err := cloudinit.GenerateLocalData(vmi, hostname, vmi.Namespace, cloudInitData)
 		if err != nil {
 			return domain, err
 		}
