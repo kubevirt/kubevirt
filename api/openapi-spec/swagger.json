@@ -5527,6 +5527,10 @@
      "mac": {
       "description": "Hardware address of a Virtual Machine interface",
       "type": "string"
+     },
+     "name": {
+      "description": "Name of the interface, corresponds to name of the network assigned to the interface",
+      "type": "string"
      }
     }
    },
