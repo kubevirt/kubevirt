@@ -341,15 +341,9 @@ func createDataVolumeManifest(dataVolume *cdiv1.DataVolume, vm *virtv1.VirtualMa
 	newDataVolume.ObjectMeta.Labels = labels
 	newDataVolume.ObjectMeta.Annotations = annotations
 
-	tr := true
-	newDataVolume.ObjectMeta.OwnerReferences = []v1.OwnerReference{{
-		APIVersion:         virtv1.VirtualMachineGroupVersionKind.GroupVersion().String(),
-		Kind:               virtv1.VirtualMachineGroupVersionKind.Kind,
-		Name:               vm.Name,
-		UID:                vm.UID,
-		Controller:         &tr,
-		BlockOwnerDeletion: &tr,
-	}}
+	newDataVolume.ObjectMeta.OwnerReferences = []v1.OwnerReference{
+		*v1.NewControllerRef(vm, virtv1.VirtualMachineGroupVersionKind),
+	}
 	return newDataVolume
 }
 
@@ -535,17 +529,11 @@ func (c *VMController) setupVMIFromVM(vm *virtv1.VirtualMachine) *virtv1.Virtual
 
 	setupStableFirmwareUUID(vm, vmi)
 
-	t := true
 	// TODO check if vmi labels exist, and when make sure that they match. For now just override them
 	vmi.ObjectMeta.Labels = vm.Spec.Template.ObjectMeta.Labels
-	vmi.ObjectMeta.OwnerReferences = []v1.OwnerReference{{
-		APIVersion:         virtv1.VirtualMachineGroupVersionKind.GroupVersion().String(),
-		Kind:               virtv1.VirtualMachineGroupVersionKind.Kind,
-		Name:               vm.ObjectMeta.Name,
-		UID:                vm.ObjectMeta.UID,
-		Controller:         &t,
-		BlockOwnerDeletion: &t,
-	}}
+	vmi.ObjectMeta.OwnerReferences = []v1.OwnerReference{
+		*v1.NewControllerRef(vm, virtv1.VirtualMachineGroupVersionKind),
+	}
 
 	return vmi
 }
