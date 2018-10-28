@@ -35,7 +35,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/hooks"
 	"kubevirt.io/kubevirt/pkg/log"
 	"kubevirt.io/kubevirt/pkg/precond"
-	"kubevirt.io/kubevirt/pkg/registry-disk"
+	registrydisk "kubevirt.io/kubevirt/pkg/registry-disk"
 	"kubevirt.io/kubevirt/pkg/util"
 	"kubevirt.io/kubevirt/pkg/util/net/dns"
 	"kubevirt.io/kubevirt/pkg/util/types"
@@ -546,20 +546,14 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 	}
 
 	// TODO use constants for podLabels
-	trueVar := true
 	pod := k8sv1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
 			GenerateName: "virt-launcher-" + domain + "-",
 			Labels:       podLabels,
 			Annotations:  annotationsList,
-			OwnerReferences: []metav1.OwnerReference{{
-				APIVersion:         v1.VirtualMachineInstanceGroupVersionKind.GroupVersion().String(),
-				Kind:               v1.VirtualMachineInstanceGroupVersionKind.Kind,
-				Name:               vmi.Name,
-				UID:                vmi.UID,
-				Controller:         &trueVar,
-				BlockOwnerDeletion: &trueVar,
-			}},
+			OwnerReferences: []metav1.OwnerReference{
+				*metav1.NewControllerRef(vmi, v1.VirtualMachineInstanceGroupVersionKind),
+			},
 		},
 		Spec: k8sv1.PodSpec{
 			Hostname:  hostName,

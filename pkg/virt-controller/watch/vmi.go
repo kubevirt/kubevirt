@@ -912,12 +912,8 @@ func (c *VMIController) checkHandOverExpectation(pod *k8sv1.Pod, vmi *virtv1.Vir
 }
 
 func (c *VMIController) getControllerOf(pod *k8sv1.Pod) *v1.OwnerReference {
-	t := true
-	return &v1.OwnerReference{
-		Kind:               virtv1.VirtualMachineInstanceGroupVersionKind.Kind,
-		Name:               pod.Annotations[virtv1.DomainAnnotation],
-		UID:                types.UID(pod.Labels[virtv1.CreatedByLabel]),
-		Controller:         &t,
-		BlockOwnerDeletion: &t,
-	}
+	name := pod.Annotations[virtv1.DomainAnnotation]
+	uid := types.UID(pod.Labels[virtv1.CreatedByLabel])
+	vmi := virtv1.NewVMI(name, uid)
+	return v1.NewControllerRef(vmi, virtv1.VirtualMachineInstanceGroupVersionKind)
 }
