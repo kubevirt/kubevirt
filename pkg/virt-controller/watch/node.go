@@ -296,7 +296,7 @@ func filterStuckVirtualMachinesWithoutPods(vmis []*virtv1.VirtualMachineInstance
 	return filtered
 }
 
-func isControlledByVMI(controllerRef *metav1.OwnerReference) {
+func isControlledByVMI(controllerRef *metav1.OwnerReference) bool {
 	return controllerRef != nil && controllerRef.Kind == virtv1.VirtualMachineInstanceGroupVersionKind.Kind
 }
 
