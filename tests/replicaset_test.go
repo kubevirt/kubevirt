@@ -31,6 +31,7 @@ import (
 	. "github.com/onsi/gomega"
 	"k8s.io/apimachinery/pkg/api/errors"
 	v12 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1beta1"
 	"k8s.io/apimachinery/pkg/util/json"
 
 	"kubevirt.io/kubevirt/pkg/api/v1"
@@ -153,12 +154,48 @@ var _ = Describe("VirtualMachineInstanceReplicaSet", func() {
 		newRS := newReplicaSet()
 		doScale(newRS.ObjectMeta.Name, 2)
 
-		By("Checking the number of ready replicas")
+		By("checking the number of ready replicas in the returned yaml")
 		Eventually(func() int {
 			rs, err := virtClient.ReplicaSet(tests.NamespaceTestDefault).Get(newRS.ObjectMeta.Name, v12.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			return int(rs.Status.ReadyReplicas)
 		}, 120*time.Second, 1*time.Second).Should(Equal(2))
+	})
+
+	It("should return the correct data when using server-side printing", func() {
+		newRS := newReplicaSet()
+		doScale(newRS.ObjectMeta.Name, 2)
+
+		By("waiting until all VMIs are ready")
+		Eventually(func() int {
+			rs, err := virtClient.ReplicaSet(tests.NamespaceTestDefault).Get(newRS.ObjectMeta.Name, v12.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			return int(rs.Status.ReadyReplicas)
+		}, 120*time.Second, 1*time.Second).Should(Equal(2))
+
+		By("checking the output of server-side table printing")
+		rawTable, err := virtClient.RestClient().Get().
+			RequestURI(fmt.Sprintf("/apis/kubevirt.io/v1alpha2/namespaces/%s/virtualmachineinstancereplicasets/%s", tests.NamespaceTestDefault, newRS.ObjectMeta.Name)).
+			SetHeader("Accept", "application/json;as=Table;v=v1beta1;g=meta.k8s.io, application/json").
+			DoRaw()
+
+		Expect(err).ToNot(HaveOccurred())
+		table := &v1beta1.Table{}
+		Expect(json.Unmarshal(rawTable, table)).To(Succeed())
+		Expect(table.ColumnDefinitions[0].Name).To(Equal("Name"))
+		Expect(table.ColumnDefinitions[0].Type).To(Equal("string"))
+		Expect(table.ColumnDefinitions[1].Name).To(Equal("Desired"))
+		Expect(table.ColumnDefinitions[1].Type).To(Equal("integer"))
+		Expect(table.ColumnDefinitions[2].Name).To(Equal("Current"))
+		Expect(table.ColumnDefinitions[2].Type).To(Equal("integer"))
+		Expect(table.ColumnDefinitions[3].Name).To(Equal("Ready"))
+		Expect(table.ColumnDefinitions[3].Type).To(Equal("integer"))
+		Expect(table.ColumnDefinitions[4].Name).To(Equal("Age"))
+		Expect(table.ColumnDefinitions[4].Type).To(Equal("date"))
+		Expect(table.Rows[0].Cells[0].(string)).To(Equal(newRS.ObjectMeta.Name))
+		Expect(int(table.Rows[0].Cells[1].(float64))).To(Equal(2))
+		Expect(int(table.Rows[0].Cells[2].(float64))).To(Equal(2))
+		Expect(int(table.Rows[0].Cells[3].(float64))).To(Equal(2))
 	})
 
 	It("should remove VMIs once it is marked for deletion", func() {
