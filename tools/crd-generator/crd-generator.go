@@ -104,6 +104,15 @@ func generateReplicaSetCrd() {
 			Kind:       v1.VirtualMachineInstanceReplicaSetGroupVersionKind.Kind,
 			ShortNames: []string{"vmirs", "vmirss"},
 		},
+		AdditionalPrinterColumns: []extensionsv1.CustomResourceColumnDefinition{
+			{Name: "Desired", Type: "integer", JSONPath: ".spec.replicas",
+				Description: "Number of desired VirtualMachineInstances"},
+			{Name: "Current", Type: "integer", JSONPath: ".status.replicas",
+				Description: "Number of managed and not final or deleted VirtualMachineInstances"},
+			{Name: "Ready", Type: "integer", JSONPath: ".status.readyReplicas",
+				Description: "Number of managed VirtualMachineInstances which are ready to receive traffic"},
+			{Name: "Age", Type: "date", JSONPath: ".metadata.creationTimestamp"},
+		},
 	}
 
 	crdutils.MarshallCrd(crd, "yaml")
