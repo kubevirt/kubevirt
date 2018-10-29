@@ -17,6 +17,7 @@ go_library(
         "//pkg/ephemeral-disk:go_default_library",
         "//pkg/hooks:go_default_library",
         "//pkg/host-disk:go_default_library",
+        "//pkg/ignition:go_default_library",
         "//pkg/log:go_default_library",
         "//pkg/util/net/dns:go_default_library",
         "//pkg/virt-handler/migration-proxy:go_default_library",
