@@ -20,6 +20,7 @@
 package tests_test
 
 import (
+	"encoding/xml"
 	"flag"
 	"fmt"
 	"regexp"
@@ -41,6 +42,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/kubecli"
 	"kubevirt.io/kubevirt/pkg/log"
 	hw_utils "kubevirt.io/kubevirt/pkg/util/hardware"
+	launcherApi "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/tests"
 )
 
@@ -553,59 +555,75 @@ var _ = Describe("Configurations", func() {
 	})
 
 	Context("with driver cache settings", func() {
-		It("should set a default cache mode to 'none'", func() {
-			vmi := tests.NewRandomVMIWithPVC(tests.DiskAlpineHostPath)
+		blockPVName := "block-pv-" + rand.String(48)
+
+		BeforeEach(func() {
+			// create a new PV and PVC (PVs can't be reused)
+			tests.CreateBlockVolumePvAndPvc(blockPVName, "1Gi")
+		}, 60)
+
+		AfterEach(func() {
+			tests.DeletePvAndPvc(blockPVName)
+		}, 60)
+
+		It("should set appropriate cache modes", func() {
+			vmi := tests.NewRandomVMI()
+			vmi.Spec.Domain.Resources.Requests[kubev1.ResourceMemory] = resource.MustParse("64M")
+
+			By("adding disks to a VMI")
+			tests.AddEphemeralDisk(vmi, "ephemeral-disk1", "virtio", tests.RegistryDiskFor(tests.RegistryDiskCirros))
+			vmi.Spec.Domain.Devices.Disks[0].Cache = v1.CacheNone
+
+			tests.AddEphemeralDisk(vmi, "ephemeral-disk2", "virtio", tests.RegistryDiskFor(tests.RegistryDiskCirros))
+			vmi.Spec.Domain.Devices.Disks[1].Cache = v1.CacheWriteThrough
+
+			tests.AddEphemeralDisk(vmi, "ephemeral-disk3", "virtio", tests.RegistryDiskFor(tests.RegistryDiskCirros))
+			tests.AddUserData(vmi, "cloud-init", "#!/bin/bash\necho 'hello'\n")
+			tests.AddPVCDisk(vmi, "hostpath-pvc", "virtio", tests.DiskAlpineHostPath)
+			tests.AddPVCDisk(vmi, "block-pvc", "virtio", blockPVName)
+			tests.AddHostDisk(vmi, "/run/kubevirt-private/vm-disks/test-disk.img", v1.HostDiskExistsOrCreate, "hostdisk")
 			tests.RunVMIAndExpectLaunch(vmi, false, 60)
 
+			runningVMISpec := launcherApi.DomainSpec{}
 			domXml, err := tests.GetRunningVirtualMachineInstanceDomainXML(virtClient, vmi)
 			Expect(err).ToNot(HaveOccurred())
-			Expect(domXml).To(ContainSubstring("cache='none'"))
-		})
-
-		It("should set a writethrough cache for fs which does not support direct I/O", func() {
-			// tmpfs does not support direct I/O
-			vmi := tests.NewRandomVMIWithHostDisk("/run/kubevirt-private/vm-disks/test-disk.img", v1.HostDiskExistsOrCreate, "")
-			tests.RunVMIAndExpectLaunch(vmi, false, 60)
-
-			domXml, err := tests.GetRunningVirtualMachineInstanceDomainXML(virtClient, vmi)
+			err = xml.Unmarshal([]byte(domXml), &runningVMISpec)
 			Expect(err).ToNot(HaveOccurred())
-			Expect(domXml).To(ContainSubstring(fmt.Sprintf("cache='%s'", v1.CacheWriteThrough)))
-		})
 
-		table.DescribeTable("should set demanded cache mode", func(cache v1.DriverCache) {
-			vmi := tests.NewRandomVMIWithEphemeralDisk(tests.RegistryDiskFor(tests.RegistryDiskCirros))
-			vmi.Spec.Domain.Devices.Disks[0].Cache = cache
-			tests.RunVMIAndExpectLaunch(vmi, false, 60)
+			disks := runningVMISpec.Devices.Disks
+			By("checking if number of attached disks is equal to real disks number")
+			Expect(len(vmi.Spec.Domain.Devices.Disks)).To(Equal(len(disks)))
 
-			domXml, err := tests.GetRunningVirtualMachineInstanceDomainXML(virtClient, vmi)
-			Expect(err).ToNot(HaveOccurred())
-			Expect(domXml).To(ContainSubstring(fmt.Sprintf("cache='%s'", cache)))
-		},
-			table.Entry(fmt.Sprintf("with a cache set to '%s'", v1.CacheNone), v1.CacheNone),
-			table.Entry(fmt.Sprintf("with a cache set to '%s'", v1.CacheWriteThrough), v1.CacheWriteThrough),
-		)
+			cacheNone := string(v1.CacheNone)
+			cacheWritethrough := string(v1.CacheWriteThrough)
 
-		Context("with a block device", func() {
-			pvName := "block-pv-" + rand.String(48)
+			By("checking if requested cache 'none' has been set")
+			Expect(disks[0].Alias.Name).To(Equal("ephemeral-disk1"))
+			Expect(disks[0].Driver.Cache).To(Equal(cacheNone))
 
-			BeforeEach(func() {
-				// create a new PV and PVC (PVs can't be reused)
-				tests.CreateBlockVolumePvAndPvc(pvName, "1Gi")
-			}, 60)
+			By("checking if requested cache 'writethrough' has been set")
+			Expect(disks[1].Alias.Name).To(Equal("ephemeral-disk2"))
+			Expect(disks[1].Driver.Cache).To(Equal(cacheWritethrough))
 
-			AfterEach(func() {
-				// create a new PV and PVC (PVs can't be reused)
-				tests.DeletePvAndPvc(pvName)
-			}, 60)
+			By("checking if default cache 'none' has been set to ephemeral disk")
+			Expect(disks[2].Alias.Name).To(Equal("ephemeral-disk3"))
+			Expect(disks[2].Driver.Cache).To(Equal(cacheNone))
 
-			It("should set a default cache mode to 'none'", func() {
-				vmi := tests.NewRandomVMIWithPVC(pvName)
-				tests.RunVMIAndExpectLaunch(vmi, false, 90)
+			By("checking if default cache 'none' has been set to cloud-init disk")
+			Expect(disks[3].Alias.Name).To(Equal("cloud-init"))
+			Expect(disks[3].Driver.Cache).To(Equal(cacheNone))
 
-				domXml, err := tests.GetRunningVirtualMachineInstanceDomainXML(virtClient, vmi)
-				Expect(err).ToNot(HaveOccurred())
-				Expect(domXml).To(ContainSubstring("cache='none'"))
-			})
+			By("checking if default cache 'none' has been set to pvc disk")
+			Expect(disks[4].Alias.Name).To(Equal("hostpath-pvc"))
+			Expect(disks[4].Driver.Cache).To(Equal(cacheNone))
+
+			By("checking if default cache 'none' has been set to block pvc")
+			Expect(disks[5].Alias.Name).To(Equal("block-pvc"))
+			Expect(disks[5].Driver.Cache).To(Equal(cacheNone))
+
+			By("checking if default cache 'writethrough' has been set to fs which does not support direct I/O")
+			Expect(disks[6].Alias.Name).To(Equal("hostdisk"))
+			Expect(disks[6].Driver.Cache).To(Equal(cacheWritethrough))
 		})
 	})
 
