@@ -104,6 +104,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 	}
 
 	shouldExpectVirtualMachineHandover := func(vmi *v1.VirtualMachineInstance) {
+		vmiInterface.EXPECT().Update(gomock.Any()).Return(vmi, nil)
 		vmiInterface.EXPECT().UpdateStatus(gomock.Any()).Do(func(arg interface{}) {
 			Expect(arg.(*v1.VirtualMachineInstance).Status.Phase).To(Equal(v1.Scheduled))
 			Expect(arg.(*v1.VirtualMachineInstance).Status.Conditions).To(BeEmpty())
@@ -515,6 +516,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			table.DescribeTable("it should remove scheduling pod condition from the VirtualMachineInstance if the pod", func(owner string, podPhase k8sv1.PodPhase) {
 				vmi := NewPendingVirtualMachine("testvmi")
 				vmi.Status.Phase = v1.Scheduling
+				vmi.Labels = map[string]string{v1.NodeNameLabel: ""}
 
 				pod := NewPodForVirtualMachine(vmi, podPhase)
 
@@ -711,6 +713,11 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			shouldExpectVirtualMachineHandover(vmi)
 
 			controller.Execute()
+
+			// Make sure the labels are passed in now with the appropriate value
+			vmi.Labels = map[string]string{v1.NodeNameLabel: ""}
+			addVirtualMachine(vmi)
+			controller.Execute()
 		})
 		It("should update the virtual machine to scheduled if pod is ready, triggered by pod change", func() {
 			vmi := NewPendingVirtualMachine("testvmi")
@@ -728,6 +735,12 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 
 			shouldExpectVirtualMachineHandover(vmi)
 
+			// First update the label (a hack since we don't have field selectors)
+			controller.Execute()
+
+			// Make sure the labels are passed in now with the appropriate value
+			vmi.Labels = map[string]string{v1.NodeNameLabel: ""}
+			addVirtualMachine(vmi)
 			controller.Execute()
 		})
 		It("should update the virtual machine to failed if pod was not ready, triggered by pod delete", func() {

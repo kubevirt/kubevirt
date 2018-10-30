@@ -335,7 +335,8 @@ func (c *VMIController) updateStatus(vmi *virtv1.VirtualMachineInstance, pod *k8
 			vmiCopy.Status.Phase = virtv1.Failed
 		}
 	case vmi.IsFinal():
-		// nothing to do
+		// nothing to do, only the finalizer may be removed during a sync
+		return nil
 	case vmi.IsRunning() || vmi.IsScheduled():
 		// Don't process states where the vmi is clearly owned by virt-handler
 		return nil
@@ -350,6 +351,17 @@ func (c *VMIController) updateStatus(vmi *virtv1.VirtualMachineInstance, pod *k8
 
 	conditionManager.CheckFailure(vmiCopy, syncErr, reason)
 
+	// FIXME we can't modify metadata in a modifying webhook for status-only, and
+	// CRs don't support field selectors either.
+	// Filed https://github.com/kubernetes/kubernetes/issues/70084
+	setLabels(vmiCopy)
+	if !reflect.DeepEqual(vmi.Labels, vmiCopy.Labels) {
+		_, err := c.clientset.VirtualMachineInstance(vmi.Namespace).Update(vmiCopy)
+		// Immediately exit. Two updates in a row lead to failed update requests when re-processing and
+		// increase the load. The status will be updated in a subsequent call
+		return err
+	}
+
 	// If we detect a change on the vmi we update the vmi
 	if !reflect.DeepEqual(vmi.Status, vmiCopy.Status) ||
 		!reflect.DeepEqual(vmi.Annotations, vmiCopy.Annotations) {
@@ -360,6 +372,30 @@ func (c *VMIController) updateStatus(vmi *virtv1.VirtualMachineInstance, pod *k8
 	}
 
 	return nil
+}
+
+// setLabels sets labels based on the status in order to simulate field selectors
+func setLabels(vmi *virtv1.VirtualMachineInstance) {
+	node := vmi.Status.NodeName
+	targetNode := ""
+	if vmi.Status.MigrationState != nil {
+		targetNode = vmi.Status.MigrationState.TargetNode
+	}
+	wasNil := false
+	if vmi.ObjectMeta.Labels == nil {
+		wasNil = true
+		vmi.ObjectMeta.Labels = map[string]string{}
+	}
+	if vmi.ObjectMeta.Labels[virtv1.NodeNameLabel] != node ||
+		vmi.ObjectMeta.Labels[virtv1.MigrationTargetNodeNameLabel] != targetNode {
+		// Set the node name labels, since CRs don't support field selectors
+		vmi.ObjectMeta.Labels[virtv1.NodeNameLabel] = node
+		vmi.ObjectMeta.Labels[virtv1.MigrationTargetNodeNameLabel] = targetNode
+	}
+	// Don't confuse deep-equal
+	if wasNil && len(vmi.ObjectMeta.Labels) == 0 {
+		vmi.ObjectMeta.Labels = nil
+	}
 }
 
 // isPodReady treats the pod as ready to be handed over to virt-handler, as soon as all pods except
