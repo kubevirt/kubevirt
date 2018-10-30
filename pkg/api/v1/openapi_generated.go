@@ -1998,6 +1998,13 @@ func schema_kubevirt_pkg_api_v1_VirtualMachineInstanceNetworkInterface(ref commo
 							Format:      "",
 						},
 					},
+					"name": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Name of the interface, corresponds to name of the network assigned to the interface",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
 				},
 			},
 		},
