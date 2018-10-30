@@ -43,7 +43,7 @@ deploy:
     secure: KD1d1EkvX5iY5pvKQbi6Aj6y49XXnQBxBMok9x2d9LVMbmzBQIHoTqUQz2Dv2TSpANshkIrLmR1eT/brCK382cIUVvA6kG8JB2yqAAE2hzJ8u49+CI4iyqpBWw1HCuH/4xPWZUPVBW0Yl9WsW0vencAeKK6cTDm4Z9K3esJf+iZMpJh7ZpK2ESn9d2RZsrpOKJpxYrvt14Wox+8YfqPRCTJoO/Q8vdXbyOrRVpK6daSe11HsmTZZpFzgLWGojpjH05wcENUaokpCIp8Hgx3rJmO9z5iReNG+2QuPCw0QyEIKGAvzlA5KbYFWBUurxz0XsnaovbJ7BKI070arxQKjKRnjSNE3kEValOwMIE8dA835A1nChm85NILQdWvlbexSxPpz0z62SGPjFthUj9VBx/RnUrd1itxWOi6ZW5k6PnWDUoKPr63+fYSAkp6bXO9ELexA19wUfQCicGRBEO3mJ6QvKKbiDAFKWcABlavxlNtFgw1mMPxxWEhKkW0PrCqOVu9fDDzJ48DCD5XHRT8HUVHDeKcscMTW675rlzo3SxTJdqnZSybpbMSmKbxNs0rM8kPXf1RQLsGDg4CC6Daxz255PV5Y/+p0AhZ2hWtfC3c/Ff8wOdDSdCaEcg5tGa/e1kJWAKuIATUGdZsFZUri8ePQcgcXzM4ihANn7gP8Cl4=
   file_glob: true
   file:
-  - _out/cmd/virtctl/virtctl-*
+  - _out/cmd/virtctl/virtctl-v*
   - _out/manifests/release/kubevirt.yaml
   - _out/templates/manifests/release/kubevirt.yaml.j2
   - _out/manifests/release/demo-content.yaml
