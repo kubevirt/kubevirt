@@ -163,6 +163,7 @@ var _ = Describe("VirtualMachineInstanceReplicaSet", func() {
 	})
 
 	It("should return the correct data when using server-side printing", func() {
+		tests.SkipIfVersionBelow("server-side printing is only enabled by default from 1.11 on", "1.11")
 		newRS := newReplicaSet()
 		doScale(newRS.ObjectMeta.Name, 2)
 
