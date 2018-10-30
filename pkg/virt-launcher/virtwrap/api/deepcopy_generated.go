@@ -605,6 +605,13 @@ func (in *ConverterContext) DeepCopyInto(out *ConverterContext) {
 			(*out)[key] = val
 		}
 	}
+	if in.DevicePerBus != nil {
+		in, out := &in.DevicePerBus, &out.DevicePerBus
+		*out = make(map[string]int, len(*in))
+		for key, val := range *in {
+			(*out)[key] = val
+		}
+	}
 	return
 }
 

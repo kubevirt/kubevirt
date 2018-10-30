@@ -57,6 +57,7 @@ type ConverterContext struct {
 	VirtualMachine *v1.VirtualMachineInstance
 	CPUSet         []int
 	IsBlockPVC     map[string]bool
+	DevicePerBus   map[string]int
 }
 
 func Convert_v1_Disk_To_api_Disk(diskDevice *v1.Disk, disk *Disk, devicePerBus map[string]int, numQueues *uint) error {
@@ -630,11 +631,10 @@ func Convert_v1_VirtualMachine_To_api_Domain(vmi *v1.VirtualMachineInstance, dom
 		}
 	}
 
-	devicePerBus := make(map[string]int)
 	for _, disk := range vmi.Spec.Domain.Devices.Disks {
 		newDisk := Disk{}
 
-		err := Convert_v1_Disk_To_api_Disk(&disk, &newDisk, devicePerBus, numQueues)
+		err := Convert_v1_Disk_To_api_Disk(&disk, &newDisk, c.DevicePerBus, numQueues)
 		if err != nil {
 			return err
 		}

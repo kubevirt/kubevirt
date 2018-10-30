@@ -22,6 +22,8 @@ package virtwrap
 import (
 	"encoding/xml"
 	"fmt"
+	"io/ioutil"
+	"os"
 
 	"github.com/golang/mock/gomock"
 	"github.com/libvirt/libvirt-go"
@@ -41,9 +43,11 @@ var _ = Describe("Manager", func() {
 	var mockConn *cli.MockConnection
 	var mockDomain *cli.MockVirDomain
 	var ctrl *gomock.Controller
+	var workDir string
 	testVmName := "testvmi"
 	testNamespace := "testnamespace"
 	testDomainName := fmt.Sprintf("%s_%s", testNamespace, testVmName)
+	var err error
 
 	log.Log.SetIOWriter(GinkgoWriter)
 
@@ -51,6 +55,12 @@ var _ = Describe("Manager", func() {
 		ctrl = gomock.NewController(GinkgoT())
 		mockConn = cli.NewMockConnection(ctrl)
 		mockDomain = cli.NewMockVirDomain(ctrl)
+		workDir, err = ioutil.TempDir("", "kubevirt-test-XXXXXX")
+		Expect(err).ToNot(HaveOccurred())
+	})
+
+	AfterEach(func() {
+		os.RemoveAll(workDir)
 	})
 
 	expectIsolationDetectionForVMI := func(vmi *v1.VirtualMachineInstance) *api.DomainSpec {
@@ -81,7 +91,7 @@ var _ = Describe("Manager", func() {
 			mockDomain.EXPECT().GetState().Return(libvirt.DOMAIN_SHUTDOWN, 1, nil)
 			mockDomain.EXPECT().Create().Return(nil)
 			mockDomain.EXPECT().GetXMLDesc(libvirt.DomainXMLFlags(0)).Return(string(xml), nil)
-			manager, _ := NewLibvirtDomainManager(mockConn, "fake")
+			manager, _ := NewLibvirtDomainManager(mockConn, "fake", workDir)
 			newspec, err := manager.SyncVMI(vmi, true)
 			Expect(err).To(BeNil())
 			Expect(newspec).ToNot(BeNil())
@@ -96,7 +106,7 @@ var _ = Describe("Manager", func() {
 			mockConn.EXPECT().LookupDomainByName(testDomainName).Return(mockDomain, nil)
 			mockDomain.EXPECT().GetState().Return(libvirt.DOMAIN_RUNNING, 1, nil)
 			mockDomain.EXPECT().GetXMLDesc(libvirt.DomainXMLFlags(0)).Return(string(xml), nil)
-			manager, _ := NewLibvirtDomainManager(mockConn, "fake")
+			manager, _ := NewLibvirtDomainManager(mockConn, "fake", workDir)
 			newspec, err := manager.SyncVMI(vmi, true)
 			Expect(err).To(BeNil())
 			Expect(newspec).ToNot(BeNil())
@@ -114,7 +124,7 @@ var _ = Describe("Manager", func() {
 				mockConn.EXPECT().DomainDefineXML(string(xml)).Return(mockDomain, nil)
 				mockDomain.EXPECT().Create().Return(nil)
 				mockDomain.EXPECT().GetXMLDesc(libvirt.DomainXMLFlags(0)).Return(string(xml), nil)
-				manager, _ := NewLibvirtDomainManager(mockConn, "fake")
+				manager, _ := NewLibvirtDomainManager(mockConn, "fake", workDir)
 				newspec, err := manager.SyncVMI(vmi, true)
 				Expect(err).To(BeNil())
 				Expect(newspec).ToNot(BeNil())
@@ -135,7 +145,7 @@ var _ = Describe("Manager", func() {
 			mockDomain.EXPECT().GetState().Return(libvirt.DOMAIN_PAUSED, 1, nil)
 			mockDomain.EXPECT().Resume().Return(nil)
 			mockDomain.EXPECT().GetXMLDesc(libvirt.DomainXMLFlags(0)).Return(string(xml), nil)
-			manager, _ := NewLibvirtDomainManager(mockConn, "fake")
+			manager, _ := NewLibvirtDomainManager(mockConn, "fake", workDir)
 			newspec, err := manager.SyncVMI(vmi, true)
 			Expect(err).To(BeNil())
 			Expect(newspec).ToNot(BeNil())
@@ -148,7 +158,7 @@ var _ = Describe("Manager", func() {
 			StubOutNetworkForTest()
 			vmi := newVMI(testNamespace, testVmName)
 
-			manager, _ := NewLibvirtDomainManager(mockConn, "fake")
+			manager, _ := NewLibvirtDomainManager(mockConn, "fake", workDir)
 			err := manager.PrepareMigrationTarget(vmi, true)
 			Expect(err).To(BeNil())
 		})
@@ -168,7 +178,7 @@ var _ = Describe("Manager", func() {
 				UID: vmi.Status.MigrationState.MigrationUID,
 			}
 
-			manager, _ := NewLibvirtDomainManager(mockConn, "fake")
+			manager, _ := NewLibvirtDomainManager(mockConn, "fake", workDir)
 
 			mockConn.EXPECT().LookupDomainByName(testDomainName).Return(mockDomain, nil)
 			mockDomain.EXPECT().GetState().Return(libvirt.DOMAIN_RUNNING, 1, nil)
@@ -191,7 +201,7 @@ var _ = Describe("Manager", func() {
 				mockDomain.EXPECT().Free()
 				mockConn.EXPECT().LookupDomainByName(testDomainName).Return(mockDomain, nil)
 				mockDomain.EXPECT().Undefine().Return(nil)
-				manager, _ := NewLibvirtDomainManager(mockConn, "fake")
+				manager, _ := NewLibvirtDomainManager(mockConn, "fake", workDir)
 				err := manager.DeleteVMI(newVMI(testNamespace, testVmName))
 				Expect(err).To(BeNil())
 			},
@@ -205,7 +215,7 @@ var _ = Describe("Manager", func() {
 				mockConn.EXPECT().LookupDomainByName(testDomainName).Return(mockDomain, nil)
 				mockDomain.EXPECT().GetState().Return(state, 1, nil)
 				mockDomain.EXPECT().DestroyFlags(libvirt.DOMAIN_DESTROY_GRACEFUL).Return(nil)
-				manager, _ := NewLibvirtDomainManager(mockConn, "fake")
+				manager, _ := NewLibvirtDomainManager(mockConn, "fake", workDir)
 				err := manager.KillVMI(newVMI(testNamespace, testVmName))
 				Expect(err).To(BeNil())
 			},
@@ -230,7 +240,7 @@ var _ = Describe("Manager", func() {
 			mockDomain.EXPECT().GetXMLDesc(gomock.Eq(libvirt.DOMAIN_XML_INACTIVE)).Return(string(x), nil)
 			mockConn.EXPECT().ListAllDomains(gomock.Eq(libvirt.CONNECT_LIST_DOMAINS_ACTIVE|libvirt.CONNECT_LIST_DOMAINS_INACTIVE)).Return([]cli.VirDomain{mockDomain}, nil)
 
-			manager, _ := NewLibvirtDomainManager(mockConn, "fake")
+			manager, _ := NewLibvirtDomainManager(mockConn, "fake", workDir)
 			doms, err := manager.ListAllDomains()
 
 			Expect(len(doms)).To(Equal(1))

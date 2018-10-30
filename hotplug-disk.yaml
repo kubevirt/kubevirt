@@ -8,7 +8,7 @@ spec:
   - command:
     - /share_disk.sh
     - /var/run/kubevirt-private/vmi-disks/pvcvolume/disk.img
-    - /var/run/kubevirt/plug_device/nbd_disk.sock
+    - /var/run/kubevirt/plug_device/default_vmi-ephemeral/nbd_disk.sock
     #- sleep
     #- "10000"
     image: registry:5000/kubevirt/hotplug-disk:devel

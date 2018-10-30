@@ -367,7 +367,9 @@ func main() {
 	domainConn := createLibvirtConnection()
 	defer domainConn.Close()
 
-	domainManager, err := virtwrap.NewLibvirtDomainManager(domainConn, *virtShareDir)
+	// FIXME: this needs to be moved outside of /var/run/kubevirt,
+	// (shared with host, but not other pods), and configurable
+	domainManager, err := virtwrap.NewLibvirtDomainManager(domainConn, *virtShareDir, "/var/run/kubevirt/plug_device")
 	if err != nil {
 		panic(err)
 	}
@@ -421,9 +423,7 @@ func main() {
 	markReady(*readinessFile)
 
 	go func() {
-		deviceMap := map[string]string{}
-		deviceMap["foo"] = "bar"
-		hotplug.WatchPluggableDisks(domainManager, "/var/run/kubevirt/plug_device", deviceMap, stopChan)
+		hotplug.WatchHotplugDomains(domainManager, "/var/run/kubevirt/plug_device", stopChan)
 	}()
 
 	domain := waitForDomainUUID(*qemuTimeout, events, signalStopChan, domainManager)
