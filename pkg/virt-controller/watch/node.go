@@ -245,13 +245,8 @@ func (c *NodeController) virtualMachinesOnNode(nodeName string) ([]*virtv1.Virtu
 }
 
 func (c *NodeController) alivePodsOnNode(nodeName string) ([]*v1.Pod, error) {
-	labelSelector, err := labels.Parse(virtv1.CreatedByLabel)
 	handlerNodeSelector := fields.ParseSelectorOrDie("spec.nodeName=" + nodeName)
-	if err != nil {
-		return nil, err
-	}
 	list, err := c.clientset.CoreV1().Pods(v1.NamespaceAll).List(metav1.ListOptions{
-		LabelSelector: labelSelector.String(),
 		FieldSelector: handlerNodeSelector.String(),
 	})
 	if err != nil {
@@ -261,9 +256,13 @@ func (c *NodeController) alivePodsOnNode(nodeName string) ([]*v1.Pod, error) {
 	pods := []*v1.Pod{}
 
 	for i := range list.Items {
-		phase := list.Items[i].Status.Phase
+		pod := &list.Items[i]
+		if controllerRef := controller.GetControllerOf(pod); !isControlledByVMI(controllerRef) {
+			continue
+		}
+		phase := pod.Status.Phase
 		if phase != v1.PodFailed && phase != v1.PodSucceeded {
-			pods = append(pods, &list.Items[i])
+			pods = append(pods, pod)
 		}
 	}
 	return pods, nil
@@ -277,12 +276,10 @@ func filterStuckVirtualMachinesWithoutPods(vmis []*virtv1.VirtualMachineInstance
 		if !ok {
 			podsForVMI = map[string]*v1.Pod{}
 		}
-		vmUID := pod.Labels[virtv1.CreatedByLabel]
-		if len(vmUID) == 0 {
-			continue
+		if controllerRef := controller.GetControllerOf(pod); isControlledByVMI(controllerRef) {
+			podsForVMI[string(controllerRef.UID)] = pod
+			podsPerNamespace[pod.Namespace] = podsForVMI
 		}
-		podsForVMI[vmUID] = pod
-		podsPerNamespace[pod.Namespace] = podsForVMI
 	}
 
 	filtered := []*virtv1.VirtualMachineInstance{}
@@ -297,6 +294,10 @@ func filterStuckVirtualMachinesWithoutPods(vmis []*virtv1.VirtualMachineInstance
 		}
 	}
 	return filtered
+}
+
+func isControlledByVMI(controllerRef *metav1.OwnerReference) {
+	return controllerRef != nil && controllerRef.Kind == virtv1.VirtualMachineInstanceGroupVersionKind.Kind
 }
 
 func isNodeUnresponsive(node *v1.Node, timeout time.Duration) (bool, error) {

@@ -387,6 +387,7 @@ func NewHealthyPodForVirtualMachine(podName string, vmi *virtv1.VirtualMachineIn
 			Namespace: k8sv1.NamespaceDefault,
 			Labels: map[string]string{
 				virtv1.CreatedByLabel: string(vmi.UID),
+				virtv1.AppLabel:       "virt-launcher",
 			},
 		},
 		Spec: k8sv1.PodSpec{NodeName: vmi.Status.NodeName},
