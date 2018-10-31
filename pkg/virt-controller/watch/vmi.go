@@ -26,8 +26,6 @@ import (
 
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/labels"
-	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/record"
@@ -593,7 +591,7 @@ func (c *VMIController) addPod(obj interface{}) {
 		return
 	}
 
-	controllerRef := c.getControllerOf(pod)
+	controllerRef := controller.GetControllerOf(pod)
 	vmi := c.resolveControllerRef(pod.Namespace, controllerRef)
 	if vmi == nil {
 		return
@@ -630,10 +628,10 @@ func (c *VMIController) updatePod(old, cur interface{}) {
 		return
 	}
 
-	curControllerRef := c.getControllerOf(curPod)
-	oldControllerRef := c.getControllerOf(oldPod)
+	curControllerRef := controller.GetControllerOf(curPod)
+	oldControllerRef := controller.GetControllerOf(oldPod)
 	controllerRefChanged := !reflect.DeepEqual(curControllerRef, oldControllerRef)
-	if controllerRefChanged && oldControllerRef != nil {
+	if controllerRefChanged {
 		// The ControllerRef was changed. Sync the old controller, if any.
 		if vmi := c.resolveControllerRef(oldPod.Namespace, oldControllerRef); vmi != nil {
 			c.checkHandOverExpectation(oldPod, vmi)
@@ -673,7 +671,7 @@ func (c *VMIController) deletePod(obj interface{}) {
 		}
 	}
 
-	controllerRef := c.getControllerOf(pod)
+	controllerRef := controller.GetControllerOf(pod)
 	vmi := c.resolveControllerRef(pod.Namespace, controllerRef)
 	if vmi == nil {
 		return
@@ -714,8 +712,8 @@ func (c *VMIController) enqueueVirtualMachine(obj interface{}) {
 // of the correct Kind.
 func (c *VMIController) resolveControllerRef(namespace string, controllerRef *v1.OwnerReference) *virtv1.VirtualMachineInstance {
 	// We can't look up by UID, so look up by Name and then verify UID.
-	// Don't even try to look up by Name if it's the wrong Kind.
-	if controllerRef.Kind != virtv1.VirtualMachineInstanceGroupVersionKind.Kind {
+	// Don't even try to look up by Name if it is nil or the wrong Kind.
+	if controllerRef == nil || controllerRef.Kind != virtv1.VirtualMachineInstanceGroupVersionKind.Kind {
 		return nil
 	}
 	vmi, exists, err := c.vmiInformer.GetStore().GetByKey(namespace + "/" + controllerRef.Name)
@@ -781,15 +779,8 @@ func (c *VMIController) allPodsDeleted(vmi *virtv1.VirtualMachineInstance) (bool
 		return false, err
 	}
 
-	selector, err := v1.LabelSelectorAsSelector(&v1.LabelSelector{
-		MatchLabels: map[string]string{
-			virtv1.CreatedByLabel: string(vmi.UID),
-			virtv1.AppLabel:       "virt-launcher",
-		},
-	})
-
 	for _, pod := range pods {
-		if selector.Matches(labels.Set(pod.ObjectMeta.Labels)) {
+		if controller.IsControlledBy(pod, vmi) {
 			return false, nil
 		}
 	}
@@ -804,13 +795,6 @@ func (c *VMIController) deleteAllMatchingPods(vmi *virtv1.VirtualMachineInstance
 		return err
 	}
 
-	selector, err := v1.LabelSelectorAsSelector(&v1.LabelSelector{
-		MatchLabels: map[string]string{
-			virtv1.CreatedByLabel: string(vmi.UID),
-			virtv1.AppLabel:       "virt-launcher",
-		},
-	})
-
 	vmiKey := controller.VirtualMachineKey(vmi)
 
 	for _, pod := range pods {
@@ -818,7 +802,7 @@ func (c *VMIController) deleteAllMatchingPods(vmi *virtv1.VirtualMachineInstance
 			continue
 		}
 
-		if !selector.Matches(labels.Set(pod.ObjectMeta.Labels)) {
+		if !controller.IsControlledBy(pod, vmi) {
 			continue
 		}
 
@@ -860,20 +844,9 @@ func (c *VMIController) currentPod(vmi *virtv1.VirtualMachineInstance) (*k8sv1.P
 		return nil, err
 	}
 
-	selector, err := v1.LabelSelectorAsSelector(&v1.LabelSelector{
-		MatchLabels: map[string]string{
-			virtv1.CreatedByLabel: string(vmi.UID),
-			virtv1.AppLabel:       "virt-launcher",
-		},
-	})
-
-	if err != nil {
-		return nil, err
-	}
-
 	var curPod *k8sv1.Pod = nil
 	for _, pod := range pods {
-		if !selector.Matches(labels.Set(pod.ObjectMeta.Labels)) {
+		if !controller.IsControlledBy(pod, vmi) {
 			continue
 		}
 
@@ -909,11 +882,4 @@ func (c *VMIController) checkHandOverExpectation(pod *k8sv1.Pod, vmi *virtv1.Vir
 	if isPodOwnedByHandler(pod) {
 		c.handoverExpectations.CreationObserved(controller.VirtualMachineKey(vmi))
 	}
-}
-
-func (c *VMIController) getControllerOf(pod *k8sv1.Pod) *v1.OwnerReference {
-	name := pod.Annotations[virtv1.DomainAnnotation]
-	uid := types.UID(pod.Labels[virtv1.CreatedByLabel])
-	vmi := virtv1.NewVMI(name, uid)
-	return v1.NewControllerRef(vmi, virtv1.VirtualMachineInstanceGroupVersionKind)
 }
