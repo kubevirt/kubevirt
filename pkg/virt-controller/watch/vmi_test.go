@@ -80,7 +80,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 	}
 
 	shouldExpectMultiplePodDeletions := func(pod *k8sv1.Pod, deletionCount *int) {
-		// Expect pod creation
+		// Expect pod deletion
 		kubeClient.Fake.PrependReactor("delete", "pods", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
 			update, ok := action.(testing.DeleteAction)
 			Expect(ok).To(BeTrue())
@@ -91,7 +91,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 	}
 
 	shouldExpectPodDeletion := func(pod *k8sv1.Pod) {
-		// Expect pod creation
+		// Expect pod deletion
 		kubeClient.Fake.PrependReactor("delete", "pods", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
 			update, ok := action.(testing.DeleteAction)
 			Expect(ok).To(BeTrue())
@@ -351,7 +351,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			table.Entry("in scheduled state", v1.Scheduled),
 			table.Entry("in scheduling state", v1.Scheduling),
 		)
-		It("should not try to delete a pod again, which is already marked for deletion and go to failed state, when in sheduling state", func() {
+		It("should not try to delete a pod again, which is already marked for deletion and go to failed state, when in scheduling state", func() {
 			vmi := NewPendingVirtualMachine("testvmi")
 			vmi.Status.Phase = v1.Scheduling
 			vmi.DeletionTimestamp = now()
