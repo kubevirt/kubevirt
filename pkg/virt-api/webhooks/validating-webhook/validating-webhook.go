@@ -27,7 +27,6 @@ import (
 	"net/http"
 	"reflect"
 	"regexp"
-	"strconv"
 	"strings"
 
 	"k8s.io/api/admission/v1beta1"
@@ -150,25 +149,14 @@ func validateDisks(field *k8sfield.Path, disks []v1.Disk) []metav1.StatusCause {
 				})
 			}
 
-			dbsfFields, err := util.ParsePciAddress(disk.Disk.PciAddress)
+			_, err := util.ParsePciAddress(disk.Disk.PciAddress)
 			if err != nil {
 				causes = append(causes, metav1.StatusCause{
 					Type:    metav1.CauseTypeFieldValueInvalid,
 					Message: fmt.Sprintf("disk %s has malformed PCI address (%s).", field.Child("domain", "devices", "disks", "disk").Index(idx).Child("name").String(), disk.Disk.PciAddress),
 					Field:   field.Child("domain", "devices", "disks", "disk").Index(idx).Child("pciAddress").String(),
 				})
-			} else {
-				// make sure that slot is > 2. first 3 slots are reserved
-				if pciSlot, _ := strconv.Atoi(dbsfFields[2]); pciSlot < 3 {
-					causes = append(causes, metav1.StatusCause{
-						Type:    metav1.CauseTypeFieldValueInvalid,
-						Message: fmt.Sprintf("disks %s PCI address slot (%s) should be greater than 2.", field.Child("domain", "devices", "disks", "disk").Index(idx).Child("name").String(), dbsfFields[2]),
-						Field:   field.Child("domain", "devices", "disks", "disk").Index(idx).Child("pciAddress").String(),
-					})
-
-				}
 			}
-
 		}
 
 		// Verify boot order is greater than 0, if provided
