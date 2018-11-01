@@ -20,7 +20,6 @@
 package registrydisk
 
 import (
-	"errors"
 	"fmt"
 	"os"
 
@@ -73,7 +72,7 @@ func GetFilePath(vmi *v1.VirtualMachineInstance, volumeName string) (string, str
 		}
 	}
 
-	return "", "", errors.New(fmt.Sprintf("no supported file disk found in directory %s", volumeMountDir))
+	return "", "", fmt.Errorf("no supported file disk found in directory %s", volumeMountDir)
 }
 
 func SetFilePermissions(vmi *v1.VirtualMachineInstance) error {

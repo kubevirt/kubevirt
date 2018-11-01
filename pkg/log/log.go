@@ -276,7 +276,7 @@ func (l *FilteredLogger) SetLogLevel(filterLevel LogLevel) error {
 		l.filterLevel = filterLevel
 		return nil
 	}
-	return errors.New(fmt.Sprintf("Log level %d does not exist", filterLevel))
+	return fmt.Errorf("Log level %d does not exist", filterLevel)
 }
 
 func (l *FilteredLogger) SetVerbosityLevel(level int) error {
