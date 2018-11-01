@@ -71,8 +71,7 @@ var _ = Describe("Template", func() {
 					v1.CreatedByLabel: "1234",
 				}))
 				Expect(pod.ObjectMeta.Annotations).To(Equal(map[string]string{
-					v1.DomainAnnotation:  "testvmi",
-					v1.OwnedByAnnotation: "virt-controller",
+					v1.DomainAnnotation: "testvmi",
 				}))
 				Expect(pod.ObjectMeta.OwnerReferences).To(Equal([]metav1.OwnerReference{{
 					APIVersion:         v1.VirtualMachineInstanceGroupVersionKind.GroupVersion().String(),

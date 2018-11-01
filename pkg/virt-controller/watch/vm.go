@@ -330,7 +330,6 @@ func createDataVolumeManifest(dataVolume *cdiv1.DataVolume, vm *virtv1.VirtualMa
 	annotations := map[string]string{}
 
 	labels[virtv1.CreatedByLabel] = string(vm.UID)
-	annotations[virtv1.OwnedByAnnotation] = "virt-controller"
 
 	for k, v := range dataVolume.Labels {
 		annotations[k] = v

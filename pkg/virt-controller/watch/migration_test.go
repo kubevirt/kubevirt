@@ -68,7 +68,6 @@ var _ = Describe("Migration watcher", func() {
 		kubeClient.Fake.PrependReactor("create", "pods", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
 			update, ok := action.(testing.CreateAction)
 			Expect(ok).To(BeTrue())
-			Expect(update.GetObject().(*k8sv1.Pod).Annotations[v1.OwnedByAnnotation]).To(Equal("virt-controller"))
 			Expect(update.GetObject().(*k8sv1.Pod).Labels[v1.CreatedByLabel]).To(Equal(string(uid)))
 			Expect(update.GetObject().(*k8sv1.Pod).Labels[v1.MigrationJobLabel]).To(Equal(string(migrationUid)))
 			Expect(update.GetObject().(*k8sv1.Pod).Labels[v1.MigrationJobLabel]).To(Equal(string(migrationUid)))
@@ -557,7 +556,6 @@ func newTargetPodForVirtualMachine(vmi *v1.VirtualMachineInstance, migration *v1
 			},
 			Annotations: map[string]string{
 				v1.DomainAnnotation:           vmi.Name,
-				v1.OwnedByAnnotation:          "virt-controller",
 				v1.MigrationJobNameAnnotation: migration.Name,
 			},
 		},

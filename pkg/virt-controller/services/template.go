@@ -599,8 +599,7 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 	hostName := dns.SanitizeHostname(vmi)
 
 	annotationsList := map[string]string{
-		v1.DomainAnnotation:  domain,
-		v1.OwnedByAnnotation: "virt-controller",
+		v1.DomainAnnotation: domain,
 	}
 
 	cniNetworks, cniAnnotation := getCniInterfaceList(vmi)

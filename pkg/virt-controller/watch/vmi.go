@@ -99,16 +99,15 @@ func NewVMIController(templateService services.TemplateService,
 	dataVolumeInformer cache.SharedIndexInformer) *VMIController {
 
 	c := &VMIController{
-		templateService:      templateService,
-		Queue:                workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter()),
-		vmiInformer:          vmiInformer,
-		podInformer:          podInformer,
-		recorder:             recorder,
-		clientset:            clientset,
-		podExpectations:      controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectations()),
-		handoverExpectations: controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectations()),
-		configMapInformer:    configMapInformer,
-		dataVolumeInformer:   dataVolumeInformer,
+		templateService:    templateService,
+		Queue:              workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter()),
+		vmiInformer:        vmiInformer,
+		podInformer:        podInformer,
+		recorder:           recorder,
+		clientset:          clientset,
+		podExpectations:    controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectations()),
+		configMapInformer:  configMapInformer,
+		dataVolumeInformer: dataVolumeInformer,
 	}
 
 	c.vmiInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
@@ -151,16 +150,15 @@ func (e *syncErrorImpl) Reason() string {
 }
 
 type VMIController struct {
-	templateService      services.TemplateService
-	clientset            kubecli.KubevirtClient
-	Queue                workqueue.RateLimitingInterface
-	vmiInformer          cache.SharedIndexInformer
-	podInformer          cache.SharedIndexInformer
-	recorder             record.EventRecorder
-	podExpectations      *controller.UIDTrackingControllerExpectations
-	handoverExpectations *controller.UIDTrackingControllerExpectations
-	configMapInformer    cache.SharedIndexInformer
-	dataVolumeInformer   cache.SharedIndexInformer
+	templateService    services.TemplateService
+	clientset          kubecli.KubevirtClient
+	Queue              workqueue.RateLimitingInterface
+	vmiInformer        cache.SharedIndexInformer
+	podInformer        cache.SharedIndexInformer
+	recorder           record.EventRecorder
+	podExpectations    *controller.UIDTrackingControllerExpectations
+	configMapInformer  cache.SharedIndexInformer
+	dataVolumeInformer cache.SharedIndexInformer
 }
 
 func (c *VMIController) Run(threadiness int, stopCh chan struct{}) {
@@ -215,7 +213,6 @@ func (c *VMIController) execute(key string) error {
 	// Once all finalizers are removed the vmi gets deleted and we can clean all expectations
 	if !exists {
 		c.podExpectations.DeleteExpectations(key)
-		c.handoverExpectations.DeleteExpectations(key)
 		return nil
 	}
 	vmi := obj.(*virtv1.VirtualMachineInstance)
@@ -238,7 +235,7 @@ func (c *VMIController) execute(key string) error {
 	}
 
 	// If needsSync is true (expectations fulfilled) we can make save assumptions if virt-handler or virt-controller owns the pod
-	needsSync := c.podExpectations.SatisfiedExpectations(key) && c.handoverExpectations.SatisfiedExpectations(key)
+	needsSync := c.podExpectations.SatisfiedExpectations(key)
 
 	var syncErr syncError = nil
 	if needsSync {
@@ -301,24 +298,32 @@ func (c *VMIController) updateStatus(vmi *virtv1.VirtualMachineInstance, pod *k8
 				// Remove PodScheduling condition from the VM
 				conditionManager.RemoveCondition(vmiCopy, virtv1.VirtualMachineInstanceConditionType(k8sv1.PodScheduled))
 			}
-			if isPodOwnedByHandler(pod) {
-				// vmi is still owned by the controller but pod is already handed over,
-				// so let's hand over the vmi too
-				interfaces := make([]virtv1.VirtualMachineInstanceNetworkInterface, 0)
-				for _, network := range vmi.Spec.Networks {
-					if network.NetworkSource.Pod != nil {
-						ifc := virtv1.VirtualMachineInstanceNetworkInterface{Name: network.Name, IP: pod.Status.PodIP}
-						interfaces = append(interfaces, ifc)
-					}
-				}
-				vmiCopy.Status.Interfaces = interfaces
+			if isPodReady(pod) && vmi.DeletionTimestamp == nil {
+				// fail vmi creation if CPU pinning has been requested but the Pod QOS is not Guaranteed
+				podQosClass := pod.Status.QOSClass
+				if podQosClass != k8sv1.PodQOSGuaranteed && vmi.IsCPUDedicated() {
+					c.recorder.Eventf(vmi, k8sv1.EventTypeWarning, FailedGuaranteePodResourcesReason, "failed to guarantee pod resources")
+					syncErr = &syncErrorImpl{fmt.Errorf("failed to guarantee pod resources"), FailedGuaranteePodResourcesReason}
+				} else {
 
-				vmiCopy.Status.Phase = virtv1.Scheduled
-				if vmiCopy.Labels == nil {
-					vmiCopy.Labels = map[string]string{}
+					// vmi is still owned by the controller but pod is already ready,
+					// so let's hand over the vmi too
+					interfaces := make([]virtv1.VirtualMachineInstanceNetworkInterface, 0)
+					for _, network := range vmi.Spec.Networks {
+						if network.NetworkSource.Pod != nil {
+							ifc := virtv1.VirtualMachineInstanceNetworkInterface{Name: network.Name, IP: pod.Status.PodIP}
+							interfaces = append(interfaces, ifc)
+						}
+					}
+					vmiCopy.Status.Interfaces = interfaces
+
+					vmiCopy.Status.Phase = virtv1.Scheduled
+					if vmiCopy.Labels == nil {
+						vmiCopy.Labels = map[string]string{}
+					}
+					vmiCopy.ObjectMeta.Labels[virtv1.NodeNameLabel] = pod.Spec.NodeName
+					vmiCopy.Status.NodeName = pod.Spec.NodeName
 				}
-				vmiCopy.ObjectMeta.Labels[virtv1.NodeNameLabel] = pod.Spec.NodeName
-				vmiCopy.Status.NodeName = pod.Spec.NodeName
 			} else if isPodDownOrGoingDown(pod) {
 				vmiCopy.Status.Phase = virtv1.Failed
 			}
@@ -446,26 +451,6 @@ func (c *VMIController) sync(vmi *virtv1.VirtualMachineInstance, pod *k8sv1.Pod,
 		}
 		c.recorder.Eventf(vmi, k8sv1.EventTypeNormal, SuccessfulCreatePodReason, "Created virtual machine pod %s", pod.Name)
 		return nil
-	} else if isPodReady(pod) && !isPodOwnedByHandler(pod) {
-		pod := pod.DeepCopy()
-
-		// fail vmi creation if CPU pinning has been requested but the Pod QOS is not Guaranteed
-		podQosClass := pod.Status.QOSClass
-		if podQosClass != k8sv1.PodQOSGuaranteed && vmi.IsCPUDedicated() {
-			c.handoverExpectations.CreationObserved(controller.VirtualMachineKey(vmi))
-			c.recorder.Eventf(vmi, k8sv1.EventTypeWarning, FailedGuaranteePodResourcesReason, "failed to guarantee pod resources")
-			return &syncErrorImpl{fmt.Errorf("failed to guarantee pod resources"), FailedGuaranteePodResourcesReason}
-		}
-
-		pod.Annotations[virtv1.OwnedByAnnotation] = "virt-handler"
-		c.handoverExpectations.ExpectCreations(controller.VirtualMachineKey(vmi), 1)
-		_, err := c.clientset.CoreV1().Pods(vmi.Namespace).Update(pod)
-		if err != nil {
-			c.handoverExpectations.CreationObserved(controller.VirtualMachineKey(vmi))
-			c.recorder.Eventf(vmi, k8sv1.EventTypeWarning, FailedHandOverPodReason, "Error on handing over pod: %v", err)
-			return &syncErrorImpl{fmt.Errorf("failed to hand over pod to virt-handler: %v", err), FailedHandOverPodReason}
-		}
-		c.recorder.Eventf(vmi, k8sv1.EventTypeNormal, SuccessfulHandOverPodReason, "Pod ownership transferred to the node %s", pod.Spec.NodeName)
 	}
 	return nil
 }
@@ -634,7 +619,6 @@ func (c *VMIController) updatePod(old, cur interface{}) {
 	if controllerRefChanged {
 		// The ControllerRef was changed. Sync the old controller, if any.
 		if vmi := c.resolveControllerRef(oldPod.Namespace, oldControllerRef); vmi != nil {
-			c.checkHandOverExpectation(oldPod, vmi)
 			c.enqueueVirtualMachine(vmi)
 		}
 	}
@@ -644,7 +628,6 @@ func (c *VMIController) updatePod(old, cur interface{}) {
 		return
 	}
 	log.Log.V(4).Object(curPod).Infof("Pod updated")
-	c.checkHandOverExpectation(curPod, vmi)
 	c.enqueueVirtualMachine(vmi)
 	return
 }
@@ -681,7 +664,6 @@ func (c *VMIController) deletePod(obj interface{}) {
 		return
 	}
 	c.podExpectations.DeletionObserved(vmiKey, controller.PodKey(pod))
-	c.checkHandOverExpectation(pod, vmi)
 	c.enqueueVirtualMachine(vmi)
 }
 
@@ -867,19 +849,4 @@ func (c *VMIController) currentPod(vmi *virtv1.VirtualMachineInstance) (*k8sv1.P
 
 	return curPod, nil
 
-}
-
-func isPodOwnedByHandler(pod *k8sv1.Pod) bool {
-	if pod.Annotations != nil && pod.Annotations[virtv1.OwnedByAnnotation] == "virt-handler" {
-		return true
-	}
-	return false
-}
-
-// checkHandOverExpectation checks if a pod is owned by virt-handler and marks the
-// handover expectation as observed, if so.
-func (c *VMIController) checkHandOverExpectation(pod *k8sv1.Pod, vmi *virtv1.VirtualMachineInstance) {
-	if isPodOwnedByHandler(pod) {
-		c.handoverExpectations.CreationObserved(controller.VirtualMachineKey(vmi))
-	}
 }
