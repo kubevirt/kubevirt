@@ -166,7 +166,7 @@ func InitializeSharedDirectories(baseDir string) error {
 }
 
 func InitializeHotplugDirectories(baseDir string) error {
-	socketPath := filepath.Join(baseDir, "plug_device")
+	socketPath := filepath.Join(baseDir, "disk")
 	err := os.MkdirAll(socketPath, 0755)
 	if err != nil {
 		return err

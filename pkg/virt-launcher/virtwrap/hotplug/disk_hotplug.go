@@ -21,7 +21,6 @@ package hotplug
 
 import (
 	"fmt"
-	"io/ioutil"
 	"path"
 	"strings"
 
@@ -47,6 +46,19 @@ func allocateNextDevice(target string, deviceMap map[string]string) string {
 	node := api.FormatDeviceName(VIRTIO_DEVICE_PREFIX, idx)
 	deviceMap[target] = node
 	return node
+}
+
+func lookupDomain(domainManager virtwrap.DomainManager) (string, error) {
+	domList, err := domainManager.ListAllDomains()
+	if err != nil {
+		return "", err
+	}
+	if len(domList) == 0 {
+		return "", fmt.Errorf("no active domains")
+	}
+	domain := domList[0]
+	domName := fmt.Sprintf("%s_%s", domain.ObjectMeta.Namespace, domain.ObjectMeta.GetName())
+	return domName, nil
 }
 
 func addHotpluggedDisk(domainManager virtwrap.DomainManager, domName string, nbdDiskPath string, deviceMap map[string]string) error {
@@ -85,7 +97,10 @@ func addHotpluggedDisk(domainManager virtwrap.DomainManager, domName string, nbd
 }
 
 func delHotpluggedDisk(domainManager virtwrap.DomainManager, domName string, nbdDiskPath string, deviceMap map[string]string) error {
-	deviceNode := allocateNextDevice(nbdDiskPath, deviceMap)
+	deviceNode, ok := deviceMap[nbdDiskPath]
+	if !ok {
+		return fmt.Errorf("device node for '%s' not found", nbdDiskPath)
+	}
 	disk := &api.Disk{
 		Type:   "network",
 		Device: "disk",
@@ -120,58 +135,19 @@ func delHotpluggedDisk(domainManager virtwrap.DomainManager, domName string, nbd
 }
 
 // Watches for domains and monitors each for hotplug events
-func WatchHotplugDomains(domainManager virtwrap.DomainManager, baseDir string, stop chan struct{}) error {
-	watcher, err := fsnotify.NewWatcher()
-	if err != nil {
-		return err
+func WatchHotplugDir(domainManager virtwrap.DomainManager, baseDir string, stop chan struct{}) error {
+	deviceMap := map[string]string{}
+	// FIXME: we need to learn from the domain how many pluggable devices are present
+	limit := 1
+	for i := 0; i < limit; i++ {
+		deviceMap[fmt.Sprintf("placeholder_%d", i)] = ""
 	}
-	defer watcher.Close()
-
-	err = watcher.Add(baseDir)
-	if err != nil {
-		log.Log.Reason(err).Errorf("Error attempting to watch base path: %s", baseDir)
-		return err
-	}
-
-	stopChanPerDomain := make(map[string]chan struct{})
-
-	for {
-		select {
-		case event := <-watcher.Events:
-			target := event.Name
-			domName := path.Base(target)
-			// ignore prefixes starting with "."
-			if !strings.HasPrefix(domName, ".") {
-				if event.Op == fsnotify.Create {
-					deviceMap := map[string]string{}
-					stopChanPerDomain[domName] = make(chan struct{})
-					fileList, err := ioutil.ReadDir(target)
-					if err != nil {
-						return err
-					}
-					for idx, _ := range fileList {
-						// These are just placeholders for now.
-						deviceMap[fmt.Sprintf("dev_%d", idx)] = ""
-					}
-					WatchPluggableDisks(domainManager, domName, target, deviceMap, stopChanPerDomain[domName])
-				} else if event.Op == fsnotify.Remove {
-					close(stopChanPerDomain[domName])
-					delete(stopChanPerDomain, domName)
-				}
-			}
-		case <-stop:
-			for _, stopChan := range stopChanPerDomain {
-				close(stopChan)
-			}
-			return fmt.Errorf("shutting down pluggable disk watcher")
-		}
-	}
-
-	//
-
+	return WatchPluggableDisks(domainManager, baseDir, deviceMap, stop)
 }
 
-func WatchPluggableDisks(domainManager virtwrap.DomainManager, domName string, hotplugDir string, deviceMap map[string]string, stop chan struct{}) error {
+func WatchPluggableDisks(domainManager virtwrap.DomainManager, hotplugDir string, deviceMap map[string]string, stop chan struct{}) error {
+	domName := ""
+
 	watcher, err := fsnotify.NewWatcher()
 	if err != nil {
 		return err
@@ -187,6 +163,12 @@ func WatchPluggableDisks(domainManager virtwrap.DomainManager, domName string, h
 	for {
 		select {
 		case event := <-watcher.Events:
+			if domName == "" {
+				domName, err = lookupDomain(domainManager)
+				if err != nil {
+					return err
+				}
+			}
 			target := event.Name
 			basePath := path.Base(target)
 			if !strings.HasPrefix(basePath, ".") {
