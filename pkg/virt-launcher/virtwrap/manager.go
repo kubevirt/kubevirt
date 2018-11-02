@@ -29,7 +29,6 @@ import (
 	"encoding/xml"
 	"fmt"
 	"os"
-	"path"
 	"sync"
 	"time"
 
@@ -73,15 +72,13 @@ type LibvirtDomainManager struct {
 	// Anytime a get and a set is done on the domain, this lock must be held.
 	domainModifyLock sync.Mutex
 
-	virtShareDir    string
-	hotplugBasePath string
+	virtShareDir string
 }
 
-func NewLibvirtDomainManager(connection cli.Connection, virtShareDir string, hotplugBasePath string) (DomainManager, error) {
+func NewLibvirtDomainManager(connection cli.Connection, virtShareDir string) (DomainManager, error) {
 	manager := LibvirtDomainManager{
-		virConn:         connection,
-		virtShareDir:    virtShareDir,
-		hotplugBasePath: hotplugBasePath,
+		virConn:      connection,
+		virtShareDir: virtShareDir,
 	}
 
 	return &manager, nil
@@ -405,15 +402,12 @@ func (l *LibvirtDomainManager) SyncVMI(vmi *v1.VirtualMachineInstance, useEmulat
 		}
 	}
 
-	devicePerBus := make(map[string]int)
-
 	// Map the VirtualMachineInstance to the Domain
 	c := &api.ConverterContext{
 		VirtualMachine: vmi,
 		UseEmulation:   useEmulation,
 		CPUSet:         podCPUSet,
 		IsBlockPVC:     isBlockPVCMap,
-		DevicePerBus:   devicePerBus,
 	}
 	if err := api.Convert_v1_VirtualMachine_To_api_Domain(vmi, domain, c); err != nil {
 		logger.Error("Conversion failed.")
@@ -470,11 +464,6 @@ func (l *LibvirtDomainManager) SyncVMI(vmi *v1.VirtualMachineInstance, useEmulat
 			return nil, err
 		}
 		logger.Info("Domain started.")
-		domName, err := dom.GetName()
-		if err != nil {
-			logger.Reason(err).Error("Unable to resolve domain name.")
-		}
-		l.createHotplugDirectory(domName, devicePerBus)
 	} else if cli.IsPaused(domState) {
 		// TODO: if state change reason indicates a system error, we could try something smarter
 		err := dom.Resume()
@@ -501,38 +490,6 @@ func (l *LibvirtDomainManager) SyncVMI(vmi *v1.VirtualMachineInstance, useEmulat
 
 	// TODO: check if VirtualMachineInstance Spec and Domain Spec are equal or if we have to sync
 	return &newSpec, nil
-}
-
-func (l *LibvirtDomainManager) createHotplugDirectory(domName string, devicePerBus map[string]int) error {
-	tempPath := path.Join(l.hotplugBasePath, fmt.Sprintf(".%s", domName))
-	hotplugPath := path.Join(l.hotplugBasePath, domName)
-
-	// FIXME: Ensure virt-launcher has the correct permissions
-	err := os.Mkdir(tempPath, 0755)
-	if err != nil {
-		return err
-	}
-	numVirtIoDevices, ok := devicePerBus["virtio"]
-	// if ok is false, that simply means there's no devices on the virtio bus
-	if ok {
-		for idx := 0; idx < numVirtIoDevices; idx++ {
-			// if it is, then make a stub file in the hotplug directory
-			// FIXME: In order to be able to unplug a device that was present
-			// when the domain was started, we'll need the full path to the
-			// original disk and the device it's attached to inside the VM
-			fn := path.Join(tempPath, fmt.Sprintf(".placeholder_%d", idx))
-			placeHolder, err := os.Create(fn)
-			if err != nil {
-				return err
-			}
-			placeHolder.Close()
-		}
-	}
-	err = os.Rename(tempPath, hotplugPath)
-	if err != nil {
-		return err
-	}
-	return nil
 }
 
 func isBlockDeviceVolume(volumeName string) (bool, error) {
