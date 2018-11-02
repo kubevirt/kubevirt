@@ -168,16 +168,13 @@ func (l *LibvirtConnection) _attachDetachDisk(dom VirDomain, disk *api.Disk, att
 		return err
 	}
 
-	// FIXME: the xml encoder doesn't know to lower-case the <Disk/> tag
+	// FIXME: the xml encoder doesn't know to cat the <Disk/> tag to lower-case
 	// and libvirt is case sensitive/rejects it. Is there a way to cleanly
 	// hint to xml.Marshal what to do here?
 	byteData[1] = 'd'
 	byteData[len(byteData)-5] = 'd'
 
 	data := string(byteData)
-
-	//data = strings.Replace(data, "<Disk>", "<disk>", 1)
-	//data = strings.Replace(data, "</Disk>", "</disk>", 1)
 
 	log.Log.Infof("XML data being sent to libvirt:\n\n\n%s\n\n\n", data)
 
@@ -198,7 +195,7 @@ func (l *LibvirtConnection) _attachDetachDisk(dom VirDomain, disk *api.Disk, att
 			return err
 		}
 		if domName == thisName {
-			if attach {
+			if attach == true {
 				err = thisDom.AttachDevice(data)
 			} else {
 				err = thisDom.DetachDevice(data)
