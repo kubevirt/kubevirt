@@ -50,6 +50,7 @@ var _ = Describe("Template", func() {
 	svc := NewTemplateService("kubevirt/virt-launcher",
 		"/var/run/kubevirt",
 		"/var/run/kubevirt-ephemeral-disks",
+		"/var/run/kubevirt-hotplug",
 		"pull-secret-1",
 		configCache,
 		pvcCache)
