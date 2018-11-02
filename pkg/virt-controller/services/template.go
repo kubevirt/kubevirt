@@ -21,6 +21,7 @@ package services
 
 import (
 	"fmt"
+	"path"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -58,6 +59,7 @@ type TemplateService interface {
 type templateService struct {
 	launcherImage              string
 	virtShareDir               string
+	hotplugDir                 string
 	ephemeralDiskDir           string
 	imagePullSecret            string
 	configMapStore             cache.Store
@@ -137,6 +139,11 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 	volumeMounts = append(volumeMounts, k8sv1.VolumeMount{
 		Name:      "ephemeral-disks",
 		MountPath: t.ephemeralDiskDir,
+	})
+
+	volumeMounts = append(volumeMounts, k8sv1.VolumeMount{
+		Name:      "kubevirt-hotplug",
+		MountPath: t.hotplugDir,
 	})
 
 	volumeMounts = append(volumeMounts, k8sv1.VolumeMount{
@@ -494,6 +501,15 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 		},
 	})
 
+	volumes = append(volumes, k8sv1.Volume{
+		Name: "kubevirt-hotplug",
+		VolumeSource: k8sv1.VolumeSource{
+			HostPath: &k8sv1.HostPathVolumeSource{
+				Path: path.Join(t.hotplugDir, vmi.Namespace, vmi.GetName()),
+			},
+		},
+	})
+
 	for k, v := range vmi.Spec.NodeSelector {
 		nodeSelector[k] = v
 
@@ -744,6 +760,7 @@ func getCniInterfaceList(vmi *v1.VirtualMachineInstance) (ifaceListString string
 func NewTemplateService(launcherImage string,
 	virtShareDir string,
 	ephemeralDiskDir string,
+	hotplugDir string,
 	imagePullSecret string,
 	configMapCache cache.Store,
 	persistentVolumeClaimCache cache.Store) TemplateService {
@@ -753,6 +770,7 @@ func NewTemplateService(launcherImage string,
 		launcherImage:              launcherImage,
 		virtShareDir:               virtShareDir,
 		ephemeralDiskDir:           ephemeralDiskDir,
+		hotplugDir:                 hotplugDir,
 		imagePullSecret:            imagePullSecret,
 		configMapStore:             configMapCache,
 		persistentVolumeClaimStore: persistentVolumeClaimCache,

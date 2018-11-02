@@ -64,6 +64,8 @@ const (
 
 	ephemeralDiskDir = virtShareDir + "-ephemeral-disks"
 
+	hotplugDir = "/var/run/kubevirt-hotplug"
+
 	controllerThreads = 3
 )
 
@@ -107,6 +109,7 @@ type VirtControllerApp struct {
 	imagePullSecret   string
 	virtShareDir      string
 	ephemeralDiskDir  string
+	hotplugDir        string
 	readyChan         chan bool
 	kubevirtNamespace string
 }
@@ -271,6 +274,7 @@ func (vca *VirtControllerApp) initCommon() {
 	vca.templateService = services.NewTemplateService(vca.launcherImage,
 		vca.virtShareDir,
 		vca.ephemeralDiskDir,
+		vca.hotplugDir,
 		vca.imagePullSecret,
 		vca.configMapCache,
 		vca.persistentVolumeClaimCache)
@@ -334,4 +338,7 @@ func (vca *VirtControllerApp) AddFlags() {
 
 	flag.StringVar(&vca.ephemeralDiskDir, "ephemeral-disk-dir", ephemeralDiskDir,
 		"Base directory for ephemeral disk data")
+
+	flag.StringVar(&vca.hotplugDir, "hotplug-dir", hotplugDir,
+		"Base directory for hotplug device data")
 }
