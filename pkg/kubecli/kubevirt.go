@@ -112,6 +112,7 @@ type VirtualMachineInterface interface {
 	Update(*v1.VirtualMachine) (*v1.VirtualMachine, error)
 	Delete(name string, options *k8smetav1.DeleteOptions) error
 	Patch(name string, pt types.PatchType, data []byte, subresources ...string) (result *v1.VirtualMachine, err error)
+	Restart(name string) error
 }
 
 type VirtualMachineInstanceMigrationInterface interface {

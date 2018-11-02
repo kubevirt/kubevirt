@@ -3774,6 +3774,35 @@
      }
     }
    },
+   "/apis/subresources.kubevirt.io/v1alpha2/namespaces/{namespace}/virtualmachines/{name}/restart": {
+    "get": {
+     "summary": "Restart a VM",
+     "operationId": "restart",
+     "parameters": [
+      {
+       "pattern": "[a-z0-9][a-z0-9\\-]*",
+       "type": "string",
+       "description": "Object name and auth scope, such as for teams and projects",
+       "name": "namespace",
+       "in": "path",
+       "required": true
+      },
+      {
+       "pattern": "[a-z0-9][a-z0-9\\-]*",
+       "type": "string",
+       "description": "Name of the resource",
+       "name": "name",
+       "in": "path",
+       "required": true
+      }
+     ],
+     "responses": {
+      "200": {
+       "description": "OK"
+      }
+     }
+    }
+   },
    "/apis/subresources.kubevirt.io/v1alpha2/version": {
     "get": {
      "produces": [

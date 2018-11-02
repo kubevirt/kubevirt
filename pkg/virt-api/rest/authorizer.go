@@ -150,7 +150,7 @@ func (a *authorizor) generateAccessReview(req *restful.Request) (*authorization.
 	subresource := pathSplit[8]
 	userExtras := a.getUserExtras(headers)
 
-	if resource != "virtualmachineinstances" {
+	if resource != "virtualmachineinstances" && resource != "virtualmachines" {
 		return nil, fmt.Errorf("unknown resource type %s", resource)
 	}
 
