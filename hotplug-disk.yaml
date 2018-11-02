@@ -8,22 +8,20 @@ spec:
   - command:
     - /share_disk.sh
     - /var/run/kubevirt-private/vmi-disks/pvcvolume/disk.img
-    - /var/run/kubevirt/plug_device/default_vmi-ephemeral/nbd_disk.sock
-    #- sleep
-    #- "10000"
+    - /var/run/kubevirt-hotplug/disk/nbd_disk.sock
     image: registry:5000/kubevirt/hotplug-disk:devel
     imagePullPolicy: Always
     securityContext:
       privileged: true
     name: busybox
     volumeMounts:
-    - mountPath: /var/run/kubevirt
+    - mountPath: /var/run/kubevirt-hotplug
       name: virt-share-dir
     - mountPath: /var/run/kubevirt-private/vmi-disks/pvcvolume
       name: pvcvolume
   volumes:
   - hostPath:
-      path: /var/run/kubevirt
+      path: /var/run/kubevirt-hotplug/default/vmi-ephemeral
       type: ""
     name: virt-share-dir
   - name: pvcvolume
