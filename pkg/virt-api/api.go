@@ -195,6 +195,7 @@ func (app *virtAPIApp) composeHealthEndpoint() {
 
 func (app *virtAPIApp) composeSubresources() {
 
+	subresourcesvmGVR := schema.GroupVersionResource{Group: v1.SubresourceGroupVersion.Group, Version: v1.SubresourceGroupVersion.Version, Resource: "virtualmachines"}
 	subresourcesvmiGVR := schema.GroupVersionResource{Group: v1.SubresourceGroupVersion.Group, Version: v1.SubresourceGroupVersion.Version, Resource: "virtualmachineinstances"}
 
 	subws := new(restful.WebService)
@@ -204,6 +205,12 @@ func (app *virtAPIApp) composeSubresources() {
 	subresourceApp := &rest.SubresourceAPIApp{
 		VirtCli: app.virtCli,
 	}
+
+	subws.Route(subws.GET(rest.ResourcePath(subresourcesvmGVR) + rest.SubResourcePath("restart")).
+		To(subresourceApp.RestartVMRequestHandler).
+		Param(rest.NamespaceParam(subws)).Param(rest.NameParam(subws)).
+		Operation("restart").
+		Doc("Restart a VM"))
 
 	subws.Route(subws.GET(rest.ResourcePath(subresourcesvmiGVR) + rest.SubResourcePath("console")).
 		To(subresourceApp.ConsoleRequestHandler).
