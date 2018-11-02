@@ -25,6 +25,7 @@ import (
 	"os"
 	"os/exec"
 	"os/signal"
+	"path"
 	"path/filepath"
 	"syscall"
 	"time"
@@ -174,6 +175,7 @@ func startWatchdogTicker(watchdogFile string, watchdogInterval time.Duration, st
 
 func initializeDirs(virtShareDir string,
 	ephemeralDiskDir string,
+	hotplugDir string,
 	uid string) {
 
 	err := virtlauncher.InitializeSharedDirectories(virtShareDir)
@@ -222,7 +224,7 @@ func initializeDirs(virtShareDir string,
 	}
 
 	// FIXME: hotplug directory needs to be shared with host, but not all other virt-launcher pods
-	err = virtlauncher.InitializeHotplugDirectories("/var/run/kubevirt")
+	err = virtlauncher.InitializeHotplugDirectories(hotplugDir)
 	if err != nil {
 		panic(err)
 	}
@@ -307,6 +309,7 @@ func main() {
 	qemuTimeout := pflag.Duration("qemu-timeout", defaultStartTimeout, "Amount of time to wait for qemu")
 	virtShareDir := pflag.String("kubevirt-share-dir", "/var/run/kubevirt", "Shared directory between virt-handler and virt-launcher")
 	ephemeralDiskDir := pflag.String("ephemeral-disk-dir", "/var/run/kubevirt-ephemeral-disks", "Base directory for ephemeral disk data")
+	hotplugDir := pflag.String("hotplug-dir", "/var/run/kubevirt-hotplug", "Base directory for hotplug device data")
 	name := pflag.String("name", "", "Name of the VirtualMachineInstance")
 	uid := pflag.String("uid", "", "UID of the VirtualMachineInstance")
 	namespace := pflag.String("namespace", "", "Namespace of the VirtualMachineInstance")
@@ -344,7 +347,7 @@ func main() {
 	vm := v1.NewVMIReferenceFromNameWithNS(*namespace, *name)
 
 	// Initialize local and shared directories
-	initializeDirs(*virtShareDir, *ephemeralDiskDir, *uid)
+	initializeDirs(*virtShareDir, *ephemeralDiskDir, *hotplugDir, *uid)
 
 	// Start libvirtd, virtlogd, and establish libvirt connection
 	stopChan := make(chan struct{})
@@ -367,9 +370,7 @@ func main() {
 	domainConn := createLibvirtConnection()
 	defer domainConn.Close()
 
-	// FIXME: this needs to be moved outside of /var/run/kubevirt,
-	// (shared with host, but not other pods), and configurable
-	domainManager, err := virtwrap.NewLibvirtDomainManager(domainConn, *virtShareDir, "/var/run/kubevirt/plug_device")
+	domainManager, err := virtwrap.NewLibvirtDomainManager(domainConn, *virtShareDir)
 	if err != nil {
 		panic(err)
 	}
@@ -423,7 +424,7 @@ func main() {
 	markReady(*readinessFile)
 
 	go func() {
-		hotplug.WatchHotplugDomains(domainManager, "/var/run/kubevirt/plug_device", stopChan)
+		hotplug.WatchHotplugDir(domainManager, path.Join(*hotplugDir, "disk"), stopChan)
 	}()
 
 	domain := waitForDomainUUID(*qemuTimeout, events, signalStopChan, domainManager)
