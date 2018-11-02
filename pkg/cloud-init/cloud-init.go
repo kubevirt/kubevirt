@@ -21,7 +21,6 @@ package cloudinit
 
 import (
 	"encoding/base64"
-	"errors"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -103,14 +102,14 @@ func SetLocalDataOwner(user string) {
 func SetLocalDirectory(dir string) error {
 	err := os.MkdirAll(dir, 0755)
 	if err != nil {
-		return errors.New(fmt.Sprintf("Unable to initialize cloudInit local cache directory (%s). %v", dir, err))
+		return fmt.Errorf("unable to initialize cloudInit local cache directory (%s). %v", dir, err)
 	}
 
 	exists, err := diskutils.FileExists(dir)
 	if err != nil {
-		return errors.New(fmt.Sprintf("CloudInit local cache directory (%s) does not exist or is inaccessible. %v", dir, err))
+		return fmt.Errorf("CloudInit local cache directory (%s) does not exist or is inaccessible. %v", dir, err)
 	} else if exists == false {
-		return errors.New(fmt.Sprintf("CloudInit local cache directory (%s) does not exist or is inaccessible.", dir))
+		return fmt.Errorf("CloudInit local cache directory (%s) does not exist or is inaccessible", dir)
 	}
 
 	cloudInitLocalDir = dir
@@ -126,7 +125,7 @@ func validateArgs(source *v1.CloudInitNoCloudSource) error {
 
 	// TODO what if I only want the metadata to e.g. set up the network
 	if source.UserDataBase64 == "" {
-		return errors.New(fmt.Sprintf("userDataBase64 is required for no-cloud data source"))
+		return fmt.Errorf("userDataBase64 is required for no-cloud data source")
 	}
 
 	return nil
@@ -170,7 +169,7 @@ func ResolveSecrets(source *v1.CloudInitNoCloudSource, namespace string, clients
 
 	userData, ok := secret.Data["userdata"]
 	if ok == false {
-		return errors.New(fmt.Sprintf("no user-data value found in k8s secret %s %v", secretID, err))
+		return fmt.Errorf("no user-data value found in k8s secret %s %v", secretID, err)
 	}
 
 	source.UserData = string(userData)
@@ -201,7 +200,7 @@ func GenerateLocalData(vmiName string, hostname string, namespace string, source
 			return err
 		}
 	} else {
-		return errors.New(fmt.Sprintf("userDataBase64 or userData is required for no-cloud data source"))
+		return fmt.Errorf("userDataBase64 or userData is required for no-cloud data source")
 	}
 	metaData := []byte(fmt.Sprintf("{ \"instance-id\": \"%s.%s\", \"local-hostname\": \"%s\" }\n", vmiName, namespace, hostname))
 
