@@ -208,9 +208,19 @@ var _ = Describe("Multus Networking", func() {
 			Expect(err).ToNot(HaveOccurred())
 			tests.WaitUntilVMIReady(vmiOne, tests.LoggedInFedoraExpecter)
 
-			By("checking default interface is present")
+			By("checking KUBEVIRT_RESOURCE_NAME_<networkName> variable is defined in pod")
 			vmiPod := tests.GetRunningPodByVirtualMachineInstance(vmiOne, tests.NamespaceTestDefault)
-			_, err := tests.ExecuteCommandOnPod(
+			out, err := tests.ExecuteCommandOnPod(
+				virtClient,
+				vmiPod,
+				"compute",
+				[]string{"sh", "-c", "echo $KUBEVIRT_RESOURCE_NAME_sriov"},
+			)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(out).To(Equal("intel.com/sriov\n"))
+
+			By("checking default interface is present")
+			_, err = tests.ExecuteCommandOnPod(
 				virtClient,
 				vmiPod,
 				"compute",

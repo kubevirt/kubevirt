@@ -33,6 +33,8 @@ import (
 	restclient "k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 
+	networkclient "github.com/phoracek/network-attachment-definition-client/pkg/client/clientset/versioned"
+
 	cdiclient "kubevirt.io/containerized-data-importer/pkg/client/clientset/versioned"
 	v1 "kubevirt.io/kubevirt/pkg/api/v1"
 )
@@ -73,12 +75,18 @@ func GetKubevirtSubresourceClientFromFlags(master string, kubeconfig string) (Ku
 		return nil, err
 	}
 
+	networkClient, err := networkclient.NewForConfig(config)
+	if err != nil {
+		return nil, err
+	}
+
 	return &kubevirt{
 		master,
 		kubeconfig,
 		restClient,
 		config,
 		cdiClient,
+		networkClient,
 		coreClient,
 	}, nil
 }
@@ -177,12 +185,18 @@ func GetKubevirtClientFromRESTConfig(config *rest.Config) (KubevirtClient, error
 		return nil, err
 	}
 
+	networkClient, err := networkclient.NewForConfig(config)
+	if err != nil {
+		return nil, err
+	}
+
 	return &kubevirt{
 		master,
 		kubeconfig,
 		restClient,
 		config,
 		cdiClient,
+		networkClient,
 		coreClient,
 	}, nil
 }

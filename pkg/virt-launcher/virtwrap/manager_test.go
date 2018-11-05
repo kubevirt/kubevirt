@@ -259,21 +259,28 @@ var _ = Describe("Manager", func() {
 })
 
 var _ = Describe("getSRIOVPCIAddresses", func() {
-	It("returns empty slice", func() {
-		Expect(len(getSRIOVPCIAddresses())).To(Equal(0))
+	It("returns empty map when empty interfaces", func() {
+		Expect(len(getSRIOVPCIAddresses([]v1.Interface{}))).To(Equal(0))
+	})
+	It("returns map with empty device id list when variables are not set", func() {
+		addrs := getSRIOVPCIAddresses([]v1.Interface{v1.Interface{Name: "testnet"}})
+		Expect(len(addrs)).To(Equal(1))
+		Expect(len(addrs["testnet"])).To(Equal(0))
 	})
 	It("gracefully handles trailing comma", func() {
-		os.Setenv("SRIOV-VF-PCI-ADDR", "0000:81:11.1,")
-		addrs := getSRIOVPCIAddresses()
+		os.Setenv("testnet_pool", "0000:81:11.1,")
+		os.Setenv("KUBEVIRT_RESOURCE_NAME_testnet", "testnet_pool")
+		addrs := getSRIOVPCIAddresses([]v1.Interface{v1.Interface{Name: "testnet"}})
 		Expect(len(addrs)).To(Equal(1))
-		Expect(addrs[0]).To(Equal("0000:81:11.1"))
+		Expect(addrs["testnet"][0]).To(Equal("0000:81:11.1"))
 	})
 	It("returns multiple PCI addresses", func() {
-		os.Setenv("SRIOV-VF-PCI-ADDR", "0000:81:11.1,0001:02:00.0")
-		addrs := getSRIOVPCIAddresses()
-		Expect(len(addrs)).To(Equal(2))
-		Expect(addrs[0]).To(Equal("0000:81:11.1"))
-		Expect(addrs[1]).To(Equal("0001:02:00.0"))
+		os.Setenv("testnet_pool", "0000:81:11.1,0001:02:00.0")
+		os.Setenv("KUBEVIRT_RESOURCE_NAME_testnet", "testnet_pool")
+		addrs := getSRIOVPCIAddresses([]v1.Interface{v1.Interface{Name: "testnet"}})
+		Expect(len(addrs["testnet"])).To(Equal(2))
+		Expect(addrs["testnet"][0]).To(Equal("0000:81:11.1"))
+		Expect(addrs["testnet"][1]).To(Equal("0001:02:00.0"))
 	})
 })
 

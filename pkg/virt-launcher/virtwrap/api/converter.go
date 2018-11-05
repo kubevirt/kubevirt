@@ -57,7 +57,7 @@ type ConverterContext struct {
 	VirtualMachine *v1.VirtualMachineInstance
 	CPUSet         []int
 	IsBlockPVC     map[string]bool
-	SRIOVDevices   []string
+	SRIOVDevices   map[string][]string
 }
 
 func Convert_v1_Disk_To_api_Disk(diskDevice *v1.Disk, disk *Disk, devicePerBus map[string]int, numQueues *uint) error {
@@ -508,11 +508,13 @@ func Convert_v1_FeatureHyperv_To_api_FeatureHyperv(source *v1.FeatureHyperv, hyp
 	return nil
 }
 
-func popSRIOVPCIAddress(addrs []string) (string, []string, error) {
-	if len(addrs) > 0 {
-		return addrs[0], addrs[1:], nil
+func popSRIOVPCIAddress(networkName string, addrsMap map[string][]string) (string, map[string][]string, error) {
+	if len(addrsMap[networkName]) > 0 {
+		addr := addrsMap[networkName][0]
+		addrsMap[networkName] = addrsMap[networkName][1:]
+		return addr, addrsMap, nil
 	}
-	return "", addrs, fmt.Errorf("no more SR-IOV PCI addresses to allocate")
+	return "", addrsMap, fmt.Errorf("no more SR-IOV PCI addresses to allocate")
 }
 
 func Convert_v1_VirtualMachine_To_api_Domain(vmi *v1.VirtualMachineInstance, domain *Domain, c *ConverterContext) (err error) {
@@ -871,7 +873,10 @@ func Convert_v1_VirtualMachine_To_api_Domain(vmi *v1.VirtualMachineInstance, dom
 		networks[network.Name] = network.DeepCopy()
 	}
 
-	sriovPciAddresses := append([]string{}, c.SRIOVDevices...)
+	sriovPciAddresses := make(map[string][]string)
+	for key, value := range c.SRIOVDevices {
+		sriovPciAddresses[key] = append([]string{}, value...)
+	}
 
 	for _, iface := range vmi.Spec.Domain.Devices.Interfaces {
 		net, isExist := networks[iface.Name]
@@ -881,7 +886,7 @@ func Convert_v1_VirtualMachine_To_api_Domain(vmi *v1.VirtualMachineInstance, dom
 
 		if iface.SRIOV != nil {
 			var pciAddr string
-			pciAddr, sriovPciAddresses, err = popSRIOVPCIAddress(sriovPciAddresses)
+			pciAddr, sriovPciAddresses, err = popSRIOVPCIAddress(iface.Name, sriovPciAddresses)
 			if err != nil {
 				return err
 			}
