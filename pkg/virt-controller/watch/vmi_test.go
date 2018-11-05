@@ -37,6 +37,8 @@ import (
 	framework "k8s.io/client-go/tools/cache/testing"
 	"k8s.io/client-go/tools/record"
 
+	fakenetworkclient "github.com/phoracek/network-attachment-definition-client/pkg/client/clientset/versioned/fake"
+
 	cdiv1 "kubevirt.io/containerized-data-importer/pkg/apis/datavolumecontroller/v1alpha1"
 	v1 "kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/kubecli"
@@ -61,6 +63,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 	var podFeeder *testutils.PodFeeder
 	var virtClient *kubecli.MockKubevirtClient
 	var kubeClient *fake.Clientset
+	var networkClient *fakenetworkclient.Clientset
 	var configMapInformer cache.SharedIndexInformer
 	var pvcInformer cache.SharedIndexInformer
 
@@ -160,7 +163,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 		configMapInformer, _ = testutils.NewFakeInformerFor(&k8sv1.ConfigMap{})
 		pvcInformer, _ = testutils.NewFakeInformerFor(&k8sv1.PersistentVolumeClaim{})
 		controller = NewVMIController(
-			services.NewTemplateService("a", "b", "c", "d", configMapInformer.GetStore(), pvcInformer.GetStore()),
+			services.NewTemplateService("a", "b", "c", "d", configMapInformer.GetStore(), pvcInformer.GetStore(), virtClient),
 			vmiInformer,
 			podInformer,
 			recorder,
@@ -177,6 +180,8 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 		virtClient.EXPECT().VirtualMachineInstance(k8sv1.NamespaceDefault).Return(vmiInterface).AnyTimes()
 		kubeClient = fake.NewSimpleClientset()
 		virtClient.EXPECT().CoreV1().Return(kubeClient.CoreV1()).AnyTimes()
+		networkClient = fakenetworkclient.NewSimpleClientset()
+		virtClient.EXPECT().NetworkClient().Return(networkClient).AnyTimes()
 
 		// Make sure that all unexpected calls to kubeClient will fail
 		kubeClient.Fake.PrependReactor("*", "*", func(action testing.Action) (handled bool, obj runtime.Object, err error) {

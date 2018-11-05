@@ -381,26 +381,46 @@ func (l *LibvirtDomainManager) preStartHook(vmi *v1.VirtualMachineInstance, doma
 	return domain, err
 }
 
-// This function parses the SRIOV-VF-PCI-ADDR variable that is set by SR-IOV
-// device plugin listing PCI IDs for devices allocated to the pod. The format
-// is as follows:
+// This function parses variables that are set by SR-IOV device plugin listing
+// PCI IDs for devices allocated to the pod. It also parses variables that
+// virt-controller sets mapping network names to their respective resource
+// names (if any).
 //
+// Format for PCI ID variables set by SR-IOV DP is:
 // "": for no allocated devices
-// "0000:81:11.1,": for a single device
-// "0000:81:11.1,0000:81:11.2[,...]": for multiple devices
-func getSRIOVPCIAddresses() []string {
-	pciAddrString, isSet := os.LookupEnv("SRIOV-VF-PCI-ADDR")
-	if isSet {
-		addrs := strings.Split(pciAddrString, ",")
-		naddrs := len(addrs)
-		if naddrs > 0 {
-			if addrs[naddrs-1] == "" {
-				addrs = addrs[:naddrs-1]
+// <resourceName>="0000:81:11.1,": for a single device
+// <resourceName>="0000:81:11.1,0000:81:11.2[,...]": for multiple devices
+//
+// Format for network to resource mapping variables is:
+// KUBEVIRT_RESOURCE_NAME_<networkName>=<resourceName>
+//
+func getSRIOVPCIAddresses(ifaces []v1.Interface) map[string][]string {
+	networkToAddressesMap := map[string][]string{}
+	for _, iface := range ifaces {
+		networkToAddressesMap[iface.Name] = []string{}
+		varName := fmt.Sprintf("KUBEVIRT_RESOURCE_NAME_%s", iface.Name)
+		resourceName, isSet := os.LookupEnv(varName)
+		if isSet {
+			// Intel SR-IOV device plugin truncates resource name
+			// by cutting off the 'intel.com/' suffix
+			varName := resourceName
+			if strings.Contains(varName, "/") {
+				varName = strings.Split(resourceName, "/")[1]
+			}
+			pciAddrString, isSet := os.LookupEnv(varName)
+			if isSet {
+				addrs := strings.Split(pciAddrString, ",")
+				naddrs := len(addrs)
+				if naddrs > 0 {
+					if addrs[naddrs-1] == "" {
+						addrs = addrs[:naddrs-1]
+					}
+				}
+				networkToAddressesMap[iface.Name] = addrs
 			}
 		}
-		return addrs
 	}
-	return []string{}
+	return networkToAddressesMap
 }
 
 func (l *LibvirtDomainManager) SyncVMI(vmi *v1.VirtualMachineInstance, useEmulation bool) (*api.DomainSpec, error) {
@@ -436,7 +456,7 @@ func (l *LibvirtDomainManager) SyncVMI(vmi *v1.VirtualMachineInstance, useEmulat
 		UseEmulation:   useEmulation,
 		CPUSet:         podCPUSet,
 		IsBlockPVC:     isBlockPVCMap,
-		SRIOVDevices:   getSRIOVPCIAddresses(),
+		SRIOVDevices:   getSRIOVPCIAddresses(vmi.Spec.Domain.Devices.Interfaces),
 	}
 	if err := api.Convert_v1_VirtualMachine_To_api_Domain(vmi, domain, c); err != nil {
 		logger.Error("Conversion failed.")

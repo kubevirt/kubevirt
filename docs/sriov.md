@@ -159,17 +159,24 @@ $ ./cluster/kubectl.sh create -f $GOPATH/src/github.com/intel/multus-cni/images/
 
 Now, deploy SR-IOV device plugin.
 
-Note: as of the time of writing, latest master of SR-IOV device plugin is not
-compatible with kubevirt. Please check out the latest version supported by
-kubevirt before building the plugin image:
-
-
 ```
 $ go get -u -d github.com/intel/sriov-network-device-plugin/
 $ cd $GOPATH/src/github.com/intel/sriov-network-device-plugin/images
-$ git checkout v1.0
 $ ./build_docker.sh
 $ vi images/sriovdp-daemonset.yaml # change to refer to local sriov-network-device-plugin:latest
+$ cat <<EOF > /etc/pcidp/config.json
+{
+    "resourceList":
+    [
+        {
+            "resourceName": "sriov",
+            "rootDevices": ["05:00.0", "05:00.1"],
+            "sriovMode": true,
+            "deviceType": "vfio"
+        }
+    ]
+}
+EOF
 $ ./cluster/kubectl.sh create -f $GOPATH/src/github.com/intel/sriov-network-device-plugin/images/sriovdp-daemonset.yaml
 ```
 
