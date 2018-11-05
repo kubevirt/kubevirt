@@ -56,6 +56,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/rand"
+	"k8s.io/apimachinery/pkg/util/yaml"
 	k8sversion "k8s.io/apimachinery/pkg/version"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/tools/remotecommand"
@@ -576,10 +577,7 @@ func CreateHostPathPvWithSize(osName string, hostPath string, size string) {
 
 func GetListOfManifests(pathToManifestsDir string) []string {
 	var manifests []string
-	files, err := ioutil.ReadDir(pathToManifestsDir)
-	if err != nil {
-		panic(err)
-	}
+	isOpenshift := IsOpenShift()
 	matchFileName := func(pattern, filename string) bool {
 		match, err := filepath.Match(pattern, filename)
 		if err != nil {
@@ -587,56 +585,50 @@ func GetListOfManifests(pathToManifestsDir string) []string {
 		}
 		return match
 	}
-	isOpenshift := IsOpenShift()
-	for _, file := range files {
-		if matchFileName("*-for-ocp.yaml", file.Name()) {
-			if isOpenshift {
-				manifests = append(manifests, filepath.Join(pathToManifestsDir, file.Name()))
-			}
-		} else if matchFileName("*-for-k8s.yaml", file.Name()) {
-			if !isOpenshift {
-				manifests = append(manifests, filepath.Join(pathToManifestsDir, file.Name()))
-			}
-		} else if matchFileName("*.yaml", file.Name()) {
-			manifests = append(manifests, filepath.Join(pathToManifestsDir, file.Name()))
+	err := filepath.Walk(pathToManifestsDir, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			fmt.Printf("ERROR: Can not access a path %q: %v\n", path, err)
+			return err
 		}
+		if !info.IsDir() {
+			if matchFileName("*-for-ocp.yaml", info.Name()) {
+				if isOpenshift {
+					manifests = append(manifests, path)
+				}
+			} else if matchFileName("*-for-k8s.yaml", info.Name()) {
+				if !isOpenshift {
+					manifests = append(manifests, path)
+				}
+			} else if matchFileName("*.yaml", info.Name()) {
+				manifests = append(manifests, path)
+			}
+		}
+		return nil
+	})
+	if err != nil {
+		fmt.Printf("ERROR: Walking the path %q: %v\n", pathToManifestsDir, err)
+		panic(err)
 	}
 	return manifests
 }
 
 func ReadManifestYamlFile(pathToManifest string) []unstructured.Unstructured {
-	// Read manifest
-	content, err := ioutil.ReadFile(pathToManifest)
+	var objects []unstructured.Unstructured
+	stream, err := os.Open(pathToManifest)
 	PanicOnError(err)
-	// Split manifest by `---` to get single objects
-	fileAsString := string(content[:])
-	sepYamlfiles := strings.Split(fileAsString, "---")
-	// Parse each object
-	objects := make([]unstructured.Unstructured, 0, len(sepYamlfiles))
-	for _, f := range sepYamlfiles {
-		if f == "\n" || f == "" {
-			// Ignore empty cases
-			continue
-		}
 
-		jsonrepr, err := yaml.YAMLToJSON([]byte(f))
-		PanicOnError(err)
-		var obj map[string]interface{}
-		err = json.Unmarshal([]byte(jsonrepr), &obj)
-		if err != nil {
-			fmt.Printf(fmt.Sprintf("ERROR: Can not unmarshall YAML %s\n", err))
-			continue
+	reader := yaml.NewDocumentDecoder(stream)
+	decoder := yaml.NewYAMLOrJSONDecoder(reader, 1024)
+	for {
+		obj := map[string]interface{}{}
+		err := decoder.Decode(obj)
+		if err == io.EOF {
+			break
+		} else if err != nil {
+			panic(err)
 		}
-		unstruct := unstructured.Unstructured{}
-		unstruct.SetUnstructuredContent(obj)
-		if unstruct.GetKind() == "" {
-			// Skip empty structss
-			continue
-		}
-
-		objects = append(objects, unstruct)
+		objects = append(objects, unstructured.Unstructured{Object: obj})
 	}
-
 	return objects
 }
 
@@ -676,7 +668,7 @@ func composeResourceURI(object unstructured.Unstructured) string {
 		uri += "/namespaces/" + object.GetNamespace()
 	}
 	uri += "/" + strings.ToLower(object.GetKind())
-	if object.GetKind()[len(object.GetKind())-1:] != "s" {
+	if !strings.HasSuffix(object.GetKind(), "s") {
 		uri += "s"
 	}
 	return uri
@@ -708,7 +700,7 @@ func DeleteRawManifest(object unstructured.Unstructured) error {
 	result := virtCli.CoreV1().RESTClient().Delete().RequestURI(uri).Do()
 	var code int
 	result.StatusCode(&code)
-	if result.Error() != nil && code != http.StatusNotFound {
+	if result.Error() != nil && !errors.IsNotFound(err) {
 		fmt.Printf(fmt.Sprintf("ERROR: Can not delete %s\n", object))
 		panic(err)
 	}
