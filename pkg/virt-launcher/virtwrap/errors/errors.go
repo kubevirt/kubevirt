@@ -20,6 +20,8 @@
 package errors
 
 import (
+	"fmt"
+
 	"github.com/libvirt/libvirt-go"
 )
 
@@ -40,4 +42,15 @@ func IsNotFound(err error) bool {
 // IsOk detects libvirt's ERR_OK. It accepts both error and libvirt.Error (as returned by GetLastError function).
 func IsOk(err error) bool {
 	return checkError(err, libvirt.ERR_OK)
+}
+
+func FormatLibvirtError(err error) string {
+	var libvirtError string
+	lerr, ok := err.(libvirt.Error)
+	if ok {
+		libvirtError = fmt.Sprintf("LibvirtError(Code=%d, Domain=%d, Message='%s')",
+			lerr.Code, lerr.Domain, lerr.Message)
+	}
+
+	return libvirtError
 }
