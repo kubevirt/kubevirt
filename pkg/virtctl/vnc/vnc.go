@@ -37,21 +37,24 @@ import (
 	"kubevirt.io/kubevirt/pkg/virtctl/templates"
 )
 
-const LISTEN_TIMEOUT = 60 * time.Second
+const (
+	LISTEN_TIMEOUT = 60 * time.Second
+	FLAG           = "vnc"
 
-const FLAG = "vnc"
+	//#### Tiger VNC ####
+	//# https://github.com/TigerVNC/tigervnc/releases
+	TIGER_VNC = "/Applications/TigerVNC Viewer 1.8.0.app/Contents/MacOS/TigerVNC Viewer"
 
-//#### Tiger VNC ####
-//# https://github.com/TigerVNC/tigervnc/releases
-const TIGER_VNC = "/Applications/TigerVNC Viewer 1.8.0.app/Contents/MacOS/TigerVNC Viewer"
+	//#### Chicken VNC ####
+	//# https://sourceforge.net/projects/chicken/
+	CHICKEN_VNC = "/Applications/Chicken.app/Contents/MacOS/Chicken"
 
-//#### Chicken VNC ####
-//# https://sourceforge.net/projects/chicken/
-const CHICKEN_VNC = "/Applications/Chicken.app/Contents/MacOS/Chicken"
+	//####  Real VNC ####
+	//# https://www.realvnc.com/en/connect/download/viewer/macos/
+	REAL_VNC = "/Applications/VNC Viewer.app/Contents/MacOS/vncviewer"
 
-//####  Real VNC ####
-//# https://www.realvnc.com/en/connect/download/viewer/macos/
-const REAL_VNC = "/Applications/VNC Viewer.app/Contents/MacOS/vncviewer"
+	REMOTE_VIEWER = "remote-viewer"
+)
 
 func NewCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
 	cmd := &cobra.Command{
@@ -187,9 +190,16 @@ func (o *VNC) Run(cmd *cobra.Command, args []string) error {
 			} else if !os.IsNotExist(err) {
 				viewResChan <- err
 				return
+			} else if _, err := exec.LookPath(REMOTE_VIEWER); err == nil {
+				// fall back to user supplied script/binary in path
+				vncBin = REMOTE_VIEWER
+				args = remoteViewerArgs(port)
+			} else if !os.IsNotExist(err) {
+				viewResChan <- err
+				return
 			}
 		case "linux":
-			_, err := exec.LookPath("remote-viewer")
+			_, err := exec.LookPath(REMOTE_VIEWER)
 			if exec.ErrNotFound == err {
 				viewResChan <- fmt.Errorf("could not find the remote-viewer binary in $PATH")
 				return
@@ -197,7 +207,7 @@ func (o *VNC) Run(cmd *cobra.Command, args []string) error {
 				viewResChan <- err
 				return
 			}
-			vncBin = "remote-viewer"
+			vncBin = REMOTE_VIEWER
 			args = remoteViewerArgs(port)
 		default:
 			viewResChan <- fmt.Errorf("virtctl does not support VNC on %v", osType)
