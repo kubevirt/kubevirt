@@ -80,7 +80,7 @@ func SetupNetworkInterfaces(vmi *v1.VirtualMachineInstance, domain *api.Domain) 
 			// genie pod interfaces named ethX
 			podInterfaceName = fmt.Sprintf("eth%d", cniNetworks[iface.Name])
 		} else if networks[iface.Name].Kuryr != nil {
-			// genie pod interfaces named ethX
+			//  pod interfaces named ethX
 			podInterfaceName = fmt.Sprintf("eth%d", cniNetworks[iface.Name])
 		} else {
 			podInterfaceName = podInterface
