@@ -6,7 +6,7 @@ import (
 	"strings"
 	"time"
 
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 // RandAlphaNum provides an implementation to generate a random alpha numeric string of the specified length
@@ -22,10 +22,14 @@ func RandAlphaNum(n int) string {
 
 // GetNamespace returns the namespace the pod is executing in
 func GetNamespace() string {
-	if data, err := ioutil.ReadFile("/var/run/secrets/kubernetes.io/serviceaccount/namespace"); err == nil {
+	return getNamespace("/var/run/secrets/kubernetes.io/serviceaccount/namespace")
+}
+
+func getNamespace(path string) string {
+	if data, err := ioutil.ReadFile(path); err == nil {
 		if ns := strings.TrimSpace(string(data)); len(ns) > 0 {
 			return ns
 		}
 	}
-	return metav1.NamespaceSystem
+	return v1.NamespaceSystem
 }

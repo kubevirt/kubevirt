@@ -27,18 +27,54 @@ import (
 	"sync"
 
 	"github.com/golang/glog"
-	v1beta1 "k8s.io/api/admission/v1beta1"
+	"k8s.io/api/admission/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/tools/cache"
 
+	"kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/kubecli"
 	"kubevirt.io/kubevirt/pkg/log"
 	"kubevirt.io/kubevirt/pkg/util"
+	"kubevirt.io/kubevirt/pkg/util/openapi"
+	"kubevirt.io/kubevirt/pkg/virt-api/rest"
 )
 
 var webhookInformers *Informers
 var once sync.Once
+
+var Validator = openapi.CreateOpenAPIValidator(rest.ComposeAPIDefinitions())
+
+var VirtualMachineInstanceGroupVersionResource = metav1.GroupVersionResource{
+	Group:    v1.VirtualMachineInstanceGroupVersionKind.Group,
+	Version:  v1.VirtualMachineInstanceGroupVersionKind.Version,
+	Resource: "virtualmachineinstances",
+}
+
+var VirtualMachineGroupVersionResource = metav1.GroupVersionResource{
+	Group:    v1.VirtualMachineGroupVersionKind.Group,
+	Version:  v1.VirtualMachineGroupVersionKind.Version,
+	Resource: "virtualmachines",
+}
+
+var VirtualMachineInstancePresetGroupVersionResource = metav1.GroupVersionResource{
+	Group:    v1.VirtualMachineInstancePresetGroupVersionKind.Group,
+	Version:  v1.VirtualMachineInstancePresetGroupVersionKind.Version,
+	Resource: "virtualmachineinstancepresets",
+}
+
+var VirtualMachineInstanceReplicaSetGroupVersionResource = metav1.GroupVersionResource{
+	Group:    v1.VirtualMachineInstanceReplicaSetGroupVersionKind.Group,
+	Version:  v1.VirtualMachineInstanceReplicaSetGroupVersionKind.Version,
+	Resource: "virtualmachineinstancereplicasets",
+}
+
+var MigrationGroupVersionResource = metav1.GroupVersionResource{
+	Group:    v1.VirtualMachineInstanceMigrationGroupVersionKind.Group,
+	Version:  v1.VirtualMachineInstanceMigrationGroupVersionKind.Version,
+	Resource: "virtualmachineinstancemigrations",
+}
 
 type Informers struct {
 	VMIPresetInformer       cache.SharedIndexInformer
@@ -108,4 +144,53 @@ func ToAdmissionResponseError(err error) *v1beta1.AdmissionResponse {
 			Code:    http.StatusBadRequest,
 		},
 	}
+}
+
+func ToAdmissionResponse(causes []metav1.StatusCause) *v1beta1.AdmissionResponse {
+	log.Log.Infof("rejected vmi admission")
+
+	globalMessage := ""
+	for _, cause := range causes {
+		if globalMessage == "" {
+			globalMessage = cause.Message
+		} else {
+			globalMessage = fmt.Sprintf("%s, %s", globalMessage, cause.Message)
+		}
+	}
+
+	return &v1beta1.AdmissionResponse{
+		Result: &metav1.Status{
+			Message: globalMessage,
+			Reason:  metav1.StatusReasonInvalid,
+			Code:    http.StatusUnprocessableEntity,
+			Details: &metav1.StatusDetails{
+				Causes: causes,
+			},
+		},
+	}
+}
+
+func ValidationErrorsToAdmissionResponse(errs []error) *v1beta1.AdmissionResponse {
+	var causes []metav1.StatusCause
+	for _, e := range errs {
+		causes = append(causes,
+			metav1.StatusCause{
+				Message: e.Error(),
+			},
+		)
+	}
+	return ToAdmissionResponse(causes)
+}
+
+func ValidateSchema(gvk schema.GroupVersionKind, data []byte) *v1beta1.AdmissionResponse {
+	in := map[string]interface{}{}
+	err := json.Unmarshal(data, &in)
+	if err != nil {
+		return ToAdmissionResponseError(err)
+	}
+	errs := Validator.Validate(gvk, in)
+	if len(errs) > 0 {
+		return ValidationErrorsToAdmissionResponse(errs)
+	}
+	return nil
 }

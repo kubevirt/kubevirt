@@ -10,6 +10,7 @@ import (
 	"k8s.io/client-go/tools/cache"
 
 	"fmt"
+
 	"kubevirt.io/containerized-data-importer/pkg/common"
 )
 
@@ -118,6 +119,16 @@ func (ic *ImportController) processPvcItem(pvc *v1.PersistentVolumeClaim) error 
 	if pod != nil {
 		anno[AnnImportPod] = string(pod.Name)
 		anno[AnnPodPhase] = string(pod.Status.Phase)
+		if pod.Status.Phase == "Succeeded" {
+			dReq := podDeleteRequest{
+				namespace: pod.Namespace,
+				podName:   pod.Name,
+				podLister: ic.Controller.podLister,
+				k8sClient: ic.Controller.clientset,
+			}
+			// just use defer here so we make sure our pvc updates get written prior to actual deletion
+			defer deletePod(dReq)
+		}
 	}
 
 	var lab map[string]string

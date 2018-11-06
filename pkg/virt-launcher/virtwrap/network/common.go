@@ -36,6 +36,8 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/network/dhcp"
 )
 
+const randomMacGenerationAttempts = 10
+
 type VIF struct {
 	Name    string
 	IP      netlink.Addr
@@ -106,7 +108,7 @@ func (h *NetworkUtilsHandler) GetMacDetails(iface string) (net.HardwareAddr, err
 	return currentMac, nil
 }
 
-// SetRandomMac changes the MAC address for a agiven interface to a randomly generated, preserving the vendor prefix
+// SetRandomMac changes the MAC address for a given interface to a randomly generated, preserving the vendor prefix
 func (h *NetworkUtilsHandler) SetRandomMac(iface string) (net.HardwareAddr, error) {
 	var mac net.HardwareAddr
 
@@ -115,18 +117,28 @@ func (h *NetworkUtilsHandler) SetRandomMac(iface string) (net.HardwareAddr, erro
 		return nil, err
 	}
 
-	changed, err := lmf.SpoofMacSameVendor(iface, false)
-	if err != nil {
-		log.Log.Reason(err).Errorf("failed to spoof MAC for an interface: %s", iface)
-		return nil, err
-	}
+	changed := false
 
-	if changed {
-		mac, err = Handler.GetMacDetails(iface)
+	for i := 0; i < randomMacGenerationAttempts; i++ {
+		changed, err = lmf.SpoofMacSameVendor(iface, false)
 		if err != nil {
+			log.Log.Reason(err).Errorf("failed to spoof MAC for an interface: %s", iface)
 			return nil, err
 		}
-		log.Log.Reason(err).Errorf("updated MAC for interface: %s - %s", iface, mac)
+
+		if changed {
+			mac, err = Handler.GetMacDetails(iface)
+			if err != nil {
+				return nil, err
+			}
+			log.Log.Reason(err).Errorf("updated MAC for interface: %s - %s", iface, mac)
+			break
+		}
+	}
+	if !changed {
+		err := fmt.Errorf("failed to spoof MAC for an interface %s after %d attempts", iface, randomMacGenerationAttempts)
+		log.Log.Reason(err)
+		return nil, err
 	}
 	return currentMac, nil
 }

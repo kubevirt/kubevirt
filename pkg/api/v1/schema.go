@@ -259,7 +259,7 @@ type Disk struct {
 	// Defaults to false.
 	// +optional
 	DedicatedIOThread *bool `json:"dedicatedIOThread,omitempty"`
-	// Cache specifies which kvm disk cache mode should be used
+	// Cache specifies which kvm disk cache mode should be used.
 	// +optional
 	Cache DriverCache `json:"cache,omitempty"`
 }

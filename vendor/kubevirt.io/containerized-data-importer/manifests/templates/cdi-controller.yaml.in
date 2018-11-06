@@ -248,7 +248,7 @@ spec:
       serviceAccountName: cdi-apiserver
       containers:
       - name: cdi-apiserver-api
-        image: {{ .DockerRepo }}/cdi-apiserver:{{ .DockerTag }}
+        image: {{ .DockerRepo }}/{{ .APIServerImage }}:{{ .DockerTag }}
         imagePullPolicy: {{ .PullPolicy }}
         args: ["-v={{ .Verbosity }}"] # default verbosity; change to 2 or 3 for more detailed logging
 ---
@@ -286,7 +286,7 @@ spec:
     spec:
       containers:
       - name: cdi-uploadproxy
-        image: {{ .DockerRepo }}/cdi-uploadproxy:{{ .DockerTag }}
+        image: {{ .DockerRepo }}/{{ .UploadProxyImage }}:{{ .DockerTag }}
         imagePullPolicy: {{ .PullPolicy }}
         args: ["-v={{ .Verbosity }}"] # default verbosity; change to 2 or 3 for more detailed logging
         env:

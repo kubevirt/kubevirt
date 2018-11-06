@@ -1,27 +1,22 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 SOCKET=$1
+PROTOCOL=unix-connect
 
 function is_console() {
 	[[ $(basename $SOCKET) =~ .*serial.* ]]
 }
 
 function serial_cleanup() {
-	# if this is a serial connection, see if there is a previous
-	# connection that must be cleaned up before starting a new one.
-	if is_console; then
-		local pid_file=${SOCKET}.pid
-		local pid=$(cat $pid_file 2>/dev/null)
-		local my_pid=$$
-		if [ -n "$pid" ] && [ -f "/proc/$pid/cmdline" ]; then
-			local cmdline=$(cat /proc/$pid/cmdline 2>/dev/null | tr -d '\0')
-			local my_cmdline=$(cat /proc/$my_pid/cmdline 2>/dev/null | tr -d '\0')
-			if [ "$cmdline" = "$my_cmdline" ]; then
-				kill $pid > /dev/null 2>&1
-			fi
-		fi
-		echo "$$" > $pid_file
-	fi
+  # if this is a serial connection, see if there is a previous
+  # connection that must be cleaned up before starting a new one.
+  if is_console; then
+    pgrep socat | while read pid; do
+      tr '\0' '\n' < "/proc/$pid/cmdline" \
+      | grep -qE "^$PROTOCOL:/$SOCKET$" || continue
+      kill "$pid"
+    done
+  fi
 }
 
 # only one serial connection can exist at a time.
@@ -32,9 +27,15 @@ if ! [ -S "$SOCKET" ]; then
 	exit 1
 fi
 
+# define defaults for both ends of the connection
+
+TO_VIRTUAL_MACHINE="$PROTOCOL:/$SOCKET"
+FROM_CLIENT="stdio"
+
 if is_console; then
-    stty -echo
-    socat unix-connect:/$SOCKET stdio,cfmakeraw
-else
-    socat unix-connect:/$SOCKET stdio
+  # enable raw mode for console access
+  stty -echo
+  FROM_CLIENT="stdio,cfmakeraw"
 fi
+
+exec socat "$TO_VIRTUAL_MACHINE" "$FROM_CLIENT"

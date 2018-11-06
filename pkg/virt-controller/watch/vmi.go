@@ -261,11 +261,6 @@ func (c *VMIController) execute(key string) error {
 
 func (c *VMIController) updateStatus(vmi *virtv1.VirtualMachineInstance, pod *k8sv1.Pod, dataVolumes []*cdiv1.DataVolume, syncErr syncError) error {
 
-	podExists := false
-	if pod != nil {
-		podExists = true
-	}
-
 	hasFailedDataVolume := false
 	for _, dataVolume := range dataVolumes {
 		if dataVolume.Status.Phase == cdiv1.Failed {
@@ -275,6 +270,7 @@ func (c *VMIController) updateStatus(vmi *virtv1.VirtualMachineInstance, pod *k8
 
 	conditionManager := controller.NewVirtualMachineInstanceConditionManager()
 	vmiCopy := vmi.DeepCopy()
+	podExists := podExists(pod)
 
 	switch {
 
@@ -310,11 +306,15 @@ func (c *VMIController) updateStatus(vmi *virtv1.VirtualMachineInstance, pod *k8
 			if isPodOwnedByHandler(pod) {
 				// vmi is still owned by the controller but pod is already handed over,
 				// so let's hand over the vmi too
-				vmiCopy.Status.Interfaces = []virtv1.VirtualMachineInstanceNetworkInterface{
-					{
-						IP: pod.Status.PodIP,
-					},
+				interfaces := make([]virtv1.VirtualMachineInstanceNetworkInterface, 0)
+				for _, network := range vmi.Spec.Networks {
+					if network.NetworkSource.Pod != nil {
+						ifc := virtv1.VirtualMachineInstanceNetworkInterface{Name: network.Name, IP: pod.Status.PodIP}
+						interfaces = append(interfaces, ifc)
+					}
 				}
+				vmiCopy.Status.Interfaces = interfaces
+
 				vmiCopy.Status.Phase = virtv1.Scheduled
 				if vmiCopy.Labels == nil {
 					vmiCopy.Labels = map[string]string{}
@@ -395,14 +395,14 @@ func podIsDown(pod *k8sv1.Pod) bool {
 	return pod.Status.Phase == k8sv1.PodSucceeded || pod.Status.Phase == k8sv1.PodFailed
 }
 
-func (c *VMIController) sync(vmi *virtv1.VirtualMachineInstance, pod *k8sv1.Pod, dataVolumes []*cdiv1.DataVolume) (err syncError) {
-
-	podExists := false
+func podExists(pod *k8sv1.Pod) bool {
 	if pod != nil {
-		podExists = true
+		return true
 	}
+	return false
+}
 
-	vmiKey := controller.VirtualMachineKey(vmi)
+func (c *VMIController) sync(vmi *virtv1.VirtualMachineInstance, pod *k8sv1.Pod, dataVolumes []*cdiv1.DataVolume) (err syncError) {
 
 	if vmi.DeletionTimestamp != nil {
 		err := c.deleteAllMatchingPods(vmi)
@@ -410,11 +410,13 @@ func (c *VMIController) sync(vmi *virtv1.VirtualMachineInstance, pod *k8sv1.Pod,
 			return &syncErrorImpl{fmt.Errorf("failed to delete pod: %v", err), FailedDeletePodReason}
 		}
 		return nil
-	} else if vmi.IsFinal() {
+	}
+
+	if vmi.IsFinal() {
 		return nil
 	}
 
-	if !podExists {
+	if !podExists(pod) {
 		// If we came ever that far to detect that we already created a pod, we don't create it again
 		if !vmi.IsUnprocessed() {
 			return nil
@@ -429,13 +431,15 @@ func (c *VMIController) sync(vmi *virtv1.VirtualMachineInstance, pod *k8sv1.Pod,
 			return nil
 		}
 
-		c.podExpectations.ExpectCreations(vmiKey, 1)
 		templatePod, err := c.templateService.RenderLaunchManifest(vmi)
 		if _, ok := err.(services.PvcNotFoundError); ok {
 			return &syncErrorImpl{fmt.Errorf("failed to render launch manifest: %v", err), FailedPvcNotFoundReason}
 		} else if err != nil {
 			return &syncErrorImpl{fmt.Errorf("failed to render launch manifest: %v", err), FailedCreatePodReason}
 		}
+
+		vmiKey := controller.VirtualMachineKey(vmi)
+		c.podExpectations.ExpectCreations(vmiKey, 1)
 		pod, err := c.clientset.CoreV1().Pods(vmi.GetNamespace()).Create(templatePod)
 		if err != nil {
 			c.recorder.Eventf(vmi, k8sv1.EventTypeWarning, FailedCreatePodReason, "Error creating pod: %v", err)
@@ -527,8 +531,8 @@ func (c *VMIController) updateDataVolume(old, cur interface{}) {
 		// have different RVs.
 		return
 	}
-	labelChanged := !reflect.DeepEqual(curDataVolume.Labels, oldDataVolume.Labels)
 	if curDataVolume.DeletionTimestamp != nil {
+		labelChanged := !reflect.DeepEqual(curDataVolume.Labels, oldDataVolume.Labels)
 		// having a DataVOlume marked for deletion is enough
 		// to count as a deletion expectation
 		c.deleteDataVolume(curDataVolume)
@@ -615,8 +619,8 @@ func (c *VMIController) updatePod(old, cur interface{}) {
 		return
 	}
 
-	labelChanged := !reflect.DeepEqual(curPod.Labels, oldPod.Labels)
 	if curPod.DeletionTimestamp != nil {
+		labelChanged := !reflect.DeepEqual(curPod.Labels, oldPod.Labels)
 		// having a pod marked for deletion is enough to count as a deletion expectation
 		c.deletePod(curPod)
 		if labelChanged {

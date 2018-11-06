@@ -22,7 +22,13 @@ if [[ $image == $KUBERNETES_IMAGE ]]; then
     ./cluster/.kubectl config set-cluster kubernetes --insecure-skip-tls-verify=true
 
 elif [[ $image == $OPENSHIFT_IMAGE ]]; then
-    $gocli run --random-ports --reverse --nodes ${num_nodes} --background kubevirtci/${image}
+
+    # If on a developer setup, expose ocp on 8443, so that the openshift web console can be used (the port is important because of auth redirects)
+    if [ -z "${JOB_NAME}" ]; then
+        KUBEVIRT_PROVIDER_EXTRA_ARGS="${KUBEVIRT_PROVIDER_EXTRA_ARGS} --ocp-port 8443"
+    fi
+
+    $gocli run --random-ports --reverse --nodes ${num_nodes} --background kubevirtci/${image} ${KUBEVIRT_PROVIDER_EXTRA_ARGS}
     cluster_port=$($gocli ports ocp | tr -d '\r')
     $gocli scp /etc/origin/master/admin.kubeconfig - > ./cluster/.kubeconfig
     $gocli ssh node01 -- sudo cp /etc/origin/master/admin.kubeconfig ~vagrant/

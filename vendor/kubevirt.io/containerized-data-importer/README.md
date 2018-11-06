@@ -1,4 +1,7 @@
 # Containerized Data Importer
+[![Go Report Card](https://goreportcard.com/badge/github.com/kubevirt/containerized-data-importer)](https://goreportcard.com/report/github.com/kubevirt/containerized-data-importer)
+[![Coverage Status](https://img.shields.io/coveralls/kubevirt/containerized-data-importer/master.svg)](https://coveralls.io/github/kubevirt/containerized-data-importer?branch=master)
+
 A declarative Kubernetes utility to import Virtual Machine images for use with [Kubevirt](https://github.com/kubevirt/kubevirt). At a high level, a persistent volume claim (PVC), which defines VM-suitable storage via a storage class, is created. A custom controller watches for importer specific claims, and when discovered, starts an import/copy process. The status of the import process is reflected in the same claim, and when the copy completes Kubevirt can create the VM based on the just-imported image.
 In Addition, the Containerized Data Importer gives the option to clone the imported VM image from one PVC to another one across two different namespaces (A.K.A Host-Assisted cloning). 
 
@@ -7,13 +10,8 @@ In Addition, the Containerized Data Importer gives the option to clone the impor
 1. [Design](/doc/design.md#design)
 1. [Running the CDI Controller](#deploying-cdi)
 1. [Cloning VM Images](#cloning-vm-images)
-1. [Endpoint Size](#endpoint-size)
 1. [Hacking (WIP)](hack/README.md#getting-started-for-developers)
 1. [Security Configurations](#security-configurations)
-
-> DEPRECATION NOTICE:
-Support for local (file://) endpoints will be removed from CDI in the next release. There is no replacement and no work-around. All import endpoints must reference http(s) or s3 endpoints.
-
 
 ## Overview
 
@@ -222,57 +220,6 @@ From the [example manifests](./manifests/example) you copied earlier, the necess
 1. Check the target PVC for 'k8s.io/CloneOf' annotation:
 
    `$ kubectl -n <TARGET-NAMESPACE> get pvc <target-pvc-name> -o yaml`
-
-
-### Endpoint Size
-
-The size of the source endpoint can be retrieved by importing the _pkg/lib/size_ package. The `Size` function returns the endpoint size without the need to decompress and copy the source file. The `Size` function has this signature:
-```
-func Size(endpoint, accessKey, secKey string) (int64, error)
-```
-where:
-
-- **endpoint** is the full enpoint path name, eg. _https://s3.amazonaws.com/kubevirt-images/tinyCore.qcow2_
-
-- **accessKey** and **secKey** are optional credentials for accessing private endpoints.
-
-Example:
-```
-import (
-   ...
-   "kubevirt.io/containerized-data-importer/pkg/lib/size"
-   ...
-   size, err := size.Size(sourceFileEp, "", "")
-   if err == nil {
-      ... // have a valid size
-   }
-```
-##### Limitations:
-The `Size` function currently supports the following file formats:
-- _any.tar_
-
-- _any.tar.gz_
-
-- _any.tar.xz_
-
-- _any.qcow2_
-
-- _any.qcow2.tar[.gz|.xz]_
-
-- _any.iso_
-
-- _any.iso.tar[.gz|.xz]_
-
-The `Size` function does **not** yet support the following formats:
-- _any.gz_
-
-- _any.xz_
-
-- certain raw, unititialized iso formats
-
-In other words, if the endpoint is a _qcow2_ file, or any file wrapped by tar (even with compression) then the size of the endpoint can be determined. If the endpoint is an unformatted raw file, not compressed, not archived, then its size cannot (yet) be returned.
-
-An additional caveat is that currently the size is under reported for simple iso files, meaning a structured iso file that is not archived and/or compressed.
 
 
 ### Security Configurations

@@ -546,11 +546,20 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 	}
 
 	// TODO use constants for podLabels
+	trueVar := true
 	pod := k8sv1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
 			GenerateName: "virt-launcher-" + domain + "-",
 			Labels:       podLabels,
 			Annotations:  annotationsList,
+			OwnerReferences: []metav1.OwnerReference{{
+				APIVersion:         v1.VirtualMachineInstanceGroupVersionKind.GroupVersion().String(),
+				Kind:               v1.VirtualMachineInstanceGroupVersionKind.Kind,
+				Name:               vmi.Name,
+				UID:                vmi.UID,
+				Controller:         &trueVar,
+				BlockOwnerDeletion: &trueVar,
+			}},
 		},
 		Spec: k8sv1.PodSpec{
 			Hostname:  hostName,
@@ -613,9 +622,7 @@ func getRequiredCapabilities(vmi *v1.VirtualMachineInstance) []k8sv1.Capability 
 		res = append(res, CAP_NET_ADMIN)
 	}
 	// add a CAP_SYS_NICE capability to allow setting cpu affinity
-	if vmi.IsCPUDedicated() {
-		res = append(res, CAP_SYS_NICE)
-	}
+	res = append(res, CAP_SYS_NICE)
 	return res
 }
 

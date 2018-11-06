@@ -370,7 +370,18 @@ func (c *UploadController) syncHandler(key string) error {
 		}
 
 		// delete pod
-		err = c.deletePod(pvc.Namespace, resourceName)
+		// we're using a req struct for now until we can normalize the controllers a bit more and share things like lister, client etc
+		// this way it's easy to stuff everything into an easy request struct, and can extend aditional behaviors if we want going forward
+		// NOTE this is a special case where the user updated annotations on the pvc to abort the upload requests, we'll add another call
+		// for this for the success case
+		dReq := podDeleteRequest{
+			namespace: pvc.Namespace,
+			podName:   resourceName,
+			podLister: c.podLister,
+			k8sClient: c.client,
+		}
+
+		err = deletePod(dReq)
 		if err != nil {
 			return errors.Wrapf(err, "Error deleting upload pod for pvc: %s", key)
 		}
@@ -410,6 +421,20 @@ func (c *UploadController) syncHandler(key string) error {
 		if err = c.deleteService(pvc.Namespace, resourceName); err != nil {
 			return errors.Wrapf(err, "Error deleting upload service for pvc %s", key)
 		}
+
+		dReq := podDeleteRequest{
+			namespace: pvc.Namespace,
+			podName:   resourceName,
+			podLister: c.podLister,
+			k8sClient: c.client,
+		}
+
+		// delete the pod
+		err = deletePod(dReq)
+		if err != nil {
+			return errors.Wrapf(err, "Error deleting upload pod for pvc: %s", key)
+		}
+
 	} else {
 		// make sure the service exists
 		if _, err = c.getOrCreateUploadService(pvc, resourceName); err != nil {
@@ -446,20 +471,6 @@ func (c *UploadController) getOrCreateUploadService(pvc *v1.PersistentVolumeClai
 	}
 
 	return service, err
-}
-
-func (c *UploadController) deletePod(namespace, name string) error {
-	pod, err := c.podLister.Pods(namespace).Get(name)
-	if k8serrors.IsNotFound(err) {
-		return nil
-	}
-	if err == nil && pod.DeletionTimestamp == nil {
-		err = c.client.CoreV1().Pods(namespace).Delete(name, &metav1.DeleteOptions{})
-		if k8serrors.IsNotFound(err) {
-			return nil
-		}
-	}
-	return err
 }
 
 func (c *UploadController) deleteService(namespace, name string) error {

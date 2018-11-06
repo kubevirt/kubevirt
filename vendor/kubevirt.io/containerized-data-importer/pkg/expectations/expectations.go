@@ -18,7 +18,7 @@ limitations under the License.
 This logic was originally taken from https://github.com/kubernetes/kubernetes/blob/1889a6ef52eb18b08e24843577c5b9d3b9a65daa/pkg/controller/controller_utils.go
 
 KubeVirt adapted this logic for their controllers and we adopted KubeVirt's adaptation.
-This code is realitively simple and shouldn't need much maintance.
+This code is realitively simple and shouldn't need much maintenance.
 
 As soon as expectations become available in client-go or apimachinery, delete this and switch.
 */
@@ -188,12 +188,12 @@ func (r *ControllerExpectations) SetExpectations(controllerKey string, add, del 
 	return r.Add(exp)
 }
 
-// ExpectCreations wraps SetExpectations for the reciever controller specified, setting creates
+// ExpectCreations wraps SetExpectations for the receiver controller specified, setting creates
 func (r *ControllerExpectations) ExpectCreations(controllerKey string, adds int) error {
 	return r.SetExpectations(controllerKey, adds, 0)
 }
 
-// ExpectDeletions wraps SetExpectations for the reciever controller specified, setting deletions
+// ExpectDeletions wraps SetExpectations for the receiver controller specified, setting deletions
 func (r *ControllerExpectations) ExpectDeletions(controllerKey string, dels int) error {
 	return r.SetExpectations(controllerKey, 0, dels)
 }

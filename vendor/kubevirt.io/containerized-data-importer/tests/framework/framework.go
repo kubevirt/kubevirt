@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"time"
 
-	. "github.com/onsi/ginkgo"
-	. "github.com/onsi/gomega"
+	"github.com/onsi/ginkgo"
+	"github.com/onsi/gomega"
 
 	"github.com/golang/glog"
 	"github.com/pkg/errors"
@@ -28,10 +28,11 @@ import (
 )
 
 const (
-	NsCreateTime  = 30 * time.Second
-	NsDeleteTime  = 5 * time.Minute
+	nsCreateTime = 30 * time.Second
+	nsDeleteTime = 5 * time.Minute
+	//NsPrefixLabel provides a cdi prefix label to identify the test namespace
 	NsPrefixLabel = "cdi-e2e"
-	CdiPodPrefix  = "cdi-deployment"
+	cdiPodPrefix  = "cdi-deployment"
 )
 
 // run-time flags
@@ -44,11 +45,12 @@ var (
 	goCLIPath    *string
 )
 
+// Config provides some basic test config options
 type Config struct {
-	// Whether to skip creating a namespace. Use this ONLY for tests that do not require
+	// SkipNamespaceCreation sets whether to skip creating a namespace. Use this ONLY for tests that do not require
 	// a namespace at all, like basic sanity or other global tests.
 	SkipNamespaceCreation bool
-	// Whether to skip looking up the name of the cdi controller pod.
+	// SkipControllerPodLookup sets whether to skip looking up the name of the cdi controller pod.
 	SkipControllerPodLookup bool
 }
 
@@ -57,30 +59,35 @@ type Config struct {
 // evolves. Global BeforeEach and AfterEach are called in the Framework constructor.
 type Framework struct {
 	Config
-	// prefix for generated namespace
+	// NsPrefix is a prefix for generated namespace
 	NsPrefix string
-	//  k8s client
+	//  k8sClient provides our k8s client pointer
 	K8sClient *kubernetes.Clientset
-	// cdi client
+	// CdiClient provides our CDI client pointer
 	CdiClient *cdiClientset.Clientset
-	// REST client config.
+	// RestConfig provides a pointer to our REST client config.
 	RestConfig *rest.Config
-	// generated/unique ns per test
+	// Namespace provides a namespace for each test generated/unique ns per test
 	Namespace *v1.Namespace
-	// generated/unique secondary ns for testing across namespaces (eg. clone tests)
-	Namespace2 *v1.Namespace // note: not instantiated in NewFramework
-	// list of ns to delete beyond the generated ns
+	// Namespace2 provides an additional generated/unique secondary ns for testing across namespaces (eg. clone tests)
+	Namespace2         *v1.Namespace // note: not instantiated in NewFramework
 	namespacesToDelete []*v1.Namespace
 
+	// ControllerPod provides a pointer to our test controller pod
 	ControllerPod *v1.Pod
 
-	// test run-time flags
-	KubectlPath  string
-	OcPath       string
+	// KubectlPath is a test run-time flag so we can find kubectl
+	KubectlPath string
+	// OcPath is a test run-time flag so we can find OpenShift Client
+	OcPath string
+	// CdiInstallNs is a test run-time flag to store the Namespace we installed CDI in
 	CdiInstallNs string
-	KubeConfig   string
-	Master       string
-	GoCLIPath    string
+	// KubeConfig is a test run-time flag to store the location of our test setup kubeconfig
+	KubeConfig string
+	// Master is a test run-time flag to store the id of our master node
+	Master string
+	// GoCliPath is a test run-time flag to store the location of gocli
+	GoCLIPath string
 }
 
 // TODO: look into k8s' SynchronizedBeforeSuite() and SynchronizedAfterSuite() code and their general
@@ -91,7 +98,7 @@ func init() {
 	// By accessing something in the ginkgo_reporters package, we are ensuring that the init() is called
 	// That init calls flag.StringVar, and makes sure the --junit-output flag is added before we call
 	// flag.Parse in NewFramework. Without this, the flag is NOT added.
-	fmt.Fprintf(GinkgoWriter, "Making sure junit flag is available %v\n", ginkgo_reporters.JunitOutput)
+	fmt.Fprintf(ginkgo.GinkgoWriter, "Making sure junit flag is available %v\n", ginkgo_reporters.JunitOutput)
 	kubectlPath = flag.String("kubectl-path", "kubectl", "The path to the kubectl binary")
 	ocPath = flag.String("oc-path", "oc", "The path to the oc binary")
 	cdiInstallNs = flag.String("cdi-namespace", "kube-system", "The namespace of the CDI controller")
@@ -109,7 +116,7 @@ func NewFrameworkOrDie(prefix string, config ...Config) *Framework {
 	}
 	f, err := NewFramework(prefix, cfg)
 	if err != nil {
-		Fail(fmt.Sprintf("failed to create test framework with config %+v: %v", cfg, err))
+		ginkgo.Fail(fmt.Sprintf("failed to create test framework with config %+v: %v", cfg, err))
 	}
 	return f
 }
@@ -125,11 +132,11 @@ func NewFramework(prefix string, config Config) (*Framework, error) {
 	// handle run-time flags
 	if !flag.Parsed() {
 		flag.Parse()
-		fmt.Fprintf(GinkgoWriter, "** Test flags:\n")
+		fmt.Fprintf(ginkgo.GinkgoWriter, "** Test flags:\n")
 		flag.Visit(func(f *flag.Flag) {
-			fmt.Fprintf(GinkgoWriter, "   %s = %q\n", f.Name, f.Value.String())
+			fmt.Fprintf(ginkgo.GinkgoWriter, "   %s = %q\n", f.Name, f.Value.String())
 		})
-		fmt.Fprintf(GinkgoWriter, "**\n")
+		fmt.Fprintf(ginkgo.GinkgoWriter, "**\n")
 	}
 
 	f.KubectlPath = *kubectlPath
@@ -143,11 +150,9 @@ func NewFramework(prefix string, config Config) (*Framework, error) {
 	if err != nil {
 		// Can't use Expect here due this being called outside of an It block, and Expect
 		// requires any calls to it to be inside an It block.
-		err = errors.Wrap(err, "ERROR, unable to load RestConfig")
-	} else {
-		f.RestConfig = restConfig
+		return nil, errors.Wrap(err, "ERROR, unable to load RestConfig")
 	}
-
+	f.RestConfig = restConfig
 	// clients
 	kcs, err := f.GetKubeClient()
 	if err != nil {
@@ -161,34 +166,36 @@ func NewFramework(prefix string, config Config) (*Framework, error) {
 	}
 	f.CdiClient = cs
 
-	BeforeEach(f.BeforeEach)
-	AfterEach(f.AfterEach)
+	ginkgo.BeforeEach(f.BeforeEach)
+	ginkgo.AfterEach(f.AfterEach)
 
 	return f, err
 }
 
+// BeforeEach provides a set of operations to run before each test
 func (f *Framework) BeforeEach() {
 	if !f.SkipControllerPodLookup {
 		if f.ControllerPod == nil {
-			pod, err := utils.FindPodByPrefix(f.K8sClient, f.CdiInstallNs, CdiPodPrefix, common.CDILabelSelector)
-			Expect(err).NotTo(HaveOccurred())
-			fmt.Fprintf(GinkgoWriter, "INFO: Located cdi-controller-pod: %q\n", pod.Name)
+			pod, err := utils.FindPodByPrefix(f.K8sClient, f.CdiInstallNs, cdiPodPrefix, common.CDILabelSelector)
+			gomega.Expect(err).NotTo(gomega.HaveOccurred())
+			fmt.Fprintf(ginkgo.GinkgoWriter, "INFO: Located cdi-controller-pod: %q\n", pod.Name)
 			f.ControllerPod = pod
 		}
 	}
 
 	if !f.SkipNamespaceCreation {
 		// generate unique primary ns (ns2 not created here)
-		By(fmt.Sprintf("Building a %q namespace api object", f.NsPrefix))
+		ginkgo.By(fmt.Sprintf("Building a %q namespace api object", f.NsPrefix))
 		ns, err := f.CreateNamespace(f.NsPrefix, map[string]string{
 			NsPrefixLabel: f.NsPrefix,
 		})
-		Expect(err).NotTo(HaveOccurred())
+		gomega.Expect(err).NotTo(gomega.HaveOccurred())
 		f.Namespace = ns
 		f.AddNamespaceToDelete(ns)
 	}
 }
 
+// AfterEach provides a set of operations to run after each test
 func (f *Framework) AfterEach() {
 	// delete the namespace(s) in a defer in case future code added here could generate
 	// an exception. For now there is only a defer.
@@ -198,15 +205,15 @@ func (f *Framework) AfterEach() {
 			if ns == nil || len(ns.Name) == 0 {
 				continue
 			}
-			By(fmt.Sprintf("Destroying namespace %q for this suite.", ns.Name))
+			ginkgo.By(fmt.Sprintf("Destroying namespace %q for this suite.", ns.Name))
 			err := DeleteNS(f.K8sClient, ns.Name)
-			Expect(err).NotTo(HaveOccurred())
+			gomega.Expect(err).NotTo(gomega.HaveOccurred())
 		}
 	}()
 	return
 }
 
-// Instantiate a new namespace object with a unique name and the passed-in label(s).
+// CreateNamespace instantiates a new namespace object with a unique name and the passed-in label(s).
 func (f *Framework) CreateNamespace(prefix string, labels map[string]string) (*v1.Namespace, error) {
 	ns := &v1.Namespace{
 		ObjectMeta: metav1.ObjectMeta{
@@ -219,7 +226,7 @@ func (f *Framework) CreateNamespace(prefix string, labels map[string]string) (*v
 
 	var nsObj *v1.Namespace
 	c := f.K8sClient
-	err := wait.PollImmediate(2*time.Second, NsCreateTime, func() (bool, error) {
+	err := wait.PollImmediate(2*time.Second, nsCreateTime, func() (bool, error) {
 		var err error
 		nsObj, err = c.CoreV1().Namespaces().Create(ns)
 		if err == nil || apierrs.IsAlreadyExists(err) {
@@ -232,16 +239,18 @@ func (f *Framework) CreateNamespace(prefix string, labels map[string]string) (*v
 		return nil, err
 	}
 
-	fmt.Fprintf(GinkgoWriter, "INFO: Created new namespace %q\n", nsObj.Name)
+	fmt.Fprintf(ginkgo.GinkgoWriter, "INFO: Created new namespace %q\n", nsObj.Name)
 	return nsObj, nil
 }
 
+// AddNamespaceToDelete provides a wrapper around the go append function
 func (f *Framework) AddNamespaceToDelete(ns *v1.Namespace) {
 	f.namespacesToDelete = append(f.namespacesToDelete, ns)
 }
 
+// DeleteNS provides a function to delete the specified namespace from the test cluster
 func DeleteNS(c *kubernetes.Clientset, ns string) error {
-	return wait.PollImmediate(2*time.Second, NsDeleteTime, func() (bool, error) {
+	return wait.PollImmediate(2*time.Second, nsDeleteTime, func() (bool, error) {
 		err := c.CoreV1().Namespaces().Delete(ns, nil)
 		if err != nil && !apierrs.IsNotFound(err) {
 			glog.Warningf("namespace %q Delete api err: %v", ns, err)
@@ -259,7 +268,7 @@ func DeleteNS(c *kubernetes.Clientset, ns string) error {
 	})
 }
 
-// Gets an instance of a kubernetes client that includes all the CDI extensions.
+// GetCdiClient gets an instance of a kubernetes client that includes all the CDI extensions.
 func (f *Framework) GetCdiClient() (*cdiClientset.Clientset, error) {
 	cfg, err := clientcmd.BuildConfigFromFlags(f.Master, f.KubeConfig)
 	if err != nil {
@@ -272,14 +281,17 @@ func (f *Framework) GetCdiClient() (*cdiClientset.Clientset, error) {
 	return cdiClient, nil
 }
 
+// GetKubeClient returns a Kubernetes rest client
 func (f *Framework) GetKubeClient() (*kubernetes.Clientset, error) {
 	return GetKubeClientFromRESTConfig(f.RestConfig)
 }
 
+// LoadConfig loads our specified kubeconfig
 func (f *Framework) LoadConfig() (*rest.Config, error) {
 	return clientcmd.BuildConfigFromFlags(f.Master, f.KubeConfig)
 }
 
+// GetKubeClientFromRESTConfig provides a function to get a K8s client using hte REST config
 func GetKubeClientFromRESTConfig(config *rest.Config) (*kubernetes.Clientset, error) {
 	config.NegotiatedSerializer = serializer.DirectCodecFactory{CodecFactory: scheme.Codecs}
 	config.APIPath = "/apis"

@@ -497,7 +497,7 @@ func schema_kubevirt_pkg_api_v1_Disk(ref common.ReferenceCallback) common.OpenAP
 					},
 					"cache": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Cache specifies which kvm disk cache mode should be used",
+							Description: "Cache specifies which kvm disk cache mode should be used.",
 							Type:        []string{"string"},
 							Format:      "",
 						},
@@ -2004,6 +2004,13 @@ func schema_kubevirt_pkg_api_v1_VirtualMachineInstanceNetworkInterface(ref commo
 					"mac": {
 						SchemaProps: spec.SchemaProps{
 							Description: "Hardware address of a Virtual Machine interface",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"name": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Name of the interface, corresponds to name of the network assigned to the interface",
 							Type:        []string{"string"},
 							Format:      "",
 						},

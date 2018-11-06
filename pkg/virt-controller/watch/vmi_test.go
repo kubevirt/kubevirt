@@ -80,7 +80,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 	}
 
 	shouldExpectMultiplePodDeletions := func(pod *k8sv1.Pod, deletionCount *int) {
-		// Expect pod creation
+		// Expect pod deletion
 		kubeClient.Fake.PrependReactor("delete", "pods", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
 			update, ok := action.(testing.DeleteAction)
 			Expect(ok).To(BeTrue())
@@ -91,7 +91,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 	}
 
 	shouldExpectPodDeletion := func(pod *k8sv1.Pod) {
-		// Expect pod creation
+		// Expect pod deletion
 		kubeClient.Fake.PrependReactor("delete", "pods", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
 			update, ok := action.(testing.DeleteAction)
 			Expect(ok).To(BeTrue())
@@ -351,7 +351,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			table.Entry("in scheduled state", v1.Scheduled),
 			table.Entry("in scheduling state", v1.Scheduling),
 		)
-		It("should not try to delete a pod again, which is already marked for deletion and go to failed state, when in sheduling state", func() {
+		It("should not try to delete a pod again, which is already marked for deletion and go to failed state, when in scheduling state", func() {
 			vmi := NewPendingVirtualMachine("testvmi")
 			vmi.Status.Phase = v1.Scheduling
 			vmi.DeletionTimestamp = now()
@@ -823,6 +823,72 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			table.Entry("and in succeeded state", k8sv1.PodSucceeded),
 			table.Entry("and in failed state", k8sv1.PodFailed),
 		)
+	})
+
+	Context("When VirtualMachineInstance is connected to a network", func() {
+		It("should report the status of this network", func() {
+			vmi := NewPendingVirtualMachine("testvmi")
+			vmi.Status.Phase = v1.Scheduling
+			pod := NewPodForVirtualMachine(vmi, k8sv1.PodRunning)
+
+			addVirtualMachine(vmi)
+			podFeeder.Add(pod)
+
+			networkName := "test net"
+			podIp := "1.1.1.1"
+			pod.Annotations[v1.OwnedByAnnotation] = "virt-handler"
+			pod.Status.PodIP = podIp
+			vmi.Spec.Networks = []v1.Network{
+				v1.Network{
+					Name: networkName,
+					NetworkSource: v1.NetworkSource{
+						Pod: &v1.PodNetwork{
+							VMNetworkCIDR: "1.1.1.1",
+						},
+					},
+				},
+			}
+			vmiInterface.EXPECT().Update(gomock.Any()).Do(func(arg interface{}) {
+				Expect(len(arg.(*v1.VirtualMachineInstance).Status.Interfaces)).To(Equal(1))
+				Expect(arg.(*v1.VirtualMachineInstance).Status.Interfaces[0].Name).To(Equal(networkName))
+				Expect(arg.(*v1.VirtualMachineInstance).Status.Interfaces[0].IP).To(Equal(podIp))
+			}).Return(vmi, nil)
+			controller.Execute()
+		})
+
+		It("should only report the pod network in status", func() {
+			vmi := NewPendingVirtualMachine("testvmi")
+			vmi.Status.Phase = v1.Scheduling
+			pod := NewPodForVirtualMachine(vmi, k8sv1.PodRunning)
+
+			addVirtualMachine(vmi)
+			podFeeder.Add(pod)
+
+			networkName := "test net"
+			pod.Annotations[v1.OwnedByAnnotation] = "virt-handler"
+			vmi.Spec.Networks = []v1.Network{
+				v1.Network{
+					Name: networkName,
+					NetworkSource: v1.NetworkSource{
+						Pod: &v1.PodNetwork{
+							VMNetworkCIDR: "1.1.1.1",
+						},
+					},
+				},
+				v1.Network{
+					Name: networkName,
+					NetworkSource: v1.NetworkSource{
+						Multus: &v1.CniNetwork{
+							NetworkName: "multus",
+						},
+					},
+				},
+			}
+			vmiInterface.EXPECT().Update(gomock.Any()).Do(func(arg interface{}) {
+				Expect(len(arg.(*v1.VirtualMachineInstance).Status.Interfaces)).To(Equal(1))
+			}).Return(vmi, nil)
+			controller.Execute()
+		})
 	})
 })
 

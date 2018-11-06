@@ -16,20 +16,4 @@ spec:
     - vmims
     singular: virtualmachineinstancemigration
   scope: Namespaced
-  validation:
-    openAPIV3Schema:
-      properties:
-        apiVersion:
-          type: string
-        kind:
-          type: string
-        metadata: {}
-        spec:
-          properties:
-            vmiName:
-              type: string
-        status:
-          properties:
-            phase:
-              type: string
   version: v1alpha2

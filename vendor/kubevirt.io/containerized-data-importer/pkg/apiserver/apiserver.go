@@ -350,7 +350,7 @@ func (app *uploadAPIApp) uploadHandler(request *restful.Request, response *restf
 		return
 	}
 
-	tokenData, err := GenerateToken(pvcName, namespace, app.privateSigningKey)
+	tokenData, _ := GenerateToken(pvcName, namespace, app.privateSigningKey)
 
 	uploadToken.Status.Token = tokenData
 	response.WriteAsJson(uploadToken)

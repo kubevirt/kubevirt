@@ -24,7 +24,7 @@ import (
 	"fmt"
 	"net/http"
 
-	v1beta1 "k8s.io/api/admission/v1beta1"
+	"k8s.io/api/admission/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 
@@ -75,14 +75,14 @@ func serve(resp http.ResponseWriter, req *http.Request, mutate mutateFunc) {
 }
 
 func mutateVMIs(ar *v1beta1.AdmissionReview) *v1beta1.AdmissionResponse {
-	vmiResource := metav1.GroupVersionResource{
-		Group:    v1.VirtualMachineInstanceGroupVersionKind.Group,
-		Version:  v1.VirtualMachineInstanceGroupVersionKind.Version,
-		Resource: "virtualmachineinstances",
-	}
-	if ar.Request.Resource != vmiResource {
-		err := fmt.Errorf("expect resource to be '%s'", vmiResource.Resource)
+
+	if ar.Request.Resource != webhooks.VirtualMachineInstanceGroupVersionResource {
+		err := fmt.Errorf("expect resource to be '%s'", webhooks.VirtualMachineInstanceGroupVersionResource.Resource)
 		return webhooks.ToAdmissionResponseError(err)
+	}
+
+	if resp := webhooks.ValidateSchema(kubev1.VirtualMachineInstanceGroupVersionKind, ar.Request.Object.Raw); resp != nil {
+		return resp
 	}
 
 	raw := ar.Request.Object.Raw
