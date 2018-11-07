@@ -31,6 +31,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/log"
 	cmdclient "kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap"
+	launcherErrors "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/errors"
 )
 
 type ServerOptions struct {
@@ -53,6 +54,13 @@ func getVmfromClientArgs(args *cmdclient.Args) (*v1.VirtualMachineInstance, erro
 	return args.VMI, nil
 }
 
+func getErrorMessage(err error) string {
+	if virErr := launcherErrors.FormatLibvirtError(err); virErr != "" {
+		return virErr
+	}
+	return err.Error()
+}
+
 func (s *Launcher) Migrate(args *cmdclient.Args, reply *cmdclient.Reply) error {
 
 	reply.Success = true
@@ -68,7 +76,7 @@ func (s *Launcher) Migrate(args *cmdclient.Args, reply *cmdclient.Reply) error {
 	if err != nil {
 		log.Log.Object(vmi).Reason(err).Errorf("Failed to migrate vmi")
 		reply.Success = false
-		reply.Message = err.Error()
+		reply.Message = getErrorMessage(err)
 		return nil
 	}
 
@@ -91,7 +99,7 @@ func (s *Launcher) SyncMigrationTarget(args *cmdclient.Args, reply *cmdclient.Re
 	if err != nil {
 		log.Log.Object(vmi).Reason(err).Errorf("Failed to prepare migration target pod")
 		reply.Success = false
-		reply.Message = err.Error()
+		reply.Message = getErrorMessage(err)
 		return nil
 	}
 
@@ -114,7 +122,7 @@ func (s *Launcher) Sync(args *cmdclient.Args, reply *cmdclient.Reply) error {
 	if err != nil {
 		log.Log.Object(vmi).Reason(err).Errorf("Failed to sync vmi")
 		reply.Success = false
-		reply.Message = err.Error()
+		reply.Message = getErrorMessage(err)
 		return nil
 	}
 
@@ -136,7 +144,7 @@ func (s *Launcher) Kill(args *cmdclient.Args, reply *cmdclient.Reply) error {
 	if err != nil {
 		log.Log.Object(vmi).Reason(err).Errorf("Failed to kill vmi")
 		reply.Success = false
-		reply.Message = err.Error()
+		reply.Message = getErrorMessage(err)
 		return nil
 	}
 
@@ -158,7 +166,7 @@ func (s *Launcher) Shutdown(args *cmdclient.Args, reply *cmdclient.Reply) error 
 	if err != nil {
 		log.Log.Object(vmi).Reason(err).Errorf("Failed to signal shutdown for vmi")
 		reply.Success = false
-		reply.Message = err.Error()
+		reply.Message = getErrorMessage(err)
 		return nil
 	}
 
@@ -180,7 +188,7 @@ func (s *Launcher) Delete(args *cmdclient.Args, reply *cmdclient.Reply) error {
 	if err != nil {
 		log.Log.Object(vmi).Reason(err).Errorf("Failed to signal deletion for vmi")
 		reply.Success = false
-		reply.Message = err.Error()
+		reply.Message = getErrorMessage(err)
 		return nil
 	}
 
@@ -195,7 +203,7 @@ func (s *Launcher) GetDomain(args *cmdclient.Args, reply *cmdclient.Reply) error
 	list, err := s.domainManager.ListAllDomains()
 	if err != nil {
 		reply.Success = false
-		reply.Message = err.Error()
+		reply.Message = getErrorMessage(err)
 		return nil
 	}
 
