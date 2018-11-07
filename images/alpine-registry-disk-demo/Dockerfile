@@ -18,7 +18,7 @@
 
 FROM kubevirt/registry-disk-v1alpha
 
-MAINTAINER "The KubeVirt Project" <kubevirt-dev@googlegroups.com>
+LABEL maintainer="The KubeVirt Project <kubevirt-dev@googlegroups.com>"
 
 # Add alpine image
 RUN curl http://dl-cdn.alpinelinux.org/alpine/v3.7/releases/x86_64/alpine-virt-3.7.0-x86_64.iso > /disk/alpine.iso
