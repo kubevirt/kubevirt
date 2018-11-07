@@ -613,9 +613,7 @@ func getRequiredCapabilities(vmi *v1.VirtualMachineInstance) []k8sv1.Capability 
 		res = append(res, CAP_NET_ADMIN)
 	}
 	// add a CAP_SYS_NICE capability to allow setting cpu affinity
-	if vmi.IsCPUDedicated() {
-		res = append(res, CAP_SYS_NICE)
-	}
+	res = append(res, CAP_SYS_NICE)
 	return res
 }
 
