@@ -362,6 +362,25 @@ func (w *ObjectEventWatcher) WaitNotFor(stopChan chan struct{}, eventType EventT
 	return
 }
 
+func WaitForAllPodsReady(timeout time.Duration, listOptions metav1.ListOptions) {
+	checkForPodsToBeReady := func(listOptions metav1.ListOptions) bool {
+		virtClient, err := kubecli.GetKubevirtClient()
+		PanicOnError(err)
+
+		podsList, err := virtClient.CoreV1().Pods(k8sv1.NamespaceAll).List(listOptions)
+		PanicOnError(err)
+		for _, pod := range podsList.Items {
+			for _, status := range pod.Status.ContainerStatuses {
+				if !status.Ready {
+					return false
+				}
+			}
+		}
+		return true
+	}
+	Eventually(checkForPodsToBeReady, timeout, 2*time.Second).Should(BeTrue(), "The are pods in system which are not ready.")
+}
+
 func AfterTestSuitCleanup() {
 	// Make sure that the namespaces exist, to not have to check in the cleanup code for existing namespaces
 	createNamespaces()
@@ -716,6 +735,7 @@ func DeployTestingInfrastructure() {
 			PanicOnError(err)
 		}
 	}
+	WaitForAllPodsReady(3*time.Minute, metav1.ListOptions{})
 }
 
 func WipeTestingInfrastructure() {
