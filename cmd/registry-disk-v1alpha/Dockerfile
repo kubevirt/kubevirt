@@ -18,7 +18,7 @@
 
 FROM debian:sid
 
-MAINTAINER "David Vossel" \<dvossel@redhat.com\>
+LABEL maintainer="David Vossel <dvossel@redhat.com>"
 ENV container docker
 
 RUN apt-get update && apt-get install -y \

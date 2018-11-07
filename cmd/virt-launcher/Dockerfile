@@ -18,7 +18,7 @@
 
 FROM kubevirt/libvirt:4.2.0
 
-MAINTAINER "The KubeVirt Project" <kubevirt-dev@googlegroups.com>
+LABEL maintainer="The KubeVirt Project <kubevirt-dev@googlegroups.com>"
 
 RUN dnf -y install \
   socat \

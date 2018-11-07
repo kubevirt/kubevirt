@@ -18,7 +18,7 @@
 
 FROM fedora:28
 
-MAINTAINER "The KubeVirt Project" <kubevirt-dev@googlegroups.com>
+LABEL maintainer="The KubeVirt Project <kubevirt-dev@googlegroups.com>"
 ENV container docker
 
 RUN dnf -y install make git gcc && dnf -y clean all

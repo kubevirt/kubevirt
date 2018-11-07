@@ -18,7 +18,7 @@
 
 FROM fedora:28
 
-MAINTAINER "The KubeVirt Project" <kubevirt-dev@googlegroups.com>
+LABEL maintainer="The KubeVirt Project <kubevirt-dev@googlegroups.com>"
 
 COPY virt-handler /usr/bin/virt-handler
 COPY .version /.version
