@@ -72,6 +72,16 @@ func (_mr *_MockConnectionRecorder) DomainEventLifecycleRegister(arg0 interface{
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "DomainEventLifecycleRegister", arg0)
 }
 
+func (_m *MockConnection) AgentEventLifecycleRegister(callback libvirt_go.DomainEventAgentLifecycleCallback) error {
+	ret := _m.ctrl.Call(_m, "AgentEventLifecycleRegister", callback)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+func (_mr *_MockConnectionRecorder) AgentEventLifecycleRegister(arg0 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "AgentEventLifecycleRegister", arg0)
+}
+
 func (_m *MockConnection) ListAllDomains(flags libvirt_go.ConnectListAllDomainsFlags) ([]VirDomain, error) {
 	ret := _m.ctrl.Call(_m, "ListAllDomains", flags)
 	ret0, _ := ret[0].([]VirDomain)
@@ -92,6 +102,14 @@ func (_m *MockConnection) NewStream(flags libvirt_go.StreamFlags) (Stream, error
 
 func (_mr *_MockConnectionRecorder) NewStream(arg0 interface{}) *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "NewStream", arg0)
+}
+
+func (_m *MockConnection) SetReconnectChan(reconnect chan bool) {
+	_m.ctrl.Call(_m, "SetReconnectChan", reconnect)
+}
+
+func (_mr *_MockConnectionRecorder) SetReconnectChan(arg0 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "SetReconnectChan", arg0)
 }
 
 // Mock of Stream interface
@@ -271,6 +289,17 @@ func (_m *MockVirDomain) GetXMLDesc(flags libvirt_go.DomainXMLFlags) (string, er
 
 func (_mr *_MockVirDomainRecorder) GetXMLDesc(arg0 interface{}) *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "GetXMLDesc", arg0)
+}
+
+func (_m *MockVirDomain) GetMetadata(tipus libvirt_go.DomainMetadataType, uri string, flags libvirt_go.DomainModificationImpact) (string, error) {
+	ret := _m.ctrl.Call(_m, "GetMetadata", tipus, uri, flags)
+	ret0, _ := ret[0].(string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+func (_mr *_MockVirDomainRecorder) GetMetadata(arg0, arg1, arg2 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "GetMetadata", arg0, arg1, arg2)
 }
 
 func (_m *MockVirDomain) OpenConsole(devname string, stream *libvirt_go.Stream, flags libvirt_go.DomainConsoleFlags) error {

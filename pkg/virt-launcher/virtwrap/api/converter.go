@@ -204,6 +204,19 @@ func toApiReadOnly(src bool) *ReadOnly {
 	return nil
 }
 
+// Add_Agent_To_api_Channel creates the channel for guest agent communication
+func Add_Agent_To_api_Channel() (channel Channel) {
+	channel.Type = "unix"
+	// let libvirt decide which path to use
+	channel.Source = nil
+	channel.Target = &ChannelTarget{
+		Name: "org.qemu.guest_agent.0",
+		Type: "virtio",
+	}
+
+	return
+}
+
 func Convert_v1_Volume_To_api_Disk(source *v1.Volume, disk *Disk, c *ConverterContext) error {
 
 	if source.RegistryDisk != nil {
@@ -344,7 +357,10 @@ func Convert_v1_EphemeralVolumeSource_To_api_Disk(volumeName string, source *v1.
 	disk.Type = "file"
 	disk.Driver.Type = "qcow2"
 	disk.Source.File = ephemeraldisk.GetFilePath(volumeName)
-	disk.BackingStore = &BackingStore{}
+	disk.BackingStore = &BackingStore{
+		Format: &BackingStoreFormat{},
+		Source: &DiskSource{},
+	}
 
 	backingDisk := &Disk{Driver: &DiskDriver{}}
 	err := Convert_v1_FilesystemVolumeSource_To_api_Disk(volumeName, backingDisk, c)
@@ -525,9 +541,15 @@ func Convert_v1_VirtualMachine_To_api_Domain(vmi *v1.VirtualMachineInstance, dom
 	}
 
 	// Spec metadata
+
+	newChannel := Add_Agent_To_api_Channel()
+	domain.Spec.Devices.Channels = append(domain.Spec.Devices.Channels, newChannel)
+
 	domain.Spec.Metadata.KubeVirt.UID = vmi.UID
 	if vmi.Spec.TerminationGracePeriodSeconds != nil {
-		domain.Spec.Metadata.KubeVirt.GracePeriod.DeletionGracePeriodSeconds = *vmi.Spec.TerminationGracePeriodSeconds
+		domain.Spec.Metadata.KubeVirt.GracePeriod = &GracePeriodMetadata{
+			DeletionGracePeriodSeconds: *vmi.Spec.TerminationGracePeriodSeconds,
+		}
 	}
 
 	domain.Spec.SysInfo = &SysInfo{}

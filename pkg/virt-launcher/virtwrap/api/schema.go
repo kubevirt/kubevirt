@@ -206,9 +206,9 @@ type Metadata struct {
 }
 
 type KubeVirtMetadata struct {
-	UID         types.UID           `xml:"uid"`
-	GracePeriod GracePeriodMetadata `xml:"graceperiod,omitempty"`
-	Migration   *MigrationMetadata  `xml:"migration,omitempty"`
+	UID         types.UID            `xml:"uid"`
+	GracePeriod *GracePeriodMetadata `xml:"graceperiod,omitempty"`
+	Migration   *MigrationMetadata   `xml:"migration,omitempty"`
 }
 
 type MigrationMetadata struct {
@@ -360,9 +360,9 @@ type DiskSourceHost struct {
 }
 
 type BackingStore struct {
-	Type   string             `xml:"type,attr"`
-	Format BackingStoreFormat `xml:"format"`
-	Source *DiskSource        `xml:"source"`
+	Type   string              `xml:"type,attr,omitempty"`
+	Format *BackingStoreFormat `xml:"format,omitempty"`
+	Source *DiskSource         `xml:"source,omitempty"`
 }
 
 type BackingStoreFormat struct {
@@ -573,7 +573,7 @@ type Timer struct {
 
 type Channel struct {
 	Type   string         `xml:"type,attr"`
-	Source ChannelSource  `xml:"source,omitempty"`
+	Source *ChannelSource `xml:"source,omitempty"`
 	Target *ChannelTarget `xml:"target,omitempty"`
 }
 
@@ -582,6 +582,7 @@ type ChannelTarget struct {
 	Type    string `xml:"type,attr"`
 	Address string `xml:"address,attr,omitempty"`
 	Port    uint   `xml:"port,attr,omitempty"`
+	State   string `xml:"state,attr,omitempty"`
 }
 
 type ChannelSource struct {

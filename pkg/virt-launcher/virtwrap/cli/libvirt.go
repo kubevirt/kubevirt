@@ -43,8 +43,10 @@ type Connection interface {
 	DomainDefineXML(xml string) (VirDomain, error)
 	Close() (int, error)
 	DomainEventLifecycleRegister(callback libvirt.DomainEventLifecycleCallback) error
+	AgentEventLifecycleRegister(callback libvirt.DomainEventAgentLifecycleCallback) error
 	ListAllDomains(flags libvirt.ConnectListAllDomainsFlags) ([]VirDomain, error)
 	NewStream(flags libvirt.StreamFlags) (Stream, error)
+	SetReconnectChan(reconnect chan bool)
 }
 
 type Stream interface {
@@ -63,8 +65,8 @@ type LibvirtConnection struct {
 	uri           string
 	alive         bool
 	stop          chan struct{}
+	reconnect     chan bool
 	reconnectLock *sync.Mutex
-	callbacks     []libvirt.DomainEventLifecycleCallback
 }
 
 func (s *VirStream) Write(p []byte) (n int, err error) {
@@ -92,6 +94,10 @@ func (s *VirStream) UnderlyingStream() *libvirt.Stream {
 	return s.Stream
 }
 
+func (l *LibvirtConnection) SetReconnectChan(reconnect chan bool) {
+	l.reconnect = reconnect
+}
+
 func (l *LibvirtConnection) NewStream(flags libvirt.StreamFlags) (Stream, error) {
 	if err := l.reconnectIfNecessary(); err != nil {
 		return nil, err
@@ -115,8 +121,17 @@ func (l *LibvirtConnection) DomainEventLifecycleRegister(callback libvirt.Domain
 		return
 	}
 
-	l.callbacks = append(l.callbacks, callback)
 	_, err = l.Connect.DomainEventLifecycleRegister(nil, callback)
+	l.checkConnectionLost(err)
+	return
+}
+
+func (l *LibvirtConnection) AgentEventLifecycleRegister(callback libvirt.DomainEventAgentLifecycleCallback) (err error) {
+	if err = l.reconnectIfNecessary(); err != nil {
+		return
+	}
+
+	_, err = l.Connect.DomainEventAgentLifecycleRegister(nil, callback)
 	l.checkConnectionLost(err)
 	return
 }
@@ -203,13 +218,12 @@ func (l *LibvirtConnection) reconnectIfNecessary() (err error) {
 			return
 		}
 		l.alive = true
-		cbs := l.callbacks
-		l.callbacks = make([]libvirt.DomainEventLifecycleCallback, 0)
-		for _, cb := range cbs {
-			// Notify the callback about the reconnect by sending a nil event.
+
+		if l.reconnect != nil {
+			// Notify the callback about the reconnect through channel.
 			// This way we give the callback a chance to emit an error to the watcher
 			// ListWatcher will re-register automatically afterwards
-			cb(l.Connect, nil, nil)
+			l.reconnect <- true
 		}
 	}
 	return nil
@@ -252,6 +266,7 @@ type VirDomain interface {
 	GetName() (string, error)
 	GetUUIDString() (string, error)
 	GetXMLDesc(flags libvirt.DomainXMLFlags) (string, error)
+	GetMetadata(tipus libvirt.DomainMetadataType, uri string, flags libvirt.DomainModificationImpact) (string, error)
 	OpenConsole(devname string, stream *libvirt.Stream, flags libvirt.DomainConsoleFlags) error
 	Migrate(*libvirt.Connect, libvirt.DomainMigrateFlags, string, string, uint64) (*libvirt.Domain, error)
 	Free() error
@@ -278,7 +293,6 @@ func NewConnection(uri string, user string, pass string, checkInterval time.Dura
 
 	lvConn := &LibvirtConnection{
 		Connect: virConn, user: user, pass: pass, uri: uri, alive: true,
-		callbacks:     make([]libvirt.DomainEventLifecycleCallback, 0),
 		reconnectLock: &sync.Mutex{},
 		stop:          make(chan struct{}),
 	}
