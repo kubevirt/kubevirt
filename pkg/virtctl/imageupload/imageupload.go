@@ -23,6 +23,7 @@ import (
 	"crypto/tls"
 	"fmt"
 	"net/http"
+	"net/url"
 	"os"
 	"time"
 
@@ -171,7 +172,12 @@ func (c *command) run(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return err
 	}
-
+	u, err := url.Parse(uploadProxyURL)
+	if err != nil {
+		return err
+	} else if u.Scheme == "" {
+		uploadProxyURL = fmt.Sprintf("http://%s", uploadProxyURL)
+	}
 	fmt.Printf("Uploading data to %s\n", uploadProxyURL)
 
 	err = uploadData(uploadProxyURL, token, file, insecure)
