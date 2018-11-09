@@ -29,6 +29,7 @@ import (
 	"encoding/xml"
 	"fmt"
 	"os"
+	"strings"
 	"sync"
 	"time"
 
@@ -373,6 +374,28 @@ func (l *LibvirtDomainManager) preStartHook(vmi *v1.VirtualMachineInstance, doma
 	return domain, err
 }
 
+// This function parses the SRIOV-VF-PCI-ADDR variable that is set by SR-IOV
+// device plugin listing PCI IDs for devices allocated to the pod. The format
+// is as follows:
+//
+// "": for no allocated devices
+// "0000:81:11.1,": for a single device
+// "0000:81:11.1,0000:81:11.2[,...]": for multiple devices
+func getSRIOVPCIAddresses() []string {
+	pciAddrString, isSet := os.LookupEnv("SRIOV-VF-PCI-ADDR")
+	if isSet {
+		addrs := strings.Split(pciAddrString, ",")
+		naddrs := len(addrs)
+		if naddrs > 0 {
+			if addrs[naddrs-1] == "" {
+				addrs = addrs[:naddrs-1]
+			}
+		}
+		return addrs
+	}
+	return []string{}
+}
+
 func (l *LibvirtDomainManager) SyncVMI(vmi *v1.VirtualMachineInstance, useEmulation bool) (*api.DomainSpec, error) {
 	l.domainModifyLock.Lock()
 	defer l.domainModifyLock.Unlock()
@@ -406,6 +429,7 @@ func (l *LibvirtDomainManager) SyncVMI(vmi *v1.VirtualMachineInstance, useEmulat
 		UseEmulation:   useEmulation,
 		CPUSet:         podCPUSet,
 		IsBlockPVC:     isBlockPVCMap,
+		SRIOVDevices:   getSRIOVPCIAddresses(),
 	}
 	if err := api.Convert_v1_VirtualMachine_To_api_Domain(vmi, domain, c); err != nil {
 		logger.Error("Conversion failed.")

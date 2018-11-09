@@ -57,6 +57,7 @@ type ConverterContext struct {
 	VirtualMachine *v1.VirtualMachineInstance
 	CPUSet         []int
 	IsBlockPVC     map[string]bool
+	SRIOVDevices   []string
 }
 
 func Convert_v1_Disk_To_api_Disk(diskDevice *v1.Disk, disk *Disk, devicePerBus map[string]int, numQueues *uint) error {
@@ -507,31 +508,6 @@ func Convert_v1_FeatureHyperv_To_api_FeatureHyperv(source *v1.FeatureHyperv, hyp
 	return nil
 }
 
-// This function parses the SRIOV-VF-PCI-ADDR variable that is set by SR-IOV
-// device plugin listing PCI IDs for devices allocated to the pod. The format
-// is as follows:
-//
-// "": for no allocated devices
-// "0000:81:11.1,": for a single device
-// "0000:81:11.1,0000:81:11.2[,...]": for multiple devices
-func getSRIOVPCIAddressesFromEnv() []string {
-	pciAddrString, isSet := os.LookupEnv("SRIOV-VF-PCI-ADDR")
-	if isSet {
-		addrs := strings.Split(pciAddrString, ",")
-		naddrs := len(addrs)
-		if naddrs > 0 {
-			if addrs[naddrs-1] == "" {
-				addrs = addrs[:naddrs-1]
-			}
-		}
-		return addrs
-	}
-	return []string{}
-}
-
-// Allow mocking for tests
-var getSRIOVPCIAddresses = getSRIOVPCIAddressesFromEnv
-
 func popSRIOVPCIAddress(addrs []string) (string, []string, error) {
 	if len(addrs) > 0 {
 		return addrs[0], addrs[1:], nil
@@ -895,7 +871,7 @@ func Convert_v1_VirtualMachine_To_api_Domain(vmi *v1.VirtualMachineInstance, dom
 		networks[network.Name] = network.DeepCopy()
 	}
 
-	sriovPciAddresses := getSRIOVPCIAddresses()
+	sriovPciAddresses := append([]string{}, c.SRIOVDevices...)
 
 	for _, iface := range vmi.Spec.Domain.Devices.Interfaces {
 		net, isExist := networks[iface.Name]
