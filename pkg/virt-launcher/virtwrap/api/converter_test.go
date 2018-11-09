@@ -1331,35 +1331,96 @@ var _ = Describe("Converter", func() {
 				"queues should not be set for models other than virtio")
 		})
 	})
+
+	Context("sriov", func() {
+		vmi := &v1.VirtualMachineInstance{
+			ObjectMeta: k8smeta.ObjectMeta{
+				Name:      "testvmi",
+				Namespace: "mynamespace",
+			},
+		}
+		v1.SetObjectDefaults_VirtualMachineInstance(vmi)
+
+		sriovInterface := v1.Interface{
+			Name: "sriov",
+			InterfaceBindingMethod: v1.InterfaceBindingMethod{
+				SRIOV: &v1.InterfaceSRIOV{},
+			},
+		}
+		vmi.Spec.Domain.Devices.Interfaces = append(vmi.Spec.Domain.Devices.Interfaces, sriovInterface)
+		sriovNetwork := v1.Network{
+			Name: "sriov",
+			NetworkSource: v1.NetworkSource{
+				Multus: &v1.CniNetwork{NetworkName: "sriov"},
+			},
+		}
+		vmi.Spec.Networks = append(vmi.Spec.Networks, sriovNetwork)
+
+		sriovInterface2 := v1.Interface{
+			Name: "sriov2",
+			InterfaceBindingMethod: v1.InterfaceBindingMethod{
+				SRIOV: &v1.InterfaceSRIOV{},
+			},
+		}
+		vmi.Spec.Domain.Devices.Interfaces = append(vmi.Spec.Domain.Devices.Interfaces, sriovInterface2)
+		sriovNetwork2 := v1.Network{
+			Name: "sriov2",
+			NetworkSource: v1.NetworkSource{
+				Multus: &v1.CniNetwork{NetworkName: "sriov2"},
+			},
+		}
+		vmi.Spec.Networks = append(vmi.Spec.Networks, sriovNetwork2)
+
+		It("should convert sriov interface into host device", func() {
+			StubOutgetSRIOVPCIAddressesForTest()
+			domain := vmiToDomain(vmi, &ConverterContext{UseEmulation: true})
+
+			// check that new sriov interfaces are *not* represented in xml domain as interfaces
+			Expect(len(domain.Spec.Devices.Interfaces)).To(Equal(1))
+
+			// check that the sriov interfaces are represented as PCI host devices
+			Expect(len(domain.Spec.Devices.HostDevices)).To(Equal(2))
+			Expect(domain.Spec.Devices.HostDevices[0].Type).To(Equal("pci"))
+			Expect(domain.Spec.Devices.HostDevices[0].Source.Address.Domain).To(Equal("0x0000"))
+			Expect(domain.Spec.Devices.HostDevices[0].Source.Address.Bus).To(Equal("0x81"))
+			Expect(domain.Spec.Devices.HostDevices[0].Source.Address.Slot).To(Equal("0x11"))
+			Expect(domain.Spec.Devices.HostDevices[0].Source.Address.Function).To(Equal("0x1"))
+			Expect(domain.Spec.Devices.HostDevices[1].Type).To(Equal("pci"))
+			Expect(domain.Spec.Devices.HostDevices[1].Source.Address.Domain).To(Equal("0x0000"))
+			Expect(domain.Spec.Devices.HostDevices[1].Source.Address.Bus).To(Equal("0x81"))
+			Expect(domain.Spec.Devices.HostDevices[1].Source.Address.Slot).To(Equal("0x11"))
+			Expect(domain.Spec.Devices.HostDevices[1].Source.Address.Function).To(Equal("0x2"))
+		})
+	})
 })
 
-var _ = Describe("getSRIOVPciAddresses", func() {
+var _ = Describe("getSRIOVPCIAddresses", func() {
 	It("returns empty slice", func() {
-		Expect(len(getSRIOVPciAddresses())).To(Equal(0))
+		Expect(len(getSRIOVPCIAddresses())).To(Equal(0))
 	})
 	It("gracefully handles trailing comma", func() {
 		os.Setenv("SRIOV-VF-PCI-ADDR", "0000:81:11.1,")
-		addrs := getSRIOVPciAddresses()
+		addrs := getSRIOVPCIAddresses()
 		Expect(len(addrs)).To(Equal(1))
 		Expect(addrs[0]).To(Equal("0000:81:11.1"))
 	})
 	It("returns multiple PCI addresses", func() {
 		os.Setenv("SRIOV-VF-PCI-ADDR", "0000:81:11.1,0001:02:00.0")
-		addrs := getSRIOVPciAddresses()
+		addrs := getSRIOVPCIAddresses()
 		Expect(len(addrs)).To(Equal(2))
 		Expect(addrs[0]).To(Equal("0000:81:11.1"))
 		Expect(addrs[1]).To(Equal("0001:02:00.0"))
 	})
 })
 
-var _ = Describe("popSRIOVPciAddress", func() {
+var _ = Describe("popSRIOVPCIAddress", func() {
 	It("fails on empty slice", func() {
-		_, _, err := popSRIOVPciAddress([]string{})
+		_, _, err := popSRIOVPCIAddress([]string{})
 		Expect(err).To(HaveOccurred())
 	})
 	It("pops the next address from a non-empty slice", func() {
 		addrs := []string{"0000:81:11.1", "0001:02:00.0"}
-		addr, rest, err := popSRIOVPciAddress(addrs)
+		addr, rest, err := popSRIOVPCIAddress(addrs)
 		Expect(err).ToNot(HaveOccurred())
 		Expect(addr).To(Equal("0000:81:11.1"))
 		Expect(len(rest)).To(Equal(1))
@@ -1411,4 +1472,8 @@ func True() *bool {
 func False() *bool {
 	b := false
 	return &b
+}
+
+func StubOutgetSRIOVPCIAddressesForTest() {
+	getSRIOVPCIAddresses = func() []string { return []string{"0000:81:11.1", "0000:81:11.2"} }
 }
