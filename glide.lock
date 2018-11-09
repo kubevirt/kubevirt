@@ -39,6 +39,8 @@ imports:
   - log
 - name: github.com/emicklei/go-restful-openapi
   version: 7712e8a6e8096e7103b96a400519d38fb1e348f8
+- name: github.com/phoracek/network-attachment-definition-client
+  version: 306ef67b273c909934589f158440ce248fa91c24
 - name: github.com/emicklei/go-restful-swagger12
   version: 7524189396c68dc4b04d53852f9edc00f816b123
 - name: github.com/evanphx/json-patch
