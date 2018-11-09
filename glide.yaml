@@ -28,6 +28,8 @@ import:
   version: v2.6.0
   subpackages:
   - log
+- package: github.com/phoracek/network-attachment-definition-client
+  version: 306ef67b273c909934589f158440ce248fa91c24
 - package: github.com/ghodss/yaml
   version: v1.0.0
 - package: github.com/evanphx/json-patch
