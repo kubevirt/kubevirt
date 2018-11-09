@@ -536,6 +536,7 @@ var _ = Describe("Converter", func() {
 				},
 				UseEmulation: true,
 				IsBlockPVC:   isBlockPVCMap,
+				SRIOVDevices: []string{},
 			}
 		})
 
@@ -1372,8 +1373,11 @@ var _ = Describe("Converter", func() {
 		vmi.Spec.Networks = append(vmi.Spec.Networks, sriovNetwork2)
 
 		It("should convert sriov interface into host device", func() {
-			StubOutgetSRIOVPCIAddressesForTest()
-			domain := vmiToDomain(vmi, &ConverterContext{UseEmulation: true})
+			c := &ConverterContext{
+				UseEmulation: true,
+				SRIOVDevices: []string{"0000:81:11.1", "0000:81:11.2"},
+			}
+			domain := vmiToDomain(vmi, c)
 
 			// check that new sriov interfaces are *not* represented in xml domain as interfaces
 			Expect(len(domain.Spec.Devices.Interfaces)).To(Equal(1))
@@ -1391,25 +1395,6 @@ var _ = Describe("Converter", func() {
 			Expect(domain.Spec.Devices.HostDevices[1].Source.Address.Slot).To(Equal("0x11"))
 			Expect(domain.Spec.Devices.HostDevices[1].Source.Address.Function).To(Equal("0x2"))
 		})
-	})
-})
-
-var _ = Describe("getSRIOVPCIAddresses", func() {
-	It("returns empty slice", func() {
-		Expect(len(getSRIOVPCIAddresses())).To(Equal(0))
-	})
-	It("gracefully handles trailing comma", func() {
-		os.Setenv("SRIOV-VF-PCI-ADDR", "0000:81:11.1,")
-		addrs := getSRIOVPCIAddresses()
-		Expect(len(addrs)).To(Equal(1))
-		Expect(addrs[0]).To(Equal("0000:81:11.1"))
-	})
-	It("returns multiple PCI addresses", func() {
-		os.Setenv("SRIOV-VF-PCI-ADDR", "0000:81:11.1,0001:02:00.0")
-		addrs := getSRIOVPCIAddresses()
-		Expect(len(addrs)).To(Equal(2))
-		Expect(addrs[0]).To(Equal("0000:81:11.1"))
-		Expect(addrs[1]).To(Equal("0001:02:00.0"))
 	})
 })
 
@@ -1472,8 +1457,4 @@ func True() *bool {
 func False() *bool {
 	b := false
 	return &b
-}
-
-func StubOutgetSRIOVPCIAddressesForTest() {
-	getSRIOVPCIAddresses = func() []string { return []string{"0000:81:11.1", "0000:81:11.2"} }
 }

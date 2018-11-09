@@ -621,6 +621,11 @@ func (in *ConverterContext) DeepCopyInto(out *ConverterContext) {
 			(*out)[key] = val
 		}
 	}
+	if in.SRIOVDevices != nil {
+		in, out := &in.SRIOVDevices, &out.SRIOVDevices
+		*out = make([]string, len(*in))
+		copy(*out, *in)
+	}
 	return
 }
 

@@ -22,6 +22,7 @@ package virtwrap
 import (
 	"encoding/xml"
 	"fmt"
+	"os"
 
 	"github.com/golang/mock/gomock"
 	"github.com/libvirt/libvirt-go"
@@ -254,6 +255,25 @@ var _ = Describe("Manager", func() {
 
 	AfterEach(func() {
 		ctrl.Finish()
+	})
+})
+
+var _ = Describe("getSRIOVPCIAddresses", func() {
+	It("returns empty slice", func() {
+		Expect(len(getSRIOVPCIAddresses())).To(Equal(0))
+	})
+	It("gracefully handles trailing comma", func() {
+		os.Setenv("SRIOV-VF-PCI-ADDR", "0000:81:11.1,")
+		addrs := getSRIOVPCIAddresses()
+		Expect(len(addrs)).To(Equal(1))
+		Expect(addrs[0]).To(Equal("0000:81:11.1"))
+	})
+	It("returns multiple PCI addresses", func() {
+		os.Setenv("SRIOV-VF-PCI-ADDR", "0000:81:11.1,0001:02:00.0")
+		addrs := getSRIOVPCIAddresses()
+		Expect(len(addrs)).To(Equal(2))
+		Expect(addrs[0]).To(Equal("0000:81:11.1"))
+		Expect(addrs[1]).To(Equal("0001:02:00.0"))
 	})
 })
 
