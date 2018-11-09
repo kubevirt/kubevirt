@@ -32,8 +32,10 @@ var _ = Describe("VirtualMachine", func() {
 		kubecli.MockKubevirtClientInstance.EXPECT().VirtualMachine(k8smetav1.NamespaceDefault).Return(vmInterface).AnyTimes()
 		// set up mock interface behavior
 		vmInterface.EXPECT().Get(vm.Name, gomock.Any()).Return(vm, nil).AnyTimes()
-		vmInterface.EXPECT().Get(unknownVM, gomock.Any()).Return(nil, errors.New("unknonw VM")).AnyTimes()
+		vmInterface.EXPECT().Get(unknownVM, gomock.Any()).Return(nil, errors.New("unknown VM")).AnyTimes()
 		vmInterface.EXPECT().Patch(vmName, gomock.Any(), gomock.Any()).Return(vm, nil).AnyTimes()
+		vmInterface.EXPECT().Restart(vmName).Return(nil).AnyTimes()
+		vmInterface.EXPECT().Restart(unknownVM).Return(errors.New("unknown VM")).AnyTimes()
 	})
 
 	Context("should patch VM", func() {
@@ -60,6 +62,24 @@ var _ = Describe("VirtualMachine", func() {
 			Expect(cmd()).NotTo(BeNil())
 		})
 
+	})
+
+	Context("with restart VM cmd", func() {
+		It("should restart vm", func() {
+			buffer := &bytes.Buffer{}
+			cmd := tests.NewVirtctlCommand("restart", vmName)
+			cmd.SetOutput(buffer)
+			Expect(cmd.Execute()).To(BeNil())
+			Expect(buffer.String()).To(Equal(fmt.Sprintf("VM %s was scheduled to restart\n", vmName)))
+		})
+
+		It("should return an error", func() {
+			buffer := &bytes.Buffer{}
+			cmd := tests.NewVirtctlCommand("restart", unknownVM)
+			cmd.SetOutput(buffer)
+			Expect(cmd.Execute()).To(Equal(errors.New("Error fetching VirtualMachine: unknown VM")))
+			Expect(buffer.String()).To(Equal(""))
+		})
 	})
 
 	AfterEach(func() {

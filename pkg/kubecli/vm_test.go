@@ -38,6 +38,8 @@ var _ = Describe("Kubevirt VirtualMachine Client", func() {
 	var client KubevirtClient
 	basePath := "/apis/kubevirt.io/v1alpha2/namespaces/default/virtualmachines"
 	vmiPath := basePath + "/testvm"
+	subBasePath := "/apis/subresources.kubevirt.io/v1alpha2/namespaces/default/virtualmachines"
+	subVMIPath := subBasePath + "/testvm"
 
 	BeforeEach(func() {
 		var err error
@@ -154,6 +156,17 @@ var _ = Describe("Kubevirt VirtualMachine Client", func() {
 			ghttp.RespondWithJSONEncoded(http.StatusOK, nil),
 		))
 		err := client.VirtualMachine(k8sv1.NamespaceDefault).Delete("testvm", &k8smetav1.DeleteOptions{})
+
+		Expect(server.ReceivedRequests()).To(HaveLen(1))
+		Expect(err).ToNot(HaveOccurred())
+	})
+
+	It("should restart a VirtualMachine", func() {
+		server.AppendHandlers(ghttp.CombineHandlers(
+			ghttp.VerifyRequest("GET", subVMIPath+"/restart"),
+			ghttp.RespondWithJSONEncoded(http.StatusOK, nil),
+		))
+		err := client.VirtualMachine(k8sv1.NamespaceDefault).Restart("testvm")
 
 		Expect(server.ReceivedRequests()).To(HaveLen(1))
 		Expect(err).ToNot(HaveOccurred())
