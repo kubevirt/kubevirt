@@ -29,6 +29,7 @@ import (
 	. "github.com/onsi/gomega"
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	v13 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
@@ -38,9 +39,10 @@ import (
 )
 
 const (
-	postUrl    = "/apis/k8s.cni.cncf.io/v1/namespaces/%s/network-attachment-definitions/%s"
-	ovsConfCRD = `{"apiVersion":"k8s.cni.cncf.io/v1","kind":"NetworkAttachmentDefinition","metadata":{"name":"%s","namespace":"%s"},"spec":{"config":"{ \"cniVersion\": \"0.3.1\", \"type\": \"ovs\", \"bridge\": \"br1\", \"vlan\": 100 }"}}`
-	ptpConfCRD = `{"apiVersion":"k8s.cni.cncf.io/v1","kind":"NetworkAttachmentDefinition","metadata":{"name":"%s","namespace":"%s"},"spec":{"config":"{ \"name\": \"mynet\", \"type\": \"ptp\", \"ipam\": { \"type\": \"host-local\", \"subnet\": \"10.1.1.0/24\" } }"}}`
+	postUrl      = "/apis/k8s.cni.cncf.io/v1/namespaces/%s/network-attachment-definitions/%s"
+	ovsConfCRD   = `{"apiVersion":"k8s.cni.cncf.io/v1","kind":"NetworkAttachmentDefinition","metadata":{"name":"%s","namespace":"%s"},"spec":{"config":"{ \"cniVersion\": \"0.3.1\", \"type\": \"ovs\", \"bridge\": \"br1\", \"vlan\": 100 }"}}`
+	ptpConfCRD   = `{"apiVersion":"k8s.cni.cncf.io/v1","kind":"NetworkAttachmentDefinition","metadata":{"name":"%s","namespace":"%s"},"spec":{"config":"{ \"name\": \"mynet\", \"type\": \"ptp\", \"ipam\": { \"type\": \"host-local\", \"subnet\": \"10.1.1.0/24\" } }"}}`
+	sriovConfCRD = `{"apiVersion":"k8s.cni.cncf.io/v1","kind":"NetworkAttachmentDefinition","metadata":{"name":"%s","namespace":"%s","annotations":{"k8s.v1.cni.cncf.io/resourceName":"intel.com/sriov"}},"spec":{"config":"{ \"name\": \"sriov\", \"type\": \"sriov\", \"ipam\": { \"type\": \"host-local\", \"subnet\": \"10.1.1.0/24\" } }"}}`
 )
 
 var _ = Describe("Multus Networking", func() {
@@ -97,6 +99,12 @@ var _ = Describe("Multus Networking", func() {
 			Post().
 			RequestURI(fmt.Sprintf(postUrl, tests.NamespaceTestDefault, "ptp-conf")).
 			Body([]byte(fmt.Sprintf(ptpConfCRD, "ptp-conf", tests.NamespaceTestDefault))).
+			Do()
+		Expect(result.Error()).NotTo(HaveOccurred())
+		result = virtClient.RestClient().
+			Post().
+			RequestURI(fmt.Sprintf(postUrl, tests.NamespaceTestDefault, "sriov")).
+			Body([]byte(fmt.Sprintf(sriovConfCRD, "sriov", tests.NamespaceTestDefault))).
 			Do()
 		Expect(result.Error()).NotTo(HaveOccurred())
 	})
@@ -159,11 +167,73 @@ var _ = Describe("Multus Networking", func() {
 			}, 15)
 			Expect(err).ToNot(HaveOccurred())
 
-			By("checking virtual machine instance as two interfaces")
+			By("checking virtual machine instance has two interfaces")
 			checkInterface(detachedVMI, "eth0", "\\$ ")
 			checkInterface(detachedVMI, "eth1", "\\$ ")
 
 			pingVirtualMachine(detachedVMI, "10.1.1.1", "\\$ ")
+		})
+	})
+
+	Context("VirtualMachineInstance with sriov plugin interface", func() {
+		BeforeEach(func() {
+			tests.SkipIfNoSriovDevicePlugin(virtClient)
+		})
+		AfterEach(func() {
+			deleteVMIs(virtClient, []*v1.VirtualMachineInstance{vmiOne})
+		})
+
+		It("should create a virtual machine with sriov interface", func() {
+			// since neither cirros nor alpine has drivers for Intel NICs, we are left with fedora
+			userData := "#cloud-config\npassword: fedora\nchpasswd: { expire: False }\n"
+			vmiOne = tests.NewRandomVMIWithEphemeralDiskAndUserdata(tests.RegistryDiskFor(tests.RegistryDiskFedora), userData)
+			tests.AddExplicitPodNetworkInterface(vmiOne)
+
+			iface := v1.Interface{Name: "sriov", InterfaceBindingMethod: v1.InterfaceBindingMethod{SRIOV: &v1.InterfaceSRIOV{}}}
+			network := v1.Network{Name: "sriov", NetworkSource: v1.NetworkSource{Multus: &v1.CniNetwork{NetworkName: "sriov"}}}
+			vmiOne.Spec.Domain.Devices.Interfaces = append(vmiOne.Spec.Domain.Devices.Interfaces, iface)
+			vmiOne.Spec.Networks = append(vmiOne.Spec.Networks, network)
+
+			// mutating hook is not integrated yet so fill in limits / requests to allocate intel devices
+			vmiOne.Spec.Domain.Resources.Limits = make(k8sv1.ResourceList)
+			for resource, value := range map[k8sv1.ResourceName]resource.Quantity{k8sv1.ResourceName("intel.com/sriov"): resource.MustParse("1")} {
+				vmiOne.Spec.Domain.Resources.Limits[resource] = value
+				vmiOne.Spec.Domain.Resources.Requests[resource] = value
+			}
+
+			// fedora requires some more memory to boot without kernel panics
+			vmiOne.Spec.Domain.Resources.Requests[k8sv1.ResourceName("memory")] = resource.MustParse("1024M")
+
+			_, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmiOne)
+			Expect(err).ToNot(HaveOccurred())
+			tests.WaitUntilVMIReady(vmiOne, tests.LoggedInFedoraExpecter)
+
+			By("checking default interface is present")
+			vmiPod := tests.GetRunningPodByVirtualMachineInstance(vmiOne, tests.NamespaceTestDefault)
+			_, err := tests.ExecuteCommandOnPod(
+				virtClient,
+				vmiPod,
+				"compute",
+				[]string{"ip", "address", "show", "eth0"},
+			)
+			Expect(err).ToNot(HaveOccurred())
+
+			By("checking default interface is attached to VMI")
+			_, err = tests.ExecuteCommandOnPod(
+				virtClient,
+				vmiPod,
+				"compute",
+				[]string{"ip", "address", "show", "k6t-eth0"},
+			)
+			Expect(err).ToNot(HaveOccurred())
+
+			By("checking virtual machine instance has two interfaces")
+			checkInterface(vmiOne, "eth0", "#")
+			checkInterface(vmiOne, "eth1", "#")
+
+			// there is little we can do beyond just checking two devices are present: PCI slots are different inside
+			// the guest, and DP doesn't pass information about vendor IDs of allocated devices into the pod, so
+			// it's hard to match them.
 		})
 	})
 

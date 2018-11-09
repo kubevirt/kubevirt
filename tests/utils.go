@@ -1902,6 +1902,13 @@ func SkipIfNoRhelImage(virtClient kubecli.KubevirtClient) {
 	}
 }
 
+func SkipIfNoSriovDevicePlugin(virtClient kubecli.KubevirtClient) {
+	_, err := virtClient.ExtensionsV1beta1().DaemonSets(KubeVirtInstallNamespace).Get("kube-sriov-device-plugin-amd64", metav1.GetOptions{})
+	if err != nil {
+		Skip("Skip srio tests that required sriov device plugin")
+	}
+}
+
 func SkipIfNoMultusProvider(virtClient kubecli.KubevirtClient) {
 	_, err := virtClient.ExtensionsV1beta1().DaemonSets(KubeVirtInstallNamespace).Get("kube-multus-ds-amd64", metav1.GetOptions{})
 	if err != nil {
