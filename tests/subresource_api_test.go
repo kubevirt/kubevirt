@@ -22,6 +22,7 @@ package tests_test
 import (
 	"flag"
 	"fmt"
+	"time"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -71,6 +72,50 @@ var _ = Describe("Subresource Api", func() {
 			It("should be able to access subresource version endpoint", func() {
 				testClientJob(virtCli, false, resource)
 			}, 15)
+		})
+	})
+
+	Describe("VirtualMachine subresource", func() {
+		Context("with a restart endpoint", func() {
+			It("should restart a VM", func() {
+				vm := NewRandomVirtualMachine(tests.NewRandomVMI(), false)
+				vm, err := virtCli.VirtualMachine(tests.NamespaceTestDefault).Create(vm)
+				Expect(err).NotTo(HaveOccurred())
+
+				tests.StartVirtualMachine(vm)
+				vmi, err := virtCli.VirtualMachineInstance(tests.NamespaceTestDefault).Get(vm.Name, &metav1.GetOptions{})
+				Expect(err).NotTo(HaveOccurred())
+				Expect(vmi.Status.Phase).To(Equal(v1.Running))
+
+				err = virtCli.VirtualMachine(tests.NamespaceTestDefault).Restart(vm.Name)
+				Expect(err).NotTo(HaveOccurred())
+
+				Eventually(func() v1.VirtualMachineInstancePhase {
+					newVMI, err := virtCli.VirtualMachineInstance(tests.NamespaceTestDefault).Get(vm.Name, &metav1.GetOptions{})
+					Expect(err).ToNot(HaveOccurred())
+					if vmi.UID == newVMI.UID {
+						return v1.VmPhaseUnset
+					}
+					return newVMI.Status.Phase
+				}, 60*time.Second, 1*time.Second).Should(Equal(v1.Running))
+			})
+
+			It("should return an error when VM is not running", func() {
+				vm := NewRandomVirtualMachine(tests.NewRandomVMI(), false)
+				vm, err := virtCli.VirtualMachine(tests.NamespaceTestDefault).Create(vm)
+				Expect(err).NotTo(HaveOccurred())
+
+				err = virtCli.VirtualMachine(tests.NamespaceTestDefault).Restart(vm.Name)
+				Expect(err).To(HaveOccurred())
+			})
+
+			It("should return an error when VM has not been found but VMI is running", func() {
+				vmi := tests.NewRandomVMI()
+				tests.RunVMIAndExpectLaunch(vmi, false, 60)
+
+				err := virtCli.VirtualMachine(tests.NamespaceTestDefault).Restart(vmi.Name)
+				Expect(err).To(HaveOccurred())
+			})
 		})
 	})
 })
