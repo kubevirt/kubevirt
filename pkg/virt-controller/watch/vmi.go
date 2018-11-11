@@ -921,14 +921,3 @@ func (c *VMIController) getControllerOf(pod *k8sv1.Pod) *v1.OwnerReference {
 		BlockOwnerDeletion: &t,
 	}
 }
-
-func (c *VMIController) getControllerOfDataVolume(dataVolume *cdiv1.DataVolume) *v1.OwnerReference {
-	t := true
-	return &v1.OwnerReference{
-		Kind:               virtv1.VirtualMachineInstanceGroupVersionKind.Kind,
-		Name:               dataVolume.Annotations[virtv1.DomainAnnotation],
-		UID:                types.UID(dataVolume.Annotations[virtv1.CreatedByLabel]),
-		Controller:         &t,
-		BlockOwnerDeletion: &t,
-	}
-}
