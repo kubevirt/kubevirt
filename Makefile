@@ -15,8 +15,11 @@ client-python:
 build:
 	hack/dockerized "./hack/check.sh && KUBEVIRT_VERSION=${KUBEVIRT_VERSION} ./hack/build-go.sh install ${WHAT}" && ./hack/build-copy-artifacts.sh ${WHAT}
 
+coverage:
+	hack/dockerized "./hack/check.sh && ./hack/coverage.sh ${WHAT}"
+
 goveralls:
-	SYNC_OUT=false hack/dockerized "./hack/check.sh && TRAVIS_JOB_ID=${TRAVIS_JOB_ID} TRAVIS_PULL_REQUEST=${TRAVIS_PULL_REQUEST} TRAVIS_BRANCH=${TRAVIS_BRANCH} ./hack/goveralls.sh"
+	SYNC_OUT=false hack/dockerized "TRAVIS_JOB_ID=${TRAVIS_JOB_ID} TRAVIS_PULL_REQUEST=${TRAVIS_PULL_REQUEST} TRAVIS_BRANCH=${TRAVIS_BRANCH} ./hack/check.sh && ./hack/coverage.sh && ./hack/goveralls.sh"
 
 test:
 	SYNC_OUT=false hack/dockerized "./hack/check.sh && ./hack/build-go.sh test ${WHAT}"
