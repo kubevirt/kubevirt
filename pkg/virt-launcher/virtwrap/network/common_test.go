@@ -63,4 +63,19 @@ var _ = Describe("Common Methods", func() {
 			Expect(qemuArg).To(Equal(cached_qemuArg))
 		})
 	})
+	Context("GetAvailableAddrsFromCIDR Function", func() {
+		It("Should return 2 addresses", func() {
+			networkHandler := NetworkUtilsHandler{}
+			ips, err := networkHandler.GetAvailableAddrsFromCIDR("10.0.0.0/30")
+			Expect(err).ToNot(HaveOccurred())
+			Expect(len(ips)).To(Equal(2))
+			Expect(ips[0]).To(Equal("10.0.0.1/30"))
+			Expect(ips[1]).To(Equal("10.0.0.2/30"))
+		})
+		It("Should fail when the subnet is too small", func() {
+			networkHandler := NetworkUtilsHandler{}
+			_, err := networkHandler.GetAvailableAddrsFromCIDR("10.0.0.0/31")
+			Expect(err).To(HaveOccurred())
+		})
+	})
 })

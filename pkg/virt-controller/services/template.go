@@ -798,6 +798,15 @@ func getCniInterfaceList(vmi *v1.VirtualMachineInstance) (ifaceListString string
 	return
 }
 
+func haveProxyInterface(vmi *v1.VirtualMachineInstance) bool {
+	for _, iface := range vmi.Spec.Domain.Devices.Interfaces {
+		if iface.InterfaceBindingMethod.Proxy != nil {
+			return true
+		}
+	}
+	return false
+}
+
 func NewTemplateService(launcherImage string,
 	virtShareDir string,
 	ephemeralDiskDir string,

@@ -378,6 +378,10 @@ func (InterfaceSlirp) SwaggerDoc() map[string]string {
 	return map[string]string{}
 }
 
+func (InterfaceProxy) SwaggerDoc() map[string]string {
+	return map[string]string{}
+}
+
 func (InterfaceSRIOV) SwaggerDoc() map[string]string {
 	return map[string]string{}
 }
