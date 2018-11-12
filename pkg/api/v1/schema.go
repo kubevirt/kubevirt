@@ -817,6 +817,7 @@ type DHCPOptions struct {
 type InterfaceBindingMethod struct {
 	Bridge *InterfaceBridge `json:"bridge,omitempty"`
 	Slirp  *InterfaceSlirp  `json:"slirp,omitempty"`
+	Proxy  *InterfaceProxy  `json:"proxy,omitempty"`
 	SRIOV  *InterfaceSRIOV  `json:"sriov,omitempty"`
 }
 
@@ -827,6 +828,10 @@ type InterfaceBridge struct{}
 // ---
 // +k8s:openapi-gen=true
 type InterfaceSlirp struct{}
+
+// ---
+// +k8s:openapi-gen=true
+type InterfaceProxy struct{}
 
 // ---
 // +k8s:openapi-gen=true

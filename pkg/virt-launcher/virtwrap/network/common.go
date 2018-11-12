@@ -22,11 +22,15 @@
 package network
 
 import (
+	"crypto/rand"
 	"encoding/json"
 	"fmt"
+
 	"io/ioutil"
 	"net"
 	"os"
+
+	"github.com/coreos/go-iptables/iptables"
 
 	lmf "github.com/subgraph/libmacouflage"
 	"github.com/vishvananda/netlink"
@@ -59,9 +63,14 @@ type NetworkHandler interface {
 	LinkAdd(link netlink.Link) error
 	LinkSetLearningOff(link netlink.Link) error
 	ParseAddr(s string) (*netlink.Addr, error)
+	GetHostAndGwAddressesFromCIDR(s string) (string, string, error)
 	SetRandomMac(iface string) (net.HardwareAddr, error)
+	GenerateRandomMac() (net.HardwareAddr, error)
 	GetMacDetails(iface string) (net.HardwareAddr, error)
+	LinkSetMaster(link netlink.Link, master *netlink.Bridge) error
 	StartDHCP(nic *VIF, serverAddr *netlink.Addr, bridgeInterfaceName string, dhcpOptions *v1.DHCPOptions)
+	IptablesNewChain(table, chain string) error
+	IptablesAppendRule(table, chain string, rulespec ...string) error
 }
 
 type NetworkUtilsHandler struct{}
@@ -97,6 +106,53 @@ func (h *NetworkUtilsHandler) ParseAddr(s string) (*netlink.Addr, error) {
 }
 func (h *NetworkUtilsHandler) AddrAdd(link netlink.Link, addr *netlink.Addr) error {
 	return netlink.AddrAdd(link, addr)
+}
+func (h *NetworkUtilsHandler) LinkSetMaster(link netlink.Link, master *netlink.Bridge) error {
+	return netlink.LinkSetMaster(link, master)
+}
+func (h *NetworkUtilsHandler) IptablesNewChain(table, chain string) error {
+	iptablesObject, err := iptables.New()
+	if err != nil {
+		return err
+	}
+
+	return iptablesObject.NewChain(table, chain)
+}
+func (h *NetworkUtilsHandler) IptablesAppendRule(table, chain string, rulespec ...string) error {
+	iptablesObject, err := iptables.New()
+	if err != nil {
+		return err
+	}
+
+	return iptablesObject.Append(table, chain, rulespec...)
+}
+func (h *NetworkUtilsHandler) GetHostAndGwAddressesFromCIDR(s string) (string, string, error) {
+	ip, ipnet, err := net.ParseCIDR(s)
+	if err != nil {
+		return "", "", err
+	}
+
+	subnet, _ := ipnet.Mask.Size()
+	var ips []string
+	for ip := ip.Mask(ipnet.Mask); ipnet.Contains(ip); inc(ip) {
+		ips = append(ips, fmt.Sprintf("%s/%d", ip.String(), subnet))
+
+		if len(ips) == 4 {
+			// remove network address and broadcast address
+			return ips[1], ips[2], nil
+		}
+	}
+
+	return "", "", fmt.Errorf("less than 4 addresses on network")
+}
+
+func inc(ip net.IP) {
+	for j := len(ip) - 1; j >= 0; j-- {
+		ip[j]++
+		if ip[j] > 0 {
+			break
+		}
+	}
 }
 
 // GetMacDetails from an interface
@@ -172,6 +228,18 @@ func (h *NetworkUtilsHandler) StartDHCP(nic *VIF, serverAddr *netlink.Addr, brid
 			panic(err)
 		}
 	}()
+}
+
+// Generate a random mac for interface
+// Avoid MAC address starting with reserved value 0xFE (https://github.com/kubevirt/kubevirt/issues/1494)
+func (h *NetworkUtilsHandler) GenerateRandomMac() (net.HardwareAddr, error) {
+	prefix := []byte{0x02, 0x00, 0x00} // local unicast prefix
+	suffix := make([]byte, 3)
+	_, err := rand.Read(suffix)
+	if err != nil {
+		return nil, err
+	}
+	return net.HardwareAddr(append(prefix, suffix...)), nil
 }
 
 // Allow mocking for tests

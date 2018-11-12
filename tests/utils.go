@@ -1478,6 +1478,14 @@ func NewRandomVMIWithBridgeInterfaceEphemeralDiskAndUserdata(containerImage stri
 	return vmi
 }
 
+func NewRandomVMIWithProxyInterfaceEphemeralDiskAndUserdata(containerImage string, userData string, Ports []v1.Port) *v1.VirtualMachineInstance {
+	vmi := NewRandomVMIWithEphemeralDiskAndUserdata(containerImage, userData)
+	vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{{Name: "default", Ports: Ports, InterfaceBindingMethod: v1.InterfaceBindingMethod{Proxy: &v1.InterfaceProxy{}}}}
+	vmi.Spec.Networks = []v1.Network{*v1.DefaultPodNetwork()}
+
+	return vmi
+}
+
 func AddExplicitPodNetworkInterface(vmi *v1.VirtualMachineInstance) {
 	vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{*v1.DefaultNetworkInterface()}
 	vmi.Spec.Networks = []v1.Network{*v1.DefaultPodNetwork()}

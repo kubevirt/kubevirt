@@ -968,7 +968,7 @@ func Convert_v1_VirtualMachine_To_api_Domain(vmi *v1.VirtualMachineInstance, dom
 				domainIface.Address = addr
 			}
 
-			if iface.Bridge != nil {
+			if iface.Bridge != nil || iface.Proxy != nil {
 				// TODO:(ihar) consider abstracting interface type conversion /
 				// detection into drivers
 				domainIface.Type = "bridge"

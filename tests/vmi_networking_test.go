@@ -27,6 +27,9 @@ import (
 	"time"
 
 	expect "github.com/google/goexpect"
+	"kubevirt.io/kubevirt/pkg/virtctl/expose"
+
+	"github.com/google/goexpect"
 	. "github.com/onsi/ginkgo"
 	"github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
@@ -590,6 +593,76 @@ var _ = Describe("Networking", func() {
 				&expect.BExp{R: "#"},
 			}, 15)
 
+			Expect(err).ToNot(HaveOccurred())
+		})
+	})
+
+	Context("VirtualMachineInstance with proxy binding mechanism", func() {
+		var serverVMI *v1.VirtualMachineInstance
+		var clientVMI *v1.VirtualMachineInstance
+
+		It("should allow regular network connection", func() {
+			By("creating two virtual machines")
+			ports := []v1.Port{{Name: "http", Port: 8080}}
+			serverVMI = tests.NewRandomVMIWithProxyInterfaceEphemeralDiskAndUserdata(tests.RegistryDiskFor(tests.RegistryDiskCirros), "#!/bin/bash\necho 'hello'\n", ports)
+			serverVMI.Labels = map[string]string{"expose": "server"}
+			_, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(serverVMI)
+			Expect(err).ToNot(HaveOccurred())
+
+			clientVMI = tests.NewRandomVMIWithProxyInterfaceEphemeralDiskAndUserdata(tests.RegistryDiskFor(tests.RegistryDiskCirros), "#!/bin/bash\necho 'hello'\n", []v1.Port{})
+			_, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(clientVMI)
+			Expect(err).ToNot(HaveOccurred())
+
+			By("waiting for the virtual machines to become ready")
+
+			tests.WaitUntilVMIReady(serverVMI, tests.LoggedInCirrosExpecter)
+			tests.WaitUntilVMIReady(clientVMI, tests.LoggedInCirrosExpecter)
+
+			By("expose service for the server virtual machine")
+			virtctl := tests.NewRepeatableVirtctlCommand(expose.COMMAND_EXPOSE, "virtualmachineinstance", "--namespace",
+				serverVMI.Namespace, serverVMI.Name, "--port", "8080", "--name", "server-tcp")
+			err = virtctl()
+			Expect(err).ToNot(HaveOccurred())
+
+			virtctl = tests.NewRepeatableVirtctlCommand(expose.COMMAND_EXPOSE, "virtualmachineinstance", "--namespace",
+				serverVMI.Namespace, serverVMI.Name, "--port", "8081", "--name", "server-tcp-8081")
+			err = virtctl()
+			Expect(err).ToNot(HaveOccurred())
+
+			By("check ping to google")
+			pingVirtualMachine(serverVMI, "8.8.8.8", "\\$ ")
+
+			By("start a tcp server")
+			err = tests.CheckForTextExpecter(serverVMI, []expect.Batcher{
+				&expect.BSnd{S: "\n"},
+				&expect.BExp{R: "\\$ "},
+				&expect.BSnd{S: "screen -d -m sudo nc -klp 8080 -e echo -e 'Hello World!'\n"},
+				&expect.BExp{R: "\\$ "},
+				&expect.BSnd{S: "echo $?\n"},
+				&expect.BExp{R: "0"},
+			}, 30)
+			Expect(err).ToNot(HaveOccurred())
+
+			By("Connect from the client")
+			err = tests.CheckForTextExpecter(clientVMI, []expect.Batcher{
+				&expect.BSnd{S: "\n"},
+				&expect.BExp{R: "\\$ "},
+				&expect.BSnd{S: "echo test | nc -w 1 server-tcp 8080 1> /dev/null\n"},
+				&expect.BExp{R: "\\$ "},
+				&expect.BSnd{S: "echo $?\n"},
+				&expect.BExp{R: "0"},
+			}, 30)
+			Expect(err).ToNot(HaveOccurred())
+
+			By("Reject the connection from the client to un registered port")
+			err = tests.CheckForTextExpecter(clientVMI, []expect.Batcher{
+				&expect.BSnd{S: "\n"},
+				&expect.BExp{R: "\\$ "},
+				&expect.BSnd{S: "echo test | nc -w 1 server-tcp-8081 8081 1> /dev/null\n"},
+				&expect.BExp{R: "\\$ "},
+				&expect.BSnd{S: "echo $?\n"},
+				&expect.BExp{R: "1"},
+			}, 30)
 			Expect(err).ToNot(HaveOccurred())
 		})
 	})
