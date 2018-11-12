@@ -29,7 +29,7 @@ function _registry_volume() {
 }
 
 function _add_common_params() {
-    local params="--nodes ${KUBEVIRT_NUM_NODES} --memory 4096M --cpu 4 --random-ports --background --prefix $provider_prefix --registry-volume $(_registry_volume) kubevirtci/${image} ${KUBEVIRT_PROVIDER_EXTRA_ARGS}"
+    local params="--nodes ${KUBEVIRT_NUM_NODES} --memory 4096M --cpu 5 --random-ports --background --prefix $provider_prefix --registry-volume $(_registry_volume) kubevirtci/${image} ${KUBEVIRT_PROVIDER_EXTRA_ARGS}"
     if [[ $TARGET =~ windows.* ]]; then
         params="--memory 8192M --nfs-data $WINDOWS_NFS_DIR $params"
     elif [[ $TARGET =~ openshift.* ]]; then
