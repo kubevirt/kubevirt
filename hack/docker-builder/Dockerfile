@@ -32,15 +32,15 @@ RUN \
     go get -u github.com/onsi/ginkgo/ginkgo && \
     go get -u -d k8s.io/code-generator/cmd/deepcopy-gen && \
     go get -u -d k8s.io/code-generator/cmd/defaulter-gen && \
-    go get -u -d k8s.io/code-generator/cmd/openapi-gen && \
+    go get -u -d k8s.io/kube-openapi/cmd/openapi-gen && \
     cd /go/src/k8s.io/code-generator/cmd/deepcopy-gen && \
     git checkout kubernetes-1.11.2 && \
     go install && \
     cd /go/src/k8s.io/code-generator/cmd/defaulter-gen && \
     git checkout kubernetes-1.11.2 && \
     go install && \
-    cd /go/src/k8s.io/code-generator/cmd/openapi-gen && \
-    git checkout kubernetes-1.11.2 && \
+    cd /go/src/k8s.io/kube-openapi/cmd/openapi-gen && \
+    git checkout c59034cc13d587f5ef4e85ca0ade0c1866ae8e1d && \
     go install && \
     go get -u -d github.com/golang/protobuf/protoc-gen-go && \
     cd /go/src/github.com/golang/protobuf/protoc-gen-go && \
