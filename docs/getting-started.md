@@ -169,8 +169,8 @@ Finally start a VMI called `vmi-ephemeral`:
     # You can actually use kubelet.sh to introspect the cluster in general
     ./cluster/kubectl.sh get pods
 
-    # To check the running kubevirt services you need to introspect the `kube-system` namespace:
-    ./cluster/kubectl.sh -n kube-system get pods
+    # To check the running kubevirt services you need to introspect the `kubevirt` namespace:
+    ./cluster/kubectl.sh -n kubevirt get pods
 ```
 
 This will start a VMI on master or one of the running nodes with a macvtap and a
@@ -182,7 +182,7 @@ tap networking device attached.
 $ ./cluster/kubectl.sh create -f cluster/examples/vmi-ephemeral.yaml
 vm "vmi-ephemeral" created
 
-$ ./cluster/kubectl.sh -n kube-system get pods
+$ ./cluster/kubectl.sh -n kubevirt get pods
 NAME                              READY     STATUS    RESTARTS   AGE
 virt-api                          1/1       Running   1          10h
 virt-controller                   1/1       Running   1          10h
