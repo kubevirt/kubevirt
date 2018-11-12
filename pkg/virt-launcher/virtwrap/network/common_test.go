@@ -21,6 +21,7 @@ package network
 
 import (
 	"io/ioutil"
+	"strings"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -61,6 +62,28 @@ var _ = Describe("Common Methods", func() {
 			Expect(isExist).To(Equal(true))
 
 			Expect(qemuArg).To(Equal(cached_qemuArg))
+		})
+	})
+	Context("GetAvailableAddrsFromCIDR function", func() {
+		It("Should return 2 addresses", func() {
+			networkHandler := NetworkUtilsHandler{}
+			gw, vm, err := networkHandler.GetHostAndGwAddressesFromCIDR("10.0.0.0/30")
+			Expect(err).ToNot(HaveOccurred())
+			Expect(gw).To(Equal("10.0.0.1/30"))
+			Expect(vm).To(Equal("10.0.0.2/30"))
+		})
+		It("Should fail when the subnet is too small", func() {
+			networkHandler := NetworkUtilsHandler{}
+			_, _, err := networkHandler.GetHostAndGwAddressesFromCIDR("10.0.0.0/31")
+			Expect(err).To(HaveOccurred())
+		})
+	})
+	Context("GenerateRandomMac function", func() {
+		It("should return a valid mac address", func() {
+			networkHandler := NetworkUtilsHandler{}
+			mac, err := networkHandler.GenerateRandomMac()
+			Expect(err).ToNot(HaveOccurred())
+			Expect(strings.HasPrefix(mac.String(), "02:00:00")).To(BeTrue())
 		})
 	})
 })

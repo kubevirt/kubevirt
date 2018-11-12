@@ -4660,6 +4660,9 @@
        "$ref": "#/definitions/v1.Port"
       }
      },
+     "proxy": {
+      "$ref": "#/definitions/v1.InterfaceProxy"
+     },
      "slirp": {
       "$ref": "#/definitions/v1.InterfaceSlirp"
      },
@@ -4669,6 +4672,7 @@
     }
    },
    "v1.InterfaceBridge": {},
+   "v1.InterfaceProxy": {},
    "v1.InterfaceSRIOV": {},
    "v1.InterfaceSlirp": {},
    "v1.KVMTimer": {
