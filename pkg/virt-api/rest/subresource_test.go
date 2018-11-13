@@ -283,7 +283,6 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 				ghttp.CombineHandlers(
 					ghttp.VerifyRequest("POST", "/api/v1/namespaces/default/pods/madeup-name/exec"),
 					func(w http.ResponseWriter, r *http.Request) {
-						// TODO: Just testing code we should use real SPDY stuff
 						upgrader := spdy.NewResponseUpgrader()
 						upgrader.UpgradeResponse(w, r,
 							func(stream httpstream.Stream, replySent <-chan struct{}) error {
