@@ -5,8 +5,8 @@ sub-stages:
   - k8s-1.11.0-release
   - k8s-multus-1.11.1-release
   - k8s-genie-1.11.1-release
-  - openshift-3.10-release
-  - openshift-3.10-crio-release
+  - openshift-3.11-release
+  - openshift-3.11-crio-release
   - openshift-3.10-multus-release
   - windows2016-release
 runtime_requirements:
