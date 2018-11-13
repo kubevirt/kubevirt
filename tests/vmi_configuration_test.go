@@ -843,7 +843,7 @@ var _ = Describe("Configurations", func() {
 				output, err := tests.ExecuteCommandOnPod(
 					virtClient,
 					readyPod,
-					readyPod.Spec.Containers[0].Name,
+					"compute",
 					[]string{"cat", hw_utils.CPUSET_PATH},
 				)
 				log.Log.Infof("%v", output)
