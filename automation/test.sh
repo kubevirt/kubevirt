@@ -32,13 +32,18 @@ export WORKSPACE="${WORKSPACE:-$PWD}"
 readonly ARTIFACTS_PATH="$WORKSPACE/exported-artifacts"
 
 if [[ $TARGET =~ openshift-.* ]]; then
-  if [[ $TARGET =~ .*-crio-.* ]]; then
-    export KUBEVIRT_PROVIDER="os-3.10.0-crio"
-  elif [[ $TARGET =~ .*-multus-.* ]]; then
-    export KUBEVIRT_PROVIDER="os-3.10.0-multus"
-  else
-    export KUBEVIRT_PROVIDER="os-3.10.0"
+  PROVIDER="os-"
+  if [[ $TARGET =~ .*3.10.* ]]; then
+	PROVIDER="${PROVIDER}3.10.0"
+  elif [[ $TARGET =~ .*3.11.* ]]; then
+	PROVIDER="${PROVIDER}3.11.0"
   fi
+  if [[ $TARGET =~ .*-crio-.* ]]; then
+	PROVIDER="${PROVIDER}-crio"
+  elif [[ $TARGET =~ .*-multus-.* ]]; then
+	PROVIDER="${PROVIDER}-multus"
+  fi
+  export KUBEVIRT_PROVIDER="$PROVIDER"
 elif [[ $TARGET =~ .*-1.10.4-.* ]]; then
   export KUBEVIRT_PROVIDER="k8s-1.10.4"
 elif [[ $TARGET =~ .*-multus-1.11.1-.* ]]; then
