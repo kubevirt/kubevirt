@@ -88,7 +88,6 @@ func getPVCDiskImgPath(volumeName string) string {
 func CreateHostDisks(vmi *v1.VirtualMachineInstance) error {
 	for _, volume := range vmi.Spec.Volumes {
 		if hostDisk := volume.VolumeSource.HostDisk; hostDisk != nil && hostDisk.Type == v1.HostDiskExistsOrCreate && hostDisk.Path != "" {
-
 			if _, err := os.Stat(hostDisk.Path); os.IsNotExist(err) {
 				availableSpace, err := dirBytesAvailable(path.Dir(hostDisk.Path))
 				if err != nil {
@@ -96,7 +95,7 @@ func CreateHostDisks(vmi *v1.VirtualMachineInstance) error {
 				}
 				size, _ := hostDisk.Capacity.AsInt64()
 				if uint64(size) > availableSpace {
-					return fmt.Errorf("Unable to create %s with size %s - not enough space on the cluster", hostDisk.Path, hostDisk.Capacity.String())
+					return fmt.Errorf("Unable to create %s, not enough space, demanded size %d B is bigger than available space %d B", hostDisk.Path, uint64(size), availableSpace)
 				}
 				err = createSparseRaw(hostDisk.Path, size)
 				if err != nil {
