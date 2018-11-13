@@ -341,15 +341,9 @@ func createDataVolumeManifest(dataVolume *cdiv1.DataVolume, vm *virtv1.VirtualMa
 	newDataVolume.ObjectMeta.Labels = labels
 	newDataVolume.ObjectMeta.Annotations = annotations
 
-	tr := true
-	newDataVolume.ObjectMeta.OwnerReferences = []v1.OwnerReference{{
-		APIVersion:         virtv1.VirtualMachineGroupVersionKind.GroupVersion().String(),
-		Kind:               virtv1.VirtualMachineGroupVersionKind.Kind,
-		Name:               vm.Name,
-		UID:                vm.UID,
-		Controller:         &tr,
-		BlockOwnerDeletion: &tr,
-	}}
+	newDataVolume.ObjectMeta.OwnerReferences = []v1.OwnerReference{
+		*v1.NewControllerRef(vm, virtv1.VirtualMachineGroupVersionKind),
+	}
 	return newDataVolume
 }
 
@@ -535,17 +529,11 @@ func (c *VMController) setupVMIFromVM(vm *virtv1.VirtualMachine) *virtv1.Virtual
 
 	setupStableFirmwareUUID(vm, vmi)
 
-	t := true
 	// TODO check if vmi labels exist, and when make sure that they match. For now just override them
 	vmi.ObjectMeta.Labels = vm.Spec.Template.ObjectMeta.Labels
-	vmi.ObjectMeta.OwnerReferences = []v1.OwnerReference{{
-		APIVersion:         virtv1.VirtualMachineGroupVersionKind.GroupVersion().String(),
-		Kind:               virtv1.VirtualMachineGroupVersionKind.Kind,
-		Name:               vm.ObjectMeta.Name,
-		UID:                vm.ObjectMeta.UID,
-		Controller:         &t,
-		BlockOwnerDeletion: &t,
-	}}
+	vmi.ObjectMeta.OwnerReferences = []v1.OwnerReference{
+		*v1.NewControllerRef(vm, virtv1.VirtualMachineGroupVersionKind),
+	}
 
 	return vmi
 }
@@ -653,7 +641,7 @@ func (c *VMController) addVirtualMachine(obj interface{}) {
 	}
 
 	// If it has a ControllerRef, that's all that matters.
-	if controllerRef := controller.GetControllerOf(vmi); controllerRef != nil {
+	if controllerRef := v1.GetControllerOf(vmi); controllerRef != nil {
 		log.Log.Object(vmi).V(4).Info("Looking for VirtualMachineInstance Ref")
 		vm := c.resolveControllerRef(vmi.Namespace, controllerRef)
 		if vm == nil {
@@ -712,8 +700,8 @@ func (c *VMController) updateVirtualMachine(old, cur interface{}) {
 		return
 	}
 
-	curControllerRef := controller.GetControllerOf(curVMI)
-	oldControllerRef := controller.GetControllerOf(oldVMI)
+	curControllerRef := v1.GetControllerOf(curVMI)
+	oldControllerRef := v1.GetControllerOf(oldVMI)
 	controllerRefChanged := !reflect.DeepEqual(curControllerRef, oldControllerRef)
 	if controllerRefChanged && oldControllerRef != nil {
 		// The ControllerRef was changed. Sync the old controller, if any.
@@ -771,7 +759,7 @@ func (c *VMController) deleteVirtualMachine(obj interface{}) {
 		}
 	}
 
-	controllerRef := controller.GetControllerOf(vmi)
+	controllerRef := v1.GetControllerOf(vmi)
 	if controllerRef == nil {
 		// No controller should care about orphans being deleted.
 		return
@@ -794,7 +782,7 @@ func (c *VMController) addDataVolume(obj interface{}) {
 		c.deleteDataVolume(dataVolume)
 		return
 	}
-	controllerRef := controller.GetControllerOf(dataVolume)
+	controllerRef := v1.GetControllerOf(dataVolume)
 	if controllerRef == nil {
 		return
 	}
@@ -834,8 +822,8 @@ func (c *VMController) updateDataVolume(old, cur interface{}) {
 		}
 		return
 	}
-	curControllerRef := controller.GetControllerOf(curDataVolume)
-	oldControllerRef := controller.GetControllerOf(oldDataVolume)
+	curControllerRef := v1.GetControllerOf(curDataVolume)
+	oldControllerRef := v1.GetControllerOf(oldDataVolume)
 	controllerRefChanged := !reflect.DeepEqual(curControllerRef, oldControllerRef)
 	if controllerRefChanged && oldControllerRef != nil {
 		// The ControllerRef was changed. Sync the old controller, if any.
@@ -872,7 +860,7 @@ func (c *VMController) deleteDataVolume(obj interface{}) {
 			return
 		}
 	}
-	controllerRef := controller.GetControllerOf(dataVolume)
+	controllerRef := v1.GetControllerOf(dataVolume)
 	if controllerRef == nil {
 		// No controller should care about orphans being deleted.
 		return
