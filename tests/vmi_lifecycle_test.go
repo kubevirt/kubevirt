@@ -686,23 +686,13 @@ var _ = Describe("VMIlifecycle", func() {
 			})
 
 			It("should enable emulation in virt-launcher", func() {
-				err := virtClient.RestClient().Post().Resource("virtualmachineinstances").Namespace(tests.NamespaceTestDefault).Body(vmi).Do().Error()
-				Expect(err).To(BeNil(), "Should post VMI successfully")
+				vmi, err := virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
+				Expect(err).ToNot(HaveOccurred())
 
-				listOptions := metav1.ListOptions{}
-				var pod k8sv1.Pod
+				tests.WaitForSuccessfulVMIStart(vmi)
 
-				Eventually(func() error {
-					podList, err := virtClient.CoreV1().Pods(tests.NamespaceTestDefault).List(listOptions)
-					Expect(err).ToNot(HaveOccurred(), "Should list pods")
-					for _, item := range podList.Items {
-						if strings.HasPrefix(item.Name, vmi.ObjectMeta.GenerateName) {
-							pod = item
-							return nil
-						}
-					}
-					return fmt.Errorf("Associated pod for VirtualMachineInstance '%s' not found", vmi.Name)
-				}, 75, 2).Should(Succeed(), "Should find the right VMI pod")
+				pod := tests.GetRunningPodByVirtualMachineInstance(vmi, vmi.Namespace)
+				Expect(pod).NotTo(BeNil())
 
 				emulationFlagFound := false
 				computeContainerFound := false
@@ -767,23 +757,13 @@ var _ = Describe("VMIlifecycle", func() {
 			})
 
 			It("should request a TUN device but not KVM", func() {
-				err := virtClient.RestClient().Post().Resource("virtualmachineinstances").Namespace(tests.NamespaceTestDefault).Body(vmi).Do().Error()
-				Expect(err).To(BeNil(), "Should post VMI")
+				vmi, err := virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
+				Expect(err).ToNot(HaveOccurred())
 
-				listOptions := metav1.ListOptions{}
-				var pod k8sv1.Pod
+				tests.WaitForSuccessfulVMIStart(vmi)
 
-				Eventually(func() error {
-					podList, err := virtClient.CoreV1().Pods(tests.NamespaceTestDefault).List(listOptions)
-					Expect(err).ToNot(HaveOccurred(), "Should list pods")
-					for _, item := range podList.Items {
-						if strings.HasPrefix(item.Name, vmi.ObjectMeta.GenerateName) {
-							pod = item
-							return nil
-						}
-					}
-					return fmt.Errorf("Associated pod for VM '%s' not found", vmi.Name)
-				}, 75, 0.5).Should(Succeed(), "Should find VMI pod")
+				pod := tests.GetRunningPodByVirtualMachineInstance(vmi, vmi.Namespace)
+				Expect(pod).NotTo(BeNil())
 
 				computeContainerFound := false
 				for _, container := range pod.Spec.Containers {
@@ -815,23 +795,13 @@ var _ = Describe("VMIlifecycle", func() {
 			})
 
 			It("should request a KVM and TUN device", func() {
-				err := virtClient.RestClient().Post().Resource("virtualmachineinstances").Namespace(tests.NamespaceTestDefault).Body(vmi).Do().Error()
-				Expect(err).To(BeNil(), "Should post VMI")
+				vmi, err := virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
+				Expect(err).ToNot(HaveOccurred())
 
-				listOptions := metav1.ListOptions{}
-				var pod k8sv1.Pod
+				tests.WaitForSuccessfulVMIStart(vmi)
 
-				Eventually(func() error {
-					podList, err := virtClient.CoreV1().Pods(tests.NamespaceTestDefault).List(listOptions)
-					Expect(err).ToNot(HaveOccurred(), "Should list pods")
-					for _, item := range podList.Items {
-						if strings.HasPrefix(item.Name, vmi.ObjectMeta.GenerateName) {
-							pod = item
-							return nil
-						}
-					}
-					return fmt.Errorf("Associated pod for VM '%s' not found", vmi.Name)
-				}, 75, 0.5).Should(Succeed(), "Should find the VMI pod")
+				pod := tests.GetRunningPodByVirtualMachineInstance(vmi, vmi.Namespace)
+				Expect(pod).NotTo(BeNil())
 
 				computeContainerFound := false
 				for _, container := range pod.Spec.Containers {
@@ -850,23 +820,13 @@ var _ = Describe("VMIlifecycle", func() {
 			})
 
 			It("should not enable emulation in virt-launcher", func() {
-				err := virtClient.RestClient().Post().Resource("virtualmachineinstances").Namespace(tests.NamespaceTestDefault).Body(vmi).Do().Error()
-				Expect(err).To(BeNil(), "Should post VMI")
+				vmi, err := virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
+				Expect(err).ToNot(HaveOccurred())
 
-				listOptions := metav1.ListOptions{}
-				var pod k8sv1.Pod
+				tests.WaitForSuccessfulVMIStart(vmi)
 
-				Eventually(func() error {
-					podList, err := virtClient.CoreV1().Pods(tests.NamespaceTestDefault).List(listOptions)
-					Expect(err).ToNot(HaveOccurred())
-					for _, item := range podList.Items {
-						if strings.HasPrefix(item.Name, vmi.ObjectMeta.GenerateName) {
-							pod = item
-							return nil
-						}
-					}
-					return fmt.Errorf("Associated pod for VM '%s' not found", vmi.Name)
-				}, 75, 0.5).Should(Succeed(), "Should find VMI pod")
+				pod := tests.GetRunningPodByVirtualMachineInstance(vmi, vmi.Namespace)
+				Expect(pod).NotTo(BeNil())
 
 				emulationFlagFound := false
 				computeContainerFound := false
