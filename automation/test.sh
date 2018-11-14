@@ -72,12 +72,21 @@ wait_for_download_lock() {
   exit 1
 }
 
-release_download_lock() { 
-  if [[ -e "$1" ]]; then
-    rm -f "$1"
-    echo "Released lock: $1"
-  fi
-}
+safe_download() (
+    # Download files into shared locations using a lock.
+    # The lock will be released as soon as this subprocess will exit
+    local lockfile="${1:?Lockfile was not specified}"
+    local download_from="${2:?Download from was not specified}"
+    local download_to="${3:?Download to was not specified}"
+    local timeout_sec="${4:-3600}"
+    touch "$lockfile"
+    exec {fd}< "$lockfile"
+    flock -e  -w "$timeout_sec" "$fd" || {
+        echo "ERROR: Timed out after $timeout_sec seconds waiting for lock" >&2
+        exit 1
+    }
+    curl "$download_from" --output "$download_to"
+)
 
 if [[ $TARGET =~ openshift.* ]]; then
     # Create images directory
@@ -86,13 +95,11 @@ if [[ $TARGET =~ openshift.* ]]; then
     fi
 
     # Download RHEL image
-    if wait_for_download_lock $RHEL_LOCK_PATH; then
-        if [[ ! -f "$RHEL_NFS_DIR/disk.img" ]]; then
-            curl http://templates.ovirt.org/kubevirt/rhel7.img > $RHEL_NFS_DIR/disk.img
-        fi
-        release_download_lock $RHEL_LOCK_PATH
-    else
-        exit 1
+    rhel_image_url="http://templates.ovirt.org/kubevirt/rhel7.img"
+    rhel_image="$RHEL_NFS_DIR/disk.img"
+    if [[ ! -f "$rhel_image" ]]; then
+        safe_download "$RHEL_LOCK_PATH" "$rhel_image_url" "$rhel_image" || \
+            exit 1
     fi
 fi
 
@@ -103,14 +110,12 @@ if [[ $TARGET =~ windows.* ]]; then
   fi
 
   # Download Windows image
-  if wait_for_download_lock $WINDOWS_LOCK_PATH; then
-    if [[ ! -f "$WINDOWS_NFS_DIR/disk.img" ]]; then
-      curl http://templates.ovirt.org/kubevirt/win01.img > $WINDOWS_NFS_DIR/disk.img
+    win_image_url="http://templates.ovirt.org/kubevirt/win01.img"
+    win_image="$WINDOWS_NFS_DIR/disk.img"
+    if [[ ! -f "$win_image" ]]; then
+        safe_download "$WINDOWS_LOCK_PATH" "$win_image_url" "$win_image" || \
+            exit 1
     fi
-    release_download_lock $WINDOWS_LOCK_PATH
-  else
-    exit 1
-  fi
 fi
 
 kubectl() { cluster/kubectl.sh "$@"; }
@@ -128,7 +133,7 @@ fi
 
 
 # Make sure that the VM is properly shut down on exit
-trap '{ release_download_lock $RHEL_LOCK_PATH; release_download_lock $WINDOWS_LOCK_PATH; make cluster-down; }' EXIT SIGINT SIGTERM SIGSTOP
+trap '{ make cluster-down; }' EXIT SIGINT SIGTERM SIGSTOP
 
 make cluster-down
 make cluster-up
