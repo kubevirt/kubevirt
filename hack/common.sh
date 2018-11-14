@@ -21,6 +21,7 @@ function build_func_tests() {
 
 KUBEVIRT_PROVIDER=${KUBEVIRT_PROVIDER:-k8s-1.10.4}
 KUBEVIRT_NUM_NODES=${KUBEVIRT_NUM_NODES:-1}
+KUBEVIRT_MEMORY_SIZE=${KUBEVIRT_MEMORY_SIZE:-5120M}
 
 # Use this environment variable to set a custom pkgdir path
 # Useful for cross-compilation where the default -pkdir for cross-builds may not be writable
