@@ -46,6 +46,15 @@ export KUBEVIRT_NUM_NODES=2 # schedulable master + one additional node
 make cluster-up
 ```
 
+You can use the `KUBEVIRT_MEMORY_SIZE` environment 
+variable to increase memory size per node. Normally you don't need it, 
+because default node memory size is set.
+
+```bash
+export KUBEVIRT_MEMORY_SIZE=8192M # node has 8GB memory size
+make cluster-up
+```
+
 You could also run some build steps individually:
 
 ```bash
