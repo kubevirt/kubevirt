@@ -28,7 +28,6 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
-	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -363,7 +362,8 @@ func (w *ObjectEventWatcher) WaitNotFor(stopChan chan struct{}, eventType EventT
 }
 
 func WaitForAllPodsReady(timeout time.Duration, listOptions metav1.ListOptions) {
-	checkForPodsToBeReady := func(listOptions metav1.ListOptions) bool {
+	checkForPodsToBeReady := func() []string {
+		podsNotReady := make([]string, 0)
 		virtClient, err := kubecli.GetKubevirtClient()
 		PanicOnError(err)
 
@@ -371,14 +371,23 @@ func WaitForAllPodsReady(timeout time.Duration, listOptions metav1.ListOptions) 
 		PanicOnError(err)
 		for _, pod := range podsList.Items {
 			for _, status := range pod.Status.ContainerStatuses {
-				if !status.Ready {
-					return false
+				if status.State.Terminated != nil {
+					break // We don't care about terminated pods
+				} else if status.State.Running != nil {
+					if !status.Ready { // We need to wait for this one
+						podsNotReady = append(podsNotReady, pod.Name)
+						break
+					}
+				} else {
+					// It is in Waiting state, We need to wait for this one
+					podsNotReady = append(podsNotReady, pod.Name)
+					break
 				}
 			}
 		}
-		return true
+		return podsNotReady
 	}
-	Eventually(checkForPodsToBeReady, timeout, 2*time.Second).Should(BeTrue(), "The are pods in system which are not ready.")
+	Eventually(checkForPodsToBeReady, timeout, 2*time.Second).Should(BeEmpty(), "The are pods in system which are not ready.")
 }
 
 func AfterTestSuitCleanup() {
@@ -632,6 +641,7 @@ func GetListOfManifests(pathToManifestsDir string) []string {
 }
 
 func ReadManifestYamlFile(pathToManifest string) []unstructured.Unstructured {
+	//fmt.Printf("INFO reading %s\n", pathToManifest)
 	var objects []unstructured.Unstructured
 	stream, err := os.Open(pathToManifest)
 	PanicOnError(err)
@@ -640,7 +650,8 @@ func ReadManifestYamlFile(pathToManifest string) []unstructured.Unstructured {
 	decoder := yaml.NewYAMLOrJSONDecoder(reader, 1024)
 	for {
 		obj := map[string]interface{}{}
-		err := decoder.Decode(obj)
+		err := decoder.Decode(&obj)
+		//fmt.Printf("INFO decoded object:  %#v\n", obj)
 		if err == io.EOF {
 			break
 		} else if err != nil {
@@ -665,16 +676,16 @@ func IsOpenShift() bool {
 
 	result := virtClient.RestClient().Get().AbsPath("/version/openshift").Do()
 
+	// It is OpenShift
 	if result.Error() == nil {
 		return true
 	}
-	var code int
-	result.StatusCode(&code)
-	if code != http.StatusNotFound {
-		fmt.Printf(fmt.Sprintf("ERROR: Can not determine cluster type %#v\n", result))
-		panic(err)
+	// Got 404 so this is not Openshift
+	if errors.IsNotFound(result.Error()) {
+		return false
 	}
-	return false
+	fmt.Printf(fmt.Sprintf("ERROR: Can not determine cluster type %#v\n", result))
+	panic(err)
 }
 
 func composeResourceURI(object unstructured.Unstructured) string {
@@ -717,10 +728,8 @@ func DeleteRawManifest(object unstructured.Unstructured) error {
 	uri = uri + "/" + object.GetName()
 	PanicOnError(err)
 	result := virtCli.CoreV1().RESTClient().Delete().RequestURI(uri).Do()
-	var code int
-	result.StatusCode(&code)
-	if result.Error() != nil && !errors.IsNotFound(err) {
-		fmt.Printf(fmt.Sprintf("ERROR: Can not delete %s\n", object))
+	if result.Error() != nil && !errors.IsNotFound(result.Error()) {
+		fmt.Printf(fmt.Sprintf("ERROR: Can not delete %s err: %#v %s\n", object.GetName(), result.Error(), object))
 		panic(err)
 	}
 	return nil

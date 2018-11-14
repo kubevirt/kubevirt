@@ -65,6 +65,7 @@ spec:
     - ReadWriteOnce
   hostPath:
     path: /tmp/hostImages/custom
+
 ---
 apiVersion: v1
 kind: Service
@@ -80,6 +81,7 @@ spec:
       protocol: TCP
   selector:
     kubevirt.io: cdi-http-import-server
+
 ---
 apiVersion: extensions/v1beta1
 kind: Deployment
@@ -111,6 +113,7 @@ spec:
               port: 80
             initialDelaySeconds: 5
             periodSeconds: 10
+
 ---
 apiVersion: extensions/v1beta1
 kind: DaemonSet
