@@ -87,7 +87,8 @@ In the following example, we configure the cluster using `local` provider which
 is part of kubevirt/kubevirt repo. Please consult cluster/local/README.md for
 general information on setting up a host using the `local` provider.
 
-First, install default CNI plugins:
+The `local` provider does not install default CNI plugins like `loopback`. So
+first, install default CNI plugins:
 
 ```
 $ go get -u -d github.com/containernetworking/plugins/
@@ -144,26 +145,28 @@ Once the cluster is deployed, we can move to SR-IOV specific components.
 
 # Deploy SR-IOV services
 
-First, deploy Multus with default Flannel backend:
+First, deploy latest Multus with default Flannel backend. We will need to use
+the latest code from their tree, hence using `snapshot` image tag instead of
+`latest`. The `snapshot` image adds support for reading IDs of devices
+allocated by device plugins from "checkpoint" files, which is needed to make
+the whole setup work.
 
 ```
 $ go get -u -d github.com/intel/multus-cni
 $ cd $GOPATH/src/github.com/intel/multus-cni/
-$ docker build .
-$ vi images/multus-daemonset.yml # change to refer to local multus:latest
+$ vi images/multus-daemonset.yml # change to refer to nfvpe/multus:snapshot
 $ mkdir -p /etc/cni/net.d
 $ cp images/70-multus.conf /etc/cni/net.d/
 $ ./cluster/kubectl.sh create -f $GOPATH/src/github.com/intel/multus-cni/images/multus-daemonset.yml
 $ ./cluster/kubectl.sh create -f $GOPATH/src/github.com/intel/multus-cni/images/flannel-daemonset.yml
 ```
 
-Now, deploy SR-IOV device plugin.
+Now, deploy SR-IOV device plugin. Adjust config.json file for your particular
+setup. More information about configuration file format:
+https://github.com/intel/sriov-network-device-plugin/blob/master/README.md#configurations
 
 ```
 $ go get -u -d github.com/intel/sriov-network-device-plugin/
-$ cd $GOPATH/src/github.com/intel/sriov-network-device-plugin/images
-$ ./build_docker.sh
-$ vi images/sriovdp-daemonset.yaml # change to refer to local sriov-network-device-plugin:latest
 $ cat <<EOF > /etc/pcidp/config.json
 {
     "resourceList":
@@ -180,7 +183,9 @@ EOF
 $ ./cluster/kubectl.sh create -f $GOPATH/src/github.com/intel/sriov-network-device-plugin/images/sriovdp-daemonset.yaml
 ```
 
-Deploy SR-IOV CNI plugin with device ID support.
+Deploy SR-IOV CNI plugin with device ID support, which allows networks to be
+configured in `mode2` (networks referring to resource names instead of
+configuring PCI pools themselves).
 
 ```
 $ go get -u -d github.com/intel/sriov-cni/
