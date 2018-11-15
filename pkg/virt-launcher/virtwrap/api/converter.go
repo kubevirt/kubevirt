@@ -508,10 +508,27 @@ func Convert_v1_FeatureHyperv_To_api_FeatureHyperv(source *v1.FeatureHyperv, hyp
 	return nil
 }
 
+func filterAddress(addrs []string, addr string) []string {
+	var res []string
+	for _, a := range addrs {
+		if a != addr {
+			res = append(res, a)
+		}
+	}
+	return res
+}
+
+func reserveAddress(addrsMap map[string][]string, addr string) {
+	for networkName, addrs := range addrsMap {
+		addrsMap[networkName] = filterAddress(addrs, addr)
+	}
+	return
+}
+
 func popSRIOVPCIAddress(networkName string, addrsMap map[string][]string) (string, map[string][]string, error) {
 	if len(addrsMap[networkName]) > 0 {
 		addr := addrsMap[networkName][0]
-		addrsMap[networkName] = addrsMap[networkName][1:]
+		reserveAddress(addrsMap, addr)
 		return addr, addrsMap, nil
 	}
 	return "", addrsMap, fmt.Errorf("no more SR-IOV PCI addresses to allocate")
