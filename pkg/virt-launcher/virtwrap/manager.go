@@ -388,8 +388,8 @@ func (l *LibvirtDomainManager) preStartHook(vmi *v1.VirtualMachineInstance, doma
 //
 // Format for PCI ID variables set by SR-IOV DP is:
 // "": for no allocated devices
-// <resourceName>="0000:81:11.1,": for a single device
-// <resourceName>="0000:81:11.1,0000:81:11.2[,...]": for multiple devices
+// <resourceName>="0000:81:11.1": for a single device
+// <resourceName>="0000:81:11.1 0000:81:11.2[ ...]": for multiple devices
 //
 // Format for network to resource mapping variables is:
 // KUBEVIRT_RESOURCE_NAME_<networkName>=<resourceName>
@@ -409,7 +409,7 @@ func getSRIOVPCIAddresses(ifaces []v1.Interface) map[string][]string {
 			}
 			pciAddrString, isSet := os.LookupEnv(varName)
 			if isSet {
-				addrs := strings.Split(pciAddrString, ",")
+				addrs := strings.Split(pciAddrString, " ")
 				naddrs := len(addrs)
 				if naddrs > 0 {
 					if addrs[naddrs-1] == "" {

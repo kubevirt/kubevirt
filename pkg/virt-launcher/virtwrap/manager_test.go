@@ -268,14 +268,14 @@ var _ = Describe("getSRIOVPCIAddresses", func() {
 		Expect(len(addrs["testnet"])).To(Equal(0))
 	})
 	It("gracefully handles trailing comma", func() {
-		os.Setenv("testnet_pool", "0000:81:11.1,")
+		os.Setenv("testnet_pool", "0000:81:11.1")
 		os.Setenv("KUBEVIRT_RESOURCE_NAME_testnet", "testnet_pool")
 		addrs := getSRIOVPCIAddresses([]v1.Interface{v1.Interface{Name: "testnet"}})
 		Expect(len(addrs)).To(Equal(1))
 		Expect(addrs["testnet"][0]).To(Equal("0000:81:11.1"))
 	})
 	It("returns multiple PCI addresses", func() {
-		os.Setenv("testnet_pool", "0000:81:11.1,0001:02:00.0")
+		os.Setenv("testnet_pool", "0000:81:11.1 0001:02:00.0")
 		os.Setenv("KUBEVIRT_RESOURCE_NAME_testnet", "testnet_pool")
 		addrs := getSRIOVPCIAddresses([]v1.Interface{v1.Interface{Name: "testnet"}})
 		Expect(len(addrs["testnet"])).To(Equal(2))
