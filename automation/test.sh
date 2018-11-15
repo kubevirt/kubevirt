@@ -85,7 +85,7 @@ safe_download() (
         echo "ERROR: Timed out after $timeout_sec seconds waiting for lock" >&2
         exit 1
     }
-    curl "$download_from" --output "$download_to"
+    [[ ! -f "$download_to" ]] && curl "$download_from" --output "$download_to"
 )
 
 if [[ $TARGET =~ openshift.* ]]; then
@@ -97,10 +97,7 @@ if [[ $TARGET =~ openshift.* ]]; then
     # Download RHEL image
     rhel_image_url="http://templates.ovirt.org/kubevirt/rhel7.img"
     rhel_image="$RHEL_NFS_DIR/disk.img"
-    if [[ ! -f "$rhel_image" ]]; then
-        safe_download "$RHEL_LOCK_PATH" "$rhel_image_url" "$rhel_image" || \
-            exit 1
-    fi
+    safe_download "$RHEL_LOCK_PATH" "$rhel_image_url" "$rhel_image" || exit 1
 fi
 
 if [[ $TARGET =~ windows.* ]]; then
