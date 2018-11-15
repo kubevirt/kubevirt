@@ -1418,6 +1418,19 @@ var _ = Describe("popSRIOVPCIAddress", func() {
 		Expect(len(rest["testnet"])).To(Equal(1))
 		Expect(rest["testnet"][0]).To(Equal("0001:02:00.0"))
 	})
+	It("pops the next address from all tracked networks", func() {
+		addrsMap := map[string][]string{
+			"testnet1": []string{"0000:81:11.1", "0001:02:00.0"},
+			"testnet2": []string{"0000:81:11.1", "0001:02:00.0"},
+		}
+		addr, rest, err := popSRIOVPCIAddress("testnet1", addrsMap)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(addr).To(Equal("0000:81:11.1"))
+		Expect(len(rest["testnet1"])).To(Equal(1))
+		Expect(rest["testnet1"][0]).To(Equal("0001:02:00.0"))
+		Expect(len(rest["testnet2"])).To(Equal(1))
+		Expect(rest["testnet2"][0]).To(Equal("0001:02:00.0"))
+	})
 })
 
 func diskToDiskXML(disk *v1.Disk) string {
