@@ -19,7 +19,7 @@ import (
 )
 
 func newLabeledVM(label string, virtClient kubecli.KubevirtClient) (vmi *v1.VirtualMachineInstance) {
-	ports := []v1.Port{{Name: "http", Port: 80}}
+	ports := []v1.Port{{Name: "http", Port: 80}, {Name: "udp", Port: 82, Protocol: "UDP"}}
 	vmi = tests.NewRandomVMIWithBridgeInterfaceEphemeralDiskAndUserdata(tests.ContainerDiskFor(tests.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n", ports)
 	vmi.Labels = map[string]string{"expose": label}
 	vmi, err := virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
@@ -117,6 +117,32 @@ var _ = Describe("Expose", func() {
 				endpoint := endpoints.Subsets[0]
 				Expect(len(endpoint.Ports)).To(Equal(1))
 				Expect(endpoint.Ports[0].Port).To(Equal(int32(80)))
+			})
+		})
+
+		Context("Expose ClusterIP service wiht ports on the vmi defined", func() {
+			const serviceName = "cluster-ip-target-multiple-ports-vmi"
+			It("Should expose a ClusterIP service and connect to all ports defined on the vmi", func() {
+				virtctl := tests.NewRepeatableVirtctlCommand(expose.COMMAND_EXPOSE, "virtualmachineinstance", "--namespace",
+					tcpVM.Namespace, tcpVM.Name, "--name", serviceName)
+				err := virtctl()
+				Expect(err).ToNot(HaveOccurred())
+
+				By("Waiting for kubernetes to create the relevant endpoint")
+				getEndpoint := func() error {
+					_, err := virtClient.CoreV1().Endpoints(tests.NamespaceTestDefault).Get(serviceName, k8smetav1.GetOptions{})
+					return err
+				}
+				Eventually(getEndpoint, 60, 1).Should(BeNil())
+
+				endpoints, err := virtClient.CoreV1().Endpoints(tests.NamespaceTestDefault).Get(serviceName, k8smetav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+
+				Expect(len(endpoints.Subsets)).To(Equal(1))
+				endpoint := endpoints.Subsets[0]
+				Expect(len(endpoint.Ports)).To(Equal(2))
+				Expect(endpoint.Ports).To(ContainElement(k8sv1.EndpointPort{Name: "port-1", Port: 80, Protocol: "TCP"}))
+				Expect(endpoint.Ports).To(ContainElement(k8sv1.EndpointPort{Name: "port-2", Port: 82, Protocol: "UDP"}))
 			})
 		})
 
