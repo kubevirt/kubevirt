@@ -123,19 +123,20 @@ var _ = Describe("Expose", func() {
 		Context("Expose NodePort service", func() {
 			const servicePort = "27017"
 			const serviceName = "node-port-vmi"
-			const nodePort = "30017"
 
 			It("Should expose a NodePort service on a VMI and connect to it", func() {
 				By("Exposing the service via virtctl command")
 				virtctl := tests.NewRepeatableVirtctlCommand(expose.COMMAND_EXPOSE, "virtualmachineinstance", "--namespace",
 					tcpVM.Namespace, tcpVM.Name, "--port", servicePort, "--name", serviceName, "--target-port", strconv.Itoa(testPort),
-					"--type", "NodePort", "--node-port", nodePort)
+					"--type", "NodePort")
 				err := virtctl()
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Getting back the the service")
-				_, err = virtClient.CoreV1().Services(tcpVM.Namespace).Get(serviceName, k8smetav1.GetOptions{})
+				svc, err := virtClient.CoreV1().Services(tcpVM.Namespace).Get(serviceName, k8smetav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
+				nodePort := svc.Spec.Ports[0].NodePort
+				Expect(nodePort).To(BeNumerically(">", 0))
 
 				By("Getting the node IP from all nodes")
 				nodes, err := virtClient.CoreV1().Nodes().List(k8smetav1.ListOptions{})
@@ -146,7 +147,7 @@ var _ = Describe("Expose", func() {
 					nodeIP := node.Status.Addresses[0].Address
 
 					By("Starting a pod which tries to reach the VMI via NodePort")
-					job := tests.NewHelloWorldJob(nodeIP, nodePort)
+					job := tests.NewHelloWorldJob(nodeIP, strconv.Itoa(int(nodePort)))
 					job, err = virtClient.CoreV1().Pods(tcpVM.Namespace).Create(job)
 					Expect(err).ToNot(HaveOccurred())
 
@@ -204,13 +205,12 @@ var _ = Describe("Expose", func() {
 		Context("Expose NodePort UDP service", func() {
 			const servicePort = "29017"
 			const serviceName = "node-port-udp-vmi"
-			const nodePort = "31017"
 
 			It("Should expose a NodePort service on a VMI and connect to it", func() {
 				By("Exposing the service via virtctl command")
 				virtctl := tests.NewRepeatableVirtctlCommand(expose.COMMAND_EXPOSE, "virtualmachineinstance", "--namespace",
 					udpVM.Namespace, udpVM.Name, "--port", servicePort, "--name", serviceName, "--target-port", strconv.Itoa(testPort),
-					"--type", "NodePort", "--node-port", nodePort, "--protocol", "UDP")
+					"--type", "NodePort", "--protocol", "UDP")
 				err := virtctl()
 				Expect(err).ToNot(HaveOccurred())
 
@@ -218,6 +218,8 @@ var _ = Describe("Expose", func() {
 				svc, err := virtClient.CoreV1().Services(udpVM.Namespace).Get(serviceName, k8smetav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				serviceIP := svc.Spec.ClusterIP
+				nodePort := svc.Spec.Ports[0].NodePort
+				Expect(nodePort).To(BeNumerically(">", 0))
 
 				By("Starting a pod which tries to reach the VMI via ClusterIP")
 				job := tests.NewHelloWorldJobUDP(serviceIP, servicePort)
@@ -233,7 +235,7 @@ var _ = Describe("Expose", func() {
 					nodeIP := node.Status.Addresses[0].Address
 
 					By("Starting a pod which tries to reach the VMI via NodePort")
-					job := tests.NewHelloWorldJobUDP(nodeIP, nodePort)
+					job := tests.NewHelloWorldJobUDP(nodeIP, strconv.Itoa(int(nodePort)))
 					job, err = virtClient.CoreV1().Pods(udpVM.Namespace).Create(job)
 					Expect(err).ToNot(HaveOccurred())
 
