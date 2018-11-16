@@ -10,6 +10,8 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/client-go/tools/clientcmd"
 
+	v12 "kubevirt.io/kubevirt/pkg/api/v1"
+
 	"kubevirt.io/kubevirt/pkg/kubecli"
 	"kubevirt.io/kubevirt/pkg/virtctl/templates"
 )
@@ -29,7 +31,6 @@ var clusterIP string
 var externalIP string
 var loadBalancerIP string
 var port int32
-var nodePort int32
 var strProtocol string
 var strTargetPort string
 var strServiceType string
@@ -64,10 +65,8 @@ virtualmachineinstance (vmi), virtualmachine (vm), virtualmachineinstancereplica
 	cmd.Flags().StringVar(&externalIP, "external-ip", "", "Additional external IP address (not managed by the cluster) to accept for the service. If this IP is routed to a node, the service can be accessed by this IP in addition to its generated service IP. Optional.")
 	cmd.Flags().StringVar(&loadBalancerIP, "load-balancer-ip", "", "IP to assign to the Load Balancer. If empty, an ephemeral IP will be created and used.")
 	cmd.Flags().Int32Var(&port, "port", 0, "The port that the service should serve on.")
-	cmd.MarkFlagRequired("port")
 	cmd.Flags().StringVar(&strProtocol, "protocol", "TCP", "The network protocol for the service to be created.")
 	cmd.Flags().StringVar(&strTargetPort, "target-port", "", "Name or number for the port on the VM that the service should direct traffic to. Optional.")
-	cmd.Flags().Int32Var(&nodePort, "node-port", 0, "Port used to expose the service on each node in a cluster.")
 	cmd.Flags().StringVar(&strServiceType, "type", "ClusterIP", "Type for this service: ClusterIP, NodePort, or LoadBalancer.")
 	cmd.Flags().StringVar(&portName, "port-name", "", "Name of the port. Optional.")
 	cmd.SetUsageTemplate(templates.UsageTemplate())
@@ -76,8 +75,11 @@ virtualmachineinstance (vmi), virtualmachine (vm), virtualmachineinstancereplica
 }
 
 func usage() string {
-	usage := `  # Expose SSH to a virtual machine instance called 'myvm' as a port (5555) and specify each node open up port 30001 on the cluster:
-  virtctl expose vmi myvm --port=5555 --node-port=30001 --target-port=22 --name=myvm-ssh --type=NodePort")`
+	usage := `  # Expose SSH to a virtual machine instance called 'myvm' on each node via a NodePort service:
+  virtctl expose vmi myvm --port=22 --name=myvm-ssh --type=NodePort
+
+  # Expose all defined pod-network ports of a virtual machine instance replicaset on a service:
+  virtctl expose vmirs --name=vmirs-service`
 	return usage
 }
 
@@ -135,6 +137,7 @@ func (o *Command) RunE(cmd *cobra.Command, args []string) error {
 	// does a plain quorum read from the apiserver
 	options := k8smetav1.GetOptions{}
 	var serviceSelector map[string]string
+	ports := []v1.ServicePort{}
 
 	switch vmType {
 	case "vmi", "vmis", "virtualmachineinstance", "virtualmachineinstances":
@@ -144,6 +147,7 @@ func (o *Command) RunE(cmd *cobra.Command, args []string) error {
 			return fmt.Errorf("error fetching VirtualMachineInstance: %v", err)
 		}
 		serviceSelector = vmi.ObjectMeta.Labels
+		ports = podNetworkPorts(&vmi.Spec)
 		// remove unwanted labels
 		delete(serviceSelector, "kubevirt.io/nodeName")
 	case "vm", "vms", "virtualmachine", "virtualmachines":
@@ -151,6 +155,9 @@ func (o *Command) RunE(cmd *cobra.Command, args []string) error {
 		vm, err := virtClient.VirtualMachine(namespace).Get(vmName, &options)
 		if err != nil {
 			return fmt.Errorf("error fetching Virtual Machine: %v", err)
+		}
+		if vm.Spec.Template != nil {
+			ports = podNetworkPorts(&vm.Spec.Template.Spec)
 		}
 		serviceSelector = vm.Spec.Template.ObjectMeta.Labels
 	case "vmirs", "vmirss", "virtualmachineinstancereplicaset", "virtualmachineinstancereplicasets":
@@ -162,6 +169,9 @@ func (o *Command) RunE(cmd *cobra.Command, args []string) error {
 		if len(vmirs.Spec.Selector.MatchExpressions) > 0 {
 			return fmt.Errorf("cannot expose VirtualMachineInstance ReplicaSet with match expressions")
 		}
+		if vmirs.Spec.Template != nil {
+			ports = podNetworkPorts(&vmirs.Spec.Template.Spec)
+		}
 		serviceSelector = vmirs.Spec.Selector.MatchLabels
 	default:
 		return fmt.Errorf("unsupported resource type: %s", vmType)
@@ -171,6 +181,12 @@ func (o *Command) RunE(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("missing label information for %s: %s", vmType, vmName)
 	}
 
+	if port == 0 && len(ports) == 0 {
+		return fmt.Errorf("couldn't find port via --port flag or introspection")
+	} else if port != 0 {
+		ports = []v1.ServicePort{{Name: portName, Protocol: protocol, Port: port, TargetPort: targetPort}}
+	}
+
 	// actually create the service
 	service := &v1.Service{
 		ObjectMeta: k8smetav1.ObjectMeta{
@@ -178,9 +194,7 @@ func (o *Command) RunE(cmd *cobra.Command, args []string) error {
 			Namespace: namespace,
 		},
 		Spec: v1.ServiceSpec{
-			Ports: []v1.ServicePort{
-				{Name: portName, Protocol: protocol, Port: port, TargetPort: targetPort, NodePort: nodePort},
-			},
+			Ports:          ports,
 			Selector:       serviceSelector,
 			ClusterIP:      clusterIP,
 			Type:           serviceType,
@@ -199,5 +213,27 @@ func (o *Command) RunE(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("service creation failed: %v", err)
 	}
 	fmt.Printf("Service %s successfully exposed for %s %s\n", serviceName, vmType, vmName)
+	return nil
+}
+
+func podNetworkPorts(vmiSpec *v12.VirtualMachineInstanceSpec) []v1.ServicePort {
+	podNetworkName := ""
+	for _, network := range vmiSpec.Networks {
+		if network.Pod != nil {
+			podNetworkName = network.Name
+			break
+		}
+	}
+	if podNetworkName != "" {
+		for _, device := range vmiSpec.Domain.Devices.Interfaces {
+			if device.Name == podNetworkName {
+				ports := []v1.ServicePort{}
+				for i, port := range device.Ports {
+					ports = append(ports, v1.ServicePort{Name: fmt.Sprintf("port-%d", i+1), Protocol: v1.Protocol(port.Protocol), Port: port.Port})
+				}
+				return ports
+			}
+		}
+	}
 	return nil
 }
