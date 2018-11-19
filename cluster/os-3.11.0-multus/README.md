@@ -1,6 +1,6 @@
-# OpenShift 3.10.0 in ephemeral containers
+# OpenShift 3.11.0 in ephemeral containers
 
-Provides a pre-deployed OpenShift Origin with version 3.10.0 purely in docker
+Provides a pre-deployed OpenShift Origin with version 3.11.0 purely in docker
 containers with qemu. The provided VMs are completely ephemeral and are
 recreated on every cluster restart. The KubeVirt containers are built on the
 local machine and are the pushed to a registry which is exposed at
@@ -9,7 +9,7 @@ local machine and are the pushed to a registry which is exposed at
 ## Bringing the cluster up
 
 ```bash
-export KUBEVIRT_PROVIDER=os-3.10.0-multus
+export KUBEVIRT_PROVIDER=os-3.11.0-multus
 export KUBEVIRT_NUM_NODES=2 # master + one node
 make cluster-up
 ```
@@ -39,7 +39,7 @@ Use the default user `admin:admin` to log in.
 ## Bringing the cluster down
 
 ```bash
-export KUBEVIRT_PROVIDER=os-3.10.0-multus
+export KUBEVIRT_PROVIDER=os-3.11.0-multus
 make cluster-down
 ```
 
