@@ -23,6 +23,7 @@ import (
 	"fmt"
 	"os"
 	"path"
+	"strconv"
 	"syscall"
 
 	k8sv1 "k8s.io/api/core/v1"
@@ -33,6 +34,7 @@ import (
 )
 
 const pvcBaseDir = "/var/run/kubevirt-private/vmi-disks"
+const lessPvcSpaceTolerationEnvName = "LESS_PVC_SPACE_TOLERATION"
 
 func ReplacePVCByHostDisk(vmi *v1.VirtualMachineInstance, clientset kubecli.KubevirtClient) error {
 	// If PVC is defined and it's not a BlockMode PVC, then it is replaced by HostDisk
@@ -67,7 +69,7 @@ func dirBytesAvailable(path string) (uint64, error) {
 	if err != nil {
 		return 0, err
 	}
-	return (stat.Bavail * uint64(stat.Bsize)), nil
+	return stat.Bavail * uint64(stat.Bsize), nil
 }
 
 func createSparseRaw(fullPath string, size int64) error {
@@ -85,19 +87,50 @@ func getPVCDiskImgPath(volumeName string) string {
 	return path.Join(pvcBaseDir, volumeName, "disk.img")
 }
 
-func CreateHostDisks(vmi *v1.VirtualMachineInstance) error {
+type DiskImgCreator struct {
+	dirBytesAvailableFunc func(path string) (uint64, error)
+}
+
+func NewHostDiskCreator() DiskImgCreator {
+	return DiskImgCreator{
+		dirBytesAvailableFunc: dirBytesAvailable,
+	}
+}
+
+func (hdc DiskImgCreator) Create(vmi *v1.VirtualMachineInstance) error {
 	for _, volume := range vmi.Spec.Volumes {
 		if hostDisk := volume.VolumeSource.HostDisk; hostDisk != nil && hostDisk.Type == v1.HostDiskExistsOrCreate && hostDisk.Path != "" {
 			if _, err := os.Stat(hostDisk.Path); os.IsNotExist(err) {
-				availableSpace, err := dirBytesAvailable(path.Dir(hostDisk.Path))
+				availableSize, err := hdc.dirBytesAvailableFunc(path.Dir(hostDisk.Path))
 				if err != nil {
 					return err
 				}
-				size, _ := hostDisk.Capacity.AsInt64()
-				if uint64(size) > availableSpace {
-					return fmt.Errorf("Unable to create %s, not enough space, demanded size %d B is bigger than available space %d B", hostDisk.Path, uint64(size), availableSpace)
+				requestedSize, _ := hostDisk.Capacity.AsInt64()
+				diskSize := requestedSize
+				if uint64(requestedSize) > availableSize {
+					// Some storage provisioners provision less space than requested, due to filesystem overhead etc.
+					// We tolerate some difference in requested and available capacity up to some degree.
+					// This can be configured with the "pvc-tolerate-less-space-up-to-percent" parameter in the kubevirt-config ConfigMap.
+					// It is provided as environment variable to virt-launcher.
+					t := os.Getenv(lessPvcSpaceTolerationEnvName)
+					if t == "" {
+						// Default value is set in virt-controller, so this only happens in unit tests
+						// For toleration related tests we explicitly set a value, so let's keep this at 0 for the other tests
+						t = "0"
+					}
+					toleration, err := strconv.Atoi(t)
+					if err != nil {
+						return fmt.Errorf("Unable to create %s, invalid toleration value %v", hostDisk.Path, toleration)
+					}
+					toleratedSize := requestedSize * (100 - int64(toleration)) / 100
+					if uint64(toleratedSize) > availableSize {
+						return fmt.Errorf("Unable to create %s, not enough space, demanded size %d B is bigger than available space %d B, also after taking %d %% toleration into account",
+							hostDisk.Path, uint64(requestedSize), availableSize, toleration)
+					}
+					diskSize = int64(availableSize)
+					// TODO Report that we used toleration
 				}
-				err = createSparseRaw(hostDisk.Path, size)
+				err = createSparseRaw(hostDisk.Path, int64(diskSize))
 				if err != nil {
 					return err
 				}

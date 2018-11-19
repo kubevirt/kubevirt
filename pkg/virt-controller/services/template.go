@@ -44,6 +44,8 @@ import (
 const configMapName = "kubevirt-config"
 const UseEmulationKey = "debug.useEmulation"
 const ImagePullPolicyKey = "dev.imagePullPolicy"
+const LessPvcSpaceTolerationKey = "dev.pvc-tolerate-less-space-up-to-percent"
+const LessPvcSpaceTolerationEnvName = "LESS_PVC_SPACE_TOLERATION"
 const KvmDevice = "devices.kubevirt.io/kvm"
 const TunDevice = "devices.kubevirt.io/tun"
 const VhostNetDevice = "devices.kubevirt.io/vhost-net"
@@ -105,6 +107,20 @@ func GetImagePullPolicy(store cache.Store) (policy k8sv1.PullPolicy, err error) 
 			policy = k8sv1.PullIfNotPresent
 		default:
 			err = fmt.Errorf("Invalid ImagePullPolicy in ConfigMap: %s", value)
+		}
+	}
+	return
+}
+
+func GetLessPvcSpaceToleration(store cache.Store) (toleration int, err error) {
+	var value string
+	if value, err = getConfigMapEntry(store, LessPvcSpaceTolerationKey); err != nil || value == "" {
+		toleration = 10 // Default if not specified
+	} else {
+		toleration, err = strconv.Atoi(value)
+		if err != nil || toleration < 0 || toleration > 100 {
+			err = fmt.Errorf("Invalid LessPvcSpaceToleration in ConfigMap: %s", value)
+			return
 		}
 	}
 	return
@@ -481,6 +497,11 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 		return nil, err
 	}
 
+	lessPvcSpaceToleration, err := GetLessPvcSpaceToleration(t.configMapStore)
+	if err != nil {
+		return nil, err
+	}
+
 	if resources.Limits == nil {
 		resources.Limits = make(k8sv1.ResourceList)
 	}
@@ -533,6 +554,9 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 		},
 		Resources: resources,
 		Ports:     ports,
+		Env: []k8sv1.EnvVar{
+			{Name: LessPvcSpaceTolerationEnvName, Value: strconv.Itoa(lessPvcSpaceToleration)},
+		},
 	}
 	containers := registrydisk.GenerateContainers(vmi, "ephemeral-disks", t.ephemeralDiskDir)
 
