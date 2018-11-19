@@ -21,6 +21,7 @@ package services
 
 import (
 	"errors"
+	"os"
 	"strconv"
 	"testing"
 
@@ -248,6 +249,30 @@ var _ = Describe("Template", func() {
 				Expect(pod.Spec.Containers[0].VolumeMounts[1].MountPath).To(Equal("/var/run/kubevirt"))
 				Expect(*pod.Spec.TerminationGracePeriodSeconds).To(Equal(int64(60)))
 			})
+
+			It("should add node selector for node discovery feature to template", func() {
+
+				os.Setenv("FEATURE_GATES", "CPUNodeDiscovery")
+				vmi := v1.VirtualMachineInstance{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "testvmi",
+						Namespace: "default",
+						UID:       "1234",
+					},
+					Spec: v1.VirtualMachineInstanceSpec{
+						Domain: v1.DomainSpec{
+							CPU: &v1.CPU{
+								Model: "Conore",
+							},
+						},
+					},
+				}
+
+				pod, err := svc.RenderLaunchManifest(&vmi)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(pod.Spec.NodeSelector).Should(HaveKeyWithValue(NFD_CPU_FAMILY_PREFIX+"Conore", "true"))
+			})
+
 			It("should add default cpu/memory resources to the sidecar container if cpu pinning was requested", func() {
 				nodeSelector := map[string]string{
 					"kubernetes.io/hostname": "master",

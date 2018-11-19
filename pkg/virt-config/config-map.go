@@ -21,6 +21,7 @@ package virtconfig
 
 import (
 	"os"
+	"strings"
 	"time"
 
 	k8sv1 "k8s.io/api/core/v1"
@@ -85,4 +86,8 @@ func getConfigMap() *k8sv1.ConfigMap {
 	}
 
 	return cfgMap
+}
+
+func CPUNodeDiscoveryEnabled() bool {
+	return strings.Contains(os.Getenv(featureGateEnvVar), CPUNodeDiscoveryGate)
 }
