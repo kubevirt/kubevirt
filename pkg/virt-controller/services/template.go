@@ -486,7 +486,7 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 		"--namespace", namespace,
 		"--kubevirt-share-dir", t.virtShareDir,
 		"--ephemeral-disk-dir", t.ephemeralDiskDir,
-		"--readiness-file", "/tmp/healthy",
+		"--readiness-file", "/var/run/kubevirt-infra/healthy",
 		"--grace-period-seconds", strconv.Itoa(int(gracePeriodSeconds)),
 		"--hook-sidecars", strconv.Itoa(len(requestedHookSidecarList)),
 		"--less-pvc-space-toleration", strconv.Itoa(lessPVCSpaceToleration),
@@ -522,6 +522,46 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 
 	capabilities := getRequiredCapabilities(vmi)
 
+	volumeMounts = append(volumeMounts, k8sv1.VolumeMount{
+		Name:      "infra-ready-mount",
+		MountPath: "/var/run/kubevirt-infra",
+	})
+
+	volumes = append(volumes, k8sv1.Volume{Name: "infra-ready-mount", VolumeSource: k8sv1.VolumeSource{EmptyDir: &k8sv1.EmptyDirVolumeSource{}}})
+	// Infra-ready container
+	readyContainer := k8sv1.Container{
+		Name:            "kubevirt-infra",
+		Image:           t.launcherImage,
+		ImagePullPolicy: imagePullPolicy,
+		SecurityContext: &k8sv1.SecurityContext{
+			RunAsUser: &userId,
+		},
+		Resources: k8sv1.ResourceRequirements{
+			Limits: map[k8sv1.ResourceName]resource.Quantity{
+				k8sv1.ResourceCPU:    resource.MustParse("1m"),
+				k8sv1.ResourceMemory: resource.MustParse("3M"),
+			},
+		},
+		Command:       []string{"/usr/bin/tail", "-f", "/dev/null"},
+		VolumeDevices: volumeDevices,
+		VolumeMounts:  volumeMounts,
+		ReadinessProbe: &k8sv1.Probe{
+			Handler: k8sv1.Handler{
+				Exec: &k8sv1.ExecAction{
+					Command: []string{
+						"cat",
+						"/var/run/kubevirt-infra/healthy",
+					},
+				},
+			},
+			InitialDelaySeconds: int32(initialDelaySeconds),
+			PeriodSeconds:       int32(periodSeconds),
+			TimeoutSeconds:      int32(timeoutSeconds),
+			SuccessThreshold:    int32(successThreshold),
+			FailureThreshold:    int32(failureThreshold),
+		},
+	}
+
 	// VirtualMachineInstance target container
 	container := k8sv1.Container{
 		Name:            "compute",
@@ -542,7 +582,7 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 				Exec: &k8sv1.ExecAction{
 					Command: []string{
 						"cat",
-						"/tmp/healthy",
+						"/var/run/kubevirt-infra/healthy",
 					},
 				},
 			},
@@ -616,6 +656,8 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 			},
 		})
 	}
+
+	containers = append(containers, readyContainer)
 
 	hostName := dns.SanitizeHostname(vmi)
 
