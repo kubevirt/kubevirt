@@ -79,23 +79,6 @@ var _ = Describe("Networking", func() {
 		return j.Status.Phase
 	}
 
-	startTCPServer := func(vmi *v1.VirtualMachineInstance, port int) {
-		expecter, err := tests.LoggedInCirrosExpecter(vmi)
-		Expect(err).ToNot(HaveOccurred())
-		defer expecter.Close()
-
-		resp, err := expecter.ExpectBatch([]expect.Batcher{
-			&expect.BSnd{S: "\n"},
-			&expect.BExp{R: "\\$ "},
-			&expect.BSnd{S: fmt.Sprintf("screen -d -m nc -klp %d -e echo -e \"Hello World!\"\n", port)},
-			&expect.BExp{R: "\\$ "},
-			&expect.BSnd{S: "echo $?\n"},
-			&expect.BExp{R: "0"},
-		}, 60*time.Second)
-		log.DefaultLogger().Infof("%v", resp)
-		Expect(err).ToNot(HaveOccurred())
-	}
-
 	checkMacAddress := func(vmi *v1.VirtualMachineInstance, expectedMacAddress string, prompt string) {
 		err := tests.CheckForTextExpecter(vmi, []expect.Batcher{
 			&expect.BSnd{S: "\n"},
@@ -160,7 +143,7 @@ var _ = Describe("Networking", func() {
 			inboundVMIWithPodNetworkSet = tests.WaitUntilVMIReady(inboundVMIWithPodNetworkSet, tests.LoggedInCirrosExpecter)
 			inboundVMIWithCustomMacAddress = tests.WaitUntilVMIReady(inboundVMIWithCustomMacAddress, tests.LoggedInCirrosExpecter)
 
-			startTCPServer(inboundVMI, testPort)
+			tests.StartTCPServer(inboundVMI, testPort)
 		})
 
 		table.DescribeTable("should be able to reach", func(destination string) {

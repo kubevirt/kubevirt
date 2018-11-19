@@ -801,8 +801,9 @@ func GetRunningPodByLabel(label string, labelType string, namespace string) *k8s
 	for _, pod := range pods.Items {
 		ready := true
 		for _, status := range pod.Status.ContainerStatuses {
-			if !status.Ready {
-				ready = false
+			if status.Name == "kubevirt-infra" {
+				ready = status.Ready
+				break
 			}
 		}
 		if ready {
@@ -2598,4 +2599,38 @@ func HasCDI() bool {
 		}
 	}
 	return hasCDI
+}
+
+func StartTCPServer(vmi *v1.VirtualMachineInstance, port int) {
+	expecter, err := LoggedInCirrosExpecter(vmi)
+	Expect(err).ToNot(HaveOccurred())
+	defer expecter.Close()
+
+	resp, err := expecter.ExpectBatch([]expect.Batcher{
+		&expect.BSnd{S: "\n"},
+		&expect.BExp{R: "\\$ "},
+		&expect.BSnd{S: fmt.Sprintf("screen -d -m nc -klp %d -e echo -e \"Hello World!\"\n", port)},
+		&expect.BExp{R: "\\$ "},
+		&expect.BSnd{S: "echo $?\n"},
+		&expect.BExp{R: "0"},
+	}, 60*time.Second)
+	log.DefaultLogger().Infof("%v", resp)
+	Expect(err).ToNot(HaveOccurred())
+}
+
+func StartHTTPServer(vmi *v1.VirtualMachineInstance, port int) {
+	expecter, err := LoggedInCirrosExpecter(vmi)
+	Expect(err).ToNot(HaveOccurred())
+	defer expecter.Close()
+
+	resp, err := expecter.ExpectBatch([]expect.Batcher{
+		&expect.BSnd{S: "\n"},
+		&expect.BExp{R: "\\$ "},
+		&expect.BSnd{S: fmt.Sprintf("screen -d -m nc -klp %d -e echo -e \"HTTP/1.1 200 OK\\n\\nHello World!\"\n", port)},
+		&expect.BExp{R: "\\$ "},
+		&expect.BSnd{S: "echo $?\n"},
+		&expect.BExp{R: "0"},
+	}, 60*time.Second)
+	log.DefaultLogger().Infof("%v", resp)
+	Expect(err).ToNot(HaveOccurred())
 }
