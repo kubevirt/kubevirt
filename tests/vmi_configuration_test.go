@@ -88,7 +88,7 @@ var _ = Describe("Configurations", func() {
 				_, err = expecter.ExpectBatch([]expect.Batcher{
 					&expect.BSnd{S: "grep -c ^processor /proc/cpuinfo\n"},
 					&expect.BExp{R: "3"},
-				}, 250*time.Second)
+				}, 15*time.Second)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Checking the requested amount of memory allocated for a guest")
@@ -108,7 +108,7 @@ var _ = Describe("Configurations", func() {
 				Expect(computeContainer.Resources.Requests.Memory().ToDec().ScaledValue(resource.Mega)).To(Equal(int64(179)))
 
 				Expect(err).ToNot(HaveOccurred())
-			}, 300)
+			})
 
 			It("should map cores to virtio block queues", func() {
 				_true := true
@@ -128,7 +128,7 @@ var _ = Describe("Configurations", func() {
 				domXml, err := tests.GetRunningVirtualMachineInstanceDomainXML(virtClient, vmi)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(domXml).To(ContainSubstring("queues='3'"))
-			}, 300)
+			})
 
 			It("should map cores to virtio net queues", func() {
 				if shouldUseEmulation(virtClient) {
@@ -153,7 +153,7 @@ var _ = Describe("Configurations", func() {
 				domXml, err := tests.GetRunningVirtualMachineInstanceDomainXML(virtClient, vmi)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(domXml).To(ContainSubstring("driver name='vhost' queues='3'"))
-			}, 300)
+			})
 
 			It("should reject virtio block queues without cores", func() {
 				_true := true
@@ -169,7 +169,7 @@ var _ = Describe("Configurations", func() {
 				Expect(err).To(HaveOccurred())
 				regexp := "(MultiQueue for block devices|the server rejected our request)"
 				Expect(err.Error()).To(MatchRegexp(regexp))
-			}, 300)
+			})
 
 			It("should not enforce explicitly rejected virtio block queues without cores", func() {
 				_false := false
@@ -188,7 +188,7 @@ var _ = Describe("Configurations", func() {
 				domXml, err := tests.GetRunningVirtualMachineInstanceDomainXML(virtClient, vmi)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(domXml).ToNot(ContainSubstring("queues='"))
-			}, 300)
+			})
 		})
 
 		Context("with diverging guest memory from requested memory", func() {
@@ -860,11 +860,14 @@ var _ = Describe("Configurations", func() {
 				defer expecter.Close()
 
 				By("Checking the number of CPU cores under guest OS")
-				_, err = expecter.ExpectBatch([]expect.Batcher{
+				res, err := expecter.ExpectBatch([]expect.Batcher{
 					&expect.BSnd{S: "grep -c ^processor /proc/cpuinfo\n"},
 					&expect.BExp{R: "2"},
-				}, 250*time.Second)
+				}, 15*time.Second)
+				log.DefaultLogger().Object(cpuVmi).Infof("%v", res)
+				Expect(err).ToNot(HaveOccurred())
 			})
+
 			It("should configure correct number of vcpus with requests.cpus", func() {
 				cpuVmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(tests.RegistryDiskFor(tests.RegistryDiskCirros), "#!/bin/bash\necho 'hello'\n")
 				cpuVmi.Spec.Domain.CPU = &v1.CPU{
@@ -888,12 +891,14 @@ var _ = Describe("Configurations", func() {
 				defer expecter.Close()
 
 				By("Checking the number of CPU cores under guest OS")
-				_, err = expecter.ExpectBatch([]expect.Batcher{
+				res, err := expecter.ExpectBatch([]expect.Batcher{
 					&expect.BSnd{S: "grep -c ^processor /proc/cpuinfo\n"},
 					&expect.BExp{R: "2"},
-				}, 250*time.Second)
-
+				}, 15*time.Second)
+				log.DefaultLogger().Object(cpuVmi).Infof("%v", res)
+				Expect(err).ToNot(HaveOccurred())
 			})
+
 			It("should fail the vmi creation if the requested resources are inconsistent", func() {
 				cpuVmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(tests.RegistryDiskFor(tests.RegistryDiskCirros), "#!/bin/bash\necho 'hello'\n")
 				cpuVmi.Spec.Domain.CPU = &v1.CPU{
