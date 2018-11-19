@@ -20,9 +20,12 @@
 package hostdisk
 
 import (
+	"fmt"
 	"io/ioutil"
 	"os"
 	"path"
+	"strconv"
+	"strings"
 
 	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo"
@@ -102,7 +105,8 @@ var _ = Describe("HostDisk", func() {
 			addHostDisk(vmi, "volume1", v1.HostDiskExists, "")
 
 			By("Executing CreateHostDisks which should not create a disk.img")
-			err := CreateHostDisks(vmi)
+			hostDiskCreator := NewHostDiskCreator()
+			err := hostDiskCreator.Create(vmi)
 			Expect(err).NotTo(HaveOccurred())
 
 			// check if disk.img has the same modification time
@@ -118,7 +122,8 @@ var _ = Describe("HostDisk", func() {
 			addHostDisk(vmi, "volume1", v1.HostDiskExists, "")
 
 			By("Executing CreateHostDisks which should not create disk.img")
-			err := CreateHostDisks(vmi)
+			hostDiskCreator := NewHostDiskCreator()
+			err := hostDiskCreator.Create(vmi)
 			Expect(err).NotTo(HaveOccurred())
 
 			// disk.img should not exist
@@ -140,7 +145,8 @@ var _ = Describe("HostDisk", func() {
 					addHostDisk(vmi, "volume3", v1.HostDiskExistsOrCreate, "80Mi")
 
 					By("Executing CreateHostDisks which should create disk.img")
-					err := CreateHostDisks(vmi)
+					hostDiskCreator := NewHostDiskCreator()
+					err := hostDiskCreator.Create(vmi)
 					Expect(err).NotTo(HaveOccurred())
 
 					// check if images exist and the size is adequate to requirements
@@ -166,7 +172,8 @@ var _ = Describe("HostDisk", func() {
 					addHostDisk(vmi, "volume3", v1.HostDiskExistsOrCreate, "128Mi")
 
 					By("Executing CreateHostDisks func which should not create a disk.img")
-					err := CreateHostDisks(vmi)
+					hostDiskCreator := NewHostDiskCreator()
+					err := hostDiskCreator.Create(vmi)
 					Expect(err).To(HaveOccurred())
 
 					// only first disk.img should be created
@@ -182,6 +189,59 @@ var _ = Describe("HostDisk", func() {
 					_, err = os.Stat(vmi.Spec.Volumes[2].HostDisk.Path)
 					Expect(true).To(Equal(os.IsNotExist(err)))
 				})
+
+				It("Should take lessPvcSpaceToleration into account when creating disk images", func() {
+					By("Creating a new minimal vmi")
+					vmi := v1.NewMinimalVMI("fake-vmi")
+
+					toleration := 5
+					os.Setenv(lessPvcSpaceTolerationEnvName, strconv.Itoa(toleration))
+					size64Mi := uint64(67108864) // 64 Mi
+
+					calcToleratedSize := func(origSize uint64, diff int) uint64 {
+						return origSize * (100 - uint64(toleration) + uint64(diff)) / 100
+					}
+
+					fakeDirBytesAvailable := func(path string) (uint64, error) {
+						if strings.Contains(path, "volume1") {
+							// toleration +1
+							return calcToleratedSize(size64Mi, 1), nil
+						} else if strings.Contains(path, "volume2") {
+							// exact toleration
+							return calcToleratedSize(size64Mi, 0), nil
+						} else if strings.Contains(path, "volume3") {
+							// toleration -1
+							return calcToleratedSize(size64Mi, -1), nil
+						} else {
+							return 0, fmt.Errorf("fix your test please")
+						}
+					}
+
+					By("Adding HostDisk volumes")
+					addHostDisk(vmi, "volume1", v1.HostDiskExistsOrCreate, "64Mi")
+					addHostDisk(vmi, "volume2", v1.HostDiskExistsOrCreate, "64Mi")
+					addHostDisk(vmi, "volume3", v1.HostDiskExistsOrCreate, "64Mi")
+
+					By("Executing CreateHostDisks func which should not create a disk.img")
+					hostDiskCreator := NewHostDiskCreator()
+					hostDiskCreator.dirBytesAvailableFunc = fakeDirBytesAvailable
+					err := hostDiskCreator.Create(vmi)
+					Expect(err).To(HaveOccurred())
+
+					// only first and second disk.img should be created, with the exact available size
+					// third disk is beyond toleration, function should return err and stop creating images
+					img1, err := os.Stat(vmi.Spec.Volumes[0].HostDisk.Path)
+					Expect(err).NotTo(HaveOccurred())
+					Expect(uint64(img1.Size())).To(Equal(calcToleratedSize(size64Mi, 1))) // 64Mi - (toleration + 1%)
+
+					img2, err := os.Stat(vmi.Spec.Volumes[1].HostDisk.Path)
+					Expect(err).NotTo(HaveOccurred())
+					Expect(uint64(img2.Size())).To(Equal(calcToleratedSize(size64Mi, 0))) // 64Mi
+
+					_, err = os.Stat(vmi.Spec.Volumes[2].HostDisk.Path)
+					Expect(true).To(Equal(os.IsNotExist(err)))
+				})
+
 			})
 		})
 		Context("With existing disk.img", func() {
@@ -196,7 +256,8 @@ var _ = Describe("HostDisk", func() {
 				addHostDisk(vmi, "volume1", v1.HostDiskExistsOrCreate, "128Mi")
 
 				By("Executing CreateHostDisks which should not create a disk.img")
-				err := CreateHostDisks(vmi)
+				hostDiskCreator := NewHostDiskCreator()
+				err := hostDiskCreator.Create(vmi)
 				Expect(err).NotTo(HaveOccurred())
 
 				// check if disk.img has the same modification time
@@ -221,7 +282,8 @@ var _ = Describe("HostDisk", func() {
 			addHostDisk(vmi, "volume1", "UnknownType", "")
 
 			By("Executing CreateHostDisks which should not create a disk.img")
-			err := CreateHostDisks(vmi)
+			hostDiskCreator := NewHostDiskCreator()
+			err := hostDiskCreator.Create(vmi)
 			Expect(err).NotTo(HaveOccurred())
 
 			// disk.img should not exist
