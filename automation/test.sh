@@ -30,6 +30,7 @@ set -ex
 
 export WORKSPACE="${WORKSPACE:-$PWD}"
 readonly ARTIFACTS_PATH="$WORKSPACE/exported-artifacts"
+readonly TEMPLATES_SERVER="https://templates.ovirt.org/kubevirt/"
 
 if [[ $TARGET =~ openshift-.* ]]; then
   if [[ $TARGET =~ .*-crio-.* ]]; then
@@ -79,13 +80,31 @@ safe_download() (
     local download_from="${2:?Download from was not specified}"
     local download_to="${3:?Download to was not specified}"
     local timeout_sec="${4:-3600}"
+
     touch "$lockfile"
     exec {fd}< "$lockfile"
     flock -e  -w "$timeout_sec" "$fd" || {
         echo "ERROR: Timed out after $timeout_sec seconds waiting for lock" >&2
         exit 1
     }
-    [[ ! -f "$download_to" ]] && curl "$download_from" --output "$download_to"
+
+    local remote_sha1_url="${download_from}.sha1"
+    local local_sha1_file="${download_to}.sha1"
+    local remote_sha1
+    # Remote file includes only sha1 w/o filename suffix
+    remote_sha1="$(curl -s "${remote_sha1_url}")"
+    if [[ "$(cat "$local_sha1_file")" != "$remote_sha1" ]]; then
+        echo "${download_to} is not up to date, corrupted or doesn't exist."
+        echo "Downloading file from: ${remote_sha1_url}"
+        curl "$download_from" --output "$download_to"
+        sha1sum "$download_to" | cut -d " " -f1 > "$local_sha1_file"
+        [[ "$(cat "$local_sha1_file")" == "$remote_sha1" ]] || {
+            echo "${download_to} is corrupted"
+            return 1
+        }
+    else
+        echo "${download_to} is up to date"
+    fi
 )
 
 if [[ $TARGET =~ openshift.* ]]; then
@@ -95,7 +114,7 @@ if [[ $TARGET =~ openshift.* ]]; then
     fi
 
     # Download RHEL image
-    rhel_image_url="http://templates.ovirt.org/kubevirt/rhel7.img"
+    rhel_image_url="${TEMPLATES_SERVER}/rhel7.img"
     rhel_image="$RHEL_NFS_DIR/disk.img"
     safe_download "$RHEL_LOCK_PATH" "$rhel_image_url" "$rhel_image" || exit 1
 fi
@@ -107,12 +126,9 @@ if [[ $TARGET =~ windows.* ]]; then
   fi
 
   # Download Windows image
-    win_image_url="http://templates.ovirt.org/kubevirt/win01.img"
-    win_image="$WINDOWS_NFS_DIR/disk.img"
-    if [[ ! -f "$win_image" ]]; then
-        safe_download "$WINDOWS_LOCK_PATH" "$win_image_url" "$win_image" || \
-            exit 1
-    fi
+  win_image_url="${TEMPLATES_SERVER}/win01.img"
+  win_image="$WINDOWS_NFS_DIR/disk.img"
+  safe_download "$WINDOWS_LOCK_PATH" "$win_image_url" "$win_image" || exit 1
 fi
 
 kubectl() { cluster/kubectl.sh "$@"; }
