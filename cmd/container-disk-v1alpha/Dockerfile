@@ -16,15 +16,13 @@
 # Copyright 2017 Red Hat, Inc.
 #
 
-FROM debian:sid
+FROM fedora:28
 
-LABEL maintainer="David Vossel <dvossel@redhat.com>"
+LABEL maintainer="The KubeVirt Project <kubevirt-dev@googlegroups.com>"
+
 ENV container docker
 
-RUN apt-get update && apt-get install -y \
-	bash curl bzip2 qemu-utils && \
-	mkdir -p /disk && \
-	rm -rf /var/lib/apt/lists/*
+RUN yum install -y bzip2 qemu-img && dnf clean all && mkdir -p /disk 
 
 ADD entry-point.sh /
 
