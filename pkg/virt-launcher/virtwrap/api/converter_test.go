@@ -1255,7 +1255,7 @@ var _ = Describe("Converter", func() {
 				},
 			}
 		})
-		It("assigns a set of cpus per iothread, if there are more vcpus that iothreads", func() {
+		It("assigns a set of cpus per iothread, if there are more vcpus than iothreads", func() {
 			vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceCPU] = resource.MustParse("16")
 			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
 			c := &ConverterContext{CPUSet: []int{5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20},
