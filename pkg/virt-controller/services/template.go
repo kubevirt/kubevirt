@@ -25,6 +25,8 @@ import (
 	"strconv"
 	"strings"
 
+	"kubevirt.io/kubevirt/pkg/feature-gates"
+
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -58,6 +60,9 @@ const CAP_SYS_NICE = "SYS_NICE"
 // LibvirtStartupDelay is added to custom liveness and readiness probes initial delay value.
 // Libvirt needs roughly 10 seconds to start.
 const LibvirtStartupDelay = 10
+//This is a perfix for node feature discovery, used in a NodeSelector on the pod
+//to match a VirtualMachineInstance CPU model(Family) to nodes that support this model.
+const NFD_CPU_FAMILY_PREFIX = "feature.node.kubernetes.io/nfd-cpu-family-"
 
 const MULTUS_RESOURCE_NAME_ANNOTATION = "k8s.v1.cni.cncf.io/resourceName"
 
@@ -612,6 +617,12 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 		nodeSelector[k] = v
 
 	}
+	if featuregates.CPUNodeDiscoveryEnabled() {
+		if vmi.Spec.Domain.CPU != nil && vmi.Spec.Domain.CPU.Model != "" {
+			nodeSelector[NFD_CPU_FAMILY_PREFIX+vmi.Spec.Domain.CPU.Model] = "true"
+		}
+	}
+
 	nodeSelector[v1.NodeSchedulable] = "true"
 
 	podLabels := map[string]string{}
