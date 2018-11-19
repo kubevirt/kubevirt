@@ -876,7 +876,7 @@ func NewPodForVirtualMachine(vmi *v1.VirtualMachineInstance, phase k8sv1.PodPhas
 		Status: k8sv1.PodStatus{
 			Phase: phase,
 			ContainerStatuses: []k8sv1.ContainerStatus{
-				{Ready: true, Name: "test"},
+				{Ready: true, Name: "kubevirt-infra"},
 			},
 		},
 	}

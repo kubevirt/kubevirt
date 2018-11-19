@@ -97,9 +97,9 @@ var _ = Describe("Configurations", func() {
 				readyPod := tests.GetRunningPodByVirtualMachineInstance(vmi, tests.NamespaceTestDefault)
 				var computeContainer *kubev1.Container
 				for _, container := range readyPod.Spec.Containers {
-					println(container.Name)
 					if container.Name == "compute" {
 						computeContainer = &container
+						break
 					}
 				}
 				if computeContainer == nil {

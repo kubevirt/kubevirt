@@ -368,12 +368,14 @@ func (c *VMIController) updateStatus(vmi *virtv1.VirtualMachineInstance, pod *k8
 	return nil
 }
 
+// isPodReady treats the pod as ready to be handed over to virt-handler, as soon as all pods except
+// the compute pod are ready. That includes kubevirt-infra and sidecars.
 func isPodReady(pod *k8sv1.Pod) bool {
 	if isPodDownOrGoingDown(pod) {
 		return false
 	}
 	for _, containerStatus := range pod.Status.ContainerStatuses {
-		if containerStatus.Ready == false {
+		if containerStatus.Name != "compute" && containerStatus.Ready == false {
 			return false
 		}
 	}
