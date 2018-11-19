@@ -742,16 +742,14 @@ func Convert_v1_VirtualMachine_To_api_Domain(vmi *v1.VirtualMachineInstance, dom
 
 	if vmi.Spec.Domain.CPU != nil {
 		// Set VM CPU cores
-		if vmi.Spec.Domain.CPU.Cores != 0 {
-			domain.Spec.CPU.Topology = &CPUTopology{
-				Sockets: 1,
-				Cores:   vmi.Spec.Domain.CPU.Cores,
-				Threads: 1,
-			}
-			domain.Spec.VCPU = &VCPU{
-				Placement: "static",
-				CPUs:      vmi.Spec.Domain.CPU.Cores,
-			}
+		domain.Spec.CPU.Topology = &CPUTopology{
+			Sockets: 1,
+			Cores:   calculateRequestedVCPUs(vmi),
+			Threads: 1,
+		}
+		domain.Spec.VCPU = &VCPU{
+			Placement: "static",
+			CPUs:      calculateRequestedVCPUs(vmi),
 		}
 
 		// Set VM CPU model and vendor
@@ -991,6 +989,9 @@ func calculateRequestedVCPUs(vmi *v1.VirtualMachineInstance) uint32 {
 	cores := uint32(0)
 	if vmi.Spec.Domain.CPU != nil && vmi.Spec.Domain.CPU.Cores != 0 {
 		return vmi.Spec.Domain.CPU.Cores
+	}
+	if !vmi.IsCPUDedicated() {
+		return uint32(1)
 	}
 	if cpuRequests, ok := vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceCPU]; ok {
 		cores = uint32(cpuRequests.Value())
