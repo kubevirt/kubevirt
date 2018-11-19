@@ -30,6 +30,7 @@ import (
 	kubev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/client-go/tools/cache"
 
 	"kubevirt.io/kubevirt/pkg/api/v1"
@@ -1008,6 +1009,80 @@ var _ = Describe("Template", func() {
 				Expect(len(pod.Spec.Volumes)).To(Equal(5))
 				Expect(pod.Spec.Volumes[0].Secret).ToNot(BeNil())
 				Expect(pod.Spec.Volumes[0].Secret.SecretName).To(Equal("test-secret"))
+			})
+		})
+		Context("with probes", func() {
+			var vmi *v1.VirtualMachineInstance
+			BeforeEach(func() {
+				vmi = &v1.VirtualMachineInstance{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "testvmi", Namespace: "default", UID: "1234",
+					},
+					Spec: v1.VirtualMachineInstanceSpec{
+						ReadinessProbe: &v1.Probe{
+							InitialDelaySeconds: 2,
+							TimeoutSeconds:      3,
+							PeriodSeconds:       4,
+							SuccessThreshold:    5,
+							FailureThreshold:    6,
+							Handler: v1.Handler{
+								TCPSocket: &kubev1.TCPSocketAction{
+									Port: intstr.Parse("80"),
+									Host: "123",
+								},
+								HTTPGet: &kubev1.HTTPGetAction{
+									Path: "test",
+								},
+							},
+						},
+						LivenessProbe: &v1.Probe{
+							InitialDelaySeconds: 12,
+							TimeoutSeconds:      13,
+							PeriodSeconds:       14,
+							SuccessThreshold:    15,
+							FailureThreshold:    16,
+							Handler: v1.Handler{
+								TCPSocket: &kubev1.TCPSocketAction{
+									Port: intstr.Parse("82"),
+									Host: "1234",
+								},
+								HTTPGet: &kubev1.HTTPGetAction{
+									Path: "test34",
+								},
+							},
+						},
+						Domain: v1.DomainSpec{}},
+				}
+			})
+			It("should copy all specified probes", func() {
+				pod, err := svc.RenderLaunchManifest(vmi)
+				Expect(err).ToNot(HaveOccurred())
+				livenessProbe := pod.Spec.Containers[0].LivenessProbe
+				readinessProbe := pod.Spec.Containers[0].ReadinessProbe
+				Expect(livenessProbe.Handler.TCPSocket).To(Equal(vmi.Spec.LivenessProbe.TCPSocket))
+				Expect(readinessProbe.Handler.TCPSocket).To(Equal(vmi.Spec.ReadinessProbe.TCPSocket))
+
+				Expect(livenessProbe.Handler.HTTPGet).To(Equal(vmi.Spec.LivenessProbe.HTTPGet))
+				Expect(readinessProbe.Handler.HTTPGet).To(Equal(vmi.Spec.ReadinessProbe.HTTPGet))
+
+				Expect(livenessProbe.PeriodSeconds).To(Equal(vmi.Spec.LivenessProbe.PeriodSeconds))
+				Expect(livenessProbe.InitialDelaySeconds).To(Equal(vmi.Spec.LivenessProbe.InitialDelaySeconds + LibvirtStartupDelay))
+				Expect(livenessProbe.TimeoutSeconds).To(Equal(vmi.Spec.LivenessProbe.TimeoutSeconds))
+				Expect(livenessProbe.SuccessThreshold).To(Equal(vmi.Spec.LivenessProbe.SuccessThreshold))
+				Expect(livenessProbe.FailureThreshold).To(Equal(vmi.Spec.LivenessProbe.FailureThreshold))
+
+				Expect(readinessProbe.PeriodSeconds).To(Equal(vmi.Spec.ReadinessProbe.PeriodSeconds))
+				Expect(readinessProbe.InitialDelaySeconds).To(Equal(vmi.Spec.ReadinessProbe.InitialDelaySeconds + LibvirtStartupDelay))
+				Expect(readinessProbe.TimeoutSeconds).To(Equal(vmi.Spec.ReadinessProbe.TimeoutSeconds))
+				Expect(readinessProbe.SuccessThreshold).To(Equal(vmi.Spec.ReadinessProbe.SuccessThreshold))
+				Expect(readinessProbe.FailureThreshold).To(Equal(vmi.Spec.ReadinessProbe.FailureThreshold))
+			})
+
+			It("should keep the default readiness probe, if no one was specified", func() {
+				vmi.Spec.ReadinessProbe = nil
+				pod, err := svc.RenderLaunchManifest(vmi)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(pod.Spec.Containers[0].ReadinessProbe.Exec).ToNot(BeNil())
 			})
 		})
 

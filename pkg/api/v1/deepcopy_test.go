@@ -68,6 +68,14 @@ var _ = Describe("Generated deepcopy functions", func() {
 			&VirtualMachineInstancePreset{},
 			&VirtualMachineInstancePresetList{},
 			&VirtualMachineInstancePresetSpec{},
+			&Probe{},
+			&Handler{},
+			&Hugepages{},
+			&Interface{},
+			&Memory{},
+			&Machine{},
+			&InterfaceBridge{},
+			&InterfaceSlirp{},
 		}
 	})
 

@@ -704,6 +704,8 @@ func ValidateVirtualMachineInstanceSpec(field *k8sfield.Path, spec *v1.VirtualMa
 		}
 	}
 
+	podNetworkInterfacePresent := false
+
 	if len(spec.Domain.Devices.Interfaces) > arrayLenMax {
 		causes = append(causes, metav1.StatusCause{
 			Type:    metav1.CauseTypeFieldValueInvalid,
@@ -718,13 +720,16 @@ func ValidateVirtualMachineInstanceSpec(field *k8sfield.Path, spec *v1.VirtualMa
 			Field:   field.Child("networks").String(),
 		})
 		return causes
-	} else if getNumberOfPodInterfaces(spec) > 1 {
-		causes = append(causes, metav1.StatusCause{
-			Type:    metav1.CauseTypeFieldValueDuplicate,
-			Message: fmt.Sprintf("more than one interface is connected to a pod network in %s", field.Child("interfaces").String()),
-			Field:   field.Child("interfaces").String(),
-		})
-		return causes
+	} else if num := getNumberOfPodInterfaces(spec); num >= 1 {
+		podNetworkInterfacePresent = true
+		if num > 1 {
+			causes = append(causes, metav1.StatusCause{
+				Type:    metav1.CauseTypeFieldValueDuplicate,
+				Message: fmt.Sprintf("more than one interface is connected to a pod network in %s", field.Child("interfaces").String()),
+				Field:   field.Child("interfaces").String(),
+			})
+			return causes
+		}
 	}
 
 	for _, volume := range spec.Volumes {
@@ -1063,6 +1068,63 @@ func ValidateVirtualMachineInstanceSpec(field *k8sfield.Path, spec *v1.VirtualMa
 				Type:    metav1.CauseTypeFieldValueInvalid,
 				Message: fmt.Sprintf("Invalid IOThreadsPolicy (%s)", *spec.Domain.IOThreadsPolicy),
 				Field:   field.Child("domain", "ioThreadsPolicy").String(),
+			})
+		}
+	}
+
+	if spec.ReadinessProbe != nil {
+		if spec.ReadinessProbe.HTTPGet != nil && spec.ReadinessProbe.TCPSocket != nil {
+			causes = append(causes, metav1.StatusCause{
+				Type:    metav1.CauseTypeFieldValueInvalid,
+				Message: fmt.Sprintf("%s must have exactly one probe type set", field.Child("readinessProbe").String()),
+				Field:   field.Child("readinessProbe").String(),
+			})
+		} else if spec.ReadinessProbe.HTTPGet == nil && spec.ReadinessProbe.TCPSocket == nil {
+			causes = append(causes, metav1.StatusCause{
+				Type: metav1.CauseTypeFieldValueRequired,
+				Message: fmt.Sprintf("either %s or %s must be set if a %s is specified",
+					field.Child("readinessProbe", "tcpSocket").String(),
+					field.Child("readinessProbe", "httpGet").String(),
+					field.Child("readinessProbe").String(),
+				),
+				Field: field.Child("readinessProbe").String(),
+			})
+		}
+	}
+
+	if spec.LivenessProbe != nil {
+		if spec.LivenessProbe.HTTPGet != nil && spec.LivenessProbe.TCPSocket != nil {
+			causes = append(causes, metav1.StatusCause{
+				Type:    metav1.CauseTypeFieldValueInvalid,
+				Message: fmt.Sprintf("%s must have exactly one probe type set", field.Child("livenessProbe").String()),
+				Field:   field.Child("livenessProbe").String(),
+			})
+		} else if spec.LivenessProbe.HTTPGet == nil && spec.LivenessProbe.TCPSocket == nil {
+			causes = append(causes, metav1.StatusCause{
+				Type: metav1.CauseTypeFieldValueRequired,
+				Message: fmt.Sprintf("either %s or %s must be set if a %s is specified",
+					field.Child("livenessProbe", "tcpSocket").String(),
+					field.Child("livenessProbe", "httpGet").String(),
+					field.Child("livenessProbe").String(),
+				),
+				Field: field.Child("livenessProbe").String(),
+			})
+		}
+	}
+
+	if !podNetworkInterfacePresent {
+		if spec.LivenessProbe != nil {
+			causes = append(causes, metav1.StatusCause{
+				Type:    metav1.CauseTypeFieldValueInvalid,
+				Message: fmt.Sprintf("%s is only allowed if the Pod Network is attached", field.Child("livenessProbe").String()),
+				Field:   field.Child("livenessProbe").String(),
+			})
+		}
+		if spec.ReadinessProbe != nil {
+			causes = append(causes, metav1.StatusCause{
+				Type:    metav1.CauseTypeFieldValueInvalid,
+				Message: fmt.Sprintf("%s is only allowed if the Pod Network is attached", field.Child("readinessProbe").String()),
+				Field:   field.Child("readinessProbe").String(),
 			})
 		}
 	}
