@@ -25,6 +25,8 @@ func (VirtualMachineInstanceSpec) SwaggerDoc() map[string]string {
 		"tolerations":                   "If toleration is specified, obey all the toleration rules.",
 		"terminationGracePeriodSeconds": "Grace period observed after signalling a VirtualMachineInstance to stop after which the VirtualMachineInstance is force terminated.",
 		"volumes":                       "List of volumes that can be mounted by disks belonging to the vmi.",
+		"livenessProbe":                 "Periodic probe of VirtualMachineInstance liveness.\nVirtualmachineInstances will be stopped if the probe fails.\nCannot be updated.\nMore info: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle#container-probes\n+optional",
+		"readinessProbe":                "Periodic probe of VirtualMachineInstance service readiness.\nVirtualmachineInstances will be removed from service endpoints if the probe fails.\nCannot be updated.\nMore info: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle#container-probes\n+optional",
 		"hostname":                      "Specifies the hostname of the vmi\nIf not specified, the hostname will be set to the name of the vmi, if dhcp or cloud-init is configured properly.\n+optional",
 		"subdomain":                     "If specified, the fully qualified vmi hostname will be \"<hostname>.<subdomain>.<pod namespace>.svc.<cluster domain>\".\nIf not specified, the vmi will not have a domainname at all. The DNS entry will resolve to the vmi,\nno matter if the vmi itself can pick up a hostname.\n+optional",
 		"networks":                      "List of networks that can be attached to a vm's virtual interface.",
@@ -194,5 +196,24 @@ func (VirtualMachineStatus) SwaggerDoc() map[string]string {
 func (VirtualMachineCondition) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"": "VirtualMachineCondition represents the state of VirtualMachine",
+	}
+}
+
+func (Handler) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"":          "Handler defines a specific action that should be taken",
+		"httpGet":   "HTTPGet specifies the http request to perform.\n+optional",
+		"tcpSocket": "TCPSocket specifies an action involving a TCP port.\nTCP hooks not yet supported\n+optional",
+	}
+}
+
+func (Probe) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"": "Probe describes a health check to be performed against a VirtualMachineInstance to determine whether it is\nalive or ready to receive traffic.",
+		"initialDelaySeconds": "Number of seconds after the VirtualMachineInstance has started before liveness probes are initiated.\nMore info: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle#container-probes\n+optional",
+		"timeoutSeconds":      "Number of seconds after which the probe times out.\nDefaults to 1 second. Minimum value is 1.\nMore info: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle#container-probes\n+optional",
+		"periodSeconds":       "How often (in seconds) to perform the probe.\nDefault to 10 seconds. Minimum value is 1.\n+optional",
+		"successThreshold":    "Minimum consecutive successes for the probe to be considered successful after having failed.\nDefaults to 1. Must be 1 for liveness. Minimum value is 1.\n+optional",
+		"failureThreshold":    "Minimum consecutive failures for the probe to be considered failed after having succeeded.\nDefaults to 3. Minimum value is 1.\n+optional",
 	}
 }

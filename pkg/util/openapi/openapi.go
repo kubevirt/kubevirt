@@ -81,6 +81,16 @@ func LoadOpenAPISpec(webServices []*restful.WebService) *spec.Swagger {
 			prop.Type = spec.StringOrArray{"string", "null"}
 			s.Properties["lastTransitionTime"] = prop
 		}
+		if k == "v1.HTTPGetAction" {
+			prop := s.Properties["port"]
+			prop.Type = spec.StringOrArray{"string", "number"}
+			s.Properties["port"] = prop
+		}
+		if k == "v1.TCPSocketAction" {
+			prop := s.Properties["port"]
+			prop.Type = spec.StringOrArray{"string", "number"}
+			s.Properties["port"] = prop
+		}
 	}
 
 	return openapispec

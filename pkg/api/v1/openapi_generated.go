@@ -2440,6 +2440,18 @@ func schema_kubevirt_pkg_api_v1_VirtualMachineInstanceSpec(ref common.ReferenceC
 							},
 						},
 					},
+					"livenessProbe": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Periodic probe of VirtualMachineInstance liveness. VirtualmachineInstances will be stopped if the probe fails. Cannot be updated. More info: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle#container-probes",
+							Ref:         ref("kubevirt.io/kubevirt/pkg/api/v1.Probe"),
+						},
+					},
+					"readinessProbe": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Periodic probe of VirtualMachineInstance service readiness. VirtualmachineInstances will be removed from service endpoints if the probe fails. Cannot be updated. More info: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle#container-probes",
+							Ref:         ref("kubevirt.io/kubevirt/pkg/api/v1.Probe"),
+						},
+					},
 					"hostname": {
 						SchemaProps: spec.SchemaProps{
 							Description: "Specifies the hostname of the vmi If not specified, the hostname will be set to the name of the vmi, if dhcp or cloud-init is configured properly.",
@@ -2472,7 +2484,7 @@ func schema_kubevirt_pkg_api_v1_VirtualMachineInstanceSpec(ref common.ReferenceC
 			},
 		},
 		Dependencies: []string{
-			"k8s.io/api/core/v1.Affinity", "k8s.io/api/core/v1.Toleration", "kubevirt.io/kubevirt/pkg/api/v1.DomainSpec", "kubevirt.io/kubevirt/pkg/api/v1.Network", "kubevirt.io/kubevirt/pkg/api/v1.Volume"},
+			"k8s.io/api/core/v1.Affinity", "k8s.io/api/core/v1.Toleration", "kubevirt.io/kubevirt/pkg/api/v1.DomainSpec", "kubevirt.io/kubevirt/pkg/api/v1.Network", "kubevirt.io/kubevirt/pkg/api/v1.Probe", "kubevirt.io/kubevirt/pkg/api/v1.Volume"},
 	}
 }
 

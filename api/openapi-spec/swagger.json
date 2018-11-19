@@ -4490,6 +4490,57 @@
      }
     }
    },
+   "v1.HTTPGetAction": {
+    "description": "HTTPGetAction describes an action based on HTTP Get requests.",
+    "required": [
+     "port"
+    ],
+    "properties": {
+     "host": {
+      "description": "Host name to connect to, defaults to the pod IP. You probably want to set \"Host\" in httpHeaders instead.",
+      "type": "string"
+     },
+     "httpHeaders": {
+      "description": "Custom headers to set in the request. HTTP allows repeated headers.",
+      "type": "array",
+      "items": {
+       "$ref": "#/definitions/v1.HTTPHeader"
+      }
+     },
+     "path": {
+      "description": "Path to access on the HTTP server.",
+      "type": "string"
+     },
+     "port": {
+      "description": "Name or number of the port to access on the container. Number must be in the range 1 to 65535. Name must be an IANA_SVC_NAME.",
+      "type": [
+       "string",
+       "number"
+      ]
+     },
+     "scheme": {
+      "description": "Scheme to use for connecting to the host. Defaults to HTTP.",
+      "type": "string"
+     }
+    }
+   },
+   "v1.HTTPHeader": {
+    "description": "HTTPHeader describes a custom header to be used in HTTP probes",
+    "required": [
+     "name",
+     "value"
+    ],
+    "properties": {
+     "name": {
+      "description": "The header field name",
+      "type": "string"
+     },
+     "value": {
+      "description": "The header field value",
+      "type": "string"
+     }
+    }
+   },
    "v1.HostDisk": {
     "description": "Represents a disk created on the cluster level",
     "required": [
@@ -5123,6 +5174,44 @@
      }
     }
    },
+   "v1.Probe": {
+    "description": "Probe describes a health check to be performed against a VirtualMachineInstance to determine whether it is\nalive or ready to receive traffic.",
+    "properties": {
+     "failureThreshold": {
+      "description": "Minimum consecutive failures for the probe to be considered failed after having succeeded.\nDefaults to 3. Minimum value is 1.\n+optional",
+      "type": "integer",
+      "format": "int32"
+     },
+     "httpGet": {
+      "description": "HTTPGet specifies the http request to perform.\n+optional",
+      "$ref": "#/definitions/v1.HTTPGetAction"
+     },
+     "initialDelaySeconds": {
+      "description": "Number of seconds after the VirtualMachineInstance has started before liveness probes are initiated.\nMore info: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle#container-probes\n+optional",
+      "type": "integer",
+      "format": "int32"
+     },
+     "periodSeconds": {
+      "description": "How often (in seconds) to perform the probe.\nDefault to 10 seconds. Minimum value is 1.\n+optional",
+      "type": "integer",
+      "format": "int32"
+     },
+     "successThreshold": {
+      "description": "Minimum consecutive successes for the probe to be considered successful after having failed.\nDefaults to 1. Must be 1 for liveness. Minimum value is 1.\n+optional",
+      "type": "integer",
+      "format": "int32"
+     },
+     "tcpSocket": {
+      "description": "TCPSocket specifies an action involving a TCP port.\nTCP hooks not yet supported\n+optional",
+      "$ref": "#/definitions/v1.TCPSocketAction"
+     },
+     "timeoutSeconds": {
+      "description": "Number of seconds after which the probe times out.\nDefaults to 1 second. Minimum value is 1.\nMore info: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle#container-probes\n+optional",
+      "type": "integer",
+      "format": "int32"
+     }
+    }
+   },
    "v1.RTCTimer": {
     "properties": {
      "present": {
@@ -5282,6 +5371,25 @@
      "uid": {
       "description": "UID of the resource. (when there is a single resource which can be described). More info: http://kubernetes.io/docs/user-guide/identifiers#uids",
       "type": "string"
+     }
+    }
+   },
+   "v1.TCPSocketAction": {
+    "description": "TCPSocketAction describes an action based on opening a socket",
+    "required": [
+     "port"
+    ],
+    "properties": {
+     "host": {
+      "description": "Optional: Host name to connect to, defaults to the pod IP.",
+      "type": "string"
+     },
+     "port": {
+      "description": "Number or name of the port to access on the container. Number must be in the range 1 to 65535. Name must be an IANA_SVC_NAME.",
+      "type": [
+       "string",
+       "number"
+      ]
      }
     }
    },
@@ -5796,6 +5904,10 @@
       "description": "Specifies the hostname of the vmi\nIf not specified, the hostname will be set to the name of the vmi, if dhcp or cloud-init is configured properly.\n+optional",
       "type": "string"
      },
+     "livenessProbe": {
+      "description": "Periodic probe of VirtualMachineInstance liveness.\nVirtualmachineInstances will be stopped if the probe fails.\nCannot be updated.\nMore info: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle#container-probes\n+optional",
+      "$ref": "#/definitions/v1.Probe"
+     },
      "networks": {
       "description": "List of networks that can be attached to a vm's virtual interface.",
       "type": "array",
@@ -5806,6 +5918,10 @@
      "nodeSelector": {
       "description": "NodeSelector is a selector which must be true for the vmi to fit on a node.\nSelector which must match a node's labels for the vmi to be scheduled on that node.\nMore info: https://kubernetes.io/docs/concepts/configuration/assign-pod-node/\n+optional",
       "type": "object"
+     },
+     "readinessProbe": {
+      "description": "Periodic probe of VirtualMachineInstance service readiness.\nVirtualmachineInstances will be removed from service endpoints if the probe fails.\nCannot be updated.\nMore info: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle#container-probes\n+optional",
+      "$ref": "#/definitions/v1.Probe"
      },
      "subdomain": {
       "description": "If specified, the fully qualified vmi hostname will be \"\u003chostname\u003e.\u003csubdomain\u003e.\u003cpod namespace\u003e.svc.\u003ccluster domain\u003e\".\nIf not specified, the vmi will not have a domainname at all. The DNS entry will resolve to the vmi,\nno matter if the vmi itself can pick up a hostname.\n+optional",
