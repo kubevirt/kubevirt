@@ -618,7 +618,8 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 
 	}
 	if featuregates.CPUNodeDiscoveryEnabled() {
-		if vmi.Spec.Domain.CPU != nil && vmi.Spec.Domain.CPU.Model != "" {
+		if vmi.Spec.Domain.CPU != nil && vmi.Spec.Domain.CPU.Model != "" &&
+			vmi.Spec.Domain.CPU.Model != "host-model" && vmi.Spec.Domain.CPU.Model != "host-passthrough" {
 			nodeSelector[NFD_CPU_FAMILY_PREFIX+vmi.Spec.Domain.CPU.Model] = "true"
 		}
 	}
