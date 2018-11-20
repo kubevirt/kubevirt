@@ -6,6 +6,8 @@ import (
 	"net/rpc"
 	"path/filepath"
 
+	"kubevirt.io/kubevirt/pkg/util/notifier"
+
 	"github.com/libvirt/libvirt-go"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -19,16 +21,16 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/util"
 )
 
-type DomainEventClient struct {
+type NotifyClient struct {
 	client *rpc.Client
 }
 
-type LibvirtEvent struct {
+type libvirtEvent struct {
 	Domain string
 	Event  *libvirt.DomainEventLifecycle
 }
 
-func NewDomainEventClient(virtShareDir string) (*DomainEventClient, error) {
+func NewNotifyClient(virtShareDir string) (*NotifyClient, error) {
 	socketPath := filepath.Join(virtShareDir, "domain-notify.sock")
 	conn, err := rpc.Dial("unix", socketPath)
 	if err != nil {
@@ -36,10 +38,10 @@ func NewDomainEventClient(virtShareDir string) (*DomainEventClient, error) {
 		return nil, err
 	}
 
-	return &DomainEventClient{client: conn}, nil
+	return &NotifyClient{client: conn}, nil
 }
 
-func (c *DomainEventClient) SendDomainEvent(event watch.Event) error {
+func (c *NotifyClient) SendDomainEvent(event watch.Event) error {
 
 	var domainJSON []byte
 	var statusJSON []byte
@@ -58,7 +60,7 @@ func (c *DomainEventClient) SendDomainEvent(event watch.Event) error {
 			return err
 		}
 	}
-	args := &notifyserver.Args{
+	args := &notifyserver.DomainEventArgs{
 		DomainJSON: string(domainJSON),
 		StatusJSON: string(statusJSON),
 		EventType:  string(event.Type),
@@ -81,7 +83,7 @@ func newWatchEventError(err error) watch.Event {
 	return watch.Event{Type: watch.Error, Object: &metav1.Status{Status: metav1.StatusFailure, Message: err.Error()}}
 }
 
-func libvirtEventCallback(c cli.Connection, domain *api.Domain, libvirtEvent LibvirtEvent, client *DomainEventClient, events chan watch.Event) {
+func libvirtEventCallback(c cli.Connection, domain *api.Domain, libvirtEvent libvirtEvent, client *NotifyClient, events chan watch.Event) {
 
 	d, err := c.LookupDomainByName(util.DomainFromNamespaceName(domain.ObjectMeta.Namespace, domain.ObjectMeta.Name))
 	if err != nil {
@@ -145,9 +147,9 @@ func libvirtEventCallback(c cli.Connection, domain *api.Domain, libvirtEvent Lib
 	}
 }
 
-func StartNotifier(virtShareDir string, domainConn cli.Connection, deleteNotificationSent chan watch.Event, vmiUID types.UID) error {
+func (c *NotifyClient) StartDomainNotifier(domainConn cli.Connection, deleteNotificationSent chan watch.Event, vmiUID types.UID) error {
 
-	eventChan := make(chan LibvirtEvent, 10)
+	eventChan := make(chan libvirtEvent, 10)
 	reconnectChan := make(chan bool, 10)
 
 	domainConn.SetReconnectChan(reconnectChan)
@@ -157,24 +159,10 @@ func StartNotifier(virtShareDir string, domainConn cli.Connection, deleteNotific
 		for {
 			select {
 			case event := <-eventChan:
-				// TODO don't make a client every single time
-				client, err := NewDomainEventClient(virtShareDir)
-				if err != nil {
-					log.Log.Reason(err).Error("Unable to create domain event notify client")
-					continue
-				}
-
-				libvirtEventCallback(domainConn, util.NewDomainFromName(event.Domain, vmiUID), event, client, deleteNotificationSent)
+				libvirtEventCallback(domainConn, util.NewDomainFromName(event.Domain, vmiUID), event, c, deleteNotificationSent)
 				log.Log.Info("processed event")
 			case <-reconnectChan:
-				// TODO don't make a client every single time
-				client, err := NewDomainEventClient(virtShareDir)
-				if err != nil {
-					log.Log.Reason(err).Error("Unable to create domain event notify client")
-					continue
-				}
-
-				client.SendDomainEvent(newWatchEventError(fmt.Errorf("Libvirt reconnect")))
+				c.SendDomainEvent(newWatchEventError(fmt.Errorf("Libvirt reconnect")))
 				return
 			}
 		}
@@ -187,7 +175,7 @@ func StartNotifier(virtShareDir string, domainConn cli.Connection, deleteNotific
 			log.Log.Reason(err).Info("Could not determine name of libvirt domain in event callback.")
 		}
 		select {
-		case eventChan <- LibvirtEvent{Event: event, Domain: name}:
+		case eventChan <- libvirtEvent{Event: event, Domain: name}:
 		default:
 			log.Log.Infof("Libvirt event channel is full, dropping event.")
 		}
@@ -205,7 +193,7 @@ func StartNotifier(virtShareDir string, domainConn cli.Connection, deleteNotific
 			log.Log.Reason(err).Info("Could not determine name of libvirt domain in event callback.")
 		}
 		select {
-		case eventChan <- LibvirtEvent{Domain: name}:
+		case eventChan <- libvirtEvent{Domain: name}:
 		default:
 			log.Log.Infof("Libvirt event channel is full, dropping event.")
 		}
@@ -217,5 +205,20 @@ func StartNotifier(virtShareDir string, domainConn cli.Connection, deleteNotific
 	}
 
 	log.Log.Infof("Registered libvirt event notify callback")
+	return nil
+}
+
+func (c *NotifyClient) SendK8sEvent(args *notifier.K8sEventArgs) error {
+
+	reply := &notifyserver.Reply{}
+
+	err := c.client.Call("Notify.K8sEvent", args, reply)
+	if err != nil {
+		return err
+	} else if reply.Success != true {
+		msg := fmt.Sprintf("failed to notify k8s event: %s", reply.Message)
+		return fmt.Errorf(msg)
+	}
+
 	return nil
 }

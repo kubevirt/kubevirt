@@ -127,7 +127,7 @@ func createLibvirtConnection() virtcli.Connection {
 	return domainConn
 }
 
-func startDomainEventMonitoring(virtShareDir string, domainConn virtcli.Connection, deleteNotificationSent chan watch.Event, vmiUID types.UID) {
+func startDomainEventMonitoring(notifier *notifyclient.NotifyClient, virtShareDir string, domainConn virtcli.Connection, deleteNotificationSent chan watch.Event, vmiUID types.UID) {
 	go func() {
 		for {
 			if res := libvirt.EventRunDefaultImpl(); res != nil {
@@ -137,7 +137,7 @@ func startDomainEventMonitoring(virtShareDir string, domainConn virtcli.Connecti
 		}
 	}()
 
-	err := notifyclient.StartNotifier(virtShareDir, domainConn, deleteNotificationSent, vmiUID)
+	err := notifier.StartDomainNotifier(domainConn, deleteNotificationSent, vmiUID)
 	if err != nil {
 		panic(err)
 	}
@@ -360,7 +360,12 @@ func main() {
 	domainConn := createLibvirtConnection()
 	defer domainConn.Close()
 
-	domainManager, err := virtwrap.NewLibvirtDomainManager(domainConn, *virtShareDir)
+	notifier, err := notifyclient.NewNotifyClient(*virtShareDir)
+	if err != nil {
+		panic(err)
+	}
+
+	domainManager, err := virtwrap.NewLibvirtDomainManager(domainConn, *virtShareDir, notifier)
 	if err != nil {
 		panic(err)
 	}
@@ -391,7 +396,7 @@ func main() {
 
 	events := make(chan watch.Event, 10)
 	// Send domain notifications to virt-handler
-	startDomainEventMonitoring(*virtShareDir, domainConn, events, vm.UID)
+	startDomainEventMonitoring(notifier, *virtShareDir, domainConn, events, vm.UID)
 
 	c := make(chan os.Signal, 1)
 	signal.Notify(c, os.Interrupt,

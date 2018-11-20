@@ -26,6 +26,9 @@ import (
 	"strconv"
 	"syscall"
 
+	"kubevirt.io/kubevirt/pkg/log"
+	"kubevirt.io/kubevirt/pkg/util/notifier"
+
 	k8sv1 "k8s.io/api/core/v1"
 
 	"kubevirt.io/kubevirt/pkg/api/v1"
@@ -33,8 +36,12 @@ import (
 	"kubevirt.io/kubevirt/pkg/util/types"
 )
 
-const pvcBaseDir = "/var/run/kubevirt-private/vmi-disks"
-const lessPvcSpaceTolerationEnvName = "LESS_PVC_SPACE_TOLERATION"
+const (
+	pvcBaseDir                    = "/var/run/kubevirt-private/vmi-disks"
+	lessPvcSpaceTolerationEnvName = "LESS_PVC_SPACE_TOLERATION"
+	EventReasonToleratedSmallPV   = "ToleratedSmallPV"
+	EventTypeToleratedSmallPV     = "Normal"
+)
 
 func ReplacePVCByHostDisk(vmi *v1.VirtualMachineInstance, clientset kubecli.KubevirtClient) error {
 	// If PVC is defined and it's not a BlockMode PVC, then it is replaced by HostDisk
@@ -89,11 +96,17 @@ func getPVCDiskImgPath(volumeName string) string {
 
 type DiskImgCreator struct {
 	dirBytesAvailableFunc func(path string) (uint64, error)
+	notifier              k8sNotifier
 }
 
-func NewHostDiskCreator() DiskImgCreator {
+type k8sNotifier interface {
+	SendK8sEvent(args *notifier.K8sEventArgs) error
+}
+
+func NewHostDiskCreator(notifier k8sNotifier) DiskImgCreator {
 	return DiskImgCreator{
 		dirBytesAvailableFunc: dirBytesAvailable,
+		notifier:              notifier,
 	}
 }
 
@@ -120,15 +133,26 @@ func (hdc DiskImgCreator) Create(vmi *v1.VirtualMachineInstance) error {
 					}
 					toleration, err := strconv.Atoi(t)
 					if err != nil {
-						return fmt.Errorf("Unable to create %s, invalid toleration value %v", hostDisk.Path, toleration)
+						return fmt.Errorf("unable to create %s, invalid toleration value %v", hostDisk.Path, toleration)
 					}
 					toleratedSize := requestedSize * (100 - int64(toleration)) / 100
 					if uint64(toleratedSize) > availableSize {
-						return fmt.Errorf("Unable to create %s, not enough space, demanded size %d B is bigger than available space %d B, also after taking %d %% toleration into account",
+						return fmt.Errorf("unable to create %s, not enough space, demanded size %d B is bigger than available space %d B, also after taking %v %% toleration into account",
 							hostDisk.Path, uint64(requestedSize), availableSize, toleration)
 					}
 					diskSize = int64(availableSize)
-					// TODO Report that we used toleration
+
+					event := notifier.K8sEventArgs{
+						VmiNamespace: vmi.Namespace,
+						VmiName:      vmi.Name,
+						EventType:    EventTypeToleratedSmallPV,
+						EventReason:  EventReasonToleratedSmallPV,
+						EventMessage: fmt.Sprintf("PV size too small: expected %v B, found %v B. Using it anyway, it is within %v %% toleration", requestedSize, availableSize, toleration),
+					}
+					err = hdc.notifier.SendK8sEvent(&event)
+					if err != nil {
+						log.Log.Reason(err).Warningf("Couldn't send event for tolerated PV size: %v", event)
+					}
 				}
 				err = createSparseRaw(hostDisk.Path, int64(diskSize))
 				if err != nil {

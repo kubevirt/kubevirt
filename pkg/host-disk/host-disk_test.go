@@ -27,6 +27,8 @@ import (
 	"strconv"
 	"strings"
 
+	"kubevirt.io/kubevirt/pkg/util/notifier"
+
 	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo"
 	"github.com/onsi/ginkgo/extensions/table"
@@ -39,6 +41,15 @@ import (
 	"kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/kubecli"
 )
+
+type MockNotifier struct {
+	Events chan *notifier.K8sEventArgs
+}
+
+func (m MockNotifier) SendK8sEvent(args *notifier.K8sEventArgs) error {
+	m.Events <- args
+	return nil
+}
 
 var _ = Describe("HostDisk", func() {
 	var tempDir string
@@ -93,6 +104,11 @@ var _ = Describe("HostDisk", func() {
 		os.RemoveAll(tempDir)
 	})
 
+	notifier := MockNotifier{
+		Events: make(chan *notifier.K8sEventArgs, 10),
+	}
+	hostDiskCreator := NewHostDiskCreator(notifier)
+
 	Describe("HostDisk with 'Disk' type", func() {
 		It("Should not create a disk.img when it exists", func() {
 			By("Creating a disk.img before adding a HostDisk volume")
@@ -105,7 +121,6 @@ var _ = Describe("HostDisk", func() {
 			addHostDisk(vmi, "volume1", v1.HostDiskExists, "")
 
 			By("Executing CreateHostDisks which should not create a disk.img")
-			hostDiskCreator := NewHostDiskCreator()
 			err := hostDiskCreator.Create(vmi)
 			Expect(err).NotTo(HaveOccurred())
 
@@ -122,7 +137,6 @@ var _ = Describe("HostDisk", func() {
 			addHostDisk(vmi, "volume1", v1.HostDiskExists, "")
 
 			By("Executing CreateHostDisks which should not create disk.img")
-			hostDiskCreator := NewHostDiskCreator()
 			err := hostDiskCreator.Create(vmi)
 			Expect(err).NotTo(HaveOccurred())
 
@@ -145,7 +159,6 @@ var _ = Describe("HostDisk", func() {
 					addHostDisk(vmi, "volume3", v1.HostDiskExistsOrCreate, "80Mi")
 
 					By("Executing CreateHostDisks which should create disk.img")
-					hostDiskCreator := NewHostDiskCreator()
 					err := hostDiskCreator.Create(vmi)
 					Expect(err).NotTo(HaveOccurred())
 
@@ -172,7 +185,6 @@ var _ = Describe("HostDisk", func() {
 					addHostDisk(vmi, "volume3", v1.HostDiskExistsOrCreate, "128Mi")
 
 					By("Executing CreateHostDisks func which should not create a disk.img")
-					hostDiskCreator := NewHostDiskCreator()
 					err := hostDiskCreator.Create(vmi)
 					Expect(err).To(HaveOccurred())
 
@@ -190,7 +202,7 @@ var _ = Describe("HostDisk", func() {
 					Expect(true).To(Equal(os.IsNotExist(err)))
 				})
 
-				It("Should take lessPvcSpaceToleration into account when creating disk images", func() {
+				It("Should take lessPvcSpaceToleration into account when creating disk images", func(done Done) {
 					By("Creating a new minimal vmi")
 					vmi := v1.NewMinimalVMI("fake-vmi")
 
@@ -223,7 +235,6 @@ var _ = Describe("HostDisk", func() {
 					addHostDisk(vmi, "volume3", v1.HostDiskExistsOrCreate, "64Mi")
 
 					By("Executing CreateHostDisks func which should not create a disk.img")
-					hostDiskCreator := NewHostDiskCreator()
 					hostDiskCreator.dirBytesAvailableFunc = fakeDirBytesAvailable
 					err := hostDiskCreator.Create(vmi)
 					Expect(err).To(HaveOccurred())
@@ -240,7 +251,15 @@ var _ = Describe("HostDisk", func() {
 
 					_, err = os.Stat(vmi.Spec.Volumes[2].HostDisk.Path)
 					Expect(true).To(Equal(os.IsNotExist(err)))
-				})
+
+					event := <-notifier.Events
+					Expect(event.VmiNamespace).To(Equal(vmi.Namespace))
+					Expect(event.VmiName).To(Equal(vmi.Name))
+					Expect(event.EventType).To(Equal("Normal"))
+					Expect(event.EventReason).To(Equal("Tolerated too small PV"))
+					Expect(event.EventMessage).To(ContainSubstring("PV size too small"))
+					close(done)
+				}, 5)
 
 			})
 		})
@@ -256,7 +275,6 @@ var _ = Describe("HostDisk", func() {
 				addHostDisk(vmi, "volume1", v1.HostDiskExistsOrCreate, "128Mi")
 
 				By("Executing CreateHostDisks which should not create a disk.img")
-				hostDiskCreator := NewHostDiskCreator()
 				err := hostDiskCreator.Create(vmi)
 				Expect(err).NotTo(HaveOccurred())
 
@@ -282,7 +300,6 @@ var _ = Describe("HostDisk", func() {
 			addHostDisk(vmi, "volume1", "UnknownType", "")
 
 			By("Executing CreateHostDisks which should not create a disk.img")
-			hostDiskCreator := NewHostDiskCreator()
 			err := hostDiskCreator.Create(vmi)
 			Expect(err).NotTo(HaveOccurred())
 

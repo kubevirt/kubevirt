@@ -33,6 +33,8 @@ import (
 	"sync"
 	"time"
 
+	"kubevirt.io/kubevirt/pkg/virt-launcher/notify-client"
+
 	"github.com/libvirt/libvirt-go"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	utilwait "k8s.io/apimachinery/pkg/util/wait"
@@ -72,12 +74,14 @@ type LibvirtDomainManager struct {
 	domainModifyLock sync.Mutex
 
 	virtShareDir string
+	notifier     *eventsclient.NotifyClient
 }
 
-func NewLibvirtDomainManager(connection cli.Connection, virtShareDir string) (DomainManager, error) {
+func NewLibvirtDomainManager(connection cli.Connection, virtShareDir string, notifier *eventsclient.NotifyClient) (DomainManager, error) {
 	manager := LibvirtDomainManager{
 		virConn:      connection,
 		virtShareDir: virtShareDir,
+		notifier:     notifier,
 	}
 
 	return &manager, nil
@@ -329,7 +333,7 @@ func (l *LibvirtDomainManager) preStartHook(vmi *v1.VirtualMachineInstance, doma
 
 	// create disks images on the cluster lever
 	// or initalize disks images for empty PVC
-	hostDiskCreator := hostdisk.NewHostDiskCreator()
+	hostDiskCreator := hostdisk.NewHostDiskCreator(l.notifier)
 	err = hostDiskCreator.Create(vmi)
 	if err != nil {
 		return domain, err

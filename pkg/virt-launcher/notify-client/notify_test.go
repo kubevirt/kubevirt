@@ -21,10 +21,18 @@ package eventsclient
 
 import (
 	"encoding/xml"
+	"fmt"
 	"io/ioutil"
 	"os"
 	"reflect"
 	"time"
+
+	"k8s.io/client-go/tools/cache"
+	"k8s.io/client-go/tools/record"
+
+	"kubevirt.io/kubevirt/pkg/api/v1"
+	"kubevirt.io/kubevirt/pkg/testutils"
+	"kubevirt.io/kubevirt/pkg/util/notifier"
 
 	"github.com/golang/mock/gomock"
 	"github.com/libvirt/libvirt-go"
@@ -39,111 +47,177 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/util"
 )
 
-var _ = Describe("Domain notify", func() {
-	var err error
-	var shareDir string
-	var stop chan struct{}
-	var stopped bool
-	var eventChan chan watch.Event
-	var deleteNotificationSent chan watch.Event
-	var client *DomainEventClient
+var _ = Describe("Notify", func() {
 
-	var mockDomain *cli.MockVirDomain
-	var mockCon *cli.MockConnection
-	var ctrl *gomock.Controller
+	Describe("Domain Events", func() {
+		var err error
+		var shareDir string
+		var stop chan struct{}
+		var stopped bool
+		var eventChan chan watch.Event
+		var deleteNotificationSent chan watch.Event
+		var client *NotifyClient
 
-	BeforeEach(func() {
-		ctrl = gomock.NewController(GinkgoT())
-		mockCon = cli.NewMockConnection(ctrl)
-		mockDomain = cli.NewMockVirDomain(ctrl)
-		mockCon.EXPECT().LookupDomainByName(gomock.Any()).Return(mockDomain, nil).AnyTimes()
+		var mockDomain *cli.MockVirDomain
+		var mockCon *cli.MockConnection
+		var ctrl *gomock.Controller
 
-		stop = make(chan struct{})
-		eventChan = make(chan watch.Event, 100)
-		deleteNotificationSent = make(chan watch.Event, 100)
-		stopped = false
-		shareDir, err = ioutil.TempDir("", "kubevirt-share")
-		Expect(err).ToNot(HaveOccurred())
+		BeforeEach(func() {
+			ctrl = gomock.NewController(GinkgoT())
+			mockCon = cli.NewMockConnection(ctrl)
+			mockDomain = cli.NewMockVirDomain(ctrl)
+			mockCon.EXPECT().LookupDomainByName(gomock.Any()).Return(mockDomain, nil).AnyTimes()
 
-		go func() {
-			notifyserver.RunServer(shareDir, stop, eventChan)
-		}()
-
-		time.Sleep(1 * time.Second)
-		client, err = NewDomainEventClient(shareDir)
-		Expect(err).ToNot(HaveOccurred())
-	})
-
-	AfterEach(func() {
-		if stopped == false {
-			close(stop)
-		}
-		os.RemoveAll(shareDir)
-		ctrl.Finish()
-	})
-
-	Context("server", func() {
-		table.DescribeTable("should accept Domain notify events", func(state libvirt.DomainState, event libvirt.DomainEventType, kubevirtState api.LifeCycle, kubeEventType watch.EventType) {
-			domain := api.NewMinimalDomain("test")
-			x, err := xml.Marshal(domain.Spec)
+			stop = make(chan struct{})
+			eventChan = make(chan watch.Event, 100)
+			deleteNotificationSent = make(chan watch.Event, 100)
+			stopped = false
+			shareDir, err = ioutil.TempDir("", "kubevirt-share")
 			Expect(err).ToNot(HaveOccurred())
 
-			mockDomain.EXPECT().GetState().Return(state, -1, nil)
-			mockDomain.EXPECT().Free()
-			mockDomain.EXPECT().GetName().Return("test", nil).AnyTimes()
-			mockDomain.EXPECT().GetXMLDesc(gomock.Eq(libvirt.DomainXMLFlags(0))).Return(string(x), nil)
-			mockDomain.EXPECT().GetMetadata(libvirt.DOMAIN_METADATA_ELEMENT, "http://kubevirt.io", libvirt.DOMAIN_AFFECT_CONFIG).Return(`<kubevirt></kubevirt>`, nil)
+			go func() {
+				notifyserver.RunServer(shareDir, stop, eventChan, nil, nil)
+			}()
 
-			libvirtEventCallback(mockCon, util.NewDomainFromName("test", "1234"), LibvirtEvent{Event: &libvirt.DomainEventLifecycle{Event: event}}, client, deleteNotificationSent)
+			time.Sleep(1 * time.Second)
+			client, err = NewNotifyClient(shareDir)
+			Expect(err).ToNot(HaveOccurred())
+		})
 
-			timedOut := false
-			timeout := time.After(2 * time.Second)
-			select {
-			case <-timeout:
-				timedOut = true
-			case event := <-eventChan:
-				newDomain, ok := event.Object.(*api.Domain)
-				newDomain.Spec.XMLName = xml.Name{}
-				Expect(ok).To(Equal(true), "should typecase domain")
-				Expect(reflect.DeepEqual(domain.Spec, newDomain.Spec)).To(Equal(true))
-				Expect(event.Type).To(Equal(kubeEventType))
+		AfterEach(func() {
+			if stopped == false {
+				close(stop)
 			}
-			Expect(timedOut).To(Equal(false))
-		},
-			table.Entry("modified for crashed VMIs", libvirt.DOMAIN_CRASHED, libvirt.DOMAIN_EVENT_CRASHED, api.Crashed, watch.Modified),
-			table.Entry("modified for stopped VMIs", libvirt.DOMAIN_SHUTOFF, libvirt.DOMAIN_EVENT_SHUTDOWN, api.Shutoff, watch.Modified),
-			table.Entry("modified for stopped VMIs", libvirt.DOMAIN_SHUTOFF, libvirt.DOMAIN_EVENT_STOPPED, api.Shutoff, watch.Modified),
-			table.Entry("modified for running VMIs", libvirt.DOMAIN_RUNNING, libvirt.DOMAIN_EVENT_STARTED, api.Running, watch.Modified),
-			table.Entry("added for defined VMIs", libvirt.DOMAIN_SHUTOFF, libvirt.DOMAIN_EVENT_DEFINED, api.Shutoff, watch.Added),
-		)
+			os.RemoveAll(shareDir)
+			ctrl.Finish()
+		})
+
+		Context("server", func() {
+			table.DescribeTable("should accept Domain notify events", func(state libvirt.DomainState, event libvirt.DomainEventType, kubevirtState api.LifeCycle, kubeEventType watch.EventType) {
+				domain := api.NewMinimalDomain("test")
+				x, err := xml.Marshal(domain.Spec)
+				Expect(err).ToNot(HaveOccurred())
+
+				mockDomain.EXPECT().GetState().Return(state, -1, nil)
+				mockDomain.EXPECT().Free()
+				mockDomain.EXPECT().GetName().Return("test", nil).AnyTimes()
+				mockDomain.EXPECT().GetXMLDesc(gomock.Eq(libvirt.DomainXMLFlags(0))).Return(string(x), nil)
+				mockDomain.EXPECT().GetMetadata(libvirt.DOMAIN_METADATA_ELEMENT, "http://kubevirt.io", libvirt.DOMAIN_AFFECT_CONFIG).Return(`<kubevirt></kubevirt>`, nil)
+
+				libvirtEventCallback(mockCon, util.NewDomainFromName("test", "1234"), libvirtEvent{Event: &libvirt.DomainEventLifecycle{Event: event}}, client, deleteNotificationSent)
+
+				timedOut := false
+				timeout := time.After(2 * time.Second)
+				select {
+				case <-timeout:
+					timedOut = true
+				case event := <-eventChan:
+					newDomain, ok := event.Object.(*api.Domain)
+					newDomain.Spec.XMLName = xml.Name{}
+					Expect(ok).To(Equal(true), "should typecase domain")
+					Expect(reflect.DeepEqual(domain.Spec, newDomain.Spec)).To(Equal(true))
+					Expect(event.Type).To(Equal(kubeEventType))
+				}
+				Expect(timedOut).To(Equal(false))
+			},
+				table.Entry("modified for crashed VMIs", libvirt.DOMAIN_CRASHED, libvirt.DOMAIN_EVENT_CRASHED, api.Crashed, watch.Modified),
+				table.Entry("modified for stopped VMIs", libvirt.DOMAIN_SHUTOFF, libvirt.DOMAIN_EVENT_SHUTDOWN, api.Shutoff, watch.Modified),
+				table.Entry("modified for stopped VMIs", libvirt.DOMAIN_SHUTOFF, libvirt.DOMAIN_EVENT_STOPPED, api.Shutoff, watch.Modified),
+				table.Entry("modified for running VMIs", libvirt.DOMAIN_RUNNING, libvirt.DOMAIN_EVENT_STARTED, api.Running, watch.Modified),
+				table.Entry("added for defined VMIs", libvirt.DOMAIN_SHUTOFF, libvirt.DOMAIN_EVENT_DEFINED, api.Shutoff, watch.Added),
+			)
+		})
+
+		It("should receive a delete event when a VirtualMachineInstance is undefined",
+			func() {
+				mockDomain.EXPECT().Free()
+				mockDomain.EXPECT().GetXMLDesc(gomock.Eq(libvirt.DomainXMLFlags(0))).Return("", libvirt.Error{Code: libvirt.ERR_NO_DOMAIN})
+				mockDomain.EXPECT().GetState().Return(libvirt.DOMAIN_NOSTATE, -1, libvirt.Error{Code: libvirt.ERR_NO_DOMAIN})
+				mockDomain.EXPECT().GetName().Return("test", nil).AnyTimes()
+
+				libvirtEventCallback(mockCon, util.NewDomainFromName("test", "1234"), libvirtEvent{Event: &libvirt.DomainEventLifecycle{Event: libvirt.DOMAIN_EVENT_UNDEFINED}}, client, deleteNotificationSent)
+
+				timedOut := false
+				timeout := time.After(2 * time.Second)
+				select {
+				case <-timeout:
+					timedOut = true
+				case e := <-eventChan:
+					Expect(e.Object.(*api.Domain).Status.Status).To(Equal(api.NoState))
+					Expect(e.Type).To(Equal(watch.Deleted))
+				}
+				Expect(timedOut).To(Equal(false))
+
+				select {
+				case <-timeout:
+					timedOut = true
+				case <-deleteNotificationSent:
+					// virt-launcher waits in a final delete notification to be sent before exiting.
+				}
+				Expect(timedOut).To(Equal(false))
+			})
+
 	})
 
-	It("should receive a delete event when a VirtualMachineInstance is undefined",
-		func() {
-			mockDomain.EXPECT().Free()
-			mockDomain.EXPECT().GetXMLDesc(gomock.Eq(libvirt.DomainXMLFlags(0))).Return("", libvirt.Error{Code: libvirt.ERR_NO_DOMAIN})
-			mockDomain.EXPECT().GetState().Return(libvirt.DOMAIN_NOSTATE, -1, libvirt.Error{Code: libvirt.ERR_NO_DOMAIN})
-			mockDomain.EXPECT().GetName().Return("test", nil).AnyTimes()
+	Describe("K8s Events", func() {
+		var err error
+		var shareDir string
+		var stop chan struct{}
+		var stopped bool
+		var eventChan chan watch.Event
+		var client *NotifyClient
+		var recorder *record.FakeRecorder
+		var vmiStore cache.Store
 
-			libvirtEventCallback(mockCon, util.NewDomainFromName("test", "1234"), LibvirtEvent{Event: &libvirt.DomainEventLifecycle{Event: libvirt.DOMAIN_EVENT_UNDEFINED}}, client, deleteNotificationSent)
+		BeforeEach(func() {
+			stop = make(chan struct{})
+			eventChan = make(chan watch.Event, 100)
+			stopped = false
+			shareDir, err = ioutil.TempDir("", "kubevirt-share")
+			Expect(err).ToNot(HaveOccurred())
 
-			timedOut := false
-			timeout := time.After(2 * time.Second)
-			select {
-			case <-timeout:
-				timedOut = true
-			case e := <-eventChan:
-				Expect(e.Object.(*api.Domain).Status.Status).To(Equal(api.NoState))
-				Expect(e.Type).To(Equal(watch.Deleted))
-			}
-			Expect(timedOut).To(Equal(false))
+			recorder = record.NewFakeRecorder(10)
+			vmiInformer, _ := testutils.NewFakeInformerFor(&v1.VirtualMachineInstance{})
+			vmiStore = vmiInformer.GetStore()
 
-			select {
-			case <-timeout:
-				timedOut = true
-			case <-deleteNotificationSent:
-				// virt-launcher waits in a final delete notification to be sent before exiting.
-			}
-			Expect(timedOut).To(Equal(false))
+			go func() {
+				notifyserver.RunServer(shareDir, stop, eventChan, recorder, vmiStore)
+			}()
+
+			time.Sleep(1 * time.Second)
+			client, err = NewNotifyClient(shareDir)
+			Expect(err).ToNot(HaveOccurred())
 		})
+
+		AfterEach(func() {
+			if stopped == false {
+				close(stop)
+			}
+			os.RemoveAll(shareDir)
+		})
+
+		It("Should send a k8s event", func(done Done) {
+
+			vmi := v1.NewMinimalVMI("fake-vmi")
+			vmiStore.Add(vmi)
+
+			eventType := "Normal"
+			eventReason := "fooReason"
+			eventMessage := "barMessage"
+
+			args := notifier.K8sEventArgs{
+				VmiNamespace: vmi.Namespace,
+				VmiName:      vmi.Name,
+				EventType:    eventType,
+				EventReason:  eventReason,
+				EventMessage: eventMessage,
+			}
+
+			client.SendK8sEvent(&args)
+
+			event := <-recorder.Events
+			Expect(event).To(Equal(fmt.Sprintf("%s %s %s", eventType, eventReason, eventMessage)))
+			close(done)
+		}, 2)
+	})
 })
