@@ -365,7 +365,10 @@ func (Interface) SwaggerDoc() map[string]string {
 }
 
 func (DhcpOptions) SwaggerDoc() map[string]string {
-	return map[string]string{}
+	return map[string]string{
+		"bootFileName": "+optional",
+		"tftpAddress":  "+optional",
+	}
 }
 
 func (InterfaceBindingMethod) SwaggerDoc() map[string]string {

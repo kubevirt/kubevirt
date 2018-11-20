@@ -4176,9 +4176,11 @@
    "v1.DhcpOptions": {
     "properties": {
      "bootFileName": {
+      "description": "+optional",
       "type": "string"
      },
      "tftpAddress": {
+      "description": "+optional",
       "type": "string"
      }
     }
