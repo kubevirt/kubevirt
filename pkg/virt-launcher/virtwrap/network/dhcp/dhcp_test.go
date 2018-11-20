@@ -208,7 +208,7 @@ var _ = Describe("DHCP", func() {
 				"4wg5xngig6vzfqjww4kocnky3c9dqjpwkewzlwpf.com",
 			}
 			ip := net.ParseIP("192.168.2.1")
-			options, err := prepareDHCPOptions(ip.DefaultMask(), ip, nil, nil, searchDomains, 1500, "myhost")
+			options, err := prepareDHCPOptions(ip.DefaultMask(), ip, nil, nil, searchDomains, 1500, "myhost", nil)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(options[dhcp4.OptionDomainName]).To(Equal([]byte("14wg5xngig6vzfqjww4kocnky3c9dqjpwkewzlwpf.com")))
 		})
