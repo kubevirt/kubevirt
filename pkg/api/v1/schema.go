@@ -894,7 +894,9 @@ type Rng struct {
 // ---
 // +k8s:openapi-gen=true
 type CniNetwork struct {
-	// References to a NetworkAttachmentDefinition CRD object in the same namespace.
+	// References to a NetworkAttachmentDefinition CRD object. Format:
+	// <networkName>, <namespace>/<networkName>. If namespace is not
+	// specified, VMI namespace is assumed.
 	// In case of genie, it references the CNI plugin name.
 	NetworkName string `json:"networkName"`
 }

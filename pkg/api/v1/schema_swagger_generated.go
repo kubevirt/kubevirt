@@ -429,6 +429,6 @@ func (Rng) SwaggerDoc() map[string]string {
 func (CniNetwork) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"":            "Represents the cni network.",
-		"networkName": "References to a NetworkAttachmentDefinition CRD object in the same namespace.\nIn case of genie, it references the CNI plugin name.",
+		"networkName": "References to a NetworkAttachmentDefinition CRD object. Format:\n<networkName>, <namespace>/<networkName>. If namespace is not\nspecified, VMI namespace is assumed.\nIn case of genie, it references the CNI plugin name.",
 	}
 }

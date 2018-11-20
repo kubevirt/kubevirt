@@ -293,7 +293,7 @@ func schema_kubevirt_pkg_api_v1_CniNetwork(ref common.ReferenceCallback) common.
 				Properties: map[string]spec.Schema{
 					"networkName": {
 						SchemaProps: spec.SchemaProps{
-							Description: "References to a NetworkAttachmentDefinition CRD object in the same namespace. In case of genie, it references the CNI plugin name.",
+							Description: "References to a NetworkAttachmentDefinition CRD object. Format: <networkName>, <namespace>/<networkName>. If namespace is not specified, VMI namespace is assumed. In case of genie, it references the CNI plugin name.",
 							Type:        []string{"string"},
 							Format:      "",
 						},
