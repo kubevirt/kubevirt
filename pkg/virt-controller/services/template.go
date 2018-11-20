@@ -44,7 +44,7 @@ import (
 const configMapName = "kubevirt-config"
 const UseEmulationKey = "debug.useEmulation"
 const ImagePullPolicyKey = "dev.imagePullPolicy"
-const LessPvcSpaceTolerationKey = "dev.pvc-tolerate-less-space-up-to-percent"
+const LessPvcSpaceTolerationKey = "pvc-tolerate-less-space-up-to-percent"
 const LessPvcSpaceTolerationEnvName = "LESS_PVC_SPACE_TOLERATION"
 const KvmDevice = "devices.kubevirt.io/kvm"
 const TunDevice = "devices.kubevirt.io/tun"

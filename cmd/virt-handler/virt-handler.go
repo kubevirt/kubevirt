@@ -126,12 +126,6 @@ func (app *virtHandlerApp) Run() {
 
 	// Wire VirtualMachineInstance controller
 
-	// Wire Domain controller
-	domainSharedInformer, err := virtcache.NewSharedInformer(app.VirtShareDir, int(app.WatchdogTimeoutDuration.Seconds()))
-	if err != nil {
-		panic(err)
-	}
-
 	vmSourceSharedInformer := cache.NewSharedIndexInformer(
 		controller.NewListWatchFromClient(virtCli.RestClient(), "virtualmachineinstances", k8sv1.NamespaceAll, fields.Everything(), vmiSourceLabel),
 		&v1.VirtualMachineInstance{},
@@ -145,6 +139,12 @@ func (app *virtHandlerApp) Run() {
 		0,
 		cache.Indexers{},
 	)
+
+	// Wire Domain controller
+	domainSharedInformer, err := virtcache.NewSharedInformer(app.VirtShareDir, int(app.WatchdogTimeoutDuration.Seconds()), recorder, vmSourceSharedInformer.GetStore())
+	if err != nil {
+		panic(err)
+	}
 
 	virtlauncher.InitializeSharedDirectories(app.VirtShareDir)
 

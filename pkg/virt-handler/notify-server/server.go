@@ -21,10 +21,17 @@ package eventsserver
 
 import (
 	"encoding/json"
+	"fmt"
 	"net"
 	"net/rpc"
 	"os"
 	"path/filepath"
+
+	"k8s.io/client-go/tools/cache"
+	"k8s.io/client-go/tools/record"
+
+	"kubevirt.io/kubevirt/pkg/api/v1"
+	"kubevirt.io/kubevirt/pkg/util/notifier"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/watch"
@@ -35,6 +42,8 @@ import (
 
 type Notify struct {
 	EventChan chan watch.Event
+	recorder  record.EventRecorder
+	vmiStore  cache.Store
 }
 
 type Reply struct {
@@ -42,13 +51,13 @@ type Reply struct {
 	Message string
 }
 
-type Args struct {
+type DomainEventArgs struct {
 	DomainJSON string
 	StatusJSON string
 	EventType  string
 }
 
-func (s *Notify) DomainEvent(args *Args, reply *Reply) error {
+func (s *Notify) DomainEvent(args *DomainEventArgs, reply *Reply) error {
 	reply.Success = true
 
 	domain := &api.Domain{}
@@ -86,6 +95,23 @@ func (s *Notify) DomainEvent(args *Args, reply *Reply) error {
 	return nil
 }
 
+func (s *Notify) K8sEvent(args *notifier.K8sEventArgs, reply *Reply) error {
+	reply.Success = true
+
+	// get vmi
+	if obj, exists, err := s.vmiStore.GetByKey(args.VmiNamespace + "/" + args.VmiName); err != nil {
+		reply.Success = false
+		reply.Message = fmt.Sprintf("Error getting VMI: %v", err)
+	} else if !exists {
+		reply.Success = false
+		reply.Message = "VMI not found"
+	} else {
+		vmi := obj.(*v1.VirtualMachineInstance)
+		s.recorder.Event(vmi, args.EventType, args.EventReason, args.EventMessage)
+	}
+	return nil
+}
+
 func createSocket(socketPath string) (net.Listener, error) {
 	os.RemoveAll(socketPath)
 
@@ -104,12 +130,14 @@ func createSocket(socketPath string) (net.Listener, error) {
 	return socket, nil
 }
 
-func RunServer(virtShareDir string, stopChan chan struct{}, c chan watch.Event) error {
+func RunServer(virtShareDir string, stopChan chan struct{}, c chan watch.Event, recorder record.EventRecorder, vmiStore cache.Store) error {
 	sockFile := filepath.Join(virtShareDir, "domain-notify.sock")
 
 	rpcServer := rpc.NewServer()
 	server := &Notify{
 		EventChan: c,
+		recorder:  recorder,
+		vmiStore:  vmiStore,
 	}
 	rpcServer.Register(server)
 	sock, err := createSocket(sockFile)
