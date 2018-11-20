@@ -868,12 +868,22 @@ func getResourceNameForNetwork(network *networkv1.NetworkAttachmentDefinition) s
 	return "" // meaning the network is not served by resources
 }
 
+func getNamespaceAndNetworkName(vmi *v1.VirtualMachineInstance, fullNetworkName string) (namespace string, networkName string) {
+	if strings.Contains(fullNetworkName, "/") {
+		res := strings.SplitN(fullNetworkName, "/", 2)
+		namespace, networkName = res[0], res[1]
+	} else {
+		namespace = precond.MustNotBeEmpty(vmi.GetObjectMeta().GetNamespace())
+		networkName = fullNetworkName
+	}
+	return
+}
+
 func getNetworkToResourceMap(virtClient kubecli.KubevirtClient, vmi *v1.VirtualMachineInstance) (networkToResourceMap map[string]string, err error) {
 	networkToResourceMap = make(map[string]string)
 	for _, network := range vmi.Spec.Networks {
 		if network.Multus != nil {
-			networkName := network.Multus.NetworkName
-			namespace := precond.MustNotBeEmpty(vmi.GetObjectMeta().GetNamespace())
+			namespace, networkName := getNamespaceAndNetworkName(vmi, network.Multus.NetworkName)
 			crd, err := virtClient.NetworkClient().K8sCniCncfIo().NetworkAttachmentDefinitions(namespace).Get(networkName, metav1.GetOptions{})
 			if err != nil {
 				return map[string]string{}, fmt.Errorf("Failed to locate network attachment definition %s", networkName)
