@@ -95,12 +95,20 @@ var _ = Describe("Multus Networking", func() {
 			Do()
 		Expect(result.Error()).NotTo(HaveOccurred())
 
+		// Create identical ptp crds in two different namespaces
 		result = virtClient.RestClient().
 			Post().
 			RequestURI(fmt.Sprintf(postUrl, tests.NamespaceTestDefault, "ptp-conf")).
 			Body([]byte(fmt.Sprintf(ptpConfCRD, "ptp-conf", tests.NamespaceTestDefault))).
 			Do()
 		Expect(result.Error()).NotTo(HaveOccurred())
+		result = virtClient.RestClient().
+			Post().
+			RequestURI(fmt.Sprintf(postUrl, tests.NamespaceTestAlternative, "ptp-conf-2")).
+			Body([]byte(fmt.Sprintf(ptpConfCRD, "ptp-conf-2", tests.NamespaceTestAlternative))).
+			Do()
+		Expect(result.Error()).NotTo(HaveOccurred())
+
 		// Create two sriov networks referring to the same resource name
 		result = virtClient.RestClient().
 			Post().
@@ -133,6 +141,23 @@ var _ = Describe("Multus Networking", func() {
 			detachedVMI.Spec.Networks = []v1.Network{
 				{Name: "ptp", NetworkSource: v1.NetworkSource{
 					Multus: &v1.CniNetwork{NetworkName: "ptp-conf"},
+				}},
+			}
+
+			_, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(detachedVMI)
+			Expect(err).ToNot(HaveOccurred())
+			tests.WaitUntilVMIReady(detachedVMI, tests.LoggedInCirrosExpecter)
+
+			pingVirtualMachine(detachedVMI, "10.1.1.1", "\\$ ")
+		})
+
+		It("should create a virtual machine with one interface with network definition from different namespace", func() {
+			By("checking virtual machine instance can ping 10.1.1.1 using ptp cni plugin")
+			detachedVMI = tests.NewRandomVMIWithEphemeralDiskAndUserdata(tests.RegistryDiskFor(tests.RegistryDiskCirros), "#!/bin/bash\necho 'hello'\n")
+			detachedVMI.Spec.Domain.Devices.Interfaces = []v1.Interface{{Name: "ptp", InterfaceBindingMethod: v1.InterfaceBindingMethod{Bridge: &v1.InterfaceBridge{}}}}
+			detachedVMI.Spec.Networks = []v1.Network{
+				{Name: "ptp", NetworkSource: v1.NetworkSource{
+					Multus: &v1.CniNetwork{NetworkName: fmt.Sprintf("%s/%s", tests.NamespaceTestAlternative, "ptp-conf-2")},
 				}},
 			}
 

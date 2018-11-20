@@ -1348,6 +1348,22 @@ var _ = Describe("getResourceNameForNetwork", func() {
 	})
 })
 
+var _ = Describe("getNamespaceAndNetworkName", func() {
+	It("should return vmi namespace when namespace is implicit", func() {
+		vmi := &v1.VirtualMachineInstance{ObjectMeta: metav1.ObjectMeta{Name: "testvmi", Namespace: "testns"}}
+		namespace, networkName := getNamespaceAndNetworkName(vmi, "testnet")
+		Expect(namespace).To(Equal("testns"))
+		Expect(networkName).To(Equal("testnet"))
+	})
+
+	It("should return namespace from networkName when namespace is explicit", func() {
+		vmi := &v1.VirtualMachineInstance{ObjectMeta: metav1.ObjectMeta{Name: "testvmi", Namespace: "testns"}}
+		namespace, networkName := getNamespaceAndNetworkName(vmi, "otherns/testnet")
+		Expect(namespace).To(Equal("otherns"))
+		Expect(networkName).To(Equal("testnet"))
+	})
+})
+
 func True() *bool {
 	b := true
 	return &b
