@@ -109,7 +109,7 @@ var _ = Describe("Pod Network", func() {
 		mockNetwork.EXPECT().LinkSetUp(bridgeTest).Return(nil)
 		mockNetwork.EXPECT().ParseAddr(fmt.Sprintf(bridgeFakeIP, 0)).Return(bridgeAddr, nil)
 		mockNetwork.EXPECT().AddrAdd(bridgeTest, bridgeAddr).Return(nil)
-		mockNetwork.EXPECT().StartDHCP(testNic, bridgeAddr, api.DefaultBridgeName)
+		mockNetwork.EXPECT().StartDHCP(testNic, bridgeAddr, api.DefaultBridgeName, nil)
 
 		err := SetupPodNetwork(vm, domain)
 		Expect(err).To(BeNil())

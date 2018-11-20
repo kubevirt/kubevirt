@@ -794,6 +794,16 @@ type Interface struct {
 	// If specified, the virtual network interface will be placed on the guests pci address with the specifed PCI address. For example: 0000:81:01.10
 	// +optional
 	PciAddress string `json:"pciAddress,omitempty"`
+	// If specified the network interface will pass additional DHCP options to the VMI
+	// +optional
+	DhcpOptions `json:"dhcpOptions,omitempty"`
+}
+
+type DhcpOptions struct {
+	// +optional
+	BootFileName string `json:"bootFileName,omitempty"`
+	// +optional
+	TftpAddress string `json:"tftpAddress,omitempty"`
 }
 
 // Represents the method which will be used to connect the interface to the guest.

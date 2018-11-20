@@ -33,6 +33,7 @@ import (
 	dhcpConn "github.com/krolaw/dhcp4/conn"
 	"github.com/vishvananda/netlink"
 
+	"kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/log"
 )
 
@@ -56,7 +57,8 @@ func SingleClientDHCPServer(
 	dnsIPs [][]byte,
 	routes *[]netlink.Route,
 	searchDomains []string,
-	mtu uint16) error {
+	mtu uint16,
+	customDhcpOptions v1.DhcpOptions) error {
 
 	log.Log.Info("Starting SingleClientDHCPServer")
 
@@ -65,7 +67,7 @@ func SingleClientDHCPServer(
 		return fmt.Errorf("reading the pods hostname failed: %v", err)
 	}
 
-	options, err := prepareDHCPOptions(clientMask, routerIP, dnsIPs, routes, searchDomains, mtu, hostname)
+	options, err := prepareDHCPOptions(clientMask, routerIP, dnsIPs, routes, searchDomains, mtu, hostname, &customDhcpOptions)
 	if err != nil {
 		return err
 	}
@@ -97,7 +99,8 @@ func prepareDHCPOptions(
 	routes *[]netlink.Route,
 	searchDomains []string,
 	mtu uint16,
-	hostname string) (dhcp.Options, error) {
+	hostname string,
+	customDhcpOptions *v1.DhcpOptions) (dhcp.Options, error) {
 
 	mtuArray := make([]byte, 2)
 	binary.BigEndian.PutUint16(mtuArray, mtu)
@@ -130,6 +133,18 @@ func prepareDHCPOptions(
 	if len(domainName) > 0 {
 		dhcpOptions[dhcp.OptionDomainName] = []byte(domainName)
 	}
+
+	if customDhcpOptions != nil {
+		if customDhcpOptions.TftpAddress != "" {
+			log.Log.Infof("Setting dhcp option tftp server name to %s", customDhcpOptions.TftpAddress)
+			dhcpOptions[dhcp.OptionTFTPServerName] = []byte(customDhcpOptions.TftpAddress)
+		}
+		if customDhcpOptions.BootFileName != "" {
+			log.Log.Infof("Setting dhcp option boot file name to %s", customDhcpOptions.BootFileName)
+			dhcpOptions[dhcp.OptionBootFileName] = []byte(customDhcpOptions.BootFileName)
+		}
+	}
+
 	return dhcpOptions, nil
 }
 

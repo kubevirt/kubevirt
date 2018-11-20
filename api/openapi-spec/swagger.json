@@ -4144,6 +4144,16 @@
      }
     }
    },
+   "v1.DhcpOptions": {
+    "properties": {
+     "bootFileName": {
+      "type": "string"
+     },
+     "tftpAddress": {
+      "type": "string"
+     }
+    }
+   },
    "v1.Disk": {
     "required": [
      "name",
@@ -4514,6 +4524,9 @@
      },
      "bridge": {
       "$ref": "#/definitions/v1.InterfaceBridge"
+     },
+     "dhcpOptions": {
+      "$ref": "#/definitions/v1.DhcpOptions"
      },
      "macAddress": {
       "description": "Interface MAC address. For example: de:ad:00:00:be:af or DE-AD-00-00-BE-AF.",

@@ -235,7 +235,7 @@ func (b *BridgePodInterface) preparePodNetworkInterfaces() error {
 func (b *BridgePodInterface) startDHCPServer() {
 	// Start DHCP Server
 	fakeServerAddr, _ := netlink.ParseAddr(fmt.Sprintf(bridgeFakeIP, b.podInterfaceNum))
-	Handler.StartDHCP(b.vif, fakeServerAddr, b.bridgeInterfaceName)
+	Handler.StartDHCP(b.vif, fakeServerAddr, b.bridgeInterfaceName, b.iface.DhcpOptions)
 }
 
 func (b *BridgePodInterface) decorateConfig() error {
