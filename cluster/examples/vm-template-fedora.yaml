@@ -49,7 +49,7 @@ objects:
         terminationGracePeriodSeconds: 0
         volumes:
         - containerDisk:
-            image: registry:5000/kubevirt/fedora-cloud-registry-disk-demo:devel
+            image: registry:5000/kubevirt/fedora-cloud-container-disk-demo:devel
           name: registryvolume
         - cloudInitNoCloud:
             userData: |-

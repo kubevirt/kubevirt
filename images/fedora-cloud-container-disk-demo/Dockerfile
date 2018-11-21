@@ -16,7 +16,7 @@
 # Copyright 2017 Red Hat, Inc.
 #
 
-FROM kubevirt/registry-disk-v1alpha
+FROM kubevirt/container-disk-v1alpha
 
 LABEL maintainer="The KubeVirt Project <kubevirt-dev@googlegroups.com>"
 
