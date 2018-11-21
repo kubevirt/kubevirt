@@ -53,6 +53,7 @@ objects:
               volumeName: disk0-pvc
             interfaces:
             - bridge: {}
+              dhcpOptions: {}
               model: e1000
               name: default
           features:

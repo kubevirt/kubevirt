@@ -4089,6 +4089,18 @@
      }
     }
    },
+   "v1.DHCPOptions": {
+    "properties": {
+     "bootFileName": {
+      "description": "If specified will pass option 67 to interface's DHCP server\n+optional",
+      "type": "string"
+     },
+     "tftpServerName": {
+      "description": "If specified will pass option 66 to interface's DHCP server\n+optional",
+      "type": "string"
+     }
+    }
+   },
    "v1.DataVolumeSource": {
     "required": [
      "name"
@@ -4170,18 +4182,6 @@
      "watchdog": {
       "description": "Watchdog describes a watchdog device which can be added to the vmi.",
       "$ref": "#/definitions/v1.Watchdog"
-     }
-    }
-   },
-   "v1.DhcpOptions": {
-    "properties": {
-     "bootFileName": {
-      "description": "+optional",
-      "type": "string"
-     },
-     "tftpAddress": {
-      "description": "+optional",
-      "type": "string"
      }
     }
    },
@@ -4557,7 +4557,7 @@
       "$ref": "#/definitions/v1.InterfaceBridge"
      },
      "dhcpOptions": {
-      "$ref": "#/definitions/v1.DhcpOptions"
+      "$ref": "#/definitions/v1.DHCPOptions"
      },
      "macAddress": {
       "description": "Interface MAC address. For example: de:ad:00:00:be:af or DE-AD-00-00-BE-AF.",
