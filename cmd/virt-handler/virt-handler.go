@@ -48,6 +48,7 @@ import (
 	_ "kubevirt.io/kubevirt/pkg/monitoring/workqueue/prometheus" // import for prometheus metrics
 	"kubevirt.io/kubevirt/pkg/service"
 	"kubevirt.io/kubevirt/pkg/util"
+	"kubevirt.io/kubevirt/pkg/util/metrics" // handles VM prometheus metrics
 	virthandler "kubevirt.io/kubevirt/pkg/virt-handler"
 	virtcache "kubevirt.io/kubevirt/pkg/virt-handler/cache"
 	virtlauncher "kubevirt.io/kubevirt/pkg/virt-launcher"
@@ -182,6 +183,10 @@ func (app *virtHandlerApp) Run() {
 	if err != nil {
 		glog.Fatalf("unable to generate certificates: %v", err)
 	}
+
+	updater := metrics.NewUpdater(app.VirtShareDir, 10*time.Second)
+	go updater.Run()
+
 	// Bootstrapping. From here on the startup order matters
 	stop := make(chan struct{})
 	defer close(stop)
