@@ -92,8 +92,7 @@ var _ = Describe("Subresource Api", func() {
 
 				Eventually(func() v1.VirtualMachineInstancePhase {
 					newVMI, err := virtCli.VirtualMachineInstance(tests.NamespaceTestDefault).Get(vm.Name, &metav1.GetOptions{})
-					Expect(err).ToNot(HaveOccurred())
-					if vmi.UID == newVMI.UID {
+					if err != nil || vmi.UID == newVMI.UID {
 						return v1.VmPhaseUnset
 					}
 					return newVMI.Status.Phase

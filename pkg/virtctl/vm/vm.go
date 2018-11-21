@@ -120,11 +120,9 @@ func (o *Command) Run(cmd *cobra.Command, args []string) error {
 
 	switch o.command {
 	case COMMAND_STOP, COMMAND_START:
-		var running bool
+		running := false
 		if o.command == COMMAND_START {
 			running = true
-		} else if o.command == COMMAND_STOP {
-			running = false
 		}
 
 		if vm.Spec.Running != running {

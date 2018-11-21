@@ -138,5 +138,5 @@ func (v *vm) Patch(name string, pt types.PatchType, data []byte, subresources ..
 
 func (v *vm) Restart(name string) error {
 	uri := fmt.Sprintf(vmSubresourceURL, v.namespace, name, "restart")
-	return v.restClient.Get().RequestURI(uri).Do().Error()
+	return v.restClient.Put().RequestURI(uri).Do().Error()
 }
