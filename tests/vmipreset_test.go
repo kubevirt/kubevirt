@@ -59,7 +59,7 @@ var _ = Describe("VMIPreset", func() {
 
 	BeforeEach(func() {
 		tests.BeforeTestCleanup()
-		vmi = tests.NewRandomVMIWithEphemeralDisk(tests.RegistryDiskFor(tests.RegistryDiskAlpine))
+		vmi = tests.NewRandomVMIWithEphemeralDisk(tests.ContainerDiskFor(tests.ContainerDiskAlpine))
 		vmi.Labels = map[string]string{flavorKey: memoryFlavor}
 
 		selector := k8smetav1.LabelSelector{MatchLabels: map[string]string{flavorKey: memoryFlavor}}
@@ -188,7 +188,7 @@ var _ = Describe("VMIPreset", func() {
 
 			newPreset := waitForPreset(virtClient, cpuPrefix)
 
-			vmi = tests.NewRandomVMIWithEphemeralDisk(tests.RegistryDiskFor(tests.RegistryDiskAlpine))
+			vmi = tests.NewRandomVMIWithEphemeralDisk(tests.ContainerDiskFor(tests.ContainerDiskAlpine))
 			vmi.Labels = map[string]string{flavorKey: cpuFlavor}
 
 			newVMI, err := virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
@@ -213,7 +213,7 @@ var _ = Describe("VMIPreset", func() {
 			newPreset := waitForPreset(virtClient, memoryPrefix)
 
 			// reset the label so it will not match
-			vmi = tests.NewRandomVMIWithEphemeralDisk(tests.RegistryDiskFor(tests.RegistryDiskAlpine))
+			vmi = tests.NewRandomVMIWithEphemeralDisk(tests.ContainerDiskFor(tests.ContainerDiskAlpine))
 			newVMI, err := virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
 			Expect(err).ToNot(HaveOccurred())
 
@@ -253,7 +253,7 @@ var _ = Describe("VMIPreset", func() {
 
 			newPreset := waitForPreset(virtClient, cpuPrefix)
 
-			vmi = tests.NewRandomVMIWithEphemeralDisk(tests.RegistryDiskFor(tests.RegistryDiskAlpine))
+			vmi = tests.NewRandomVMIWithEphemeralDisk(tests.ContainerDiskFor(tests.ContainerDiskAlpine))
 			vmi.Labels = map[string]string{flavorKey: cpuFlavor}
 			exclusionMarking := "virtualmachineinstancepresets.admission.kubevirt.io/exclude"
 			vmi.Annotations = map[string]string{exclusionMarking: "true"}

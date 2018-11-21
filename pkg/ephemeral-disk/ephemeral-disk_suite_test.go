@@ -28,7 +28,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/log"
 )
 
-func TestRegistryDisk(t *testing.T) {
+func TestContainerDisk(t *testing.T) {
 	log.Log.SetIOWriter(GinkgoWriter)
 	RegisterFailHandler(Fail)
 	RunSpecs(t, "EphemeralDisk Suite")

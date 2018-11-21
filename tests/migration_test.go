@@ -115,7 +115,7 @@ var _ = Describe("Migrations", func() {
 		Context("with an Alpine read only disk", func() {
 			It("should be successfully migrated multiple times", func() {
 
-				vmi := tests.NewRandomVMIWithEphemeralDisk(tests.RegistryDiskFor(tests.RegistryDiskAlpine))
+				vmi := tests.NewRandomVMIWithEphemeralDisk(tests.ContainerDiskFor(tests.ContainerDiskAlpine))
 				vmi.Spec.Domain.Devices.Disks[0].DiskDevice.Disk.ReadOnly = true
 
 				By("Starting the VirtualMachineInstance")

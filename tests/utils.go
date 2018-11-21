@@ -1054,7 +1054,7 @@ func AddEphemeralDisk(vmi *v1.VirtualMachineInstance, name string, bus string, i
 	vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
 		Name: name,
 		VolumeSource: v1.VolumeSource{
-			RegistryDisk: &v1.RegistryDiskSource{
+			ContainerDisk: &v1.ContainerDiskSource{
 				Image: image,
 			},
 		},
@@ -1106,7 +1106,7 @@ func AddEphemeralFloppy(vmi *v1.VirtualMachineInstance, name string, image strin
 	vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
 		Name: name,
 		VolumeSource: v1.VolumeSource{
-			RegistryDisk: &v1.RegistryDiskSource{
+			ContainerDisk: &v1.ContainerDiskSource{
 				Image: image,
 			},
 		},
@@ -1371,7 +1371,7 @@ func NewRandomVMIWithHostDisk(diskPath string, diskType v1.HostDiskType, nodeNam
 }
 
 func NewRandomVMIWithWatchdog() *v1.VirtualMachineInstance {
-	vmi := NewRandomVMIWithEphemeralDisk(RegistryDiskFor(RegistryDiskAlpine))
+	vmi := NewRandomVMIWithEphemeralDisk(ContainerDiskFor(ContainerDiskAlpine))
 
 	vmi.Spec.Domain.Devices.Watchdog = &v1.Watchdog{
 		Name: "mywatchdog",
@@ -1475,14 +1475,14 @@ func AddExplicitPodNetworkInterface(vmi *v1.VirtualMachineInstance) {
 
 func NewRandomVMIWithe1000NetworkInterface() *v1.VirtualMachineInstance {
 	// Use alpine because cirros dhcp client starts prematurily before link is ready
-	vmi := NewRandomVMIWithEphemeralDisk(RegistryDiskFor(RegistryDiskAlpine))
+	vmi := NewRandomVMIWithEphemeralDisk(ContainerDiskFor(ContainerDiskAlpine))
 	AddExplicitPodNetworkInterface(vmi)
 	vmi.Spec.Domain.Devices.Interfaces[0].Model = "e1000"
 	return vmi
 }
 
 func NewRandomVMIWithCustomMacAddress() *v1.VirtualMachineInstance {
-	vmi := NewRandomVMIWithEphemeralDisk(RegistryDiskFor(RegistryDiskAlpine))
+	vmi := NewRandomVMIWithEphemeralDisk(ContainerDiskFor(ContainerDiskAlpine))
 	AddExplicitPodNetworkInterface(vmi)
 	vmi.Spec.Domain.Devices.Interfaces[0].MacAddress = "de:ad:00:00:be:af"
 	return vmi
@@ -1671,20 +1671,20 @@ func NewConsoleExpecter(virtCli kubecli.KubevirtClient, vmi *v1.VirtualMachineIn
 	}, timeout, opts...)
 }
 
-type RegistryDisk string
+type ContainerDisk string
 
 const (
-	RegistryDiskCirros RegistryDisk = "cirros"
-	RegistryDiskAlpine RegistryDisk = "alpine"
-	RegistryDiskFedora RegistryDisk = "fedora-cloud"
+	ContainerDiskCirros ContainerDisk = "cirros"
+	ContainerDiskAlpine ContainerDisk = "alpine"
+	ContainerDiskFedora ContainerDisk = "fedora-cloud"
 )
 
-// RegistryDiskFor takes the name of an image and returns the full
+// ContainerDiskFor takes the name of an image and returns the full
 // registry diks image path.
 // Supported values are: cirros, fedora, alpine, guest-agent
-func RegistryDiskFor(name RegistryDisk) string {
+func ContainerDiskFor(name ContainerDisk) string {
 	switch name {
-	case RegistryDiskCirros, RegistryDiskAlpine, RegistryDiskFedora:
+	case ContainerDiskCirros, ContainerDiskAlpine, ContainerDiskFedora:
 		return fmt.Sprintf("%s/%s-registry-disk-demo:%s", KubeVirtRepoPrefix, name, KubeVirtVersionTag)
 	}
 	panic(fmt.Sprintf("Unsupported registry disk %s", name))
@@ -2427,7 +2427,7 @@ func RunCommandOnVmiPod(vmi *v1.VirtualMachineInstance, command []string) string
 // GetNodeLibvirtCapabilities returns node libvirt capabilities
 func GetNodeLibvirtCapabilities(nodeName string) string {
 	// Create a virt-launcher pod to fetch virsh capabilities
-	vmi := NewRandomVMIWithEphemeralDiskAndUserdata(RegistryDiskFor(RegistryDiskCirros), "#!/bin/bash\necho 'hello'\n")
+	vmi := NewRandomVMIWithEphemeralDiskAndUserdata(ContainerDiskFor(ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n")
 	StartVmOnNode(vmi, nodeName)
 
 	return RunCommandOnVmiPod(vmi, []string{"virsh", "-r", "capabilities"})
@@ -2435,7 +2435,7 @@ func GetNodeLibvirtCapabilities(nodeName string) string {
 
 // GetNodeCPUInfo returns output of lscpu on the pod that runs on the specified node
 func GetNodeCPUInfo(nodeName string) string {
-	vmi := NewRandomVMIWithEphemeralDiskAndUserdata(RegistryDiskFor(RegistryDiskCirros), "#!/bin/bash\necho 'hello'\n")
+	vmi := NewRandomVMIWithEphemeralDiskAndUserdata(ContainerDiskFor(ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n")
 	StartVmOnNode(vmi, nodeName)
 
 	return RunCommandOnVmiPod(vmi, []string{"lscpu"})

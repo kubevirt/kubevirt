@@ -49,8 +49,8 @@ var _ = Describe("Slirp Networking", func() {
 
 	tests.BeforeAll(func() {
 		ports := []v1.Port{{Name: "http", Port: 80}}
-		genericVmi = tests.NewRandomVMIWithSlirpInterfaceEphemeralDiskAndUserdata(tests.RegistryDiskFor(tests.RegistryDiskCirros), "#!/bin/bash\necho 'hello'\n", ports)
-		deadbeafVmi = tests.NewRandomVMIWithSlirpInterfaceEphemeralDiskAndUserdata(tests.RegistryDiskFor(tests.RegistryDiskCirros), "#!/bin/bash\necho 'hello'\n", ports)
+		genericVmi = tests.NewRandomVMIWithSlirpInterfaceEphemeralDiskAndUserdata(tests.ContainerDiskFor(tests.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n", ports)
+		deadbeafVmi = tests.NewRandomVMIWithSlirpInterfaceEphemeralDiskAndUserdata(tests.ContainerDiskFor(tests.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n", ports)
 		deadbeafVmi.Spec.Domain.Devices.Interfaces[0].MacAddress = "de:ad:00:00:be:af"
 
 		for _, vmi := range []*v1.VirtualMachineInstance{genericVmi, deadbeafVmi} {
