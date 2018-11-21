@@ -22,9 +22,14 @@ package tests_test
 import (
 	"flag"
 	"fmt"
+	"os/exec"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
+
+	"kubevirt.io/kubevirt/pkg/host-disk"
+	"kubevirt.io/kubevirt/pkg/virt-controller/services"
 
 	"github.com/google/goexpect"
 	. "github.com/onsi/ginkgo"
@@ -43,7 +48,8 @@ import (
 )
 
 const (
-	diskSerial = "FB-fb_18030C10002032"
+	diskSerial        = "FB-fb_18030C10002032"
+	namespaceKubevirt = "kube-system"
 )
 
 type VMICreationFunc func(string) *v1.VirtualMachineInstance
@@ -419,6 +425,80 @@ var _ = Describe("Storage", func() {
 					)
 					Expect(strings.Contains(output, "disk.img")).To(BeTrue())
 				}
+			})
+		})
+
+		Context("With smaller than requested PVCs", func() {
+
+			var pvc string
+
+			BeforeEach(func() {
+
+				// prepare storage with fix small size (20Mi) where fs already has > 10 % some overhead
+				out, err := exec.Command("/bin/sh", "-c", `
+					cluster/cli.sh ssh node01 '
+						(sudo umount /mnt/local-storage/fixeddisk || /bin/true) &&
+						sudo rm -f /mnt/local-storage/fixedfs.ext3 &&
+						sudo dd if=/dev/zero of=/mnt/local-storage/fixedfs.ext3 count=40960 &&
+						sudo /sbin/mkfs -t ext3 -q /mnt/local-storage/fixedfs.ext3 -F && 
+						sudo rm -fR /mnt/local-storage/fixeddisk &&
+						sudo mkdir /mnt/local-storage/fixeddisk &&
+						sudo mount -o loop,rw /mnt/local-storage/fixedfs.ext3 /mnt/local-storage/fixeddisk
+					'
+				`).Output()
+				fmt.Println(string(out))
+				Expect(err).ToNot(HaveOccurred())
+
+				pvc = "vmi-pvc-" + rand.String(12)
+				tests.CreateHostPathPvWithSize(pvc, "/mnt/local-storage/fixeddisk", "20Mi")
+				tests.CreatePVC(pvc, "20Mi")
+
+			}, 30)
+
+			AfterEach(func() {
+				tests.DeletePVC(pvc)
+				tests.DeletePV(pvc)
+			}, 30)
+
+			configureToleration := func(toleration int) {
+				By("By configuring toleration")
+				config, err := virtClient.CoreV1().ConfigMaps(namespaceKubevirt).Get("kubevirt-config", metav1.GetOptions{})
+				ExpectWithOffset(1, err).ToNot(HaveOccurred())
+
+				config.Data[services.LessPvcSpaceTolerationKey] = strconv.Itoa(toleration)
+				_, err = virtClient.CoreV1().ConfigMaps(namespaceKubevirt).Update(config)
+				ExpectWithOffset(1, err).ToNot(HaveOccurred())
+			}
+
+			It("Should not initialize an empty PVC with a disk.img when disk is too small even with toleration", func() {
+
+				configureToleration(10)
+
+				By("starting VirtualMachineInstance")
+				vmi := tests.NewRandomVMIWithPVC("disk-" + pvc)
+				tests.RunVMI(vmi, 30)
+
+				By("Checking events")
+				objectEventWatcher := tests.NewObjectEventWatcher(vmi).SinceWatchedObjectResourceVersion().Timeout(time.Duration(120) * time.Second)
+				event := objectEventWatcher.WaitFor(tests.WarningEvent, v1.SyncFailed.String())
+				Expect(event).ToNot(BeNil())
+
+			})
+
+			It("Should initialize an empty PVC with a disk.img when disk is too small but within toleration", func() {
+
+				configureToleration(30)
+
+				By("starting VirtualMachineInstance")
+				vmi := tests.NewRandomVMIWithPVC("disk-" + pvc)
+				tests.RunVMIAndExpectLaunch(vmi, false, 30)
+
+				By("Checking events")
+				objectEventWatcher := tests.NewObjectEventWatcher(vmi).SinceWatchedObjectResourceVersion().Timeout(time.Duration(30) * time.Second)
+				objectEventWatcher.FailOnWarnings()
+				event := objectEventWatcher.WaitFor(hostdisk.EventTypeToleratedSmallPV, hostdisk.EventReasonToleratedSmallPV)
+				Expect(event).ToNot(BeNil())
+
 			})
 		})
 
