@@ -4101,6 +4101,22 @@
      }
     }
    },
+   "v1.ContainerDiskSource": {
+    "description": "Represents a docker image with an embedded disk.",
+    "required": [
+     "image"
+    ],
+    "properties": {
+     "image": {
+      "description": "Image is the name of the image with the embedded disk.",
+      "type": "string"
+     },
+     "imagePullSecret": {
+      "description": "ImagePullSecret is the name of the Docker registry secret required to pull the image. The secret must already exist.",
+      "type": "string"
+     }
+    }
+   },
    "v1.DataVolumeSource": {
     "required": [
      "name"
@@ -5113,22 +5129,6 @@
      }
     }
    },
-   "v1.RegistryDiskSource": {
-    "description": "Represents a docker image with an embedded disk.",
-    "required": [
-     "image"
-    ],
-    "properties": {
-     "image": {
-      "description": "Image is the name of the image with the embedded disk.",
-      "type": "string"
-     },
-     "imagePullSecret": {
-      "description": "ImagePullSecret is the name of the Docker registry secret required to pull the image. The secret must already exist.",
-      "type": "string"
-     }
-    }
-   },
    "v1.ResourceRequirements": {
     "properties": {
      "limits": {
@@ -5953,6 +5953,10 @@
       "description": "ConfigMapSource represents a reference to a ConfigMap in the same namespace.\nMore info: https://kubernetes.io/docs/tasks/configure-pod-container/configure-pod-configmap/\n+optional",
       "$ref": "#/definitions/v1.ConfigMapVolumeSource"
      },
+     "containerDisk": {
+      "description": "ContainerDisk references a docker image, embedding a qcow or raw disk.\nMore info: https://kubevirt.gitbooks.io/user-guide/registry-disk.html\n+optional",
+      "$ref": "#/definitions/v1.ContainerDiskSource"
+     },
      "dataVolume": {
       "description": "DataVolume represents the dynamic creation a PVC for this volume as well as\nthe process of populating that PVC with a disk image.\n+optional",
       "$ref": "#/definitions/v1.DataVolumeSource"
@@ -5976,10 +5980,6 @@
      "persistentVolumeClaim": {
       "description": "PersistentVolumeClaimVolumeSource represents a reference to a PersistentVolumeClaim in the same namespace.\nDirectly attached to the vmi via qemu.\nMore info: https://kubernetes.io/docs/concepts/storage/persistent-volumes#persistentvolumeclaims\n+optional",
       "$ref": "#/definitions/v1.PersistentVolumeClaimVolumeSource"
-     },
-     "registryDisk": {
-      "description": "RegistryDisk references a docker image, embedding a qcow or raw disk.\nMore info: https://kubevirt.gitbooks.io/user-guide/registry-disk.html\n+optional",
-      "$ref": "#/definitions/v1.RegistryDiskSource"
      },
      "secret": {
       "description": "SecretVolumeSource represents a reference to a secret data in the same namespace.\nMore info: https://kubernetes.io/docs/concepts/configuration/secret/\n+optional",
