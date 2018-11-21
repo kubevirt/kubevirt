@@ -568,6 +568,32 @@ var _ = Describe("Networking", func() {
 			checkLearningState(learningDisabledVMI, "0")
 		})
 	})
+
+	Context("VirtualMachineInstance with dhcp options", func() {
+		BeforeEach(func() {
+			tests.BeforeTestCleanup()
+		})
+
+		FIt("should offer extra dhcp options to pod iface", func() {
+			vmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(tests.RegistryDiskFor(tests.RegistryDiskFedora), "#!/bin/bash\necho 'hello'\n")
+			tests.AddExplicitPodNetworkInterface(vmi)
+
+			vmi.Spec.Domain.Devices.Interfaces[0].DHCPOptions = &v1.DHCPOptions{
+				BootFileName: "config",
+				TFTPServerName: "tftp.kubevirt.io",
+			}
+
+			_, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
+			Expect(err).ToNot(HaveOccurred())
+
+			tests.WaitUntilVMIReady(vmi, tests.LoggedInFedoraExpecter)
+
+			tests.RunCommandOnVmiPod(vmi, []string{"sudo", "dhclient", "-1", "-r", "-d", "eth0"})
+			output := tests.RunCommandOnVmiPod(vmi, []string{"sudo", "dhclient", "-1", "-sf", "/usr/bin/env", "--request-options", "subnet-mask,broadcast-address,time-offset,routers,domain-search,domain-name,domain-name-servers,host-name,nis-domain,nis-servers,ntp-servers,interface-mtu", "eth0"})
+			// assert for specific options
+			Expect(strings.TrimSpace(output)).ToNot(BeEmpty())
+		})
+	})
 })
 
 func waitUntilVMIReady(vmi *v1.VirtualMachineInstance, expecterFactory tests.VMIExpecterFactory) *v1.VirtualMachineInstance {
