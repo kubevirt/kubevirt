@@ -19,8 +19,10 @@ spec:
         volumeName: cloudinitvolume
       interfaces:
       - bridge: {}
+        dhcpOptions: {}
         name: default
       - bridge: {}
+        dhcpOptions: {}
         name: ptp
     machine:
       type: ""

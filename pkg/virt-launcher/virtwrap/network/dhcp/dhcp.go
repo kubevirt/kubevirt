@@ -58,7 +58,7 @@ func SingleClientDHCPServer(
 	routes *[]netlink.Route,
 	searchDomains []string,
 	mtu uint16,
-	customDhcpOptions v1.DhcpOptions) error {
+	customDHCPOptions v1.DHCPOptions) error {
 
 	log.Log.Info("Starting SingleClientDHCPServer")
 
@@ -67,7 +67,7 @@ func SingleClientDHCPServer(
 		return fmt.Errorf("reading the pods hostname failed: %v", err)
 	}
 
-	options, err := prepareDHCPOptions(clientMask, routerIP, dnsIPs, routes, searchDomains, mtu, hostname, &customDhcpOptions)
+	options, err := prepareDHCPOptions(clientMask, routerIP, dnsIPs, routes, searchDomains, mtu, hostname, &customDHCPOptions)
 	if err != nil {
 		return err
 	}
@@ -100,7 +100,7 @@ func prepareDHCPOptions(
 	searchDomains []string,
 	mtu uint16,
 	hostname string,
-	customDhcpOptions *v1.DhcpOptions) (dhcp.Options, error) {
+	customDHCPOptions *v1.DHCPOptions) (dhcp.Options, error) {
 
 	mtuArray := make([]byte, 2)
 	binary.BigEndian.PutUint16(mtuArray, mtu)
@@ -134,14 +134,14 @@ func prepareDHCPOptions(
 		dhcpOptions[dhcp.OptionDomainName] = []byte(domainName)
 	}
 
-	if customDhcpOptions != nil {
-		if customDhcpOptions.TftpAddress != "" {
-			log.Log.Infof("Setting dhcp option tftp server name to %s", customDhcpOptions.TftpAddress)
-			dhcpOptions[dhcp.OptionTFTPServerName] = []byte(customDhcpOptions.TftpAddress)
+	if customDHCPOptions != nil {
+		if customDHCPOptions.TFTPServerName != "" {
+			log.Log.Infof("Setting dhcp option tftp server name to %s", customDHCPOptions.TFTPServerName)
+			dhcpOptions[dhcp.OptionTFTPServerName] = []byte(customDHCPOptions.TFTPServerName)
 		}
-		if customDhcpOptions.BootFileName != "" {
-			log.Log.Infof("Setting dhcp option boot file name to %s", customDhcpOptions.BootFileName)
-			dhcpOptions[dhcp.OptionBootFileName] = []byte(customDhcpOptions.BootFileName)
+		if customDHCPOptions.BootFileName != "" {
+			log.Log.Infof("Setting dhcp option boot file name to %s", customDHCPOptions.BootFileName)
+			dhcpOptions[dhcp.OptionBootFileName] = []byte(customDHCPOptions.BootFileName)
 		}
 	}
 

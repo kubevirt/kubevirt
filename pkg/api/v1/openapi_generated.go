@@ -1125,7 +1125,7 @@ func schema_kubevirt_pkg_api_v1_Interface(ref common.ReferenceCallback) common.O
 					"dhcpOptions": {
 						SchemaProps: spec.SchemaProps{
 							Description: "If specified the network interface will pass additional DHCP options to the VMI",
-							Ref:         ref("kubevirt.io/kubevirt/pkg/api/v1.DhcpOptions"),
+							Ref:         ref("kubevirt.io/kubevirt/pkg/api/v1.DHCPOptions"),
 						},
 					},
 				},
@@ -1133,7 +1133,7 @@ func schema_kubevirt_pkg_api_v1_Interface(ref common.ReferenceCallback) common.O
 			},
 		},
 		Dependencies: []string{
-			"kubevirt.io/kubevirt/pkg/api/v1.DhcpOptions", "kubevirt.io/kubevirt/pkg/api/v1.InterfaceBridge", "kubevirt.io/kubevirt/pkg/api/v1.InterfaceSRIOV", "kubevirt.io/kubevirt/pkg/api/v1.InterfaceSlirp", "kubevirt.io/kubevirt/pkg/api/v1.Port"},
+			"kubevirt.io/kubevirt/pkg/api/v1.DHCPOptions", "kubevirt.io/kubevirt/pkg/api/v1.InterfaceBridge", "kubevirt.io/kubevirt/pkg/api/v1.InterfaceSRIOV", "kubevirt.io/kubevirt/pkg/api/v1.InterfaceSlirp", "kubevirt.io/kubevirt/pkg/api/v1.Port"},
 	}
 }
 

@@ -364,10 +364,10 @@ func (Interface) SwaggerDoc() map[string]string {
 	}
 }
 
-func (DhcpOptions) SwaggerDoc() map[string]string {
+func (DHCPOptions) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"bootFileName": "+optional",
-		"tftpAddress":  "+optional",
+		"bootFileName":   "If specified will pass option 67 to interface's DHCP server\n+optional",
+		"tftpServerName": "If specified will pass option 66 to interface's DHCP server\n+optional",
 	}
 }
 

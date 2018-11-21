@@ -796,14 +796,16 @@ type Interface struct {
 	PciAddress string `json:"pciAddress,omitempty"`
 	// If specified the network interface will pass additional DHCP options to the VMI
 	// +optional
-	DhcpOptions `json:"dhcpOptions,omitempty"`
+	DHCPOptions `json:"dhcpOptions,omitempty"`
 }
 
-type DhcpOptions struct {
+type DHCPOptions struct {
+	// If specified will pass option 67 to interface's DHCP server
 	// +optional
 	BootFileName string `json:"bootFileName,omitempty"`
+	// If specified will pass option 66 to interface's DHCP server
 	// +optional
-	TftpAddress string `json:"tftpAddress,omitempty"`
+	TFTPServerName string `json:"tftpServerName,omitempty"`
 }
 
 // Represents the method which will be used to connect the interface to the guest.
