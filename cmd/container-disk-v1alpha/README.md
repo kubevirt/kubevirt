@@ -4,9 +4,9 @@ The KubeVirt Registry Disk Base Container allows users to store VMI disks in
 a container registry and attach those disk to VMIs automatically using the
 KubeVirt runtime.
 
-This Base Container is compatible with disk type RegistryDisk:v1alpha
+This Base Container is compatible with disk type ContainerDisk:v1alpha
 
-# RegistryDisk:v1alpha
+# ContainerDisk:v1alpha
 ## Storing Disks in Container Registry
 
 VMI disks can be stored in either qcow2 format or raw format by copying the vm
@@ -17,7 +17,7 @@ Example: Place a bootable VMI disk into a container image in the /disk directory
 and upload to the container registry.
 ```
 cat << END > Dockerfile 
-FROM kubevirt.io:registry-disk-v1alpha
+FROM kubevirt.io:container-disk-v1alpha
 ADD fedora25.qcow2 /disk
 END
 
@@ -28,7 +28,7 @@ docker push vmdisks/fedora25:latest
 ## Assigning Ephemeral Disks to VMIs
 
 Assign an ephemeral disk backed by an image in the container registry by
-adding a RegistryDisk:v1alpha disk to the VMI definition and supplying
+adding a ContainerDisk:v1alpha disk to the VMI definition and supplying
 the container image as the disk's source name.
 
 Example: Create a KubeVirt VMI definition with container backed ephemeral disk.
@@ -46,7 +46,7 @@ spec:
       disks:
       - disk:
           bus: virtio
-        name: registrydisk
+        name: containerdisk
         volumeName: registryvolume
     machine:
       type: ""
@@ -56,8 +56,8 @@ spec:
   terminationGracePeriodSeconds: 0
   volumes:
   - name: registryvolume
-    registryDisk:
-      image: kubevirt/cirros-registry-disk-demo:devel
+    containerDisk:
+      image: kubevirt/cirros-container-disk-demo:devel
 status: {}
 END
 ```

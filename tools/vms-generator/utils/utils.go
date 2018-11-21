@@ -76,9 +76,9 @@ const (
 )
 
 const (
-	imageAlpine = "alpine-registry-disk-demo"
-	imageCirros = "cirros-registry-disk-demo"
-	imageFedora = "fedora-cloud-registry-disk-demo"
+	imageAlpine = "alpine-container-disk-demo"
+	imageCirros = "cirros-container-disk-demo"
+	imageFedora = "fedora-cloud-container-disk-demo"
 )
 
 const windowsFirmware = "5d307ca9-b3ef-428c-8861-06e72d69f223"

@@ -16,9 +16,9 @@
 # Copyright 2017 Red Hat, Inc.
 #
 
-FROM kubevirt/registry-disk-v1alpha
+FROM kubevirt/container-disk-v1alpha
 
-LABEL maintainer="The KubeVirt Project <kubevirt-dev@googlegroups.com>"
+LABEL maintainer="David Vossel <dvossel@redhat.com>"
 
-# Add alpine image
-RUN curl http://dl-cdn.alpinelinux.org/alpine/v3.7/releases/x86_64/alpine-virt-3.7.0-x86_64.iso > /disk/alpine.iso
+# Add cirros
+RUN curl https://download.cirros-cloud.net/0.4.0/cirros-0.4.0-x86_64-disk.img > /disk/cirros.img

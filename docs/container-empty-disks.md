@@ -58,7 +58,7 @@ spec:
   volumes:
     - name: containerDisk
       containerDisk:
-        image: kubevirt/cirros-registry-disk-demo:devel
+        image: kubevirt/cirros-container-disk-demo:devel
     - name: emptyDisk
       emptyDisk:
         capacity: 20G
