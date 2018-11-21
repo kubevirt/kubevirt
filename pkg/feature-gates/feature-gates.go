@@ -39,6 +39,7 @@ const (
 	dataVolumesGate   = "DataVolumes"
 	cpuManager        = "CPUManager"
 	liveMigrationGate = "LiveMigration"
+	SRIOVGate         = "SRIOV"
 )
 
 func ParseFeatureGatesFromConfigMap() {
@@ -90,4 +91,8 @@ func CPUManagerEnabled() bool {
 
 func LiveMigrationEnabled() bool {
 	return strings.Contains(os.Getenv(featureGateEnvVar), liveMigrationGate)
+}
+
+func SRIOVEnabled() bool {
+	return strings.Contains(os.Getenv(featureGateEnvVar), SRIOVGate)
 }

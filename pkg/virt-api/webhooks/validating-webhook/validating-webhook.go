@@ -870,6 +870,14 @@ func ValidateVirtualMachineInstanceSpec(field *k8sfield.Path, spec *v1.VirtualMa
 				})
 			}
 
+			if iface.SRIOV != nil && !featuregates.SRIOVEnabled() {
+				causes = append(causes, metav1.StatusCause{
+					Type:    metav1.CauseTypeFieldValueInvalid,
+					Message: fmt.Sprintf("SRIOV feature gate is not enabled in kubevirt-config"),
+					Field:   field.Child("domain", "devices", "interfaces").Index(idx).Child("name").String(),
+				})
+			}
+
 			// Check if the interface name is unique
 			if _, networkAlreadyUsed := networkInterfaceMap[iface.Name]; networkAlreadyUsed {
 				causes = append(causes, metav1.StatusCause{

@@ -1707,6 +1707,37 @@ var _ = Describe("Validating Webhook", func() {
 			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec)
 			Expect(len(causes)).To(Equal(0))
 		})
+
+		It("should reject SRIOV interface when feature gate is disabled", func() {
+			vmi := v1.NewMinimalVMI("testvmi")
+			vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{*v1.DefaultNetworkInterface()}
+			vmi.Spec.Networks = []v1.Network{*v1.DefaultPodNetwork()}
+
+			vmi.Spec.Domain.Devices.Interfaces = append(
+				vmi.Spec.Domain.Devices.Interfaces,
+				v1.Interface{
+					Name: "sriov",
+					InterfaceBindingMethod: v1.InterfaceBindingMethod{
+						SRIOV: &v1.InterfaceSRIOV{},
+					},
+				},
+			)
+			vmi.Spec.Networks = append(
+				vmi.Spec.Networks,
+				v1.Network{
+					Name: "sriov",
+					NetworkSource: v1.NetworkSource{
+						Multus: &v1.CniNetwork{NetworkName: "sriov"},
+					},
+				},
+			)
+
+			os.Setenv("FEATURE_GATES", "")
+
+			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec)
+			Expect(len(causes)).To(Equal(1))
+			Expect(causes[0].Field).To(Equal("fake.domain.devices.interfaces[1].name"))
+		})
 	})
 	Context("with cpu pinning", func() {
 		var vmi *v1.VirtualMachineInstance
