@@ -54,6 +54,13 @@ func getVmfromClientArgs(args *cmdclient.Args) (*v1.VirtualMachineInstance, erro
 	return args.VMI, nil
 }
 
+func getMigrationTypeClientArgs(args *cmdclient.Args) (bool, error) {
+	if args.IsBlockMigration == nil {
+		return nil, goerror.New(fmt.Sprintf("isBlockMigration not present in command server args"))
+	}
+	return args.IsBlockMigration, nil
+}
+
 func getErrorMessage(err error) string {
 	if virErr := launcherErrors.FormatLibvirtError(err); virErr != "" {
 		return virErr
@@ -71,8 +78,14 @@ func (s *Launcher) Migrate(args *cmdclient.Args, reply *cmdclient.Reply) error {
 		reply.Message = err.Error()
 		return nil
 	}
+	isBlockMigration, err := getMigrationTypeClientArgs(args)
+	if err != nil {
+		reply.Success = false
+		reply.Message = err.Error()
+		return nil
+	}
 
-	err = s.domainManager.MigrateVMI(vmi)
+	err = s.domainManager.MigrateVMI(vmi, isBlockMigration)
 	if err != nil {
 		log.Log.Object(vmi).Reason(err).Errorf("Failed to migrate vmi")
 		reply.Success = false
