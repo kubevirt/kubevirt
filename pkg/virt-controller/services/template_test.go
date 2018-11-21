@@ -262,7 +262,7 @@ var _ = Describe("Template", func() {
 					Spec: v1.VirtualMachineInstanceSpec{
 						Domain: v1.DomainSpec{
 							CPU: &v1.CPU{
-								Model: "Conore",
+								Model: "Conroe",
 							},
 						},
 					},
@@ -270,7 +270,7 @@ var _ = Describe("Template", func() {
 
 				pod, err := svc.RenderLaunchManifest(&vmi)
 				Expect(err).ToNot(HaveOccurred())
-				Expect(pod.Spec.NodeSelector).Should(HaveKeyWithValue(NFD_CPU_FAMILY_PREFIX+"Conore", "true"))
+				Expect(pod.Spec.NodeSelector).Should(HaveKeyWithValue(NFD_CPU_FAMILY_PREFIX+"Conroe", "true"))
 			})
 
 			It("should add default cpu/memory resources to the sidecar container if cpu pinning was requested", func() {
