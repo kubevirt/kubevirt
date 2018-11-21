@@ -163,7 +163,7 @@ var _ = Describe("Kubevirt VirtualMachine Client", func() {
 
 	It("should restart a VirtualMachine", func() {
 		server.AppendHandlers(ghttp.CombineHandlers(
-			ghttp.VerifyRequest("GET", subVMIPath+"/restart"),
+			ghttp.VerifyRequest("PUT", subVMIPath+"/restart"),
 			ghttp.RespondWithJSONEncoded(http.StatusOK, nil),
 		))
 		err := client.VirtualMachine(k8sv1.NamespaceDefault).Restart("testvm")

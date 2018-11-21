@@ -206,7 +206,7 @@ func (app *virtAPIApp) composeSubresources() {
 		VirtCli: app.virtCli,
 	}
 
-	subws.Route(subws.GET(rest.ResourcePath(subresourcesvmGVR) + rest.SubResourcePath("restart")).
+	subws.Route(subws.PUT(rest.ResourcePath(subresourcesvmGVR) + rest.SubResourcePath("restart")).
 		To(subresourceApp.RestartVMRequestHandler).
 		Param(rest.NamespaceParam(subws)).Param(rest.NameParam(subws)).
 		Operation("restart").

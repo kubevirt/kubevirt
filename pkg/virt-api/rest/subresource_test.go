@@ -336,6 +336,110 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 
 		}, 5)
 
+		It("should fail if VirtualMachine not exists", func(done Done) {
+			request.PathParameters()["name"] = "testvm"
+			request.PathParameters()["namespace"] = "default"
+
+			server.AppendHandlers(
+				ghttp.CombineHandlers(
+					ghttp.VerifyRequest("GET", "/apis/kubevirt.io/v1alpha2/namespaces/default/virtualmachines/testvm"),
+					ghttp.RespondWithJSONEncoded(http.StatusNotFound, nil),
+				),
+			)
+
+			app.RestartVMRequestHandler(request, response)
+
+			Expect(response.Error()).To(HaveOccurred())
+			Expect(response.StatusCode()).To(Equal(http.StatusNotFound))
+			close(done)
+		}, 5)
+
+		It("should fail if VirtualMachine is not in running state", func(done Done) {
+			request.PathParameters()["name"] = "testvm"
+			request.PathParameters()["namespace"] = "default"
+
+			vm := v1.VirtualMachine{
+				Spec: v1.VirtualMachineSpec{
+					Running: false,
+				},
+			}
+
+			server.AppendHandlers(
+				ghttp.CombineHandlers(
+					ghttp.VerifyRequest("GET", "/apis/kubevirt.io/v1alpha2/namespaces/default/virtualmachines/testvm"),
+					ghttp.RespondWithJSONEncoded(http.StatusOK, vm),
+				),
+			)
+
+			app.RestartVMRequestHandler(request, response)
+
+			Expect(response.Error()).To(HaveOccurred())
+			Expect(response.StatusCode()).To(Equal(http.StatusNotFound))
+			close(done)
+		})
+
+		It("should fail if VirtualMachine has been deleted during the restart request", func(done Done) {
+			request.PathParameters()["name"] = "testvm"
+			request.PathParameters()["namespace"] = "default"
+
+			vm := v1.VirtualMachine{
+				Spec: v1.VirtualMachineSpec{
+					Running: true,
+				},
+			}
+
+			server.AppendHandlers(
+				ghttp.CombineHandlers(
+					ghttp.VerifyRequest("GET", "/apis/kubevirt.io/v1alpha2/namespaces/default/virtualmachines/testvm"),
+					ghttp.RespondWithJSONEncoded(http.StatusOK, vm),
+				),
+			)
+
+			server.AppendHandlers(
+				ghttp.CombineHandlers(
+					ghttp.VerifyRequest("DELETE", "/apis/kubevirt.io/v1alpha2/namespaces/default/virtualmachineinstances/testvm"),
+					ghttp.RespondWithJSONEncoded(http.StatusInternalServerError, nil),
+				),
+			)
+
+			app.RestartVMRequestHandler(request, response)
+
+			Expect(response.Error()).To(HaveOccurred())
+			Expect(response.StatusCode()).To(Equal(http.StatusInternalServerError))
+			close(done)
+		})
+
+		It("should restart VirtualMachine", func(done Done) {
+			request.PathParameters()["name"] = "testvm"
+			request.PathParameters()["namespace"] = "default"
+
+			vm := v1.VirtualMachine{
+				Spec: v1.VirtualMachineSpec{
+					Running: true,
+				},
+			}
+
+			server.AppendHandlers(
+				ghttp.CombineHandlers(
+					ghttp.VerifyRequest("GET", "/apis/kubevirt.io/v1alpha2/namespaces/default/virtualmachines/testvm"),
+					ghttp.RespondWithJSONEncoded(http.StatusOK, vm),
+				),
+			)
+
+			server.AppendHandlers(
+				ghttp.CombineHandlers(
+					ghttp.VerifyRequest("DELETE", "/apis/kubevirt.io/v1alpha2/namespaces/default/virtualmachineinstances/testvm"),
+					ghttp.RespondWithJSONEncoded(http.StatusOK, nil),
+				),
+			)
+
+			app.RestartVMRequestHandler(request, response)
+
+			Expect(response.Error()).NotTo(HaveOccurred())
+			Expect(response.StatusCode()).To(Equal(http.StatusOK))
+			close(done)
+		})
+
 	})
 
 	AfterEach(func() {
