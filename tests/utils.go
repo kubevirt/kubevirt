@@ -461,10 +461,14 @@ func newPVC(os string, size string) *k8sv1.PersistentVolumeClaim {
 }
 
 func CreateHostPathPv(osName string, hostPath string) {
+	CreateHostPathPvWithSize(osName, hostPath, "1Gi")
+}
+
+func CreateHostPathPvWithSize(osName string, hostPath string, size string) {
 	virtCli, err := kubecli.GetKubevirtClient()
 	PanicOnError(err)
 
-	quantity, err := resource.ParseQuantity("1Gi")
+	quantity, err := resource.ParseQuantity(size)
 	PanicOnError(err)
 
 	hostPathType := k8sv1.HostPathDirectoryOrCreate
