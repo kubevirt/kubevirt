@@ -35,7 +35,7 @@ import (
 	"kubevirt.io/kubevirt/tests"
 )
 
-var _ = Describe("RegistryDisk", func() {
+var _ = Describe("ContainerDisk", func() {
 
 	flag.Parse()
 
@@ -53,7 +53,7 @@ var _ = Describe("RegistryDisk", func() {
 		return obj
 	}
 
-	VerifyRegistryDiskVMI := func(vmi *v1.VirtualMachineInstance, obj runtime.Object, ignoreWarnings bool) {
+	VerifyContainerDiskVMI := func(vmi *v1.VirtualMachineInstance, obj runtime.Object, ignoreWarnings bool) {
 		_, ok := obj.(*v1.VirtualMachineInstance)
 		Expect(ok).To(BeTrue(), "Object is not of type *v1.VirtualMachineInstance")
 		if ignoreWarnings == true {
@@ -87,7 +87,7 @@ var _ = Describe("RegistryDisk", func() {
 	Describe("Starting and stopping the same VirtualMachineInstance", func() {
 		Context("with ephemeral registry disk", func() {
 			It("should success multiple times", func() {
-				vmi := tests.NewRandomVMIWithEphemeralDisk(tests.RegistryDiskFor(tests.RegistryDiskCirros))
+				vmi := tests.NewRandomVMIWithEphemeralDisk(tests.ContainerDiskFor(tests.ContainerDiskCirros))
 				num := 2
 				for i := 0; i < num; i++ {
 					By("Starting the VirtualMachineInstance")
@@ -108,7 +108,7 @@ var _ = Describe("RegistryDisk", func() {
 	Describe("Starting a VirtualMachineInstance", func() {
 		Context("with ephemeral registry disk", func() {
 			It("should not modify the spec on status update", func() {
-				vmi := tests.NewRandomVMIWithEphemeralDisk(tests.RegistryDiskFor(tests.RegistryDiskCirros))
+				vmi := tests.NewRandomVMIWithEphemeralDisk(tests.ContainerDiskFor(tests.ContainerDiskCirros))
 				v1.SetObjectDefaults_VirtualMachineInstance(vmi)
 
 				By("Starting the VirtualMachineInstance")
@@ -130,7 +130,7 @@ var _ = Describe("RegistryDisk", func() {
 				vmis := make([]*v1.VirtualMachineInstance, 0, num)
 				objs := make([]runtime.Object, 0, num)
 				for i := 0; i < num; i++ {
-					vmi := tests.NewRandomVMIWithEphemeralDisk(tests.RegistryDiskFor(tests.RegistryDiskCirros))
+					vmi := tests.NewRandomVMIWithEphemeralDisk(tests.ContainerDiskFor(tests.ContainerDiskCirros))
 					// FIXME if we give too much ram, the vmis really boot and eat all our memory (cache?)
 					vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("1M")
 					obj := LaunchVMI(vmi)
@@ -146,7 +146,7 @@ var _ = Describe("RegistryDisk", func() {
 					// The new network implementation we're working on should resolve this.
 					// NOTE the VirtualMachineInstance still starts successfully regardless of this warning.
 					// It just requires virt-handler to retry the Start command at the moment.
-					VerifyRegistryDiskVMI(vmi, objs[idx], true)
+					VerifyContainerDiskVMI(vmi, objs[idx], true)
 				}
 			}) // Timeout is long because this test involves multiple parallel VirtualMachineInstance launches.
 		})

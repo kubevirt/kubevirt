@@ -55,7 +55,7 @@ var _ = Describe("VMIDefaults", func() {
 				{
 					Name: "testvolume",
 					VolumeSource: v1.VolumeSource{
-						RegistryDisk: &v1.RegistryDiskSource{
+						ContainerDisk: &v1.ContainerDiskSource{
 							Image: "dummy",
 						},
 					},

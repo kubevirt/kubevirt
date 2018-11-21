@@ -86,7 +86,7 @@ var _ = Describe("Validating Webhook", func() {
 			vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
 				Name: "testvolume",
 				VolumeSource: v1.VolumeSource{
-					RegistryDisk: &v1.RegistryDiskSource{},
+					ContainerDisk: &v1.ContainerDiskSource{},
 				},
 			})
 			vmiBytes, _ := json.Marshal(&vmi)
@@ -112,7 +112,7 @@ var _ = Describe("Validating Webhook", func() {
 			vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
 				Name: "testvolume",
 				VolumeSource: v1.VolumeSource{
-					RegistryDisk: &v1.RegistryDiskSource{},
+					ContainerDisk: &v1.ContainerDiskSource{},
 				},
 			})
 			vmiBytes, _ := json.Marshal(&vmi)
@@ -213,7 +213,7 @@ var _ = Describe("Validating Webhook", func() {
 			updateVmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
 				Name: "testvolume",
 				VolumeSource: v1.VolumeSource{
-					RegistryDisk: &v1.RegistryDiskSource{},
+					ContainerDisk: &v1.ContainerDiskSource{},
 				},
 			})
 			newVMIBytes, _ := json.Marshal(&updateVmi)
@@ -297,7 +297,7 @@ var _ = Describe("Validating Webhook", func() {
 						WithVolume(v1.Volume{
 							Name: "testvolume",
 							VolumeSource: v1.VolumeSource{
-								RegistryDisk: &v1.RegistryDiskSource{},
+								ContainerDisk: &v1.ContainerDiskSource{},
 							},
 						}).
 						WithLabel("match", "me").
@@ -360,7 +360,7 @@ var _ = Describe("Validating Webhook", func() {
 			vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
 				Name: "testvolume",
 				VolumeSource: v1.VolumeSource{
-					RegistryDisk: &v1.RegistryDiskSource{},
+					ContainerDisk: &v1.ContainerDiskSource{},
 				},
 			})
 
@@ -849,7 +849,7 @@ var _ = Describe("Validating Webhook", func() {
 				vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
 					Name: volumeName,
 					VolumeSource: v1.VolumeSource{
-						RegistryDisk: &v1.RegistryDiskSource{},
+						ContainerDisk: &v1.ContainerDiskSource{},
 					},
 				})
 			}
@@ -883,7 +883,7 @@ var _ = Describe("Validating Webhook", func() {
 				vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
 					Name: volumeName,
 					VolumeSource: v1.VolumeSource{
-						RegistryDisk: &v1.RegistryDiskSource{},
+						ContainerDisk: &v1.ContainerDiskSource{},
 					},
 				})
 			}
@@ -923,7 +923,7 @@ var _ = Describe("Validating Webhook", func() {
 			vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
 				Name: "testvolume",
 				VolumeSource: v1.VolumeSource{
-					RegistryDisk: &v1.RegistryDiskSource{},
+					ContainerDisk: &v1.ContainerDiskSource{},
 				},
 			})
 			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec)
@@ -1120,7 +1120,7 @@ var _ = Describe("Validating Webhook", func() {
 				&v1.Volume{
 					Name: "testvolume",
 					VolumeSource: v1.VolumeSource{
-						RegistryDisk: &v1.RegistryDiskSource{},
+						ContainerDisk: &v1.ContainerDiskSource{},
 					},
 				}, 1),
 			table.Entry("and accept PVC sources",
@@ -1829,7 +1829,7 @@ var _ = Describe("Validating Webhook", func() {
 			},
 			table.Entry("with pvc volume source", v1.VolumeSource{PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{}}),
 			table.Entry("with cloud-init volume source", v1.VolumeSource{CloudInitNoCloud: &v1.CloudInitNoCloudSource{UserData: "fake"}}),
-			table.Entry("with registryDisk volume source", v1.VolumeSource{RegistryDisk: &v1.RegistryDiskSource{}}),
+			table.Entry("with containerDisk volume source", v1.VolumeSource{ContainerDisk: &v1.ContainerDiskSource{}}),
 			table.Entry("with ephemeral volume source", v1.VolumeSource{Ephemeral: &v1.EphemeralVolumeSource{}}),
 			table.Entry("with emptyDisk volume source", v1.VolumeSource{EmptyDisk: &v1.EmptyDiskSource{}}),
 			table.Entry("with dataVolume volume source", v1.VolumeSource{DataVolume: &v1.DataVolumeSource{Name: "fake"}}),
@@ -1868,7 +1868,7 @@ var _ = Describe("Validating Webhook", func() {
 			vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
 				Name: "testvolume",
 				VolumeSource: v1.VolumeSource{
-					RegistryDisk:          &v1.RegistryDiskSource{},
+					ContainerDisk:         &v1.ContainerDiskSource{},
 					PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{},
 				},
 			})
@@ -1883,13 +1883,13 @@ var _ = Describe("Validating Webhook", func() {
 			vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
 				Name: "testvolume",
 				VolumeSource: v1.VolumeSource{
-					RegistryDisk: &v1.RegistryDiskSource{},
+					ContainerDisk: &v1.ContainerDiskSource{},
 				},
 			})
 			vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
 				Name: "testvolume",
 				VolumeSource: v1.VolumeSource{
-					RegistryDisk: &v1.RegistryDiskSource{},
+					ContainerDisk: &v1.ContainerDiskSource{},
 				},
 			})
 
@@ -2105,7 +2105,7 @@ var _ = Describe("Validating Webhook", func() {
 			vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
 				Name: "testvolume",
 				VolumeSource: v1.VolumeSource{
-					RegistryDisk: &v1.RegistryDiskSource{Image: "fake"},
+					ContainerDisk: &v1.ContainerDiskSource{Image: "fake"},
 				},
 			})
 
@@ -2182,7 +2182,7 @@ var _ = Describe("Validating Webhook", func() {
 			vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
 				Name: "testvolume",
 				VolumeSource: v1.VolumeSource{
-					RegistryDisk: &v1.RegistryDiskSource{Image: "fake"},
+					ContainerDisk: &v1.ContainerDiskSource{Image: "fake"},
 				},
 			})
 
@@ -2429,7 +2429,7 @@ var _ = Describe("Function getNumberOfPodInterfaces()", func() {
 		volume := v1.Volume{
 			Name: "testvolume",
 			VolumeSource: v1.VolumeSource{
-				RegistryDisk: &v1.RegistryDiskSource{},
+				ContainerDisk: &v1.ContainerDiskSource{},
 			},
 		}
 
@@ -2463,7 +2463,7 @@ var _ = Describe("Function getNumberOfPodInterfaces()", func() {
 		volume := v1.Volume{
 			Name: "testvolume",
 			VolumeSource: v1.VolumeSource{
-				RegistryDisk: &v1.RegistryDiskSource{},
+				ContainerDisk: &v1.ContainerDiskSource{},
 			},
 		}
 		spec.Volumes = []v1.Volume{volume}

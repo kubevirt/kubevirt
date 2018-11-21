@@ -28,7 +28,7 @@ var _ = Describe("Generated deepcopy functions", func() {
 			&CDRomTarget{},
 			&Volume{},
 			&VolumeSource{},
-			&RegistryDiskSource{},
+			&ContainerDiskSource{},
 			&ClockOffset{},
 			&ClockOffsetUTC{},
 			&Clock{},

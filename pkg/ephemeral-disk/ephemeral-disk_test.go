@@ -33,7 +33,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/api/v1"
 )
 
-var _ = Describe("RegistryDisk", func() {
+var _ = Describe("ContainerDisk", func() {
 	var imageTempDirPath string
 	var backingTempDirPath string
 

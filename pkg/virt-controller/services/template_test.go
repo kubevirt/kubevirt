@@ -693,21 +693,21 @@ var _ = Describe("Template", func() {
 
 		})
 
-		Context("with RegistryDisk pull secrets", func() {
+		Context("with ContainerDisk pull secrets", func() {
 			volumes := []v1.Volume{
 				{
-					Name: "registrydisk1",
+					Name: "containerdisk1",
 					VolumeSource: v1.VolumeSource{
-						RegistryDisk: &v1.RegistryDiskSource{
+						ContainerDisk: &v1.ContainerDiskSource{
 							Image:           "my-image-1",
 							ImagePullSecret: "pull-secret-2",
 						},
 					},
 				},
 				{
-					Name: "registrydisk2",
+					Name: "containerdisk2",
 					VolumeSource: v1.VolumeSource{
-						RegistryDisk: &v1.RegistryDiskSource{
+						ContainerDisk: &v1.ContainerDiskSource{
 							Image: "my-image-2",
 						},
 					},
@@ -727,20 +727,20 @@ var _ = Describe("Template", func() {
 
 				Expect(len(pod.Spec.ImagePullSecrets)).To(Equal(2))
 
-				// RegistryDisk secrets come first
+				// ContainerDisk secrets come first
 				Expect(pod.Spec.ImagePullSecrets[0].Name).To(Equal("pull-secret-2"))
 				Expect(pod.Spec.ImagePullSecrets[1].Name).To(Equal("pull-secret-1"))
 			})
 
 			It("should deduplicate identical secrets", func() {
-				volumes[1].VolumeSource.RegistryDisk.ImagePullSecret = "pull-secret-2"
+				volumes[1].VolumeSource.ContainerDisk.ImagePullSecret = "pull-secret-2"
 
 				pod, err := svc.RenderLaunchManifest(&vmi)
 				Expect(err).ToNot(HaveOccurred())
 
 				Expect(len(pod.Spec.ImagePullSecrets)).To(Equal(2))
 
-				// RegistryDisk secrets come first
+				// ContainerDisk secrets come first
 				Expect(pod.Spec.ImagePullSecrets[0].Name).To(Equal("pull-secret-2"))
 				Expect(pod.Spec.ImagePullSecrets[1].Name).To(Equal("pull-secret-1"))
 			})
