@@ -424,7 +424,7 @@ spec:
         volumeName: volume3
   volumes:
   - name: volume0
-    registryDisk:
+    containerDisk:
       image: test/image
   - name: volume1
     cloudInitNoCloud:
