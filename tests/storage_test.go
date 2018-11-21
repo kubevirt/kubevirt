@@ -465,7 +465,7 @@ var _ = Describe("Storage", func() {
 				config, err := virtClient.CoreV1().ConfigMaps(namespaceKubevirt).Get("kubevirt-config", metav1.GetOptions{})
 				ExpectWithOffset(1, err).ToNot(HaveOccurred())
 
-				config.Data[services.LessPvcSpaceTolerationKey] = strconv.Itoa(toleration)
+				config.Data[services.LessPVCSpaceTolerationKey] = strconv.Itoa(toleration)
 				_, err = virtClient.CoreV1().ConfigMaps(namespaceKubevirt).Update(config)
 				ExpectWithOffset(1, err).ToNot(HaveOccurred())
 			}
@@ -496,7 +496,7 @@ var _ = Describe("Storage", func() {
 				By("Checking events")
 				objectEventWatcher := tests.NewObjectEventWatcher(vmi).SinceWatchedObjectResourceVersion().Timeout(time.Duration(30) * time.Second)
 				objectEventWatcher.FailOnWarnings()
-				event := objectEventWatcher.WaitFor(hostdisk.EventTypeToleratedSmallPV, hostdisk.EventReasonToleratedSmallPV)
+				event := objectEventWatcher.WaitFor(tests.EventType(hostdisk.EventTypeToleratedSmallPV), hostdisk.EventReasonToleratedSmallPV)
 				Expect(event).ToNot(BeNil())
 
 			})

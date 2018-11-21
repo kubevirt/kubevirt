@@ -73,15 +73,17 @@ type LibvirtDomainManager struct {
 	// Anytime a get and a set is done on the domain, this lock must be held.
 	domainModifyLock sync.Mutex
 
-	virtShareDir string
-	notifier     *eventsclient.NotifyClient
+	virtShareDir           string
+	notifier               *eventsclient.NotifyClient
+	lessPVCSpaceToleration int
 }
 
-func NewLibvirtDomainManager(connection cli.Connection, virtShareDir string, notifier *eventsclient.NotifyClient) (DomainManager, error) {
+func NewLibvirtDomainManager(connection cli.Connection, virtShareDir string, notifier *eventsclient.NotifyClient, lessPVCSpaceToleration int) (DomainManager, error) {
 	manager := LibvirtDomainManager{
-		virConn:      connection,
-		virtShareDir: virtShareDir,
-		notifier:     notifier,
+		virConn:                connection,
+		virtShareDir:           virtShareDir,
+		notifier:               notifier,
+		lessPVCSpaceToleration: lessPVCSpaceToleration,
 	}
 
 	return &manager, nil
@@ -333,7 +335,7 @@ func (l *LibvirtDomainManager) preStartHook(vmi *v1.VirtualMachineInstance, doma
 
 	// create disks images on the cluster lever
 	// or initalize disks images for empty PVC
-	hostDiskCreator := hostdisk.NewHostDiskCreator(l.notifier)
+	hostDiskCreator := hostdisk.NewHostDiskCreator(l.notifier, l.lessPVCSpaceToleration)
 	err = hostDiskCreator.Create(vmi)
 	if err != nil {
 		return domain, err

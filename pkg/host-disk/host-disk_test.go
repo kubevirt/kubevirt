@@ -24,10 +24,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path"
-	"strconv"
 	"strings"
-
-	"kubevirt.io/kubevirt/pkg/util/notifier"
 
 	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo"
@@ -43,11 +40,20 @@ import (
 )
 
 type MockNotifier struct {
-	Events chan *notifier.K8sEventArgs
+	Events chan k8sv1.Event
 }
 
-func (m MockNotifier) SendK8sEvent(args *notifier.K8sEventArgs) error {
-	m.Events <- args
+func (m MockNotifier) SendK8sEvent(vmi *v1.VirtualMachineInstance, severity string, reason string, message string) error {
+	event := k8sv1.Event{
+		InvolvedObject: k8sv1.ObjectReference{
+			Namespace: vmi.Namespace,
+			Name:      vmi.Name,
+		},
+		Type:    severity,
+		Reason:  reason,
+		Message: message,
+	}
+	m.Events <- event
 	return nil
 }
 
@@ -105,9 +111,9 @@ var _ = Describe("HostDisk", func() {
 	})
 
 	notifier := MockNotifier{
-		Events: make(chan *notifier.K8sEventArgs, 10),
+		Events: make(chan k8sv1.Event, 10),
 	}
-	hostDiskCreator := NewHostDiskCreator(notifier)
+	hostDiskCreator := NewHostDiskCreator(notifier, 0)
 
 	Describe("HostDisk with 'Disk' type", func() {
 		It("Should not create a disk.img when it exists", func() {
@@ -202,12 +208,12 @@ var _ = Describe("HostDisk", func() {
 					Expect(true).To(Equal(os.IsNotExist(err)))
 				})
 
-				It("Should take lessPvcSpaceToleration into account when creating disk images", func(done Done) {
+				It("Should take lessPVCSpaceToleration into account when creating disk images", func(done Done) {
 					By("Creating a new minimal vmi")
 					vmi := v1.NewMinimalVMI("fake-vmi")
 
 					toleration := 5
-					os.Setenv(lessPvcSpaceTolerationEnvName, strconv.Itoa(toleration))
+					hostDiskCreator.setlessPVCSpaceToleration(5)
 					size64Mi := uint64(67108864) // 64 Mi
 
 					calcToleratedSize := func(origSize uint64, diff int) uint64 {
@@ -253,11 +259,11 @@ var _ = Describe("HostDisk", func() {
 					Expect(true).To(Equal(os.IsNotExist(err)))
 
 					event := <-notifier.Events
-					Expect(event.VmiNamespace).To(Equal(vmi.Namespace))
-					Expect(event.VmiName).To(Equal(vmi.Name))
-					Expect(event.EventType).To(Equal("Normal"))
-					Expect(event.EventReason).To(Equal("Tolerated too small PV"))
-					Expect(event.EventMessage).To(ContainSubstring("PV size too small"))
+					Expect(event.InvolvedObject.Namespace).To(Equal(vmi.Namespace))
+					Expect(event.InvolvedObject.Name).To(Equal(vmi.Name))
+					Expect(event.Type).To(Equal(EventTypeToleratedSmallPV))
+					Expect(event.Reason).To(Equal(EventReasonToleratedSmallPV))
+					Expect(event.Message).To(ContainSubstring("PV size too small"))
 					close(done)
 				}, 5)
 

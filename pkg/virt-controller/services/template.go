@@ -44,8 +44,7 @@ import (
 const configMapName = "kubevirt-config"
 const UseEmulationKey = "debug.useEmulation"
 const ImagePullPolicyKey = "dev.imagePullPolicy"
-const LessPvcSpaceTolerationKey = "pvc-tolerate-less-space-up-to-percent"
-const LessPvcSpaceTolerationEnvName = "LESS_PVC_SPACE_TOLERATION"
+const LessPVCSpaceTolerationKey = "pvc-tolerate-less-space-up-to-percent"
 const KvmDevice = "devices.kubevirt.io/kvm"
 const TunDevice = "devices.kubevirt.io/tun"
 const VhostNetDevice = "devices.kubevirt.io/vhost-net"
@@ -112,14 +111,14 @@ func GetImagePullPolicy(store cache.Store) (policy k8sv1.PullPolicy, err error) 
 	return
 }
 
-func GetLessPvcSpaceToleration(store cache.Store) (toleration int, err error) {
+func GetlessPVCSpaceToleration(store cache.Store) (toleration int, err error) {
 	var value string
-	if value, err = getConfigMapEntry(store, LessPvcSpaceTolerationKey); err != nil || value == "" {
+	if value, err = getConfigMapEntry(store, LessPVCSpaceTolerationKey); err != nil || value == "" {
 		toleration = 10 // Default if not specified
 	} else {
 		toleration, err = strconv.Atoi(value)
 		if err != nil || toleration < 0 || toleration > 100 {
-			err = fmt.Errorf("Invalid LessPvcSpaceToleration in ConfigMap: %s", value)
+			err = fmt.Errorf("Invalid lessPVCSpaceToleration in ConfigMap: %s", value)
 			return
 		}
 	}
@@ -475,6 +474,11 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 		resources.Limits[k8sv1.ResourceMemory] = *resources.Requests.Memory()
 	}
 
+	lessPVCSpaceToleration, err := GetlessPVCSpaceToleration(t.configMapStore)
+	if err != nil {
+		return nil, err
+	}
+
 	command := []string{"/usr/bin/virt-launcher",
 		"--qemu-timeout", "5m",
 		"--name", domain,
@@ -485,6 +489,7 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 		"--readiness-file", "/tmp/healthy",
 		"--grace-period-seconds", strconv.Itoa(int(gracePeriodSeconds)),
 		"--hook-sidecars", strconv.Itoa(len(requestedHookSidecarList)),
+		"--less-pvc-space-toleration", strconv.Itoa(lessPVCSpaceToleration),
 	}
 
 	useEmulation, err := IsEmulationAllowed(t.configMapStore)
@@ -493,11 +498,6 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 	}
 
 	imagePullPolicy, err := GetImagePullPolicy(t.configMapStore)
-	if err != nil {
-		return nil, err
-	}
-
-	lessPvcSpaceToleration, err := GetLessPvcSpaceToleration(t.configMapStore)
 	if err != nil {
 		return nil, err
 	}
@@ -554,9 +554,6 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 		},
 		Resources: resources,
 		Ports:     ports,
-		Env: []k8sv1.EnvVar{
-			{Name: LessPvcSpaceTolerationEnvName, Value: strconv.Itoa(lessPvcSpaceToleration)},
-		},
 	}
 	containers := registrydisk.GenerateContainers(vmi, "ephemeral-disks", t.ephemeralDiskDir)
 

@@ -23,11 +23,9 @@ import (
 	"fmt"
 	"os"
 	"path"
-	"strconv"
 	"syscall"
 
 	"kubevirt.io/kubevirt/pkg/log"
-	"kubevirt.io/kubevirt/pkg/util/notifier"
 
 	k8sv1 "k8s.io/api/core/v1"
 
@@ -37,10 +35,9 @@ import (
 )
 
 const (
-	pvcBaseDir                    = "/var/run/kubevirt-private/vmi-disks"
-	lessPvcSpaceTolerationEnvName = "LESS_PVC_SPACE_TOLERATION"
-	EventReasonToleratedSmallPV   = "ToleratedSmallPV"
-	EventTypeToleratedSmallPV     = "Normal"
+	pvcBaseDir                  = "/var/run/kubevirt-private/vmi-disks"
+	EventReasonToleratedSmallPV = "ToleratedSmallPV"
+	EventTypeToleratedSmallPV   = k8sv1.EventTypeNormal
 )
 
 func ReplacePVCByHostDisk(vmi *v1.VirtualMachineInstance, clientset kubecli.KubevirtClient) error {
@@ -95,19 +92,25 @@ func getPVCDiskImgPath(volumeName string) string {
 }
 
 type DiskImgCreator struct {
-	dirBytesAvailableFunc func(path string) (uint64, error)
-	notifier              k8sNotifier
+	dirBytesAvailableFunc  func(path string) (uint64, error)
+	notifier               k8sNotifier
+	lessPVCSpaceToleration int
 }
 
 type k8sNotifier interface {
-	SendK8sEvent(args *notifier.K8sEventArgs) error
+	SendK8sEvent(vmi *v1.VirtualMachineInstance, severity string, reason string, message string) error
 }
 
-func NewHostDiskCreator(notifier k8sNotifier) DiskImgCreator {
+func NewHostDiskCreator(notifier k8sNotifier, lessPVCSpaceToleration int) DiskImgCreator {
 	return DiskImgCreator{
-		dirBytesAvailableFunc: dirBytesAvailable,
-		notifier:              notifier,
+		dirBytesAvailableFunc:  dirBytesAvailable,
+		notifier:               notifier,
+		lessPVCSpaceToleration: lessPVCSpaceToleration,
 	}
+}
+
+func (hdc *DiskImgCreator) setlessPVCSpaceToleration(toleration int) {
+	hdc.lessPVCSpaceToleration = toleration
 }
 
 func (hdc DiskImgCreator) Create(vmi *v1.VirtualMachineInstance) error {
@@ -124,34 +127,19 @@ func (hdc DiskImgCreator) Create(vmi *v1.VirtualMachineInstance) error {
 					// Some storage provisioners provision less space than requested, due to filesystem overhead etc.
 					// We tolerate some difference in requested and available capacity up to some degree.
 					// This can be configured with the "pvc-tolerate-less-space-up-to-percent" parameter in the kubevirt-config ConfigMap.
-					// It is provided as environment variable to virt-launcher.
-					t := os.Getenv(lessPvcSpaceTolerationEnvName)
-					if t == "" {
-						// Default value is set in virt-controller, so this only happens in unit tests
-						// For toleration related tests we explicitly set a value, so let's keep this at 0 for the other tests
-						t = "0"
-					}
-					toleration, err := strconv.Atoi(t)
-					if err != nil {
-						return fmt.Errorf("unable to create %s, invalid toleration value %v", hostDisk.Path, toleration)
-					}
-					toleratedSize := requestedSize * (100 - int64(toleration)) / 100
+					// It is provided as argument to virt-launcher.
+					toleratedSize := requestedSize * (100 - int64(hdc.lessPVCSpaceToleration)) / 100
 					if uint64(toleratedSize) > availableSize {
 						return fmt.Errorf("unable to create %s, not enough space, demanded size %d B is bigger than available space %d B, also after taking %v %% toleration into account",
-							hostDisk.Path, uint64(requestedSize), availableSize, toleration)
+							hostDisk.Path, uint64(requestedSize), availableSize, hdc.lessPVCSpaceToleration)
 					}
 					diskSize = int64(availableSize)
 
-					event := notifier.K8sEventArgs{
-						VmiNamespace: vmi.Namespace,
-						VmiName:      vmi.Name,
-						EventType:    EventTypeToleratedSmallPV,
-						EventReason:  EventReasonToleratedSmallPV,
-						EventMessage: fmt.Sprintf("PV size too small: expected %v B, found %v B. Using it anyway, it is within %v %% toleration", requestedSize, availableSize, toleration),
-					}
-					err = hdc.notifier.SendK8sEvent(&event)
+					msg := fmt.Sprintf("PV size too small: expected %v B, found %v B. Using it anyway, it is within %v %% toleration", requestedSize, availableSize, hdc.lessPVCSpaceToleration)
+					log.Log.Info(msg)
+					err = hdc.notifier.SendK8sEvent(vmi, EventTypeToleratedSmallPV, EventReasonToleratedSmallPV, msg)
 					if err != nil {
-						log.Log.Reason(err).Warningf("Couldn't send event for tolerated PV size: %v", event)
+						log.Log.Reason(err).Warningf("Couldn't send k8s event for tolerated PV size: %v", err)
 					}
 				}
 				err = createSparseRaw(hostDisk.Path, int64(diskSize))

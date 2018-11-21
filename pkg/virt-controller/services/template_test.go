@@ -98,7 +98,8 @@ var _ = Describe("Template", func() {
 					"--ephemeral-disk-dir", "/var/run/kubevirt-ephemeral-disks",
 					"--readiness-file", "/tmp/healthy",
 					"--grace-period-seconds", "45",
-					"--hook-sidecars", "1"}))
+					"--hook-sidecars", "1",
+					"--less-pvc-space-toleration", "10"}))
 				Expect(pod.Spec.Containers[1].Name).To(Equal("hook-sidecar-0"))
 				Expect(pod.Spec.Containers[1].Image).To(Equal("some-image:v1"))
 				Expect(pod.Spec.Containers[1].ImagePullPolicy).To(Equal(kubev1.PullPolicy("IfNotPresent")))
@@ -203,7 +204,8 @@ var _ = Describe("Template", func() {
 					"--ephemeral-disk-dir", "/var/run/kubevirt-ephemeral-disks",
 					"--readiness-file", "/tmp/healthy",
 					"--grace-period-seconds", "45",
-					"--hook-sidecars", "1"}))
+					"--hook-sidecars", "1",
+					"--less-pvc-space-toleration", "10"}))
 				Expect(pod.Spec.Containers[1].Name).To(Equal("hook-sidecar-0"))
 				Expect(pod.Spec.Containers[1].Image).To(Equal("some-image:v1"))
 				Expect(pod.Spec.Containers[1].ImagePullPolicy).To(Equal(kubev1.PullPolicy("IfNotPresent")))
@@ -1009,14 +1011,14 @@ var _ = Describe("Template", func() {
 			})
 		})
 
-		It("should add the lessPvcSpaceToleration env variable to the template", func() {
-			expectedToleration := "5"
+		It("should add the lessPVCSpaceToleration argument to the template", func() {
+			expectedToleration := "42"
 			cfgMap := kubev1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{
 					Namespace: namespaceKubevirt,
 					Name:      "kubevirt-config",
 				},
-				Data: map[string]string{LessPvcSpaceTolerationKey: expectedToleration},
+				Data: map[string]string{LessPVCSpaceTolerationKey: expectedToleration},
 			}
 			cmCache.Add(&cfgMap)
 
@@ -1029,9 +1031,8 @@ var _ = Describe("Template", func() {
 			pod, err := svc.RenderLaunchManifest(&vmi)
 			Expect(err).ToNot(HaveOccurred())
 
-			Expect(pod.Spec.Containers[0].Env).ToNot(BeEmpty())
-			Expect(pod.Spec.Containers[0].Env[0].Name).To(Equal(LessPvcSpaceTolerationEnvName), "env name should be correct")
-			Expect(pod.Spec.Containers[0].Env[0].Value).To(Equal(expectedToleration), "env value should be correct")
+			Expect(pod.Spec.Containers[0].Command).To(ContainElement("--less-pvc-space-toleration"), "command arg key should be correct")
+			Expect(pod.Spec.Containers[0].Command).To(ContainElement("42"), "command arg value should be correct")
 		})
 
 	})
@@ -1117,23 +1118,23 @@ var _ = Describe("Template", func() {
 			Expect(err).To(HaveOccurred())
 		})
 
-		It("Should return correct lessPvcSpaceToleration", func() {
+		It("Should return correct lessPVCSpaceToleration", func() {
 			expectedToleration := "5"
 			cfgMap := kubev1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{
 					Namespace: namespaceKubevirt,
 					Name:      "kubevirt-config",
 				},
-				Data: map[string]string{LessPvcSpaceTolerationKey: expectedToleration},
+				Data: map[string]string{LessPVCSpaceTolerationKey: expectedToleration},
 			}
 			cmCache.Add(&cfgMap)
 
-			toleration, err := GetLessPvcSpaceToleration(cmCache)
+			toleration, err := GetlessPVCSpaceToleration(cmCache)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(strconv.Itoa(toleration)).To(Equal(expectedToleration), "Toleration should be "+expectedToleration)
 		})
 
-		It("Should return default lessPvcSpaceToleration", func() {
+		It("Should return default lessPVCSpaceToleration", func() {
 			expectedToleration := "10"
 			cfgMap := kubev1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{
@@ -1143,36 +1144,36 @@ var _ = Describe("Template", func() {
 			}
 			cmCache.Add(&cfgMap)
 
-			toleration, err := GetLessPvcSpaceToleration(cmCache)
+			toleration, err := GetlessPVCSpaceToleration(cmCache)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(strconv.Itoa(toleration)).To(Equal(expectedToleration), "Toleration should be "+expectedToleration)
 		})
 
-		It("Should return error on invalid lessPvcSpaceToleration", func() {
+		It("Should return error on invalid lessPVCSpaceToleration", func() {
 			cfgMap := kubev1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{
 					Namespace: namespaceKubevirt,
 					Name:      "kubevirt-config",
 				},
-				Data: map[string]string{LessPvcSpaceTolerationKey: "-1"},
+				Data: map[string]string{LessPVCSpaceTolerationKey: "-1"},
 			}
 			cmCache.Add(&cfgMap)
 
-			_, err := GetLessPvcSpaceToleration(cmCache)
+			_, err := GetlessPVCSpaceToleration(cmCache)
 			Expect(err).To(HaveOccurred())
 		})
 
-		It("Should return error on invalid lessPvcSpaceToleration", func() {
+		It("Should return error on invalid lessPVCSpaceToleration", func() {
 			cfgMap := kubev1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{
 					Namespace: namespaceKubevirt,
 					Name:      "kubevirt-config",
 				},
-				Data: map[string]string{LessPvcSpaceTolerationKey: "foo"},
+				Data: map[string]string{LessPVCSpaceTolerationKey: "foo"},
 			}
 			cmCache.Add(&cfgMap)
 
-			_, err := GetLessPvcSpaceToleration(cmCache)
+			_, err := GetlessPVCSpaceToleration(cmCache)
 			Expect(err).To(HaveOccurred())
 		})
 

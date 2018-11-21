@@ -31,8 +31,8 @@ import (
 	"k8s.io/client-go/tools/record"
 
 	"kubevirt.io/kubevirt/pkg/api/v1"
-	"kubevirt.io/kubevirt/pkg/util/notifier"
 
+	k8sv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/watch"
 
@@ -95,19 +95,21 @@ func (s *Notify) DomainEvent(args *DomainEventArgs, reply *Reply) error {
 	return nil
 }
 
-func (s *Notify) K8sEvent(args *notifier.K8sEventArgs, reply *Reply) error {
+func (s *Notify) K8sEvent(event k8sv1.Event, reply *Reply) error {
 	reply.Success = true
 
-	// get vmi
-	if obj, exists, err := s.vmiStore.GetByKey(args.VmiNamespace + "/" + args.VmiName); err != nil {
+	// get vmi and record event
+	involvedObj := event.InvolvedObject
+
+	if obj, exists, err := s.vmiStore.GetByKey(involvedObj.Namespace + "/" + involvedObj.Name); err != nil {
 		reply.Success = false
 		reply.Message = fmt.Sprintf("Error getting VMI: %v", err)
-	} else if !exists {
+	} else if !exists || obj.(*v1.VirtualMachineInstance).UID != involvedObj.UID {
 		reply.Success = false
 		reply.Message = "VMI not found"
 	} else {
 		vmi := obj.(*v1.VirtualMachineInstance)
-		s.recorder.Event(vmi, args.EventType, args.EventReason, args.EventMessage)
+		s.recorder.Event(vmi, event.Type, event.Reason, event.Message)
 	}
 	return nil
 }
