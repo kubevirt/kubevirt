@@ -945,7 +945,15 @@ func (in *Interface) DeepCopyInto(out *Interface) {
 			**out = **in
 		}
 	}
-	out.DHCPOptions = in.DHCPOptions
+	if in.DHCPOptions != nil {
+		in, out := &in.DHCPOptions, &out.DHCPOptions
+		if *in == nil {
+			*out = nil
+		} else {
+			*out = new(DHCPOptions)
+			**out = **in
+		}
+	}
 	return
 }
 

@@ -19,10 +19,8 @@ spec:
         volumeName: cloudinitvolume
       interfaces:
       - bridge: {}
-        dhcpOptions: {}
         name: default
-      - dhcpOptions: {}
-        name: sriov-net
+      - name: sriov-net
         sriov: {}
     machine:
       type: ""

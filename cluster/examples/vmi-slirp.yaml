@@ -18,8 +18,7 @@ spec:
         name: cloudinitdisk
         volumeName: cloudinitvolume
       interfaces:
-      - dhcpOptions: {}
-        name: testSlirp
+      - name: testSlirp
         ports:
         - name: http
           port: 80
