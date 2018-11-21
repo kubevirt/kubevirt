@@ -28,8 +28,10 @@ import (
 type IOThreadsPolicy string
 
 const (
-	IOThreadsPolicyShared IOThreadsPolicy = "shared"
-	IOThreadsPolicyAuto   IOThreadsPolicy = "auto"
+	IOThreadsPolicyShared  IOThreadsPolicy = "shared"
+	IOThreadsPolicyAuto    IOThreadsPolicy = "auto"
+	CPUModeHostPassthrough                 = "host-passthrough"
+	CPUModeHostModel                       = "host-model"
 )
 
 //go:generate swagger-doc
