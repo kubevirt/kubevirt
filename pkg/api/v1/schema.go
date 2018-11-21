@@ -796,7 +796,7 @@ type Interface struct {
 	PciAddress string `json:"pciAddress,omitempty"`
 	// If specified the network interface will pass additional DHCP options to the VMI
 	// +optional
-	DHCPOptions `json:"dhcpOptions,omitempty"`
+	DHCPOptions *DHCPOptions `json:"dhcpOptions,omitempty"`
 }
 
 type DHCPOptions struct {

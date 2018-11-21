@@ -27,7 +27,6 @@ spec:
         volumeName: pvcvolume
       interfaces:
       - bridge: {}
-        dhcpOptions: {}
         model: e1000
         name: default
     features:

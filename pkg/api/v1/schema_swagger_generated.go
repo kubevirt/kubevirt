@@ -355,12 +355,13 @@ func (I6300ESBWatchdog) SwaggerDoc() map[string]string {
 
 func (Interface) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"name":       "Logical name of the interface as well as a reference to the associated networks.\nMust match the Name of a Network.",
-		"model":      "Interface model.\nOne of: e1000, e1000e, ne2k_pci, pcnet, rtl8139, virtio.\nDefaults to virtio.",
-		"ports":      "List of ports to be forwarded to the virtual machine.",
-		"macAddress": "Interface MAC address. For example: de:ad:00:00:be:af or DE-AD-00-00-BE-AF.",
-		"bootOrder":  "BootOrder is an integer value > 0, used to determine ordering of boot devices.\nLower values take precedence.\nEach interface or disk that has a boot order must have a unique value.\nInterfaces without a boot order are not tried.\n+optional",
-		"pciAddress": "If specified, the virtual network interface will be placed on the guests pci address with the specifed PCI address. For example: 0000:81:01.10\n+optional",
+		"name":        "Logical name of the interface as well as a reference to the associated networks.\nMust match the Name of a Network.",
+		"model":       "Interface model.\nOne of: e1000, e1000e, ne2k_pci, pcnet, rtl8139, virtio.\nDefaults to virtio.",
+		"ports":       "List of ports to be forwarded to the virtual machine.",
+		"macAddress":  "Interface MAC address. For example: de:ad:00:00:be:af or DE-AD-00-00-BE-AF.",
+		"bootOrder":   "BootOrder is an integer value > 0, used to determine ordering of boot devices.\nLower values take precedence.\nEach interface or disk that has a boot order must have a unique value.\nInterfaces without a boot order are not tried.\n+optional",
+		"pciAddress":  "If specified, the virtual network interface will be placed on the guests pci address with the specifed PCI address. For example: 0000:81:01.10\n+optional",
+		"dhcpOptions": "If specified the network interface will pass additional DHCP options to the VMI\n+optional",
 	}
 }
 

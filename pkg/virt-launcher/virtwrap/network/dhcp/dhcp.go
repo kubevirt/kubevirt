@@ -58,7 +58,7 @@ func SingleClientDHCPServer(
 	routes *[]netlink.Route,
 	searchDomains []string,
 	mtu uint16,
-	customDHCPOptions v1.DHCPOptions) error {
+	customDHCPOptions *v1.DHCPOptions) error {
 
 	log.Log.Info("Starting SingleClientDHCPServer")
 
@@ -67,7 +67,7 @@ func SingleClientDHCPServer(
 		return fmt.Errorf("reading the pods hostname failed: %v", err)
 	}
 
-	options, err := prepareDHCPOptions(clientMask, routerIP, dnsIPs, routes, searchDomains, mtu, hostname, &customDHCPOptions)
+	options, err := prepareDHCPOptions(clientMask, routerIP, dnsIPs, routes, searchDomains, mtu, hostname, customDHCPOptions)
 	if err != nil {
 		return err
 	}
