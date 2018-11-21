@@ -55,9 +55,9 @@ func getVmfromClientArgs(args *cmdclient.Args) (*v1.VirtualMachineInstance, erro
 }
 
 func getMigrationTypeClientArgs(args *cmdclient.Args) (bool, error) {
-	if args.IsBlockMigration == nil {
-		return nil, goerror.New(fmt.Sprintf("isBlockMigration not present in command server args"))
-	}
+	/*if args.IsBlockMigration == nil {
+		return false, goerror.New(fmt.Sprintf("isBlockMigration not present in command server args"))
+	}*/
 	return args.IsBlockMigration, nil
 }
 

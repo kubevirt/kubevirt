@@ -46,6 +46,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/kubecli"
 	"kubevirt.io/kubevirt/pkg/log"
 	"kubevirt.io/kubevirt/pkg/precond"
+	pvcutils "kubevirt.io/kubevirt/pkg/util/types"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	cmdclient "kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
 	device_manager "kubevirt.io/kubevirt/pkg/virt-handler/device-manager"
@@ -1116,6 +1117,26 @@ func (d *VirtualMachineController) isPreMigrationTarget(vmi *v1.VirtualMachineIn
 	return false
 }
 
+func (d *VirtualMachineController) isBlockMigration(vmi *v1.VirtualMachineInstance) bool {
+	var blockMigrate bool
+	for _, volume := range vmi.Spec.Volumes {
+		volSrc := volume.VolumeSource
+		if volSrc.PersistentVolumeClaim != nil {
+
+			isSharedPvc, _ := pvcutils.IsSharedPVCFromClient(d.clientset, vmi.Namespace, volSrc.PersistentVolumeClaim.ClaimName)
+			blockMigrate = !isSharedPvc
+		} else if volSrc.CloudInitNoCloud != nil ||
+			volSrc.ConfigMap != nil || volSrc.ServiceAccount != nil ||
+			volSrc.Secret != nil {
+			continue
+		} else {
+			blockMigrate = true
+		}
+
+	}
+	return blockMigrate
+}
+
 func (d *VirtualMachineController) isMigrationSource(vmi *v1.VirtualMachineInstance) bool {
 
 	if vmi.Status.MigrationState != nil &&
@@ -1205,7 +1226,8 @@ func (d *VirtualMachineController) processVmUpdate(origVMI *v1.VirtualMachineIns
 		}
 		d.recorder.Event(vmi, k8sv1.EventTypeNormal, v1.PreparingTarget.String(), "VirtualMachineInstance Migration Target Prepared.")
 	} else if d.isMigrationSource(vmi) {
-		err = client.MigrateVirtualMachine(vmi)
+		isBlockMigration := d.isBlockMigration(vmi)
+		err = client.MigrateVirtualMachine(vmi, isBlockMigration)
 		if err != nil {
 			return err
 		}
