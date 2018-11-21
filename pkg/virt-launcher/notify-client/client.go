@@ -6,7 +6,11 @@ import (
 	"net/rpc"
 	"path/filepath"
 
-	"kubevirt.io/kubevirt/pkg/util/notifier"
+	"k8s.io/client-go/tools/reference"
+
+	"kubevirt.io/kubevirt/pkg/api/v1"
+
+	k8sv1 "k8s.io/api/core/v1"
 
 	"github.com/libvirt/libvirt-go"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -208,11 +212,23 @@ func (c *NotifyClient) StartDomainNotifier(domainConn cli.Connection, deleteNoti
 	return nil
 }
 
-func (c *NotifyClient) SendK8sEvent(args *notifier.K8sEventArgs) error {
+func (c *NotifyClient) SendK8sEvent(vmi *v1.VirtualMachineInstance, severity string, reason string, message string) error {
 
 	reply := &notifyserver.Reply{}
 
-	err := c.client.Call("Notify.K8sEvent", args, reply)
+	vmiRef, err := reference.GetReference(v1.Scheme, vmi)
+	if err != nil {
+		return err
+	}
+
+	event := k8sv1.Event{
+		InvolvedObject: *vmiRef,
+		Type:           severity,
+		Reason:         reason,
+		Message:        message,
+	}
+
+	err = c.client.Call("Notify.K8sEvent", event, reply)
 	if err != nil {
 		return err
 	} else if reply.Success != true {

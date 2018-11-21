@@ -30,16 +30,15 @@ import (
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/record"
 
-	"kubevirt.io/kubevirt/pkg/api/v1"
-	"kubevirt.io/kubevirt/pkg/testutils"
-	"kubevirt.io/kubevirt/pkg/util/notifier"
-
 	"github.com/golang/mock/gomock"
 	"github.com/libvirt/libvirt-go"
 	. "github.com/onsi/ginkgo"
 	"github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
 	"k8s.io/apimachinery/pkg/watch"
+
+	"kubevirt.io/kubevirt/pkg/api/v1"
+	"kubevirt.io/kubevirt/pkg/testutils"
 
 	notifyserver "kubevirt.io/kubevirt/pkg/virt-handler/notify-server"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
@@ -199,25 +198,18 @@ var _ = Describe("Notify", func() {
 		It("Should send a k8s event", func(done Done) {
 
 			vmi := v1.NewMinimalVMI("fake-vmi")
+			vmi.UID = "4321"
 			vmiStore.Add(vmi)
 
 			eventType := "Normal"
 			eventReason := "fooReason"
 			eventMessage := "barMessage"
 
-			args := notifier.K8sEventArgs{
-				VmiNamespace: vmi.Namespace,
-				VmiName:      vmi.Name,
-				EventType:    eventType,
-				EventReason:  eventReason,
-				EventMessage: eventMessage,
-			}
-
-			client.SendK8sEvent(&args)
+			client.SendK8sEvent(vmi, eventType, eventReason, eventMessage)
 
 			event := <-recorder.Events
 			Expect(event).To(Equal(fmt.Sprintf("%s %s %s", eventType, eventReason, eventMessage)))
 			close(done)
-		}, 2)
+		}, 5)
 	})
 })
