@@ -32,10 +32,10 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/config"
+	containerdisk "kubevirt.io/kubevirt/pkg/container-disk"
 	"kubevirt.io/kubevirt/pkg/hooks"
 	"kubevirt.io/kubevirt/pkg/log"
 	"kubevirt.io/kubevirt/pkg/precond"
-	registrydisk "kubevirt.io/kubevirt/pkg/registry-disk"
 	"kubevirt.io/kubevirt/pkg/util"
 	"kubevirt.io/kubevirt/pkg/util/net/dns"
 	"kubevirt.io/kubevirt/pkg/util/types"
@@ -271,9 +271,9 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 				},
 			})
 		}
-		if volume.RegistryDisk != nil && volume.RegistryDisk.ImagePullSecret != "" {
+		if volume.ContainerDisk != nil && volume.ContainerDisk.ImagePullSecret != "" {
 			imagePullSecrets = appendUniqueImagePullSecret(imagePullSecrets, k8sv1.LocalObjectReference{
-				Name: volume.RegistryDisk.ImagePullSecret,
+				Name: volume.ContainerDisk.ImagePullSecret,
 			})
 		}
 		if volume.HostDisk != nil {
@@ -555,7 +555,7 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 		Resources: resources,
 		Ports:     ports,
 	}
-	containers := registrydisk.GenerateContainers(vmi, "ephemeral-disks", t.ephemeralDiskDir)
+	containers := containerdisk.GenerateContainers(vmi, "ephemeral-disks", t.ephemeralDiskDir)
 
 	volumes = append(volumes, k8sv1.Volume{
 		Name: "virt-share-dir",

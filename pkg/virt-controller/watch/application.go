@@ -39,11 +39,11 @@ import (
 	"k8s.io/client-go/tools/record"
 
 	"kubevirt.io/kubevirt/pkg/certificates"
+	containerdisk "kubevirt.io/kubevirt/pkg/container-disk"
 	"kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/feature-gates"
 	"kubevirt.io/kubevirt/pkg/kubecli"
 	"kubevirt.io/kubevirt/pkg/log"
-	"kubevirt.io/kubevirt/pkg/registry-disk"
 	"kubevirt.io/kubevirt/pkg/service"
 	"kubevirt.io/kubevirt/pkg/util"
 	"kubevirt.io/kubevirt/pkg/virt-controller/leaderelectionconfig"
@@ -264,7 +264,7 @@ func (vca *VirtControllerApp) getNewRecorder(namespace string, componentName str
 func (vca *VirtControllerApp) initCommon() {
 	var err error
 
-	registrydisk.SetLocalDirectory(vca.ephemeralDiskDir + "/registry-disk-data")
+	containerdisk.SetLocalDirectory(vca.ephemeralDiskDir + "/container-disk-data")
 	if err != nil {
 		golog.Fatal(err)
 	}

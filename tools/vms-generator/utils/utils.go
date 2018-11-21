@@ -119,11 +119,11 @@ func getBaseVMI(name string) *v1.VirtualMachineInstance {
 	}
 }
 
-func addRegistryDisk(spec *v1.VirtualMachineInstanceSpec, image string, bus string) *v1.VirtualMachineInstanceSpec {
+func addContainerDisk(spec *v1.VirtualMachineInstanceSpec, image string, bus string) *v1.VirtualMachineInstanceSpec {
 	spec.Domain.Devices = v1.Devices{
 		Disks: []v1.Disk{
 			{
-				Name:       "registrydisk",
+				Name:       "containerdisk",
 				VolumeName: "registryvolume",
 				DiskDevice: v1.DiskDevice{
 					Disk: &v1.DiskTarget{
@@ -137,7 +137,7 @@ func addRegistryDisk(spec *v1.VirtualMachineInstanceSpec, image string, bus stri
 		{
 			Name: "registryvolume",
 			VolumeSource: v1.VolumeSource{
-				RegistryDisk: &v1.RegistryDiskSource{
+				ContainerDisk: &v1.ContainerDiskSource{
 					Image: image,
 				},
 			},
@@ -288,21 +288,21 @@ func addHostDisk(spec *v1.VirtualMachineInstanceSpec, path string, hostDiskType 
 func GetVMIMigratable() *v1.VirtualMachineInstance {
 	vmi := getBaseVMI(VmiMigratable)
 
-	addRegistryDisk(&vmi.Spec, fmt.Sprintf("%s/%s:%s", DockerPrefix, imageAlpine, DockerTag), busVirtio)
+	addContainerDisk(&vmi.Spec, fmt.Sprintf("%s/%s:%s", DockerPrefix, imageAlpine, DockerTag), busVirtio)
 	return vmi
 }
 
 func GetVMIEphemeral() *v1.VirtualMachineInstance {
 	vmi := getBaseVMI(VmiEphemeral)
 
-	addRegistryDisk(&vmi.Spec, fmt.Sprintf("%s/%s:%s", DockerPrefix, imageCirros, DockerTag), busVirtio)
+	addContainerDisk(&vmi.Spec, fmt.Sprintf("%s/%s:%s", DockerPrefix, imageCirros, DockerTag), busVirtio)
 	return vmi
 }
 
 func GetVMISata() *v1.VirtualMachineInstance {
 	vmi := getBaseVMI(VmiSata)
 
-	addRegistryDisk(&vmi.Spec, fmt.Sprintf("%s/%s:%s", DockerPrefix, imageCirros, DockerTag), busSata)
+	addContainerDisk(&vmi.Spec, fmt.Sprintf("%s/%s:%s", DockerPrefix, imageCirros, DockerTag), busSata)
 	return vmi
 }
 
@@ -310,7 +310,7 @@ func GetVMIEphemeralFedora() *v1.VirtualMachineInstance {
 	vmi := getBaseVMI(VmiFedora)
 	vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("1024M")
 
-	addRegistryDisk(&vmi.Spec, fmt.Sprintf("%s/%s:%s", DockerPrefix, imageFedora, DockerTag), busVirtio)
+	addContainerDisk(&vmi.Spec, fmt.Sprintf("%s/%s:%s", DockerPrefix, imageFedora, DockerTag), busVirtio)
 	addNoCloudDiskWitUserData(&vmi.Spec, "#cloud-config\npassword: fedora\nchpasswd: { expire: False }")
 	return vmi
 }
@@ -320,7 +320,7 @@ func GetVMISlirp() *v1.VirtualMachineInstance {
 	vm.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("1024M")
 	vm.Spec.Networks = []v1.Network{v1.Network{Name: "testSlirp", NetworkSource: v1.NetworkSource{Pod: &v1.PodNetwork{}}}}
 
-	addRegistryDisk(&vm.Spec, fmt.Sprintf("%s/%s:%s", DockerPrefix, imageFedora, DockerTag), busVirtio)
+	addContainerDisk(&vm.Spec, fmt.Sprintf("%s/%s:%s", DockerPrefix, imageFedora, DockerTag), busVirtio)
 	addNoCloudDiskWitUserData(&vm.Spec, "#!/bin/bash\necho \"fedora\" |passwd fedora --stdin\nyum install -y nginx\nsystemctl enable nginx\nsystemctl start nginx")
 
 	slirp := &v1.InterfaceSlirp{}
@@ -336,7 +336,7 @@ func GetVMISRIOV() *v1.VirtualMachineInstance {
 	vm.Spec.Domain.Resources.Requests["intel.com/sriov"] = resource.MustParse("1")
 	vm.Spec.Domain.Resources.Limits = k8sv1.ResourceList{"intel.com/sriov": resource.MustParse("1")}
 	vm.Spec.Networks = []v1.Network{*v1.DefaultPodNetwork(), {Name: "sriov-net", NetworkSource: v1.NetworkSource{Multus: &v1.CniNetwork{NetworkName: "sriov-net"}}}}
-	addRegistryDisk(&vm.Spec, fmt.Sprintf("%s/%s:%s", DockerPrefix, imageFedora, DockerTag), busVirtio)
+	addContainerDisk(&vm.Spec, fmt.Sprintf("%s/%s:%s", DockerPrefix, imageFedora, DockerTag), busVirtio)
 	addNoCloudDiskWitUserData(&vm.Spec, "#!/bin/bash\necho \"fedora\" |passwd fedora --stdin\ndhclient eth1\n")
 
 	vm.Spec.Domain.Devices.Interfaces = []v1.Interface{{Name: "default", InterfaceBindingMethod: v1.InterfaceBindingMethod{Bridge: &v1.InterfaceBridge{}}},
@@ -349,7 +349,7 @@ func GetVMIMultusPtp() *v1.VirtualMachineInstance {
 	vm := getBaseVMI(VmiMultusPtp)
 	vm.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("1024M")
 	vm.Spec.Networks = []v1.Network{{Name: "ptp", NetworkSource: v1.NetworkSource{Multus: &v1.CniNetwork{NetworkName: "ptp-conf"}}}}
-	addRegistryDisk(&vm.Spec, fmt.Sprintf("%s/%s:%s", DockerPrefix, imageFedora, DockerTag), busVirtio)
+	addContainerDisk(&vm.Spec, fmt.Sprintf("%s/%s:%s", DockerPrefix, imageFedora, DockerTag), busVirtio)
 	addNoCloudDiskWitUserData(&vm.Spec, "#!/bin/bash\necho \"fedora\" |passwd fedora --stdin\n")
 
 	vm.Spec.Domain.Devices.Interfaces = []v1.Interface{{Name: "ptp", InterfaceBindingMethod: v1.InterfaceBindingMethod{Bridge: &v1.InterfaceBridge{}}}}
@@ -361,7 +361,7 @@ func GetVMIMultusMultipleNet() *v1.VirtualMachineInstance {
 	vm := getBaseVMI(VmiMultusMultipleNet)
 	vm.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("1024M")
 	vm.Spec.Networks = []v1.Network{*v1.DefaultPodNetwork(), {Name: "ptp", NetworkSource: v1.NetworkSource{Multus: &v1.CniNetwork{NetworkName: "ptp-conf"}}}}
-	addRegistryDisk(&vm.Spec, fmt.Sprintf("%s/%s:%s", DockerPrefix, imageFedora, DockerTag), busVirtio)
+	addContainerDisk(&vm.Spec, fmt.Sprintf("%s/%s:%s", DockerPrefix, imageFedora, DockerTag), busVirtio)
 	addNoCloudDiskWitUserData(&vm.Spec, "#!/bin/bash\necho \"fedora\" |passwd fedora --stdin\ndhclient eth1\n")
 
 	vm.Spec.Domain.Devices.Interfaces = []v1.Interface{{Name: "default", InterfaceBindingMethod: v1.InterfaceBindingMethod{Bridge: &v1.InterfaceBridge{}}},
@@ -376,7 +376,7 @@ func GetVMIGeniePtp() *v1.VirtualMachineInstance {
 	vm.Spec.Networks = []v1.Network{
 		{Name: "ptp", NetworkSource: v1.NetworkSource{Genie: &v1.CniNetwork{NetworkName: "ptp"}}},
 	}
-	addRegistryDisk(&vm.Spec, fmt.Sprintf("%s/%s:%s", DockerPrefix, imageFedora, DockerTag), busVirtio)
+	addContainerDisk(&vm.Spec, fmt.Sprintf("%s/%s:%s", DockerPrefix, imageFedora, DockerTag), busVirtio)
 	addNoCloudDiskWitUserData(&vm.Spec, "#!/bin/bash\necho \"fedora\" | passwd fedora --stdin\n")
 
 	vm.Spec.Domain.Devices.Interfaces = []v1.Interface{
@@ -393,7 +393,7 @@ func GetVMIGenieMultipleNet() *v1.VirtualMachineInstance {
 		{Name: "default", NetworkSource: v1.NetworkSource{Genie: &v1.CniNetwork{NetworkName: "flannel"}}},
 		{Name: "ptp", NetworkSource: v1.NetworkSource{Genie: &v1.CniNetwork{NetworkName: "ptp"}}},
 	}
-	addRegistryDisk(&vm.Spec, fmt.Sprintf("%s/%s:%s", DockerPrefix, imageFedora, DockerTag), busVirtio)
+	addContainerDisk(&vm.Spec, fmt.Sprintf("%s/%s:%s", DockerPrefix, imageFedora, DockerTag), busVirtio)
 	addNoCloudDiskWitUserData(&vm.Spec, "#!/bin/bash\necho \"fedora\" | passwd fedora --stdin\ndhclient eth1\n")
 
 	vm.Spec.Domain.Devices.Interfaces = []v1.Interface{
@@ -406,7 +406,7 @@ func GetVMIGenieMultipleNet() *v1.VirtualMachineInstance {
 func GetVMINoCloud() *v1.VirtualMachineInstance {
 	vmi := getBaseVMI(VmiNoCloud)
 
-	addRegistryDisk(&vmi.Spec, fmt.Sprintf("%s/%s:%s", DockerPrefix, imageCirros, DockerTag), busVirtio)
+	addContainerDisk(&vmi.Spec, fmt.Sprintf("%s/%s:%s", DockerPrefix, imageCirros, DockerTag), busVirtio)
 	addNoCloudDisk(&vmi.Spec)
 	addEmptyDisk(&vmi.Spec, "2Gi")
 	return vmi
@@ -418,7 +418,7 @@ func GetVMIFlavorSmall() *v1.VirtualMachineInstance {
 		"kubevirt.io/flavor": "small",
 	}
 
-	addRegistryDisk(&vmi.Spec, fmt.Sprintf("%s/%s:%s", DockerPrefix, imageCirros, DockerTag), busVirtio)
+	addContainerDisk(&vmi.Spec, fmt.Sprintf("%s/%s:%s", DockerPrefix, imageCirros, DockerTag), busVirtio)
 	return vmi
 }
 
@@ -521,14 +521,14 @@ func GetVMCirros() *v1.VirtualMachine {
 		"kubevirt.io/vm": VmCirros,
 	})
 
-	addRegistryDisk(&vm.Spec.Template.Spec, fmt.Sprintf("%s/%s:%s", DockerPrefix, imageCirros, DockerTag), busVirtio)
+	addContainerDisk(&vm.Spec.Template.Spec, fmt.Sprintf("%s/%s:%s", DockerPrefix, imageCirros, DockerTag), busVirtio)
 	addNoCloudDisk(&vm.Spec.Template.Spec)
 	return vm
 }
 
 func GetTemplateFedora() *Template {
 	vm := getBaseVM("", map[string]string{"kubevirt-vm": "vm-${NAME}", "kubevirt.io/os": "fedora27"})
-	addRegistryDisk(&vm.Spec.Template.Spec, fmt.Sprintf("%s/%s:%s", DockerPrefix, imageFedora, DockerTag), busVirtio)
+	addContainerDisk(&vm.Spec.Template.Spec, fmt.Sprintf("%s/%s:%s", DockerPrefix, imageFedora, DockerTag), busVirtio)
 	addNoCloudDiskWitUserData(&vm.Spec.Template.Spec, "#cloud-config\npassword: fedora\nchpasswd: { expire: False }")
 
 	template := getBaseTemplate(vm, "4096Mi", "4")
@@ -760,7 +760,7 @@ func GetVMIReplicaSetCirros() *v1.VirtualMachineInstanceReplicaSet {
 		"kubevirt.io/vmReplicaSet": VmiReplicaSetCirros,
 	})
 
-	addRegistryDisk(&vmReplicaSet.Spec.Template.Spec, fmt.Sprintf("%s/%s:%s", DockerPrefix, imageCirros, DockerTag), busVirtio)
+	addContainerDisk(&vmReplicaSet.Spec.Template.Spec, fmt.Sprintf("%s/%s:%s", DockerPrefix, imageCirros, DockerTag), busVirtio)
 	return vmReplicaSet
 }
 
@@ -815,7 +815,7 @@ func GetVMIWithHookSidecar() *v1.VirtualMachineInstance {
 	vmi := getBaseVMI(VmiWithHookSidecar)
 	vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("1024M")
 
-	addRegistryDisk(&vmi.Spec, fmt.Sprintf("%s/%s:%s", DockerPrefix, imageFedora, DockerTag), busVirtio)
+	addContainerDisk(&vmi.Spec, fmt.Sprintf("%s/%s:%s", DockerPrefix, imageFedora, DockerTag), busVirtio)
 	addNoCloudDiskWitUserData(&vmi.Spec, "#cloud-config\npassword: fedora\nchpasswd: { expire: False }")
 
 	vmi.ObjectMeta.Annotations = map[string]string{

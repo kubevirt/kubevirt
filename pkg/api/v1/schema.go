@@ -376,10 +376,10 @@ type VolumeSource struct {
 	// More info: http://cloudinit.readthedocs.io/en/latest/topics/datasources/nocloud.html
 	// +optional
 	CloudInitNoCloud *CloudInitNoCloudSource `json:"cloudInitNoCloud,omitempty"`
-	// RegistryDisk references a docker image, embedding a qcow or raw disk.
+	// ContainerDisk references a docker image, embedding a qcow or raw disk.
 	// More info: https://kubevirt.gitbooks.io/user-guide/registry-disk.html
 	// +optional
-	RegistryDisk *RegistryDiskSource `json:"registryDisk,omitempty"`
+	ContainerDisk *ContainerDiskSource `json:"containerDisk,omitempty"`
 	// Ephemeral is a special volume source that "wraps" specified source and provides copy-on-write image on top of it.
 	// +optional
 	Ephemeral *EphemeralVolumeSource `json:"ephemeral,omitempty"`
@@ -434,7 +434,7 @@ type EmptyDiskSource struct {
 // Represents a docker image with an embedded disk.
 // ---
 // +k8s:openapi-gen=true
-type RegistryDiskSource struct {
+type ContainerDiskSource struct {
 	// Image is the name of the image with the embedded disk.
 	Image string `json:"image"`
 	// ImagePullSecret is the name of the Docker registry secret required to pull the image. The secret must already exist.
