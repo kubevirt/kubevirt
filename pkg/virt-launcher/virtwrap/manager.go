@@ -63,7 +63,7 @@ type DomainManager interface {
 	DeleteVMI(*v1.VirtualMachineInstance) error
 	SignalShutdownVMI(*v1.VirtualMachineInstance) error
 	ListAllDomains() ([]*api.Domain, error)
-	MigrateVMI(*v1.VirtualMachineInstance) error
+	MigrateVMI(*v1.VirtualMachineInstance, bool) error
 	PrepareMigrationTarget(*v1.VirtualMachineInstance, bool) error
 }
 
@@ -199,7 +199,21 @@ func (l *LibvirtDomainManager) setMigrationResultHelper(vmi *v1.VirtualMachineIn
 
 }
 
-func (l *LibvirtDomainManager) asyncMigrate(vmi *v1.VirtualMachineInstance) {
+func prepateMigrationFlags(vmi *v1.VirtualMachineInstance, isBlockMigration bool) libvirt.DomainMigrateFlags {
+	migrateFlags := libvirt.MIGRATE_LIVE | libvirt.MIGRATE_PEER2PEER | libvirt.MIGRATE_TUNNELLED
+	// should we undefine the domain on the source?
+	// libvirt.VIR_MIGRATE_UNDEFINE_SOURCE
+
+	// persist the domain on the dest?
+	// libvirt.VIR_MIGRATE_PERSIST_DEST
+	if isBlockMigration {
+		migrateFlags |= libvirt.MIGRATE_NON_SHARED_INC
+	}
+	return migrateFlags
+
+}
+
+func (l *LibvirtDomainManager) asyncMigrate(vmi *v1.VirtualMachineInstance, isBlockMigration bool) {
 
 	go func(l *LibvirtDomainManager, vmi *v1.VirtualMachineInstance) {
 
@@ -235,7 +249,8 @@ func (l *LibvirtDomainManager) asyncMigrate(vmi *v1.VirtualMachineInstance) {
 			return
 		}
 
-		migrateFlags := libvirt.MIGRATE_LIVE | libvirt.MIGRATE_PEER2PEER | libvirt.MIGRATE_TUNNELLED | libvirt.MIGRATE_NON_SHARED_DISK
+		migrateFlags := prepateMigrationFlags(vmi, isBlockMigration)
+		//		migrateFlags := libvirt.MIGRATE_LIVE | libvirt.MIGRATE_PEER2PEER | libvirt.MIGRATE_TUNNELLED | libvirt.MIGRATE_NON_SHARED_DISK
 		_, err = dom.Migrate(destConn, migrateFlags, "", "", 0)
 		if err != nil {
 
@@ -249,7 +264,7 @@ func (l *LibvirtDomainManager) asyncMigrate(vmi *v1.VirtualMachineInstance) {
 	}(l, vmi)
 }
 
-func (l *LibvirtDomainManager) MigrateVMI(vmi *v1.VirtualMachineInstance) error {
+func (l *LibvirtDomainManager) MigrateVMI(vmi *v1.VirtualMachineInstance, isBlockMigration bool) error {
 
 	if vmi.Status.MigrationState == nil {
 		return fmt.Errorf("cannot migration VMI until migrationState is ready")
@@ -264,7 +279,7 @@ func (l *LibvirtDomainManager) MigrateVMI(vmi *v1.VirtualMachineInstance) error 
 		return nil
 	}
 
-	l.asyncMigrate(vmi)
+	l.asyncMigrate(vmi, isBlockMigration)
 
 	return nil
 }
