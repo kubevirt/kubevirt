@@ -595,7 +595,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 			domainFeeder.Add(domain)
 			vmiFeeder.Add(vmi)
 
-			client.EXPECT().MigrateVirtualMachine(vmi)
+			client.EXPECT().MigrateVirtualMachine(vmi, false)
 
 			controller.Execute()
 		}, 3)
