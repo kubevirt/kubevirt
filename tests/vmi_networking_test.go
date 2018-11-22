@@ -30,7 +30,9 @@ import (
 	. "github.com/onsi/ginkgo"
 	"github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
+	k8sv1 "k8s.io/api/core/v1"
 	v12 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 	v13 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 
@@ -575,23 +577,51 @@ var _ = Describe("Networking", func() {
 		})
 
 		FIt("should offer extra dhcp options to pod iface", func() {
-			vmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(tests.RegistryDiskFor(tests.RegistryDiskFedora), "#!/bin/bash\necho 'hello'\n")
-			tests.AddExplicitPodNetworkInterface(vmi)
+			userData := "#cloud-config\npassword: fedora\nchpasswd: { expire: False }\n"
+			dhcpVMI := tests.NewRandomVMIWithEphemeralDiskAndUserdata(tests.RegistryDiskFor(tests.RegistryDiskFedora), userData)
+			tests.AddExplicitPodNetworkInterface(dhcpVMI)
 
-			vmi.Spec.Domain.Devices.Interfaces[0].DHCPOptions = &v1.DHCPOptions{
-				BootFileName: "config",
+			dhcpVMI.Spec.Domain.Resources.Requests[k8sv1.ResourceName("memory")] = resource.MustParse("1024M")
+			dhcpVMI.Spec.Domain.Devices.Interfaces[0].DHCPOptions = &v1.DHCPOptions{
+				BootFileName:   "config",
 				TFTPServerName: "tftp.kubevirt.io",
 			}
 
-			_, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
+			_, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(dhcpVMI)
 			Expect(err).ToNot(HaveOccurred())
 
-			tests.WaitUntilVMIReady(vmi, tests.LoggedInFedoraExpecter)
+			tests.WaitUntilVMIReady(dhcpVMI, tests.LoggedInFedoraExpecter)
 
-			tests.RunCommandOnVmiPod(vmi, []string{"sudo", "dhclient", "-1", "-r", "-d", "eth0"})
-			output := tests.RunCommandOnVmiPod(vmi, []string{"sudo", "dhclient", "-1", "-sf", "/usr/bin/env", "--request-options", "subnet-mask,broadcast-address,time-offset,routers,domain-search,domain-name,domain-name-servers,host-name,nis-domain,nis-servers,ntp-servers,interface-mtu", "eth0"})
-			// assert for specific options
-			Expect(strings.TrimSpace(output)).ToNot(BeEmpty())
+			err = tests.CheckForTextExpecter(dhcpVMI, []expect.Batcher{
+				&expect.BSnd{S: "\n"},
+				&expect.BExp{R: "#"},
+				&expect.BSnd{S: "sudo dhclient -1 -r -d eth0\n"},
+				&expect.BExp{R: "#"},
+				&expect.BSnd{S: "echo $?\n"},
+				&expect.BExp{R: "0"},
+			}, 15)
+			Expect(err).ToNot(HaveOccurred())
+
+			err = tests.CheckForTextExpecter(dhcpVMI, []expect.Batcher{
+				&expect.BSnd{S: "\n"},
+				&expect.BExp{R: "#"},
+				&expect.BSnd{S: "sudo dhclient -1 -sf /usr/bin/env --request-options subnet-mask,broadcast-address,time-offset,routers,domain-search,domain-name,domain-name-servers,host-name,nis-domain,nis-servers,ntp-servers,interface-mtu,tftp-server-name,bootfile-name eth0\n"},
+				&expect.BExp{R: "new_tftp_server_name=tftp.kubevirt.io"},
+				// &expect.BSnd{S: "echo $?\n"},
+				// &expect.BExp{R: "0"},
+			}, 15)
+
+			// Was planning on executing /usr/bin/env and checking for each option passed in
+			// but it seems /usr/bin/env doesn't persist across text expecter calls...
+
+			// err = tests.CheckForTextExpecter(dhcpVMI, []expect.Batcher{
+			// 	&expect.BSnd{S: "\n"},
+			// 	&expect.BExp{R: "#"},
+			// 	&expect.BSnd{S: "/usr/bin/env\n"},
+			// 	&expect.BExp{R: "new_tftp_server_name=tftp.kubevirt.io"},
+			// }, 15)
+
+			Expect(err).ToNot(HaveOccurred())
 		})
 	})
 })
