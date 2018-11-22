@@ -2,9 +2,9 @@ FROM fedora:28
 
 ENV LIBVIRT_VERSION 4.9.0
 
-COPY fedora-virt-preview.repo /etc/yum.repos.d/fedora-virt-preview.repo
-
-RUN dnf -y install libvirt-devel-${LIBVIRT_VERSION} make git mercurial sudo gcc findutils gradle rsync-daemon rsync qemu-img protobuf-compiler && \
+RUN dnf install -y dnf-plugins-core && \
+    dnf copr enable -y @virtmaint-sig/virt-preview && \
+    dnf -y install libvirt-devel-${LIBVIRT_VERSION} make git mercurial sudo gcc findutils gradle rsync-daemon rsync qemu-img protobuf-compiler && \
     dnf -y clean all
 
 ENV GIMME_GO_VERSION=1.10
