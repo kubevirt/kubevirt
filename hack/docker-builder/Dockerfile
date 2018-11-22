@@ -1,6 +1,6 @@
 FROM fedora:28
 
-ENV LIBVIRT_VERSION 4.2.0
+ENV LIBVIRT_VERSION 4.9.0
 
 COPY fedora-virt-preview.repo /etc/yum.repos.d/fedora-virt-preview.repo
 
