@@ -26,6 +26,8 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"github.com/vishvananda/netlink"
+
+	"kubevirt.io/kubevirt/pkg/api/v1"
 )
 
 var _ = Describe("DHCP", func() {
@@ -211,6 +213,28 @@ var _ = Describe("DHCP", func() {
 			options, err := prepareDHCPOptions(ip.DefaultMask(), ip, nil, nil, searchDomains, 1500, "myhost", nil)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(options[dhcp4.OptionDomainName]).To(Equal([]byte("14wg5xngig6vzfqjww4kocnky3c9dqjpwkewzlwpf.com")))
+		})
+
+		It("should contain custom options", func() {
+			searchDomains := []string{
+				"pix3ob5ymm5jbsjessf0o4e84uvij588rz23iz0o.com",
+				"3wg5xngig6vzfqjww4kocnky3c9dqjpwkewzlwpf.com",
+				"t4lanpt7z4ix58nvxl4d.com",
+				"14wg5xngig6vzfqjww4kocnky3c9dqjpwkewzlwpf.com",
+				"4wg5xngig6vzfqjww4kocnky3c9dqjpwkewzlwpf.com",
+			}
+			ip := net.ParseIP("192.168.2.1")
+
+			dhcpOptions := &v1.DHCPOptions{
+				BootFileName:   "config",
+				TFTPServerName: "tftp.kubevirt.io",
+			}
+
+			options, err := prepareDHCPOptions(ip.DefaultMask(), ip, nil, nil, searchDomains, 1500, "myhost", dhcpOptions)
+
+			Expect(err).ToNot(HaveOccurred())
+			Expect(options[dhcp4.OptionBootFileName]).To(Equal([]byte("config")))
+			Expect(options[dhcp4.OptionTFTPServerName]).To(Equal([]byte("tftp.kubevirt.io")))
 		})
 	})
 })
