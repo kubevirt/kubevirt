@@ -16,7 +16,7 @@
 # Copyright 2017 Red Hat, Inc.
 #
 
-FROM kubevirt/libvirt:4.2.0
+FROM kubevirt/libvirt:4.9.0
 
 LABEL maintainer="The KubeVirt Project <kubevirt-dev@googlegroups.com>"
 
