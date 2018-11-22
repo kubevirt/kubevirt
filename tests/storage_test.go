@@ -22,7 +22,6 @@ package tests_test
 import (
 	"flag"
 	"fmt"
-	"os/exec"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -430,35 +429,48 @@ var _ = Describe("Storage", func() {
 
 		Context("With smaller than requested PVCs", func() {
 
-			var pvc string
+			var mountDir string
+			var diskPath string
+			var pod *k8sv1.Pod
+			var diskSize int
 
 			BeforeEach(func() {
 
-				// prepare storage with fix small size (20Mi) where fs already has > 10 % some overhead
-				out, err := exec.Command("/bin/sh", "-c", `
-					cluster/cli.sh ssh node01 '
-						(sudo umount /mnt/local-storage/fixeddisk || /bin/true) &&
-						sudo rm -f /mnt/local-storage/fixedfs.ext3 &&
-						sudo dd if=/dev/zero of=/mnt/local-storage/fixedfs.ext3 count=40960 &&
-						sudo /sbin/mkfs -t ext3 -q /mnt/local-storage/fixedfs.ext3 -F && 
-						sudo rm -fR /mnt/local-storage/fixeddisk &&
-						sudo mkdir /mnt/local-storage/fixeddisk &&
-						sudo mount -o loop,rw /mnt/local-storage/fixedfs.ext3 /mnt/local-storage/fixeddisk
-					'
-				`).Output()
-				fmt.Println(string(out))
+				By("Creating a hostPath pod which prepares a mounted directory which goes away when the pod dies")
+				tmpDir := "/tmp/kubevirt/" + rand.String(10)
+				mountDir = filepath.Join(tmpDir, "mount")
+				diskPath = filepath.Join(mountDir, "disk.img")
+				pod = tests.RenderHostPathJob("host-path-preparator", tmpDir, k8sv1.HostPathDirectoryOrCreate, k8sv1.MountPropagationBidirectional, []string{"/usr/bin/bash", "-c"}, []string{fmt.Sprintf("mkdir -p %s && mkdir -p /tmp/yyy  && mount --bind /tmp/yyy %s && while true; do sleep 1; done", mountDir, mountDir)})
+				pod.Spec.Containers[0].Lifecycle = &k8sv1.Lifecycle{
+					PreStop: &k8sv1.Handler{
+						Exec: &k8sv1.ExecAction{
+							Command: []string{"umount", mountDir},
+						},
+					},
+				}
+				pod, err = virtClient.CoreV1().Pods(tests.NamespaceTestDefault).Create(pod)
+				Expect(err).NotTo(HaveOccurred())
+
+				By("Waiting for hostPath pod to prepare the mounted directory")
+				Eventually(func() k8sv1.ConditionStatus {
+					p, err := virtClient.CoreV1().Pods(tests.NamespaceTestDefault).Get(pod.Name, metav1.GetOptions{})
+					Expect(err).ToNot(HaveOccurred())
+					for _, c := range p.Status.Conditions {
+						if c.Type == k8sv1.PodReady {
+							return c.Status
+						}
+					}
+					return k8sv1.ConditionFalse
+				}, 30, 1).Should(Equal(k8sv1.ConditionTrue))
+
+				By("Determining the size of the mounted directory")
+				diskSizeStr, _, err := tests.ExecuteCommandOnPodV2(virtClient, pod, pod.Spec.Containers[0].Name, []string{"/usr/bin/bash", "-c", fmt.Sprintf("df %s | tail -n 1 | awk '{print $4}'", mountDir)})
+				Expect(err).ToNot(HaveOccurred())
+				diskSize, err = strconv.Atoi(strings.TrimSpace(diskSizeStr))
+				diskSize = diskSize * 1000 // byte to kilobyte
 				Expect(err).ToNot(HaveOccurred())
 
-				pvc = "vmi-pvc-" + rand.String(12)
-				tests.CreateHostPathPvWithSize(pvc, "/mnt/local-storage/fixeddisk", "20Mi")
-				tests.CreatePVC(pvc, "20Mi")
-
-			}, 30)
-
-			AfterEach(func() {
-				tests.DeletePVC(pvc)
-				tests.DeletePV(pvc)
-			}, 30)
+			})
 
 			configureToleration := func(toleration int) {
 				By("By configuring toleration")
@@ -475,7 +487,8 @@ var _ = Describe("Storage", func() {
 				configureToleration(10)
 
 				By("starting VirtualMachineInstance")
-				vmi := tests.NewRandomVMIWithPVC("disk-" + pvc)
+				vmi := tests.NewRandomVMIWithHostDisk(diskPath, v1.HostDiskExistsOrCreate, pod.Spec.NodeName)
+				vmi.Spec.Volumes[0].HostDisk.Capacity = resource.MustParse(strconv.Itoa(int(float64(diskSize) * 1.2)))
 				tests.RunVMI(vmi, 30)
 
 				By("Checking events")
@@ -490,7 +503,8 @@ var _ = Describe("Storage", func() {
 				configureToleration(30)
 
 				By("starting VirtualMachineInstance")
-				vmi := tests.NewRandomVMIWithPVC("disk-" + pvc)
+				vmi := tests.NewRandomVMIWithHostDisk(diskPath, v1.HostDiskExistsOrCreate, pod.Spec.NodeName)
+				vmi.Spec.Volumes[0].HostDisk.Capacity = resource.MustParse(strconv.Itoa(int(float64(diskSize) * 1.2)))
 				tests.RunVMIAndExpectLaunch(vmi, false, 30)
 
 				By("Checking events")
