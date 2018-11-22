@@ -576,7 +576,7 @@ var _ = Describe("Networking", func() {
 			tests.BeforeTestCleanup()
 		})
 
-		FIt("should offer extra dhcp options to pod iface", func() {
+		It("should offer extra dhcp options to pod iface", func() {
 			userData := "#cloud-config\npassword: fedora\nchpasswd: { expire: False }\n"
 			dhcpVMI := tests.NewRandomVMIWithEphemeralDiskAndUserdata(tests.RegistryDiskFor(tests.RegistryDiskFedora), userData)
 			tests.AddExplicitPodNetworkInterface(dhcpVMI)
@@ -597,29 +597,15 @@ var _ = Describe("Networking", func() {
 				&expect.BExp{R: "#"},
 				&expect.BSnd{S: "sudo dhclient -1 -r -d eth0\n"},
 				&expect.BExp{R: "#"},
-				&expect.BSnd{S: "echo $?\n"},
-				&expect.BExp{R: "0"},
-			}, 15)
-			Expect(err).ToNot(HaveOccurred())
-
-			err = tests.CheckForTextExpecter(dhcpVMI, []expect.Batcher{
-				&expect.BSnd{S: "\n"},
+				&expect.BSnd{S: "sudo dhclient -1 -sf /usr/bin/env --request-options subnet-mask,broadcast-address,time-offset,routers,domain-search,domain-name,domain-name-servers,host-name,nis-domain,nis-servers,ntp-servers,interface-mtu,tftp-server-name,bootfile-name eth0 | tee /dhcp-env\n"},
 				&expect.BExp{R: "#"},
-				&expect.BSnd{S: "sudo dhclient -1 -sf /usr/bin/env --request-options subnet-mask,broadcast-address,time-offset,routers,domain-search,domain-name,domain-name-servers,host-name,nis-domain,nis-servers,ntp-servers,interface-mtu,tftp-server-name,bootfile-name eth0\n"},
+				&expect.BSnd{S: "cat /dhcp-env\n"},
 				&expect.BExp{R: "new_tftp_server_name=tftp.kubevirt.io"},
-				// &expect.BSnd{S: "echo $?\n"},
-				// &expect.BExp{R: "0"},
+				&expect.BExp{R: "#"},
+				&expect.BSnd{S: "cat /dhcp-env\n"},
+				&expect.BExp{R: "new_bootfile_name=config"},
+				&expect.BExp{R: "#"},
 			}, 15)
-
-			// Was planning on executing /usr/bin/env and checking for each option passed in
-			// but it seems /usr/bin/env doesn't persist across text expecter calls...
-
-			// err = tests.CheckForTextExpecter(dhcpVMI, []expect.Batcher{
-			// 	&expect.BSnd{S: "\n"},
-			// 	&expect.BExp{R: "#"},
-			// 	&expect.BSnd{S: "/usr/bin/env\n"},
-			// 	&expect.BExp{R: "new_tftp_server_name=tftp.kubevirt.io"},
-			// }, 15)
 
 			Expect(err).ToNot(HaveOccurred())
 		})
