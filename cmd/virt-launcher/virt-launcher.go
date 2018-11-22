@@ -127,7 +127,7 @@ func createLibvirtConnection() virtcli.Connection {
 	return domainConn
 }
 
-func startDomainEventMonitoring(virtShareDir string, domainConn virtcli.Connection, deleteNotificationSent chan watch.Event, vmiUID types.UID) {
+func startDomainEventMonitoring(notifier *notifyclient.NotifyClient, virtShareDir string, domainConn virtcli.Connection, deleteNotificationSent chan watch.Event, vmiUID types.UID) {
 	go func() {
 		for {
 			if res := libvirt.EventRunDefaultImpl(); res != nil {
@@ -137,7 +137,7 @@ func startDomainEventMonitoring(virtShareDir string, domainConn virtcli.Connecti
 		}
 	}()
 
-	err := notifyclient.StartNotifier(virtShareDir, domainConn, deleteNotificationSent, vmiUID)
+	err := notifier.StartDomainNotifier(domainConn, deleteNotificationSent, vmiUID)
 	if err != nil {
 		panic(err)
 	}
@@ -309,7 +309,7 @@ func main() {
 	useEmulation := pflag.Bool("use-emulation", false, "Use software emulation")
 	hookSidecars := pflag.Uint("hook-sidecars", 0, "Number of requested hook sidecars, virt-launcher will wait for all of them to become available")
 	noFork := pflag.Bool("no-fork", false, "Fork and let virt-launcher watch itself to react to crashes if set to false")
-
+	lessPVCSpaceToleration := pflag.Int("less-pvc-space-toleration", 0, "Toleration in percent when PVs' available space is smaller than requested")
 	// set new default verbosity, was set to 0 by glog
 	goflag.Set("v", "2")
 
@@ -360,7 +360,12 @@ func main() {
 	domainConn := createLibvirtConnection()
 	defer domainConn.Close()
 
-	domainManager, err := virtwrap.NewLibvirtDomainManager(domainConn, *virtShareDir)
+	notifier, err := notifyclient.NewNotifyClient(*virtShareDir)
+	if err != nil {
+		panic(err)
+	}
+
+	domainManager, err := virtwrap.NewLibvirtDomainManager(domainConn, *virtShareDir, notifier, *lessPVCSpaceToleration)
 	if err != nil {
 		panic(err)
 	}
@@ -391,7 +396,7 @@ func main() {
 
 	events := make(chan watch.Event, 10)
 	// Send domain notifications to virt-handler
-	startDomainEventMonitoring(*virtShareDir, domainConn, events, vm.UID)
+	startDomainEventMonitoring(notifier, *virtShareDir, domainConn, events, vm.UID)
 
 	c := make(chan os.Signal, 1)
 	signal.Notify(c, os.Interrupt,

@@ -25,6 +25,8 @@ import (
 	"path"
 	"syscall"
 
+	"kubevirt.io/kubevirt/pkg/log"
+
 	k8sv1 "k8s.io/api/core/v1"
 
 	"kubevirt.io/kubevirt/pkg/api/v1"
@@ -32,7 +34,11 @@ import (
 	"kubevirt.io/kubevirt/pkg/util/types"
 )
 
-const pvcBaseDir = "/var/run/kubevirt-private/vmi-disks"
+const (
+	pvcBaseDir                  = "/var/run/kubevirt-private/vmi-disks"
+	EventReasonToleratedSmallPV = "ToleratedSmallPV"
+	EventTypeToleratedSmallPV   = k8sv1.EventTypeNormal
+)
 
 func ReplacePVCByHostDisk(vmi *v1.VirtualMachineInstance, clientset kubecli.KubevirtClient) error {
 	// If PVC is defined and it's not a BlockMode PVC, then it is replaced by HostDisk
@@ -67,7 +73,7 @@ func dirBytesAvailable(path string) (uint64, error) {
 	if err != nil {
 		return 0, err
 	}
-	return (stat.Bavail * uint64(stat.Bsize)), nil
+	return stat.Bavail * uint64(stat.Bsize), nil
 }
 
 func createSparseRaw(fullPath string, size int64) error {
@@ -85,20 +91,59 @@ func getPVCDiskImgPath(volumeName string) string {
 	return path.Join(pvcBaseDir, volumeName, "disk.img")
 }
 
-func CreateHostDisks(vmi *v1.VirtualMachineInstance) error {
+type DiskImgCreator struct {
+	dirBytesAvailableFunc  func(path string) (uint64, error)
+	notifier               k8sNotifier
+	lessPVCSpaceToleration int
+}
+
+type k8sNotifier interface {
+	SendK8sEvent(vmi *v1.VirtualMachineInstance, severity string, reason string, message string) error
+}
+
+func NewHostDiskCreator(notifier k8sNotifier, lessPVCSpaceToleration int) DiskImgCreator {
+	return DiskImgCreator{
+		dirBytesAvailableFunc:  dirBytesAvailable,
+		notifier:               notifier,
+		lessPVCSpaceToleration: lessPVCSpaceToleration,
+	}
+}
+
+func (hdc *DiskImgCreator) setlessPVCSpaceToleration(toleration int) {
+	hdc.lessPVCSpaceToleration = toleration
+}
+
+func (hdc DiskImgCreator) Create(vmi *v1.VirtualMachineInstance) error {
 	for _, volume := range vmi.Spec.Volumes {
 		if hostDisk := volume.VolumeSource.HostDisk; hostDisk != nil && hostDisk.Type == v1.HostDiskExistsOrCreate && hostDisk.Path != "" {
 
 			if _, err := os.Stat(hostDisk.Path); os.IsNotExist(err) {
-				availableSpace, err := dirBytesAvailable(path.Dir(hostDisk.Path))
+				availableSize, err := hdc.dirBytesAvailableFunc(path.Dir(hostDisk.Path))
 				if err != nil {
 					return err
 				}
-				size, _ := hostDisk.Capacity.AsInt64()
-				if uint64(size) > availableSpace {
-					return fmt.Errorf("Unable to create %s with size %s - not enough space on the cluster", hostDisk.Path, hostDisk.Capacity.String())
+				requestedSize, _ := hostDisk.Capacity.AsInt64()
+				diskSize := requestedSize
+				if uint64(requestedSize) > availableSize {
+					// Some storage provisioners provision less space than requested, due to filesystem overhead etc.
+					// We tolerate some difference in requested and available capacity up to some degree.
+					// This can be configured with the "pvc-tolerate-less-space-up-to-percent" parameter in the kubevirt-config ConfigMap.
+					// It is provided as argument to virt-launcher.
+					toleratedSize := requestedSize * (100 - int64(hdc.lessPVCSpaceToleration)) / 100
+					if uint64(toleratedSize) > availableSize {
+						return fmt.Errorf("unable to create %s, not enough space, demanded size %d B is bigger than available space %d B, also after taking %v %% toleration into account",
+							hostDisk.Path, uint64(requestedSize), availableSize, hdc.lessPVCSpaceToleration)
+					}
+					diskSize = int64(availableSize)
+
+					msg := fmt.Sprintf("PV size too small: expected %v B, found %v B. Using it anyway, it is within %v %% toleration", requestedSize, availableSize, hdc.lessPVCSpaceToleration)
+					log.Log.Info(msg)
+					err = hdc.notifier.SendK8sEvent(vmi, EventTypeToleratedSmallPV, EventReasonToleratedSmallPV, msg)
+					if err != nil {
+						log.Log.Reason(err).Warningf("Couldn't send k8s event for tolerated PV size: %v", err)
+					}
 				}
-				err = createSparseRaw(hostDisk.Path, size)
+				err = createSparseRaw(hostDisk.Path, int64(diskSize))
 				if err != nil {
 					return err
 				}

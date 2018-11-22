@@ -21,8 +21,8 @@ package services_test
 
 import (
 	"errors"
+	"strconv"
 	"testing"
-	"time"
 
 	. "github.com/onsi/ginkgo"
 	"github.com/onsi/ginkgo/extensions/table"
@@ -30,8 +30,6 @@ import (
 	kubev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/tools/cache"
 
 	"kubevirt.io/kubevirt/pkg/api/v1"
@@ -45,14 +43,20 @@ const namespaceKubevirt = "kubevirt"
 var _ = Describe("Template", func() {
 
 	log.Log.SetIOWriter(GinkgoWriter)
-	configCache := cache.NewIndexer(cache.DeletionHandlingMetaNamespaceKeyFunc, nil)
+
 	pvcCache := cache.NewIndexer(cache.DeletionHandlingMetaNamespaceKeyFunc, nil)
-	svc := NewTemplateService("kubevirt/virt-launcher",
-		"/var/run/kubevirt",
-		"/var/run/kubevirt-ephemeral-disks",
-		"pull-secret-1",
-		configCache,
-		pvcCache)
+	var cmCache cache.Indexer
+	var svc TemplateService
+
+	BeforeEach(func() {
+		cmCache = cache.NewIndexer(cache.DeletionHandlingMetaNamespaceKeyFunc, nil)
+		svc = NewTemplateService("kubevirt/virt-launcher",
+			"/var/run/kubevirt",
+			"/var/run/kubevirt-ephemeral-disks",
+			"pull-secret-1",
+			cmCache,
+			pvcCache)
+	})
 
 	Describe("Rendering", func() {
 		Context("launch template with correct parameters", func() {
@@ -87,7 +91,8 @@ var _ = Describe("Template", func() {
 					"--ephemeral-disk-dir", "/var/run/kubevirt-ephemeral-disks",
 					"--readiness-file", "/tmp/healthy",
 					"--grace-period-seconds", "45",
-					"--hook-sidecars", "1"}))
+					"--hook-sidecars", "1",
+					"--less-pvc-space-toleration", "10"}))
 				Expect(pod.Spec.Containers[1].Name).To(Equal("hook-sidecar-0"))
 				Expect(pod.Spec.Containers[1].Image).To(Equal("some-image:v1"))
 				Expect(pod.Spec.Containers[1].ImagePullPolicy).To(Equal(kubev1.PullPolicy("IfNotPresent")))
@@ -192,7 +197,8 @@ var _ = Describe("Template", func() {
 					"--ephemeral-disk-dir", "/var/run/kubevirt-ephemeral-disks",
 					"--readiness-file", "/tmp/healthy",
 					"--grace-period-seconds", "45",
-					"--hook-sidecars", "1"}))
+					"--hook-sidecars", "1",
+					"--less-pvc-space-toleration", "10"}))
 				Expect(pod.Spec.Containers[1].Name).To(Equal("hook-sidecar-0"))
 				Expect(pod.Spec.Containers[1].Image).To(Equal("some-image:v1"))
 				Expect(pod.Spec.Containers[1].ImagePullPolicy).To(Equal(kubev1.PullPolicy("IfNotPresent")))
@@ -955,29 +961,36 @@ var _ = Describe("Template", func() {
 				Expect(pod.Spec.Volumes[0].Secret.SecretName).To(Equal("test-secret"))
 			})
 		})
+
+		It("should add the lessPVCSpaceToleration argument to the template", func() {
+			expectedToleration := "42"
+			cfgMap := kubev1.ConfigMap{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace: namespaceKubevirt,
+					Name:      "kubevirt-config",
+				},
+				Data: map[string]string{LessPVCSpaceTolerationKey: expectedToleration},
+			}
+			cmCache.Add(&cfgMap)
+
+			vmi := v1.VirtualMachineInstance{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "testvmi", Namespace: "default", UID: "1234",
+				},
+				Spec: v1.VirtualMachineInstanceSpec{Volumes: []v1.Volume{}, Domain: v1.DomainSpec{}},
+			}
+			pod, err := svc.RenderLaunchManifest(&vmi)
+			Expect(err).ToNot(HaveOccurred())
+
+			Expect(pod.Spec.Containers[0].Command).To(ContainElement("--less-pvc-space-toleration"), "command arg key should be correct")
+			Expect(pod.Spec.Containers[0].Command).To(ContainElement("42"), "command arg value should be correct")
+		})
+
 	})
 	Describe("ConfigMap", func() {
-		var cmListWatch *cache.ListWatch
-		var cmInformer cache.SharedIndexInformer
-		var cmStore cache.Store
-		var stopChan chan struct{}
-
-		BeforeEach(func() {
-			stopChan = make(chan struct{})
-		})
-
-		AfterEach(func() {
-			close(stopChan)
-		})
 
 		It("Should return false if configmap is not present", func() {
-			cmListWatch = MakeFakeConfigMapWatcher([]kubev1.ConfigMap{})
-			cmInformer = cache.NewSharedIndexInformer(cmListWatch, &v1.VirtualMachineInstance{}, time.Second, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
-			cmStore = cmInformer.GetStore()
-			go cmInformer.Run(stopChan)
-			cache.WaitForCacheSync(stopChan, cmInformer.HasSynced)
-
-			result, err := IsEmulationAllowed(cmStore)
+			result, err := IsEmulationAllowed(cmCache)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(result).To(BeFalse())
 		})
@@ -990,13 +1003,9 @@ var _ = Describe("Template", func() {
 				},
 				Data: map[string]string{},
 			}
-			cmListWatch = MakeFakeConfigMapWatcher([]kubev1.ConfigMap{cfgMap})
-			cmInformer = cache.NewSharedIndexInformer(cmListWatch, &v1.VirtualMachineInstance{}, time.Second, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
-			cmStore = cmInformer.GetStore()
-			go cmInformer.Run(stopChan)
-			cache.WaitForCacheSync(stopChan, cmInformer.HasSynced)
+			cmCache.Add(&cfgMap)
 
-			result, err := IsEmulationAllowed(cmStore)
+			result, err := IsEmulationAllowed(cmCache)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(result).To(BeFalse())
 		})
@@ -1009,13 +1018,9 @@ var _ = Describe("Template", func() {
 				},
 				Data: map[string]string{UseEmulationKey: "true"},
 			}
-			cmListWatch = MakeFakeConfigMapWatcher([]kubev1.ConfigMap{cfgMap})
-			cmInformer = cache.NewSharedIndexInformer(cmListWatch, &v1.VirtualMachineInstance{}, time.Second, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
-			cmStore = cmInformer.GetStore()
-			go cmInformer.Run(stopChan)
-			cache.WaitForCacheSync(stopChan, cmInformer.HasSynced)
+			cmCache.Add(&cfgMap)
 
-			result, err := IsEmulationAllowed(cmStore)
+			result, err := IsEmulationAllowed(cmCache)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(result).To(BeTrue())
 		})
@@ -1028,13 +1033,9 @@ var _ = Describe("Template", func() {
 				},
 				Data: map[string]string{},
 			}
-			cmListWatch = MakeFakeConfigMapWatcher([]kubev1.ConfigMap{cfgMap})
-			cmInformer = cache.NewSharedIndexInformer(cmListWatch, &v1.VirtualMachineInstance{}, time.Second, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
-			cmStore = cmInformer.GetStore()
-			go cmInformer.Run(stopChan)
-			cache.WaitForCacheSync(stopChan, cmInformer.HasSynced)
+			cmCache.Add(&cfgMap)
 
-			result, err := GetImagePullPolicy(cmStore)
+			result, err := GetImagePullPolicy(cmCache)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(result).To(Equal(kubev1.PullIfNotPresent))
 		})
@@ -1047,13 +1048,9 @@ var _ = Describe("Template", func() {
 				},
 				Data: map[string]string{ImagePullPolicyKey: "Always"},
 			}
-			cmListWatch = MakeFakeConfigMapWatcher([]kubev1.ConfigMap{cfgMap})
-			cmInformer = cache.NewSharedIndexInformer(cmListWatch, &v1.VirtualMachineInstance{}, time.Second, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
-			cmStore = cmInformer.GetStore()
-			go cmInformer.Run(stopChan)
-			cache.WaitForCacheSync(stopChan, cmInformer.HasSynced)
+			cmCache.Add(&cfgMap)
 
-			result, err := GetImagePullPolicy(cmStore)
+			result, err := GetImagePullPolicy(cmCache)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(result).To(Equal(kubev1.PullAlways))
 		})
@@ -1066,16 +1063,73 @@ var _ = Describe("Template", func() {
 				},
 				Data: map[string]string{ImagePullPolicyKey: "IHaveNoStrongFeelingsOneWayOrTheOther"},
 			}
-			cmListWatch = MakeFakeConfigMapWatcher([]kubev1.ConfigMap{cfgMap})
-			cmInformer = cache.NewSharedIndexInformer(cmListWatch, &v1.VirtualMachineInstance{}, time.Second, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
-			cmStore = cmInformer.GetStore()
-			go cmInformer.Run(stopChan)
-			cache.WaitForCacheSync(stopChan, cmInformer.HasSynced)
+			cmCache.Add(&cfgMap)
 
-			_, err := GetImagePullPolicy(cmStore)
+			_, err := GetImagePullPolicy(cmCache)
 			Expect(err).To(HaveOccurred())
 		})
+
+		It("Should return correct lessPVCSpaceToleration", func() {
+			expectedToleration := "5"
+			cfgMap := kubev1.ConfigMap{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace: namespaceKubevirt,
+					Name:      "kubevirt-config",
+				},
+				Data: map[string]string{LessPVCSpaceTolerationKey: expectedToleration},
+			}
+			cmCache.Add(&cfgMap)
+
+			toleration, err := GetlessPVCSpaceToleration(cmCache)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(strconv.Itoa(toleration)).To(Equal(expectedToleration), "Toleration should be "+expectedToleration)
+		})
+
+		It("Should return default lessPVCSpaceToleration", func() {
+			expectedToleration := "10"
+			cfgMap := kubev1.ConfigMap{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace: namespaceKubevirt,
+					Name:      "kubevirt-config",
+				},
+			}
+			cmCache.Add(&cfgMap)
+
+			toleration, err := GetlessPVCSpaceToleration(cmCache)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(strconv.Itoa(toleration)).To(Equal(expectedToleration), "Toleration should be "+expectedToleration)
+		})
+
+		It("Should return error on invalid lessPVCSpaceToleration", func() {
+			cfgMap := kubev1.ConfigMap{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace: namespaceKubevirt,
+					Name:      "kubevirt-config",
+				},
+				Data: map[string]string{LessPVCSpaceTolerationKey: "-1"},
+			}
+			cmCache.Add(&cfgMap)
+
+			_, err := GetlessPVCSpaceToleration(cmCache)
+			Expect(err).To(HaveOccurred())
+		})
+
+		It("Should return error on invalid lessPVCSpaceToleration", func() {
+			cfgMap := kubev1.ConfigMap{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace: namespaceKubevirt,
+					Name:      "kubevirt-config",
+				},
+				Data: map[string]string{LessPVCSpaceTolerationKey: "foo"},
+			}
+			cmCache.Add(&cfgMap)
+
+			_, err := GetlessPVCSpaceToleration(cmCache)
+			Expect(err).To(HaveOccurred())
+		})
+
 	})
+
 	Describe("ServiceAccountName", func() {
 
 		It("Should add service account if present", func() {
@@ -1119,22 +1173,6 @@ var _ = Describe("Template", func() {
 
 	})
 })
-
-func MakeFakeConfigMapWatcher(configMaps []kubev1.ConfigMap) *cache.ListWatch {
-	cmListWatch := &cache.ListWatch{
-		ListFunc: func(options metav1.ListOptions) (runtime.Object, error) {
-			return &kubev1.ConfigMapList{Items: configMaps}, nil
-		},
-		WatchFunc: func(options metav1.ListOptions) (watch.Interface, error) {
-			fakeWatch := watch.NewFake()
-			for _, cfgMap := range configMaps {
-				fakeWatch.Add(&cfgMap)
-			}
-			return watch.NewFake(), nil
-		},
-	}
-	return cmListWatch
-}
 
 func True() *bool {
 	b := true
