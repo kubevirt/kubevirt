@@ -460,10 +460,14 @@ func newPVC(os string, size string) *k8sv1.PersistentVolumeClaim {
 }
 
 func CreateHostPathPv(osName string, hostPath string) {
+	CreateHostPathPvWithSize(osName, hostPath, "1Gi")
+}
+
+func CreateHostPathPvWithSize(osName string, hostPath string, size string) {
 	virtCli, err := kubecli.GetKubevirtClient()
 	PanicOnError(err)
 
-	quantity, err := resource.ParseQuantity("1Gi")
+	quantity, err := resource.ParseQuantity(size)
 	PanicOnError(err)
 
 	hostPathType := k8sv1.HostPathDirectoryOrCreate
@@ -2219,7 +2223,7 @@ func CreateHostDiskImage(diskPath string) *k8sv1.Pod {
 	dir := filepath.Dir(diskPath)
 
 	args := []string{fmt.Sprintf(`dd if=/dev/zero of=%s bs=1 count=0 seek=1G && ls -l %s`, diskPath, dir)}
-	job := renderHostPathJob("hostdisk-create-job", dir, hostPathType, []string{"/bin/bash", "-c"}, args)
+	job := RenderHostPathJob("hostdisk-create-job", dir, hostPathType, k8sv1.MountPropagationNone, []string{"/bin/bash", "-c"}, args)
 
 	return job
 }
@@ -2228,16 +2232,17 @@ func newDeleteHostDisksJob(diskPath string) *k8sv1.Pod {
 	hostPathType := k8sv1.HostPathDirectoryOrCreate
 
 	args := []string{fmt.Sprintf(`rm -f %s`, diskPath)}
-	job := renderHostPathJob("hostdisk-delete-job", filepath.Dir(diskPath), hostPathType, []string{"/bin/bash", "-c"}, args)
+	job := RenderHostPathJob("hostdisk-delete-job", filepath.Dir(diskPath), hostPathType, k8sv1.MountPropagationNone, []string{"/bin/bash", "-c"}, args)
 
 	return job
 }
 
-func renderHostPathJob(jobName string, dir string, hostPathType k8sv1.HostPathType, cmd []string, args []string) *k8sv1.Pod {
+func RenderHostPathJob(jobName string, dir string, hostPathType k8sv1.HostPathType, mountPropagation k8sv1.MountPropagationMode, cmd []string, args []string) *k8sv1.Pod {
 	job := RenderJob(jobName, cmd, args)
 	job.Spec.Containers[0].VolumeMounts = append(job.Spec.Containers[0].VolumeMounts, k8sv1.VolumeMount{
-		Name:      "hostpath-mount",
-		MountPath: dir,
+		Name:             "hostpath-mount",
+		MountPropagation: &mountPropagation,
+		MountPath:        dir,
 	})
 	job.Spec.Volumes = append(job.Spec.Volumes, k8sv1.Volume{
 		Name: "hostpath-mount",
