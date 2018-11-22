@@ -23,8 +23,12 @@ import (
 	"flag"
 	"fmt"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
+
+	"kubevirt.io/kubevirt/pkg/host-disk"
+	"kubevirt.io/kubevirt/pkg/virt-controller/services"
 
 	"github.com/google/goexpect"
 	. "github.com/onsi/ginkgo"
@@ -43,7 +47,8 @@ import (
 )
 
 const (
-	diskSerial = "FB-fb_18030C10002032"
+	diskSerial        = "FB-fb_18030C10002032"
+	namespaceKubevirt = "kube-system"
 )
 
 type VMICreationFunc func(string) *v1.VirtualMachineInstance
@@ -419,6 +424,95 @@ var _ = Describe("Storage", func() {
 					)
 					Expect(strings.Contains(output, "disk.img")).To(BeTrue())
 				}
+			})
+		})
+
+		Context("With smaller than requested PVCs", func() {
+
+			var mountDir string
+			var diskPath string
+			var pod *k8sv1.Pod
+			var diskSize int
+
+			BeforeEach(func() {
+
+				By("Creating a hostPath pod which prepares a mounted directory which goes away when the pod dies")
+				tmpDir := "/tmp/kubevirt/" + rand.String(10)
+				mountDir = filepath.Join(tmpDir, "mount")
+				diskPath = filepath.Join(mountDir, "disk.img")
+				pod = tests.RenderHostPathJob("host-path-preparator", tmpDir, k8sv1.HostPathDirectoryOrCreate, k8sv1.MountPropagationBidirectional, []string{"/usr/bin/bash", "-c"}, []string{fmt.Sprintf("mkdir -p %s && mkdir -p /tmp/yyy  && mount --bind /tmp/yyy %s && while true; do sleep 1; done", mountDir, mountDir)})
+				pod.Spec.Containers[0].Lifecycle = &k8sv1.Lifecycle{
+					PreStop: &k8sv1.Handler{
+						Exec: &k8sv1.ExecAction{
+							Command: []string{"umount", mountDir},
+						},
+					},
+				}
+				pod, err = virtClient.CoreV1().Pods(tests.NamespaceTestDefault).Create(pod)
+				Expect(err).NotTo(HaveOccurred())
+
+				By("Waiting for hostPath pod to prepare the mounted directory")
+				Eventually(func() k8sv1.ConditionStatus {
+					p, err := virtClient.CoreV1().Pods(tests.NamespaceTestDefault).Get(pod.Name, metav1.GetOptions{})
+					Expect(err).ToNot(HaveOccurred())
+					for _, c := range p.Status.Conditions {
+						if c.Type == k8sv1.PodReady {
+							return c.Status
+						}
+					}
+					return k8sv1.ConditionFalse
+				}, 30, 1).Should(Equal(k8sv1.ConditionTrue))
+
+				By("Determining the size of the mounted directory")
+				diskSizeStr, _, err := tests.ExecuteCommandOnPodV2(virtClient, pod, pod.Spec.Containers[0].Name, []string{"/usr/bin/bash", "-c", fmt.Sprintf("df %s | tail -n 1 | awk '{print $4}'", mountDir)})
+				Expect(err).ToNot(HaveOccurred())
+				diskSize, err = strconv.Atoi(strings.TrimSpace(diskSizeStr))
+				diskSize = diskSize * 1000 // byte to kilobyte
+				Expect(err).ToNot(HaveOccurred())
+
+			})
+
+			configureToleration := func(toleration int) {
+				By("By configuring toleration")
+				config, err := virtClient.CoreV1().ConfigMaps(namespaceKubevirt).Get("kubevirt-config", metav1.GetOptions{})
+				ExpectWithOffset(1, err).ToNot(HaveOccurred())
+
+				config.Data[services.LessPVCSpaceTolerationKey] = strconv.Itoa(toleration)
+				_, err = virtClient.CoreV1().ConfigMaps(namespaceKubevirt).Update(config)
+				ExpectWithOffset(1, err).ToNot(HaveOccurred())
+			}
+
+			It("Should not initialize an empty PVC with a disk.img when disk is too small even with toleration", func() {
+
+				configureToleration(10)
+
+				By("starting VirtualMachineInstance")
+				vmi := tests.NewRandomVMIWithHostDisk(diskPath, v1.HostDiskExistsOrCreate, pod.Spec.NodeName)
+				vmi.Spec.Volumes[0].HostDisk.Capacity = resource.MustParse(strconv.Itoa(int(float64(diskSize) * 1.2)))
+				tests.RunVMI(vmi, 30)
+
+				By("Checking events")
+				objectEventWatcher := tests.NewObjectEventWatcher(vmi).SinceWatchedObjectResourceVersion().Timeout(time.Duration(120) * time.Second)
+				event := objectEventWatcher.WaitFor(tests.WarningEvent, v1.SyncFailed.String())
+				Expect(event).ToNot(BeNil())
+
+			})
+
+			It("Should initialize an empty PVC with a disk.img when disk is too small but within toleration", func() {
+
+				configureToleration(30)
+
+				By("starting VirtualMachineInstance")
+				vmi := tests.NewRandomVMIWithHostDisk(diskPath, v1.HostDiskExistsOrCreate, pod.Spec.NodeName)
+				vmi.Spec.Volumes[0].HostDisk.Capacity = resource.MustParse(strconv.Itoa(int(float64(diskSize) * 1.2)))
+				tests.RunVMIAndExpectLaunch(vmi, false, 30)
+
+				By("Checking events")
+				objectEventWatcher := tests.NewObjectEventWatcher(vmi).SinceWatchedObjectResourceVersion().Timeout(time.Duration(30) * time.Second)
+				objectEventWatcher.FailOnWarnings()
+				event := objectEventWatcher.WaitFor(tests.EventType(hostdisk.EventTypeToleratedSmallPV), hostdisk.EventReasonToleratedSmallPV)
+				Expect(event).ToNot(BeNil())
+
 			})
 		})
 

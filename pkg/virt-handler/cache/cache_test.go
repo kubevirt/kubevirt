@@ -59,7 +59,7 @@ var _ = Describe("Domain informer", func() {
 		socketsDir = filepath.Join(shareDir, "sockets")
 		os.Mkdir(socketsDir, 0755)
 
-		informer, err = NewSharedInformer(shareDir, 10)
+		informer, err = NewSharedInformer(shareDir, 10, nil, nil)
 		Expect(err).ToNot(HaveOccurred())
 
 		ctrl = gomock.NewController(GinkgoT())
@@ -200,7 +200,7 @@ var _ = Describe("Domain informer", func() {
 			go informer.Run(stopChan)
 			cache.WaitForCacheSync(stopChan, informer.HasSynced)
 
-			client, err := notifyclient.NewDomainEventClient(shareDir)
+			client, err := notifyclient.NewNotifyClient(shareDir)
 			Expect(err).ToNot(HaveOccurred())
 
 			// verify add
