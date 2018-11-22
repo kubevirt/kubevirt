@@ -89,14 +89,9 @@ func ConvReason(status libvirt.DomainState, reason int) api.StateChangeReason {
 	}
 }
 
-func SetDomainSpec(virConn cli.Connection, vmi *v1.VirtualMachineInstance, wantedSpec api.DomainSpec) (cli.VirDomain, error) {
-	xmlStr, err := xml.Marshal(&wantedSpec)
-	if err != nil {
-		log.Log.Object(vmi).Reason(err).Error("Generating the domain XML failed.")
-		return nil, err
-	}
-	log.Log.Object(vmi).V(3).With("xml", string(xmlStr)).Info("Domain XML generated.")
-	dom, err := virConn.DomainDefineXML(string(xmlStr))
+func SetDomainSpecStr(virConn cli.Connection, vmi *v1.VirtualMachineInstance, wantedSpec string) (cli.VirDomain, error) {
+	log.Log.Object(vmi).V(3).With("xml", wantedSpec).Info("Domain XML generated.")
+	dom, err := virConn.DomainDefineXML(wantedSpec)
 	if err != nil {
 		log.Log.Object(vmi).Reason(err).Error("Defining the VirtualMachineInstance failed.")
 		return nil, err
