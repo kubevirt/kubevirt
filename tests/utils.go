@@ -173,11 +173,12 @@ const (
 type ProcessFunc func(event *k8sv1.Event) (done bool)
 
 type ObjectEventWatcher struct {
-	object          runtime.Object
-	timeout         *time.Duration
-	failOnWarnings  bool
-	resourceVersion string
-	startType       startType
+	object                 runtime.Object
+	timeout                *time.Duration
+	failOnWarnings         bool
+	resourceVersion        string
+	startType              startType
+	dontFailOnMissingEvent bool
 }
 
 func NewObjectEventWatcher(object runtime.Object) *ObjectEventWatcher {
@@ -262,7 +263,7 @@ func (w *ObjectEventWatcher) Watch(processFunc ProcessFunc) {
 			} else {
 				log.Log.ObjectRef(&event.InvolvedObject).Infof(event.Message)
 			}
-			Expect(event.Type).NotTo(Equal(string(WarningEvent)), "Unexpected Warning event received: %s,%s: %s", event.InvolvedObject.Name, event.InvolvedObject.UID, event.Message)
+			ExpectWithOffset(1, event.Type).NotTo(Equal(string(WarningEvent)), "Unexpected Warning event received: %s,%s: %s", event.InvolvedObject.Name, event.InvolvedObject.UID, event.Message)
 			return processFunc(event)
 		}
 
@@ -303,6 +304,9 @@ func (w *ObjectEventWatcher) Watch(processFunc ProcessFunc) {
 		select {
 		case <-done:
 		case <-time.After(*w.timeout):
+			if !w.dontFailOnMissingEvent {
+				Fail(fmt.Sprintf("Waited for %v seconds on the event stream to match a specific event", w.timeout.Seconds()), 1)
+			}
 		}
 	} else {
 		<-done
@@ -313,6 +317,19 @@ func (w *ObjectEventWatcher) WaitFor(eventType EventType, reason interface{}) (e
 	w.Watch(func(event *k8sv1.Event) bool {
 		if event.Type == string(eventType) && event.Reason == reflect.ValueOf(reason).String() {
 			e = event
+			return true
+		}
+		return false
+	})
+	return
+}
+
+func (w *ObjectEventWatcher) WaitNotFor(eventType EventType, reason interface{}) (e *k8sv1.Event) {
+	w.dontFailOnMissingEvent = true
+	w.Watch(func(event *k8sv1.Event) bool {
+		if event.Type == string(eventType) && event.Reason == reflect.ValueOf(reason).String() {
+			e = event
+			Fail(fmt.Sprintf("Did not expect %s with reason %s", string(eventType), reflect.ValueOf(reason).String()), 1)
 			return true
 		}
 		return false
