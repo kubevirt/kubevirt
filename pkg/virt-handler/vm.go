@@ -1117,24 +1117,36 @@ func (d *VirtualMachineController) isPreMigrationTarget(vmi *v1.VirtualMachineIn
 	return false
 }
 
-func (d *VirtualMachineController) isBlockMigration(vmi *v1.VirtualMachineInstance) bool {
-	var blockMigrate bool
+func (d *VirtualMachineController) checkVolumesForMigration(vmi *v1.VirtualMachineInstance) (blockMigrate bool, isMigratable bool) {
+	hasPVC := false
+	isMigratable = true
 	for _, volume := range vmi.Spec.Volumes {
 		volSrc := volume.VolumeSource
+		if blockMigrate {
+			isMigratable = false
+			break
+		}
 		if volSrc.PersistentVolumeClaim != nil {
-
+			hasPVC = true
 			isSharedPvc, _ := pvcutils.IsSharedPVCFromClient(d.clientset, vmi.Namespace, volSrc.PersistentVolumeClaim.ClaimName)
 			blockMigrate = !isSharedPvc
+			if !isSharedPvc {
+				isMigratable = false
+			}
 		} else if volSrc.CloudInitNoCloud != nil ||
 			volSrc.ConfigMap != nil || volSrc.ServiceAccount != nil ||
 			volSrc.Secret != nil {
 			continue
 		} else {
+			if hasPVC {
+				isMigratable = false
+				break
+			}
 			blockMigrate = true
 		}
 
 	}
-	return blockMigrate
+	return
 }
 
 func (d *VirtualMachineController) isMigrationSource(vmi *v1.VirtualMachineInstance) bool {
@@ -1187,7 +1199,8 @@ func (d *VirtualMachineController) handleMigrationProxy(vmi *v1.VirtualMachineIn
 }
 
 func (d *VirtualMachineController) processVmUpdate(origVMI *v1.VirtualMachineInstance) error {
-
+	var isBlockMigrationRequired bool
+	var isVmDisksMigratable bool
 	vmi := origVMI.DeepCopy()
 
 	isExpired, err := watchdog.WatchdogFileIsExpired(d.watchdogTimeoutSeconds, d.virtShareDir, vmi)
@@ -1196,6 +1209,11 @@ func (d *VirtualMachineController) processVmUpdate(origVMI *v1.VirtualMachineIns
 		return err
 	} else if isExpired {
 		return goerror.New(fmt.Sprintf("Can not update a VirtualMachineInstance with expired watchdog."))
+	}
+
+	// Calculate this before replacing the PVCs with other disk types
+	if d.isMigrationSource(vmi) {
+		isBlockMigrationRequired, isVmDisksMigratable = d.checkVolumesForMigration(vmi)
 	}
 
 	err = hostdisk.ReplacePVCByHostDisk(vmi, d.clientset)
@@ -1226,8 +1244,10 @@ func (d *VirtualMachineController) processVmUpdate(origVMI *v1.VirtualMachineIns
 		}
 		d.recorder.Event(vmi, k8sv1.EventTypeNormal, v1.PreparingTarget.String(), "VirtualMachineInstance Migration Target Prepared.")
 	} else if d.isMigrationSource(vmi) {
-		isBlockMigration := d.isBlockMigration(vmi)
-		err = client.MigrateVirtualMachine(vmi, isBlockMigration)
+		if !isVmDisksMigratable {
+			return fmt.Errorf("unable to migrate the vm, mixes shared and non-shared volumes.")
+		}
+		err = client.MigrateVirtualMachine(vmi, isBlockMigrationRequired)
 		if err != nil {
 			return err
 		}
