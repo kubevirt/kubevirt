@@ -323,7 +323,7 @@ func (l *LibvirtDomainManager) preStartHook(vmi *v1.VirtualMachineInstance, doma
 	// ensure registry disk files have correct ownership privileges
 	err := containerdisk.SetFilePermissions(vmi)
 	if err != nil {
-		return domain, err
+		return domain, fmt.Errorf("setting registry-disk file permissions failed: %v", err)
 	}
 
 	// generate cloud-init data
@@ -333,14 +333,14 @@ func (l *LibvirtDomainManager) preStartHook(vmi *v1.VirtualMachineInstance, doma
 
 		err := cloudinit.GenerateLocalData(vmi.Name, hostname, vmi.Namespace, cloudInitData)
 		if err != nil {
-			return domain, err
+			return domain, fmt.Errorf("generating local cloud-init data failed: %v", err)
 		}
 	}
 
 	// setup networking
 	err = network.SetupPodNetwork(vmi, domain)
 	if err != nil {
-		return domain, err
+		return domain, fmt.Errorf("preparing the pod network failed: %v", err)
 	}
 
 	// create disks images on the cluster lever
@@ -348,13 +348,13 @@ func (l *LibvirtDomainManager) preStartHook(vmi *v1.VirtualMachineInstance, doma
 	hostDiskCreator := hostdisk.NewHostDiskCreator(l.notifier, l.lessPVCSpaceToleration)
 	err = hostDiskCreator.Create(vmi)
 	if err != nil {
-		return domain, err
+		return domain, fmt.Errorf("preparing host-disks failed: %v", err)
 	}
 
 	// Create images for volumes that are marked ephemeral.
 	err = ephemeraldisk.CreateEphemeralImages(vmi)
 	if err != nil {
-		return domain, err
+		return domain, fmt.Errorf("preparing ephemeral images failed: %v", err)
 	}
 	// create empty disks if they exist
 	if err := emptydisk.CreateTemporaryDisks(vmi); err != nil {
