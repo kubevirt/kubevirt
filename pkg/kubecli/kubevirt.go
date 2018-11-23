@@ -34,7 +34,7 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 
-	networkclient "github.com/phoracek/network-attachment-definition-client/pkg/client/clientset/versioned"
+	networkclient "github.com/k8snetworkplumbingwg/network-attachment-definition-client/pkg/client/clientset/versioned"
 
 	cdiclient "kubevirt.io/containerized-data-importer/pkg/client/clientset/versioned"
 	v1 "kubevirt.io/kubevirt/pkg/api/v1"

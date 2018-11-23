@@ -37,7 +37,7 @@ import (
 	framework "k8s.io/client-go/tools/cache/testing"
 	"k8s.io/client-go/tools/record"
 
-	fakenetworkclient "github.com/phoracek/network-attachment-definition-client/pkg/client/clientset/versioned/fake"
+	fakenetworkclient "github.com/k8snetworkplumbingwg/network-attachment-definition-client/pkg/client/clientset/versioned/fake"
 
 	cdiv1 "kubevirt.io/containerized-data-importer/pkg/apis/datavolumecontroller/v1alpha1"
 	v1 "kubevirt.io/kubevirt/pkg/api/v1"

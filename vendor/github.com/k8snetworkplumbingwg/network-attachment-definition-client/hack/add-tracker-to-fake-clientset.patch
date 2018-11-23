@@ -1,0 +1,31 @@
+diff --git a/pkg/client/clientset/versioned/fake/clientset_generated.go b/pkg/client/clientset/versioned/fake/clientset_generated.go
+index 0ca4263..a77152a 100644
+--- a/pkg/client/clientset/versioned/fake/clientset_generated.go
++++ b/pkg/client/clientset/versioned/fake/clientset_generated.go
+@@ -41,7 +41,7 @@ func NewSimpleClientset(objects ...runtime.Object) *Clientset {
+ 		}
+ 	}
+ 
+-	cs := &Clientset{}
++	cs := &Clientset{tracker: o}
+ 	cs.discovery = &fakediscovery.FakeDiscovery{Fake: &cs.Fake}
+ 	cs.AddReactor("*", "*", testing.ObjectReaction(o))
+ 	cs.AddWatchReactor("*", func(action testing.Action) (handled bool, ret watch.Interface, err error) {
+@@ -63,12 +63,17 @@ func NewSimpleClientset(objects ...runtime.Object) *Clientset {
+ type Clientset struct {
+ 	testing.Fake
+ 	discovery *fakediscovery.FakeDiscovery
++	tracker   testing.ObjectTracker
+ }
+ 
+ func (c *Clientset) Discovery() discovery.DiscoveryInterface {
+ 	return c.discovery
+ }
+ 
++func (c *Clientset) Tracker() testing.ObjectTracker {
++	return c.tracker
++}
++
+ var _ clientset.Interface = &Clientset{}
+ 
+ // K8sCniCncfIoV1 retrieves the K8sCniCncfIoV1Client

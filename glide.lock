@@ -1,5 +1,5 @@
-hash: e208d57357535d28a6b65adb100567236ad65b59688fc47c2ee2d4ce2fa8cf1e
-updated: 2018-10-23T07:03:20.150266613Z
+hash: b07800e29d3f35b2b6466f1e42513f1c01018e9856739ffd576e6b556d224ca7
+updated: 2018-11-23T02:26:13.471620658Z
 imports:
 - name: cloud.google.com/go
   version: 3b1ae45394a234c385be014e9a488f2bb6eef821
@@ -39,8 +39,6 @@ imports:
   - log
 - name: github.com/emicklei/go-restful-openapi
   version: 7712e8a6e8096e7103b96a400519d38fb1e348f8
-- name: github.com/phoracek/network-attachment-definition-client
-  version: 306ef67b273c909934589f158440ce248fa91c24
 - name: github.com/emicklei/go-restful-swagger12
   version: 7524189396c68dc4b04d53852f9edc00f816b123
 - name: github.com/evanphx/json-patch
@@ -61,7 +59,7 @@ imports:
   - log
   - transport/http
 - name: github.com/go-logfmt/logfmt
-  version: 390ab7935ee28ec6b286364bba9b4dd6410cb3d5
+  version: 07c9b44f60d7ffdfb7d8efe1ad539965737836dc
 - name: github.com/go-openapi/analysis
   version: c701774f4e604d952e4e8c56dee260be696e33c3
   subpackages:
@@ -81,7 +79,7 @@ imports:
 - name: github.com/go-openapi/strfmt
   version: 35fe47352985e13cc75f13120d70d26fd764ed51
 - name: github.com/go-openapi/swag
-  version: 5899d5c5e619fda5fa86e14795a835f473ca284c
+  version: 1d29f06aebd59ccdf11ae04aa0334ded96e2d909
 - name: github.com/go-openapi/validate
   version: d2eab7d93009e9215fc85b2faa2c2f2a98c2af48
 - name: github.com/go-stack/stack
@@ -98,7 +96,7 @@ imports:
   subpackages:
   - lru
 - name: github.com/golang/mock
-  version: 600781dde9cca80734169b9e969d9054ccc57937
+  version: 49a60242bb5c086a9aacc67bdd056e88f75f3c3e
   subpackages:
   - gomock
 - name: github.com/golang/protobuf
@@ -157,6 +155,18 @@ imports:
   version: 76626ae9c91c4f2a10f34cad8ce83ea42c93bb75
 - name: github.com/json-iterator/go
   version: f2b4162afba35581b6d4a50d3b8f34e33c144682
+- name: github.com/k8snetworkplumbingwg/network-attachment-definition-client
+  version: 379ff533bf290f5bd6a5dfed0ca382cc3c7cc8d2
+  repo: https://github.com/booxter/network-attachment-definition-client.git
+  vcs: git
+  subpackages:
+  - pkg/apis/k8s.cni.cncf.io
+  - pkg/apis/k8s.cni.cncf.io/v1
+  - pkg/client/clientset/versioned
+  - pkg/client/clientset/versioned/fake
+  - pkg/client/clientset/versioned/scheme
+  - pkg/client/clientset/versioned/typed/k8s.cni.cncf.io/v1
+  - pkg/client/clientset/versioned/typed/k8s.cni.cncf.io/v1/fake
 - name: github.com/kr/logfmt
   version: b84e30acd515aadc4b783ad4ff83aff3299bdfe0
 - name: github.com/krolaw/dhcp4
@@ -172,7 +182,7 @@ imports:
   - jlexer
   - jwriter
 - name: github.com/mattn/go-runewidth
-  version: ce7b0b5c7b45a81508558cd1dba6bb1e4ddb51bb
+  version: c88d7e5f2e24de48a200a2655ac8a0910be9a0f7
 - name: github.com/matttproud/golang_protobuf_extensions
   version: fc2b8d3a73c4867e51861bbdd5ae3c1f0869dd6a
   subpackages:
@@ -184,7 +194,7 @@ imports:
 - name: github.com/modern-go/reflect2
   version: 05fbef0ca5da472bbf96c9322b84a53edc03c9fd
 - name: github.com/onsi/ginkgo
-  version: aec9277ec956b65322f6ecee8196a5ff3a01be5f
+  version: 2e1be8f7d90e9d3e3e58b0ce470f2f14d075406f
   subpackages:
   - config
   - extensions/table
@@ -205,7 +215,7 @@ imports:
   - reporters/stenographer/support/go-isatty
   - types
 - name: github.com/onsi/gomega
-  version: 7615b9433f86a8bdf29709bf288bc4fd0636a369
+  version: 65fb64232476ad9046e57c26cd0bff3d3a8dc6cd
   subpackages:
   - format
   - ghttp
@@ -330,7 +340,7 @@ imports:
   subpackages:
   - rate
 - name: google.golang.org/appengine
-  version: ae0ab99deb4dc413a2b4bd6c8bdd0eb67f1e4d06
+  version: 4a4468ece617fc8205e99368fa2200e9d1fad421
   subpackages:
   - internal
   - internal/app_identity
@@ -632,7 +642,7 @@ testImports:
 - name: github.com/facebookgo/structtag
   version: 217e25fb96916cc60332e399c9aa63f5c422ceed
 - name: github.com/smartystreets/goconvey
-  version: ef6db91d284a0e7badaa1f0c404c30aa7dee3aed
+  version: 044398e4856c3a83fb98f9de0a8ed1c6495e2843
   subpackages:
   - convey
 - name: github.com/stretchr/testify
@@ -640,7 +650,7 @@ testImports:
   subpackages:
   - assert
 - name: golang.org/x/sync
-  version: 1d60e4601c6fd243af51cc01ddf169918a5407ca
+  version: 42b317875d0fa942474b76e1b46a6060d720ae6e
   subpackages:
   - errgroup
 - name: gopkg.in/check.v1

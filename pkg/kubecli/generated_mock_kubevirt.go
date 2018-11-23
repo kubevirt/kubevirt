@@ -7,7 +7,7 @@ import (
 	time "time"
 
 	gomock "github.com/golang/mock/gomock"
-	versioned "github.com/phoracek/network-attachment-definition-client/pkg/client/clientset/versioned"
+	versioned "github.com/k8snetworkplumbingwg/network-attachment-definition-client/pkg/client/clientset/versioned"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	types "k8s.io/apimachinery/pkg/types"
 	discovery "k8s.io/client-go/discovery"
