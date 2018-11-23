@@ -62,7 +62,7 @@ import:
 - package: github.com/vishvananda/netlink
   version: d35d6b58e1cb692b27b94fc403170bf44058ac3e
 - package: github.com/libvirt/libvirt-go
-  version: v4.6.0
+  version: v4.8.0
 - package: github.com/gorilla/websocket
   version: 0647012449a1878977514a346b26637dd022446c
 - package: google.golang.org/grpc
