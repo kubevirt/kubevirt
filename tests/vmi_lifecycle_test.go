@@ -340,15 +340,19 @@ var _ = Describe("VMIlifecycle", func() {
 				tests.NewObjectEventWatcher(vmi).SinceWatchedObjectResourceVersion().Timeout(60*time.Second).WaitFor(tests.WarningEvent, v1.Stopped)
 
 				By("Checking that VirtualMachineInstance has 'Failed' phase")
-				Expect(func() v1.VirtualMachineInstancePhase {
+				Eventually(func() v1.VirtualMachineInstancePhase {
 					vmi, err := virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &metav1.GetOptions{})
 					Expect(err).ToNot(HaveOccurred(), "Should get VMI successfully")
 					return vmi.Status.Phase
-				}()).To(Equal(v1.Failed), "VMI should be failed")
+				}, 10, 1).Should(Equal(v1.Failed), "VMI should be failed")
 			})
 		})
 
 		Context("when virt-handler crashes", func() {
+			// FIXME: This test has the issues that it tests a lot of different timing scenarios in an intransparent way:
+			// e.g. virt-handler can die before or after virt-launcher. If we wait until virt-handler is dead before we
+			// kill virt-launcher then we don't know if virt-handler already restarted.
+			// Also the virt-handler crash-loop plays a role here. We could also change the daemon-set but then we would not check the crash behaviour.
 			It("should recover and continue management", func() {
 
 				vmi, err := virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
@@ -367,14 +371,15 @@ var _ = Describe("VMIlifecycle", func() {
 				err = pkillAllVMIs(virtClient, nodeName)
 				Expect(err).To(BeNil(), "Should kill VMI successfully")
 
-				tests.NewObjectEventWatcher(vmi).Timeout(60*time.Second).SinceWatchedObjectResourceVersion().WaitFor(tests.WarningEvent, v1.Stopped)
+				// Give virt-handler some time. It can greatly vary when virt-handler will be ready again
+				tests.NewObjectEventWatcher(vmi).Timeout(120*time.Second).SinceWatchedObjectResourceVersion().WaitFor(tests.WarningEvent, v1.Stopped)
 
 				By("Checking that VirtualMachineInstance has 'Failed' phase")
-				Expect(func() v1.VirtualMachineInstancePhase {
+				Eventually(func() v1.VirtualMachineInstancePhase {
 					vmi, err := virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &metav1.GetOptions{})
 					Expect(err).ToNot(HaveOccurred(), "Should get VMI successfully")
 					return vmi.Status.Phase
-				}()).To(Equal(v1.Failed), "VMI should be failed")
+				}(), 10, 1).Should(Equal(v1.Failed), "VMI should be failed")
 			})
 		})
 
@@ -1053,11 +1058,11 @@ var _ = Describe("VMIlifecycle", func() {
 			tests.NewObjectEventWatcher(obj).Timeout(60*time.Second).SinceWatchedObjectResourceVersion().WaitFor(tests.WarningEvent, v1.Stopped)
 
 			By("Checking that the VirtualMachineInstance has 'Failed' phase")
-			Expect(func() v1.VirtualMachineInstancePhase {
+			Eventually(func() v1.VirtualMachineInstancePhase {
 				failedVMI, err := virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Get(vmi.Name, &metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred(), "Should get VMI")
 				return failedVMI.Status.Phase
-			}()).To(Equal(v1.Failed), "VMI should be failed")
+			}, 10, 1).Should(Equal(v1.Failed), "VMI should be failed")
 
 		})
 
@@ -1077,8 +1082,7 @@ var _ = Describe("VMIlifecycle", func() {
 
 			// Wait for some time and see if a sync event happens on the stopped VirtualMachineInstance
 			By("Checking that virt-handler does not try to sync stopped VirtualMachineInstance")
-			event := tests.NewObjectEventWatcher(obj).SinceWatchedObjectResourceVersion().Timeout(5*time.Second).
-				SinceWatchedObjectResourceVersion().WaitFor(tests.WarningEvent, v1.SyncFailed)
+			event := tests.NewObjectEventWatcher(obj).SinceWatchedObjectResourceVersion().Timeout(10*time.Second).WaitNotFor(tests.WarningEvent, v1.SyncFailed)
 			Expect(event).To(BeNil(), "virt-handler tried to sync on a VirtualMachineInstance in final state")
 		})
 	})
