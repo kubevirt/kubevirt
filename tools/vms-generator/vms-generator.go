@@ -42,7 +42,7 @@ func main() {
 	flag.Parse()
 
 	// Required to validate DataVolume usage
-	os.Setenv("FEATURE_GATES", "DataVolumes,LiveMigration")
+	os.Setenv("FEATURE_GATES", "DataVolumes,LiveMigration,SRIOV")
 
 	var vms = map[string]*v1.VirtualMachine{
 		utils.VmCirros:           utils.GetVMCirros(),
