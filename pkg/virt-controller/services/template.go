@@ -62,7 +62,7 @@ const CAP_SYS_NICE = "SYS_NICE"
 const LibvirtStartupDelay = 10
 //This is a perfix for node feature discovery, used in a NodeSelector on the pod
 //to match a VirtualMachineInstance CPU model(Family) to nodes that support this model.
-const NFD_CPU_FAMILY_PREFIX = "feature.node.kubernetes.io/nfd-cpu-family-"
+const NFD_CPU_FAMILY_PREFIX = "feature.node.kubernetes.io/cpu-family-"
 
 const MULTUS_RESOURCE_NAME_ANNOTATION = "k8s.v1.cni.cncf.io/resourceName"
 
