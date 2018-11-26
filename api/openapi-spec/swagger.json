@@ -4060,6 +4060,18 @@
      }
     }
    },
+   "v1.DHCPOptions": {
+    "properties": {
+     "bootFileName": {
+      "description": "If specified will pass option 67 to interface's DHCP server\n+optional",
+      "type": "string"
+     },
+     "tftpServerName": {
+      "description": "If specified will pass option 66 to interface's DHCP server\n+optional",
+      "type": "string"
+     }
+    }
+   },
    "v1.DataVolumeSource": {
     "required": [
      "name"
@@ -4514,6 +4526,10 @@
      },
      "bridge": {
       "$ref": "#/definitions/v1.InterfaceBridge"
+     },
+     "dhcpOptions": {
+      "description": "If specified the network interface will pass additional DHCP options to the VMI\n+optional",
+      "$ref": "#/definitions/v1.DHCPOptions"
      },
      "macAddress": {
       "description": "Interface MAC address. For example: de:ad:00:00:be:af or DE-AD-00-00-BE-AF.",

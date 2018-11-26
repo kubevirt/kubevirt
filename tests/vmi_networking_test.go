@@ -30,7 +30,9 @@ import (
 	. "github.com/onsi/ginkgo"
 	"github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
+	k8sv1 "k8s.io/api/core/v1"
 	v12 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 	v13 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 
@@ -566,6 +568,46 @@ var _ = Describe("Networking", func() {
 
 			tests.WaitUntilVMIReady(learningDisabledVMI, tests.LoggedInAlpineExpecter)
 			checkLearningState(learningDisabledVMI, "0")
+		})
+	})
+
+	Context("VirtualMachineInstance with dhcp options", func() {
+		BeforeEach(func() {
+			tests.BeforeTestCleanup()
+		})
+
+		It("should offer extra dhcp options to pod iface", func() {
+			userData := "#cloud-config\npassword: fedora\nchpasswd: { expire: False }\n"
+			dhcpVMI := tests.NewRandomVMIWithEphemeralDiskAndUserdata(tests.RegistryDiskFor(tests.RegistryDiskFedora), userData)
+			tests.AddExplicitPodNetworkInterface(dhcpVMI)
+
+			dhcpVMI.Spec.Domain.Resources.Requests[k8sv1.ResourceName("memory")] = resource.MustParse("1024M")
+			dhcpVMI.Spec.Domain.Devices.Interfaces[0].DHCPOptions = &v1.DHCPOptions{
+				BootFileName:   "config",
+				TFTPServerName: "tftp.kubevirt.io",
+			}
+
+			_, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(dhcpVMI)
+			Expect(err).ToNot(HaveOccurred())
+
+			tests.WaitUntilVMIReady(dhcpVMI, tests.LoggedInFedoraExpecter)
+
+			err = tests.CheckForTextExpecter(dhcpVMI, []expect.Batcher{
+				&expect.BSnd{S: "\n"},
+				&expect.BExp{R: "#"},
+				&expect.BSnd{S: "sudo dhclient -1 -r -d eth0\n"},
+				&expect.BExp{R: "#"},
+				&expect.BSnd{S: "sudo dhclient -1 -sf /usr/bin/env --request-options subnet-mask,broadcast-address,time-offset,routers,domain-search,domain-name,domain-name-servers,host-name,nis-domain,nis-servers,ntp-servers,interface-mtu,tftp-server-name,bootfile-name eth0 | tee /dhcp-env\n"},
+				&expect.BExp{R: "#"},
+				&expect.BSnd{S: "cat /dhcp-env\n"},
+				&expect.BExp{R: "new_tftp_server_name=tftp.kubevirt.io"},
+				&expect.BExp{R: "#"},
+				&expect.BSnd{S: "cat /dhcp-env\n"},
+				&expect.BExp{R: "new_bootfile_name=config"},
+				&expect.BExp{R: "#"},
+			}, 15)
+
+			Expect(err).ToNot(HaveOccurred())
 		})
 	})
 })
