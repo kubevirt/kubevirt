@@ -4556,6 +4556,10 @@
       "description": "The path to HostDisk image located on the cluster",
       "type": "string"
      },
+     "shared": {
+      "description": "Shared indicate whether the path is shared between nodes",
+      "type": "boolean"
+     },
      "type": {
       "description": "Contains information if disk.img exists or should be created\nallowed options are 'Disk' and 'DiskOrCreate'",
       "type": "string"

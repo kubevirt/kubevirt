@@ -53,6 +53,8 @@ type HostDisk struct {
 	// Capacity of the sparse disk
 	// +optional
 	Capacity resource.Quantity `json:"capacity,omitempty"`
+	// Shared indicate whether the path is shared between nodes
+	Shared *bool `json:"shared,omitempty"`
 }
 
 // ConfigMapVolumeSource adapts a ConfigMap into a volume.
