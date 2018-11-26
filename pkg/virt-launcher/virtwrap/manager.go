@@ -388,12 +388,26 @@ func (l *LibvirtDomainManager) preStartHook(vmi *v1.VirtualMachineInstance, doma
 //
 // Format for PCI ID variables set by SR-IOV DP is:
 // "": for no allocated devices
-// <resourceName>="0000:81:11.1": for a single device
-// <resourceName>="0000:81:11.1 0000:81:11.2[ ...]": for multiple devices
+// PCIDEVICE_<resourceName>="0000:81:11.1": for a single device
+// PCIDEVICE_<resourceName>="0000:81:11.1 0000:81:11.2[ ...]": for multiple devices
+//
+// Since special characters in environment variable names are not allowed,
+// resourceName is mutated as follows:
+// 1. All dots and slashes are replaced with underscore characters.
+// 2. The result is upper cased.
+//
+// Example: PCIDEVICE_INTEL_COM_SRIOV_TEST=... for intel.com/sriov_test resources.
 //
 // Format for network to resource mapping variables is:
 // KUBEVIRT_RESOURCE_NAME_<networkName>=<resourceName>
 //
+func resourceNameToEnvvar(resourceName string) string {
+	varName := strings.ToUpper(resourceName)
+	varName = strings.Replace(varName, "/", "_", -1)
+	varName = strings.Replace(varName, ".", "_", -1)
+	return fmt.Sprintf("PCIDEVICE_%s", varName)
+}
+
 func getSRIOVPCIAddresses(ifaces []v1.Interface) map[string][]string {
 	networkToAddressesMap := map[string][]string{}
 	for _, iface := range ifaces {
@@ -401,15 +415,9 @@ func getSRIOVPCIAddresses(ifaces []v1.Interface) map[string][]string {
 		varName := fmt.Sprintf("KUBEVIRT_RESOURCE_NAME_%s", iface.Name)
 		resourceName, isSet := os.LookupEnv(varName)
 		if isSet {
-			// Intel SR-IOV device plugin truncates resource name
-			// by cutting off the 'intel.com/' suffix
-			varName := resourceName
-			if strings.Contains(varName, "/") {
-				varName = strings.Split(resourceName, "/")[1]
-			}
-			pciAddrString, isSet := os.LookupEnv(varName)
+			pciAddrString, isSet := os.LookupEnv(resourceNameToEnvvar(resourceName))
 			if isSet {
-				addrs := strings.Split(pciAddrString, " ")
+				addrs := strings.Split(pciAddrString, ",")
 				naddrs := len(addrs)
 				if naddrs > 0 {
 					if addrs[naddrs-1] == "" {
