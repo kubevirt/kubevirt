@@ -258,6 +258,12 @@ var _ = Describe("Manager", func() {
 	})
 })
 
+var _ = Describe("resourceNameToEnvvar", func() {
+	It("handles resource name with dots and slashes", func() {
+		Expect(resourceNameToEnvvar("intel.com/sriov_test")).To(Equal("PCIDEVICE_INTEL_COM_SRIOV_TEST"))
+	})
+})
+
 var _ = Describe("getSRIOVPCIAddresses", func() {
 	It("returns empty map when empty interfaces", func() {
 		Expect(len(getSRIOVPCIAddresses([]v1.Interface{}))).To(Equal(0))
@@ -267,16 +273,16 @@ var _ = Describe("getSRIOVPCIAddresses", func() {
 		Expect(len(addrs)).To(Equal(1))
 		Expect(len(addrs["testnet"])).To(Equal(0))
 	})
-	It("gracefully handles trailing comma", func() {
-		os.Setenv("testnet_pool", "0000:81:11.1")
-		os.Setenv("KUBEVIRT_RESOURCE_NAME_testnet", "testnet_pool")
+	It("gracefully handles a single address value", func() {
+		os.Setenv("PCIDEVICE_INTEL_COM_TESTNET_POOL", "0000:81:11.1")
+		os.Setenv("KUBEVIRT_RESOURCE_NAME_testnet", "intel.com/testnet_pool")
 		addrs := getSRIOVPCIAddresses([]v1.Interface{v1.Interface{Name: "testnet"}})
 		Expect(len(addrs)).To(Equal(1))
 		Expect(addrs["testnet"][0]).To(Equal("0000:81:11.1"))
 	})
 	It("returns multiple PCI addresses", func() {
-		os.Setenv("testnet_pool", "0000:81:11.1 0001:02:00.0")
-		os.Setenv("KUBEVIRT_RESOURCE_NAME_testnet", "testnet_pool")
+		os.Setenv("PCIDEVICE_INTEL_COM_TESTNET_POOL", "0000:81:11.1,0001:02:00.0")
+		os.Setenv("KUBEVIRT_RESOURCE_NAME_testnet", "intel.com/testnet_pool")
 		addrs := getSRIOVPCIAddresses([]v1.Interface{v1.Interface{Name: "testnet"}})
 		Expect(len(addrs["testnet"])).To(Equal(2))
 		Expect(addrs["testnet"][0]).To(Equal("0000:81:11.1"))
