@@ -353,6 +353,13 @@ func schema_kubevirt_pkg_api_v1_ContainerDiskSource(ref common.ReferenceCallback
 							Format:      "",
 						},
 					},
+					"path": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Path defines the path to disk file in the container",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
 				},
 				Required: []string{"image"},
 			},

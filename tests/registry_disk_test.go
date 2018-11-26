@@ -151,4 +151,21 @@ var _ = Describe("ContainerDisk", func() {
 			}) // Timeout is long because this test involves multiple parallel VirtualMachineInstance launches.
 		})
 	})
+
+	Describe("Starting from custom image location", func() {
+		Context("with disk at /custom-disk/boot.img", func() {
+			It("should boot normally", func() {
+				vmi := tests.NewRandomVMIWithEphemeralDisk(tests.ContainerDiskFor(tests.ContainerDiskCirros))
+				for ind, volume := range vmi.Spec.Volumes {
+					if volume.ContainerDisk != nil {
+						vmi.Spec.Volumes[ind].ContainerDisk.Path = "/custom-disk/boot.img"
+					}
+				}
+				By("Starting the VirtualMachineInstance")
+				obj, err := virtClient.RestClient().Post().Resource("virtualmachineinstances").Namespace(tests.NamespaceTestDefault).Body(vmi).Do().Get()
+				Expect(err).To(BeNil())
+				tests.WaitForSuccessfulVMIStartWithTimeout(obj, 180)
+			})
+		})
+	})
 })

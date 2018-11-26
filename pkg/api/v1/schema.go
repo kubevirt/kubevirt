@@ -439,6 +439,8 @@ type ContainerDiskSource struct {
 	Image string `json:"image"`
 	// ImagePullSecret is the name of the Docker registry secret required to pull the image. The secret must already exist.
 	ImagePullSecret string `json:"imagePullSecret,omitempty"`
+	// Path defines the path to disk file in the container
+	Path string `json:"path,omitempty"`
 }
 
 // Exactly one of its members must be set.

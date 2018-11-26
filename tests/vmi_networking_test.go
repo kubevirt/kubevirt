@@ -578,7 +578,7 @@ var _ = Describe("Networking", func() {
 
 		It("should offer extra dhcp options to pod iface", func() {
 			userData := "#cloud-config\npassword: fedora\nchpasswd: { expire: False }\n"
-			dhcpVMI := tests.NewRandomVMIWithEphemeralDiskAndUserdata(tests.RegistryDiskFor(tests.RegistryDiskFedora), userData)
+			dhcpVMI := tests.NewRandomVMIWithEphemeralDiskAndUserdata(tests.ContainerDiskFor(tests.ContainerDiskFedora), userData)
 			tests.AddExplicitPodNetworkInterface(dhcpVMI)
 
 			dhcpVMI.Spec.Domain.Resources.Requests[k8sv1.ResourceName("memory")] = resource.MustParse("1024M")

@@ -26,14 +26,16 @@ if [ -z "$COPY_PATH" ]; then
 	exit 1
 fi
 
-IMAGE_NAME=$(ls -1 /disk/ | tail -n 1)
-if [ -z "$IMAGE_NAME" ]; then
-	echo "no images found in /disk directory"
-	exit 1
+if [ ! -f "$IMAGE_PATH" ]; then
+	IMAGE_NAME=$(ls -1 disk/ | tail -n -1)
+	if [ -z "$IMAGE_NAME" ]; then
+		echo "no images found in /disk directory"
+		exit 1
+	fi
+	IMAGE_PATH=/disk/$IMAGE_NAME
 fi
 
-IMAGE_PATH=/disk/$IMAGE_NAME
-IMAGE_EXTENSION=$(echo $IMAGE_NAME | sed  -n -e 's/^.*\.\(.*\)$/\1/p')
+IMAGE_EXTENSION=$(echo $IMAGE_PATH | sed  -n -e 's/^.*\.\(.*\)$/\1/p')
 
 mkdir -p $COPY_PATH
 echo $IMAGE_NAME | grep -q -e "raw" -e "qcow2"
