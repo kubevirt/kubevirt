@@ -4095,18 +4095,6 @@
      }
     }
    },
-   "v1.DHCPOptions": {
-    "properties": {
-     "bootFileName": {
-      "description": "If specified will pass option 67 to interface's DHCP server\n+optional",
-      "type": "string"
-     },
-     "tftpServerName": {
-      "description": "If specified will pass option 66 to interface's DHCP server\n+optional",
-      "type": "string"
-     }
-    }
-   },
    "v1.ContainerDiskSource": {
     "description": "Represents a docker image with an embedded disk.",
     "required": [
@@ -4119,6 +4107,22 @@
      },
      "imagePullSecret": {
       "description": "ImagePullSecret is the name of the Docker registry secret required to pull the image. The secret must already exist.",
+      "type": "string"
+     },
+     "path": {
+      "description": "Path defines the path to disk file in the container",
+      "type": "string"
+     }
+    }
+   },
+   "v1.DHCPOptions": {
+    "properties": {
+     "bootFileName": {
+      "description": "If specified will pass option 67 to interface's DHCP server\n+optional",
+      "type": "string"
+     },
+     "tftpServerName": {
+      "description": "If specified will pass option 66 to interface's DHCP server\n+optional",
       "type": "string"
      }
     }

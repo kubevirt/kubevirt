@@ -22,3 +22,4 @@ LABEL maintainer="David Vossel <dvossel@redhat.com>"
 
 # Add cirros
 RUN curl https://download.cirros-cloud.net/0.4.0/cirros-0.4.0-x86_64-disk.img > /disk/cirros.img
+RUN mkdir -p /custom-disk && cp /disk/cirros.img /custom-disk/cirros.img

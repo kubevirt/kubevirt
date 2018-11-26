@@ -57,6 +57,7 @@ func SetLocalDataOwner(user string) {
 	containerDiskOwner = user
 }
 
+// GetFilePath returns  (path to disk image, image type, and error)
 func GetFilePath(vmi *v1.VirtualMachineInstance, volumeName string) (string, string, error) {
 
 	volumeMountDir := generateVolumeMountDir(vmi, volumeName)
@@ -128,6 +129,10 @@ func GenerateContainers(vmi *v1.VirtualMachineInstance, podVolumeName string, po
 					{
 						Name:  "COPY_PATH",
 						Value: volumeMountDir + "/" + filePrefix,
+					},
+					{
+						Name:  "IMAGE_PATH",
+						Value: volume.ContainerDisk.Path,
 					},
 				},
 				VolumeMounts: []kubev1.VolumeMount{
