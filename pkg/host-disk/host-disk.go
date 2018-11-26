@@ -54,11 +54,19 @@ func ReplacePVCByHostDisk(vmi *v1.VirtualMachineInstance, clientset kubecli.Kube
 			} else if isBlockVolumePVC {
 				continue
 			}
+			isSharedPvc := false
+			for _, accessMode := range pvc.Spec.AccessModes {
+				if accessMode == k8sv1.ReadWriteMany {
+					isSharedPvc = true
+					break
+				}
+			}
 
 			volumeSource.HostDisk = &v1.HostDisk{
 				Path:     getPVCDiskImgPath(vmi.Spec.Volumes[i].Name),
 				Type:     v1.HostDiskExistsOrCreate,
 				Capacity: pvc.Status.Capacity[k8sv1.ResourceStorage],
+				Shared:   &isSharedPvc,
 			}
 			// PersistenVolumeClaim is replaced by HostDisk
 			volumeSource.PersistentVolumeClaim = nil
