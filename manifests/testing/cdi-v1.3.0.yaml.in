@@ -119,7 +119,7 @@ metadata:
   name: cdi-apiserver
   namespace: {{.Namespace}}
   labels:
-    kubevirt.io: ""
+    cdi.kubevirt.io: ""
 ---
 apiVersion: rbac.authorization.k8s.io/v1beta1
 kind: RoleBinding
@@ -127,7 +127,7 @@ metadata:
   name: cdi-apiserver
   namespace: {{.Namespace}}
   labels:
-    kubevirt.io: ""
+    cdi.kubevirt.io: ""
 roleRef:
   kind: Role
   name: cdi-apiserver
@@ -143,7 +143,7 @@ metadata:
   name: cdi-apiserver
   namespace: {{.Namespace}}
   labels:
-    kubevirt.io: ""
+    cdi.kubevirt.io: ""
 rules:
   - apiGroups:
       - ''
@@ -165,7 +165,7 @@ kind: ClusterRoleBinding
 metadata:
   name: cdi-apiserver
   labels:
-    kubevirt.io: ""
+    cdi.kubevirt.io: ""
 roleRef:
   kind: ClusterRole
   name: cdi-apiserver
@@ -180,7 +180,7 @@ kind: ClusterRole
 metadata:
   name: cdi-apiserver
   labels:
-    kubevirt.io: ""
+    cdi.kubevirt.io: ""
 rules:
   - apiGroups:
       - apiregistration.k8s.io
@@ -204,7 +204,7 @@ kind: ClusterRoleBinding
 metadata:
   name: cdi-apiserver-auth-delegator
   labels:
-    kubevirt.io: ""
+    cdi.kubevirt.io: ""
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole

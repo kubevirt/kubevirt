@@ -120,7 +120,13 @@ const (
 	NamespaceTestAlternative = "kubevirt-test-alternative"
 )
 
-const LocalStorageClass = "local"
+const (
+	LocalStorageClass = "local"
+
+	HostPathStorageClass = "host-path"
+
+	BlockVolumeStorageClass = "block-volume"
+)
 
 var testNamespaces = []string{NamespaceTestDefault, NamespaceTestAlternative}
 
@@ -364,10 +370,10 @@ func BeforeTestSuitSetup() {
 	createServiceAccounts()
 
 	CreateHostPathPv(osAlpineHostPath, HostPathAlpine)
-	CreatePVC(osAlpineHostPath, defaultDiskSize)
+	CreateHostPathPVC(osAlpineHostPath, defaultDiskSize)
 
-	CreatePVC(osWindows, defaultWindowsDiskSize)
-	CreatePVC(osRhel, defaultRhelDiskSize)
+	CreateLocalPVC(osWindows, defaultWindowsDiskSize)
+	CreateLocalPVC(osRhel, defaultRhelDiskSize)
 
 	EnsureKVMPresent()
 
@@ -441,22 +447,29 @@ func CreateSecret(name string, data map[string]string) {
 	}
 }
 
-func CreatePVC(os string, size string) {
+func CreateHostPathPVC(os, size string) {
+	CreatePVC(os, size, HostPathStorageClass)
+}
+
+func CreateLocalPVC(os, size string) {
+	CreatePVC(os, size, LocalStorageClass)
+}
+
+func CreatePVC(os, size, storageClass string) {
 	virtCli, err := kubecli.GetKubevirtClient()
 	PanicOnError(err)
 
-	_, err = virtCli.CoreV1().PersistentVolumeClaims(NamespaceTestDefault).Create(newPVC(os, size))
+	_, err = virtCli.CoreV1().PersistentVolumeClaims(NamespaceTestDefault).Create(newPVC(os, size, storageClass))
 	if !errors.IsAlreadyExists(err) {
 		PanicOnError(err)
 	}
 }
 
-func newPVC(os string, size string) *k8sv1.PersistentVolumeClaim {
+func newPVC(os, size, storageClass string) *k8sv1.PersistentVolumeClaim {
 	quantity, err := resource.ParseQuantity(size)
 	PanicOnError(err)
 
 	name := fmt.Sprintf("disk-%s", os)
-	storageClass := LocalStorageClass
 
 	return &k8sv1.PersistentVolumeClaim{
 		ObjectMeta: metav1.ObjectMeta{Name: name},
@@ -510,7 +523,7 @@ func CreateHostPathPvWithSize(osName string, hostPath string, size string) {
 					Type: &hostPathType,
 				},
 			},
-			StorageClassName: LocalStorageClass,
+			StorageClassName: HostPathStorageClass,
 			NodeAffinity: &k8sv1.VolumeNodeAffinity{
 				Required: &k8sv1.NodeSelector{
 					NodeSelectorTerms: []k8sv1.NodeSelectorTerm{
@@ -1175,7 +1188,7 @@ func newBlockVolumePV(name string, labelSelector map[string]string, size string)
 	quantity, err := resource.ParseQuantity(size)
 	PanicOnError(err)
 
-	storageClass := LocalStorageClass
+	storageClass := BlockVolumeStorageClass
 	volumeMode := k8sv1.PersistentVolumeBlock
 
 	// Note: the path depends on kubevirtci!
@@ -1221,7 +1234,7 @@ func newBlockVolumePVC(name string, labelSelector map[string]string, size string
 	quantity, err := resource.ParseQuantity(size)
 	PanicOnError(err)
 
-	storageClass := LocalStorageClass
+	storageClass := BlockVolumeStorageClass
 	volumeMode := k8sv1.PersistentVolumeBlock
 
 	return &k8sv1.PersistentVolumeClaim{
@@ -2442,15 +2455,21 @@ func KubevirtFailHandler(message string, callerSkip ...int) {
 	}
 
 	for _, ns := range []string{KubeVirtInstallNamespace, metav1.NamespaceSystem, NamespaceTestDefault} {
-		// Get KubeVirt specific pods information
-		pods, err := virtClient.CoreV1().Pods(ns).List(metav1.ListOptions{LabelSelector: "kubevirt.io"})
-		if err != nil {
-			fmt.Println(err)
-			Fail(message, callerSkip...)
-			return
+		// Get KubeVirt and CDI specific pods information
+		labels := []string{"kubevirt.io", "cdi.kubevirt.io"}
+		allPods := []k8sv1.Pod{}
+
+		for _, label := range labels {
+			pods, err := virtClient.CoreV1().Pods(ns).List(metav1.ListOptions{LabelSelector: label})
+			if err != nil {
+				fmt.Println(err)
+				Fail(message, callerSkip...)
+				return
+			}
+			allPods = append(allPods, pods.Items...)
 		}
 
-		for _, pod := range pods.Items {
+		for _, pod := range allPods {
 			fmt.Printf("\nPod name: %s\t Pod phase: %s\n\n", pod.Name, pod.Status.Phase)
 			var tailLines int64 = 15
 			var containerName = ""
