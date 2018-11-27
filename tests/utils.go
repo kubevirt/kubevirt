@@ -664,8 +664,7 @@ func ReadManifestYamlFile(pathToManifest string) []unstructured.Unstructured {
 	stream, err := os.Open(pathToManifest)
 	PanicOnError(err)
 
-	reader := yaml.NewDocumentDecoder(stream)
-	decoder := yaml.NewYAMLOrJSONDecoder(reader, 1024)
+	decoder := yaml.NewYAMLOrJSONDecoder(stream, 1024)
 	for {
 		obj := map[string]interface{}{}
 		err := decoder.Decode(&obj)
@@ -674,6 +673,9 @@ func ReadManifestYamlFile(pathToManifest string) []unstructured.Unstructured {
 			break
 		} else if err != nil {
 			panic(err)
+		}
+		if len(obj) == 0 {
+			continue
 		}
 		objects = append(objects, unstructured.Unstructured{Object: obj})
 	}
