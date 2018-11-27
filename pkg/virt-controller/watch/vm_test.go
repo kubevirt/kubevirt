@@ -93,7 +93,6 @@ var _ = Describe("VirtualMachine", func() {
 				*idx++
 				dataVolume := update.GetObject().(*cdiv1.DataVolume)
 				Expect(dataVolume.ObjectMeta.OwnerReferences[0].UID).To(Equal(uid))
-				Expect(dataVolume.Annotations[v1.OwnedByAnnotation]).To(Equal("virt-controller"))
 				return true, update.GetObject(), nil
 			})
 		}

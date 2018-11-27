@@ -366,9 +366,6 @@ const (
 	CreatedByLabel string = "kubevirt.io/created-by"
 	// This label is used to indicate that this pod is the target of a migration job.
 	MigrationJobLabel string = "kubevirt.io/migrationJobUID"
-	// This annotation defines which KubeVirt component owns the resource. Used
-	// on Pod.
-	OwnedByAnnotation string = "kubevirt.io/owned-by"
 	// This label describes which cluster node runs the virtual machine
 	// instance. Needed because with CRDs we can't use field selectors. Used on
 	// VirtualMachineInstance.
