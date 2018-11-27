@@ -1,22 +1,3 @@
-# FIXME: These PVCs should be moved somewhere else, OR specify namespace
-#---
-#apiVersion: v1
-#kind: PersistentVolumeClaim
-#metadata:
-#  name: disk-alpine
-#  labels:
-#    kubevirt.io: ""
-#spec:
-#  storageClassName: ""
-#  accessModes:
-#    - ReadWriteOnce
-#  resources:
-#    requests:
-#      storage: 1Gi
-#
-#  selector:
-#    matchLabels:
-#      os: "alpine"
 ---
 apiVersion: v1
 kind: PersistentVolume
@@ -32,24 +13,6 @@ spec:
     - ReadWriteOnce
   hostPath:
     path: /tmp/hostImages/alpine
-#---
-#apiVersion: v1
-#kind: PersistentVolumeClaim
-#metadata:
-#  name: disk-custom
-#  labels:
-#    kubevirt.io: ""
-#spec:
-#  storageClassName: ""
-#  accessModes:
-#    - ReadWriteOnce
-#  resources:
-#    requests:
-#      storage: 1Gi
-#
-#  selector:
-#    matchLabels:
-#      os: "custom"
 ---
 apiVersion: v1
 kind: PersistentVolume
@@ -65,7 +28,6 @@ spec:
     - ReadWriteOnce
   hostPath:
     path: /tmp/hostImages/custom
-
 ---
 apiVersion: v1
 kind: Service
@@ -81,7 +43,6 @@ spec:
       protocol: TCP
   selector:
     kubevirt.io: cdi-http-import-server
-
 ---
 apiVersion: extensions/v1beta1
 kind: Deployment
@@ -113,7 +74,6 @@ spec:
               port: 80
             initialDelaySeconds: 5
             periodSeconds: 10
-
 ---
 apiVersion: extensions/v1beta1
 kind: DaemonSet
