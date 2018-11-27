@@ -200,13 +200,9 @@ func (l *LibvirtDomainManager) setMigrationResultHelper(vmi *v1.VirtualMachineIn
 
 }
 
-func prepateMigrationFlags(vmi *v1.VirtualMachineInstance, isBlockMigration bool) libvirt.DomainMigrateFlags {
+func prepateMigrationFlags(isBlockMigration bool) libvirt.DomainMigrateFlags {
 	migrateFlags := libvirt.MIGRATE_LIVE | libvirt.MIGRATE_PEER2PEER | libvirt.MIGRATE_TUNNELLED
-	// should we undefine the domain on the source?
-	// libvirt.VIR_MIGRATE_UNDEFINE_SOURCE
 
-	// persist the domain on the dest?
-	// libvirt.VIR_MIGRATE_PERSIST_DEST
 	if isBlockMigration {
 		migrateFlags |= libvirt.MIGRATE_NON_SHARED_INC
 	}
@@ -250,8 +246,7 @@ func (l *LibvirtDomainManager) asyncMigrate(vmi *v1.VirtualMachineInstance, isBl
 			return
 		}
 
-		migrateFlags := prepateMigrationFlags(vmi, isBlockMigration)
-		//		migrateFlags := libvirt.MIGRATE_LIVE | libvirt.MIGRATE_PEER2PEER | libvirt.MIGRATE_TUNNELLED | libvirt.MIGRATE_NON_SHARED_DISK
+		migrateFlags := prepateMigrationFlags(isBlockMigration)
 		_, err = dom.Migrate(destConn, migrateFlags, "", "", 0)
 		if err != nil {
 
@@ -270,10 +265,6 @@ func checkVolumesForMigration(vmi *v1.VirtualMachineInstance, pvcs map[string]*k
 	isMigratable = true
 	for _, volume := range vmi.Spec.Volumes {
 		volSrc := volume.VolumeSource
-		if blockMigrate {
-			isMigratable = false
-			break
-		}
 		if volSrc.PersistentVolumeClaim != nil {
 			hasPVC = true
 			pvc, _ := pvcs[volSrc.PersistentVolumeClaim.ClaimName]
