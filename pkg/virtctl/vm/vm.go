@@ -33,8 +33,9 @@ import (
 )
 
 const (
-	COMMAND_START = "start"
-	COMMAND_STOP  = "stop"
+	COMMAND_START   = "start"
+	COMMAND_STOP    = "stop"
+	COMMAND_RESTART = "restart"
 )
 
 func NewStartCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
@@ -60,6 +61,21 @@ func NewStopCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
 		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c := Command{command: COMMAND_STOP, clientConfig: clientConfig}
+			return c.Run(cmd, args)
+		},
+	}
+	cmd.SetUsageTemplate(templates.UsageTemplate())
+	return cmd
+}
+
+func NewRestartCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:     "restart (VM)",
+		Short:   "Restart a virtual machine.",
+		Example: usage(COMMAND_RESTART),
+		Args:    cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			c := Command{command: COMMAND_RESTART, clientConfig: clientConfig}
 			return c.Run(cmd, args)
 		},
 	}
@@ -102,29 +118,35 @@ func (o *Command) Run(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("Error fetching VirtualMachine: %v", err)
 	}
 
-	var running bool
-	if o.command == COMMAND_START {
-		running = true
-	} else if o.command == COMMAND_STOP {
-		running = false
-	}
+	switch o.command {
+	case COMMAND_STOP, COMMAND_START:
+		running := false
+		if o.command == COMMAND_START {
+			running = true
+		}
 
-	if vm.Spec.Running != running {
-		bodyStr := fmt.Sprintf("{\"spec\":{\"running\":%t}}", running)
+		if vm.Spec.Running != running {
+			bodyStr := fmt.Sprintf("{\"spec\":{\"running\":%t}}", running)
 
-		_, err := virtClient.VirtualMachine(namespace).Patch(vm.Name, types.MergePatchType,
-			[]byte(bodyStr))
+			_, err := virtClient.VirtualMachine(namespace).Patch(vm.Name, types.MergePatchType,
+				[]byte(bodyStr))
 
+			if err != nil {
+				return fmt.Errorf("Error updating VirtualMachine: %v", err)
+			}
+
+		} else {
+			stateMsg := "stopped"
+			if running {
+				stateMsg = "running"
+			}
+			return fmt.Errorf("Error: VirtualMachineInstance '%s' is already %s", vmiName, stateMsg)
+		}
+	case COMMAND_RESTART:
+		err = virtClient.VirtualMachine(namespace).Restart(vmiName)
 		if err != nil {
-			return fmt.Errorf("Error updating VirtualMachine: %v", err)
+			return fmt.Errorf("Error restarting VirtualMachine %v", err)
 		}
-
-	} else {
-		stateMsg := "stopped"
-		if running {
-			stateMsg = "running"
-		}
-		return fmt.Errorf("Error: VirtualMachineInstance '%s' is already %s", vmiName, stateMsg)
 	}
 
 	cmd.Printf("VM %s was scheduled to %s\n", vmiName, o.command)
