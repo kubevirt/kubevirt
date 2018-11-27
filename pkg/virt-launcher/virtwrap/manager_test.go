@@ -245,9 +245,9 @@ var _ = Describe("Manager", func() {
 				},
 			}
 
-			blockMigrate, isMigratable := checkVolumesForMigration(vmi, nil)
+			blockMigrate, err := checkVolumesForMigration(vmi, nil)
 			Expect(blockMigrate).To(BeTrue())
-			Expect(isMigratable).To(BeTrue())
+			Expect(err).To(BeNil())
 		})
 		It("should migrate shared disks without blockMigration flag", func() {
 
@@ -284,9 +284,9 @@ var _ = Describe("Manager", func() {
 			pvcs := make(map[string]*k8sv1.PersistentVolumeClaim)
 			pvcs["testblock"] = &pvc
 
-			blockMigrate, isMigratable := checkVolumesForMigration(vmi, pvcs)
+			blockMigrate, err := checkVolumesForMigration(vmi, pvcs)
 			Expect(blockMigrate).To(BeFalse())
-			Expect(isMigratable).To(BeTrue())
+			Expect(err).To(BeNil())
 		})
 		It("should fail migration for non-shared PVCs", func() {
 
@@ -323,9 +323,9 @@ var _ = Describe("Manager", func() {
 			pvcs := make(map[string]*k8sv1.PersistentVolumeClaim)
 			pvcs["testblock"] = &pvc
 
-			blockMigrate, isMigratable := checkVolumesForMigration(vmi, pvcs)
+			blockMigrate, err := checkVolumesForMigration(vmi, pvcs)
 			Expect(blockMigrate).To(BeTrue())
-			Expect(isMigratable).To(BeFalse())
+			Expect(err).To(Equal(fmt.Errorf("cannot migrate VMI with non-shared PVCs")))
 		})
 		It("should not be allowed to migrate a mix of shared and non-shared disks", func() {
 
@@ -381,9 +381,9 @@ var _ = Describe("Manager", func() {
 			pvcs := make(map[string]*k8sv1.PersistentVolumeClaim)
 			pvcs["testblock"] = &pvc
 
-			blockMigrate, isMigratable := checkVolumesForMigration(vmi, pvcs)
+			blockMigrate, err := checkVolumesForMigration(vmi, pvcs)
 			Expect(blockMigrate).To(BeFalse())
-			Expect(isMigratable).To(BeFalse())
+			Expect(err).To(Equal(fmt.Errorf("cannot migrate VMI with mixes shared and non-shared volumes")))
 		})
 		It("should be allowed to live-migrate shared HostDisks ", func() {
 			_true := true
@@ -413,9 +413,62 @@ var _ = Describe("Manager", func() {
 				},
 			}
 
-			blockMigrate, isMigratable := checkVolumesForMigration(vmi, nil)
+			blockMigrate, err := checkVolumesForMigration(vmi, nil)
 			Expect(blockMigrate).To(BeFalse())
-			Expect(isMigratable).To(BeTrue())
+			Expect(err).To(BeNil())
+		})
+		It("should be allowed to live-migrate shared HostDisks ", func() {
+			_true := true
+			_false := false
+			vmi := newVMI(testNamespace, testVmName)
+			vmi.Spec.Domain.Devices.Disks = []v1.Disk{
+				{
+					Name:       "mydisk",
+					VolumeName: "myvolume",
+					DiskDevice: v1.DiskDevice{
+						Disk: &v1.DiskTarget{
+							Bus: "virtio",
+						},
+					},
+				},
+				{
+					Name:       "mydisk1",
+					VolumeName: "myvolume1",
+					DiskDevice: v1.DiskDevice{
+						Disk: &v1.DiskTarget{
+							Bus: "virtio",
+						},
+					},
+				},
+			}
+			vmi.Spec.Volumes = []v1.Volume{
+				{
+					Name: "myvolume",
+					VolumeSource: v1.VolumeSource{
+						HostDisk: &v1.HostDisk{
+							Path:     "/var/run/kubevirt-private/vmi-disks/volume3/disk.img",
+							Type:     v1.HostDiskExistsOrCreate,
+							Capacity: resource.MustParse("1Gi"),
+							Shared:   &_true,
+						},
+					},
+				},
+				{
+					Name: "myvolume1",
+					VolumeSource: v1.VolumeSource{
+						HostDisk: &v1.HostDisk{
+							Path:     "/var/run/kubevirt-private/vmi-disks/volume31/disk.img",
+							Type:     v1.HostDiskExistsOrCreate,
+							Capacity: resource.MustParse("1Gi"),
+							Shared:   &_false,
+						},
+					},
+				},
+			}
+
+			blockMigrate, err := checkVolumesForMigration(vmi, nil)
+			Expect(blockMigrate).To(BeTrue())
+			Expect(err).To(Equal(fmt.Errorf("cannot migrate VMI with non-shared HostDisk")))
 		})
 		table.DescribeTable("check migration flags",
 			func(isBlockMigration bool) {

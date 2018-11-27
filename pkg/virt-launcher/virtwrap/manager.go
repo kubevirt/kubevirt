@@ -260,9 +260,8 @@ func (l *LibvirtDomainManager) asyncMigrate(vmi *v1.VirtualMachineInstance, isBl
 	}(l, vmi)
 }
 
-func checkVolumesForMigration(vmi *v1.VirtualMachineInstance, pvcs map[string]*k8sv1.PersistentVolumeClaim) (blockMigrate bool, isMigratable bool) {
+func checkVolumesForMigration(vmi *v1.VirtualMachineInstance, pvcs map[string]*k8sv1.PersistentVolumeClaim) (blockMigrate bool, err error) {
 	hasPVC := false
-	isMigratable = true
 	for _, volume := range vmi.Spec.Volumes {
 		volSrc := volume.VolumeSource
 		if volSrc.PersistentVolumeClaim != nil {
@@ -276,12 +275,15 @@ func checkVolumesForMigration(vmi *v1.VirtualMachineInstance, pvcs map[string]*k
 			}
 			blockMigrate = !isSharedPvc
 			if !isSharedPvc {
-				isMigratable = false
+				return blockMigrate, fmt.Errorf("cannot migrate VMI with non-shared PVCs")
 			}
 		} else if volSrc.HostDisk != nil {
 			blockMigrate = true
 			if volSrc.HostDisk.Shared != nil {
 				blockMigrate = !*volSrc.HostDisk.Shared
+			}
+			if blockMigrate {
+				return blockMigrate, fmt.Errorf("cannot migrate VMI with non-shared HostDisk")
 			}
 		} else if volSrc.CloudInitNoCloud != nil ||
 			volSrc.ConfigMap != nil || volSrc.ServiceAccount != nil ||
@@ -289,8 +291,8 @@ func checkVolumesForMigration(vmi *v1.VirtualMachineInstance, pvcs map[string]*k
 			continue
 		} else {
 			if hasPVC {
-				isMigratable = false
-				break
+				err = fmt.Errorf("cannot migrate VMI with mixes shared and non-shared volumes")
+				return
 			}
 			blockMigrate = true
 		}
@@ -313,9 +315,9 @@ func (l *LibvirtDomainManager) MigrateVMI(vmi *v1.VirtualMachineInstance, pvcs m
 		return nil
 	}
 
-	isBlockMigration, isVmMigrateable := checkVolumesForMigration(vmi, pvcs)
-	if !isVmMigrateable {
-		return fmt.Errorf("cannot migrate VMI with mixes shared and non-shared volumes")
+	isBlockMigration, err := checkVolumesForMigration(vmi, pvcs)
+	if err != nil {
+		return err
 	}
 
 	l.asyncMigrate(vmi, isBlockMigration)
