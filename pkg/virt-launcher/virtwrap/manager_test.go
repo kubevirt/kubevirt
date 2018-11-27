@@ -29,6 +29,8 @@ import (
 	. "github.com/onsi/ginkgo"
 	"github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
+	k8sv1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	v1 "kubevirt.io/kubevirt/pkg/api/v1"
@@ -214,6 +216,221 @@ var _ = Describe("Manager", func() {
 			table.Entry("running", libvirt.DOMAIN_RUNNING),
 			table.Entry("paused", libvirt.DOMAIN_PAUSED),
 		)
+	})
+	Context("check VMI disks for migration", func() {
+		It("should block migrate non-shared disks ", func() {
+
+			vmi := newVMI(testNamespace, testVmName)
+			vmi.Spec.Domain.Devices.Disks = []v1.Disk{
+				{
+					Name:       "mydisk",
+					VolumeName: "myvolume",
+					DiskDevice: v1.DiskDevice{
+						Disk: &v1.DiskTarget{
+							Bus: "virtio",
+						},
+					},
+				},
+			}
+			vmi.Spec.Volumes = []v1.Volume{
+				{
+					Name: "myvolume",
+					VolumeSource: v1.VolumeSource{
+						Ephemeral: &v1.EphemeralVolumeSource{
+							PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{
+								ClaimName: "testclaim",
+							},
+						},
+					},
+				},
+			}
+
+			blockMigrate, isMigratable := checkVolumesForMigration(vmi, nil)
+			Expect(blockMigrate).To(BeTrue())
+			Expect(isMigratable).To(BeTrue())
+		})
+		It("should migrate shared disks without blockMigration flag", func() {
+
+			vmi := newVMI(testNamespace, testVmName)
+			vmi.Spec.Domain.Devices.Disks = []v1.Disk{
+				{
+					Name:       "mydisk",
+					VolumeName: "myvolume",
+					DiskDevice: v1.DiskDevice{
+						Disk: &v1.DiskTarget{
+							Bus: "virtio",
+						},
+					},
+				},
+			}
+			vmi.Spec.Volumes = []v1.Volume{
+				{
+					Name: "myvolume",
+					VolumeSource: v1.VolumeSource{
+						PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{
+							ClaimName: "testblock",
+						},
+					},
+				},
+			}
+
+			mode := k8sv1.PersistentVolumeBlock
+			pvc := k8sv1.PersistentVolumeClaim{
+				Spec: k8sv1.PersistentVolumeClaimSpec{
+					VolumeMode:  &mode,
+					AccessModes: []k8sv1.PersistentVolumeAccessMode{k8sv1.ReadWriteMany},
+				},
+			}
+			pvcs := make(map[string]*k8sv1.PersistentVolumeClaim)
+			pvcs["testblock"] = &pvc
+
+			blockMigrate, isMigratable := checkVolumesForMigration(vmi, pvcs)
+			Expect(blockMigrate).To(BeFalse())
+			Expect(isMigratable).To(BeTrue())
+		})
+		It("should fail migration for non-shared PVCs", func() {
+
+			vmi := newVMI(testNamespace, testVmName)
+			vmi.Spec.Domain.Devices.Disks = []v1.Disk{
+				{
+					Name:       "mydisk",
+					VolumeName: "myvolume",
+					DiskDevice: v1.DiskDevice{
+						Disk: &v1.DiskTarget{
+							Bus: "virtio",
+						},
+					},
+				},
+			}
+			vmi.Spec.Volumes = []v1.Volume{
+				{
+					Name: "myvolume",
+					VolumeSource: v1.VolumeSource{
+						PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{
+							ClaimName: "testblock",
+						},
+					},
+				},
+			}
+
+			mode := k8sv1.PersistentVolumeBlock
+			pvc := k8sv1.PersistentVolumeClaim{
+				Spec: k8sv1.PersistentVolumeClaimSpec{
+					VolumeMode:  &mode,
+					AccessModes: []k8sv1.PersistentVolumeAccessMode{k8sv1.ReadWriteOnce},
+				},
+			}
+			pvcs := make(map[string]*k8sv1.PersistentVolumeClaim)
+			pvcs["testblock"] = &pvc
+
+			blockMigrate, isMigratable := checkVolumesForMigration(vmi, pvcs)
+			Expect(blockMigrate).To(BeTrue())
+			Expect(isMigratable).To(BeFalse())
+		})
+		It("should not be allowed to migrate a mix of shared and non-shared disks", func() {
+
+			vmi := newVMI(testNamespace, testVmName)
+			vmi.Spec.Domain.Devices.Disks = []v1.Disk{
+				{
+					Name:       "mydisk",
+					VolumeName: "myvolume",
+					DiskDevice: v1.DiskDevice{
+						Disk: &v1.DiskTarget{
+							Bus: "virtio",
+						},
+					},
+				},
+				{
+					Name:       "mydisk1",
+					VolumeName: "myvolume1",
+					DiskDevice: v1.DiskDevice{
+						Disk: &v1.DiskTarget{
+							Bus: "virtio",
+						},
+					},
+				},
+			}
+			vmi.Spec.Volumes = []v1.Volume{
+				{
+					Name: "myvolume",
+					VolumeSource: v1.VolumeSource{
+						PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{
+							ClaimName: "testblock",
+						},
+					},
+				},
+				{
+					Name: "myvolume1",
+					VolumeSource: v1.VolumeSource{
+						Ephemeral: &v1.EphemeralVolumeSource{
+							PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{
+								ClaimName: "testclaim",
+							},
+						},
+					},
+				},
+			}
+
+			mode := k8sv1.PersistentVolumeBlock
+			pvc := k8sv1.PersistentVolumeClaim{
+				Spec: k8sv1.PersistentVolumeClaimSpec{
+					VolumeMode:  &mode,
+					AccessModes: []k8sv1.PersistentVolumeAccessMode{k8sv1.ReadWriteMany},
+				},
+			}
+			pvcs := make(map[string]*k8sv1.PersistentVolumeClaim)
+			pvcs["testblock"] = &pvc
+
+			blockMigrate, isMigratable := checkVolumesForMigration(vmi, pvcs)
+			Expect(blockMigrate).To(BeFalse())
+			Expect(isMigratable).To(BeFalse())
+		})
+		It("should be allowed to live-migrate shared HostDisks ", func() {
+			_true := true
+			vmi := newVMI(testNamespace, testVmName)
+			vmi.Spec.Domain.Devices.Disks = []v1.Disk{
+				{
+					Name:       "mydisk",
+					VolumeName: "myvolume",
+					DiskDevice: v1.DiskDevice{
+						Disk: &v1.DiskTarget{
+							Bus: "virtio",
+						},
+					},
+				},
+			}
+			vmi.Spec.Volumes = []v1.Volume{
+				{
+					Name: "myvolume",
+					VolumeSource: v1.VolumeSource{
+						HostDisk: &v1.HostDisk{
+							Path:     "/var/run/kubevirt-private/vmi-disks/volume3/disk.img",
+							Type:     v1.HostDiskExistsOrCreate,
+							Capacity: resource.MustParse("1Gi"),
+							Shared:   &_true,
+						},
+					},
+				},
+			}
+
+			blockMigrate, isMigratable := checkVolumesForMigration(vmi, nil)
+			Expect(blockMigrate).To(BeFalse())
+			Expect(isMigratable).To(BeTrue())
+		})
+		table.DescribeTable("check migration flags",
+			func(isBlockMigration bool) {
+				flags := prepateMigrationFlags(isBlockMigration)
+				expectedMigrateFlags := libvirt.MIGRATE_LIVE | libvirt.MIGRATE_PEER2PEER | libvirt.MIGRATE_TUNNELLED
+
+				if isBlockMigration {
+					expectedMigrateFlags |= libvirt.MIGRATE_NON_SHARED_INC
+				}
+				Expect(flags).To(Equal(expectedMigrateFlags))
+			},
+			table.Entry("with block migration", true),
+			table.Entry("without block migration", false),
+		)
+
 	})
 
 	table.DescribeTable("on successful list all domains",
