@@ -32,6 +32,7 @@ import (
 	"time"
 
 	k8sv1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
 	v12 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -1117,34 +1118,21 @@ func (d *VirtualMachineController) isPreMigrationTarget(vmi *v1.VirtualMachineIn
 	return false
 }
 
-func (d *VirtualMachineController) checkVolumesForMigration(vmi *v1.VirtualMachineInstance) (blockMigrate bool, isMigratable bool) {
-	hasPVC := false
-	isMigratable = true
+func (d *VirtualMachineController) collectPVCsForMigration(vmi *v1.VirtualMachineInstance) (pvcs map[string]*k8sv1.PersistentVolumeClaim, err error) {
 	for _, volume := range vmi.Spec.Volumes {
 		volSrc := volume.VolumeSource
-		if blockMigrate {
-			isMigratable = false
-			break
-		}
 		if volSrc.PersistentVolumeClaim != nil {
-			hasPVC = true
-			isSharedPvc, _ := pvcutils.IsSharedPVCFromClient(d.clientset, vmi.Namespace, volSrc.PersistentVolumeClaim.ClaimName)
-			blockMigrate = !isSharedPvc
+			pvc, isSharedPvc, err := pvcutils.IsSharedPVCFromClient(d.clientset, vmi.Namespace, volSrc.PersistentVolumeClaim.ClaimName)
+			if errors.IsNotFound(err) {
+				return nil, fmt.Errorf("persistentvolumeclaim %v not found", volSrc.PersistentVolumeClaim.ClaimName)
+			} else if err != nil {
+				return nil, err
+			}
 			if !isSharedPvc {
-				isMigratable = false
+				return nil, fmt.Errorf("cannot migrate a VM with a non-shared persistentvolumeclaim: %v", volSrc.PersistentVolumeClaim.ClaimName)
 			}
-		} else if volSrc.CloudInitNoCloud != nil ||
-			volSrc.ConfigMap != nil || volSrc.ServiceAccount != nil ||
-			volSrc.Secret != nil {
-			continue
-		} else {
-			if hasPVC {
-				isMigratable = false
-				break
-			}
-			blockMigrate = true
+			pvcs[volSrc.PersistentVolumeClaim.ClaimName] = pvc
 		}
-
 	}
 	return
 }
@@ -1199,8 +1187,6 @@ func (d *VirtualMachineController) handleMigrationProxy(vmi *v1.VirtualMachineIn
 }
 
 func (d *VirtualMachineController) processVmUpdate(origVMI *v1.VirtualMachineInstance) error {
-	var isBlockMigrationRequired bool
-	var isVmDisksMigratable bool
 	vmi := origVMI.DeepCopy()
 
 	isExpired, err := watchdog.WatchdogFileIsExpired(d.watchdogTimeoutSeconds, d.virtShareDir, vmi)
@@ -1209,11 +1195,6 @@ func (d *VirtualMachineController) processVmUpdate(origVMI *v1.VirtualMachineIns
 		return err
 	} else if isExpired {
 		return goerror.New(fmt.Sprintf("Can not update a VirtualMachineInstance with expired watchdog."))
-	}
-
-	// Calculate this before replacing the PVCs with other disk types
-	if d.isMigrationSource(vmi) {
-		isBlockMigrationRequired, isVmDisksMigratable = d.checkVolumesForMigration(vmi)
 	}
 
 	err = hostdisk.ReplacePVCByHostDisk(vmi, d.clientset)
@@ -1244,10 +1225,12 @@ func (d *VirtualMachineController) processVmUpdate(origVMI *v1.VirtualMachineIns
 		}
 		d.recorder.Event(vmi, k8sv1.EventTypeNormal, v1.PreparingTarget.String(), "VirtualMachineInstance Migration Target Prepared.")
 	} else if d.isMigrationSource(vmi) {
-		if !isVmDisksMigratable {
-			return fmt.Errorf("unable to migrate the vm, mixes shared and non-shared volumes.")
+		vmPVCs, err := d.collectPVCsForMigration(vmi)
+		if err != nil {
+			return err
 		}
-		err = client.MigrateVirtualMachine(vmi, isBlockMigrationRequired)
+
+		err = client.MigrateVirtualMachine(vmi, vmPVCs)
 		if err != nil {
 			return err
 		}
