@@ -43,6 +43,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/spf13/cobra"
 	k8sv1 "k8s.io/api/core/v1"
+	k8sextv1beta1 "k8s.io/api/extensions/v1beta1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -359,6 +360,23 @@ func (w *ObjectEventWatcher) WaitNotFor(stopChan chan struct{}, eventType EventT
 		return false
 	})
 	return
+}
+
+// Do scale and retuns error, replicas-before.
+func DoScaleDeployment(namespace string, name string, desired int32) (error, int32) {
+	virtCli, err := kubecli.GetKubevirtClient()
+	PanicOnError(err)
+
+	deployment, err := virtCli.ExtensionsV1beta1().Deployments(namespace).Get(name, metav1.GetOptions{})
+	if err != nil {
+		return err, -1
+	}
+	scale := &k8sextv1beta1.Scale{Spec: k8sextv1beta1.ScaleSpec{Replicas: desired}, ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: namespace}}
+	scale, err = virtCli.ExtensionsV1beta1().Deployments(namespace).UpdateScale(name, scale)
+	if err != nil {
+		return err, -1
+	}
+	return nil, *deployment.Spec.Replicas
 }
 
 func WaitForAllPodsReady(timeout time.Duration, listOptions metav1.ListOptions) {
@@ -736,6 +754,12 @@ func DeleteRawManifest(object unstructured.Unstructured) error {
 }
 
 func DeployTestingInfrastructure() {
+	// Scale down KubeVirt
+	err, replicasApi := DoScaleDeployment(KubeVirtInstallNamespace, "virt-api", 0)
+	PanicOnError(err)
+	err, replicasController := DoScaleDeployment(KubeVirtInstallNamespace, "virt-controller", 0)
+	PanicOnError(err)
+	// Deploy test infrastructure / dependencies
 	manifests := GetListOfManifests(PathToTestingInfrastrucureManifests)
 	for _, manifest := range manifests {
 		objects := ReadManifestYamlFile(manifest)
@@ -744,6 +768,11 @@ func DeployTestingInfrastructure() {
 			PanicOnError(err)
 		}
 	}
+	// Scale up KubeVirt
+	err, _ = DoScaleDeployment(KubeVirtInstallNamespace, "virt-api", replicasApi)
+	PanicOnError(err)
+	err, _ = DoScaleDeployment(KubeVirtInstallNamespace, "virt-controller", replicasController)
+	PanicOnError(err)
 	WaitForAllPodsReady(3*time.Minute, metav1.ListOptions{})
 }
 
