@@ -262,7 +262,7 @@ var _ = Describe("Storage", func() {
 			BeforeEach(func() {
 				// Setup second PVC to use in this context
 				tests.CreateHostPathPv(tests.CustomHostPath, tests.HostPathCustom)
-				tests.CreatePVC(tests.CustomHostPath, "1Gi")
+				tests.CreateHostPathPVC(tests.CustomHostPath, "1Gi")
 			}, 120)
 
 			AfterEach(func() {
@@ -397,7 +397,7 @@ var _ = Describe("Storage", func() {
 			BeforeEach(func() {
 				for _, pvc := range pvcs {
 					tests.CreateHostPathPv(pvc, filepath.Join(tests.HostPathBase, pvc))
-					tests.CreatePVC(pvc, "1G")
+					tests.CreateHostPathPVC(pvc, "1G")
 				}
 			}, 120)
 

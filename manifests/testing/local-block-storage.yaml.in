@@ -21,7 +21,7 @@ spec:
           values:
           - node01
   persistentVolumeReclaimPolicy: Retain
-  storageClassName: local
+  storageClassName: local-block
   volumeMode: Block
 ---
 apiVersion: v1
@@ -37,7 +37,7 @@ spec:
     requests:
       storage: 1Gi
   volumeMode: Block
-  storageClassName: local
+  storageClassName: local-block
   selector:
     matchLabels:
       blockstorage: "cirros"
