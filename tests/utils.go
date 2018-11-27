@@ -746,7 +746,6 @@ func DeleteRawManifest(object unstructured.Unstructured) error {
 
 	uri := composeResourceURI(object)
 	uri = uri + "/" + object.GetName()
-	PanicOnError(err)
 	result := virtCli.CoreV1().RESTClient().Delete().RequestURI(uri).Do()
 	if result.Error() != nil && !errors.IsNotFound(result.Error()) {
 		fmt.Printf(fmt.Sprintf("ERROR: Can not delete %s err: %#v %s\n", object.GetName(), result.Error(), object))
@@ -755,22 +754,22 @@ func DeleteRawManifest(object unstructured.Unstructured) error {
 	return nil
 }
 
-func DeployTestingInfrastructure() {
+func deployOrWipeTestingInfrastrucure(actionOnObject func(unstructured.Unstructured) error) {
 	// Scale down KubeVirt
 	err, replicasApi := DoScaleDeployment(KubeVirtInstallNamespace, "virt-api", 0)
 	PanicOnError(err)
 	err, replicasController := DoScaleDeployment(KubeVirtInstallNamespace, "virt-controller", 0)
 	PanicOnError(err)
-	// Deploy test infrastructure / dependencies
+	// Deploy / delete test infrastructure / dependencies
 	manifests := GetListOfManifests(PathToTestingInfrastrucureManifests)
 	for _, manifest := range manifests {
 		objects := ReadManifestYamlFile(manifest)
 		for _, obj := range objects {
-			err := ApplyRawManifest(obj)
+			err := actionOnObject(obj)
 			PanicOnError(err)
 		}
 	}
-	// Scale up KubeVirt
+	// Scale KubeVirt back
 	err, _ = DoScaleDeployment(KubeVirtInstallNamespace, "virt-api", replicasApi)
 	PanicOnError(err)
 	err, _ = DoScaleDeployment(KubeVirtInstallNamespace, "virt-controller", replicasController)
@@ -778,15 +777,12 @@ func DeployTestingInfrastructure() {
 	WaitForAllPodsReady(3*time.Minute, metav1.ListOptions{})
 }
 
+func DeployTestingInfrastructure() {
+	deployOrWipeTestingInfrastrucure(ApplyRawManifest)
+}
+
 func WipeTestingInfrastructure() {
-	manifests := GetListOfManifests(PathToTestingInfrastrucureManifests)
-	for _, manifest := range manifests {
-		objects := ReadManifestYamlFile(manifest)
-		for _, obj := range objects {
-			err := DeleteRawManifest(obj)
-			PanicOnError(err)
-		}
-	}
+	deployOrWipeTestingInfrastrucure(DeleteRawManifest)
 }
 
 func cleanupSubresourceServiceAccount() {
