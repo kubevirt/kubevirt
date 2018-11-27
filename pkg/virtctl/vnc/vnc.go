@@ -26,6 +26,7 @@ import (
 	"os"
 	"os/exec"
 	"os/signal"
+	"path/filepath"
 	"runtime"
 	"time"
 
@@ -43,7 +44,8 @@ const (
 
 	//#### Tiger VNC ####
 	//# https://github.com/TigerVNC/tigervnc/releases
-	TIGER_VNC = "/Applications/TigerVNC Viewer 1.8.0.app/Contents/MacOS/TigerVNC Viewer"
+	// Compatible with multiple Tiger VNC versions
+	TIGER_VNC_PATTERN = `/Applications/TigerVNC Viewer*.app/Contents/MacOS/TigerVNC Viewer`
 
 	//#### Chicken VNC ####
 	//# https://sourceforge.net/projects/chicken/
@@ -172,10 +174,11 @@ func (o *VNC) Run(cmd *cobra.Command, args []string) error {
 		osType := runtime.GOOS
 		switch osType {
 		case "darwin":
-			if _, err := os.Stat(TIGER_VNC); err == nil {
-				vncBin = TIGER_VNC
+			if matches, err := filepath.Glob(TIGER_VNC_PATTERN); err == nil && len(matches) > 0 {
+				// Always use the latest version
+				vncBin = matches[len(matches)-1]
 				args = tigerVncArgs(port)
-			} else if !os.IsNotExist(err) {
+			} else if err == filepath.ErrBadPattern {
 				viewResChan <- err
 				return
 			} else if _, err := os.Stat(CHICKEN_VNC); err == nil {
