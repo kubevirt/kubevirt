@@ -1,4 +1,4 @@
-package network
+package dhcp
 
 // Origin: https://github.com/weaveworks/weave/blob/master/net/ethtool.go
 

@@ -229,17 +229,6 @@ func (b *BridgePodInterface) preparePodNetworkInterfaces() error {
 		return err
 	}
 
-	// turn TX offload checksum because it causes dhcp failures
-	if err := EthtoolTXOff(b.podInterfaceName); err != nil {
-		log.Log.Reason(err).Errorf("Failed to set tx offload for interface %s off", b.podInterfaceName)
-		return err
-	}
-
-	if err := EthtoolTXOff("vnet0"); err != nil {
-		log.Log.Reason(err).Errorf("Failed to set tx offload for interface %s off", "vnet0")
-		return err
-	}
-
 	return nil
 }
 
