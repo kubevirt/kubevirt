@@ -144,7 +144,7 @@ if [ -n "${JOB_NAME}" ]; then
 namespace=${NAMESPACE}
 EOF
 else
-  export NAMESPACE="${NAMESPACE:-kube-system}"
+  export NAMESPACE="${NAMESPACE:-kubevirt}"
 fi
 
 
@@ -179,8 +179,8 @@ kubectl get nodes
 make cluster-sync
 
 # OpenShift is running important containers under default namespace
-namespaces=(kube-system default)
-if [[ $NAMESPACE != "kube-system" ]]; then
+namespaces=(kubevirt default)
+if [[ $NAMESPACE != "kubevirt" ]]; then
   namespaces+=($NAMESPACE)
 fi
 
