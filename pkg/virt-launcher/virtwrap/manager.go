@@ -261,6 +261,11 @@ func (l *LibvirtDomainManager) asyncMigrate(vmi *v1.VirtualMachineInstance, isBl
 }
 
 func checkVolumesForMigration(vmi *v1.VirtualMachineInstance, pvcs map[string]*k8sv1.PersistentVolumeClaim) (blockMigrate bool, err error) {
+	// Check if all VMI volumes can be shared between the source and the destination
+	// of a live migration. blockMigrate will be returned as false, only if all volumes
+	// are shared and the VMI has no local disks
+	// Some combinations of disks makes the VMI no suitable for live migration.
+	// A relevant error will be returned in this case.
 	hasPVC := false
 	for _, volume := range vmi.Spec.Volumes {
 		volSrc := volume.VolumeSource
