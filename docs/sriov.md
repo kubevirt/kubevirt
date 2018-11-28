@@ -207,7 +207,7 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: kubevirt-config
-  namespace: kube-system
+  namespace: kubevirt
   labels:
     kubevirt.io: ""
 data:
