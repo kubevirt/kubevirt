@@ -493,7 +493,9 @@ var _ = Describe("Storage", func() {
 
 				By("Checking events")
 				objectEventWatcher := tests.NewObjectEventWatcher(vmi).SinceWatchedObjectResourceVersion().Timeout(time.Duration(120) * time.Second)
-				objectEventWatcher.WaitFor(tests.WarningEvent, v1.SyncFailed.String())
+				stopChan := make(chan struct{})
+				defer close(stopChan)
+				objectEventWatcher.WaitFor(stopChan, tests.WarningEvent, v1.SyncFailed.String())
 
 			})
 
@@ -509,7 +511,9 @@ var _ = Describe("Storage", func() {
 				By("Checking events")
 				objectEventWatcher := tests.NewObjectEventWatcher(vmi).SinceWatchedObjectResourceVersion().Timeout(time.Duration(30) * time.Second)
 				objectEventWatcher.FailOnWarnings()
-				objectEventWatcher.WaitFor(tests.EventType(hostdisk.EventTypeToleratedSmallPV), hostdisk.EventReasonToleratedSmallPV)
+				stopChan := make(chan struct{})
+				defer close(stopChan)
+				objectEventWatcher.WaitFor(stopChan, tests.EventType(hostdisk.EventTypeToleratedSmallPV), hostdisk.EventReasonToleratedSmallPV)
 			})
 		})
 
