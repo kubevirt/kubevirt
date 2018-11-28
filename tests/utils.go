@@ -37,6 +37,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/ghodss/yaml"
 	"github.com/google/goexpect"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -185,6 +186,7 @@ type ObjectEventWatcher struct {
 	resourceVersion        string
 	startType              startType
 	dontFailOnMissingEvent bool
+	abort                  chan struct{}
 }
 
 func NewObjectEventWatcher(object runtime.Object) *ObjectEventWatcher {
@@ -240,7 +242,7 @@ func (w *ObjectEventWatcher) SinceResourceVersion(rv string) *ObjectEventWatcher
 	return w
 }
 
-func (w *ObjectEventWatcher) Watch(processFunc ProcessFunc) {
+func (w *ObjectEventWatcher) Watch(abortChan chan struct{}, processFunc ProcessFunc) {
 	Expect(w.startType).ToNot(Equal(invalidWatch))
 	resourceVersion := ""
 
@@ -264,10 +266,11 @@ func (w *ObjectEventWatcher) Watch(processFunc ProcessFunc) {
 
 	if w.failOnWarnings {
 		f = func(event *k8sv1.Event) bool {
+			msg := fmt.Sprintf("Event(%#v): type: '%v' reason: '%v' %v", event.InvolvedObject, event.Type, event.Reason, event.Message)
 			if event.Type == string(WarningEvent) {
-				log.Log.Reason(fmt.Errorf("unexpected warning event received")).ObjectRef(&event.InvolvedObject).Error(event.Message)
+				log.Log.Reason(fmt.Errorf("unexpected warning event received")).ObjectRef(&event.InvolvedObject).Error(msg)
 			} else {
-				log.Log.ObjectRef(&event.InvolvedObject).Infof(event.Message)
+				log.Log.ObjectRef(&event.InvolvedObject).Info(msg)
 			}
 			ExpectWithOffset(1, event.Type).NotTo(Equal(string(WarningEvent)), "Unexpected Warning event received: %s,%s: %s", event.InvolvedObject.Name, event.InvolvedObject.UID, event.Message)
 			return processFunc(event)
@@ -309,18 +312,22 @@ func (w *ObjectEventWatcher) Watch(processFunc ProcessFunc) {
 	if w.timeout != nil {
 		select {
 		case <-done:
+		case <-w.abort:
 		case <-time.After(*w.timeout):
 			if !w.dontFailOnMissingEvent {
 				Fail(fmt.Sprintf("Waited for %v seconds on the event stream to match a specific event", w.timeout.Seconds()), 1)
 			}
 		}
 	} else {
-		<-done
+		select {
+		case <-done:
+		case <-w.abort:
+		}
 	}
 }
 
-func (w *ObjectEventWatcher) WaitFor(eventType EventType, reason interface{}) (e *k8sv1.Event) {
-	w.Watch(func(event *k8sv1.Event) bool {
+func (w *ObjectEventWatcher) WaitFor(stopChan chan struct{}, eventType EventType, reason interface{}) (e *k8sv1.Event) {
+	w.Watch(stopChan, func(event *k8sv1.Event) bool {
 		if event.Type == string(eventType) && event.Reason == reflect.ValueOf(reason).String() {
 			e = event
 			return true
@@ -330,9 +337,9 @@ func (w *ObjectEventWatcher) WaitFor(eventType EventType, reason interface{}) (e
 	return
 }
 
-func (w *ObjectEventWatcher) WaitNotFor(eventType EventType, reason interface{}) (e *k8sv1.Event) {
+func (w *ObjectEventWatcher) WaitNotFor(stopChan chan struct{}, eventType EventType, reason interface{}) (e *k8sv1.Event) {
 	w.dontFailOnMissingEvent = true
-	w.Watch(func(event *k8sv1.Event) bool {
+	w.Watch(stopChan, func(event *k8sv1.Event) bool {
 		if event.Type == string(eventType) && event.Reason == reflect.ValueOf(reason).String() {
 			e = event
 			Fail(fmt.Sprintf("Did not expect %s with reason %s", string(eventType), reflect.ValueOf(reason).String()), 1)
@@ -1497,35 +1504,42 @@ func waitForVMIStart(obj runtime.Object, seconds int, ignoreWarnings bool) (node
 	virtClient, err := kubecli.GetKubevirtClient()
 	ExpectWithOffset(1, err).ToNot(HaveOccurred())
 
-	// Fetch the VirtualMachineInstance, to make sure we have a resourceVersion as a starting point for the watch
-	vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &metav1.GetOptions{})
-	ExpectWithOffset(1, err).ToNot(HaveOccurred())
-
-	objectEventWatcher := NewObjectEventWatcher(vmi).SinceWatchedObjectResourceVersion().Timeout(time.Duration(seconds) * time.Second)
+	// In case we don't want errors, start an event watcher and  check in parallel if we receive some warnings
 	if ignoreWarnings != true {
+
+		// Fetch the VirtualMachineInstance, to make sure we have a resourceVersion as a starting point for the watch
+		// FIXME: This may start watching too late and we may miss some warnings
+		if vmi.ResourceVersion == "" {
+			vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &metav1.GetOptions{})
+			ExpectWithOffset(1, err).ToNot(HaveOccurred())
+		}
+
+		objectEventWatcher := NewObjectEventWatcher(vmi).SinceWatchedObjectResourceVersion().Timeout(time.Duration(seconds+2) * time.Second)
 		objectEventWatcher.FailOnWarnings()
+
+		stopChan := make(chan struct{})
+		defer close(stopChan)
+		go func() {
+			defer GinkgoRecover()
+			objectEventWatcher.WaitFor(stopChan, NormalEvent, v1.Started)
+		}()
 	}
-	objectEventWatcher.WaitFor(NormalEvent, v1.Started)
 
 	// FIXME the event order is wrong. First the document should be updated
-	EventuallyWithOffset(1, func() bool {
+	EventuallyWithOffset(1, func() v1.VirtualMachineInstancePhase {
 		vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &metav1.GetOptions{})
 		ExpectWithOffset(1, err).ToNot(HaveOccurred())
 
 		nodeName = vmi.Status.NodeName
-
-		// wait on both phase and graphics
-		if vmi.Status.Phase == v1.Running {
-			return true
-		}
-		return false
-	}, time.Duration(seconds)*time.Second, 1*time.Second).Should(Equal(true), "Timed out waiting for VMI to enter Running phase")
+		Expect(vmi.IsFinal()).To(BeFalse(), "VMI unexpectedly stopped. State: %s", vmi.Status.Phase)
+		return vmi.Status.Phase
+	}, time.Duration(seconds)*time.Second, 1*time.Second).Should(Equal(v1.Running), "Timed out waiting for VMI to enter Running phase")
 
 	return
 }
 
 func WaitForSuccessfulVMIStartIgnoreWarnings(vmi runtime.Object) string {
-	return waitForVMIStart(vmi, 30, true)
+	return waitForVMIStart(vmi, 90, true)
 }
 
 func WaitForSuccessfulVMIStartWithTimeout(vmi runtime.Object, seconds int) (nodeName string) {
@@ -2475,7 +2489,14 @@ func KubevirtFailHandler(message string, callerSkip ...int) {
 			var tailLines int64 = 15
 			var containerName = ""
 			if strings.HasPrefix(pod.Name, "virt-launcher") {
+				tailLines = 45
 				containerName = "compute"
+				data, err := yaml.Marshal(pod)
+				if err != nil {
+					log.DefaultLogger().Reason(err).Errorf("Failed to marshal pod %s", pod.Name)
+					continue
+				}
+				fmt.Println(string(data))
 			}
 			logsRaw, err := virtClient.CoreV1().Pods(ns).GetLogs(
 				pod.Name, &k8sv1.PodLogOptions{
@@ -2496,7 +2517,12 @@ func KubevirtFailHandler(message string, callerSkip ...int) {
 		}
 
 		for _, vmi := range vmis.Items {
-			fmt.Printf("%v\n", vmi)
+			data, err := yaml.Marshal(vmi)
+			if err != nil {
+				log.DefaultLogger().Reason(err).Errorf("Failed to marshal vmi %s", vmi.Name)
+				continue
+			}
+			fmt.Println(string(data))
 		}
 	}
 	Fail(message, callerSkip...)
