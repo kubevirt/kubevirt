@@ -47,7 +47,7 @@ Example:
 
 Try our quickstart at [kubevirt.io](http://kubevirt.io/get_kubevirt/).
 
-See our user documentation at [kubevirt.io/docs](http://kubevirt.io/docs/).
+See our user documentation at [kubevirt.io/docs](http://kubevirt.io/user-guide).
 
 # To start developing KubeVirt
 
