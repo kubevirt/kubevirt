@@ -117,14 +117,17 @@ func libvirtEventCallback(c cli.Connection, domain *api.Domain, libvirtEvent lib
 
 		spec, err := util.GetDomainSpecWithRuntimeInfo(status, d)
 		if err != nil {
-			if !domainerrors.IsNotFound(err) {
+			// NOTE: Getting domain metadata for a live-migrating VM isn't allowed
+			if !domainerrors.IsNotFound(err) && !domainerrors.IsInvalidOperation(err) {
 				log.Log.Reason(err).Error("Could not fetch the Domain specification.")
 				client.SendDomainEvent(newWatchEventError(err))
 				return
 			}
 		} else {
-			domain.Spec = *spec
 			domain.ObjectMeta.UID = spec.Metadata.KubeVirt.UID
+		}
+		if spec != nil {
+			domain.Spec = *spec
 		}
 
 		log.Log.Infof("kubevirt domain status: %v(%v):%v(%v)", domain.Status.Status, status, domain.Status.Reason, reason)
