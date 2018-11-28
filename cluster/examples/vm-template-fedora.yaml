@@ -35,7 +35,7 @@ objects:
             disks:
             - disk:
                 bus: virtio
-              name: registrydisk
+              name: containerdisk
               volumeName: registryvolume
             - disk:
                 bus: virtio
@@ -48,9 +48,9 @@ objects:
               memory: ${MEMORY}
         terminationGracePeriodSeconds: 0
         volumes:
-        - name: registryvolume
-          registryDisk:
-            image: registry:5000/kubevirt/fedora-cloud-registry-disk-demo:devel
+        - containerDisk:
+            image: registry:5000/kubevirt/fedora-cloud-container-disk-demo:devel
+          name: registryvolume
         - cloudInitNoCloud:
             userData: |-
               #cloud-config

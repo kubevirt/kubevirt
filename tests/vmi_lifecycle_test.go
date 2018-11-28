@@ -47,7 +47,7 @@ import (
 )
 
 func newCirrosVMI() *v1.VirtualMachineInstance {
-	return tests.NewRandomVMIWithEphemeralDiskAndUserdata(tests.RegistryDiskFor(tests.RegistryDiskCirros), "#!/bin/bash\necho 'hello'\n")
+	return tests.NewRandomVMIWithEphemeralDiskAndUserdata(tests.ContainerDiskFor(tests.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n")
 }
 
 func addNodeAffinityToVMI(vmi *v1.VirtualMachineInstance, nodeName string) {
@@ -79,7 +79,7 @@ var _ = Describe("VMIlifecycle", func() {
 
 	BeforeEach(func() {
 		tests.BeforeTestCleanup()
-		vmi = tests.NewRandomVMIWithEphemeralDisk(tests.RegistryDiskFor(tests.RegistryDiskAlpine))
+		vmi = tests.NewRandomVMIWithEphemeralDisk(tests.ContainerDiskFor(tests.ContainerDiskAlpine))
 	})
 
 	AfterEach(func() {
@@ -176,7 +176,7 @@ var _ = Describe("VMIlifecycle", func() {
 
 		Context("when name is longer than 63 characters", func() {
 			BeforeEach(func() {
-				vmi = tests.NewRandomVMIWithEphemeralDisk(tests.RegistryDiskFor(tests.RegistryDiskAlpine))
+				vmi = tests.NewRandomVMIWithEphemeralDisk(tests.ContainerDiskFor(tests.ContainerDiskAlpine))
 				vmi.Name = "testvmi" + rand.String(63)
 			})
 			It("should start it", func() {
@@ -217,9 +217,9 @@ var _ = Describe("VMIlifecycle", func() {
 		Context("with boot order", func() {
 			table.DescribeTable("should be able to boot from selected disk", func(alpineBootOrder uint, cirrosBootOrder uint, consoleText string, wait int) {
 				By("defining a VirtualMachineInstance with an Alpine disk")
-				vmi = tests.NewRandomVMIWithEphemeralDiskAndUserdataHighMemory(tests.RegistryDiskFor(tests.RegistryDiskAlpine), "#!/bin/sh\n\necho 'hi'\n")
+				vmi = tests.NewRandomVMIWithEphemeralDiskAndUserdataHighMemory(tests.ContainerDiskFor(tests.ContainerDiskAlpine), "#!/bin/sh\n\necho 'hi'\n")
 				By("adding a Cirros Disk")
-				tests.AddEphemeralDisk(vmi, "disk2", "virtio", tests.RegistryDiskFor(tests.RegistryDiskCirros))
+				tests.AddEphemeralDisk(vmi, "disk2", "virtio", tests.ContainerDiskFor(tests.ContainerDiskCirros))
 
 				By("setting boot order")
 				vmi = tests.AddBootOrderToDisk(vmi, "disk0", &alpineBootOrder)
@@ -249,7 +249,7 @@ var _ = Describe("VMIlifecycle", func() {
 			Context("without k8s secret", func() {
 				It("should retry starting the VirtualMachineInstance", func() {
 					userData := fmt.Sprintf("#!/bin/sh\n\necho 'hi'\n")
-					vmi = tests.NewRandomVMIWithEphemeralDiskAndUserdata(tests.RegistryDiskFor(tests.RegistryDiskCirros), userData)
+					vmi = tests.NewRandomVMIWithEphemeralDiskAndUserdata(tests.ContainerDiskFor(tests.ContainerDiskCirros), userData)
 
 					for _, volume := range vmi.Spec.Volumes {
 						if volume.CloudInitNoCloud != nil {
@@ -280,7 +280,7 @@ var _ = Describe("VMIlifecycle", func() {
 				It("should log warning and proceed once the secret is there", func() {
 					userData := fmt.Sprintf("#!/bin/sh\n\necho 'hi'\n")
 					userData64 := ""
-					vmi = tests.NewRandomVMIWithEphemeralDiskAndUserdata(tests.RegistryDiskFor(tests.RegistryDiskCirros), userData)
+					vmi = tests.NewRandomVMIWithEphemeralDiskAndUserdata(tests.ContainerDiskFor(tests.ContainerDiskCirros), userData)
 
 					for _, volume := range vmi.Spec.Volumes {
 						if volume.CloudInitNoCloud != nil {
@@ -424,7 +424,7 @@ var _ = Describe("VMIlifecycle", func() {
 			BeforeEach(func() {
 
 				// Schedule a vmi and make sure that virt-handler gets evicted from the node where the vmi was started
-				vmi = tests.NewRandomVMIWithEphemeralDiskAndUserdata(tests.RegistryDiskFor(tests.RegistryDiskCirros), "echo hi!")
+				vmi = tests.NewRandomVMIWithEphemeralDiskAndUserdata(tests.ContainerDiskFor(tests.ContainerDiskCirros), "echo hi!")
 				vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Create(vmi)
 				Expect(err).ToNot(HaveOccurred(), "Should create VMI successfully")
 				nodeName = tests.WaitForSuccessfulVMIStart(vmi)
@@ -532,7 +532,7 @@ var _ = Describe("VMIlifecycle", func() {
 			})
 
 			It("the vmi with tolerations should be scheduled", func() {
-				vmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(tests.RegistryDiskFor(tests.RegistryDiskCirros), "#!/bin/bash\necho 'hello'\n")
+				vmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(tests.ContainerDiskFor(tests.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n")
 				vmi.Spec.Tolerations = []k8sv1.Toleration{{Key: "test", Value: "123"}}
 				addNodeAffinityToVMI(vmi, nodes.Items[0].Name)
 				_, err = virtClient.VirtualMachineInstance(vmi.Namespace).Create(vmi)
@@ -541,7 +541,7 @@ var _ = Describe("VMIlifecycle", func() {
 			})
 
 			It("the vmi without tolerations should not be scheduled", func() {
-				vmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(tests.RegistryDiskFor(tests.RegistryDiskCirros), "#!/bin/bash\necho 'hello'\n")
+				vmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(tests.ContainerDiskFor(tests.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n")
 				addNodeAffinityToVMI(vmi, nodes.Items[0].Name)
 				_, err = virtClient.VirtualMachineInstance(vmi.Namespace).Create(vmi)
 				Expect(err).ToNot(HaveOccurred(), "Should create VMI")
@@ -568,7 +568,7 @@ var _ = Describe("VMIlifecycle", func() {
 			})
 
 			It("the vmi with node affinity and no conflicts should be scheduled", func() {
-				vmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(tests.RegistryDiskFor(tests.RegistryDiskCirros), "#!/bin/bash\necho 'hello'\n")
+				vmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(tests.ContainerDiskFor(tests.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n")
 				addNodeAffinityToVMI(vmi, nodes.Items[0].Name)
 				_, err = virtClient.VirtualMachineInstance(vmi.Namespace).Create(vmi)
 				Expect(err).ToNot(HaveOccurred(), "Should create VMI")
@@ -580,7 +580,7 @@ var _ = Describe("VMIlifecycle", func() {
 			})
 
 			It("the vmi with node affinity and anti-pod affinity should not be scheduled", func() {
-				vmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(tests.RegistryDiskFor(tests.RegistryDiskCirros), "#!/bin/bash\necho 'hello'\n")
+				vmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(tests.ContainerDiskFor(tests.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n")
 				addNodeAffinityToVMI(vmi, nodes.Items[0].Name)
 				_, err = virtClient.VirtualMachineInstance(vmi.Namespace).Create(vmi)
 				Expect(err).ToNot(HaveOccurred(), "Should create VMI")
@@ -589,7 +589,7 @@ var _ = Describe("VMIlifecycle", func() {
 				Expect(err).ToNot(HaveOccurred(), "Should get VMI")
 				Expect(curVMI.Status.NodeName).To(Equal(nodes.Items[0].Name), "VMI should run on the same node")
 
-				vmiB := tests.NewRandomVMIWithEphemeralDiskAndUserdata(tests.RegistryDiskFor(tests.RegistryDiskCirros), "#!/bin/bash\necho 'hello'\n")
+				vmiB := tests.NewRandomVMIWithEphemeralDiskAndUserdata(tests.ContainerDiskFor(tests.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n")
 				addNodeAffinityToVMI(vmiB, nodes.Items[0].Name)
 
 				vmiB.Spec.Affinity.PodAntiAffinity = &k8sv1.PodAntiAffinity{

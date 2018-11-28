@@ -82,7 +82,7 @@ var _ = Describe("VirtualMachineInstanceReplicaSet", func() {
 
 	newReplicaSet := func() *v1.VirtualMachineInstanceReplicaSet {
 		By("Create a new VirtualMachineInstance replica set")
-		template := tests.NewRandomVMIWithEphemeralDisk(tests.RegistryDiskFor(tests.RegistryDiskCirros))
+		template := tests.NewRandomVMIWithEphemeralDisk(tests.ContainerDiskFor(tests.ContainerDiskCirros))
 		newRS := tests.NewRandomReplicaSetFromVMI(template, int32(0))
 		newRS, err = virtClient.ReplicaSet(tests.NamespaceTestDefault).Create(newRS)
 		Expect(err).ToNot(HaveOccurred())

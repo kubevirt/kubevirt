@@ -17,7 +17,7 @@
  *
  */
 
-package registrydisk
+package containerdisk
 
 import (
 	"io/ioutil"
@@ -31,8 +31,8 @@ import (
 	"kubevirt.io/kubevirt/pkg/api/v1"
 )
 
-var _ = Describe("RegistryDisk", func() {
-	tmpDir, _ := ioutil.TempDir("", "registrydisktest")
+var _ = Describe("ContainerDisk", func() {
+	tmpDir, _ := ioutil.TempDir("", "containerdisktest")
 	owner, err := user.Current()
 	if err != nil {
 		panic(err)
@@ -40,7 +40,7 @@ var _ = Describe("RegistryDisk", func() {
 
 	VerifyDiskType := func(diskExtension string) {
 		vmi := v1.NewMinimalVMI("fake-vmi")
-		appendRegistryDisk(vmi, "r0")
+		appendContainerDisk(vmi, "r0")
 
 		// create a fake disk file
 		volumeMountDir := generateVMIBaseDir(vmi)
@@ -67,7 +67,7 @@ var _ = Describe("RegistryDisk", func() {
 		os.RemoveAll(tmpDir)
 	})
 
-	Describe("registry-disk", func() {
+	Describe("container-disk", func() {
 		Context("verify helper functions", func() {
 			table.DescribeTable("by verifying mapping of ",
 				func(diskType string) {
@@ -79,15 +79,15 @@ var _ = Describe("RegistryDisk", func() {
 			It("by verifying error when no disk is present", func() {
 
 				vmi := v1.NewMinimalVMI("fake-vmi")
-				appendRegistryDisk(vmi, "r0")
+				appendContainerDisk(vmi, "r0")
 
 				err := SetFilePermissions(vmi)
 				Expect(err).To(HaveOccurred())
 			})
 			It("by verifying container generation", func() {
 				vmi := v1.NewMinimalVMI("fake-vmi")
-				appendRegistryDisk(vmi, "r1")
-				appendRegistryDisk(vmi, "r0")
+				appendContainerDisk(vmi, "r1")
+				appendContainerDisk(vmi, "r0")
 				containers := GenerateContainers(vmi, "libvirt-runtime", "/var/run/libvirt")
 				Expect(err).ToNot(HaveOccurred())
 
@@ -97,7 +97,7 @@ var _ = Describe("RegistryDisk", func() {
 	})
 })
 
-func appendRegistryDisk(vmi *v1.VirtualMachineInstance, diskName string) {
+func appendContainerDisk(vmi *v1.VirtualMachineInstance, diskName string) {
 	vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
 		Name: diskName,
 		DiskDevice: v1.DiskDevice{
@@ -107,7 +107,7 @@ func appendRegistryDisk(vmi *v1.VirtualMachineInstance, diskName string) {
 	vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
 		Name: diskName,
 		VolumeSource: v1.VolumeSource{
-			RegistryDisk: &v1.RegistryDiskSource{
+			ContainerDisk: &v1.ContainerDiskSource{
 				Image: "someimage:v1.2.3.4",
 			},
 		},

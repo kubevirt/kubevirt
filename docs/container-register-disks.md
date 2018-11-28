@@ -62,7 +62,7 @@ device consumable by libvirt.
 Example:
 ```
 cat << END > Dockerfile
-FROM kubevirt/registry-disk-v1alpha
+FROM kubevirt/container-disk-v1alpha
 ADD fedora25.qcow2 /disk
 END
 docker build -t vmdisks/fedora25:latest .
@@ -79,7 +79,7 @@ spec:
   domain:
     devices:
       disks:
-      - type: RegistryDisk:v1alpha
+      - type: ContainerDisk:v1alpha
         - source:
           name: vmdisks/fedora25:latest
         - target:
@@ -89,18 +89,18 @@ spec:
 **KubeVirt Runtime Implementation**
 
 When virt-controller sees a VMI object with a disk type of
-**RegistryDisk:v1alpha**, virt-controller places the image wrapper container
+**ContainerDisk:v1alpha**, virt-controller places the image wrapper container
 in the virt-launcher pod along with the container that monitors the VMI process.
 
 When the virt-launcher pod starts, the wrapper container copies the user's VMI
 image as file on a shared host directory.
 
 When virt-handler sees a VMI is placed on the local node with the
-**RegistryDisk:v1alpha** disk type defined, virt-handler injects the
+**ContainerDisk:v1alpha** disk type defined, virt-handler injects the
 necessary configuration into the domain xml required to add the disk backed by
 a local file.
 
-The **v1** part of the RegistryDisk disk type represents the standard
+The **v1** part of the ContainerDisk disk type represents the standard
 used during the virt-handler disk conversion process. As we gain more
 experience with this feature, we may want to adopt a new standard for how VMI
 images are wrapped by a container while maintaining backwards compatibility.

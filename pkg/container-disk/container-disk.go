@@ -17,7 +17,7 @@
  *
  */
 
-package registrydisk
+package containerdisk
 
 import (
 	"fmt"
@@ -33,9 +33,9 @@ import (
 
 const filePrefix = "disk-image"
 
-var registryDiskOwner = "qemu"
+var containerDiskOwner = "qemu"
 
-var mountBaseDir = "/var/run/kubevirt-ephemeral-disks/registry-disk-data"
+var mountBaseDir = "/var/run/kubevirt-ephemeral-disks/container-disk-data"
 
 func generateVMIBaseDir(vmi *v1.VirtualMachineInstance) string {
 	domain := precond.MustNotBeEmpty(vmi.GetObjectMeta().GetName())
@@ -54,9 +54,10 @@ func SetLocalDirectory(dir string) error {
 
 // The unit test suite uses this function
 func SetLocalDataOwner(user string) {
-	registryDiskOwner = user
+	containerDiskOwner = user
 }
 
+// GetFilePath returns  (path to disk image, image type, and error)
 func GetFilePath(vmi *v1.VirtualMachineInstance, volumeName string) (string, string, error) {
 
 	volumeMountDir := generateVolumeMountDir(vmi, volumeName)
@@ -77,13 +78,13 @@ func GetFilePath(vmi *v1.VirtualMachineInstance, volumeName string) (string, str
 
 func SetFilePermissions(vmi *v1.VirtualMachineInstance) error {
 	for _, volume := range vmi.Spec.Volumes {
-		if volume.RegistryDisk != nil {
+		if volume.ContainerDisk != nil {
 			diskPath, _, err := GetFilePath(vmi, volume.Name)
 			if err != nil {
 				return err
 			}
 
-			err = diskutils.SetFileOwnership(registryDiskOwner, diskPath)
+			err = diskutils.SetFileOwnership(containerDiskOwner, diskPath)
 			if err != nil {
 				return err
 			}
@@ -106,11 +107,11 @@ func GenerateContainers(vmi *v1.VirtualMachineInstance, podVolumeName string, po
 
 	// Make VirtualMachineInstance Image Wrapper Containers
 	for _, volume := range vmi.Spec.Volumes {
-		if volume.RegistryDisk != nil {
+		if volume.ContainerDisk != nil {
 
 			volumeMountDir := generateVolumeMountDir(vmi, volume.Name)
 			diskContainerName := fmt.Sprintf("volume%s", volume.Name)
-			diskContainerImage := volume.RegistryDisk.Image
+			diskContainerImage := volume.ContainerDisk.Image
 			resources := kubev1.ResourceRequirements{}
 			if vmi.IsCPUDedicated() {
 				resources.Limits = make(kubev1.ResourceList)
@@ -128,6 +129,10 @@ func GenerateContainers(vmi *v1.VirtualMachineInstance, podVolumeName string, po
 					{
 						Name:  "COPY_PATH",
 						Value: volumeMountDir + "/" + filePrefix,
+					},
+					{
+						Name:  "IMAGE_PATH",
+						Value: volume.ContainerDisk.Path,
 					},
 				},
 				VolumeMounts: []kubev1.VolumeMount{

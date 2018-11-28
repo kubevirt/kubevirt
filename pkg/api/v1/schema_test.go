@@ -177,8 +177,9 @@ var exampleJSON = `{
     "volumes": [
       {
         "name": "volume0",
-        "registryDisk": {
-          "image": "test/image"
+        "containerDisk": {
+          "image": "test/image",
+          "path": "/disk.img"
         }
       },
       {
@@ -276,8 +277,9 @@ var _ = Describe("Schema", func() {
 			{
 				Name: "volume0",
 				VolumeSource: VolumeSource{
-					RegistryDisk: &RegistryDiskSource{
+					ContainerDisk: &ContainerDiskSource{
 						Image: "test/image",
+						Path:  "/disk.img",
 					},
 				},
 			},

@@ -62,7 +62,7 @@ var _ = Describe("Configurations", func() {
 			var vmi *v1.VirtualMachineInstance
 
 			BeforeEach(func() {
-				vmi = tests.NewRandomVMIWithEphemeralDisk(tests.RegistryDiskFor(tests.RegistryDiskAlpine))
+				vmi = tests.NewRandomVMIWithEphemeralDisk(tests.ContainerDiskFor(tests.ContainerDiskAlpine))
 			})
 			It("should report 3 cpu cores under guest OS", func() {
 				vmi.Spec.Domain.CPU = &v1.CPU{
@@ -193,7 +193,7 @@ var _ = Describe("Configurations", func() {
 
 		Context("with diverging guest memory from requested memory", func() {
 			It("should show the requested guest memory inside the VMI", func() {
-				vmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(tests.RegistryDiskFor(tests.RegistryDiskCirros), "#!/bin/bash\necho 'hello'\n")
+				vmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(tests.ContainerDiskFor(tests.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n")
 				guestMemory := resource.MustParse("64M")
 				vmi.Spec.Domain.Resources.Requests[kubev1.ResourceMemory] = resource.MustParse("64M")
 				guestMemory.Add(*vmi.Spec.Domain.Resources.Requests.Memory())
@@ -244,7 +244,7 @@ var _ = Describe("Configurations", func() {
 				By("Starting a VirtualMachineInstance")
 				// Retrying up to 5 sec, then if you still succeeds in VMI creation, things must be going wrong.
 				Eventually(func() error {
-					vmi = tests.NewRandomVMIWithEphemeralDisk(tests.RegistryDiskFor(tests.RegistryDiskAlpine))
+					vmi = tests.NewRandomVMIWithEphemeralDisk(tests.ContainerDiskFor(tests.ContainerDiskAlpine))
 					vmi.Spec.Domain.Resources = v1.ResourceRequirements{
 						Requests: kubev1.ResourceList{
 							kubev1.ResourceMemory: resource.MustParse("64M"),
@@ -301,7 +301,7 @@ var _ = Describe("Configurations", func() {
 			}
 
 			BeforeEach(func() {
-				hugepagesVmi = tests.NewRandomVMIWithEphemeralDiskAndUserdata(tests.RegistryDiskFor(tests.RegistryDiskCirros), "#!/bin/bash\necho 'hello'\n")
+				hugepagesVmi = tests.NewRandomVMIWithEphemeralDiskAndUserdata(tests.ContainerDiskFor(tests.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n")
 			})
 
 			table.DescribeTable("should consume hugepages ", func(hugepageSize string, memory string) {
@@ -390,7 +390,7 @@ var _ = Describe("Configurations", func() {
 			var rngVmi *v1.VirtualMachineInstance
 
 			BeforeEach(func() {
-				rngVmi = tests.NewRandomVMIWithEphemeralDisk(tests.RegistryDiskFor(tests.RegistryDiskAlpine))
+				rngVmi = tests.NewRandomVMIWithEphemeralDisk(tests.ContainerDiskFor(tests.ContainerDiskAlpine))
 			})
 
 			It("should have the virtio rng device present when present", func() {
@@ -439,7 +439,7 @@ var _ = Describe("Configurations", func() {
 
 			It("should have attached a guest agent channel by default", func() {
 
-				agentVMI = tests.NewRandomVMIWithEphemeralDisk(tests.RegistryDiskFor(tests.RegistryDiskAlpine))
+				agentVMI = tests.NewRandomVMIWithEphemeralDisk(tests.ContainerDiskFor(tests.ContainerDiskAlpine))
 				By("Starting a VirtualMachineInstance")
 				agentVMI, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(agentVMI)
 				Expect(err).ToNot(HaveOccurred(), "Should create VMI successfully")
@@ -462,7 +462,7 @@ var _ = Describe("Configurations", func() {
 			It("VMI condition should signal agent presence", func() {
 
 				// TODO: actually review this once the VM image is present
-				agentVMI := tests.NewRandomVMIWithEphemeralDiskAndUserdata(tests.RegistryDiskFor(tests.RegistryDiskFedora), fmt.Sprintf(`#!/bin/bash
+				agentVMI := tests.NewRandomVMIWithEphemeralDiskAndUserdata(tests.ContainerDiskFor(tests.ContainerDiskFedora), fmt.Sprintf(`#!/bin/bash
                 echo "fedora" |passwd fedora --stdin
                 mkdir -p /usr/local/bin
                 curl %s > /usr/local/bin/qemu-ga
@@ -544,7 +544,7 @@ var _ = Describe("Configurations", func() {
 			Expect(len(modelName)).To(Equal(2))
 			cpuModelName = modelName[1]
 
-			cpuVmi = tests.NewRandomVMIWithEphemeralDiskAndUserdata(tests.RegistryDiskFor(tests.RegistryDiskCirros), "#!/bin/bash\necho 'hello'\n")
+			cpuVmi = tests.NewRandomVMIWithEphemeralDiskAndUserdata(tests.ContainerDiskFor(tests.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n")
 			cpuVmi.Spec.Affinity = &kubev1.Affinity{
 				NodeAffinity: &kubev1.NodeAffinity{
 					RequiredDuringSchedulingIgnoredDuringExecution: &kubev1.NodeSelector{
@@ -650,13 +650,13 @@ var _ = Describe("Configurations", func() {
 			vmi.Spec.Domain.Resources.Requests[kubev1.ResourceMemory] = resource.MustParse("64M")
 
 			By("adding disks to a VMI")
-			tests.AddEphemeralDisk(vmi, "ephemeral-disk1", "virtio", tests.RegistryDiskFor(tests.RegistryDiskCirros))
+			tests.AddEphemeralDisk(vmi, "ephemeral-disk1", "virtio", tests.ContainerDiskFor(tests.ContainerDiskCirros))
 			vmi.Spec.Domain.Devices.Disks[0].Cache = v1.CacheNone
 
-			tests.AddEphemeralDisk(vmi, "ephemeral-disk2", "virtio", tests.RegistryDiskFor(tests.RegistryDiskCirros))
+			tests.AddEphemeralDisk(vmi, "ephemeral-disk2", "virtio", tests.ContainerDiskFor(tests.ContainerDiskCirros))
 			vmi.Spec.Domain.Devices.Disks[1].Cache = v1.CacheWriteThrough
 
-			tests.AddEphemeralDisk(vmi, "ephemeral-disk3", "virtio", tests.RegistryDiskFor(tests.RegistryDiskCirros))
+			tests.AddEphemeralDisk(vmi, "ephemeral-disk3", "virtio", tests.ContainerDiskFor(tests.ContainerDiskCirros))
 			tests.AddUserData(vmi, "cloud-init", "#!/bin/bash\necho 'hello'\n")
 			tests.AddPVCDisk(vmi, "hostpath-pvc", "virtio", tests.DiskAlpineHostPath)
 			tests.AddPVCDisk(vmi, "block-pvc", "virtio", blockPVName)
@@ -713,7 +713,7 @@ var _ = Describe("Configurations", func() {
 		BeforeEach(func() {
 			// ordering:
 			// use a small disk for the other ones
-			containerImage := tests.RegistryDiskFor(tests.RegistryDiskCirros)
+			containerImage := tests.ContainerDiskFor(tests.ContainerDiskCirros)
 			// virtio - added by NewRandomVMIWithEphemeralDisk
 			vmi = tests.NewRandomVMIWithEphemeralDiskAndUserdata(containerImage, "echo hi!\n")
 			// sata
@@ -809,7 +809,7 @@ var _ = Describe("Configurations", func() {
 				Expect(cpuManagerEnabled).To(BeTrue())
 			})
 			It("should be scheduled on a node with running cpu manager", func() {
-				cpuVmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(tests.RegistryDiskFor(tests.RegistryDiskCirros), "#!/bin/bash\necho 'hello'\n")
+				cpuVmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(tests.ContainerDiskFor(tests.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n")
 				cpuVmi.Spec.Domain.CPU = &v1.CPU{
 					Cores: 2,
 					DedicatedCPUPlacement: true,
@@ -869,7 +869,7 @@ var _ = Describe("Configurations", func() {
 			})
 
 			It("should configure correct number of vcpus with requests.cpus", func() {
-				cpuVmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(tests.RegistryDiskFor(tests.RegistryDiskCirros), "#!/bin/bash\necho 'hello'\n")
+				cpuVmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(tests.ContainerDiskFor(tests.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n")
 				cpuVmi.Spec.Domain.CPU = &v1.CPU{
 					DedicatedCPUPlacement: true,
 				}
@@ -900,7 +900,7 @@ var _ = Describe("Configurations", func() {
 			})
 
 			It("should fail the vmi creation if the requested resources are inconsistent", func() {
-				cpuVmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(tests.RegistryDiskFor(tests.RegistryDiskCirros), "#!/bin/bash\necho 'hello'\n")
+				cpuVmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(tests.ContainerDiskFor(tests.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n")
 				cpuVmi.Spec.Domain.CPU = &v1.CPU{
 					Cores: 2,
 					DedicatedCPUPlacement: true,
@@ -916,7 +916,7 @@ var _ = Describe("Configurations", func() {
 				Expect(err).To(HaveOccurred())
 			})
 			It("should fail the vmi creation if cpu is not an integer", func() {
-				cpuVmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(tests.RegistryDiskFor(tests.RegistryDiskCirros), "#!/bin/bash\necho 'hello'\n")
+				cpuVmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(tests.ContainerDiskFor(tests.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n")
 				cpuVmi.Spec.Domain.CPU = &v1.CPU{
 					DedicatedCPUPlacement: true,
 				}
@@ -931,7 +931,7 @@ var _ = Describe("Configurations", func() {
 				Expect(err).To(HaveOccurred())
 			})
 			It("should fail the vmi creation if Guaranteed QOS cannot be set", func() {
-				cpuVmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(tests.RegistryDiskFor(tests.RegistryDiskCirros), "#!/bin/bash\necho 'hello'\n")
+				cpuVmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(tests.ContainerDiskFor(tests.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n")
 				cpuVmi.Spec.Domain.CPU = &v1.CPU{
 					DedicatedCPUPlacement: true,
 				}
@@ -949,8 +949,8 @@ var _ = Describe("Configurations", func() {
 				Expect(err).To(HaveOccurred())
 			})
 			It("should start a vm with no cpu pinning after a vm with cpu pinning on same node", func() {
-				Vmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(tests.RegistryDiskFor(tests.RegistryDiskCirros), "#!/bin/bash\necho 'hello'\n")
-				cpuVmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(tests.RegistryDiskFor(tests.RegistryDiskCirros), "#!/bin/bash\necho 'hello'\n")
+				Vmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(tests.ContainerDiskFor(tests.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n")
+				cpuVmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(tests.ContainerDiskFor(tests.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n")
 				cpuVmi.Spec.Domain.CPU = &v1.CPU{
 					DedicatedCPUPlacement: true,
 				}

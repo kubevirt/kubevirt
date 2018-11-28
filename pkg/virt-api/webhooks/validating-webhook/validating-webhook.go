@@ -238,7 +238,7 @@ func validateVolumes(field *k8sfield.Path, volumes []v1.Volume) []metav1.StatusC
 		if volume.CloudInitNoCloud != nil {
 			volumeSourceSetCount++
 		}
-		if volume.RegistryDisk != nil {
+		if volume.ContainerDisk != nil {
 			volumeSourceSetCount++
 		}
 		if volume.Ephemeral != nil {

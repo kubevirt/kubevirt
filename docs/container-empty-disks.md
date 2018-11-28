@@ -48,7 +48,7 @@ spec:
     devices:
       disks:
       - name: disk1
-        volumeName: registryDisk
+        volumeName: containerDisk
         disk:
           dev: vda
       - name: disk2
@@ -56,9 +56,9 @@ spec:
         disk:
           dev: vdb
   volumes:
-    - name: registryDisk
-      registryDisk:
-        image: kubevirt/cirros-registry-disk-demo:devel
+    - name: containerDisk
+      containerDisk:
+        image: kubevirt/cirros-container-disk-demo:devel
     - name: emptyDisk
       emptyDisk:
         capacity: 20G

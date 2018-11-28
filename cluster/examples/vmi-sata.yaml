@@ -11,7 +11,7 @@ spec:
       disks:
       - disk:
           bus: sata
-        name: registrydisk
+        name: containerdisk
         volumeName: registryvolume
     machine:
       type: ""
@@ -20,7 +20,7 @@ spec:
         memory: 64M
   terminationGracePeriodSeconds: 0
   volumes:
-  - name: registryvolume
-    registryDisk:
-      image: registry:5000/kubevirt/cirros-registry-disk-demo:devel
+  - containerDisk:
+      image: registry:5000/kubevirt/cirros-container-disk-demo:devel
+    name: registryvolume
 status: {}

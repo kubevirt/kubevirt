@@ -20,7 +20,7 @@ import (
 
 func newLabeledVM(label string, virtClient kubecli.KubevirtClient) (vmi *v1.VirtualMachineInstance) {
 	ports := []v1.Port{{Name: "http", Port: 80}}
-	vmi = tests.NewRandomVMIWithBridgeInterfaceEphemeralDiskAndUserdata(tests.RegistryDiskFor(tests.RegistryDiskCirros), "#!/bin/bash\necho 'hello'\n", ports)
+	vmi = tests.NewRandomVMIWithBridgeInterfaceEphemeralDiskAndUserdata(tests.ContainerDiskFor(tests.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n", ports)
 	vmi.Labels = map[string]string{"expose": label}
 	vmi, err := virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
 	Expect(err).ToNot(HaveOccurred())
@@ -254,7 +254,7 @@ var _ = Describe("Expose", func() {
 		tests.BeforeAll(func() {
 			By("Creating a VMRS object with 2 replicas")
 			const numberOfVMs = 2
-			template := tests.NewRandomVMIWithEphemeralDiskAndUserdata(tests.RegistryDiskFor(tests.RegistryDiskCirros), "#!/bin/bash\necho 'hello'\n")
+			template := tests.NewRandomVMIWithEphemeralDiskAndUserdata(tests.ContainerDiskFor(tests.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n")
 			vmrs = tests.NewRandomReplicaSetFromVMI(template, int32(numberOfVMs))
 			vmrs.Labels = map[string]string{"expose": "vmirs"}
 
@@ -321,7 +321,7 @@ var _ = Describe("Expose", func() {
 
 		tests.BeforeAll(func() {
 			By("Creating an VM object")
-			template := tests.NewRandomVMIWithEphemeralDiskAndUserdata(tests.RegistryDiskFor(tests.RegistryDiskCirros), "#!/bin/bash\necho 'hello'\n")
+			template := tests.NewRandomVMIWithEphemeralDiskAndUserdata(tests.ContainerDiskFor(tests.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n")
 			template.Labels = map[string]string{"expose": "vm"}
 			vm = NewRandomVirtualMachine(template, false)
 

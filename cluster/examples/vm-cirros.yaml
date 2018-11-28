@@ -18,7 +18,7 @@ spec:
           disks:
           - disk:
               bus: virtio
-            name: registrydisk
+            name: containerdisk
             volumeName: registryvolume
           - disk:
               bus: virtio
@@ -31,9 +31,9 @@ spec:
             memory: 64M
       terminationGracePeriodSeconds: 0
       volumes:
-      - name: registryvolume
-        registryDisk:
-          image: registry:5000/kubevirt/cirros-registry-disk-demo:devel
+      - containerDisk:
+          image: registry:5000/kubevirt/cirros-container-disk-demo:devel
+        name: registryvolume
       - cloudInitNoCloud:
           userData: |
             #!/bin/sh

@@ -56,7 +56,7 @@ var _ = Describe("VirtualMachine", func() {
 	Context("An invalid VirtualMachine given", func() {
 
 		It("should be rejected on POST", func() {
-			vmiImage := tests.RegistryDiskFor(tests.RegistryDiskCirros)
+			vmiImage := tests.ContainerDiskFor(tests.ContainerDiskCirros)
 			template := tests.NewRandomVMIWithEphemeralDiskAndUserdata(vmiImage, "echo Hi\n")
 			newVMI := NewRandomVirtualMachine(template, false)
 			newVMI.TypeMeta = v12.TypeMeta{
@@ -79,7 +79,7 @@ var _ = Describe("VirtualMachine", func() {
 
 		})
 		It("should reject POST if validation webhoook deems the spec is invalid", func() {
-			vmiImage := tests.RegistryDiskFor(tests.RegistryDiskCirros)
+			vmiImage := tests.ContainerDiskFor(tests.ContainerDiskCirros)
 			template := tests.NewRandomVMIWithEphemeralDiskAndUserdata(vmiImage, "echo Hi\n")
 			// Add a disk that doesn't map to a volume.
 			// This should get rejected which tells us the webhook validator is working.
@@ -113,7 +113,7 @@ var _ = Describe("VirtualMachine", func() {
 	Context("A valid VirtualMachine given", func() {
 
 		newVirtualMachine := func(running bool) *v1.VirtualMachine {
-			vmiImage := tests.RegistryDiskFor(tests.RegistryDiskCirros)
+			vmiImage := tests.ContainerDiskFor(tests.ContainerDiskCirros)
 			template := tests.NewRandomVMIWithEphemeralDiskAndUserdata(vmiImage, "echo Hi\n")
 
 			var newVMI *v1.VirtualMachine

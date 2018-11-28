@@ -42,9 +42,9 @@ spec:
   domain:
     devices:
       disks:
-      - type: RegistryDisk:v1alpha
+      - type: ContainerDisk:v1alpha
         source:
-          name: kubevirt/cirros-registry-disk-demo:devel
+          name: kubevirt/cirros-container-disk-demo:devel
         target:
           dev: vda
       - type: file
@@ -100,9 +100,9 @@ spec:
   domain:
     devices:
       disks:
-      - type: RegistryDisk:v1alpha
+      - type: ContainerDisk:v1alpha
         source:
-          name: kubevirt/cirros-registry-disk-demo:devel
+          name: kubevirt/cirros-container-disk-demo:devel
         target:
           dev: vda
       - type: file

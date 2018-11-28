@@ -55,16 +55,16 @@ var _ = Describe("Networkpolicy", func() {
 		tests.SkipIfNotUseNetworkPolicy(virtClient)
 		tests.BeforeTestCleanup()
 		// Create three vmis, vmia and vmib are in same namespace, vmic is in different namespace
-		vmia = tests.NewRandomVMIWithEphemeralDiskAndUserdata(tests.RegistryDiskFor(tests.RegistryDiskCirros), "#!/bin/bash\necho 'hello'\n")
+		vmia = tests.NewRandomVMIWithEphemeralDiskAndUserdata(tests.ContainerDiskFor(tests.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n")
 		vmia.Labels = map[string]string{"type": "test"}
 		vmia, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmia)
 		Expect(err).ToNot(HaveOccurred())
 
-		vmib = tests.NewRandomVMIWithEphemeralDiskAndUserdata(tests.RegistryDiskFor(tests.RegistryDiskCirros), "#!/bin/bash\necho 'hello'\n")
+		vmib = tests.NewRandomVMIWithEphemeralDiskAndUserdata(tests.ContainerDiskFor(tests.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n")
 		_, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmib)
 		Expect(err).ToNot(HaveOccurred())
 
-		vmic = tests.NewRandomVMIWithEphemeralDiskAndUserdata(tests.RegistryDiskFor(tests.RegistryDiskCirros), "#!/bin/bash\necho 'hello'\n")
+		vmic = tests.NewRandomVMIWithEphemeralDiskAndUserdata(tests.ContainerDiskFor(tests.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n")
 		vmic.Namespace = tests.NamespaceTestAlternative
 		_, err = virtClient.VirtualMachineInstance(tests.NamespaceTestAlternative).Create(vmic)
 		Expect(err).ToNot(HaveOccurred())
