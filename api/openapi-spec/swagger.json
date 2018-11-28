@@ -3776,7 +3776,7 @@
    },
    "/apis/subresources.kubevirt.io/v1alpha2/namespaces/{namespace}/virtualmachines/{name}/restart": {
     "put": {
-     "summary": "Restart a VM",
+     "summary": "Restart a VirtualMachine object.",
      "operationId": "restart",
      "parameters": [
       {
@@ -3798,6 +3798,12 @@
      ],
      "responses": {
       "200": {
+       "description": "OK"
+      },
+      "404": {
+       "description": "Not Found"
+      },
+      "default": {
        "description": "OK"
       }
      }
