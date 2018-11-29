@@ -153,7 +153,7 @@ var _ = Describe("Multus Networking", func() {
 
 		It("should create a virtual machine with one interface with network definition from different namespace", func() {
 			By("checking virtual machine instance can ping 10.1.1.1 using ptp cni plugin")
-			detachedVMI = tests.NewRandomVMIWithEphemeralDiskAndUserdata(tests.RegistryDiskFor(tests.RegistryDiskCirros), "#!/bin/bash\necho 'hello'\n")
+			detachedVMI = tests.NewRandomVMIWithEphemeralDiskAndUserdata(tests.ContainerDiskFor(tests.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n")
 			detachedVMI.Spec.Domain.Devices.Interfaces = []v1.Interface{{Name: "ptp", InterfaceBindingMethod: v1.InterfaceBindingMethod{Bridge: &v1.InterfaceBridge{}}}}
 			detachedVMI.Spec.Networks = []v1.Network{
 				{Name: "ptp", NetworkSource: v1.NetworkSource{
@@ -281,7 +281,7 @@ var _ = Describe("Multus Networking", func() {
 		It("should create a virtual machine with two sriov interfaces referring the same resource", func() {
 			// since neither cirros nor alpine has drivers for Intel NICs, we are left with fedora
 			userData := "#cloud-config\npassword: fedora\nchpasswd: { expire: False }\n"
-			vmiOne = tests.NewRandomVMIWithEphemeralDiskAndUserdata(tests.RegistryDiskFor(tests.RegistryDiskFedora), userData)
+			vmiOne = tests.NewRandomVMIWithEphemeralDiskAndUserdata(tests.ContainerDiskFor(tests.ContainerDiskFedora), userData)
 			tests.AddExplicitPodNetworkInterface(vmiOne)
 
 			for _, name := range []string{"sriov", "sriov2"} {
