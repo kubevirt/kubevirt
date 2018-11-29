@@ -92,4 +92,4 @@ to the VMIs managed through KubeVirt.
 Furthormore: if you can run native workloads, and you have KubeVirt installed,
 you should be able to run VM-based workloads, too.
 For example, Application Operators should not require additional permissions
-just because their application runs within a VM.
+to use cluster features for VMs, compared to using that feature with a plain Pod.
