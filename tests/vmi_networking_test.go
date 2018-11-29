@@ -610,6 +610,40 @@ var _ = Describe("Networking", func() {
 			Expect(err).ToNot(HaveOccurred())
 		})
 	})
+
+	Context("VirtualMachineInstance with TX offload disabled", func () {
+		BeforeEach(func() {
+			tests.BeforeTestCleanup()
+		})
+
+		It("should get turned off for interfaces that serve dhcp", func() {
+			userData := "#cloud-config\npassword: fedora\nchpasswd: { expire: False }\n"
+			vmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(tests.RegistryDiskFor(tests.RegistryDiskFedora), userData)
+			vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceName("memory")] = resource.MustParse("1024M")
+
+			_, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
+			Expect(err).ToNot(HaveOccurred())
+			tests.WaitUntilVMIReady(vmi, tests.LoggedInFedoraExpecter)
+
+			output := tests.RunCommandOnVmiPod(vmi, []string{"python3", "-c", `import array
+import fcntl
+import socket
+import struct
+SIOCETHTOOL     = 0x8946
+ETHTOOL_GTXCSUM = 0x00000016
+sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+sockfd = sock.fileno()
+ecmd = array.array('B', struct.pack('I39s', ETHTOOL_GTXCSUM, b'\x00'*39))
+ifreq = struct.pack('16sP', str.encode('k6t-eth0'), ecmd.buffer_info()[0])
+fcntl.ioctl(sockfd, SIOCETHTOOL, ifreq)
+res = ecmd.tostring()
+print(res[4])
+sock = None
+sockfd = None`})
+
+			ExpectWithOffset(1, strings.TrimSpace(output)).To(Equal("0"))
+		})
+	})
 })
 
 func waitUntilVMIReady(vmi *v1.VirtualMachineInstance, expecterFactory tests.VMIExpecterFactory) *v1.VirtualMachineInstance {
