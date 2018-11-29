@@ -60,6 +60,7 @@ import (
 	cdiv1 "kubevirt.io/containerized-data-importer/pkg/apis/datavolumecontroller/v1alpha1"
 	v1 "kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/controller"
+	"kubevirt.io/kubevirt/pkg/feature-gates"
 	"kubevirt.io/kubevirt/pkg/kubecli"
 	"kubevirt.io/kubevirt/pkg/log"
 	"kubevirt.io/kubevirt/pkg/util/net/dns"
@@ -2616,7 +2617,7 @@ func HasCDI() bool {
 	options := metav1.GetOptions{}
 	cfgMap, err := virtClient.CoreV1().ConfigMaps(KubeVirtInstallNamespace).Get("kubevirt-config", options)
 	if err == nil {
-		val, ok := cfgMap.Data["feature-gates"]
+		val, ok := cfgMap.Data[featuregates.FEATURE_GATES_KEY]
 		if !ok {
 			return hasCDI
 		}
