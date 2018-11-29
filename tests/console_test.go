@@ -49,7 +49,7 @@ var _ = Describe("Console", func() {
 		Expect(virtClient.RestClient().Post().Resource("virtualmachineinstances").Namespace(tests.NamespaceTestDefault).Body(vmi).Do().Error()).To(Succeed())
 
 		By("Waiting until it starts")
-		tests.WaitForSuccessfulVMIStartWithTimeout(vmi, 90)
+		tests.WaitForSuccessfulVMIStart(vmi)
 	}
 
 	ExpectConsoleOutput := func(vmi *v1.VirtualMachineInstance, expected string) {

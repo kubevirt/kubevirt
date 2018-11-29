@@ -119,7 +119,7 @@ var _ = Describe("Migrations", func() {
 				vmi.Spec.Domain.Devices.Disks[0].DiskDevice.Disk.ReadOnly = true
 
 				By("Starting the VirtualMachineInstance")
-				vmi = runVMIAndExpectLaunch(vmi, 120)
+				vmi = runVMIAndExpectLaunch(vmi, 240)
 
 				By("Checking that the VirtualMachineInstance console has expected output")
 				expecter, err := tests.LoggedInAlpineExpecter(vmi)
@@ -143,7 +143,7 @@ var _ = Describe("Migrations", func() {
 				Expect(err).To(BeNil())
 
 				By("Waiting for VMI to disappear")
-				tests.WaitForVirtualMachineToDisappearWithTimeout(vmi, 120)
+				tests.WaitForVirtualMachineToDisappearWithTimeout(vmi, 240)
 
 			})
 		})

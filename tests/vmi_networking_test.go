@@ -72,7 +72,7 @@ var _ = Describe("Networking", func() {
 			j, err := virtClient.Core().Pods(inboundVMI.ObjectMeta.Namespace).Get(pod.ObjectMeta.Name, v13.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			return j.Status.Phase
-		}, 30*time.Second, 1*time.Second).Should(Or(Equal(v12.PodSucceeded), Equal(v12.PodFailed)))
+		}, 90*time.Second, 1*time.Second).Should(Or(Equal(v12.PodSucceeded), Equal(v12.PodFailed)))
 		j, err := virtClient.Core().Pods(inboundVMI.ObjectMeta.Namespace).Get(pod.ObjectMeta.Name, v13.GetOptions{})
 		Expect(err).ToNot(HaveOccurred())
 		logPodLogs(pod)

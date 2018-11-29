@@ -98,7 +98,7 @@ var _ = Describe("Probes", func() {
 
 		tcpProbe := &v12.Probe{
 			PeriodSeconds:       5,
-			InitialDelaySeconds: 30,
+			InitialDelaySeconds: 60,
 			Handler: v12.Handler{
 
 				TCPSocket: &v1.TCPSocketAction{
@@ -109,7 +109,7 @@ var _ = Describe("Probes", func() {
 
 		httpProbe := &v12.Probe{
 			PeriodSeconds:       5,
-			InitialDelaySeconds: 30,
+			InitialDelaySeconds: 60,
 			Handler: v12.Handler{
 
 				HTTPGet: &v1.HTTPGetAction{
@@ -134,7 +134,7 @@ var _ = Describe("Probes", func() {
 				vmi, err := virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Get(vmi.Name, &v13.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				return vmi.IsFinal()
-			}, 60, 1).Should(Not(BeTrue()))
+			}, 90, 1).Should(Not(BeTrue()))
 		},
 			table.Entry("with working TCP probe and tcp server", tcpProbe, tests.StartTCPServer),
 			table.Entry("with working HTTP probe and http server", httpProbe, tests.StartHTTPServer),
@@ -154,7 +154,7 @@ var _ = Describe("Probes", func() {
 				vmi, err := virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Get(vmi.Name, &v13.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				return vmi.IsFinal()
-			}, 60, 1).Should(BeTrue())
+			}, 90, 1).Should(BeTrue())
 		},
 			table.Entry("with working TCP probe and no running server", tcpProbe),
 			table.Entry("with working HTTP probe and no running server", httpProbe),

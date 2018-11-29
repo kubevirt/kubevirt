@@ -77,7 +77,7 @@ var _ = Describe("DataVolume Integration", func() {
 				num := 2
 				By("Starting and stopping the VirtualMachineInstance a number of times")
 				for i := 1; i <= num; i++ {
-					vmi := runVMIAndExpectLaunch(vmi, 120)
+					vmi := runVMIAndExpectLaunch(vmi, 240)
 
 					// Verify console on last iteration to verify the VirtualMachineInstance is still booting properly
 					// after being restarted multiple times
