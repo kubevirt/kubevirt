@@ -617,13 +617,12 @@ var _ = Describe("Networking", func() {
 		})
 
 		It("should get turned off for interfaces that serve dhcp", func() {
-			userData := "#cloud-config\npassword: fedora\nchpasswd: { expire: False }\n"
-			vmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(tests.ContainerDiskFor(tests.ContainerDiskFedora), userData)
+			vmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(tests.ContainerDiskFor(tests.ContainerDiskAlpine), "#!/bin/bash\necho")
 			vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceName("memory")] = resource.MustParse("1024M")
 
 			_, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
 			Expect(err).ToNot(HaveOccurred())
-			tests.WaitUntilVMIReady(vmi, tests.LoggedInFedoraExpecter)
+			tests.WaitUntilVMIReady(vmi, tests.LoggedInAlpineExpecter)
 
 			output := tests.RunCommandOnVmiPod(vmi, []string{"python3", "-c", `import array
 import fcntl
