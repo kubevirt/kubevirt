@@ -25,8 +25,6 @@ import (
 	"strconv"
 	"strings"
 
-	"kubevirt.io/kubevirt/pkg/feature-gates"
-
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -37,6 +35,7 @@ import (
 	v1 "kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/config"
 	containerdisk "kubevirt.io/kubevirt/pkg/container-disk"
+	"kubevirt.io/kubevirt/pkg/feature-gates"
 	"kubevirt.io/kubevirt/pkg/hooks"
 	"kubevirt.io/kubevirt/pkg/kubecli"
 	"kubevirt.io/kubevirt/pkg/log"
@@ -60,6 +59,7 @@ const CAP_SYS_NICE = "SYS_NICE"
 // LibvirtStartupDelay is added to custom liveness and readiness probes initial delay value.
 // Libvirt needs roughly 10 seconds to start.
 const LibvirtStartupDelay = 10
+
 //This is a perfix for node feature discovery, used in a NodeSelector on the pod
 //to match a VirtualMachineInstance CPU model(Family) to nodes that support this model.
 const NFD_CPU_FAMILY_PREFIX = "feature.node.kubernetes.io/cpu-model-"
@@ -145,6 +145,15 @@ func isSRIOVVmi(vmi *v1.VirtualMachineInstance) bool {
 		if iface.SRIOV != nil {
 			return true
 		}
+	}
+	return false
+}
+
+func IsCPUNodeDiscoveryEnabled(store cache.Store) bool {
+	var value string
+	value, _ = getConfigMapEntry(store, featuregates.FEATURE_GATES_KEY)
+	if strings.Contains(value, featuregates.CPUNodeDiscoveryGate) {
+		return true
 	}
 	return false
 }
@@ -617,7 +626,7 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 		nodeSelector[k] = v
 
 	}
-	if featuregates.CPUNodeDiscoveryEnabled() {
+	if IsCPUNodeDiscoveryEnabled(t.configMapStore) {
 		if vmi.Spec.Domain.CPU != nil && vmi.Spec.Domain.CPU.Model != "" {
 			if vmi.Spec.Domain.CPU.Model != v1.CPUModeHostModel && vmi.Spec.Domain.CPU.Model != v1.CPUModeHostPassthrough {
 				nodeSelector[NFD_CPU_FAMILY_PREFIX+vmi.Spec.Domain.CPU.Model] = "true"

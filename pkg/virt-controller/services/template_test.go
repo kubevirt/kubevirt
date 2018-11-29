@@ -21,7 +21,6 @@ package services
 
 import (
 	"errors"
-	"os"
 	"strconv"
 	"testing"
 
@@ -39,6 +38,7 @@ import (
 	"k8s.io/client-go/tools/cache"
 
 	v1 "kubevirt.io/kubevirt/pkg/api/v1"
+	"kubevirt.io/kubevirt/pkg/feature-gates"
 	"kubevirt.io/kubevirt/pkg/hooks"
 	"kubevirt.io/kubevirt/pkg/kubecli"
 	"kubevirt.io/kubevirt/pkg/log"
@@ -252,7 +252,15 @@ var _ = Describe("Template", func() {
 
 			It("should add node selector for node discovery feature to template", func() {
 
-				os.Setenv("FEATURE_GATES", "CPUNodeDiscovery")
+				cfgMap := kubev1.ConfigMap{
+					ObjectMeta: metav1.ObjectMeta{
+						Namespace: namespaceKubevirt,
+						Name:      "kubevirt-config",
+					},
+					Data: map[string]string{featuregates.FEATURE_GATES_KEY: featuregates.CPUNodeDiscoveryGate},
+				}
+				cmCache.Add(&cfgMap)
+
 				vmi := v1.VirtualMachineInstance{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      "testvmi",
