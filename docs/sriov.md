@@ -183,16 +183,10 @@ EOF
 $ ./cluster/kubectl.sh create -f $GOPATH/src/github.com/intel/sriov-network-device-plugin/images/sriovdp-daemonset.yaml
 ```
 
-Deploy SR-IOV CNI plugin with device ID support, which allows networks to be
-configured in `mode2` (networks referring to resource names instead of
-configuring PCI pools themselves).
+Deploy SR-IOV CNI plugin.
 
 ```
 $ go get -u -d github.com/intel/sriov-cni/
-$ cd $GOPATH/src/github.com/intel/sriov-cni/images
-$ git checkout dev/k8s-deviceid-model
-$ ./build_docker.sh
-$ vi images/sriov-cni-daemonset.yaml # change to refer to local sriov-cni:latest
 $ ./cluster/kubectl.sh create -f $GOPATH/src/github.com/intel/sriov-cni/images/sriov-cni-daemonset.yaml
 ```
 
