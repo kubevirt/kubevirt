@@ -611,14 +611,14 @@ var _ = Describe("Networking", func() {
 		})
 	})
 
-	Context("VirtualMachineInstance with TX offload disabled", func () {
+	Context("VirtualMachineInstance with TX offload disabled", func() {
 		BeforeEach(func() {
 			tests.BeforeTestCleanup()
 		})
 
 		It("should get turned off for interfaces that serve dhcp", func() {
 			userData := "#cloud-config\npassword: fedora\nchpasswd: { expire: False }\n"
-			vmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(tests.RegistryDiskFor(tests.RegistryDiskFedora), userData)
+			vmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(tests.ContainerDiskFor(tests.ContainerDiskFedora), userData)
 			vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceName("memory")] = resource.MustParse("1024M")
 
 			_, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
