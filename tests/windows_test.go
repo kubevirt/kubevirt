@@ -133,14 +133,14 @@ var _ = Describe("Windows VirtualMachineInstance", func() {
 	It("should succeed to start a vmi", func() {
 		vmi, err := virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(windowsVMI)
 		Expect(err).To(BeNil())
-		tests.WaitForSuccessfulVMIStartWithTimeout(vmi, 180)
+		tests.WaitForSuccessfulVMIStartWithTimeout(vmi, 360)
 	}, 300)
 
 	It("should succeed to stop a running vmi", func() {
 		By("Starting the vmi")
 		vmi, err := virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(windowsVMI)
 		Expect(err).To(BeNil())
-		tests.WaitForSuccessfulVMIStartWithTimeout(vmi, 180)
+		tests.WaitForSuccessfulVMIStartWithTimeout(vmi, 360)
 
 		By("Stopping the vmi")
 		err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Delete(vmi.Name, &metav1.DeleteOptions{})
@@ -174,7 +174,7 @@ var _ = Describe("Windows VirtualMachineInstance", func() {
 			By("Starting the windows VirtualMachineInstance")
 			windowsVMI, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(windowsVMI)
 			Expect(err).To(BeNil())
-			tests.WaitForSuccessfulVMIStartWithTimeout(windowsVMI, 180)
+			tests.WaitForSuccessfulVMIStartWithTimeout(windowsVMI, 360)
 
 			windowsVMI, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Get(windowsVMI.Name, &metav1.GetOptions{})
 			vmiIp = windowsVMI.Status.Interfaces[0].IP
@@ -285,7 +285,7 @@ var _ = Describe("Windows VirtualMachineInstance", func() {
 			_, _, err = tests.RunCommand("kubectl", "create", "-f", yamlFile)
 			Expect(err).ToNot(HaveOccurred())
 
-			tests.WaitForSuccessfulVMIStartWithTimeout(windowsVMI, 120)
+			tests.WaitForSuccessfulVMIStartWithTimeout(windowsVMI, 360)
 		})
 
 		It("should succeed to stop a vmi", func() {
@@ -293,7 +293,7 @@ var _ = Describe("Windows VirtualMachineInstance", func() {
 			_, _, err = tests.RunCommand("kubectl", "create", "-f", yamlFile)
 			Expect(err).ToNot(HaveOccurred())
 
-			tests.WaitForSuccessfulVMIStartWithTimeout(windowsVMI, 120)
+			tests.WaitForSuccessfulVMIStartWithTimeout(windowsVMI, 360)
 
 			podSelector := tests.UnfinishedVMIPodSelector(windowsVMI)
 			By("Deleting the vmi via kubectl command")

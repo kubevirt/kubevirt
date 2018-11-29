@@ -1539,7 +1539,7 @@ func waitForVMIStart(obj runtime.Object, seconds int, ignoreWarnings bool) (node
 }
 
 func WaitForSuccessfulVMIStartIgnoreWarnings(vmi runtime.Object) string {
-	return waitForVMIStart(vmi, 90, true)
+	return waitForVMIStart(vmi, 180, true)
 }
 
 func WaitForSuccessfulVMIStartWithTimeout(vmi runtime.Object, seconds int) (nodeName string) {
@@ -1556,7 +1556,7 @@ func WaitForVirtualMachineToDisappearWithTimeout(vmi *v1.VirtualMachineInstance,
 }
 
 func WaitForSuccessfulVMIStart(vmi runtime.Object) string {
-	return waitForVMIStart(vmi, 90, false)
+	return waitForVMIStart(vmi, 180, false)
 }
 
 func WaitUntilVMIReady(vmi *v1.VirtualMachineInstance, expecterFactory VMIExpecterFactory) *v1.VirtualMachineInstance {
