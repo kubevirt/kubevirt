@@ -1,0 +1,4 @@
+---
+- name: 'ghprbTargetBranch'
+  valueFrom:
+    runtimeEnv: 'ghprbTargetBranch'

@@ -146,6 +146,13 @@ fi
 # Make sure that the VM is properly shut down on exit
 trap '{ make cluster-down; }' EXIT SIGINT SIGTERM SIGSTOP
 
+
+# Check if we are on a pull request in jenkins.
+export KUBEVIRT_CACHE_FROM=${ghprbTargetBranch}
+if [ -n ${KUBEVIRT_CACHE_FROM} ]; then
+    make pull-cache
+fi
+
 make cluster-down
 make cluster-up
 
