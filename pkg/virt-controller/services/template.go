@@ -548,25 +548,6 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 	}
 
 	volumes = append(volumes, k8sv1.Volume{Name: "infra-ready-mount", VolumeSource: k8sv1.VolumeSource{EmptyDir: &k8sv1.EmptyDirVolumeSource{}}})
-	// Infra-ready container
-	readyContainer := k8sv1.Container{
-		Name:            "kubevirt-infra",
-		Image:           t.launcherImage,
-		ImagePullPolicy: imagePullPolicy,
-		SecurityContext: &k8sv1.SecurityContext{
-			RunAsUser: &userId,
-		},
-		Resources: k8sv1.ResourceRequirements{
-			Limits: map[k8sv1.ResourceName]resource.Quantity{
-				k8sv1.ResourceCPU:    resource.MustParse("1m"),
-				k8sv1.ResourceMemory: resource.MustParse("5Mi"),
-			},
-		},
-		Command:        []string{"/usr/bin/tail", "-f", "/dev/null"},
-		VolumeDevices:  volumeDevices,
-		VolumeMounts:   volumeMounts,
-		ReadinessProbe: defaultReadinessProbe,
-	}
 
 	// VirtualMachineInstance target container
 	container := k8sv1.Container{
@@ -583,9 +564,9 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 		Command:        command,
 		VolumeDevices:  volumeDevices,
 		VolumeMounts:   volumeMounts,
-		ReadinessProbe: defaultReadinessProbe,
 		Resources:      resources,
 		Ports:          ports,
+		ReadinessProbe: defaultReadinessProbe,
 	}
 
 	if vmi.Spec.ReadinessProbe != nil {
@@ -660,7 +641,31 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 		})
 	}
 
-	containers = append(containers, readyContainer)
+	// XXX: reduce test time. Adding one more container delays the start.
+	// First stdci has issues with that and second we don't want to increase the startup time even more.
+	// At the end the infra container needs to be always there, to allow better default readiness checks.
+	if vmi.Spec.ReadinessProbe != nil {
+		// Infra-ready container
+		readyContainer := k8sv1.Container{
+			Name:            "kubevirt-infra",
+			Image:           t.launcherImage,
+			ImagePullPolicy: imagePullPolicy,
+			SecurityContext: &k8sv1.SecurityContext{
+				RunAsUser: &userId,
+			},
+			Resources: k8sv1.ResourceRequirements{
+				Limits: map[k8sv1.ResourceName]resource.Quantity{
+					k8sv1.ResourceCPU:    resource.MustParse("1m"),
+					k8sv1.ResourceMemory: resource.MustParse("5Mi"),
+				},
+			},
+			Command:        []string{"/usr/bin/tail", "-f", "/dev/null"},
+			VolumeDevices:  volumeDevices,
+			VolumeMounts:   volumeMounts,
+			ReadinessProbe: defaultReadinessProbe,
+		}
+		containers = append(containers, readyContainer)
+	}
 
 	hostName := dns.SanitizeHostname(vmi)
 

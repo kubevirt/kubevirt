@@ -374,9 +374,24 @@ func isPodReady(pod *k8sv1.Pod) bool {
 	if isPodDownOrGoingDown(pod) {
 		return false
 	}
+	infraContainerExists := false
 	for _, containerStatus := range pod.Status.ContainerStatuses {
-		if containerStatus.Name != "compute" && containerStatus.Ready == false {
-			return false
+		if containerStatus.Name == "kubevirt-infra" {
+			infraContainerExists = true
+			break
+		}
+	}
+	for _, containerStatus := range pod.Status.ContainerStatuses {
+		// If there is a kubevirt-infra pod, we should not check "compute" here.
+		// Otherwise all containers including "compute" should be "ready before we go on.
+		if infraContainerExists {
+			if containerStatus.Name != "compute" && containerStatus.Ready == false {
+				return false
+			}
+		} else {
+			if containerStatus.Ready == false {
+				return false
+			}
 		}
 	}
 
