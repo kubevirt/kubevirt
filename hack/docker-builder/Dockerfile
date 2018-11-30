@@ -13,8 +13,6 @@ RUN mkdir -p /gimme && curl -sL https://raw.githubusercontent.com/travis-ci/gimm
 
 ENV GOPATH="/go" GOBIN="/usr/bin"
 
-ADD rsyncd.conf /etc/rsyncd.conf
-
 RUN \
     mkdir -p /go && \
     source /etc/profile.d/gimme.sh && \
@@ -49,6 +47,8 @@ RUN \
 
 RUN pip install j2cli
 
-ADD entrypoint.sh /entrypoint.sh
-
 ENTRYPOINT [ "/entrypoint.sh" ]
+
+ADD rsyncd.conf /etc/rsyncd.conf
+
+ADD entrypoint.sh /entrypoint.sh
