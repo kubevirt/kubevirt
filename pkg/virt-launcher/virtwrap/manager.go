@@ -411,11 +411,15 @@ func resourceNameToEnvvar(resourceName string) string {
 func getSRIOVPCIAddresses(ifaces []v1.Interface) map[string][]string {
 	networkToAddressesMap := map[string][]string{}
 	for _, iface := range ifaces {
+		if iface.SRIOV == nil {
+			continue
+		}
 		networkToAddressesMap[iface.Name] = []string{}
 		varName := fmt.Sprintf("KUBEVIRT_RESOURCE_NAME_%s", iface.Name)
 		resourceName, isSet := os.LookupEnv(varName)
 		if isSet {
-			pciAddrString, isSet := os.LookupEnv(resourceNameToEnvvar(resourceName))
+			varName := resourceNameToEnvvar(resourceName)
+			pciAddrString, isSet := os.LookupEnv(varName)
 			if isSet {
 				addrs := strings.Split(pciAddrString, ",")
 				naddrs := len(addrs)
@@ -425,7 +429,11 @@ func getSRIOVPCIAddresses(ifaces []v1.Interface) map[string][]string {
 					}
 				}
 				networkToAddressesMap[iface.Name] = addrs
+			} else {
+				log.DefaultLogger().Warningf("%s not set for SR-IOV interface %s", varName, iface.Name)
 			}
+		} else {
+			log.DefaultLogger().Warningf("%s not set for SR-IOV interface %s", varName, iface.Name)
 		}
 	}
 	return networkToAddressesMap
