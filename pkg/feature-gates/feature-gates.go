@@ -30,6 +30,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 
 	"kubevirt.io/kubevirt/pkg/kubecli"
+	"kubevirt.io/kubevirt/pkg/log"
 	"kubevirt.io/kubevirt/pkg/util"
 )
 
@@ -40,6 +41,7 @@ const (
 	cpuManager        = "CPUManager"
 	liveMigrationGate = "LiveMigration"
 	SRIOVGate         = "SRIOV"
+	configMapName     = "kubevirt-config"
 )
 
 func ParseFeatureGatesFromConfigMap() {
@@ -56,10 +58,12 @@ func ParseFeatureGatesFromConfigMap() {
 			return false, err
 		}
 
-		cfgMap, curErr = virtClient.CoreV1().ConfigMaps(namespace).Get("kubevirt-config", metav1.GetOptions{})
+		cfgMap, curErr = virtClient.CoreV1().ConfigMaps(namespace).Get(configMapName, metav1.GetOptions{})
 
 		if curErr != nil {
 			if errors.IsNotFound(curErr) {
+				logger := log.DefaultLogger()
+				logger.Infof("%s ConfigMap does not exist. Using defaults.", configMapName)
 				// ignore if config map does not exist
 				return true, nil
 			}
