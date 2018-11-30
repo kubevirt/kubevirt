@@ -33,6 +33,11 @@ readonly ARTIFACTS_PATH="$WORKSPACE/exported-artifacts"
 readonly TEMPLATES_SERVER="https://templates.ovirt.org/kubevirt/"
 
 if [[ $TARGET =~ openshift-.* ]]; then
+  # when testing on slow CI system cleanup sometimes takes very long.
+  # openshift clusters are more memory demanding. If the cleanup
+  # of old vms does not go fast enough they run out of memory.
+  # To still allow continuing with the tests, give more memory in CI.
+  export KUBEVIRT_MEMORY_SIZE=6144M
   if [[ $TARGET =~ .*-crio-.* ]]; then
     export KUBEVIRT_PROVIDER="os-3.11.0-crio"
   elif [[ $TARGET =~ .*-multus-.* ]]; then
