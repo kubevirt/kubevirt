@@ -79,6 +79,16 @@ var _ = Describe("Console", func() {
 	Describe("A new VirtualMachineInstance", func() {
 		Context("with a serial console", func() {
 			Context("with a cirros image", func() {
+				PMeasure("should return that we are running cirros", func(b Benchmarker) {
+					b.Time("start_to_console", func() {
+						vmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(tests.ContainerDiskFor(tests.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n")
+						RunVMIAndWaitForStart(vmi)
+						ExpectConsoleOutput(
+							vmi,
+							"login as 'cirros' user",
+						)
+					})
+				}, 10)
 				It("should return that we are running cirros", func() {
 					vmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(tests.ContainerDiskFor(tests.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n")
 					RunVMIAndWaitForStart(vmi)

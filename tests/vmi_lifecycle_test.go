@@ -94,6 +94,14 @@ var _ = Describe("VMIlifecycle", func() {
 			Expect(err).To(BeNil(), "Create VMI successfully")
 		})
 
+		PMeasure("should start it", func(b Benchmarker) {
+			b.Time("start_time", func() {
+				vmi, err := virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
+				Expect(err).To(BeNil(), "Create VMI successfully")
+				tests.WaitForSuccessfulVMIStart(vmi)
+			})
+		}, 15)
+
 		It("should start it", func() {
 			vmi, err := virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
 			Expect(err).To(BeNil(), "Create VMI successfully")

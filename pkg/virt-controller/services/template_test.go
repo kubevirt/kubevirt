@@ -69,7 +69,7 @@ var _ = Describe("Template", func() {
 				pod, err := svc.RenderLaunchManifest(&v1.VirtualMachineInstance{ObjectMeta: metav1.ObjectMeta{Name: "testvmi", Namespace: "testns", UID: "1234", Annotations: annotations}, Spec: v1.VirtualMachineInstanceSpec{Domain: v1.DomainSpec{}}})
 				Expect(err).ToNot(HaveOccurred())
 
-				Expect(len(pod.Spec.Containers)).To(Equal(3))
+				Expect(len(pod.Spec.Containers)).To(Equal(2))
 				Expect(pod.Spec.Containers[0].Image).To(Equal("kubevirt/virt-launcher"))
 				Expect(pod.ObjectMeta.Labels).To(Equal(map[string]string{
 					v1.AppLabel:       "virt-launcher",
@@ -185,7 +185,7 @@ var _ = Describe("Template", func() {
 				pod, err := svc.RenderLaunchManifest(&vmi)
 				Expect(err).ToNot(HaveOccurred())
 
-				Expect(len(pod.Spec.Containers)).To(Equal(3))
+				Expect(len(pod.Spec.Containers)).To(Equal(2))
 				Expect(pod.Spec.Containers[0].Image).To(Equal("kubevirt/virt-launcher"))
 				Expect(pod.ObjectMeta.Labels).To(Equal(map[string]string{
 					v1.AppLabel:       "virt-launcher",
@@ -762,7 +762,7 @@ var _ = Describe("Template", func() {
 				pod, err := svc.RenderLaunchManifest(&vmi)
 				Expect(err).ToNot(HaveOccurred())
 
-				Expect(len(pod.Spec.Containers)).To(Equal(2))
+				Expect(len(pod.Spec.Containers)).To(Equal(1))
 				Expect(*pod.Spec.Containers[0].SecurityContext.Privileged).To(Equal(true))
 			})
 			It("should mount pci related host directories", func() {
@@ -779,7 +779,7 @@ var _ = Describe("Template", func() {
 				pod, err := svc.RenderLaunchManifest(&vmi)
 				Expect(err).ToNot(HaveOccurred())
 
-				Expect(len(pod.Spec.Containers)).To(Equal(2))
+				Expect(len(pod.Spec.Containers)).To(Equal(1))
 				// Skip first three mounts that are generic for all launcher pods
 				Expect(pod.Spec.Containers[0].VolumeMounts[3].MountPath).To(Equal("/sys/bus/pci/"))
 				Expect(pod.Spec.Containers[0].VolumeMounts[4].MountPath).To(Equal("/sys/devices/"))
@@ -804,7 +804,7 @@ var _ = Describe("Template", func() {
 				pod, err := svc.RenderLaunchManifest(&vmi)
 				Expect(err).ToNot(HaveOccurred())
 
-				Expect(len(pod.Spec.Containers)).To(Equal(2))
+				Expect(len(pod.Spec.Containers)).To(Equal(1))
 				Expect(len(pod.Spec.Containers[0].Ports)).To(Equal(0))
 			})
 			It("Should create a port list in the pod manifest", func() {
@@ -822,7 +822,7 @@ var _ = Describe("Template", func() {
 				pod, err := svc.RenderLaunchManifest(&vmi)
 				Expect(err).ToNot(HaveOccurred())
 
-				Expect(len(pod.Spec.Containers)).To(Equal(2))
+				Expect(len(pod.Spec.Containers)).To(Equal(1))
 				Expect(len(pod.Spec.Containers[0].Ports)).To(Equal(4))
 				Expect(pod.Spec.Containers[0].Ports[0].Name).To(Equal("http"))
 				Expect(pod.Spec.Containers[0].Ports[0].ContainerPort).To(Equal(int32(80)))
@@ -861,7 +861,7 @@ var _ = Describe("Template", func() {
 				pod, err := svc.RenderLaunchManifest(&vmi)
 				Expect(err).ToNot(HaveOccurred())
 
-				Expect(len(pod.Spec.Containers)).To(Equal(2))
+				Expect(len(pod.Spec.Containers)).To(Equal(1))
 				Expect(len(pod.Spec.Containers[0].Ports)).To(Equal(2))
 				Expect(pod.Spec.Containers[0].Ports[0].Name).To(Equal("http"))
 				Expect(pod.Spec.Containers[0].Ports[0].ContainerPort).To(Equal(int32(80)))
@@ -1078,11 +1078,11 @@ var _ = Describe("Template", func() {
 				Expect(readinessProbe.FailureThreshold).To(Equal(vmi.Spec.ReadinessProbe.FailureThreshold))
 			})
 
-			It("should keep the default readiness probe, if no one was specified", func() {
+			It("should set a readiness probe on the pod, if no one was specified on the vmi", func() {
 				vmi.Spec.ReadinessProbe = nil
 				pod, err := svc.RenderLaunchManifest(vmi)
 				Expect(err).ToNot(HaveOccurred())
-				Expect(pod.Spec.Containers[0].ReadinessProbe.Exec).ToNot(BeNil())
+				Expect(pod.Spec.Containers[0].ReadinessProbe).To(Not(BeNil()))
 			})
 		})
 
