@@ -5,13 +5,13 @@ dist: trusty
 services:
 - docker
 
-env:
-- BUILDER_NAME="kubevirt/${TRAVIS_JOB_ID}builder"
-
 install:
  - git reset --hard
 
 script:
+- export KUBEVIRT_UPDATE_CACHE_FROM="${TRAVIS_BRANCH}"
+- export KUBEVIRT_CACHE_FROM="${TRAVIS_BRANCH}"
+- if [[ "${TRAVIS_PULL_REQUEST}" != "false" ]]; then make pull-cache; fi # only use the cache in PRs, rebuild otherwise
 - make generate
 - if [[ -n "$(git status --porcelain)" ]] ; then echo "It seems like you need to run
   `make generate`. Please run it and commit the changes"; git status --porcelain; false; fi
@@ -31,6 +31,12 @@ deploy:
   skip_cleanup: true
   on:
     branch: master
+- provider: script
+  script: docker login -u="$DOCKER_USER" -p="$DOCKER_PASS" && KUBEVIRT_UPDATE_CACHE_FROM="${TRAVIS_BRANCH}" make push-cache
+  skip_cleanup: true
+  on:
+    tags: false
+    all_branches: true
 - provider: script
   script: docker login -u="$DOCKER_USER" -p="$DOCKER_PASS" && make publish DOCKER_TAG=$TRAVIS_TAG
   skip_cleanup: true
