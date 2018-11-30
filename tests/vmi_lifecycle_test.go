@@ -1001,11 +1001,15 @@ var _ = Describe("VMIlifecycle", func() {
 			})
 		})
 		Context("with ACPI and some grace period seconds", func() {
-			It("should result in vmi status succeeded", func() {
-
+			table.DescribeTable("should result in vmi status succeeded", func(gracePeriod int64) {
 				vmi = newCirrosVMI()
-				gracePeriod := int64(10)
-				vmi.Spec.TerminationGracePeriodSeconds = &gracePeriod
+
+				if gracePeriod >= 0 {
+					vmi.Spec.TerminationGracePeriodSeconds = &gracePeriod
+				} else {
+					gracePeriod = v1.DefaultGracePeriodSeconds
+					vmi.Spec.TerminationGracePeriodSeconds = nil
+				}
 
 				By("Creating the VirtualMachineInstance")
 				obj, err := virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
@@ -1023,7 +1027,10 @@ var _ = Describe("VMIlifecycle", func() {
 					Expect(err).ToNot(HaveOccurred(), "Should get VMI")
 					return currVMI.Status.Phase
 				}, gracePeriod+5, 0.5).Should(Equal(v1.Succeeded), "VMI should be succeeded")
-			})
+			},
+				table.Entry("with set grace period seconds", int64(10)),
+				table.Entry("with default grace period seconds", int64(-1)),
+			)
 		})
 		Context("with grace period greater than 0", func() {
 			It("should run graceful shutdown", func() {
