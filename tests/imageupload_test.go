@@ -35,7 +35,7 @@ var _ = Describe("ImageUpload", func() {
 		It("Should succeed", func() {
 			By("Setting up port forwarding")
 			portMapping := fmt.Sprintf("%d:%d", localUploadProxyPort, uploadProxyPort)
-			_, kubectlCmd, err := tests.CreateCommandWithNS(tests.KubeVirtInstallNamespace, "kubectl", "port-forward", uploadProxyService, portMapping)
+			_, kubectlCmd, err := tests.CreateCommandWithNS(tests.ContainerizedDataImporterNamespace, "kubectl", "port-forward", uploadProxyService, portMapping)
 			Expect(err).ToNot(HaveOccurred())
 
 			err = kubectlCmd.Start()

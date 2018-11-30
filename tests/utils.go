@@ -70,6 +70,7 @@ import (
 
 var KubeVirtVersionTag = "latest"
 var KubeVirtRepoPrefix = "kubevirt"
+var ContainerizedDataImporterNamespace = "kube-system"
 var KubeVirtKubectlPath = ""
 var KubeVirtOcPath = ""
 var KubeVirtVirtctlPath = ""
@@ -78,6 +79,7 @@ var KubeVirtInstallNamespace string
 func init() {
 	flag.StringVar(&KubeVirtVersionTag, "tag", "latest", "Set the image tag or digest to use")
 	flag.StringVar(&KubeVirtRepoPrefix, "prefix", "kubevirt", "Set the repository prefix for all images")
+	flag.StringVar(&ContainerizedDataImporterNamespace, "cdi-namespace", "kube-system", "Set the repository prefix for CDI components")
 	flag.StringVar(&KubeVirtKubectlPath, "kubectl-path", "", "Set path to kubectl binary")
 	flag.StringVar(&KubeVirtOcPath, "oc-path", "", "Set path to oc binary")
 	flag.StringVar(&KubeVirtVirtctlPath, "virtctl-path", "", "Set path to virtctl binary")
@@ -94,8 +96,8 @@ const (
 )
 
 const (
-	AlpineHttpUrl     = "http://cdi-http-import-server.kube-system/images/alpine.iso"
-	GuestAgentHttpUrl = "http://cdi-http-import-server.kube-system/qemu-ga"
+	AlpineHttpUrl     = "http://cdi-http-import-server.kubevirt/images/alpine.iso"
+	GuestAgentHttpUrl = "http://cdi-http-import-server.kubevirt/qemu-ga"
 )
 
 const (
