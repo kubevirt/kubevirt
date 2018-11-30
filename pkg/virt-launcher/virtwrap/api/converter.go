@@ -530,10 +530,10 @@ func reserveAddress(addrsMap map[string][]string, addr string) {
 	return
 }
 
-// Get the next PCI address available to a particular network. The function
-// makes sure that the allocated address is not allocated to next callers,
-// whether they request an address for the same network or another network that
-// is backed by the same resourceName.
+// Get the next PCI address available to a particular SR-IOV network. The
+// function makes sure that the allocated address is not allocated to next
+// callers, whether they request an address for the same network or another
+// network that is backed by the same resourceName.
 func popSRIOVPCIAddress(networkName string, addrsMap map[string][]string) (string, map[string][]string, error) {
 	if len(addrsMap[networkName]) > 0 {
 		addr := addrsMap[networkName][0]
