@@ -36,16 +36,49 @@ else
 fi
 
 for arg in $args; do
+    BUILDER_EXTRA_ARGS=""
     BIN_NAME=$(basename $arg)
     if [ "${target}" = "build" ]; then
         (
+            if [ -n "$KUBEVIRT_CACHE_FROM" ]; then
+                BUILDER_EXTRA_ARGS="${BUILDER_EXTRA_ARGS} --cache-from kubevirt/${BIN_NAME}:${KUBEVIRT_CACHE_FROM}"
+            fi
+            if [ -n "$KUBEVIRT_UPDATE_CACHE_FROM" ]; then
+                BUILDER_EXTRA_ARGS="${BUILDER_EXTRA_ARGS} -t kubevirt/${BIN_NAME}:${KUBEVIRT_UPDATE_CACHE_FROM}"
+            fi
             cd ${CMD_OUT_DIR}/${BIN_NAME}/
-            docker $target -t ${docker_prefix}/${BIN_NAME}:${docker_tag} --label ${job_prefix} --label ${BIN_NAME} .
+            docker build -t ${docker_prefix}/${BIN_NAME}:${docker_tag} --label ${job_prefix} --label ${BIN_NAME} ${BUILDER_EXTRA_ARGS} .
         )
     elif [ "${target}" = "push" ]; then
         (
             cd ${CMD_OUT_DIR}/${BIN_NAME}/
-            docker $target ${docker_prefix}/${BIN_NAME}:${docker_tag}
+            docker push ${docker_prefix}/${BIN_NAME}:${docker_tag}
         )
     fi
 done
+
+if [ $# -eq 0 ]; then
+    args=$docker_images_cacheable
+else
+    args=$@
+fi
+
+if [ "${target}" = "push-cache" ]; then
+    docker push kubevirt/builder-cache:${KUBEVIRT_UPDATE_CACHE_FROM}
+    if [ -n "$KUBEVIRT_UPDATE_CACHE_FROM" ]; then
+        for arg in $args; do
+            BIN_NAME=$(basename $arg)
+            docker push kubevirt/${BIN_NAME}:${KUBEVIRT_UPDATE_CACHE_FROM}
+        done
+    fi
+fi
+
+if [ "${target}" = "pull-cache" ]; then
+    docker pull kubevirt/builder-cache:${KUBEVIRT_CACHE_FROM}
+    if [ -n "$KUBEVIRT_CACHE_FROM" ]; then
+        for arg in $args; do
+            BIN_NAME=$(basename $arg)
+            docker pull kubevirt/${BIN_NAME}:${KUBEVIRT_CACHE_FROM} || true
+        done
+    fi
+fi
