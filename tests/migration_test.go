@@ -111,7 +111,7 @@ var _ = Describe("Migrations", func() {
 		return uid
 	}
 
-	Describe("Starting a VirtualMachineInstance ", func() {
+	PDescribe("Starting a VirtualMachineInstance ", func() {
 		Context("with an Alpine read only disk", func() {
 			It("should be successfully migrated multiple times", func() {
 
