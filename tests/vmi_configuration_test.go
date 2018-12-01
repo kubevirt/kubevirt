@@ -485,7 +485,7 @@ var _ = Describe("Configurations", func() {
 					freshVMI, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Get(agentVMI.Name, &getOptions)
 					Expect(err).ToNot(HaveOccurred(), "Should get VMI ")
 					return len(freshVMI.Status.Conditions)
-				}, 120*time.Second, 2).Should(Equal(1), "Should have agent connected condition")
+				}, 240*time.Second, 2).Should(Equal(1), "Should have agent connected condition")
 
 				Expect(freshVMI.Status.Conditions[0].Type).Should(Equal(v1.VirtualMachineInstanceAgentConnected), "VMI condition should indicate connected agent")
 
@@ -506,7 +506,7 @@ var _ = Describe("Configurations", func() {
 					freshVMI, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Get(agentVMI.Name, &getOptions)
 					Expect(err).ToNot(HaveOccurred(), "Should get VMI ")
 					return len(freshVMI.Status.Conditions)
-				}, 120*time.Second, 2).Should(Equal(0), "Agent condition should be gone")
+				}, 240*time.Second, 2).Should(Equal(0), "Agent condition should be gone")
 
 			})
 
