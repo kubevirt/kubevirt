@@ -53,13 +53,13 @@ var _ = Describe("Pod Network", func() {
 	var testNic *VIF
 	var interfaceXml []byte
 	var tmpDir string
-	var proxyTestNic *VIF
-	var proxyDummyName string
-	var proxyDummy *netlink.Dummy
-	var proxyGwStr string
-	var proxyGwAddr *netlink.Addr
-	var proxyVmStr string
-	var proxyVmAddr *netlink.Addr
+	var masqueradeTestNic *VIF
+	var masqueradeDummyName string
+	var masqueradeDummy *netlink.Dummy
+	var masqueradeGwStr string
+	var masqueradeGwAddr *netlink.Addr
+	var masqueradeVmStr string
+	var masqueradeVmAddr *netlink.Addr
 	log.Log.SetIOWriter(GinkgoWriter)
 
 	BeforeEach(func() {
@@ -95,16 +95,16 @@ var _ = Describe("Pod Network", func() {
 			Gateway: gw}
 		interfaceXml = []byte(`<Interface type="bridge"><source bridge="k6t-eth0"></source><model type="virtio"></model><mac address="12:34:56:78:9a:bc"></mac><alias name="ua-default"></alias></Interface>`)
 
-		proxyGwStr = "10.0.2.1/30"
-		proxyGwAddr, _ = netlink.ParseAddr(proxyGwStr)
-		proxyVmStr = "10.0.2.2/30"
-		proxyVmAddr, _ = netlink.ParseAddr(proxyVmStr)
-		proxyDummyName = fmt.Sprintf("%s-nic", api.DefaultBridgeName)
-		proxyDummy = &netlink.Dummy{LinkAttrs: netlink.LinkAttrs{Name: proxyDummyName}}
-		proxyTestNic = &VIF{Name: podInterface,
-			IP:      *proxyVmAddr,
+		masqueradeGwStr = "10.0.2.1/30"
+		masqueradeGwAddr, _ = netlink.ParseAddr(masqueradeGwStr)
+		masqueradeVmStr = "10.0.2.2/30"
+		masqueradeVmAddr, _ = netlink.ParseAddr(masqueradeVmStr)
+		masqueradeDummyName = fmt.Sprintf("%s-nic", api.DefaultBridgeName)
+		masqueradeDummy = &netlink.Dummy{LinkAttrs: netlink.LinkAttrs{Name: masqueradeDummyName}}
+		masqueradeTestNic = &VIF{Name: podInterface,
+			IP:      *masqueradeVmAddr,
 			MAC:     fakeMac,
-			Gateway: proxyGwAddr.IP.To4()}
+			Gateway: masqueradeGwAddr.IP.To4()}
 	})
 
 	AfterEach(func() {
@@ -131,16 +131,16 @@ var _ = Describe("Pod Network", func() {
 		mockNetwork.EXPECT().AddrAdd(bridgeTest, bridgeAddr).Return(nil)
 		mockNetwork.EXPECT().StartDHCP(testNic, bridgeAddr, api.DefaultBridgeName, nil)
 
-		// For Proxy tests
-		mockNetwork.EXPECT().ParseAddr(proxyGwStr).Return(proxyGwAddr, nil)
-		mockNetwork.EXPECT().ParseAddr(proxyVmStr).Return(proxyVmAddr, nil)
-		mockNetwork.EXPECT().LinkAdd(proxyDummy).Return(nil)
-		mockNetwork.EXPECT().LinkByName(proxyDummyName).Return(proxyDummy, nil)
-		mockNetwork.EXPECT().LinkSetUp(proxyDummy).Return(nil)
+		// For masquerade tests
+		mockNetwork.EXPECT().ParseAddr(masqueradeGwStr).Return(masqueradeGwAddr, nil)
+		mockNetwork.EXPECT().ParseAddr(masqueradeVmStr).Return(masqueradeVmAddr, nil)
+		mockNetwork.EXPECT().LinkAdd(masqueradeDummy).Return(nil)
+		mockNetwork.EXPECT().LinkByName(masqueradeDummyName).Return(masqueradeDummy, nil)
+		mockNetwork.EXPECT().LinkSetUp(masqueradeDummy).Return(nil)
 		mockNetwork.EXPECT().GenerateRandomMac().Return(fakeMac, nil)
-		mockNetwork.EXPECT().LinkSetMaster(proxyDummy, bridgeTest).Return(nil)
-		mockNetwork.EXPECT().AddrAdd(bridgeTest, proxyGwAddr).Return(nil)
-		mockNetwork.EXPECT().StartDHCP(proxyTestNic, proxyGwAddr, api.DefaultBridgeName, nil)
+		mockNetwork.EXPECT().LinkSetMaster(masqueradeDummy, bridgeTest).Return(nil)
+		mockNetwork.EXPECT().AddrAdd(bridgeTest, masqueradeGwAddr).Return(nil)
+		mockNetwork.EXPECT().StartDHCP(masqueradeTestNic, masqueradeGwAddr, api.DefaultBridgeName, nil)
 		mockNetwork.EXPECT().GetHostAndGwAddressesFromCIDR(api.DefaultVMCIDR).Return("10.0.2.1/30", "10.0.2.2/30", nil)
 		mockNetwork.EXPECT().IptablesNewChain("nat", gomock.Any()).Return(nil).AnyTimes()
 		mockNetwork.EXPECT().IptablesAppendRule("nat", gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
@@ -342,10 +342,10 @@ var _ = Describe("Pod Network", func() {
 				Expect(err).ToNot(HaveOccurred())
 			})
 		})
-		Context("Proxy Plug", func() {
+		Context("Masquerade Plug", func() {
 			It("should define a new VIF bind to a bridge", func() {
 				domain := NewDomainWithBridgeInterface()
-				vm := newVMIProxyInterface("testnamespace", "testVmName")
+				vm := newVMIMasqueradeInterface("testnamespace", "testVmName")
 
 				api.SetObjectDefaults_Domain(domain)
 				TestPodInterfaceIPBinding(vm, domain)
@@ -434,9 +434,9 @@ func newVMIBridgeInterface(namespace string, name string) *v1.VirtualMachineInst
 	return vmi
 }
 
-func newVMIProxyInterface(namespace string, name string) *v1.VirtualMachineInstance {
+func newVMIMasqueradeInterface(namespace string, name string) *v1.VirtualMachineInstance {
 	vmi := newVMI(namespace, name)
-	vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{{Name: "default", InterfaceBindingMethod: v1.InterfaceBindingMethod{Proxy: &v1.InterfaceProxy{}}}}
+	vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{{Name: "default", InterfaceBindingMethod: v1.InterfaceBindingMethod{Masquerade: &v1.InterfaceMasquerade{}}}}
 	v1.SetObjectDefaults_VirtualMachineInstance(vmi)
 	return vmi
 }

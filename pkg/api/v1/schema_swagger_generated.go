@@ -387,7 +387,7 @@ func (InterfaceSlirp) SwaggerDoc() map[string]string {
 	return map[string]string{}
 }
 
-func (InterfaceProxy) SwaggerDoc() map[string]string {
+func (InterfaceMasquerade) SwaggerDoc() map[string]string {
 	return map[string]string{}
 }
 

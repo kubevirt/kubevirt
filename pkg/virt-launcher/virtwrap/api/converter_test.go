@@ -935,11 +935,11 @@ var _ = Describe("Converter", func() {
 			Expect(domain.Spec.Devices.Interfaces[0].BootOrder.Order).To(Equal(uint(bootOrder)))
 			Expect(domain.Spec.Devices.Interfaces[1].BootOrder).To(BeNil())
 		})
-		It("Should create network configuration for proxy interface", func() {
+		It("Should create network configuration for masquerade interface", func() {
 			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
 			name1 := "Name"
 
-			iface1 := v1.Interface{Name: name1, InterfaceBindingMethod: v1.InterfaceBindingMethod{Proxy: &v1.InterfaceProxy{}}}
+			iface1 := v1.Interface{Name: name1, InterfaceBindingMethod: v1.InterfaceBindingMethod{Masquerade: &v1.InterfaceMasquerade{}}}
 			iface1.InterfaceBindingMethod.Slirp = &v1.InterfaceSlirp{}
 			net1 := v1.DefaultPodNetwork()
 			net1.Name = name1
@@ -952,11 +952,11 @@ var _ = Describe("Converter", func() {
 			Expect(domain.Spec.Devices.Interfaces).To(HaveLen(1))
 			Expect(domain.Spec.Devices.Interfaces[0].Source.Bridge).To(Equal("k6t-eth0"))
 		})
-		It("Should create network configuration for proxy interface and the pod network and a secondary network using multus", func() {
+		It("Should create network configuration for masquerade interface and the pod network and a secondary network using multus", func() {
 			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
 			name1 := "Name"
 
-			iface1 := v1.Interface{Name: name1, InterfaceBindingMethod: v1.InterfaceBindingMethod{Proxy: &v1.InterfaceProxy{}}}
+			iface1 := v1.Interface{Name: name1, InterfaceBindingMethod: v1.InterfaceBindingMethod{Masquerade: &v1.InterfaceMasquerade{}}}
 			iface1.InterfaceBindingMethod.Slirp = &v1.InterfaceSlirp{}
 			net1 := v1.DefaultPodNetwork()
 			net1.Name = name1
