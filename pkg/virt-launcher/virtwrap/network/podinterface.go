@@ -134,10 +134,10 @@ func getBinding(iface *v1.Interface, network *v1.Network, domain *api.Domain, po
 			podInterfaceName:    podInterfaceName,
 			bridgeInterfaceName: fmt.Sprintf("k6t-%s", podInterfaceName)}, nil
 	}
-	if iface.Proxy != nil {
+	if iface.Masquerade != nil {
 		vif := &VIF{Name: podInterfaceName}
 		populateMacAddress(vif, iface)
-		return &ProxyPodInterface{iface: iface,
+		return &MasqueradePodInterface{iface: iface,
 			vif:                 vif,
 			domain:              domain,
 			podInterfaceNum:     podInterfaceNum,
@@ -335,7 +335,7 @@ func (b *BridgePodInterface) createBridge() error {
 	return nil
 }
 
-type ProxyPodInterface struct {
+type MasqueradePodInterface struct {
 	vif                 *VIF
 	iface               *v1.Interface
 	podNicLink          netlink.Link
@@ -347,7 +347,7 @@ type ProxyPodInterface struct {
 	gatewayAddr         *netlink.Addr
 }
 
-func (p *ProxyPodInterface) discoverPodNetworkInterface() error {
+func (p *MasqueradePodInterface) discoverPodNetworkInterface() error {
 	link, err := Handler.LinkByName(p.podInterfaceName)
 	if err != nil {
 		log.Log.Reason(err).Errorf("failed to get a link for interface: %s", p.podInterfaceName)
@@ -384,7 +384,7 @@ func (p *ProxyPodInterface) discoverPodNetworkInterface() error {
 	return nil
 }
 
-func (p *ProxyPodInterface) preparePodNetworkInterfaces() error {
+func (p *MasqueradePodInterface) preparePodNetworkInterfaces() error {
 	// Create an master bridge interface
 	bridgeNicName := fmt.Sprintf("%s-nic", p.bridgeInterfaceName)
 	bridgeNic := &netlink.Dummy{
@@ -427,18 +427,18 @@ func (p *ProxyPodInterface) preparePodNetworkInterfaces() error {
 	return nil
 }
 
-func (p *ProxyPodInterface) startDHCPServer() {
+func (p *MasqueradePodInterface) startDHCPServer() {
 	// Start DHCP Server
 	Handler.StartDHCP(p.vif, p.gatewayAddr, p.bridgeInterfaceName, p.iface.DHCPOptions)
 }
 
-func (p *ProxyPodInterface) decorateConfig() error {
+func (p *MasqueradePodInterface) decorateConfig() error {
 	p.domain.Spec.Devices.Interfaces[p.podInterfaceNum].MAC = &api.MAC{MAC: p.vif.MAC.String()}
 
 	return nil
 }
 
-func (p *ProxyPodInterface) loadCachedInterface(name string) (bool, error) {
+func (p *MasqueradePodInterface) loadCachedInterface(name string) (bool, error) {
 	var ifaceConfig api.Interface
 
 	isExist, err := readFromCachedFile(name, interfaceCacheFile, &ifaceConfig)
@@ -454,12 +454,12 @@ func (p *ProxyPodInterface) loadCachedInterface(name string) (bool, error) {
 	return false, nil
 }
 
-func (p *ProxyPodInterface) setCachedInterface(name string) error {
+func (p *MasqueradePodInterface) setCachedInterface(name string) error {
 	err := writeToCachedFile(&p.domain.Spec.Devices.Interfaces[p.podInterfaceNum], interfaceCacheFile, name)
 	return err
 }
 
-func (p *ProxyPodInterface) createBridge() error {
+func (p *MasqueradePodInterface) createBridge() error {
 	// Get dummy link
 	bridgeNicName := fmt.Sprintf("%s-nic", p.bridgeInterfaceName)
 	bridgeNicLink, err := Handler.LinkByName(bridgeNicName)
@@ -499,7 +499,7 @@ func (p *ProxyPodInterface) createBridge() error {
 	return nil
 }
 
-func (p *ProxyPodInterface) createNatRules() error {
+func (p *MasqueradePodInterface) createNatRules() error {
 
 	err := Handler.IptablesNewChain("nat", "KUBEVIRT_PREINBOUND")
 	if err != nil {

@@ -4641,6 +4641,9 @@
       "description": "Interface MAC address. For example: de:ad:00:00:be:af or DE-AD-00-00-BE-AF.",
       "type": "string"
      },
+     "masquerade": {
+      "$ref": "#/definitions/v1.InterfaceMasquerade"
+     },
      "model": {
       "description": "Interface model.\nOne of: e1000, e1000e, ne2k_pci, pcnet, rtl8139, virtio.\nDefaults to virtio.",
       "type": "string"
@@ -4660,9 +4663,6 @@
        "$ref": "#/definitions/v1.Port"
       }
      },
-     "proxy": {
-      "$ref": "#/definitions/v1.InterfaceProxy"
-     },
      "slirp": {
       "$ref": "#/definitions/v1.InterfaceSlirp"
      },
@@ -4672,7 +4672,7 @@
     }
    },
    "v1.InterfaceBridge": {},
-   "v1.InterfaceProxy": {},
+   "v1.InterfaceMasquerade": {},
    "v1.InterfaceSRIOV": {},
    "v1.InterfaceSlirp": {},
    "v1.KVMTimer": {

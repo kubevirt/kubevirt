@@ -1593,12 +1593,12 @@ var _ = Describe("Validating Webhook", func() {
 			Expect(len(causes)).To(Equal(1))
 			Expect(causes[0].Field).To(Equal("fake.domain.devices.interfaces[0].ports[0]"))
 		})
-		It("should reject a proxy interface on a network different than pod", func() {
+		It("should reject a masquerade interface on a network different than pod", func() {
 			vm := v1.NewMinimalVMI("testvm")
 			vm.Spec.Domain.Devices.Interfaces = []v1.Interface{v1.Interface{
 				Name: "default",
 				InterfaceBindingMethod: v1.InterfaceBindingMethod{
-					Proxy: &v1.InterfaceProxy{},
+					Masquerade: &v1.InterfaceMasquerade{},
 				},
 				Ports: []v1.Port{{Name: "test"}}}}
 

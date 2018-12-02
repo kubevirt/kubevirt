@@ -27,9 +27,6 @@ import (
 	"time"
 
 	expect "github.com/google/goexpect"
-	"kubevirt.io/kubevirt/pkg/virtctl/expose"
-
-	"github.com/google/goexpect"
 	. "github.com/onsi/ginkgo"
 	"github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
@@ -43,6 +40,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/kubecli"
 	"kubevirt.io/kubevirt/pkg/log"
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
+	"kubevirt.io/kubevirt/pkg/virtctl/expose"
 	"kubevirt.io/kubevirt/tests"
 )
 
@@ -597,19 +595,19 @@ var _ = Describe("Networking", func() {
 		})
 	})
 
-	Context("VirtualMachineInstance with proxy binding mechanism", func() {
+	FContext("VirtualMachineInstance with masquerade binding mechanism", func() {
 		var serverVMI *v1.VirtualMachineInstance
 		var clientVMI *v1.VirtualMachineInstance
 
 		It("should allow regular network connection", func() {
 			By("creating two virtual machines")
 			ports := []v1.Port{{Name: "http", Port: 8080}}
-			serverVMI = tests.NewRandomVMIWithProxyInterfaceEphemeralDiskAndUserdata(tests.RegistryDiskFor(tests.RegistryDiskCirros), "#!/bin/bash\necho 'hello'\n", ports)
+			serverVMI = tests.NewRandomVMIWithMasqueradeInterfaceEphemeralDiskAndUserdata(tests.ContainerDiskFor(tests.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n", ports)
 			serverVMI.Labels = map[string]string{"expose": "server"}
 			_, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(serverVMI)
 			Expect(err).ToNot(HaveOccurred())
 
-			clientVMI = tests.NewRandomVMIWithProxyInterfaceEphemeralDiskAndUserdata(tests.RegistryDiskFor(tests.RegistryDiskCirros), "#!/bin/bash\necho 'hello'\n", []v1.Port{})
+			clientVMI = tests.NewRandomVMIWithMasqueradeInterfaceEphemeralDiskAndUserdata(tests.ContainerDiskFor(tests.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n", []v1.Port{})
 			_, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(clientVMI)
 			Expect(err).ToNot(HaveOccurred())
 
@@ -618,19 +616,31 @@ var _ = Describe("Networking", func() {
 			tests.WaitUntilVMIReady(serverVMI, tests.LoggedInCirrosExpecter)
 			tests.WaitUntilVMIReady(clientVMI, tests.LoggedInCirrosExpecter)
 
+			serverVMI, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Get(serverVMI.Name, &v13.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(len(serverVMI.Status.Interfaces)).To(Equal(1))
+
 			By("expose service for the server virtual machine")
 			virtctl := tests.NewRepeatableVirtctlCommand(expose.COMMAND_EXPOSE, "virtualmachineinstance", "--namespace",
-				serverVMI.Namespace, serverVMI.Name, "--port", "8080", "--name", "server-tcp")
+				serverVMI.Namespace, serverVMI.Name, "--port", "8080", "--name", "test-service-8080")
 			err = virtctl()
 			Expect(err).ToNot(HaveOccurred())
 
 			virtctl = tests.NewRepeatableVirtctlCommand(expose.COMMAND_EXPOSE, "virtualmachineinstance", "--namespace",
-				serverVMI.Namespace, serverVMI.Name, "--port", "8081", "--name", "server-tcp-8081")
+				serverVMI.Namespace, serverVMI.Name, "--port", "8081", "--name", "test-service-8081")
 			err = virtctl()
 			Expect(err).ToNot(HaveOccurred())
 
+			By("checking the endpoint ip in the server-tcp is equal to the launcher pod")
+			endpoint, err := virtClient.CoreV1().Endpoints(tests.NamespaceTestDefault).Get("test-service-8080", v13.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(len(endpoint.Subsets)).To(Equal(1))
+			Expect(len(endpoint.Subsets[0].Addresses)).To(Equal(1))
+			Expect(endpoint.Subsets[0].Addresses[0].IP).To(Equal(serverVMI.Status.Interfaces[0].IP))
+
 			By("check ping to google")
 			pingVirtualMachine(serverVMI, "8.8.8.8", "\\$ ")
+			pingVirtualMachine(clientVMI, "google.com", "\\$ ")
 
 			By("start a tcp server")
 			err = tests.CheckForTextExpecter(serverVMI, []expect.Batcher{
@@ -643,11 +653,31 @@ var _ = Describe("Networking", func() {
 			}, 30)
 			Expect(err).ToNot(HaveOccurred())
 
-			By("Connect from the client")
+			By("Connect from the client vm")
 			err = tests.CheckForTextExpecter(clientVMI, []expect.Batcher{
 				&expect.BSnd{S: "\n"},
 				&expect.BExp{R: "\\$ "},
-				&expect.BSnd{S: "echo test | nc -w 1 server-tcp 8080 1> /dev/null\n"},
+				&expect.BSnd{S: fmt.Sprintf("echo test | nc %s 8080 -i 1 -w 1 1> /dev/null\n", serverVMI.Status.Interfaces[0].IP)},
+				&expect.BExp{R: "\\$ "},
+				&expect.BSnd{S: "echo $?\n"},
+				&expect.BExp{R: "0"},
+			}, 30)
+			Expect(err).ToNot(HaveOccurred())
+
+			//err = tests.CheckForTextExpecter(clientVMI, []expect.Batcher{
+			//	&expect.BSnd{S: "\n"},
+			//	&expect.BExp{R: "\\$ "},
+			//	&expect.BSnd{S: "echo test | nc test-service-8080 8080 -i 1 -w 1 1> /dev/null\n"},
+			//	&expect.BExp{R: "\\$ "},
+			//	&expect.BSnd{S: "echo $?\n"},
+			//	&expect.BExp{R: "0"},
+			//}, 30)
+			//Expect(err).ToNot(HaveOccurred())
+
+			err = tests.CheckForTextExpecter(clientVMI, []expect.Batcher{
+				&expect.BSnd{S: "\n"},
+				&expect.BExp{R: "\\$ "},
+				&expect.BSnd{S: "nslookup test-service-8080 1>/dev/null\n"},
 				&expect.BExp{R: "\\$ "},
 				&expect.BSnd{S: "echo $?\n"},
 				&expect.BExp{R: "0"},
@@ -658,7 +688,7 @@ var _ = Describe("Networking", func() {
 			err = tests.CheckForTextExpecter(clientVMI, []expect.Batcher{
 				&expect.BSnd{S: "\n"},
 				&expect.BExp{R: "\\$ "},
-				&expect.BSnd{S: "echo test | nc -w 1 server-tcp-8081 8081 1> /dev/null\n"},
+				&expect.BSnd{S: "echo test | nc test-service-8081 8081 -i 1 -w 1 1> /dev/null\n"},
 				&expect.BExp{R: "\\$ "},
 				&expect.BSnd{S: "echo $?\n"},
 				&expect.BExp{R: "1"},
