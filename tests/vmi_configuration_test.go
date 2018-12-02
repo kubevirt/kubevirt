@@ -754,7 +754,7 @@ var _ = Describe("Configurations", func() {
 
 		It("should configure custom Pci address", func() {
 			By("checking disk1 Pci address")
-			vmi.Spec.Domain.Devices.Disks[0].Disk.PciAddress = "0000:04:10.0"
+			vmi.Spec.Domain.Devices.Disks[0].Disk.PciAddress = "0000:00:10.0"
 			vmi.Spec.Domain.Devices.Disks[0].Disk.Bus = "virtio"
 			vmi, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
 			Expect(err).ToNot(HaveOccurred())
