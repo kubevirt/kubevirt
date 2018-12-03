@@ -34,6 +34,9 @@ metadata:
   name: ${namespace}
 EOF
 
+# Deploy infra for testing first
+_kubectl create -f ${MANIFESTS_OUT_DIR}/testing -R $i
+
 # Deploy the right manifests for the right target
 if [[ -z $TARGET ]] || [[ $TARGET =~ .*-dev ]]; then
     _kubectl create -f ${MANIFESTS_OUT_DIR}/dev -R $i
@@ -45,9 +48,6 @@ elif [[ $TARGET =~ .*-release ]] || [[ $TARGET =~ windows.* ]]; then
         _kubectl create -f $manifest
     done
 fi
-
-# Deploy additional infra for testing
-_kubectl create -f ${MANIFESTS_OUT_DIR}/testing -R $i
 
 if [[ "$KUBEVIRT_PROVIDER" =~ os-* ]]; then
     _kubectl adm policy add-scc-to-user privileged -z kubevirt-controller -n ${namespace}
