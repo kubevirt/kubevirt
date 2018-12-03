@@ -22,8 +22,9 @@ LABEL maintainer="The KubeVirt Project <kubevirt-dev@googlegroups.com>"
 
 ENV container docker
 
-RUN yum install -y bzip2 qemu-img && dnf clean all && mkdir -p /disk
+RUN yum install -y bzip2 qemu-img scsi-target-utils e2fsprogs && dnf clean all && mkdir -p /disk
 
 ADD entry-point.sh /
+ADD expose-as-iscsi.sh /
 
 CMD ["/entry-point.sh"]
