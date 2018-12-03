@@ -554,10 +554,12 @@ func Convert_v1_VirtualMachine_To_api_Domain(vmi *v1.VirtualMachineInstance, dom
 	domain.Spec.Devices.Channels = append(domain.Spec.Devices.Channels, newChannel)
 
 	domain.Spec.Metadata.KubeVirt.UID = vmi.UID
+	gracePeriodSeconds := v1.DefaultGracePeriodSeconds
 	if vmi.Spec.TerminationGracePeriodSeconds != nil {
-		domain.Spec.Metadata.KubeVirt.GracePeriod = &GracePeriodMetadata{
-			DeletionGracePeriodSeconds: *vmi.Spec.TerminationGracePeriodSeconds,
-		}
+		gracePeriodSeconds = *vmi.Spec.TerminationGracePeriodSeconds
+	}
+	domain.Spec.Metadata.KubeVirt.GracePeriod = &GracePeriodMetadata{
+		DeletionGracePeriodSeconds: gracePeriodSeconds,
 	}
 
 	domain.Spec.SysInfo = &SysInfo{}
