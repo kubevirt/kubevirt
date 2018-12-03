@@ -1,0 +1,45 @@
+---
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: virt-operator
+  namespace: {{.Namespace}}
+  labels:
+    kubevirt.io: "virt-operator"
+spec:
+  replicas: 1
+  template:
+    metadata:
+      annotations:
+        scheduler.alpha.kubernetes.io/critical-pod: ""
+        scheduler.alpha.kubernetes.io/tolerations: |
+                  [
+                    {
+                      "key": "CriticalAddonsOnly",
+                      "operator": "Exists"
+                    }
+                  ]
+      labels:
+        kubevirt.io: virt-operator
+        prometheus.kubevirt.io: ""
+    spec:
+      serviceAccountName: kubevirt-operator
+      containers:
+        - name: virt-operator
+          image: {{.DockerPrefix}}/virt-operator:{{.DockerTag}}
+          imagePullPolicy: {{.ImagePullPolicy}}
+          command:
+              - "virt-operator"
+          ports:
+            - containerPort: 8186
+              name: "metrics"
+              protocol: "TCP"
+          readinessProbe:
+            httpGet:
+              scheme: HTTPS
+              port: "metrics"
+              path: "metrics"
+            initialDelaySeconds: 5
+            periodSeconds: 10
+      securityContext:
+        runAsNonRoot: true

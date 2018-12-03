@@ -164,8 +164,32 @@ func generateVirtualMachineInstanceCrd() {
 	crdutils.MarshallCrd(crd, "yaml")
 }
 
+func generateKubeVirtCrd() {
+	crd := generateBlankCrd()
+
+	crd.ObjectMeta.Name = "kubevirts." + v1.KubeVirtGroupVersionKind.Group
+	crd.Spec = extensionsv1.CustomResourceDefinitionSpec{
+		Group:   v1.KubeVirtGroupVersionKind.Group,
+		Version: v1.KubeVirtGroupVersionKind.Version,
+		Scope:   "Namespaced",
+
+		Names: extensionsv1.CustomResourceDefinitionNames{
+			Plural:     "kubevirts",
+			Singular:   "kubevirt",
+			Kind:       v1.KubeVirtGroupVersionKind.Kind,
+			ShortNames: []string{"kv", "kvs"},
+		},
+		AdditionalPrinterColumns: []extensionsv1.CustomResourceColumnDefinition{
+			{Name: "Age", Type: "date", JSONPath: ".metadata.creationTimestamp"},
+			{Name: "Phase", Type: "string", JSONPath: ".status.phase"},
+		},
+	}
+
+	crdutils.MarshallCrd(crd, "yaml")
+}
+
 func main() {
-	crdType := flag.String("crd-type", "", "Type of crd to generate. vmi | vmipreset | vmirs | vm | vmim")
+	crdType := flag.String("crd-type", "", "Type of crd to generate. vmi | vmipreset | vmirs | vm | vmim | kv")
 	flag.Parse()
 
 	switch *crdType {
@@ -179,6 +203,8 @@ func main() {
 		generateVirtualMachineCrd()
 	case "vmim":
 		generateVirtualMachineInstanceMigrationCrd()
+	case "kv":
+		generateKubeVirtCrd()
 	default:
 		panic(fmt.Errorf("unknown crd type %s", *crdType))
 	}

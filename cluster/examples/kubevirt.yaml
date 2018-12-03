@@ -1,0 +1,8 @@
+apiVersion: kubevirt.io/v1alpha2
+kind: KubeVirt
+metadata:
+  creationTimestamp: null
+  name: kubevirt
+spec:
+  version: v0.10.0
+status: {}

@@ -68,6 +68,8 @@ var VirtualMachineGroupVersionKind = schema.GroupVersionKind{Group: GroupName, V
 
 var VirtualMachineInstanceMigrationGroupVersionKind = schema.GroupVersionKind{Group: GroupName, Version: GroupVersion.Version, Kind: "VirtualMachineInstanceMigration"}
 
+var KubeVirtGroupVersionKind = schema.GroupVersionKind{Group: GroupName, Version: GroupVersion.Version, Kind: "KubeVirt"}
+
 // Adds the list of known types to api.Scheme.
 func addKnownTypes(scheme *runtime.Scheme) error {
 	scheme.AddKnownTypes(GroupVersion,
@@ -84,6 +86,8 @@ func addKnownTypes(scheme *runtime.Scheme) error {
 		&metav1.GetOptions{},
 		&VirtualMachine{},
 		&VirtualMachineList{},
+		&KubeVirt{},
+		&KubeVirtList{},
 	)
 	scheme.AddKnownTypes(metav1.Unversioned,
 		&metav1.Status{},
@@ -942,3 +946,74 @@ type Probe struct {
 	// +optional
 	FailureThreshold int32 `json:"failureThreshold,omitempty"`
 }
+
+// KubeVirt represents the object deploying all KubeVirt resources
+// ---
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+// +k8s:openapi-gen=true
+type KubeVirt struct {
+	metav1.TypeMeta   `json:",inline"`
+	metav1.ObjectMeta `json:"metadata,omitempty"`
+	Spec              KubeVirtSpec   `json:"spec,omitempty" valid:"required"`
+	Status            KubeVirtStatus `json:"status,omitempty"`
+}
+
+// Required to satisfy Object interface
+func (k *KubeVirt) GetObjectKind() schema.ObjectKind {
+	return &k.TypeMeta
+}
+
+// Required to satisfy ObjectMetaAccessor interface
+func (k *KubeVirt) GetObjectMeta() metav1.Object {
+	return &k.ObjectMeta
+}
+
+// KubeVirtList is a list of KubeVirts
+// ---
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+// +k8s:openapi-gen=true
+type KubeVirtList struct {
+	metav1.TypeMeta `json:",inline"`
+	ListMeta        metav1.ListMeta `json:"metadata,omitempty"`
+	Items           []KubeVirt      `json:"items"`
+}
+
+// Required to satisfy Object interface
+func (kl *KubeVirtList) GetObjectKind() schema.ObjectKind {
+	return &kl.TypeMeta
+}
+
+// Required to satisfy ListMetaAccessor interface
+func (kl *KubeVirtList) GetListMeta() meta.List {
+	return &kl.ListMeta
+}
+
+// ---
+// +k8s:openapi-gen=true
+type KubeVirtSpec struct {
+	// The name of the VMI to perform the migration on. VMI must exist in the migration objects namespace
+	Version string `json:"version,omitempty" valid:"required"`
+}
+
+// VirtualMachineInstanceMigration reprents information pertaining to a VMI's migration.
+// ---
+// +k8s:openapi-gen=true
+type KubeVirtStatus struct {
+	Phase KubeVirtPhase `json:"phase,omitempty"`
+}
+
+// KubeVirtPhase is a label for the condition of a KubeVirt deployment at the current time.
+// ---
+// +k8s:openapi-gen=true
+type KubeVirtPhase string
+
+// These are the valid KubeVirt deployment phases
+const (
+	KubeVirtPhaseUnset KubeVirtPhase = ""
+	// The deployment is processing
+	KubeVirtPhaseProcessing KubeVirtPhase = "Processing"
+	// The deployment succeeded
+	KubeVirtPhaseSucceeded KubeVirtPhase = "Succeeded"
+	// The deployment failed
+	KubeVirtPhaseFailed KubeVirtPhase = "Failed"
+)

@@ -88,4 +88,9 @@ cluster-deploy: cluster-clean
 
 cluster-sync: cluster-build cluster-deploy
 
+cluster-deploy-operator: cluster-clean
+	./cluster/deploy-operator.sh
+
+cluster-sync-operator: cluster-build cluster-deploy-operator
+
 .PHONY: build test clean distclean checksync sync docker manifests publish functest release-announce cluster-up cluster-down cluster-clean cluster-deploy cluster-sync

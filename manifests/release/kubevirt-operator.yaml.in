@@ -1,0 +1,3 @@
+{{index .DevManifests "rbac-operator.authorization.k8s.yaml"}}
+{{index .DevManifests "virt-operator.yaml"}}
+{{index .GeneratedManifests "kv-resource.yaml"}}

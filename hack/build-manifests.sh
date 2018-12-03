@@ -47,6 +47,7 @@ for arg in $args; do
         --docker-tag=${docker_tag} \
         --image-pull-policy=${image_pull_policy} \
         --generated-manifests-dir=${KUBEVIRT_DIR}/manifests/generated/ \
+        --dev-manifests-dir=${KUBEVIRT_DIR}/_out/manifests/dev/ \
         --input-file=${KUBEVIRT_DIR}/manifests/$arg >${outfile}
 
     ${KUBEVIRT_DIR}/tools/manifest-templator/manifest-templator \
@@ -56,6 +57,7 @@ for arg in $args; do
         --docker-tag="{{ docker_tag }}" \
         --image-pull-policy="{{ image_pull_policy }}" \
         --generated-manifests-dir=${KUBEVIRT_DIR}/manifests/generated/ \
+        --dev-manifests-dir=${KUBEVIRT_DIR}/_out/manifests/dev/ \
         --input-file=${KUBEVIRT_DIR}/manifests/$arg >${template_outfile}
 done
 
