@@ -1,7 +1,7 @@
+---
 apiVersion: kubevirt.io/v1alpha2
 kind: VirtualMachine
 metadata:
-  creationTimestamp: null
   labels:
     kubevirt.io/vm: vm-alpine-datavolume
   name: vm-alpine-datavolume
@@ -25,7 +25,6 @@ spec:
   running: false
   template:
     metadata:
-      creationTimestamp: null
       labels:
         kubevirt.io/vm: vm-alpine-datavolume
     spec:
@@ -46,4 +45,3 @@ spec:
       - dataVolume:
           name: alpine-dv
         name: datavolumevolume1
-status: {}

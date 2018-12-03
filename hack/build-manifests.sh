@@ -24,7 +24,8 @@ source hack/config.sh
 
 manifest_docker_prefix=${manifest_docker_prefix-${docker_prefix}}
 
-args=$(cd ${KUBEVIRT_DIR}/manifests && find * -type f -name "*.yaml.in")
+# make sure manifests in dev are processed first, so that their result can be used in other manifests (see --dev-manifests-dir)
+args=$(cd ${KUBEVIRT_DIR}/manifests && find * -type f -name "*.yaml.in" | sort)
 
 rm -rf ${MANIFESTS_OUT_DIR}
 rm -rf ${MANIFEST_TEMPLATES_OUT_DIR}
@@ -47,6 +48,7 @@ for arg in $args; do
         --container-tag=${docker_tag} \
         --image-pull-policy=${image_pull_policy} \
         --generated-manifests-dir=${KUBEVIRT_DIR}/manifests/generated/ \
+        --dev-manifests-dir=${MANIFESTS_OUT_DIR}/dev/ \
         --input-file=${KUBEVIRT_DIR}/manifests/$arg >${outfile}
 
     ${KUBEVIRT_DIR}/tools/manifest-templator/manifest-templator \
@@ -56,6 +58,7 @@ for arg in $args; do
         --container-tag="{{ docker_tag }}" \
         --image-pull-policy="{{ image_pull_policy }}" \
         --generated-manifests-dir=${KUBEVIRT_DIR}/manifests/generated/ \
+        --dev-manifests-dir=${MANIFESTS_OUT_DIR}/dev/ \
         --input-file=${KUBEVIRT_DIR}/manifests/$arg >${template_outfile}
 done
 

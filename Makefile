@@ -4,7 +4,7 @@ all:
 	hack/dockerized "./hack/check.sh && KUBEVIRT_VERSION=${KUBEVIRT_VERSION} ./hack/build-go.sh install ${WHAT} && ./hack/build-copy-artifacts.sh ${WHAT} && DOCKER_PREFIX=${DOCKER_PREFIX} DOCKER_TAG=${DOCKER_TAG} ./hack/build-manifests.sh"
 
 generate:
-	hack/dockerized "./hack/generate.sh"
+	hack/dockerized "KUBEVIRT_PROVIDER=${KUBEVIRT_PROVIDER} DOCKER_PREFIX=${DOCKER_PREFIX} DOCKER_TAG=${DOCKER_TAG} ./hack/generate.sh"
 
 apidocs:
 	hack/dockerized "./hack/generate.sh && ./hack/gen-swagger-doc/gen-swagger-docs.sh v1 html"
@@ -30,7 +30,7 @@ functest:
 
 clean:
 	hack/dockerized "./hack/build-go.sh clean ${WHAT} && rm _out/* -rf"
-	rm -f tools/openapispec/openapispec tools/crd-generator/crd-generator tools/manifest-templator/manifests-templator tools/vms-generator/vms-generator
+	rm -f tools/openapispec/openapispec tools/resource-generator/resource-generator tools/manifest-templator/manifests-templator tools/vms-generator/vms-generator
 
 distclean: clean
 	hack/dockerized "rm -rf vendor/ && rm -f .glide.*.hash && glide cc"
@@ -63,7 +63,7 @@ verify-build:
 	hack/verify-build.sh
 
 manifests:
-	hack/dockerized "DOCKER_PREFIX=${DOCKER_PREFIX} DOCKER_TAG=${DOCKER_TAG} ./hack/build-manifests.sh"
+	hack/dockerized "KUBEVIRT_PROVIDER=${KUBEVIRT_PROVIDER} DOCKER_PREFIX=${DOCKER_PREFIX} DOCKER_TAG=${DOCKER_TAG} ./hack/build-manifests.sh"
 
 .release-functest:
 	make functest > .release-functest 2>&1
