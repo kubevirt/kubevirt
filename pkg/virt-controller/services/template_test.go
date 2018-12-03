@@ -30,6 +30,7 @@ import (
 	kubev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/client-go/tools/cache"
 
 	"kubevirt.io/kubevirt/pkg/api/v1"
@@ -96,7 +97,7 @@ var _ = Describe("Template", func() {
 					"--namespace", "testns",
 					"--kubevirt-share-dir", "/var/run/kubevirt",
 					"--ephemeral-disk-dir", "/var/run/kubevirt-ephemeral-disks",
-					"--readiness-file", "/tmp/healthy",
+					"--readiness-file", "/var/run/kubevirt-infra/healthy",
 					"--grace-period-seconds", "45",
 					"--hook-sidecars", "1",
 					"--less-pvc-space-toleration", "10"}))
@@ -202,7 +203,7 @@ var _ = Describe("Template", func() {
 					"--namespace", "default",
 					"--kubevirt-share-dir", "/var/run/kubevirt",
 					"--ephemeral-disk-dir", "/var/run/kubevirt-ephemeral-disks",
-					"--readiness-file", "/tmp/healthy",
+					"--readiness-file", "/var/run/kubevirt-infra/healthy",
 					"--grace-period-seconds", "45",
 					"--hook-sidecars", "1",
 					"--less-pvc-space-toleration", "10"}))
@@ -211,7 +212,7 @@ var _ = Describe("Template", func() {
 				Expect(pod.Spec.Containers[1].ImagePullPolicy).To(Equal(kubev1.PullPolicy("IfNotPresent")))
 				Expect(pod.Spec.Containers[1].VolumeMounts[0].MountPath).To(Equal(hooks.HookSocketsSharedDirectory))
 				Expect(pod.Spec.Volumes[0].EmptyDir.Medium).To(Equal(kubev1.StorageMedium("")))
-				Expect(pod.Spec.Volumes[1].HostPath.Path).To(Equal("/var/run/kubevirt"))
+				Expect(pod.Spec.Volumes[2].HostPath.Path).To(Equal("/var/run/kubevirt"))
 				Expect(pod.Spec.Containers[0].VolumeMounts[1].MountPath).To(Equal("/var/run/kubevirt"))
 				Expect(*pod.Spec.TerminationGracePeriodSeconds).To(Equal(int64(60)))
 			})
@@ -547,11 +548,11 @@ var _ = Describe("Template", func() {
 				Expect(hugepagesRequest.ToDec().ScaledValue(resource.Mega)).To(Equal(int64(64)))
 				Expect(hugepagesLimit.ToDec().ScaledValue(resource.Mega)).To(Equal(int64(64)))
 
-				Expect(len(pod.Spec.Volumes)).To(Equal(4))
+				Expect(len(pod.Spec.Volumes)).To(Equal(5))
 				Expect(pod.Spec.Volumes[0].EmptyDir).ToNot(BeNil())
 				Expect(pod.Spec.Volumes[0].EmptyDir.Medium).To(Equal(kubev1.StorageMediumHugePages))
 
-				Expect(len(pod.Spec.Containers[0].VolumeMounts)).To(Equal(4))
+				Expect(len(pod.Spec.Containers[0].VolumeMounts)).To(Equal(5))
 				Expect(pod.Spec.Containers[0].VolumeMounts[3].MountPath).To(Equal("/dev/hugepages"))
 			},
 				table.Entry("hugepages-2Mi", "2Mi"),
@@ -592,11 +593,11 @@ var _ = Describe("Template", func() {
 				Expect(pod.Spec.Containers[0].VolumeDevices).To(BeEmpty(), "No devices in manifest for 1st container")
 
 				Expect(pod.Spec.Containers[0].VolumeMounts).ToNot(BeEmpty(), "Some mounts in manifest for 1st container")
-				Expect(len(pod.Spec.Containers[0].VolumeMounts)).To(Equal(4), "4 mounts in manifest for 1st container")
+				Expect(len(pod.Spec.Containers[0].VolumeMounts)).To(Equal(5), "4 mounts in manifest for 1st container")
 				Expect(pod.Spec.Containers[0].VolumeMounts[3].Name).To(Equal(volumeName), "1st mount in manifest for 1st container has correct name")
 
 				Expect(pod.Spec.Volumes).ToNot(BeEmpty(), "Found some volumes in manifest")
-				Expect(len(pod.Spec.Volumes)).To(Equal(4), "Found 4 volumes in manifest")
+				Expect(len(pod.Spec.Volumes)).To(Equal(5), "Found 4 volumes in manifest")
 				Expect(pod.Spec.Volumes[0].PersistentVolumeClaim).ToNot(BeNil(), "Found PVC volume")
 				Expect(pod.Spec.Volumes[0].PersistentVolumeClaim.ClaimName).To(Equal(pvcName), "Found PVC volume with correct name")
 			})
@@ -640,10 +641,10 @@ var _ = Describe("Template", func() {
 				Expect(pod.Spec.Containers[0].VolumeDevices[0].Name).To(Equal(volumeName), "Found device for 1st container with correct name")
 
 				Expect(pod.Spec.Containers[0].VolumeMounts).ToNot(BeEmpty(), "Found some mounts in manifest for 1st container")
-				Expect(len(pod.Spec.Containers[0].VolumeMounts)).To(Equal(3), "Found 3 mounts in manifest for 1st container")
+				Expect(len(pod.Spec.Containers[0].VolumeMounts)).To(Equal(4), "Found 3 mounts in manifest for 1st container")
 
 				Expect(pod.Spec.Volumes).ToNot(BeEmpty(), "Found some volumes in manifest")
-				Expect(len(pod.Spec.Volumes)).To(Equal(4), "Found 4 volumes in manifest")
+				Expect(len(pod.Spec.Volumes)).To(Equal(5), "Found 4 volumes in manifest")
 				Expect(pod.Spec.Volumes[0].PersistentVolumeClaim).ToNot(BeNil(), "Found PVC volume")
 				Expect(pod.Spec.Volumes[0].PersistentVolumeClaim.ClaimName).To(Equal(pvcName), "Found PVC volume with correct name")
 			})
@@ -976,7 +977,7 @@ var _ = Describe("Template", func() {
 				Expect(err).ToNot(HaveOccurred())
 
 				Expect(pod.Spec.Volumes).ToNot(BeEmpty())
-				Expect(len(pod.Spec.Volumes)).To(Equal(4))
+				Expect(len(pod.Spec.Volumes)).To(Equal(5))
 				Expect(pod.Spec.Volumes[0].ConfigMap).ToNot(BeNil())
 				Expect(pod.Spec.Volumes[0].ConfigMap.LocalObjectReference.Name).To(Equal("test-configmap"))
 			})
@@ -1005,9 +1006,83 @@ var _ = Describe("Template", func() {
 				Expect(err).ToNot(HaveOccurred())
 
 				Expect(pod.Spec.Volumes).ToNot(BeEmpty())
-				Expect(len(pod.Spec.Volumes)).To(Equal(4))
+				Expect(len(pod.Spec.Volumes)).To(Equal(5))
 				Expect(pod.Spec.Volumes[0].Secret).ToNot(BeNil())
 				Expect(pod.Spec.Volumes[0].Secret.SecretName).To(Equal("test-secret"))
+			})
+		})
+		Context("with probes", func() {
+			var vmi *v1.VirtualMachineInstance
+			BeforeEach(func() {
+				vmi = &v1.VirtualMachineInstance{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "testvmi", Namespace: "default", UID: "1234",
+					},
+					Spec: v1.VirtualMachineInstanceSpec{
+						ReadinessProbe: &v1.Probe{
+							InitialDelaySeconds: 2,
+							TimeoutSeconds:      3,
+							PeriodSeconds:       4,
+							SuccessThreshold:    5,
+							FailureThreshold:    6,
+							Handler: v1.Handler{
+								TCPSocket: &kubev1.TCPSocketAction{
+									Port: intstr.Parse("80"),
+									Host: "123",
+								},
+								HTTPGet: &kubev1.HTTPGetAction{
+									Path: "test",
+								},
+							},
+						},
+						LivenessProbe: &v1.Probe{
+							InitialDelaySeconds: 12,
+							TimeoutSeconds:      13,
+							PeriodSeconds:       14,
+							SuccessThreshold:    15,
+							FailureThreshold:    16,
+							Handler: v1.Handler{
+								TCPSocket: &kubev1.TCPSocketAction{
+									Port: intstr.Parse("82"),
+									Host: "1234",
+								},
+								HTTPGet: &kubev1.HTTPGetAction{
+									Path: "test34",
+								},
+							},
+						},
+						Domain: v1.DomainSpec{}},
+				}
+			})
+			It("should copy all specified probes", func() {
+				pod, err := svc.RenderLaunchManifest(vmi)
+				Expect(err).ToNot(HaveOccurred())
+				livenessProbe := pod.Spec.Containers[0].LivenessProbe
+				readinessProbe := pod.Spec.Containers[0].ReadinessProbe
+				Expect(livenessProbe.Handler.TCPSocket).To(Equal(vmi.Spec.LivenessProbe.TCPSocket))
+				Expect(readinessProbe.Handler.TCPSocket).To(Equal(vmi.Spec.ReadinessProbe.TCPSocket))
+
+				Expect(livenessProbe.Handler.HTTPGet).To(Equal(vmi.Spec.LivenessProbe.HTTPGet))
+				Expect(readinessProbe.Handler.HTTPGet).To(Equal(vmi.Spec.ReadinessProbe.HTTPGet))
+
+				Expect(livenessProbe.PeriodSeconds).To(Equal(vmi.Spec.LivenessProbe.PeriodSeconds))
+				Expect(livenessProbe.InitialDelaySeconds).To(Equal(vmi.Spec.LivenessProbe.InitialDelaySeconds + LibvirtStartupDelay))
+				Expect(livenessProbe.TimeoutSeconds).To(Equal(vmi.Spec.LivenessProbe.TimeoutSeconds))
+				Expect(livenessProbe.SuccessThreshold).To(Equal(vmi.Spec.LivenessProbe.SuccessThreshold))
+				Expect(livenessProbe.FailureThreshold).To(Equal(vmi.Spec.LivenessProbe.FailureThreshold))
+
+				Expect(readinessProbe.PeriodSeconds).To(Equal(vmi.Spec.ReadinessProbe.PeriodSeconds))
+				Expect(readinessProbe.InitialDelaySeconds).To(Equal(vmi.Spec.ReadinessProbe.InitialDelaySeconds + LibvirtStartupDelay))
+				Expect(readinessProbe.TimeoutSeconds).To(Equal(vmi.Spec.ReadinessProbe.TimeoutSeconds))
+				Expect(readinessProbe.SuccessThreshold).To(Equal(vmi.Spec.ReadinessProbe.SuccessThreshold))
+				Expect(readinessProbe.FailureThreshold).To(Equal(vmi.Spec.ReadinessProbe.FailureThreshold))
+			})
+
+			It("should set a readiness probe on the pod, if no one was specified on the vmi", func() {
+				vmi.Spec.ReadinessProbe = nil
+				pod, err := svc.RenderLaunchManifest(vmi)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(pod.Spec.Containers[0].ReadinessProbe).To(Not(BeNil()))
 			})
 		})
 

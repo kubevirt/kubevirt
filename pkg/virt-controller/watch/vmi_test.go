@@ -559,10 +559,11 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 
 			controller.Execute()
 		})
-		It("should hand over pod to virt-handler if pod is ready and running", func() {
+		table.DescribeTable("should hand over pod to virt-handler if pod is ready and running", func(containerStatus []k8sv1.ContainerStatus) {
 			vmi := NewPendingVirtualMachine("testvmi")
 			vmi.Status.Phase = v1.Scheduling
 			pod := NewPodForVirtualMachine(vmi, k8sv1.PodRunning)
+			pod.Status.ContainerStatuses = containerStatus
 
 			addVirtualMachine(vmi)
 			podFeeder.Add(pod)
@@ -570,7 +571,32 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			shouldExpectVirtualMachineScheduledState(vmi)
 
 			controller.Execute()
-		})
+		},
+			table.Entry("with ready infra container and not ready compute container",
+				[]k8sv1.ContainerStatus{{Name: "compute", Ready: false}, {Name: "kubevirt-infra", Ready: true}},
+			),
+			table.Entry("with ready compute container and no infra container",
+				[]k8sv1.ContainerStatus{{Name: "compute", Ready: true}},
+			),
+		)
+		table.DescribeTable("should not hand over pod to virt-handler if pod is ready and running", func(containerStatus []k8sv1.ContainerStatus) {
+			vmi := NewPendingVirtualMachine("testvmi")
+			vmi.Status.Phase = v1.Scheduling
+			pod := NewPodForVirtualMachine(vmi, k8sv1.PodRunning)
+			pod.Status.ContainerStatuses = containerStatus
+
+			addVirtualMachine(vmi)
+			podFeeder.Add(pod)
+
+			controller.Execute()
+		},
+			table.Entry("with not ready infra container and not ready compute container",
+				[]k8sv1.ContainerStatus{{Name: "compute", Ready: false}, {Name: "kubevirt-infra", Ready: false}},
+			),
+			table.Entry("with not ready compute container and no infra container",
+				[]k8sv1.ContainerStatus{{Name: "compute", Ready: false}},
+			),
+		)
 
 		It("should ignore migration target pods", func() {
 			vmi := NewPendingVirtualMachine("testvmi")
@@ -718,7 +744,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 		It("should update the virtual machine to failed if compute container is terminated while still scheduling", func() {
 			vmi := NewPendingVirtualMachine("testvmi")
 			pod := NewPodForVirtualMachine(vmi, k8sv1.PodPending)
-			pod.Status.ContainerStatuses = append(pod.Status.ContainerStatuses, k8sv1.ContainerStatus{Name: "compute", State: k8sv1.ContainerState{Terminated: &k8sv1.ContainerStateTerminated{}}})
+			pod.Status.ContainerStatuses = []k8sv1.ContainerStatus{{Name: "compute", State: k8sv1.ContainerState{Terminated: &k8sv1.ContainerStateTerminated{}}}}
 			vmi.Status.Phase = v1.Scheduling
 
 			addVirtualMachine(vmi)
@@ -876,7 +902,8 @@ func NewPodForVirtualMachine(vmi *v1.VirtualMachineInstance, phase k8sv1.PodPhas
 		Status: k8sv1.PodStatus{
 			Phase: phase,
 			ContainerStatuses: []k8sv1.ContainerStatus{
-				{Ready: true, Name: "test"},
+				{Ready: true, Name: "kubevirt-infra"},
+				{Ready: false, Name: "compute"},
 			},
 		},
 	}

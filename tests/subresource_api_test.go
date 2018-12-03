@@ -96,7 +96,7 @@ var _ = Describe("Subresource Api", func() {
 						return v1.VmPhaseUnset
 					}
 					return newVMI.Status.Phase
-				}, 60*time.Second, 1*time.Second).Should(Equal(v1.Running))
+				}, 90*time.Second, 1*time.Second).Should(Equal(v1.Running))
 			})
 
 			It("should return an error when VM is not running", func() {

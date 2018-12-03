@@ -49,7 +49,7 @@ var _ = Describe("Console", func() {
 		Expect(virtClient.RestClient().Post().Resource("virtualmachineinstances").Namespace(tests.NamespaceTestDefault).Body(vmi).Do().Error()).To(Succeed())
 
 		By("Waiting until it starts")
-		tests.WaitForSuccessfulVMIStartWithTimeout(vmi, 90)
+		tests.WaitForSuccessfulVMIStart(vmi)
 	}
 
 	ExpectConsoleOutput := func(vmi *v1.VirtualMachineInstance, expected string) {
@@ -79,6 +79,7 @@ var _ = Describe("Console", func() {
 	Describe("A new VirtualMachineInstance", func() {
 		Context("with a serial console", func() {
 			Context("with a cirros image", func() {
+
 				It("should return that we are running cirros", func() {
 					vmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(tests.ContainerDiskFor(tests.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n")
 					RunVMIAndWaitForStart(vmi)

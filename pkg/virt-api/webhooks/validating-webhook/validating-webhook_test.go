@@ -34,6 +34,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/util/intstr"
 	k8sfield "k8s.io/apimachinery/pkg/util/validation/field"
 	"k8s.io/client-go/tools/cache"
 
@@ -103,6 +104,135 @@ var _ = Describe("Validating Webhook", func() {
 			Expect(resp.Allowed).To(Equal(false))
 			Expect(resp.Result.Message).To(ContainSubstring("no memory requested"))
 		})
+
+		Context("with probes given", func() {
+			It("should reject probes with not probe action configured", func() {
+				vmi := v1.NewMinimalVMI("testvmi")
+				m := resource.MustParse("64M")
+				vmi.Spec.Domain.Memory = &v1.Memory{Guest: &m}
+				vmi.Spec.Domain.Resources = v1.ResourceRequirements{}
+				vmi.Spec.ReadinessProbe = &v1.Probe{InitialDelaySeconds: 2}
+				vmi.Spec.LivenessProbe = &v1.Probe{InitialDelaySeconds: 2}
+				vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{*v1.DefaultNetworkInterface()}
+				vmi.Spec.Networks = []v1.Network{*v1.DefaultPodNetwork()}
+
+				vmiBytes, _ := json.Marshal(&vmi)
+
+				ar := &v1beta1.AdmissionReview{
+					Request: &v1beta1.AdmissionRequest{
+						Resource: webhooks.VirtualMachineInstanceGroupVersionResource,
+						Object: runtime.RawExtension{
+							Raw: vmiBytes,
+						},
+					},
+				}
+				resp := admitVMICreate(ar)
+				Expect(resp.Allowed).To(Equal(false))
+				Expect(resp.Result.Message).To(Equal(`either spec.readinessProbe.tcpSocket or spec.readinessProbe.httpGet must be set if a spec.readinessProbe is specified, either spec.livenessProbe.tcpSocket or spec.livenessProbe.httpGet must be set if a spec.livenessProbe is specified`))
+			})
+			It("should reject probes with more than one action per probe configured", func() {
+				vmi := v1.NewMinimalVMI("testvmi")
+				m := resource.MustParse("64M")
+				vmi.Spec.Domain.Memory = &v1.Memory{Guest: &m}
+				vmi.Spec.Domain.Resources = v1.ResourceRequirements{}
+				vmi.Spec.ReadinessProbe = &v1.Probe{
+					InitialDelaySeconds: 2,
+					Handler: v1.Handler{
+						HTTPGet:   &k8sv1.HTTPGetAction{Host: "test", Port: intstr.Parse("80")},
+						TCPSocket: &k8sv1.TCPSocketAction{Host: "lal", Port: intstr.Parse("80")},
+					},
+				}
+				vmi.Spec.LivenessProbe = &v1.Probe{
+					InitialDelaySeconds: 2,
+					Handler: v1.Handler{
+						HTTPGet:   &k8sv1.HTTPGetAction{Host: "test", Port: intstr.Parse("80")},
+						TCPSocket: &k8sv1.TCPSocketAction{Host: "lal", Port: intstr.Parse("80")},
+					},
+				}
+				vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{*v1.DefaultNetworkInterface()}
+				vmi.Spec.Networks = []v1.Network{*v1.DefaultPodNetwork()}
+
+				vmiBytes, _ := json.Marshal(&vmi)
+
+				ar := &v1beta1.AdmissionReview{
+					Request: &v1beta1.AdmissionRequest{
+						Resource: webhooks.VirtualMachineInstanceGroupVersionResource,
+						Object: runtime.RawExtension{
+							Raw: vmiBytes,
+						},
+					},
+				}
+				resp := admitVMICreate(ar)
+				Expect(resp.Allowed).To(Equal(false))
+				Expect(resp.Result.Message).To(Equal(`spec.readinessProbe must have exactly one probe type set, spec.livenessProbe must have exactly one probe type set`))
+			})
+			It("should accept properly configured readiness and liveness probes", func() {
+				vmi := v1.NewMinimalVMI("testvmi")
+				m := resource.MustParse("64M")
+				vmi.Spec.Domain.Memory = &v1.Memory{Guest: &m}
+				vmi.Spec.Domain.Resources = v1.ResourceRequirements{}
+				vmi.Spec.ReadinessProbe = &v1.Probe{
+					InitialDelaySeconds: 2,
+					Handler: v1.Handler{
+						TCPSocket: &k8sv1.TCPSocketAction{Host: "lal", Port: intstr.Parse("80")},
+					},
+				}
+				vmi.Spec.LivenessProbe = &v1.Probe{
+					InitialDelaySeconds: 2,
+					Handler: v1.Handler{
+						HTTPGet: &k8sv1.HTTPGetAction{Host: "test", Port: intstr.Parse("80")},
+					},
+				}
+				vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{*v1.DefaultNetworkInterface()}
+				vmi.Spec.Networks = []v1.Network{*v1.DefaultPodNetwork()}
+
+				vmiBytes, _ := json.Marshal(&vmi)
+
+				ar := &v1beta1.AdmissionReview{
+					Request: &v1beta1.AdmissionRequest{
+						Resource: webhooks.VirtualMachineInstanceGroupVersionResource,
+						Object: runtime.RawExtension{
+							Raw: vmiBytes,
+						},
+					},
+				}
+				resp := admitVMICreate(ar)
+				Expect(resp.Allowed).To(Equal(true))
+			})
+			It("should reject properly configured readiness and liveness probes if no Pod Network is present", func() {
+				vmi := v1.NewMinimalVMI("testvmi")
+				m := resource.MustParse("64M")
+				vmi.Spec.Domain.Memory = &v1.Memory{Guest: &m}
+				vmi.Spec.Domain.Resources = v1.ResourceRequirements{}
+				vmi.Spec.ReadinessProbe = &v1.Probe{
+					InitialDelaySeconds: 2,
+					Handler: v1.Handler{
+						TCPSocket: &k8sv1.TCPSocketAction{Host: "lal", Port: intstr.Parse("80")},
+					},
+				}
+				vmi.Spec.LivenessProbe = &v1.Probe{
+					InitialDelaySeconds: 2,
+					Handler: v1.Handler{
+						HTTPGet: &k8sv1.HTTPGetAction{Host: "test", Port: intstr.Parse("80")},
+					},
+				}
+
+				vmiBytes, _ := json.Marshal(&vmi)
+
+				ar := &v1beta1.AdmissionReview{
+					Request: &v1beta1.AdmissionRequest{
+						Resource: webhooks.VirtualMachineInstanceGroupVersionResource,
+						Object: runtime.RawExtension{
+							Raw: vmiBytes,
+						},
+					},
+				}
+				resp := admitVMICreate(ar)
+				Expect(resp.Allowed).To(Equal(false))
+				Expect(resp.Result.Message).To(Equal(`spec.livenessProbe is only allowed if the Pod Network is attached, spec.readinessProbe is only allowed if the Pod Network is attached`))
+			})
+		})
+
 		It("should accept valid vmi spec on create", func() {
 			vmi := v1.NewMinimalVMI("testvmi")
 			vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{

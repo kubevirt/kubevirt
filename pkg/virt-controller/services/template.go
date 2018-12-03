@@ -52,6 +52,10 @@ const VhostNetDevice = "devices.kubevirt.io/vhost-net"
 const CAP_NET_ADMIN = "NET_ADMIN"
 const CAP_SYS_NICE = "SYS_NICE"
 
+// LibvirtStartupDelay is added to custom liveness and readiness probes initial delay value.
+// Libvirt needs roughly 10 seconds to start.
+const LibvirtStartupDelay = 10
+
 type TemplateService interface {
 	RenderLaunchManifest(*v1.VirtualMachineInstance) (*k8sv1.Pod, error)
 }
@@ -486,7 +490,7 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 		"--namespace", namespace,
 		"--kubevirt-share-dir", t.virtShareDir,
 		"--ephemeral-disk-dir", t.ephemeralDiskDir,
-		"--readiness-file", "/tmp/healthy",
+		"--readiness-file", "/var/run/kubevirt-infra/healthy",
 		"--grace-period-seconds", strconv.Itoa(int(gracePeriodSeconds)),
 		"--hook-sidecars", strconv.Itoa(len(requestedHookSidecarList)),
 		"--less-pvc-space-toleration", strconv.Itoa(lessPVCSpaceToleration),
@@ -522,6 +526,29 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 
 	capabilities := getRequiredCapabilities(vmi)
 
+	volumeMounts = append(volumeMounts, k8sv1.VolumeMount{
+		Name:      "infra-ready-mount",
+		MountPath: "/var/run/kubevirt-infra",
+	})
+
+	defaultReadinessProbe := &k8sv1.Probe{
+		Handler: k8sv1.Handler{
+			Exec: &k8sv1.ExecAction{
+				Command: []string{
+					"cat",
+					"/var/run/kubevirt-infra/healthy",
+				},
+			},
+		},
+		InitialDelaySeconds: int32(initialDelaySeconds),
+		PeriodSeconds:       int32(periodSeconds),
+		TimeoutSeconds:      int32(timeoutSeconds),
+		SuccessThreshold:    int32(successThreshold),
+		FailureThreshold:    int32(failureThreshold),
+	}
+
+	volumes = append(volumes, k8sv1.Volume{Name: "infra-ready-mount", VolumeSource: k8sv1.VolumeSource{EmptyDir: &k8sv1.EmptyDirVolumeSource{}}})
+
 	// VirtualMachineInstance target container
 	container := k8sv1.Container{
 		Name:            "compute",
@@ -534,27 +561,24 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 				Add: capabilities,
 			},
 		},
-		Command:       command,
-		VolumeDevices: volumeDevices,
-		VolumeMounts:  volumeMounts,
-		ReadinessProbe: &k8sv1.Probe{
-			Handler: k8sv1.Handler{
-				Exec: &k8sv1.ExecAction{
-					Command: []string{
-						"cat",
-						"/tmp/healthy",
-					},
-				},
-			},
-			InitialDelaySeconds: int32(initialDelaySeconds),
-			PeriodSeconds:       int32(periodSeconds),
-			TimeoutSeconds:      int32(timeoutSeconds),
-			SuccessThreshold:    int32(successThreshold),
-			FailureThreshold:    int32(failureThreshold),
-		},
-		Resources: resources,
-		Ports:     ports,
+		Command:        command,
+		VolumeDevices:  volumeDevices,
+		VolumeMounts:   volumeMounts,
+		Resources:      resources,
+		Ports:          ports,
+		ReadinessProbe: defaultReadinessProbe,
 	}
+
+	if vmi.Spec.ReadinessProbe != nil {
+		container.ReadinessProbe = copyProbe(vmi.Spec.ReadinessProbe)
+		container.ReadinessProbe.InitialDelaySeconds = container.ReadinessProbe.InitialDelaySeconds + LibvirtStartupDelay
+	}
+
+	if vmi.Spec.LivenessProbe != nil {
+		container.LivenessProbe = copyProbe(vmi.Spec.LivenessProbe)
+		container.LivenessProbe.InitialDelaySeconds = container.LivenessProbe.InitialDelaySeconds + LibvirtStartupDelay
+	}
+
 	containers := containerdisk.GenerateContainers(vmi, "ephemeral-disks", t.ephemeralDiskDir)
 
 	volumes = append(volumes, k8sv1.Volume{
@@ -615,6 +639,32 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 				},
 			},
 		})
+	}
+
+	// XXX: reduce test time. Adding one more container delays the start.
+	// First stdci has issues with that and second we don't want to increase the startup time even more.
+	// At the end the infra container needs to be always there, to allow better default readiness checks.
+	if vmi.Spec.ReadinessProbe != nil {
+		// Infra-ready container
+		readyContainer := k8sv1.Container{
+			Name:            "kubevirt-infra",
+			Image:           t.launcherImage,
+			ImagePullPolicy: imagePullPolicy,
+			SecurityContext: &k8sv1.SecurityContext{
+				RunAsUser: &userId,
+			},
+			Resources: k8sv1.ResourceRequirements{
+				Limits: map[k8sv1.ResourceName]resource.Quantity{
+					k8sv1.ResourceCPU:    resource.MustParse("1m"),
+					k8sv1.ResourceMemory: resource.MustParse("5Mi"),
+				},
+			},
+			Command:        []string{"/usr/bin/tail", "-f", "/dev/null"},
+			VolumeDevices:  volumeDevices,
+			VolumeMounts:   volumeMounts,
+			ReadinessProbe: defaultReadinessProbe,
+		}
+		containers = append(containers, readyContainer)
 	}
 
 	hostName := dns.SanitizeHostname(vmi)
@@ -835,4 +885,21 @@ func NewTemplateService(launcherImage string,
 		persistentVolumeClaimStore: persistentVolumeClaimCache,
 	}
 	return &svc
+}
+
+func copyProbe(probe *v1.Probe) *k8sv1.Probe {
+	if probe == nil {
+		return nil
+	}
+	return &k8sv1.Probe{
+		InitialDelaySeconds: probe.InitialDelaySeconds,
+		TimeoutSeconds:      probe.TimeoutSeconds,
+		PeriodSeconds:       probe.PeriodSeconds,
+		SuccessThreshold:    probe.SuccessThreshold,
+		FailureThreshold:    probe.FailureThreshold,
+		Handler: k8sv1.Handler{
+			HTTPGet:   probe.HTTPGet,
+			TCPSocket: probe.TCPSocket,
+		},
+	}
 }

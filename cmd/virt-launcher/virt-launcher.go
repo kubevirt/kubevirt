@@ -304,7 +304,7 @@ func main() {
 	uid := pflag.String("uid", "", "UID of the VirtualMachineInstance")
 	namespace := pflag.String("namespace", "", "Namespace of the VirtualMachineInstance")
 	watchdogInterval := pflag.Duration("watchdog-update-interval", defaultWatchdogInterval, "Interval at which watchdog file should be updated")
-	readinessFile := pflag.String("readiness-file", "/tmp/health", "Pod looks for this file to determine when virt-launcher is initialized")
+	readinessFile := pflag.String("readiness-file", "/var/run/kubevirt-infra/healthy", "Pod looks for this file to determine when virt-launcher is initialized")
 	gracePeriodSeconds := pflag.Int("grace-period-seconds", 30, "Grace period to observe before sending SIGTERM to vm process")
 	useEmulation := pflag.Bool("use-emulation", false, "Use software emulation")
 	hookSidecars := pflag.Uint("hook-sidecars", 0, "Number of requested hook sidecars, virt-launcher will wait for all of them to become available")
