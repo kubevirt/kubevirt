@@ -98,3 +98,21 @@ Security-wise, installing and using KubeVirt must not grant users any permission
 they do not already have regarding native workloads. For example, a non-priviliged
 Application Operator must never gain access to a priviliged Pod by using a KubeVirt
 feature.
+
+## The Razor
+
+We love virtual machines, think that they are very important and work hard to make
+them easy to use in Kubernetes. But even more than VMs, we love good design
+and modular, reusable components.
+Quite frequently, we face a dilema: should we solve a problem in KubeVirt in a
+way that is best optimized for VMs, or should we take a longer path and introduce
+the solution to Pod-based workloads too?
+
+To decide these dilemas we came up with the **KubeVirt Razor**:
+"If something is useful for Pods, we should not implement it only for VMs".
+
+For example, we debated how we should connect VMs to external network
+resources. The quickest way seems to introduce KubeVirt-specific code,
+attaching a VM to a host bridge.
+However, we chose the longer path, of integrating with [Multus](https://github.com/intel/multus-cni)
+and [CNI](https://github.com/containernetworking) and improving them.
