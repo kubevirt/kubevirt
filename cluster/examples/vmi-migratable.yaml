@@ -1,7 +1,7 @@
+---
 apiVersion: kubevirt.io/v1alpha2
 kind: VirtualMachineInstance
 metadata:
-  creationTimestamp: null
   labels:
     special: vmi-migratable
   name: vmi-migratable
@@ -23,4 +23,3 @@ spec:
   - containerDisk:
       image: registry:5000/kubevirt/alpine-container-disk-demo:devel
     name: registryvolume
-status: {}

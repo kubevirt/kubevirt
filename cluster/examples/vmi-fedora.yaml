@@ -1,7 +1,7 @@
+---
 apiVersion: kubevirt.io/v1alpha2
 kind: VirtualMachineInstance
 metadata:
-  creationTimestamp: null
   labels:
     special: vmi-fedora
   name: vmi-fedora
@@ -33,4 +33,3 @@ spec:
         password: fedora
         chpasswd: { expire: False }
     name: cloudinitvolume
-status: {}

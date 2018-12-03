@@ -36,6 +36,7 @@ type templateData struct {
 	DockerPrefix       string
 	ImagePullPolicy    string
 	GeneratedManifests map[string]string
+	DevManifests       map[string]string
 }
 
 func main() {
@@ -45,6 +46,7 @@ func main() {
 	dockerTag := flag.String("container-tag", "", "")
 	imagePullPolicy := flag.String("image-pull-policy", "IfNotPresent", "")
 	genDir := flag.String("generated-manifests-dir", "", "")
+	devDir := flag.String("dev-manifests-dir", "", "")
 	inputFile := flag.String("input-file", "", "")
 	pflag.CommandLine.AddGoFlagSet(flag.CommandLine)
 	pflag.CommandLine.ParseErrorsWhitelist.UnknownFlags = true
@@ -57,6 +59,7 @@ func main() {
 		DockerPrefix:       *dockerPrefix,
 		ImagePullPolicy:    *imagePullPolicy,
 		GeneratedManifests: make(map[string]string),
+		DevManifests:       make(map[string]string),
 	}
 
 	manifests, err := ioutil.ReadDir(*genDir)
@@ -70,6 +73,19 @@ func main() {
 			panic(err)
 		}
 		data.GeneratedManifests[manifest.Name()] = string(b)
+	}
+
+	manifests, err = ioutil.ReadDir(*devDir)
+	if err != nil {
+		panic(err)
+	}
+
+	for _, manifest := range manifests {
+		b, err := ioutil.ReadFile(filepath.Join(*devDir, manifest.Name()))
+		if err != nil {
+			panic(err)
+		}
+		data.DevManifests[manifest.Name()] = string(b)
 	}
 
 	tmpl := template.Must(template.ParseFiles(*inputFile))
