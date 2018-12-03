@@ -30,6 +30,7 @@ import (
 	"github.com/gorilla/websocket"
 	k8smetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
@@ -61,7 +62,6 @@ type vmis struct {
 	master     string
 	kubeconfig string
 }
-
 type BinaryReadWriter struct {
 	Conn *websocket.Conn
 }
@@ -437,4 +437,13 @@ func (v *vmis) Patch(name string, pt types.PatchType, data []byte, subresources 
 		Do().
 		Into(result)
 	return
+}
+
+func (v *vmis) Watch(opts k8smetav1.ListOptions) (watch.Interface, error) {
+	opts.Watch = true
+	return v.restClient.Get().
+		Namespace(v.namespace).
+		Resource(v.resource).
+		VersionedParams(&opts, scheme.ParameterCodec).
+		Watch()
 }

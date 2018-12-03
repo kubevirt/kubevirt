@@ -31,6 +31,7 @@ import (
 
 	k8smetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 
@@ -86,6 +87,7 @@ type StreamInterface interface {
 type VirtualMachineInstanceInterface interface {
 	Get(name string, options *k8smetav1.GetOptions) (*v1.VirtualMachineInstance, error)
 	List(opts *k8smetav1.ListOptions) (*v1.VirtualMachineInstanceList, error)
+	Watch(opts k8smetav1.ListOptions) (watch.Interface, error)
 	Create(instance *v1.VirtualMachineInstance) (*v1.VirtualMachineInstance, error)
 	Update(*v1.VirtualMachineInstance) (*v1.VirtualMachineInstance, error)
 	Delete(name string, options *k8smetav1.DeleteOptions) error
