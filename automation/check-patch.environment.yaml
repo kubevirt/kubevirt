@@ -1,4 +1,3 @@
 ---
 - name: 'ghprbTargetBranch'
-  valueFrom:
-    runtimeEnv: 'ghprbTargetBranch'
+  value: 'master'

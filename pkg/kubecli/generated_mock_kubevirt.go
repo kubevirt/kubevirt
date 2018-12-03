@@ -10,6 +10,7 @@ import (
 	versioned "github.com/k8snetworkplumbingwg/network-attachment-definition-client/pkg/client/clientset/versioned"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	types "k8s.io/apimachinery/pkg/types"
+	watch "k8s.io/apimachinery/pkg/watch"
 	discovery "k8s.io/client-go/discovery"
 	v1alpha1 "k8s.io/client-go/kubernetes/typed/admissionregistration/v1alpha1"
 	v1beta1 "k8s.io/client-go/kubernetes/typed/admissionregistration/v1beta1"
@@ -679,6 +680,17 @@ func (_m *MockVirtualMachineInstanceInterface) List(opts *v1.ListOptions) (*v19.
 
 func (_mr *_MockVirtualMachineInstanceInterfaceRecorder) List(arg0 interface{}) *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "List", arg0)
+}
+
+func (_m *MockVirtualMachineInstanceInterface) Watch(opts v1.ListOptions) (watch.Interface, error) {
+	ret := _m.ctrl.Call(_m, "Watch", opts)
+	ret0, _ := ret[0].(watch.Interface)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+func (_mr *_MockVirtualMachineInstanceInterfaceRecorder) Watch(arg0 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "Watch", arg0)
 }
 
 func (_m *MockVirtualMachineInstanceInterface) Create(instance *v19.VirtualMachineInstance) (*v19.VirtualMachineInstance, error) {

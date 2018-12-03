@@ -32,6 +32,8 @@ export WORKSPACE="${WORKSPACE:-$PWD}"
 readonly ARTIFACTS_PATH="$WORKSPACE/exported-artifacts"
 readonly TEMPLATES_SERVER="https://templates.ovirt.org/kubevirt/"
 
+/usr/bin/time --version
+
 if [[ $TARGET =~ openshift-.* ]]; then
   # when testing on slow CI system cleanup sometimes takes very long.
   # openshift clusters are more memory demanding. If the cleanup
@@ -158,8 +160,8 @@ if [ -n "${KUBEVIRT_CACHE_FROM}" ]; then
     make pull-cache
 fi
 
-make cluster-down
-make cluster-up
+/usr/bin/time -v make cluster-down
+/usr/bin/time -v make cluster-up
 
 # Wait for nodes to become ready
 set +e
@@ -176,7 +178,7 @@ set -e
 echo "Nodes are ready:"
 kubectl get nodes
 
-make cluster-sync
+/usr/bin/time -v make cluster-sync
 
 # OpenShift is running important containers under default namespace
 namespaces=(kubevirt default)
@@ -275,4 +277,5 @@ fi
 
 
 # Run functional tests
-FUNC_TEST_ARGS=$ginko_params make functest
+export FUNC_TEST_ARGS=$ginko_params
+/usr/bin/time -v make functest
