@@ -22,6 +22,7 @@ ${KUBEVIRT_DIR}/tools/resource-generator/resource-generator --type=vmirs >${KUBE
 ${KUBEVIRT_DIR}/tools/resource-generator/resource-generator --type=vmipreset >${KUBEVIRT_DIR}/manifests/generated/vmipreset-resource.yaml
 ${KUBEVIRT_DIR}/tools/resource-generator/resource-generator --type=vm >${KUBEVIRT_DIR}/manifests/generated/vm-resource.yaml
 ${KUBEVIRT_DIR}/tools/resource-generator/resource-generator --type=vmim >${KUBEVIRT_DIR}/manifests/generated/vmim-resource.yaml
+${KUBEVIRT_DIR}/tools/resource-generator/resource-generator --type=kv >${KUBEVIRT_DIR}/manifests/generated/kv-resource.yaml
 ${KUBEVIRT_DIR}/tools/resource-generator/resource-generator --type=rbac --namespace={{.Namespace}} >${KUBEVIRT_DIR}/manifests/generated/rbac.authorization.k8s.yaml.in
 ${KUBEVIRT_DIR}/tools/resource-generator/resource-generator --type=prometheus --namespace={{.Namespace}} >${KUBEVIRT_DIR}/manifests/generated/prometheus.yaml.in
 ${KUBEVIRT_DIR}/tools/resource-generator/resource-generator --type=virt-api --namespace={{.Namespace}} --repository={{.DockerPrefix}} --version={{.DockerTag}} --pullPolicy={{.ImagePullPolicy}} --verbosity={{.Verbosity}} >${KUBEVIRT_DIR}/manifests/generated/virt-api.yaml.in

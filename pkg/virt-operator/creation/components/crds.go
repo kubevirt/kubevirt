@@ -19,11 +19,53 @@
 package components
 
 import (
+	"fmt"
+
 	extv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
+	extclient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	virtv1 "kubevirt.io/kubevirt/pkg/api/v1"
+	"kubevirt.io/kubevirt/pkg/kubecli"
 )
+
+func CreateCRDs(clientset kubecli.KubevirtClient) error {
+
+	ext, err := extclient.NewForConfig(clientset.Config())
+	if err != nil {
+		return fmt.Errorf("unable to create apiextensions client: %v", err)
+	}
+
+	objects := []*extv1beta1.CustomResourceDefinition{
+		NewVirtualMachineInstanceCrd(),
+		NewVirtualMachineCrd(),
+		NewReplicaSetCrd(),
+		NewPresetCrd(),
+		NewVirtualMachineInstanceMigrationCrd(),
+	}
+
+	for _, crd := range objects {
+		_, err := ext.ApiextensionsV1beta1().CustomResourceDefinitions().Create(crd)
+		if err != nil && !apierrors.IsAlreadyExists(err) {
+			return fmt.Errorf("unable to create crd %+v: %v", crd, err)
+		}
+	}
+
+	return nil
+}
+
+func NewKubeVirtCRD(clientset kubecli.KubevirtClient) error {
+
+	ext := extclient.New(clientset.CoreV1().RESTClient())
+
+	_, err := ext.ApiextensionsV1beta1().CustomResourceDefinitions().Create(NewKubeVirtCrd())
+	if err != nil && !apierrors.IsAlreadyExists(err) {
+		return fmt.Errorf("unable to create serviceaccount: %v", err)
+	}
+
+	return nil
+}
 
 func newBlankCrd() *extv1beta1.CustomResourceDefinition {
 	return &extv1beta1.CustomResourceDefinition{
@@ -161,6 +203,42 @@ func NewVirtualMachineInstanceMigrationCrd() *extv1beta1.CustomResourceDefinitio
 			Singular:   "virtualmachineinstancemigration",
 			Kind:       virtv1.VirtualMachineInstanceMigrationGroupVersionKind.Kind,
 			ShortNames: []string{"vmim", "vmims"},
+		},
+	}
+
+	return crd
+}
+
+func NewKubeVirtCrd() *extv1beta1.CustomResourceDefinition {
+
+	// we use a different label here, so no newBlankCrd()
+	crd := &extv1beta1.CustomResourceDefinition{
+		TypeMeta: metav1.TypeMeta{
+			APIVersion: "apiextensions.k8s.io/v1beta1",
+			Kind:       "CustomResourceDefinition",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Labels: map[string]string{
+				"operator.kubevirt.io": "",
+			},
+		},
+	}
+
+	crd.ObjectMeta.Name = "kubevirts." + virtv1.KubeVirtGroupVersionKind.Group
+	crd.Spec = extv1beta1.CustomResourceDefinitionSpec{
+		Group:   virtv1.KubeVirtGroupVersionKind.Group,
+		Version: virtv1.KubeVirtGroupVersionKind.Version,
+		Scope:   "Namespaced",
+
+		Names: extv1beta1.CustomResourceDefinitionNames{
+			Plural:     "kubevirts",
+			Singular:   "kubevirt",
+			Kind:       virtv1.KubeVirtGroupVersionKind.Kind,
+			ShortNames: []string{"kv", "kvs"},
+		},
+		AdditionalPrinterColumns: []extv1beta1.CustomResourceColumnDefinition{
+			{Name: "Age", Type: "date", JSONPath: ".metadata.creationTimestamp"},
+			{Name: "Phase", Type: "string", JSONPath: ".status.phase"},
 		},
 	}
 

@@ -54,6 +54,8 @@ func main() {
 		util.MarshallObject(components.NewVirtualMachineCrd(), os.Stdout)
 	case "vmim":
 		util.MarshallObject(components.NewVirtualMachineInstanceMigrationCrd(), os.Stdout)
+	case "kv":
+		util.MarshallObject(components.NewKubeVirtCrd(), os.Stdout)
 	case "rbac":
 		all := make([]interface{}, 0)
 		all = append(all, rbac.GetAllCluster(*namespace)...)
@@ -83,7 +85,7 @@ func main() {
 		}
 		util.MarshallObject(controller, os.Stdout)
 	case "virt-handler":
-		handler, err := components.NewHandlerDeamonSet(*namespace, *repository, *version, imagePullPolicy, *verbosity)
+		handler, err := components.NewHandlerDaemonSet(*namespace, *repository, *version, imagePullPolicy, *verbosity)
 		if err != nil {
 			panic(fmt.Errorf("error generating virt-handler deployment %v", err))
 		}

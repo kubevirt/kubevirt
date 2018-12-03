@@ -19,10 +19,54 @@
 package rbac
 
 import (
+	"fmt"
+
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	virtv1 "kubevirt.io/kubevirt/pkg/api/v1"
+	"kubevirt.io/kubevirt/pkg/kubecli"
 )
+
+func CreateClusterRBAC(clientset kubecli.KubevirtClient, kv *virtv1.KubeVirt) error {
+
+	core := clientset.CoreV1()
+	sa := newPrivilegedServiceAccount(kv.Namespace)
+	_, err := core.ServiceAccounts(kv.Namespace).Create(sa)
+	if err != nil && !apierrors.IsAlreadyExists(err) {
+		return fmt.Errorf("unable to create serviceaccount %+v: %v", sa, err)
+	}
+
+	rbac := clientset.RbacV1()
+
+	clusterRoles := []*rbacv1.ClusterRole{
+		newDefaultClusterRole(),
+		newAdminClusterRole(),
+		newEditClusterRole(),
+		newViewClusterRole(),
+	}
+	for _, cr := range clusterRoles {
+		_, err := rbac.ClusterRoles().Create(cr)
+		if err != nil && !apierrors.IsAlreadyExists(err) {
+			return fmt.Errorf("unable to create clusterrole %+v: %v", cr, err)
+		}
+	}
+
+	clusterRoleBindings := []*rbacv1.ClusterRoleBinding{
+		newDefaultClusterRoleBinding(),
+		newPrivilegedClusterRoleBinding(kv.Namespace),
+	}
+	for _, crb := range clusterRoleBindings {
+		_, err := rbac.ClusterRoleBindings().Create(crb)
+		if err != nil && !apierrors.IsAlreadyExists(err) {
+			return fmt.Errorf("unable to create clusterrolebinding %+v: %v", crb, err)
+		}
+	}
+
+	return nil
+}
 
 func GetAllCluster(namespace string) []interface{} {
 	return []interface{}{

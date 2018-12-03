@@ -46,11 +46,13 @@ type KubevirtClient interface {
 	VirtualMachineInstanceMigration(namespace string) VirtualMachineInstanceMigrationInterface
 	ReplicaSet(namespace string) ReplicaSetInterface
 	VirtualMachine(namespace string) VirtualMachineInterface
+	KubeVirt(namespace string) KubeVirtInterface
 	ServerVersion() *ServerVersion
 	RestClient() *rest.RESTClient
 	CdiClient() cdiclient.Interface
 	NetworkClient() networkclient.Interface
 	kubernetes.Interface
+	Config() *rest.Config
 }
 
 type kubevirt struct {
@@ -61,6 +63,10 @@ type kubevirt struct {
 	cdiClient     *cdiclient.Clientset
 	networkClient *networkclient.Clientset
 	*kubernetes.Clientset
+}
+
+func (k kubevirt) Config() *rest.Config {
+	return k.config
 }
 
 func (k kubevirt) CdiClient() cdiclient.Interface {
@@ -134,4 +140,13 @@ type VirtualMachineInstanceMigrationInterface interface {
 	Update(*v1.VirtualMachineInstanceMigration) (*v1.VirtualMachineInstanceMigration, error)
 	Delete(name string, options *k8smetav1.DeleteOptions) error
 	Patch(name string, pt types.PatchType, data []byte, subresources ...string) (result *v1.VirtualMachineInstanceMigration, err error)
+}
+
+type KubeVirtInterface interface {
+	Get(name string, options *k8smetav1.GetOptions) (*v1.KubeVirt, error)
+	List(opts *k8smetav1.ListOptions) (*v1.KubeVirtList, error)
+	Create(instance *v1.KubeVirt) (*v1.KubeVirt, error)
+	Update(*v1.KubeVirt) (*v1.KubeVirt, error)
+	Delete(name string, options *k8smetav1.DeleteOptions) error
+	Patch(name string, pt types.PatchType, data []byte, subresources ...string) (result *v1.KubeVirt, err error)
 }

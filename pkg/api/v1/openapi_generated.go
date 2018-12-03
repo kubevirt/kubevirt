@@ -67,6 +67,11 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"kubevirt.io/kubevirt/pkg/api/v1.InterfaceSRIOV":                            schema_kubevirt_pkg_api_v1_InterfaceSRIOV(ref),
 		"kubevirt.io/kubevirt/pkg/api/v1.InterfaceSlirp":                            schema_kubevirt_pkg_api_v1_InterfaceSlirp(ref),
 		"kubevirt.io/kubevirt/pkg/api/v1.KVMTimer":                                  schema_kubevirt_pkg_api_v1_KVMTimer(ref),
+		"kubevirt.io/kubevirt/pkg/api/v1.KubeVirt":                                  schema_kubevirt_pkg_api_v1_KubeVirt(ref),
+		"kubevirt.io/kubevirt/pkg/api/v1.KubeVirtCondition":                         schema_kubevirt_pkg_api_v1_KubeVirtCondition(ref),
+		"kubevirt.io/kubevirt/pkg/api/v1.KubeVirtList":                              schema_kubevirt_pkg_api_v1_KubeVirtList(ref),
+		"kubevirt.io/kubevirt/pkg/api/v1.KubeVirtSpec":                              schema_kubevirt_pkg_api_v1_KubeVirtSpec(ref),
+		"kubevirt.io/kubevirt/pkg/api/v1.KubeVirtStatus":                            schema_kubevirt_pkg_api_v1_KubeVirtStatus(ref),
 		"kubevirt.io/kubevirt/pkg/api/v1.LunTarget":                                 schema_kubevirt_pkg_api_v1_LunTarget(ref),
 		"kubevirt.io/kubevirt/pkg/api/v1.Machine":                                   schema_kubevirt_pkg_api_v1_Machine(ref),
 		"kubevirt.io/kubevirt/pkg/api/v1.Memory":                                    schema_kubevirt_pkg_api_v1_Memory(ref),
@@ -1335,6 +1340,195 @@ func schema_kubevirt_pkg_api_v1_KVMTimer(ref common.ReferenceCallback) common.Op
 			},
 		},
 		Dependencies: []string{},
+	}
+}
+
+func schema_kubevirt_pkg_api_v1_KubeVirt(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "KubeVirt represents the object deploying all KubeVirt resources",
+				Properties: map[string]spec.Schema{
+					"kind": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#types-kinds",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"apiVersion": {
+						SchemaProps: spec.SchemaProps{
+							Description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#resources",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"metadata": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"),
+						},
+					},
+					"spec": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("kubevirt.io/kubevirt/pkg/api/v1.KubeVirtSpec"),
+						},
+					},
+					"status": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("kubevirt.io/kubevirt/pkg/api/v1.KubeVirtStatus"),
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			"k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta", "kubevirt.io/kubevirt/pkg/api/v1.KubeVirtSpec", "kubevirt.io/kubevirt/pkg/api/v1.KubeVirtStatus"},
+	}
+}
+
+func schema_kubevirt_pkg_api_v1_KubeVirtCondition(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "KubeVirtCondition represents a condition of a KubeVirt deployment",
+				Properties: map[string]spec.Schema{
+					"type": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"status": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"lastProbeTime": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("k8s.io/apimachinery/pkg/apis/meta/v1.Time"),
+						},
+					},
+					"lastTransitionTime": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("k8s.io/apimachinery/pkg/apis/meta/v1.Time"),
+						},
+					},
+					"reason": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"message": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+				},
+				Required: []string{"type", "status"},
+			},
+		},
+		Dependencies: []string{
+			"k8s.io/apimachinery/pkg/apis/meta/v1.Time"},
+	}
+}
+
+func schema_kubevirt_pkg_api_v1_KubeVirtList(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "KubeVirtList is a list of KubeVirts",
+				Properties: map[string]spec.Schema{
+					"kind": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#types-kinds",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"apiVersion": {
+						SchemaProps: spec.SchemaProps{
+							Description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#resources",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"metadata": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta"),
+						},
+					},
+					"items": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Ref: ref("kubevirt.io/kubevirt/pkg/api/v1.KubeVirt"),
+									},
+								},
+							},
+						},
+					},
+				},
+				Required: []string{"items"},
+			},
+		},
+		Dependencies: []string{
+			"k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta", "kubevirt.io/kubevirt/pkg/api/v1.KubeVirt"},
+	}
+}
+
+func schema_kubevirt_pkg_api_v1_KubeVirtSpec(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Properties: map[string]spec.Schema{
+					"imagePullPolicy": {
+						SchemaProps: spec.SchemaProps{
+							Description: "The ImagePullPolicy to use.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{},
+	}
+}
+
+func schema_kubevirt_pkg_api_v1_KubeVirtStatus(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "KubeVirtStatus represents information pertaining to a KubeVirt deployment.",
+				Properties: map[string]spec.Schema{
+					"phase": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"conditions": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Ref: ref("kubevirt.io/kubevirt/pkg/api/v1.KubeVirtCondition"),
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			"kubevirt.io/kubevirt/pkg/api/v1.KubeVirtCondition"},
 	}
 }
 

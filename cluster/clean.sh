@@ -35,7 +35,7 @@ done
 
 # Delete all traces of kubevirt
 namespaces=(default ${namespace} ${cdi_namespace})
-labels=("kubevirt.io" "cdi.kubevirt.io")
+labels=("operator.kubevirt.io" "kubevirt.io" "cdi.kubevirt.io")
 
 for i in ${namespaces[@]}; do
     for label in ${labels[@]}; do

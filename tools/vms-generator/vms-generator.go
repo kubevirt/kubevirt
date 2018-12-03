@@ -83,6 +83,10 @@ func main() {
 		utils.VmiMigration: utils.GetVMIMigration(),
 	}
 
+	var kubevirts = map[string]*v1.KubeVirt{
+		utils.KubeVirt: utils.GetKubeVirt(),
+	}
+
 	var templates = map[string]*utils.Template{
 		utils.VmTemplateFedora:  utils.GetTemplateFedora(),
 		utils.VmTemplateRHEL7:   utils.GetTemplateRHEL7(),
@@ -150,6 +154,10 @@ func main() {
 	for name, obj := range migrations {
 		causes := validating_webhook.ValidateVirtualMachineInstanceMigrationSpec(k8sfield.NewPath("spec"), &obj.Spec)
 		handleCauses(causes, name, "vmi preset")
+		handleError(dumpObject(name, *obj))
+	}
+
+	for name, obj := range kubevirts {
 		handleError(dumpObject(name, *obj))
 	}
 

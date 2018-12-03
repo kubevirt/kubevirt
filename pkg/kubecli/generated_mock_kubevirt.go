@@ -108,6 +108,16 @@ func (_mr *_MockKubevirtClientRecorder) VirtualMachine(arg0 interface{}) *gomock
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "VirtualMachine", arg0)
 }
 
+func (_m *MockKubevirtClient) KubeVirt(namespace string) KubeVirtInterface {
+	ret := _m.ctrl.Call(_m, "KubeVirt", namespace)
+	ret0, _ := ret[0].(KubeVirtInterface)
+	return ret0
+}
+
+func (_mr *_MockKubevirtClientRecorder) KubeVirt(arg0 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "KubeVirt", arg0)
+}
+
 func (_m *MockKubevirtClient) ServerVersion() *ServerVersion {
 	ret := _m.ctrl.Call(_m, "ServerVersion")
 	ret0, _ := ret[0].(*ServerVersion)
@@ -606,6 +616,16 @@ func (_m *MockKubevirtClient) StorageV1alpha1() v1alpha13.StorageV1alpha1Interfa
 
 func (_mr *_MockKubevirtClientRecorder) StorageV1alpha1() *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "StorageV1alpha1")
+}
+
+func (_m *MockKubevirtClient) Config() *rest.Config {
+	ret := _m.ctrl.Call(_m, "Config")
+	ret0, _ := ret[0].(*rest.Config)
+	return ret0
+}
+
+func (_mr *_MockKubevirtClientRecorder) Config() *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "Config")
 }
 
 // Mock of StreamInterface interface
@@ -1144,6 +1164,97 @@ func (_m *MockVirtualMachineInstanceMigrationInterface) Patch(name string, pt ty
 }
 
 func (_mr *_MockVirtualMachineInstanceMigrationInterfaceRecorder) Patch(arg0, arg1, arg2 interface{}, arg3 ...interface{}) *gomock.Call {
+	_s := append([]interface{}{arg0, arg1, arg2}, arg3...)
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "Patch", _s...)
+}
+
+// Mock of KubeVirtInterface interface
+type MockKubeVirtInterface struct {
+	ctrl     *gomock.Controller
+	recorder *_MockKubeVirtInterfaceRecorder
+}
+
+// Recorder for MockKubeVirtInterface (not exported)
+type _MockKubeVirtInterfaceRecorder struct {
+	mock *MockKubeVirtInterface
+}
+
+func NewMockKubeVirtInterface(ctrl *gomock.Controller) *MockKubeVirtInterface {
+	mock := &MockKubeVirtInterface{ctrl: ctrl}
+	mock.recorder = &_MockKubeVirtInterfaceRecorder{mock}
+	return mock
+}
+
+func (_m *MockKubeVirtInterface) EXPECT() *_MockKubeVirtInterfaceRecorder {
+	return _m.recorder
+}
+
+func (_m *MockKubeVirtInterface) Get(name string, options *v10.GetOptions) (*v110.KubeVirt, error) {
+	ret := _m.ctrl.Call(_m, "Get", name, options)
+	ret0, _ := ret[0].(*v110.KubeVirt)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+func (_mr *_MockKubeVirtInterfaceRecorder) Get(arg0, arg1 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "Get", arg0, arg1)
+}
+
+func (_m *MockKubeVirtInterface) List(opts *v10.ListOptions) (*v110.KubeVirtList, error) {
+	ret := _m.ctrl.Call(_m, "List", opts)
+	ret0, _ := ret[0].(*v110.KubeVirtList)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+func (_mr *_MockKubeVirtInterfaceRecorder) List(arg0 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "List", arg0)
+}
+
+func (_m *MockKubeVirtInterface) Create(instance *v110.KubeVirt) (*v110.KubeVirt, error) {
+	ret := _m.ctrl.Call(_m, "Create", instance)
+	ret0, _ := ret[0].(*v110.KubeVirt)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+func (_mr *_MockKubeVirtInterfaceRecorder) Create(arg0 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "Create", arg0)
+}
+
+func (_m *MockKubeVirtInterface) Update(_param0 *v110.KubeVirt) (*v110.KubeVirt, error) {
+	ret := _m.ctrl.Call(_m, "Update", _param0)
+	ret0, _ := ret[0].(*v110.KubeVirt)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+func (_mr *_MockKubeVirtInterfaceRecorder) Update(arg0 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "Update", arg0)
+}
+
+func (_m *MockKubeVirtInterface) Delete(name string, options *v10.DeleteOptions) error {
+	ret := _m.ctrl.Call(_m, "Delete", name, options)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+func (_mr *_MockKubeVirtInterfaceRecorder) Delete(arg0, arg1 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "Delete", arg0, arg1)
+}
+
+func (_m *MockKubeVirtInterface) Patch(name string, pt types.PatchType, data []byte, subresources ...string) (*v110.KubeVirt, error) {
+	_s := []interface{}{name, pt, data}
+	for _, _x := range subresources {
+		_s = append(_s, _x)
+	}
+	ret := _m.ctrl.Call(_m, "Patch", _s...)
+	ret0, _ := ret[0].(*v110.KubeVirt)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+func (_mr *_MockKubeVirtInterfaceRecorder) Patch(arg0, arg1, arg2 interface{}, arg3 ...interface{}) *gomock.Call {
 	_s := append([]interface{}{arg0, arg1, arg2}, arg3...)
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "Patch", _s...)
 }

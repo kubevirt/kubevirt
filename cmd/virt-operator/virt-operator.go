@@ -16,32 +16,16 @@
  * Copyright 2018 Red Hat, Inc.
  *
  */
-package util
+
+package main
 
 import (
-	"strings"
-	"testing"
-
-	"k8s.io/api/core/v1"
-
-	"kubevirt.io/kubevirt/pkg/virt-operator/creation/components"
+	_ "kubevirt.io/kubevirt/pkg/monitoring/client/prometheus"    // import for prometheus metrics
+	_ "kubevirt.io/kubevirt/pkg/monitoring/reflector/prometheus" // import for prometheus metrics
+	_ "kubevirt.io/kubevirt/pkg/monitoring/workqueue/prometheus" // import for prometheus metrics
+	"kubevirt.io/kubevirt/pkg/virt-operator"
 )
 
-func TestMarshallObject(t *testing.T) {
-
-	handler, err := components.NewHandlerDaemonSet("{{.Namespace}}", "{{.DockerPrefix}}", "{{.DockerTag}}", v1.PullIfNotPresent, "2")
-	if err != nil {
-		t.Fatalf("error generating virt-handler deployment for marshall test %v", err)
-	}
-
-	writer := strings.Builder{}
-
-	MarshallObject(handler, &writer)
-
-	result := writer.String()
-
-	if !strings.Contains(result, "namespace: {{.Namespace}}") {
-		t.Fail()
-	}
-
+func main() {
+	virt_operator.Execute()
 }

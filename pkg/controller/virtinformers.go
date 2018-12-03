@@ -80,6 +80,9 @@ type KubeInformerFactory interface {
 
 	// Fake CDI DataVolume informer used when feature gate is disabled
 	DummyDataVolume() cache.SharedIndexInformer
+
+	// Wachtes for KubeVirt objects
+	KubeVirt() cache.SharedIndexInformer
 }
 
 type kubeInformerFactory struct {
@@ -233,6 +236,13 @@ func (f *kubeInformerFactory) LimitRanges() cache.SharedIndexInformer {
 		restClient := f.clientSet.CoreV1().RESTClient()
 		lw := cache.NewListWatchFromClient(restClient, "limitranges", k8sv1.NamespaceAll, fields.Everything())
 		return cache.NewSharedIndexInformer(lw, &k8sv1.LimitRange{}, f.defaultResync, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
+	})
+}
+
+func (f *kubeInformerFactory) KubeVirt() cache.SharedIndexInformer {
+	return f.getInformer("kubeVirtInformer", func() cache.SharedIndexInformer {
+		lw := cache.NewListWatchFromClient(f.restClient, "kubevirts", k8sv1.NamespaceAll, fields.Everything())
+		return cache.NewSharedIndexInformer(lw, &kubev1.KubeVirt{}, f.defaultResync, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
 	})
 }
 

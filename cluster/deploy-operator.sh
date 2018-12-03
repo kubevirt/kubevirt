@@ -14,7 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-# Copyright 2017 Red Hat, Inc.
+# Copyright 2018 Red Hat, Inc.
 #
 
 set -ex
@@ -37,14 +37,22 @@ EOF
 # Deploy infra for testing first
 _kubectl create -f ${MANIFESTS_OUT_DIR}/testing
 
+# Deploy kubevirt operator
+_kubectl create -f ${MANIFESTS_OUT_DIR}/release/kubevirt-operator.yaml
+
 # Deploy kubevirt
-_kubectl create -f ${MANIFESTS_OUT_DIR}/release/kubevirt.yaml
+_kubectl create -n ${namespace} -f ${KUBEVIRT_PATH}cluster/examples/kubevirt.yaml
 
 if [[ "$KUBEVIRT_PROVIDER" =~ os-* ]]; then
     _kubectl create -f ${MANIFESTS_OUT_DIR}/testing/ocp
+
+    _kubectl adm policy add-scc-to-user privileged -z kubevirt-operator -n ${namespace}
+
+    # should this be done by the operator?
     _kubectl adm policy add-scc-to-user privileged -z kubevirt-controller -n ${namespace}
     _kubectl adm policy add-scc-to-user privileged -z kubevirt-privileged -n ${namespace}
     _kubectl adm policy add-scc-to-user privileged -z kubevirt-apiserver -n ${namespace}
+
     # Helpful for development. Allows admin to access everything KubeVirt creates in the web console
     _kubectl adm policy add-scc-to-user privileged admin
 fi

@@ -21,12 +21,72 @@ package components
 import (
 	"fmt"
 
+	"kubevirt.io/kubevirt/pkg/virt-operator/util"
+
+	"k8s.io/apimachinery/pkg/util/json"
+
+	"k8s.io/apimachinery/pkg/util/intstr"
+
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
+
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/util/intstr"
-	"k8s.io/apimachinery/pkg/util/json"
+
+	virtv1 "kubevirt.io/kubevirt/pkg/api/v1"
+
+	"kubevirt.io/kubevirt/pkg/kubecli"
 )
+
+func CreateControllers(clientset kubecli.KubevirtClient, kv *virtv1.KubeVirt, config util.KubeVirtDeploymentConfig) error {
+
+	core := clientset.CoreV1()
+
+	services := []*corev1.Service{
+		NewPrometheusService(kv.Namespace),
+		NewApiServerService(kv.Namespace),
+	}
+	for _, service := range services {
+		_, err := core.Services(kv.Namespace).Create(service)
+		if err != nil && !apierrors.IsAlreadyExists(err) {
+			return fmt.Errorf("unable to create service %+v: %v", service, err)
+		}
+	}
+
+	apps := clientset.AppsV1()
+
+	// TODO make verbosity part of the KubeVirt CRD spec?
+	verbosity := "2"
+	api, err := NewApiServerDeployment(kv.Namespace, config.ImageRegistry, config.ImageTag, kv.Spec.ImagePullPolicy, verbosity)
+	if err != nil {
+		return err
+	}
+	controller, err := NewControllerDeployment(kv.Namespace, config.ImageRegistry, config.ImageTag, kv.Spec.ImagePullPolicy, verbosity)
+	if err != nil {
+		return err
+	}
+
+	deployments := []*appsv1.Deployment{api, controller}
+	for _, deployment := range deployments {
+		_, err := apps.Deployments(kv.Namespace).Create(deployment)
+		if err != nil && !apierrors.IsAlreadyExists(err) {
+			return fmt.Errorf("unable to create deployment %+v: %v", deployment, err)
+		}
+	}
+
+	handler, err := NewHandlerDaemonSet(kv.Namespace, config.ImageRegistry, config.ImageTag, kv.Spec.ImagePullPolicy, verbosity)
+	if err != nil {
+		return err
+	}
+
+	_, err = apps.DaemonSets(kv.Namespace).Create(handler)
+	if err != nil && !apierrors.IsAlreadyExists(err) {
+		return fmt.Errorf("unable to create daemonset %+v: %v", handler, err)
+	}
+
+	return nil
+
+}
 
 func NewPrometheusService(namespace string) *corev1.Service {
 	return &corev1.Service{
@@ -271,7 +331,7 @@ func NewControllerDeployment(namespace string, repository string, version string
 	return deployment, nil
 }
 
-func NewHandlerDeamonSet(namespace string, repository string, version string, pullPolicy corev1.PullPolicy, verbosity string) (*appsv1.DaemonSet, error) {
+func NewHandlerDaemonSet(namespace string, repository string, version string, pullPolicy corev1.PullPolicy, verbosity string) (*appsv1.DaemonSet, error) {
 
 	podTemplateSpec, err := newPodTemplateSpec("virt-handler", repository, version, pullPolicy)
 	if err != nil {

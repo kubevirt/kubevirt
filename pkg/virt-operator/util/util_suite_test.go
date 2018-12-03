@@ -16,32 +16,19 @@
  * Copyright 2018 Red Hat, Inc.
  *
  */
-package util
+package util_test
 
 import (
-	"strings"
 	"testing"
 
-	"k8s.io/api/core/v1"
+	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/gomega"
 
-	"kubevirt.io/kubevirt/pkg/virt-operator/creation/components"
+	"kubevirt.io/kubevirt/pkg/log"
 )
 
-func TestMarshallObject(t *testing.T) {
-
-	handler, err := components.NewHandlerDaemonSet("{{.Namespace}}", "{{.DockerPrefix}}", "{{.DockerTag}}", v1.PullIfNotPresent, "2")
-	if err != nil {
-		t.Fatalf("error generating virt-handler deployment for marshall test %v", err)
-	}
-
-	writer := strings.Builder{}
-
-	MarshallObject(handler, &writer)
-
-	result := writer.String()
-
-	if !strings.Contains(result, "namespace: {{.Namespace}}") {
-		t.Fail()
-	}
-
+func TestController(t *testing.T) {
+	log.Log.SetIOWriter(GinkgoWriter)
+	RegisterFailHandler(Fail)
+	RunSpecs(t, "Operator Util Suite")
 }

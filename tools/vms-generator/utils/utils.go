@@ -71,6 +71,8 @@ const VmiPresetSmall = "vmi-preset-small"
 
 const VmiMigration = "migration-job"
 
+const KubeVirt = "kubevirt"
+
 const (
 	busVirtio = "virtio"
 	busSata   = "sata"
@@ -837,4 +839,19 @@ func GetVMIWithHookSidecar() *v1.VirtualMachineInstance {
 		"smbios.vm.kubevirt.io/baseBoardManufacturer": "Radical Edward",
 	}
 	return vmi
+}
+
+func GetKubeVirt() *v1.KubeVirt {
+	return &v1.KubeVirt{
+		TypeMeta: metav1.TypeMeta{
+			APIVersion: apiVersion,
+			Kind:       "KubeVirt",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name: KubeVirt,
+		},
+		Spec: v1.KubeVirtSpec{
+			ImagePullPolicy: k8sv1.PullAlways,
+		},
+	}
 }

@@ -1,5 +1,5 @@
 hash: a5f21bc7771afd4f95eab0de8323a15e6b172d397a686e4c9b6ee5c7235eeab0
-updated: 2018-12-26T22:21:40.248868665Z
+updated: 2019-01-08T13:59:08.425421189Z
 imports:
 - name: cloud.google.com/go
   version: 3b1ae45394a234c385be014e9a488f2bb6eef821
@@ -215,7 +215,7 @@ imports:
   - reporters/stenographer/support/go-isatty
   - types
 - name: github.com/onsi/gomega
-  version: e0d4387cf37d6cc3baeb80f61bd24a37e5dfae26
+  version: ce690c543be4c3e5be441840219220f9ff1e8be1
   subpackages:
   - format
   - ghttp
@@ -391,7 +391,7 @@ imports:
 - name: gopkg.in/inf.v0
   version: 3887ee99ecf07df5b447e9b00d9c0b2adaa9f3e4
 - name: gopkg.in/ini.v1
-  version: a9da9309fb4822643ceebb765f80025c35ac19a1
+  version: 6ed8d5f64cd79a498d1f3fab5880cc376ce41bbe
 - name: gopkg.in/tomb.v1
   version: c131134a1947e9afd9cecfe11f4c6dff0732ae58
 - name: gopkg.in/yaml.v2
@@ -435,6 +435,9 @@ imports:
   subpackages:
   - pkg/apis/apiextensions
   - pkg/apis/apiextensions/v1beta1
+  - pkg/client/clientset/clientset
+  - pkg/client/clientset/clientset/scheme
+  - pkg/client/clientset/clientset/typed/apiextensions/v1beta1
 - name: k8s.io/apimachinery
   version: 103fd098999dc9c0c88536f5c9ad2e5da39373ae
   subpackages:

@@ -16,32 +16,36 @@
  * Copyright 2018 Red Hat, Inc.
  *
  */
+
 package util
 
 import (
+	"os"
+	"regexp"
 	"strings"
-	"testing"
-
-	"k8s.io/api/core/v1"
-
-	"kubevirt.io/kubevirt/pkg/virt-operator/creation/components"
 )
 
-func TestMarshallObject(t *testing.T) {
+const (
+	// Name of env var containing the operator's image name
+	OperatorImageEnvName = "OPERATOR_IMAGE"
+)
 
-	handler, err := components.NewHandlerDaemonSet("{{.Namespace}}", "{{.DockerPrefix}}", "{{.DockerTag}}", v1.PullIfNotPresent, "2")
-	if err != nil {
-		t.Fatalf("error generating virt-handler deployment for marshall test %v", err)
+type KubeVirtDeploymentConfig struct {
+	ImageRegistry string
+	ImageTag      string
+}
+
+func GetConfig() KubeVirtDeploymentConfig {
+	imageString := os.Getenv(OperatorImageEnvName)
+	imageRegEx := regexp.MustCompile(`^(.*)/virt-operator(:.*)?$`)
+	matches := imageRegEx.FindAllStringSubmatch(imageString, 1)
+	registry := matches[0][1]
+	tag := strings.TrimPrefix(matches[0][2], ":")
+	if tag == "" {
+		tag = "latest"
 	}
-
-	writer := strings.Builder{}
-
-	MarshallObject(handler, &writer)
-
-	result := writer.String()
-
-	if !strings.Contains(result, "namespace: {{.Namespace}}") {
-		t.Fail()
+	return KubeVirtDeploymentConfig{
+		ImageRegistry: registry,
+		ImageTag:      tag,
 	}
-
 }
