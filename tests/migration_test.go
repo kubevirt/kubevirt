@@ -147,6 +147,57 @@ var _ = Describe("Migrations", func() {
 
 			})
 		})
+		Context("with an Alpine shared ISCSI PVC", func() {
+			pvName := "test-iscsi-lun"
+
+			BeforeEach(func() {
+				// Start a ISCSI POD and service
+				By("Starting an iSCSI POD")
+				iscsiIP := tests.CreateISCSITargetPOD()
+				// create a new PV and PVC (PVs can't be reused)
+				By("create a new iSCSI PV and PVC")
+				tests.CreateISCSIPvAndPvc(pvName, "1Gi", iscsiIP)
+			}, 60)
+
+			AfterEach(func() {
+				// create a new PV and PVC (PVs can't be reused)
+				tests.DeletePvAndPvc(pvName)
+			}, 60)
+
+			It("should be successfully migrated multiple times", func() {
+
+				// Start the VirtualMachineInstance with the PVC attached
+				vmi := tests.NewRandomVMIWithPVC(pvName)
+
+				By("Starting the VirtualMachineInstance")
+				vmi = runVMIAndExpectLaunch(vmi, 120)
+
+				By("Checking that the VirtualMachineInstance console has expected output")
+				expecter, err := tests.LoggedInAlpineExpecter(vmi)
+				Expect(err).To(BeNil())
+				expecter.Close()
+
+				num := 2
+
+				for i := 0; i < num; i++ {
+					// execute a migration, wait for finalized state
+					By(fmt.Sprintf("Starting the Migration for iteration %d", i))
+					migration := tests.NewRandomMigration(vmi.Name, vmi.Namespace)
+					migrationUID := runMigrationAndExpectCompletion(migration, 120)
+
+					// check VMI, confirm migration state
+					confirmVMIPostMigration(vmi, migrationUID)
+				}
+				// delete VMI
+				By("Deleting the VMI")
+				err = virtClient.VirtualMachineInstance(vmi.Namespace).Delete(vmi.Name, &metav1.DeleteOptions{})
+				Expect(err).To(BeNil())
+
+				By("Waiting for VMI to disappear")
+				tests.WaitForVirtualMachineToDisappearWithTimeout(vmi, 120)
+
+			})
+		})
 	})
 
 })

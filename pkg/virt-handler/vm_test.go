@@ -595,7 +595,8 @@ var _ = Describe("VirtualMachineInstance", func() {
 			domainFeeder.Add(domain)
 			vmiFeeder.Add(vmi)
 
-			client.EXPECT().MigrateVirtualMachine(vmi, nil)
+			emptyPVCMap := make(map[string]*k8sv1.PersistentVolumeClaim)
+			client.EXPECT().MigrateVirtualMachine(vmi, emptyPVCMap)
 
 			controller.Execute()
 		}, 3)

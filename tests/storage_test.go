@@ -546,6 +546,36 @@ var _ = Describe("Storage", func() {
 			})
 		})
 
+		Context("With Alpine ISCSI PVC", func() {
+
+			pvName := "test-iscsi-lun"
+
+			BeforeEach(func() {
+				// Start a ISCSI POD and service
+				By("Creating a ISCSI POD")
+				iscsiTargetIP := tests.CreateISCSITargetPOD()
+				tests.CreateISCSIPvAndPvc(pvName, "1Gi", iscsiTargetIP)
+			}, 60)
+
+			AfterEach(func() {
+				// create a new PV and PVC (PVs can't be reused)
+				tests.DeletePvAndPvc(pvName)
+			}, 60)
+
+			It("should be successfully started", func() {
+				By("Create a VMIWithPVC")
+				// Start the VirtualMachineInstance with the PVC attached
+				vmi := tests.NewRandomVMIWithPVC(pvName)
+				By("Launching a VMI with PVC ")
+				tests.RunVMIAndExpectLaunch(vmi, false, 180)
+
+				By("Checking that the VirtualMachineInstance console has expected output")
+				expecter, err := tests.LoggedInAlpineExpecter(vmi)
+				Expect(err).ToNot(HaveOccurred(), "Alpine login successfully")
+				expecter.Close()
+			})
+		})
+
 		Context("With not existing PVC", func() {
 			It("should get unschedulable condition", func() {
 				// Start the VirtualMachineInstance

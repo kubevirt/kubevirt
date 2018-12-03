@@ -61,7 +61,6 @@ func isPVCBlock(pvc *k8sv1.PersistentVolumeClaim) bool {
 
 func IsSharedPVCFromClient(client kubecli.KubevirtClient, namespace string, claimName string) (pvc *k8sv1.PersistentVolumeClaim, isShared bool, err error) {
 	pvc, err = client.CoreV1().PersistentVolumeClaims(namespace).Get(claimName, v1.GetOptions{})
-	//if errors.IsNotFound(err) {
 	if err != nil {
 		return nil, false, err
 	}

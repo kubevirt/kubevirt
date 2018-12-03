@@ -1119,6 +1119,7 @@ func (d *VirtualMachineController) isPreMigrationTarget(vmi *v1.VirtualMachineIn
 }
 
 func (d *VirtualMachineController) collectPVCsForMigration(vmi *v1.VirtualMachineInstance) (pvcs map[string]*k8sv1.PersistentVolumeClaim, err error) {
+	pvcs = make(map[string]*k8sv1.PersistentVolumeClaim)
 	for _, volume := range vmi.Spec.Volumes {
 		volSrc := volume.VolumeSource
 		if volSrc.PersistentVolumeClaim != nil {
