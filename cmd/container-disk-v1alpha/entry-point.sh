@@ -46,7 +46,7 @@ if [ $? -ne 0 ]; then
 		echo "Failed to convert image $IMAGE_PATH to .raw file"
 		exit 1
 	fi
-else 
+else
 	cp $IMAGE_PATH ${COPY_PATH}.${IMAGE_EXTENSION}
 	if [ $? -ne 0 ]; then
 		echo "Failed to copy $IMAGE_PATH to $COPY_PATH.${IMAGE_EXTENSION}"
@@ -56,6 +56,11 @@ fi
 echo "copied $IMAGE_PATH to $COPY_PATH.${IMAGE_EXTENSION}"
 
 touch /tmp/healthy
-while [ -f "${COPY_PATH}.${IMAGE_EXTENSION}" ]; do
-	sleep 5
-done
+if [ -n "$AS_ISCSI" ];
+then
+	bash expose-as-iscsi.sh "${COPY_PATH}.${IMAGE_EXTENSION}"
+else
+	while [ -f "${COPY_PATH}.${IMAGE_EXTENSION}" ]; do
+		sleep 5
+	done
+fi
