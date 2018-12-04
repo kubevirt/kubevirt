@@ -33,9 +33,9 @@ import (
 	"strings"
 	"syscall"
 
-	"kubevirt.io/kubevirt/pkg/api/v1"
+	v1 "kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/log"
-	"kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
+	cmdclient "kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
 )
 
 // PodIsolationDetector helps detecting cgroups, namespaces and PIDs of Pods from outside of them.

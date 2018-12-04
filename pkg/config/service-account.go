@@ -22,7 +22,7 @@ package config
 import (
 	"path/filepath"
 
-	"kubevirt.io/kubevirt/pkg/api/v1"
+	v1 "kubevirt.io/kubevirt/pkg/api/v1"
 )
 
 // GetServiceAccountDiskPath returns a path to the ServiceAccount iso image

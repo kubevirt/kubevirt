@@ -3,7 +3,7 @@ package v1
 import (
 	"reflect"
 
-	"github.com/google/gofuzz"
+	fuzz "github.com/google/gofuzz"
 	. "github.com/onsi/ginkgo"
 	"github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"

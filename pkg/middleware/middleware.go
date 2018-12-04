@@ -28,7 +28,7 @@ import (
 	"github.com/go-kit/kit/endpoint"
 	gklog "github.com/go-kit/kit/log"
 	"golang.org/x/net/context"
-	"k8s.io/apimachinery/pkg/apis/meta/v1"
+	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/rest"
 
 	"kubevirt.io/kubevirt/pkg/log"

@@ -25,7 +25,7 @@ import (
 	"net/http/httptest"
 	"net/url"
 
-	"github.com/emicklei/go-restful"
+	restful "github.com/emicklei/go-restful"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 

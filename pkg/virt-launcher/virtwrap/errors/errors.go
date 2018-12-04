@@ -22,7 +22,7 @@ package errors
 import (
 	"fmt"
 
-	"github.com/libvirt/libvirt-go"
+	libvirt "github.com/libvirt/libvirt-go"
 )
 
 func checkError(err error, expectedError libvirt.ErrorNumber) bool {

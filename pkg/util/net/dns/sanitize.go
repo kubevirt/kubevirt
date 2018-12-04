@@ -24,7 +24,7 @@ import (
 
 	"k8s.io/apimachinery/pkg/util/validation"
 
-	"kubevirt.io/kubevirt/pkg/api/v1"
+	v1 "kubevirt.io/kubevirt/pkg/api/v1"
 )
 
 // Sanitize hostname according to DNS label rules

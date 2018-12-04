@@ -3,7 +3,7 @@ package api
 import (
 	"reflect"
 
-	"github.com/google/gofuzz"
+	fuzz "github.com/google/gofuzz"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 )

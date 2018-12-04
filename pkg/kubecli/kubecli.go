@@ -34,7 +34,7 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 
 	cdiclient "kubevirt.io/containerized-data-importer/pkg/client/clientset/versioned"
-	"kubevirt.io/kubevirt/pkg/api/v1"
+	v1 "kubevirt.io/kubevirt/pkg/api/v1"
 )
 
 var (

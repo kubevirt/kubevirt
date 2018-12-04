@@ -6,7 +6,7 @@ import (
 	"path"
 	"strconv"
 
-	"kubevirt.io/kubevirt/pkg/api/v1"
+	v1 "kubevirt.io/kubevirt/pkg/api/v1"
 )
 
 var EmptyDiskBaseDir = "/var/run/libvirt/empty-disks/"
