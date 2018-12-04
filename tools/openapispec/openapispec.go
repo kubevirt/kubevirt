@@ -25,12 +25,12 @@ import (
 	"io/ioutil"
 	"log"
 
-	"github.com/emicklei/go-restful"
+	restful "github.com/emicklei/go-restful"
 	"github.com/spf13/pflag"
 
 	klog "kubevirt.io/kubevirt/pkg/log"
 	"kubevirt.io/kubevirt/pkg/util/openapi"
-	"kubevirt.io/kubevirt/pkg/virt-api"
+	virt_api "kubevirt.io/kubevirt/pkg/virt-api"
 	"kubevirt.io/kubevirt/pkg/virt-api/rest"
 )
 
