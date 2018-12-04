@@ -216,6 +216,26 @@ func (s *Launcher) GetDomain(args *cmdclient.Args, reply *cmdclient.Reply) error
 	return nil
 }
 
+func (s *Launcher) GetDomainStats(args *cmdclient.Args, reply *cmdclient.Reply) error {
+
+	reply.Success = true
+
+	list, err := s.domainManager.GetDomainStats()
+	if err != nil {
+		reply.Success = false
+		reply.Message = getErrorMessage(err)
+		return nil
+	}
+
+	if len(list) == 0 {
+		reply.DomainStats = nil
+	} else {
+		reply.DomainStats = list[0]
+	}
+
+	return nil
+}
+
 func createSocket(socketPath string) (net.Listener, error) {
 	os.RemoveAll(socketPath)
 

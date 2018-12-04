@@ -38,12 +38,14 @@ import (
 	v1 "kubevirt.io/kubevirt/pkg/api/v1"
 	diskutils "kubevirt.io/kubevirt/pkg/ephemeral-disk-utils"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/stats"
 )
 
 type Reply struct {
-	Success bool
-	Message string
-	Domain  *api.Domain
+	Success     bool
+	Message     string
+	Domain      *api.Domain
+	DomainStats *stats.DomainStats
 }
 
 type Args struct {
@@ -59,6 +61,7 @@ type LauncherClient interface {
 	MigrateVirtualMachine(vmi *v1.VirtualMachineInstance) error
 	DeleteDomain(vmi *v1.VirtualMachineInstance) error
 	GetDomain() (*api.Domain, bool, error)
+	GetDomainStats() (*stats.DomainStats, bool, error)
 	Ping() error
 	Close()
 }
@@ -188,8 +191,27 @@ func (c *VirtLauncherClient) GetDomain() (*api.Domain, bool, error) {
 		exists = true
 	}
 	return domain, exists, nil
-
 }
+
+func (c *VirtLauncherClient) GetDomainStats() (*stats.DomainStats, bool, error) {
+	stats := &stats.DomainStats{}
+	cmd := "Launcher.GetDomainStats"
+	exists := false
+
+	args := &Args{}
+
+	reply, err := c.genericSendCmd(args, cmd)
+	if err != nil {
+		return nil, exists, err
+	}
+
+	if reply.DomainStats != nil {
+		stats = reply.DomainStats
+		exists = true
+	}
+	return stats, exists, nil
+}
+
 func (c *VirtLauncherClient) SyncVirtualMachine(vmi *v1.VirtualMachineInstance) error {
 
 	cmd := "Launcher.Sync"
