@@ -22,8 +22,7 @@ LABEL maintainer="The KubeVirt Project <kubevirt-dev@googlegroups.com>"
 
 ENV container docker
 
-# TODO: iproute should be removed when tests no longer rely on it
-RUN yum install -y bzip2 qemu-img iproute && dnf clean all && mkdir -p /disk
+RUN yum install -y bzip2 qemu-img && dnf clean all && mkdir -p /disk
 
 ADD entry-point.sh /
 
