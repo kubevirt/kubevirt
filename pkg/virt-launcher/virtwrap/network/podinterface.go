@@ -408,7 +408,7 @@ func (p *MasqueradePodInterface) preparePodNetworkInterfaces() error {
 
 	err = Handler.LinkSetUp(bridgeNic)
 	if err != nil {
-		log.Log.Reason(err).Errorf("failed to bring link up for interface: %s", bridgeNic)
+		log.Log.Reason(err).Errorf("failed to bring link up for interface: %s", bridgeNic.Name)
 		return err
 	}
 
