@@ -202,7 +202,7 @@ The SR-IOV feature is gated, so you would need to enable the `SRIOV` gate
 feature using `kubevirt-config` map before deploying Kubevirt. For example,
 
 ```
-cat <<EOF | kubectl create -f -
+cat <<EOF | ./cluster/kubectl.sh create -f -
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -212,6 +212,7 @@ metadata:
     kubevirt.io: ""
 data:
   feature-gates: "SRIOV"
+EOF
 ```
 
 After that, you are ready to deploy Kubevirt. As you can see, this particular
