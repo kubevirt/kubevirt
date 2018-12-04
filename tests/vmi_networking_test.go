@@ -174,7 +174,7 @@ var _ = Describe("Networking", func() {
 			output, err := tests.ExecuteCommandOnPod(
 				virtClient,
 				vmiPod,
-				vmiPod.Spec.Containers[0].Name, // TODO: Be more explicit in the way we run commands on specific containers.
+				"compute",
 				[]string{"ip", "address", "show", "k6t-eth0"},
 			)
 			log.Log.Infof("%v", output)
