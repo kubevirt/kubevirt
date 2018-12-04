@@ -16,19 +16,13 @@
 # Copyright 2017 Red Hat, Inc.
 #
 
-FROM fedora:28 as builder
-
-RUN curl https://fedorapeople.org/groups/virt/virtio-win/virtio-win.repo -o /etc/yum.repos.d/virtio-win.repo \
-&& dnf install -y virtio-win && mkdir -p /disk 
-
-# the virtio-win package is shipped with version number, move it to standardized location
-# with standardized name, docker copy does not follow links
-RUN cp -L /usr/share/virtio-win/virtio-win.iso /disk/virtio-win.iso
-
-
-FROM kubevirt/registry-disk-v1alpha 
+FROM kubevirt/container-disk-v1alpha
 
 LABEL maintainer="The KubeVirt Project <kubevirt-dev@googlegroups.com>"
 
-WORKDIR /disk
-COPY --from=builder /disk/virtio-win.iso ./virtio-win.iso
+RUN curl https://fedorapeople.org/groups/virt/virtio-win/virtio-win.repo -o /etc/yum.repos.d/virtio-win.repo \
+	&& dnf install -y virtio-win \
+	&& dnf clean all \
+	&& mkdir -p /disk \
+	&& cp -L /usr/share/virtio-win/virtio-win.iso /disk/virtio-win.iso \
+	&& rm -R /usr/share/virtio-win
