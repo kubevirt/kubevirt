@@ -8,6 +8,7 @@ import (
 
 	v1 "kubevirt.io/kubevirt/pkg/api/v1"
 	api "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
+	stats "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/stats"
 )
 
 // Mock of DomainManager interface
@@ -101,4 +102,15 @@ func (_m *MockDomainManager) PrepareMigrationTarget(_param0 *v1.VirtualMachineIn
 
 func (_mr *_MockDomainManagerRecorder) PrepareMigrationTarget(arg0, arg1 interface{}) *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "PrepareMigrationTarget", arg0, arg1)
+}
+
+func (_m *MockDomainManager) GetDomainStats() ([]*stats.DomainStats, error) {
+	ret := _m.ctrl.Call(_m, "GetDomainStats")
+	ret0, _ := ret[0].([]*stats.DomainStats)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+func (_mr *_MockDomainManagerRecorder) GetDomainStats() *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "GetDomainStats")
 }

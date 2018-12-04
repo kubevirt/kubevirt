@@ -6,6 +6,8 @@ package cli
 import (
 	gomock "github.com/golang/mock/gomock"
 	libvirt_go "github.com/libvirt/libvirt-go"
+
+	stats "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/stats"
 )
 
 // Mock of Connection interface
@@ -110,6 +112,28 @@ func (_m *MockConnection) SetReconnectChan(reconnect chan bool) {
 
 func (_mr *_MockConnectionRecorder) SetReconnectChan(arg0 interface{}) *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "SetReconnectChan", arg0)
+}
+
+func (_m *MockConnection) GetAllDomainStats(statsTypes libvirt_go.DomainStatsTypes, flags libvirt_go.ConnectGetAllDomainStatsFlags) ([]libvirt_go.DomainStats, error) {
+	ret := _m.ctrl.Call(_m, "GetAllDomainStats", statsTypes, flags)
+	ret0, _ := ret[0].([]libvirt_go.DomainStats)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+func (_mr *_MockConnectionRecorder) GetAllDomainStats(arg0, arg1 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "GetAllDomainStats", arg0, arg1)
+}
+
+func (_m *MockConnection) GetDomainStats(statsTypes libvirt_go.DomainStatsTypes, statsMemory bool, flags libvirt_go.ConnectGetAllDomainStatsFlags) ([]*stats.DomainStats, error) {
+	ret := _m.ctrl.Call(_m, "GetDomainStats", statsTypes, statsMemory, flags)
+	ret0, _ := ret[0].([]*stats.DomainStats)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+func (_mr *_MockConnectionRecorder) GetDomainStats(arg0, arg1, arg2 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "GetDomainStats", arg0, arg1, arg2)
 }
 
 // Mock of Stream interface
@@ -321,6 +345,17 @@ func (_m *MockVirDomain) Migrate(_param0 *libvirt_go.Connect, _param1 libvirt_go
 
 func (_mr *_MockVirDomainRecorder) Migrate(arg0, arg1, arg2, arg3, arg4 interface{}) *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "Migrate", arg0, arg1, arg2, arg3, arg4)
+}
+
+func (_m *MockVirDomain) MemoryStats(nrStats uint32, flags uint32) ([]libvirt_go.DomainMemoryStat, error) {
+	ret := _m.ctrl.Call(_m, "MemoryStats", nrStats, flags)
+	ret0, _ := ret[0].([]libvirt_go.DomainMemoryStat)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+func (_mr *_MockVirDomainRecorder) MemoryStats(arg0, arg1 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "MemoryStats", arg0, arg1)
 }
 
 func (_m *MockVirDomain) Free() error {
