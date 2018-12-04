@@ -27,7 +27,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/libvirt/libvirt-go"
+	libvirt "github.com/libvirt/libvirt-go"
 	utilwait "k8s.io/apimachinery/pkg/util/wait"
 
 	"kubevirt.io/kubevirt/pkg/log"

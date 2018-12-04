@@ -22,7 +22,7 @@ package config
 import (
 	"path/filepath"
 
-	"kubevirt.io/kubevirt/pkg/api/v1"
+	v1 "kubevirt.io/kubevirt/pkg/api/v1"
 )
 
 // GetConfigMapSourcePath returns a path to ConfigMap mounted on a pod

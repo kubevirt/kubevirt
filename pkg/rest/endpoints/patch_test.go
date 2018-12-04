@@ -26,8 +26,8 @@ import (
 	"net/http/httptest"
 	"strings"
 
-	"github.com/emicklei/go-restful"
-	"github.com/evanphx/json-patch"
+	restful "github.com/emicklei/go-restful"
+	jsonpatch "github.com/evanphx/json-patch"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"golang.org/x/net/context"

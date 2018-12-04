@@ -9,8 +9,8 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 
-	"kubevirt.io/kubevirt/pkg/api/v1"
-	"kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
+	v1 "kubevirt.io/kubevirt/pkg/api/v1"
+	cmdclient "kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
 )
 
 var _ = Describe("Isolation", func() {

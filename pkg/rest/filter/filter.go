@@ -22,7 +22,7 @@ package filter
 import (
 	"strings"
 
-	"github.com/emicklei/go-restful"
+	restful "github.com/emicklei/go-restful"
 
 	"kubevirt.io/kubevirt/pkg/log"
 )

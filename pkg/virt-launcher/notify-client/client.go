@@ -8,11 +8,11 @@ import (
 
 	"k8s.io/client-go/tools/reference"
 
-	"kubevirt.io/kubevirt/pkg/api/v1"
+	v1 "kubevirt.io/kubevirt/pkg/api/v1"
 
 	k8sv1 "k8s.io/api/core/v1"
 
-	"github.com/libvirt/libvirt-go"
+	libvirt "github.com/libvirt/libvirt-go"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/watch"
