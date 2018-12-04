@@ -555,8 +555,8 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 
 	volumes = append(volumes, k8sv1.Volume{Name: "infra-ready-mount", VolumeSource: k8sv1.VolumeSource{EmptyDir: &k8sv1.EmptyDirVolumeSource{}}})
 
-	// VirtualMachineInstance target container
-	container := k8sv1.Container{
+	// VirtualMachineInstance target container.
+	compute := k8sv1.Container{
 		Name:            "compute",
 		Image:           t.launcherImage,
 		ImagePullPolicy: imagePullPolicy,
@@ -576,16 +576,22 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 	}
 
 	if vmi.Spec.ReadinessProbe != nil {
-		container.ReadinessProbe = copyProbe(vmi.Spec.ReadinessProbe)
-		container.ReadinessProbe.InitialDelaySeconds = container.ReadinessProbe.InitialDelaySeconds + LibvirtStartupDelay
+		compute.ReadinessProbe = copyProbe(vmi.Spec.ReadinessProbe)
+		compute.ReadinessProbe.InitialDelaySeconds = compute.ReadinessProbe.InitialDelaySeconds + LibvirtStartupDelay
 	}
 
 	if vmi.Spec.LivenessProbe != nil {
-		container.LivenessProbe = copyProbe(vmi.Spec.LivenessProbe)
-		container.LivenessProbe.InitialDelaySeconds = container.LivenessProbe.InitialDelaySeconds + LibvirtStartupDelay
+		compute.LivenessProbe = copyProbe(vmi.Spec.LivenessProbe)
+		compute.LivenessProbe.InitialDelaySeconds = compute.LivenessProbe.InitialDelaySeconds + LibvirtStartupDelay
 	}
 
-	containers := containerdisk.GenerateContainers(vmi, "ephemeral-disks", t.ephemeralDiskDir)
+	// We need to make sure it's the very first in the list since Multus
+	// mutating webhook assumes devices allocated via resourceName network
+	// attachement CRD annotation belong to the first container in the
+	// list.
+	containers := []k8sv1.Container{compute}
+
+	containers = append(containers, containerdisk.GenerateContainers(vmi, "ephemeral-disks", t.ephemeralDiskDir)...)
 
 	volumes = append(volumes, k8sv1.Volume{
 		Name: "virt-share-dir",
@@ -628,10 +634,8 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 	}
 	for networkName, resourceName := range networkToResourceMap {
 		varName := fmt.Sprintf("KUBEVIRT_RESOURCE_NAME_%s", networkName)
-		container.Env = append(container.Env, k8sv1.EnvVar{Name: varName, Value: resourceName})
-
+		compute.Env = append(compute.Env, k8sv1.EnvVar{Name: varName, Value: resourceName})
 	}
-	containers = append(containers, container)
 
 	for i, requestedHookSidecar := range requestedHookSidecarList {
 		resources := k8sv1.ResourceRequirements{}
