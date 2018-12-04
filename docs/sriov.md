@@ -190,6 +190,19 @@ $ go get -u -d github.com/intel/sriov-cni/
 $ ./cluster/kubectl.sh create -f $GOPATH/src/github.com/intel/sriov-cni/images/sriov-cni-daemonset.yaml
 ```
 
+Deploy Multus webhook. The webhook is not merged upstream yet, so we need to
+fetch the code from an open pull request.
+
+```
+$ cd $GOPATH/src/github.com/intel/multus-cni/
+$ git fetch origin pull/186/head:webhook
+$ git checkout webhook
+$ ./cluster/kubectl.sh create -f $GOPATH/src/github.com/intel/multus-cni/deployment/webhook/rbac.yaml
+$ ./cluster/kubectl.sh create -f $GOPATH/src/github.com/intel/multus-cni/deployment/webhook/install.yaml
+$ # change image to quay.io/booxter/multus-webhook:latest
+$ ./cluster/kubectl.sh create -f $GOPATH/src/github.com/intel/multus-cni/deployment/webhook/server.yaml
+```
+
 Finally, create a new SR-IOV network CRD that will use SR-IOV device plugin to allocate devices.
 
 ```
