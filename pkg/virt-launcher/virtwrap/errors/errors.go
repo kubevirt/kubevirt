@@ -39,6 +39,11 @@ func IsNotFound(err error) bool {
 	return checkError(err, libvirt.ERR_NO_DOMAIN)
 }
 
+// IsInvalidOperation detects libvirt's VIR_ERR_OPERATION_INVALID. It accepts both error and libvirt.Error (as returned by GetLastError function).
+func IsInvalidOperation(err error) bool {
+	return checkError(err, libvirt.ERR_OPERATION_INVALID)
+}
+
 // IsOk detects libvirt's ERR_OK. It accepts both error and libvirt.Error (as returned by GetLastError function).
 func IsOk(err error) bool {
 	return checkError(err, libvirt.ERR_OK)

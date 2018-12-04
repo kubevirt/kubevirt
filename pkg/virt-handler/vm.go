@@ -272,7 +272,7 @@ func (d *VirtualMachineController) updateVMIStatus(vmi *v1.VirtualMachineInstanc
 	}
 
 	// Update migration progress if domain reports anything in the migration metadata.
-	if domain != nil && domain.Spec.Metadata.KubeVirt.Migration != nil && vmi.Status.MigrationState != nil {
+	if domain != nil && domain.Spec.Metadata.KubeVirt.Migration != nil && vmi.Status.MigrationState != nil && d.isMigrationSource(vmi) {
 		migrationMetadata := domain.Spec.Metadata.KubeVirt.Migration
 		if migrationMetadata.UID == vmi.Status.MigrationState.MigrationUID {
 

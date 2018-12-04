@@ -110,15 +110,21 @@ func GetDomainSpecWithRuntimeInfo(status libvirt.DomainState, dom cli.VirDomain)
 	// get libvirt xml with runtime status
 	activeSpec, err := GetDomainSpecWithFlags(dom, 0)
 	if err != nil {
+		log.Log.Reason(err).Error("failed to get domain spec")
 		return nil, err
 	}
 
 	metadataXML, err := dom.GetMetadata(libvirt.DOMAIN_METADATA_ELEMENT, "http://kubevirt.io", libvirt.DOMAIN_AFFECT_CONFIG)
+	if err != nil {
+		log.Log.Reason(err).Error("failed to get domain metadata")
+		return activeSpec, err
+	}
 
 	metadata := &api.KubeVirtMetadata{}
 	err = xml.Unmarshal([]byte(metadataXML), metadata)
 	if err != nil {
-		return nil, err
+		log.Log.Reason(err).Error("failed to unmarshal domain metadata")
+		return activeSpec, err
 	}
 
 	activeSpec.Metadata.KubeVirt = *metadata
