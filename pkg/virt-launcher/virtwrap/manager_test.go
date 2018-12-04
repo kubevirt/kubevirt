@@ -42,6 +42,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/cli"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/network"
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/stats"
 )
 
 var _ = Describe("Manager", func() {
@@ -413,6 +414,24 @@ var _ = Describe("Manager", func() {
 		table.Entry("running", libvirt.DOMAIN_RUNNING, api.Running, int(libvirt.DOMAIN_RUNNING_UNKNOWN), api.ReasonUnknown),
 		table.Entry("paused", libvirt.DOMAIN_PAUSED, api.Paused, int(libvirt.DOMAIN_PAUSED_STARTING_UP), api.ReasonPausedStartingUp),
 	)
+
+	Context("on successful GetAllDomainStats", func() {
+		It("should return content", func() {
+			mockConn.EXPECT().GetDomainStats(
+				gomock.Eq(libvirt.DOMAIN_STATS_CPU_TOTAL|libvirt.DOMAIN_STATS_VCPU|libvirt.DOMAIN_STATS_INTERFACE|libvirt.DOMAIN_STATS_BLOCK),
+				true,
+				gomock.Eq(libvirt.CONNECT_GET_ALL_DOMAINS_STATS_RUNNING),
+			).Return([]*stats.DomainStats{
+				&stats.DomainStats{},
+			}, nil)
+
+			manager, _ := NewLibvirtDomainManager(mockConn, "fake", nil, 0)
+			domStats, err := manager.GetDomainStats()
+
+			Expect(err).To(BeNil())
+			Expect(len(domStats)).To(Equal(1))
+		})
+	})
 
 	// TODO: test error reporting on non successful VirtualMachineInstance syncs and kill attempts
 
