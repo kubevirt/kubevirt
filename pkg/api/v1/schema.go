@@ -100,6 +100,9 @@ type CloudInitNoCloudSource struct {
 	// UserData contains NoCloud inline cloud-init userdata.
 	// + optional
 	UserData string `json:"userData,omitempty"`
+	// NetworkData contains NoCloud inline cloud-init networkdata.
+	// + optional
+	NetworkData string `json:"networkData,omitempty"`
 }
 
 // ---

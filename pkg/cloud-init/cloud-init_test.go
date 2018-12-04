@@ -204,6 +204,17 @@ var _ = Describe("CloudInit", func() {
 					verifyCloudInitIso(cloudInitData)
 				})
 			})
+			Context("with cloudInitNoCloud userData volume source and networkData", func() {
+				It("should success", func() {
+					userData := "fake\nuser\ndata\n"
+					networkData := "fake\nnetwork\ndata\n"
+					cloudInitData := &v1.CloudInitNoCloudSource{
+						UserData:    userData,
+						NetworkData: networkData,
+					}
+					verifyCloudInitIso(cloudInitData)
+				})
+			})
 		})
 	})
 })

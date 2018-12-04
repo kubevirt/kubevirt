@@ -189,6 +189,7 @@ func GenerateLocalData(vmiName string, hostname string, namespace string, source
 
 	metaFile := fmt.Sprintf("%s/%s", domainBasePath, "meta-data")
 	userFile := fmt.Sprintf("%s/%s", domainBasePath, "user-data")
+	networkFile := fmt.Sprintf("%s/%s", domainBasePath, "network-config")
 	iso := fmt.Sprintf("%s/%s", domainBasePath, NoCloudFile)
 	isoStaging := fmt.Sprintf("%s/%s.staging", domainBasePath, NoCloudFile)
 	var userData []byte
@@ -202,10 +203,17 @@ func GenerateLocalData(vmiName string, hostname string, namespace string, source
 	} else {
 		return fmt.Errorf("userDataBase64 or userData is required for no-cloud data source")
 	}
+
+	var networkData []byte
+	if source.NetworkData != "" {
+		networkData = []byte(source.NetworkData)
+	}
+
 	metaData := []byte(fmt.Sprintf("{ \"instance-id\": \"%s.%s\", \"local-hostname\": \"%s\" }\n", vmiName, namespace, hostname))
 
 	diskutils.RemoveFile(userFile)
 	diskutils.RemoveFile(metaFile)
+	diskutils.RemoveFile(networkFile)
 	diskutils.RemoveFile(isoStaging)
 
 	err = ioutil.WriteFile(userFile, userData, 0644)
@@ -217,15 +225,25 @@ func GenerateLocalData(vmiName string, hostname string, namespace string, source
 		return err
 	}
 
-	files := make([]string, 0, 2)
+	files := make([]string, 0, 3)
 	files = append(files, metaFile)
 	files = append(files, userFile)
+
+	if len(networkData) > 0 {
+		err = ioutil.WriteFile(networkFile, networkData, 0644)
+		if err != nil {
+			return err
+		}
+		files = append(files, networkFile)
+	}
+
 	err = cloudInitIsoFunc(isoStaging, files)
 	if err != nil {
 		return err
 	}
 	diskutils.RemoveFile(metaFile)
 	diskutils.RemoveFile(userFile)
+	diskutils.RemoveFile(networkFile)
 
 	err = diskutils.SetFileOwnership(cloudInitOwner, isoStaging)
 	if err != nil {
