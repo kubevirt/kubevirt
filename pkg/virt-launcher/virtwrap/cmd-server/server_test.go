@@ -33,6 +33,7 @@ import (
 	cmdclient "kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/stats"
 )
 
 var _ = Describe("Virt remote commands", func() {
@@ -127,6 +128,22 @@ var _ = Describe("Virt remote commands", func() {
 
 			_, err = cmdclient.GetClient(shareDir + "/server.sock")
 			Expect(err).To(HaveOccurred())
+		})
+
+		It("should return domain stats", func() {
+			var list []*stats.DomainStats
+			dom := api.NewMinimalDomain("testvmstats1")
+			list = append(list, &stats.DomainStats{
+				Name: dom.Spec.Name,
+				UUID: dom.Spec.UUID,
+			})
+
+			domainManager.EXPECT().GetDomainStats().Return(list, nil)
+			domStats, exists, err := client.GetDomainStats()
+			Expect(err).ToNot(HaveOccurred())
+
+			Expect(exists).To(Equal(true))
+			Expect(domStats).ToNot(Equal(nil))
 		})
 	})
 })
