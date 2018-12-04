@@ -17,26 +17,30 @@
  *
  */
 
-package services_test
+package services
 
 import (
 	"errors"
 	"strconv"
 	"testing"
 
+	"github.com/golang/mock/gomock"
+	networkv1 "github.com/k8snetworkplumbingwg/network-attachment-definition-client/pkg/apis/k8s.cni.cncf.io/v1"
+	fakenetworkclient "github.com/k8snetworkplumbingwg/network-attachment-definition-client/pkg/client/clientset/versioned/fake"
 	. "github.com/onsi/ginkgo"
 	"github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
 	kubev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/client-go/tools/cache"
 
 	v1 "kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/hooks"
+	"kubevirt.io/kubevirt/pkg/kubecli"
 	"kubevirt.io/kubevirt/pkg/log"
-	. "kubevirt.io/kubevirt/pkg/virt-controller/services"
 )
 
 const namespaceKubevirt = "kubevirt"
@@ -49,6 +53,9 @@ var _ = Describe("Template", func() {
 	var cmCache cache.Indexer
 	var svc TemplateService
 
+	ctrl := gomock.NewController(GinkgoT())
+	virtClient := kubecli.NewMockKubevirtClient(ctrl)
+
 	BeforeEach(func() {
 		cmCache = cache.NewIndexer(cache.DeletionHandlingMetaNamespaceKeyFunc, nil)
 		svc = NewTemplateService("kubevirt/virt-launcher",
@@ -56,7 +63,32 @@ var _ = Describe("Template", func() {
 			"/var/run/kubevirt-ephemeral-disks",
 			"pull-secret-1",
 			cmCache,
-			pvcCache)
+			pvcCache,
+			virtClient)
+
+		// Set up mock clients
+		networkClient := fakenetworkclient.NewSimpleClientset()
+		virtClient.EXPECT().NetworkClient().Return(networkClient).AnyTimes()
+		// Sadly, we cannot pass desired attachment objects into
+		// Clientset constructor because UnsafeGuessKindToResource
+		// calculates incorrect object kind (without dashes). Instead
+		// of that, we use tracker Create function to register objects
+		// under explicitly defined schema name
+		gvr := schema.GroupVersionResource{
+			Group:    "k8s.cni.cncf.io",
+			Version:  "v1",
+			Resource: "network-attachment-definitions",
+		}
+		for _, name := range []string{"default", "test1"} {
+			network := &networkv1.NetworkAttachmentDefinition{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      name,
+					Namespace: "default",
+				},
+			}
+			err := networkClient.Tracker().Create(gvr, network, "default")
+			Expect(err).To(Not(HaveOccurred()))
+		}
 	})
 
 	Describe("Rendering", func() {
@@ -1295,6 +1327,40 @@ var _ = Describe("Template", func() {
 			Expect(*pod.Spec.AutomountServiceAccountToken).To(BeFalse(), "Token automount is disabled")
 		})
 
+	})
+})
+
+var _ = Describe("getResourceNameForNetwork", func() {
+	It("should return empty string when resource name is not specified", func() {
+		network := &networkv1.NetworkAttachmentDefinition{}
+		Expect(getResourceNameForNetwork(network)).To(Equal(""))
+	})
+
+	It("should return resource name if specified", func() {
+		network := &networkv1.NetworkAttachmentDefinition{
+			ObjectMeta: metav1.ObjectMeta{
+				Annotations: map[string]string{
+					MULTUS_RESOURCE_NAME_ANNOTATION: "fake.com/fakeResource",
+				},
+			},
+		}
+		Expect(getResourceNameForNetwork(network)).To(Equal("fake.com/fakeResource"))
+	})
+})
+
+var _ = Describe("getNamespaceAndNetworkName", func() {
+	It("should return vmi namespace when namespace is implicit", func() {
+		vmi := &v1.VirtualMachineInstance{ObjectMeta: metav1.ObjectMeta{Name: "testvmi", Namespace: "testns"}}
+		namespace, networkName := getNamespaceAndNetworkName(vmi, "testnet")
+		Expect(namespace).To(Equal("testns"))
+		Expect(networkName).To(Equal("testnet"))
+	})
+
+	It("should return namespace from networkName when namespace is explicit", func() {
+		vmi := &v1.VirtualMachineInstance{ObjectMeta: metav1.ObjectMeta{Name: "testvmi", Namespace: "testns"}}
+		namespace, networkName := getNamespaceAndNetworkName(vmi, "otherns/testnet")
+		Expect(namespace).To(Equal("otherns"))
+		Expect(networkName).To(Equal("testnet"))
 	})
 })
 

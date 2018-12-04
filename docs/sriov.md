@@ -87,7 +87,8 @@ In the following example, we configure the cluster using `local` provider which
 is part of kubevirt/kubevirt repo. Please consult cluster/local/README.md for
 general information on setting up a host using the `local` provider.
 
-First, install default CNI plugins:
+The `local` provider does not install default CNI plugins like `loopback`. So
+first, install default CNI plugins:
 
 ```
 $ go get -u -d github.com/containernetworking/plugins/
@@ -144,43 +145,48 @@ Once the cluster is deployed, we can move to SR-IOV specific components.
 
 # Deploy SR-IOV services
 
-First, deploy Multus with default Flannel backend:
+First, deploy latest Multus with default Flannel backend. We will need to use
+the latest code from their tree, hence using `snapshot` image tag instead of
+`latest`. The `snapshot` image adds support for reading IDs of devices
+allocated by device plugins from "checkpoint" files, which is needed to make
+the whole setup work.
 
 ```
 $ go get -u -d github.com/intel/multus-cni
 $ cd $GOPATH/src/github.com/intel/multus-cni/
-$ docker build .
-$ vi images/multus-daemonset.yml # change to refer to local multus:latest
+$ vi images/multus-daemonset.yml # change to refer to nfvpe/multus:snapshot
 $ mkdir -p /etc/cni/net.d
 $ cp images/70-multus.conf /etc/cni/net.d/
 $ ./cluster/kubectl.sh create -f $GOPATH/src/github.com/intel/multus-cni/images/multus-daemonset.yml
 $ ./cluster/kubectl.sh create -f $GOPATH/src/github.com/intel/multus-cni/images/flannel-daemonset.yml
 ```
 
-Now, deploy SR-IOV device plugin.
-
-Note: as of the time of writing, latest master of SR-IOV device plugin is not
-compatible with kubevirt. Please check out the latest version supported by
-kubevirt before building the plugin image:
-
+Now, deploy SR-IOV device plugin. Adjust config.json file for your particular
+setup. More information about configuration file format:
+https://github.com/intel/sriov-network-device-plugin/blob/master/README.md#configurations
 
 ```
 $ go get -u -d github.com/intel/sriov-network-device-plugin/
-$ cd $GOPATH/src/github.com/intel/sriov-network-device-plugin/images
-$ git checkout v1.0
-$ ./build_docker.sh
-$ vi images/sriovdp-daemonset.yaml # change to refer to local sriov-network-device-plugin:latest
+$ cat <<EOF > /etc/pcidp/config.json
+{
+    "resourceList":
+    [
+        {
+            "resourceName": "sriov",
+            "rootDevices": ["05:00.0", "05:00.1"],
+            "sriovMode": true,
+            "deviceType": "vfio"
+        }
+    ]
+}
+EOF
 $ ./cluster/kubectl.sh create -f $GOPATH/src/github.com/intel/sriov-network-device-plugin/images/sriovdp-daemonset.yaml
 ```
 
-Deploy SR-IOV CNI plugin with device ID support.
+Deploy SR-IOV CNI plugin.
 
 ```
 $ go get -u -d github.com/intel/sriov-cni/
-$ cd $GOPATH/src/github.com/intel/sriov-cni/images
-$ git checkout dev/k8s-deviceid-model
-$ ./build_docker.sh
-$ vi images/sriov-cni-daemonset.yaml # change to refer to local sriov-cni:latest
 $ ./cluster/kubectl.sh create -f $GOPATH/src/github.com/intel/sriov-cni/images/sriov-cni-daemonset.yaml
 ```
 
@@ -196,7 +202,7 @@ The SR-IOV feature is gated, so you would need to enable the `SRIOV` gate
 feature using `kubevirt-config` map before deploying Kubevirt. For example,
 
 ```
-cat <<EOF | kubectl create -f -
+cat <<EOF | ./cluster/kubectl.sh create -f -
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -206,6 +212,7 @@ metadata:
     kubevirt.io: ""
 data:
   feature-gates: "SRIOV"
+EOF
 ```
 
 After that, you are ready to deploy Kubevirt. As you can see, this particular

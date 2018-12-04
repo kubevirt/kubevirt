@@ -30,10 +30,13 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/tools/cache"
 
+	networkv1 "github.com/k8snetworkplumbingwg/network-attachment-definition-client/pkg/apis/k8s.cni.cncf.io/v1"
+
 	v1 "kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/config"
 	containerdisk "kubevirt.io/kubevirt/pkg/container-disk"
 	"kubevirt.io/kubevirt/pkg/hooks"
+	"kubevirt.io/kubevirt/pkg/kubecli"
 	"kubevirt.io/kubevirt/pkg/log"
 	"kubevirt.io/kubevirt/pkg/precond"
 	"kubevirt.io/kubevirt/pkg/util"
@@ -56,6 +59,8 @@ const CAP_SYS_NICE = "SYS_NICE"
 // Libvirt needs roughly 10 seconds to start.
 const LibvirtStartupDelay = 10
 
+const MULTUS_RESOURCE_NAME_ANNOTATION = "k8s.v1.cni.cncf.io/resourceName"
+
 type TemplateService interface {
 	RenderLaunchManifest(*v1.VirtualMachineInstance) (*k8sv1.Pod, error)
 }
@@ -67,6 +72,7 @@ type templateService struct {
 	imagePullSecret            string
 	configMapStore             cache.Store
 	persistentVolumeClaimStore cache.Store
+	virtClient                 kubecli.KubevirtClient
 }
 
 type PvcNotFoundError error
@@ -616,6 +622,15 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 	podLabels[v1.AppLabel] = "virt-launcher"
 	podLabels[v1.CreatedByLabel] = string(vmi.UID)
 
+	networkToResourceMap, err := getNetworkToResourceMap(t.virtClient, vmi)
+	if err != nil {
+		return nil, err
+	}
+	for networkName, resourceName := range networkToResourceMap {
+		varName := fmt.Sprintf("KUBEVIRT_RESOURCE_NAME_%s", networkName)
+		container.Env = append(container.Env, k8sv1.EnvVar{Name: varName, Value: resourceName})
+
+	}
 	containers = append(containers, container)
 
 	for i, requestedHookSidecar := range requestedHookSidecarList {
@@ -845,6 +860,40 @@ func getPortsFromVMI(vmi *v1.VirtualMachineInstance) []k8sv1.ContainerPort {
 	return ports
 }
 
+func getResourceNameForNetwork(network *networkv1.NetworkAttachmentDefinition) string {
+	resourceName, ok := network.Annotations[MULTUS_RESOURCE_NAME_ANNOTATION]
+	if ok {
+		return resourceName
+	}
+	return "" // meaning the network is not served by resources
+}
+
+func getNamespaceAndNetworkName(vmi *v1.VirtualMachineInstance, fullNetworkName string) (namespace string, networkName string) {
+	if strings.Contains(fullNetworkName, "/") {
+		res := strings.SplitN(fullNetworkName, "/", 2)
+		namespace, networkName = res[0], res[1]
+	} else {
+		namespace = precond.MustNotBeEmpty(vmi.GetObjectMeta().GetNamespace())
+		networkName = fullNetworkName
+	}
+	return
+}
+
+func getNetworkToResourceMap(virtClient kubecli.KubevirtClient, vmi *v1.VirtualMachineInstance) (networkToResourceMap map[string]string, err error) {
+	networkToResourceMap = make(map[string]string)
+	for _, network := range vmi.Spec.Networks {
+		if network.Multus != nil {
+			namespace, networkName := getNamespaceAndNetworkName(vmi, network.Multus.NetworkName)
+			crd, err := virtClient.NetworkClient().K8sCniCncfIo().NetworkAttachmentDefinitions(namespace).Get(networkName, metav1.GetOptions{})
+			if err != nil {
+				return map[string]string{}, fmt.Errorf("Failed to locate network attachment definition %s/%s", namespace, networkName)
+			}
+			networkToResourceMap[network.Name] = getResourceNameForNetwork(crd)
+		}
+	}
+	return
+}
+
 func getCniInterfaceList(vmi *v1.VirtualMachineInstance) (ifaceListString string, cniAnnotation string) {
 	ifaceList := make([]string, 0)
 
@@ -873,7 +922,8 @@ func NewTemplateService(launcherImage string,
 	ephemeralDiskDir string,
 	imagePullSecret string,
 	configMapCache cache.Store,
-	persistentVolumeClaimCache cache.Store) TemplateService {
+	persistentVolumeClaimCache cache.Store,
+	virtClient kubecli.KubevirtClient) TemplateService {
 
 	precond.MustNotBeEmpty(launcherImage)
 	svc := templateService{
@@ -883,6 +933,7 @@ func NewTemplateService(launcherImage string,
 		imagePullSecret:            imagePullSecret,
 		configMapStore:             configMapCache,
 		persistentVolumeClaimStore: persistentVolumeClaimCache,
+		virtClient:                 virtClient,
 	}
 	return &svc
 }

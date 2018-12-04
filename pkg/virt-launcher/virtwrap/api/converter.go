@@ -57,7 +57,7 @@ type ConverterContext struct {
 	VirtualMachine *v1.VirtualMachineInstance
 	CPUSet         []int
 	IsBlockPVC     map[string]bool
-	SRIOVDevices   []string
+	SRIOVDevices   map[string][]string
 }
 
 func Convert_v1_Disk_To_api_Disk(diskDevice *v1.Disk, disk *Disk, devicePerBus map[string]int, numQueues *uint) error {
@@ -508,11 +508,39 @@ func Convert_v1_FeatureHyperv_To_api_FeatureHyperv(source *v1.FeatureHyperv, hyp
 	return nil
 }
 
-func popSRIOVPCIAddress(addrs []string) (string, []string, error) {
-	if len(addrs) > 0 {
-		return addrs[0], addrs[1:], nil
+func filterAddress(addrs []string, addr string) []string {
+	var res []string
+	for _, a := range addrs {
+		if a != addr {
+			res = append(res, a)
+		}
 	}
-	return "", addrs, fmt.Errorf("no more SR-IOV PCI addresses to allocate")
+	return res
+}
+
+func reserveAddress(addrsMap map[string][]string, addr string) {
+	// Sometimes the same address is available to multiple networks,
+	// specifically when two networks refer to the same resourceName. In this
+	// case, we should make sure that a reserved address is removed from *all*
+	// per-network lists of available devices, to avoid configuring the same
+	// device ID for multiple interfaces.
+	for networkName, addrs := range addrsMap {
+		addrsMap[networkName] = filterAddress(addrs, addr)
+	}
+	return
+}
+
+// Get the next PCI address available to a particular SR-IOV network. The
+// function makes sure that the allocated address is not allocated to next
+// callers, whether they request an address for the same network or another
+// network that is backed by the same resourceName.
+func popSRIOVPCIAddress(networkName string, addrsMap map[string][]string) (string, map[string][]string, error) {
+	if len(addrsMap[networkName]) > 0 {
+		addr := addrsMap[networkName][0]
+		reserveAddress(addrsMap, addr)
+		return addr, addrsMap, nil
+	}
+	return "", addrsMap, fmt.Errorf("no more SR-IOV PCI addresses to allocate")
 }
 
 func Convert_v1_VirtualMachine_To_api_Domain(vmi *v1.VirtualMachineInstance, domain *Domain, c *ConverterContext) (err error) {
@@ -871,7 +899,10 @@ func Convert_v1_VirtualMachine_To_api_Domain(vmi *v1.VirtualMachineInstance, dom
 		networks[network.Name] = network.DeepCopy()
 	}
 
-	sriovPciAddresses := append([]string{}, c.SRIOVDevices...)
+	sriovPciAddresses := make(map[string][]string)
+	for key, value := range c.SRIOVDevices {
+		sriovPciAddresses[key] = append([]string{}, value...)
+	}
 
 	for _, iface := range vmi.Spec.Domain.Devices.Interfaces {
 		net, isExist := networks[iface.Name]
@@ -881,7 +912,7 @@ func Convert_v1_VirtualMachine_To_api_Domain(vmi *v1.VirtualMachineInstance, dom
 
 		if iface.SRIOV != nil {
 			var pciAddr string
-			pciAddr, sriovPciAddresses, err = popSRIOVPCIAddress(sriovPciAddresses)
+			pciAddr, sriovPciAddresses, err = popSRIOVPCIAddress(iface.Name, sriovPciAddresses)
 			if err != nil {
 				return err
 			}

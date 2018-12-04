@@ -264,16 +264,19 @@ func (vca *VirtControllerApp) getNewRecorder(namespace string, componentName str
 func (vca *VirtControllerApp) initCommon() {
 	var err error
 
-	containerdisk.SetLocalDirectory(vca.ephemeralDiskDir + "/container-disk-data")
+	virtClient, err := kubecli.GetKubevirtClient()
 	if err != nil {
 		golog.Fatal(err)
 	}
+
+	containerdisk.SetLocalDirectory(vca.ephemeralDiskDir + "/container-disk-data")
 	vca.templateService = services.NewTemplateService(vca.launcherImage,
 		vca.virtShareDir,
 		vca.ephemeralDiskDir,
 		vca.imagePullSecret,
 		vca.configMapCache,
-		vca.persistentVolumeClaimCache)
+		vca.persistentVolumeClaimCache,
+		virtClient)
 
 	vca.vmiController = NewVMIController(vca.templateService, vca.vmiInformer, vca.podInformer, vca.vmiRecorder, vca.clientSet, vca.configMapInformer, vca.dataVolumeInformer)
 	recorder := vca.getNewRecorder(k8sv1.NamespaceAll, "node-controller")

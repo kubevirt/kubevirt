@@ -21,6 +21,7 @@ package watch
 
 import (
 	"github.com/golang/mock/gomock"
+	fakenetworkclient "github.com/k8snetworkplumbingwg/network-attachment-definition-client/pkg/client/clientset/versioned/fake"
 	. "github.com/onsi/ginkgo"
 	"github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
@@ -60,6 +61,7 @@ var _ = Describe("Migration watcher", func() {
 	var podFeeder *testutils.PodFeeder
 	var virtClient *kubecli.MockKubevirtClient
 	var kubeClient *fake.Clientset
+	var networkClient *fakenetworkclient.Clientset
 	var configMapInformer cache.SharedIndexInformer
 	var pvcInformer cache.SharedIndexInformer
 
@@ -162,7 +164,7 @@ var _ = Describe("Migration watcher", func() {
 		pvcInformer, _ = testutils.NewFakeInformerFor(&k8sv1.PersistentVolumeClaim{})
 
 		controller = NewMigrationController(
-			services.NewTemplateService("a", "b", "c", "d", configMapInformer.GetStore(), pvcInformer.GetStore()),
+			services.NewTemplateService("a", "b", "c", "d", configMapInformer.GetStore(), pvcInformer.GetStore(), virtClient),
 			vmiInformer,
 			podInformer,
 			migrationInformer,
@@ -178,6 +180,8 @@ var _ = Describe("Migration watcher", func() {
 		virtClient.EXPECT().VirtualMachineInstanceMigration(k8sv1.NamespaceDefault).Return(migrationInterface).AnyTimes()
 		virtClient.EXPECT().VirtualMachineInstance(k8sv1.NamespaceDefault).Return(vmiInterface).AnyTimes()
 		virtClient.EXPECT().CoreV1().Return(kubeClient.CoreV1()).AnyTimes()
+		networkClient = fakenetworkclient.NewSimpleClientset()
+		virtClient.EXPECT().NetworkClient().Return(networkClient).AnyTimes()
 
 		// Make sure that all unexpected calls to kubeClient will fail
 		kubeClient.Fake.PrependReactor("*", "*", func(action testing.Action) (handled bool, obj runtime.Object, err error) {

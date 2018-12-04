@@ -536,7 +536,7 @@ var _ = Describe("Converter", func() {
 				},
 				UseEmulation: true,
 				IsBlockPVC:   isBlockPVCMap,
-				SRIOVDevices: []string{},
+				SRIOVDevices: map[string][]string{},
 			}
 		})
 
@@ -1372,10 +1372,13 @@ var _ = Describe("Converter", func() {
 		}
 		vmi.Spec.Networks = append(vmi.Spec.Networks, sriovNetwork2)
 
-		It("should convert sriov interface into host device", func() {
+		It("should convert sriov interfaces into host devices", func() {
 			c := &ConverterContext{
 				UseEmulation: true,
-				SRIOVDevices: []string{"0000:81:11.1", "0000:81:11.2"},
+				SRIOVDevices: map[string][]string{
+					"sriov":  []string{"0000:81:11.1"},
+					"sriov2": []string{"0000:81:11.2"},
+				},
 			}
 			domain := vmiToDomain(vmi, c)
 
@@ -1399,17 +1402,34 @@ var _ = Describe("Converter", func() {
 })
 
 var _ = Describe("popSRIOVPCIAddress", func() {
-	It("fails on empty slice", func() {
-		_, _, err := popSRIOVPCIAddress([]string{})
+	It("fails on empty map", func() {
+		_, _, err := popSRIOVPCIAddress("testnet", map[string][]string{})
+		Expect(err).To(HaveOccurred())
+	})
+	It("fails on empty map entry", func() {
+		_, _, err := popSRIOVPCIAddress("testnet", map[string][]string{"testnet": []string{}})
 		Expect(err).To(HaveOccurred())
 	})
 	It("pops the next address from a non-empty slice", func() {
-		addrs := []string{"0000:81:11.1", "0001:02:00.0"}
-		addr, rest, err := popSRIOVPCIAddress(addrs)
+		addrsMap := map[string][]string{"testnet": []string{"0000:81:11.1", "0001:02:00.0"}}
+		addr, rest, err := popSRIOVPCIAddress("testnet", addrsMap)
 		Expect(err).ToNot(HaveOccurred())
 		Expect(addr).To(Equal("0000:81:11.1"))
-		Expect(len(rest)).To(Equal(1))
-		Expect(rest[0]).To(Equal("0001:02:00.0"))
+		Expect(len(rest["testnet"])).To(Equal(1))
+		Expect(rest["testnet"][0]).To(Equal("0001:02:00.0"))
+	})
+	It("pops the next address from all tracked networks", func() {
+		addrsMap := map[string][]string{
+			"testnet1": []string{"0000:81:11.1", "0001:02:00.0"},
+			"testnet2": []string{"0000:81:11.1", "0001:02:00.0"},
+		}
+		addr, rest, err := popSRIOVPCIAddress("testnet1", addrsMap)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(addr).To(Equal("0000:81:11.1"))
+		Expect(len(rest["testnet1"])).To(Equal(1))
+		Expect(rest["testnet1"][0]).To(Equal("0001:02:00.0"))
+		Expect(len(rest["testnet2"])).To(Equal(1))
+		Expect(rest["testnet2"][0]).To(Equal("0001:02:00.0"))
 	})
 })
 
