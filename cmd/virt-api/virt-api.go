@@ -25,7 +25,7 @@ import (
 	_ "kubevirt.io/kubevirt/pkg/monitoring/reflector/prometheus" // import for prometheus metrics
 	_ "kubevirt.io/kubevirt/pkg/monitoring/workqueue/prometheus" // import for prometheus metrics
 	"kubevirt.io/kubevirt/pkg/service"
-	"kubevirt.io/kubevirt/pkg/virt-api"
+	virt_api "kubevirt.io/kubevirt/pkg/virt-api"
 )
 
 func main() {

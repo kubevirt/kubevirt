@@ -35,7 +35,7 @@ import (
 	"k8s.io/client-go/rest"
 
 	cdiclient "kubevirt.io/containerized-data-importer/pkg/client/clientset/versioned"
-	"kubevirt.io/kubevirt/pkg/api/v1"
+	v1 "kubevirt.io/kubevirt/pkg/api/v1"
 )
 
 type KubevirtClient interface {

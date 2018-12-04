@@ -31,7 +31,7 @@ import (
 	"strings"
 
 	"github.com/asaskevich/govalidator"
-	"github.com/emicklei/go-restful"
+	restful "github.com/emicklei/go-restful"
 	"github.com/ghodss/yaml"
 	gokithttp "github.com/go-kit/kit/transport/http"
 	"golang.org/x/net/context"

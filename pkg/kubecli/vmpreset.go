@@ -25,7 +25,7 @@ import (
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
 
-	"kubevirt.io/kubevirt/pkg/api/v1"
+	v1 "kubevirt.io/kubevirt/pkg/api/v1"
 )
 
 func (k *kubevirt) VMIPreset(namespace string) VMIPresetInterface {

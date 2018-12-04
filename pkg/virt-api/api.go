@@ -28,8 +28,8 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/emicklei/go-restful"
-	"github.com/emicklei/go-restful-openapi"
+	restful "github.com/emicklei/go-restful"
+	restfulspec "github.com/emicklei/go-restful-openapi"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	flag "github.com/spf13/pflag"
 	admissionregistrationv1beta1 "k8s.io/api/admissionregistration/v1beta1"
@@ -43,8 +43,8 @@ import (
 	apiregistrationv1beta1 "k8s.io/kube-aggregator/pkg/apis/apiregistration/v1beta1"
 	aggregatorclient "k8s.io/kube-aggregator/pkg/client/clientset_generated/clientset"
 
-	"kubevirt.io/kubevirt/pkg/api/v1"
-	"kubevirt.io/kubevirt/pkg/feature-gates"
+	v1 "kubevirt.io/kubevirt/pkg/api/v1"
+	featuregates "kubevirt.io/kubevirt/pkg/feature-gates"
 	"kubevirt.io/kubevirt/pkg/healthz"
 	"kubevirt.io/kubevirt/pkg/kubecli"
 	"kubevirt.io/kubevirt/pkg/log"
@@ -55,8 +55,8 @@ import (
 	"kubevirt.io/kubevirt/pkg/version"
 	"kubevirt.io/kubevirt/pkg/virt-api/rest"
 	"kubevirt.io/kubevirt/pkg/virt-api/webhooks"
-	"kubevirt.io/kubevirt/pkg/virt-api/webhooks/mutating-webhook"
-	"kubevirt.io/kubevirt/pkg/virt-api/webhooks/validating-webhook"
+	mutating_webhook "kubevirt.io/kubevirt/pkg/virt-api/webhooks/mutating-webhook"
+	validating_webhook "kubevirt.io/kubevirt/pkg/virt-api/webhooks/validating-webhook"
 )
 
 const (

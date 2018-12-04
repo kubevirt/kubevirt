@@ -23,7 +23,7 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/emicklei/go-restful"
+	restful "github.com/emicklei/go-restful"
 	"k8s.io/apimachinery/pkg/util/json"
 
 	"kubevirt.io/kubevirt/pkg/kubecli"

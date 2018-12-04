@@ -31,13 +31,13 @@ import (
 	"k8s.io/client-go/tools/record"
 
 	"github.com/golang/mock/gomock"
-	"github.com/libvirt/libvirt-go"
+	libvirt "github.com/libvirt/libvirt-go"
 	. "github.com/onsi/ginkgo"
 	"github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
 	"k8s.io/apimachinery/pkg/watch"
 
-	"kubevirt.io/kubevirt/pkg/api/v1"
+	v1 "kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/testutils"
 
 	notifyserver "kubevirt.io/kubevirt/pkg/virt-handler/notify-server"

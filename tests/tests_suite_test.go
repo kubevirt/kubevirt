@@ -26,7 +26,7 @@ import (
 	. "github.com/onsi/gomega"
 
 	"kubevirt.io/kubevirt/tests"
-	"kubevirt.io/qe-tools/pkg/ginkgo-reporters"
+	ginkgo_reporters "kubevirt.io/qe-tools/pkg/ginkgo-reporters"
 )
 
 func TestTests(t *testing.T) {

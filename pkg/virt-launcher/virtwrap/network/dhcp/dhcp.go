@@ -33,7 +33,7 @@ import (
 	dhcpConn "github.com/krolaw/dhcp4/conn"
 	"github.com/vishvananda/netlink"
 
-	"kubevirt.io/kubevirt/pkg/api/v1"
+	v1 "kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/log"
 )
 

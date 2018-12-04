@@ -4,8 +4,8 @@ import (
 	"encoding/json"
 	"strings"
 
-	"github.com/emicklei/go-restful"
-	"github.com/emicklei/go-restful-openapi"
+	restful "github.com/emicklei/go-restful"
+	restfulspec "github.com/emicklei/go-restful-openapi"
 	"github.com/go-openapi/errors"
 	"github.com/go-openapi/spec"
 	"github.com/go-openapi/strfmt"
