@@ -167,6 +167,31 @@ func CPUModelLabelFromCPUModel(vmi *v1.VirtualMachineInstance) (label string, er
 	return
 }
 
+func requestResource(resources *k8sv1.ResourceRequirements, resourceName string) {
+	name := k8sv1.ResourceName(resourceName)
+
+	// assume resources are countable, singular, and cannot be divided
+	unitQuantity := *resource.NewQuantity(1, resource.DecimalSI)
+
+	// Fill in limits
+	val, ok := resources.Limits[name]
+	if ok {
+		val.Add(unitQuantity)
+		resources.Limits[name] = val
+	} else {
+		resources.Limits[name] = unitQuantity
+	}
+
+	// Fill in requests
+	val, ok = resources.Requests[name]
+	if ok {
+		val.Add(unitQuantity)
+		resources.Requests[name] = val
+	} else {
+		resources.Requests[name] = unitQuantity
+	}
+}
+
 func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (*k8sv1.Pod, error) {
 	precond.MustNotBeNil(vmi)
 	domain := precond.MustNotBeEmpty(vmi.GetObjectMeta().GetName())
@@ -578,6 +603,21 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 
 	volumes = append(volumes, k8sv1.Volume{Name: "infra-ready-mount", VolumeSource: k8sv1.VolumeSource{EmptyDir: &k8sv1.EmptyDirVolumeSource{}}})
 
+	containers := containerdisk.GenerateContainers(vmi, "ephemeral-disks", t.ephemeralDiskDir)
+
+	networkToResourceMap, err := getNetworkToResourceMap(t.virtClient, vmi)
+	if err != nil {
+		return nil, err
+	}
+
+	// Register resource requests and limits corresponding to attached multus networks.
+	// TODO(ihar) remove when we adopt Multus mutating webhook that handles the job.
+	for _, resourceName := range networkToResourceMap {
+		if resourceName != "" {
+			requestResource(&resources, resourceName)
+		}
+	}
+
 	// VirtualMachineInstance target container
 	container := k8sv1.Container{
 		Name:            "compute",
@@ -608,7 +648,12 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 		container.LivenessProbe.InitialDelaySeconds = container.LivenessProbe.InitialDelaySeconds + LibvirtStartupDelay
 	}
 
-	containers := containerdisk.GenerateContainers(vmi, "ephemeral-disks", t.ephemeralDiskDir)
+	for networkName, resourceName := range networkToResourceMap {
+		varName := fmt.Sprintf("KUBEVIRT_RESOURCE_NAME_%s", networkName)
+		container.Env = append(container.Env, k8sv1.EnvVar{Name: varName, Value: resourceName})
+	}
+
+	containers = append(containers, container)
 
 	volumes = append(volumes, k8sv1.Volume{
 		Name: "virt-share-dir",
@@ -652,17 +697,6 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 	}
 	podLabels[v1.AppLabel] = "virt-launcher"
 	podLabels[v1.CreatedByLabel] = string(vmi.UID)
-
-	networkToResourceMap, err := getNetworkToResourceMap(t.virtClient, vmi)
-	if err != nil {
-		return nil, err
-	}
-	for networkName, resourceName := range networkToResourceMap {
-		varName := fmt.Sprintf("KUBEVIRT_RESOURCE_NAME_%s", networkName)
-		container.Env = append(container.Env, k8sv1.EnvVar{Name: varName, Value: resourceName})
-
-	}
-	containers = append(containers, container)
 
 	for i, requestedHookSidecar := range requestedHookSidecarList {
 		resources := k8sv1.ResourceRequirements{}
