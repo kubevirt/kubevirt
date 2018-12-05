@@ -2041,6 +2041,15 @@ func (in *OS) DeepCopyInto(out *OS) {
 			**out = **in
 		}
 	}
+	if in.Loader != nil {
+		in, out := &in.Loader, &out.Loader
+		if *in == nil {
+			*out = nil
+		} else {
+			*out = new(Loader)
+			**out = **in
+		}
+	}
 	return
 }
 

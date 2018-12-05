@@ -733,6 +733,12 @@ func schema_kubevirt_pkg_api_v1_DomainSpec(ref common.ReferenceCallback) common.
 							Format:      "",
 						},
 					},
+					"bootloader": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
 				},
 				Required: []string{"devices"},
 			},

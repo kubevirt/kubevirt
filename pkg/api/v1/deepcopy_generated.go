@@ -521,6 +521,15 @@ func (in *DomainSpec) DeepCopyInto(out *DomainSpec) {
 			**out = **in
 		}
 	}
+	if in.Bootloader != nil {
+		in, out := &in.Bootloader, &out.Bootloader
+		if *in == nil {
+			*out = nil
+		} else {
+			*out = new(Bootloader)
+			**out = **in
+		}
+	}
 	return
 }
 

@@ -34,6 +34,13 @@ const (
 	CPUModeHostModel                       = "host-model"
 )
 
+type Bootloader string
+
+const (
+	BootloaderBIOS Bootloader = "bios"
+	BootloaderEFI  Bootloader = "efi"
+)
+
 //go:generate swagger-doc
 //go:generate openapi-gen -i . --output-package=kubevirt.io/kubevirt/pkg/api/v1  --go-header-file ../../../hack/boilerplate/boilerplate.go.txt
 
@@ -136,6 +143,7 @@ type DomainSpec struct {
 	// One of: shared, auto
 	// +optional
 	IOThreadsPolicy *IOThreadsPolicy `json:"ioThreadsPolicy,omitempty"`
+	Bootloader      *Bootloader      `json:"bootloader,omitempty"`
 }
 
 // ---
