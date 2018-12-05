@@ -39,8 +39,8 @@ import (
 	"k8s.io/apimachinery/pkg/util/rand"
 
 	v1 "kubevirt.io/kubevirt/pkg/api/v1"
-	"kubevirt.io/kubevirt/pkg/feature-gates"
 	"kubevirt.io/kubevirt/pkg/kubecli"
+	"kubevirt.io/kubevirt/pkg/virt-config"
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
 	"kubevirt.io/kubevirt/pkg/virt-controller/watch"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
@@ -640,20 +640,24 @@ var _ = Describe("VMIlifecycle", func() {
 			BeforeEach(func() {
 				options = metav1.GetOptions{}
 				cfgMap, err = virtClient.CoreV1().ConfigMaps(namespaceKubevirt).Get("kubevirt-config", options)
-				ExpectWithOffset(1, err).ToNot(HaveOccurred())
-				originalData = cfgMap.Data[featuregates.FEATURE_GATES_KEY]
-				cfgMap.Data[featuregates.FEATURE_GATES_KEY] = featuregates.CPUNodeDiscoveryGate
+				Expect(err).ToNot(HaveOccurred())
+				originalData = cfgMap.Data[virtconfig.FeatureGatesKey]
+				cfgMap.Data[virtconfig.FeatureGatesKey] = virtconfig.CPUNodeDiscoveryGate
 				_, err = virtClient.CoreV1().ConfigMaps(namespaceKubevirt).Update(cfgMap)
-				ExpectWithOffset(1, err).ToNot(HaveOccurred())
+				Expect(err).ToNot(HaveOccurred())
+				//FIXME improve the detection if virt-controller already received the config-map change
+				time.Sleep(time.Millisecond * 500)
 
 			})
 
 			AfterEach(func() {
 				cfgMap, err = virtClient.CoreV1().ConfigMaps(namespaceKubevirt).Get("kubevirt-config", options)
-				ExpectWithOffset(1, err).ToNot(HaveOccurred())
-				cfgMap.Data[featuregates.FEATURE_GATES_KEY] = originalData
+				Expect(err).ToNot(HaveOccurred())
+				cfgMap.Data[virtconfig.FeatureGatesKey] = originalData
 				_, err = virtClient.CoreV1().ConfigMaps(namespaceKubevirt).Update(cfgMap)
-				ExpectWithOffset(1, err).ToNot(HaveOccurred())
+				Expect(err).ToNot(HaveOccurred())
+				//FIXME improve the detection if virt-controller already received the config-map change
+				time.Sleep(time.Millisecond * 500)
 			})
 
 			It("the vmi with cpu.model matching a nfd label on a node should be scheduled", func() {
@@ -663,17 +667,20 @@ var _ = Describe("VMIlifecycle", func() {
 				Expect(err).ToNot(HaveOccurred(), "Should list nodes")
 				Expect(nodes.Items).ToNot(BeEmpty(), "There should be some nodes")
 
-				NFD_CPU_LABEL := services.NFD_CPU_FAMILY_PREFIX + "Conroe"
-				node := &nodes.Items[0]
-				node, err = virtClient.CoreV1().Nodes().Patch(node.Name, types.StrategicMergePatchType,
-					[]byte(fmt.Sprintf(`{"metadata": { "labels": {"%s": "true"}}}`, NFD_CPU_LABEL)))
-				Expect(err).ToNot(HaveOccurred(), "Should patch node successfully")
-
 				vmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(tests.ContainerDiskFor(tests.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n")
 				vmi.Spec.Domain.CPU = &v1.CPU{
 					Cores: 1,
 					Model: "Conroe",
 				}
+
+				cpuModelLabel, err := services.CPUModelLabelFromCPUModel(vmi)
+				Expect(err).ToNot(HaveOccurred(), "CPU model label should have been retrieved successfully")
+
+				node := &nodes.Items[0]
+				node, err = virtClient.CoreV1().Nodes().Patch(node.Name, types.StrategicMergePatchType,
+					[]byte(fmt.Sprintf(`{"metadata": { "labels": {"%s": "true"}}}`, cpuModelLabel)))
+				Expect(err).ToNot(HaveOccurred(), "Should patch node successfully")
+
 				_, err = virtClient.VirtualMachineInstance(vmi.Namespace).Create(vmi)
 				Expect(err).ToNot(HaveOccurred(), "Should create VMI")
 				tests.WaitForSuccessfulVMIStart(vmi)
@@ -682,6 +689,43 @@ var _ = Describe("VMIlifecycle", func() {
 				Expect(err).ToNot(HaveOccurred(), "Should get VMI")
 				Expect(curVMI.Status.NodeName).To(Equal(nodes.Items[0].Name), "Updated VMI name run on the node with matching NFD CPU label")
 
+			})
+
+			It("the vmi with cpu.model that cannot match an nfd label on node should not be scheduled", func() {
+
+				nodes, err := virtClient.CoreV1().Nodes().List(metav1.ListOptions{})
+				Expect(err).ToNot(HaveOccurred(), "Should list nodes")
+				Expect(nodes.Items).ToNot(BeEmpty(), "There should be some nodes")
+
+				vmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(tests.ContainerDiskFor(tests.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n")
+				vmi.Spec.Domain.CPU = &v1.CPU{
+					Cores: 1,
+					Model: "Conroe",
+				}
+
+				cpuModelLabel, err := services.CPUModelLabelFromCPUModel(vmi)
+				Expect(err).ToNot(HaveOccurred(), "CPU model label should have been retrieved successfully")
+
+				node := &nodes.Items[0]
+				node, err = virtClient.CoreV1().Nodes().Patch(node.Name, types.StrategicMergePatchType,
+					[]byte(fmt.Sprintf(`{"metadata": { "labels": {"%s": "false"}}}`, cpuModelLabel)))
+				Expect(err).ToNot(HaveOccurred(), "Should patch node successfully")
+
+				//Make sure the vmi should try to be scheduled only on master node
+				vmi.Spec.NodeSelector = map[string]string{"kubernetes.io/hostname": node.Name}
+
+				_, err = virtClient.VirtualMachineInstance(vmi.Namespace).Create(vmi)
+				Expect(err).ToNot(HaveOccurred(), "Should create VMI")
+
+				By("Waiting for the VirtualMachineInstance to be unschedulable")
+				Eventually(func() string {
+					curVMI, err := virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &metav1.GetOptions{})
+					Expect(err).ToNot(HaveOccurred(), "Should get vmi")
+					if curVMI.Status.Conditions != nil {
+						return curVMI.Status.Conditions[0].Reason
+					}
+					return ""
+				}, 60*time.Second, 1*time.Second).Should(Equal("Unschedulable"), "VMI should be unchedulable")
 			})
 
 		})
