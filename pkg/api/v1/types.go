@@ -393,6 +393,10 @@ const (
 	// if a particular node is alive and hence should be available for new
 	// virtual machine instance scheduling. Used on Node.
 	VirtHandlerHeartbeat string = "kubevirt.io/heartbeat"
+	// References a VM that a pod should be constructed to look like
+	VirtualMachineWorkloadRef string = "kubevirt.io/vm-workload-ref"
+	// Indicates the VMI is controlled by the pod and a workload controller
+	K8sWorkloadControlled string = "kubevirt.io/k8s-workload-controlled"
 
 	VirtualMachineInstanceFinalizer string = "foregroundDeleteVirtualMachine"
 	CPUManager                      string = "cpumanager"

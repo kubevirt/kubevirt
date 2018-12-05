@@ -17,6 +17,8 @@ limitations under the License.
 package v1
 
 import (
+	"strings"
+
 	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
@@ -32,7 +34,8 @@ func IsControlledBy(obj Object, owner Object) bool {
 // GetControllerOf returns a pointer to a copy of the controllerRef if controllee has a controller
 func GetControllerOf(controllee Object) *OwnerReference {
 	for _, ref := range controllee.GetOwnerReferences() {
-		if ref.Controller != nil && *ref.Controller {
+		// looking for kubevirt controller references only here
+		if strings.Contains(ref.APIVersion, "kubevirt.io") {
 			return &ref
 		}
 	}

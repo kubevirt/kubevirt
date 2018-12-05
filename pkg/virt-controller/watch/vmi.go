@@ -250,6 +250,19 @@ func (c *VMIController) execute(key string) error {
 		return syncErr
 	}
 
+	// k8s workload controlled VMIs should self delete after finalization
+	// once pod no longer exists.
+	if vmi.IsFinal() {
+		_, ok := vmi.Annotations[virtv1.K8sWorkloadControlled]
+		if ok && !podExists(pod) {
+			err := c.clientset.VirtualMachineInstance(vmi.ObjectMeta.Namespace).Delete(vmi.ObjectMeta.Name, &v1.DeleteOptions{})
+			if err != nil {
+				return err
+			}
+			logger.Object(vmi).Infof("Self deleted finalized vmi managed by k8s workload controller")
+		}
+	}
+
 	return nil
 
 }
@@ -439,6 +452,11 @@ func (c *VMIController) sync(vmi *virtv1.VirtualMachineInstance, pod *k8sv1.Pod,
 	if !podExists(pod) {
 		// If we came ever that far to detect that we already created a pod, we don't create it again
 		if !vmi.IsUnprocessed() {
+			return nil
+		}
+		_, ok := vmi.Annotations[virtv1.K8sWorkloadControlled]
+		if ok {
+			// this controller does not create pods for k8s workload managed VMI's
 			return nil
 		}
 

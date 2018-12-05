@@ -25,6 +25,7 @@ import (
 	"net/http"
 
 	"k8s.io/api/admission/v1beta1"
+	k8sv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 
@@ -32,6 +33,7 @@ import (
 	v1 "kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/log"
 	"kubevirt.io/kubevirt/pkg/virt-api/webhooks"
+	"kubevirt.io/kubevirt/pkg/virt-controller/services"
 )
 
 type patchOperation struct {
@@ -144,6 +146,148 @@ func mutateVMIs(ar *v1beta1.AdmissionReview) *v1beta1.AdmissionResponse {
 		PatchType: &jsonPatchType,
 	}
 
+}
+
+func mutatePods(ar *v1beta1.AdmissionReview) *v1beta1.AdmissionResponse {
+
+	if ar.Request.Resource.Resource != "pods" {
+		err := fmt.Errorf("expect pods resource type, but received %s", ar.Request.Resource.Resource)
+		return webhooks.ToAdmissionResponseError(err)
+	}
+
+	raw := ar.Request.Object.Raw
+	pod := k8sv1.Pod{}
+
+	err := json.Unmarshal(raw, &pod)
+	if err != nil {
+		return webhooks.ToAdmissionResponseError(err)
+	}
+
+	vmName, ok := pod.Annotations[v1.VirtualMachineWorkloadRef]
+	if !ok {
+		// no action required because annotation is not present
+		return &v1beta1.AdmissionResponse{
+			Allowed: true,
+		}
+	}
+
+	vmInformer := webhooks.GetInformers().VMInformer
+	clientset := webhooks.GetInformers().KubeClient
+
+	namespace := pod.Namespace
+	if namespace == "" {
+		namespace = "default"
+	}
+
+	key := namespace + "/" + vmName
+	obj, exists, err := vmInformer.GetStore().GetByKey(key)
+	if err != nil {
+		return webhooks.ToAdmissionResponseError(err)
+	} else if !exists {
+		err := fmt.Errorf("VirtualMachine reference %s does not exist", key)
+		return webhooks.ToAdmissionResponseError(err)
+	}
+	vm := obj.(*v1.VirtualMachine)
+
+	// 1. create VMI
+	vmi := v1.NewVMIReferenceFromNameWithNS(vm.ObjectMeta.Namespace, "")
+	vmi.ObjectMeta = vm.Spec.Template.ObjectMeta
+	if pod.Name != "" {
+		vmi.ObjectMeta.Name = "vmi-" + pod.Name
+	}
+	if pod.GenerateName != "" {
+		vmi.ObjectMeta.GenerateName = "vmi-" + pod.GenerateName
+	}
+
+	vmi.ObjectMeta.Labels = vm.Spec.Template.ObjectMeta.Labels
+	vmi.ObjectMeta.Annotations = map[string]string{}
+	vmi.ObjectMeta.Annotations[v1.K8sWorkloadControlled] = ""
+	vmi.Spec = vm.Spec.Template.Spec
+
+	vmi, err = clientset.VirtualMachineInstance(vm.ObjectMeta.Namespace).Create(vmi)
+	if err != nil {
+		log.Log.Object(vm).Reason(err).Errorf("Failed to create VirtualMachineInstance: %s/%s", vmi.Namespace, vmi.Name)
+		return webhooks.ToAdmissionResponseError(err)
+	}
+
+	// 2. re-create the pod in place with right details
+	// TODO make these directory and secret variables configurable.
+	// TODO ensure any references datavolumes are created before allowing
+	// the pod to be scheduled... basically reject the pod if datavolumes
+	// don't exist yet for the vmi
+	virtShareDir := "/var/run/kubevirt"
+	// TODO obviously this image won't be hardcoded
+	launcherImage := "registry:5000/kubevirt/virt-launcher:devel"
+	templateService := services.NewTemplateService(launcherImage,
+		virtShareDir,
+		virtShareDir+"-ephemeral-disks",
+		"",
+		webhooks.GetInformers().ConfigMapInformer.GetStore(),
+		webhooks.GetInformers().PVCInformer.GetStore(),
+		clientset)
+
+	templatePod, err := templateService.RenderLaunchManifest(vmi)
+
+	// remove the Connroller boolean from the owner reference since
+	// the k8s controller is technically the owner
+	isController := false
+	templatePod.OwnerReferences[0].Controller = &isController
+
+	templatePod.Name = pod.Name
+	templatePod.GenerateName = pod.GenerateName
+	templatePod.Namespace = pod.Namespace
+	templatePod.OwnerReferences = append(templatePod.OwnerReferences, pod.OwnerReferences...)
+
+	mergedLabels := map[string]string{}
+	mergedAnnotations := map[string]string{}
+
+	for k, v := range templatePod.Labels {
+		mergedLabels[k] = v
+	}
+	for k, v := range pod.Labels {
+		mergedLabels[k] = v
+	}
+	for k, v := range templatePod.Annotations {
+		mergedAnnotations[k] = v
+	}
+	for k, v := range pod.Annotations {
+		mergedAnnotations[k] = v
+	}
+
+	templatePod.Labels = mergedLabels
+	templatePod.Annotations = mergedAnnotations
+
+	var patch []patchOperation
+	var value interface{}
+	value = templatePod.Spec
+	patch = append(patch, patchOperation{
+		Op:    "replace",
+		Path:  "/spec",
+		Value: value,
+	})
+
+	value = templatePod.ObjectMeta
+	patch = append(patch, patchOperation{
+		Op:    "replace",
+		Path:  "/metadata",
+		Value: value,
+	})
+
+	patchBytes, err := json.Marshal(patch)
+	if err != nil {
+		return webhooks.ToAdmissionResponseError(err)
+	}
+
+	jsonPatchType := v1beta1.PatchTypeJSONPatch
+	return &v1beta1.AdmissionResponse{
+		Allowed:   true,
+		Patch:     patchBytes,
+		PatchType: &jsonPatchType,
+	}
+}
+
+func ServePods(resp http.ResponseWriter, req *http.Request) {
+	serve(resp, req, mutatePods)
 }
 
 func ServeVMIs(resp http.ResponseWriter, req *http.Request) {

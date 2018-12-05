@@ -116,6 +116,14 @@ rules:
   - apiGroups:
       - ''
     resources:
+      - persistentvolumeclaims
+    verbs:
+      - get
+      - list
+      - watch
+  - apiGroups:
+      - ''
+    resources:
       - configmaps
     resourceNames:
       - extension-apiserver-authentication
@@ -140,6 +148,7 @@ rules:
       - list
       - watch
       - delete
+      - create
   - apiGroups:
       - ''
     resources:

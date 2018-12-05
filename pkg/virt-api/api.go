@@ -71,6 +71,7 @@ const (
 
 	virtWebhookValidator = "virt-api-validator"
 	virtWebhookMutator   = "virt-api-mutator"
+	podWebhookMutator    = "virt-api-pod-mutator"
 
 	virtApiServiceName = "virt-api"
 
@@ -83,6 +84,7 @@ const (
 	migrationUpdateValidatePath = "/migration-validate-update"
 
 	vmiMutatePath = "/virtualmachineinstances-mutate"
+	podMutatePath = "/pod-mutate"
 
 	certBytesValue        = "cert-bytes"
 	keyBytesValue         = "key-bytes"
@@ -459,6 +461,10 @@ func (app *virtAPIApp) createWebhook() error {
 	if err != nil {
 		return err
 	}
+	err = app.createPodMutatingWebhook()
+	if err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -695,6 +701,83 @@ func (app *virtAPIApp) createValidatingWebhook() error {
 		validating_webhook.ServeMigrationUpdate(w, r)
 	})
 
+	return nil
+}
+
+func (app *virtAPIApp) createPodMutatingWebhook() error {
+	namespace, err := util.GetNamespace()
+	if err != nil {
+		return err
+	}
+	registerWebhook := false
+	path := podMutatePath
+
+	webhookRegistration, err := app.virtCli.AdmissionregistrationV1beta1().MutatingWebhookConfigurations().Get(podWebhookMutator, metav1.GetOptions{})
+	if err != nil {
+		if k8serrors.IsNotFound(err) {
+			registerWebhook = true
+		} else {
+			return err
+		}
+	}
+
+	webHooks := []admissionregistrationv1beta1.Webhook{
+		{
+			Name: "pod-mutator.kubevirt.io",
+			Rules: []admissionregistrationv1beta1.RuleWithOperations{{
+				Operations: []admissionregistrationv1beta1.OperationType{
+					admissionregistrationv1beta1.Create,
+				},
+				Rule: admissionregistrationv1beta1.Rule{
+					APIGroups:   []string{""},
+					APIVersions: []string{"v1"},
+					Resources:   []string{"pods"},
+				},
+			}},
+			ClientConfig: admissionregistrationv1beta1.WebhookClientConfig{
+				Service: &admissionregistrationv1beta1.ServiceReference{
+					Namespace: namespace,
+					Name:      virtApiServiceName,
+					Path:      &path,
+				},
+				CABundle: app.signingCertBytes,
+			},
+		},
+	}
+
+	if registerWebhook {
+		_, err := app.virtCli.AdmissionregistrationV1beta1().MutatingWebhookConfigurations().Create(&admissionregistrationv1beta1.MutatingWebhookConfiguration{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: podWebhookMutator,
+				Labels: map[string]string{
+					v1.AppLabel: podWebhookMutator,
+				},
+			},
+			Webhooks: webHooks,
+		})
+		if err != nil {
+			return err
+		}
+	} else {
+
+		for _, webhook := range webhookRegistration.Webhooks {
+			if webhook.ClientConfig.Service != nil && webhook.ClientConfig.Service.Namespace != namespace {
+				return fmt.Errorf("MutatingAdmissionWebhook [%s] is already registered using services endpoints in a different namespace. Existing webhook registration must be deleted before virt-api can proceed.", podWebhookMutator)
+			}
+		}
+
+		// update registered webhook with our data
+		webhookRegistration.Webhooks = webHooks
+
+		_, err := app.virtCli.AdmissionregistrationV1beta1().MutatingWebhookConfigurations().Update(webhookRegistration)
+		if err != nil {
+			return err
+		}
+	}
+
+	http.HandleFunc(podMutatePath, func(w http.ResponseWriter, r *http.Request) {
+		mutating_webhook.ServePods(w, r)
+	})
 	return nil
 }
 
@@ -947,13 +1030,19 @@ func (app *virtAPIApp) Run() {
 
 	stopChan := make(chan struct{}, 1)
 	defer close(stopChan)
+	go webhookInformers.VMInformer.Run(stopChan)
 	go webhookInformers.VMIInformer.Run(stopChan)
 	go webhookInformers.VMIPresetInformer.Run(stopChan)
+	go webhookInformers.ConfigMapInformer.Run(stopChan)
+	go webhookInformers.PVCInformer.Run(stopChan)
 	go webhookInformers.NamespaceLimitsInformer.Run(stopChan)
 
 	cache.WaitForCacheSync(stopChan,
+		webhookInformers.VMInformer.HasSynced,
 		webhookInformers.VMIInformer.HasSynced,
 		webhookInformers.VMIPresetInformer.HasSynced,
+		webhookInformers.ConfigMapInformer.HasSynced,
+		webhookInformers.PVCInformer.HasSynced,
 		webhookInformers.NamespaceLimitsInformer.HasSynced)
 
 	// Verify/create webhook endpoint.

@@ -80,6 +80,10 @@ type Informers struct {
 	VMIPresetInformer       cache.SharedIndexInformer
 	NamespaceLimitsInformer cache.SharedIndexInformer
 	VMIInformer             cache.SharedIndexInformer
+	VMInformer              cache.SharedIndexInformer
+	ConfigMapInformer       cache.SharedIndexInformer
+	PVCInformer             cache.SharedIndexInformer
+	KubeClient              kubecli.KubevirtClient
 }
 
 func GetInformers() *Informers {
@@ -107,9 +111,13 @@ func newInformers() *Informers {
 	}
 	kubeInformerFactory := controller.NewKubeInformerFactory(kubeClient.RestClient(), kubeClient, namespace)
 	return &Informers{
+		VMInformer:              kubeInformerFactory.VirtualMachine(),
 		VMIInformer:             kubeInformerFactory.VMI(),
 		VMIPresetInformer:       kubeInformerFactory.VirtualMachinePreset(),
 		NamespaceLimitsInformer: kubeInformerFactory.LimitRanges(),
+		ConfigMapInformer:       kubeInformerFactory.ConfigMap(),
+		PVCInformer:             kubeInformerFactory.PersistentVolumeClaim(),
+		KubeClient:              kubeClient,
 	}
 }
 
