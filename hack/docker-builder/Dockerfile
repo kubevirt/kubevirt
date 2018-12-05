@@ -1,6 +1,6 @@
 FROM fedora:28
 
-ENV LIBVIRT_VERSION 4.9.0
+ENV LIBVIRT_VERSION 4.10.0
 
 RUN dnf install -y dnf-plugins-core && \
     dnf copr enable -y @virtmaint-sig/virt-preview && \
