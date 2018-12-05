@@ -702,6 +702,7 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 		ObjectMeta: metav1.ObjectMeta{
 			GenerateName: "virt-launcher-" + domain + "-",
 			Labels:       podLabels,
+			Namespace:    namespace,
 			Annotations:  annotationsList,
 			OwnerReferences: []metav1.OwnerReference{
 				*metav1.NewControllerRef(vmi, v1.VirtualMachineInstanceGroupVersionKind),
