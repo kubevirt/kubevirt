@@ -21,7 +21,6 @@ package virtconfig
 
 import (
 	"os"
-	"strings"
 	"time"
 
 	k8sv1 "k8s.io/api/core/v1"
@@ -37,6 +36,7 @@ import (
 const (
 	configMapName         = "kubevirt-config"
 	featureGateEnvVar     = "FEATURE_GATES"
+	FeatureGatesKey       = "feature-gates"
 	emulatedMachineEnvVar = "VIRT_EMULATED_MACHINES"
 )
 
@@ -44,7 +44,7 @@ const (
 // code assumes a cluster is available to pull the configmap from
 func Init() {
 	cfgMap := getConfigMap()
-	if val, ok := cfgMap.Data["feature-gates"]; ok {
+	if val, ok := cfgMap.Data[FeatureGatesKey]; ok {
 		os.Setenv(featureGateEnvVar, val)
 	}
 	if val, ok := cfgMap.Data["emulated-machines"]; ok {
@@ -86,8 +86,4 @@ func getConfigMap() *k8sv1.ConfigMap {
 	}
 
 	return cfgMap
-}
-
-func CPUNodeDiscoveryEnabled() bool {
-	return strings.Contains(os.Getenv(featureGateEnvVar), CPUNodeDiscoveryGate)
 }

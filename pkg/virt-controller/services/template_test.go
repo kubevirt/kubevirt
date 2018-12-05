@@ -38,10 +38,10 @@ import (
 	"k8s.io/client-go/tools/cache"
 
 	v1 "kubevirt.io/kubevirt/pkg/api/v1"
-	"kubevirt.io/kubevirt/pkg/feature-gates"
 	"kubevirt.io/kubevirt/pkg/hooks"
 	"kubevirt.io/kubevirt/pkg/kubecli"
 	"kubevirt.io/kubevirt/pkg/log"
+	"kubevirt.io/kubevirt/pkg/virt-config"
 )
 
 const namespaceKubevirt = "kubevirt"
@@ -257,7 +257,7 @@ var _ = Describe("Template", func() {
 						Namespace: namespaceKubevirt,
 						Name:      "kubevirt-config",
 					},
-					Data: map[string]string{featuregates.FEATURE_GATES_KEY: featuregates.CPUNodeDiscoveryGate},
+					Data: map[string]string{virtconfig.FeatureGatesKey: virtconfig.CPUNodeDiscoveryGate},
 				}
 				cmCache.Add(&cfgMap)
 
@@ -276,9 +276,12 @@ var _ = Describe("Template", func() {
 					},
 				}
 
+				cpuModelLabel, err := CPUModelLabelFromCPUModel(&vmi)
+				Expect(err).ToNot(HaveOccurred())
 				pod, err := svc.RenderLaunchManifest(&vmi)
 				Expect(err).ToNot(HaveOccurred())
-				Expect(pod.Spec.NodeSelector).Should(HaveKeyWithValue(NFD_CPU_FAMILY_PREFIX+"Conroe", "true"))
+
+				Expect(pod.Spec.NodeSelector).Should(HaveKeyWithValue(cpuModelLabel, "true"))
 			})
 
 			It("should add default cpu/memory resources to the sidecar container if cpu pinning was requested", func() {

@@ -25,10 +25,11 @@ import (
 )
 
 const (
-	dataVolumesGate   = "DataVolumes"
-	cpuManager        = "CPUManager"
-	liveMigrationGate = "LiveMigration"
-	SRIOVGate         = "SRIOV"
+	dataVolumesGate      = "DataVolumes"
+	cpuManager           = "CPUManager"
+	liveMigrationGate    = "LiveMigration"
+	SRIOVGate            = "SRIOV"
+	CPUNodeDiscoveryGate = "CPUNodeDiscovery"
 )
 
 func DataVolumesEnabled() bool {
