@@ -4056,6 +4056,10 @@
    "v1.CloudInitNoCloudSource": {
     "description": "Represents a cloud-init nocloud user data source.\nMore info: http://cloudinit.readthedocs.io/en/latest/topics/datasources/nocloud.html",
     "properties": {
+     "networkData": {
+      "description": "NetworkData contains NoCloud inline cloud-init networkdata.\n+ optional",
+      "type": "string"
+     },
      "secretRef": {
       "description": "UserDataSecretRef references a k8s secret that contains NoCloud userdata.\n+ optional",
       "$ref": "#/definitions/v1.LocalObjectReference"
