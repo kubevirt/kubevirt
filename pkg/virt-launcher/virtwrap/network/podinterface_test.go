@@ -209,6 +209,21 @@ var _ = Describe("Pod Network", func() {
 			}
 			Expect(testNetworkPanic).To(Panic())
 		})
+		It("should return an error if the MTU is out or range", func() {
+			dummy = &netlink.Dummy{LinkAttrs: netlink.LinkAttrs{Index: 1, MTU: 65536}}
+
+			domain := NewDomainWithBridgeInterface()
+			vm := newVMIBridgeInterface("testnamespace", "testVmName")
+
+			api.SetObjectDefaults_Domain(domain)
+
+			mockNetwork.EXPECT().LinkByName(podInterface).Return(dummy, nil)
+			mockNetwork.EXPECT().AddrList(dummy, netlink.FAMILY_V4).Return(addrList, nil)
+			mockNetwork.EXPECT().GetMacDetails(podInterface).Return(fakeMac, nil)
+
+			err := SetupPodNetwork(vm, domain)
+			Expect(err).To(HaveOccurred())
+		})
 		Context("func filterPodNetworkRoutes()", func() {
 			defRoute := netlink.Route{
 				Gw: net.IPv4(10, 35, 0, 1),

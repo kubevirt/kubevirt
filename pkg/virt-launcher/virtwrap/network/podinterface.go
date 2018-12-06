@@ -193,6 +193,10 @@ func (b *BridgePodInterface) discoverPodNetworkInterface() error {
 		b.vif.MAC = mac
 	}
 
+	if b.podNicLink.Attrs().MTU < 0 || b.podNicLink.Attrs().MTU > 65535 {
+		return fmt.Errorf("MTU value out of range ")
+	}
+
 	// Get interface MTU
 	b.vif.Mtu = uint16(b.podNicLink.Attrs().MTU)
 
@@ -354,6 +358,10 @@ func (p *MasqueradePodInterface) discoverPodNetworkInterface() error {
 		return err
 	}
 	p.podNicLink = link
+
+	if p.podNicLink.Attrs().MTU < 0 || p.podNicLink.Attrs().MTU > 65535 {
+		return fmt.Errorf("MTU value out of range ")
+	}
 
 	// Get interface MTU
 	p.vif.Mtu = uint16(p.podNicLink.Attrs().MTU)
