@@ -2078,8 +2078,8 @@ var _ = Describe("Validating Webhook", func() {
 			}
 		},
 			table.Entry("should accept networkdata under max limit", 10, 0),
-			table.Entry("should accept networkdata equal max limit", cloudInitUserMaxLen, 0),
-			table.Entry("should reject networkdata greater than max limit", cloudInitUserMaxLen+1, 1),
+			table.Entry("should accept networkdata equal max limit", cloudInitNetworkMaxLen, 0),
+			table.Entry("should reject networkdata greater than max limit", cloudInitNetworkMaxLen+1, 1),
 		)
 
 		It("should reject cloud-init with invalid base64 data", func() {
