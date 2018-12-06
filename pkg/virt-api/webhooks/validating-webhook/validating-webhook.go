@@ -46,9 +46,10 @@ import (
 )
 
 const (
-	cloudInitMaxLen = 2048
-	arrayLenMax     = 256
-	maxStrLen       = 256
+	cloudInitUserMaxLen    = 16384
+	cloudInitNetworkMaxLen = 16384
+	arrayLenMax            = 256
+	maxStrLen              = 256
 )
 
 var validInterfaceModels = []string{"e1000", "e1000e", "ne2k_pci", "pcnet", "rtl8139", "virtio"}
@@ -321,10 +322,18 @@ func validateVolumes(field *k8sfield.Path, volumes []v1.Volume) []metav1.StatusC
 				})
 			}
 
-			if userDataLen > cloudInitMaxLen {
+			if userDataLen > cloudInitUserMaxLen {
 				causes = append(causes, metav1.StatusCause{
 					Type:    metav1.CauseTypeFieldValueInvalid,
-					Message: fmt.Sprintf("%s userdata exceeds %d byte limit", field.Index(idx).Child("cloudInitNoCloud").String(), cloudInitMaxLen),
+					Message: fmt.Sprintf("%s userdata exceeds %d byte limit", field.Index(idx).Child("cloudInitNoCloud").String(), cloudInitUserMaxLen),
+					Field:   field.Index(idx).Child("cloudInitNoCloud").String(),
+				})
+			}
+
+			if len(noCloud.NetworkData) > cloudInitNetworkMaxLen {
+				causes = append(causes, metav1.StatusCause{
+					Type:    metav1.CauseTypeFieldValueInvalid,
+					Message: fmt.Sprintf("%s networkdata exceeds %d byte limit", field.Index(idx).Child("cloudInitNoCloud").String(), cloudInitNetworkMaxLen),
 					Field:   field.Index(idx).Child("cloudInitNoCloud").String(),
 				})
 			}
