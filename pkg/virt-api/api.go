@@ -44,7 +44,6 @@ import (
 	aggregatorclient "k8s.io/kube-aggregator/pkg/client/clientset_generated/clientset"
 
 	v1 "kubevirt.io/kubevirt/pkg/api/v1"
-	featuregates "kubevirt.io/kubevirt/pkg/feature-gates"
 	"kubevirt.io/kubevirt/pkg/healthz"
 	"kubevirt.io/kubevirt/pkg/kubecli"
 	"kubevirt.io/kubevirt/pkg/log"
@@ -55,6 +54,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/version"
 	"kubevirt.io/kubevirt/pkg/virt-api/rest"
 	"kubevirt.io/kubevirt/pkg/virt-api/webhooks"
+	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	mutating_webhook "kubevirt.io/kubevirt/pkg/virt-api/webhooks/mutating-webhook"
 	validating_webhook "kubevirt.io/kubevirt/pkg/virt-api/webhooks/validating-webhook"
 )
@@ -125,7 +125,7 @@ func NewVirtApi() VirtApi {
 }
 
 func (app *virtAPIApp) Execute() {
-	featuregates.ParseFeatureGatesFromConfigMap()
+	virtconfig.ParseFeatureGatesFromConfigMap()
 
 	virtCli, err := kubecli.GetKubevirtClient()
 	if err != nil {
