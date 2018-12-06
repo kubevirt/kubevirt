@@ -205,9 +205,14 @@ func GenNetworkFile(vmi *v1.VirtualMachineInstance) ([]byte, error) {
 			nifSubnet.Gateway = string(vif.Gateway)
 		}
 		for _, route := range *vif.Routes {
-			if route.Gw == nil {
+			if route.Dst == nil && route.Src.Equal(nil) && route.Gw.Equal(nil) {
 				continue
 			}
+
+			if route.Src != nil && route.Src.Equal(vif.IP.IP) {
+				continue
+			}
+
 			var subnetRoute CloudInitSubnetRoute
 
 			if route.Dst == nil {
@@ -219,7 +224,9 @@ func GenNetworkFile(vmi *v1.VirtualMachineInstance) ([]byte, error) {
 
 			subnetRoute.Network = route.Dst.IP.String()
 			subnetRoute.Netmask = net.IP(route.Dst.Mask).String()
-			subnetRoute.Gateway = route.Gw.String()
+			if route.Gw != nil {
+				subnetRoute.Gateway = route.Gw.String()
+			}
 			nifRoutes = append(nifRoutes, subnetRoute)
 		}
 		nifSubnet.Routes = nifRoutes
