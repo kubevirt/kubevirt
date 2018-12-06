@@ -202,9 +202,13 @@ func (l *LibvirtConnection) GetDomainStats(statsTypes libvirt.DomainStatsTypes, 
 
 	var list []*stats.DomainStats
 	for _, domStat := range domStats {
-		memStats, err := domStat.Domain.MemoryStats(uint32(libvirt.DOMAIN_MEMORY_STAT_NR), 0)
-		if err != nil {
-			return list, err
+		var err error
+		var memStats []libvirt.DomainMemoryStat
+		if statsMemory {
+			memStats, err = domStat.Domain.MemoryStats(uint32(libvirt.DOMAIN_MEMORY_STAT_NR), 0)
+			if err != nil {
+				return list, err
+			}
 		}
 
 		stat := &stats.DomainStats{}
