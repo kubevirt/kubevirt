@@ -431,6 +431,7 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 	vmiResources := vmi.Spec.Domain.Resources
 
 	resources.Requests = make(k8sv1.ResourceList)
+	resources.Limits = make(k8sv1.ResourceList)
 
 	// Copy vmi resources requests to a container
 	for key, value := range vmiResources.Requests {
@@ -438,20 +439,12 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 	}
 
 	// Copy vmi resources limits to a container
-	if vmiResources.Limits != nil {
-		resources.Limits = make(k8sv1.ResourceList)
-	}
-
 	for key, value := range vmiResources.Limits {
 		resources.Limits[key] = value
 	}
 
 	// Consider hugepages resource for pod scheduling
 	if vmi.Spec.Domain.Memory != nil && vmi.Spec.Domain.Memory.Hugepages != nil {
-		if resources.Limits == nil {
-			resources.Limits = make(k8sv1.ResourceList)
-		}
-
 		hugepageType := k8sv1.ResourceName(k8sv1.ResourceHugePagesPrefix + vmi.Spec.Domain.Memory.Hugepages.PageSize)
 		resources.Requests[hugepageType] = resources.Requests[k8sv1.ResourceMemory]
 		resources.Limits[hugepageType] = resources.Requests[k8sv1.ResourceMemory]
@@ -513,9 +506,6 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 		// schedule only on nodes with a running cpu manager
 		nodeSelector[v1.CPUManager] = "true"
 
-		if resources.Limits == nil {
-			resources.Limits = make(k8sv1.ResourceList)
-		}
 		cores := uint32(0)
 		if vmi.Spec.Domain.CPU != nil {
 			cores = vmi.Spec.Domain.CPU.Cores
