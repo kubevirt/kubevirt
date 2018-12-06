@@ -1,4 +1,4 @@
-package: github.com/yard-turkey/vm-image-import
+package: kubevirt.io/containerized-data-importer
 import:
 - package: github.com/golang/glog
 - package: github.com/gorilla/mux
@@ -6,11 +6,11 @@ import:
 - package: github.com/minio/minio-go
   version: ^4.0.6
 - package: k8s.io/apimachinery
-  version: kubernetes-1.10.3
+  version: kubernetes-1.11.2
 - package: k8s.io/code-generator
-  version: kubernetes-1.10.3
+  version: kubernetes-1.11.2
 - package: k8s.io/client-go
-  version: kubernetes-1.10.3
+  version: kubernetes-1.11.2
 - package: k8s.io/gengo
 - package: github.com/ulikunitz/xz
 - package: kubevirt.io/qe-tools
@@ -19,8 +19,10 @@ import:
 - package: github.com/spf13/pflag
 - package: github.com/xi2/xz
 - package: k8s.io/kube-aggregator
-  version: kubernetes-1.10.3
+  version: kubernetes-1.11.2
 - package: github.com/emicklei/go-restful
   version: v2.6.0
 - package: gopkg.in/square/go-jose.v2
   version: ^2.1.8
+- package: github.com/prometheus/client_golang
+  version: 0.8.0

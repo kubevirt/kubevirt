@@ -93,7 +93,7 @@ import:
   - proto
 - package: kubevirt.io/containerized-data-importer
   repo:    https://github.com/kubevirt/containerized-data-importer.git
-  version: v1.3.0
+  version: v1.4.1
 testImport:
 - package: github.com/elazarl/goproxy
   version: 07b16b6e30fcac0ad8c0435548e743bcf2ca7e92

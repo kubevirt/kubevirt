@@ -6194,13 +6194,20 @@
      }
     }
    },
+   "v1alpha1.DataVolumeBlankImage": {},
    "v1alpha1.DataVolumeSource": {
     "properties": {
+     "blank": {
+      "$ref": "#/definitions/v1alpha1.DataVolumeBlankImage"
+     },
      "http": {
       "$ref": "#/definitions/v1alpha1.DataVolumeSourceHTTP"
      },
      "pvc": {
       "$ref": "#/definitions/v1alpha1.DataVolumeSourcePVC"
+     },
+     "registry": {
+      "$ref": "#/definitions/v1alpha1.DataVolumeSourceRegistry"
      },
      "s3": {
       "$ref": "#/definitions/v1alpha1.DataVolumeSourceS3"
@@ -6226,6 +6233,16 @@
       "type": "string"
      },
      "namespace": {
+      "type": "string"
+     }
+    }
+   },
+   "v1alpha1.DataVolumeSourceRegistry": {
+    "properties": {
+     "secretRef": {
+      "type": "string"
+     },
+     "url": {
       "type": "string"
      }
     }

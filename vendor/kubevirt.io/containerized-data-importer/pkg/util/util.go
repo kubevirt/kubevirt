@@ -1,13 +1,27 @@
 package util
 
 import (
+	"encoding/base64"
+	"fmt"
+	"io"
 	"io/ioutil"
 	"math/rand"
+	"os"
 	"strings"
+	"syscall"
 	"time"
 
+	"github.com/pkg/errors"
+
+	"k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/apimachinery/pkg/apis/meta/v1"
 )
+
+// CountingReader is a reader that keeps track of how much has been read
+type CountingReader struct {
+	Reader  io.ReadCloser
+	Current int64
+}
 
 // RandAlphaNum provides an implementation to generate a random alpha numeric string of the specified length
 func RandAlphaNum(n int) string {
@@ -32,4 +46,44 @@ func getNamespace(path string) string {
 		}
 	}
 	return v1.NamespaceSystem
+}
+
+// ParseEnvVar provides a wrapper to attempt to fetch the specified env var
+func ParseEnvVar(envVarName string, decode bool) (string, error) {
+	value := os.Getenv(envVarName)
+	if decode {
+		v, err := base64.StdEncoding.DecodeString(value)
+		if err != nil {
+			return "", errors.Errorf("error decoding environment variable %q", envVarName)
+		}
+		value = fmt.Sprintf("%s", v)
+	}
+	return value, nil
+}
+
+// Read reads bytes from the stream and updates the prometheus clone_progress metric according to the progress.
+func (r *CountingReader) Read(p []byte) (n int, err error) {
+	n, err = r.Reader.Read(p)
+	r.Current += int64(n)
+	return n, err
+}
+
+// Close closes the stream
+func (r *CountingReader) Close() error {
+	return r.Reader.Close()
+}
+
+// GetAvailableSpace gets the amount of available space at the path specified.
+func GetAvailableSpace(path string) int64 {
+	var stat syscall.Statfs_t
+	syscall.Statfs(path, &stat)
+	return int64(stat.Bavail) * int64(stat.Bsize)
+}
+
+// MinQuantity calculates the minimum of two quantities.
+func MinQuantity(availableSpace, imageSize *resource.Quantity) resource.Quantity {
+	if imageSize.Cmp(*availableSpace) == 1 {
+		return *availableSpace
+	}
+	return *imageSize
 }

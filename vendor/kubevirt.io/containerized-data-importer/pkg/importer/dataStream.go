@@ -20,6 +20,7 @@ import (
 	"archive/tar"
 	"bytes"
 	"compress/gzip"
+	"context"
 	"encoding/hex"
 	"fmt"
 	"io"
@@ -33,13 +34,17 @@ import (
 	"strings"
 	"time"
 
+	"k8s.io/apimachinery/pkg/api/resource"
+
 	"github.com/golang/glog"
 	"github.com/minio/minio-go"
 	"github.com/pkg/errors"
 	"github.com/ulikunitz/xz"
 
 	"kubevirt.io/containerized-data-importer/pkg/common"
+	"kubevirt.io/containerized-data-importer/pkg/controller"
 	"kubevirt.io/containerized-data-importer/pkg/image"
+	"kubevirt.io/containerized-data-importer/pkg/util"
 )
 
 // DataStreamInterface provides our interface definition required to fulfill a DataStream
@@ -57,18 +62,37 @@ var qemuOperations = image.NewQEMUOperations()
 
 // DataStream implements the ReadCloser interface
 type DataStream struct {
-	url         *url.URL
-	Readers     []reader
-	buf         []byte // holds file headers
-	qemu        bool
-	Size        int64
-	accessKeyID string
-	secretKey   string
+	*DataStreamOptions
+	url     *url.URL
+	Readers []reader
+	buf     []byte // holds file headers
+	qemu    bool
+	Size    int64
+	ctx     context.Context
+	cancel  context.CancelFunc
 }
 
 type reader struct {
 	rdrType int
 	rdr     io.ReadCloser
+}
+
+// DataStreamOptions contains all the values needed for importing from a DataStream.
+type DataStreamOptions struct {
+	// Dest is the destination path of the contents of the stream.
+	Dest string
+	// Endpoint is the endpoint to get the data from for various Sources.
+	Endpoint string
+	// AccessKey is the access key for the endpoint, can be blank. This needs to be a base64 encoded string.
+	AccessKey string
+	// SecKey is the security key needed for the endpoint, can be blank. This needs to be a base64 encoded string.
+	SecKey string
+	// Source is the source type of the data.
+	Source string
+	// ContentType is the content type of the data.
+	ContentType string
+	// ImageSize is the size we want the resulting image to be.
+	ImageSize string
 }
 
 const (
@@ -94,36 +118,50 @@ var rdrTypM = map[string]int{
 	"stream": rdrStream,
 }
 
-const httpClientTimeout = time.Minute * 60
-
 // NewDataStream returns a DataStream object after validating the endpoint and constructing the reader/closer chain.
 // Note: the caller must close the `Readers` in reverse order. See Close().
-func NewDataStream(endpt, accKey, secKey string) (*DataStream, error) {
-	return newDataStream(endpt, accKey, secKey, nil)
+func NewDataStream(dso *DataStreamOptions) (*DataStream, error) {
+	return newDataStream(dso, nil)
 }
 
 func newDataStreamFromStream(stream io.ReadCloser) (*DataStream, error) {
-	return newDataStream("stream://data", "", "", stream)
+	return newDataStream(&DataStreamOptions{
+		common.ImporterWritePath,
+		"stream://data",
+		"",
+		"",
+		controller.SourceHTTP,
+		controller.ContentTypeKubevirt,
+		"", // Blank means don't resize
+	}, stream)
 }
 
-func newDataStream(endpt, accKey, secKey string, stream io.ReadCloser) (*DataStream, error) {
-	if len(accKey) == 0 || len(secKey) == 0 {
+func newDataStream(dso *DataStreamOptions, stream io.ReadCloser) (*DataStream, error) {
+	if len(dso.AccessKey) == 0 || len(dso.SecKey) == 0 {
 		glog.V(2).Infof("%s and/or %s are empty\n", common.ImporterAccessKeyID, common.ImporterSecretKey)
 	}
-	ep, err := ParseEndpoint(endpt)
-	if err != nil {
-		return nil, errors.Wrapf(err, fmt.Sprintf("unable to parse endpoint %q", endpt))
+	var ep *url.URL
+	var err error
+	if dso.Source == controller.SourceHTTP || dso.Source == controller.SourceS3 || dso.Source == controller.SourceGlance {
+		ep, err = ParseEndpoint(dso.Endpoint)
+		if err != nil {
+			return nil, errors.Wrapf(err, fmt.Sprintf("unable to parse endpoint %q", dso.Endpoint))
+		}
 	}
+
+	ctx, cancel := context.WithCancel(context.Background())
 	ds := &DataStream{
-		url:         ep,
-		buf:         make([]byte, image.MaxExpectedHdrSize),
-		accessKeyID: accKey,
-		secretKey:   secKey,
+		DataStreamOptions: dso,
+		url:               ep,
+		buf:               make([]byte, image.MaxExpectedHdrSize),
+		ctx:               ctx,
+		cancel:            cancel,
 	}
 
 	// establish readers for endpoint's formats and do initial calc of size of raw endpt
 	err = ds.constructReaders(stream)
 	if err != nil {
+		ds.Close()
 		return nil, errors.Wrapf(err, "unable to construct readers")
 	}
 
@@ -146,7 +184,11 @@ func (d *DataStream) Read(buf []byte) (int, error) {
 
 // Close all readers.
 func (d *DataStream) Close() error {
-	return closeReaders(d.Readers)
+	err := closeReaders(d.Readers)
+	if d.cancel != nil {
+		d.cancel()
+	}
+	return err
 }
 
 // Based on the endpoint scheme, append the scheme-specific reader to the receiver's
@@ -176,7 +218,7 @@ func (d *DataStream) s3() (io.ReadCloser, error) {
 	glog.V(3).Infoln("Using S3 client to get data")
 	bucket := d.url.Host
 	object := strings.Trim(d.url.Path, "/")
-	mc, err := minio.NewV4(common.ImporterS3Host, d.accessKeyID, d.secretKey, false)
+	mc, err := minio.NewV4(common.ImporterS3Host, d.AccessKey, d.SecKey, false)
 	if err != nil {
 		return nil, errors.Wrapf(err, "could not build minio client for %q", d.url.Host)
 	}
@@ -191,19 +233,20 @@ func (d *DataStream) s3() (io.ReadCloser, error) {
 func (d *DataStream) http() (io.ReadCloser, error) {
 	client := http.Client{
 		CheckRedirect: func(r *http.Request, via []*http.Request) error {
-			if len(d.accessKeyID) > 0 && len(d.secretKey) > 0 {
-				r.SetBasicAuth(d.accessKeyID, d.secretKey) // Redirects will lose basic auth, so reset them manually
+			if len(d.AccessKey) > 0 && len(d.SecKey) > 0 {
+				r.SetBasicAuth(d.AccessKey, d.SecKey) // Redirects will lose basic auth, so reset them manually
 			}
 			return nil
 		},
-		Timeout: httpClientTimeout,
+		// Don't set timeout here, since that will be an absolute timeout, we need a relative to last progress timeout.
 	}
 	req, err := http.NewRequest("GET", d.url.String(), nil)
 	if err != nil {
 		return nil, errors.Wrap(err, "could not create HTTP request")
 	}
-	if len(d.accessKeyID) > 0 && len(d.secretKey) > 0 {
-		req.SetBasicAuth(d.accessKeyID, d.secretKey)
+	req = req.WithContext(d.ctx)
+	if len(d.AccessKey) > 0 && len(d.SecKey) > 0 {
+		req.SetBasicAuth(d.AccessKey, d.SecKey)
 	}
 	glog.V(2).Infof("Attempting to get object %q via http client\n", d.url.String())
 	resp, err := client.Do(req)
@@ -214,18 +257,57 @@ func (d *DataStream) http() (io.ReadCloser, error) {
 		glog.Errorf("http: expected status code 200, got %d", resp.StatusCode)
 		return nil, errors.Errorf("expected status code 200, got %d. Status: %s", resp.StatusCode, resp.Status)
 	}
-	return resp.Body, nil
+	countingReader := &util.CountingReader{
+		Reader:  resp.Body,
+		Current: 0,
+	}
+	go d.pollProgress(countingReader, 10*time.Minute, time.Second)
+	return countingReader, nil
 }
 
-// CopyImage copies the source endpoint (vm image) to the provided destination path.
-func CopyImage(dest, endpoint, accessKey, secKey string) error {
-	glog.V(1).Infof("copying %q to %q...\n", endpoint, dest)
-	ds, err := NewDataStream(endpoint, accessKey, secKey)
-	if err != nil {
-		return errors.Wrap(err, "unable to create data stream")
+func (d *DataStream) pollProgress(reader *util.CountingReader, idleTime, pollInterval time.Duration) {
+	count := reader.Current
+	lastUpdate := time.Now()
+	for {
+		if count < reader.Current {
+			// Some progress was made, reset now.
+			lastUpdate = time.Now()
+			count = reader.Current
+		}
+		if lastUpdate.Add(idleTime).Sub(time.Now()).Nanoseconds() < 0 {
+			// No progress for the idle time, cancel http client.
+			d.cancel() // This will trigger d.ctx.Done()
+		}
+		select {
+		case <-time.After(pollInterval):
+			continue
+		case <-d.ctx.Done():
+			return // Don't leak, once the transfer is cancelled or completed this is called.
+		}
 	}
-	defer ds.Close()
-	return ds.copy(dest)
+}
+
+// CopyData copies the source endpoint (vm image) to the provided destination path.
+func CopyData(dso *DataStreamOptions) error {
+	glog.V(1).Infof("copying %q to %q...\n", dso.Endpoint, dso.Dest)
+	switch dso.Source {
+	case controller.SourceRegistry:
+		glog.V(1).Infof("using skopeo to copy from registry")
+		return image.CopyRegistryImage(dso.Endpoint, dso.Dest, dso.AccessKey, dso.SecKey)
+	default:
+		ds, err := NewDataStream(dso)
+		if err != nil {
+			return errors.Wrap(err, "unable to create data stream")
+		}
+		defer ds.Close()
+		if dso.ContentType == controller.ContentTypeArchive {
+			if err := UnArchiveTar(ds.topReader(), dso.Dest); err != nil {
+				return errors.Wrap(err, "unable to untar files from endpoint")
+			}
+			return nil
+		}
+		return ds.copy(dso.Dest)
+	}
 }
 
 // SaveStream reads from a stream and saves data to dest
@@ -241,6 +323,32 @@ func SaveStream(stream io.ReadCloser, dest string) (int64, error) {
 		return 0, errors.Wrap(err, "data stream copy failed")
 	}
 	return ds.Size, nil
+}
+
+// ResizeImage resizes the images to match the requested size. Sometimes provisioners misbehave and the available space
+// is not the same as the requested space. For those situations we compare the available space to the requested space and
+// use the smallest of the two values.
+func ResizeImage(dest, imageSize string) error {
+	info, err := qemuOperations.Info(dest)
+	if err != nil {
+		return err
+	}
+	if imageSize != "" {
+		currentImageSizeQuantity := resource.NewScaledQuantity(info.VirtualSize, 0)
+		newImageSizeQuantity := resource.MustParse(imageSize)
+		minSizeQuantity := util.MinQuantity(resource.NewScaledQuantity(util.GetAvailableSpace(dest), 0), &newImageSizeQuantity)
+		if minSizeQuantity.Cmp(newImageSizeQuantity) != 0 {
+			// Available dest space is smaller than the size we want to resize to
+			glog.Warningf("Available space less than requested size, resizing image to available space %s.\n", minSizeQuantity.String())
+		}
+		if currentImageSizeQuantity.Cmp(minSizeQuantity) == 0 {
+			glog.V(1).Infof("No need to resize image. Requested size: %s, Image size: %d.\n", imageSize, info.VirtualSize)
+			return nil
+		}
+		glog.V(1).Infof("Expanding image size to: %s\n", minSizeQuantity.String())
+		return qemuOperations.Resize(dest, minSizeQuantity)
+	}
+	return errors.New("Image resize called with blank resize")
 }
 
 // Read the endpoint and determine the file composition (eg. .iso.tar.gz) based on the magic number in
@@ -294,6 +402,7 @@ func (d *DataStream) constructReaders(stream io.ReadCloser) error {
 	//   the iso file is tar'd we can get its size via the tar hdr -- see intro comments.
 	knownHdrs := image.CopyKnownHdrs() // need local copy since keys are removed
 	glog.V(3).Infof("constructReaders: checking compression and archive formats: %s\n", d.url.Path)
+	var isTarFile bool
 	for {
 		hdr, err := d.matchHeader(&knownHdrs)
 		if err != nil {
@@ -308,11 +417,16 @@ func (d *DataStream) constructReaders(stream io.ReadCloser) error {
 		if err != nil {
 			return errors.WithMessage(err, "could not create compression/unarchive reader")
 		}
+		isTarFile = isTarFile || hdr.Format == "tar"
 		// exit loop if hdr is qcow2 since that's the equivalent of a raw (iso) file,
 		// mentioned above as the orig source file
 		if hdr.Format == "qcow2" {
 			break
 		}
+	}
+
+	if d.ContentType == controller.ContentTypeArchive && !isTarFile {
+		return errors.Errorf("cannot process a non tar file as an archive")
 	}
 
 	if len(d.Readers) <= 2 {
@@ -419,6 +533,9 @@ func (d *DataStream) xzReader() (io.Reader, int64, error) {
 // Assumes a single file was archived.
 // Note: the size stored in the header is used rather than raw metadata.
 func (d *DataStream) tarReader() (io.Reader, int64, error) {
+	if d.ContentType == controller.ContentTypeArchive {
+		return d.mulFileTarReader()
+	}
 	tr := tar.NewReader(d.topReader())
 	hdr, err := tr.Next() // advance cursor to 1st (and only) file in tarball
 	if err != nil {
@@ -426,6 +543,28 @@ func (d *DataStream) tarReader() (io.Reader, int64, error) {
 	}
 	glog.V(2).Infof("tar: extracting %q\n", hdr.Name)
 	return tr, hdr.Size, nil
+}
+
+// Note - the tar file is processed in dataStream.CopyData
+// directly by calling util.UnArchiveTar.
+func (d *DataStream) mulFileTarReader() (io.Reader, int64, error) {
+	buf, err := ioutil.ReadAll(d.topReader())
+	if err != nil {
+		return nil, 0, err
+	}
+	tr := tar.NewReader(bytes.NewReader(buf))
+	var size int64
+	for {
+		header, err := tr.Next()
+		if err != nil {
+			if err == io.EOF {
+				break
+			}
+			return nil, 0, err
+		}
+		size += header.Size
+	}
+	return bytes.NewReader(buf), size, nil
 }
 
 // If the raw endpoint is an ISO file then set the receiver's Size via the iso metadata.
@@ -536,8 +675,8 @@ func closeReaders(readers []reader) (rtnerr error) {
 
 func (d *DataStream) isHTTPQcow2() bool {
 	return (d.url.Scheme == "http" || d.url.Scheme == "https") &&
-		d.accessKeyID == "" &&
-		d.secretKey == "" &&
+		d.AccessKey == "" &&
+		d.SecKey == "" &&
 		d.qemu &&
 		len(d.Readers) == 2
 }
@@ -556,14 +695,19 @@ func (d *DataStream) copy(dest string) error {
 		if err != nil {
 			return errors.Wrap(err, "Streaming qcow2 to raw conversion failed")
 		}
-
+		if d.ImageSize != "" {
+			err = ResizeImage(dest, d.ImageSize)
+		}
+		if err != nil {
+			return errors.Wrap(err, "Resize of image failed")
+		}
 		return nil
 	}
-	return copy(d.topReader(), dest, d.qemu)
+	return copy(d.topReader(), dest, d.qemu, d.ImageSize)
 }
 
 // Copy the file using its Reader (r) to the passed-in destination (`out`).
-func copy(r io.Reader, out string, qemu bool) error {
+func copy(r io.Reader, out string, qemu bool, imageSize string) error {
 	out = filepath.Clean(out)
 	glog.V(2).Infof("copying image file to %q", out)
 	dest := out
@@ -586,13 +730,68 @@ func copy(r io.Reader, out string, qemu bool) error {
 			return errors.Wrap(err, "Local image validation failed")
 		}
 
+		//Verify there is enough space in pvc before conversion
+		isEnoughSpace, err := ValidateSpaceConstraint(dest, filepath.Dir(out))
+
+		if err != nil {
+			return err
+		}
+
+		if !isEnoughSpace {
+			return errors.Wrap(err, "Local qcow2 to raw conversion failed - there is not enough space for conversion")
+		}
+
 		glog.V(2).Infoln("converting qcow2 image")
 		err = qemuOperations.ConvertQcow2ToRaw(dest, out)
 		if err != nil {
 			return errors.Wrap(err, "Local qcow to raw conversion failed")
 		}
+		// Set the dest to out, since we just wrote that
+		dest = out
+	}
+	if imageSize != "" {
+		err = ResizeImage(dest, imageSize)
+	}
+	if err != nil {
+		return errors.Wrap(err, "Resize of image failed")
 	}
 	return nil
+}
+
+//ValidateSpaceConstraint - validates wheather there is enough space in PVC for both qcow2 image and converted raw image
+//Assumes it is possible to retrieve info from qcow2 file by means of qemu-img utility
+//Returns failure if either of the following happens
+//1. info cannot be retrieved from qcow2 file
+//2. Either ActualSize or VirtualSize are 0 - not specifed
+//3. ActualSize and VirtualSize together exceed available PVC Space
+func ValidateSpaceConstraint(qcow2Image string, destDir string) (bool, error) {
+
+	//Verify there is enough space in pvc before conversion
+	info, err := qemuOperations.Info(qcow2Image)
+
+	if err != nil {
+		return false, errors.Wrap(err, "Local image validation failed to retrieve image info")
+	}
+
+	if info == nil {
+		return false, errors.Wrap(err, "Local image validation failed to retrieve image info")
+	}
+
+	if info.VirtualSize == 0 || info.ActualSize == 0 {
+		return false, errors.Wrap(err, "Local image validation failed - no image size info is provided")
+	}
+
+	convRequiredSpace := info.VirtualSize + info.ActualSize
+
+	sysAvailableSpace := util.GetAvailableSpace(destDir)
+
+	if sysAvailableSpace < convRequiredSpace {
+		return false, errors.WithMessage(err, fmt.Sprintf("qcow2 image conversion to raw failed due to insuficient space"))
+	}
+
+	glog.V(2).Infoln("There is enough space in PVC for qcow2 to raw  convesrion - required=%d, available=%", convRequiredSpace, sysAvailableSpace)
+
+	return true, nil
 }
 
 // Return a random temp path with the `src` basename as the prefix and preserving the extension.

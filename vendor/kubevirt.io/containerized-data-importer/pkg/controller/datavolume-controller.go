@@ -66,7 +66,7 @@ const (
 	// ImportFailed provides a const to indicate import has failed
 	ImportFailed = "ImportFailed"
 	// ImportSucceeded provides a const to indicate import has succeeded
-	ImportSucceeded = "ImportSucceded"
+	ImportSucceeded = "ImportSucceeded"
 	// CloneScheduled provides a const to indicate clone is scheduled
 	CloneScheduled = "CloneScheduled"
 	// CloneInProgress provides a const to indicate clone is in progress
@@ -576,9 +576,27 @@ func (c *DataVolumeController) handleObject(obj interface{}, verb string) {
 			return
 		}
 
+		// BUG: GH Issue #523, currently you can delete a DV and the object will be removed before it's referenced objects are actually
+		// removed (ie POD in a retry loop).  So we need to deal with that by cleaning up any PODs associated with the PVC so that it
+		// can actually be deleted.  The trick here is that we may not have a DV any longer, but still have a PVC and a POD, so deal with it
 		dataVolume, err := c.dataVolumesLister.DataVolumes(object.GetNamespace()).Get(ownerRef.Name)
 		if err != nil {
-			glog.V(3).Infof("ignoring orphaned object '%s' of dataVolume '%s'", object.GetSelfLink(), ownerRef.Name)
+			volume, ok := obj.(*corev1.PersistentVolumeClaim)
+			if !ok {
+				// That's weird, how did the PVC handler get a non-pvc object?
+				return
+			}
+			// If there's a DeletionTimestamp that indicates a delete request was received, let's make sure we don't need to clean up any pods
+			if volume.ObjectMeta.DeletionTimestamp != nil {
+				glog.V(3).Infof("verifying deletion of PODs associated with deleted DataVolume PVC: %s", volume.Name)
+				err = c.kubeclientset.CoreV1().Pods(volume.Namespace).Delete(volume.Annotations[AnnImportPod], &metav1.DeleteOptions{})
+				if err != nil && !k8serrors.IsNotFound(err) {
+					glog.V(3).Infof("error encountered cleaning up associated PODS from orphaned DataVolume PVC: %v", err)
+
+				}
+			} else {
+				glog.V(3).Infof("ignoring orphaned object '%s' of dataVolume '%s'", object.GetSelfLink(), ownerRef.Name)
+			}
 			return
 		}
 
@@ -624,14 +642,23 @@ func newPersistentVolumeClaim(dataVolume *cdiv1.DataVolume) (*corev1.PersistentV
 		if dataVolume.Spec.Source.S3.SecretRef != "" {
 			annotations[AnnSecret] = dataVolume.Spec.Source.S3.SecretRef
 		}
+	} else if dataVolume.Spec.Source.Registry != nil {
+		annotations[AnnSource] = SourceRegistry
+		annotations[AnnEndpoint] = dataVolume.Spec.Source.Registry.URL
+		if dataVolume.Spec.Source.Registry.SecretRef != "" {
+			annotations[AnnSecret] = dataVolume.Spec.Source.Registry.SecretRef
+		}
 	} else if dataVolume.Spec.Source.PVC != nil {
 		if dataVolume.Spec.Source.PVC.Namespace != "" {
 			annotations[AnnCloneRequest] = dataVolume.Spec.Source.PVC.Namespace + "/" + dataVolume.Spec.Source.PVC.Name
 		} else {
 			annotations[AnnCloneRequest] = dataVolume.Namespace + "/" + dataVolume.Spec.Source.PVC.Name
 		}
-	} else if dataVolume.Spec.Source.UPLOAD != nil {
+	} else if dataVolume.Spec.Source.Upload != nil {
 		annotations[AnnUploadRequest] = ""
+	} else if dataVolume.Spec.Source.Blank != nil {
+		annotations[AnnSource] = SourceNone
+		annotations[AnnContentType] = ContentTypeKubevirt
 	} else {
 		return nil, errors.Errorf("no source set for datavolume")
 	}

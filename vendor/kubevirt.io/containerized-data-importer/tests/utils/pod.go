@@ -106,11 +106,8 @@ func FindPodByPrefix(clientSet *kubernetes.Clientset, namespace, prefix, labelSe
 					}
 				}
 			}
-			if foundPod {
-				return true, nil
-			}
 		}
-		return false, nil
+		return foundPod, nil
 	})
 	if !foundPod {
 		return nil, fmt.Errorf("Unable to find pod starting with prefix %s", prefix)
@@ -119,7 +116,7 @@ func FindPodByPrefix(clientSet *kubernetes.Clientset, namespace, prefix, labelSe
 }
 
 func newExecutorPodWithPVC(podName string, pvc *k8sv1.PersistentVolumeClaim) *k8sv1.Pod {
-	return NewPodWithPVC(podName, "sleep 5; echo I am an executor pod;", pvc)
+	return NewPodWithPVC(podName, "sleep 30; echo I am an executor pod;", pvc)
 }
 
 // WaitTimeoutForPodReady waits for the given pod to be created and ready

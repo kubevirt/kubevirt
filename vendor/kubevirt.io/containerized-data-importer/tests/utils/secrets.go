@@ -50,3 +50,15 @@ func CreateSecretFromDefinition(c *kubernetes.Clientset, secret *v1.Secret) (*v1
 	}
 	return secret, nil
 }
+
+//DeleteSecret ...
+func DeleteSecret(clientSet *kubernetes.Clientset, namespace string, secret v1.Secret) error {
+	e := wait.PollImmediate(secretPollInterval, secretPollPeriod, func() (bool, error) {
+		err := clientSet.CoreV1().Secrets(namespace).Delete(secret.GetName(), nil)
+		if err == nil || apierrs.IsNotFound(err) {
+			return true, nil
+		}
+		return false, nil //keep polling
+	})
+	return e
+}

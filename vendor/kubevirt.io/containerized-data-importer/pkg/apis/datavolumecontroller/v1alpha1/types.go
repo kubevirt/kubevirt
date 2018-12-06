@@ -40,12 +40,14 @@ type DataVolumeSpec struct {
 	PVC *corev1.PersistentVolumeClaimSpec `json:"pvc"`
 }
 
-// DataVolumeSource represents the source for our Data Volume, this can be HTTP, S3 or an existing PVC
+// DataVolumeSource represents the source for our Data Volume, this can be HTTP, S3, Registry or an existing PVC
 type DataVolumeSource struct {
-	HTTP   *DataVolumeSourceHTTP   `json:"http,omitempty"`
-	S3     *DataVolumeSourceS3     `json:"s3,omitempty"`
-	PVC    *DataVolumeSourcePVC    `json:"pvc,omitempty"`
-	UPLOAD *DataVolumeSourceUpload `json:"upload,omitempty"`
+	HTTP     *DataVolumeSourceHTTP     `json:"http,omitempty"`
+	S3       *DataVolumeSourceS3       `json:"s3,omitempty"`
+	Registry *DataVolumeSourceRegistry `json:"registry,omitempty"`
+	PVC      *DataVolumeSourcePVC      `json:"pvc,omitempty"`
+	Upload   *DataVolumeSourceUpload   `json:"upload,omitempty"`
+	Blank    *DataVolumeBlankImage     `json:"blank,omitempty"`
 }
 
 // DataVolumeSourcePVC provides the parameters to create a Data Volume from an existing PVC
@@ -53,6 +55,9 @@ type DataVolumeSourcePVC struct {
 	Namespace string `json:"namespace,omitempty"`
 	Name      string `json:"name,omitempty"`
 }
+
+// DataVolumeBlankImage provides the parameters to create a new raw blank image for the PVC
+type DataVolumeBlankImage struct{}
 
 // DataVolumeSourceUpload provides the parameters to create a Data Volume by uploading the source
 type DataVolumeSourceUpload struct {
@@ -64,6 +69,14 @@ type DataVolumeSourceS3 struct {
 	//URL is the url of the S3 source
 	URL string `json:"url,omitempty"`
 	//SecretRef provides the secret reference needed to access the S3 source
+	SecretRef string `json:"secretRef,omitempty"`
+}
+
+// DataVolumeSourceRegistry provides the parameters to create a Data Volume from an registry source
+type DataVolumeSourceRegistry struct {
+	//URL is the url of the Registry source
+	URL string `json:"url,omitempty"`
+	//SecretRef provides the secret reference needed to access the Registry source
 	SecretRef string `json:"secretRef,omitempty"`
 }
 

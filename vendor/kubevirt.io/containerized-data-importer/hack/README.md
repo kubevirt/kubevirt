@@ -43,6 +43,7 @@ The standard workflow is performed inside a helper container to normalize the bu
 - `test`: execute all tests (_NOTE:_ `WHAT` is expected to match the go cli pattern for paths e.g. `./pkg/...`.  This differs slightly from rest of the `make` targets)
     - `test-unit`: execute all tests under `./pkg/...`
     - `test-functional`: execute functional tests under `./tests/...`. Additional test flags can be passed to the test binary via the TEST_ARGS variable, see below for an example and restrictions.
+    - `test-lint` runs `gofmt` and `golint` tests against src files
 - `build-functest-image-init`: build the init container for the testing file server. (NOTE: the http and s3 components contain no CDI code, so do no require a build)
 - `build-functest-image-http` build the http container for the testing file server
 - `docker`: compile all binaries and build all containerized
@@ -105,6 +106,15 @@ To Run Standard *cluster-up/kubevirtci* Tests
  # make cluster-up
  # make cluster-sync
  # make test-functional
+```
+
+To run specific functional tests, you can leverage ginkgo command line options as follows:
+```
+# make TEST_ARGS="--test-args=-ginkgo.focus=<test_suite_name>" test-functional
+```
+E.g. to run the tests in transport_test.go:
+```
+# make TEST_ARGS="--test-args=-ginkgo.focus=Transport" test-functional
 ```
 
 Clean Up

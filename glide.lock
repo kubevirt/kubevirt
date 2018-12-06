@@ -1,5 +1,5 @@
-hash: b07800e29d3f35b2b6466f1e42513f1c01018e9856739ffd576e6b556d224ca7
-updated: 2018-11-23T02:26:13.471620658Z
+hash: 202f1700731a461e61a37d4673b35e7caf5de26fc69df09fb574e1737eea2089
+updated: 2018-12-06T21:18:06.25981Z
 imports:
 - name: cloud.google.com/go
   version: 3b1ae45394a234c385be014e9a488f2bb6eef821
@@ -23,6 +23,10 @@ imports:
   version: 3a771d992973f24aa725d07868b467d1ddfceafb
   subpackages:
   - quantile
+- name: github.com/coreos/go-iptables
+  version: 47f22b0dd3355c0ba570ba12b0b8a36bf214c04b
+  subpackages:
+  - iptables
 - name: github.com/davecgh/go-spew
   version: 782f4967f2dc4564575ca782fe2d04090b5faca8
   subpackages:
@@ -96,7 +100,7 @@ imports:
   subpackages:
   - lru
 - name: github.com/golang/mock
-  version: 49a60242bb5c086a9aacc67bdd056e88f75f3c3e
+  version: 5f3a40bc29aa3f8115e37b1ae65fe38747f39816
   subpackages:
   - gomock
 - name: github.com/golang/protobuf
@@ -174,7 +178,7 @@ imports:
   subpackages:
   - conn
 - name: github.com/libvirt/libvirt-go
-  version: d5e0adac44d4365a2d97e259f51ab76cc3c01b20
+  version: 9c5bdce3c18faad94cb383e7ec42f5122a8c7fa1
 - name: github.com/mailru/easyjson
   version: 2f5df55504ebc322e4d52d34df6a1f5b503bf26d
   subpackages:
@@ -194,7 +198,7 @@ imports:
 - name: github.com/modern-go/reflect2
   version: 05fbef0ca5da472bbf96c9322b84a53edc03c9fd
 - name: github.com/onsi/ginkgo
-  version: 2e1be8f7d90e9d3e3e58b0ce470f2f14d075406f
+  version: 505cc352255139defb7371000668063d1161e331
   subpackages:
   - config
   - extensions/table
@@ -215,7 +219,7 @@ imports:
   - reporters/stenographer/support/go-isatty
   - types
 - name: github.com/onsi/gomega
-  version: 65fb64232476ad9046e57c26cd0bff3d3a8dc6cd
+  version: e0d4387cf37d6cc3baeb80f61bd24a37e5dfae26
   subpackages:
   - format
   - ghttp
@@ -340,7 +344,7 @@ imports:
   subpackages:
   - rate
 - name: google.golang.org/appengine
-  version: 4a4468ece617fc8205e99368fa2200e9d1fad421
+  version: a37df1387b4521194676d88c79230c613610d5f4
   subpackages:
   - internal
   - internal/app_identity
@@ -389,7 +393,7 @@ imports:
 - name: gopkg.in/inf.v0
   version: 3887ee99ecf07df5b447e9b00d9c0b2adaa9f3e4
 - name: gopkg.in/ini.v1
-  version: 9c8236e659b76e87bf02044d06fde8683008ff3e
+  version: ffaaebdac6e54ce73b4e196b8406920921304ec9
 - name: gopkg.in/tomb.v1
   version: c131134a1947e9afd9cecfe11f4c6dff0732ae58
 - name: gopkg.in/yaml.v2
@@ -608,7 +612,7 @@ imports:
   - pkg/common
   - pkg/util/proto
 - name: kubevirt.io/containerized-data-importer
-  version: 8d7a20b86c9a2ed8ac31e26aab50e362f0c84475
+  version: 211c0a0a2c164dcca88ffa74242b7e5ec4cdf2a5
   repo: https://github.com/kubevirt/containerized-data-importer.git
   subpackages:
   - pkg/apis/datavolumecontroller
@@ -637,8 +641,6 @@ imports:
   - pkg/ginkgo-reporters
   - pkg/polarion-xml
 testImports:
-- name: github.com/coreos/go-iptables
-  version: 47f22b0dd3355c0ba570ba12b0b8a36bf214c04b
 - name: github.com/elazarl/goproxy
   version: 07b16b6e30fcac0ad8c0435548e743bcf2ca7e92
 - name: github.com/facebookgo/structtag
