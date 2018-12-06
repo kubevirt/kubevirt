@@ -46,6 +46,7 @@ const (
 	VmiBlockPVC          = "vmi-block-pvc"
 	VmiWindows           = "vmi-windows"
 	VmiSlirp             = "vmi-slirp"
+	VmiMasquerade        = "vmi-masquerade"
 	VmiSRIOV             = "vmi-sriov"
 	VmiWithHookSidecar   = "vmi-with-sidecar-hook"
 	VmiMultusPtp         = "vmi-multus-ptp"
@@ -326,6 +327,21 @@ func GetVMISlirp() *v1.VirtualMachineInstance {
 	slirp := &v1.InterfaceSlirp{}
 	ports := []v1.Port{v1.Port{Name: "http", Protocol: "TCP", Port: 80}}
 	vm.Spec.Domain.Devices.Interfaces = []v1.Interface{v1.Interface{Name: "testSlirp", Ports: ports, InterfaceBindingMethod: v1.InterfaceBindingMethod{Slirp: slirp}}}
+
+	return vm
+}
+
+func GetVMIMasquerade() *v1.VirtualMachineInstance {
+	vm := getBaseVMI(VmiMasquerade)
+	vm.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("1024M")
+	vm.Spec.Networks = []v1.Network{v1.Network{Name: "testmasquerade", NetworkSource: v1.NetworkSource{Pod: &v1.PodNetwork{}}}}
+
+	addContainerDisk(&vm.Spec, fmt.Sprintf("%s/%s:%s", DockerPrefix, imageFedora, DockerTag), busVirtio)
+	addNoCloudDiskWitUserData(&vm.Spec, "#!/bin/bash\necho \"fedora\" |passwd fedora --stdin\nyum install -y nginx\nsystemctl enable nginx\nsystemctl start nginx")
+
+	masquerade := &v1.InterfaceMasquerade{}
+	ports := []v1.Port{v1.Port{Name: "http", Protocol: "TCP", Port: 80}}
+	vm.Spec.Domain.Devices.Interfaces = []v1.Interface{v1.Interface{Name: "testmasquerade", Ports: ports, InterfaceBindingMethod: v1.InterfaceBindingMethod{Masquerade: masquerade}}}
 
 	return vm
 }

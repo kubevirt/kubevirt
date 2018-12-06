@@ -637,6 +637,8 @@ imports:
   - pkg/ginkgo-reporters
   - pkg/polarion-xml
 testImports:
+- name: github.com/coreos/go-iptables
+  version: 47f22b0dd3355c0ba570ba12b0b8a36bf214c04b
 - name: github.com/elazarl/goproxy
   version: 07b16b6e30fcac0ad8c0435548e743bcf2ca7e92
 - name: github.com/facebookgo/structtag

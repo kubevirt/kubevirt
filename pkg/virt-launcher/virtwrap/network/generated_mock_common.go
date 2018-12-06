@@ -137,6 +137,18 @@ func (_mr *_MockNetworkHandlerRecorder) ParseAddr(arg0 interface{}) *gomock.Call
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "ParseAddr", arg0)
 }
 
+func (_m *MockNetworkHandler) GetHostAndGwAddressesFromCIDR(s string) (string, string, error) {
+	ret := _m.ctrl.Call(_m, "GetHostAndGwAddressesFromCIDR", s)
+	ret0, _ := ret[0].(string)
+	ret1, _ := ret[1].(string)
+	ret2, _ := ret[2].(error)
+	return ret0, ret1, ret2
+}
+
+func (_mr *_MockNetworkHandlerRecorder) GetHostAndGwAddressesFromCIDR(arg0 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "GetHostAndGwAddressesFromCIDR", arg0)
+}
+
 func (_m *MockNetworkHandler) SetRandomMac(iface string) (net.HardwareAddr, error) {
 	ret := _m.ctrl.Call(_m, "SetRandomMac", iface)
 	ret0, _ := ret[0].(net.HardwareAddr)
@@ -146,6 +158,17 @@ func (_m *MockNetworkHandler) SetRandomMac(iface string) (net.HardwareAddr, erro
 
 func (_mr *_MockNetworkHandlerRecorder) SetRandomMac(arg0 interface{}) *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "SetRandomMac", arg0)
+}
+
+func (_m *MockNetworkHandler) GenerateRandomMac() (net.HardwareAddr, error) {
+	ret := _m.ctrl.Call(_m, "GenerateRandomMac")
+	ret0, _ := ret[0].(net.HardwareAddr)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+func (_mr *_MockNetworkHandlerRecorder) GenerateRandomMac() *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "GenerateRandomMac")
 }
 
 func (_m *MockNetworkHandler) GetMacDetails(iface string) (net.HardwareAddr, error) {
@@ -159,10 +182,45 @@ func (_mr *_MockNetworkHandlerRecorder) GetMacDetails(arg0 interface{}) *gomock.
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "GetMacDetails", arg0)
 }
 
+func (_m *MockNetworkHandler) LinkSetMaster(link netlink.Link, master *netlink.Bridge) error {
+	ret := _m.ctrl.Call(_m, "LinkSetMaster", link, master)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+func (_mr *_MockNetworkHandlerRecorder) LinkSetMaster(arg0, arg1 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "LinkSetMaster", arg0, arg1)
+}
+
 func (_m *MockNetworkHandler) StartDHCP(nic *VIF, serverAddr *netlink.Addr, bridgeInterfaceName string, dhcpOptions *v1.DHCPOptions) {
 	_m.ctrl.Call(_m, "StartDHCP", nic, serverAddr, bridgeInterfaceName, dhcpOptions)
 }
 
 func (_mr *_MockNetworkHandlerRecorder) StartDHCP(arg0, arg1, arg2, arg3 interface{}) *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "StartDHCP", arg0, arg1, arg2, arg3)
+}
+
+func (_m *MockNetworkHandler) IptablesNewChain(table string, chain string) error {
+	ret := _m.ctrl.Call(_m, "IptablesNewChain", table, chain)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+func (_mr *_MockNetworkHandlerRecorder) IptablesNewChain(arg0, arg1 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "IptablesNewChain", arg0, arg1)
+}
+
+func (_m *MockNetworkHandler) IptablesAppendRule(table string, chain string, rulespec ...string) error {
+	_s := []interface{}{table, chain}
+	for _, _x := range rulespec {
+		_s = append(_s, _x)
+	}
+	ret := _m.ctrl.Call(_m, "IptablesAppendRule", _s...)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+func (_mr *_MockNetworkHandlerRecorder) IptablesAppendRule(arg0, arg1 interface{}, arg2 ...interface{}) *gomock.Call {
+	_s := append([]interface{}{arg0, arg1}, arg2...)
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "IptablesAppendRule", _s...)
 }

@@ -1,0 +1,48 @@
+apiVersion: kubevirt.io/v1alpha2
+kind: VirtualMachineInstance
+metadata:
+  creationTimestamp: null
+  labels:
+    special: vmi-masquerade
+  name: vmi-masquerade
+spec:
+  domain:
+    devices:
+      disks:
+      - disk:
+          bus: virtio
+        name: containerdisk
+        volumeName: registryvolume
+      - disk:
+          bus: virtio
+        name: cloudinitdisk
+        volumeName: cloudinitvolume
+      interfaces:
+      - masquerade: {}
+        name: testmasquerade
+        ports:
+        - name: http
+          port: 80
+          protocol: TCP
+    machine:
+      type: ""
+    resources:
+      requests:
+        memory: 1024M
+  networks:
+  - name: testmasquerade
+    pod: {}
+  terminationGracePeriodSeconds: 0
+  volumes:
+  - containerDisk:
+      image: registry:5000/kubevirt/fedora-cloud-container-disk-demo:devel
+    name: registryvolume
+  - cloudInitNoCloud:
+      userData: |-
+        #!/bin/bash
+        echo "fedora" |passwd fedora --stdin
+        yum install -y nginx
+        systemctl enable nginx
+        systemctl start nginx
+    name: cloudinitvolume
+status: {}

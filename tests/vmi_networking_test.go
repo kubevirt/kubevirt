@@ -26,7 +26,7 @@ import (
 	"strings"
 	"time"
 
-	expect "github.com/google/goexpect"
+	"github.com/google/goexpect"
 	. "github.com/onsi/ginkgo"
 	"github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
@@ -36,7 +36,7 @@ import (
 	v13 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 
-	v1 "kubevirt.io/kubevirt/pkg/api/v1"
+	"kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/kubecli"
 	"kubevirt.io/kubevirt/pkg/log"
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
@@ -590,6 +590,78 @@ var _ = Describe("Networking", func() {
 				&expect.BExp{R: "#"},
 			}, 15)
 
+			Expect(err).ToNot(HaveOccurred())
+		})
+	})
+
+	Context("VirtualMachineInstance with masquerade binding mechanism", func() {
+		var serverVMI *v1.VirtualMachineInstance
+		var clientVMI *v1.VirtualMachineInstance
+
+		masqueradeVMI := func(containerImage string, userData string, Ports []v1.Port) *v1.VirtualMachineInstance {
+			vmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(containerImage, userData)
+			vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{{Name: "default", Ports: Ports, InterfaceBindingMethod: v1.InterfaceBindingMethod{Masquerade: &v1.InterfaceMasquerade{}}}}
+			vmi.Spec.Networks = []v1.Network{*v1.DefaultPodNetwork()}
+
+			return vmi
+		}
+
+		It("should allow regular network connection", func() {
+			By("creating two virtual machines")
+			ports := []v1.Port{{Name: "http", Port: 8080}}
+			serverVMI = masqueradeVMI(tests.ContainerDiskFor(tests.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n", ports)
+			serverVMI.Labels = map[string]string{"expose": "server"}
+			_, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(serverVMI)
+			Expect(err).ToNot(HaveOccurred())
+
+			clientVMI = masqueradeVMI(tests.ContainerDiskFor(tests.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n", []v1.Port{})
+			_, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(clientVMI)
+			Expect(err).ToNot(HaveOccurred())
+
+			By("waiting for the virtual machines to become ready")
+
+			tests.WaitUntilVMIReady(serverVMI, tests.LoggedInCirrosExpecter)
+			tests.WaitUntilVMIReady(clientVMI, tests.LoggedInCirrosExpecter)
+
+			serverVMI, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Get(serverVMI.Name, &v13.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(len(serverVMI.Status.Interfaces)).To(Equal(1))
+
+			By("checking ping to google")
+			pingVirtualMachine(serverVMI, "8.8.8.8", "\\$ ")
+			pingVirtualMachine(clientVMI, "google.com", "\\$ ")
+
+			By("starting a tcp server")
+			err = tests.CheckForTextExpecter(serverVMI, []expect.Batcher{
+				&expect.BSnd{S: "\n"},
+				&expect.BExp{R: "\\$ "},
+				&expect.BSnd{S: "screen -d -m sudo nc -klp 8080 -e echo -e 'Hello World!'\n"},
+				&expect.BExp{R: "\\$ "},
+				&expect.BSnd{S: "echo $?\n"},
+				&expect.BExp{R: "0"},
+			}, 30)
+			Expect(err).ToNot(HaveOccurred())
+
+			By("Connecting from the client vm")
+			err = tests.CheckForTextExpecter(clientVMI, []expect.Batcher{
+				&expect.BSnd{S: "\n"},
+				&expect.BExp{R: "\\$ "},
+				&expect.BSnd{S: fmt.Sprintf("echo test | nc %s 8080 -i 1 -w 1 1> /dev/null\n", serverVMI.Status.Interfaces[0].IP)},
+				&expect.BExp{R: "\\$ "},
+				&expect.BSnd{S: "echo $?\n"},
+				&expect.BExp{R: "0"},
+			}, 30)
+			Expect(err).ToNot(HaveOccurred())
+
+			By("Rejecting the connection from the client to unregistered port")
+			err = tests.CheckForTextExpecter(clientVMI, []expect.Batcher{
+				&expect.BSnd{S: "\n"},
+				&expect.BExp{R: "\\$ "},
+				&expect.BSnd{S: fmt.Sprintf("echo test | nc %s 8081 -i 1 -w 1 1> /dev/null\n", serverVMI.Status.Interfaces[0].IP)},
+				&expect.BExp{R: "\\$ "},
+				&expect.BSnd{S: "echo $?\n"},
+				&expect.BExp{R: "1"},
+			}, 30)
 			Expect(err).ToNot(HaveOccurred())
 		})
 	})

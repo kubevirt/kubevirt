@@ -387,6 +387,10 @@ func (InterfaceSlirp) SwaggerDoc() map[string]string {
 	return map[string]string{}
 }
 
+func (InterfaceMasquerade) SwaggerDoc() map[string]string {
+	return map[string]string{}
+}
+
 func (InterfaceSRIOV) SwaggerDoc() map[string]string {
 	return map[string]string{}
 }
