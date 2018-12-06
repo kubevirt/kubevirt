@@ -20,7 +20,7 @@ spec:
         storageClassName: local
       source:
         http:
-          url: http://cdi-http-import-server.kube-system/images/alpine.iso
+          url: http://cdi-http-import-server.kubevirt/images/alpine.iso
     status: {}
   running: false
   template:

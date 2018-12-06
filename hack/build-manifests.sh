@@ -42,6 +42,7 @@ for arg in $args; do
 
     ${KUBEVIRT_DIR}/tools/manifest-templator/manifest-templator \
         --namespace=${namespace} \
+        --cdi-namespace=${cdi_namespace} \
         --docker-prefix=${manifest_docker_prefix} \
         --docker-tag=${docker_tag} \
         --image-pull-policy=${image_pull_policy} \
@@ -50,6 +51,7 @@ for arg in $args; do
 
     ${KUBEVIRT_DIR}/tools/manifest-templator/manifest-templator \
         --namespace="{{ namespace }}" \
+        --cdi-namespace="{{ cdi_namespace }}" \
         --docker-prefix="{{ docker_prefix }}" \
         --docker-tag="{{ docker_tag }}" \
         --image-pull-policy="{{ image_pull_policy }}" \
@@ -63,6 +65,7 @@ find ${MANIFEST_TEMPLATES_OUT_DIR}/ -type f -exec sed -i {} -e '${/^$/d;}' \;
 
 # make sure that template manifests align with release manifests
 export namespace=${namespace}
+export cdi_namespace=${cdi_namespace}
 export docker_tag=${docker_tag}
 export docker_prefix=${manifest_docker_prefix}
 export image_pull_policy=${image_pull_policy}
@@ -81,4 +84,7 @@ for file in $(find ${MANIFEST_TEMPLATES_OUT_DIR}/ -type f); do
 done
 
 # If diff fails then we have an issue
-diff -r ${MANIFESTS_OUT_DIR} ${TMP_DIR}/${MANIFEST_TEMPLATES_OUT_DIR}
+diff -ru ${MANIFESTS_OUT_DIR} ${TMP_DIR}/${MANIFEST_TEMPLATES_OUT_DIR} || (
+    echo "Error: Generated manifests don't match"
+    false
+)
