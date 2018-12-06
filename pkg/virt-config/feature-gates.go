@@ -17,7 +17,7 @@
  *
  */
 
-package featuregates
+package virtconfig
 
 import (
 	"os"

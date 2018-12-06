@@ -41,11 +41,11 @@ import (
 	"kubevirt.io/kubevirt/pkg/certificates"
 	containerdisk "kubevirt.io/kubevirt/pkg/container-disk"
 	"kubevirt.io/kubevirt/pkg/controller"
-	featuregates "kubevirt.io/kubevirt/pkg/feature-gates"
 	"kubevirt.io/kubevirt/pkg/kubecli"
 	"kubevirt.io/kubevirt/pkg/log"
 	"kubevirt.io/kubevirt/pkg/service"
 	"kubevirt.io/kubevirt/pkg/util"
+	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	"kubevirt.io/kubevirt/pkg/virt-controller/leaderelectionconfig"
 	"kubevirt.io/kubevirt/pkg/virt-controller/rest"
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
@@ -121,7 +121,7 @@ func Execute() {
 
 	service.Setup(&app)
 
-	featuregates.ParseFeatureGatesFromConfigMap()
+	virtconfig.ParseFeatureGatesFromConfigMap()
 
 	app.readyChan = make(chan bool, 1)
 
@@ -165,7 +165,7 @@ func Execute() {
 
 	app.migrationInformer = app.informerFactory.VirtualMachineInstanceMigration()
 
-	if featuregates.DataVolumesEnabled() {
+	if virtconfig.DataVolumesEnabled() {
 		app.dataVolumeInformer = app.informerFactory.DataVolume()
 		log.Log.Infof("DataVolume integration enabled")
 	} else {

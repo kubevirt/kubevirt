@@ -39,10 +39,10 @@ import (
 	k8sfield "k8s.io/apimachinery/pkg/util/validation/field"
 
 	v1 "kubevirt.io/kubevirt/pkg/api/v1"
-	featuregates "kubevirt.io/kubevirt/pkg/feature-gates"
 	"kubevirt.io/kubevirt/pkg/log"
 	"kubevirt.io/kubevirt/pkg/util"
 	"kubevirt.io/kubevirt/pkg/virt-api/webhooks"
+	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 )
 
 const (
@@ -251,7 +251,7 @@ func validateVolumes(field *k8sfield.Path, volumes []v1.Volume) []metav1.StatusC
 			volumeSourceSetCount++
 		}
 		if volume.DataVolume != nil {
-			if !featuregates.DataVolumesEnabled() {
+			if !virtconfig.DataVolumesEnabled() {
 				causes = append(causes, metav1.StatusCause{
 					Type:    metav1.CauseTypeFieldValueInvalid,
 					Message: "DataVolume feature gate is not enabled",
@@ -881,7 +881,7 @@ func ValidateVirtualMachineInstanceSpec(field *k8sfield.Path, spec *v1.VirtualMa
 				})
 			}
 
-			if iface.SRIOV != nil && !featuregates.SRIOVEnabled() {
+			if iface.SRIOV != nil && !virtconfig.SRIOVEnabled() {
 				causes = append(causes, metav1.StatusCause{
 					Type:    metav1.CauseTypeFieldValueInvalid,
 					Message: fmt.Sprintf("SRIOV feature gate is not enabled in kubevirt-config"),
@@ -1462,7 +1462,7 @@ func admitMigrationCreate(ar *v1beta1.AdmissionReview) *v1beta1.AdmissionRespons
 		return resp
 	}
 
-	if !featuregates.LiveMigrationEnabled() {
+	if !virtconfig.LiveMigrationEnabled() {
 		return webhooks.ToAdmissionResponseError(fmt.Errorf("LiveMigration feature gate is not enabled in kubevirt-config"))
 	}
 
