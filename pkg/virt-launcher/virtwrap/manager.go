@@ -124,7 +124,7 @@ func (l *LibvirtDomainManager) initializeMigrationMetadata(vmi *v1.VirtualMachin
 		UID:            vmi.Status.MigrationState.MigrationUID,
 		StartTimestamp: &now,
 	}
-	_, err = util.SetDomainSpec(l.virConn, vmi, *domainSpec)
+	_, err = l.setDomainSpecWithHooks(vmi, domainSpec)
 	if err != nil {
 		return false, err
 	}
@@ -191,7 +191,7 @@ func (l *LibvirtDomainManager) setMigrationResultHelper(vmi *v1.VirtualMachineIn
 	}
 	domainSpec.Metadata.KubeVirt.Migration.EndTimestamp = &now
 
-	_, err = util.SetDomainSpec(l.virConn, vmi, *domainSpec)
+	_, err = l.setDomainSpecWithHooks(vmi, domainSpec)
 	if err != nil {
 		return err
 	}
@@ -278,7 +278,7 @@ func (l *LibvirtDomainManager) PrepareMigrationTarget(vmi *v1.VirtualMachineInst
 	podCPUSet, err := util.GetPodCPUSet()
 	if err != nil {
 		logger.Reason(err).Error("failed to read pod cpuset.")
-		return err
+		return fmt.Errorf("failed to read pod cpuset: %v", err)
 	}
 
 	// Map the VirtualMachineInstance to the Domain
@@ -288,11 +288,21 @@ func (l *LibvirtDomainManager) PrepareMigrationTarget(vmi *v1.VirtualMachineInst
 		CPUSet:         podCPUSet,
 	}
 	if err := api.Convert_v1_VirtualMachine_To_api_Domain(vmi, domain, c); err != nil {
-		logger.Error("Conversion failed.")
-		return err
+		return fmt.Errorf("conversion failed: %v", err)
 	}
 
-	_, err = l.preStartHook(vmi, domain)
+	dom, err := l.preStartHook(vmi, domain)
+	if err != nil {
+		return fmt.Errorf("pre-start pod-setup failed: %v", err)
+	}
+	// TODO this should probably a OnPrepareMigration hook or something.
+	// Right now we need to call OnDefineDomain, so that additional setup, which might be done
+	// by the hook can also be done for the new target pod
+	hooksManager := hooks.GetManager()
+	_, err = hooksManager.OnDefineDomain(&dom.Spec, vmi)
+	if err != nil {
+		return fmt.Errorf("executing custom preStart hooks failed: %v", err)
+	}
 	return nil
 }
 
@@ -313,7 +323,7 @@ func (l *LibvirtDomainManager) preStartHook(vmi *v1.VirtualMachineInstance, doma
 	// ensure registry disk files have correct ownership privileges
 	err := containerdisk.SetFilePermissions(vmi)
 	if err != nil {
-		return domain, err
+		return domain, fmt.Errorf("setting registry-disk file permissions failed: %v", err)
 	}
 
 	// generate cloud-init data
@@ -323,14 +333,14 @@ func (l *LibvirtDomainManager) preStartHook(vmi *v1.VirtualMachineInstance, doma
 
 		err := cloudinit.GenerateLocalData(vmi.Name, hostname, vmi.Namespace, cloudInitData)
 		if err != nil {
-			return domain, err
+			return domain, fmt.Errorf("generating local cloud-init data failed: %v", err)
 		}
 	}
 
 	// setup networking
 	err = network.SetupPodNetwork(vmi, domain)
 	if err != nil {
-		return domain, err
+		return domain, fmt.Errorf("preparing the pod network failed: %v", err)
 	}
 
 	// create disks images on the cluster lever
@@ -338,13 +348,13 @@ func (l *LibvirtDomainManager) preStartHook(vmi *v1.VirtualMachineInstance, doma
 	hostDiskCreator := hostdisk.NewHostDiskCreator(l.notifier, l.lessPVCSpaceToleration)
 	err = hostDiskCreator.Create(vmi)
 	if err != nil {
-		return domain, err
+		return domain, fmt.Errorf("preparing host-disks failed: %v", err)
 	}
 
 	// Create images for volumes that are marked ephemeral.
 	err = ephemeraldisk.CreateEphemeralImages(vmi)
 	if err != nil {
-		return domain, err
+		return domain, fmt.Errorf("preparing ephemeral images failed: %v", err)
 	}
 	// create empty disks if they exist
 	if err := emptydisk.CreateTemporaryDisks(vmi); err != nil {
@@ -370,13 +380,6 @@ func (l *LibvirtDomainManager) preStartHook(vmi *v1.VirtualMachineInstance, doma
 			return domain, err
 		}
 	}
-
-	hooksManager := hooks.GetManager()
-	domainSpec, err := hooksManager.OnDefineDomain(&domain.Spec, vmi)
-	if err != nil {
-		return domain, err
-	}
-	domain.Spec = *domainSpec
 
 	return domain, err
 }
@@ -493,7 +496,7 @@ func (l *LibvirtDomainManager) SyncVMI(vmi *v1.VirtualMachineInstance, useEmulat
 				logger.Reason(err).Error("pre start setup for VirtualMachineInstance failed.")
 				return nil, err
 			}
-			dom, err = util.SetDomainSpec(l.virConn, vmi, domain.Spec)
+			dom, err = l.setDomainSpecWithHooks(vmi, &domain.Spec)
 			if err != nil {
 				return nil, err
 			}
@@ -513,7 +516,7 @@ func (l *LibvirtDomainManager) SyncVMI(vmi *v1.VirtualMachineInstance, useEmulat
 	// To make sure, that we set the right qemu wrapper arguments,
 	// we update the domain XML whenever a VirtualMachineInstance was already defined but not running
 	if !newDomain && cli.IsDown(domState) {
-		dom, err = util.SetDomainSpec(l.virConn, vmi, domain.Spec)
+		dom, err = l.setDomainSpecWithHooks(vmi, &domain.Spec)
 		if err != nil {
 			return nil, err
 		}
@@ -632,7 +635,7 @@ func (l *LibvirtDomainManager) SignalShutdownVMI(vmi *v1.VirtualMachineInstance)
 
 			now := metav1.Now()
 			domSpec.Metadata.KubeVirt.GracePeriod.DeletionTimestamp = &now
-			_, err = util.SetDomainSpec(l.virConn, vmi, *domSpec)
+			_, err = l.setDomainSpecWithHooks(vmi, domSpec)
 			if err != nil {
 				log.Log.Object(vmi).Reason(err).Error("Unable to update grace period start time on domain xml")
 				return err
@@ -743,4 +746,14 @@ func (l *LibvirtDomainManager) ListAllDomains() ([]*api.Domain, error) {
 	}
 
 	return list, nil
+}
+
+func (l *LibvirtDomainManager) setDomainSpecWithHooks(vmi *v1.VirtualMachineInstance, spec *api.DomainSpec) (cli.VirDomain, error) {
+
+	hooksManager := hooks.GetManager()
+	domainSpec, err := hooksManager.OnDefineDomain(spec, vmi)
+	if err != nil {
+		return nil, err
+	}
+	return util.SetDomainSpecStr(l.virConn, vmi, domainSpec)
 }
