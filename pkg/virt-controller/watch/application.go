@@ -121,7 +121,7 @@ func Execute() {
 
 	service.Setup(&app)
 
-	virtconfig.ParseFeatureGatesFromConfigMap()
+	virtconfig.Init()
 
 	app.readyChan = make(chan bool, 1)
 

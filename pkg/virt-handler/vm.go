@@ -1358,7 +1358,7 @@ func (d *VirtualMachineController) heartBeat(interval time.Duration, stopCh chan
 			log.DefaultLogger().V(4).Infof("Heartbeat sent")
 			// Label the node if cpu manager is running on it
 			// This is a temporary workaround until k8s bug #66525 is resolved
-			virtconfig.ParseFeatureGatesFromConfigMap()
+			virtconfig.Init()
 			if virtconfig.CPUManagerEnabled() {
 				d.updateNodeCpuManagerLabel()
 			}

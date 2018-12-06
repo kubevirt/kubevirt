@@ -125,7 +125,7 @@ func NewVirtApi() VirtApi {
 }
 
 func (app *virtAPIApp) Execute() {
-	virtconfig.ParseFeatureGatesFromConfigMap()
+	virtconfig.Init()
 
 	virtCli, err := kubecli.GetKubevirtClient()
 	if err != nil {
