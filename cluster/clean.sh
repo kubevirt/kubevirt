@@ -39,7 +39,7 @@ _kubectl delete pods -n ${namespace} -l="kubevirt.io=libvirt" --force --grace-pe
 _kubectl delete pods -n ${namespace} -l="kubevirt.io=virt-handler" --force --grace-period 0 2>/dev/null || :
 
 # Delete all traces of kubevirt
-namespaces=(default ${namespace})
+namespaces=(default ${namespace} ${cdi_namespace})
 for i in ${namespaces[@]}; do
     _kubectl -n ${i} delete apiservices -l 'kubevirt.io'
     _kubectl -n ${i} delete deployment -l 'kubevirt.io'
@@ -68,7 +68,10 @@ for i in ${namespaces[@]}; do
     _kubectl -n ${i} delete apiservices -l 'cdi.kubevirt.io'
     _kubectl -n ${i} delete validatingwebhookconfiguration -l 'cdi.kubevirt.io'
     _kubectl -n ${i} delete secrets -l 'cdi.kubevirt.io'
+    _kubectl -n ${i} delete configmaps -l 'cdi.kubevirt.io'
+    _kubectl -n ${i} delete pv -l 'cdi.kubevirt.io'
     _kubectl -n ${i} delete pvc -l 'cdi.kubevirt.io'
+    _kubectl -n ${i} delete ds -l 'cdi.kubevirt.io'
     _kubectl -n ${i} delete customresourcedefinitions -l 'cdi.kubevirt.io'
     _kubectl -n ${i} delete pods -l 'cdi.kubevirt.io'
     _kubectl -n ${i} delete clusterrolebinding -l 'cdi.kubevirt.io'
