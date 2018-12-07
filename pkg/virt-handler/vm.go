@@ -42,11 +42,11 @@ import (
 	v1 "kubevirt.io/kubevirt/pkg/api/v1"
 	cloudinit "kubevirt.io/kubevirt/pkg/cloud-init"
 	"kubevirt.io/kubevirt/pkg/controller"
-	featuregates "kubevirt.io/kubevirt/pkg/feature-gates"
 	hostdisk "kubevirt.io/kubevirt/pkg/host-disk"
 	"kubevirt.io/kubevirt/pkg/kubecli"
 	"kubevirt.io/kubevirt/pkg/log"
 	"kubevirt.io/kubevirt/pkg/precond"
+	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	cmdclient "kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
 	device_manager "kubevirt.io/kubevirt/pkg/virt-handler/device-manager"
 	"kubevirt.io/kubevirt/pkg/virt-handler/isolation"
@@ -1358,8 +1358,8 @@ func (d *VirtualMachineController) heartBeat(interval time.Duration, stopCh chan
 			log.DefaultLogger().V(4).Infof("Heartbeat sent")
 			// Label the node if cpu manager is running on it
 			// This is a temporary workaround until k8s bug #66525 is resolved
-			featuregates.ParseFeatureGatesFromConfigMap()
-			if featuregates.CPUManagerEnabled() {
+			virtconfig.Init()
+			if virtconfig.CPUManagerEnabled() {
 				d.updateNodeCpuManagerLabel()
 			}
 		}, interval, 1.2, true, stopCh)

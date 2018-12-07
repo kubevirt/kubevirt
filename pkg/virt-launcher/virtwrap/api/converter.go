@@ -175,8 +175,6 @@ func makeDeviceName(bus string, devicePerBus map[string]int) string {
 		prefix = "vd"
 	case "sata", "scsi":
 		prefix = "sd"
-	case "ide":
-		prefix = "hd"
 	case "fdc":
 		prefix = "fd"
 	default:

@@ -118,7 +118,7 @@ func schema_kubevirt_pkg_api_v1_CDRomTarget(ref common.ReferenceCallback) common
 				Properties: map[string]spec.Schema{
 					"bus": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Bus indicates the type of disk device to emulate. supported values: virtio, sata, scsi, ide.",
+							Description: "Bus indicates the type of disk device to emulate. supported values: virtio, sata, scsi.",
 							Type:        []string{"string"},
 							Format:      "",
 						},
@@ -593,7 +593,7 @@ func schema_kubevirt_pkg_api_v1_DiskTarget(ref common.ReferenceCallback) common.
 				Properties: map[string]spec.Schema{
 					"bus": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Bus indicates the type of disk device to emulate. supported values: virtio, sata, scsi, ide.",
+							Description: "Bus indicates the type of disk device to emulate. supported values: virtio, sata, scsi.",
 							Type:        []string{"string"},
 							Format:      "",
 						},
@@ -1282,7 +1282,7 @@ func schema_kubevirt_pkg_api_v1_LunTarget(ref common.ReferenceCallback) common.O
 				Properties: map[string]spec.Schema{
 					"bus": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Bus indicates the type of disk device to emulate. supported values: virtio, sata, scsi, ide.",
+							Description: "Bus indicates the type of disk device to emulate. supported values: virtio, sata, scsi.",
 							Type:        []string{"string"},
 							Format:      "",
 						},
