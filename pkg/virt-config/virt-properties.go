@@ -31,7 +31,7 @@ import (
 )
 
 func SupportedEmulatedMachines() []string {
-	config := os.Getenv(emulatedMachineEnvVar)
+	config := os.Getenv(emulatedMachinesEnvVar)
 	if len(config) == 0 {
 		return []string{"q35*", "pc-q35*"}
 	}

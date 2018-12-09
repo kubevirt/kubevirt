@@ -34,10 +34,11 @@ import (
 )
 
 const (
-	configMapName         = "kubevirt-config"
-	featureGateEnvVar     = "FEATURE_GATES"
-	FeatureGatesKey       = "feature-gates"
-	emulatedMachineEnvVar = "VIRT_EMULATED_MACHINES"
+	configMapName          = "kubevirt-config"
+	featureGateEnvVar      = "FEATURE_GATES"
+	FeatureGatesKey        = "feature-gates"
+	emulatedMachinesEnvVar = "VIRT_EMULATED_MACHINES"
+	emulatedMachinesKey    = "emulated-machines"
 )
 
 // We cannot rely on automatic invocation of 'init' method because this initialization
@@ -47,8 +48,8 @@ func Init() {
 	if val, ok := cfgMap.Data[FeatureGatesKey]; ok {
 		os.Setenv(featureGateEnvVar, val)
 	}
-	if val, ok := cfgMap.Data["emulated-machines"]; ok {
-		os.Setenv(emulatedMachineEnvVar, val)
+	if val, ok := cfgMap.Data[emulatedMachinesKey]; ok {
+		os.Setenv(emulatedMachinesEnvVar, val)
 	}
 }
 
