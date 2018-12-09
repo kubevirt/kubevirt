@@ -6,7 +6,11 @@ sub-stages:
       timeout: 4h
   - k8s-1.11.0-release:
       timeout: 4h
-  - k8s-multus-1.11.1-release
+  - k8s-multus-1.11.1-release:
+      runtime_requirements:
+        sriovnic: true
+        support_nesting_level: 2
+        isolation_level: container
   - k8s-genie-1.11.1-release
   - openshift-3.11-release:
       timeout: 4h
