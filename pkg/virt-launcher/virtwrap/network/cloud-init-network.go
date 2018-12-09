@@ -16,7 +16,7 @@ import (
 type CloudInitNetworkInterface struct {
 	NetworkType string            `yaml:"type"`
 	Name        string            `yaml:"name,omitempty"`
-	Mac_address string            `yaml:"mac_address,omitempty"`
+	MacAddress  string            `yaml:"mac_address,omitempty"`
 	Mtu         uint16            `yaml:"mtu,omitempty"`
 	Subnets     []CloudInitSubnet `yaml:"subnets,omitempty"`
 	Address     []string          `yaml:"address,omitempty"`
@@ -196,7 +196,7 @@ func GenNetworkFile(vmi *v1.VirtualMachineInstance) ([]byte, error) {
 
 		nif.Name = vif.Name
 		nif.NetworkType = "physical"
-		nif.Mac_address = vif.MAC.String()
+		nif.MacAddress = vif.MAC.String()
 		nif.Mtu = vif.Mtu
 
 		nifSubnet.SubnetType = "static"

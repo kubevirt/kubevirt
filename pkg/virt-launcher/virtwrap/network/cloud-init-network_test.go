@@ -63,7 +63,7 @@ var _ = Describe("cloud-init network", func() {
 
 				Expect(intConfig.NetworkType).To(Equal("physical"))
 				Expect(intConfig.Name).To(Equal(intName))
-				Expect(intConfig.Mac_address).To(Equal("de:ad:be:af:00:0" + intString))
+				Expect(intConfig.MacAddress).To(Equal("de:ad:be:af:00:0" + intString))
 				Expect(intConfig.Mtu).To(Equal(uint16(1400 + intNum)))
 				Expect(len(intConfig.Subnets)).To(Equal(1))
 
