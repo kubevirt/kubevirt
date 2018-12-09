@@ -35,5 +35,9 @@ func SupportedEmulatedMachines() []string {
 		return []string{"q35*", "pc-q35*"}
 	}
 
-	return strings.Split(config, ",")
+	vals := strings.Split(config, ",")
+	for i := range vals {
+		vals[i] = strings.TrimSpace(vals[i])
+	}
+	return vals
 }
