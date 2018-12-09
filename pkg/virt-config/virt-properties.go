@@ -22,6 +22,7 @@ package virtconfig
 /*
  This module is intended for retrieving virt related properties that might
  be overridden by kubevirt-config configmap.
+ Note that the virtconfig package needs to be initialized before using this (see config-map.Init)
 */
 
 import (
