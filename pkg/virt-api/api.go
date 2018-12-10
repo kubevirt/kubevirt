@@ -890,7 +890,7 @@ func (app *virtAPIApp) startTLS() error {
 
 	tlsConfig := &tls.Config{
 		ClientCAs: pool,
-		// A RequestClientCert request means we're not guaranteed
+		// A VerifyClientCertIfGiven request means we're not guaranteed
 		// a client has been authenticated unless they provide a peer
 		// cert.
 		//
@@ -905,7 +905,7 @@ func (app *virtAPIApp) startTLS() error {
 		// response is given. That status request won't send a peer cert regardless
 		// if the TLS handshake requests it. As a result, the TLS handshake fails
 		// and our aggregated endpoint never becomes available.
-		ClientAuth: tls.RequestClientCert,
+		ClientAuth: tls.VerifyClientCertIfGiven,
 	}
 	tlsConfig.BuildNameToCertificate()
 
