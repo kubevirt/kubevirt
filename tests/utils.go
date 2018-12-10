@@ -37,8 +37,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/ghodss/yaml"
-	"github.com/google/goexpect"
+	ghodssyaml "github.com/ghodss/yaml"
+	expect "github.com/google/goexpect"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"github.com/spf13/cobra"
@@ -85,8 +85,8 @@ var DeployTestingInfrastructureFlag = false
 var PathToTestingInfrastrucureManifests = ""
 
 func init() {
-	flag.StringVar(&KubeVirtVersionTag, "docker-tag", "latest", "Set the image tag or digest to use")
-	flag.StringVar(&KubeVirtRepoPrefix, "docker-prefix", "kubevirt", "Set the repository prefix for all images")
+	flag.StringVar(&KubeVirtVersionTag, "container-tag", "latest", "Set the image tag or digest to use")
+	flag.StringVar(&KubeVirtRepoPrefix, "container-prefix", "kubevirt", "Set the repository prefix for all images")
 	flag.StringVar(&ContainerizedDataImporterNamespace, "cdi-namespace", "kube-system", "Set the repository prefix for CDI components")
 	flag.StringVar(&KubeVirtKubectlPath, "kubectl-path", "", "Set path to kubectl binary")
 	flag.StringVar(&KubeVirtOcPath, "oc-path", "", "Set path to oc binary")
@@ -659,7 +659,6 @@ func GetListOfManifests(pathToManifestsDir string) []string {
 }
 
 func ReadManifestYamlFile(pathToManifest string) []unstructured.Unstructured {
-	//fmt.Printf("INFO reading %s\n", pathToManifest)
 	var objects []unstructured.Unstructured
 	stream, err := os.Open(pathToManifest)
 	PanicOnError(err)
@@ -668,7 +667,6 @@ func ReadManifestYamlFile(pathToManifest string) []unstructured.Unstructured {
 	for {
 		obj := map[string]interface{}{}
 		err := decoder.Decode(&obj)
-		//fmt.Printf("INFO decoded object:  %#v\n", obj)
 		if err == io.EOF {
 			break
 		} else if err != nil {
@@ -2831,7 +2829,7 @@ func KubevirtFailHandler(message string, callerSkip ...int) {
 			if strings.HasPrefix(pod.Name, "virt-launcher") {
 				tailLines = 45
 				containerName = "compute"
-				data, err := yaml.Marshal(pod)
+				data, err := ghodssyaml.Marshal(pod)
 				if err != nil {
 					log.DefaultLogger().Reason(err).Errorf("Failed to marshal pod %s", pod.Name)
 					continue
@@ -2857,7 +2855,7 @@ func KubevirtFailHandler(message string, callerSkip ...int) {
 		}
 
 		for _, vmi := range vmis.Items {
-			data, err := yaml.Marshal(vmi)
+			data, err := ghodssyaml.Marshal(vmi)
 			if err != nil {
 				log.DefaultLogger().Reason(err).Errorf("Failed to marshal vmi %s", vmi.Name)
 				continue

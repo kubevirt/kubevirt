@@ -34,8 +34,8 @@ docker run \
     -v /tmp/kubevirt-tests-data:/home/kubevirt-tests/data:rw,z --rm \
     kubevirt/tests:latest \
         --kubeconfig=data/openshift-master.kubeconfig \
-        --docker-tag=latest \
-        --docker-prefix=docker.io/kubevirt \
+        --container-tag=latest \
+        --container-prefix=docker.io/kubevirt \
         --test.timeout 180m \
         --junit-output=data/results/junit.xml \
         --deploy-testing-infra \
