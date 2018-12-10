@@ -20,7 +20,10 @@ RUN \
     source /etc/profile.d/gimme.sh && \
     go get github.com/mattn/goveralls && \
     go get -u github.com/Masterminds/glide && \
-    go get golang.org/x/tools/cmd/goimports && \
+    go get -d golang.org/x/tools/cmd/goimports && \
+    cd /go/src/golang.org/x/tools/cmd/goimports && \
+    git checkout release-branch.go1.11 && \
+    go install && \
     git clone https://github.com/mvdan/sh.git $GOPATH/src/mvdan.cc/sh && \
     cd /go/src/mvdan.cc/sh/cmd/shfmt && \
     git checkout v2.5.0 && \
@@ -30,17 +33,13 @@ RUN \
     go get -u github.com/rmohr/mock/mockgen && \
     go get -u github.com/rmohr/go-swagger-utils/swagger-doc && \
     go get -u github.com/onsi/ginkgo/ginkgo && \
-    go get -u -d k8s.io/code-generator/cmd/deepcopy-gen && \
-    go get -u -d k8s.io/code-generator/cmd/defaulter-gen && \
-    go get -u -d k8s.io/code-generator/cmd/openapi-gen && \
+    mkdir $GOPATH/src/k8s.io && \
+    git clone -b release-1.9 https://github.com/kubernetes/code-generator.git $GOPATH/src/k8s.io/code-generator && \
     cd /go/src/k8s.io/code-generator/cmd/deepcopy-gen && \
-    git checkout release-1.9 && \
     go install && \
     cd /go/src/k8s.io/code-generator/cmd/defaulter-gen && \
-    git checkout release-1.9 && \
     go install && \
     cd /go/src/k8s.io/code-generator/cmd/openapi-gen && \
-    git checkout release-1.9 && \
     go install && \
     go get -u -d github.com/golang/protobuf/protoc-gen-go && \
     cd /go/src/github.com/golang/protobuf/protoc-gen-go && \
