@@ -1,6 +1,6 @@
 ---
 sub-stages:
-  - k8s-1.10.4-release:
+  - k8s-1.10.11-release:
       timeout: 4h
   - k8s-1.11.0-dev:
       timeout: 4h
