@@ -79,7 +79,10 @@ func usage() string {
   virtctl expose vmi myvm --port=22 --name=myvm-ssh --type=NodePort
 
   # Expose all defined pod-network ports of a virtual machine instance replicaset on a service:
-  virtctl expose vmirs --name=vmirs-service`
+  virtctl expose vmirs myvmirs --name=vmirs-service
+
+  # Expose port 8080 as port 80 from a virtual machine instance replicaset on a service:
+  virtctl expose vmirs myvmirs --port=80 --target-port=8080 --name=vmirs-service`
 	return usage
 }
 
