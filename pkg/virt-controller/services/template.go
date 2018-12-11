@@ -167,6 +167,30 @@ func CPUModelLabelFromCPUModel(vmi *v1.VirtualMachineInstance) (label string, er
 	return
 }
 
+// Request a resource by name. This function bumps the number of resources,
+// both its limits and requests attributes.
+//
+// If we were operating with a regular resource (CPU, memory, network
+// bandwidth), we would need to take care of QoS. For example,
+// https://kubernetes.io/docs/tasks/configure-pod-container/quality-service-pod/#create-a-pod-that-gets-assigned-a-qos-class-of-guaranteed
+// explains that when Limits are set but Requests are not then scheduler
+// assumes that Requests are the same as Limits for a particular resource.
+//
+// But this function is not called for this standard resources but for
+// resources managed by device plugins. The device plugin design document says
+// the following on the matter:
+// https://github.com/kubernetes/community/blob/master/contributors/design-proposals/resource-management/device-plugin.md#end-user-story
+//
+// ```
+// Devices can be selected using the same process as for OIRs in the pod spec.
+// Devices have no impact on QOS. However, for the alpha, we expect the request
+// to have limits == requests.
+// ```
+//
+// Which suggests that, for resources managed by device plugins, 1) limits
+// should be equal to requests; and 2) QoS rules do not apply.
+//
+// Hence we don't copy Limits value to Requests if the latter is missing.
 func requestResource(resources *k8sv1.ResourceRequirements, resourceName string) {
 	name := k8sv1.ResourceName(resourceName)
 
