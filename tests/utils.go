@@ -28,6 +28,7 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -694,13 +695,19 @@ func IsOpenShift() bool {
 
 	result := virtClient.RestClient().Get().AbsPath("/version/openshift").Do()
 
-	// It is OpenShift
+	var statusCode int
+	result.StatusCode(&statusCode)
+
 	if result.Error() == nil {
-		return true
-	}
-	// Got 404 so this is not Openshift
-	if errors.IsNotFound(result.Error()) {
-		return false
+		// It is OpenShift
+		if statusCode == http.StatusOK {
+			return true
+		}
+	} else {
+		// Got 404 so this is not Openshift
+		if statusCode == http.StatusNotFound {
+			return false
+		}
 	}
 	fmt.Printf(fmt.Sprintf("ERROR: Can not determine cluster type %#v\n", result))
 	panic(err)
