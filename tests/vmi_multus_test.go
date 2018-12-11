@@ -271,7 +271,13 @@ var _ = Describe("Multus Networking", func() {
 
 			By("checking virtual machine instance has two interfaces")
 			checkInterface(vmiOne, "eth0", "#")
-			checkInterface(vmiOne, "eth1", "#")
+			checkInterface(vmiOne, "net1", "#")
+
+			By("mouting cloudinit iso")
+			mountCloudInit(vmiOne, "#")
+
+			By("checking cloudinit network-config contains interface")
+			checkNetworkConfig(vmiOne, "net1", "#")
 
 			// there is little we can do beyond just checking two devices are present: PCI slots are different inside
 			// the guest, and DP doesn't pass information about vendor IDs of allocated devices into the pod, so
@@ -338,8 +344,15 @@ var _ = Describe("Multus Networking", func() {
 
 			By("checking virtual machine instance has three interfaces")
 			checkInterface(vmiOne, "eth0", "#")
-			checkInterface(vmiOne, "eth1", "#")
-			checkInterface(vmiOne, "eth2", "#")
+			checkInterface(vmiOne, "net1", "#")
+			checkInterface(vmiOne, "net2", "#")
+
+			By("mouting cloudinit iso")
+			mountCloudInit(vmiOne, "#")
+
+			By("checking cloudinit network-config contains interface")
+			checkNetworkConfig(vmiOne, "net1", "#")
+			checkNetworkConfig(vmiOne, "net2", "#")
 
 			// there is little we can do beyond just checking two devices are present: PCI slots are different inside
 			// the guest, and DP doesn't pass information about vendor IDs of allocated devices into the pod, so
@@ -502,5 +515,31 @@ func pingVirtualMachine(vmi *v1.VirtualMachineInstance, ipAddr, prompt string) {
 		&expect.BSnd{S: "echo $?\n"},
 		&expect.BExp{R: "0"},
 	}, 30)
+	Expect(err).ToNot(HaveOccurred())
+}
+
+func checkNetworkConfig(vmi *v1.VirtualMachineInstance, interfaceName, prompt string) {
+	cmdCheck := fmt.Sprintf("grep %s /mnt/network-config\n", interfaceName)
+	err := tests.CheckForTextExpecter(vmi, []expect.Batcher{
+		&expect.BSnd{S: "\n"},
+		&expect.BExp{R: prompt},
+		&expect.BSnd{S: cmdCheck},
+		&expect.BExp{R: prompt},
+		&expect.BSnd{S: "echo $?\n"},
+		&expect.BExp{R: "0"},
+	}, 15)
+	Expect(err).ToNot(HaveOccurred())
+}
+
+func mountCloudInit(vmi *v1.VirtualMachineInstance, prompt string) {
+	cmdCheck := "mount LABEL=cidata /mnt/\n"
+	err := tests.CheckForTextExpecter(vmi, []expect.Batcher{
+		&expect.BSnd{S: "\n"},
+		&expect.BExp{R: prompt},
+		&expect.BSnd{S: cmdCheck},
+		&expect.BExp{R: prompt},
+		&expect.BSnd{S: "echo $?\n"},
+		&expect.BExp{R: "0"},
+	}, 15)
 	Expect(err).ToNot(HaveOccurred())
 }
