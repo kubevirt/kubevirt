@@ -175,24 +175,6 @@ func subresourceAPIGroup() metav1.APIGroup {
 	return apiGroup
 }
 
-func (app *virtAPIApp) composeHealthEndpoint() {
-
-	ws, err := rest.GroupVersionProxyBase(v1.GroupVersion)
-	if err != nil {
-		panic(err)
-	}
-
-	ws.Route(ws.GET("/healthz").
-		To(healthz.KubeConnectionHealthzFunc).
-		Consumes(restful.MIME_JSON).
-		Produces(restful.MIME_JSON).
-		Operation("checkHealth").
-		Doc("Health endpoint").
-		Returns(http.StatusOK, "OK", nil).
-		Returns(http.StatusInternalServerError, "Unhealthy", nil))
-	restful.Add(ws)
-}
-
 func (app *virtAPIApp) composeSubresources() {
 
 	subresourcesvmGVR := schema.GroupVersionResource{Group: v1.SubresourceGroupVersion.Group, Version: v1.SubresourceGroupVersion.Version, Resource: "virtualmachines"}
@@ -238,6 +220,15 @@ func (app *virtAPIApp) composeSubresources() {
 		To(func(request *restful.Request, response *restful.Response) {
 			response.WriteAsJson(version.Get())
 		}).Operation("version"))
+
+	subws.Route(subws.GET(rest.SubResourcePath("healthz")).
+		To(healthz.KubeConnectionHealthzFunc).
+		Consumes(restful.MIME_JSON).
+		Produces(restful.MIME_JSON).
+		Operation("checkHealth").
+		Doc("Health endpoint").
+		Returns(http.StatusOK, "OK", nil).
+		Returns(http.StatusInternalServerError, "Unhealthy", nil))
 
 	// Return empty api resource list.
 	// K8s expects to be able to retrieve a resource list for each aggregated
@@ -296,7 +287,6 @@ func (app *virtAPIApp) composeSubresources() {
 func (app *virtAPIApp) Compose() {
 
 	app.composeSubresources()
-	app.composeHealthEndpoint()
 
 	restful.Filter(filter.RequestLoggingFilter())
 	restful.Filter(restful.OPTIONSFilter())

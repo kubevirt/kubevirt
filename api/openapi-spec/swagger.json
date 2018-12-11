@@ -92,29 +92,6 @@
      }
     }
    },
-   "/apis/kubevirt.io/v1alpha2/healthz": {
-    "get": {
-     "consumes": [
-      "application/json"
-     ],
-     "produces": [
-      "application/json"
-     ],
-     "summary": "Health endpoint",
-     "operationId": "checkHealth",
-     "responses": {
-      "200": {
-       "description": "OK"
-      },
-      "500": {
-       "description": "Unhealthy"
-      },
-      "default": {
-       "description": "OK"
-      }
-     }
-    }
-   },
    "/apis/kubevirt.io/v1alpha2/namespaces/{namespace}/virtualmachineinstancemigrations": {
     "get": {
      "produces": [
@@ -3683,6 +3660,29 @@
        "schema": {
         "$ref": "#/definitions/v1.APIResourceList"
        }
+      }
+     }
+    }
+   },
+   "/apis/subresources.kubevirt.io/v1alpha2/healthz": {
+    "get": {
+     "consumes": [
+      "application/json"
+     ],
+     "produces": [
+      "application/json"
+     ],
+     "summary": "Health endpoint",
+     "operationId": "checkHealth",
+     "responses": {
+      "200": {
+       "description": "OK"
+      },
+      "500": {
+       "description": "Unhealthy"
+      },
+      "default": {
+       "description": "OK"
       }
      }
     }
