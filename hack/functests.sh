@@ -18,7 +18,6 @@
 #
 
 set -e
-set -x
 
 source hack/common.sh
 source hack/config.sh
