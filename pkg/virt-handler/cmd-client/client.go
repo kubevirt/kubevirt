@@ -35,8 +35,6 @@ import (
 	"path/filepath"
 	"syscall"
 
-	k8sv1 "k8s.io/api/core/v1"
-
 	v1 "kubevirt.io/kubevirt/pkg/api/v1"
 	diskutils "kubevirt.io/kubevirt/pkg/ephemeral-disk-utils"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
@@ -50,8 +48,8 @@ type Reply struct {
 
 type Args struct {
 	// used for domain management
-	VMI  *v1.VirtualMachineInstance
-	PVCS map[string]*k8sv1.PersistentVolumeClaim
+	VMI              *v1.VirtualMachineInstance
+	IsBlockMigration bool
 }
 
 type LauncherClient interface {
@@ -59,7 +57,7 @@ type LauncherClient interface {
 	SyncMigrationTarget(vmi *v1.VirtualMachineInstance) error
 	ShutdownVirtualMachine(vmi *v1.VirtualMachineInstance) error
 	KillVirtualMachine(vmi *v1.VirtualMachineInstance) error
-	MigrateVirtualMachine(vmi *v1.VirtualMachineInstance, pvcs map[string]*k8sv1.PersistentVolumeClaim) error
+	MigrateVirtualMachine(vmi *v1.VirtualMachineInstance, isBlockMigration bool) error
 	DeleteDomain(vmi *v1.VirtualMachineInstance) error
 	GetDomain() (*api.Domain, bool, error)
 	Ping() error
@@ -141,12 +139,12 @@ func (c *VirtLauncherClient) ShutdownVirtualMachine(vmi *v1.VirtualMachineInstan
 	return err
 }
 
-func (c *VirtLauncherClient) MigrateVirtualMachine(vmi *v1.VirtualMachineInstance, pvcs map[string]*k8sv1.PersistentVolumeClaim) error {
+func (c *VirtLauncherClient) MigrateVirtualMachine(vmi *v1.VirtualMachineInstance, isBlockMigration bool) error {
 	cmd := "Launcher.Migrate"
 
 	args := &Args{
-		VMI:  vmi,
-		PVCS: pvcs,
+		VMI:              vmi,
+		IsBlockMigration: isBlockMigration,
 	}
 	_, err := c.genericSendCmd(args, cmd)
 
