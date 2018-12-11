@@ -110,6 +110,64 @@ var _ = Describe("Configurations", func() {
 				Expect(err).ToNot(HaveOccurred())
 			})
 
+			It("should report 1 socket under guest OS", func() {
+				vmi.Spec.Domain.CPU = &v1.CPU{
+					Sockets: 1,
+					Cores:   3,
+				}
+				vmi.Spec.Domain.Resources = v1.ResourceRequirements{
+					Requests: kubev1.ResourceList{
+						kubev1.ResourceMemory: resource.MustParse("64M"),
+					},
+				}
+
+				By("Starting a VirtualMachineInstance")
+				vmi, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
+				Expect(err).ToNot(HaveOccurred())
+				tests.WaitForSuccessfulVMIStart(vmi)
+
+				By("Expecting the VirtualMachineInstance console")
+				expecter, err := tests.LoggedInAlpineExpecter(vmi)
+				Expect(err).ToNot(HaveOccurred())
+				defer expecter.Close()
+
+				By("Checking the number of sockets under guest OS")
+				_, err = expecter.ExpectBatch([]expect.Batcher{
+					&expect.BSnd{S: "grep '^physical id' /proc/cpuinfo | uniq | wc -l\n"},
+					&expect.BExp{R: "1"},
+				}, 15*time.Second)
+				Expect(err).ToNot(HaveOccurred())
+			})
+
+			It("should report 3 threads under guest OS", func() {
+				vmi.Spec.Domain.CPU = &v1.CPU{
+					Threads: 1,
+					Cores:   3,
+				}
+				vmi.Spec.Domain.Resources = v1.ResourceRequirements{
+					Requests: kubev1.ResourceList{
+						kubev1.ResourceMemory: resource.MustParse("64M"),
+					},
+				}
+
+				By("Starting a VirtualMachineInstance")
+				vmi, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
+				Expect(err).ToNot(HaveOccurred())
+				tests.WaitForSuccessfulVMIStart(vmi)
+
+				By("Expecting the VirtualMachineInstance console")
+				expecter, err := tests.LoggedInAlpineExpecter(vmi)
+				Expect(err).ToNot(HaveOccurred())
+				defer expecter.Close()
+
+				By("Checking the number of threads under guest OS")
+				_, err = expecter.ExpectBatch([]expect.Batcher{
+					&expect.BSnd{S: "grep -c ^processor /proc/cpuinfo\n"},
+					&expect.BExp{R: "3"},
+				}, 15*time.Second)
+				Expect(err).ToNot(HaveOccurred())
+			})
+
 			It("should map cores to virtio block queues", func() {
 				_true := true
 				vmi.Spec.Domain.Resources = v1.ResourceRequirements{

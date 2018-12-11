@@ -773,9 +773,9 @@ func Convert_v1_VirtualMachine_To_api_Domain(vmi *v1.VirtualMachineInstance, dom
 	if vmi.Spec.Domain.CPU != nil {
 		// Set VM CPU cores
 		domain.Spec.CPU.Topology = &CPUTopology{
-			Sockets: 1,
+			Sockets: calculateRequestedSockets(vmi),
 			Cores:   calculateRequestedVCPUs(vmi),
-			Threads: 1,
+			Threads: calculateRequestedThreads(vmi),
 		}
 		domain.Spec.VCPU = &VCPU{
 			Placement: "static",
@@ -1016,6 +1016,22 @@ func Convert_v1_VirtualMachine_To_api_Domain(vmi *v1.VirtualMachineInstance, dom
 	}
 
 	return nil
+}
+
+func calculateRequestedSockets(vmi *v1.VirtualMachineInstance) uint32 {
+	sockets := uint32(1)
+	if vmi.Spec.Domain.CPU != nil && vmi.Spec.Domain.CPU.Sockets != 0 {
+		return vmi.Spec.Domain.CPU.Sockets
+	}
+	return sockets
+}
+
+func calculateRequestedThreads(vmi *v1.VirtualMachineInstance) uint32 {
+	threads := uint32(1)
+	if vmi.Spec.Domain.CPU != nil && vmi.Spec.Domain.CPU.Threads != 0 {
+		return vmi.Spec.Domain.CPU.Threads
+	}
+	return threads
 }
 
 func calculateRequestedVCPUs(vmi *v1.VirtualMachineInstance) uint32 {

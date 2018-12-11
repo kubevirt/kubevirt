@@ -158,6 +158,12 @@ type CPU struct {
 	// Cores specifies the number of cores inside the vmi.
 	// Must be a value greater or equal 1.
 	Cores uint32 `json:"cores,omitempty"`
+	// Sockets specifies the number of sockets inside the vmi.
+	// Must be a value greater or equal 1.
+	Sockets uint32 `json:"sockets,omitempty"`
+	// Threads specifies the number of threads inside the vmi.
+	// Must be a value greater or equal 1.
+	Threads uint32 `json:"threads,omitempty"`
 	// Model specifies the CPU model inside the VMI.
 	// List of available models https://github.com/libvirt/libvirt/blob/master/src/cpu/cpu_map.xml.
 	// It is possible to specify special cases like "host-passthrough" to get the same CPU as the node

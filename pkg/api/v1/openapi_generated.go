@@ -156,6 +156,20 @@ func schema_kubevirt_pkg_api_v1_CPU(ref common.ReferenceCallback) common.OpenAPI
 							Format:      "int64",
 						},
 					},
+					"sockets": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Sockets specifies the number of sockets inside the vmi. Must be a value greater or equal 1.",
+							Type:        []string{"integer"},
+							Format:      "int64",
+						},
+					},
+					"threads": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Threads specifies the number of threads inside the vmi. Must be a value greater or equal 1.",
+							Type:        []string{"integer"},
+							Format:      "int64",
+						},
+					},
 					"model": {
 						SchemaProps: spec.SchemaProps{
 							Description: "Model specifies the CPU model inside the VMI. List of available models https://github.com/libvirt/libvirt/blob/master/src/cpu/cpu_map.xml. It is possible to specify special cases like \"host-passthrough\" to get the same CPU as the node and \"host-model\" to get CPU closest to the node one. For more information see https://libvirt.org/formatdomain.html#elementsCPU. Defaults to host-model.",

@@ -554,8 +554,10 @@ var _ = Describe("Converter", func() {
 		It("should convert CPU cores and model", func() {
 			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
 			vmi.Spec.Domain.CPU = &v1.CPU{
-				Cores: 3,
-				Model: "Conroe",
+				Cores:   3,
+				Sockets: 1,
+				Threads: 1,
+				Model:   "Conroe",
 			}
 			domainSpec := vmiToDomainXMLToDomainSpec(vmi, c)
 
