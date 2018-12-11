@@ -22,7 +22,9 @@ package tests_test
 import (
 	"flag"
 	"strings"
+	"time"
 
+	expect "github.com/google/goexpect"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	k8sv1 "k8s.io/api/core/v1"
@@ -165,6 +167,36 @@ var _ = Describe("ContainerDisk", func() {
 				obj, err := virtClient.RestClient().Post().Resource("virtualmachineinstances").Namespace(tests.NamespaceTestDefault).Body(vmi).Do().Get()
 				Expect(err).To(BeNil())
 				tests.WaitForSuccessfulVMIStart(obj)
+			})
+		})
+	})
+
+	Describe("Starting with virtio-win", func() {
+		Context("with virtio-win as secondary disk", func() {
+			It("should boot and have the virtio as sata CDROM", func() {
+				vmi := tests.NewRandomVMIWithEphemeralDisk(tests.ContainerDiskFor(tests.ContainerDiskAlpine))
+				tests.AddEphemeralCdrom(vmi, "disk4", "sata", tests.ContainerDiskFor(tests.ContainerDiskVirtio))
+
+				By("Starting the VirtualMachineInstance")
+				obj, err := virtClient.RestClient().Post().Resource("virtualmachineinstances").Namespace(tests.NamespaceTestDefault).Body(vmi).Do().Get()
+				Expect(err).To(BeNil(), "expected vmi to start with no problem")
+				tests.WaitForSuccessfulVMIStart(obj)
+
+				By("Checking whether the second disk really contains virtio drivers")
+				expecter, err := tests.LoggedInAlpineExpecter(vmi)
+				Expect(err).ToNot(HaveOccurred(), "expected alpine to login properly")
+				defer expecter.Close()
+
+				_, err = expecter.ExpectBatch([]expect.Batcher{
+					// mount virtio cdrom and check files are there
+					&expect.BSnd{S: "mount -t iso9600 /dev/cdrom /mnt\n"},
+					&expect.BSnd{S: "echo $?\n"},
+					&expect.BExp{R: "0"},
+					&expect.BSnd{S: "ls virtio-win_license.txt guest-agent\n"},
+					&expect.BSnd{S: "echo $?\n"},
+					&expect.BExp{R: "0"},
+				}, 200*time.Second)
+				Expect(err).ToNot(HaveOccurred(), "expected virtio files to be mounted properly")
 			})
 		})
 	})
