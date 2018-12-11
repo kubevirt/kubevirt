@@ -42,6 +42,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/util"
 	"kubevirt.io/kubevirt/pkg/util/net/dns"
 	"kubevirt.io/kubevirt/pkg/util/types"
+	"kubevirt.io/kubevirt/pkg/virt-config"
 )
 
 const configMapName = "kubevirt-config"
@@ -58,6 +59,10 @@ const CAP_SYS_NICE = "SYS_NICE"
 // LibvirtStartupDelay is added to custom liveness and readiness probes initial delay value.
 // Libvirt needs roughly 10 seconds to start.
 const LibvirtStartupDelay = 10
+
+//This is a perfix for node feature discovery, used in a NodeSelector on the pod
+//to match a VirtualMachineInstance CPU model(Family) to nodes that support this model.
+const NFD_CPU_MODEL_PREFIX = "feature.node.kubernetes.io/cpu-model-"
 
 const MULTUS_RESOURCE_NAME_ANNOTATION = "k8s.v1.cni.cncf.io/resourceName"
 
@@ -142,6 +147,24 @@ func isSRIOVVmi(vmi *v1.VirtualMachineInstance) bool {
 		}
 	}
 	return false
+}
+
+func IsCPUNodeDiscoveryEnabled(store cache.Store) bool {
+	if value, err := getConfigMapEntry(store, virtconfig.FeatureGatesKey); err != nil {
+		return false
+	} else if strings.Contains(value, virtconfig.CPUNodeDiscoveryGate) {
+		return true
+	}
+	return false
+}
+
+func CPUModelLabelFromCPUModel(vmi *v1.VirtualMachineInstance) (label string, err error) {
+	if vmi.Spec.Domain.CPU == nil || vmi.Spec.Domain.CPU.Model == "" {
+		err = fmt.Errorf("Cannot create CPU Model label, vmi spec is mising CPU model")
+		return
+	}
+	label = NFD_CPU_MODEL_PREFIX + vmi.Spec.Domain.CPU.Model
+	return
 }
 
 func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (*k8sv1.Pod, error) {
@@ -612,6 +635,14 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 		nodeSelector[k] = v
 
 	}
+	if IsCPUNodeDiscoveryEnabled(t.configMapStore) {
+		if cpuModelLabel, err := CPUModelLabelFromCPUModel(vmi); err == nil {
+			if vmi.Spec.Domain.CPU.Model != v1.CPUModeHostModel && vmi.Spec.Domain.CPU.Model != v1.CPUModeHostPassthrough {
+				nodeSelector[cpuModelLabel] = "true"
+			}
+		}
+	}
+
 	nodeSelector[v1.NodeSchedulable] = "true"
 
 	podLabels := map[string]string{}

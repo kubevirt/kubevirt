@@ -578,8 +578,8 @@ var _ = Describe("Converter", func() {
 
 			Expect(domainSpec.CPU.Mode).To(Equal(model))
 		},
-			table.Entry(CPUModeHostPassthrough, CPUModeHostPassthrough),
-			table.Entry(CPUModeHostModel, CPUModeHostModel),
+			table.Entry(v1.CPUModeHostPassthrough, v1.CPUModeHostPassthrough),
+			table.Entry(v1.CPUModeHostModel, v1.CPUModeHostModel),
 		)
 
 		Context("when CPU spec defined and model not", func() {
