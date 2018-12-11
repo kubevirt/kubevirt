@@ -2282,7 +2282,7 @@ func RemoveHostDiskImage(diskPath string, nodeName string) {
 func CreateISCSITargetPOD() (iscsiTargetIP string) {
 	virtClient, err := kubecli.GetKubevirtClient()
 	PanicOnError(err)
-	image := ContainerDiskFor(ContainerDiskAlpine)
+	image := fmt.Sprintf("%s/cdi-http-import-server:%s", KubeVirtRepoPrefix, KubeVirtVersionTag)
 	resources := k8sv1.ResourceRequirements{}
 	resources.Limits = make(k8sv1.ResourceList)
 	resources.Limits[k8sv1.ResourceMemory] = resource.MustParse("64M")
@@ -2304,10 +2304,6 @@ func CreateISCSITargetPOD() (iscsiTargetIP string) {
 						{
 							Name:  "AS_ISCSI",
 							Value: "true",
-						},
-						{
-							Name:  "COPY_PATH",
-							Value: "/var/run/test_iscsi_target/disk-image",
 						},
 					},
 				},
