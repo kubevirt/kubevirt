@@ -41,7 +41,7 @@ if [[ $TARGET =~ openshift-.* ]]; then
   if [[ $TARGET =~ .*-crio-.* ]]; then
     export KUBEVIRT_PROVIDER="os-3.11.0-crio"
   elif [[ $TARGET =~ .*-multus-.* ]]; then
-    export KUBEVIRT_PROVIDER="os-3.10.0-multus"
+    export KUBEVIRT_PROVIDER="os-3.11.0-multus"
   else
     export KUBEVIRT_PROVIDER="os-3.11.0"
   fi
@@ -154,7 +154,7 @@ trap '{ make cluster-down; }' EXIT SIGINT SIGTERM SIGSTOP
 
 # Check if we are on a pull request in jenkins.
 export KUBEVIRT_CACHE_FROM=${ghprbTargetBranch}
-if [ -n ${KUBEVIRT_CACHE_FROM} ]; then
+if [ -n "${KUBEVIRT_CACHE_FROM}" ]; then
     make pull-cache
 fi
 
