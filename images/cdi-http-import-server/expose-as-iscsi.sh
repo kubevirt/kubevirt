@@ -3,8 +3,8 @@
 IMAGE_PATH="$1"
 
 if [ ! -f "$IMAGE_PATH" ]; then
-	echo "vm image '$IMAGE_PATH' not found"
-	exit 1
+    echo "vm image '$IMAGE_PATH' not found"
+    exit 1
 fi
 
 # USING 'set -e' error detection for everything below this point.
@@ -23,9 +23,9 @@ tgtadm --lld iscsi --mode target --op new --tid=1 --targetname $WWN
 tgtadm --lld iscsi --mode target --op bind --tid=1 -I ALL
 
 if [ -n "$PASSWORD" ]; then
-	echo "Adding authentication for user $USERNAME"
-	tgtadm --lld iscsi --op new --mode account --user $USERNAME --password $PASSWORD
-	tgtadm --lld iscsi --op bind --mode account --tid=1 --user $USERNAME
+    echo "Adding authentication for user $USERNAME"
+    tgtadm --lld iscsi --op new --mode account --user $USERNAME --password $PASSWORD
+    tgtadm --lld iscsi --op bind --mode account --tid=1 --user $USERNAME
 fi
 
 echo "Adding volume file as LUN"
@@ -34,9 +34,12 @@ tgtadm --lld iscsi --mode logicalunit --op update --tid=1 --lun=$LUNID --params 
 
 echo "Start monitoring"
 touch previous_state
-while true ; do
-	tgtadm --lld iscsi --mode target --op show > current_state
-	diff -q previous_state current_state || ( date ; cat current_state ; )
-	mv -f current_state previous_state
-	sleep 5
+while true; do
+    tgtadm --lld iscsi --mode target --op show >current_state
+    diff -q previous_state current_state || (
+        date
+        cat current_state
+    )
+    mv -f current_state previous_state
+    sleep 5
 done

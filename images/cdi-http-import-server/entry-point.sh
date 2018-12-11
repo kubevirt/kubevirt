@@ -1,3 +1,4 @@
+#!/bin/bash
 #
 # This file is part of the KubeVirt project
 #
@@ -16,14 +17,21 @@
 # Copyright 2017 Red Hat, Inc.
 #
 
-FROM fedora:28
+# https://fedoraproject.org/wiki/Scsi-target-utils_Quickstart_Guide
 
-LABEL maintainer="The KubeVirt Project <kubevirt-dev@googlegroups.com>"
+trap 'echo "Graceful exit"; exit 0' SIGINT SIGQUIT SIGTERM
 
-ENV container docker
+ALPINE_IMAGE_PATH=/usr/share/nginx/html/images/alpine.iso
+IMAGE_PATH=/images
 
-RUN yum install -y bzip2 qemu-img && dnf clean all && mkdir -p /disk
+if [ -n "$AS_ISCSI" ]; then
+    mkdir -p $IMAGE_PATH
+    /usr/bin/qemu-img convert $ALPINE_IMAGE_PATH $IMAGE_PATH/alpine.raw
+    if [ $? -ne 0 ]; then
+        echo "Failed to convert image $ALPINE_IMAGE_PATH to .raw file"
+        exit 1
+    fi
 
-ADD entry-point.sh /
-
-CMD ["/entry-point.sh"]
+    touch /tmp/healthy
+    bash expose-as-iscsi.sh "${IMAGE_PATH}/alpine.raw"
+fi
