@@ -1400,6 +1400,35 @@ var _ = Describe("getNamespaceAndNetworkName", func() {
 	})
 })
 
+var _ = Describe("requestResource", func() {
+	It("should register resource in limits and requests", func() {
+		resources := kubev1.ResourceRequirements{}
+		resources.Requests = make(kubev1.ResourceList)
+		resources.Limits = make(kubev1.ResourceList)
+
+		resource := "intel.com/sriov"
+		resourceName := kubev1.ResourceName(resource)
+
+		for i := int64(1); i <= 5; i++ {
+			requestResource(&resources, resource)
+
+			val, ok := resources.Limits[resourceName]
+			Expect(ok).To(BeTrue())
+
+			valInt, isInt := val.AsInt64()
+			Expect(isInt).To(BeTrue())
+			Expect(valInt).To(Equal(i))
+
+			val, ok = resources.Requests[resourceName]
+			Expect(ok).To(BeTrue())
+
+			valInt, isInt = val.AsInt64()
+			Expect(isInt).To(BeTrue())
+			Expect(valInt).To(Equal(i))
+		}
+	})
+})
+
 func True() *bool {
 	b := true
 	return &b

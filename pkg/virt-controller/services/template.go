@@ -167,6 +167,55 @@ func CPUModelLabelFromCPUModel(vmi *v1.VirtualMachineInstance) (label string, er
 	return
 }
 
+// Request a resource by name. This function bumps the number of resources,
+// both its limits and requests attributes.
+//
+// If we were operating with a regular resource (CPU, memory, network
+// bandwidth), we would need to take care of QoS. For example,
+// https://kubernetes.io/docs/tasks/configure-pod-container/quality-service-pod/#create-a-pod-that-gets-assigned-a-qos-class-of-guaranteed
+// explains that when Limits are set but Requests are not then scheduler
+// assumes that Requests are the same as Limits for a particular resource.
+//
+// But this function is not called for this standard resources but for
+// resources managed by device plugins. The device plugin design document says
+// the following on the matter:
+// https://github.com/kubernetes/community/blob/master/contributors/design-proposals/resource-management/device-plugin.md#end-user-story
+//
+// ```
+// Devices can be selected using the same process as for OIRs in the pod spec.
+// Devices have no impact on QOS. However, for the alpha, we expect the request
+// to have limits == requests.
+// ```
+//
+// Which suggests that, for resources managed by device plugins, 1) limits
+// should be equal to requests; and 2) QoS rules do not apply.
+//
+// Hence we don't copy Limits value to Requests if the latter is missing.
+func requestResource(resources *k8sv1.ResourceRequirements, resourceName string) {
+	name := k8sv1.ResourceName(resourceName)
+
+	// assume resources are countable, singular, and cannot be divided
+	unitQuantity := *resource.NewQuantity(1, resource.DecimalSI)
+
+	// Fill in limits
+	val, ok := resources.Limits[name]
+	if ok {
+		val.Add(unitQuantity)
+		resources.Limits[name] = val
+	} else {
+		resources.Limits[name] = unitQuantity
+	}
+
+	// Fill in requests
+	val, ok = resources.Requests[name]
+	if ok {
+		val.Add(unitQuantity)
+		resources.Requests[name] = val
+	} else {
+		resources.Requests[name] = unitQuantity
+	}
+}
+
 func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (*k8sv1.Pod, error) {
 	precond.MustNotBeNil(vmi)
 	domain := precond.MustNotBeEmpty(vmi.GetObjectMeta().GetName())
@@ -406,6 +455,7 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 	vmiResources := vmi.Spec.Domain.Resources
 
 	resources.Requests = make(k8sv1.ResourceList)
+	resources.Limits = make(k8sv1.ResourceList)
 
 	// Copy vmi resources requests to a container
 	for key, value := range vmiResources.Requests {
@@ -413,20 +463,12 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 	}
 
 	// Copy vmi resources limits to a container
-	if vmiResources.Limits != nil {
-		resources.Limits = make(k8sv1.ResourceList)
-	}
-
 	for key, value := range vmiResources.Limits {
 		resources.Limits[key] = value
 	}
 
 	// Consider hugepages resource for pod scheduling
 	if vmi.Spec.Domain.Memory != nil && vmi.Spec.Domain.Memory.Hugepages != nil {
-		if resources.Limits == nil {
-			resources.Limits = make(k8sv1.ResourceList)
-		}
-
 		hugepageType := k8sv1.ResourceName(k8sv1.ResourceHugePagesPrefix + vmi.Spec.Domain.Memory.Hugepages.PageSize)
 		resources.Requests[hugepageType] = resources.Requests[k8sv1.ResourceMemory]
 		resources.Limits[hugepageType] = resources.Requests[k8sv1.ResourceMemory]
@@ -488,9 +530,6 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 		// schedule only on nodes with a running cpu manager
 		nodeSelector[v1.CPUManager] = "true"
 
-		if resources.Limits == nil {
-			resources.Limits = make(k8sv1.ResourceList)
-		}
 		cores := uint32(0)
 		if vmi.Spec.Domain.CPU != nil {
 			cores = vmi.Spec.Domain.CPU.Cores
@@ -578,6 +617,21 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 
 	volumes = append(volumes, k8sv1.Volume{Name: "infra-ready-mount", VolumeSource: k8sv1.VolumeSource{EmptyDir: &k8sv1.EmptyDirVolumeSource{}}})
 
+	containers := containerdisk.GenerateContainers(vmi, "ephemeral-disks", t.ephemeralDiskDir)
+
+	networkToResourceMap, err := getNetworkToResourceMap(t.virtClient, vmi)
+	if err != nil {
+		return nil, err
+	}
+
+	// Register resource requests and limits corresponding to attached multus networks.
+	// TODO(ihar) remove when we adopt Multus mutating webhook that handles the job.
+	for _, resourceName := range networkToResourceMap {
+		if resourceName != "" {
+			requestResource(&resources, resourceName)
+		}
+	}
+
 	// VirtualMachineInstance target container
 	container := k8sv1.Container{
 		Name:            "compute",
@@ -608,7 +662,12 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 		container.LivenessProbe.InitialDelaySeconds = container.LivenessProbe.InitialDelaySeconds + LibvirtStartupDelay
 	}
 
-	containers := containerdisk.GenerateContainers(vmi, "ephemeral-disks", t.ephemeralDiskDir)
+	for networkName, resourceName := range networkToResourceMap {
+		varName := fmt.Sprintf("KUBEVIRT_RESOURCE_NAME_%s", networkName)
+		container.Env = append(container.Env, k8sv1.EnvVar{Name: varName, Value: resourceName})
+	}
+
+	containers = append(containers, container)
 
 	volumes = append(volumes, k8sv1.Volume{
 		Name: "virt-share-dir",
@@ -652,17 +711,6 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 	}
 	podLabels[v1.AppLabel] = "virt-launcher"
 	podLabels[v1.CreatedByLabel] = string(vmi.UID)
-
-	networkToResourceMap, err := getNetworkToResourceMap(t.virtClient, vmi)
-	if err != nil {
-		return nil, err
-	}
-	for networkName, resourceName := range networkToResourceMap {
-		varName := fmt.Sprintf("KUBEVIRT_RESOURCE_NAME_%s", networkName)
-		container.Env = append(container.Env, k8sv1.EnvVar{Name: varName, Value: resourceName})
-
-	}
-	containers = append(containers, container)
 
 	for i, requestedHookSidecar := range requestedHookSidecarList {
 		resources := k8sv1.ResourceRequirements{}
