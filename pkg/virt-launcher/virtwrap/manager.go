@@ -36,7 +36,6 @@ import (
 	eventsclient "kubevirt.io/kubevirt/pkg/virt-launcher/notify-client"
 
 	libvirt "github.com/libvirt/libvirt-go"
-	k8sv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	utilwait "k8s.io/apimachinery/pkg/util/wait"
 
@@ -64,7 +63,7 @@ type DomainManager interface {
 	DeleteVMI(*v1.VirtualMachineInstance) error
 	SignalShutdownVMI(*v1.VirtualMachineInstance) error
 	ListAllDomains() ([]*api.Domain, error)
-	MigrateVMI(*v1.VirtualMachineInstance, map[string]*k8sv1.PersistentVolumeClaim) error
+	MigrateVMI(*v1.VirtualMachineInstance, bool) error
 	PrepareMigrationTarget(*v1.VirtualMachineInstance, bool) error
 }
 
@@ -260,52 +259,7 @@ func (l *LibvirtDomainManager) asyncMigrate(vmi *v1.VirtualMachineInstance, isBl
 	}(l, vmi)
 }
 
-func checkVolumesForMigration(vmi *v1.VirtualMachineInstance, pvcs map[string]*k8sv1.PersistentVolumeClaim) (blockMigrate bool, err error) {
-	// Check if all VMI volumes can be shared between the source and the destination
-	// of a live migration. blockMigrate will be returned as false, only if all volumes
-	// are shared and the VMI has no local disks
-	// Some combinations of disks makes the VMI no suitable for live migration.
-	// A relevant error will be returned in this case.
-	hasPVC := false
-	for _, volume := range vmi.Spec.Volumes {
-		volSrc := volume.VolumeSource
-		if volSrc.PersistentVolumeClaim != nil {
-			hasPVC = true
-			pvc, _ := pvcs[volSrc.PersistentVolumeClaim.ClaimName]
-			isSharedPvc := false
-			for _, accessMode := range pvc.Spec.AccessModes {
-				if accessMode == k8sv1.ReadWriteMany {
-					isSharedPvc = true
-				}
-			}
-			blockMigrate = !isSharedPvc
-			if !isSharedPvc {
-				return blockMigrate, fmt.Errorf("cannot migrate VMI with non-shared PVCs")
-			}
-		} else if volSrc.HostDisk != nil {
-			blockMigrate = true
-			if volSrc.HostDisk.Shared != nil {
-				blockMigrate = !*volSrc.HostDisk.Shared
-			}
-			if blockMigrate {
-				return blockMigrate, fmt.Errorf("cannot migrate VMI with non-shared HostDisk")
-			}
-		} else if volSrc.CloudInitNoCloud != nil ||
-			volSrc.ConfigMap != nil || volSrc.ServiceAccount != nil ||
-			volSrc.Secret != nil {
-			continue
-		} else {
-			if hasPVC {
-				err = fmt.Errorf("cannot migrate VMI with mixes shared and non-shared volumes")
-				return
-			}
-			blockMigrate = true
-		}
-	}
-	return
-}
-
-func (l *LibvirtDomainManager) MigrateVMI(vmi *v1.VirtualMachineInstance, pvcs map[string]*k8sv1.PersistentVolumeClaim) error {
+func (l *LibvirtDomainManager) MigrateVMI(vmi *v1.VirtualMachineInstance, isBlockMigration bool) error {
 
 	if vmi.Status.MigrationState == nil {
 		return fmt.Errorf("cannot migration VMI until migrationState is ready")
@@ -318,11 +272,6 @@ func (l *LibvirtDomainManager) MigrateVMI(vmi *v1.VirtualMachineInstance, pvcs m
 
 	if inProgress {
 		return nil
-	}
-
-	isBlockMigration, err := checkVolumesForMigration(vmi, pvcs)
-	if err != nil {
-		return err
 	}
 
 	l.asyncMigrate(vmi, isBlockMigration)

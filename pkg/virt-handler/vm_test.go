@@ -31,6 +31,7 @@ import (
 	"github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
 	k8sv1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/uuid"
@@ -326,6 +327,12 @@ var _ = Describe("VirtualMachineInstance", func() {
 			vmi.UID = testUUID
 			vmi.ObjectMeta.ResourceVersion = "1"
 			vmi.Status.Phase = v1.Scheduled
+			vmi.Status.Conditions = []v1.VirtualMachineInstanceCondition{
+				{
+					Type:   v1.VirtualMachineInstanceIsMigratable,
+					Status: k8sv1.ConditionTrue,
+				},
+			}
 
 			mockWatchdog.CreateFile(vmi)
 			vmiFeeder.Add(vmi)
@@ -343,6 +350,12 @@ var _ = Describe("VirtualMachineInstance", func() {
 
 			updatedVMI := vmi.DeepCopy()
 			updatedVMI.Status.Phase = v1.Running
+			updatedVMI.Status.Conditions = []v1.VirtualMachineInstanceCondition{
+				{
+					Type:   v1.VirtualMachineInstanceIsMigratable,
+					Status: k8sv1.ConditionTrue,
+				},
+			}
 
 			mockWatchdog.CreateFile(vmi)
 			domain := api.NewMinimalDomainWithUUID("testvmi", testUUID)
@@ -391,6 +404,10 @@ var _ = Describe("VirtualMachineInstance", func() {
 			updatedVMI := vmi.DeepCopy()
 			updatedVMI.Status.Conditions = []v1.VirtualMachineInstanceCondition{
 				{
+					Type:   v1.VirtualMachineInstanceIsMigratable,
+					Status: k8sv1.ConditionTrue,
+				},
+				{
 					Type:          v1.VirtualMachineInstanceAgentConnected,
 					LastProbeTime: metav1.Now(),
 					Status:        k8sv1.ConditionTrue,
@@ -417,6 +434,10 @@ var _ = Describe("VirtualMachineInstance", func() {
 					LastProbeTime: metav1.Now(),
 					Status:        k8sv1.ConditionTrue,
 				},
+				{
+					Type:   v1.VirtualMachineInstanceIsMigratable,
+					Status: k8sv1.ConditionTrue,
+				},
 			}
 
 			mockWatchdog.CreateFile(vmi)
@@ -434,7 +455,12 @@ var _ = Describe("VirtualMachineInstance", func() {
 			}
 
 			updatedVMI := vmi.DeepCopy()
-			updatedVMI.Status.Conditions = nil
+			updatedVMI.Status.Conditions = []v1.VirtualMachineInstanceCondition{
+				{
+					Type:   v1.VirtualMachineInstanceIsMigratable,
+					Status: k8sv1.ConditionTrue,
+				},
+			}
 
 			vmiFeeder.Add(vmi)
 			domainFeeder.Add(domain)
@@ -495,7 +521,12 @@ var _ = Describe("VirtualMachineInstance", func() {
 			}
 
 			updatedVMI := vmi.DeepCopy()
-			updatedVMI.Status.Conditions = nil
+			updatedVMI.Status.Conditions = []v1.VirtualMachineInstanceCondition{
+				{
+					Type:   v1.VirtualMachineInstanceIsMigratable,
+					Status: k8sv1.ConditionTrue,
+				},
+			}
 
 			mockWatchdog.CreateFile(vmi)
 			vmiFeeder.Add(vmi)
@@ -588,6 +619,12 @@ var _ = Describe("VirtualMachineInstance", func() {
 				SourceNode:        host,
 				MigrationUID:      "123",
 			}
+			vmi.Status.Conditions = []v1.VirtualMachineInstanceCondition{
+				{
+					Type:   v1.VirtualMachineInstanceIsMigratable,
+					Status: k8sv1.ConditionTrue,
+				},
+			}
 
 			mockWatchdog.CreateFile(vmi)
 			domain := api.NewMinimalDomainWithUUID("testvmi", testUUID)
@@ -595,8 +632,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 			domainFeeder.Add(domain)
 			vmiFeeder.Add(vmi)
 
-			emptyPVCMap := make(map[string]*k8sv1.PersistentVolumeClaim)
-			client.EXPECT().MigrateVirtualMachine(vmi, emptyPVCMap)
+			client.EXPECT().MigrateVirtualMachine(vmi, false)
 
 			controller.Execute()
 		}, 3)
@@ -646,6 +682,253 @@ var _ = Describe("VirtualMachineInstance", func() {
 		}, 3)
 	})
 
+	Context("check VMI disks for migration", func() {
+		var testBlockPvc *k8sv1.PersistentVolumeClaim
+
+		BeforeEach(func() {
+			kubeClient := fake.NewSimpleClientset()
+			virtClient.EXPECT().CoreV1().Return(kubeClient.CoreV1()).AnyTimes()
+
+			// create a test block pvc
+			mode := k8sv1.PersistentVolumeBlock
+			testBlockPvc = &k8sv1.PersistentVolumeClaim{
+				TypeMeta:   metav1.TypeMeta{Kind: "PersistentVolumeClaim", APIVersion: "v1"},
+				ObjectMeta: metav1.ObjectMeta{Namespace: k8sv1.NamespaceDefault, Name: "testblock"},
+				Spec: k8sv1.PersistentVolumeClaimSpec{
+					VolumeMode:  &mode,
+					AccessModes: []k8sv1.PersistentVolumeAccessMode{k8sv1.ReadWriteMany},
+				},
+			}
+
+		})
+		It("should block migrate non-shared disks ", func() {
+
+			vmi := v1.NewMinimalVMI("testvmi")
+			vmi.Spec.Domain.Devices.Disks = []v1.Disk{
+				{
+					Name:       "mydisk",
+					VolumeName: "myvolume",
+					DiskDevice: v1.DiskDevice{
+						Disk: &v1.DiskTarget{
+							Bus: "virtio",
+						},
+					},
+				},
+			}
+			vmi.Spec.Volumes = []v1.Volume{
+				{
+					Name: "myvolume",
+					VolumeSource: v1.VolumeSource{
+						Ephemeral: &v1.EphemeralVolumeSource{
+							PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{
+								ClaimName: "testclaim",
+							},
+						},
+					},
+				},
+			}
+
+			blockMigrate, err := controller.checkVolumesForMigration(vmi)
+			Expect(blockMigrate).To(BeTrue())
+			Expect(err).To(BeNil())
+		})
+		It("should migrate shared disks without blockMigration flag", func() {
+
+			vmi := v1.NewMinimalVMI("testvmi")
+			vmi.Spec.Domain.Devices.Disks = []v1.Disk{
+				{
+					Name:       "mydisk",
+					VolumeName: "myvolume",
+					DiskDevice: v1.DiskDevice{
+						Disk: &v1.DiskTarget{
+							Bus: "virtio",
+						},
+					},
+				},
+			}
+			vmi.Spec.Volumes = []v1.Volume{
+				{
+					Name: "myvolume",
+					VolumeSource: v1.VolumeSource{
+						PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{
+							ClaimName: "testblock",
+						},
+					},
+				},
+			}
+
+			virtClient.CoreV1().PersistentVolumeClaims(vmi.Namespace).Create(testBlockPvc)
+			blockMigrate, err := controller.checkVolumesForMigration(vmi)
+			Expect(blockMigrate).To(BeFalse())
+			Expect(err).To(BeNil())
+		})
+		It("should fail migration for non-shared PVCs", func() {
+
+			vmi := v1.NewMinimalVMI("testvmi")
+			vmi.Spec.Domain.Devices.Disks = []v1.Disk{
+				{
+					Name:       "mydisk",
+					VolumeName: "myvolume",
+					DiskDevice: v1.DiskDevice{
+						Disk: &v1.DiskTarget{
+							Bus: "virtio",
+						},
+					},
+				},
+			}
+			vmi.Spec.Volumes = []v1.Volume{
+				{
+					Name: "myvolume",
+					VolumeSource: v1.VolumeSource{
+						PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{
+							ClaimName: "testblock",
+						},
+					},
+				},
+			}
+
+			testBlockPvc.Spec.AccessModes = []k8sv1.PersistentVolumeAccessMode{k8sv1.ReadWriteOnce}
+
+			virtClient.CoreV1().PersistentVolumeClaims(vmi.Namespace).Create(testBlockPvc)
+			blockMigrate, err := controller.checkVolumesForMigration(vmi)
+			Expect(blockMigrate).To(BeTrue())
+			Expect(err).To(Equal(fmt.Errorf("cannot migrate VMI with non-shared PVCs")))
+		})
+		It("should not be allowed to migrate a mix of shared and non-shared disks", func() {
+
+			vmi := v1.NewMinimalVMI("testvmi")
+			vmi.Spec.Domain.Devices.Disks = []v1.Disk{
+				{
+					Name:       "mydisk",
+					VolumeName: "myvolume",
+					DiskDevice: v1.DiskDevice{
+						Disk: &v1.DiskTarget{
+							Bus: "virtio",
+						},
+					},
+				},
+				{
+					Name:       "mydisk1",
+					VolumeName: "myvolume1",
+					DiskDevice: v1.DiskDevice{
+						Disk: &v1.DiskTarget{
+							Bus: "virtio",
+						},
+					},
+				},
+			}
+			vmi.Spec.Volumes = []v1.Volume{
+				{
+					Name: "myvolume",
+					VolumeSource: v1.VolumeSource{
+						PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{
+							ClaimName: "testblock",
+						},
+					},
+				},
+				{
+					Name: "myvolume1",
+					VolumeSource: v1.VolumeSource{
+						Ephemeral: &v1.EphemeralVolumeSource{
+							PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{
+								ClaimName: "testclaim",
+							},
+						},
+					},
+				},
+			}
+
+			virtClient.CoreV1().PersistentVolumeClaims(vmi.Namespace).Create(testBlockPvc)
+			blockMigrate, err := controller.checkVolumesForMigration(vmi)
+			Expect(blockMigrate).To(BeFalse())
+			Expect(err).To(Equal(fmt.Errorf("cannot migrate VMI with mixes shared and non-shared volumes")))
+		})
+		It("should be allowed to live-migrate shared HostDisks ", func() {
+			_true := true
+			vmi := v1.NewMinimalVMI("testvmi")
+			vmi.Spec.Domain.Devices.Disks = []v1.Disk{
+				{
+					Name:       "mydisk",
+					VolumeName: "myvolume",
+					DiskDevice: v1.DiskDevice{
+						Disk: &v1.DiskTarget{
+							Bus: "virtio",
+						},
+					},
+				},
+			}
+			vmi.Spec.Volumes = []v1.Volume{
+				{
+					Name: "myvolume",
+					VolumeSource: v1.VolumeSource{
+						HostDisk: &v1.HostDisk{
+							Path:     "/var/run/kubevirt-private/vmi-disks/volume3/disk.img",
+							Type:     v1.HostDiskExistsOrCreate,
+							Capacity: resource.MustParse("1Gi"),
+							Shared:   &_true,
+						},
+					},
+				},
+			}
+
+			blockMigrate, err := controller.checkVolumesForMigration(vmi)
+			Expect(blockMigrate).To(BeFalse())
+			Expect(err).To(BeNil())
+		})
+		It("should be allowed to live-migrate shared HostDisks ", func() {
+			_true := true
+			_false := false
+			vmi := v1.NewMinimalVMI("testvmi")
+			vmi.Spec.Domain.Devices.Disks = []v1.Disk{
+				{
+					Name:       "mydisk",
+					VolumeName: "myvolume",
+					DiskDevice: v1.DiskDevice{
+						Disk: &v1.DiskTarget{
+							Bus: "virtio",
+						},
+					},
+				},
+				{
+					Name:       "mydisk1",
+					VolumeName: "myvolume1",
+					DiskDevice: v1.DiskDevice{
+						Disk: &v1.DiskTarget{
+							Bus: "virtio",
+						},
+					},
+				},
+			}
+			vmi.Spec.Volumes = []v1.Volume{
+				{
+					Name: "myvolume",
+					VolumeSource: v1.VolumeSource{
+						HostDisk: &v1.HostDisk{
+							Path:     "/var/run/kubevirt-private/vmi-disks/volume3/disk.img",
+							Type:     v1.HostDiskExistsOrCreate,
+							Capacity: resource.MustParse("1Gi"),
+							Shared:   &_true,
+						},
+					},
+				},
+				{
+					Name: "myvolume1",
+					VolumeSource: v1.VolumeSource{
+						HostDisk: &v1.HostDisk{
+							Path:     "/var/run/kubevirt-private/vmi-disks/volume31/disk.img",
+							Type:     v1.HostDiskExistsOrCreate,
+							Capacity: resource.MustParse("1Gi"),
+							Shared:   &_false,
+						},
+					},
+				},
+			}
+
+			blockMigrate, err := controller.checkVolumesForMigration(vmi)
+			Expect(blockMigrate).To(BeTrue())
+			Expect(err).To(Equal(fmt.Errorf("cannot migrate VMI with non-shared HostDisk")))
+		})
+	})
 	Context("VirtualMachineInstance controller gets informed about interfaces in a Domain", func() {
 		It("should update existing interface with MAC", func() {
 			vmi := v1.NewMinimalVMI("testvmi")
@@ -851,4 +1134,15 @@ func (m *vmiCondMatcher) Matches(x interface{}) bool {
 
 func (m *vmiCondMatcher) String() string {
 	return "conditions matches on vmis"
+}
+
+func RemoveCondition(vmi *v1.VirtualMachineInstance, cond v1.VirtualMachineInstanceConditionType) {
+	var conds []v1.VirtualMachineInstanceCondition
+	for _, c := range vmi.Status.Conditions {
+		if c.Type == cond {
+			continue
+		}
+		conds = append(conds, c)
+	}
+	vmi.Status.Conditions = conds
 }

@@ -5,9 +5,8 @@ package virtwrap
 
 import (
 	gomock "github.com/golang/mock/gomock"
-	v1 "k8s.io/api/core/v1"
 
-	v10 "kubevirt.io/kubevirt/pkg/api/v1"
+	v1 "kubevirt.io/kubevirt/pkg/api/v1"
 	api "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 )
 
@@ -32,7 +31,7 @@ func (_m *MockDomainManager) EXPECT() *_MockDomainManagerRecorder {
 	return _m.recorder
 }
 
-func (_m *MockDomainManager) SyncVMI(_param0 *v10.VirtualMachineInstance, _param1 bool) (*api.DomainSpec, error) {
+func (_m *MockDomainManager) SyncVMI(_param0 *v1.VirtualMachineInstance, _param1 bool) (*api.DomainSpec, error) {
 	ret := _m.ctrl.Call(_m, "SyncVMI", _param0, _param1)
 	ret0, _ := ret[0].(*api.DomainSpec)
 	ret1, _ := ret[1].(error)
@@ -43,7 +42,7 @@ func (_mr *_MockDomainManagerRecorder) SyncVMI(arg0, arg1 interface{}) *gomock.C
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "SyncVMI", arg0, arg1)
 }
 
-func (_m *MockDomainManager) KillVMI(_param0 *v10.VirtualMachineInstance) error {
+func (_m *MockDomainManager) KillVMI(_param0 *v1.VirtualMachineInstance) error {
 	ret := _m.ctrl.Call(_m, "KillVMI", _param0)
 	ret0, _ := ret[0].(error)
 	return ret0
@@ -53,7 +52,7 @@ func (_mr *_MockDomainManagerRecorder) KillVMI(arg0 interface{}) *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "KillVMI", arg0)
 }
 
-func (_m *MockDomainManager) DeleteVMI(_param0 *v10.VirtualMachineInstance) error {
+func (_m *MockDomainManager) DeleteVMI(_param0 *v1.VirtualMachineInstance) error {
 	ret := _m.ctrl.Call(_m, "DeleteVMI", _param0)
 	ret0, _ := ret[0].(error)
 	return ret0
@@ -63,7 +62,7 @@ func (_mr *_MockDomainManagerRecorder) DeleteVMI(arg0 interface{}) *gomock.Call 
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "DeleteVMI", arg0)
 }
 
-func (_m *MockDomainManager) SignalShutdownVMI(_param0 *v10.VirtualMachineInstance) error {
+func (_m *MockDomainManager) SignalShutdownVMI(_param0 *v1.VirtualMachineInstance) error {
 	ret := _m.ctrl.Call(_m, "SignalShutdownVMI", _param0)
 	ret0, _ := ret[0].(error)
 	return ret0
@@ -84,7 +83,7 @@ func (_mr *_MockDomainManagerRecorder) ListAllDomains() *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "ListAllDomains")
 }
 
-func (_m *MockDomainManager) MigrateVMI(_param0 *v10.VirtualMachineInstance, _param1 map[string]*v1.PersistentVolumeClaim) error {
+func (_m *MockDomainManager) MigrateVMI(_param0 *v1.VirtualMachineInstance, _param1 bool) error {
 	ret := _m.ctrl.Call(_m, "MigrateVMI", _param0, _param1)
 	ret0, _ := ret[0].(error)
 	return ret0
@@ -94,7 +93,7 @@ func (_mr *_MockDomainManagerRecorder) MigrateVMI(arg0, arg1 interface{}) *gomoc
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "MigrateVMI", arg0, arg1)
 }
 
-func (_m *MockDomainManager) PrepareMigrationTarget(_param0 *v10.VirtualMachineInstance, _param1 bool) error {
+func (_m *MockDomainManager) PrepareMigrationTarget(_param0 *v1.VirtualMachineInstance, _param1 bool) error {
 	ret := _m.ctrl.Call(_m, "PrepareMigrationTarget", _param0, _param1)
 	ret0, _ := ret[0].(error)
 	return ret0

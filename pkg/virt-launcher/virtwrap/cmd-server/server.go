@@ -72,7 +72,7 @@ func (s *Launcher) Migrate(args *cmdclient.Args, reply *cmdclient.Reply) error {
 		return nil
 	}
 
-	err = s.domainManager.MigrateVMI(vmi, args.PVCS)
+	err = s.domainManager.MigrateVMI(vmi, args.IsBlockMigration)
 	if err != nil {
 		log.Log.Object(vmi).Reason(err).Errorf("Failed to migrate vmi")
 		reply.Success = false
