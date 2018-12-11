@@ -56,11 +56,6 @@ fi
 echo "copied $IMAGE_PATH to $COPY_PATH.${IMAGE_EXTENSION}"
 
 touch /tmp/healthy
-if [ -n "$AS_ISCSI" ];
-then
-	bash expose-as-iscsi.sh "${COPY_PATH}.${IMAGE_EXTENSION}"
-else
-	while [ -f "${COPY_PATH}.${IMAGE_EXTENSION}" ]; do
-		sleep 5
-	done
-fi
+while [ -f "${COPY_PATH}.${IMAGE_EXTENSION}" ]; do
+	sleep 5
+done
