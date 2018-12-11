@@ -37,8 +37,6 @@ elif [[ $TARGET =~ .*-release ]] || [[ $TARGET =~ windows.* ]]; then
     done
 fi
 
-_kubectl create -f ${MANIFESTS_OUT_DIR}/testing -R $i
-
 if [[ "$KUBEVIRT_PROVIDER" =~ os-* ]]; then
     _kubectl adm policy add-scc-to-user privileged -z kubevirt-controller -n ${namespace}
     _kubectl adm policy add-scc-to-user privileged -z kubevirt-privileged -n ${namespace}
