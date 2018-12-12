@@ -51,22 +51,11 @@ func getSriovNetworkInfo(vmi *v1.VirtualMachineInstance) ([]VIF, error) {
 	var sriovVifs []VIF
 
 	for _, network := range vmi.Spec.Networks {
-		numberOfSources := 0
-		if network.Pod != nil {
-			numberOfSources++
-		}
 		if network.Multus != nil {
 			cniNetworks[network.Name] = len(cniNetworks) + 1
-			numberOfSources++
 		}
 		if network.Genie != nil {
 			cniNetworks[network.Name] = len(cniNetworks)
-			numberOfSources++
-		}
-		if numberOfSources == 0 {
-			return sriovVifs, fmt.Errorf("fail network %s must have a network type", network.Name)
-		} else if numberOfSources > 1 {
-			return sriovVifs, fmt.Errorf("fail network %s must have only one network type", network.Name)
 		}
 		networks[network.Name] = network.DeepCopy()
 	}
