@@ -1,9 +1,3 @@
-# Namespace
-apiVersion: v1
-kind: Namespace
-metadata:
-  name: {{.Namespace}}
----
 # Monitoring
 apiVersion: v1
 kind: Service
