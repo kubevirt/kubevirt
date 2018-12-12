@@ -39,10 +39,24 @@ type CloudInitSubnetRoute struct {
 	Gateway string `yaml:"gateway,omitempty"`
 }
 
-type CloudInitConfig struct {
+type CloudInitNetConfig struct {
 	Version int                         `yaml:"version"`
 	Config  []CloudInitNetworkInterface `yaml:"config"`
 }
+
+type CloudInitManageResolv struct {
+	ManageResolv bool                `yaml:"manage_resolv_conf"`
+	ResolvConf   CloudInitResolvConf `yaml:"resolv_conf"`
+}
+
+type CloudInitResolvConf struct {
+	NameServers   []string `yaml:"nameservers,omitempty"`
+	SearchDomains []string `yaml:"searchdomains,omitempty"`
+	Domain        string   `yaml:"domain,omitempty"`
+	// TODO Add options map when pkg/util/net/dns can parse them
+}
+
+const cloudInitDelimiter = "###CLOUDINITDELIMITER###"
 
 // Borrowed from Convert_v1_VirtualMachine_To_api_Domain
 func getSriovNetworkInfo(vmi *v1.VirtualMachineInstance) ([]VIF, error) {
@@ -132,30 +146,38 @@ func discoverSriovNetworkInterface(intName string) (VIF, error) {
 	return vif, nil
 }
 
-func setCloudInitResolv() CloudInitNetworkInterface {
-	var cloudInitResolv CloudInitNetworkInterface
+func setCloudInitManageResolv() CloudInitManageResolv {
+	var cloudInitManageResolv CloudInitManageResolv
+	var cloudInitResolvConf CloudInitResolvConf
 
-	nameServers, searchDomains, err := api.GetResolvConfDetailsFromPod()
+	nameServers, searchDomains, resolvDomain, err := api.GetResolvConfDetailsFromPod()
 	if err != nil {
 		log.Log.Errorf("Failed to get DNS servers from resolv.conf: %v", err)
 		panic(err)
 	}
 
-	cloudInitResolv.NetworkType = "nameserver"
+	cloudInitManageResolv.ManageResolv = true
 
 	for _, nameServer := range nameServers {
-		cloudInitResolv.Address = append(cloudInitResolv.Address, net.IP(nameServer).String())
+		cloudInitResolvConf.NameServers = append(cloudInitResolvConf.NameServers, net.IP(nameServer).String())
 	}
 
 	for _, searchDomain := range searchDomains {
-		cloudInitResolv.Search = append(cloudInitResolv.Search, searchDomain)
+		cloudInitResolvConf.SearchDomains = append(cloudInitResolvConf.SearchDomains, searchDomain)
 	}
 
-	return cloudInitResolv
+	if resolvDomain != "" {
+		cloudInitResolvConf.Domain = resolvDomain
+	}
+
+	cloudInitManageResolv.ResolvConf = cloudInitResolvConf
+
+	return cloudInitManageResolv
 }
 
 func GenNetworkFile(vmi *v1.VirtualMachineInstance) ([]byte, error) {
 	var networkFile []byte
+	var resolvFile []byte
 	var cloudInitNetworks []VIF
 
 	sriovNetworks, err := getSriovNetworkInfo(vmi)
@@ -174,7 +196,7 @@ func GenNetworkFile(vmi *v1.VirtualMachineInstance) ([]byte, error) {
 		return networkFile, err
 	}
 
-	var config = CloudInitConfig{
+	var config = CloudInitNetConfig{
 		Version: 1,
 	}
 
@@ -223,17 +245,25 @@ func GenNetworkFile(vmi *v1.VirtualMachineInstance) ([]byte, error) {
 		config.Config = append(config.Config, nif)
 	}
 
+	networkFile, err = yaml.Marshal(config)
+	if err != nil {
+		return networkFile, err
+	}
+
 	// Get resolver configuration. dhclient will likely override this on most
 	// distrobutions but it is the same data so this should be safe.
 	// This can be gated via Spec if needed.
-	cloudInitResolv := setCloudInitResolv()
-
-	config.Config = append(config.Config, cloudInitResolv)
-
-	networkFile, err = yaml.Marshal(config)
-
+	cloudInitManageResolv := setCloudInitManageResolv()
+	resolvFile, err = yaml.Marshal(cloudInitManageResolv)
 	if err != nil {
 		return networkFile, err
+	}
+
+	// Append resolv conf to network file with a delimiter so we can split
+	// it later.
+	if len(resolvFile) > 0 {
+		networkFile = append(networkFile, []byte(cloudInitDelimiter)...)
+		networkFile = append(networkFile, resolvFile...)
 	}
 
 	return networkFile, err

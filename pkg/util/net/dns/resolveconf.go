@@ -9,6 +9,7 @@ import (
 
 const (
 	domainSearchPrefix  = "search"
+	domainPrefix        = "domain"
 	nameserverPrefix    = "nameserver"
 	defaultDNS          = "8.8.8.8"
 	defaultSearchDomain = "cluster.local"
@@ -70,4 +71,24 @@ func ParseSearchDomains(content string) ([]string, error) {
 	}
 
 	return searchDomains, nil
+}
+
+func ParseDomain(content string) (string, error) {
+	var domain string
+	domain = ""
+
+	scanner := bufio.NewScanner(strings.NewReader(content))
+
+	for scanner.Scan() {
+		line := scanner.Text()
+		if strings.HasPrefix(line, domainPrefix) {
+			domain = strings.TrimPrefix(line, domainPrefix)
+		}
+	}
+
+	if err := scanner.Err(); err != nil {
+		return domain, err
+	}
+
+	return domain, nil
 }

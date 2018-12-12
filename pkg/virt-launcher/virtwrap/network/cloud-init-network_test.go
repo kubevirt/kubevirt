@@ -3,6 +3,7 @@
 package network
 
 import (
+	"bytes"
 	"io/ioutil"
 	"net"
 	"os"
@@ -50,8 +51,9 @@ var _ = Describe("cloud-init network", func() {
 			api.SetObjectDefaults_Domain(domain)
 			buildMockSriovNetwork(mockNetwork, count)
 			cloudinit, err := GenNetworkFile(vm)
-			var config CloudInitConfig
-			yaml.Unmarshal(cloudinit, &config)
+			parsedCloudInit := bytes.Split(cloudinit, []byte(cloudInitDelimiter))
+			var config CloudInitNetConfig
+			yaml.Unmarshal(parsedCloudInit[0], &config)
 
 			Expect(err).To(BeNil())
 			intNum := 1
