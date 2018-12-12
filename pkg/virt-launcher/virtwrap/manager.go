@@ -63,7 +63,7 @@ type DomainManager interface {
 	DeleteVMI(*v1.VirtualMachineInstance) error
 	SignalShutdownVMI(*v1.VirtualMachineInstance) error
 	ListAllDomains() ([]*api.Domain, error)
-	MigrateVMI(*v1.VirtualMachineInstance, bool) error
+	MigrateVMI(*v1.VirtualMachineInstance) error
 	PrepareMigrationTarget(*v1.VirtualMachineInstance, bool) error
 }
 
@@ -209,7 +209,7 @@ func prepateMigrationFlags(isBlockMigration bool) libvirt.DomainMigrateFlags {
 
 }
 
-func (l *LibvirtDomainManager) asyncMigrate(vmi *v1.VirtualMachineInstance, isBlockMigration bool) {
+func (l *LibvirtDomainManager) asyncMigrate(vmi *v1.VirtualMachineInstance) {
 
 	go func(l *LibvirtDomainManager, vmi *v1.VirtualMachineInstance) {
 
@@ -245,6 +245,10 @@ func (l *LibvirtDomainManager) asyncMigrate(vmi *v1.VirtualMachineInstance, isBl
 			return
 		}
 
+		isBlockMigration := false
+		if vmi.Status.MigrationMethod == v1.BlockMigration {
+			isBlockMigration = true
+		}
 		migrateFlags := prepateMigrationFlags(isBlockMigration)
 		_, err = dom.Migrate(destConn, migrateFlags, "", "", 0)
 		if err != nil {
@@ -259,7 +263,7 @@ func (l *LibvirtDomainManager) asyncMigrate(vmi *v1.VirtualMachineInstance, isBl
 	}(l, vmi)
 }
 
-func (l *LibvirtDomainManager) MigrateVMI(vmi *v1.VirtualMachineInstance, isBlockMigration bool) error {
+func (l *LibvirtDomainManager) MigrateVMI(vmi *v1.VirtualMachineInstance) error {
 
 	if vmi.Status.MigrationState == nil {
 		return fmt.Errorf("cannot migration VMI until migrationState is ready")
@@ -274,7 +278,7 @@ func (l *LibvirtDomainManager) MigrateVMI(vmi *v1.VirtualMachineInstance, isBloc
 		return nil
 	}
 
-	l.asyncMigrate(vmi, isBlockMigration)
+	l.asyncMigrate(vmi)
 
 	return nil
 }

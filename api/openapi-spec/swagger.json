@@ -5973,6 +5973,10 @@
        "$ref": "#/definitions/v1.VirtualMachineInstanceNetworkInterface"
       }
      },
+     "migrationMethod": {
+      "description": "Represents the method using which the vmi can be migrated: live migration or block migration",
+      "type": "string"
+     },
      "migrationState": {
       "description": "Represents the status of a live migration",
       "$ref": "#/definitions/v1.VirtualMachineInstanceMigrationState"
