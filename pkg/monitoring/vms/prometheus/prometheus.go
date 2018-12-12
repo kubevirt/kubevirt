@@ -25,11 +25,20 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 
 	"kubevirt.io/kubevirt/pkg/log"
+	"kubevirt.io/kubevirt/pkg/version"
 	cmdclient "kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/stats"
 )
 
 var (
+	// see https://www.robustperception.io/exposing-the-software-version-to-prometheus
+	versionDesc = prometheus.NewDesc(
+		"kubevirt_info",
+		"Version information",
+		[]string{"goversion", "kubeversion"},
+		nil,
+	)
+
 	storageIopsDesc = prometheus.NewDesc(
 		"kubevirt_vm_storage_iops",
 		"I/O operation performed.",
@@ -203,6 +212,15 @@ func updateNetwork(vmStats *stats.DomainStats, ch chan<- prometheus.Metric) {
 	}
 }
 
+func updateVersion(ch chan<- prometheus.Metric) {
+	verinfo := version.Get()
+	ch <- prometheus.MustNewConstMetric(
+		versionDesc, prometheus.GaugeValue,
+		1.0,
+		verinfo.GoVersion, verinfo.GitVersion,
+	)
+}
+
 type Collector struct {
 	virtShareDir string
 }
@@ -218,6 +236,7 @@ func SetupCollector(virtShareDir string) *Collector {
 
 func (co Collector) Describe(ch chan<- *prometheus.Desc) {
 	// TODO: Use DescribeByCollect?
+	ch <- versionDesc
 	ch <- storageIopsDesc
 	ch <- vcpuUsageDesc
 	ch <- networkTrafficDesc
@@ -226,6 +245,8 @@ func (co Collector) Describe(ch chan<- *prometheus.Desc) {
 
 // Note that Collect could be called concurrently
 func (co Collector) Collect(ch chan<- prometheus.Metric) {
+	updateVersion(ch)
+
 	socketFiles, err := cmdclient.ListAllSockets(co.virtShareDir)
 	if err != nil {
 		log.Log.Reason(err).Errorf("failed to list all sockets in '%s'", co.virtShareDir)
