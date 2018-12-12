@@ -21,6 +21,7 @@ package prometheus
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
 
@@ -29,6 +30,8 @@ import (
 	cmdclient "kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/stats"
 )
+
+const statsMaxAge time.Duration = 10 * time.Second // "long enough" eurhystically determined
 
 var (
 	// see https://www.robustperception.io/exposing-the-software-version-to-prometheus
@@ -65,23 +68,6 @@ var (
 		nil,
 	)
 )
-
-func Update(cli cmdclient.LauncherClient, ch chan<- prometheus.Metric) error {
-	vmStats, exists, err := cli.GetDomainStats()
-	if err != nil {
-		return err
-	}
-	if !exists || vmStats.Name == "" {
-		return nil
-	}
-
-	updateMemory(vmStats, ch)
-	updateVcpu(vmStats, ch)
-	updateBlock(vmStats, ch)
-	updateNetwork(vmStats, ch)
-
-	return nil
-}
 
 func updateMemory(vmStats *stats.DomainStats, ch chan<- prometheus.Metric) {
 	if vmStats.Memory.UnusedSet {
@@ -253,24 +239,48 @@ func (co Collector) Collect(ch chan<- prometheus.Metric) {
 		return
 	}
 	for _, socketFile := range socketFiles {
-		log.Log.V(3).Infof("Getting stats from sock %s", socketFile)
-		client, err := cmdclient.GetClient(socketFile)
-		if err != nil {
-			log.Log.Reason(err).Error("failed to connect to cmd client socket")
-			// Ignore failure to connect to client.
-			// These are all local connections via unix socket.
-			// A failure to connect means there's nothing on the other
-			// end listening.
-			continue
-		}
-		defer client.Close()
-
-		err = Update(client, ch)
-		if err != nil {
-			log.Log.Reason(err).Error("failed to connect to update stats from socket")
-			continue
-		}
-		log.Log.V(3).Infof("Updated stats from sock %s", socketFile)
+		go collectFromSocket(socketFile, ch)
 	}
 	return
+}
+
+func collectFromSocket(socketFile string, ch chan<- prometheus.Metric) {
+	ts := time.Now()
+	log.Log.V(3).Infof("Getting stats from sock %s", socketFile)
+	cli, err := cmdclient.GetClient(socketFile)
+	if err != nil {
+		log.Log.Reason(err).Error("failed to connect to cmd client socket")
+		// Ignore failure to connect to client.
+		// These are all local connections via unix socket.
+		// A failure to connect means there's nothing on the other
+		// end listening.
+		return
+	}
+	defer cli.Close()
+
+	vmStats, exists, err := cli.GetDomainStats()
+	if err != nil {
+		log.Log.Reason(err).Errorf("failed to update stats from socket %s", socketFile)
+		return
+	}
+	if !exists || vmStats.Name == "" {
+		// VM may be shutting down
+		return
+	}
+
+	// GetDomainStats() may hang for a long time. So, when it wakes up, we must ensure not to
+	// send back stale information. We just check the freshness of the informations we collected
+	// against a threshold.
+	elapsed := time.Now().Sub(ts)
+	if elapsed > statsMaxAge {
+		log.Log.Infof("took too long (%v) to collect stats from %s: ignored", elapsed, socketFile)
+		return
+	}
+
+	updateMemory(vmStats, ch)
+	updateVcpu(vmStats, ch)
+	updateBlock(vmStats, ch)
+	updateNetwork(vmStats, ch)
+
+	log.Log.V(3).Infof("Updated stats from sock %s", socketFile)
 }
