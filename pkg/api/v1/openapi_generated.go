@@ -2576,6 +2576,13 @@ func schema_kubevirt_pkg_api_v1_VirtualMachineInstanceStatus(ref common.Referenc
 							Ref:         ref("kubevirt.io/kubevirt/pkg/api/v1.VirtualMachineInstanceMigrationState"),
 						},
 					},
+					"migrationMethod": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Represents the method using which the vmi can be migrated: live migration or block migration",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
 				},
 			},
 		},

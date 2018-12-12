@@ -48,8 +48,7 @@ type Reply struct {
 
 type Args struct {
 	// used for domain management
-	VMI              *v1.VirtualMachineInstance
-	IsBlockMigration bool
+	VMI *v1.VirtualMachineInstance
 }
 
 type LauncherClient interface {
@@ -57,7 +56,7 @@ type LauncherClient interface {
 	SyncMigrationTarget(vmi *v1.VirtualMachineInstance) error
 	ShutdownVirtualMachine(vmi *v1.VirtualMachineInstance) error
 	KillVirtualMachine(vmi *v1.VirtualMachineInstance) error
-	MigrateVirtualMachine(vmi *v1.VirtualMachineInstance, isBlockMigration bool) error
+	MigrateVirtualMachine(vmi *v1.VirtualMachineInstance) error
 	DeleteDomain(vmi *v1.VirtualMachineInstance) error
 	GetDomain() (*api.Domain, bool, error)
 	Ping() error
@@ -139,12 +138,11 @@ func (c *VirtLauncherClient) ShutdownVirtualMachine(vmi *v1.VirtualMachineInstan
 	return err
 }
 
-func (c *VirtLauncherClient) MigrateVirtualMachine(vmi *v1.VirtualMachineInstance, isBlockMigration bool) error {
+func (c *VirtLauncherClient) MigrateVirtualMachine(vmi *v1.VirtualMachineInstance) error {
 	cmd := "Launcher.Migrate"
 
 	args := &Args{
-		VMI:              vmi,
-		IsBlockMigration: isBlockMigration,
+		VMI: vmi,
 	}
 	_, err := c.genericSendCmd(args, cmd)
 
