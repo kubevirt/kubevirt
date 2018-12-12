@@ -181,7 +181,6 @@ var _ = Describe("Migrations", func() {
 				migration := tests.NewRandomMigration(vmi.Name, vmi.Namespace)
 				Eventually(func() error {
 					_, err := virtClient.VirtualMachineInstanceMigration(migration.Namespace).Create(migration)
-					fmt.Println(err)
 					return err
 				}, 120, 1*time.Second).Should(HaveOccurred())
 			})

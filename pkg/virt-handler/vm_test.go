@@ -356,6 +356,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 					Status: k8sv1.ConditionTrue,
 				},
 			}
+			updatedVMI.Status.MigrationMethod = v1.LiveMigration
 
 			mockWatchdog.CreateFile(vmi)
 			domain := api.NewMinimalDomainWithUUID("testvmi", testUUID)
@@ -527,6 +528,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 					Status: k8sv1.ConditionTrue,
 				},
 			}
+			updatedVMI.Status.MigrationMethod = v1.LiveMigration
 
 			mockWatchdog.CreateFile(vmi)
 			vmiFeeder.Add(vmi)
@@ -632,7 +634,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 			domainFeeder.Add(domain)
 			vmiFeeder.Add(vmi)
 
-			client.EXPECT().MigrateVirtualMachine(vmi, false)
+			client.EXPECT().MigrateVirtualMachine(vmi)
 
 			controller.Execute()
 		}, 3)
@@ -1134,15 +1136,4 @@ func (m *vmiCondMatcher) Matches(x interface{}) bool {
 
 func (m *vmiCondMatcher) String() string {
 	return "conditions matches on vmis"
-}
-
-func RemoveCondition(vmi *v1.VirtualMachineInstance, cond v1.VirtualMachineInstanceConditionType) {
-	var conds []v1.VirtualMachineInstanceCondition
-	for _, c := range vmi.Status.Conditions {
-		if c.Type == cond {
-			continue
-		}
-		conds = append(conds, c)
-	}
-	vmi.Status.Conditions = conds
 }
