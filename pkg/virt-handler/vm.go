@@ -366,9 +366,9 @@ func (d *VirtualMachineController) updateVMIStatus(vmi *v1.VirtualMachineInstanc
 		return err
 	}
 
-	// Cacluate whether the VM migratable
+	// Cacluate whether the VM is migratable
 	if !condManager.HasCondition(vmi, v1.VirtualMachineInstanceIsMigratable) {
-		_, err = d.checkVolumesForMigration(vmi)
+		isBlockMigration, err := d.checkVolumesForMigration(vmi)
 		liveMigrationCondition := v1.VirtualMachineInstanceCondition{
 			Type:   v1.VirtualMachineInstanceIsMigratable,
 			Status: k8sv1.ConditionTrue,
@@ -379,6 +379,13 @@ func (d *VirtualMachineController) updateVMIStatus(vmi *v1.VirtualMachineInstanc
 			liveMigrationCondition.Reason = v1.VirtualMachineInstanceReasonDisksNotMigratable
 		}
 		vmi.Status.Conditions = append(vmi.Status.Conditions, liveMigrationCondition)
+
+		// Set VMI Migration Method
+		if isBlockMigration {
+			vmi.Status.MigrationMethod = v1.BlockMigration
+		} else {
+			vmi.Status.MigrationMethod = v1.LiveMigration
+		}
 	}
 
 	// Update the condition when GA is connected
