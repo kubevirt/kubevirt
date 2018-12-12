@@ -1175,7 +1175,7 @@ func (d *VirtualMachineController) checkVolumesForMigration(vmi *v1.VirtualMachi
 			continue
 		} else {
 			if hasPVC {
-				err = fmt.Errorf("cannot migrate VMI with mixes shared and non-shared volumes")
+				err = fmt.Errorf("cannot migrate VMI with mixed shared and non-shared volumes")
 				return
 			}
 			blockMigrate = true
@@ -1272,12 +1272,7 @@ func (d *VirtualMachineController) processVmUpdate(origVMI *v1.VirtualMachineIns
 		}
 		d.recorder.Event(vmi, k8sv1.EventTypeNormal, v1.PreparingTarget.String(), "VirtualMachineInstance Migration Target Prepared.")
 	} else if d.isMigrationSource(vmi) {
-		isBlockMigration, err := d.checkVolumesForMigration(vmi)
-		if err != nil {
-			return err
-		}
-
-		err = client.MigrateVirtualMachine(vmi, isBlockMigration)
+		err = client.MigrateVirtualMachine(vmi)
 		if err != nil {
 			return err
 		}

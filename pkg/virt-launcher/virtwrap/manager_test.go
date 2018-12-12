@@ -180,7 +180,7 @@ var _ = Describe("Manager", func() {
 			mockDomain.EXPECT().GetXMLDesc(gomock.Eq(libvirt.DOMAIN_XML_MIGRATABLE)).Return(string(xml), nil)
 			mockDomain.EXPECT().GetXMLDesc(gomock.Eq(libvirt.DOMAIN_XML_INACTIVE)).Return(string(xml), nil)
 
-			err = manager.MigrateVMI(vmi, false)
+			err = manager.MigrateVMI(vmi)
 			Expect(err).To(BeNil())
 		})
 	})
