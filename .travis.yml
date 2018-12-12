@@ -37,6 +37,7 @@ deploy:
   on:
     tags: false
     all_branches: true
+    condition: $TRAVIS_BRANCH != revert-*
 - provider: script
   script: docker login -u="$DOCKER_USER" -p="$DOCKER_PASS" && make publish DOCKER_TAG=$TRAVIS_TAG
   skip_cleanup: true
