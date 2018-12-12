@@ -163,7 +163,28 @@ var _ = Describe("Migrations", func() {
 				// create a new PV and PVC (PVs can't be reused)
 				tests.DeletePvAndPvc(pvName)
 			}, 60)
+			It("should reject migration specs with shared and non-shared disks", func() {
+				// Start the VirtualMachineInstance with PVC and Ephemeral Disks
+				vmi := tests.NewRandomVMIWithPVC(pvName)
+				image := tests.ContainerDiskFor(tests.ContainerDiskAlpine)
+				tests.AddEphemeralDisk(vmi, "myephemeral", "virtio", image)
 
+				By("Starting the VirtualMachineInstance")
+				vmi = runVMIAndExpectLaunch(vmi, 120)
+
+				By("Checking that the VirtualMachineInstance console has expected output")
+				expecter, err := tests.LoggedInAlpineExpecter(vmi)
+				Expect(err).To(BeNil())
+				expecter.Close()
+
+				By("Starting a Migration and expecting it to be rejected")
+				migration := tests.NewRandomMigration(vmi.Name, vmi.Namespace)
+				Eventually(func() error {
+					_, err := virtClient.VirtualMachineInstanceMigration(migration.Namespace).Create(migration)
+					fmt.Println(err)
+					return err
+				}, 120, 1*time.Second).Should(HaveOccurred())
+			})
 			It("should be successfully migrated multiple times", func() {
 
 				// Start the VirtualMachineInstance with the PVC attached
