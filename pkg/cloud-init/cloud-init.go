@@ -224,17 +224,21 @@ func GenerateLocalData(vmiName string, hostname string, namespace string, source
 	diskutils.RemoveFile(networkFile)
 	diskutils.RemoveFile(isoStaging)
 
-	// If we have network data and userData is of type #config
+	// If we have network data and userData is of type #cloud-config
 	// then append resolv configuration to userData
-	if len(networkData) > 0 {
-		if strings.HasPrefix(string(userData), "#config") {
+	if len(networkData) > 0 && len(resolvData) > 0 {
+		log.Log.V(2).Info("attempting to append resolvData to userData")
+		if strings.HasPrefix(string(userData), "#cloud-config") {
 			// Check if it already contains manage_resolv_conf
 			if bytes.Contains(userData, []byte("manage_resolv_conf:")) {
 				log.Log.V(2).Info("manage_resolv_conf found in userData skipping append from cloudinit network")
 			} else if len(resolvData) > 0 {
+				log.Log.V(2).Info("appending resolv configuration to userData")
 				userData = append(userData, []byte("\n")...)
 				userData = append(userData, resolvData...)
 			}
+		} else {
+			log.Log.V(2).Info("Did not find #cloud-config header in userData skipping append from cloudinit network")
 		}
 	}
 
