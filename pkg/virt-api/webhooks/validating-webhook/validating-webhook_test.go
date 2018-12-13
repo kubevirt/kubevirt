@@ -2061,7 +2061,7 @@ var _ = Describe("Validating Webhook", func() {
 		table.DescribeTable("should verify cloud-init networkdata length", func(networkDataLen int, expectedErrors int) {
 			vmi := v1.NewMinimalVMI("testvmi")
 
-			// generate fake networdata
+			// generate fake networkdata
 			networkdata := ""
 			for i := 0; i < networkDataLen; i++ {
 				networkdata = fmt.Sprintf("%sa", networkdata)

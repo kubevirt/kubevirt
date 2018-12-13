@@ -28,6 +28,9 @@ if [[ ${TARGET} == openshift* ]]; then
     oc=${kubectl}
 fi
 
+# Some tooling is built utilizing lowercase kubeconfig and others utilizing
+# uppercase KUBECONFIG E.G. cluster/ tools
+# Test for the normal lower case first and if it doesn't exists use uppercase.
 if [ -n "$kubeconfig" ]; then
     KUBECONFIG_ARGS="-kubeconfig=${kubeconfig}"
 elif [ -n "$KUBECONFIG" ]; then

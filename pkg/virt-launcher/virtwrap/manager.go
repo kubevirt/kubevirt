@@ -323,7 +323,6 @@ func (l *LibvirtDomainManager) preStartHook(vmi *v1.VirtualMachineInstance, doma
 			// get cloud-init network information
 			logger.Info("Starting cloud-init network discovery.")
 			cloudInitNetworkInfo, err := network.GenNetworkFile(vmi)
-
 			if err != nil {
 				return domain, err
 			}

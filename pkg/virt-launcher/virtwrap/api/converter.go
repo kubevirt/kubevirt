@@ -1160,7 +1160,7 @@ func configVMCIDR(qemuArg *Arg, iface v1.Interface, network v1.Network) error {
 }
 
 func configDNSSearchName(qemuArg *Arg) error {
-	_, dnsDoms, _, err := GetResolvConfDetailsFromPod()
+	_, dnsDoms, err := GetResolvConfDetailsFromPod()
 	if err != nil {
 		return err
 	}
@@ -1215,34 +1215,26 @@ func boolToYesNo(value *bool, defaultYes bool) string {
 }
 
 // returns nameservers [][]byte, searchdomains []string, error
-func GetResolvConfDetailsFromPod() ([][]byte, []string, string, error) {
+func GetResolvConfDetailsFromPod() ([][]byte, []string, error) {
 	b, err := ioutil.ReadFile(resolvConf)
 	if err != nil {
-		return nil, nil, "", err
+		return nil, nil, err
 	}
 
 	nameservers, err := dns.ParseNameservers(string(b))
 	if err != nil {
-		return nil, nil, "", err
+		return nil, nil, err
 	}
 
 	searchDomains, err := dns.ParseSearchDomains(string(b))
 	if err != nil {
-		return nil, nil, "", err
-	}
-
-	resolvDomain, err := dns.ParseDomain(string(b))
-	if err != nil {
-		return nil, nil, "", err
+		return nil, nil, err
 	}
 
 	log.Log.Reason(err).Infof("Found nameservers in %s: %s", resolvConf, bytes.Join(nameservers, []byte{' '}))
 	log.Log.Reason(err).Infof("Found search domains in %s: %s", resolvConf, strings.Join(searchDomains, " "))
-	if resolvDomain != "" {
-		log.Log.Reason(err).Infof("Found domain in %s: %s", resolvConf, resolvDomain)
-	}
 
-	return nameservers, searchDomains, resolvDomain, err
+	return nameservers, searchDomains, err
 }
 
 func decoratePciAddressField(addressField string) (*Address, error) {
