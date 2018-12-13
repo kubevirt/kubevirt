@@ -1,3 +1,11 @@
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  labels:
+    kubevirt.io: ""
+  name: {{.Namespace}}
+---
 # Monitoring
 apiVersion: v1
 kind: Service
