@@ -841,9 +841,56 @@ var _ = Describe("VirtualMachineInstance", func() {
 			}
 
 			virtClient.CoreV1().PersistentVolumeClaims(vmi.Namespace).Create(testBlockPvc)
-			blockMigrate, err := controller.checkVolumesForMigration(vmi)
-			Expect(blockMigrate).To(BeFalse())
-			Expect(err).To(Equal(fmt.Errorf("cannot migrate VMI with mixes shared and non-shared volumes")))
+			_, err := controller.checkVolumesForMigration(vmi)
+			Expect(err).To(Equal(fmt.Errorf("cannot migrate VMI with mixed shared and non-shared volumes")))
+		})
+		It("should not be allowed to migrate a mix of non-shared and shared disks", func() {
+
+			vmi := v1.NewMinimalVMI("testvmi")
+			vmi.Spec.Domain.Devices.Disks = []v1.Disk{
+				{
+					Name:       "mydisk",
+					VolumeName: "myvolume",
+					DiskDevice: v1.DiskDevice{
+						Disk: &v1.DiskTarget{
+							Bus: "virtio",
+						},
+					},
+				},
+				{
+					Name:       "mydisk1",
+					VolumeName: "myvolume1",
+					DiskDevice: v1.DiskDevice{
+						Disk: &v1.DiskTarget{
+							Bus: "virtio",
+						},
+					},
+				},
+			}
+			vmi.Spec.Volumes = []v1.Volume{
+				{
+					Name: "myvolume1",
+					VolumeSource: v1.VolumeSource{
+						Ephemeral: &v1.EphemeralVolumeSource{
+							PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{
+								ClaimName: "testclaim",
+							},
+						},
+					},
+				},
+				{
+					Name: "myvolume",
+					VolumeSource: v1.VolumeSource{
+						PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{
+							ClaimName: "testblock",
+						},
+					},
+				},
+			}
+
+			virtClient.CoreV1().PersistentVolumeClaims(vmi.Namespace).Create(testBlockPvc)
+			_, err := controller.checkVolumesForMigration(vmi)
+			Expect(err).To(Equal(fmt.Errorf("cannot migrate VMI with mixed shared and non-shared volumes")))
 		})
 		It("should be allowed to live-migrate shared HostDisks ", func() {
 			_true := true
