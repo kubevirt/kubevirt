@@ -1146,40 +1146,42 @@ func (d *VirtualMachineController) checkVolumesForMigration(vmi *v1.VirtualMachi
 	// are shared and the VMI has no local disks
 	// Some combinations of disks makes the VMI no suitable for live migration.
 	// A relevant error will be returned in this case.
-	hasPVC := false
+	sharedVol := false
 	for _, volume := range vmi.Spec.Volumes {
 		volSrc := volume.VolumeSource
 		if volSrc.PersistentVolumeClaim != nil {
-			hasPVC = true
+			sharedVol = true
 			_, shared, err := pvcutils.IsSharedPVCFromClient(d.clientset, vmi.Namespace, volSrc.PersistentVolumeClaim.ClaimName)
 			if errors.IsNotFound(err) {
 				return blockMigrate, fmt.Errorf("persistentvolumeclaim %v not found", volSrc.PersistentVolumeClaim.ClaimName)
 			} else if err != nil {
 				return blockMigrate, err
 			}
-			blockMigrate = !shared
+			blockMigrate = blockMigrate || !shared
 			if !shared {
 				return blockMigrate, fmt.Errorf("cannot migrate VMI with non-shared PVCs")
 			}
 		} else if volSrc.HostDisk != nil {
-			blockMigrate = true
+			shared := false
 			if volSrc.HostDisk.Shared != nil {
-				blockMigrate = !*volSrc.HostDisk.Shared
+				shared = *volSrc.HostDisk.Shared
 			}
-			if blockMigrate {
+			blockMigrate = blockMigrate || !shared
+			if !shared {
 				return blockMigrate, fmt.Errorf("cannot migrate VMI with non-shared HostDisk")
 			}
+			sharedVol = true
 		} else if volSrc.CloudInitNoCloud != nil ||
 			volSrc.ConfigMap != nil || volSrc.ServiceAccount != nil ||
 			volSrc.Secret != nil {
 			continue
 		} else {
-			if hasPVC {
-				err = fmt.Errorf("cannot migrate VMI with mixed shared and non-shared volumes")
-				return
-			}
 			blockMigrate = true
 		}
+	}
+	if sharedVol && blockMigrate {
+		err = fmt.Errorf("cannot migrate VMI with mixed shared and non-shared volumes")
+		return
 	}
 	return
 }
