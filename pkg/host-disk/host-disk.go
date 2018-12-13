@@ -54,13 +54,7 @@ func ReplacePVCByHostDisk(vmi *v1.VirtualMachineInstance, clientset kubecli.Kube
 			} else if isBlockVolumePVC {
 				continue
 			}
-			isSharedPvc := false
-			for _, accessMode := range pvc.Spec.AccessModes {
-				if accessMode == k8sv1.ReadWriteMany {
-					isSharedPvc = true
-					break
-				}
-			}
+			isSharedPvc := types.IsPVCShared(pvc)
 
 			volumeSource.HostDisk = &v1.HostDisk{
 				Path:     getPVCDiskImgPath(vmi.Spec.Volumes[i].Name),
