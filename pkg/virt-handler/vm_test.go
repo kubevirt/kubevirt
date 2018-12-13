@@ -924,7 +924,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 			Expect(blockMigrate).To(BeFalse())
 			Expect(err).To(BeNil())
 		})
-		It("should be allowed to live-migrate shared HostDisks ", func() {
+		It("should not be allowed to live-migrate shared and non-shared HostDisks ", func() {
 			_true := true
 			_false := false
 			vmi := v1.NewMinimalVMI("testvmi")
