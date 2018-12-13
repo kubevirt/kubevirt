@@ -22,6 +22,7 @@ package virtconfig
 /*
  This module is intended for retrieving virt related properties that might
  be overridden by kubevirt-config configmap.
+ Note that the virtconfig package needs to be initialized before using this (see config-map.Init)
 */
 
 import (
@@ -30,10 +31,14 @@ import (
 )
 
 func SupportedEmulatedMachines() []string {
-	config := os.Getenv(emulatedMachineEnvVar)
+	config := os.Getenv(emulatedMachinesEnvVar)
 	if len(config) == 0 {
 		return []string{"q35*", "pc-q35*"}
 	}
 
-	return strings.Split(config, ",")
+	vals := strings.Split(config, ",")
+	for i := range vals {
+		vals[i] = strings.TrimSpace(vals[i])
+	}
+	return vals
 }
