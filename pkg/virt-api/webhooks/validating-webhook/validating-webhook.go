@@ -51,7 +51,7 @@ const (
 	maxStrLen           = 256
 
 	// cloudInitNetworkMaxLen size is an arbitrary limit. It was selected to
-	// accommodate a reasonable number of interface and routes. networkData
+	// accommodate a reasonable number of interfaces and routes. networkData
 	// should almost never be pass in via a spec,
 	// pkg/virt-launcher/virtwrap/network/cloud-init-network.go should be
 	// extended instead.
