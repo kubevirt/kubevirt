@@ -27,6 +27,7 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/rand"
 
 	v1 "kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/kubecli"
@@ -148,9 +149,9 @@ var _ = Describe("Migrations", func() {
 			})
 		})
 		Context("with an Alpine shared ISCSI PVC", func() {
-			pvName := "test-iscsi-lun"
-
+			var pvName string
 			BeforeEach(func() {
+				pvName = "test-iscsi-lun" + rand.String(48)
 				// Start a ISCSI POD and service
 				By("Starting an iSCSI POD")
 				iscsiIP := tests.CreateISCSITargetPOD()
@@ -190,7 +191,7 @@ var _ = Describe("Migrations", func() {
 				vmi := tests.NewRandomVMIWithPVC(pvName)
 
 				By("Starting the VirtualMachineInstance")
-				vmi = runVMIAndExpectLaunch(vmi, 120)
+				vmi = runVMIAndExpectLaunch(vmi, 180)
 
 				By("Checking that the VirtualMachineInstance console has expected output")
 				expecter, err := tests.LoggedInAlpineExpecter(vmi)
