@@ -43,14 +43,14 @@ var _ = Describe("cloud-init network", func() {
 		os.RemoveAll(tmpDir)
 	})
 
-	Context("on successful GenNetworkFile()", func() {
+	Context("on successful CloudInitDiscoverNetworkData()", func() {
 		It("should create valid network-config contents", func() {
 			count := 3
 			domain := newSriovDomainWithInterface()
 			vm := newSriovVMISriovInterface("testnamespace", "testVmName", count)
 			api.SetObjectDefaults_Domain(domain)
 			buildMockSriovNetwork(mockNetwork, count)
-			cloudinit, err := GenNetworkFile(vm)
+			cloudinit, err := CloudInitDiscoverNetworkData(vm)
 			parsedCloudInit := bytes.Split(cloudinit, []byte(cloudInitDelimiter))
 			var config CloudInitNetConfig
 			yaml.Unmarshal(parsedCloudInit[0], &config)

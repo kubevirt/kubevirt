@@ -1,3 +1,15 @@
+// pkg/virt-launcher/virtwrap/network/cloud-init-network.go currently adds
+// support to configure SR-IOV interfaces within a VM through cloud-init
+// network version 1 configuration. Other interface types such as bridge
+// are configured within the VM by binding a DHCP server to the bridge
+// source interface in the compute container. This is not possible for
+// SR-IOV network interfaces as there is nothing in the compute container
+// to bind a DHCP server to.
+
+// Other network interface types can be added to this logic but are
+// currently already handled with existing code. This code does not
+// currently interfere with existing functionality.
+
 package network
 
 import (
@@ -89,9 +101,9 @@ func getSriovNetworkInfo(vmi *v1.VirtualMachineInstance) ([]VIF, error) {
 				prefix = "eth"
 			}
 			if iface.SRIOV != nil {
-				details, err := discoverSriovNetworkInterface(fmt.Sprintf("%s%d", prefix, value))
+				details, err := getNetworkDetails(fmt.Sprintf("%s%d", prefix, value))
 				if err != nil {
-					log.Log.Reason(err).Errorf("failed to get sriov network details for %s", fmt.Sprintf("%s%d", prefix, value))
+					log.Log.Reason(err).Errorf("failed to get SR-IOV network details for %s", fmt.Sprintf("%s%d", prefix, value))
 					return sriovVifs, err
 				}
 				sriovVifs = append(sriovVifs, details)
@@ -103,8 +115,7 @@ func getSriovNetworkInfo(vmi *v1.VirtualMachineInstance) ([]VIF, error) {
 }
 
 // Scavenged from various parts of podnetwork and BridgePodInterface
-// TODO see if some of the calls during Plug should be abstracted out.
-func discoverSriovNetworkInterface(intName string) (VIF, error) {
+func getNetworkDetails(intName string) (VIF, error) {
 	initHandler()
 	var vif VIF
 	vif.Name = intName
@@ -120,6 +131,8 @@ func discoverSriovNetworkInterface(intName string) (VIF, error) {
 		log.Log.Reason(err).Errorf("failed to get an ip address for %s", vif.Name)
 		return vif, err
 	}
+	// TODO: This can return an empty object. Test for it and skip assignment.
+	// This results in subnet: being set to <nil>
 	if len(addrList) > 0 {
 		vif.IP = addrList[0]
 	}
@@ -146,11 +159,11 @@ func discoverSriovNetworkInterface(intName string) (VIF, error) {
 	return vif, nil
 }
 
-func setCloudInitManageResolv() CloudInitManageResolv {
+func getCloudInitManageResolv() CloudInitManageResolv {
 	var cloudInitManageResolv CloudInitManageResolv
 	var cloudInitResolvConf CloudInitResolvConf
 
-	nameServers, searchDomains, resolvDomain, err := api.GetResolvConfDetailsFromPod()
+	nameServers, searchDomains, err := api.GetResolvConfDetailsFromPod()
 	if err != nil {
 		log.Log.Errorf("Failed to get DNS servers from resolv.conf: %v", err)
 		panic(err)
@@ -166,16 +179,12 @@ func setCloudInitManageResolv() CloudInitManageResolv {
 		cloudInitResolvConf.SearchDomains = append(cloudInitResolvConf.SearchDomains, searchDomain)
 	}
 
-	if resolvDomain != "" {
-		cloudInitResolvConf.Domain = resolvDomain
-	}
-
 	cloudInitManageResolv.ResolvConf = cloudInitResolvConf
 
 	return cloudInitManageResolv
 }
 
-func GenNetworkFile(vmi *v1.VirtualMachineInstance) ([]byte, error) {
+func CloudInitDiscoverNetworkData(vmi *v1.VirtualMachineInstance) ([]byte, error) {
 	var networkFile []byte
 	var resolvFile []byte
 	var cloudInitNetworks []VIF
@@ -190,7 +199,6 @@ func GenNetworkFile(vmi *v1.VirtualMachineInstance) ([]byte, error) {
 	}
 
 	// More options for getting network info could be added here
-	// E.G. Static configurations from vmi SPEC
 
 	if len(cloudInitNetworks) == 0 {
 		return networkFile, err
@@ -251,9 +259,9 @@ func GenNetworkFile(vmi *v1.VirtualMachineInstance) ([]byte, error) {
 	}
 
 	// Get resolver configuration. dhclient will likely override this on most
-	// distrobutions but it is the same data so this should be safe.
+	// distributions but it is the same data so this should be safe.
 	// This can be gated via Spec if needed.
-	cloudInitManageResolv := setCloudInitManageResolv()
+	cloudInitManageResolv := getCloudInitManageResolv()
 	resolvFile, err = yaml.Marshal(cloudInitManageResolv)
 	if err != nil {
 		return networkFile, err
