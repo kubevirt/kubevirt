@@ -355,6 +355,8 @@ func (l *LibvirtDomainManager) asyncMigrate(vmi *v1.VirtualMachineInstance) {
 			params.MigrateDisks = copyDisks
 			params.MigrateDisksSet = true
 		}
+		// start live migration tracking
+		go liveMigrationMonitor(vmi, dom)
 		err = dom.MigrateToURI3(dstUri, params, migrateFlags)
 		if err != nil {
 
@@ -448,7 +450,7 @@ func liveMigrationMonitor(vmi *v1.VirtualMachineInstance, dom cli.VirDomain) {
 			// check the overall migration time
 			if acceptableCompletionTime != 0 &&
 				elapsed > acceptableCompletionTime {
-				logger.Warningf("Live migration not completed after %d sec",
+				logger.Warningf("Live migration is not completed after %d sec",
 					acceptableCompletionTime)
 				err := dom.AbortJob()
 				if err != nil {
