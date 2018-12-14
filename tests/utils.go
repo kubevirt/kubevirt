@@ -2355,7 +2355,7 @@ func newISCSIPV(name string, size string, iscsiTargetIP string) *k8sv1.Persisten
 				"storage": quantity,
 			},
 			ClaimRef: &k8sv1.ObjectReference{
-				Name:      "test-iscsi-lun",
+				Name:      name,
 				Namespace: NamespaceTestDefault,
 			},
 			StorageClassName: storageClass,

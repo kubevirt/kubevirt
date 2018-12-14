@@ -548,7 +548,7 @@ var _ = Describe("Storage", func() {
 
 		Context("With Alpine ISCSI PVC", func() {
 
-			pvName := "test-iscsi-lun"
+			pvName := "test-iscsi-lun" + rand.String(48)
 
 			BeforeEach(func() {
 				// Start a ISCSI POD and service
