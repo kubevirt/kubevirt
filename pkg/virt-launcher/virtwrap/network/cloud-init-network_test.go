@@ -96,6 +96,14 @@ var _ = Describe("cloud-init network", func() {
 			}
 			vmi.Spec.Networks = append(vmi.Spec.Networks, genieNetwork)
 
+			genieInterface := v1.Interface{
+				Name: "genie",
+				InterfaceBindingMethod: v1.InterfaceBindingMethod{
+					Bridge: &v1.InterfaceBridge{},
+				},
+			}
+			vmi.Spec.Domain.Devices.Interfaces = append(vmi.Spec.Domain.Devices.Interfaces, genieInterface)
+
 			cloudinit, err := CloudInitDiscoverNetworkData(vmi)
 			parsedCloudInit := bytes.Split(cloudinit, []byte(cloudInitDelimiter))
 			var config CloudInitNetConfig
