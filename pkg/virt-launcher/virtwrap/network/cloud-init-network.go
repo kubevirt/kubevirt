@@ -86,7 +86,6 @@ func getSriovNetworkInfo(vmi *v1.VirtualMachineInstance) ([]VIF, error) {
 				cniNetworks[network.Name] = multusNetworkIndex
 				multusNetworkIndex++
 			}
-			numberOfSources++
 		}
 		if network.Genie != nil {
 			cniNetworks[network.Name] = len(cniNetworks)
