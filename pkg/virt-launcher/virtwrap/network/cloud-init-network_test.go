@@ -44,78 +44,101 @@ var _ = Describe("cloud-init network", func() {
 		os.RemoveAll(tmpDir)
 	})
 
-	Context("on successful CloudInitDiscoverNetworkData()", func() {
+	Describe("on successful CloudInitDiscoverNetworkData()", func() {
 		It("should create valid network-config contents", func() {
 			count := 3
 			domain := newSriovDomainWithInterface()
-			vm := newSriovVMISriovInterface("testnamespace", "testVmName", count)
+			vmi := newSriovVMISriovInterface("testnamespace", "testVmName", count)
 			api.SetObjectDefaults_Domain(domain)
 			mockErrors := make(map[string]error)
 			buildMockPodNetwork(mockNetwork)
-			buildMockSriovNetwork(mockNetwork, count, mockErrors)
-			cloudinit, err := CloudInitDiscoverNetworkData(vm)
+			buildMockSriovNetwork(mockNetwork, count, mockErrors, false)
+			cloudinit, err := CloudInitDiscoverNetworkData(vmi)
 			parsedCloudInit := bytes.Split(cloudinit, []byte(cloudInitDelimiter))
 			var config CloudInitNetConfig
 			yaml.Unmarshal(parsedCloudInit[0], &config)
 
 			Expect(err).To(BeNil())
-			intNum := 1
-			for intNum <= count {
-				intArray := intNum - 1
-				intString := strconv.Itoa(intNum)
-				intName := "net" + intString
-				intConfig := &config.Config[intArray]
+			checkCloudInitNetworkConfig(&config, count, false)
+		})
 
-				Expect(intConfig.NetworkType).To(Equal("physical"))
-				Expect(intConfig.Name).To(Equal(intName))
-				Expect(intConfig.MacAddress).To(Equal("de:ad:be:af:00:0" + intString))
-				Expect(intConfig.Mtu).To(Equal(uint16(1400 + intNum)))
-				Expect(len(intConfig.Subnets)).To(Equal(1))
+		It("should create valid network-config contents when an interface has no subnets", func() {
+			count := 3
+			domain := newSriovDomainWithInterface()
+			vmi := newSriovVMISriovInterface("testnamespace", "testVmName", count)
+			api.SetObjectDefaults_Domain(domain)
+			mockErrors := make(map[string]error)
+			buildMockPodNetwork(mockNetwork)
+			buildMockSriovNetwork(mockNetwork, count, mockErrors, true)
+			cloudinit, err := CloudInitDiscoverNetworkData(vmi)
+			parsedCloudInit := bytes.Split(cloudinit, []byte(cloudInitDelimiter))
+			var config CloudInitNetConfig
+			yaml.Unmarshal(parsedCloudInit[0], &config)
 
-				intSubnet := &intConfig.Subnets[0]
-				Expect(intSubnet.SubnetType).To(Equal("static"))
-				Expect(intSubnet.Address).To(Equal("10." + intString + ".0.2/24"))
-				if intNum == 1 {
-					Expect(intSubnet.Gateway).To(Equal("10." + intString + ".0.1"))
-					Expect(intSubnet.Routes).To(BeNil())
-				} else {
-					Expect(intSubnet.Gateway).To(Equal(""))
-					Expect(len(intSubnet.Routes)).To(Equal(intNum + 1))
-					routeNum := 0
-					for routeNum <= intNum {
-						Expect(intSubnet.Routes[routeNum].Network).To(Equal("10." + intString + "." + strconv.Itoa(routeNum+1) + ".0"))
-						Expect(intSubnet.Routes[routeNum].Netmask).To(Equal("255.255.255.0"))
-						if routeNum == intNum {
-							Expect(intSubnet.Routes[routeNum].Gateway).To(Equal(""))
-						} else {
-							Expect(intSubnet.Routes[routeNum].Gateway).To(Equal("10." + intString + ".0.1"))
-						}
-						routeNum++
-					}
-				}
+			Expect(err).To(BeNil())
+			checkCloudInitNetworkConfig(&config, count, true)
+		})
 
-				Expect(intConfig.Address).To(BeNil())
-				Expect(intConfig.Search).To(BeNil())
-				Expect(intConfig.Destination).To(Equal(""))
-				Expect(intConfig.Gateway).To(Equal(""))
-				Expect(intConfig.Metric).To(Equal(0))
+		It("should ignore genie interfaces", func() {
+			count := 3
+			domain := newSriovDomainWithInterface()
+			vmi := newSriovVMISriovInterface("testnamespace", "testVmName", count)
+			api.SetObjectDefaults_Domain(domain)
+			mockErrors := make(map[string]error)
+			buildMockPodNetwork(mockNetwork)
+			buildMockSriovNetwork(mockNetwork, count, mockErrors, true)
 
-				intNum++
+			genieNetwork := v1.Network{
+				Name: "genie",
+				NetworkSource: v1.NetworkSource{
+					Genie: &v1.CniNetwork{NetworkName: "genie"},
+				},
 			}
+			vmi.Spec.Networks = append(vmi.Spec.Networks, genieNetwork)
 
+			cloudinit, err := CloudInitDiscoverNetworkData(vmi)
+			parsedCloudInit := bytes.Split(cloudinit, []byte(cloudInitDelimiter))
+			var config CloudInitNetConfig
+			yaml.Unmarshal(parsedCloudInit[0], &config)
+
+			Expect(err).To(BeNil())
+			checkCloudInitNetworkConfig(&config, count, true)
 		})
 
 		It("should not create contents without SR-IOV interfaces", func() {
 			count := 0
 			domain := newSriovDomainWithInterface()
-			vm := newSriovVMISriovInterface("testnamespace", "testVmName", count)
+			vmi := newSriovVMISriovInterface("testnamespace", "testVmName", count)
 			api.SetObjectDefaults_Domain(domain)
 			mockErrors := make(map[string]error)
 			buildMockPodNetwork(mockNetwork)
-			buildMockSriovNetwork(mockNetwork, count, mockErrors)
-			cloudinit, err := CloudInitDiscoverNetworkData(vm)
+			buildMockSriovNetwork(mockNetwork, count, mockErrors, false)
+			cloudinit, err := CloudInitDiscoverNetworkData(vmi)
 			Expect(cloudinit).To(BeNil())
 			Expect(err).To(BeNil())
+		})
+
+		It("should fail with extra device interfaces", func() {
+			count := 0
+			domain := newSriovDomainWithInterface()
+			vmi := newSriovVMISriovInterface("testnamespace", "testVmName", count)
+			api.SetObjectDefaults_Domain(domain)
+
+			sriovInterface := v1.Interface{
+				Name: "sriov10",
+				InterfaceBindingMethod: v1.InterfaceBindingMethod{
+					SRIOV: &v1.InterfaceSRIOV{},
+				},
+			}
+
+			vmi.Spec.Domain.Devices.Interfaces = append(vmi.Spec.Domain.Devices.Interfaces, sriovInterface)
+
+			mockErrors := make(map[string]error)
+			buildMockPodNetwork(mockNetwork)
+			buildMockSriovNetwork(mockNetwork, count, mockErrors, false)
+			cloudinit, err := CloudInitDiscoverNetworkData(vmi)
+			Expect(cloudinit).To(BeNil())
+			Expect(err).Should(MatchError("failed to find network sriov10"))
 		})
 
 		/*
@@ -141,16 +164,69 @@ var _ = Describe("cloud-init network", func() {
 	})
 })
 
+func checkCloudInitNetworkConfig(config *CloudInitNetConfig, count int, empty bool) {
+	intNum := 1
+	for intNum <= count {
+		intArray := intNum - 1
+		intString := strconv.Itoa(intNum)
+		intName := "net" + intString
+		intConfig := &config.Config[intArray]
+
+		Expect(intConfig.NetworkType).To(Equal("physical"))
+		Expect(intConfig.Name).To(Equal(intName))
+		Expect(intConfig.MacAddress).To(Equal("de:ad:be:af:00:0" + intString))
+		Expect(intConfig.Mtu).To(Equal(uint16(1400 + intNum)))
+		Expect(len(intConfig.Subnets)).To(Equal(1))
+
+		intSubnet := &intConfig.Subnets[0]
+		if empty {
+			Expect(intSubnet.SubnetType).To(Equal("manual"))
+			Expect(intSubnet.Address).To(Equal(""))
+			Expect(intSubnet.Gateway).To(Equal(""))
+			Expect(intSubnet.Routes).To(BeNil())
+		} else {
+			Expect(intSubnet.SubnetType).To(Equal("static"))
+			Expect(intSubnet.Address).To(Equal("10." + intString + ".0.2/24"))
+			if intNum == 1 {
+				Expect(intSubnet.Gateway).To(Equal("10." + intString + ".0.1"))
+				Expect(intSubnet.Routes).To(BeNil())
+			} else {
+				Expect(intSubnet.Gateway).To(Equal(""))
+				Expect(len(intSubnet.Routes)).To(Equal(intNum + 1))
+				routeNum := 0
+				for routeNum <= intNum {
+					Expect(intSubnet.Routes[routeNum].Network).To(Equal("10." + intString + "." + strconv.Itoa(routeNum+1) + ".0"))
+					Expect(intSubnet.Routes[routeNum].Netmask).To(Equal("255.255.255.0"))
+					if routeNum == intNum {
+						Expect(intSubnet.Routes[routeNum].Gateway).To(Equal(""))
+					} else {
+						Expect(intSubnet.Routes[routeNum].Gateway).To(Equal("10." + intString + ".0.1"))
+					}
+					routeNum++
+				}
+			}
+		}
+
+		Expect(intConfig.Address).To(BeNil())
+		Expect(intConfig.Search).To(BeNil())
+		Expect(intConfig.Destination).To(Equal(""))
+		Expect(intConfig.Gateway).To(Equal(""))
+		Expect(intConfig.Metric).To(Equal(0))
+
+		intNum++
+	}
+}
+
 func testNetlinkErrors(netlinkFunc string, mockNetwork *MockNetworkHandler) {
 	count := 1
 	domain := newSriovDomainWithInterface()
-	vm := newSriovVMISriovInterface("testnamespace", "testVmName", count)
+	vmi := newSriovVMISriovInterface("testnamespace", "testVmName", count)
 	api.SetObjectDefaults_Domain(domain)
 	mockErrors := make(map[string]error)
 	mockErrors[netlinkFunc] = errors.New(netlinkFunc)
 	buildMockPodNetwork(mockNetwork)
-	buildMockSriovNetwork(mockNetwork, count, mockErrors)
-	_, err := CloudInitDiscoverNetworkData(vm)
+	buildMockSriovNetwork(mockNetwork, count, mockErrors, false)
+	_, err := CloudInitDiscoverNetworkData(vmi)
 	Expect(err).Should(MatchError(netlinkFunc))
 }
 
@@ -176,7 +252,7 @@ func buildMockPodNetwork(mockNetwork *MockNetworkHandler) {
 	mockNetwork.EXPECT().RouteList(dummy, netlink.FAMILY_V4).Return(routeList, nil)
 }
 
-func buildMockSriovNetwork(mockNetwork *MockNetworkHandler, count int, mockErrors map[string]error) {
+func buildMockSriovNetwork(mockNetwork *MockNetworkHandler, count int, mockErrors map[string]error, empty bool) {
 	netInts := make(map[string]*netlink.Dummy, count)
 	intNum := 1
 	for intNum <= count {
@@ -198,15 +274,20 @@ func buildMockSriovNetwork(mockNetwork *MockNetworkHandler, count int, mockError
 
 		address := &net.IPNet{IP: net.IPv4(10, byte(intNum), 0, 2), Mask: net.CIDRMask(24, 32)}
 		ipAddress = netlink.Addr{IPNet: address}
-		addrList = []netlink.Addr{ipAddress}
 		macAddrStr := "de:ad:be:af:00:0" + strconv.Itoa(intNum)
 		macAddress, _ = net.ParseMAC(macAddrStr)
-
 		routeList = append(routeList, netlink.Route{Src: net.IPv4(10, byte(intNum), 0, 2)})
+
+		if empty {
+			addrList = []netlink.Addr{}
+		} else {
+			addrList = []netlink.Addr{ipAddress}
+		}
 
 		if intNum == 1 {
 			gw := net.IPv4(10, byte(intNum), 0, 1)
 			routeList = append(routeList, netlink.Route{Gw: gw})
+			routeList = append(routeList, netlink.Route{})
 		} else if intNum > 1 {
 			routeCount := 1
 			for routeCount <= intNum {

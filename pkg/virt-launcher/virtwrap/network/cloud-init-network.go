@@ -200,9 +200,6 @@ func convertCloudInitNetworksToCloudInitNetConfig(cloudInitNetworks *[]VIF, conf
 		} else {
 			nifSubnet.SubnetType = "static"
 			nifSubnet.Address = strings.Split(vif.IP.String(), " ")[0]
-			if vif.Gateway != nil {
-				nifSubnet.Gateway = string(vif.Gateway)
-			}
 			for _, route := range *vif.Routes {
 				if route.Dst == nil && route.Src.Equal(nil) && route.Gw.Equal(nil) {
 					continue
