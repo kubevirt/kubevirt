@@ -207,13 +207,26 @@ var _ = Describe("CloudInit", func() {
 			Context("with cloudInitNoCloud userData volume source and networkData", func() {
 				It("should success", func() {
 					userData := "fake\nuser\ndata\n"
-					networkData := "fake\nnetwork\ndata\n"
+					networkData := "FakeNetwork" + cloudInitDelimiter + "FakeResolv"
 					cloudInitData := &v1.CloudInitNoCloudSource{
 						UserData:    userData,
 						NetworkData: networkData,
 					}
 					verifyCloudInitIso(cloudInitData)
 				})
+			})
+			Context("with cloudInitNoCloud networkData source", func() {
+				It("should success", func() {
+					networkData := "FakeNetwork" + cloudInitDelimiter + "FakeResolv"
+					cloudInitData := &v1.CloudInitNoCloudSource{
+						NetworkData: networkData,
+					}
+					namespace := "fake-namespace"
+					domain := "fake-domain"
+					err := GenerateLocalData(domain, domain, namespace, cloudInitData)
+					Expect(err).Should(MatchError("userDataBase64 or userData is required for no-cloud data source"))
+				})
+
 			})
 		})
 	})
