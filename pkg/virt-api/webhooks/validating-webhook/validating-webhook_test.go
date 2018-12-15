@@ -1593,6 +1593,26 @@ var _ = Describe("Validating Webhook", func() {
 			Expect(len(causes)).To(Equal(1))
 			Expect(causes[0].Field).To(Equal("fake.domain.devices.interfaces[0].ports[0]"))
 		})
+		It("should reject a masquerade interface on a network different than pod", func() {
+			vm := v1.NewMinimalVMI("testvm")
+			vm.Spec.Domain.Devices.Interfaces = []v1.Interface{v1.Interface{
+				Name: "default",
+				InterfaceBindingMethod: v1.InterfaceBindingMethod{
+					Masquerade: &v1.InterfaceMasquerade{},
+				},
+				Ports: []v1.Port{{Name: "test"}}}}
+
+			vm.Spec.Networks = []v1.Network{
+				v1.Network{
+					Name:          "default",
+					NetworkSource: v1.NetworkSource{Multus: &v1.CniNetwork{NetworkName: "test"}},
+				},
+			}
+
+			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vm.Spec)
+			Expect(len(causes)).To(Equal(1))
+			Expect(causes[0].Field).To(Equal("fake.domain.devices.interfaces[0].name"))
+		})
 		It("should reject networks with a pod network source and slirp interface with bad protocol type", func() {
 			vm := v1.NewMinimalVMI("testvm")
 			vm.Spec.Domain.Devices.Interfaces = []v1.Interface{v1.Interface{
@@ -1958,7 +1978,7 @@ var _ = Describe("Validating Webhook", func() {
 				Expect(len(causes)).To(Equal(0))
 			},
 			table.Entry("with pvc volume source", v1.VolumeSource{PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{}}),
-			table.Entry("with cloud-init volume source", v1.VolumeSource{CloudInitNoCloud: &v1.CloudInitNoCloudSource{UserData: "fake"}}),
+			table.Entry("with cloud-init volume source", v1.VolumeSource{CloudInitNoCloud: &v1.CloudInitNoCloudSource{UserData: "fake", NetworkData: "fake"}}),
 			table.Entry("with containerDisk volume source", v1.VolumeSource{ContainerDisk: &v1.ContainerDiskSource{}}),
 			table.Entry("with ephemeral volume source", v1.VolumeSource{Ephemeral: &v1.EphemeralVolumeSource{}}),
 			table.Entry("with emptyDisk volume source", v1.VolumeSource{EmptyDisk: &v1.EmptyDiskSource{}}),
@@ -2051,11 +2071,35 @@ var _ = Describe("Validating Webhook", func() {
 			}
 		},
 			table.Entry("should accept userdata under max limit", 10, 0, false),
-			table.Entry("should accept userdata equal max limit", cloudInitMaxLen, 0, false),
-			table.Entry("should reject userdata greater than max limit", cloudInitMaxLen+1, 1, false),
+			table.Entry("should accept userdata equal max limit", cloudInitUserMaxLen, 0, false),
+			table.Entry("should reject userdata greater than max limit", cloudInitUserMaxLen+1, 1, false),
 			table.Entry("should accept userdata base64 under max limit", 10, 0, true),
-			table.Entry("should accept userdata base64 equal max limit", cloudInitMaxLen, 0, true),
-			table.Entry("should reject userdata base64 greater than max limit", cloudInitMaxLen+1, 1, true),
+			table.Entry("should accept userdata base64 equal max limit", cloudInitUserMaxLen, 0, true),
+			table.Entry("should reject userdata base64 greater than max limit", cloudInitUserMaxLen+1, 1, true),
+		)
+
+		table.DescribeTable("should verify cloud-init networkdata length", func(networkDataLen int, expectedErrors int) {
+			vmi := v1.NewMinimalVMI("testvmi")
+
+			// generate fake networkdata
+			networkdata := ""
+			for i := 0; i < networkDataLen; i++ {
+				networkdata = fmt.Sprintf("%sa", networkdata)
+			}
+
+			vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{VolumeSource: v1.VolumeSource{CloudInitNoCloud: &v1.CloudInitNoCloudSource{}}})
+			vmi.Spec.Volumes[0].VolumeSource.CloudInitNoCloud.UserData = "#config"
+			vmi.Spec.Volumes[0].VolumeSource.CloudInitNoCloud.NetworkData = networkdata
+
+			causes := validateVolumes(k8sfield.NewPath("fake"), vmi.Spec.Volumes)
+			Expect(len(causes)).To(Equal(expectedErrors))
+			for _, cause := range causes {
+				Expect(cause.Field).To(ContainSubstring("fake[0].cloudInitNoCloud"))
+			}
+		},
+			table.Entry("should accept networkdata under max limit", 10, 0),
+			table.Entry("should accept networkdata equal max limit", cloudInitNetworkMaxLen, 0),
+			table.Entry("should reject networkdata greater than max limit", cloudInitNetworkMaxLen+1, 1),
 		)
 
 		It("should reject cloud-init with invalid base64 data", func() {
@@ -2354,6 +2398,76 @@ var _ = Describe("Validating Webhook", func() {
 			causes := validateDisks(k8sfield.NewPath("fake"), vmi.Spec.Domain.Devices.Disks)
 			Expect(len(causes)).To(Equal(1))
 			Expect(causes[0].Field).To(Equal("fake[0].bootOrder"))
+		})
+
+		It("should accept disks with supported or unspecified buses", func() {
+			vmi := v1.NewMinimalVMI("testvmi")
+
+			vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
+				Name:       "testdisk1",
+				VolumeName: "testvolume1",
+				DiskDevice: v1.DiskDevice{
+					Disk: &v1.DiskTarget{
+						Bus: "virtio",
+					},
+				},
+			})
+			vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
+				Name:       "testdisk2",
+				VolumeName: "testvolume2",
+				DiskDevice: v1.DiskDevice{
+					LUN: &v1.LunTarget{
+						Bus: "sata",
+					},
+				},
+			})
+			vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
+				Name:       "testdisk3",
+				VolumeName: "testvolume3",
+				DiskDevice: v1.DiskDevice{
+					CDRom: &v1.CDRomTarget{
+						Bus: "scsi",
+					},
+				},
+			})
+			vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
+				Name:       "testdisk4",
+				VolumeName: "testvolume4",
+				DiskDevice: v1.DiskDevice{
+					Disk: &v1.DiskTarget{},
+				},
+			})
+
+			causes := validateDisks(k8sfield.NewPath("fake"), vmi.Spec.Domain.Devices.Disks)
+			Expect(len(causes)).To(Equal(0))
+		})
+
+		It("should reject disks with unsupported buses", func() {
+			vmi := v1.NewMinimalVMI("testvmi")
+
+			vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
+				Name:       "testdisk1",
+				VolumeName: "testvolume1",
+				DiskDevice: v1.DiskDevice{
+					Disk: &v1.DiskTarget{
+						Bus: "ide",
+					},
+				},
+			})
+			vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
+				Name:       "testdisk2",
+				VolumeName: "testvolume2",
+				DiskDevice: v1.DiskDevice{
+					LUN: &v1.LunTarget{
+						Bus: "unsupported",
+					},
+				},
+			})
+
+			causes := validateDisks(k8sfield.NewPath("fake"), vmi.Spec.Domain.Devices.Disks)
+			Expect(len(causes)).To(Equal(2))
+			Expect(causes[0].Field).To(Equal("fake[0].disk.bus"))
+			Expect(causes[1].Field).To(Equal("fake[1].lun.bus"))
 		})
 
 		It("should reject invalid SN characters", func() {

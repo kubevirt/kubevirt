@@ -17,11 +17,10 @@
  *
  */
 
-package featuregates
+package virtconfig
 
 import (
 	"os"
-	"strings"
 	"time"
 
 	k8sv1 "k8s.io/api/core/v1"
@@ -34,17 +33,27 @@ import (
 	"kubevirt.io/kubevirt/pkg/util"
 )
 
-const featureGateEnvVar = "FEATURE_GATES"
-
 const (
-	dataVolumesGate   = "DataVolumes"
-	cpuManager        = "CPUManager"
-	liveMigrationGate = "LiveMigration"
-	SRIOVGate         = "SRIOV"
-	configMapName     = "kubevirt-config"
+	configMapName          = "kubevirt-config"
+	featureGateEnvVar      = "FEATURE_GATES"
+	FeatureGatesKey        = "feature-gates"
+	emulatedMachinesEnvVar = "VIRT_EMULATED_MACHINES"
+	emulatedMachinesKey    = "emulated-machines"
 )
 
-func ParseFeatureGatesFromConfigMap() {
+// We cannot rely on automatic invocation of 'init' method because this initialization
+// code assumes a cluster is available to pull the configmap from
+func Init() {
+	cfgMap := getConfigMap()
+	if val, ok := cfgMap.Data[FeatureGatesKey]; ok {
+		os.Setenv(featureGateEnvVar, val)
+	}
+	if val, ok := cfgMap.Data[emulatedMachinesKey]; ok {
+		os.Setenv(emulatedMachinesEnvVar, val)
+	}
+}
+
+func getConfigMap() *k8sv1.ConfigMap {
 	virtClient, err := kubecli.GetKubevirtClient()
 	if err != nil {
 		panic(err)
@@ -64,39 +73,18 @@ func ParseFeatureGatesFromConfigMap() {
 			if errors.IsNotFound(curErr) {
 				logger := log.DefaultLogger()
 				logger.Infof("%s ConfigMap does not exist. Using defaults.", configMapName)
-				// ignore if config map does not exist
+				cfgMap = &k8sv1.ConfigMap{}
 				return true, nil
 			}
 			return false, curErr
 		}
 
-		val, ok := cfgMap.Data["feature-gates"]
-		if !ok {
-			// no feature gates set
-			return true, nil
-		}
-
-		os.Setenv(featureGateEnvVar, val)
 		return true, nil
 	})
 
 	if err != nil {
 		panic(err)
 	}
-}
 
-func DataVolumesEnabled() bool {
-	return strings.Contains(os.Getenv(featureGateEnvVar), dataVolumesGate)
-}
-
-func CPUManagerEnabled() bool {
-	return strings.Contains(os.Getenv(featureGateEnvVar), cpuManager)
-}
-
-func LiveMigrationEnabled() bool {
-	return strings.Contains(os.Getenv(featureGateEnvVar), liveMigrationGate)
-}
-
-func SRIOVEnabled() bool {
-	return strings.Contains(os.Getenv(featureGateEnvVar), SRIOVGate)
+	return cfgMap
 }

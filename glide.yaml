@@ -113,3 +113,4 @@ testImport:
 - package: github.com/google/goterm
 - package: github.com/krolaw/dhcp4
 - package: github.com/subgraph/libmacouflage
+- package: github.com/coreos/go-iptables

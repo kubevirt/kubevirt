@@ -25,10 +25,7 @@ spec:
     machine:
       type: ""
     resources:
-      limits:
-        intel.com/sriov: "1"
       requests:
-        intel.com/sriov: "1"
         memory: 1024M
   networks:
   - name: default

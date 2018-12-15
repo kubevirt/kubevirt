@@ -204,16 +204,73 @@ var _ = Describe("CloudInit", func() {
 					verifyCloudInitIso(cloudInitData)
 				})
 			})
-			Context("with cloudInitNoCloud userData volume source and networkData", func() {
+			Context("with cloudInitNoCloud userData and networkData without resolvData", func() {
 				It("should success", func() {
 					userData := "fake\nuser\ndata\n"
-					networkData := "fake\nnetwork\ndata\n"
+					networkData := "fakeData\n" + cloudInitDelimiter
 					cloudInitData := &v1.CloudInitNoCloudSource{
 						UserData:    userData,
 						NetworkData: networkData,
 					}
 					verifyCloudInitIso(cloudInitData)
 				})
+			})
+			Context("with cloudInitNoCloud userData and networkData without resolvData or delimiter", func() {
+				It("should success", func() {
+					userData := "fake\nuser\ndata\n"
+					networkData := "fakeData\n"
+					cloudInitData := &v1.CloudInitNoCloudSource{
+						UserData:    userData,
+						NetworkData: networkData,
+					}
+					verifyCloudInitIso(cloudInitData)
+				})
+			})
+			Context("with cloudInitNoCloud userData and networkData with resolvData", func() {
+				It("should success", func() {
+					userData := "#cloud-config\nfakeData\n"
+					networkData := "fakeData\n" + cloudInitDelimiter + "fakeResolv"
+					cloudInitData := &v1.CloudInitNoCloudSource{
+						UserData:    userData,
+						NetworkData: networkData,
+					}
+					verifyCloudInitIso(cloudInitData)
+				})
+			})
+			Context("with cloudInitNoCloud userData and networkData with resolvData and manage_resolv_conf:", func() {
+				It("should success", func() {
+					userData := "#cloud-config\nmanage_resolv_conf: true\n"
+					networkData := "#cloud-config\nmanage_resolv_conf: true\n" + cloudInitDelimiter + "fakeResolv"
+					cloudInitData := &v1.CloudInitNoCloudSource{
+						UserData:    userData,
+						NetworkData: networkData,
+					}
+					verifyCloudInitIso(cloudInitData)
+				})
+			})
+			Context("with cloudInitNoCloud userData and networkData with resolvData without #cloud-config", func() {
+				It("should success", func() {
+					userData := "fake\nuser\ndata\n"
+					networkData := "fakeNetwork\n" + cloudInitDelimiter + "fakeResolv"
+					cloudInitData := &v1.CloudInitNoCloudSource{
+						UserData:    userData,
+						NetworkData: networkData,
+					}
+					verifyCloudInitIso(cloudInitData)
+				})
+			})
+			Context("with cloudInitNoCloud networkData source", func() {
+				It("should fail", func() {
+					networkData := "FakeNetwork" + cloudInitDelimiter + "FakeResolv"
+					cloudInitData := &v1.CloudInitNoCloudSource{
+						NetworkData: networkData,
+					}
+					namespace := "fake-namespace"
+					domain := "fake-domain"
+					err := GenerateLocalData(domain, domain, namespace, cloudInitData)
+					Expect(err).Should(MatchError("userDataBase64 or userData is required for no-cloud data source"))
+				})
+
 			})
 		})
 	})

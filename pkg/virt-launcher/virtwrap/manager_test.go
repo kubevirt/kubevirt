@@ -20,18 +20,24 @@
 package virtwrap
 
 import (
+	"encoding/base64"
 	"encoding/xml"
 	"fmt"
+	"io/ioutil"
+	"net"
 	"os"
+	"os/user"
 
 	"github.com/golang/mock/gomock"
 	libvirt "github.com/libvirt/libvirt-go"
 	. "github.com/onsi/ginkgo"
 	"github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
+	"github.com/vishvananda/netlink"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	v1 "kubevirt.io/kubevirt/pkg/api/v1"
+	cloudinit "kubevirt.io/kubevirt/pkg/cloud-init"
 	"kubevirt.io/kubevirt/pkg/log"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/cli"
@@ -41,6 +47,7 @@ import (
 var _ = Describe("Manager", func() {
 	var mockConn *cli.MockConnection
 	var mockDomain *cli.MockVirDomain
+	var mockNetwork *network.MockNetworkHandler
 	var ctrl *gomock.Controller
 	testVmName := "testvmi"
 	testNamespace := "testnamespace"
@@ -48,10 +55,30 @@ var _ = Describe("Manager", func() {
 
 	log.Log.SetIOWriter(GinkgoWriter)
 
+	tmpDir, _ := ioutil.TempDir("", "cloudinittest")
+	owner, err := user.Current()
+	if err != nil {
+		panic(err)
+	}
+	isoCreationFunc := func(isoOutFile string, inFiles []string) error {
+		_, err := os.Create(isoOutFile)
+		return err
+	}
+	BeforeSuite(func() {
+		err := cloudinit.SetLocalDirectory(tmpDir)
+		if err != nil {
+			panic(err)
+		}
+		cloudinit.SetLocalDataOwner(owner.Username)
+		cloudinit.SetIsoCreationFunction(isoCreationFunc)
+	})
+
 	BeforeEach(func() {
 		ctrl = gomock.NewController(GinkgoT())
 		mockConn = cli.NewMockConnection(ctrl)
 		mockDomain = cli.NewMockVirDomain(ctrl)
+		mockNetwork = network.NewMockNetworkHandler(ctrl)
+		network.Handler = mockNetwork
 	})
 
 	expectIsolationDetectionForVMI := func(vmi *v1.VirtualMachineInstance) *api.DomainSpec {
@@ -59,6 +86,21 @@ var _ = Describe("Manager", func() {
 		c := &api.ConverterContext{
 			VirtualMachine: vmi,
 			UseEmulation:   true,
+		}
+		Expect(api.Convert_v1_VirtualMachine_To_api_Domain(vmi, domain, c)).To(Succeed())
+		api.SetObjectDefaults_Domain(domain)
+
+		return &domain.Spec
+	}
+
+	expectIsolationDetectionForVMIWithSriov := func(vmi *v1.VirtualMachineInstance) *api.DomainSpec {
+		domain := &api.Domain{}
+		c := &api.ConverterContext{
+			VirtualMachine: vmi,
+			UseEmulation:   true,
+			SRIOVDevices: map[string][]string{
+				"testnet2": []string{"0000:81:11.1"},
+			},
 		}
 		Expect(api.Convert_v1_VirtualMachine_To_api_Domain(vmi, domain, c)).To(Succeed())
 		api.SetObjectDefaults_Domain(domain)
@@ -87,6 +129,124 @@ var _ = Describe("Manager", func() {
 			Expect(err).To(BeNil())
 			Expect(newspec).ToNot(BeNil())
 		})
+		It("should define and start a new VirtualMachineInstance with userData", func() {
+			// Make sure that we always free the domain after use
+			mockDomain.EXPECT().Free()
+			StubOutNetworkForTest()
+			vmi := newVMI(testNamespace, testVmName)
+			mockConn.EXPECT().LookupDomainByName(testDomainName).Return(mockDomain, libvirt.Error{Code: libvirt.ERR_NO_DOMAIN})
+
+			userData := "fake\nuser\ndata\n"
+			vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
+				Name:       "cloudinit",
+				VolumeName: "cloudinit",
+				Cache:      v1.CacheNone,
+				DiskDevice: v1.DiskDevice{
+					Disk: &v1.DiskTarget{
+						Bus: "virtio",
+					},
+				},
+			})
+			vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
+				Name: "cloudinit",
+				VolumeSource: v1.VolumeSource{
+					CloudInitNoCloud: &v1.CloudInitNoCloudSource{
+						UserDataBase64: base64.StdEncoding.EncodeToString([]byte(userData)),
+					},
+				},
+			})
+			sriovInterface := v1.Interface{
+				Name: "testnet2",
+				InterfaceBindingMethod: v1.InterfaceBindingMethod{
+					SRIOV: &v1.InterfaceSRIOV{},
+				},
+			}
+			vmi.Spec.Domain.Devices.Interfaces = append(vmi.Spec.Domain.Devices.Interfaces, sriovInterface)
+			sriovNetwork := v1.Network{
+				Name: "testnet2",
+				NetworkSource: v1.NetworkSource{
+					Multus: &v1.CniNetwork{NetworkName: "testnet2"},
+				},
+			}
+			vmi.Spec.Networks = append(vmi.Spec.Networks, sriovNetwork)
+
+			net1 := &netlink.Dummy{
+				LinkAttrs: netlink.LinkAttrs{
+					Index: 1,
+					MTU:   1500,
+					Name:  "net1",
+					Alias: "net1",
+				},
+			}
+
+			mockNetwork.EXPECT().LinkByName("net1").Return(net1, nil)
+			mockNetwork.EXPECT().AddrList(net1, netlink.FAMILY_V4).Return([]netlink.Addr{}, nil)
+			mockNetwork.EXPECT().RouteList(net1, netlink.FAMILY_V4).Return([]netlink.Route{}, nil)
+			mockNetwork.EXPECT().GetMacDetails("net1").Return(net.ParseMAC("de:ad:be:af:00:00"))
+
+			os.Setenv("PCIDEVICE_INTEL_COM_TESTNET2", "0000:81:11.1")
+			os.Setenv("KUBEVIRT_RESOURCE_NAME_testnet2", "intel.com/testnet2")
+
+			domainSpec := expectIsolationDetectionForVMIWithSriov(vmi)
+
+			xml, err := xml.Marshal(domainSpec)
+			Expect(err).To(BeNil())
+			mockConn.EXPECT().DomainDefineXML(string(xml)).Return(mockDomain, nil)
+			mockDomain.EXPECT().GetState().Return(libvirt.DOMAIN_SHUTDOWN, 1, nil)
+			mockDomain.EXPECT().Create().Return(nil)
+			mockDomain.EXPECT().GetXMLDesc(libvirt.DomainXMLFlags(0)).Return(string(xml), nil)
+			manager, _ := NewLibvirtDomainManager(mockConn, "fake", nil, 0)
+			newspec, err := manager.SyncVMI(vmi, true)
+			Expect(err).To(BeNil())
+			Expect(newspec).ToNot(BeNil())
+			os.Unsetenv("PCIDEVICE_INTEL_COM_TESTNET2")
+			os.Unsetenv("KUBEVIRT_RESOURCE_NAME_testnet2")
+		})
+		It("should define and start a new VirtualMachineInstance with cloudInitData", func() {
+			// Make sure that we always free the domain after use
+			mockDomain.EXPECT().Free()
+			StubOutNetworkForTest()
+			vmi := newVMI(testNamespace, testVmName)
+			mockConn.EXPECT().LookupDomainByName(testDomainName).Return(mockDomain, libvirt.Error{Code: libvirt.ERR_NO_DOMAIN})
+
+			userData := "fake\nuser\ndata\n"
+			networkData := "FakeNetwork"
+			vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
+				Name:       "cloudinit",
+				VolumeName: "cloudinit",
+				Cache:      v1.CacheNone,
+				DiskDevice: v1.DiskDevice{
+					Disk: &v1.DiskTarget{
+						Bus: "virtio",
+					},
+				},
+			})
+			vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
+				Name: "cloudinit",
+				VolumeSource: v1.VolumeSource{
+					CloudInitNoCloud: &v1.CloudInitNoCloudSource{
+						UserDataBase64: base64.StdEncoding.EncodeToString([]byte(userData)),
+						NetworkData:    networkData,
+					},
+				},
+			})
+
+			os.Setenv("PCIDEVICE_INTEL_COM_TESTNET2", "0000:81:11.1")
+			os.Setenv("KUBEVIRT_RESOURCE_NAME_testnet2", "intel.com/testnet2")
+			domainSpec := expectIsolationDetectionForVMI(vmi)
+
+			xml, err := xml.Marshal(domainSpec)
+			Expect(err).To(BeNil())
+			mockConn.EXPECT().DomainDefineXML(string(xml)).Return(mockDomain, nil)
+			mockDomain.EXPECT().GetState().Return(libvirt.DOMAIN_SHUTDOWN, 1, nil)
+			mockDomain.EXPECT().Create().Return(nil)
+			mockDomain.EXPECT().GetXMLDesc(libvirt.DomainXMLFlags(0)).Return(string(xml), nil)
+			manager, _ := NewLibvirtDomainManager(mockConn, "fake", nil, 0)
+			newspec, err := manager.SyncVMI(vmi, true)
+			Expect(err).To(BeNil())
+			Expect(newspec).ToNot(BeNil())
+		})
+
 		It("should leave a defined and started VirtualMachineInstance alone", func() {
 			// Make sure that we always free the domain after use
 			mockDomain.EXPECT().Free()

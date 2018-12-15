@@ -1,3 +1,15 @@
+// pkg/virt-launcher/virtwrap/network/cloud-init-network.go currently adds
+// support to configure SR-IOV interfaces within a VM through cloud-init
+// network version 1 configuration. Other interface types such as bridge
+// are configured within the VM by binding a DHCP server to the bridge
+// source interface in the compute container. This is not possible for
+// SR-IOV network interfaces as there is nothing in the compute container
+// to bind a DHCP server to.
+
+// Other network interface types can be added to this logic but are
+// currently already handled with existing code. This code does not
+// currently interfere with existing functionality.
+
 package network
 
 import (
@@ -16,7 +28,7 @@ import (
 type CloudInitNetworkInterface struct {
 	NetworkType string            `yaml:"type"`
 	Name        string            `yaml:"name,omitempty"`
-	Mac_address string            `yaml:"mac_address,omitempty"`
+	MacAddress  string            `yaml:"mac_address,omitempty"`
 	Mtu         uint16            `yaml:"mtu,omitempty"`
 	Subnets     []CloudInitSubnet `yaml:"subnets,omitempty"`
 	Address     []string          `yaml:"address,omitempty"`
@@ -27,8 +39,8 @@ type CloudInitNetworkInterface struct {
 }
 
 type CloudInitSubnet struct {
-	SubnetType string                 `yaml:"type"`
-	Address    string                 `yaml:"address"`
+	SubnetType string                 `yaml:"type,omitempty"`
+	Address    string                 `yaml:"address,omitempty"`
 	Gateway    string                 `yaml:"gateway,omitempty"`
 	Routes     []CloudInitSubnetRoute `yaml:"routes,omitempty"`
 }
@@ -39,10 +51,24 @@ type CloudInitSubnetRoute struct {
 	Gateway string `yaml:"gateway,omitempty"`
 }
 
-type CloudInitConfig struct {
+type CloudInitNetConfig struct {
 	Version int                         `yaml:"version"`
 	Config  []CloudInitNetworkInterface `yaml:"config"`
 }
+
+type CloudInitManageResolv struct {
+	ManageResolv bool                `yaml:"manage_resolv_conf"`
+	ResolvConf   CloudInitResolvConf `yaml:"resolv_conf"`
+}
+
+type CloudInitResolvConf struct {
+	NameServers   []string `yaml:"nameservers,omitempty"`
+	SearchDomains []string `yaml:"searchdomains,omitempty"`
+	Domain        string   `yaml:"domain,omitempty"`
+	// TODO Add options map when pkg/util/net/dns can parse them
+}
+
+const cloudInitDelimiter = "###CLOUDINITDELIMITER###"
 
 // Borrowed from Convert_v1_VirtualMachine_To_api_Domain
 func getSriovNetworkInfo(vmi *v1.VirtualMachineInstance) ([]VIF, error) {
@@ -52,10 +78,6 @@ func getSriovNetworkInfo(vmi *v1.VirtualMachineInstance) ([]VIF, error) {
 	var sriovVifs []VIF
 
 	for _, network := range vmi.Spec.Networks {
-		numberOfSources := 0
-		if network.Pod != nil {
-			numberOfSources++
-		}
 		if network.Multus != nil {
 			if network.Multus.Default {
 				// default network is eth0
@@ -68,12 +90,6 @@ func getSriovNetworkInfo(vmi *v1.VirtualMachineInstance) ([]VIF, error) {
 		}
 		if network.Genie != nil {
 			cniNetworks[network.Name] = len(cniNetworks)
-			numberOfSources++
-		}
-		if numberOfSources == 0 {
-			return sriovVifs, fmt.Errorf("fail network %s must have a network type", network.Name)
-		} else if numberOfSources > 1 {
-			return sriovVifs, fmt.Errorf("fail network %s must have only one network type", network.Name)
 		}
 		networks[network.Name] = network.DeepCopy()
 	}
@@ -98,9 +114,9 @@ func getSriovNetworkInfo(vmi *v1.VirtualMachineInstance) ([]VIF, error) {
 				prefix = "eth"
 			}
 			if iface.SRIOV != nil {
-				details, err := discoverSriovNetworkInterface(fmt.Sprintf("%s%d", prefix, value))
+				details, err := getNetworkDetails(fmt.Sprintf("%s%d", prefix, value))
 				if err != nil {
-					log.Log.Reason(err).Errorf("failed to get sriov network details for %s", fmt.Sprintf("%s%d", prefix, value))
+					log.Log.Reason(err).Errorf("failed to get SR-IOV network details for %s", fmt.Sprintf("%s%d", prefix, value))
 					return sriovVifs, err
 				}
 				sriovVifs = append(sriovVifs, details)
@@ -112,29 +128,29 @@ func getSriovNetworkInfo(vmi *v1.VirtualMachineInstance) ([]VIF, error) {
 }
 
 // Scavenged from various parts of podnetwork and BridgePodInterface
-// TODO see if some of the calls during Plug should be abstracted out.
-func discoverSriovNetworkInterface(intName string) (VIF, error) {
+func getNetworkDetails(intName string) (VIF, error) {
 	initHandler()
 	var vif VIF
+
 	vif.Name = intName
+
 	link, err := Handler.LinkByName(vif.Name)
 	if err != nil {
 		log.Log.Reason(err).Errorf("failed to get a link for interface: %s", vif.Name)
 		return vif, err
 	}
 
-	// get IP address
 	addrList, err := Handler.AddrList(link, netlink.FAMILY_V4)
 	if err != nil {
 		log.Log.Reason(err).Errorf("failed to get an ip address for %s", vif.Name)
 		return vif, err
 	}
+
 	if len(addrList) > 0 {
 		vif.IP = addrList[0]
 	}
 
 	if len(vif.MAC) == 0 {
-		// Get interface MAC address
 		mac, err := Handler.GetMacDetails(vif.Name)
 		if err != nil {
 			log.Log.Reason(err).Errorf("failed to get MAC for %s", vif.Name)
@@ -143,8 +159,6 @@ func discoverSriovNetworkInterface(intName string) (VIF, error) {
 		vif.MAC = mac
 	}
 
-	// Get interface MTU
-	vif.Mtu = uint16(link.Attrs().MTU)
 	routes, err := Handler.RouteList(link, netlink.FAMILY_V4)
 	if err != nil {
 		log.Log.Reason(err).Errorf("failed to get routes for %s", vif.Name)
@@ -152,11 +166,14 @@ func discoverSriovNetworkInterface(intName string) (VIF, error) {
 	}
 	vif.Routes = &routes
 
+	vif.Mtu = uint16(link.Attrs().MTU)
+
 	return vif, nil
 }
 
-func setCloudInitResolv() CloudInitNetworkInterface {
-	var cloudInitResolv CloudInitNetworkInterface
+func getCloudInitManageResolv() CloudInitManageResolv {
+	var cloudInitManageResolv CloudInitManageResolv
+	var cloudInitResolvConf CloudInitResolvConf
 
 	nameServers, searchDomains, err := api.GetResolvConfDetailsFromPod()
 	if err != nil {
@@ -164,21 +181,73 @@ func setCloudInitResolv() CloudInitNetworkInterface {
 		panic(err)
 	}
 
-	cloudInitResolv.NetworkType = "nameserver"
+	cloudInitManageResolv.ManageResolv = true
 
 	for _, nameServer := range nameServers {
-		cloudInitResolv.Address = append(cloudInitResolv.Address, net.IP(nameServer).String())
+		cloudInitResolvConf.NameServers = append(cloudInitResolvConf.NameServers, net.IP(nameServer).String())
 	}
 
 	for _, searchDomain := range searchDomains {
-		cloudInitResolv.Search = append(cloudInitResolv.Search, searchDomain)
+		cloudInitResolvConf.SearchDomains = append(cloudInitResolvConf.SearchDomains, searchDomain)
 	}
 
-	return cloudInitResolv
+	cloudInitManageResolv.ResolvConf = cloudInitResolvConf
+
+	return cloudInitManageResolv
 }
 
-func GenNetworkFile(vmi *v1.VirtualMachineInstance) ([]byte, error) {
+func convertCloudInitNetworksToCloudInitNetConfig(cloudInitNetworks *[]VIF, config *CloudInitNetConfig) {
+	for _, vif := range *cloudInitNetworks {
+		var nif CloudInitNetworkInterface
+		var nifSubnet CloudInitSubnet
+		var nifRoutes []CloudInitSubnetRoute
+
+		nif.Name = vif.Name
+		nif.NetworkType = "physical"
+		nif.MacAddress = vif.MAC.String()
+		nif.Mtu = vif.Mtu
+
+		if vif.IP.String() == "<nil>" {
+			nifSubnet.SubnetType = "manual"
+			nif.Subnets = append(nif.Subnets, nifSubnet)
+		} else {
+			nifSubnet.SubnetType = "static"
+			nifSubnet.Address = strings.Split(vif.IP.String(), " ")[0]
+			for _, route := range *vif.Routes {
+				if route.Dst == nil && route.Src.Equal(nil) && route.Gw.Equal(nil) {
+					continue
+				}
+
+				if route.Src != nil && route.Src.Equal(vif.IP.IP) {
+					continue
+				}
+
+				var subnetRoute CloudInitSubnetRoute
+
+				if route.Dst == nil {
+					nifSubnet.Gateway = route.Gw.String()
+					continue
+				} else {
+					subnetRoute.Network = route.Dst.IP.String()
+				}
+
+				subnetRoute.Network = route.Dst.IP.String()
+				subnetRoute.Netmask = net.IP(route.Dst.Mask).String()
+				if route.Gw != nil {
+					subnetRoute.Gateway = route.Gw.String()
+				}
+				nifRoutes = append(nifRoutes, subnetRoute)
+			}
+			nifSubnet.Routes = nifRoutes
+			nif.Subnets = append(nif.Subnets, nifSubnet)
+		}
+		config.Config = append(config.Config, nif)
+	}
+}
+
+func CloudInitDiscoverNetworkData(vmi *v1.VirtualMachineInstance) ([]byte, error) {
 	var networkFile []byte
+	var resolvFile []byte
 	var cloudInitNetworks []VIF
 
 	sriovNetworks, err := getSriovNetworkInfo(vmi)
@@ -191,65 +260,37 @@ func GenNetworkFile(vmi *v1.VirtualMachineInstance) ([]byte, error) {
 	}
 
 	// More options for getting network info could be added here
-	// E.G. Static configurations from vmi SPEC
 
 	if len(cloudInitNetworks) == 0 {
 		return networkFile, err
 	}
 
-	var config = CloudInitConfig{
+	var config = CloudInitNetConfig{
 		Version: 1,
 	}
 
-	for _, vif := range cloudInitNetworks {
-		var nif CloudInitNetworkInterface
-		var nifSubnet CloudInitSubnet
-		var nifRoutes []CloudInitSubnetRoute
+	convertCloudInitNetworksToCloudInitNetConfig(&cloudInitNetworks, &config)
 
-		nif.Name = vif.Name
-		nif.NetworkType = "physical"
-		nif.Mac_address = vif.MAC.String()
-		nif.Mtu = vif.Mtu
-
-		nifSubnet.SubnetType = "static"
-		nifSubnet.Address = strings.Split(vif.IP.String(), " ")[0]
-		if vif.Gateway != nil {
-			nifSubnet.Gateway = string(vif.Gateway)
-		}
-		for _, route := range *vif.Routes {
-			if route.Gw == nil {
-				continue
-			}
-			var subnetRoute CloudInitSubnetRoute
-
-			if route.Dst == nil {
-				nifSubnet.Gateway = route.Gw.String()
-				continue
-			} else {
-				subnetRoute.Network = route.Dst.IP.String()
-			}
-
-			subnetRoute.Network = route.Dst.IP.String()
-			subnetRoute.Netmask = net.IP(route.Dst.Mask).String()
-			subnetRoute.Gateway = route.Gw.String()
-			nifRoutes = append(nifRoutes, subnetRoute)
-		}
-		nifSubnet.Routes = nifRoutes
-		nif.Subnets = append(nif.Subnets, nifSubnet)
-		config.Config = append(config.Config, nif)
+	networkFile, err = yaml.Marshal(config)
+	if err != nil {
+		return networkFile, err
 	}
 
 	// Get resolver configuration. dhclient will likely override this on most
-	// distrobutions but it is the same data so this should be safe.
-	// This can be gated via Spec if needed.
-	cloudInitResolv := setCloudInitResolv()
-
-	config.Config = append(config.Config, cloudInitResolv)
-
-	networkFile, err = yaml.Marshal(config)
-
+	// distributions but it is the same data so this should be safe.
+	// This can be gated via Spec in the future if needed to disable/enable
+	// adding resolv configuration to cloud-init.
+	cloudInitManageResolv := getCloudInitManageResolv()
+	resolvFile, err = yaml.Marshal(cloudInitManageResolv)
 	if err != nil {
 		return networkFile, err
+	}
+
+	// Append resolv conf to network file with a delimiter so we can split
+	// it later.
+	if len(resolvFile) > 0 {
+		networkFile = append(networkFile, []byte(cloudInitDelimiter)...)
+		networkFile = append(networkFile, resolvFile...)
 	}
 
 	return networkFile, err

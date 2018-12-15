@@ -37,7 +37,6 @@ import (
 	hooksInfo "kubevirt.io/kubevirt/pkg/hooks/info"
 	hooksV1alpha1 "kubevirt.io/kubevirt/pkg/hooks/v1alpha1"
 	"kubevirt.io/kubevirt/pkg/log"
-	domainSchema "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	virtwrapApi "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 )
 
@@ -167,23 +166,24 @@ func sortCallbacksPerHookPoint(callbacksPerHookPoint map[string][]*callackClient
 	}
 }
 
-func (m *Manager) OnDefineDomain(domainSpec *virtwrapApi.DomainSpec, vmi *v1.VirtualMachineInstance) (*virtwrapApi.DomainSpec, error) {
+func (m *Manager) OnDefineDomain(domainSpec *virtwrapApi.DomainSpec, vmi *v1.VirtualMachineInstance) (string, error) {
+	domainSpecXML, err := xml.Marshal(domainSpec)
+	if err != nil {
+		return "", fmt.Errorf("Failed to marshal domain spec: %v", domainSpec)
+	}
 	if callbacks, found := m.callbacksPerHookPoint[hooksInfo.OnDefineDomainHookPointName]; found {
 		for _, callback := range callbacks {
 			if callback.Version == hooksV1alpha1.Version {
-				domainSpecXML, err := xml.Marshal(domainSpec)
-				if err != nil {
-					return nil, fmt.Errorf("Failed to marshal domain spec: %v", domainSpec)
-				}
+
 				vmiJSON, err := json.Marshal(vmi)
 				if err != nil {
-					return nil, fmt.Errorf("Failed to marshal VMI spec: %v", vmi)
+					return "", fmt.Errorf("Failed to marshal VMI spec: %v", vmi)
 				}
 
 				conn, err := dialSocket(callback.SocketPath)
 				if err != nil {
 					log.Log.Reason(err).Infof("Failed to Dial hook socket: %s", callback.SocketPath)
-					return nil, err
+					return "", err
 				}
 				defer conn.Close()
 
@@ -196,24 +196,15 @@ func (m *Manager) OnDefineDomain(domainSpec *virtwrapApi.DomainSpec, vmi *v1.Vir
 					Vmi:       vmiJSON,
 				})
 				if err != nil {
-					return nil, err
+					return "", err
 				}
-
-				newDomainSpecXML := result.GetDomainXML()
-				newDomainSpec := domainSchema.DomainSpec{}
-				err = xml.Unmarshal(newDomainSpecXML, &newDomainSpec)
-				if err != nil {
-					return nil, fmt.Errorf("Failed to unmarshal given domain spec: %s", newDomainSpecXML)
-				}
-
-				domainSpec = &newDomainSpec
+				domainSpecXML = result.GetDomainXML()
 			} else {
 				panic("Should never happen, version compatibility check is done during Info call")
 			}
 		}
 	}
-
-	return domainSpec, nil
+	return string(domainSpecXML), nil
 }
 
 func dialSocket(socketPath string) (*grpc.ClientConn, error) {

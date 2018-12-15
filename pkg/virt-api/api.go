@@ -44,7 +44,6 @@ import (
 	aggregatorclient "k8s.io/kube-aggregator/pkg/client/clientset_generated/clientset"
 
 	v1 "kubevirt.io/kubevirt/pkg/api/v1"
-	featuregates "kubevirt.io/kubevirt/pkg/feature-gates"
 	"kubevirt.io/kubevirt/pkg/healthz"
 	"kubevirt.io/kubevirt/pkg/kubecli"
 	"kubevirt.io/kubevirt/pkg/log"
@@ -57,6 +56,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-api/webhooks"
 	mutating_webhook "kubevirt.io/kubevirt/pkg/virt-api/webhooks/mutating-webhook"
 	validating_webhook "kubevirt.io/kubevirt/pkg/virt-api/webhooks/validating-webhook"
+	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 )
 
 const (
@@ -125,7 +125,7 @@ func NewVirtApi() VirtApi {
 }
 
 func (app *virtAPIApp) Execute() {
-	featuregates.ParseFeatureGatesFromConfigMap()
+	virtconfig.Init()
 
 	virtCli, err := kubecli.GetKubevirtClient()
 	if err != nil {
@@ -175,24 +175,6 @@ func subresourceAPIGroup() metav1.APIGroup {
 	return apiGroup
 }
 
-func (app *virtAPIApp) composeHealthEndpoint() {
-
-	ws, err := rest.GroupVersionProxyBase(v1.GroupVersion)
-	if err != nil {
-		panic(err)
-	}
-
-	ws.Route(ws.GET("/healthz").
-		To(healthz.KubeConnectionHealthzFunc).
-		Consumes(restful.MIME_JSON).
-		Produces(restful.MIME_JSON).
-		Operation("checkHealth").
-		Doc("Health endpoint").
-		Returns(http.StatusOK, "OK", nil).
-		Returns(http.StatusInternalServerError, "Unhealthy", nil))
-	restful.Add(ws)
-}
-
 func (app *virtAPIApp) composeSubresources() {
 
 	subresourcesvmGVR := schema.GroupVersionResource{Group: v1.SubresourceGroupVersion.Group, Version: v1.SubresourceGroupVersion.Version, Resource: "virtualmachines"}
@@ -238,6 +220,15 @@ func (app *virtAPIApp) composeSubresources() {
 		To(func(request *restful.Request, response *restful.Response) {
 			response.WriteAsJson(version.Get())
 		}).Operation("version"))
+
+	subws.Route(subws.GET(rest.SubResourcePath("healthz")).
+		To(healthz.KubeConnectionHealthzFunc).
+		Consumes(restful.MIME_JSON).
+		Produces(restful.MIME_JSON).
+		Operation("checkHealth").
+		Doc("Health endpoint").
+		Returns(http.StatusOK, "OK", nil).
+		Returns(http.StatusInternalServerError, "Unhealthy", nil))
 
 	// Return empty api resource list.
 	// K8s expects to be able to retrieve a resource list for each aggregated
@@ -296,7 +287,6 @@ func (app *virtAPIApp) composeSubresources() {
 func (app *virtAPIApp) Compose() {
 
 	app.composeSubresources()
-	app.composeHealthEndpoint()
 
 	restful.Filter(filter.RequestLoggingFilter())
 	restful.Filter(restful.OPTIONSFilter())
@@ -890,7 +880,7 @@ func (app *virtAPIApp) startTLS() error {
 
 	tlsConfig := &tls.Config{
 		ClientCAs: pool,
-		// A RequestClientCert request means we're not guaranteed
+		// A VerifyClientCertIfGiven request means we're not guaranteed
 		// a client has been authenticated unless they provide a peer
 		// cert.
 		//
@@ -905,7 +895,7 @@ func (app *virtAPIApp) startTLS() error {
 		// response is given. That status request won't send a peer cert regardless
 		// if the TLS handshake requests it. As a result, the TLS handshake fails
 		// and our aggregated endpoint never becomes available.
-		ClientAuth: tls.RequestClientCert,
+		ClientAuth: tls.VerifyClientCertIfGiven,
 	}
 	tlsConfig.BuildNameToCertificate()
 

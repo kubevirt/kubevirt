@@ -154,6 +154,7 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 			table.Entry("apis", "/apis"),
 			table.Entry("group", "/apis/subresources.kubevirt.io"),
 			table.Entry("version", "/apis/subresources.kubevirt.io/version"),
+			table.Entry("healthz", "/apis/subresources.kubevirt.io/healthz"),
 		)
 
 		table.DescribeTable("should reject all users for unknown endpoint paths", func(path string) {

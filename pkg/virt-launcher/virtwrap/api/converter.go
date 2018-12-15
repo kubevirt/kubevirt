@@ -46,9 +46,7 @@ import (
 )
 
 const (
-	CPUModeHostPassthrough = "host-passthrough"
-	CPUModeHostModel       = "host-model"
-	defaultIOThread        = uint(1)
+	defaultIOThread = uint(1)
 )
 
 type ConverterContext struct {
@@ -175,8 +173,6 @@ func makeDeviceName(bus string, devicePerBus map[string]int) string {
 		prefix = "vd"
 	case "sata", "scsi":
 		prefix = "sd"
-	case "ide":
-		prefix = "hd"
 	case "fdc":
 		prefix = "fd"
 	default:
@@ -784,7 +780,7 @@ func Convert_v1_VirtualMachine_To_api_Domain(vmi *v1.VirtualMachineInstance, dom
 
 		// Set VM CPU model and vendor
 		if vmi.Spec.Domain.CPU.Model != "" {
-			if vmi.Spec.Domain.CPU.Model == CPUModeHostModel || vmi.Spec.Domain.CPU.Model == CPUModeHostPassthrough {
+			if vmi.Spec.Domain.CPU.Model == v1.CPUModeHostModel || vmi.Spec.Domain.CPU.Model == v1.CPUModeHostPassthrough {
 				domain.Spec.CPU.Mode = vmi.Spec.Domain.CPU.Model
 			} else {
 				domain.Spec.CPU.Mode = "custom"
@@ -794,7 +790,7 @@ func Convert_v1_VirtualMachine_To_api_Domain(vmi *v1.VirtualMachineInstance, dom
 	}
 
 	if vmi.Spec.Domain.CPU == nil || vmi.Spec.Domain.CPU.Model == "" {
-		domain.Spec.CPU.Mode = CPUModeHostModel
+		domain.Spec.CPU.Mode = v1.CPUModeHostModel
 	}
 
 	// Adjust guest vcpu config. Currenty will handle vCPUs to pCPUs pinning
@@ -975,7 +971,7 @@ func Convert_v1_VirtualMachine_To_api_Domain(vmi *v1.VirtualMachineInstance, dom
 				domainIface.Address = addr
 			}
 
-			if iface.Bridge != nil {
+			if iface.Bridge != nil || iface.Masquerade != nil {
 				// TODO:(ihar) consider abstracting interface type conversion /
 				// detection into drivers
 				domainIface.Type = "bridge"

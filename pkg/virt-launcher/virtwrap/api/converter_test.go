@@ -578,8 +578,8 @@ var _ = Describe("Converter", func() {
 
 			Expect(domainSpec.CPU.Mode).To(Equal(model))
 		},
-			table.Entry(CPUModeHostPassthrough, CPUModeHostPassthrough),
-			table.Entry(CPUModeHostModel, CPUModeHostModel),
+			table.Entry(v1.CPUModeHostPassthrough, v1.CPUModeHostPassthrough),
+			table.Entry(v1.CPUModeHostModel, v1.CPUModeHostModel),
 		)
 
 		Context("when CPU spec defined and model not", func() {
@@ -934,6 +934,49 @@ var _ = Describe("Converter", func() {
 			Expect(domain.Spec.Devices.Interfaces[0].BootOrder).NotTo(BeNil())
 			Expect(domain.Spec.Devices.Interfaces[0].BootOrder.Order).To(Equal(uint(bootOrder)))
 			Expect(domain.Spec.Devices.Interfaces[1].BootOrder).To(BeNil())
+		})
+		It("Should create network configuration for masquerade interface", func() {
+			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
+			name1 := "Name"
+
+			iface1 := v1.Interface{Name: name1, InterfaceBindingMethod: v1.InterfaceBindingMethod{Masquerade: &v1.InterfaceMasquerade{}}}
+			iface1.InterfaceBindingMethod.Slirp = &v1.InterfaceSlirp{}
+			net1 := v1.DefaultPodNetwork()
+			net1.Name = name1
+
+			vmi.Spec.Networks = []v1.Network{*net1}
+			vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{iface1}
+
+			domain := vmiToDomain(vmi, c)
+			Expect(domain).ToNot(Equal(nil))
+			Expect(domain.Spec.Devices.Interfaces).To(HaveLen(1))
+			Expect(domain.Spec.Devices.Interfaces[0].Source.Bridge).To(Equal("k6t-eth0"))
+		})
+		It("Should create network configuration for masquerade interface and the pod network and a secondary network using multus", func() {
+			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
+			name1 := "Name"
+
+			iface1 := v1.Interface{Name: name1, InterfaceBindingMethod: v1.InterfaceBindingMethod{Masquerade: &v1.InterfaceMasquerade{}}}
+			iface1.InterfaceBindingMethod.Slirp = &v1.InterfaceSlirp{}
+			net1 := v1.DefaultPodNetwork()
+			net1.Name = name1
+
+			vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{iface1, *v1.DefaultNetworkInterface()}
+			vmi.Spec.Domain.Devices.Interfaces[1].Name = "red1"
+
+			vmi.Spec.Networks = []v1.Network{*net1,
+				{
+					Name: "red1",
+					NetworkSource: v1.NetworkSource{
+						Multus: &v1.CniNetwork{NetworkName: "red"},
+					},
+				}}
+
+			domain := vmiToDomain(vmi, c)
+			Expect(domain).ToNot(Equal(nil))
+			Expect(domain.Spec.Devices.Interfaces).To(HaveLen(2))
+			Expect(domain.Spec.Devices.Interfaces[0].Source.Bridge).To(Equal("k6t-eth0"))
+			Expect(domain.Spec.Devices.Interfaces[1].Source.Bridge).To(Equal("k6t-net1"))
 		})
 	})
 

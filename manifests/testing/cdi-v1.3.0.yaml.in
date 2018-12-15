@@ -2,7 +2,7 @@ kind: ServiceAccount
 apiVersion: v1
 metadata:
   name: cdi-sa
-  namespace: {{.Namespace}}
+  namespace: {{.CDINamespace}}
   labels:
     cdi.kubevirt.io: ""
 ---
@@ -47,7 +47,7 @@ apiVersion: rbac.authorization.k8s.io/v1beta1
 kind: ClusterRoleBinding
 metadata:
   name: cdi-sa
-  namespace: {{.Namespace}}
+  namespace: {{.CDINamespace}}
   labels:
     cdi.kubevirt.io: ""
 roleRef:
@@ -57,13 +57,13 @@ roleRef:
 subjects:
   - kind: ServiceAccount
     name: cdi-sa
-    namespace: {{.Namespace}}
+    namespace: {{.CDINamespace}}
 ---
 apiVersion: apps/v1beta2
 kind: Deployment
 metadata:
   name: cdi-deployment
-  namespace: {{.Namespace}}
+  namespace: {{.CDINamespace}}
   labels:
     cdi.kubevirt.io: ""
     app: containerized-data-importer
@@ -117,7 +117,7 @@ kind: ServiceAccount
 apiVersion: v1
 metadata:
   name: cdi-apiserver
-  namespace: {{.Namespace}}
+  namespace: {{.CDINamespace}}
   labels:
     cdi.kubevirt.io: ""
 ---
@@ -125,7 +125,7 @@ apiVersion: rbac.authorization.k8s.io/v1beta1
 kind: RoleBinding
 metadata:
   name: cdi-apiserver
-  namespace: {{.Namespace}}
+  namespace: {{.CDINamespace}}
   labels:
     cdi.kubevirt.io: ""
 roleRef:
@@ -135,13 +135,13 @@ roleRef:
 subjects:
   - kind: ServiceAccount
     name: cdi-apiserver
-    namespace: {{.Namespace}}
+    namespace: {{.CDINamespace}}
 ---
 apiVersion: rbac.authorization.k8s.io/v1beta1
 kind: Role
 metadata:
   name: cdi-apiserver
-  namespace: {{.Namespace}}
+  namespace: {{.CDINamespace}}
   labels:
     cdi.kubevirt.io: ""
 rules:
@@ -173,7 +173,7 @@ roleRef:
 subjects:
   - kind: ServiceAccount
     name: cdi-apiserver
-    namespace: {{.Namespace}}
+    namespace: {{.CDINamespace}}
 ---
 apiVersion: rbac.authorization.k8s.io/v1beta1
 kind: ClusterRole
@@ -212,13 +212,13 @@ roleRef:
 subjects:
 - kind: ServiceAccount
   name: cdi-apiserver
-  namespace: {{.Namespace}}
+  namespace: {{.CDINamespace}}
 ---
 apiVersion: v1
 kind: Service
 metadata:
   name: cdi-api
-  namespace: {{.Namespace}}
+  namespace: {{.CDINamespace}}
   labels:
     cdi.kubevirt.io: "cdi-api"
 spec:
@@ -233,7 +233,7 @@ apiVersion: apps/v1beta2
 kind: Deployment
 metadata:
   name: cdi-api
-  namespace: {{.Namespace}}
+  namespace: {{.CDINamespace}}
   labels:
     cdi.kubevirt.io: "cdi-api"
 spec:
@@ -257,7 +257,7 @@ apiVersion: v1
 kind: Service
 metadata:
   name: cdi-uploadproxy
-  namespace: {{.Namespace}}
+  namespace: {{.CDINamespace}}
   labels:
     cdi.kubevirt.io: "cdi-uploadproxy"
 spec:
@@ -272,7 +272,7 @@ apiVersion: apps/v1beta2
 kind: Deployment
 metadata:
   name: cdi-uploadproxy
-  namespace: {{.Namespace}}
+  namespace: {{.CDINamespace}}
   labels:
     cdi.kubevirt.io: "cdi-uploadproxy"
 spec:
