@@ -23,12 +23,18 @@ var _ = Describe("Expose", func() {
 	const vmName = "my-vm"
 	const vmNoLabelName = "vm-no-label"
 	const unknownVM = "unknown-vm"
-	vmi := v1.NewMinimalVMI(vmName)
-	vmNoLabel := v1.NewMinimalVMI(vmNoLabelName)
-	vm := kubecli.NewMinimalVM(vmName)
-	vmrs := kubecli.NewMinimalVirtualMachineInstanceReplicaSet(vmName)
+	var vmi *v1.VirtualMachineInstance
+	var vmNoLabel *v1.VirtualMachineInstance
+	var vm *v1.VirtualMachine
+	var vmrs *v1.VirtualMachineInstanceReplicaSet
+	var kubeclient *fake.Clientset
 
-	tests.BeforeAll(func() {
+	BeforeEach(func() {
+		vmi = v1.NewMinimalVMI(vmName)
+		vmNoLabel = v1.NewMinimalVMI(vmNoLabelName)
+		vm = kubecli.NewMinimalVM(vmName)
+		vmrs = kubecli.NewMinimalVirtualMachineInstanceReplicaSet(vmName)
+
 		// create the wrapping environment that would retur the mock virt client
 		// to the code being unit tested
 		ctrl := gomock.NewController(GinkgoT())
@@ -38,7 +44,7 @@ var _ = Describe("Expose", func() {
 		vmiInterface := kubecli.NewMockVirtualMachineInstanceInterface(ctrl)
 		vmInterface := kubecli.NewMockVirtualMachineInterface(ctrl)
 		vmrsInterface := kubecli.NewMockReplicaSetInterface(ctrl)
-		kubeclient := fake.NewSimpleClientset()
+		kubeclient = fake.NewSimpleClientset()
 		// set up mock client behavior
 		kubecli.MockKubevirtClientInstance.EXPECT().VirtualMachineInstance(k8smetav1.NamespaceDefault).Return(vmiInterface).AnyTimes()
 		kubecli.MockKubevirtClientInstance.EXPECT().VirtualMachine(k8smetav1.NamespaceDefault).Return(vmInterface).AnyTimes()
@@ -48,7 +54,7 @@ var _ = Describe("Expose", func() {
 		vmi.ObjectMeta.Labels = map[string]string{"key": "value"}
 		vmNoLabel.ObjectMeta.Labels = map[string]string{}
 		vm.Spec = v1.VirtualMachineSpec{Template: &v1.VirtualMachineInstanceTemplateSpec{ObjectMeta: vmi.ObjectMeta}}
-		vmrs.Spec = v1.VirtualMachineInstanceReplicaSetSpec{Selector: &k8smetav1.LabelSelector{MatchLabels: vmi.ObjectMeta.Labels}}
+		vmrs.Spec = v1.VirtualMachineInstanceReplicaSetSpec{Selector: &k8smetav1.LabelSelector{MatchLabels: vmi.ObjectMeta.Labels}, Template: &v1.VirtualMachineInstanceTemplateSpec{}}
 		// set up mock interface behavior
 		vmiInterface.EXPECT().Get(vmi.Name, gomock.Any()).Return(vmi, nil).AnyTimes()
 		vmiInterface.EXPECT().Get(vmNoLabel.Name, gomock.Any()).Return(vmNoLabel, nil).AnyTimes()
@@ -103,10 +109,30 @@ var _ = Describe("Expose", func() {
 				Expect(cmd()).NotTo(BeNil())
 			})
 		})
-		Context("With missing port", func() {
+		Context("With missing port and missing pod network ports", func() {
 			It("should fail", func() {
 				cmd := tests.NewRepeatableVirtctlCommand(expose.COMMAND_EXPOSE, "vmi", vmName, "--name", "my-service")
 				Expect(cmd()).NotTo(BeNil())
+			})
+		})
+		Context("With missing port but existing pod network ports ", func() {
+			It("should succeed on vmis", func() {
+				addPodNetworkWithPorts(&vmi.Spec)
+				cmd := tests.NewRepeatableVirtctlCommand(expose.COMMAND_EXPOSE, "vmi", vmName, "--name", "my-service")
+				prependServicePortReactor(kubeclient)
+				Expect(cmd()).To(Succeed())
+			})
+			It("should succeed on vms", func() {
+				addPodNetworkWithPorts(&vm.Spec.Template.Spec)
+				cmd := tests.NewRepeatableVirtctlCommand(expose.COMMAND_EXPOSE, "vm", vmName, "--name", "my-service")
+				prependServicePortReactor(kubeclient)
+				Expect(cmd()).To(Succeed())
+			})
+			It("should succeed on vmirs", func() {
+				addPodNetworkWithPorts(&vmrs.Spec.Template.Spec)
+				cmd := tests.NewRepeatableVirtctlCommand(expose.COMMAND_EXPOSE, "vmirs", vmName, "--name", "my-service")
+				prependServicePortReactor(kubeclient)
+				Expect(cmd()).To(Succeed())
 			})
 		})
 		Context("With missing service name", func() {
@@ -164,10 +190,10 @@ var _ = Describe("Expose", func() {
 				Expect(cmd()).NotTo(BeNil())
 			})
 		})
-		Context("With node-port on a vm", func() {
+		Context("With node-port service on a vm", func() {
 			It("should succeed", func() {
 				cmd := tests.NewRepeatableVirtctlCommand(expose.COMMAND_EXPOSE, "vmi", vmName, "--name", "my-service",
-					"--port", "9999", "--type", "NodePort", "--node-port", "3030")
+					"--port", "9999", "--type", "NodePort")
 				Expect(cmd()).To(BeNil())
 			})
 		})
@@ -208,3 +234,19 @@ var _ = Describe("Expose", func() {
 		})
 	})
 })
+
+func addPodNetworkWithPorts(spec *v1.VirtualMachineInstanceSpec) {
+	ports := []v1.Port{{Name: "a", Protocol: "TCP", Port: 80}, {Name: "b", Protocol: "UDP", Port: 81}}
+	spec.Networks = append(spec.Networks, v1.Network{Name: "pod", NetworkSource: v1.NetworkSource{Pod: &v1.PodNetwork{}}})
+	spec.Domain.Devices.Interfaces = append(spec.Domain.Devices.Interfaces, v1.Interface{Name: "pod", Ports: ports})
+}
+
+func prependServicePortReactor(kubeclient *fake.Clientset) {
+	kubeclient.Fake.PrependReactor("create", "services", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
+		update, ok := action.(testing.CreateAction)
+		Expect(ok).To(BeTrue())
+		Expect(update.GetObject().(*k8sv1.Service).Spec.Ports[0]).To(Equal(k8sv1.ServicePort{Name: "port-1", Protocol: "TCP", Port: 80}))
+		Expect(update.GetObject().(*k8sv1.Service).Spec.Ports[1]).To(Equal(k8sv1.ServicePort{Name: "port-2", Protocol: "UDP", Port: 81}))
+		return false, nil, nil
+	})
+}

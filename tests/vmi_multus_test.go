@@ -226,13 +226,6 @@ var _ = Describe("Multus Networking", func() {
 			vmiOne.Spec.Domain.Devices.Interfaces = append(vmiOne.Spec.Domain.Devices.Interfaces, iface)
 			vmiOne.Spec.Networks = append(vmiOne.Spec.Networks, network)
 
-			// mutating hook is not integrated yet so fill in limits / requests to allocate intel devices
-			vmiOne.Spec.Domain.Resources.Limits = make(k8sv1.ResourceList)
-			for resource, value := range map[k8sv1.ResourceName]resource.Quantity{k8sv1.ResourceName("intel.com/sriov"): resource.MustParse("1")} {
-				vmiOne.Spec.Domain.Resources.Limits[resource] = value
-				vmiOne.Spec.Domain.Resources.Requests[resource] = value
-			}
-
 			// fedora requires some more memory to boot without kernel panics
 			vmiOne.Spec.Domain.Resources.Requests[k8sv1.ResourceName("memory")] = resource.MustParse("1024M")
 
@@ -329,13 +322,6 @@ var _ = Describe("Multus Networking", func() {
 				network := v1.Network{Name: name, NetworkSource: v1.NetworkSource{Multus: &v1.CniNetwork{NetworkName: name}}}
 				vmiOne.Spec.Domain.Devices.Interfaces = append(vmiOne.Spec.Domain.Devices.Interfaces, iface)
 				vmiOne.Spec.Networks = append(vmiOne.Spec.Networks, network)
-			}
-
-			// mutating hook is not integrated yet so fill in limits / requests to allocate intel devices
-			vmiOne.Spec.Domain.Resources.Limits = make(k8sv1.ResourceList)
-			for resource, value := range map[k8sv1.ResourceName]resource.Quantity{k8sv1.ResourceName("intel.com/sriov"): resource.MustParse("2")} {
-				vmiOne.Spec.Domain.Resources.Limits[resource] = value
-				vmiOne.Spec.Domain.Resources.Requests[resource] = value
 			}
 
 			// fedora requires some more memory to boot without kernel panics

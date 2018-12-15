@@ -46,6 +46,7 @@ const (
 	VmiBlockPVC          = "vmi-block-pvc"
 	VmiWindows           = "vmi-windows"
 	VmiSlirp             = "vmi-slirp"
+	VmiMasquerade        = "vmi-masquerade"
 	VmiSRIOV             = "vmi-sriov"
 	VmiWithHookSidecar   = "vmi-with-sidecar-hook"
 	VmiMultusPtp         = "vmi-multus-ptp"
@@ -330,11 +331,24 @@ func GetVMISlirp() *v1.VirtualMachineInstance {
 	return vm
 }
 
+func GetVMIMasquerade() *v1.VirtualMachineInstance {
+	vm := getBaseVMI(VmiMasquerade)
+	vm.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("1024M")
+	vm.Spec.Networks = []v1.Network{v1.Network{Name: "testmasquerade", NetworkSource: v1.NetworkSource{Pod: &v1.PodNetwork{}}}}
+
+	addContainerDisk(&vm.Spec, fmt.Sprintf("%s/%s:%s", DockerPrefix, imageFedora, DockerTag), busVirtio)
+	addNoCloudDiskWitUserData(&vm.Spec, "#!/bin/bash\necho \"fedora\" |passwd fedora --stdin\nyum install -y nginx\nsystemctl enable nginx\nsystemctl start nginx")
+
+	masquerade := &v1.InterfaceMasquerade{}
+	ports := []v1.Port{v1.Port{Name: "http", Protocol: "TCP", Port: 80}}
+	vm.Spec.Domain.Devices.Interfaces = []v1.Interface{v1.Interface{Name: "testmasquerade", Ports: ports, InterfaceBindingMethod: v1.InterfaceBindingMethod{Masquerade: masquerade}}}
+
+	return vm
+}
+
 func GetVMISRIOV() *v1.VirtualMachineInstance {
 	vm := getBaseVMI(VmiSRIOV)
 	vm.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("1024M")
-	vm.Spec.Domain.Resources.Requests["intel.com/sriov"] = resource.MustParse("1")
-	vm.Spec.Domain.Resources.Limits = k8sv1.ResourceList{"intel.com/sriov": resource.MustParse("1")}
 	vm.Spec.Networks = []v1.Network{*v1.DefaultPodNetwork(), {Name: "sriov-net", NetworkSource: v1.NetworkSource{Multus: &v1.CniNetwork{NetworkName: "sriov-net"}}}}
 	addContainerDisk(&vm.Spec, fmt.Sprintf("%s/%s:%s", DockerPrefix, imageFedora, DockerTag), busVirtio)
 	addNoCloudDiskWitUserData(&vm.Spec, "#!/bin/bash\necho \"fedora\" |passwd fedora --stdin\ndhclient eth1\n")
@@ -696,7 +710,7 @@ func GetVMDataVolume() *v1.VirtualMachine {
 		Spec: cdiv1.DataVolumeSpec{
 			Source: cdiv1.DataVolumeSource{
 				HTTP: &cdiv1.DataVolumeSourceHTTP{
-					URL: "http://cdi-http-import-server.kube-system/images/alpine.iso",
+					URL: "http://cdi-http-import-server.kubevirt/images/alpine.iso",
 				},
 			},
 			PVC: &k8sv1.PersistentVolumeClaimSpec{

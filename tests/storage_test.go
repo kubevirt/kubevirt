@@ -48,7 +48,7 @@ import (
 
 const (
 	diskSerial        = "FB-fb_18030C10002032"
-	namespaceKubevirt = "kube-system"
+	namespaceKubevirt = "kubevirt"
 )
 
 type VMICreationFunc func(string) *v1.VirtualMachineInstance

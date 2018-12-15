@@ -41,6 +41,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/hooks"
 	"kubevirt.io/kubevirt/pkg/kubecli"
 	"kubevirt.io/kubevirt/pkg/log"
+	"kubevirt.io/kubevirt/pkg/virt-config"
 )
 
 const namespaceKubevirt = "kubevirt"
@@ -248,6 +249,41 @@ var _ = Describe("Template", func() {
 				Expect(pod.Spec.Containers[0].VolumeMounts[1].MountPath).To(Equal("/var/run/kubevirt"))
 				Expect(*pod.Spec.TerminationGracePeriodSeconds).To(Equal(int64(60)))
 			})
+
+			It("should add node selector for node discovery feature to template", func() {
+
+				cfgMap := kubev1.ConfigMap{
+					ObjectMeta: metav1.ObjectMeta{
+						Namespace: namespaceKubevirt,
+						Name:      "kubevirt-config",
+					},
+					Data: map[string]string{virtconfig.FeatureGatesKey: virtconfig.CPUNodeDiscoveryGate},
+				}
+				cmCache.Add(&cfgMap)
+
+				vmi := v1.VirtualMachineInstance{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "testvmi",
+						Namespace: "default",
+						UID:       "1234",
+					},
+					Spec: v1.VirtualMachineInstanceSpec{
+						Domain: v1.DomainSpec{
+							CPU: &v1.CPU{
+								Model: "Conroe",
+							},
+						},
+					},
+				}
+
+				cpuModelLabel, err := CPUModelLabelFromCPUModel(&vmi)
+				Expect(err).ToNot(HaveOccurred())
+				pod, err := svc.RenderLaunchManifest(&vmi)
+				Expect(err).ToNot(HaveOccurred())
+
+				Expect(pod.Spec.NodeSelector).Should(HaveKeyWithValue(cpuModelLabel, "true"))
+			})
+
 			It("should add default cpu/memory resources to the sidecar container if cpu pinning was requested", func() {
 				nodeSelector := map[string]string{
 					"kubernetes.io/hostname": "master",
@@ -1361,6 +1397,35 @@ var _ = Describe("getNamespaceAndNetworkName", func() {
 		namespace, networkName := getNamespaceAndNetworkName(vmi, "otherns/testnet")
 		Expect(namespace).To(Equal("otherns"))
 		Expect(networkName).To(Equal("testnet"))
+	})
+})
+
+var _ = Describe("requestResource", func() {
+	It("should register resource in limits and requests", func() {
+		resources := kubev1.ResourceRequirements{}
+		resources.Requests = make(kubev1.ResourceList)
+		resources.Limits = make(kubev1.ResourceList)
+
+		resource := "intel.com/sriov"
+		resourceName := kubev1.ResourceName(resource)
+
+		for i := int64(1); i <= 5; i++ {
+			requestResource(&resources, resource)
+
+			val, ok := resources.Limits[resourceName]
+			Expect(ok).To(BeTrue())
+
+			valInt, isInt := val.AsInt64()
+			Expect(isInt).To(BeTrue())
+			Expect(valInt).To(Equal(i))
+
+			val, ok = resources.Requests[resourceName]
+			Expect(ok).To(BeTrue())
+
+			valInt, isInt = val.AsInt64()
+			Expect(isInt).To(BeTrue())
+			Expect(valInt).To(Equal(i))
+		}
 	})
 })
 

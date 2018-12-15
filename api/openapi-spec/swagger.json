@@ -92,29 +92,6 @@
      }
     }
    },
-   "/apis/kubevirt.io/v1alpha2/healthz": {
-    "get": {
-     "consumes": [
-      "application/json"
-     ],
-     "produces": [
-      "application/json"
-     ],
-     "summary": "Health endpoint",
-     "operationId": "checkHealth",
-     "responses": {
-      "200": {
-       "description": "OK"
-      },
-      "500": {
-       "description": "Unhealthy"
-      },
-      "default": {
-       "description": "OK"
-      }
-     }
-    }
-   },
    "/apis/kubevirt.io/v1alpha2/namespaces/{namespace}/virtualmachineinstancemigrations": {
     "get": {
      "produces": [
@@ -3687,6 +3664,29 @@
      }
     }
    },
+   "/apis/subresources.kubevirt.io/v1alpha2/healthz": {
+    "get": {
+     "consumes": [
+      "application/json"
+     ],
+     "produces": [
+      "application/json"
+     ],
+     "summary": "Health endpoint",
+     "operationId": "checkHealth",
+     "responses": {
+      "200": {
+       "description": "OK"
+      },
+      "500": {
+       "description": "Unhealthy"
+      },
+      "default": {
+       "description": "OK"
+      }
+     }
+    }
+   },
    "/apis/subresources.kubevirt.io/v1alpha2/namespaces/{namespace}/virtualmachineinstances/{name}/console": {
     "get": {
      "summary": "Open a websocket connection to a serial console on the specified VirtualMachineInstance.",
@@ -3992,7 +3992,7 @@
    "v1.CDRomTarget": {
     "properties": {
      "bus": {
-      "description": "Bus indicates the type of disk device to emulate.\nsupported values: virtio, sata, scsi, ide.",
+      "description": "Bus indicates the type of disk device to emulate.\nsupported values: virtio, sata, scsi.",
       "type": "string"
      },
      "readonly": {
@@ -4267,7 +4267,7 @@
    "v1.DiskTarget": {
     "properties": {
      "bus": {
-      "description": "Bus indicates the type of disk device to emulate.\nsupported values: virtio, sata, scsi, ide.",
+      "description": "Bus indicates the type of disk device to emulate.\nsupported values: virtio, sata, scsi.",
       "type": "string"
      },
      "pciAddress": {
@@ -4645,6 +4645,9 @@
       "description": "Interface MAC address. For example: de:ad:00:00:be:af or DE-AD-00-00-BE-AF.",
       "type": "string"
      },
+     "masquerade": {
+      "$ref": "#/definitions/v1.InterfaceMasquerade"
+     },
      "model": {
       "description": "Interface model.\nOne of: e1000, e1000e, ne2k_pci, pcnet, rtl8139, virtio.\nDefaults to virtio.",
       "type": "string"
@@ -4673,6 +4676,7 @@
     }
    },
    "v1.InterfaceBridge": {},
+   "v1.InterfaceMasquerade": {},
    "v1.InterfaceSRIOV": {},
    "v1.InterfaceSlirp": {},
    "v1.KVMTimer": {
@@ -4752,7 +4756,7 @@
    "v1.LunTarget": {
     "properties": {
      "bus": {
-      "description": "Bus indicates the type of disk device to emulate.\nsupported values: virtio, sata, scsi, ide.",
+      "description": "Bus indicates the type of disk device to emulate.\nsupported values: virtio, sata, scsi.",
       "type": "string"
      },
      "readonly": {

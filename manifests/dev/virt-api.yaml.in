@@ -55,9 +55,11 @@ spec:
               name: "metrics"
               protocol: "TCP"
           readinessProbe:
-            tcpSocket:
+            httpGet:
+              scheme: HTTPS
               port: 8443
-            initialDelaySeconds: 5
-            periodSeconds: 10
+              path: /apis/subresources.kubevirt.io/v1alpha2/healthz
+            initialDelaySeconds: 15
+            timeoutSeconds: 10
       securityContext:
         runAsNonRoot: true

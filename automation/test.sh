@@ -41,7 +41,7 @@ if [[ $TARGET =~ openshift-.* ]]; then
   if [[ $TARGET =~ .*-crio-.* ]]; then
     export KUBEVIRT_PROVIDER="os-3.11.0-crio"
   elif [[ $TARGET =~ .*-multus-.* ]]; then
-    export KUBEVIRT_PROVIDER="os-3.10.0-multus"
+    export KUBEVIRT_PROVIDER="os-3.11.0-multus"
   else
     export KUBEVIRT_PROVIDER="os-3.11.0"
   fi
@@ -144,7 +144,7 @@ if [ -n "${JOB_NAME}" ]; then
 namespace=${NAMESPACE}
 EOF
 else
-  export NAMESPACE="${NAMESPACE:-kube-system}"
+  export NAMESPACE="${NAMESPACE:-kubevirt}"
 fi
 
 
@@ -154,7 +154,7 @@ trap '{ make cluster-down; }' EXIT SIGINT SIGTERM SIGSTOP
 
 # Check if we are on a pull request in jenkins.
 export KUBEVIRT_CACHE_FROM=${ghprbTargetBranch}
-if [ -n ${KUBEVIRT_CACHE_FROM} ]; then
+if [ -n "${KUBEVIRT_CACHE_FROM}" ]; then
     make pull-cache
 fi
 
@@ -179,8 +179,8 @@ kubectl get nodes
 make cluster-sync
 
 # OpenShift is running important containers under default namespace
-namespaces=(kube-system default)
-if [[ $NAMESPACE != "kube-system" ]]; then
+namespaces=(kubevirt default)
+if [[ $NAMESPACE != "kubevirt" ]]; then
   namespaces+=($NAMESPACE)
 fi
 

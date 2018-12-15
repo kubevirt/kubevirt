@@ -29,6 +29,7 @@ import (
 
 type templateData struct {
 	Namespace          string
+	CDINamespace       string
 	DockerTag          string
 	DockerPrefix       string
 	ImagePullPolicy    string
@@ -37,6 +38,7 @@ type templateData struct {
 
 func main() {
 	namespace := flag.String("namespace", "", "")
+	cdiNamespace := flag.String("cdi-namespace", "", "")
 	dockerPrefix := flag.String("docker-prefix", "", "")
 	dockerTag := flag.String("docker-tag", "", "")
 	imagePullPolicy := flag.String("image-pull-policy", "IfNotPresent", "")
@@ -46,6 +48,7 @@ func main() {
 
 	data := templateData{
 		Namespace:          *namespace,
+		CDINamespace:       *cdiNamespace,
 		DockerTag:          *dockerTag,
 		DockerPrefix:       *dockerPrefix,
 		ImagePullPolicy:    *imagePullPolicy,

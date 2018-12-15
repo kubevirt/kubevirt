@@ -26,57 +26,67 @@ source hack/config.sh
 echo "Cleaning up ..."
 
 # Remove finalizers from all running vmis, to not block the cleanup
-cluster/kubectl.sh get vmis --all-namespaces -o=custom-columns=NAME:.metadata.name,NAMESPACE:.metadata.namespace,FINALIZERS:.metadata.finalizers --no-headers | grep foregroundDeleteVirtualMachine | while read p; do
+_kubectl get vmis --all-namespaces -o=custom-columns=NAME:.metadata.name,NAMESPACE:.metadata.namespace,FINALIZERS:.metadata.finalizers --no-headers | grep foregroundDeleteVirtualMachine | while read p; do
     arr=($p)
     name="${arr[0]}"
     namespace="${arr[1]}"
     _kubectl patch vmi $name -n $namespace --type=json -p '[{ "op": "remove", "path": "/metadata/finalizers" }]'
 done
 
-# Work around https://github.com/kubernetes/kubernetes/issues/33517
-_kubectl delete ds -l "kubevirt.io" -n ${namespace} --cascade=false --grace-period 0 2>/dev/null || :
-_kubectl delete pods -n ${namespace} -l="kubevirt.io=libvirt" --force --grace-period 0 2>/dev/null || :
-_kubectl delete pods -n ${namespace} -l="kubevirt.io=virt-handler" --force --grace-period 0 2>/dev/null || :
-
 # Delete all traces of kubevirt
-namespaces=(default ${namespace})
+namespaces=(default ${namespace} ${cdi_namespace})
+labels=("kubevirt.io" "cdi.kubevirt.io")
+
 for i in ${namespaces[@]}; do
-    _kubectl -n ${i} delete apiservices -l 'kubevirt.io'
-    _kubectl -n ${i} delete deployment -l 'kubevirt.io'
-    _kubectl -n ${i} delete rs -l 'kubevirt.io'
-    _kubectl -n ${i} delete services -l 'kubevirt.io'
-    _kubectl -n ${i} delete apiservices -l 'kubevirt.io'
-    _kubectl -n ${i} delete validatingwebhookconfiguration -l 'kubevirt.io'
-    _kubectl -n ${i} delete secrets -l 'kubevirt.io'
-    _kubectl -n ${i} delete pvc -l 'kubevirt.io'
-    _kubectl -n ${i} delete pv -l 'kubevirt.io'
-    _kubectl -n ${i} delete ds -l 'kubevirt.io'
-    _kubectl -n ${i} delete customresourcedefinitions -l 'kubevirt.io'
-    _kubectl -n ${i} delete pods -l 'kubevirt.io'
-    _kubectl -n ${i} delete clusterrolebinding -l 'kubevirt.io'
-    _kubectl -n ${i} delete rolebinding -l 'kubevirt.io'
-    _kubectl -n ${i} delete roles -l 'kubevirt.io'
-    _kubectl -n ${i} delete clusterroles -l 'kubevirt.io'
-    _kubectl -n ${i} delete serviceaccounts -l 'kubevirt.io'
-    _kubectl -n ${i} delete configmaps -l 'kubevirt.io'
+    for label in ${labels[@]}; do
+        _kubectl -n ${i} delete deployment -l ${label}
+        _kubectl -n ${i} delete ds -l ${label}
+        _kubectl -n ${i} delete rs -l ${label}
+        _kubectl -n ${i} delete pods -l ${label}
+        _kubectl -n ${i} delete validatingwebhookconfiguration -l ${label}
+        _kubectl -n ${i} delete services -l ${label}
+        _kubectl -n ${i} delete pvc -l ${label}
+        _kubectl -n ${i} delete pv -l ${label}
+        _kubectl -n ${i} delete clusterrolebinding -l ${label}
+        _kubectl -n ${i} delete rolebinding -l ${label}
+        _kubectl -n ${i} delete roles -l ${label}
+        _kubectl -n ${i} delete clusterroles -l ${label}
+        _kubectl -n ${i} delete serviceaccounts -l ${label}
+        _kubectl -n ${i} delete configmaps -l ${label}
+        _kubectl -n ${i} delete secrets -l ${label}
+        _kubectl -n ${i} delete customresourcedefinitions -l ${label}
+
+        # W/A for https://github.com/kubernetes/kubernetes/issues/65818
+        if [[ "$KUBEVIRT_PROVIDER" =~ .*.10..* ]]; then
+            # k8s version 1.10.* does not have --wait parameter
+            _kubectl -n ${i} delete apiservices -l ${label}
+        else
+            _kubectl -n ${i} delete apiservices -l ${label} --wait=false
+        fi
+        _kubectl -n ${i} get apiservices -l ${label} -o=custom-columns=NAME:.metadata.name,FINALIZERS:.metadata.finalizers --no-headers | grep foregroundDeletion | while read p; do
+            arr=($p)
+            name="${arr[0]}"
+            _kubectl -n ${i} patch apiservices $name --type=json -p '[{ "op": "remove", "path": "/metadata/finalizers" }]'
+        done
+    done
 done
 
-# delete all traces of CDI
-for i in ${namespaces[@]}; do
-    _kubectl -n ${i} delete deployment -l 'cdi.kubevirt.io'
-    _kubectl -n ${i} delete services -l 'cdi.kubevirt.io'
-    _kubectl -n ${i} delete apiservices -l 'cdi.kubevirt.io'
-    _kubectl -n ${i} delete validatingwebhookconfiguration -l 'cdi.kubevirt.io'
-    _kubectl -n ${i} delete secrets -l 'cdi.kubevirt.io'
-    _kubectl -n ${i} delete pvc -l 'cdi.kubevirt.io'
-    _kubectl -n ${i} delete customresourcedefinitions -l 'cdi.kubevirt.io'
-    _kubectl -n ${i} delete pods -l 'cdi.kubevirt.io'
-    _kubectl -n ${i} delete clusterrolebinding -l 'cdi.kubevirt.io'
-    _kubectl -n ${i} delete rolebinding -l 'cdi.kubevirt.io'
-    _kubectl -n ${i} delete roles -l 'cdi.kubevirt.io'
-    _kubectl -n ${i} delete clusterroles -l 'cdi.kubevirt.io'
-    _kubectl -n ${i} delete serviceaccounts -l 'cdi.kubevirt.io'
-done
+if [ "$(_kubectl get ns | grep ${namespace})" ]; then
+    echo "Clean ${namespace} namespace"
+    _kubectl delete ns ${namespace}
+
+    start_time=0
+    sample=10
+    timeout=120
+    echo "Waiting for ${namespace} namespace to dissappear ..."
+    while [ "$(_kubectl get ns | grep ${namespace})" ]; do
+        sleep $sample
+        start_time=$((current_time + sample))
+        if [ $current_time -gt $timeout ]; then
+            exit 1
+        fi
+    done
+fi
 
 sleep 2
 

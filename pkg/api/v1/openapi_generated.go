@@ -62,6 +62,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"kubevirt.io/kubevirt/pkg/api/v1.Interface":                                 schema_kubevirt_pkg_api_v1_Interface(ref),
 		"kubevirt.io/kubevirt/pkg/api/v1.InterfaceBindingMethod":                    schema_kubevirt_pkg_api_v1_InterfaceBindingMethod(ref),
 		"kubevirt.io/kubevirt/pkg/api/v1.InterfaceBridge":                           schema_kubevirt_pkg_api_v1_InterfaceBridge(ref),
+		"kubevirt.io/kubevirt/pkg/api/v1.InterfaceMasquerade":                       schema_kubevirt_pkg_api_v1_InterfaceMasquerade(ref),
 		"kubevirt.io/kubevirt/pkg/api/v1.InterfaceSRIOV":                            schema_kubevirt_pkg_api_v1_InterfaceSRIOV(ref),
 		"kubevirt.io/kubevirt/pkg/api/v1.InterfaceSlirp":                            schema_kubevirt_pkg_api_v1_InterfaceSlirp(ref),
 		"kubevirt.io/kubevirt/pkg/api/v1.KVMTimer":                                  schema_kubevirt_pkg_api_v1_KVMTimer(ref),
@@ -117,7 +118,7 @@ func schema_kubevirt_pkg_api_v1_CDRomTarget(ref common.ReferenceCallback) common
 				Properties: map[string]spec.Schema{
 					"bus": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Bus indicates the type of disk device to emulate. supported values: virtio, sata, scsi, ide.",
+							Description: "Bus indicates the type of disk device to emulate. supported values: virtio, sata, scsi.",
 							Type:        []string{"string"},
 							Format:      "",
 						},
@@ -599,7 +600,7 @@ func schema_kubevirt_pkg_api_v1_DiskTarget(ref common.ReferenceCallback) common.
 				Properties: map[string]spec.Schema{
 					"bus": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Bus indicates the type of disk device to emulate. supported values: virtio, sata, scsi, ide.",
+							Description: "Bus indicates the type of disk device to emulate. supported values: virtio, sata, scsi.",
 							Type:        []string{"string"},
 							Format:      "",
 						},
@@ -1125,6 +1126,11 @@ func schema_kubevirt_pkg_api_v1_Interface(ref common.ReferenceCallback) common.O
 							Ref: ref("kubevirt.io/kubevirt/pkg/api/v1.InterfaceSlirp"),
 						},
 					},
+					"masquerade": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("kubevirt.io/kubevirt/pkg/api/v1.InterfaceMasquerade"),
+						},
+					},
 					"sriov": {
 						SchemaProps: spec.SchemaProps{
 							Ref: ref("kubevirt.io/kubevirt/pkg/api/v1.InterfaceSRIOV"),
@@ -1175,7 +1181,7 @@ func schema_kubevirt_pkg_api_v1_Interface(ref common.ReferenceCallback) common.O
 			},
 		},
 		Dependencies: []string{
-			"kubevirt.io/kubevirt/pkg/api/v1.DHCPOptions", "kubevirt.io/kubevirt/pkg/api/v1.InterfaceBridge", "kubevirt.io/kubevirt/pkg/api/v1.InterfaceSRIOV", "kubevirt.io/kubevirt/pkg/api/v1.InterfaceSlirp", "kubevirt.io/kubevirt/pkg/api/v1.Port"},
+			"kubevirt.io/kubevirt/pkg/api/v1.DHCPOptions", "kubevirt.io/kubevirt/pkg/api/v1.InterfaceBridge", "kubevirt.io/kubevirt/pkg/api/v1.InterfaceMasquerade", "kubevirt.io/kubevirt/pkg/api/v1.InterfaceSRIOV", "kubevirt.io/kubevirt/pkg/api/v1.InterfaceSlirp", "kubevirt.io/kubevirt/pkg/api/v1.Port"},
 	}
 }
 
@@ -1195,6 +1201,11 @@ func schema_kubevirt_pkg_api_v1_InterfaceBindingMethod(ref common.ReferenceCallb
 							Ref: ref("kubevirt.io/kubevirt/pkg/api/v1.InterfaceSlirp"),
 						},
 					},
+					"masquerade": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("kubevirt.io/kubevirt/pkg/api/v1.InterfaceMasquerade"),
+						},
+					},
 					"sriov": {
 						SchemaProps: spec.SchemaProps{
 							Ref: ref("kubevirt.io/kubevirt/pkg/api/v1.InterfaceSRIOV"),
@@ -1204,11 +1215,22 @@ func schema_kubevirt_pkg_api_v1_InterfaceBindingMethod(ref common.ReferenceCallb
 			},
 		},
 		Dependencies: []string{
-			"kubevirt.io/kubevirt/pkg/api/v1.InterfaceBridge", "kubevirt.io/kubevirt/pkg/api/v1.InterfaceSRIOV", "kubevirt.io/kubevirt/pkg/api/v1.InterfaceSlirp"},
+			"kubevirt.io/kubevirt/pkg/api/v1.InterfaceBridge", "kubevirt.io/kubevirt/pkg/api/v1.InterfaceMasquerade", "kubevirt.io/kubevirt/pkg/api/v1.InterfaceSRIOV", "kubevirt.io/kubevirt/pkg/api/v1.InterfaceSlirp"},
 	}
 }
 
 func schema_kubevirt_pkg_api_v1_InterfaceBridge(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Properties: map[string]spec.Schema{},
+			},
+		},
+		Dependencies: []string{},
+	}
+}
+
+func schema_kubevirt_pkg_api_v1_InterfaceMasquerade(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
@@ -1267,7 +1289,7 @@ func schema_kubevirt_pkg_api_v1_LunTarget(ref common.ReferenceCallback) common.O
 				Properties: map[string]spec.Schema{
 					"bus": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Bus indicates the type of disk device to emulate. supported values: virtio, sata, scsi, ide.",
+							Description: "Bus indicates the type of disk device to emulate. supported values: virtio, sata, scsi.",
 							Type:        []string{"string"},
 							Format:      "",
 						},

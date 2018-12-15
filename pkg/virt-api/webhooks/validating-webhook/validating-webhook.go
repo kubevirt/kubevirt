@@ -39,10 +39,10 @@ import (
 	k8sfield "k8s.io/apimachinery/pkg/util/validation/field"
 
 	v1 "kubevirt.io/kubevirt/pkg/api/v1"
-	featuregates "kubevirt.io/kubevirt/pkg/feature-gates"
 	"kubevirt.io/kubevirt/pkg/log"
 	"kubevirt.io/kubevirt/pkg/util"
 	"kubevirt.io/kubevirt/pkg/virt-api/webhooks"
+	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 )
 
 const (
@@ -123,17 +123,24 @@ func validateDisks(field *k8sfield.Path, disks []v1.Disk) []metav1.StatusCause {
 		}
 		// Verify only a single device type is set.
 		deviceTargetSetCount := 0
+		var diskType, bus string
 		if disk.Disk != nil {
 			deviceTargetSetCount++
+			diskType = "disk"
+			bus = disk.Disk.Bus
 		}
 		if disk.LUN != nil {
 			deviceTargetSetCount++
+			diskType = "lun"
+			bus = disk.LUN.Bus
 		}
 		if disk.Floppy != nil {
 			deviceTargetSetCount++
 		}
 		if disk.CDRom != nil {
 			deviceTargetSetCount++
+			diskType = "cdrom"
+			bus = disk.CDRom.Bus
 		}
 
 		// NOTE: not setting a device target is okay. We default to Disk.
@@ -173,6 +180,32 @@ func validateDisks(field *k8sfield.Path, disks []v1.Disk) []metav1.StatusCause {
 				Message: fmt.Sprintf("%s must have a boot order > 0, if supplied", field.Index(idx).String()),
 				Field:   field.Index(idx).Child("bootOrder").String(),
 			})
+		}
+
+		// Verify bus is supported, if provided
+		if len(bus) > 0 {
+			if bus == "ide" {
+				causes = append(causes, metav1.StatusCause{
+					Type:    metav1.CauseTypeFieldValueInvalid,
+					Message: "IDE bus is not supported",
+					Field:   field.Index(idx).Child(diskType, "bus").String(),
+				})
+			} else {
+				buses := []string{"virtio", "sata", "scsi"}
+				validBus := false
+				for _, b := range buses {
+					if b == bus {
+						validBus = true
+					}
+				}
+				if !validBus {
+					causes = append(causes, metav1.StatusCause{
+						Type:    metav1.CauseTypeFieldValueInvalid,
+						Message: fmt.Sprintf("%s is set with an unrecognized bus %s, must be one of: %v", field.Index(idx).String(), bus, buses),
+						Field:   field.Index(idx).Child(diskType, "bus").String(),
+					})
+				}
+			}
 		}
 
 		// Verify serial number is made up of valid characters for libvirt, if provided
@@ -258,7 +291,7 @@ func validateVolumes(field *k8sfield.Path, volumes []v1.Volume) []metav1.StatusC
 			volumeSourceSetCount++
 		}
 		if volume.DataVolume != nil {
-			if !featuregates.DataVolumesEnabled() {
+			if !virtconfig.DataVolumesEnabled() {
 				causes = append(causes, metav1.StatusCause{
 					Type:    metav1.CauseTypeFieldValueInvalid,
 					Message: "DataVolume feature gate is not enabled",
@@ -630,6 +663,29 @@ func ValidateVirtualMachineInstanceSpec(field *k8sfield.Path, spec *v1.VirtualMa
 		}
 	}
 
+	// Validate emulated machine
+	if len(spec.Domain.Machine.Type) > 0 {
+		machine := spec.Domain.Machine.Type
+		supportedMachines := virtconfig.SupportedEmulatedMachines()
+		var match = false
+		for _, val := range supportedMachines {
+			if regexp.MustCompile(val).MatchString(machine) {
+				match = true
+			}
+		}
+		if !match {
+			causes = append(causes, metav1.StatusCause{
+				Type: metav1.CauseTypeFieldValueInvalid,
+				Message: fmt.Sprintf("%s is not supported: %s (allowed values: %v)",
+					field.Child("domain", "machine", "type").String(),
+					machine,
+					supportedMachines,
+				),
+				Field: field.Child("domain", "machine", "type").String(),
+			})
+		}
+	}
+
 	// Validate CPU pinning
 	if spec.Domain.CPU != nil && spec.Domain.CPU.DedicatedCPUPlacement {
 		requestsMem := spec.Domain.Resources.Requests.Memory().Value()
@@ -888,9 +944,15 @@ func ValidateVirtualMachineInstanceSpec(field *k8sfield.Path, spec *v1.VirtualMa
 					Message: fmt.Sprintf("Slirp interface only implemented with pod network"),
 					Field:   field.Child("domain", "devices", "interfaces").Index(idx).Child("name").String(),
 				})
+			} else if iface.Masquerade != nil && networkData.Pod == nil {
+				causes = append(causes, metav1.StatusCause{
+					Type:    metav1.CauseTypeFieldValueInvalid,
+					Message: fmt.Sprintf("Masquerade interface only implemented with pod network"),
+					Field:   field.Child("domain", "devices", "interfaces").Index(idx).Child("name").String(),
+				})
 			}
 
-			if iface.SRIOV != nil && !featuregates.SRIOVEnabled() {
+			if iface.SRIOV != nil && !virtconfig.SRIOVEnabled() {
 				causes = append(causes, metav1.StatusCause{
 					Type:    metav1.CauseTypeFieldValueInvalid,
 					Message: fmt.Sprintf("SRIOV feature gate is not enabled in kubevirt-config"),
@@ -1471,7 +1533,7 @@ func admitMigrationCreate(ar *v1beta1.AdmissionReview) *v1beta1.AdmissionRespons
 		return resp
 	}
 
-	if !featuregates.LiveMigrationEnabled() {
+	if !virtconfig.LiveMigrationEnabled() {
 		return webhooks.ToAdmissionResponseError(fmt.Errorf("LiveMigration feature gate is not enabled in kubevirt-config"))
 	}
 
