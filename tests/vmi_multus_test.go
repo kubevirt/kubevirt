@@ -284,6 +284,40 @@ var _ = Describe("Multus Networking", func() {
 			// it's hard to match them.
 		})
 
+		It("should not do discovery when networkData is defined in spec", func() {
+			// since neither cirros nor alpine has drivers for Intel NICs, we are left with fedora
+			userData := "#cloud-config\npassword: fedora\nchpasswd: { expire: False }\n"
+			networkData := "#\n"
+			vmiOne = tests.NewRandomVMIWithEphemeralDiskAndUserdataNetworkData(tests.ContainerDiskFor(tests.ContainerDiskFedora), userData, networkData)
+			tests.AddExplicitPodNetworkInterface(vmiOne)
+
+			iface := v1.Interface{Name: "sriov", InterfaceBindingMethod: v1.InterfaceBindingMethod{SRIOV: &v1.InterfaceSRIOV{}}}
+			network := v1.Network{Name: "sriov", NetworkSource: v1.NetworkSource{Multus: &v1.CniNetwork{NetworkName: "sriov"}}}
+			vmiOne.Spec.Domain.Devices.Interfaces = append(vmiOne.Spec.Domain.Devices.Interfaces, iface)
+			vmiOne.Spec.Networks = append(vmiOne.Spec.Networks, network)
+
+			// mutating hook is not integrated yet so fill in limits / requests to allocate intel devices
+			vmiOne.Spec.Domain.Resources.Limits = make(k8sv1.ResourceList)
+			for resource, value := range map[k8sv1.ResourceName]resource.Quantity{k8sv1.ResourceName("intel.com/sriov"): resource.MustParse("1")} {
+				vmiOne.Spec.Domain.Resources.Limits[resource] = value
+				vmiOne.Spec.Domain.Resources.Requests[resource] = value
+			}
+
+			// fedora requires some more memory to boot without kernel panics
+			vmiOne.Spec.Domain.Resources.Requests[k8sv1.ResourceName("memory")] = resource.MustParse("1024M")
+
+			_, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmiOne)
+			Expect(err).ToNot(HaveOccurred())
+			tests.WaitUntilVMIReady(vmiOne, tests.LoggedInFedoraExpecter)
+
+			By("mouting cloudinit iso")
+			mountCloudInit(vmiOne, "#")
+
+			By("checking cloudinit network-config contains one line that starts with #")
+			checkDisabledNetworkConfig(vmiOne, "#")
+
+		})
+
 		It("should create a virtual machine with two sriov interfaces referring the same resource", func() {
 			// since neither cirros nor alpine has drivers for Intel NICs, we are left with fedora
 			userData := "#cloud-config\npassword: fedora\nchpasswd: { expire: False }\n"
@@ -527,6 +561,18 @@ func checkNetworkConfig(vmi *v1.VirtualMachineInstance, interfaceName, prompt st
 		&expect.BExp{R: prompt},
 		&expect.BSnd{S: "echo $?\n"},
 		&expect.BExp{R: "0"},
+	}, 15)
+	Expect(err).ToNot(HaveOccurred())
+}
+
+func checkDisabledNetworkConfig(vmi *v1.VirtualMachineInstance, prompt string) {
+	cmdCheck := "cat /mnt/network-config\n"
+	err := tests.CheckForTextExpecter(vmi, []expect.Batcher{
+		&expect.BSnd{S: "\n"},
+		&expect.BExp{R: prompt},
+		&expect.BSnd{S: cmdCheck},
+		&expect.BExp{R: prompt},
+		&expect.BExp{R: "#"},
 	}, 15)
 	Expect(err).ToNot(HaveOccurred())
 }
