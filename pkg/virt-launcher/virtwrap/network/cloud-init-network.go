@@ -39,8 +39,8 @@ type CloudInitNetworkInterface struct {
 }
 
 type CloudInitSubnet struct {
-	SubnetType string                 `yaml:"type"`
-	Address    string                 `yaml:"address"`
+	SubnetType string                 `yaml:"type,omitempty"`
+	Address    string                 `yaml:"address,omitempty"`
 	Gateway    string                 `yaml:"gateway,omitempty"`
 	Routes     []CloudInitSubnetRoute `yaml:"routes,omitempty"`
 }
@@ -118,27 +118,26 @@ func getSriovNetworkInfo(vmi *v1.VirtualMachineInstance) ([]VIF, error) {
 func getNetworkDetails(intName string) (VIF, error) {
 	initHandler()
 	var vif VIF
+
 	vif.Name = intName
+
 	link, err := Handler.LinkByName(vif.Name)
 	if err != nil {
 		log.Log.Reason(err).Errorf("failed to get a link for interface: %s", vif.Name)
 		return vif, err
 	}
 
-	// get IP address
 	addrList, err := Handler.AddrList(link, netlink.FAMILY_V4)
 	if err != nil {
 		log.Log.Reason(err).Errorf("failed to get an ip address for %s", vif.Name)
 		return vif, err
 	}
-	// TODO: This can return an empty object. Test for it and skip assignment.
-	// This results in subnet: being set to <nil>
+
 	if len(addrList) > 0 {
 		vif.IP = addrList[0]
 	}
 
 	if len(vif.MAC) == 0 {
-		// Get interface MAC address
 		mac, err := Handler.GetMacDetails(vif.Name)
 		if err != nil {
 			log.Log.Reason(err).Errorf("failed to get MAC for %s", vif.Name)
@@ -147,14 +146,14 @@ func getNetworkDetails(intName string) (VIF, error) {
 		vif.MAC = mac
 	}
 
-	// Get interface MTU
-	vif.Mtu = uint16(link.Attrs().MTU)
 	routes, err := Handler.RouteList(link, netlink.FAMILY_V4)
 	if err != nil {
 		log.Log.Reason(err).Errorf("failed to get routes for %s", vif.Name)
 		return vif, err
 	}
 	vif.Routes = &routes
+
+	vif.Mtu = uint16(link.Attrs().MTU)
 
 	return vif, nil
 }
@@ -184,6 +183,58 @@ func getCloudInitManageResolv() CloudInitManageResolv {
 	return cloudInitManageResolv
 }
 
+func convertCloudInitNetworksToCloudInitNetConfig(cloudInitNetworks *[]VIF, config *CloudInitNetConfig) {
+	for _, vif := range *cloudInitNetworks {
+		var nif CloudInitNetworkInterface
+		var nifSubnet CloudInitSubnet
+		var nifRoutes []CloudInitSubnetRoute
+
+		nif.Name = vif.Name
+		nif.NetworkType = "physical"
+		nif.MacAddress = vif.MAC.String()
+		nif.Mtu = vif.Mtu
+
+		if vif.IP.String() == "<nil>" {
+			nifSubnet.SubnetType = "manual"
+			nif.Subnets = append(nif.Subnets, nifSubnet)
+		} else {
+			nifSubnet.SubnetType = "static"
+			nifSubnet.Address = strings.Split(vif.IP.String(), " ")[0]
+			if vif.Gateway != nil {
+				nifSubnet.Gateway = string(vif.Gateway)
+			}
+			for _, route := range *vif.Routes {
+				if route.Dst == nil && route.Src.Equal(nil) && route.Gw.Equal(nil) {
+					continue
+				}
+
+				if route.Src != nil && route.Src.Equal(vif.IP.IP) {
+					continue
+				}
+
+				var subnetRoute CloudInitSubnetRoute
+
+				if route.Dst == nil {
+					nifSubnet.Gateway = route.Gw.String()
+					continue
+				} else {
+					subnetRoute.Network = route.Dst.IP.String()
+				}
+
+				subnetRoute.Network = route.Dst.IP.String()
+				subnetRoute.Netmask = net.IP(route.Dst.Mask).String()
+				if route.Gw != nil {
+					subnetRoute.Gateway = route.Gw.String()
+				}
+				nifRoutes = append(nifRoutes, subnetRoute)
+			}
+			nifSubnet.Routes = nifRoutes
+			nif.Subnets = append(nif.Subnets, nifSubnet)
+		}
+		config.Config = append(config.Config, nif)
+	}
+}
+
 func CloudInitDiscoverNetworkData(vmi *v1.VirtualMachineInstance) ([]byte, error) {
 	var networkFile []byte
 	var resolvFile []byte
@@ -208,50 +259,7 @@ func CloudInitDiscoverNetworkData(vmi *v1.VirtualMachineInstance) ([]byte, error
 		Version: 1,
 	}
 
-	for _, vif := range cloudInitNetworks {
-		var nif CloudInitNetworkInterface
-		var nifSubnet CloudInitSubnet
-		var nifRoutes []CloudInitSubnetRoute
-
-		nif.Name = vif.Name
-		nif.NetworkType = "physical"
-		nif.MacAddress = vif.MAC.String()
-		nif.Mtu = vif.Mtu
-
-		nifSubnet.SubnetType = "static"
-		nifSubnet.Address = strings.Split(vif.IP.String(), " ")[0]
-		if vif.Gateway != nil {
-			nifSubnet.Gateway = string(vif.Gateway)
-		}
-		for _, route := range *vif.Routes {
-			if route.Dst == nil && route.Src.Equal(nil) && route.Gw.Equal(nil) {
-				continue
-			}
-
-			if route.Src != nil && route.Src.Equal(vif.IP.IP) {
-				continue
-			}
-
-			var subnetRoute CloudInitSubnetRoute
-
-			if route.Dst == nil {
-				nifSubnet.Gateway = route.Gw.String()
-				continue
-			} else {
-				subnetRoute.Network = route.Dst.IP.String()
-			}
-
-			subnetRoute.Network = route.Dst.IP.String()
-			subnetRoute.Netmask = net.IP(route.Dst.Mask).String()
-			if route.Gw != nil {
-				subnetRoute.Gateway = route.Gw.String()
-			}
-			nifRoutes = append(nifRoutes, subnetRoute)
-		}
-		nifSubnet.Routes = nifRoutes
-		nif.Subnets = append(nif.Subnets, nifSubnet)
-		config.Config = append(config.Config, nif)
-	}
+	convertCloudInitNetworksToCloudInitNetConfig(&cloudInitNetworks, &config)
 
 	networkFile, err = yaml.Marshal(config)
 	if err != nil {
@@ -260,7 +268,8 @@ func CloudInitDiscoverNetworkData(vmi *v1.VirtualMachineInstance) ([]byte, error
 
 	// Get resolver configuration. dhclient will likely override this on most
 	// distributions but it is the same data so this should be safe.
-	// This can be gated via Spec if needed.
+	// This can be gated via Spec in the future if needed to disable/enable
+	// adding resolv configuration to cloud-init.
 	cloudInitManageResolv := getCloudInitManageResolv()
 	resolvFile, err = yaml.Marshal(cloudInitManageResolv)
 	if err != nil {

@@ -4,6 +4,7 @@ package network
 
 import (
 	"bytes"
+	"errors"
 	"io/ioutil"
 	"net"
 	"os"
@@ -49,7 +50,9 @@ var _ = Describe("cloud-init network", func() {
 			domain := newSriovDomainWithInterface()
 			vm := newSriovVMISriovInterface("testnamespace", "testVmName", count)
 			api.SetObjectDefaults_Domain(domain)
-			buildMockSriovNetwork(mockNetwork, count)
+			mockErrors := make(map[string]error)
+			buildMockPodNetwork(mockNetwork)
+			buildMockSriovNetwork(mockNetwork, count, mockErrors)
 			cloudinit, err := CloudInitDiscoverNetworkData(vm)
 			parsedCloudInit := bytes.Split(cloudinit, []byte(cloudInitDelimiter))
 			var config CloudInitNetConfig
@@ -101,10 +104,79 @@ var _ = Describe("cloud-init network", func() {
 			}
 
 		})
+
+		It("should not create contents without SR-IOV interfaces", func() {
+			count := 0
+			domain := newSriovDomainWithInterface()
+			vm := newSriovVMISriovInterface("testnamespace", "testVmName", count)
+			api.SetObjectDefaults_Domain(domain)
+			mockErrors := make(map[string]error)
+			buildMockPodNetwork(mockNetwork)
+			buildMockSriovNetwork(mockNetwork, count, mockErrors)
+			cloudinit, err := CloudInitDiscoverNetworkData(vm)
+			Expect(cloudinit).To(BeNil())
+			Expect(err).To(BeNil())
+		})
+
+		/*
+			// This doesn't work as expected, look into this later
+			for _, netlinkFunc := range []string{"AddrList", "GetMacDetails", "LinkByName", "RouteList"} {
+				It(fmt.Sprintf("should fail if netlink fails: %s", netlinkFunc), func() {
+					testNetlinkErrors(netlinkFunc, mockNetwork)
+				})
+			}
+		*/
+		It("should fail if netlink fails: AddrList", func() {
+			testNetlinkErrors("AddrList", mockNetwork)
+		})
+		It("should fail if netlink fails: GetMacDetails", func() {
+			testNetlinkErrors("GetMacDetails", mockNetwork)
+		})
+		It("should fail if netlink fails: LinkByName", func() {
+			testNetlinkErrors("LinkByName", mockNetwork)
+		})
+		It("should fail if netlink fails: RouteList", func() {
+			testNetlinkErrors("RouteList", mockNetwork)
+		})
 	})
 })
 
-func buildMockSriovNetwork(mockNetwork *MockNetworkHandler, count int) {
+func testNetlinkErrors(netlinkFunc string, mockNetwork *MockNetworkHandler) {
+	count := 1
+	domain := newSriovDomainWithInterface()
+	vm := newSriovVMISriovInterface("testnamespace", "testVmName", count)
+	api.SetObjectDefaults_Domain(domain)
+	mockErrors := make(map[string]error)
+	mockErrors[netlinkFunc] = errors.New(netlinkFunc)
+	buildMockPodNetwork(mockNetwork)
+	buildMockSriovNetwork(mockNetwork, count, mockErrors)
+	_, err := CloudInitDiscoverNetworkData(vm)
+	Expect(err).Should(MatchError(netlinkFunc))
+}
+
+func buildMockPodNetwork(mockNetwork *MockNetworkHandler) {
+	var dummy *netlink.Dummy
+	var addrList []netlink.Addr
+	var routeList []netlink.Route
+	var ipAddress netlink.Addr
+	var macAddress net.HardwareAddr
+
+	dummy = &netlink.Dummy{LinkAttrs: netlink.LinkAttrs{Index: 1}}
+
+	address := &net.IPNet{IP: net.IPv4(10, 255, 0, 2), Mask: net.CIDRMask(24, 32)}
+	ipAddress = netlink.Addr{IPNet: address}
+	addrList = []netlink.Addr{ipAddress}
+	macAddrStr := "de:ad:be:af:ca:fe"
+	macAddress, _ = net.ParseMAC(macAddrStr)
+	routeList = append(routeList, netlink.Route{Src: net.IPv4(10, 255, 0, 2)})
+
+	mockNetwork.EXPECT().AddrList(dummy, netlink.FAMILY_V4).Return(addrList, nil)
+	mockNetwork.EXPECT().GetMacDetails(podInterface).Return(macAddress, nil)
+	mockNetwork.EXPECT().LinkByName(podInterface).Return(dummy, nil)
+	mockNetwork.EXPECT().RouteList(dummy, netlink.FAMILY_V4).Return(routeList, nil)
+}
+
+func buildMockSriovNetwork(mockNetwork *MockNetworkHandler, count int, mockErrors map[string]error) {
 	netInts := make(map[string]*netlink.Dummy, count)
 	intNum := 1
 	for intNum <= count {
@@ -117,7 +189,7 @@ func buildMockSriovNetwork(mockNetwork *MockNetworkHandler, count int) {
 		intName := "net" + strconv.Itoa(intNum)
 		netInts[intName] = &netlink.Dummy{
 			LinkAttrs: netlink.LinkAttrs{
-				Index: count,
+				Index: intNum + 1,
 				MTU:   1400 + intNum,
 				Name:  intName,
 				Alias: intName,
@@ -154,12 +226,20 @@ func buildMockSriovNetwork(mockNetwork *MockNetworkHandler, count int) {
 
 		netlink.AddrAdd(netInts[intName], &ipAddress)
 
-		mockNetwork.EXPECT().LinkByName(intName).Return(netInts[intName], nil)
-		mockNetwork.EXPECT().AddrList(netInts[intName], netlink.FAMILY_V4).Return(addrList, nil)
-		mockNetwork.EXPECT().RouteList(netInts[intName], netlink.FAMILY_V4).Return(routeList, nil)
-		mockNetwork.EXPECT().GetMacDetails(intName).Return(macAddress, nil)
+		mockNetwork.EXPECT().LinkByName(intName).Return(netInts[intName], getMockError("LinkByName", mockErrors))
+		mockNetwork.EXPECT().AddrList(netInts[intName], netlink.FAMILY_V4).Return(addrList, getMockError("AddrList", mockErrors))
+		mockNetwork.EXPECT().RouteList(netInts[intName], netlink.FAMILY_V4).Return(routeList, getMockError("RouteList", mockErrors))
+		mockNetwork.EXPECT().GetMacDetails(intName).Return(macAddress, getMockError("GetMacDetails", mockErrors))
 
 		intNum++
+	}
+}
+
+func getMockError(mockCall string, mockErrors map[string]error) error {
+	if mockError, ok := mockErrors[mockCall]; ok {
+		return mockError
+	} else {
+		return nil
 	}
 }
 
@@ -174,17 +254,19 @@ func newSriovVMI(namespace, name string, count int) *v1.VirtualMachineInstance {
 			Networks: []v1.Network{*v1.DefaultPodNetwork()},
 		},
 	}
-	intNum := 1
-	for intNum <= count {
-		intName := "sriov" + strconv.Itoa(intNum)
-		sriovNetwork := v1.Network{
-			Name: intName,
-			NetworkSource: v1.NetworkSource{
-				Multus: &v1.CniNetwork{NetworkName: intName},
-			},
+	if count > 0 {
+		intNum := 1
+		for intNum <= count {
+			intName := "sriov" + strconv.Itoa(intNum)
+			sriovNetwork := v1.Network{
+				Name: intName,
+				NetworkSource: v1.NetworkSource{
+					Multus: &v1.CniNetwork{NetworkName: intName},
+				},
+			}
+			vmi.Spec.Networks = append(vmi.Spec.Networks, sriovNetwork)
+			intNum++
 		}
-		vmi.Spec.Networks = append(vmi.Spec.Networks, sriovNetwork)
-		intNum++
 	}
 	return vmi
 }
@@ -192,16 +274,18 @@ func newSriovVMI(namespace, name string, count int) *v1.VirtualMachineInstance {
 func newSriovVMISriovInterface(namespace string, name string, count int) *v1.VirtualMachineInstance {
 	vmi := newSriovVMI(namespace, name, count)
 	vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{*v1.DefaultNetworkInterface()}
-	intNum := 1
-	for intNum <= count {
-		sriovInterface := v1.Interface{
-			Name: "sriov" + strconv.Itoa(intNum),
-			InterfaceBindingMethod: v1.InterfaceBindingMethod{
-				SRIOV: &v1.InterfaceSRIOV{},
-			},
+	if count > 0 {
+		intNum := 1
+		for intNum <= count {
+			sriovInterface := v1.Interface{
+				Name: "sriov" + strconv.Itoa(intNum),
+				InterfaceBindingMethod: v1.InterfaceBindingMethod{
+					SRIOV: &v1.InterfaceSRIOV{},
+				},
+			}
+			vmi.Spec.Domain.Devices.Interfaces = append(vmi.Spec.Domain.Devices.Interfaces, sriovInterface)
+			intNum++
 		}
-		vmi.Spec.Domain.Devices.Interfaces = append(vmi.Spec.Domain.Devices.Interfaces, sriovInterface)
-		intNum++
 	}
 	v1.SetObjectDefaults_VirtualMachineInstance(vmi)
 	return vmi
