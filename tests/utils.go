@@ -2319,7 +2319,7 @@ func CreateISCSITargetPOD() (iscsiTargetIP string) {
 		iscsiTargetIP = pod.Status.PodIP
 		return pod.Status.Phase
 	}
-	Eventually(getStatus, 30, 1).Should(Equal(k8sv1.PodRunning))
+	Eventually(getStatus, 120, 1).Should(Equal(k8sv1.PodRunning))
 	return
 }
 
