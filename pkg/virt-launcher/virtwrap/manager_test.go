@@ -202,7 +202,7 @@ var _ = Describe("Manager", func() {
 			os.Unsetenv("PCIDEVICE_INTEL_COM_TESTNET2")
 			os.Unsetenv("KUBEVIRT_RESOURCE_NAME_testnet2")
 		})
-		It("should define and start a new VirtualMachineInstance with cloudInitData", func() {
+		It("should define and start a new VirtualMachineInstance with userData and networkData", func() {
 			// Make sure that we always free the domain after use
 			mockDomain.EXPECT().Free()
 			StubOutNetworkForTest()
