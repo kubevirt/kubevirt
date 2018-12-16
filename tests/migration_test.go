@@ -133,7 +133,7 @@ var _ = Describe("Migrations", func() {
 					// execute a migration, wait for finalized state
 					By(fmt.Sprintf("Starting the Migration for iteration %d", i))
 					migration := tests.NewRandomMigration(vmi.Name, vmi.Namespace)
-					migrationUID := runMigrationAndExpectCompletion(migration, 120)
+					migrationUID := runMigrationAndExpectCompletion(migration, 180)
 
 					// check VMI, confirm migration state
 					confirmVMIPostMigration(vmi, migrationUID)
@@ -186,11 +186,9 @@ var _ = Describe("Migrations", func() {
 				}, 120, 1*time.Second).Should(HaveOccurred())
 			})
 			It("should be successfully migrated multiple times", func() {
-
 				// Start the VirtualMachineInstance with the PVC attached
 				vmi := tests.NewRandomVMIWithPVC(pvName)
 
-				By("Starting the VirtualMachineInstance")
 				vmi = runVMIAndExpectLaunch(vmi, 180)
 
 				By("Checking that the VirtualMachineInstance console has expected output")
@@ -204,7 +202,7 @@ var _ = Describe("Migrations", func() {
 					// execute a migration, wait for finalized state
 					By(fmt.Sprintf("Starting the Migration for iteration %d", i))
 					migration := tests.NewRandomMigration(vmi.Name, vmi.Namespace)
-					migrationUID := runMigrationAndExpectCompletion(migration, 120)
+					migrationUID := runMigrationAndExpectCompletion(migration, 180)
 
 					// check VMI, confirm migration state
 					confirmVMIPostMigration(vmi, migrationUID)
