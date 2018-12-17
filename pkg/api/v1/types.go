@@ -51,6 +51,8 @@ const SubresourceGroupName = "subresources.kubevirt.io"
 
 const DefaultGracePeriodSeconds int64 = 30
 
+const CloudInitDelimiter = "###CLOUDINITDELIMITER###"
+
 // GroupVersion is group version used to register these objects
 var GroupVersion = schema.GroupVersion{Group: GroupName, Version: "v1alpha2"}
 

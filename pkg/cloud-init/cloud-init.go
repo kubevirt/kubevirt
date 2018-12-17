@@ -45,7 +45,6 @@ var cloudInitOwner = "qemu"
 var cloudInitIsoFunc = defaultIsoFunc
 
 const NoCloudFile = "noCloud.iso"
-const cloudInitDelimiter = "###CLOUDINITDELIMITER###"
 
 // Supported DataSources
 const (
@@ -210,7 +209,7 @@ func GenerateLocalData(vmiName string, hostname string, namespace string, source
 	var networkData []byte
 	var resolvData []byte
 	if source.NetworkData != "" {
-		parsedNetworkData := bytes.Split([]byte(source.NetworkData), []byte(cloudInitDelimiter))
+		parsedNetworkData := bytes.Split([]byte(source.NetworkData), []byte(v1.CloudInitDelimiter))
 		networkData = parsedNetworkData[0]
 		if len(parsedNetworkData) > 1 {
 			resolvData = parsedNetworkData[1]

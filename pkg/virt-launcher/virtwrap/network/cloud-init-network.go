@@ -1,3 +1,22 @@
+/*
+ * This file is part of the KubeVirt project
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ * Copyright 2018 StackPath, LLC
+ *
+ */
+
 // pkg/virt-launcher/virtwrap/network/cloud-init-network.go currently adds
 // support to configure SR-IOV interfaces within a VM through cloud-init
 // network version 1 configuration. Other interface types such as bridge
@@ -68,9 +87,7 @@ type CloudInitResolvConf struct {
 	// TODO Add options map when pkg/util/net/dns can parse them
 }
 
-const cloudInitDelimiter = "###CLOUDINITDELIMITER###"
-
-// Borrowed from Convert_v1_VirtualMachine_To_api_Domain
+// Inspired by Convert_v1_VirtualMachine_To_api_Domain
 func getSriovNetworkInfo(vmi *v1.VirtualMachineInstance) ([]VIF, error) {
 	networks := map[string]*v1.Network{}
 	cniNetworks := map[string]int{}
@@ -280,7 +297,7 @@ func CloudInitDiscoverNetworkData(vmi *v1.VirtualMachineInstance) ([]byte, error
 	// Append resolv conf to network file with a delimiter so we can split
 	// it later.
 	if len(resolvFile) > 0 {
-		networkFile = append(networkFile, []byte(cloudInitDelimiter)...)
+		networkFile = append(networkFile, []byte(v1.CloudInitDelimiter)...)
 		networkFile = append(networkFile, resolvFile...)
 	}
 
