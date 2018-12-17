@@ -883,6 +883,36 @@ var _ = Describe("Converter", func() {
 			Expect(domain.Spec.Devices.Interfaces[1].Source.Bridge).To(Equal("k6t-net2"))
 			Expect(domain.Spec.Devices.Interfaces[2].Source.Bridge).To(Equal("k6t-eth0"))
 		})
+		It("Should set domain interface source correctly for default multus", func() {
+			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
+			vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{
+				*v1.DefaultNetworkInterface(),
+				*v1.DefaultNetworkInterface(),
+			}
+			vmi.Spec.Domain.Devices.Interfaces[0].Name = "red1"
+			vmi.Spec.Domain.Devices.Interfaces[1].Name = "red2"
+			// 3rd network is the default pod network, name is "default"
+			vmi.Spec.Networks = []v1.Network{
+				v1.Network{
+					Name: "red1",
+					NetworkSource: v1.NetworkSource{
+						Multus: &v1.CniNetwork{NetworkName: "red", Default: true},
+					},
+				},
+				v1.Network{
+					Name: "red2",
+					NetworkSource: v1.NetworkSource{
+						Multus: &v1.CniNetwork{NetworkName: "red"},
+					},
+				},
+			}
+
+			domain := vmiToDomain(vmi, c)
+			Expect(domain).ToNot(Equal(nil))
+			Expect(domain.Spec.Devices.Interfaces).To(HaveLen(2))
+			Expect(domain.Spec.Devices.Interfaces[0].Source.Bridge).To(Equal("k6t-eth0"))
+			Expect(domain.Spec.Devices.Interfaces[1].Source.Bridge).To(Equal("k6t-net1"))
+		})
 		It("Should set domain interface source correctly for genie", func() {
 			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
 			vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{
