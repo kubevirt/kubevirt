@@ -46,14 +46,11 @@ import (
 )
 
 const (
-<<<<<<< HEAD
-	defaultIOThread = uint(1)
-=======
 	CPUModeHostPassthrough = "host-passthrough"
 	CPUModeHostModel       = "host-model"
 	defaultIOThread        = uint(1)
-	EFIBootloaderPath      = "/usr/share/OVMF/OVMF_CODE.fd"
->>>>>>> Initial EFI support
+	EFIPath                = "/usr/share/OVMF/OVMF_CODE.fd"
+	EFIVarsPath            = "/usr/share/OVMF/OVMF_VARS.fd"
 )
 
 type ConverterContext struct {

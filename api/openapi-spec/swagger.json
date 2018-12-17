@@ -4005,7 +4005,30 @@
      }
     }
    },
+<<<<<<< HEAD
    "v1.Bootloader": {},
+=======
+   "v1.BIOS": {
+    "description": "If set (default), BIOS will be used."
+   },
+   "v1.Bootloader": {
+    "description": "Represents the firmware blob used to assist in the domain creation process.\nUsed for setting the QEMU BIOS file path for the libvirt domain.",
+    "required": [
+     "bios",
+     "efi"
+    ],
+    "properties": {
+     "bios": {
+      "description": "If set (default), BIOS will be used.\n+optional",
+      "$ref": "#/definitions/v1.BIOS"
+     },
+     "efi": {
+      "description": "If set, EFI will be used instead of BIOS.\n+optional",
+      "$ref": "#/definitions/v1.EFI"
+     }
+    }
+   },
+>>>>>>> Address PR comments, add validating webhook and tests.
    "v1.CDRomTarget": {
     "properties": {
      "bus": {
@@ -4316,9 +4339,6 @@
      "devices"
     ],
     "properties": {
-     "bootloader": {
-      "$ref": "#/definitions/v1.Bootloader"
-     },
      "clock": {
       "description": "Clock sets the clock and timers of the vmi.\n+optional",
       "$ref": "#/definitions/v1.Clock"
@@ -4354,6 +4374,18 @@
      "resources": {
       "description": "Resources describes the Compute Resources required by this vmi.",
       "$ref": "#/definitions/v1.ResourceRequirements"
+     }
+    }
+   },
+   "v1.EFI": {
+    "description": "If set, EFI will be used instead of BIOS.",
+    "required": [
+     "secure"
+    ],
+    "properties": {
+     "secure": {
+      "description": "Some firmwares implements the Secure boot feature",
+      "type": "boolean"
      }
     }
    },
@@ -4481,6 +4513,10 @@
    },
    "v1.Firmware": {
     "properties": {
+     "bootloader": {
+      "description": "Settings to control the bootloader that is used.\n+optional",
+      "$ref": "#/definitions/v1.Bootloader"
+     },
      "uuid": {
       "description": "UUID reported by the vmi bios.\nDefaults to a random generated uid.",
       "type": "string"

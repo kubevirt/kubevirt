@@ -2050,6 +2050,15 @@ func (in *OS) DeepCopyInto(out *OS) {
 			**out = **in
 		}
 	}
+	if in.NVRam != nil {
+		in, out := &in.NVRam, &out.NVRam
+		if *in == nil {
+			*out = nil
+		} else {
+			*out = new(NVRam)
+			**out = **in
+		}
+	}
 	return
 }
 

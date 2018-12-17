@@ -34,6 +34,7 @@ const (
 	CPUModeHostModel                       = "host-model"
 )
 
+<<<<<<< HEAD
 type Bootloader string
 
 const (
@@ -41,6 +42,8 @@ const (
 	BootloaderEFI  Bootloader = "efi"
 )
 
+=======
+>>>>>>> Address PR comments, add validating webhook and tests.
 //go:generate swagger-doc
 //go:generate openapi-gen -i . --output-package=kubevirt.io/kubevirt/pkg/api/v1  --go-header-file ../../../hack/boilerplate/boilerplate.go.txt
 
@@ -143,7 +146,33 @@ type DomainSpec struct {
 	// One of: shared, auto
 	// +optional
 	IOThreadsPolicy *IOThreadsPolicy `json:"ioThreadsPolicy,omitempty"`
-	Bootloader      *Bootloader      `json:"bootloader,omitempty"`
+}
+
+// Represents the firmware blob used to assist in the domain creation process.
+// Used for setting the QEMU BIOS file path for the libvirt domain.
+// ---
+// +k8s:openapi-gen=true
+type Bootloader struct {
+	// If set (default), BIOS will be used.
+	// +optional
+	BIOS *BIOS `json:"bios,optional,omitempty"`
+	// If set, EFI will be used instead of BIOS.
+	// +optional
+	EFI *EFI `json:"efi,optional,omitempty"`
+}
+
+// If set (default), BIOS will be used.
+// ---
+// +k8s:openapi-gen=true
+type BIOS struct {
+}
+
+// If set, EFI will be used instead of BIOS.
+// ---
+// +k8s:openapi-gen=true
+type EFI struct {
+	// Some firmwares implements the Secure boot feature
+	Secure *bool `json:"secure,optional,omitempty"`
 }
 
 // ---
@@ -225,6 +254,9 @@ type Firmware struct {
 	// UUID reported by the vmi bios.
 	// Defaults to a random generated uid.
 	UUID types.UID `json:"uuid,omitempty"`
+	// Settings to control the bootloader that is used.
+	// +optional
+	Bootloader *Bootloader `json:"bootloader,omitempty"`
 }
 
 // ---

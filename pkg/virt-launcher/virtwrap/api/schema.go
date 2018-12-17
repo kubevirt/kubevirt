@@ -531,7 +531,12 @@ type OS struct {
 	BootOrder  []Boot    `xml:"boot"`
 	BootMenu   *BootMenu `xml:"bootmenu,omitempty"`
 	BIOS       *BIOS     `xml:"bios,omitempty"`
+<<<<<<< HEAD
 	Loader     *Loader   `xml:"loader,omitempty"`
+=======
+	BootLoader *Loader   `xml:"loader,omitempty"`
+	NVRam      *NVRam    `xml:"nvram,omitempty"`
+>>>>>>> Address PR comments, add validating webhook and tests.
 	Kernel     string    `xml:"kernel,omitempty"`
 	Initrd     string    `xml:"initrd,omitempty"`
 	KernelArgs string    `xml:"cmdline,omitempty"`
@@ -548,8 +553,8 @@ type SMBios struct {
 }
 
 type NVRam struct {
-	NVRam    string `xml:",chardata,omitempty"`
 	Template string `xml:"template,attr,omitempty"`
+	NVRam    string `xml:",chardata"`
 }
 
 type Boot struct {
@@ -563,10 +568,10 @@ type BootMenu struct {
 
 // TODO <loader readonly='yes' secure='no' type='rom'>/usr/lib/xen/boot/hvmloader</loader>
 type Loader struct {
-	ReadOnly bool   `xml:"readonly,attr,omitempty"`
-	Secure   bool   `xml:"secure,attr,omitempty"`
+	ReadOnly string `xml:"readonly,attr,omitempty"`
+	Secure   string `xml:"secure,attr,omitempty"`
 	Type     string `xml:"type,attr,omitempty"`
-	Path     string `xml:",chardata,omitempty"`
+	Path     string `xml:",chardata"`
 }
 
 // TODO <bios useserial='yes' rebootTimeout='0'/>

@@ -234,6 +234,20 @@ func validateDisks(field *k8sfield.Path, disks []v1.Disk) []metav1.StatusCause {
 	return causes
 }
 
+func validateBootloader(field *k8sfield.Path, bootloader *v1.Bootloader) []metav1.StatusCause {
+	var causes []metav1.StatusCause
+
+	if bootloader != nil && bootloader.EFI != nil && bootloader.BIOS != nil {
+		causes = append(causes, metav1.StatusCause{
+			Type:    metav1.CauseTypeFieldValueInvalid,
+			Message: fmt.Sprintf("%s has both EFI and BIOS configured, but they are mutually exclusive.", field.String()),
+			Field:   field.String(),
+		})
+	}
+
+	return causes
+}
+
 func validateVolumes(field *k8sfield.Path, volumes []v1.Volume) []metav1.StatusCause {
 	var causes []metav1.StatusCause
 	nameMap := make(map[string]int)
@@ -440,15 +454,27 @@ func validateDevices(field *k8sfield.Path, devices *v1.Devices) []metav1.StatusC
 	return causes
 }
 
+func validateFirmware(field *k8sfield.Path, firmware *v1.Firmware) []metav1.StatusCause {
+	var causes []metav1.StatusCause
+
+	if firmware != nil {
+		causes = append(causes, validateBootloader(field.Child("bootloader"), firmware.Bootloader)...)
+	}
+
+	return causes
+}
+
 func validateDomainPresetSpec(field *k8sfield.Path, spec *v1.DomainSpec) []metav1.StatusCause {
 	var causes []metav1.StatusCause
 	causes = append(causes, validateDevices(field.Child("devices"), &spec.Devices)...)
+	causes = append(causes, validateFirmware(field.Child("firmware"), spec.Firmware)...)
 	return causes
 }
 
 func validateDomainSpec(field *k8sfield.Path, spec *v1.DomainSpec) []metav1.StatusCause {
 	var causes []metav1.StatusCause
 	causes = append(causes, validateDevices(field.Child("devices"), &spec.Devices)...)
+	causes = append(causes, validateFirmware(field.Child("firmware"), spec.Firmware)...)
 	return causes
 }
 
