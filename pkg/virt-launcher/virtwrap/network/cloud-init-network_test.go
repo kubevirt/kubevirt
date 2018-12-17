@@ -48,45 +48,61 @@ var _ = Describe("cloud-init network", func() {
 		It("should create valid network-config contents", func() {
 			count := 3
 			domain := newSriovDomainWithInterface()
-			vmi := newSriovVMISriovInterface("testnamespace", "testVmName", count)
+			vmi := newSriovVMISriovInterface("testnamespace", "testVmName", count, false)
 			api.SetObjectDefaults_Domain(domain)
 			mockErrors := make(map[string]error)
 			buildMockPodNetwork(mockNetwork)
-			buildMockSriovNetwork(mockNetwork, count, mockErrors, false)
+			buildMockSriovNetwork(mockNetwork, count, mockErrors, false, false)
 			cloudinit, err := CloudInitDiscoverNetworkData(vmi)
 			parsedCloudInit := bytes.Split(cloudinit, []byte(cloudInitDelimiter))
 			var config CloudInitNetConfig
 			yaml.Unmarshal(parsedCloudInit[0], &config)
 
 			Expect(err).To(BeNil())
-			checkCloudInitNetworkConfig(&config, count, false)
+			checkCloudInitNetworkConfig(&config, count, false, false)
+		})
+
+		It("should create valid network-config contents when multus network is default", func() {
+			count := 1
+			domain := newSriovDomainWithInterface()
+			vmi := newSriovVMISriovInterface("testnamespace", "testVmName", count, true)
+			api.SetObjectDefaults_Domain(domain)
+			mockErrors := make(map[string]error)
+			buildMockSriovNetwork(mockNetwork, count, mockErrors, false, true)
+			cloudinit, err := CloudInitDiscoverNetworkData(vmi)
+			parsedCloudInit := bytes.Split(cloudinit, []byte(cloudInitDelimiter))
+			var config CloudInitNetConfig
+			yaml.Unmarshal(parsedCloudInit[0], &config)
+
+			Expect(err).To(BeNil())
+			checkCloudInitNetworkConfig(&config, count, false, true)
 		})
 
 		It("should create valid network-config contents when an interface has no subnets", func() {
 			count := 3
 			domain := newSriovDomainWithInterface()
-			vmi := newSriovVMISriovInterface("testnamespace", "testVmName", count)
+			vmi := newSriovVMISriovInterface("testnamespace", "testVmName", count, false)
 			api.SetObjectDefaults_Domain(domain)
 			mockErrors := make(map[string]error)
 			buildMockPodNetwork(mockNetwork)
-			buildMockSriovNetwork(mockNetwork, count, mockErrors, true)
+			buildMockSriovNetwork(mockNetwork, count, mockErrors, true, false)
 			cloudinit, err := CloudInitDiscoverNetworkData(vmi)
 			parsedCloudInit := bytes.Split(cloudinit, []byte(cloudInitDelimiter))
 			var config CloudInitNetConfig
 			yaml.Unmarshal(parsedCloudInit[0], &config)
 
 			Expect(err).To(BeNil())
-			checkCloudInitNetworkConfig(&config, count, true)
+			checkCloudInitNetworkConfig(&config, count, true, false)
 		})
 
 		It("should ignore genie interfaces", func() {
 			count := 3
 			domain := newSriovDomainWithInterface()
-			vmi := newSriovVMISriovInterface("testnamespace", "testVmName", count)
+			vmi := newSriovVMISriovInterface("testnamespace", "testVmName", count, false)
 			api.SetObjectDefaults_Domain(domain)
 			mockErrors := make(map[string]error)
 			buildMockPodNetwork(mockNetwork)
-			buildMockSriovNetwork(mockNetwork, count, mockErrors, true)
+			buildMockSriovNetwork(mockNetwork, count, mockErrors, true, false)
 
 			genieNetwork := v1.Network{
 				Name: "genie",
@@ -110,17 +126,17 @@ var _ = Describe("cloud-init network", func() {
 			yaml.Unmarshal(parsedCloudInit[0], &config)
 
 			Expect(err).To(BeNil())
-			checkCloudInitNetworkConfig(&config, count, true)
+			checkCloudInitNetworkConfig(&config, count, true, false)
 		})
 
 		It("should not create contents without SR-IOV interfaces", func() {
 			count := 0
 			domain := newSriovDomainWithInterface()
-			vmi := newSriovVMISriovInterface("testnamespace", "testVmName", count)
+			vmi := newSriovVMISriovInterface("testnamespace", "testVmName", count, false)
 			api.SetObjectDefaults_Domain(domain)
 			mockErrors := make(map[string]error)
 			buildMockPodNetwork(mockNetwork)
-			buildMockSriovNetwork(mockNetwork, count, mockErrors, false)
+			buildMockSriovNetwork(mockNetwork, count, mockErrors, false, false)
 			cloudinit, err := CloudInitDiscoverNetworkData(vmi)
 			Expect(cloudinit).To(BeNil())
 			Expect(err).To(BeNil())
@@ -129,7 +145,7 @@ var _ = Describe("cloud-init network", func() {
 		It("should fail with extra device interfaces", func() {
 			count := 0
 			domain := newSriovDomainWithInterface()
-			vmi := newSriovVMISriovInterface("testnamespace", "testVmName", count)
+			vmi := newSriovVMISriovInterface("testnamespace", "testVmName", count, false)
 			api.SetObjectDefaults_Domain(domain)
 
 			sriovInterface := v1.Interface{
@@ -143,7 +159,7 @@ var _ = Describe("cloud-init network", func() {
 
 			mockErrors := make(map[string]error)
 			buildMockPodNetwork(mockNetwork)
-			buildMockSriovNetwork(mockNetwork, count, mockErrors, false)
+			buildMockSriovNetwork(mockNetwork, count, mockErrors, false, false)
 			cloudinit, err := CloudInitDiscoverNetworkData(vmi)
 			Expect(cloudinit).To(BeNil())
 			Expect(err).Should(MatchError("failed to find network sriov10"))
@@ -172,12 +188,17 @@ var _ = Describe("cloud-init network", func() {
 	})
 })
 
-func checkCloudInitNetworkConfig(config *CloudInitNetConfig, count int, empty bool) {
+func checkCloudInitNetworkConfig(config *CloudInitNetConfig, count int, empty bool, multusDefault bool) {
 	intNum := 1
 	for intNum <= count {
+		var intName string
 		intArray := intNum - 1
 		intString := strconv.Itoa(intNum)
-		intName := "net" + intString
+		if multusDefault {
+			intName = "eth0"
+		} else {
+			intName = "net" + intString
+		}
 		intConfig := &config.Config[intArray]
 
 		Expect(intConfig.NetworkType).To(Equal("physical"))
@@ -228,12 +249,12 @@ func checkCloudInitNetworkConfig(config *CloudInitNetConfig, count int, empty bo
 func testNetlinkErrors(netlinkFunc string, mockNetwork *MockNetworkHandler) {
 	count := 1
 	domain := newSriovDomainWithInterface()
-	vmi := newSriovVMISriovInterface("testnamespace", "testVmName", count)
+	vmi := newSriovVMISriovInterface("testnamespace", "testVmName", count, false)
 	api.SetObjectDefaults_Domain(domain)
 	mockErrors := make(map[string]error)
 	mockErrors[netlinkFunc] = errors.New(netlinkFunc)
 	buildMockPodNetwork(mockNetwork)
-	buildMockSriovNetwork(mockNetwork, count, mockErrors, false)
+	buildMockSriovNetwork(mockNetwork, count, mockErrors, false, false)
 	_, err := CloudInitDiscoverNetworkData(vmi)
 	Expect(err).Should(MatchError(netlinkFunc))
 }
@@ -260,9 +281,11 @@ func buildMockPodNetwork(mockNetwork *MockNetworkHandler) {
 	mockNetwork.EXPECT().RouteList(dummy, netlink.FAMILY_V4).Return(routeList, nil)
 }
 
-func buildMockSriovNetwork(mockNetwork *MockNetworkHandler, count int, mockErrors map[string]error, empty bool) {
+func buildMockSriovNetwork(mockNetwork *MockNetworkHandler, count int, mockErrors map[string]error, empty bool, defaultMultus bool) {
+	//Only use defaultMultus true with count of 1
 	netInts := make(map[string]*netlink.Dummy, count)
 	intNum := 1
+	var intName string
 	for intNum <= count {
 
 		var addrList []netlink.Addr
@@ -270,7 +293,12 @@ func buildMockSriovNetwork(mockNetwork *MockNetworkHandler, count int, mockError
 		var ipAddress netlink.Addr
 		var macAddress net.HardwareAddr
 
-		intName := "net" + strconv.Itoa(intNum)
+		if defaultMultus {
+			intName = "eth0"
+		} else {
+			intName = "net" + strconv.Itoa(intNum)
+		}
+
 		netInts[intName] = &netlink.Dummy{
 			LinkAttrs: netlink.LinkAttrs{
 				Index: intNum + 1,
@@ -332,7 +360,7 @@ func getMockError(mockCall string, mockErrors map[string]error) error {
 	}
 }
 
-func newSriovVMI(namespace, name string, count int) *v1.VirtualMachineInstance {
+func newSriovVMI(namespace, name string, count int, defaultMultus bool) *v1.VirtualMachineInstance {
 	vmi := &v1.VirtualMachineInstance{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
@@ -353,6 +381,9 @@ func newSriovVMI(namespace, name string, count int) *v1.VirtualMachineInstance {
 					Multus: &v1.CniNetwork{NetworkName: intName},
 				},
 			}
+			if defaultMultus {
+				sriovNetwork.NetworkSource.Multus.Default = true
+			}
 			vmi.Spec.Networks = append(vmi.Spec.Networks, sriovNetwork)
 			intNum++
 		}
@@ -360,8 +391,8 @@ func newSriovVMI(namespace, name string, count int) *v1.VirtualMachineInstance {
 	return vmi
 }
 
-func newSriovVMISriovInterface(namespace string, name string, count int) *v1.VirtualMachineInstance {
-	vmi := newSriovVMI(namespace, name, count)
+func newSriovVMISriovInterface(namespace string, name string, count int, defaultMultus bool) *v1.VirtualMachineInstance {
+	vmi := newSriovVMI(namespace, name, count, defaultMultus)
 	vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{*v1.DefaultNetworkInterface()}
 	if count > 0 {
 		intNum := 1
