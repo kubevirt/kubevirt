@@ -170,14 +170,14 @@ func getNetworkDetails(intName string) (VIF, error) {
 	return vif, nil
 }
 
-func getCloudInitManageResolv() CloudInitManageResolv {
+func getCloudInitManageResolv() (CloudInitManageResolv, error) {
 	var cloudInitManageResolv CloudInitManageResolv
 	var cloudInitResolvConf CloudInitResolvConf
 
 	nameServers, searchDomains, err := api.GetResolvConfDetailsFromPod()
 	if err != nil {
 		log.Log.Errorf("Failed to get DNS servers from resolv.conf: %v", err)
-		panic(err)
+		return cloudInitManageResolv, err
 	}
 
 	cloudInitManageResolv.ManageResolv = true
@@ -192,7 +192,7 @@ func getCloudInitManageResolv() CloudInitManageResolv {
 
 	cloudInitManageResolv.ResolvConf = cloudInitResolvConf
 
-	return cloudInitManageResolv
+	return cloudInitManageResolv, nil
 }
 
 func convertCloudInitNetworksToCloudInitNetConfig(cloudInitNetworks *[]VIF, config *CloudInitNetConfig) {
@@ -279,7 +279,11 @@ func CloudInitDiscoverNetworkData(vmi *v1.VirtualMachineInstance) ([]byte, error
 	// distributions but it is the same data so this should be safe.
 	// This can be gated via Spec in the future if needed to disable/enable
 	// adding resolv configuration to cloud-init.
-	cloudInitManageResolv := getCloudInitManageResolv()
+	cloudInitManageResolv, err := getCloudInitManageResolv()
+	if err != nil {
+		return networkFile, err
+	}
+
 	resolvFile, err = yaml.Marshal(cloudInitManageResolv)
 	if err != nil {
 		return networkFile, err

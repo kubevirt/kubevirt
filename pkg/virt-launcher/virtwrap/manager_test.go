@@ -93,7 +93,7 @@ var _ = Describe("Manager", func() {
 		return &domain.Spec
 	}
 
-	expectIsolationDetectionForVMIWithSriov := func(vmi *v1.VirtualMachineInstance) *api.DomainSpec {
+	expectIsolationDetectionForVMIWithSriov := func(vmi *v1.VirtualMachineInstance, sriovDevices map[string][]string) *api.DomainSpec {
 		domain := &api.Domain{}
 		c := &api.ConverterContext{
 			VirtualMachine: vmi,
@@ -137,57 +137,21 @@ var _ = Describe("Manager", func() {
 			mockConn.EXPECT().LookupDomainByName(testDomainName).Return(mockDomain, libvirt.Error{Code: libvirt.ERR_NO_DOMAIN})
 
 			userData := "fake\nuser\ndata\n"
-			vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
-				Name:       "cloudinit",
-				VolumeName: "cloudinit",
-				Cache:      v1.CacheNone,
-				DiskDevice: v1.DiskDevice{
-					Disk: &v1.DiskTarget{
-						Bus: "virtio",
-					},
-				},
-			})
-			vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
-				Name: "cloudinit",
-				VolumeSource: v1.VolumeSource{
-					CloudInitNoCloud: &v1.CloudInitNoCloudSource{
-						UserDataBase64: base64.StdEncoding.EncodeToString([]byte(userData)),
-					},
-				},
-			})
-			sriovInterface := v1.Interface{
-				Name: "testnet2",
-				InterfaceBindingMethod: v1.InterfaceBindingMethod{
-					SRIOV: &v1.InterfaceSRIOV{},
-				},
-			}
-			vmi.Spec.Domain.Devices.Interfaces = append(vmi.Spec.Domain.Devices.Interfaces, sriovInterface)
-			sriovNetwork := v1.Network{
-				Name: "testnet2",
-				NetworkSource: v1.NetworkSource{
-					Multus: &v1.CniNetwork{NetworkName: "testnet2"},
-				},
-			}
-			vmi.Spec.Networks = append(vmi.Spec.Networks, sriovNetwork)
+			networkData := ""
+			addCloudInitDisk(vmi, userData, networkData)
+			addSriovNetwork(vmi, "testnet2")
 
-			net1 := &netlink.Dummy{
-				LinkAttrs: netlink.LinkAttrs{
-					Index: 1,
-					MTU:   1500,
-					Name:  "net1",
-					Alias: "net1",
-				},
+			sriovDevices := map[string][]string{
+				"testnet2": []string{"0000:81:11.1"},
 			}
 
+			domainSpec := expectIsolationDetectionForVMIWithSriov(vmi, sriovDevices)
+
+			net1 := &netlink.Dummy{LinkAttrs: netlink.LinkAttrs{Index: 1, MTU: 1500, Name: "net1", Alias: "net1"}}
 			mockNetwork.EXPECT().LinkByName("net1").Return(net1, nil)
 			mockNetwork.EXPECT().AddrList(net1, netlink.FAMILY_V4).Return([]netlink.Addr{}, nil)
 			mockNetwork.EXPECT().RouteList(net1, netlink.FAMILY_V4).Return([]netlink.Route{}, nil)
 			mockNetwork.EXPECT().GetMacDetails("net1").Return(net.ParseMAC("de:ad:be:af:00:00"))
-
-			os.Setenv("PCIDEVICE_INTEL_COM_TESTNET2", "0000:81:11.1")
-			os.Setenv("KUBEVIRT_RESOURCE_NAME_testnet2", "intel.com/testnet2")
-
-			domainSpec := expectIsolationDetectionForVMIWithSriov(vmi)
 
 			xml, err := xml.Marshal(domainSpec)
 			Expect(err).To(BeNil())
@@ -196,13 +160,15 @@ var _ = Describe("Manager", func() {
 			mockDomain.EXPECT().Create().Return(nil)
 			mockDomain.EXPECT().GetXMLDesc(libvirt.DomainXMLFlags(0)).Return(string(xml), nil)
 			manager, _ := NewLibvirtDomainManager(mockConn, "fake", nil, 0)
+			os.Setenv("PCIDEVICE_INTEL_COM_TESTNET2", "0000:81:11.1")
+			os.Setenv("KUBEVIRT_RESOURCE_NAME_testnet2", "intel.com/testnet2")
 			newspec, err := manager.SyncVMI(vmi, true)
-			Expect(err).To(BeNil())
-			Expect(newspec).ToNot(BeNil())
 			os.Unsetenv("PCIDEVICE_INTEL_COM_TESTNET2")
 			os.Unsetenv("KUBEVIRT_RESOURCE_NAME_testnet2")
+			Expect(err).To(BeNil())
+			Expect(newspec).ToNot(BeNil())
 		})
-		It("should define and start a new VirtualMachineInstance with cloudInitData", func() {
+		It("should define and start a new VirtualMachineInstance with userData and networkData", func() {
 			// Make sure that we always free the domain after use
 			mockDomain.EXPECT().Free()
 			StubOutNetworkForTest()
@@ -211,29 +177,13 @@ var _ = Describe("Manager", func() {
 
 			userData := "fake\nuser\ndata\n"
 			networkData := "FakeNetwork"
-			vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
-				Name:       "cloudinit",
-				VolumeName: "cloudinit",
-				Cache:      v1.CacheNone,
-				DiskDevice: v1.DiskDevice{
-					Disk: &v1.DiskTarget{
-						Bus: "virtio",
-					},
-				},
-			})
-			vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
-				Name: "cloudinit",
-				VolumeSource: v1.VolumeSource{
-					CloudInitNoCloud: &v1.CloudInitNoCloudSource{
-						UserDataBase64: base64.StdEncoding.EncodeToString([]byte(userData)),
-						NetworkData:    networkData,
-					},
-				},
-			})
+			addCloudInitDisk(vmi, userData, networkData)
 
-			os.Setenv("PCIDEVICE_INTEL_COM_TESTNET2", "0000:81:11.1")
-			os.Setenv("KUBEVIRT_RESOURCE_NAME_testnet2", "intel.com/testnet2")
-			domainSpec := expectIsolationDetectionForVMI(vmi)
+			sriovDevices := map[string][]string{
+				"testnet2": []string{"0000:81:11.1"},
+			}
+
+			domainSpec := expectIsolationDetectionForVMIWithSriov(vmi, sriovDevices)
 
 			xml, err := xml.Marshal(domainSpec)
 			Expect(err).To(BeNil())
@@ -242,7 +192,11 @@ var _ = Describe("Manager", func() {
 			mockDomain.EXPECT().Create().Return(nil)
 			mockDomain.EXPECT().GetXMLDesc(libvirt.DomainXMLFlags(0)).Return(string(xml), nil)
 			manager, _ := NewLibvirtDomainManager(mockConn, "fake", nil, 0)
+			os.Setenv("PCIDEVICE_INTEL_COM_TESTNET2", "0000:81:11.1")
+			os.Setenv("KUBEVIRT_RESOURCE_NAME_testnet2", "intel.com/testnet2")
 			newspec, err := manager.SyncVMI(vmi, true)
+			os.Unsetenv("PCIDEVICE_INTEL_COM_TESTNET2")
+			os.Unsetenv("KUBEVIRT_RESOURCE_NAME_testnet2")
 			Expect(err).To(BeNil())
 			Expect(newspec).ToNot(BeNil())
 		})
@@ -476,4 +430,43 @@ func newVMI(namespace string, name string) *v1.VirtualMachineInstance {
 
 func StubOutNetworkForTest() {
 	network.SetupPodNetwork = func(vm *v1.VirtualMachineInstance, domain *api.Domain) error { return nil }
+}
+
+func addCloudInitDisk(vmi *v1.VirtualMachineInstance, userData string, networkData string) {
+	vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
+		Name:       "cloudinit",
+		VolumeName: "cloudinit",
+		Cache:      v1.CacheNone,
+		DiskDevice: v1.DiskDevice{
+			Disk: &v1.DiskTarget{
+				Bus: "virtio",
+			},
+		},
+	})
+	vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
+		Name: "cloudinit",
+		VolumeSource: v1.VolumeSource{
+			CloudInitNoCloud: &v1.CloudInitNoCloudSource{
+				UserDataBase64: base64.StdEncoding.EncodeToString([]byte(userData)),
+				NetworkData:    networkData,
+			},
+		},
+	})
+}
+
+func addSriovNetwork(vmi *v1.VirtualMachineInstance, networkName string) {
+	sriovInterface := v1.Interface{
+		Name: networkName,
+		InterfaceBindingMethod: v1.InterfaceBindingMethod{
+			SRIOV: &v1.InterfaceSRIOV{},
+		},
+	}
+	vmi.Spec.Domain.Devices.Interfaces = append(vmi.Spec.Domain.Devices.Interfaces, sriovInterface)
+	sriovNetwork := v1.Network{
+		Name: networkName,
+		NetworkSource: v1.NetworkSource{
+			Multus: &v1.CniNetwork{NetworkName: networkName},
+		},
+	}
+	vmi.Spec.Networks = append(vmi.Spec.Networks, sriovNetwork)
 }
