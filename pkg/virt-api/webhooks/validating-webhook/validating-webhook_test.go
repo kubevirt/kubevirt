@@ -1447,6 +1447,77 @@ var _ = Describe("Validating Webhook", func() {
 			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vm.Spec)
 			Expect(causes).To(BeEmpty())
 		})
+		It("should allow single multus network with a multus default", func() {
+			vm := v1.NewMinimalVMI("testvm")
+			vm.Spec.Domain.Devices.Interfaces = []v1.Interface{
+				*v1.DefaultNetworkInterface(),
+			}
+			vm.Spec.Domain.Devices.Interfaces[0].Name = "multus1"
+			// 3rd interfaces uses the default pod network, name is "default"
+			vm.Spec.Networks = []v1.Network{
+				v1.Network{
+					Name: "multus1",
+					NetworkSource: v1.NetworkSource{
+						Multus: &v1.CniNetwork{NetworkName: "multus-net1", Default: true},
+					},
+				},
+			}
+
+			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vm.Spec)
+			Expect(causes).To(BeEmpty())
+		})
+		It("should reject non multus network with a multus default", func() {
+			vm := v1.NewMinimalVMI("testvm")
+			vm.Spec.Domain.Devices.Interfaces = []v1.Interface{
+				*v1.DefaultNetworkInterface(),
+			}
+			vm.Spec.Domain.Devices.Interfaces[0].Name = "genie1"
+			// 3rd interfaces uses the default pod network, name is "default"
+			vm.Spec.Networks = []v1.Network{
+				v1.Network{
+					Name: "genie1",
+					NetworkSource: v1.NetworkSource{
+						Genie: &v1.CniNetwork{NetworkName: "genie-net1", Default: true},
+					},
+				},
+			}
+
+			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vm.Spec)
+			Expect(causes).To(HaveLen(1))
+			Expect(string(causes[0].Type)).To(Equal("FieldValueInvalid"))
+			Expect(causes[0].Field).To(Equal("fake.networks"))
+			Expect(causes[0].Message).To(Equal("Default can only be set on a Multus CNI interface"))
+		})
+		It("should reject multiple multus networks with a multus default", func() {
+			vm := v1.NewMinimalVMI("testvm")
+			vm.Spec.Domain.Devices.Interfaces = []v1.Interface{
+				*v1.DefaultNetworkInterface(),
+				*v1.DefaultNetworkInterface(),
+			}
+			vm.Spec.Domain.Devices.Interfaces[0].Name = "multus1"
+			vm.Spec.Domain.Devices.Interfaces[0].Name = "multus2"
+			// 3rd interfaces uses the default pod network, name is "default"
+			vm.Spec.Networks = []v1.Network{
+				v1.Network{
+					Name: "multus1",
+					NetworkSource: v1.NetworkSource{
+						Multus: &v1.CniNetwork{NetworkName: "multus-net1", Default: true},
+					},
+				},
+				v1.Network{
+					Name: "multus2",
+					NetworkSource: v1.NetworkSource{
+						Multus: &v1.CniNetwork{NetworkName: "multus-net2", Default: true},
+					},
+				},
+			}
+
+			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vm.Spec)
+			Expect(causes).To(HaveLen(2))
+			Expect(string(causes[0].Type)).To(Equal("FieldValueInvalid"))
+			Expect(causes[0].Field).To(Equal("fake.networks"))
+			Expect(causes[0].Message).To(Equal("Multus CNI should only have one default network"))
+		})
 		It("should reject when CNI networks of different types are defined", func() {
 			vm := v1.NewMinimalVMI("testvm")
 			vm.Spec.Domain.Devices.Interfaces = []v1.Interface{

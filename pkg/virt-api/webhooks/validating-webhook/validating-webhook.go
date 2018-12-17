@@ -861,6 +861,7 @@ func ValidateVirtualMachineInstanceSpec(field *k8sfield.Path, spec *v1.VirtualMa
 
 	if len(spec.Networks) > 0 && len(spec.Domain.Devices.Interfaces) > 0 {
 		multusDefaultCount := 0
+		multusDefaultOther := false
 		multusExists := false
 		genieExists := false
 		podExists := false
@@ -889,6 +890,9 @@ func ValidateVirtualMachineInstanceSpec(field *k8sfield.Path, spec *v1.VirtualMa
 				cniTypesCount++
 				genieExists = true
 				networkNameExistsOrNotNeeded = network.Genie.NetworkName != ""
+				if network.NetworkSource.Genie.Default {
+					multusDefaultOther = true
+				}
 			}
 
 			if cniTypesCount == 0 {
@@ -924,8 +928,16 @@ func ValidateVirtualMachineInstanceSpec(field *k8sfield.Path, spec *v1.VirtualMa
 
 		if multusDefaultCount > 1 {
 			causes = append(causes, metav1.StatusCause{
-				Type:    metav1.CauseTypeFieldValueRequired,
+				Type:    metav1.CauseTypeFieldValueInvalid,
 				Message: fmt.Sprintf("Multus CNI should only have one default network"),
+				Field:   field.Child("networks").String(),
+			})
+		}
+
+		if multusDefaultOther {
+			causes = append(causes, metav1.StatusCause{
+				Type:    metav1.CauseTypeFieldValueInvalid,
+				Message: fmt.Sprintf("Default can only be set on a Multus CNI interface"),
 				Field:   field.Child("networks").String(),
 			})
 		}
