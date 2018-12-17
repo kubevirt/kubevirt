@@ -197,6 +197,8 @@ type VirtualMachineInstanceStatus struct {
 	Interfaces []VirtualMachineInstanceNetworkInterface `json:"interfaces,omitempty"`
 	// Represents the status of a live migration
 	MigrationState *VirtualMachineInstanceMigrationState `json:"migrationState,omitempty"`
+	// Represents the method using which the vmi can be migrated: live migration or block migration
+	MigrationMethod VirtualMachineInstanceMigrationMethod `json:"migrationMethod,omitempty"`
 }
 
 // Required to satisfy Object interface
@@ -269,6 +271,11 @@ const (
 
 	// Reflects whether the QEMU guest agent is connected through the channel
 	VirtualMachineInstanceAgentConnected VirtualMachineInstanceConditionType = "AgentConnected"
+
+	// Indicates whether the VMI is live migratable
+	VirtualMachineInstanceIsMigratable VirtualMachineInstanceConditionType = "LiveMigratable"
+	// Reason means that VMI is not live migratioable because of it's disks collection
+	VirtualMachineInstanceReasonDisksNotMigratable = "DisksNotLiveMigratable"
 )
 
 // ---
@@ -333,6 +340,17 @@ type VirtualMachineInstanceMigrationState struct {
 	// The VirtualMachineInstanceMigration object associated with this migration
 	MigrationUID types.UID `json:"migrationUid,omitempty"`
 }
+
+// ---
+// +k8s:openapi-gen=true
+type VirtualMachineInstanceMigrationMethod string
+
+const (
+	// BlockMigration means that all VirtualMachineInstance disks should be copied over to the destination host
+	BlockMigration VirtualMachineInstanceMigrationMethod = "BlockMigration"
+	// LiveMigration means that VirtualMachineInstance disks will not be copied over to the destination host
+	LiveMigration VirtualMachineInstanceMigrationMethod = "LiveMigration"
+)
 
 // VirtualMachineInstancePhase is a label for the condition of a VirtualMachineInstance at the current time.
 // ---

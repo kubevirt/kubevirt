@@ -8,6 +8,7 @@ func (HostDisk) SwaggerDoc() map[string]string {
 		"path":     "The path to HostDisk image located on the cluster",
 		"type":     "Contains information if disk.img exists or should be created\nallowed options are 'Disk' and 'DiskOrCreate'",
 		"capacity": "Capacity of the sparse disk\n+optional",
+		"shared":   "Shared indicate whether the path is shared between nodes",
 	}
 }
 

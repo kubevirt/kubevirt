@@ -1022,6 +1022,13 @@ func schema_kubevirt_pkg_api_v1_HostDisk(ref common.ReferenceCallback) common.Op
 							Ref:         ref("k8s.io/apimachinery/pkg/api/resource.Quantity"),
 						},
 					},
+					"shared": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Shared indicate whether the path is shared between nodes",
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
 				},
 				Required: []string{"path", "type"},
 			},
@@ -2567,6 +2574,13 @@ func schema_kubevirt_pkg_api_v1_VirtualMachineInstanceStatus(ref common.Referenc
 						SchemaProps: spec.SchemaProps{
 							Description: "Represents the status of a live migration",
 							Ref:         ref("kubevirt.io/kubevirt/pkg/api/v1.VirtualMachineInstanceMigrationState"),
+						},
+					},
+					"migrationMethod": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Represents the method using which the vmi can be migrated: live migration or block migration",
+							Type:        []string{"string"},
+							Format:      "",
 						},
 					},
 				},

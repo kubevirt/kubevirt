@@ -38,7 +38,7 @@ import (
 	"time"
 
 	"github.com/ghodss/yaml"
-	expect "github.com/google/goexpect"
+	"github.com/google/goexpect"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"github.com/spf13/cobra"
@@ -58,7 +58,7 @@ import (
 	"k8s.io/client-go/tools/remotecommand"
 
 	cdiv1 "kubevirt.io/containerized-data-importer/pkg/apis/datavolumecontroller/v1alpha1"
-	v1 "kubevirt.io/kubevirt/pkg/api/v1"
+	"kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/kubecli"
 	"kubevirt.io/kubevirt/pkg/log"
@@ -2277,6 +2277,121 @@ func RemoveHostDiskImage(diskPath string, nodeName string) {
 		return pod.Status.Phase
 	}
 	Eventually(getStatus, 30, 1).Should(Equal(k8sv1.PodSucceeded))
+}
+
+func CreateISCSITargetPOD() (iscsiTargetIP string) {
+	virtClient, err := kubecli.GetKubevirtClient()
+	PanicOnError(err)
+	image := fmt.Sprintf("%s/cdi-http-import-server:%s", KubeVirtRepoPrefix, KubeVirtVersionTag)
+	resources := k8sv1.ResourceRequirements{}
+	resources.Limits = make(k8sv1.ResourceList)
+	resources.Limits[k8sv1.ResourceMemory] = resource.MustParse("64M")
+	pod := &k8sv1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			GenerateName: "test-iscsi-target",
+			Labels: map[string]string{
+				v1.AppLabel: "test-iscsi-target",
+			},
+		},
+		Spec: k8sv1.PodSpec{
+			RestartPolicy: k8sv1.RestartPolicyNever,
+			Containers: []k8sv1.Container{
+				{
+					Name:      "test-iscsi-target",
+					Image:     image,
+					Resources: resources,
+					Env: []k8sv1.EnvVar{
+						{
+							Name:  "AS_ISCSI",
+							Value: "true",
+						},
+					},
+				},
+			},
+		},
+	}
+	pod, err = virtClient.CoreV1().Pods(NamespaceTestDefault).Create(pod)
+	PanicOnError(err)
+
+	getStatus := func() k8sv1.PodPhase {
+		pod, err := virtClient.CoreV1().Pods(NamespaceTestDefault).Get(pod.Name, metav1.GetOptions{})
+		Expect(err).ToNot(HaveOccurred())
+		iscsiTargetIP = pod.Status.PodIP
+		return pod.Status.Phase
+	}
+	Eventually(getStatus, 120, 1).Should(Equal(k8sv1.PodRunning))
+	return
+}
+
+func CreateISCSIPvAndPvc(name string, size string, iscsiTargetIP string) {
+	virtCli, err := kubecli.GetKubevirtClient()
+	PanicOnError(err)
+
+	_, err = virtCli.CoreV1().PersistentVolumes().Create(newISCSIPV(name, size, iscsiTargetIP))
+	if !errors.IsAlreadyExists(err) {
+		PanicOnError(err)
+	}
+
+	_, err = virtCli.CoreV1().PersistentVolumeClaims(NamespaceTestDefault).Create(newISCSIPVC(name, size))
+	if !errors.IsAlreadyExists(err) {
+		PanicOnError(err)
+	}
+}
+
+func newISCSIPV(name string, size string, iscsiTargetIP string) *k8sv1.PersistentVolume {
+	quantity, err := resource.ParseQuantity(size)
+	PanicOnError(err)
+
+	storageClass := LocalStorageClass
+	volumeMode := k8sv1.PersistentVolumeBlock
+
+	return &k8sv1.PersistentVolume{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: name,
+		},
+		Spec: k8sv1.PersistentVolumeSpec{
+			AccessModes: []k8sv1.PersistentVolumeAccessMode{k8sv1.ReadWriteMany},
+			Capacity: k8sv1.ResourceList{
+				"storage": quantity,
+			},
+			ClaimRef: &k8sv1.ObjectReference{
+				Name:      name,
+				Namespace: NamespaceTestDefault,
+			},
+			StorageClassName: storageClass,
+			VolumeMode:       &volumeMode,
+			PersistentVolumeSource: k8sv1.PersistentVolumeSource{
+				ISCSI: &k8sv1.ISCSIPersistentVolumeSource{
+					TargetPortal: iscsiTargetIP,
+					IQN:          "iqn.2018-01.io.kubevirt:wrapper",
+					Lun:          1,
+					ReadOnly:     false,
+				},
+			},
+		},
+	}
+}
+
+func newISCSIPVC(name string, size string) *k8sv1.PersistentVolumeClaim {
+	quantity, err := resource.ParseQuantity(size)
+	PanicOnError(err)
+
+	storageClass := LocalStorageClass
+	volumeMode := k8sv1.PersistentVolumeBlock
+
+	return &k8sv1.PersistentVolumeClaim{
+		ObjectMeta: metav1.ObjectMeta{Name: name},
+		Spec: k8sv1.PersistentVolumeClaimSpec{
+			AccessModes: []k8sv1.PersistentVolumeAccessMode{k8sv1.ReadWriteMany},
+			Resources: k8sv1.ResourceRequirements{
+				Requests: k8sv1.ResourceList{
+					"storage": quantity,
+				},
+			},
+			StorageClassName: &storageClass,
+			VolumeMode:       &volumeMode,
+		},
+	}
 }
 
 func CreateHostDiskImage(diskPath string) *k8sv1.Pod {
