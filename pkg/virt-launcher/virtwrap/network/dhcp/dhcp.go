@@ -165,8 +165,16 @@ func prepareDHCPOptions(
 
 				ntpServers = append(ntpServers, []byte(ip))
 			}
+		}
 
-			dhcpOptions[dhcp.OptionNetworkTimeProtocolServers] = bytes.Join(ntpServers, nil)
+		dhcpOptions[dhcp.OptionNetworkTimeProtocolServers] = bytes.Join(ntpServers, nil)
+
+		if customDHCPOptions.ExtraOptions != nil {
+			for code, value := range customDHCPOptions.ExtraOptions {
+				if code >= 224 && code <= 254 {
+					dhcpOptions[dhcp.OptionCode(byte(code))] = []byte(value)
+				}
+			}
 		}
 	}
 

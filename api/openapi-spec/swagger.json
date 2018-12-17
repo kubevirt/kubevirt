@@ -4153,6 +4153,10 @@
        "type": "string"
       }
      },
+     "extraOptions": {
+      "description": "If specified will pass extra DHCP options for private use, range: 224-254\n+optional",
+      "type": "object"
+     },
      "tftpServerName": {
       "description": "If specified will pass option 66 to interface's DHCP server\n+optional",
       "type": "string"
