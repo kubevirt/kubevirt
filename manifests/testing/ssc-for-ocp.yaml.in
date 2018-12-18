@@ -1,0 +1,30 @@
+---
+apiVersion: v1
+kind: SecurityContextConstraints
+metadata:
+  name: kubevirt-testing-scc
+  labels:
+    kubevirt.io: scc
+allowHostDirVolumePlugin: true
+allowHostIPC: true
+allowHostNetwork: true
+allowHostPID: true
+allowHostPorts: true
+allowPrivilegedContainer: true
+allowedCapabilities:
+  - '*'
+fsGroup:
+  type: RunAsAny
+readOnlyRootFilesystem: false
+runAsUser:
+  type: RunAsAny
+seLinuxContext:
+  type: RunAsAny
+seccompProfiles:
+  - '*'
+supplementalGroups:
+  type: RunAsAny
+volumes:
+  - '*'
+users:
+  - system:serviceaccount:kube-system:kubevirt-testing

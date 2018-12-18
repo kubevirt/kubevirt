@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 #
 # This file is part of the KubeVirt project
 #
@@ -14,18 +14,24 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-# Copyright 2017 Red Hat, Inc.
+# Copyright 2018 Red Hat, Inc.
 #
 
 set -e
 
-source hack/common.sh
-source hack/config.sh
+mkdir -p "${RESULTS_DIR}"
+mkdir -p "${TEST_MANIFESTS_DIR}"
 
-functest_docker_prefix=${manifest_docker_prefix-${docker_prefix}}
+# Generate manifests for testing
+for input in $(find manifests/testing -type f -name "*.yaml.in") ;
+do
+    # Strip .in suffix from file name
+    outfile=${TEST_MANIFESTS_DIR}/$(basename ${input%%.in})
+    # Format manifest
+    ./manifest-templator "$@" \
+        --generated-manifests-dir=manifests/generated \
+        --input-file=${input} > ${outfile}
+done
 
-if [[ ${TARGET} == openshift* ]]; then
-    oc=${kubectl}
-fi
-
-${TESTS_OUT_DIR}/tests.test -kubeconfig=${kubeconfig} -container-tag=${docker_tag} -container-prefix=${functest_docker_prefix} -oc-path=${oc} -kubectl-path=${kubectl} -test.timeout 180m ${FUNC_TEST_ARGS} -installed-namespace=${namespace} -deploy-testing-infra -path-to-testing-infra-manifests=${MANIFESTS_OUT_DIR}/testing
+# Execute tests
+./tests.test "$@"

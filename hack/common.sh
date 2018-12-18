@@ -18,6 +18,18 @@ function build_func_tests() {
     ginkgo build ${KUBEVIRT_DIR}/tests
     mv ${KUBEVIRT_DIR}/tests/tests.test ${TESTS_OUT_DIR}/
 }
+function build_func_tests_container() {
+    local bin_name=tests
+    cp ${KUBEVIRT_DIR}/tests/{Dockerfile,entrypoint.sh} \
+        ${KUBEVIRT_DIR}/tools/manifest-templator/manifest-templator \
+        ${TESTS_OUT_DIR}/
+    rsync -ar ${KUBEVIRT_DIR}/manifests/ ${TESTS_OUT_DIR}/manifests
+    cd ${TESTS_OUT_DIR}
+    docker build \
+        -t ${docker_prefix}/${bin_name}:${docker_tag} \
+        --label ${job_prefix} \
+        --label ${bin_name} .
+}
 
 KUBEVIRT_PROVIDER=${KUBEVIRT_PROVIDER:-k8s-1.10.4}
 KUBEVIRT_NUM_NODES=${KUBEVIRT_NUM_NODES:-1}

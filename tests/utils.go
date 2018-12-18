@@ -28,6 +28,7 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -37,22 +38,26 @@ import (
 	"strings"
 	"time"
 
-	"github.com/ghodss/yaml"
-	"github.com/google/goexpect"
+	ghodssyaml "github.com/ghodss/yaml"
+	expect "github.com/google/goexpect"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"github.com/spf13/cobra"
 	k8sv1 "k8s.io/api/core/v1"
+	k8sextv1beta1 "k8s.io/api/extensions/v1beta1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/rand"
+	"k8s.io/apimachinery/pkg/util/yaml"
 	k8sversion "k8s.io/apimachinery/pkg/version"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/tools/remotecommand"
@@ -77,14 +82,19 @@ var KubeVirtOcPath = ""
 var KubeVirtVirtctlPath = ""
 var KubeVirtInstallNamespace string
 
+var DeployTestingInfrastructureFlag = false
+var PathToTestingInfrastrucureManifests = ""
+
 func init() {
-	flag.StringVar(&KubeVirtVersionTag, "tag", "latest", "Set the image tag or digest to use")
-	flag.StringVar(&KubeVirtRepoPrefix, "prefix", "kubevirt", "Set the repository prefix for all images")
+	flag.StringVar(&KubeVirtVersionTag, "container-tag", "latest", "Set the image tag or digest to use")
+	flag.StringVar(&KubeVirtRepoPrefix, "container-prefix", "kubevirt", "Set the repository prefix for all images")
 	flag.StringVar(&ContainerizedDataImporterNamespace, "cdi-namespace", "kube-system", "Set the repository prefix for CDI components")
 	flag.StringVar(&KubeVirtKubectlPath, "kubectl-path", "", "Set path to kubectl binary")
 	flag.StringVar(&KubeVirtOcPath, "oc-path", "", "Set path to oc binary")
 	flag.StringVar(&KubeVirtVirtctlPath, "virtctl-path", "", "Set path to virtctl binary")
 	flag.StringVar(&KubeVirtInstallNamespace, "installed-namespace", "kubevirt", "Set the namespace KubeVirt is installed in")
+	flag.BoolVar(&DeployTestingInfrastructureFlag, "deploy-testing-infra", false, "Deploy testing infrastructure if set")
+	flag.StringVar(&PathToTestingInfrastrucureManifests, "path-to-testing-infra-manifests", "manifests/testing", "Set path to testing infrastructure manifests")
 }
 
 type EventType string
@@ -353,6 +363,52 @@ func (w *ObjectEventWatcher) WaitNotFor(stopChan chan struct{}, eventType EventT
 	return
 }
 
+// Do scale and retuns error, replicas-before.
+func DoScaleDeployment(namespace string, name string, desired int32) (error, int32) {
+	virtCli, err := kubecli.GetKubevirtClient()
+	PanicOnError(err)
+
+	deployment, err := virtCli.ExtensionsV1beta1().Deployments(namespace).Get(name, metav1.GetOptions{})
+	if err != nil {
+		return err, -1
+	}
+	scale := &k8sextv1beta1.Scale{Spec: k8sextv1beta1.ScaleSpec{Replicas: desired}, ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: namespace}}
+	scale, err = virtCli.ExtensionsV1beta1().Deployments(namespace).UpdateScale(name, scale)
+	if err != nil {
+		return err, -1
+	}
+	return nil, *deployment.Spec.Replicas
+}
+
+func WaitForAllPodsReady(timeout time.Duration, listOptions metav1.ListOptions) {
+	checkForPodsToBeReady := func() []string {
+		podsNotReady := make([]string, 0)
+		virtClient, err := kubecli.GetKubevirtClient()
+		PanicOnError(err)
+
+		podsList, err := virtClient.CoreV1().Pods(k8sv1.NamespaceAll).List(listOptions)
+		PanicOnError(err)
+		for _, pod := range podsList.Items {
+			for _, status := range pod.Status.ContainerStatuses {
+				if status.State.Terminated != nil {
+					break // We don't care about terminated pods
+				} else if status.State.Running != nil {
+					if !status.Ready { // We need to wait for this one
+						podsNotReady = append(podsNotReady, pod.Name)
+						break
+					}
+				} else {
+					// It is in Waiting state, We need to wait for this one
+					podsNotReady = append(podsNotReady, pod.Name)
+					break
+				}
+			}
+		}
+		return podsNotReady
+	}
+	Eventually(checkForPodsToBeReady, timeout, 2*time.Second).Should(BeEmpty(), "The are pods in system which are not ready.")
+}
+
 func AfterTestSuitCleanup() {
 	// Make sure that the namespaces exist, to not have to check in the cleanup code for existing namespaces
 	createNamespaces()
@@ -365,7 +421,11 @@ func AfterTestSuitCleanup() {
 	DeletePVC(osAlpineHostPath)
 	DeletePV(osAlpineHostPath)
 
+	if DeployTestingInfrastructureFlag {
+		WipeTestingInfrastructure()
+	}
 	removeNamespaces()
+
 }
 
 func BeforeTestCleanup() {
@@ -378,6 +438,10 @@ func BeforeTestSuitSetup() {
 
 	createNamespaces()
 	createServiceAccounts()
+	if DeployTestingInfrastructureFlag {
+		WipeTestingInfrastructure()
+		DeployTestingInfrastructure()
+	}
 
 	CreateHostPathPv(osAlpineHostPath, HostPathAlpine)
 	CreateHostPathPVC(osAlpineHostPath, defaultDiskSize)
@@ -556,6 +620,174 @@ func CreateHostPathPvWithSize(osName string, hostPath string, size string) {
 	if !errors.IsAlreadyExists(err) {
 		PanicOnError(err)
 	}
+}
+
+func GetListOfManifests(pathToManifestsDir string) []string {
+	var manifests []string
+	isOpenshift := IsOpenShift()
+	matchFileName := func(pattern, filename string) bool {
+		match, err := filepath.Match(pattern, filename)
+		if err != nil {
+			panic(err)
+		}
+		return match
+	}
+	err := filepath.Walk(pathToManifestsDir, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			fmt.Printf("ERROR: Can not access a path %q: %v\n", path, err)
+			return err
+		}
+		if !info.IsDir() {
+			if matchFileName("*-for-ocp.yaml", info.Name()) {
+				if isOpenshift {
+					manifests = append(manifests, path)
+				}
+			} else if matchFileName("*-for-k8s.yaml", info.Name()) {
+				if !isOpenshift {
+					manifests = append(manifests, path)
+				}
+			} else if matchFileName("*.yaml", info.Name()) {
+				manifests = append(manifests, path)
+			}
+		}
+		return nil
+	})
+	if err != nil {
+		fmt.Printf("ERROR: Walking the path %q: %v\n", pathToManifestsDir, err)
+		panic(err)
+	}
+	return manifests
+}
+
+func ReadManifestYamlFile(pathToManifest string) []unstructured.Unstructured {
+	var objects []unstructured.Unstructured
+	stream, err := os.Open(pathToManifest)
+	PanicOnError(err)
+
+	decoder := yaml.NewYAMLOrJSONDecoder(stream, 1024)
+	for {
+		obj := map[string]interface{}{}
+		err := decoder.Decode(&obj)
+		if err == io.EOF {
+			break
+		} else if err != nil {
+			panic(err)
+		}
+		if len(obj) == 0 {
+			continue
+		}
+		objects = append(objects, unstructured.Unstructured{Object: obj})
+	}
+	return objects
+}
+
+func isNamespaceScoped(kind schema.GroupVersionKind) bool {
+	switch kind.Kind {
+	case "ClusterRole", "ClusterRoleBinding":
+		return false
+	}
+	return true
+}
+
+func IsOpenShift() bool {
+	virtClient, err := kubecli.GetKubevirtClient()
+	PanicOnError(err)
+
+	result := virtClient.RestClient().Get().AbsPath("/version/openshift").Do()
+
+	var statusCode int
+	result.StatusCode(&statusCode)
+
+	if result.Error() == nil {
+		// It is OpenShift
+		if statusCode == http.StatusOK {
+			return true
+		}
+	} else {
+		// Got 404 so this is not Openshift
+		if statusCode == http.StatusNotFound {
+			return false
+		}
+	}
+	fmt.Printf(fmt.Sprintf("ERROR: Can not determine cluster type %#v\n", result))
+	panic(err)
+}
+
+func composeResourceURI(object unstructured.Unstructured) string {
+	uri := "/api"
+	if object.GetAPIVersion() != "v1" {
+		uri += "s"
+	}
+	uri += "/" + object.GetAPIVersion()
+	if object.GetNamespace() != "" && isNamespaceScoped(object.GroupVersionKind()) {
+		uri += "/namespaces/" + object.GetNamespace()
+	}
+	uri += "/" + strings.ToLower(object.GetKind())
+	if !strings.HasSuffix(object.GetKind(), "s") {
+		uri += "s"
+	}
+	return uri
+}
+
+func ApplyRawManifest(object unstructured.Unstructured) error {
+	virtCli, err := kubecli.GetKubevirtClient()
+	PanicOnError(err)
+
+	uri := composeResourceURI(object)
+	jsonbody, err := object.MarshalJSON()
+	PanicOnError(err)
+	b, err := virtCli.CoreV1().RESTClient().Post().RequestURI(uri).Body(jsonbody).DoRaw()
+	if err != nil {
+		fmt.Printf(fmt.Sprintf("ERROR: Can not apply %s\n", object))
+		panic(err)
+	}
+	status := unstructured.Unstructured{}
+	return json.Unmarshal(b, &status)
+}
+
+func DeleteRawManifest(object unstructured.Unstructured) error {
+	virtCli, err := kubecli.GetKubevirtClient()
+	PanicOnError(err)
+
+	uri := composeResourceURI(object)
+	uri = uri + "/" + object.GetName()
+	result := virtCli.CoreV1().RESTClient().Delete().RequestURI(uri).Do()
+	if result.Error() != nil && !errors.IsNotFound(result.Error()) {
+		fmt.Printf(fmt.Sprintf("ERROR: Can not delete %s err: %#v %s\n", object.GetName(), result.Error(), object))
+		panic(err)
+	}
+	return nil
+}
+
+func deployOrWipeTestingInfrastrucure(actionOnObject func(unstructured.Unstructured) error) {
+	// Scale down KubeVirt
+	err, replicasApi := DoScaleDeployment(KubeVirtInstallNamespace, "virt-api", 0)
+	PanicOnError(err)
+	err, replicasController := DoScaleDeployment(KubeVirtInstallNamespace, "virt-controller", 0)
+	PanicOnError(err)
+	// Deploy / delete test infrastructure / dependencies
+	manifests := GetListOfManifests(PathToTestingInfrastrucureManifests)
+	for _, manifest := range manifests {
+		objects := ReadManifestYamlFile(manifest)
+		for _, obj := range objects {
+			err := actionOnObject(obj)
+			PanicOnError(err)
+		}
+	}
+	// Scale KubeVirt back
+	err, _ = DoScaleDeployment(KubeVirtInstallNamespace, "virt-api", replicasApi)
+	PanicOnError(err)
+	err, _ = DoScaleDeployment(KubeVirtInstallNamespace, "virt-controller", replicasController)
+	PanicOnError(err)
+	WaitForAllPodsReady(3*time.Minute, metav1.ListOptions{})
+}
+
+func DeployTestingInfrastructure() {
+	deployOrWipeTestingInfrastrucure(ApplyRawManifest)
+}
+
+func WipeTestingInfrastructure() {
+	deployOrWipeTestingInfrastrucure(DeleteRawManifest)
 }
 
 func cleanupSubresourceServiceAccount() {
@@ -2502,12 +2734,7 @@ func SkipIfVersionBelow(message string, expectedVersion string) {
 }
 
 func SkipIfOpenShift(message string) {
-	virtClient, err := kubecli.GetKubevirtClient()
-	PanicOnError(err)
-
-	result := virtClient.RestClient().Get().AbsPath("/version/openshift").Do()
-
-	if result.Error() == nil {
+	if IsOpenShift() {
 		Skip("Openshift detected: " + message)
 	}
 }
@@ -2609,7 +2836,7 @@ func KubevirtFailHandler(message string, callerSkip ...int) {
 			if strings.HasPrefix(pod.Name, "virt-launcher") {
 				tailLines = 45
 				containerName = "compute"
-				data, err := yaml.Marshal(pod)
+				data, err := ghodssyaml.Marshal(pod)
 				if err != nil {
 					log.DefaultLogger().Reason(err).Errorf("Failed to marshal pod %s", pod.Name)
 					continue
@@ -2635,7 +2862,7 @@ func KubevirtFailHandler(message string, callerSkip ...int) {
 		}
 
 		for _, vmi := range vmis.Items {
-			data, err := yaml.Marshal(vmi)
+			data, err := ghodssyaml.Marshal(vmi)
 			if err != nil {
 				log.DefaultLogger().Reason(err).Errorf("Failed to marshal vmi %s", vmi.Name)
 				continue
