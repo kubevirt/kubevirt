@@ -31,6 +31,7 @@ fi
 
 if [ $# -eq 0 ]; then
     args=$docker_images
+    build_tests="true"
 else
     args=$@
 fi
@@ -80,5 +81,15 @@ if [ "${target}" = "pull-cache" ]; then
             BIN_NAME=$(basename $arg)
             docker pull kubevirt/${BIN_NAME}:${KUBEVIRT_CACHE_FROM} || true
         done
+    fi
+fi
+
+if [[ "${build_tests}" == "true" ]]; then
+    if [[ "${target}" == "build" ]]; then
+        build_func_tests_container
+    fi
+    if [[ "${target}" == "push" ]]; then
+        cd ${TESTS_OUT_DIR}
+        docker $target ${docker_prefix}/tests:${docker_tag}
     fi
 fi

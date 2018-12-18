@@ -37,4 +37,4 @@ elif [ -n "$KUBECONFIG" ]; then
     KUBECONFIG_ARGS="-kubeconfig=${KUBECONFIG}"
 fi
 
-${TESTS_OUT_DIR}/tests.test ${KUBECONFIG_ARGS} -tag=${docker_tag} -prefix=${functest_docker_prefix} -oc-path=${oc} -kubectl-path=${kubectl} -test.timeout 180m ${FUNC_TEST_ARGS} -installed-namespace=${namespace}
+${TESTS_OUT_DIR}/tests.test ${KUBECONFIG_ARGS} -container-tag=${docker_tag} -container-prefix=${functest_docker_prefix} -oc-path=${oc} -kubectl-path=${kubectl} -test.timeout 180m ${FUNC_TEST_ARGS} -installed-namespace=${namespace} -deploy-testing-infra -path-to-testing-infra-manifests=${MANIFESTS_OUT_DIR}/testing
