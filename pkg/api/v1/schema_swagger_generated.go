@@ -74,7 +74,7 @@ func (BIOS) SwaggerDoc() map[string]string {
 func (EFI) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"":       "If set, EFI will be used instead of BIOS.",
-		"secure": "Some firmwares implements the Secure boot feature",
+		"secure": "Some firmwares implements the Secure boot feature\n+optional",
 	}
 }
 

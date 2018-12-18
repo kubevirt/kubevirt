@@ -4013,10 +4013,6 @@
    },
    "v1.Bootloader": {
     "description": "Represents the firmware blob used to assist in the domain creation process.\nUsed for setting the QEMU BIOS file path for the libvirt domain.",
-    "required": [
-     "bios",
-     "efi"
-    ],
     "properties": {
      "bios": {
       "description": "If set (default), BIOS will be used.\n+optional",
@@ -4379,12 +4375,9 @@
    },
    "v1.EFI": {
     "description": "If set, EFI will be used instead of BIOS.",
-    "required": [
-     "secure"
-    ],
     "properties": {
      "secure": {
-      "description": "Some firmwares implements the Secure boot feature",
+      "description": "Some firmwares implements the Secure boot feature\n+optional",
       "type": "boolean"
      }
     }

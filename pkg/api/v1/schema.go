@@ -155,10 +155,10 @@ type DomainSpec struct {
 type Bootloader struct {
 	// If set (default), BIOS will be used.
 	// +optional
-	BIOS *BIOS `json:"bios,optional,omitempty"`
+	BIOS *BIOS `json:"bios,omitempty"`
 	// If set, EFI will be used instead of BIOS.
 	// +optional
-	EFI *EFI `json:"efi,optional,omitempty"`
+	EFI *EFI `json:"efi,omitempty"`
 }
 
 // If set (default), BIOS will be used.
@@ -172,7 +172,8 @@ type BIOS struct {
 // +k8s:openapi-gen=true
 type EFI struct {
 	// Some firmwares implements the Secure boot feature
-	Secure *bool `json:"secure,optional,omitempty"`
+	// +optional
+	Secure *bool `json:"secure,omitempty"`
 }
 
 // ---

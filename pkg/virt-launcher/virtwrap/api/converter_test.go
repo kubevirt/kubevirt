@@ -1520,6 +1520,91 @@ var _ = Describe("Converter", func() {
 			Expect(domain.Spec.Devices.HostDevices[1].Source.Address.Function).To(Equal("0x2"))
 		})
 	})
+
+	Context("Bootloader", func() {
+		var vmi *v1.VirtualMachineInstance
+		var c *ConverterContext
+
+		BeforeEach(func() {
+			vmi = &v1.VirtualMachineInstance{
+				ObjectMeta: k8smeta.ObjectMeta{
+					Name:      "testvmi",
+					Namespace: "mynamespace",
+				},
+			}
+
+			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
+
+			c = &ConverterContext{
+				VirtualMachine: vmi,
+				UseEmulation:   true,
+			}
+		})
+
+		Context("when bootloader is not set", func() {
+			It("should configure the BIOS bootloader", func() {
+				vmi.Spec.Domain.Firmware = &v1.Firmware{}
+				domainSpec := vmiToDomainXMLToDomainSpec(vmi, c)
+				Expect(domainSpec.OS.BootLoader).To(BeNil())
+				Expect(domainSpec.OS.NVRam).To(BeNil())
+			})
+		})
+
+		Context("when bootloader is set", func() {
+			It("should configure the BIOS bootloader if no BIOS or EFI option", func() {
+				vmi.Spec.Domain.Firmware = &v1.Firmware{
+					Bootloader: &v1.Bootloader{},
+				}
+				domainSpec := vmiToDomainXMLToDomainSpec(vmi, c)
+				Expect(domainSpec.OS.BootLoader).To(BeNil())
+				Expect(domainSpec.OS.NVRam).To(BeNil())
+			})
+
+			It("should configure the BIOS bootloader if BIOS", func() {
+				vmi.Spec.Domain.Firmware = &v1.Firmware{
+					Bootloader: &v1.Bootloader{
+						BIOS: &v1.BIOS{},
+					},
+				}
+				domainSpec := vmiToDomainXMLToDomainSpec(vmi, c)
+				Expect(domainSpec.OS.BootLoader).To(BeNil())
+				Expect(domainSpec.OS.NVRam).To(BeNil())
+			})
+
+			It("should configure the EFI bootloader if EFI option", func() {
+				vmi.Spec.Domain.Firmware = &v1.Firmware{
+					Bootloader: &v1.Bootloader{
+						EFI: &v1.EFI{},
+					},
+				}
+				domainSpec := vmiToDomainXMLToDomainSpec(vmi, c)
+				Expect(domainSpec.OS.BootLoader.ReadOnly).To(Equal("yes"))
+				Expect(domainSpec.OS.BootLoader.Secure).To(Equal("no"))
+				Expect(domainSpec.OS.BootLoader.Type).To(Equal("pflash"))
+				Expect(domainSpec.OS.BootLoader.Path).To(Equal(EFIPath))
+				Expect(domainSpec.OS.NVRam.NVRam).To(Equal(EFIVarsPath))
+				Expect(domainSpec.OS.NVRam.Template).To(Equal("/tmp/mynamespace_testvmi"))
+			})
+
+			It("should configure the EFI bootloader if EFI option", func() {
+				secure := true
+				vmi.Spec.Domain.Firmware = &v1.Firmware{
+					Bootloader: &v1.Bootloader{
+						EFI: &v1.EFI{
+							Secure: &secure,
+						},
+					},
+				}
+				domainSpec := vmiToDomainXMLToDomainSpec(vmi, c)
+				Expect(domainSpec.OS.BootLoader.ReadOnly).To(Equal("yes"))
+				Expect(domainSpec.OS.BootLoader.Secure).To(Equal("yes"))
+				Expect(domainSpec.OS.BootLoader.Type).To(Equal("pflash"))
+				Expect(domainSpec.OS.BootLoader.Path).To(Equal(EFIPath))
+				Expect(domainSpec.OS.NVRam.NVRam).To(Equal(EFIVarsPath))
+				Expect(domainSpec.OS.NVRam.Template).To(Equal("/tmp/mynamespace_testvmi"))
+			})
+		})
+	})
 })
 
 var _ = Describe("popSRIOVPCIAddress", func() {
