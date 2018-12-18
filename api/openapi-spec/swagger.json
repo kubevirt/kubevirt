@@ -4005,9 +4005,6 @@
      }
     }
    },
-<<<<<<< HEAD
-   "v1.Bootloader": {},
-=======
    "v1.BIOS": {
     "description": "If set (default), BIOS will be used."
    },
@@ -4024,7 +4021,6 @@
      }
     }
    },
->>>>>>> Address PR comments, add validating webhook and tests.
    "v1.CDRomTarget": {
     "properties": {
      "bus": {

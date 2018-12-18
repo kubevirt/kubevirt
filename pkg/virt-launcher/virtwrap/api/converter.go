@@ -598,11 +598,19 @@ func Convert_v1_VirtualMachine_To_api_Domain(vmi *v1.VirtualMachineInstance, dom
 				Value: string(vmi.Spec.Domain.Firmware.UUID),
 			},
 		}
-	}
 
-	if vmi.Spec.Domain.Bootloader != nil {
-		if (*vmi.Spec.Domain.Bootloader) == v1.BootloaderEFI {
-			domain.Spec.OS.Loader.Path = EFIBootloaderPath
+		if vmi.Spec.Domain.Firmware.Bootloader != nil && vmi.Spec.Domain.Firmware.Bootloader.EFI != nil {
+			domain.Spec.OS.BootLoader = &Loader{
+				Path:     EFIPath,
+				ReadOnly: "yes",
+				Secure:   boolToYesNo(vmi.Spec.Domain.Firmware.Bootloader.EFI.Secure, false),
+				Type:     "pflash",
+			}
+
+			domain.Spec.OS.NVRam = &NVRam{
+				NVRam:    EFIVarsPath,
+				Template: filepath.Join("/tmp", domain.Spec.Name),
+			}
 		}
 	}
 

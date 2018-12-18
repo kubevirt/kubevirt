@@ -531,12 +531,8 @@ type OS struct {
 	BootOrder  []Boot    `xml:"boot"`
 	BootMenu   *BootMenu `xml:"bootmenu,omitempty"`
 	BIOS       *BIOS     `xml:"bios,omitempty"`
-<<<<<<< HEAD
-	Loader     *Loader   `xml:"loader,omitempty"`
-=======
 	BootLoader *Loader   `xml:"loader,omitempty"`
 	NVRam      *NVRam    `xml:"nvram,omitempty"`
->>>>>>> Address PR comments, add validating webhook and tests.
 	Kernel     string    `xml:"kernel,omitempty"`
 	Initrd     string    `xml:"initrd,omitempty"`
 	KernelArgs string    `xml:"cmdline,omitempty"`

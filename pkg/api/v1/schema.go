@@ -34,16 +34,6 @@ const (
 	CPUModeHostModel                       = "host-model"
 )
 
-<<<<<<< HEAD
-type Bootloader string
-
-const (
-	BootloaderBIOS Bootloader = "bios"
-	BootloaderEFI  Bootloader = "efi"
-)
-
-=======
->>>>>>> Address PR comments, add validating webhook and tests.
 //go:generate swagger-doc
 //go:generate openapi-gen -i . --output-package=kubevirt.io/kubevirt/pkg/api/v1  --go-header-file ../../../hack/boilerplate/boilerplate.go.txt
 

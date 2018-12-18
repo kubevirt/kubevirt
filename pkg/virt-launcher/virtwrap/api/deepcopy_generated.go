@@ -2041,8 +2041,8 @@ func (in *OS) DeepCopyInto(out *OS) {
 			**out = **in
 		}
 	}
-	if in.Loader != nil {
-		in, out := &in.Loader, &out.Loader
+	if in.BootLoader != nil {
+		in, out := &in.BootLoader, &out.BootLoader
 		if *in == nil {
 			*out = nil
 		} else {
