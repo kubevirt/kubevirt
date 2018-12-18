@@ -264,12 +264,6 @@ func schema_kubevirt_pkg_api_v1_CloudInitNoCloudSource(ref common.ReferenceCallb
 							Ref:         ref("k8s.io/api/core/v1.LocalObjectReference"),
 						},
 					},
-					"networkDataSecretRef": {
-						SchemaProps: spec.SchemaProps{
-							Description: "UserDataSecretRef references a k8s secret that contains NoCloud userdata.",
-							Ref:         ref("k8s.io/api/core/v1.LocalObjectReference"),
-						},
-					},
 					"userDataBase64": {
 						SchemaProps: spec.SchemaProps{
 							Description: "UserDataBase64 contains NoCloud cloud-init userdata as a base64 encoded string.",
@@ -277,16 +271,22 @@ func schema_kubevirt_pkg_api_v1_CloudInitNoCloudSource(ref common.ReferenceCallb
 							Format:      "",
 						},
 					},
-					"networkDataBase64": {
+					"userData": {
 						SchemaProps: spec.SchemaProps{
 							Description: "UserData contains NoCloud inline cloud-init userdata.",
 							Type:        []string{"string"},
 							Format:      "",
 						},
 					},
-					"userData": {
+					"networkDataSecretRef": {
 						SchemaProps: spec.SchemaProps{
-							Description: "UserData contains NoCloud inline cloud-init userdata.",
+							Description: "NetworkDataSecretRef references a k8s secret that contains NoCloud networkdata.",
+							Ref:         ref("k8s.io/api/core/v1.LocalObjectReference"),
+						},
+					},
+					"networkDataBase64": {
+						SchemaProps: spec.SchemaProps{
+							Description: "NetworkData contains NoCloud inline cloud-init networkdata.",
 							Type:        []string{"string"},
 							Format:      "",
 						},

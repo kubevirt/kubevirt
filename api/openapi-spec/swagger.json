@@ -4061,11 +4061,11 @@
       "type": "string"
      },
      "networkDataBase64": {
-      "description": "UserData contains NoCloud inline cloud-init userdata.\n+ optional",
+      "description": "NetworkData contains NoCloud inline cloud-init networkdata.\n+ optional",
       "type": "string"
      },
      "networkDataSecretRef": {
-      "description": "UserDataSecretRef references a k8s secret that contains NoCloud userdata.\n+ optional",
+      "description": "NetworkDataSecretRef references a k8s secret that contains NoCloud networkdata.\n+ optional",
       "$ref": "#/definitions/v1.LocalObjectReference"
      },
      "secretRef": {
