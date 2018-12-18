@@ -393,20 +393,100 @@ var _ = Describe("CloudInit", func() {
 					Expect(cloudInitData.NetworkData).To(Equal("secretNetworkData"))
 				})
 			})
-
 			Context("with nothing", func() {
 				It("should succeed", func() {
 					ctrl = gomock.NewController(GinkgoT())
 					virtClient = kubecli.NewMockKubevirtClient(ctrl)
 					namespace := "testing"
 					fakeClient := fake.NewSimpleClientset()
-
 					virtClient.EXPECT().CoreV1().Return(fakeClient.CoreV1())
-
 					cloudInitData := &v1.CloudInitNoCloudSource{}
-
 					err := ResolveSecrets(cloudInitData, namespace, virtClient)
 					Expect(err).To(BeNil())
+				})
+			})
+			Context("with UserDataSecretRef defined without a secret", func() {
+				It("should fail", func() {
+					ctrl = gomock.NewController(GinkgoT())
+					virtClient = kubecli.NewMockKubevirtClient(ctrl)
+					namespace := "testing"
+					fakeClient := fake.NewSimpleClientset()
+					virtClient.EXPECT().CoreV1().Return(fakeClient.CoreV1())
+
+					cloudInitData := &v1.CloudInitNoCloudSource{
+						UserDataSecretRef: &k8sv1.LocalObjectReference{Name: "userData"},
+					}
+
+					err := ResolveSecrets(cloudInitData, namespace, virtClient)
+					Expect(err.Error()).To(Equal("secrets \"userData\" not found"))
+				})
+			})
+			Context("with NetworkDataSecretRef defined without a secret", func() {
+				It("should fail", func() {
+					ctrl = gomock.NewController(GinkgoT())
+					virtClient = kubecli.NewMockKubevirtClient(ctrl)
+					namespace := "testing"
+					fakeClient := fake.NewSimpleClientset()
+					virtClient.EXPECT().CoreV1().Return(fakeClient.CoreV1())
+
+					cloudInitData := &v1.CloudInitNoCloudSource{
+						NetworkDataSecretRef: &k8sv1.LocalObjectReference{Name: "networkData"},
+					}
+
+					err := ResolveSecrets(cloudInitData, namespace, virtClient)
+					Expect(err.Error()).To(Equal("secrets \"networkData\" not found"))
+				})
+			})
+			Context("with UserDataSecretRef defined with a misnamed secret", func() {
+				It("should fail", func() {
+					ctrl = gomock.NewController(GinkgoT())
+					virtClient = kubecli.NewMockKubevirtClient(ctrl)
+					namespace := "testing"
+					userSecret := &k8sv1.Secret{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "userData",
+							Namespace: namespace,
+						},
+						Type: "Opaque",
+						Data: map[string][]byte{
+							"baduserdata": []byte("secretUserData"),
+						},
+					}
+					userClient := fake.NewSimpleClientset(userSecret)
+					virtClient.EXPECT().CoreV1().Return(userClient.CoreV1()).AnyTimes()
+
+					cloudInitData := &v1.CloudInitNoCloudSource{
+						UserDataSecretRef: &k8sv1.LocalObjectReference{Name: "userData"},
+					}
+
+					err := ResolveSecrets(cloudInitData, namespace, virtClient)
+					Expect(err.Error()).To(Equal("no user-data value found in k8s secret userData <nil>"))
+				})
+			})
+			Context("with NetworkDataSecretRef defined with a misnamed secret", func() {
+				It("should fail", func() {
+					ctrl = gomock.NewController(GinkgoT())
+					virtClient = kubecli.NewMockKubevirtClient(ctrl)
+					namespace := "testing"
+					networkSecret := &k8sv1.Secret{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "networkData",
+							Namespace: namespace,
+						},
+						Type: "Opaque",
+						Data: map[string][]byte{
+							"badnetworkdata": []byte("secretNetworkData"),
+						},
+					}
+					networkClient := fake.NewSimpleClientset(networkSecret)
+					virtClient.EXPECT().CoreV1().Return(networkClient.CoreV1())
+
+					cloudInitData := &v1.CloudInitNoCloudSource{
+						NetworkDataSecretRef: &k8sv1.LocalObjectReference{Name: "networkData"},
+					}
+
+					err := ResolveSecrets(cloudInitData, namespace, virtClient)
+					Expect(err.Error()).To(Equal("no network-data value found in k8s secret networkData <nil>"))
 				})
 			})
 		})
