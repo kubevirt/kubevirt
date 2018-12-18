@@ -988,6 +988,10 @@ func Convert_v1_VirtualMachine_To_api_Domain(vmi *v1.VirtualMachineInstance, dom
 				if iface.BootOrder != nil {
 					domainIface.BootOrder = &BootOrder{Order: *iface.BootOrder}
 				}
+
+				if iface.MacAddress != "" {
+					domainIface.MAC = &MAC{MAC: iface.MacAddress}
+				}
 			} else if iface.Slirp != nil {
 				domainIface.Type = "user"
 

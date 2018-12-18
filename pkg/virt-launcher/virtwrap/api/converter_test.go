@@ -978,6 +978,21 @@ var _ = Describe("Converter", func() {
 			Expect(domain.Spec.Devices.Interfaces[0].Source.Bridge).To(Equal("k6t-eth0"))
 			Expect(domain.Spec.Devices.Interfaces[1].Source.Bridge).To(Equal("k6t-net1"))
 		})
+
+		It("should set the mac address if it is set in configuration", func() {
+			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
+
+			iface := v1.DefaultNetworkInterface()
+			iface.MacAddress = "11:22:33:44:55:66"
+
+			vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{*iface}
+			vmi.Spec.Networks = []v1.Network{*v1.DefaultPodNetwork()}
+
+			domain := vmiToDomain(vmi, c)
+			Expect(domain).ToNot(Equal(nil))
+			Expect(domain.Spec.Devices.Interfaces).To(HaveLen(1))
+			Expect(domain.Spec.Devices.Interfaces[0].MAC.MAC).To(Equal("11:22:33:44:55:66"))
+		})
 	})
 
 	Context("graphics and video device", func() {

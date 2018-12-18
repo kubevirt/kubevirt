@@ -440,6 +440,31 @@ var _ = Describe("Networking", func() {
 		})
 	})
 
+	Context("VirtualMachineInstance with custom MAC address and DHCP", func() {
+		BeforeEach(func() {
+			tests.BeforeTestCleanup()
+		})
+
+		It("should configure custom MAC address", func() {
+			By("checking eth0 MAC address")
+			deadbeafVMI := tests.NewRandomVMIWithCustomMacAddress()
+			_, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(deadbeafVMI)
+			Expect(err).ToNot(HaveOccurred())
+
+			tests.WaitUntilVMIReady(deadbeafVMI, tests.LoggedInAlpineExpecter)
+			checkMacAddress(deadbeafVMI, deadbeafVMI.Spec.Domain.Devices.Interfaces[0].MacAddress, "localhost:~#")
+
+			err = tests.CheckForTextExpecter(deadbeafVMI, []expect.Batcher{
+				&expect.BSnd{S: "\n"},
+				&expect.BExp{R: "#"},
+				&expect.BSnd{S: "sudo dhclient -1 -r -d eth0\n"},
+				&expect.BExp{R: "#"},
+				&expect.BSnd{S: "ip addr show dev eth0 |grep -c 'inet '\n"},
+				&expect.BExp{R: "1"},
+			}, 60)
+		})
+	})
+
 	Context("VirtualMachineInstance with disabled automatic attachment of interfaces", func() {
 		BeforeEach(func() {
 			tests.BeforeTestCleanup()
