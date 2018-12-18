@@ -150,7 +150,7 @@ var _ = Describe("Networking", func() {
 			var cmdCheck, addrShow, addr string
 
 			if destination == "InboundVMIWithCustomMacAddress" {
-				tests.SkipIfOpenShift("Custom MAC addresses on pod networks are not suppored")
+				tests.SkipIfOpenShift("Custom MAC addresses on pod networks are not supported")
 			}
 
 			// assuming pod network is of standard MTU = 1500 (minus 50 bytes for vxlan overhead)
