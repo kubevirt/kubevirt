@@ -1061,6 +1061,19 @@ func ValidateVirtualMachineInstanceSpec(field *k8sfield.Path, spec *v1.VirtualMa
 					})
 				}
 			}
+			// verify that the extra dhcp options are valid
+			if iface.DHCPOptions != nil {
+				for option, _ := range iface.DHCPOptions.ExtraOptions {
+					if !(option >= 224 && option <= 254) {
+						causes = append(causes, metav1.StatusCause{
+							Type:    metav1.CauseTypeFieldValueInvalid,
+							Message: "provided extraDHCPOptions are out of range, must be in range 224 to 254",
+							Field:   field.String(),
+						})
+					}
+				}
+			}
+
 			if iface.Model == "virtio" || iface.Model == "" {
 				isVirtioNicRequested = true
 			}
