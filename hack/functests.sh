@@ -22,7 +22,7 @@ set -e
 source hack/common.sh
 source hack/config.sh
 
-functest_container_prefix=${manifest_container_prefix-${container_prefix}}
+functest_docker_prefix=${manifest_docker_prefix-${docker_prefix}}
 
 if [[ ${TARGET} == openshift* ]]; then
     oc=${kubectl}
@@ -38,4 +38,3 @@ elif [ -n "$KUBECONFIG" ]; then
 fi
 
 ${TESTS_OUT_DIR}/tests.test ${KUBECONFIG_ARGS} -container-tag=${docker_tag} -container-prefix=${functest_docker_prefix} -oc-path=${oc} -kubectl-path=${kubectl} -test.timeout 180m ${FUNC_TEST_ARGS} -installed-namespace=${namespace} -deploy-testing-infra -path-to-testing-infra-manifests=${MANIFESTS_OUT_DIR}/testing
-
