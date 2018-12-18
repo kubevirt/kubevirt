@@ -122,17 +122,6 @@ func GetDomainBasePath(domain string, namespace string) string {
 	return fmt.Sprintf("%s/%s/%s", cloudInitLocalDir, namespace, domain)
 }
 
-func validateArgs(source *v1.CloudInitNoCloudSource) error {
-	precond.MustNotBeNil(source)
-
-	// TODO what if I only want the metadata to e.g. set up the network
-	if source.UserDataBase64 == "" {
-		return fmt.Errorf("userDataBase64 is required for no-cloud data source")
-	}
-
-	return nil
-}
-
 func RemoveLocalData(domain string, namespace string) error {
 	domainBasePath := GetDomainBasePath(domain, namespace)
 	err := os.RemoveAll(domainBasePath)
@@ -159,22 +148,40 @@ func ResolveSecrets(source *v1.CloudInitNoCloudSource, namespace string, clients
 	precond.CheckNotEmpty(namespace)
 	precond.CheckNotNil(clientset)
 
-	if source.UserDataSecretRef == nil {
+	if source.UserDataSecretRef == nil && source.NetworkDataSecretRef == nil {
 		return nil
 	}
-	secretID := source.UserDataSecretRef.Name
 
-	secret, err := clientset.CoreV1().Secrets(namespace).Get(secretID, metav1.GetOptions{})
-	if err != nil {
-		return err
+	if source.UserDataSecretRef != nil {
+		secretID := source.UserDataSecretRef.Name
+
+		secret, err := clientset.CoreV1().Secrets(namespace).Get(secretID, metav1.GetOptions{})
+		if err != nil {
+			return err
+		}
+
+		userData, ok := secret.Data["userdata"]
+		if ok == false {
+			return fmt.Errorf("no user-data value found in k8s secret %s %v", secretID, err)
+		}
+		source.UserData = string(userData)
 	}
 
-	userData, ok := secret.Data["userdata"]
-	if ok == false {
-		return fmt.Errorf("no user-data value found in k8s secret %s %v", secretID, err)
+	if source.NetworkDataSecretRef != nil {
+		secretID := source.NetworkDataSecretRef.Name
+
+		secret, err := clientset.CoreV1().Secrets(namespace).Get(secretID, metav1.GetOptions{})
+		if err != nil {
+			return err
+		}
+
+		networkData, ok := secret.Data["networkdata"]
+		if ok == false {
+			return fmt.Errorf("no network-data value found in k8s secret %s %v", secretID, err)
+		}
+		source.NetworkData = string(networkData)
 	}
 
-	source.UserData = string(userData)
 	return nil
 }
 
@@ -194,6 +201,7 @@ func GenerateLocalData(vmiName string, hostname string, namespace string, source
 	networkFile := fmt.Sprintf("%s/%s", domainBasePath, "network-config")
 	iso := fmt.Sprintf("%s/%s", domainBasePath, NoCloudFile)
 	isoStaging := fmt.Sprintf("%s/%s.staging", domainBasePath, NoCloudFile)
+
 	var userData []byte
 	if source.UserData != "" {
 		userData = []byte(source.UserData)
@@ -206,10 +214,20 @@ func GenerateLocalData(vmiName string, hostname string, namespace string, source
 		return fmt.Errorf("userDataBase64 or userData is required for no-cloud data source")
 	}
 
+	var preNetworkData []byte
+	if source.NetworkData != "" {
+		preNetworkData = []byte(source.NetworkData)
+	} else if source.NetworkDataBase64 != "" {
+		preNetworkData, err = base64.StdEncoding.DecodeString(source.NetworkDataBase64)
+		if err != nil {
+			return err
+		}
+	}
+
 	var networkData []byte
 	var resolvData []byte
-	if source.NetworkData != "" {
-		parsedNetworkData := bytes.Split([]byte(source.NetworkData), []byte(v1.CloudInitDelimiter))
+	if len(preNetworkData) > 0 {
+		parsedNetworkData := bytes.Split(preNetworkData, []byte(v1.CloudInitDelimiter))
 		networkData = parsedNetworkData[0]
 		if len(parsedNetworkData) > 1 {
 			resolvData = parsedNetworkData[1]

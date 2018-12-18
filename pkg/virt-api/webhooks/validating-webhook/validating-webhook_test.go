@@ -2078,7 +2078,7 @@ var _ = Describe("Validating Webhook", func() {
 			table.Entry("should reject userdata base64 greater than max limit", cloudInitUserMaxLen+1, 1, true),
 		)
 
-		table.DescribeTable("should verify cloud-init networkdata length", func(networkDataLen int, expectedErrors int) {
+		table.DescribeTable("should verify cloud-init networkdata length", func(networkDataLen int, expectedErrors int, base64Encode bool) {
 			vmi := v1.NewMinimalVMI("testvmi")
 
 			// generate fake networkdata
@@ -2089,7 +2089,12 @@ var _ = Describe("Validating Webhook", func() {
 
 			vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{VolumeSource: v1.VolumeSource{CloudInitNoCloud: &v1.CloudInitNoCloudSource{}}})
 			vmi.Spec.Volumes[0].VolumeSource.CloudInitNoCloud.UserData = "#config"
-			vmi.Spec.Volumes[0].VolumeSource.CloudInitNoCloud.NetworkData = networkdata
+
+			if base64Encode {
+				vmi.Spec.Volumes[0].VolumeSource.CloudInitNoCloud.NetworkDataBase64 = base64.StdEncoding.EncodeToString([]byte(networkdata))
+			} else {
+				vmi.Spec.Volumes[0].VolumeSource.CloudInitNoCloud.NetworkData = networkdata
+			}
 
 			causes := validateVolumes(k8sfield.NewPath("fake"), vmi.Spec.Volumes)
 			Expect(len(causes)).To(Equal(expectedErrors))
@@ -2097,12 +2102,15 @@ var _ = Describe("Validating Webhook", func() {
 				Expect(cause.Field).To(ContainSubstring("fake[0].cloudInitNoCloud"))
 			}
 		},
-			table.Entry("should accept networkdata under max limit", 10, 0),
-			table.Entry("should accept networkdata equal max limit", cloudInitNetworkMaxLen, 0),
-			table.Entry("should reject networkdata greater than max limit", cloudInitNetworkMaxLen+1, 1),
+			table.Entry("should accept networkdata under max limit", 10, 0, false),
+			table.Entry("should accept networkdata equal max limit", cloudInitNetworkMaxLen, 0, false),
+			table.Entry("should reject networkdata greater than max limit", cloudInitNetworkMaxLen+1, 1, false),
+			table.Entry("should accept networkdata base64 under max limit", 10, 0, true),
+			table.Entry("should accept networkdata base64 equal max limit", cloudInitNetworkMaxLen, 0, true),
+			table.Entry("should reject networkdata base64 greater than max limit", cloudInitNetworkMaxLen+1, 1, true),
 		)
 
-		It("should reject cloud-init with invalid base64 data", func() {
+		It("should reject cloud-init with invalid base64 userdata", func() {
 			vmi := v1.NewMinimalVMI("testvmi")
 
 			vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
@@ -2116,6 +2124,23 @@ var _ = Describe("Validating Webhook", func() {
 			causes := validateVolumes(k8sfield.NewPath("fake"), vmi.Spec.Volumes)
 			Expect(len(causes)).To(Equal(1))
 			Expect(causes[0].Field).To(Equal("fake[0].cloudInitNoCloud.userDataBase64"))
+		})
+
+		It("should reject cloud-init with invalid base64 networkdata", func() {
+			vmi := v1.NewMinimalVMI("testvmi")
+
+			vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
+				VolumeSource: v1.VolumeSource{
+					CloudInitNoCloud: &v1.CloudInitNoCloudSource{
+						UserData:          "fake",
+						NetworkDataBase64: "#######garbage******",
+					},
+				},
+			})
+
+			causes := validateVolumes(k8sfield.NewPath("fake"), vmi.Spec.Volumes)
+			Expect(len(causes)).To(Equal(1))
+			Expect(causes[0].Field).To(Equal("fake[0].cloudInitNoCloud.networkDataBase64"))
 		})
 
 		It("should reject hostDisk without required parameters", func() {

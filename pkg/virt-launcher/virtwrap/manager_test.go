@@ -447,8 +447,8 @@ func addCloudInitDisk(vmi *v1.VirtualMachineInstance, userData string, networkDa
 		Name: "cloudinit",
 		VolumeSource: v1.VolumeSource{
 			CloudInitNoCloud: &v1.CloudInitNoCloudSource{
-				UserDataBase64: base64.StdEncoding.EncodeToString([]byte(userData)),
-				NetworkData:    networkData,
+				UserDataBase64:    base64.StdEncoding.EncodeToString([]byte(userData)),
+				NetworkDataBase64: base64.StdEncoding.EncodeToString([]byte(networkData)),
 			},
 		},
 	})

@@ -166,6 +166,15 @@ func (in *CloudInitNoCloudSource) DeepCopyInto(out *CloudInitNoCloudSource) {
 			**out = **in
 		}
 	}
+	if in.NetworkDataSecretRef != nil {
+		in, out := &in.NetworkDataSecretRef, &out.NetworkDataSecretRef
+		if *in == nil {
+			*out = nil
+		} else {
+			*out = new(core_v1.LocalObjectReference)
+			**out = **in
+		}
+	}
 	return
 }
 

@@ -251,7 +251,8 @@ var _ = Describe("Converter", func() {
 					Name: "nocloud",
 					VolumeSource: v1.VolumeSource{
 						CloudInitNoCloud: &v1.CloudInitNoCloudSource{
-							UserDataBase64: "1234",
+							UserDataBase64:    "1234",
+							NetworkDataBase64: "1234",
 						},
 					},
 				},
@@ -259,7 +260,8 @@ var _ = Describe("Converter", func() {
 					Name: "volume0",
 					VolumeSource: v1.VolumeSource{
 						CloudInitNoCloud: &v1.CloudInitNoCloudSource{
-							UserDataBase64: "1234",
+							UserDataBase64:    "1234",
+							NetworkDataBase64: "1234",
 						},
 					},
 				},
