@@ -270,6 +270,29 @@ var _ = Describe("CloudInit", func() {
 					verifyCloudInitIso(cloudInitData)
 				})
 			})
+			Context("with bad cloudInitNoCloud UserDataBase64", func() {
+				It("should fail", func() {
+					cloudInitData := &v1.CloudInitNoCloudSource{
+						UserDataBase64: "#######garbage******",
+					}
+					namespace := "fake-namespace"
+					domain := "fake-domain"
+					err := GenerateLocalData(domain, domain, namespace, cloudInitData)
+					Expect(err.Error()).Should(Equal("illegal base64 data at input byte 0"))
+				})
+			})
+			Context("with bad cloudInitNoCloud NetworkDataBase64", func() {
+				It("should fail", func() {
+					cloudInitData := &v1.CloudInitNoCloudSource{
+						UserData:          "fake",
+						NetworkDataBase64: "#######garbage******",
+					}
+					namespace := "fake-namespace"
+					domain := "fake-domain"
+					err := GenerateLocalData(domain, domain, namespace, cloudInitData)
+					Expect(err.Error()).Should(Equal("illegal base64 data at input byte 0"))
+				})
+			})
 			Context("with cloudInitNoCloud networkData source", func() {
 				It("should fail", func() {
 					networkData := "FakeNetwork" + v1.CloudInitDelimiter + "FakeResolv"
