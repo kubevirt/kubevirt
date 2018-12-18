@@ -24,6 +24,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"strconv"
 	"strings"
 
 	. "github.com/onsi/ginkgo"
@@ -951,6 +952,23 @@ var _ = Describe("Validating Webhook", func() {
 	})
 
 	Context("with VirtualMachineInstance spec", func() {
+		It("should accept valid hostname", func() {
+			vmi := v1.NewMinimalVMI("testvmi")
+			vmi.Spec.Hostname = "test"
+
+			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec)
+			Expect(len(causes)).To(Equal(0))
+		})
+		It("should reject invalid hostname", func() {
+			vmi := v1.NewMinimalVMI("testvmi")
+			vmi.Spec.Hostname = "test+bad"
+
+			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec)
+			Expect(len(causes)).To(Equal(1))
+			Expect(string(causes[0].Type)).To(Equal("FieldValueInvalid"))
+			Expect(causes[0].Field).To(Equal("fake.hostname"))
+			Expect(causes[0].Message).To(ContainSubstring("does not conform to the kubernetes DNS_LABEL rules : "))
+		})
 		It("should accept valid subdomain name", func() {
 			vmi := v1.NewMinimalVMI("testvmi")
 			vmi.Spec.Subdomain = "testsubdomain"
@@ -1230,6 +1248,41 @@ var _ = Describe("Validating Webhook", func() {
 
 			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec)
 			Expect(len(causes)).To(Equal(0))
+		})
+		It("should reject incorrect memory and hugepages size values", func() {
+			vmi := v1.NewMinimalVMI("testvmi")
+
+			vmi.Spec.Domain.Resources.Requests = k8sv1.ResourceList{
+				k8sv1.ResourceMemory: resource.MustParse("64Mi"),
+			}
+			vmi.Spec.Domain.Memory = &v1.Memory{Hugepages: &v1.Hugepages{}}
+			vmi.Spec.Domain.Memory.Hugepages.PageSize = "10Mi"
+
+			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec)
+			Expect(len(causes)).To(Equal(1))
+			Expect(string(causes[0].Type)).To(Equal("FieldValueInvalid"))
+			Expect(causes[0].Field).To(Equal("fake.domain.resources.requests.memory"))
+			Expect(causes[0].Message).To(Equal("fake.domain.resources.requests.memory '64Mi' is not a multiple of the page size fake.domain.hugepages.size '10Mi'"))
+		})
+		It("should reject setting guest memory and hugepages", func() {
+			vmi := v1.NewMinimalVMI("testvmi")
+			guestMemory := resource.MustParse("64Mi")
+
+			vmi.Spec.Domain.Resources.Requests = k8sv1.ResourceList{
+				k8sv1.ResourceMemory: resource.MustParse("64Mi"),
+			}
+			vmi.Spec.Domain.Memory = &v1.Memory{Guest: &guestMemory}
+			vmi.Spec.Domain.Memory = &v1.Memory{
+				Hugepages: &v1.Hugepages{},
+				Guest:     &guestMemory,
+			}
+			vmi.Spec.Domain.Memory.Hugepages.PageSize = "2Mi"
+
+			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec)
+			Expect(len(causes)).To(Equal(1))
+			Expect(string(causes[0].Type)).To(Equal("FieldValueInvalid"))
+			Expect(causes[0].Field).To(Equal("fake.domain.resources.requests.memory"))
+			Expect(causes[0].Message).To(ContainSubstring("'fake.domain.memory.guest' and 'fake.domain.memory.hugepages.size' must not be set at the same time"))
 		})
 		table.DescribeTable("should verify LUN is mapped to PVC volume",
 			func(volume *v1.Volume, expectedErrors int) {
@@ -2001,6 +2054,21 @@ var _ = Describe("Validating Webhook", func() {
 			Expect(len(causes)).To(Equal(1))
 			Expect(causes[0].Field).To(Equal("fake[0]"))
 		})
+		It("should reject DataVolume when DataVolume name is not set", func() {
+			vmi := v1.NewMinimalVMI("testvmi")
+
+			vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
+				Name:         "testvolume",
+				VolumeSource: v1.VolumeSource{DataVolume: &v1.DataVolumeSource{Name: ""}},
+			})
+
+			os.Setenv("FEATURE_GATES", "DataVolumes")
+			causes := validateVolumes(k8sfield.NewPath("fake"), vmi.Spec.Volumes)
+			Expect(len(causes)).To(Equal(1))
+			Expect(string(causes[0].Type)).To(Equal("FieldValueRequired"))
+			Expect(causes[0].Field).To(Equal("fake[0].name"))
+			Expect(causes[0].Message).To(Equal("DataVolume 'name' must be set"))
+		})
 		It("should reject volume with no volume source set", func() {
 			vmi := v1.NewMinimalVMI("testvmi")
 
@@ -2141,6 +2209,45 @@ var _ = Describe("Validating Webhook", func() {
 			causes := validateVolumes(k8sfield.NewPath("fake"), vmi.Spec.Volumes)
 			Expect(len(causes)).To(Equal(1))
 			Expect(causes[0].Field).To(Equal("fake[0].cloudInitNoCloud.networkDataBase64"))
+		})
+
+		It("should reject cloud-init with multiple userdata sources", func() {
+			vmi := v1.NewMinimalVMI("testvmi")
+
+			vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
+				VolumeSource: v1.VolumeSource{
+					CloudInitNoCloud: &v1.CloudInitNoCloudSource{
+						UserData: "fake",
+						UserDataSecretRef: &k8sv1.LocalObjectReference{
+							Name: "fake",
+						},
+					},
+				},
+			})
+
+			causes := validateVolumes(k8sfield.NewPath("fake"), vmi.Spec.Volumes)
+			Expect(len(causes)).To(Equal(1))
+			Expect(causes[0].Field).To(Equal("fake[0].cloudInitNoCloud"))
+		})
+
+		It("should reject cloud-init with multiple networkdata sources", func() {
+			vmi := v1.NewMinimalVMI("testvmi")
+
+			vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
+				VolumeSource: v1.VolumeSource{
+					CloudInitNoCloud: &v1.CloudInitNoCloudSource{
+						UserData:    "fake",
+						NetworkData: "fake",
+						NetworkDataSecretRef: &k8sv1.LocalObjectReference{
+							Name: "fake",
+						},
+					},
+				},
+			})
+
+			causes := validateVolumes(k8sfield.NewPath("fake"), vmi.Spec.Volumes)
+			Expect(len(causes)).To(Equal(1))
+			Expect(causes[0].Field).To(Equal("fake[0].cloudInitNoCloud"))
 		})
 
 		It("should reject hostDisk without required parameters", func() {
@@ -2493,6 +2600,44 @@ var _ = Describe("Validating Webhook", func() {
 			Expect(len(causes)).To(Equal(2))
 			Expect(causes[0].Field).To(Equal("fake[0].disk.bus"))
 			Expect(causes[1].Field).To(Equal("fake[1].lun.bus"))
+		})
+
+		It("should reject disk with invalid cache mode", func() {
+			vmi := v1.NewMinimalVMI("testvmi")
+			vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
+				Name:       "testdisk",
+				VolumeName: "testvolume",
+				Cache:      "unspported",
+				DiskDevice: v1.DiskDevice{
+					Disk: &v1.DiskTarget{},
+				},
+			})
+
+			causes := validateDisks(k8sfield.NewPath("fake"), vmi.Spec.Domain.Devices.Disks)
+			Expect(len(causes)).To(Equal(1))
+			Expect(string(causes[0].Type)).To(Equal("FieldValueInvalid"))
+			Expect(causes[0].Field).To(Equal("fake[0].cache"))
+			Expect(causes[0].Message).To(Equal("fake[0].cache has invalid value unspported"))
+		})
+
+		It("should reject disk count > arrayLenMax", func() {
+			vmi := v1.NewMinimalVMI("testvmi")
+			for i := 0; i <= arrayLenMax; i++ {
+				name := strconv.Itoa(i)
+				vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
+					Name:       "testdisk" + name,
+					VolumeName: "testvolume" + name,
+					DiskDevice: v1.DiskDevice{
+						Disk: &v1.DiskTarget{},
+					},
+				})
+			}
+
+			causes := validateDisks(k8sfield.NewPath("fake"), vmi.Spec.Domain.Devices.Disks)
+			Expect(len(causes)).To(Equal(1))
+			Expect(string(causes[0].Type)).To(Equal("FieldValueInvalid"))
+			Expect(causes[0].Field).To(Equal("fake"))
+			Expect(causes[0].Message).To(Equal(fmt.Sprintf("fake list exceeds the %d element limit in length", arrayLenMax)))
 		})
 
 		It("should reject invalid SN characters", func() {
