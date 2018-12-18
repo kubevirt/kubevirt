@@ -254,16 +254,10 @@ func CloudInitDiscoverNetworkData(vmi *v1.VirtualMachineInstance) ([]byte, error
 	var resolvFile []byte
 	var cloudInitNetworks []VIF
 
-	sriovNetworks, err := getSriovNetworkInfo(vmi)
+	cloudInitNetworks, err := getSriovNetworkInfo(vmi)
 	if err != nil {
 		return networkFile, err
 	}
-
-	if len(sriovNetworks) > 0 {
-		cloudInitNetworks = append(cloudInitNetworks, sriovNetworks...)
-	}
-
-	// More options for getting network info could be added here
 
 	if len(cloudInitNetworks) == 0 {
 		return networkFile, err
