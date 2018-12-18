@@ -1590,6 +1590,14 @@ func admitMigrationCreate(ar *v1beta1.AdmissionReview) *v1beta1.AdmissionRespons
 		return webhooks.ToAdmissionResponseError(fmt.Errorf("Cannot migrated VMI in finalized state."))
 	}
 
+	// Reject migration jobs for non-migratable VMIs
+	cond := getVMIMigrationCondition(vmi)
+	if cond != nil && cond.Status == k8sv1.ConditionFalse {
+		errMsg := fmt.Errorf("Cannot migrate VMI, Reason: %s, Message: %s",
+			cond.Reason, cond.Message)
+		return webhooks.ToAdmissionResponseError(errMsg)
+	}
+
 	// Don't allow new migration jobs to be introduced when previous migration jobs
 	// are already in flight.
 	if vmi.Status.MigrationState != nil &&
@@ -1603,6 +1611,15 @@ func admitMigrationCreate(ar *v1beta1.AdmissionReview) *v1beta1.AdmissionRespons
 	reviewResponse := v1beta1.AdmissionResponse{}
 	reviewResponse.Allowed = true
 	return &reviewResponse
+}
+
+func getVMIMigrationCondition(vmi *v1.VirtualMachineInstance) (cond *v1.VirtualMachineInstanceCondition) {
+	for _, c := range vmi.Status.Conditions {
+		if c.Type == v1.VirtualMachineInstanceIsMigratable {
+			cond = &c
+		}
+	}
+	return cond
 }
 
 func ServeMigrationCreate(resp http.ResponseWriter, req *http.Request) {

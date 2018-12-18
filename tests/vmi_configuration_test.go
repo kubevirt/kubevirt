@@ -32,6 +32,7 @@ import (
 	. "github.com/onsi/ginkgo"
 	"github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
+	. "github.com/onsi/gomega/gstruct"
 	kubev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -481,13 +482,16 @@ var _ = Describe("Configurations", func() {
 				var freshVMI *v1.VirtualMachineInstance
 
 				By("VMI has the guest agent connected condition")
-				Eventually(func() int {
+				Eventually(func() []v1.VirtualMachineInstanceCondition {
 					freshVMI, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Get(agentVMI.Name, &getOptions)
 					Expect(err).ToNot(HaveOccurred(), "Should get VMI ")
-					return len(freshVMI.Status.Conditions)
-				}, 240*time.Second, 2).Should(Equal(1), "Should have agent connected condition")
-
-				Expect(freshVMI.Status.Conditions[0].Type).Should(Equal(v1.VirtualMachineInstanceAgentConnected), "VMI condition should indicate connected agent")
+					return freshVMI.Status.Conditions
+				}, 240*time.Second, 2).Should(
+					ContainElement(
+						MatchFields(
+							IgnoreExtras,
+							Fields{"Type": Equal(v1.VirtualMachineInstanceAgentConnected)})),
+					"Should have agent connected condition")
 
 				By("Expecting the VirtualMachineInstance console")
 				expecter, err := tests.LoggedInFedoraExpecter(agentVMI)
@@ -502,12 +506,16 @@ var _ = Describe("Configurations", func() {
 				Expect(err).ToNot(HaveOccurred())
 
 				By("VMI has the guest agent connected condition")
-				Eventually(func() int {
+				Eventually(func() []v1.VirtualMachineInstanceCondition {
 					freshVMI, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Get(agentVMI.Name, &getOptions)
 					Expect(err).ToNot(HaveOccurred(), "Should get VMI ")
-					return len(freshVMI.Status.Conditions)
-				}, 240*time.Second, 2).Should(Equal(0), "Agent condition should be gone")
-
+					return freshVMI.Status.Conditions
+				}, 240*time.Second, 2).ShouldNot(
+					ContainElement(
+						MatchFields(
+							IgnoreExtras,
+							Fields{"Type": Equal(v1.VirtualMachineInstanceAgentConnected)})),
+					"Agent condition should be gone")
 			})
 
 		})

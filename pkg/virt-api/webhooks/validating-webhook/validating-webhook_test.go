@@ -871,6 +871,46 @@ var _ = Describe("Validating Webhook", func() {
 			Expect(resp.Allowed).To(Equal(false))
 		})
 
+		It("should reject Migration spec for non-migratable VMIs", func() {
+			vmi := v1.NewMinimalVMI("testmigratevmi3")
+			vmi.Status.Phase = v1.Succeeded
+			vmi.Status.Conditions = []v1.VirtualMachineInstanceCondition{
+				{
+					Type:    v1.VirtualMachineInstanceIsMigratable,
+					Status:  k8sv1.ConditionFalse,
+					Reason:  v1.VirtualMachineInstanceReasonDisksNotMigratable,
+					Message: "cannot migrate VMI with mixes shared and non-shared volumes",
+				},
+			}
+
+			informers := webhooks.GetInformers()
+			informers.VMIInformer.GetIndexer().Add(vmi)
+
+			migration := v1.VirtualMachineInstanceMigration{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace: "default",
+				},
+				Spec: v1.VirtualMachineInstanceMigrationSpec{
+					VMIName: "testmigratevmi3",
+				},
+			}
+			migrationBytes, _ := json.Marshal(&migration)
+
+			os.Setenv("FEATURE_GATES", "LiveMigration")
+
+			ar := &v1beta1.AdmissionReview{
+				Request: &v1beta1.AdmissionRequest{
+					Resource: webhooks.MigrationGroupVersionResource,
+					Object: runtime.RawExtension{
+						Raw: migrationBytes,
+					},
+				},
+			}
+
+			resp := admitMigrationCreate(ar)
+			Expect(resp.Allowed).To(Equal(false))
+		})
+
 		It("should reject Migration on update if spec changes", func() {
 			vmi := v1.NewMinimalVMI("testmigratevmiupdate")
 

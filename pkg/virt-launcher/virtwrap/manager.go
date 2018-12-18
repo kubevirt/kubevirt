@@ -199,6 +199,16 @@ func (l *LibvirtDomainManager) setMigrationResultHelper(vmi *v1.VirtualMachineIn
 
 }
 
+func prepateMigrationFlags(isBlockMigration bool) libvirt.DomainMigrateFlags {
+	migrateFlags := libvirt.MIGRATE_LIVE | libvirt.MIGRATE_PEER2PEER | libvirt.MIGRATE_TUNNELLED
+
+	if isBlockMigration {
+		migrateFlags |= libvirt.MIGRATE_NON_SHARED_INC
+	}
+	return migrateFlags
+
+}
+
 func (l *LibvirtDomainManager) asyncMigrate(vmi *v1.VirtualMachineInstance) {
 
 	go func(l *LibvirtDomainManager, vmi *v1.VirtualMachineInstance) {
@@ -235,7 +245,11 @@ func (l *LibvirtDomainManager) asyncMigrate(vmi *v1.VirtualMachineInstance) {
 			return
 		}
 
-		migrateFlags := libvirt.MIGRATE_LIVE | libvirt.MIGRATE_PEER2PEER | libvirt.MIGRATE_TUNNELLED | libvirt.MIGRATE_NON_SHARED_DISK
+		isBlockMigration := false
+		if vmi.Status.MigrationMethod == v1.BlockMigration {
+			isBlockMigration = true
+		}
+		migrateFlags := prepateMigrationFlags(isBlockMigration)
 		_, err = dom.Migrate(destConn, migrateFlags, "", "", 0)
 		if err != nil {
 
