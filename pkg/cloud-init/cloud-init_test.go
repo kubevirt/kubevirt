@@ -29,14 +29,23 @@ import (
 	"os/user"
 	"time"
 
+	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 
+	k8sv1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/kubernetes/fake"
+
 	v1 "kubevirt.io/kubevirt/pkg/api/v1"
+	"kubevirt.io/kubevirt/pkg/kubecli"
 	"kubevirt.io/kubevirt/pkg/precond"
 )
 
 var _ = Describe("CloudInit", func() {
+
+	var ctrl *gomock.Controller
+	var virtClient *kubecli.MockKubevirtClient
 
 	tmpDir, _ := ioutil.TempDir("", "cloudinittest")
 
@@ -305,6 +314,100 @@ var _ = Describe("CloudInit", func() {
 					Expect(err).Should(MatchError("userDataBase64 or userData is required for no-cloud data source"))
 				})
 
+			})
+		})
+		Describe("A new VirtualMachineInstance definition", func() {
+			Context("with cloudInitNoCloud userDataSecretRef", func() {
+				It("should succeed", func() {
+					ctrl = gomock.NewController(GinkgoT())
+					virtClient = kubecli.NewMockKubevirtClient(ctrl)
+
+					namespace := "testing"
+
+					userSecret := &k8sv1.Secret{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "userData",
+							Namespace: namespace,
+						},
+						Type: "Opaque",
+						Data: map[string][]byte{
+							"userdata": []byte("secretUserData"),
+						},
+					}
+
+					userClient := fake.NewSimpleClientset(userSecret)
+					virtClient.EXPECT().CoreV1().Return(userClient.CoreV1()).AnyTimes()
+
+					cloudInitData := &v1.CloudInitNoCloudSource{
+						UserDataSecretRef: &k8sv1.LocalObjectReference{Name: "userData"},
+					}
+
+					err := ResolveSecrets(cloudInitData, namespace, virtClient)
+					Expect(err).To(BeNil())
+					Expect(cloudInitData.UserData).To(Equal("secretUserData"))
+				})
+			})
+			Context("with cloudInitNoCloud userDataSecretRef and networkDataSecretRef", func() {
+				It("should succeed", func() {
+					ctrl = gomock.NewController(GinkgoT())
+					virtClient = kubecli.NewMockKubevirtClient(ctrl)
+					namespace := "testing"
+
+					userSecret := &k8sv1.Secret{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "userData",
+							Namespace: namespace,
+						},
+						Type: "Opaque",
+						Data: map[string][]byte{
+							"userdata": []byte("secretUserData"),
+						},
+					}
+					userClient := fake.NewSimpleClientset(userSecret)
+
+					networkSecret := &k8sv1.Secret{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "networkData",
+							Namespace: namespace,
+						},
+						Type: "Opaque",
+						Data: map[string][]byte{
+							"networkdata": []byte("secretNetworkData"),
+						},
+					}
+					networkClient := fake.NewSimpleClientset(networkSecret)
+
+					gomock.InOrder(
+						virtClient.EXPECT().CoreV1().Return(userClient.CoreV1()),
+						virtClient.EXPECT().CoreV1().Return(networkClient.CoreV1()),
+					)
+
+					cloudInitData := &v1.CloudInitNoCloudSource{
+						UserDataSecretRef:    &k8sv1.LocalObjectReference{Name: "userData"},
+						NetworkDataSecretRef: &k8sv1.LocalObjectReference{Name: "networkData"},
+					}
+
+					err := ResolveSecrets(cloudInitData, namespace, virtClient)
+					Expect(err).To(BeNil())
+					Expect(cloudInitData.UserData).To(Equal("secretUserData"))
+					Expect(cloudInitData.NetworkData).To(Equal("secretNetworkData"))
+				})
+			})
+
+			Context("with nothing", func() {
+				It("should succeed", func() {
+					ctrl = gomock.NewController(GinkgoT())
+					virtClient = kubecli.NewMockKubevirtClient(ctrl)
+					namespace := "testing"
+					fakeClient := fake.NewSimpleClientset()
+
+					virtClient.EXPECT().CoreV1().Return(fakeClient.CoreV1())
+
+					cloudInitData := &v1.CloudInitNoCloudSource{}
+
+					err := ResolveSecrets(cloudInitData, namespace, virtClient)
+					Expect(err).To(BeNil())
+				})
 			})
 		})
 	})
