@@ -331,8 +331,10 @@ func validateVolumes(field *k8sfield.Path, volumes []v1.Volume) []metav1.StatusC
 		if volume.CloudInitNoCloud != nil {
 			noCloud := volume.CloudInitNoCloud
 			userDataLen := 0
-
 			userDataSourceCount := 0
+			networkDataLen := 0
+			networkDataSourceCount := 0
+
 			if noCloud.UserDataSecretRef != nil && noCloud.UserDataSecretRef.Name != "" {
 				userDataSourceCount++
 			}
@@ -369,7 +371,35 @@ func validateVolumes(field *k8sfield.Path, volumes []v1.Volume) []metav1.StatusC
 				})
 			}
 
-			if len(noCloud.NetworkData) > cloudInitNetworkMaxLen {
+			if noCloud.NetworkDataSecretRef != nil && noCloud.NetworkDataSecretRef.Name != "" {
+				networkDataSourceCount++
+			}
+			if noCloud.NetworkDataBase64 != "" {
+				networkDataSourceCount++
+				networkData, err := base64.StdEncoding.DecodeString(noCloud.NetworkDataBase64)
+				if err != nil {
+					causes = append(causes, metav1.StatusCause{
+						Type:    metav1.CauseTypeFieldValueInvalid,
+						Message: fmt.Sprintf("%s.cloudInitNoCloud.networkDataBase64 is not a valid base64 value.", field.Index(idx).Child("cloudInitNoCloud", "networkDataBase64").String()),
+						Field:   field.Index(idx).Child("cloudInitNoCloud", "networkDataBase64").String(),
+					})
+				}
+				networkDataLen = len(networkData)
+			}
+			if noCloud.NetworkData != "" {
+				networkDataSourceCount++
+				networkDataLen = len(noCloud.NetworkData)
+			}
+
+			if networkDataSourceCount > 1 {
+				causes = append(causes, metav1.StatusCause{
+					Type:    metav1.CauseTypeFieldValueInvalid,
+					Message: fmt.Sprintf("%s must have only one networkdata source set.", field.Index(idx).Child("cloudInitNoCloud").String()),
+					Field:   field.Index(idx).Child("cloudInitNoCloud").String(),
+				})
+			}
+
+			if networkDataLen > cloudInitNetworkMaxLen {
 				causes = append(causes, metav1.StatusCause{
 					Type:    metav1.CauseTypeFieldValueInvalid,
 					Message: fmt.Sprintf("%s networkdata exceeds %d byte limit", field.Index(idx).Child("cloudInitNoCloud").String(), cloudInitNetworkMaxLen),
@@ -1584,6 +1614,14 @@ func admitMigrationCreate(ar *v1beta1.AdmissionReview) *v1beta1.AdmissionRespons
 		return webhooks.ToAdmissionResponseError(fmt.Errorf("Cannot migrated VMI in finalized state."))
 	}
 
+	// Reject migration jobs for non-migratable VMIs
+	cond := getVMIMigrationCondition(vmi)
+	if cond != nil && cond.Status == k8sv1.ConditionFalse {
+		errMsg := fmt.Errorf("Cannot migrate VMI, Reason: %s, Message: %s",
+			cond.Reason, cond.Message)
+		return webhooks.ToAdmissionResponseError(errMsg)
+	}
+
 	// Don't allow new migration jobs to be introduced when previous migration jobs
 	// are already in flight.
 	if vmi.Status.MigrationState != nil &&
@@ -1597,6 +1635,15 @@ func admitMigrationCreate(ar *v1beta1.AdmissionReview) *v1beta1.AdmissionRespons
 	reviewResponse := v1beta1.AdmissionResponse{}
 	reviewResponse.Allowed = true
 	return &reviewResponse
+}
+
+func getVMIMigrationCondition(vmi *v1.VirtualMachineInstance) (cond *v1.VirtualMachineInstanceCondition) {
+	for _, c := range vmi.Status.Conditions {
+		if c.Type == v1.VirtualMachineInstanceIsMigratable {
+			cond = &c
+		}
+	}
+	return cond
 }
 
 func ServeMigrationCreate(resp http.ResponseWriter, req *http.Request) {

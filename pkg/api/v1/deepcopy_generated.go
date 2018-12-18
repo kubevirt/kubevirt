@@ -166,6 +166,15 @@ func (in *CloudInitNoCloudSource) DeepCopyInto(out *CloudInitNoCloudSource) {
 			**out = **in
 		}
 	}
+	if in.NetworkDataSecretRef != nil {
+		in, out := &in.NetworkDataSecretRef, &out.NetworkDataSecretRef
+		if *in == nil {
+			*out = nil
+		} else {
+			*out = new(core_v1.LocalObjectReference)
+			**out = **in
+		}
+	}
 	return
 }
 
@@ -907,6 +916,15 @@ func (in *Handler) DeepCopy() *Handler {
 func (in *HostDisk) DeepCopyInto(out *HostDisk) {
 	*out = *in
 	out.Capacity = in.Capacity.DeepCopy()
+	if in.Shared != nil {
+		in, out := &in.Shared, &out.Shared
+		if *in == nil {
+			*out = nil
+		} else {
+			*out = new(bool)
+			**out = **in
+		}
+	}
 	return
 }
 

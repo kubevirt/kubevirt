@@ -46,7 +46,7 @@ if [ $? -ne 0 ]; then
 		echo "Failed to convert image $IMAGE_PATH to .raw file"
 		exit 1
 	fi
-else 
+else
 	cp $IMAGE_PATH ${COPY_PATH}.${IMAGE_EXTENSION}
 	if [ $? -ne 0 ]; then
 		echo "Failed to copy $IMAGE_PATH to $COPY_PATH.${IMAGE_EXTENSION}"

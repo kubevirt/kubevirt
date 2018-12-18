@@ -4060,6 +4060,14 @@
       "description": "NetworkData contains NoCloud inline cloud-init networkdata.\n+ optional",
       "type": "string"
      },
+     "networkDataBase64": {
+      "description": "NetworkData contains NoCloud inline cloud-init networkdata.\n+ optional",
+      "type": "string"
+     },
+     "networkDataSecretRef": {
+      "description": "NetworkDataSecretRef references a k8s secret that contains NoCloud networkdata.\n+ optional",
+      "$ref": "#/definitions/v1.LocalObjectReference"
+     },
      "secretRef": {
       "description": "UserDataSecretRef references a k8s secret that contains NoCloud userdata.\n+ optional",
       "$ref": "#/definitions/v1.LocalObjectReference"
@@ -4563,6 +4571,10 @@
      "path": {
       "description": "The path to HostDisk image located on the cluster",
       "type": "string"
+     },
+     "shared": {
+      "description": "Shared indicate whether the path is shared between nodes",
+      "type": "boolean"
      },
      "type": {
       "description": "Contains information if disk.img exists or should be created\nallowed options are 'Disk' and 'DiskOrCreate'",
@@ -5976,6 +5988,10 @@
       "items": {
        "$ref": "#/definitions/v1.VirtualMachineInstanceNetworkInterface"
       }
+     },
+     "migrationMethod": {
+      "description": "Represents the method using which the vmi can be migrated: live migration or block migration",
+      "type": "string"
      },
      "migrationState": {
       "description": "Represents the status of a live migration",

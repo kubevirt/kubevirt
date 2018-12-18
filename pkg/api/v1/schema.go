@@ -53,6 +53,8 @@ type HostDisk struct {
 	// Capacity of the sparse disk
 	// +optional
 	Capacity resource.Quantity `json:"capacity,omitempty"`
+	// Shared indicate whether the path is shared between nodes
+	Shared *bool `json:"shared,omitempty"`
 }
 
 // ConfigMapVolumeSource adapts a ConfigMap into a volume.
@@ -102,6 +104,12 @@ type CloudInitNoCloudSource struct {
 	// UserData contains NoCloud inline cloud-init userdata.
 	// + optional
 	UserData string `json:"userData,omitempty"`
+	// NetworkDataSecretRef references a k8s secret that contains NoCloud networkdata.
+	// + optional
+	NetworkDataSecretRef *v1.LocalObjectReference `json:"networkDataSecretRef,omitempty"`
+	// NetworkData contains NoCloud inline cloud-init networkdata.
+	// + optional
+	NetworkDataBase64 string `json:"networkDataBase64,omitempty"`
 	// NetworkData contains NoCloud inline cloud-init networkdata.
 	// + optional
 	NetworkData string `json:"networkData,omitempty"`
