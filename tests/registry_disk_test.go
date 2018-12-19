@@ -160,7 +160,7 @@ var _ = Describe("ContainerDisk", func() {
 				vmi := tests.NewRandomVMIWithEphemeralDisk(tests.ContainerDiskFor(tests.ContainerDiskCirros))
 				for ind, volume := range vmi.Spec.Volumes {
 					if volume.ContainerDisk != nil {
-						vmi.Spec.Volumes[ind].ContainerDisk.Path = "/custom-disk/boot.img"
+						vmi.Spec.Volumes[ind].ContainerDisk.Path = "/custom-disk/cirros.img"
 					}
 				}
 				By("Starting the VirtualMachineInstance")
@@ -169,6 +169,7 @@ var _ = Describe("ContainerDisk", func() {
 				tests.WaitForSuccessfulVMIStart(obj)
 			})
 		})
+
 	})
 
 	Describe("Starting with virtio-win", func() {
