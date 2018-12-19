@@ -63,7 +63,7 @@ var _ = Describe("Virt-api", func() {
 	})
 
 	Context("Virt api server", func() {
-		It("should generate certs the first time it is run", func(done Done) {
+		It("should generate certs the first time it is run", func() {
 			server.AppendHandlers(
 				ghttp.CombineHandlers(
 					ghttp.VerifyRequest("GET", "/api/v1/namespaces/kubevirt/secrets/"+virtApiCertSecretName),
@@ -81,10 +81,9 @@ var _ = Describe("Virt-api", func() {
 			Expect(len(app.signingCertBytes)).ToNot(Equal(0))
 			Expect(len(app.certBytes)).ToNot(Equal(0))
 			Expect(len(app.keyBytes)).ToNot(Equal(0))
-			close(done)
 		}, 5)
 
-		It("should not generate certs if secret already exists", func(done Done) {
+		It("should not generate certs if secret already exists", func() {
 			caKeyPair, _ := triple.NewCA("kubevirt.io")
 			keyPair, _ := triple.NewServerKeyPair(
 				caKeyPair,
@@ -126,10 +125,9 @@ var _ = Describe("Virt-api", func() {
 			Expect(app.signingCertBytes).To(Equal(signingCertBytes))
 			Expect(app.certBytes).To(Equal(certBytes))
 			Expect(app.keyBytes).To(Equal(keyBytes))
-			close(done)
 		}, 5)
 
-		It("should return error if client CA doesn't exist", func(done Done) {
+		It("should return error if client CA doesn't exist", func() {
 			server.AppendHandlers(
 				ghttp.CombineHandlers(
 					ghttp.VerifyRequest("GET", "/api/v1/namespaces/kube-system/configmaps/extension-apiserver-authentication"),
@@ -140,10 +138,9 @@ var _ = Describe("Virt-api", func() {
 			err := app.getClientCert()
 			Expect(err).To(HaveOccurred())
 
-			close(done)
 		}, 5)
 
-		It("should retrieve client CA", func(done Done) {
+		It("should retrieve client CA", func() {
 
 			configMap := &k8sv1.ConfigMap{}
 			configMap.Data = make(map[string]string)
@@ -158,10 +155,9 @@ var _ = Describe("Virt-api", func() {
 			err := app.getClientCert()
 			Expect(err).ToNot(HaveOccurred())
 			Expect(app.clientCABytes).To(Equal([]byte("fakedata")))
-			close(done)
 		}, 5)
 
-		It("should auto detect correct request headers from cert configmap", func(done Done) {
+		It("should auto detect correct request headers from cert configmap", func() {
 			configMap := &k8sv1.ConfigMap{}
 			configMap.Data = make(map[string]string)
 			configMap.Data["client-ca-file"] = "fakedata"
@@ -180,11 +176,9 @@ var _ = Describe("Virt-api", func() {
 			Expect(app.authorizor.GetUserHeaders()).To(Equal([]string{"X-Remote-User", "fakeheader1"}))
 			Expect(app.authorizor.GetGroupHeaders()).To(Equal([]string{"X-Remote-Group", "fakeheader2"}))
 			Expect(app.authorizor.GetExtraPrefixHeaders()).To(Equal([]string{"X-Remote-Extra-", "fakeheader3-"}))
-
-			close(done)
 		}, 5)
 
-		It("should create apiservice endpoint if one doesn't exist", func(done Done) {
+		It("should create apiservice endpoint if one doesn't exist", func() {
 			app.signingCertBytes = []byte("fake")
 			apiService := &apiregistrationv1beta1.APIService{
 				ObjectMeta: metav1.ObjectMeta{
@@ -216,10 +210,9 @@ var _ = Describe("Virt-api", func() {
 				),
 			)
 			app.createSubresourceApiservice()
-			close(done)
 		}, 5)
 
-		It("should not create apiservice endpoint if one does exist", func(done Done) {
+		It("should not create apiservice endpoint if one does exist", func() {
 			app.signingCertBytes = []byte("fake")
 			apiService := &apiregistrationv1beta1.APIService{
 				ObjectMeta: metav1.ObjectMeta{
@@ -247,11 +240,9 @@ var _ = Describe("Virt-api", func() {
 				),
 			)
 			app.createSubresourceApiservice()
-
-			close(done)
 		}, 5)
 
-		It("should update apiservice endpoint if CA bundle changes", func(done Done) {
+		It("should update apiservice endpoint if CA bundle changes", func() {
 			app.signingCertBytes = []byte("fake")
 			apiServiceDifferent := &apiregistrationv1beta1.APIService{
 				ObjectMeta: metav1.ObjectMeta{
@@ -302,7 +293,6 @@ var _ = Describe("Virt-api", func() {
 				),
 			)
 			app.createSubresourceApiservice()
-			close(done)
 		}, 5)
 	})
 
