@@ -175,12 +175,13 @@ func (c *command) run(cmd *cobra.Command, args []string) error {
 	u, err := url.Parse(uploadProxyURL)
 	if err != nil {
 		return err
-	} else if u.Scheme == "" {
-		uploadProxyURL = fmt.Sprintf("http://%s", uploadProxyURL)
 	}
-	fmt.Printf("Uploading data to %s\n", uploadProxyURL)
 
-	err = uploadData(uploadProxyURL, token, file, insecure)
+	if u.Scheme == "" {
+		u.Scheme = "http"
+	}
+
+	err = uploadData(u, token, file, insecure)
 	if err != nil {
 		return err
 	}
@@ -202,19 +203,29 @@ func getHTTPClient(insecure bool) *http.Client {
 	return client
 }
 
-func uploadData(uploadProxyURL, token string, file *os.File, insecure bool) error {
-	url := uploadProxyURL + uploadProxyURI
+func uploadData(uploadProxyURL *url.URL, token string, file *os.File, insecure bool) error {
+	if uploadProxyURL.Path != "" && uploadProxyURL.Path != uploadProxyURI {
+		fmt.Printf("Warning, path %s is being replaced by %s\n", uploadProxyURL.Path, uploadProxyURI)
+	}
+
+	u, err := uploadProxyURL.Parse(uploadProxyURI)
+
+	if err != nil {
+		return err
+	}
 
 	fi, err := file.Stat()
 	if err != nil {
 		return err
 	}
 
+	fmt.Printf("Uploading data to %s\n", u.String())
+
 	bar := pb.New64(fi.Size()).SetUnits(pb.U_BYTES)
 	reader := bar.NewProxyReader(file)
 
 	client := httpClientCreatorFunc(insecure)
-	req, _ := http.NewRequest("POST", url, reader)
+	req, _ := http.NewRequest("POST", u.String(), reader)
 
 	req.Header.Add("Authorization", "Bearer "+token)
 	req.Header.Add("Content-Type", "application/octet-stream")
