@@ -103,7 +103,7 @@ var _ = Describe("Notify", func() {
 				mockDomain.EXPECT().GetXMLDesc(gomock.Eq(libvirt.DomainXMLFlags(0))).Return(string(x), nil)
 				mockDomain.EXPECT().GetMetadata(libvirt.DOMAIN_METADATA_ELEMENT, "http://kubevirt.io", libvirt.DOMAIN_AFFECT_CONFIG).Return(`<kubevirt></kubevirt>`, nil)
 
-				libvirtEventCallback(mockCon, util.NewDomainFromName("test", "1234"), libvirtEvent{Event: &libvirt.DomainEventLifecycle{Event: event}}, client, deleteNotificationSent)
+				eventCallback(mockCon, util.NewDomainFromName("test", "1234"), libvirtEvent{Event: &libvirt.DomainEventLifecycle{Event: event}}, client, deleteNotificationSent, nil)
 
 				timedOut := false
 				timeout := time.After(2 * time.Second)
@@ -134,7 +134,7 @@ var _ = Describe("Notify", func() {
 				mockDomain.EXPECT().GetState().Return(libvirt.DOMAIN_NOSTATE, -1, libvirt.Error{Code: libvirt.ERR_NO_DOMAIN})
 				mockDomain.EXPECT().GetName().Return("test", nil).AnyTimes()
 
-				libvirtEventCallback(mockCon, util.NewDomainFromName("test", "1234"), libvirtEvent{Event: &libvirt.DomainEventLifecycle{Event: libvirt.DOMAIN_EVENT_UNDEFINED}}, client, deleteNotificationSent)
+				eventCallback(mockCon, util.NewDomainFromName("test", "1234"), libvirtEvent{Event: &libvirt.DomainEventLifecycle{Event: libvirt.DOMAIN_EVENT_UNDEFINED}}, client, deleteNotificationSent, nil)
 
 				timedOut := false
 				timeout := time.After(2 * time.Second)
@@ -156,6 +156,41 @@ var _ = Describe("Notify", func() {
 				Expect(timedOut).To(Equal(false))
 			})
 
+		It("should update Interface status",
+			func() {
+				domain := api.NewMinimalDomain("test")
+				x, err := xml.Marshal(domain.Spec)
+				Expect(err).ToNot(HaveOccurred())
+				mockDomain.EXPECT().Free()
+				mockDomain.EXPECT().GetState().Return(libvirt.DOMAIN_RUNNING, -1, nil)
+				mockDomain.EXPECT().GetName().Return("test", nil).AnyTimes()
+				mockDomain.EXPECT().GetXMLDesc(gomock.Eq(libvirt.DomainXMLFlags(0))).Return(string(x), nil)
+				mockDomain.EXPECT().GetMetadata(libvirt.DOMAIN_METADATA_ELEMENT, "http://kubevirt.io", libvirt.DOMAIN_AFFECT_CONFIG).Return(`<kubevirt></kubevirt>`, nil)
+
+				interfaceStatus := []api.InterfaceStatus{
+					api.InterfaceStatus{
+						Name: "test", Ip: "1.1.1.1/24", Mac: "1", InterfaceName: "eth1",
+					},
+					api.InterfaceStatus{
+						Name: "test2",
+					},
+				}
+
+				eventCallback(mockCon, util.NewDomainFromName("test", "1234"), libvirtEvent{}, client, deleteNotificationSent, &interfaceStatus)
+
+				timedOut := false
+				timeout := time.After(2 * time.Second)
+				select {
+				case <-timeout:
+					timedOut = true
+				case event := <-eventChan:
+					newDomain, _ := event.Object.(*api.Domain)
+					newInterfaceStatuses := newDomain.Status.Interfaces
+					Expect(len(newInterfaceStatuses)).To(Equal(2))
+					Expect(reflect.DeepEqual(interfaceStatus, newInterfaceStatuses)).To(Equal(true))
+				}
+				Expect(timedOut).To(Equal(false))
+			})
 	})
 
 	Describe("K8s Events", func() {

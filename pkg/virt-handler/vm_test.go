@@ -1020,6 +1020,58 @@ var _ = Describe("VirtualMachineInstance", func() {
 			controller.Execute()
 		})
 
+		It("should update existing interface with IPs", func() {
+			vmi := v1.NewMinimalVMI("testvmi")
+			vmi.UID = testUUID
+			vmi.ObjectMeta.ResourceVersion = "1"
+			vmi.Status.Phase = v1.Scheduled
+
+			interfaceName := "interface_name"
+			mac := "C0:01:BE:E7:15:G0:0D"
+			ip := "2.2.2.2/24"
+			ips := []string{"2.2.2.2/24", "3.3.3.3/16"}
+
+			vmi.Status.Interfaces = []v1.VirtualMachineInstanceNetworkInterface{
+				v1.VirtualMachineInstanceNetworkInterface{
+					IP:   "1.1.1.1",
+					MAC:  mac,
+					Name: interfaceName,
+				},
+			}
+
+			mockWatchdog.CreateFile(vmi)
+			domain := api.NewMinimalDomainWithUUID("testvmi", testUUID)
+			domain.Status.Status = api.Running
+
+			domain.Spec.Devices.Interfaces = []api.Interface{
+				api.Interface{
+					MAC:   &api.MAC{MAC: mac},
+					Alias: &api.Alias{Name: interfaceName},
+				},
+			}
+			domain.Status.Interfaces = []api.InterfaceStatus{
+				api.InterfaceStatus{
+					Name: interfaceName,
+					Mac:  mac,
+					Ip:   ip,
+					IPs:  ips,
+				},
+			}
+
+			vmiFeeder.Add(vmi)
+			domainFeeder.Add(domain)
+
+			vmiInterface.EXPECT().Update(gomock.Any()).Do(func(arg interface{}) {
+				Expect(len(arg.(*v1.VirtualMachineInstance).Status.Interfaces)).To(Equal(1))
+				Expect(arg.(*v1.VirtualMachineInstance).Status.Interfaces[0].Name).To(Equal(interfaceName))
+				Expect(arg.(*v1.VirtualMachineInstance).Status.Interfaces[0].MAC).To(Equal(mac))
+				Expect(arg.(*v1.VirtualMachineInstance).Status.Interfaces[0].IP).To(Equal(ip))
+				Expect(arg.(*v1.VirtualMachineInstance).Status.Interfaces[0].IPs).To(Equal(ips))
+			}).Return(vmi, nil)
+
+			controller.Execute()
+		})
+
 		It("should add new vmi interfaces for new domain interfaces", func() {
 			vmi := v1.NewMinimalVMI("testvmi")
 			vmi.UID = testUUID
@@ -1045,6 +1097,10 @@ var _ = Describe("VirtualMachineInstance", func() {
 			new_MAC := "1C:CE:C0:01:BE:E7"
 
 			domain.Spec.Devices.Interfaces = []api.Interface{
+				api.Interface{
+					MAC:   &api.MAC{MAC: old_MAC},
+					Alias: &api.Alias{Name: old_interface_name},
+				},
 				api.Interface{
 					MAC:   &api.MAC{MAC: new_MAC},
 					Alias: &api.Alias{Name: new_interface_name},

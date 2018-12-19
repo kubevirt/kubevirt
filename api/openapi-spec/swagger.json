@@ -5695,9 +5695,20 @@
    },
    "v1.VirtualMachineInstanceNetworkInterface": {
     "properties": {
+     "interfaceName": {
+      "description": "The interface name inside the Virtual Machine",
+      "type": "string"
+     },
      "ipAddress": {
       "description": "IP address of a Virtual Machine interface",
       "type": "string"
+     },
+     "ipAddresses": {
+      "description": "List of all IP addresses of a Virtual Machine interface",
+      "type": "array",
+      "items": {
+       "type": "string"
+      }
      },
      "mac": {
       "description": "Hardware address of a Virtual Machine interface",
