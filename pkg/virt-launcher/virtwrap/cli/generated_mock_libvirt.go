@@ -112,6 +112,17 @@ func (_mr *_MockConnectionRecorder) SetReconnectChan(arg0 interface{}) *gomock.C
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "SetReconnectChan", arg0)
 }
 
+func (_m *MockConnection) QemuAgentCommand(command string, domainName string) (string, error) {
+	ret := _m.ctrl.Call(_m, "QemuAgentCommand", command, domainName)
+	ret0, _ := ret[0].(string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+func (_mr *_MockConnectionRecorder) QemuAgentCommand(arg0, arg1 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "QemuAgentCommand", arg0, arg1)
+}
+
 // Mock of Stream interface
 type MockStream struct {
 	ctrl     *gomock.Controller

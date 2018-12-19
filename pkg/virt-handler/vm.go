@@ -231,7 +231,6 @@ func domainMigrated(domain *api.Domain) bool {
 }
 
 func (d *VirtualMachineController) updateVMIStatus(vmi *v1.VirtualMachineInstance, domain *api.Domain, syncError error) (err error) {
-
 	condManager := controller.NewVirtualMachineInstanceConditionManager()
 
 	// Don't update the VirtualMachineInstance if it is already in a final state
@@ -242,10 +241,9 @@ func (d *VirtualMachineController) updateVMIStatus(vmi *v1.VirtualMachineInstanc
 	oldStatus := vmi.DeepCopy().Status
 
 	if domain != nil {
-
 		// This is needed to be backwards compatible with vmi's which have status interfaces
 		// with the name not being set
-		if len(vmi.Status.Interfaces) == 1 && vmi.Status.Interfaces[0].Name == "" {
+		if len(domain.Spec.Devices.Interfaces) == 0 && len(vmi.Status.Interfaces) == 1 && vmi.Status.Interfaces[0].Name == "" {
 			for _, network := range vmi.Spec.Networks {
 				if network.NetworkSource.Pod != nil {
 					vmi.Status.Interfaces[0].Name = network.Name
@@ -253,17 +251,68 @@ func (d *VirtualMachineController) updateVMIStatus(vmi *v1.VirtualMachineInstanc
 			}
 		}
 
-		interfacesByName := make(map[string]int)
-		for i, existingInterface := range vmi.Status.Interfaces {
-			interfacesByName[existingInterface.Name] = i
-		}
+		if len(domain.Spec.Devices.Interfaces) > 0 || len(domain.Status.Interfaces) > 0 {
+			// This calculates the vmi.Status.Interfaces based on the following data sets:
+			// - vmi.Status.Interfaces - previously calculated interfaces, this can contains data
+			//   set in the controller (pod IP) which can not be deleted, unless overridden by Qemu agent
+			// - domain.Spec - interfaces form the Spec
+			// - domain.Status.Interfaces - interfaces reported by guest agent (emtpy if Qemu agent not running)
+			newInterfaces := []v1.VirtualMachineInstanceNetworkInterface{}
 
-		for _, domainInterface := range domain.Spec.Devices.Interfaces {
-			if i, exists := interfacesByName[domainInterface.Alias.Name]; exists {
-				vmi.Status.Interfaces[i].MAC = domainInterface.MAC.MAC
-			} else {
-				vmi.Status.Interfaces = append(vmi.Status.Interfaces, v1.VirtualMachineInstanceNetworkInterface{MAC: domainInterface.MAC.MAC, Name: domainInterface.Alias.Name})
+			existingInterfaceStatusByName := map[string]v1.VirtualMachineInstanceNetworkInterface{}
+			for _, existingInterfaceStatus := range vmi.Status.Interfaces {
+				if existingInterfaceStatus.Name != "" {
+					existingInterfaceStatusByName[existingInterfaceStatus.Name] = existingInterfaceStatus
+				}
 			}
+
+			domainInterfaceStatusByMac := map[string]api.InterfaceStatus{}
+			for _, domainInterfaceStatus := range domain.Status.Interfaces {
+				domainInterfaceStatusByMac[domainInterfaceStatus.Mac] = domainInterfaceStatus
+			}
+
+			// Iterate through all domain.Spec interfaces
+			for _, domainInterface := range domain.Spec.Devices.Interfaces {
+				interfaceMAC := domainInterface.MAC.MAC
+				var newInterface v1.VirtualMachineInstanceNetworkInterface
+
+				if existingInterface, exists := existingInterfaceStatusByName[domainInterface.Alias.Name]; exists {
+					// Reuse previously calculated interface from vmi.Status.Interfaces, updating the MAC from domain.Spec
+					// Only interfaces defined in domain.Spec are handled here
+					newInterface = existingInterface
+					newInterface.MAC = interfaceMAC
+				} else {
+					// If not present in vmi.Status.Interfaces, create a new one based on domain.Spec
+					newInterface = v1.VirtualMachineInstanceNetworkInterface{
+						MAC:  interfaceMAC,
+						Name: domainInterface.Alias.Name,
+					}
+				}
+
+				// Update IP info based on information from domain.Status.Interfaces (Qemu guest)
+				// Remove the interface from domainInterfaceStatusByMac to mark it as handled
+				if interfaceStatus, exists := domainInterfaceStatusByMac[interfaceMAC]; exists {
+					newInterface.IP = interfaceStatus.Ip
+					newInterface.IPs = interfaceStatus.IPs
+					newInterface.InterfaceName = interfaceStatus.InterfaceName
+					delete(domainInterfaceStatusByMac, interfaceMAC)
+				}
+				newInterfaces = append(newInterfaces, newInterface)
+			}
+
+			// If any of domain.Status.Interfaces were not handled above, it means that the vm contains additional
+			// interfaces not defined in domain.Spec (most likely added by user on VM). Add them to vmi.Status.Interfaces
+			for interfaceMAC, domainInterfaceStatus := range domainInterfaceStatusByMac {
+				newInterface := v1.VirtualMachineInstanceNetworkInterface{
+					Name:          domainInterfaceStatus.Name,
+					MAC:           interfaceMAC,
+					IP:            domainInterfaceStatus.Ip,
+					IPs:           domainInterfaceStatus.IPs,
+					InterfaceName: domainInterfaceStatus.InterfaceName,
+				}
+				newInterfaces = append(newInterfaces, newInterface)
+			}
+			vmi.Status.Interfaces = newInterfaces
 		}
 	}
 
@@ -850,7 +899,6 @@ func (d *VirtualMachineController) execute(key string) error {
 			vmi.UID = types.UID(uid)
 		}
 	}
-
 	if vmiExists && domainExists && domain.Spec.Metadata.KubeVirt.UID != vmi.UID {
 		oldVMI := v1.NewVMIReferenceFromNameWithNS(vmi.Namespace, vmi.Name)
 		oldVMI.UID = domain.Spec.Metadata.KubeVirt.UID
