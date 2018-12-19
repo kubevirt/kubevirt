@@ -320,6 +320,7 @@ func Convert_v1_CloudInitNoCloudSource_To_api_Disk(source *v1.CloudInitNoCloudSo
 	disk.Source.File = fmt.Sprintf("%s/%s", cloudinit.GetDomainBasePath(c.VirtualMachine.Name, c.VirtualMachine.Namespace), cloudinit.NoCloudFile)
 	disk.Type = "file"
 	disk.Driver.Type = "raw"
+	disk.ReadOnly = toApiReadOnly(true)
 	return nil
 }
 

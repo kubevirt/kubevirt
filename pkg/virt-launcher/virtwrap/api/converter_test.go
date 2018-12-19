@@ -402,12 +402,14 @@ var _ = Describe("Converter", func() {
       <source file="/var/run/libvirt/cloud-init-dir/mynamespace/testvmi/noCloud.iso"></source>
       <target bus="virtio" dev="vdb"></target>
       <driver name="qemu" type="raw" iothread="3"></driver>
+      <readonly></readonly>
       <alias name="ua-mydisk1"></alias>
     </disk>
     <disk device="cdrom" type="file">
       <source file="/var/run/libvirt/cloud-init-dir/mynamespace/testvmi/noCloud.iso"></source>
       <target bus="sata" dev="sda" tray="closed"></target>
       <driver name="qemu" type="raw" iothread="1"></driver>
+      <readonly></readonly>
       <alias name="ua-cdrom_tray_unspecified"></alias>
     </disk>
     <disk device="cdrom" type="file">

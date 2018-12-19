@@ -1384,6 +1384,12 @@ func AddUserData(vmi *v1.VirtualMachineInstance, name string, userData string) {
 	})
 }
 
+func NewRandomVMIWithPVCAndUserdata(claimName string, userData string) *v1.VirtualMachineInstance {
+	vmi := NewRandomVMIWithPVC(claimName)
+	AddUserData(vmi, "disk1", userData)
+	return vmi
+}
+
 func NewRandomVMIWithPVC(claimName string) *v1.VirtualMachineInstance {
 
 	vmi := NewRandomVMI()
