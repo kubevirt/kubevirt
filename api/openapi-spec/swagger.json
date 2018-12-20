@@ -6170,6 +6170,7 @@
     }
    },
    "v1alpha1.DataVolume": {
+    "description": "DataVolume provides a representation of our data volume\n+genclient\n+k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object",
     "required": [
      "spec",
      "status"
@@ -6194,8 +6195,11 @@
      }
     }
    },
-   "v1alpha1.DataVolumeBlankImage": {},
+   "v1alpha1.DataVolumeBlankImage": {
+    "description": "DataVolumeBlankImage provides the parameters to create a new raw blank image for the PVC"
+   },
    "v1alpha1.DataVolumeSource": {
+    "description": "DataVolumeSource represents the source for our Data Volume, this can be HTTP, S3, Registry or an existing PVC",
     "properties": {
      "blank": {
       "$ref": "#/definitions/v1alpha1.DataVolumeBlankImage"
@@ -6218,16 +6222,20 @@
     }
    },
    "v1alpha1.DataVolumeSourceHTTP": {
+    "description": "DataVolumeSourceHTTP provides the parameters to create a Data Volume from an HTTP source",
     "properties": {
      "secretRef": {
+      "description": "SecretRef provides the secret reference needed to access the HTTP source",
       "type": "string"
      },
      "url": {
+      "description": "URL is the URL of the http source",
       "type": "string"
      }
     }
    },
    "v1alpha1.DataVolumeSourcePVC": {
+    "description": "DataVolumeSourcePVC provides the parameters to create a Data Volume from an existing PVC",
     "properties": {
      "name": {
       "type": "string"
@@ -6238,43 +6246,56 @@
     }
    },
    "v1alpha1.DataVolumeSourceRegistry": {
+    "description": "DataVolumeSourceRegistry provides the parameters to create a Data Volume from an registry source",
     "properties": {
      "secretRef": {
+      "description": "SecretRef provides the secret reference needed to access the Registry source",
       "type": "string"
      },
      "url": {
+      "description": "URL is the url of the Registry source",
       "type": "string"
      }
     }
    },
    "v1alpha1.DataVolumeSourceS3": {
+    "description": "DataVolumeSourceS3 provides the parameters to create a Data Volume from an S3 source",
     "properties": {
      "secretRef": {
+      "description": "SecretRef provides the secret reference needed to access the S3 source",
       "type": "string"
      },
      "url": {
+      "description": "URL is the url of the S3 source",
       "type": "string"
      }
     }
    },
-   "v1alpha1.DataVolumeSourceUpload": {},
+   "v1alpha1.DataVolumeSourceUpload": {
+    "description": "DataVolumeSourceUpload provides the parameters to create a Data Volume by uploading the source"
+   },
    "v1alpha1.DataVolumeSpec": {
+    "description": "DataVolumeSpec defines our specification for a DataVolume type",
     "required": [
      "source",
      "pvc"
     ],
     "properties": {
      "pvc": {
+      "description": "PVC is a pointer to the PVC Spec we want to use",
       "$ref": "#/definitions/v1.PersistentVolumeClaimSpec"
      },
      "source": {
+      "description": "Source is the src of the data for the requested DataVolume",
       "$ref": "#/definitions/v1alpha1.DataVolumeSource"
      }
     }
    },
    "v1alpha1.DataVolumeStatus": {
+    "description": "DataVolumeStatus provides the parameters to store the phase of the Data Volume",
     "properties": {
      "phase": {
+      "description": "Phase is the current phase of the data volume",
       "type": "string"
      }
     }

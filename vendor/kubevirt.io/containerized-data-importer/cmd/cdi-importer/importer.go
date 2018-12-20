@@ -70,7 +70,7 @@ func main() {
 		minSizeQuantity := util.MinQuantity(resource.NewScaledQuantity(util.GetAvailableSpace(common.ImporterVolumePath), 0), &requestImageSizeQuantity)
 		if minSizeQuantity.Cmp(requestImageSizeQuantity) != 0 {
 			// Available dest space is smaller than the size we want to create
-			glog.Warningf("Available space less than requested size, creating blank image sized to availabe space: %s.\n", minSizeQuantity.String())
+			glog.Warningf("Available space less than requested size, creating blank image sized to available space: %s.\n", minSizeQuantity.String())
 		}
 		err := image.CreateBlankImage(common.ImporterWritePath, minSizeQuantity)
 		if err != nil {

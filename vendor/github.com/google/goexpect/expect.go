@@ -159,6 +159,17 @@ func SetEnv(env []string) Option {
 	}
 }
 
+// SetSysProcAttr sets the SysProcAttr syscall values for the spawned process. 
+// Because this modifies cmd, it will only work with the process spawners 
+// and not effect the GExpect option method.
+func SetSysProcAttr(args *syscall.SysProcAttr) Option {
+	return func(e *GExpect) Option {
+		prev := e.cmd.SysProcAttr
+		e.cmd.SysProcAttr = args
+		return SetSysProcAttr(prev)
+	}
+}
+
 // BatchCommands.
 const (
 	// BatchSend for invoking Send in a batch
@@ -1153,7 +1164,7 @@ func (e *GExpect) read(done chan struct{}, ptySync *sync.WaitGroup) {
 	buf := make([]byte, bufferSize)
 	for {
 		nr, err := e.pty.Master.Read(buf)
-		if err != nil || !e.check() {
+		if err != nil && !e.check() {
 			if e.teeWriter != nil {
 				e.teeWriter.Close()
 			}

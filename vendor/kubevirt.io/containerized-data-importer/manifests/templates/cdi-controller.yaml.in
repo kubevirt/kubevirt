@@ -39,7 +39,7 @@ rules:
   verbs: ["get"]
 - apiGroups: [""]
   resources: ["configmaps"]
-  verbs: ["get", "list", "watch", "create"]
+  verbs: ["get", "list", "watch", "create", "update"]
 - apiGroups: ["cdi.kubevirt.io"]
   resources:
    - '*'
@@ -151,8 +151,8 @@ spec:
                   required:
                   - namespace
                   - name
-                upload:
-                blank:
+                upload: {}
+                blank: {}
             pvc:
               properties:
                 resources:

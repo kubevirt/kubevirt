@@ -16,7 +16,7 @@ const (
 	secretPollInterval = defaultPollInterval
 )
 
-// NewSecretDefinition provides a fucntion to initialize a Secret data type with the provided options
+// NewSecretDefinition provides a function to initialize a Secret data type with the provided options
 func NewSecretDefinition(labels, stringData map[string]string, data map[string][]byte, ns, prefix string) *v1.Secret {
 	return &v1.Secret{
 		ObjectMeta: metav1.ObjectMeta{

@@ -62,7 +62,7 @@ The standard workflow is performed inside a helper container to normalize the bu
 - `vet`: lint all CDI packages
 - `format`: Execute `shfmt`, `goimports`, and `go vet` on all CDI packages.  Writes back to the source files.
 - `publish`: CI ONLY - this recipe is not intended for use by developers
-- `cluster-up`: Start a default Kubernetes or Open Shift cluster. set KUBEVIRT_PROVIDER environment variable to either 'k8s-1.10.4' or 'os-3.10.0' to select the type of cluster. set KUBEVIRT_NUM_NODES to something higher than 1 to have more than one node.
+- `cluster-up`: Start a default Kubernetes or Open Shift cluster. set KUBEVIRT_PROVIDER environment variable to either 'k8s-1.11.0' or 'os-3.11.0' to select the type of cluster. set KUBEVIRT_NUM_NODES to something higher than 1 to have more than one node.
 - `cluster-down`: Stop the cluster, doing a make cluster-down && make cluster-up will basically restart the cluster into an empty fresh state.
 - `cluster-sync`: Builds the controller/importer/cloner, and pushes it into a running cluster. The cluster must be up before running a cluster sync. Also generates a manifest and applies it to the running cluster after pushing the images to it.
 - `release-description`: Generate a release announcement detailing changes between 2 commits (typically tags).  Expects `RELREF` and `PREREF` to be set
@@ -98,7 +98,7 @@ Environment Variables and Supported Values
 
 | Env Variable       | Default       | Additional Values  |
 |--------------------|---------------|--------------------|
-|KUBEVIRT_PROVIDER   | k8s-1.10.4    | os-3.10.0          |
+|KUBEVIRT_PROVIDER   | k8s-1.11.0    | os-3.11.0          |
 |NUM_NODES           | 1             | 2-5                |
 
 To Run Standard *cluster-up/kubevirtci* Tests

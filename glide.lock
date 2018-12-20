@@ -1,5 +1,5 @@
-hash: 202f1700731a461e61a37d4673b35e7caf5de26fc69df09fb574e1737eea2089
-updated: 2018-12-06T21:18:06.25981Z
+hash: 7beb23b98086ac26c559e241fd7837181860b09e3ac777d7d14aa996bb0fc1d8
+updated: 2018-12-20T01:33:16.467674204Z
 imports:
 - name: cloud.google.com/go
   version: 3b1ae45394a234c385be014e9a488f2bb6eef821
@@ -100,7 +100,7 @@ imports:
   subpackages:
   - lru
 - name: github.com/golang/mock
-  version: 5f3a40bc29aa3f8115e37b1ae65fe38747f39816
+  version: 3b08ada96ed40e57fe7a70f2e4d5858e8dfd9af2
   subpackages:
   - gomock
 - name: github.com/golang/protobuf
@@ -114,7 +114,7 @@ imports:
 - name: github.com/google/btree
   version: 7d79101e329e5a3adf994758c578dab82b90c017
 - name: github.com/google/goexpect
-  version: b18097df138928108f35d9eb94955cc12954c0d5
+  version: 31a95e9b7189161fd216fb1f32b74eebbc3c982f
 - name: github.com/google/gofuzz
   version: 44d81051d367757e1c7c6a5a86423ece9afcf63c
 - name: github.com/google/goterm
@@ -186,7 +186,7 @@ imports:
   - jlexer
   - jwriter
 - name: github.com/mattn/go-runewidth
-  version: c88d7e5f2e24de48a200a2655ac8a0910be9a0f7
+  version: 703b5e6b11ae25aeb2af9ebb5d5fdf8fa2575211
 - name: github.com/matttproud/golang_protobuf_extensions
   version: fc2b8d3a73c4867e51861bbdd5ae3c1f0869dd6a
   subpackages:
@@ -344,7 +344,7 @@ imports:
   subpackages:
   - rate
 - name: google.golang.org/appengine
-  version: a37df1387b4521194676d88c79230c613610d5f4
+  version: e9657d882bb81064595ca3b56cbe2546bbabf7b1
   subpackages:
   - internal
   - internal/app_identity
@@ -387,13 +387,13 @@ imports:
   - tap
   - transport
 - name: gopkg.in/cheggaaa/pb.v1
-  version: 007b75a044e968336a69a6c0c617251ab62ac14c
+  version: 1cc5bbe20449079337944d56292c7383510c534c
 - name: gopkg.in/fsnotify/fsnotify.v1
   version: c2828203cd70a50dcccfb2761f8b1f8ceef9a8e9
 - name: gopkg.in/inf.v0
   version: 3887ee99ecf07df5b447e9b00d9c0b2adaa9f3e4
 - name: gopkg.in/ini.v1
-  version: ffaaebdac6e54ce73b4e196b8406920921304ec9
+  version: f55231ca73a76c1d61eb05fe0d64a1ccebf93cba
 - name: gopkg.in/tomb.v1
   version: c131134a1947e9afd9cecfe11f4c6dff0732ae58
 - name: gopkg.in/yaml.v2
@@ -612,7 +612,7 @@ imports:
   - pkg/common
   - pkg/util/proto
 - name: kubevirt.io/containerized-data-importer
-  version: 211c0a0a2c164dcca88ffa74242b7e5ec4cdf2a5
+  version: 254749a63d335a4ec1ef919a971cab0b68cf4980
   repo: https://github.com/kubevirt/containerized-data-importer.git
   subpackages:
   - pkg/apis/datavolumecontroller

@@ -1,16 +1,20 @@
 package util
 
 import (
+	"bufio"
+	"bytes"
 	"encoding/base64"
 	"fmt"
 	"io"
 	"io/ioutil"
 	"math/rand"
 	"os"
+	"os/exec"
 	"strings"
 	"syscall"
 	"time"
 
+	"github.com/golang/glog"
 	"github.com/pkg/errors"
 
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -86,4 +90,36 @@ func MinQuantity(availableSpace, imageSize *resource.Quantity) resource.Quantity
 		return *availableSpace
 	}
 	return *imageSize
+}
+
+// UnArchiveTar unarchives a tar file and streams its files
+// using the specified io.Reader to the specified destination.
+func UnArchiveTar(reader io.Reader, destDir string, arg ...string) error {
+	glog.V(1).Infof("begin untar...\n")
+	args := fmt.Sprintf("-%s%s", strings.Join(arg, ""), "xvC")
+	untar := exec.Command("/usr/bin/tar", args, destDir)
+	untar.Stdin = reader
+	var errBuf bytes.Buffer
+	untar.Stderr = &errBuf
+	err := untar.Start()
+	if err != nil {
+		return err
+	}
+	err = untar.Wait()
+	if err != nil {
+		glog.V(3).Infof("%s\n", string(errBuf.Bytes()))
+		glog.Errorf("%s\n", err.Error())
+		return err
+	}
+	return nil
+}
+
+// UnArchiveLocalTar unarchives a local tar file to the specified destination.
+func UnArchiveLocalTar(filePath, destDir string, arg ...string) error {
+	file, err := os.Open(filePath)
+	if err != nil {
+		return errors.Wrap(err, "could not open tar file")
+	}
+	fileReader := bufio.NewReader(file)
+	return UnArchiveTar(fileReader, destDir, arg...)
 }

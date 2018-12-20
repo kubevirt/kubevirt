@@ -44,10 +44,11 @@ VERBOSITY=${VERBOSITY:-1}
 PULL_POLICY=${PULL_POLICY:-IfNotPresent}
 NAMESPACE=${NAMESPACE:-kube-system}
 
-KUBERNETES_IMAGE="k8s-1.10.4@sha256:b60a61ca03a1a6c504481020709a04f65e4dd9c929a8bcad18821c5f80d1b2b6"
-OPENSHIFT_IMAGE="os-3.10.0@sha256:cc418c0c837d8e6c9a31a063762d9e4c8bfc70a1fcca10823b11c6d8a7ae2394"
+KUBERNETES_IMAGE="k8s-1.11.0@sha256:3412f158ecad53543c9b0aa8468db84dd043f01832a66f0db90327b7dc36a8e8"
+OPENSHIFT_IMAGE="os-3.11.0-crio@sha256:ede83c50c2676e919ef3914e847450f2caf1d6771cb8183eb511bc08660d6fe1"
 
-KUBEVIRT_PROVIDER=${KUBEVIRT_PROVIDER:-k8s-1.10.4}
+
+KUBEVIRT_PROVIDER=${KUBEVIRT_PROVIDER:-k8s-1.11.0}
 
 function allPkgs() {
     ret=$(sed "s,kubevirt.io/containerized-data-importer,${CDI_DIR},g" <(go list ./... | grep -v "pkg/client" | sort -u))
@@ -78,10 +79,10 @@ function parseTestOpts() {
 function getClusterType() {
     local image
     case "${KUBEVIRT_PROVIDER}" in
-    "k8s-1.10.4")
+    "k8s-1.11.0")
         image=$KUBERNETES_IMAGE
         ;;
-    "os-3.10.0")
+    "os-3.11.0")
         image=$OPENSHIFT_IMAGE
         ;;
     esac

@@ -16,6 +16,10 @@ limitations under the License.
 
 package v1alpha1
 
+//go:generate swagger-doc
+//go:generate deepcopy-gen -i . --go-header-file ../../../../hack/custom-boilerplate.go.txt
+//go:generate openapi-gen -i . --output-package=kubevirt.io/containerized-data-importer/pkg/apis/uploadcontroller/v1alpha1  --go-header-file ../../../../hack/custom-boilerplate.go.txt
+
 import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -31,16 +35,18 @@ type UploadTokenRequest struct {
 	Spec UploadTokenRequestSpec `json:"spec"`
 
 	// Status contains the status of the request
-	Status UploadTokenRequestStatus `json:"status"`
+	Status UploadTokenRequestStatus `json:"status,omitempty"`
 }
 
 // UploadTokenRequestSpec defines the parameters of the token request
 type UploadTokenRequestSpec struct {
+	// PvcName is the name of the PVC to upload to
 	PvcName string `json:"pvcName"`
 }
 
 // UploadTokenRequestStatus stores the status of a token request
 type UploadTokenRequestStatus struct {
+	// Token is a JWT token to be inserted in "Authentication Bearer header"
 	Token string `json:"token,omitempty"`
 }
 
@@ -48,7 +54,8 @@ type UploadTokenRequestStatus struct {
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 type UploadTokenRequestList struct {
 	metav1.TypeMeta `json:",inline"`
-	metav1.ListMeta `json:"metadata"`
+	metav1.ListMeta `json:"metadata,omitempty"`
 
+	// Items contains a list of UploadTokenRequests
 	Items []UploadTokenRequest `json:"items"`
 }

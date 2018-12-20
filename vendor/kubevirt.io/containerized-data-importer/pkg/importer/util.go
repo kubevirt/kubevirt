@@ -1,11 +1,9 @@
 package importer
 
 import (
-	"bytes"
 	"io"
 	"net/url"
 	"os"
-	"os/exec"
 
 	"github.com/golang/glog"
 	"github.com/pkg/errors"
@@ -41,27 +39,6 @@ func StreamDataToFile(dataReader io.Reader, filePath string) error {
 	if _, err = io.Copy(outFile, dataReader); err != nil {
 		os.Remove(outFile.Name())
 		return errors.Wrapf(err, "unable to write to file")
-	}
-	return nil
-}
-
-// UnArchiveTar unarchives a tar file and streams its files
-// using the specified io.Reader to the specified destination.
-func UnArchiveTar(reader io.Reader, destDir string) error {
-	glog.V(1).Infof("begin untar...\n")
-	untar := exec.Command("/usr/bin/tar", "-xvC", destDir)
-	untar.Stdin = reader
-	var errBuf bytes.Buffer
-	untar.Stderr = &errBuf
-	err := untar.Start()
-	if err != nil {
-		return err
-	}
-	err = untar.Wait()
-	if err != nil {
-		glog.V(3).Infof("%s\n", string(errBuf.Bytes()))
-		glog.Errorf("%s\n", err.Error())
-		return err
 	}
 	return nil
 }

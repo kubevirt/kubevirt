@@ -26,3 +26,5 @@ import:
   version: ^2.1.8
 - package: github.com/prometheus/client_golang
   version: 0.8.0
+- package: github.com/emicklei/go-restful-openapi
+  version: ^1.0.0

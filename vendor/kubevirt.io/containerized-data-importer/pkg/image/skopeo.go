@@ -28,6 +28,7 @@ import (
 	"github.com/pkg/errors"
 
 	"kubevirt.io/containerized-data-importer/pkg/system"
+	"kubevirt.io/containerized-data-importer/pkg/util"
 )
 
 const dataTmpDir string = "/data_tmp"
@@ -76,15 +77,6 @@ func (o *skopeoOperations) CopyImage(url, dest, accessKey, secKey string) error 
 	return nil
 }
 
-// ExtractTar extracts a tar file to a specified destination
-func ExtractTar(file, dest string) error {
-	_, err := skopeoExecFunction(processLimits, nil, "tar", "-xf", file, "-C", dest)
-	if err != nil {
-		return errors.Wrap(err, "could not extract image")
-	}
-	return nil
-}
-
 // CopyRegistryImage download image from registry with skopeo
 func CopyRegistryImage(url, dest, accessKey, secKey string) error {
 	skopeoDest := "dir:" + dest + dataTmpDir
@@ -127,11 +119,12 @@ var extractImageLayers = func(dest string) error {
 			layerID = m.Digest
 		}
 		layer := strings.TrimPrefix(layerID, "sha256:")
-		file := fmt.Sprintf("%s%s/%s", dest, dataTmpDir, layer)
-		err := ExtractTar(file, dest)
-		if err == nil {
-			err = cleanWhiteoutFiles(dest)
+		filePath := fmt.Sprintf("%s%s/%s", dest, dataTmpDir, layer)
+
+		if err := util.UnArchiveLocalTar(filePath, dest, "z"); err != nil {
+			return errors.Wrap(err, "could not extract layer tar")
 		}
+		err = cleanWhiteoutFiles(dest)
 	}
 	return err
 }

@@ -2,13 +2,11 @@ package main
 
 import (
 	"bufio"
-	"bytes"
 	"flag"
 	"fmt"
 	"io"
 	"io/ioutil"
 	"os"
-	"os/exec"
 	"strconv"
 	"time"
 
@@ -89,7 +87,7 @@ func main() {
 	// Start the progress update thread.
 	go promReader.timedUpdateProgress()
 
-	err = untar(promReader, ".")
+	err = util.UnArchiveTar(promReader, ".")
 	if err != nil {
 		glog.Errorf("%+v", err)
 		os.Exit(1)
@@ -124,24 +122,6 @@ func (r *prometheusProgressReader) updateProgress() {
 	} else {
 		progress.WithLabelValues(ownerUID).Set(-1)
 	}
-}
-
-// Untar the contents of the passed in Reader.
-func untar(r io.Reader, targetDir string) error {
-	var buf bytes.Buffer
-	untar := exec.Command("/usr/bin/tar", "xvC", targetDir)
-	untar.Stdin = r
-	untar.Stderr = &buf
-	err := untar.Start()
-	if err != nil {
-		return err
-	}
-	err = untar.Wait()
-	if err != nil {
-		glog.Errorf("%s\n", string(buf.Bytes()))
-		return err
-	}
-	return err
 }
 
 // read total file size from reader, and return the value as an int64
