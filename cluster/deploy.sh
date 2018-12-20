@@ -25,17 +25,12 @@ source hack/config.sh
 
 echo "Deploying ..."
 
-# Deploy the right manifests for the right target
-if [[ -z $TARGET ]] || [[ $TARGET =~ .*-dev ]]; then
-    _kubectl create -f ${MANIFESTS_OUT_DIR}/dev -R $i
-elif [[ $TARGET =~ .*-release ]] || [[ $TARGET =~ windows.* ]]; then
-    for manifest in ${MANIFESTS_OUT_DIR}/release/*; do
-        if [[ $manifest =~ .*demo.* ]]; then
-            continue
-        fi
-        _kubectl create -f $manifest
-    done
-fi
+for manifest in ${MANIFESTS_OUT_DIR}/release/*; do
+    if [[ $manifest =~ .*demo.* ]]; then
+        continue
+    fi
+    _kubectl create -f $manifest
+done
 
 if [[ "$KUBEVIRT_PROVIDER" =~ os-* ]]; then
     _kubectl adm policy add-scc-to-user privileged -z kubevirt-controller -n ${namespace}

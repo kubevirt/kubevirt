@@ -30,25 +30,26 @@ rm -rf ${MANIFEST_TEMPLATES_OUT_DIR}
 (cd ${KUBEVIRT_DIR}/tools/manifest-templator/ && go build)
 
 # first process file includes only
-args=$(cd ${KUBEVIRT_DIR}/manifests && find dev release -type f -name "*.yaml.in")
+args=$(cd ${KUBEVIRT_DIR}/manifests && find . -type f -name "*.yaml.in" -not -path "./generated/*")
 for arg in $args; do
+    infile=${KUBEVIRT_DIR}/manifests/${arg}
     outfile=${KUBEVIRT_DIR}/manifests/${arg}.tmp
 
     ${KUBEVIRT_DIR}/tools/manifest-templator/manifest-templator \
         --process-files \
         --generated-manifests-dir=${KUBEVIRT_DIR}/manifests/generated/ \
-        --dev-manifests-dir=${KUBEVIRT_DIR}/manifests/dev/ \
-        --input-file=${KUBEVIRT_DIR}/manifests/${arg} >${outfile}
+        --input-file=${infile} >${outfile}
 done
 
 # then process variables
-args=$(cd ${KUBEVIRT_DIR}/manifests && find dev release -type f -name "*.yaml.in.tmp")
+args=$(cd ${KUBEVIRT_DIR}/manifests && find . -type f -name "*.yaml.in.tmp" -not -path "./generated/*")
 for arg in $args; do
     final_out_dir=$(dirname ${MANIFESTS_OUT_DIR}/${arg})
     final_templates_out_dir=$(dirname ${MANIFEST_TEMPLATES_OUT_DIR}/${arg})
     mkdir -p ${final_out_dir}
     mkdir -p ${final_templates_out_dir}
     manifest=$(basename -s .in.tmp ${arg})
+    infile=${KUBEVIRT_DIR}/manifests/${arg}
     outfile=${final_out_dir}/${manifest}
     template_outfile=${final_templates_out_dir}/${manifest}.j2
 
@@ -60,7 +61,7 @@ for arg in $args; do
         --container-tag=${docker_tag} \
         --image-pull-policy=${image_pull_policy} \
         --verbosity=${verbosity} \
-        --input-file=${KUBEVIRT_DIR}/manifests/$arg >${outfile}
+        --input-file=${infile} >${outfile}
 
     ${KUBEVIRT_DIR}/tools/manifest-templator/manifest-templator \
         --process-vars \
@@ -70,7 +71,7 @@ for arg in $args; do
         --container-tag="{{ docker_tag }}" \
         --image-pull-policy="{{ image_pull_policy }}" \
         --verbosity=${verbosity} \
-        --input-file=${KUBEVIRT_DIR}/manifests/$arg >${template_outfile}
+        --input-file=${infile} >${template_outfile}
 done
 
 # Remove empty lines at the end of files which are added by go templating
