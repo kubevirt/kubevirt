@@ -38,7 +38,6 @@ type templateData struct {
 	ImagePullPolicy    string
 	Verbosity          string
 	GeneratedManifests map[string]string
-	DevManifests       map[string]string
 }
 
 func main() {
@@ -49,7 +48,6 @@ func main() {
 	imagePullPolicy := flag.String("image-pull-policy", "IfNotPresent", "")
 	verbosity := flag.String("verbosity", "2", "")
 	genDir := flag.String("generated-manifests-dir", "", "")
-	devDir := flag.String("dev-manifests-dir", "", "")
 	inputFile := flag.String("input-file", "", "")
 	processFiles := flag.Bool("process-files", false, "")
 	processVars := flag.Bool("process-vars", false, "")
@@ -63,7 +61,6 @@ func main() {
 
 	data := templateData{
 		GeneratedManifests: make(map[string]string),
-		DevManifests:       make(map[string]string),
 	}
 
 	if *processVars {
@@ -98,22 +95,6 @@ func main() {
 				panic(err)
 			}
 			data.GeneratedManifests[manifest.Name()] = string(b)
-		}
-
-		manifests, err = ioutil.ReadDir(*devDir)
-		if err != nil {
-			panic(err)
-		}
-
-		for _, manifest := range manifests {
-			if manifest.IsDir() {
-				continue
-			}
-			b, err := ioutil.ReadFile(filepath.Join(*devDir, manifest.Name()))
-			if err != nil {
-				panic(err)
-			}
-			data.DevManifests[manifest.Name()] = string(b)
 		}
 	}
 

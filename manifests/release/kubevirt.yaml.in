@@ -1,4 +1,10 @@
-{{index .DevManifests "kubevirt-ns.yaml.in"}}
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  labels:
+    kubevirt.io: ""
+  name: {{.Namespace}}
 {{index .GeneratedManifests "prometheus.yaml.in"}}
 {{index .GeneratedManifests "rbac.authorization.k8s.yaml.in"}}
 {{index .GeneratedManifests "virt-api.yaml.in"}}
