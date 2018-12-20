@@ -59,6 +59,7 @@ for arg in $args; do
         --container-prefix=${manifest_docker_prefix} \
         --container-tag=${docker_tag} \
         --image-pull-policy=${image_pull_policy} \
+        --verbosity=${verbosity} \
         --input-file=${KUBEVIRT_DIR}/manifests/$arg >${outfile}
 
     ${KUBEVIRT_DIR}/tools/manifest-templator/manifest-templator \
@@ -68,6 +69,7 @@ for arg in $args; do
         --container-prefix="{{ docker_prefix }}" \
         --container-tag="{{ docker_tag }}" \
         --image-pull-policy="{{ image_pull_policy }}" \
+        --verbosity=${verbosity} \
         --input-file=${KUBEVIRT_DIR}/manifests/$arg >${template_outfile}
 done
 

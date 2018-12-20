@@ -43,6 +43,8 @@ spec:
         - --port
         - "8443"
         - --subresources-only
+        - -v
+        - {{.Verbosity}}
         image: {{.DockerPrefix}}/virt-api:{{.DockerTag}}
         imagePullPolicy: {{.ImagePullPolicy}}
         name: virt-api

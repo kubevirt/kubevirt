@@ -160,7 +160,7 @@ func newBaseDeployment(name string, namespace string, repository string, version
 	}, nil
 }
 
-func NewApiServerDeployment(namespace string, repository string, version string, pullPolicy corev1.PullPolicy) (*appsv1.Deployment, error) {
+func NewApiServerDeployment(namespace string, repository string, version string, pullPolicy corev1.PullPolicy, verbosity string) (*appsv1.Deployment, error) {
 	deployment, err := newBaseDeployment("virt-api", namespace, repository, version, pullPolicy)
 	if err != nil {
 		return nil, err
@@ -174,7 +174,12 @@ func NewApiServerDeployment(namespace string, repository string, version string,
 
 	container := &deployment.Spec.Template.Spec.Containers[0]
 	container.Command = []string{
-		"virt-api", "--port", "8443", "--subresources-only",
+		"virt-api",
+		"--port",
+		"8443",
+		"--subresources-only",
+		"-v",
+		verbosity,
 	}
 	container.Ports = []corev1.ContainerPort{
 		{
@@ -205,7 +210,7 @@ func NewApiServerDeployment(namespace string, repository string, version string,
 	return deployment, nil
 }
 
-func NewControllerDeployment(namespace string, repository string, version string, pullPolicy corev1.PullPolicy) (*appsv1.Deployment, error) {
+func NewControllerDeployment(namespace string, repository string, version string, pullPolicy corev1.PullPolicy, verbosity string) (*appsv1.Deployment, error) {
 	deployment, err := newBaseDeployment("virt-controller", namespace, repository, version, pullPolicy)
 	if err != nil {
 		return nil, err
@@ -224,6 +229,8 @@ func NewControllerDeployment(namespace string, repository string, version string
 		fmt.Sprintf("%s/%s:%s", repository, "virt-launcher", version),
 		"--port",
 		"8443",
+		"-v",
+		verbosity,
 	}
 	container.Ports = []corev1.ContainerPort{
 		{
@@ -264,7 +271,7 @@ func NewControllerDeployment(namespace string, repository string, version string
 	return deployment, nil
 }
 
-func NewHandlerDeamonSet(namespace string, repository string, version string, pullPolicy corev1.PullPolicy) (*appsv1.DaemonSet, error) {
+func NewHandlerDeamonSet(namespace string, repository string, version string, pullPolicy corev1.PullPolicy, verbosity string) (*appsv1.DaemonSet, error) {
 
 	podTemplateSpec, err := newPodTemplateSpec("virt-handler", repository, version, pullPolicy)
 	if err != nil {
@@ -303,14 +310,14 @@ func NewHandlerDeamonSet(namespace string, repository string, version string, pu
 	container := &pod.Containers[0]
 	container.Command = []string{
 		"virt-handler",
-		"-v",
-		"3",
 		"--port",
 		"8443",
 		"--hostname-override",
 		"$(NODE_NAME)",
 		"--pod-ip-address",
 		"$(MY_POD_IP)",
+		"-v",
+		verbosity,
 	}
 	container.Ports = []corev1.ContainerPort{
 		{

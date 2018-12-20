@@ -24,9 +24,9 @@ ${KUBEVIRT_DIR}/tools/resource-generator/resource-generator --type=vm >${KUBEVIR
 ${KUBEVIRT_DIR}/tools/resource-generator/resource-generator --type=vmim >${KUBEVIRT_DIR}/manifests/generated/vmim-resource.yaml
 ${KUBEVIRT_DIR}/tools/resource-generator/resource-generator --type=rbac --namespace={{.Namespace}} >${KUBEVIRT_DIR}/manifests/generated/rbac.authorization.k8s.yaml.in
 ${KUBEVIRT_DIR}/tools/resource-generator/resource-generator --type=prometheus --namespace={{.Namespace}} >${KUBEVIRT_DIR}/manifests/generated/prometheus.yaml.in
-${KUBEVIRT_DIR}/tools/resource-generator/resource-generator --type=virt-api --namespace={{.Namespace}} --repository={{.DockerPrefix}} --version={{.DockerTag}} --pullPolicy={{.ImagePullPolicy}} >${KUBEVIRT_DIR}/manifests/generated/virt-api.yaml.in
-${KUBEVIRT_DIR}/tools/resource-generator/resource-generator --type=virt-controller --namespace={{.Namespace}} --repository={{.DockerPrefix}} --version={{.DockerTag}} --pullPolicy={{.ImagePullPolicy}} >${KUBEVIRT_DIR}/manifests/generated/virt-controller.yaml.in
-${KUBEVIRT_DIR}/tools/resource-generator/resource-generator --type=virt-handler --namespace={{.Namespace}} --repository={{.DockerPrefix}} --version={{.DockerTag}} --pullPolicy={{.ImagePullPolicy}} >${KUBEVIRT_DIR}/manifests/generated/virt-handler.yaml.in
+${KUBEVIRT_DIR}/tools/resource-generator/resource-generator --type=virt-api --namespace={{.Namespace}} --repository={{.DockerPrefix}} --version={{.DockerTag}} --pullPolicy={{.ImagePullPolicy}} --verbosity={{.Verbosity}} >${KUBEVIRT_DIR}/manifests/generated/virt-api.yaml.in
+${KUBEVIRT_DIR}/tools/resource-generator/resource-generator --type=virt-controller --namespace={{.Namespace}} --repository={{.DockerPrefix}} --version={{.DockerTag}} --pullPolicy={{.ImagePullPolicy}} --verbosity={{.Verbosity}} >${KUBEVIRT_DIR}/manifests/generated/virt-controller.yaml.in
+${KUBEVIRT_DIR}/tools/resource-generator/resource-generator --type=virt-handler --namespace={{.Namespace}} --repository={{.DockerPrefix}} --version={{.DockerTag}} --pullPolicy={{.ImagePullPolicy}} --verbosity={{.Verbosity}} >${KUBEVIRT_DIR}/manifests/generated/virt-handler.yaml.in
 
 (cd ${KUBEVIRT_DIR}/tools/vms-generator/ && go build)
 ${KUBEVIRT_DIR}/tools/vms-generator/vms-generator --generated-vms-dir=${KUBEVIRT_DIR}/cluster/examples

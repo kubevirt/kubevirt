@@ -23,14 +23,14 @@ spec:
       containers:
       - command:
         - virt-handler
-        - -v
-        - "3"
         - --port
         - "8443"
         - --hostname-override
         - $(NODE_NAME)
         - --pod-ip-address
         - $(MY_POD_IP)
+        - -v
+        - {{.Verbosity}}
         env:
         - name: NODE_NAME
           valueFrom:

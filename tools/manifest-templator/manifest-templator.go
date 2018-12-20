@@ -21,6 +21,7 @@ package main
 
 import (
 	"flag"
+	"fmt"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -35,6 +36,7 @@ type templateData struct {
 	DockerTag          string
 	DockerPrefix       string
 	ImagePullPolicy    string
+	Verbosity          string
 	GeneratedManifests map[string]string
 	DevManifests       map[string]string
 }
@@ -45,6 +47,7 @@ func main() {
 	dockerPrefix := flag.String("container-prefix", "", "")
 	dockerTag := flag.String("container-tag", "", "")
 	imagePullPolicy := flag.String("image-pull-policy", "IfNotPresent", "")
+	verbosity := flag.String("verbosity", "2", "")
 	genDir := flag.String("generated-manifests-dir", "", "")
 	devDir := flag.String("dev-manifests-dir", "", "")
 	inputFile := flag.String("input-file", "", "")
@@ -69,6 +72,7 @@ func main() {
 		data.DockerTag = *dockerTag
 		data.DockerPrefix = *dockerPrefix
 		data.ImagePullPolicy = *imagePullPolicy
+		data.Verbosity = fmt.Sprintf("\"%s\"", *verbosity)
 	} else {
 		// keep templates
 		data.Namespace = "{{.Namespace}}"
@@ -76,6 +80,7 @@ func main() {
 		data.DockerTag = "{{.DockerTag}}"
 		data.DockerPrefix = "{{.DockerPrefix}}"
 		data.ImagePullPolicy = "{{.ImagePullPolicy}}"
+		data.Verbosity = "{{.Verbosity}}"
 	}
 
 	if *processFiles {
