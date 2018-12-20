@@ -42,7 +42,7 @@ for arg in $args; do
 done
 
 # then process variables
-args=$(cd ${KUBEVIRT_DIR}/manifests && find . -type f -name "*.yaml.in.tmp" -not -path "./generated/*")
+args=$(cd ${KUBEVIRT_DIR}/manifests && find . -type f -name "*.yaml.in.tmp")
 for arg in $args; do
     final_out_dir=$(dirname ${MANIFESTS_OUT_DIR}/${arg})
     final_templates_out_dir=$(dirname ${MANIFEST_TEMPLATES_OUT_DIR}/${arg})
@@ -73,6 +73,9 @@ for arg in $args; do
         --verbosity=${verbosity} \
         --input-file=${infile} >${template_outfile}
 done
+
+# Remove tmp files
+(cd ${KUBEVIRT_DIR}/manifests && find . -type f -name "*.yaml.in.tmp" -exec rm {} \;)
 
 # Remove empty lines at the end of files which are added by go templating
 find ${MANIFESTS_OUT_DIR}/ -type f -exec sed -i {} -e '${/^$/d;}' \;
