@@ -6,7 +6,7 @@ metadata:
     kubevirt.io: ""
     prometheus.kubevirt.io: ""
   name: kubevirt-prometheus-metrics
-  namespace: kubevirt
+  namespace: {{.Namespace}}
 spec:
   ports:
   - name: metrics

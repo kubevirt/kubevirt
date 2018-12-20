@@ -21,6 +21,7 @@ package util
 import (
 	"encoding/json"
 	"io"
+	"strings"
 
 	"github.com/ghodss/yaml"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -51,6 +52,12 @@ func MarshallObject(obj interface{}, writer io.Writer) error {
 	if err != nil {
 		return err
 	}
+
+	// fix templates by removing quotes...
+	s := string(yamlBytes)
+	s = strings.Replace(s, "'{{", "{{", -1)
+	s = strings.Replace(s, "}}'", "}}", -1)
+	yamlBytes = []byte(s)
 
 	_, err = writer.Write([]byte("---\n"))
 	if err != nil {

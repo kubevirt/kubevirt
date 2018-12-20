@@ -24,41 +24,50 @@ source hack/config.sh
 
 manifest_docker_prefix=${manifest_docker_prefix-${docker_prefix}}
 
-# make sure manifests in dev are processed first, so that their result can be used in other manifests (see --dev-manifests-dir)
-args=$(cd ${KUBEVIRT_DIR}/manifests && find * -type f -name "*.yaml.in" | sort)
-
 rm -rf ${MANIFESTS_OUT_DIR}
 rm -rf ${MANIFEST_TEMPLATES_OUT_DIR}
 
 (cd ${KUBEVIRT_DIR}/tools/manifest-templator/ && go build)
 
+# first process file includes only
+args=$(cd ${KUBEVIRT_DIR}/manifests && find dev release -type f -name "*.yaml.in")
+for arg in $args; do
+    outfile=${KUBEVIRT_DIR}/manifests/${arg}.tmp
+
+    ${KUBEVIRT_DIR}/tools/manifest-templator/manifest-templator \
+        --process-files \
+        --generated-manifests-dir=${KUBEVIRT_DIR}/manifests/generated/ \
+        --dev-manifests-dir=${KUBEVIRT_DIR}/manifests/dev/ \
+        --input-file=${KUBEVIRT_DIR}/manifests/${arg} >${outfile}
+done
+
+# then process variables
+args=$(cd ${KUBEVIRT_DIR}/manifests && find dev release -type f -name "*.yaml.in.tmp")
 for arg in $args; do
     final_out_dir=$(dirname ${MANIFESTS_OUT_DIR}/${arg})
     final_templates_out_dir=$(dirname ${MANIFEST_TEMPLATES_OUT_DIR}/${arg})
     mkdir -p ${final_out_dir}
     mkdir -p ${final_templates_out_dir}
-    manifest=$(basename -s .in ${arg})
+    manifest=$(basename -s .in.tmp ${arg})
     outfile=${final_out_dir}/${manifest}
     template_outfile=${final_templates_out_dir}/${manifest}.j2
 
     ${KUBEVIRT_DIR}/tools/manifest-templator/manifest-templator \
+        --process-vars \
         --namespace=${namespace} \
         --cdi-namespace=${cdi_namespace} \
         --container-prefix=${manifest_docker_prefix} \
         --container-tag=${docker_tag} \
         --image-pull-policy=${image_pull_policy} \
-        --generated-manifests-dir=${KUBEVIRT_DIR}/manifests/generated/ \
-        --dev-manifests-dir=${MANIFESTS_OUT_DIR}/dev/ \
         --input-file=${KUBEVIRT_DIR}/manifests/$arg >${outfile}
 
     ${KUBEVIRT_DIR}/tools/manifest-templator/manifest-templator \
+        --process-vars \
         --namespace="{{ namespace }}" \
         --cdi-namespace="{{ cdi_namespace }}" \
         --container-prefix="{{ docker_prefix }}" \
         --container-tag="{{ docker_tag }}" \
         --image-pull-policy="{{ image_pull_policy }}" \
-        --generated-manifests-dir=${KUBEVIRT_DIR}/manifests/generated/ \
-        --dev-manifests-dir=${MANIFESTS_OUT_DIR}/dev/ \
         --input-file=${KUBEVIRT_DIR}/manifests/$arg >${template_outfile}
 done
 

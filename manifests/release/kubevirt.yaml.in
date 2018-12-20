@@ -1,9 +1,9 @@
-{{index .DevManifests "kubevirt-ns.yaml"}}
-{{index .GeneratedManifests "prometheus.yaml"}}
-{{index .GeneratedManifests "rbac.authorization.k8s.yaml"}}
-{{index .GeneratedManifests "virt-api.yaml"}}
-{{index .GeneratedManifests "virt-controller.yaml"}}
-{{index .GeneratedManifests "virt-handler.yaml"}}
+{{index .DevManifests "kubevirt-ns.yaml.in"}}
+{{index .GeneratedManifests "prometheus.yaml.in"}}
+{{index .GeneratedManifests "rbac.authorization.k8s.yaml.in"}}
+{{index .GeneratedManifests "virt-api.yaml.in"}}
+{{index .GeneratedManifests "virt-controller.yaml.in"}}
+{{index .GeneratedManifests "virt-handler.yaml.in"}}
 {{index .GeneratedManifests "vmi-resource.yaml"}}
 {{index .GeneratedManifests "vmirs-resource.yaml"}}
 {{index .GeneratedManifests "vmipreset-resource.yaml"}}

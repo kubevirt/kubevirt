@@ -1,1 +1,1 @@
-{{index .GeneratedManifests "prometheus.yaml"}}
+{{index .GeneratedManifests "prometheus.yaml.in"}}

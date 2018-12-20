@@ -128,7 +128,7 @@ metadata:
   labels:
     kubevirt.io: ""
   name: kubevirt-privileged
-  namespace: kubevirt
+  namespace: {{.Namespace}}
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
@@ -136,7 +136,7 @@ metadata:
   labels:
     kubevirt.io: ""
   name: kubevirt-privileged-cluster-admin
-  namespace: kubevirt
+  namespace: {{.Namespace}}
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
@@ -144,7 +144,7 @@ roleRef:
 subjects:
 - kind: ServiceAccount
   name: kubevirt-privileged
-  namespace: kubevirt
+  namespace: {{.Namespace}}
 ---
 apiVersion: v1
 kind: ServiceAccount
@@ -152,7 +152,7 @@ metadata:
   labels:
     kubevirt.io: ""
   name: kubevirt-apiserver
-  namespace: kubevirt
+  namespace: {{.Namespace}}
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
@@ -233,7 +233,7 @@ metadata:
   labels:
     kubevirt.io: ""
   name: kubevirt-apiserver
-  namespace: kubevirt
+  namespace: {{.Namespace}}
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
@@ -241,7 +241,7 @@ roleRef:
 subjects:
 - kind: ServiceAccount
   name: kubevirt-apiserver
-  namespace: kubevirt
+  namespace: {{.Namespace}}
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
@@ -249,7 +249,7 @@ metadata:
   labels:
     kubevirt.io: ""
   name: kubevirt-apiserver-auth-delegator
-  namespace: kubevirt
+  namespace: {{.Namespace}}
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
@@ -257,7 +257,7 @@ roleRef:
 subjects:
 - kind: ServiceAccount
   name: kubevirt-apiserver
-  namespace: kubevirt
+  namespace: {{.Namespace}}
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
@@ -265,7 +265,7 @@ metadata:
   labels:
     kubevirt.io: ""
   name: kubevirt-apiserver
-  namespace: kubevirt
+  namespace: {{.Namespace}}
 rules:
 - apiGroups:
   - ""
@@ -292,7 +292,7 @@ metadata:
   labels:
     kubevirt.io: ""
   name: kubevirt-apiserver
-  namespace: kubevirt
+  namespace: {{.Namespace}}
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: Role
@@ -300,7 +300,7 @@ roleRef:
 subjects:
 - kind: ServiceAccount
   name: kubevirt-apiserver
-  namespace: kubevirt
+  namespace: {{.Namespace}}
 ---
 apiVersion: v1
 kind: ServiceAccount
@@ -308,7 +308,7 @@ metadata:
   labels:
     kubevirt.io: ""
   name: kubevirt-controller
-  namespace: kubevirt
+  namespace: {{.Namespace}}
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
@@ -389,7 +389,7 @@ metadata:
   labels:
     kubevirt.io: ""
   name: kubevirt-controller
-  namespace: kubevirt
+  namespace: {{.Namespace}}
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
@@ -397,4 +397,4 @@ roleRef:
 subjects:
 - kind: ServiceAccount
   name: kubevirt-controller
-  namespace: kubevirt
+  namespace: {{.Namespace}}

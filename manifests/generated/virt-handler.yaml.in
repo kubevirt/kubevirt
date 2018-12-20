@@ -5,7 +5,7 @@ metadata:
   labels:
     kubevirt.io: virt-handler
   name: virt-handler
-  namespace: kubevirt
+  namespace: {{.Namespace}}
 spec:
   selector:
     matchLabels:
@@ -40,7 +40,7 @@ spec:
           valueFrom:
             fieldRef:
               fieldPath: status.podIP
-        image: kubevirt/virt-handler:latest
+        image: {{.DockerPrefix}}/virt-handler:{{.DockerTag}}
         imagePullPolicy: IfNotPresent
         name: virt-handler
         ports:
