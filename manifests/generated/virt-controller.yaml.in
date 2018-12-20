@@ -29,6 +29,8 @@ spec:
         - {{.DockerPrefix}}/virt-launcher:{{.DockerTag}}
         - --port
         - "8443"
+        - -v
+        - {{.Verbosity}}
         image: {{.DockerPrefix}}/virt-controller:{{.DockerTag}}
         imagePullPolicy: {{.ImagePullPolicy}}
         livenessProbe:

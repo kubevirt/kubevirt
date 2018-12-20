@@ -37,6 +37,7 @@ func main() {
 	repository := flag.String("repository", "kubevirt", "Image Repository to use.")
 	version := flag.String("version", "latest", "version to use.")
 	pullPolicy := flag.String("pullPolicy", "IfNotPresent", "ImagePullPolicy to use.")
+	verbosity := flag.String("verbosity", "2", "Verbosity level to use.")
 
 	flag.Parse()
 
@@ -65,7 +66,7 @@ func main() {
 		util.MarshallObject(components.NewPrometheusService(*namespace), os.Stdout)
 	case "virt-api":
 		apisService := components.NewApiServerService(*namespace)
-		apiDeployment, err := components.NewApiServerDeployment(*namespace, *repository, *version, imagePullPolicy)
+		apiDeployment, err := components.NewApiServerDeployment(*namespace, *repository, *version, imagePullPolicy, *verbosity)
 		if err != nil {
 			panic(fmt.Errorf("error generating virt-apiserver deployment %v", err))
 
@@ -75,14 +76,14 @@ func main() {
 			util.MarshallObject(r, os.Stdout)
 		}
 	case "virt-controller":
-		controller, err := components.NewControllerDeployment(*namespace, *repository, *version, imagePullPolicy)
+		controller, err := components.NewControllerDeployment(*namespace, *repository, *version, imagePullPolicy, *verbosity)
 		if err != nil {
 			panic(fmt.Errorf("error generating virt-controller deployment %v", err))
 
 		}
 		util.MarshallObject(controller, os.Stdout)
 	case "virt-handler":
-		handler, err := components.NewHandlerDeamonSet(*namespace, *repository, *version, imagePullPolicy)
+		handler, err := components.NewHandlerDeamonSet(*namespace, *repository, *version, imagePullPolicy, *verbosity)
 		if err != nil {
 			panic(fmt.Errorf("error generating virt-handler deployment %v", err))
 		}
