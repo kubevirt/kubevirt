@@ -1,1 +1,1 @@
-{{index .GeneratedManifests "virt-controller.yaml"}}
+{{index .GeneratedManifests "virt-controller.yaml.in"}}

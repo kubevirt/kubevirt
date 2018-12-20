@@ -22,11 +22,11 @@ ${KUBEVIRT_DIR}/tools/resource-generator/resource-generator --type=vmirs >${KUBE
 ${KUBEVIRT_DIR}/tools/resource-generator/resource-generator --type=vmipreset >${KUBEVIRT_DIR}/manifests/generated/vmipreset-resource.yaml
 ${KUBEVIRT_DIR}/tools/resource-generator/resource-generator --type=vm >${KUBEVIRT_DIR}/manifests/generated/vm-resource.yaml
 ${KUBEVIRT_DIR}/tools/resource-generator/resource-generator --type=vmim >${KUBEVIRT_DIR}/manifests/generated/vmim-resource.yaml
-${KUBEVIRT_DIR}/tools/resource-generator/resource-generator --type=rbac --namespace=${namespace} >${KUBEVIRT_DIR}/manifests/generated/rbac.authorization.k8s.yaml
-${KUBEVIRT_DIR}/tools/resource-generator/resource-generator --type=prometheus --namespace=${namespace} >${KUBEVIRT_DIR}/manifests/generated/prometheus.yaml
-${KUBEVIRT_DIR}/tools/resource-generator/resource-generator --type=virt-api --namespace=${namespace} --repository=${docker_prefix} --version=${docker_tag} --pullPolicy=${image_pull_policy} >${KUBEVIRT_DIR}/manifests/generated/virt-api.yaml
-${KUBEVIRT_DIR}/tools/resource-generator/resource-generator --type=virt-controller --namespace=${namespace} --repository=${docker_prefix} --version=${docker_tag} --pullPolicy=${image_pull_policy} >${KUBEVIRT_DIR}/manifests/generated/virt-controller.yaml
-${KUBEVIRT_DIR}/tools/resource-generator/resource-generator --type=virt-handler --namespace=${namespace} --repository=${docker_prefix} --version=${docker_tag} --pullPolicy=${image_pull_policy} >${KUBEVIRT_DIR}/manifests/generated/virt-handler.yaml
+${KUBEVIRT_DIR}/tools/resource-generator/resource-generator --type=rbac --namespace={{.Namespace}} >${KUBEVIRT_DIR}/manifests/generated/rbac.authorization.k8s.yaml.in
+${KUBEVIRT_DIR}/tools/resource-generator/resource-generator --type=prometheus --namespace={{.Namespace}} >${KUBEVIRT_DIR}/manifests/generated/prometheus.yaml.in
+${KUBEVIRT_DIR}/tools/resource-generator/resource-generator --type=virt-api --namespace={{.Namespace}} --repository={{.DockerPrefix}} --version={{.DockerTag}} --pullPolicy={{.ImagePullPolicy}} >${KUBEVIRT_DIR}/manifests/generated/virt-api.yaml.in
+${KUBEVIRT_DIR}/tools/resource-generator/resource-generator --type=virt-controller --namespace={{.Namespace}} --repository={{.DockerPrefix}} --version={{.DockerTag}} --pullPolicy={{.ImagePullPolicy}} >${KUBEVIRT_DIR}/manifests/generated/virt-controller.yaml.in
+${KUBEVIRT_DIR}/tools/resource-generator/resource-generator --type=virt-handler --namespace={{.Namespace}} --repository={{.DockerPrefix}} --version={{.DockerTag}} --pullPolicy={{.ImagePullPolicy}} >${KUBEVIRT_DIR}/manifests/generated/virt-handler.yaml.in
 
 (cd ${KUBEVIRT_DIR}/tools/vms-generator/ && go build)
 ${KUBEVIRT_DIR}/tools/vms-generator/vms-generator --generated-vms-dir=${KUBEVIRT_DIR}/cluster/examples

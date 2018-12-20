@@ -49,7 +49,7 @@ func main() {
 	case string(v1.PullIfNotPresent):
 		imagePullPolicy = v1.PullIfNotPresent
 	default:
-		panic(fmt.Errorf("unknown pull policy %s", *pullPolicy))
+		imagePullPolicy = v1.PullIfNotPresent
 	}
 
 	switch *resourceType {

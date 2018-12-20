@@ -1,16 +1,31 @@
 ---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    kubevirt.io: virt-api
+  name: virt-api
+  namespace: {{.Namespace}}
+spec:
+  ports:
+  - port: 443
+    protocol: TCP
+    targetPort: 8443
+  selector:
+    kubevirt.io: virt-api
+---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
   labels:
-    kubevirt.io: virt-controller
-  name: virt-controller
-  namespace: kubevirt
+    kubevirt.io: virt-api
+  name: virt-api
+  namespace: {{.Namespace}}
 spec:
   replicas: 2
   selector:
     matchLabels:
-      kubevirt.io: virt-controller
+      kubevirt.io: virt-api
   strategy: {}
   template:
     metadata:
@@ -18,40 +33,34 @@ spec:
         scheduler.alpha.kubernetes.io/critical-pod: ""
         scheduler.alpha.kubernetes.io/tolerations: '[{"key":"CriticalAddonsOnly","operator":"Exists"}]'
       labels:
-        kubevirt.io: virt-controller
+        kubevirt.io: virt-api
         prometheus.kubevirt.io: ""
-      name: virt-controller
+      name: virt-api
     spec:
       containers:
       - command:
-        - virt-controller
-        - --launcher-image
-        - kubevirt/virt-launcher:latest
+        - virt-api
         - --port
         - "8443"
-        image: kubevirt/virt-controller:latest
+        - --subresources-only
+        image: {{.DockerPrefix}}/virt-api:{{.DockerTag}}
         imagePullPolicy: IfNotPresent
-        livenessProbe:
-          failureThreshold: 8
-          httpGet:
-            path: /healthz
-            port: 8443
-            scheme: HTTPS
-          initialDelaySeconds: 15
-          timeoutSeconds: 10
-        name: virt-controller
+        name: virt-api
         ports:
+        - containerPort: 8443
+          name: virt-api
+          protocol: TCP
         - containerPort: 8443
           name: metrics
           protocol: TCP
         readinessProbe:
           httpGet:
-            path: /leader
+            path: /apis/subresources.kubevirt.io/v1alpha2/healthz
             port: 8443
             scheme: HTTPS
           initialDelaySeconds: 15
-          timeoutSeconds: 10
+          periodSeconds: 10
         resources: {}
       securityContext:
         runAsNonRoot: true
-      serviceAccountName: kubevirt-controller
+      serviceAccountName: kubevirt-apiserver

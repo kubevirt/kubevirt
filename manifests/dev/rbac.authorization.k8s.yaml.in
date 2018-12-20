@@ -1,1 +1,1 @@
-{{index .GeneratedManifests "rbac.authorization.k8s.yaml"}}
+{{index .GeneratedManifests "rbac.authorization.k8s.yaml.in"}}

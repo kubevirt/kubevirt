@@ -48,48 +48,72 @@ func main() {
 	genDir := flag.String("generated-manifests-dir", "", "")
 	devDir := flag.String("dev-manifests-dir", "", "")
 	inputFile := flag.String("input-file", "", "")
+	processFiles := flag.Bool("process-files", false, "")
+	processVars := flag.Bool("process-vars", false, "")
 	pflag.CommandLine.AddGoFlagSet(flag.CommandLine)
 	pflag.CommandLine.ParseErrorsWhitelist.UnknownFlags = true
 	pflag.Parse()
 
+	if !(*processFiles || *processVars) {
+		panic("at least one of process-files or process-vars must be true")
+	}
+
 	data := templateData{
-		Namespace:          *namespace,
-		CDINamespace:       *cdiNamespace,
-		DockerTag:          *dockerTag,
-		DockerPrefix:       *dockerPrefix,
-		ImagePullPolicy:    *imagePullPolicy,
 		GeneratedManifests: make(map[string]string),
 		DevManifests:       make(map[string]string),
 	}
 
-	manifests, err := ioutil.ReadDir(*genDir)
-	if err != nil {
-		panic(err)
+	if *processVars {
+		data.Namespace = *namespace
+		data.CDINamespace = *cdiNamespace
+		data.DockerTag = *dockerTag
+		data.DockerPrefix = *dockerPrefix
+		data.ImagePullPolicy = *imagePullPolicy
+	} else {
+		// keep templates
+		data.Namespace = "{{.Namespace}}"
+		data.CDINamespace = "{{.CDINamespace}}"
+		data.DockerTag = "{{.DockerTag}}"
+		data.DockerPrefix = "{{.DockerPrefix}}"
+		data.ImagePullPolicy = "{{.ImagePullPolicy}}"
 	}
 
-	for _, manifest := range manifests {
-		b, err := ioutil.ReadFile(filepath.Join(*genDir, manifest.Name()))
+	if *processFiles {
+		manifests, err := ioutil.ReadDir(*genDir)
 		if err != nil {
 			panic(err)
 		}
-		data.GeneratedManifests[manifest.Name()] = string(b)
-	}
 
-	manifests, err = ioutil.ReadDir(*devDir)
-	if err != nil {
-		panic(err)
-	}
+		for _, manifest := range manifests {
+			if manifest.IsDir() {
+				continue
+			}
+			b, err := ioutil.ReadFile(filepath.Join(*genDir, manifest.Name()))
+			if err != nil {
+				panic(err)
+			}
+			data.GeneratedManifests[manifest.Name()] = string(b)
+		}
 
-	for _, manifest := range manifests {
-		b, err := ioutil.ReadFile(filepath.Join(*devDir, manifest.Name()))
+		manifests, err = ioutil.ReadDir(*devDir)
 		if err != nil {
 			panic(err)
 		}
-		data.DevManifests[manifest.Name()] = string(b)
+
+		for _, manifest := range manifests {
+			if manifest.IsDir() {
+				continue
+			}
+			b, err := ioutil.ReadFile(filepath.Join(*devDir, manifest.Name()))
+			if err != nil {
+				panic(err)
+			}
+			data.DevManifests[manifest.Name()] = string(b)
+		}
 	}
 
 	tmpl := template.Must(template.ParseFiles(*inputFile))
-	err = tmpl.Execute(os.Stdout, data)
+	err := tmpl.Execute(os.Stdout, data)
 	if err != nil {
 		panic(err)
 	}
