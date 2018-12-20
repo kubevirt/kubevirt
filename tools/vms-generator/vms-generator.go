@@ -36,8 +36,8 @@ import (
 )
 
 func main() {
-	flag.StringVar(&utils.DockerPrefix, "container-prefix", utils.DockerPrefix, "")
-	flag.StringVar(&utils.DockerTag, "container-tag", utils.DockerTag, "")
+	flag.StringVar(&utils.DockerPrefix, "docker-prefix", utils.DockerPrefix, "")
+	flag.StringVar(&utils.DockerTag, "docker-tag", utils.DockerTag, "")
 	genDir := flag.String("generated-vms-dir", "", "")
 	flag.Parse()
 
