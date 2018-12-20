@@ -92,29 +92,6 @@
      }
     }
    },
-   "/apis/kubevirt.io/v1alpha2/healthz": {
-    "get": {
-     "consumes": [
-      "application/json"
-     ],
-     "produces": [
-      "application/json"
-     ],
-     "summary": "Health endpoint",
-     "operationId": "checkHealth",
-     "responses": {
-      "200": {
-       "description": "OK"
-      },
-      "500": {
-       "description": "Unhealthy"
-      },
-      "default": {
-       "description": "OK"
-      }
-     }
-    }
-   },
    "/apis/kubevirt.io/v1alpha2/namespaces/{namespace}/virtualmachineinstancemigrations": {
     "get": {
      "produces": [
@@ -3687,6 +3664,29 @@
      }
     }
    },
+   "/apis/subresources.kubevirt.io/v1alpha2/healthz": {
+    "get": {
+     "consumes": [
+      "application/json"
+     ],
+     "produces": [
+      "application/json"
+     ],
+     "summary": "Health endpoint",
+     "operationId": "checkHealth",
+     "responses": {
+      "200": {
+       "description": "OK"
+      },
+      "500": {
+       "description": "Unhealthy"
+      },
+      "default": {
+       "description": "OK"
+      }
+     }
+    }
+   },
    "/apis/subresources.kubevirt.io/v1alpha2/namespaces/{namespace}/virtualmachineinstances/{name}/console": {
     "get": {
      "summary": "Open a websocket connection to a serial console on the specified VirtualMachineInstance.",
@@ -3992,7 +3992,7 @@
    "v1.CDRomTarget": {
     "properties": {
      "bus": {
-      "description": "Bus indicates the type of disk device to emulate.\nsupported values: virtio, sata, scsi, ide.",
+      "description": "Bus indicates the type of disk device to emulate.\nsupported values: virtio, sata, scsi.",
       "type": "string"
      },
      "readonly": {
@@ -4263,7 +4263,7 @@
    "v1.DiskTarget": {
     "properties": {
      "bus": {
-      "description": "Bus indicates the type of disk device to emulate.\nsupported values: virtio, sata, scsi, ide.",
+      "description": "Bus indicates the type of disk device to emulate.\nsupported values: virtio, sata, scsi.",
       "type": "string"
      },
      "pciAddress": {
@@ -4556,6 +4556,10 @@
       "description": "The path to HostDisk image located on the cluster",
       "type": "string"
      },
+     "shared": {
+      "description": "Shared indicate whether the path is shared between nodes",
+      "type": "boolean"
+     },
      "type": {
       "description": "Contains information if disk.img exists or should be created\nallowed options are 'Disk' and 'DiskOrCreate'",
       "type": "string"
@@ -4752,7 +4756,7 @@
    "v1.LunTarget": {
     "properties": {
      "bus": {
-      "description": "Bus indicates the type of disk device to emulate.\nsupported values: virtio, sata, scsi, ide.",
+      "description": "Bus indicates the type of disk device to emulate.\nsupported values: virtio, sata, scsi.",
       "type": "string"
      },
      "readonly": {
@@ -5691,9 +5695,20 @@
    },
    "v1.VirtualMachineInstanceNetworkInterface": {
     "properties": {
+     "interfaceName": {
+      "description": "The interface name inside the Virtual Machine",
+      "type": "string"
+     },
      "ipAddress": {
       "description": "IP address of a Virtual Machine interface",
       "type": "string"
+     },
+     "ipAddresses": {
+      "description": "List of all IP addresses of a Virtual Machine interface",
+      "type": "array",
+      "items": {
+       "type": "string"
+      }
      },
      "mac": {
       "description": "Hardware address of a Virtual Machine interface",
@@ -5968,6 +5983,10 @@
       "items": {
        "$ref": "#/definitions/v1.VirtualMachineInstanceNetworkInterface"
       }
+     },
+     "migrationMethod": {
+      "description": "Represents the method using which the vmi can be migrated: live migration or block migration",
+      "type": "string"
      },
      "migrationState": {
       "description": "Represents the status of a live migration",

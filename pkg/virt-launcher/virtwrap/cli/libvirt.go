@@ -47,6 +47,7 @@ type Connection interface {
 	ListAllDomains(flags libvirt.ConnectListAllDomainsFlags) ([]VirDomain, error)
 	NewStream(flags libvirt.StreamFlags) (Stream, error)
 	SetReconnectChan(reconnect chan bool)
+	QemuAgentCommand(command string, domainName string) (string, error)
 }
 
 type Stream interface {
@@ -171,6 +172,15 @@ func (l *LibvirtConnection) ListAllDomains(flags libvirt.ConnectListAllDomainsFl
 		doms[i] = &d
 	}
 	return doms, nil
+}
+
+// Execute a command on the Qemu guest agent
+// command - the qemu command, for example this gets the interfaces: {"execute":"guest-network-get-interfaces"}
+// domainName -  the qemu domain name
+func (l *LibvirtConnection) QemuAgentCommand(command string, domainName string) (string, error) {
+	domain, err := l.Connect.LookupDomainByName(domainName)
+	result, err := domain.QemuAgentCommand(command, libvirt.DOMAIN_QEMU_AGENT_COMMAND_DEFAULT, uint32(0))
+	return result, err
 }
 
 // Installs a watchdog which will check periodically if the libvirt connection is still alive.

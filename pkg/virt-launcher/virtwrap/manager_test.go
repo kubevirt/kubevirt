@@ -215,6 +215,19 @@ var _ = Describe("Manager", func() {
 			table.Entry("paused", libvirt.DOMAIN_PAUSED),
 		)
 	})
+	table.DescribeTable("check migration flags",
+		func(isBlockMigration bool) {
+			flags := prepateMigrationFlags(isBlockMigration)
+			expectedMigrateFlags := libvirt.MIGRATE_LIVE | libvirt.MIGRATE_PEER2PEER | libvirt.MIGRATE_TUNNELLED
+
+			if isBlockMigration {
+				expectedMigrateFlags |= libvirt.MIGRATE_NON_SHARED_INC
+			}
+			Expect(flags).To(Equal(expectedMigrateFlags))
+		},
+		table.Entry("with block migration", true),
+		table.Entry("without block migration", false),
+	)
 
 	table.DescribeTable("on successful list all domains",
 		func(state libvirt.DomainState, kubevirtState api.LifeCycle, libvirtReason int, kubevirtReason api.StateChangeReason) {

@@ -8,6 +8,7 @@ func (HostDisk) SwaggerDoc() map[string]string {
 		"path":     "The path to HostDisk image located on the cluster",
 		"type":     "Contains information if disk.img exists or should be created\nallowed options are 'Disk' and 'DiskOrCreate'",
 		"capacity": "Capacity of the sparse disk\n+optional",
+		"shared":   "Shared indicate whether the path is shared between nodes",
 	}
 }
 
@@ -136,7 +137,7 @@ func (DiskDevice) SwaggerDoc() map[string]string {
 
 func (DiskTarget) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"bus":        "Bus indicates the type of disk device to emulate.\nsupported values: virtio, sata, scsi, ide.",
+		"bus":        "Bus indicates the type of disk device to emulate.\nsupported values: virtio, sata, scsi.",
 		"readonly":   "ReadOnly.\nDefaults to false.",
 		"pciAddress": "If specified, the virtual disk will be placed on the guests pci address with the specifed PCI address. For example: 0000:81:01.10\n+optional",
 	}
@@ -144,7 +145,7 @@ func (DiskTarget) SwaggerDoc() map[string]string {
 
 func (LunTarget) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"bus":      "Bus indicates the type of disk device to emulate.\nsupported values: virtio, sata, scsi, ide.",
+		"bus":      "Bus indicates the type of disk device to emulate.\nsupported values: virtio, sata, scsi.",
 		"readonly": "ReadOnly.\nDefaults to false.",
 	}
 }
@@ -158,7 +159,7 @@ func (FloppyTarget) SwaggerDoc() map[string]string {
 
 func (CDRomTarget) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"bus":      "Bus indicates the type of disk device to emulate.\nsupported values: virtio, sata, scsi, ide.",
+		"bus":      "Bus indicates the type of disk device to emulate.\nsupported values: virtio, sata, scsi.",
 		"readonly": "ReadOnly.\nDefaults to true.",
 		"tray":     "Tray indicates if the tray of the device is open or closed.\nAllowed values are \"open\" and \"closed\".\nDefaults to closed.\n+optional",
 	}

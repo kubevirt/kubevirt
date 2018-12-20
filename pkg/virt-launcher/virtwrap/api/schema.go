@@ -96,8 +96,17 @@ type Domain struct {
 }
 
 type DomainStatus struct {
-	Status LifeCycle
-	Reason StateChangeReason
+	Status     LifeCycle
+	Reason     StateChangeReason
+	Interfaces []InterfaceStatus
+}
+
+type InterfaceStatus struct {
+	Name          string
+	Mac           string
+	Ip            string
+	IPs           []string
+	InterfaceName string
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object

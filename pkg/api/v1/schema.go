@@ -28,8 +28,10 @@ import (
 type IOThreadsPolicy string
 
 const (
-	IOThreadsPolicyShared IOThreadsPolicy = "shared"
-	IOThreadsPolicyAuto   IOThreadsPolicy = "auto"
+	IOThreadsPolicyShared  IOThreadsPolicy = "shared"
+	IOThreadsPolicyAuto    IOThreadsPolicy = "auto"
+	CPUModeHostPassthrough                 = "host-passthrough"
+	CPUModeHostModel                       = "host-model"
 )
 
 //go:generate swagger-doc
@@ -51,6 +53,8 @@ type HostDisk struct {
 	// Capacity of the sparse disk
 	// +optional
 	Capacity resource.Quantity `json:"capacity,omitempty"`
+	// Shared indicate whether the path is shared between nodes
+	Shared *bool `json:"shared,omitempty"`
 }
 
 // ConfigMapVolumeSource adapts a ConfigMap into a volume.
@@ -283,7 +287,7 @@ type DiskDevice struct {
 // +k8s:openapi-gen=true
 type DiskTarget struct {
 	// Bus indicates the type of disk device to emulate.
-	// supported values: virtio, sata, scsi, ide.
+	// supported values: virtio, sata, scsi.
 	Bus string `json:"bus,omitempty"`
 	// ReadOnly.
 	// Defaults to false.
@@ -297,7 +301,7 @@ type DiskTarget struct {
 // +k8s:openapi-gen=true
 type LunTarget struct {
 	// Bus indicates the type of disk device to emulate.
-	// supported values: virtio, sata, scsi, ide.
+	// supported values: virtio, sata, scsi.
 	Bus string `json:"bus,omitempty"`
 	// ReadOnly.
 	// Defaults to false.
@@ -333,7 +337,7 @@ const (
 // +k8s:openapi-gen=true
 type CDRomTarget struct {
 	// Bus indicates the type of disk device to emulate.
-	// supported values: virtio, sata, scsi, ide.
+	// supported values: virtio, sata, scsi.
 	Bus string `json:"bus,omitempty"`
 	// ReadOnly.
 	// Defaults to true.

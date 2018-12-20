@@ -16,12 +16,12 @@
 # Copyright 2017 Red Hat, Inc.
 #
 
-FROM fedora:27
+FROM fedora:28
 
 LABEL maintainer="The KubeVirt Project <kubevirt-dev@googlegroups.com>"
 ENV container docker
 
-RUN dnf install -y nginx qemu-guest-agent \
+RUN dnf install -y nginx qemu-guest-agent qemu-img scsi-target-utils \
     && dnf -y clean all
 
 RUN mkdir -p /usr/share/nginx/html/images \
@@ -33,3 +33,8 @@ RUN cp /usr/bin/qemu-ga /usr/share/nginx/html/
 ADD nginx.conf /etc/nginx/
 
 EXPOSE 80
+
+ADD entry-point.sh /
+ADD expose-as-iscsi.sh /
+
+CMD ["/entry-point.sh"]

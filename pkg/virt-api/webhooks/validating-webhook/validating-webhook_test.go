@@ -870,6 +870,46 @@ var _ = Describe("Validating Webhook", func() {
 			Expect(resp.Allowed).To(Equal(false))
 		})
 
+		It("should reject Migration spec for non-migratable VMIs", func() {
+			vmi := v1.NewMinimalVMI("testmigratevmi3")
+			vmi.Status.Phase = v1.Succeeded
+			vmi.Status.Conditions = []v1.VirtualMachineInstanceCondition{
+				{
+					Type:    v1.VirtualMachineInstanceIsMigratable,
+					Status:  k8sv1.ConditionFalse,
+					Reason:  v1.VirtualMachineInstanceReasonDisksNotMigratable,
+					Message: "cannot migrate VMI with mixes shared and non-shared volumes",
+				},
+			}
+
+			informers := webhooks.GetInformers()
+			informers.VMIInformer.GetIndexer().Add(vmi)
+
+			migration := v1.VirtualMachineInstanceMigration{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace: "default",
+				},
+				Spec: v1.VirtualMachineInstanceMigrationSpec{
+					VMIName: "testmigratevmi3",
+				},
+			}
+			migrationBytes, _ := json.Marshal(&migration)
+
+			os.Setenv("FEATURE_GATES", "LiveMigration")
+
+			ar := &v1beta1.AdmissionReview{
+				Request: &v1beta1.AdmissionRequest{
+					Resource: webhooks.MigrationGroupVersionResource,
+					Object: runtime.RawExtension{
+						Raw: migrationBytes,
+					},
+				},
+			}
+
+			resp := admitMigrationCreate(ar)
+			Expect(resp.Allowed).To(Equal(false))
+		})
+
 		It("should reject Migration on update if spec changes", func() {
 			vmi := v1.NewMinimalVMI("testmigratevmiupdate")
 
@@ -2374,6 +2414,76 @@ var _ = Describe("Validating Webhook", func() {
 			causes := validateDisks(k8sfield.NewPath("fake"), vmi.Spec.Domain.Devices.Disks)
 			Expect(len(causes)).To(Equal(1))
 			Expect(causes[0].Field).To(Equal("fake[0].bootOrder"))
+		})
+
+		It("should accept disks with supported or unspecified buses", func() {
+			vmi := v1.NewMinimalVMI("testvmi")
+
+			vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
+				Name:       "testdisk1",
+				VolumeName: "testvolume1",
+				DiskDevice: v1.DiskDevice{
+					Disk: &v1.DiskTarget{
+						Bus: "virtio",
+					},
+				},
+			})
+			vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
+				Name:       "testdisk2",
+				VolumeName: "testvolume2",
+				DiskDevice: v1.DiskDevice{
+					LUN: &v1.LunTarget{
+						Bus: "sata",
+					},
+				},
+			})
+			vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
+				Name:       "testdisk3",
+				VolumeName: "testvolume3",
+				DiskDevice: v1.DiskDevice{
+					CDRom: &v1.CDRomTarget{
+						Bus: "scsi",
+					},
+				},
+			})
+			vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
+				Name:       "testdisk4",
+				VolumeName: "testvolume4",
+				DiskDevice: v1.DiskDevice{
+					Disk: &v1.DiskTarget{},
+				},
+			})
+
+			causes := validateDisks(k8sfield.NewPath("fake"), vmi.Spec.Domain.Devices.Disks)
+			Expect(len(causes)).To(Equal(0))
+		})
+
+		It("should reject disks with unsupported buses", func() {
+			vmi := v1.NewMinimalVMI("testvmi")
+
+			vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
+				Name:       "testdisk1",
+				VolumeName: "testvolume1",
+				DiskDevice: v1.DiskDevice{
+					Disk: &v1.DiskTarget{
+						Bus: "ide",
+					},
+				},
+			})
+			vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
+				Name:       "testdisk2",
+				VolumeName: "testvolume2",
+				DiskDevice: v1.DiskDevice{
+					LUN: &v1.LunTarget{
+						Bus: "unsupported",
+					},
+				},
+			})
+
+			causes := validateDisks(k8sfield.NewPath("fake"), vmi.Spec.Domain.Devices.Disks)
+			Expect(len(causes)).To(Equal(2))
+			Expect(causes[0].Field).To(Equal("fake[0].disk.bus"))
+			Expect(causes[1].Field).To(Equal("fake[1].lun.bus"))
 		})
 
 		It("should reject invalid SN characters", func() {

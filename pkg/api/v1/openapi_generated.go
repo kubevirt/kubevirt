@@ -118,7 +118,7 @@ func schema_kubevirt_pkg_api_v1_CDRomTarget(ref common.ReferenceCallback) common
 				Properties: map[string]spec.Schema{
 					"bus": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Bus indicates the type of disk device to emulate. supported values: virtio, sata, scsi, ide.",
+							Description: "Bus indicates the type of disk device to emulate. supported values: virtio, sata, scsi.",
 							Type:        []string{"string"},
 							Format:      "",
 						},
@@ -593,7 +593,7 @@ func schema_kubevirt_pkg_api_v1_DiskTarget(ref common.ReferenceCallback) common.
 				Properties: map[string]spec.Schema{
 					"bus": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Bus indicates the type of disk device to emulate. supported values: virtio, sata, scsi, ide.",
+							Description: "Bus indicates the type of disk device to emulate. supported values: virtio, sata, scsi.",
 							Type:        []string{"string"},
 							Format:      "",
 						},
@@ -1022,6 +1022,13 @@ func schema_kubevirt_pkg_api_v1_HostDisk(ref common.ReferenceCallback) common.Op
 							Ref:         ref("k8s.io/apimachinery/pkg/api/resource.Quantity"),
 						},
 					},
+					"shared": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Shared indicate whether the path is shared between nodes",
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
 				},
 				Required: []string{"path", "type"},
 			},
@@ -1282,7 +1289,7 @@ func schema_kubevirt_pkg_api_v1_LunTarget(ref common.ReferenceCallback) common.O
 				Properties: map[string]spec.Schema{
 					"bus": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Bus indicates the type of disk device to emulate. supported values: virtio, sata, scsi, ide.",
+							Description: "Bus indicates the type of disk device to emulate. supported values: virtio, sata, scsi.",
 							Type:        []string{"string"},
 							Format:      "",
 						},
@@ -2062,6 +2069,27 @@ func schema_kubevirt_pkg_api_v1_VirtualMachineInstanceNetworkInterface(ref commo
 							Format:      "",
 						},
 					},
+					"ipAddresses": {
+						SchemaProps: spec.SchemaProps{
+							Description: "List of all IP addresses of a Virtual Machine interface",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Type:   []string{"string"},
+										Format: "",
+									},
+								},
+							},
+						},
+					},
+					"interfaceName": {
+						SchemaProps: spec.SchemaProps{
+							Description: "The interface name inside the Virtual Machine",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
 				},
 			},
 		},
@@ -2567,6 +2595,13 @@ func schema_kubevirt_pkg_api_v1_VirtualMachineInstanceStatus(ref common.Referenc
 						SchemaProps: spec.SchemaProps{
 							Description: "Represents the status of a live migration",
 							Ref:         ref("kubevirt.io/kubevirt/pkg/api/v1.VirtualMachineInstanceMigrationState"),
+						},
+					},
+					"migrationMethod": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Represents the method using which the vmi can be migrated: live migration or block migration",
+							Type:        []string{"string"},
+							Format:      "",
 						},
 					},
 				},

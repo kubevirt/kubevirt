@@ -43,8 +43,8 @@ for arg in $args; do
     ${KUBEVIRT_DIR}/tools/manifest-templator/manifest-templator \
         --namespace=${namespace} \
         --cdi-namespace=${cdi_namespace} \
-        --docker-prefix=${manifest_docker_prefix} \
-        --docker-tag=${docker_tag} \
+        --container-prefix=${manifest_docker_prefix} \
+        --container-tag=${docker_tag} \
         --image-pull-policy=${image_pull_policy} \
         --generated-manifests-dir=${KUBEVIRT_DIR}/manifests/generated/ \
         --input-file=${KUBEVIRT_DIR}/manifests/$arg >${outfile}
@@ -52,8 +52,8 @@ for arg in $args; do
     ${KUBEVIRT_DIR}/tools/manifest-templator/manifest-templator \
         --namespace="{{ namespace }}" \
         --cdi-namespace="{{ cdi_namespace }}" \
-        --docker-prefix="{{ docker_prefix }}" \
-        --docker-tag="{{ docker_tag }}" \
+        --container-prefix="{{ docker_prefix }}" \
+        --container-tag="{{ docker_tag }}" \
         --image-pull-policy="{{ image_pull_policy }}" \
         --generated-manifests-dir=${KUBEVIRT_DIR}/manifests/generated/ \
         --input-file=${KUBEVIRT_DIR}/manifests/$arg >${template_outfile}

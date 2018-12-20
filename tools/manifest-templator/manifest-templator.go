@@ -25,6 +25,8 @@ import (
 	"os"
 	"path/filepath"
 	"text/template"
+
+	"github.com/spf13/pflag"
 )
 
 type templateData struct {
@@ -39,12 +41,14 @@ type templateData struct {
 func main() {
 	namespace := flag.String("namespace", "", "")
 	cdiNamespace := flag.String("cdi-namespace", "", "")
-	dockerPrefix := flag.String("docker-prefix", "", "")
-	dockerTag := flag.String("docker-tag", "", "")
+	dockerPrefix := flag.String("container-prefix", "", "")
+	dockerTag := flag.String("container-tag", "", "")
 	imagePullPolicy := flag.String("image-pull-policy", "IfNotPresent", "")
 	genDir := flag.String("generated-manifests-dir", "", "")
 	inputFile := flag.String("input-file", "", "")
-	flag.Parse()
+	pflag.CommandLine.AddGoFlagSet(flag.CommandLine)
+	pflag.CommandLine.ParseErrorsWhitelist.UnknownFlags = true
+	pflag.Parse()
 
 	data := templateData{
 		Namespace:          *namespace,

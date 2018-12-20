@@ -35,13 +35,14 @@ func (VirtualMachineInstanceSpec) SwaggerDoc() map[string]string {
 
 func (VirtualMachineInstanceStatus) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"":               "VirtualMachineInstanceStatus represents information about the status of a VirtualMachineInstance. Status may trail the actual\nstate of a system.",
-		"nodeName":       "NodeName is the name where the VirtualMachineInstance is currently running.",
-		"reason":         "A brief CamelCase message indicating details about why the VMI is in this state. e.g. 'NodeUnresponsive'\n+optional",
-		"conditions":     "Conditions are specific points in VirtualMachineInstance's pod runtime.",
-		"phase":          "Phase is the status of the VirtualMachineInstance in kubernetes world. It is not the VirtualMachineInstance status, but partially correlates to it.",
-		"interfaces":     "Interfaces represent the details of available network interfaces.",
-		"migrationState": "Represents the status of a live migration",
+		"":                "VirtualMachineInstanceStatus represents information about the status of a VirtualMachineInstance. Status may trail the actual\nstate of a system.",
+		"nodeName":        "NodeName is the name where the VirtualMachineInstance is currently running.",
+		"reason":          "A brief CamelCase message indicating details about why the VMI is in this state. e.g. 'NodeUnresponsive'\n+optional",
+		"conditions":      "Conditions are specific points in VirtualMachineInstance's pod runtime.",
+		"phase":           "Phase is the status of the VirtualMachineInstance in kubernetes world. It is not the VirtualMachineInstance status, but partially correlates to it.",
+		"interfaces":      "Interfaces represent the details of available network interfaces.",
+		"migrationState":  "Represents the status of a live migration",
+		"migrationMethod": "Represents the method using which the vmi can be migrated: live migration or block migration",
 	}
 }
 
@@ -51,9 +52,11 @@ func (VirtualMachineInstanceCondition) SwaggerDoc() map[string]string {
 
 func (VirtualMachineInstanceNetworkInterface) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"ipAddress": "IP address of a Virtual Machine interface",
-		"mac":       "Hardware address of a Virtual Machine interface",
-		"name":      "Name of the interface, corresponds to name of the network assigned to the interface",
+		"ipAddress":     "IP address of a Virtual Machine interface",
+		"mac":           "Hardware address of a Virtual Machine interface",
+		"name":          "Name of the interface, corresponds to name of the network assigned to the interface",
+		"ipAddresses":   "List of all IP addresses of a Virtual Machine interface",
+		"interfaceName": "The interface name inside the Virtual Machine",
 	}
 }
 

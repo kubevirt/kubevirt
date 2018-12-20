@@ -57,7 +57,8 @@ var _ = Describe("PVC utils test", func() {
 		TypeMeta:   metav1.TypeMeta{Kind: "PersistentVolumeClaim", APIVersion: "v1"},
 		ObjectMeta: metav1.ObjectMeta{Namespace: namespace, Name: blockName},
 		Spec: kubev1.PersistentVolumeClaimSpec{
-			VolumeMode: &modeBlock,
+			VolumeMode:  &modeBlock,
+			AccessModes: []kubev1.PersistentVolumeAccessMode{kubev1.ReadWriteMany},
 		},
 	}
 
@@ -143,6 +144,13 @@ var _ = Describe("PVC utils test", func() {
 			Expect(pvc.Name).To(Equal(blockName), "correct PVC was found")
 			Expect(exists).To(BeTrue(), "PVC was found")
 			Expect(isBlock).To(Equal(true), "Is blockdevice PVC")
+		})
+		It("should detect shared block device for block VolumeMode", func() {
+			pvc, isShared, err := IsSharedPVCFromClient(virtClient, namespace, blockName)
+			Expect(err).ToNot(HaveOccurred(), "no error occured")
+			Expect(pvc).ToNot(BeNil(), "PVC isn't nil")
+			Expect(pvc.Name).To(Equal(blockName), "correct PVC was found")
+			Expect(isShared).To(Equal(true), "Is PVC Shared")
 		})
 	})
 

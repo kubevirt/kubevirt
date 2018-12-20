@@ -226,13 +226,6 @@ var _ = Describe("Multus Networking", func() {
 			vmiOne.Spec.Domain.Devices.Interfaces = append(vmiOne.Spec.Domain.Devices.Interfaces, iface)
 			vmiOne.Spec.Networks = append(vmiOne.Spec.Networks, network)
 
-			// mutating hook is not integrated yet so fill in limits / requests to allocate intel devices
-			vmiOne.Spec.Domain.Resources.Limits = make(k8sv1.ResourceList)
-			for resource, value := range map[k8sv1.ResourceName]resource.Quantity{k8sv1.ResourceName("intel.com/sriov"): resource.MustParse("1")} {
-				vmiOne.Spec.Domain.Resources.Limits[resource] = value
-				vmiOne.Spec.Domain.Resources.Requests[resource] = value
-			}
-
 			// fedora requires some more memory to boot without kernel panics
 			vmiOne.Spec.Domain.Resources.Requests[k8sv1.ResourceName("memory")] = resource.MustParse("1024M")
 
@@ -289,13 +282,6 @@ var _ = Describe("Multus Networking", func() {
 				network := v1.Network{Name: name, NetworkSource: v1.NetworkSource{Multus: &v1.CniNetwork{NetworkName: name}}}
 				vmiOne.Spec.Domain.Devices.Interfaces = append(vmiOne.Spec.Domain.Devices.Interfaces, iface)
 				vmiOne.Spec.Networks = append(vmiOne.Spec.Networks, network)
-			}
-
-			// mutating hook is not integrated yet so fill in limits / requests to allocate intel devices
-			vmiOne.Spec.Domain.Resources.Limits = make(k8sv1.ResourceList)
-			for resource, value := range map[k8sv1.ResourceName]resource.Quantity{k8sv1.ResourceName("intel.com/sriov"): resource.MustParse("2")} {
-				vmiOne.Spec.Domain.Resources.Limits[resource] = value
-				vmiOne.Spec.Domain.Resources.Requests[resource] = value
 			}
 
 			// fedora requires some more memory to boot without kernel panics
@@ -440,6 +426,88 @@ var _ = Describe("Multus Networking", func() {
 				&expect.BSnd{S: fmt.Sprintf("ip addr show eth1 | grep %s | wc -l", interfacesByName["ovs"].MAC)},
 				&expect.BExp{R: "1"},
 			}, 15)
+		})
+	})
+
+	Describe("VirtualMachineInstance definition", func() {
+		Context("with quemu guest agent", func() {
+			var agentVMI *v1.VirtualMachineInstance
+
+			AfterEach(func() {
+				deleteVMIs(virtClient, []*v1.VirtualMachineInstance{agentVMI})
+			})
+
+			It("should report guest interfaces in VMI status", func() {
+				interfaces := []v1.Interface{
+					{Name: "default", InterfaceBindingMethod: v1.InterfaceBindingMethod{Bridge: &v1.InterfaceBridge{}}},
+					{Name: "ovs", InterfaceBindingMethod: v1.InterfaceBindingMethod{Bridge: &v1.InterfaceBridge{}}},
+				}
+				networks := []v1.Network{
+					{Name: "default", NetworkSource: v1.NetworkSource{Pod: &v1.PodNetwork{}}},
+					{Name: "ovs", NetworkSource: v1.NetworkSource{Multus: &v1.CniNetwork{NetworkName: "ovs-net-vlan100"}}},
+				}
+
+				ep1Ip := "1.0.0.10/24"
+				ep2Ip := "1.0.0.11/24"
+				ep1IpV6 := "fe80::ce3d:82ff:fe52:24c0/64"
+				ep2IpV6 := "fe80::ce3d:82ff:fe52:24c1/64"
+				agentVMI = tests.NewRandomVMIWithEphemeralDiskAndUserdata(tests.ContainerDiskFor(tests.ContainerDiskFedora), fmt.Sprintf(`#!/bin/bash
+	                echo "fedora" |passwd fedora --stdin
+	                ip link add ep1 type veth peer name ep2
+	                ip addr add %s dev ep1
+	                ip addr add %s dev ep2
+	                ip addr add %s dev ep1
+	                ip addr add %s dev ep2
+					yum install -y qemu-guest-agent
+					systemctl start  qemu-guest-agent
+	                `, ep1Ip, ep2Ip, ep1IpV6, ep2IpV6))
+
+				agentVMI.Spec.Domain.Devices.Interfaces = interfaces
+				agentVMI.Spec.Networks = networks
+				agentVMI.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("1024M")
+
+				By("Starting a VirtualMachineInstance")
+				agentVMI, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(agentVMI)
+				Expect(err).ToNot(HaveOccurred(), "Should create VMI successfully")
+				tests.WaitForSuccessfulVMIStart(agentVMI)
+
+				getOptions := &metav1.GetOptions{}
+				var updatedVmi *v1.VirtualMachineInstance
+
+				Eventually(func() int {
+					updatedVmi, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Get(agentVMI.Name, getOptions)
+					return len(updatedVmi.Status.Conditions)
+				}, 120*time.Second, 2).Should(Equal(1), "Should have agent connected condition")
+
+				Eventually(func() bool {
+					updatedVmi, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Get(agentVMI.Name, getOptions)
+					return len(updatedVmi.Status.Interfaces) == 4
+				}, 420*time.Second, 4).Should(BeTrue(), "Should have interfaces in vmi status")
+
+				updatedVmi, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Get(agentVMI.Name, getOptions)
+				Expect(err).ToNot(HaveOccurred())
+
+				Expect(len(updatedVmi.Status.Interfaces)).To(Equal(4))
+				interfaceByIfcName := make(map[string]v1.VirtualMachineInstanceNetworkInterface)
+				for _, ifc := range updatedVmi.Status.Interfaces {
+					interfaceByIfcName[ifc.InterfaceName] = ifc
+				}
+				Expect(interfaceByIfcName["eth0"].Name).To(Equal("default"))
+				Expect(interfaceByIfcName["eth0"].InterfaceName).To(Equal("eth0"))
+
+				Expect(interfaceByIfcName["eth1"].Name).To(Equal("ovs"))
+				Expect(interfaceByIfcName["eth1"].InterfaceName).To(Equal("eth1"))
+
+				Expect(interfaceByIfcName["ep1"].Name).To(Equal(""))
+				Expect(interfaceByIfcName["ep1"].InterfaceName).To(Equal("ep1"))
+				Expect(interfaceByIfcName["ep1"].IP).To(Equal(ep1Ip))
+				Expect(interfaceByIfcName["ep1"].IPs).To(Equal([]string{ep1Ip, ep1IpV6}))
+
+				Expect(interfaceByIfcName["ep2"].Name).To(Equal(""))
+				Expect(interfaceByIfcName["ep2"].InterfaceName).To(Equal("ep2"))
+				Expect(interfaceByIfcName["ep2"].IP).To(Equal(ep2Ip))
+				Expect(interfaceByIfcName["ep2"].IPs).To(Equal([]string{ep2Ip, ep2IpV6}))
+			})
 		})
 	})
 })
