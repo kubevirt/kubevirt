@@ -44,7 +44,7 @@ spec:
         - "8443"
         - --subresources-only
         image: {{.DockerPrefix}}/virt-api:{{.DockerTag}}
-        imagePullPolicy: IfNotPresent
+        imagePullPolicy: {{.ImagePullPolicy}}
         name: virt-api
         ports:
         - containerPort: 8443

@@ -40,17 +40,7 @@ func main() {
 
 	flag.Parse()
 
-	var imagePullPolicy v1.PullPolicy
-	switch *pullPolicy {
-	case string(v1.PullAlways):
-		imagePullPolicy = v1.PullAlways
-	case string(v1.PullNever):
-		imagePullPolicy = v1.PullNever
-	case string(v1.PullIfNotPresent):
-		imagePullPolicy = v1.PullIfNotPresent
-	default:
-		imagePullPolicy = v1.PullIfNotPresent
-	}
+	imagePullPolicy := v1.PullPolicy(*pullPolicy)
 
 	switch *resourceType {
 	case "vmi":

@@ -41,7 +41,7 @@ spec:
             fieldRef:
               fieldPath: status.podIP
         image: {{.DockerPrefix}}/virt-handler:{{.DockerTag}}
-        imagePullPolicy: IfNotPresent
+        imagePullPolicy: {{.ImagePullPolicy}}
         name: virt-handler
         ports:
         - containerPort: 8443

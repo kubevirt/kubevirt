@@ -30,7 +30,7 @@ spec:
         - --port
         - "8443"
         image: {{.DockerPrefix}}/virt-controller:{{.DockerTag}}
-        imagePullPolicy: IfNotPresent
+        imagePullPolicy: {{.ImagePullPolicy}}
         livenessProbe:
           failureThreshold: 8
           httpGet:
