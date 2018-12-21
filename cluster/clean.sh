@@ -71,18 +71,18 @@ for i in ${namespaces[@]}; do
     done
 done
 
-if [ "$(_kubectl get ns | grep ${namespace})" ]; then
+if [ -n "$(_kubectl get ns | grep "${namespace} ")" ]; then
     echo "Clean ${namespace} namespace"
     _kubectl delete ns ${namespace}
 
     start_time=0
     sample=10
     timeout=120
-    echo "Waiting for ${namespace} namespace to dissappear ..."
-    while [ "$(_kubectl get ns | grep ${namespace})" ]; do
+    echo "Waiting for ${namespace} namespace to disappear ..."
+    while [ -n "$(_kubectl get ns | grep "${namespace} ")" ]; do
         sleep $sample
         start_time=$((current_time + sample))
-        if [ $current_time -gt $timeout ]; then
+        if [[ $current_time -gt $timeout ]]; then
             exit 1
         fi
     done
