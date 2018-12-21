@@ -1,7 +1,7 @@
+---
 apiVersion: kubevirt.io/v1alpha2
 kind: VirtualMachineInstance
 metadata:
-  creationTimestamp: null
   labels:
     special: vmi-masquerade
   name: vmi-masquerade
@@ -45,4 +45,3 @@ spec:
         systemctl enable nginx
         systemctl start nginx
     name: cloudinitvolume
-status: {}

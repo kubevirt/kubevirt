@@ -1,7 +1,7 @@
+---
 apiVersion: kubevirt.io/v1alpha2
 kind: VirtualMachineInstance
 metadata:
-  creationTimestamp: null
   labels:
     special: vmi-windows
   name: vmi-windows
@@ -52,4 +52,3 @@ spec:
   - name: pvcvolume
     persistentVolumeClaim:
       claimName: disk-windows
-status: {}

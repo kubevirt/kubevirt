@@ -1,0 +1,68 @@
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    kubevirt.io: virt-api
+  name: virt-api
+  namespace: {{.Namespace}}
+spec:
+  ports:
+  - port: 443
+    protocol: TCP
+    targetPort: 8443
+  selector:
+    kubevirt.io: virt-api
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    kubevirt.io: virt-api
+  name: virt-api
+  namespace: {{.Namespace}}
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      kubevirt.io: virt-api
+  strategy: {}
+  template:
+    metadata:
+      annotations:
+        scheduler.alpha.kubernetes.io/critical-pod: ""
+        scheduler.alpha.kubernetes.io/tolerations: '[{"key":"CriticalAddonsOnly","operator":"Exists"}]'
+      labels:
+        kubevirt.io: virt-api
+        prometheus.kubevirt.io: ""
+      name: virt-api
+    spec:
+      containers:
+      - command:
+        - virt-api
+        - --port
+        - "8443"
+        - --subresources-only
+        - -v
+        - {{.Verbosity}}
+        image: {{.DockerPrefix}}/virt-api:{{.DockerTag}}
+        imagePullPolicy: {{.ImagePullPolicy}}
+        name: virt-api
+        ports:
+        - containerPort: 8443
+          name: virt-api
+          protocol: TCP
+        - containerPort: 8443
+          name: metrics
+          protocol: TCP
+        readinessProbe:
+          httpGet:
+            path: /apis/subresources.kubevirt.io/v1alpha2/healthz
+            port: 8443
+            scheme: HTTPS
+          initialDelaySeconds: 15
+          periodSeconds: 10
+        resources: {}
+      securityContext:
+        runAsNonRoot: true
+      serviceAccountName: kubevirt-apiserver

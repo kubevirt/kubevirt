@@ -1,7 +1,7 @@
+---
 apiVersion: kubevirt.io/v1alpha2
 kind: VirtualMachine
 metadata:
-  creationTimestamp: null
   labels:
     kubevirt.io/vm: vm-alpine-multipvc
   name: vm-alpine-multipvc
@@ -9,7 +9,6 @@ spec:
   running: false
   template:
     metadata:
-      creationTimestamp: null
       labels:
         kubevirt.io/vm: vm-alpine-multipvc
     spec:
@@ -37,4 +36,3 @@ spec:
       - name: pvcvolume2
         persistentVolumeClaim:
           claimName: disk-custom
-status: {}

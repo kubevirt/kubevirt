@@ -1,3 +1,4 @@
+---
 apiVersion: v1
 kind: Template
 metadata:
@@ -5,7 +6,6 @@ metadata:
     description: OCP KubeVirt Microsoft Windows Server 2012 R2 VM template
     iconClass: icon-windows
     tags: kubevirt,ocp,template,windows,virtualmachine
-  creationTimestamp: null
   labels:
     kubevirt.io/os: win2k12r2
     miq.github.io/kubevirt-is-vm-template: "true"

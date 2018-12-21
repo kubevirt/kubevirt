@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/rpc"
 	"path/filepath"
+	"time"
 
 	"k8s.io/client-go/tools/reference"
 
@@ -19,6 +20,7 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/log"
 	notifyserver "kubevirt.io/kubevirt/pkg/virt-handler/notify-server"
+	agentpoller "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/agent-poller"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/cli"
 	domainerrors "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/errors"
@@ -30,8 +32,9 @@ type NotifyClient struct {
 }
 
 type libvirtEvent struct {
-	Domain string
-	Event  *libvirt.DomainEventLifecycle
+	Domain     string
+	Event      *libvirt.DomainEventLifecycle
+	AgentEvent *libvirt.DomainEventAgentLifecycle
 }
 
 func NewNotifyClient(virtShareDir string) (*NotifyClient, error) {
@@ -69,7 +72,6 @@ func (c *NotifyClient) SendDomainEvent(event watch.Event) error {
 		StatusJSON: string(statusJSON),
 		EventType:  string(event.Type),
 	}
-
 	reply := &notifyserver.Reply{}
 
 	err = c.client.Call("Notify.DomainEvent", args, reply)
@@ -87,8 +89,7 @@ func newWatchEventError(err error) watch.Event {
 	return watch.Event{Type: watch.Error, Object: &metav1.Status{Status: metav1.StatusFailure, Message: err.Error()}}
 }
 
-func libvirtEventCallback(c cli.Connection, domain *api.Domain, libvirtEvent libvirtEvent, client *NotifyClient, events chan watch.Event) {
-
+func eventCallback(c cli.Connection, domain *api.Domain, libvirtEvent libvirtEvent, client *NotifyClient, events chan watch.Event, interfaceStatus *[]api.InterfaceStatus) {
 	d, err := c.LookupDomainByName(util.DomainFromNamespaceName(domain.ObjectMeta.Namespace, domain.ObjectMeta.Name))
 	if err != nil {
 		if !domainerrors.IsNotFound(err) {
@@ -150,24 +151,47 @@ func libvirtEventCallback(c cli.Connection, domain *api.Domain, libvirtEvent lib
 				events <- event
 			}
 		}
+		if interfaceStatus != nil {
+			domain.Status.Interfaces = *interfaceStatus
+			event := watch.Event{Type: watch.Modified, Object: domain}
+			client.SendDomainEvent(event)
+			events <- event
+		}
 		client.SendDomainEvent(watch.Event{Type: watch.Modified, Object: domain})
 	}
 }
 
-func (c *NotifyClient) StartDomainNotifier(domainConn cli.Connection, deleteNotificationSent chan watch.Event, vmiUID types.UID) error {
-
+func (c *NotifyClient) StartDomainNotifier(domainConn cli.Connection, deleteNotificationSent chan watch.Event, vmiUID types.UID, qemuAgentPollerInterval *time.Duration) error {
 	eventChan := make(chan libvirtEvent, 10)
+	agentUpdateChan := make(chan agentpoller.AgentUpdateEvent, 10)
+
 	reconnectChan := make(chan bool, 10)
 
 	domainConn.SetReconnectChan(reconnectChan)
 
+	agentPoller := agentpoller.CreatePoller(domainConn, vmiUID, agentUpdateChan, qemuAgentPollerInterval)
+
 	// Run the event process logic in a separate go-routine to not block libvirt
 	go func() {
+		var interfaceStatuses *[]api.InterfaceStatus
 		for {
 			select {
 			case event := <-eventChan:
-				libvirtEventCallback(domainConn, util.NewDomainFromName(event.Domain, vmiUID), event, c, deleteNotificationSent)
+				domain := util.NewDomainFromName(event.Domain, vmiUID)
+				eventCallback(domainConn, domain, event, c, deleteNotificationSent, interfaceStatuses)
+				agentPoller.UpdateDomain(domain)
+				if event.AgentEvent != nil {
+					if event.AgentEvent.State == libvirt.CONNECT_DOMAIN_EVENT_AGENT_LIFECYCLE_STATE_CONNECTED {
+						agentPoller.Start()
+					} else if event.AgentEvent.State == libvirt.CONNECT_DOMAIN_EVENT_AGENT_LIFECYCLE_STATE_DISCONNECTED {
+						agentPoller.Stop()
+					}
+				}
 				log.Log.Info("processed event")
+			case agentUpdate := <-agentUpdateChan:
+				interfaceStatuses = agentUpdate.InterfaceStatuses
+				domainName := agentUpdate.DomainName
+				eventCallback(domainConn, util.NewDomainFromName(domainName, vmiUID), libvirtEvent{}, c, deleteNotificationSent, interfaceStatuses)
 			case <-reconnectChan:
 				c.SendDomainEvent(newWatchEventError(fmt.Errorf("Libvirt reconnect")))
 				return
@@ -200,7 +224,7 @@ func (c *NotifyClient) StartDomainNotifier(domainConn cli.Connection, deleteNoti
 			log.Log.Reason(err).Info("Could not determine name of libvirt domain in event callback.")
 		}
 		select {
-		case eventChan <- libvirtEvent{Domain: name}:
+		case eventChan <- libvirtEvent{AgentEvent: event, Domain: name}:
 		default:
 			log.Log.Infof("Libvirt event channel is full, dropping event.")
 		}

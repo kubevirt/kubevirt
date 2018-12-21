@@ -1,7 +1,7 @@
+---
 apiVersion: kubevirt.io/v1alpha2
 kind: VirtualMachineInstance
 metadata:
-  creationTimestamp: null
   labels:
     special: vmi-ephemeral
   name: vmi-ephemeral
@@ -23,4 +23,3 @@ spec:
   - containerDisk:
       image: registry:5000/kubevirt/cirros-container-disk-demo:devel
     name: registryvolume
-status: {}
