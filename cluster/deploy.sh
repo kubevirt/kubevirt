@@ -25,19 +25,32 @@ source hack/config.sh
 
 echo "Deploying ..."
 
+# Create the installation namespace if it does not exist already
+_kubectl apply -f - <<EOF
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: ${namespace}
+EOF
+
+# Deploy infra for testing first
+_kubectl create -f ${MANIFESTS_OUT_DIR}/testing
+
 # Deploy the right manifests for the right target
 if [[ -z $TARGET ]] || [[ $TARGET =~ .*-dev ]]; then
-    _kubectl create -f ${MANIFESTS_OUT_DIR}/dev -R $i
+    _kubectl apply -f ${MANIFESTS_OUT_DIR}/dev -R
 elif [[ $TARGET =~ .*-release ]] || [[ $TARGET =~ windows.* ]]; then
     for manifest in ${MANIFESTS_OUT_DIR}/release/*; do
         if [[ $manifest =~ .*demo.* ]]; then
             continue
         fi
-        _kubectl create -f $manifest
+        _kubectl apply -f $manifest
     done
 fi
 
 if [[ "$KUBEVIRT_PROVIDER" =~ os-* ]]; then
+    _kubectl create -f ${MANIFESTS_OUT_DIR}/testing/ocp
     _kubectl adm policy add-scc-to-user privileged -z kubevirt-controller -n ${namespace}
     _kubectl adm policy add-scc-to-user privileged -z kubevirt-privileged -n ${namespace}
     _kubectl adm policy add-scc-to-user privileged -z kubevirt-apiserver -n ${namespace}
