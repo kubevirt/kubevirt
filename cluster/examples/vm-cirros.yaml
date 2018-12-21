@@ -1,7 +1,7 @@
+---
 apiVersion: kubevirt.io/v1alpha2
 kind: VirtualMachine
 metadata:
-  creationTimestamp: null
   labels:
     kubevirt.io/vm: vm-cirros
   name: vm-cirros
@@ -9,7 +9,6 @@ spec:
   running: false
   template:
     metadata:
-      creationTimestamp: null
       labels:
         kubevirt.io/vm: vm-cirros
     spec:
@@ -40,4 +39,3 @@ spec:
 
             echo 'printed from cloud-init userdata'
         name: cloudinitvolume
-status: {}

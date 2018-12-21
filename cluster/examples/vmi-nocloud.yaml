@@ -1,7 +1,7 @@
+---
 apiVersion: kubevirt.io/v1alpha2
 kind: VirtualMachineInstance
 metadata:
-  creationTimestamp: null
   labels:
     special: vmi-nocloud
   name: vmi-nocloud
@@ -40,4 +40,3 @@ spec:
   - emptyDisk:
       capacity: 2Gi
     name: emptydiskvolume
-status: {}

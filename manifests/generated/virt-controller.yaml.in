@@ -1,0 +1,59 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    kubevirt.io: virt-controller
+  name: virt-controller
+  namespace: {{.Namespace}}
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      kubevirt.io: virt-controller
+  strategy: {}
+  template:
+    metadata:
+      annotations:
+        scheduler.alpha.kubernetes.io/critical-pod: ""
+        scheduler.alpha.kubernetes.io/tolerations: '[{"key":"CriticalAddonsOnly","operator":"Exists"}]'
+      labels:
+        kubevirt.io: virt-controller
+        prometheus.kubevirt.io: ""
+      name: virt-controller
+    spec:
+      containers:
+      - command:
+        - virt-controller
+        - --launcher-image
+        - {{.DockerPrefix}}/virt-launcher:{{.DockerTag}}
+        - --port
+        - "8443"
+        - -v
+        - {{.Verbosity}}
+        image: {{.DockerPrefix}}/virt-controller:{{.DockerTag}}
+        imagePullPolicy: {{.ImagePullPolicy}}
+        livenessProbe:
+          failureThreshold: 8
+          httpGet:
+            path: /healthz
+            port: 8443
+            scheme: HTTPS
+          initialDelaySeconds: 15
+          timeoutSeconds: 10
+        name: virt-controller
+        ports:
+        - containerPort: 8443
+          name: metrics
+          protocol: TCP
+        readinessProbe:
+          httpGet:
+            path: /leader
+            port: 8443
+            scheme: HTTPS
+          initialDelaySeconds: 15
+          timeoutSeconds: 10
+        resources: {}
+      securityContext:
+        runAsNonRoot: true
+      serviceAccountName: kubevirt-controller

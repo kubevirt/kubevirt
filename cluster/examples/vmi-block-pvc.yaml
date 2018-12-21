@@ -1,7 +1,7 @@
+---
 apiVersion: kubevirt.io/v1alpha2
 kind: VirtualMachineInstance
 metadata:
-  creationTimestamp: null
   labels:
     special: vmi-block-pvc
   name: vmi-block-pvc
@@ -23,4 +23,3 @@ spec:
   - name: blockpvcvolume
     persistentVolumeClaim:
       claimName: local-block-storage-cirros
-status: {}
