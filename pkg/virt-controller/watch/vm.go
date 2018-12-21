@@ -101,7 +101,7 @@ type VMController struct {
 	dataVolumeExpectations *controller.UIDTrackingControllerExpectations
 }
 
-func (c *VMController) Run(threadiness int, stopCh chan struct{}) {
+func (c *VMController) Run(threadiness int, stopCh <-chan struct{}) {
 	defer controller.HandlePanic()
 	defer c.Queue.ShutDown()
 	log.Log.Info("Starting VirtualMachine controller.")

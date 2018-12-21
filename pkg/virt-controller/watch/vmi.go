@@ -163,7 +163,7 @@ type VMIController struct {
 	dataVolumeInformer cache.SharedIndexInformer
 }
 
-func (c *VMIController) Run(threadiness int, stopCh chan struct{}) {
+func (c *VMIController) Run(threadiness int, stopCh <-chan struct{}) {
 	defer controller.HandlePanic()
 	defer c.Queue.ShutDown()
 	log.Log.Info("Starting vmi controller.")
