@@ -307,6 +307,39 @@ var _ = Describe("Configurations", func() {
 			})
 		})
 
+		Context("with EFI bootloader method", func() {
+
+			It("should use EFI without Secureboot", func() {
+				vmi := tests.NewRandomVMIWithEFIBootloader(false)
+
+				By("Starting a VirtualMachineInstance")
+				vmi, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
+				Expect(err).ToNot(HaveOccurred())
+				tests.WaitForSuccessfulVMIStart(vmi)
+
+				domXml, err := tests.GetRunningVirtualMachineInstanceDomainXML(virtClient, vmi)
+				Expect(err).ToNot(HaveOccurred())
+				fmt.Println(domXml)
+				Expect(domXml).To(ContainSubstring("OVMF_CODE"))
+			})
+
+			// Unexpected Warning event received: "LibvirtError(Code=67, Domain=10, Message='unsupported configuration: Secure boot requires SMM feature enabled')"
+			//
+			// It("should use EFI with Secureboot", func() {
+			// 	vmi := tests.NewRandomVMIWithEFIBootloader(true)
+
+			// 	By("Starting a VirtualMachineInstance")
+			// 	vmi, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
+			// 	Expect(err).ToNot(HaveOccurred())
+			// 	tests.WaitForSuccessfulVMIStart(vmi)
+
+			// 	domXml, err := tests.GetRunningVirtualMachineInstanceDomainXML(virtClient, vmi)
+			// 	Expect(err).ToNot(HaveOccurred())
+			// 	Expect(domXml).To(ContainSubstring("OVMF_CODE.secboot"))
+			// })
+
+		})
+
 		Context("with diverging guest memory from requested memory", func() {
 			It("should show the requested guest memory inside the VMI", func() {
 				vmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(tests.ContainerDiskFor(tests.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n")

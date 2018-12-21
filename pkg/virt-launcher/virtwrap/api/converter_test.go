@@ -1571,10 +1571,13 @@ var _ = Describe("Converter", func() {
 				Expect(domainSpec.OS.NVRam).To(BeNil())
 			})
 
-			It("should configure the EFI bootloader if EFI option", func() {
+			It("should configure the EFI bootloader if EFI insecure option", func() {
+				secure := false
 				vmi.Spec.Domain.Firmware = &v1.Firmware{
 					Bootloader: &v1.Bootloader{
-						EFI: &v1.EFI{},
+						EFI: &v1.EFI{
+							Secure: &secure,
+						},
 					},
 				}
 				domainSpec := vmiToDomainXMLToDomainSpec(vmi, c)
@@ -1586,7 +1589,7 @@ var _ = Describe("Converter", func() {
 				Expect(domainSpec.OS.NVRam.Template).To(Equal("/tmp/mynamespace_testvmi"))
 			})
 
-			It("should configure the EFI bootloader if EFI option", func() {
+			It("should configure the EFI bootloader if EFI secure option", func() {
 				secure := true
 				vmi.Spec.Domain.Firmware = &v1.Firmware{
 					Bootloader: &v1.Bootloader{
@@ -1599,7 +1602,7 @@ var _ = Describe("Converter", func() {
 				Expect(domainSpec.OS.BootLoader.ReadOnly).To(Equal("yes"))
 				Expect(domainSpec.OS.BootLoader.Secure).To(Equal("yes"))
 				Expect(domainSpec.OS.BootLoader.Type).To(Equal("pflash"))
-				Expect(domainSpec.OS.BootLoader.Path).To(Equal(EFIPath))
+				Expect(domainSpec.OS.BootLoader.Path).To(Equal(EFISecurePath))
 				Expect(domainSpec.OS.NVRam.NVRam).To(Equal(EFIVarsPath))
 				Expect(domainSpec.OS.NVRam.Template).To(Equal("/tmp/mynamespace_testvmi"))
 			})

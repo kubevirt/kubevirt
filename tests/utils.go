@@ -1304,6 +1304,21 @@ func NewRandomVMIWithEphemeralDiskAndUserdataHighMemory(containerImage string, u
 	return vmi
 }
 
+func NewRandomVMIWithEFIBootloader(s bool) *v1.VirtualMachineInstance {
+	vmi := NewRandomVMI()
+
+	vmi.Spec.Domain.Firmware = &v1.Firmware{
+		Bootloader: &v1.Bootloader{
+			EFI: &v1.EFI{
+				Secure: &s,
+			},
+		},
+	}
+
+	return vmi
+
+}
+
 func NewRandomMigration(vmiName string, namespace string) *v1.VirtualMachineInstanceMigration {
 	migration := &v1.VirtualMachineInstanceMigration{
 
