@@ -355,7 +355,8 @@ func (c *VMIController) updateStatus(vmi *virtv1.VirtualMachineInstance, pod *k8
 	// CRs don't support field selectors either.
 	// Filed https://github.com/kubernetes/kubernetes/issues/70084
 	setLabels(vmiCopy)
-	if !reflect.DeepEqual(vmi.Labels, vmiCopy.Labels) {
+	if !reflect.DeepEqual(vmi.Labels, vmiCopy.Labels) ||
+		!reflect.DeepEqual(vmi.Annotations, vmiCopy.Annotations) {
 		_, err := c.clientset.VirtualMachineInstance(vmi.Namespace).Update(vmiCopy)
 		// Immediately exit. Two updates in a row lead to failed update requests when re-processing and
 		// increase the load. The status will be updated in a subsequent call
@@ -363,8 +364,7 @@ func (c *VMIController) updateStatus(vmi *virtv1.VirtualMachineInstance, pod *k8
 	}
 
 	// If we detect a change on the vmi we update the vmi
-	if !reflect.DeepEqual(vmi.Status, vmiCopy.Status) ||
-		!reflect.DeepEqual(vmi.Annotations, vmiCopy.Annotations) {
+	if !reflect.DeepEqual(vmi.Status, vmiCopy.Status) {
 		_, err := c.clientset.VirtualMachineInstance(vmi.Namespace).UpdateStatus(vmiCopy)
 		if err != nil {
 			return err

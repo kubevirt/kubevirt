@@ -34,5 +34,9 @@ spec:
     singular: virtualmachineinstancereplicaset
   scope: Namespaced
   subresources:
+    scale:
+      labelSelectorPath: .status.selector
+      specReplicasPath: .spec.replicas
+      statusReplicasPath: .status.replicas
     status: {}
   version: v1alpha2

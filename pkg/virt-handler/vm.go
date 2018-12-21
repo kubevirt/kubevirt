@@ -394,7 +394,6 @@ func (d *VirtualMachineController) updateVMIStatus(vmi *v1.VirtualMachineInstanc
 			// this is the migration ACK.
 			// At this point we know that the migration has completed and that
 			// the target node has seen the domain event.
-			vmi.Labels[v1.NodeNameLabel] = migrationHost
 			vmi.Status.NodeName = migrationHost
 			vmi.Status.MigrationState.Completed = true
 			d.recorder.Event(vmi, k8sv1.EventTypeNormal, v1.Migrated.String(), fmt.Sprintf("The VirtualMachineInstance migrated to node %s.", migrationHost))
@@ -685,20 +684,24 @@ func (d *VirtualMachineController) migrationTargetExecute(key string,
 		// advertise the listener address to the source node
 		if vmi.Status.MigrationState != nil {
 			hostAddress = vmi.Status.MigrationState.TargetNodeAddress
-		}
-		curAddress := fmt.Sprintf("%s:%d", d.ipAddress, curPort)
-		if hostAddress != curAddress {
-			d.recorder.Event(vmi, k8sv1.EventTypeNormal, v1.PreparingTarget.String(), fmt.Sprintf("Migration Target is listening at %s", curAddress))
-			vmiCopy.Status.MigrationState.TargetNodeAddress = curAddress
+			curAddress := fmt.Sprintf("%s:%d", d.ipAddress, curPort)
+			if hostAddress != curAddress {
+				d.recorder.Event(vmi, k8sv1.EventTypeNormal, v1.PreparingTarget.String(), fmt.Sprintf("Migration Target is listening at %s", curAddress))
+				vmiCopy.Status.MigrationState.TargetNodeAddress = curAddress
+			}
 		}
 
-		// update the VMI if necessary
-		if !reflect.DeepEqual(vmi.Status, vmiCopy.Status) {
-			vmiCopy.Status.MigrationState.TargetNodeAddress = curAddress
-			_, err := d.clientset.VirtualMachineInstance(vmi.ObjectMeta.Namespace).UpdateStatus(vmiCopy)
-			if err != nil {
-				return err
-			}
+		// Workaround until we have field selectors. This only updates the labels sections and leaves the status untouched.
+		if vmi.Status.MigrationState != nil && vmi.Status.MigrationState.Completed && vmi.Labels[v1.MigrationTargetNodeNameLabel] != "" {
+			vmiCopy.Labels[v1.NodeNameLabel] = vmiCopy.Labels[v1.MigrationTargetNodeNameLabel]
+			delete(vmiCopy.Labels, v1.MigrationTargetNodeNameLabel)
+		}
+		if !reflect.DeepEqual(vmi.Labels, vmiCopy.Labels) {
+			_, err = d.clientset.VirtualMachineInstance(vmi.ObjectMeta.Namespace).Update(vmiCopy)
+			return err
+		} else if !reflect.DeepEqual(vmiCopy.Status, vmi.Status) {
+			_, err = d.clientset.VirtualMachineInstance(vmi.ObjectMeta.Namespace).UpdateStatus(vmiCopy)
+			return err
 		}
 
 		return nil
@@ -1176,12 +1179,12 @@ func (d *VirtualMachineController) isOrphanedMigrationSource(vmi *v1.VirtualMach
 
 func (d *VirtualMachineController) isPreMigrationTarget(vmi *v1.VirtualMachineInstance) bool {
 
-	migrationTargetNodeName, ok := vmi.Labels[v1.MigrationTargetNodeNameLabel]
+	migrationTargetNodeName := vmi.Labels[v1.MigrationTargetNodeNameLabel]
+	nodeName := vmi.Labels[v1.NodeNameLabel]
 
-	if ok &&
-		migrationTargetNodeName != "" &&
-		migrationTargetNodeName != vmi.Status.NodeName &&
-		migrationTargetNodeName == d.host {
+	if migrationTargetNodeName != "" && nodeName != "" &&
+		migrationTargetNodeName == d.host &&
+		migrationTargetNodeName != nodeName {
 		return true
 	}
 

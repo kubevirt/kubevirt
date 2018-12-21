@@ -97,6 +97,7 @@ func generatePresetCrd() {
 
 func generateReplicaSetCrd() {
 	crd := generateBlankCrd()
+	selector := ".status.selector"
 
 	crd.ObjectMeta.Name = "virtualmachineinstancereplicasets." + v1.VirtualMachineInstanceReplicaSetGroupVersionKind.Group
 	crd.Spec = extensionsv1.CustomResourceDefinitionSpec{
@@ -112,6 +113,11 @@ func generateReplicaSetCrd() {
 		},
 		Subresources: &extensionsv1.CustomResourceSubresources{
 			Status: &extensionsv1.CustomResourceSubresourceStatus{},
+			Scale: &extensionsv1.CustomResourceSubresourceScale{
+				SpecReplicasPath:   ".spec.replicas",
+				StatusReplicasPath: ".status.replicas",
+				LabelSelectorPath:  &selector,
+			},
 		},
 		AdditionalPrinterColumns: []extensionsv1.CustomResourceColumnDefinition{
 			{Name: "Desired", Type: "integer", JSONPath: ".spec.replicas",

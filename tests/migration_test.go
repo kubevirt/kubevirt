@@ -34,7 +34,7 @@ import (
 	"kubevirt.io/kubevirt/tests"
 )
 
-var _ = Describe("Migrations", func() {
+var _ = FDescribe("Migrations", func() {
 	flag.Parse()
 
 	virtClient, err := kubecli.GetKubevirtClient()
