@@ -39,7 +39,7 @@ import (
 	"time"
 
 	ghodssyaml "github.com/ghodss/yaml"
-	expect "github.com/google/goexpect"
+	"github.com/google/goexpect"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"github.com/spf13/cobra"
@@ -378,6 +378,24 @@ func DoScaleDeployment(namespace string, name string, desired int32) (error, int
 		return err, -1
 	}
 	return nil, *deployment.Spec.Replicas
+}
+
+func DoScaleVirtHandler(namespace string, name string, selector map[string]string) (int32, map[string]string, int64, error) {
+	virtCli, err := kubecli.GetKubevirtClient()
+	PanicOnError(err)
+
+	d, err := virtCli.ExtensionsV1beta1().DaemonSets(namespace).Get(name, metav1.GetOptions{})
+	if err != nil {
+		return 0, nil, 0, err
+	}
+	sel := d.Spec.Template.Spec.NodeSelector
+	ready := d.Status.DesiredNumberScheduled
+	d.Spec.Template.Spec.NodeSelector = selector
+	d, err = virtCli.ExtensionsV1beta1().DaemonSets(namespace).Update(d)
+	if err != nil {
+		return 0, nil, 0, err
+	}
+	return ready, sel, d.ObjectMeta.Generation, nil
 }
 
 func WaitForAllPodsReady(timeout time.Duration, listOptions metav1.ListOptions) {
@@ -765,6 +783,8 @@ func deployOrWipeTestingInfrastrucure(actionOnObject func(unstructured.Unstructu
 	PanicOnError(err)
 	err, replicasController := DoScaleDeployment(KubeVirtInstallNamespace, "virt-controller", 0)
 	PanicOnError(err)
+	daemonInstances, selector, _, err := DoScaleVirtHandler(KubeVirtInstallNamespace, "virt-handler", map[string]string{"kubevirt.io": "scaletozero"})
+	PanicOnError(err)
 	// Deploy / delete test infrastructure / dependencies
 	manifests := GetListOfManifests(PathToTestingInfrastrucureManifests)
 	for _, manifest := range manifests {
@@ -779,6 +799,34 @@ func deployOrWipeTestingInfrastrucure(actionOnObject func(unstructured.Unstructu
 	PanicOnError(err)
 	err, _ = DoScaleDeployment(KubeVirtInstallNamespace, "virt-controller", replicasController)
 	PanicOnError(err)
+	_, _, newGeneration, err := DoScaleVirtHandler(KubeVirtInstallNamespace, "virt-handler", selector)
+	virtCli, err := kubecli.GetKubevirtClient()
+	PanicOnError(err)
+
+	Eventually(func() int32 {
+		d, err := virtCli.ExtensionsV1beta1().Deployments(KubeVirtInstallNamespace).Get("virt-api", metav1.GetOptions{})
+		Expect(err).ToNot(HaveOccurred())
+		return d.Status.ReadyReplicas
+	}, 3*time.Minute, 2*time.Second).Should(Equal(replicasApi), "virt-api is not ready")
+
+	Eventually(func() int32 {
+		d, err := virtCli.ExtensionsV1beta1().Deployments(KubeVirtInstallNamespace).Get("virt-controller", metav1.GetOptions{})
+		Expect(err).ToNot(HaveOccurred())
+		return d.Status.ReadyReplicas
+	}, 3*time.Minute, 2*time.Second).Should(Equal(replicasController), "virt-controller is not ready")
+
+	Eventually(func() int64 {
+		d, err := virtCli.ExtensionsV1beta1().DaemonSets(KubeVirtInstallNamespace).Get("virt-handler", metav1.GetOptions{})
+		Expect(err).ToNot(HaveOccurred())
+		return d.Status.ObservedGeneration
+	}, 1*time.Minute, 2*time.Second).Should(Equal(newGeneration), "virt-handler did not bump the generation")
+
+	Eventually(func() int32 {
+		d, err := virtCli.ExtensionsV1beta1().DaemonSets(KubeVirtInstallNamespace).Get("virt-handler", metav1.GetOptions{})
+		Expect(err).ToNot(HaveOccurred())
+		return d.Status.NumberAvailable
+	}, 1*time.Minute, 2*time.Second).Should(Equal(daemonInstances), "virt-handler is not ready")
+
 	WaitForAllPodsReady(3*time.Minute, metav1.ListOptions{})
 }
 

@@ -1,0 +1,78 @@
+---
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  labels:
+    kubevirt.io: virt-handler
+  name: virt-handler
+  namespace: {{.Namespace}}
+spec:
+  selector:
+    matchLabels:
+      kubevirt.io: virt-handler
+  template:
+    metadata:
+      annotations:
+        scheduler.alpha.kubernetes.io/critical-pod: ""
+        scheduler.alpha.kubernetes.io/tolerations: '[{"key":"CriticalAddonsOnly","operator":"Exists"}]'
+      labels:
+        kubevirt.io: virt-handler
+        prometheus.kubevirt.io: ""
+      name: virt-handler
+    spec:
+      containers:
+      - command:
+        - virt-handler
+        - --port
+        - "8443"
+        - --hostname-override
+        - $(NODE_NAME)
+        - --pod-ip-address
+        - $(MY_POD_IP)
+        - -v
+        - {{.Verbosity}}
+        env:
+        - name: NODE_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: spec.nodeName
+        - name: MY_POD_IP
+          valueFrom:
+            fieldRef:
+              fieldPath: status.podIP
+        image: {{.DockerPrefix}}/virt-handler:{{.DockerTag}}
+        imagePullPolicy: {{.ImagePullPolicy}}
+        name: virt-handler
+        ports:
+        - containerPort: 8443
+          name: metrics
+          protocol: TCP
+        resources: {}
+        securityContext:
+          privileged: true
+        volumeMounts:
+        - mountPath: /var/run/kubevirt-libvirt-runtimes
+          name: libvirt-runtimes
+        - mountPath: /var/run/kubevirt
+          name: virt-share-dir
+        - mountPath: /var/run/kubevirt-private
+          name: virt-private-dir
+        - mountPath: /var/lib/kubelet/device-plugins
+          name: device-plugin
+      hostPID: true
+      serviceAccountName: kubevirt-privileged
+      volumes:
+      - hostPath:
+          path: /var/run/kubevirt-libvirt-runtimes
+        name: libvirt-runtimes
+      - hostPath:
+          path: /var/run/kubevirt
+        name: virt-share-dir
+      - hostPath:
+          path: /var/run/kubevirt-private
+        name: virt-private-dir
+      - hostPath:
+          path: /var/lib/kubelet/device-plugins
+        name: device-plugin
+  updateStrategy:
+    type: RollingUpdate

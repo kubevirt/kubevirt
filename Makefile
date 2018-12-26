@@ -30,7 +30,7 @@ functest:
 
 clean:
 	hack/dockerized "./hack/build-go.sh clean ${WHAT} && rm _out/* -rf"
-	rm -f tools/openapispec/openapispec tools/crd-generator/crd-generator tools/manifest-templator/manifests-templator tools/vms-generator/vms-generator
+	rm -f tools/openapispec/openapispec tools/resource-generator/resource-generator tools/manifest-templator/manifests-templator tools/vms-generator/vms-generator
 
 distclean: clean
 	hack/dockerized "rm -rf vendor/ && rm -f .glide.*.hash && glide cc"
@@ -63,7 +63,7 @@ verify-build:
 	hack/verify-build.sh
 
 manifests:
-	hack/dockerized "DOCKER_PREFIX=${DOCKER_PREFIX} DOCKER_TAG=${DOCKER_TAG} ./hack/build-manifests.sh"
+	hack/dockerized "DOCKER_PREFIX=${DOCKER_PREFIX} DOCKER_TAG=${DOCKER_TAG} IMAGE_PULL_POLICY=${IMAGE_PULL_POLICY} VERBOSITY=${VERBOSITY} ./hack/build-manifests.sh"
 
 .release-functest:
 	make functest > .release-functest 2>&1
