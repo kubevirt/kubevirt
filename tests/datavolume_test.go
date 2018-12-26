@@ -59,6 +59,10 @@ var _ = Describe("DataVolume Integration", func() {
 			obj, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
 			return err
 		}, timeout, 1*time.Second).ShouldNot(HaveOccurred())
+
+		By("Checking that the DataVolume has succeeded")
+		tests.WaitForSuccessfulDataVolumeImport(obj, timeout)
+
 		By("Waiting until the VirtualMachineInstance will start")
 		tests.WaitForSuccessfulVMIStartWithTimeout(obj, timeout)
 		return obj

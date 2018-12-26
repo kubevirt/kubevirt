@@ -1190,6 +1190,7 @@ func NewRandomDataVolumeWithHttpImport(imageUrl string, namespace string) *cdiv1
 		APIVersion: "cdi.kubevirt.io/v1alpha1",
 		Kind:       "DataVolume",
 	}
+
 	return dataVolume
 }
 
@@ -1731,6 +1732,24 @@ func NewRandomVMIWithCustomMacAddress() *v1.VirtualMachineInstance {
 	return vmi
 }
 
+// Block until DataVolume succeeds.
+func WaitForSuccessfulDataVolumeImport(obj runtime.Object, seconds int) {
+	vmi, ok := obj.(*v1.VirtualMachineInstance)
+	ExpectWithOffset(1, ok).To(BeTrue(), "Object is not of type *v1.VMI")
+
+	virtClient, err := kubecli.GetKubevirtClient()
+	ExpectWithOffset(1, err).ToNot(HaveOccurred())
+
+	EventuallyWithOffset(1, func() cdiv1.DataVolumePhase {
+		dv, err := virtClient.CdiClient().CdiV1alpha1().DataVolumes(vmi.Namespace).Get(vmi.Spec.Volumes[0].DataVolume.Name, metav1.GetOptions{})
+		ExpectWithOffset(1, err).ToNot(HaveOccurred())
+
+		return dv.Status.Phase
+	}, time.Duration(seconds)*time.Second, 1*time.Second).Should(Equal(cdiv1.Succeeded), "Timed out waiting for DataVolume to enter Succeeded phase")
+
+	return
+}
+
 // Block until the specified VirtualMachineInstance started and return the target node name.
 func waitForVMIStart(obj runtime.Object, seconds int, ignoreWarnings bool) (nodeName string) {
 	vmi, ok := obj.(*v1.VirtualMachineInstance)
@@ -1766,7 +1785,6 @@ func waitForVMIStart(obj runtime.Object, seconds int, ignoreWarnings bool) (node
 		ExpectWithOffset(1, err).ToNot(HaveOccurred())
 
 		nodeName = vmi.Status.NodeName
-		Expect(vmi.IsFinal()).To(BeFalse(), "VMI unexpectedly stopped. State: %s", vmi.Status.Phase)
 		return vmi.Status.Phase
 	}, time.Duration(seconds)*time.Second, 1*time.Second).Should(Equal(v1.Running), "Timed out waiting for VMI to enter Running phase")
 
