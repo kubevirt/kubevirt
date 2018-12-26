@@ -1,5 +1,5 @@
-hash: 184c8da120e33fab1361a02ed00049b67addd1dabf73bd9e25026a5953470855
-updated: 2018-12-05T20:19:20.663296765Z
+hash: a5f21bc7771afd4f95eab0de8323a15e6b172d397a686e4c9b6ee5c7235eeab0
+updated: 2018-12-26T22:21:40.248868665Z
 imports:
 - name: cloud.google.com/go
   version: 3b1ae45394a234c385be014e9a488f2bb6eef821
@@ -96,7 +96,7 @@ imports:
   subpackages:
   - lru
 - name: github.com/golang/mock
-  version: 5f3a40bc29aa3f8115e37b1ae65fe38747f39816
+  version: e698a2ea17fee71b248fc2bba82fc544c2017f93
   subpackages:
   - gomock
 - name: github.com/golang/protobuf
@@ -155,6 +155,18 @@ imports:
   version: 76626ae9c91c4f2a10f34cad8ce83ea42c93bb75
 - name: github.com/json-iterator/go
   version: f2b4162afba35581b6d4a50d3b8f34e33c144682
+- name: github.com/k8snetworkplumbingwg/network-attachment-definition-client
+  version: 379ff533bf290f5bd6a5dfed0ca382cc3c7cc8d2
+  repo: https://github.com/booxter/network-attachment-definition-client.git
+  vcs: git
+  subpackages:
+  - pkg/apis/k8s.cni.cncf.io
+  - pkg/apis/k8s.cni.cncf.io/v1
+  - pkg/client/clientset/versioned
+  - pkg/client/clientset/versioned/fake
+  - pkg/client/clientset/versioned/scheme
+  - pkg/client/clientset/versioned/typed/k8s.cni.cncf.io/v1
+  - pkg/client/clientset/versioned/typed/k8s.cni.cncf.io/v1/fake
 - name: github.com/kr/logfmt
   version: b84e30acd515aadc4b783ad4ff83aff3299bdfe0
 - name: github.com/krolaw/dhcp4
@@ -207,6 +219,8 @@ imports:
   subpackages:
   - format
   - ghttp
+  - gstruct
+  - gstruct/errors
   - internal/assertion
   - internal/asyncassertion
   - internal/oraclematcher
@@ -328,7 +342,7 @@ imports:
   subpackages:
   - rate
 - name: google.golang.org/appengine
-  version: a37df1387b4521194676d88c79230c613610d5f4
+  version: e9657d882bb81064595ca3b56cbe2546bbabf7b1
   subpackages:
   - internal
   - internal/app_identity
@@ -377,7 +391,7 @@ imports:
 - name: gopkg.in/inf.v0
   version: 3887ee99ecf07df5b447e9b00d9c0b2adaa9f3e4
 - name: gopkg.in/ini.v1
-  version: ffaaebdac6e54ce73b4e196b8406920921304ec9
+  version: a9da9309fb4822643ceebb765f80025c35ac19a1
 - name: gopkg.in/tomb.v1
   version: c131134a1947e9afd9cecfe11f4c6dff0732ae58
 - name: gopkg.in/yaml.v2
@@ -421,9 +435,6 @@ imports:
   subpackages:
   - pkg/apis/apiextensions
   - pkg/apis/apiextensions/v1beta1
-  - pkg/client/clientset/clientset
-  - pkg/client/clientset/clientset/scheme
-  - pkg/client/clientset/clientset/typed/apiextensions/v1beta1
 - name: k8s.io/apimachinery
   version: 103fd098999dc9c0c88536f5c9ad2e5da39373ae
   subpackages:
@@ -641,7 +652,7 @@ testImports:
   subpackages:
   - assert
 - name: golang.org/x/sync
-  version: 42b317875d0fa942474b76e1b46a6060d720ae6e
+  version: 37e7f081c4d4c64e13b10787722085407fe5d15f
   subpackages:
   - errgroup
 - name: gopkg.in/check.v1
