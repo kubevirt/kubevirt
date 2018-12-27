@@ -52,6 +52,9 @@ var _ = Describe("DataVolume Integration", func() {
 	})
 
 	runVMIAndExpectLaunch := func(vmi *v1.VirtualMachineInstance, timeout int) *v1.VirtualMachineInstance {
+		By("Checking that the DataVolume has succeeded")
+		tests.WaitForSuccessfulDataVolumeImport(vmi, timeout)
+
 		By("Starting a VirtualMachineInstance with DataVolume")
 		var obj *v1.VirtualMachineInstance
 		var err error
@@ -59,9 +62,6 @@ var _ = Describe("DataVolume Integration", func() {
 			obj, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
 			return err
 		}, timeout, 1*time.Second).ShouldNot(HaveOccurred())
-
-		By("Checking that the DataVolume has succeeded")
-		tests.WaitForSuccessfulDataVolumeImport(obj, timeout)
 
 		By("Waiting until the VirtualMachineInstance will start")
 		tests.WaitForSuccessfulVMIStartWithTimeout(obj, timeout)
