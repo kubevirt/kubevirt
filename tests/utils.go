@@ -1833,6 +1833,7 @@ func waitForVMIStart(obj runtime.Object, seconds int, ignoreWarnings bool) (node
 		ExpectWithOffset(1, err).ToNot(HaveOccurred())
 
 		nodeName = vmi.Status.NodeName
+		Expect(vmi.IsFinal()).To(BeFalse(), "VMI unexpectedly stopped. State: %s", vmi.Status.Phase)
 		return vmi.Status.Phase
 	}, time.Duration(seconds)*time.Second, 1*time.Second).Should(Equal(v1.Running), "Timed out waiting for VMI to enter Running phase")
 
