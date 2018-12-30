@@ -13,7 +13,7 @@ import (
 	"kubevirt.io/kubevirt/tests"
 )
 
-var _ = FDescribe("Ensure stable functionality", func() {
+var _ = PDescribe("Ensure stable functionality", func() {
 
 	flag.Parse()
 
