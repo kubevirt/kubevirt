@@ -29,6 +29,7 @@ import (
 	"io"
 	"time"
 
+	autov1 "k8s.io/api/autoscaling/v1"
 	k8smetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes"
@@ -37,7 +38,7 @@ import (
 	networkclient "github.com/k8snetworkplumbingwg/network-attachment-definition-client/pkg/client/clientset/versioned"
 
 	cdiclient "kubevirt.io/containerized-data-importer/pkg/client/clientset/versioned"
-	v1 "kubevirt.io/kubevirt/pkg/api/v1"
+	"kubevirt.io/kubevirt/pkg/api/v1"
 )
 
 type KubevirtClient interface {
@@ -100,6 +101,8 @@ type ReplicaSetInterface interface {
 	Create(*v1.VirtualMachineInstanceReplicaSet) (*v1.VirtualMachineInstanceReplicaSet, error)
 	Update(*v1.VirtualMachineInstanceReplicaSet) (*v1.VirtualMachineInstanceReplicaSet, error)
 	Delete(name string, options *k8smetav1.DeleteOptions) error
+	GetScale(replicaSetName string, options k8smetav1.GetOptions) (*autov1.Scale, error)
+	UpdateScale(replicaSetName string, scale *autov1.Scale) (*autov1.Scale, error)
 }
 
 type VMIPresetInterface interface {

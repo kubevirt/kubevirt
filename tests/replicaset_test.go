@@ -29,12 +29,13 @@ import (
 	. "github.com/onsi/ginkgo"
 	"github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
+	autov1 "k8s.io/api/autoscaling/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	v12 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1beta1"
 	"k8s.io/apimachinery/pkg/util/json"
 
-	v1 "kubevirt.io/kubevirt/pkg/api/v1"
+	"kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/kubecli"
 	"kubevirt.io/kubevirt/tests"
 )
@@ -80,6 +81,41 @@ var _ = Describe("VirtualMachineInstanceReplicaSet", func() {
 		Expect(tests.NotDeleted(vmis)).To(HaveLen(int(scale)))
 	}
 
+	doScaleWithScaleSubresource := func(name string, scale int32) {
+
+		// Status updates can conflict with our desire to change the spec
+		By(fmt.Sprintf("Scaling to %d", scale))
+		var s *autov1.Scale
+		for {
+			s, err = virtClient.ReplicaSet(tests.NamespaceTestDefault).GetScale(name, v12.GetOptions{})
+			ExpectWithOffset(1, err).ToNot(HaveOccurred())
+			s.Spec.Replicas = scale
+			s, err = virtClient.ReplicaSet(tests.NamespaceTestDefault).UpdateScale(name, s)
+			if errors.IsConflict(err) {
+				continue
+			}
+			break
+		}
+
+		ExpectWithOffset(1, err).ToNot(HaveOccurred())
+
+		By("Checking the number of replicas")
+		EventuallyWithOffset(1, func() int32 {
+			s, err = virtClient.ReplicaSet(tests.NamespaceTestDefault).GetScale(name, v12.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			return s.Status.Replicas
+		}, 90*time.Second, time.Second).Should(Equal(int32(scale)))
+
+		vmis, err := virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).List(&v12.ListOptions{})
+		ExpectWithOffset(1, err).ToNot(HaveOccurred())
+		ExpectWithOffset(1, tests.NotDeleted(vmis)).To(HaveLen(int(scale)))
+
+		By("Checking the scale subresource status")
+		s, err = virtClient.ReplicaSet(tests.NamespaceTestDefault).GetScale(name, v12.GetOptions{})
+		ExpectWithOffset(1, err).ToNot(HaveOccurred())
+		ExpectWithOffset(1, s.Status.Replicas).To(Equal(int32(scale)))
+	}
+
 	newReplicaSet := func() *v1.VirtualMachineInstanceReplicaSet {
 		By("Create a new VirtualMachineInstance replica set")
 		template := tests.NewRandomVMIWithEphemeralDisk(tests.ContainerDiskFor(tests.ContainerDiskCirros))
@@ -94,6 +130,17 @@ var _ = Describe("VirtualMachineInstanceReplicaSet", func() {
 		doScale(newRS.ObjectMeta.Name, int32(startScale))
 		doScale(newRS.ObjectMeta.Name, int32(stopScale))
 		doScale(newRS.ObjectMeta.Name, int32(0))
+
+	},
+		table.Entry("to three, to two and then to zero replicas", 3, 2),
+		table.Entry("to five, to six and then to zero replicas", 5, 6),
+	)
+
+	table.DescribeTable("should scale with scale subresource", func(startScale int, stopScale int) {
+		newRS := newReplicaSet()
+		doScaleWithScaleSubresource(newRS.ObjectMeta.Name, int32(startScale))
+		doScaleWithScaleSubresource(newRS.ObjectMeta.Name, int32(stopScale))
+		doScaleWithScaleSubresource(newRS.ObjectMeta.Name, int32(0))
 
 	},
 		table.Entry("to three, to two and then to zero replicas", 3, 2),
@@ -328,7 +375,7 @@ var _ = Describe("VirtualMachineInstanceReplicaSet", func() {
 		err = virtClient.CoreV1().Pods(tests.NamespaceTestDefault).Delete(pod.Name, &v12.DeleteOptions{})
 		Expect(err).ToNot(HaveOccurred())
 
-		By("Checking that the VM dissapeared")
+		By("Checking that the VM disappeared")
 		Eventually(func() bool {
 			_, err := virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Get(vmi.Name, &v12.GetOptions{})
 			if errors.IsNotFound(err) {

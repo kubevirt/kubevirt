@@ -32,4 +32,8 @@ spec:
     - vmirss
     singular: virtualmachineinstancereplicaset
   scope: Namespaced
+  subresources:
+    scale:
+      specReplicasPath: .spec.replicas
+      statusReplicasPath: .status.replicas
   version: v1alpha2

@@ -134,6 +134,12 @@ func NewReplicaSetCrd() *extv1beta1.CustomResourceDefinition {
 				Description: "Number of managed VirtualMachineInstances which are ready to receive traffic"},
 			{Name: "Age", Type: "date", JSONPath: ".metadata.creationTimestamp"},
 		},
+		Subresources: &extv1beta1.CustomResourceSubresources{
+			Scale: &extv1beta1.CustomResourceSubresourceScale{
+				SpecReplicasPath:   ".spec.replicas",
+				StatusReplicasPath: ".status.replicas",
+			},
+		},
 	}
 
 	return crd
