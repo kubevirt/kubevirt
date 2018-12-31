@@ -112,6 +112,7 @@ func NewPresetCrd() *extv1beta1.CustomResourceDefinition {
 
 func NewReplicaSetCrd() *extv1beta1.CustomResourceDefinition {
 	crd := newBlankCrd()
+	labelSelector := ".status.labelSelector"
 
 	crd.ObjectMeta.Name = "virtualmachineinstancereplicasets." + virtv1.VirtualMachineInstanceReplicaSetGroupVersionKind.Group
 	crd.Spec = extv1beta1.CustomResourceDefinitionSpec{
@@ -138,6 +139,7 @@ func NewReplicaSetCrd() *extv1beta1.CustomResourceDefinition {
 			Scale: &extv1beta1.CustomResourceSubresourceScale{
 				SpecReplicasPath:   ".spec.replicas",
 				StatusReplicasPath: ".status.replicas",
+				LabelSelectorPath:  &labelSelector,
 			},
 		},
 	}

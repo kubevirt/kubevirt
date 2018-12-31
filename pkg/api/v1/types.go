@@ -607,6 +607,9 @@ type VirtualMachineInstanceReplicaSetStatus struct {
 	ReadyReplicas int32 `json:"readyReplicas,omitempty" protobuf:"varint,4,opt,name=readyReplicas"`
 
 	Conditions []VirtualMachineInstanceReplicaSetCondition `json:"conditions,omitempty" optional:"true"`
+
+	// Canonical form of the label selector for HPA which consumes it through the scale subresource.
+	LabelSelector string `json:"labelSelector,omitempty"`
 }
 
 // ---

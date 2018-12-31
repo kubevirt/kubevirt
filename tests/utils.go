@@ -1119,6 +1119,9 @@ func cleanNamespaces() {
 			continue
 		}
 
+		//Remove all HPA
+		PanicOnError(virtCli.AutoscalingV1().RESTClient().Delete().Namespace(namespace).Resource("horizontalpodautoscalers").Do().Error())
+
 		// Remove all VirtualMachines
 		PanicOnError(virtCli.RestClient().Delete().Namespace(namespace).Resource("virtualmachines").Do().Error())
 

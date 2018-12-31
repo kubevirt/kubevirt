@@ -34,6 +34,7 @@ spec:
   scope: Namespaced
   subresources:
     scale:
+      labelSelectorPath: .status.labelSelector
       specReplicasPath: .spec.replicas
       statusReplicasPath: .status.replicas
   version: v1alpha2

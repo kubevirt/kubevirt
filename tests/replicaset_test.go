@@ -109,11 +109,42 @@ var _ = Describe("VirtualMachineInstanceReplicaSet", func() {
 		vmis, err := virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).List(&v12.ListOptions{})
 		ExpectWithOffset(1, err).ToNot(HaveOccurred())
 		ExpectWithOffset(1, tests.NotDeleted(vmis)).To(HaveLen(int(scale)))
+	}
 
-		By("Checking the scale subresource status")
-		s, err = virtClient.ReplicaSet(tests.NamespaceTestDefault).GetScale(name, v12.GetOptions{})
+	doScaleWithHPA := func(name string, min int32, max int32, expected int32) {
+
+		// Status updates can conflict with our desire to change the spec
+		By(fmt.Sprintf("Scaling to %d", min))
+		hpa := &autov1.HorizontalPodAutoscaler{
+			ObjectMeta: v12.ObjectMeta{
+				Name: name,
+			},
+			Spec: autov1.HorizontalPodAutoscalerSpec{
+				ScaleTargetRef: autov1.CrossVersionObjectReference{
+					Name:       name,
+					Kind:       v1.VirtualMachineInstanceReplicaSetGroupVersionKind.Kind,
+					APIVersion: v1.VirtualMachineInstanceReplicaSetGroupVersionKind.GroupVersion().String(),
+				},
+				MinReplicas: &min,
+				MaxReplicas: max,
+			},
+		}
+		hpa, err := virtClient.AutoscalingV1().HorizontalPodAutoscalers(tests.NamespaceTestDefault).Create(hpa)
 		ExpectWithOffset(1, err).ToNot(HaveOccurred())
-		ExpectWithOffset(1, s.Status.Replicas).To(Equal(int32(scale)))
+
+		var s *autov1.Scale
+		By("Checking the number of replicas")
+		EventuallyWithOffset(1, func() int32 {
+			s, err = virtClient.ReplicaSet(tests.NamespaceTestDefault).GetScale(name, v12.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			return s.Status.Replicas
+		}, 90*time.Second, time.Second).Should(Equal(int32(expected)))
+
+		vmis, err := virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).List(&v12.ListOptions{})
+		ExpectWithOffset(1, err).ToNot(HaveOccurred())
+		ExpectWithOffset(1, tests.NotDeleted(vmis)).To(HaveLen(int(min)))
+		err = virtClient.AutoscalingV1().HorizontalPodAutoscalers(tests.NamespaceTestDefault).Delete(name, &v12.DeleteOptions{})
+		ExpectWithOffset(1, err).ToNot(HaveOccurred())
 	}
 
 	newReplicaSet := func() *v1.VirtualMachineInstanceReplicaSet {
@@ -145,6 +176,21 @@ var _ = Describe("VirtualMachineInstanceReplicaSet", func() {
 	},
 		table.Entry("to three, to two and then to zero replicas", 3, 2),
 		table.Entry("to five, to six and then to zero replicas", 5, 6),
+	)
+
+	table.DescribeTable("should scale with the horizontal pod autoscaler", func(startScale int, stopScale int) {
+		tests.SkipIfVersionBelow("HPA only works with CRs starting from 1.11", "1.11")
+		template := tests.NewRandomVMIWithEphemeralDisk(tests.ContainerDiskFor(tests.ContainerDiskCirros))
+		newRS := tests.NewRandomReplicaSetFromVMI(template, int32(1))
+		newRS, err = virtClient.ReplicaSet(tests.NamespaceTestDefault).Create(newRS)
+		Expect(err).ToNot(HaveOccurred())
+		doScaleWithHPA(newRS.ObjectMeta.Name, int32(startScale), int32(startScale), int32(startScale))
+		doScaleWithHPA(newRS.ObjectMeta.Name, int32(stopScale), (int32(stopScale)), int32(stopScale))
+		doScaleWithHPA(newRS.ObjectMeta.Name, int32(1), int32(1), int32(1))
+
+	},
+		table.Entry("to three, to two and then to one replicas", 3, 2),
+		table.Entry("to five, to six and then to one replicas", 5, 6),
 	)
 
 	It("should be rejected on POST if spec is invalid", func() {

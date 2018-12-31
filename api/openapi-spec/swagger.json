@@ -5893,6 +5893,10 @@
        "$ref": "#/definitions/v1.VirtualMachineInstanceReplicaSetCondition"
       }
      },
+     "labelSelector": {
+      "description": "Canonical form of the label selector for HPA which consumes it through the scale subresource.",
+      "type": "string"
+     },
      "readyReplicas": {
       "description": "The number of ready replicas for this replica set.\n+optional",
       "type": "integer",
