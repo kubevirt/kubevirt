@@ -26,7 +26,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/google/goexpect"
+	expect "github.com/google/goexpect"
 	. "github.com/onsi/ginkgo"
 	"github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
@@ -36,7 +36,7 @@ import (
 	v13 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 
-	"kubevirt.io/kubevirt/pkg/api/v1"
+	v1 "kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/kubecli"
 	"kubevirt.io/kubevirt/pkg/log"
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
@@ -362,11 +362,15 @@ var _ = Describe("Networking", func() {
 		})
 
 		Context("VirtualMachineInstance with default interface model", func() {
+			// Unless an explicit interface model is specified, the default interface model is virtio.
 			It("should expose the right device type to the guest", func() {
 				By("checking the device vendor in /sys/class")
+
+				// Taken from https://wiki.osdev.org/Virtio#Technical_Details
+				virtio_vid := "0x1af4"
 				for _, networkVMI := range []*v1.VirtualMachineInstance{inboundVMI, outboundVMI} {
 					// as defined in https://vendev.org/pci/ven_1af4/
-					checkNetworkVendor(networkVMI, "0x1af4", "\\$ ")
+					checkNetworkVendor(networkVMI, virtio_vid, "\\$ ")
 				}
 			})
 		})
@@ -387,6 +391,13 @@ var _ = Describe("Networking", func() {
 			tests.WaitUntilVMIReady(e1000VMI, tests.LoggedInAlpineExpecter)
 			// as defined in https://vendev.org/pci/ven_8086/
 			checkNetworkVendor(e1000VMI, "0x8086", "localhost:~#")
+		})
+
+		It("should reject the creation of virtual machine with unsupported interface model", func() {
+			// Create a virtual machine with an unsupported interface model
+			customIfVMI := tests.NewRandomVMIWithInvalidNetworkInterface()
+			_, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(customIfVMI)
+			Expect(err).To(HaveOccurred())
 		})
 	})
 
