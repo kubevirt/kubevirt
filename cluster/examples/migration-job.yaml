@@ -1,8 +1,7 @@
+---
 apiVersion: kubevirt.io/v1alpha2
 kind: VirtualMachineInstanceMigration
 metadata:
-  creationTimestamp: null
   name: migration-job
 spec:
   vmiName: vmi-migratable
-status: {}

@@ -320,6 +320,10 @@ type VirtualMachineInstanceNetworkInterface struct {
 	// Name of the interface, corresponds to name of the network assigned to the interface
 	// TODO: remove omitempty, when api breaking changes are allowed
 	Name string `json:"name,omitempty"`
+	// List of all IP addresses of a Virtual Machine interface
+	IPs []string `json:"ipAddresses,omitempty"`
+	// The interface name inside the Virtual Machine
+	InterfaceName string `json:"interfaceName,omitempty"`
 }
 
 type VirtualMachineInstanceMigrationState struct {

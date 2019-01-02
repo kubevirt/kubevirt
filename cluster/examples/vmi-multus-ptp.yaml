@@ -1,7 +1,7 @@
+---
 apiVersion: kubevirt.io/v1alpha2
 kind: VirtualMachineInstance
 metadata:
-  creationTimestamp: null
   labels:
     special: vmi-multus-ptp
   name: vmi-multus-ptp
@@ -39,4 +39,3 @@ spec:
         #!/bin/bash
         echo "fedora" |passwd fedora --stdin
     name: cloudinitvolume
-status: {}

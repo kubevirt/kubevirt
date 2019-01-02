@@ -1,15 +1,11 @@
-hash: b07800e29d3f35b2b6466f1e42513f1c01018e9856739ffd576e6b556d224ca7
-updated: 2018-11-23T02:26:13.471620658Z
+hash: 184c8da120e33fab1361a02ed00049b67addd1dabf73bd9e25026a5953470855
+updated: 2018-12-05T20:19:20.663296765Z
 imports:
 - name: cloud.google.com/go
   version: 3b1ae45394a234c385be014e9a488f2bb6eef821
   subpackages:
   - compute/metadata
   - internal
-- name: github.com/ant31/crd-validation
-  version: 30f8a35d0ac2d8a2825c78ff47885979e3ee1121
-  subpackages:
-  - pkg
 - name: github.com/asaskevich/govalidator
   version: f9ffefc3facfbe0caee3fea233cbb6e8208f4541
 - name: github.com/Azure/go-autorest
@@ -96,7 +92,7 @@ imports:
   subpackages:
   - lru
 - name: github.com/golang/mock
-  version: 49a60242bb5c086a9aacc67bdd056e88f75f3c3e
+  version: 5f3a40bc29aa3f8115e37b1ae65fe38747f39816
   subpackages:
   - gomock
 - name: github.com/golang/protobuf
@@ -155,18 +151,6 @@ imports:
   version: 76626ae9c91c4f2a10f34cad8ce83ea42c93bb75
 - name: github.com/json-iterator/go
   version: f2b4162afba35581b6d4a50d3b8f34e33c144682
-- name: github.com/k8snetworkplumbingwg/network-attachment-definition-client
-  version: 379ff533bf290f5bd6a5dfed0ca382cc3c7cc8d2
-  repo: https://github.com/booxter/network-attachment-definition-client.git
-  vcs: git
-  subpackages:
-  - pkg/apis/k8s.cni.cncf.io
-  - pkg/apis/k8s.cni.cncf.io/v1
-  - pkg/client/clientset/versioned
-  - pkg/client/clientset/versioned/fake
-  - pkg/client/clientset/versioned/scheme
-  - pkg/client/clientset/versioned/typed/k8s.cni.cncf.io/v1
-  - pkg/client/clientset/versioned/typed/k8s.cni.cncf.io/v1/fake
 - name: github.com/kr/logfmt
   version: b84e30acd515aadc4b783ad4ff83aff3299bdfe0
 - name: github.com/krolaw/dhcp4
@@ -174,7 +158,7 @@ imports:
   subpackages:
   - conn
 - name: github.com/libvirt/libvirt-go
-  version: d5e0adac44d4365a2d97e259f51ab76cc3c01b20
+  version: 9c5bdce3c18faad94cb383e7ec42f5122a8c7fa1
 - name: github.com/mailru/easyjson
   version: 2f5df55504ebc322e4d52d34df6a1f5b503bf26d
   subpackages:
@@ -194,7 +178,7 @@ imports:
 - name: github.com/modern-go/reflect2
   version: 05fbef0ca5da472bbf96c9322b84a53edc03c9fd
 - name: github.com/onsi/ginkgo
-  version: 2e1be8f7d90e9d3e3e58b0ce470f2f14d075406f
+  version: 505cc352255139defb7371000668063d1161e331
   subpackages:
   - config
   - extensions/table
@@ -215,7 +199,7 @@ imports:
   - reporters/stenographer/support/go-isatty
   - types
 - name: github.com/onsi/gomega
-  version: 65fb64232476ad9046e57c26cd0bff3d3a8dc6cd
+  version: e0d4387cf37d6cc3baeb80f61bd24a37e5dfae26
   subpackages:
   - format
   - ghttp
@@ -340,7 +324,7 @@ imports:
   subpackages:
   - rate
 - name: google.golang.org/appengine
-  version: 4a4468ece617fc8205e99368fa2200e9d1fad421
+  version: a37df1387b4521194676d88c79230c613610d5f4
   subpackages:
   - internal
   - internal/app_identity
@@ -389,7 +373,7 @@ imports:
 - name: gopkg.in/inf.v0
   version: 3887ee99ecf07df5b447e9b00d9c0b2adaa9f3e4
 - name: gopkg.in/ini.v1
-  version: 9c8236e659b76e87bf02044d06fde8683008ff3e
+  version: ffaaebdac6e54ce73b4e196b8406920921304ec9
 - name: gopkg.in/tomb.v1
   version: c131134a1947e9afd9cecfe11f4c6dff0732ae58
 - name: gopkg.in/yaml.v2
@@ -433,6 +417,9 @@ imports:
   subpackages:
   - pkg/apis/apiextensions
   - pkg/apis/apiextensions/v1beta1
+  - pkg/client/clientset/clientset
+  - pkg/client/clientset/clientset/scheme
+  - pkg/client/clientset/clientset/typed/apiextensions/v1beta1
 - name: k8s.io/apimachinery
   version: 103fd098999dc9c0c88536f5c9ad2e5da39373ae
   subpackages:

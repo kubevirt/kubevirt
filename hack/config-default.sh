@@ -9,3 +9,4 @@ network_provider=flannel
 namespace=kubevirt
 cdi_namespace=kube-system
 image_pull_policy=${IMAGE_PULL_POLICY:-IfNotPresent}
+verbosity=${VERBOSITY:-2}

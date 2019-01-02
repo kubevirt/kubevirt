@@ -1,3 +1,4 @@
+---
 apiVersion: v1
 kind: Template
 metadata:
@@ -5,7 +6,6 @@ metadata:
     description: OCP KubeVirt Fedora 27 VM template
     iconClass: icon-fedora
     tags: kubevirt,ocp,template,linux,virtualmachine
-  creationTimestamp: null
   labels:
     kubevirt.io/os: fedora27
     miq.github.io/kubevirt-is-vm-template: "true"

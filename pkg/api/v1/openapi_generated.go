@@ -2096,6 +2096,27 @@ func schema_kubevirt_pkg_api_v1_VirtualMachineInstanceNetworkInterface(ref commo
 							Format:      "",
 						},
 					},
+					"ipAddresses": {
+						SchemaProps: spec.SchemaProps{
+							Description: "List of all IP addresses of a Virtual Machine interface",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Type:   []string{"string"},
+										Format: "",
+									},
+								},
+							},
+						},
+					},
+					"interfaceName": {
+						SchemaProps: spec.SchemaProps{
+							Description: "The interface name inside the Virtual Machine",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
 				},
 			},
 		},

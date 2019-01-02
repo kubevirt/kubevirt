@@ -2,6 +2,7 @@
 *.iml
 tools/openapispec/openapispec
 tools/crd-generator/crd-generator
+tools/resource-generator/resource-generator
 **/bin
 bin/*
 .vagrant
@@ -28,4 +29,5 @@ vendor/**/*_test.go
 **/polarion.xml
 tools/manifest-templator/manifest-templator
 tools/vms-generator/vms-generator
-.coverprofile 
+.coverprofile
+manifests/**/*.tmp

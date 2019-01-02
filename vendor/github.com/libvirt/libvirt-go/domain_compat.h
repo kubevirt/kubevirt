@@ -895,7 +895,7 @@ struct _virDomainInterface {
 #endif
 
 #ifndef VIR_DOMAIN_INTERFACE_ADDRESSES_SRC_ARP
-#define VIR_DOMAIN_INTERFACE_ADDRESSES_SRC_ARP 1
+#define VIR_DOMAIN_INTERFACE_ADDRESSES_SRC_ARP 2
 #endif
 
 /* 4.5.0 */

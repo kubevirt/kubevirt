@@ -1,3 +1,4 @@
+---
 apiVersion: v1
 kind: Template
 metadata:
@@ -5,7 +6,6 @@ metadata:
     description: OCP KubeVirt Red Hat Enterprise Linux 7.4 VM template
     iconClass: icon-rhel
     tags: kubevirt,ocp,template,linux,virtualmachine
-  creationTimestamp: null
   labels:
     kubevirt.io/os: rhel-7.4
     miq.github.io/kubevirt-is-vm-template: "true"
