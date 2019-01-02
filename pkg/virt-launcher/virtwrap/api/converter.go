@@ -545,6 +545,7 @@ func Convert_v1_VirtualMachine_To_api_Domain(vmi *v1.VirtualMachineInstance, dom
 	precond.MustNotBeNil(c)
 
 	domain.Spec.Name = VMINamespaceKeyFunc(vmi)
+	domain.Spec.UUID = string(vmi.UID)
 	domain.ObjectMeta.Name = vmi.ObjectMeta.Name
 	domain.ObjectMeta.Namespace = vmi.ObjectMeta.Namespace
 
