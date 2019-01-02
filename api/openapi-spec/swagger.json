@@ -4116,10 +4116,18 @@
     }
    },
    "v1.DHCPOptions": {
+    "description": "Extra DHCP options to use in the interface.",
     "properties": {
      "bootFileName": {
       "description": "If specified will pass option 67 to interface's DHCP server\n+optional",
       "type": "string"
+     },
+     "ntpServers": {
+      "description": "If specified will pass the configured NTP server to the VM via DHCP option 042.\n+optional",
+      "type": "array",
+      "items": {
+       "type": "string"
+      }
      },
      "tftpServerName": {
       "description": "If specified will pass option 66 to interface's DHCP server\n+optional",

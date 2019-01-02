@@ -1076,6 +1076,17 @@ func ValidateVirtualMachineInstanceSpec(field *k8sfield.Path, spec *v1.VirtualMa
 				isVirtioNicRequested = true
 			}
 
+			if iface.DHCPOptions != nil {
+				for index, ip := range iface.DHCPOptions.NTPServers {
+					if net.ParseIP(ip).To4() == nil {
+						causes = append(causes, metav1.StatusCause{
+							Type:    metav1.CauseTypeFieldValueInvalid,
+							Message: fmt.Sprintf("NTP servers must be a valid IPv4 address."),
+							Field:   field.Child("domain", "devices", "interfaces").Index(idx).Child("dhcpOptions", "ntpServers").Index(index).String(),
+						})
+					}
+				}
+			}
 		}
 		// Network interface multiqueue can only be set for a virtio driver
 		if vifMQ != nil && *vifMQ && !isVirtioNicRequested {
