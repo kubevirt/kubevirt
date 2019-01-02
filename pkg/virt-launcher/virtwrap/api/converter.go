@@ -766,18 +766,17 @@ func Convert_v1_VirtualMachine_To_api_Domain(vmi *v1.VirtualMachineInstance, dom
 		return err
 	}
 
-	if vmi.Spec.Domain.CPU != nil {
-		// Set VM CPU cores
-		domain.Spec.CPU.Topology = &CPUTopology{
-			Sockets: 1,
-			Cores:   calculateRequestedVCPUs(vmi),
-			Threads: 1,
-		}
-		domain.Spec.VCPU = &VCPU{
-			Placement: "static",
-			CPUs:      calculateRequestedVCPUs(vmi),
-		}
+	// Set VM CPU cores
+	// CPU topology will be created everytime, because user can specify
+	// number of cores in vmi.Spec.Domain.Resources.Requests/Limits, not only
+	// in vmi.Spec.Domain.CPU
+	domain.Spec.CPU.Topology = getCPUTopology(vmi)
+	domain.Spec.VCPU = &VCPU{
+		Placement: "static",
+		CPUs:      calculateRequestedVCPUs(domain.Spec.CPU.Topology),
+	}
 
+	if vmi.Spec.Domain.CPU != nil {
 		// Set VM CPU model and vendor
 		if vmi.Spec.Domain.CPU.Model != "" {
 			if vmi.Spec.Domain.CPU.Model == v1.CPUModeHostModel || vmi.Spec.Domain.CPU.Model == v1.CPUModeHostPassthrough {
@@ -787,25 +786,25 @@ func Convert_v1_VirtualMachine_To_api_Domain(vmi *v1.VirtualMachineInstance, dom
 				domain.Spec.CPU.Model = vmi.Spec.Domain.CPU.Model
 			}
 		}
+
+		// Adjust guest vcpu config. Currenty will handle vCPUs to pCPUs pinning
+		if vmi.IsCPUDedicated() {
+			if err := formatDomainCPUTune(vmi, domain, c); err != nil {
+				log.Log.Reason(err).Error("failed to format domain cputune.")
+				return err
+			}
+			if useIOThreads {
+				if err := formatDomainIOThreadPin(vmi, domain, c); err != nil {
+					log.Log.Reason(err).Error("failed to format domain iothread pinning.")
+					return err
+				}
+
+			}
+		}
 	}
 
 	if vmi.Spec.Domain.CPU == nil || vmi.Spec.Domain.CPU.Model == "" {
 		domain.Spec.CPU.Mode = v1.CPUModeHostModel
-	}
-
-	// Adjust guest vcpu config. Currenty will handle vCPUs to pCPUs pinning
-	if vmi.IsCPUDedicated() {
-		if err := formatDomainCPUTune(vmi, domain, c); err != nil {
-			log.Log.Reason(err).Error("failed to format domain cputune.")
-			return err
-		}
-		if useIOThreads {
-			if err := formatDomainIOThreadPin(vmi, domain, c); err != nil {
-				log.Log.Reason(err).Error("failed to format domain iothread pinning.")
-				return err
-			}
-
-		}
 	}
 
 	// Add mandatory console device
@@ -1014,27 +1013,54 @@ func Convert_v1_VirtualMachine_To_api_Domain(vmi *v1.VirtualMachineInstance, dom
 	return nil
 }
 
-func calculateRequestedVCPUs(vmi *v1.VirtualMachineInstance) uint32 {
-	cores := uint32(0)
-	if vmi.Spec.Domain.CPU != nil && vmi.Spec.Domain.CPU.Cores != 0 {
-		return vmi.Spec.Domain.CPU.Cores
+func getCPUTopology(vmi *v1.VirtualMachineInstance) *CPUTopology {
+	cores := uint32(1)
+	threads := uint32(1)
+	sockets := uint32(1)
+	vmiCPU := vmi.Spec.Domain.CPU
+	if vmiCPU != nil {
+		vmiCPU := vmi.Spec.Domain.CPU
+
+		if vmiCPU.Cores != 0 {
+			cores = vmiCPU.Cores
+		}
+
+		if vmiCPU.Threads != 0 {
+			threads = vmiCPU.Threads
+		}
+
+		if vmiCPU.Sockets != 0 {
+			sockets = vmiCPU.Sockets
+		}
 	}
-	if !vmi.IsCPUDedicated() {
-		return uint32(1)
+
+	if vmiCPU == nil || (vmiCPU.Cores == 0 && vmiCPU.Sockets == 0 && vmiCPU.Threads == 0) {
+		//if cores, sockets, threads are not set, take value from domain resources request or limits and
+		//set value into sockets, which have best performance (https://bugzilla.redhat.com/show_bug.cgi?id=1653453)
+		resources := vmi.Spec.Domain.Resources
+		if cpuRequests, ok := resources.Requests[k8sv1.ResourceCPU]; ok {
+			sockets = uint32(cpuRequests.Value())
+		} else if cpuLimit, ok := resources.Limits[k8sv1.ResourceCPU]; ok {
+			sockets = uint32(cpuLimit.Value())
+		}
 	}
-	if cpuRequests, ok := vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceCPU]; ok {
-		cores = uint32(cpuRequests.Value())
-	} else if cpuLimit, ok := vmi.Spec.Domain.Resources.Limits[k8sv1.ResourceCPU]; ok {
-		cores = uint32(cpuLimit.Value())
+
+	return &CPUTopology{
+		Sockets: sockets,
+		Cores:   cores,
+		Threads: threads,
 	}
-	return cores
+}
+
+func calculateRequestedVCPUs(cpuTopology *CPUTopology) uint32 {
+	return cpuTopology.Cores * cpuTopology.Sockets * cpuTopology.Threads
 }
 
 func formatDomainCPUTune(vmi *v1.VirtualMachineInstance, domain *Domain, c *ConverterContext) error {
 	if len(c.CPUSet) == 0 {
 		return fmt.Errorf("failed for get pods pinned cpus")
 	}
-	vcpus := calculateRequestedVCPUs(vmi)
+	vcpus := calculateRequestedVCPUs(domain.Spec.CPU.Topology)
 	cpuTune := CPUTune{}
 	for idx := 0; idx < int(vcpus); idx++ {
 		vcpupin := CPUTuneVCPUPin{}
@@ -1055,7 +1081,7 @@ func appendDomainIOThreadPin(domain *Domain, thread uint, cpuset string) {
 
 func formatDomainIOThreadPin(vmi *v1.VirtualMachineInstance, domain *Domain, c *ConverterContext) error {
 	iothreads := int(domain.Spec.IOThreads.IOThreads)
-	vcpus := int(calculateRequestedVCPUs(vmi))
+	vcpus := int(calculateRequestedVCPUs(domain.Spec.CPU.Topology))
 
 	if iothreads >= vcpus {
 		// pin an IOThread on a CPU
