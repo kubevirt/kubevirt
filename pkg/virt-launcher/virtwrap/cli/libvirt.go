@@ -54,7 +54,7 @@ type Connection interface {
 	// We add this helper to
 	// 1. avoid to expose to the client code the libvirt-specific return type, see docs in stats/ subpackage
 	// 2. transparently handling the addition of the memory stats, currently (libvirt 4.9) not handled by the bulk stats API
-	GetDomainStats(statsTypes libvirt.DomainStatsTypes, statsMemory bool, flags libvirt.ConnectGetAllDomainStatsFlags) ([]*stats.DomainStats, error)
+	GetDomainStats(statsTypes libvirt.DomainStatsTypes, flags libvirt.ConnectGetAllDomainStatsFlags) ([]*stats.DomainStats, error)
 }
 
 type Stream interface {
@@ -204,7 +204,7 @@ func (l *LibvirtConnection) GetAllDomainStats(statsTypes libvirt.DomainStatsType
 	return domStats, nil
 }
 
-func (l *LibvirtConnection) GetDomainStats(statsTypes libvirt.DomainStatsTypes, statsMemory bool, flags libvirt.ConnectGetAllDomainStatsFlags) ([]*stats.DomainStats, error) {
+func (l *LibvirtConnection) GetDomainStats(statsTypes libvirt.DomainStatsTypes, flags libvirt.ConnectGetAllDomainStatsFlags) ([]*stats.DomainStats, error) {
 	domStats, err := l.GetAllDomainStats(statsTypes, flags)
 	if err != nil {
 		return nil, err
@@ -213,12 +213,10 @@ func (l *LibvirtConnection) GetDomainStats(statsTypes libvirt.DomainStatsTypes, 
 	var list []*stats.DomainStats
 	for _, domStat := range domStats {
 		var err error
-		var memStats []libvirt.DomainMemoryStat
-		if statsMemory {
-			memStats, err = domStat.Domain.MemoryStats(uint32(libvirt.DOMAIN_MEMORY_STAT_NR), 0)
-			if err != nil {
-				return list, err
-			}
+
+		memStats, err := domStat.Domain.MemoryStats(uint32(libvirt.DOMAIN_MEMORY_STAT_NR), 0)
+		if err != nil {
+			return list, err
 		}
 
 		stat := &stats.DomainStats{}

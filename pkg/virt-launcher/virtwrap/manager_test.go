@@ -419,7 +419,6 @@ var _ = Describe("Manager", func() {
 		It("should return content", func() {
 			mockConn.EXPECT().GetDomainStats(
 				gomock.Eq(libvirt.DOMAIN_STATS_CPU_TOTAL|libvirt.DOMAIN_STATS_VCPU|libvirt.DOMAIN_STATS_INTERFACE|libvirt.DOMAIN_STATS_BLOCK),
-				true,
 				gomock.Eq(libvirt.CONNECT_GET_ALL_DOMAINS_STATS_RUNNING),
 			).Return([]*stats.DomainStats{
 				&stats.DomainStats{},

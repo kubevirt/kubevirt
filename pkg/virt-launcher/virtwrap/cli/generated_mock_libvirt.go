@@ -136,15 +136,15 @@ func (_mr *_MockConnectionRecorder) GetAllDomainStats(arg0, arg1 interface{}) *g
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "GetAllDomainStats", arg0, arg1)
 }
 
-func (_m *MockConnection) GetDomainStats(statsTypes libvirt_go.DomainStatsTypes, statsMemory bool, flags libvirt_go.ConnectGetAllDomainStatsFlags) ([]*stats.DomainStats, error) {
-	ret := _m.ctrl.Call(_m, "GetDomainStats", statsTypes, statsMemory, flags)
+func (_m *MockConnection) GetDomainStats(statsTypes libvirt_go.DomainStatsTypes, flags libvirt_go.ConnectGetAllDomainStatsFlags) ([]*stats.DomainStats, error) {
+	ret := _m.ctrl.Call(_m, "GetDomainStats", statsTypes, flags)
 	ret0, _ := ret[0].([]*stats.DomainStats)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-func (_mr *_MockConnectionRecorder) GetDomainStats(arg0, arg1, arg2 interface{}) *gomock.Call {
-	return _mr.mock.ctrl.RecordCall(_mr.mock, "GetDomainStats", arg0, arg1, arg2)
+func (_mr *_MockConnectionRecorder) GetDomainStats(arg0, arg1 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "GetDomainStats", arg0, arg1)
 }
 
 // Mock of Stream interface
