@@ -138,7 +138,7 @@ var _ = Describe("VirtualMachineInstanceReplicaSet", func() {
 
 	newReplicaSet := func() *v1.VirtualMachineInstanceReplicaSet {
 		By("Create a new VirtualMachineInstance replica set")
-		template := tests.NewRandomVMIWithEphemeralDisk(tests.ContainerDiskFor(tests.ContainerDiskCirros))
+		template := tests.NewRandomVMIWithEphemeralDiskAndUserdata(tests.ContainerDiskFor(tests.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n")
 		newRS := tests.NewRandomReplicaSetFromVMI(template, int32(0))
 		newRS, err = virtClient.ReplicaSet(tests.NamespaceTestDefault).Create(newRS)
 		Expect(err).ToNot(HaveOccurred())
@@ -229,7 +229,7 @@ var _ = Describe("VirtualMachineInstanceReplicaSet", func() {
 		Expect(err).To(BeNil())
 
 		Expect(len(reviewResponse.Details.Causes)).To(Equal(1))
-		Expect(reviewResponse.Details.Causes[0].Field).To(Equal("spec.template.spec.domain.devices.disks[1].name"))
+		Expect(reviewResponse.Details.Causes[0].Field).To(Equal("spec.template.spec.domain.devices.disks[2].name"))
 	})
 	It("should update readyReplicas once VMIs are up", func() {
 		newRS := newReplicaSet()
