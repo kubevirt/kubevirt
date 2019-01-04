@@ -206,7 +206,7 @@ var _ = Describe("ImageUpload", func() {
 	Context("Successful upload to PVC", func() {
 		It("PVC does not exist", func() {
 			testInit(http.StatusOK)
-			cmd := tests.NewRepeatableVirtctlCommand(commandName, "--pvc-name", pvcName, "--pvc-size", pvcSize,
+			cmd := tests.NewVirtctlCommand(commandName, "--pvc-name", pvcName, "--pvc-size", pvcSize,
 				"--uploadproxy-url", server.URL, "--insecure", "--image-path", imagePath)
 			Expect(cmd()).To(BeNil())
 			Expect(createCalled).To(BeTrue())
@@ -215,7 +215,7 @@ var _ = Describe("ImageUpload", func() {
 
 		DescribeTable("PVC does exist", func(pvc *v1.PersistentVolumeClaim) {
 			testInit(http.StatusOK, pvc)
-			cmd := tests.NewRepeatableVirtctlCommand(commandName, "--no-create", "--pvc-name", pvcName,
+			cmd := tests.NewVirtctlCommand(commandName, "--no-create", "--pvc-name", pvcName,
 				"--uploadproxy-url", server.URL, "--insecure", "--image-path", imagePath)
 			Expect(cmd()).To(BeNil())
 			Expect(createCalled).To(BeFalse())
@@ -233,14 +233,14 @@ var _ = Describe("ImageUpload", func() {
 	Context("Upload fails", func() {
 		It("PVC already uploaded", func() {
 			testInit(http.StatusOK, pvcSpecWithUploadSucceeded())
-			cmd := tests.NewRepeatableVirtctlCommand(commandName, "--pvc-name", pvcName, "--pvc-size", pvcSize,
+			cmd := tests.NewVirtctlCommand(commandName, "--pvc-name", pvcName, "--pvc-size", pvcSize,
 				"--uploadproxy-url", server.URL, "--insecure", "--image-path", imagePath)
 			Expect(cmd()).NotTo(BeNil())
 		})
 
 		It("Upload fails", func() {
 			testInit(http.StatusInternalServerError)
-			cmd := tests.NewRepeatableVirtctlCommand(commandName, "--pvc-name", pvcName, "--pvc-size", pvcSize,
+			cmd := tests.NewVirtctlCommand(commandName, "--pvc-name", pvcName, "--pvc-size", pvcSize,
 				"--uploadproxy-url", server.URL, "--insecure", "--image-path", imagePath)
 			Expect(cmd()).NotTo(BeNil())
 		})
@@ -248,7 +248,7 @@ var _ = Describe("ImageUpload", func() {
 		DescribeTable("Bad args", func(args []string) {
 			testInit(http.StatusOK)
 			args = append([]string{commandName}, args...)
-			cmd := tests.NewRepeatableVirtctlCommand(args...)
+			cmd := tests.NewVirtctlCommand(args...)
 			Expect(cmd()).NotTo(BeNil())
 		},
 			Entry("No args", []string{}),

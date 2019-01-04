@@ -20,7 +20,9 @@
 package main
 
 import (
+	"fmt"
 	"os"
+	"strings"
 
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 
@@ -28,6 +30,9 @@ import (
 )
 
 func main() {
-	virtctl.Execute()
+	if err := virtctl.Execute(os.Args[1:]); err != nil {
+		fmt.Fprintf(os.Stderr, strings.TrimSpace(err.Error())+"\n")
+		os.Exit(1)
+	}
 	os.Exit(0)
 }

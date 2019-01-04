@@ -42,7 +42,6 @@ import (
 	expect "github.com/google/goexpect"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	"github.com/spf13/cobra"
 	k8sv1 "k8s.io/api/core/v1"
 	k8sextv1beta1 "k8s.io/api/extensions/v1beta1"
 	rbacv1 "k8s.io/api/rbac/v1"
@@ -2175,7 +2174,7 @@ func LoggedInFedoraExpecter(vmi *v1.VirtualMachineInstance) (expect.Expecter, er
 
 type VMIExpecterFactory func(*v1.VirtualMachineInstance) (expect.Expecter, error)
 
-func NewVirtctlCommand(args ...string) *cobra.Command {
+func NewVirtctlCommand(args ...string) func() error {
 	commandline := []string{}
 	master := flag.Lookup("master").Value
 	if master != nil && master.String() != "" {
@@ -2185,15 +2184,9 @@ func NewVirtctlCommand(args ...string) *cobra.Command {
 	if kubeconfig != nil && kubeconfig.String() != "" {
 		commandline = append(commandline, "--kubeconfig", kubeconfig.String())
 	}
-	cmd := virtctl.NewVirtctlCommand()
-	cmd.SetArgs(append(commandline, args...))
-	return cmd
-}
 
-func NewRepeatableVirtctlCommand(args ...string) func() error {
 	return func() error {
-		cmd := NewVirtctlCommand(args...)
-		return cmd.Execute()
+		return virtctl.Execute(append(commandline, args...))
 	}
 }
 

@@ -38,7 +38,7 @@ var _ = Describe("VirtualMachine", func() {
 			vmInterface.EXPECT().Patch(vmName, gomock.Any(), gomock.Any()).Return(runningVM, nil)
 
 			cmd := tests.NewVirtctlCommand("start", vmName)
-			Expect(cmd.Execute()).To(BeNil())
+			Expect(cmd()).To(BeNil())
 		})
 
 		It("with spec:running:false", func() {
@@ -52,7 +52,7 @@ var _ = Describe("VirtualMachine", func() {
 			vmInterface.EXPECT().Patch(vmName, gomock.Any(), gomock.Any()).Return(stoppedVM, nil)
 
 			cmd := tests.NewVirtctlCommand("stop", vmName)
-			Expect(cmd.Execute()).To(BeNil())
+			Expect(cmd()).To(BeNil())
 		})
 
 		It("with spec:running:false when it's false already ", func() {
@@ -62,7 +62,7 @@ var _ = Describe("VirtualMachine", func() {
 			kubecli.MockKubevirtClientInstance.EXPECT().VirtualMachine(k8smetav1.NamespaceDefault).Return(vmInterface)
 			vmInterface.EXPECT().Get(vm.Name, gomock.Any()).Return(vm, nil)
 
-			cmd := tests.NewRepeatableVirtctlCommand("stop", vmName)
+			cmd := tests.NewVirtctlCommand("stop", vmName)
 			Expect(cmd()).NotTo(BeNil())
 		})
 
@@ -77,7 +77,7 @@ var _ = Describe("VirtualMachine", func() {
 			vmInterface.EXPECT().Restart(vmName).Return(nil)
 
 			cmd := tests.NewVirtctlCommand("restart", vmName)
-			Expect(cmd.Execute()).To(BeNil())
+			Expect(cmd()).To(BeNil())
 		})
 
 		It("should return an error", func() {
@@ -87,7 +87,7 @@ var _ = Describe("VirtualMachine", func() {
 			vmInterface.EXPECT().Get(vm.Name, gomock.Any()).Return(vm, errors.New(vmName))
 
 			cmd := tests.NewVirtctlCommand("restart", vmName)
-			Expect(cmd.Execute()).To(Equal(errors.New("Error fetching VirtualMachine: " + vmName)))
+			Expect(cmd()).To(Equal(errors.New("Error fetching VirtualMachine: " + vmName)))
 		})
 	})
 

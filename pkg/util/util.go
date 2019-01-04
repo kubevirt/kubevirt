@@ -20,3 +20,15 @@ func GetNamespace() (string, error) {
 	}
 	return namespaceKubevirt, nil
 }
+
+func FileExists(path string) (bool, error) {
+	_, err := os.Stat(path)
+	exists := false
+
+	if err == nil {
+		exists = true
+	} else if os.IsNotExist(err) {
+		err = nil
+	}
+	return exists, err
+}

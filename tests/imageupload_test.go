@@ -52,7 +52,7 @@ var _ = Describe("ImageUpload", func() {
 
 			By("Upload image")
 
-			virtctlCmd := tests.NewRepeatableVirtctlCommand("image-upload",
+			virtctlCmd := tests.NewVirtctlCommand("image-upload",
 				"--namespace", namespace,
 				"--image-path", imagePath,
 				"--pvc-name", pvcName,

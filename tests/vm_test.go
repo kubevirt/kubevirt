@@ -436,7 +436,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 				newVMI := newVirtualMachine(false)
 
 				By("Invoking virtctl start")
-				virtctl := tests.NewRepeatableVirtctlCommand(vm.COMMAND_START, "--namespace", newVMI.Namespace, newVMI.Name)
+				virtctl := tests.NewVirtctlCommand(vm.COMMAND_START, "--namespace", newVMI.Namespace, newVMI.Name)
 
 				err = virtctl()
 				Expect(err).ToNot(HaveOccurred())
@@ -466,7 +466,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 				newVMI := newVirtualMachine(true)
 
 				By("Invoking virtctl stop")
-				virtctl := tests.NewRepeatableVirtctlCommand(vm.COMMAND_STOP, "--namespace", newVMI.Namespace, newVMI.Name)
+				virtctl := tests.NewVirtctlCommand(vm.COMMAND_STOP, "--namespace", newVMI.Namespace, newVMI.Name)
 
 				By("Ensuring VMI is running")
 				Eventually(func() bool {

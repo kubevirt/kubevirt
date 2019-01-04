@@ -69,7 +69,7 @@ var _ = Describe("Expose", func() {
 			const serviceName = "cluster-ip-vmi"
 			It("[test_id:1531]Should expose a Cluster IP service on a VMI and connect to it", func() {
 				By("Exposing the service via virtctl command")
-				virtctl := tests.NewRepeatableVirtctlCommand(expose.COMMAND_EXPOSE, "virtualmachineinstance", "--namespace",
+				virtctl := tests.NewVirtctlCommand(expose.COMMAND_EXPOSE, "virtualmachineinstance", "--namespace",
 					tcpVM.Namespace, tcpVM.Name, "--port", servicePort, "--name", serviceName, "--target-port", strconv.Itoa(testPort))
 				err := virtctl()
 				Expect(err).ToNot(HaveOccurred())
@@ -98,7 +98,7 @@ var _ = Describe("Expose", func() {
 			const servicePort = "27017"
 			const serviceName = "cluster-ip-target-vmi"
 			It("[test_id:1532]Should expose a ClusterIP service and connect to the vm on port 80", func() {
-				virtctl := tests.NewRepeatableVirtctlCommand(expose.COMMAND_EXPOSE, "virtualmachineinstance", "--namespace",
+				virtctl := tests.NewVirtctlCommand(expose.COMMAND_EXPOSE, "virtualmachineinstance", "--namespace",
 					tcpVM.Namespace, tcpVM.Name, "--port", servicePort, "--name", serviceName, "--target-port", "http")
 				err := virtctl()
 				Expect(err).ToNot(HaveOccurred())
@@ -123,7 +123,7 @@ var _ = Describe("Expose", func() {
 		Context("Expose ClusterIP service wiht ports on the vmi defined", func() {
 			const serviceName = "cluster-ip-target-multiple-ports-vmi"
 			It("[test_id:1533]Should expose a ClusterIP service and connect to all ports defined on the vmi", func() {
-				virtctl := tests.NewRepeatableVirtctlCommand(expose.COMMAND_EXPOSE, "virtualmachineinstance", "--namespace",
+				virtctl := tests.NewVirtctlCommand(expose.COMMAND_EXPOSE, "virtualmachineinstance", "--namespace",
 					tcpVM.Namespace, tcpVM.Name, "--name", serviceName)
 				err := virtctl()
 				Expect(err).ToNot(HaveOccurred())
@@ -152,7 +152,7 @@ var _ = Describe("Expose", func() {
 
 			It("[test_id:1534]Should expose a NodePort service on a VMI and connect to it", func() {
 				By("Exposing the service via virtctl command")
-				virtctl := tests.NewRepeatableVirtctlCommand(expose.COMMAND_EXPOSE, "virtualmachineinstance", "--namespace",
+				virtctl := tests.NewVirtctlCommand(expose.COMMAND_EXPOSE, "virtualmachineinstance", "--namespace",
 					tcpVM.Namespace, tcpVM.Name, "--port", servicePort, "--name", serviceName, "--target-port", strconv.Itoa(testPort),
 					"--type", "NodePort")
 				err := virtctl()
@@ -202,7 +202,7 @@ var _ = Describe("Expose", func() {
 
 			It("[test_id:1535]Should expose a ClusterIP service on a VMI and connect to it", func() {
 				By("Exposing the service via virtctl command")
-				virtctl := tests.NewRepeatableVirtctlCommand(expose.COMMAND_EXPOSE, "virtualmachineinstance", "--namespace",
+				virtctl := tests.NewVirtctlCommand(expose.COMMAND_EXPOSE, "virtualmachineinstance", "--namespace",
 					udpVM.Namespace, udpVM.Name, "--port", servicePort, "--name", serviceName, "--target-port", strconv.Itoa(testPort),
 					"--protocol", "UDP")
 				err := virtctl()
@@ -234,7 +234,7 @@ var _ = Describe("Expose", func() {
 
 			It("[test_id:1536]Should expose a NodePort service on a VMI and connect to it", func() {
 				By("Exposing the service via virtctl command")
-				virtctl := tests.NewRepeatableVirtctlCommand(expose.COMMAND_EXPOSE, "virtualmachineinstance", "--namespace",
+				virtctl := tests.NewVirtctlCommand(expose.COMMAND_EXPOSE, "virtualmachineinstance", "--namespace",
 					udpVM.Namespace, udpVM.Name, "--port", servicePort, "--name", serviceName, "--target-port", strconv.Itoa(testPort),
 					"--type", "NodePort", "--protocol", "UDP")
 				err := virtctl()
@@ -316,7 +316,7 @@ var _ = Describe("Expose", func() {
 
 			It("[test_id:1537]Should create a ClusterIP service on VMRS and connect to it", func() {
 				By("Expose a service on the VMRS using virtctl")
-				virtctl := tests.NewRepeatableVirtctlCommand(expose.COMMAND_EXPOSE, "vmirs", "--namespace",
+				virtctl := tests.NewVirtctlCommand(expose.COMMAND_EXPOSE, "vmirs", "--namespace",
 					vmrs.Namespace, vmrs.Name, "--port", servicePort, "--name", serviceName, "--target-port", strconv.Itoa(testPort))
 				err = virtctl()
 				Expect(err).ToNot(HaveOccurred())
@@ -358,13 +358,13 @@ var _ = Describe("Expose", func() {
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Exposing a service to the VM using virtctl")
-			virtctl := tests.NewRepeatableVirtctlCommand(expose.COMMAND_EXPOSE, "virtualmachine", "--namespace",
+			virtctl := tests.NewVirtctlCommand(expose.COMMAND_EXPOSE, "virtualmachine", "--namespace",
 				vm.Namespace, vm.Name, "--port", servicePort, "--name", serviceName, "--target-port", strconv.Itoa(testPort))
 			err = virtctl()
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Calling the start command")
-			virtctl = tests.NewRepeatableVirtctlCommand("start", "--namespace", vm.Namespace, vm.Name)
+			virtctl = tests.NewVirtctlCommand("start", "--namespace", vm.Namespace, vm.Name)
 			err = virtctl()
 			Expect(err).ToNot(HaveOccurred())
 
@@ -437,7 +437,7 @@ var _ = Describe("Expose", func() {
 				vmiUIdBeforeRestart := vmi.GetObjectMeta().GetUID()
 
 				By("Restarting the running VM.")
-				virtctl := tests.NewRepeatableVirtctlCommand("restart", "--namespace", vmObj.Namespace, vmObj.Name)
+				virtctl := tests.NewVirtctlCommand("restart", "--namespace", vmObj.Namespace, vmObj.Name)
 				err = virtctl()
 				Expect(err).ToNot(HaveOccurred())
 
