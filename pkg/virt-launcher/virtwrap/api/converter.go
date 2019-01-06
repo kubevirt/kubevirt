@@ -618,6 +618,10 @@ func Convert_v1_VirtualMachine_To_api_Domain(vmi *v1.VirtualMachineInstance, dom
 				Template: EFIVarsPath,
 			}
 		}
+
+		if len(vmi.Spec.Domain.Firmware.Serial) > 0 {
+			domain.Spec.SysInfo.System = append(domain.Spec.SysInfo.System, Entry{Name: "serial", Value: string(vmi.Spec.Domain.Firmware.Serial)})
+		}
 	}
 
 	// Take memory from the requested memory

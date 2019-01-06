@@ -254,6 +254,8 @@ type Firmware struct {
 	// Settings to control the bootloader that is used.
 	// +optional
 	Bootloader *Bootloader `json:"bootloader,omitempty"`
+	// The system-serial-number in SMBIOS
+	Serial string `json:"serial,omitempty"`
 }
 
 // ---

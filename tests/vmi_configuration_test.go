@@ -649,7 +649,52 @@ var _ = Describe("Configurations", func() {
 							Fields{"Type": Equal(v1.VirtualMachineInstanceAgentConnected)})),
 					"Agent condition should be gone")
 			})
+		})
 
+		Context("with serial-number", func() {
+			var snVmi *v1.VirtualMachineInstance
+
+			BeforeEach(func() {
+				snVmi = tests.NewRandomVMIWithEphemeralDisk(tests.ContainerDiskFor(tests.ContainerDiskAlpine))
+			})
+
+			It("should have serial-number set when present", func() {
+				snVmi.Spec.Domain.Firmware = &v1.Firmware{Serial: "4b2f5496-f3a3-460b-a375-168223f68845"}
+
+				By("Starting a VirtualMachineInstance")
+				snVmi, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(snVmi)
+				Expect(err).ToNot(HaveOccurred())
+				tests.WaitForSuccessfulVMIStart(snVmi)
+
+				getOptions := metav1.GetOptions{}
+				var freshVMI *v1.VirtualMachineInstance
+
+				freshVMI, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Get(snVmi.Name, &getOptions)
+				Expect(err).ToNot(HaveOccurred(), "Should get VMI ")
+
+				domXML, err := tests.GetRunningVirtualMachineInstanceDomainXML(virtClient, freshVMI)
+				Expect(err).ToNot(HaveOccurred(), "Should return XML from VMI")
+
+				Expect(domXML).To(ContainSubstring("<entry name='serial'>4b2f5496-f3a3-460b-a375-168223f68845</entry>"), "Should have serial-number present")
+			})
+
+			It("should not have serial-number set when not present", func() {
+				By("Starting a VirtualMachineInstance")
+				snVmi, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(snVmi)
+				Expect(err).ToNot(HaveOccurred())
+				tests.WaitForSuccessfulVMIStart(snVmi)
+
+				getOptions := metav1.GetOptions{}
+				var freshVMI *v1.VirtualMachineInstance
+
+				freshVMI, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Get(snVmi.Name, &getOptions)
+				Expect(err).ToNot(HaveOccurred(), "Should get VMI ")
+
+				domXML, err := tests.GetRunningVirtualMachineInstanceDomainXML(virtClient, freshVMI)
+				Expect(err).ToNot(HaveOccurred(), "Should return XML from VMI")
+
+				Expect(domXML).ToNot(ContainSubstring("<entry name='serial'>"), "Should have serial-number present")
+			})
 		})
 
 	})

@@ -744,6 +744,29 @@ func ValidateVirtualMachineInstanceSpec(field *k8sfield.Path, spec *v1.VirtualMa
 		}
 	}
 
+	if spec.Domain.Firmware != nil && len(spec.Domain.Firmware.Serial) > 0 {
+		// Verify serial number is within valid length, if provided
+		if len(spec.Domain.Firmware.Serial) > maxStrLen {
+			causes = append(causes, metav1.StatusCause{
+				Type: metav1.CauseTypeFieldValueInvalid,
+				Message: fmt.Sprintf("%s must be less than or equal to %d in length, if specified",
+					field.Child("domain", "firmware", "serial").String(),
+					maxStrLen,
+				),
+				Field: field.Child("domain", "firmware", "serial").String(),
+			})
+		}
+		// Verify serial number is made up of valid characters for libvirt, if provided
+		isValid := regexp.MustCompile(`^[A-Za-z0-9_.+-]+$`).MatchString
+		if !isValid(spec.Domain.Firmware.Serial) {
+			causes = append(causes, metav1.StatusCause{
+				Type:    metav1.CauseTypeFieldValueInvalid,
+				Message: fmt.Sprintf("%s must be made up of the following characters [A-Za-z0-9_.+-], if specified", field.Child("domain", "firmware", "serial").String()),
+				Field:   field.Child("domain", "firmware", "serial").String(),
+			})
+		}
+	}
+
 	// Validate CPU pinning
 	if spec.Domain.CPU != nil && spec.Domain.CPU.DedicatedCPUPlacement {
 		requestsMem := spec.Domain.Resources.Requests.Memory().Value()
