@@ -256,6 +256,7 @@ func (b *BridgePodInterface) startDHCPServer() {
 }
 
 func (b *BridgePodInterface) decorateConfig() error {
+	b.domain.Spec.Devices.Interfaces[b.podInterfaceNum].MTU = &api.MTU{Size: strconv.Itoa(b.podNicLink.Attrs().MTU)}
 	b.domain.Spec.Devices.Interfaces[b.podInterfaceNum].MAC = &api.MAC{MAC: b.vif.MAC.String()}
 
 	return nil
@@ -441,6 +442,7 @@ func (p *MasqueradePodInterface) startDHCPServer() {
 }
 
 func (p *MasqueradePodInterface) decorateConfig() error {
+	p.domain.Spec.Devices.Interfaces[p.podInterfaceNum].MTU = &api.MTU{Size: strconv.Itoa(p.podNicLink.Attrs().MTU)}
 	p.domain.Spec.Devices.Interfaces[p.podInterfaceNum].MAC = &api.MAC{MAC: p.vif.MAC.String()}
 
 	return nil
