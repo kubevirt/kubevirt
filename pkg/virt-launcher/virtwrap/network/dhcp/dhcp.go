@@ -41,6 +41,7 @@ const (
 	infiniteLease             = 999 * 24 * time.Hour
 	errorSearchDomainNotValid = "Search domain is not valid"
 	errorSearchDomainTooLong  = "Search domains length exceeded allowable size"
+	errorNTPConfiguration     = "Could not parse NTP server as IPv4 address: %s"
 )
 
 // simple domain validation regex. Put it here to avoid compiling each time.
@@ -149,6 +150,24 @@ func prepareDHCPOptions(
 			log.Log.Infof("Setting dhcp option boot file name to %s", customDHCPOptions.BootFileName)
 			dhcpOptions[dhcp.OptionBootFileName] = []byte(customDHCPOptions.BootFileName)
 		}
+
+		if len(customDHCPOptions.NTPServers) > 0 {
+			log.Log.Infof("Setting dhcp option NTP server name to %s", customDHCPOptions.NTPServers)
+
+			ntpServers := [][]byte{}
+
+			for _, server := range customDHCPOptions.NTPServers {
+				ip := net.ParseIP(server).To4()
+
+				if ip == nil {
+					return nil, fmt.Errorf(errorNTPConfiguration, server)
+				}
+
+				ntpServers = append(ntpServers, []byte(ip))
+			}
+
+			dhcpOptions[dhcp.OptionNetworkTimeProtocolServers] = bytes.Join(ntpServers, nil)
+		}
 	}
 
 	return dhcpOptions, nil
@@ -174,12 +193,12 @@ func (h *DHCPHandler) ServeDHCP(p dhcp.Packet, msgType dhcp.MessageType, options
 	case dhcp.Discover:
 		log.Log.V(4).Info("The request has message type DISCOVER")
 		return dhcp.ReplyPacket(p, dhcp.Offer, h.serverIP, h.clientIP, h.leaseDuration,
-			h.options.SelectOrderOrAll(options[dhcp.OptionParameterRequestList]))
+			h.options.SelectOrderOrAll(nil))
 
 	case dhcp.Request:
 		log.Log.V(4).Info("The request has message type REQUEST")
 		return dhcp.ReplyPacket(p, dhcp.ACK, h.serverIP, h.clientIP, h.leaseDuration,
-			h.options.SelectOrderOrAll(options[dhcp.OptionParameterRequestList]))
+			h.options.SelectOrderOrAll(nil))
 
 	default:
 		log.Log.V(4).Info("The request has unhandled message type")
