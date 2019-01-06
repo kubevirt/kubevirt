@@ -1,6 +1,7 @@
 package controller
 
 import (
+	"fmt"
 	"github.com/golang/glog"
 	"github.com/pkg/errors"
 	"k8s.io/api/core/v1"
@@ -8,26 +9,33 @@ import (
 	coreinformers "k8s.io/client-go/informers/core/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
-
-	"fmt"
-
 	"kubevirt.io/containerized-data-importer/pkg/common"
 )
 
 const (
+	// AnnAPIGroup is the APIGroup for CDI
+	AnnAPIGroup = "cdi.kubevirt.io"
+	// AnnSource provide a const for our PVC import source annotation
+	AnnSource = AnnAPIGroup + "/storage.import.source"
 	// AnnEndpoint provides a const for our PVC endpoint annotation
-	AnnEndpoint = "cdi.kubevirt.io/storage.import.endpoint"
+	AnnEndpoint = AnnAPIGroup + "/storage.import.endpoint"
 	// AnnSecret provides a const for our PVC secretName annotation
-	AnnSecret = "cdi.kubevirt.io/storage.import.secretName"
+	AnnSecret = AnnAPIGroup + "/storage.import.secretName"
+	// AnnContentType provides a const for the PVC content-type
+	AnnContentType = AnnAPIGroup + "/storage.contentType"
 	// AnnImportPod provides a const for our PVC importPodName annotation
-	AnnImportPod = "cdi.kubevirt.io/storage.import.importPodName"
+	AnnImportPod = AnnAPIGroup + "/storage.import.importPodName"
 	//LabelImportPvc is a pod label used to find the import pod that was created by the relevant PVC
-	LabelImportPvc = "cdi.kubevirt.io/storage.import.importPvcName"
+	LabelImportPvc = AnnAPIGroup + "/storage.import.importPvcName"
 )
 
 // ImportController represents a CDI Import Controller
 type ImportController struct {
 	Controller
+}
+
+type importPodEnvVar struct {
+	ep, secretName, source, contentType, imageSize string
 }
 
 // NewImportController sets up an Import Controller, and returns a pointer to
@@ -93,20 +101,14 @@ func (ic *ImportController) processPvcItem(pvc *v1.PersistentVolumeClaim) error 
 		needsSync = false
 	}
 	if pod == nil && needsSync {
-		ep, err := getEndpoint(pvc)
+		podEnvVar, err := createImportEnvVar(pvc, ic)
 		if err != nil {
 			return err
 		}
-		secretName, err := getSecretName(ic.clientset, pvc)
-		if err != nil {
-			return err
-		}
-		if secretName == "" {
-			glog.V(2).Infof("no secret will be supplied to endpoint %q\n", ep)
-		}
+
 		// all checks passed, let's create the importer pod!
 		ic.expectPodCreate(pvcKey)
-		pod, err = CreateImporterPod(ic.clientset, ic.image, ic.verbose, ic.pullPolicy, ep, secretName, pvc)
+		pod, err = CreateImporterPod(ic.clientset, ic.image, ic.verbose, ic.pullPolicy, podEnvVar, pvc)
 		if err != nil {
 			ic.observePodCreate(pvcKey)
 			return err
@@ -119,6 +121,13 @@ func (ic *ImportController) processPvcItem(pvc *v1.PersistentVolumeClaim) error 
 	if pod != nil {
 		anno[AnnImportPod] = string(pod.Name)
 		anno[AnnPodPhase] = string(pod.Status.Phase)
+		//this is for a case where the import container is failing and the restartPolicy is OnFailure. In such case
+		//the pod phase is "Running" although the container state is Waiting. When the container recovers, its state
+		//changes back to "Running".
+		if pod.Status.ContainerStatuses != nil && pod.Status.ContainerStatuses[0].State.Waiting != nil {
+			anno[AnnPodPhase] = string(v1.PodFailed)
+		}
+
 		if pod.Status.Phase == "Succeeded" {
 			dReq := podDeleteRequest{
 				namespace: pod.Namespace,
@@ -174,8 +183,9 @@ func (ic *ImportController) syncPvc(key string) error {
 	if pvc == nil {
 		return nil
 	}
-	//check if AnnoEndPoint annotation exists
-	if !checkPVC(pvc, AnnEndpoint) {
+
+	//check if AnnEndPoint or AnnSource annotation exists
+	if !checkPVC(pvc, AnnEndpoint) && !checkPVC(pvc, AnnSource) {
 		return nil
 	}
 	glog.V(3).Infof("ProcessNextPvcItem: next pvc to process: %s\n", key)

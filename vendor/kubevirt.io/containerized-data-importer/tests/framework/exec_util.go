@@ -18,11 +18,14 @@ package framework
 
 import (
 	"bytes"
+	"fmt"
 	"io"
 	"net/url"
 	"strings"
 
+	"github.com/onsi/ginkgo"
 	"github.com/onsi/gomega"
+
 	"k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes/scheme"
@@ -94,9 +97,9 @@ func (f *Framework) ExecCommandInContainerWithFullOutput(namespace, podName, con
 // ExecCommandInContainer executes a command in the specified container.
 func (f *Framework) ExecCommandInContainer(namespace, podName, containerName string, cmd ...string) string {
 	stdout, _, err := f.ExecCommandInContainerWithFullOutput(namespace, podName, containerName, cmd...)
-	gomega.Expect(err).NotTo(gomega.HaveOccurred(),
-		"failed to execute command in pod %v, container %v: %v",
-		podName, containerName, err)
+	if err != nil {
+		fmt.Fprintf(ginkgo.GinkgoWriter, "[WARN] error executing command %q, error: %s\n", cmd, err.Error())
+	}
 	return stdout
 }
 

@@ -10,7 +10,7 @@ import (
 	"k8s.io/client-go/kubernetes"
 )
 
-// WaitForDeploymentReplicasReadyOrDie adds the ability to fatal out if the the replicas don't become ready
+// WaitForDeploymentReplicasReadyOrDie adds the ability to fatal out if the replicas don't become ready
 func WaitForDeploymentReplicasReadyOrDie(c *kubernetes.Clientset, namespace, name string) {
 	if err := WaitForDeploymentReplicasReady(c, namespace, name); err != nil {
 		glog.Fatal(errors.Wrapf(err, "Failed waiting for deployment \"%s/%s\" replicas to become Ready", namespace, name))

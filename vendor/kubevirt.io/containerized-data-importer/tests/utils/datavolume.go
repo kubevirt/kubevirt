@@ -15,10 +15,10 @@ import (
 )
 
 const (
-	dataVolumePollInterval = 2 * time.Second
-	dataVolumeCreateTime   = 30 * time.Second
-	dataVolumeDeleteTime   = 30 * time.Second
-	dataVolumePhaseTime    = 30 * time.Second
+	dataVolumePollInterval = 3 * time.Second
+	dataVolumeCreateTime   = 60 * time.Second
+	dataVolumeDeleteTime   = 60 * time.Second
+	dataVolumePhaseTime    = 60 * time.Second
 )
 
 const (
@@ -43,10 +43,10 @@ func CreateDataVolumeFromDefinition(clientSet *cdiclientset.Clientset, namespace
 	return dataVolume, nil
 }
 
-// DeleteDataVolume deletes the passed in DataVolume
-func DeleteDataVolume(clientSet *cdiclientset.Clientset, namespace string, dataVolume *cdiv1.DataVolume) error {
+// DeleteDataVolume deletes the DataVolume with the given name
+func DeleteDataVolume(clientSet *cdiclientset.Clientset, namespace, name string) error {
 	return wait.PollImmediate(dataVolumePollInterval, dataVolumeDeleteTime, func() (bool, error) {
-		err := clientSet.CdiV1alpha1().DataVolumes(namespace).Delete(dataVolume.GetName(), nil)
+		err := clientSet.CdiV1alpha1().DataVolumes(namespace).Delete(name, nil)
 		if err == nil || apierrs.IsNotFound(err) {
 			return true, nil
 		}

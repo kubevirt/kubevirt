@@ -16,8 +16,8 @@ The following statuses are possible.
 * Failed: The operation has failed.
 * Unknown: Unknown status.
 
-## HTTP/S3 source
-Data Volumes are an abstraction on top of the annotations one can put on PVCs to trigger CDI. As such DVs have the notion of a 'source' that allows one to specify the source of the data. To import data from an external source, the source has to be either 'http' or 'S3'. If your source requires authentication, you can also pass in a secretRef to a Kubernetes [Secret](../manifest/example/endpoint-secret.yaml) containing the authentication information.
+## HTTP/S3/Registry source
+Data Volumes are an abstraction on top of the annotations one can put on PVCs to trigger CDI. As such DVs have the notion of a 'source' that allows one to specify the source of the data. To import data from an external source, the source has to be either 'http' ,'S3' or 'registry'. If your source requires authentication, you can also pass in a secretRef to a Kubernetes [Secret](../manifest/example/endpoint-secret.yaml) containing the authentication information.
 
 ```yaml
 apiVersion: cdi.kubevirt.io/v1alpha1

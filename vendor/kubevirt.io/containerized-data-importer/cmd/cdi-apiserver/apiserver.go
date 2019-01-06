@@ -68,7 +68,7 @@ func main() {
 		glog.Fatalf("Unable to create authorizor: %v\n", errors.WithStack(err))
 	}
 
-	uploadApp, err := apiserver.NewUploadAPIServer(defaultHost, defaultPort, client, aggregatorClient, authorizor)
+	uploadApp, err := apiserver.NewCdiAPIServer(defaultHost, defaultPort, client, aggregatorClient, authorizor)
 	if err != nil {
 		glog.Fatalf("Upload api failed to initialize: %v\n", errors.WithStack(err))
 	}

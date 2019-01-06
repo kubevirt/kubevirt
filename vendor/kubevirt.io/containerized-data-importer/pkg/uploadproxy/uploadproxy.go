@@ -200,8 +200,8 @@ func (app *uploadProxyApp) startTLS() error {
 		}
 		defer os.RemoveAll(certsDirectory)
 
-		keyFile := filepath.Join(certsDirectory, "/key.pem")
-		certFile := filepath.Join(certsDirectory, "/cert.pem")
+		keyFile := filepath.Join(certsDirectory, "key.pem")
+		certFile := filepath.Join(certsDirectory, "cert.pem")
 
 		err = ioutil.WriteFile(keyFile, app.keyBytes, 0600)
 		if err != nil {

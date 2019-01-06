@@ -1,0 +1,35 @@
+buildscript {
+    repositories {
+        mavenLocal()
+        jcenter()
+    }
+
+    dependencies {
+        classpath "io.github.swagger2markup:swagger2markup-gradle-plugin:1.3.1"
+        classpath "org.asciidoctor:asciidoctor-gradle-plugin:1.5.6"
+    }
+}
+
+apply plugin: 'io.github.swagger2markup'
+
+convertSwagger2markup {
+    swaggerInput "./api/openapi-spec/swagger.json"
+    outputDir file("./")
+    config = [
+        'swagger2markup.markupLanguage': markupLanguage,
+        'swagger2markup.interDocumentCrossReferencesEnabled': true,
+    ]
+}
+
+apply plugin: 'org.asciidoctor.convert'
+
+asciidoctor {
+  sourceDir = file('./')
+  sources {
+    // paths.adoc is being renamed to operations.adoc by gen-swagger-docs.sh.
+    // Keeping it here in case somebody run: gradle convertSwagger2markup asciidoctor
+    include 'definitions.adoc', 'overview.adoc', 'paths.adoc',  'security.adoc', 'operations.adoc'
+  }
+  outputDir = file('./')
+  attributes 'toc' : 'right'
+}

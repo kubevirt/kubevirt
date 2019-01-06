@@ -3,30 +3,47 @@ package controller
 import (
 	"crypto/x509"
 	"fmt"
-	"strings"
-	"time"
-
-	corelisters "k8s.io/client-go/listers/core/v1"
-	"k8s.io/client-go/util/cert/triple"
-
 	"github.com/golang/glog"
 	"github.com/pkg/errors"
 	"k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes"
+	corelisters "k8s.io/client-go/listers/core/v1"
+	"k8s.io/client-go/util/cert/triple"
 	"kubevirt.io/containerized-data-importer/pkg/common"
 	"kubevirt.io/containerized-data-importer/pkg/keys"
+	"strings"
+	"time"
 )
 
-// DataVolName provides a const to use for creating volumes in pod specs
-const DataVolName = "cdi-data-vol"
+const (
+	// DataVolName provides a const to use for creating volumes in pod specs
+	DataVolName = "cdi-data-vol"
 
-// ImagePathName provides a const to use for creating volumes in pod specs
-const ImagePathName = "image-path"
-const socketPathName = "socket-path"
+	// ImagePathName provides a const to use for creating volumes in pod specs
+	ImagePathName  = "image-path"
+	socketPathName = "socket-path"
+
+	// SourceHTTP is the source type HTTP, if unspecified or invalid, it defaults to SourceHTTP
+	SourceHTTP = "http"
+	// SourceS3 is the source type S3
+	SourceS3 = "s3"
+	// SourceGlance is the source type of glance
+	SourceGlance = "glance"
+	// SourceNone means there is no source.
+	SourceNone = "none"
+	// SourceRegistry is the source type of Registry
+	SourceRegistry = "registry"
+
+	// ContentTypeKubevirt is the content-type of the import, defaults to kubevirt
+	ContentTypeKubevirt = "kubevirt"
+	// ContentTypeArchive is the content-type to specify if wanting to extract an archive
+	ContentTypeArchive = "archive"
+)
 
 type podDeleteRequest struct {
 	namespace string
@@ -59,6 +76,53 @@ func getEndpoint(pvc *v1.PersistentVolumeClaim) (string, error) {
 		return ep, errors.Errorf("annotation %q in pvc \"%s/%s\" is %s\n", AnnEndpoint, pvc.Namespace, pvc.Name, verb)
 	}
 	return ep, nil
+}
+
+func getRequestedImageSize(pvc *v1.PersistentVolumeClaim) (string, error) {
+	pvcSize, found := pvc.Spec.Resources.Requests[v1.ResourceStorage]
+	if !found {
+		return "", errors.Errorf("storage request is missing in pvc \"%s/%s\"", pvc.Namespace, pvc.Name)
+	}
+	return pvcSize.String(), nil
+}
+
+// returns the source string which determines the type of source. If no source or invalid source found, default to http
+func getSource(pvc *v1.PersistentVolumeClaim) string {
+	source, found := pvc.Annotations[AnnSource]
+	if !found {
+		source = ""
+	}
+	switch source {
+	case
+		SourceHTTP,
+		SourceS3,
+		SourceGlance,
+		SourceNone,
+		SourceRegistry:
+		glog.V(2).Infof("pvc source annotation found for pvc \"%s/%s\", value %s\n", pvc.Namespace, pvc.Name, source)
+	default:
+		glog.V(2).Infof("No valid source annotation found for pvc \"%s/%s\", default to http\n", pvc.Namespace, pvc.Name)
+		source = SourceHTTP
+	}
+	return source
+}
+
+// returns the source string which determines the type of source. If no source or invalid source found, default to http
+func getContentType(pvc *v1.PersistentVolumeClaim) string {
+	contentType, found := pvc.Annotations[AnnContentType]
+	if !found {
+		contentType = ""
+	}
+	switch contentType {
+	case
+		ContentTypeKubevirt,
+		ContentTypeArchive:
+		glog.V(2).Infof("pvc content type annotation found for pvc \"%s/%s\", value %s\n", pvc.Namespace, pvc.Name, contentType)
+	default:
+		glog.V(2).Infof("No content type annotation found for pvc \"%s/%s\", default to kubevirt\n", pvc.Namespace, pvc.Name)
+		contentType = ContentTypeKubevirt
+	}
+	return contentType
 }
 
 // returns the name of the secret containing endpoint credentials consumed by the importer pod.
@@ -164,20 +228,20 @@ func checkIfLabelExists(pvc *v1.PersistentVolumeClaim, lbl string, val string) b
 // CreateImporterPod creates and returns a pointer to a pod which is created based on the passed-in endpoint, secret
 // name, and pvc. A nil secret means the endpoint credentials are not passed to the
 // importer pod.
-func CreateImporterPod(client kubernetes.Interface, image, verbose, pullPolicy, ep, secretName string, pvc *v1.PersistentVolumeClaim) (*v1.Pod, error) {
+func CreateImporterPod(client kubernetes.Interface, image, verbose, pullPolicy string, podEnvVar *importPodEnvVar, pvc *v1.PersistentVolumeClaim) (*v1.Pod, error) {
 	ns := pvc.Namespace
-	pod := MakeImporterPodSpec(image, verbose, pullPolicy, ep, secretName, pvc)
+	pod := MakeImporterPodSpec(image, verbose, pullPolicy, podEnvVar, pvc)
 
 	pod, err := client.CoreV1().Pods(ns).Create(pod)
 	if err != nil {
 		return nil, errors.Wrap(err, "importer pod API create errored")
 	}
-	glog.V(1).Infof("importer pod \"%s/%s\" (image: %q) created\n", pod.Namespace, pod.Name, image)
+	glog.V(3).Infof("importer pod \"%s/%s\" (image: %q) created\n", pod.Namespace, pod.Name, image)
 	return pod, nil
 }
 
 // MakeImporterPodSpec creates and return the importer pod spec based on the passed-in endpoint, secret and pvc.
-func MakeImporterPodSpec(image, verbose, pullPolicy, ep, secret string, pvc *v1.PersistentVolumeClaim) *v1.Pod {
+func MakeImporterPodSpec(image, verbose, pullPolicy string, podEnvVar *importPodEnvVar, pvc *v1.PersistentVolumeClaim) *v1.Pod {
 	// importer pod name contains the pvc name
 	podName := fmt.Sprintf("%s-%s-", common.ImporterPodName, pvc.Name)
 
@@ -194,9 +258,11 @@ func MakeImporterPodSpec(image, verbose, pullPolicy, ep, secret string, pvc *v1.
 				AnnCreatedBy: "yes",
 			},
 			Labels: map[string]string{
-				common.CDILabelKey: common.CDILabelValue,
+				common.CDILabelKey:       common.CDILabelValue,
+				common.CDIComponentLabel: common.ImporterPodName,
 				// this label is used when searching for a pvc's import pod.
-				LabelImportPvc: pvc.Name,
+				LabelImportPvc:         pvc.Name,
+				common.PrometheusLabel: "",
 			},
 			OwnerReferences: []metav1.OwnerReference{
 				{
@@ -222,6 +288,13 @@ func MakeImporterPodSpec(image, verbose, pullPolicy, ep, secret string, pvc *v1.
 						},
 					},
 					Args: []string{"-v=" + verbose},
+					Ports: []v1.ContainerPort{
+						{
+							Name:          "metrics",
+							ContainerPort: 8443,
+							Protocol:      v1.ProtocolTCP,
+						},
+					},
 				},
 			},
 			RestartPolicy: v1.RestartPolicyOnFailure,
@@ -238,25 +311,46 @@ func MakeImporterPodSpec(image, verbose, pullPolicy, ep, secret string, pvc *v1.
 			},
 		},
 	}
-	pod.Spec.Containers[0].Env = makeEnv(ep, secret)
+
+	ownerUID := pvc.UID
+	if len(pvc.OwnerReferences) == 1 {
+		ownerUID = pvc.OwnerReferences[0].UID
+	}
+	pod.Spec.Containers[0].Env = makeEnv(podEnvVar, ownerUID)
 	return pod
 }
 
 // return the Env portion for the importer container.
-func makeEnv(endpoint, secret string) []v1.EnvVar {
+func makeEnv(podEnvVar *importPodEnvVar, uid types.UID) []v1.EnvVar {
 	env := []v1.EnvVar{
 		{
+			Name:  common.ImporterSource,
+			Value: podEnvVar.source,
+		},
+		{
 			Name:  common.ImporterEndpoint,
-			Value: endpoint,
+			Value: podEnvVar.ep,
+		},
+		{
+			Name:  common.ImporterContentType,
+			Value: podEnvVar.contentType,
+		},
+		{
+			Name:  common.ImporterImageSize,
+			Value: podEnvVar.imageSize,
+		},
+		{
+			Name:  common.OwnerUID,
+			Value: string(uid),
 		},
 	}
-	if secret != "" {
+	if podEnvVar.secretName != "" {
 		env = append(env, v1.EnvVar{
 			Name: common.ImporterAccessKeyID,
 			ValueFrom: &v1.EnvVarSource{
 				SecretKeyRef: &v1.SecretKeySelector{
 					LocalObjectReference: v1.LocalObjectReference{
-						Name: secret,
+						Name: podEnvVar.secretName,
 					},
 					Key: common.KeyAccess,
 				},
@@ -266,7 +360,7 @@ func makeEnv(endpoint, secret string) []v1.EnvVar {
 			ValueFrom: &v1.EnvVarSource{
 				SecretKeyRef: &v1.SecretKeySelector{
 					LocalObjectReference: v1.LocalObjectReference{
-						Name: secret,
+						Name: podEnvVar.secretName,
 					},
 					Key: common.KeySecret,
 				},
@@ -345,8 +439,9 @@ func MakeCloneSourcePodSpec(image, pullPolicy, sourcePvcName string, pvc *v1.Per
 				AnnTargetPodNamespace: pvc.Namespace,
 			},
 			Labels: map[string]string{
-				common.CDILabelKey:     common.CDILabelValue,                //filtered by the podInformer
-				common.CloningLabelKey: common.CloningLabelValue + "-" + id, //used by podAffity
+				common.CDILabelKey:       common.CDILabelValue, //filtered by the podInformer
+				common.CDIComponentLabel: common.ClonerSourcePodName,
+				common.CloningLabelKey:   common.CloningLabelValue + "-" + id, //used by podAffity
 				// this label is used when searching for a pvc's cloner source pod.
 				CloneUniqueID: pvc.Name + "-source-pod",
 			},
@@ -430,6 +525,11 @@ func MakeCloneTargetPodSpec(image, pullPolicy, podAffinityNamespace string, pvc 
 	id := string(pvc.GetUID())
 	blockOwnerDeletion := true
 	isController := true
+	ownerUID := pvc.UID
+	if len(pvc.OwnerReferences) == 1 {
+		ownerUID = pvc.OwnerReferences[0].UID
+	}
+
 	pod := &v1.Pod{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "Pod",
@@ -442,9 +542,11 @@ func MakeCloneTargetPodSpec(image, pullPolicy, podAffinityNamespace string, pvc 
 				AnnTargetPodNamespace: pvc.Namespace,
 			},
 			Labels: map[string]string{
-				common.CDILabelKey: common.CDILabelValue, //filtered by the podInformer
+				common.CDILabelKey:       common.CDILabelValue, //filtered by the podInformer
+				common.CDIComponentLabel: common.ClonerTargetPodName,
 				// this label is used when searching for a pvc's cloner target pod.
-				CloneUniqueID: pvc.Name + "-target-pod",
+				CloneUniqueID:          pvc.Name + "-target-pod",
+				common.PrometheusLabel: "",
 			},
 			OwnerReferences: []metav1.OwnerReference{
 				{
@@ -497,6 +599,19 @@ func MakeCloneTargetPodSpec(image, pullPolicy, podAffinityNamespace string, pvc 
 						},
 					},
 					Args: []string{"target", id},
+					Ports: []v1.ContainerPort{
+						{
+							Name:          "metrics",
+							ContainerPort: 8443,
+							Protocol:      v1.ProtocolTCP,
+						},
+					},
+					Env: []v1.EnvVar{
+						{
+							Name:  common.OwnerUID,
+							Value: string(ownerUID),
+						},
+					},
 				},
 			},
 			RestartPolicy: v1.RestartPolicyNever,
@@ -745,4 +860,32 @@ func deletePod(req podDeleteRequest) error {
 		glog.V(1).Infof("error encountered deleting pod (%s): %s", req.podName, err.Error())
 	}
 	return err
+}
+
+func createImportEnvVar(pvc *v1.PersistentVolumeClaim, ic *ImportController) (*importPodEnvVar, error) {
+	podEnvVar := &importPodEnvVar{}
+	podEnvVar.source = getSource(pvc)
+	podEnvVar.contentType = getContentType(pvc)
+
+	var err error
+
+	if podEnvVar.source != SourceNone {
+		podEnvVar.ep, err = getEndpoint(pvc)
+		if err != nil {
+			return nil, err
+		}
+		podEnvVar.secretName, err = getSecretName(ic.clientset, pvc)
+		if err != nil {
+			return nil, err
+		}
+		if podEnvVar.secretName == "" {
+			glog.V(2).Infof("no secret will be supplied to endpoint %q\n", podEnvVar.ep)
+		}
+	}
+	//get the requested image size.
+	podEnvVar.imageSize, err = getRequestedImageSize(pvc)
+	if err != nil {
+		return nil, err
+	}
+	return podEnvVar, nil
 }

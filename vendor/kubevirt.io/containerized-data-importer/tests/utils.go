@@ -17,7 +17,7 @@ import (
 )
 
 const (
-	defaultTimeout      = 30 * time.Second
+	defaultTimeout      = 90 * time.Second
 	testNamespacePrefix = "cdi-test-"
 )
 
@@ -54,9 +54,9 @@ func PrintControllerLog(f *framework.Framework) {
 func PrintPodLog(f *framework.Framework, podName, namespace string) {
 	log, err := RunKubectlCommand(f, "logs", podName, "-n", namespace)
 	if err == nil {
-		fmt.Fprintf(ginkgo.GinkgoWriter, "INFO: Controller log\n%s\n", log)
+		fmt.Fprintf(ginkgo.GinkgoWriter, "INFO: Pod log\n%s\n", log)
 	} else {
-		fmt.Fprintf(ginkgo.GinkgoWriter, "INFO: Unable to get controller log\n")
+		fmt.Fprintf(ginkgo.GinkgoWriter, "INFO: Unable to get pod log, %s\n", err.Error())
 	}
 }
 

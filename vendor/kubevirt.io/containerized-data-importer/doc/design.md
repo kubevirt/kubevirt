@@ -54,7 +54,7 @@ The controller scans PVCs within its namespace by looking for specific annotatio
 - cdi.kubevirt.io/storage.import.secretName: Defined by the admin: the name of the existing Secret containing the credential to access the endpoint.
 - cdi.kubevirt.io/storage.import.status: Added by the controller: the current status of the PVC with respect to the import/copy process. Values include:  ”In process”, “Success”, “ Failed”
 
-**Object Store:** Arbitrary url-based storage location.  Currently we support http and S3 protocols.
+**Object Store:** Arbitrary url-based storage location.  Currently we support http and S3 protocols and container registry.
 
 **Storage Class:** Long-lived, default Storage Class which links Persistent Volume Claims to the desired Dynamic Provisioner(s). Referenced by the golden PVC. The example makes use of the "default" provisioner; however, any provisioner that manages mountable volumes is compatible.
 

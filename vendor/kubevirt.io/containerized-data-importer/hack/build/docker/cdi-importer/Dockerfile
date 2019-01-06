@@ -1,6 +1,6 @@
 FROM fedora:28
 
-RUN dnf install -y qemu-img qemu-block-curl && dnf clean all
+RUN dnf install -y qemu-img qemu-block-curl skopeo && dnf clean all
 
 RUN mkdir /data
 

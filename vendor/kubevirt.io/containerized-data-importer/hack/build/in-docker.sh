@@ -20,12 +20,19 @@ script_dir="$(readlink -f $(dirname $0))"
 source "${script_dir}"/common.sh
 
 WORK_DIR="/go/src/kubevirt.io/containerized-data-importer"
-BUILDER='builder'
-BUILDER_SPEC="${BUILD_DIR}/docker/${BUILDER}"
+BUILDER_SPEC="${BUILD_DIR}/docker/builder"
+BUILDER_TAG='kubevirt-cdi-builder'
 
 # Build the encapsulated compile and test container
-(cd ${BUILDER_SPEC} && docker build --tag ${BUILDER} .)
+(cd ${BUILDER_SPEC} && docker build --tag ${BUILDER_TAG} .)
 
 # Execute the build
 [ -t 1 ] && USE_TTY="-it"
-docker run ${USE_TTY} --rm -v ${CDI_DIR}:${WORK_DIR}:rw,Z -w ${WORK_DIR} ${BUILDER} "$1"
+docker run ${USE_TTY} \
+    --rm \
+    -v ${CDI_DIR}:${WORK_DIR}:rw,Z \
+    -e RUN_UID=$(id -u) \
+    -e RUN_GID=$(id -g) \
+    -w ${WORK_DIR} \
+    ${BUILDER_TAG} "$1"
+

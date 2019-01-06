@@ -35,6 +35,9 @@ rules:
 - apiGroups: [""]
   resources: ["secrets"]
   verbs: ["get", "list", "watch", "create"]
+- apiGroups: ["storage.k8s.io"]
+  resources: ["storageclasses"]
+  verbs: ["get"]
 - apiGroups: [""]
   resources: ["configmaps"]
   verbs: ["get", "list", "watch", "create"]
@@ -48,7 +51,6 @@ apiVersion: rbac.authorization.k8s.io/v1beta1
 kind: ClusterRoleBinding
 metadata:
   name: cdi-sa
-  namespace: {{.CDINamespace}}
   labels:
     cdi.kubevirt.io: ""
 roleRef:
@@ -77,20 +79,21 @@ spec:
     metadata:
       labels:
         app: containerized-data-importer
+        cdi.kubevirt.io: ""
     spec:
       serviceAccountName: cdi-sa
       containers:
       - name: cdi-controller
-        image: kubevirt/cdi-controller:v1.3.0
+        image: kubevirt/cdi-controller:v1.4.1
         imagePullPolicy: IfNotPresent
         args: ["-v=1"] # default verbosity; change to 2 or 3 for more detailed logging
         env:
         - name: IMPORTER_IMAGE
-          value: kubevirt/cdi-importer:v1.3.0
+          value: kubevirt/cdi-importer:v1.4.1
         - name: CLONER_IMAGE
-          value: kubevirt/cdi-cloner:v1.3.0
+          value: kubevirt/cdi-cloner:v1.4.1
         - name: UPLOADSERVER_IMAGE
-          value: kubevirt/cdi-uploadserver:v1.3.0
+          value: kubevirt/cdi-uploadserver:v1.4.1 
         - name: PULL_POLICY
           value: IfNotPresent
         - name: UPLOADPROXY_SERVICE
@@ -112,6 +115,64 @@ spec:
     - dvs
     singular: datavolume
   scope: Namespaced
+  validation:
+    openAPIV3Schema:	
+      properties:	
+        apiVersion:	
+          type: string	
+        kind:	
+          type: string
+        metadata: {}	
+        spec:	
+          properties:
+            source:
+              properties:
+                http:
+                  properties:
+                    url:
+                      type: string
+                    secretRef:
+                      type: string
+                  required:
+                  - url
+                s3:
+                  properties:
+                    url:
+                      type: string
+                    secretRef:
+                      type: string
+                  required:
+                  - url
+                pvc:
+                  properties:
+                    namespace:
+                      type: string
+                    name:
+                      type: string
+                  required:
+                  - namespace
+                  - name
+                upload: {}
+                blank: {}
+            pvc:
+              properties:
+                resources:
+                  properties:
+                    requests:
+                      properties:
+                        storage:
+                          type: string
+                      required:
+                      - storage
+                  required:
+                  - requests
+                storageClassName:
+                  type: string
+                accessModes:
+                  type: array
+              required:
+              - resources
+    
   version: v1alpha1
 ---
 kind: ServiceAccount
@@ -162,6 +223,39 @@ rules:
       - create
 ---
 apiVersion: rbac.authorization.k8s.io/v1beta1
+kind: RoleBinding
+metadata:
+  name: cdi-extension-apiserver-authentication
+  namespace: {{.CDINamespace}}
+  labels:
+    cdi.kubevirt.io: ""
+roleRef:
+  kind: Role
+  name: cdi-extension-apiserver-authentication
+  apiGroup: rbac.authorization.k8s.io
+subjects:
+  - kind: ServiceAccount
+    name: cdi-apiserver
+    namespace: {{.CDINamespace}}
+---
+apiVersion: rbac.authorization.k8s.io/v1beta1
+kind: Role
+metadata:
+  name: cdi-extension-apiserver-authentication
+  namespace: {{.CDINamespace}}
+  labels:
+    cdi.kubevirt.io: ""
+rules:
+  - apiGroups:
+      - ''
+    resources:
+      - configmaps
+    resourceNames:
+      - extension-apiserver-authentication
+    verbs:
+      - get
+---
+apiVersion: rbac.authorization.k8s.io/v1beta1
 kind: ClusterRoleBinding
 metadata:
   name: cdi-apiserver
@@ -183,6 +277,14 @@ metadata:
   labels:
     cdi.kubevirt.io: ""
 rules:
+  - apiGroups:
+      - admissionregistration.k8s.io
+    resources:
+      - validatingwebhookconfigurations
+    verbs:
+      - get
+      - create
+      - update
   - apiGroups:
       - apiregistration.k8s.io
     resources:
@@ -250,7 +352,7 @@ spec:
       serviceAccountName: cdi-apiserver
       containers:
       - name: cdi-apiserver-api
-        image: kubevirt/cdi-apiserver:v1.3.0
+        image: kubevirt/cdi-apiserver:v1.4.1
         imagePullPolicy: IfNotPresent
         args: ["-v=1"] # default verbosity; change to 2 or 3 for more detailed logging
 ---
@@ -288,7 +390,7 @@ spec:
     spec:
       containers:
       - name: cdi-uploadproxy
-        image: kubevirt/cdi-uploadproxy:v1.3.0
+        image: kubevirt/cdi-uploadproxy:v1.4.1
         imagePullPolicy: IfNotPresent
         args: ["-v=1"] # default verbosity; change to 2 or 3 for more detailed logging
         env:
@@ -322,3 +424,20 @@ spec:
             secretKeyRef:
               name: cdi-upload-proxy-server-key
               key: tls.crt
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: kubevirt-prometheus-metrics
+  namespace: {{.CDINamespace}}
+  labels:
+    prometheus.kubevirt.io: ""
+    kubevirt.io: ""
+spec:
+  ports:
+    - name: metrics
+      port: 443
+      targetPort: metrics
+      protocol: TCP
+  selector:
+    prometheus.kubevirt.io: ""

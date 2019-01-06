@@ -35,6 +35,11 @@ if [ "$obj" == "source" ]; then
     mkfifo $pipe_dir
     echo "cloner: creating tarball of the image and redirecting it to $pipe_dir"
     pushd $image_dir
+	#figure out the size of content in the directory
+    size=$(du -sb . | cut -f1)
+    echo $size
+    #Write the size to the pipe so the other end can read it.
+    echo "$size" >$pipe_dir
     tar cv . >$pipe_dir
     popd
     echo "cloner: finished writing image to $pipe_dir"
@@ -48,8 +53,12 @@ if [ "$obj" == "target" ]; then
         if [ -e "$pipe_dir" ]; then
             pushd $image_dir
             echo "cloner: extract the image from $pipe_dir into $image_dir directory"
-            tar xv <$pipe_dir
+            /usr/bin/cdi-cloner -pipedir $pipe_dir -alsologtostderr -v=3
             popd
+        	if [ "$?" != "0" ]; then
+        		echo "cloner: failed with exit code $?"
+        		exit 1
+        	fi
             echo "cloner: finished cloning image from $pipe_dir to $image_dir"
             exit 0
         fi
