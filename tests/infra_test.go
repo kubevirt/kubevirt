@@ -142,6 +142,41 @@ var _ = Describe("Infrastructure", func() {
 				tests.WaitForSuccessfulVMIStart(obj)
 			}, 150)
 		})
+
+		Context("when scraped by Prometheus", func() {
+
+			It("should include the VM metrics", func() {
+				vmi := tests.NewRandomVMI()
+
+				By("Starting a new VirtualMachineInstance")
+				obj, err := virtClient.RestClient().Post().Resource("virtualmachineinstances").Namespace(tests.NamespaceTestDefault).Body(vmi).Do().Get()
+				Expect(err).To(BeNil())
+				tests.WaitForSuccessfulVMIStart(obj)
+
+				endpoint, err := virtClient.CoreV1().Endpoints(tests.KubeVirtInstallNamespace).Get("kubevirt-prometheus-metrics", metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				l, err := labels.Parse("kubevirt.io=virt-handler")
+				Expect(err).ToNot(HaveOccurred())
+				pods, err := virtClient.CoreV1().Pods(tests.KubeVirtInstallNamespace).List(metav1.ListOptions{LabelSelector: l.String()})
+				Expect(err).ToNot(HaveOccurred())
+				Expect(pods.Items).ToNot(BeEmpty())
+
+				for _, ep := range endpoint.Subsets[0].Addresses {
+					stdout, _, err := tests.ExecuteCommandOnPodV2(virtClient,
+						&pods.Items[0], "virt-handler",
+						[]string{
+							"curl",
+							"-L",
+							"-k",
+							fmt.Sprintf("https://%s:%s/metrics", ep.IP, "8443"),
+						})
+					Expect(err).ToNot(HaveOccurred())
+					Expect(stdout).To(ContainSubstring("kubevirt_info"))
+					Expect(stdout).To(ContainSubstring("kubevirt_vm"))
+				}
+			}, 150)
+
+		})
 	})
 })
 
