@@ -111,7 +111,7 @@ var _ = Describe("Console", func() {
 				}
 			}, 220)
 
-			It("should close console connection when new console connection is opened", func() {
+			It("should close console connection when new console connection is opened", func(done Done) {
 				vmi := tests.NewRandomVMIWithEphemeralDisk(tests.ContainerDiskFor(tests.ContainerDiskAlpine))
 
 				RunVMIAndWaitForStart(vmi)
@@ -125,7 +125,8 @@ var _ = Describe("Console", func() {
 					defer GinkgoRecover()
 					select {
 					case receivedErr := <-errChan:
-						Expect(receivedErr.Error()).To(ContainSubstring("closed"))
+						Expect(receivedErr.Error()).To(ContainSubstring("close"))
+						close(done)
 					case <-time.After(60 * time.Second):
 						Fail("timed out waiting for closed 1st connection")
 					}
@@ -133,15 +134,15 @@ var _ = Describe("Console", func() {
 
 				By("opening 2nd console connection")
 				ExpectConsoleOutput(vmi, "login")
-
 			}, 220)
 
 			It("should wait until the virtual machine is in running state and return a stream interface", func() {
 				vmi := tests.NewRandomVMIWithEphemeralDisk(tests.ContainerDiskFor(tests.ContainerDiskAlpine))
 				By("Creating a new VirtualMachineInstance")
-				Expect(virtClient.RestClient().Post().Resource("virtualmachineinstances").Namespace(tests.NamespaceTestDefault).Body(vmi).Do().Error()).To(Succeed())
+				_, err := virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
+				Expect(err).ToNot(HaveOccurred())
 
-				_, err := virtClient.VirtualMachineInstance(vmi.Namespace).SerialConsole(vmi.Name, 30*time.Second)
+				_, err = virtClient.VirtualMachineInstance(vmi.Namespace).SerialConsole(vmi.Name, 30*time.Second)
 				Expect(err).ToNot(HaveOccurred())
 			}, 220)
 

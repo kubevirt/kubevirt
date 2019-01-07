@@ -61,7 +61,7 @@ func (app *SubresourceAPIApp) streamRequestHandler(request *restful.Request, res
 
 	vmi, code, err := app.fetchVirtualMachineInstance(vmiName, namespace)
 	if err != nil {
-		log.Log.Reason(err).Error("Failed to gather remote exec info for subresource request.")
+		log.Log.Reason(err).Errorf("Failed to gather remote exec info for subresource request.")
 		response.WriteError(code, err)
 		return
 	}
@@ -80,7 +80,7 @@ func (app *SubresourceAPIApp) streamRequestHandler(request *restful.Request, res
 
 	podName, httpStatusCode, err := app.remoteExecInfo(vmi)
 	if err != nil {
-		log.Log.Reason(err).Error("Failed to gather remote exec info for subresource request.")
+		log.Log.Object(vmi).Reason(err).Error("Failed to gather remote exec info for subresource request.")
 		response.WriteError(httpStatusCode, err)
 		return
 	}
@@ -96,13 +96,13 @@ func (app *SubresourceAPIApp) streamRequestHandler(request *restful.Request, res
 
 	clientSocket, err := upgrader.Upgrade(response.ResponseWriter, request.Request, nil)
 	if err != nil {
-		log.Log.Reason(err).Error("Failed to upgrade client websocket connection")
+		log.Log.Object(vmi).Reason(err).Error("Failed to upgrade client websocket connection")
 		response.WriteError(http.StatusBadRequest, err)
 		return
 	}
 	defer clientSocket.Close()
 
-	log.Log.Infof("Websocket connection upgraded")
+	log.Log.Object(vmi).Infof("Websocket connection upgraded")
 	wsReadWriter := &kubecli.BinaryReadWriter{Conn: clientSocket}
 
 	inReader, inWriter := io.Pipe()
@@ -112,19 +112,19 @@ func (app *SubresourceAPIApp) streamRequestHandler(request *restful.Request, res
 	copyErr := make(chan error)
 	go func() {
 		httpCode, err := remoteExecHelper(podName, vmi.Namespace, cmd, inReader, outWriter, requestType)
-		log.Log.Errorf("%v", err)
+		log.Log.Object(vmi).Errorf("failed to exectue command %v on the pod %v", cmd, err)
 		httpResponseChan <- httpCode
 	}()
 
 	go func() {
 		_, err := io.Copy(wsReadWriter, outReader)
-		log.Log.Reason(err).Error("error ecountered reading from remote podExec stream")
+		log.Log.Object(vmi).Reason(err).Error("error ecountered reading from remote podExec stream")
 		copyErr <- err
 	}()
 
 	go func() {
 		_, err := io.Copy(inWriter, wsReadWriter)
-		log.Log.Reason(err).Error("error ecountered reading from websocket stream")
+		log.Log.Object(vmi).Reason(err).Error("error ecountered reading from websocket stream")
 		copyErr <- err
 	}()
 
@@ -133,7 +133,7 @@ func (app *SubresourceAPIApp) streamRequestHandler(request *restful.Request, res
 	case httpResponseCode = <-httpResponseChan:
 	case err := <-copyErr:
 		if err != nil {
-			log.Log.Reason(err).Error("Error in websocket proxy")
+			log.Log.Object(vmi).Reason(err).Error("Error in websocket proxy")
 			httpResponseCode = http.StatusInternalServerError
 		}
 	}
