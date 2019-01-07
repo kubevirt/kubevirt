@@ -103,6 +103,7 @@ type ReplicaSetInterface interface {
 	Delete(name string, options *k8smetav1.DeleteOptions) error
 	GetScale(replicaSetName string, options k8smetav1.GetOptions) (*autov1.Scale, error)
 	UpdateScale(replicaSetName string, scale *autov1.Scale) (*autov1.Scale, error)
+	Patch(name string, pt types.PatchType, data []byte, subresources ...string) (result *v1.VirtualMachineInstanceReplicaSet, err error)
 }
 
 type VMIPresetInterface interface {

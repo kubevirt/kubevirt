@@ -22,6 +22,7 @@ package kubecli
 import (
 	autov1 "k8s.io/api/autoscaling/v1"
 	k8smetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
 
@@ -124,4 +125,17 @@ func (v *rc) Delete(name string, options *k8smetav1.DeleteOptions) error {
 		Body(options).
 		Do().
 		Error()
+}
+
+func (v *rc) Patch(name string, pt types.PatchType, data []byte, subresources ...string) (result *v1.VirtualMachineInstanceReplicaSet, err error) {
+	result = &v1.VirtualMachineInstanceReplicaSet{}
+	err = v.restClient.Patch(pt).
+		Namespace(v.namespace).
+		Resource(v.resource).
+		SubResource(subresources...).
+		Name(name).
+		Body(data).
+		Do().
+		Into(result)
+	return
 }

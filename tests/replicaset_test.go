@@ -33,6 +33,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	v12 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1beta1"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/json"
 
 	"kubevirt.io/kubevirt/pkg/api/v1"
@@ -53,20 +54,8 @@ var _ = Describe("VirtualMachineInstanceReplicaSet", func() {
 
 	doScale := func(name string, scale int32) {
 
-		// Status updates can conflict with our desire to change the spec
 		By(fmt.Sprintf("Scaling to %d", scale))
-		var rs *v1.VirtualMachineInstanceReplicaSet
-		for {
-			rs, err = virtClient.ReplicaSet(tests.NamespaceTestDefault).Get(name, v12.GetOptions{})
-			Expect(err).ToNot(HaveOccurred())
-			rs.Spec.Replicas = &scale
-			rs, err = virtClient.ReplicaSet(tests.NamespaceTestDefault).Update(rs)
-			if errors.IsConflict(err) {
-				continue
-			}
-			break
-		}
-
+		rs, err := virtClient.ReplicaSet(tests.NamespaceTestDefault).Patch(name, types.JSONPatchType, []byte(fmt.Sprintf("[{ \"op\": \"replace\", \"path\": \"/spec/replicas\", \"value\": %v }]", scale)))
 		Expect(err).ToNot(HaveOccurred())
 
 		By("Checking the number of replicas")
@@ -292,7 +281,7 @@ var _ = Describe("VirtualMachineInstanceReplicaSet", func() {
 		Expect(int(table.Rows[0].Cells[3].(float64))).To(Equal(2))
 	})
 
-	It("should remove VMIs once it is marked for deletion", func() {
+	It("should remove VMIs once they are marked for deletion", func() {
 		newRS := newReplicaSet()
 		// Create a replicaset with two replicas
 		doScale(newRS.ObjectMeta.Name, 2)
@@ -350,8 +339,7 @@ var _ = Describe("VirtualMachineInstanceReplicaSet", func() {
 		rs := newReplicaSet()
 		// pause controller
 		By("Pausing the replicaset")
-		rs.Spec.Paused = true
-		_, err = virtClient.ReplicaSet(rs.ObjectMeta.Namespace).Update(rs)
+		_, err := virtClient.ReplicaSet(rs.Namespace).Patch(rs.Name, types.JSONPatchType, []byte("[{ \"op\": \"add\", \"path\": \"/spec/paused\", \"value\": true }]"))
 		Expect(err).ToNot(HaveOccurred())
 
 		Eventually(func() v1.VirtualMachineInstanceReplicaSetConditionType {
@@ -381,8 +369,7 @@ var _ = Describe("VirtualMachineInstanceReplicaSet", func() {
 
 		// resume controller
 		By("Resuming the replicaset")
-		rs.Spec.Paused = false
-		_, err = virtClient.ReplicaSet(rs.ObjectMeta.Namespace).Update(rs)
+		_, err = virtClient.ReplicaSet(rs.Namespace).Patch(rs.Name, types.JSONPatchType, []byte("[{ \"op\": \"replace\", \"path\": \"/spec/paused\", \"value\": false }]"))
 		Expect(err).ToNot(HaveOccurred())
 
 		// Paused condition should disappear
