@@ -89,7 +89,7 @@ var _ = Describe("cloud-init network", func() {
 			mockErrors := make(map[string]error)
 			buildMockSriovNetwork(mockNetwork, count, mockErrors, false, true)
 			cloudinit, err := CloudInitDiscoverNetworkData(vmi)
-			parsedCloudInit := bytes.Split(cloudinit, []byte(cloudInitDelimiter))
+			parsedCloudInit := bytes.Split(cloudinit, []byte(v1.CloudInitDelimiter))
 			var config CloudInitNetConfig
 			yaml.Unmarshal(parsedCloudInit[0], &config)
 
