@@ -257,7 +257,7 @@ var _ = Describe("VirtualMachineInstanceReplicaSet", func() {
 
 		By("checking the output of server-side table printing")
 		rawTable, err := virtClient.RestClient().Get().
-			RequestURI(fmt.Sprintf("/apis/kubevirt.io/v1alpha2/namespaces/%s/virtualmachineinstancereplicasets/%s", tests.NamespaceTestDefault, newRS.ObjectMeta.Name)).
+			RequestURI(fmt.Sprintf("/apis/kubevirt.io/v1alpha3/namespaces/%s/virtualmachineinstancereplicasets/%s", tests.NamespaceTestDefault, newRS.ObjectMeta.Name)).
 			SetHeader("Accept", "application/json;as=Table;v=v1beta1;g=meta.k8s.io, application/json").
 			DoRaw()
 

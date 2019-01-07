@@ -36,7 +36,7 @@ var _ = Describe("Kubevirt Migration Client", func() {
 
 	var server *ghttp.Server
 	var client KubevirtClient
-	basePath := "/apis/kubevirt.io/v1alpha2/namespaces/default/virtualmachineinstancemigrations"
+	basePath := "/apis/kubevirt.io/v1alpha3/namespaces/default/virtualmachineinstancemigrations"
 	migrationPath := basePath + "/testmigration"
 
 	BeforeEach(func() {

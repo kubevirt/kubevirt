@@ -30,7 +30,7 @@ import (
 	v1 "kubevirt.io/kubevirt/pkg/api/v1"
 )
 
-const vmSubresourceURL = "/apis/subresources.kubevirt.io/v1alpha2/namespaces/%s/virtualmachines/%s/%s"
+const vmSubresourceURL = "/apis/subresources.kubevirt.io/v1alpha3/namespaces/%s/virtualmachines/%s/%s"
 
 func (k *kubevirt) VirtualMachine(namespace string) VirtualMachineInterface {
 	return &vm{
