@@ -22,9 +22,6 @@ package virt_operator
 import (
 	"time"
 
-	"kubevirt.io/kubevirt/pkg/virt-operator/creation"
-	"kubevirt.io/kubevirt/pkg/virt-operator/deletion"
-
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/record"
@@ -34,6 +31,8 @@ import (
 	"kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/kubecli"
 	"kubevirt.io/kubevirt/pkg/log"
+	"kubevirt.io/kubevirt/pkg/virt-operator/creation"
+	"kubevirt.io/kubevirt/pkg/virt-operator/deletion"
 	"kubevirt.io/kubevirt/pkg/virt-operator/util"
 )
 

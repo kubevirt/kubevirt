@@ -21,21 +21,16 @@ package components
 import (
 	"fmt"
 
-	"kubevirt.io/kubevirt/pkg/virt-operator/util"
-
-	"k8s.io/apimachinery/pkg/util/json"
-
-	"k8s.io/apimachinery/pkg/util/intstr"
-
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
-
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/intstr"
+	"k8s.io/apimachinery/pkg/util/json"
 
 	virtv1 "kubevirt.io/kubevirt/pkg/api/v1"
-
 	"kubevirt.io/kubevirt/pkg/kubecli"
+	"kubevirt.io/kubevirt/pkg/virt-operator/util"
 )
 
 func CreateControllers(clientset kubecli.KubevirtClient, kv *virtv1.KubeVirt, config util.KubeVirtDeploymentConfig) error {

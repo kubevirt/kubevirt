@@ -25,9 +25,8 @@ import (
 	"net/http"
 	"os"
 
-	"kubevirt.io/kubevirt/pkg/virt-operator/util"
-
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/kubernetes/scheme"
 	k8coresv1 "k8s.io/client-go/kubernetes/typed/core/v1"
@@ -35,15 +34,13 @@ import (
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/record"
 
-	"github.com/golang/glog"
-
 	"kubevirt.io/kubevirt/pkg/certificates"
-	"kubevirt.io/kubevirt/pkg/service"
-
 	"kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/kubecli"
 	"kubevirt.io/kubevirt/pkg/log"
+	"kubevirt.io/kubevirt/pkg/service"
 	kvutil "kubevirt.io/kubevirt/pkg/util"
+	"kubevirt.io/kubevirt/pkg/virt-operator/util"
 )
 
 const (
@@ -120,7 +117,8 @@ func (app *VirtOperatorApp) Run() {
 
 	certStore, err := certificates.GenerateSelfSignedCert(certsDirectory, "virt-operator", app.operatorNamespace)
 	if err != nil {
-		glog.Fatalf("unable to generate certificates: %v", err)
+		log.Log.Reason(err).Error("unable to generate certificates")
+		panic(err)
 	}
 
 	// run app
