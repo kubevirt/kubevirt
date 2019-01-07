@@ -47,7 +47,7 @@ func Delete(kv *v1.KubeVirt, clientset kubecli.KubevirtClient) error {
 	}
 
 	// delete vmimigrations, vmirs, vm, vmi
-	vmimList, err := clientset.VirtualMachineInstanceMigration("").List(&metav1.ListOptions{})
+	vmimList, err := clientset.VirtualMachineInstanceMigration(metav1.NamespaceAll).List(&metav1.ListOptions{})
 	if err != nil {
 		log.Log.Errorf("Failed to delete vmims: %v", err)
 		return err
@@ -60,7 +60,7 @@ func Delete(kv *v1.KubeVirt, clientset kubecli.KubevirtClient) error {
 		}
 	}
 
-	rslist, err := clientset.ReplicaSet("").List(metav1.ListOptions{})
+	rslist, err := clientset.ReplicaSet(metav1.NamespaceAll).List(metav1.ListOptions{})
 	if err != nil {
 		log.Log.Errorf("Failed to delete vmrss: %v", err)
 		return err
@@ -73,7 +73,7 @@ func Delete(kv *v1.KubeVirt, clientset kubecli.KubevirtClient) error {
 		}
 	}
 
-	vmlist, err := clientset.VirtualMachine("").List(&metav1.ListOptions{})
+	vmlist, err := clientset.VirtualMachine(metav1.NamespaceAll).List(&metav1.ListOptions{})
 	if err != nil {
 		log.Log.Errorf("Failed to delete vm: %v", err)
 		return err
@@ -86,7 +86,7 @@ func Delete(kv *v1.KubeVirt, clientset kubecli.KubevirtClient) error {
 		}
 	}
 
-	vmilist, err := clientset.VirtualMachineInstance("").List(&metav1.ListOptions{})
+	vmilist, err := clientset.VirtualMachineInstance(metav1.NamespaceAll).List(&metav1.ListOptions{})
 	if err != nil {
 		log.Log.Errorf("Failed to delete vmis: %v", err)
 		return err
@@ -103,7 +103,7 @@ func Delete(kv *v1.KubeVirt, clientset kubecli.KubevirtClient) error {
 	}
 
 	// delete launcher pods
-	podList, err := clientset.CoreV1().Pods("").List(metav1.ListOptions{LabelSelector: fmt.Sprintf("%s=virt-launcher", v1.AppLabel)})
+	podList, err := clientset.CoreV1().Pods(metav1.NamespaceAll).List(metav1.ListOptions{LabelSelector: fmt.Sprintf("%s=virt-launcher", v1.AppLabel)})
 	if err != nil {
 		log.Log.Errorf("Failed to list launcher pods: %v", err)
 		return err
