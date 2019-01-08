@@ -21,4 +21,4 @@ FROM kubevirt/container-disk-v1alpha
 LABEL maintainer="The KubeVirt Project <kubevirt-dev@googlegroups.com>"
 
 # Add fedora cloud disk image
-RUN curl -g -L https://download.fedoraproject.org/pub/fedora/linux/releases/29/Cloud/x86_64/images/Fedora-Cloud-Base-29-1.2.x86_64.qcow2 > /disk/fedora.qcow2
+RUN curl -g -L https://download.fedoraproject.org/pub/fedora/linux/releases/28/Cloud/x86_64/images/Fedora-Cloud-Base-28-1.1.x86_64.qcow2 > /disk/fedora.qcow2
