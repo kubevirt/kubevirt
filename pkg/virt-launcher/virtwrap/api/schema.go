@@ -446,6 +446,7 @@ type Interface struct {
 	Target              *InterfaceTarget `xml:"target,omitempty"`
 	Model               *Model           `xml:"model,omitempty"`
 	MAC                 *MAC             `xml:"mac,omitempty"`
+	MTU                 *MTU             `xml:"mtu,omitempty"`
 	BandWidth           *BandWidth       `xml:"bandwidth,omitempty"`
 	BootOrder           *BootOrder       `xml:"boot,omitempty"`
 	LinkState           *LinkState       `xml:"link,omitempty"`
@@ -472,6 +473,10 @@ type BootOrder struct {
 
 type MAC struct {
 	MAC string `xml:"address,attr"`
+}
+
+type MTU struct {
+	Size string `xml:"size,attr"`
 }
 
 type FilterRef struct {
