@@ -20,12 +20,14 @@
 package watch
 
 import (
+	"encoding/json"
 	"fmt"
 	"reflect"
 	"time"
 
 	k8sv1 "k8s.io/api/core/v1"
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/record"
@@ -292,7 +294,7 @@ func (c *VMIController) updateStatus(vmi *virtv1.VirtualMachineInstance, pod *k8
 		switch {
 		case podExists:
 			// Add PodScheduled False condition to the VM
-			if cond := conditionManager.GetPodCondition(pod, k8sv1.PodScheduled, k8sv1.ConditionFalse); cond != nil {
+			if cond := conditionManager.GetPodConditionWithStatus(pod, k8sv1.PodScheduled, k8sv1.ConditionFalse); cond != nil {
 				conditionManager.AddPodCondition(vmiCopy, cond)
 			} else if conditionManager.HasCondition(vmiCopy, virtv1.VirtualMachineInstanceConditionType(k8sv1.PodScheduled)) {
 				// Remove PodScheduling condition from the VM
@@ -341,9 +343,42 @@ func (c *VMIController) updateStatus(vmi *virtv1.VirtualMachineInstance, pod *k8
 			log.Log.V(3).Object(vmi).Infof("All pods have been deleted, removing finalizer")
 			controller.RemoveFinalizer(vmiCopy, virtv1.VirtualMachineInstanceFinalizer)
 		}
-	case vmi.IsRunning() || vmi.IsScheduled():
-		// Don't process states where the vmi is clearly owned by virt-handler
+	case vmi.IsRunning():
+		// Keep PodReady condition in sync with the VMI
+		if !podExists {
+			// Remove PodScheduling condition from the VM
+			conditionManager.RemoveCondition(vmiCopy, virtv1.VirtualMachineInstanceConditionType(k8sv1.PodReady))
+		} else if cond := conditionManager.GetPodCondition(pod, k8sv1.PodReady); cond != nil {
+			conditionManager.RemoveCondition(vmiCopy, virtv1.VirtualMachineInstanceConditionType(k8sv1.PodReady))
+			conditionManager.AddPodCondition(vmiCopy, cond)
+		} else if conditionManager.HasCondition(vmiCopy, virtv1.VirtualMachineInstanceConditionType(k8sv1.PodReady)) {
+			// Remove PodScheduling condition from the VM
+			conditionManager.RemoveCondition(vmiCopy, virtv1.VirtualMachineInstanceConditionType(k8sv1.PodReady))
+		}
+
+		// We don't own the object anymore, so patch instead of update
+		if !reflect.DeepEqual(vmiCopy.Status.Conditions, vmi.Status.Conditions) {
+			newConditions, err := json.Marshal(vmiCopy.Status.Conditions)
+			if err != nil {
+				return err
+			}
+			oldConditions, err := json.Marshal(vmi.Status.Conditions)
+			if err != nil {
+				return err
+			}
+			test := fmt.Sprintf(`{ "op": "test", "path": "/status/conditions", "value": %s }`, string(oldConditions))
+			patch := fmt.Sprintf(`{ "op": "replace", "path": "/status/conditions", "value": %s }`, string(newConditions))
+			log.Log.V(3).Object(vmi).Infof("Patching VMI conditions")
+			_, err = c.clientset.VirtualMachineInstance(vmi.Namespace).Patch(vmi.Name, types.JSONPatchType, []byte(fmt.Sprintf("[ %s, %s ]", test, patch)))
+			// We could not retry if the "test" fails but we have no sane way to detect that right now: https://github.com/kubernetes/kubernetes/issues/68202 for details
+			// So just retry like with any other errors
+			if err != nil {
+				return fmt.Errorf("patching vmi conditions failed: %v", err)
+			}
+		}
 		return nil
+	case vmi.IsScheduled():
+		// Don't process states where the vmi is clearly owned by virt-handler
 	default:
 		return fmt.Errorf("unknown vmi phase %v", vmi.Status.Phase)
 	}

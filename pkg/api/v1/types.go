@@ -215,11 +215,6 @@ func (v *VirtualMachineInstance) GetObjectMeta() metav1.Object {
 	return &v.ObjectMeta
 }
 
-func (v *VirtualMachineInstance) IsReady() bool {
-	// TODO once we support a ready condition, use it instead
-	return v.IsRunning()
-}
-
 func (v *VirtualMachineInstance) IsScheduling() bool {
 	return v.Status.Phase == Scheduling
 }

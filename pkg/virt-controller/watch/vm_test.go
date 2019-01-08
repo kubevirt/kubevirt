@@ -15,12 +15,12 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/testing"
 	"k8s.io/client-go/tools/cache"
-	framework "k8s.io/client-go/tools/cache/testing"
+	"k8s.io/client-go/tools/cache/testing"
 	"k8s.io/client-go/tools/record"
 
 	cdiv1 "kubevirt.io/containerized-data-importer/pkg/apis/datavolumecontroller/v1alpha1"
 	cdifake "kubevirt.io/containerized-data-importer/pkg/client/clientset/versioned/fake"
-	v1 "kubevirt.io/kubevirt/pkg/api/v1"
+	"kubevirt.io/kubevirt/pkg/api/v1"
 	virtv1 "kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/kubecli"
 	"kubevirt.io/kubevirt/pkg/testutils"
@@ -421,8 +421,9 @@ var _ = Describe("VirtualMachine", func() {
 			controller.Execute()
 		})
 
-		It("should update status to created and ready when vmi is running", func() {
+		It("should update status to created and ready when vmi is running and running", func() {
 			vm, vmi := DefaultVirtualMachine(true)
+			markAsReady(vmi)
 
 			addVirtualMachine(vm)
 			vmiFeeder.Add(vmi)
