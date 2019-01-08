@@ -22,6 +22,8 @@ package hardware
 import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+
+	v1 "kubevirt.io/kubevirt/pkg/api/v1"
 )
 
 var _ = Describe("Hardware utils test", func() {
@@ -34,6 +36,50 @@ var _ = Describe("Hardware utils test", func() {
 			Expect(err).ToNot(HaveOccurred())
 			Expect(len(lst)).To(Equal(7))
 			Expect(lst).To(Equal(expectedList))
+		})
+	})
+
+	Context("count vCPUs", func() {
+		It("shoud count vCPUs correctly", func() {
+			vCPUs := GetNumberOfVCPUs(&v1.CPU{
+				Sockets: 2,
+				Cores:   2,
+				Threads: 2,
+			})
+			Expect(vCPUs).To(Equal(int64(8)), "Expect vCPUs")
+
+			vCPUs = GetNumberOfVCPUs(&v1.CPU{
+				Sockets: 2,
+			})
+			Expect(vCPUs).To(Equal(int64(2)), "Expect vCPUs")
+
+			vCPUs = GetNumberOfVCPUs(&v1.CPU{
+				Cores: 2,
+			})
+			Expect(vCPUs).To(Equal(int64(2)), "Expect vCPUs")
+
+			vCPUs = GetNumberOfVCPUs(&v1.CPU{
+				Threads: 2,
+			})
+			Expect(vCPUs).To(Equal(int64(2)), "Expect vCPUs")
+
+			vCPUs = GetNumberOfVCPUs(&v1.CPU{
+				Sockets: 2,
+				Threads: 2,
+			})
+			Expect(vCPUs).To(Equal(int64(4)), "Expect vCPUs")
+
+			vCPUs = GetNumberOfVCPUs(&v1.CPU{
+				Sockets: 2,
+				Cores:   2,
+			})
+			Expect(vCPUs).To(Equal(int64(4)), "Expect vCPUs")
+
+			vCPUs = GetNumberOfVCPUs(&v1.CPU{
+				Cores:   2,
+				Threads: 2,
+			})
+			Expect(vCPUs).To(Equal(int64(4)), "Expect vCPUs")
 		})
 	})
 })
