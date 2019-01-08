@@ -58,14 +58,8 @@ func (s *referenceWalker) walkRef(ref spec.Ref) spec.Ref {
 	// We do not support external references yet.
 	if !s.alreadyVisited[refStr] && strings.HasPrefix(refStr, definitionPrefix) {
 		s.alreadyVisited[refStr] = true
-		k := refStr[len(definitionPrefix):]
-		def := s.root.Definitions[k]
+		def := s.root.Definitions[refStr[len(definitionPrefix):]]
 		s.walkSchema(&def)
-		// Make sure we don't assign to nil map
-		if s.root.Definitions == nil {
-			s.root.Definitions = spec.Definitions{}
-		}
-		s.root.Definitions[k] = def
 	}
 	return s.walkRefCallback(ref)
 }
@@ -75,26 +69,23 @@ func (s *referenceWalker) walkSchema(schema *spec.Schema) {
 		return
 	}
 	schema.Ref = s.walkRef(schema.Ref)
-	for k, v := range schema.Definitions {
+	for _, v := range schema.Definitions {
 		s.walkSchema(&v)
-		schema.Definitions[k] = v
 	}
-	for k, v := range schema.Properties {
+	for _, v := range schema.Properties {
 		s.walkSchema(&v)
-		schema.Properties[k] = v
 	}
-	for k, v := range schema.PatternProperties {
+	for _, v := range schema.PatternProperties {
 		s.walkSchema(&v)
-		schema.PatternProperties[k] = v
 	}
-	for i, _ := range schema.AllOf {
-		s.walkSchema(&schema.AllOf[i])
+	for _, v := range schema.AllOf {
+		s.walkSchema(&v)
 	}
-	for i, _ := range schema.AnyOf {
-		s.walkSchema(&schema.AnyOf[i])
+	for _, v := range schema.AnyOf {
+		s.walkSchema(&v)
 	}
-	for i, _ := range schema.OneOf {
-		s.walkSchema(&schema.OneOf[i])
+	for _, v := range schema.OneOf {
+		s.walkSchema(&v)
 	}
 	if schema.Not != nil {
 		s.walkSchema(schema.Not)
@@ -109,8 +100,8 @@ func (s *referenceWalker) walkSchema(schema *spec.Schema) {
 		if schema.Items.Schema != nil {
 			s.walkSchema(schema.Items.Schema)
 		}
-		for i, _ := range schema.Items.Schemas {
-			s.walkSchema(&schema.Items.Schemas[i])
+		for _, v := range schema.Items.Schemas {
+			s.walkSchema(&v)
 		}
 	}
 }
@@ -151,9 +142,6 @@ func (s *referenceWalker) walkOperation(op *spec.Operation) {
 }
 
 func (s *referenceWalker) Start() {
-	if s.root.Paths == nil {
-		return
-	}
 	for _, pathItem := range s.root.Paths.Paths {
 		s.walkParams(pathItem.Parameters)
 		s.walkOperation(pathItem.Delete)
@@ -166,7 +154,7 @@ func (s *referenceWalker) Start() {
 	}
 }
 
-// usedDefinitionForSpec returns a map with all used definitions in the provided spec as keys and true as values.
+// usedDefinitionForSpec returns a map with all used definition in the provided spec as keys and true as values.
 func usedDefinitionForSpec(sp *spec.Swagger) map[string]bool {
 	usedDefinitions := map[string]bool{}
 	walkOnAllReferences(func(ref spec.Ref) spec.Ref {
@@ -179,7 +167,7 @@ func usedDefinitionForSpec(sp *spec.Swagger) map[string]bool {
 }
 
 // FilterSpecByPaths removes unnecessary paths and definitions used by those paths.
-// i.e. if a Path removed by this function, all definitions used by it and not used
+// i.e. if a Path removed by this function, all definition used by it and not used
 // anywhere else will also be removed.
 func FilterSpecByPaths(sp *spec.Swagger, keepPathPrefixes []string) {
 	// Walk all references to find all used definitions. This function
@@ -227,10 +215,6 @@ func renameDefinition(s *spec.Swagger, old, new string) {
 		}
 		return ref
 	}, s)
-	// Make sure we don't assign to nil map
-	if s.Definitions == nil {
-		s.Definitions = spec.Definitions{}
-	}
 	s.Definitions[new] = s.Definitions[old]
 	delete(s.Definitions, old)
 }
@@ -255,13 +239,6 @@ func MergeSpecs(dest, source *spec.Swagger) error {
 
 func mergeSpecs(dest, source *spec.Swagger, renameModelConflicts, ignorePathConflicts bool) (err error) {
 	specCloned := false
-	// Paths may be empty, due to [ACL constraints](http://goo.gl/8us55a#securityFiltering).
-	if source.Paths == nil {
-		source.Paths = &spec.Paths{}
-	}
-	if dest.Paths == nil {
-		dest.Paths = &spec.Paths{}
-	}
 	if ignorePathConflicts {
 		keepPaths := []string{}
 		hasConflictingPath := false
@@ -314,29 +291,15 @@ func mergeSpecs(dest, source *spec.Swagger, renameModelConflicts, ignorePathConf
 			from, to string
 		}
 		renames := []Rename{}
-
-	OUTERLOOP:
 		for k, v := range source.Definitions {
 			if usedNames[k] {
 				v2, found := dest.Definitions[k]
-				// Reuse model if they are exactly the same.
+				// Reuse model iff they are exactly the same.
 				if found && reflect.DeepEqual(v, v2) {
 					continue
 				}
-
-				// Reuse previously renamed model if one exists
-				var newName string
-				i := 1
-				for found {
-					i++
-					newName = fmt.Sprintf("%s_v%d", k, i)
-					v2, found = dest.Definitions[newName]
-					if found && reflect.DeepEqual(v, v2) {
-						renames = append(renames, Rename{from: k, to: newName})
-						continue OUTERLOOP
-					}
-				}
-
+				i := 2
+				newName := fmt.Sprintf("%s_v%d", k, i)
 				_, foundInSource := source.Definitions[newName]
 				for usedNames[newName] || foundInSource {
 					i++
@@ -353,9 +316,6 @@ func mergeSpecs(dest, source *spec.Swagger, renameModelConflicts, ignorePathConf
 	}
 	for k, v := range source.Definitions {
 		if _, found := dest.Definitions[k]; !found {
-			if dest.Definitions == nil {
-				dest.Definitions = spec.Definitions{}
-			}
 			dest.Definitions[k] = v
 		}
 	}
@@ -363,10 +323,6 @@ func mergeSpecs(dest, source *spec.Swagger, renameModelConflicts, ignorePathConf
 	for k, v := range source.Paths.Paths {
 		if _, found := dest.Paths.Paths[k]; found {
 			return fmt.Errorf("unable to merge: duplicated path %s", k)
-		}
-		// PathItem may be empty, due to [ACL constraints](http://goo.gl/8us55a#securityFiltering).
-		if dest.Paths.Paths == nil {
-			dest.Paths.Paths = map[string]spec.PathItem{}
 		}
 		dest.Paths.Paths[k] = v
 	}

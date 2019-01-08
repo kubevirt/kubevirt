@@ -81,13 +81,6 @@ type cdiAPIApp struct {
 	uploadPossible uploadPossibleFunc
 }
 
-// UploadTokenRequestAPI returns web service for swagger generation
-func UploadTokenRequestAPI() []*restful.WebService {
-	app := cdiAPIApp{}
-	app.composeUploadTokenAPI()
-	return app.container.RegisteredWebServices()
-}
-
 // NewCdiAPIServer returns an initialized CDI api server
 func NewCdiAPIServer(bindAddress string,
 	bindPort uint,
@@ -255,10 +248,10 @@ func (app *cdiAPIApp) startTLS() error {
 	}
 	defer os.RemoveAll(certsDirectory)
 
-	keyFile := filepath.Join(certsDirectory, "key.pem")
-	certFile := filepath.Join(certsDirectory, "cert.pem")
-	signingCertFile := filepath.Join(certsDirectory, "signingCert.pem")
-	clientCAFile := filepath.Join(certsDirectory, "clientCA.crt")
+	keyFile := filepath.Join(certsDirectory, "/key.pem")
+	certFile := filepath.Join(certsDirectory, "/cert.pem")
+	signingCertFile := filepath.Join(certsDirectory, "/signingCert.pem")
+	clientCAFile := filepath.Join(certsDirectory, "/clientCA.crt")
 
 	// Write the certs to disk
 	err = ioutil.WriteFile(clientCAFile, app.clientCABytes, 0600)
@@ -400,12 +393,11 @@ func uploadTokenAPIGroup() metav1.APIGroup {
 func (app *cdiAPIApp) composeUploadTokenAPI() {
 	objPointer := &uploadv1alpha1.UploadTokenRequest{}
 	objExample := reflect.ValueOf(objPointer).Elem().Interface()
-	objKind := "UploadTokenRequest"
-	resource := "uploadtokenrequests"
+	objKind := "uploadtokenrequest"
 
 	groupPath := fmt.Sprintf("/apis/%s", uploadTokenGroup)
 	resourcePath := fmt.Sprintf("/apis/%s/%s", uploadTokenGroup, uploadTokenVersion)
-	createPath := fmt.Sprintf("/namespaces/{namespace:[a-z0-9][a-z0-9\\-]*}/%s", resource)
+	createPath := fmt.Sprintf("/namespaces/{namespace:[a-z0-9][a-z0-9\\-]*}/{kind:%ss?}", objKind)
 
 	app.container = restful.NewContainer()
 
@@ -439,8 +431,8 @@ func (app *cdiAPIApp) composeUploadTokenAPI() {
 			list.APIVersion = "v1" // this is the version of the resource list
 			list.GroupVersion = uploadTokenGroup + "/" + uploadTokenVersion
 			list.APIResources = append(list.APIResources, metav1.APIResource{
-				Name:         "uploadtokenrequests",
-				SingularName: "UploadtokenRequest",
+				Name:         "UploadTokenRequest",
+				SingularName: "uploadtokenRequest",
 				Namespaced:   true,
 				Group:        uploadTokenGroup,
 				Version:      uploadTokenVersion,

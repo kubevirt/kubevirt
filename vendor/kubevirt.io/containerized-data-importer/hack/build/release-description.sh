@@ -37,10 +37,7 @@ The source code and selected binaries are available for download at:
 Pre-built CDI containers are published on Docker Hub and can be viewed at:
 <https://hub.docker.com/r/kubevirt/cdi-controller/>
 <https://hub.docker.com/r/kubevirt/cdi-importer/>
-<https://hub.docker.com/r/kubevirt/cdi-cloner/>
-<https://hub.docker.com/r/kubevirt/cdi-uploadproxy/>
-<https://hub.docker.com/r/kubevirt/cdi-apiserver/>
-<https://hub.docker.com/r/kubevirt/cdi-uploadserver/>
+<https://hub.docker.com/r/kubevirt/cdi-cloner/>.
 EOF
 }
 
@@ -75,10 +72,8 @@ Additional Resources
 --------------------
 - Mailing list: <https://groups.google.com/forum/#!forum/kubevirt-dev>
 - [How to contribute][contributing]
-- [License][license]
 
 [contributing]: https://github.com/kubevirt/containerized-data-importer/blob/master/hack/README.md
-[license]: https://github.com/kubevirt/containerized-data-importer/blob/master/LICENSE
 EOF
 }
 

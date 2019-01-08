@@ -1,5 +1,5 @@
-hash: a5f21bc7771afd4f95eab0de8323a15e6b172d397a686e4c9b6ee5c7235eeab0
-updated: 2018-12-26T22:21:40.248868665Z
+hash: 1a4cba89364d2cf4256026995fcda2e9bdc21297e476da08ae5584fa155c8bf2
+updated: 2019-01-08T08:33:54.781991234-05:00
 imports:
 - name: cloud.google.com/go
   version: 3b1ae45394a234c385be014e9a488f2bb6eef821
@@ -40,7 +40,7 @@ imports:
 - name: github.com/emicklei/go-restful-openapi
   version: 7712e8a6e8096e7103b96a400519d38fb1e348f8
 - name: github.com/emicklei/go-restful-swagger12
-  version: 7524189396c68dc4b04d53852f9edc00f816b123
+  version: dcef7f55730566d41eae5db10e7d6981829720f6
 - name: github.com/evanphx/json-patch
   version: ba18e35c5c1b36ef6334cad706eb681153d2d379
 - name: github.com/fsnotify/fsnotify
@@ -67,9 +67,9 @@ imports:
 - name: github.com/go-openapi/errors
   version: d9664f9fab8994271e573ed69cf2adfc09b7a800
 - name: github.com/go-openapi/jsonpointer
-  version: ef5f0afec364d3b9396b7b77b43dbe26bf1f8004
+  version: 46af16f9f7b149af66e5d1bd010e3574dc06de98
 - name: github.com/go-openapi/jsonreference
-  version: 8483a886a90412cd6858df4ea3483dce9c8e35a3
+  version: 13c6e3589ad90f49bd3e3bbe2c2cb3d7a4142272
 - name: github.com/go-openapi/loads
   version: 150d36912387ec2f607be674c5be309ddccc0eed
 - name: github.com/go-openapi/runtime
@@ -79,7 +79,7 @@ imports:
 - name: github.com/go-openapi/strfmt
   version: 35fe47352985e13cc75f13120d70d26fd764ed51
 - name: github.com/go-openapi/swag
-  version: 1d29f06aebd59ccdf11ae04aa0334ded96e2d909
+  version: f3f9494671f93fcff853e3c6e9e948b3eb71e590
 - name: github.com/go-openapi/validate
   version: d2eab7d93009e9215fc85b2faa2c2f2a98c2af48
 - name: github.com/go-stack/stack
@@ -142,13 +142,6 @@ imports:
   version: a0d98a5f288019575c6d1f4bb1573fef2d1fcdc4
   subpackages:
   - simplelru
-- name: github.com/hpcloud/tail
-  version: a1dbeea552b7c8df4b542c66073e393de198a800
-  subpackages:
-  - ratelimiter
-  - util
-  - watch
-  - winfile
 - name: github.com/imdario/mergo
   version: 6633656539c1639d9d78127b7d47c622b5d7b6dc
 - name: github.com/inconshreveable/mousetrap
@@ -194,7 +187,7 @@ imports:
 - name: github.com/modern-go/reflect2
   version: 05fbef0ca5da472bbf96c9322b84a53edc03c9fd
 - name: github.com/onsi/ginkgo
-  version: 505cc352255139defb7371000668063d1161e331
+  version: 11459a886d9cd66b319dac7ef1e917ee221372c9
   subpackages:
   - config
   - extensions/table
@@ -215,7 +208,7 @@ imports:
   - reporters/stenographer/support/go-isatty
   - types
 - name: github.com/onsi/gomega
-  version: e0d4387cf37d6cc3baeb80f61bd24a37e5dfae26
+  version: dcabb60a477c2b6f456df65037cb6708210fbb02
   subpackages:
   - format
   - ghttp
@@ -386,14 +379,10 @@ imports:
   - transport
 - name: gopkg.in/cheggaaa/pb.v1
   version: 1cc5bbe20449079337944d56292c7383510c534c
-- name: gopkg.in/fsnotify/fsnotify.v1
-  version: c2828203cd70a50dcccfb2761f8b1f8ceef9a8e9
 - name: gopkg.in/inf.v0
   version: 3887ee99ecf07df5b447e9b00d9c0b2adaa9f3e4
 - name: gopkg.in/ini.v1
-  version: a9da9309fb4822643ceebb765f80025c35ac19a1
-- name: gopkg.in/tomb.v1
-  version: c131134a1947e9afd9cecfe11f4c6dff0732ae58
+  version: 6ed8d5f64cd79a498d1f3fab5880cc376ce41bbe
 - name: gopkg.in/yaml.v2
   version: 670d4cfef0544295bc27a114dbac37980d83185a
 - name: k8s.io/api
@@ -605,12 +594,11 @@ imports:
   - pkg/client/clientset_generated/clientset/typed/apiregistration/v1
   - pkg/client/clientset_generated/clientset/typed/apiregistration/v1beta1
 - name: k8s.io/kube-openapi
-  version: 91cfa479c814065e420cee7ed227db0f63a5854e
+  version: 39a7bf85c140f972372c2a0d1ee40adbf0c8bfe1
   subpackages:
   - pkg/common
-  - pkg/util/proto
 - name: kubevirt.io/containerized-data-importer
-  version: 254749a63d335a4ec1ef919a971cab0b68cf4980
+  version: 211c0a0a2c164dcca88ffa74242b7e5ec4cdf2a5
   repo: https://github.com/kubevirt/containerized-data-importer.git
   subpackages:
   - pkg/apis/datavolumecontroller
@@ -656,4 +644,4 @@ testImports:
   subpackages:
   - errgroup
 - name: gopkg.in/check.v1
-  version: 788fd78401277ebd861206a03c884797c6ec5541
+  version: 64131543e7896d5bcc6bd5a76287eb75ea96c673

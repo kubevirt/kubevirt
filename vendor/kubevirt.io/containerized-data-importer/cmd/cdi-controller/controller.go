@@ -15,11 +15,9 @@ import (
 	informers "kubevirt.io/containerized-data-importer/pkg/client/informers/externalversions"
 
 	"github.com/pkg/errors"
-
 	"k8s.io/apimachinery/pkg/apis/meta/v1"
 	k8sinformers "k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 )
 
@@ -79,9 +77,13 @@ func getRequiredEnvVar(name string) string {
 	return val
 }
 
-func start(cfg *rest.Config, stopCh <-chan struct{}) {
-	glog.Info("Starting CDI controller components")
+func main() {
+	defer glog.Flush()
 
+	cfg, err := clientcmd.BuildConfigFromFlags(masterURL, configPath)
+	if err != nil {
+		glog.Fatalf("Unable to get kube config: %v\n", errors.WithStack(err))
+	}
 	client, err := kubernetes.NewForConfig(cfg)
 	if err != nil {
 		glog.Fatalf("Unable to get kube client: %v\n", errors.WithStack(err))
@@ -137,6 +139,8 @@ func start(cfg *rest.Config, stopCh <-chan struct{}) {
 
 	glog.V(1).Infoln("created cdi controllers")
 
+	stopCh := handleSignals()
+
 	go cdiInformerFactory.Start(stopCh)
 	go pvcInformerFactory.Start(stopCh)
 	go podInformerFactory.Start(stopCh)
@@ -171,25 +175,6 @@ func start(cfg *rest.Config, stopCh <-chan struct{}) {
 			glog.Fatalln("Error running upload controller: %+v", err)
 		}
 	}()
-}
-
-func main() {
-	defer glog.Flush()
-
-	cfg, err := clientcmd.BuildConfigFromFlags(masterURL, configPath)
-	if err != nil {
-		glog.Fatalf("Unable to get kube config: %v\n", errors.WithStack(err))
-	}
-
-	stopCh := handleSignals()
-
-	err = startLeaderElection(cfg, func() {
-		start(cfg, stopCh)
-	})
-
-	if err != nil {
-		glog.Fatalf("Unable to start leader election: %v\n", errors.WithStack(err))
-	}
 
 	<-stopCh
 	glog.V(2).Infoln("cdi controller exited")

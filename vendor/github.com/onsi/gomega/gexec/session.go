@@ -7,6 +7,7 @@ import (
 	"io"
 	"os"
 	"os/exec"
+	"reflect"
 	"sync"
 	"syscall"
 
@@ -39,12 +40,12 @@ Start starts the passed-in *exec.Cmd command.  It wraps the command in a *gexec.
 The session pipes the command's stdout and stderr to two *gbytes.Buffers available as properties on the session: session.Out and session.Err.
 These buffers can be used with the gbytes.Say matcher to match against unread output:
 
-	Expect(session.Out).Should(gbytes.Say("foo-out"))
-	Expect(session.Err).Should(gbytes.Say("foo-err"))
+	Ω(session.Out).Should(gbytes.Say("foo-out"))
+	Ω(session.Err).Should(gbytes.Say("foo-err"))
 
 In addition, Session satisfies the gbytes.BufferProvider interface and provides the stdout *gbytes.Buffer.  This allows you to replace the first line, above, with:
 
-	Expect(session).Should(gbytes.Say("foo-out"))
+	Ω(session).Should(gbytes.Say("foo-out"))
 
 When outWriter and/or errWriter are non-nil, the session will pipe stdout and/or stderr output both into the session *gybtes.Buffers and to the passed-in outWriter/errWriter.
 This is useful for capturing the process's output or logging it to screen.  In particular, when using Ginkgo it can be convenient to direct output to the GinkgoWriter:
@@ -56,7 +57,7 @@ This will log output when running tests in verbose mode, but - otherwise - will 
 The session wrapper is responsible for waiting on the *exec.Cmd command.  You *should not* call command.Wait() yourself.
 Instead, to assert that the command has exited you can use the gexec.Exit matcher:
 
-	Expect(session).Should(gexec.Exit())
+	Ω(session).Should(gexec.Exit())
 
 When the session exits it closes the stdout and stderr gbytes buffers.  This will short circuit any
 Eventuallys waiting for the buffers to Say something.
@@ -77,11 +78,11 @@ func Start(command *exec.Cmd, outWriter io.Writer, errWriter io.Writer) (*Sessio
 
 	commandOut, commandErr = session.Out, session.Err
 
-	if outWriter != nil {
+	if outWriter != nil && !reflect.ValueOf(outWriter).IsNil() {
 		commandOut = io.MultiWriter(commandOut, outWriter)
 	}
 
-	if errWriter != nil {
+	if errWriter != nil && !reflect.ValueOf(errWriter).IsNil() {
 		commandErr = io.MultiWriter(commandErr, errWriter)
 	}
 
@@ -151,7 +152,11 @@ If the command has already exited, Kill returns silently.
 The session is returned to enable chaining.
 */
 func (s *Session) Kill() *Session {
-	return s.Signal(syscall.SIGKILL)
+	if s.ExitCode() != -1 {
+		return s
+	}
+	s.Command.Process.Kill()
+	return s
 }
 
 /*
@@ -184,9 +189,10 @@ If the command has already exited, Signal returns silently.
 The session is returned to enable chaining.
 */
 func (s *Session) Signal(signal os.Signal) *Session {
-	if s.processIsAlive() {
-		s.Command.Process.Signal(signal)
+	if s.ExitCode() != -1 {
+		return s
 	}
+	s.Command.Process.Signal(signal)
 	return s
 }
 
@@ -208,10 +214,6 @@ func (s *Session) monitorForExit(exited chan<- struct{}) {
 	s.lock.Unlock()
 
 	close(exited)
-}
-
-func (s *Session) processIsAlive() bool {
-	return s.ExitCode() == -1 && s.Command.Process != nil
 }
 
 var trackedSessions = []*Session{}

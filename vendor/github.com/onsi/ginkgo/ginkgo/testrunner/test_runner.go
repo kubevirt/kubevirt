@@ -17,7 +17,6 @@ import (
 	"github.com/onsi/ginkgo/ginkgo/testsuite"
 	"github.com/onsi/ginkgo/internal/remote"
 	"github.com/onsi/ginkgo/reporters/stenographer"
-	colorable "github.com/onsi/ginkgo/reporters/stenographer/support/go-colorable"
 	"github.com/onsi/ginkgo/types"
 )
 
@@ -64,9 +63,7 @@ func (t *TestRunner) Compile() error {
 }
 
 func (t *TestRunner) BuildArgs(path string) []string {
-	args := make([]string, len(buildArgs), len(buildArgs)+3)
-	copy(args, buildArgs)
-	args = append(args, "-o", path, t.Suite.Path)
+	args := []string{"test", "-c", "-i", "-o", path, t.Suite.Path}
 
 	if t.getCoverMode() != "" {
 		args = append(args, "-cover", fmt.Sprintf("-covermode=%s", t.getCoverMode()))
@@ -316,7 +313,7 @@ func (t *TestRunner) runParallelGinkgoSuite() RunResult {
 	writers := make([]*logWriter, t.numCPU)
 	reports := make([]*bytes.Buffer, t.numCPU)
 
-	stenographer := stenographer.New(!config.DefaultReporterConfig.NoColor, config.GinkgoConfig.FlakeAttempts > 1, colorable.NewColorableStdout())
+	stenographer := stenographer.New(!config.DefaultReporterConfig.NoColor, config.GinkgoConfig.FlakeAttempts > 1)
 	aggregator := remote.NewAggregator(t.numCPU, result, config.DefaultReporterConfig, stenographer)
 
 	server, err := remote.NewServer(t.numCPU)
@@ -369,8 +366,9 @@ func (t *TestRunner) runParallelGinkgoSuite() RunResult {
 	|                                                                   |
 	|  Ginkgo timed out waiting for all parallel nodes to report back!  |
 	|                                                                   |
-	 -------------------------------------------------------------------`)
-		fmt.Println("\n", t.Suite.PackageName, "timed out. path:", t.Suite.Path)
+	 -------------------------------------------------------------------
+`)
+		fmt.Println(t.Suite.PackageName, "timed out. path:", t.Suite.Path)
 		os.Stdout.Sync()
 
 		for _, writer := range writers {

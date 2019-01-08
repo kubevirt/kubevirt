@@ -4,4 +4,3 @@ tmp/**/*
 *.coverprofile
 .vscode
 .idea/
-*.log

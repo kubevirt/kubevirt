@@ -15,7 +15,7 @@ type BufferProvider interface {
 /*
 Say is a Gomega matcher that operates on gbytes.Buffers:
 
-	Expect(buffer).Should(Say("something"))
+	Ω(buffer).Should(Say("something"))
 
 will succeed if the unread portion of the buffer matches the regular expression "something".
 
@@ -36,11 +36,12 @@ In such cases, Say simply operates on the *gbytes.Buffer returned by Buffer()
 If the buffer is closed, the Say matcher will tell Eventually to abort.
 */
 func Say(expected string, args ...interface{}) *sayMatcher {
+	formattedRegexp := expected
 	if len(args) > 0 {
-		expected = fmt.Sprintf(expected, args...)
+		formattedRegexp = fmt.Sprintf(expected, args...)
 	}
 	return &sayMatcher{
-		re: regexp.MustCompile(expected),
+		re: regexp.MustCompile(formattedRegexp),
 	}
 }
 

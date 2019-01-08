@@ -47,7 +47,7 @@ A more comprehensive example is available at https://onsi.github.io/gomega/#_tes
 					})
 
 					It("should return the returned sprockets", func() {
-						Expect(client.Sprockets()).Should(Equal(sprockets))
+						Ω(client.Sprockets()).Should(Equal(sprockets))
 					})
 				})
 
@@ -57,7 +57,7 @@ A more comprehensive example is available at https://onsi.github.io/gomega/#_tes
 					})
 
 					It("should return an empty list of sprockets", func() {
-						Expect(client.Sprockets()).Should(BeEmpty())
+						Ω(client.Sprockets()).Should(BeEmpty())
 					})
 				})
 
@@ -68,8 +68,8 @@ A more comprehensive example is available at https://onsi.github.io/gomega/#_tes
 
 					It("should return an AuthenticationError error", func() {
 						sprockets, err := client.Sprockets()
-						Expect(sprockets).Should(BeEmpty())
-						Expect(err).Should(MatchError(AuthenticationError))
+						Ω(sprockets).Should(BeEmpty())
+						Ω(err).Should(MatchError(AuthenticationError))
 					})
 				})
 
@@ -80,8 +80,8 @@ A more comprehensive example is available at https://onsi.github.io/gomega/#_tes
 
 					It("should return an InternalError error", func() {
 						sprockets, err := client.Sprockets()
-						Expect(sprockets).Should(BeEmpty())
-						Expect(err).Should(MatchError(InternalError))
+						Ω(sprockets).Should(BeEmpty())
+						Ω(err).Should(MatchError(InternalError))
 					})
 				})
 			})
@@ -97,7 +97,7 @@ A more comprehensive example is available at https://onsi.github.io/gomega/#_tes
 				})
 
 				It("should make the request with a filter", func() {
-					Expect(client.Sprockets("food")).Should(Equal(sprockets))
+					Ω(client.Sprockets("food")).Should(Equal(sprockets))
 				})
 			})
 		})
@@ -111,7 +111,6 @@ import (
 	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
-	"net/http/httputil"
 	"reflect"
 	"regexp"
 	"strings"
@@ -124,7 +123,7 @@ func new() *Server {
 	return &Server{
 		AllowUnhandledRequests:     false,
 		UnhandledRequestStatusCode: http.StatusInternalServerError,
-		rwMutex:                    &sync.RWMutex{},
+		writeLock:                  &sync.Mutex{},
 	}
 }
 
@@ -161,13 +160,11 @@ type Server struct {
 	HTTPTestServer *httptest.Server
 
 	//Defaults to false.  If set to true, the Server will allow more requests than there are registered handlers.
-	//Direct use of this property is deprecated and is likely to be removed, use GetAllowUnhandledRequests and SetAllowUnhandledRequests instead.
 	AllowUnhandledRequests bool
 
 	//The status code returned when receiving an unhandled request.
 	//Defaults to http.StatusInternalServerError.
 	//Only applies if AllowUnhandledRequests is true
-	//Direct use of this property is deprecated and is likely to be removed, use GetUnhandledRequestStatusCode and SetUnhandledRequestStatusCode instead.
 	UnhandledRequestStatusCode int
 
 	//If provided, ghttp will log about each request received to the provided io.Writer
@@ -179,8 +176,8 @@ type Server struct {
 	requestHandlers  []http.HandlerFunc
 	routedHandlers   []routedHandler
 
-	rwMutex *sync.RWMutex
-	calls   int
+	writeLock *sync.Mutex
+	calls     int
 }
 
 //Start() starts an unstarted ghttp server.  It is a catastrophic error to call Start more than once (thanks, httptest).
@@ -190,24 +187,20 @@ func (s *Server) Start() {
 
 //URL() returns a url that will hit the server
 func (s *Server) URL() string {
-	s.rwMutex.RLock()
-	defer s.rwMutex.RUnlock()
 	return s.HTTPTestServer.URL
 }
 
 //Addr() returns the address on which the server is listening.
 func (s *Server) Addr() string {
-	s.rwMutex.RLock()
-	defer s.rwMutex.RUnlock()
 	return s.HTTPTestServer.Listener.Addr().String()
 }
 
 //Close() should be called at the end of each test.  It spins down and cleans up the test server.
 func (s *Server) Close() {
-	s.rwMutex.Lock()
+	s.writeLock.Lock()
 	server := s.HTTPTestServer
 	s.HTTPTestServer = nil
-	s.rwMutex.Unlock()
+	s.writeLock.Unlock()
 
 	if server != nil {
 		server.Close()
@@ -220,10 +213,10 @@ func (s *Server) Close() {
 //1. If the request matches a handler registered with RouteToHandler, that handler is called.
 //2. Otherwise, if there are handlers registered via AppendHandlers, those handlers are called in order.
 //3. If all registered handlers have been called then:
-//   a) If AllowUnhandledRequests is set to true, the request will be handled with response code of UnhandledRequestStatusCode
+//   a) If AllowUnhandledRequests is true, the request will be handled with response code of UnhandledRequestStatusCode
 //   b) If AllowUnhandledRequests is false, the request will not be handled and the current test will be marked as failed.
 func (s *Server) ServeHTTP(w http.ResponseWriter, req *http.Request) {
-	s.rwMutex.Lock()
+	s.writeLock.Lock()
 	defer func() {
 		e := recover()
 		if e != nil {
@@ -247,7 +240,7 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		defer func() {
 			recover()
 		}()
-		Expect(e).Should(BeNil(), "Handler Panicked")
+		Ω(e).Should(BeNil(), "Handler Panicked")
 	}()
 
 	if s.Writer != nil {
@@ -256,31 +249,29 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 
 	s.receivedRequests = append(s.receivedRequests, req)
 	if routedHandler, ok := s.handlerForRoute(req.Method, req.URL.Path); ok {
-		s.rwMutex.Unlock()
+		s.writeLock.Unlock()
 		routedHandler(w, req)
 	} else if s.calls < len(s.requestHandlers) {
 		h := s.requestHandlers[s.calls]
 		s.calls++
-		s.rwMutex.Unlock()
+		s.writeLock.Unlock()
 		h(w, req)
 	} else {
-		s.rwMutex.Unlock()
-		if s.GetAllowUnhandledRequests() {
+		s.writeLock.Unlock()
+		if s.AllowUnhandledRequests {
 			ioutil.ReadAll(req.Body)
 			req.Body.Close()
-			w.WriteHeader(s.GetUnhandledRequestStatusCode())
+			w.WriteHeader(s.UnhandledRequestStatusCode)
 		} else {
-			formatted, err := httputil.DumpRequest(req, true)
-			Expect(err).NotTo(HaveOccurred(), "Encountered error while dumping HTTP request")
-			Expect(string(formatted)).Should(BeNil(), "Received Unhandled Request")
+			Ω(req).Should(BeNil(), "Received Unhandled Request")
 		}
 	}
 }
 
 //ReceivedRequests is an array containing all requests received by the server (both handled and unhandled requests)
 func (s *Server) ReceivedRequests() []*http.Request {
-	s.rwMutex.RLock()
-	defer s.rwMutex.RUnlock()
+	s.writeLock.Lock()
+	defer s.writeLock.Unlock()
 
 	return s.receivedRequests
 }
@@ -290,8 +281,8 @@ func (s *Server) ReceivedRequests() []*http.Request {
 //
 //The path may be either a string object or a *regexp.Regexp.
 func (s *Server) RouteToHandler(method string, path interface{}, handler http.HandlerFunc) {
-	s.rwMutex.Lock()
-	defer s.rwMutex.Unlock()
+	s.writeLock.Lock()
+	defer s.writeLock.Unlock()
 
 	rh := routedHandler{
 		method:  method,
@@ -336,8 +327,8 @@ func (s *Server) handlerForRoute(method string, path string) (http.HandlerFunc, 
 
 //AppendHandlers will appends http.HandlerFuncs to the server's list of registered handlers.  The first incoming request is handled by the first handler, the second by the second, etc...
 func (s *Server) AppendHandlers(handlers ...http.HandlerFunc) {
-	s.rwMutex.Lock()
-	defer s.rwMutex.Unlock()
+	s.writeLock.Lock()
+	defer s.writeLock.Unlock()
 
 	s.requestHandlers = append(s.requestHandlers, handlers...)
 }
@@ -346,23 +337,23 @@ func (s *Server) AppendHandlers(handlers ...http.HandlerFunc) {
 //This is useful, for example, when a server has been set up in a shared context, but must be tweaked
 //for a particular test.
 func (s *Server) SetHandler(index int, handler http.HandlerFunc) {
-	s.rwMutex.Lock()
-	defer s.rwMutex.Unlock()
+	s.writeLock.Lock()
+	defer s.writeLock.Unlock()
 
 	s.requestHandlers[index] = handler
 }
 
 //GetHandler returns the handler registered at the passed in index.
 func (s *Server) GetHandler(index int) http.HandlerFunc {
-	s.rwMutex.RLock()
-	defer s.rwMutex.RUnlock()
+	s.writeLock.Lock()
+	defer s.writeLock.Unlock()
 
 	return s.requestHandlers[index]
 }
 
 func (s *Server) Reset() {
-	s.rwMutex.Lock()
-	defer s.rwMutex.Unlock()
+	s.writeLock.Lock()
+	defer s.writeLock.Unlock()
 
 	s.HTTPTestServer.CloseClientConnections()
 	s.calls = 0
@@ -383,40 +374,8 @@ func (s *Server) WrapHandler(index int, handler http.HandlerFunc) {
 }
 
 func (s *Server) CloseClientConnections() {
-	s.rwMutex.Lock()
-	defer s.rwMutex.Unlock()
+	s.writeLock.Lock()
+	defer s.writeLock.Unlock()
 
 	s.HTTPTestServer.CloseClientConnections()
-}
-
-//SetAllowUnhandledRequests enables the server to accept unhandled requests.
-func (s *Server) SetAllowUnhandledRequests(allowUnhandledRequests bool) {
-	s.rwMutex.Lock()
-	defer s.rwMutex.Unlock()
-
-	s.AllowUnhandledRequests = allowUnhandledRequests
-}
-
-//GetAllowUnhandledRequests returns true if the server accepts unhandled requests.
-func (s *Server) GetAllowUnhandledRequests() bool {
-	s.rwMutex.RLock()
-	defer s.rwMutex.RUnlock()
-
-	return s.AllowUnhandledRequests
-}
-
-//SetUnhandledRequestStatusCode status code to be returned when the server receives unhandled requests
-func (s *Server) SetUnhandledRequestStatusCode(statusCode int) {
-	s.rwMutex.Lock()
-	defer s.rwMutex.Unlock()
-
-	s.UnhandledRequestStatusCode = statusCode
-}
-
-//GetUnhandledRequestStatusCode returns the current status code being returned for unhandled requests
-func (s *Server) GetUnhandledRequestStatusCode() int {
-	s.rwMutex.RLock()
-	defer s.rwMutex.RUnlock()
-
-	return s.UnhandledRequestStatusCode
 }

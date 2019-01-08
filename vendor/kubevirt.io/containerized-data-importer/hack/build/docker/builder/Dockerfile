@@ -1,8 +1,8 @@
 FROM fedora:28
 
-RUN dnf install -y qemu xz gzip git gradle && dnf clean all
+RUN dnf install -y qemu xz gzip git && dnf clean all
 
-ENV GIMME_GO_VERSION=1.10 GOPATH="/go"
+ENV GIMME_GO_VERSION=1.10 GOPATH="/go" GOBIN="/usr/bin"
 
 RUN mkdir -p /gimme && curl -sL https://raw.githubusercontent.com/travis-ci/gimme/master/gimme | HOME=/gimme bash >> /etc/profile.d/gimme.sh
 
@@ -24,17 +24,7 @@ RUN \
     ( go get -d github.com/mattn/goveralls && \
     cd $GOPATH/src/github.com/mattn/goveralls && \
     go install ./... ) && \
-    ( go get -u golang.org/x/lint/golint ) && \
-    ( go get -u github.com/rmohr/go-swagger-utils/swagger-doc ) && \
-    ( go get -u -d k8s.io/code-generator/cmd/deepcopy-gen && \
-    go get -u -d k8s.io/kube-openapi/cmd/openapi-gen ) && \
-    ( cd $GOPATH/src/k8s.io/code-generator/cmd/deepcopy-gen && \
-    git checkout kubernetes-1.11.2 && \
-    go install ./... ) && \
-    ( cd $GOPATH/src/k8s.io/kube-openapi/cmd/openapi-gen && \
-    git checkout c59034cc13d587f5ef4e85ca0ade0c1866ae8e1d && \
-    go install ./... )
-
+    ( go get -u golang.org/x/lint/golint )
 
 ADD entrypoint.sh /entrypoint.sh
 

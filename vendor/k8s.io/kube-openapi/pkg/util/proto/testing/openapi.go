@@ -60,9 +60,3 @@ func (f *Fake) OpenAPISchema() (*openapi_v2.Document, error) {
 	})
 	return f.document, f.err
 }
-
-type Empty struct{}
-
-func (Empty) OpenAPISchema() (*openapi_v2.Document, error) {
-	return nil, nil
-}
