@@ -32,6 +32,7 @@ import (
 	"encoding/json"
 	"fmt"
 
+	"k8s.io/api/autoscaling/v1"
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -87,6 +88,9 @@ func addKnownTypes(scheme *runtime.Scheme) error {
 	)
 	scheme.AddKnownTypes(metav1.Unversioned,
 		&metav1.Status{},
+	)
+	scheme.AddKnownTypes(schema.GroupVersion{Group: "autoscaling", Version: "v1"},
+		&v1.Scale{},
 	)
 	return nil
 }
@@ -603,6 +607,9 @@ type VirtualMachineInstanceReplicaSetStatus struct {
 	ReadyReplicas int32 `json:"readyReplicas,omitempty" protobuf:"varint,4,opt,name=readyReplicas"`
 
 	Conditions []VirtualMachineInstanceReplicaSetCondition `json:"conditions,omitempty" optional:"true"`
+
+	// Canonical form of the label selector for HPA which consumes it through the scale subresource.
+	LabelSelector string `json:"labelSelector,omitempty"`
 }
 
 // ---

@@ -2459,6 +2459,13 @@ func schema_kubevirt_pkg_api_v1_VirtualMachineInstanceReplicaSetStatus(ref commo
 							},
 						},
 					},
+					"labelSelector": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Canonical form of the label selector for HPA which consumes it through the scale subresource.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
 				},
 			},
 		},

@@ -25,6 +25,7 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/ghttp"
+	"k8s.io/api/autoscaling/v1"
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	k8smetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -108,6 +109,34 @@ var _ = Describe("Kubevirt VirtualMachineInstanceReplicaSet Client", func() {
 		Expect(server.ReceivedRequests()).To(HaveLen(1))
 		Expect(err).ToNot(HaveOccurred())
 		Expect(updatedVMIReplicaSet).To(Equal(rs))
+	})
+
+	It("should update a VirtualMachineInstanceReplicaSet scale subresource", func() {
+		rs := NewMinimalVirtualMachineInstanceReplicaSet("testrs")
+		scale := &v1.Scale{Spec: v1.ScaleSpec{Replicas: 3}}
+		server.AppendHandlers(ghttp.CombineHandlers(
+			ghttp.VerifyRequest("PUT", rsPath+"/scale"),
+			ghttp.RespondWithJSONEncoded(http.StatusOK, scale),
+		))
+		scaleResponse, err := client.ReplicaSet(k8sv1.NamespaceDefault).UpdateScale(rs.Name, scale)
+
+		Expect(server.ReceivedRequests()).To(HaveLen(1))
+		Expect(err).ToNot(HaveOccurred())
+		Expect(scaleResponse).To(Equal(scale))
+	})
+
+	It("should get a VirtualMachineInstanceReplicaSet scale subresource", func() {
+		rs := NewMinimalVirtualMachineInstanceReplicaSet("testrs")
+		scale := &v1.Scale{Spec: v1.ScaleSpec{Replicas: 3}}
+		server.AppendHandlers(ghttp.CombineHandlers(
+			ghttp.VerifyRequest("GET", rsPath+"/scale"),
+			ghttp.RespondWithJSONEncoded(http.StatusOK, scale),
+		))
+		scaleResponse, err := client.ReplicaSet(k8sv1.NamespaceDefault).GetScale(rs.Name, k8smetav1.GetOptions{})
+
+		Expect(server.ReceivedRequests()).To(HaveLen(1))
+		Expect(err).ToNot(HaveOccurred())
+		Expect(scaleResponse).To(Equal(scale))
 	})
 
 	It("should delete a VirtualMachineInstanceReplicaSet", func() {

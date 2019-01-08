@@ -354,6 +354,25 @@ var _ = Describe("Replicaset", func() {
 			controller.Execute()
 		})
 
+		It("should detect that it has to update the labelSelector in the status", func() {
+			rs, vmi := DefaultReplicaSet(1)
+			rs.Status.Replicas = 1
+			rs.Status.LabelSelector = ""
+			s, err := metav1.LabelSelectorAsSelector(&metav1.LabelSelector{
+				MatchLabels: vmi.ObjectMeta.Labels,
+			})
+			Expect(err).ToNot(HaveOccurred())
+			addReplicaSet(rs)
+			vmiFeeder.Add(vmi)
+
+			// We should see the failed condition, replicas should stay at 0
+			rsInterface.EXPECT().Update(gomock.Any()).Do(func(obj interface{}) {
+				objRS := obj.(*v1.VirtualMachineInstanceReplicaSet)
+				Expect(objRS.Status.LabelSelector).To(Equal(s.String()))
+			})
+			controller.Execute()
+		})
+
 		It("should be woken by a stopped VirtualMachineInstance and create a new one", func() {
 			rs, vmi := DefaultReplicaSet(1)
 			rs.Status.Replicas = 1
@@ -630,6 +649,10 @@ var _ = Describe("Replicaset", func() {
 })
 
 func ReplicaSetFromVMI(name string, vmi *v1.VirtualMachineInstance, replicas int32) *v1.VirtualMachineInstanceReplicaSet {
+	s, err := metav1.LabelSelectorAsSelector(&metav1.LabelSelector{
+		MatchLabels: vmi.ObjectMeta.Labels,
+	})
+	Expect(err).ToNot(HaveOccurred())
 	rs := &v1.VirtualMachineInstanceReplicaSet{
 		ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: vmi.ObjectMeta.Namespace, ResourceVersion: "1"},
 		Spec: v1.VirtualMachineInstanceReplicaSetSpec{
@@ -645,6 +668,7 @@ func ReplicaSetFromVMI(name string, vmi *v1.VirtualMachineInstance, replicas int
 				Spec: vmi.Spec,
 			},
 		},
+		Status: v1.VirtualMachineInstanceReplicaSetStatus{LabelSelector: s.String()},
 	}
 	return rs
 }
