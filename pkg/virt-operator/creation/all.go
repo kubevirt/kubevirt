@@ -30,13 +30,7 @@ import (
 
 func Create(kv *v1.KubeVirt, config util.KubeVirtDeploymentConfig, clientset kubecli.KubevirtClient) error {
 
-	err := util.UpdatePhase(kv, v1.KubeVirtPhaseDeploying, clientset)
-	if err != nil {
-		log.Log.Errorf("Failed to update phase: %v", err)
-		return err
-	}
-
-	err = rbac.CreateClusterRBAC(clientset, kv)
+	err := rbac.CreateClusterRBAC(clientset, kv)
 	if err != nil {
 		log.Log.Errorf("Failed to create cluster RBAC: %v", err)
 		return err

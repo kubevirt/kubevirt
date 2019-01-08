@@ -20,8 +20,10 @@
 package virt_operator
 
 import (
+	"fmt"
 	"time"
 
+	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/record"
@@ -34,6 +36,12 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-operator/creation"
 	"kubevirt.io/kubevirt/pkg/virt-operator/deletion"
 	"kubevirt.io/kubevirt/pkg/virt-operator/util"
+)
+
+const (
+	ConditionReasonDeploymentFailedExisting = "ExistingDeployment"
+	ConditionReasonDeploymentFailedError    = "DeploymentFailed"
+	ConditionReasonDeletionFailedError      = "DeletionFailed"
 )
 
 type KubeVirtController struct {
@@ -138,7 +146,7 @@ func (c *KubeVirtController) execute(key string) error {
 	}
 
 	if !exists {
-		// when the resource is gone, deletion was hanlded already
+		// when the resource is gone, deletion was handled already
 		log.Log.Infof("KubeVirt resource not found")
 		return nil
 	}
@@ -148,45 +156,65 @@ func (c *KubeVirtController) execute(key string) error {
 
 	if kv.DeletionTimestamp != nil {
 
-		if isKubeVirtDeleting(kv) {
-			logger.Infof("KubeVirt deletion is/was already processed")
+		log.Log.Info("Handling deleted KubeVirt object")
+
+		// delete
+		// TODO use expectations to find out what needs to be done or was already done
+		if kv.Status.Phase == v1.KubeVirtPhaseDeleted {
+			log.Log.Info("Is already deleted")
 			return nil
 		}
 
-		log.Log.Infof("Handling deleted KubeVirt object %+v", kv)
+		// set phase to deleting
+		err = util.UpdatePhase(kv, v1.KubeVirtPhaseDeleting, c.clientset)
+		if err != nil {
+			log.Log.Errorf("Failed to update phase: %v", err)
+			return err
+		}
+
 		err = deletion.Delete(kv, c.clientset)
 		if err != nil {
-			err1 := util.UpdatePhase(kv, v1.KubeVirtPhaseDeletionFailed, c.clientset)
-			if err1 != nil {
-				log.Log.Errorf("Failed to update phase: %v", err1)
+			// deletion failed
+			err := util.UpdateCondition(kv, v1.KubeVirtConditionSynchronized, k8sv1.ConditionFalse, ConditionReasonDeletionFailedError, fmt.Sprintf("An error occurred during deletion: %v", err), c.clientset)
+			if err != nil {
+				log.Log.Errorf("Failed to set condition: %v", err)
 			}
-		} else {
-			err1 := util.UpdatePhase(kv, v1.KubeVirtPhaseDeleted, c.clientset)
-			if err1 != nil {
-				log.Log.Errorf("Failed to update phase: %v", err1)
-			} else {
-				err2 := util.RemoveFinalizer(kv, c.clientset)
-				if err2 != nil {
-					log.Log.Errorf("Failed to remove finalizer: %v", err2)
-				}
-			}
+			return err
 		}
-		return err
-	}
 
-	if kv.Status.Phase != v1.KubeVirtPhaseUnset {
-		logger.Infof("KubeVirt creation is/was already processed")
+		// deletion successful
+		err = util.UpdatePhase(kv, v1.KubeVirtPhaseDeleted, c.clientset)
+		if err != nil {
+			log.Log.Errorf("Failed to update phase: %v", err)
+		}
+		err = util.RemoveConditions(kv, c.clientset)
+		if err != nil {
+			log.Log.Errorf("Failed to update condition: %v", err)
+		}
+		err := util.RemoveFinalizer(kv, c.clientset)
+		if err != nil {
+			log.Log.Errorf("Failed to remove finalizer: %v", err)
+		}
 		return nil
 	}
 
-	// Add finalizer to prevent deletion of CR before KuveVirt was undeployed
-	err = util.AddFinalizer(kv, c.clientset)
+	logger.Infof("handling deployment of KubeVirt object")
+
+	// TODO use expectations to find out what needs to be done or was already done
+	if kv.Status.Phase == v1.KubeVirtPhaseDeployed {
+		log.Log.Info("Is already deployed")
+		return nil
+	}
+
+	// Set phase to deploying
+	err = util.UpdatePhase(kv, v1.KubeVirtPhaseDeploying, c.clientset)
 	if err != nil {
-		log.Log.Errorf("Failed to add finalizer: %v", err)
+		log.Log.Errorf("Failed to update phase: %v", err)
 		return err
 	}
 
 	// check if there is already an active KubeVirt deployment
+	// TODO move this into a new validating webhook
 	kvs := c.kubeVirtInformer.GetStore().List()
 	for _, obj := range kvs {
 		if fromStore, ok := obj.(v1.KubeVirt); ok {
@@ -195,40 +223,51 @@ func (c *KubeVirtController) execute(key string) error {
 			}
 			if isKubeVirtActive(&fromStore) {
 				logger.Warningf("There is already a KubeVirt deployment!")
-				util.UpdatePhase(kv, v1.KubeVirtPhaseIgnored, c.clientset)
+				err := util.UpdateCondition(kv, v1.KubeVirtConditionSynchronized, k8sv1.ConditionFalse, ConditionReasonDeploymentFailedExisting, "There is an active KubeVirt deployment", c.clientset)
+				if err != nil {
+					log.Log.Errorf("Failed to set condition: %v", err)
+				}
 				return nil
 			}
 		}
 	}
 
-	logger.Infof("handling KubeVirt object")
-
-	err = creation.Create(kv, c.config, c.clientset)
+	// add finalizer to prevent deletion of CR before KubeVirt was undeployed
+	err = util.AddFinalizer(kv, c.clientset)
 	if err != nil {
-		err1 := util.UpdatePhase(kv, v1.KubeVirtPhaseDeployFailed, c.clientset)
-		if err1 != nil {
-			log.Log.Errorf("Failed to update phase: %v", err1)
-		}
-		// TODO clean up what already was deployed...?
-	} else {
-		err1 := util.UpdatePhase(kv, v1.KubeVirtPhaseDeployed, c.clientset)
-		if err1 != nil {
-			log.Log.Errorf("Failed to update phase: %v", err1)
-		}
+		log.Log.Errorf("Failed to add finalizer: %v", err)
+		util.UpdateCondition(kv, v1.KubeVirtConditionSynchronized, k8sv1.ConditionFalse, ConditionReasonDeploymentFailedError, fmt.Sprintf("Failed to add finalizer: %s", err), c.clientset)
+		return err
 	}
 
-	return err
+	// deploy
+	err = creation.Create(kv, c.config, c.clientset)
+	if err != nil {
+		// deployment failed
+		err := util.UpdateCondition(kv, v1.KubeVirtConditionSynchronized, k8sv1.ConditionFalse, ConditionReasonDeploymentFailedError, fmt.Sprintf("An error occurred during deployment: %v", err), c.clientset)
+		if err != nil {
+			log.Log.Errorf("Failed to set condition: %v", err)
+		}
+		return err
+	}
+
+	// deployment successful
+	err = util.UpdatePhase(kv, v1.KubeVirtPhaseDeployed, c.clientset)
+	if err != nil {
+		log.Log.Errorf("Failed to update phase: %v", err)
+	}
+	err = util.RemoveConditions(kv, c.clientset)
+	if err != nil {
+		log.Log.Errorf("Failed to update condition: %v", err)
+	}
+	return nil
 }
 
 func isKubeVirtActive(kv *v1.KubeVirt) bool {
-	return kv.Status.Phase != v1.KubeVirtPhaseUnset &&
-		kv.Status.Phase != v1.KubeVirtPhaseDeployFailed &&
-		kv.Status.Phase != v1.KubeVirtPhaseDeletionFailed &&
-		kv.Status.Phase != v1.KubeVirtPhaseDeleted
+	return kv.Status.Phase != v1.KubeVirtPhaseDeleted
 }
 
 func isKubeVirtDeleting(kv *v1.KubeVirt) bool {
 	return kv.Status.Phase == v1.KubeVirtPhaseDeleting ||
-		kv.Status.Phase == v1.KubeVirtPhaseDeletionFailed ||
 		kv.Status.Phase == v1.KubeVirtPhaseDeleted
 }

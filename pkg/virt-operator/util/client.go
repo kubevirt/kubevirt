@@ -21,7 +21,10 @@ package util
 
 import (
 	"fmt"
+	"time"
 
+	k8sv1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/json"
 
@@ -36,6 +39,79 @@ const (
 func UpdatePhase(kv *v1.KubeVirt, phase v1.KubeVirtPhase, clientset kubecli.KubevirtClient) error {
 	patchStr := fmt.Sprintf("{\"status\":{\"phase\":\"%s\"}}", phase)
 	_, err := clientset.KubeVirt(kv.Namespace).Patch(kv.Name, types.MergePatchType, []byte(patchStr))
+	return err
+}
+
+func UpdateCondition(kv *v1.KubeVirt, conditionType v1.KubeVirtConditionType, status k8sv1.ConditionStatus, reason string, message string, clientset kubecli.KubevirtClient) error {
+
+	condition, isNew := getCondition(kv, conditionType)
+	transition := false
+	if !isNew && (condition.Status != status || condition.Reason != reason || condition.Message != message) {
+		transition = true
+	}
+
+	condition.Status = status
+	condition.Reason = reason
+	condition.Message = message
+	now := time.Now()
+	condition.LastProbeTime = metav1.Time{
+		Time: now,
+	}
+	if transition {
+		condition.LastTransitionTime = metav1.Time{
+			Time: now,
+		}
+	}
+
+	conditions := kv.Status.Conditions
+	if isNew {
+		conditions = append(conditions, *condition)
+	} else {
+		for i := range conditions {
+			if conditions[i].Type == conditionType {
+				conditions[i] = *condition
+				break
+			}
+		}
+	}
+
+	kv.Status.Conditions = conditions
+
+	var condJson string
+	bytes, err := json.Marshal(conditions)
+	if err != nil {
+		return err
+	}
+	condJson = string(bytes)
+
+	patchStr := fmt.Sprintf("{\"status\":{\"conditions\":%s}}", condJson)
+	_, err = clientset.KubeVirt(kv.Namespace).Patch(kv.Name, types.MergePatchType, []byte(patchStr))
+	return err
+}
+
+func getCondition(kv *v1.KubeVirt, conditionType v1.KubeVirtConditionType) (*v1.KubeVirtCondition, bool) {
+	for _, condition := range kv.Status.Conditions {
+		if condition.Type == conditionType {
+			return &condition, false
+		}
+	}
+	condition := &v1.KubeVirtCondition{
+		Type: conditionType,
+	}
+	return condition, true
+}
+
+func RemoveConditions(kv *v1.KubeVirt, clientset kubecli.KubevirtClient) error {
+	var conditions []struct{}
+	var condJson string
+	bytes, err := json.Marshal(conditions)
+	if err != nil {
+		return err
+	}
+	condJson = string(bytes)
+
+	patchStr := fmt.Sprintf("{\"status\":{\"conditions\":%s}}", condJson)
+	_, err = clientset.KubeVirt(kv.Namespace).Patch(kv.Name, types.MergePatchType, []byte(patchStr))
 	return err
 }
 
@@ -63,15 +139,11 @@ func HasFinalizer(kv *v1.KubeVirt) bool {
 
 func patchFinalizer(kv *v1.KubeVirt, clientset kubecli.KubevirtClient) error {
 	var finalizers string
-	//if len(kv.Finalizers) > 0 {
 	bytes, err := json.Marshal(kv.Finalizers)
 	if err != nil {
 		return err
 	}
 	finalizers = string(bytes)
-	//} else {
-	//	finalizers = "\"[]\""
-	//}
 	patchStr := fmt.Sprintf(`{"metadata":{"finalizers":%s}}`, finalizers)
 	kv, err = clientset.KubeVirt(kv.Namespace).Patch(kv.Name, types.MergePatchType, []byte(patchStr))
 	return err

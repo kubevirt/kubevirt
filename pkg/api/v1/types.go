@@ -1040,34 +1040,34 @@ type KubeVirtPhase string
 // These are the valid KubeVirt deployment phases
 const (
 	KubeVirtPhaseUnset KubeVirtPhase = ""
-	// The deployment was ignored
-	KubeVirtPhaseIgnored KubeVirtPhase = "Ignored"
 	// The deployment is processing
 	KubeVirtPhaseDeploying KubeVirtPhase = "Deploying"
 	// The deployment succeeded
 	KubeVirtPhaseDeployed KubeVirtPhase = "Deployed"
-	// The deployment failed
-	KubeVirtPhaseDeployFailed KubeVirtPhase = "DeployFailed"
 	// The deletion is processing
 	KubeVirtPhaseDeleting KubeVirtPhase = "Deleting"
 	// The deletion succeeeded
 	KubeVirtPhaseDeleted KubeVirtPhase = "Deleted"
-	// The deletion failed
-	KubeVirtPhaseDeletionFailed KubeVirtPhase = "DeletionFailed"
 )
 
 // KubeVirtCondition represents a condition of a KubeVirt deployment
 // ---
 // +k8s:openapi-gen=true
 type KubeVirtCondition struct {
-	Type               VirtualMachineConditionType `json:"type"`
-	Status             k8sv1.ConditionStatus       `json:"status"`
-	LastProbeTime      metav1.Time                 `json:"lastProbeTime,omitempty"`
-	LastTransitionTime metav1.Time                 `json:"lastTransitionTime,omitempty"`
-	Reason             string                      `json:"reason,omitempty"`
-	Message            string                      `json:"message,omitempty"`
+	Type               KubeVirtConditionType `json:"type"`
+	Status             k8sv1.ConditionStatus `json:"status"`
+	LastProbeTime      metav1.Time           `json:"lastProbeTime,omitempty"`
+	LastTransitionTime metav1.Time           `json:"lastTransitionTime,omitempty"`
+	Reason             string                `json:"reason,omitempty"`
+	Message            string                `json:"message,omitempty"`
 }
 
 // ---
 // +k8s:openapi-gen=true
 type KubeVirtConditionType string
+
+// These are the valid KubeVirt condition types
+const (
+	// Whether the deployment or deletion was successful
+	KubeVirtConditionSynchronized KubeVirtConditionType = "KubeVirtSynchronized"
+)

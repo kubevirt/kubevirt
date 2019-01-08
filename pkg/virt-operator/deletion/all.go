@@ -30,7 +30,6 @@ import (
 	"kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/kubecli"
 	"kubevirt.io/kubevirt/pkg/log"
-	"kubevirt.io/kubevirt/pkg/virt-operator/util"
 )
 
 func Delete(kv *v1.KubeVirt, clientset kubecli.KubevirtClient) error {
@@ -38,12 +37,6 @@ func Delete(kv *v1.KubeVirt, clientset kubecli.KubevirtClient) error {
 	gracePeriod := int64(0)
 	deleteOptions := &metav1.DeleteOptions{
 		GracePeriodSeconds: &gracePeriod,
-	}
-
-	err := util.UpdatePhase(kv, v1.KubeVirtPhaseDeleting, clientset)
-	if err != nil {
-		log.Log.Errorf("Failed to update phase: %v", err)
-		return err
 	}
 
 	// delete vmimigrations, vmirs, vm, vmi
