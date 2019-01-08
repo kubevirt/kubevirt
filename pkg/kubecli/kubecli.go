@@ -23,6 +23,7 @@ package kubecli
 import (
 	"flag"
 	"os"
+	"sync"
 
 	"github.com/spf13/pflag"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -43,6 +44,9 @@ var (
 	kubeconfig string
 	master     string
 )
+
+var virtclient KubevirtClient
+var once sync.Once
 
 func init() {
 	flag.StringVar(&kubeconfig, "kubeconfig", "", "absolute path to the kubeconfig file")
@@ -210,7 +214,11 @@ func GetKubevirtClientFromFlags(master string, kubeconfig string) (KubevirtClien
 }
 
 func GetKubevirtClient() (KubevirtClient, error) {
-	return GetKubevirtClientFromFlags(master, kubeconfig)
+	var err error
+	once.Do(func() {
+		virtclient, err = GetKubevirtClientFromFlags(master, kubeconfig)
+	})
+	return virtclient, err
 }
 
 func GetKubevirtSubresourceClient() (KubevirtClient, error) {
