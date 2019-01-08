@@ -179,6 +179,12 @@ func getCloudInitManageResolv() (CloudInitManageResolv, error) {
 	var cloudInitManageResolv CloudInitManageResolv
 	var cloudInitResolvConf CloudInitResolvConf
 
+	// Skip discovering resolv data if the feature gate is not enabled
+	if !virtconfig.NetconfAutoResolvEnabled() {
+
+		return cloudInitManageResolv, nil
+	}
+
 	nameServers, searchDomains, err := api.GetResolvConfDetailsFromPod()
 	if err != nil {
 		log.Log.Errorf("Failed to get DNS servers from resolv.conf: %v", err)
