@@ -41,7 +41,7 @@ import (
 	"kubevirt.io/kubevirt/tests"
 )
 
-var _ = Describe("VirtualMachineInstanceReplicaSet", func() {
+var _ = Describe("[rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][level:component]VirtualMachineInstanceReplicaSet", func() {
 
 	flag.Parse()
 
@@ -145,29 +145,29 @@ var _ = Describe("VirtualMachineInstanceReplicaSet", func() {
 		return newRS
 	}
 
-	table.DescribeTable("should scale", func(startScale int, stopScale int) {
+	table.DescribeTable("[rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][level:component]should scale", func(startScale int, stopScale int) {
 		newRS := newReplicaSet()
 		doScale(newRS.ObjectMeta.Name, int32(startScale))
 		doScale(newRS.ObjectMeta.Name, int32(stopScale))
 		doScale(newRS.ObjectMeta.Name, int32(0))
 
 	},
-		table.Entry("to three, to two and then to zero replicas", 3, 2),
-		table.Entry("to five, to six and then to zero replicas", 5, 6),
+		table.Entry("[test_id:1405]to three, to two and then to zero replicas", 3, 2),
+		table.Entry("[test_id:1406]to five, to six and then to zero replicas", 5, 6),
 	)
 
-	table.DescribeTable("should scale with scale subresource", func(startScale int, stopScale int) {
+	table.DescribeTable("[rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][level:component]should scale with scale subresource", func(startScale int, stopScale int) {
 		newRS := newReplicaSet()
 		doScaleWithScaleSubresource(newRS.ObjectMeta.Name, int32(startScale))
 		doScaleWithScaleSubresource(newRS.ObjectMeta.Name, int32(stopScale))
 		doScaleWithScaleSubresource(newRS.ObjectMeta.Name, int32(0))
 
 	},
-		table.Entry("to three, to two and then to zero replicas", 3, 2),
-		table.Entry("to five, to six and then to zero replicas", 5, 6),
+		table.Entry("[test_id:1407]to three, to two and then to zero replicas", 3, 2),
+		table.Entry("[test_id:1408]to five, to six and then to zero replicas", 5, 6),
 	)
 
-	table.DescribeTable("should scale with the horizontal pod autoscaler", func(startScale int, stopScale int) {
+	table.DescribeTable("[rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][level:component]should scale with the horizontal pod autoscaler", func(startScale int, stopScale int) {
 		tests.SkipIfVersionBelow("HPA only works with CRs starting from 1.11", "1.11")
 		template := tests.NewRandomVMIWithEphemeralDisk(tests.ContainerDiskFor(tests.ContainerDiskCirros))
 		newRS := tests.NewRandomReplicaSetFromVMI(template, int32(1))
@@ -178,11 +178,11 @@ var _ = Describe("VirtualMachineInstanceReplicaSet", func() {
 		doScaleWithHPA(newRS.ObjectMeta.Name, int32(1), int32(1), int32(1))
 
 	},
-		table.Entry("to three, to two and then to one replicas", 3, 2),
-		table.Entry("to five, to six and then to one replicas", 5, 6),
+		table.Entry("[test_id:1409]to three, to two and then to one replicas", 3, 2),
+		table.Entry("[test_id:1410]to five, to six and then to one replicas", 5, 6),
 	)
 
-	It("should be rejected on POST if spec is invalid", func() {
+	It("[test_id:1411]should be rejected on POST if spec is invalid", func() {
 		newRS := newReplicaSet()
 		newRS.TypeMeta = v12.TypeMeta{
 			APIVersion: v1.GroupVersion.String(),
@@ -203,7 +203,7 @@ var _ = Describe("VirtualMachineInstanceReplicaSet", func() {
 		Expect(statusCode).To(Equal(http.StatusUnprocessableEntity))
 
 	})
-	It("should reject POST if validation webhoook deems the spec is invalid", func() {
+	It("[test_id:1412]should reject POST if validation webhoook deems the spec is invalid", func() {
 		newRS := newReplicaSet()
 		newRS.TypeMeta = v12.TypeMeta{
 			APIVersion: v1.GroupVersion.String(),
@@ -232,7 +232,7 @@ var _ = Describe("VirtualMachineInstanceReplicaSet", func() {
 		Expect(len(reviewResponse.Details.Causes)).To(Equal(1))
 		Expect(reviewResponse.Details.Causes[0].Field).To(Equal("spec.template.spec.domain.devices.disks[1].volumeName"))
 	})
-	It("should update readyReplicas once VMIs are up", func() {
+	It("[test_id:1413]should update readyReplicas once VMIs are up", func() {
 		newRS := newReplicaSet()
 		doScale(newRS.ObjectMeta.Name, 2)
 
@@ -244,7 +244,7 @@ var _ = Describe("VirtualMachineInstanceReplicaSet", func() {
 		}, 120*time.Second, 1*time.Second).Should(Equal(2))
 	})
 
-	It("should return the correct data when using server-side printing", func() {
+	It("[test_id:1414]should return the correct data when using server-side printing", func() {
 		tests.SkipIfVersionBelow("server-side printing is only enabled by default from 1.11 on", "1.11")
 		newRS := newReplicaSet()
 		doScale(newRS.ObjectMeta.Name, 2)
@@ -281,7 +281,7 @@ var _ = Describe("VirtualMachineInstanceReplicaSet", func() {
 		Expect(int(table.Rows[0].Cells[3].(float64))).To(Equal(2))
 	})
 
-	It("should remove VMIs once they are marked for deletion", func() {
+	It("[test_id:1415]should remove VMIs once they are marked for deletion", func() {
 		newRS := newReplicaSet()
 		// Create a replicaset with two replicas
 		doScale(newRS.ObjectMeta.Name, 2)
@@ -297,7 +297,7 @@ var _ = Describe("VirtualMachineInstanceReplicaSet", func() {
 		}, 120*time.Second, 1*time.Second).Should(BeZero())
 	})
 
-	It("should remove owner references on the VirtualMachineInstance if it is orphan deleted", func() {
+	It("[test_id:1416]should remove owner references on the VirtualMachineInstance if it is orphan deleted", func() {
 		newRS := newReplicaSet()
 		// Create a replicaset with two replicas
 		doScale(newRS.ObjectMeta.Name, 2)
@@ -335,7 +335,7 @@ var _ = Describe("VirtualMachineInstanceReplicaSet", func() {
 		Expect(err).ToNot(HaveOccurred())
 	})
 
-	It("should not scale when paused and scale when resume", func() {
+	It("[test_id:1417]should not scale when paused and scale when resume", func() {
 		rs := newReplicaSet()
 		// pause controller
 		By("Pausing the replicaset")
@@ -389,7 +389,7 @@ var _ = Describe("VirtualMachineInstanceReplicaSet", func() {
 		}, 10*time.Second, 1*time.Second).Should(Equal(int32(2)))
 	})
 
-	It("should remove the finished VM", func() {
+	It("[test_id:1418]should remove the finished VM", func() {
 		By("Creating new replica set")
 		rs := newReplicaSet()
 		doScale(rs.ObjectMeta.Name, int32(2))
