@@ -51,6 +51,7 @@ var _ = Describe("cloud-init network", func() {
 	log.Log.SetIOWriter(GinkgoWriter)
 
 	BeforeEach(func() {
+		os.Setenv("FEATURE_GATES", "NetconfAutoResolv")
 		tmpDir, _ := ioutil.TempDir("", "cloudinittest")
 		setInterfaceCacheFile(tmpDir + "/cache-%s.json")
 
@@ -60,6 +61,7 @@ var _ = Describe("cloud-init network", func() {
 	})
 
 	AfterEach(func() {
+		os.Unsetenv("FEATURE_GATES")
 		os.RemoveAll(tmpDir)
 	})
 
