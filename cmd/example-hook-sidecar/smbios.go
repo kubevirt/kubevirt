@@ -102,7 +102,7 @@ func (s v1alpha1Server) OnDefineDomain(ctx context.Context, params *hooksV1alpha
 
 	newDomainXML, err := xml.Marshal(domainSpec)
 	if err != nil {
-		log.Log.Reason(err).Errorf("Failed to marshal updated domain spec: %s", domainSpec)
+		log.Log.Reason(err).Errorf("Failed to marshal updated domain spec: %+v", domainSpec)
 		panic(err)
 	}
 

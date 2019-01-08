@@ -363,7 +363,7 @@ func Exit(args ...interface{}) {
 // ExitDepth acts as Exit but uses depth to determine which call frame to log.
 // ExitDepth(0, "msg") is the same as Exit("msg").
 func ExitDepth(depth int, args ...interface{}) {
-	doLog(2+depth, fatalLevel, args)
+	doLog(2+depth, fatalLevel, args...)
 	os.Exit(1)
 }
 
