@@ -1407,6 +1407,28 @@ func AddEphemeralFloppy(vmi *v1.VirtualMachineInstance, name string, image strin
 	return vmi
 }
 
+func AddEphemeralCdrom(vmi *v1.VirtualMachineInstance, name string, bus string, image string) *v1.VirtualMachineInstance {
+	vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
+		Name:       name,
+		VolumeName: name,
+		DiskDevice: v1.DiskDevice{
+			CDRom: &v1.CDRomTarget{
+				Bus: bus,
+			},
+		},
+	})
+	vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
+		Name: name,
+		VolumeSource: v1.VolumeSource{
+			ContainerDisk: &v1.ContainerDiskSource{
+				Image: image,
+			},
+		},
+	})
+
+	return vmi
+}
+
 func NewRandomVMIWithEphemeralDiskAndUserdata(containerImage string, userData string) *v1.VirtualMachineInstance {
 	vmi := NewRandomVMIWithEphemeralDisk(containerImage)
 	AddUserData(vmi, "disk1", userData)
@@ -1994,6 +2016,7 @@ const (
 	ContainerDiskCirros ContainerDisk = "cirros"
 	ContainerDiskAlpine ContainerDisk = "alpine"
 	ContainerDiskFedora ContainerDisk = "fedora-cloud"
+	ContainerDiskVirtio ContainerDisk = "virtio-container-disk"
 )
 
 // ContainerDiskFor takes the name of an image and returns the full
@@ -2003,6 +2026,8 @@ func ContainerDiskFor(name ContainerDisk) string {
 	switch name {
 	case ContainerDiskCirros, ContainerDiskAlpine, ContainerDiskFedora:
 		return fmt.Sprintf("%s/%s-container-disk-demo:%s", KubeVirtRepoPrefix, name, KubeVirtVersionTag)
+	case ContainerDiskVirtio:
+		return fmt.Sprintf("%s/virtio-container-disk:%s", KubeVirtRepoPrefix, KubeVirtVersionTag)
 	}
 	panic(fmt.Sprintf("Unsupported registry disk %s", name))
 }
