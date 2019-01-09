@@ -33,7 +33,6 @@ const (
 	dataVolumesGate      = "DataVolumes"
 	cpuManager           = "CPUManager"
 	liveMigrationGate    = "LiveMigration"
-	netconfAutoResolv    = "NetconfAutoResolv"
 	SRIOVGate            = "SRIOV"
 	CPUNodeDiscoveryGate = "CPUNodeDiscovery"
 )
@@ -52,8 +51,4 @@ func LiveMigrationEnabled() bool {
 
 func SRIOVEnabled() bool {
 	return strings.Contains(os.Getenv(featureGateEnvVar), SRIOVGate)
-}
-
-func NetconfAutoResolvEnabled() bool {
-	return strings.Contains(os.Getenv(featureGateEnvVar), netconfAutoResolv)
 }
