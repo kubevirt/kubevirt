@@ -21,6 +21,9 @@ package rbac
 import (
 	"fmt"
 
+	"kubevirt.io/kubevirt/pkg/log"
+	"kubevirt.io/kubevirt/pkg/virt-operator/util"
+
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -30,28 +33,40 @@ import (
 	"kubevirt.io/kubevirt/pkg/kubecli"
 )
 
-func CreateControllerRBAC(clientset kubecli.KubevirtClient, kv *virtv1.KubeVirt) error {
+func CreateControllerRBAC(clientset kubecli.KubevirtClient, kv *virtv1.KubeVirt, stores util.Stores) error {
 
 	core := clientset.CoreV1()
 
 	sa := newControllerServiceAccount(kv.Namespace)
-	_, err := core.ServiceAccounts(kv.Namespace).Create(sa)
-	if err != nil && !apierrors.IsAlreadyExists(err) {
-		return fmt.Errorf("unable to create serviceaccount %+v: %v", sa, err)
+	if _, exists, _ := stores.ServiceAccountCache.Get(sa); !exists {
+		_, err := core.ServiceAccounts(kv.Namespace).Create(sa)
+		if err != nil && !apierrors.IsAlreadyExists(err) {
+			return fmt.Errorf("unable to create serviceaccount %+v: %v", sa, err)
+		}
+	} else {
+		log.Log.Infof("serviceaccount %v already exists", sa.GetName())
 	}
 
 	rbac := clientset.RbacV1()
 
 	cr := newControllerClusterRole()
-	_, err = rbac.ClusterRoles().Create(cr)
-	if err != nil && !apierrors.IsAlreadyExists(err) {
-		return fmt.Errorf("unable to create clusterrole %+v: %v", cr, err)
+	if _, exists, _ := stores.ClusterRoleCache.Get(cr); !exists {
+		_, err := rbac.ClusterRoles().Create(cr)
+		if err != nil && !apierrors.IsAlreadyExists(err) {
+			return fmt.Errorf("unable to create clusterrole %+v: %v", cr, err)
+		}
+	} else {
+		log.Log.Infof("clusterrole %v already exists", cr.GetName())
 	}
 
 	crb := newControllerClusterRoleBinding(kv.Namespace)
-	_, err = rbac.ClusterRoleBindings().Create(crb)
-	if err != nil && !apierrors.IsAlreadyExists(err) {
-		return fmt.Errorf("unable to create clusterrolebinding %+v: %v", crb, err)
+	if _, exists, _ := stores.ClusterRoleBindingCache.Get(crb); !exists {
+		_, err := rbac.ClusterRoleBindings().Create(crb)
+		if err != nil && !apierrors.IsAlreadyExists(err) {
+			return fmt.Errorf("unable to create clusterrolebinding %+v: %v", crb, err)
+		}
+	} else {
+		log.Log.Infof("clusterrolebinding %v already exists", crb.GetName())
 	}
 
 	return nil

@@ -21,6 +21,8 @@ package components
 import (
 	"fmt"
 
+	"kubevirt.io/kubevirt/pkg/log"
+
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -33,7 +35,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-operator/util"
 )
 
-func CreateControllers(clientset kubecli.KubevirtClient, kv *virtv1.KubeVirt, config util.KubeVirtDeploymentConfig) error {
+func CreateControllers(clientset kubecli.KubevirtClient, kv *virtv1.KubeVirt, config util.KubeVirtDeploymentConfig, stores util.Stores) error {
 
 	core := clientset.CoreV1()
 
@@ -42,9 +44,13 @@ func CreateControllers(clientset kubecli.KubevirtClient, kv *virtv1.KubeVirt, co
 		NewApiServerService(kv.Namespace),
 	}
 	for _, service := range services {
-		_, err := core.Services(kv.Namespace).Create(service)
-		if err != nil && !apierrors.IsAlreadyExists(err) {
-			return fmt.Errorf("unable to create service %+v: %v", service, err)
+		if _, exists, _ := stores.ServiceCache.Get(service); !exists {
+			_, err := core.Services(kv.Namespace).Create(service)
+			if err != nil && !apierrors.IsAlreadyExists(err) {
+				return fmt.Errorf("unable to create service %+v: %v", service, err)
+			}
+		} else {
+			log.Log.Infof("service %v already exists", service.GetName())
 		}
 	}
 
@@ -63,9 +69,13 @@ func CreateControllers(clientset kubecli.KubevirtClient, kv *virtv1.KubeVirt, co
 
 	deployments := []*appsv1.Deployment{api, controller}
 	for _, deployment := range deployments {
-		_, err := apps.Deployments(kv.Namespace).Create(deployment)
-		if err != nil && !apierrors.IsAlreadyExists(err) {
-			return fmt.Errorf("unable to create deployment %+v: %v", deployment, err)
+		if _, exists, _ := stores.DeploymentCache.Get(deployment); !exists {
+			_, err := apps.Deployments(kv.Namespace).Create(deployment)
+			if err != nil && !apierrors.IsAlreadyExists(err) {
+				return fmt.Errorf("unable to create deployment %+v: %v", deployment, err)
+			}
+		} else {
+			log.Log.Infof("deployment %v already exists", deployment.GetName())
 		}
 	}
 
@@ -74,9 +84,13 @@ func CreateControllers(clientset kubecli.KubevirtClient, kv *virtv1.KubeVirt, co
 		return err
 	}
 
-	_, err = apps.DaemonSets(kv.Namespace).Create(handler)
-	if err != nil && !apierrors.IsAlreadyExists(err) {
-		return fmt.Errorf("unable to create daemonset %+v: %v", handler, err)
+	if _, exists, _ := stores.DaemonSetCache.Get(handler); !exists {
+		_, err = apps.DaemonSets(kv.Namespace).Create(handler)
+		if err != nil && !apierrors.IsAlreadyExists(err) {
+			return fmt.Errorf("unable to create daemonset %+v: %v", handler, err)
+		}
+	} else {
+		log.Log.Infof("daemonset %v already exists", handler.GetName())
 	}
 
 	return nil

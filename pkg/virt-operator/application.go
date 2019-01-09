@@ -68,32 +68,17 @@ type VirtOperatorApp struct {
 	kubeVirtInformer cache.SharedIndexInformer
 	kubeVirtCache    cache.Store
 
-	serviceAccountInformer cache.SharedIndexInformer
-	serviceAccountCache    cache.Store
-
-	clusterRoleInformer cache.SharedIndexInformer
-	clusterRoleCache    cache.Store
-
+	serviceAccountInformer     cache.SharedIndexInformer
+	clusterRoleInformer        cache.SharedIndexInformer
 	clusterRoleBindingInformer cache.SharedIndexInformer
-	clusterRoleBindingCache    cache.Store
+	roleInformer               cache.SharedIndexInformer
+	roleBindingInformer        cache.SharedIndexInformer
+	crdInformer                cache.SharedIndexInformer
+	serviceInformer            cache.SharedIndexInformer
+	deploymentInformer         cache.SharedIndexInformer
+	daemonSetInformer          cache.SharedIndexInformer
 
-	roleInformer cache.SharedIndexInformer
-	roleCache    cache.Store
-
-	roleBindingInformer cache.SharedIndexInformer
-	roleBindingCache    cache.Store
-
-	crdInformer cache.SharedIndexInformer
-	crdCache    cache.Store
-
-	serviceInformer cache.SharedIndexInformer
-	serviceCache    cache.Store
-
-	deploymentInformer cache.SharedIndexInformer
-	deploymentCache    cache.Store
-
-	daemonSetInformer cache.SharedIndexInformer
-	daemonSetCache    cache.Store
+	stores util.Stores
 }
 
 var _ service.Service = &VirtOperatorApp{}
@@ -124,34 +109,34 @@ func Execute() {
 	app.kubeVirtCache = app.kubeVirtInformer.GetStore()
 
 	app.serviceAccountInformer = app.informerFactory.OperatorServiceAccount()
-	app.serviceAccountCache = app.serviceAccountInformer.GetStore()
+	app.stores.ServiceAccountCache = app.serviceAccountInformer.GetStore()
 
 	app.clusterRoleInformer = app.informerFactory.OperatorClusterRole()
-	app.clusterRoleCache = app.clusterRoleInformer.GetStore()
+	app.stores.ClusterRoleCache = app.clusterRoleInformer.GetStore()
 
 	app.clusterRoleBindingInformer = app.informerFactory.OperatorClusterRoleBinding()
-	app.clusterRoleBindingCache = app.clusterRoleBindingInformer.GetStore()
+	app.stores.ClusterRoleBindingCache = app.clusterRoleBindingInformer.GetStore()
 
 	app.roleInformer = app.informerFactory.OperatorRole()
-	app.roleCache = app.roleInformer.GetStore()
+	app.stores.RoleCache = app.roleInformer.GetStore()
 
 	app.roleBindingInformer = app.informerFactory.OperatorRoleBinding()
-	app.roleBindingCache = app.roleBindingInformer.GetStore()
+	app.stores.RoleBindingCache = app.roleBindingInformer.GetStore()
 
 	app.crdInformer = app.informerFactory.OperatorCRD()
-	app.crdCache = app.crdInformer.GetStore()
+	app.stores.CrdCache = app.crdInformer.GetStore()
 
 	app.serviceInformer = app.informerFactory.OperatorService()
-	app.serviceCache = app.serviceInformer.GetStore()
+	app.stores.ServiceCache = app.serviceInformer.GetStore()
 
 	app.deploymentInformer = app.informerFactory.OperatorDeployment()
-	app.deploymentCache = app.deploymentInformer.GetStore()
+	app.stores.DeploymentCache = app.deploymentInformer.GetStore()
 
 	app.daemonSetInformer = app.informerFactory.OperatorDaemonSet()
-	app.daemonSetCache = app.daemonSetInformer.GetStore()
+	app.stores.DaemonSetCache = app.daemonSetInformer.GetStore()
 
 	app.kubeVirtRecorder = app.getNewRecorder(k8sv1.NamespaceAll, "virt-operator")
-	app.kubeVirtController = *NewKubeVirtController(app.clientSet, app.kubeVirtInformer, app.kubeVirtRecorder)
+	app.kubeVirtController = *NewKubeVirtController(app.clientSet, app.kubeVirtInformer, app.kubeVirtRecorder, app.stores)
 
 	image := os.Getenv(util.OperatorImageEnvName)
 	if image == "" {

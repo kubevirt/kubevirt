@@ -28,30 +28,30 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-operator/util"
 )
 
-func Create(kv *v1.KubeVirt, config util.KubeVirtDeploymentConfig, clientset kubecli.KubevirtClient) error {
+func Create(kv *v1.KubeVirt, config util.KubeVirtDeploymentConfig, stores util.Stores, clientset kubecli.KubevirtClient) error {
 
-	err := rbac.CreateClusterRBAC(clientset, kv)
+	err := rbac.CreateClusterRBAC(clientset, kv, stores)
 	if err != nil {
 		log.Log.Errorf("Failed to create cluster RBAC: %v", err)
 		return err
 	}
-	err = rbac.CreateApiServerRBAC(clientset, kv)
+	err = rbac.CreateApiServerRBAC(clientset, kv, stores)
 	if err != nil {
 		log.Log.Errorf("Failed to create apiserver RBAC: %v", err)
 		return err
 	}
-	err = rbac.CreateControllerRBAC(clientset, kv)
+	err = rbac.CreateControllerRBAC(clientset, kv, stores)
 	if err != nil {
 		log.Log.Errorf("Failed to create controller RBAC: %v", err)
 		return err
 	}
 
-	err = components.CreateCRDs(clientset)
+	err = components.CreateCRDs(clientset, stores)
 	if err != nil {
 		log.Log.Errorf("Failed to create crds: %v", err)
 		return err
 	}
-	err = components.CreateControllers(clientset, kv, config)
+	err = components.CreateControllers(clientset, kv, config, stores)
 	if err != nil {
 		log.Log.Errorf("Failed to create controllers: %v", err)
 		return err

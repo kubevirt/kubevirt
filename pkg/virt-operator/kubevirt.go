@@ -50,12 +50,14 @@ type KubeVirtController struct {
 	kubeVirtInformer cache.SharedIndexInformer
 	recorder         record.EventRecorder
 	config           util.KubeVirtDeploymentConfig
+	stores           util.Stores
 }
 
 func NewKubeVirtController(
 	clientset kubecli.KubevirtClient,
 	informer cache.SharedIndexInformer,
-	recorder record.EventRecorder) *KubeVirtController {
+	recorder record.EventRecorder,
+	stores util.Stores) *KubeVirtController {
 
 	c := KubeVirtController{
 		clientset:        clientset,
@@ -63,6 +65,7 @@ func NewKubeVirtController(
 		kubeVirtInformer: informer,
 		recorder:         recorder,
 		config:           util.GetConfig(),
+		stores:           stores,
 	}
 
 	c.kubeVirtInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
@@ -200,7 +203,6 @@ func (c *KubeVirtController) execute(key string) error {
 
 	logger.Infof("handling deployment of KubeVirt object")
 
-	// TODO use expectations to find out what needs to be done or was already done
 	if kv.Status.Phase == v1.KubeVirtPhaseDeployed {
 		log.Log.Info("Is already deployed")
 		return nil
@@ -241,7 +243,7 @@ func (c *KubeVirtController) execute(key string) error {
 	}
 
 	// deploy
-	err = creation.Create(kv, c.config, c.clientset)
+	err = creation.Create(kv, c.config, c.stores, c.clientset)
 	if err != nil {
 		// deployment failed
 		err := util.UpdateCondition(kv, v1.KubeVirtConditionSynchronized, k8sv1.ConditionFalse, ConditionReasonDeploymentFailedError, fmt.Sprintf("An error occurred during deployment: %v", err), c.clientset)
@@ -265,9 +267,4 @@ func (c *KubeVirtController) execute(key string) error {
 
 func isKubeVirtActive(kv *v1.KubeVirt) bool {
 	return kv.Status.Phase != v1.KubeVirtPhaseDeleted
-}
-
-func isKubeVirtDeleting(kv *v1.KubeVirt) bool {
-	return kv.Status.Phase == v1.KubeVirtPhaseDeleting ||
-		kv.Status.Phase == v1.KubeVirtPhaseDeleted
 }

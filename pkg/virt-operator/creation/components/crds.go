@@ -21,6 +21,9 @@ package components
 import (
 	"fmt"
 
+	"kubevirt.io/kubevirt/pkg/log"
+	"kubevirt.io/kubevirt/pkg/virt-operator/util"
+
 	extv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
 	extclient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -30,14 +33,14 @@ import (
 	"kubevirt.io/kubevirt/pkg/kubecli"
 )
 
-func CreateCRDs(clientset kubecli.KubevirtClient) error {
+func CreateCRDs(clientset kubecli.KubevirtClient, stores util.Stores) error {
 
 	ext, err := extclient.NewForConfig(clientset.Config())
 	if err != nil {
 		return fmt.Errorf("unable to create apiextensions client: %v", err)
 	}
 
-	objects := []*extv1beta1.CustomResourceDefinition{
+	crds := []*extv1beta1.CustomResourceDefinition{
 		NewVirtualMachineInstanceCrd(),
 		NewVirtualMachineCrd(),
 		NewReplicaSetCrd(),
@@ -45,10 +48,14 @@ func CreateCRDs(clientset kubecli.KubevirtClient) error {
 		NewVirtualMachineInstanceMigrationCrd(),
 	}
 
-	for _, crd := range objects {
-		_, err := ext.ApiextensionsV1beta1().CustomResourceDefinitions().Create(crd)
-		if err != nil && !apierrors.IsAlreadyExists(err) {
-			return fmt.Errorf("unable to create crd %+v: %v", crd, err)
+	for _, crd := range crds {
+		if _, exists, _ := stores.CrdCache.Get(crd); !exists {
+			_, err := ext.ApiextensionsV1beta1().CustomResourceDefinitions().Create(crd)
+			if err != nil && !apierrors.IsAlreadyExists(err) {
+				return fmt.Errorf("unable to create crd %+v: %v", crd, err)
+			}
+		} else {
+			log.Log.Infof("crd %v already exists", crd.GetName())
 		}
 	}
 
@@ -61,7 +68,7 @@ func NewKubeVirtCRD(clientset kubecli.KubevirtClient) error {
 
 	_, err := ext.ApiextensionsV1beta1().CustomResourceDefinitions().Create(NewKubeVirtCrd())
 	if err != nil && !apierrors.IsAlreadyExists(err) {
-		return fmt.Errorf("unable to create serviceaccount: %v", err)
+		return fmt.Errorf("unable to create crd: %v", err)
 	}
 
 	return nil
