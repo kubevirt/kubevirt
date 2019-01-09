@@ -833,8 +833,14 @@ func (c *Condition) RuneWidth(r rune) int {
 	}
 }
 
-// StringWidth return width as you can see
-func (c *Condition) StringWidth(s string) (width int) {
+func (c *Condition) stringWidth(s string) (width int) {
+	for _, r := range []rune(s) {
+		width += c.RuneWidth(r)
+	}
+	return width
+}
+
+func (c *Condition) stringWidthZeroJoiner(s string) (width int) {
 	r1, r2 := rune(0), rune(0)
 	for _, r := range []rune(s) {
 		if r == 0xFE0E || r == 0xFE0F {
@@ -848,6 +854,14 @@ func (c *Condition) StringWidth(s string) (width int) {
 		r1, r2 = r2, r
 	}
 	return width
+}
+
+// StringWidth return width as you can see
+func (c *Condition) StringWidth(s string) (width int) {
+	if c.ZeroWidthJoiner {
+		return c.stringWidthZeroJoiner(s)
+	}
+	return c.stringWidth(s)
 }
 
 // Truncate return string truncated with w cells

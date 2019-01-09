@@ -16,7 +16,7 @@ const (
 	secretPollInterval = defaultPollInterval
 )
 
-// NewSecretDefinition provides a fucntion to initialize a Secret data type with the provided options
+// NewSecretDefinition provides a function to initialize a Secret data type with the provided options
 func NewSecretDefinition(labels, stringData map[string]string, data map[string][]byte, ns, prefix string) *v1.Secret {
 	return &v1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
@@ -49,4 +49,16 @@ func CreateSecretFromDefinition(c *kubernetes.Clientset, secret *v1.Secret) (*v1
 		return nil, err
 	}
 	return secret, nil
+}
+
+//DeleteSecret ...
+func DeleteSecret(clientSet *kubernetes.Clientset, namespace string, secret v1.Secret) error {
+	e := wait.PollImmediate(secretPollInterval, secretPollPeriod, func() (bool, error) {
+		err := clientSet.CoreV1().Secrets(namespace).Delete(secret.GetName(), nil)
+		if err == nil || apierrs.IsNotFound(err) {
+			return true, nil
+		}
+		return false, nil //keep polling
+	})
+	return e
 }

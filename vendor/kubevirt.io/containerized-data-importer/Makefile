@@ -12,7 +12,7 @@
 #See the License for the specific language governing permissions and
 #limitations under the License.
 
-.PHONY: build build-controller build-importer build-apiserver build-uploadproxy build-uploadserver build-functest-image-init build-functest-image-http build-functest \
+.PHONY: build build-controller build-importer build-cloner build-apiserver build-uploadproxy build-uploadserver build-functest-image-init build-functest-image-http build-functest \
 		docker docker-controller docker-cloner docker-importer docker-apiserver docker-uploadproxy docker-uploadserver docker-functest-image-init docker-functest-image-http\
 		cluster-sync cluster-sync-controller cluster-sync-cloner cluster-sync-importer cluster-sync-apiserver cluster-sync-uploadproxy cluster-sync-uploadserver \
 		test test-functional test-unit test-lint \
@@ -35,6 +35,15 @@ all: docker
 clean:
 	${DO} "./hack/build/build-go.sh clean; rm -rf bin/* _out/* manifests/generated/* .coverprofile release-announcement"
 
+generate:
+	${DO} "./hack/update-codegen.sh"
+
+generate-verify:
+	${DO} "./hack/verify-codegen.sh"
+
+apidocs:
+	${DO} "./hack/update-codegen.sh && ./hack/gen-swagger-doc/gen-swagger-docs.sh v1alpha1 html"
+
 build:
 	${DO} "./hack/build/build-go.sh clean && ./hack/build/build-go.sh build ${WHAT} && ./hack/build/build-cdi-func-test-file-host.sh && DOCKER_REPO=${DOCKER_REPO} DOCKER_TAG=${DOCKER_TAG} VERBOSITY=${VERBOSITY} PULL_POLICY=${PULL_POLICY} ./hack/build/build-manifests.sh ${WHAT} && ./hack/build/build-copy-artifacts.sh ${WHAT}"
 
@@ -48,7 +57,8 @@ build-uploadproxy: WHAT = cmd/cdi-uploadproxy
 build-uploadproxy: build
 build-uploadserver: WHAT = cmd/cdi-uploadserver
 build-uploadserver: build
-# Note, the cloner is a bash script and has nothing to build
+build-cloner: WHAT = cmd/cdi-cloner
+build-cloner: build
 build-functest-image-init: WHAT = tools/cdi-func-test-file-host-init
 build-functest-image-init:
 build-functest:
@@ -57,7 +67,7 @@ build-functest:
 # WHAT must match go tool style package paths for test targets (e.g. ./path/to/my/package/...)
 test: test-unit test-functional test-lint
 
-test-unit: WHAT = ./pkg/...
+test-unit: WHAT = ./pkg/... ./cmd/...
 test-unit:
 	${DO} "./hack/build/run-tests.sh ${WHAT}"
 

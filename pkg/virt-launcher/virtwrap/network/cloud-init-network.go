@@ -76,8 +76,8 @@ type CloudInitNetConfig struct {
 }
 
 type CloudInitManageResolv struct {
-	ManageResolv bool                `yaml:"manage_resolv_conf"`
-	ResolvConf   CloudInitResolvConf `yaml:"resolv_conf"`
+	ManageResolv bool                `yaml:"manage_resolv_conf,omitempty"`
+	ResolvConf   CloudInitResolvConf `yaml:"resolv_conf,omitempty"`
 }
 
 type CloudInitResolvConf struct {
@@ -87,8 +87,12 @@ type CloudInitResolvConf struct {
 	// TODO Add options map when pkg/util/net/dns can parse them
 }
 
+var disableResolv bool
+var getResolvConfDetailsFromPod = api.GetResolvConfDetailsFromPod
+
 // Inspired by Convert_v1_VirtualMachine_To_api_Domain
 func getSriovNetworkInfo(vmi *v1.VirtualMachineInstance) ([]VIF, error) {
+	disableResolv = false
 	networks := map[string]*v1.Network{}
 	cniNetworks := map[string]int{}
 	multusNetworkIndex := 1
@@ -114,6 +118,10 @@ func getSriovNetworkInfo(vmi *v1.VirtualMachineInstance) ([]VIF, error) {
 		net, isExist := networks[iface.Name]
 		if !isExist {
 			return sriovVifs, fmt.Errorf("failed to find network %s", iface.Name)
+		}
+
+		if iface.Bridge != nil || iface.Masquerade != nil {
+			disableResolv = true
 		}
 
 		if value, ok := cniNetworks[iface.Name]; ok {
@@ -191,7 +199,12 @@ func getCloudInitManageResolv() (CloudInitManageResolv, error) {
 	var cloudInitManageResolv CloudInitManageResolv
 	var cloudInitResolvConf CloudInitResolvConf
 
-	nameServers, searchDomains, err := api.GetResolvConfDetailsFromPod()
+	// Skip discovering resolv data if dhcp interface type is present
+	if disableResolv {
+		return cloudInitManageResolv, nil
+	}
+
+	nameServers, searchDomains, err := getResolvConfDetailsFromPod()
 	if err != nil {
 		log.Log.Errorf("Failed to get DNS servers from resolv.conf: %v", err)
 		return cloudInitManageResolv, err
@@ -295,9 +308,11 @@ func CloudInitDiscoverNetworkData(vmi *v1.VirtualMachineInstance) ([]byte, error
 		return networkFile, err
 	}
 
-	resolvFile, err = yaml.Marshal(cloudInitManageResolv)
-	if err != nil {
-		return networkFile, err
+	if cloudInitManageResolv.ManageResolv {
+		resolvFile, err = yaml.Marshal(cloudInitManageResolv)
+		if err != nil {
+			return networkFile, err
+		}
 	}
 
 	// Append resolv conf to network file with a delimiter so we can split

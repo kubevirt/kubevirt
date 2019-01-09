@@ -20,12 +20,15 @@ const (
 	// CDIComponentLabel can be added to all CDI resources
 	CDIComponentLabel = "cdi.kubevirt.io"
 
-	// host file constants:
-	importerWriteDir = "/data"
-	// ImporterWriteFile provides a constant for our importer/datastream_ginkgo_test and to build ImporterWritePath
-	ImporterWriteFile = "disk.img"
-	//ImporterWritePath provides a constant for for the cmd/cdi-importer/importer.go executable
-	ImporterWritePath = importerWriteDir + "/" + ImporterWriteFile
+	// PrometheusLabel provides the label to indicate prometheus metrics are available in the pods.
+	PrometheusLabel = "prometheus.kubevirt.io"
+
+	// ImporterVolumePath provides a constant for the directory where the PV is mounted.
+	ImporterVolumePath = "/data"
+	// DiskImageName provides a constant for our importer/datastream_ginkgo_test and to build ImporterWritePath
+	DiskImageName = "disk.img"
+	// ImporterWritePath provides a constant for the cmd/cdi-importer/importer.go executable
+	ImporterWritePath = ImporterVolumePath + "/" + DiskImageName
 
 	// ImporterPodName provides a constant to use as a prefix for Pods created by CDI (controller only)
 	ImporterPodName = "importer"
@@ -38,12 +41,18 @@ const (
 
 	// PullPolicy provides a constant to capture our env variable "PULL_POLICY" (only used by cmd/cdi-controller/controller.go)
 	PullPolicy = "PULL_POLICY"
-	// ImporterEndpoint provides a constant to capture our env variable "IMPOTER_ENDPOINT"
+	// ImporterSource provides a constant to capture our env variable "IMPORTER_SOURCE"
+	ImporterSource = "IMPORTER_SOURCE"
+	// ImporterContentType provides a constant to capture our env variable "IMPORTER_CONTENTTYPE"
+	ImporterContentType = "IMPORTER_CONTENTTYPE"
+	// ImporterEndpoint provides a constant to capture our env variable "IMPORTER_ENDPOINT"
 	ImporterEndpoint = "IMPORTER_ENDPOINT"
 	// ImporterAccessKeyID provides a constant to capture our env variable "IMPORTER_ACCES_KEY_ID"
 	ImporterAccessKeyID = "IMPORTER_ACCESS_KEY_ID"
 	// ImporterSecretKey provides a constant to capture our env variable "IMPORTER_SECRET_KEY"
 	ImporterSecretKey = "IMPORTER_SECRET_KEY"
+	// ImporterImageSize provides a constant to capture our env variable "IMPORTER_IMAGE_SIZE"
+	ImporterImageSize = "IMPORTER_IMAGE_SIZE"
 
 	// CloningLabelKey provides a constant to use as a label name for pod affinity (controller pkg only)
 	CloningLabelKey = "cloning"
@@ -70,6 +79,9 @@ const (
 	UploadServerDataDir = ImporterDataDir
 	// UploadServerServiceLabel is the label selector for upload server services
 	UploadServerServiceLabel = "service"
+
+	// OwnerUID provides the UID of the owner entity (either PVC or DV)
+	OwnerUID = "OWNER_UID"
 
 	// KeyAccess provides a constant to the accessKeyId label using in controller pkg and transport_test.go
 	KeyAccess = "accessKeyId"

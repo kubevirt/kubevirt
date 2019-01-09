@@ -6,7 +6,7 @@ the import process will be done manually. User Flow (Current) provides explanati
 of each step show in the diagram.
 
 ### Manual User Flow
-Steps are identified by role according the the colored shape. Each step must be performed in
+Steps are identified by role according the colored shape. Each step must be performed in
 the order they are number unless otherwise specified.
 
 0. An admin stores the data in a network accessible location.

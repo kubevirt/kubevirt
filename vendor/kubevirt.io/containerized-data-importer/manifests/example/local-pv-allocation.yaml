@@ -1,0 +1,24 @@
+kind: PersistentVolume
+apiVersion: v1
+metadata:
+  name: local-pv-allocation
+  labels:
+    node: node02
+spec:
+  storageClassName: manual
+  persistentVolumeReclaimPolicy: Delete
+  capacity:
+    storage: 10Gi
+  local:
+    path: /mnt/local-storage/local/disk2
+  nodeAffinity:
+    required:
+      nodeSelectorTerms:
+      - matchExpressions:
+        - key: kubernetes.io/hostname
+          operator: In
+          values:
+          - node02
+  accessModes:
+    - ReadWriteOnce
+  volumeMode: Filesystem

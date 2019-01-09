@@ -21,7 +21,7 @@ import (
 	"kubevirt.io/qe-tools/pkg/ginkgo-reporters"
 )
 
-// NewReporters is a fucntion to gather new ginkgo test reporters
+// NewReporters is a function to gather new ginkgo test reporters
 func NewReporters() []ginkgo.Reporter {
 	reporters := make([]ginkgo.Reporter, 0)
 	if ginkgo_reporters.Polarion.Run {

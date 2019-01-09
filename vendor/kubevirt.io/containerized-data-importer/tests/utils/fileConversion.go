@@ -45,37 +45,45 @@ func FormatTestData(srcFile, tgtDir string, targetFormats ...string) (string, er
 }
 
 func toTar(src, tgtDir string) (string, error) {
-	tgtFile, tgtPath, _ := createTargetFile(src, tgtDir, image.ExtTar)
+	return ArchiveFiles(src, tgtDir, src)
+}
+
+// ArchiveFiles creates a tar file that archives the given source files.
+func ArchiveFiles(targetFile, tgtDir string, sourceFilesNames ...string) (string, error) {
+	tgtFile, tgtPath, _ := createTargetFile(targetFile, tgtDir, image.ExtTar)
 	defer tgtFile.Close()
 
 	w := tar.NewWriter(tgtFile)
 	defer w.Close()
 
-	srcFile, err := os.Open(src)
-	if err != nil {
-		return "", errors.Wrapf(err, "Error opening file %s", src)
-	}
-	defer srcFile.Close()
+	for _, src := range sourceFilesNames {
+		srcFile, err := os.Open(src)
+		if err != nil {
+			return "", errors.Wrapf(err, "Error opening file %s", src)
+		}
+		defer srcFile.Close()
 
-	srcFileInfo, err := srcFile.Stat()
-	if err != nil {
-		return "", errors.Wrapf(err, "Error stating file %s", src)
+		srcFileInfo, err := srcFile.Stat()
+		if err != nil {
+			return "", errors.Wrapf(err, "Error stating file %s", src)
+		}
+
+		hdr, err := tar.FileInfoHeader(srcFileInfo, "")
+		if err != nil {
+			return "", errors.Wrapf(err, "Error generating tar file header for %s", src)
+		}
+
+		err = w.WriteHeader(hdr)
+		if err != nil {
+			return "", errors.Wrapf(err, "Error writing tar header to %s", tgtPath)
+		}
+
+		_, err = io.Copy(w, srcFile)
+		if err != nil {
+			return "", errors.Wrapf(err, "Error writing to file %s", tgtPath)
+		}
 	}
 
-	hdr, err := tar.FileInfoHeader(srcFileInfo, "")
-	if err != nil {
-		return "", errors.Wrapf(err, "Error generating tar file header for %s", src)
-	}
-
-	err = w.WriteHeader(hdr)
-	if err != nil {
-		return "", errors.Wrapf(err, "Error writing tar header to %s", tgtPath)
-	}
-
-	_, err = io.Copy(w, srcFile)
-	if err != nil {
-		return "", errors.Wrapf(err, "Error writing to file %s", tgtPath)
-	}
 	return tgtPath, nil
 }
 

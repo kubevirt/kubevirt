@@ -9,7 +9,7 @@ echo "Cleaning up ..."
 ./cluster/kubectl.sh delete ds -l "cdi.kubevirt.io" -n ${NAMESPACE} --cascade=false --grace-period 0 2>/dev/null || :
 
 # Delete all traces of kubevirt
-namespaces=(default ${NAMESPACE})
+namespaces=(default kube-system ${NAMESPACE})
 for i in ${namespaces[@]}; do
     ./cluster/kubectl.sh -n ${i} delete deployment -l 'cdi.kubevirt.io'
     ./cluster/kubectl.sh -n ${i} delete services -l 'cdi.kubevirt.io'

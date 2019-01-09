@@ -23,6 +23,7 @@ notifications:
     on_failure: always
 
 install:
+  - make generate-verify
   - make docker
   - make manifests
 
@@ -90,3 +91,10 @@ deploy:
   - manifests/generated/cdi-controller.yaml
   - manifests/generated/cdi-controller.yaml.j2
   - manifests/example/*
+# need github token assigned to API_REFERENCE_PUSH_TOKEN
+# in order to enable the following
+#- provider: script
+#  skip_cleanup: true
+#  script: bash hack/gen-swagger-doc/deploy.sh
+#  on:
+#    tags: true

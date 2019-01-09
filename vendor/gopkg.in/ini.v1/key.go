@@ -133,8 +133,7 @@ func (k *Key) transformValue(val string) string {
 		}
 
 		// Take off leading '%(' and trailing ')s'.
-		noption := strings.TrimLeft(vr, "%(")
-		noption = strings.TrimRight(noption, ")s")
+		noption := vr[2 : len(vr)-2]
 
 		// Search in the same section.
 		nk, err := k.s.GetKey(noption)

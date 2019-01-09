@@ -8,3 +8,7 @@ release-announcement
 .vscode
 cluster/.*
 .history
+.gradle
+hack/gen-swagger-doc/*.adoc
+hack/gen-swagger-doc/*.md
+hack/gen-swagger-doc/html5

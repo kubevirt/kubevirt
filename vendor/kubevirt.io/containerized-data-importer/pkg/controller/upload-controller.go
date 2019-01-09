@@ -342,6 +342,15 @@ func (c *UploadController) processNextWorkItem() bool {
 	return true
 }
 
+func podPhaseFromPVC(pvc *v1.PersistentVolumeClaim) v1.PodPhase {
+	phase, _ := pvc.ObjectMeta.Annotations[AnnPodPhase]
+	return v1.PodPhase(phase)
+}
+
+func podSucceededFromPVC(pvc *v1.PersistentVolumeClaim) bool {
+	return (podPhaseFromPVC(pvc) == v1.PodSucceeded)
+}
+
 func (c *UploadController) syncHandler(key string) error {
 	namespace, name, err := cache.SplitMetaNamespaceKey(key)
 	if err != nil {
@@ -358,9 +367,11 @@ func (c *UploadController) syncHandler(key string) error {
 		return errors.Wrapf(err, "error getting PVC %s", key)
 	}
 
+	_, isUploadPod := pvc.ObjectMeta.Annotations[AnnUploadRequest]
 	resourceName := GetUploadResourceName(pvc.Name)
 
-	if _, exists := pvc.ObjectMeta.Annotations[AnnUploadRequest]; !exists {
+	// force cleanup if PVC pending delete and pod running or the upoad annotation was removed
+	if !isUploadPod || (pvc.DeletionTimestamp != nil && !podSucceededFromPVC(pvc)) {
 		// delete everything
 
 		// delete service
@@ -387,15 +398,6 @@ func (c *UploadController) syncHandler(key string) error {
 		}
 
 		return nil
-	}
-
-	podPhaseFromPVC := func(pvc *v1.PersistentVolumeClaim) v1.PodPhase {
-		phase, _ := pvc.ObjectMeta.Annotations[AnnPodPhase]
-		return v1.PodPhase(phase)
-	}
-
-	podSucceededFromPVC := func(pvc *v1.PersistentVolumeClaim) bool {
-		return (podPhaseFromPVC(pvc) == v1.PodSucceeded)
 	}
 
 	var pod *v1.Pod

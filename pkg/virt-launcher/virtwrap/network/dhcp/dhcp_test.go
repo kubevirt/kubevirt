@@ -228,6 +228,9 @@ var _ = Describe("DHCP", func() {
 			dhcpOptions := &v1.DHCPOptions{
 				BootFileName:   "config",
 				TFTPServerName: "tftp.kubevirt.io",
+				NTPServers: []string{
+					"192.168.2.2", "192.168.2.3",
+				},
 			}
 
 			options, err := prepareDHCPOptions(ip.DefaultMask(), ip, nil, nil, searchDomains, 1500, "myhost", dhcpOptions)
@@ -235,6 +238,9 @@ var _ = Describe("DHCP", func() {
 			Expect(err).ToNot(HaveOccurred())
 			Expect(options[dhcp4.OptionBootFileName]).To(Equal([]byte("config")))
 			Expect(options[dhcp4.OptionTFTPServerName]).To(Equal([]byte("tftp.kubevirt.io")))
+			Expect(options[dhcp4.OptionNetworkTimeProtocolServers]).To(Equal([]byte{
+				192, 168, 2, 2, 192, 168, 2, 3,
+			}))
 		})
 	})
 })

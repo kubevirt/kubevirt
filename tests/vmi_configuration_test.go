@@ -77,12 +77,12 @@ var _ = Describe("Configurations", func() {
 
 				By("Starting a VirtualMachineInstance")
 				vmi, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
-				Expect(err).ToNot(HaveOccurred())
+				Expect(err).ToNot(HaveOccurred(), "should start vmi")
 				tests.WaitForSuccessfulVMIStart(vmi)
 
 				By("Expecting the VirtualMachineInstance console")
 				expecter, err := tests.LoggedInAlpineExpecter(vmi)
-				Expect(err).ToNot(HaveOccurred())
+				Expect(err).ToNot(HaveOccurred(), "should start console")
 				defer expecter.Close()
 
 				By("Checking the number of CPU cores under guest OS")
@@ -90,7 +90,7 @@ var _ = Describe("Configurations", func() {
 					&expect.BSnd{S: "grep -c ^processor /proc/cpuinfo\n"},
 					&expect.BExp{R: "3"},
 				}, 15*time.Second)
-				Expect(err).ToNot(HaveOccurred())
+				Expect(err).ToNot(HaveOccurred(), "should report number of cores")
 
 				By("Checking the requested amount of memory allocated for a guest")
 				Expect(vmi.Spec.Domain.Resources.Requests.Memory().String()).To(Equal("64M"))
@@ -109,6 +109,121 @@ var _ = Describe("Configurations", func() {
 				Expect(computeContainer.Resources.Requests.Memory().ToDec().ScaledValue(resource.Mega)).To(Equal(int64(179)))
 
 				Expect(err).ToNot(HaveOccurred())
+			})
+
+			It("should report 3 sockets under guest OS", func() {
+				vmi.Spec.Domain.CPU = &v1.CPU{
+					Sockets: 3,
+					Cores:   2,
+				}
+				vmi.Spec.Domain.Resources = v1.ResourceRequirements{
+					Requests: kubev1.ResourceList{
+						kubev1.ResourceMemory: resource.MustParse("64M"),
+					},
+				}
+
+				By("Starting a VirtualMachineInstance")
+				vmi, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
+				Expect(err).ToNot(HaveOccurred(), "should start vmi")
+				tests.WaitForSuccessfulVMIStart(vmi)
+
+				By("Expecting the VirtualMachineInstance console")
+				expecter, err := tests.LoggedInAlpineExpecter(vmi)
+				Expect(err).ToNot(HaveOccurred(), "should start console")
+				defer expecter.Close()
+
+				By("Checking the number of sockets under guest OS")
+				_, err = expecter.ExpectBatch([]expect.Batcher{
+					&expect.BSnd{S: "grep '^physical id' /proc/cpuinfo | uniq | wc -l\n"},
+					&expect.BExp{R: "3"},
+				}, 60*time.Second)
+				Expect(err).ToNot(HaveOccurred(), "should report number of sockets")
+			})
+
+			It("should report 2 sockets from spec.domain.resources.requests under guest OS ", func() {
+				vmi.Spec.Domain.CPU = nil
+				vmi.Spec.Domain.Resources = v1.ResourceRequirements{
+					Requests: kubev1.ResourceList{
+						kubev1.ResourceCPU:    resource.MustParse("1200m"),
+						kubev1.ResourceMemory: resource.MustParse("64M"),
+					},
+				}
+
+				By("Starting a VirtualMachineInstance")
+				vmi, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
+				Expect(err).ToNot(HaveOccurred(), "should start vmi")
+				tests.WaitForSuccessfulVMIStart(vmi)
+
+				By("Expecting the VirtualMachineInstance console")
+				expecter, err := tests.LoggedInAlpineExpecter(vmi)
+				Expect(err).ToNot(HaveOccurred(), "should start console")
+				defer expecter.Close()
+
+				By("Checking the number of sockets under guest OS")
+				_, err = expecter.ExpectBatch([]expect.Batcher{
+					&expect.BSnd{S: "grep '^physical id' /proc/cpuinfo | uniq | wc -l\n"},
+					&expect.BExp{R: "2"},
+				}, 60*time.Second)
+				Expect(err).ToNot(HaveOccurred(), "should report number of sockets")
+			})
+
+			It("should report 2 sockets from spec.domain.resources.limits under guest OS ", func() {
+				vmi.Spec.Domain.CPU = nil
+				vmi.Spec.Domain.Resources = v1.ResourceRequirements{
+					Requests: kubev1.ResourceList{
+						kubev1.ResourceMemory: resource.MustParse("64M"),
+					},
+					Limits: kubev1.ResourceList{
+						kubev1.ResourceCPU: resource.MustParse("1200m"),
+					},
+				}
+
+				By("Starting a VirtualMachineInstance")
+				vmi, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
+				Expect(err).ToNot(HaveOccurred(), "should start vmi")
+				tests.WaitForSuccessfulVMIStart(vmi)
+
+				By("Expecting the VirtualMachineInstance console")
+				expecter, err := tests.LoggedInAlpineExpecter(vmi)
+				Expect(err).ToNot(HaveOccurred(), "should start console")
+				defer expecter.Close()
+
+				By("Checking the number of sockets under guest OS")
+				_, err = expecter.ExpectBatch([]expect.Batcher{
+					&expect.BSnd{S: "grep '^physical id' /proc/cpuinfo | uniq | wc -l\n"},
+					&expect.BExp{R: "2"},
+				}, 60*time.Second)
+				Expect(err).ToNot(HaveOccurred(), "should report number of sockets")
+			})
+
+			It("should report 4 vCPUs under guest OS", func() {
+				vmi.Spec.Domain.CPU = &v1.CPU{
+					Threads: 2,
+					Sockets: 2,
+					Cores:   1,
+				}
+				vmi.Spec.Domain.Resources = v1.ResourceRequirements{
+					Requests: kubev1.ResourceList{
+						kubev1.ResourceMemory: resource.MustParse("64M"),
+					},
+				}
+
+				By("Starting a VirtualMachineInstance")
+				vmi, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
+				Expect(err).ToNot(HaveOccurred(), "should start vmi")
+				tests.WaitForSuccessfulVMIStart(vmi)
+
+				By("Expecting the VirtualMachineInstance console")
+				expecter, err := tests.LoggedInAlpineExpecter(vmi)
+				Expect(err).ToNot(HaveOccurred(), "should start console")
+				defer expecter.Close()
+
+				By("Checking the number of vCPUs under guest OS")
+				_, err = expecter.ExpectBatch([]expect.Batcher{
+					&expect.BSnd{S: "grep -c ^processor /proc/cpuinfo\n"},
+					&expect.BExp{R: "4"},
+				}, 60*time.Second)
+				Expect(err).ToNot(HaveOccurred(), "should report number of threads")
 			})
 
 			It("should map cores to virtio block queues", func() {

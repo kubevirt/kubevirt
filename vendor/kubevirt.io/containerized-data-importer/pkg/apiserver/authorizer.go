@@ -152,11 +152,7 @@ func (a *authorizor) generateAccessReview(req *restful.Request) (*authorization.
 		return nil, fmt.Errorf("unknown api group %s", group)
 	}
 
-	switch resource {
-	case "uploadtokenrequest":
-	case "uploadtokenrequests":
-		break
-	default:
+	if resource != "uploadtokenrequests" {
 		return nil, fmt.Errorf("unknown resource type %s", resource)
 	}
 

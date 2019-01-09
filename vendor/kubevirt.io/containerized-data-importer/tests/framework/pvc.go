@@ -71,7 +71,7 @@ func (f *Framework) VerifyTargetPVCContent(namespace *k8sv1.Namespace, pvc *k8sv
 
 // VerifyTargetPVCContentMD5 provides a function to check the md5 of data on a PVC and ensure it matches that which is provided
 func (f *Framework) VerifyTargetPVCContentMD5(namespace *k8sv1.Namespace, pvc *k8sv1.PersistentVolumeClaim, fileName string, expectedHash string) bool {
-	executorPod, err := utils.CreateExecutorPodWithPVC(f.K8sClient, "verify-pvc-content", namespace.Name, pvc)
+	executorPod, err := utils.CreateExecutorPodWithPVC(f.K8sClient, "verify-pvc-md5", namespace.Name, pvc)
 	gomega.Expect(err).ToNot(gomega.HaveOccurred())
 	err = utils.WaitTimeoutForPodReady(f.K8sClient, executorPod.Name, namespace.Name, utils.PodWaitForTime)
 	gomega.Expect(err).ToNot(gomega.HaveOccurred())
