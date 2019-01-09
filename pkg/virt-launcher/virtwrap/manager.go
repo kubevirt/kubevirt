@@ -176,7 +176,7 @@ func (l *LibvirtDomainManager) setMigrationResultHelper(vmi *v1.VirtualMachineIn
 	}
 
 	migrationMetadata := domainSpec.Metadata.KubeVirt.Migration
-	if migrationMetadata != nil {
+	if migrationMetadata == nil {
 		// nothing to report if migration metadata is empty
 		return nil
 	}
