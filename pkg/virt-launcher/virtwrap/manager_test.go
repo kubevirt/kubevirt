@@ -45,7 +45,6 @@ import (
 var _ = Describe("Manager", func() {
 	var mockConn *cli.MockConnection
 	var mockDomain *cli.MockVirDomain
-	var mockNetwork *network.MockNetworkHandler
 	var ctrl *gomock.Controller
 	testVmName := "testvmi"
 	testNamespace := "testnamespace"
@@ -75,8 +74,6 @@ var _ = Describe("Manager", func() {
 		ctrl = gomock.NewController(GinkgoT())
 		mockConn = cli.NewMockConnection(ctrl)
 		mockDomain = cli.NewMockVirDomain(ctrl)
-		mockNetwork = network.NewMockNetworkHandler(ctrl)
-		network.Handler = mockNetwork
 	})
 
 	expectIsolationDetectionForVMI := func(vmi *v1.VirtualMachineInstance) *api.DomainSpec {
