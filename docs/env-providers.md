@@ -26,7 +26,7 @@ Requires:
 Usage:
 
 ```bash
-export KUBEVIRT_PROVIDER=k8s-1.10.4 # choose this provider
+export KUBEVIRT_PROVIDER=k8s-1.10.11 # choose this provider
 export KUBEVIRT_NUM_NODES=3 # master + two nodes
 make cluster-up
 ```
@@ -66,4 +66,4 @@ make cluster-up
  * Create a `cluster/$KUBEVIRT_PROVIDER` directory
  * Create a `cluster/$KUBEVIRT_PROVIDER/provider.sh` files
  * This file has to contain the functions `up`, `build`, `down` and `_kubectl`
- * Have a look at `cluster/k8s-1.10.4/provider.sh` for a reference implementation
+ * Have a look at `cluster/k8s-1.10.11/provider.sh` for a reference implementation

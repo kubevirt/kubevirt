@@ -20,6 +20,8 @@ import (
 	"crypto/rand"
 	"crypto/rsa"
 	"crypto/x509"
+	"io/ioutil"
+	"path/filepath"
 
 	"github.com/golang/glog"
 	"github.com/pkg/errors"
@@ -377,4 +379,35 @@ func parsePrivateKey(bytes []byte) (*rsa.PrivateKey, error) {
 	}
 
 	return key, nil
+}
+
+// GenerateSelfSignedCert generates a self signed certificate keyFile, certFile pair to be passed to http.ListenAndServeTLS
+// The first return value is the keyFile name, the second the certFile name
+// The caller is responsible for creating a writeable directory and cleaning up the generated files afterwards.
+func GenerateSelfSignedCert(certsDirectory string, name string, namespace string) (string, string, error) {
+	// Generic self signed CA.
+	caKeyPair, _ := triple.NewCA("cdi.kubevirt.io")
+	keyPair, _ := triple.NewServerKeyPair(
+		caKeyPair,
+		name+"."+namespace+".pod.cluster.local",
+		name,
+		namespace,
+		"cluster.local",
+		[]string{},
+		[]string{},
+	)
+
+	keyFile := filepath.Join(certsDirectory, "key.pem")
+	certFile := filepath.Join(certsDirectory, "cert.pem")
+
+	err := ioutil.WriteFile(keyFile, cert.EncodePrivateKeyPEM(keyPair.Key), 0600)
+	if err != nil {
+		return "", "", err
+	}
+	err = ioutil.WriteFile(certFile, cert.EncodeCertPEM(keyPair.Cert), 0600)
+	if err != nil {
+		return "", "", err
+	}
+
+	return keyFile, certFile, nil
 }

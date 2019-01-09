@@ -6,6 +6,7 @@ import (
 	"github.com/golang/glog"
 	"github.com/pkg/errors"
 	"k8s.io/api/core/v1"
+	storageV1 "k8s.io/api/storage/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	coreinformers "k8s.io/client-go/informers/core/v1"
 	"k8s.io/client-go/kubernetes"
@@ -230,6 +231,27 @@ func (cc *CloneController) syncPvc(key string) error {
 	if !checkPVC(pvc, AnnCloneRequest) {
 		return nil
 	}
+
+	pvcPhase := pvc.Status.Phase
+	glog.V(3).Infof("PVC phase for PVC \"%s/%s\" is %s", pvc.Namespace, pvc.Name, pvcPhase)
+	if pvc.Spec.StorageClassName != nil {
+		storageClassName := *pvc.Spec.StorageClassName
+		glog.V(3).Infof("storageClassName used by PVC \"%s/%s\" is \"%s\"", pvc.Namespace, pvc.Name, storageClassName)
+		storageclass, err := cc.clientset.StorageV1().StorageClasses().Get(storageClassName, metav1.GetOptions{})
+		if err != nil {
+			return err
+		}
+
+		//Do not schedule the clone pods unless the target PVC is either Bound or Pending/WaitFirstConsumer.
+		if !(pvcPhase == v1.ClaimBound || (pvcPhase == v1.ClaimPending && *storageclass.VolumeBindingMode == storageV1.VolumeBindingWaitForFirstConsumer)) {
+			glog.V(3).Infof("PVC \"%s/%s\" is either not bound or is in pending phase and VolumeBindingMode is not VolumeBindingWaitForFirstConsumer."+
+				" Ignoring this PVC.", pvc.Namespace, pvc.Name)
+			glog.V(3).Infof("PVC phase is %s", pvcPhase)
+			glog.V(3).Infof("VolumeBindingMode is %s", *storageclass.VolumeBindingMode)
+			return nil
+		}
+	}
+
 	//checking for CloneOf annotation indicating that the clone was already taken care of by the provisioner (smart clone).
 	if metav1.HasAnnotation(pvc.ObjectMeta, AnnCloneOf) {
 		glog.V(3).Infof("pvc annotation %q exists indicating cloning completed, skipping pvc \"%s/%s\"\n", AnnCloneOf, pvc.Namespace, pvc.Name)

@@ -62,7 +62,7 @@ func (c *FakeDataVolumes) List(opts v1.ListOptions) (result *v1alpha1.DataVolume
 	if label == nil {
 		label = labels.Everything()
 	}
-	list := &v1alpha1.DataVolumeList{}
+	list := &v1alpha1.DataVolumeList{ListMeta: obj.(*v1alpha1.DataVolumeList).ListMeta}
 	for _, item := range obj.(*v1alpha1.DataVolumeList).Items {
 		if label.Matches(labels.Set(item.Labels)) {
 			list.Items = append(list.Items, item)

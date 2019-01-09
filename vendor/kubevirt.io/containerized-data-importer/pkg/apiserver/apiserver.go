@@ -12,6 +12,7 @@ import (
 	"reflect"
 	"strings"
 
+	admissionregistrationv1beta1 "k8s.io/api/admissionregistration/v1beta1"
 	"k8s.io/api/core/v1"
 	"k8s.io/client-go/util/cert/triple"
 
@@ -26,7 +27,9 @@ import (
 	apiregistrationv1beta1 "k8s.io/kube-aggregator/pkg/apis/apiregistration/v1beta1"
 	aggregatorclient "k8s.io/kube-aggregator/pkg/client/clientset_generated/clientset"
 
+	datavolumev1alpha1 "kubevirt.io/containerized-data-importer/pkg/apis/datavolumecontroller/v1alpha1"
 	uploadv1alpha1 "kubevirt.io/containerized-data-importer/pkg/apis/uploadcontroller/v1alpha1"
+	validatingwebhook "kubevirt.io/containerized-data-importer/pkg/apiserver/webhooks/validating-webhook"
 	"kubevirt.io/containerized-data-importer/pkg/common"
 	"kubevirt.io/containerized-data-importer/pkg/controller"
 	"kubevirt.io/containerized-data-importer/pkg/keys"
@@ -42,16 +45,20 @@ const (
 	uploadTokenVersion = "v1alpha1"
 
 	apiServiceName = "cdi-api"
+
+	apiWebhookValidator = "cdi-api-validator"
+
+	dvCreateValidatePath = "/datavolume-validate-create"
 )
 
-// UploadAPIServer is the public interface to the upload API
-type UploadAPIServer interface {
+// CdiAPIServer is the public interface to the CDI API
+type CdiAPIServer interface {
 	Start() error
 }
 
 type uploadPossibleFunc func(*v1.PersistentVolumeClaim) error
 
-type uploadAPIApp struct {
+type cdiAPIApp struct {
 	bindAddress string
 	bindPort    uint
 
@@ -74,14 +81,21 @@ type uploadAPIApp struct {
 	uploadPossible uploadPossibleFunc
 }
 
-// NewUploadAPIServer returns an initialized upload api server
-func NewUploadAPIServer(bindAddress string,
+// UploadTokenRequestAPI returns web service for swagger generation
+func UploadTokenRequestAPI() []*restful.WebService {
+	app := cdiAPIApp{}
+	app.composeUploadTokenAPI()
+	return app.container.RegisteredWebServices()
+}
+
+// NewCdiAPIServer returns an initialized CDI api server
+func NewCdiAPIServer(bindAddress string,
 	bindPort uint,
 	client kubernetes.Interface,
 	aggregatorClient aggregatorclient.Interface,
-	authorizor CdiAPIAuthorizer) (UploadAPIServer, error) {
+	authorizor CdiAPIAuthorizer) (CdiAPIServer, error) {
 	var err error
-	app := &uploadAPIApp{
+	app := &cdiAPIApp{
 		bindAddress:      bindAddress,
 		bindPort:         bindPort,
 		client:           client,
@@ -126,10 +140,15 @@ func NewUploadAPIServer(bindAddress string,
 
 	})
 
+	err = app.createWebhook()
+	if err != nil {
+		return nil, errors.Errorf("failed to create webhook: %s", err)
+	}
+
 	return app, nil
 }
 
-func (app *uploadAPIApp) Start() error {
+func (app *cdiAPIApp) Start() error {
 	return app.startTLS()
 }
 
@@ -144,7 +163,7 @@ func deserializeStrings(in string) ([]string, error) {
 	return ret, nil
 }
 
-func (app *uploadAPIApp) getClientCert() error {
+func (app *cdiAPIApp) getClientCert() error {
 	authConfigMap, err := app.client.CoreV1().ConfigMaps(metav1.NamespaceSystem).Get("extension-apiserver-authentication", metav1.GetOptions{})
 	if err != nil {
 		return err
@@ -195,7 +214,7 @@ func (app *uploadAPIApp) getClientCert() error {
 	return nil
 }
 
-func (app *uploadAPIApp) getSelfSignedCert() error {
+func (app *cdiAPIApp) getSelfSignedCert() error {
 	namespace := util.GetNamespace()
 	caKeyPair, err := triple.NewCA("api.cdi.kubevirt.io")
 	if err != nil {
@@ -229,17 +248,17 @@ func (app *uploadAPIApp) getSelfSignedCert() error {
 	return nil
 }
 
-func (app *uploadAPIApp) startTLS() error {
+func (app *cdiAPIApp) startTLS() error {
 	certsDirectory, err := ioutil.TempDir("", "certsdir")
 	if err != nil {
 		return err
 	}
 	defer os.RemoveAll(certsDirectory)
 
-	keyFile := filepath.Join(certsDirectory, "/key.pem")
-	certFile := filepath.Join(certsDirectory, "/cert.pem")
-	signingCertFile := filepath.Join(certsDirectory, "/signingCert.pem")
-	clientCAFile := filepath.Join(certsDirectory, "/clientCA.crt")
+	keyFile := filepath.Join(certsDirectory, "key.pem")
+	certFile := filepath.Join(certsDirectory, "cert.pem")
+	signingCertFile := filepath.Join(certsDirectory, "signingCert.pem")
+	clientCAFile := filepath.Join(certsDirectory, "clientCA.crt")
 
 	// Write the certs to disk
 	err = ioutil.WriteFile(clientCAFile, app.clientCABytes, 0600)
@@ -302,7 +321,7 @@ func (app *uploadAPIApp) startTLS() error {
 	return <-errChan
 }
 
-func (app *uploadAPIApp) uploadHandler(request *restful.Request, response *restful.Response) {
+func (app *cdiAPIApp) uploadHandler(request *restful.Request, response *restful.Response) {
 
 	allowed, reason, err := app.authorizer.Authorize(request)
 	if err != nil {
@@ -378,14 +397,15 @@ func uploadTokenAPIGroup() metav1.APIGroup {
 	return apiGroup
 }
 
-func (app *uploadAPIApp) composeUploadTokenAPI() {
+func (app *cdiAPIApp) composeUploadTokenAPI() {
 	objPointer := &uploadv1alpha1.UploadTokenRequest{}
 	objExample := reflect.ValueOf(objPointer).Elem().Interface()
-	objKind := "uploadtokenrequest"
+	objKind := "UploadTokenRequest"
+	resource := "uploadtokenrequests"
 
 	groupPath := fmt.Sprintf("/apis/%s", uploadTokenGroup)
 	resourcePath := fmt.Sprintf("/apis/%s/%s", uploadTokenGroup, uploadTokenVersion)
-	createPath := fmt.Sprintf("/namespaces/{namespace:[a-z0-9][a-z0-9\\-]*}/{kind:%ss?}", objKind)
+	createPath := fmt.Sprintf("/namespaces/{namespace:[a-z0-9][a-z0-9\\-]*}/%s", resource)
 
 	app.container = restful.NewContainer()
 
@@ -419,8 +439,8 @@ func (app *uploadAPIApp) composeUploadTokenAPI() {
 			list.APIVersion = "v1" // this is the version of the resource list
 			list.GroupVersion = uploadTokenGroup + "/" + uploadTokenVersion
 			list.APIResources = append(list.APIResources, metav1.APIResource{
-				Name:         "UploadTokenRequest",
-				SingularName: "uploadtokenRequest",
+				Name:         "uploadtokenrequests",
+				SingularName: "UploadtokenRequest",
 				Namespaced:   true,
 				Group:        uploadTokenGroup,
 				Version:      uploadTokenVersion,
@@ -431,7 +451,7 @@ func (app *uploadAPIApp) composeUploadTokenAPI() {
 			response.WriteAsJson(list)
 		}).
 		Operation("getAPIResources").
-		Doc("Get a CDI Upload API resources").
+		Doc("Get a CDI API resources").
 		Returns(http.StatusOK, "OK", metav1.APIResourceList{}).
 		Returns(http.StatusNotFound, "Not Found", nil))
 
@@ -446,7 +466,7 @@ func (app *uploadAPIApp) composeUploadTokenAPI() {
 			response.WriteAsJson(uploadTokenAPIGroup())
 		}).
 		Operation("getAPIGroup").
-		Doc("Get a CDI Upload API Group").
+		Doc("Get a CDI API Group").
 		Returns(http.StatusOK, "OK", metav1.APIGroup{}).
 		Returns(http.StatusNotFound, "Not Found", nil))
 
@@ -461,14 +481,14 @@ func (app *uploadAPIApp) composeUploadTokenAPI() {
 			response.WriteAsJson(list)
 		}).
 		Operation("getAPIGroup").
-		Doc("Get a CDI Upload API GroupList").
+		Doc("Get a CDI API GroupList").
 		Returns(http.StatusOK, "OK", metav1.APIGroupList{}).
 		Returns(http.StatusNotFound, "Not Found", nil))
 
 	app.container.Add(ws)
 }
 
-func (app *uploadAPIApp) createAPIService() error {
+func (app *cdiAPIApp) createAPIService() error {
 	namespace := util.GetNamespace()
 	apiName := uploadTokenVersion + "." + uploadTokenGroup
 
@@ -520,5 +540,76 @@ func (app *uploadAPIApp) createAPIService() error {
 			return err
 		}
 	}
+	return nil
+}
+
+func (app *cdiAPIApp) createWebhook() error {
+	dvPathCreate := dvCreateValidatePath
+	namespace := util.GetNamespace()
+	registerWebhook := false
+	webhookRegistration, err := app.client.AdmissionregistrationV1beta1().ValidatingWebhookConfigurations().Get(apiWebhookValidator, metav1.GetOptions{})
+	if err != nil {
+		if k8serrors.IsNotFound(err) {
+			registerWebhook = true
+		} else {
+			return err
+		}
+	}
+
+	webHooks := []admissionregistrationv1beta1.Webhook{
+		{
+			Name: "datavolume-create-validator.cdi.kubevirt.io",
+			Rules: []admissionregistrationv1beta1.RuleWithOperations{{
+				Operations: []admissionregistrationv1beta1.OperationType{
+					admissionregistrationv1beta1.Create,
+				},
+				Rule: admissionregistrationv1beta1.Rule{
+					APIGroups:   []string{datavolumev1alpha1.SchemeGroupVersion.Group},
+					APIVersions: []string{datavolumev1alpha1.SchemeGroupVersion.Version},
+					Resources:   []string{"datavolumes"},
+				},
+			}},
+			ClientConfig: admissionregistrationv1beta1.WebhookClientConfig{
+				Service: &admissionregistrationv1beta1.ServiceReference{
+					Namespace: namespace,
+					Name:      apiServiceName,
+					Path:      &dvPathCreate,
+				},
+				CABundle: app.signingCertBytes,
+			},
+		},
+	}
+
+	if registerWebhook {
+		_, err := app.client.AdmissionregistrationV1beta1().ValidatingWebhookConfigurations().Create(&admissionregistrationv1beta1.ValidatingWebhookConfiguration{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: apiWebhookValidator,
+			},
+			Webhooks: webHooks,
+		})
+		if err != nil {
+			return err
+		}
+	} else {
+		for _, webhook := range webhookRegistration.Webhooks {
+			if webhook.ClientConfig.Service != nil && webhook.ClientConfig.Service.Namespace != namespace {
+				return fmt.Errorf("ValidatingAdmissionWebhook [%s] is already registered using services endpoints in a different namespace. Existing webhook registration must be deleted before cdi-api can proceed", apiWebhookValidator)
+			}
+		}
+
+		// update registered webhook with our data
+		webhookRegistration.Webhooks = webHooks
+
+		_, err := app.client.AdmissionregistrationV1beta1().ValidatingWebhookConfigurations().Update(webhookRegistration)
+		if err != nil {
+			return err
+		}
+	}
+
+	app.container.ServeMux.HandleFunc(
+		dvCreateValidatePath, func(w http.ResponseWriter, r *http.Request) {
+			validatingwebhook.ServeDVs(w, r)
+		},
+	)
 	return nil
 }

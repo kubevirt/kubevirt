@@ -568,6 +568,7 @@ var _ = Describe("Networking", func() {
 			dhcpVMI.Spec.Domain.Devices.Interfaces[0].DHCPOptions = &v1.DHCPOptions{
 				BootFileName:   "config",
 				TFTPServerName: "tftp.kubevirt.io",
+				NTPServers:     []string{"127.0.0.1", "127.0.0.2"},
 			}
 
 			_, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(dhcpVMI)
@@ -587,6 +588,9 @@ var _ = Describe("Networking", func() {
 				&expect.BExp{R: "#"},
 				&expect.BSnd{S: "cat /dhcp-env\n"},
 				&expect.BExp{R: "new_bootfile_name=config"},
+				&expect.BExp{R: "#"},
+				&expect.BSnd{S: "cat /dhcp-env\n"},
+				&expect.BExp{R: "new_ntp_servers=127.0.0.1 127.0.0.2"},
 				&expect.BExp{R: "#"},
 			}, 15)
 

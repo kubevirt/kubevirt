@@ -22,6 +22,8 @@ package hardware
 import (
 	"strconv"
 	"strings"
+
+	v1 "kubevirt.io/kubevirt/pkg/api/v1"
 )
 
 const CPUSET_PATH = "/sys/fs/cgroup/cpuset/cpuset.cpus"
@@ -55,4 +57,25 @@ func ParseCPUSetLine(cpusetLine string) (cpusList []int, err error) {
 		}
 	}
 	return
+}
+
+//GetNumberOfVCPUs returns number of vCPUs
+//It counts sockets*cores*threads
+func GetNumberOfVCPUs(cpuSpec *v1.CPU) int64 {
+	vCPUs := cpuSpec.Cores
+	if cpuSpec.Sockets != 0 {
+		if vCPUs == 0 {
+			vCPUs = cpuSpec.Sockets
+		} else {
+			vCPUs *= cpuSpec.Sockets
+		}
+	}
+	if cpuSpec.Threads != 0 {
+		if vCPUs == 0 {
+			vCPUs = cpuSpec.Threads
+		} else {
+			vCPUs *= cpuSpec.Threads
+		}
+	}
+	return int64(vCPUs)
 }

@@ -40,6 +40,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/log"
 	"kubevirt.io/kubevirt/pkg/precond"
 	"kubevirt.io/kubevirt/pkg/util"
+	"kubevirt.io/kubevirt/pkg/util/hardware"
 	"kubevirt.io/kubevirt/pkg/util/net/dns"
 	"kubevirt.io/kubevirt/pkg/util/types"
 	"kubevirt.io/kubevirt/pkg/virt-config"
@@ -530,12 +531,10 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 		// schedule only on nodes with a running cpu manager
 		nodeSelector[v1.CPUManager] = "true"
 
-		cores := uint32(0)
-		if vmi.Spec.Domain.CPU != nil {
-			cores = vmi.Spec.Domain.CPU.Cores
-		}
-		if cores != 0 {
-			resources.Limits[k8sv1.ResourceCPU] = *resource.NewQuantity(int64(cores), resource.BinarySI)
+		vcpus := hardware.GetNumberOfVCPUs(vmi.Spec.Domain.CPU)
+
+		if vcpus != 0 {
+			resources.Limits[k8sv1.ResourceCPU] = *resource.NewQuantity(vcpus, resource.BinarySI)
 		} else {
 			if cpuLimit, ok := resources.Limits[k8sv1.ResourceCPU]; ok {
 				resources.Requests[k8sv1.ResourceCPU] = cpuLimit

@@ -71,7 +71,7 @@ var _ = Describe("Pod Network", func() {
 		Handler = mockNetwork
 		testMac := "12:34:56:78:9A:BC"
 		updateTestMac := "AF:B3:1F:78:2A:CA"
-		dummy = &netlink.Dummy{LinkAttrs: netlink.LinkAttrs{Index: 1}}
+		dummy = &netlink.Dummy{LinkAttrs: netlink.LinkAttrs{Index: 1, MTU: 1410}}
 		address := &net.IPNet{IP: net.IPv4(10, 35, 0, 6), Mask: net.CIDRMask(24, 32)}
 		gw := net.IPv4(10, 35, 0, 1)
 		fakeMac, _ = net.ParseMAC(testMac)
@@ -92,8 +92,9 @@ var _ = Describe("Pod Network", func() {
 		testNic = &VIF{Name: podInterface,
 			IP:      fakeAddr,
 			MAC:     fakeMac,
+			Mtu:     1410,
 			Gateway: gw}
-		interfaceXml = []byte(`<Interface type="bridge"><source bridge="k6t-eth0"></source><model type="virtio"></model><mac address="12:34:56:78:9a:bc"></mac><alias name="ua-default"></alias></Interface>`)
+		interfaceXml = []byte(`<Interface type="bridge"><source bridge="k6t-eth0"></source><model type="virtio"></model><mac address="12:34:56:78:9a:bc"></mac><mtu size="1410"></mtu><alias name="ua-default"></alias></Interface>`)
 
 		masqueradeGwStr = "10.0.2.1/30"
 		masqueradeGwAddr, _ = netlink.ParseAddr(masqueradeGwStr)
@@ -104,6 +105,7 @@ var _ = Describe("Pod Network", func() {
 		masqueradeTestNic = &VIF{Name: podInterface,
 			IP:      *masqueradeVmAddr,
 			MAC:     fakeMac,
+			Mtu:     1410,
 			Gateway: masqueradeGwAddr.IP.To4()}
 	})
 

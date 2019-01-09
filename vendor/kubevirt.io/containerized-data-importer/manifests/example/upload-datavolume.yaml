@@ -4,8 +4,7 @@ metadata:
   name: upload-datavolume
 spec:
   source:
-      upload:
-        target: {}
+      upload: {}
   pvc:
     #the storageClassName is optional, if missing we use the default storage class.
     #storageClassName: "hostpath"

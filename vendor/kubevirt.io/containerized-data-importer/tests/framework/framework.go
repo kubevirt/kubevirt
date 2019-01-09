@@ -15,6 +15,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
+	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/scheme"
@@ -28,7 +29,7 @@ import (
 )
 
 const (
-	nsCreateTime = 30 * time.Second
+	nsCreateTime = 60 * time.Second
 	nsDeleteTime = 5 * time.Minute
 	//NsPrefixLabel provides a cdi prefix label to identify the test namespace
 	NsPrefixLabel = "cdi-e2e"
@@ -297,4 +298,35 @@ func GetKubeClientFromRESTConfig(config *rest.Config) (*kubernetes.Clientset, er
 	config.APIPath = "/apis"
 	config.ContentType = runtime.ContentTypeJSON
 	return kubernetes.NewForConfig(config)
+}
+
+// CreatePrometheusServiceInNs creates a service for prometheus in the specified namespace. This
+// allows us to test for prometheus end points using the service to connect to the endpoints.
+func (f *Framework) CreatePrometheusServiceInNs(namespace string) (*v1.Service, error) {
+	service := &v1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "kubevirt-prometheus-metrics",
+			Namespace: namespace,
+			Labels: map[string]string{
+				"prometheus.kubevirt.io": "",
+				"kubevirt.io":            "",
+			},
+		},
+		Spec: v1.ServiceSpec{
+			Ports: []v1.ServicePort{
+				{
+					Name: "metrics",
+					Port: 443,
+					TargetPort: intstr.IntOrString{
+						StrVal: "metrics",
+					},
+					Protocol: v1.ProtocolTCP,
+				},
+			},
+			Selector: map[string]string{
+				"prometheus.kubevirt.io": "",
+			},
+		},
+	}
+	return f.K8sClient.CoreV1().Services(namespace).Create(service)
 }

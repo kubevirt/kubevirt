@@ -1119,6 +1119,9 @@ func cleanNamespaces() {
 			continue
 		}
 
+		//Remove all HPA
+		PanicOnError(virtCli.AutoscalingV1().RESTClient().Delete().Namespace(namespace).Resource("horizontalpodautoscalers").Do().Error())
+
 		// Remove all VirtualMachines
 		PanicOnError(virtCli.RestClient().Delete().Namespace(namespace).Resource("virtualmachines").Do().Error())
 
@@ -1238,6 +1241,7 @@ func NewRandomDataVolumeWithHttpImport(imageUrl string, namespace string) *cdiv1
 		APIVersion: "cdi.kubevirt.io/v1alpha1",
 		Kind:       "DataVolume",
 	}
+
 	return dataVolume
 }
 
@@ -1392,6 +1396,28 @@ func AddEphemeralFloppy(vmi *v1.VirtualMachineInstance, name string, image strin
 		VolumeName: name,
 		DiskDevice: v1.DiskDevice{
 			Floppy: &v1.FloppyTarget{},
+		},
+	})
+	vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
+		Name: name,
+		VolumeSource: v1.VolumeSource{
+			ContainerDisk: &v1.ContainerDiskSource{
+				Image: image,
+			},
+		},
+	})
+
+	return vmi
+}
+
+func AddEphemeralCdrom(vmi *v1.VirtualMachineInstance, name string, bus string, image string) *v1.VirtualMachineInstance {
+	vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
+		Name:       name,
+		VolumeName: name,
+		DiskDevice: v1.DiskDevice{
+			CDRom: &v1.CDRomTarget{
+				Bus: bus,
+			},
 		},
 	})
 	vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
@@ -1806,6 +1832,24 @@ func NewRandomVMIWithCustomMacAddress() *v1.VirtualMachineInstance {
 	return vmi
 }
 
+// Block until DataVolume succeeds.
+func WaitForSuccessfulDataVolumeImport(obj runtime.Object, seconds int) {
+	vmi, ok := obj.(*v1.VirtualMachineInstance)
+	ExpectWithOffset(1, ok).To(BeTrue(), "Object is not of type *v1.VMI")
+
+	virtClient, err := kubecli.GetKubevirtClient()
+	ExpectWithOffset(1, err).ToNot(HaveOccurred())
+
+	EventuallyWithOffset(1, func() cdiv1.DataVolumePhase {
+		dv, err := virtClient.CdiClient().CdiV1alpha1().DataVolumes(vmi.Namespace).Get(vmi.Spec.Volumes[0].DataVolume.Name, metav1.GetOptions{})
+		ExpectWithOffset(1, err).ToNot(HaveOccurred())
+
+		return dv.Status.Phase
+	}, time.Duration(seconds)*time.Second, 1*time.Second).Should(Equal(cdiv1.Succeeded), "Timed out waiting for DataVolume to enter Succeeded phase")
+
+	return
+}
+
 // Block until the specified VirtualMachineInstance started and return the target node name.
 func waitForVMIStart(obj runtime.Object, seconds int, ignoreWarnings bool) (nodeName string) {
 	vmi, ok := obj.(*v1.VirtualMachineInstance)
@@ -2002,6 +2046,7 @@ const (
 	ContainerDiskCirros ContainerDisk = "cirros"
 	ContainerDiskAlpine ContainerDisk = "alpine"
 	ContainerDiskFedora ContainerDisk = "fedora-cloud"
+	ContainerDiskVirtio ContainerDisk = "virtio-container-disk"
 )
 
 // ContainerDiskFor takes the name of an image and returns the full
@@ -2011,6 +2056,8 @@ func ContainerDiskFor(name ContainerDisk) string {
 	switch name {
 	case ContainerDiskCirros, ContainerDiskAlpine, ContainerDiskFedora:
 		return fmt.Sprintf("%s/%s-container-disk-demo:%s", KubeVirtRepoPrefix, name, KubeVirtVersionTag)
+	case ContainerDiskVirtio:
+		return fmt.Sprintf("%s/virtio-container-disk:%s", KubeVirtRepoPrefix, KubeVirtVersionTag)
 	}
 	panic(fmt.Sprintf("Unsupported registry disk %s", name))
 }

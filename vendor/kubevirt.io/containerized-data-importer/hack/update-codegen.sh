@@ -24,11 +24,20 @@ CODEGEN_PKG=${CODEGEN_PKG:-$(
     ls -d -1 ./vendor/k8s.io/code-generator 2>/dev/null || echo ../code-generator
 )}
 
+find "${SCRIPT_ROOT}/pkg/" -name "*generated*.go" -exec rm {} -f \;
+rm -rf "${SCRIPT_ROOT}/pkg/client/*"
+
+${SCRIPT_ROOT}/hack/build/build-go.sh generate
+
 # generate the code with:
 # --output-base    because this script should also be able to run inside the vendor dir of
 #                  k8s.io/kubernetes. The output-base is needed for the generators to output into the vendor dir
 #                  instead of the $GOPATH directly. For normal projects this can be dropped.
-${CODEGEN_PKG}/generate-groups.sh "deepcopy,client,informer,lister" \
+${CODEGEN_PKG}/generate-groups.sh "client,informer,lister" \
   kubevirt.io/containerized-data-importer/pkg/client kubevirt.io/containerized-data-importer/pkg/apis \
   "datavolumecontroller:v1alpha1 uploadcontroller:v1alpha1" \
   --go-header-file ${SCRIPT_ROOT}/hack/custom-boilerplate.go.txt
+
+(cd ${SCRIPT_ROOT}/tools/openapi-spec-generator/ && go build -o ../../bin/openapi-spec-generator)
+
+${SCRIPT_ROOT}/bin/openapi-spec-generator > ${SCRIPT_ROOT}/api/openapi-spec/swagger.json

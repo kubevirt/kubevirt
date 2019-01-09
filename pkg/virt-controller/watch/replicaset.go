@@ -26,7 +26,7 @@ import (
 	"time"
 
 	k8score "k8s.io/api/core/v1"
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/tools/cache"
@@ -159,7 +159,7 @@ func (c *VMIReplicaSet) execute(key string) error {
 		return nil
 	}
 
-	selector, err := v1.LabelSelectorAsSelector(rs.Spec.Selector)
+	selector, err := metav1.LabelSelectorAsSelector(rs.Spec.Selector)
 	if err != nil {
 		logger.Reason(err).Error("Invalid selector on replicaset, will not re-enqueue.")
 		return nil
@@ -182,8 +182,8 @@ func (c *VMIReplicaSet) execute(key string) error {
 
 	// If any adoptions are attempted, we should first recheck for deletion with
 	// an uncached quorum read sometime after listing VirtualMachines (see kubernetes/kubernetes#42639).
-	canAdoptFunc := controller.RecheckDeletionTimestamp(func() (v1.Object, error) {
-		fresh, err := c.clientset.ReplicaSet(rs.ObjectMeta.Namespace).Get(rs.ObjectMeta.Name, v1.GetOptions{})
+	canAdoptFunc := controller.RecheckDeletionTimestamp(func() (metav1.Object, error) {
+		fresh, err := c.clientset.ReplicaSet(rs.ObjectMeta.Namespace).Get(rs.ObjectMeta.Name, metav1.GetOptions{})
 		if err != nil {
 			return nil, err
 		}
@@ -212,7 +212,7 @@ func (c *VMIReplicaSet) execute(key string) error {
 	}
 	// If the controller is going to be deleted and the orphan finalizer is the next one, release the VMIs. Don't update the status
 	// TODO: Workaround for https://github.com/kubernetes/kubernetes/issues/56348, remove it once it is fixed
-	if rs.ObjectMeta.DeletionTimestamp != nil && controller.HasFinalizer(rs, v1.FinalizerOrphanDependents) {
+	if rs.ObjectMeta.DeletionTimestamp != nil && controller.HasFinalizer(rs, metav1.FinalizerOrphanDependents) {
 		return c.orphan(cm, rs, activeVmis)
 	}
 
@@ -288,7 +288,7 @@ func (c *VMIReplicaSet) scale(rs *virtv1.VirtualMachineInstanceReplicaSet, vmis 
 			go func(idx int) {
 				defer wg.Done()
 				deleteCandidate := vmis[idx]
-				err := c.clientset.VirtualMachineInstance(rs.ObjectMeta.Namespace).Delete(deleteCandidate.ObjectMeta.Name, &v1.DeleteOptions{})
+				err := c.clientset.VirtualMachineInstance(rs.ObjectMeta.Namespace).Delete(deleteCandidate.ObjectMeta.Name, &metav1.DeleteOptions{})
 				// Don't log an error if it is already deleted
 				if err != nil {
 					// We can't observe a delete if it was not accepted by the server
@@ -316,7 +316,7 @@ func (c *VMIReplicaSet) scale(rs *virtv1.VirtualMachineInstanceReplicaSet, vmis 
 				vmi.Spec = rs.Spec.Template.Spec
 				// TODO check if vmi labels exist, and when make sure that they match. For now just override them
 				vmi.ObjectMeta.Labels = rs.Spec.Template.ObjectMeta.Labels
-				vmi.ObjectMeta.OwnerReferences = []v1.OwnerReference{OwnerRef(rs)}
+				vmi.ObjectMeta.OwnerReferences = []metav1.OwnerReference{OwnerRef(rs)}
 				vmi, err := c.clientset.VirtualMachineInstance(rs.ObjectMeta.Namespace).Create(vmi)
 				if err != nil {
 					c.expectations.CreationObserved(rsKey)
@@ -409,7 +409,7 @@ func (c *VMIReplicaSet) getMatchingControllers(vmi *virtv1.VirtualMachineInstanc
 	// TODO check owner reference, if we have an existing controller which owns this one
 
 	for _, rs := range controllers {
-		selector, err := v1.LabelSelectorAsSelector(rs.Spec.Selector)
+		selector, err := metav1.LabelSelectorAsSelector(rs.Spec.Selector)
 		if err != nil {
 			logger.Object(rs).Reason(err).Error("Failed to parse label selector from replicaset.")
 			continue
@@ -435,7 +435,7 @@ func (c *VMIReplicaSet) addVirtualMachine(obj interface{}) {
 	}
 
 	// If it has a ControllerRef, that's all that matters.
-	if controllerRef := v1.GetControllerOf(vmi); controllerRef != nil {
+	if controllerRef := metav1.GetControllerOf(vmi); controllerRef != nil {
 		rs := c.resolveControllerRef(vmi.Namespace, controllerRef)
 		if rs == nil {
 			return
@@ -466,7 +466,7 @@ func (c *VMIReplicaSet) addVirtualMachine(obj interface{}) {
 
 // When a vmi is updated, figure out what replica set/s manage it and wake them
 // up. If the labels of the vmi have changed we need to awaken both the old
-// and new replica set. old and cur must be *v1.VirtualMachineInstance types.
+// and new replica set. old and cur must be *metav1.VirtualMachineInstance types.
 func (c *VMIReplicaSet) updateVirtualMachine(old, cur interface{}) {
 	curVMI := cur.(*virtv1.VirtualMachineInstance)
 	oldVMI := old.(*virtv1.VirtualMachineInstance)
@@ -491,8 +491,8 @@ func (c *VMIReplicaSet) updateVirtualMachine(old, cur interface{}) {
 		return
 	}
 
-	curControllerRef := v1.GetControllerOf(curVMI)
-	oldControllerRef := v1.GetControllerOf(oldVMI)
+	curControllerRef := metav1.GetControllerOf(curVMI)
+	oldControllerRef := metav1.GetControllerOf(oldVMI)
 	controllerRefChanged := !reflect.DeepEqual(curControllerRef, oldControllerRef)
 	if controllerRefChanged && oldControllerRef != nil {
 		// The ControllerRef was changed. Sync the old controller, if any.
@@ -529,7 +529,7 @@ func (c *VMIReplicaSet) updateVirtualMachine(old, cur interface{}) {
 }
 
 // When a vmi is deleted, enqueue the replica set that manages the vmi and update its expectations.
-// obj could be an *v1.VirtualMachineInstance, or a DeletionFinalStateUnknown marker item.
+// obj could be an *metav1.VirtualMachineInstance, or a DeletionFinalStateUnknown marker item.
 func (c *VMIReplicaSet) deleteVirtualMachine(obj interface{}) {
 	vmi, ok := obj.(*virtv1.VirtualMachineInstance)
 
@@ -550,7 +550,7 @@ func (c *VMIReplicaSet) deleteVirtualMachine(obj interface{}) {
 		}
 	}
 
-	controllerRef := v1.GetControllerOf(vmi)
+	controllerRef := metav1.GetControllerOf(vmi)
 	if controllerRef == nil {
 		// No controller should care about orphans being deleted.
 		return
@@ -642,6 +642,10 @@ func (c *VMIReplicaSet) removeCondition(rs *virtv1.VirtualMachineInstanceReplica
 func (c *VMIReplicaSet) updateStatus(rs *virtv1.VirtualMachineInstanceReplicaSet, vmis []*virtv1.VirtualMachineInstance, scaleErr error) error {
 	diff := c.calcDiff(rs, vmis)
 	readyReplicas := int32(len(c.filterReadyVMIs(vmis)))
+	labelSelector, err := metav1.LabelSelectorAsSelector(rs.Spec.Selector)
+	if err != nil {
+		return err
+	}
 
 	// check if we have reached the equilibrium
 	statesMatch := int32(len(vmis)) == rs.Status.Replicas && readyReplicas == rs.Status.ReadyReplicas
@@ -652,11 +656,15 @@ func (c *VMIReplicaSet) updateStatus(rs *virtv1.VirtualMachineInstanceReplicaSet
 	// check if we need to update because pause was modified
 	pausedMatch := rs.Spec.Paused == c.hasCondition(rs, virtv1.VirtualMachineInstanceReplicaSetReplicaPaused)
 
+	// check if the label selector changed
+	labelSelectorMatch := labelSelector.String() == rs.Status.LabelSelector
+
 	// in case the replica count matches and the scaleErr and the error condition equal, don't update
-	if statesMatch && errorsMatch && pausedMatch {
+	if statesMatch && errorsMatch && pausedMatch && labelSelectorMatch {
 		return nil
 	}
 
+	rs.Status.LabelSelector = labelSelector.String()
 	rs.Status.Replicas = int32(len(vmis))
 	rs.Status.ReadyReplicas = readyReplicas
 
@@ -666,7 +674,7 @@ func (c *VMIReplicaSet) updateStatus(rs *virtv1.VirtualMachineInstanceReplicaSet
 	// Add/Remove Failure condition if necessary
 	c.checkFailure(rs, diff, scaleErr)
 
-	_, err := c.clientset.ReplicaSet(rs.ObjectMeta.Namespace).Update(rs)
+	_, err = c.clientset.ReplicaSet(rs.ObjectMeta.Namespace).Update(rs)
 
 	if err != nil {
 		return err
@@ -713,7 +721,7 @@ func (c *VMIReplicaSet) checkPaused(rs *virtv1.VirtualMachineInstanceReplicaSet)
 			Type:               virtv1.VirtualMachineInstanceReplicaSetReplicaPaused,
 			Reason:             "Paused",
 			Message:            "Controller got paused",
-			LastTransitionTime: v1.Now(),
+			LastTransitionTime: metav1.Now(),
 			Status:             k8score.ConditionTrue,
 		})
 	} else if rs.Spec.Paused == false && c.hasCondition(rs, virtv1.VirtualMachineInstanceReplicaSetReplicaPaused) {
@@ -734,7 +742,7 @@ func (c *VMIReplicaSet) checkFailure(rs *virtv1.VirtualMachineInstanceReplicaSet
 			Type:               virtv1.VirtualMachineInstanceReplicaSetReplicaFailure,
 			Reason:             reason,
 			Message:            scaleErr.Error(),
-			LastTransitionTime: v1.Now(),
+			LastTransitionTime: metav1.Now(),
 			Status:             k8score.ConditionTrue,
 		})
 
@@ -743,10 +751,10 @@ func (c *VMIReplicaSet) checkFailure(rs *virtv1.VirtualMachineInstanceReplicaSet
 	}
 }
 
-func OwnerRef(rs *virtv1.VirtualMachineInstanceReplicaSet) v1.OwnerReference {
+func OwnerRef(rs *virtv1.VirtualMachineInstanceReplicaSet) metav1.OwnerReference {
 	t := true
 	gvk := virtv1.VirtualMachineInstanceReplicaSetGroupVersionKind
-	return v1.OwnerReference{
+	return metav1.OwnerReference{
 		APIVersion:         gvk.GroupVersion().String(),
 		Kind:               gvk.Kind,
 		Name:               rs.ObjectMeta.Name,
@@ -759,7 +767,7 @@ func OwnerRef(rs *virtv1.VirtualMachineInstanceReplicaSet) v1.OwnerReference {
 // resolveControllerRef returns the controller referenced by a ControllerRef,
 // or nil if the ControllerRef could not be resolved to a matching controller
 // of the correct Kind.
-func (c *VMIReplicaSet) resolveControllerRef(namespace string, controllerRef *v1.OwnerReference) *virtv1.VirtualMachineInstanceReplicaSet {
+func (c *VMIReplicaSet) resolveControllerRef(namespace string, controllerRef *metav1.OwnerReference) *virtv1.VirtualMachineInstanceReplicaSet {
 	// We can't look up by UID, so look up by Name and then verify UID.
 	// Don't even try to look up by Name if it's the wrong Kind.
 	if controllerRef.Kind != virtv1.VirtualMachineInstanceReplicaSetGroupVersionKind.Kind {
@@ -803,7 +811,7 @@ func (c *VMIReplicaSet) cleanFinishedVmis(rs *virtv1.VirtualMachineInstanceRepli
 		go func(idx int) {
 			defer wg.Done()
 			deleteCandidate := vmis[idx]
-			err := c.clientset.VirtualMachineInstance(rs.ObjectMeta.Namespace).Delete(deleteCandidate.ObjectMeta.Name, &v1.DeleteOptions{})
+			err := c.clientset.VirtualMachineInstance(rs.ObjectMeta.Namespace).Delete(deleteCandidate.ObjectMeta.Name, &metav1.DeleteOptions{})
 			// Don't log an error if it is already deleted
 			if err != nil {
 				// We can't observe a delete if it was not accepted by the server

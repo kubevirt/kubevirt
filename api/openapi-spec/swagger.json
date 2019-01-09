@@ -4019,6 +4019,14 @@
      "model": {
       "description": "Model specifies the CPU model inside the VMI.\nList of available models https://github.com/libvirt/libvirt/blob/master/src/cpu/cpu_map.xml.\nIt is possible to specify special cases like \"host-passthrough\" to get the same CPU as the node\nand \"host-model\" to get CPU closest to the node one.\nFor more information see https://libvirt.org/formatdomain.html#elementsCPU.\nDefaults to host-model.\n+optional",
       "type": "string"
+     },
+     "sockets": {
+      "description": "Sockets specifies the number of sockets inside the vmi.\nMust be a value greater or equal 1.",
+      "type": "integer"
+     },
+     "threads": {
+      "description": "Threads specifies the number of threads inside the vmi.\nMust be a value greater or equal 1.",
+      "type": "integer"
      }
     }
    },
@@ -4128,10 +4136,18 @@
     }
    },
    "v1.DHCPOptions": {
+    "description": "Extra DHCP options to use in the interface.",
     "properties": {
      "bootFileName": {
       "description": "If specified will pass option 67 to interface's DHCP server\n+optional",
       "type": "string"
+     },
+     "ntpServers": {
+      "description": "If specified will pass the configured NTP server to the VM via DHCP option 042.\n+optional",
+      "type": "array",
+      "items": {
+       "type": "string"
+      }
      },
      "tftpServerName": {
       "description": "If specified will pass option 66 to interface's DHCP server\n+optional",
@@ -5905,6 +5921,10 @@
        "$ref": "#/definitions/v1.VirtualMachineInstanceReplicaSetCondition"
       }
      },
+     "labelSelector": {
+      "description": "Canonical form of the label selector for HPA which consumes it through the scale subresource.",
+      "type": "string"
+     },
      "readyReplicas": {
       "description": "The number of ready replicas for this replica set.\n+optional",
       "type": "integer",
@@ -6201,6 +6221,7 @@
     }
    },
    "v1alpha1.DataVolume": {
+    "description": "DataVolume provides a representation of our data volume\n+genclient\n+k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object",
     "required": [
      "spec",
      "status"
@@ -6225,13 +6246,23 @@
      }
     }
    },
+   "v1alpha1.DataVolumeBlankImage": {
+    "description": "DataVolumeBlankImage provides the parameters to create a new raw blank image for the PVC"
+   },
    "v1alpha1.DataVolumeSource": {
+    "description": "DataVolumeSource represents the source for our Data Volume, this can be HTTP, S3, Registry or an existing PVC",
     "properties": {
+     "blank": {
+      "$ref": "#/definitions/v1alpha1.DataVolumeBlankImage"
+     },
      "http": {
       "$ref": "#/definitions/v1alpha1.DataVolumeSourceHTTP"
      },
      "pvc": {
       "$ref": "#/definitions/v1alpha1.DataVolumeSourcePVC"
+     },
+     "registry": {
+      "$ref": "#/definitions/v1alpha1.DataVolumeSourceRegistry"
      },
      "s3": {
       "$ref": "#/definitions/v1alpha1.DataVolumeSourceS3"
@@ -6242,16 +6273,20 @@
     }
    },
    "v1alpha1.DataVolumeSourceHTTP": {
+    "description": "DataVolumeSourceHTTP provides the parameters to create a Data Volume from an HTTP source",
     "properties": {
      "secretRef": {
+      "description": "SecretRef provides the secret reference needed to access the HTTP source",
       "type": "string"
      },
      "url": {
+      "description": "URL is the URL of the http source",
       "type": "string"
      }
     }
    },
    "v1alpha1.DataVolumeSourcePVC": {
+    "description": "DataVolumeSourcePVC provides the parameters to create a Data Volume from an existing PVC",
     "properties": {
      "name": {
       "type": "string"
@@ -6261,34 +6296,57 @@
      }
     }
    },
-   "v1alpha1.DataVolumeSourceS3": {
+   "v1alpha1.DataVolumeSourceRegistry": {
+    "description": "DataVolumeSourceRegistry provides the parameters to create a Data Volume from an registry source",
     "properties": {
      "secretRef": {
+      "description": "SecretRef provides the secret reference needed to access the Registry source",
       "type": "string"
      },
      "url": {
+      "description": "URL is the url of the Registry source",
       "type": "string"
      }
     }
    },
-   "v1alpha1.DataVolumeSourceUpload": {},
+   "v1alpha1.DataVolumeSourceS3": {
+    "description": "DataVolumeSourceS3 provides the parameters to create a Data Volume from an S3 source",
+    "properties": {
+     "secretRef": {
+      "description": "SecretRef provides the secret reference needed to access the S3 source",
+      "type": "string"
+     },
+     "url": {
+      "description": "URL is the url of the S3 source",
+      "type": "string"
+     }
+    }
+   },
+   "v1alpha1.DataVolumeSourceUpload": {
+    "description": "DataVolumeSourceUpload provides the parameters to create a Data Volume by uploading the source"
+   },
    "v1alpha1.DataVolumeSpec": {
+    "description": "DataVolumeSpec defines our specification for a DataVolume type",
     "required": [
      "source",
      "pvc"
     ],
     "properties": {
      "pvc": {
+      "description": "PVC is a pointer to the PVC Spec we want to use",
       "$ref": "#/definitions/v1.PersistentVolumeClaimSpec"
      },
      "source": {
+      "description": "Source is the src of the data for the requested DataVolume",
       "$ref": "#/definitions/v1alpha1.DataVolumeSource"
      }
     }
    },
    "v1alpha1.DataVolumeStatus": {
+    "description": "DataVolumeStatus provides the parameters to store the phase of the Data Volume",
     "properties": {
      "phase": {
+      "description": "Phase is the current phase of the data volume",
       "type": "string"
      }
     }

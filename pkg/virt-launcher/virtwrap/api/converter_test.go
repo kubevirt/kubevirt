@@ -150,6 +150,8 @@ var _ = Describe("Converter", func() {
 					VendorID:   &v1.FeatureVendorID{Enabled: &_false, VendorID: "myvendor"},
 				},
 			}
+			vmi.Spec.Domain.Resources.Limits = make(k8sv1.ResourceList)
+			vmi.Spec.Domain.Resources.Requests = make(k8sv1.ResourceList)
 			vmi.Spec.Domain.Devices.Disks = []v1.Disk{
 				{
 					Name:       "mydisk",
@@ -518,7 +520,10 @@ var _ = Describe("Converter", func() {
       <vendor_id state="off" value="myvendor"></vendor_id>
     </hyperv>
   </features>
-  <cpu mode="host-model"></cpu>
+  <cpu mode="host-model">
+    <topology sockets="1" cores="1" threads="1"></topology>
+  </cpu>
+  <vcpu placement="static">1</vcpu>
   <iothreads>3</iothreads>
 </domain>`, domainType)
 
@@ -553,36 +558,131 @@ var _ = Describe("Converter", func() {
 			Expect(vmiToDomainXMLToDomainSpec(vmi, c).Type).To(Equal(domainType))
 		})
 
-		It("should convert CPU cores and model", func() {
-			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
-			vmi.Spec.Domain.CPU = &v1.CPU{
-				Cores: 3,
-				Model: "Conroe",
-			}
-			domainSpec := vmiToDomainXMLToDomainSpec(vmi, c)
+		Context("when CPU spec defined", func() {
+			It("should convert CPU cores and model", func() {
+				v1.SetObjectDefaults_VirtualMachineInstance(vmi)
+				vmi.Spec.Domain.CPU = &v1.CPU{
+					Cores:   3,
+					Sockets: 2,
+					Threads: 2,
+					Model:   "Conroe",
+				}
+				domainSpec := vmiToDomainXMLToDomainSpec(vmi, c)
 
-			Expect(domainSpec.CPU.Topology.Cores).To(Equal(uint32(3)))
-			Expect(domainSpec.CPU.Topology.Sockets).To(Equal(uint32(1)))
-			Expect(domainSpec.CPU.Topology.Threads).To(Equal(uint32(1)))
-			Expect(domainSpec.CPU.Mode).To(Equal("custom"))
-			Expect(domainSpec.CPU.Model).To(Equal("Conroe"))
-			Expect(domainSpec.VCPU.Placement).To(Equal("static"))
-			Expect(domainSpec.VCPU.CPUs).To(Equal(uint32(3)))
+				Expect(domainSpec.CPU.Topology.Cores).To(Equal(uint32(3)), "Expect cores")
+				Expect(domainSpec.CPU.Topology.Sockets).To(Equal(uint32(2)), "Expect sockets")
+				Expect(domainSpec.CPU.Topology.Threads).To(Equal(uint32(2)), "Expect threads")
+				Expect(domainSpec.CPU.Mode).To(Equal("custom"), "Expect cpu mode")
+				Expect(domainSpec.CPU.Model).To(Equal("Conroe"), "Expect cpu model")
+				Expect(domainSpec.VCPU.Placement).To(Equal("static"), "Expect vcpu placement")
+				Expect(domainSpec.VCPU.CPUs).To(Equal(uint32(12)), "Expect vcpus")
+			})
+
+			It("should convert CPU cores", func() {
+				v1.SetObjectDefaults_VirtualMachineInstance(vmi)
+				vmi.Spec.Domain.CPU = &v1.CPU{
+					Cores: 3,
+				}
+				domainSpec := vmiToDomainXMLToDomainSpec(vmi, c)
+
+				Expect(domainSpec.CPU.Topology.Cores).To(Equal(uint32(3)), "Expect cores")
+				Expect(domainSpec.CPU.Topology.Sockets).To(Equal(uint32(1)), "Expect sockets")
+				Expect(domainSpec.CPU.Topology.Threads).To(Equal(uint32(1)), "Expect threads")
+				Expect(domainSpec.VCPU.CPUs).To(Equal(uint32(3)), "Expect vcpus")
+			})
+
+			It("should convert CPU sockets", func() {
+				v1.SetObjectDefaults_VirtualMachineInstance(vmi)
+				vmi.Spec.Domain.CPU = &v1.CPU{
+					Sockets: 3,
+				}
+				domainSpec := vmiToDomainXMLToDomainSpec(vmi, c)
+
+				Expect(domainSpec.CPU.Topology.Cores).To(Equal(uint32(1)), "Expect cores")
+				Expect(domainSpec.CPU.Topology.Sockets).To(Equal(uint32(3)), "Expect sockets")
+				Expect(domainSpec.CPU.Topology.Threads).To(Equal(uint32(1)), "Expect threads")
+				Expect(domainSpec.VCPU.CPUs).To(Equal(uint32(3)), "Expect vcpus")
+			})
+
+			It("should convert CPU threads", func() {
+				v1.SetObjectDefaults_VirtualMachineInstance(vmi)
+				vmi.Spec.Domain.CPU = &v1.CPU{
+					Threads: 3,
+				}
+				domainSpec := vmiToDomainXMLToDomainSpec(vmi, c)
+
+				Expect(domainSpec.CPU.Topology.Cores).To(Equal(uint32(1)), "Expect cores")
+				Expect(domainSpec.CPU.Topology.Sockets).To(Equal(uint32(1)), "Expect sockets")
+				Expect(domainSpec.CPU.Topology.Threads).To(Equal(uint32(3)), "Expect threads")
+				Expect(domainSpec.VCPU.CPUs).To(Equal(uint32(3)), "Expect vcpus")
+			})
+
+			It("should convert CPU requests to sockets", func() {
+				v1.SetObjectDefaults_VirtualMachineInstance(vmi)
+				vmi.Spec.Domain.CPU = nil
+				vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceCPU] = resource.MustParse("2200m")
+				domainSpec := vmiToDomainXMLToDomainSpec(vmi, c)
+
+				Expect(domainSpec.CPU.Topology.Cores).To(Equal(uint32(1)), "Expect cores")
+				Expect(domainSpec.CPU.Topology.Sockets).To(Equal(uint32(3)), "Expect sockets")
+				Expect(domainSpec.CPU.Topology.Threads).To(Equal(uint32(1)), "Expect threads")
+				Expect(domainSpec.VCPU.CPUs).To(Equal(uint32(3)), "Expect vcpus")
+			})
+
+			It("should convert CPU limits to sockets", func() {
+				v1.SetObjectDefaults_VirtualMachineInstance(vmi)
+				vmi.Spec.Domain.CPU = nil
+				vmi.Spec.Domain.Resources.Limits[k8sv1.ResourceCPU] = resource.MustParse("2.3")
+				domainSpec := vmiToDomainXMLToDomainSpec(vmi, c)
+
+				Expect(domainSpec.CPU.Topology.Cores).To(Equal(uint32(1)), "Expect cores")
+				Expect(domainSpec.CPU.Topology.Sockets).To(Equal(uint32(3)), "Expect sockets")
+				Expect(domainSpec.CPU.Topology.Threads).To(Equal(uint32(1)), "Expect threads")
+				Expect(domainSpec.VCPU.CPUs).To(Equal(uint32(3)), "Expect vcpus")
+			})
+
+			It("should prefer CPU spec instead of CPU requests", func() {
+				v1.SetObjectDefaults_VirtualMachineInstance(vmi)
+				vmi.Spec.Domain.CPU = &v1.CPU{
+					Sockets: 3,
+				}
+				vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceCPU] = resource.MustParse("400m")
+				domainSpec := vmiToDomainXMLToDomainSpec(vmi, c)
+
+				Expect(domainSpec.CPU.Topology.Cores).To(Equal(uint32(1)), "Expect cores")
+				Expect(domainSpec.CPU.Topology.Sockets).To(Equal(uint32(3)), "Expect sockets")
+				Expect(domainSpec.CPU.Topology.Threads).To(Equal(uint32(1)), "Expect threads")
+				Expect(domainSpec.VCPU.CPUs).To(Equal(uint32(3)), "Expect vcpus")
+			})
+
+			It("should prefer CPU spec instead of CPU limits", func() {
+				v1.SetObjectDefaults_VirtualMachineInstance(vmi)
+				vmi.Spec.Domain.CPU = &v1.CPU{
+					Sockets: 3,
+				}
+				vmi.Spec.Domain.Resources.Limits[k8sv1.ResourceCPU] = resource.MustParse("400m")
+				domainSpec := vmiToDomainXMLToDomainSpec(vmi, c)
+
+				Expect(domainSpec.CPU.Topology.Cores).To(Equal(uint32(1)), "Expect cores")
+				Expect(domainSpec.CPU.Topology.Sockets).To(Equal(uint32(3)), "Expect sockets")
+				Expect(domainSpec.CPU.Topology.Threads).To(Equal(uint32(1)), "Expect threads")
+				Expect(domainSpec.VCPU.CPUs).To(Equal(uint32(3)), "Expect vcpus")
+			})
+
+			table.DescribeTable("should convert CPU model", func(model string) {
+				v1.SetObjectDefaults_VirtualMachineInstance(vmi)
+				vmi.Spec.Domain.CPU = &v1.CPU{
+					Cores: 3,
+					Model: model,
+				}
+				domainSpec := vmiToDomainXMLToDomainSpec(vmi, c)
+
+				Expect(domainSpec.CPU.Mode).To(Equal(model), "Expect mode")
+			},
+				table.Entry(v1.CPUModeHostPassthrough, v1.CPUModeHostPassthrough),
+				table.Entry(v1.CPUModeHostModel, v1.CPUModeHostModel),
+			)
 		})
-
-		table.DescribeTable("should convert CPU model", func(model string) {
-			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
-			vmi.Spec.Domain.CPU = &v1.CPU{
-				Cores: 3,
-				Model: model,
-			}
-			domainSpec := vmiToDomainXMLToDomainSpec(vmi, c)
-
-			Expect(domainSpec.CPU.Mode).To(Equal(model))
-		},
-			table.Entry(v1.CPUModeHostPassthrough, v1.CPUModeHostPassthrough),
-			table.Entry(v1.CPUModeHostModel, v1.CPUModeHostModel),
-		)
 
 		Context("when CPU spec defined and model not", func() {
 			It("should set host-model CPU mode", func() {

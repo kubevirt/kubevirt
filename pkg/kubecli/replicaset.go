@@ -20,11 +20,13 @@
 package kubecli
 
 import (
+	autov1 "k8s.io/api/autoscaling/v1"
 	k8smetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
 
-	v1 "kubevirt.io/kubevirt/pkg/api/v1"
+	"kubevirt.io/kubevirt/pkg/api/v1"
 )
 
 func (k *kubevirt) ReplicaSet(namespace string) ReplicaSetInterface {
@@ -35,6 +37,31 @@ type rc struct {
 	restClient *rest.RESTClient
 	namespace  string
 	resource   string
+}
+
+func (v *rc) GetScale(replicaSetName string, options k8smetav1.GetOptions) (result *autov1.Scale, err error) {
+	result = &autov1.Scale{}
+	err = v.restClient.Get().
+		Namespace(v.namespace).
+		Resource(v.resource).
+		Name(replicaSetName).
+		SubResource("scale").
+		Do().
+		Into(result)
+	return
+}
+
+func (v *rc) UpdateScale(replicaSetName string, scale *autov1.Scale) (result *autov1.Scale, err error) {
+	result = &autov1.Scale{}
+	err = v.restClient.Put().
+		Namespace(v.namespace).
+		Resource(v.resource).
+		Name(replicaSetName).
+		SubResource("scale").
+		Body(scale).
+		Do().
+		Into(result)
+	return
 }
 
 func (v *rc) Get(name string, options k8smetav1.GetOptions) (replicaset *v1.VirtualMachineInstanceReplicaSet, err error) {
@@ -98,4 +125,17 @@ func (v *rc) Delete(name string, options *k8smetav1.DeleteOptions) error {
 		Body(options).
 		Do().
 		Error()
+}
+
+func (v *rc) Patch(name string, pt types.PatchType, data []byte, subresources ...string) (result *v1.VirtualMachineInstanceReplicaSet, err error) {
+	result = &v1.VirtualMachineInstanceReplicaSet{}
+	err = v.restClient.Patch(pt).
+		Namespace(v.namespace).
+		Resource(v.resource).
+		SubResource(subresources...).
+		Name(name).
+		Body(data).
+		Do().
+		Into(result)
+	return
 }

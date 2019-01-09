@@ -107,6 +107,7 @@ func (VirtualMachineInstanceReplicaSetStatus) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"replicas":      "Total number of non-terminated pods targeted by this deployment (their labels match the selector).\n+optional",
 		"readyReplicas": "The number of ready replicas for this replica set.\n+optional",
+		"labelSelector": "Canonical form of the label selector for HPA which consumes it through the scale subresource.",
 	}
 }
 

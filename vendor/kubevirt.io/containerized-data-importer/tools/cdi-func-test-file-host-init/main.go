@@ -21,7 +21,6 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-	"sync"
 )
 
 func main() {
@@ -38,8 +37,6 @@ func main() {
 		[]string{".tar", ".gz"},
 		[]string{".tar", ".xz"},
 		[]string{".qcow2"},
-		[]string{".qcow2", ".gz"},
-		[]string{".qcow2", ".xz"},
 	}
 
 	if err := os.MkdirAll(*outDir, 0777); err != nil {
@@ -54,7 +51,7 @@ func main() {
 type formatTable [][]string
 
 func (ft formatTable) initializeTestFiles(inFile, outDir string) error {
-	var wg sync.WaitGroup
+	sem := make(chan bool, 3)
 	errChan := make(chan error, len(ft))
 
 	reportError := func(err error, msg string, format ...interface{}) {
@@ -65,10 +62,10 @@ func (ft formatTable) initializeTestFiles(inFile, outDir string) error {
 	}
 
 	for _, fList := range ft {
-		wg.Add(1)
+		sem <- true
 
 		go func(i, o string, f []string) {
-			defer wg.Done()
+			defer func() { <-sem }()
 			glog.Infof("Generating file %s\n", f)
 
 			ext := strings.Join(f, "")
@@ -100,7 +97,9 @@ func (ft formatTable) initializeTestFiles(inFile, outDir string) error {
 			glog.Infof("Generated file %q\n", p)
 		}(inFile, outDir, fList)
 	}
-	wg.Wait()
+	for i := 0; i < cap(sem); i++ {
+		sem <- true
+	}
 	close(errChan)
 
 	if len(errChan) > 0 {
