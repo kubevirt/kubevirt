@@ -204,6 +204,17 @@ var _ = Describe("CloudInit", func() {
 					verifyCloudInitIso(cloudInitData)
 				})
 			})
+			Context("with cloudInitNoCloud userDataBase64 and networkData volume source", func() {
+				It("should success", func() {
+					userData := "fake\nuser\ndata\n"
+					networkData := "fake\nnetwork\ndata\n"
+					cloudInitData := &v1.CloudInitNoCloudSource{
+						UserDataBase64: base64.StdEncoding.EncodeToString([]byte(userData)),
+						NetworkData:    networkData,
+					}
+					verifyCloudInitIso(cloudInitData)
+				})
+			})
 			Context("with cloudInitNoCloud userDataBase64 and networkDataBase64 volume source", func() {
 				It("should success", func() {
 					userData := "fake\nuser\ndata\n"
