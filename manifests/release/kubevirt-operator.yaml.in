@@ -86,9 +86,13 @@ spec:
           image: &image {{.DockerPrefix}}/virt-operator:{{.DockerTag}}
           imagePullPolicy: {{.ImagePullPolicy}}
           command:
-              - "virt-operator"
+            - virt-operator
+            - --port
+            - "8443"
+            - -v
+            - {{.Verbosity}}
           ports:
-            - containerPort: 8186
+            - containerPort: 8443
               name: "metrics"
               protocol: "TCP"
           readinessProbe:
