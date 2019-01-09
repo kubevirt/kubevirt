@@ -30,6 +30,7 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/kubecli"
+	"kubevirt.io/kubevirt/pkg/version"
 )
 
 const (
@@ -37,7 +38,7 @@ const (
 )
 
 func UpdatePhase(kv *v1.KubeVirt, phase v1.KubeVirtPhase, clientset kubecli.KubevirtClient) error {
-	patchStr := fmt.Sprintf("{\"status\":{\"phase\":\"%s\"}}", phase)
+	patchStr := fmt.Sprintf(`{"status":{"phase":"%s"}}`, phase)
 	_, err := clientset.KubeVirt(kv.Namespace).Patch(kv.Name, types.MergePatchType, []byte(patchStr))
 	return err
 }
@@ -84,7 +85,7 @@ func UpdateCondition(kv *v1.KubeVirt, conditionType v1.KubeVirtConditionType, st
 	}
 	condJson = string(bytes)
 
-	patchStr := fmt.Sprintf("{\"status\":{\"conditions\":%s}}", condJson)
+	patchStr := fmt.Sprintf(`{"status":{"conditions":%s}}`, condJson)
 	_, err = clientset.KubeVirt(kv.Namespace).Patch(kv.Name, types.MergePatchType, []byte(patchStr))
 	return err
 }
@@ -110,7 +111,7 @@ func RemoveConditions(kv *v1.KubeVirt, clientset kubecli.KubevirtClient) error {
 	}
 	condJson = string(bytes)
 
-	patchStr := fmt.Sprintf("{\"status\":{\"conditions\":%s}}", condJson)
+	patchStr := fmt.Sprintf(`{"status":{"conditions":%s}}`, condJson)
 	_, err = clientset.KubeVirt(kv.Namespace).Patch(kv.Name, types.MergePatchType, []byte(patchStr))
 	return err
 }
@@ -146,5 +147,14 @@ func patchFinalizer(kv *v1.KubeVirt, clientset kubecli.KubevirtClient) error {
 	finalizers = string(bytes)
 	patchStr := fmt.Sprintf(`{"metadata":{"finalizers":%s}}`, finalizers)
 	kv, err = clientset.KubeVirt(kv.Namespace).Patch(kv.Name, types.MergePatchType, []byte(patchStr))
+	return err
+}
+
+func SetVersions(kv *v1.KubeVirt, config KubeVirtDeploymentConfig, clientset kubecli.KubevirtClient) error {
+	// Note: for now we just set targetKubeVirtVersion and observedKubeVirtVersion to the tag of the operator image
+	// In future this needs some more work...
+	patchStr := fmt.Sprintf(`{"status":{"operatorVersion":"%s", "targetKubeVirtVersion":"%s", "observedKubeVirtVersion":"%s"}}`,
+		version.Get().String(), config.ImageTag, config.ImageTag)
+	kv, err := clientset.KubeVirt(kv.Namespace).Patch(kv.Name, types.MergePatchType, []byte(patchStr))
 	return err
 }

@@ -162,7 +162,6 @@ func (c *KubeVirtController) execute(key string) error {
 		log.Log.Info("Handling deleted KubeVirt object")
 
 		// delete
-		// TODO use expectations to find out what needs to be done or was already done
 		if kv.Status.Phase == v1.KubeVirtPhaseDeleted {
 			log.Log.Info("Is already deleted")
 			return nil
@@ -206,6 +205,15 @@ func (c *KubeVirtController) execute(key string) error {
 	if kv.Status.Phase == v1.KubeVirtPhaseDeployed {
 		log.Log.Info("Is already deployed")
 		return nil
+	}
+
+	// Set versions...
+	if kv.Status.OperatorVersion == "" {
+		err = util.SetVersions(kv, c.config, c.clientset)
+		if err != nil {
+			log.Log.Errorf("Failed to set versions: %v", err)
+			return err
+		}
 	}
 
 	// Set phase to deploying

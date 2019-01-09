@@ -1028,8 +1028,11 @@ type KubeVirtSpec struct {
 // ---
 // +k8s:openapi-gen=true
 type KubeVirtStatus struct {
-	Phase      KubeVirtPhase       `json:"phase,omitempty"`
-	Conditions []KubeVirtCondition `json:"conditions,omitempty" optional:"true"`
+	Phase                   KubeVirtPhase       `json:"phase,omitempty"`
+	Conditions              []KubeVirtCondition `json:"conditions,omitempty" optional:"true"`
+	OperatorVersion         string              `json:"operatorVersion,omitempty" optional:"true"`
+	TargetKubeVirtVersion   string              `json:"targetKubeVirtVersion,omitempty" optional:"true"`
+	ObservedKubeVirtVersion string              `json:"observedKubeVirtVersion,omitempty" optional:"true"`
 }
 
 // KubeVirtPhase is a label for the phase of a KubeVirt deployment at the current time.
@@ -1039,7 +1042,6 @@ type KubeVirtPhase string
 
 // These are the valid KubeVirt deployment phases
 const (
-	KubeVirtPhaseUnset KubeVirtPhase = ""
 	// The deployment is processing
 	KubeVirtPhaseDeploying KubeVirtPhase = "Deploying"
 	// The deployment succeeded
