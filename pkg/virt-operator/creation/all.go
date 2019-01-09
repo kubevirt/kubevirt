@@ -28,36 +28,46 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-operator/util"
 )
 
-func Create(kv *v1.KubeVirt, config util.KubeVirtDeploymentConfig, stores util.Stores, clientset kubecli.KubevirtClient) error {
+func Create(kv *v1.KubeVirt, config util.KubeVirtDeploymentConfig, stores util.Stores, clientset kubecli.KubevirtClient) (int, error) {
 
-	err := rbac.CreateClusterRBAC(clientset, kv, stores)
+	objectsAdded := 0
+
+	added, err := rbac.CreateClusterRBAC(clientset, kv, stores)
+	objectsAdded = objectsAdded + added
 	if err != nil {
 		log.Log.Errorf("Failed to create cluster RBAC: %v", err)
-		return err
-	}
-	err = rbac.CreateApiServerRBAC(clientset, kv, stores)
-	if err != nil {
-		log.Log.Errorf("Failed to create apiserver RBAC: %v", err)
-		return err
-	}
-	err = rbac.CreateControllerRBAC(clientset, kv, stores)
-	if err != nil {
-		log.Log.Errorf("Failed to create controller RBAC: %v", err)
-		return err
+		return objectsAdded, err
 	}
 
-	err = components.CreateCRDs(clientset, stores)
+	added, err = rbac.CreateApiServerRBAC(clientset, kv, stores)
+	objectsAdded = objectsAdded + added
+	if err != nil {
+		log.Log.Errorf("Failed to create apiserver RBAC: %v", err)
+		return objectsAdded, err
+	}
+
+	added, err = rbac.CreateControllerRBAC(clientset, kv, stores)
+	objectsAdded = objectsAdded + added
+	if err != nil {
+		log.Log.Errorf("Failed to create controller RBAC: %v", err)
+		return objectsAdded, err
+	}
+
+	added, err = components.CreateCRDs(clientset, stores)
+	objectsAdded = objectsAdded + added
 	if err != nil {
 		log.Log.Errorf("Failed to create crds: %v", err)
-		return err
+		return objectsAdded, err
 	}
-	err = components.CreateControllers(clientset, kv, config, stores)
+
+	added, err = components.CreateControllers(clientset, kv, config, stores)
+	objectsAdded = objectsAdded + added
 	if err != nil {
 		log.Log.Errorf("Failed to create controllers: %v", err)
-		return err
+		return objectsAdded, err
 	}
 
 	log.Log.Infof("Successfully deployed %+v", kv)
 
-	return nil
+	return objectsAdded, nil
 }

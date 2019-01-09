@@ -24,6 +24,7 @@ import (
 	"time"
 
 	k8sv1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/record"
@@ -45,27 +46,32 @@ const (
 )
 
 type KubeVirtController struct {
-	clientset        kubecli.KubevirtClient
-	queue            workqueue.RateLimitingInterface
-	kubeVirtInformer cache.SharedIndexInformer
-	recorder         record.EventRecorder
-	config           util.KubeVirtDeploymentConfig
-	stores           util.Stores
+	clientset            kubecli.KubevirtClient
+	queue                workqueue.RateLimitingInterface
+	kubeVirtInformer     cache.SharedIndexInformer
+	recorder             record.EventRecorder
+	config               util.KubeVirtDeploymentConfig
+	stores               util.Stores
+	informers            []cache.SharedIndexInformer
+	kubeVirtExpectations *controller.ControllerExpectations
 }
 
 func NewKubeVirtController(
 	clientset kubecli.KubevirtClient,
 	informer cache.SharedIndexInformer,
 	recorder record.EventRecorder,
-	stores util.Stores) *KubeVirtController {
+	stores util.Stores,
+	informers []cache.SharedIndexInformer) *KubeVirtController {
 
 	c := KubeVirtController{
-		clientset:        clientset,
-		queue:            workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter()),
-		kubeVirtInformer: informer,
-		recorder:         recorder,
-		config:           util.GetConfig(),
-		stores:           stores,
+		clientset:            clientset,
+		queue:                workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter()),
+		kubeVirtInformer:     informer,
+		recorder:             recorder,
+		config:               util.GetConfig(),
+		stores:               stores,
+		informers:            informers,
+		kubeVirtExpectations: controller.NewControllerExpectations(),
 	}
 
 	c.kubeVirtInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
@@ -74,7 +80,68 @@ func NewKubeVirtController(
 		UpdateFunc: c.updateKubeVirt,
 	})
 
+	for _, informer := range informers {
+
+		informer.AddEventHandler(cache.ResourceEventHandlerFuncs{
+			AddFunc:    c.addHandler,
+			DeleteFunc: c.deleteHandler,
+			UpdateFunc: c.updateHandler,
+		})
+	}
+
 	return &c
+}
+
+func (c *KubeVirtController) genericHandler(obj interface{}, isCreate bool) {
+	logger := log.Log
+	var object metav1.Object
+	var ok bool
+
+	if object, ok = obj.(metav1.Object); !ok {
+		tombstone, ok := obj.(cache.DeletedFinalStateUnknown)
+		if !ok {
+			return
+		}
+		object, ok = tombstone.Obj.(metav1.Object)
+		if !ok {
+			return
+		}
+		logger.V(4).Infof("Recovered deleted object '%s' from tombstone", object.GetName())
+	}
+
+	logger.V(4).Infof("Observed object %s in handler. isCreate: %t", object.GetName(), isCreate)
+
+	// add/delete detected... enqueue active kubevirt objects.
+	kvs := c.kubeVirtInformer.GetStore().List()
+	for _, obj := range kvs {
+		if kv, ok := obj.(v1.KubeVirt); ok {
+			if isKubeVirtActive(&kv) {
+				key, err := controller.KeyFunc(kv)
+				if err != nil {
+					logger.Object(&kv).Reason(err).Error("Failed to extract key from KubeVirt.")
+				}
+
+				if isCreate {
+					c.kubeVirtExpectations.CreationObserved(key)
+				} else {
+					c.kubeVirtExpectations.DeletionObserved(key)
+				}
+				c.enqueueKubeVirt(obj)
+			}
+		}
+	}
+}
+
+func (c *KubeVirtController) addHandler(obj interface{}) {
+	c.genericHandler(obj, true)
+}
+
+func (c *KubeVirtController) deleteHandler(obj interface{}) {
+	c.genericHandler(obj, false)
+}
+
+func (c *KubeVirtController) updateHandler(old, curr interface{}) {
+	// nothing to do here for now.
 }
 
 func (c *KubeVirtController) addKubeVirt(obj interface{}) {
@@ -106,6 +173,9 @@ func (c *KubeVirtController) Run(threadiness int, stopCh chan struct{}) {
 
 	// Wait for cache sync before we start the pod controller
 	cache.WaitForCacheSync(stopCh, c.kubeVirtInformer.HasSynced)
+	for _, informer := range c.informers {
+		cache.WaitForCacheSync(stopCh, informer.HasSynced)
+	}
 
 	// Start the actual work
 	for i := 0; i < threadiness; i++ {
@@ -151,11 +221,18 @@ func (c *KubeVirtController) execute(key string) error {
 	if !exists {
 		// when the resource is gone, deletion was handled already
 		log.Log.Infof("KubeVirt resource not found")
+		c.kubeVirtExpectations.DeleteExpectations(key)
 		return nil
 	}
 
 	kv := obj.(*v1.KubeVirt)
 	logger := log.Log.Object(kv)
+
+	// only process the kubevirt deployment if all expectations are satisfied.
+	needsSync := c.kubeVirtExpectations.SatisfiedExpectations(key)
+	if !needsSync {
+		return nil
+	}
 
 	if kv.DeletionTimestamp != nil {
 
@@ -174,7 +251,10 @@ func (c *KubeVirtController) execute(key string) error {
 			return err
 		}
 
-		err = deletion.Delete(kv, c.clientset)
+		objectsDeleted, err := deletion.Delete(kv, c.clientset)
+		// set expectations regardless of if we get an error or not here because
+		// some objects could have still been deleted.
+		c.kubeVirtExpectations.ExpectDeletions(key, objectsDeleted)
 		if err != nil {
 			// deletion failed
 			err := util.UpdateCondition(kv, v1.KubeVirtConditionSynchronized, k8sv1.ConditionFalse, ConditionReasonDeletionFailedError, fmt.Sprintf("An error occurred during deletion: %v", err), c.clientset)
@@ -193,7 +273,7 @@ func (c *KubeVirtController) execute(key string) error {
 		if err != nil {
 			log.Log.Errorf("Failed to update condition: %v", err)
 		}
-		err := util.RemoveFinalizer(kv, c.clientset)
+		err = util.RemoveFinalizer(kv, c.clientset)
 		if err != nil {
 			log.Log.Errorf("Failed to remove finalizer: %v", err)
 		}
@@ -251,7 +331,11 @@ func (c *KubeVirtController) execute(key string) error {
 	}
 
 	// deploy
-	err = creation.Create(kv, c.config, c.stores, c.clientset)
+	objectsAdded, err := creation.Create(kv, c.config, c.stores, c.clientset)
+	// set expectations regardless of if we get an error or not here because
+	// some objects could have still been created.
+	c.kubeVirtExpectations.ExpectCreations(key, objectsAdded)
+
 	if err != nil {
 		// deployment failed
 		err := util.UpdateCondition(kv, v1.KubeVirtConditionSynchronized, k8sv1.ConditionFalse, ConditionReasonDeploymentFailedError, fmt.Sprintf("An error occurred during deployment: %v", err), c.clientset)

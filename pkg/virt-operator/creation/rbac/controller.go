@@ -33,15 +33,18 @@ import (
 	"kubevirt.io/kubevirt/pkg/kubecli"
 )
 
-func CreateControllerRBAC(clientset kubecli.KubevirtClient, kv *virtv1.KubeVirt, stores util.Stores) error {
+func CreateControllerRBAC(clientset kubecli.KubevirtClient, kv *virtv1.KubeVirt, stores util.Stores) (int, error) {
 
+	objectsAdded := 0
 	core := clientset.CoreV1()
 
 	sa := newControllerServiceAccount(kv.Namespace)
 	if _, exists, _ := stores.ServiceAccountCache.Get(sa); !exists {
 		_, err := core.ServiceAccounts(kv.Namespace).Create(sa)
 		if err != nil && !apierrors.IsAlreadyExists(err) {
-			return fmt.Errorf("unable to create serviceaccount %+v: %v", sa, err)
+			return objectsAdded, fmt.Errorf("unable to create serviceaccount %+v: %v", sa, err)
+		} else if err == nil {
+			objectsAdded++
 		}
 	} else {
 		log.Log.Infof("serviceaccount %v already exists", sa.GetName())
@@ -53,7 +56,9 @@ func CreateControllerRBAC(clientset kubecli.KubevirtClient, kv *virtv1.KubeVirt,
 	if _, exists, _ := stores.ClusterRoleCache.Get(cr); !exists {
 		_, err := rbac.ClusterRoles().Create(cr)
 		if err != nil && !apierrors.IsAlreadyExists(err) {
-			return fmt.Errorf("unable to create clusterrole %+v: %v", cr, err)
+			return objectsAdded, fmt.Errorf("unable to create clusterrole %+v: %v", cr, err)
+		} else if err == nil {
+			objectsAdded++
 		}
 	} else {
 		log.Log.Infof("clusterrole %v already exists", cr.GetName())
@@ -63,13 +68,15 @@ func CreateControllerRBAC(clientset kubecli.KubevirtClient, kv *virtv1.KubeVirt,
 	if _, exists, _ := stores.ClusterRoleBindingCache.Get(crb); !exists {
 		_, err := rbac.ClusterRoleBindings().Create(crb)
 		if err != nil && !apierrors.IsAlreadyExists(err) {
-			return fmt.Errorf("unable to create clusterrolebinding %+v: %v", crb, err)
+			return objectsAdded, fmt.Errorf("unable to create clusterrolebinding %+v: %v", crb, err)
+		} else if err == nil {
+			objectsAdded++
 		}
 	} else {
 		log.Log.Infof("clusterrolebinding %v already exists", crb.GetName())
 	}
 
-	return nil
+	return objectsAdded, nil
 }
 
 func GetAllController(namespace string) []interface{} {

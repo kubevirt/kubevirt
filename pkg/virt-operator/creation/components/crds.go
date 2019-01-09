@@ -33,11 +33,13 @@ import (
 	"kubevirt.io/kubevirt/pkg/kubecli"
 )
 
-func CreateCRDs(clientset kubecli.KubevirtClient, stores util.Stores) error {
+func CreateCRDs(clientset kubecli.KubevirtClient, stores util.Stores) (int, error) {
+
+	objectsAdded := 0
 
 	ext, err := extclient.NewForConfig(clientset.Config())
 	if err != nil {
-		return fmt.Errorf("unable to create apiextensions client: %v", err)
+		return objectsAdded, fmt.Errorf("unable to create apiextensions client: %v", err)
 	}
 
 	crds := []*extv1beta1.CustomResourceDefinition{
@@ -52,14 +54,16 @@ func CreateCRDs(clientset kubecli.KubevirtClient, stores util.Stores) error {
 		if _, exists, _ := stores.CrdCache.Get(crd); !exists {
 			_, err := ext.ApiextensionsV1beta1().CustomResourceDefinitions().Create(crd)
 			if err != nil && !apierrors.IsAlreadyExists(err) {
-				return fmt.Errorf("unable to create crd %+v: %v", crd, err)
+				return objectsAdded, fmt.Errorf("unable to create crd %+v: %v", crd, err)
+			} else if err == nil {
+				objectsAdded++
 			}
 		} else {
 			log.Log.Infof("crd %v already exists", crd.GetName())
 		}
 	}
 
-	return nil
+	return objectsAdded, nil
 }
 
 func NewKubeVirtCRD(clientset kubecli.KubevirtClient) error {
