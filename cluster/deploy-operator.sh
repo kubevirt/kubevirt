@@ -48,11 +48,6 @@ if [[ "$KUBEVIRT_PROVIDER" =~ os-* ]]; then
 
     _kubectl adm policy add-scc-to-user privileged -z kubevirt-operator -n ${namespace}
 
-    # should this be done by the operator?
-    _kubectl adm policy add-scc-to-user privileged -z kubevirt-controller -n ${namespace}
-    _kubectl adm policy add-scc-to-user privileged -z kubevirt-privileged -n ${namespace}
-    _kubectl adm policy add-scc-to-user privileged -z kubevirt-apiserver -n ${namespace}
-
     # Helpful for development. Allows admin to access everything KubeVirt creates in the web console
     _kubectl adm policy add-scc-to-user privileged admin
 fi

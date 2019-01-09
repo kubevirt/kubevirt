@@ -28,46 +28,42 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-operator/util"
 )
 
-func Create(kv *v1.KubeVirt, config util.KubeVirtDeploymentConfig, stores util.Stores, clientset kubecli.KubevirtClient) (int, error) {
+func Create(kv *v1.KubeVirt, config util.KubeVirtDeploymentConfig, stores util.Stores, clientset kubecli.KubevirtClient) error {
 
-	objectsAdded := 0
-
-	added, err := rbac.CreateClusterRBAC(clientset, kv, stores)
-	objectsAdded = objectsAdded + added
+	err := rbac.CreateClusterRBAC(clientset, kv, stores)
 	if err != nil {
 		log.Log.Errorf("Failed to create cluster RBAC: %v", err)
-		return objectsAdded, err
+		return err
 	}
-
-	added, err = rbac.CreateApiServerRBAC(clientset, kv, stores)
-	objectsAdded = objectsAdded + added
+	err = rbac.CreateApiServerRBAC(clientset, kv, stores)
 	if err != nil {
 		log.Log.Errorf("Failed to create apiserver RBAC: %v", err)
-		return objectsAdded, err
+		return err
 	}
-
-	added, err = rbac.CreateControllerRBAC(clientset, kv, stores)
-	objectsAdded = objectsAdded + added
+	err = rbac.CreateControllerRBAC(clientset, kv, stores)
 	if err != nil {
 		log.Log.Errorf("Failed to create controller RBAC: %v", err)
-		return objectsAdded, err
+		return err
 	}
 
-	added, err = components.CreateCRDs(clientset, stores)
-	objectsAdded = objectsAdded + added
+	err = rbac.CreateScc(clientset, kv)
+	if err != nil {
+		log.Log.Errorf("Failed to update SCC: %v", err)
+		return err
+	}
+
+	err = components.CreateCRDs(clientset, stores)
 	if err != nil {
 		log.Log.Errorf("Failed to create crds: %v", err)
-		return objectsAdded, err
+		return err
 	}
-
-	added, err = components.CreateControllers(clientset, kv, config, stores)
-	objectsAdded = objectsAdded + added
+	err = components.CreateControllers(clientset, kv, config, stores)
 	if err != nil {
 		log.Log.Errorf("Failed to create controllers: %v", err)
-		return objectsAdded, err
+		return err
 	}
 
 	log.Log.Infof("Successfully deployed %+v", kv)
 
-	return objectsAdded, nil
+	return nil
 }

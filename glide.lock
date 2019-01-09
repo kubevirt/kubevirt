@@ -1,5 +1,5 @@
-hash: a5f21bc7771afd4f95eab0de8323a15e6b172d397a686e4c9b6ee5c7235eeab0
-updated: 2019-01-08T13:59:08.425421189Z
+hash: be9daf859dced4e6f4b1e431f8ec0d8f7c865927b9878eb6c4243942ec4fe4fb
+updated: 2019-01-09T22:17:21.235939733Z
 imports:
 - name: cloud.google.com/go
   version: 3b1ae45394a234c385be014e9a488f2bb6eef821
@@ -7,7 +7,7 @@ imports:
   - compute/metadata
   - internal
 - name: github.com/asaskevich/govalidator
-  version: f9ffefc3facfbe0caee3fea233cbb6e8208f4541
+  version: 593d64559f7600f29581a3ee42177f5dbded27a9
 - name: github.com/Azure/go-autorest
   version: 1ff28809256a84bb6966640ff3d0371af82ccba4
   subpackages:
@@ -231,6 +231,15 @@ imports:
   - matchers/support/goraph/node
   - matchers/support/goraph/util
   - types
+- name: github.com/openshift/api
+  version: 84404551741398f2300f84b16fb97ef351749982
+  subpackages:
+  - security/v1
+- name: github.com/openshift/client-go
+  version: 431ec9a26e5021f35fa41ee9a89842db9bfdb370
+  subpackages:
+  - security/clientset/versioned/scheme
+  - security/clientset/versioned/typed/security/v1
 - name: github.com/pborman/uuid
   version: ca53cad383cad2479bbba7f7a1a05797ec1386e4
 - name: github.com/peterbourgon/diskv
@@ -241,7 +250,7 @@ imports:
   - prometheus
   - prometheus/promhttp
 - name: github.com/prometheus/client_model
-  version: 5c3871d89910bfb32f5fcab2aa4b9ec68e65a99f
+  version: f287a105a20ec685d797f65cd0ce8fbeaef42da1
   subpackages:
   - go
 - name: github.com/prometheus/common
