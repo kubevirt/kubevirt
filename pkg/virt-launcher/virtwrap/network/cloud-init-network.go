@@ -182,7 +182,6 @@ func getCloudInitManageResolv() (CloudInitManageResolv, error) {
 
 	// Skip discovering resolv data if the feature gate is not enabled
 	if !virtconfig.NetconfAutoResolvEnabled() {
-
 		return cloudInitManageResolv, nil
 	}
 
