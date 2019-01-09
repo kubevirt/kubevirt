@@ -38,7 +38,7 @@ EOF
 _kubectl create -f ${MANIFESTS_OUT_DIR}/testing
 
 # Deploy kubevirt
-_kubectl create -f ${MANIFESTS_OUT_DIR}/release/kubevirt.yaml
+_kubectl apply -f ${MANIFESTS_OUT_DIR}/release/kubevirt.yaml
 
 if [[ "$KUBEVIRT_PROVIDER" =~ os-* ]]; then
     _kubectl create -f ${MANIFESTS_OUT_DIR}/testing/ocp

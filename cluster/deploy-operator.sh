@@ -38,7 +38,7 @@ EOF
 _kubectl create -f ${MANIFESTS_OUT_DIR}/testing
 
 # Deploy kubevirt operator
-_kubectl create -f ${MANIFESTS_OUT_DIR}/release/kubevirt-operator.yaml
+_kubectl apply -f ${MANIFESTS_OUT_DIR}/release/kubevirt-operator.yaml
 
 # Deploy kubevirt
 _kubectl create -n ${namespace} -f ${KUBEVIRT_PATH}cluster/examples/kubevirt.yaml
