@@ -41,7 +41,7 @@ func (CloudInitNoCloudSource) SwaggerDoc() map[string]string {
 		"userDataBase64":       "UserDataBase64 contains NoCloud cloud-init userdata as a base64 encoded string.\n+ optional",
 		"userData":             "UserData contains NoCloud inline cloud-init userdata.\n+ optional",
 		"networkDataSecretRef": "NetworkDataSecretRef references a k8s secret that contains NoCloud networkdata.\n+ optional",
-		"networkDataBase64":    "NetworkData contains NoCloud inline cloud-init networkdata.\n+ optional",
+		"networkDataBase64":    "NetworkDataBase64 contains NoCloud cloud-init networkdata as a base64 encoded string.\n+ optional",
 		"networkData":          "NetworkData contains NoCloud inline cloud-init networkdata.\n+ optional",
 	}
 }

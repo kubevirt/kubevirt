@@ -347,7 +347,7 @@ func schema_kubevirt_pkg_api_v1_CloudInitNoCloudSource(ref common.ReferenceCallb
 					},
 					"networkDataBase64": {
 						SchemaProps: spec.SchemaProps{
-							Description: "NetworkData contains NoCloud inline cloud-init networkdata.",
+							Description: "NetworkDataBase64 contains NoCloud cloud-init networkdata as a base64 encoded string.",
 							Type:        []string{"string"},
 							Format:      "",
 						},

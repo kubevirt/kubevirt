@@ -107,7 +107,7 @@ type CloudInitNoCloudSource struct {
 	// NetworkDataSecretRef references a k8s secret that contains NoCloud networkdata.
 	// + optional
 	NetworkDataSecretRef *v1.LocalObjectReference `json:"networkDataSecretRef,omitempty"`
-	// NetworkData contains NoCloud inline cloud-init networkdata.
+	// NetworkDataBase64 contains NoCloud cloud-init networkdata as a base64 encoded string.
 	// + optional
 	NetworkDataBase64 string `json:"networkDataBase64,omitempty"`
 	// NetworkData contains NoCloud inline cloud-init networkdata.
