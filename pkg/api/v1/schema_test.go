@@ -187,6 +187,9 @@ var exampleJSON = `{
         "cloudInitNoCloud": {
           "secretRef": {
             "name": "testsecret"
+          },
+          "networkDataSecretRef": {
+            "name": "testnetworksecret"
           }
         }
       },
@@ -284,6 +287,9 @@ var _ = Describe("Schema", func() {
 					CloudInitNoCloud: &CloudInitNoCloudSource{
 						UserDataSecretRef: &v1.LocalObjectReference{
 							Name: "testsecret",
+						},
+						NetworkDataSecretRef: &v1.LocalObjectReference{
+							Name: "testnetworksecret",
 						},
 					},
 				},

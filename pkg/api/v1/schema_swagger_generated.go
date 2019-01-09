@@ -36,10 +36,13 @@ func (ServiceAccountVolumeSource) SwaggerDoc() map[string]string {
 
 func (CloudInitNoCloudSource) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"":               "Represents a cloud-init nocloud user data source.\nMore info: http://cloudinit.readthedocs.io/en/latest/topics/datasources/nocloud.html",
-		"secretRef":      "UserDataSecretRef references a k8s secret that contains NoCloud userdata.\n+ optional",
-		"userDataBase64": "UserDataBase64 contains NoCloud cloud-init userdata as a base64 encoded string.\n+ optional",
-		"userData":       "UserData contains NoCloud inline cloud-init userdata.\n+ optional",
+		"":                     "Represents a cloud-init nocloud user data source.\nMore info: http://cloudinit.readthedocs.io/en/latest/topics/datasources/nocloud.html",
+		"secretRef":            "UserDataSecretRef references a k8s secret that contains NoCloud userdata.\n+ optional",
+		"userDataBase64":       "UserDataBase64 contains NoCloud cloud-init userdata as a base64 encoded string.\n+ optional",
+		"userData":             "UserData contains NoCloud inline cloud-init userdata.\n+ optional",
+		"networkDataSecretRef": "NetworkDataSecretRef references a k8s secret that contains NoCloud networkdata.\n+ optional",
+		"networkDataBase64":    "NetworkData contains NoCloud inline cloud-init networkdata.\n+ optional",
+		"networkData":          "NetworkData contains NoCloud inline cloud-init networkdata.\n+ optional",
 	}
 }
 
