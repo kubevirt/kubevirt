@@ -18,7 +18,11 @@
  */
 package util
 
-import "k8s.io/client-go/tools/cache"
+import (
+	"k8s.io/client-go/tools/cache"
+
+	"kubevirt.io/kubevirt/pkg/controller"
+)
 
 type Stores struct {
 	ServiceAccountCache     cache.Store
@@ -30,4 +34,64 @@ type Stores struct {
 	ServiceCache            cache.Store
 	DeploymentCache         cache.Store
 	DaemonSetCache          cache.Store
+}
+
+type Expectations struct {
+	ServiceAccount     *controller.UIDTrackingControllerExpectations
+	ClusterRole        *controller.UIDTrackingControllerExpectations
+	ClusterRoleBinding *controller.UIDTrackingControllerExpectations
+	Role               *controller.UIDTrackingControllerExpectations
+	RoleBinding        *controller.UIDTrackingControllerExpectations
+	Crd                *controller.UIDTrackingControllerExpectations
+	Service            *controller.UIDTrackingControllerExpectations
+	Deployment         *controller.UIDTrackingControllerExpectations
+	DaemonSet          *controller.UIDTrackingControllerExpectations
+}
+
+type Informers struct {
+	ServiceAccount     cache.SharedIndexInformer
+	ClusterRole        cache.SharedIndexInformer
+	ClusterRoleBinding cache.SharedIndexInformer
+	Role               cache.SharedIndexInformer
+	RoleBinding        cache.SharedIndexInformer
+	Crd                cache.SharedIndexInformer
+	Service            cache.SharedIndexInformer
+	Deployment         cache.SharedIndexInformer
+	DaemonSet          cache.SharedIndexInformer
+}
+
+func (e *Expectations) DeleteExpectations(key string) {
+	e.ServiceAccount.DeleteExpectations(key)
+	e.ClusterRole.DeleteExpectations(key)
+	e.ClusterRoleBinding.DeleteExpectations(key)
+	e.Role.DeleteExpectations(key)
+	e.RoleBinding.DeleteExpectations(key)
+	e.Crd.DeleteExpectations(key)
+	e.Service.DeleteExpectations(key)
+	e.Deployment.DeleteExpectations(key)
+	e.DaemonSet.DeleteExpectations(key)
+}
+
+func (e *Expectations) ResetExpectations(key string) {
+	e.ServiceAccount.SetExpectations(key, 0, 0)
+	e.ClusterRole.SetExpectations(key, 0, 0)
+	e.ClusterRoleBinding.SetExpectations(key, 0, 0)
+	e.Role.SetExpectations(key, 0, 0)
+	e.RoleBinding.SetExpectations(key, 0, 0)
+	e.Crd.SetExpectations(key, 0, 0)
+	e.Service.SetExpectations(key, 0, 0)
+	e.Deployment.SetExpectations(key, 0, 0)
+	e.DaemonSet.SetExpectations(key, 0, 0)
+}
+
+func (e *Expectations) SatisfiedExpectations(key string) bool {
+	return e.ServiceAccount.SatisfiedExpectations(key) ||
+		e.ClusterRole.SatisfiedExpectations(key) ||
+		e.ClusterRoleBinding.SatisfiedExpectations(key) ||
+		e.Role.SatisfiedExpectations(key) ||
+		e.RoleBinding.SatisfiedExpectations(key) ||
+		e.Crd.SatisfiedExpectations(key) ||
+		e.Service.SatisfiedExpectations(key) ||
+		e.Deployment.SatisfiedExpectations(key) ||
+		e.DaemonSet.SatisfiedExpectations(key)
 }

@@ -52,8 +52,8 @@ type KubeVirtController struct {
 	recorder             record.EventRecorder
 	config               util.KubeVirtDeploymentConfig
 	stores               util.Stores
-	informers            []cache.SharedIndexInformer
-	kubeVirtExpectations *controller.ControllerExpectations
+	informers            util.Informers
+	kubeVirtExpectations util.Expectations
 }
 
 func NewKubeVirtController(
@@ -61,17 +61,27 @@ func NewKubeVirtController(
 	informer cache.SharedIndexInformer,
 	recorder record.EventRecorder,
 	stores util.Stores,
-	informers []cache.SharedIndexInformer) *KubeVirtController {
+	informers util.Informers) *KubeVirtController {
 
 	c := KubeVirtController{
-		clientset:            clientset,
-		queue:                workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter()),
-		kubeVirtInformer:     informer,
-		recorder:             recorder,
-		config:               util.GetConfig(),
-		stores:               stores,
-		informers:            informers,
-		kubeVirtExpectations: controller.NewControllerExpectations(),
+		clientset:        clientset,
+		queue:            workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter()),
+		kubeVirtInformer: informer,
+		recorder:         recorder,
+		config:           util.GetConfig(),
+		stores:           stores,
+		informers:        informers,
+		kubeVirtExpectations: util.Expectations{
+			ServiceAccount:     controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectations()),
+			ClusterRole:        controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectations()),
+			ClusterRoleBinding: controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectations()),
+			Role:               controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectations()),
+			RoleBinding:        controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectations()),
+			Crd:                controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectations()),
+			Service:            controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectations()),
+			Deployment:         controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectations()),
+			DaemonSet:          controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectations()),
+		},
 	}
 
 	c.kubeVirtInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
@@ -80,68 +90,198 @@ func NewKubeVirtController(
 		UpdateFunc: c.updateKubeVirt,
 	})
 
-	for _, informer := range informers {
+	c.informers.ServiceAccount.AddEventHandler(cache.ResourceEventHandlerFuncs{
+		AddFunc: func(obj interface{}) {
+			c.genericAddHandler(obj, c.kubeVirtExpectations.ServiceAccount)
+		},
+		DeleteFunc: func(obj interface{}) {
+			c.genericDeleteHandler(obj, c.kubeVirtExpectations.ServiceAccount)
+		},
+		UpdateFunc: func(oldObj, newObj interface{}) {
+			c.genericUpdateHandler(oldObj, newObj, c.kubeVirtExpectations.ServiceAccount)
+		},
+	})
 
-		informer.AddEventHandler(cache.ResourceEventHandlerFuncs{
-			AddFunc:    c.addHandler,
-			DeleteFunc: c.deleteHandler,
-			UpdateFunc: c.updateHandler,
-		})
-	}
+	c.informers.ClusterRole.AddEventHandler(cache.ResourceEventHandlerFuncs{
+		AddFunc: func(obj interface{}) {
+			c.genericAddHandler(obj, c.kubeVirtExpectations.ClusterRole)
+		},
+		DeleteFunc: func(obj interface{}) {
+			c.genericDeleteHandler(obj, c.kubeVirtExpectations.ClusterRole)
+		},
+		UpdateFunc: func(oldObj, newObj interface{}) {
+			c.genericUpdateHandler(oldObj, newObj, c.kubeVirtExpectations.ClusterRole)
+		},
+	})
+
+	c.informers.ClusterRoleBinding.AddEventHandler(cache.ResourceEventHandlerFuncs{
+		AddFunc: func(obj interface{}) {
+			c.genericAddHandler(obj, c.kubeVirtExpectations.ClusterRoleBinding)
+		},
+		DeleteFunc: func(obj interface{}) {
+			c.genericDeleteHandler(obj, c.kubeVirtExpectations.ClusterRoleBinding)
+		},
+		UpdateFunc: func(oldObj, newObj interface{}) {
+			c.genericUpdateHandler(oldObj, newObj, c.kubeVirtExpectations.ClusterRoleBinding)
+		},
+	})
+
+	c.informers.Role.AddEventHandler(cache.ResourceEventHandlerFuncs{
+		AddFunc: func(obj interface{}) {
+			c.genericAddHandler(obj, c.kubeVirtExpectations.Role)
+		},
+		DeleteFunc: func(obj interface{}) {
+			c.genericDeleteHandler(obj, c.kubeVirtExpectations.Role)
+		},
+		UpdateFunc: func(oldObj, newObj interface{}) {
+			c.genericUpdateHandler(oldObj, newObj, c.kubeVirtExpectations.Role)
+		},
+	})
+
+	c.informers.RoleBinding.AddEventHandler(cache.ResourceEventHandlerFuncs{
+		AddFunc: func(obj interface{}) {
+			c.genericAddHandler(obj, c.kubeVirtExpectations.RoleBinding)
+		},
+		DeleteFunc: func(obj interface{}) {
+			c.genericDeleteHandler(obj, c.kubeVirtExpectations.RoleBinding)
+		},
+		UpdateFunc: func(oldObj, newObj interface{}) {
+			c.genericUpdateHandler(oldObj, newObj, c.kubeVirtExpectations.RoleBinding)
+		},
+	})
+
+	c.informers.Crd.AddEventHandler(cache.ResourceEventHandlerFuncs{
+		AddFunc: func(obj interface{}) {
+			c.genericAddHandler(obj, c.kubeVirtExpectations.Crd)
+		},
+		DeleteFunc: func(obj interface{}) {
+			c.genericDeleteHandler(obj, c.kubeVirtExpectations.Crd)
+		},
+		UpdateFunc: func(oldObj, newObj interface{}) {
+			c.genericUpdateHandler(oldObj, newObj, c.kubeVirtExpectations.Crd)
+		},
+	})
+
+	c.informers.Service.AddEventHandler(cache.ResourceEventHandlerFuncs{
+		AddFunc: func(obj interface{}) {
+			c.genericAddHandler(obj, c.kubeVirtExpectations.Service)
+		},
+		DeleteFunc: func(obj interface{}) {
+			c.genericDeleteHandler(obj, c.kubeVirtExpectations.Service)
+		},
+		UpdateFunc: func(oldObj, newObj interface{}) {
+			c.genericUpdateHandler(oldObj, newObj, c.kubeVirtExpectations.Service)
+		},
+	})
+
+	c.informers.Deployment.AddEventHandler(cache.ResourceEventHandlerFuncs{
+		AddFunc: func(obj interface{}) {
+			c.genericAddHandler(obj, c.kubeVirtExpectations.Deployment)
+		},
+		DeleteFunc: func(obj interface{}) {
+			c.genericDeleteHandler(obj, c.kubeVirtExpectations.Deployment)
+		},
+		UpdateFunc: func(oldObj, newObj interface{}) {
+			c.genericUpdateHandler(oldObj, newObj, c.kubeVirtExpectations.Deployment)
+		},
+	})
+
+	c.informers.DaemonSet.AddEventHandler(cache.ResourceEventHandlerFuncs{
+		AddFunc: func(obj interface{}) {
+			c.genericAddHandler(obj, c.kubeVirtExpectations.DaemonSet)
+		},
+		DeleteFunc: func(obj interface{}) {
+			c.genericDeleteHandler(obj, c.kubeVirtExpectations.DaemonSet)
+		},
+		UpdateFunc: func(oldObj, newObj interface{}) {
+			c.genericUpdateHandler(oldObj, newObj, c.kubeVirtExpectations.DaemonSet)
+		},
+	})
 
 	return &c
 }
 
-func (c *KubeVirtController) genericHandler(obj interface{}, isCreate bool) {
-	logger := log.Log
-	var object metav1.Object
-	var ok bool
-
-	if object, ok = obj.(metav1.Object); !ok {
-		tombstone, ok := obj.(cache.DeletedFinalStateUnknown)
-		if !ok {
-			return
-		}
-		object, ok = tombstone.Obj.(metav1.Object)
-		if !ok {
-			return
-		}
-		logger.V(4).Infof("Recovered deleted object '%s' from tombstone", object.GetName())
-	}
-
-	logger.V(4).Infof("Observed object %s in handler. isCreate: %t", object.GetName(), isCreate)
-
-	// add/delete detected... enqueue active kubevirt objects.
+func (c *KubeVirtController) getOperatorKey() (string, error) {
+	// XXX use owner references instead in general
 	kvs := c.kubeVirtInformer.GetStore().List()
-	for _, obj := range kvs {
-		if kv, ok := obj.(v1.KubeVirt); ok {
-			if isKubeVirtActive(&kv) {
-				key, err := controller.KeyFunc(kv)
-				if err != nil {
-					logger.Object(&kv).Reason(err).Error("Failed to extract key from KubeVirt.")
-				}
+	if len(kvs) > 1 {
+		log.Log.Errorf("More than one KubeVirt custom resource detectged: %v", len(kvs))
+		return "", fmt.Errorf("more than one KubeVirt custom resource detectged: %v", len(kvs))
+	}
 
-				if isCreate {
-					c.kubeVirtExpectations.CreationObserved(key)
-				} else {
-					c.kubeVirtExpectations.DeletionObserved(key)
-				}
-				c.enqueueKubeVirt(obj)
-			}
-		}
+	if len(kvs) == 1 {
+		kv := kvs[0].(*v1.KubeVirt)
+		return controller.KeyFunc(kv)
+	}
+	return "", nil
+}
+
+func (c *KubeVirtController) genericAddHandler(obj interface{}, expecter *controller.UIDTrackingControllerExpectations) {
+	o := obj.(metav1.Object)
+
+	if o.GetDeletionTimestamp() != nil {
+		// on a restart of the controller manager, it's possible a new o shows up in a state that
+		// is already pending deletion. Prevent the o from being a creation observation.
+		c.genericDeleteHandler(obj, expecter)
+		return
+	}
+
+	controllerKey, err := c.getOperatorKey()
+	if controllerKey != "" && err == nil {
+		expecter.CreationObserved(controllerKey)
+		c.queue.Add(controllerKey)
 	}
 }
 
-func (c *KubeVirtController) addHandler(obj interface{}) {
-	c.genericHandler(obj, true)
+// When an object is updated, inform the kubevirt CR about the change
+func (c *KubeVirtController) genericUpdateHandler(old, cur interface{}, expecter *controller.UIDTrackingControllerExpectations) {
+	curObj := cur.(metav1.Object)
+	oldObj := old.(metav1.Object)
+	if curObj.GetResourceVersion() == oldObj.GetResourceVersion() {
+		// Periodic resync will send update events for all known objects.
+		// Two different versions of the same object will always have different RVs.
+		return
+	}
+
+	if curObj.GetDeletionTimestamp() != nil {
+		// having an object marked for deletion is enough to count as a deletion expectation
+		c.genericDeleteHandler(curObj, expecter)
+		return
+	}
+	key, err := c.getOperatorKey()
+	if key != "" && err == nil {
+		c.queue.Add(key)
+	}
+	return
 }
 
-func (c *KubeVirtController) deleteHandler(obj interface{}) {
-	c.genericHandler(obj, false)
-}
+// When an object is deleted, mark objects as deleted and wake up the kubevirt CR
+func (c *KubeVirtController) genericDeleteHandler(obj interface{}, expecter *controller.UIDTrackingControllerExpectations) {
+	var o metav1.Object
+	o.GetSelfLink()
+	tombstone, ok := obj.(cache.DeletedFinalStateUnknown)
+	if ok {
+		o, ok = tombstone.Obj.(metav1.Object)
+		if !ok {
+			log.Log.Reason(fmt.Errorf("tombstone contained object that is not a k8s object %#v", obj)).Error("Failed to process delete notification")
+			return
+		}
+	} else if o, ok = obj.(metav1.Object); !ok {
+		log.Log.Reason(fmt.Errorf("couldn't get object from %+v", obj)).Error("Failed to process delete notification")
+		return
+	}
 
-func (c *KubeVirtController) updateHandler(old, curr interface{}) {
-	// nothing to do here for now.
+	k, err := controller.KeyFunc(o)
+	if err != nil {
+		log.Log.Reason(err).Errorf("could not extract key from k8s object")
+		return
+	}
+
+	key, err := c.getOperatorKey()
+	if key != "" && err == nil {
+		expecter.DeletionObserved(key, k)
+		c.queue.Add(key)
+	}
 }
 
 func (c *KubeVirtController) addKubeVirt(obj interface{}) {
@@ -171,11 +311,17 @@ func (c *KubeVirtController) Run(threadiness int, stopCh chan struct{}) {
 	defer c.queue.ShutDown()
 	log.Log.Info("Starting KubeVirt controller.")
 
-	// Wait for cache sync before we start the pod controller
+	// Wait for cache sync before we start the controller
 	cache.WaitForCacheSync(stopCh, c.kubeVirtInformer.HasSynced)
-	for _, informer := range c.informers {
-		cache.WaitForCacheSync(stopCh, informer.HasSynced)
-	}
+	cache.WaitForCacheSync(stopCh, c.informers.ServiceAccount.HasSynced)
+	cache.WaitForCacheSync(stopCh, c.informers.ClusterRole.HasSynced)
+	cache.WaitForCacheSync(stopCh, c.informers.ClusterRoleBinding.HasSynced)
+	cache.WaitForCacheSync(stopCh, c.informers.Role.HasSynced)
+	cache.WaitForCacheSync(stopCh, c.informers.RoleBinding.HasSynced)
+	cache.WaitForCacheSync(stopCh, c.informers.Crd.HasSynced)
+	cache.WaitForCacheSync(stopCh, c.informers.Service.HasSynced)
+	cache.WaitForCacheSync(stopCh, c.informers.Deployment.HasSynced)
+	cache.WaitForCacheSync(stopCh, c.informers.DaemonSet.HasSynced)
 
 	// Start the actual work
 	for i := 0; i < threadiness; i++ {
@@ -228,12 +374,21 @@ func (c *KubeVirtController) execute(key string) error {
 	kv := obj.(*v1.KubeVirt)
 	logger := log.Log.Object(kv)
 
+	// If we can't extract the key we can't do anything
+	_, err = controller.KeyFunc(kv)
+	if err != nil {
+		log.Log.Reason(err).Errorf("Could not extract the key from the custom resource, will do nothing and not requeue.")
+		return nil
+	}
+
 	// only process the kubevirt deployment if all expectations are satisfied.
 	needsSync := c.kubeVirtExpectations.SatisfiedExpectations(key)
 	if !needsSync {
 		return nil
 	}
 
+	// Adds of all types are not done in one go. We need to set an expectation of 0 so that we can add something
+	c.kubeVirtExpectations.ResetExpectations(key)
 	if kv.DeletionTimestamp != nil {
 
 		log.Log.Info("Handling deleted KubeVirt object")
@@ -251,10 +406,9 @@ func (c *KubeVirtController) execute(key string) error {
 			return err
 		}
 
-		objectsDeleted, err := deletion.Delete(kv, c.clientset, c.stores)
+		objectsDeleted, err := deletion.Delete(kv, c.clientset, c.stores, &c.kubeVirtExpectations)
 		// set expectations regardless of if we get an error or not here because
 		// some objects could have still been deleted.
-		c.kubeVirtExpectations.ExpectDeletions(key, objectsDeleted)
 		if err != nil {
 			// deletion failed
 			err := util.UpdateCondition(kv, v1.KubeVirtConditionSynchronized, k8sv1.ConditionFalse, ConditionReasonDeletionFailedError, fmt.Sprintf("An error occurred during deletion: %v", err), c.clientset)
@@ -334,10 +488,7 @@ func (c *KubeVirtController) execute(key string) error {
 	}
 
 	// deploy
-	objectsAdded, err := creation.Create(kv, c.config, c.stores, c.clientset)
-	// set expectations regardless of if we get an error or not here because
-	// some objects could have still been created.
-	c.kubeVirtExpectations.ExpectCreations(key, objectsAdded)
+	objectsAdded, err := creation.Create(kv, c.config, c.stores, c.clientset, &c.kubeVirtExpectations)
 
 	if err != nil {
 		// deployment failed

@@ -21,6 +21,7 @@ package components
 import (
 	"fmt"
 
+	"kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/log"
 
 	appsv1 "k8s.io/api/apps/v1"
@@ -35,10 +36,14 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-operator/util"
 )
 
-func CreateControllers(clientset kubecli.KubevirtClient, kv *virtv1.KubeVirt, config util.KubeVirtDeploymentConfig, stores util.Stores) (int, error) {
+func CreateControllers(clientset kubecli.KubevirtClient, kv *virtv1.KubeVirt, config util.KubeVirtDeploymentConfig, stores util.Stores, expectations *util.Expectations) (int, error) {
 
 	objectsAdded := 0
 	core := clientset.CoreV1()
+	kvkey, err := controller.KeyFunc(kv)
+	if err != nil {
+		return 0, err
+	}
 
 	services := []*corev1.Service{
 		NewPrometheusService(kv.Namespace),
@@ -46,8 +51,10 @@ func CreateControllers(clientset kubecli.KubevirtClient, kv *virtv1.KubeVirt, co
 	}
 	for _, service := range services {
 		if _, exists, _ := stores.ServiceCache.Get(service); !exists {
+			expectations.Service.RaiseExpectations(kvkey, 1, 0)
 			_, err := core.Services(kv.Namespace).Create(service)
 			if err != nil && !apierrors.IsAlreadyExists(err) {
+				expectations.Service.LowerExpectations(kvkey, 1, 0)
 				return objectsAdded, fmt.Errorf("unable to create service %+v: %v", service, err)
 			} else if err == nil {
 				objectsAdded++
@@ -73,8 +80,10 @@ func CreateControllers(clientset kubecli.KubevirtClient, kv *virtv1.KubeVirt, co
 	deployments := []*appsv1.Deployment{api, controller}
 	for _, deployment := range deployments {
 		if _, exists, _ := stores.DeploymentCache.Get(deployment); !exists {
+			expectations.Deployment.RaiseExpectations(kvkey, 1, 0)
 			_, err := apps.Deployments(kv.Namespace).Create(deployment)
 			if err != nil && !apierrors.IsAlreadyExists(err) {
+				expectations.Deployment.LowerExpectations(kvkey, 1, 0)
 				return objectsAdded, fmt.Errorf("unable to create deployment %+v: %v", deployment, err)
 			} else if err == nil {
 				objectsAdded++
@@ -90,8 +99,10 @@ func CreateControllers(clientset kubecli.KubevirtClient, kv *virtv1.KubeVirt, co
 	}
 
 	if _, exists, _ := stores.DaemonSetCache.Get(handler); !exists {
+		expectations.DaemonSet.RaiseExpectations(kvkey, 1, 0)
 		_, err = apps.DaemonSets(kv.Namespace).Create(handler)
 		if err != nil && !apierrors.IsAlreadyExists(err) {
+			expectations.DaemonSet.LowerExpectations(kvkey, 1, 0)
 			return objectsAdded, fmt.Errorf("unable to create daemonset %+v: %v", handler, err)
 		} else if err == nil {
 			objectsAdded++

@@ -21,6 +21,7 @@ package rbac
 import (
 	"fmt"
 
+	"kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/log"
 	"kubevirt.io/kubevirt/pkg/virt-operator/util"
 
@@ -33,15 +34,21 @@ import (
 	"kubevirt.io/kubevirt/pkg/kubecli"
 )
 
-func CreateApiServerRBAC(clientset kubecli.KubevirtClient, kv *virtv1.KubeVirt, stores util.Stores) (int, error) {
+func CreateApiServerRBAC(clientset kubecli.KubevirtClient, kv *virtv1.KubeVirt, stores util.Stores, expectations *util.Expectations) (int, error) {
 
 	objectsAdded := 0
 	core := clientset.CoreV1()
+	kvkey, err := controller.KeyFunc(kv)
+	if err != nil {
+		return 0, err
+	}
 
 	sa := newApiServerServiceAccount(kv.Namespace)
 	if _, exists, _ := stores.ServiceAccountCache.Get(sa); !exists {
+		expectations.ServiceAccount.RaiseExpectations(kvkey, 1, 0)
 		_, err := core.ServiceAccounts(kv.Namespace).Create(sa)
 		if err != nil && !apierrors.IsAlreadyExists(err) {
+			expectations.ServiceAccount.LowerExpectations(kvkey, 1, 0)
 			return objectsAdded, fmt.Errorf("unable to create serviceaccount %+v: %v", sa, err)
 		} else if err == nil {
 			objectsAdded++
@@ -54,8 +61,10 @@ func CreateApiServerRBAC(clientset kubecli.KubevirtClient, kv *virtv1.KubeVirt, 
 
 	cr := newApiServerClusterRole()
 	if _, exists, _ := stores.ClusterRoleCache.Get(cr); !exists {
+		expectations.ClusterRole.RaiseExpectations(kvkey, 1, 0)
 		_, err := rbac.ClusterRoles().Create(cr)
 		if err != nil && !apierrors.IsAlreadyExists(err) {
+			expectations.ClusterRole.LowerExpectations(kvkey, 1, 0)
 			return objectsAdded, fmt.Errorf("unable to create clusterrole %+v: %v", cr, err)
 		} else if err == nil {
 			objectsAdded++
@@ -70,8 +79,10 @@ func CreateApiServerRBAC(clientset kubecli.KubevirtClient, kv *virtv1.KubeVirt, 
 	}
 	for _, crb := range clusterRoleBindings {
 		if _, exists, _ := stores.ClusterRoleBindingCache.Get(crb); !exists {
+			expectations.ClusterRoleBinding.RaiseExpectations(kvkey, 1, 0)
 			_, err := rbac.ClusterRoleBindings().Create(crb)
 			if err != nil && !apierrors.IsAlreadyExists(err) {
+				expectations.ClusterRoleBinding.LowerExpectations(kvkey, 1, 0)
 				return objectsAdded, fmt.Errorf("unable to create clusterrolebinding %+v: %v", crb, err)
 			} else if err == nil {
 				objectsAdded++
@@ -83,8 +94,10 @@ func CreateApiServerRBAC(clientset kubecli.KubevirtClient, kv *virtv1.KubeVirt, 
 
 	r := newApiServerRole(kv.Namespace)
 	if _, exists, _ := stores.RoleCache.Get(r); !exists {
+		expectations.Role.RaiseExpectations(kvkey, 1, 0)
 		_, err := rbac.Roles(kv.Namespace).Create(r)
 		if err != nil && !apierrors.IsAlreadyExists(err) {
+			expectations.Role.LowerExpectations(kvkey, 1, 0)
 			return objectsAdded, fmt.Errorf("unable to create role %+v: %v", r, err)
 		} else if err == nil {
 			objectsAdded++
@@ -95,8 +108,10 @@ func CreateApiServerRBAC(clientset kubecli.KubevirtClient, kv *virtv1.KubeVirt, 
 
 	rb := newApiServerRoleBinding(kv.Namespace)
 	if _, exists, _ := stores.RoleBindingCache.Get(rb); !exists {
+		expectations.RoleBinding.RaiseExpectations(kvkey, 1, 0)
 		_, err := rbac.RoleBindings(kv.Namespace).Create(rb)
 		if err != nil && !apierrors.IsAlreadyExists(err) {
+			expectations.RoleBinding.LowerExpectations(kvkey, 1, 0)
 			return objectsAdded, fmt.Errorf("unable to create rolebinding %+v: %v", rb, err)
 		} else if err == nil {
 			objectsAdded++

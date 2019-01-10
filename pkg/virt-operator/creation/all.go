@@ -28,19 +28,25 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-operator/util"
 )
 
-func Create(kv *v1.KubeVirt, config util.KubeVirtDeploymentConfig, stores util.Stores, clientset kubecli.KubevirtClient) error {
+func Create(kv *v1.KubeVirt, config util.KubeVirtDeploymentConfig, stores util.Stores, clientset kubecli.KubevirtClient, expectations *util.Expectations) (int, error) {
 
-	err := rbac.CreateClusterRBAC(clientset, kv, stores)
+	objectsAdded := 0
+
+	added, err := rbac.CreateClusterRBAC(clientset, kv, stores, expectations)
+	objectsAdded = objectsAdded + added
 	if err != nil {
 		log.Log.Errorf("Failed to create cluster RBAC: %v", err)
 		return err
 	}
-	err = rbac.CreateApiServerRBAC(clientset, kv, stores)
+	added, err = rbac.CreateApiServerRBAC(clientset, kv, stores, expectations)
+	objectsAdded = objectsAdded + added
 	if err != nil {
 		log.Log.Errorf("Failed to create apiserver RBAC: %v", err)
 		return err
 	}
-	err = rbac.CreateControllerRBAC(clientset, kv, stores)
+
+	added, err = rbac.CreateControllerRBAC(clientset, kv, stores, expectations)
+	objectsAdded = objectsAdded + added
 	if err != nil {
 		log.Log.Errorf("Failed to create controller RBAC: %v", err)
 		return err
@@ -52,12 +58,15 @@ func Create(kv *v1.KubeVirt, config util.KubeVirtDeploymentConfig, stores util.S
 		return err
 	}
 
-	err = components.CreateCRDs(clientset, stores)
+	added, err = components.CreateCRDs(clientset, kv, stores, expectations)
+	objectsAdded = objectsAdded + added
 	if err != nil {
 		log.Log.Errorf("Failed to create crds: %v", err)
 		return err
 	}
-	err = components.CreateControllers(clientset, kv, config, stores)
+
+	added, err = components.CreateControllers(clientset, kv, config, stores, expectations)
+	objectsAdded = objectsAdded + added
 	if err != nil {
 		log.Log.Errorf("Failed to create controllers: %v", err)
 		return err

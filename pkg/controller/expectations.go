@@ -313,6 +313,22 @@ func (u *UIDTrackingControllerExpectations) ExpectDeletions(rcKey string, delete
 	return u.ControllerExpectationsInterface.ExpectDeletions(rcKey, expectedUIDs.Len())
 }
 
+func (u *UIDTrackingControllerExpectations) AddExpectedDeletion(rcKey string, deletedKey string) error {
+	u.uidStoreLock.Lock()
+	defer u.uidStoreLock.Unlock()
+
+	expectedUIDs := sets.NewString()
+	if existing := u.GetUIDs(rcKey); existing != nil && existing.Len() != 0 {
+		expectedUIDs = existing
+	}
+	expectedUIDs.Insert(deletedKey)
+	glog.V(4).Infof("Controller %v waiting on deletions for: %+v", rcKey, expectedUIDs)
+	if err := u.uidStore.Add(&UIDSet{expectedUIDs, rcKey}); err != nil {
+		return err
+	}
+	return u.ControllerExpectationsInterface.ExpectDeletions(rcKey, expectedUIDs.Len())
+}
+
 // DeletionObserved records the given deleteKey as a deletion, for the given rc.
 func (u *UIDTrackingControllerExpectations) DeletionObserved(rcKey, deleteKey string) {
 	u.uidStoreLock.Lock()

@@ -21,6 +21,7 @@ package components
 import (
 	"fmt"
 
+	"kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/log"
 	"kubevirt.io/kubevirt/pkg/virt-operator/util"
 
@@ -33,9 +34,13 @@ import (
 	"kubevirt.io/kubevirt/pkg/kubecli"
 )
 
-func CreateCRDs(clientset kubecli.KubevirtClient, stores util.Stores) (int, error) {
+func CreateCRDs(clientset kubecli.KubevirtClient, kv *virtv1.KubeVirt, stores util.Stores, expectations *util.Expectations) (int, error) {
 
 	objectsAdded := 0
+	kvkey, err := controller.KeyFunc(kv)
+	if err != nil {
+		return 0, err
+	}
 
 	ext, err := extclient.NewForConfig(clientset.Config())
 	if err != nil {
@@ -52,8 +57,10 @@ func CreateCRDs(clientset kubecli.KubevirtClient, stores util.Stores) (int, erro
 
 	for _, crd := range crds {
 		if _, exists, _ := stores.CrdCache.Get(crd); !exists {
+			expectations.Crd.RaiseExpectations(kvkey, 1, 0)
 			_, err := ext.ApiextensionsV1beta1().CustomResourceDefinitions().Create(crd)
 			if err != nil && !apierrors.IsAlreadyExists(err) {
+				expectations.Crd.LowerExpectations(kvkey, 1, 0)
 				return objectsAdded, fmt.Errorf("unable to create crd %+v: %v", crd, err)
 			} else if err == nil {
 				objectsAdded++
