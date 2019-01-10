@@ -21,6 +21,7 @@ package prometheus
 
 import (
 	"fmt"
+	"sync"
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
@@ -31,7 +32,8 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/stats"
 )
 
-const statsMaxAge time.Duration = 10 * time.Second // "long enough" eurhystically determined
+const collectionTimeout time.Duration = 10 * time.Second            // "long enough", crude heuristic
+const statsMaxAge time.Duration = collectionTimeout + 2*time.Second // "a bit more" than timeout, heuristic again
 
 var (
 	// see https://www.robustperception.io/exposing-the-software-version-to-prometheus
@@ -212,7 +214,7 @@ type Collector struct {
 }
 
 func SetupCollector(virtShareDir string) *Collector {
-	log.Log.Infof("starting updater: sharedir=%v", virtShareDir)
+	log.Log.Infof("Starting collector: sharedir=%v", virtShareDir)
 	co := &Collector{
 		virtShareDir: virtShareDir,
 	}
@@ -238,13 +240,32 @@ func (co Collector) Collect(ch chan<- prometheus.Metric) {
 		log.Log.Reason(err).Errorf("failed to list all sockets in '%s'", co.virtShareDir)
 		return
 	}
+	log.Log.V(3).Infof("Collecting VM metrics from %d sockets", len(socketFiles))
+
+	var wg sync.WaitGroup
 	for _, socketFile := range socketFiles {
-		go collectFromSocket(socketFile, ch)
+		wg.Add(1)
+		go collectFromSocket(&wg, socketFile, ch)
 	}
+
+	c := make(chan struct{})
+	go func() {
+		wg.Wait()
+		c <- struct{}{}
+	}()
+	select {
+	case <-c:
+		log.Log.V(3).Infof("Collection succesfull")
+	case <-time.After(collectionTimeout):
+		log.Log.Warning("Collection timeout")
+	}
+
+	log.Log.V(3).Infof("Collection completed")
 	return
 }
 
-func collectFromSocket(socketFile string, ch chan<- prometheus.Metric) {
+func collectFromSocket(wg *sync.WaitGroup, socketFile string, ch chan<- prometheus.Metric) {
+	defer wg.Done()
 	ts := time.Now()
 	log.Log.V(3).Infof("Getting stats from sock %s", socketFile)
 	cli, err := cmdclient.GetClient(socketFile)
