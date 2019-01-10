@@ -7,7 +7,7 @@ RUN dnf install -y dnf-plugins-core && \
     dnf -y install libvirt-devel-${LIBVIRT_VERSION} make git mercurial sudo gcc findutils gradle rsync-daemon rsync qemu-img protobuf-compiler && \
     dnf -y clean all
 
-ENV GIMME_GO_VERSION=1.10
+ENV GIMME_GO_VERSION=1.11.2
 
 RUN mkdir -p /gimme && curl -sL https://raw.githubusercontent.com/travis-ci/gimme/master/gimme | HOME=/gimme bash >> /etc/profile.d/gimme.sh
 
