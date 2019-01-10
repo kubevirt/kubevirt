@@ -301,25 +301,6 @@ func Delete(kv *v1.KubeVirt, clientset kubecli.KubevirtClient) (int, error) {
 		objectsDeleted++
 	}
 
-	// delete CRDs
-	ext, err := extclient.NewForConfig(clientset.Config())
-	crdList, err := ext.ApiextensionsV1beta1().CustomResourceDefinitions().List(metav1.ListOptions{LabelSelector: v1.AppLabel})
-	if err != nil {
-		log.Log.Errorf("Failed to list crds: %v", err)
-		return objectsDeleted, err
-	}
-	for _, crd := range crdList.Items {
-		if crd.DeletionTimestamp != nil {
-			continue
-		}
-		err := ext.ApiextensionsV1beta1().CustomResourceDefinitions().Delete(crd.Name, deleteOptions)
-		if err != nil {
-			log.Log.Errorf("Failed to delete crd %+v: %v", crd, err)
-			return objectsDeleted, err
-		}
-		objectsDeleted++
-	}
-
 	return objectsDeleted, nil
 
 }
