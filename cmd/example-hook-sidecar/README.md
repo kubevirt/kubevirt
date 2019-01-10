@@ -5,7 +5,7 @@ To use this hook, use following annotations:
 ```yaml
 annotations:
   # Request the hook sidecar
-  hooks.kubevirt.io/hookSidecars: '[{"image": "registry:5000/kubevirt/example-hook-sidecar:devel"}]'
+  hooks.kubevirt.io/hookSidecars: '[{"image": "kubevirt/example-hook-sidecar:devel"}]'
   # Overwrite base board manufacturer name
   smbios.vm.kubevirt.io/baseBoardManufacturer: "Radical Edward"
 ```
