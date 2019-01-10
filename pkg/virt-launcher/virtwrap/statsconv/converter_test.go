@@ -140,6 +140,7 @@ func JSONCompareWithFile(buf io.Reader, path string) (bool, error) {
 	if err != nil {
 		return false, err
 	}
+	defer fh.Close()
 	return JSONEqual(buf, fh)
 }
 
