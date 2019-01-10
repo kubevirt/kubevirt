@@ -25,8 +25,6 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/log"
 
-	secv1 "github.com/openshift/client-go/security/clientset/versioned/typed/security/v1"
-
 	k8sv1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -169,10 +167,7 @@ func SetVersions(kv *virtv1.KubeVirt, config KubeVirtDeploymentConfig, clientset
 
 func UpdateScc(clientset kubecli.KubevirtClient, kv *virtv1.KubeVirt, add bool) error {
 
-	secClient, err := secv1.NewForConfig(clientset.Config())
-	if err != nil {
-		return fmt.Errorf("unable to create scc client: %v", err)
-	}
+	secClient := clientset.SecClient()
 
 	privScc, err := secClient.SecurityContextConstraints().Get("privileged", metav1.GetOptions{})
 	if err != nil {

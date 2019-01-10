@@ -29,7 +29,9 @@ import (
 	"io"
 	"time"
 
+	secv1 "github.com/openshift/client-go/security/clientset/versioned/typed/security/v1"
 	autov1 "k8s.io/api/autoscaling/v1"
+	extclient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	k8smetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes"
@@ -51,17 +53,21 @@ type KubevirtClient interface {
 	RestClient() *rest.RESTClient
 	CdiClient() cdiclient.Interface
 	NetworkClient() networkclient.Interface
+	ExtensionsClient() extclient.Interface
+	SecClient() secv1.SecurityV1Interface
 	kubernetes.Interface
 	Config() *rest.Config
 }
 
 type kubevirt struct {
-	master        string
-	kubeconfig    string
-	restClient    *rest.RESTClient
-	config        *rest.Config
-	cdiClient     *cdiclient.Clientset
-	networkClient *networkclient.Clientset
+	master           string
+	kubeconfig       string
+	restClient       *rest.RESTClient
+	config           *rest.Config
+	cdiClient        *cdiclient.Clientset
+	networkClient    *networkclient.Clientset
+	extensionsClient *extclient.Clientset
+	secClient        *secv1.SecurityV1Client
 	*kubernetes.Clientset
 }
 
@@ -75,6 +81,14 @@ func (k kubevirt) CdiClient() cdiclient.Interface {
 
 func (k kubevirt) NetworkClient() networkclient.Interface {
 	return k.networkClient
+}
+
+func (k kubevirt) ExtensionsClient() extclient.Interface {
+	return k.extensionsClient
+}
+
+func (k kubevirt) SecClient() secv1.SecurityV1Interface {
+	return k.secClient
 }
 
 func (k kubevirt) RestClient() *rest.RESTClient {

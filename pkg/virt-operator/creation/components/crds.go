@@ -26,7 +26,6 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-operator/util"
 
 	extv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
-	extclient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
@@ -42,10 +41,7 @@ func CreateCRDs(clientset kubecli.KubevirtClient, kv *virtv1.KubeVirt, stores ut
 		return 0, err
 	}
 
-	ext, err := extclient.NewForConfig(clientset.Config())
-	if err != nil {
-		return objectsAdded, fmt.Errorf("unable to create apiextensions client: %v", err)
-	}
+	ext := clientset.ExtensionsClient()
 
 	crds := []*extv1beta1.CustomResourceDefinition{
 		NewVirtualMachineInstanceCrd(),
@@ -75,7 +71,7 @@ func CreateCRDs(clientset kubecli.KubevirtClient, kv *virtv1.KubeVirt, stores ut
 
 func NewKubeVirtCRD(clientset kubecli.KubevirtClient) error {
 
-	ext := extclient.New(clientset.CoreV1().RESTClient())
+	ext := clientset.ExtensionsClient()
 
 	_, err := ext.ApiextensionsV1beta1().CustomResourceDefinitions().Create(NewKubeVirtCrd())
 	if err != nil && !apierrors.IsAlreadyExists(err) {

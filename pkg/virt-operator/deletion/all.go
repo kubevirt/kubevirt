@@ -26,7 +26,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	extv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
-	extclient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"kubevirt.io/kubevirt/pkg/api/v1"
@@ -50,7 +49,7 @@ func Delete(kv *v1.KubeVirt, clientset kubecli.KubevirtClient, stores util.Store
 	}
 
 	// first delete CRDs only
-	ext, err := extclient.NewForConfig(clientset.Config())
+	ext := clientset.ExtensionsClient()
 	objects := stores.CrdCache.List()
 	for _, obj := range objects {
 		if crd, ok := obj.(*extv1beta1.CustomResourceDefinition); ok && crd.DeletionTimestamp == nil {
