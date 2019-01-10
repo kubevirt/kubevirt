@@ -23,12 +23,17 @@ import (
 	"fmt"
 	"time"
 
+	"kubevirt.io/kubevirt/pkg/log"
+
+	secv1 "github.com/openshift/client-go/security/clientset/versioned/typed/security/v1"
+
 	k8sv1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/json"
 
-	"kubevirt.io/kubevirt/pkg/api/v1"
+	virtv1 "kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/kubecli"
 	"kubevirt.io/kubevirt/pkg/version"
 )
@@ -37,7 +42,7 @@ const (
 	KubeVirtFinalizer string = "foregroundDeleteKubeVirt"
 )
 
-func UpdatePhase(kv *v1.KubeVirt, phase v1.KubeVirtPhase, clientset kubecli.KubevirtClient) error {
+func UpdatePhase(kv *virtv1.KubeVirt, phase virtv1.KubeVirtPhase, clientset kubecli.KubevirtClient) error {
 	var err error
 	if kv.Status.Phase != phase {
 		patchStr := fmt.Sprintf(`{"status":{"phase":"%s"}}`, phase)
@@ -46,7 +51,7 @@ func UpdatePhase(kv *v1.KubeVirt, phase v1.KubeVirtPhase, clientset kubecli.Kube
 	return err
 }
 
-func UpdateCondition(kv *v1.KubeVirt, conditionType v1.KubeVirtConditionType, status k8sv1.ConditionStatus, reason string, message string, clientset kubecli.KubevirtClient) error {
+func UpdateCondition(kv *virtv1.KubeVirt, conditionType virtv1.KubeVirtConditionType, status k8sv1.ConditionStatus, reason string, message string, clientset kubecli.KubevirtClient) error {
 
 	condition, isNew := getCondition(kv, conditionType)
 	transition := false
@@ -93,19 +98,19 @@ func UpdateCondition(kv *v1.KubeVirt, conditionType v1.KubeVirtConditionType, st
 	return err
 }
 
-func getCondition(kv *v1.KubeVirt, conditionType v1.KubeVirtConditionType) (*v1.KubeVirtCondition, bool) {
+func getCondition(kv *virtv1.KubeVirt, conditionType virtv1.KubeVirtConditionType) (*virtv1.KubeVirtCondition, bool) {
 	for _, condition := range kv.Status.Conditions {
 		if condition.Type == conditionType {
 			return &condition, false
 		}
 	}
-	condition := &v1.KubeVirtCondition{
+	condition := &virtv1.KubeVirtCondition{
 		Type: conditionType,
 	}
 	return condition, true
 }
 
-func RemoveConditions(kv *v1.KubeVirt, clientset kubecli.KubevirtClient) error {
+func RemoveConditions(kv *virtv1.KubeVirt, clientset kubecli.KubevirtClient) error {
 	var conditions []struct{}
 	var condJson string
 	bytes, err := json.Marshal(conditions)
@@ -119,7 +124,7 @@ func RemoveConditions(kv *v1.KubeVirt, clientset kubecli.KubevirtClient) error {
 	return err
 }
 
-func AddFinalizer(kv *v1.KubeVirt, clientset kubecli.KubevirtClient) error {
+func AddFinalizer(kv *virtv1.KubeVirt, clientset kubecli.KubevirtClient) error {
 	if !HasFinalizer(kv) {
 		kv.Finalizers = append(kv.Finalizers, KubeVirtFinalizer)
 		return patchFinalizer(kv, clientset)
@@ -127,12 +132,12 @@ func AddFinalizer(kv *v1.KubeVirt, clientset kubecli.KubevirtClient) error {
 	return nil
 }
 
-func RemoveFinalizer(kv *v1.KubeVirt, clientset kubecli.KubevirtClient) error {
+func RemoveFinalizer(kv *virtv1.KubeVirt, clientset kubecli.KubevirtClient) error {
 	kv.SetFinalizers([]string{})
 	return patchFinalizer(kv, clientset)
 }
 
-func HasFinalizer(kv *v1.KubeVirt) bool {
+func HasFinalizer(kv *virtv1.KubeVirt) bool {
 	for _, f := range kv.GetFinalizers() {
 		if f == KubeVirtFinalizer {
 			return true
@@ -141,7 +146,7 @@ func HasFinalizer(kv *v1.KubeVirt) bool {
 	return false
 }
 
-func patchFinalizer(kv *v1.KubeVirt, clientset kubecli.KubevirtClient) error {
+func patchFinalizer(kv *virtv1.KubeVirt, clientset kubecli.KubevirtClient) error {
 	var finalizers string
 	bytes, err := json.Marshal(kv.Finalizers)
 	if err != nil {
@@ -153,11 +158,82 @@ func patchFinalizer(kv *v1.KubeVirt, clientset kubecli.KubevirtClient) error {
 	return err
 }
 
-func SetVersions(kv *v1.KubeVirt, config KubeVirtDeploymentConfig, clientset kubecli.KubevirtClient) error {
+func SetVersions(kv *virtv1.KubeVirt, config KubeVirtDeploymentConfig, clientset kubecli.KubevirtClient) error {
 	// Note: for now we just set targetKubeVirtVersion and observedKubeVirtVersion to the tag of the operator image
 	// In future this needs some more work...
 	patchStr := fmt.Sprintf(`{"status":{"operatorVersion":"%s", "targetKubeVirtVersion":"%s", "observedKubeVirtVersion":"%s"}}`,
 		version.Get().String(), config.ImageTag, config.ImageTag)
 	kv, err := clientset.KubeVirt(kv.Namespace).Patch(kv.Name, types.MergePatchType, []byte(patchStr))
 	return err
+}
+
+func UpdateScc(clientset kubecli.KubevirtClient, kv *virtv1.KubeVirt, add bool) error {
+
+	secClient, err := secv1.NewForConfig(clientset.Config())
+	if err != nil {
+		return fmt.Errorf("unable to create scc client: %v", err)
+	}
+
+	privScc, err := secClient.SecurityContextConstraints().Get("privileged", metav1.GetOptions{})
+	if err != nil {
+		if apierrors.IsNotFound(err) {
+			// we are mot on openshift?
+			log.Log.V(4).Infof("unable to get scc, we are probably not on openshift: %v", err)
+			return nil
+		} else {
+			return fmt.Errorf("unable to get scc: %v", err)
+		}
+	}
+
+	var kubeVirtAccounts []string
+	prefix := "system:serviceaccount"
+	kubeVirtAccounts = append(kubeVirtAccounts, fmt.Sprintf("%s:%s:%s", prefix, kv.Namespace, "kubevirt-privileged"))
+	kubeVirtAccounts = append(kubeVirtAccounts, fmt.Sprintf("%s:%s:%s", prefix, kv.Namespace, "kubevirt-apiserver"))
+	kubeVirtAccounts = append(kubeVirtAccounts, fmt.Sprintf("%s:%s:%s", prefix, kv.Namespace, "kubevirt-controller"))
+
+	modified := false
+	users := privScc.Users
+	for _, acc := range kubeVirtAccounts {
+		if add {
+			if !contains(users, acc) {
+				users = append(users, acc)
+				modified = true
+			}
+		} else {
+			removed := false
+			users, removed = remove(users, acc)
+			modified = modified || removed
+		}
+	}
+	if modified {
+		privScc.Users = users
+		_, err = secClient.SecurityContextConstraints().Update(privScc)
+		if err != nil {
+			return fmt.Errorf("unable to update scc: %v", err)
+		}
+	}
+
+	return nil
+}
+
+func contains(users []string, user string) bool {
+	for _, u := range users {
+		if u == user {
+			return true
+		}
+	}
+	return false
+}
+
+func remove(users []string, user string) ([]string, bool) {
+	var newUsers []string
+	modified := false
+	for _, u := range users {
+		if u != user {
+			newUsers = append(newUsers, u)
+		} else {
+			modified = true
+		}
+	}
+	return newUsers, modified
 }

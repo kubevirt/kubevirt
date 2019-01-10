@@ -251,7 +251,7 @@ func (c *KubeVirtController) execute(key string) error {
 			return err
 		}
 
-		objectsDeleted, err := deletion.Delete(kv, c.clientset)
+		objectsDeleted, err := deletion.Delete(kv, c.clientset, c.stores)
 		// set expectations regardless of if we get an error or not here because
 		// some objects could have still been deleted.
 		c.kubeVirtExpectations.ExpectDeletions(key, objectsDeleted)

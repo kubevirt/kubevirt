@@ -46,10 +46,10 @@ func Create(kv *v1.KubeVirt, config util.KubeVirtDeploymentConfig, stores util.S
 		return err
 	}
 
-	err = rbac.CreateScc(clientset, kv)
+	err = util.UpdateScc(clientset, kv, true)
 	if err != nil {
 		log.Log.Errorf("Failed to update SCC: %v", err)
-		return objectsAdded, err
+		return err
 	}
 
 	err = components.CreateCRDs(clientset, stores)
@@ -62,8 +62,6 @@ func Create(kv *v1.KubeVirt, config util.KubeVirtDeploymentConfig, stores util.S
 		log.Log.Errorf("Failed to create controllers: %v", err)
 		return err
 	}
-
-	log.Log.Infof("Successfully deployed %+v", kv)
 
 	return nil
 }
