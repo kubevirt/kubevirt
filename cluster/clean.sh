@@ -56,6 +56,10 @@ for i in ${namespaces[@]}; do
         _kubectl -n ${i} delete secrets -l ${label}
         _kubectl -n ${i} delete customresourcedefinitions -l ${label}
 
+        if [[ "$KUBEVIRT_PROVIDER" =~ os-* ]]; then
+            _kubectl -n ${i} delete scc -l ${label}
+        fi
+
         # W/A for https://github.com/kubernetes/kubernetes/issues/65818
         if [[ "$KUBEVIRT_PROVIDER" =~ .*.10..* ]]; then
             # k8s version 1.10.* does not have --wait parameter
