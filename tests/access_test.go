@@ -30,7 +30,7 @@ import (
 	"kubevirt.io/kubevirt/tests"
 )
 
-var _ = Describe("[rfe_id:500, crit:high, vendor:cnv-qe@redhat.com, level:component]User Access", func() {
+var _ = Describe("[rfe_id:500][crit:high][vendor:cnv-qe@redhat.com][level:component]User Access", func() {
 
 	flag.Parse()
 
@@ -127,7 +127,7 @@ var _ = Describe("[rfe_id:500, crit:high, vendor:cnv-qe@redhat.com, level:compon
 			table.Entry("[test_id:526]given a vmi", "virtualmachineinstances"),
 			table.Entry("[test_id:527]given an vm", "virtualmachines"),
 			table.Entry("[test_id:528]given a vmi preset", "virtualmachineinstancepresets"),
-			table.Entry("[test_id:529, crit:low]given a vmi replica set", "virtualmachineinstancereplicasets"),
+			table.Entry("[test_id:529][crit:low]given a vmi replica set", "virtualmachineinstancereplicasets"),
 		)
 	})
 })
