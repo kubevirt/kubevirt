@@ -2131,6 +2131,15 @@ func (in *VirtualMachineInstanceSpec) DeepCopyInto(out *VirtualMachineInstanceSp
 			(*in)[i].DeepCopyInto(&(*out)[i])
 		}
 	}
+	if in.DNSConfig != nil {
+		in, out := &in.DNSConfig, &out.DNSConfig
+		if *in == nil {
+			*out = nil
+		} else {
+			*out = new(core_v1.PodDNSConfig)
+			(*in).DeepCopyInto(*out)
+		}
+	}
 	return
 }
 
