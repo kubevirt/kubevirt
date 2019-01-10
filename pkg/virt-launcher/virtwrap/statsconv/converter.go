@@ -17,18 +17,22 @@
  *
  */
 
-package stats
+package statsconv
 
 //go:generate mockgen -source $GOFILE -imports "libvirt=github.com/libvirt/libvirt-go" -package=$GOPACKAGE -destination=generated_mock_$GOFILE
 
-import "github.com/libvirt/libvirt-go"
+import (
+	"github.com/libvirt/libvirt-go"
+
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/stats"
+)
 
 type DomainIdentifier interface {
 	GetName() (string, error)
 	GetUUIDString() (string, error)
 }
 
-func Convert_libvirt_DomainStats_to_stats_DomainStats(ident DomainIdentifier, in *libvirt.DomainStats, inMem []libvirt.DomainMemoryStat, out *DomainStats) error {
+func Convert_libvirt_DomainStats_to_stats_DomainStats(ident DomainIdentifier, in *libvirt.DomainStats, inMem []libvirt.DomainMemoryStat, out *stats.DomainStats) error {
 	name, err := ident.GetName()
 	if err != nil {
 		return err
@@ -50,12 +54,12 @@ func Convert_libvirt_DomainStats_to_stats_DomainStats(ident DomainIdentifier, in
 	return nil
 }
 
-func Convert_libvirt_DomainStatsCpu_To_stats_DomainStatsCpu(in *libvirt.DomainStatsCPU) *DomainStatsCPU {
+func Convert_libvirt_DomainStatsCpu_To_stats_DomainStatsCpu(in *libvirt.DomainStatsCPU) *stats.DomainStatsCPU {
 	if in == nil {
-		return &DomainStatsCPU{}
+		return &stats.DomainStatsCPU{}
 	}
 
-	return &DomainStatsCPU{
+	return &stats.DomainStatsCPU{
 		TimeSet:   in.TimeSet,
 		Time:      in.Time,
 		UserSet:   in.UserSet,
@@ -65,8 +69,8 @@ func Convert_libvirt_DomainStatsCpu_To_stats_DomainStatsCpu(in *libvirt.DomainSt
 	}
 }
 
-func Convert_libvirt_MemoryStat_to_stats_DomainStatsMemory(inMem []libvirt.DomainMemoryStat) *DomainStatsMemory {
-	ret := &DomainStatsMemory{}
+func Convert_libvirt_MemoryStat_to_stats_DomainStatsMemory(inMem []libvirt.DomainMemoryStat) *stats.DomainStatsMemory {
+	ret := &stats.DomainStatsMemory{}
 	for _, stat := range inMem {
 		tag := libvirt.DomainMemoryStatTags(stat.Tag)
 		switch tag {
@@ -87,10 +91,10 @@ func Convert_libvirt_MemoryStat_to_stats_DomainStatsMemory(inMem []libvirt.Domai
 	return ret
 }
 
-func Convert_libvirt_DomainStatsVcpu_To_stats_DomainStatsVcpu(in []libvirt.DomainStatsVcpu) []DomainStatsVcpu {
-	ret := make([]DomainStatsVcpu, 0, len(in))
+func Convert_libvirt_DomainStatsVcpu_To_stats_DomainStatsVcpu(in []libvirt.DomainStatsVcpu) []stats.DomainStatsVcpu {
+	ret := make([]stats.DomainStatsVcpu, 0, len(in))
 	for _, inItem := range in {
-		ret = append(ret, DomainStatsVcpu{
+		ret = append(ret, stats.DomainStatsVcpu{
 			StateSet: inItem.StateSet,
 			State:    int(inItem.State),
 			TimeSet:  inItem.TimeSet,
@@ -100,10 +104,10 @@ func Convert_libvirt_DomainStatsVcpu_To_stats_DomainStatsVcpu(in []libvirt.Domai
 	return ret
 }
 
-func Convert_libvirt_DomainStatsNet_To_stats_DomainStatsNet(in []libvirt.DomainStatsNet) []DomainStatsNet {
-	ret := make([]DomainStatsNet, 0, len(in))
+func Convert_libvirt_DomainStatsNet_To_stats_DomainStatsNet(in []libvirt.DomainStatsNet) []stats.DomainStatsNet {
+	ret := make([]stats.DomainStatsNet, 0, len(in))
 	for _, inItem := range in {
-		ret = append(ret, DomainStatsNet{
+		ret = append(ret, stats.DomainStatsNet{
 			NameSet:    inItem.NameSet,
 			Name:       inItem.Name,
 			RxBytesSet: inItem.RxBytesSet,
@@ -127,10 +131,10 @@ func Convert_libvirt_DomainStatsNet_To_stats_DomainStatsNet(in []libvirt.DomainS
 	return ret
 }
 
-func Convert_libvirt_DomainStatsBlock_To_stats_DomainStatsBlock(in []libvirt.DomainStatsBlock) []DomainStatsBlock {
-	ret := make([]DomainStatsBlock, 0, len(in))
+func Convert_libvirt_DomainStatsBlock_To_stats_DomainStatsBlock(in []libvirt.DomainStatsBlock) []stats.DomainStatsBlock {
+	ret := make([]stats.DomainStatsBlock, 0, len(in))
 	for _, inItem := range in {
-		ret = append(ret, DomainStatsBlock{
+		ret = append(ret, stats.DomainStatsBlock{
 			NameSet:         inItem.NameSet,
 			Name:            inItem.Name,
 			BackingIndexSet: inItem.BackingIndexSet,

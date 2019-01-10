@@ -17,7 +17,7 @@
  *
  */
 
-package stats
+package statsconv
 
 import (
 	"bytes"
@@ -33,6 +33,7 @@ import (
 	. "github.com/onsi/gomega"
 
 	"kubevirt.io/kubevirt/pkg/log"
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/stats"
 )
 
 var _ = Describe("StatsConverter", func() {
@@ -52,7 +53,7 @@ var _ = Describe("StatsConverter", func() {
 		It("should handle empty input", func() {
 			in := &libvirt.DomainStats{}
 			inMem := []libvirt.DomainMemoryStat{}
-			out := DomainStats{}
+			out := stats.DomainStats{}
 			mockDomainIdent.EXPECT().GetName().Return("testName", nil)
 			mockDomainIdent.EXPECT().GetUUIDString().Return("testUUID", nil)
 			ident := DomainIdentifier(mockDomainIdent)
@@ -67,7 +68,7 @@ var _ = Describe("StatsConverter", func() {
 		It("should handle valid input", func() {
 			in := &testStats[0]
 			inMem := []libvirt.DomainMemoryStat{}
-			out := DomainStats{}
+			out := stats.DomainStats{}
 			mockDomainIdent.EXPECT().GetName().Return("testName", nil)
 			mockDomainIdent.EXPECT().GetUUIDString().Return("testUUID", nil)
 			ident := DomainIdentifier(mockDomainIdent)
@@ -86,7 +87,7 @@ var _ = Describe("StatsConverter", func() {
 		It("should convert valid input", func() {
 			in := &testStats[0]
 			inMem := []libvirt.DomainMemoryStat{}
-			out := DomainStats{}
+			out := stats.DomainStats{}
 			mockDomainIdent.EXPECT().GetName().Return("testName", nil)
 			mockDomainIdent.EXPECT().GetUUIDString().Return("testUUID", nil)
 			ident := DomainIdentifier(mockDomainIdent)

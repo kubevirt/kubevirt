@@ -33,6 +33,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/log"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/errors"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/stats"
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/statsconv"
 )
 
 const ConnectionTimeout = 15 * time.Second
@@ -220,7 +221,7 @@ func (l *LibvirtConnection) GetDomainStats(statsTypes libvirt.DomainStatsTypes, 
 		}
 
 		stat := &stats.DomainStats{}
-		err = stats.Convert_libvirt_DomainStats_to_stats_DomainStats(stats.DomainIdentifier(domStat.Domain), &domStat, memStats, stat)
+		err = statsconv.Convert_libvirt_DomainStats_to_stats_DomainStats(statsconv.DomainIdentifier(domStat.Domain), &domStat, memStats, stat)
 		if err != nil {
 			return list, err
 		}

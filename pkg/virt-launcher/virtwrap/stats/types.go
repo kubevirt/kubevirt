@@ -33,7 +33,8 @@ package stats
 //
 // We choose to replicate the libvirt structs here, kinda like the rest of the virtwrap
 // package tree does, again to be independent with respec to the libvirt data types,
-// and to avoid that client code (e.g. anything that uses cmd-client) needs to import it.
+// and to avoid that client code (e.g. anything that uses cmd-client) needs to import it,
+// dragging the libvirt dependency in the final binary.
 
 type DomainStats struct {
 	// the following aren't really needed for stats, but it's practical to report
