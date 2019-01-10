@@ -21,7 +21,6 @@ package virt_api
 
 import (
 	"errors"
-	"flag"
 	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
@@ -39,6 +38,7 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/client-go/util/cert"
 	"k8s.io/client-go/util/cert/triple"
+	aggregatorclient "k8s.io/kube-aggregator/pkg/client/clientset_generated/clientset"
 
 	v1 "kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/kubecli"
@@ -82,6 +82,7 @@ var _ = Describe("Virt-api", func() {
 		config, err := clientcmd.BuildConfigFromFlags(server.URL(), "")
 		Expect(err).ToNot(HaveOccurred())
 		app.authorizor, err = rest.NewAuthorizorFromConfig(config)
+		app.aggregatorClient = aggregatorclient.NewForConfigOrDie(config)
 		Expect(err).ToNot(HaveOccurred())
 		ctrl = gomock.NewController(GinkgoT())
 		authorizorMock = rest.NewMockVirtApiAuthorizor(ctrl)
@@ -332,7 +333,6 @@ xw==
 					ghttp.RespondWithJSONEncoded(http.StatusOK, nil),
 				),
 			)
-			flag.Set("master", server.URL())
 			err := app.createSubresourceApiservice()
 			Expect(err).ToNot(HaveOccurred())
 		}, 5)
@@ -352,7 +352,6 @@ xw==
 					ghttp.RespondWithJSONEncoded(http.StatusOK, nil),
 				),
 			)
-			flag.Set("master", server.URL())
 			err := app.createSubresourceApiservice()
 			Expect(err).ToNot(HaveOccurred())
 		}, 5)
@@ -366,7 +365,6 @@ xw==
 					ghttp.RespondWithJSONEncoded(http.StatusOK, badApiService),
 				),
 			)
-			flag.Set("master", server.URL())
 			err := app.createSubresourceApiservice()
 			Expect(err).To(HaveOccurred())
 		}, 5)

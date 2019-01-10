@@ -102,6 +102,7 @@ type virtAPIApp struct {
 	SwaggerUI        string
 	SubresourcesOnly bool
 	virtCli          kubecli.KubevirtClient
+	aggregatorClient *aggregatorclient.Clientset
 	authorizor       rest.VirtApiAuthorizor
 	certsDirectory   string
 
@@ -141,6 +142,13 @@ func (app *virtAPIApp) Execute() {
 	if err != nil {
 		panic(err)
 	}
+
+	config, err := kubecli.GetConfig()
+	if err != nil {
+		panic(err)
+	}
+
+	app.aggregatorClient = aggregatorclient.NewForConfigOrDie(config)
 
 	app.authorizor = authorizor
 
@@ -803,18 +811,12 @@ func (app *virtAPIApp) subresourceApiservice() *apiregistrationv1beta1.APIServic
 }
 
 func (app *virtAPIApp) createSubresourceApiservice() error {
-	config, err := kubecli.GetConfig()
-	if err != nil {
-		return err
-	}
 
 	subresourceApiservice := app.subresourceApiservice()
 
-	aggregatorClient := aggregatorclient.NewForConfigOrDie(config)
-
 	registerApiService := false
 
-	apiService, err := aggregatorClient.ApiregistrationV1beta1().APIServices().Get(subresourceApiservice.Name, metav1.GetOptions{})
+	apiService, err := app.aggregatorClient.ApiregistrationV1beta1().APIServices().Get(subresourceApiservice.Name, metav1.GetOptions{})
 	if err != nil {
 		if k8serrors.IsNotFound(err) {
 			registerApiService = true
@@ -824,7 +826,7 @@ func (app *virtAPIApp) createSubresourceApiservice() error {
 	}
 
 	if registerApiService {
-		_, err = aggregatorClient.ApiregistrationV1beta1().APIServices().Create(app.subresourceApiservice())
+		_, err = app.aggregatorClient.ApiregistrationV1beta1().APIServices().Create(app.subresourceApiservice())
 		if err != nil {
 			return err
 		}
@@ -835,7 +837,7 @@ func (app *virtAPIApp) createSubresourceApiservice() error {
 
 		// Always update spec to latest.
 		apiService.Spec = app.subresourceApiservice().Spec
-		_, err := aggregatorClient.ApiregistrationV1beta1().APIServices().Update(apiService)
+		_, err := app.aggregatorClient.ApiregistrationV1beta1().APIServices().Update(apiService)
 		if err != nil {
 			return err
 		}
