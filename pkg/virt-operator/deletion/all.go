@@ -23,9 +23,8 @@ import (
 	"fmt"
 
 	extclient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/types"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	apiclient "k8s.io/kube-aggregator/pkg/client/clientset_generated/clientset"
 
 	"kubevirt.io/kubevirt/pkg/api/v1"
@@ -40,6 +39,28 @@ func Delete(kv *v1.KubeVirt, clientset kubecli.KubevirtClient) (int, error) {
 	gracePeriod := int64(0)
 	deleteOptions := &metav1.DeleteOptions{
 		GracePeriodSeconds: &gracePeriod,
+	}
+
+	// first delete CRDs only
+	ext, err := extclient.NewForConfig(clientset.Config())
+	crdList, err := ext.ApiextensionsV1beta1().CustomResourceDefinitions().List(metav1.ListOptions{LabelSelector: v1.AppLabel})
+	if err != nil {
+		log.Log.Errorf("Failed to list crds: %v", err)
+		return objectsDeleted, err
+	}
+	for _, crd := range crdList.Items {
+		if crd.DeletionTimestamp != nil {
+			continue
+		}
+		err := ext.ApiextensionsV1beta1().CustomResourceDefinitions().Delete(crd.Name, deleteOptions)
+		if err != nil {
+			log.Log.Errorf("Failed to delete crd %+v: %v", crd, err)
+			return objectsDeleted, err
+		}
+		objectsDeleted++
+	}
+	if objectsDeleted > 0 {
+		return objectsDeleted, nil
 	}
 
 	// delete vmimigrations, vmirs, vm, vmi
@@ -103,9 +124,6 @@ func Delete(kv *v1.KubeVirt, clientset kubecli.KubevirtClient) (int, error) {
 		if vmi.DeletionTimestamp != nil {
 			continue
 		}
-		// remove finalizer first
-		patchStr := fmt.Sprintf(`{"metadata":{"finalizers":"[]"}}`)
-		vmi, _ := clientset.VirtualMachine(vmi.Namespace).Patch(vmi.Name, types.MergePatchType, []byte(patchStr))
 		clientset.VirtualMachine(vmi.Namespace).Delete(vmi.Namespace, deleteOptions)
 		if err != nil {
 			log.Log.Errorf("Failed to delete vmi %+v: %v", vmi, err)
@@ -200,7 +218,7 @@ func Delete(kv *v1.KubeVirt, clientset kubecli.KubevirtClient) (int, error) {
 	// delete RBAC
 	crbList, err := clientset.RbacV1().ClusterRoleBindings().List(metav1.ListOptions{LabelSelector: v1.AppLabel})
 	if err != nil {
-		log.Log.Errorf("Failed to list crds: %v", err)
+		log.Log.Errorf("Failed to list crbs: %v", err)
 		return objectsDeleted, err
 	}
 	for _, crb := range crbList.Items {
@@ -209,7 +227,7 @@ func Delete(kv *v1.KubeVirt, clientset kubecli.KubevirtClient) (int, error) {
 		}
 		err := clientset.RbacV1().ClusterRoleBindings().Delete(crb.Name, deleteOptions)
 		if err != nil {
-			log.Log.Errorf("Failed to delete crd %+v: %v", crb, err)
+			log.Log.Errorf("Failed to delete crb %+v: %v", crb, err)
 			return objectsDeleted, err
 		}
 		objectsDeleted++

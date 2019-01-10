@@ -264,19 +264,22 @@ func (c *KubeVirtController) execute(key string) error {
 			return err
 		}
 
-		// deletion successful
-		err = util.UpdatePhase(kv, v1.KubeVirtPhaseDeleted, c.clientset)
-		if err != nil {
-			log.Log.Errorf("Failed to update phase: %v", err)
+		if objectsDeleted == 0 {
+			// deletion successful
+			err = util.UpdatePhase(kv, v1.KubeVirtPhaseDeleted, c.clientset)
+			if err != nil {
+				log.Log.Errorf("Failed to update phase: %v", err)
+			}
+			err = util.RemoveConditions(kv, c.clientset)
+			if err != nil {
+				log.Log.Errorf("Failed to update condition: %v", err)
+			}
+			err = util.RemoveFinalizer(kv, c.clientset)
+			if err != nil {
+				log.Log.Errorf("Failed to remove finalizer: %v", err)
+			}
 		}
-		err = util.RemoveConditions(kv, c.clientset)
-		if err != nil {
-			log.Log.Errorf("Failed to update condition: %v", err)
-		}
-		err = util.RemoveFinalizer(kv, c.clientset)
-		if err != nil {
-			log.Log.Errorf("Failed to remove finalizer: %v", err)
-		}
+
 		return nil
 	}
 
@@ -345,15 +348,18 @@ func (c *KubeVirtController) execute(key string) error {
 		return err
 	}
 
-	// deployment successful
-	err = util.UpdatePhase(kv, v1.KubeVirtPhaseDeployed, c.clientset)
-	if err != nil {
-		log.Log.Errorf("Failed to update phase: %v", err)
+	if objectsAdded == 0 {
+		// deployment successful
+		err = util.UpdatePhase(kv, v1.KubeVirtPhaseDeployed, c.clientset)
+		if err != nil {
+			log.Log.Errorf("Failed to update phase: %v", err)
+		}
+		err = util.RemoveConditions(kv, c.clientset)
+		if err != nil {
+			log.Log.Errorf("Failed to update condition: %v", err)
+		}
 	}
-	err = util.RemoveConditions(kv, c.clientset)
-	if err != nil {
-		log.Log.Errorf("Failed to update condition: %v", err)
-	}
+
 	return nil
 }
 

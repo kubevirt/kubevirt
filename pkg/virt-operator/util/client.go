@@ -38,8 +38,11 @@ const (
 )
 
 func UpdatePhase(kv *v1.KubeVirt, phase v1.KubeVirtPhase, clientset kubecli.KubevirtClient) error {
-	patchStr := fmt.Sprintf(`{"status":{"phase":"%s"}}`, phase)
-	_, err := clientset.KubeVirt(kv.Namespace).Patch(kv.Name, types.MergePatchType, []byte(patchStr))
+	var err error
+	if kv.Status.Phase != phase {
+		patchStr := fmt.Sprintf(`{"status":{"phase":"%s"}}`, phase)
+		kv, err = clientset.KubeVirt(kv.Namespace).Patch(kv.Name, types.MergePatchType, []byte(patchStr))
+	}
 	return err
 }
 
