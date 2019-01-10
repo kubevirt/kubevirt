@@ -1408,8 +1408,7 @@ func AddEphemeralFloppy(vmi *v1.VirtualMachineInstance, name string, image strin
 
 func AddEphemeralCdrom(vmi *v1.VirtualMachineInstance, name string, bus string, image string) *v1.VirtualMachineInstance {
 	vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
-		Name:       name,
-		VolumeName: name,
+		Name: name,
 		DiskDevice: v1.DiskDevice{
 			CDRom: &v1.CDRomTarget{
 				Bus: bus,

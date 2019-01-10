@@ -173,9 +173,10 @@ var exampleJSON = `{
     },
     "volumes": [
       {
-        "name": "volume0",
+        "name": "disk0",
         "containerDisk": {
           "image": "test/image",
+          "path": "/disk.img"
         }
       },
       {

@@ -2413,8 +2413,7 @@ var _ = Describe("Validating Webhook", func() {
 			vmi := v1.NewMinimalVMI("testvmi")
 
 			vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
-				Name:       "testdisk1",
-				VolumeName: "testvolume1",
+				Name: "testdisk1",
 				DiskDevice: v1.DiskDevice{
 					Disk: &v1.DiskTarget{
 						Bus: "virtio",
@@ -2422,8 +2421,7 @@ var _ = Describe("Validating Webhook", func() {
 				},
 			})
 			vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
-				Name:       "testdisk2",
-				VolumeName: "testvolume2",
+				Name: "testdisk2",
 				DiskDevice: v1.DiskDevice{
 					LUN: &v1.LunTarget{
 						Bus: "sata",
@@ -2431,8 +2429,7 @@ var _ = Describe("Validating Webhook", func() {
 				},
 			})
 			vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
-				Name:       "testdisk3",
-				VolumeName: "testvolume3",
+				Name: "testdisk3",
 				DiskDevice: v1.DiskDevice{
 					CDRom: &v1.CDRomTarget{
 						Bus: "scsi",
@@ -2440,8 +2437,7 @@ var _ = Describe("Validating Webhook", func() {
 				},
 			})
 			vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
-				Name:       "testdisk4",
-				VolumeName: "testvolume4",
+				Name: "testdisk4",
 				DiskDevice: v1.DiskDevice{
 					Disk: &v1.DiskTarget{},
 				},
@@ -2455,8 +2451,7 @@ var _ = Describe("Validating Webhook", func() {
 			vmi := v1.NewMinimalVMI("testvmi")
 
 			vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
-				Name:       "testdisk1",
-				VolumeName: "testvolume1",
+				Name: "testdisk1",
 				DiskDevice: v1.DiskDevice{
 					Disk: &v1.DiskTarget{
 						Bus: "ide",
@@ -2464,8 +2459,7 @@ var _ = Describe("Validating Webhook", func() {
 				},
 			})
 			vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
-				Name:       "testdisk2",
-				VolumeName: "testvolume2",
+				Name: "testdisk2",
 				DiskDevice: v1.DiskDevice{
 					LUN: &v1.LunTarget{
 						Bus: "unsupported",
