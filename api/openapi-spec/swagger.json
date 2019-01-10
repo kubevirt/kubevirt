@@ -66,7 +66,7 @@
      }
     }
    },
-   "/apis/kubevirt.io/v1alpha2": {
+   "/apis/kubevirt.io/v1alpha3": {
     "get": {
      "produces": [
       "application/json"
@@ -92,7 +92,7 @@
      }
     }
    },
-   "/apis/kubevirt.io/v1alpha2/namespaces/{namespace}/virtualmachineinstancemigrations": {
+   "/apis/kubevirt.io/v1alpha3/namespaces/{namespace}/virtualmachineinstancemigrations": {
     "get": {
      "produces": [
       "application/json",
@@ -312,7 +312,7 @@
      }
     }
    },
-   "/apis/kubevirt.io/v1alpha2/namespaces/{namespace}/virtualmachineinstancemigrations/{name}": {
+   "/apis/kubevirt.io/v1alpha3/namespaces/{namespace}/virtualmachineinstancemigrations/{name}": {
     "get": {
      "produces": [
       "application/json",
@@ -558,7 +558,7 @@
      }
     }
    },
-   "/apis/kubevirt.io/v1alpha2/namespaces/{namespace}/virtualmachineinstancepresets": {
+   "/apis/kubevirt.io/v1alpha3/namespaces/{namespace}/virtualmachineinstancepresets": {
     "get": {
      "produces": [
       "application/json",
@@ -778,7 +778,7 @@
      }
     }
    },
-   "/apis/kubevirt.io/v1alpha2/namespaces/{namespace}/virtualmachineinstancepresets/{name}": {
+   "/apis/kubevirt.io/v1alpha3/namespaces/{namespace}/virtualmachineinstancepresets/{name}": {
     "get": {
      "produces": [
       "application/json",
@@ -1024,7 +1024,7 @@
      }
     }
    },
-   "/apis/kubevirt.io/v1alpha2/namespaces/{namespace}/virtualmachineinstancereplicasets": {
+   "/apis/kubevirt.io/v1alpha3/namespaces/{namespace}/virtualmachineinstancereplicasets": {
     "get": {
      "produces": [
       "application/json",
@@ -1244,7 +1244,7 @@
      }
     }
    },
-   "/apis/kubevirt.io/v1alpha2/namespaces/{namespace}/virtualmachineinstancereplicasets/{name}": {
+   "/apis/kubevirt.io/v1alpha3/namespaces/{namespace}/virtualmachineinstancereplicasets/{name}": {
     "get": {
      "produces": [
       "application/json",
@@ -1490,7 +1490,7 @@
      }
     }
    },
-   "/apis/kubevirt.io/v1alpha2/namespaces/{namespace}/virtualmachineinstances": {
+   "/apis/kubevirt.io/v1alpha3/namespaces/{namespace}/virtualmachineinstances": {
     "get": {
      "produces": [
       "application/json",
@@ -1710,7 +1710,7 @@
      }
     }
    },
-   "/apis/kubevirt.io/v1alpha2/namespaces/{namespace}/virtualmachineinstances/{name}": {
+   "/apis/kubevirt.io/v1alpha3/namespaces/{namespace}/virtualmachineinstances/{name}": {
     "get": {
      "produces": [
       "application/json",
@@ -1956,7 +1956,7 @@
      }
     }
    },
-   "/apis/kubevirt.io/v1alpha2/namespaces/{namespace}/virtualmachines": {
+   "/apis/kubevirt.io/v1alpha3/namespaces/{namespace}/virtualmachines": {
     "get": {
      "produces": [
       "application/json",
@@ -2176,7 +2176,7 @@
      }
     }
    },
-   "/apis/kubevirt.io/v1alpha2/namespaces/{namespace}/virtualmachines/{name}": {
+   "/apis/kubevirt.io/v1alpha3/namespaces/{namespace}/virtualmachines/{name}": {
     "get": {
      "produces": [
       "application/json",
@@ -2422,7 +2422,7 @@
      }
     }
    },
-   "/apis/kubevirt.io/v1alpha2/virtualmachineinstancemigrations": {
+   "/apis/kubevirt.io/v1alpha3/virtualmachineinstancemigrations": {
     "get": {
      "produces": [
       "application/json",
@@ -2500,7 +2500,7 @@
      }
     }
    },
-   "/apis/kubevirt.io/v1alpha2/virtualmachineinstancepresets": {
+   "/apis/kubevirt.io/v1alpha3/virtualmachineinstancepresets": {
     "get": {
      "produces": [
       "application/json",
@@ -2578,7 +2578,7 @@
      }
     }
    },
-   "/apis/kubevirt.io/v1alpha2/virtualmachineinstancereplicasets": {
+   "/apis/kubevirt.io/v1alpha3/virtualmachineinstancereplicasets": {
     "get": {
      "produces": [
       "application/json",
@@ -2656,7 +2656,7 @@
      }
     }
    },
-   "/apis/kubevirt.io/v1alpha2/virtualmachineinstances": {
+   "/apis/kubevirt.io/v1alpha3/virtualmachineinstances": {
     "get": {
      "produces": [
       "application/json",
@@ -2734,7 +2734,7 @@
      }
     }
    },
-   "/apis/kubevirt.io/v1alpha2/virtualmachines": {
+   "/apis/kubevirt.io/v1alpha3/virtualmachines": {
     "get": {
      "produces": [
       "application/json",
@@ -2812,7 +2812,7 @@
      }
     }
    },
-   "/apis/kubevirt.io/v1alpha2/watch/namespaces/{namespace}/virtualmachineinstancemigrations": {
+   "/apis/kubevirt.io/v1alpha3/watch/namespaces/{namespace}/virtualmachineinstancemigrations": {
     "get": {
      "produces": [
       "application/json"
@@ -2896,7 +2896,7 @@
      }
     }
    },
-   "/apis/kubevirt.io/v1alpha2/watch/namespaces/{namespace}/virtualmachineinstancepresets": {
+   "/apis/kubevirt.io/v1alpha3/watch/namespaces/{namespace}/virtualmachineinstancepresets": {
     "get": {
      "produces": [
       "application/json"
@@ -2980,7 +2980,7 @@
      }
     }
    },
-   "/apis/kubevirt.io/v1alpha2/watch/namespaces/{namespace}/virtualmachineinstancereplicasets": {
+   "/apis/kubevirt.io/v1alpha3/watch/namespaces/{namespace}/virtualmachineinstancereplicasets": {
     "get": {
      "produces": [
       "application/json"
@@ -3064,7 +3064,7 @@
      }
     }
    },
-   "/apis/kubevirt.io/v1alpha2/watch/namespaces/{namespace}/virtualmachineinstances": {
+   "/apis/kubevirt.io/v1alpha3/watch/namespaces/{namespace}/virtualmachineinstances": {
     "get": {
      "produces": [
       "application/json"
@@ -3148,7 +3148,7 @@
      }
     }
    },
-   "/apis/kubevirt.io/v1alpha2/watch/namespaces/{namespace}/virtualmachines": {
+   "/apis/kubevirt.io/v1alpha3/watch/namespaces/{namespace}/virtualmachines": {
     "get": {
      "produces": [
       "application/json"
@@ -3232,7 +3232,7 @@
      }
     }
    },
-   "/apis/kubevirt.io/v1alpha2/watch/virtualmachineinstancemigrations": {
+   "/apis/kubevirt.io/v1alpha3/watch/virtualmachineinstancemigrations": {
     "get": {
      "produces": [
       "application/json"
@@ -3308,7 +3308,7 @@
      }
     }
    },
-   "/apis/kubevirt.io/v1alpha2/watch/virtualmachineinstancepresets": {
+   "/apis/kubevirt.io/v1alpha3/watch/virtualmachineinstancepresets": {
     "get": {
      "produces": [
       "application/json"
@@ -3384,7 +3384,7 @@
      }
     }
    },
-   "/apis/kubevirt.io/v1alpha2/watch/virtualmachineinstancereplicasets": {
+   "/apis/kubevirt.io/v1alpha3/watch/virtualmachineinstancereplicasets": {
     "get": {
      "produces": [
       "application/json"
@@ -3460,7 +3460,7 @@
      }
     }
    },
-   "/apis/kubevirt.io/v1alpha2/watch/virtualmachineinstances": {
+   "/apis/kubevirt.io/v1alpha3/watch/virtualmachineinstances": {
     "get": {
      "produces": [
       "application/json"
@@ -3536,7 +3536,7 @@
      }
     }
    },
-   "/apis/kubevirt.io/v1alpha2/watch/virtualmachines": {
+   "/apis/kubevirt.io/v1alpha3/watch/virtualmachines": {
     "get": {
      "produces": [
       "application/json"
@@ -3638,7 +3638,7 @@
      }
     }
    },
-   "/apis/subresources.kubevirt.io/v1alpha2": {
+   "/apis/subresources.kubevirt.io/v1alpha3": {
     "get": {
      "produces": [
       "application/json"
@@ -3664,7 +3664,7 @@
      }
     }
    },
-   "/apis/subresources.kubevirt.io/v1alpha2/healthz": {
+   "/apis/subresources.kubevirt.io/v1alpha3/healthz": {
     "get": {
      "consumes": [
       "application/json"
@@ -3687,7 +3687,7 @@
      }
     }
    },
-   "/apis/subresources.kubevirt.io/v1alpha2/namespaces/{namespace}/virtualmachineinstances/{name}/console": {
+   "/apis/subresources.kubevirt.io/v1alpha3/namespaces/{namespace}/virtualmachineinstances/{name}/console": {
     "get": {
      "summary": "Open a websocket connection to a serial console on the specified VirtualMachineInstance.",
      "operationId": "console",
@@ -3716,7 +3716,7 @@
      }
     }
    },
-   "/apis/subresources.kubevirt.io/v1alpha2/namespaces/{namespace}/virtualmachineinstances/{name}/test": {
+   "/apis/subresources.kubevirt.io/v1alpha3/namespaces/{namespace}/virtualmachineinstances/{name}/test": {
     "get": {
      "summary": "Test endpoint verifying apiserver connectivity.",
      "operationId": "test",
@@ -3745,7 +3745,7 @@
      }
     }
    },
-   "/apis/subresources.kubevirt.io/v1alpha2/namespaces/{namespace}/virtualmachineinstances/{name}/vnc": {
+   "/apis/subresources.kubevirt.io/v1alpha3/namespaces/{namespace}/virtualmachineinstances/{name}/vnc": {
     "get": {
      "summary": "Open a websocket connection to connect to VNC on the specified VirtualMachineInstance.",
      "operationId": "vnc",
@@ -3774,7 +3774,7 @@
      }
     }
    },
-   "/apis/subresources.kubevirt.io/v1alpha2/namespaces/{namespace}/virtualmachines/{name}/restart": {
+   "/apis/subresources.kubevirt.io/v1alpha3/namespaces/{namespace}/virtualmachines/{name}/restart": {
     "put": {
      "summary": "Restart a VirtualMachine object.",
      "operationId": "restart",
@@ -3809,7 +3809,7 @@
      }
     }
    },
-   "/apis/subresources.kubevirt.io/v1alpha2/version": {
+   "/apis/subresources.kubevirt.io/v1alpha3/version": {
     "get": {
      "produces": [
       "application/json"

@@ -35,7 +35,7 @@ objects:
             disks:
             - disk:
                 bus: virtio
-              name: registrydisk
+              name: containerdisk
             - disk:
                 bus: virtio
               name: cloudinitdisk
@@ -48,7 +48,7 @@ objects:
         volumes:
         - containerDisk:
             image: registry:5000/kubevirt/fedora-cloud-container-disk-demo:devel
-          name: registrydisk
+          name: containerdisk
         - cloudInitNoCloud:
             userData: |-
               #cloud-config
