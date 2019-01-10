@@ -51,7 +51,7 @@ func SetupNetworkInterfaces(vmi *v1.VirtualMachineInstance, domain *api.Domain) 
 	cniNetworks := map[string]int{}
 	for _, network := range vmi.Spec.Networks {
 		networks[network.Name] = network.DeepCopy()
-		if networks[network.Name].Multus != nil {
+		if networks[network.Name].Multus != nil && !networks[network.Name].Multus.Default {
 			// multus pod interfaces start from 1
 			cniNetworks[network.Name] = len(cniNetworks) + 1
 		} else if networks[network.Name].Genie != nil {
@@ -70,7 +70,7 @@ func SetupNetworkInterfaces(vmi *v1.VirtualMachineInstance, domain *api.Domain) 
 			return err
 		}
 
-		if networks[iface.Name].Multus != nil {
+		if networks[iface.Name].Multus != nil && !networks[iface.Name].Multus.Default {
 			// multus pod interfaces named netX
 			podInterfaceName = fmt.Sprintf("net%d", cniNetworks[iface.Name])
 		} else if networks[iface.Name].Genie != nil {

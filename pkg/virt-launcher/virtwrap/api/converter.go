@@ -873,13 +873,20 @@ func Convert_v1_VirtualMachine_To_api_Domain(vmi *v1.VirtualMachineInstance, dom
 
 	networks := map[string]*v1.Network{}
 	cniNetworks := map[string]int{}
+	multusNetworkIndex := 1
 	for _, network := range vmi.Spec.Networks {
 		numberOfSources := 0
 		if network.Pod != nil {
 			numberOfSources++
 		}
 		if network.Multus != nil {
-			cniNetworks[network.Name] = len(cniNetworks) + 1
+			if network.Multus.Default {
+				// default network is eth0
+				cniNetworks[network.Name] = 0
+			} else {
+				cniNetworks[network.Name] = multusNetworkIndex
+				multusNetworkIndex++
+			}
 			numberOfSources++
 		}
 		if network.Genie != nil {
@@ -971,7 +978,11 @@ func Convert_v1_VirtualMachine_To_api_Domain(vmi *v1.VirtualMachineInstance, dom
 					prefix := ""
 					// no error check, we assume that CNI type was set correctly
 					if net.Multus != nil {
-						prefix = "net"
+						if net.Multus.Default {
+							prefix = "eth"
+						} else {
+							prefix = "net"
+						}
 					} else if net.Genie != nil {
 						prefix = "eth"
 					}

@@ -4084,6 +4084,10 @@
      "networkName"
     ],
     "properties": {
+     "default": {
+      "description": "For Multus CNI select the default network and add it to the\nmultus-cni.io/default-network annotation. Ignored for all\nother CNIs.",
+      "type": "boolean"
+     },
      "networkName": {
       "description": "References to a NetworkAttachmentDefinition CRD object. Format:\n\u003cnetworkName\u003e, \u003cnamespace\u003e/\u003cnetworkName\u003e. If namespace is not\nspecified, VMI namespace is assumed.\nIn case of genie, it references the CNI plugin name.",
       "type": "string"

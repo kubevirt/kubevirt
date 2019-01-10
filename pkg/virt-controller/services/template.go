@@ -66,6 +66,7 @@ const LibvirtStartupDelay = 10
 const NFD_CPU_MODEL_PREFIX = "feature.node.kubernetes.io/cpu-model-"
 
 const MULTUS_RESOURCE_NAME_ANNOTATION = "k8s.v1.cni.cncf.io/resourceName"
+const MULTUS_DEFAULT_NETWORK_CNI_ANNOTATION = "v1.multus-cni.io/default-network"
 
 type TemplateService interface {
 	RenderLaunchManifest(*v1.VirtualMachineInstance) (*k8sv1.Pod, error)
@@ -771,6 +772,12 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 		annotationsList[cniAnnotation] = cniNetworks
 	}
 
+	for _, network := range vmi.Spec.Networks {
+		if network.Multus != nil && network.Multus.Default {
+			annotationsList[MULTUS_DEFAULT_NETWORK_CNI_ANNOTATION] = network.Multus.NetworkName
+		}
+	}
+
 	// TODO use constants for podLabels
 	pod := k8sv1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
@@ -979,6 +986,9 @@ func getCniInterfaceList(vmi *v1.VirtualMachineInstance) (ifaceListString string
 		// set the type for the first network
 		// all other networks must have same type
 		if network.Multus != nil {
+			if network.Multus.Default {
+				continue
+			}
 			ifaceList = append(ifaceList, network.Multus.NetworkName)
 			if cniAnnotation == "" {
 				cniAnnotation = "k8s.v1.cni.cncf.io/networks"

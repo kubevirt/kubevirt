@@ -172,6 +172,37 @@ var _ = Describe("Template", func() {
 				Expect(ok).To(Equal(true))
 				Expect(value).To(Equal("default,test1"))
 			})
+			It("should add default multus networks in the multus default-network annotation", func() {
+				vmi := v1.VirtualMachineInstance{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "testvmi",
+						Namespace: "default",
+						UID:       "1234",
+					},
+					Spec: v1.VirtualMachineInstanceSpec{
+						Domain: v1.DomainSpec{},
+						Networks: []v1.Network{
+							{Name: "default",
+								NetworkSource: v1.NetworkSource{
+									Multus: &v1.CniNetwork{NetworkName: "default", Default: true},
+								}},
+							{Name: "test1",
+								NetworkSource: v1.NetworkSource{
+									Multus: &v1.CniNetwork{NetworkName: "test1"},
+								}},
+						},
+					},
+				}
+
+				pod, err := svc.RenderLaunchManifest(&vmi)
+				Expect(err).ToNot(HaveOccurred())
+				value, ok := pod.Annotations["v1.multus-cni.io/default-network"]
+				Expect(ok).To(Equal(true))
+				Expect(value).To(Equal("default"))
+				value, ok = pod.Annotations["k8s.v1.cni.cncf.io/networks"]
+				Expect(ok).To(Equal(true))
+				Expect(value).To(Equal("test1"))
+			})
 		})
 		Context("with genie annotation", func() {
 			It("should add genie networks in the pod annotation", func() {
