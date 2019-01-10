@@ -94,6 +94,15 @@ func LoadOpenAPISpec(webServices []*restful.WebService) *spec.Swagger {
 			prop.Type = spec.StringOrArray{"string", "number"}
 			s.Properties["port"] = prop
 		}
+		if k == "v1.PersistentVolumeClaimSpec" {
+			for i, r := range s.Required {
+				if r == "dataSource" {
+					s.Required = append(s.Required[:i], s.Required[i+1:]...)
+					openapispec.Definitions[k] = s
+					break
+				}
+			}
+		}
 	}
 
 	return openapispec
