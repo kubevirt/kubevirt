@@ -36,6 +36,22 @@ type Stores struct {
 	DaemonSetCache          cache.Store
 }
 
+func (s *Stores) AllEmpty() bool {
+	return IsStoreEmpty(s.ServiceAccountCache) &&
+		IsStoreEmpty(s.ClusterRoleCache) &&
+		IsStoreEmpty(s.ClusterRoleBindingCache) &&
+		IsStoreEmpty(s.RoleCache) &&
+		IsStoreEmpty(s.RoleBindingCache) &&
+		IsStoreEmpty(s.CrdCache) &&
+		IsStoreEmpty(s.ServiceCache) &&
+		IsStoreEmpty(s.DeploymentCache) &&
+		IsStoreEmpty(s.DaemonSetCache)
+}
+
+func IsStoreEmpty(store cache.Store) bool {
+	return len(store.ListKeys()) == 0
+}
+
 type Expectations struct {
 	ServiceAccount     *controller.UIDTrackingControllerExpectations
 	ClusterRole        *controller.UIDTrackingControllerExpectations

@@ -25,11 +25,19 @@ source hack/config.sh
 
 echo "Cleaning up ..."
 
-# Delete KubeVirt CR
+# Delete KubeVirt CR, timeout after 10 seconds
 set +e
-_kubectl -n ${namespace} delete kv kubevirt
+(
+    cmdpid=$BASHPID
+    (
+        sleep 10
+        kill $cmdpid
+    ) &
+    _kubectl -n ${namespace} delete kv kubevirt
+)
+_kubectl -n ${namespace} patch kv kubevirt --type=json -p '[{ "op": "remove", "path": "/metadata/finalizers" }]'
+
 set -e
-sleep 5
 
 # Remove finalizers from all running vmis, to not block the cleanup
 _kubectl get vmis --all-namespaces -o=custom-columns=NAME:.metadata.name,NAMESPACE:.metadata.namespace,FINALIZERS:.metadata.finalizers --no-headers | grep foregroundDeleteVirtualMachine | while read p; do

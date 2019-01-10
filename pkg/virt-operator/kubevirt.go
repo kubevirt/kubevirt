@@ -258,7 +258,6 @@ func (c *KubeVirtController) genericUpdateHandler(old, cur interface{}, expecter
 // When an object is deleted, mark objects as deleted and wake up the kubevirt CR
 func (c *KubeVirtController) genericDeleteHandler(obj interface{}, expecter *controller.UIDTrackingControllerExpectations) {
 	var o metav1.Object
-	o.GetSelfLink()
 	tombstone, ok := obj.(cache.DeletedFinalStateUnknown)
 	if ok {
 		o, ok = tombstone.Obj.(metav1.Object)
@@ -381,9 +380,12 @@ func (c *KubeVirtController) execute(key string) error {
 		return nil
 	}
 
+	logger.Infof("Handling KubeVirt resource")
+
 	// only process the kubevirt deployment if all expectations are satisfied.
 	needsSync := c.kubeVirtExpectations.SatisfiedExpectations(key)
 	if !needsSync {
+		logger.Infof("Waiting for expectations to be fulfilled")
 		return nil
 	}
 
@@ -391,7 +393,7 @@ func (c *KubeVirtController) execute(key string) error {
 	c.kubeVirtExpectations.ResetExpectations(key)
 	if kv.DeletionTimestamp != nil {
 
-		log.Log.Info("Handling deleted KubeVirt object")
+		log.Log.Info("Handling deletion")
 
 		// delete
 		if kv.Status.Phase == v1.KubeVirtPhaseDeleted {
@@ -406,9 +408,7 @@ func (c *KubeVirtController) execute(key string) error {
 			return err
 		}
 
-		objectsDeleted, err := deletion.Delete(kv, c.clientset, c.stores, &c.kubeVirtExpectations)
-		// set expectations regardless of if we get an error or not here because
-		// some objects could have still been deleted.
+		err := deletion.Delete(kv, c.clientset, c.stores, &c.kubeVirtExpectations)
 		if err != nil {
 			// deletion failed
 			err := util.UpdateCondition(kv, v1.KubeVirtConditionSynchronized, k8sv1.ConditionFalse, ConditionReasonDeletionFailedError, fmt.Sprintf("An error occurred during deletion: %v", err), c.clientset)
@@ -418,7 +418,7 @@ func (c *KubeVirtController) execute(key string) error {
 			return err
 		}
 
-		if objectsDeleted == 0 {
+		if c.stores.AllEmpty() {
 			// deletion successful
 			err = util.UpdatePhase(kv, v1.KubeVirtPhaseDeleted, c.clientset)
 			if err != nil {
@@ -432,12 +432,16 @@ func (c *KubeVirtController) execute(key string) error {
 			if err != nil {
 				log.Log.Errorf("Failed to remove finalizer: %v", err)
 			}
+
+			log.Log.Info("KubeVirt deleted")
+			return nil
 		}
 
+		log.Log.Info("Processed deletion for this round")
 		return nil
 	}
 
-	logger.Infof("handling deployment of KubeVirt object")
+	logger.Infof("Handling deployment")
 
 	if kv.Status.Phase == v1.KubeVirtPhaseDeployed {
 		log.Log.Info("Is already deployed")
@@ -509,8 +513,12 @@ func (c *KubeVirtController) execute(key string) error {
 		if err != nil {
 			log.Log.Errorf("Failed to update condition: %v", err)
 		}
+
+		log.Log.Info("KubeVirt deployed")
+		return nil
 	}
 
+	log.Log.Info("Processed deployment for this round")
 	return nil
 }
 

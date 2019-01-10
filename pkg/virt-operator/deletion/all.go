@@ -25,7 +25,7 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
-	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
+	extv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
 	extclient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
@@ -36,13 +36,12 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-operator/util"
 )
 
-func Delete(kv *v1.KubeVirt, clientset kubecli.KubevirtClient, stores util.Stores, expectations *util.Expectations) (int, error) {
+func Delete(kv *v1.KubeVirt, clientset kubecli.KubevirtClient, stores util.Stores, expectations *util.Expectations) error {
 
-	objectsDeleted := 0
 	kvkey, err := controller.KeyFunc(kv)
 	if err != nil {
 		/// XXX this is not correct, we can't even process this object in the cache, we should do nothing
-		return 0, err
+		return err
 	}
 
 	gracePeriod := int64(0)
@@ -54,29 +53,32 @@ func Delete(kv *v1.KubeVirt, clientset kubecli.KubevirtClient, stores util.Store
 	ext, err := extclient.NewForConfig(clientset.Config())
 	objects := stores.CrdCache.List()
 	for _, obj := range objects {
-		if crd, ok := obj.(apiextensions.CustomResourceDefinition); ok && crd.DeletionTimestamp == nil {
+		if crd, ok := obj.(*extv1beta1.CustomResourceDefinition); ok && crd.DeletionTimestamp == nil {
 			if key, err := controller.KeyFunc(crd); err == nil {
 				expectations.Crd.AddExpectedDeletion(kvkey, key)
 				err := ext.ApiextensionsV1beta1().CustomResourceDefinitions().Delete(crd.Name, deleteOptions)
 				if err != nil {
 					expectations.Crd.DeletionObserved(kvkey, key)
 					log.Log.Errorf("Failed to delete crd %+v: %v", crd, err)
-					return objectsDeleted, err
+					return err
 				}
-				objectsDeleted++
 			}
+		} else if !ok {
+			log.Log.Errorf("Cast failed! obj: %+v", obj)
+			return nil
 		}
+
 	}
-	if objectsDeleted > 0 {
+	if !util.IsStoreEmpty(stores.CrdCache) {
 		// wait until CRDs are gone
-		return objectsDeleted, nil
+		return nil
 	}
 
 	// delete handler daemonset
 	obj, exists, err := stores.DaemonSetCache.GetByKey(fmt.Sprintf("%s/%s", kv.Namespace, "virt-handler"))
 	if err != nil {
 		log.Log.Errorf("Failed to get virt-handler: %v", err)
-		return objectsDeleted, err
+		return err
 	} else if exists {
 		if ds, ok := obj.(*appsv1.DaemonSet); ok && ds.DeletionTimestamp == nil {
 			if key, err := controller.KeyFunc(ds); err == nil {
@@ -85,10 +87,12 @@ func Delete(kv *v1.KubeVirt, clientset kubecli.KubevirtClient, stores util.Store
 				if err != nil {
 					expectations.DaemonSet.DeletionObserved(kvkey, key)
 					log.Log.Errorf("Failed to delete virt-handler: %v", err)
-					return objectsDeleted, err
+					return err
 				}
-				objectsDeleted++
 			}
+		} else if !ok {
+			log.Log.Errorf("Cast failed! obj: %+v", obj)
+			return nil
 		}
 	}
 
@@ -97,7 +101,7 @@ func Delete(kv *v1.KubeVirt, clientset kubecli.KubevirtClient, stores util.Store
 		obj, exists, err := stores.DeploymentCache.GetByKey(fmt.Sprintf("%s/%s", kv.Namespace, name))
 		if err != nil {
 			log.Log.Errorf("Failed to get %v: %v", name, err)
-			return objectsDeleted, err
+			return err
 		} else if exists {
 			if depl, ok := obj.(*appsv1.Deployment); ok && depl.DeletionTimestamp == nil {
 				if key, err := controller.KeyFunc(depl); err == nil {
@@ -106,10 +110,12 @@ func Delete(kv *v1.KubeVirt, clientset kubecli.KubevirtClient, stores util.Store
 					if err != nil {
 						expectations.Deployment.DeletionObserved(kvkey, key)
 						log.Log.Errorf("Failed to delete virt-handler: %v", err)
-						return objectsDeleted, err
+						return err
 					}
-					objectsDeleted++
 				}
+			} else if !ok {
+				log.Log.Errorf("Cast failed! obj: %+v", obj)
+				return nil
 			}
 		}
 	}
@@ -117,107 +123,119 @@ func Delete(kv *v1.KubeVirt, clientset kubecli.KubevirtClient, stores util.Store
 	// delete services
 	objects = stores.ServiceCache.List()
 	for _, obj := range objects {
-		if svc, ok := obj.(corev1.Service); ok && svc.DeletionTimestamp == nil {
+		if svc, ok := obj.(*corev1.Service); ok && svc.DeletionTimestamp == nil {
 			if key, err := controller.KeyFunc(svc); err == nil {
 				expectations.Service.AddExpectedDeletion(kvkey, key)
 				err := clientset.CoreV1().Services(kv.Namespace).Delete(svc.Name, deleteOptions)
 				if err != nil {
 					expectations.Service.DeletionObserved(kvkey, key)
 					log.Log.Errorf("Failed to delete service %+v: %v", svc, err)
-					return objectsDeleted, err
+					return err
 				}
-				objectsDeleted++
 			}
+		} else if !ok {
+			log.Log.Errorf("Cast failed! obj: %+v", obj)
+			return nil
 		}
 	}
 
 	// delete RBAC
 	objects = stores.ClusterRoleBindingCache.List()
 	for _, obj := range objects {
-		if crb, ok := obj.(rbacv1.ClusterRoleBinding); ok && crb.DeletionTimestamp == nil {
+		if crb, ok := obj.(*rbacv1.ClusterRoleBinding); ok && crb.DeletionTimestamp == nil {
 			if key, err := controller.KeyFunc(crb); err == nil {
 				expectations.ClusterRoleBinding.AddExpectedDeletion(kvkey, key)
 				err := clientset.RbacV1().ClusterRoleBindings().Delete(crb.Name, deleteOptions)
 				if err != nil {
 					expectations.ClusterRoleBinding.DeletionObserved(kvkey, key)
 					log.Log.Errorf("Failed to delete crb %+v: %v", crb, err)
-					return objectsDeleted, err
+					return err
 				}
-				objectsDeleted++
 			}
+		} else if !ok {
+			log.Log.Errorf("Cast failed! obj: %+v", obj)
+			return nil
 		}
 	}
 
 	objects = stores.ClusterRoleCache.List()
 	for _, obj := range objects {
-		if cr, ok := obj.(rbacv1.ClusterRole); ok && cr.DeletionTimestamp == nil {
+		if cr, ok := obj.(*rbacv1.ClusterRole); ok && cr.DeletionTimestamp == nil {
 			if key, err := controller.KeyFunc(cr); err == nil {
 				expectations.ClusterRole.AddExpectedDeletion(kvkey, key)
 				err := clientset.RbacV1().ClusterRoles().Delete(cr.Name, deleteOptions)
 				if err != nil {
 					expectations.ClusterRole.DeletionObserved(kvkey, key)
 					log.Log.Errorf("Failed to delete cr %+v: %v", cr, err)
-					return objectsDeleted, err
+					return err
 				}
-				objectsDeleted++
 			}
+		} else if !ok {
+			log.Log.Errorf("Cast failed! obj: %+v", obj)
+			return nil
 		}
 	}
 
 	objects = stores.RoleBindingCache.List()
 	for _, obj := range objects {
-		if rb, ok := obj.(rbacv1.RoleBinding); ok && rb.DeletionTimestamp == nil {
+		if rb, ok := obj.(*rbacv1.RoleBinding); ok && rb.DeletionTimestamp == nil {
 			if key, err := controller.KeyFunc(rb); err == nil {
 				expectations.RoleBinding.AddExpectedDeletion(kvkey, key)
 				err := clientset.RbacV1().RoleBindings(kv.Namespace).Delete(rb.Name, deleteOptions)
 				if err != nil {
 					expectations.RoleBinding.DeletionObserved(kvkey, key)
 					log.Log.Errorf("Failed to delete rb %+v: %v", rb, err)
-					return objectsDeleted, err
+					return err
 				}
-				objectsDeleted++
 			}
+		} else if !ok {
+			log.Log.Errorf("Cast failed! obj: %+v", obj)
+			return nil
 		}
 	}
 
 	objects = stores.RoleCache.List()
 	for _, obj := range objects {
-		if role, ok := obj.(rbacv1.Role); ok && role.DeletionTimestamp == nil {
+		if role, ok := obj.(*rbacv1.Role); ok && role.DeletionTimestamp == nil {
 			if key, err := controller.KeyFunc(role); err == nil {
 				expectations.Role.AddExpectedDeletion(kvkey, key)
 				err := clientset.RbacV1().Roles(kv.Namespace).Delete(role.Name, deleteOptions)
 				if err != nil {
 					expectations.Role.DeletionObserved(kvkey, key)
 					log.Log.Errorf("Failed to delete role %+v: %v", role, err)
-					return objectsDeleted, err
+					return err
 				}
-				objectsDeleted++
 			}
+		} else if !ok {
+			log.Log.Errorf("Cast failed! obj: %+v", obj)
+			return nil
 		}
 	}
 
 	objects = stores.ServiceAccountCache.List()
 	for _, obj := range objects {
-		if sa, ok := obj.(corev1.ServiceAccount); ok && sa.DeletionTimestamp == nil {
+		if sa, ok := obj.(*corev1.ServiceAccount); ok && sa.DeletionTimestamp == nil {
 			if key, err := controller.KeyFunc(sa); err == nil {
 				expectations.ServiceAccount.AddExpectedDeletion(kvkey, key)
 				err := clientset.CoreV1().ServiceAccounts(kv.Namespace).Delete(sa.Name, deleteOptions)
 				if err != nil {
 					expectations.ServiceAccount.DeletionObserved(kvkey, key)
 					log.Log.Errorf("Failed to delete serviceaccount %+v: %v", sa, err)
-					return objectsDeleted, err
+					return err
 				}
-				objectsDeleted++
 			}
+		} else if !ok {
+			log.Log.Errorf("Cast failed! obj: %+v", obj)
+			return nil
 		}
 	}
 
 	err = util.UpdateScc(clientset, kv, false)
 	if err != nil {
 		log.Log.Errorf("Failed to update SCC: %v", err)
-		return objectsDeleted, err
+		return err
 	}
 
-	return objectsDeleted, nil
+	return nil
 
 }
