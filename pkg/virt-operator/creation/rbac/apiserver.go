@@ -50,6 +50,8 @@ func CreateApiServerRBAC(clientset kubecli.KubevirtClient, kv *virtv1.KubeVirt, 
 		if err != nil && !apierrors.IsAlreadyExists(err) {
 			expectations.ServiceAccount.LowerExpectations(kvkey, 1, 0)
 			return objectsAdded, fmt.Errorf("unable to create serviceaccount %+v: %v", sa, err)
+		} else if apierrors.IsAlreadyExists(err) {
+			expectations.ServiceAccount.LowerExpectations(kvkey, 1, 0)
 		} else if err == nil {
 			objectsAdded++
 		}
@@ -66,6 +68,8 @@ func CreateApiServerRBAC(clientset kubecli.KubevirtClient, kv *virtv1.KubeVirt, 
 		if err != nil && !apierrors.IsAlreadyExists(err) {
 			expectations.ClusterRole.LowerExpectations(kvkey, 1, 0)
 			return objectsAdded, fmt.Errorf("unable to create clusterrole %+v: %v", cr, err)
+		} else if apierrors.IsAlreadyExists(err) {
+			expectations.ClusterRole.LowerExpectations(kvkey, 1, 0)
 		} else if err == nil {
 			objectsAdded++
 		}
@@ -84,6 +88,8 @@ func CreateApiServerRBAC(clientset kubecli.KubevirtClient, kv *virtv1.KubeVirt, 
 			if err != nil && !apierrors.IsAlreadyExists(err) {
 				expectations.ClusterRoleBinding.LowerExpectations(kvkey, 1, 0)
 				return objectsAdded, fmt.Errorf("unable to create clusterrolebinding %+v: %v", crb, err)
+			} else if apierrors.IsAlreadyExists(err) {
+				expectations.ClusterRoleBinding.LowerExpectations(kvkey, 1, 0)
 			} else if err == nil {
 				objectsAdded++
 			}
@@ -99,6 +105,8 @@ func CreateApiServerRBAC(clientset kubecli.KubevirtClient, kv *virtv1.KubeVirt, 
 		if err != nil && !apierrors.IsAlreadyExists(err) {
 			expectations.Role.LowerExpectations(kvkey, 1, 0)
 			return objectsAdded, fmt.Errorf("unable to create role %+v: %v", r, err)
+		} else if apierrors.IsAlreadyExists(err) {
+			expectations.Role.LowerExpectations(kvkey, 1, 0)
 		} else if err == nil {
 			objectsAdded++
 		}
@@ -113,6 +121,8 @@ func CreateApiServerRBAC(clientset kubecli.KubevirtClient, kv *virtv1.KubeVirt, 
 		if err != nil && !apierrors.IsAlreadyExists(err) {
 			expectations.RoleBinding.LowerExpectations(kvkey, 1, 0)
 			return objectsAdded, fmt.Errorf("unable to create rolebinding %+v: %v", rb, err)
+		} else if apierrors.IsAlreadyExists(err) {
+			expectations.RoleBinding.LowerExpectations(kvkey, 1, 0)
 		} else if err == nil {
 			objectsAdded++
 		}
@@ -144,7 +154,8 @@ func newApiServerServiceAccount(namespace string) *corev1.ServiceAccount {
 			Namespace: namespace,
 			Name:      "kubevirt-apiserver",
 			Labels: map[string]string{
-				"kubevirt.io": "",
+				virtv1.AppLabel:       "",
+				virtv1.ManagedByLabel: virtv1.ManagedByLabelOperatorValue,
 			},
 		},
 	}
@@ -159,7 +170,8 @@ func newApiServerClusterRole() *rbacv1.ClusterRole {
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "kubevirt-apiserver",
 			Labels: map[string]string{
-				"kubevirt.io": "",
+				virtv1.AppLabel:       "",
+				virtv1.ManagedByLabel: virtv1.ManagedByLabelOperatorValue,
 			},
 		},
 		Rules: []rbacv1.PolicyRule{
@@ -271,7 +283,8 @@ func newApiServerClusterRoleBinding(namespace string) *rbacv1.ClusterRoleBinding
 			Namespace: namespace,
 			Name:      "kubevirt-apiserver",
 			Labels: map[string]string{
-				"kubevirt.io": "",
+				virtv1.AppLabel:       "",
+				virtv1.ManagedByLabel: virtv1.ManagedByLabelOperatorValue,
 			},
 		},
 		RoleRef: rbacv1.RoleRef{
@@ -299,7 +312,8 @@ func newApiServerAuthDelegatorClusterRoleBinding(namespace string) *rbacv1.Clust
 			Namespace: namespace,
 			Name:      "kubevirt-apiserver-auth-delegator",
 			Labels: map[string]string{
-				"kubevirt.io": "",
+				virtv1.AppLabel:       "",
+				virtv1.ManagedByLabel: virtv1.ManagedByLabelOperatorValue,
 			},
 		},
 		RoleRef: rbacv1.RoleRef{
@@ -327,7 +341,8 @@ func newApiServerRole(namespace string) *rbacv1.Role {
 			Namespace: namespace,
 			Name:      "kubevirt-apiserver",
 			Labels: map[string]string{
-				"kubevirt.io": "",
+				virtv1.AppLabel:       "",
+				virtv1.ManagedByLabel: virtv1.ManagedByLabelOperatorValue,
 			},
 		},
 		Rules: []rbacv1.PolicyRule{
@@ -367,7 +382,8 @@ func newApiServerRoleBinding(namespace string) *rbacv1.RoleBinding {
 			Namespace: namespace,
 			Name:      "kubevirt-apiserver",
 			Labels: map[string]string{
-				"kubevirt.io": "",
+				virtv1.AppLabel:       "",
+				virtv1.ManagedByLabel: virtv1.ManagedByLabelOperatorValue,
 			},
 		},
 		RoleRef: rbacv1.RoleRef{

@@ -58,6 +58,8 @@ func CreateCRDs(clientset kubecli.KubevirtClient, kv *virtv1.KubeVirt, stores ut
 			if err != nil && !apierrors.IsAlreadyExists(err) {
 				expectations.Crd.LowerExpectations(kvkey, 1, 0)
 				return objectsAdded, fmt.Errorf("unable to create crd %+v: %v", crd, err)
+			} else if apierrors.IsAlreadyExists(err) {
+				expectations.Crd.LowerExpectations(kvkey, 1, 0)
 			} else if err == nil {
 				objectsAdded++
 			}
@@ -89,7 +91,8 @@ func newBlankCrd() *extv1beta1.CustomResourceDefinition {
 		},
 		ObjectMeta: metav1.ObjectMeta{
 			Labels: map[string]string{
-				"kubevirt.io": "",
+				virtv1.AppLabel:       "",
+				virtv1.ManagedByLabel: virtv1.ManagedByLabelOperatorValue,
 			},
 		},
 	}

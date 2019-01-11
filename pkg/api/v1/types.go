@@ -423,6 +423,9 @@ const (
 	// if a particular node is alive and hence should be available for new
 	// virtual machine instance scheduling. Used on Node.
 	VirtHandlerHeartbeat string = "kubevirt.io/heartbeat"
+	// This label will be set on all resources created by the operator
+	ManagedByLabel              = "app.kubernetes.io/managed-by"
+	ManagedByLabelOperatorValue = "kubevirt-operator"
 
 	VirtualMachineInstanceFinalizer string = "foregroundDeleteVirtualMachine"
 	CPUManager                      string = "cpumanager"

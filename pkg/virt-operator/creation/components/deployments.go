@@ -56,6 +56,8 @@ func CreateControllers(clientset kubecli.KubevirtClient, kv *virtv1.KubeVirt, co
 			if err != nil && !apierrors.IsAlreadyExists(err) {
 				expectations.Service.LowerExpectations(kvkey, 1, 0)
 				return objectsAdded, fmt.Errorf("unable to create service %+v: %v", service, err)
+			} else if apierrors.IsAlreadyExists(err) {
+				expectations.Service.LowerExpectations(kvkey, 1, 0)
 			} else if err == nil {
 				objectsAdded++
 			}
@@ -85,6 +87,8 @@ func CreateControllers(clientset kubecli.KubevirtClient, kv *virtv1.KubeVirt, co
 			if err != nil && !apierrors.IsAlreadyExists(err) {
 				expectations.Deployment.LowerExpectations(kvkey, 1, 0)
 				return objectsAdded, fmt.Errorf("unable to create deployment %+v: %v", deployment, err)
+			} else if apierrors.IsAlreadyExists(err) {
+				expectations.Deployment.LowerExpectations(kvkey, 1, 0)
 			} else if err == nil {
 				objectsAdded++
 			}
@@ -104,6 +108,8 @@ func CreateControllers(clientset kubecli.KubevirtClient, kv *virtv1.KubeVirt, co
 		if err != nil && !apierrors.IsAlreadyExists(err) {
 			expectations.DaemonSet.LowerExpectations(kvkey, 1, 0)
 			return objectsAdded, fmt.Errorf("unable to create daemonset %+v: %v", handler, err)
+		} else if apierrors.IsAlreadyExists(err) {
+			expectations.DaemonSet.LowerExpectations(kvkey, 1, 0)
 		} else if err == nil {
 			objectsAdded++
 		}
@@ -125,7 +131,8 @@ func NewPrometheusService(namespace string) *corev1.Service {
 			Namespace: namespace,
 			Name:      "kubevirt-prometheus-metrics",
 			Labels: map[string]string{
-				"kubevirt.io":            "",
+				virtv1.AppLabel:          "",
+				virtv1.ManagedByLabel:    virtv1.ManagedByLabelOperatorValue,
 				"prometheus.kubevirt.io": "",
 			},
 		},
@@ -158,12 +165,13 @@ func NewApiServerService(namespace string) *corev1.Service {
 			Namespace: namespace,
 			Name:      "virt-api",
 			Labels: map[string]string{
-				"kubevirt.io": "virt-api",
+				virtv1.AppLabel:       "virt-api",
+				virtv1.ManagedByLabel: virtv1.ManagedByLabelOperatorValue,
 			},
 		},
 		Spec: corev1.ServiceSpec{
 			Selector: map[string]string{
-				"kubevirt.io": "virt-api",
+				virtv1.AppLabel: "virt-api",
 			},
 			Ports: []corev1.ServicePort{
 				{
@@ -195,7 +203,7 @@ func newPodTemplateSpec(name string, repository string, version string, pullPoli
 	return &corev1.PodTemplateSpec{
 		ObjectMeta: metav1.ObjectMeta{
 			Labels: map[string]string{
-				"kubevirt.io":            name,
+				virtv1.AppLabel:          name,
 				"prometheus.kubevirt.io": "",
 			},
 			Annotations: map[string]string{
@@ -232,7 +240,8 @@ func newBaseDeployment(name string, namespace string, repository string, version
 			Namespace: namespace,
 			Name:      name,
 			Labels: map[string]string{
-				"kubevirt.io": name,
+				virtv1.AppLabel:       name,
+				virtv1.ManagedByLabel: virtv1.ManagedByLabelOperatorValue,
 			},
 		},
 		Spec: appsv1.DeploymentSpec{
@@ -374,7 +383,8 @@ func NewHandlerDaemonSet(namespace string, repository string, version string, pu
 			Namespace: namespace,
 			Name:      "virt-handler",
 			Labels: map[string]string{
-				"kubevirt.io": "virt-handler",
+				virtv1.AppLabel:       "virt-handler",
+				virtv1.ManagedByLabel: virtv1.ManagedByLabelOperatorValue,
 			},
 		},
 		Spec: appsv1.DaemonSetSpec{

@@ -50,6 +50,8 @@ func CreateControllerRBAC(clientset kubecli.KubevirtClient, kv *virtv1.KubeVirt,
 		if err != nil && !apierrors.IsAlreadyExists(err) {
 			expectations.ServiceAccount.LowerExpectations(kvkey, 1, 0)
 			return objectsAdded, fmt.Errorf("unable to create serviceaccount %+v: %v", sa, err)
+		} else if apierrors.IsAlreadyExists(err) {
+			expectations.ServiceAccount.LowerExpectations(kvkey, 1, 0)
 		} else if err == nil {
 			objectsAdded++
 		}
@@ -66,6 +68,8 @@ func CreateControllerRBAC(clientset kubecli.KubevirtClient, kv *virtv1.KubeVirt,
 		if err != nil && !apierrors.IsAlreadyExists(err) {
 			expectations.ClusterRole.LowerExpectations(kvkey, 1, 0)
 			return objectsAdded, fmt.Errorf("unable to create clusterrole %+v: %v", cr, err)
+		} else if apierrors.IsAlreadyExists(err) {
+			expectations.ClusterRole.LowerExpectations(kvkey, 1, 0)
 		} else if err == nil {
 			objectsAdded++
 		}
@@ -80,6 +84,8 @@ func CreateControllerRBAC(clientset kubecli.KubevirtClient, kv *virtv1.KubeVirt,
 		if err != nil && !apierrors.IsAlreadyExists(err) {
 			expectations.ClusterRoleBinding.LowerExpectations(kvkey, 1, 0)
 			return objectsAdded, fmt.Errorf("unable to create clusterrolebinding %+v: %v", crb, err)
+		} else if apierrors.IsAlreadyExists(err) {
+			expectations.ClusterRoleBinding.LowerExpectations(kvkey, 1, 0)
 		} else if err == nil {
 			objectsAdded++
 		}
@@ -108,7 +114,8 @@ func newControllerServiceAccount(namespace string) *corev1.ServiceAccount {
 			Namespace: namespace,
 			Name:      "kubevirt-controller",
 			Labels: map[string]string{
-				"kubevirt.io": "",
+				virtv1.AppLabel:       "",
+				virtv1.ManagedByLabel: virtv1.ManagedByLabelOperatorValue,
 			},
 		},
 	}
@@ -123,7 +130,8 @@ func newControllerClusterRole() *rbacv1.ClusterRole {
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "kubevirt-controller",
 			Labels: map[string]string{
-				"kubevirt.io": "",
+				virtv1.AppLabel:       "",
+				virtv1.ManagedByLabel: virtv1.ManagedByLabelOperatorValue,
 			},
 		},
 		Rules: []rbacv1.PolicyRule{
@@ -229,7 +237,8 @@ func newControllerClusterRoleBinding(namespace string) *rbacv1.ClusterRoleBindin
 			Namespace: namespace,
 			Name:      "kubevirt-controller",
 			Labels: map[string]string{
-				"kubevirt.io": "",
+				virtv1.AppLabel:       "",
+				virtv1.ManagedByLabel: virtv1.ManagedByLabelOperatorValue,
 			},
 		},
 		RoleRef: rbacv1.RoleRef{

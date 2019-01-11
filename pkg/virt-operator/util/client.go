@@ -28,8 +28,6 @@ import (
 	k8sv1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/apimachinery/pkg/util/json"
 
 	virtv1 "kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/kubecli"
@@ -40,16 +38,7 @@ const (
 	KubeVirtFinalizer string = "foregroundDeleteKubeVirt"
 )
 
-func UpdatePhase(kv *virtv1.KubeVirt, phase virtv1.KubeVirtPhase, clientset kubecli.KubevirtClient) error {
-	var err error
-	if kv.Status.Phase != phase {
-		patchStr := fmt.Sprintf(`{"status":{"phase":"%s"}}`, phase)
-		kv, err = clientset.KubeVirt(kv.Namespace).Patch(kv.Name, types.MergePatchType, []byte(patchStr))
-	}
-	return err
-}
-
-func UpdateCondition(kv *virtv1.KubeVirt, conditionType virtv1.KubeVirtConditionType, status k8sv1.ConditionStatus, reason string, message string, clientset kubecli.KubevirtClient) error {
+func UpdateCondition(kv *virtv1.KubeVirt, conditionType virtv1.KubeVirtConditionType, status k8sv1.ConditionStatus, reason string, message string) {
 
 	condition, isNew := getCondition(kv, conditionType)
 	transition := false
@@ -84,16 +73,6 @@ func UpdateCondition(kv *virtv1.KubeVirt, conditionType virtv1.KubeVirtCondition
 
 	kv.Status.Conditions = conditions
 
-	var condJson string
-	bytes, err := json.Marshal(conditions)
-	if err != nil {
-		return err
-	}
-	condJson = string(bytes)
-
-	patchStr := fmt.Sprintf(`{"status":{"conditions":%s}}`, condJson)
-	_, err = clientset.KubeVirt(kv.Namespace).Patch(kv.Name, types.MergePatchType, []byte(patchStr))
-	return err
 }
 
 func getCondition(kv *virtv1.KubeVirt, conditionType virtv1.KubeVirtConditionType) (*virtv1.KubeVirtCondition, bool) {
@@ -108,34 +87,13 @@ func getCondition(kv *virtv1.KubeVirt, conditionType virtv1.KubeVirtConditionTyp
 	return condition, true
 }
 
-func RemoveConditions(kv *virtv1.KubeVirt, clientset kubecli.KubevirtClient) error {
-	var conditions []struct{}
-	var condJson string
-	bytes, err := json.Marshal(conditions)
-	if err != nil {
-		return err
-	}
-	condJson = string(bytes)
-
-	patchStr := fmt.Sprintf(`{"status":{"conditions":%s}}`, condJson)
-	_, err = clientset.KubeVirt(kv.Namespace).Patch(kv.Name, types.MergePatchType, []byte(patchStr))
-	return err
-}
-
-func AddFinalizer(kv *virtv1.KubeVirt, clientset kubecli.KubevirtClient) error {
-	if !HasFinalizer(kv) {
+func AddFinalizer(kv *virtv1.KubeVirt) {
+	if !hasFinalizer(kv) {
 		kv.Finalizers = append(kv.Finalizers, KubeVirtFinalizer)
-		return patchFinalizer(kv, clientset)
 	}
-	return nil
 }
 
-func RemoveFinalizer(kv *virtv1.KubeVirt, clientset kubecli.KubevirtClient) error {
-	kv.SetFinalizers([]string{})
-	return patchFinalizer(kv, clientset)
-}
-
-func HasFinalizer(kv *virtv1.KubeVirt) bool {
+func hasFinalizer(kv *virtv1.KubeVirt) bool {
 	for _, f := range kv.GetFinalizers() {
 		if f == KubeVirtFinalizer {
 			return true
@@ -144,25 +102,15 @@ func HasFinalizer(kv *virtv1.KubeVirt) bool {
 	return false
 }
 
-func patchFinalizer(kv *virtv1.KubeVirt, clientset kubecli.KubevirtClient) error {
-	var finalizers string
-	bytes, err := json.Marshal(kv.Finalizers)
-	if err != nil {
-		return err
-	}
-	finalizers = string(bytes)
-	patchStr := fmt.Sprintf(`{"metadata":{"finalizers":%s}}`, finalizers)
-	kv, err = clientset.KubeVirt(kv.Namespace).Patch(kv.Name, types.MergePatchType, []byte(patchStr))
-	return err
-}
+func SetVersions(kv *virtv1.KubeVirt, config KubeVirtDeploymentConfig) {
 
-func SetVersions(kv *virtv1.KubeVirt, config KubeVirtDeploymentConfig, clientset kubecli.KubevirtClient) error {
+	kv.Status.OperatorVersion = version.Get().String()
+
 	// Note: for now we just set targetKubeVirtVersion and observedKubeVirtVersion to the tag of the operator image
 	// In future this needs some more work...
-	patchStr := fmt.Sprintf(`{"status":{"operatorVersion":"%s", "targetKubeVirtVersion":"%s", "observedKubeVirtVersion":"%s"}}`,
-		version.Get().String(), config.ImageTag, config.ImageTag)
-	kv, err := clientset.KubeVirt(kv.Namespace).Patch(kv.Name, types.MergePatchType, []byte(patchStr))
-	return err
+	kv.Status.TargetKubeVirtVersion = config.ImageTag
+	kv.Status.ObservedKubeVirtVersion = config.ImageTag
+
 }
 
 func UpdateScc(clientset kubecli.KubevirtClient, kv *virtv1.KubeVirt, add bool) error {

@@ -238,8 +238,8 @@ var _ = Describe("KubeVirt Operator", func() {
 		kubeClient.Fake.PrependReactor("create", "daemonsets", genericCreateFunc)
 	}
 
-	shouldExpectKubeVirtPatch := func(kv *v1.KubeVirt, times int) {
-		kvInterface.EXPECT().Patch(kv.Name, gomock.Any(), gomock.Any()).Return(kv, nil).Times(times)
+	shouldExpectKubeVirtUpdate := func(kv *v1.KubeVirt, times int) {
+		kvInterface.EXPECT().Update(gomock.Any()).Return(kv, nil).Times(times)
 	}
 
 	shouldExpectSccGet := func(times int) {
@@ -294,7 +294,7 @@ var _ = Describe("KubeVirt Operator", func() {
 			}
 			addKubeVirt(kv)
 
-			shouldExpectKubeVirtPatch(kv, 3)
+			shouldExpectKubeVirtUpdate(kv, 1)
 			shouldExpectSccGet(1)
 			shouldExpectCreations()
 
@@ -329,7 +329,7 @@ var _ = Describe("KubeVirt Operator", func() {
 			}
 			addServiceAccount(sa)
 
-			shouldExpectKubeVirtPatch(kv, 1)
+			shouldExpectKubeVirtUpdate(kv, 1)
 			shouldExpectSccGet(1)
 			shouldExpectDeletions()
 

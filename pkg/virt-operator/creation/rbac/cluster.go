@@ -50,6 +50,8 @@ func CreateClusterRBAC(clientset kubecli.KubevirtClient, kv *virtv1.KubeVirt, st
 		if err != nil && !apierrors.IsAlreadyExists(err) {
 			expectations.ServiceAccount.LowerExpectations(kvkey, 1, 0)
 			return objectsAdded, fmt.Errorf("unable to create serviceaccount %+v: %v", sa, err)
+		} else if apierrors.IsAlreadyExists(err) {
+			expectations.ServiceAccount.LowerExpectations(kvkey, 1, 0)
 		} else if err == nil {
 			objectsAdded++
 		}
@@ -72,6 +74,8 @@ func CreateClusterRBAC(clientset kubecli.KubevirtClient, kv *virtv1.KubeVirt, st
 			if err != nil && !apierrors.IsAlreadyExists(err) {
 				expectations.ClusterRole.LowerExpectations(kvkey, 1, 0)
 				return objectsAdded, fmt.Errorf("unable to create clusterrole %+v: %v", cr, err)
+			} else if apierrors.IsAlreadyExists(err) {
+				expectations.ClusterRole.LowerExpectations(kvkey, 1, 0)
 			} else if err == nil {
 				objectsAdded++
 			}
@@ -91,6 +95,8 @@ func CreateClusterRBAC(clientset kubecli.KubevirtClient, kv *virtv1.KubeVirt, st
 			if err != nil && !apierrors.IsAlreadyExists(err) {
 				expectations.ClusterRoleBinding.LowerExpectations(kvkey, 1, 0)
 				return objectsAdded, fmt.Errorf("unable to create clusterrolebinding %+v: %v", crb, err)
+			} else if apierrors.IsAlreadyExists(err) {
+				expectations.ClusterRoleBinding.LowerExpectations(kvkey, 1, 0)
 			} else if err == nil {
 				objectsAdded++
 			}
@@ -123,7 +129,8 @@ func newDefaultClusterRole() *rbacv1.ClusterRole {
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "kubevirt.io:default",
 			Labels: map[string]string{
-				"kubevirt.io":                 "",
+				virtv1.AppLabel:               "",
+				virtv1.ManagedByLabel:         virtv1.ManagedByLabelOperatorValue,
 				"kubernetes.io/bootstrapping": "rbac-defaults",
 			},
 			Annotations: map[string]string{
@@ -155,7 +162,8 @@ func newDefaultClusterRoleBinding() *rbacv1.ClusterRoleBinding {
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "kubevirt.io:default",
 			Labels: map[string]string{
-				"kubevirt.io": "",
+				virtv1.AppLabel:       "",
+				virtv1.ManagedByLabel: virtv1.ManagedByLabelOperatorValue,
 			},
 			Annotations: map[string]string{
 				"rbac.authorization.kubernetes.io/autoupdate": "true",
@@ -190,7 +198,8 @@ func newAdminClusterRole() *rbacv1.ClusterRole {
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "kubevirt.io:admin",
 			Labels: map[string]string{
-				"kubevirt.io":                                  "",
+				virtv1.AppLabel:                                "",
+				virtv1.ManagedByLabel:                          virtv1.ManagedByLabelOperatorValue,
 				"rbac.authorization.k8s.io/aggregate-to-admin": "true",
 			},
 		},
@@ -235,7 +244,8 @@ func newEditClusterRole() *rbacv1.ClusterRole {
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "kubevirt.io:edit",
 			Labels: map[string]string{
-				"kubevirt.io":                                 "",
+				virtv1.AppLabel:                               "",
+				virtv1.ManagedByLabel:                         virtv1.ManagedByLabelOperatorValue,
 				"rbac.authorization.k8s.io/aggregate-to-edit": "true",
 			},
 		},
@@ -280,7 +290,8 @@ func newViewClusterRole() *rbacv1.ClusterRole {
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "kubevirt.io:view",
 			Labels: map[string]string{
-				"kubevirt.io":                                 "",
+				virtv1.AppLabel:                               "",
+				virtv1.ManagedByLabel:                         virtv1.ManagedByLabelOperatorValue,
 				"rbac.authorization.k8s.io/aggregate-to-view": "true",
 			},
 		},
@@ -313,7 +324,8 @@ func newPrivilegedServiceAccount(namespace string) *corev1.ServiceAccount {
 			Namespace: namespace,
 			Name:      "kubevirt-privileged",
 			Labels: map[string]string{
-				"kubevirt.io": "",
+				virtv1.AppLabel:       "",
+				virtv1.ManagedByLabel: virtv1.ManagedByLabelOperatorValue,
 			},
 		},
 	}
@@ -329,7 +341,8 @@ func newPrivilegedClusterRoleBinding(namespace string) *rbacv1.ClusterRoleBindin
 			Namespace: namespace,
 			Name:      "kubevirt-privileged-cluster-admin",
 			Labels: map[string]string{
-				"kubevirt.io": "",
+				virtv1.AppLabel:       "",
+				virtv1.ManagedByLabel: virtv1.ManagedByLabelOperatorValue,
 			},
 		},
 		RoleRef: rbacv1.RoleRef{

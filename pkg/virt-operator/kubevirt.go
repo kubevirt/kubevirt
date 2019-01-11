@@ -21,7 +21,10 @@ package virt_operator
 
 import (
 	"fmt"
+	"reflect"
 	"time"
+
+	"kubevirt.io/kubevirt/pkg/virt-operator/creation"
 
 	k8sv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -34,7 +37,6 @@ import (
 	"kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/kubecli"
 	"kubevirt.io/kubevirt/pkg/log"
-	"kubevirt.io/kubevirt/pkg/virt-operator/creation"
 	"kubevirt.io/kubevirt/pkg/virt-operator/deletion"
 	"kubevirt.io/kubevirt/pkg/virt-operator/util"
 )
@@ -72,15 +74,15 @@ func NewKubeVirtController(
 		stores:           stores,
 		informers:        informers,
 		kubeVirtExpectations: util.Expectations{
-			ServiceAccount:     controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectations()),
-			ClusterRole:        controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectations()),
-			ClusterRoleBinding: controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectations()),
-			Role:               controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectations()),
-			RoleBinding:        controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectations()),
-			Crd:                controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectations()),
-			Service:            controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectations()),
-			Deployment:         controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectations()),
-			DaemonSet:          controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectations()),
+			ServiceAccount:     controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectationsWithName("ServiceAccount")),
+			ClusterRole:        controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectationsWithName("ClusterRole")),
+			ClusterRoleBinding: controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectationsWithName("ClusterRoleBinding")),
+			Role:               controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectationsWithName("Role")),
+			RoleBinding:        controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectationsWithName("RoleBinding")),
+			Crd:                controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectationsWithName("Crd")),
+			Service:            controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectationsWithName("Service")),
+			Deployment:         controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectationsWithName("Deployment")),
+			DaemonSet:          controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectationsWithName("DaemonSet")),
 		},
 	}
 
@@ -380,89 +382,58 @@ func (c *KubeVirtController) execute(key string) error {
 		return nil
 	}
 
-	logger.Infof("Handling KubeVirt resource")
+	logger.Info("Handling KubeVirt resource")
 
 	// only process the kubevirt deployment if all expectations are satisfied.
 	needsSync := c.kubeVirtExpectations.SatisfiedExpectations(key)
 	if !needsSync {
-		logger.Infof("Waiting for expectations to be fulfilled")
+		logger.Info("Waiting for expectations to be fulfilled")
 		return nil
 	}
 
 	// Adds of all types are not done in one go. We need to set an expectation of 0 so that we can add something
 	c.kubeVirtExpectations.ResetExpectations(key)
+
+	var syncError error
+	kvCopy := kv.DeepCopy()
+
 	if kv.DeletionTimestamp != nil {
-
-		log.Log.Info("Handling deletion")
-
-		// delete
-		if kv.Status.Phase == v1.KubeVirtPhaseDeleted {
-			log.Log.Info("Is already deleted")
-			return nil
-		}
-
-		// set phase to deleting
-		err = util.UpdatePhase(kv, v1.KubeVirtPhaseDeleting, c.clientset)
-		if err != nil {
-			log.Log.Errorf("Failed to update phase: %v", err)
-			return err
-		}
-
-		err := deletion.Delete(kv, c.clientset, c.stores, &c.kubeVirtExpectations)
-		if err != nil {
-			// deletion failed
-			err := util.UpdateCondition(kv, v1.KubeVirtConditionSynchronized, k8sv1.ConditionFalse, ConditionReasonDeletionFailedError, fmt.Sprintf("An error occurred during deletion: %v", err), c.clientset)
-			if err != nil {
-				log.Log.Errorf("Failed to set condition: %v", err)
-			}
-			return err
-		}
-
-		if c.stores.AllEmpty() {
-			// deletion successful
-			err = util.UpdatePhase(kv, v1.KubeVirtPhaseDeleted, c.clientset)
-			if err != nil {
-				log.Log.Errorf("Failed to update phase: %v", err)
-			}
-			err = util.RemoveConditions(kv, c.clientset)
-			if err != nil {
-				log.Log.Errorf("Failed to update condition: %v", err)
-			}
-			err = util.RemoveFinalizer(kv, c.clientset)
-			if err != nil {
-				log.Log.Errorf("Failed to remove finalizer: %v", err)
-			}
-
-			log.Log.Info("KubeVirt deleted")
-			return nil
-		}
-
-		log.Log.Info("Processed deletion for this round")
-		return nil
+		syncError = c.syncDeletion(kvCopy)
+	} else {
+		syncError = c.syncDeployment(kvCopy)
 	}
 
+	// If we detect a change on KubeVirt we update it
+	if !reflect.DeepEqual(kv.Status, kvCopy.Status) ||
+		!reflect.DeepEqual(kv.Finalizers, kvCopy.Finalizers) {
+
+		_, err := c.clientset.KubeVirt(kv.Namespace).Update(kvCopy)
+
+		if err != nil {
+			logger.Reason(err).Errorf("Could not update the KubeVirt resource.")
+			return err
+		}
+	}
+
+	return syncError
+}
+
+func (c *KubeVirtController) syncDeployment(kv *v1.KubeVirt) error {
+	logger := log.Log.Object(kv)
 	logger.Infof("Handling deployment")
 
 	if kv.Status.Phase == v1.KubeVirtPhaseDeployed {
-		log.Log.Info("Is already deployed")
+		logger.Info("Is already deployed")
 		return nil
 	}
 
 	// Set versions...
 	if kv.Status.OperatorVersion == "" {
-		err = util.SetVersions(kv, c.config, c.clientset)
-		if err != nil {
-			log.Log.Errorf("Failed to set versions: %v", err)
-			return err
-		}
+		util.SetVersions(kv, c.config)
 	}
 
 	// Set phase to deploying
-	err = util.UpdatePhase(kv, v1.KubeVirtPhaseDeploying, c.clientset)
-	if err != nil {
-		log.Log.Errorf("Failed to update phase: %v", err)
-		return err
-	}
+	kv.Status.Phase = v1.KubeVirtPhaseDeploying
 
 	// check if there is already an active KubeVirt deployment
 	// TODO move this into a new validating webhook
@@ -474,51 +445,73 @@ func (c *KubeVirtController) execute(key string) error {
 			}
 			if isKubeVirtActive(&fromStore) {
 				logger.Warningf("There is already a KubeVirt deployment!")
-				err := util.UpdateCondition(kv, v1.KubeVirtConditionSynchronized, k8sv1.ConditionFalse, ConditionReasonDeploymentFailedExisting, "There is an active KubeVirt deployment", c.clientset)
-				if err != nil {
-					log.Log.Errorf("Failed to set condition: %v", err)
-				}
+				util.UpdateCondition(kv, v1.KubeVirtConditionSynchronized, k8sv1.ConditionFalse, ConditionReasonDeploymentFailedExisting, "There is an active KubeVirt deployment")
 				return nil
 			}
 		}
 	}
 
 	// add finalizer to prevent deletion of CR before KubeVirt was undeployed
-	err = util.AddFinalizer(kv, c.clientset)
-	if err != nil {
-		log.Log.Errorf("Failed to add finalizer: %v", err)
-		util.UpdateCondition(kv, v1.KubeVirtConditionSynchronized, k8sv1.ConditionFalse, ConditionReasonDeploymentFailedError, fmt.Sprintf("Failed to add finalizer: %s", err), c.clientset)
-		return err
-	}
+	util.AddFinalizer(kv)
 
 	// deploy
 	objectsAdded, err := creation.Create(kv, c.config, c.stores, c.clientset, &c.kubeVirtExpectations)
 
 	if err != nil {
 		// deployment failed
-		err := util.UpdateCondition(kv, v1.KubeVirtConditionSynchronized, k8sv1.ConditionFalse, ConditionReasonDeploymentFailedError, fmt.Sprintf("An error occurred during deployment: %v", err), c.clientset)
+		util.UpdateCondition(kv, v1.KubeVirtConditionSynchronized, k8sv1.ConditionFalse, ConditionReasonDeploymentFailedError, fmt.Sprintf("An error occurred during deployment: %v", err))
 		if err != nil {
-			log.Log.Errorf("Failed to set condition: %v", err)
+			logger.Errorf("Failed to set condition: %v", err)
 		}
 		return err
 	}
 
 	if objectsAdded == 0 {
 		// deployment successful
-		err = util.UpdatePhase(kv, v1.KubeVirtPhaseDeployed, c.clientset)
-		if err != nil {
-			log.Log.Errorf("Failed to update phase: %v", err)
-		}
-		err = util.RemoveConditions(kv, c.clientset)
-		if err != nil {
-			log.Log.Errorf("Failed to update condition: %v", err)
-		}
+		kv.Status.Phase = v1.KubeVirtPhaseDeployed
+		kv.Status.Conditions = []v1.KubeVirtCondition{}
 
-		log.Log.Info("KubeVirt deployed")
+		logger.Info("KubeVirt deployed")
 		return nil
 	}
 
-	log.Log.Info("Processed deployment for this round")
+	logger.Info("Processed deployment for this round")
+	return nil
+}
+
+func (c *KubeVirtController) syncDeletion(kv *v1.KubeVirt) error {
+	logger := log.Log.Object(kv)
+	logger.Info("Handling deletion")
+
+	// delete
+	if kv.Status.Phase == v1.KubeVirtPhaseDeleted {
+		logger.Info("Is already deleted")
+		return nil
+	}
+
+	// set phase to deleting
+	kv.Status.Phase = v1.KubeVirtPhaseDeleting
+
+	err := deletion.Delete(kv, c.clientset, c.stores, &c.kubeVirtExpectations)
+	if err != nil {
+		// deletion failed
+		util.UpdateCondition(kv, v1.KubeVirtConditionSynchronized, k8sv1.ConditionFalse, ConditionReasonDeletionFailedError, fmt.Sprintf("An error occurred during deletion: %v", err))
+		return err
+	}
+
+	if c.stores.AllEmpty() {
+
+		// deletion successful
+		kv.Status.Phase = v1.KubeVirtPhaseDeleted
+		kv.Status.Conditions = []v1.KubeVirtCondition{}
+		kv.Finalizers = []string{}
+
+		logger.Info("KubeVirt deleted")
+
+		return nil
+	}
+
+	logger.Info("Processed deletion for this round")
 	return nil
 }
 

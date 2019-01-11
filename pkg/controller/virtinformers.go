@@ -42,6 +42,10 @@ import (
 	"kubevirt.io/kubevirt/pkg/testutils"
 )
 
+const (
+	OperatorLabel = kubev1.ManagedByLabel + "=" + kubev1.ManagedByLabelOperatorValue
+)
+
 type newSharedInformer func() cache.SharedIndexInformer
 
 type KubeInformerFactory interface {
@@ -285,7 +289,7 @@ func resyncPeriod(minResyncPeriod time.Duration) time.Duration {
 
 func (f *kubeInformerFactory) OperatorServiceAccount() cache.SharedIndexInformer {
 	return f.getInformer("OperatorServiceAccountInformer", func() cache.SharedIndexInformer {
-		labelSelector, err := labels.Parse(kubev1.AppLabel)
+		labelSelector, err := labels.Parse(OperatorLabel)
 		if err != nil {
 			panic(err)
 		}
@@ -297,7 +301,7 @@ func (f *kubeInformerFactory) OperatorServiceAccount() cache.SharedIndexInformer
 
 func (f *kubeInformerFactory) OperatorClusterRole() cache.SharedIndexInformer {
 	return f.getInformer("OperatorClusterRoleInformer", func() cache.SharedIndexInformer {
-		labelSelector, err := labels.Parse(kubev1.AppLabel)
+		labelSelector, err := labels.Parse(OperatorLabel)
 		if err != nil {
 			panic(err)
 		}
@@ -308,7 +312,7 @@ func (f *kubeInformerFactory) OperatorClusterRole() cache.SharedIndexInformer {
 }
 func (f *kubeInformerFactory) OperatorClusterRoleBinding() cache.SharedIndexInformer {
 	return f.getInformer("OperatorClusterRoleBindingInformer", func() cache.SharedIndexInformer {
-		labelSelector, err := labels.Parse(kubev1.AppLabel)
+		labelSelector, err := labels.Parse(OperatorLabel)
 		if err != nil {
 			panic(err)
 		}
@@ -319,7 +323,7 @@ func (f *kubeInformerFactory) OperatorClusterRoleBinding() cache.SharedIndexInfo
 }
 func (f *kubeInformerFactory) OperatorRole() cache.SharedIndexInformer {
 	return f.getInformer("OperatorRoleInformer", func() cache.SharedIndexInformer {
-		labelSelector, err := labels.Parse(kubev1.AppLabel)
+		labelSelector, err := labels.Parse(OperatorLabel)
 		if err != nil {
 			panic(err)
 		}
@@ -331,7 +335,7 @@ func (f *kubeInformerFactory) OperatorRole() cache.SharedIndexInformer {
 
 func (f *kubeInformerFactory) OperatorRoleBinding() cache.SharedIndexInformer {
 	return f.getInformer("OperatorRoleBindingInformer", func() cache.SharedIndexInformer {
-		labelSelector, err := labels.Parse(kubev1.AppLabel)
+		labelSelector, err := labels.Parse(OperatorLabel)
 		if err != nil {
 			panic(err)
 		}
@@ -343,7 +347,7 @@ func (f *kubeInformerFactory) OperatorRoleBinding() cache.SharedIndexInformer {
 
 func (f *kubeInformerFactory) OperatorCRD() cache.SharedIndexInformer {
 	return f.getInformer("OperatorCRDInformer", func() cache.SharedIndexInformer {
-		labelSelector, err := labels.Parse(kubev1.AppLabel)
+		labelSelector, err := labels.Parse(OperatorLabel)
 		if err != nil {
 			panic(err)
 		}
@@ -360,7 +364,7 @@ func (f *kubeInformerFactory) OperatorCRD() cache.SharedIndexInformer {
 
 func (f *kubeInformerFactory) OperatorService() cache.SharedIndexInformer {
 	return f.getInformer("OperatorServiceInformer", func() cache.SharedIndexInformer {
-		labelSelector, err := labels.Parse(kubev1.AppLabel)
+		labelSelector, err := labels.Parse(OperatorLabel)
 		if err != nil {
 			panic(err)
 		}
@@ -372,7 +376,7 @@ func (f *kubeInformerFactory) OperatorService() cache.SharedIndexInformer {
 
 func (f *kubeInformerFactory) OperatorDeployment() cache.SharedIndexInformer {
 	return f.getInformer("OperatorDeploymentInformer", func() cache.SharedIndexInformer {
-		labelSelector, err := labels.Parse(kubev1.AppLabel)
+		labelSelector, err := labels.Parse(OperatorLabel)
 		if err != nil {
 			panic(err)
 		}
@@ -384,7 +388,7 @@ func (f *kubeInformerFactory) OperatorDeployment() cache.SharedIndexInformer {
 
 func (f *kubeInformerFactory) OperatorDaemonSet() cache.SharedIndexInformer {
 	return f.getInformer("OperatorDaemonSetInformer", func() cache.SharedIndexInformer {
-		labelSelector, err := labels.Parse(kubev1.AppLabel)
+		labelSelector, err := labels.Parse(OperatorLabel)
 		if err != nil {
 			panic(err)
 		}

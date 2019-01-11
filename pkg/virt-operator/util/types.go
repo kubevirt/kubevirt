@@ -101,13 +101,13 @@ func (e *Expectations) ResetExpectations(key string) {
 }
 
 func (e *Expectations) SatisfiedExpectations(key string) bool {
-	return e.ServiceAccount.SatisfiedExpectations(key) ||
-		e.ClusterRole.SatisfiedExpectations(key) ||
-		e.ClusterRoleBinding.SatisfiedExpectations(key) ||
-		e.Role.SatisfiedExpectations(key) ||
-		e.RoleBinding.SatisfiedExpectations(key) ||
-		e.Crd.SatisfiedExpectations(key) ||
-		e.Service.SatisfiedExpectations(key) ||
-		e.Deployment.SatisfiedExpectations(key) ||
+	return e.ServiceAccount.SatisfiedExpectations(key) &&
+		e.ClusterRole.SatisfiedExpectations(key) &&
+		e.ClusterRoleBinding.SatisfiedExpectations(key) &&
+		e.Role.SatisfiedExpectations(key) &&
+		e.RoleBinding.SatisfiedExpectations(key) &&
+		e.Crd.SatisfiedExpectations(key) &&
+		e.Service.SatisfiedExpectations(key) &&
+		e.Deployment.SatisfiedExpectations(key) &&
 		e.DaemonSet.SatisfiedExpectations(key)
 }

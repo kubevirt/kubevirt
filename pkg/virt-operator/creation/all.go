@@ -36,41 +36,41 @@ func Create(kv *v1.KubeVirt, config util.KubeVirtDeploymentConfig, stores util.S
 	objectsAdded = objectsAdded + added
 	if err != nil {
 		log.Log.Errorf("Failed to create cluster RBAC: %v", err)
-		return err
+		return objectsAdded, err
 	}
 	added, err = rbac.CreateApiServerRBAC(clientset, kv, stores, expectations)
 	objectsAdded = objectsAdded + added
 	if err != nil {
 		log.Log.Errorf("Failed to create apiserver RBAC: %v", err)
-		return err
+		return objectsAdded, err
 	}
 
 	added, err = rbac.CreateControllerRBAC(clientset, kv, stores, expectations)
 	objectsAdded = objectsAdded + added
 	if err != nil {
 		log.Log.Errorf("Failed to create controller RBAC: %v", err)
-		return err
+		return objectsAdded, err
 	}
 
 	err = util.UpdateScc(clientset, kv, true)
 	if err != nil {
 		log.Log.Errorf("Failed to update SCC: %v", err)
-		return err
+		return objectsAdded, err
 	}
 
 	added, err = components.CreateCRDs(clientset, kv, stores, expectations)
 	objectsAdded = objectsAdded + added
 	if err != nil {
 		log.Log.Errorf("Failed to create crds: %v", err)
-		return err
+		return objectsAdded, err
 	}
 
 	added, err = components.CreateControllers(clientset, kv, config, stores, expectations)
 	objectsAdded = objectsAdded + added
 	if err != nil {
 		log.Log.Errorf("Failed to create controllers: %v", err)
-		return err
+		return objectsAdded, err
 	}
 
-	return nil
+	return objectsAdded, nil
 }
