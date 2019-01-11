@@ -216,25 +216,25 @@ func (m *Manager) OnDefineDomain(domainSpec *virtwrapApi.DomainSpec, vmi *v1.Vir
 	return string(domainSpecXML), nil
 }
 
-func (m *Manager) PreCloudInitIso(vmi *v1.VirtualMachineInstance, source *v1.CloudInitNoCloudSource) (*v1.CloudInitNoCloudSource, error) {
+func (m *Manager) PreCloudInitIso(vmi *v1.VirtualMachineInstance, cloudInitData *v1.CloudInitNoCloudSource) (*v1.CloudInitNoCloudSource, error) {
 	if callbacks, found := m.callbacksPerHookPoint[hooksInfo.PreCloudInitIsoHookPointName]; found {
 		for _, callback := range callbacks {
 			if callback.Version == hooksV1alpha2.Version {
 				var resultSource *v1.CloudInitNoCloudSource
 				vmiJSON, err := json.Marshal(vmi)
 				if err != nil {
-					return source, fmt.Errorf("Failed to marshal VMI spec: %v", vmi)
+					return cloudInitData, fmt.Errorf("Failed to marshal VMI spec: %v", vmi)
 				}
 
-				cloudInitData, err := json.Marshal(source)
+				cloudInitDataJSON, err := json.Marshal(cloudInitData)
 				if err != nil {
-					return source, fmt.Errorf("Failed to marshal CloudInitNoCloudSource: %v", source)
+					return cloudInitData, fmt.Errorf("Failed to marshal CloudInitNoCloudSource: %v", cloudInitData)
 				}
 
 				conn, err := dialSocket(callback.SocketPath)
 				if err != nil {
 					log.Log.Reason(err).Infof("Failed to Dial hook socket: %s", callback.SocketPath)
-					return source, err
+					return cloudInitData, err
 				}
 				defer conn.Close()
 
@@ -242,16 +242,16 @@ func (m *Manager) PreCloudInitIso(vmi *v1.VirtualMachineInstance, source *v1.Clo
 				ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
 				defer cancel()
 				result, err := client.PreCloudInitIso(ctx, &hooksV1alpha2.PreCloudInitIsoParams{
-					CloudInitData: cloudInitData,
+					CloudInitData: cloudInitDataJSON,
 					Vmi:           vmiJSON,
 				})
 				if err != nil {
-					return source, err
+					return cloudInitData, err
 				}
 
 				err = json.Unmarshal(result.GetCloudInitData(), &resultSource)
 				if err != nil {
-					return source, err
+					return cloudInitData, err
 				}
 				return resultSource, nil
 			} else {
@@ -259,7 +259,7 @@ func (m *Manager) PreCloudInitIso(vmi *v1.VirtualMachineInstance, source *v1.Clo
 			}
 		}
 	}
-	return source, nil
+	return cloudInitData, nil
 }
 
 func dialSocket(socketPath string) (*grpc.ClientConn, error) {
