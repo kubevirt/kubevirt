@@ -26,7 +26,6 @@ import (
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/apimachinery/pkg/util/json"
@@ -53,11 +52,9 @@ func CreateControllers(clientset kubecli.KubevirtClient, kv *virtv1.KubeVirt, co
 		if _, exists, _ := stores.ServiceCache.Get(service); !exists {
 			expectations.Service.RaiseExpectations(kvkey, 1, 0)
 			_, err := core.Services(kv.Namespace).Create(service)
-			if err != nil && !apierrors.IsAlreadyExists(err) {
+			if err != nil {
 				expectations.Service.LowerExpectations(kvkey, 1, 0)
 				return objectsAdded, fmt.Errorf("unable to create service %+v: %v", service, err)
-			} else if apierrors.IsAlreadyExists(err) {
-				expectations.Service.LowerExpectations(kvkey, 1, 0)
 			} else if err == nil {
 				objectsAdded++
 			}
@@ -84,11 +81,9 @@ func CreateControllers(clientset kubecli.KubevirtClient, kv *virtv1.KubeVirt, co
 		if _, exists, _ := stores.DeploymentCache.Get(deployment); !exists {
 			expectations.Deployment.RaiseExpectations(kvkey, 1, 0)
 			_, err := apps.Deployments(kv.Namespace).Create(deployment)
-			if err != nil && !apierrors.IsAlreadyExists(err) {
+			if err != nil {
 				expectations.Deployment.LowerExpectations(kvkey, 1, 0)
 				return objectsAdded, fmt.Errorf("unable to create deployment %+v: %v", deployment, err)
-			} else if apierrors.IsAlreadyExists(err) {
-				expectations.Deployment.LowerExpectations(kvkey, 1, 0)
 			} else if err == nil {
 				objectsAdded++
 			}
@@ -105,11 +100,9 @@ func CreateControllers(clientset kubecli.KubevirtClient, kv *virtv1.KubeVirt, co
 	if _, exists, _ := stores.DaemonSetCache.Get(handler); !exists {
 		expectations.DaemonSet.RaiseExpectations(kvkey, 1, 0)
 		_, err = apps.DaemonSets(kv.Namespace).Create(handler)
-		if err != nil && !apierrors.IsAlreadyExists(err) {
+		if err != nil {
 			expectations.DaemonSet.LowerExpectations(kvkey, 1, 0)
 			return objectsAdded, fmt.Errorf("unable to create daemonset %+v: %v", handler, err)
-		} else if apierrors.IsAlreadyExists(err) {
-			expectations.DaemonSet.LowerExpectations(kvkey, 1, 0)
 		} else if err == nil {
 			objectsAdded++
 		}

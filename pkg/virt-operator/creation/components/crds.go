@@ -55,11 +55,9 @@ func CreateCRDs(clientset kubecli.KubevirtClient, kv *virtv1.KubeVirt, stores ut
 		if _, exists, _ := stores.CrdCache.Get(crd); !exists {
 			expectations.Crd.RaiseExpectations(kvkey, 1, 0)
 			_, err := ext.ApiextensionsV1beta1().CustomResourceDefinitions().Create(crd)
-			if err != nil && !apierrors.IsAlreadyExists(err) {
+			if err != nil {
 				expectations.Crd.LowerExpectations(kvkey, 1, 0)
 				return objectsAdded, fmt.Errorf("unable to create crd %+v: %v", crd, err)
-			} else if apierrors.IsAlreadyExists(err) {
-				expectations.Crd.LowerExpectations(kvkey, 1, 0)
 			} else if err == nil {
 				objectsAdded++
 			}
