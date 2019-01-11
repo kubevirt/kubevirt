@@ -2,6 +2,6 @@
 apiVersion: kubevirt.io/v1alpha2
 kind: KubeVirt
 metadata:
-  name: kubevirt
+  name: KubeVirt
 spec:
   imagePullPolicy: Always

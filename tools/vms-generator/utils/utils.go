@@ -71,7 +71,7 @@ const VmiPresetSmall = "vmi-preset-small"
 
 const VmiMigration = "migration-job"
 
-const KubeVirt = "kubevirt"
+const KubeVirt = "kubevirt-cr"
 
 const (
 	busVirtio = "virtio"
@@ -848,7 +848,7 @@ func GetKubeVirt() *v1.KubeVirt {
 			Kind:       "KubeVirt",
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name: KubeVirt,
+			Name: "KubeVirt",
 		},
 		Spec: v1.KubeVirtSpec{
 			ImagePullPolicy: k8sv1.PullAlways,
