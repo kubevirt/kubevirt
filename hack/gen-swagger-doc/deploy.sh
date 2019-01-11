@@ -33,7 +33,7 @@ Content of this repository is generated from OpenAPI specification of
 * [master](${GITHUB_IO_FQDN}/master/index.html)
 __EOF__
 find * -type d -regex "^v[0-9.]*" \
-    -exec echo "* [{}](${GITHUB_IO_FQDN}/{}/index.html)" \; >>README.md
+    -exec echo "* [{}](${GITHUB_IO_FQDN}/{}/index.html)" \; | sort -r --version-sort -t '[' --key 2 >>README.md
 
 git config --global user.email "travis@travis-ci.org"
 git config --global user.name "Travis CI"
