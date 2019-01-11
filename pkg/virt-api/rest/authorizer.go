@@ -19,6 +19,8 @@
 
 package rest
 
+//go:generate mockgen -source $GOFILE -package=$GOPACKAGE -destination=generated_mock_$GOFILE -imports restful=github.com/emicklei/go-restful
+
 import (
 	"fmt"
 	"net/http"

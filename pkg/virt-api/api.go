@@ -102,6 +102,7 @@ type virtAPIApp struct {
 	SwaggerUI        string
 	SubresourcesOnly bool
 	virtCli          kubecli.KubevirtClient
+	aggregatorClient *aggregatorclient.Clientset
 	authorizor       rest.VirtApiAuthorizor
 	certsDirectory   string
 
@@ -110,7 +111,12 @@ type virtAPIApp struct {
 	keyBytes                   []byte
 	clientCABytes              []byte
 	requestHeaderClientCABytes []byte
+	certFile                   string
+	keyFile                    string
+	clientCAFile               string
+	signingCertFile            string
 	namespace                  string
+	tlsConfig                  *tls.Config
 }
 
 var _ service.Service = &virtAPIApp{}
@@ -136,6 +142,13 @@ func (app *virtAPIApp) Execute() {
 	if err != nil {
 		panic(err)
 	}
+
+	config, err := kubecli.GetConfig()
+	if err != nil {
+		panic(err)
+	}
+
+	app.aggregatorClient = aggregatorclient.NewForConfigOrDie(config)
 
 	app.authorizor = authorizor
 
@@ -452,8 +465,8 @@ func (app *virtAPIApp) createWebhook() error {
 	return nil
 }
 
-func (app *virtAPIApp) createValidatingWebhook() error {
-	registerWebhook := false
+func (app *virtAPIApp) validatingWebhooks() []admissionregistrationv1beta1.Webhook {
+
 	vmiPathCreate := vmiCreateValidatePath
 	vmiPathUpdate := vmiUpdateValidatePath
 	vmPath := vmValidatePath
@@ -461,16 +474,6 @@ func (app *virtAPIApp) createValidatingWebhook() error {
 	vmipresetPath := vmipresetValidatePath
 	migrationCreatePath := migrationCreateValidatePath
 	migrationUpdatePath := migrationUpdateValidatePath
-
-	webhookRegistration, err := app.virtCli.AdmissionregistrationV1beta1().ValidatingWebhookConfigurations().Get(virtWebhookValidator, metav1.GetOptions{})
-	if err != nil {
-		if k8serrors.IsNotFound(err) {
-			registerWebhook = true
-		} else {
-			return err
-		}
-	}
-
 	failurePolicy := admissionregistrationv1beta1.Fail
 
 	webHooks := []admissionregistrationv1beta1.Webhook{
@@ -633,6 +636,22 @@ func (app *virtAPIApp) createValidatingWebhook() error {
 		},
 	}
 
+	return webHooks
+}
+
+func (app *virtAPIApp) createValidatingWebhook() error {
+	registerWebhook := false
+	webhookRegistration, err := app.virtCli.AdmissionregistrationV1beta1().ValidatingWebhookConfigurations().Get(virtWebhookValidator, metav1.GetOptions{})
+	if err != nil {
+		if k8serrors.IsNotFound(err) {
+			fmt.Println(err)
+			registerWebhook = true
+		} else {
+			return err
+		}
+	}
+	webHooks := app.validatingWebhooks()
+
 	if registerWebhook {
 		_, err := app.virtCli.AdmissionregistrationV1beta1().ValidatingWebhookConfigurations().Create(&admissionregistrationv1beta1.ValidatingWebhookConfiguration{
 			ObjectMeta: metav1.ObjectMeta{
@@ -647,7 +666,6 @@ func (app *virtAPIApp) createValidatingWebhook() error {
 			return err
 		}
 	} else {
-
 		for _, webhook := range webhookRegistration.Webhooks {
 			if webhook.ClientConfig.Service != nil && webhook.ClientConfig.Service.Namespace != app.namespace {
 				return fmt.Errorf("ValidatingAdmissionWebhook [%s] is already registered using services endpoints in a different namespace. Existing webhook registration must be deleted before virt-api can proceed.", virtWebhookValidator)
@@ -688,23 +706,8 @@ func (app *virtAPIApp) createValidatingWebhook() error {
 	return nil
 }
 
-func (app *virtAPIApp) createMutatingWebhook() error {
-	namespace, err := util.GetNamespace()
-	if err != nil {
-		return err
-	}
-	registerWebhook := false
+func (app *virtAPIApp) mutatingWebhooks() []admissionregistrationv1beta1.Webhook {
 	vmiPath := vmiMutatePath
-
-	webhookRegistration, err := app.virtCli.AdmissionregistrationV1beta1().MutatingWebhookConfigurations().Get(virtWebhookMutator, metav1.GetOptions{})
-	if err != nil {
-		if k8serrors.IsNotFound(err) {
-			registerWebhook = true
-		} else {
-			return err
-		}
-	}
-
 	webHooks := []admissionregistrationv1beta1.Webhook{
 		{
 			Name: "virtualmachineinstances-mutator.kubevirt.io",
@@ -720,7 +723,7 @@ func (app *virtAPIApp) createMutatingWebhook() error {
 			}},
 			ClientConfig: admissionregistrationv1beta1.WebhookClientConfig{
 				Service: &admissionregistrationv1beta1.ServiceReference{
-					Namespace: namespace,
+					Namespace: app.namespace,
 					Name:      virtApiServiceName,
 					Path:      &vmiPath,
 				},
@@ -728,6 +731,21 @@ func (app *virtAPIApp) createMutatingWebhook() error {
 			},
 		},
 	}
+	return webHooks
+}
+
+func (app *virtAPIApp) createMutatingWebhook() error {
+	registerWebhook := false
+
+	webhookRegistration, err := app.virtCli.AdmissionregistrationV1beta1().MutatingWebhookConfigurations().Get(virtWebhookMutator, metav1.GetOptions{})
+	if err != nil {
+		if k8serrors.IsNotFound(err) {
+			registerWebhook = true
+		} else {
+			return err
+		}
+	}
+	webHooks := app.mutatingWebhooks()
 
 	if registerWebhook {
 		_, err := app.virtCli.AdmissionregistrationV1beta1().MutatingWebhookConfigurations().Create(&admissionregistrationv1beta1.MutatingWebhookConfiguration{
@@ -745,7 +763,7 @@ func (app *virtAPIApp) createMutatingWebhook() error {
 	} else {
 
 		for _, webhook := range webhookRegistration.Webhooks {
-			if webhook.ClientConfig.Service != nil && webhook.ClientConfig.Service.Namespace != namespace {
+			if webhook.ClientConfig.Service != nil && webhook.ClientConfig.Service.Namespace != app.namespace {
 				return fmt.Errorf("MutatingAdmissionWebhook [%s] is already registered using services endpoints in a different namespace. Existing webhook registration must be deleted before virt-api can proceed.", virtWebhookMutator)
 			}
 		}
@@ -765,41 +783,21 @@ func (app *virtAPIApp) createMutatingWebhook() error {
 	return nil
 }
 
-func (app *virtAPIApp) createSubresourceApiservice() error {
-	namespace, err := util.GetNamespace()
-	if err != nil {
-		return err
-	}
-	config, err := kubecli.GetConfig()
-	if err != nil {
-		return err
-	}
-	aggregatorClient := aggregatorclient.NewForConfigOrDie(config)
+func (app *virtAPIApp) subresourceApiservice() *apiregistrationv1beta1.APIService {
 
 	subresourceAggregatedApiName := v1.SubresourceGroupVersion.Version + "." + v1.SubresourceGroupName
 
-	registerApiService := false
-
-	apiService, err := aggregatorClient.ApiregistrationV1beta1().APIServices().Get(subresourceAggregatedApiName, metav1.GetOptions{})
-	if err != nil {
-		if k8serrors.IsNotFound(err) {
-			registerApiService = true
-		} else {
-			return err
-		}
-	}
-
-	newApiService := &apiregistrationv1beta1.APIService{
+	return &apiregistrationv1beta1.APIService{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      subresourceAggregatedApiName,
-			Namespace: namespace,
+			Namespace: app.namespace,
 			Labels: map[string]string{
 				v1.AppLabel: "virt-api-aggregator",
 			},
 		},
 		Spec: apiregistrationv1beta1.APIServiceSpec{
 			Service: &apiregistrationv1beta1.ServiceReference{
-				Namespace: namespace,
+				Namespace: app.namespace,
 				Name:      virtApiServiceName,
 			},
 			Group:                v1.SubresourceGroupName,
@@ -810,19 +808,36 @@ func (app *virtAPIApp) createSubresourceApiservice() error {
 		},
 	}
 
+}
+
+func (app *virtAPIApp) createSubresourceApiservice() error {
+
+	subresourceApiservice := app.subresourceApiservice()
+
+	registerApiService := false
+
+	apiService, err := app.aggregatorClient.ApiregistrationV1beta1().APIServices().Get(subresourceApiservice.Name, metav1.GetOptions{})
+	if err != nil {
+		if k8serrors.IsNotFound(err) {
+			registerApiService = true
+		} else {
+			return err
+		}
+	}
+
 	if registerApiService {
-		_, err = aggregatorClient.ApiregistrationV1beta1().APIServices().Create(newApiService)
+		_, err = app.aggregatorClient.ApiregistrationV1beta1().APIServices().Create(app.subresourceApiservice())
 		if err != nil {
 			return err
 		}
 	} else {
-		if apiService.Spec.Service != nil && apiService.Spec.Service.Namespace != namespace {
-			return fmt.Errorf("apiservice [%s] is already registered in a different namespace. Existing apiservice registration must be deleted before virt-api can proceed.", subresourceAggregatedApiName)
+		if apiService.Spec.Service != nil && apiService.Spec.Service.Namespace != app.namespace {
+			return fmt.Errorf("apiservice [%s] is already registered in a different namespace. Existing apiservice registration must be deleted before virt-api can proceed.", subresourceApiservice.Name)
 		}
 
 		// Always update spec to latest.
-		apiService.Spec = newApiService.Spec
-		_, err := aggregatorClient.ApiregistrationV1beta1().APIServices().Update(apiService)
+		apiService.Spec = app.subresourceApiservice().Spec
+		_, err := app.aggregatorClient.ApiregistrationV1beta1().APIServices().Update(apiService)
 		if err != nil {
 			return err
 		}
@@ -830,23 +845,21 @@ func (app *virtAPIApp) createSubresourceApiservice() error {
 	return nil
 }
 
-func (app *virtAPIApp) startTLS() error {
+func (app *virtAPIApp) setupTLS(fs Filesystem) error {
 
-	errors := make(chan error)
-
-	keyFile := filepath.Join(app.certsDirectory, "/key.pem")
-	certFile := filepath.Join(app.certsDirectory, "/cert.pem")
-	signingCertFile := filepath.Join(app.certsDirectory, "/signingCert.pem")
-	clientCAFile := filepath.Join(app.certsDirectory, "/clientCA.crt")
+	app.keyFile = filepath.Join(app.certsDirectory, "/key.pem")
+	app.certFile = filepath.Join(app.certsDirectory, "/cert.pem")
+	app.signingCertFile = filepath.Join(app.certsDirectory, "/signingCert.pem")
+	app.clientCAFile = filepath.Join(app.certsDirectory, "/clientCA.crt")
 
 	// Write the certs to disk
-	err := ioutil.WriteFile(clientCAFile, app.clientCABytes, 0600)
+	err := fs.WriteFile(app.clientCAFile, app.clientCABytes, 0600)
 	if err != nil {
 		return err
 	}
 
 	if len(app.requestHeaderClientCABytes) != 0 {
-		f, err := os.OpenFile(clientCAFile, os.O_APPEND|os.O_WRONLY, 0600)
+		f, err := fs.OpenFile(app.clientCAFile, os.O_APPEND|os.O_WRONLY, 0600)
 		if err != nil {
 			return err
 		}
@@ -858,27 +871,27 @@ func (app *virtAPIApp) startTLS() error {
 		}
 	}
 
-	err = ioutil.WriteFile(keyFile, app.keyBytes, 0600)
+	err = fs.WriteFile(app.keyFile, app.keyBytes, 0600)
 	if err != nil {
 		return err
 	}
-	err = ioutil.WriteFile(certFile, app.certBytes, 0600)
+	err = fs.WriteFile(app.certFile, app.certBytes, 0600)
 	if err != nil {
 		return err
 	}
-	err = ioutil.WriteFile(signingCertFile, app.signingCertBytes, 0600)
+	err = fs.WriteFile(app.signingCertFile, app.signingCertBytes, 0600)
 	if err != nil {
 		return err
 	}
 
 	// create the client CA pool.
 	// This ensures we're talking to the k8s api server
-	pool, err := cert.NewPool(clientCAFile)
+	pool, err := cert.NewPool(app.clientCAFile)
 	if err != nil {
 		return err
 	}
 
-	tlsConfig := &tls.Config{
+	app.tlsConfig = &tls.Config{
 		ClientCAs: pool,
 		// A VerifyClientCertIfGiven request means we're not guaranteed
 		// a client has been authenticated unless they provide a peer
@@ -897,16 +910,29 @@ func (app *virtAPIApp) startTLS() error {
 		// and our aggregated endpoint never becomes available.
 		ClientAuth: tls.VerifyClientCertIfGiven,
 	}
-	tlsConfig.BuildNameToCertificate()
+	app.tlsConfig.BuildNameToCertificate()
+	return nil
+}
 
+func (app *virtAPIApp) startTLS() error {
+
+	errors := make(chan error)
+
+	err := app.setupTLS(IOUtil{})
+	if err != nil {
+		return err
+	}
+
+	// start TLS server
 	go func() {
 		http.Handle("/metrics", promhttp.Handler())
+
 		server := &http.Server{
 			Addr:      fmt.Sprintf("%s:%d", app.BindAddress, app.Port),
-			TLSConfig: tlsConfig,
+			TLSConfig: app.tlsConfig,
 		}
 
-		errors <- server.ListenAndServeTLS(certFile, keyFile)
+		errors <- server.ListenAndServeTLS(app.certFile, app.keyFile)
 	}()
 
 	// wait for server to exit
