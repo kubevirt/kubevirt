@@ -36,6 +36,18 @@ func (d *VirtualMachineConditionManager) HasCondition(vmi *v1.VirtualMachineInst
 	return false
 }
 
+func (d *VirtualMachineConditionManager) HasConditionWithStatus(vmi *v1.VirtualMachineInstance, cond v1.VirtualMachineInstanceConditionType, status k8sv1.ConditionStatus) bool {
+	for _, c := range vmi.Status.Conditions {
+		if c.Type == cond {
+			if c.Status == status {
+				return true
+			}
+			return false
+		}
+	}
+	return false
+}
+
 func (d *VirtualMachineConditionManager) RemoveCondition(vmi *v1.VirtualMachineInstance, cond v1.VirtualMachineInstanceConditionType) {
 	var conds []v1.VirtualMachineInstanceCondition
 	for _, c := range vmi.Status.Conditions {
@@ -74,7 +86,7 @@ func (d *VirtualMachineConditionManager) PodHasCondition(pod *k8sv1.Pod, conditi
 	return false
 }
 
-func (d *VirtualMachineConditionManager) GetPodCondition(pod *k8sv1.Pod, conditionType k8sv1.PodConditionType, status k8sv1.ConditionStatus) *k8sv1.PodCondition {
+func (d *VirtualMachineConditionManager) GetPodConditionWithStatus(pod *k8sv1.Pod, conditionType k8sv1.PodConditionType, status k8sv1.ConditionStatus) *k8sv1.PodCondition {
 	for _, cond := range pod.Status.Conditions {
 		if cond.Type == conditionType {
 			if cond.Status == status {
@@ -82,6 +94,15 @@ func (d *VirtualMachineConditionManager) GetPodCondition(pod *k8sv1.Pod, conditi
 			} else {
 				return nil
 			}
+		}
+	}
+	return nil
+}
+
+func (d *VirtualMachineConditionManager) GetPodCondition(pod *k8sv1.Pod, conditionType k8sv1.PodConditionType) *k8sv1.PodCondition {
+	for _, cond := range pod.Status.Conditions {
+		if cond.Type == conditionType {
+			return &cond
 		}
 	}
 	return nil

@@ -574,7 +574,7 @@ func (c *VMController) filterActiveVMIs(vmis []*virtv1.VirtualMachineInstance) [
 // TODO +pkotas unify with replicaset this code is the same
 func (c *VMController) filterReadyVMIs(vmis []*virtv1.VirtualMachineInstance) []*virtv1.VirtualMachineInstance {
 	return filter(vmis, func(vmi *virtv1.VirtualMachineInstance) bool {
-		return vmi.IsReady()
+		return controller.NewVirtualMachineInstanceConditionManager().HasConditionWithStatus(vmi, virtv1.VirtualMachineInstanceConditionType(k8score.PodReady), k8score.ConditionTrue)
 	})
 }
 
@@ -927,7 +927,7 @@ func (c *VMController) updateStatus(vm *virtv1.VirtualMachine, vmi *virtv1.Virtu
 
 	ready := false
 	if created {
-		ready = vmi.IsReady()
+		ready = controller.NewVirtualMachineInstanceConditionManager().HasConditionWithStatus(vmi, virtv1.VirtualMachineInstanceConditionType(k8score.PodReady), k8score.ConditionTrue)
 	}
 	readyMatch := ready == vm.Status.Ready
 

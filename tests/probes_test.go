@@ -58,15 +58,20 @@ var _ = Describe("Probes", func() {
 			tests.WaitForSuccessfulVMIStartIgnoreWarnings(vmi)
 
 			Expect(podReady(tests.GetRunningPodByVirtualMachineInstance(vmi, tests.NamespaceTestDefault))).To(Equal(v1.ConditionFalse))
+			vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &v13.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(vmiReady(vmi)).To(Equal(v1.ConditionFalse))
 
 			By("Starting the server inside the VMI")
 			serverStarter(vmi, 1500)
 
-			By("Checking that the VMI will be marked as ready to receive traffic")
+			By("Checking that the VMI and the pod will be marked as ready to receive traffic")
 			Eventually(func() v1.ConditionStatus {
-				pod := tests.GetRunningPodByVirtualMachineInstance(vmi, tests.NamespaceTestDefault)
-				return podReady(pod)
+				vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &v13.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				return vmiReady(vmi)
 			}, 60, 1).Should(Equal(v1.ConditionTrue))
+			Expect(podReady(tests.GetRunningPodByVirtualMachineInstance(vmi, tests.NamespaceTestDefault))).To(Equal(v1.ConditionTrue))
 		},
 			table.Entry("with working TCP probe and tcp server", tcpProbe, tests.StartTCPServer),
 			table.Entry("with working HTTP probe and http server", httpProbe, tests.StartHTTPServer),
@@ -82,12 +87,17 @@ var _ = Describe("Probes", func() {
 			tests.WaitForSuccessfulVMIStartIgnoreWarnings(vmi)
 
 			Expect(podReady(tests.GetRunningPodByVirtualMachineInstance(vmi, tests.NamespaceTestDefault))).To(Equal(v1.ConditionFalse))
+			vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &v13.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(vmiReady(vmi)).To(Equal(v1.ConditionFalse))
 
-			By("Checking that the VMI will consistently stay in a not-ready state")
+			By("Checking that the VMI and the pod will consistently stay in a not-ready state")
 			Consistently(func() v1.ConditionStatus {
-				pod := tests.GetRunningPodByVirtualMachineInstance(vmi, tests.NamespaceTestDefault)
-				return podReady(pod)
+				vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &v13.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				return vmiReady(vmi)
 			}, 60, 1).Should(Equal(v1.ConditionFalse))
+			Expect(podReady(tests.GetRunningPodByVirtualMachineInstance(vmi, tests.NamespaceTestDefault))).To(Equal(v1.ConditionFalse))
 		},
 			table.Entry("with working TCP probe and no running server", tcpProbe),
 			table.Entry("with working HTTP probe and no running server", httpProbe),
@@ -165,6 +175,15 @@ var _ = Describe("Probes", func() {
 func podReady(pod *v1.Pod) v1.ConditionStatus {
 	for _, cond := range pod.Status.Conditions {
 		if cond.Type == v1.PodReady {
+			return cond.Status
+		}
+	}
+	return v1.ConditionFalse
+}
+
+func vmiReady(vmi *v12.VirtualMachineInstance) v1.ConditionStatus {
+	for _, cond := range vmi.Status.Conditions {
+		if cond.Type == v12.VirtualMachineInstanceConditionType(v1.PodReady) {
 			return cond.Status
 		}
 	}
