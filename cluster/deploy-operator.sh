@@ -41,7 +41,7 @@ _kubectl create -f ${MANIFESTS_OUT_DIR}/testing
 _kubectl apply -f ${MANIFESTS_OUT_DIR}/release/kubevirt-operator.yaml
 
 # Deploy kubevirt
-_kubectl create -n ${namespace} -f ${KUBEVIRT_PATH}cluster/examples/kubevirt-cr.yaml
+_kubectl create -n ${namespace} -f ${MANIFESTS_OUT_DIR}/release/kubevirt-cr.yaml
 
 if [[ "$KUBEVIRT_PROVIDER" =~ os-* ]]; then
     _kubectl create -f ${MANIFESTS_OUT_DIR}/testing/ocp

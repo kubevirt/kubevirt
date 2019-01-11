@@ -56,6 +56,8 @@ func main() {
 		util.MarshallObject(components.NewVirtualMachineInstanceMigrationCrd(), os.Stdout)
 	case "kv":
 		util.MarshallObject(components.NewKubeVirtCrd(), os.Stdout)
+	case "kv-cr":
+		util.MarshallObject(components.NewKubeVirtCR(*namespace, imagePullPolicy), os.Stdout)
 	case "rbac":
 		all := make([]interface{}, 0)
 		all = append(all, rbac.GetAllCluster(*namespace)...)

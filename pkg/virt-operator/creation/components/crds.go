@@ -25,8 +25,8 @@ import (
 	"kubevirt.io/kubevirt/pkg/log"
 	"kubevirt.io/kubevirt/pkg/virt-operator/util"
 
+	corev1 "k8s.io/api/core/v1"
 	extv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	virtv1 "kubevirt.io/kubevirt/pkg/api/v1"
@@ -67,18 +67,6 @@ func CreateCRDs(clientset kubecli.KubevirtClient, kv *virtv1.KubeVirt, stores ut
 	}
 
 	return objectsAdded, nil
-}
-
-func NewKubeVirtCRD(clientset kubecli.KubevirtClient) error {
-
-	ext := clientset.ExtensionsClient()
-
-	_, err := ext.ApiextensionsV1beta1().CustomResourceDefinitions().Create(NewKubeVirtCrd())
-	if err != nil && !apierrors.IsAlreadyExists(err) {
-		return fmt.Errorf("unable to create crd: %v", err)
-	}
-
-	return nil
 }
 
 func newBlankCrd() *extv1beta1.CustomResourceDefinition {
@@ -258,4 +246,21 @@ func NewKubeVirtCrd() *extv1beta1.CustomResourceDefinition {
 	}
 
 	return crd
+}
+
+// used by manifest generation
+func NewKubeVirtCR(namespace string, pullPolicy corev1.PullPolicy) *virtv1.KubeVirt {
+	return &virtv1.KubeVirt{
+		TypeMeta: metav1.TypeMeta{
+			APIVersion: virtv1.GroupVersion.String(),
+			Kind:       "KubeVirt",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: namespace,
+			Name:      "kubevirt",
+		},
+		Spec: virtv1.KubeVirtSpec{
+			ImagePullPolicy: pullPolicy,
+		},
+	}
 }

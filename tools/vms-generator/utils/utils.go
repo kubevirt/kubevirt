@@ -86,8 +86,6 @@ const (
 
 const windowsFirmware = "5d307ca9-b3ef-428c-8861-06e72d69f223"
 
-const apiVersion = "kubevirt.io/v1alpha2"
-
 var DockerPrefix = "registry:5000/kubevirt"
 var DockerTag = "devel"
 
@@ -111,7 +109,7 @@ func getBaseVMI(name string) *v1.VirtualMachineInstance {
 
 	return &v1.VirtualMachineInstance{
 		TypeMeta: metav1.TypeMeta{
-			APIVersion: apiVersion,
+			APIVersion: v1.GroupVersion.String(),
 			Kind:       "VirtualMachineInstance",
 		},
 		ObjectMeta: metav1.ObjectMeta{
@@ -513,7 +511,7 @@ func getBaseVM(name string, labels map[string]string) *v1.VirtualMachine {
 
 	return &v1.VirtualMachine{
 		TypeMeta: metav1.TypeMeta{
-			APIVersion: apiVersion,
+			APIVersion: v1.GroupVersion.String(),
 			Kind:       "VirtualMachine",
 		},
 		ObjectMeta: metav1.ObjectMeta{
@@ -750,7 +748,7 @@ func getBaseVMIReplicaSet(name string, replicas int, selectorLabels map[string]s
 
 	return &v1.VirtualMachineInstanceReplicaSet{
 		TypeMeta: metav1.TypeMeta{
-			APIVersion: apiVersion,
+			APIVersion: v1.GroupVersion.String(),
 			Kind:       "VirtualMachineInstanceReplicaSet",
 		},
 		ObjectMeta: metav1.ObjectMeta{
@@ -783,7 +781,7 @@ func GetVMIReplicaSetCirros() *v1.VirtualMachineInstanceReplicaSet {
 func getBaseVMIPreset(name string, selectorLabels map[string]string) *v1.VirtualMachineInstancePreset {
 	return &v1.VirtualMachineInstancePreset{
 		TypeMeta: metav1.TypeMeta{
-			APIVersion: apiVersion,
+			APIVersion: v1.GroupVersion.String(),
 			Kind:       "VirtualMachineInstancePreset",
 		},
 		ObjectMeta: metav1.ObjectMeta{
@@ -800,7 +798,7 @@ func getBaseVMIPreset(name string, selectorLabels map[string]string) *v1.Virtual
 func GetVMIMigration() *v1.VirtualMachineInstanceMigration {
 	return &v1.VirtualMachineInstanceMigration{
 		TypeMeta: metav1.TypeMeta{
-			APIVersion: apiVersion,
+			APIVersion: v1.GroupVersion.String(),
 			Kind:       "VirtualMachineInstanceMigration",
 		},
 		ObjectMeta: metav1.ObjectMeta{
@@ -839,19 +837,4 @@ func GetVMIWithHookSidecar() *v1.VirtualMachineInstance {
 		"smbios.vm.kubevirt.io/baseBoardManufacturer": "Radical Edward",
 	}
 	return vmi
-}
-
-func GetKubeVirt() *v1.KubeVirt {
-	return &v1.KubeVirt{
-		TypeMeta: metav1.TypeMeta{
-			APIVersion: apiVersion,
-			Kind:       "KubeVirt",
-		},
-		ObjectMeta: metav1.ObjectMeta{
-			Name: "KubeVirt",
-		},
-		Spec: v1.KubeVirtSpec{
-			ImagePullPolicy: k8sv1.PullAlways,
-		},
-	}
 }
