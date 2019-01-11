@@ -41,7 +41,7 @@ EOF
 }
 
 shortlog() {
-    git shortlog -sne $RELSPANREF | sed "s/^/    /"
+    git shortlog -sne --no-merges $RELSPANREF | sed "s/^/    /"
 }
 
 functest() {
