@@ -187,7 +187,11 @@ func (o *Command) RunE(cmd *cobra.Command, args []string) error {
 	if port == 0 && len(ports) == 0 {
 		return fmt.Errorf("couldn't find port via --port flag or introspection")
 	} else if port != 0 {
-		ports = []v1.ServicePort{{Name: portName, Protocol: protocol, Port: port, TargetPort: targetPort}}
+		if strServiceType == "NodePort" {
+			ports = []v1.ServicePort{{Name: portName, Protocol: protocol, Port: port, TargetPort: targetPort, NodePort: port}}
+		} else {
+			ports = []v1.ServicePort{{Name: portName, Protocol: protocol, Port: port, TargetPort: targetPort}}
+		}
 	}
 
 	// actually create the service
