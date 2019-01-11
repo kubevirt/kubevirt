@@ -342,6 +342,15 @@ func (l *LibvirtDomainManager) preStartHook(vmi *v1.VirtualMachineInstance, doma
 
 	// generate cloud-init data
 	cloudInitData := cloudinit.GetCloudInitNoCloudSource(vmi)
+
+	// Pass cloud-init data to PreCloudInitIso hook
+	logger.Info("Starting PreCloudInitIso hook")
+	hooksManager := hooks.GetManager()
+	cloudInitData, err = hooksManager.PreCloudInitIso(vmi, cloudInitData)
+	if err != nil {
+		return domain, fmt.Errorf("PreCloudInitIso hook failed: %v", err)
+	}
+
 	if cloudInitData != nil {
 		hostname := dns.SanitizeHostname(vmi)
 

@@ -13,11 +13,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Copyright 2018 Red Hat, Inc.
+ * Copyright 2019 StackPath, LLC
  *
  */
 
-package info
+package v1alpha2
 
-const OnDefineDomainHookPointName = "OnDefineDomain"
-const PreCloudInitIsoHookPointName = "PreCloudInitIso"
+const Version = "v1alpha2"
