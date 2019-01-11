@@ -27,7 +27,6 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	virtv1 "kubevirt.io/kubevirt/pkg/api/v1"
@@ -47,11 +46,9 @@ func CreateClusterRBAC(clientset kubecli.KubevirtClient, kv *virtv1.KubeVirt, st
 	if _, exists, _ := stores.ServiceAccountCache.Get(sa); !exists {
 		expectations.ServiceAccount.RaiseExpectations(kvkey, 1, 0)
 		_, err := core.ServiceAccounts(kv.Namespace).Create(sa)
-		if err != nil && !apierrors.IsAlreadyExists(err) {
+		if err != nil {
 			expectations.ServiceAccount.LowerExpectations(kvkey, 1, 0)
 			return objectsAdded, fmt.Errorf("unable to create serviceaccount %+v: %v", sa, err)
-		} else if apierrors.IsAlreadyExists(err) {
-			expectations.ServiceAccount.LowerExpectations(kvkey, 1, 0)
 		} else if err == nil {
 			objectsAdded++
 		}
@@ -71,11 +68,9 @@ func CreateClusterRBAC(clientset kubecli.KubevirtClient, kv *virtv1.KubeVirt, st
 		if _, exists, _ := stores.ClusterRoleCache.Get(cr); !exists {
 			expectations.ClusterRole.RaiseExpectations(kvkey, 1, 0)
 			_, err := rbac.ClusterRoles().Create(cr)
-			if err != nil && !apierrors.IsAlreadyExists(err) {
+			if err != nil {
 				expectations.ClusterRole.LowerExpectations(kvkey, 1, 0)
 				return objectsAdded, fmt.Errorf("unable to create clusterrole %+v: %v", cr, err)
-			} else if apierrors.IsAlreadyExists(err) {
-				expectations.ClusterRole.LowerExpectations(kvkey, 1, 0)
 			} else if err == nil {
 				objectsAdded++
 			}
@@ -92,11 +87,9 @@ func CreateClusterRBAC(clientset kubecli.KubevirtClient, kv *virtv1.KubeVirt, st
 		if _, exists, _ := stores.ClusterRoleBindingCache.Get(crb); !exists {
 			expectations.ClusterRoleBinding.RaiseExpectations(kvkey, 1, 0)
 			_, err := rbac.ClusterRoleBindings().Create(crb)
-			if err != nil && !apierrors.IsAlreadyExists(err) {
+			if err != nil {
 				expectations.ClusterRoleBinding.LowerExpectations(kvkey, 1, 0)
 				return objectsAdded, fmt.Errorf("unable to create clusterrolebinding %+v: %v", crb, err)
-			} else if apierrors.IsAlreadyExists(err) {
-				expectations.ClusterRoleBinding.LowerExpectations(kvkey, 1, 0)
 			} else if err == nil {
 				objectsAdded++
 			}
@@ -338,8 +331,7 @@ func newPrivilegedClusterRoleBinding(namespace string) *rbacv1.ClusterRoleBindin
 			Kind:       "ClusterRoleBinding",
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Namespace: namespace,
-			Name:      "kubevirt-privileged-cluster-admin",
+			Name: "kubevirt-privileged-cluster-admin",
 			Labels: map[string]string{
 				virtv1.AppLabel:       "",
 				virtv1.ManagedByLabel: virtv1.ManagedByLabelOperatorValue,
