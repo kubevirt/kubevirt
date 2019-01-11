@@ -432,7 +432,7 @@ metadata:
   namespace: {{.CDINamespace}}
   labels:
     prometheus.kubevirt.io: ""
-    kubevirt.io: ""
+    cdi.kubevirt.io: ""
 spec:
   ports:
     - name: metrics

@@ -176,7 +176,7 @@ set -e
 echo "Nodes are ready:"
 kubectl get nodes
 
-make cluster-sync
+make cluster-sync-operator
 
 # OpenShift is running important containers under default namespace
 namespaces=(kubevirt default)

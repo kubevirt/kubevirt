@@ -115,6 +115,8 @@ type ControllerExpectationsInterface interface {
 // ControllerExpectations is a cache mapping controllers to what they expect to see before being woken up for a sync.
 type ControllerExpectations struct {
 	cache.Store
+	// A name for identifying this expectations
+	name string
 }
 
 // GetExpectations returns the ControlleeExpectations of the given controller.
@@ -141,24 +143,24 @@ func (r *ControllerExpectations) DeleteExpectations(controllerKey string) {
 func (r *ControllerExpectations) SatisfiedExpectations(controllerKey string) bool {
 	if exp, exists, err := r.GetExpectations(controllerKey); exists {
 		if exp.Fulfilled() {
-			glog.V(4).Infof("Controller expectations fulfilled %#v", exp)
+			glog.V(4).Infof("Controller expectations (name: %s) fulfilled %#v", r.name, exp)
 			return true
 		} else if exp.isExpired() {
-			glog.V(4).Infof("Controller expectations expired %#v", exp)
+			glog.V(4).Infof("Controller expectations (name: %s) expired %#v", r.name, exp)
 			return true
 		} else {
-			glog.V(4).Infof("Controller still waiting on expectations %#v", exp)
+			glog.V(4).Infof("Controller (name: %s) still waiting on expectations %#v", r.name, exp)
 			return false
 		}
 	} else if err != nil {
-		glog.V(2).Infof("Error encountered while checking expectations %#v, forcing sync", err)
+		glog.V(2).Infof("Error encountered while checking expectations (name: %s) %#v, forcing sync", r.name, err)
 	} else {
 		// When a new controller is created, it doesn't have expectations.
 		// When it doesn't see expected watch events for > TTL, the expectations expire.
 		//	- In this case it wakes up, creates/deletes controllees, and sets expectations again.
 		// When it has satisfied expectations and no controllees need to be created/destroyed > TTL, the expectations expire.
 		//	- In this case it continues without setting expectations till it needs to create/delete controllees.
-		glog.V(4).Infof("Controller %v either never recorded expectations, or the ttl expired.", controllerKey)
+		glog.V(4).Infof("Controller %v (name: %s) either never recorded expectations, or the ttl expired.", controllerKey, r.name)
 	}
 	// Trigger a sync if we either encountered and error (which shouldn't happen since we're
 	// getting from local store) or this controller hasn't established expectations.
@@ -249,7 +251,10 @@ func (e *ControlleeExpectations) GetExpectations() (int64, int64) {
 
 // NewControllerExpectations returns a store for ControllerExpectations.
 func NewControllerExpectations() *ControllerExpectations {
-	return &ControllerExpectations{cache.NewStore(ExpKeyFunc)}
+	return &ControllerExpectations{Store: cache.NewStore(ExpKeyFunc), name: "n/a"}
+}
+func NewControllerExpectationsWithName(name string) *ControllerExpectations {
+	return &ControllerExpectations{Store: cache.NewStore(ExpKeyFunc), name: name}
 }
 
 // UIDSetKeyFunc to parse out the key from a UIDSet.
@@ -307,6 +312,22 @@ func (u *UIDTrackingControllerExpectations) ExpectDeletions(rcKey string, delete
 		expectedUIDs.Insert(k)
 	}
 	glog.V(4).Infof("Controller %v waiting on deletions for: %+v", rcKey, deletedKeys)
+	if err := u.uidStore.Add(&UIDSet{expectedUIDs, rcKey}); err != nil {
+		return err
+	}
+	return u.ControllerExpectationsInterface.ExpectDeletions(rcKey, expectedUIDs.Len())
+}
+
+func (u *UIDTrackingControllerExpectations) AddExpectedDeletion(rcKey string, deletedKey string) error {
+	u.uidStoreLock.Lock()
+	defer u.uidStoreLock.Unlock()
+
+	expectedUIDs := sets.NewString()
+	if existing := u.GetUIDs(rcKey); existing != nil && existing.Len() != 0 {
+		expectedUIDs = existing
+	}
+	expectedUIDs.Insert(deletedKey)
+	glog.V(4).Infof("Controller %v waiting on deletions for: %+v", rcKey, expectedUIDs)
 	if err := u.uidStore.Add(&UIDSet{expectedUIDs, rcKey}); err != nil {
 		return err
 	}

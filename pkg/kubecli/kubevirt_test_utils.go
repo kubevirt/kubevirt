@@ -55,3 +55,11 @@ func NewVirtualMachineInstanceReplicaSetList(rss ...v1.VirtualMachineInstanceRep
 func NewMinimalVirtualMachineInstanceReplicaSet(name string) *v1.VirtualMachineInstanceReplicaSet {
 	return &v1.VirtualMachineInstanceReplicaSet{TypeMeta: k8smetav1.TypeMeta{APIVersion: v1.GroupVersion.String(), Kind: "VirtualMachineInstanceReplicaSet"}, ObjectMeta: k8smetav1.ObjectMeta{Name: name}}
 }
+
+func NewMinimalKubeVirt(name string) *v1.KubeVirt {
+	return &v1.KubeVirt{TypeMeta: k8smetav1.TypeMeta{APIVersion: v1.GroupVersion.String(), Kind: "KubeVirt"}, ObjectMeta: k8smetav1.ObjectMeta{Name: name}}
+}
+
+func NewKubeVirtList(kubevirts ...v1.KubeVirt) *v1.KubeVirtList {
+	return &v1.KubeVirtList{TypeMeta: k8smetav1.TypeMeta{APIVersion: v1.GroupVersion.String(), Kind: "KubeVirtList"}, Items: kubevirts}
+}

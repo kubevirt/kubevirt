@@ -19,10 +19,75 @@
 package rbac
 
 import (
+	"fmt"
+
+	"kubevirt.io/kubevirt/pkg/controller"
+	"kubevirt.io/kubevirt/pkg/log"
+	"kubevirt.io/kubevirt/pkg/virt-operator/util"
+
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	virtv1 "kubevirt.io/kubevirt/pkg/api/v1"
+	"kubevirt.io/kubevirt/pkg/kubecli"
 )
+
+func CreateControllerRBAC(clientset kubecli.KubevirtClient, kv *virtv1.KubeVirt, stores util.Stores, expectations *util.Expectations) (int, error) {
+
+	objectsAdded := 0
+	core := clientset.CoreV1()
+	kvkey, err := controller.KeyFunc(kv)
+	if err != nil {
+		return 0, err
+	}
+
+	sa := newControllerServiceAccount(kv.Namespace)
+	if _, exists, _ := stores.ServiceAccountCache.Get(sa); !exists {
+		expectations.ServiceAccount.RaiseExpectations(kvkey, 1, 0)
+		_, err := core.ServiceAccounts(kv.Namespace).Create(sa)
+		if err != nil {
+			expectations.ServiceAccount.LowerExpectations(kvkey, 1, 0)
+			return objectsAdded, fmt.Errorf("unable to create serviceaccount %+v: %v", sa, err)
+		} else if err == nil {
+			objectsAdded++
+		}
+	} else {
+		log.Log.Infof("serviceaccount %v already exists", sa.GetName())
+	}
+
+	rbac := clientset.RbacV1()
+
+	cr := newControllerClusterRole()
+	if _, exists, _ := stores.ClusterRoleCache.Get(cr); !exists {
+		expectations.ClusterRole.RaiseExpectations(kvkey, 1, 0)
+		_, err := rbac.ClusterRoles().Create(cr)
+		if err != nil {
+			expectations.ClusterRole.LowerExpectations(kvkey, 1, 0)
+			return objectsAdded, fmt.Errorf("unable to create clusterrole %+v: %v", cr, err)
+		} else if err == nil {
+			objectsAdded++
+		}
+	} else {
+		log.Log.Infof("clusterrole %v already exists", cr.GetName())
+	}
+
+	crb := newControllerClusterRoleBinding(kv.Namespace)
+	if _, exists, _ := stores.ClusterRoleBindingCache.Get(crb); !exists {
+		expectations.ClusterRoleBinding.RaiseExpectations(kvkey, 1, 0)
+		_, err := rbac.ClusterRoleBindings().Create(crb)
+		if err != nil {
+			expectations.ClusterRoleBinding.LowerExpectations(kvkey, 1, 0)
+			return objectsAdded, fmt.Errorf("unable to create clusterrolebinding %+v: %v", crb, err)
+		} else if err == nil {
+			objectsAdded++
+		}
+	} else {
+		log.Log.Infof("clusterrolebinding %v already exists", crb.GetName())
+	}
+
+	return objectsAdded, nil
+}
 
 func GetAllController(namespace string) []interface{} {
 	return []interface{}{
@@ -42,7 +107,8 @@ func newControllerServiceAccount(namespace string) *corev1.ServiceAccount {
 			Namespace: namespace,
 			Name:      "kubevirt-controller",
 			Labels: map[string]string{
-				"kubevirt.io": "",
+				virtv1.AppLabel:       "",
+				virtv1.ManagedByLabel: virtv1.ManagedByLabelOperatorValue,
 			},
 		},
 	}
@@ -57,7 +123,8 @@ func newControllerClusterRole() *rbacv1.ClusterRole {
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "kubevirt-controller",
 			Labels: map[string]string{
-				"kubevirt.io": "",
+				virtv1.AppLabel:       "",
+				virtv1.ManagedByLabel: virtv1.ManagedByLabelOperatorValue,
 			},
 		},
 		Rules: []rbacv1.PolicyRule{
@@ -160,10 +227,10 @@ func newControllerClusterRoleBinding(namespace string) *rbacv1.ClusterRoleBindin
 			Kind:       "ClusterRoleBinding",
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Namespace: namespace,
-			Name:      "kubevirt-controller",
+			Name: "kubevirt-controller",
 			Labels: map[string]string{
-				"kubevirt.io": "",
+				virtv1.AppLabel:       "",
+				virtv1.ManagedByLabel: virtv1.ManagedByLabelOperatorValue,
 			},
 		},
 		RoleRef: rbacv1.RoleRef{
