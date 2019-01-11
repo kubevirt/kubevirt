@@ -30,4 +30,3 @@ message PreCloudInitIsoResult {
   // cloudInitData is an object of CloudInitNoCloudSource encoded as JSON
   bytes cloudInitData = 1;
 }
-
