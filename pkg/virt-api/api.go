@@ -27,9 +27,11 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"sync"
 
 	restful "github.com/emicklei/go-restful"
 	restfulspec "github.com/emicklei/go-restful-openapi"
+	"github.com/go-openapi/spec"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	flag "github.com/spf13/pflag"
 	admissionregistrationv1beta1 "k8s.io/api/admissionregistration/v1beta1"
@@ -243,7 +245,20 @@ func (app *virtAPIApp) composeSubresources() {
 			list.Kind = "APIResourceList"
 			list.GroupVersion = v1.SubresourceGroupVersion.Group + "/" + v1.SubresourceGroupVersion.Version
 			list.APIVersion = v1.SubresourceGroupVersion.Version
-			list.APIResources = []metav1.APIResource{}
+			list.APIResources = []metav1.APIResource{
+				{
+					Name:       "virtualmachineinstances/vnc",
+					Namespaced: true,
+				},
+				{
+					Name:       "virtualmachineinstances/restart",
+					Namespaced: true,
+				},
+				{
+					Name:       "virtualmachineinstances/console",
+					Namespaced: true,
+				},
+			}
 
 			response.WriteAsJson(list)
 		}).
@@ -255,6 +270,25 @@ func (app *virtAPIApp) composeSubresources() {
 	restful.Add(subws)
 
 	ws := new(restful.WebService)
+
+	// K8s needs the ability to query the root paths
+	ws.Route(ws.GET("/").
+		Produces(restful.MIME_JSON).Writes(metav1.RootPaths{}).
+		To(func(request *restful.Request, response *restful.Response) {
+			response.WriteAsJson(&metav1.RootPaths{
+				Paths: []string{
+					"/apis",
+					"/apis/",
+					rest.GroupBasePath(v1.SubresourceGroupVersion),
+					rest.GroupVersionBasePath(v1.SubresourceGroupVersion),
+					"/openapi/v2",
+				},
+			})
+		}).
+		Operation("getRootPaths").
+		Doc("Get KubeVirt API root paths").
+		Returns(http.StatusOK, "OK", metav1.RootPaths{}).
+		Returns(http.StatusNotFound, "Not Found", nil))
 
 	// K8s needs the ability to query info about a specific API group
 	ws.Route(ws.GET(rest.GroupBasePath(v1.SubresourceGroupVersion)).
@@ -276,10 +310,23 @@ func (app *virtAPIApp) composeSubresources() {
 			list.Groups = append(list.Groups, subresourceAPIGroup())
 			response.WriteAsJson(list)
 		}).
-		Operation("getAPIGroup").
+		Operation("getAPIGroupList").
 		Doc("Get a KubeVirt API GroupList").
 		Returns(http.StatusOK, "OK", metav1.APIGroupList{}).
 		Returns(http.StatusNotFound, "Not Found", nil))
+
+	once := sync.Once{}
+	ws.Route(ws.GET("openapi/v2").
+		Consumes(restful.MIME_JSON).
+		Produces(restful.MIME_JSON).
+		To(func(request *restful.Request, response *restful.Response) {
+			var openapispec *spec.Swagger
+			once.Do(func() {
+				openapispec = openapi.LoadOpenAPISpec([]*restful.WebService{ws, subws})
+				openapispec.Info.Version = version.Get().String()
+			})
+			response.WriteAsJson(openapispec)
+		}))
 
 	restful.Add(ws)
 }
