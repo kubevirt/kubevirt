@@ -282,7 +282,7 @@ var _ = Describe("CloudInit", func() {
 
 					userSecret := &k8sv1.Secret{
 						ObjectMeta: metav1.ObjectMeta{
-							Name:      "userData",
+							Name:      "userDataSecretName",
 							Namespace: namespace,
 						},
 						Type: "Opaque",
@@ -295,7 +295,7 @@ var _ = Describe("CloudInit", func() {
 					virtClient.EXPECT().CoreV1().Return(userClient.CoreV1()).AnyTimes()
 
 					cloudInitData := &v1.CloudInitNoCloudSource{
-						UserDataSecretRef: &k8sv1.LocalObjectReference{Name: "userData"},
+						UserDataSecretRef: &k8sv1.LocalObjectReference{Name: "userDataSecretName"},
 					}
 
 					err := ResolveSecrets(cloudInitData, namespace, virtClient)
@@ -311,7 +311,7 @@ var _ = Describe("CloudInit", func() {
 
 					userSecret := &k8sv1.Secret{
 						ObjectMeta: metav1.ObjectMeta{
-							Name:      "userData",
+							Name:      "userDataSecretName",
 							Namespace: namespace,
 						},
 						Type: "Opaque",
@@ -323,7 +323,7 @@ var _ = Describe("CloudInit", func() {
 
 					networkSecret := &k8sv1.Secret{
 						ObjectMeta: metav1.ObjectMeta{
-							Name:      "networkData",
+							Name:      "networkDataSecretName",
 							Namespace: namespace,
 						},
 						Type: "Opaque",
@@ -339,8 +339,8 @@ var _ = Describe("CloudInit", func() {
 					)
 
 					cloudInitData := &v1.CloudInitNoCloudSource{
-						UserDataSecretRef:    &k8sv1.LocalObjectReference{Name: "userData"},
-						NetworkDataSecretRef: &k8sv1.LocalObjectReference{Name: "networkData"},
+						UserDataSecretRef:    &k8sv1.LocalObjectReference{Name: "userDataSecretName"},
+						NetworkDataSecretRef: &k8sv1.LocalObjectReference{Name: "networkDataSecretName"},
 					}
 
 					err := ResolveSecrets(cloudInitData, namespace, virtClient)
@@ -370,11 +370,11 @@ var _ = Describe("CloudInit", func() {
 					virtClient.EXPECT().CoreV1().Return(fakeClient.CoreV1())
 
 					cloudInitData := &v1.CloudInitNoCloudSource{
-						UserDataSecretRef: &k8sv1.LocalObjectReference{Name: "userData"},
+						UserDataSecretRef: &k8sv1.LocalObjectReference{Name: "userDataSecretName"},
 					}
 
 					err := ResolveSecrets(cloudInitData, namespace, virtClient)
-					Expect(err.Error()).To(Equal("secrets \"userData\" not found"))
+					Expect(err.Error()).To(Equal("secrets \"userDataSecretName\" not found"))
 				})
 			})
 			Context("with NetworkDataSecretRef defined without a secret", func() {
@@ -386,11 +386,11 @@ var _ = Describe("CloudInit", func() {
 					virtClient.EXPECT().CoreV1().Return(fakeClient.CoreV1())
 
 					cloudInitData := &v1.CloudInitNoCloudSource{
-						NetworkDataSecretRef: &k8sv1.LocalObjectReference{Name: "networkData"},
+						NetworkDataSecretRef: &k8sv1.LocalObjectReference{Name: "networkDataSecretName"},
 					}
 
 					err := ResolveSecrets(cloudInitData, namespace, virtClient)
-					Expect(err.Error()).To(Equal("secrets \"networkData\" not found"))
+					Expect(err.Error()).To(Equal("secrets \"networkDataSecretName\" not found"))
 				})
 			})
 			Context("with UserDataSecretRef defined with a misnamed secret", func() {
@@ -400,7 +400,7 @@ var _ = Describe("CloudInit", func() {
 					namespace := "testing"
 					userSecret := &k8sv1.Secret{
 						ObjectMeta: metav1.ObjectMeta{
-							Name:      "userData",
+							Name:      "userDataSecretName",
 							Namespace: namespace,
 						},
 						Type: "Opaque",
@@ -412,11 +412,11 @@ var _ = Describe("CloudInit", func() {
 					virtClient.EXPECT().CoreV1().Return(userClient.CoreV1()).AnyTimes()
 
 					cloudInitData := &v1.CloudInitNoCloudSource{
-						UserDataSecretRef: &k8sv1.LocalObjectReference{Name: "userData"},
+						UserDataSecretRef: &k8sv1.LocalObjectReference{Name: "userDataSecretName"},
 					}
 
 					err := ResolveSecrets(cloudInitData, namespace, virtClient)
-					Expect(err.Error()).To(Equal("no user-data value found in k8s secret userData <nil>"))
+					Expect(err.Error()).To(Equal("userdata key not found in k8s secret userDataSecretName <nil>"))
 				})
 			})
 			Context("with NetworkDataSecretRef defined with a misnamed secret", func() {
@@ -426,7 +426,7 @@ var _ = Describe("CloudInit", func() {
 					namespace := "testing"
 					networkSecret := &k8sv1.Secret{
 						ObjectMeta: metav1.ObjectMeta{
-							Name:      "networkData",
+							Name:      "networkDataSecretName",
 							Namespace: namespace,
 						},
 						Type: "Opaque",
@@ -438,11 +438,11 @@ var _ = Describe("CloudInit", func() {
 					virtClient.EXPECT().CoreV1().Return(networkClient.CoreV1())
 
 					cloudInitData := &v1.CloudInitNoCloudSource{
-						NetworkDataSecretRef: &k8sv1.LocalObjectReference{Name: "networkData"},
+						NetworkDataSecretRef: &k8sv1.LocalObjectReference{Name: "networkDataSecretName"},
 					}
 
 					err := ResolveSecrets(cloudInitData, namespace, virtClient)
-					Expect(err.Error()).To(Equal("no network-data value found in k8s secret networkData <nil>"))
+					Expect(err.Error()).To(Equal("networkdata key not found in k8s secret networkDataSecretName <nil>"))
 				})
 			})
 		})

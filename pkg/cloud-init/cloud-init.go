@@ -160,7 +160,7 @@ func ResolveSecrets(source *v1.CloudInitNoCloudSource, namespace string, clients
 
 		userData, ok := secret.Data["userdata"]
 		if ok == false {
-			return fmt.Errorf("no user-data value found in k8s secret %s %v", secretID, err)
+			return fmt.Errorf("userdata key not found in k8s secret %s %v", secretID, err)
 		}
 		source.UserData = string(userData)
 	}
@@ -175,7 +175,7 @@ func ResolveSecrets(source *v1.CloudInitNoCloudSource, namespace string, clients
 
 		networkData, ok := secret.Data["networkdata"]
 		if ok == false {
-			return fmt.Errorf("no network-data value found in k8s secret %s %v", secretID, err)
+			return fmt.Errorf("networkdata key not found in k8s secret %s %v", secretID, err)
 		}
 		source.NetworkData = string(networkData)
 	}
