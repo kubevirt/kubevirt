@@ -177,6 +177,7 @@ type Features struct {
 	ACPI   *FeatureEnabled `xml:"acpi,omitempty"`
 	APIC   *FeatureEnabled `xml:"apic,omitempty"`
 	Hyperv *FeatureHyperv  `xml:"hyperv,omitempty"`
+	SMM    *FeatureEnabled `xml:"smm,omitempty"`
 }
 
 type FeatureHyperv struct {

@@ -503,6 +503,7 @@ var _ = Describe("Converter", func() {
       <reset state="on"></reset>
       <vendor_id state="off" value="myvendor"></vendor_id>
     </hyperv>
+    <smm></smm>
   </features>
   <cpu mode="host-model">
     <topology sockets="1" cores="1" threads="1"></topology>

@@ -51,7 +51,7 @@ func (DomainSpec) SwaggerDoc() map[string]string {
 		"machine":         "Machine type.\n+optional",
 		"firmware":        "Firmware.\n+optional",
 		"clock":           "Clock sets the clock and timers of the vmi.\n+optional",
-		"features":        "Features like acpi, apic, hyperv.\n+optional",
+		"features":        "Features like acpi, apic, hyperv, smm.\n+optional",
 		"devices":         "Devices allows adding disks, network interfaces, ...",
 		"ioThreadsPolicy": "Controls whether or not disks will share IOThreads.\nOmitting IOThreadsPolicy disables use of IOThreads.\nOne of: shared, auto\n+optional",
 	}
@@ -311,6 +311,7 @@ func (Features) SwaggerDoc() map[string]string {
 		"acpi":   "ACPI enables/disables ACPI insidejsondata guest.\nDefaults to enabled.\n+optional",
 		"apic":   "Defaults to the machine type setting.\n+optional",
 		"hyperv": "Defaults to the machine type setting.\n+optional",
+		"smm":    "SMM enables/disables System Management Mode.\nTSEG not yet implemented, defaults to enabled.\n+optional",
 	}
 }
 

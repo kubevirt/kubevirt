@@ -757,7 +757,7 @@ func schema_kubevirt_pkg_api_v1_DomainSpec(ref common.ReferenceCallback) common.
 					},
 					"features": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Features like acpi, apic, hyperv.",
+							Description: "Features like acpi, apic, hyperv, smm.",
 							Ref:         ref("kubevirt.io/kubevirt/pkg/api/v1.Features"),
 						},
 					},
@@ -1002,17 +1002,10 @@ func schema_kubevirt_pkg_api_v1_FeatureVendorID(ref common.ReferenceCallback) co
 							Format:      "",
 						},
 					},
-					"bootloader": {
-						SchemaProps: spec.SchemaProps{
-							Description: "Settings to control the bootloader that is used.",
-							Ref:         ref("kubevirt.io/kubevirt/pkg/api/v1.Bootloader"),
-						},
-					},
 				},
 			},
 		},
-		Dependencies: []string{
-			"kubevirt.io/kubevirt/pkg/api/v1.Bootloader"},
+		Dependencies: []string{},
 	}
 }
 
@@ -1039,6 +1032,12 @@ func schema_kubevirt_pkg_api_v1_Features(ref common.ReferenceCallback) common.Op
 							Ref:         ref("kubevirt.io/kubevirt/pkg/api/v1.FeatureHyperv"),
 						},
 					},
+					"smm": {
+						SchemaProps: spec.SchemaProps{
+							Description: "SMM enables/disables System Management Mode. TSEG not yet implemented, defaults to enabled.",
+							Ref:         ref("kubevirt.io/kubevirt/pkg/api/v1.FeatureState"),
+						},
+					},
 				},
 			},
 		},
@@ -1059,10 +1058,17 @@ func schema_kubevirt_pkg_api_v1_Firmware(ref common.ReferenceCallback) common.Op
 							Format:      "",
 						},
 					},
+					"bootloader": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Settings to control the bootloader that is used.",
+							Ref:         ref("kubevirt.io/kubevirt/pkg/api/v1.Bootloader"),
+						},
+					},
 				},
 			},
 		},
-		Dependencies: []string{},
+		Dependencies: []string{
+			"kubevirt.io/kubevirt/pkg/api/v1.Bootloader"},
 	}
 }
 

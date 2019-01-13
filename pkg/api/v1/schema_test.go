@@ -119,6 +119,9 @@ var exampleJSON = `{
             "enabled": true,
             "vendorid": "vendor"
           }
+        },
+        "smm": {
+          "enabled": true
         }
       },
       "devices": {
@@ -296,6 +299,7 @@ var _ = Describe("Schema", func() {
 		}
 		exampleVMI.Spec.Domain.Features = &Features{
 			ACPI: FeatureState{Enabled: _false},
+			SMM:  FeatureState{Enabled: _true},
 			APIC: &FeatureAPIC{Enabled: _true},
 			Hyperv: &FeatureHyperv{
 				Relaxed:    &FeatureState{Enabled: _true},

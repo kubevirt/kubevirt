@@ -879,6 +879,7 @@ func (in *Features) DeepCopyInto(out *Features) {
 			(*in).DeepCopyInto(*out)
 		}
 	}
+	in.SMM.DeepCopyInto(&out.SMM)
 	return
 }
 

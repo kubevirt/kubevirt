@@ -1384,6 +1384,15 @@ func (in *Features) DeepCopyInto(out *Features) {
 			(*in).DeepCopyInto(*out)
 		}
 	}
+	if in.SMM != nil {
+		in, out := &in.SMM, &out.SMM
+		if *in == nil {
+			*out = nil
+		} else {
+			*out = new(FeatureEnabled)
+			**out = **in
+		}
+	}
 	return
 }
 

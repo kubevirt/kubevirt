@@ -126,7 +126,7 @@ type DomainSpec struct {
 	// Clock sets the clock and timers of the vmi.
 	// +optional
 	Clock *Clock `json:"clock,omitempty"`
-	// Features like acpi, apic, hyperv.
+	// Features like acpi, apic, hyperv, smm.
 	// +optional
 	Features *Features `json:"features,omitempty"`
 	// Devices allows adding disks, network interfaces, ...
@@ -661,6 +661,10 @@ type Features struct {
 	// Defaults to the machine type setting.
 	// +optional
 	Hyperv *FeatureHyperv `json:"hyperv,omitempty"`
+	// SMM enables/disables System Management Mode.
+	// TSEG not yet implemented, defaults to enabled.
+	// +optional
+	SMM FeatureState `json:"smm,omitempty"`
 }
 
 // Represents if a feature is enabled or disabled.

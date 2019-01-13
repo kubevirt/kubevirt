@@ -4344,7 +4344,7 @@
       "$ref": "#/definitions/v1.Devices"
      },
      "features": {
-      "description": "Features like acpi, apic, hyperv.\n+optional",
+      "description": "Features like acpi, apic, hyperv, smm.\n+optional",
       "$ref": "#/definitions/v1.Features"
      },
      "firmware": {
@@ -4497,6 +4497,10 @@
      "hyperv": {
       "description": "Defaults to the machine type setting.\n+optional",
       "$ref": "#/definitions/v1.FeatureHyperv"
+     },
+     "smm": {
+      "description": "SMM enables/disables System Management Mode.\nTSEG not yet implemented, defaults to enabled.\n+optional",
+      "$ref": "#/definitions/v1.FeatureState"
      }
     }
    },

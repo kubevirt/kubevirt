@@ -309,34 +309,34 @@ var _ = Describe("Configurations", func() {
 
 		Context("with EFI bootloader method", func() {
 
-			It("should use EFI without Secureboot", func() {
+			It("should use EFI", func() {
 				vmi := tests.NewRandomVMIWithEFIBootloader(false)
 
 				By("Starting a VirtualMachineInstance")
 				vmi, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
 				Expect(err).ToNot(HaveOccurred())
-				tests.WaitForSuccessfulVMIStart(vmi)
+				tests.WaitUntilVMIReady(vmi, tests.LoggedInAlpineExpecter)
 
+				By("Checking if UEFI is enabled")
 				domXml, err := tests.GetRunningVirtualMachineInstanceDomainXML(virtClient, vmi)
 				Expect(err).ToNot(HaveOccurred())
-				fmt.Println(domXml)
 				Expect(domXml).To(ContainSubstring("OVMF_CODE"))
 			})
 
-			// Unexpected Warning event received: "LibvirtError(Code=67, Domain=10, Message='unsupported configuration: Secure boot requires SMM feature enabled')"
-			//
-			// It("should use EFI with Secureboot", func() {
-			// 	vmi := tests.NewRandomVMIWithEFIBootloader(true)
+			It("should use EFI with Secureboot", func() {
+				vmi := tests.NewRandomVMIWithEFIBootloader(true)
 
-			// 	By("Starting a VirtualMachineInstance")
-			// 	vmi, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
-			// 	Expect(err).ToNot(HaveOccurred())
-			// 	tests.WaitForSuccessfulVMIStart(vmi)
+				By("Starting a VirtualMachineInstance")
+				vmi, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
+				Expect(err).ToNot(HaveOccurred())
+				tests.WaitUntilVMIReady(vmi, tests.LoggedInAlpineExpecter)
 
-			// 	domXml, err := tests.GetRunningVirtualMachineInstanceDomainXML(virtClient, vmi)
-			// 	Expect(err).ToNot(HaveOccurred())
-			// 	Expect(domXml).To(ContainSubstring("OVMF_CODE.secboot"))
-			// })
+				By("Checking if UEFI with Secureboot is enabled")
+				domXml, err := tests.GetRunningVirtualMachineInstanceDomainXML(virtClient, vmi)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(domXml).To(ContainSubstring("OVMF_CODE.secboot"))
+				Expect(domXml).To(ContainSubstring("smm"))
+			})
 
 		})
 
