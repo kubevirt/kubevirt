@@ -22,4 +22,4 @@ spec:
     - kvs
     singular: kubevirt
   scope: Namespaced
-  version: v1alpha2
+  version: v1alpha3
