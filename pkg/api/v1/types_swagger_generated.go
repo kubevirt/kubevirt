@@ -221,3 +221,33 @@ func (Probe) SwaggerDoc() map[string]string {
 		"failureThreshold":    "Minimum consecutive failures for the probe to be considered failed after having succeeded.\nDefaults to 3. Minimum value is 1.\n+optional",
 	}
 }
+
+func (KubeVirt) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"": "KubeVirt represents the object deploying all KubeVirt resources",
+	}
+}
+
+func (KubeVirtList) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"": "KubeVirtList is a list of KubeVirts",
+	}
+}
+
+func (KubeVirtSpec) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"imagePullPolicy": "The ImagePullPolicy to use.",
+	}
+}
+
+func (KubeVirtStatus) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"": "KubeVirtStatus represents information pertaining to a KubeVirt deployment.",
+	}
+}
+
+func (KubeVirtCondition) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"": "KubeVirtCondition represents a condition of a KubeVirt deployment",
+	}
+}

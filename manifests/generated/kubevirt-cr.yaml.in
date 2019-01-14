@@ -1,0 +1,8 @@
+---
+apiVersion: kubevirt.io/v1alpha2
+kind: KubeVirt
+metadata:
+  name: kubevirt
+  namespace: {{.Namespace}}
+spec:
+  imagePullPolicy: {{.ImagePullPolicy}}

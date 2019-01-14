@@ -136,7 +136,6 @@ metadata:
   labels:
     kubevirt.io: ""
   name: kubevirt-privileged-cluster-admin
-  namespace: {{.Namespace}}
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
@@ -233,7 +232,6 @@ metadata:
   labels:
     kubevirt.io: ""
   name: kubevirt-apiserver
-  namespace: {{.Namespace}}
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
@@ -249,7 +247,6 @@ metadata:
   labels:
     kubevirt.io: ""
   name: kubevirt-apiserver-auth-delegator
-  namespace: {{.Namespace}}
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
@@ -389,7 +386,6 @@ metadata:
   labels:
     kubevirt.io: ""
   name: kubevirt-controller
-  namespace: {{.Namespace}}
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole

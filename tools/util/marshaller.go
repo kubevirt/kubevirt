@@ -23,6 +23,8 @@ import (
 	"io"
 	"strings"
 
+	"kubevirt.io/kubevirt/pkg/api/v1"
+
 	"github.com/ghodss/yaml"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
@@ -42,6 +44,13 @@ func MarshallObject(obj interface{}, writer io.Writer) error {
 	unstructured.RemoveNestedField(r.Object, "metadata", "creationTimestamp")
 	unstructured.RemoveNestedField(r.Object, "spec", "template", "metadata", "creationTimestamp")
 	unstructured.RemoveNestedField(r.Object, "status")
+
+	// remove "managed by operator" label...
+	labels, exists, err := unstructured.NestedMap(r.Object, "metadata", "labels")
+	if exists {
+		delete(labels, v1.ManagedByLabel)
+		unstructured.SetNestedMap(r.Object, labels, "metadata", "labels")
+	}
 
 	jsonBytes, err = json.Marshal(r.Object)
 	if err != nil {

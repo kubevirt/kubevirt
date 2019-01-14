@@ -83,6 +83,13 @@ Now you are ready to set up your cluster.
 You can use your preferred mechanism to deploy your kubernetes cluster as long
 as you deploy on bare metal.
 
+Current recommendation is to use ```kubevirt-ansible``` to deploy the cluster.
+Ansible playbooks will also deploy all the relevant SR-IOV components
+for you. See [here](https://github.com/kubevirt/kubevirt-ansible/).
+
+You may still want to deploy software using `local` provider if you'd like to
+deploy from Kubevirt sources though.
+
 In the following example, we configure the cluster using `local` provider which
 is part of kubevirt/kubevirt repo. Please consult cluster/local/README.md for
 general information on setting up a host using the `local` provider.

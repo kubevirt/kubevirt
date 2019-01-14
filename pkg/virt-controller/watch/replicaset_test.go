@@ -10,10 +10,10 @@ import (
 	k8sv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/tools/cache"
-	framework "k8s.io/client-go/tools/cache/testing"
+	"k8s.io/client-go/tools/cache/testing"
 	"k8s.io/client-go/tools/record"
 
-	v1 "kubevirt.io/kubevirt/pkg/api/v1"
+	"kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/kubecli"
 	"kubevirt.io/kubevirt/pkg/testutils"
 )
@@ -378,6 +378,7 @@ var _ = Describe("Replicaset", func() {
 			rs.Status.Replicas = 1
 			rs.Status.ReadyReplicas = 1
 			vmi.Status.Phase = v1.Running
+			markAsReady(vmi)
 
 			rsCopy := rs.DeepCopy()
 			rsCopy.Status.Replicas = 0
@@ -425,6 +426,36 @@ var _ = Describe("Replicaset", func() {
 			// Move one VirtualMachineInstance to a final state
 			modifiedVMI := vmi.DeepCopy()
 			modifiedVMI.Status.Phase = v1.Running
+			markAsReady(modifiedVMI)
+			modifiedVMI.ResourceVersion = "1"
+			vmiFeeder.Modify(modifiedVMI)
+
+			// Run the controller again
+			controller.Execute()
+		})
+
+		It("should be woken by a not ready but running VirtualMachineInstance and update the readyReplicas counter", func() {
+			rs, vmi := DefaultReplicaSet(1)
+			rs.Status.Replicas = 1
+			rs.Status.ReadyReplicas = 1
+			vmi.Status.Phase = v1.Running
+			markAsReady(vmi)
+
+			expectedRS := rs.DeepCopy()
+			expectedRS.Status.Replicas = 1
+			expectedRS.Status.ReadyReplicas = 0
+
+			addReplicaSet(rs)
+			vmiFeeder.Add(vmi)
+
+			rsInterface.EXPECT().Update(expectedRS).Times(1)
+
+			// First make sure that we don't have to do anything
+			controller.Execute()
+
+			// Move one VirtualMachineInstance to a final state
+			modifiedVMI := vmi.DeepCopy()
+			markAsNonReady(modifiedVMI)
 			modifiedVMI.ResourceVersion = "1"
 			vmiFeeder.Modify(modifiedVMI)
 
@@ -466,6 +497,7 @@ var _ = Describe("Replicaset", func() {
 			rs.Status.Replicas = 1
 			rs.Status.ReadyReplicas = 1
 			vmi.Status.Phase = v1.Running
+			markAsReady(vmi)
 
 			addReplicaSet(rs)
 			vmiFeeder.Add(vmi)

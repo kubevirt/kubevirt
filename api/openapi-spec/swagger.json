@@ -20,7 +20,7 @@
       "application/json"
      ],
      "summary": "Get a KubeVirt API GroupList",
-     "operationId": "getAPIGroup",
+     "operationId": "getAPIGroupList",
      "responses": {
       "200": {
        "description": "OK",
@@ -3821,6 +3821,22 @@
       }
      }
     }
+   },
+   "/openapi/v2": {
+    "get": {
+     "consumes": [
+      "application/json"
+     ],
+     "produces": [
+      "application/json"
+     ],
+     "operationId": "func7",
+     "responses": {
+      "200": {
+       "description": "OK"
+      }
+     }
+    }
    }
   },
   "definitions": {
@@ -5270,6 +5286,21 @@
    },
    "v1.Rng": {
     "description": "Rng represents the random device passed from host"
+   },
+   "v1.RootPaths": {
+    "description": "RootPaths lists the paths available at root. For example: \"/healthz\", \"/apis\".",
+    "required": [
+     "paths"
+    ],
+    "properties": {
+     "paths": {
+      "description": "paths are the paths available at root.",
+      "type": "array",
+      "items": {
+       "type": "string"
+      }
+     }
+    }
    },
    "v1.SecretVolumeSource": {
     "description": "SecretVolumeSource adapts a Secret into a volume.",
