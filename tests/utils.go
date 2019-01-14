@@ -1740,7 +1740,7 @@ func NewRandomVMIWithServiceAccount(serviceAccountName string) *v1.VirtualMachin
 }
 
 func AddServiceAccountDisk(vmi *v1.VirtualMachineInstance, serviceAccountName string) {
-	volumeName := serviceAccountName + "-vol"
+	volumeName := serviceAccountName + "-disk"
 	vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
 		Name: volumeName,
 		VolumeSource: v1.VolumeSource{

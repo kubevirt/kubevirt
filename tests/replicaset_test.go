@@ -229,7 +229,7 @@ var _ = Describe("VirtualMachineInstanceReplicaSet", func() {
 		Expect(err).To(BeNil())
 
 		Expect(len(reviewResponse.Details.Causes)).To(Equal(1))
-		Expect(reviewResponse.Details.Causes[0].Field).To(Equal("spec.template.spec.domain.devices.disks[1].volumeName"))
+		Expect(reviewResponse.Details.Causes[0].Field).To(Equal("spec.template.spec.domain.devices.disks[1].name"))
 	})
 	It("should update readyReplicas once VMIs are up", func() {
 		newRS := newReplicaSet()
