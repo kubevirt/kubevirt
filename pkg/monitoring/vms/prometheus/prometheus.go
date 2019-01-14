@@ -211,6 +211,7 @@ func updateVersion(ch chan<- prometheus.Metric) {
 
 type Collector struct {
 	virtShareDir string
+	busySockets  sync.Map
 }
 
 func SetupCollector(virtShareDir string) *Collector {
@@ -222,7 +223,7 @@ func SetupCollector(virtShareDir string) *Collector {
 	return co
 }
 
-func (co Collector) Describe(ch chan<- *prometheus.Desc) {
+func (co *Collector) Describe(ch chan<- *prometheus.Desc) {
 	// TODO: Use DescribeByCollect?
 	ch <- versionDesc
 	ch <- storageIopsDesc
@@ -232,7 +233,7 @@ func (co Collector) Describe(ch chan<- *prometheus.Desc) {
 }
 
 // Note that Collect could be called concurrently
-func (co Collector) Collect(ch chan<- prometheus.Metric) {
+func (co *Collector) Collect(ch chan<- prometheus.Metric) {
 	updateVersion(ch)
 
 	socketFiles, err := cmdclient.ListAllSockets(co.virtShareDir)
@@ -244,8 +245,14 @@ func (co Collector) Collect(ch chan<- prometheus.Metric) {
 
 	var wg sync.WaitGroup
 	for _, socketFile := range socketFiles {
+		_, loaded := co.busySockets.LoadOrStore(socketFile, true)
+		if loaded {
+			log.Log.Warningf("Socket %s busy from a previous collection, skipped", socketFile)
+			continue
+		}
+
 		wg.Add(1)
-		go collectFromSocket(&wg, socketFile, ch)
+		go co.collectFromSocket(&wg, socketFile, ch)
 	}
 
 	c := make(chan struct{})
@@ -264,8 +271,10 @@ func (co Collector) Collect(ch chan<- prometheus.Metric) {
 	return
 }
 
-func collectFromSocket(wg *sync.WaitGroup, socketFile string, ch chan<- prometheus.Metric) {
+func (co *Collector) collectFromSocket(wg *sync.WaitGroup, socketFile string, ch chan<- prometheus.Metric) {
 	defer wg.Done()
+	defer co.busySockets.Delete(socketFile)
+
 	ts := time.Now()
 	log.Log.V(3).Infof("Getting stats from sock %s", socketFile)
 	cli, err := cmdclient.GetClient(socketFile)
