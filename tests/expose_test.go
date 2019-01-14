@@ -413,7 +413,7 @@ var _ = Describe("Expose", func() {
 
 	Context("Verify that an exposed service on a VM survives after restarting the VM.", func() {
 		const servicePort = "27017"
-		const serviceName = "cluster-ip-vm"
+		const serviceName = "cluster-ip-vm-restart"
 		var vm_obj *v1.VirtualMachine
 
 		tests.BeforeAll(func() {
