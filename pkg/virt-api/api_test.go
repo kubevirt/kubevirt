@@ -393,7 +393,7 @@ xw==
 			Expect(resp.StatusCode).To(Equal(http.StatusUnauthorized))
 		}, 5)
 
-		It("should not found if endpoint does not exists", func() {
+		It("should return ok on root URL", func() {
 			app.authorizor = authorizorMock
 			authorizorMock.EXPECT().
 				Authorize(gomock.Not(gomock.Nil())).
@@ -402,7 +402,7 @@ xw==
 			app.Compose()
 			resp, err := http.Get(backend.URL)
 			Expect(err).ToNot(HaveOccurred())
-			Expect(resp.StatusCode).To(Equal(http.StatusNotFound))
+			Expect(resp.StatusCode).To(Equal(http.StatusOK))
 		}, 5)
 
 		It("should have a test endpoint", func() {
