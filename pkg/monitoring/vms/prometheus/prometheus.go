@@ -32,7 +32,6 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/stats"
 )
 
-const collectionTimeout time.Duration = 10 * time.Second            // "long enough", crude heuristic
 const statsMaxAge time.Duration = collectionTimeout + 2*time.Second // "a bit more" than timeout, heuristic again
 
 var (
@@ -232,51 +231,12 @@ func (co *Collector) Describe(ch chan<- *prometheus.Desc) {
 	ch <- memoryUsageDesc
 }
 
-// Note that Collect could be called concurrently
-func (co *Collector) Collect(ch chan<- prometheus.Metric) {
-	updateVersion(ch)
-
-	socketFiles, err := cmdclient.ListAllSockets(co.virtShareDir)
-	if err != nil {
-		log.Log.Reason(err).Errorf("failed to list all sockets in '%s'", co.virtShareDir)
-		return
-	}
-	log.Log.V(3).Infof("Collecting VM metrics from %d sockets", len(socketFiles))
-
-	var wg sync.WaitGroup
-	for _, socketFile := range socketFiles {
-		_, loaded := co.busySockets.LoadOrStore(socketFile, true)
-		if loaded {
-			log.Log.Warningf("Socket %s busy from a previous collection, skipped", socketFile)
-			continue
-		}
-
-		wg.Add(1)
-		go co.collectFromSocket(&wg, socketFile, ch)
-	}
-
-	c := make(chan struct{})
-	go func() {
-		wg.Wait()
-		c <- struct{}{}
-	}()
-	select {
-	case <-c:
-		log.Log.V(3).Infof("Collection succesfull")
-	case <-time.After(collectionTimeout):
-		log.Log.Warning("Collection timeout")
-	}
-
-	log.Log.V(3).Infof("Collection completed")
-	return
+type prometheusScraper struct {
+	ch chan<- prometheus.Metric
 }
 
-func (co *Collector) collectFromSocket(wg *sync.WaitGroup, socketFile string, ch chan<- prometheus.Metric) {
-	defer wg.Done()
-	defer co.busySockets.Delete(socketFile)
-
+func (ps *prometheusScraper) Scrape(socketFile string) {
 	ts := time.Now()
-	log.Log.V(3).Infof("Getting stats from sock %s", socketFile)
 	cli, err := cmdclient.GetClient(socketFile)
 	if err != nil {
 		log.Log.Reason(err).Error("failed to connect to cmd client socket")
@@ -307,10 +267,23 @@ func (co *Collector) collectFromSocket(wg *sync.WaitGroup, socketFile string, ch
 		return
 	}
 
-	updateMemory(vmStats, ch)
-	updateVcpu(vmStats, ch)
-	updateBlock(vmStats, ch)
-	updateNetwork(vmStats, ch)
+	updateMemory(vmStats, ps.ch)
+	updateVcpu(vmStats, ps.ch)
+	updateBlock(vmStats, ps.ch)
+	updateNetwork(vmStats, ps.ch)
 
-	log.Log.V(3).Infof("Updated stats from sock %s", socketFile)
+}
+
+// Note that Collect could be called concurrently
+func (co *Collector) Collect(ch chan<- prometheus.Metric) {
+	updateVersion(ch)
+
+	socketFiles, err := cmdclient.ListAllSockets(co.virtShareDir)
+	if err != nil {
+		log.Log.Reason(err).Errorf("failed to list all sockets in '%s'", co.virtShareDir)
+	}
+
+	cc := concurrentCollector{Scraper: &prometheusScraper{ch: ch}}
+	cc.Collect(socketFiles)
+	return
 }

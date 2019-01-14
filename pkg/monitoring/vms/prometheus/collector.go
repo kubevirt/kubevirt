@@ -1,0 +1,79 @@
+/*
+ * This file is part of the KubeVirt project
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ * Copyright 2018 Red Hat, Inc.
+ *
+ */
+
+package prometheus
+
+import (
+	"sync"
+	"time"
+
+	"kubevirt.io/kubevirt/pkg/log"
+)
+
+const collectionTimeout time.Duration = 10 * time.Second // "long enough", crude heuristic
+
+type metricsScraper interface {
+	Scrape(key string)
+}
+
+type concurrentCollector struct {
+	Scraper  metricsScraper
+	busyKeys sync.Map
+}
+
+func (cc *concurrentCollector) Collect(keys []string) {
+	log.Log.V(3).Infof("Collecting VM metrics from %d sources", len(keys))
+
+	var wg sync.WaitGroup
+	for _, key := range keys {
+		_, loaded := cc.busyKeys.LoadOrStore(key, true)
+		if loaded {
+			log.Log.Warningf("Source %s busy from a previous collection, skipped", key)
+			continue
+		}
+
+		wg.Add(1)
+		go cc.collectFromSource(&wg, key)
+	}
+
+	c := make(chan struct{})
+	go func() {
+		wg.Wait()
+		c <- struct{}{}
+	}()
+	select {
+	case <-c:
+		log.Log.V(3).Infof("Collection succesfull")
+	case <-time.After(collectionTimeout):
+		log.Log.Warning("Collection timeout")
+	}
+
+	log.Log.V(3).Infof("Collection completed")
+
+	return
+}
+
+func (cc *concurrentCollector) collectFromSource(wg *sync.WaitGroup, key string) {
+	defer wg.Done()
+	defer cc.busyKeys.Delete(key)
+
+	log.Log.V(3).Infof("Getting stats from source %s", key)
+	cc.Scraper.Scrape(key)
+	log.Log.V(3).Infof("Updated stats from source %s", key)
+}
