@@ -182,7 +182,7 @@ func (m *Manager) OnDefineDomain(domainSpec *virtwrapApi.DomainSpec, vmi *v1.Vir
 	}
 	if callbacks, found := m.callbacksPerHookPoint[hooksInfo.OnDefineDomainHookPointName]; found {
 		for _, callback := range callbacks {
-			if callback.Version == hooksV1alpha1.Version {
+			if callback.Version == hooksV1alpha1.Version || callback.Version == hooksV1alpha2.Version {
 
 				vmiJSON, err := json.Marshal(vmi)
 				if err != nil {
