@@ -66,6 +66,10 @@ you may need to configure the host as follows:
 $ echo "options vfio_iommu_type1 allow_unsafe_interrupts=1" > /etc/modprobe.d/iommu_unsafe_interrupts.conf
 ```
 
+Finally, we need to unbind each device from its respective network driver and
+register it with vfio subsystem. You can find an example on how to do it under:
+`tools/util/vfio.sh`
+
 Now you are ready to set up your cluster.
 
 # Set up kubernetes cluster
