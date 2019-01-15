@@ -99,34 +99,34 @@ var _ = Describe("Infrastructure", func() {
 			}
 		})
 		It("should include the metrics for a running VM", func() {
-			vmi := tests.NewRandomVMI()
+			vmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(tests.ContainerDiskFor(tests.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n")
+			By("Creating the VirtualMachineInstance")
+			_, err := virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
+			Expect(err).ToNot(HaveOccurred(), "Should create VMI")
 
-			obj, err := virtClient.RestClient().Post().Resource("virtualmachineinstances").Namespace(tests.NamespaceTestDefault).Body(vmi).Do().Get()
-			Expect(err).To(BeNil())
-			tests.WaitForSuccessfulVMIStart(obj)
+			By("Waiting until the VM is ready")
+			vmi = tests.WaitUntilVMIReady(vmi, tests.LoggedInCirrosExpecter)
 
-			endpoint, err := virtClient.CoreV1().Endpoints(tests.KubeVirtInstallNamespace).Get("kubevirt-prometheus-metrics", metav1.GetOptions{})
-			Expect(err).ToNot(HaveOccurred())
 			l, err := labels.Parse("kubevirt.io=virt-handler")
 			Expect(err).ToNot(HaveOccurred())
 			pods, err := virtClient.CoreV1().Pods(tests.KubeVirtInstallNamespace).List(metav1.ListOptions{LabelSelector: l.String()})
 			Expect(err).ToNot(HaveOccurred())
 			Expect(pods.Items).ToNot(BeEmpty())
 
-			for _, ep := range endpoint.Subsets[0].Addresses {
-				stdout, _, err := tests.ExecuteCommandOnPodV2(virtClient,
-					&pods.Items[0], "virt-handler",
-					[]string{
-						"curl",
-						"-L",
-						"-k",
-						fmt.Sprintf("https://%s:%s/metrics", ep.IP, "8443"),
-					})
-				Expect(err).ToNot(HaveOccurred())
-				Expect(stdout).To(ContainSubstring("kubevirt_info"))
-				Expect(stdout).To(ContainSubstring("kubevirt_vm"))
-			}
-		}, 150)
+			By("Scraping the Prometheus endpoints")
+			pod := pods.Items[0] // only one compute node in the test environment
+			stdout, _, err := tests.ExecuteCommandOnPodV2(virtClient,
+				&pod, "virt-handler",
+				[]string{
+					"curl",
+					"-L",
+					"-k",
+					fmt.Sprintf("https://%s:%s/metrics", pod.Status.PodIP, "8443"),
+				})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(stdout).To(ContainSubstring("kubevirt_info"))
+			Expect(stdout).To(ContainSubstring("kubevirt_vm"))
+		}, 300)
 	})
 
 	Describe("Start a VirtualMachineInstance", func() {
