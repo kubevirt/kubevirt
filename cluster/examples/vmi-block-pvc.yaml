@@ -1,5 +1,5 @@
 ---
-apiVersion: kubevirt.io/v1alpha2
+apiVersion: kubevirt.io/v1alpha3
 kind: VirtualMachineInstance
 metadata:
   labels:
@@ -12,7 +12,6 @@ spec:
       - disk:
           bus: virtio
         name: blockpvcdisk
-        volumeName: blockpvcvolume
     machine:
       type: ""
     resources:
@@ -20,6 +19,6 @@ spec:
         memory: 64M
   terminationGracePeriodSeconds: 0
   volumes:
-  - name: blockpvcvolume
+  - name: blockpvcdisk
     persistentVolumeClaim:
       claimName: local-block-storage-cirros

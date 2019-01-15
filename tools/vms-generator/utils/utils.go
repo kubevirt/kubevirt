@@ -86,6 +86,8 @@ const (
 
 const windowsFirmware = "5d307ca9-b3ef-428c-8861-06e72d69f223"
 
+const apiVersion = "kubevirt.io/v1alpha3"
+
 var DockerPrefix = "registry:5000/kubevirt"
 var DockerTag = "devel"
 
@@ -124,8 +126,7 @@ func addContainerDisk(spec *v1.VirtualMachineInstanceSpec, image string, bus str
 	spec.Domain.Devices = v1.Devices{
 		Disks: []v1.Disk{
 			{
-				Name:       "containerdisk",
-				VolumeName: "registryvolume",
+				Name: "containerdisk",
 				DiskDevice: v1.DiskDevice{
 					Disk: &v1.DiskTarget{
 						Bus: bus,
@@ -136,7 +137,7 @@ func addContainerDisk(spec *v1.VirtualMachineInstanceSpec, image string, bus str
 	}
 	spec.Volumes = []v1.Volume{
 		{
-			Name: "registryvolume",
+			Name: "containerdisk",
 			VolumeSource: v1.VolumeSource{
 				ContainerDisk: &v1.ContainerDiskSource{
 					Image: image,
@@ -153,8 +154,7 @@ func addNoCloudDisk(spec *v1.VirtualMachineInstanceSpec) *v1.VirtualMachineInsta
 
 func addNoCloudDiskWitUserData(spec *v1.VirtualMachineInstanceSpec, data string) *v1.VirtualMachineInstanceSpec {
 	spec.Domain.Devices.Disks = append(spec.Domain.Devices.Disks, v1.Disk{
-		Name:       "cloudinitdisk",
-		VolumeName: "cloudinitvolume",
+		Name: "cloudinitdisk",
 		DiskDevice: v1.DiskDevice{
 			Disk: &v1.DiskTarget{
 				Bus: busVirtio,
@@ -163,7 +163,7 @@ func addNoCloudDiskWitUserData(spec *v1.VirtualMachineInstanceSpec, data string)
 	})
 
 	spec.Volumes = append(spec.Volumes, v1.Volume{
-		Name: "cloudinitvolume",
+		Name: "cloudinitdisk",
 		VolumeSource: v1.VolumeSource{
 			CloudInitNoCloud: &v1.CloudInitNoCloudSource{
 				UserData: data,
@@ -175,8 +175,7 @@ func addNoCloudDiskWitUserData(spec *v1.VirtualMachineInstanceSpec, data string)
 
 func addEmptyDisk(spec *v1.VirtualMachineInstanceSpec, size string) *v1.VirtualMachineInstanceSpec {
 	spec.Domain.Devices.Disks = append(spec.Domain.Devices.Disks, v1.Disk{
-		Name:       "emptydisk",
-		VolumeName: "emptydiskvolume",
+		Name: "emptydisk",
 		DiskDevice: v1.DiskDevice{
 			Disk: &v1.DiskTarget{
 				Bus: busVirtio,
@@ -185,7 +184,7 @@ func addEmptyDisk(spec *v1.VirtualMachineInstanceSpec, size string) *v1.VirtualM
 	})
 
 	spec.Volumes = append(spec.Volumes, v1.Volume{
-		Name: "emptydiskvolume",
+		Name: "emptydisk",
 		VolumeSource: v1.VolumeSource{
 			EmptyDisk: &v1.EmptyDiskSource{
 				Capacity: resource.MustParse(size),
@@ -195,10 +194,9 @@ func addEmptyDisk(spec *v1.VirtualMachineInstanceSpec, size string) *v1.VirtualM
 	return spec
 }
 
-func addDataVolumeDisk(spec *v1.VirtualMachineInstanceSpec, dataVolumeName string, bus string, diskName string, volumeName string) *v1.VirtualMachineInstanceSpec {
+func addDataVolumeDisk(spec *v1.VirtualMachineInstanceSpec, dataVolumeName string, bus string, diskName string) *v1.VirtualMachineInstanceSpec {
 	spec.Domain.Devices.Disks = append(spec.Domain.Devices.Disks, v1.Disk{
-		Name:       diskName,
-		VolumeName: volumeName,
+		Name: diskName,
 		DiskDevice: v1.DiskDevice{
 			Disk: &v1.DiskTarget{
 				Bus: bus,
@@ -207,7 +205,7 @@ func addDataVolumeDisk(spec *v1.VirtualMachineInstanceSpec, dataVolumeName strin
 	})
 
 	spec.Volumes = append(spec.Volumes, v1.Volume{
-		Name: volumeName,
+		Name: diskName,
 		VolumeSource: v1.VolumeSource{
 			DataVolume: &v1.DataVolumeSource{
 				Name: dataVolumeName,
@@ -217,10 +215,9 @@ func addDataVolumeDisk(spec *v1.VirtualMachineInstanceSpec, dataVolumeName strin
 	return spec
 }
 
-func addPVCDisk(spec *v1.VirtualMachineInstanceSpec, claimName string, bus string, diskName string, volumeName string) *v1.VirtualMachineInstanceSpec {
+func addPVCDisk(spec *v1.VirtualMachineInstanceSpec, claimName string, bus string, diskName string) *v1.VirtualMachineInstanceSpec {
 	spec.Domain.Devices.Disks = append(spec.Domain.Devices.Disks, v1.Disk{
-		Name:       diskName,
-		VolumeName: volumeName,
+		Name: diskName,
 		DiskDevice: v1.DiskDevice{
 			Disk: &v1.DiskTarget{
 				Bus: bus,
@@ -229,7 +226,7 @@ func addPVCDisk(spec *v1.VirtualMachineInstanceSpec, claimName string, bus strin
 	})
 
 	spec.Volumes = append(spec.Volumes, v1.Volume{
-		Name: volumeName,
+		Name: diskName,
 		VolumeSource: v1.VolumeSource{
 			PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{
 				ClaimName: claimName,
@@ -239,10 +236,9 @@ func addPVCDisk(spec *v1.VirtualMachineInstanceSpec, claimName string, bus strin
 	return spec
 }
 
-func addEphemeralPVCDisk(spec *v1.VirtualMachineInstanceSpec, claimName string, bus string, diskName string, volumeName string) *v1.VirtualMachineInstanceSpec {
+func addEphemeralPVCDisk(spec *v1.VirtualMachineInstanceSpec, claimName string, bus string, diskName string) *v1.VirtualMachineInstanceSpec {
 	spec.Domain.Devices.Disks = append(spec.Domain.Devices.Disks, v1.Disk{
-		Name:       diskName,
-		VolumeName: volumeName,
+		Name: diskName,
 		DiskDevice: v1.DiskDevice{
 			Disk: &v1.DiskTarget{
 				Bus: bus,
@@ -251,7 +247,7 @@ func addEphemeralPVCDisk(spec *v1.VirtualMachineInstanceSpec, claimName string, 
 	})
 
 	spec.Volumes = append(spec.Volumes, v1.Volume{
-		Name: volumeName,
+		Name: diskName,
 		VolumeSource: v1.VolumeSource{
 			Ephemeral: &v1.EphemeralVolumeSource{
 				PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{
@@ -265,8 +261,7 @@ func addEphemeralPVCDisk(spec *v1.VirtualMachineInstanceSpec, claimName string, 
 
 func addHostDisk(spec *v1.VirtualMachineInstanceSpec, path string, hostDiskType v1.HostDiskType, size string) *v1.VirtualMachineInstanceSpec {
 	spec.Domain.Devices.Disks = append(spec.Domain.Devices.Disks, v1.Disk{
-		Name:       "host-disk",
-		VolumeName: "hostdiskvolume",
+		Name: "host-disk",
 		DiskDevice: v1.DiskDevice{
 			Disk: &v1.DiskTarget{
 				Bus: busVirtio,
@@ -274,7 +269,7 @@ func addHostDisk(spec *v1.VirtualMachineInstanceSpec, path string, hostDiskType 
 		},
 	})
 	spec.Volumes = append(spec.Volumes, v1.Volume{
-		Name: "hostdiskvolume",
+		Name: "host-disk",
 		VolumeSource: v1.VolumeSource{
 			HostDisk: &v1.HostDisk{
 				Path:     path,
@@ -439,14 +434,14 @@ func GetVMIFlavorSmall() *v1.VirtualMachineInstance {
 func GetVMIPvc() *v1.VirtualMachineInstance {
 	vmi := getBaseVMI(VmiPVC)
 
-	addPVCDisk(&vmi.Spec, "disk-alpine", busVirtio, "pvcdisk", "pvcvolume")
+	addPVCDisk(&vmi.Spec, "disk-alpine", busVirtio, "pvcdisk")
 	return vmi
 }
 
 func GetVMIBlockPvc() *v1.VirtualMachineInstance {
 	vmi := getBaseVMI(VmiBlockPVC)
 
-	addPVCDisk(&vmi.Spec, "local-block-storage-cirros", busVirtio, "blockpvcdisk", "blockpvcvolume")
+	addPVCDisk(&vmi.Spec, "local-block-storage-cirros", busVirtio, "blockpvcdisk")
 	return vmi
 }
 
@@ -502,7 +497,7 @@ func GetVMIWindows() *v1.VirtualMachineInstance {
 	// pick e1000 network model type for windows machines
 	vmi.Spec.Domain.Devices.Interfaces[0].Model = "e1000"
 
-	addPVCDisk(&vmi.Spec, "disk-windows", busSata, "pvcdisk", "pvcvolume")
+	addPVCDisk(&vmi.Spec, "disk-windows", busSata, "pvcdisk")
 	return vmi
 }
 
@@ -563,7 +558,7 @@ func GetTemplateFedora() *Template {
 
 func GetTemplateRHEL7() *Template {
 	vm := getBaseVM("", map[string]string{"kubevirt-vm": "vm-${NAME}", "kubevirt.io/os": "rhel-7.4"})
-	addPVCDisk(&vm.Spec.Template.Spec, "linux-vm-pvc-${NAME}", busVirtio, "disk0", "disk0-pvc")
+	addPVCDisk(&vm.Spec.Template.Spec, "linux-vm-pvc-${NAME}", busVirtio, "disk0")
 
 	pvc := getPVCForTemplate("linux-vm-pvc-${NAME}")
 	template := newTemplateForRHEL7VM(vm)
@@ -574,7 +569,7 @@ func GetTemplateRHEL7() *Template {
 
 func GetTestTemplateRHEL7() *Template {
 	vm := getBaseVM("", map[string]string{"kubevirt-vm": "vm-${NAME}", "kubevirt.io/os": "rhel-7.4"})
-	addEphemeralPVCDisk(&vm.Spec.Template.Spec, "disk-rhel", busSata, "pvcdisk", "pvcvolume")
+	addEphemeralPVCDisk(&vm.Spec.Template.Spec, "disk-rhel", busSata, "pvcdisk")
 
 	return newTemplateForRHEL7VM(vm)
 }
@@ -601,7 +596,7 @@ func GetTemplateWindows() *Template {
 	windows := GetVMIWindows()
 	vm.Spec.Template.Spec = windows.Spec
 	vm.Spec.Template.ObjectMeta.Annotations = windows.ObjectMeta.Annotations
-	addPVCDisk(&vm.Spec.Template.Spec, "windows-vm-pvc-${NAME}", busVirtio, "disk0", "disk0-pvc")
+	addPVCDisk(&vm.Spec.Template.Spec, "windows-vm-pvc-${NAME}", busVirtio, "disk0")
 
 	pvc := getPVCForTemplate("windows-vm-pvc-${NAME}")
 
@@ -726,7 +721,7 @@ func GetVMDataVolume() *v1.VirtualMachine {
 	}
 
 	vm.Spec.DataVolumeTemplates = append(vm.Spec.DataVolumeTemplates, dataVolume)
-	addDataVolumeDisk(&vm.Spec.Template.Spec, "alpine-dv", busVirtio, "datavolumedisk1", "datavolumevolume1")
+	addDataVolumeDisk(&vm.Spec.Template.Spec, "alpine-dv", busVirtio, "datavolumedisk1")
 
 	return vm
 }
@@ -736,8 +731,8 @@ func GetVMMultiPvc() *v1.VirtualMachine {
 		"kubevirt.io/vm": VmAlpineMultiPvc,
 	})
 
-	addPVCDisk(&vm.Spec.Template.Spec, "disk-alpine", busVirtio, "pvcdisk1", "pvcvolume1")
-	addPVCDisk(&vm.Spec.Template.Spec, "disk-custom", busVirtio, "pvcdisk2", "pvcvolume2")
+	addPVCDisk(&vm.Spec.Template.Spec, "disk-alpine", busVirtio, "pvcdisk1")
+	addPVCDisk(&vm.Spec.Template.Spec, "disk-custom", busVirtio, "pvcdisk2")
 
 	return vm
 }

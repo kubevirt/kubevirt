@@ -1,5 +1,5 @@
 ---
-apiVersion: kubevirt.io/v1alpha2
+apiVersion: kubevirt.io/v1alpha3
 kind: VirtualMachineInstance
 metadata:
   labels:
@@ -24,7 +24,6 @@ spec:
       - disk:
           bus: sata
         name: pvcdisk
-        volumeName: pvcvolume
       interfaces:
       - bridge: {}
         model: e1000
@@ -49,6 +48,6 @@ spec:
     pod: {}
   terminationGracePeriodSeconds: 0
   volumes:
-  - name: pvcvolume
+  - name: pvcdisk
     persistentVolumeClaim:
       claimName: disk-windows

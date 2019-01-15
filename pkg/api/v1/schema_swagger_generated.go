@@ -119,7 +119,6 @@ func (Devices) SwaggerDoc() map[string]string {
 func (Disk) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"name":              "Name is the device name",
-		"volumeName":        "Name of the volume which is referenced.\nMust match the Name of a Volume.",
 		"bootOrder":         "BootOrder is an integer value > 0, used to determine ordering of boot devices.\nLower values take precedence.\nEach disk or interface that has a boot order must have a unique value.\nDisks without a boot order are not tried if a disk with a boot order exists.\n+optional",
 		"serial":            "Serial provides the ability to specify a serial number for the disk device.\n+optional",
 		"dedicatedIOThread": "dedicatedIOThread indicates this disk should have an exclusive IO Thread.\nEnabling this implies useIOThreads = true.\nDefaults to false.\n+optional",

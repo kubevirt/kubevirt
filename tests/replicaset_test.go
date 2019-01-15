@@ -213,8 +213,7 @@ var _ = Describe("VirtualMachineInstanceReplicaSet", func() {
 		// Add a disk that doesn't map to a volume.
 		// This should get rejected which tells us the webhook validator is working.
 		newRS.Spec.Template.Spec.Domain.Devices.Disks = append(newRS.Spec.Template.Spec.Domain.Devices.Disks, v1.Disk{
-			Name:       "testdisk",
-			VolumeName: "testvolume",
+			Name: "testdisk",
 		})
 
 		result := virtClient.RestClient().Post().Resource("virtualmachineinstancereplicasets").Namespace(tests.NamespaceTestDefault).Body(newRS).Do()
@@ -230,7 +229,7 @@ var _ = Describe("VirtualMachineInstanceReplicaSet", func() {
 		Expect(err).To(BeNil())
 
 		Expect(len(reviewResponse.Details.Causes)).To(Equal(1))
-		Expect(reviewResponse.Details.Causes[0].Field).To(Equal("spec.template.spec.domain.devices.disks[1].volumeName"))
+		Expect(reviewResponse.Details.Causes[0].Field).To(Equal("spec.template.spec.domain.devices.disks[1].name"))
 	})
 	It("should update readyReplicas once VMIs are up", func() {
 		newRS := newReplicaSet()
@@ -258,7 +257,7 @@ var _ = Describe("VirtualMachineInstanceReplicaSet", func() {
 
 		By("checking the output of server-side table printing")
 		rawTable, err := virtClient.RestClient().Get().
-			RequestURI(fmt.Sprintf("/apis/kubevirt.io/v1alpha2/namespaces/%s/virtualmachineinstancereplicasets/%s", tests.NamespaceTestDefault, newRS.ObjectMeta.Name)).
+			RequestURI(fmt.Sprintf("/apis/kubevirt.io/v1alpha3/namespaces/%s/virtualmachineinstancereplicasets/%s", tests.NamespaceTestDefault, newRS.ObjectMeta.Name)).
 			SetHeader("Accept", "application/json;as=Table;v=v1beta1;g=meta.k8s.io, application/json").
 			DoRaw()
 

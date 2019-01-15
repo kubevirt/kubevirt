@@ -1,5 +1,5 @@
 ---
-apiVersion: kubevirt.io/v1alpha2
+apiVersion: kubevirt.io/v1alpha3
 kind: VirtualMachineInstance
 metadata:
   labels:
@@ -12,11 +12,9 @@ spec:
       - disk:
           bus: virtio
         name: containerdisk
-        volumeName: registryvolume
       - disk:
           bus: virtio
         name: cloudinitdisk
-        volumeName: cloudinitvolume
       interfaces:
       - masquerade: {}
         name: testmasquerade
@@ -36,7 +34,7 @@ spec:
   volumes:
   - containerDisk:
       image: registry:5000/kubevirt/fedora-cloud-container-disk-demo:devel
-    name: registryvolume
+    name: containerdisk
   - cloudInitNoCloud:
       userData: |-
         #!/bin/bash
@@ -44,4 +42,4 @@ spec:
         yum install -y nginx
         systemctl enable nginx
         systemctl start nginx
-    name: cloudinitvolume
+    name: cloudinitdisk

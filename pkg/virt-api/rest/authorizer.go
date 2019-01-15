@@ -138,7 +138,7 @@ func (a *authorizor) generateAccessReview(req *restful.Request) (*authorization.
 	}
 
 	// URL example
-	// /apis/subresources.kubevirt.io/v1alpha2/namespaces/default/virtualmachineinstances/testvmi/console
+	// /apis/subresources.kubevirt.io/v1alpha3/namespaces/default/virtualmachineinstances/testvmi/console
 	pathSplit := strings.Split(url.Path, "/")
 	if len(pathSplit) != 9 {
 		return nil, fmt.Errorf("unknown api endpoint %s", url.Path)
@@ -194,7 +194,7 @@ func isInfoOrHealthEndpoint(req *restful.Request) bool {
 		return false
 	}
 	// URL example
-	// /apis/subresources.kubevirt.io/v1alpha2/namespaces/default/virtualmachineinstances/testvmi/console
+	// /apis/subresources.kubevirt.io/v1alpha3/namespaces/default/virtualmachineinstances/testvmi/console
 	// The /apis/<group>/<version> part of the urls should be accessible without needing authorization
 	pathSplit := strings.Split(httpRequest.URL.Path, "/")
 	if len(pathSplit) <= 4 || (len(pathSplit) > 4 && (pathSplit[4] == "version" || pathSplit[4] == "healthz")) {
