@@ -87,7 +87,7 @@ $(functest)
 Additional Resources
 --------------------
 - Mailing list: <https://groups.google.com/forum/#!forum/kubevirt-dev>
-- IRC: <irc://irc.freenode.net/#kubevirt>
+- Slack: <https://kubernetes.slack.com/messages/virtualization>
 - An easy to use demo: <https://github.com/kubevirt/demo>
 - [How to contribute][contributing]
 - [License][license]

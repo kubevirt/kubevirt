@@ -113,8 +113,7 @@ var _ = Describe("Storage", func() {
 				// Start the VirtualMachineInstance with the empty disk attached
 				vmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(tests.ContainerDiskFor(tests.ContainerDiskCirros), "echo hi!")
 				vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
-					Name:       "emptydisk1",
-					VolumeName: "emptydiskvolume1",
+					Name: "emptydisk1",
 					DiskDevice: v1.DiskDevice{
 						Disk: &v1.DiskTarget{
 							Bus: "virtio",
@@ -122,7 +121,7 @@ var _ = Describe("Storage", func() {
 					},
 				})
 				vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
-					Name: "emptydiskvolume1",
+					Name: "emptydisk1",
 					VolumeSource: v1.VolumeSource{
 						EmptyDisk: &v1.EmptyDiskSource{
 							Capacity: resource.MustParse("2Gi"),
@@ -163,9 +162,8 @@ var _ = Describe("Storage", func() {
 				// Start the VirtualMachineInstance with the empty disk attached
 				vmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(tests.ContainerDiskFor(tests.ContainerDiskCirros), "echo hi!")
 				vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
-					Name:       "emptydisk1",
-					VolumeName: "emptydiskvolume1",
-					Serial:     diskSerial,
+					Name:   "emptydisk1",
+					Serial: diskSerial,
 					DiskDevice: v1.DiskDevice{
 						Disk: &v1.DiskTarget{
 							Bus: "virtio",
@@ -173,7 +171,7 @@ var _ = Describe("Storage", func() {
 					},
 				})
 				vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
-					Name: "emptydiskvolume1",
+					Name: "emptydisk1",
 					VolumeSource: v1.VolumeSource{
 						EmptyDisk: &v1.EmptyDiskSource{
 							Capacity: resource.MustParse("1Gi"),

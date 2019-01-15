@@ -11,7 +11,7 @@ metadata:
     miq.github.io/kubevirt-is-vm-template: "true"
   name: vm-template-rhel7
 objects:
-- apiVersion: kubevirt.io/v1alpha2
+- apiVersion: kubevirt.io/v1alpha3
   kind: VirtualMachine
   metadata:
     creationTimestamp: null
@@ -36,7 +36,6 @@ objects:
             - disk:
                 bus: virtio
               name: disk0
-              volumeName: disk0-pvc
           machine:
             type: ""
           resources:
@@ -44,7 +43,7 @@ objects:
               memory: ${MEMORY}
         terminationGracePeriodSeconds: 0
         volumes:
-        - name: disk0-pvc
+        - name: disk0
           persistentVolumeClaim:
             claimName: linux-vm-pvc-${NAME}
   status: {}

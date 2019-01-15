@@ -37,7 +37,7 @@ import (
 )
 
 func newValidGetRequest() *http.Request {
-	request, _ := http.NewRequest("GET", "/apis/kubevirt.io/v1alpha2/namespaces/default/virtualmachineinstances/test", nil)
+	request, _ := http.NewRequest("GET", "/apis/kubevirt.io/v1alpha3/namespaces/default/virtualmachineinstances/test", nil)
 	return request
 }
 
@@ -64,7 +64,7 @@ var _ = Describe("Get", func() {
 				rest.MIME_TEXT: NewEncodeINIResponse(http.StatusOK),
 				rest.MIME_YAML: NewEncodeYamlResponse(http.StatusOK),
 			})).Build(ctx))
-		ws.Route(ws.GET("/apis/kubevirt.io/v1alpha2/namespaces/{namespace}/virtualmachineinstances/{name}").Produces(rest.MIME_JSON, rest.MIME_TEXT, rest.MIME_YAML).To(target))
+		ws.Route(ws.GET("/apis/kubevirt.io/v1alpha3/namespaces/{namespace}/virtualmachineinstances/{name}").Produces(rest.MIME_JSON, rest.MIME_TEXT, rest.MIME_YAML).To(target))
 
 		request = newValidGetRequest()
 		recorder = httptest.NewRecorder()
@@ -91,7 +91,7 @@ var _ = Describe("Get", func() {
 				Expect(responseBody).To(Equal(payload{Name: "test", Email: "test@test.com", Metadata: Metadata{Name: "test", Namespace: "default"}}))
 			})
 			It("should detect labelSelector", func() {
-				request, _ := http.NewRequest("GET", "/apis/kubevirt.io/v1alpha2/namespaces/default/virtualmachineinstances/test?labelSelector=app%3Dmyapp", nil)
+				request, _ := http.NewRequest("GET", "/apis/kubevirt.io/v1alpha3/namespaces/default/virtualmachineinstances/test?labelSelector=app%3Dmyapp", nil)
 				handler.ServeHTTP(recorder, request)
 				responseBody := payload{}
 				json.NewDecoder(recorder.Body).Decode(&responseBody)

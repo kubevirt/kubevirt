@@ -1,5 +1,5 @@
 ---
-apiVersion: kubevirt.io/v1alpha2
+apiVersion: kubevirt.io/v1alpha3
 kind: VirtualMachineInstance
 metadata:
   labels:
@@ -12,15 +12,12 @@ spec:
       - disk:
           bus: virtio
         name: containerdisk
-        volumeName: registryvolume
       - disk:
           bus: virtio
         name: cloudinitdisk
-        volumeName: cloudinitvolume
       - disk:
           bus: virtio
         name: emptydisk
-        volumeName: emptydiskvolume
     machine:
       type: ""
     resources:
@@ -30,13 +27,13 @@ spec:
   volumes:
   - containerDisk:
       image: registry:5000/kubevirt/cirros-container-disk-demo:devel
-    name: registryvolume
+    name: containerdisk
   - cloudInitNoCloud:
       userData: |
         #!/bin/sh
 
         echo 'printed from cloud-init userdata'
-    name: cloudinitvolume
+    name: cloudinitdisk
   - emptyDisk:
       capacity: 2Gi
-    name: emptydiskvolume
+    name: emptydisk

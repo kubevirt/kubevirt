@@ -11,7 +11,7 @@ metadata:
     miq.github.io/kubevirt-is-vm-template: "true"
   name: vm-template-fedora
 objects:
-- apiVersion: kubevirt.io/v1alpha2
+- apiVersion: kubevirt.io/v1alpha3
   kind: VirtualMachine
   metadata:
     creationTimestamp: null
@@ -36,11 +36,9 @@ objects:
             - disk:
                 bus: virtio
               name: containerdisk
-              volumeName: registryvolume
             - disk:
                 bus: virtio
               name: cloudinitdisk
-              volumeName: cloudinitvolume
           machine:
             type: ""
           resources:
@@ -50,13 +48,13 @@ objects:
         volumes:
         - containerDisk:
             image: registry:5000/kubevirt/fedora-cloud-container-disk-demo:devel
-          name: registryvolume
+          name: containerdisk
         - cloudInitNoCloud:
             userData: |-
               #cloud-config
               password: fedora
               chpasswd: { expire: False }
-          name: cloudinitvolume
+          name: cloudinitdisk
   status: {}
 parameters:
 - description: Name for the new VM

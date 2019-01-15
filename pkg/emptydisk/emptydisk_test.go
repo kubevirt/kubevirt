@@ -14,16 +14,15 @@ import (
 
 var _ = Describe("EmptyDisk", func() {
 
-	AppendEmptyDisk := func(vmi *v1.VirtualMachineInstance, diskName string, volumeName string) {
+	AppendEmptyDisk := func(vmi *v1.VirtualMachineInstance, diskName string) {
 		vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
-			Name:       diskName,
-			VolumeName: volumeName,
+			Name: diskName,
 			DiskDevice: v1.DiskDevice{
 				Disk: &v1.DiskTarget{},
 			},
 		})
 		vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
-			Name: volumeName,
+			Name: diskName,
 			VolumeSource: v1.VolumeSource{
 				EmptyDisk: &v1.EmptyDiskSource{
 					Capacity: resource.MustParse("3Gi"),
@@ -44,22 +43,22 @@ var _ = Describe("EmptyDisk", func() {
 	Describe("a vmi with emptyDisks attached", func() {
 		It("should get a new qcow2 image if not already present", func() {
 			vmi := v1.NewMinimalVMI("testvmi")
-			AppendEmptyDisk(vmi, "testdisk", "testvolume")
+			AppendEmptyDisk(vmi, "testdisk")
 			err := CreateTemporaryDisks(vmi)
 			Expect(err).ToNot(HaveOccurred())
-			_, err = os.Stat(FilePathForVolumeName("testvolume"))
+			_, err = os.Stat(FilePathForVolumeName("testdisk"))
 			Expect(err).ToNot(HaveOccurred())
-			_, err = os.Stat(path.Join(EmptyDiskBaseDir, "testvolume.qcow2"))
+			_, err = os.Stat(path.Join(EmptyDiskBaseDir, "testdisk.qcow2"))
 			Expect(err).ToNot(HaveOccurred())
 		})
 		It("should not override ", func() {
 			vmi := v1.NewMinimalVMI("testvmi")
-			AppendEmptyDisk(vmi, "testdisk", "testvolume")
+			AppendEmptyDisk(vmi, "testdisk")
 			err := CreateTemporaryDisks(vmi)
 			Expect(err).ToNot(HaveOccurred())
-			_, err = os.Stat(FilePathForVolumeName("testvolume"))
+			_, err = os.Stat(FilePathForVolumeName("testdisk"))
 			Expect(err).ToNot(HaveOccurred())
-			_, err = os.Stat(path.Join(EmptyDiskBaseDir, "testvolume.qcow2"))
+			_, err = os.Stat(path.Join(EmptyDiskBaseDir, "testdisk.qcow2"))
 			Expect(err).ToNot(HaveOccurred())
 		})
 		It("should generate non-conflicting volume paths per disk", func() {
@@ -67,11 +66,11 @@ var _ = Describe("EmptyDisk", func() {
 		})
 		It("should leave pre-existing disks alone", func() {
 			vmi := v1.NewMinimalVMI("testvmi")
-			AppendEmptyDisk(vmi, "testdisk", "testvolume")
-			ioutil.WriteFile(FilePathForVolumeName("testvolume"), []byte("test"), 0777)
+			AppendEmptyDisk(vmi, "testdisk")
+			ioutil.WriteFile(FilePathForVolumeName("testdisk"), []byte("test"), 0777)
 			err := CreateTemporaryDisks(vmi)
 			Expect(err).ToNot(HaveOccurred())
-			data, err := ioutil.ReadFile(FilePathForVolumeName("testvolume"))
+			data, err := ioutil.ReadFile(FilePathForVolumeName("testdisk"))
 			Expect(err).ToNot(HaveOccurred())
 			Expect(string(data)).To(Equal("test"))
 		})

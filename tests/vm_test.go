@@ -84,8 +84,7 @@ var _ = Describe("VirtualMachine", func() {
 			// Add a disk that doesn't map to a volume.
 			// This should get rejected which tells us the webhook validator is working.
 			template.Spec.Domain.Devices.Disks = append(template.Spec.Domain.Devices.Disks, v1.Disk{
-				Name:       "testdisk",
-				VolumeName: "testvolume",
+				Name: "testdisk",
 			})
 			newVMI := NewRandomVirtualMachine(template, false)
 			newVMI.TypeMeta = v12.TypeMeta{
@@ -106,7 +105,7 @@ var _ = Describe("VirtualMachine", func() {
 			Expect(err).To(BeNil())
 
 			Expect(len(reviewResponse.Details.Causes)).To(Equal(1))
-			Expect(reviewResponse.Details.Causes[0].Field).To(Equal("spec.template.spec.domain.devices.disks[2].volumeName"))
+			Expect(reviewResponse.Details.Causes[0].Field).To(Equal("spec.template.spec.domain.devices.disks[2].name"))
 		})
 	})
 

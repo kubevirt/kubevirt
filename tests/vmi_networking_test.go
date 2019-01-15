@@ -362,12 +362,24 @@ var _ = Describe("Networking", func() {
 		})
 
 		Context("VirtualMachineInstance with default interface model", func() {
+			// Unless an explicit interface model is specified, the default interface model is virtio.
 			It("should expose the right device type to the guest", func() {
 				By("checking the device vendor in /sys/class")
+
+				// Taken from https://wiki.osdev.org/Virtio#Technical_Details
+				virtio_vid := "0x1af4"
+
 				for _, networkVMI := range []*v1.VirtualMachineInstance{inboundVMI, outboundVMI} {
 					// as defined in https://vendev.org/pci/ven_1af4/
-					checkNetworkVendor(networkVMI, "0x1af4", "\\$ ")
+					checkNetworkVendor(networkVMI, virtio_vid, "\\$ ")
 				}
+			})
+
+			It("should reject the creation of virtual machine with unsupported interface model", func() {
+				// Create a virtual machine with an unsupported interface model
+				customIfVMI := NewRandomVMIWithInvalidNetworkInterface()
+				_, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(customIfVMI)
+				Expect(err).To(HaveOccurred())
 			})
 		})
 	})
@@ -718,5 +730,13 @@ func waitUntilVMIReady(vmi *v1.VirtualMachineInstance, expecterFactory tests.VMI
 	expecter, err := expecterFactory(vmi)
 	Expect(err).ToNot(HaveOccurred())
 	expecter.Close()
+	return vmi
+}
+
+func NewRandomVMIWithInvalidNetworkInterface() *v1.VirtualMachineInstance {
+	// Use alpine because cirros dhcp client starts prematurily before link is ready
+	vmi := tests.NewRandomVMIWithEphemeralDisk(tests.ContainerDiskFor(tests.ContainerDiskAlpine))
+	tests.AddExplicitPodNetworkInterface(vmi)
+	vmi.Spec.Domain.Devices.Interfaces[0].Model = "gibberish"
 	return vmi
 }

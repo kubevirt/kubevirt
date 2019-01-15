@@ -41,7 +41,7 @@ var _ = Describe("Kubevirt VirtualMachineInstance Client", func() {
 	var upgrader websocket.Upgrader
 	var server *ghttp.Server
 	var client KubevirtClient
-	basePath := "/apis/kubevirt.io/v1alpha2/namespaces/default/virtualmachineinstances"
+	basePath := "/apis/kubevirt.io/v1alpha3/namespaces/default/virtualmachineinstances"
 	vmiPath := basePath + "/testvm"
 
 	BeforeEach(func() {
@@ -128,7 +128,7 @@ var _ = Describe("Kubevirt VirtualMachineInstance Client", func() {
 	})
 
 	It("should allow to connect a stream to a VM", func() {
-		vncPath := "/apis/subresources.kubevirt.io/v1alpha2/namespaces/default/virtualmachineinstances/testvm/vnc"
+		vncPath := "/apis/subresources.kubevirt.io/v1alpha3/namespaces/default/virtualmachineinstances/testvm/vnc"
 
 		server.AppendHandlers(ghttp.CombineHandlers(
 			ghttp.VerifyRequest("GET", vncPath),
@@ -144,7 +144,7 @@ var _ = Describe("Kubevirt VirtualMachineInstance Client", func() {
 	})
 
 	It("should handle a failure connecting to the VM", func() {
-		vncPath := "/apis/subresources.kubevirt.io/v1alpha2/namespaces/default/virtualmachineinstances/testvm/vnc"
+		vncPath := "/apis/subresources.kubevirt.io/v1alpha3/namespaces/default/virtualmachineinstances/testvm/vnc"
 
 		server.AppendHandlers(ghttp.CombineHandlers(
 			ghttp.VerifyRequest("GET", vncPath),
@@ -157,7 +157,7 @@ var _ = Describe("Kubevirt VirtualMachineInstance Client", func() {
 	})
 
 	It("should exchange data with the VM", func() {
-		vncPath := "/apis/subresources.kubevirt.io/v1alpha2/namespaces/default/virtualmachineinstances/testvm/vnc"
+		vncPath := "/apis/subresources.kubevirt.io/v1alpha3/namespaces/default/virtualmachineinstances/testvm/vnc"
 
 		server.AppendHandlers(ghttp.CombineHandlers(
 			ghttp.VerifyRequest("GET", vncPath),

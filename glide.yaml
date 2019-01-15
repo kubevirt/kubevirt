@@ -44,6 +44,8 @@ import:
   version: kubernetes-1.11.2
 - package: k8s.io/apiextensions-apiserver
   version: kubernetes-1.11.2
+- package: github.com/openshift/client-go
+  version: release-3.11
 - package: github.com/fsnotify/fsnotify
   version: ^1.4.2
 - package: github.com/mailru/easyjson

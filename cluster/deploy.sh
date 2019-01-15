@@ -37,12 +37,8 @@ EOF
 # Deploy infra for testing first
 _kubectl create -f ${MANIFESTS_OUT_DIR}/testing
 
-for manifest in ${MANIFESTS_OUT_DIR}/release/*; do
-    if [[ $manifest =~ .*demo.* ]]; then
-        continue
-    fi
-    _kubectl apply -f $manifest
-done
+# Deploy kubevirt
+_kubectl apply -f ${MANIFESTS_OUT_DIR}/release/kubevirt.yaml
 
 if [[ "$KUBEVIRT_PROVIDER" =~ os-* ]]; then
     _kubectl create -f ${MANIFESTS_OUT_DIR}/testing/ocp

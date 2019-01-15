@@ -25,7 +25,9 @@ import (
 	"os"
 	"sync"
 
+	secv1 "github.com/openshift/client-go/security/clientset/versioned/typed/security/v1"
 	"github.com/spf13/pflag"
+	extclient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
 	"k8s.io/client-go/kubernetes"
@@ -84,6 +86,16 @@ func GetKubevirtSubresourceClientFromFlags(master string, kubeconfig string) (Ku
 		return nil, err
 	}
 
+	extensionsClient, err := extclient.NewForConfig(config)
+	if err != nil {
+		return nil, err
+	}
+
+	secClient, err := secv1.NewForConfig(config)
+	if err != nil {
+		return nil, err
+	}
+
 	return &kubevirt{
 		master,
 		kubeconfig,
@@ -91,6 +103,8 @@ func GetKubevirtSubresourceClientFromFlags(master string, kubeconfig string) (Ku
 		config,
 		cdiClient,
 		networkClient,
+		extensionsClient,
+		secClient,
 		coreClient,
 	}, nil
 }
@@ -194,6 +208,16 @@ func GetKubevirtClientFromRESTConfig(config *rest.Config) (KubevirtClient, error
 		return nil, err
 	}
 
+	extensionsClient, err := extclient.NewForConfig(config)
+	if err != nil {
+		return nil, err
+	}
+
+	secClient, err := secv1.NewForConfig(config)
+	if err != nil {
+		return nil, err
+	}
+
 	return &kubevirt{
 		master,
 		kubeconfig,
@@ -201,6 +225,8 @@ func GetKubevirtClientFromRESTConfig(config *rest.Config) (KubevirtClient, error
 		config,
 		cdiClient,
 		networkClient,
+		extensionsClient,
+		secClient,
 		coreClient,
 	}, nil
 }

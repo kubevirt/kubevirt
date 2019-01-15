@@ -11,7 +11,7 @@ metadata:
     miq.github.io/kubevirt-is-vm-template: "true"
   name: vm-template-windows2012r2
 objects:
-- apiVersion: kubevirt.io/v1alpha2
+- apiVersion: kubevirt.io/v1alpha3
   kind: VirtualMachine
   metadata:
     creationTimestamp: null
@@ -46,11 +46,9 @@ objects:
             - disk:
                 bus: sata
               name: pvcdisk
-              volumeName: pvcvolume
             - disk:
                 bus: virtio
               name: disk0
-              volumeName: disk0-pvc
             interfaces:
             - bridge: {}
               model: e1000
@@ -75,10 +73,10 @@ objects:
           pod: {}
         terminationGracePeriodSeconds: 0
         volumes:
-        - name: pvcvolume
+        - name: pvcdisk
           persistentVolumeClaim:
             claimName: disk-windows
-        - name: disk0-pvc
+        - name: disk0
           persistentVolumeClaim:
             claimName: windows-vm-pvc-${NAME}
   status: {}
