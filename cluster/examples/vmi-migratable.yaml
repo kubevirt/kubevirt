@@ -1,5 +1,5 @@
 ---
-apiVersion: kubevirt.io/v1alpha2
+apiVersion: kubevirt.io/v1alpha3
 kind: VirtualMachineInstance
 metadata:
   labels:
@@ -12,7 +12,6 @@ spec:
       - disk:
           bus: virtio
         name: containerdisk
-        volumeName: registryvolume
     machine:
       type: ""
     resources:
@@ -22,4 +21,4 @@ spec:
   volumes:
   - containerDisk:
       image: registry:5000/kubevirt/alpine-container-disk-demo:devel
-    name: registryvolume
+    name: containerdisk

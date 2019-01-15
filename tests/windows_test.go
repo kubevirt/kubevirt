@@ -98,7 +98,6 @@ var _ = Describe("Windows VirtualMachineInstance", func() {
 				Disks: []v1.Disk{
 					{
 						Name:       windowsDisk,
-						VolumeName: windowsDisk,
 						DiskDevice: v1.DiskDevice{Disk: &v1.DiskTarget{Bus: "sata"}},
 					},
 				},

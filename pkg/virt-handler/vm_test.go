@@ -708,8 +708,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 			vmi := v1.NewMinimalVMI("testvmi")
 			vmi.Spec.Domain.Devices.Disks = []v1.Disk{
 				{
-					Name:       "mydisk",
-					VolumeName: "myvolume",
+					Name: "mydisk",
 					DiskDevice: v1.DiskDevice{
 						Disk: &v1.DiskTarget{
 							Bus: "virtio",
@@ -739,8 +738,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 			vmi := v1.NewMinimalVMI("testvmi")
 			vmi.Spec.Domain.Devices.Disks = []v1.Disk{
 				{
-					Name:       "mydisk",
-					VolumeName: "myvolume",
+					Name: "mydisk",
 					DiskDevice: v1.DiskDevice{
 						Disk: &v1.DiskTarget{
 							Bus: "virtio",
@@ -769,8 +767,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 			vmi := v1.NewMinimalVMI("testvmi")
 			vmi.Spec.Domain.Devices.Disks = []v1.Disk{
 				{
-					Name:       "mydisk",
-					VolumeName: "myvolume",
+					Name: "mydisk",
 					DiskDevice: v1.DiskDevice{
 						Disk: &v1.DiskTarget{
 							Bus: "virtio",
@@ -801,8 +798,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 			vmi := v1.NewMinimalVMI("testvmi")
 			vmi.Spec.Domain.Devices.Disks = []v1.Disk{
 				{
-					Name:       "mydisk",
-					VolumeName: "myvolume",
+					Name: "mydisk",
 					DiskDevice: v1.DiskDevice{
 						Disk: &v1.DiskTarget{
 							Bus: "virtio",
@@ -810,8 +806,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 					},
 				},
 				{
-					Name:       "mydisk1",
-					VolumeName: "myvolume1",
+					Name: "mydisk1",
 					DiskDevice: v1.DiskDevice{
 						Disk: &v1.DiskTarget{
 							Bus: "virtio",
@@ -849,8 +844,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 			vmi := v1.NewMinimalVMI("testvmi")
 			vmi.Spec.Domain.Devices.Disks = []v1.Disk{
 				{
-					Name:       "mydisk",
-					VolumeName: "myvolume",
+					Name: "mydisk",
 					DiskDevice: v1.DiskDevice{
 						Disk: &v1.DiskTarget{
 							Bus: "virtio",
@@ -858,8 +852,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 					},
 				},
 				{
-					Name:       "mydisk1",
-					VolumeName: "myvolume1",
+					Name: "mydisk1",
 					DiskDevice: v1.DiskDevice{
 						Disk: &v1.DiskTarget{
 							Bus: "virtio",
@@ -897,8 +890,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 			vmi := v1.NewMinimalVMI("testvmi")
 			vmi.Spec.Domain.Devices.Disks = []v1.Disk{
 				{
-					Name:       "mydisk",
-					VolumeName: "myvolume",
+					Name: "mydisk",
 					DiskDevice: v1.DiskDevice{
 						Disk: &v1.DiskTarget{
 							Bus: "virtio",
@@ -930,8 +922,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 			vmi := v1.NewMinimalVMI("testvmi")
 			vmi.Spec.Domain.Devices.Disks = []v1.Disk{
 				{
-					Name:       "mydisk",
-					VolumeName: "myvolume",
+					Name: "mydisk",
 					DiskDevice: v1.DiskDevice{
 						Disk: &v1.DiskTarget{
 							Bus: "virtio",
@@ -939,8 +930,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 					},
 				},
 				{
-					Name:       "mydisk1",
-					VolumeName: "myvolume1",
+					Name: "mydisk1",
 					DiskDevice: v1.DiskDevice{
 						Disk: &v1.DiskTarget{
 							Bus: "virtio",

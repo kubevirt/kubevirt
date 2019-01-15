@@ -1,5 +1,5 @@
 ---
-apiVersion: kubevirt.io/v1alpha2
+apiVersion: kubevirt.io/v1alpha3
 kind: VirtualMachine
 metadata:
   labels:
@@ -18,11 +18,9 @@ spec:
           - disk:
               bus: virtio
             name: pvcdisk1
-            volumeName: pvcvolume1
           - disk:
               bus: virtio
             name: pvcdisk2
-            volumeName: pvcvolume2
         machine:
           type: ""
         resources:
@@ -30,9 +28,9 @@ spec:
             memory: 64M
       terminationGracePeriodSeconds: 0
       volumes:
-      - name: pvcvolume1
+      - name: pvcdisk1
         persistentVolumeClaim:
           claimName: disk-alpine
-      - name: pvcvolume2
+      - name: pvcdisk2
         persistentVolumeClaim:
           claimName: disk-custom

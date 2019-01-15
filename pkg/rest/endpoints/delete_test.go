@@ -34,7 +34,7 @@ import (
 )
 
 func newValidDeleteRequest() *http.Request {
-	request, _ := http.NewRequest("DELETE", "/apis/kubevirt.io/v1alpha2/namespaces/default/virtualmachineinstances/test", nil)
+	request, _ := http.NewRequest("DELETE", "/apis/kubevirt.io/v1alpha3/namespaces/default/virtualmachineinstances/test", nil)
 	return request
 }
 
@@ -56,7 +56,7 @@ var _ = Describe("Delete", func() {
 
 		target := MakeGoRestfulWrapper(NewHandlerBuilder().Delete().Endpoint(testDeleteEndpoint).Build(ctx))
 
-		ws.Route(ws.DELETE("/apis/kubevirt.io/v1alpha2/namespaces/{namespace}/virtualmachineinstances/{name}").To(target))
+		ws.Route(ws.DELETE("/apis/kubevirt.io/v1alpha3/namespaces/{namespace}/virtualmachineinstances/{name}").To(target))
 		request = newValidDeleteRequest()
 		recorder = httptest.NewRecorder()
 	})
@@ -82,7 +82,7 @@ var _ = Describe("Delete", func() {
 				Expect(responseBody).To(Equal(payload{Name: "test", Metadata: Metadata{Name: "test", Namespace: "default"}}))
 			})
 			It("should detect labelSelector", func() {
-				request, _ := http.NewRequest("DELETE", "/apis/kubevirt.io/v1alpha2/namespaces/default/virtualmachineinstances/test?labelSelector=app%3Dmyapp", nil)
+				request, _ := http.NewRequest("DELETE", "/apis/kubevirt.io/v1alpha3/namespaces/default/virtualmachineinstances/test?labelSelector=app%3Dmyapp", nil)
 				handler.ServeHTTP(recorder, request)
 				responseBody := payload{}
 				json.NewDecoder(recorder.Body).Decode(&responseBody)

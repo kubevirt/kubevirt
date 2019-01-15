@@ -1,5 +1,5 @@
 ---
-apiVersion: kubevirt.io/v1alpha2
+apiVersion: kubevirt.io/v1alpha3
 kind: VirtualMachine
 metadata:
   labels:
@@ -34,7 +34,6 @@ spec:
           - disk:
               bus: virtio
             name: datavolumedisk1
-            volumeName: datavolumevolume1
         machine:
           type: ""
         resources:
@@ -44,4 +43,4 @@ spec:
       volumes:
       - dataVolume:
           name: alpine-dv
-        name: datavolumevolume1
+        name: datavolumedisk1
