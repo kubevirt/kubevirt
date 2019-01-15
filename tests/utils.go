@@ -1471,8 +1471,7 @@ func AddUserData(vmi *v1.VirtualMachineInstance, name string, userData string) {
 
 func AddCloudInitData(vmi *v1.VirtualMachineInstance, name, userData, networkData string, b64encode bool) {
 	vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
-		Name:       name,
-		VolumeName: name,
+		Name: name,
 		DiskDevice: v1.DiskDevice{
 			Disk: &v1.DiskTarget{
 				Bus: "virtio",

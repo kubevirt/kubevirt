@@ -1437,12 +1437,10 @@ var _ = Describe("Validating Webhook", func() {
 			vmi := v1.NewMinimalVMI("testvmi")
 			order := uint(1)
 			vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, []v1.Disk{
-				{Name: "testdisk", VolumeName: "testvolume1", BootOrder: &order,
-					DiskDevice: v1.DiskDevice{
-						Disk: &v1.DiskTarget{}}},
-				{Name: "testdisk2", VolumeName: "testvolume2", BootOrder: &order,
-					DiskDevice: v1.DiskDevice{
-						Disk: &v1.DiskTarget{}}}}...)
+				{Name: "testvolume1", BootOrder: &order, DiskDevice: v1.DiskDevice{
+					Disk: &v1.DiskTarget{}}},
+				{Name: "testvolume2", BootOrder: &order, DiskDevice: v1.DiskDevice{
+					Disk: &v1.DiskTarget{}}}}...)
 
 			vmi.Spec.Volumes = append(vmi.Spec.Volumes, []v1.Volume{
 				{Name: "testvolume1", VolumeSource: v1.VolumeSource{
@@ -2786,13 +2784,8 @@ var _ = Describe("Validating Webhook", func() {
 		It("should reject disk with invalid cache mode", func() {
 			vmi := v1.NewMinimalVMI("testvmi")
 			vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
-				Name:       "testdisk",
-				VolumeName: "testvolume",
-				Cache:      "unspported",
-				DiskDevice: v1.DiskDevice{
-					Disk: &v1.DiskTarget{},
-				},
-			})
+				Name: "testdisk", Cache: "unspported", DiskDevice: v1.DiskDevice{
+					Disk: &v1.DiskTarget{}}})
 
 			causes := validateDisks(k8sfield.NewPath("fake"), vmi.Spec.Domain.Devices.Disks)
 			Expect(len(causes)).To(Equal(1))
@@ -2806,12 +2799,7 @@ var _ = Describe("Validating Webhook", func() {
 			for i := 0; i <= arrayLenMax; i++ {
 				name := strconv.Itoa(i)
 				vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
-					Name:       "testdisk" + name,
-					VolumeName: "testvolume" + name,
-					DiskDevice: v1.DiskDevice{
-						Disk: &v1.DiskTarget{},
-					},
-				})
+					Name: "testdisk" + name, DiskDevice: v1.DiskDevice{Disk: &v1.DiskTarget{}}})
 			}
 
 			causes := validateDisks(k8sfield.NewPath("fake"), vmi.Spec.Domain.Devices.Disks)

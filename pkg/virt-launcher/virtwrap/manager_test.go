@@ -398,9 +398,8 @@ func StubOutNetworkForTest() {
 
 func addCloudInitDisk(vmi *v1.VirtualMachineInstance, userData string, networkData string) {
 	vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
-		Name:       "cloudinit",
-		VolumeName: "cloudinit",
-		Cache:      v1.CacheNone,
+		Name:  "cloudinit",
+		Cache: v1.CacheNone,
 		DiskDevice: v1.DiskDevice{
 			Disk: &v1.DiskTarget{
 				Bus: "virtio",
