@@ -21,7 +21,6 @@ package prometheus
 
 import (
 	"fmt"
-	"sync"
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
@@ -210,7 +209,6 @@ func updateVersion(ch chan<- prometheus.Metric) {
 
 type Collector struct {
 	virtShareDir string
-	busySockets  sync.Map
 }
 
 func SetupCollector(virtShareDir string) *Collector {
@@ -229,6 +227,30 @@ func (co *Collector) Describe(ch chan<- *prometheus.Desc) {
 	ch <- vcpuUsageDesc
 	ch <- networkTrafficDesc
 	ch <- memoryUsageDesc
+}
+
+// Note that Collect could be called concurrently
+func (co *Collector) Collect(ch chan<- prometheus.Metric) {
+	updateVersion(ch)
+
+	socketFiles, err := cmdclient.ListAllSockets(co.virtShareDir)
+	if err != nil {
+		log.Log.Reason(err).Errorf("failed to list all sockets in '%s'", co.virtShareDir)
+		return
+	}
+
+	if len(socketFiles) == 0 {
+		log.Log.V(2).Infof("No VMs detected")
+		return
+	}
+
+	cc := concurrentCollector{
+		Scraper: &prometheusScraper{
+			ch: ch,
+		},
+	}
+	cc.Collect(socketFiles)
+	return
 }
 
 type prometheusScraper struct {
@@ -254,7 +276,7 @@ func (ps *prometheusScraper) Scrape(socketFile string) {
 		return
 	}
 	if !exists || vmStats.Name == "" {
-		// VM may be shutting down
+		log.Log.V(2).Infof("disappearing VM on %s, ignored", socketFile) // VM may be shutting down
 		return
 	}
 
@@ -272,18 +294,4 @@ func (ps *prometheusScraper) Scrape(socketFile string) {
 	updateBlock(vmStats, ps.ch)
 	updateNetwork(vmStats, ps.ch)
 
-}
-
-// Note that Collect could be called concurrently
-func (co *Collector) Collect(ch chan<- prometheus.Metric) {
-	updateVersion(ch)
-
-	socketFiles, err := cmdclient.ListAllSockets(co.virtShareDir)
-	if err != nil {
-		log.Log.Reason(err).Errorf("failed to list all sockets in '%s'", co.virtShareDir)
-	}
-
-	cc := concurrentCollector{Scraper: &prometheusScraper{ch: ch}}
-	cc.Collect(socketFiles)
-	return
 }
