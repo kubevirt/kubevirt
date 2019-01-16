@@ -200,7 +200,7 @@ func (l *LibvirtDomainManager) setMigrationResultHelper(vmi *v1.VirtualMachineIn
 }
 
 func prepateMigrationFlags(isBlockMigration bool) libvirt.DomainMigrateFlags {
-	migrateFlags := libvirt.MIGRATE_LIVE | libvirt.MIGRATE_PEER2PEER | libvirt.MIGRATE_TUNNELLED
+	migrateFlags := libvirt.MIGRATE_LIVE | libvirt.MIGRATE_PEER2PEER
 
 	if isBlockMigration {
 		migrateFlags |= libvirt.MIGRATE_NON_SHARED_INC
