@@ -1304,12 +1304,17 @@ func (d *VirtualMachineController) handleMigrationProxy(vmi *v1.VirtualMachineIn
 
 	// handle starting/stopping source migration proxy.
 	// start the source proxy once we know the target address
-	if vmi.Status.MigrationState.TargetDirectMigrationNodePorts == nil {
-		log.Log.Object(vmi).Warning("No migration proxy has been created for this vmi")
-		return nil
+	ports := map[int]int{0: 0}
+	if vmi.Status.MigrationState != nil {
+		if vmi.Status.MigrationState.TargetDirectMigrationNodePorts == nil {
+			log.Log.Object(vmi).Warning("No migration proxy has been created for this vmi")
+			return nil
+		}
+		ports = vmi.Status.MigrationState.TargetDirectMigrationNodePorts
+
 	}
 
-	for srcPort, destPort := range vmi.Status.MigrationState.TargetDirectMigrationNodePorts {
+	for srcPort, destPort := range ports {
 		key := string(vmi.UID)
 		if srcPort != 0 {
 			key += fmt.Sprintf("-%d", srcPort)

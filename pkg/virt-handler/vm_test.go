@@ -585,19 +585,36 @@ var _ = Describe("VirtualMachineInstance", func() {
 			// something has to be listening to the cmd socket
 			// for the proxy to work.
 			os.MkdirAll(cmdclient.SocketsDirectory(shareDir), os.ModePerm)
-			socketFile := cmdclient.SocketFromUID(shareDir, string(vmi.UID))
-			socket, err := net.Listen("unix", socketFile)
-			Expect(err).NotTo(HaveOccurred())
-			defer socket.Close()
-
+			portsList := []int{0, 49152, 49153}
+			for _, port := range portsList {
+				key := string(vmi.UID)
+				if port != 0 {
+					key += fmt.Sprintf("-%d", port)
+				}
+				socketFile := cmdclient.SocketFromUID(shareDir, key)
+				socket, err := net.Listen("unix", socketFile)
+				Expect(err).NotTo(HaveOccurred())
+				defer socket.Close()
+			}
 			// since a random port is generated, we have to create the proxy
 			// here in order to know what port will be in the update.
 			err = controller.handleMigrationProxy(vmi)
 			Expect(err).NotTo(HaveOccurred())
+			err = controller.handlePostSyncMigrationProxy(vmi)
+			Expect(err).NotTo(HaveOccurred())
 
-			curPort := controller.migrationProxy.GetTargetListenerPort(string(vmi.UID))
+			targetPorts := make(map[int]int)
+			for _, port := range portsList {
+				key := string(vmi.UID)
+				if port != 0 {
+					key += fmt.Sprintf("-%d", port)
+				}
+				curPort := controller.migrationProxy.GetTargetListenerPort(key)
+				targetPorts[port] = curPort
+			}
 			updatedVmi := vmi.DeepCopy()
-			updatedVmi.Status.MigrationState.TargetNodeAddress = fmt.Sprintf("%s:%d", controller.ipAddress, curPort)
+			updatedVmi.Status.MigrationState.TargetNodeAddress = controller.ipAddress
+			updatedVmi.Status.MigrationState.TargetDirectMigrationNodePorts = targetPorts
 
 			client.EXPECT().Ping()
 			client.EXPECT().SyncMigrationTarget(vmi)
