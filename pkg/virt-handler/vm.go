@@ -58,6 +58,8 @@ import (
 	"kubevirt.io/kubevirt/pkg/watchdog"
 )
 
+var MigrationPortsRange = []int{49152, 49153}
+
 func NewController(
 	recorder record.EventRecorder,
 	clientset kubecli.KubevirtClient,
@@ -674,10 +676,18 @@ func (d *VirtualMachineController) migrationTargetExecute(key string,
 			vmiCopy.Status.MigrationState.TargetNodeDomainDetected = true
 		}
 
-		// get the migration listener port
-		curPort := d.migrationProxy.GetTargetListenerPort(string(vmi.UID))
-		if curPort == 0 {
-			return fmt.Errorf("target migration listener is not up")
+		destinationPorts := make(map[int]int)
+		for _, port := range append([]int{0}, MigrationPortsRange...) {
+			// get the migration listener port
+			key := string(vmi.UID)
+			if port != 0 {
+				key += fmt.Sprintf("-%d", port)
+			}
+			curPort := d.migrationProxy.GetTargetListenerPort(key)
+			if curPort == 0 {
+				return fmt.Errorf("target migration listener is not up for source port %d", port)
+			}
+			destinationPorts[port] = curPort
 		}
 
 		hostAddress := ""
@@ -686,15 +696,22 @@ func (d *VirtualMachineController) migrationTargetExecute(key string,
 		if vmi.Status.MigrationState != nil {
 			hostAddress = vmi.Status.MigrationState.TargetNodeAddress
 		}
-		curAddress := fmt.Sprintf("%s:%d", d.ipAddress, curPort)
-		if hostAddress != curAddress {
-			d.recorder.Event(vmi, k8sv1.EventTypeNormal, v1.PreparingTarget.String(), fmt.Sprintf("Migration Target is listening at %s", curAddress))
-			vmiCopy.Status.MigrationState.TargetNodeAddress = curAddress
+		if hostAddress != d.ipAddress {
+			portsList := make([]int, 0, len(destinationPorts))
+
+			for _, value := range destinationPorts {
+				portsList = append(portsList, value)
+			}
+			portsStrList := strings.Trim(strings.Join(strings.Fields(fmt.Sprint(portsList)), ","), "[]")
+			d.recorder.Event(vmi, k8sv1.EventTypeNormal, v1.PreparingTarget.String(), fmt.Sprintf("Migration Target is listening at %s, on ports: %s", d.ipAddress, portsStrList))
+			vmiCopy.Status.MigrationState.TargetNodeAddress = d.ipAddress
+			vmiCopy.Status.MigrationState.TargetDirectMigrationNodePorts = destinationPorts
 		}
 
 		// update the VMI if necessary
 		if !reflect.DeepEqual(vmi.Status, vmiCopy.Status) {
-			vmiCopy.Status.MigrationState.TargetNodeAddress = curAddress
+			vmiCopy.Status.MigrationState.TargetNodeAddress = d.ipAddress
+			vmiCopy.Status.MigrationState.TargetDirectMigrationNodePorts = destinationPorts
 			_, err := d.clientset.VirtualMachineInstance(vmi.ObjectMeta.Namespace).Update(vmiCopy)
 			if err != nil {
 				return err
@@ -1247,8 +1264,25 @@ func (d *VirtualMachineController) isMigrationSource(vmi *v1.VirtualMachineInsta
 
 }
 
-func (d *VirtualMachineController) handleMigrationProxy(vmi *v1.VirtualMachineInstance) error {
+func (d *VirtualMachineController) handlePostSyncMigrationProxy(vmi *v1.VirtualMachineInstance) error {
+	for _, port := range MigrationPortsRange {
+		key := fmt.Sprintf("%s-%d", string(vmi.UID), port)
+		if d.isPreMigrationTarget(vmi) {
+			// a proxy between the target direct qemu channel and the connector in the destination pod
+			destSocketFile := migrationproxy.SourceUnixFile(d.virtShareDir, key)
+			err := d.migrationProxy.StartTargetListener(key, destSocketFile)
+			if err != nil {
+				return err
+			}
+		} else {
+			d.migrationProxy.StopTargetListener(key)
+		}
+	}
 
+	return nil
+}
+
+func (d *VirtualMachineController) handleMigrationProxy(vmi *v1.VirtualMachineInstance) error {
 	// handle starting/stopping target migration proxy
 	if d.isPreMigrationTarget(vmi) {
 
@@ -1270,16 +1304,26 @@ func (d *VirtualMachineController) handleMigrationProxy(vmi *v1.VirtualMachineIn
 
 	// handle starting/stopping source migration proxy.
 	// start the source proxy once we know the target address
-	if d.isMigrationSource(vmi) {
-		err := d.migrationProxy.StartSourceListener(string(vmi.UID), vmi.Status.MigrationState.TargetNodeAddress)
-		if err != nil {
-			return err
-		}
-
-	} else {
-		d.migrationProxy.StopSourceListener(string(vmi.UID))
+	if vmi.Status.MigrationState.TargetDirectMigrationNodePorts == nil {
+		log.Log.Object(vmi).Warning("No migration proxy has been created for this vmi")
+		return nil
 	}
 
+	for srcPort, destPort := range vmi.Status.MigrationState.TargetDirectMigrationNodePorts {
+		key := string(vmi.UID)
+		if srcPort != 0 {
+			key += fmt.Sprintf("-%d", srcPort)
+		}
+		if d.isMigrationSource(vmi) {
+			targetAddr := fmt.Sprintf("%s:%d", vmi.Status.MigrationState.TargetNodeAddress, destPort)
+			err := d.migrationProxy.StartSourceListener(key, targetAddr)
+			if err != nil {
+				return err
+			}
+		} else {
+			d.migrationProxy.StopSourceListener(key)
+		}
+	}
 	return nil
 }
 
@@ -1320,6 +1364,11 @@ func (d *VirtualMachineController) processVmUpdate(origVMI *v1.VirtualMachineIns
 		if err != nil {
 			return fmt.Errorf("syncing migration target failed: %v", err)
 		}
+		err = d.handlePostSyncMigrationProxy(vmi)
+		if err != nil {
+			return fmt.Errorf("failed to handle post sync migration proxy: %v", err)
+		}
+
 		d.recorder.Event(vmi, k8sv1.EventTypeNormal, v1.PreparingTarget.String(), "VirtualMachineInstance Migration Target Prepared.")
 	} else if d.isMigrationSource(vmi) {
 		err = client.MigrateVirtualMachine(vmi)
