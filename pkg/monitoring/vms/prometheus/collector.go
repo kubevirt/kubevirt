@@ -33,13 +33,13 @@ type metricsScraper interface {
 }
 
 type concurrentCollector struct {
-	Scraper      metricsScraper
-	busyKeys     sync.Map
-	busyScrapers sync.WaitGroup
+	Scraper  metricsScraper
+	busyKeys sync.Map
 }
 
 func (cc *concurrentCollector) Collect(keys []string) {
 	log.Log.V(3).Infof("Collecting VM metrics from %d sources", len(keys))
+	var busyScrapers sync.WaitGroup
 
 	for _, key := range keys {
 		_, loaded := cc.busyKeys.LoadOrStore(key, true)
@@ -48,13 +48,14 @@ func (cc *concurrentCollector) Collect(keys []string) {
 			continue
 		}
 
-		cc.busyScrapers.Add(1)
-		go cc.collectFromSource(key)
+		log.Log.V(4).Infof("Source %s responsive, scraping", key)
+		busyScrapers.Add(1)
+		go cc.collectFromSource(key, &busyScrapers)
 	}
 
 	c := make(chan struct{})
 	go func() {
-		cc.busyScrapers.Wait()
+		busyScrapers.Wait()
 		c <- struct{}{}
 	}()
 	select {
@@ -69,8 +70,8 @@ func (cc *concurrentCollector) Collect(keys []string) {
 	return
 }
 
-func (cc *concurrentCollector) collectFromSource(key string) {
-	defer cc.busyScrapers.Done()
+func (cc *concurrentCollector) collectFromSource(key string, wg *sync.WaitGroup) {
+	defer wg.Done()
 	defer cc.busyKeys.Delete(key)
 
 	log.Log.V(3).Infof("Getting stats from source %s", key)
