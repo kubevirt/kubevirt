@@ -280,18 +280,30 @@ func (ps *prometheusScraper) Scrape(socketFile string) {
 		return
 	}
 
-	// GetDomainStats() may hang for a long time. So, when it wakes up, we must ensure not to
-	// send back stale information. We just check the freshness of the informations we collected
-	// against a threshold.
+	// GetDomainStats() may hang for a long time.
+	// If it wakes up past the timeout, there is no point in send back any metric.
+	// In the best case the information is stale, in the worst case the information is stale *and*
+	// the reporting channel is already closed, leading to a possible panic - see below
 	elapsed := time.Now().Sub(ts)
 	if elapsed > statsMaxAge {
 		log.Log.Infof("took too long (%v) to collect stats from %s: ignored", elapsed, socketFile)
 		return
 	}
 
+	// statsMaxAge is an estimation - and there is not better way to do that. So it is possible that
+	// GetDomainStats() takes enough time to lag behind, but not enough to trigger the statsMaxAge check.
+	// In this case the next functions will end up writing on a closed channel. This will panic.
+	// It is actually OK in this case to abort the goroutine that panicked -that's what we want anyway,
+	// and the very reason we collect in throwaway goroutines. We need however to avoid dump stacktraces in the logs.
+	// Since this is a known failure condition, let's handle it explicitely.
+	defer func() {
+		if err := recover(); err != nil {
+			log.Log.V(2).Warningf("collector goroutine panicked for VM %s: %s", socketFile, err)
+		}
+	}()
+
 	updateMemory(vmStats, ps.ch)
 	updateVcpu(vmStats, ps.ch)
 	updateBlock(vmStats, ps.ch)
 	updateNetwork(vmStats, ps.ch)
-
 }
