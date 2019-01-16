@@ -5848,6 +5848,10 @@
       "description": "The time the migration action began",
       "type": "string"
      },
+     "targetDirectMigrationNodePorts": {
+      "description": "The list of ports opened for live migration on the destination node",
+      "type": "object"
+     },
      "targetNode": {
       "description": "The target node that the VMI is moving to",
       "type": "string"
@@ -5859,6 +5863,10 @@
      "targetNodeDomainDetected": {
       "description": "The Target Node has seen the Domain Start Event",
       "type": "boolean"
+     },
+     "targetPod": {
+      "description": "The target pod that the VMI is moving to",
+      "type": "string"
      }
     }
    },
