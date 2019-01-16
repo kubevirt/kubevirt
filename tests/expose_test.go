@@ -430,20 +430,25 @@ var _ = Describe("Expose", func() {
 
 				Eventually(getStatus, 60, 1).Should(Equal(k8sv1.PodSucceeded))
 
-				By("Restarting the running VM.")
-				virtctl := tests.NewRepeatableVirtctlCommand("restart", "--namespace", vm.Namespace, vm.Name)
+				By("Stopping the running VM.")
+				virtctl := tests.NewRepeatableVirtctlCommand("stop", "--namespace", vm.Namespace, vm.Name)
+				err = virtctl()
+				Expect(err).ToNot(HaveOccurred())
+
+				By("Verifying the VMI is not running.")
+				var vmi *v1.VirtualMachineInstance
+				Eventually(func() bool {
+					vmi, err = virtClient.VirtualMachineInstance(vm_obj.Namespace).Get(vm_obj.Name, &k8smetav1.GetOptions{})
+					Expect(err).ToNot(HaveOccurred())
+					return vmi.Status.Phase != v1.Running
+				}, 120*time.Second, 1*time.Second).Should(BeTrue())
+
+				By("Starting the VM.")
+				virtctl = tests.NewRepeatableVirtctlCommand("start", "--namespace", vm.Namespace, vm.Name)
 				err = virtctl()
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Verifying the VMI is running.")
-				Eventually(func() bool {
-					vm_obj, err = virtClient.VirtualMachine(vm_obj.Namespace).Get(vm_obj.Name, &k8smetav1.GetOptions{})
-					Expect(err).ToNot(HaveOccurred())
-					return vm_obj.Status.Ready
-				}, 120*time.Second, 1*time.Second).Should(BeTrue())
-
-				By("Getting the running VMI.")
-				var vmi *v1.VirtualMachineInstance
 				Eventually(func() bool {
 					vmi, err = virtClient.VirtualMachineInstance(vm_obj.Namespace).Get(vm_obj.Name, &k8smetav1.GetOptions{})
 					Expect(err).ToNot(HaveOccurred())
