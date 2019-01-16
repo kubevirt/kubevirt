@@ -278,8 +278,25 @@ func (l *LibvirtDomainManager) MigrateVMI(vmi *v1.VirtualMachineInstance) error 
 		return nil
 	}
 
+	if err := updateHostsFile(fmt.Sprintf("%s %s\n", "127.0.0.1", vmi.Status.MigrationState.TargetPod)); err != nil {
+		return fmt.Errorf("failed to update the hosts file: %v", err)
+	}
 	l.asyncMigrate(vmi)
 
+	return nil
+}
+
+func updateHostsFile(entry string) error {
+	file, err := os.OpenFile("/etc/hosts", os.O_WRONLY|os.O_APPEND, 0644)
+	if err != nil {
+		return fmt.Errorf("failed opening file: %s", err)
+	}
+	defer file.Close()
+
+	_, err = file.WriteString(entry)
+	if err != nil {
+		return fmt.Errorf("failed writing to file: %s", err)
+	}
 	return nil
 }
 
