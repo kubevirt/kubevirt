@@ -128,11 +128,15 @@ func (o *Command) Run(cmd *cobra.Command, args []string) error {
 		if vm.Spec.Running != running {
 			bodyStr := fmt.Sprintf("{\"spec\":{\"running\":%t}}", running)
 
-			_, err := virtClient.VirtualMachine(namespace).Patch(vm.Name, types.MergePatchType,
+			vm, err := virtClient.VirtualMachine(namespace).Patch(vm.Name, types.MergePatchType,
 				[]byte(bodyStr))
 
 			if err != nil {
 				return fmt.Errorf("Error updating VirtualMachine: %v", err)
+			}
+
+			if vm.Spec.Running != running {
+				return fmt.Errorf("Error VirtualMachine running state should be %t but returned: %t", running, vm.Spec.Running)
 			}
 
 		} else {
@@ -149,6 +153,6 @@ func (o *Command) Run(cmd *cobra.Command, args []string) error {
 		}
 	}
 
-	cmd.Printf("VM %s was scheduled to %s\n", vmiName, o.command)
+	fmt.Printf("VM %s was scheduled to %s\n", vmiName, o.command)
 	return nil
 }
