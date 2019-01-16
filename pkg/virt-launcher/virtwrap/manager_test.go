@@ -283,7 +283,7 @@ var _ = Describe("Manager", func() {
 	table.DescribeTable("check migration flags",
 		func(isBlockMigration bool) {
 			flags := prepateMigrationFlags(isBlockMigration)
-			expectedMigrateFlags := libvirt.MIGRATE_LIVE | libvirt.MIGRATE_PEER2PEER | libvirt.MIGRATE_TUNNELLED
+			expectedMigrateFlags := libvirt.MIGRATE_LIVE | libvirt.MIGRATE_PEER2PEER
 
 			if isBlockMigration {
 				expectedMigrateFlags |= libvirt.MIGRATE_NON_SHARED_INC

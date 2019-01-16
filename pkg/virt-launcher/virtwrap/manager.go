@@ -216,17 +216,42 @@ func (l *LibvirtDomainManager) asyncMigrate(vmi *v1.VirtualMachineInstance) {
 		// Start local migration proxy.
 		//
 		// Right now Libvirt won't let us perform a migration using a unix socket, so
-		// we have to create this local host tcp server that forwards the traffic
+		// we have to create a local host tcp server (on port 22222) that forwards the traffic
 		// to libvirt in order to trick libvirt into doing what we want.
-		migrationProxy := migrationproxy.NewTargetProxy("127.0.0.1", 22222, migrationproxy.SourceUnixFile(l.virtShareDir, string(vmi.UID)))
+		// This also creates a tcp server for each additional direct migration connections
+		// that will be proxied to the destination pod
 
-		err := migrationProxy.StartListening()
-		if err != nil {
-			l.setMigrationResult(vmi, true, fmt.Sprintf("%v", err))
+		var ports []int
+		// Get the migration proxied ports
+		if vmi.Status.MigrationState.TargetDirectMigrationNodePorts == nil {
+			msg := "No migration proxy has been created for this vmi"
+			log.Log.Object(vmi).Warningf("%s", msg)
+			l.setMigrationResult(vmi, true, msg)
 			return
 		}
 
-		defer migrationProxy.StopListening()
+		for k := range vmi.Status.MigrationState.TargetDirectMigrationNodePorts {
+			ports = append(ports, k)
+		}
+
+		// Create a tcp server for each direct connection proxy and listen for incoming migration requests on port 22222
+		for _, port := range append([]int{22222}, ports...) {
+			if port == 0 {
+				continue
+			}
+			key := string(vmi.UID)
+			if port != 22222 {
+				key += fmt.Sprintf("-%d", port)
+			}
+			migrationProxy := migrationproxy.NewTargetProxy("127.0.0.1", port, migrationproxy.SourceUnixFile(l.virtShareDir, key))
+
+			err := migrationProxy.StartListening()
+			if err != nil {
+				l.setMigrationResult(vmi, true, fmt.Sprintf("%v", err))
+				return
+			}
+			defer migrationProxy.StopListening()
+		}
 
 		// For a tunnelled migration, this is always the uri
 		dstUri := "qemu+tcp://127.0.0.1:22222/system"
@@ -334,6 +359,28 @@ func (l *LibvirtDomainManager) PrepareMigrationTarget(vmi *v1.VirtualMachineInst
 	if err != nil {
 		return fmt.Errorf("executing custom preStart hooks failed: %v", err)
 	}
+
+	if err := updateHostsFile(fmt.Sprintf("%s %s\n", "127.0.0.1", vmi.Status.MigrationState.TargetPod)); err != nil {
+		return fmt.Errorf("failed to update the hosts file: %v", err)
+	}
+
+	for port, _ := range vmi.Status.MigrationState.TargetDirectMigrationNodePorts {
+		// Prepare the direct migration proxy
+		if port == 0 {
+			continue
+		}
+		key := fmt.Sprintf("%s-%d", string(vmi.UID), port)
+		curDirectAddress := fmt.Sprintf("%s:%d", "127.0.0.1", port)
+		unixSocketPath := migrationproxy.SourceUnixFile(l.virtShareDir, key)
+		migrationProxy := migrationproxy.NewSourceProxy(unixSocketPath, curDirectAddress)
+
+		err := migrationProxy.StartListening()
+		if err != nil {
+			logger.Reason(err).Errorf("proxy listening failed, socket %s", unixSocketPath)
+			return err
+		}
+	}
+
 	return nil
 }
 
