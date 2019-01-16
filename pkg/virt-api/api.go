@@ -85,6 +85,7 @@ const (
 	migrationUpdateValidatePath = "/migration-validate-update"
 
 	vmiMutatePath = "/virtualmachineinstances-mutate"
+	vmMutatePath  = "/virtualmachines-mutate"
 
 	certBytesValue        = "cert-bytes"
 	keyBytesValue         = "key-bytes"
@@ -755,6 +756,7 @@ func (app *virtAPIApp) createValidatingWebhook() error {
 
 func (app *virtAPIApp) mutatingWebhooks() []admissionregistrationv1beta1.Webhook {
 	vmiPath := vmiMutatePath
+	vmPath := vmMutatePath
 	webHooks := []admissionregistrationv1beta1.Webhook{
 		{
 			Name: "virtualmachineinstances-mutator.kubevirt.io",
@@ -773,6 +775,27 @@ func (app *virtAPIApp) mutatingWebhooks() []admissionregistrationv1beta1.Webhook
 					Namespace: app.namespace,
 					Name:      virtApiServiceName,
 					Path:      &vmiPath,
+				},
+				CABundle: app.signingCertBytes,
+			},
+		},
+		{
+			Name: "virtualmachines-mutator.kubevirt.io",
+			Rules: []admissionregistrationv1beta1.RuleWithOperations{{
+				Operations: []admissionregistrationv1beta1.OperationType{
+					admissionregistrationv1beta1.Create,
+				},
+				Rule: admissionregistrationv1beta1.Rule{
+					APIGroups:   []string{v1.GroupName},
+					APIVersions: []string{v1.VirtualMachineGroupVersionKind.Version},
+					Resources:   []string{"virtualmachines"},
+				},
+			}},
+			ClientConfig: admissionregistrationv1beta1.WebhookClientConfig{
+				Service: &admissionregistrationv1beta1.ServiceReference{
+					Namespace: app.namespace,
+					Name:      virtApiServiceName,
+					Path:      &vmPath,
 				},
 				CABundle: app.signingCertBytes,
 			},
@@ -826,6 +849,9 @@ func (app *virtAPIApp) createMutatingWebhook() error {
 
 	http.HandleFunc(vmiMutatePath, func(w http.ResponseWriter, r *http.Request) {
 		mutating_webhook.ServeVMIs(w, r)
+	})
+	http.HandleFunc(vmMutatePath, func(w http.ResponseWriter, r *http.Request) {
+		mutating_webhook.ServeVMs(w, r)
 	})
 	return nil
 }

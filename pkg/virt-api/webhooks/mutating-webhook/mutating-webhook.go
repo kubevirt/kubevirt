@@ -28,6 +28,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 
+	cdiv1 "kubevirt.io/containerized-data-importer/pkg/apis/datavolumecontroller/v1alpha1"
 	kubev1 "kubevirt.io/kubevirt/pkg/api/v1"
 	v1 "kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/log"
@@ -146,6 +147,51 @@ func mutateVMIs(ar *v1beta1.AdmissionReview) *v1beta1.AdmissionResponse {
 
 }
 
+func mutateVMs(ar *v1beta1.AdmissionReview) *v1beta1.AdmissionResponse {
+
+	if ar.Request.Resource != webhooks.VirtualMachineGroupVersionResource {
+		err := fmt.Errorf("expect resource to be '%s'", webhooks.VirtualMachineGroupVersionResource.Resource)
+		return webhooks.ToAdmissionResponseError(err)
+	}
+
+	raw := ar.Request.Object.Raw
+	vm := v1.VirtualMachine{}
+
+	err := json.Unmarshal(raw, &vm)
+	if err != nil {
+		return webhooks.ToAdmissionResponseError(err)
+	}
+
+	for _, datavolume := range vm.Spec.DataVolumeTemplates {
+		datavolume.Status = cdiv1.DataVolumeStatus{}
+	}
+
+	var patch []patchOperation
+	var value interface{}
+	value = vm.Spec
+	patch = append(patch, patchOperation{
+		Op:    "replace",
+		Path:  "/spec",
+		Value: value,
+	})
+
+	patchBytes, err := json.Marshal(patch)
+	if err != nil {
+		return webhooks.ToAdmissionResponseError(err)
+	}
+
+	jsonPatchType := v1beta1.PatchTypeJSONPatch
+	return &v1beta1.AdmissionResponse{
+		Allowed:   true,
+		Patch:     patchBytes,
+		PatchType: &jsonPatchType,
+	}
+
+}
+
 func ServeVMIs(resp http.ResponseWriter, req *http.Request) {
 	serve(resp, req, mutateVMIs)
+}
+func ServeVMs(resp http.ResponseWriter, req *http.Request) {
+	serve(resp, req, mutateVMs)
 }
