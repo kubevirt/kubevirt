@@ -249,7 +249,7 @@ func (co *Collector) Collect(ch chan<- prometheus.Metric) {
 			ch: ch,
 		},
 	}
-	cc.Collect(socketFiles)
+	cc.Collect(socketFiles, collectionTimeout)
 	return
 }
 
@@ -290,6 +290,10 @@ func (ps *prometheusScraper) Scrape(socketFile string) {
 		return
 	}
 
+	ps.Report(socketFile, vmStats)
+}
+
+func (ps *prometheusScraper) Report(socketFile string, vmStats *stats.DomainStats) {
 	// statsMaxAge is an estimation - and there is not better way to do that. So it is possible that
 	// GetDomainStats() takes enough time to lag behind, but not enough to trigger the statsMaxAge check.
 	// In this case the next functions will end up writing on a closed channel. This will panic.

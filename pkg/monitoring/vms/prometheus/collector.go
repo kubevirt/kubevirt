@@ -37,14 +37,16 @@ type concurrentCollector struct {
 	busyKeys sync.Map
 }
 
-func (cc *concurrentCollector) Collect(keys []string) {
+func (cc *concurrentCollector) Collect(keys []string, timeout time.Duration) ([]string, bool) {
 	log.Log.V(3).Infof("Collecting VM metrics from %d sources", len(keys))
 	var busyScrapers sync.WaitGroup
 
+	skipped := []string{}
 	for _, key := range keys {
 		_, loaded := cc.busyKeys.LoadOrStore(key, true)
 		if loaded {
 			log.Log.Warningf("Source %s busy from a previous collection, skipped", key)
+			skipped = append(skipped, key)
 			continue
 		}
 
@@ -53,6 +55,7 @@ func (cc *concurrentCollector) Collect(keys []string) {
 		go cc.collectFromSource(key, &busyScrapers)
 	}
 
+	completed := true
 	c := make(chan struct{})
 	go func() {
 		busyScrapers.Wait()
@@ -61,20 +64,21 @@ func (cc *concurrentCollector) Collect(keys []string) {
 	select {
 	case <-c:
 		log.Log.V(3).Infof("Collection successful")
-	case <-time.After(collectionTimeout):
+	case <-time.After(timeout):
 		log.Log.Warning("Collection timeout")
+		completed = false
 	}
 
-	log.Log.V(3).Infof("Collection completed")
+	log.Log.V(2).Infof("Collection completed")
 
-	return
+	return skipped, completed
 }
 
 func (cc *concurrentCollector) collectFromSource(key string, wg *sync.WaitGroup) {
 	defer wg.Done()
 	defer cc.busyKeys.Delete(key)
 
-	log.Log.V(3).Infof("Getting stats from source %s", key)
+	log.Log.V(4).Infof("Getting stats from source %s", key)
 	cc.Scraper.Scrape(key)
-	log.Log.V(3).Infof("Updated stats from source %s", key)
+	log.Log.V(4).Infof("Updated stats from source %s", key)
 }
