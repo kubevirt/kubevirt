@@ -5,6 +5,14 @@ metadata:
   labels:
     kubevirt.io: ""
   name: {{.Namespace}}
+---
+apiVersion: v1
+data:
+  feature-gates: LiveMigration,DataVolumes
+kind: ConfigMap
+metadata:
+  name: kubevirt-config
+  namespace: kubevirt
 {{index .GeneratedManifests "prometheus.yaml.in"}}
 {{index .GeneratedManifests "rbac.authorization.k8s.yaml.in"}}
 {{index .GeneratedManifests "virt-api.yaml.in"}}
