@@ -6346,6 +6346,10 @@
      "pvc"
     ],
     "properties": {
+     "contentType": {
+      "description": "DataVolumeContentType options: \"kubevirt\", \"archive\"",
+      "type": "string"
+     },
      "pvc": {
       "description": "PVC is a pointer to the PVC Spec we want to use",
       "$ref": "#/definitions/v1.PersistentVolumeClaimSpec"
