@@ -18,7 +18,7 @@ import (
 	"k8s.io/client-go/tools/cache/testing"
 	"k8s.io/client-go/tools/record"
 
-	cdiv1 "kubevirt.io/containerized-data-importer/pkg/apis/datavolumecontroller/v1alpha1"
+	cdiv1 "kubevirt.io/containerized-data-importer/pkg/apis/core/v1alpha1"
 	cdifake "kubevirt.io/containerized-data-importer/pkg/client/clientset/versioned/fake"
 	"kubevirt.io/kubevirt/pkg/api/v1"
 	virtv1 "kubevirt.io/kubevirt/pkg/api/v1"

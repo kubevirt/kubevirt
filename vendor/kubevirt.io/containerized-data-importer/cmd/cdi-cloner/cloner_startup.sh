@@ -40,7 +40,7 @@ if [ "$obj" == "source" ]; then
     echo $size
     #Write the size to the pipe so the other end can read it.
     echo "$size" >$pipe_dir
-    tar cv . >$pipe_dir
+    tar cv --sparse . >$pipe_dir
     popd
     echo "cloner: finished writing image to $pipe_dir"
     exit 0

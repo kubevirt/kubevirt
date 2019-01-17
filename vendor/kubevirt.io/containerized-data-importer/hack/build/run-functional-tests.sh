@@ -28,7 +28,7 @@ KUBECTL=${KUBECTL:-${CDI_DIR}/cluster/.kubectl}
 KUBECONFIG=${KUBECONFIG:-${CDI_DIR}/cluster/.kubeconfig}
 GOCLI=${GOCLI:-${CDI_DIR}/cluster/cli.sh}
 KUBE_MASTER_URL=${KUBE_MASTER_URL:-""}
-CDI_NAMESPACE=${CDI_NAMESPACE:-kube-system}
+CDI_NAMESPACE=${CDI_NAMESPACE:-cdi}
 
 # parsetTestOpts sets 'pkgs' and test_args
 parseTestOpts "${@}"

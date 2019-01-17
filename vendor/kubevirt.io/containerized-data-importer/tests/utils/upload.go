@@ -7,7 +7,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 
-	uploadcdiv1 "kubevirt.io/containerized-data-importer/pkg/apis/uploadcontroller/v1alpha1"
+	cdiuploadv1alpha1 "kubevirt.io/containerized-data-importer/pkg/apis/upload/v1alpha1"
 	cdiClientset "kubevirt.io/containerized-data-importer/pkg/client/clientset/versioned"
 )
 
@@ -41,12 +41,12 @@ func WaitPVCUploadPodStatusRunning(clientSet *kubernetes.Clientset, pvc *k8sv1.P
 
 // RequestUploadToken sends an upload token request to the server
 func RequestUploadToken(clientSet *cdiClientset.Clientset, pvc *k8sv1.PersistentVolumeClaim) (string, error) {
-	request := &uploadcdiv1.UploadTokenRequest{
+	request := &cdiuploadv1alpha1.UploadTokenRequest{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "test-token",
 			Namespace: pvc.Namespace,
 		},
-		Spec: uploadcdiv1.UploadTokenRequestSpec{
+		Spec: cdiuploadv1alpha1.UploadTokenRequestSpec{
 			PvcName: pvc.Name,
 		},
 	}
@@ -62,7 +62,7 @@ func RequestUploadToken(clientSet *cdiClientset.Clientset, pvc *k8sv1.Persistent
 // DownloadImageToNode downloads an image file to node01 in the cluster
 func DownloadImageToNode(clientSet *kubernetes.Clientset, cliCommandPath string) error {
 	RunGoCLICommand(cliCommandPath, "ssh", "node01", "rm -rf "+tmpDir)
-	_, err := RunGoCLICommand(cliCommandPath, "ssh", "node01", "mkdir "+tmpDir)
+	err := RunGoCLICommand(cliCommandPath, "ssh", "node01", "mkdir "+tmpDir)
 	if err != nil {
 		return err
 	}
@@ -73,7 +73,7 @@ func DownloadImageToNode(clientSet *kubernetes.Clientset, cliCommandPath string)
 	}
 
 	downloadURL := fmt.Sprintf("http://%s/%s", fileServerService.Spec.ClusterIP, imageFile)
-	_, err = RunGoCLICommand(cliCommandPath, "ssh", "node01", fmt.Sprintf("curl -o %s %s", imageDownloadPath, downloadURL))
+	err = RunGoCLICommand(cliCommandPath, "ssh", "node01", fmt.Sprintf("curl -o %s %s", imageDownloadPath, downloadURL))
 	if err != nil {
 		return err
 	}
@@ -83,7 +83,7 @@ func DownloadImageToNode(clientSet *kubernetes.Clientset, cliCommandPath string)
 
 // UploadImageFromNode uploads the image to the upload proxy
 func UploadImageFromNode(clientSet *kubernetes.Clientset, cliCommandPath, token string) error {
-	uploadProxyService, err := GetServiceInNamespace(clientSet, "kube-system", "cdi-uploadproxy")
+	uploadProxyService, err := GetServiceInNamespace(clientSet, "cdi", "cdi-uploadproxy")
 	if err != nil {
 		return err
 	}
@@ -92,7 +92,7 @@ func UploadImageFromNode(clientSet *kubernetes.Clientset, cliCommandPath, token 
 	curlCommand := fmt.Sprintf("curl -v --insecure -H \"%s\" --data-binary @%s https://%s/v1alpha1/upload",
 		authHeader, imageDownloadPath, uploadProxyService.Spec.ClusterIP)
 
-	_, err = RunGoCLICommand(cliCommandPath, "ssh", "node01", curlCommand)
+	err = RunGoCLICommand(cliCommandPath, "ssh", "node01", curlCommand)
 	if err != nil {
 		return err
 	}

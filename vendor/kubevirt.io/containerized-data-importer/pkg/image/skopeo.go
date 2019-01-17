@@ -18,7 +18,6 @@ package image
 
 import (
 	"encoding/json"
-	"fmt"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -119,7 +118,7 @@ var extractImageLayers = func(dest string) error {
 			layerID = m.Digest
 		}
 		layer := strings.TrimPrefix(layerID, "sha256:")
-		filePath := fmt.Sprintf("%s%s/%s", dest, dataTmpDir, layer)
+		filePath := filepath.Join(dest, dataTmpDir, layer)
 
 		if err := util.UnArchiveLocalTar(filePath, dest, "z"); err != nil {
 			return errors.Wrap(err, "could not extract layer tar")
@@ -138,7 +137,10 @@ func getImageManifest(dest string) (*manifest, error) {
 
 	// Parse json file
 	var manifestObj manifest
-	json.Unmarshal(manifestFile, &manifestObj)
+	err = json.Unmarshal(manifestFile, &manifestObj)
+	if err != nil {
+		return nil, errors.Wrap(err, "could not read manifest file")
+	}
 	return &manifestObj, nil
 }
 
