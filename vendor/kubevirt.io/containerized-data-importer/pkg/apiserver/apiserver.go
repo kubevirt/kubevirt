@@ -13,13 +13,13 @@ import (
 	"strings"
 
 	admissionregistrationv1beta1 "k8s.io/api/admissionregistration/v1beta1"
-	"k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/util/cert/triple"
 
 	"github.com/golang/glog"
 	"github.com/pkg/errors"
 
-	"github.com/emicklei/go-restful"
+	restful "github.com/emicklei/go-restful"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
@@ -27,8 +27,8 @@ import (
 	apiregistrationv1beta1 "k8s.io/kube-aggregator/pkg/apis/apiregistration/v1beta1"
 	aggregatorclient "k8s.io/kube-aggregator/pkg/client/clientset_generated/clientset"
 
-	datavolumev1alpha1 "kubevirt.io/containerized-data-importer/pkg/apis/datavolumecontroller/v1alpha1"
-	uploadv1alpha1 "kubevirt.io/containerized-data-importer/pkg/apis/uploadcontroller/v1alpha1"
+	cdicorev1alpha1 "kubevirt.io/containerized-data-importer/pkg/apis/core/v1alpha1"
+	cdiuploadv1alpha1 "kubevirt.io/containerized-data-importer/pkg/apis/upload/v1alpha1"
 	validatingwebhook "kubevirt.io/containerized-data-importer/pkg/apiserver/webhooks/validating-webhook"
 	"kubevirt.io/containerized-data-importer/pkg/common"
 	"kubevirt.io/containerized-data-importer/pkg/controller"
@@ -303,7 +303,7 @@ func (app *cdiAPIApp) startTLS() error {
 
 	tlsConfig := &tls.Config{
 		ClientCAs:  pool,
-		ClientAuth: tls.RequestClientCert,
+		ClientAuth: tls.VerifyClientCertIfGiven,
 	}
 	tlsConfig.BuildNameToCertificate()
 
@@ -343,7 +343,7 @@ func (app *cdiAPIApp) uploadHandler(request *restful.Request, response *restful.
 		return
 	}
 
-	uploadToken := &uploadv1alpha1.UploadTokenRequest{}
+	uploadToken := &cdiuploadv1alpha1.UploadTokenRequest{}
 	err = json.Unmarshal(body, uploadToken)
 	if err != nil {
 		glog.Error(err)
@@ -398,7 +398,7 @@ func uploadTokenAPIGroup() metav1.APIGroup {
 }
 
 func (app *cdiAPIApp) composeUploadTokenAPI() {
-	objPointer := &uploadv1alpha1.UploadTokenRequest{}
+	objPointer := &cdiuploadv1alpha1.UploadTokenRequest{}
 	objExample := reflect.ValueOf(objPointer).Elem().Interface()
 	objKind := "UploadTokenRequest"
 	resource := "uploadtokenrequests"
@@ -440,7 +440,7 @@ func (app *cdiAPIApp) composeUploadTokenAPI() {
 			list.GroupVersion = uploadTokenGroup + "/" + uploadTokenVersion
 			list.APIResources = append(list.APIResources, metav1.APIResource{
 				Name:         "uploadtokenrequests",
-				SingularName: "UploadtokenRequest",
+				SingularName: "uploadtokenrequest",
 				Namespaced:   true,
 				Group:        uploadTokenGroup,
 				Version:      uploadTokenVersion,
@@ -564,8 +564,8 @@ func (app *cdiAPIApp) createWebhook() error {
 					admissionregistrationv1beta1.Create,
 				},
 				Rule: admissionregistrationv1beta1.Rule{
-					APIGroups:   []string{datavolumev1alpha1.SchemeGroupVersion.Group},
-					APIVersions: []string{datavolumev1alpha1.SchemeGroupVersion.Version},
+					APIGroups:   []string{cdicorev1alpha1.SchemeGroupVersion.Group},
+					APIVersions: []string{cdicorev1alpha1.SchemeGroupVersion.Version},
 					Resources:   []string{"datavolumes"},
 				},
 			}},

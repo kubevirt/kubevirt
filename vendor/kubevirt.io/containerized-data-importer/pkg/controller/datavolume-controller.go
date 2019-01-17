@@ -38,11 +38,11 @@ import (
 	"k8s.io/client-go/tools/record"
 	"k8s.io/client-go/util/workqueue"
 
-	cdiv1 "kubevirt.io/containerized-data-importer/pkg/apis/datavolumecontroller/v1alpha1"
+	cdiv1 "kubevirt.io/containerized-data-importer/pkg/apis/core/v1alpha1"
 	clientset "kubevirt.io/containerized-data-importer/pkg/client/clientset/versioned"
 	cdischeme "kubevirt.io/containerized-data-importer/pkg/client/clientset/versioned/scheme"
-	informers "kubevirt.io/containerized-data-importer/pkg/client/informers/externalversions/datavolumecontroller/v1alpha1"
-	listers "kubevirt.io/containerized-data-importer/pkg/client/listers/datavolumecontroller/v1alpha1"
+	informers "kubevirt.io/containerized-data-importer/pkg/client/informers/externalversions/core/v1alpha1"
+	listers "kubevirt.io/containerized-data-importer/pkg/client/listers/core/v1alpha1"
 	expectations "kubevirt.io/containerized-data-importer/pkg/expectations"
 )
 
@@ -634,6 +634,12 @@ func newPersistentVolumeClaim(dataVolume *cdiv1.DataVolume) (*corev1.PersistentV
 
 	if dataVolume.Spec.Source.HTTP != nil {
 		annotations[AnnEndpoint] = dataVolume.Spec.Source.HTTP.URL
+		annotations[AnnSource] = SourceHTTP
+		if dataVolume.Spec.ContentType == cdiv1.DataVolumeArchive {
+			annotations[AnnContentType] = string(cdiv1.DataVolumeArchive)
+		} else {
+			annotations[AnnContentType] = string(cdiv1.DataVolumeKubeVirt)
+		}
 		if dataVolume.Spec.Source.HTTP.SecretRef != "" {
 			annotations[AnnSecret] = dataVolume.Spec.Source.HTTP.SecretRef
 		}
@@ -658,7 +664,7 @@ func newPersistentVolumeClaim(dataVolume *cdiv1.DataVolume) (*corev1.PersistentV
 		annotations[AnnUploadRequest] = ""
 	} else if dataVolume.Spec.Source.Blank != nil {
 		annotations[AnnSource] = SourceNone
-		annotations[AnnContentType] = ContentTypeKubevirt
+		annotations[AnnContentType] = string(cdiv1.DataVolumeKubeVirt)
 	} else {
 		return nil, errors.Errorf("no source set for datavolume")
 	}

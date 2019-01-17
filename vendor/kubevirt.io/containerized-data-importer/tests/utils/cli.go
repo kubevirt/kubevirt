@@ -10,7 +10,7 @@ import (
 )
 
 // RunGoCLICommand egecutes gocli with given args
-func RunGoCLICommand(cliPath string, args ...string) ([]byte, error) {
+func RunGoCLICommand(cliPath string, args ...string) error {
 	var outBuf, errBuf bytes.Buffer
 	cmd := exec.Command(cliPath, args...)
 	cmd.Stdout = &outBuf
@@ -22,7 +22,7 @@ func RunGoCLICommand(cliPath string, args ...string) ([]byte, error) {
 		fmt.Fprintf(os.Stderr, "Working dir: %s\n", wd)
 		fmt.Fprintf(os.Stderr, "GoCLI standard output\n%s\n", outBuf.String())
 		fmt.Fprintf(os.Stderr, "GoCLI error output\n%s\n", errBuf.String())
-		return nil, err
+		return err
 	}
 
 	capture := false
@@ -38,8 +38,8 @@ func RunGoCLICommand(cliPath string, args ...string) ([]byte, error) {
 		}
 		_, err = returnBuf.Write([]byte(t))
 		if err != nil {
-			return nil, err
+			return err
 		}
 	}
-	return returnBuf.Bytes(), nil
+	return nil
 }

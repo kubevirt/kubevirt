@@ -30,6 +30,9 @@ done
 for i in $(seq 1 ${KUBEVIRT_NUM_NODES}); do
     echo "node$(printf "%02d" ${i})" "echo \"${container}\" | xargs \-\-max-args=1 sudo docker pull"
     ./cluster/cli.sh ssh "node$(printf "%02d" ${i})" "echo \"${container}\" | xargs \-\-max-args=1 sudo docker pull"
+    # Temporary until image is updated with provisioner that sets this field
+    # This field is required by buildah tool
+    ./cluster/cli.sh ssh "node$(printf "%02d" ${i})" "sudo sysctl -w user.max_user_namespaces=1024"
 done
 
 # In order to make the cloner work in open shift, we need to give the cdi-sa Service Account privileged rights.
@@ -41,3 +44,4 @@ fi
 ./cluster/kubectl.sh apply -f ./manifests/generated/cdi-controller.yaml
 # Start functional test HTTP server.
 ./cluster/kubectl.sh apply -f ./manifests/generated/file-host.yaml
+./cluster/kubectl.sh apply -f ./manifests/generated/registry-host.yaml

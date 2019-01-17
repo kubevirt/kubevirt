@@ -3,9 +3,12 @@ package controller
 import (
 	"crypto/x509"
 	"fmt"
+	"strings"
+	"time"
+
 	"github.com/golang/glog"
 	"github.com/pkg/errors"
-	"k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -14,10 +17,9 @@ import (
 	"k8s.io/client-go/kubernetes"
 	corelisters "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/util/cert/triple"
+	cdiv1 "kubevirt.io/containerized-data-importer/pkg/apis/core/v1alpha1"
 	"kubevirt.io/containerized-data-importer/pkg/common"
 	"kubevirt.io/containerized-data-importer/pkg/keys"
-	"strings"
-	"time"
 )
 
 const (
@@ -38,11 +40,6 @@ const (
 	SourceNone = "none"
 	// SourceRegistry is the source type of Registry
 	SourceRegistry = "registry"
-
-	// ContentTypeKubevirt is the content-type of the import, defaults to kubevirt
-	ContentTypeKubevirt = "kubevirt"
-	// ContentTypeArchive is the content-type to specify if wanting to extract an archive
-	ContentTypeArchive = "archive"
 )
 
 type podDeleteRequest struct {
@@ -115,12 +112,12 @@ func getContentType(pvc *v1.PersistentVolumeClaim) string {
 	}
 	switch contentType {
 	case
-		ContentTypeKubevirt,
-		ContentTypeArchive:
+		string(cdiv1.DataVolumeKubeVirt),
+		string(cdiv1.DataVolumeArchive):
 		glog.V(2).Infof("pvc content type annotation found for pvc \"%s/%s\", value %s\n", pvc.Namespace, pvc.Name, contentType)
 	default:
 		glog.V(2).Infof("No content type annotation found for pvc \"%s/%s\", default to kubevirt\n", pvc.Namespace, pvc.Name)
-		contentType = ContentTypeKubevirt
+		contentType = string(cdiv1.DataVolumeKubeVirt)
 	}
 	return contentType
 }
