@@ -210,9 +210,16 @@ var _ = Describe("Manager", func() {
 
 	Context("on successful VirtualMachineInstance migrate", func() {
 		It("should prepare the target pod", func() {
-
+			updateHostsFile = func(entry string) error {
+				return nil
+			}
 			StubOutNetworkForTest()
 			vmi := newVMI(testNamespace, testVmName)
+			vmi.Status.MigrationState = &v1.VirtualMachineInstanceMigrationState{
+				MigrationUID:                   "111222333",
+				TargetPod:                      "fakepod",
+				TargetDirectMigrationNodePorts: map[int]int{0: 33333},
+			}
 
 			manager, _ := NewLibvirtDomainManager(mockConn, "fake", nil, 0)
 			err := manager.PrepareMigrationTarget(vmi, true)

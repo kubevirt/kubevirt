@@ -311,7 +311,7 @@ func (l *LibvirtDomainManager) MigrateVMI(vmi *v1.VirtualMachineInstance) error 
 	return nil
 }
 
-func updateHostsFile(entry string) error {
+var updateHostsFile = func(entry string) error {
 	file, err := os.OpenFile("/etc/hosts", os.O_WRONLY|os.O_APPEND, 0644)
 	if err != nil {
 		return fmt.Errorf("failed opening file: %s", err)
@@ -364,6 +364,9 @@ func (l *LibvirtDomainManager) PrepareMigrationTarget(vmi *v1.VirtualMachineInst
 		return fmt.Errorf("failed to update the hosts file: %v", err)
 	}
 
+	if vmi.Status.MigrationState != nil && vmi.Status.MigrationState.TargetDirectMigrationNodePorts == nil {
+		return fmt.Errorf("No migration proxy has been created for this vmi")
+	}
 	for port, _ := range vmi.Status.MigrationState.TargetDirectMigrationNodePorts {
 		// Prepare the direct migration proxy
 		if port == 0 {
