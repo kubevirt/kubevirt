@@ -685,6 +685,33 @@ func (in *FeatureHyperv) DeepCopyInto(out *FeatureHyperv) {
 			(*in).DeepCopyInto(*out)
 		}
 	}
+	if in.Frequencies != nil {
+		in, out := &in.Frequencies, &out.Frequencies
+		if *in == nil {
+			*out = nil
+		} else {
+			*out = new(FeatureState)
+			(*in).DeepCopyInto(*out)
+		}
+	}
+	if in.Reenlightenment != nil {
+		in, out := &in.Reenlightenment, &out.Reenlightenment
+		if *in == nil {
+			*out = nil
+		} else {
+			*out = new(FeatureState)
+			(*in).DeepCopyInto(*out)
+		}
+	}
+	if in.TLBFlush != nil {
+		in, out := &in.TLBFlush, &out.TLBFlush
+		if *in == nil {
+			*out = nil
+		} else {
+			*out = new(FeatureState)
+			(*in).DeepCopyInto(*out)
+		}
+	}
 	return
 }
 

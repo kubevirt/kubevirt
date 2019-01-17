@@ -868,6 +868,24 @@ func schema_kubevirt_pkg_api_v1_FeatureHyperv(ref common.ReferenceCallback) comm
 							Ref:         ref("kubevirt.io/kubevirt/pkg/api/v1.FeatureVendorID"),
 						},
 					},
+					"frequencies": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Frequencies improve Hyper-V on KVM (TSC clock source) Defaults to the machine type setting.",
+							Ref:         ref("kubevirt.io/kubevirt/pkg/api/v1.FeatureState"),
+						},
+					},
+					"reenlightenment": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Reenlightenment improve Hyper-V on KVM (TSC clock source) Defaults to the machine type setting.",
+							Ref:         ref("kubevirt.io/kubevirt/pkg/api/v1.FeatureState"),
+						},
+					},
+					"tlbflush": {
+						SchemaProps: spec.SchemaProps{
+							Description: "TLBFlush improves performances in overcommited environments Defaults to the machine type setting.",
+							Ref:         ref("kubevirt.io/kubevirt/pkg/api/v1.FeatureState"),
+						},
+					},
 				},
 			},
 		},

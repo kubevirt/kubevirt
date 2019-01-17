@@ -118,6 +118,15 @@ var exampleJSON = `{
           "vendorid": {
             "enabled": true,
             "vendorid": "vendor"
+          },
+          "frequencies": {
+            "enabled": false
+          },
+          "reenlightenment": {
+            "enabled": false
+          },
+          "tlbflush": {
+            "enabled": true
           }
         }
       },
@@ -298,15 +307,18 @@ var _ = Describe("Schema", func() {
 			ACPI: FeatureState{Enabled: _false},
 			APIC: &FeatureAPIC{Enabled: _true},
 			Hyperv: &FeatureHyperv{
-				Relaxed:    &FeatureState{Enabled: _true},
-				VAPIC:      &FeatureState{Enabled: _false},
-				Spinlocks:  &FeatureSpinlocks{Enabled: _true},
-				VPIndex:    &FeatureState{Enabled: _false},
-				Runtime:    &FeatureState{Enabled: _true},
-				SyNIC:      &FeatureState{Enabled: _false},
-				SyNICTimer: &FeatureState{Enabled: _true},
-				Reset:      &FeatureState{Enabled: _false},
-				VendorID:   &FeatureVendorID{Enabled: _true, VendorID: "vendor"},
+				Relaxed:         &FeatureState{Enabled: _true},
+				VAPIC:           &FeatureState{Enabled: _false},
+				Spinlocks:       &FeatureSpinlocks{Enabled: _true},
+				VPIndex:         &FeatureState{Enabled: _false},
+				Runtime:         &FeatureState{Enabled: _true},
+				SyNIC:           &FeatureState{Enabled: _false},
+				SyNICTimer:      &FeatureState{Enabled: _true},
+				Reset:           &FeatureState{Enabled: _false},
+				VendorID:        &FeatureVendorID{Enabled: _true, VendorID: "vendor"},
+				Frequencies:     &FeatureState{Enabled: _false},
+				Reenlightenment: &FeatureState{Enabled: _false},
+				TLBFlush:        &FeatureState{Enabled: _true},
 			},
 		}
 		exampleVMI.Spec.Domain.Clock = &Clock{

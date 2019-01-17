@@ -720,6 +720,18 @@ type FeatureHyperv struct {
 	// Defaults to the machine type setting.
 	// +optional
 	VendorID *FeatureVendorID `json:"vendorid,omitempty"`
+	// Frequencies improve Hyper-V on KVM (TSC clock source)
+	// Defaults to the machine type setting.
+	// +optional
+	Frequencies *FeatureState `json:"frequencies,omitempty"`
+	// Reenlightenment improve Hyper-V on KVM (TSC clock source)
+	// Defaults to the machine type setting.
+	// +optional
+	Reenlightenment *FeatureState `json:"reenlightenment,omitempty"`
+	// TLBFlush improves performances in overcommited environments
+	// Defaults to the machine type setting.
+	// +optional
+	TLBFlush *FeatureState `json:"tlbflush,omitempty"`
 }
 
 // WatchdogAction defines the watchdog action, if a watchdog gets triggered.

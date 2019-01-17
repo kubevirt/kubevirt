@@ -104,6 +104,15 @@ func SetObjectDefaults_VirtualMachine(in *VirtualMachine) {
 				if in.Spec.Template.Spec.Domain.Features.Hyperv.VendorID != nil {
 					SetDefaults_FeatureVendorID(in.Spec.Template.Spec.Domain.Features.Hyperv.VendorID)
 				}
+				if in.Spec.Template.Spec.Domain.Features.Hyperv.Frequencies != nil {
+					SetDefaults_FeatureState(in.Spec.Template.Spec.Domain.Features.Hyperv.Frequencies)
+				}
+				if in.Spec.Template.Spec.Domain.Features.Hyperv.Reenlightenment != nil {
+					SetDefaults_FeatureState(in.Spec.Template.Spec.Domain.Features.Hyperv.Reenlightenment)
+				}
+				if in.Spec.Template.Spec.Domain.Features.Hyperv.TLBFlush != nil {
+					SetDefaults_FeatureState(in.Spec.Template.Spec.Domain.Features.Hyperv.TLBFlush)
+				}
 			}
 		}
 		for i := range in.Spec.Template.Spec.Domain.Devices.Disks {
@@ -181,6 +190,15 @@ func SetObjectDefaults_VirtualMachineInstance(in *VirtualMachineInstance) {
 			}
 			if in.Spec.Domain.Features.Hyperv.VendorID != nil {
 				SetDefaults_FeatureVendorID(in.Spec.Domain.Features.Hyperv.VendorID)
+			}
+			if in.Spec.Domain.Features.Hyperv.Frequencies != nil {
+				SetDefaults_FeatureState(in.Spec.Domain.Features.Hyperv.Frequencies)
+			}
+			if in.Spec.Domain.Features.Hyperv.Reenlightenment != nil {
+				SetDefaults_FeatureState(in.Spec.Domain.Features.Hyperv.Reenlightenment)
+			}
+			if in.Spec.Domain.Features.Hyperv.TLBFlush != nil {
+				SetDefaults_FeatureState(in.Spec.Domain.Features.Hyperv.TLBFlush)
 			}
 		}
 	}
@@ -266,6 +284,15 @@ func SetObjectDefaults_VirtualMachineInstancePreset(in *VirtualMachineInstancePr
 				if in.Spec.Domain.Features.Hyperv.VendorID != nil {
 					SetDefaults_FeatureVendorID(in.Spec.Domain.Features.Hyperv.VendorID)
 				}
+				if in.Spec.Domain.Features.Hyperv.Frequencies != nil {
+					SetDefaults_FeatureState(in.Spec.Domain.Features.Hyperv.Frequencies)
+				}
+				if in.Spec.Domain.Features.Hyperv.Reenlightenment != nil {
+					SetDefaults_FeatureState(in.Spec.Domain.Features.Hyperv.Reenlightenment)
+				}
+				if in.Spec.Domain.Features.Hyperv.TLBFlush != nil {
+					SetDefaults_FeatureState(in.Spec.Domain.Features.Hyperv.TLBFlush)
+				}
 			}
 		}
 		for i := range in.Spec.Domain.Devices.Disks {
@@ -350,6 +377,15 @@ func SetObjectDefaults_VirtualMachineInstanceReplicaSet(in *VirtualMachineInstan
 				}
 				if in.Spec.Template.Spec.Domain.Features.Hyperv.VendorID != nil {
 					SetDefaults_FeatureVendorID(in.Spec.Template.Spec.Domain.Features.Hyperv.VendorID)
+				}
+				if in.Spec.Template.Spec.Domain.Features.Hyperv.Frequencies != nil {
+					SetDefaults_FeatureState(in.Spec.Template.Spec.Domain.Features.Hyperv.Frequencies)
+				}
+				if in.Spec.Template.Spec.Domain.Features.Hyperv.Reenlightenment != nil {
+					SetDefaults_FeatureState(in.Spec.Template.Spec.Domain.Features.Hyperv.Reenlightenment)
+				}
+				if in.Spec.Template.Spec.Domain.Features.Hyperv.TLBFlush != nil {
+					SetDefaults_FeatureState(in.Spec.Template.Spec.Domain.Features.Hyperv.TLBFlush)
 				}
 			}
 		}
