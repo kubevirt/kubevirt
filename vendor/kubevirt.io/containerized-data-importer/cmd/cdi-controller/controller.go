@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"flag"
 	"fmt"
 	"os"
@@ -16,7 +17,7 @@ import (
 
 	"github.com/pkg/errors"
 
-	"k8s.io/apimachinery/pkg/apis/meta/v1"
+	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	k8sinformers "k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
@@ -183,7 +184,7 @@ func main() {
 
 	stopCh := handleSignals()
 
-	err = startLeaderElection(cfg, func() {
+	err = startLeaderElection(context.TODO(), cfg, func() {
 		start(cfg, stopCh)
 	})
 

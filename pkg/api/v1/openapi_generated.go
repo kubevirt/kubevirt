@@ -2977,7 +2977,7 @@ func schema_kubevirt_pkg_api_v1_VirtualMachineSpec(ref common.ReferenceCallback)
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
-										Ref: ref("kubevirt.io/containerized-data-importer/pkg/apis/datavolumecontroller/v1alpha1.DataVolume"),
+										Ref: ref("kubevirt.io/containerized-data-importer/pkg/apis/core/v1alpha1.DataVolume"),
 									},
 								},
 							},
@@ -2988,7 +2988,7 @@ func schema_kubevirt_pkg_api_v1_VirtualMachineSpec(ref common.ReferenceCallback)
 			},
 		},
 		Dependencies: []string{
-			"kubevirt.io/containerized-data-importer/pkg/apis/datavolumecontroller/v1alpha1.DataVolume", "kubevirt.io/kubevirt/pkg/api/v1.VirtualMachineInstanceTemplateSpec"},
+			"kubevirt.io/containerized-data-importer/pkg/apis/core/v1alpha1.DataVolume", "kubevirt.io/kubevirt/pkg/api/v1.VirtualMachineInstanceTemplateSpec"},
 	}
 }
 

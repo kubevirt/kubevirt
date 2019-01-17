@@ -17,6 +17,9 @@ spec:
       labels:
         cdi.kubevirt.io/testing: ""
     spec:
+      securityContext:
+        runAsUser: 0
+      serviceAccountName: cdi-sa
       initContainers:
       - name: init
         image: {{ .DockerRepo }}/cdi-func-test-file-host-init:{{ .DockerTag }}

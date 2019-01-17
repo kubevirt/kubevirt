@@ -32,6 +32,8 @@ import (
 	"kubevirt.io/containerized-data-importer/pkg/system"
 	"kubevirt.io/containerized-data-importer/pkg/util"
 
+	dto "github.com/prometheus/client_model/go"
+
 	"github.com/prometheus/client_golang/prometheus"
 	"k8s.io/apimachinery/pkg/api/resource"
 )
@@ -187,7 +189,11 @@ func reportProgress(line string) {
 		glog.V(1).Info(matches[1])
 		// Don't need to check for an error, the regex made sure its a number we can parse.
 		v, _ := strconv.ParseFloat(matches[1], 64)
-		progress.WithLabelValues(ownerUID).Set(v)
+		metric := &dto.Metric{}
+		progress.WithLabelValues(ownerUID).Write(metric)
+		if v > 0 && v > *metric.Counter.Value {
+			progress.WithLabelValues(ownerUID).Add(v - *metric.Counter.Value)
+		}
 	}
 }
 
