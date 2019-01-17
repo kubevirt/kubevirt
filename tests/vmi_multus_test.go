@@ -207,132 +207,6 @@ var _ = Describe("Multus Networking", func() {
 		})
 	})
 
-	Context("VirtualMachineInstance with sriov plugin interface", func() {
-		BeforeEach(func() {
-			tests.SkipIfNoSriovDevicePlugin(virtClient)
-		})
-		AfterEach(func() {
-			deleteVMIs(virtClient, []*v1.VirtualMachineInstance{vmiOne})
-		})
-
-		It("should create a virtual machine with sriov interface", func() {
-			// since neither cirros nor alpine has drivers for Intel NICs, we are left with fedora
-			userData := "#cloud-config\npassword: fedora\nchpasswd: { expire: False }\n"
-			vmiOne = tests.NewRandomVMIWithEphemeralDiskAndUserdata(tests.ContainerDiskFor(tests.ContainerDiskFedora), userData)
-			tests.AddExplicitPodNetworkInterface(vmiOne)
-
-			iface := v1.Interface{Name: "sriov", InterfaceBindingMethod: v1.InterfaceBindingMethod{SRIOV: &v1.InterfaceSRIOV{}}}
-			network := v1.Network{Name: "sriov", NetworkSource: v1.NetworkSource{Multus: &v1.CniNetwork{NetworkName: "sriov"}}}
-			vmiOne.Spec.Domain.Devices.Interfaces = append(vmiOne.Spec.Domain.Devices.Interfaces, iface)
-			vmiOne.Spec.Networks = append(vmiOne.Spec.Networks, network)
-
-			// fedora requires some more memory to boot without kernel panics
-			vmiOne.Spec.Domain.Resources.Requests[k8sv1.ResourceName("memory")] = resource.MustParse("1024M")
-
-			_, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmiOne)
-			Expect(err).ToNot(HaveOccurred())
-			tests.WaitUntilVMIReady(vmiOne, tests.LoggedInFedoraExpecter)
-
-			By("checking KUBEVIRT_RESOURCE_NAME_<networkName> variable is defined in pod")
-			vmiPod := tests.GetRunningPodByVirtualMachineInstance(vmiOne, tests.NamespaceTestDefault)
-			out, err := tests.ExecuteCommandOnPod(
-				virtClient,
-				vmiPod,
-				"compute",
-				[]string{"sh", "-c", "echo $KUBEVIRT_RESOURCE_NAME_sriov"},
-			)
-			Expect(err).ToNot(HaveOccurred())
-			Expect(out).To(Equal("intel.com/sriov\n"))
-
-			By("checking default interface is present")
-			_, err = tests.ExecuteCommandOnPod(
-				virtClient,
-				vmiPod,
-				"compute",
-				[]string{"ip", "address", "show", "eth0"},
-			)
-			Expect(err).ToNot(HaveOccurred())
-
-			By("checking default interface is attached to VMI")
-			_, err = tests.ExecuteCommandOnPod(
-				virtClient,
-				vmiPod,
-				"compute",
-				[]string{"ip", "address", "show", "k6t-eth0"},
-			)
-			Expect(err).ToNot(HaveOccurred())
-
-			By("checking virtual machine instance has two interfaces")
-			checkInterface(vmiOne, "eth0", "#")
-			checkInterface(vmiOne, "eth1", "#")
-
-			// there is little we can do beyond just checking two devices are present: PCI slots are different inside
-			// the guest, and DP doesn't pass information about vendor IDs of allocated devices into the pod, so
-			// it's hard to match them.
-		})
-
-		It("should create a virtual machine with two sriov interfaces referring the same resource", func() {
-			// since neither cirros nor alpine has drivers for Intel NICs, we are left with fedora
-			userData := "#cloud-config\npassword: fedora\nchpasswd: { expire: False }\n"
-			vmiOne = tests.NewRandomVMIWithEphemeralDiskAndUserdata(tests.ContainerDiskFor(tests.ContainerDiskFedora), userData)
-			tests.AddExplicitPodNetworkInterface(vmiOne)
-
-			for _, name := range []string{"sriov", "sriov2"} {
-				iface := v1.Interface{Name: name, InterfaceBindingMethod: v1.InterfaceBindingMethod{SRIOV: &v1.InterfaceSRIOV{}}}
-				network := v1.Network{Name: name, NetworkSource: v1.NetworkSource{Multus: &v1.CniNetwork{NetworkName: name}}}
-				vmiOne.Spec.Domain.Devices.Interfaces = append(vmiOne.Spec.Domain.Devices.Interfaces, iface)
-				vmiOne.Spec.Networks = append(vmiOne.Spec.Networks, network)
-			}
-
-			// fedora requires some more memory to boot without kernel panics
-			vmiOne.Spec.Domain.Resources.Requests[k8sv1.ResourceName("memory")] = resource.MustParse("1024M")
-
-			_, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmiOne)
-			Expect(err).ToNot(HaveOccurred())
-			tests.WaitUntilVMIReady(vmiOne, tests.LoggedInFedoraExpecter)
-
-			By("checking KUBEVIRT_RESOURCE_NAME_<networkName> variables are defined in pod")
-			vmiPod := tests.GetRunningPodByVirtualMachineInstance(vmiOne, tests.NamespaceTestDefault)
-			for _, name := range []string{"sriov", "sriov"} {
-				out, err := tests.ExecuteCommandOnPod(
-					virtClient,
-					vmiPod,
-					"compute",
-					[]string{"sh", "-c", fmt.Sprintf("echo $KUBEVIRT_RESOURCE_NAME_%s", name)},
-				)
-				Expect(err).ToNot(HaveOccurred())
-				Expect(out).To(Equal("intel.com/sriov\n"))
-			}
-
-			By("checking default interface is present")
-			_, err = tests.ExecuteCommandOnPod(
-				virtClient,
-				vmiPod,
-				"compute",
-				[]string{"ip", "address", "show", "eth0"},
-			)
-			Expect(err).ToNot(HaveOccurred())
-
-			By("checking default interface is attached to VMI")
-			_, err = tests.ExecuteCommandOnPod(
-				virtClient,
-				vmiPod,
-				"compute",
-				[]string{"ip", "address", "show", "k6t-eth0"},
-			)
-			Expect(err).ToNot(HaveOccurred())
-
-			By("checking virtual machine instance has three interfaces")
-			checkInterface(vmiOne, "eth0", "#")
-			checkInterface(vmiOne, "eth1", "#")
-			checkInterface(vmiOne, "eth2", "#")
-
-			// there is little we can do beyond just checking two devices are present: PCI slots are different inside
-			// the guest, and DP doesn't pass information about vendor IDs of allocated devices into the pod, so
-			// it's hard to match them.
-		})
-	})
-
 	Context("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:component]VirtualMachineInstance with ovs-cni plugin interface", func() {
 		AfterEach(func() {
 			deleteVMIs(virtClient, []*v1.VirtualMachineInstance{vmiOne, vmiTwo})
@@ -510,6 +384,160 @@ var _ = Describe("Multus Networking", func() {
 				Expect(interfaceByIfcName["ep2"].IP).To(Equal(ep2Ip))
 				Expect(interfaceByIfcName["ep2"].IPs).To(Equal([]string{ep2Ip, ep2IpV6}))
 			})
+		})
+	})
+})
+
+var _ = Describe("SRIOV", func() {
+
+	flag.Parse()
+
+	virtClient, err := kubecli.GetKubevirtClient()
+	tests.PanicOnError(err)
+
+	var vmiOne *v1.VirtualMachineInstance
+
+	tests.BeforeAll(func() {
+		tests.SkipIfNoMultusProvider(virtClient)
+		tests.BeforeTestCleanup()
+		// Create two sriov networks referring to the same resource name
+		result := virtClient.RestClient().
+			Post().
+			RequestURI(fmt.Sprintf(postUrl, tests.NamespaceTestDefault, "sriov")).
+			Body([]byte(fmt.Sprintf(sriovConfCRD, "sriov", tests.NamespaceTestDefault))).
+			Do()
+		Expect(result.Error()).NotTo(HaveOccurred())
+		result = virtClient.RestClient().
+			Post().
+			RequestURI(fmt.Sprintf(postUrl, tests.NamespaceTestDefault, "sriov2")).
+			Body([]byte(fmt.Sprintf(sriovConfCRD, "sriov2", tests.NamespaceTestDefault))).
+			Do()
+		Expect(result.Error()).NotTo(HaveOccurred())
+	})
+
+	Context("VirtualMachineInstance with sriov plugin interface", func() {
+		BeforeEach(func() {
+			tests.SkipIfNoSriovDevicePlugin(virtClient)
+		})
+		AfterEach(func() {
+			deleteVMIs(virtClient, []*v1.VirtualMachineInstance{vmiOne})
+		})
+
+		It("should create a virtual machine with sriov interface", func() {
+			// since neither cirros nor alpine has drivers for Intel NICs, we are left with fedora
+			userData := "#cloud-config\npassword: fedora\nchpasswd: { expire: False }\n"
+			vmiOne = tests.NewRandomVMIWithEphemeralDiskAndUserdata(tests.ContainerDiskFor(tests.ContainerDiskFedora), userData)
+			tests.AddExplicitPodNetworkInterface(vmiOne)
+
+			iface := v1.Interface{Name: "sriov", InterfaceBindingMethod: v1.InterfaceBindingMethod{SRIOV: &v1.InterfaceSRIOV{}}}
+			network := v1.Network{Name: "sriov", NetworkSource: v1.NetworkSource{Multus: &v1.CniNetwork{NetworkName: "sriov"}}}
+			vmiOne.Spec.Domain.Devices.Interfaces = append(vmiOne.Spec.Domain.Devices.Interfaces, iface)
+			vmiOne.Spec.Networks = append(vmiOne.Spec.Networks, network)
+
+			// fedora requires some more memory to boot without kernel panics
+			vmiOne.Spec.Domain.Resources.Requests[k8sv1.ResourceName("memory")] = resource.MustParse("1024M")
+
+			_, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmiOne)
+			Expect(err).ToNot(HaveOccurred())
+			tests.WaitUntilVMIReady(vmiOne, tests.LoggedInFedoraExpecter)
+
+			By("checking KUBEVIRT_RESOURCE_NAME_<networkName> variable is defined in pod")
+			vmiPod := tests.GetRunningPodByVirtualMachineInstance(vmiOne, tests.NamespaceTestDefault)
+			out, err := tests.ExecuteCommandOnPod(
+				virtClient,
+				vmiPod,
+				"compute",
+				[]string{"sh", "-c", "echo $KUBEVIRT_RESOURCE_NAME_sriov"},
+			)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(out).To(Equal("intel.com/sriov\n"))
+
+			By("checking default interface is present")
+			_, err = tests.ExecuteCommandOnPod(
+				virtClient,
+				vmiPod,
+				"compute",
+				[]string{"ip", "address", "show", "eth0"},
+			)
+			Expect(err).ToNot(HaveOccurred())
+
+			By("checking default interface is attached to VMI")
+			_, err = tests.ExecuteCommandOnPod(
+				virtClient,
+				vmiPod,
+				"compute",
+				[]string{"ip", "address", "show", "k6t-eth0"},
+			)
+			Expect(err).ToNot(HaveOccurred())
+
+			By("checking virtual machine instance has two interfaces")
+			checkInterface(vmiOne, "eth0", "#")
+			checkInterface(vmiOne, "eth1", "#")
+
+			// there is little we can do beyond just checking two devices are present: PCI slots are different inside
+			// the guest, and DP doesn't pass information about vendor IDs of allocated devices into the pod, so
+			// it's hard to match them.
+		})
+
+		It("should create a virtual machine with two sriov interfaces referring the same resource", func() {
+			// since neither cirros nor alpine has drivers for Intel NICs, we are left with fedora
+			userData := "#cloud-config\npassword: fedora\nchpasswd: { expire: False }\n"
+			vmiOne = tests.NewRandomVMIWithEphemeralDiskAndUserdata(tests.ContainerDiskFor(tests.ContainerDiskFedora), userData)
+			tests.AddExplicitPodNetworkInterface(vmiOne)
+
+			for _, name := range []string{"sriov", "sriov2"} {
+				iface := v1.Interface{Name: name, InterfaceBindingMethod: v1.InterfaceBindingMethod{SRIOV: &v1.InterfaceSRIOV{}}}
+				network := v1.Network{Name: name, NetworkSource: v1.NetworkSource{Multus: &v1.CniNetwork{NetworkName: name}}}
+				vmiOne.Spec.Domain.Devices.Interfaces = append(vmiOne.Spec.Domain.Devices.Interfaces, iface)
+				vmiOne.Spec.Networks = append(vmiOne.Spec.Networks, network)
+			}
+
+			// fedora requires some more memory to boot without kernel panics
+			vmiOne.Spec.Domain.Resources.Requests[k8sv1.ResourceName("memory")] = resource.MustParse("1024M")
+
+			_, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmiOne)
+			Expect(err).ToNot(HaveOccurred())
+			tests.WaitUntilVMIReady(vmiOne, tests.LoggedInFedoraExpecter)
+
+			By("checking KUBEVIRT_RESOURCE_NAME_<networkName> variables are defined in pod")
+			vmiPod := tests.GetRunningPodByVirtualMachineInstance(vmiOne, tests.NamespaceTestDefault)
+			for _, name := range []string{"sriov", "sriov"} {
+				out, err := tests.ExecuteCommandOnPod(
+					virtClient,
+					vmiPod,
+					"compute",
+					[]string{"sh", "-c", fmt.Sprintf("echo $KUBEVIRT_RESOURCE_NAME_%s", name)},
+				)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(out).To(Equal("intel.com/sriov\n"))
+			}
+
+			By("checking default interface is present")
+			_, err = tests.ExecuteCommandOnPod(
+				virtClient,
+				vmiPod,
+				"compute",
+				[]string{"ip", "address", "show", "eth0"},
+			)
+			Expect(err).ToNot(HaveOccurred())
+
+			By("checking default interface is attached to VMI")
+			_, err = tests.ExecuteCommandOnPod(
+				virtClient,
+				vmiPod,
+				"compute",
+				[]string{"ip", "address", "show", "k6t-eth0"},
+			)
+			Expect(err).ToNot(HaveOccurred())
+
+			By("checking virtual machine instance has three interfaces")
+			checkInterface(vmiOne, "eth0", "#")
+			checkInterface(vmiOne, "eth1", "#")
+			checkInterface(vmiOne, "eth2", "#")
+
+			// there is little we can do beyond just checking two devices are present: PCI slots are different inside
+			// the guest, and DP doesn't pass information about vendor IDs of allocated devices into the pod, so
+			// it's hard to match them.
 		})
 	})
 })
