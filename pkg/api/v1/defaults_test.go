@@ -44,15 +44,18 @@ var _ = Describe("Defaults", func() {
 			SMM:  &FeatureState{},
 			APIC: &FeatureAPIC{},
 			Hyperv: &FeatureHyperv{
-				Relaxed:    &FeatureState{},
-				VAPIC:      &FeatureState{},
-				Spinlocks:  &FeatureSpinlocks{},
-				VPIndex:    &FeatureState{},
-				Runtime:    &FeatureState{},
-				SyNIC:      &FeatureState{},
-				SyNICTimer: &FeatureState{},
-				Reset:      &FeatureState{},
-				VendorID:   &FeatureVendorID{},
+				Relaxed:         &FeatureState{},
+				VAPIC:           &FeatureState{},
+				Spinlocks:       &FeatureSpinlocks{},
+				VPIndex:         &FeatureState{},
+				Runtime:         &FeatureState{},
+				SyNIC:           &FeatureState{},
+				SyNICTimer:      &FeatureState{},
+				Reset:           &FeatureState{},
+				VendorID:        &FeatureVendorID{},
+				Frequencies:     &FeatureState{},
+				Reenlightenment: &FeatureState{},
+				TLBFlush:        &FeatureState{},
 			},
 		}
 		SetObjectDefaults_VirtualMachineInstance(vmi)
@@ -73,6 +76,9 @@ var _ = Describe("Defaults", func() {
 		Expect(*hyperv.SyNICTimer.Enabled).To(BeTrue())
 		Expect(*hyperv.Reset.Enabled).To(BeTrue())
 		Expect(*hyperv.VendorID.Enabled).To(BeTrue())
+		Expect(*hyperv.Frequencies.Enabled).To(BeTrue())
+		Expect(*hyperv.Reenlightenment.Enabled).To(BeTrue())
+		Expect(*hyperv.TLBFlush.Enabled).To(BeTrue())
 	})
 
 	It("should not override defined feature states", func() {
@@ -85,15 +91,18 @@ var _ = Describe("Defaults", func() {
 			ACPI: FeatureState{Enabled: _true},
 			APIC: &FeatureAPIC{Enabled: _false},
 			Hyperv: &FeatureHyperv{
-				Relaxed:    &FeatureState{Enabled: _true},
-				VAPIC:      &FeatureState{Enabled: _false},
-				Spinlocks:  &FeatureSpinlocks{Enabled: _true},
-				VPIndex:    &FeatureState{Enabled: _false},
-				Runtime:    &FeatureState{Enabled: _true},
-				SyNIC:      &FeatureState{Enabled: _false},
-				SyNICTimer: &FeatureState{Enabled: _true},
-				Reset:      &FeatureState{Enabled: _false},
-				VendorID:   &FeatureVendorID{Enabled: _true},
+				Relaxed:         &FeatureState{Enabled: _true},
+				VAPIC:           &FeatureState{Enabled: _false},
+				Spinlocks:       &FeatureSpinlocks{Enabled: _true},
+				VPIndex:         &FeatureState{Enabled: _false},
+				Runtime:         &FeatureState{Enabled: _true},
+				SyNIC:           &FeatureState{Enabled: _false},
+				SyNICTimer:      &FeatureState{Enabled: _true},
+				Reset:           &FeatureState{Enabled: _false},
+				VendorID:        &FeatureVendorID{Enabled: _true},
+				Frequencies:     &FeatureState{Enabled: _false},
+				Reenlightenment: &FeatureState{Enabled: _false},
+				TLBFlush:        &FeatureState{Enabled: _true},
 			},
 		}
 		SetObjectDefaults_VirtualMachineInstance(vmi)
@@ -113,20 +122,26 @@ var _ = Describe("Defaults", func() {
 		Expect(*hyperv.SyNICTimer.Enabled).To(BeTrue())
 		Expect(*hyperv.Reset.Enabled).To(BeFalse())
 		Expect(*hyperv.VendorID.Enabled).To(BeTrue())
+		Expect(*hyperv.Frequencies.Enabled).To(BeFalse())
+		Expect(*hyperv.Reenlightenment.Enabled).To(BeFalse())
+		Expect(*hyperv.TLBFlush.Enabled).To(BeTrue())
 
 		vmi.Spec.Domain.Features = &Features{
 			ACPI: FeatureState{Enabled: _false},
 			APIC: &FeatureAPIC{Enabled: _true},
 			Hyperv: &FeatureHyperv{
-				Relaxed:    &FeatureState{Enabled: _false},
-				VAPIC:      &FeatureState{Enabled: _true},
-				Spinlocks:  &FeatureSpinlocks{Enabled: _false},
-				VPIndex:    &FeatureState{Enabled: _true},
-				Runtime:    &FeatureState{Enabled: _false},
-				SyNIC:      &FeatureState{Enabled: _true},
-				SyNICTimer: &FeatureState{Enabled: _false},
-				Reset:      &FeatureState{Enabled: _true},
-				VendorID:   &FeatureVendorID{Enabled: _false},
+				Relaxed:         &FeatureState{Enabled: _false},
+				VAPIC:           &FeatureState{Enabled: _true},
+				Spinlocks:       &FeatureSpinlocks{Enabled: _false},
+				VPIndex:         &FeatureState{Enabled: _true},
+				Runtime:         &FeatureState{Enabled: _false},
+				SyNIC:           &FeatureState{Enabled: _true},
+				SyNICTimer:      &FeatureState{Enabled: _false},
+				Reset:           &FeatureState{Enabled: _true},
+				VendorID:        &FeatureVendorID{Enabled: _false},
+				Frequencies:     &FeatureState{Enabled: _false},
+				Reenlightenment: &FeatureState{Enabled: _false},
+				TLBFlush:        &FeatureState{Enabled: _true},
 			},
 		}
 		SetObjectDefaults_VirtualMachineInstance(vmi)
@@ -146,6 +161,9 @@ var _ = Describe("Defaults", func() {
 		Expect(*hyperv.SyNICTimer.Enabled).To(BeFalse())
 		Expect(*hyperv.Reset.Enabled).To(BeTrue())
 		Expect(*hyperv.VendorID.Enabled).To(BeFalse())
+		Expect(*hyperv.Frequencies.Enabled).To(BeFalse())
+		Expect(*hyperv.Reenlightenment.Enabled).To(BeFalse())
+		Expect(*hyperv.TLBFlush.Enabled).To(BeTrue())
 	})
 
 	It("should set dis defaults", func() {

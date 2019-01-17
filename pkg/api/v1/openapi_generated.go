@@ -983,7 +983,7 @@ func schema_kubevirt_pkg_api_v1_FeatureHyperv(ref common.ReferenceCallback) comm
 					},
 					"reset": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Reset enables Hyperv reboot/reset for the vmi. Defaults to the machine type setting.",
+							Description: "Reset enables Hyperv reboot/reset for the vmi. Requires synic. Defaults to the machine type setting.",
 							Ref:         ref("kubevirt.io/kubevirt/pkg/api/v1.FeatureState"),
 						},
 					},
@@ -991,6 +991,36 @@ func schema_kubevirt_pkg_api_v1_FeatureHyperv(ref common.ReferenceCallback) comm
 						SchemaProps: spec.SchemaProps{
 							Description: "VendorID allows setting the hypervisor vendor id. Defaults to the machine type setting.",
 							Ref:         ref("kubevirt.io/kubevirt/pkg/api/v1.FeatureVendorID"),
+						},
+					},
+					"frequencies": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Frequencies improve Hyper-V on KVM (TSC clock source) Defaults to the machine type setting.",
+							Ref:         ref("kubevirt.io/kubevirt/pkg/api/v1.FeatureState"),
+						},
+					},
+					"reenlightenment": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Reenlightenment improve Hyper-V on KVM (TSC clock source) Defaults to the machine type setting.",
+							Ref:         ref("kubevirt.io/kubevirt/pkg/api/v1.FeatureState"),
+						},
+					},
+					"tlbflush": {
+						SchemaProps: spec.SchemaProps{
+							Description: "TLBFlush improves performances in overcommited environments. Requires vpindex. Defaults to the machine type setting.",
+							Ref:         ref("kubevirt.io/kubevirt/pkg/api/v1.FeatureState"),
+						},
+					},
+					"ipi": {
+						SchemaProps: spec.SchemaProps{
+							Description: "IPI improves performances in overcommited environments. Requires vpindex. Defaults to the machine type setting.",
+							Ref:         ref("kubevirt.io/kubevirt/pkg/api/v1.FeatureState"),
+						},
+					},
+					"evmcs": {
+						SchemaProps: spec.SchemaProps{
+							Description: "EVMCS Speeds up L2 vmexits, but disables other virtualization features. Requires vapic Defaults to the machine type setting.",
+							Ref:         ref("kubevirt.io/kubevirt/pkg/api/v1.FeatureState"),
 						},
 					},
 				},

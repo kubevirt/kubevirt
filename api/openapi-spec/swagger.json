@@ -4463,12 +4463,28 @@
    "v1.FeatureHyperv": {
     "description": "Hyperv specific features.",
     "properties": {
+     "evmcs": {
+      "description": "EVMCS Speeds up L2 vmexits, but disables other virtualization features. Requires vapic\nDefaults to the machine type setting.\n+optional",
+      "$ref": "#/definitions/v1.FeatureState"
+     },
+     "frequencies": {
+      "description": "Frequencies improve Hyper-V on KVM (TSC clock source)\nDefaults to the machine type setting.\n+optional",
+      "$ref": "#/definitions/v1.FeatureState"
+     },
+     "ipi": {
+      "description": "IPI improves performances in overcommited environments. Requires vpindex.\nDefaults to the machine type setting.\n+optional",
+      "$ref": "#/definitions/v1.FeatureState"
+     },
+     "reenlightenment": {
+      "description": "Reenlightenment improve Hyper-V on KVM (TSC clock source)\nDefaults to the machine type setting.\n+optional",
+      "$ref": "#/definitions/v1.FeatureState"
+     },
      "relaxed": {
       "description": "Relaxed relaxes constraints on timer.\nDefaults to the machine type setting.\n+optional",
       "$ref": "#/definitions/v1.FeatureState"
      },
      "reset": {
-      "description": "Reset enables Hyperv reboot/reset for the vmi.\nDefaults to the machine type setting.\n+optional",
+      "description": "Reset enables Hyperv reboot/reset for the vmi. Requires synic.\nDefaults to the machine type setting.\n+optional",
       "$ref": "#/definitions/v1.FeatureState"
      },
      "runtime": {
@@ -4485,6 +4501,10 @@
      },
      "synictimer": {
       "description": "SyNICTimer enable Synthetic Interrupt Controller timer.\nDefaults to the machine type setting.\n+optional",
+      "$ref": "#/definitions/v1.FeatureState"
+     },
+     "tlbflush": {
+      "description": "TLBFlush improves performances in overcommited environments. Requires vpindex.\nDefaults to the machine type setting.\n+optional",
       "$ref": "#/definitions/v1.FeatureState"
      },
      "vapic": {
