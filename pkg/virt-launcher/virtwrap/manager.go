@@ -364,14 +364,10 @@ func (l *LibvirtDomainManager) PrepareMigrationTarget(vmi *v1.VirtualMachineInst
 		return fmt.Errorf("failed to update the hosts file: %v", err)
 	}
 
-	if vmi.Status.MigrationState != nil && vmi.Status.MigrationState.TargetDirectMigrationNodePorts == nil {
-		return fmt.Errorf("No migration proxy has been created for this vmi")
-	}
-	for port, _ := range vmi.Status.MigrationState.TargetDirectMigrationNodePorts {
+	isBlockMigration := (vmi.Status.MigrationMethod == v1.BlockMigration)
+	migrationPortsRange := migrationproxy.GetMigrationPortsList(isBlockMigration)
+	for _, port := range migrationPortsRange {
 		// Prepare the direct migration proxy
-		if port == 0 {
-			continue
-		}
 		key := fmt.Sprintf("%s-%d", string(vmi.UID), port)
 		curDirectAddress := fmt.Sprintf("%s:%d", "127.0.0.1", port)
 		unixSocketPath := migrationproxy.SourceUnixFile(l.virtShareDir, key)

@@ -585,7 +585,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 			// something has to be listening to the cmd socket
 			// for the proxy to work.
 			os.MkdirAll(cmdclient.SocketsDirectory(shareDir), os.ModePerm)
-			portsList := []int{0, 49152, 49153}
+			portsList := []int{0, 49152}
 			for _, port := range portsList {
 				key := string(vmi.UID)
 				if port != 0 {

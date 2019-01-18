@@ -30,6 +30,8 @@ import (
 	"kubevirt.io/kubevirt/pkg/log"
 )
 
+var migrationPortsRange = []int{49152, 49153}
+
 type ProxyManager interface {
 	StartTargetListener(key string, targetUnixFile string) error
 	GetTargetListenerPort(key string) int
@@ -58,6 +60,14 @@ type migrationProxy struct {
 	fdChan         chan net.Conn
 
 	listener net.Listener
+}
+
+func GetMigrationPortsList(isBlockMigration bool) (ports []int) {
+	ports = append(ports, migrationPortsRange[0])
+	if isBlockMigration {
+		ports = append(ports, migrationPortsRange[1])
+	}
+	return
 }
 
 func NewMigrationProxyManager(virtShareDir string) ProxyManager {

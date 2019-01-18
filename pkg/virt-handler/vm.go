@@ -677,7 +677,9 @@ func (d *VirtualMachineController) migrationTargetExecute(key string,
 		}
 
 		destinationPorts := make(map[int]int)
-		for _, port := range append([]int{0}, MigrationPortsRange...) {
+		isBlockMigration := (vmi.Status.MigrationMethod == v1.BlockMigration)
+		migrationPortsRange := migrationproxy.GetMigrationPortsList(isBlockMigration)
+		for _, port := range append([]int{0}, migrationPortsRange...) {
 			// get the migration listener port
 			key := string(vmi.UID)
 			if port != 0 {
@@ -1265,7 +1267,10 @@ func (d *VirtualMachineController) isMigrationSource(vmi *v1.VirtualMachineInsta
 }
 
 func (d *VirtualMachineController) handlePostSyncMigrationProxy(vmi *v1.VirtualMachineInstance) error {
-	for _, port := range MigrationPortsRange {
+	isBlockMigration := (vmi.Status.MigrationMethod == v1.BlockMigration)
+	migrationPortsRange := migrationproxy.GetMigrationPortsList(isBlockMigration)
+	log.Log.Object(vmi).Infof("handlePostSyncMigrationProxy, ports: %v", migrationPortsRange)
+	for _, port := range migrationPortsRange {
 		key := fmt.Sprintf("%s-%d", string(vmi.UID), port)
 		if d.isPreMigrationTarget(vmi) {
 			// a proxy between the target direct qemu channel and the connector in the destination pod
@@ -1304,28 +1309,33 @@ func (d *VirtualMachineController) handleMigrationProxy(vmi *v1.VirtualMachineIn
 
 	// handle starting/stopping source migration proxy.
 	// start the source proxy once we know the target address
-	ports := map[int]int{0: 0}
-	if vmi.Status.MigrationState != nil {
-		if vmi.Status.MigrationState.TargetDirectMigrationNodePorts == nil {
-			log.Log.Object(vmi).Warning("No migration proxy has been created for this vmi")
-			return nil
-		}
-		ports = vmi.Status.MigrationState.TargetDirectMigrationNodePorts
 
-	}
-
-	for srcPort, destPort := range ports {
-		key := string(vmi.UID)
-		if srcPort != 0 {
-			key += fmt.Sprintf("-%d", srcPort)
+	if d.isMigrationSource(vmi) {
+		if vmi.Status.MigrationState != nil {
+			if vmi.Status.MigrationState.TargetDirectMigrationNodePorts == nil {
+				msg := "No migration proxy has been created for this vmi"
+				return fmt.Errorf("%s", msg)
+			}
 		}
-		if d.isMigrationSource(vmi) {
+		for srcPort, destPort := range vmi.Status.MigrationState.TargetDirectMigrationNodePorts {
+			key := string(vmi.UID)
+			if srcPort != 0 {
+				key += fmt.Sprintf("-%d", srcPort)
+			}
 			targetAddr := fmt.Sprintf("%s:%d", vmi.Status.MigrationState.TargetNodeAddress, destPort)
 			err := d.migrationProxy.StartSourceListener(key, targetAddr)
 			if err != nil {
 				return err
 			}
-		} else {
+		}
+	} else {
+		isBlockMigration := (vmi.Status.MigrationMethod == v1.BlockMigration)
+		migrationPortsRange := migrationproxy.GetMigrationPortsList(isBlockMigration)
+		for _, srcPort := range append([]int{0}, migrationPortsRange...) {
+			key := string(vmi.UID)
+			if srcPort != 0 {
+				key += fmt.Sprintf("-%d", srcPort)
+			}
 			d.migrationProxy.StopSourceListener(key)
 		}
 	}
@@ -1369,7 +1379,7 @@ func (d *VirtualMachineController) processVmUpdate(origVMI *v1.VirtualMachineIns
 		if err != nil {
 			return fmt.Errorf("syncing migration target failed: %v", err)
 		}
-		err = d.handlePostSyncMigrationProxy(vmi)
+		err := d.handlePostSyncMigrationProxy(vmi)
 		if err != nil {
 			return fmt.Errorf("failed to handle post sync migration proxy: %v", err)
 		}

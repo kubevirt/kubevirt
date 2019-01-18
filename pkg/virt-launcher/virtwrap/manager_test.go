@@ -216,9 +216,8 @@ var _ = Describe("Manager", func() {
 			StubOutNetworkForTest()
 			vmi := newVMI(testNamespace, testVmName)
 			vmi.Status.MigrationState = &v1.VirtualMachineInstanceMigrationState{
-				MigrationUID:                   "111222333",
-				TargetPod:                      "fakepod",
-				TargetDirectMigrationNodePorts: map[int]int{0: 33333},
+				MigrationUID: "111222333",
+				TargetPod:    "fakepod",
 			}
 
 			manager, _ := NewLibvirtDomainManager(mockConn, "fake", nil, 0)
