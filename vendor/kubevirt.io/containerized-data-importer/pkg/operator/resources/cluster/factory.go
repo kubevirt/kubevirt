@@ -27,10 +27,7 @@ type FactoryArgs struct {
 	Namespace string
 }
 
-// Resource defines the interface of all cluster-wide components
-type Resource runtime.Object
-
-type factoryFunc func(*FactoryArgs) []Resource
+type factoryFunc func(*FactoryArgs) []runtime.Object
 
 var factoryFunctions = map[string]factoryFunc{
 	"crd":        createCRDResources,
@@ -39,8 +36,8 @@ var factoryFunctions = map[string]factoryFunc{
 }
 
 // CreateAllResources creates all cluster-wide resources
-func CreateAllResources(args *FactoryArgs) ([]Resource, error) {
-	resources := []Resource{}
+func CreateAllResources(args *FactoryArgs) ([]runtime.Object, error) {
+	var resources []runtime.Object
 	for group := range factoryFunctions {
 		rs, err := CreateResourceGroup(group, args)
 		if err != nil {
@@ -52,7 +49,7 @@ func CreateAllResources(args *FactoryArgs) ([]Resource, error) {
 }
 
 // CreateResourceGroup creates all cluster resources fr a specific group/component
-func CreateResourceGroup(group string, args *FactoryArgs) ([]Resource, error) {
+func CreateResourceGroup(group string, args *FactoryArgs) ([]runtime.Object, error) {
 	f, ok := factoryFunctions[group]
 	if !ok {
 		return nil, fmt.Errorf("Group %s does not exist", group)

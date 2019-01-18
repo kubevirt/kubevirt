@@ -22,7 +22,7 @@ apiVersion: extensions/v1beta1
 kind: Ingress
 metadata:
   name: cdi-uploadproxy-ingress
-  namespace: kube-system
+  namespace: cdi
   annotations:
     nginx.org/ssl-services: "cdi-uploadproxy"
     ingress.kubernetes.io/ssl-passthrough: "true"
@@ -55,7 +55,7 @@ apiVersion: v1
 kind: Route
 metadata:
   name: cdi-uploadproxy-route
-  namespace: kube-system
+  namespace: cdi
 spec:
   host: cdi-uploadproxy.example.com
   to:

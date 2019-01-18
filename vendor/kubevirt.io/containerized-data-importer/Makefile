@@ -164,8 +164,8 @@ cluster-down:
 cluster-clean:
 	./cluster/clean.sh
 
-cluster-sync: cluster-clean build ${WHAT}
-	./cluster/sync.sh ${WHAT}
+cluster-sync: cluster-clean
+	./cluster/sync.sh
 
 cluster-sync-controller: WHAT = cmd/cdi-controller
 cluster-sync-controller: cluster-sync

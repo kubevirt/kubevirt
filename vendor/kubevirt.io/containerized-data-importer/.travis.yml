@@ -43,7 +43,8 @@ before_script:
 - k_wait_all_running pods
 
 script:
-- kubectl apply -f manifests/generated/cdi-controller.yaml
+- kubectl apply -f manifests/generated/cdi-operator.yaml
+- kubectl apply -f manifests/generated/cdi-operator-cr.yaml
 - kubectl apply -f manifests/example/endpoint-secret.yaml
 - "sed \"s#cdi.kubevirt.io/storage.import.endpoint:.*#cdi.kubevirt.io/storage.import.endpoint: \"$SRC#\"\" manifests/example/golden-pvc.yaml | kubectl apply -f -"
 - k_wait_all_running pods

@@ -18,16 +18,17 @@ package cluster
 
 import (
 	rbacv1 "k8s.io/api/rbac/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 )
 
 const (
 	apiServerResourceName = "cdi-apiserver"
 )
 
-func createAPIServerResources(args *FactoryArgs) []Resource {
-	return []Resource{
-		createAPIServerClusterRoleBinding(args.Namespace),
+func createAPIServerResources(args *FactoryArgs) []runtime.Object {
+	return []runtime.Object{
 		createAPIServerClusterRole(),
+		createAPIServerClusterRoleBinding(args.Namespace),
 		createAPIServerAuthClusterRoleBinding(args.Namespace),
 	}
 }
@@ -76,6 +77,17 @@ func createAPIServerClusterRole() *rbacv1.ClusterRole {
 			Verbs: []string{
 				"get",
 				"list",
+			},
+		},
+		{
+			APIGroups: []string{
+				"cdi.kubevirt.io",
+			},
+			Resources: []string{
+				"*",
+			},
+			Verbs: []string{
+				"*",
 			},
 		},
 	}

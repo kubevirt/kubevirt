@@ -83,7 +83,7 @@ func DownloadImageToNode(clientSet *kubernetes.Clientset, cliCommandPath string)
 
 // UploadImageFromNode uploads the image to the upload proxy
 func UploadImageFromNode(clientSet *kubernetes.Clientset, cliCommandPath, token string) error {
-	uploadProxyService, err := GetServiceInNamespace(clientSet, "kube-system", "cdi-uploadproxy")
+	uploadProxyService, err := GetServiceInNamespace(clientSet, "cdi", "cdi-uploadproxy")
 	if err != nil {
 		return err
 	}

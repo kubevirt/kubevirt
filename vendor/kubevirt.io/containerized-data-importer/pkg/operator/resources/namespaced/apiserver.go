@@ -20,6 +20,7 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/intstr"
 
 	"kubevirt.io/containerized-data-importer/pkg/common"
@@ -32,8 +33,8 @@ const (
 	extensionAPIConfigMapName = "extension-apiserver-authentication"
 )
 
-func createAPIServerResources(args *FactoryArgs) []Resource {
-	return []Resource{
+func createAPIServerResources(args *FactoryArgs) []runtime.Object {
+	return []runtime.Object{
 		createAPIServerServiceAccount(),
 		createAPIServerRoleBinding(args.Namespace),
 		createAPIServerRole(),
@@ -101,6 +102,7 @@ func createExtensionAPIServerRole() *rbacv1.Role {
 			},
 		},
 	}
+	role.Namespace = "kube-system"
 	return role
 }
 

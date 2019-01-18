@@ -19,6 +19,7 @@ package namespaced
 import (
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/intstr"
 )
 
@@ -26,8 +27,8 @@ const (
 	uploadProxyResourceName = "cdi-uploadproxy"
 )
 
-func createUploadProxyResources(args *FactoryArgs) []Resource {
-	return []Resource{
+func createUploadProxyResources(args *FactoryArgs) []runtime.Object {
+	return []runtime.Object{
 		createUploadProxyService(),
 		createUploadProxyDeployment(args.DockerRepo, args.UploadProxyImage, args.DockerTag, args.Verbosity, args.PullPolicy),
 	}

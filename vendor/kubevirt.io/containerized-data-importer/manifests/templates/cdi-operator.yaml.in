@@ -1,4 +1,11 @@
 apiVersion: v1
+kind: Namespace
+metadata:
+  labels:
+    cdi.kubevirt.io: ""
+  name: {{.Namespace}}
+---
+apiVersion: v1
 kind: ServiceAccount
 metadata:
   name: cdi-operator
@@ -7,63 +14,19 @@ metadata:
     operator.cdi.kubevirt.io: ""
 ---
 apiVersion: rbac.authorization.k8s.io/v1
-kind: Role
+kind: ClusterRoleBinding
 metadata:
   name: cdi-operator
-  namespace: {{ .Namespace }}
-  labels:
-    operator.cdi.kubevirt.io: ""
-rules:
-- apiGroups:
-  - ""
-  resources:
-  - pods
-  - services
-  - endpoints
-  - persistentvolumeclaims
-  - events
-  - configmaps
-  - secrets
-  verbs:
-  - '*'
-- apiGroups:
-  - apps
-  resources:
-  - deployments
-  - daemonsets
-  - replicasets
-  - statefulsets
-  verbs:
-  - '*'
-- apiGroups:
-  - monitoring.coreos.com
-  resources:
-  - servicemonitors
-  verbs:
-  - get
-  - create
-- apiGroups:
-  - cdi.kubevirt.io
-  - upload.cdi.kubevirt.io
-  resources:
-  - '*'
-  verbs:
-  - '*'
----
-apiVersion: rbac.authorization.k8s.io/v1
-kind: RoleBinding
-metadata:
-  name: cdi-operator
-  namespace: {{ .Namespace }}
   labels:
     operator.cdi.kubevirt.io: ""
 subjects:
 - kind: ServiceAccount
   name: cdi-operator
+  namespace: {{ .Namespace }}
 roleRef:
-  kind: Role
-  name: cdi-operator
-  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: cluster-admin
+  apiGroup: ""
 ---
 apiVersion: v1
 kind: ConfigMap
@@ -98,6 +61,29 @@ spec:
           - containerPort: 60000
             name: metrics
           imagePullPolicy: Always
+          env:
+          - name: DEPLOY_CLUSTER_RESOURCES
+            value: 'true'
+          - name: DOCKER_REPO
+            value: {{ .DockerRepo }}
+          - name: DOCKER_TAG
+            value: {{ .DockerTag }}
+          - name: CONTROLLER_IMAGE
+            value: {{ .ControllerImage }}
+          - name: IMPORTER_IMAGE
+            value: {{ .ImporterImage }}
+          - name: CLONER_IMAGE
+            value: {{ .ClonerImage }}
+          - name: APISERVER_IMAGE
+            value: {{ .APIServerImage }}
+          - name: UPLOAD_PROXY_IMAGE
+            value: {{ .UploadProxyImage }}
+          - name: UPLOAD_SERVER_IMAGE
+            value: {{ .UploadServerImage }}
+          - name: VERBOSITY
+            value: '{{ .Verbosity }}'
+          - name: PULL_POLICY
+            value: {{ .PullPolicy }}
 ---
 apiVersion: apiextensions.k8s.io/v1beta1
 kind: CustomResourceDefinition
@@ -110,5 +96,5 @@ spec:
     listKind: CDIList
     plural: cdis
     singular: cdi
-  scope: Namespaced
+  scope: Cluster
   version: v1alpha1

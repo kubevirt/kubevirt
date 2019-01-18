@@ -32,6 +32,9 @@ spec:
       labels:
         cdi.kubevirt.io/testing.registry: ""
     spec:
+      securityContext:
+        runAsUser: 0
+      serviceAccountName: cdi-sa
       initContainers:
       - name: registry-init
         image: {{ .DockerRepo }}/cdi-func-test-registry-init:{{ .DockerTag }}

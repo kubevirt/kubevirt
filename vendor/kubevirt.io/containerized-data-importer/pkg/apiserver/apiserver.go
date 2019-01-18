@@ -33,6 +33,7 @@ import (
 	"kubevirt.io/containerized-data-importer/pkg/common"
 	"kubevirt.io/containerized-data-importer/pkg/controller"
 	"kubevirt.io/containerized-data-importer/pkg/keys"
+	"kubevirt.io/containerized-data-importer/pkg/operator"
 	"kubevirt.io/containerized-data-importer/pkg/util"
 )
 
@@ -521,6 +522,10 @@ func (app *cdiAPIApp) createAPIService() error {
 			GroupPriorityMinimum: 1000,
 			VersionPriority:      15,
 		},
+	}
+
+	if err = operator.SetOwner(app.client, newAPIService); err != nil {
+		return err
 	}
 
 	if registerAPIService {

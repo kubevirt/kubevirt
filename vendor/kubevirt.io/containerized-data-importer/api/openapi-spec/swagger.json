@@ -2346,6 +2346,39 @@
      }
     }
    },
+   "v1alpha1.CDICondition": {
+    "description": "CDICondition represents a condition of a CDI deployment",
+    "required": [
+     "type",
+     "status"
+    ],
+    "properties": {
+     "lastProbeTime": {
+      "type": [
+       "string",
+       "null"
+      ]
+     },
+     "lastTransitionTime": {
+      "type": [
+       "string",
+       "null"
+      ]
+     },
+     "message": {
+      "type": "string"
+     },
+     "reason": {
+      "type": "string"
+     },
+     "status": {
+      "type": "string"
+     },
+     "type": {
+      "type": "string"
+     }
+    }
+   },
    "v1alpha1.CDIList": {
     "description": "CDIList provides the needed parameters to do request a list of CDIs from the system\n+k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object",
     "required": [
@@ -2374,16 +2407,40 @@
     }
    },
    "v1alpha1.CDISpec": {
-    "description": "CDISpec defines our specification for the CDI installation"
+    "description": "CDISpec defines our specification for the CDI installation",
+    "properties": {
+     "imagePullPolicy": {
+      "type": "string"
+     }
+    }
    },
    "v1alpha1.CDIStatus": {
-    "description": "CDIStatus defines the status of the CDI installation"
+    "description": "CDIStatus defines the status of the CDI installation",
+    "properties": {
+     "conditions": {
+      "type": "array",
+      "items": {
+       "$ref": "#/definitions/v1alpha1.CDICondition"
+      }
+     },
+     "observedVersion": {
+      "type": "string"
+     },
+     "operatorVersion": {
+      "type": "string"
+     },
+     "phase": {
+      "type": "string"
+     },
+     "targetVersion": {
+      "type": "string"
+     }
+    }
    },
    "v1alpha1.DataVolume": {
     "description": "DataVolume provides a representation of our data volume\n+genclient\n+k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object",
     "required": [
-     "spec",
-     "status"
+     "spec"
     ],
     "properties": {
      "apiVersion": {

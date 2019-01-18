@@ -16,7 +16,7 @@ RUN dnf install -y openssl
 RUN  openssl req \
 	  -newkey rsa:4096 -nodes -sha256 -keyout /tmp/source/certs/domain.key \
 	  -x509 -days 365  \
-          -subj "/C=GB/ST=TLV/L=TLV/O=RedHat/OU=CDI/CN=cdi-docker-registry-host.kube-system" \
+          -subj "/C=GB/ST=TLV/L=TLV/O=RedHat/OU=CDI/CN=cdi-docker-registry-host.cdi" \
 	  -out /tmp/source/certs/domain.crt
 
 ENTRYPOINT ["cdi-func-test-registry-init", "-alsologtostderr"]

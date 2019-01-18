@@ -18,6 +18,7 @@ package cluster
 
 import (
 	rbacv1 "k8s.io/api/rbac/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 )
 
 const (
@@ -25,10 +26,10 @@ const (
 	controlerClusterRoleName     = "cdi"
 )
 
-func createControllerResources(args *FactoryArgs) []Resource {
-	return []Resource{
-		createControllerClusterRoleBinding(args.Namespace),
+func createControllerResources(args *FactoryArgs) []runtime.Object {
+	return []runtime.Object{
 		createControllerClusterRole(),
+		createControllerClusterRoleBinding(args.Namespace),
 	}
 }
 

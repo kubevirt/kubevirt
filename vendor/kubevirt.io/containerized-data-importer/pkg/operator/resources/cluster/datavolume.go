@@ -19,10 +19,11 @@ package cluster
 import (
 	extv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 )
 
-func createCRDResources(args *FactoryArgs) []Resource {
-	return []Resource{
+func createCRDResources(args *FactoryArgs) []runtime.Object {
+	return []runtime.Object{
 		createDataVolumeCRD(),
 	}
 }
@@ -55,23 +56,23 @@ func createDataVolumeCRD() *extv1beta1.CustomResourceDefinition {
 			Validation: &extv1beta1.CustomResourceValidation{
 				OpenAPIV3Schema: &extv1beta1.JSONSchemaProps{
 					Properties: map[string]extv1beta1.JSONSchemaProps{
-						"apiVersion": extv1beta1.JSONSchemaProps{
+						"apiVersion": {
 							Type: "string",
 						},
-						"kind": extv1beta1.JSONSchemaProps{
+						"kind": {
 							Type: "string",
 						},
-						"metadata": extv1beta1.JSONSchemaProps{},
-						"spec": extv1beta1.JSONSchemaProps{
+						"metadata": {},
+						"spec": {
 							Properties: map[string]extv1beta1.JSONSchemaProps{
-								"source": extv1beta1.JSONSchemaProps{
+								"source": {
 									Properties: map[string]extv1beta1.JSONSchemaProps{
-										"http": extv1beta1.JSONSchemaProps{
+										"http": {
 											Properties: map[string]extv1beta1.JSONSchemaProps{
-												"url": extv1beta1.JSONSchemaProps{
+												"url": {
 													Type: "string",
 												},
-												"secretRef": extv1beta1.JSONSchemaProps{
+												"secretRef": {
 													Type: "string",
 												},
 											},
@@ -79,12 +80,12 @@ func createDataVolumeCRD() *extv1beta1.CustomResourceDefinition {
 												"url",
 											},
 										},
-										"s3": extv1beta1.JSONSchemaProps{
+										"s3": {
 											Properties: map[string]extv1beta1.JSONSchemaProps{
-												"url": extv1beta1.JSONSchemaProps{
+												"url": {
 													Type: "string",
 												},
-												"secretRef": extv1beta1.JSONSchemaProps{
+												"secretRef": {
 													Type: "string",
 												},
 											},
@@ -92,12 +93,12 @@ func createDataVolumeCRD() *extv1beta1.CustomResourceDefinition {
 												"url",
 											},
 										},
-										"registry": extv1beta1.JSONSchemaProps{
+										"registry": {
 											Properties: map[string]extv1beta1.JSONSchemaProps{
-												"url": extv1beta1.JSONSchemaProps{
+												"url": {
 													Type: "string",
 												},
-												"secretRef": extv1beta1.JSONSchemaProps{
+												"secretRef": {
 													Type: "string",
 												},
 											},
@@ -105,12 +106,12 @@ func createDataVolumeCRD() *extv1beta1.CustomResourceDefinition {
 												"url",
 											},
 										},
-										"pvc": extv1beta1.JSONSchemaProps{
+										"pvc": {
 											Properties: map[string]extv1beta1.JSONSchemaProps{
-												"namespace": extv1beta1.JSONSchemaProps{
+												"namespace": {
 													Type: "string",
 												},
-												"name": extv1beta1.JSONSchemaProps{
+												"name": {
 													Type: "string",
 												},
 											},
@@ -119,17 +120,17 @@ func createDataVolumeCRD() *extv1beta1.CustomResourceDefinition {
 												"name",
 											},
 										},
-										"upload": extv1beta1.JSONSchemaProps{},
-										"blank":  extv1beta1.JSONSchemaProps{},
+										"upload": {},
+										"blank":  {},
 									},
 								},
-								"pvc": extv1beta1.JSONSchemaProps{
+								"pvc": {
 									Properties: map[string]extv1beta1.JSONSchemaProps{
-										"resources": extv1beta1.JSONSchemaProps{
+										"resources": {
 											Properties: map[string]extv1beta1.JSONSchemaProps{
-												"requests": extv1beta1.JSONSchemaProps{
+												"requests": {
 													Properties: map[string]extv1beta1.JSONSchemaProps{
-														"storage": extv1beta1.JSONSchemaProps{
+														"storage": {
 															Type: "string",
 														},
 													},
@@ -139,10 +140,10 @@ func createDataVolumeCRD() *extv1beta1.CustomResourceDefinition {
 												"requests",
 											},
 										},
-										"storageClassName": extv1beta1.JSONSchemaProps{
+										"storageClassName": {
 											Type: "string",
 										},
-										"accessModes": extv1beta1.JSONSchemaProps{
+										"accessModes": {
 											Type: "array",
 										},
 									},

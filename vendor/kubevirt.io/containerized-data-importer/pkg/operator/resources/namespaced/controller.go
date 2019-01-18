@@ -22,6 +22,7 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/intstr"
 
 	"kubevirt.io/containerized-data-importer/pkg/common"
@@ -30,10 +31,17 @@ import (
 const (
 	controllerServiceAccount = "cdi-sa"
 	prometheusLabel          = common.PrometheusLabel
+	privilegedAccountPrefix  = "system:serviceaccount"
 )
 
-func createControllerResources(args *FactoryArgs) []Resource {
-	return []Resource{
+func getControllerPrivilegedAccounts(args *FactoryArgs) []string {
+	return []string{
+		fmt.Sprintf("%s:%s:%s", privilegedAccountPrefix, args.Namespace, controllerServiceAccount),
+	}
+}
+
+func createControllerResources(args *FactoryArgs) []runtime.Object {
+	return []runtime.Object{
 		createControllerServiceAccount(),
 		createControllerDeployment(args.DockerRepo,
 			args.ControllerImage,

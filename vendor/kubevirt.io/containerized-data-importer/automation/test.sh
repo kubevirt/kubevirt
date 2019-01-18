@@ -39,7 +39,7 @@ export KUBEVIRT_NUM_NODES=2
 
 kubectl() { cluster/kubectl.sh "$@"; }
 
-export CDI_NAMESPACE="${CDI_NAMESPACE:-kube-system}"
+export CDI_NAMESPACE="${CDI_NAMESPACE:-cdi}"
 
 make cluster-down
 make cluster-up

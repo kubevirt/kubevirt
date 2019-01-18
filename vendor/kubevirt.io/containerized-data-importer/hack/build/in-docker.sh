@@ -31,8 +31,10 @@ BUILDER_TAG='kubevirt-cdi-builder'
 docker run ${USE_TTY} \
     --rm \
     -v ${CDI_DIR}:${WORK_DIR}:rw,Z \
+    -v ${CACHE_DIR}:/gocache:rw,Z \
     -e RUN_UID=$(id -u) \
     -e RUN_GID=$(id -g) \
+    -e GOCACHE=/gocache \
     -w ${WORK_DIR} \
     ${BUILDER_TAG} "$1"
 

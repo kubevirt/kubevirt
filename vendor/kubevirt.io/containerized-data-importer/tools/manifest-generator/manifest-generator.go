@@ -19,6 +19,8 @@ import (
 
 	"github.com/golang/glog"
 
+	"k8s.io/apimachinery/pkg/runtime"
+
 	cdicluster "kubevirt.io/containerized-data-importer/pkg/operator/resources/cluster"
 	cdinamespaced "kubevirt.io/containerized-data-importer/pkg/operator/resources/namespaced"
 )
@@ -96,7 +98,7 @@ func generateFromFile(templFile string) {
 }
 
 func generateFromCode(codeGroup string) {
-	var resources []interface{}
+	var resources []runtime.Object
 
 	crs, err := getClusterResources(codeGroup)
 	if err != nil {
@@ -120,43 +122,19 @@ func generateFromCode(codeGroup string) {
 	}
 }
 
-// getClusterResources creates cluster-scoped resources for a specific group/component
-// returning interface{} because caller is only interested in marshalling to json
-// and is stuffing cluster-scomed and namespaced resources in the same slice
-func getClusterResources(codeGroup string) ([]interface{}, error) {
-	var result []interface{}
-	var resources []cdicluster.Resource
-	var err error
-
+func getClusterResources(codeGroup string) ([]runtime.Object, error) {
 	args := &cdicluster.FactoryArgs{
 		Namespace: *namespace,
 	}
 
 	if codeGroup == "everything" {
-		resources, err = cdicluster.CreateAllResources(args)
-	} else {
-		resources, err = cdicluster.CreateResourceGroup(codeGroup, args)
+		return cdicluster.CreateAllResources(args)
 	}
 
-	if err != nil {
-		return nil, err
-	}
-
-	for _, resource := range resources {
-		result = append(result, resource.(interface{}))
-	}
-
-	return result, nil
+	return cdicluster.CreateResourceGroup(codeGroup, args)
 }
 
-// getNamespacedResources creates namespace-scoped resources for a specific group/component
-// returning interface{} because caller is only interested in marshalling to json
-// and is stuffing cluster-scomed and namespaced resources in the same slice
-func getNamespacedResources(codeGroup string) ([]interface{}, error) {
-	var result []interface{}
-	var resources []cdinamespaced.Resource
-	var err error
-
+func getNamespacedResources(codeGroup string) ([]runtime.Object, error) {
 	args := &cdinamespaced.FactoryArgs{
 		Verbosity:         *verbosity,
 		DockerRepo:        *dockerRepo,
@@ -172,18 +150,8 @@ func getNamespacedResources(codeGroup string) ([]interface{}, error) {
 	}
 
 	if codeGroup == "everything" {
-		resources, err = cdinamespaced.CreateAllResources(args)
-	} else {
-		resources, err = cdinamespaced.CreateResourceGroup(codeGroup, args)
+		return cdinamespaced.CreateAllResources(args)
 	}
 
-	if err != nil {
-		return nil, err
-	}
-
-	for _, resource := range resources {
-		result = append(result, resource.(interface{}))
-	}
-
-	return result, nil
+	return cdinamespaced.CreateResourceGroup(codeGroup, args)
 }

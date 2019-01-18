@@ -5,7 +5,7 @@ const (
 	// FileHostName provides a deployment and service name for tests
 	FileHostName = "cdi-file-host"
 	// FileHostNs provides a deployment ans service namespace for tests
-	FileHostNs = "kube-system"
+	FileHostNs = "cdi"
 	// FileHostS3Bucket provides an S3 bucket name for tests (e.g. http://<serviceIP:port>/FileHostS3Bucket/image)
 	FileHostS3Bucket = "images"
 	// AccessKeyValue provides a username to use for http and S3 (see hack/build/docker/cdi-func-test-file-host-http/htpasswd)
