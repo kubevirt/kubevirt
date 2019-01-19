@@ -37,6 +37,8 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/validation"
 	k8sfield "k8s.io/apimachinery/pkg/util/validation/field"
+	k8sutilfeature "k8s.io/apiserver/pkg/util/feature"
+	k8sfeatures "k8s.io/kubernetes/pkg/features"
 
 	v1 "kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/log"
@@ -50,6 +52,11 @@ const (
 	cloudInitMaxLen = 2048
 	arrayLenMax     = 256
 	maxStrLen       = 256
+
+	// Copied from kubernetes/pkg/apis/core/validation/validation.go
+	maxDNSNameservers     = 3
+	maxDNSSearchPaths     = 6
+	maxDNSSearchListChars = 256
 )
 
 var validInterfaceModels = []string{"e1000", "e1000e", "ne2k_pci", "pcnet", "rtl8139", "virtio"}
@@ -1193,6 +1200,10 @@ func ValidateVirtualMachineInstanceSpec(field *k8sfield.Path, spec *v1.VirtualMa
 
 	causes = append(causes, validateDomainSpec(field.Child("domain"), &spec.Domain)...)
 	causes = append(causes, validateVolumes(field.Child("volumes"), spec.Volumes)...)
+	if spec.DNSPolicy != "" {
+		causes = append(causes, validateDNSPolicy(&spec.DNSPolicy, field.Child("dnsPolicy"))...)
+	}
+	causes = append(causes, validatePodDNSConfig(spec.DNSConfig, &spec.DNSPolicy, field.Child("dnsConfig"))...)
 	return causes
 }
 
@@ -1609,4 +1620,124 @@ func admitMigrationUpdate(ar *v1beta1.AdmissionReview) *v1beta1.AdmissionRespons
 
 func ServeMigrationUpdate(resp http.ResponseWriter, req *http.Request) {
 	serve(resp, req, admitMigrationUpdate)
+}
+
+// Copied from kubernetes/pkg/apis/core/validation/validation.go
+func validateDNSPolicy(dnsPolicy *k8sv1.DNSPolicy, field *k8sfield.Path) []metav1.StatusCause {
+	var causes []metav1.StatusCause
+	switch *dnsPolicy {
+	case k8sv1.DNSClusterFirstWithHostNet, k8sv1.DNSClusterFirst, k8sv1.DNSDefault:
+	case k8sv1.DNSNone:
+		if !k8sutilfeature.DefaultFeatureGate.Enabled(k8sfeatures.CustomPodDNS) {
+			causes = append(causes, metav1.StatusCause{
+				Type:    metav1.CauseTypeFieldValueInvalid,
+				Message: fmt.Sprintf("DNSPolicy: can not use 'None', custom pod DNS is disabled by feature gate"),
+				Field:   field.String(),
+			})
+		}
+	case "":
+		causes = append(causes, metav1.StatusCause{
+			Type:    metav1.CauseTypeFieldValueRequired,
+			Message: fmt.Sprintf("DNSPolicy: value required"),
+			Field:   field.String(),
+		})
+	default:
+		validValues := []string{string(k8sv1.DNSClusterFirstWithHostNet), string(k8sv1.DNSClusterFirst), string(k8sv1.DNSDefault)}
+		if k8sutilfeature.DefaultFeatureGate.Enabled(k8sfeatures.CustomPodDNS) {
+			validValues = append(validValues, string(k8sv1.DNSNone))
+		}
+		causes = append(causes, metav1.StatusCause{
+			Type:    metav1.CauseTypeFieldValueNotSupported,
+			Message: fmt.Sprintf("DNSPolicy: %s is not supported, valid values: %s", *dnsPolicy, validValues),
+			Field:   field.String(),
+		})
+	}
+	return causes
+}
+
+// Copied from kubernetes/pkg/apis/core/validation/validation.go
+func validatePodDNSConfig(dnsConfig *k8sv1.PodDNSConfig, dnsPolicy *k8sv1.DNSPolicy, field *k8sfield.Path) []metav1.StatusCause {
+	var causes []metav1.StatusCause
+
+	// Validate DNSNone case. Must provide at least one DNS name server.
+	if k8sutilfeature.DefaultFeatureGate.Enabled(k8sfeatures.CustomPodDNS) && dnsPolicy != nil && *dnsPolicy == k8sv1.DNSNone {
+		if dnsConfig == nil {
+			causes = append(causes, metav1.StatusCause{
+				Type:    metav1.CauseTypeFieldValueRequired,
+				Message: fmt.Sprintf("must provide `dnsConfig` when `dnsPolicy` is %s", k8sv1.DNSNone),
+				Field:   field.String(),
+			})
+		}
+		if len(dnsConfig.Nameservers) == 0 {
+			causes = append(causes, metav1.StatusCause{
+				Type:    metav1.CauseTypeFieldValueRequired,
+				Message: fmt.Sprintf("must provide at least one DNS nameserver when `dnsPolicy` is %s", k8sv1.DNSNone),
+				Field:   "nameservers",
+			})
+		}
+	}
+
+	if dnsConfig != nil {
+		if !k8sutilfeature.DefaultFeatureGate.Enabled(k8sfeatures.CustomPodDNS) {
+			causes = append(causes, metav1.StatusCause{
+				Type:    metav1.CauseTypeFieldValueInvalid,
+				Message: fmt.Sprintf("DNSConfig: custom pod DNS is disabled by feature gate"),
+				Field:   field.String(),
+			})
+		}
+
+		// Validate nameservers.
+		if len(dnsConfig.Nameservers) > maxDNSNameservers {
+			causes = append(causes, metav1.StatusCause{
+				Type:    metav1.CauseTypeFieldValueInvalid,
+				Message: fmt.Sprintf("must not have more than %v nameservers: %s", maxDNSNameservers, dnsConfig.Nameservers),
+				Field:   "nameservers",
+			})
+		}
+		for _, ns := range dnsConfig.Nameservers {
+			if ip := net.ParseIP(ns); ip == nil {
+				causes = append(causes, metav1.StatusCause{
+					Type:    metav1.CauseTypeFieldValueInvalid,
+					Message: fmt.Sprintf("must be valid IP address:%s", ip),
+					Field:   "nameservers",
+				})
+			}
+		}
+		// Validate searches.
+		if len(dnsConfig.Searches) > maxDNSSearchPaths {
+			causes = append(causes, metav1.StatusCause{
+				Type:    metav1.CauseTypeFieldValueInvalid,
+				Message: fmt.Sprintf("must not have more than %v search paths", maxDNSSearchPaths),
+				Field:   "searchDomains",
+			})
+		}
+		// Include the space between search paths.
+		if len(strings.Join(dnsConfig.Searches, " ")) > maxDNSSearchListChars {
+			causes = append(causes, metav1.StatusCause{
+				Type:    metav1.CauseTypeFieldValueInvalid,
+				Message: fmt.Sprintf("imust not have more than %v characters (including spaces) in the search list", maxDNSSearchListChars),
+				Field:   "searchDomains",
+			})
+		}
+		for _, search := range dnsConfig.Searches {
+			for _, msg := range validation.IsDNS1123Subdomain(search) {
+				causes = append(causes, metav1.StatusCause{
+					Type:    metav1.CauseTypeFieldValueInvalid,
+					Message: fmt.Sprintf("%v", msg),
+					Field:   "searchDomains",
+				})
+			}
+		}
+		// Validate options.
+		for _, option := range dnsConfig.Options {
+			if len(option.Name) == 0 {
+				causes = append(causes, metav1.StatusCause{
+					Type:    metav1.CauseTypeFieldValueInvalid,
+					Message: fmt.Sprintf("%v must not be empty", option),
+					Field:   "options",
+				})
+			}
+		}
+	}
+	return causes
 }
