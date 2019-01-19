@@ -835,6 +835,7 @@ func ValidateVirtualMachineInstanceSpec(field *k8sfield.Path, spec *v1.VirtualMa
 
 	if len(spec.Networks) > 0 && len(spec.Domain.Devices.Interfaces) > 0 {
 		multusExists := false
+		tungstenfabricExists := false
 		genieExists := false
 		podExists := false
 
@@ -861,6 +862,12 @@ func ValidateVirtualMachineInstanceSpec(field *k8sfield.Path, spec *v1.VirtualMa
 				networkNameExistsOrNotNeeded = network.Genie.NetworkName != ""
 			}
 
+			if network.NetworkSource.Tungstenfabric != nil {
+				cniTypesCount++
+				tungstenfabricExists = true
+				networkNameExistsOrNotNeeded = network.Tungstenfabric.NetworkName != ""
+			}
+
 			if cniTypesCount == 0 {
 				causes = append(causes, metav1.StatusCause{
 					Type:    metav1.CauseTypeFieldValueRequired,
@@ -873,7 +880,7 @@ func ValidateVirtualMachineInstanceSpec(field *k8sfield.Path, spec *v1.VirtualMa
 					Message: fmt.Sprintf("should have only one network type"),
 					Field:   field.Child("networks").Index(idx).String(),
 				})
-			} else if genieExists && (podExists || multusExists) {
+			} else if genieExists && (podExists || multusExists || tungstenfabricExists) {
 				causes = append(causes, metav1.StatusCause{
 					Type:    metav1.CauseTypeFieldValueRequired,
 					Message: fmt.Sprintf("cannot combine Genie with other CNIs across networks"),

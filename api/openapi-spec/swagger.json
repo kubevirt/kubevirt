@@ -4834,6 +4834,9 @@
      },
      "pod": {
       "$ref": "#/definitions/v1.PodNetwork"
+     },
+     "tungstenfabric": {
+      "$ref": "#/definitions/v1.CniNetwork"
      }
     }
    },

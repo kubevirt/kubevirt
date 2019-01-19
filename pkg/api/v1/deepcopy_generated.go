@@ -1403,6 +1403,15 @@ func (in *NetworkSource) DeepCopyInto(out *NetworkSource) {
 			**out = **in
 		}
 	}
+	if in.Tungstenfabric != nil {
+		in, out := &in.Tungstenfabric, &out.Tungstenfabric
+		if *in == nil {
+			*out = nil
+		} else {
+			*out = new(CniNetwork)
+			**out = **in
+		}
+	}
 	return
 }
 

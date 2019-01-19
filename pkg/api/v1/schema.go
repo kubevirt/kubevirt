@@ -888,9 +888,10 @@ type Network struct {
 // ---
 // +k8s:openapi-gen=true
 type NetworkSource struct {
-	Pod    *PodNetwork `json:"pod,omitempty"`
-	Multus *CniNetwork `json:"multus,omitempty"`
-	Genie  *CniNetwork `json:"genie,omitempty"`
+	Pod            *PodNetwork `json:"pod,omitempty"`
+	Multus         *CniNetwork `json:"multus,omitempty"`
+	Genie          *CniNetwork `json:"genie,omitempty"`
+	Tungstenfabric *CniNetwork `json:"tungstenfabric,omitempty"`
 }
 
 // Represents the stock pod network interface.

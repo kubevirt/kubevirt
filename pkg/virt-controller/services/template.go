@@ -988,6 +988,11 @@ func getCniInterfaceList(vmi *v1.VirtualMachineInstance) (ifaceListString string
 			if cniAnnotation == "" {
 				cniAnnotation = "cni"
 			}
+		} else if network.Tungstenfabric != nil {
+			ifaceList = append(ifaceList, network.Tungstenfabric.NetworkName)
+			if cniAnnotation == "" {
+				cniAnnotation = "opencontrail.org/network"
+			}
 		}
 	}
 
