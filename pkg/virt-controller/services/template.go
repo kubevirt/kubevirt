@@ -762,8 +762,14 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 
 	hostName := dns.SanitizeHostname(vmi)
 
+	vmiAnnotations := vmi.ObjectMeta.Annotations
+
 	annotationsList := map[string]string{
 		v1.DomainAnnotation: domain,
+	}
+
+	for key, value := range vmiAnnotations {
+		annotationsList[key] = value
 	}
 
 	cniNetworks, cniAnnotation := getCniInterfaceList(vmi)

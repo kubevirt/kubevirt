@@ -233,6 +233,23 @@ var _ = Describe("Config", func() {
 
 	})
 
+	Context("With a Annotation List defined", func() {
+
+		testAnnotationList := map[string]string{
+			"key1": "value1",
+		}
+
+		It("Should be the annotation list the same for a pod and vmi", func() {
+			By("Running VMI")
+			vmi := tests.NewRandomVMIWithAnnotations(testAnnotationList)
+			tests.RunVMIAndExpectLaunch(vmi, false, 90)
+
+			By("Checking if Annotation has been attached to the pod")
+			vmiPod := tests.GetRunningPodByVirtualMachineInstance(vmi, tests.NamespaceTestDefault)
+			Expect(vmiPod.ObjectMeta.Annotations["key1"]).To(Equal(testAnnotationList["key1"]))
+		})
+	})
+
 	Context("With a ServiceAccount defined", func() {
 
 		virtClient, err := kubecli.GetKubevirtClient()
