@@ -886,6 +886,10 @@ func Convert_v1_VirtualMachine_To_api_Domain(vmi *v1.VirtualMachineInstance, dom
 			cniNetworks[network.Name] = len(cniNetworks)
 			numberOfSources++
 		}
+		if network.Tungstenfabric != nil {
+			cniNetworks[network.Name] = len(cniNetworks)
+			numberOfSources++
+		}
 		if numberOfSources == 0 {
 			return fmt.Errorf("fail network %s must have a network type", network.Name)
 		} else if numberOfSources > 1 {
@@ -973,6 +977,8 @@ func Convert_v1_VirtualMachine_To_api_Domain(vmi *v1.VirtualMachineInstance, dom
 					if net.Multus != nil {
 						prefix = "net"
 					} else if net.Genie != nil {
+						prefix = "eth"
+					} else if net.Tungstenfabric != nil {
 						prefix = "eth"
 					}
 					domainIface.Source = InterfaceSource{
