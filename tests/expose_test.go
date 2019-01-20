@@ -342,7 +342,7 @@ var _ = Describe("Expose", func() {
 		})
 	})
 
-	Context("Expose service on an VM", func() {
+	Context("[rfe_id:253][crit:high][vendor:cnv-qe@redhat.com][level:component]Expose a VM as a service.", func() {
 		const servicePort = "27017"
 		const serviceName = "cluster-ip-vm"
 		var vm *v1.VirtualMachine
@@ -357,7 +357,7 @@ var _ = Describe("Expose", func() {
 			_, err := virtClient.VirtualMachine(tests.NamespaceTestDefault).Create(vm)
 			Expect(err).ToNot(HaveOccurred())
 
-			By("Exposing a service on the VM using virtctl")
+			By("Exposing a service to the VM using virtctl")
 			virtctl := tests.NewRepeatableVirtctlCommand(expose.COMMAND_EXPOSE, "virtualmachine", "--namespace",
 				vm.Namespace, vm.Name, "--port", servicePort, "--name", serviceName, "--target-port", strconv.Itoa(testPort))
 			err = virtctl()
@@ -386,7 +386,7 @@ var _ = Describe("Expose", func() {
 			generateHelloWorldServer(vmi, virtClient, testPort, "tcp")
 		})
 
-		Context("Expose ClusterIP service on a VM.", func() {
+		Context("Expose a VM as a ClusterIP service.", func() {
 			It("[test_id:1538]Connect to ClusterIP services that was set when VM was offline", func() {
 				By("Getting back the cluster IP given for the service")
 				svc, err := virtClient.CoreV1().Services(vm.Namespace).Get(serviceName, k8smetav1.GetOptions{})
@@ -408,17 +408,17 @@ var _ = Describe("Expose", func() {
 				Eventually(getStatus, 60, 1).Should(Equal(k8sv1.PodSucceeded))
 			})
 
-			It("Should verify the exposed service is functional before and after VM restart.", func() {
-				vm_obj := vm
+			It("[test_id:345]Should verify the exposed service is functional before and after VM restart.", func() {
+				vmObj := vm
 
 				By("Getting back the service's allocated cluster IP.")
-				svc, err := virtClient.CoreV1().Services(vm_obj.Namespace).Get(serviceName, k8smetav1.GetOptions{})
+				svc, err := virtClient.CoreV1().Services(vmObj.Namespace).Get(serviceName, k8smetav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				serviceIP := svc.Spec.ClusterIP
 
 				By("Starting a pod which tries to reach the VMI via ClusterIP.")
 				job := tests.NewHelloWorldJob(serviceIP, servicePort)
-				job, err = virtClient.CoreV1().Pods(vm_obj.Namespace).Create(job)
+				job, err = virtClient.CoreV1().Pods(vmObj.Namespace).Create(job)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Waiting for the pod to report a successful connection attempt.")
@@ -430,43 +430,33 @@ var _ = Describe("Expose", func() {
 
 				Eventually(getStatus, 60, 1).Should(Equal(k8sv1.PodSucceeded))
 
-				By("Stopping the running VM.")
-				virtctl := tests.NewRepeatableVirtctlCommand("stop", "--namespace", vm.Namespace, vm.Name)
-				err = virtctl()
-				Expect(err).ToNot(HaveOccurred())
-
-				By("Verifying the VMI is not running.")
+				// Retrieve the current VMI UID, to be compared with the new UID after restart.
 				var vmi *v1.VirtualMachineInstance
-				Eventually(func() bool {
-					vmi, err = virtClient.VirtualMachineInstance(vm_obj.Namespace).Get(vm_obj.Name, &k8smetav1.GetOptions{})
-					Expect(err).ToNot(HaveOccurred())
-					return vmi.Status.Phase != v1.Running
-				}, 120*time.Second, 1*time.Second).Should(BeTrue())
+				vmi, err = virtClient.VirtualMachineInstance(vmObj.Namespace).Get(vmObj.Name, &k8smetav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				vmiUIdBeforeRestart := vmi.GetObjectMeta().GetUID()
 
-				By("Starting the VM.")
-				virtctl = tests.NewRepeatableVirtctlCommand("start", "--namespace", vm.Namespace, vm.Name)
+				By("Restarting the running VM.")
+				virtctl := tests.NewRepeatableVirtctlCommand("restart", "--namespace", vmObj.Namespace, vmObj.Name)
 				err = virtctl()
 				Expect(err).ToNot(HaveOccurred())
 
-				By("Verifying the VMI is running.")
+				By("Verifying the VMI is back up AFTER restart (in Running status with new UID).")
 				Eventually(func() bool {
-					vmi, err = virtClient.VirtualMachineInstance(vm_obj.Namespace).Get(vm_obj.Name, &k8smetav1.GetOptions{})
+					vmi, err = virtClient.VirtualMachineInstance(vmObj.Namespace).Get(vmObj.Name, &k8smetav1.GetOptions{})
 					Expect(err).ToNot(HaveOccurred())
-					return vmi.Status.Phase == v1.Running
+					vmiUIdAfterRestart := vmi.GetObjectMeta().GetUID()
+					newUId := (vmiUIdAfterRestart != vmiUIdBeforeRestart)
+					return ((vmi.Status.Phase == v1.Running) && (newUId))
 				}, 120*time.Second, 1*time.Second).Should(BeTrue())
 
 				By("Creating a TCP server on the VM.")
 				generateHelloWorldServer(vmi, virtClient, testPort, "tcp")
 
 				By("Repeating the sequence as prior to restarting the VM: Connect to exposed ClusterIP service.")
-				By("Getting back the service's allocated cluster IP.")
-				svc, err = virtClient.CoreV1().Services(vm_obj.Namespace).Get(serviceName, k8smetav1.GetOptions{})
-				Expect(err).ToNot(HaveOccurred())
-				serviceIP = svc.Spec.ClusterIP
-
 				By("Starting a pod which tries to reach the VMI via ClusterIP.")
 				job = tests.NewHelloWorldJob(serviceIP, servicePort)
-				job, err = virtClient.CoreV1().Pods(vm_obj.Namespace).Create(job)
+				job, err = virtClient.CoreV1().Pods(vmObj.Namespace).Create(job)
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Waiting for the pod to report a successful connection attempt.")
