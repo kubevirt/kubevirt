@@ -214,9 +214,9 @@ var _ = Describe("Template", func() {
 					Spec: v1.VirtualMachineInstanceSpec{
 						Domain: v1.DomainSpec{},
 						Networks: []v1.Network{
-							{Name: "{\"domain\":\"default-domain\", \"project\": \"k8s-default\",\"name\":\"bla\"}",
+							{Name: "net1",
 								NetworkSource: v1.NetworkSource{
-									Tungstenfabric: &v1.CniNetwork{NetworkName: "{\"domain\":\"default-domain\", \"project\": \"k8s-default\",\"name\":\"bla\"}"},
+									Tungstenfabric: &v1.CniNetwork{NetworkName: "{\"domain\":\"default-domain\", \"project\": \"k8s-default\",\"name\":\"test1\"}"},
 								}},
 						},
 					},
@@ -226,7 +226,7 @@ var _ = Describe("Template", func() {
 				Expect(err).ToNot(HaveOccurred())
 				value, ok := pod.Annotations["opencontrail.org/network"]
 				Expect(ok).To(Equal(true))
-				Expect(value).To(Equal("{\"domain\":\"default-domain\", \"project\": \"k8s-default\",\"name\":\"bla\"}"))
+				Expect(value).To(Equal("{\"domain\":\"default-domain\", \"project\": \"k8s-default\",\"name\":\"test1\"}"))
 			})
 		})
 		Context("with node selectors", func() {

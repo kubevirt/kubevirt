@@ -1017,8 +1017,7 @@ var _ = Describe("Converter", func() {
 			Expect(domain).ToNot(Equal(nil))
 			Expect(domain.Spec.Devices.Interfaces).To(HaveLen(1))
 			Expect(vmi.Spec.Networks[0].Tungstenfabric).ToNot(Equal(nil))
-			//Expect(domain.Spec.Devices.Interfaces[0].Source.Bridge).To(Equal("k6t-eth0"))
-			//Expect(domain.Spec.Devices.Interfaces[1].Source.Bridge).To(Equal("k6t-eth1"))
+			Expect(domain.Spec.Devices.Interfaces[0].Source.Bridge).To(Equal("k6t-eth0"))
 		})
 		It("should allow setting boot order", func() {
 			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
