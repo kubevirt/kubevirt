@@ -47,7 +47,7 @@ _kubectl get vmis --all-namespaces -o=custom-columns=NAME:.metadata.name,NAMESPA
     _kubectl patch vmi $name -n $namespace --type=json -p '[{ "op": "remove", "path": "/metadata/finalizers" }]'
 done
 
-# Delete Namespaces created by us. 
+# Delete Namespaces created by us.
 managed_namespaces=(${namespace} ${cdi_namespace})
 
 # Delete all traces of kubevirt
