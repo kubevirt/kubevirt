@@ -12,8 +12,8 @@
 #See the License for the specific language governing permissions and
 #limitations under the License.
 
-.PHONY: build build-controller build-importer build-cloner build-apiserver build-uploadproxy build-uploadserver build-functest-image-init build-functest-image-http build-functest \
-		docker docker-controller docker-cloner docker-importer docker-apiserver docker-uploadproxy docker-uploadserver docker-functest-image-init docker-functest-image-http\
+.PHONY: build build-controller build-importer build-cloner build-apiserver build-uploadproxy build-uploadserver build-operator build-functest-image-init build-functest-image-http build-functest-registry-init  build-func-test-registry-populate  build-functest \
+		docker docker-controller docker-cloner docker-importer docker-apiserver docker-uploadproxy docker-uploadserver docker-operator docker-functest-image-init docker-functest-image-http docker-functest-registry-populate docker-functest-registry docker-functest-registry-init \
 		cluster-sync cluster-sync-controller cluster-sync-cloner cluster-sync-importer cluster-sync-apiserver cluster-sync-uploadproxy cluster-sync-uploadserver \
 		test test-functional test-unit test-lint \
 		publish \
@@ -41,11 +41,14 @@ generate:
 generate-verify:
 	${DO} "./hack/verify-codegen.sh"
 
+deps-update:
+	${DO} "glide cc && glide update --strip-vendor"
+
 apidocs:
 	${DO} "./hack/update-codegen.sh && ./hack/gen-swagger-doc/gen-swagger-docs.sh v1alpha1 html"
 
 build:
-	${DO} "./hack/build/build-go.sh clean && ./hack/build/build-go.sh build ${WHAT} && ./hack/build/build-cdi-func-test-file-host.sh && DOCKER_REPO=${DOCKER_REPO} DOCKER_TAG=${DOCKER_TAG} VERBOSITY=${VERBOSITY} PULL_POLICY=${PULL_POLICY} ./hack/build/build-manifests.sh ${WHAT} && ./hack/build/build-copy-artifacts.sh ${WHAT}"
+	${DO} "./hack/build/build-go.sh clean && ./hack/build/build-go.sh build ${WHAT} && ./hack/build/build-cdi-func-test-file-host.sh && ./hack/build/build-cdi-func-test-registry-host.sh && DOCKER_REPO=${DOCKER_REPO} DOCKER_TAG=${DOCKER_TAG} VERBOSITY=${VERBOSITY} PULL_POLICY=${PULL_POLICY} ./hack/build/build-manifests.sh ${WHAT} && ./hack/build/build-copy-artifacts.sh ${WHAT}"
 
 build-controller: WHAT = cmd/cdi-controller
 build-controller: build
@@ -59,6 +62,8 @@ build-uploadserver: WHAT = cmd/cdi-uploadserver
 build-uploadserver: build
 build-cloner: WHAT = cmd/cdi-cloner
 build-cloner: build
+build-operator: WHAT = cmd/cdi-operator
+build-operator: build
 build-functest-image-init: WHAT = tools/cdi-func-test-file-host-init
 build-functest-image-init:
 build-functest:
@@ -96,13 +101,23 @@ docker-uploadproxy: WHAT = cmd/cdi-uploadproxy
 docker-uploadproxy: docker
 docker-uploadserver: WHAT = cmd/cdi-uploadserver
 docker-uploadserver: docker
+docker-operator: WHAT = cmd/cdi-operator
+docker-operator: docker
 
-docker-functest-image: docker-functest-image-http docker-functest-image-init
+docker-functest-image: docker-functest-image-http docker-functest-image-init docker-functest-registry-init docker-functest-registry-populate docker-functest-registry
 docker-functest-image-init: WHAT = tools/cdi-func-test-file-host-init
 docker-functest-image-init: docker
 docker-functest-image-http: WHAT = tools/cdi-func-test-file-host-http
 docker-functest-image-http: # no code to compile, just build image
 	./hack/build/build-cdi-func-test-file-host.sh && ./hack/build/build-docker.sh build ${WHAT}
+docker-functest-registry-init: WHAT = tools/cdi-func-test-registry-init
+docker-functest-registry-init: docker
+docker-functest-registry-populate: WHAT = tools/cdi-func-test-registry-populate
+docker-functest-registry-populate: # no code to compile, just build image
+	./hack/build/build-cdi-func-test-registry-host.sh && ./hack/build/build-docker.sh build ${WHAT}
+docker-functest-registry: WHAT = tools/cdi-func-test-registry
+docker-functest-registry: # no code to compile, just build image
+	./hack/build/build-cdi-func-test-registry-host.sh && ./hack/build/build-docker.sh build ${WHAT}
 
 push: docker
 	./hack/build/build-docker.sh push ${WHAT}
@@ -119,6 +134,8 @@ push-uploadproxy: WHAT = cmd/cdi-uploadproxy
 push-uploadproxy: push
 push-uploadserver: WHAT = cmd/cdi-uploadserver
 push-uploadserver: push
+push-operator: WHAT = cmd/cdi-operator
+push-operator: push
 
 publish: docker
 	./hack/build/build-docker.sh publish ${WHAT}
@@ -147,8 +164,8 @@ cluster-down:
 cluster-clean:
 	./cluster/clean.sh
 
-cluster-sync: cluster-clean build ${WHAT}
-	./cluster/sync.sh ${WHAT}
+cluster-sync: cluster-clean
+	./cluster/sync.sh
 
 cluster-sync-controller: WHAT = cmd/cdi-controller
 cluster-sync-controller: cluster-sync
@@ -168,4 +185,5 @@ functest:
 
 functest-image-host: WHAT=tools/cdi-func-test-file-host-init
 functest-image-host:  manifests build
-	${DO} ./hack/build/build-cdi-func-test-file-host.sh && ./hack/build/build-docker.sh "tools/cdi-func-test-file-host-init tools/cdi-func-test-file-host-http"
+	${DO} ./hack/build/build-cdi-func-test-file-host.sh && ./hack/build/build-docker.sh "tools/cdi-func-test-file-host-init tools/cdi-func-test-file-host-http tools/cdi-func-test-registry-init tools/cdi-func-test-registry tools/cdi-func-test-registry-populate"
+

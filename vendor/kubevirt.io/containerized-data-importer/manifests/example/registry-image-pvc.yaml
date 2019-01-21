@@ -1,0 +1,17 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: "registry-image-pvc"
+  labels:
+    app: containerized-data-importer
+  annotations:
+    cdi.kubevirt.io/storage.import.source: "registry"
+    cdi.kubevirt.io/storage.import.endpoint: "docker://docker.io/cirros"
+spec:
+  accessModes:
+  - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi
+  # Optional: Set the storage class or omit to accept the default
+  storageClassName: local

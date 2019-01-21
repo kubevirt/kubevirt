@@ -1,0 +1,15 @@
+apiVersion: cdi.kubevirt.io/v1alpha1
+kind: DataVolume
+metadata:
+  name: import-archive-datavolume
+spec:
+  source:
+      http:
+         url: "http://geolite.maxmind.com/download/geoip/database/GeoLite2-Country.tar.gz" #This url is just an example. You should change this to your destination url
+  contentType: archive
+  pvc:
+    accessModes:
+      - ReadWriteOnce
+    resources:
+      requests:
+        storage: 500Mi
