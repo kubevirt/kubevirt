@@ -890,6 +890,7 @@ func Convert_v1_VirtualMachine_To_api_Domain(vmi *v1.VirtualMachineInstance, dom
 			cniNetworks[network.Name] = len(cniNetworks)
 			numberOfSources++
 		}
+		log.Log.Infof("network: %s", network)
 		if numberOfSources == 0 {
 			return fmt.Errorf("fail network %s must have a network type", network.Name)
 		} else if numberOfSources > 1 {
