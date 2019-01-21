@@ -45,6 +45,7 @@ const (
 	ConditionReasonDeploymentFailedExisting = "ExistingDeployment"
 	ConditionReasonDeploymentFailedError    = "DeploymentFailed"
 	ConditionReasonDeletionFailedError      = "DeletionFailed"
+	ConditionReasonDeploymentCreated        = "AllResourcesCreated"
 )
 
 type KubeVirtController struct {
@@ -460,18 +461,20 @@ func (c *KubeVirtController) syncDeployment(kv *v1.KubeVirt) error {
 	if err != nil {
 		// deployment failed
 		util.UpdateCondition(kv, v1.KubeVirtConditionSynchronized, k8sv1.ConditionFalse, ConditionReasonDeploymentFailedError, fmt.Sprintf("An error occurred during deployment: %v", err))
-		if err != nil {
-			logger.Errorf("Failed to set condition: %v", err)
-		}
+
+		logger.Errorf("Failed to create all resources: %v", err)
 		return err
 	}
 
 	if objectsAdded == 0 {
 		// deployment successful
 		kv.Status.Phase = v1.KubeVirtPhaseDeployed
-		kv.Status.Conditions = []v1.KubeVirtCondition{}
 
-		logger.Info("KubeVirt deployed")
+		// remove old conditions, add Created condition
+		kv.Status.Conditions = []v1.KubeVirtCondition{}
+		util.UpdateCondition(kv, v1.KubeVirtConditionCreated, k8sv1.ConditionTrue, ConditionReasonDeploymentCreated, "All resources were created.")
+
+		logger.Info("All KubeVirt resources created")
 		return nil
 	}
 
@@ -503,7 +506,11 @@ func (c *KubeVirtController) syncDeletion(kv *v1.KubeVirt) error {
 
 		// deletion successful
 		kv.Status.Phase = v1.KubeVirtPhaseDeleted
+
+		// remove conditions
 		kv.Status.Conditions = []v1.KubeVirtCondition{}
+
+		// remove finalizer
 		kv.Finalizers = []string{}
 
 		logger.Info("KubeVirt deleted")
