@@ -189,9 +189,10 @@ var _ = Describe("ContainerDisk", func() {
 
 				_, err = expecter.ExpectBatch([]expect.Batcher{
 					// mount virtio cdrom and check files are there
-					&expect.BSnd{S: "mount -t iso9600 /dev/cdrom /mnt\n"},
+					&expect.BSnd{S: "mount -t iso9600 /dev/cdrom\n"},
 					&expect.BSnd{S: "echo $?\n"},
 					&expect.BExp{R: "0"},
+					&expect.BSnd{S: "cd /media/cdrom\n"},
 					&expect.BSnd{S: "ls virtio-win_license.txt guest-agent\n"},
 					&expect.BSnd{S: "echo $?\n"},
 					&expect.BExp{R: "0"},
