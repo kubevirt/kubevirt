@@ -1,5 +1,5 @@
-hash: 4742a0a6fe3324f0c963fdbd0577903acf5d7ae512291f455eba7f54384683d0
-updated: 2019-01-18T10:05:14.734869994-05:00
+hash: bdeabcb8eff48caf2f7bf9bf8f63cc6172aebf44e79fb08db3cff0daa884cf47
+updated: 2019-01-21T17:07:35.963859905Z
 imports:
 - name: cloud.google.com/go
   version: 3b1ae45394a234c385be014e9a488f2bb6eef821
@@ -97,7 +97,7 @@ imports:
   subpackages:
   - lru
 - name: github.com/golang/mock
-  version: e698a2ea17fee71b248fc2bba82fc544c2017f93
+  version: c20582278a829e4b3259747a3ce0eceb1763ee13
   subpackages:
   - gomock
 - name: github.com/golang/protobuf
@@ -216,7 +216,7 @@ imports:
   - reporters/stenographer/support/go-isatty
   - types
 - name: github.com/onsi/gomega
-  version: ce690c543be4c3e5be441840219220f9ff1e8be1
+  version: 5533ce8a0da374da682cd53d70ddcc54adf1a710
   subpackages:
   - format
   - ghttp
@@ -233,7 +233,7 @@ imports:
   - matchers/support/goraph/util
   - types
 - name: github.com/openshift/api
-  version: 1615e2872f0a7b95dacff0c429037e43a78f67a8
+  version: 5ad8479f64f1b60ee9c62ce8ef1fe6638838725e
   subpackages:
   - security/v1
 - name: github.com/openshift/client-go
@@ -252,7 +252,7 @@ imports:
   - prometheus
   - prometheus/promhttp
 - name: github.com/prometheus/client_model
-  version: f287a105a20ec685d797f65cd0ce8fbeaef42da1
+  version: 56726106282f1985ea77d5305743db7231b0c0a8
   subpackages:
   - go
 - name: github.com/prometheus/common
