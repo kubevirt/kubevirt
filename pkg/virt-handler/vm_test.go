@@ -633,10 +633,11 @@ var _ = Describe("VirtualMachineInstance", func() {
 			vmi.Status.NodeName = host
 			vmi.Labels[v1.MigrationTargetNodeNameLabel] = "othernode"
 			vmi.Status.MigrationState = &v1.VirtualMachineInstanceMigrationState{
-				TargetNode:        "othernode",
-				TargetNodeAddress: "127.0.0.1:12345",
-				SourceNode:        host,
-				MigrationUID:      "123",
+				TargetNode:                     "othernode",
+				TargetNodeAddress:              "127.0.0.1:12345",
+				SourceNode:                     host,
+				MigrationUID:                   "123",
+				TargetDirectMigrationNodePorts: map[int]int{49152: 12132},
 			}
 			vmi.Status.Conditions = []v1.VirtualMachineInstanceCondition{
 				{
@@ -652,7 +653,6 @@ var _ = Describe("VirtualMachineInstance", func() {
 			vmiFeeder.Add(vmi)
 
 			client.EXPECT().MigrateVirtualMachine(vmi)
-
 			controller.Execute()
 		}, 3)
 

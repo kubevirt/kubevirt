@@ -255,12 +255,7 @@ func (l *LibvirtDomainManager) asyncMigrate(vmi *v1.VirtualMachineInstance) {
 
 		// For a tunnelled migration, this is always the uri
 		dstUri := "qemu+tcp://127.0.0.1:22222/system"
-
-		destConn, err := libvirt.NewConnect(dstUri)
-		if err != nil {
-			log.Log.Object(vmi).Reason(err).Error("Failed to establish connection with target pod's libvirtd for migration.")
-			return
-		}
+		migrUri := "tcp://127.0.0.1"
 
 		domName := api.VMINamespaceKeyFunc(vmi)
 		dom, err := l.virConn.LookupDomainByName(domName)
@@ -275,7 +270,12 @@ func (l *LibvirtDomainManager) asyncMigrate(vmi *v1.VirtualMachineInstance) {
 			isBlockMigration = true
 		}
 		migrateFlags := prepateMigrationFlags(isBlockMigration)
-		_, err = dom.Migrate(destConn, migrateFlags, "", "", 0)
+
+		params := &libvirt.DomainMigrateParameters{
+			URI:    migrUri,
+			URISet: true,
+		}
+		err = dom.MigrateToURI3(dstUri, params, migrateFlags)
 		if err != nil {
 
 			log.Log.Object(vmi).Reason(err).Error("Live migration failed.")
