@@ -37,8 +37,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/validation"
 	k8sfield "k8s.io/apimachinery/pkg/util/validation/field"
-	k8sutilfeature "k8s.io/apiserver/pkg/util/feature"
-	k8sfeatures "k8s.io/kubernetes/pkg/features"
 
 	v1 "kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/log"
@@ -1626,26 +1624,9 @@ func ServeMigrationUpdate(resp http.ResponseWriter, req *http.Request) {
 func validateDNSPolicy(dnsPolicy *k8sv1.DNSPolicy, field *k8sfield.Path) []metav1.StatusCause {
 	var causes []metav1.StatusCause
 	switch *dnsPolicy {
-	case k8sv1.DNSClusterFirstWithHostNet, k8sv1.DNSClusterFirst, k8sv1.DNSDefault:
-	case k8sv1.DNSNone:
-		if !k8sutilfeature.DefaultFeatureGate.Enabled(k8sfeatures.CustomPodDNS) {
-			causes = append(causes, metav1.StatusCause{
-				Type:    metav1.CauseTypeFieldValueInvalid,
-				Message: fmt.Sprintf("DNSPolicy: can not use 'None', custom pod DNS is disabled by feature gate"),
-				Field:   field.String(),
-			})
-		}
-	case "":
-		causes = append(causes, metav1.StatusCause{
-			Type:    metav1.CauseTypeFieldValueRequired,
-			Message: fmt.Sprintf("DNSPolicy: value required"),
-			Field:   field.String(),
-		})
+	case k8sv1.DNSClusterFirstWithHostNet, k8sv1.DNSClusterFirst, k8sv1.DNSDefault, k8sv1.DNSNone, "":
 	default:
-		validValues := []string{string(k8sv1.DNSClusterFirstWithHostNet), string(k8sv1.DNSClusterFirst), string(k8sv1.DNSDefault)}
-		if k8sutilfeature.DefaultFeatureGate.Enabled(k8sfeatures.CustomPodDNS) {
-			validValues = append(validValues, string(k8sv1.DNSNone))
-		}
+		validValues := []string{string(k8sv1.DNSClusterFirstWithHostNet), string(k8sv1.DNSClusterFirst), string(k8sv1.DNSDefault), string(k8sv1.DNSNone), ""}
 		causes = append(causes, metav1.StatusCause{
 			Type:    metav1.CauseTypeFieldValueNotSupported,
 			Message: fmt.Sprintf("DNSPolicy: %s is not supported, valid values: %s", *dnsPolicy, validValues),
@@ -1660,7 +1641,7 @@ func validatePodDNSConfig(dnsConfig *k8sv1.PodDNSConfig, dnsPolicy *k8sv1.DNSPol
 	var causes []metav1.StatusCause
 
 	// Validate DNSNone case. Must provide at least one DNS name server.
-	if k8sutilfeature.DefaultFeatureGate.Enabled(k8sfeatures.CustomPodDNS) && dnsPolicy != nil && *dnsPolicy == k8sv1.DNSNone {
+	if dnsPolicy != nil && *dnsPolicy == k8sv1.DNSNone {
 		if dnsConfig == nil {
 			causes = append(causes, metav1.StatusCause{
 				Type:    metav1.CauseTypeFieldValueRequired,
@@ -1678,14 +1659,6 @@ func validatePodDNSConfig(dnsConfig *k8sv1.PodDNSConfig, dnsPolicy *k8sv1.DNSPol
 	}
 
 	if dnsConfig != nil {
-		if !k8sutilfeature.DefaultFeatureGate.Enabled(k8sfeatures.CustomPodDNS) {
-			causes = append(causes, metav1.StatusCause{
-				Type:    metav1.CauseTypeFieldValueInvalid,
-				Message: fmt.Sprintf("DNSConfig: custom pod DNS is disabled by feature gate"),
-				Field:   field.String(),
-			})
-		}
-
 		// Validate nameservers.
 		if len(dnsConfig.Nameservers) > maxDNSNameservers {
 			causes = append(causes, metav1.StatusCause{
