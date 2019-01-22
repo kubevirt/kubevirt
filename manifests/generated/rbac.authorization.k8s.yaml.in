@@ -441,7 +441,6 @@ rules:
   - ""
   resources:
   - nodes
-  - events
   verbs:
   - patch
 - apiGroups:
