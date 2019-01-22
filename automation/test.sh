@@ -240,7 +240,7 @@ spec:
   nfs:
     server: "nfs"
     path: /
-  storageClassName: local
+  storageClassName: windows
 EOF
   # Run only Windows tests
   ginko_params="$ginko_params --ginkgo.focus=Windows"
@@ -269,7 +269,7 @@ spec:
   nfs:
     server: "nfs"
     path: /
-  storageClassName: local
+  storageClassName: rhel
 EOF
 fi
 

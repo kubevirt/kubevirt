@@ -135,11 +135,11 @@ const (
 )
 
 const (
-	LocalStorageClass = "local"
-
-	HostPathStorageClass = "host-path"
-
-	BlockVolumeStorageClass = "block-volume"
+	StorageClassLocal       = "local"
+	StorageClassHostPath    = "host-path"
+	StorageClassBlockVolume = "block-volume"
+	StorageClassRhel        = "rhel"
+	StorageClassWindows     = "windows"
 )
 
 var testNamespaces = []string{NamespaceTestDefault, NamespaceTestAlternative}
@@ -464,8 +464,8 @@ func BeforeTestSuitSetup() {
 	CreateHostPathPv(osAlpineHostPath, HostPathAlpine)
 	CreateHostPathPVC(osAlpineHostPath, defaultDiskSize)
 
-	CreateLocalPVC(osWindows, defaultWindowsDiskSize)
-	CreateLocalPVC(osRhel, defaultRhelDiskSize)
+	CreatePVC(osWindows, defaultWindowsDiskSize, StorageClassWindows)
+	CreatePVC(osRhel, defaultRhelDiskSize, StorageClassRhel)
 
 	EnsureKVMPresent()
 
@@ -540,11 +540,7 @@ func CreateSecret(name string, data map[string]string) {
 }
 
 func CreateHostPathPVC(os, size string) {
-	CreatePVC(os, size, HostPathStorageClass)
-}
-
-func CreateLocalPVC(os, size string) {
-	CreatePVC(os, size, LocalStorageClass)
+	CreatePVC(os, size, StorageClassHostPath)
 }
 
 func CreatePVC(os, size, storageClass string) {
@@ -615,7 +611,7 @@ func CreateHostPathPvWithSize(osName string, hostPath string, size string) {
 					Type: &hostPathType,
 				},
 			},
-			StorageClassName: HostPathStorageClass,
+			StorageClassName: StorageClassHostPath,
 			NodeAffinity: &k8sv1.VolumeNodeAffinity{
 				Required: &k8sv1.NodeSelector{
 					NodeSelectorTerms: []k8sv1.NodeSelectorTerm{
@@ -1498,7 +1494,7 @@ func newBlockVolumePV(name string, labelSelector map[string]string, size string)
 	quantity, err := resource.ParseQuantity(size)
 	PanicOnError(err)
 
-	storageClass := BlockVolumeStorageClass
+	storageClass := StorageClassBlockVolume
 	volumeMode := k8sv1.PersistentVolumeBlock
 
 	// Note: the path depends on kubevirtci!
@@ -1544,7 +1540,7 @@ func newBlockVolumePVC(name string, labelSelector map[string]string, size string
 	quantity, err := resource.ParseQuantity(size)
 	PanicOnError(err)
 
-	storageClass := BlockVolumeStorageClass
+	storageClass := StorageClassBlockVolume
 	volumeMode := k8sv1.PersistentVolumeBlock
 
 	return &k8sv1.PersistentVolumeClaim{
@@ -2654,7 +2650,7 @@ func newISCSIPV(name string, size string, iscsiTargetIP string) *k8sv1.Persisten
 	quantity, err := resource.ParseQuantity(size)
 	PanicOnError(err)
 
-	storageClass := LocalStorageClass
+	storageClass := StorageClassLocal
 	volumeMode := k8sv1.PersistentVolumeBlock
 
 	return &k8sv1.PersistentVolume{
@@ -2688,7 +2684,7 @@ func newISCSIPVC(name string, size string) *k8sv1.PersistentVolumeClaim {
 	quantity, err := resource.ParseQuantity(size)
 	PanicOnError(err)
 
-	storageClass := LocalStorageClass
+	storageClass := StorageClassLocal
 	volumeMode := k8sv1.PersistentVolumeBlock
 
 	return &k8sv1.PersistentVolumeClaim{
@@ -2911,17 +2907,18 @@ func KubevirtFailHandler(message string, callerSkip ...int) {
 
 		for _, pod := range allPods {
 			fmt.Printf("\nPod name: %s\t Pod phase: %s\n\n", pod.Name, pod.Status.Phase)
+			data, err := ghodssyaml.Marshal(pod)
+			if err != nil {
+				log.DefaultLogger().Reason(err).Errorf("Failed to marshal pod %s", pod.Name)
+				continue
+			}
+			fmt.Println(string(data))
+
 			var tailLines int64 = 15
 			var containerName = ""
 			if strings.HasPrefix(pod.Name, "virt-launcher") {
 				tailLines = 45
 				containerName = "compute"
-				data, err := ghodssyaml.Marshal(pod)
-				if err != nil {
-					log.DefaultLogger().Reason(err).Errorf("Failed to marshal pod %s", pod.Name)
-					continue
-				}
-				fmt.Println(string(data))
 			}
 			logsRaw, err := virtClient.CoreV1().Pods(ns).GetLogs(
 				pod.Name, &k8sv1.PodLogOptions{
@@ -2949,6 +2946,38 @@ func KubevirtFailHandler(message string, callerSkip ...int) {
 			}
 			fmt.Println(string(data))
 		}
+
+		pvcs, err := virtClient.CoreV1().PersistentVolumeClaims(ns).List(metav1.ListOptions{})
+		if err != nil {
+			fmt.Println(err)
+			Fail(message, callerSkip...)
+			return
+		}
+
+		for _, pvc := range pvcs.Items {
+			data, err := ghodssyaml.Marshal(pvc)
+			if err != nil {
+				log.DefaultLogger().Reason(err).Errorf("Failed to marshal pvc %s", pvc.Name)
+				continue
+			}
+			fmt.Println(string(data))
+		}
+	}
+
+	pvs, err := virtClient.CoreV1().PersistentVolumes().List(metav1.ListOptions{})
+	if err != nil {
+		fmt.Println(err)
+		Fail(message, callerSkip...)
+		return
+	}
+
+	for _, pv := range pvs.Items {
+		data, err := ghodssyaml.Marshal(pv)
+		if err != nil {
+			log.DefaultLogger().Reason(err).Errorf("Failed to marshal pvc %s", pv.Name)
+			continue
+		}
+		fmt.Println(string(data))
 	}
 	Fail(message, callerSkip...)
 }
