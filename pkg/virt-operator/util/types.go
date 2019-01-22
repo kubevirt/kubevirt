@@ -62,7 +62,6 @@ type Expectations struct {
 	Service            *controller.UIDTrackingControllerExpectations
 	Deployment         *controller.UIDTrackingControllerExpectations
 	DaemonSet          *controller.UIDTrackingControllerExpectations
-	ReadyCheck         *controller.ControllerExpectations
 }
 
 type Informers struct {

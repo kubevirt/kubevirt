@@ -519,7 +519,7 @@ var _ = Describe("KubeVirt Operator", func() {
 			controller.Execute()
 		})
 
-		It("should do nothing if KubeVirt object is deployed and ready", func() {
+		It("should do nothing if KubeVirt object is deployed", func() {
 			kv := &v1.KubeVirt{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "test-install",
@@ -527,11 +527,6 @@ var _ = Describe("KubeVirt Operator", func() {
 				},
 				Status: v1.KubeVirtStatus{
 					Phase: v1.KubeVirtPhaseDeployed,
-					Conditions: []v1.KubeVirtCondition{
-						{
-							Type: v1.KubeVirtConditionReady,
-						},
-					},
 				},
 			}
 

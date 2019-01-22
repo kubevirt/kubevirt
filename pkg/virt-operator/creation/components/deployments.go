@@ -44,13 +44,6 @@ func CreateControllers(clientset kubecli.KubevirtClient, kv *virtv1.KubeVirt, co
 		return 0, err
 	}
 
-	_, exists, err := expectations.ReadyCheck.GetExpectations(kvkey)
-	if err != nil {
-		return 0, err
-	} else if !exists {
-		expectations.ReadyCheck.SetExpectations(kvkey, 0, 0)
-	}
-
 	services := []*corev1.Service{
 		NewPrometheusService(kv.Namespace),
 		NewApiServerService(kv.Namespace),
@@ -87,11 +80,9 @@ func CreateControllers(clientset kubecli.KubevirtClient, kv *virtv1.KubeVirt, co
 	for _, deployment := range deployments {
 		if _, exists, _ := stores.DeploymentCache.Get(deployment); !exists {
 			expectations.Deployment.RaiseExpectations(kvkey, 1, 0)
-			expectations.ReadyCheck.RaiseExpectations(kvkey, 1, 0)
 			_, err := apps.Deployments(kv.Namespace).Create(deployment)
 			if err != nil {
 				expectations.Deployment.LowerExpectations(kvkey, 1, 0)
-				expectations.ReadyCheck.LowerExpectations(kvkey, 1, 0)
 				return objectsAdded, fmt.Errorf("unable to create deployment %+v: %v", deployment, err)
 			} else if err == nil {
 				objectsAdded++
@@ -108,11 +99,9 @@ func CreateControllers(clientset kubecli.KubevirtClient, kv *virtv1.KubeVirt, co
 
 	if _, exists, _ := stores.DaemonSetCache.Get(handler); !exists {
 		expectations.DaemonSet.RaiseExpectations(kvkey, 1, 0)
-		expectations.ReadyCheck.RaiseExpectations(kvkey, 1, 0)
 		_, err = apps.DaemonSets(kv.Namespace).Create(handler)
 		if err != nil {
 			expectations.DaemonSet.LowerExpectations(kvkey, 1, 0)
-			expectations.ReadyCheck.LowerExpectations(kvkey, 1, 0)
 			return objectsAdded, fmt.Errorf("unable to create daemonset %+v: %v", handler, err)
 		} else if err == nil {
 			objectsAdded++

@@ -85,7 +85,6 @@ func NewKubeVirtController(
 			Service:            controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectationsWithName("Service")),
 			Deployment:         controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectationsWithName("Deployment")),
 			DaemonSet:          controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectationsWithName("DaemonSet")),
-			ReadyCheck:         controller.NewControllerExpectationsWithName("ReadyConditions"),
 		},
 	}
 
@@ -256,28 +255,9 @@ func (c *KubeVirtController) genericUpdateHandler(old, cur interface{}, expecter
 
 	key, err := c.getKubeVirtKey()
 	if key != "" && err == nil {
-		c.checkReadiness(oldObj, curObj, key)
 		c.queue.Add(key)
 	}
 	return
-}
-
-// Track when a deployment or daemonset is getting ready
-func (c *KubeVirtController) checkReadiness(oldObj, curObj metav1.Object, key string) {
-	// deployments and daemonset need to be ready
-	if deployment, ok := curObj.(*appsv1.Deployment); ok {
-		if deployment.Status.Replicas == deployment.Status.ReadyReplicas {
-			c.kubeVirtExpectations.ReadyCheck.CreationObserved(key)
-		}
-	}
-
-	if daemonset, ok := curObj.(*appsv1.DaemonSet); ok {
-		if daemonset.Status.DesiredNumberScheduled > 0 &&
-			daemonset.Status.DesiredNumberScheduled == daemonset.Status.NumberReady {
-
-			c.kubeVirtExpectations.ReadyCheck.CreationObserved(key)
-		}
-	}
 }
 
 // When an object is deleted, mark objects as deleted and wake up the kubevirt CR
@@ -445,7 +425,7 @@ func (c *KubeVirtController) syncDeployment(kv *v1.KubeVirt) error {
 	logger := log.Log.Object(kv)
 	logger.Infof("Handling deployment")
 
-	if kv.Status.Phase == v1.KubeVirtPhaseDeployed && util.HasCondition(kv, v1.KubeVirtConditionReady) {
+	if kv.Status.Phase == v1.KubeVirtPhaseDeployed {
 		logger.Info("Is already deployed and ready")
 		return nil
 	}
@@ -500,21 +480,38 @@ func (c *KubeVirtController) syncDeployment(kv *v1.KubeVirt) error {
 	}
 
 	// check if components are ready, but only if everything is created already
-	if util.HasCondition(kv, v1.KubeVirtConditionCreated) {
-		key, err := controller.KeyFunc(kv)
-		if err != nil {
-			logger.Reason(err).Error("error getting key, can't check readiness")
-			return err
-		} else if c.kubeVirtExpectations.ReadyCheck.SatisfiedExpectations(key) {
-			logger.Info("All KubeVirt components ready")
-			kv.Status.Phase = v1.KubeVirtPhaseDeployed
-			util.UpdateCondition(kv, v1.KubeVirtConditionReady, k8sv1.ConditionTrue, ConditionReasonDeploymentReady, "All components are ready.")
-			return nil
-		}
+	if util.HasCondition(kv, v1.KubeVirtConditionCreated) && c.isReady() {
+		logger.Info("All KubeVirt components ready")
+		kv.Status.Phase = v1.KubeVirtPhaseDeployed
+		util.UpdateCondition(kv, v1.KubeVirtConditionReady, k8sv1.ConditionTrue, ConditionReasonDeploymentReady, "All components are ready.")
+		return nil
 	}
 
 	logger.Info("Processed deployment for this round")
 	return nil
+}
+
+func (c *KubeVirtController) isReady() bool {
+
+	for _, obj := range c.stores.DeploymentCache.List() {
+		if deployment, ok := obj.(*appsv1.Deployment); ok {
+			if deployment.Status.Replicas != deployment.Status.ReadyReplicas {
+				return false
+			}
+		}
+	}
+
+	for _, obj := range c.stores.DaemonSetCache.List() {
+		if daemonset, ok := obj.(*appsv1.DaemonSet); ok {
+			if daemonset.Status.DesiredNumberScheduled == 0 ||
+				daemonset.Status.DesiredNumberScheduled != daemonset.Status.NumberReady {
+
+				return false
+			}
+		}
+	}
+
+	return true
 }
 
 func (c *KubeVirtController) syncDeletion(kv *v1.KubeVirt) error {
