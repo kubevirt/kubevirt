@@ -50,9 +50,15 @@ rules:
   resources:
   - virtualmachineinstances/console
   - virtualmachineinstances/vnc
-  - virtualmachines/restart
   verbs:
   - get
+- apiGroups:
+  - subresources.kubevirt.io
+  resources:
+  - virtualmachines/restart
+  verbs:
+  - put
+  - update
 - apiGroups:
   - kubevirt.io
   resources:
@@ -83,9 +89,15 @@ rules:
   resources:
   - virtualmachineinstances/console
   - virtualmachineinstances/vnc
-  - virtualmachines/restart
   verbs:
   - get
+- apiGroups:
+  - subresources.kubevirt.io
+  resources:
+  - virtualmachines/restart
+  verbs:
+  - put
+  - update
 - apiGroups:
   - kubevirt.io
   resources:
