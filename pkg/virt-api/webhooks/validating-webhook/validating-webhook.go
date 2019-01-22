@@ -1688,7 +1688,7 @@ func validatePodDNSConfig(dnsConfig *k8sv1.PodDNSConfig, dnsPolicy *k8sv1.DNSPol
 		if len(strings.Join(dnsConfig.Searches, " ")) > maxDNSSearchListChars {
 			causes = append(causes, metav1.StatusCause{
 				Type:    metav1.CauseTypeFieldValueInvalid,
-				Message: fmt.Sprintf("imust not have more than %v characters (including spaces) in the search list", maxDNSSearchListChars),
+				Message: fmt.Sprintf("must not have more than %v characters (including spaces) in the search list", maxDNSSearchListChars),
 				Field:   "searchDomains",
 			})
 		}

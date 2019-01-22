@@ -35,6 +35,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/intstr"
+	"k8s.io/apimachinery/pkg/util/validation"
 	k8sfield "k8s.io/apimachinery/pkg/util/validation/field"
 	"k8s.io/client-go/tools/cache"
 
@@ -1929,6 +1930,59 @@ var _ = Describe("Validating Webhook", func() {
 			Expect(len(causes)).To(Equal(1))
 			Expect(causes[0].Field).To(Equal("fake.domain.devices.interfaces[1].name"))
 		})
+		table.DescribeTable("Should accept valid DNSPolicy and DNSConfig",
+			func(dnsPolicy k8sv1.DNSPolicy, dnsConfig *k8sv1.PodDNSConfig) {
+				vmi := v1.NewMinimalVMI("testvmi")
+				vmi.Spec.DNSPolicy = dnsPolicy
+				vmi.Spec.DNSConfig = dnsConfig
+				causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec)
+				Expect(len(causes)).To(Equal(0))
+			},
+			table.Entry("with DNSPolicy ClusterFirstWithHostNet", k8sv1.DNSClusterFirstWithHostNet, &k8sv1.PodDNSConfig{}),
+			table.Entry("with DNSPolicy ClusterFirst", k8sv1.DNSClusterFirst, &k8sv1.PodDNSConfig{}),
+			table.Entry("with DNSPolicy Default", k8sv1.DNSDefault, &k8sv1.PodDNSConfig{}),
+			table.Entry("with DNSPolicy None and one nameserver", k8sv1.DNSNone, &k8sv1.PodDNSConfig{Nameservers: []string{"1.2.3.4"}}),
+			table.Entry("with DNSPolicy None max nameservers and max search domains", k8sv1.DNSNone, &k8sv1.PodDNSConfig{
+				Nameservers: []string{"1.2.3.4", "5.6.7.8", "9.8.0.1"},
+				Searches:    []string{"1", "2", "3", "4", "5", "6"},
+			}),
+			table.Entry("with DNSPolicy None max nameservers and max length search domain", k8sv1.DNSNone, &k8sv1.PodDNSConfig{
+				Nameservers: []string{"1.2.3.4", "5.6.7.8", "9.8.0.1"},
+				Searches:    []string{strings.Repeat("a", maxDNSSearchListChars/2), strings.Repeat("b", (maxDNSSearchListChars/2)-1)},
+			}),
+			table.Entry("with empty DNSPolicy", nil, nil),
+		)
+		table.DescribeTable("Should reject invalid DNSPolicy and DNSConfig",
+			func(dnsPolicy k8sv1.DNSPolicy, dnsConfig *k8sv1.PodDNSConfig, causeCount int, causeMessage []string) {
+				vmi := v1.NewMinimalVMI("testvmi")
+				vmi.Spec.DNSPolicy = dnsPolicy
+				vmi.Spec.DNSConfig = dnsConfig
+				causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec)
+				Expect(len(causes)).To(Equal(causeCount))
+				for i := 0; i < causeCount; i++ {
+					Expect(causes[i].Message).To(Equal(causeMessage[i]))
+				}
+			},
+			table.Entry("with invalid DNSPolicy FakePolicy", k8sv1.DNSPolicy("FakePolicy"), &k8sv1.PodDNSConfig{}, 1,
+				[]string{"DNSPolicy: FakePolicy is not supported, valid values: [ClusterFirstWithHostNet ClusterFirst Default None ]"}),
+			table.Entry("with DNSPolicy None and no nameserver", k8sv1.DNSNone, &k8sv1.PodDNSConfig{}, 1,
+				[]string{"must provide at least one DNS nameserver when `dnsPolicy` is None"}),
+			table.Entry("with DNSPolicy None and too many nameservers", k8sv1.DNSNone, &k8sv1.PodDNSConfig{
+				Nameservers: []string{"1.2.3.4", "5.6.7.8", "9.8.0.1", "2.3.4.5"},
+			}, 1, []string{"must not have more than 3 nameservers: [1.2.3.4 5.6.7.8 9.8.0.1 2.3.4.5]"}),
+			table.Entry("with DNSPolicy None and too many search domains", k8sv1.DNSNone, &k8sv1.PodDNSConfig{
+				Nameservers: []string{"1.2.3.4"},
+				Searches:    []string{"1", "2", "3", "4", "5", "6", "7"},
+			}, 1, []string{"must not have more than 6 search paths"}),
+			table.Entry("with DNSPolicy None and seach domain exceeding max length", k8sv1.DNSNone, &k8sv1.PodDNSConfig{
+				Nameservers: []string{"1.2.3.4"},
+				Searches:    []string{strings.Repeat("a", maxDNSSearchListChars/2), strings.Repeat("b", (maxDNSSearchListChars / 2))},
+			}, 1, []string{fmt.Sprintf("must not have more than %v characters (including spaces) in the search list", maxDNSSearchListChars)}),
+			table.Entry("with DNSPolicy None and bad IsDNS1123Subdomain", k8sv1.DNSNone, &k8sv1.PodDNSConfig{
+				Nameservers: []string{"1.2.3.4"},
+				Searches:    []string{strings.Repeat("a", validation.DNS1123SubdomainMaxLength+1)},
+			}, 1, []string{fmt.Sprintf("must be no more than %v characters", validation.DNS1123SubdomainMaxLength)}),
+		)
 	})
 	Context("with cpu pinning", func() {
 		var vmi *v1.VirtualMachineInstance
