@@ -63,6 +63,7 @@ func main() {
 		all = append(all, rbac.GetAllCluster(*namespace)...)
 		all = append(all, rbac.GetAllApiServer(*namespace)...)
 		all = append(all, rbac.GetAllController(*namespace)...)
+		all = append(all, rbac.GetAllHandler(*namespace)...)
 		for _, r := range all {
 			util.MarshallObject(r, os.Stdout)
 		}
