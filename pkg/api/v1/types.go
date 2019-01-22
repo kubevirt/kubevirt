@@ -1068,6 +1068,8 @@ type KubeVirtConditionType string
 
 // These are the valid KubeVirt condition types
 const (
-	// Whether the deployment or deletion was successful
-	KubeVirtConditionSynchronized KubeVirtConditionType = "KubeVirtSynchronized"
+	// Whether the deployment or deletion was successful (only used if false)
+	KubeVirtConditionSynchronized KubeVirtConditionType = "Synchronized"
+	// Whether all resources were created
+	KubeVirtConditionCreated KubeVirtConditionType = "Created"
 )
