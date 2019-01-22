@@ -87,6 +87,11 @@ func getCondition(kv *virtv1.KubeVirt, conditionType virtv1.KubeVirtConditionTyp
 	return condition, true
 }
 
+func HasCondition(kv *virtv1.KubeVirt, conditionType virtv1.KubeVirtConditionType) bool {
+	_, isNew := getCondition(kv, conditionType)
+	return !isNew
+}
+
 func AddFinalizer(kv *virtv1.KubeVirt) {
 	if !hasFinalizer(kv) {
 		kv.Finalizers = append(kv.Finalizers, KubeVirtFinalizer)

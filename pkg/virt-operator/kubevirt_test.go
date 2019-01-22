@@ -519,7 +519,7 @@ var _ = Describe("KubeVirt Operator", func() {
 			controller.Execute()
 		})
 
-		It("should do nothing if KubeVirt object is deployed", func() {
+		It("should do nothing if KubeVirt object is deployed and ready", func() {
 			kv := &v1.KubeVirt{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "test-install",
@@ -527,6 +527,11 @@ var _ = Describe("KubeVirt Operator", func() {
 				},
 				Status: v1.KubeVirtStatus{
 					Phase: v1.KubeVirtPhaseDeployed,
+					Conditions: []v1.KubeVirtCondition{
+						{
+							Type: v1.KubeVirtConditionReady,
+						},
+					},
 				},
 			}
 
@@ -564,7 +569,7 @@ var _ = Describe("KubeVirt Operator", func() {
 			Expect(kv.Status.Phase).To(Equal(v1.KubeVirtPhaseDeploying))
 			Expect(len(kv.Status.Conditions)).To(Equal(0))
 
-			// in 2nd run everything should already be created, and the final status and condition should be set
+			// in 2nd run everything should already be created, and the Created condition should be set
 			totalAdds = 0
 			shouldExpectKubeVirtUpdate(1)
 			shouldExpectSccGet(1)
@@ -573,12 +578,61 @@ var _ = Describe("KubeVirt Operator", func() {
 			Expect(totalAdds).To(Equal(0))
 
 			kv = getLatestKubeVirt(kv)
-			Expect(kv.Status.Phase).To(Equal(v1.KubeVirtPhaseDeployed))
+			Expect(kv.Status.Phase).To(Equal(v1.KubeVirtPhaseDeploying))
 			Expect(len(kv.Status.Conditions)).To(Equal(1))
 			condition := kv.Status.Conditions[0]
 			Expect(condition.Type).To(Equal(v1.KubeVirtConditionCreated))
 			Expect(condition.Status).To(Equal(k8sv1.ConditionTrue))
 			Expect(condition.Reason).To(Equal(ConditionReasonDeploymentCreated))
+
+			// make some(!) components ready
+			api, _, _ := controller.stores.DeploymentCache.GetByKey(NAMESPACE + "/virt-api")
+			apiDepl, _ := api.(*appsv1.Deployment)
+			apiNew := apiDepl.DeepCopy()
+			apiNew.Status.Replicas = 2
+			apiNew.Status.ReadyReplicas = 2
+			deploymentSource.Modify(apiNew)
+
+			ctrl, _, _ := controller.stores.DeploymentCache.GetByKey(NAMESPACE + "/virt-controller")
+			ctrlDepl, _ := ctrl.(*appsv1.Deployment)
+			ctrlNew := ctrlDepl.DeepCopy()
+			ctrlNew.Status.Replicas = 2
+			ctrlNew.Status.ReadyReplicas = 2
+			deploymentSource.Modify(ctrlNew)
+
+			// nothing should change as long as not every component is ready
+			totalAdds = 0
+			controller.Execute()
+			Expect(totalAdds).To(Equal(0))
+
+			// make last component ready
+			handler, _, _ := controller.stores.DaemonSetCache.GetByKey(NAMESPACE + "/virt-handler")
+			handlerDs, _ := handler.(*appsv1.DaemonSet)
+			handlerNew := handlerDs.DeepCopy()
+			handlerNew.Status.DesiredNumberScheduled = 1
+			handlerNew.Status.NumberReady = 1
+			daemonSetSource.Modify(handlerNew)
+
+			// when everything is ready, the Deployed status and Created + Ready condition should be set
+			totalAdds = 0
+			shouldExpectKubeVirtUpdate(1)
+			controller.Execute()
+			Expect(totalAdds).To(Equal(0))
+
+			kv = getLatestKubeVirt(kv)
+			Expect(kv.Status.Phase).To(Equal(v1.KubeVirtPhaseDeployed))
+			Expect(len(kv.Status.Conditions)).To(Equal(2))
+
+			condition1 := kv.Status.Conditions[0]
+			Expect(condition1.Type).To(Equal(v1.KubeVirtConditionCreated))
+			Expect(condition1.Status).To(Equal(k8sv1.ConditionTrue))
+			Expect(condition1.Reason).To(Equal(ConditionReasonDeploymentCreated))
+
+			condition2 := kv.Status.Conditions[1]
+			Expect(condition2.Type).To(Equal(v1.KubeVirtConditionReady))
+			Expect(condition2.Status).To(Equal(k8sv1.ConditionTrue))
+			Expect(condition2.Reason).To(Equal(ConditionReasonDeploymentReady))
+
 		})
 
 		It("should remove resources on deletion", func() {
