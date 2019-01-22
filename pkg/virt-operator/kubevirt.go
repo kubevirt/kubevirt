@@ -495,7 +495,12 @@ func (c *KubeVirtController) isReady() bool {
 
 	for _, obj := range c.stores.DeploymentCache.List() {
 		if deployment, ok := obj.(*appsv1.Deployment); ok {
-			if deployment.Status.Replicas != deployment.Status.ReadyReplicas {
+			var specReplicas int32 = 1
+			if deployment.Spec.Replicas != nil {
+				specReplicas = *deployment.Spec.Replicas
+			}
+			if specReplicas == deployment.Status.Replicas &&
+				deployment.Status.Replicas != deployment.Status.ReadyReplicas {
 				return false
 			}
 		}
