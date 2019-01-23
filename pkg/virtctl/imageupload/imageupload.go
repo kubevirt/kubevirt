@@ -276,7 +276,22 @@ func waitUploadPodRunning(client kubernetes.Interface, namespace, name string, i
 
 		podPhase, _ := pvc.Annotations[PodPhaseAnnotation]
 
-		done := (podPhase == string(v1.PodRunning)) && (len(endpoints.Subsets) > 0)
+		done := false
+		availableEndpoint := false
+		for _, subset := range endpoints.Subsets {
+			if len(subset.Addresses) > 0 {
+				// we're looking to make sure the service endpoint has
+				// the upload pod marked as being available, which means
+				// that it is ready to accept connections
+				availableEndpoint = true
+				break
+			}
+		}
+		running := (podPhase == string(v1.PodRunning))
+
+		if running && availableEndpoint {
+			done = true
+		}
 
 		if !done && !loggedStatus {
 			fmt.Printf("Waiting for PVC %s upload pod to be running...\n", name)
