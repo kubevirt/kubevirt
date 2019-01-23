@@ -89,7 +89,7 @@ var _ = Describe("KubeVirt Operator", func() {
 	var totalDeletions int
 
 	NAMESPACE := "kubevirt-test"
-	resourceCount := 26
+	resourceCount := 31
 
 	syncCaches := func(stop chan struct{}) {
 		go kvInformer.Run(stop)
