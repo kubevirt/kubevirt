@@ -1213,11 +1213,9 @@ func (d *VirtualMachineController) checkVolumesForMigration(vmi *v1.VirtualMachi
 	// are shared and the VMI has no local disks
 	// Some combinations of disks makes the VMI no suitable for live migration.
 	// A relevant error will be returned in this case.
-	sharedVol := false
 	for _, volume := range vmi.Spec.Volumes {
 		volSrc := volume.VolumeSource
 		if volSrc.PersistentVolumeClaim != nil {
-			sharedVol = true
 			_, shared, err := pvcutils.IsSharedPVCFromClient(d.clientset, vmi.Namespace, volSrc.PersistentVolumeClaim.ClaimName)
 			if errors.IsNotFound(err) {
 				return blockMigrate, fmt.Errorf("persistentvolumeclaim %v not found", volSrc.PersistentVolumeClaim.ClaimName)
@@ -1237,18 +1235,9 @@ func (d *VirtualMachineController) checkVolumesForMigration(vmi *v1.VirtualMachi
 			if !shared {
 				return blockMigrate, fmt.Errorf("cannot migrate VMI with non-shared HostDisk")
 			}
-			sharedVol = true
-		} else if volSrc.CloudInitNoCloud != nil ||
-			volSrc.ConfigMap != nil || volSrc.ServiceAccount != nil ||
-			volSrc.Secret != nil {
-			continue
 		} else {
 			blockMigrate = true
 		}
-	}
-	if sharedVol && blockMigrate {
-		err = fmt.Errorf("cannot migrate VMI with mixed shared and non-shared volumes")
-		return
 	}
 	return
 }

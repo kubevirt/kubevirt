@@ -810,7 +810,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 			Expect(blockMigrate).To(BeTrue())
 			Expect(err).To(Equal(fmt.Errorf("cannot migrate VMI with non-shared PVCs")))
 		})
-		It("should not be allowed to migrate a mix of shared and non-shared disks", func() {
+		It("should be allowed to migrate a mix of shared and non-shared disks", func() {
 
 			vmi := v1.NewMinimalVMI("testvmi")
 			vmi.Spec.Domain.Devices.Disks = []v1.Disk{
@@ -853,10 +853,11 @@ var _ = Describe("VirtualMachineInstance", func() {
 			}
 
 			virtClient.CoreV1().PersistentVolumeClaims(vmi.Namespace).Create(testBlockPvc)
-			_, err := controller.checkVolumesForMigration(vmi)
-			Expect(err).To(Equal(fmt.Errorf("cannot migrate VMI with mixed shared and non-shared volumes")))
+			blockMigrate, err := controller.checkVolumesForMigration(vmi)
+			Expect(blockMigrate).To(BeTrue())
+			Expect(err).To(BeNil())
 		})
-		It("should not be allowed to migrate a mix of non-shared and shared disks", func() {
+		It("should be allowed to migrate a mix of non-shared and shared disks", func() {
 
 			vmi := v1.NewMinimalVMI("testvmi")
 			vmi.Spec.Domain.Devices.Disks = []v1.Disk{
@@ -899,8 +900,9 @@ var _ = Describe("VirtualMachineInstance", func() {
 			}
 
 			virtClient.CoreV1().PersistentVolumeClaims(vmi.Namespace).Create(testBlockPvc)
-			_, err := controller.checkVolumesForMigration(vmi)
-			Expect(err).To(Equal(fmt.Errorf("cannot migrate VMI with mixed shared and non-shared volumes")))
+			blockMigrate, err := controller.checkVolumesForMigration(vmi)
+			Expect(blockMigrate).To(BeTrue())
+			Expect(err).To(BeNil())
 		})
 		It("should be allowed to live-migrate shared HostDisks ", func() {
 			_true := true
