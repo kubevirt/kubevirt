@@ -49,9 +49,12 @@ func UpdateCondition(kv *virtv1.KubeVirt, conditionType virtv1.KubeVirtCondition
 	condition.Status = status
 	condition.Reason = reason
 	condition.Message = message
+
 	now := time.Now()
-	condition.LastProbeTime = metav1.Time{
-		Time: now,
+	if isNew || transition {
+		condition.LastProbeTime = metav1.Time{
+			Time: now,
+		}
 	}
 	if transition {
 		condition.LastTransitionTime = metav1.Time{
@@ -87,9 +90,15 @@ func getCondition(kv *virtv1.KubeVirt, conditionType virtv1.KubeVirtConditionTyp
 	return condition, true
 }
 
-func HasCondition(kv *virtv1.KubeVirt, conditionType virtv1.KubeVirtConditionType) bool {
-	_, isNew := getCondition(kv, conditionType)
-	return !isNew
+func RemoveCondition(kv *virtv1.KubeVirt, conditionType virtv1.KubeVirtConditionType) {
+	conditions := kv.Status.Conditions
+	for i, condition := range conditions {
+		if condition.Type == conditionType {
+			conditions = append(conditions[:i], conditions[i+1:]...)
+			kv.Status.Conditions = conditions
+			return
+		}
+	}
 }
 
 func AddFinalizer(kv *virtv1.KubeVirt) {

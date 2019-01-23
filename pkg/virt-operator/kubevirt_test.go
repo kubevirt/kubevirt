@@ -318,6 +318,31 @@ var _ = Describe("KubeVirt Operator", func() {
 				Fail("could not cast to runtime.Object")
 			}
 		}
+
+	}
+
+	makeApiAndControllerReady := func() {
+		makeDeploymentReady := func(item interface{}) {
+			depl, _ := item.(*appsv1.Deployment)
+			deplNew := depl.DeepCopy()
+			deplNew.Status.Replicas = 2
+			deplNew.Status.ReadyReplicas = 2
+			deploymentSource.Modify(deplNew)
+		}
+		api, _, _ := controller.stores.DeploymentCache.GetByKey(NAMESPACE + "/virt-api")
+		makeDeploymentReady(api)
+
+		ctrl, _, _ := controller.stores.DeploymentCache.GetByKey(NAMESPACE + "/virt-controller")
+		makeDeploymentReady(ctrl)
+	}
+
+	makeHandlerReady := func() {
+		handler, _, _ := controller.stores.DaemonSetCache.GetByKey(NAMESPACE + "/virt-handler")
+		handlerDs, _ := handler.(*appsv1.DaemonSet)
+		handlerNew := handlerDs.DeepCopy()
+		handlerNew.Status.DesiredNumberScheduled = 1
+		handlerNew.Status.NumberReady = 1
+		daemonSetSource.Modify(handlerNew)
 	}
 
 	deleteServiceAccount := func(key string) {
@@ -482,9 +507,16 @@ var _ = Describe("KubeVirt Operator", func() {
 		}).Times(times)
 	}
 
-	shouldExpectSccGet := func(times int) {
+	shouldExpectSccGet := func(times int, usersExist bool) {
 		scc := &secv1.SecurityContextConstraints{
 			Users: []string{},
+		}
+		if usersExist {
+			scc.Users = []string{
+				"system:serviceaccount:kubevirt-test:kubevirt-privileged",
+				"system:serviceaccount:kubevirt-test:kubevirt-apiserver",
+				"system:serviceaccount:kubevirt-test:kubevirt-controller",
+			}
 		}
 		secClient.Fake.PrependReactor("get", "securitycontextconstraints", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
 			_, ok := action.(testing.GetAction)
@@ -503,7 +535,9 @@ var _ = Describe("KubeVirt Operator", func() {
 	}
 
 	Context("On valid KubeVirt object", func() {
-		It("should do nothing if KubeVirt object is deleted", func() {
+		It("should do nothing if KubeVirt object is deleted", func(done Done) {
+			defer close(done)
+
 			kv := &v1.KubeVirt{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "test-install",
@@ -515,26 +549,58 @@ var _ = Describe("KubeVirt Operator", func() {
 			}
 			kv.DeletionTimestamp = now()
 
+			// SCC will always be checked
+			shouldExpectSccGet(1, false)
+
 			addKubeVirt(kv)
 			controller.Execute()
-		})
+		}, 15)
 
-		It("should do nothing if KubeVirt object is deployed", func() {
+		It("should do nothing if KubeVirt object is deployed", func(done Done) {
+			defer close(done)
+
 			kv := &v1.KubeVirt{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      "test-install",
-					Namespace: NAMESPACE,
+					Name:       "test-install",
+					Namespace:  NAMESPACE,
+					Finalizers: []string{util.KubeVirtFinalizer},
 				},
 				Status: v1.KubeVirtStatus{
 					Phase: v1.KubeVirtPhaseDeployed,
+					Conditions: []v1.KubeVirtCondition{
+						{
+							Type:    v1.KubeVirtConditionCreated,
+							Status:  k8sv1.ConditionTrue,
+							Reason:  ConditionReasonDeploymentCreated,
+							Message: "All resources were created.",
+						},
+						{
+							Type:    v1.KubeVirtConditionReady,
+							Status:  k8sv1.ConditionTrue,
+							Reason:  ConditionReasonDeploymentReady,
+							Message: "All components are ready.",
+						},
+					},
+					OperatorVersion: "v0.0.0-master+$Format:%h$",
 				},
 			}
 
+			// create all resources which should already exist
 			addKubeVirt(kv)
-			controller.Execute()
-		})
+			addAll()
+			makeApiAndControllerReady()
+			makeHandlerReady()
 
-		It("should add resources on create", func() {
+			// SCC will always be checked
+			shouldExpectSccGet(1, true)
+
+			controller.Execute()
+
+		}, 15)
+
+		It("should add resources on create", func(done Done) {
+			defer close(done)
+
 			kv := &v1.KubeVirt{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "test-install",
@@ -544,7 +610,7 @@ var _ = Describe("KubeVirt Operator", func() {
 			addKubeVirt(kv)
 
 			shouldExpectKubeVirtUpdate(1)
-			shouldExpectSccGet(1)
+			shouldExpectSccGet(1, false)
 			shouldExpectCreations()
 
 			controller.Execute()
@@ -567,7 +633,7 @@ var _ = Describe("KubeVirt Operator", func() {
 			// in 2nd run everything should already be created, and the Created condition should be set
 			totalAdds = 0
 			shouldExpectKubeVirtUpdate(1)
-			shouldExpectSccGet(1)
+			shouldExpectSccGet(1, true)
 			controller.Execute()
 
 			Expect(totalAdds).To(Equal(0))
@@ -581,19 +647,7 @@ var _ = Describe("KubeVirt Operator", func() {
 			Expect(condition.Reason).To(Equal(ConditionReasonDeploymentCreated))
 
 			// make some(!) components ready
-			api, _, _ := controller.stores.DeploymentCache.GetByKey(NAMESPACE + "/virt-api")
-			apiDepl, _ := api.(*appsv1.Deployment)
-			apiNew := apiDepl.DeepCopy()
-			apiNew.Status.Replicas = 2
-			apiNew.Status.ReadyReplicas = 2
-			deploymentSource.Modify(apiNew)
-
-			ctrl, _, _ := controller.stores.DeploymentCache.GetByKey(NAMESPACE + "/virt-controller")
-			ctrlDepl, _ := ctrl.(*appsv1.Deployment)
-			ctrlNew := ctrlDepl.DeepCopy()
-			ctrlNew.Status.Replicas = 2
-			ctrlNew.Status.ReadyReplicas = 2
-			deploymentSource.Modify(ctrlNew)
+			makeApiAndControllerReady()
 
 			// nothing should change as long as not every component is ready
 			totalAdds = 0
@@ -601,12 +655,7 @@ var _ = Describe("KubeVirt Operator", func() {
 			Expect(totalAdds).To(Equal(0))
 
 			// make last component ready
-			handler, _, _ := controller.stores.DaemonSetCache.GetByKey(NAMESPACE + "/virt-handler")
-			handlerDs, _ := handler.(*appsv1.DaemonSet)
-			handlerNew := handlerDs.DeepCopy()
-			handlerNew.Status.DesiredNumberScheduled = 1
-			handlerNew.Status.NumberReady = 1
-			daemonSetSource.Modify(handlerNew)
+			makeHandlerReady()
 
 			// when everything is ready, the Deployed status and Created + Ready condition should be set
 			totalAdds = 0
@@ -628,9 +677,11 @@ var _ = Describe("KubeVirt Operator", func() {
 			Expect(condition2.Status).To(Equal(k8sv1.ConditionTrue))
 			Expect(condition2.Reason).To(Equal(ConditionReasonDeploymentReady))
 
-		})
+		}, 15)
 
-		It("should remove resources on deletion", func() {
+		It("should remove resources on deletion", func(done Done) {
+			defer close(done)
+
 			kv := &v1.KubeVirt{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "test-install",
@@ -644,7 +695,7 @@ var _ = Describe("KubeVirt Operator", func() {
 			addAll()
 
 			shouldExpectKubeVirtUpdate(1)
-			shouldExpectSccGet(1)
+			shouldExpectSccGet(1, true)
 			shouldExpectDeletions()
 
 			controller.Execute()
@@ -658,7 +709,7 @@ var _ = Describe("KubeVirt Operator", func() {
 			Expect(kv.Status.Phase).To(Equal(v1.KubeVirtPhaseDeleted))
 			Expect(len(kv.Status.Conditions)).To(Equal(0))
 
-		})
+		}, 15)
 	})
 })
 

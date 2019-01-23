@@ -425,66 +425,62 @@ func (c *KubeVirtController) syncDeployment(kv *v1.KubeVirt) error {
 	logger := log.Log.Object(kv)
 	logger.Infof("Handling deployment")
 
-	if kv.Status.Phase == v1.KubeVirtPhaseDeployed {
-		logger.Info("Is already deployed and ready")
-		return nil
+	// Set versions...
+	if kv.Status.OperatorVersion == "" {
+		util.SetVersions(kv, c.config)
 	}
 
-	if !util.HasCondition(kv, v1.KubeVirtConditionCreated) {
-		// Set versions...
-		if kv.Status.OperatorVersion == "" {
-			util.SetVersions(kv, c.config)
-		}
+	// Set phase to deploying
+	kv.Status.Phase = v1.KubeVirtPhaseDeploying
 
-		// Set phase to deploying
-		kv.Status.Phase = v1.KubeVirtPhaseDeploying
-
-		// reset old synchronized condition
-		kv.Status.Conditions = []v1.KubeVirtCondition{}
-
-		// check if there is already an active KubeVirt deployment
-		// TODO move this into a new validating webhook
-		kvs := c.kubeVirtInformer.GetStore().List()
-		for _, obj := range kvs {
-			if fromStore, ok := obj.(v1.KubeVirt); ok {
-				if fromStore.UID == kv.UID {
-					continue
-				}
-				if isKubeVirtActive(&fromStore) {
-					logger.Warningf("There is already a KubeVirt deployment!")
-					util.UpdateCondition(kv, v1.KubeVirtConditionSynchronized, k8sv1.ConditionFalse, ConditionReasonDeploymentFailedExisting, "There is an active KubeVirt deployment")
-					return nil
-				}
+	// check if there is already an active KubeVirt deployment
+	// TODO move this into a new validating webhook
+	kvs := c.kubeVirtInformer.GetStore().List()
+	for _, obj := range kvs {
+		if fromStore, ok := obj.(v1.KubeVirt); ok {
+			if fromStore.UID == kv.UID {
+				continue
+			}
+			if isKubeVirtActive(&fromStore) {
+				logger.Warningf("There is already a KubeVirt deployment!")
+				util.UpdateCondition(kv, v1.KubeVirtConditionSynchronized, k8sv1.ConditionFalse, ConditionReasonDeploymentFailedExisting, "There is an active KubeVirt deployment")
+				return nil
 			}
 		}
-
-		// add finalizer to prevent deletion of CR before KubeVirt was undeployed
-		util.AddFinalizer(kv)
-
-		// deploy
-		objectsAdded, err := creation.Create(kv, c.config, c.stores, c.clientset, &c.kubeVirtExpectations)
-
-		if err != nil {
-			// deployment failed
-			util.UpdateCondition(kv, v1.KubeVirtConditionSynchronized, k8sv1.ConditionFalse, ConditionReasonDeploymentFailedError, fmt.Sprintf("An error occurred during deployment: %v", err))
-
-			logger.Errorf("Failed to create all resources: %v", err)
-			return err
-		}
-
-		if objectsAdded == 0 {
-			// add Created condition
-			util.UpdateCondition(kv, v1.KubeVirtConditionCreated, k8sv1.ConditionTrue, ConditionReasonDeploymentCreated, "All resources were created.")
-			logger.Info("All KubeVirt resources created")
-		}
 	}
 
-	// check if components are ready, but only if everything is created already
-	if util.HasCondition(kv, v1.KubeVirtConditionCreated) && c.isReady() {
-		logger.Info("All KubeVirt components ready")
-		kv.Status.Phase = v1.KubeVirtPhaseDeployed
-		util.UpdateCondition(kv, v1.KubeVirtConditionReady, k8sv1.ConditionTrue, ConditionReasonDeploymentReady, "All components are ready.")
-		return nil
+	// add finalizer to prevent deletion of CR before KubeVirt was undeployed
+	util.AddFinalizer(kv)
+
+	// deploy
+	objectsAdded, err := creation.Create(kv, c.config, c.stores, c.clientset, &c.kubeVirtExpectations)
+
+	if err != nil {
+		// deployment failed
+		util.UpdateCondition(kv, v1.KubeVirtConditionSynchronized, k8sv1.ConditionFalse, ConditionReasonDeploymentFailedError, fmt.Sprintf("An error occurred during deployment: %v", err))
+
+		logger.Errorf("Failed to create all resources: %v", err)
+		return err
+	}
+	util.RemoveCondition(kv, v1.KubeVirtConditionSynchronized)
+
+	if objectsAdded == 0 {
+
+		// add Created condition
+		util.UpdateCondition(kv, v1.KubeVirtConditionCreated, k8sv1.ConditionTrue, ConditionReasonDeploymentCreated, "All resources were created.")
+		logger.Info("All KubeVirt resources created")
+
+		// check if components are ready
+		if c.isReady() {
+			logger.Info("All KubeVirt components ready")
+			kv.Status.Phase = v1.KubeVirtPhaseDeployed
+			util.UpdateCondition(kv, v1.KubeVirtConditionReady, k8sv1.ConditionTrue, ConditionReasonDeploymentReady, "All components are ready.")
+			return nil
+		}
+		util.RemoveCondition(kv, v1.KubeVirtConditionReady)
+
+	} else {
+		util.RemoveCondition(kv, v1.KubeVirtConditionCreated)
 	}
 
 	logger.Info("Processed deployment for this round")
@@ -523,14 +519,12 @@ func (c *KubeVirtController) syncDeletion(kv *v1.KubeVirt) error {
 	logger := log.Log.Object(kv)
 	logger.Info("Handling deletion")
 
-	// delete
-	if kv.Status.Phase == v1.KubeVirtPhaseDeleted {
-		logger.Info("Is already deleted")
-		return nil
-	}
-
 	// set phase to deleting
 	kv.Status.Phase = v1.KubeVirtPhaseDeleting
+
+	// remove created and ready conditions
+	util.RemoveCondition(kv, v1.KubeVirtConditionCreated)
+	util.RemoveCondition(kv, v1.KubeVirtConditionReady)
 
 	err := deletion.Delete(kv, c.clientset, c.stores, &c.kubeVirtExpectations)
 	if err != nil {
@@ -538,17 +532,15 @@ func (c *KubeVirtController) syncDeletion(kv *v1.KubeVirt) error {
 		util.UpdateCondition(kv, v1.KubeVirtConditionSynchronized, k8sv1.ConditionFalse, ConditionReasonDeletionFailedError, fmt.Sprintf("An error occurred during deletion: %v", err))
 		return err
 	}
+	util.RemoveCondition(kv, v1.KubeVirtConditionSynchronized)
 
 	if c.stores.AllEmpty() {
 
 		// deletion successful
 		kv.Status.Phase = v1.KubeVirtPhaseDeleted
 
-		// remove conditions
-		kv.Status.Conditions = []v1.KubeVirtCondition{}
-
 		// remove finalizer
-		kv.Finalizers = []string{}
+		kv.Finalizers = nil
 
 		logger.Info("KubeVirt deleted")
 

@@ -62,7 +62,7 @@ func CreateCRDs(clientset kubecli.KubevirtClient, kv *virtv1.KubeVirt, stores ut
 				objectsAdded++
 			}
 		} else {
-			log.Log.Infof("crd %v already exists", crd.GetName())
+			log.Log.V(4).Infof("crd %v already exists", crd.GetName())
 		}
 	}
 
