@@ -497,6 +497,7 @@ func (c *KubeVirtController) isReady() bool {
 			}
 			if specReplicas == deployment.Status.Replicas &&
 				deployment.Status.Replicas != deployment.Status.ReadyReplicas {
+				log.Log.V(4).Infof("Deployment %v not ready yet", deployment.Name)
 				return false
 			}
 		}
@@ -507,6 +508,7 @@ func (c *KubeVirtController) isReady() bool {
 			if daemonset.Status.DesiredNumberScheduled == 0 ||
 				daemonset.Status.DesiredNumberScheduled != daemonset.Status.NumberReady {
 
+				log.Log.V(4).Infof("DaemonSet %v not ready yet", daemonset.Name)
 				return false
 			}
 		}

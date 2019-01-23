@@ -21,6 +21,7 @@ package virt_operator
 
 import (
 	"os"
+	"time"
 
 	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo"
@@ -325,24 +326,45 @@ var _ = Describe("KubeVirt Operator", func() {
 		makeDeploymentReady := func(item interface{}) {
 			depl, _ := item.(*appsv1.Deployment)
 			deplNew := depl.DeepCopy()
-			deplNew.Status.Replicas = 2
-			deplNew.Status.ReadyReplicas = 2
+			var replicas int32 = 1
+			if depl.Spec.Replicas != nil {
+				replicas = *depl.Spec.Replicas
+			}
+			deplNew.Status.Replicas = replicas
+			deplNew.Status.ReadyReplicas = replicas
 			deploymentSource.Modify(deplNew)
 		}
-		api, _, _ := controller.stores.DeploymentCache.GetByKey(NAMESPACE + "/virt-api")
-		makeDeploymentReady(api)
 
-		ctrl, _, _ := controller.stores.DeploymentCache.GetByKey(NAMESPACE + "/virt-controller")
-		makeDeploymentReady(ctrl)
+		for _, name := range []string{"/virt-api", "/virt-controller"} {
+			exists := false
+			var obj interface{}
+			// we need to wait until the deployment exists
+			for !exists {
+				obj, exists, _ = controller.stores.DeploymentCache.GetByKey(NAMESPACE + name)
+				if exists {
+					makeDeploymentReady(obj)
+				}
+				time.Sleep(time.Second)
+			}
+		}
+
 	}
 
 	makeHandlerReady := func() {
-		handler, _, _ := controller.stores.DaemonSetCache.GetByKey(NAMESPACE + "/virt-handler")
-		handlerDs, _ := handler.(*appsv1.DaemonSet)
-		handlerNew := handlerDs.DeepCopy()
-		handlerNew.Status.DesiredNumberScheduled = 1
-		handlerNew.Status.NumberReady = 1
-		daemonSetSource.Modify(handlerNew)
+		exists := false
+		var obj interface{}
+		// we need to wait until the daemonset exists
+		for !exists {
+			obj, exists, _ = controller.stores.DaemonSetCache.GetByKey(NAMESPACE + "/virt-handler")
+			if exists {
+				handler, _ := obj.(*appsv1.DaemonSet)
+				handlerNew := handler.DeepCopy()
+				handlerNew.Status.DesiredNumberScheduled = 1
+				handlerNew.Status.NumberReady = 1
+				daemonSetSource.Modify(handlerNew)
+			}
+			time.Sleep(time.Second)
+		}
 	}
 
 	deleteServiceAccount := func(key string) {
