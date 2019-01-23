@@ -209,6 +209,61 @@ func prepateMigrationFlags(isBlockMigration bool) libvirt.DomainMigrateFlags {
 
 }
 
+func gatherSharedVolumeForMigration(vmi *v1.VirtualMachineInstance) map[string]bool {
+	// This method collects all VMI volumes that should not be copied during
+	// live migration. Persistent volume claims without ReadWriteMany access mode
+	// should be filtered out earlier in the process
+	sharedVols := make(map[string]bool)
+	for _, volume := range vmi.Spec.Volumes {
+		volSrc := volume.VolumeSource
+		if volSrc.PersistentVolumeClaim != nil ||
+			(volSrc.HostDisk != nil && *volSrc.HostDisk.Shared) {
+			sharedVols[volume.Name] = true
+		}
+	}
+	return sharedVols
+}
+
+func getAllDomainDisks(dom cli.VirDomain) ([]api.Disk, error) {
+	xmlstr, err := dom.GetXMLDesc(0)
+	if err != nil {
+		return nil, err
+	}
+
+	var newSpec api.DomainSpec
+	err = xml.Unmarshal([]byte(xmlstr), &newSpec)
+	if err != nil {
+		return nil, err
+	}
+
+	return newSpec.Devices.Disks, nil
+}
+
+func getDiskTargetsForMigration(dom cli.VirDomain, vmi *v1.VirtualMachineInstance) []string {
+	// This method collects all VMI disks that needs to be copied during live migration
+	// and returns a list of its target device names.
+	// Shared volues are being excluded.
+	copyDisks := []string{}
+	sharedVols := gatherSharedVolumeForMigration(vmi)
+
+	disks, err := getAllDomainDisks(dom)
+	if err != nil {
+		log.Log.Object(vmi).Reason(err).Error("failed to parse domain XML to get disks.")
+	}
+	// the name of the volume should match the alias
+	for _, disk := range disks {
+		_, isSharedVolumeDisk := sharedVols[disk.Alias.Name]
+		if disk.ReadOnly != nil {
+			continue
+		}
+		if (disk.Type != "file" && disk.Type != "block") || isSharedVolumeDisk {
+			continue
+		}
+		copyDisks = append(copyDisks, disk.Target.Device)
+	}
+	return copyDisks
+}
+
 func (l *LibvirtDomainManager) asyncMigrate(vmi *v1.VirtualMachineInstance) {
 
 	go func(l *LibvirtDomainManager, vmi *v1.VirtualMachineInstance) {
@@ -274,6 +329,11 @@ func (l *LibvirtDomainManager) asyncMigrate(vmi *v1.VirtualMachineInstance) {
 		params := &libvirt.DomainMigrateParameters{
 			URI:    migrUri,
 			URISet: true,
+		}
+		copyDisks := getDiskTargetsForMigration(dom, vmi)
+		if len(copyDisks) != 0 {
+			params.MigrateDisks = copyDisks
+			params.MigrateDisksSet = true
 		}
 		err = dom.MigrateToURI3(dstUri, params, migrateFlags)
 		if err != nil {
