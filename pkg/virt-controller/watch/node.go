@@ -103,7 +103,7 @@ func (c *NodeController) updateVirtualMachine(old, curr interface{}) {
 }
 
 // Run runs the passed in NodeController.
-func (c *NodeController) Run(threadiness int, stopCh chan struct{}) {
+func (c *NodeController) Run(threadiness int, stopCh <-chan struct{}) {
 	defer controller.HandlePanic()
 	defer c.Queue.ShutDown()
 	log.Log.Info("Starting node controller.")
