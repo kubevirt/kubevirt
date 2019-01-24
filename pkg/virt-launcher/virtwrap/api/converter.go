@@ -607,7 +607,7 @@ func Convert_v1_VirtualMachine_To_api_Domain(vmi *v1.VirtualMachineInstance, dom
 
 			var efi string
 
-			if *vmi.Spec.Domain.Firmware.Bootloader.EFI.Secure {
+			if vmi.Spec.Domain.Firmware.Bootloader.EFI.Secure {
 				efi = EFISecurePath
 			} else {
 				efi = EFIPath
@@ -615,7 +615,7 @@ func Convert_v1_VirtualMachine_To_api_Domain(vmi *v1.VirtualMachineInstance, dom
 			domain.Spec.OS.BootLoader = &Loader{
 				Path:     efi,
 				ReadOnly: "yes",
-				Secure:   boolToYesNo(vmi.Spec.Domain.Firmware.Bootloader.EFI.Secure, false),
+				Secure:   boolToYesNo(&vmi.Spec.Domain.Firmware.Bootloader.EFI.Secure, false),
 				Type:     "pflash",
 			}
 

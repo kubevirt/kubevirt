@@ -163,7 +163,7 @@ type BIOS struct {
 type EFI struct {
 	// Some firmwares implements the Secure boot feature
 	// +optional
-	Secure *bool `json:"secure,omitempty"`
+	Secure bool `json:"secure,omitempty"`
 }
 
 // ---

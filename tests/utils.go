@@ -1310,7 +1310,7 @@ func NewRandomVMIWithEFIBootloader(s bool) *v1.VirtualMachineInstance {
 	vmi.Spec.Domain.Firmware = &v1.Firmware{
 		Bootloader: &v1.Bootloader{
 			EFI: &v1.EFI{
-				Secure: &s,
+				Secure: s,
 			},
 		},
 	}

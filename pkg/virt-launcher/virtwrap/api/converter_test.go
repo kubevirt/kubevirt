@@ -1573,11 +1573,11 @@ var _ = Describe("Converter", func() {
 			})
 
 			It("should configure the EFI bootloader if EFI insecure option", func() {
-				secure := false
+
 				vmi.Spec.Domain.Firmware = &v1.Firmware{
 					Bootloader: &v1.Bootloader{
 						EFI: &v1.EFI{
-							Secure: &secure,
+							Secure: false,
 						},
 					},
 				}
@@ -1591,11 +1591,11 @@ var _ = Describe("Converter", func() {
 			})
 
 			It("should configure the EFI bootloader if EFI secure option", func() {
-				secure := true
+
 				vmi.Spec.Domain.Firmware = &v1.Firmware{
 					Bootloader: &v1.Bootloader{
 						EFI: &v1.EFI{
-							Secure: &secure,
+							Secure: true,
 						},
 					},
 				}
