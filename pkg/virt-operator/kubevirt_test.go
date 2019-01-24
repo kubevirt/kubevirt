@@ -89,7 +89,7 @@ var _ = Describe("KubeVirt Operator", func() {
 	var totalDeletions int
 
 	NAMESPACE := "kubevirt-test"
-	resourceCount := 31
+	resourceCount := 29
 
 	syncCaches := func(stop chan struct{}) {
 		go kvInformer.Run(stop)
@@ -551,9 +551,9 @@ var _ = Describe("KubeVirt Operator", func() {
 			controller.Execute()
 
 			Expect(totalAdds).To(Equal(resourceCount))
-			Expect(len(controller.stores.ServiceAccountCache.List())).To(Equal(4))
+			Expect(len(controller.stores.ServiceAccountCache.List())).To(Equal(3))
 			Expect(len(controller.stores.ClusterRoleCache.List())).To(Equal(7))
-			Expect(len(controller.stores.ClusterRoleBindingCache.List())).To(Equal(6))
+			Expect(len(controller.stores.ClusterRoleBindingCache.List())).To(Equal(5))
 			Expect(len(controller.stores.RoleCache.List())).To(Equal(2))
 			Expect(len(controller.stores.RoleBindingCache.List())).To(Equal(2))
 			Expect(len(controller.stores.CrdCache.List())).To(Equal(5))

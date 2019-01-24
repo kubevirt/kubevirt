@@ -130,7 +130,7 @@ func UpdateScc(clientset kubecli.KubevirtClient, kv *virtv1.KubeVirt, add bool) 
 
 	var kubeVirtAccounts []string
 	prefix := "system:serviceaccount"
-	kubeVirtAccounts = append(kubeVirtAccounts, fmt.Sprintf("%s:%s:%s", prefix, kv.Namespace, "kubevirt-privileged"))
+	kubeVirtAccounts = append(kubeVirtAccounts, fmt.Sprintf("%s:%s:%s", prefix, kv.Namespace, "kubevirt-handler"))
 	kubeVirtAccounts = append(kubeVirtAccounts, fmt.Sprintf("%s:%s:%s", prefix, kv.Namespace, "kubevirt-apiserver"))
 	kubeVirtAccounts = append(kubeVirtAccounts, fmt.Sprintf("%s:%s:%s", prefix, kv.Namespace, "kubevirt-controller"))
 
