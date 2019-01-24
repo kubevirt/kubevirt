@@ -333,12 +333,12 @@ var _ = Describe("Multus Networking", func() {
 		})
 	})
 
-	Context("VirtualMachineInstance with ovs-cni plugin interface", func() {
+	Context("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:component]VirtualMachineInstance with ovs-cni plugin interface", func() {
 		AfterEach(func() {
 			deleteVMIs(virtClient, []*v1.VirtualMachineInstance{vmiOne, vmiTwo})
 		})
 
-		It("should create two virtual machines with one interface", func() {
+		It("[CNV-1577]should create two virtual machines with one interface", func() {
 			By("checking virtual machine instance can ping the secondary virtual machine instance using ovs-cni plugin")
 			interfaces := []v1.Interface{{Name: "ovs", InterfaceBindingMethod: v1.InterfaceBindingMethod{Bridge: &v1.InterfaceBridge{}}}}
 			networks := []v1.Network{{Name: "ovs", NetworkSource: v1.NetworkSource{Multus: &v1.CniNetwork{NetworkName: "ovs-net-vlan100"}}}}
@@ -361,7 +361,9 @@ var _ = Describe("Multus Networking", func() {
 			pingVirtualMachine(vmiOne, "10.1.1.2", "localhost:~#")
 		})
 
-		It("should create two virtual machines with two interfaces", func() {
+		// In order to fully cover this TC, the previous It must also be run, otherwise - only one interface
+		// will be tested. So - don't focus (FIt) this It, but the entire context (FContext).
+		It("[CNV-1578]should create two virtual machines with two interfaces", func() {
 			By("checking the first virtual machine instance can ping 10.1.1.2 using ovs-cni plugin")
 			interfaces := []v1.Interface{{Name: "default", InterfaceBindingMethod: v1.InterfaceBindingMethod{Bridge: &v1.InterfaceBridge{}}},
 				{Name: "ovs", InterfaceBindingMethod: v1.InterfaceBindingMethod{Bridge: &v1.InterfaceBridge{}}}}
