@@ -296,6 +296,7 @@ var _ = Describe("KubeVirt Operator", func() {
 		// rbac
 		all = append(all, rbac.GetAllCluster(NAMESPACE)...)
 		all = append(all, rbac.GetAllApiServer(NAMESPACE)...)
+		all = append(all, rbac.GetAllHandler(NAMESPACE)...)
 		all = append(all, rbac.GetAllController(NAMESPACE)...)
 		// crds
 		all = append(all, components.NewVirtualMachineInstanceCrd())
