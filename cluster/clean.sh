@@ -36,6 +36,7 @@ set +e
     _kubectl -n ${namespace} delete kv kubevirt
 )
 _kubectl -n ${namespace} patch kv kubevirt --type=json -p '[{ "op": "remove", "path": "/metadata/finalizers" }]'
+_kubectl patch cdi cdi --type=json -p '[{ "op": "remove", "path": "/metadata/finalizers" }]'
 
 set -e
 
