@@ -37,6 +37,15 @@ EOF
 # Deploy infra for testing first
 _kubectl create -f ${MANIFESTS_OUT_DIR}/testing
 
+# Deploy CDI with operator.
+_kubectl apply -f - <<EOF
+---
+apiVersion: cdi.kubevirt.io/v1alpha1
+kind: CDI
+metadata:
+  name: cdi
+EOF
+
 # Deploy kubevirt
 _kubectl apply -f ${MANIFESTS_OUT_DIR}/release/kubevirt.yaml
 

@@ -27,7 +27,7 @@ set -ex
 export WORKSPACE="${WORKSPACE:-$PWD}"
 readonly ARTIFACTS_PATH="exported-artifacts"
 
-mkdir -p "$ARTIFACTS_PATH"
+mkdir -p "${WORKSPACE}/${ARTIFACTS_PATH}"
 
 if [[ $TARGET =~ openshift-.* ]]; then
   export KUBEVIRT_PROVIDER="os-3.11.0"
@@ -39,7 +39,7 @@ export KUBEVIRT_NUM_NODES=2
 
 kubectl() { cluster/kubectl.sh "$@"; }
 
-export CDI_NAMESPACE="${CDI_NAMESPACE:-kube-system}"
+export CDI_NAMESPACE="${CDI_NAMESPACE:-cdi}"
 
 make cluster-down
 make cluster-up
@@ -48,7 +48,7 @@ make cluster-up
 set +e
 kubectl_rc=0
 retry_counter=0
-while [ $retry_counter -lt 30 ] && [ $kubectl_rc -ne 0 || -n "$(kubectl get nodes --no-headers | grep NotReady)" ]; do
+while [[ $retry_counter -lt 30 ]] && [[ $kubectl_rc -ne 0 || -n "$(kubectl get nodes --no-headers | grep NotReady)" ]]; do
     echo "Waiting for all nodes to become ready ..."
     kubectl get nodes --no-headers
     kubectl_rc=$?
@@ -57,7 +57,7 @@ while [ $retry_counter -lt 30 ] && [ $kubectl_rc -ne 0 || -n "$(kubectl get node
 done
 set -e
 
-if [ $retry_counter eq 30 ]; then
+if [ $retry_counter -eq 30 ]; then
 	echo "Not all nodes are up"
 	exit 1
 fi
@@ -69,7 +69,7 @@ make cluster-sync
 
 kubectl version
 
-ginko_params="--test-args=--ginkgo.noColor --junit-output=exported-artifacts/tests.junit.xml"
+ginko_params="--test-args=--ginkgo.noColor --junit-output=${WORKSPACE}/exported-artifacts/tests.junit.xml"
 
 # Run functional tests
 TEST_ARGS=$ginko_params make test-functional-ci

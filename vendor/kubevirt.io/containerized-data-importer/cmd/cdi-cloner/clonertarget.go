@@ -15,6 +15,8 @@ import (
 	"kubevirt.io/containerized-data-importer/pkg/common"
 	"kubevirt.io/containerized-data-importer/pkg/util"
 
+	dto "github.com/prometheus/client_model/go"
+
 	"github.com/prometheus/client_golang/prometheus"
 )
 
@@ -117,10 +119,12 @@ func (r *prometheusProgressReader) timedUpdateProgress() {
 func (r *prometheusProgressReader) updateProgress() {
 	if r.total > 0 {
 		currentProgress := float64(r.Current) / float64(r.total) * 100.0
-		progress.WithLabelValues(ownerUID).Set(currentProgress)
+		metric := &dto.Metric{}
+		progress.WithLabelValues(ownerUID).Write(metric)
+		if currentProgress > *metric.Counter.Value {
+			progress.WithLabelValues(ownerUID).Add(currentProgress - *metric.Counter.Value)
+		}
 		glog.V(1).Infoln(fmt.Sprintf("%.2f", currentProgress))
-	} else {
-		progress.WithLabelValues(ownerUID).Set(-1)
 	}
 }
 

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"os"
 	"time"
 
@@ -27,7 +28,7 @@ const (
 	componentName = "cdi-controller"
 )
 
-func startLeaderElection(config *rest.Config, leaderFunc func()) error {
+func startLeaderElection(ctx context.Context, config *rest.Config, leaderFunc func()) error {
 	client := kubernetes.NewForConfigOrDie(config)
 	namespace := util.GetNamespace()
 
@@ -48,7 +49,7 @@ func startLeaderElection(config *rest.Config, leaderFunc func()) error {
 	}
 
 	glog.Info("Attempting to acquire leader lease")
-	go leaderElector.Run()
+	go leaderElector.Run(ctx)
 
 	return nil
 }
@@ -94,7 +95,7 @@ func createLeaderElector(resourceLock resourcelock.Interface, leaderFunc func())
 		RenewDeadline: 10 * time.Second,
 		RetryPeriod:   2 * time.Second,
 		Callbacks: leaderelection.LeaderCallbacks{
-			OnStartedLeading: func(_ <-chan struct{}) {
+			OnStartedLeading: func(_ context.Context) {
 				glog.Info("Successfully acquired leadership lease")
 				leaderFunc()
 			},

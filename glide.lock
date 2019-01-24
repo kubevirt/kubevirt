@@ -1,5 +1,5 @@
-hash: be9daf859dced4e6f4b1e431f8ec0d8f7c865927b9878eb6c4243942ec4fe4fb
-updated: 2019-01-09T22:17:21.235939733Z
+hash: 4742a0a6fe3324f0c963fdbd0577903acf5d7ae512291f455eba7f54384683d0
+updated: 2019-01-18T10:05:14.734869994-05:00
 imports:
 - name: cloud.google.com/go
   version: 3b1ae45394a234c385be014e9a488f2bb6eef821
@@ -240,6 +240,7 @@ imports:
   subpackages:
   - security/clientset/versioned/scheme
   - security/clientset/versioned/typed/security/v1
+  - security/clientset/versioned/typed/security/v1/fake
 - name: github.com/pborman/uuid
   version: ca53cad383cad2479bbba7f7a1a05797ec1386e4
 - name: github.com/peterbourgon/diskv
@@ -445,8 +446,10 @@ imports:
   - pkg/apis/apiextensions
   - pkg/apis/apiextensions/v1beta1
   - pkg/client/clientset/clientset
+  - pkg/client/clientset/clientset/fake
   - pkg/client/clientset/clientset/scheme
   - pkg/client/clientset/clientset/typed/apiextensions/v1beta1
+  - pkg/client/clientset/clientset/typed/apiextensions/v1beta1/fake
 - name: k8s.io/apimachinery
   version: 103fd098999dc9c0c88536f5c9ad2e5da39373ae
   subpackages:
@@ -622,28 +625,28 @@ imports:
   - pkg/common
   - pkg/util/proto
 - name: kubevirt.io/containerized-data-importer
-  version: 254749a63d335a4ec1ef919a971cab0b68cf4980
+  version: c2a2fb4f58dd6babe7d6f7123d7d50cb6b604589
   repo: https://github.com/kubevirt/containerized-data-importer.git
   subpackages:
-  - pkg/apis/datavolumecontroller
-  - pkg/apis/datavolumecontroller/v1alpha1
-  - pkg/apis/uploadcontroller
-  - pkg/apis/uploadcontroller/v1alpha1
+  - pkg/apis/core
+  - pkg/apis/core/v1alpha1
+  - pkg/apis/upload
+  - pkg/apis/upload/v1alpha1
   - pkg/client/clientset/versioned
   - pkg/client/clientset/versioned/fake
   - pkg/client/clientset/versioned/scheme
-  - pkg/client/clientset/versioned/typed/datavolumecontroller/v1alpha1
-  - pkg/client/clientset/versioned/typed/datavolumecontroller/v1alpha1/fake
-  - pkg/client/clientset/versioned/typed/uploadcontroller/v1alpha1
-  - pkg/client/clientset/versioned/typed/uploadcontroller/v1alpha1/fake
+  - pkg/client/clientset/versioned/typed/core/v1alpha1
+  - pkg/client/clientset/versioned/typed/core/v1alpha1/fake
+  - pkg/client/clientset/versioned/typed/upload/v1alpha1
+  - pkg/client/clientset/versioned/typed/upload/v1alpha1/fake
   - pkg/client/informers/externalversions
-  - pkg/client/informers/externalversions/datavolumecontroller
-  - pkg/client/informers/externalversions/datavolumecontroller/v1alpha1
+  - pkg/client/informers/externalversions/core
+  - pkg/client/informers/externalversions/core/v1alpha1
   - pkg/client/informers/externalversions/internalinterfaces
-  - pkg/client/informers/externalversions/uploadcontroller
-  - pkg/client/informers/externalversions/uploadcontroller/v1alpha1
-  - pkg/client/listers/datavolumecontroller/v1alpha1
-  - pkg/client/listers/uploadcontroller/v1alpha1
+  - pkg/client/informers/externalversions/upload
+  - pkg/client/informers/externalversions/upload/v1alpha1
+  - pkg/client/listers/core/v1alpha1
+  - pkg/client/listers/upload/v1alpha1
 - name: kubevirt.io/qe-tools
   version: cfa2a5aff14e51a06fc637f97c941d392cf1acb6
   repo: https://github.com/kubevirt/qe-tools.git

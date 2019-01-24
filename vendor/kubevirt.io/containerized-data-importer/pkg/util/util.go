@@ -18,7 +18,6 @@ import (
 	"github.com/pkg/errors"
 
 	"k8s.io/apimachinery/pkg/api/resource"
-	"k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 // CountingReader is a reader that keeps track of how much has been read
@@ -49,7 +48,7 @@ func getNamespace(path string) string {
 			return ns
 		}
 	}
-	return v1.NamespaceSystem
+	return "cdi"
 }
 
 // ParseEnvVar provides a wrapper to attempt to fetch the specified env var
