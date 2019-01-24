@@ -52,7 +52,6 @@ v0.0.1-alpha.0
 v0.0.1-alpha.1
 ```
 
-
 Release notes
 -------------
 Every release must should be accompanied by release notes describing the
@@ -69,6 +68,17 @@ The `hack/release-announce.sh` script should be used to generate the
 announce email.
 Using this script ensures consistency and documentation of the release
 process and content between releases.
+
+
+Topic: Signing
+--------------
+The workflows below use signed tags. The following link describes what you
+need to do in order to setup correct signing for tags (and commits) on your
+local machine and in GitHub, in order to get the commits verified.
+
+https://help.github.com/articles/adding-a-new-gpg-key-to-your-github-account/
+
+Setting up and using signing is mandatory for any release.
 
 
 Releasing minor versions
