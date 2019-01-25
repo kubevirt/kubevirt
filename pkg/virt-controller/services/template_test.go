@@ -226,7 +226,7 @@ var _ = Describe("Template", func() {
 				Expect(err).ToNot(HaveOccurred())
 				value, ok := pod.Annotations["k8s.v1.cni.cncf.io/networks"]
 				Expect(ok).To(Equal(true))
-				Expect(value).To(Equal("{\"name\":\"test1\"}"))
+				Expect(value).To(Equal("[\n  {\"name\":\"test1\"},\n]\n"))
 			})
 		})
 		Context("with node selectors", func() {

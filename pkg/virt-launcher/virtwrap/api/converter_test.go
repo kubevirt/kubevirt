@@ -1008,7 +1008,7 @@ var _ = Describe("Converter", func() {
 				v1.Network{
 					Name: "red1",
 					NetworkSource: v1.NetworkSource{
-						Tungstenfabric: &v1.CniNetwork{NetworkName: "'{\"domain\":\"default-domain\", \"project\": \"k8s-default\",\"name\":\"red\"}'"},
+						Tungstenfabric: &v1.CniNetwork{NetworkName: "'{\"name\":\"red\"}'"},
 					},
 				},
 			}
@@ -1017,7 +1017,7 @@ var _ = Describe("Converter", func() {
 			Expect(domain).ToNot(Equal(nil))
 			Expect(domain.Spec.Devices.Interfaces).To(HaveLen(1))
 			Expect(vmi.Spec.Networks[0].Tungstenfabric).ToNot(Equal(nil))
-			Expect(domain.Spec.Devices.Interfaces[0].Source.Bridge).To(Equal("k6t-eth0"))
+			Expect(domain.Spec.Devices.Interfaces[0].Source.Bridge).To(Equal("k6t-eth1"))
 		})
 		It("should allow setting boot order", func() {
 			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
