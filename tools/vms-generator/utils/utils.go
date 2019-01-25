@@ -41,7 +41,7 @@ const (
 	VmiFlavorSmall       = "vmi-flavor-small"
 	VmiSata              = "vmi-sata"
 	VmiFedora            = "vmi-fedora"
-	VmiCirrosEFI         = "vmi-cirros-efi"
+	VmiAlpineEFI         = "vmi-alpine-efi"
 	VmiNoCloud           = "vmi-nocloud"
 	VmiPVC               = "vmi-pvc"
 	VmiBlockPVC          = "vmi-block-pvc"
@@ -312,18 +312,17 @@ func GetVMIEphemeralFedora() *v1.VirtualMachineInstance {
 	return vmi
 }
 
-func GetVMICirrosEFI() *v1.VirtualMachineInstance {
-	vmi := getBaseVMI(VmiCirrosEFI)
+func GetVMIAlpineEFI() *v1.VirtualMachineInstance {
+	vmi := getBaseVMI(VmiAlpineEFI)
 
-	addContainerDisk(&vmi.Spec, fmt.Sprintf("%s/%s:%s", DockerPrefix, imageCirros, DockerTag), busVirtio)
+	addContainerDisk(&vmi.Spec, fmt.Sprintf("%s/%s:%s", DockerPrefix, imageAlpine, DockerTag), busVirtio)
 	vmi.Spec.Domain.Firmware = &v1.Firmware{
 		Bootloader: &v1.Bootloader{
 			EFI: &v1.EFI{},
 		},
 	}
 
-	disable := false
-	vmi.Spec.Domain.Devices.AutoattachPodInterface = &disable
+	vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("1Gi")
 	return vmi
 }
 
