@@ -52,18 +52,22 @@ if [ $? -ne 0 ]; then
     fi
 
     IFS=","
-    echo $output | while read -r LINE; do
-    #it is not a valid image if its format is not qcow2.
-    if [ `echo $LINE | awk '$1 == "\"format\":" {print $1 }'` ]  && [ `echo $LINE | awk '$2 != "\"qcow2\"" {print $2 }'` ] ; then
-        echo "Invalid format for image $IMAGE_PATH"
-        exit 1
-    fi
-    #it is not a valid image if it has backing-filename
-    if [ `echo $LINE | awk '$1 == "\"backing-filename\":" {print $1 }'` ]; then
-        echo "Image $IMAGE_PATH is invalid because it has a backing file"
-        exit 1
-    fi
+    echo $output | while read -r LINE;
+    do
+        #it is not a valid image if its format is not qcow2.
+        if [ `echo $LINE | awk '$1 == "\"format\":" {print $1 }'` ]  && [ `echo $LINE | awk '$2 != "\"qcow2\"" {print $2 }'` ] && [ `echo $LINE | awk '$2 != "\"raw\"" {print $2 }'` ] ; then
+            echo "Invalid format for image $IMAGE_PATH"
+            exit 1
+        fi
+        #it is not a valid image if it has backing-filename
+        if [ `echo $LINE | awk '$1 == "\"backing-filename\":" {print $1 }'` ]; then
+            echo "Image $IMAGE_PATH is invalid because it has a backing file"
+            exit 1
+        fi
     done
+    if [ $? -eq 1 ]; then
+        exit 1
+    fi
 
 	IMAGE_EXTENSION="raw"
 	/usr/bin/qemu-img convert $IMAGE_PATH ${COPY_PATH}.${IMAGE_EXTENSION}
