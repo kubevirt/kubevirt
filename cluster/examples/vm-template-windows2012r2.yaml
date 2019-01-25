@@ -61,7 +61,6 @@ objects:
               spinlocks:
                 spinlocks: 8191
               vapic: {}
-            smm: {}
           firmware:
             uuid: 5d307ca9-b3ef-428c-8861-06e72d69f223
           machine:

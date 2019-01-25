@@ -1034,7 +1034,7 @@ func schema_kubevirt_pkg_api_v1_Features(ref common.ReferenceCallback) common.Op
 					},
 					"smm": {
 						SchemaProps: spec.SchemaProps{
-							Description: "SMM enables/disables System Management Mode. TSEG not yet implemented, defaults to enabled.",
+							Description: "SMM enables/disables System Management Mode. TSEG not yet implemented.",
 							Ref:         ref("kubevirt.io/kubevirt/pkg/api/v1.FeatureState"),
 						},
 					},

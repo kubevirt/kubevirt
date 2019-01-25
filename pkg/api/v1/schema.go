@@ -662,9 +662,9 @@ type Features struct {
 	// +optional
 	Hyperv *FeatureHyperv `json:"hyperv,omitempty"`
 	// SMM enables/disables System Management Mode.
-	// TSEG not yet implemented, defaults to enabled.
+	// TSEG not yet implemented.
 	// +optional
-	SMM FeatureState `json:"smm,omitempty"`
+	SMM *FeatureState `json:"smm,omitempty"`
 }
 
 // Represents if a feature is enabled or disabled.

@@ -105,7 +105,9 @@ func SetObjectDefaults_VirtualMachine(in *VirtualMachine) {
 					SetDefaults_FeatureVendorID(in.Spec.Template.Spec.Domain.Features.Hyperv.VendorID)
 				}
 			}
-			SetDefaults_FeatureState(&in.Spec.Template.Spec.Domain.Features.SMM)
+			if in.Spec.Template.Spec.Domain.Features.SMM != nil {
+				SetDefaults_FeatureState(in.Spec.Template.Spec.Domain.Features.SMM)
+			}
 		}
 		for i := range in.Spec.Template.Spec.Domain.Devices.Disks {
 			a := &in.Spec.Template.Spec.Domain.Devices.Disks[i]
@@ -184,7 +186,9 @@ func SetObjectDefaults_VirtualMachineInstance(in *VirtualMachineInstance) {
 				SetDefaults_FeatureVendorID(in.Spec.Domain.Features.Hyperv.VendorID)
 			}
 		}
-		SetDefaults_FeatureState(&in.Spec.Domain.Features.SMM)
+		if in.Spec.Domain.Features.SMM != nil {
+			SetDefaults_FeatureState(in.Spec.Domain.Features.SMM)
+		}
 	}
 	for i := range in.Spec.Domain.Devices.Disks {
 		a := &in.Spec.Domain.Devices.Disks[i]
@@ -269,7 +273,9 @@ func SetObjectDefaults_VirtualMachineInstancePreset(in *VirtualMachineInstancePr
 					SetDefaults_FeatureVendorID(in.Spec.Domain.Features.Hyperv.VendorID)
 				}
 			}
-			SetDefaults_FeatureState(&in.Spec.Domain.Features.SMM)
+			if in.Spec.Domain.Features.SMM != nil {
+				SetDefaults_FeatureState(in.Spec.Domain.Features.SMM)
+			}
 		}
 		for i := range in.Spec.Domain.Devices.Disks {
 			a := &in.Spec.Domain.Devices.Disks[i]
@@ -355,7 +361,9 @@ func SetObjectDefaults_VirtualMachineInstanceReplicaSet(in *VirtualMachineInstan
 					SetDefaults_FeatureVendorID(in.Spec.Template.Spec.Domain.Features.Hyperv.VendorID)
 				}
 			}
-			SetDefaults_FeatureState(&in.Spec.Template.Spec.Domain.Features.SMM)
+			if in.Spec.Template.Spec.Domain.Features.SMM != nil {
+				SetDefaults_FeatureState(in.Spec.Template.Spec.Domain.Features.SMM)
+			}
 		}
 		for i := range in.Spec.Template.Spec.Domain.Devices.Disks {
 			a := &in.Spec.Template.Spec.Domain.Devices.Disks[i]

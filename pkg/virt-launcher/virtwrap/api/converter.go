@@ -465,8 +465,10 @@ func Convert_v1_Features_To_api_Features(source *v1.Features, features *Features
 	if source.ACPI.Enabled == nil || *source.ACPI.Enabled {
 		features.ACPI = &FeatureEnabled{}
 	}
-	if source.SMM.Enabled == nil || *source.SMM.Enabled {
-		features.SMM = &FeatureEnabled{}
+	if source.SMM != nil {
+		if source.SMM.Enabled == nil || *source.SMM.Enabled {
+			features.SMM = &FeatureEnabled{}
+		}
 	}
 	if source.APIC != nil {
 		if source.APIC.Enabled == nil || *source.APIC.Enabled {

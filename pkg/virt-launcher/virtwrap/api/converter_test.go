@@ -136,6 +136,7 @@ var _ = Describe("Converter", func() {
 			}
 			vmi.Spec.Domain.Features = &v1.Features{
 				APIC: &v1.FeatureAPIC{},
+				SMM:  &v1.FeatureState{},
 				Hyperv: &v1.FeatureHyperv{
 					Relaxed:    &v1.FeatureState{Enabled: &_false},
 					VAPIC:      &v1.FeatureState{Enabled: &_true},

@@ -4499,7 +4499,7 @@
       "$ref": "#/definitions/v1.FeatureHyperv"
      },
      "smm": {
-      "description": "SMM enables/disables System Management Mode.\nTSEG not yet implemented, defaults to enabled.\n+optional",
+      "description": "SMM enables/disables System Management Mode.\nTSEG not yet implemented.\n+optional",
       "$ref": "#/definitions/v1.FeatureState"
      }
     }
