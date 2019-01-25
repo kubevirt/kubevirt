@@ -41,7 +41,7 @@ const (
 	VmiFlavorSmall       = "vmi-flavor-small"
 	VmiSata              = "vmi-sata"
 	VmiFedora            = "vmi-fedora"
-	VmiFedoraLive        = "vmi-fedora-liveiso"
+	VmiCirrosEFI         = "vmi-cirros-efi"
 	VmiNoCloud           = "vmi-nocloud"
 	VmiPVC               = "vmi-pvc"
 	VmiBlockPVC          = "vmi-block-pvc"
@@ -80,10 +80,9 @@ const (
 )
 
 const (
-	imageAlpine     = "alpine-container-disk-demo"
-	imageCirros     = "cirros-container-disk-demo"
-	imageFedora     = "fedora-cloud-container-disk-demo"
-	imageFedoraLive = "fedora-liveiso-container-disk-demo"
+	imageAlpine = "alpine-container-disk-demo"
+	imageCirros = "cirros-container-disk-demo"
+	imageFedora = "fedora-cloud-container-disk-demo"
 )
 
 const windowsFirmware = "5d307ca9-b3ef-428c-8861-06e72d69f223"
@@ -313,12 +312,10 @@ func GetVMIEphemeralFedora() *v1.VirtualMachineInstance {
 	return vmi
 }
 
-func GetVMIEphemeralFedoraLive() *v1.VirtualMachineInstance {
-	vmi := getBaseVMI(VmiFedoraLive)
-	vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("1024M")
+func GetVMICirrosEFI() *v1.VirtualMachineInstance {
+	vmi := getBaseVMI(VmiCirrosEFI)
 
-	addContainerDisk(&vmi.Spec, fmt.Sprintf("%s/%s:%s", DockerPrefix, imageFedora, DockerTag), busVirtio)
-	addNoCloudDiskWitUserData(&vmi.Spec, "#cloud-config\npassword: fedora\nchpasswd: { expire: False }")
+	addContainerDisk(&vmi.Spec, fmt.Sprintf("%s/%s:%s", DockerPrefix, imageCirros, DockerTag), busVirtio)
 	return vmi
 }
 
