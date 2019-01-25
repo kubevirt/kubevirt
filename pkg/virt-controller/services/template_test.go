@@ -216,7 +216,7 @@ var _ = Describe("Template", func() {
 						Networks: []v1.Network{
 							{Name: "net1",
 								NetworkSource: v1.NetworkSource{
-									Tungstenfabric: &v1.CniNetwork{NetworkName: "{\"domain\":\"default-domain\", \"project\": \"k8s-default\",\"name\":\"test1\"}"},
+									Tungstenfabric: &v1.CniNetwork{NetworkName: "{\"name\":\"test1\"}"},
 								}},
 						},
 					},
@@ -224,9 +224,9 @@ var _ = Describe("Template", func() {
 
 				pod, err := svc.RenderLaunchManifest(&vmi)
 				Expect(err).ToNot(HaveOccurred())
-				value, ok := pod.Annotations["opencontrail.org/network"]
+				value, ok := pod.Annotations["k8s.v1.cni.cncf.io/networks"]
 				Expect(ok).To(Equal(true))
-				Expect(value).To(Equal("{\"domain\":\"default-domain\", \"project\": \"k8s-default\",\"name\":\"test1\"}"))
+				Expect(value).To(Equal("{\"name\":\"test1\"}"))
 			})
 		})
 		Context("with node selectors", func() {
