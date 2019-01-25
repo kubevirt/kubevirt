@@ -8,10 +8,14 @@ metadata:
 spec:
   domain:
     devices:
+      autoattachPodInterface: false
       disks:
       - disk:
           bus: virtio
         name: containerdisk
+    firmware:
+      bootloader:
+        efi: {}
     machine:
       type: ""
     resources:

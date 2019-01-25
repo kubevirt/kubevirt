@@ -316,6 +316,14 @@ func GetVMICirrosEFI() *v1.VirtualMachineInstance {
 	vmi := getBaseVMI(VmiCirrosEFI)
 
 	addContainerDisk(&vmi.Spec, fmt.Sprintf("%s/%s:%s", DockerPrefix, imageCirros, DockerTag), busVirtio)
+	vmi.Spec.Domain.Firmware = &v1.Firmware{
+		Bootloader: &v1.Bootloader{
+			EFI: &v1.EFI{},
+		},
+	}
+
+	disable := false
+	vmi.Spec.Domain.Devices.AutoattachPodInterface = &disable
 	return vmi
 }
 
