@@ -495,7 +495,7 @@ func (c *KubeVirtController) isReady() bool {
 			if deployment.Spec.Replicas != nil {
 				specReplicas = *deployment.Spec.Replicas
 			}
-			if specReplicas == deployment.Status.Replicas &&
+			if specReplicas != deployment.Status.Replicas ||
 				deployment.Status.Replicas != deployment.Status.ReadyReplicas {
 				log.Log.V(4).Infof("Deployment %v not ready yet", deployment.Name)
 				return false
