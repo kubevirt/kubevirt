@@ -58,8 +58,8 @@ func SetupNetworkInterfaces(vmi *v1.VirtualMachineInstance, domain *api.Domain) 
 			// genie pod interfaces start from 0
 			cniNetworks[network.Name] = len(cniNetworks)
 		} else if networks[network.Name].Tungstenfabric != nil {
-			// genie pod interfaces start from 0
-			cniNetworks[network.Name] = len(cniNetworks)
+			// tungstenfabric pod interfaces start from 1
+			cniNetworks[network.Name] = len(cniNetworks) + 1
 		}
 	}
 

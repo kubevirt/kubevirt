@@ -975,6 +975,8 @@ func getNetworkToResourceMap(virtClient kubecli.KubevirtClient, vmi *v1.VirtualM
 func getCniInterfaceList(vmi *v1.VirtualMachineInstance) (ifaceListString string, cniAnnotation string) {
 	ifaceList := make([]string, 0)
 
+	var tungstenfabric bool = false
+
 	for _, network := range vmi.Spec.Networks {
 		// set the type for the first network
 		// all other networks must have same type
@@ -989,14 +991,23 @@ func getCniInterfaceList(vmi *v1.VirtualMachineInstance) (ifaceListString string
 				cniAnnotation = "cni"
 			}
 		} else if network.Tungstenfabric != nil {
+			tungstenfabric = true
 			ifaceList = append(ifaceList, network.Tungstenfabric.NetworkName)
 			if cniAnnotation == "" {
-				cniAnnotation = "opencontrail.org/network"
+				cniAnnotation = "k8s.v1.cni.cncf.io/networks"
 			}
 		}
 	}
 
-	ifaceListString = strings.Join(ifaceList, ",")
+	if tungstenfabric {
+		ifaceListString = fmt.Sprintf("[\n")
+		for _, iface := range ifaceList {
+			ifaceListString += fmt.Sprintf("  %s,\n", iface)
+		}
+		ifaceListString += fmt.Sprintf("]\n")
+	} else {
+		ifaceListString = strings.Join(ifaceList, ",")
+	}
 	return
 }
 

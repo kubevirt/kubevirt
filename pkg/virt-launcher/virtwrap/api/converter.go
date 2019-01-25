@@ -887,7 +887,7 @@ func Convert_v1_VirtualMachine_To_api_Domain(vmi *v1.VirtualMachineInstance, dom
 			numberOfSources++
 		}
 		if network.Tungstenfabric != nil {
-			cniNetworks[network.Name] = len(cniNetworks)
+			cniNetworks[network.Name] = len(cniNetworks) + 1
 			numberOfSources++
 		}
 		log.Log.Infof("network: %s", network)
