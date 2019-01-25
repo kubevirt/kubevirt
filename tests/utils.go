@@ -1305,14 +1305,21 @@ func NewRandomVMIWithEphemeralDiskAndUserdataHighMemory(containerImage string, u
 }
 
 func NewRandomVMIWithEFIBootloader(s bool) *v1.VirtualMachineInstance {
-	vmi := NewRandomVMIWithEphemeralDisk(ContainerDiskFor(ContainerDiskAlpine))
+	vmi := NewRandomVMIWithEphemeralDiskHighMemory(ContainerDiskFor(ContainerDiskAlpine))
 
+	// EFI needs more memory than other images
+	vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("1Gi")
 	vmi.Spec.Domain.Firmware = &v1.Firmware{
 		Bootloader: &v1.Bootloader{
 			EFI: &v1.EFI{
 				Secure: s,
 			},
 		},
+	}
+	if s {
+		vmi.Spec.Domain.Features = &v1.Features{
+			SMM: &v1.FeatureState{},
+		}
 	}
 
 	return vmi
