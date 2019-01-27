@@ -208,13 +208,15 @@ func updateVersion(ch chan<- prometheus.Metric) {
 }
 
 type Collector struct {
-	virtShareDir string
+	virtShareDir  string
+	concCollector *concurrentCollector
 }
 
 func SetupCollector(virtShareDir string) *Collector {
 	log.Log.Infof("Starting collector: sharedir=%v", virtShareDir)
 	co := &Collector{
-		virtShareDir: virtShareDir,
+		virtShareDir:  virtShareDir,
+		concCollector: NewConcurrentCollector(),
 	}
 	prometheus.MustRegister(co)
 	return co
@@ -244,12 +246,8 @@ func (co *Collector) Collect(ch chan<- prometheus.Metric) {
 		return
 	}
 
-	cc := concurrentCollector{
-		Scraper: &prometheusScraper{
-			ch: ch,
-		},
-	}
-	cc.Collect(socketFiles, collectionTimeout)
+	scraper := &prometheusScraper{ch: ch}
+	co.concCollector.Collect(socketFiles, scraper, collectionTimeout)
 	return
 }
 

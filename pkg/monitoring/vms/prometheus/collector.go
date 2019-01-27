@@ -37,7 +37,11 @@ type concurrentCollector struct {
 	busyKeys sync.Map
 }
 
-func (cc *concurrentCollector) Collect(keys []string, timeout time.Duration) ([]string, bool) {
+func NewConcurrentCollector() *concurrentCollector {
+	return &concurrentCollector{}
+}
+
+func (cc *concurrentCollector) Collect(keys []string, scraper metricsScraper, timeout time.Duration) ([]string, bool) {
 	log.Log.V(3).Infof("Collecting VM metrics from %d sources", len(keys))
 	var busyScrapers sync.WaitGroup
 
@@ -52,7 +56,7 @@ func (cc *concurrentCollector) Collect(keys []string, timeout time.Duration) ([]
 
 		log.Log.V(4).Infof("Source %s responsive, scraping", key)
 		busyScrapers.Add(1)
-		go cc.collectFromSource(key, &busyScrapers)
+		go cc.collectFromSource(key, scraper, &busyScrapers)
 	}
 
 	completed := true
@@ -74,11 +78,11 @@ func (cc *concurrentCollector) Collect(keys []string, timeout time.Duration) ([]
 	return skipped, completed
 }
 
-func (cc *concurrentCollector) collectFromSource(key string, wg *sync.WaitGroup) {
+func (cc *concurrentCollector) collectFromSource(key string, scraper metricsScraper, wg *sync.WaitGroup) {
 	defer wg.Done()
 	defer cc.busyKeys.Delete(key)
 
 	log.Log.V(4).Infof("Getting stats from source %s", key)
-	cc.Scraper.Scrape(key)
+	scraper.Scrape(key)
 	log.Log.V(4).Infof("Updated stats from source %s", key)
 }

@@ -35,11 +35,9 @@ var _ = Describe("Collector", func() {
 		It("should scrape all the sources", func() {
 			keys := []string{"a", "b", "c"} // keep sorted
 			fs := newFakeScraper(len(keys))
-			cc := concurrentCollector{
-				Scraper: fs,
-			}
+			cc := NewConcurrentCollector()
 
-			skipped, completed := cc.Collect(keys, 1*time.Second)
+			skipped, completed := cc.Collect(keys, fs, 1*time.Second)
 
 			Expect(len(skipped)).To(Equal(0))
 			Expect(completed).To(BeTrue())
@@ -51,11 +49,9 @@ var _ = Describe("Collector", func() {
 			keys := []string{"a", "b", "c"} // keep sorted
 			fs := newFakeScraper(len(keys))
 			fs.Block("a")
-			cc := concurrentCollector{
-				Scraper: fs,
-			}
+			cc := NewConcurrentCollector()
 
-			skipped, completed := cc.Collect(keys, 1*time.Second)
+			skipped, completed := cc.Collect(keys, fs, 1*time.Second)
 
 			Expect(len(skipped)).To(Equal(0))
 			Expect(completed).To(BeFalse())
@@ -65,18 +61,16 @@ var _ = Describe("Collector", func() {
 			keys := []string{"a", "b", "c"} // keep sorted
 			fs := newFakeScraper(len(keys))
 			fs.Block("a")
-			cc := concurrentCollector{
-				Scraper: fs,
-			}
+			cc := NewConcurrentCollector()
 
 			By("Doing a first collection")
-			skipped, completed := cc.Collect(keys, 1*time.Second)
+			skipped, completed := cc.Collect(keys, fs, 1*time.Second)
 			// first collection is not aware of the blocked source
 			Expect(len(skipped)).To(Equal(0))
 			Expect(completed).To(BeFalse())
 
 			By("Collecting again with a blocked source")
-			skipped, completed = cc.Collect(keys, 1*time.Second)
+			skipped, completed = cc.Collect(keys, fs, 1*time.Second)
 			// second collection is aware of the blocked source
 			Expect(len(skipped)).To(Equal(1))
 			Expect(skipped[0]).To(Equal("a"))
@@ -88,18 +82,16 @@ var _ = Describe("Collector", func() {
 			keys := []string{"a", "b", "c"} // keep sorted
 			fs := newFakeScraper(len(keys))
 			fs.Block("b")
-			cc := concurrentCollector{
-				Scraper: fs,
-			}
+			cc := NewConcurrentCollector()
 
 			By("Doing a first collection")
-			skipped, completed := cc.Collect(keys, 1*time.Second)
+			skipped, completed := cc.Collect(keys, fs, 1*time.Second)
 			// first collection is not aware of the blocked source
 			Expect(len(skipped)).To(Equal(0))
 			Expect(completed).To(BeFalse())
 
 			By("Collecting again with a blocked source")
-			skipped, completed = cc.Collect(keys, 1*time.Second)
+			skipped, completed = cc.Collect(keys, fs, 1*time.Second)
 			// second collection is aware of the blocked source
 			Expect(len(skipped)).To(Equal(1))
 			Expect(skipped[0]).To(Equal("b"))
@@ -111,7 +103,7 @@ var _ = Describe("Collector", func() {
 			fs.Unblock("b")
 
 			By("Restored a clean state")
-			skipped, completed = cc.Collect(keys, 1*time.Second)
+			skipped, completed = cc.Collect(keys, fs, 1*time.Second)
 			Expect(len(skipped)).To(Equal(0))
 			Expect(completed).To(BeTrue())
 		})
