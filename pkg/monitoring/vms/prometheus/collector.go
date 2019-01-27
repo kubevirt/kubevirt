@@ -33,12 +33,14 @@ type metricsScraper interface {
 }
 
 type concurrentCollector struct {
-	Scraper  metricsScraper
-	busyKeys sync.Map
+	lock     sync.Mutex
+	busyKeys map[string]bool
 }
 
 func NewConcurrentCollector() *concurrentCollector {
-	return &concurrentCollector{}
+	return &concurrentCollector{
+		busyKeys: make(map[string]bool),
+	}
 }
 
 func (cc *concurrentCollector) Collect(keys []string, scraper metricsScraper, timeout time.Duration) ([]string, bool) {
@@ -47,8 +49,8 @@ func (cc *concurrentCollector) Collect(keys []string, scraper metricsScraper, ti
 
 	skipped := []string{}
 	for _, key := range keys {
-		_, loaded := cc.busyKeys.LoadOrStore(key, true)
-		if loaded {
+		reserved := cc.reserveKey(key)
+		if !reserved {
 			log.Log.Warningf("Source %s busy from a previous collection, skipped", key)
 			skipped = append(skipped, key)
 			continue
@@ -80,9 +82,26 @@ func (cc *concurrentCollector) Collect(keys []string, scraper metricsScraper, ti
 
 func (cc *concurrentCollector) collectFromSource(key string, scraper metricsScraper, wg *sync.WaitGroup) {
 	defer wg.Done()
-	defer cc.busyKeys.Delete(key)
+	defer cc.releaseKey(key)
 
 	log.Log.V(4).Infof("Getting stats from source %s", key)
 	scraper.Scrape(key)
 	log.Log.V(4).Infof("Updated stats from source %s", key)
+}
+
+func (cc *concurrentCollector) reserveKey(key string) bool {
+	cc.lock.Lock()
+	defer cc.lock.Unlock()
+	busy := cc.busyKeys[key]
+	if busy {
+		return false
+	}
+	cc.busyKeys[key] = true
+	return true
+}
+
+func (cc *concurrentCollector) releaseKey(key string) {
+	cc.lock.Lock()
+	defer cc.lock.Unlock()
+	cc.busyKeys[key] = false
 }
