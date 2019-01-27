@@ -3,7 +3,7 @@ set -e
 
 source $(dirname "$0")/common.sh
 
-DOCKER_DIR=${KUBEVIRT_DIR}/hack/docker-builder
+DOCKER_DIR=${KUBEVIRT_DIR}/hack/kubevirt-builder
 
 SYNC_OUT=${SYNC_OUT:-true}
 
