@@ -949,6 +949,32 @@ var _ = Describe("Configurations", func() {
 				}, 10*time.Second)
 			})
 		})
+
+		Context("when CPU features defined", func() {
+			It("should start a Virtaul Machine with matching features", func() {
+				vmiModel := "Conroe"
+				if libvirtCpuVendor == "AMD" {
+					vmiModel = "Opteron_G1"
+				}
+				cpuVmi.Spec.Domain.CPU = &v1.CPU{
+					Model: vmiModel,
+					Features: []v1.Feature{
+						{
+							Name: "apic",
+						},
+						{
+							Name:   "clflush",
+							Policy: "optional",
+						},
+					},
+				}
+
+				By("Starting a VirtualMachineInstance")
+				_, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(cpuVmi)
+				Expect(err).ToNot(HaveOccurred())
+				tests.WaitForSuccessfulVMIStart(cpuVmi)
+			})
+		})
 	})
 
 	Context("[rfe_id:904][crit:medium][vendor:cnv-qe@redhat.com][level:component]with driver cache settings", func() {

@@ -43,7 +43,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/util/hardware"
 	"kubevirt.io/kubevirt/pkg/util/net/dns"
 	"kubevirt.io/kubevirt/pkg/util/types"
-	"kubevirt.io/kubevirt/pkg/virt-config"
+	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 )
 
 const configMapName = "kubevirt-config"
@@ -61,9 +61,10 @@ const CAP_SYS_NICE = "SYS_NICE"
 // Libvirt needs roughly 10 seconds to start.
 const LibvirtStartupDelay = 10
 
-//This is a perfix for node feature discovery, used in a NodeSelector on the pod
-//to match a VirtualMachineInstance CPU model(Family) to nodes that support this model.
+//These perfixes for node feature discovery, are used in a NodeSelector on the pod
+//to match a VirtualMachineInstance CPU model(Family) and/or features to nodes that support them.
 const NFD_CPU_MODEL_PREFIX = "feature.node.kubernetes.io/cpu-model-"
+const NFD_CPU_FEATURE_PREFIX = "feature.node.kubernetes.io/cpu-feature-"
 
 const MULTUS_RESOURCE_NAME_ANNOTATION = "k8s.v1.cni.cncf.io/resourceName"
 
@@ -166,6 +167,18 @@ func CPUModelLabelFromCPUModel(vmi *v1.VirtualMachineInstance) (label string, er
 	}
 	label = NFD_CPU_MODEL_PREFIX + vmi.Spec.Domain.CPU.Model
 	return
+}
+
+func CPUFeatureLabelsFromCPUFeatures(vmi *v1.VirtualMachineInstance) []string {
+	var labels []string
+	if vmi.Spec.Domain.CPU != nil && vmi.Spec.Domain.CPU.Features != nil {
+		if len(vmi.Spec.Domain.CPU.Features) > 0 {
+			for _, feature := range vmi.Spec.Domain.CPU.Features {
+				labels = append(labels, NFD_CPU_FEATURE_PREFIX+feature.Name)
+			}
+		}
+	}
+	return labels
 }
 
 // Request a resource by name. This function bumps the number of resources,
@@ -698,6 +711,9 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 			if vmi.Spec.Domain.CPU.Model != v1.CPUModeHostModel && vmi.Spec.Domain.CPU.Model != v1.CPUModeHostPassthrough {
 				nodeSelector[cpuModelLabel] = "true"
 			}
+		}
+		for _, cpuFeatureLable := range CPUFeatureLabelsFromCPUFeatures(vmi) {
+			nodeSelector[cpuFeatureLable] = "true"
 		}
 	}
 

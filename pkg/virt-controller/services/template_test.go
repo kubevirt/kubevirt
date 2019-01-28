@@ -41,7 +41,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/hooks"
 	"kubevirt.io/kubevirt/pkg/kubecli"
 	"kubevirt.io/kubevirt/pkg/log"
-	"kubevirt.io/kubevirt/pkg/virt-config"
+	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 )
 
 const namespaceKubevirt = "kubevirt"
@@ -271,17 +271,32 @@ var _ = Describe("Template", func() {
 						Domain: v1.DomainSpec{
 							CPU: &v1.CPU{
 								Model: "Conroe",
+								Features: []v1.Feature{
+									{
+										Name:   "lahf_lm",
+										Policy: "require",
+									},
+									{
+										Name:   "mmx",
+										Policy: "disable",
+									},
+								},
 							},
 						},
 					},
 				}
 
-				cpuModelLabel, err := CPUModelLabelFromCPUModel(&vmi)
-				Expect(err).ToNot(HaveOccurred())
 				pod, err := svc.RenderLaunchManifest(&vmi)
 				Expect(err).ToNot(HaveOccurred())
 
+				cpuModelLabel, err := CPUModelLabelFromCPUModel(&vmi)
+				Expect(err).ToNot(HaveOccurred())
 				Expect(pod.Spec.NodeSelector).Should(HaveKeyWithValue(cpuModelLabel, "true"))
+
+				cpuFeatureLabels := CPUFeatureLabelsFromCPUFeatures(&vmi)
+				for _, featureLabel := range cpuFeatureLabels {
+					Expect(pod.Spec.NodeSelector).Should(HaveKeyWithValue(featureLabel, "true"))
+				}
 			})
 
 			It("should add default cpu/memory resources to the sidecar container if cpu pinning was requested", func() {

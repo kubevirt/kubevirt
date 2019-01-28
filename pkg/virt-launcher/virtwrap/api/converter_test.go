@@ -559,13 +559,23 @@ var _ = Describe("Converter", func() {
 		})
 
 		Context("when CPU spec defined", func() {
-			It("should convert CPU cores and model", func() {
+			It("should convert CPU cores, model and features", func() {
 				v1.SetObjectDefaults_VirtualMachineInstance(vmi)
 				vmi.Spec.Domain.CPU = &v1.CPU{
 					Cores:   3,
 					Sockets: 2,
 					Threads: 2,
 					Model:   "Conroe",
+					Features: []v1.Feature{
+						{
+							Name:   "lahf_lm",
+							Policy: "require",
+						},
+						{
+							Name:   "mmx",
+							Policy: "disable",
+						},
+					},
 				}
 				domainSpec := vmiToDomainXMLToDomainSpec(vmi, c)
 
@@ -574,6 +584,10 @@ var _ = Describe("Converter", func() {
 				Expect(domainSpec.CPU.Topology.Threads).To(Equal(uint32(2)), "Expect threads")
 				Expect(domainSpec.CPU.Mode).To(Equal("custom"), "Expect cpu mode")
 				Expect(domainSpec.CPU.Model).To(Equal("Conroe"), "Expect cpu model")
+				Expect(domainSpec.CPU.Features[0].Name).To(Equal("lahf_lm"), "Expect cpu feature name")
+				Expect(domainSpec.CPU.Features[0].Policy).To(Equal("require"), "Expect cpu feature policy")
+				Expect(domainSpec.CPU.Features[1].Name).To(Equal("mmx"), "Expect cpu feature name")
+				Expect(domainSpec.CPU.Features[1].Policy).To(Equal("disable"), "Expect cpu feature policy")
 				Expect(domainSpec.VCPU.Placement).To(Equal("static"), "Expect vcpu placement")
 				Expect(domainSpec.VCPU.CPUs).To(Equal(uint32(12)), "Expect vcpus")
 			})

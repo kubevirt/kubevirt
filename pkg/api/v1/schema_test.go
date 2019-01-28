@@ -54,6 +54,16 @@ var exampleJSON = `{
         "sockets": 1,
         "threads": 1,
         "model": "Conroe",
+        "features": [
+          {
+            "name": "pcid",
+            "policy": "require"
+          },
+          {
+            "name": "monitor",
+            "policy": "disable"
+          }
+        ],
         "dedicatedCpuPlacement": true
       },
       "machine": {
@@ -349,10 +359,20 @@ var _ = Describe("Schema", func() {
 			UUID: "28a42a60-44ef-4428-9c10-1a6aee94627f",
 		}
 		exampleVMI.Spec.Domain.CPU = &CPU{
-			Cores:                 3,
-			Sockets:               1,
-			Threads:               1,
-			Model:                 "Conroe",
+			Cores:   3,
+			Sockets: 1,
+			Threads: 1,
+			Model:   "Conroe",
+			Features: []Feature{
+				{
+					Name:   "pcid",
+					Policy: "require",
+				},
+				{
+					Name:   "monitor",
+					Policy: "disable",
+				},
+			},
 			DedicatedCPUPlacement: true,
 		}
 		exampleVMI.Spec.Networks = []Network{

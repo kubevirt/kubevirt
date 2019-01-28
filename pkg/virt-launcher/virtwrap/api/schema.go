@@ -164,7 +164,13 @@ type VCPU struct {
 type CPU struct {
 	Mode     string       `xml:"mode,attr,omitempty"`
 	Model    string       `xml:"model,omitempty"`
+	Features []Feature    `xml:"feature"`
 	Topology *CPUTopology `xml:"topology"`
+}
+
+type Feature struct {
+	Name   string `xml:"name,attr,omitempty"`
+	Policy string `xml:"policy,attr,omitempty"`
 }
 
 type CPUTopology struct {

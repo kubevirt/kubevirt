@@ -871,6 +871,18 @@ func Convert_v1_VirtualMachine_To_api_Domain(vmi *v1.VirtualMachineInstance, dom
 			}
 		}
 
+		// Set VM CPU features
+		if vmi.Spec.Domain.CPU.Features != nil {
+			if len(vmi.Spec.Domain.CPU.Features) > 0 {
+				for _, feature := range vmi.Spec.Domain.CPU.Features {
+					domainFeature := Feature{}
+					domainFeature.Name = feature.Name
+					domainFeature.Policy = feature.Policy
+					domain.Spec.CPU.Features = append(domain.Spec.CPU.Features, domainFeature)
+				}
+			}
+		}
+
 		// Adjust guest vcpu config. Currenty will handle vCPUs to pCPUs pinning
 		if vmi.IsCPUDedicated() {
 			if err := formatDomainCPUTune(vmi, domain, c); err != nil {

@@ -660,7 +660,7 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 				time.Sleep(time.Millisecond * 500)
 			})
 
-			It("[test_id:1639]the vmi with cpu.model matching a nfd label on a node should be scheduled", func() {
+			It("[test_id:1639]the vmi with cpu.model and cpu.features matching nfd labels on a node should be scheduled", func() {
 
 				By("adding a node-feature-discovery CPU model label to a node")
 				nodes, err := virtClient.CoreV1().Nodes().List(metav1.ListOptions{})
@@ -671,14 +671,32 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 				vmi.Spec.Domain.CPU = &v1.CPU{
 					Cores: 1,
 					Model: "Conroe",
+					Features: []v1.Feature{
+						{
+							Name:   "lahf_lm",
+							Policy: "require",
+						},
+						{
+							Name:   "mmx",
+							Policy: "disable",
+						},
+					},
 				}
 
+				labels := "{"
 				cpuModelLabel, err := services.CPUModelLabelFromCPUModel(vmi)
 				Expect(err).ToNot(HaveOccurred(), "CPU model label should have been retrieved successfully")
+				labels += `"` + cpuModelLabel + `"` + ":\"true\""
+
+				featureLabels := services.CPUFeatureLabelsFromCPUFeatures(vmi)
+				for _, featurelabel := range featureLabels {
+					labels += `,"` + featurelabel + `"` + ":\"true\""
+				}
+				labels += "}"
 
 				node := &nodes.Items[0]
 				node, err = virtClient.CoreV1().Nodes().Patch(node.Name, types.StrategicMergePatchType,
-					[]byte(fmt.Sprintf(`{"metadata": { "labels": {"%s": "true"}}}`, cpuModelLabel)))
+					[]byte(fmt.Sprintf(`{"metadata": { "labels": %s }}`, labels)))
 				Expect(err).ToNot(HaveOccurred(), "Should patch node successfully")
 
 				_, err = virtClient.VirtualMachineInstance(vmi.Namespace).Create(vmi)
@@ -691,7 +709,7 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 
 			})
 
-			It("[test_id:1640]the vmi with cpu.model that cannot match an nfd label on node should not be scheduled", func() {
+			It("[test_id:1640]the vmi with cpu.model cpu.features that cannot match nfd labels on a node should not be scheduled", func() {
 
 				nodes, err := virtClient.CoreV1().Nodes().List(metav1.ListOptions{})
 				Expect(err).ToNot(HaveOccurred(), "Should list nodes")
@@ -701,14 +719,32 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 				vmi.Spec.Domain.CPU = &v1.CPU{
 					Cores: 1,
 					Model: "Conroe",
+					Features: []v1.Feature{
+						{
+							Name:   "lahf_lm",
+							Policy: "require",
+						},
+						{
+							Name:   "mmx",
+							Policy: "disable",
+						},
+					},
 				}
 
+				labels := "{"
 				cpuModelLabel, err := services.CPUModelLabelFromCPUModel(vmi)
 				Expect(err).ToNot(HaveOccurred(), "CPU model label should have been retrieved successfully")
+				labels += `"` + cpuModelLabel + `"` + ":\"false\""
+
+				featureLabels := services.CPUFeatureLabelsFromCPUFeatures(vmi)
+				for _, featurelabel := range featureLabels {
+					labels += `,"` + featurelabel + `"` + ":\"false\""
+				}
+				labels += "}"
 
 				node := &nodes.Items[0]
 				node, err = virtClient.CoreV1().Nodes().Patch(node.Name, types.StrategicMergePatchType,
-					[]byte(fmt.Sprintf(`{"metadata": { "labels": {"%s": "false"}}}`, cpuModelLabel)))
+					[]byte(fmt.Sprintf(`{"metadata": { "labels": %s }}`, labels)))
 				Expect(err).ToNot(HaveOccurred(), "Should patch node successfully")
 
 				//Make sure the vmi should try to be scheduled only on master node
