@@ -4297,6 +4297,10 @@
       "description": "Whether to have random number generator from host\n+optional",
       "$ref": "#/definitions/v1.Rng"
      },
+     "tablet": {
+      "description": "Tablet describe tablet device",
+      "$ref": "#/definitions/v1.Tablet"
+     },
      "watchdog": {
       "description": "Watchdog describes a watchdog device which can be added to the vmi.",
       "$ref": "#/definitions/v1.Watchdog"
@@ -5557,6 +5561,17 @@
        "string",
        "number"
       ]
+     }
+    }
+   },
+   "v1.Tablet": {
+    "required": [
+     "bus"
+    ],
+    "properties": {
+     "bus": {
+      "description": "Bus indicates the type of tablet device to emulate.\nSupported values: virtio.",
+      "type": "string"
      }
     }
    },

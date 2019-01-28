@@ -275,19 +275,26 @@ type HugePage struct {
 }
 
 type Devices struct {
-	Emulator    string       `xml:"emulator,omitempty"`
-	Interfaces  []Interface  `xml:"interface"`
-	Channels    []Channel    `xml:"channel"`
-	HostDevices []HostDevice `xml:"hostdev,omitempty"`
-	Controllers []Controller `xml:"controller,omitempty"`
-	Video       []Video      `xml:"video"`
-	Graphics    []Graphics   `xml:"graphics"`
-	Ballooning  *Ballooning  `xml:"memballoon,omitempty"`
-	Disks       []Disk       `xml:"disk"`
-	Serials     []Serial     `xml:"serial"`
-	Consoles    []Console    `xml:"console"`
-	Watchdog    *Watchdog    `xml:"watchdog,omitempty"`
-	Rng         *Rng         `xml:"rng,omitempty"`
+	Emulator     string        `xml:"emulator,omitempty"`
+	Interfaces   []Interface   `xml:"interface"`
+	Channels     []Channel     `xml:"channel"`
+	HostDevices  []HostDevice  `xml:"hostdev,omitempty"`
+	Controllers  []Controller  `xml:"controller,omitempty"`
+	Video        []Video       `xml:"video"`
+	Graphics     []Graphics    `xml:"graphics"`
+	Ballooning   *Ballooning   `xml:"memballoon,omitempty"`
+	Disks        []Disk        `xml:"disk"`
+	InputDevices []InputDevice `xml:"input"`
+	Serials      []Serial      `xml:"serial"`
+	Consoles     []Console     `xml:"console"`
+	Watchdog     *Watchdog     `xml:"watchdog,omitempty"`
+	Rng          *Rng          `xml:"rng,omitempty"`
+}
+
+// InputDevice represents input device, e.g. tablet
+type InputDevice struct {
+	Type string `xml:"type,attr"`
+	Bus  string `xml:"bus,attr"`
 }
 
 // BEGIN HostDevice -----------------------------

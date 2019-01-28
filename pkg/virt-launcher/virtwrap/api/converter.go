@@ -404,6 +404,16 @@ func Convert_v1_Rng_To_api_Rng(source *v1.Rng, rng *Rng, _ *ConverterContext) er
 	return nil
 }
 
+func Convert_v1_Tablet_To_api_InputDevice(tablet *v1.Tablet, inputDevice *InputDevice, _ *ConverterContext) error {
+	if tablet.Bus != "virtio" {
+		return fmt.Errorf("tablet contains unsupported bus %s", tablet.Bus)
+	}
+
+	inputDevice.Bus = tablet.Bus
+	inputDevice.Type = "tablet"
+	return nil
+}
+
 func Convert_v1_Clock_To_api_Clock(source *v1.Clock, clock *Clock, c *ConverterContext) error {
 	if source.UTC != nil {
 		clock.Offset = "utc"
@@ -769,6 +779,15 @@ func Convert_v1_VirtualMachine_To_api_Domain(vmi *v1.VirtualMachineInstance, dom
 			return err
 		}
 		domain.Spec.Devices.Rng = newRng
+	}
+
+	if vmi.Spec.Domain.Devices.Tablet != nil {
+		inputDevice := &InputDevice{}
+		err := Convert_v1_Tablet_To_api_InputDevice(vmi.Spec.Domain.Devices.Tablet, inputDevice, c)
+		if err != nil {
+			return err
+		}
+		domain.Spec.Devices.InputDevices = []InputDevice{*inputDevice}
 	}
 
 	if vmi.Spec.Domain.Clock != nil {

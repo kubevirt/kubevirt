@@ -267,6 +267,8 @@ type Devices struct {
 	Watchdog *Watchdog `json:"watchdog,omitempty"`
 	// Interfaces describe network interfaces which are added to the vmi.
 	Interfaces []Interface `json:"interfaces,omitempty"`
+	// Tablet describe tablet device
+	Tablet *Tablet `json:"tablet,omitempty"`
 	// Whether to attach a pod network interface. Defaults to true.
 	AutoattachPodInterface *bool `json:"autoattachPodInterface,omitempty"`
 	// Whether to attach the default graphics device or not.
@@ -281,6 +283,14 @@ type Devices struct {
 	// If specified, virtual network interfaces configured with a virtio bus will also enable the vhost multiqueue feature
 	// +optional
 	NetworkInterfaceMultiQueue *bool `json:"networkInterfaceMultiqueue,omitempty"`
+}
+
+// ---
+// +k8s:openapi-gen=true
+type Tablet struct {
+	// Bus indicates the type of tablet device to emulate.
+	// Supported values: virtio.
+	Bus string `json:"bus"`
 }
 
 // ---
