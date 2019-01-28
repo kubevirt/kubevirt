@@ -32,7 +32,7 @@ import (
 	"kubevirt.io/kubevirt/tests"
 )
 
-var _ = Describe("Config", func() {
+var _ = Describe("[rfe_id:899][crit:medium][vendor:cnv-qe@redhat.com][level:component]Config", func() {
 
 	flag.Parse()
 
@@ -67,7 +67,7 @@ var _ = Describe("Config", func() {
 				tests.DeleteConfigMap(configMapName)
 			})
 
-			It("Should be the fs layout the same for a pod and vmi", func() {
+			It("[test_id:782]Should be the fs layout the same for a pod and vmi", func() {
 				expectedOutput := "value1value2value3"
 
 				By("Running VMI")
@@ -127,7 +127,7 @@ var _ = Describe("Config", func() {
 				configMaps = nil
 			})
 
-			It("Should start VMI with multiple ConfigMaps", func() {
+			It("[test_id:783]Should start VMI with multiple ConfigMaps", func() {
 				vmi := tests.NewRandomVMIWithConfigMap(configMaps[0])
 				tests.AddConfigMapDisk(vmi, configMaps[1])
 				tests.AddConfigMapDisk(vmi, configMaps[2])
@@ -163,7 +163,7 @@ var _ = Describe("Config", func() {
 				tests.DeleteSecret(secretName)
 			})
 
-			It("Should be the fs layout the same for a pod and vmi", func() {
+			It("[test_id:779]Should be the fs layout the same for a pod and vmi", func() {
 				expectedOutput := "adminredhat"
 
 				By("Running VMI")
@@ -222,7 +222,7 @@ var _ = Describe("Config", func() {
 				secrets = nil
 			})
 
-			It("Should start VMI with multiple Secrets", func() {
+			It("[test_id:780]Should start VMI with multiple Secrets", func() {
 				vmi := tests.NewRandomVMIWithSecret(secrets[0])
 				tests.AddSecretDisk(vmi, secrets[1])
 				tests.AddSecretDisk(vmi, secrets[2])
@@ -240,7 +240,7 @@ var _ = Describe("Config", func() {
 
 		serviceAccountPath := config.ServiceAccountSourceDir
 
-		It("Should be the fs layout the same for a pod and vmi", func() {
+		It("[test_id:998]Should be the fs layout the same for a pod and vmi", func() {
 			By("Running VMI")
 			vmi := tests.NewRandomVMIWithServiceAccount("default")
 			tests.RunVMIAndExpectLaunch(vmi, false, 90)
