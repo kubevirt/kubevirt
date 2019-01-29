@@ -162,12 +162,11 @@ func prepareDHCPOptions(
 				if ip == nil {
 					return nil, fmt.Errorf(errorNTPConfiguration, server)
 				}
-
 				ntpServers = append(ntpServers, []byte(ip))
 			}
-		}
 
-		dhcpOptions[dhcp.OptionNetworkTimeProtocolServers] = bytes.Join(ntpServers, nil)
+			dhcpOptions[dhcp.OptionNetworkTimeProtocolServers] = bytes.Join(ntpServers, nil)
+		}
 
 		if customDHCPOptions.ExtraOptions != nil {
 			for code, value := range customDHCPOptions.ExtraOptions {
