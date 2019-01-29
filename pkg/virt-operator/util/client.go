@@ -21,13 +21,14 @@ package util
 
 import (
 	"fmt"
+	"strings"
 	"time"
 
-	"kubevirt.io/kubevirt/pkg/log"
+	secv1 "github.com/openshift/api/security/v1"
 
 	k8sv1 "k8s.io/api/core/v1"
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/tools/cache"
 
 	virtv1 "kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/kubecli"
@@ -127,20 +128,20 @@ func SetVersions(kv *virtv1.KubeVirt, config KubeVirtDeploymentConfig) {
 
 }
 
-func UpdateScc(clientset kubecli.KubevirtClient, kv *virtv1.KubeVirt, add bool) error {
+func UpdateScc(clientset kubecli.KubevirtClient, sccStore cache.Store, kv *virtv1.KubeVirt, add bool) error {
 
-	secClient := clientset.SecClient()
-
-	privScc, err := secClient.SecurityContextConstraints().Get("privileged", metav1.GetOptions{})
-	if err != nil {
-		if apierrors.IsNotFound(err) {
-			// we are mot on openshift?
-			log.Log.V(4).Infof("unable to get scc, we are probably not on openshift: %v", err)
-			return nil
-		} else {
-			return fmt.Errorf("unable to get scc: %v", err)
-		}
+	privSccObj, exists, err := sccStore.GetByKey("privileged")
+	if !exists {
+		return nil
+	} else if err != nil {
+		return err
 	}
+
+	privScc, ok := privSccObj.(*secv1.SecurityContextConstraints)
+	if !ok {
+		return fmt.Errorf("couldn't cast object to SecurityContextConstraints: %+v", privSccObj)
+	}
+	privSccCopy := privScc.DeepCopy()
 
 	var kubeVirtAccounts []string
 	prefix := "system:serviceaccount"
@@ -149,7 +150,7 @@ func UpdateScc(clientset kubecli.KubevirtClient, kv *virtv1.KubeVirt, add bool) 
 	kubeVirtAccounts = append(kubeVirtAccounts, fmt.Sprintf("%s:%s:%s", prefix, kv.Namespace, "kubevirt-controller"))
 
 	modified := false
-	users := privScc.Users
+	users := privSccCopy.Users
 	for _, acc := range kubeVirtAccounts {
 		if add {
 			if !contains(users, acc) {
@@ -163,8 +164,8 @@ func UpdateScc(clientset kubecli.KubevirtClient, kv *virtv1.KubeVirt, add bool) 
 		}
 	}
 	if modified {
-		privScc.Users = users
-		_, err = secClient.SecurityContextConstraints().Update(privScc)
+		privSccCopy.Users = users
+		_, err = clientset.SecClient().SecurityContextConstraints().Update(privSccCopy)
 		if err != nil {
 			return fmt.Errorf("unable to update scc: %v", err)
 		}
@@ -193,4 +194,12 @@ func remove(users []string, user string) ([]string, bool) {
 		}
 	}
 	return newUsers, modified
+}
+
+func IsOnOpenshift(clientset kubecli.KubevirtClient) (bool, error) {
+	_, err := clientset.SecClient().SecurityContextConstraints().List(metav1.ListOptions{})
+	if err != nil && strings.Contains(err.Error(), "the server could not find the requested resource") {
+		return false, nil
+	}
+	return true, err
 }

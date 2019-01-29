@@ -20,6 +20,7 @@
 package virt_operator
 
 import (
+	"fmt"
 	"os"
 	"time"
 
@@ -69,6 +70,7 @@ var _ = Describe("KubeVirt Operator", func() {
 	var serviceSource *framework.FakeControllerSource
 	var deploymentSource *framework.FakeControllerSource
 	var daemonSetSource *framework.FakeControllerSource
+	var sccSource *framework.FakeControllerSource
 
 	var stop chan struct{}
 	var controller *KubeVirtController
@@ -103,6 +105,7 @@ var _ = Describe("KubeVirt Operator", func() {
 		go informers.Service.Run(stop)
 		go informers.Deployment.Run(stop)
 		go informers.DaemonSet.Run(stop)
+		go informers.SCC.Run(stop)
 
 		Expect(cache.WaitForCacheSync(stop, kvInformer.HasSynced)).To(BeTrue())
 
@@ -115,6 +118,19 @@ var _ = Describe("KubeVirt Operator", func() {
 		cache.WaitForCacheSync(stop, informers.Service.HasSynced)
 		cache.WaitForCacheSync(stop, informers.Deployment.HasSynced)
 		cache.WaitForCacheSync(stop, informers.DaemonSet.HasSynced)
+		cache.WaitForCacheSync(stop, informers.SCC.HasSynced)
+
+	}
+
+	getSCC := func() secv1.SecurityContextConstraints {
+		return secv1.SecurityContextConstraints{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "privileged",
+			},
+			Users: []string{
+				"someUser",
+			},
+		}
 	}
 
 	BeforeEach(func() {
@@ -157,6 +173,9 @@ var _ = Describe("KubeVirt Operator", func() {
 		informers.DaemonSet, daemonSetSource = testutils.NewFakeInformerFor(&appsv1.DaemonSet{})
 		stores.DaemonSetCache = informers.DaemonSet.GetStore()
 
+		informers.SCC, sccSource = testutils.NewFakeInformerFor(&secv1.SecurityContextConstraints{})
+		stores.SCCCache = informers.SCC.GetStore()
+
 		controller = NewKubeVirtController(virtClient, kvInformer, recorder, stores, informers)
 
 		// Wrap our workqueue to have a way to detect when we are done processing updates
@@ -192,6 +211,11 @@ var _ = Describe("KubeVirt Operator", func() {
 		})
 
 		syncCaches(stop)
+
+		// add the privileged SCC without KubeVirt accounts
+		scc := getSCC()
+		sccSource.Add(&scc)
+
 	})
 
 	AfterEach(func() {
@@ -319,6 +343,15 @@ var _ = Describe("KubeVirt Operator", func() {
 				Fail("could not cast to runtime.Object")
 			}
 		}
+
+		// update SCC
+		scc := getSCC()
+		prefix := "system:serviceaccount"
+		scc.Users = append(scc.Users,
+			fmt.Sprintf("%s:%s:%s", prefix, NAMESPACE, "kubevirt-privileged"),
+			fmt.Sprintf("%s:%s:%s", prefix, NAMESPACE, "kubevirt-apiserver"),
+			fmt.Sprintf("%s:%s:%s", prefix, NAMESPACE, "kubevirt-controller"))
+		sccSource.Modify(&scc)
 
 	}
 
@@ -485,6 +518,12 @@ var _ = Describe("KubeVirt Operator", func() {
 		return true, nil, nil
 	}
 
+	expectUsers := func(sccObj runtime.Object, count int) {
+		scc, ok := sccObj.(*secv1.SecurityContextConstraints)
+		ExpectWithOffset(2, ok).To(BeTrue())
+		ExpectWithOffset(2, len(scc.Users)).To(Equal(count))
+	}
+
 	shouldExpectDeletions := func() {
 		kubeClient.Fake.PrependReactor("delete", "serviceaccounts", genericDeleteFunc)
 		kubeClient.Fake.PrependReactor("delete", "clusterroles", genericDeleteFunc)
@@ -494,7 +533,9 @@ var _ = Describe("KubeVirt Operator", func() {
 
 		secClient.Fake.PrependReactor("update", "securitycontextconstraints", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
 			update, _ := action.(testing.UpdateAction)
-			return true, update.GetObject(), nil
+			updatedObj := update.GetObject()
+			expectUsers(updatedObj, 1)
+			return true, updatedObj, nil
 		})
 		extClient.Fake.PrependReactor("delete", "customresourcedefinitions", genericDeleteFunc)
 
@@ -512,7 +553,9 @@ var _ = Describe("KubeVirt Operator", func() {
 
 		secClient.Fake.PrependReactor("update", "securitycontextconstraints", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
 			update, _ := action.(testing.UpdateAction)
-			return true, update.GetObject(), nil
+			updatedObj := update.GetObject()
+			expectUsers(updatedObj, 4)
+			return true, updatedObj, nil
 		})
 		extClient.Fake.PrependReactor("create", "customresourcedefinitions", genericCreateFunc)
 
@@ -527,24 +570,6 @@ var _ = Describe("KubeVirt Operator", func() {
 			kvInformer.GetStore().Update(kv)
 			update.Return(kv, nil)
 		}).Times(times)
-	}
-
-	shouldExpectSccGet := func(times int, usersExist bool) {
-		scc := &secv1.SecurityContextConstraints{
-			Users: []string{},
-		}
-		if usersExist {
-			scc.Users = []string{
-				"system:serviceaccount:kubevirt-test:kubevirt-privileged",
-				"system:serviceaccount:kubevirt-test:kubevirt-apiserver",
-				"system:serviceaccount:kubevirt-test:kubevirt-controller",
-			}
-		}
-		secClient.Fake.PrependReactor("get", "securitycontextconstraints", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
-			_, ok := action.(testing.GetAction)
-			Expect(ok).To(BeTrue())
-			return true, scc, nil
-		})
 	}
 
 	getLatestKubeVirt := func(kv *v1.KubeVirt) *v1.KubeVirt {
@@ -570,9 +595,6 @@ var _ = Describe("KubeVirt Operator", func() {
 				},
 			}
 			kv.DeletionTimestamp = now()
-
-			// SCC will always be checked
-			shouldExpectSccGet(1, false)
 
 			addKubeVirt(kv)
 			controller.Execute()
@@ -613,9 +635,6 @@ var _ = Describe("KubeVirt Operator", func() {
 			makeApiAndControllerReady()
 			makeHandlerReady()
 
-			// SCC will always be checked
-			shouldExpectSccGet(1, true)
-
 			controller.Execute()
 
 		}, 15)
@@ -632,7 +651,6 @@ var _ = Describe("KubeVirt Operator", func() {
 			addKubeVirt(kv)
 
 			shouldExpectKubeVirtUpdate(1)
-			shouldExpectSccGet(1, false)
 			shouldExpectCreations()
 
 			controller.Execute()
@@ -655,7 +673,6 @@ var _ = Describe("KubeVirt Operator", func() {
 			// in 2nd run everything should already be created, and the Created condition should be set
 			totalAdds = 0
 			shouldExpectKubeVirtUpdate(1)
-			shouldExpectSccGet(1, true)
 			controller.Execute()
 
 			Expect(totalAdds).To(Equal(0))
@@ -717,7 +734,6 @@ var _ = Describe("KubeVirt Operator", func() {
 			addAll()
 
 			shouldExpectKubeVirtUpdate(1)
-			shouldExpectSccGet(1, true)
 			shouldExpectDeletions()
 
 			controller.Execute()

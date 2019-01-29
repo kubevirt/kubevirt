@@ -326,6 +326,7 @@ func (c *KubeVirtController) Run(threadiness int, stopCh chan struct{}) {
 	cache.WaitForCacheSync(stopCh, c.informers.Service.HasSynced)
 	cache.WaitForCacheSync(stopCh, c.informers.Deployment.HasSynced)
 	cache.WaitForCacheSync(stopCh, c.informers.DaemonSet.HasSynced)
+	cache.WaitForCacheSync(stopCh, c.informers.SCC.HasSynced)
 
 	// Start the actual work
 	for i := 0; i < threadiness; i++ {
