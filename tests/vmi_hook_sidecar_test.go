@@ -28,7 +28,6 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	k8sv1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	v1 "kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/kubecli"
@@ -97,7 +96,7 @@ var _ = Describe("HookSidecars", func() {
 
 func getHookSidecarLogs(virtCli kubecli.KubevirtClient, vmi *v1.VirtualMachineInstance) string {
 	namespace := vmi.GetObjectMeta().GetNamespace()
-	podName := getVmPodName(virtCli, vmi)
+	podName := tests.GetVmPodName(virtCli, vmi)
 
 	var tailLines int64 = 100
 	logsRaw, err := virtCli.CoreV1().
@@ -113,7 +112,7 @@ func getHookSidecarLogs(virtCli kubecli.KubevirtClient, vmi *v1.VirtualMachineIn
 }
 
 func getVmDomainXml(virtCli kubecli.KubevirtClient, vmi *v1.VirtualMachineInstance) string {
-	podName := getVmPodName(virtCli, vmi)
+	podName := tests.GetVmPodName(virtCli, vmi)
 
 	// passing an empty namespace allows to position --namespace argument correctly
 	vmNameListRaw, _, err := tests.RunCommandWithNS("", "kubectl", "exec", "-ti", "--namespace", vmi.GetObjectMeta().GetNamespace(), podName, "--container", "compute", "--", "virsh", "list", "--name")
@@ -125,24 +124,4 @@ func getVmDomainXml(virtCli kubecli.KubevirtClient, vmi *v1.VirtualMachineInstan
 	Expect(err).ToNot(HaveOccurred())
 
 	return vmDomainXML
-}
-
-func getVmPodName(virtCli kubecli.KubevirtClient, vmi *v1.VirtualMachineInstance) string {
-	namespace := vmi.GetObjectMeta().GetNamespace()
-	uid := vmi.GetObjectMeta().GetUID()
-	labelSelector := fmt.Sprintf(v1.CreatedByLabel + "=" + string(uid))
-
-	pods, err := virtCli.CoreV1().Pods(namespace).List(metav1.ListOptions{LabelSelector: labelSelector})
-	Expect(err).ToNot(HaveOccurred())
-
-	podName := ""
-	for _, pod := range pods.Items {
-		if pod.ObjectMeta.DeletionTimestamp == nil {
-			podName = pod.ObjectMeta.Name
-			break
-		}
-	}
-	Expect(podName).ToNot(BeEmpty())
-
-	return podName
 }
