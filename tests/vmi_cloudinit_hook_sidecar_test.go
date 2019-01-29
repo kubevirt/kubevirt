@@ -93,7 +93,7 @@ var _ = Describe("CloudInitHookSidecars", func() {
 		}
 	})
 
-	FDescribe("VMI definition", func() {
+	Describe("VMI definition", func() {
 		Context("with CloudInit hook sidecar", func() {
 			It("should successfully start with hook sidecar annotation", func() {
 				By("Starting a VMI")
