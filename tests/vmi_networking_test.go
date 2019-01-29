@@ -581,7 +581,7 @@ var _ = Describe("Networking", func() {
 				BootFileName:   "config",
 				TFTPServerName: "tftp.kubevirt.io",
 				NTPServers:     []string{"127.0.0.1", "127.0.0.2"},
-				ExtraOptions:   map[int]string{240: "extra.options.kubevirt.io"},
+				ExtraOptions:   map[string]string{"240": "extra.options.kubevirt.io"},
 			}
 
 			_, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(dhcpVMI)

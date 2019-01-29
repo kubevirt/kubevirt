@@ -247,7 +247,7 @@ func (in *DHCPOptions) DeepCopyInto(out *DHCPOptions) {
 	}
 	if in.ExtraOptions != nil {
 		in, out := &in.ExtraOptions, &out.ExtraOptions
-		*out = make(map[int]string, len(*in))
+		*out = make(map[string]string, len(*in))
 		for key, val := range *in {
 			(*out)[key] = val
 		}

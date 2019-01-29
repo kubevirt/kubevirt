@@ -38,6 +38,8 @@ import (
 	"k8s.io/apimachinery/pkg/util/validation"
 	k8sfield "k8s.io/apimachinery/pkg/util/validation/field"
 
+	"strconv"
+
 	v1 "kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/log"
 	"kubevirt.io/kubevirt/pkg/util"
@@ -1063,7 +1065,17 @@ func ValidateVirtualMachineInstanceSpec(field *k8sfield.Path, spec *v1.VirtualMa
 			}
 			// verify that the extra dhcp options are valid
 			if iface.DHCPOptions != nil {
-				for option, _ := range iface.DHCPOptions.ExtraOptions {
+				for rawOption, _ := range iface.DHCPOptions.ExtraOptions {
+
+					// parse string option key to integer value
+					option, err := strconv.Atoi(rawOption)
+					if err != nil {
+						causes = append(causes, metav1.StatusCause{
+							Type:    metav1.CauseTypeFieldValueInvalid,
+							Message: "Not able to parse the DHCP option from string to integer, should be an integer b/w 224 and 254",
+							Field:   field.String(),
+						})
+					}
 					if !(option >= 224 && option <= 254) {
 						causes = append(causes, metav1.StatusCause{
 							Type:    metav1.CauseTypeFieldValueInvalid,
