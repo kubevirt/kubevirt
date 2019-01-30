@@ -159,16 +159,20 @@ func SplitByFormat(data, format string) []string {
 	return result
 }
 
-type byLength []string
+type byInitialism []string
 
-func (s byLength) Len() int {
+func (s byInitialism) Len() int {
 	return len(s)
 }
-func (s byLength) Swap(i, j int) {
+func (s byInitialism) Swap(i, j int) {
 	s[i], s[j] = s[j], s[i]
 }
-func (s byLength) Less(i, j int) bool {
-	return len(s[i]) < len(s[j])
+func (s byInitialism) Less(i, j int) bool {
+	if len(s[i]) != len(s[j]) {
+		return len(s[i]) < len(s[j])
+	}
+
+	return strings.Compare(s[i], s[j]) > 0
 }
 
 // Prepares strings by splitting by caps, spaces, dashes, and underscore

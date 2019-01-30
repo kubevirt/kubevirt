@@ -814,6 +814,14 @@ virDomainSetGuestVcpusWrapper(virDomainPtr domain,
                               virErrorPtr err);
 
 int
+virDomainSetIOThreadParamsWrapper(virDomainPtr domain,
+                                  unsigned int iothread_id,
+                                  virTypedParameterPtr params,
+                                  int nparams,
+                                  unsigned int flags,
+                                  virErrorPtr err);
+
+int
 virDomainSetInterfaceParametersWrapper(virDomainPtr domain,
                                        const char *device,
                                        virTypedParameterPtr params,
