@@ -121,9 +121,9 @@ container_pull(
 container_pull(
   name = "libvirt",
   registry = "index.docker.io",
-  repository = "alukiano/libvirt",
-  digest = "sha256:23cb9e64909fb9519d1b256ceefc546deb3eb81ccbe7e83c3ef461a7cd2b3da9",
-  #tag = "4.9.0",
+  repository = "kubevirt/libvirt",
+  digest = "sha256:081f113a73748775e5f37d8fb877a574f595df1551e39e48ebbe8e8afd501d3b",
+  #tag = "5.0.0",
 )
 
 # Pull base image cdi-http-import-server

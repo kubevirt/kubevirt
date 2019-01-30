@@ -1,9 +1,7 @@
 load("@bazel_gazelle//:def.bzl", "gazelle")
 
-gazelle(
-    name = "gazelle",
-    prefix = "kubevirt.io",
-)
+# gazelle:prefix kubevirt.io/kubevirt
+gazelle(name = "gazelle")
 
 genrule(
     name = "get-version",
@@ -34,6 +32,7 @@ cc_library(
     srcs = [
         ":libvirt-shared-libs",
     ],
+    linkstatic = 1,
     visibility = ["//visibility:public"],
 )
 

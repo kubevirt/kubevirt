@@ -1,5 +1,7 @@
 load("@io_bazel_rules_go//go:def.bzl", "go_library")
 
+# gazelle:ignore
+
 go_library(
     name = "go_default_library",
     srcs = [
@@ -81,11 +83,12 @@ go_library(
         "stream_wrapper.h",
         "typedparams.go",
     ],
+    cgo = True,
     cdeps = [
         "//:libvirt-libs",
         "//:libvirt-headers",
     ],
-    cgo = True,
+    copts = ["-Ibazel-out/k8-fastbuild/genfiles"],
     importmap = "kubevirt.io/kubevirt/vendor/github.com/libvirt/libvirt-go",
     importpath = "github.com/libvirt/libvirt-go",
     visibility = ["//visibility:public"],
