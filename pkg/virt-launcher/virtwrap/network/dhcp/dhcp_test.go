@@ -231,7 +231,7 @@ var _ = Describe("DHCP", func() {
 				NTPServers: []string{
 					"192.168.2.2", "192.168.2.3",
 				},
-				ExtraOptions: map[string]string{"240": "extra.options.kubevirt.io"},
+				ExtraOptions: []v1.ExtraOptions{v1.ExtraOptions{Option: 240, Value: "extra.options.kubevirt.io"}},
 			}
 
 			options, err := prepareDHCPOptions(ip.DefaultMask(), ip, nil, nil, searchDomains, 1500, "myhost", dhcpOptions)

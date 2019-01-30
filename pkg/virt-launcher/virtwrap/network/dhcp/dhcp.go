@@ -26,7 +26,6 @@ import (
 	"net"
 	"os"
 	"regexp"
-	"strconv"
 	"strings"
 	"time"
 
@@ -170,14 +169,10 @@ func prepareDHCPOptions(
 		}
 
 		if customDHCPOptions.ExtraOptions != nil {
-			for rawCode, value := range customDHCPOptions.ExtraOptions {
+			for _, extraOptions := range customDHCPOptions.ExtraOptions {
 				// parse string value of option to Integer value
-				code, err := strconv.Atoi(rawCode)
-				if err != nil {
-					return nil, err
-				}
-				if code >= 224 && code <= 254 {
-					dhcpOptions[dhcp.OptionCode(byte(code))] = []byte(value)
+				if extraOptions.Option >= 224 && extraOptions.Option <= 254 {
+					dhcpOptions[dhcp.OptionCode(byte(extraOptions.Option))] = []byte(extraOptions.Value)
 				}
 			}
 		}

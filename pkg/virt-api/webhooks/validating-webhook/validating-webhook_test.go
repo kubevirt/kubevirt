@@ -1851,7 +1851,7 @@ var _ = Describe("Validating Webhook", func() {
 			vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{*v1.DefaultNetworkInterface()}
 			vmi.Spec.Networks = []v1.Network{*v1.DefaultPodNetwork()}
 			vmi.Spec.Domain.Devices.Interfaces[0].DHCPOptions = &v1.DHCPOptions{
-				ExtraOptions: map[string]string{"240": "extra.options.kubevirt.io"},
+				ExtraOptions: []v1.ExtraOptions{v1.ExtraOptions{Option: 240, Value: "extra.options.kubevirt.io"}},
 			}
 			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec)
 			Expect(len(causes)).To(Equal(0))
@@ -1862,7 +1862,7 @@ var _ = Describe("Validating Webhook", func() {
 			vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{*v1.DefaultNetworkInterface()}
 			vmi.Spec.Networks = []v1.Network{*v1.DefaultPodNetwork()}
 			vmi.Spec.Domain.Devices.Interfaces[0].DHCPOptions = &v1.DHCPOptions{
-				ExtraOptions: map[string]string{"223": "extra.options.kubevirt.io"},
+				ExtraOptions: []v1.ExtraOptions{v1.ExtraOptions{Option: 223, Value: "extra.options.kubevirt.io"}},
 			}
 			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec)
 			Expect(len(causes)).To(Equal(1))

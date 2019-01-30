@@ -426,12 +426,11 @@ func schema_kubevirt_pkg_api_v1_DHCPOptions(ref common.ReferenceCallback) common
 					"extraOptions": {
 						SchemaProps: spec.SchemaProps{
 							Description: "If specified will pass extra DHCP options for private use, range: 224-254",
-							Type:        []string{"object"},
-							AdditionalProperties: &spec.SchemaOrBool{
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
-										Type:   []string{"string"},
-										Format: "",
+										Ref: ref("kubevirt.io/kubevirt/pkg/api/v1.ExtraOptions"),
 									},
 								},
 							},
@@ -440,7 +439,8 @@ func schema_kubevirt_pkg_api_v1_DHCPOptions(ref common.ReferenceCallback) common
 				},
 			},
 		},
-		Dependencies: []string{},
+		Dependencies: []string{
+			"kubevirt.io/kubevirt/pkg/api/v1.ExtraOptions"},
 	}
 }
 
