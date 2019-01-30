@@ -2914,10 +2914,9 @@ func KubevirtFailHandler(message string, callerSkip ...int) {
 			}
 			fmt.Println(string(data))
 
-			var tailLines int64 = 15
+			var tailLines int64 = 45
 			var containerName = ""
 			if strings.HasPrefix(pod.Name, "virt-launcher") {
-				tailLines = 45
 				containerName = "compute"
 			}
 			logsRaw, err := virtClient.CoreV1().Pods(ns).GetLogs(
