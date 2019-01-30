@@ -20,7 +20,6 @@
 package migrationproxy
 
 import (
-	"fmt"
 	"io/ioutil"
 	"net"
 	"os"
@@ -134,8 +133,9 @@ var _ = Describe("MigrationProxy", func() {
 				Expect(err).ShouldNot(HaveOccurred())
 
 				manager := NewMigrationProxyManager(tmpDir)
-				manager.StartTargetListener("mykey", libvirtdSock)
-				manager.StartSourceListener("mykey", fmt.Sprintf("127.0.0.1:%d", manager.GetTargetListenerPort("mykey")))
+				manager.StartTargetListener("mykey", []string{libvirtdSock})
+				destSrcPortMap := manager.GetTargetListenerPorts("mykey")
+				manager.StartSourceListener("mykey", "127.0.0.1", destSrcPortMap)
 
 				defer manager.StopTargetListener("myKey")
 				defer manager.StopSourceListener("myKey")
@@ -151,7 +151,7 @@ var _ = Describe("MigrationProxy", func() {
 					numBytes <- n
 				}()
 
-				conn, err := net.Dial("unix", manager.GetSourceListenerFile("mykey"))
+				conn, err := net.Dial("unix", manager.GetSourceListenerFile("mykey")[0])
 				Expect(err).ShouldNot(HaveOccurred())
 
 				message := "some message"
