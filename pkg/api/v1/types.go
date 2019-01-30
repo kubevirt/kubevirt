@@ -1072,4 +1072,6 @@ const (
 	KubeVirtConditionSynchronized KubeVirtConditionType = "Synchronized"
 	// Whether all resources were created
 	KubeVirtConditionCreated KubeVirtConditionType = "Created"
+	// Whether all components were ready
+	KubeVirtConditionReady KubeVirtConditionType = "Ready"
 )

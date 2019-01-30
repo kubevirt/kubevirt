@@ -229,7 +229,7 @@ func Delete(kv *v1.KubeVirt, clientset kubecli.KubevirtClient, stores util.Store
 		}
 	}
 
-	err = util.UpdateScc(clientset, kv, false)
+	err = util.UpdateScc(clientset, stores.SCCCache, kv, false)
 	if err != nil {
 		log.Log.Errorf("Failed to update SCC: %v", err)
 		return err
