@@ -168,10 +168,10 @@ func prepareDHCPOptions(
 			dhcpOptions[dhcp.OptionNetworkTimeProtocolServers] = bytes.Join(ntpServers, nil)
 		}
 
-		if customDHCPOptions.ExtraOptions != nil {
-			for _, extraOptions := range customDHCPOptions.ExtraOptions {
-				if extraOptions.Option >= 224 && extraOptions.Option <= 254 {
-					dhcpOptions[dhcp.OptionCode(byte(extraOptions.Option))] = []byte(extraOptions.Value)
+		if customDHCPOptions.PrivateOptions != nil {
+			for _, privateOptions := range customDHCPOptions.PrivateOptions {
+				if privateOptions.Option >= 224 && privateOptions.Option <= 254 {
+					dhcpOptions[dhcp.OptionCode(byte(privateOptions.Option))] = []byte(privateOptions.Value)
 				}
 			}
 		}

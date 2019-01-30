@@ -231,7 +231,7 @@ var _ = Describe("DHCP", func() {
 				NTPServers: []string{
 					"192.168.2.2", "192.168.2.3",
 				},
-				ExtraOptions: []v1.DHCPExtraOptions{v1.DHCPExtraOptions{Option: 240, Value: "extra.options.kubevirt.io"}},
+				PrivateOptions: []v1.DHCPPrivateOptions{v1.DHCPPrivateOptions{Option: 240, Value: "private.options.kubevirt.io"}},
 			}
 
 			options, err := prepareDHCPOptions(ip.DefaultMask(), ip, nil, nil, searchDomains, 1500, "myhost", dhcpOptions)
@@ -242,7 +242,7 @@ var _ = Describe("DHCP", func() {
 			Expect(options[dhcp4.OptionNetworkTimeProtocolServers]).To(Equal([]byte{
 				192, 168, 2, 2, 192, 168, 2, 3,
 			}))
-			Expect(options[240]).To(Equal([]byte("extra.options.kubevirt.io")))
+			Expect(options[240]).To(Equal([]byte("private.options.kubevirt.io")))
 		})
 	})
 })

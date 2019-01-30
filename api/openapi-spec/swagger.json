@@ -4139,7 +4139,34 @@
      }
     }
    },
-   "v1.DHCPExtraOptions": {
+   "v1.DHCPOptions": {
+    "description": "Extra DHCP options to use in the interface.",
+    "properties": {
+     "bootFileName": {
+      "description": "If specified will pass option 67 to interface's DHCP server\n+optional",
+      "type": "string"
+     },
+     "ntpServers": {
+      "description": "If specified will pass the configured NTP server to the VM via DHCP option 042.\n+optional",
+      "type": "array",
+      "items": {
+       "type": "string"
+      }
+     },
+     "privateOptions": {
+      "description": "If specified will pass extra DHCP options for private use, range: 224-254\n+optional",
+      "type": "array",
+      "items": {
+       "$ref": "#/definitions/v1.DHCPPrivateOptions"
+      }
+     },
+     "tftpServerName": {
+      "description": "If specified will pass option 66 to interface's DHCP server\n+optional",
+      "type": "string"
+     }
+    }
+   },
+   "v1.DHCPPrivateOptions": {
     "description": "DHCPExtraOptions defines Extra DHCP options for a VM.",
     "required": [
      "option",
@@ -4153,33 +4180,6 @@
      },
      "value": {
       "description": "Value is a String value for the Option provided\nRequired.",
-      "type": "string"
-     }
-    }
-   },
-   "v1.DHCPOptions": {
-    "description": "Extra DHCP options to use in the interface.",
-    "properties": {
-     "bootFileName": {
-      "description": "If specified will pass option 67 to interface's DHCP server\n+optional",
-      "type": "string"
-     },
-     "extraOptions": {
-      "description": "If specified will pass extra DHCP options for private use, range: 224-254\n+optional",
-      "type": "array",
-      "items": {
-       "$ref": "#/definitions/v1.DHCPExtraOptions"
-      }
-     },
-     "ntpServers": {
-      "description": "If specified will pass the configured NTP server to the VM via DHCP option 042.\n+optional",
-      "type": "array",
-      "items": {
-       "type": "string"
-      }
-     },
-     "tftpServerName": {
-      "description": "If specified will pass option 66 to interface's DHCP server\n+optional",
       "type": "string"
      }
     }

@@ -823,11 +823,11 @@ type DHCPOptions struct {
 	NTPServers []string `json:"ntpServers,omitempty"`
 	// If specified will pass extra DHCP options for private use, range: 224-254
 	// +optional
-	ExtraOptions []DHCPExtraOptions `json:"extraOptions,omitempty"`
+	PrivateOptions []DHCPPrivateOptions `json:"privateOptions,omitempty"`
 }
 
 // DHCPExtraOptions defines Extra DHCP options for a VM.
-type DHCPExtraOptions struct {
+type DHCPPrivateOptions struct {
 	// Option is an Integer value from 224-254
 	// Required.
 	Option int `json:"option"`
