@@ -285,7 +285,7 @@ func (l *LibvirtDomainManager) asyncMigrate(vmi *v1.VirtualMachineInstance) {
 			return
 		}
 
-		for k := range vmi.Status.MigrationState.TargetDirectMigrationNodePorts {
+		for _, k := range vmi.Status.MigrationState.TargetDirectMigrationNodePorts {
 			ports = append(ports, k)
 		}
 

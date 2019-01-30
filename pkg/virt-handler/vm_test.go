@@ -603,24 +603,15 @@ var _ = Describe("VirtualMachineInstance", func() {
 			err = controller.handlePostSyncMigrationProxy(vmi)
 			Expect(err).NotTo(HaveOccurred())
 
-			targetPorts := make(map[int]int)
-			for _, port := range portsList {
-				key := string(vmi.UID)
-				if port != 0 {
-					key += fmt.Sprintf("-%d", port)
-				}
-				curPort := controller.migrationProxy.GetTargetListenerPort(key)
-				targetPorts[port] = curPort
-			}
+			destSrcPorts := controller.migrationProxy.GetTargetListenerPorts(string(vmi.UID))
+			fmt.Println("destSrcPorts: ", destSrcPorts)
 			updatedVmi := vmi.DeepCopy()
 			updatedVmi.Status.MigrationState.TargetNodeAddress = controller.ipAddress
-			updatedVmi.Status.MigrationState.TargetDirectMigrationNodePorts = targetPorts
+			updatedVmi.Status.MigrationState.TargetDirectMigrationNodePorts = destSrcPorts
 
 			client.EXPECT().Ping()
 			client.EXPECT().SyncMigrationTarget(vmi)
-
 			vmiInterface.EXPECT().Update(updatedVmi)
-
 			controller.Execute()
 		}, 3)
 
