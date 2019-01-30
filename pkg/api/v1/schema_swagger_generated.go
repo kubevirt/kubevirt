@@ -380,9 +380,9 @@ func (DHCPOptions) SwaggerDoc() map[string]string {
 
 func (ExtraOptions) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"":       "ExtraOptions defines Extra DHCP options of a VM.",
-		"option": "Option is a dhcp option - Integer value from 224-254\nRequired.",
-		"value":  "Value is the value corresponding to the option specified\nRequired.",
+		"":       "ExtraOptions defines Extra DHCP options for a VM.",
+		"option": "Option is an Integer value from 224-254\nRequired.",
+		"value":  "Value is a String value for the Option provided\nRequired.",
 	}
 }
 

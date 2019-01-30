@@ -4381,15 +4381,15 @@
     }
    },
    "v1.ExtraOptions": {
-    "description": "ExtraOptions defines Extra DHCP options of a VM.",
+    "description": "ExtraOptions defines Extra DHCP options for a VM.",
     "properties": {
      "option": {
-      "description": "Option is a dhcp option - Integer value from 224-254\nRequired.",
+      "description": "Option is an Integer value from 224-254\nRequired.",
       "type": "integer",
       "format": "int32"
      },
      "value": {
-      "description": "Value is the value corresponding to the option specified\nRequired.",
+      "description": "Value is a String value for the Option provided\nRequired.",
       "type": "string"
      }
     }
