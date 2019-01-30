@@ -39,7 +39,7 @@ import (
 	"kubevirt.io/kubevirt/tests"
 )
 
-var _ = Describe("VNC", func() {
+var _ = Describe("[rfe_id:127][crit:medium][vendor:cnv-qe@redhat.com][level:component]VNC", func() {
 
 	flag.Parse()
 
@@ -47,7 +47,7 @@ var _ = Describe("VNC", func() {
 	tests.PanicOnError(err)
 	var vmi *v1.VirtualMachineInstance
 
-	Describe("A new VirtualMachineInstance", func() {
+	Describe("[rfe_id:127][crit:medium][vendor:cnv-qe@redhat.com][level:component]A new VirtualMachineInstance", func() {
 		tests.BeforeAll(func() {
 			tests.BeforeTestCleanup()
 			vmi = tests.NewRandomVMI()
@@ -57,7 +57,7 @@ var _ = Describe("VNC", func() {
 
 		Context("with VNC connection", func() {
 
-			It("should allow accessing the VNC device", func() {
+			It("[test_id:1611]should allow accessing the VNC device", func() {
 				pipeInReader, _ := io.Pipe()
 				pipeOutReader, pipeOutWriter := io.Pipe()
 				defer pipeInReader.Close()
@@ -116,7 +116,7 @@ var _ = Describe("VNC", func() {
 			})
 		})
 
-		table.DescribeTable("should upgrade websocket connection which look like coming from a browser", func(subresource string) {
+		table.DescribeTable("[rfe_id:127][crit:medium][vendor:cnv-qe@redhat.com][level:component]should upgrade websocket connection which look like coming from a browser", func(subresource string) {
 			config, err := kubecli.GetKubevirtClientConfig()
 			Expect(err).ToNot(HaveOccurred())
 			// Browsers need a subprotocol, since they will have to use the subprotocol mechanism to forward the bearer token.
@@ -136,11 +136,11 @@ var _ = Describe("VNC", func() {
 			Expect(err).ToNot(HaveOccurred())
 			Expect(rt.Response.Header.Get("Sec-Websocket-Protocol")).To(Equal(subresources.PlainStreamProtocolName))
 		},
-			table.Entry("for vnc", "vnc"),
-			table.Entry("for serial console", "console"),
+			table.Entry("[test_id:1612]for vnc", "vnc"),
+			table.Entry("[test_id:1613]for serial console", "console"),
 		)
 
-		It("should upgrade websocket connections without a subprotocol given", func() {
+		It("[test_id:1614]should upgrade websocket connections without a subprotocol given", func() {
 			config, err := kubecli.GetKubevirtClientConfig()
 			Expect(err).ToNot(HaveOccurred())
 			// If no subprotocol is given, we still want to upgrade to be backward compatible
