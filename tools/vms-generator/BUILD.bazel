@@ -1,0 +1,22 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_binary", "go_library")
+
+go_library(
+    name = "go_default_library",
+    srcs = ["vms-generator.go"],
+    importpath = "kubevirt.io/kubevirt/tools/vms-generator",
+    visibility = ["//visibility:private"],
+    deps = [
+        "//pkg/api/v1:go_default_library",
+        "//pkg/virt-api/webhooks/validating-webhook:go_default_library",
+        "//tools/util:go_default_library",
+        "//tools/vms-generator/utils:go_default_library",
+        "//vendor/k8s.io/apimachinery/pkg/apis/meta/v1:go_default_library",
+        "//vendor/k8s.io/apimachinery/pkg/util/validation/field:go_default_library",
+    ],
+)
+
+go_binary(
+    name = "vms-generator",
+    embed = [":go_default_library"],
+    visibility = ["//visibility:public"],
+)

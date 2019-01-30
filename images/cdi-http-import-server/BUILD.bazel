@@ -1,0 +1,47 @@
+load(
+    "@io_bazel_rules_docker//container:container.bzl",
+    "container_image",
+)
+load("@bazel_tools//tools/build_defs/pkg:pkg.bzl", "pkg_tar")
+
+genrule(
+    name = "alpine-iso",
+    srcs = ["@alpine_image//file"],
+    outs = ["usr/share/nginx/html/images/alpine.iso"],
+    cmd = "mkdir -p usr/share/nginx/html/images && cat $(location @alpine_image//file) > $@",
+)
+
+pkg_tar(
+    name = "alpine-tar",
+    srcs = [
+        ":alpine-iso",
+    ],
+    mode = "644",
+    package_dir = "usr/share/nginx/html/images",
+)
+
+pkg_tar(
+    name = "nginx-config-tar",
+    srcs = [
+        "nginx.conf",
+    ],
+    mode = "664",
+    package_dir = "/etc/nginx",
+)
+
+container_image(
+    name = "cdi-http-import-server-image",
+    base = "@cdi-http-import-server-base//image",
+    files = [
+        "entrypoint.sh",
+        "expose-as-iscsi.sh",
+    ],
+    tars = [
+        ":alpine-tar",
+        ":nginx-config-tar",
+    ],
+    directory = "/",
+    ports = ["80"],
+    entrypoint = ["/entrypoint.sh"],
+    visibility = ["//visibility:public"],
+)
