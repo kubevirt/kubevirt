@@ -1,0 +1,23 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_binary", "go_library")
+
+go_library(
+    name = "go_default_library",
+    srcs = ["apiserver.go"],
+    importmap = "kubevirt.io/kubevirt/vendor/kubevirt.io/containerized-data-importer/cmd/cdi-apiserver",
+    importpath = "kubevirt.io/containerized-data-importer/cmd/cdi-apiserver",
+    visibility = ["//visibility:private"],
+    deps = [
+        "//vendor/k8s.io/client-go/kubernetes:go_default_library",
+        "//vendor/k8s.io/client-go/tools/clientcmd:go_default_library",
+        "//vendor/k8s.io/kube-aggregator/pkg/client/clientset_generated/clientset:go_default_library",
+        "//vendor/kubevirt.io/containerized-data-importer/pkg/apiserver:go_default_library",
+        "@com_github_golang_glog//:go_default_library",
+        "@com_github_pkg_errors//:go_default_library",
+    ],
+)
+
+go_binary(
+    name = "cdi-apiserver",
+    embed = [":go_default_library"],
+    visibility = ["//visibility:public"],
+)

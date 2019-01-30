@@ -10,7 +10,6 @@ go_library(
         "legacy.go",
         "register.go",
         "types.go",
-        "types_swagger_doc_generated.go",
         "zz_generated.deepcopy.go",
     ],
     importmap = "kubevirt.io/kubevirt/vendor/github.com/openshift/api/apps/v1",

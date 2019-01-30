@@ -1,0 +1,37 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "go_default_library",
+    srcs = [
+        "controller.go",
+        "cr.go",
+        "scc.go",
+        "util.go",
+    ],
+    importmap = "kubevirt.io/kubevirt/vendor/kubevirt.io/containerized-data-importer/pkg/operator/controller",
+    importpath = "kubevirt.io/containerized-data-importer/pkg/operator/controller",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//vendor/github.com/openshift/api/security/v1:go_default_library",
+        "//vendor/k8s.io/api/apps/v1:go_default_library",
+        "//vendor/k8s.io/api/core/v1:go_default_library",
+        "//vendor/k8s.io/apimachinery/pkg/api/errors:go_default_library",
+        "//vendor/k8s.io/apimachinery/pkg/api/meta:go_default_library",
+        "//vendor/k8s.io/apimachinery/pkg/apis/meta/v1:go_default_library",
+        "//vendor/k8s.io/apimachinery/pkg/runtime:go_default_library",
+        "//vendor/kubevirt.io/containerized-data-importer/pkg/apis/core/v1alpha1:go_default_library",
+        "//vendor/kubevirt.io/containerized-data-importer/pkg/operator/resources/cluster:go_default_library",
+        "//vendor/kubevirt.io/containerized-data-importer/pkg/operator/resources/namespaced:go_default_library",
+        "//vendor/kubevirt.io/containerized-data-importer/pkg/util:go_default_library",
+        "@com_github_go_logr_logr//:go_default_library",
+        "@com_github_kelseyhightower_envconfig//:go_default_library",
+        "@io_k8s_sigs_controller_runtime//pkg/client:go_default_library",
+        "@io_k8s_sigs_controller_runtime//pkg/controller:go_default_library",
+        "@io_k8s_sigs_controller_runtime//pkg/controller/controllerutil:go_default_library",
+        "@io_k8s_sigs_controller_runtime//pkg/handler:go_default_library",
+        "@io_k8s_sigs_controller_runtime//pkg/manager:go_default_library",
+        "@io_k8s_sigs_controller_runtime//pkg/reconcile:go_default_library",
+        "@io_k8s_sigs_controller_runtime//pkg/runtime/log:go_default_library",
+        "@io_k8s_sigs_controller_runtime//pkg/source:go_default_library",
+    ],
+)
