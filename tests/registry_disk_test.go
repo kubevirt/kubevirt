@@ -160,7 +160,7 @@ var _ = Describe("[rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 				vmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(tests.ContainerDiskFor(tests.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n")
 				for ind, volume := range vmi.Spec.Volumes {
 					if volume.ContainerDisk != nil {
-						vmi.Spec.Volumes[ind].ContainerDisk.Path = "/custom-disk/boot.img"
+						vmi.Spec.Volumes[ind].ContainerDisk.Path = "/custom-disk/cirros.img"
 					}
 				}
 				By("Starting the VirtualMachineInstance")
@@ -169,6 +169,7 @@ var _ = Describe("[rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 				tests.WaitForSuccessfulVMIStart(obj)
 			})
 		})
+
 	})
 
 	Describe("[rfe_id:273][crit:medium][vendor:cnv-qe@redhat.com][level:component]Starting with virtio-win", func() {
