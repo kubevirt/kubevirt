@@ -21,6 +21,7 @@ FROM kubevirt/libvirt:4.9.0
 LABEL maintainer="The KubeVirt Project <kubevirt-dev@googlegroups.com>"
 
 RUN dnf -y install \
+  edk2-ovmf \
   socat \
   genisoimage \
   && dnf -y clean all && \

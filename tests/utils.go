@@ -39,7 +39,7 @@ import (
 	"time"
 
 	ghodssyaml "github.com/ghodss/yaml"
-	"github.com/google/goexpect"
+	expect "github.com/google/goexpect"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"github.com/spf13/cobra"
@@ -63,12 +63,12 @@ import (
 	"k8s.io/client-go/tools/remotecommand"
 
 	cdiv1 "kubevirt.io/containerized-data-importer/pkg/apis/core/v1alpha1"
-	"kubevirt.io/kubevirt/pkg/api/v1"
+	v1 "kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/kubecli"
 	"kubevirt.io/kubevirt/pkg/log"
 	"kubevirt.io/kubevirt/pkg/util/net/dns"
-	"kubevirt.io/kubevirt/pkg/virt-config"
+	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
 	"kubevirt.io/kubevirt/pkg/virtctl"
 	vmsgen "kubevirt.io/kubevirt/tools/vms-generator/utils"
@@ -1302,6 +1302,21 @@ func NewRandomVMIWithEphemeralDiskAndUserdataHighMemory(containerImage string, u
 
 	vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("512M")
 	return vmi
+}
+
+func NewRandomVMIWithEFIBootloader() *v1.VirtualMachineInstance {
+	vmi := NewRandomVMIWithEphemeralDiskHighMemory(ContainerDiskFor(ContainerDiskAlpine))
+
+	// EFI needs more memory than other images
+	vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("1Gi")
+	vmi.Spec.Domain.Firmware = &v1.Firmware{
+		Bootloader: &v1.Bootloader{
+			EFI: &v1.EFI{},
+		},
+	}
+
+	return vmi
+
 }
 
 func NewRandomMigration(vmiName string, namespace string) *v1.VirtualMachineInstanceMigration {

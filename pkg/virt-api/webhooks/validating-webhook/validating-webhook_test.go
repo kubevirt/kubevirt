@@ -2529,6 +2529,63 @@ var _ = Describe("Validating Webhook", func() {
 		})
 
 	})
+
+	Context("with bootloader", func() {
+		It("should accept empty bootloader setting", func() {
+			vmi := v1.NewMinimalVMI("testvmi")
+			vmi.Spec.Subdomain = "testsubdomain"
+
+			vmi.Spec.Domain.Firmware = &v1.Firmware{
+				Bootloader: nil,
+			}
+
+			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec)
+			Expect(len(causes)).To(Equal(0))
+		})
+
+		It("should accept BIOS", func() {
+			vmi := v1.NewMinimalVMI("testvmi")
+			vmi.Spec.Subdomain = "testsubdomain"
+
+			vmi.Spec.Domain.Firmware = &v1.Firmware{
+				Bootloader: &v1.Bootloader{
+					BIOS: &v1.BIOS{},
+				},
+			}
+
+			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec)
+			Expect(len(causes)).To(Equal(0))
+		})
+
+		It("should accept EFI", func() {
+			vmi := v1.NewMinimalVMI("testvmi")
+			vmi.Spec.Subdomain = "testsubdomain"
+
+			vmi.Spec.Domain.Firmware = &v1.Firmware{
+				Bootloader: &v1.Bootloader{
+					EFI: &v1.EFI{},
+				},
+			}
+
+			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec)
+			Expect(len(causes)).To(Equal(0))
+		})
+
+		It("should not accept BIOS and EFI together", func() {
+			vmi := v1.NewMinimalVMI("testvmi")
+			vmi.Spec.Subdomain = "testsubdomain"
+
+			vmi.Spec.Domain.Firmware = &v1.Firmware{
+				Bootloader: &v1.Bootloader{
+					EFI:  &v1.EFI{},
+					BIOS: &v1.BIOS{},
+				},
+			}
+
+			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec)
+			Expect(len(causes)).To(Equal(1))
+		})
+	})
 })
 
 var _ = Describe("Function getNumberOfPodInterfaces()", func() {

@@ -51,9 +51,29 @@ func (DomainSpec) SwaggerDoc() map[string]string {
 		"machine":         "Machine type.\n+optional",
 		"firmware":        "Firmware.\n+optional",
 		"clock":           "Clock sets the clock and timers of the vmi.\n+optional",
-		"features":        "Features like acpi, apic, hyperv.\n+optional",
+		"features":        "Features like acpi, apic, hyperv, smm.\n+optional",
 		"devices":         "Devices allows adding disks, network interfaces, ...",
 		"ioThreadsPolicy": "Controls whether or not disks will share IOThreads.\nOmitting IOThreadsPolicy disables use of IOThreads.\nOne of: shared, auto\n+optional",
+	}
+}
+
+func (Bootloader) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"":     "Represents the firmware blob used to assist in the domain creation process.\nUsed for setting the QEMU BIOS file path for the libvirt domain.",
+		"bios": "If set (default), BIOS will be used.\n+optional",
+		"efi":  "If set, EFI will be used instead of BIOS.\n+optional",
+	}
+}
+
+func (BIOS) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"": "If set (default), BIOS will be used.",
+	}
+}
+
+func (EFI) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"": "If set, EFI will be used instead of BIOS.",
 	}
 }
 
@@ -99,7 +119,8 @@ func (Machine) SwaggerDoc() map[string]string {
 
 func (Firmware) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"uuid": "UUID reported by the vmi bios.\nDefaults to a random generated uid.",
+		"uuid":       "UUID reported by the vmi bios.\nDefaults to a random generated uid.",
+		"bootloader": "Settings to control the bootloader that is used.\n+optional",
 	}
 }
 
@@ -289,6 +310,7 @@ func (Features) SwaggerDoc() map[string]string {
 		"acpi":   "ACPI enables/disables ACPI insidejsondata guest.\nDefaults to enabled.\n+optional",
 		"apic":   "Defaults to the machine type setting.\n+optional",
 		"hyperv": "Defaults to the machine type setting.\n+optional",
+		"smm":    "SMM enables/disables System Management Mode.\nTSEG not yet implemented.\n+optional",
 	}
 }
 
