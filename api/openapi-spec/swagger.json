@@ -4139,6 +4139,24 @@
      }
     }
    },
+   "v1.DHCPExtraOptions": {
+    "description": "DHCPExtraOptions defines Extra DHCP options for a VM.",
+    "required": [
+     "option",
+     "value"
+    ],
+    "properties": {
+     "option": {
+      "description": "Option is an Integer value from 224-254\nRequired.",
+      "type": "integer",
+      "format": "int32"
+     },
+     "value": {
+      "description": "Value is a String value for the Option provided\nRequired.",
+      "type": "string"
+     }
+    }
+   },
    "v1.DHCPOptions": {
     "description": "Extra DHCP options to use in the interface.",
     "properties": {
@@ -4150,7 +4168,7 @@
       "description": "If specified will pass extra DHCP options for private use, range: 224-254\n+optional",
       "type": "array",
       "items": {
-       "$ref": "#/definitions/v1.ExtraOptions"
+       "$ref": "#/definitions/v1.DHCPExtraOptions"
       }
      },
      "ntpServers": {
@@ -4377,20 +4395,6 @@
      "persistentVolumeClaim": {
       "description": "PersistentVolumeClaimVolumeSource represents a reference to a PersistentVolumeClaim in the same namespace.\nDirectly attached to the vmi via qemu.\nMore info: https://kubernetes.io/docs/concepts/storage/persistent-volumes#persistentvolumeclaims\n+optional",
       "$ref": "#/definitions/v1.PersistentVolumeClaimVolumeSource"
-     }
-    }
-   },
-   "v1.ExtraOptions": {
-    "description": "ExtraOptions defines Extra DHCP options for a VM.",
-    "properties": {
-     "option": {
-      "description": "Option is an Integer value from 224-254\nRequired.",
-      "type": "integer",
-      "format": "int32"
-     },
-     "value": {
-      "description": "Value is a String value for the Option provided\nRequired.",
-      "type": "string"
      }
     }
    },

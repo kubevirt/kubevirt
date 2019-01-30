@@ -1063,11 +1063,21 @@ func ValidateVirtualMachineInstanceSpec(field *k8sfield.Path, spec *v1.VirtualMa
 			}
 			// verify that the extra dhcp options are valid
 			if iface.DHCPOptions != nil {
-				for _, index := range iface.DHCPOptions.ExtraOptions {
+				ExtraOptions := iface.DHCPOptions.ExtraOptions
+				err := ValidateDuplicateDHCPExtraOptions(ExtraOptions)
+				if err != nil {
+					causes = append(causes, metav1.StatusCause{
+						Type:    metav1.CauseTypeFieldValueInvalid,
+						Message: fmt.Sprintf("Found Duplicates: %v", err),
+						Field:   field.String(),
+					})
+					return causes
+				}
+				for _, index := range ExtraOptions {
 					if !(index.Option >= 224 && index.Option <= 254) {
 						causes = append(causes, metav1.StatusCause{
 							Type:    metav1.CauseTypeFieldValueInvalid,
-							Message: "provided extraDHCPOptions are out of range, must be in range 224 to 254",
+							Message: "provided DHCPExtraOptions are out of range, must be in range 224 to 254",
 							Field:   field.String(),
 						})
 					}
@@ -1622,4 +1632,16 @@ func admitMigrationUpdate(ar *v1beta1.AdmissionReview) *v1beta1.AdmissionRespons
 
 func ServeMigrationUpdate(resp http.ResponseWriter, req *http.Request) {
 	serve(resp, req, admitMigrationUpdate)
+}
+
+func ValidateDuplicateDHCPExtraOptions(ExtraOptions []v1.DHCPExtraOptions) error {
+	isUnique := map[int]bool{}
+	for _, index := range ExtraOptions {
+		if isUnique[index.Option] == true {
+			return fmt.Errorf("You have provided duplicate DHCPExtraOptions")
+		} else {
+			isUnique[index.Option] = true
+		}
+	}
+	return nil
 }

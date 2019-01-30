@@ -378,9 +378,9 @@ func (DHCPOptions) SwaggerDoc() map[string]string {
 	}
 }
 
-func (ExtraOptions) SwaggerDoc() map[string]string {
+func (DHCPExtraOptions) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"":       "ExtraOptions defines Extra DHCP options for a VM.",
+		"":       "DHCPExtraOptions defines Extra DHCP options for a VM.",
 		"option": "Option is an Integer value from 224-254\nRequired.",
 		"value":  "Value is a String value for the Option provided\nRequired.",
 	}

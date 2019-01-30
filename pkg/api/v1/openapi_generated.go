@@ -430,7 +430,7 @@ func schema_kubevirt_pkg_api_v1_DHCPOptions(ref common.ReferenceCallback) common
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
-										Ref: ref("kubevirt.io/kubevirt/pkg/api/v1.ExtraOptions"),
+										Ref: ref("kubevirt.io/kubevirt/pkg/api/v1.DHCPExtraOptions"),
 									},
 								},
 							},
@@ -440,7 +440,7 @@ func schema_kubevirt_pkg_api_v1_DHCPOptions(ref common.ReferenceCallback) common
 			},
 		},
 		Dependencies: []string{
-			"kubevirt.io/kubevirt/pkg/api/v1.ExtraOptions"},
+			"kubevirt.io/kubevirt/pkg/api/v1.DHCPExtraOptions"},
 	}
 }
 

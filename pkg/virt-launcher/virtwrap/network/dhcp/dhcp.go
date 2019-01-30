@@ -170,7 +170,6 @@ func prepareDHCPOptions(
 
 		if customDHCPOptions.ExtraOptions != nil {
 			for _, extraOptions := range customDHCPOptions.ExtraOptions {
-				// parse string value of option to Integer value
 				if extraOptions.Option >= 224 && extraOptions.Option <= 254 {
 					dhcpOptions[dhcp.OptionCode(byte(extraOptions.Option))] = []byte(extraOptions.Value)
 				}
