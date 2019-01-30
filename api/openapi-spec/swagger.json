@@ -4370,13 +4370,7 @@
     }
    },
    "v1.EFI": {
-    "description": "If set, EFI will be used instead of BIOS.",
-    "properties": {
-     "secure": {
-      "description": "Some firmwares implements the Secure boot feature\n+optional",
-      "type": "boolean"
-     }
-    }
+    "description": "If set, EFI will be used instead of BIOS."
    },
    "v1.EmptyDiskSource": {
     "description": "EmptyDisk represents a temporary disk which shares the vmis lifecycle.",

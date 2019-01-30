@@ -788,15 +788,7 @@ func schema_kubevirt_pkg_api_v1_EFI(ref common.ReferenceCallback) common.OpenAPI
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
 				Description: "If set, EFI will be used instead of BIOS.",
-				Properties: map[string]spec.Schema{
-					"secure": {
-						SchemaProps: spec.SchemaProps{
-							Description: "Some firmwares implements the Secure boot feature",
-							Type:        []string{"boolean"},
-							Format:      "",
-						},
-					},
-				},
+				Properties:  map[string]spec.Schema{},
 			},
 		},
 		Dependencies: []string{},

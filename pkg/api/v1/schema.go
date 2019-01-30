@@ -161,9 +161,6 @@ type BIOS struct {
 // ---
 // +k8s:openapi-gen=true
 type EFI struct {
-	// Some firmwares implements the Secure boot feature
-	// +optional
-	Secure bool `json:"secure,omitempty"`
 }
 
 // ---

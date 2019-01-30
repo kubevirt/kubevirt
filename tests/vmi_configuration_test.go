@@ -310,7 +310,7 @@ var _ = Describe("Configurations", func() {
 		Context("with EFI bootloader method", func() {
 
 			It("should use EFI", func() {
-				vmi := tests.NewRandomVMIWithEFIBootloader(false)
+				vmi := tests.NewRandomVMIWithEFIBootloader()
 
 				By("Starting a VirtualMachineInstance")
 				vmi, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
@@ -322,22 +322,6 @@ var _ = Describe("Configurations", func() {
 				Expect(err).ToNot(HaveOccurred())
 				Expect(domXml).To(ContainSubstring("OVMF_CODE"))
 			})
-
-			It("should use EFI with Secureboot", func() {
-				vmi := tests.NewRandomVMIWithEFIBootloader(true)
-
-				By("Starting a VirtualMachineInstance")
-				vmi, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
-				Expect(err).ToNot(HaveOccurred())
-				tests.WaitUntilVMIReady(vmi, tests.LoggedInAlpineExpecter)
-
-				By("Checking if UEFI with Secureboot is enabled")
-				domXml, err := tests.GetRunningVirtualMachineInstanceDomainXML(virtClient, vmi)
-				Expect(err).ToNot(HaveOccurred())
-				Expect(domXml).To(ContainSubstring("OVMF_CODE.secboot"))
-				Expect(domXml).To(ContainSubstring("smm"))
-			})
-
 		})
 
 		Context("with diverging guest memory from requested memory", func() {

@@ -50,7 +50,6 @@ const (
 	CPUModeHostModel       = "host-model"
 	defaultIOThread        = uint(1)
 	EFIPath                = "/usr/share/OVMF/OVMF_CODE.fd"
-	EFISecurePath          = "/usr/share/OVMF/OVMF_CODE.secboot.fd"
 	EFIVarsPath            = "/usr/share/OVMF/OVMF_VARS.fd"
 )
 
@@ -607,17 +606,10 @@ func Convert_v1_VirtualMachine_To_api_Domain(vmi *v1.VirtualMachineInstance, dom
 
 		if vmi.Spec.Domain.Firmware.Bootloader != nil && vmi.Spec.Domain.Firmware.Bootloader.EFI != nil {
 
-			var efi string
-
-			if vmi.Spec.Domain.Firmware.Bootloader.EFI.Secure {
-				efi = EFISecurePath
-			} else {
-				efi = EFIPath
-			}
 			domain.Spec.OS.BootLoader = &Loader{
-				Path:     efi,
+				Path:     EFIPath,
 				ReadOnly: "yes",
-				Secure:   boolToYesNo(&vmi.Spec.Domain.Firmware.Bootloader.EFI.Secure, false),
+				Secure:   "no",
 				Type:     "pflash",
 			}
 
