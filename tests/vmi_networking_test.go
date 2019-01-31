@@ -616,7 +616,6 @@ var _ = Describe("Networking", func() {
 		})
 
 		It("should have custom resolv.conf", func() {
-			optionValue := "2"
 			userData := "#cloud-config\npassword: fedora\nchpasswd: { expire: False }\n"
 			dnsVMI := tests.NewRandomVMIWithEphemeralDiskAndUserdata(tests.ContainerDiskFor(tests.ContainerDiskCirros), userData)
 			dnsVMI.Spec.DNSPolicy = "None"
@@ -627,7 +626,6 @@ var _ = Describe("Networking", func() {
 
 			_, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(dnsVMI)
 			Expect(err).ToNot(HaveOccurred())
-			time.Sleep(10 * time.Minute)
 			tests.WaitUntilVMIReady(dnsVMI, tests.LoggedInCirrosExpecter)
 
 			err = tests.CheckForTextExpecter(dnsVMI, []expect.Batcher{
