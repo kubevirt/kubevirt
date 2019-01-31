@@ -26,14 +26,19 @@ if [ -z "$COPY_PATH" ]; then
 	exit 1
 fi
 
-if [ ! -f "$IMAGE_PATH" ]; then
+if [ -n "$IMAGE_PATH" ] && [ ! -f "$IMAGE_PATH" ]; then
+  echo "Image not found: $IMAGE_PATH"
+  exit 1
+fi
+
+if [ -z "$IMAGE_PATH" ]; then
 	IMAGE_NAME=$(ls -1 disk/ | tail -n -1)
 	if [ -z "$IMAGE_NAME" ]; then
 		echo "no images found in /disk directory"
 		exit 1
 	fi
 	IMAGE_PATH=/disk/$IMAGE_NAME
-fi
+fi 
 
 IMAGE_EXTENSION=$(echo $IMAGE_PATH | sed  -n -e 's/^.*\.\(.*\)$/\1/p')
 

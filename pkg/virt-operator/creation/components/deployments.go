@@ -59,7 +59,7 @@ func CreateControllers(clientset kubecli.KubevirtClient, kv *virtv1.KubeVirt, co
 				objectsAdded++
 			}
 		} else {
-			log.Log.Infof("service %v already exists", service.GetName())
+			log.Log.V(4).Infof("service %v already exists", service.GetName())
 		}
 	}
 
@@ -88,7 +88,7 @@ func CreateControllers(clientset kubecli.KubevirtClient, kv *virtv1.KubeVirt, co
 				objectsAdded++
 			}
 		} else {
-			log.Log.Infof("deployment %v already exists", deployment.GetName())
+			log.Log.V(4).Infof("deployment %v already exists", deployment.GetName())
 		}
 	}
 
@@ -107,7 +107,7 @@ func CreateControllers(clientset kubecli.KubevirtClient, kv *virtv1.KubeVirt, co
 			objectsAdded++
 		}
 	} else {
-		log.Log.Infof("daemonset %v already exists", handler.GetName())
+		log.Log.V(4).Infof("daemonset %v already exists", handler.GetName())
 	}
 
 	return objectsAdded, nil

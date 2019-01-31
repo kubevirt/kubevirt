@@ -307,6 +307,23 @@ var _ = Describe("Configurations", func() {
 			})
 		})
 
+		Context("with EFI bootloader method", func() {
+
+			It("should use EFI", func() {
+				vmi := tests.NewRandomVMIWithEFIBootloader()
+
+				By("Starting a VirtualMachineInstance")
+				vmi, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
+				Expect(err).ToNot(HaveOccurred())
+				tests.WaitUntilVMIReady(vmi, tests.LoggedInAlpineExpecter)
+
+				By("Checking if UEFI is enabled")
+				domXml, err := tests.GetRunningVirtualMachineInstanceDomainXML(virtClient, vmi)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(domXml).To(ContainSubstring("OVMF_CODE"))
+			})
+		})
+
 		Context("with diverging guest memory from requested memory", func() {
 			It("should show the requested guest memory inside the VMI", func() {
 				vmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(tests.ContainerDiskFor(tests.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n")

@@ -59,7 +59,8 @@ func Create(kv *v1.KubeVirt, config util.KubeVirtDeploymentConfig, stores util.S
 		return objectsAdded, err
 	}
 
-	err = util.UpdateScc(clientset, kv, true)
+	err = util.UpdateScc(clientset, stores.SCCCache, kv, true)
+
 	if err != nil {
 		log.Log.Errorf("Failed to update SCC: %v", err)
 		return objectsAdded, err

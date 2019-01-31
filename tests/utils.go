@@ -39,7 +39,7 @@ import (
 	"time"
 
 	ghodssyaml "github.com/ghodss/yaml"
-	"github.com/google/goexpect"
+	expect "github.com/google/goexpect"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"github.com/spf13/cobra"
@@ -63,12 +63,12 @@ import (
 	"k8s.io/client-go/tools/remotecommand"
 
 	cdiv1 "kubevirt.io/containerized-data-importer/pkg/apis/core/v1alpha1"
-	"kubevirt.io/kubevirt/pkg/api/v1"
+	v1 "kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/kubecli"
 	"kubevirt.io/kubevirt/pkg/log"
 	"kubevirt.io/kubevirt/pkg/util/net/dns"
-	"kubevirt.io/kubevirt/pkg/virt-config"
+	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
 	"kubevirt.io/kubevirt/pkg/virtctl"
 	vmsgen "kubevirt.io/kubevirt/tools/vms-generator/utils"
@@ -135,11 +135,11 @@ const (
 )
 
 const (
-	LocalStorageClass = "local"
-
-	HostPathStorageClass = "host-path"
-
-	BlockVolumeStorageClass = "block-volume"
+	StorageClassLocal       = "local"
+	StorageClassHostPath    = "host-path"
+	StorageClassBlockVolume = "block-volume"
+	StorageClassRhel        = "rhel"
+	StorageClassWindows     = "windows"
 )
 
 var testNamespaces = []string{NamespaceTestDefault, NamespaceTestAlternative}
@@ -464,8 +464,8 @@ func BeforeTestSuitSetup() {
 	CreateHostPathPv(osAlpineHostPath, HostPathAlpine)
 	CreateHostPathPVC(osAlpineHostPath, defaultDiskSize)
 
-	CreateLocalPVC(osWindows, defaultWindowsDiskSize)
-	CreateLocalPVC(osRhel, defaultRhelDiskSize)
+	CreatePVC(osWindows, defaultWindowsDiskSize, StorageClassWindows)
+	CreatePVC(osRhel, defaultRhelDiskSize, StorageClassRhel)
 
 	EnsureKVMPresent()
 
@@ -540,11 +540,7 @@ func CreateSecret(name string, data map[string]string) {
 }
 
 func CreateHostPathPVC(os, size string) {
-	CreatePVC(os, size, HostPathStorageClass)
-}
-
-func CreateLocalPVC(os, size string) {
-	CreatePVC(os, size, LocalStorageClass)
+	CreatePVC(os, size, StorageClassHostPath)
 }
 
 func CreatePVC(os, size, storageClass string) {
@@ -615,7 +611,7 @@ func CreateHostPathPvWithSize(osName string, hostPath string, size string) {
 					Type: &hostPathType,
 				},
 			},
-			StorageClassName: HostPathStorageClass,
+			StorageClassName: StorageClassHostPath,
 			NodeAffinity: &k8sv1.VolumeNodeAffinity{
 				Required: &k8sv1.NodeSelector{
 					NodeSelectorTerms: []k8sv1.NodeSelectorTerm{
@@ -1308,6 +1304,21 @@ func NewRandomVMIWithEphemeralDiskAndUserdataHighMemory(containerImage string, u
 	return vmi
 }
 
+func NewRandomVMIWithEFIBootloader() *v1.VirtualMachineInstance {
+	vmi := NewRandomVMIWithEphemeralDiskHighMemory(ContainerDiskFor(ContainerDiskAlpine))
+
+	// EFI needs more memory than other images
+	vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("1Gi")
+	vmi.Spec.Domain.Firmware = &v1.Firmware{
+		Bootloader: &v1.Bootloader{
+			EFI: &v1.EFI{},
+		},
+	}
+
+	return vmi
+
+}
+
 func NewRandomMigration(vmiName string, namespace string) *v1.VirtualMachineInstanceMigration {
 	migration := &v1.VirtualMachineInstanceMigration{
 
@@ -1433,6 +1444,12 @@ func NewRandomVMIWithEphemeralDiskAndUserdata(containerImage string, userData st
 	return vmi
 }
 
+func NewRandomVMIWithEphemeralDiskAndUserdataNetworkData(containerImage, userData, networkData string, b64encode bool) *v1.VirtualMachineInstance {
+	vmi := NewRandomVMIWithEphemeralDisk(containerImage)
+	AddCloudInitData(vmi, "disk1", userData, networkData, b64encode)
+	return vmi
+}
+
 func AddUserData(vmi *v1.VirtualMachineInstance, name string, userData string) {
 	vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
 		Name: name,
@@ -1450,6 +1467,38 @@ func AddUserData(vmi *v1.VirtualMachineInstance, name string, userData string) {
 			},
 		},
 	})
+}
+
+func AddCloudInitData(vmi *v1.VirtualMachineInstance, name, userData, networkData string, b64encode bool) {
+	vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
+		Name: name,
+		DiskDevice: v1.DiskDevice{
+			Disk: &v1.DiskTarget{
+				Bus: "virtio",
+			},
+		},
+	})
+	if b64encode {
+		vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
+			Name: name,
+			VolumeSource: v1.VolumeSource{
+				CloudInitNoCloud: &v1.CloudInitNoCloudSource{
+					UserDataBase64:    base64.StdEncoding.EncodeToString([]byte(userData)),
+					NetworkDataBase64: base64.StdEncoding.EncodeToString([]byte(networkData)),
+				},
+			},
+		})
+	} else {
+		vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
+			Name: name,
+			VolumeSource: v1.VolumeSource{
+				CloudInitNoCloud: &v1.CloudInitNoCloudSource{
+					UserData:    userData,
+					NetworkData: networkData,
+				},
+			},
+		})
+	}
 }
 
 func NewRandomVMIWithPVC(claimName string) *v1.VirtualMachineInstance {
@@ -1498,7 +1547,7 @@ func newBlockVolumePV(name string, labelSelector map[string]string, size string)
 	quantity, err := resource.ParseQuantity(size)
 	PanicOnError(err)
 
-	storageClass := BlockVolumeStorageClass
+	storageClass := StorageClassBlockVolume
 	volumeMode := k8sv1.PersistentVolumeBlock
 
 	// Note: the path depends on kubevirtci!
@@ -1544,7 +1593,7 @@ func newBlockVolumePVC(name string, labelSelector map[string]string, size string
 	quantity, err := resource.ParseQuantity(size)
 	PanicOnError(err)
 
-	storageClass := BlockVolumeStorageClass
+	storageClass := StorageClassBlockVolume
 	volumeMode := k8sv1.PersistentVolumeBlock
 
 	return &k8sv1.PersistentVolumeClaim{
@@ -2654,7 +2703,7 @@ func newISCSIPV(name string, size string, iscsiTargetIP string) *k8sv1.Persisten
 	quantity, err := resource.ParseQuantity(size)
 	PanicOnError(err)
 
-	storageClass := LocalStorageClass
+	storageClass := StorageClassLocal
 	volumeMode := k8sv1.PersistentVolumeBlock
 
 	return &k8sv1.PersistentVolume{
@@ -2688,7 +2737,7 @@ func newISCSIPVC(name string, size string) *k8sv1.PersistentVolumeClaim {
 	quantity, err := resource.ParseQuantity(size)
 	PanicOnError(err)
 
-	storageClass := LocalStorageClass
+	storageClass := StorageClassLocal
 	volumeMode := k8sv1.PersistentVolumeBlock
 
 	return &k8sv1.PersistentVolumeClaim{
@@ -2911,17 +2960,17 @@ func KubevirtFailHandler(message string, callerSkip ...int) {
 
 		for _, pod := range allPods {
 			fmt.Printf("\nPod name: %s\t Pod phase: %s\n\n", pod.Name, pod.Status.Phase)
-			var tailLines int64 = 15
+			data, err := ghodssyaml.Marshal(pod)
+			if err != nil {
+				log.DefaultLogger().Reason(err).Errorf("Failed to marshal pod %s", pod.Name)
+				continue
+			}
+			fmt.Println(string(data))
+
+			var tailLines int64 = 45
 			var containerName = ""
 			if strings.HasPrefix(pod.Name, "virt-launcher") {
-				tailLines = 45
 				containerName = "compute"
-				data, err := ghodssyaml.Marshal(pod)
-				if err != nil {
-					log.DefaultLogger().Reason(err).Errorf("Failed to marshal pod %s", pod.Name)
-					continue
-				}
-				fmt.Println(string(data))
 			}
 			logsRaw, err := virtClient.CoreV1().Pods(ns).GetLogs(
 				pod.Name, &k8sv1.PodLogOptions{
@@ -2949,6 +2998,38 @@ func KubevirtFailHandler(message string, callerSkip ...int) {
 			}
 			fmt.Println(string(data))
 		}
+
+		pvcs, err := virtClient.CoreV1().PersistentVolumeClaims(ns).List(metav1.ListOptions{})
+		if err != nil {
+			fmt.Println(err)
+			Fail(message, callerSkip...)
+			return
+		}
+
+		for _, pvc := range pvcs.Items {
+			data, err := ghodssyaml.Marshal(pvc)
+			if err != nil {
+				log.DefaultLogger().Reason(err).Errorf("Failed to marshal pvc %s", pvc.Name)
+				continue
+			}
+			fmt.Println(string(data))
+		}
+	}
+
+	pvs, err := virtClient.CoreV1().PersistentVolumes().List(metav1.ListOptions{})
+	if err != nil {
+		fmt.Println(err)
+		Fail(message, callerSkip...)
+		return
+	}
+
+	for _, pv := range pvs.Items {
+		data, err := ghodssyaml.Marshal(pv)
+		if err != nil {
+			log.DefaultLogger().Reason(err).Errorf("Failed to marshal pvc %s", pv.Name)
+			continue
+		}
+		fmt.Println(string(data))
 	}
 	Fail(message, callerSkip...)
 }

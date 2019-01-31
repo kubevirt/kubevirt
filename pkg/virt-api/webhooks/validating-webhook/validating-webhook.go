@@ -47,9 +47,13 @@ import (
 )
 
 const (
-	cloudInitMaxLen = 2048
-	arrayLenMax     = 256
-	maxStrLen       = 256
+	cloudInitUserMaxLen = 2048
+	arrayLenMax         = 256
+	maxStrLen           = 256
+
+	// cloudInitNetworkMaxLen size is an arbitrary limit. It was selected to
+	// accommodate a reasonable number of interfaces and routes.
+	cloudInitNetworkMaxLen = 16384
 )
 
 var validInterfaceModels = []string{"e1000", "e1000e", "ne2k_pci", "pcnet", "rtl8139", "virtio"}
@@ -234,6 +238,20 @@ func validateDisks(field *k8sfield.Path, disks []v1.Disk) []metav1.StatusCause {
 	return causes
 }
 
+func validateBootloader(field *k8sfield.Path, bootloader *v1.Bootloader) []metav1.StatusCause {
+	var causes []metav1.StatusCause
+
+	if bootloader != nil && bootloader.EFI != nil && bootloader.BIOS != nil {
+		causes = append(causes, metav1.StatusCause{
+			Type:    metav1.CauseTypeFieldValueInvalid,
+			Message: fmt.Sprintf("%s has both EFI and BIOS configured, but they are mutually exclusive.", field.String()),
+			Field:   field.String(),
+		})
+	}
+
+	return causes
+}
+
 func validateVolumes(field *k8sfield.Path, volumes []v1.Volume) []metav1.StatusCause {
 	var causes []metav1.StatusCause
 	nameMap := make(map[string]int)
@@ -325,8 +343,10 @@ func validateVolumes(field *k8sfield.Path, volumes []v1.Volume) []metav1.StatusC
 		if volume.CloudInitNoCloud != nil {
 			noCloud := volume.CloudInitNoCloud
 			userDataLen := 0
-
 			userDataSourceCount := 0
+			networkDataLen := 0
+			networkDataSourceCount := 0
+
 			if noCloud.UserDataSecretRef != nil && noCloud.UserDataSecretRef.Name != "" {
 				userDataSourceCount++
 			}
@@ -355,10 +375,46 @@ func validateVolumes(field *k8sfield.Path, volumes []v1.Volume) []metav1.StatusC
 				})
 			}
 
-			if userDataLen > cloudInitMaxLen {
+			if userDataLen > cloudInitUserMaxLen {
 				causes = append(causes, metav1.StatusCause{
 					Type:    metav1.CauseTypeFieldValueInvalid,
-					Message: fmt.Sprintf("%s userdata exceeds %d byte limit", field.Index(idx).Child("cloudInitNoCloud").String(), cloudInitMaxLen),
+					Message: fmt.Sprintf("%s userdata exceeds %d byte limit", field.Index(idx).Child("cloudInitNoCloud").String(), cloudInitUserMaxLen),
+					Field:   field.Index(idx).Child("cloudInitNoCloud").String(),
+				})
+			}
+
+			if noCloud.NetworkDataSecretRef != nil && noCloud.NetworkDataSecretRef.Name != "" {
+				networkDataSourceCount++
+			}
+			if noCloud.NetworkDataBase64 != "" {
+				networkDataSourceCount++
+				networkData, err := base64.StdEncoding.DecodeString(noCloud.NetworkDataBase64)
+				if err != nil {
+					causes = append(causes, metav1.StatusCause{
+						Type:    metav1.CauseTypeFieldValueInvalid,
+						Message: fmt.Sprintf("%s.cloudInitNoCloud.networkDataBase64 is not a valid base64 value.", field.Index(idx).Child("cloudInitNoCloud", "networkDataBase64").String()),
+						Field:   field.Index(idx).Child("cloudInitNoCloud", "networkDataBase64").String(),
+					})
+				}
+				networkDataLen = len(networkData)
+			}
+			if noCloud.NetworkData != "" {
+				networkDataSourceCount++
+				networkDataLen = len(noCloud.NetworkData)
+			}
+
+			if networkDataSourceCount > 1 {
+				causes = append(causes, metav1.StatusCause{
+					Type:    metav1.CauseTypeFieldValueInvalid,
+					Message: fmt.Sprintf("%s must have only one networkdata source set.", field.Index(idx).Child("cloudInitNoCloud").String()),
+					Field:   field.Index(idx).Child("cloudInitNoCloud").String(),
+				})
+			}
+
+			if networkDataLen > cloudInitNetworkMaxLen {
+				causes = append(causes, metav1.StatusCause{
+					Type:    metav1.CauseTypeFieldValueInvalid,
+					Message: fmt.Sprintf("%s networkdata exceeds %d byte limit", field.Index(idx).Child("cloudInitNoCloud").String(), cloudInitNetworkMaxLen),
 					Field:   field.Index(idx).Child("cloudInitNoCloud").String(),
 				})
 			}
@@ -440,15 +496,27 @@ func validateDevices(field *k8sfield.Path, devices *v1.Devices) []metav1.StatusC
 	return causes
 }
 
+func validateFirmware(field *k8sfield.Path, firmware *v1.Firmware) []metav1.StatusCause {
+	var causes []metav1.StatusCause
+
+	if firmware != nil {
+		causes = append(causes, validateBootloader(field.Child("bootloader"), firmware.Bootloader)...)
+	}
+
+	return causes
+}
+
 func validateDomainPresetSpec(field *k8sfield.Path, spec *v1.DomainSpec) []metav1.StatusCause {
 	var causes []metav1.StatusCause
 	causes = append(causes, validateDevices(field.Child("devices"), &spec.Devices)...)
+	causes = append(causes, validateFirmware(field.Child("firmware"), spec.Firmware)...)
 	return causes
 }
 
 func validateDomainSpec(field *k8sfield.Path, spec *v1.DomainSpec) []metav1.StatusCause {
 	var causes []metav1.StatusCause
 	causes = append(causes, validateDevices(field.Child("devices"), &spec.Devices)...)
+	causes = append(causes, validateFirmware(field.Child("firmware"), spec.Firmware)...)
 	return causes
 }
 
