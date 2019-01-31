@@ -37,10 +37,11 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 
 	"github.com/golang/glog"
-	"github.com/minio/minio-go"
+	minio "github.com/minio/minio-go"
 	"github.com/pkg/errors"
 	"github.com/ulikunitz/xz"
 
+	cdiv1 "kubevirt.io/containerized-data-importer/pkg/apis/core/v1alpha1"
 	"kubevirt.io/containerized-data-importer/pkg/common"
 	"kubevirt.io/containerized-data-importer/pkg/controller"
 	"kubevirt.io/containerized-data-importer/pkg/image"
@@ -131,7 +132,7 @@ func newDataStreamFromStream(stream io.ReadCloser) (*DataStream, error) {
 		"",
 		"",
 		controller.SourceHTTP,
-		controller.ContentTypeKubevirt,
+		string(cdiv1.DataVolumeKubeVirt),
 		"", // Blank means don't resize
 	}, stream)
 }
@@ -300,7 +301,7 @@ func CopyData(dso *DataStreamOptions) error {
 			return errors.Wrap(err, "unable to create data stream")
 		}
 		defer ds.Close()
-		if dso.ContentType == controller.ContentTypeArchive {
+		if dso.ContentType == string(cdiv1.DataVolumeArchive) {
 			if err := util.UnArchiveTar(ds.topReader(), dso.Dest); err != nil {
 				return errors.Wrap(err, "unable to untar files from endpoint")
 			}
@@ -425,7 +426,7 @@ func (d *DataStream) constructReaders(stream io.ReadCloser) error {
 		}
 	}
 
-	if d.ContentType == controller.ContentTypeArchive && !isTarFile {
+	if d.ContentType == string(cdiv1.DataVolumeArchive) && !isTarFile {
 		return errors.Errorf("cannot process a non tar file as an archive")
 	}
 
@@ -533,7 +534,7 @@ func (d *DataStream) xzReader() (io.Reader, int64, error) {
 // Assumes a single file was archived.
 // Note: the size stored in the header is used rather than raw metadata.
 func (d *DataStream) tarReader() (io.Reader, int64, error) {
-	if d.ContentType == controller.ContentTypeArchive {
+	if d.ContentType == string(cdiv1.DataVolumeArchive) {
 		return d.mulFileTarReader()
 	}
 	tr := tar.NewReader(d.topReader())

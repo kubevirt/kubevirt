@@ -1,0 +1,100 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  labels:
+    cdi.kubevirt.io: ""
+  name: {{.Namespace}}
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: cdi-operator
+  namespace: {{ .Namespace }}
+  labels:
+    operator.cdi.kubevirt.io: ""
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: cdi-operator
+  labels:
+    operator.cdi.kubevirt.io: ""
+subjects:
+- kind: ServiceAccount
+  name: cdi-operator
+  namespace: {{ .Namespace }}
+roleRef:
+  kind: ClusterRole
+  name: cluster-admin
+  apiGroup: ""
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: "cdi-controler-leader-election"
+  namespace: {{ .Namespace }}
+  labels:
+    operator.cdi.kubevirt.io: ""
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: cdi-operator
+  namespace: {{ .Namespace }}
+  labels:
+    operator.cdi.kubevirt.io: ""
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      name: cdi-operator
+  template:
+    metadata:
+      labels:
+        name: cdi-operator
+    spec:
+      serviceAccountName: cdi-operator
+      containers:
+        - name: cdi-operator
+          image: {{ .DockerRepo }}/{{ .OperatorImage }}:{{ .DockerTag }}
+          ports:
+          - containerPort: 60000
+            name: metrics
+          imagePullPolicy: Always
+          env:
+          - name: DEPLOY_CLUSTER_RESOURCES
+            value: 'true'
+          - name: DOCKER_REPO
+            value: {{ .DockerRepo }}
+          - name: DOCKER_TAG
+            value: {{ .DockerTag }}
+          - name: CONTROLLER_IMAGE
+            value: {{ .ControllerImage }}
+          - name: IMPORTER_IMAGE
+            value: {{ .ImporterImage }}
+          - name: CLONER_IMAGE
+            value: {{ .ClonerImage }}
+          - name: APISERVER_IMAGE
+            value: {{ .APIServerImage }}
+          - name: UPLOAD_PROXY_IMAGE
+            value: {{ .UploadProxyImage }}
+          - name: UPLOAD_SERVER_IMAGE
+            value: {{ .UploadServerImage }}
+          - name: VERBOSITY
+            value: '{{ .Verbosity }}'
+          - name: PULL_POLICY
+            value: {{ .PullPolicy }}
+---
+apiVersion: apiextensions.k8s.io/v1beta1
+kind: CustomResourceDefinition
+metadata:
+  name: cdis.cdi.kubevirt.io
+spec:
+  group: cdi.kubevirt.io
+  names:
+    kind: CDI
+    listKind: CDIList
+    plural: cdis
+    singular: cdi
+  scope: Cluster
+  version: v1alpha1

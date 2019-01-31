@@ -176,7 +176,7 @@ set -e
 echo "Nodes are ready:"
 kubectl get nodes
 
-make cluster-sync-operator
+make cluster-sync
 
 # OpenShift is running important containers under default namespace
 namespaces=(kubevirt default)
@@ -240,7 +240,7 @@ spec:
   nfs:
     server: "nfs"
     path: /
-  storageClassName: local
+  storageClassName: windows
 EOF
   # Run only Windows tests
   ginko_params="$ginko_params --ginkgo.focus=Windows"
@@ -269,7 +269,7 @@ spec:
   nfs:
     server: "nfs"
     path: /
-  storageClassName: local
+  storageClassName: rhel
 EOF
 fi
 

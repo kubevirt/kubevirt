@@ -119,6 +119,9 @@ var exampleJSON = `{
             "enabled": true,
             "vendorid": "vendor"
           }
+        },
+        "smm": {
+          "enabled": true
         }
       },
       "devices": {
@@ -184,6 +187,9 @@ var exampleJSON = `{
         "cloudInitNoCloud": {
           "secretRef": {
             "name": "testsecret"
+          },
+          "networkDataSecretRef": {
+            "name": "testnetworksecret"
           }
         }
       },
@@ -282,6 +288,9 @@ var _ = Describe("Schema", func() {
 						UserDataSecretRef: &v1.LocalObjectReference{
 							Name: "testsecret",
 						},
+						NetworkDataSecretRef: &v1.LocalObjectReference{
+							Name: "testnetworksecret",
+						},
 					},
 				},
 			},
@@ -296,6 +305,7 @@ var _ = Describe("Schema", func() {
 		}
 		exampleVMI.Spec.Domain.Features = &Features{
 			ACPI: FeatureState{Enabled: _false},
+			SMM:  &FeatureState{Enabled: _true},
 			APIC: &FeatureAPIC{Enabled: _true},
 			Hyperv: &FeatureHyperv{
 				Relaxed:    &FeatureState{Enabled: _true},
@@ -325,10 +335,10 @@ var _ = Describe("Schema", func() {
 			UUID: "28a42a60-44ef-4428-9c10-1a6aee94627f",
 		}
 		exampleVMI.Spec.Domain.CPU = &CPU{
-			Cores:   3,
-			Sockets: 1,
-			Threads: 1,
-			Model:   "Conroe",
+			Cores:                 3,
+			Sockets:               1,
+			Threads:               1,
+			Model:                 "Conroe",
 			DedicatedCPUPlacement: true,
 		}
 		exampleVMI.Spec.Networks = []Network{

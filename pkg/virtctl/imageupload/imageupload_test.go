@@ -124,7 +124,13 @@ var _ = Describe("ImageUpload", func() {
 				Namespace: pvcNamespace,
 			},
 			Subsets: []v1.EndpointSubset{
-				{},
+				{
+					Addresses: []v1.EndpointAddress{
+						{
+							IP: "10.10.10.10",
+						},
+					},
+				},
 			},
 		}
 	}

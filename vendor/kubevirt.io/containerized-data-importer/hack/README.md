@@ -53,6 +53,9 @@ The standard workflow is performed inside a helper container to normalize the bu
     - `docker-functest-image`: Compile and build the file host image for functional tests
         - `docker-functest-image-init`: Compile and build the file host init image for functional tests
         - `docker-functest-image-http`: Only build the file host http container for functional tests
+        - `docker-functest-registry-init`:Compile and build the registry init image for functional testa
+        - `docker-functest-registry-populate`: Only build registry-populate container for functional tests
+        - `docker-functest-registry`: Only build docker-registry container for functional tests
         - Note: there is no target for the S3 container, an offical Minio container is used instead
 - `manifests`: Generate a cdi-controller manifest in `manifests/generated/`.  Accepts [make variables](#make-variables) DOCKER_TAG, DOCKER_REPO, VERBOSITY, and PULL_POLICY
 - `push`: compiles, builds, and pushes to the repo passed in `DOCKER_REPO=<my repo>`

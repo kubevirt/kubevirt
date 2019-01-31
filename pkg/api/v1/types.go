@@ -42,7 +42,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes/scheme"
 
-	cdiv1 "kubevirt.io/containerized-data-importer/pkg/apis/datavolumecontroller/v1alpha1"
+	cdiv1 "kubevirt.io/containerized-data-importer/pkg/apis/core/v1alpha1"
 	"kubevirt.io/kubevirt/pkg/precond"
 )
 
@@ -1081,6 +1081,10 @@ type KubeVirtConditionType string
 
 // These are the valid KubeVirt condition types
 const (
-	// Whether the deployment or deletion was successful
-	KubeVirtConditionSynchronized KubeVirtConditionType = "KubeVirtSynchronized"
+	// Whether the deployment or deletion was successful (only used if false)
+	KubeVirtConditionSynchronized KubeVirtConditionType = "Synchronized"
+	// Whether all resources were created
+	KubeVirtConditionCreated KubeVirtConditionType = "Created"
+	// Whether all components were ready
+	KubeVirtConditionReady KubeVirtConditionType = "Ready"
 )

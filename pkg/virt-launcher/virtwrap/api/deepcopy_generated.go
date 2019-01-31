@@ -1384,6 +1384,15 @@ func (in *Features) DeepCopyInto(out *Features) {
 			(*in).DeepCopyInto(*out)
 		}
 	}
+	if in.SMM != nil {
+		in, out := &in.SMM, &out.SMM
+		if *in == nil {
+			*out = nil
+		} else {
+			*out = new(FeatureEnabled)
+			**out = **in
+		}
+	}
 	return
 }
 
@@ -2038,6 +2047,24 @@ func (in *OS) DeepCopyInto(out *OS) {
 			*out = nil
 		} else {
 			*out = new(BIOS)
+			**out = **in
+		}
+	}
+	if in.BootLoader != nil {
+		in, out := &in.BootLoader, &out.BootLoader
+		if *in == nil {
+			*out = nil
+		} else {
+			*out = new(Loader)
+			**out = **in
+		}
+	}
+	if in.NVRam != nil {
+		in, out := &in.NVRam, &out.NVRam
+		if *in == nil {
+			*out = nil
+		} else {
+			*out = new(NVRam)
 			**out = **in
 		}
 	}

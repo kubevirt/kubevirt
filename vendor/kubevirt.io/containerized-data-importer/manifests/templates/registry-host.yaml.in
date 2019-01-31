@@ -1,0 +1,115 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata: 
+  creationTimestamp: null
+  labels:
+    cdi.kubevirt.io/registry.vol.pvc: registry-vol-pvc
+  name: registry-vol-pvc
+  namespace: {{ .Namespace }}
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 100Mi
+status: {}
+---
+apiVersion: apps/v1beta2
+kind: Deployment
+metadata:
+  name: cdi-docker-registry-host
+  namespace: {{ .Namespace }}
+  labels:
+    cdi.kubevirt.io: ""
+    cdi.kubevirt.io/testing.registry: ""
+spec:
+  selector:
+    matchLabels:
+      cdi.kubevirt.io/testing.registry: ""
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        cdi.kubevirt.io/testing.registry: ""
+    spec:
+      securityContext:
+        runAsUser: 0
+      serviceAccountName: cdi-sa
+      initContainers:
+      - name: registry-init
+        image: {{ .DockerRepo }}/cdi-func-test-registry-init:{{ .DockerTag }}
+        imagePullPolicy: {{ .PullPolicy }}
+        args: ["-inCertDir", "/tmp/source/certs", "-outCertDir", "/tmp/shared/certs", "-inFile", "/tmp/source/tinyCore.iso", "-outDir", "/tmp/shared/images"]
+        volumeMounts:
+        - name: "images"
+          mountPath: "/tmp/shared"
+      containers:
+      - name: registry
+        image: {{ .DockerRepo }}/cdi-func-test-registry:{{ .DockerTag }}
+        imagePullPolicy: {{ .PullPolicy }}
+        ports:
+          - name: sec-docker-reg
+            containerPort: 443
+        resources: {}
+        volumeMounts:
+        - name: "registry-volume"
+          mountPath: "/var/run/docker.sock"
+        - name: "health"
+          mountPath: "/tmp/health"
+        - name: "images"
+          mountPath: "/tmp/shared"
+        readinessProbe:
+          exec:
+            command:
+             - cat
+             - /tmp/health/ready
+          initialDelaySeconds: 20
+          periodSeconds: 20
+      - name: registry-populate
+        image: {{ .DockerRepo }}/cdi-func-test-registry-populate:{{ .DockerTag }}
+        imagePullPolicy: {{ .PullPolicy }}
+        args: [ "/tmp/shared/images/", "/tmp/docker-images", "127.0.0.1", "443", "/tmp/health/healthy", "15", "/tmp/health/ready", "15"]
+        volumeMounts:
+        - name: "images"
+          mountPath: "/tmp/shared"
+        - name: "health"
+          mountPath: "/tmp/health"
+        readinessProbe:
+          exec:
+            command:
+             - cat
+             - /tmp/health/ready
+          initialDelaySeconds: 20
+          periodSeconds: 20
+        livenessProbe:
+          exec:
+            command:
+             - cat
+             - /tmp/health/healthy
+          initialDelaySeconds: 20
+          periodSeconds: 20
+      volumes:
+      - name: "images"
+        emptyDir: {}
+      - name: "health"
+        emptyDir: {}
+      - name: "registry-volume"
+        persistentVolumeClaim:
+          claimName: registry-vol-pvc
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: cdi-docker-registry-host
+  namespace: {{ .Namespace }}
+  labels:
+    cdi.kubevirt.io: ""
+    cdi.kubevirt.io/testing.registry: ""
+spec:
+  selector:
+    cdi.kubevirt.io/testing.registry: ""
+  ports:
+  - name: sec-docker-reg
+    port: 443
+    targetPort: 443
+

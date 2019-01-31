@@ -53,7 +53,7 @@ func CreateControllerRBAC(clientset kubecli.KubevirtClient, kv *virtv1.KubeVirt,
 			objectsAdded++
 		}
 	} else {
-		log.Log.Infof("serviceaccount %v already exists", sa.GetName())
+		log.Log.V(4).Infof("serviceaccount %v already exists", sa.GetName())
 	}
 
 	rbac := clientset.RbacV1()
@@ -69,7 +69,7 @@ func CreateControllerRBAC(clientset kubecli.KubevirtClient, kv *virtv1.KubeVirt,
 			objectsAdded++
 		}
 	} else {
-		log.Log.Infof("clusterrole %v already exists", cr.GetName())
+		log.Log.V(4).Infof("clusterrole %v already exists", cr.GetName())
 	}
 
 	crb := newControllerClusterRoleBinding(kv.Namespace)
@@ -83,7 +83,7 @@ func CreateControllerRBAC(clientset kubecli.KubevirtClient, kv *virtv1.KubeVirt,
 			objectsAdded++
 		}
 	} else {
-		log.Log.Infof("clusterrolebinding %v already exists", crb.GetName())
+		log.Log.V(4).Infof("clusterrolebinding %v already exists", crb.GetName())
 	}
 
 	return objectsAdded, nil

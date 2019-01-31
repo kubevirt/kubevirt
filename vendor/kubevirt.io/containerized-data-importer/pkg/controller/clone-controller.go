@@ -96,6 +96,7 @@ func (cc *CloneController) processPvcItem(pvc *v1.PersistentVolumeClaim) error {
 	if err != nil {
 		return err
 	}
+
 	pvcKey, err := cache.MetaNamespaceKeyFunc(pvc)
 	if err != nil {
 		return err
@@ -158,7 +159,6 @@ func (cc *CloneController) processPvcItem(pvc *v1.PersistentVolumeClaim) error {
 	//add the following annotation only if the pod pahse is succeeded, meaning job is completed
 	if phase == string(v1.PodSucceeded) {
 		anno[AnnCloneOf] = "true"
-		defer cc.deleteClonePods(sourcePod.Namespace, sourcePod.Name, targetPod.Name)
 	}
 	var lab map[string]string
 	if !checkIfLabelExists(pvc, common.CDILabelKey, common.CDILabelValue) {
@@ -167,6 +167,8 @@ func (cc *CloneController) processPvcItem(pvc *v1.PersistentVolumeClaim) error {
 	pvc, err = updatePVC(cc.clientset, pvc, anno, lab)
 	if err != nil {
 		return errors.WithMessage(err, "could not update pvc %q annotation and/or label")
+	} else if pvc.Annotations[AnnCloneOf] == "true" {
+		cc.deleteClonePods(sourcePod.Namespace, sourcePod.Name, targetPod.Name)
 	}
 	return nil
 }

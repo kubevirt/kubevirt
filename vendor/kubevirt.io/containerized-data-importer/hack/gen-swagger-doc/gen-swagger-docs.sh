@@ -42,7 +42,7 @@ gradle -b $GRADLE_BUILD_FILE $GRADLE_EXTRA_PARAMS convertSwagger2markup --info
 
 #insert a TOC for top level API objects
 buf="${HEADER}${HEADER} Top Level API Objects\n\n"
-top_level_models=$(grep '&[A-Za-z]*{},' pkg/apis/datavolumecontroller/${VERSION}/register.go pkg/apis/uploadcontroller/${VERSION}/register.go | sed 's/.*&//;s/{},//')
+top_level_models=$(grep '&[A-Za-z]*{},' pkg/apis/core/${VERSION}/register.go pkg/apis/upload/${VERSION}/register.go | sed 's/.*&//;s/{},//')
 
 # check if the top level models exist in the definitions.$SUFFIX. If they exist,
 # their name will be <version>.<model_name>

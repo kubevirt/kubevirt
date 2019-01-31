@@ -100,7 +100,7 @@ type VMIReplicaSet struct {
 	burstReplicas uint
 }
 
-func (c *VMIReplicaSet) Run(threadiness int, stopCh chan struct{}) {
+func (c *VMIReplicaSet) Run(threadiness int, stopCh <-chan struct{}) {
 	defer controller.HandlePanic()
 	defer c.Queue.ShutDown()
 	log.Log.Info("Starting VirtualMachineInstanceReplicaSet controller.")

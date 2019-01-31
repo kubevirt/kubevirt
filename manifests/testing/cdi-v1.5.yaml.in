@@ -1,0 +1,102 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  labels:
+    cdi.kubevirt.io: ""
+  name: {{.CDINamespace}}
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: cdi-operator
+  namespace: {{ .CDINamespace }}
+  labels:
+    operator.cdi.kubevirt.io: ""
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: cdi-operator
+  labels:
+    operator.cdi.kubevirt.io: ""
+subjects:
+- kind: ServiceAccount
+  name: cdi-operator
+  namespace: {{ .CDINamespace }}
+roleRef:
+  kind: ClusterRole
+  name: cluster-admin
+  apiGroup: ""
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: "cdi-controler-leader-election"
+  namespace: {{ .CDINamespace }}
+  labels:
+    operator.cdi.kubevirt.io: ""
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: cdi-operator
+  namespace: {{ .CDINamespace }}
+  labels:
+    operator.cdi.kubevirt.io: ""
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      name: cdi-operator
+  template:
+    metadata:
+      labels:
+        name: cdi-operator
+    spec:
+      serviceAccountName: cdi-operator
+      containers:
+        - name: cdi-operator
+          image: kubevirt/cdi-operator:v1.5.1
+          ports:
+          - containerPort: 60000
+            name: metrics
+          imagePullPolicy: Always
+          env:
+          - name: DEPLOY_CLUSTER_RESOURCES
+            value: 'true'
+          - name: DOCKER_REPO
+            value: kubevirt
+          - name: DOCKER_TAG
+            value: v1.5.1
+          - name: CONTROLLER_IMAGE
+            value: cdi-controller
+          - name: IMPORTER_IMAGE
+            value: cdi-importer
+          - name: CLONER_IMAGE
+            value: cdi-cloner
+          - name: APISERVER_IMAGE
+            value: cdi-apiserver
+          - name: UPLOAD_PROXY_IMAGE
+            value: cdi-uploadproxy
+          - name: UPLOAD_SERVER_IMAGE
+            value: cdi-uploadserver
+          - name: VERBOSITY
+            value: '3'
+          - name: PULL_POLICY
+            value: IfNotPresent
+---
+apiVersion: apiextensions.k8s.io/v1beta1
+kind: CustomResourceDefinition
+metadata:
+  name: cdis.cdi.kubevirt.io
+  labels:
+    operator.cdi.kubevirt.io: ""
+spec:
+  group: cdi.kubevirt.io
+  names:
+    kind: CDI
+    listKind: CDIList
+    plural: cdis
+    singular: cdi
+  scope: Cluster
+  version: v1alpha1

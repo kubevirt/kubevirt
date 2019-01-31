@@ -36,6 +36,7 @@ set +e
     _kubectl -n ${namespace} delete kv kubevirt
 )
 _kubectl -n ${namespace} patch kv kubevirt --type=json -p '[{ "op": "remove", "path": "/metadata/finalizers" }]'
+_kubectl patch cdi cdi --type=json -p '[{ "op": "remove", "path": "/metadata/finalizers" }]'
 
 set -e
 
@@ -47,9 +48,12 @@ _kubectl get vmis --all-namespaces -o=custom-columns=NAME:.metadata.name,NAMESPA
     _kubectl patch vmi $name -n $namespace --type=json -p '[{ "op": "remove", "path": "/metadata/finalizers" }]'
 done
 
+# Delete Namespaces created by us.
+managed_namespaces=(${namespace} ${cdi_namespace})
+
 # Delete all traces of kubevirt
 namespaces=(default ${namespace} ${cdi_namespace})
-labels=("operator.kubevirt.io" "kubevirt.io" "cdi.kubevirt.io")
+labels=("operator.kubevirt.io" "operator.cdi.kubevirt.io" "kubevirt.io" "cdi.kubevirt.io")
 
 # Namespaced resources
 for i in ${namespaces[@]}; do
@@ -94,22 +98,24 @@ for label in ${labels[@]}; do
     done
 done
 
-if [ -n "$(_kubectl get ns | grep "${namespace} ")" ]; then
-    echo "Clean ${namespace} namespace"
-    _kubectl delete ns ${namespace}
+for i in ${managed_namespaces[@]}; do
+    if [ -n "$(_kubectl get ns | grep "${i} ")" ]; then
+        echo "Clean ${i} namespace"
+        _kubectl delete ns ${i}
 
-    start_time=0
-    sample=10
-    timeout=120
-    echo "Waiting for ${namespace} namespace to disappear ..."
-    while [ -n "$(_kubectl get ns | grep "${namespace} ")" ]; do
-        sleep $sample
-        start_time=$((current_time + sample))
-        if [[ $current_time -gt $timeout ]]; then
-            exit 1
-        fi
-    done
-fi
+        start_time=0
+        sample=10
+        timeout=120
+        echo "Waiting for ${i} namespace to disappear ..."
+        while [ -n "$(_kubectl get ns | grep "${i} ")" ]; do
+            sleep $sample
+            start_time=$((current_time + sample))
+            if [[ $current_time -gt $timeout ]]; then
+                exit 1
+            fi
+        done
+    fi
+done
 
 sleep 2
 

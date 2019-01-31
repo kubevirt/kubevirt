@@ -35,13 +35,16 @@ func (f *Framework) FindPVC(pvcName string) (*k8sv1.PersistentVolumeClaim, error
 }
 
 // VerifyPVCIsEmpty verifies a passed in PVC is empty, returns true if the PVC is empty, false if it is not.
-func VerifyPVCIsEmpty(f *Framework, pvc *k8sv1.PersistentVolumeClaim) bool {
+func VerifyPVCIsEmpty(f *Framework, pvc *k8sv1.PersistentVolumeClaim) (bool, error) {
 	executorPod, err := f.CreateExecutorPodWithPVC("verify-pvc-empty", pvc)
 	gomega.Expect(err).ToNot(gomega.HaveOccurred())
 	err = f.WaitTimeoutForPodReady(executorPod.Name, utils.PodWaitForTime)
 	gomega.Expect(err).ToNot(gomega.HaveOccurred())
-	output := f.ExecShellInPod(executorPod.Name, f.Namespace.Name, "ls -1 /pvc | wc -l")
-	return strings.Compare("0", output) == 0
+	output, err := f.ExecShellInPod(executorPod.Name, f.Namespace.Name, "ls -1 /pvc | wc -l")
+	if err != nil {
+		return false, err
+	}
+	return strings.Compare("0", output) == 0, nil
 }
 
 // CreateAndPopulateSourcePVC Creates and populates a PVC using the provided POD and command
@@ -60,21 +63,27 @@ func (f *Framework) CreateAndPopulateSourcePVC(pvcName string, podName string, f
 }
 
 // VerifyTargetPVCContent is used to check the contents of a PVC and ensure it matches the provided expected data
-func (f *Framework) VerifyTargetPVCContent(namespace *k8sv1.Namespace, pvc *k8sv1.PersistentVolumeClaim, fileName string, expectedData string) bool {
+func (f *Framework) VerifyTargetPVCContent(namespace *k8sv1.Namespace, pvc *k8sv1.PersistentVolumeClaim, fileName string, expectedData string) (bool, error) {
 	executorPod, err := utils.CreateExecutorPodWithPVC(f.K8sClient, "verify-pvc-content", namespace.Name, pvc)
 	gomega.Expect(err).ToNot(gomega.HaveOccurred())
 	err = utils.WaitTimeoutForPodReady(f.K8sClient, executorPod.Name, namespace.Name, utils.PodWaitForTime)
 	gomega.Expect(err).ToNot(gomega.HaveOccurred())
-	output := f.ExecShellInPod(executorPod.Name, namespace.Name, "cat "+fileName)
-	return strings.Compare(expectedData, output) == 0
+	output, err := f.ExecShellInPod(executorPod.Name, namespace.Name, "cat "+fileName)
+	if err != nil {
+		return false, err
+	}
+	return strings.Compare(expectedData, output) == 0, nil
 }
 
 // VerifyTargetPVCContentMD5 provides a function to check the md5 of data on a PVC and ensure it matches that which is provided
-func (f *Framework) VerifyTargetPVCContentMD5(namespace *k8sv1.Namespace, pvc *k8sv1.PersistentVolumeClaim, fileName string, expectedHash string) bool {
+func (f *Framework) VerifyTargetPVCContentMD5(namespace *k8sv1.Namespace, pvc *k8sv1.PersistentVolumeClaim, fileName string, expectedHash string) (bool, error) {
 	executorPod, err := utils.CreateExecutorPodWithPVC(f.K8sClient, "verify-pvc-md5", namespace.Name, pvc)
 	gomega.Expect(err).ToNot(gomega.HaveOccurred())
 	err = utils.WaitTimeoutForPodReady(f.K8sClient, executorPod.Name, namespace.Name, utils.PodWaitForTime)
 	gomega.Expect(err).ToNot(gomega.HaveOccurred())
-	output := f.ExecShellInPod(executorPod.Name, namespace.Name, "md5sum "+fileName)
-	return strings.Compare(expectedHash, output[:32]) == 0
+	output, err := f.ExecShellInPod(executorPod.Name, namespace.Name, "md5sum "+fileName)
+	if err != nil {
+		return false, err
+	}
+	return strings.Compare(expectedHash, output[:32]) == 0, nil
 }

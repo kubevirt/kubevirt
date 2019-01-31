@@ -15,12 +15,8 @@ authorization/v1 \
 build/v1 \
 config/v1 \
 image/v1 \
-kubecontrolplane/v1 \
-legacyconfig/v1 \
 network/v1 \
 oauth/v1 \
-openshiftcontrolplane/v1 \
-operator/v1 \
 operator/v1alpha1 \
 project/v1 \
 quota/v1 \
@@ -35,13 +31,17 @@ API_PACKAGES="\
 github.com/openshift/api/apps/v1,\
 github.com/openshift/api/authorization/v1,\
 github.com/openshift/api/build/v1,\
+github.com/openshift/api/config/v1,\
 github.com/openshift/api/image/v1,\
 github.com/openshift/api/network/v1,\
 github.com/openshift/api/oauth/v1,\
+github.com/openshift/api/operator/v1alpha1,\
 github.com/openshift/api/project/v1,\
 github.com/openshift/api/quota/v1,\
 github.com/openshift/api/route/v1,\
 github.com/openshift/api/security/v1,\
+github.com/openshift/api/servicecertsigner/v1alpha1,\
 github.com/openshift/api/template/v1,\
-github.com/openshift/api/user/v1\
+github.com/openshift/api/user/v1,\
+github.com/openshift/api/webconsole/v1\
 "

@@ -18,14 +18,14 @@ set -o errexit
 set -o nounset
 set -o pipefail
 
-SCRIPT_ROOT=$(dirname ${BASH_SOURCE})/..
+SCRIPT_ROOT=$(readlink -f $(dirname ${BASH_SOURCE})/..)
 CODEGEN_PKG=${CODEGEN_PKG:-$(
     cd ${SCRIPT_ROOT}
     ls -d -1 ./vendor/k8s.io/code-generator 2>/dev/null || echo ../code-generator
 )}
 
 find "${SCRIPT_ROOT}/pkg/" -name "*generated*.go" -exec rm {} -f \;
-rm -rf "${SCRIPT_ROOT}/pkg/client/*"
+rm -rf "${SCRIPT_ROOT}/pkg/client"
 
 ${SCRIPT_ROOT}/hack/build/build-go.sh generate
 
@@ -35,7 +35,7 @@ ${SCRIPT_ROOT}/hack/build/build-go.sh generate
 #                  instead of the $GOPATH directly. For normal projects this can be dropped.
 ${CODEGEN_PKG}/generate-groups.sh "client,informer,lister" \
   kubevirt.io/containerized-data-importer/pkg/client kubevirt.io/containerized-data-importer/pkg/apis \
-  "datavolumecontroller:v1alpha1 uploadcontroller:v1alpha1" \
+  "core:v1alpha1 upload:v1alpha1" \
   --go-header-file ${SCRIPT_ROOT}/hack/custom-boilerplate.go.txt
 
 (cd ${SCRIPT_ROOT}/tools/openapi-spec-generator/ && go build -o ../../bin/openapi-spec-generator)
