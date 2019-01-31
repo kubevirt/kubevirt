@@ -151,8 +151,11 @@ var _ = Describe("Converter", func() {
 			}
 			vmi.Spec.Domain.Resources.Limits = make(k8sv1.ResourceList)
 			vmi.Spec.Domain.Resources.Requests = make(k8sv1.ResourceList)
-			vmi.Spec.Domain.Devices.Tablet = &v1.Tablet{
-				Bus: "virtio",
+			vmi.Spec.Domain.Devices.Inputs = []v1.Input{
+				{
+					Bus:  "virtio",
+					Type: "tablet",
+				},
 			}
 			vmi.Spec.Domain.Devices.Disks = []v1.Disk{
 				{
@@ -720,9 +723,15 @@ var _ = Describe("Converter", func() {
 			Expect(Convert_v1_VirtualMachine_To_api_Domain(vmi, &Domain{}, c)).ToNot(Succeed())
 		})
 
-		It("should fail when tablet is set with ps2 bus", func() {
+		It("should fail when input device is set to ps2 bus", func() {
 			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
-			vmi.Spec.Domain.Devices.Tablet.Bus = "ps2"
+			vmi.Spec.Domain.Devices.Inputs[0].Bus = "ps2"
+			Expect(Convert_v1_VirtualMachine_To_api_Domain(vmi, &Domain{}, c)).ToNot(Succeed(), "Expect error")
+		})
+
+		It("should fail when input device is set to keyboard type", func() {
+			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
+			vmi.Spec.Domain.Devices.Inputs[0].Type = "keyboard"
 			Expect(Convert_v1_VirtualMachine_To_api_Domain(vmi, &Domain{}, c)).ToNot(Succeed(), "Expect error")
 		})
 

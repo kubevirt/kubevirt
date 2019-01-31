@@ -4282,6 +4282,13 @@
        "$ref": "#/definitions/v1.Disk"
       }
      },
+     "inputs": {
+      "description": "Inputs describe input devices",
+      "type": "array",
+      "items": {
+       "$ref": "#/definitions/v1.Input"
+      }
+     },
      "interfaces": {
       "description": "Interfaces describe network interfaces which are added to the vmi.",
       "type": "array",
@@ -4296,10 +4303,6 @@
      "rng": {
       "description": "Whether to have random number generator from host\n+optional",
       "$ref": "#/definitions/v1.Rng"
-     },
-     "tablet": {
-      "description": "Tablet describe tablet device",
-      "$ref": "#/definitions/v1.Tablet"
      },
      "watchdog": {
       "description": "Watchdog describes a watchdog device which can be added to the vmi.",
@@ -4727,6 +4730,22 @@
      "result": {
       "description": "If result is set with the Failure field, the object will be persisted to storage and then deleted, ensuring that other clients can observe the deletion.",
       "$ref": "#/definitions/v1.Status"
+     }
+    }
+   },
+   "v1.Input": {
+    "required": [
+     "bus",
+     "type"
+    ],
+    "properties": {
+     "bus": {
+      "description": "Bus indicates the bus of input device to emulate.\nSupported values: virtio.",
+      "type": "string"
+     },
+     "type": {
+      "description": "Type indicated the type of input device.\nSupported values: tablet.",
+      "type": "string"
      }
     }
    },
@@ -5561,17 +5580,6 @@
        "string",
        "number"
       ]
-     }
-    }
-   },
-   "v1.Tablet": {
-    "required": [
-     "bus"
-    ],
-    "properties": {
-     "bus": {
-      "description": "Bus indicates the type of tablet device to emulate.\nSupported values: virtio.",
-      "type": "string"
      }
     }
    },

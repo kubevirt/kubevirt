@@ -267,8 +267,8 @@ type Devices struct {
 	Watchdog *Watchdog `json:"watchdog,omitempty"`
 	// Interfaces describe network interfaces which are added to the vmi.
 	Interfaces []Interface `json:"interfaces,omitempty"`
-	// Tablet describe tablet device
-	Tablet *Tablet `json:"tablet,omitempty"`
+	// Inputs describe input devices
+	Inputs []Input `json:"inputs,omitempty"`
 	// Whether to attach a pod network interface. Defaults to true.
 	AutoattachPodInterface *bool `json:"autoattachPodInterface,omitempty"`
 	// Whether to attach the default graphics device or not.
@@ -287,10 +287,13 @@ type Devices struct {
 
 // ---
 // +k8s:openapi-gen=true
-type Tablet struct {
-	// Bus indicates the type of tablet device to emulate.
+type Input struct {
+	// Bus indicates the bus of input device to emulate.
 	// Supported values: virtio.
 	Bus string `json:"bus"`
+	// Type indicated the type of input device.
+	// Supported values: tablet.
+	Type string `json:"type"`
 }
 
 // ---

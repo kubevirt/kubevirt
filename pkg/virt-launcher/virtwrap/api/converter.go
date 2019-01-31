@@ -404,13 +404,17 @@ func Convert_v1_Rng_To_api_Rng(source *v1.Rng, rng *Rng, _ *ConverterContext) er
 	return nil
 }
 
-func Convert_v1_Tablet_To_api_InputDevice(tablet *v1.Tablet, inputDevice *InputDevice, _ *ConverterContext) error {
-	if tablet.Bus != "virtio" {
-		return fmt.Errorf("tablet contains unsupported bus %s", tablet.Bus)
+func Convert_v1_Input_To_api_InputDevice(input *v1.Input, inputDevice *InputDevice, _ *ConverterContext) error {
+	if input.Bus != "virtio" {
+		return fmt.Errorf("input contains unsupported bus %s", input.Bus)
 	}
 
-	inputDevice.Bus = tablet.Bus
-	inputDevice.Type = "tablet"
+	if input.Type != "tablet" {
+		return fmt.Errorf("input contains unsupported type %s", input.Type)
+	}
+
+	inputDevice.Bus = input.Bus
+	inputDevice.Type = input.Type
 	return nil
 }
 
@@ -781,13 +785,17 @@ func Convert_v1_VirtualMachine_To_api_Domain(vmi *v1.VirtualMachineInstance, dom
 		domain.Spec.Devices.Rng = newRng
 	}
 
-	if vmi.Spec.Domain.Devices.Tablet != nil {
-		inputDevice := &InputDevice{}
-		err := Convert_v1_Tablet_To_api_InputDevice(vmi.Spec.Domain.Devices.Tablet, inputDevice, c)
-		if err != nil {
-			return err
+	if vmi.Spec.Domain.Devices.Inputs != nil {
+		inputDevices := make([]InputDevice, 0)
+		for _, input := range vmi.Spec.Domain.Devices.Inputs {
+			inputDevice := InputDevice{}
+			err := Convert_v1_Input_To_api_InputDevice(&input, &inputDevice, c)
+			inputDevices = append(inputDevices, inputDevice)
+			if err != nil {
+				return err
+			}
 		}
-		domain.Spec.Devices.InputDevices = []InputDevice{*inputDevice}
+		domain.Spec.Devices.InputDevices = inputDevices
 	}
 
 	if vmi.Spec.Domain.Clock != nil {

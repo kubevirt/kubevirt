@@ -63,6 +63,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"kubevirt.io/kubevirt/pkg/api/v1.Hugepages":                                 schema_kubevirt_pkg_api_v1_Hugepages(ref),
 		"kubevirt.io/kubevirt/pkg/api/v1.HypervTimer":                               schema_kubevirt_pkg_api_v1_HypervTimer(ref),
 		"kubevirt.io/kubevirt/pkg/api/v1.I6300ESBWatchdog":                          schema_kubevirt_pkg_api_v1_I6300ESBWatchdog(ref),
+		"kubevirt.io/kubevirt/pkg/api/v1.Input":                                     schema_kubevirt_pkg_api_v1_Input(ref),
 		"kubevirt.io/kubevirt/pkg/api/v1.Interface":                                 schema_kubevirt_pkg_api_v1_Interface(ref),
 		"kubevirt.io/kubevirt/pkg/api/v1.InterfaceBindingMethod":                    schema_kubevirt_pkg_api_v1_InterfaceBindingMethod(ref),
 		"kubevirt.io/kubevirt/pkg/api/v1.InterfaceBridge":                           schema_kubevirt_pkg_api_v1_InterfaceBridge(ref),
@@ -88,7 +89,6 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"kubevirt.io/kubevirt/pkg/api/v1.Rng":                                       schema_kubevirt_pkg_api_v1_Rng(ref),
 		"kubevirt.io/kubevirt/pkg/api/v1.SecretVolumeSource":                        schema_kubevirt_pkg_api_v1_SecretVolumeSource(ref),
 		"kubevirt.io/kubevirt/pkg/api/v1.ServiceAccountVolumeSource":                schema_kubevirt_pkg_api_v1_ServiceAccountVolumeSource(ref),
-		"kubevirt.io/kubevirt/pkg/api/v1.Tablet":                                    schema_kubevirt_pkg_api_v1_Tablet(ref),
 		"kubevirt.io/kubevirt/pkg/api/v1.Timer":                                     schema_kubevirt_pkg_api_v1_Timer(ref),
 		"kubevirt.io/kubevirt/pkg/api/v1.VirtualMachine":                            schema_kubevirt_pkg_api_v1_VirtualMachine(ref),
 		"kubevirt.io/kubevirt/pkg/api/v1.VirtualMachineCondition":                   schema_kubevirt_pkg_api_v1_VirtualMachineCondition(ref),
@@ -563,10 +563,17 @@ func schema_kubevirt_pkg_api_v1_Devices(ref common.ReferenceCallback) common.Ope
 							},
 						},
 					},
-					"tablet": {
+					"inputs": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Tablet describe tablet device",
-							Ref:         ref("kubevirt.io/kubevirt/pkg/api/v1.Tablet"),
+							Description: "Inputs describe input devices",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Ref: ref("kubevirt.io/kubevirt/pkg/api/v1.Input"),
+									},
+								},
+							},
 						},
 					},
 					"autoattachPodInterface": {
@@ -607,7 +614,7 @@ func schema_kubevirt_pkg_api_v1_Devices(ref common.ReferenceCallback) common.Ope
 			},
 		},
 		Dependencies: []string{
-			"kubevirt.io/kubevirt/pkg/api/v1.Disk", "kubevirt.io/kubevirt/pkg/api/v1.Interface", "kubevirt.io/kubevirt/pkg/api/v1.Rng", "kubevirt.io/kubevirt/pkg/api/v1.Tablet", "kubevirt.io/kubevirt/pkg/api/v1.Watchdog"},
+			"kubevirt.io/kubevirt/pkg/api/v1.Disk", "kubevirt.io/kubevirt/pkg/api/v1.Input", "kubevirt.io/kubevirt/pkg/api/v1.Interface", "kubevirt.io/kubevirt/pkg/api/v1.Rng", "kubevirt.io/kubevirt/pkg/api/v1.Watchdog"},
 	}
 }
 
@@ -1259,6 +1266,33 @@ func schema_kubevirt_pkg_api_v1_I6300ESBWatchdog(ref common.ReferenceCallback) c
 						},
 					},
 				},
+			},
+		},
+		Dependencies: []string{},
+	}
+}
+
+func schema_kubevirt_pkg_api_v1_Input(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Properties: map[string]spec.Schema{
+					"bus": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Bus indicates the bus of input device to emulate. Supported values: virtio.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"type": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Type indicated the type of input device. Supported values: tablet.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+				},
+				Required: []string{"bus", "type"},
 			},
 		},
 		Dependencies: []string{},
@@ -2008,26 +2042,6 @@ func schema_kubevirt_pkg_api_v1_ServiceAccountVolumeSource(ref common.ReferenceC
 						},
 					},
 				},
-			},
-		},
-		Dependencies: []string{},
-	}
-}
-
-func schema_kubevirt_pkg_api_v1_Tablet(ref common.ReferenceCallback) common.OpenAPIDefinition {
-	return common.OpenAPIDefinition{
-		Schema: spec.Schema{
-			SchemaProps: spec.SchemaProps{
-				Properties: map[string]spec.Schema{
-					"bus": {
-						SchemaProps: spec.SchemaProps{
-							Description: "Bus indicates the type of tablet device to emulate. Supported values: virtio.",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
-				},
-				Required: []string{"bus"},
 			},
 		},
 		Dependencies: []string{},

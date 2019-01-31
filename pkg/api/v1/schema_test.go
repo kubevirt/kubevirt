@@ -169,9 +169,12 @@ var exampleJSON = `{
             {{.InterfaceConfig}}
           }
         ],
-        "tablet": {
-          "bus": "virtio"
-        },
+        "inputs": [
+          {
+            "bus": "virtio",
+            "type": "tablet"
+          }
+        ],
         "rng": {},
         "blockMultiQueue": true
       },
@@ -272,8 +275,11 @@ var _ = Describe("Schema", func() {
 		}
 
 		exampleVMI.Spec.Domain.Devices.Rng = &Rng{}
-		exampleVMI.Spec.Domain.Devices.Tablet = &Tablet{
-			Bus: "virtio",
+		exampleVMI.Spec.Domain.Devices.Inputs = []Input{
+			{
+				Bus:  "virtio",
+				Type: "tablet",
+			},
 		}
 		exampleVMI.Spec.Domain.Devices.BlockMultiQueue = _true
 

@@ -133,7 +133,7 @@ func (Devices) SwaggerDoc() map[string]string {
 		"disks":                      "Disks describes disks, cdroms, floppy and luns which are connected to the vmi.",
 		"watchdog":                   "Watchdog describes a watchdog device which can be added to the vmi.",
 		"interfaces":                 "Interfaces describe network interfaces which are added to the vmi.",
-		"tablet":                     "Tablet describe tablet device",
+		"inputs":                     "Inputs describe input devices",
 		"autoattachPodInterface":     "Whether to attach a pod network interface. Defaults to true.",
 		"autoattachGraphicsDevice":   "Whether to attach the default graphics device or not.\nVNC will not be available if set to false. Defaults to true.",
 		"rng":                        "Whether to have random number generator from host\n+optional",
@@ -142,9 +142,10 @@ func (Devices) SwaggerDoc() map[string]string {
 	}
 }
 
-func (Tablet) SwaggerDoc() map[string]string {
+func (Input) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"bus": "Bus indicates the type of tablet device to emulate.\nSupported values: virtio.",
+		"bus":  "Bus indicates the bus of input device to emulate.\nSupported values: virtio.",
+		"type": "Type indicated the type of input device.\nSupported values: tablet.",
 	}
 }
 
