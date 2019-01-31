@@ -2157,6 +2157,9 @@ var _ = Describe("Validating Webhook", func() {
 			table.Entry("with DNSPolicy None and too many nameservers", k8sv1.DNSNone, &k8sv1.PodDNSConfig{
 				Nameservers: []string{"1.2.3.4", "5.6.7.8", "9.8.0.1", "2.3.4.5"},
 			}, 1, []string{"must not have more than 3 nameservers: [1.2.3.4 5.6.7.8 9.8.0.1 2.3.4.5]"}),
+			table.Entry("with DNSPolicy None and a non ip nameserver", k8sv1.DNSNone, &k8sv1.PodDNSConfig{
+				Nameservers: []string{"1.2.3.c"},
+			}, 1, []string{"must be valid IP address: 1.2.3.c"}),
 			table.Entry("with DNSPolicy None and too many search domains", k8sv1.DNSNone, &k8sv1.PodDNSConfig{
 				Nameservers: []string{"1.2.3.4"},
 				Searches:    []string{"1", "2", "3", "4", "5", "6", "7"},
@@ -2169,6 +2172,8 @@ var _ = Describe("Validating Webhook", func() {
 				Nameservers: []string{"1.2.3.4"},
 				Searches:    []string{strings.Repeat("a", validation.DNS1123SubdomainMaxLength+1)},
 			}, 1, []string{fmt.Sprintf("must be no more than %v characters", validation.DNS1123SubdomainMaxLength)}),
+			table.Entry("with DNSPolicy None and nil DNSConfig", k8sv1.DNSNone, interface{}(nil), 1,
+				[]string{fmt.Sprintf("must provide `dnsConfig` when `dnsPolicy` is %s", k8sv1.DNSNone)}),
 		)
 	})
 	Context("with cpu pinning", func() {

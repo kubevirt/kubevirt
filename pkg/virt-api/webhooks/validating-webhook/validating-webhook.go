@@ -1716,6 +1716,7 @@ func validatePodDNSConfig(dnsConfig *k8sv1.PodDNSConfig, dnsPolicy *k8sv1.DNSPol
 				Message: fmt.Sprintf("must provide `dnsConfig` when `dnsPolicy` is %s", k8sv1.DNSNone),
 				Field:   field.String(),
 			})
+			return causes
 		}
 		if len(dnsConfig.Nameservers) == 0 {
 			causes = append(causes, metav1.StatusCause{
@@ -1723,6 +1724,7 @@ func validatePodDNSConfig(dnsConfig *k8sv1.PodDNSConfig, dnsPolicy *k8sv1.DNSPol
 				Message: fmt.Sprintf("must provide at least one DNS nameserver when `dnsPolicy` is %s", k8sv1.DNSNone),
 				Field:   "nameservers",
 			})
+			return causes
 		}
 	}
 
@@ -1739,7 +1741,7 @@ func validatePodDNSConfig(dnsConfig *k8sv1.PodDNSConfig, dnsPolicy *k8sv1.DNSPol
 			if ip := net.ParseIP(ns); ip == nil {
 				causes = append(causes, metav1.StatusCause{
 					Type:    metav1.CauseTypeFieldValueInvalid,
-					Message: fmt.Sprintf("must be valid IP address:%s", ip),
+					Message: fmt.Sprintf("must be valid IP address: %s", ns),
 					Field:   "nameservers",
 				})
 			}
