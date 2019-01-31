@@ -49,6 +49,7 @@ import (
 
 var _ = Describe("Validating Webhook", func() {
 	var vmiInformer cache.SharedIndexInformer
+	dnsConfigTestOption := "test"
 
 	BeforeSuite(func() {
 		vmiInformer, _ = testutils.NewFakeInformerFor(&v1.VirtualMachineInstance{})
@@ -2172,6 +2173,12 @@ var _ = Describe("Validating Webhook", func() {
 				Nameservers: []string{"1.2.3.4"},
 				Searches:    []string{strings.Repeat("a", validation.DNS1123SubdomainMaxLength+1)},
 			}, 1, []string{fmt.Sprintf("must be no more than %v characters", validation.DNS1123SubdomainMaxLength)}),
+			table.Entry("with DNSPolicy None and bad options", k8sv1.DNSNone, &k8sv1.PodDNSConfig{
+				Nameservers: []string{"1.2.3.4"},
+				Options: []k8sv1.PodDNSConfigOption{
+					{Value: &dnsConfigTestOption},
+				},
+			}, 1, []string{fmt.Sprintf("Option.Name must not be empty for value: %s", dnsConfigTestOption)}),
 			table.Entry("with DNSPolicy None and nil DNSConfig", k8sv1.DNSNone, interface{}(nil), 1,
 				[]string{fmt.Sprintf("must provide `dnsConfig` when `dnsPolicy` is %s", k8sv1.DNSNone)}),
 		)
