@@ -24,12 +24,12 @@ import (
 	"net/http"
 	"reflect"
 
-	"github.com/emicklei/go-restful"
+	restful "github.com/emicklei/go-restful"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
-	"kubevirt.io/containerized-data-importer/pkg/apis/datavolumecontroller/v1alpha1"
+	cdiv1alpha1 "kubevirt.io/containerized-data-importer/pkg/apis/core/v1alpha1"
 )
 
 // code stolen/adapted from https://github.com/kubevirt/kubevirt/blob/master/pkg/virt-api/rest/definitions.go
@@ -47,26 +47,38 @@ const (
 // DataVolumeAPI returns the DataVolume API for DataVolumes
 func DataVolumeAPI() []*restful.WebService {
 
-	gvr := schema.GroupVersionResource{
-		Group:    v1alpha1.SchemeGroupVersion.Group,
-		Version:  v1alpha1.SchemeGroupVersion.Version,
+	dvGVR := schema.GroupVersionResource{
+		Group:    cdiv1alpha1.SchemeGroupVersion.Group,
+		Version:  cdiv1alpha1.SchemeGroupVersion.Version,
 		Resource: "datavolumes",
 	}
 
-	ws, err := groupVersionProxyBase(v1alpha1.SchemeGroupVersion)
+	cdiGVR := schema.GroupVersionResource{
+		Group:    cdiv1alpha1.SchemeGroupVersion.Group,
+		Version:  cdiv1alpha1.SchemeGroupVersion.Version,
+		Resource: "cdis",
+	}
+
+	ws, err := groupVersionProxyBase(cdiv1alpha1.SchemeGroupVersion)
 	if err != nil {
 		panic(err)
 	}
 
-	ws, err = genericResourceProxy(ws, gvr, &v1alpha1.DataVolume{}, "DataVolume", &v1alpha1.DataVolumeList{})
+	ws, err = genericResourceProxy(ws, dvGVR, &cdiv1alpha1.DataVolume{}, "DataVolume", &cdiv1alpha1.DataVolumeList{})
 	if err != nil {
 		panic(err)
 	}
 
-	ws1, err := resourceProxyAutodiscovery(gvr)
+	ws, err = genericResourceProxy(ws, cdiGVR, &cdiv1alpha1.CDI{}, "CDI", &cdiv1alpha1.CDIList{})
 	if err != nil {
 		panic(err)
 	}
+
+	ws1, err := resourceProxyAutodiscovery(dvGVR)
+	if err != nil {
+		panic(err)
+	}
+
 	return []*restful.WebService{ws, ws1}
 }
 
@@ -212,7 +224,7 @@ func resourceProxyAutodiscovery(gvr schema.GroupVersionResource) (*restful.WebSe
 	ws.Route(ws.GET("/").
 		Produces(mimeJSON).Writes(metav1.APIGroup{}).
 		To(noOp).
-		Doc("Get a KubeVirt API group").
+		Doc("Get a KubeVirt CDI API group").
 		Operation("getAPIGroup").
 		Returns(http.StatusOK, "OK", metav1.APIGroup{}).
 		Returns(http.StatusNotFound, "Not Found", nil))

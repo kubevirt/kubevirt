@@ -126,7 +126,7 @@ type DomainSpec struct {
 	// Clock sets the clock and timers of the vmi.
 	// +optional
 	Clock *Clock `json:"clock,omitempty"`
-	// Features like acpi, apic, hyperv.
+	// Features like acpi, apic, hyperv, smm.
 	// +optional
 	Features *Features `json:"features,omitempty"`
 	// Devices allows adding disks, network interfaces, ...
@@ -136,6 +136,31 @@ type DomainSpec struct {
 	// One of: shared, auto
 	// +optional
 	IOThreadsPolicy *IOThreadsPolicy `json:"ioThreadsPolicy,omitempty"`
+}
+
+// Represents the firmware blob used to assist in the domain creation process.
+// Used for setting the QEMU BIOS file path for the libvirt domain.
+// ---
+// +k8s:openapi-gen=true
+type Bootloader struct {
+	// If set (default), BIOS will be used.
+	// +optional
+	BIOS *BIOS `json:"bios,omitempty"`
+	// If set, EFI will be used instead of BIOS.
+	// +optional
+	EFI *EFI `json:"efi,omitempty"`
+}
+
+// If set (default), BIOS will be used.
+// ---
+// +k8s:openapi-gen=true
+type BIOS struct {
+}
+
+// If set, EFI will be used instead of BIOS.
+// ---
+// +k8s:openapi-gen=true
+type EFI struct {
 }
 
 // ---
@@ -217,6 +242,9 @@ type Firmware struct {
 	// UUID reported by the vmi bios.
 	// Defaults to a random generated uid.
 	UUID types.UID `json:"uuid,omitempty"`
+	// Settings to control the bootloader that is used.
+	// +optional
+	Bootloader *Bootloader `json:"bootloader,omitempty"`
 }
 
 // ---
@@ -630,6 +658,10 @@ type Features struct {
 	// Defaults to the machine type setting.
 	// +optional
 	Hyperv *FeatureHyperv `json:"hyperv,omitempty"`
+	// SMM enables/disables System Management Mode.
+	// TSEG not yet implemented.
+	// +optional
+	SMM *FeatureState `json:"smm,omitempty"`
 }
 
 // Represents if a feature is enabled or disabled.

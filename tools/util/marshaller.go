@@ -45,6 +45,33 @@ func MarshallObject(obj interface{}, writer io.Writer) error {
 	unstructured.RemoveNestedField(r.Object, "spec", "template", "metadata", "creationTimestamp")
 	unstructured.RemoveNestedField(r.Object, "status")
 
+	// remove dataSource from PVCs if empty
+	templates, exists, err := unstructured.NestedSlice(r.Object, "spec", "dataVolumeTemplates")
+	if exists {
+		for _, tmpl := range templates {
+			template := tmpl.(map[string]interface{})
+			_, exists, err = unstructured.NestedString(template, "spec", "pvc", "dataSource")
+			if !exists {
+				unstructured.RemoveNestedField(template, "spec", "pvc", "dataSource")
+			}
+		}
+		unstructured.SetNestedSlice(r.Object, templates, "spec", "dataVolumeTemplates")
+	}
+	objects, exists, err := unstructured.NestedSlice(r.Object, "objects")
+	if exists {
+		for _, obj := range objects {
+			object := obj.(map[string]interface{})
+			kind, exists, _ := unstructured.NestedString(object, "kind")
+			if exists && kind == "PersistentVolumeClaim" {
+				_, exists, err = unstructured.NestedString(object, "spec", "dataSource")
+				if !exists {
+					unstructured.RemoveNestedField(object, "spec", "dataSource")
+				}
+			}
+		}
+		unstructured.SetNestedSlice(r.Object, objects, "objects")
+	}
+
 	// remove "managed by operator" label...
 	labels, exists, err := unstructured.NestedMap(r.Object, "metadata", "labels")
 	if exists {

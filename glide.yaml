@@ -37,13 +37,13 @@ import:
 - package: github.com/evanphx/json-patch
   version: ba18e35c5c1b36ef6334cad706eb681153d2d379
 - package: k8s.io/client-go
-  version: kubernetes-1.11.2
+  version: kubernetes-1.12.4
 - package: k8s.io/apimachinery
-  version: kubernetes-1.11.2
+  version: kubernetes-1.12.4
 - package: k8s.io/kube-aggregator
-  version: kubernetes-1.11.2
+  version: kubernetes-1.12.4
 - package: k8s.io/apiextensions-apiserver
-  version: kubernetes-1.11.2
+  version: kubernetes-1.12.4
 - package: github.com/openshift/client-go
   version: release-3.11
 - package: github.com/fsnotify/fsnotify
@@ -93,7 +93,7 @@ import:
   - proto
 - package: kubevirt.io/containerized-data-importer
   repo:    https://github.com/kubevirt/containerized-data-importer.git
-  version: 254749a63d335a4ec1ef919a971cab0b68cf4980
+  version: 1.5.1
 testImport:
 - package: github.com/elazarl/goproxy
   version: 07b16b6e30fcac0ad8c0435548e743bcf2ca7e92

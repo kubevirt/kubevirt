@@ -1,0 +1,19 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: "golden-pvc"
+  labels:
+    app: containerized-data-importer
+  annotations:
+    cdi.kubevirt.io/storage.import.endpoint: "http://geolite.maxmind.com/download/geoip/database/GeoLite2-Country.tar.gz" #This url is just an example. You should change this to your destination url
+    cdi.kubevirt.io/storage.import.secretName: "" # Optional. The name of the secret containing credentials for the data source
+    cdi.kubevirt.io/storage.import.source: "http"
+    cdi.kubevirt.io/storage.contentType: "archive"
+spec:
+  accessModes:
+  - ReadWriteOnce
+  resources:
+    requests:
+      storage: 10Gi
+  # Optional: Set the storage class or omit to accept the default
+  # storageClassName: local

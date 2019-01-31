@@ -104,7 +104,7 @@ var _ = Describe("Networking", func() {
 		ExpectWithOffset(1, strings.TrimSpace(output)).To(Equal(expectedValue))
 	}
 
-	Describe("Multiple virtual machines connectivity", func() {
+	Describe("[rfe_id:150][crit:medium][vendor:cnv-qe@redhat.com][level:component]Multiple virtual machines connectivity", func() {
 		tests.BeforeAll(func() {
 			tests.BeforeTestCleanup()
 
@@ -229,10 +229,10 @@ var _ = Describe("Networking", func() {
 			}, 15)
 			Expect(err).ToNot(HaveOccurred())
 		},
-			table.Entry("the Inbound VirtualMachineInstance", "InboundVMI"),
-			table.Entry("the Inbound VirtualMachineInstance with pod network connectivity explicitly set", "InboundVMIWithPodNetworkSet"),
-			table.Entry("the Inbound VirtualMachineInstance with custom MAC address", "InboundVMIWithCustomMacAddress"),
-			table.Entry("the internet", "Internet"),
+			table.Entry("[test_id:1539]the Inbound VirtualMachineInstance", "InboundVMI"),
+			table.Entry("[test_id:1540]the Inbound VirtualMachineInstance with pod network connectivity explicitly set", "InboundVMIWithPodNetworkSet"),
+			table.Entry("[test_id:1541]the Inbound VirtualMachineInstance with custom MAC address", "InboundVMIWithCustomMacAddress"),
+			table.Entry("[test_id:1542]the internet", "Internet"),
 		)
 
 		table.DescribeTable("should be reachable via the propagated IP from a Pod", func(op v12.NodeSelectorOperator, hostNetwork bool) {
@@ -269,10 +269,10 @@ var _ = Describe("Networking", func() {
 			phase := waitForPodToFinish(job)
 			Expect(phase).To(Equal(v12.PodSucceeded))
 		},
-			table.Entry("on the same node from Pod", v12.NodeSelectorOpIn, false),
-			table.Entry("on a different node from Pod", v12.NodeSelectorOpNotIn, false),
-			table.Entry("on the same node from Node", v12.NodeSelectorOpIn, true),
-			table.Entry("on a different node from Node", v12.NodeSelectorOpNotIn, true),
+			table.Entry("[test_id:1543]on the same node from Pod", v12.NodeSelectorOpIn, false),
+			table.Entry("[test_id:1544]on a different node from Pod", v12.NodeSelectorOpNotIn, false),
+			table.Entry("[test_id:1545]on the same node from Node", v12.NodeSelectorOpIn, true),
+			table.Entry("[test_id:1546]on a different node from Node", v12.NodeSelectorOpNotIn, true),
 		)
 
 		Context("with a service matching the vmi exposed", func() {
@@ -295,7 +295,7 @@ var _ = Describe("Networking", func() {
 				Expect(err).ToNot(HaveOccurred())
 
 			})
-			It(" should be able to reach the vmi based on labels specified on the vmi", func() {
+			It("[test_id:1547] should be able to reach the vmi based on labels specified on the vmi", func() {
 
 				By("starting a pod which tries to reach the vmi via the defined service")
 				job := tests.NewHelloWorldJob(fmt.Sprintf("%s.%s", "myservice", inboundVMI.Namespace), strconv.Itoa(testPort))
@@ -306,7 +306,7 @@ var _ = Describe("Networking", func() {
 				phase := waitForPodToFinish(job)
 				Expect(phase).To(Equal(v12.PodSucceeded))
 			})
-			It("should fail to reach the vmi if an invalid servicename is used", func() {
+			It("[test_id:1548]should fail to reach the vmi if an invalid servicename is used", func() {
 
 				By("starting a pod which tries to reach the vmi via a non-existent service")
 				job := tests.NewHelloWorldJob(fmt.Sprintf("%s.%s", "wrongservice", inboundVMI.Namespace), strconv.Itoa(testPort))
@@ -345,7 +345,7 @@ var _ = Describe("Networking", func() {
 				Expect(err).ToNot(HaveOccurred())
 			})
 
-			It("should be able to reach the vmi via its unique fully qualified domain name", func() {
+			It("[test_id:1549]should be able to reach the vmi via its unique fully qualified domain name", func() {
 				By("starting a pod which tries to reach the vm via the defined service")
 				job := tests.NewHelloWorldJob(fmt.Sprintf("%s.%s.%s", inboundVMI.Spec.Hostname, inboundVMI.Spec.Subdomain, inboundVMI.Namespace), strconv.Itoa(testPort))
 				job, err = virtClient.CoreV1().Pods(inboundVMI.Namespace).Create(job)
@@ -361,9 +361,9 @@ var _ = Describe("Networking", func() {
 			})
 		})
 
-		Context("VirtualMachineInstance with default interface model", func() {
+		Context("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:component]VirtualMachineInstance with default interface model", func() {
 			// Unless an explicit interface model is specified, the default interface model is virtio.
-			It("should expose the right device type to the guest", func() {
+			It("[test_id:1550]should expose the right device type to the guest", func() {
 				By("checking the device vendor in /sys/class")
 
 				// Taken from https://wiki.osdev.org/Virtio#Technical_Details
@@ -375,7 +375,7 @@ var _ = Describe("Networking", func() {
 				}
 			})
 
-			It("should reject the creation of virtual machine with unsupported interface model", func() {
+			It("[test_id:1551]should reject the creation of virtual machine with unsupported interface model", func() {
 				// Create a virtual machine with an unsupported interface model
 				customIfVMI := NewRandomVMIWithInvalidNetworkInterface()
 				_, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(customIfVMI)

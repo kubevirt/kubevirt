@@ -37,7 +37,7 @@ import (
 	"kubevirt.io/kubevirt/tests"
 )
 
-var _ = Describe("ContainerDisk", func() {
+var _ = Describe("[rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][level:component]ContainerDisk", func() {
 
 	flag.Parse()
 
@@ -86,10 +86,10 @@ var _ = Describe("ContainerDisk", func() {
 		Expect(disksFound).To(Equal(1))
 	}
 
-	Describe("Starting and stopping the same VirtualMachineInstance", func() {
+	Describe("[rfe_id:273][crit:medium][vendor:cnv-qe@redhat.com][level:component]Starting and stopping the same VirtualMachineInstance", func() {
 		Context("with ephemeral registry disk", func() {
-			It("should success multiple times", func() {
-				vmi := tests.NewRandomVMIWithEphemeralDisk(tests.ContainerDiskFor(tests.ContainerDiskCirros))
+			It("[test_id:1463]should success multiple times", func() {
+				vmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(tests.ContainerDiskFor(tests.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n")
 				num := 2
 				for i := 0; i < num; i++ {
 					By("Starting the VirtualMachineInstance")
@@ -107,10 +107,10 @@ var _ = Describe("ContainerDisk", func() {
 		})
 	})
 
-	Describe("Starting a VirtualMachineInstance", func() {
+	Describe("[rfe_id:273][crit:medium][vendor:cnv-qe@redhat.com][level:component]Starting a VirtualMachineInstance", func() {
 		Context("with ephemeral registry disk", func() {
-			It("should not modify the spec on status update", func() {
-				vmi := tests.NewRandomVMIWithEphemeralDisk(tests.ContainerDiskFor(tests.ContainerDiskCirros))
+			It("[test_id:1464]should not modify the spec on status update", func() {
+				vmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(tests.ContainerDiskFor(tests.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n")
 				v1.SetObjectDefaults_VirtualMachineInstance(vmi)
 
 				By("Starting the VirtualMachineInstance")
@@ -125,14 +125,14 @@ var _ = Describe("ContainerDisk", func() {
 		})
 	})
 
-	Describe("Starting multiple VMIs", func() {
+	Describe("[rfe_id:273][crit:medium][vendor:cnv-qe@redhat.com][level:component]Starting multiple VMIs", func() {
 		Context("with ephemeral registry disk", func() {
-			It("should success", func() {
+			It("[test_id:1465]should success", func() {
 				num := 5
 				vmis := make([]*v1.VirtualMachineInstance, 0, num)
 				objs := make([]runtime.Object, 0, num)
 				for i := 0; i < num; i++ {
-					vmi := tests.NewRandomVMIWithEphemeralDisk(tests.ContainerDiskFor(tests.ContainerDiskCirros))
+					vmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(tests.ContainerDiskFor(tests.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n")
 					// FIXME if we give too much ram, the vmis really boot and eat all our memory (cache?)
 					vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("1M")
 					obj := LaunchVMI(vmi)
@@ -154,13 +154,13 @@ var _ = Describe("ContainerDisk", func() {
 		})
 	})
 
-	Describe("Starting from custom image location", func() {
+	Describe("[rfe_id:273][crit:medium][vendor:cnv-qe@redhat.com][level:component]Starting from custom image location", func() {
 		Context("with disk at /custom-disk/boot.img", func() {
-			It("should boot normally", func() {
-				vmi := tests.NewRandomVMIWithEphemeralDisk(tests.ContainerDiskFor(tests.ContainerDiskCirros))
+			It("[test_id:1466]should boot normally", func() {
+				vmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(tests.ContainerDiskFor(tests.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n")
 				for ind, volume := range vmi.Spec.Volumes {
 					if volume.ContainerDisk != nil {
-						vmi.Spec.Volumes[ind].ContainerDisk.Path = "/custom-disk/boot.img"
+						vmi.Spec.Volumes[ind].ContainerDisk.Path = "/custom-disk/cirros.img"
 					}
 				}
 				By("Starting the VirtualMachineInstance")
@@ -169,11 +169,12 @@ var _ = Describe("ContainerDisk", func() {
 				tests.WaitForSuccessfulVMIStart(obj)
 			})
 		})
+
 	})
 
-	Describe("Starting with virtio-win", func() {
+	Describe("[rfe_id:273][crit:medium][vendor:cnv-qe@redhat.com][level:component]Starting with virtio-win", func() {
 		Context("with virtio-win as secondary disk", func() {
-			It("should boot and have the virtio as sata CDROM", func() {
+			It("[test_id:1467]should boot and have the virtio as sata CDROM", func() {
 				vmi := tests.NewRandomVMIWithEphemeralDisk(tests.ContainerDiskFor(tests.ContainerDiskAlpine))
 				tests.AddEphemeralCdrom(vmi, "disk4", "sata", tests.ContainerDiskFor(tests.ContainerDiskVirtio))
 
@@ -189,9 +190,10 @@ var _ = Describe("ContainerDisk", func() {
 
 				_, err = expecter.ExpectBatch([]expect.Batcher{
 					// mount virtio cdrom and check files are there
-					&expect.BSnd{S: "mount -t iso9600 /dev/cdrom /mnt\n"},
+					&expect.BSnd{S: "mount -t iso9600 /dev/cdrom\n"},
 					&expect.BSnd{S: "echo $?\n"},
 					&expect.BExp{R: "0"},
+					&expect.BSnd{S: "cd /media/cdrom\n"},
 					&expect.BSnd{S: "ls virtio-win_license.txt guest-agent\n"},
 					&expect.BSnd{S: "echo $?\n"},
 					&expect.BExp{R: "0"},

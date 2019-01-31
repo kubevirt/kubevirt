@@ -18,7 +18,7 @@ script_dir="$(readlink -f $(dirname $0))"
 source "${script_dir}"/common.sh
 source "${script_dir}"/config.sh
 
-templates="$(find "${MANIFEST_TEMPLATE_DIR}" -name *.in -type f)"
+templates="$(find "${MANIFEST_TEMPLATE_DIR}" -name "*.in" -type f)"
 generator="${BIN_DIR}/manifest-generator"
 
 (cd "${CDI_DIR}/tools/manifest-generator/" && go build -o "${generator}" ./...)
@@ -38,6 +38,7 @@ for tmpl in ${templates}; do
         -apiserver-image=${APISERVER_IMAGE_NAME} \
         -uploadproxy-image=${UPLOADPROXY_IMAGE_NAME} \
         -uploadserver-image=${UPLOADSERVER_IMAGE_NAME} \
+        -operator-image=${OPERATOR_IMAGE_NAME} \
         -verbosity="${VERBOSITY}" \
         -pull-policy="${PULL_POLICY}" \
         -namespace="${NAMESPACE}"
@@ -52,11 +53,40 @@ for tmpl in ${templates}; do
         -apiserver-image="{{ apiserver_image }}" \
         -uploadproxy-image="{{ uploadproxy_image }}" \
         -uploadserver-image="{{ uploadserver_image }}" \
+        -operator-image="{{ operator_image }}" \
         -verbosity="{{ verbosity }}" \
         -pull-policy="{{ pull_policy }}" \
         -namespace="{{ cdi_namespace }}"
     ) 1>"${MANIFEST_GENERATED_DIR}/${outFile}.j2"
 done
+
+(${generator} -code-group=everything \
+    -docker-repo="${DOCKER_REPO}" \
+    -docker-tag="${DOCKER_TAG}" \
+    -controller-image="${CONTROLLER_IMAGE_NAME}" \
+    -importer-image="${IMPORTER_IMAGE_NAME}" \
+    -cloner-image="${CLONER_IMAGE_NAME}" \
+    -apiserver-image=${APISERVER_IMAGE_NAME} \
+    -uploadproxy-image=${UPLOADPROXY_IMAGE_NAME} \
+    -uploadserver-image=${UPLOADSERVER_IMAGE_NAME} \
+    -verbosity="${VERBOSITY}" \
+    -pull-policy="${PULL_POLICY}" \
+    -namespace="${NAMESPACE}"
+) 1>"${MANIFEST_GENERATED_DIR}/cdi-controller.yaml"
+
+(${generator} -code-group=everything \
+    -docker-repo="{{ docker_prefix }}" \
+    -docker-tag="{{ docker_tag }}" \
+    -controller-image="{{ controller_image }}" \
+    -importer-image="{{ importer_image }}" \
+    -cloner-image="{{ cloner_image }}" \
+    -apiserver-image="{{ apiserver_image }}" \
+    -uploadproxy-image="{{ uploadproxy_image }}" \
+    -uploadserver-image="{{ uploadserver_image }}" \
+    -verbosity="{{ verbosity }}" \
+    -pull-policy="{{ pull_policy }}" \
+    -namespace="{{ cdi_namespace }}"
+) 1>"${MANIFEST_GENERATED_DIR}/cdi-controller.yaml.j2"
 
 # Remove empty lines at the end of files which are added by go templating
 find ${MANIFEST_GENERATED_DIR}/ -type f -exec sed -i {} -e '${/^$/d;}' \;

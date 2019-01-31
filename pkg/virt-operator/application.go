@@ -123,6 +123,20 @@ func Execute() {
 		DaemonSetCache:          app.informerFactory.OperatorDaemonSet().GetStore(),
 	}
 
+	onOpenShift, err := util.IsOnOpenshift(app.clientSet)
+	if err != nil {
+		golog.Fatalf("Error determining cluster type: %v", err)
+	}
+	if onOpenShift {
+		log.Log.Info("we are on openshift")
+		app.informers.SCC = app.informerFactory.OperatorSCC()
+		app.stores.SCCCache = app.informerFactory.OperatorSCC().GetStore()
+	} else {
+		log.Log.Info("we are on kubernetes")
+		app.informers.SCC = app.informerFactory.DummyOperatorSCC()
+		app.stores.SCCCache = app.informerFactory.DummyOperatorSCC().GetStore()
+	}
+
 	app.kubeVirtRecorder = app.getNewRecorder(k8sv1.NamespaceAll, "virt-operator")
 	app.kubeVirtController = *NewKubeVirtController(app.clientSet, app.kubeVirtInformer, app.kubeVirtRecorder, app.stores, app.informers)
 

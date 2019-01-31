@@ -44,7 +44,7 @@ const (
 	expectedUserData = "printed from cloud-init userdata"
 )
 
-var _ = Describe("CloudInit UserData", func() {
+var _ = Describe("[rfe_id:151][crit:high][vendor:cnv-qe@redhat.com][level:component]CloudInit UserData", func() {
 
 	flag.Parse()
 
@@ -78,9 +78,9 @@ var _ = Describe("CloudInit UserData", func() {
 		tests.BeforeTestCleanup()
 	})
 
-	Describe("A new VirtualMachineInstance", func() {
+	Describe("[rfe_id:151][crit:medium][vendor:cnv-qe@redhat.com][level:component]A new VirtualMachineInstance", func() {
 		Context("with cloudInitNoCloud userDataBase64 source", func() {
-			It("should have cloud-init data", func() {
+			It("[test_id:1615]should have cloud-init data", func() {
 				userData := fmt.Sprintf("#!/bin/sh\n\necho '%s'\n", expectedUserData)
 
 				vmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(tests.ContainerDiskFor(tests.ContainerDiskCirros), userData)
@@ -92,7 +92,7 @@ var _ = Describe("CloudInit UserData", func() {
 			})
 
 			Context("with injected ssh-key", func() {
-				It("should have ssh-key under authorized keys", func() {
+				It("[test_id:1616]should have ssh-key under authorized keys", func() {
 					userData := fmt.Sprintf(
 						"#cloud-config\npassword: %s\nchpasswd: { expire: False }\nssh_authorized_keys:\n  - %s",
 						fedoraPassword,
@@ -118,7 +118,7 @@ var _ = Describe("CloudInit UserData", func() {
 		})
 
 		Context("with cloudInitNoCloud userData source", func() {
-			It("should process provided cloud-init data", func() {
+			It("[test_id:1617]should process provided cloud-init data", func() {
 				userData := fmt.Sprintf("#!/bin/sh\n\necho '%s'\n", expectedUserData)
 
 				vmi := tests.NewRandomVMIWithEphemeralDisk(tests.ContainerDiskFor(tests.ContainerDiskCirros))
@@ -161,7 +161,7 @@ var _ = Describe("CloudInit UserData", func() {
 			})
 		})
 
-		It("should take user-data from k8s secret", func() {
+		It("[test_id:1618]should take user-data from k8s secret", func() {
 			userData := fmt.Sprintf("#!/bin/sh\n\necho '%s'\n", expectedUserData)
 			vmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(tests.ContainerDiskFor(tests.ContainerDiskCirros), "")
 

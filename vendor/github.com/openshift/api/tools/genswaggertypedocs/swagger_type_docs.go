@@ -21,7 +21,6 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"path/filepath"
 
 	kruntime "k8s.io/apimachinery/pkg/runtime"
 
@@ -54,23 +53,7 @@ func main() {
 		funcOut = file
 	}
 
-	var docsForTypes []kruntime.KubeTypes
-	if fi, err := os.Stat(*typeSrc); err == nil && !fi.IsDir() {
-		docsForTypes = kruntime.ParseDocumentationFrom(*typeSrc)
-	} else if err == nil && fi.IsDir() {
-		glog.Fatalf("-s must be a valid file or file glob pattern, not a directory")
-	} else {
-		m, err := filepath.Glob(*typeSrc)
-		if err != nil {
-			glog.Fatalf("Couldn't search for files matching -s: %v", err)
-		}
-		if len(m) == 0 {
-			glog.Fatalf("-s must be a valid file or file glob pattern")
-		}
-		for _, file := range m {
-			docsForTypes = append(docsForTypes, kruntime.ParseDocumentationFrom(file)...)
-		}
-	}
+	docsForTypes := kruntime.ParseDocumentationFrom(*typeSrc)
 
 	if *verify == true {
 		rc, err := kruntime.VerifySwaggerDocsExist(docsForTypes, funcOut)

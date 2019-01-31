@@ -3,9 +3,12 @@ package controller
 import (
 	"crypto/x509"
 	"fmt"
+	"strings"
+	"time"
+
 	"github.com/golang/glog"
 	"github.com/pkg/errors"
-	"k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -14,10 +17,9 @@ import (
 	"k8s.io/client-go/kubernetes"
 	corelisters "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/util/cert/triple"
+	cdiv1 "kubevirt.io/containerized-data-importer/pkg/apis/core/v1alpha1"
 	"kubevirt.io/containerized-data-importer/pkg/common"
 	"kubevirt.io/containerized-data-importer/pkg/keys"
-	"strings"
-	"time"
 )
 
 const (
@@ -38,11 +40,6 @@ const (
 	SourceNone = "none"
 	// SourceRegistry is the source type of Registry
 	SourceRegistry = "registry"
-
-	// ContentTypeKubevirt is the content-type of the import, defaults to kubevirt
-	ContentTypeKubevirt = "kubevirt"
-	// ContentTypeArchive is the content-type to specify if wanting to extract an archive
-	ContentTypeArchive = "archive"
 )
 
 type podDeleteRequest struct {
@@ -115,12 +112,12 @@ func getContentType(pvc *v1.PersistentVolumeClaim) string {
 	}
 	switch contentType {
 	case
-		ContentTypeKubevirt,
-		ContentTypeArchive:
+		string(cdiv1.DataVolumeKubeVirt),
+		string(cdiv1.DataVolumeArchive):
 		glog.V(2).Infof("pvc content type annotation found for pvc \"%s/%s\", value %s\n", pvc.Namespace, pvc.Name, contentType)
 	default:
 		glog.V(2).Infof("No content type annotation found for pvc \"%s/%s\", default to kubevirt\n", pvc.Namespace, pvc.Name)
-		contentType = ContentTypeKubevirt
+		contentType = string(cdiv1.DataVolumeKubeVirt)
 	}
 	return contentType
 }
@@ -651,16 +648,10 @@ func CreateUploadPod(client kubernetes.Interface,
 	ns := pvc.Namespace
 	commonName := name + "." + ns
 	secretName := name + "-server-tls"
-	owner := MakeOwnerReference(pvc)
-
-	_, err := keys.GetOrCreateServerKeyPairAndCert(client, ns, secretName, caKeyPair, clientCACert, commonName, name, &owner)
-	if err != nil {
-		return nil, errors.Wrap(err, "Error creating server key pair")
-	}
 
 	pod := MakeUploadPodSpec(image, verbose, pullPolicy, name, pvc, secretName)
 
-	pod, err = client.CoreV1().Pods(ns).Create(pod)
+	pod, err := client.CoreV1().Pods(ns).Create(pod)
 	if err != nil {
 		if k8serrors.IsAlreadyExists(err) {
 			pod, err = client.CoreV1().Pods(ns).Get(name, metav1.GetOptions{})
@@ -671,12 +662,23 @@ func CreateUploadPod(client kubernetes.Interface,
 			return nil, errors.Wrap(err, "upload pod API create errored")
 		}
 	}
+
+	podOwner := MakePodOwnerReference(pod)
+	_, err = keys.GetOrCreateServerKeyPairAndCert(client, ns, secretName, caKeyPair, clientCACert, commonName, name, &podOwner)
+	if err != nil {
+		// try to clean up
+		client.CoreV1().Pods(ns).Delete(pod.Name, &metav1.DeleteOptions{})
+
+		return nil, errors.Wrap(err, "Error creating server key pair")
+	}
+
 	glog.V(1).Infof("upload pod \"%s/%s\" (image: %q) created\n", pod.Namespace, pod.Name, image)
+
 	return pod, nil
 }
 
-// MakeOwnerReference makes owner reference from a PVC
-func MakeOwnerReference(pvc *v1.PersistentVolumeClaim) metav1.OwnerReference {
+// MakePVCOwnerReference makes owner reference from a PVC
+func MakePVCOwnerReference(pvc *v1.PersistentVolumeClaim) metav1.OwnerReference {
 	blockOwnerDeletion := true
 	isController := true
 	return metav1.OwnerReference{
@@ -684,6 +686,20 @@ func MakeOwnerReference(pvc *v1.PersistentVolumeClaim) metav1.OwnerReference {
 		Kind:               "PersistentVolumeClaim",
 		Name:               pvc.Name,
 		UID:                pvc.GetUID(),
+		BlockOwnerDeletion: &blockOwnerDeletion,
+		Controller:         &isController,
+	}
+}
+
+// MakePodOwnerReference makes owner reference from a Pod
+func MakePodOwnerReference(pod *v1.Pod) metav1.OwnerReference {
+	blockOwnerDeletion := true
+	isController := true
+	return metav1.OwnerReference{
+		APIVersion:         "v1",
+		Kind:               "Pod",
+		Name:               pod.Name,
+		UID:                pod.GetUID(),
 		BlockOwnerDeletion: &blockOwnerDeletion,
 		Controller:         &isController,
 	}
@@ -707,7 +723,7 @@ func MakeUploadPodSpec(image, verbose, pullPolicy, name string, pvc *v1.Persiste
 				common.UploadServerServiceLabel: name,
 			},
 			OwnerReferences: []metav1.OwnerReference{
-				MakeOwnerReference(pvc),
+				MakePVCOwnerReference(pvc),
 			},
 		},
 		Spec: v1.PodSpec{

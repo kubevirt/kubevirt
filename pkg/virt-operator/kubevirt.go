@@ -24,8 +24,7 @@ import (
 	"reflect"
 	"time"
 
-	"kubevirt.io/kubevirt/pkg/virt-operator/creation"
-
+	appsv1 "k8s.io/api/apps/v1"
 	k8sv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -37,6 +36,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/kubecli"
 	"kubevirt.io/kubevirt/pkg/log"
+	"kubevirt.io/kubevirt/pkg/virt-operator/creation"
 	"kubevirt.io/kubevirt/pkg/virt-operator/deletion"
 	"kubevirt.io/kubevirt/pkg/virt-operator/util"
 )
@@ -45,6 +45,8 @@ const (
 	ConditionReasonDeploymentFailedExisting = "ExistingDeployment"
 	ConditionReasonDeploymentFailedError    = "DeploymentFailed"
 	ConditionReasonDeletionFailedError      = "DeletionFailed"
+	ConditionReasonDeploymentCreated        = "AllResourcesCreated"
+	ConditionReasonDeploymentReady          = "AllComponentsReady"
 )
 
 type KubeVirtController struct {
@@ -203,12 +205,12 @@ func NewKubeVirtController(
 	return &c
 }
 
-func (c *KubeVirtController) getOperatorKey() (string, error) {
+func (c *KubeVirtController) getKubeVirtKey() (string, error) {
 	// XXX use owner references instead in general
 	kvs := c.kubeVirtInformer.GetStore().List()
 	if len(kvs) > 1 {
-		log.Log.Errorf("More than one KubeVirt custom resource detectged: %v", len(kvs))
-		return "", fmt.Errorf("more than one KubeVirt custom resource detectged: %v", len(kvs))
+		log.Log.Errorf("More than one KubeVirt custom resource detected: %v", len(kvs))
+		return "", fmt.Errorf("more than one KubeVirt custom resource detected: %v", len(kvs))
 	}
 
 	if len(kvs) == 1 {
@@ -228,7 +230,7 @@ func (c *KubeVirtController) genericAddHandler(obj interface{}, expecter *contro
 		return
 	}
 
-	controllerKey, err := c.getOperatorKey()
+	controllerKey, err := c.getKubeVirtKey()
 	if controllerKey != "" && err == nil {
 		expecter.CreationObserved(controllerKey)
 		c.queue.Add(controllerKey)
@@ -245,12 +247,13 @@ func (c *KubeVirtController) genericUpdateHandler(old, cur interface{}, expecter
 		return
 	}
 
-	if curObj.GetDeletionTimestamp() != nil {
+	if oldObj.GetDeletionTimestamp() == nil && curObj.GetDeletionTimestamp() != nil {
 		// having an object marked for deletion is enough to count as a deletion expectation
 		c.genericDeleteHandler(curObj, expecter)
 		return
 	}
-	key, err := c.getOperatorKey()
+
+	key, err := c.getKubeVirtKey()
 	if key != "" && err == nil {
 		c.queue.Add(key)
 	}
@@ -278,7 +281,7 @@ func (c *KubeVirtController) genericDeleteHandler(obj interface{}, expecter *con
 		return
 	}
 
-	key, err := c.getOperatorKey()
+	key, err := c.getKubeVirtKey()
 	if key != "" && err == nil {
 		expecter.DeletionObserved(key, k)
 		c.queue.Add(key)
@@ -323,6 +326,7 @@ func (c *KubeVirtController) Run(threadiness int, stopCh chan struct{}) {
 	cache.WaitForCacheSync(stopCh, c.informers.Service.HasSynced)
 	cache.WaitForCacheSync(stopCh, c.informers.Deployment.HasSynced)
 	cache.WaitForCacheSync(stopCh, c.informers.DaemonSet.HasSynced)
+	cache.WaitForCacheSync(stopCh, c.informers.SCC.HasSynced)
 
 	// Start the actual work
 	for i := 0; i < threadiness; i++ {
@@ -422,11 +426,6 @@ func (c *KubeVirtController) syncDeployment(kv *v1.KubeVirt) error {
 	logger := log.Log.Object(kv)
 	logger.Infof("Handling deployment")
 
-	if kv.Status.Phase == v1.KubeVirtPhaseDeployed {
-		logger.Info("Is already deployed")
-		return nil
-	}
-
 	// Set versions...
 	if kv.Status.OperatorVersion == "" {
 		util.SetVersions(kv, c.config)
@@ -460,37 +459,75 @@ func (c *KubeVirtController) syncDeployment(kv *v1.KubeVirt) error {
 	if err != nil {
 		// deployment failed
 		util.UpdateCondition(kv, v1.KubeVirtConditionSynchronized, k8sv1.ConditionFalse, ConditionReasonDeploymentFailedError, fmt.Sprintf("An error occurred during deployment: %v", err))
-		if err != nil {
-			logger.Errorf("Failed to set condition: %v", err)
-		}
+
+		logger.Errorf("Failed to create all resources: %v", err)
 		return err
 	}
+	util.RemoveCondition(kv, v1.KubeVirtConditionSynchronized)
 
 	if objectsAdded == 0 {
-		// deployment successful
-		kv.Status.Phase = v1.KubeVirtPhaseDeployed
-		kv.Status.Conditions = []v1.KubeVirtCondition{}
 
-		logger.Info("KubeVirt deployed")
-		return nil
+		// add Created condition
+		util.UpdateCondition(kv, v1.KubeVirtConditionCreated, k8sv1.ConditionTrue, ConditionReasonDeploymentCreated, "All resources were created.")
+		logger.Info("All KubeVirt resources created")
+
+		// check if components are ready
+		if c.isReady() {
+			logger.Info("All KubeVirt components ready")
+			kv.Status.Phase = v1.KubeVirtPhaseDeployed
+			util.UpdateCondition(kv, v1.KubeVirtConditionReady, k8sv1.ConditionTrue, ConditionReasonDeploymentReady, "All components are ready.")
+			return nil
+		}
+		util.RemoveCondition(kv, v1.KubeVirtConditionReady)
+
+	} else {
+		util.RemoveCondition(kv, v1.KubeVirtConditionCreated)
 	}
 
 	logger.Info("Processed deployment for this round")
 	return nil
 }
 
+func (c *KubeVirtController) isReady() bool {
+
+	for _, obj := range c.stores.DeploymentCache.List() {
+		if deployment, ok := obj.(*appsv1.Deployment); ok {
+			var specReplicas int32 = 1
+			if deployment.Spec.Replicas != nil {
+				specReplicas = *deployment.Spec.Replicas
+			}
+			if specReplicas != deployment.Status.Replicas ||
+				deployment.Status.Replicas != deployment.Status.ReadyReplicas {
+				log.Log.V(4).Infof("Deployment %v not ready yet", deployment.Name)
+				return false
+			}
+		}
+	}
+
+	for _, obj := range c.stores.DaemonSetCache.List() {
+		if daemonset, ok := obj.(*appsv1.DaemonSet); ok {
+			if daemonset.Status.DesiredNumberScheduled == 0 ||
+				daemonset.Status.DesiredNumberScheduled != daemonset.Status.NumberReady {
+
+				log.Log.V(4).Infof("DaemonSet %v not ready yet", daemonset.Name)
+				return false
+			}
+		}
+	}
+
+	return true
+}
+
 func (c *KubeVirtController) syncDeletion(kv *v1.KubeVirt) error {
 	logger := log.Log.Object(kv)
 	logger.Info("Handling deletion")
 
-	// delete
-	if kv.Status.Phase == v1.KubeVirtPhaseDeleted {
-		logger.Info("Is already deleted")
-		return nil
-	}
-
 	// set phase to deleting
 	kv.Status.Phase = v1.KubeVirtPhaseDeleting
+
+	// remove created and ready conditions
+	util.RemoveCondition(kv, v1.KubeVirtConditionCreated)
+	util.RemoveCondition(kv, v1.KubeVirtConditionReady)
 
 	err := deletion.Delete(kv, c.clientset, c.stores, &c.kubeVirtExpectations)
 	if err != nil {
@@ -498,13 +535,15 @@ func (c *KubeVirtController) syncDeletion(kv *v1.KubeVirt) error {
 		util.UpdateCondition(kv, v1.KubeVirtConditionSynchronized, k8sv1.ConditionFalse, ConditionReasonDeletionFailedError, fmt.Sprintf("An error occurred during deletion: %v", err))
 		return err
 	}
+	util.RemoveCondition(kv, v1.KubeVirtConditionSynchronized)
 
 	if c.stores.AllEmpty() {
 
 		// deletion successful
 		kv.Status.Phase = v1.KubeVirtPhaseDeleted
-		kv.Status.Conditions = []v1.KubeVirtCondition{}
-		kv.Finalizers = []string{}
+
+		// remove finalizer
+		kv.Finalizers = nil
 
 		logger.Info("KubeVirt deleted")
 
