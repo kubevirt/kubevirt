@@ -397,6 +397,9 @@ func (c *VMController) handleDataVolumes(vm *virtv1.VirtualMachine, dataVolumes 
 				if deleteAfterTimestamp == 0 {
 					dataVolumeCopy := curDataVolume.DeepCopy()
 					deleteAfterTimestamp := now + int64(rand.Intn(dataVolumeDeleteJitterSeconds)+10)
+					if dataVolumeCopy.Annotations == nil {
+						dataVolumeCopy.Annotations = map[string]string{}
+					}
 					dataVolumeCopy.Annotations[dataVolumeDeleteAfterTimestampAnno] = strconv.FormatInt(deleteAfterTimestamp, 10)
 					_, err := c.clientset.CdiClient().CdiV1alpha1().DataVolumes(dataVolumeCopy.Namespace).Update(dataVolumeCopy)
 					if err != nil {
