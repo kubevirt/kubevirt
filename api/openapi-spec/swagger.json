@@ -4736,11 +4736,16 @@
    "v1.Input": {
     "required": [
      "bus",
-     "type"
+     "type",
+     "name"
     ],
     "properties": {
      "bus": {
       "description": "Bus indicates the bus of input device to emulate.\nSupported values: virtio.",
+      "type": "string"
+     },
+     "name": {
+      "description": "Name is the device name",
       "type": "string"
      },
      "type": {

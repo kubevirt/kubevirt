@@ -146,6 +146,7 @@ func (Input) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"bus":  "Bus indicates the bus of input device to emulate.\nSupported values: virtio.",
 		"type": "Type indicated the type of input device.\nSupported values: tablet.",
+		"name": "Name is the device name",
 	}
 }
 

@@ -65,6 +65,9 @@ var exampleXML = `<domain type="kvm" xmlns:qemu="http://libvirt.org/schemas/doma
       <driver name="qemu" type="raw"></driver>
       <alias name="ua-mydisk2"></alias>
     </disk>
+    <input type="tablet" bus="virtio">
+      <alias name="ua-tablet0"></alias>
+    </input>
     <console type="pty"></console>
     <watchdog model="i6300esb" action="poweroff">
       <alias name="ua-mywatchdog"></alias>
@@ -132,6 +135,16 @@ var _ = Describe("Schema", func() {
 			Target: DiskTarget{Device: "vdc"},
 			Alias: &Alias{
 				Name: "mydisk2",
+			},
+		},
+	}
+
+	exampleDomain.Spec.Devices.Inputs = []Input{
+		{
+			Type: "tablet",
+			Bus:  "virtio",
+			Alias: &Alias{
+				Name: "tablet0",
 			},
 		},
 	}

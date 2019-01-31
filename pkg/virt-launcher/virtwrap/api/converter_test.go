@@ -155,6 +155,7 @@ var _ = Describe("Converter", func() {
 				{
 					Bus:  "virtio",
 					Type: "tablet",
+					Name: "tablet0",
 				},
 			}
 			vmi.Spec.Domain.Devices.Disks = []v1.Disk{
@@ -471,7 +472,9 @@ var _ = Describe("Converter", func() {
       <driver name="qemu" type="raw" iothread="1"></driver>
       <alias name="ua-serviceaccount_test"></alias>
     </disk>
-    <input type="tablet" bus="virtio"></input>
+    <input type="tablet" bus="virtio">
+      <alias name="ua-tablet0"></alias>
+    </input>
     <serial type="unix">
       <target port="0"></target>
       <source mode="bind" path="/var/run/kubevirt-private/f4686d2c-6e8d-4335-b8fd-81bee22f4814/virt-serial0"></source>

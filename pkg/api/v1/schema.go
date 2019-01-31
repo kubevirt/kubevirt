@@ -294,6 +294,8 @@ type Input struct {
 	// Type indicated the type of input device.
 	// Supported values: tablet.
 	Type string `json:"type"`
+	// Name is the device name
+	Name string `json:"name"`
 }
 
 // ---

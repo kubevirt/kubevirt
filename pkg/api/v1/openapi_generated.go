@@ -1291,8 +1291,15 @@ func schema_kubevirt_pkg_api_v1_Input(ref common.ReferenceCallback) common.OpenA
 							Format:      "",
 						},
 					},
+					"name": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Name is the device name",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
 				},
-				Required: []string{"bus", "type"},
+				Required: []string{"bus", "type", "name"},
 			},
 		},
 		Dependencies: []string{},

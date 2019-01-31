@@ -404,7 +404,7 @@ func Convert_v1_Rng_To_api_Rng(source *v1.Rng, rng *Rng, _ *ConverterContext) er
 	return nil
 }
 
-func Convert_v1_Input_To_api_InputDevice(input *v1.Input, inputDevice *InputDevice, _ *ConverterContext) error {
+func Convert_v1_Input_To_api_InputDevice(input *v1.Input, inputDevice *Input, _ *ConverterContext) error {
 	if input.Bus != "virtio" {
 		return fmt.Errorf("input contains unsupported bus %s", input.Bus)
 	}
@@ -415,6 +415,7 @@ func Convert_v1_Input_To_api_InputDevice(input *v1.Input, inputDevice *InputDevi
 
 	inputDevice.Bus = input.Bus
 	inputDevice.Type = input.Type
+	inputDevice.Alias = &Alias{Name: input.Name}
 	return nil
 }
 
@@ -786,16 +787,16 @@ func Convert_v1_VirtualMachine_To_api_Domain(vmi *v1.VirtualMachineInstance, dom
 	}
 
 	if vmi.Spec.Domain.Devices.Inputs != nil {
-		inputDevices := make([]InputDevice, 0)
+		inputDevices := make([]Input, 0)
 		for _, input := range vmi.Spec.Domain.Devices.Inputs {
-			inputDevice := InputDevice{}
+			inputDevice := Input{}
 			err := Convert_v1_Input_To_api_InputDevice(&input, &inputDevice, c)
 			inputDevices = append(inputDevices, inputDevice)
 			if err != nil {
 				return err
 			}
 		}
-		domain.Spec.Devices.InputDevices = inputDevices
+		domain.Spec.Devices.Inputs = inputDevices
 	}
 
 	if vmi.Spec.Domain.Clock != nil {
