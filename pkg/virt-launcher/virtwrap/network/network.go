@@ -73,11 +73,8 @@ func SetupNetworkInterfaces(vmi *v1.VirtualMachineInstance, domain *api.Domain) 
 		if networks[iface.Name].Multus != nil {
 			// multus pod interfaces named netX
 			podInterfaceName = fmt.Sprintf("net%d", cniNetworks[iface.Name])
-		} else if networks[iface.Name].Genie != nil {
-			// genie pod interfaces named ethX
-			podInterfaceName = fmt.Sprintf("eth%d", cniNetworks[iface.Name])
-		} else if networks[iface.Name].Tungstenfabric != nil {
-			// tf pod interfaces named ethX
+		} else if networks[iface.Name].Genie != nil || networks[iface.Name].Tungstenfabric != nil {
+			// genie and tf pod interfaces named ethX
 			podInterfaceName = fmt.Sprintf("eth%d", cniNetworks[iface.Name])
 		} else {
 			podInterfaceName = podInterface
