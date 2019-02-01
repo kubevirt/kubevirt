@@ -878,7 +878,7 @@ func Convert_v1_VirtualMachine_To_api_Domain(vmi *v1.VirtualMachineInstance, dom
 		if network.Pod != nil {
 			numberOfSources++
 		}
-		if network.Multus != nil {
+		if network.Multus != nil || network.Tungstenfabric != nil {
 			cniNetworks[network.Name] = len(cniNetworks) + 1
 			numberOfSources++
 		}
@@ -886,11 +886,6 @@ func Convert_v1_VirtualMachine_To_api_Domain(vmi *v1.VirtualMachineInstance, dom
 			cniNetworks[network.Name] = len(cniNetworks)
 			numberOfSources++
 		}
-		if network.Tungstenfabric != nil {
-			cniNetworks[network.Name] = len(cniNetworks) + 1
-			numberOfSources++
-		}
-		log.Log.Infof("network: %s", network)
 		if numberOfSources == 0 {
 			return fmt.Errorf("fail network %s must have a network type", network.Name)
 		} else if numberOfSources > 1 {
@@ -977,9 +972,7 @@ func Convert_v1_VirtualMachine_To_api_Domain(vmi *v1.VirtualMachineInstance, dom
 					// no error check, we assume that CNI type was set correctly
 					if net.Multus != nil {
 						prefix = "net"
-					} else if net.Genie != nil {
-						prefix = "eth"
-					} else if net.Tungstenfabric != nil {
+					} else if net.Genie != nil || net.Tungstenfabric != nil {
 						prefix = "eth"
 					}
 					domainIface.Source = InterfaceSource{

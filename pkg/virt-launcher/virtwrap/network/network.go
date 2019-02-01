@@ -51,15 +51,12 @@ func SetupNetworkInterfaces(vmi *v1.VirtualMachineInstance, domain *api.Domain) 
 	cniNetworks := map[string]int{}
 	for _, network := range vmi.Spec.Networks {
 		networks[network.Name] = network.DeepCopy()
-		if networks[network.Name].Multus != nil {
+		if networks[network.Name].Multus != nil || networks[network.Name].Tungstenfabric != nil {
 			// multus pod interfaces start from 1
 			cniNetworks[network.Name] = len(cniNetworks) + 1
 		} else if networks[network.Name].Genie != nil {
 			// genie pod interfaces start from 0
 			cniNetworks[network.Name] = len(cniNetworks)
-		} else if networks[network.Name].Tungstenfabric != nil {
-			// tungstenfabric pod interfaces start from 1
-			cniNetworks[network.Name] = len(cniNetworks) + 1
 		}
 	}
 
