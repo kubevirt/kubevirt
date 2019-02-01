@@ -1064,6 +1064,12 @@ func schema_kubevirt_pkg_api_v1_Features(ref common.ReferenceCallback) common.Op
 							Ref:         ref("kubevirt.io/kubevirt/pkg/api/v1.FeatureState"),
 						},
 					},
+					"usbDevice": {
+						SchemaProps: spec.SchemaProps{
+							Description: "USBDevice enables usb bus devices",
+							Ref:         ref("kubevirt.io/kubevirt/pkg/api/v1.FeatureState"),
+						},
+					},
 				},
 			},
 		},

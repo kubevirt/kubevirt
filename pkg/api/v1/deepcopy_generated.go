@@ -909,6 +909,15 @@ func (in *Features) DeepCopyInto(out *Features) {
 			(*in).DeepCopyInto(*out)
 		}
 	}
+	if in.USBDevice != nil {
+		in, out := &in.USBDevice, &out.USBDevice
+		if *in == nil {
+			*out = nil
+		} else {
+			*out = new(FeatureState)
+			(*in).DeepCopyInto(*out)
+		}
+	}
 	return
 }
 

@@ -122,6 +122,9 @@ var exampleJSON = `{
         },
         "smm": {
           "enabled": true
+        },
+        "usbDevice": {
+          "enabled": false
         }
       },
       "devices": {
@@ -318,6 +321,7 @@ var _ = Describe("Schema", func() {
 				Reset:      &FeatureState{Enabled: _false},
 				VendorID:   &FeatureVendorID{Enabled: _true, VendorID: "vendor"},
 			},
+			USBDevice: &FeatureState{Enabled: _false},
 		}
 		exampleVMI.Spec.Domain.Clock = &Clock{
 			ClockOffset: ClockOffset{

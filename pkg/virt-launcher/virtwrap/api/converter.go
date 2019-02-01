@@ -758,6 +758,20 @@ func Convert_v1_VirtualMachine_To_api_Domain(vmi *v1.VirtualMachineInstance, dom
 		domain.Spec.Devices.Watchdog = newWatchdog
 	}
 
+	//usb controller is turned on, only when user specify spec.domain.features.usbDevice.enabled to true,
+	//otherwise it is turned off
+	if vmi.Spec.Domain.Features == nil || vmi.Spec.Domain.Features.USBDevice == nil ||
+		(vmi.Spec.Domain.Features.USBDevice != nil && vmi.Spec.Domain.Features.USBDevice.Enabled != nil && !*vmi.Spec.Domain.Features.USBDevice.Enabled) {
+		// disable usb controller
+		domain.Spec.Devices.Controllers = []Controller{
+			{
+				Type:  "usb",
+				Index: "0",
+				Model: "none",
+			},
+		}
+	}
+
 	if vmi.Spec.Domain.Devices.Rng != nil {
 		newRng := &Rng{}
 		err := Convert_v1_Rng_To_api_Rng(vmi.Spec.Domain.Devices.Rng, newRng, c)

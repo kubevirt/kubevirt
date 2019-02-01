@@ -148,6 +148,7 @@ var _ = Describe("Converter", func() {
 					Reset:      &v1.FeatureState{Enabled: &_true},
 					VendorID:   &v1.FeatureVendorID{Enabled: &_false, VendorID: "myvendor"},
 				},
+				USBDevice: &v1.FeatureState{Enabled: &_false},
 			}
 			vmi.Spec.Domain.Resources.Limits = make(k8sv1.ResourceList)
 			vmi.Spec.Domain.Resources.Requests = make(k8sv1.ResourceList)
@@ -712,6 +713,20 @@ var _ = Describe("Converter", func() {
 			vmi.Spec.Domain.Devices.Disks[0].Disk.PciAddress = "0000:81:01.0"
 			vmi.Spec.Domain.Devices.Disks[0].Disk.Bus = "scsi"
 			Expect(Convert_v1_VirtualMachine_To_api_Domain(vmi, &Domain{}, c)).ToNot(Succeed())
+		})
+
+		It("should not disable usb controller", func() {
+			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
+			vmi.Spec.Domain.Features.USBDevice = &v1.FeatureState{Enabled: &_true}
+			domain := vmiToDomain(vmi, c)
+			disabled := false
+			for _, controller := range domain.Spec.Devices.Controllers {
+				if controller.Type == "usb" && controller.Model == "none" {
+					disabled = !disabled
+				}
+			}
+
+			Expect(disabled).To(Equal(false), "Expect controller not disabled")
 		})
 
 		It("should select explicitly chosen network model", func() {

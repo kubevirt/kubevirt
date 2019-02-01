@@ -310,10 +310,11 @@ func (HypervTimer) SwaggerDoc() map[string]string {
 
 func (Features) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"acpi":   "ACPI enables/disables ACPI insidejsondata guest.\nDefaults to enabled.\n+optional",
-		"apic":   "Defaults to the machine type setting.\n+optional",
-		"hyperv": "Defaults to the machine type setting.\n+optional",
-		"smm":    "SMM enables/disables System Management Mode.\nTSEG not yet implemented.\n+optional",
+		"acpi":      "ACPI enables/disables ACPI insidejsondata guest.\nDefaults to enabled.\n+optional",
+		"apic":      "Defaults to the machine type setting.\n+optional",
+		"hyperv":    "Defaults to the machine type setting.\n+optional",
+		"smm":       "SMM enables/disables System Management Mode.\nTSEG not yet implemented.\n+optional",
+		"usbDevice": "USBDevice enables usb bus devices\n+optional",
 	}
 }
 

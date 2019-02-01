@@ -671,6 +671,9 @@ type Features struct {
 	// TSEG not yet implemented.
 	// +optional
 	SMM *FeatureState `json:"smm,omitempty"`
+	// USBDevice enables usb bus devices
+	// +optional
+	USBDevice *FeatureState `json:"usbDevice,omitempty"`
 }
 
 // Represents if a feature is enabled or disabled.

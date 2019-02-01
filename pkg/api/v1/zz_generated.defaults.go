@@ -108,6 +108,9 @@ func SetObjectDefaults_VirtualMachine(in *VirtualMachine) {
 			if in.Spec.Template.Spec.Domain.Features.SMM != nil {
 				SetDefaults_FeatureState(in.Spec.Template.Spec.Domain.Features.SMM)
 			}
+			if in.Spec.Template.Spec.Domain.Features.USBDevice != nil {
+				SetDefaults_FeatureState(in.Spec.Template.Spec.Domain.Features.USBDevice)
+			}
 		}
 		for i := range in.Spec.Template.Spec.Domain.Devices.Disks {
 			a := &in.Spec.Template.Spec.Domain.Devices.Disks[i]
@@ -188,6 +191,9 @@ func SetObjectDefaults_VirtualMachineInstance(in *VirtualMachineInstance) {
 		}
 		if in.Spec.Domain.Features.SMM != nil {
 			SetDefaults_FeatureState(in.Spec.Domain.Features.SMM)
+		}
+		if in.Spec.Domain.Features.USBDevice != nil {
+			SetDefaults_FeatureState(in.Spec.Domain.Features.USBDevice)
 		}
 	}
 	for i := range in.Spec.Domain.Devices.Disks {
@@ -276,6 +282,9 @@ func SetObjectDefaults_VirtualMachineInstancePreset(in *VirtualMachineInstancePr
 			if in.Spec.Domain.Features.SMM != nil {
 				SetDefaults_FeatureState(in.Spec.Domain.Features.SMM)
 			}
+			if in.Spec.Domain.Features.USBDevice != nil {
+				SetDefaults_FeatureState(in.Spec.Domain.Features.USBDevice)
+			}
 		}
 		for i := range in.Spec.Domain.Devices.Disks {
 			a := &in.Spec.Domain.Devices.Disks[i]
@@ -363,6 +372,9 @@ func SetObjectDefaults_VirtualMachineInstanceReplicaSet(in *VirtualMachineInstan
 			}
 			if in.Spec.Template.Spec.Domain.Features.SMM != nil {
 				SetDefaults_FeatureState(in.Spec.Template.Spec.Domain.Features.SMM)
+			}
+			if in.Spec.Template.Spec.Domain.Features.USBDevice != nil {
+				SetDefaults_FeatureState(in.Spec.Template.Spec.Domain.Features.USBDevice)
 			}
 		}
 		for i := range in.Spec.Template.Spec.Domain.Devices.Disks {
