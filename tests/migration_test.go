@@ -114,10 +114,10 @@ var _ = Describe("Migrations", func() {
 
 	Describe("Starting a VirtualMachineInstance ", func() {
 		Context("with an Alpine read only disk", func() {
-			It("should be successfully migrated multiple times", func() {
+			It("should be successfully migrated multiple times with cloud-init disk", func() {
 
 				vmi := tests.NewRandomVMIWithEphemeralDisk(tests.ContainerDiskFor(tests.ContainerDiskAlpine))
-				vmi.Spec.Domain.Devices.Disks[0].DiskDevice.Disk.ReadOnly = true
+				tests.AddUserData(vmi, "cloud-init", "#!/bin/bash\necho 'hello'\n")
 
 				By("Starting the VirtualMachineInstance")
 				vmi = runVMIAndExpectLaunch(vmi, 240)
