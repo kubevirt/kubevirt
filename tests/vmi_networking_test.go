@@ -627,10 +627,16 @@ var _ = Describe("Networking", func() {
 			Expect(err).ToNot(HaveOccurred())
 			tests.WaitUntilVMIReady(dnsVMI, tests.LoggedInCirrosExpecter)
 			err = tests.CheckForTextExpecter(dnsVMI, []expect.Batcher{
-				&expect.BSnd{S: "\n"},
+				&expect.BSnd{S: "\n\n"},
 				&expect.BExp{R: "$"},
 				&expect.BSnd{S: "cat /etc/resolv.conf\n"},
-				&expect.BExp{R: "search example.com\r\r\nnameserver 8.8.8.8\r\r\nnameserver 4.2.2.1\r\r\n"},
+				&expect.BExp{R: "search example.com"},
+				&expect.BExp{R: "$"},
+				&expect.BSnd{S: "cat /etc/resolv.conf\n"},
+				&expect.BExp{R: "nameserver 8.8.8.8"},
+				&expect.BExp{R: "$"},
+				&expect.BSnd{S: "cat /etc/resolv.conf\n"},
+				&expect.BExp{R: "nameserver 4.2.2.1"},
 				&expect.BExp{R: "$"},
 			}, 15)
 			Expect(err).ToNot(HaveOccurred())
