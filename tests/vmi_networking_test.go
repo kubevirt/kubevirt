@@ -614,28 +614,25 @@ var _ = Describe("Networking", func() {
 		BeforeEach(func() {
 			tests.BeforeTestCleanup()
 		})
-
 		It("should have custom resolv.conf", func() {
-			userData := "#cloud-config\npassword: fedora\nchpasswd: { expire: False }\n"
+			userData := "#cloud-config\n"
 			dnsVMI := tests.NewRandomVMIWithEphemeralDiskAndUserdata(tests.ContainerDiskFor(tests.ContainerDiskCirros), userData)
+
 			dnsVMI.Spec.DNSPolicy = "None"
 			dnsVMI.Spec.DNSConfig = &k8sv1.PodDNSConfig{
 				Nameservers: []string{"8.8.8.8", "4.2.2.1"},
 				Searches:    []string{"example.com"},
 			}
-
 			_, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(dnsVMI)
 			Expect(err).ToNot(HaveOccurred())
 			tests.WaitUntilVMIReady(dnsVMI, tests.LoggedInCirrosExpecter)
-
 			err = tests.CheckForTextExpecter(dnsVMI, []expect.Batcher{
 				&expect.BSnd{S: "\n"},
-				&expect.BExp{R: "#"},
+				&expect.BExp{R: "$"},
 				&expect.BSnd{S: "cat /etc/resolv.conf\n"},
-				&expect.BExp{R: "search example.com\nnameserver 8.8.8.8\nnameserver 4.2.2.1"},
-				&expect.BExp{R: "#"},
+				&expect.BExp{R: "search example.com\r\r\nnameserver 8.8.8.8\r\r\nnameserver 4.2.2.1\r\r\n"},
+				&expect.BExp{R: "$"},
 			}, 15)
-
 			Expect(err).ToNot(HaveOccurred())
 		})
 	})
