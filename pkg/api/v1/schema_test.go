@@ -325,10 +325,10 @@ var _ = Describe("Schema", func() {
 			UUID: "28a42a60-44ef-4428-9c10-1a6aee94627f",
 		}
 		exampleVMI.Spec.Domain.CPU = &CPU{
-			Cores:   3,
-			Sockets: 1,
-			Threads: 1,
-			Model:   "Conroe",
+			Cores:                 3,
+			Sockets:               1,
+			Threads:               1,
+			Model:                 "Conroe",
 			DedicatedCPUPlacement: true,
 		}
 		exampleVMI.Spec.Networks = []Network{

@@ -93,4 +93,10 @@ cluster-deploy-operator: cluster-clean
 
 cluster-sync-operator: cluster-build cluster-deploy-operator
 
+builder-build:
+	./hack/builder/build.sh
+
+builder-publish:
+	./hack/builder/publish.sh
+
 .PHONY: build test clean distclean checksync sync docker manifests publish functest release-announce cluster-up cluster-down cluster-clean cluster-deploy cluster-sync

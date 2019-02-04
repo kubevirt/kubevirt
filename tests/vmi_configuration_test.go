@@ -929,7 +929,7 @@ var _ = Describe("Configurations", func() {
 			It("should be scheduled on a node with running cpu manager", func() {
 				cpuVmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(tests.ContainerDiskFor(tests.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n")
 				cpuVmi.Spec.Domain.CPU = &v1.CPU{
-					Cores: 2,
+					Cores:                 2,
 					DedicatedCPUPlacement: true,
 				}
 				cpuVmi.Spec.Domain.Resources = v1.ResourceRequirements{
@@ -1020,7 +1020,7 @@ var _ = Describe("Configurations", func() {
 			It("should fail the vmi creation if the requested resources are inconsistent", func() {
 				cpuVmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(tests.ContainerDiskFor(tests.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n")
 				cpuVmi.Spec.Domain.CPU = &v1.CPU{
-					Cores: 2,
+					Cores:                 2,
 					DedicatedCPUPlacement: true,
 				}
 				cpuVmi.Spec.Domain.Resources = v1.ResourceRequirements{

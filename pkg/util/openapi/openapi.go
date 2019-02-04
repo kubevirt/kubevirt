@@ -22,9 +22,9 @@ type Validator struct {
 
 func CreateOpenAPIConfig(webServices []*restful.WebService) restfulspec.Config {
 	return restfulspec.Config{
-		WebServices:    webServices,
-		WebServicesURL: "",
-		APIPath:        "/swaggerapi",
+		WebServices:                   webServices,
+		WebServicesURL:                "",
+		APIPath:                       "/swaggerapi",
 		PostBuildSwaggerObjectHandler: addInfoToSwaggerObject,
 	}
 }
