@@ -35,6 +35,7 @@ const (
 	liveMigrationGate    = "LiveMigration"
 	SRIOVGate            = "SRIOV"
 	CPUNodeDiscoveryGate = "CPUNodeDiscovery"
+	HyperVL2Gate         = "HyperVL2"
 )
 
 func DataVolumesEnabled() bool {
@@ -51,4 +52,8 @@ func LiveMigrationEnabled() bool {
 
 func SRIOVEnabled() bool {
 	return strings.Contains(os.Getenv(featureGateEnvVar), SRIOVGate)
+}
+
+func HyperVL2Enabled() bool {
+	return strings.Contains(os.Getenv(featureGateEnvVar), HyperVL2Gate)
 }

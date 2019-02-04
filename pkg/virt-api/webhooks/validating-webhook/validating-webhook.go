@@ -488,6 +488,16 @@ func ValidateVirtualMachineInstanceMandatoryFields(field *k8sfield.Path, spec *v
 	return causes
 }
 
+func hyperVL2FlagEnabled(field *k8sfield.Path, hyperv *v1.FeatureHyperv) (string, bool) {
+	if hyperv != nil && hyperv.Reenlightenment != nil && *hyperv.Reenlightenment.Enabled {
+		return field.Child("domain", "features", "hyperv", "reenlightenment").String(), true
+	}
+	if hyperv != nil && hyperv.Frequencies != nil && *hyperv.Frequencies.Enabled {
+		return field.Child("domain", "features", "hyperv", "frequencies").String(), true
+	}
+	return "", false
+}
+
 func ValidateVirtualMachineInstanceSpec(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec) []metav1.StatusCause {
 	var causes []metav1.StatusCause
 	volumeNameMap := make(map[string]*v1.Volume)
@@ -1130,6 +1140,16 @@ func ValidateVirtualMachineInstanceSpec(field *k8sfield.Path, spec *v1.VirtualMa
 				Type:    metav1.CauseTypeFieldValueInvalid,
 				Message: fmt.Sprintf("Invalid IOThreadsPolicy (%s)", *spec.Domain.IOThreadsPolicy),
 				Field:   field.Child("domain", "ioThreadsPolicy").String(),
+			})
+		}
+	}
+
+	if spec.Domain.Features != nil && spec.Domain.Features.Hyperv != nil {
+		if hyField, enabled := hyperVL2FlagEnabled(field, spec.Domain.Features.Hyperv); enabled && !virtconfig.HyperVL2Enabled() {
+			causes = append(causes, metav1.StatusCause{
+				Type:    metav1.CauseTypeFieldValueInvalid,
+				Message: fmt.Sprintf("SRIOV feature gate is not enabled in kubevirt-config"),
+				Field:   hyField,
 			})
 		}
 	}
