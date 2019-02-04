@@ -52,7 +52,6 @@ v0.0.1-alpha.0
 v0.0.1-alpha.1
 ```
 
-
 Release notes
 -------------
 Every release must should be accompanied by release notes describing the
@@ -71,8 +70,19 @@ Using this script ensures consistency and documentation of the release
 process and content between releases.
 
 
-Releasing
----------
+Topic: Signing
+--------------
+The workflows below use signed tags. The following link describes what you
+need to do in order to setup correct signing for tags (and commits) on your
+local machine and in GitHub, in order to get the commits verified.
+
+https://help.github.com/articles/adding-a-new-gpg-key-to-your-github-account/
+
+Setting up and using signing is mandatory for any release.
+
+
+Releasing minor versions
+------------------------
 The release process is mostly automatic and consists of the following steps:
 
 1. Run the `hack/release-announce.sh` script which runs functional tests,
@@ -119,3 +129,23 @@ git push $YOUR_REMOTE release-0.6:release-0.6-aParticularFix
 After pushing the branch, you'll need to make sure to create a pull request
 against the correct target branch in GitHub (in this case the target branch
 is `release-0.6`).
+
+Releasing patch versions
+------------------------
+
+Releases on the stable branch only increment the patch level.
+The release itself is only a evsigned tag as it's used for minor releases as well.
+
+1. Tag the commit using `git evtag sign $TAG` (which is a signed and annotated
+   tag)
+   1. Use the tag name as the commit message
+3. Push the tag to github `git push git@github.com:kubevirt/kubevirt.git $TAG`
+4. Wait for [travis](https://travis-ci.org/kubevirt/kubevirt/) to finish, and
+   check that the binary artifacts got attached to the release at
+   `https://github.com/kubevirt/kubevirt/releases/tag/$TAG`
+   and that the containers were correctly tagged and pushed to
+   <https://hub.docker.com/r/kubevirt/>
+5. Set the tag name as the release on the release details page and ensure Draft is unset
+   `https://github.com/kubevirt/kubevirt/releases/tag/$TAG`
+6. Sent a friendly announcement email to <kubevirt-dev@googlegroups.com>
+
