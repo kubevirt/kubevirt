@@ -600,6 +600,80 @@ var _ = Describe("Validating Webhook", func() {
 			Expect(len(resp.Result.Details.Causes)).To(Equal(1))
 			Expect(resp.Result.Details.Causes[0].Field).To(Equal("spec.dataVolumeTemplate[0]"))
 		})
+
+		It("should accept HyperV L2 features with feature gate enabled", func() {
+			_true := true
+			vmi := v1.NewMinimalVMI("testvmi")
+			vmi.Spec.Domain.Features = &v1.Features{
+				Hyperv: &v1.FeatureHyperv{
+					// either one between Frequencies and Reenlightenment is sufficient
+					Frequencies: &v1.FeatureState{
+						Enabled: &_true,
+					},
+				},
+			}
+			vm := &v1.VirtualMachine{
+				Spec: v1.VirtualMachineSpec{
+					Running: false,
+					Template: &v1.VirtualMachineInstanceTemplateSpec{
+						Spec: vmi.Spec,
+					},
+				},
+			}
+
+			vmBytes, _ := json.Marshal(&vm)
+
+			ar := &v1beta1.AdmissionReview{
+				Request: &v1beta1.AdmissionRequest{
+					Resource: webhooks.VirtualMachineGroupVersionResource,
+					Object: runtime.RawExtension{
+						Raw: vmBytes,
+					},
+				},
+			}
+
+			os.Setenv("FEATURE_GATES", "HyperVL2")
+			defer os.Setenv("FEATURE_GATES", "")
+			resp := admitVMs(ar)
+			Expect(resp.Allowed).To(Equal(true))
+		})
+		It("should reject HyperV L2 features without a feature gate", func() {
+			_true := true
+			vmi := v1.NewMinimalVMI("testvmi")
+			vmi.Spec.Domain.Features = &v1.Features{
+				Hyperv: &v1.FeatureHyperv{
+					// either one between Frequencies and Reenlightenment is sufficient
+					Frequencies: &v1.FeatureState{
+						Enabled: &_true,
+					},
+				},
+			}
+			vm := &v1.VirtualMachine{
+				Spec: v1.VirtualMachineSpec{
+					Running: false,
+					Template: &v1.VirtualMachineInstanceTemplateSpec{
+						Spec: vmi.Spec,
+					},
+				},
+			}
+
+			vmBytes, _ := json.Marshal(&vm)
+
+			ar := &v1beta1.AdmissionReview{
+				Request: &v1beta1.AdmissionRequest{
+					Resource: webhooks.VirtualMachineGroupVersionResource,
+					Object: runtime.RawExtension{
+						Raw: vmBytes,
+					},
+				},
+			}
+
+			resp := admitVMs(ar)
+			Expect(resp.Allowed).To(Equal(false))
+			Expect(len(resp.Result.Details.Causes)).To(Equal(1))
+			Expect(resp.Result.Details.Causes[0].Field).To(Equal("spec.template.spec.domain.features.hyperv.frequencies"))
+		})
+
 	})
 	Context("with VMIPreset admission review", func() {
 		It("reject invalid VirtualMachineInstance spec", func() {
