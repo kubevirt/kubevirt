@@ -900,7 +900,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 			vmi := v1.NewMinimalVMI("testvmi")
 			vmi.Spec.Domain.Devices.Disks = []v1.Disk{
 				{
-					Name: "mydisk",
+					Name: "myvolume",
 					DiskDevice: v1.DiskDevice{
 						Disk: &v1.DiskTarget{
 							Bus: "virtio",
