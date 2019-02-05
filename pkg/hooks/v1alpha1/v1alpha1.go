@@ -17,6 +17,6 @@
  *
  */
 
-package v1alpha
+package v1alpha1
 
 const Version = "v1alpha"
