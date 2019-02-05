@@ -1,5 +1,5 @@
-hash: bdeabcb8eff48caf2f7bf9bf8f63cc6172aebf44e79fb08db3cff0daa884cf47
-updated: 2019-01-21T17:07:35.963859905Z
+hash: 5d0b604464a42a05804d927e0c50f2f9d981bbd55bd1397012f16901913ee63e
+updated: 2019-02-05T10:23:21.606235037Z
 imports:
 - name: cloud.google.com/go
   version: 3b1ae45394a234c385be014e9a488f2bb6eef821
@@ -80,7 +80,7 @@ imports:
 - name: github.com/go-openapi/strfmt
   version: 35fe47352985e13cc75f13120d70d26fd764ed51
 - name: github.com/go-openapi/swag
-  version: 1d29f06aebd59ccdf11ae04aa0334ded96e2d909
+  version: b28747f5c7f9eb6b0b82d2f87f365fff72b535c9
 - name: github.com/go-openapi/validate
   version: d2eab7d93009e9215fc85b2faa2c2f2a98c2af48
 - name: github.com/go-stack/stack
@@ -175,7 +175,7 @@ imports:
   subpackages:
   - conn
 - name: github.com/libvirt/libvirt-go
-  version: 9c5bdce3c18faad94cb383e7ec42f5122a8c7fa1
+  version: 723f5bdd4494682ddab3d80f5824784bb67f9a12
 - name: github.com/mailru/easyjson
   version: 2f5df55504ebc322e4d52d34df6a1f5b503bf26d
   subpackages:
@@ -195,7 +195,7 @@ imports:
 - name: github.com/modern-go/reflect2
   version: 05fbef0ca5da472bbf96c9322b84a53edc03c9fd
 - name: github.com/onsi/ginkgo
-  version: 505cc352255139defb7371000668063d1161e331
+  version: f4937865e46ae8fd3aff745450e1b51b4aad3552
   subpackages:
   - config
   - extensions/table
@@ -252,7 +252,7 @@ imports:
   - prometheus
   - prometheus/promhttp
 - name: github.com/prometheus/client_model
-  version: 56726106282f1985ea77d5305743db7231b0c0a8
+  version: fd36f4220a901265f90734c3183c5f0c91daa0b8
   subpackages:
   - go
 - name: github.com/prometheus/common
@@ -354,7 +354,7 @@ imports:
   subpackages:
   - rate
 - name: google.golang.org/appengine
-  version: e9657d882bb81064595ca3b56cbe2546bbabf7b1
+  version: 2d2298565d5a399bdfec98dbc259d6393e3cf8ba
   subpackages:
   - internal
   - internal/app_identity
