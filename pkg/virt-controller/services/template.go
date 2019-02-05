@@ -895,7 +895,7 @@ func getMemoryOverhead(domain v1.DomainSpec) *resource.Quantity {
 
 	// Add fixed overhead for shared libraries and such
 	// TODO account for the overhead of kubevirt components running in the pod
-	overhead.Add(resource.MustParse("64M"))
+	overhead.Add(resource.MustParse("128M"))
 
 	// Add CPU table overhead (8 MiB per vCPU and 8 MiB per IO thread)
 	// overhead per vcpu in MiB
