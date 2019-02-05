@@ -796,6 +796,8 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 			NodeSelector:                  nodeSelector,
 			Volumes:                       volumes,
 			ImagePullSecrets:              imagePullSecrets,
+			DNSConfig:                     vmi.Spec.DNSConfig,
+			DNSPolicy:                     vmi.Spec.DNSPolicy,
 		},
 	}
 

@@ -610,6 +610,39 @@ var _ = Describe("Networking", func() {
 		})
 	})
 
+	Context("VirtualMachineInstance with custom dns", func() {
+		BeforeEach(func() {
+			tests.BeforeTestCleanup()
+		})
+		It("should have custom resolv.conf", func() {
+			userData := "#cloud-config\n"
+			dnsVMI := tests.NewRandomVMIWithEphemeralDiskAndUserdata(tests.ContainerDiskFor(tests.ContainerDiskCirros), userData)
+
+			dnsVMI.Spec.DNSPolicy = "None"
+			dnsVMI.Spec.DNSConfig = &k8sv1.PodDNSConfig{
+				Nameservers: []string{"8.8.8.8", "4.2.2.1"},
+				Searches:    []string{"example.com"},
+			}
+			_, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(dnsVMI)
+			Expect(err).ToNot(HaveOccurred())
+			tests.WaitUntilVMIReady(dnsVMI, tests.LoggedInCirrosExpecter)
+			err = tests.CheckForTextExpecter(dnsVMI, []expect.Batcher{
+				&expect.BSnd{S: "\n\n"},
+				&expect.BExp{R: "$"},
+				&expect.BSnd{S: "cat /etc/resolv.conf\n"},
+				&expect.BExp{R: "search example.com"},
+				&expect.BExp{R: "$"},
+				&expect.BSnd{S: "cat /etc/resolv.conf\n"},
+				&expect.BExp{R: "nameserver 8.8.8.8"},
+				&expect.BExp{R: "$"},
+				&expect.BSnd{S: "cat /etc/resolv.conf\n"},
+				&expect.BExp{R: "nameserver 4.2.2.1"},
+				&expect.BExp{R: "$"},
+			}, 15)
+			Expect(err).ToNot(HaveOccurred())
+		})
+	})
+
 	Context("VirtualMachineInstance with masquerade binding mechanism", func() {
 		var serverVMI *v1.VirtualMachineInstance
 		var clientVMI *v1.VirtualMachineInstance

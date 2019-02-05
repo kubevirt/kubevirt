@@ -5202,6 +5202,44 @@
      }
     }
    },
+   "v1.PodDNSConfig": {
+    "description": "PodDNSConfig defines the DNS parameters of a pod in addition to those generated from DNSPolicy.",
+    "properties": {
+     "nameservers": {
+      "description": "A list of DNS name server IP addresses. This will be appended to the base nameservers generated from DNSPolicy. Duplicated nameservers will be removed.",
+      "type": "array",
+      "items": {
+       "type": "string"
+      }
+     },
+     "options": {
+      "description": "A list of DNS resolver options. This will be merged with the base options generated from DNSPolicy. Duplicated entries will be removed. Resolution options given in Options will override those that appear in the base DNSPolicy.",
+      "type": "array",
+      "items": {
+       "$ref": "#/definitions/v1.PodDNSConfigOption"
+      }
+     },
+     "searches": {
+      "description": "A list of DNS search domains for host-name lookup. This will be appended to the base search paths generated from DNSPolicy. Duplicated search paths will be removed.",
+      "type": "array",
+      "items": {
+       "type": "string"
+      }
+     }
+    }
+   },
+   "v1.PodDNSConfigOption": {
+    "description": "PodDNSConfigOption defines DNS resolver options of a pod.",
+    "properties": {
+     "name": {
+      "description": "Required.",
+      "type": "string"
+     },
+     "value": {
+      "type": "string"
+     }
+    }
+   },
    "v1.PodNetwork": {
     "description": "Represents the stock pod network interface.",
     "properties": {
@@ -6032,6 +6070,14 @@
      "affinity": {
       "description": "If affinity is specifies, obey all the affinity rules",
       "$ref": "#/definitions/v1.Affinity"
+     },
+     "dnsConfig": {
+      "description": "Specifies the DNS parameters of a pod.\nParameters specified here will be merged to the generated DNS\nconfiguration based on DNSPolicy.\n+optional",
+      "$ref": "#/definitions/v1.PodDNSConfig"
+     },
+     "dnsPolicy": {
+      "description": "Set DNS policy for the pod.\nDefaults to \"ClusterFirst\".\nValid values are 'ClusterFirstWithHostNet', 'ClusterFirst', 'Default' or 'None'.\nDNS parameters given in DNSConfig will be merged with the policy selected with DNSPolicy.\nTo have DNS options set along with hostNetwork, you have to specify DNS policy\nexplicitly to 'ClusterFirstWithHostNet'.\n+optional",
+      "type": "string"
      },
      "domain": {
       "description": "Specification of the desired behavior of the VirtualMachineInstance on the host.",
