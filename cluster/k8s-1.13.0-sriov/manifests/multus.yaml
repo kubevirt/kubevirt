@@ -119,7 +119,8 @@ spec:
       serviceAccountName: multus
       containers:
         - name: kube-multus
-          image: nfvpe/multus:latest
+          image: nfvpe/multus:snapshot
+          command: ["/entrypoint.sh", "--multus-conf-file=auto"]
           resources:
             requests:
               cpu: "100m"
