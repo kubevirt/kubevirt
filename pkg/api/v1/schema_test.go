@@ -363,7 +363,7 @@ var _ = Describe("Schema", func() {
 			Sockets: 1,
 			Threads: 1,
 			Model:   "Conroe",
-			Features: []Feature{
+			Features: []CPUFeature{
 				{
 					Name:   "pcid",
 					Policy: "require",

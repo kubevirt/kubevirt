@@ -958,7 +958,7 @@ var _ = Describe("Configurations", func() {
 				}
 				cpuVmi.Spec.Domain.CPU = &v1.CPU{
 					Model: vmiModel,
-					Features: []v1.Feature{
+					Features: []v1.CPUFeature{
 						{
 							Name: "apic",
 						},

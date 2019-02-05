@@ -566,7 +566,7 @@ var _ = Describe("Converter", func() {
 					Sockets: 2,
 					Threads: 2,
 					Model:   "Conroe",
-					Features: []v1.Feature{
+					Features: []v1.CPUFeature{
 						{
 							Name:   "lahf_lm",
 							Policy: "require",

@@ -873,13 +873,11 @@ func Convert_v1_VirtualMachine_To_api_Domain(vmi *v1.VirtualMachineInstance, dom
 
 		// Set VM CPU features
 		if vmi.Spec.Domain.CPU.Features != nil {
-			if len(vmi.Spec.Domain.CPU.Features) > 0 {
-				for _, feature := range vmi.Spec.Domain.CPU.Features {
-					domainFeature := Feature{}
-					domainFeature.Name = feature.Name
-					domainFeature.Policy = feature.Policy
-					domain.Spec.CPU.Features = append(domain.Spec.CPU.Features, domainFeature)
-				}
+			for _, feature := range vmi.Spec.Domain.CPU.Features {
+				domain.Spec.CPU.Features = append(domain.Spec.CPU.Features, CPUFeature{
+					Name:   feature.Name,
+					Policy: feature.Policy,
+				})
 			}
 		}
 

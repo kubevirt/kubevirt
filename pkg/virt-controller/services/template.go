@@ -43,7 +43,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/util/hardware"
 	"kubevirt.io/kubevirt/pkg/util/net/dns"
 	"kubevirt.io/kubevirt/pkg/util/types"
-	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
+	"kubevirt.io/kubevirt/pkg/virt-config"
 )
 
 const configMapName = "kubevirt-config"
@@ -172,10 +172,8 @@ func CPUModelLabelFromCPUModel(vmi *v1.VirtualMachineInstance) (label string, er
 func CPUFeatureLabelsFromCPUFeatures(vmi *v1.VirtualMachineInstance) []string {
 	var labels []string
 	if vmi.Spec.Domain.CPU != nil && vmi.Spec.Domain.CPU.Features != nil {
-		if len(vmi.Spec.Domain.CPU.Features) > 0 {
-			for _, feature := range vmi.Spec.Domain.CPU.Features {
-				labels = append(labels, NFD_CPU_FEATURE_PREFIX+feature.Name)
-			}
+		for _, feature := range vmi.Spec.Domain.CPU.Features {
+			labels = append(labels, NFD_CPU_FEATURE_PREFIX+feature.Name)
 		}
 	}
 	return labels

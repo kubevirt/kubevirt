@@ -198,7 +198,7 @@ var _ = Describe("Schema", func() {
 	}
 	exampleDomain.Spec.CPU.Mode = "custom"
 	exampleDomain.Spec.CPU.Model = "Conroe"
-	exampleDomain.Spec.CPU.Features = []Feature{
+	exampleDomain.Spec.CPU.Features = []CPUFeature{
 		{
 			Name:   "pcid",
 			Policy: "require",

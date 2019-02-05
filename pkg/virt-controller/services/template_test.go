@@ -41,7 +41,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/hooks"
 	"kubevirt.io/kubevirt/pkg/kubecli"
 	"kubevirt.io/kubevirt/pkg/log"
-	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
+	"kubevirt.io/kubevirt/pkg/virt-config"
 )
 
 const namespaceKubevirt = "kubevirt"
@@ -271,7 +271,7 @@ var _ = Describe("Template", func() {
 						Domain: v1.DomainSpec{
 							CPU: &v1.CPU{
 								Model: "Conroe",
-								Features: []v1.Feature{
+								Features: []v1.CPUFeature{
 									{
 										Name:   "lahf_lm",
 										Policy: "require",

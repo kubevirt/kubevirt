@@ -33,6 +33,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"kubevirt.io/kubevirt/pkg/api/v1.Bootloader":                                schema_kubevirt_pkg_api_v1_Bootloader(ref),
 		"kubevirt.io/kubevirt/pkg/api/v1.CDRomTarget":                               schema_kubevirt_pkg_api_v1_CDRomTarget(ref),
 		"kubevirt.io/kubevirt/pkg/api/v1.CPU":                                       schema_kubevirt_pkg_api_v1_CPU(ref),
+		"kubevirt.io/kubevirt/pkg/api/v1.CPUFeature":                                schema_kubevirt_pkg_api_v1_CPUFeature(ref),
 		"kubevirt.io/kubevirt/pkg/api/v1.Clock":                                     schema_kubevirt_pkg_api_v1_Clock(ref),
 		"kubevirt.io/kubevirt/pkg/api/v1.ClockOffset":                               schema_kubevirt_pkg_api_v1_ClockOffset(ref),
 		"kubevirt.io/kubevirt/pkg/api/v1.ClockOffsetUTC":                            schema_kubevirt_pkg_api_v1_ClockOffsetUTC(ref),
@@ -50,7 +51,6 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"kubevirt.io/kubevirt/pkg/api/v1.EFI":                                       schema_kubevirt_pkg_api_v1_EFI(ref),
 		"kubevirt.io/kubevirt/pkg/api/v1.EmptyDiskSource":                           schema_kubevirt_pkg_api_v1_EmptyDiskSource(ref),
 		"kubevirt.io/kubevirt/pkg/api/v1.EphemeralVolumeSource":                     schema_kubevirt_pkg_api_v1_EphemeralVolumeSource(ref),
-		"kubevirt.io/kubevirt/pkg/api/v1.Feature":                                   schema_kubevirt_pkg_api_v1_Feature(ref),
 		"kubevirt.io/kubevirt/pkg/api/v1.FeatureAPIC":                               schema_kubevirt_pkg_api_v1_FeatureAPIC(ref),
 		"kubevirt.io/kubevirt/pkg/api/v1.FeatureHyperv":                             schema_kubevirt_pkg_api_v1_FeatureHyperv(ref),
 		"kubevirt.io/kubevirt/pkg/api/v1.FeatureSpinlocks":                          schema_kubevirt_pkg_api_v1_FeatureSpinlocks(ref),
@@ -229,12 +229,12 @@ func schema_kubevirt_pkg_api_v1_CPU(ref common.ReferenceCallback) common.OpenAPI
 					},
 					"features": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Features specifies the CPU features list inside the VMI. In sepcial cases where Model is set to \"host-model\" or \"host-passthrough\", it is possible to set additional details on the CPU using these features. For more information see https://libvirt.org/formatdomain.html#elementsCPU.",
+							Description: "Features specifies the CPU features list inside the VMI. For more information see https://libvirt.org/formatdomain.html#elementsCPU.",
 							Type:        []string{"array"},
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
-										Ref: ref("kubevirt.io/kubevirt/pkg/api/v1.Feature"),
+										Ref: ref("kubevirt.io/kubevirt/pkg/api/v1.CPUFeature"),
 									},
 								},
 							},
@@ -251,7 +251,35 @@ func schema_kubevirt_pkg_api_v1_CPU(ref common.ReferenceCallback) common.OpenAPI
 			},
 		},
 		Dependencies: []string{
-			"kubevirt.io/kubevirt/pkg/api/v1.Feature"},
+			"kubevirt.io/kubevirt/pkg/api/v1.CPUFeature"},
+	}
+}
+
+func schema_kubevirt_pkg_api_v1_CPUFeature(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "CPUFeature allows specifying a CPU feature.",
+				Properties: map[string]spec.Schema{
+					"name": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Name of the CPU feature",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"policy": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Policy is the CPU feature attribute which can have the following attributes: force    - The virtual CPU will claim the feature is supported regardless of it being supported by host CPU. require  - Guest creation will fail unless the feature is supported by the host CPU or the hypervisor is able to emulate it. optional - The feature will be supported by virtual CPU if and only if it is supported by host CPU. disable  - The feature will not be supported by virtual CPU. forbid   - Guest creation will fail if the feature is supported by host CPU. Defaults to require",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+				},
+				Required: []string{"name"},
+			},
+		},
+		Dependencies: []string{},
 	}
 }
 
@@ -895,33 +923,6 @@ func schema_kubevirt_pkg_api_v1_EphemeralVolumeSource(ref common.ReferenceCallba
 		},
 		Dependencies: []string{
 			"k8s.io/api/core/v1.PersistentVolumeClaimVolumeSource"},
-	}
-}
-
-func schema_kubevirt_pkg_api_v1_Feature(ref common.ReferenceCallback) common.OpenAPIDefinition {
-	return common.OpenAPIDefinition{
-		Schema: spec.Schema{
-			SchemaProps: spec.SchemaProps{
-				Description: "Feature allows specifying a CPU feature.",
-				Properties: map[string]spec.Schema{
-					"name": {
-						SchemaProps: spec.SchemaProps{
-							Description: "Name of the CPU feature",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
-					"policy": {
-						SchemaProps: spec.SchemaProps{
-							Description: "Policy is the CPU feature attribute which can have the following attributes: force    - The virtual CPU will claim the feature is supported regardless of it being supported by host CPU. require  - Guest creation will fail unless the feature is supported by the host CPU or the hypervisor is able to emulate it. optional - The feature will be supported by virtual CPU if and only if it is supported by host CPU. disable  - The feature will not be supported by virtual CPU. forbid   - Guest creation will fail if the feature is supported by host CPU. Defaults to require",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
-				},
-			},
-		},
-		Dependencies: []string{},
 	}
 }
 

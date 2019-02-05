@@ -42,7 +42,7 @@ import (
 
 	v1 "kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/kubecli"
-	"kubevirt.io/kubevirt/pkg/virt-config"
+	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
 	"kubevirt.io/kubevirt/pkg/virt-controller/watch"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
@@ -671,7 +671,7 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 				vmi.Spec.Domain.CPU = &v1.CPU{
 					Cores: 1,
 					Model: "Conroe",
-					Features: []v1.Feature{
+					Features: []v1.CPUFeature{
 						{
 							Name:   "lahf_lm",
 							Policy: "require",
@@ -719,7 +719,7 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 				vmi.Spec.Domain.CPU = &v1.CPU{
 					Cores: 1,
 					Model: "Conroe",
-					Features: []v1.Feature{
+					Features: []v1.CPUFeature{
 						{
 							Name:   "lahf_lm",
 							Policy: "require",

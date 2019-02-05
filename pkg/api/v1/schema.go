@@ -211,23 +211,21 @@ type CPU struct {
 	// +optional
 	Model string `json:"model,omitempty"`
 	// Features specifies the CPU features list inside the VMI.
-	// In sepcial cases where Model is set to "host-model" or "host-passthrough",
-	// it is possible to set additional details on the CPU using these features.
 	// For more information see https://libvirt.org/formatdomain.html#elementsCPU.
 	// +optional
-	Features []Feature `json:"features,omitempty"`
+	Features []CPUFeature `json:"features,omitempty"`
 	// DedicatedCPUPlacement requests the scheduler to place the VirtualMachineInstance on a node
 	// with enough dedicated pCPUs and pin the vCPUs to it.
 	// +optional
 	DedicatedCPUPlacement bool `json:"dedicatedCpuPlacement,omitempty"`
 }
 
-// Feature allows specifying a CPU feature.
+// CPUFeature allows specifying a CPU feature.
 // ---
 // +k8s:openapi-gen=true
-type Feature struct {
+type CPUFeature struct {
 	// Name of the CPU feature
-	Name string `json:"name,omitempty"`
+	Name string `json:"name"`
 	// Policy is the CPU feature attribute which can have the following attributes:
 	// force    - The virtual CPU will claim the feature is supported regardless of it being supported by host CPU.
 	// require  - Guest creation will fail unless the feature is supported by the host CPU or the hypervisor is able to emulate it.
