@@ -39,7 +39,7 @@ import (
 	"time"
 
 	ghodssyaml "github.com/ghodss/yaml"
-	"github.com/google/goexpect"
+	expect "github.com/google/goexpect"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"github.com/spf13/cobra"
@@ -63,12 +63,12 @@ import (
 	"k8s.io/client-go/tools/remotecommand"
 
 	cdiv1 "kubevirt.io/containerized-data-importer/pkg/apis/core/v1alpha1"
-	"kubevirt.io/kubevirt/pkg/api/v1"
+	v1 "kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/kubecli"
 	"kubevirt.io/kubevirt/pkg/log"
 	"kubevirt.io/kubevirt/pkg/util/net/dns"
-	"kubevirt.io/kubevirt/pkg/virt-config"
+	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
 	"kubevirt.io/kubevirt/pkg/virtctl"
 	vmsgen "kubevirt.io/kubevirt/tools/vms-generator/utils"
@@ -1304,6 +1304,21 @@ func NewRandomVMIWithEphemeralDiskAndUserdataHighMemory(containerImage string, u
 	return vmi
 }
 
+func NewRandomVMIWithEFIBootloader() *v1.VirtualMachineInstance {
+	vmi := NewRandomVMIWithEphemeralDiskHighMemory(ContainerDiskFor(ContainerDiskAlpine))
+
+	// EFI needs more memory than other images
+	vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("1Gi")
+	vmi.Spec.Domain.Firmware = &v1.Firmware{
+		Bootloader: &v1.Bootloader{
+			EFI: &v1.EFI{},
+		},
+	}
+
+	return vmi
+
+}
+
 func NewRandomMigration(vmiName string, namespace string) *v1.VirtualMachineInstanceMigration {
 	migration := &v1.VirtualMachineInstanceMigration{
 
@@ -1429,6 +1444,12 @@ func NewRandomVMIWithEphemeralDiskAndUserdata(containerImage string, userData st
 	return vmi
 }
 
+func NewRandomVMIWithEphemeralDiskAndUserdataNetworkData(containerImage, userData, networkData string, b64encode bool) *v1.VirtualMachineInstance {
+	vmi := NewRandomVMIWithEphemeralDisk(containerImage)
+	AddCloudInitData(vmi, "disk1", userData, networkData, b64encode)
+	return vmi
+}
+
 func AddUserData(vmi *v1.VirtualMachineInstance, name string, userData string) {
 	vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
 		Name: name,
@@ -1446,6 +1467,38 @@ func AddUserData(vmi *v1.VirtualMachineInstance, name string, userData string) {
 			},
 		},
 	})
+}
+
+func AddCloudInitData(vmi *v1.VirtualMachineInstance, name, userData, networkData string, b64encode bool) {
+	vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
+		Name: name,
+		DiskDevice: v1.DiskDevice{
+			Disk: &v1.DiskTarget{
+				Bus: "virtio",
+			},
+		},
+	})
+	if b64encode {
+		vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
+			Name: name,
+			VolumeSource: v1.VolumeSource{
+				CloudInitNoCloud: &v1.CloudInitNoCloudSource{
+					UserDataBase64:    base64.StdEncoding.EncodeToString([]byte(userData)),
+					NetworkDataBase64: base64.StdEncoding.EncodeToString([]byte(networkData)),
+				},
+			},
+		})
+	} else {
+		vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
+			Name: name,
+			VolumeSource: v1.VolumeSource{
+				CloudInitNoCloud: &v1.CloudInitNoCloudSource{
+					UserData:    userData,
+					NetworkData: networkData,
+				},
+			},
+		})
+	}
 }
 
 func NewRandomVMIWithPVC(claimName string) *v1.VirtualMachineInstance {
@@ -2914,10 +2967,9 @@ func KubevirtFailHandler(message string, callerSkip ...int) {
 			}
 			fmt.Println(string(data))
 
-			var tailLines int64 = 15
+			var tailLines int64 = 45
 			var containerName = ""
 			if strings.HasPrefix(pod.Name, "virt-launcher") {
-				tailLines = 45
 				containerName = "compute"
 			}
 			logsRaw, err := virtClient.CoreV1().Pods(ns).GetLogs(

@@ -42,9 +42,11 @@ const (
 	sshAuthorizedKey = "ssh-rsa AAAAB3NzaC1yc2EAAAABIwAAAQEA6NF8iallvQVp22WDkT test-ssh-key"
 	fedoraPassword   = "fedora"
 	expectedUserData = "printed from cloud-init userdata"
+	testNetworkData  = "#Test networkData"
+	testUserData     = "#cloud-config"
 )
 
-var _ = Describe("CloudInit UserData", func() {
+var _ = Describe("[rfe_id:151][crit:high][vendor:cnv-qe@redhat.com][level:component]CloudInit UserData", func() {
 
 	flag.Parse()
 
@@ -74,13 +76,37 @@ var _ = Describe("CloudInit UserData", func() {
 		Expect(err).ToNot(HaveOccurred())
 	}
 
+	MountCloudInit := func(vmi *v1.VirtualMachineInstance, prompt string) {
+		cmdCheck := "mount $(blkid  -L cidata) /mnt/\n"
+		err := tests.CheckForTextExpecter(vmi, []expect.Batcher{
+			&expect.BSnd{S: "sudo su -\n"},
+			&expect.BExp{R: prompt},
+			&expect.BSnd{S: cmdCheck},
+			&expect.BExp{R: prompt},
+			&expect.BSnd{S: "echo $?\n"},
+			&expect.BExp{R: "0"},
+		}, 15)
+		Expect(err).ToNot(HaveOccurred())
+	}
+
+	CheckCloudInitFile := func(vmi *v1.VirtualMachineInstance, prompt, testFile, testData string) {
+		cmdCheck := "cat /mnt/" + testFile + "\n"
+		err := tests.CheckForTextExpecter(vmi, []expect.Batcher{
+			&expect.BSnd{S: "sudo su -\n"},
+			&expect.BExp{R: prompt},
+			&expect.BSnd{S: cmdCheck},
+			&expect.BExp{R: testData},
+		}, 15)
+		Expect(err).ToNot(HaveOccurred())
+	}
+
 	BeforeEach(func() {
 		tests.BeforeTestCleanup()
 	})
 
-	Describe("A new VirtualMachineInstance", func() {
+	Describe("[rfe_id:151][crit:medium][vendor:cnv-qe@redhat.com][level:component]A new VirtualMachineInstance", func() {
 		Context("with cloudInitNoCloud userDataBase64 source", func() {
-			It("should have cloud-init data", func() {
+			It("[test_id:1615]should have cloud-init data", func() {
 				userData := fmt.Sprintf("#!/bin/sh\n\necho '%s'\n", expectedUserData)
 
 				vmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(tests.ContainerDiskFor(tests.ContainerDiskCirros), userData)
@@ -92,7 +118,7 @@ var _ = Describe("CloudInit UserData", func() {
 			})
 
 			Context("with injected ssh-key", func() {
-				It("should have ssh-key under authorized keys", func() {
+				It("[test_id:1616]should have ssh-key under authorized keys", func() {
 					userData := fmt.Sprintf(
 						"#cloud-config\npassword: %s\nchpasswd: { expire: False }\nssh_authorized_keys:\n  - %s",
 						fedoraPassword,
@@ -118,7 +144,7 @@ var _ = Describe("CloudInit UserData", func() {
 		})
 
 		Context("with cloudInitNoCloud userData source", func() {
-			It("should process provided cloud-init data", func() {
+			It("[test_id:1617]should process provided cloud-init data", func() {
 				userData := fmt.Sprintf("#!/bin/sh\n\necho '%s'\n", expectedUserData)
 
 				vmi := tests.NewRandomVMIWithEphemeralDisk(tests.ContainerDiskFor(tests.ContainerDiskCirros))
@@ -161,7 +187,7 @@ var _ = Describe("CloudInit UserData", func() {
 			})
 		})
 
-		It("should take user-data from k8s secret", func() {
+		It("[test_id:1618]should take user-data from k8s secret", func() {
 			userData := fmt.Sprintf("#!/bin/sh\n\necho '%s'\n", expectedUserData)
 			vmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(tests.ContainerDiskFor(tests.ContainerDiskCirros), "")
 
@@ -207,5 +233,99 @@ var _ = Describe("CloudInit UserData", func() {
 			Expect(vmi.Spec.Volumes[idx].CloudInitNoCloud.UserData).To(BeEmpty())
 			Expect(vmi.Spec.Volumes[idx].CloudInitNoCloud.UserDataBase64).To(BeEmpty())
 		})
+
+		Context("with cloudInitNoCloud networkData", func() {
+			It("should have cloud-init network-config with NetworkData source", func() {
+				vmi := tests.NewRandomVMIWithEphemeralDiskAndUserdataNetworkData(
+					tests.ContainerDiskFor(tests.ContainerDiskCirros), testUserData, testNetworkData, false)
+				LaunchVMI(vmi)
+				tests.WaitUntilVMIReady(vmi, tests.LoggedInCirrosExpecter)
+
+				By("mouting cloudinit iso")
+				MountCloudInit(vmi, "#")
+
+				By("checking cloudinit network-config")
+				CheckCloudInitFile(vmi, "#", "network-config", testNetworkData)
+
+				By("checking cloudinit user-data")
+				CheckCloudInitFile(vmi, "#", "user-data", testUserData)
+			})
+			It("should have cloud-init network-config with NetworkDataBase64 source", func() {
+				vmi := tests.NewRandomVMIWithEphemeralDiskAndUserdataNetworkData(
+					tests.ContainerDiskFor(tests.ContainerDiskCirros), testUserData, testNetworkData, true)
+				LaunchVMI(vmi)
+				tests.WaitUntilVMIReady(vmi, tests.LoggedInCirrosExpecter)
+
+				By("mouting cloudinit iso")
+				MountCloudInit(vmi, "#")
+
+				By("checking cloudinit network-config")
+				CheckCloudInitFile(vmi, "#", "network-config", testNetworkData)
+
+				By("checking cloudinit user-data")
+				CheckCloudInitFile(vmi, "#", "user-data", testUserData)
+			})
+			It("should have cloud-init network-config from k8s secret", func() {
+				vmi := tests.NewRandomVMIWithEphemeralDiskAndUserdataNetworkData(
+					tests.ContainerDiskFor(tests.ContainerDiskCirros), "", "", false)
+
+				idx := 0
+				for i, volume := range vmi.Spec.Volumes {
+					if volume.CloudInitNoCloud == nil {
+						continue
+					}
+					idx = i
+
+					secretID := fmt.Sprintf("%s-test-secret", uuid.NewRandom().String())
+					spec := volume.CloudInitNoCloud
+					spec.UserDataSecretRef = &kubev1.LocalObjectReference{Name: secretID}
+					spec.NetworkDataSecretRef = &kubev1.LocalObjectReference{Name: secretID}
+
+					// Store cloudinit data as k8s secret
+					By("Creating a secret with user and network data")
+					secret := kubev1.Secret{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      secretID,
+							Namespace: vmi.Namespace,
+							Labels: map[string]string{
+								tests.SecretLabel: secretID,
+							},
+						},
+						Type: "Opaque",
+						Data: map[string][]byte{
+							// The client encrypts the secret for us
+							"userdata":    []byte(testUserData),
+							"networkdata": []byte(testNetworkData),
+						},
+					}
+					_, err := virtClient.CoreV1().Secrets(vmi.Namespace).Create(&secret)
+					Expect(err).To(BeNil())
+
+					break
+				}
+
+				LaunchVMI(vmi)
+				tests.WaitUntilVMIReady(vmi, tests.LoggedInCirrosExpecter)
+
+				By("mouting cloudinit iso")
+				MountCloudInit(vmi, "#")
+
+				By("checking cloudinit network-config")
+				CheckCloudInitFile(vmi, "#", "network-config", testNetworkData)
+
+				By("checking cloudinit user-data")
+				CheckCloudInitFile(vmi, "#", "user-data", testUserData)
+
+				// Expect that the secret is not present on the vmi itself
+				vmi, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Get(vmi.Name, &metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				Expect(vmi.Spec.Volumes[idx].CloudInitNoCloud.UserData).To(BeEmpty())
+				Expect(vmi.Spec.Volumes[idx].CloudInitNoCloud.UserDataBase64).To(BeEmpty())
+				Expect(vmi.Spec.Volumes[idx].CloudInitNoCloud.NetworkData).To(BeEmpty())
+				Expect(vmi.Spec.Volumes[idx].CloudInitNoCloud.NetworkDataBase64).To(BeEmpty())
+			})
+
+		})
+
 	})
 })

@@ -31,7 +31,9 @@ ${KUBEVIRT_DIR}/tools/resource-generator/resource-generator --type=virt-controll
 ${KUBEVIRT_DIR}/tools/resource-generator/resource-generator --type=virt-handler --namespace={{.Namespace}} --repository={{.DockerPrefix}} --version={{.DockerTag}} --pullPolicy={{.ImagePullPolicy}} --verbosity={{.Verbosity}} >${KUBEVIRT_DIR}/manifests/generated/virt-handler.yaml.in
 
 (cd ${KUBEVIRT_DIR}/tools/vms-generator/ && go build)
-${KUBEVIRT_DIR}/tools/vms-generator/vms-generator --generated-vms-dir=${KUBEVIRT_DIR}/cluster/examples
+vms_docker_prefix=${DOCKER_PREFIX:-registry:5000/kubevirt}
+vms_docker_tag=${DOCKER_TAG:-devel}
+${KUBEVIRT_DIR}/tools/vms-generator/vms-generator --container-prefix=${vms_docker_prefix} --container-tag=${vms_docker_tag} --generated-vms-dir=${KUBEVIRT_DIR}/cluster/examples
 
 protoc --proto_path=pkg/hooks/info --go_out=plugins=grpc,import_path=info:pkg/hooks/info pkg/hooks/info/api.proto
 protoc --proto_path=pkg/hooks/v1alpha1 --go_out=plugins=grpc,import_path=v1alpha:pkg/hooks/v1alpha1 pkg/hooks/v1alpha1/api.proto

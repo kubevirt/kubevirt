@@ -593,6 +593,7 @@ const (
 	DOMAIN_SHUTOFF_SAVED         = DomainShutoffReason(C.VIR_DOMAIN_SHUTOFF_SAVED)
 	DOMAIN_SHUTOFF_FAILED        = DomainShutoffReason(C.VIR_DOMAIN_SHUTOFF_FAILED)
 	DOMAIN_SHUTOFF_FROM_SNAPSHOT = DomainShutoffReason(C.VIR_DOMAIN_SHUTOFF_FROM_SNAPSHOT)
+	DOMAIN_SHUTOFF_DAEMON        = DomainShutoffReason(C.VIR_DOMAIN_SHUTOFF_DAEMON)
 )
 
 type DomainBlockCommitFlags int
@@ -768,6 +769,7 @@ const (
 	DOMAIN_STATS_INTERFACE = DomainStatsTypes(C.VIR_DOMAIN_STATS_INTERFACE)
 	DOMAIN_STATS_BLOCK     = DomainStatsTypes(C.VIR_DOMAIN_STATS_BLOCK)
 	DOMAIN_STATS_PERF      = DomainStatsTypes(C.VIR_DOMAIN_STATS_PERF)
+	DOMAIN_STATS_IOTHREAD  = DomainStatsTypes(C.VIR_DOMAIN_STATS_IOTHREAD)
 )
 
 type DomainCoreDumpFlags int
@@ -3014,6 +3016,8 @@ type DomainJobInfo struct {
 	AutoConvergeThrottle      int
 	OperationSet              bool
 	Operation                 DomainJobOperationType
+	MemPostcopyReqsSet        bool
+	MemPostcopyReqs           uint64
 }
 
 // See also https://libvirt.org/html/libvirt-libvirt-domain.html#virDomainGetJobInfo
@@ -3174,6 +3178,10 @@ func getDomainJobInfoFieldInfo(params *DomainJobInfo) map[string]typedParamsFiel
 		C.VIR_DOMAIN_JOB_OPERATION: typedParamsFieldInfo{
 			set: &params.OperationSet,
 			i:   (*int)(&params.Operation),
+		},
+		C.VIR_DOMAIN_JOB_MEMORY_POSTCOPY_REQS: typedParamsFieldInfo{
+			set: &params.MemPostcopyReqsSet,
+			ul:  &params.MemPostcopyReqs,
 		},
 	}
 }
@@ -4199,6 +4207,57 @@ func (d *Domain) DelIOThread(id uint, flags DomainModificationImpact) error {
 	}
 	var err C.virError
 	ret := C.virDomainDelIOThreadWrapper(d.ptr, C.uint(id), C.uint(flags), &err)
+	if ret == -1 {
+		return makeError(&err)
+	}
+
+	return nil
+}
+
+// See also https://libvirt.org/html/libvirt-libvirt-domain.html#virDomainSetIOThreadParams
+
+type DomainSetIOThreadParams struct {
+	PollMaxNsSet  bool
+	PollMaxNs     uint64
+	PollGrowSet   bool
+	PollGrow      uint
+	PollShrinkSet bool
+	PollShrink    uint
+}
+
+func getSetIOThreadParamsFieldInfo(params *DomainSetIOThreadParams) map[string]typedParamsFieldInfo {
+	return map[string]typedParamsFieldInfo{
+		C.VIR_DOMAIN_IOTHREAD_POLL_MAX_NS: typedParamsFieldInfo{
+			set: &params.PollMaxNsSet,
+			ul:  &params.PollMaxNs,
+		},
+		C.VIR_DOMAIN_IOTHREAD_POLL_GROW: typedParamsFieldInfo{
+			set: &params.PollGrowSet,
+			ui:  &params.PollGrow,
+		},
+		C.VIR_DOMAIN_IOTHREAD_POLL_SHRINK: typedParamsFieldInfo{
+			set: &params.PollShrinkSet,
+			ui:  &params.PollShrink,
+		},
+	}
+}
+
+func (d *Domain) SetIOThreadParams(iothreadid uint, params *DomainSetIOThreadParams, flags DomainModificationImpact) error {
+	if C.LIBVIR_VERSION_NUMBER < 4010000 {
+		return makeNotImplementedError("virDomainSetIOThreadParams")
+	}
+	info := getSetIOThreadParamsFieldInfo(params)
+
+	cparams, gerr := typedParamsPackNew(info)
+	if gerr != nil {
+		return gerr
+	}
+	nparams := len(*cparams)
+
+	defer C.virTypedParamsClear((*C.virTypedParameter)(unsafe.Pointer(&(*cparams)[0])), C.int(nparams))
+
+	var err C.virError
+	ret := C.virDomainSetIOThreadParamsWrapper(d.ptr, C.uint(iothreadid), (*C.virTypedParameter)(unsafe.Pointer(&(*cparams)[0])), C.int(nparams), C.uint(flags), &err)
 	if ret == -1 {
 		return makeError(&err)
 	}

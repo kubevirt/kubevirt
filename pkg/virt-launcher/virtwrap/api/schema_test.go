@@ -83,6 +83,7 @@ var exampleXML = `<domain type="kvm" xmlns:qemu="http://libvirt.org/schemas/doma
   </metadata>
   <features>
     <acpi></acpi>
+    <smm></smm>
   </features>
   <cpu mode="custom">
     <model>Conroe</model>
@@ -163,6 +164,7 @@ var _ = Describe("Schema", func() {
 	}
 	exampleDomain.Spec.Features = &Features{
 		ACPI: &FeatureEnabled{},
+		SMM:  &FeatureEnabled{},
 	}
 	exampleDomain.Spec.SysInfo = &SysInfo{
 		Type: "smbios",

@@ -34,6 +34,7 @@ type Stores struct {
 	ServiceCache            cache.Store
 	DeploymentCache         cache.Store
 	DaemonSetCache          cache.Store
+	SCCCache                cache.Store
 }
 
 func (s *Stores) AllEmpty() bool {
@@ -74,6 +75,7 @@ type Informers struct {
 	Service            cache.SharedIndexInformer
 	Deployment         cache.SharedIndexInformer
 	DaemonSet          cache.SharedIndexInformer
+	SCC                cache.SharedIndexInformer
 }
 
 func (e *Expectations) DeleteExpectations(key string) {

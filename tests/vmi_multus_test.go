@@ -361,8 +361,6 @@ var _ = Describe("Multus Networking", func() {
 			pingVirtualMachine(vmiOne, "10.1.1.2", "localhost:~#")
 		})
 
-		// In order to fully cover this TC, the previous It must also be run, otherwise - only one interface
-		// will be tested. So - don't focus (FIt) this It, but the entire context (FContext).
 		It("[CNV-1578]should create two virtual machines with two interfaces", func() {
 			By("checking the first virtual machine instance can ping 10.1.1.2 using ovs-cni plugin")
 			interfaces := []v1.Interface{{Name: "default", InterfaceBindingMethod: v1.InterfaceBindingMethod{Bridge: &v1.InterfaceBridge{}}},

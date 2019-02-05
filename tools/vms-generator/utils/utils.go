@@ -41,6 +41,7 @@ const (
 	VmiFlavorSmall       = "vmi-flavor-small"
 	VmiSata              = "vmi-sata"
 	VmiFedora            = "vmi-fedora"
+	VmiAlpineEFI         = "vmi-alpine-efi"
 	VmiNoCloud           = "vmi-nocloud"
 	VmiPVC               = "vmi-pvc"
 	VmiBlockPVC          = "vmi-block-pvc"
@@ -308,6 +309,20 @@ func GetVMIEphemeralFedora() *v1.VirtualMachineInstance {
 
 	addContainerDisk(&vmi.Spec, fmt.Sprintf("%s/%s:%s", DockerPrefix, imageFedora, DockerTag), busVirtio)
 	addNoCloudDiskWitUserData(&vmi.Spec, "#cloud-config\npassword: fedora\nchpasswd: { expire: False }")
+	return vmi
+}
+
+func GetVMIAlpineEFI() *v1.VirtualMachineInstance {
+	vmi := getBaseVMI(VmiAlpineEFI)
+
+	addContainerDisk(&vmi.Spec, fmt.Sprintf("%s/%s:%s", DockerPrefix, imageAlpine, DockerTag), busVirtio)
+	vmi.Spec.Domain.Firmware = &v1.Firmware{
+		Bootloader: &v1.Bootloader{
+			EFI: &v1.EFI{},
+		},
+	}
+
+	vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("1Gi")
 	return vmi
 }
 
@@ -828,7 +843,7 @@ func GetVMIWithHookSidecar() *v1.VirtualMachineInstance {
 	addNoCloudDiskWitUserData(&vmi.Spec, "#cloud-config\npassword: fedora\nchpasswd: { expire: False }")
 
 	vmi.ObjectMeta.Annotations = map[string]string{
-		"hooks.kubevirt.io/hookSidecars":              `[{"image": "registry:5000/kubevirt/example-hook-sidecar:devel"}]`,
+		"hooks.kubevirt.io/hookSidecars":              fmt.Sprintf("[{\"image\": \"%s/example-hook-sidecar:%s\"}]", DockerPrefix, DockerTag),
 		"smbios.vm.kubevirt.io/baseBoardManufacturer": "Radical Edward",
 	}
 	return vmi
