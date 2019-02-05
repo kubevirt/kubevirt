@@ -50,7 +50,7 @@ docker: build
 push: docker
 	hack/build-docker.sh push ${WHAT}
 
-push-cache:
+push-cache: docker verify-build
 	hack/build-docker.sh push-cache ${WHAT}
 
 pull-cache:
