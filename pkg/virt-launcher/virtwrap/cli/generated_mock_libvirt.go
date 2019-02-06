@@ -379,6 +379,17 @@ func (_mr *_MockVirDomainRecorder) GetJobStats(arg0 interface{}) *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "GetJobStats", arg0)
 }
 
+func (_m *MockVirDomain) GetJobInfo() (*libvirt_go.DomainJobInfo, error) {
+	ret := _m.ctrl.Call(_m, "GetJobInfo")
+	ret0, _ := ret[0].(*libvirt_go.DomainJobInfo)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+func (_mr *_MockVirDomainRecorder) GetJobInfo() *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "GetJobInfo")
+}
+
 func (_m *MockVirDomain) AbortJob() error {
 	ret := _m.ctrl.Call(_m, "AbortJob")
 	ret0, _ := ret[0].(error)

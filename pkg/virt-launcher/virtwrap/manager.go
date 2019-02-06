@@ -419,7 +419,7 @@ func liveMigrationMonitor(vmi *v1.VirtualMachineInstance, dom cli.VirDomain) {
 	completionTimeoutPerGiB := int64(800)
 	acceptableCompletionTime := completionTimeoutPerGiB * getVMIMigrationDataSize(vmi)
 	for {
-		stats, err := dom.GetJobStats(0)
+		stats, err := dom.GetJobInfo()
 		if err != nil {
 			logger.Reason(err).Error("failed to get domain job info")
 			break
