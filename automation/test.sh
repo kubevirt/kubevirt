@@ -245,10 +245,13 @@ EOF
   # Run only Windows tests
   ginko_params="$ginko_params --ginkgo.focus=Windows"
 
-elif [[ $TARGET =~ multus.* ]] || [[ $TARGET =~ genie.* ]]; then
-  # Run networking tests only (general networking, multus, genie, ...)
-  # If multus or genie is not present the test will  be skipped base on per-test checks
-  ginko_params="$ginko_params --ginkgo.focus=Networking|VMIlifecycle|Expose|Networkpolicy"
+elif [[ $TARGET =~ multus.* ]]; then
+  # Run networking tests only (general networking, multus, ...)
+  ginko_params="$ginko_params --ginkgo.focus=Multus|Networking|VMIlifecycle|Expose|Networkpolicy"
+elif [[ $TARGET =~ genie.* ]]; then
+  ginko_params="$ginko_params --ginkgo.focus=Genie|Networking|VMIlifecycle|Expose|Networkpolicy"
+else
+    ginko_params="$ginko_params --ginkgo.skip=Multus"
 fi
 
 # Prepare RHEL PV for Template testing

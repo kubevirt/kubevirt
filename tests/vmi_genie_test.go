@@ -35,7 +35,7 @@ import (
 	"kubevirt.io/kubevirt/tests"
 )
 
-var _ = Describe("Genie Networking", func() {
+var _ = Describe("Genie", func() {
 
 	flag.Parse()
 
