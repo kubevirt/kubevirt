@@ -58,8 +58,6 @@ import (
 	"kubevirt.io/kubevirt/pkg/watchdog"
 )
 
-var MigrationPortsRange = []int{49152, 49153}
-
 func NewController(
 	recorder record.EventRecorder,
 	clientset kubecli.KubevirtClient,

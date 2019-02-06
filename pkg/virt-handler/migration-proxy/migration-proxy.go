@@ -31,14 +31,18 @@ import (
 	"kubevirt.io/kubevirt/pkg/log"
 )
 
-var migrationPortsRange = []int{49152, 49153}
+const (
+	LibvirtDirectMigrationPort = 49152
+	LibvirtBlockMigrationPort  = 49153
+)
+
+var migrationPortsRange = []int{LibvirtDirectMigrationPort, LibvirtBlockMigrationPort}
 
 type ProxyManager interface {
 	StartTargetListener(key string, targetUnixFiles []string) error
 	GetTargetListenerPorts(key string) map[int]int
 	StopTargetListener(key string)
 
-	//StartSourceListener(key string, targetAddress string) error
 	StartSourceListener(key string, targetAddress string, destSrcPortMap map[int]int) error
 	GetSourceListenerFile(key string) []string
 	StopSourceListener(key string)
