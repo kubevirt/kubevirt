@@ -429,7 +429,7 @@ var _ = Describe("Multus Networking", func() {
 		})
 	})
 
-	FContext("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:component]VirtualMachineInstance with invalid MAC addres", func() {
+	Context("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:component]VirtualMachineInstance with invalid MAC addres", func() {
 		BeforeEach(func() {
 			tests.BeforeTestCleanup()
 		})
@@ -470,8 +470,9 @@ var _ = Describe("Multus Networking", func() {
 			}
 
 			_, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
+			testErr := err.(*errors.StatusError)
 			Expect(err).To(HaveOccurred())
-			Expect(err.Error()).To(ContainSubstring("malformed MAC address"))
+			Expect(testErr.ErrStatus.Reason).To(BeEquivalentTo("Invalid"))
 		})
 	})
 
