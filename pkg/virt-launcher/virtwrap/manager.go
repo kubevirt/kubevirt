@@ -356,7 +356,7 @@ func (l *LibvirtDomainManager) asyncMigrate(vmi *v1.VirtualMachineInstance) {
 			params.MigrateDisksSet = true
 		}
 		// start live migration tracking
-		go liveMigrationMonitor(vmi, dom)
+		go liveMigrationMonitor(vmi, dom, l)
 		err = dom.MigrateToURI3(dstUri, params, migrateFlags)
 		if err != nil {
 
@@ -407,7 +407,7 @@ func getVMIMigrationDataSize(vmi *v1.VirtualMachineInstance) int64 {
 	return memory.ScaledValue(resource.Giga)
 }
 
-func liveMigrationMonitor(vmi *v1.VirtualMachineInstance, dom cli.VirDomain) {
+func liveMigrationMonitor(vmi *v1.VirtualMachineInstance, dom cli.VirDomain, l *LibvirtDomainManager) {
 	logger := log.Log.Object(vmi)
 	start := time.Now().UTC().Unix()
 	lastProgressUpdate := start
@@ -445,6 +445,8 @@ func liveMigrationMonitor(vmi *v1.VirtualMachineInstance, dom cli.VirDomain) {
 				if err != nil {
 					logger.Reason(err).Error("failed to abort migration")
 				}
+				l.setMigrationResult(vmi, true, fmt.Sprintf("Live migration stuck for %d sec and has been aborted", progressDelay))
+				break
 			}
 
 			// check the overall migration time
@@ -456,6 +458,8 @@ func liveMigrationMonitor(vmi *v1.VirtualMachineInstance, dom cli.VirDomain) {
 				if err != nil {
 					logger.Reason(err).Error("failed to abort migration")
 				}
+				l.setMigrationResult(vmi, true, fmt.Sprintf("Live migration is not completed after %d sec and has been aborted", acceptableCompletionTime))
+				break
 			}
 
 		case libvirt.DOMAIN_JOB_NONE:
