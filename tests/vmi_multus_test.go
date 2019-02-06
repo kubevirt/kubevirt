@@ -55,16 +55,47 @@ var _ = Describe("Multus", func() {
 	var detachedVMI *v1.VirtualMachineInstance
 	var vmiOne *v1.VirtualMachineInstance
 	var vmiTwo *v1.VirtualMachineInstance
-	var nodeAffinity *k8sv1.Affinity
+	var nodes *k8sv1.NodeList
 
-	createVMI := func(interfaces []v1.Interface, networks []v1.Network) *v1.VirtualMachineInstance {
+	defaultInterface := v1.Interface{
+		Name: "default",
+		InterfaceBindingMethod: v1.InterfaceBindingMethod{
+			Bridge: &v1.InterfaceBridge{},
+		},
+	}
+
+	ovsInterface := v1.Interface{
+		Name: "ovs",
+		InterfaceBindingMethod: v1.InterfaceBindingMethod{
+			Bridge: &v1.InterfaceBridge{},
+		},
+	}
+
+	defaultNetwork := v1.Network{
+		Name: "default",
+		NetworkSource: v1.NetworkSource{
+			Pod: &v1.PodNetwork{},
+		},
+	}
+
+	ovsNetwork := v1.Network{
+		Name: "ovs",
+		NetworkSource: v1.NetworkSource{
+			Multus: &v1.CniNetwork{
+				NetworkName: "ovs-net-vlan100",
+			},
+		},
+	}
+
+	createVMIOnNode := func(interfaces []v1.Interface, networks []v1.Network) *v1.VirtualMachineInstance {
 		vmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(tests.ContainerDiskFor(tests.ContainerDiskAlpine), "#!/bin/bash\n")
 		vmi.Spec.Domain.Devices.Interfaces = interfaces
 		vmi.Spec.Networks = networks
-		vmi.Spec.Affinity = nodeAffinity
 
-		_, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
-		Expect(err).ToNot(HaveOccurred())
+		// Arbitrarily select one compute node in the cluster, on which it is possible to create a VMI
+		// (i.e. a schedulable node).
+		nodeName := nodes.Items[0].Name
+		tests.StartVmOnNode(vmi, nodeName)
 
 		return vmi
 	}
@@ -72,22 +103,8 @@ var _ = Describe("Multus", func() {
 	tests.BeforeAll(func() {
 		tests.BeforeTestCleanup()
 
-		nodes := tests.GetAllSchedulableNodes(virtClient)
-		Expect(len(nodes.Items) > 1).To(BeTrue())
-
-		nodeAffinity = &k8sv1.Affinity{
-			NodeAffinity: &k8sv1.NodeAffinity{
-				RequiredDuringSchedulingIgnoredDuringExecution: &k8sv1.NodeSelector{
-					NodeSelectorTerms: []k8sv1.NodeSelectorTerm{
-						{
-							MatchExpressions: []k8sv1.NodeSelectorRequirement{
-								{Key: "kubernetes.io/hostname", Operator: k8sv1.NodeSelectorOpIn, Values: []string{nodes.Items[0].Name}},
-							},
-						},
-					},
-				},
-			},
-		}
+		nodes = tests.GetAllSchedulableNodes(virtClient)
+		Expect(len(nodes.Items) > 0).To(BeTrue())
 
 		result := virtClient.RestClient().
 			Post().
@@ -173,13 +190,11 @@ var _ = Describe("Multus", func() {
 			By("checking virtual machine instance can ping 10.1.1.1 using ptp cni plugin")
 			detachedVMI = tests.NewRandomVMIWithEphemeralDiskAndUserdata(tests.ContainerDiskFor(tests.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n")
 
-			detachedVMI.Spec.Domain.Devices.Interfaces = []v1.Interface{{Name: "default", InterfaceBindingMethod: v1.InterfaceBindingMethod{Bridge: &v1.InterfaceBridge{}}},
+			detachedVMI.Spec.Domain.Devices.Interfaces = []v1.Interface{
+				defaultInterface,
 				{Name: "ptp", InterfaceBindingMethod: v1.InterfaceBindingMethod{Bridge: &v1.InterfaceBridge{}}}}
 			detachedVMI.Spec.Networks = []v1.Network{
-				{Name: "default",
-					NetworkSource: v1.NetworkSource{
-						Pod: &v1.PodNetwork{},
-					}},
+				defaultNetwork,
 				{Name: "ptp", NetworkSource: v1.NetworkSource{
 					Multus: &v1.CniNetwork{NetworkName: "ptp-conf"},
 				}},
@@ -339,13 +354,13 @@ var _ = Describe("Multus", func() {
 			deleteVMIs(virtClient, []*v1.VirtualMachineInstance{vmiOne, vmiTwo})
 		})
 
-		It("[CNV-1577]should create two virtual machines with one interface", func() {
+		It("[test_id:1577]should create two virtual machines with one interface", func() {
 			By("checking virtual machine instance can ping the secondary virtual machine instance using ovs-cni plugin")
-			interfaces := []v1.Interface{{Name: "ovs", InterfaceBindingMethod: v1.InterfaceBindingMethod{Bridge: &v1.InterfaceBridge{}}}}
-			networks := []v1.Network{{Name: "ovs", NetworkSource: v1.NetworkSource{Multus: &v1.CniNetwork{NetworkName: "ovs-net-vlan100"}}}}
+			interfaces := []v1.Interface{ovsInterface}
+			networks := []v1.Network{ovsNetwork}
 
-			vmiOne = createVMI(interfaces, networks)
-			vmiTwo = createVMI(interfaces, networks)
+			vmiOne = createVMIOnNode(interfaces, networks)
+			vmiTwo = createVMIOnNode(interfaces, networks)
 
 			tests.WaitUntilVMIReady(vmiOne, tests.LoggedInAlpineExpecter)
 			tests.WaitUntilVMIReady(vmiTwo, tests.LoggedInAlpineExpecter)
@@ -362,15 +377,19 @@ var _ = Describe("Multus", func() {
 			pingVirtualMachine(vmiOne, "10.1.1.2", "localhost:~#")
 		})
 
-		It("[CNV-1578]should create two virtual machines with two interfaces", func() {
+		It("[test_id:1578]should create two virtual machines with two interfaces", func() {
 			By("checking the first virtual machine instance can ping 10.1.1.2 using ovs-cni plugin")
-			interfaces := []v1.Interface{{Name: "default", InterfaceBindingMethod: v1.InterfaceBindingMethod{Bridge: &v1.InterfaceBridge{}}},
-				{Name: "ovs", InterfaceBindingMethod: v1.InterfaceBindingMethod{Bridge: &v1.InterfaceBridge{}}}}
-			networks := []v1.Network{{Name: "default", NetworkSource: v1.NetworkSource{Pod: &v1.PodNetwork{}}},
-				{Name: "ovs", NetworkSource: v1.NetworkSource{Multus: &v1.CniNetwork{NetworkName: "ovs-net-vlan100"}}}}
+			interfaces := []v1.Interface{
+				defaultInterface,
+				ovsInterface,
+			}
+			networks := []v1.Network{
+				defaultNetwork,
+				ovsNetwork,
+			}
 
-			vmiOne = createVMI(interfaces, networks)
-			vmiTwo = createVMI(interfaces, networks)
+			vmiOne = createVMIOnNode(interfaces, networks)
+			vmiTwo = createVMIOnNode(interfaces, networks)
 
 			tests.WaitUntilVMIReady(vmiOne, tests.LoggedInAlpineExpecter)
 			tests.WaitUntilVMIReady(vmiTwo, tests.LoggedInAlpineExpecter)
@@ -388,18 +407,58 @@ var _ = Describe("Multus", func() {
 		})
 	})
 
+	Context("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:component]VirtualMachineInstance with ovs-cni plugin interface and custom MAC address.", func() {
+		interfaces := []v1.Interface{ovsInterface}
+		networks := []v1.Network{ovsNetwork}
+		ovsIfIdx := 0
+		customMacAddress := "50:00:00:00:90:0d"
+
+		AfterEach(func() {
+			deleteVMIs(virtClient, []*v1.VirtualMachineInstance{vmiOne, vmiTwo})
+		})
+
+		It("[test_id:676]should configure valid custom MAC address on ovs-cni interface.", func() {
+			By("Creating a VM with ovs-cni network interface and default MAC address.")
+			vmiTwo = createVMIOnNode(interfaces, networks)
+			tests.WaitUntilVMIReady(vmiTwo, tests.LoggedInAlpineExpecter)
+
+			By("Creating another VM with custom MAC address on its ovs-cni interface.")
+			interfaces[ovsIfIdx].MacAddress = customMacAddress
+			vmiOne = createVMIOnNode(interfaces, networks)
+			tests.WaitUntilVMIReady(vmiOne, tests.LoggedInAlpineExpecter)
+
+			By("Configuring static IP address to the ovs interface.")
+			configInterface(vmiOne, "eth0", "10.1.1.1/24", "localhost:~#")
+			configInterface(vmiTwo, "eth0", "10.1.1.2/24", "localhost:~#")
+
+			By("Verifying the desired custom MAC is the one that were actually configured on the interface.")
+			ipLinkShow := fmt.Sprintf("ip link show eth0 | grep -i \"%s\" | wc -l\n", customMacAddress)
+			err = tests.CheckForTextExpecter(vmiOne, []expect.Batcher{
+				&expect.BSnd{S: ipLinkShow},
+				&expect.BExp{R: "1"},
+			}, 15)
+			Expect(err).ToNot(HaveOccurred())
+
+			By("Ping from the VM with the custom MAC to the other VM.")
+			pingVirtualMachine(vmiOne, "10.1.1.2", "localhost:~#")
+		})
+	})
 	Context("Single VirtualMachineInstance with ovs-cni plugin interface", func() {
 		AfterEach(func() {
 			deleteVMIs(virtClient, []*v1.VirtualMachineInstance{vmiOne})
 		})
 
 		It("should report all interfaces in Status", func() {
-			interfaces := []v1.Interface{{Name: "default", InterfaceBindingMethod: v1.InterfaceBindingMethod{Bridge: &v1.InterfaceBridge{}}},
-				{Name: "ovs", InterfaceBindingMethod: v1.InterfaceBindingMethod{Bridge: &v1.InterfaceBridge{}}}}
-			networks := []v1.Network{{Name: "default", NetworkSource: v1.NetworkSource{Pod: &v1.PodNetwork{}}},
-				{Name: "ovs", NetworkSource: v1.NetworkSource{Multus: &v1.CniNetwork{NetworkName: "ovs-net-vlan100"}}}}
+			interfaces := []v1.Interface{
+				defaultInterface,
+				ovsInterface,
+			}
+			networks := []v1.Network{
+				defaultNetwork,
+				ovsNetwork,
+			}
 
-			vmiOne = createVMI(interfaces, networks)
+			vmiOne = createVMIOnNode(interfaces, networks)
 
 			tests.WaitUntilVMIReady(vmiOne, tests.LoggedInAlpineExpecter)
 
@@ -437,37 +496,18 @@ var _ = Describe("Multus", func() {
 
 		It("[test_id:1713]should failed to start with invalid MAC address", func() {
 			By("Start VMI")
+			ovsIfIdx := 1
+
 			vmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(tests.ContainerDiskFor(tests.ContainerDiskAlpine), "#!/bin/bash\n")
 			vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{
-				{
-					Name: "default",
-					InterfaceBindingMethod: v1.InterfaceBindingMethod{
-						Bridge: &v1.InterfaceBridge{},
-					},
-				},
-				{
-					Name: "ovs",
-					InterfaceBindingMethod: v1.InterfaceBindingMethod{
-						Bridge: &v1.InterfaceBridge{},
-					},
-					MacAddress: "de:00c:00c:00:00:de:abc",
-				},
+				defaultInterface,
+				ovsInterface,
 			}
+			vmi.Spec.Domain.Devices.Interfaces[ovsIfIdx].MacAddress = "de:00c:00c:00:00:de:abc"
+
 			vmi.Spec.Networks = []v1.Network{
-				{
-					Name: "default",
-					NetworkSource: v1.NetworkSource{
-						Pod: &v1.PodNetwork{},
-					},
-				},
-				{
-					Name: "ovs",
-					NetworkSource: v1.NetworkSource{
-						Multus: &v1.CniNetwork{
-							NetworkName: "ovs-net-vlan100",
-						},
-					},
-				},
+				defaultNetwork,
+				ovsNetwork,
 			}
 
 			_, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
@@ -487,12 +527,12 @@ var _ = Describe("Multus", func() {
 
 			It("should report guest interfaces in VMI status", func() {
 				interfaces := []v1.Interface{
-					{Name: "default", InterfaceBindingMethod: v1.InterfaceBindingMethod{Bridge: &v1.InterfaceBridge{}}},
-					{Name: "ovs", InterfaceBindingMethod: v1.InterfaceBindingMethod{Bridge: &v1.InterfaceBridge{}}},
+					defaultInterface,
+					ovsInterface,
 				}
 				networks := []v1.Network{
-					{Name: "default", NetworkSource: v1.NetworkSource{Pod: &v1.PodNetwork{}}},
-					{Name: "ovs", NetworkSource: v1.NetworkSource{Multus: &v1.CniNetwork{NetworkName: "ovs-net-vlan100"}}},
+					defaultNetwork,
+					ovsNetwork,
 				}
 
 				ep1Ip := "1.0.0.10/24"
