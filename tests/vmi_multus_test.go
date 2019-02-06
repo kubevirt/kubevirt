@@ -45,7 +45,7 @@ const (
 	sriovConfCRD = `{"apiVersion":"k8s.cni.cncf.io/v1","kind":"NetworkAttachmentDefinition","metadata":{"name":"%s","namespace":"%s","annotations":{"k8s.v1.cni.cncf.io/resourceName":"intel.com/sriov"}},"spec":{"config":"{ \"name\": \"sriov\", \"type\": \"sriov\", \"ipam\": { \"type\": \"host-local\", \"subnet\": \"10.1.1.0/24\" } }"}}`
 )
 
-var _ = Describe("Multus Networking", func() {
+var _ = Describe("Multus", func() {
 
 	flag.Parse()
 
@@ -86,7 +86,6 @@ var _ = Describe("Multus Networking", func() {
 	}
 
 	tests.BeforeAll(func() {
-		tests.SkipIfNoMultusProvider(virtClient)
 		tests.BeforeTestCleanup()
 		result := virtClient.RestClient().
 			Post().
