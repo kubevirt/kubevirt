@@ -371,7 +371,7 @@ func (l *LibvirtDomainManager) asyncMigrate(vmi *v1.VirtualMachineInstance) {
 }
 
 func getVMIEphemeralDisksTotalSize() *resource.Quantity {
-	var baseDir = "/var/run/libvirt/kubevirt-ephemeral-disk"
+	var baseDir = "/var/run/kubevirt-ephemeral-disks/"
 	totalSize := int64(0)
 	err := filepath.Walk(baseDir, func(path string, f os.FileInfo, err error) error {
 		if !f.IsDir() {
