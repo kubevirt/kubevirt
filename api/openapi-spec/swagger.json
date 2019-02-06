@@ -4741,7 +4741,7 @@
     ],
     "properties": {
      "bus": {
-      "description": "Bus indicates the bus of input device to emulate.\nSupported values: virtio.",
+      "description": "Bus indicates the bus of input device to emulate.\nSupported values: virtio, usb.",
       "type": "string"
      },
      "name": {

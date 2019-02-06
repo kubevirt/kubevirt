@@ -289,7 +289,7 @@ type Devices struct {
 // +k8s:openapi-gen=true
 type Input struct {
 	// Bus indicates the bus of input device to emulate.
-	// Supported values: virtio.
+	// Supported values: virtio, usb.
 	Bus string `json:"bus"`
 	// Type indicated the type of input device.
 	// Supported values: tablet.

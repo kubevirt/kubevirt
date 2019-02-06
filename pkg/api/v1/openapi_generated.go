@@ -1279,7 +1279,7 @@ func schema_kubevirt_pkg_api_v1_Input(ref common.ReferenceCallback) common.OpenA
 				Properties: map[string]spec.Schema{
 					"bus": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Bus indicates the bus of input device to emulate. Supported values: virtio.",
+							Description: "Bus indicates the bus of input device to emulate. Supported values: virtio, usb.",
 							Type:        []string{"string"},
 							Format:      "",
 						},

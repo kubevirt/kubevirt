@@ -405,7 +405,7 @@ func Convert_v1_Rng_To_api_Rng(source *v1.Rng, rng *Rng, _ *ConverterContext) er
 }
 
 func Convert_v1_Input_To_api_InputDevice(input *v1.Input, inputDevice *Input, _ *ConverterContext) error {
-	if input.Bus != "virtio" {
+	if input.Bus != "virtio" && input.Bus != "usb" {
 		return fmt.Errorf("input contains unsupported bus %s", input.Bus)
 	}
 
@@ -473,6 +473,19 @@ func convertFeatureState(source *v1.FeatureState) *FeatureState {
 		}
 	}
 	return nil
+}
+
+//isUSBDevicePresent checks if exists device with usb bus in vmi
+func isUSBDevicePresent(vmi *v1.VirtualMachineInstance) bool {
+	usbDeviceExists := false
+	for _, input := range vmi.Spec.Domain.Devices.Inputs {
+		if input.Bus == "usb" {
+			usbDeviceExists = true
+			return usbDeviceExists
+		}
+	}
+
+	return usbDeviceExists
 }
 
 func Convert_v1_Features_To_api_Features(source *v1.Features, features *Features, c *ConverterContext) error {
@@ -784,6 +797,17 @@ func Convert_v1_VirtualMachine_To_api_Domain(vmi *v1.VirtualMachineInstance, dom
 			return err
 		}
 		domain.Spec.Devices.Rng = newRng
+	}
+
+	//usb controller is turned on, only when user specify input device with usb bus,
+	//otherwise it is turned off
+	if usbDeviceExists := isUSBDevicePresent(vmi); !usbDeviceExists {
+		// disable usb controller
+		domain.Spec.Devices.Controllers = append(domain.Spec.Devices.Controllers, Controller{
+			Type:  "usb",
+			Index: "0",
+			Model: "none",
+		})
 	}
 
 	if vmi.Spec.Domain.Devices.Inputs != nil {

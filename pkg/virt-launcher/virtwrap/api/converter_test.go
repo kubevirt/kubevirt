@@ -726,6 +726,20 @@ var _ = Describe("Converter", func() {
 			Expect(Convert_v1_VirtualMachine_To_api_Domain(vmi, &Domain{}, c)).ToNot(Succeed())
 		})
 
+		It("should not disable usb controller when usb device is present", func() {
+			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
+			vmi.Spec.Domain.Devices.Inputs[0].Bus = "usb"
+			domain := vmiToDomain(vmi, c)
+			disabled := false
+			for _, controller := range domain.Spec.Devices.Controllers {
+				if controller.Type == "usb" && controller.Model == "none" {
+					disabled = !disabled
+				}
+			}
+
+			Expect(disabled).To(Equal(false), "Expect controller not to be disabled")
+		})
+
 		It("should fail when input device is set to ps2 bus", func() {
 			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
 			vmi.Spec.Domain.Devices.Inputs[0].Bus = "ps2"
@@ -736,6 +750,12 @@ var _ = Describe("Converter", func() {
 			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
 			vmi.Spec.Domain.Devices.Inputs[0].Type = "keyboard"
 			Expect(Convert_v1_VirtualMachine_To_api_Domain(vmi, &Domain{}, c)).ToNot(Succeed(), "Expect error")
+		})
+
+		It("should succeed when input device is set to usb bus", func() {
+			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
+			vmi.Spec.Domain.Devices.Inputs[0].Bus = "usb"
+			Expect(Convert_v1_VirtualMachine_To_api_Domain(vmi, &Domain{}, c)).To(Succeed(), "Expect success")
 		})
 
 		It("should select explicitly chosen network model", func() {

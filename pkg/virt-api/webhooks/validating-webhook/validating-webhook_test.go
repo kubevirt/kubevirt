@@ -1152,6 +1152,18 @@ var _ = Describe("Validating Webhook", func() {
 			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec)
 			Expect(len(causes)).To(Equal(0), "Expect no errors")
 		})
+		It("should accept correct tablet input device", func() {
+			vmi := v1.NewMinimalVMI("testvmi")
+
+			vmi.Spec.Domain.Devices.Inputs = append(vmi.Spec.Domain.Devices.Inputs, v1.Input{
+				Type: "tablet",
+				Name: "tablet0",
+				Bus:  "usb",
+			})
+
+			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec)
+			Expect(len(causes)).To(Equal(0), "Expect no errors")
+		})
 		It("should reject tablet input device with wrong bus", func() {
 			vmi := v1.NewMinimalVMI("testvmi")
 
@@ -1165,13 +1177,26 @@ var _ = Describe("Validating Webhook", func() {
 			Expect(len(causes)).To(Equal(1), "Expect error")
 			Expect(causes[0].Field).To(Equal("fake.domain.devices.inputs[0].bus"), "Expect bus error")
 		})
-		It("should reject tablet input device with wrong type", func() {
+		It("should reject tablet input device with wrong type and virtio bus", func() {
 			vmi := v1.NewMinimalVMI("testvmi")
 
 			vmi.Spec.Domain.Devices.Inputs = append(vmi.Spec.Domain.Devices.Inputs, v1.Input{
 				Type: "keyboard",
 				Name: "tablet0",
 				Bus:  "virtio",
+			})
+
+			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec)
+			Expect(len(causes)).To(Equal(1), "Expect error")
+			Expect(causes[0].Field).To(Equal("fake.domain.devices.inputs[0].type"), "Expect type error")
+		})
+		It("should reject tablet input device with wrong type and usb bus", func() {
+			vmi := v1.NewMinimalVMI("testvmi")
+
+			vmi.Spec.Domain.Devices.Inputs = append(vmi.Spec.Domain.Devices.Inputs, v1.Input{
+				Type: "keyboard",
+				Name: "tablet0",
+				Bus:  "usb",
 			})
 
 			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec)
