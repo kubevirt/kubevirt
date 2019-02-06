@@ -353,6 +353,54 @@ var _ = Describe("Configurations", func() {
 
 		})
 
+		Context("with usb controller", func() {
+			It("should start the VMI with usb controller", func() {
+				vmi := tests.NewRandomVMIWithEphemeralDisk(tests.ContainerDiskFor(tests.ContainerDiskAlpine))
+				_true := true
+				vmi.Spec.Domain.Features = &v1.Features{
+					USBDevice: &v1.FeatureState{
+						Enabled: &_true,
+					},
+				}
+				By("Starting a VirtualMachineInstance")
+				vmi, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
+				Expect(err).ToNot(HaveOccurred(), "should start vmi")
+				tests.WaitForSuccessfulVMIStart(vmi)
+
+				By("Expecting the VirtualMachineInstance console")
+				expecter, err := tests.LoggedInAlpineExpecter(vmi)
+				Expect(err).ToNot(HaveOccurred(), "should get console")
+				defer expecter.Close()
+
+				By("Checking the number of usb under guest OS")
+				_, err = expecter.ExpectBatch([]expect.Batcher{
+					&expect.BSnd{S: "ls -l /sys/bus/usb/devices/usb* | wc -l\n"},
+					&expect.BExp{R: "[1-9][0-9]*$"},
+				}, 60*time.Second)
+				Expect(err).ToNot(HaveOccurred(), "should report number of usb")
+			})
+
+			It("should start the VMI without usb controller", func() {
+				vmi := tests.NewRandomVMIWithEphemeralDisk(tests.ContainerDiskFor(tests.ContainerDiskAlpine))
+				By("Starting a VirtualMachineInstance")
+				vmi, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
+				Expect(err).ToNot(HaveOccurred(), "should start vmi")
+
+				tests.WaitForSuccessfulVMIStart(vmi)
+
+				By("Expecting the VirtualMachineInstance console")
+				expecter, err := tests.LoggedInAlpineExpecter(vmi)
+				Expect(err).ToNot(HaveOccurred(), "should start console")
+				defer expecter.Close()
+				By("Checking the number of usb under guest OS")
+				_, err = expecter.ExpectBatch([]expect.Batcher{
+					&expect.BSnd{S: "ls -l /sys/bus/usb/devices/usb* | wc -l\n"},
+					&expect.BExp{R: "0"},
+				}, 60*time.Second)
+				Expect(err).ToNot(HaveOccurred(), "should report number of usb")
+			})
+		})
+
 		Context("[rfe_id:140][crit:medium][vendor:cnv-qe@redhat.com][level:component]with namespace memory limits above VMI required memory", func() {
 			var vmi *v1.VirtualMachineInstance
 			It("[test_id:1670]should failed to start the VMI", func() {
