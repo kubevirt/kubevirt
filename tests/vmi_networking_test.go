@@ -435,6 +435,21 @@ var _ = Describe("Networking", func() {
 		})
 	})
 
+	FContext("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:component]VirtualMachineInstance with invalid MAC addres", func() {
+		BeforeEach(func() {
+			tests.BeforeTestCleanup()
+		})
+
+		It("[test_id:700]should failed to start with invalid MAC address", func() {
+			By("Start VMI")
+			beafdeadVMI := tests.NewRandomVMIWithCustomMacAddress()
+			beafdeadVMI.Spec.Domain.Devices.Interfaces[0].MacAddress = "de:00c:00c:00:00:de:abc"
+			_, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(beafdeadVMI)
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("malformed MAC address"))
+		})
+	})
+
 	Context("VirtualMachineInstance with custom MAC address and slirp interface", func() {
 		BeforeEach(func() {
 			tests.BeforeTestCleanup()

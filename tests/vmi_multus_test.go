@@ -429,6 +429,52 @@ var _ = Describe("Multus Networking", func() {
 		})
 	})
 
+	FContext("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:component]VirtualMachineInstance with invalid MAC addres", func() {
+		BeforeEach(func() {
+			tests.BeforeTestCleanup()
+		})
+
+		It("[test_id:1713]should failed to start with invalid MAC address", func() {
+			By("Start VMI")
+			vmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(tests.ContainerDiskFor(tests.ContainerDiskAlpine), "#!/bin/bash\n")
+			vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{
+				{
+					Name: "default",
+					InterfaceBindingMethod: v1.InterfaceBindingMethod{
+						Bridge: &v1.InterfaceBridge{},
+					},
+				},
+				{
+					Name: "ovs",
+					InterfaceBindingMethod: v1.InterfaceBindingMethod{
+						Bridge: &v1.InterfaceBridge{},
+					},
+					MacAddress: "de:00c:00c:00:00:de:abc",
+				},
+			}
+			vmi.Spec.Networks = []v1.Network{
+				{
+					Name: "default",
+					NetworkSource: v1.NetworkSource{
+						Pod: &v1.PodNetwork{},
+					},
+				},
+				{
+					Name: "ovs",
+					NetworkSource: v1.NetworkSource{
+						Multus: &v1.CniNetwork{
+							NetworkName: "ovs-net-vlan100",
+						},
+					},
+				},
+			}
+
+			_, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("malformed MAC address"))
+		})
+	})
+
 	Describe("VirtualMachineInstance definition", func() {
 		Context("with quemu guest agent", func() {
 			var agentVMI *v1.VirtualMachineInstance

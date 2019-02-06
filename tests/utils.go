@@ -2323,7 +2323,7 @@ func SkipIfNoSriovDevicePlugin(virtClient kubecli.KubevirtClient) {
 }
 
 func SkipIfNoMultusProvider(virtClient kubecli.KubevirtClient) {
-	_, err := virtClient.ExtensionsV1beta1().DaemonSets(metav1.NamespaceSystem).Get("kube-multus-ds-amd64", metav1.GetOptions{})
+	_, err := virtClient.ExtensionsV1beta1().DaemonSets(metav1.NamespaceSystem).Get("kube-multus-amd64", metav1.GetOptions{})
 	if err != nil {
 		Skip("Skip multus tests that required multus cni plugin")
 	}
