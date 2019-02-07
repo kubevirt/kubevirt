@@ -175,7 +175,7 @@ var _ = Describe("VirtualMachine", func() {
 			testutils.ExpectEvent(recorder, SuccessfulDataVolumeCreateReason)
 		})
 
-		It("should not failed DataVolume for VirtualMachineInstance until after timeout", func() {
+		It("should not delete failed DataVolume for VirtualMachineInstance until after timeout", func() {
 			vm, _ := DefaultVirtualMachine(true)
 			vm.Spec.Template.Spec.Volumes = append(vm.Spec.Template.Spec.Volumes, v1.Volume{
 				Name: "test1",
