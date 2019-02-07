@@ -34,6 +34,7 @@ import (
 	extclient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	k8smetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 
@@ -55,6 +56,7 @@ type KubevirtClient interface {
 	NetworkClient() networkclient.Interface
 	ExtensionsClient() extclient.Interface
 	SecClient() secv1.SecurityV1Interface
+	DiscoveryClient() discovery.DiscoveryInterface
 	kubernetes.Interface
 	Config() *rest.Config
 }
@@ -68,6 +70,7 @@ type kubevirt struct {
 	networkClient    *networkclient.Clientset
 	extensionsClient *extclient.Clientset
 	secClient        *secv1.SecurityV1Client
+	discoveryClient  *discovery.DiscoveryClient
 	*kubernetes.Clientset
 }
 
@@ -89,6 +92,10 @@ func (k kubevirt) ExtensionsClient() extclient.Interface {
 
 func (k kubevirt) SecClient() secv1.SecurityV1Interface {
 	return k.secClient
+}
+
+func (k kubevirt) DiscoveryClient() discovery.DiscoveryInterface {
+	return k.discoveryClient
 }
 
 func (k kubevirt) RestClient() *rest.RESTClient {
