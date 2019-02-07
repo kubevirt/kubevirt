@@ -52,26 +52,10 @@ var _ = Describe("Multus", func() {
 	virtClient, err := kubecli.GetKubevirtClient()
 	tests.PanicOnError(err)
 
-	nodes, err := virtClient.CoreV1().Nodes().List(v13.ListOptions{})
-	tests.PanicOnError(err)
-
-	nodeAffinity := &k8sv1.Affinity{
-		NodeAffinity: &k8sv1.NodeAffinity{
-			RequiredDuringSchedulingIgnoredDuringExecution: &k8sv1.NodeSelector{
-				NodeSelectorTerms: []k8sv1.NodeSelectorTerm{
-					{
-						MatchExpressions: []k8sv1.NodeSelectorRequirement{
-							{Key: "kubernetes.io/hostname", Operator: k8sv1.NodeSelectorOpIn, Values: []string{nodes.Items[0].Name}},
-						},
-					},
-				},
-			},
-		},
-	}
-
 	var detachedVMI *v1.VirtualMachineInstance
 	var vmiOne *v1.VirtualMachineInstance
 	var vmiTwo *v1.VirtualMachineInstance
+	var nodeAffinity *k8sv1.Affinity
 
 	createVMI := func(interfaces []v1.Interface, networks []v1.Network) *v1.VirtualMachineInstance {
 		vmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(tests.ContainerDiskFor(tests.ContainerDiskAlpine), "#!/bin/bash\n")
@@ -87,6 +71,24 @@ var _ = Describe("Multus", func() {
 
 	tests.BeforeAll(func() {
 		tests.BeforeTestCleanup()
+
+		nodes := tests.GetAllSchedulableNodes(virtClient)
+		Expect(len(nodes.Items) > 1).To(BeTrue())
+
+		nodeAffinity = &k8sv1.Affinity{
+			NodeAffinity: &k8sv1.NodeAffinity{
+				RequiredDuringSchedulingIgnoredDuringExecution: &k8sv1.NodeSelector{
+					NodeSelectorTerms: []k8sv1.NodeSelectorTerm{
+						{
+							MatchExpressions: []k8sv1.NodeSelectorRequirement{
+								{Key: "kubernetes.io/hostname", Operator: k8sv1.NodeSelectorOpIn, Values: []string{nodes.Items[0].Name}},
+							},
+						},
+					},
+				},
+			},
+		}
+
 		result := virtClient.RestClient().
 			Post().
 			RequestURI(fmt.Sprintf(postUrl, tests.NamespaceTestDefault, "ovs-net-vlan100")).
@@ -473,10 +475,17 @@ var _ = Describe("Multus", func() {
 				getOptions := &metav1.GetOptions{}
 				var updatedVmi *v1.VirtualMachineInstance
 
-				Eventually(func() int {
+				// Need to wait for cloud init to finnish and start the agent inside the vmi.
+				Eventually(func() bool {
 					updatedVmi, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Get(agentVMI.Name, getOptions)
-					return len(updatedVmi.Status.Conditions)
-				}, 120*time.Second, 2).Should(Equal(1), "Should have agent connected condition")
+					Expect(err).ToNot(HaveOccurred())
+					for _, condition := range updatedVmi.Status.Conditions {
+						if condition.Type == "AgentConnected" && condition.Status == "True" {
+							return true
+						}
+					}
+					return false
+				}, 420*time.Second, 2).Should(BeTrue(), "Should have agent connected condition")
 
 				Eventually(func() bool {
 					updatedVmi, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Get(agentVMI.Name, getOptions)
