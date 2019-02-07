@@ -116,14 +116,14 @@ var _ = Describe("Migrations", func() {
 		Context("with an Alpine read only disk", func() {
 			It("should be successfully migrated multiple times with cloud-init disk", func() {
 
-				vmi := tests.NewRandomVMIWithEphemeralDisk(tests.ContainerDiskFor(tests.ContainerDiskAlpine))
+				vmi := tests.NewRandomVMIWithEphemeralDisk(tests.ContainerDiskFor(tests.ContainerDiskCirros))
 				tests.AddUserData(vmi, "cloud-init", "#!/bin/bash\necho 'hello'\n")
 
 				By("Starting the VirtualMachineInstance")
 				vmi = runVMIAndExpectLaunch(vmi, 240)
 
 				By("Checking that the VirtualMachineInstance console has expected output")
-				expecter, err := tests.LoggedInAlpineExpecter(vmi)
+				expecter, err := tests.LoggedInCirrosExpecter(vmi)
 				Expect(err).To(BeNil())
 				expecter.Close()
 
