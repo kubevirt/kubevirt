@@ -287,6 +287,7 @@ var _ = Describe("Manager", func() {
       <target bus="virtio" dev="vdd"></target>
       <driver name="qemu" type="raw" iothread="3"></driver>
       <alias name="ua-cloudinit"></alias>
+	  <readonly/>
     </disk>
   </devices>
 </domain>`

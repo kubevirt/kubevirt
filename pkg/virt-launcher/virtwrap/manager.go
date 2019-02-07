@@ -80,6 +80,11 @@ type LibvirtDomainManager struct {
 	lessPVCSpaceToleration int
 }
 
+type migrationDisks struct {
+	shared    map[string]bool
+	generated map[string]bool
+}
+
 func NewLibvirtDomainManager(connection cli.Connection, virtShareDir string, notifier *eventsclient.NotifyClient, lessPVCSpaceToleration int) (DomainManager, error) {
 	manager := LibvirtDomainManager{
 		virConn:                connection,
@@ -211,19 +216,39 @@ func prepateMigrationFlags(isBlockMigration bool) libvirt.DomainMigrateFlags {
 
 }
 
-func gatherSharedVolumeForMigration(vmi *v1.VirtualMachineInstance) map[string]bool {
+func (d *migrationDisks) isSharedVolume(name string) bool {
+	_, shared := d.shared[name]
+	return shared
+}
+
+func (d *migrationDisks) isGeneratedVolume(name string) bool {
+	_, generated := d.generated[name]
+	return generated
+}
+
+func classifyVolumesForMigration(vmi *v1.VirtualMachineInstance) *migrationDisks {
 	// This method collects all VMI volumes that should not be copied during
-	// live migration. Persistent volume claims without ReadWriteMany access mode
+	// live migration. It also collects all generated disks suck as cloudinit, secrets, ServiceAccount and ConfigMaps
+	// to make sure that these are being copied during migration.
+	// Persistent volume claims without ReadWriteMany access mode
 	// should be filtered out earlier in the process
-	sharedVols := make(map[string]bool)
+
+	disks := &migrationDisks{
+		shared:    make(map[string]bool),
+		generated: make(map[string]bool),
+	}
 	for _, volume := range vmi.Spec.Volumes {
 		volSrc := volume.VolumeSource
 		if volSrc.PersistentVolumeClaim != nil ||
 			(volSrc.HostDisk != nil && *volSrc.HostDisk.Shared) {
-			sharedVols[volume.Name] = true
+			disks.shared[volume.Name] = true
+		}
+		if volSrc.ConfigMap != nil || volSrc.Secret != nil ||
+			volSrc.ServiceAccount != nil || volSrc.CloudInitNoCloud != nil {
+			disks.generated[volume.Name] = true
 		}
 	}
-	return sharedVols
+	return disks
 }
 
 func getAllDomainDisks(dom cli.VirDomain) ([]api.Disk, error) {
@@ -246,7 +271,7 @@ func getDiskTargetsForMigration(dom cli.VirDomain, vmi *v1.VirtualMachineInstanc
 	// and returns a list of its target device names.
 	// Shared volues are being excluded.
 	copyDisks := []string{}
-	sharedVols := gatherSharedVolumeForMigration(vmi)
+	migrationVols := classifyVolumesForMigration(vmi)
 
 	disks, err := getAllDomainDisks(dom)
 	if err != nil {
@@ -254,11 +279,10 @@ func getDiskTargetsForMigration(dom cli.VirDomain, vmi *v1.VirtualMachineInstanc
 	}
 	// the name of the volume should match the alias
 	for _, disk := range disks {
-		_, isSharedVolumeDisk := sharedVols[disk.Alias.Name]
-		if disk.ReadOnly != nil {
+		if disk.ReadOnly != nil && !migrationVols.isGeneratedVolume(disk.Alias.Name) {
 			continue
 		}
-		if (disk.Type != "file" && disk.Type != "block") || isSharedVolumeDisk {
+		if (disk.Type != "file" && disk.Type != "block") || migrationVols.isSharedVolume(disk.Alias.Name) {
 			continue
 		}
 		copyDisks = append(copyDisks, disk.Target.Device)
