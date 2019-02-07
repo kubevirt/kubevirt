@@ -113,7 +113,7 @@ var _ = Describe("Migrations", func() {
 	}
 
 	Describe("Starting a VirtualMachineInstance ", func() {
-		Context("with an Alpine read only disk", func() {
+		Context("with a Cirros disk", func() {
 			It("should be successfully migrated multiple times with cloud-init disk", func() {
 
 				vmi := tests.NewRandomVMIWithEphemeralDisk(tests.ContainerDiskFor(tests.ContainerDiskCirros))
@@ -154,7 +154,7 @@ var _ = Describe("Migrations", func() {
 				pvName = "test-iscsi-lun" + rand.String(48)
 				// Start a ISCSI POD and service
 				By("Starting an iSCSI POD")
-				iscsiIP := tests.CreateISCSITargetPOD()
+				iscsiIP := tests.CreateISCSITargetPOD(tests.ContainerDiskAlpine)
 				// create a new PV and PVC (PVs can't be reused)
 				By("create a new iSCSI PV and PVC")
 				tests.CreateISCSIPvAndPvc(pvName, "1Gi", iscsiIP)
@@ -171,7 +171,7 @@ var _ = Describe("Migrations", func() {
 				tests.AddEphemeralDisk(vmi, "myephemeral", "virtio", image)
 
 				By("Starting the VirtualMachineInstance")
-				vmi = runVMIAndExpectLaunch(vmi, 120)
+				vmi = runVMIAndExpectLaunch(vmi, 180)
 
 				By("Checking that the VirtualMachineInstance console has expected output")
 				expecter, err := tests.LoggedInAlpineExpecter(vmi)
@@ -196,7 +196,6 @@ var _ = Describe("Migrations", func() {
 			It("should be successfully migrated multiple times", func() {
 				// Start the VirtualMachineInstance with the PVC attached
 				vmi := tests.NewRandomVMIWithPVC(pvName)
-
 				vmi = runVMIAndExpectLaunch(vmi, 180)
 
 				By("Checking that the VirtualMachineInstance console has expected output")
@@ -224,15 +223,32 @@ var _ = Describe("Migrations", func() {
 				tests.WaitForVirtualMachineToDisappearWithTimeout(vmi, 120)
 
 			})
+		})
+		Context("with an Cirros shared ISCSI PVC", func() {
+			var pvName string
+			BeforeEach(func() {
+				pvName = "test-iscsi-lun" + rand.String(48)
+				// Start a ISCSI POD and service
+				By("Starting an iSCSI POD")
+				iscsiIP := tests.CreateISCSITargetPOD(tests.ContainerDiskCirros)
+				// create a new PV and PVC (PVs can't be reused)
+				By("create a new iSCSI PV and PVC")
+				tests.CreateISCSIPvAndPvc(pvName, "1Gi", iscsiIP)
+			}, 60)
+
+			AfterEach(func() {
+				// create a new PV and PVC (PVs can't be reused)
+				tests.DeletePvAndPvc(pvName)
+			}, 60)
 			It("should be successfully with a cloud init", func() {
 				// Start the VirtualMachineInstance with the PVC attached
 				vmi := tests.NewRandomVMIWithPVC(pvName)
 				tests.AddUserData(vmi, "cloud-init", "#!/bin/bash\necho 'hello'\n")
-
+				vmi.Spec.Hostname = fmt.Sprintf("%s", tests.ContainerDiskCirros)
 				vmi = runVMIAndExpectLaunch(vmi, 180)
 
 				By("Checking that the VirtualMachineInstance console has expected output")
-				expecter, err := tests.LoggedInAlpineExpecter(vmi)
+				expecter, err := tests.LoggedInCirrosExpecter(vmi)
 				Expect(err).To(BeNil())
 				expecter.Close()
 
