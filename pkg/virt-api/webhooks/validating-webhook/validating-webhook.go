@@ -1134,6 +1134,29 @@ func ValidateVirtualMachineInstanceSpec(field *k8sfield.Path, spec *v1.VirtualMa
 					})
 				}
 			}
+			// verify that the extra dhcp options are valid
+			if iface.DHCPOptions != nil {
+				PrivateOptions := iface.DHCPOptions.PrivateOptions
+				err := ValidateDuplicateDHCPPrivateOptions(PrivateOptions)
+				if err != nil {
+					causes = append(causes, metav1.StatusCause{
+						Type:    metav1.CauseTypeFieldValueInvalid,
+						Message: fmt.Sprintf("Found Duplicates: %v", err),
+						Field:   field.String(),
+					})
+					return causes
+				}
+				for _, DHCPPrivateOption := range PrivateOptions {
+					if !(DHCPPrivateOption.Option >= 224 && DHCPPrivateOption.Option <= 254) {
+						causes = append(causes, metav1.StatusCause{
+							Type:    metav1.CauseTypeFieldValueInvalid,
+							Message: "provided DHCPPrivateOptions are out of range, must be in range 224 to 254",
+							Field:   field.String(),
+						})
+					}
+				}
+			}
+
 			if iface.Model == "virtio" || iface.Model == "" {
 				isVirtioNicRequested = true
 			}
@@ -1783,4 +1806,15 @@ func validatePodDNSConfig(dnsConfig *k8sv1.PodDNSConfig, dnsPolicy *k8sv1.DNSPol
 		}
 	}
 	return causes
+}
+
+func ValidateDuplicateDHCPPrivateOptions(PrivateOptions []v1.DHCPPrivateOptions) error {
+	isUnique := map[int]bool{}
+	for _, DHCPPrivateOption := range PrivateOptions {
+		if isUnique[DHCPPrivateOption.Option] == true {
+			return fmt.Errorf("You have provided duplicate DHCPPrivateOptions")
+		}
+		isUnique[DHCPPrivateOption.Option] = true
+	}
+	return nil
 }

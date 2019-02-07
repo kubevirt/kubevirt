@@ -2014,6 +2014,72 @@ var _ = Describe("Validating Webhook", func() {
 			Expect(len(causes)).To(Equal(2))
 		})
 
+		It("should accept valid DHCPPrivateOptions", func() {
+			vmi := v1.NewMinimalVMI("testvm")
+			vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{*v1.DefaultNetworkInterface()}
+			vmi.Spec.Networks = []v1.Network{*v1.DefaultPodNetwork()}
+			vmi.Spec.Domain.Devices.Interfaces[0].DHCPOptions = &v1.DHCPOptions{
+				PrivateOptions: []v1.DHCPPrivateOptions{v1.DHCPPrivateOptions{Option: 240, Value: "extra.options.kubevirt.io"}},
+			}
+			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec)
+			Expect(len(causes)).To(Equal(0))
+		})
+
+		It("should reject invalid DHCPPrivateOptions", func() {
+			vmi := v1.NewMinimalVMI("testvm")
+			vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{*v1.DefaultNetworkInterface()}
+			vmi.Spec.Networks = []v1.Network{*v1.DefaultPodNetwork()}
+			vmi.Spec.Domain.Devices.Interfaces[0].DHCPOptions = &v1.DHCPOptions{
+				PrivateOptions: []v1.DHCPPrivateOptions{v1.DHCPPrivateOptions{Option: 223, Value: "extra.options.kubevirt.io"}},
+			}
+			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec)
+			Expect(len(causes)).To(Equal(1))
+		})
+
+		It("should reject duplicate DHCPPrivateOptions", func() {
+			vmi := v1.NewMinimalVMI("testvm")
+			vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{*v1.DefaultNetworkInterface()}
+			vmi.Spec.Networks = []v1.Network{*v1.DefaultPodNetwork()}
+			vmi.Spec.Domain.Devices.Interfaces[0].DHCPOptions = &v1.DHCPOptions{
+				PrivateOptions: []v1.DHCPPrivateOptions{
+					v1.DHCPPrivateOptions{Option: 240, Value: "extra.options.kubevirt.io"},
+					v1.DHCPPrivateOptions{Option: 240, Value: "sameextra.options.kubevirt.io"}},
+			}
+			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec)
+			Expect(len(causes)).To(Equal(1))
+		})
+
+		It("should accept unique DHCPPrivateOptions", func() {
+			vmi := v1.NewMinimalVMI("testvm")
+			vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{*v1.DefaultNetworkInterface()}
+			vmi.Spec.Networks = []v1.Network{*v1.DefaultPodNetwork()}
+			vmi.Spec.Domain.Devices.Interfaces[0].DHCPOptions = &v1.DHCPOptions{
+				PrivateOptions: []v1.DHCPPrivateOptions{
+					v1.DHCPPrivateOptions{Option: 240, Value: "extra.options.kubevirt.io"},
+					v1.DHCPPrivateOptions{Option: 241, Value: "sameextra.options.kubevirt.io"}},
+			}
+			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec)
+			Expect(len(causes)).To(Equal(0))
+		})
+
+		It("should return error if not unique DHCPPrivateOptions", func() {
+			testDHCPPrivateOptions := []v1.DHCPPrivateOptions{
+				v1.DHCPPrivateOptions{Option: 240, Value: "extra.options.kubevirt.io"},
+				v1.DHCPPrivateOptions{Option: 240, Value: "sameextra.options.kubevirt.io"},
+			}
+			err := ValidateDuplicateDHCPPrivateOptions(testDHCPPrivateOptions)
+			Expect(err).To(Equal(fmt.Errorf("You have provided duplicate DHCPPrivateOptions")))
+		})
+
+		It("should not return error if unique DHCPPrivateOptions", func() {
+			testDHCPPrivateOptions := []v1.DHCPPrivateOptions{
+				v1.DHCPPrivateOptions{Option: 240, Value: "extra.options.kubevirt.io"},
+				v1.DHCPPrivateOptions{Option: 241, Value: "sameextra.options.kubevirt.io"},
+			}
+			err := ValidateDuplicateDHCPPrivateOptions(testDHCPPrivateOptions)
+			Expect(err).To(BeNil())
+		})
+
 		It("should reject vmi with a network multiqueue, without virtio nics", func() {
 			_true := true
 			vmi := v1.NewMinimalVMI("testvm")
