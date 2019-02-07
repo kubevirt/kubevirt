@@ -57,6 +57,8 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/util"
 )
 
+const LibvirtLocalConnectionPort = 22222
+
 type DomainManager interface {
 	SyncVMI(*v1.VirtualMachineInstance, bool) (*api.DomainSpec, error)
 	KillVMI(*v1.VirtualMachineInstance) error
@@ -276,40 +278,32 @@ func (l *LibvirtDomainManager) asyncMigrate(vmi *v1.VirtualMachineInstance) {
 		// This also creates a tcp server for each additional direct migration connections
 		// that will be proxied to the destination pod
 
-		var ports []int
-		// Get the migration proxied ports
-		if vmi.Status.MigrationState.TargetDirectMigrationNodePorts == nil {
-			msg := "No migration proxy has been created for this vmi"
-			log.Log.Object(vmi).Warningf("%s", msg)
-			l.setMigrationResult(vmi, true, msg)
-			return
-		}
+		isBlockMigration := (vmi.Status.MigrationMethod == v1.BlockMigration)
+		migrationPortsRange := migrationproxy.GetMigrationPortsList(isBlockMigration)
 
-		for _, k := range vmi.Status.MigrationState.TargetDirectMigrationNodePorts {
-			ports = append(ports, k)
-		}
-
-		// Create a tcp server for each direct connection proxy and listen for incoming migration requests on port 22222
-		for _, port := range append([]int{22222}, ports...) {
-			if port == 0 {
-				continue
-			}
-			key := string(vmi.UID)
-			if port != 22222 {
-				key += fmt.Sprintf("-%d", port)
-			}
+		// Create a tcp server for each direct connection proxy
+		for _, port := range migrationPortsRange {
+			key := migrationproxy.ConstructProxyKey(string(vmi.UID), port)
 			migrationProxy := migrationproxy.NewTargetProxy("127.0.0.1", port, migrationproxy.SourceUnixFile(l.virtShareDir, key))
-
+			defer migrationProxy.StopListening()
 			err := migrationProxy.StartListening()
 			if err != nil {
 				l.setMigrationResult(vmi, true, fmt.Sprintf("%v", err))
 				return
 			}
-			defer migrationProxy.StopListening()
+		}
+
+		//  proxy incoming migration requests on port 22222 to the vmi's existing libvirt connection
+		libvirtConnectionProxy := migrationproxy.NewTargetProxy("127.0.0.1", LibvirtLocalConnectionPort, migrationproxy.SourceUnixFile(l.virtShareDir, string(vmi.UID)))
+		defer libvirtConnectionProxy.StopListening()
+		err := libvirtConnectionProxy.StartListening()
+		if err != nil {
+			l.setMigrationResult(vmi, true, fmt.Sprintf("%v", err))
+			return
 		}
 
 		// For a tunnelled migration, this is always the uri
-		dstUri := "qemu+tcp://127.0.0.1:22222/system"
+		dstUri := fmt.Sprintf("qemu+tcp://127.0.0.1:%d/system", LibvirtLocalConnectionPort)
 		migrUri := "tcp://127.0.0.1"
 
 		domName := api.VMINamespaceKeyFunc(vmi)
@@ -320,10 +314,6 @@ func (l *LibvirtDomainManager) asyncMigrate(vmi *v1.VirtualMachineInstance) {
 			return
 		}
 
-		isBlockMigration := false
-		if vmi.Status.MigrationMethod == v1.BlockMigration {
-			isBlockMigration = true
-		}
 		migrateFlags := prepateMigrationFlags(isBlockMigration)
 
 		params := &libvirt.DomainMigrateParameters{
