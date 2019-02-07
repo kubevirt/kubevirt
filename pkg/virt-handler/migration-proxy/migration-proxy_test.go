@@ -174,7 +174,7 @@ var _ = Describe("MigrationProxy", func() {
 				go msgReader(libvirtdListener, libvirtChan)
 				go msgReader(directListener, directChan)
 
-				for _, sockFile := range manager.GetSourceListenerFile("mykey") {
+				for _, sockFile := range manager.GetSourceListenerFiles("mykey") {
 					if strings.Contains(sockFile, directMigrationPort) {
 						msgWriter(sockFile, directChan, "some direct message")
 					} else {

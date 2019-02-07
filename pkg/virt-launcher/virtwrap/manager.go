@@ -428,7 +428,7 @@ func (l *LibvirtDomainManager) PrepareMigrationTarget(vmi *v1.VirtualMachineInst
 	migrationPortsRange := migrationproxy.GetMigrationPortsList(isBlockMigration)
 	for _, port := range migrationPortsRange {
 		// Prepare the direct migration proxy
-		key := fmt.Sprintf("%s-%d", string(vmi.UID), port)
+		key := migrationproxy.ConstructProxyKey(string(vmi.UID), port)
 		curDirectAddress := fmt.Sprintf("%s:%d", "127.0.0.1", port)
 		unixSocketPath := migrationproxy.SourceUnixFile(l.virtShareDir, key)
 		migrationProxy := migrationproxy.NewSourceProxy(unixSocketPath, curDirectAddress)

@@ -1259,7 +1259,7 @@ func (d *VirtualMachineController) handlePostSyncMigrationProxy(vmi *v1.VirtualM
 	isBlockMigration := (vmi.Status.MigrationMethod == v1.BlockMigration)
 	migrationPortsRange := migrationproxy.GetMigrationPortsList(isBlockMigration)
 	for _, port := range migrationPortsRange {
-		key := fmt.Sprintf("%s-%d", string(vmi.UID), port)
+		key := migrationproxy.ConstructProxyKey(string(vmi.UID), port)
 		// a proxy between the target direct qemu channel and the connector in the destination pod
 		destSocketFile := migrationproxy.SourceUnixFile(d.virtShareDir, key)
 		migrationTargetSockets = append(migrationTargetSockets, destSocketFile)

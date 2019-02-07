@@ -44,7 +44,7 @@ type ProxyManager interface {
 	StopTargetListener(key string)
 
 	StartSourceListener(key string, targetAddress string, destSrcPortMap map[int]int) error
-	GetSourceListenerFile(key string) []string
+	GetSourceListenerFiles(key string) []string
 	StopSourceListener(key string)
 }
 
@@ -129,6 +129,10 @@ func (m *migrationProxyManager) StartTargetListener(key string, targetUnixFiles 
 		err := proxy.StartListening()
 		if err != nil {
 			proxy.StopListening()
+			// close all already created proxies for this key
+			for _, curProxy := range proxiesList {
+				curProxy.StopListening()
+			}
 			return err
 		}
 		proxiesList = append(proxiesList, proxy)
@@ -138,7 +142,7 @@ func (m *migrationProxyManager) StartTargetListener(key string, targetUnixFiles 
 	return nil
 }
 
-func (m *migrationProxyManager) GetSourceListenerFile(key string) []string {
+func (m *migrationProxyManager) GetSourceListenerFiles(key string) []string {
 	m.managerLock.Lock()
 	defer m.managerLock.Unlock()
 
@@ -152,13 +156,21 @@ func (m *migrationProxyManager) GetSourceListenerFile(key string) []string {
 	return socketsList
 }
 
+func ConstructProxyKey(id string, port int) string {
+	key := id
+	if port != 0 {
+		key += fmt.Sprintf("-%d", port)
+	}
+	return key
+}
+
 func (m *migrationProxyManager) GetTargetListenerPorts(key string) map[int]int {
 	m.managerLock.Lock()
 	defer m.managerLock.Unlock()
 
 	getPortFromSocket := func(id string, path string) int {
 		for _, port := range migrationPortsRange {
-			key := fmt.Sprintf("%s-%d", id, port)
+			key := ConstructProxyKey(id, port)
 			if strings.Contains(path, key) {
 				return port
 			}
@@ -228,10 +240,7 @@ func (m *migrationProxyManager) StartSourceListener(key string, targetAddress st
 
 	proxiesList := []*migrationProxy{}
 	for destPort, srcPort := range destSrcPortMap {
-		proxyKey := key
-		if srcPort != 0 {
-			proxyKey += fmt.Sprintf("-%d", srcPort)
-		}
+		proxyKey := ConstructProxyKey(key, srcPort)
 		targetFullAddr := fmt.Sprintf("%s:%d", targetAddress, destPort)
 		filePath := SourceUnixFile(m.virtShareDir, proxyKey)
 
@@ -241,6 +250,10 @@ func (m *migrationProxyManager) StartSourceListener(key string, targetAddress st
 		err := proxy.StartListening()
 		if err != nil {
 			proxy.StopListening()
+			// close all already created proxies for this key
+			for _, curProxy := range proxiesList {
+				curProxy.StopListening()
+			}
 			return err
 		}
 		proxiesList = append(proxiesList, proxy)
@@ -259,8 +272,8 @@ func (m *migrationProxyManager) StopSourceListener(key string) {
 		for _, curProxy := range curProxies {
 			curProxy.StopListening()
 			os.RemoveAll(curProxy.unixSocketPath)
-			delete(m.sourceProxies, key)
 		}
+		delete(m.sourceProxies, key)
 	}
 	filePath := SourceUnixFile(m.virtShareDir, key)
 	os.RemoveAll(filePath)
