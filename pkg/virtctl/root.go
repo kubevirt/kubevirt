@@ -36,6 +36,29 @@ func NewVirtctlCommand() *cobra.Command {
 			fmt.Fprint(cmd.OutOrStderr(), cmd.UsageString())
 		},
 	}
+	completionCmd := &cobra.Command{
+		Use:   "completion",
+		Short: "Generates completion scripts for the specified shell",
+		Args:  cobra.MaximumNArgs(1),
+		Long: `To load completion run
+. <(virtctl completion (SHELL TYPE))
+
+To configure bash shell to load completions for each session add to bashrc
+
+# ~/.bashrc or ~/.profile
+. <(virtctl completion (SHELL TYPE))
+`,
+		Run: func(cmd *cobra.Command, args []string) {
+			switch {
+			case len(args) == 0:
+				rootCmd.GenBashCompletion(os.Stdout)
+			case args[0] == "bash":
+				rootCmd.GenBashCompletion(os.Stdout)
+			default:
+				fmt.Fprintf(cmd.OutOrStderr(), "%q is not a supported shell", args[0])
+			}
+		},
+	}
 	optionsCmd.SetUsageTemplate(templates.OptionsUsageTemplate())
 	//TODO: Add a ClientConfigFactory which allows substituting the KubeVirt client with a mock for unit testing
 	clientConfig := kubecli.DefaultClientConfig(rootCmd.PersistentFlags())
@@ -51,6 +74,7 @@ func NewVirtctlCommand() *cobra.Command {
 		version.VersionCommand(clientConfig),
 		imageupload.NewImageUploadCommand(clientConfig),
 		optionsCmd,
+		completionCmd,
 	)
 	return rootCmd
 }
