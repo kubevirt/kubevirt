@@ -396,7 +396,7 @@ func (c *VMController) handleDataVolumes(vm *virtv1.VirtualMachine, dataVolumes 
 
 				if deleteAfterTimestamp == 0 {
 					dataVolumeCopy := curDataVolume.DeepCopy()
-					deleteAfterTimestamp := now + int64(rand.Intn(dataVolumeDeleteJitterSeconds)+10)
+					deleteAfterTimestamp = now + int64(rand.Intn(dataVolumeDeleteJitterSeconds)+10)
 					if dataVolumeCopy.Annotations == nil {
 						dataVolumeCopy.Annotations = map[string]string{}
 					}
@@ -408,7 +408,7 @@ func (c *VMController) handleDataVolumes(vm *virtv1.VirtualMachine, dataVolumes 
 				}
 
 				if curDataVolume.DeletionTimestamp == nil {
-					if deleteAfterTimestamp >= now {
+					if now >= deleteAfterTimestamp {
 						// By deleting the failed DataVolume,
 						// a new DataVolume will be created to take it's place.
 						c.dataVolumeExpectations.ExpectDeletions(vmKey, []string{controller.DataVolumeKey(curDataVolume)})
@@ -418,7 +418,7 @@ func (c *VMController) handleDataVolumes(vm *virtv1.VirtualMachine, dataVolumes 
 							return ready, err
 						}
 					} else {
-						timeLeft := now - deleteAfterTimestamp
+						timeLeft := deleteAfterTimestamp - now
 						c.Queue.AddAfter(vmKey, time.Duration(timeLeft)*time.Second)
 					}
 				}

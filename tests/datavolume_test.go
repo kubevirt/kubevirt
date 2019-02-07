@@ -120,7 +120,7 @@ var _ = Describe("DataVolume Integration", func() {
 
 				By("Waiting for VMI to be created")
 				Eventually(func() v1.VirtualMachineInstancePhase {
-					vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(vm.GetName(), &metav1.GetOptions{})
+					vmi, err = virtClient.VirtualMachineInstance(vm.Namespace).Get(vm.GetName(), &metav1.GetOptions{})
 					if err != nil {
 						Expect(err.Error()).To(ContainSubstring("not found"),
 							"A 404 while VMI is being created would be normal. All other errors are unexpected")
