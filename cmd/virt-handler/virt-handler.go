@@ -166,7 +166,7 @@ func (app *virtHandlerApp) Run() {
 		domainSharedInformer,
 		gracefulShutdownInformer,
 		int(app.WatchdogTimeoutDuration.Seconds()),
-		maxDevices,
+		app.MaxDevices,
 	)
 
 	certsDirectory, err := ioutil.TempDir("", "certsdir")
