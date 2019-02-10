@@ -470,8 +470,8 @@ var _ = Describe("Multus Networking", func() {
 			}
 
 			_, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
-			testErr := err.(*errors.StatusError)
 			Expect(err).To(HaveOccurred())
+			testErr := err.(*errors.StatusError)
 			Expect(testErr.ErrStatus.Reason).To(BeEquivalentTo("Invalid"))
 		})
 	})
