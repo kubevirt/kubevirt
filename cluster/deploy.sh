@@ -49,9 +49,6 @@ EOF
 # Deploy kubevirt operator
 _kubectl apply -f ${MANIFESTS_OUT_DIR}/release/kubevirt-operator.yaml
 
-# Deploy kubevirt
-_kubectl create -n ${namespace} -f ${MANIFESTS_OUT_DIR}/release/kubevirt-cr.yaml
-
 if [[ "$KUBEVIRT_PROVIDER" =~ os-* ]]; then
     _kubectl create -f ${MANIFESTS_OUT_DIR}/testing/ocp
 
@@ -60,5 +57,27 @@ if [[ "$KUBEVIRT_PROVIDER" =~ os-* ]]; then
     # Helpful for development. Allows admin to access everything KubeVirt creates in the web console
     _kubectl adm policy add-scc-to-user privileged admin
 fi
+
+# Ensure the KubeVirt CRD is created
+count=0
+until _kubectl get crd kubevirts.kubevirt.io; do
+    ((count++)) && ((count == 30)) && echo "KubeVirt CRD not found" && exit 1
+    echo "waiting for KubeVirt CRD"
+    sleep 1
+done
+
+# Deploy KubeVirt
+_kubectl create -n ${namespace} -f ${MANIFESTS_OUT_DIR}/release/kubevirt-cr.yaml
+
+# Ensure the KubeVirt CR is created
+count=0
+until _kubectl -n kubevirt get kv kubevirt; do
+    ((count++)) && ((count == 30)) && echo "KubeVirt CR not found" && exit 1
+    echo "waiting for KubeVirt CR"
+    sleep 1
+done
+
+# wait until KubeVirt is ready
+_kubectl wait -n kubevirt kv kubevirt --for condition=Ready --timeout 180s || (echo "KubeVirt not ready in time" && exit 1)
 
 echo "Done"
