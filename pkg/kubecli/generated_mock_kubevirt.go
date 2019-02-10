@@ -182,6 +182,16 @@ func (_mr *_MockKubevirtClientRecorder) SecClient() *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "SecClient")
 }
 
+func (_m *MockKubevirtClient) DiscoveryClient() discovery.DiscoveryInterface {
+	ret := _m.ctrl.Call(_m, "DiscoveryClient")
+	ret0, _ := ret[0].(discovery.DiscoveryInterface)
+	return ret0
+}
+
+func (_mr *_MockKubevirtClientRecorder) DiscoveryClient() *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "DiscoveryClient")
+}
+
 func (_m *MockKubevirtClient) Discovery() discovery.DiscoveryInterface {
 	ret := _m.ctrl.Call(_m, "Discovery")
 	ret0, _ := ret[0].(discovery.DiscoveryInterface)

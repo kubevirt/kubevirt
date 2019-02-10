@@ -21,7 +21,6 @@ package util
 
 import (
 	"fmt"
-	"strings"
 	"time"
 
 	secv1 "github.com/openshift/api/security/v1"
@@ -197,9 +196,21 @@ func remove(users []string, user string) ([]string, bool) {
 }
 
 func IsOnOpenshift(clientset kubecli.KubevirtClient) (bool, error) {
-	_, err := clientset.SecClient().SecurityContextConstraints().List(metav1.ListOptions{})
-	if err != nil && strings.Contains(err.Error(), "the server could not find the requested resource") {
-		return false, nil
+
+	apis, err := clientset.DiscoveryClient().ServerResources()
+	if err != nil {
+		return false, err
 	}
-	return true, err
+
+	for _, api := range apis {
+		if api.GroupVersion == secv1.GroupVersion.String() {
+			for _, resource := range api.APIResources {
+				if resource.Name == "securitycontextconstraints" {
+					return true, nil
+				}
+			}
+		}
+	}
+
+	return false, nil
 }
