@@ -2640,7 +2640,7 @@ func RemoveHostDiskImage(diskPath string, nodeName string) {
 	Eventually(getStatus, 30, 1).Should(Equal(k8sv1.PodSucceeded))
 }
 
-func CreateISCSITargetPOD() (iscsiTargetIP string) {
+func CreateISCSITargetPOD(containerDiskName ContainerDisk) (iscsiTargetIP string) {
 	virtClient, err := kubecli.GetKubevirtClient()
 	PanicOnError(err)
 	image := fmt.Sprintf("%s/cdi-http-import-server:%s", KubeVirtRepoPrefix, KubeVirtVersionTag)
@@ -2665,6 +2665,10 @@ func CreateISCSITargetPOD() (iscsiTargetIP string) {
 						{
 							Name:  "AS_ISCSI",
 							Value: "true",
+						},
+						{
+							Name:  "IMAGE_NAME",
+							Value: fmt.Sprintf("%s", containerDiskName),
 						},
 					},
 				},

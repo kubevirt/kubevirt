@@ -64,15 +64,17 @@ func (VirtualMachineInstanceNetworkInterface) SwaggerDoc() map[string]string {
 
 func (VirtualMachineInstanceMigrationState) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"startTimestamp":           "The time the migration action began",
-		"endTimestamp":             "The time the migration action ended",
-		"targetNodeDomainDetected": "The Target Node has seen the Domain Start Event",
-		"targetNodeAddress":        "The address of the target node to use for the migration",
-		"targetNode":               "The target node that the VMI is moving to",
-		"sourceNode":               "The source node that the VMI originated on",
-		"completed":                "Indicates the migration completed",
-		"failed":                   "Indicates that the migration failed",
-		"migrationUid":             "The VirtualMachineInstanceMigration object associated with this migration",
+		"startTimestamp":                 "The time the migration action began",
+		"endTimestamp":                   "The time the migration action ended",
+		"targetNodeDomainDetected":       "The Target Node has seen the Domain Start Event",
+		"targetNodeAddress":              "The address of the target node to use for the migration",
+		"targetDirectMigrationNodePorts": "The list of ports opened for live migration on the destination node",
+		"targetNode":                     "The target node that the VMI is moving to",
+		"targetPod":                      "The target pod that the VMI is moving to",
+		"sourceNode":                     "The source node that the VMI originated on",
+		"completed":                      "Indicates the migration completed",
+		"failed":                         "Indicates that the migration failed",
+		"migrationUid":                   "The VirtualMachineInstanceMigration object associated with this migration",
 	}
 }
 

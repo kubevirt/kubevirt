@@ -32,6 +32,8 @@ import (
 	. "github.com/onsi/ginkgo"
 	"github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
+	k8sv1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	v1 "kubevirt.io/kubevirt/pkg/api/v1"
@@ -210,9 +212,15 @@ var _ = Describe("Manager", func() {
 
 	Context("on successful VirtualMachineInstance migrate", func() {
 		It("should prepare the target pod", func() {
-
+			updateHostsFile = func(entry string) error {
+				return nil
+			}
 			StubOutNetworkForTest()
 			vmi := newVMI(testNamespace, testVmName)
+			vmi.Status.MigrationState = &v1.VirtualMachineInstanceMigrationState{
+				MigrationUID: "111222333",
+				TargetPod:    "fakepod",
+			}
 
 			manager, _ := NewLibvirtDomainManager(mockConn, "fake", nil, 0)
 			err := manager.PrepareMigrationTarget(vmi, true)
@@ -248,6 +256,83 @@ var _ = Describe("Manager", func() {
 			err = manager.MigrateVMI(vmi)
 			Expect(err).To(BeNil())
 		})
+		It("should correctly collect a list of disks for migration", func() {
+			_true := true
+			var convertedDomain = `<domain type="kvm" xmlns:qemu="http://libvirt.org/schemas/domain/qemu/1.0">
+  <devices>
+    <disk device="disk" type="block">
+      <source dev="/dev/pvc_block_test"></source>
+      <target bus="virtio" dev="vda"></target>
+      <driver cache="writethrough" name="qemu" type="raw" iothread="1"></driver>
+      <alias name="ua-myvolume"></alias>
+    </disk>
+    <disk device="disk" type="file">
+      <source file="/var/run/libvirt/kubevirt-ephemeral-disk/ephemeral_pvc/disk.qcow2"></source>
+      <target bus="virtio" dev="vdb"></target>
+      <driver cache="none" name="qemu" type="qcow2" iothread="1"></driver>
+      <alias name="ua-myvolume1"></alias>
+      <backingStore type="file">
+        <format type="raw"></format>
+        <source file="/var/run/kubevirt-private/vmi-disks/ephemeral_pvc/disk.img"></source>
+      </backingStore>
+    </disk>
+    <disk device="disk" type="file">
+      <source file="/var/run/kubevirt-private/vmi-disks/myvolume/disk.img"></source>
+      <target bus="virtio" dev="vdc"></target>
+      <driver name="qemu" type="raw" iothread="2"></driver>
+      <alias name="ua-myvolumehost"></alias>
+    </disk>
+    <disk device="disk" type="file">
+      <source file="/var/run/libvirt/cloud-init-dir/mynamespace/testvmi/noCloud.iso"></source>
+      <target bus="virtio" dev="vdd"></target>
+      <driver name="qemu" type="raw" iothread="3"></driver>
+      <alias name="ua-cloudinit"></alias>
+	  <readonly/>
+    </disk>
+  </devices>
+</domain>`
+			vmi := newVMI(testNamespace, testVmName)
+			vmi.Spec.Volumes = []v1.Volume{
+				{
+					Name: "myvolume",
+					VolumeSource: v1.VolumeSource{
+						PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{
+							ClaimName: "testblock",
+						},
+					},
+				},
+				{
+					Name: "myvolume1",
+					VolumeSource: v1.VolumeSource{
+						Ephemeral: &v1.EphemeralVolumeSource{
+							PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{
+								ClaimName: "testclaim",
+							},
+						},
+					},
+				},
+				{
+					Name: "myvolumehost",
+					VolumeSource: v1.VolumeSource{
+						HostDisk: &v1.HostDisk{
+							Path:     "/var/run/kubevirt-private/vmi-disks/volume3/disk.img",
+							Type:     v1.HostDiskExistsOrCreate,
+							Capacity: resource.MustParse("1Gi"),
+							Shared:   &_true,
+						},
+					},
+				},
+			}
+			userData := "fake\nuser\ndata\n"
+			networkData := "FakeNetwork"
+			addCloudInitDisk(vmi, userData, networkData)
+
+			mockDomain.EXPECT().GetXMLDesc(libvirt.DomainXMLFlags(0)).Return(string(convertedDomain), nil)
+
+			copyDisks := getDiskTargetsForMigration(mockDomain, vmi)
+			Expect(copyDisks).Should(ConsistOf("vdb", "vdd"))
+		})
+
 	})
 
 	Context("on successful VirtualMachineInstance kill", func() {
@@ -283,7 +368,7 @@ var _ = Describe("Manager", func() {
 	table.DescribeTable("check migration flags",
 		func(isBlockMigration bool) {
 			flags := prepateMigrationFlags(isBlockMigration)
-			expectedMigrateFlags := libvirt.MIGRATE_LIVE | libvirt.MIGRATE_PEER2PEER | libvirt.MIGRATE_TUNNELLED
+			expectedMigrateFlags := libvirt.MIGRATE_LIVE | libvirt.MIGRATE_PEER2PEER
 
 			if isBlockMigration {
 				expectedMigrateFlags |= libvirt.MIGRATE_NON_SHARED_INC

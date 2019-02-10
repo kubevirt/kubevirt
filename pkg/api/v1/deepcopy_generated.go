@@ -2014,6 +2014,13 @@ func (in *VirtualMachineInstanceMigrationState) DeepCopyInto(out *VirtualMachine
 			*out = (*in).DeepCopy()
 		}
 	}
+	if in.TargetDirectMigrationNodePorts != nil {
+		in, out := &in.TargetDirectMigrationNodePorts, &out.TargetDirectMigrationNodePorts
+		*out = make(map[int]int, len(*in))
+		for key, val := range *in {
+			(*out)[key] = val
+		}
+	}
 	return
 }
 
