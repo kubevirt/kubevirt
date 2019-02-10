@@ -20,3 +20,4 @@
 package info
 
 const OnDefineDomainHookPointName = "OnDefineDomain"
+const PreCloudInitIsoHookPointName = "PreCloudInitIso"

@@ -3166,3 +3166,23 @@ func StartHTTPServer(vmi *v1.VirtualMachineInstance, port int) {
 	log.DefaultLogger().Infof("%v", resp)
 	Expect(err).ToNot(HaveOccurred())
 }
+
+func GetVmPodName(virtCli kubecli.KubevirtClient, vmi *v1.VirtualMachineInstance) string {
+	namespace := vmi.GetObjectMeta().GetNamespace()
+	uid := vmi.GetObjectMeta().GetUID()
+	labelSelector := fmt.Sprintf(v1.CreatedByLabel + "=" + string(uid))
+
+	pods, err := virtCli.CoreV1().Pods(namespace).List(metav1.ListOptions{LabelSelector: labelSelector})
+	Expect(err).ToNot(HaveOccurred())
+
+	podName := ""
+	for _, pod := range pods.Items {
+		if pod.ObjectMeta.DeletionTimestamp == nil {
+			podName = pod.ObjectMeta.Name
+			break
+		}
+	}
+	Expect(podName).ToNot(BeEmpty())
+
+	return podName
+}
