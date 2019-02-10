@@ -32,6 +32,7 @@ import (
 	. "github.com/onsi/gomega"
 	k8sv1 "k8s.io/api/core/v1"
 	v12 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	v13 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
@@ -432,6 +433,22 @@ var _ = Describe("Networking", func() {
 
 			tests.WaitUntilVMIReady(beafdeadVMI, tests.LoggedInAlpineExpecter)
 			checkMacAddress(beafdeadVMI, "be:af:00:00:de:ad", "localhost:~#")
+		})
+	})
+
+	Context("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:component]VirtualMachineInstance with invalid MAC addres", func() {
+		BeforeEach(func() {
+			tests.BeforeTestCleanup()
+		})
+
+		It("[test_id:700]should failed to start with invalid MAC address", func() {
+			By("Start VMI")
+			beafdeadVMI := tests.NewRandomVMIWithCustomMacAddress()
+			beafdeadVMI.Spec.Domain.Devices.Interfaces[0].MacAddress = "de:00c:00c:00:00:de:abc"
+			_, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(beafdeadVMI)
+			Expect(err).To(HaveOccurred())
+			testErr := err.(*errors.StatusError)
+			Expect(testErr.ErrStatus.Reason).To(BeEquivalentTo("Invalid"))
 		})
 	})
 
