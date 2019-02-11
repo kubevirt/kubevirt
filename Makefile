@@ -47,6 +47,7 @@ functest:
 
 clean:
 	hack/dockerized "./hack/build-go.sh clean ${WHAT} && rm _out/* -rf"
+	hack/dockerized "bazel clean --expunge"
 	rm -f tools/openapispec/openapispec tools/resource-generator/resource-generator tools/manifest-templator/manifests-templator tools/vms-generator/vms-generator
 
 distclean: clean
