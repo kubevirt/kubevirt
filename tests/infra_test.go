@@ -99,21 +99,24 @@ var _ = Describe("Infrastructure", func() {
 			}
 		})
 		It("should include the metrics for a running VM", func() {
-			vmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(tests.ContainerDiskFor(tests.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n")
 			By("Creating the VirtualMachineInstance")
-			_, err := virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
+			vmi := tests.NewRandomVMI()
+
+			By("Starting a new VirtualMachineInstance")
+			obj, err := virtClient.RestClient().Post().Resource("virtualmachineinstances").Namespace(tests.NamespaceTestDefault).Body(vmi).Do().Get()
 			Expect(err).ToNot(HaveOccurred(), "Should create VMI")
 
 			By("Waiting until the VM is ready")
-			vmi = tests.WaitUntilVMIReady(vmi, tests.LoggedInCirrosExpecter)
+			tests.WaitForSuccessfulVMIStart(obj)
 
+			By("Finding the prometheus endpoint")
 			l, err := labels.Parse("kubevirt.io=virt-handler")
 			Expect(err).ToNot(HaveOccurred())
 			pods, err := virtClient.CoreV1().Pods(tests.KubeVirtInstallNamespace).List(metav1.ListOptions{LabelSelector: l.String()})
 			Expect(err).ToNot(HaveOccurred())
 			Expect(pods.Items).ToNot(BeEmpty())
 
-			By("Scraping the Prometheus endpoints")
+			By("Scraping the Prometheus endpoint")
 			pod := pods.Items[0] // only one compute node in the test environment
 			stdout, _, err := tests.ExecuteCommandOnPodV2(virtClient,
 				&pod, "virt-handler",
