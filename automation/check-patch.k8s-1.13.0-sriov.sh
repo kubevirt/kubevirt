@@ -5,12 +5,14 @@ set -x
 # This is based on https://github.com/SchSeba/kubevirt-docker
 
 KUBEVIRT_FOLDER=`pwd`
+ARTIFACTS_DIR="$KUBEVIRT_FOLDER/exported-artifacts"
 
 SHARED_DIR="/var/lib/stdci/shared"
 SRIOV_JOB_LOCKFILE="${SHARED_DIR}/sriov.lock"
 SRIOV_TIMEOUT_SEC="14400" # 4h
 
 function finish {
+docker exec kube-master journalctl -xe > "$ARTIFACTS_DIR/journalctl-xe.log"
 docker run --rm -e KUBEVIRT_FOLDER=${KUBEVIRT_FOLDER} -v /var/run/docker.sock:/var/run/docker.sock -v `pwd`:/kubevirt -v ${KUBEVIRT_FOLDER}/cluster/k8s-1.13.0-sriov:/root/.kube/ --network host -t sebassch/centos-docker-client clean
 }
 
@@ -24,6 +26,8 @@ flock -e  -w "$SRIOV_TIMEOUT_SEC" "$fd" || {
     echo "ERROR: Timed out after $SRIOV_TIMEOUT_SEC seconds waiting for sriov.lock" >&2
     exit 1
 }
+
+mkdir -p "$ARTIFACTS_DIR"
 
 losetup -d /dev/loop0 || true
 
