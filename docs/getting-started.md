@@ -10,7 +10,7 @@ KubeVirt you need to have `docker` and `rsync` installed. You also need to have 
 running, and have the [permissions](https://docs.docker.com/install/linux/linux-postinstall/#manage-docker-as-a-non-root-user) to access it.
 
 **Note:** For running KubeVirt in the dockerized cluster, **nested
-virtualization** must be enabled - [see here for instructions for Fedora](https://docs.fedoraproject.org/quick-docs/en-US/using-nested-virtualization-in-kvm.html).
+virtualization** must be enabled - [see here for instructions for Fedora](https://docs.fedoraproject.org/en-US/quick-docs/using-nested-virtualization-in-kvm/index.html).
 As an alternative [software emulation](software-emulation.md) can be allowed.
 Enabling nested virtualization should be preferred.
 
@@ -145,7 +145,7 @@ For additional information check out the [Ginkgo focused specs documentation](ht
 
 ## Use
 
-Congratulations you are still with us and you have build KubeVirt.
+Congratulations you are still with us and you have built KubeVirt.
 
 Now it's time to get hands on and give it a try.
 
@@ -234,6 +234,6 @@ cluster/virtctl.sh vnc vmi-ephemeral
 to start a remote session with `remote-viewer`.
 
 `cluster/virtctl.sh` is a wrapper around `virtctl`. `virtctl` brings all
-virtual machine specific commands with it. It is supplement to `kubectl`.
+virtual machine specific commands with it and is a supplement to `kubectl`.
 
 **Note:** If accessing your cluster through ssh, be sure to forward your X11 session in order to launch `virtctl vnc`.
