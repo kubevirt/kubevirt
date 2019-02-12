@@ -38,18 +38,18 @@ if [[ $TARGET =~ openshift-.* ]]; then
   # of old vms does not go fast enough they run out of memory.
   # To still allow continuing with the tests, give more memory in CI.
   export KUBEVIRT_MEMORY_SIZE=6144M
-  if [[ $TARGET =~ .*-crio-.* ]]; then
+  if [[ $TARGET =~ .*-crio ]]; then
     export KUBEVIRT_PROVIDER="os-3.11.0-crio"
-  elif [[ $TARGET =~ .*-multus-.* ]]; then
+  elif [[ $TARGET =~ .*-multus ]]; then
     export KUBEVIRT_PROVIDER="os-3.11.0-multus"
   else
     export KUBEVIRT_PROVIDER="os-3.11.0"
   fi
-elif [[ $TARGET =~ .*-1.10.4-.* ]]; then
+elif [[ $TARGET =~ .*-1.10.4 ]]; then
   export KUBEVIRT_PROVIDER="k8s-1.10.11"
-elif [[ $TARGET =~ .*-multus-1.12.2-.* ]]; then
+elif [[ $TARGET =~ .*-multus-1.12.2 ]]; then
   export KUBEVIRT_PROVIDER="k8s-multus-1.12.2"
-elif [[ $TARGET =~ .*-genie-1.11.1-.* ]]; then
+elif [[ $TARGET =~ .*-genie-1.11.1 ]]; then
   export KUBEVIRT_PROVIDER="k8s-genie-1.11.1"
 else
   export KUBEVIRT_PROVIDER="k8s-1.11.0"
@@ -244,15 +244,18 @@ spec:
 EOF
   # Run only Windows tests
   ginko_params="$ginko_params --ginkgo.focus=Windows"
-
-elif [[ $TARGET =~ multus.* ]] || [[ $TARGET =~ genie.* ]]; then
-  # Run networking tests only (general networking, multus, genie, ...)
-  # If multus or genie is not present the test will  be skipped base on per-test checks
-  ginko_params="$ginko_params --ginkgo.focus=Networking|VMIlifecycle|Expose|Networkpolicy"
+elif [[ $TARGET =~ multus.* ]]; then
+  ginko_params="$ginko_params --ginkgo.focus=Multus|Networking|VMIlifecycle|Expose"
+elif [[ $TARGET =~ genie.* ]]; then
+  ginko_params="$ginko_params --ginkgo.focus=Genie|Networking|VMIlifecycle|Expose"
+else
+  ginko_params="$ginko_params --ginkgo.skip=Multus|Genie"
 fi
 
 # Prepare RHEL PV for Template testing
 if [[ $TARGET =~ openshift-.* ]]; then
+  ginko_params="$ginko_params|Networkpolicy"
+
   kubectl create -f - <<EOF
 ---
 apiVersion: v1
