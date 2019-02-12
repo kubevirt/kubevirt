@@ -394,7 +394,7 @@ func NewHandlerDaemonSet(namespace string, repository string, version string, pu
 	}
 
 	pod := &daemonset.Spec.Template.Spec
-	pod.ServiceAccountName = "kubevirt-privileged"
+	pod.ServiceAccountName = "kubevirt-handler"
 	pod.HostPID = true
 
 	container := &pod.Containers[0]

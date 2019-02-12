@@ -92,7 +92,7 @@ var _ = Describe("KubeVirt Operator", func() {
 	var totalDeletions int
 
 	NAMESPACE := "kubevirt-test"
-	resourceCount := 26
+	resourceCount := 29
 
 	syncCaches := func(stop chan struct{}) {
 		go kvInformer.Run(stop)
@@ -321,6 +321,7 @@ var _ = Describe("KubeVirt Operator", func() {
 		// rbac
 		all = append(all, rbac.GetAllCluster(NAMESPACE)...)
 		all = append(all, rbac.GetAllApiServer(NAMESPACE)...)
+		all = append(all, rbac.GetAllHandler(NAMESPACE)...)
 		all = append(all, rbac.GetAllController(NAMESPACE)...)
 		// crds
 		all = append(all, components.NewVirtualMachineInstanceCrd())
@@ -348,7 +349,7 @@ var _ = Describe("KubeVirt Operator", func() {
 		scc := getSCC()
 		prefix := "system:serviceaccount"
 		scc.Users = append(scc.Users,
-			fmt.Sprintf("%s:%s:%s", prefix, NAMESPACE, "kubevirt-privileged"),
+			fmt.Sprintf("%s:%s:%s", prefix, NAMESPACE, "kubevirt-handler"),
 			fmt.Sprintf("%s:%s:%s", prefix, NAMESPACE, "kubevirt-apiserver"),
 			fmt.Sprintf("%s:%s:%s", prefix, NAMESPACE, "kubevirt-controller"))
 		sccSource.Modify(&scc)
@@ -657,10 +658,10 @@ var _ = Describe("KubeVirt Operator", func() {
 
 			Expect(totalAdds).To(Equal(resourceCount))
 			Expect(len(controller.stores.ServiceAccountCache.List())).To(Equal(3))
-			Expect(len(controller.stores.ClusterRoleCache.List())).To(Equal(6))
+			Expect(len(controller.stores.ClusterRoleCache.List())).To(Equal(7))
 			Expect(len(controller.stores.ClusterRoleBindingCache.List())).To(Equal(5))
-			Expect(len(controller.stores.RoleCache.List())).To(Equal(1))
-			Expect(len(controller.stores.RoleBindingCache.List())).To(Equal(1))
+			Expect(len(controller.stores.RoleCache.List())).To(Equal(2))
+			Expect(len(controller.stores.RoleBindingCache.List())).To(Equal(2))
 			Expect(len(controller.stores.CrdCache.List())).To(Equal(5))
 			Expect(len(controller.stores.ServiceCache.List())).To(Equal(2))
 			Expect(len(controller.stores.DeploymentCache.List())).To(Equal(2))
