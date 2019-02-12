@@ -23,6 +23,7 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
+	"strings"
 	"time"
 
 	. "github.com/onsi/ginkgo"
@@ -118,17 +119,20 @@ var _ = Describe("Infrastructure", func() {
 
 			By("Scraping the Prometheus endpoint")
 			pod := pods.Items[0] // only one compute node in the test environment
-			stdout, _, err := tests.ExecuteCommandOnPodV2(virtClient,
-				&pod, "virt-handler",
-				[]string{
-					"curl",
-					"-L",
-					"-k",
-					fmt.Sprintf("https://%s:%s/metrics", pod.Status.PodIP, "8443"),
-				})
-			Expect(err).ToNot(HaveOccurred())
-			Expect(stdout).To(ContainSubstring("kubevirt_info"))
-			Expect(stdout).To(ContainSubstring("kubevirt_vm"))
+
+			Eventually(func() string {
+				stdout, _, err := tests.ExecuteCommandOnPodV2(virtClient,
+					&pod, "virt-handler",
+					[]string{
+						"curl",
+						"-L",
+						"-k",
+						fmt.Sprintf("https://%s:%s/metrics", pod.Status.PodIP, "8443"),
+					})
+				Expect(err).ToNot(HaveOccurred())
+				lines := filterMetricsOutput(stdout, "kubevirt")
+				return strings.Join(lines, "\n")
+			}, 30*time.Second, 2*time.Second).Should(ContainSubstring("kubevirt"))
 		}, 300)
 	})
 
@@ -206,4 +210,15 @@ func getNewLeaderPod(virtClient kubecli.KubevirtClient) *k8sv1.Pod {
 		}
 	}
 	return nil
+}
+
+func filterMetricsOutput(output, prefix string) []string {
+	lines := strings.Split(output, "\n")
+	var ret []string
+	for _, line := range lines {
+		if strings.HasPrefix(line, prefix) {
+			ret = append(ret, line)
+		}
+	}
+	return ret
 }
