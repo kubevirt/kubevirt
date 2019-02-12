@@ -1090,6 +1090,13 @@ func schema_kubevirt_pkg_api_v1_Firmware(ref common.ReferenceCallback) common.Op
 							Ref:         ref("kubevirt.io/kubevirt/pkg/api/v1.Bootloader"),
 						},
 					},
+					"serial": {
+						SchemaProps: spec.SchemaProps{
+							Description: "The system-serial-number in SMBIOS",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
 				},
 			},
 		},

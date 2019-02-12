@@ -344,7 +344,8 @@ var _ = Describe("Converter", func() {
 			vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{*v1.DefaultNetworkInterface()}
 
 			vmi.Spec.Domain.Firmware = &v1.Firmware{
-				UUID: "e4686d2c-6e8d-4335-b8fd-81bee22f4814",
+				UUID:   "e4686d2c-6e8d-4335-b8fd-81bee22f4814",
+				Serial: "e4686d2c-6e8d-4335-b8fd-81bee22f4815",
 			}
 
 			gracePerod := int64(5)
@@ -362,6 +363,7 @@ var _ = Describe("Converter", func() {
   <sysinfo type="smbios">
     <system>
       <entry name="uuid">e4686d2c-6e8d-4335-b8fd-81bee22f4814</entry>
+      <entry name="serial">e4686d2c-6e8d-4335-b8fd-81bee22f4815</entry>
     </system>
     <bios></bios>
     <baseBoard></baseBoard>

@@ -4541,6 +4541,10 @@
       "description": "Settings to control the bootloader that is used.\n+optional",
       "$ref": "#/definitions/v1.Bootloader"
      },
+     "serial": {
+      "description": "The system-serial-number in SMBIOS",
+      "type": "string"
+     },
      "uuid": {
       "description": "UUID reported by the vmi bios.\nDefaults to a random generated uid.",
       "type": "string"
