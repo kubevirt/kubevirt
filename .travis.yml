@@ -15,9 +15,6 @@ script:
 - make generate
 - if [[ -n "$(git status --porcelain)" ]] ; then echo "It seems like you need to run
   `make generate`. Please run it and commit the changes"; git status --porcelain; false; fi
-- make bazel-generate
-- if [[ -n "$(git status --porcelain)" ]] ; then echo "It seems like you need to run
-  `make bazel-generate`. Please run it and commit the changes"; git status --porcelain; false; fi
 - if diff <(git grep -c '') <(git grep -cI '') | egrep -v -e 'docs/.*\.png|swagger-ui' -e 'vendor/*'
   | grep '^<'; then echo "Binary files are present in git repostory."; false; fi
 - make build

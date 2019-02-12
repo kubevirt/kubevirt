@@ -3,6 +3,10 @@ load("@bazel_gazelle//:def.bzl", "gazelle")
 # gazelle:prefix kubevirt.io/kubevirt
 gazelle(name = "gazelle")
 
+load("@com_github_bazelbuild_buildtools//buildifier:def.bzl", "buildifier")
+
+buildifier(name = "buildifier")
+
 genrule(
     name = "get-version",
     srcs = [],
@@ -131,6 +135,7 @@ container_bundle(
         # cmd images
         "$(container_prefix)/container-disk-v1alpha:$(container_tag)": "//cmd/container-disk-v1alpha:container-disk-v1alpha-image",
         "$(container_prefix)/example-hook-sidecar:$(container_tag)": "//cmd/example-hook-sidecar:example-hook-sidecar-image",
+        "$(container_prefix)/example-cloudinit-hook-sidecar:$(container_tag)": "//cmd/example-cloudinit-hook-sidecar:example-cloudinit-hook-sidecar-image",
         "$(container_prefix)/subresource-access-test:$(container_tag)": "//cmd/subresource-access-test:subresource-access-test-image",
         "$(container_prefix)/virt-controller:$(container_tag)": "//cmd/virt-controller:virt-controller-image",
         "$(container_prefix)/virt-launcher:$(container_tag)": "//cmd/virt-launcher:virt-launcher-image",

@@ -20,6 +20,20 @@ pkg_tar(
     package_dir = "usr/share/nginx/html/images",
 )
 
+genrule(
+    name = "cirros-img",
+    srcs = ["@cirros_image//file"],
+    outs = ["usr/share/nginx/html/images/cirros.img"],
+    cmd = "mkdir disk && cat $(location @cirros_image//file) > $@",
+)
+
+pkg_tar(
+    name = "cirros-img-tar",
+    srcs = [":cirros-img"],
+    mode = "644",
+    package_dir = "usr/share/nginx/html/images",
+)
+
 pkg_tar(
     name = "nginx-config-tar",
     srcs = [
@@ -38,6 +52,7 @@ container_image(
     ],
     tars = [
         ":alpine-tar",
+        ":cirros-img-tar",
         ":nginx-config-tar",
     ],
     directory = "/",

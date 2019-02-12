@@ -17,6 +17,13 @@ http_archive(
     sha256 = "7949fc6cc17b5b191103e97481cf8889217263acf52e00b560683413af204fcb",
 )
 
+http_archive(
+    name = "com_github_bazelbuild_buildtools",
+    strip_prefix = "buildtools-db073457c5a56d810e46efc18bb93a4fd7aa7b5e",
+    # version 0.20.0
+    url = "https://github.com/bazelbuild/buildtools/archive/db073457c5a56d810e46efc18bb93a4fd7aa7b5e.zip",
+)
+
 load(
     "@bazel_tools//tools/build_defs/repo:git.bzl",
     "git_repository",
@@ -92,6 +99,9 @@ load(
     "go_repository",
 )
 gazelle_dependencies()
+
+load("@com_github_bazelbuild_buildtools//buildifier:deps.bzl", "buildifier_dependencies")
+buildifier_dependencies()
 
 # Winrmcli dependencies
 go_repository(
