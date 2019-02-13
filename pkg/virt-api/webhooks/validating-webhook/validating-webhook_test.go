@@ -1493,7 +1493,6 @@ var _ = Describe("Validating Webhook", func() {
 				*v1.DefaultNetworkInterface(),
 			}
 			vm.Spec.Domain.Devices.Interfaces[0].Name = "multus1"
-			// 3rd interfaces uses the default pod network, name is "default"
 			vm.Spec.Networks = []v1.Network{
 				v1.Network{
 					Name: "multus1",
@@ -1512,7 +1511,6 @@ var _ = Describe("Validating Webhook", func() {
 				*v1.DefaultNetworkInterface(),
 			}
 			vm.Spec.Domain.Devices.Interfaces[0].Name = "genie1"
-			// 3rd interfaces uses the default pod network, name is "default"
 			vm.Spec.Networks = []v1.Network{
 				v1.Network{
 					Name: "genie1",
@@ -1536,7 +1534,6 @@ var _ = Describe("Validating Webhook", func() {
 			}
 			vm.Spec.Domain.Devices.Interfaces[0].Name = "multus1"
 			vm.Spec.Domain.Devices.Interfaces[0].Name = "multus2"
-			// 3rd interfaces uses the default pod network, name is "default"
 			vm.Spec.Networks = []v1.Network{
 				v1.Network{
 					Name: "multus1",

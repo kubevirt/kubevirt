@@ -922,7 +922,7 @@ type CniNetwork struct {
 	NetworkName string `json:"networkName"`
 
 	// For Multus CNI select the default network and add it to the
-	// multus-cni.io/default-network annotation. Ignored for all
+	// multus-cni.io/default-network annotation. Forbidden for all
 	// other CNIs.
 	Default bool `json:"default,omitempty"`
 }
