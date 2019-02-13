@@ -439,6 +439,6 @@ func (CniNetwork) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"":            "Represents the cni network.",
 		"networkName": "References to a NetworkAttachmentDefinition CRD object. Format:\n<networkName>, <namespace>/<networkName>. If namespace is not\nspecified, VMI namespace is assumed.\nIn case of genie, it references the CNI plugin name.",
-		"default":     "For Multus CNI select the default network and add it to the\nmultus-cni.io/default-network annotation. Ignored for all\nother CNIs.",
+		"default":     "For Multus CNI select the default network and add it to the\nmultus-cni.io/default-network annotation. Forbidden for all\nother CNIs.",
 	}
 }

@@ -316,7 +316,7 @@ func schema_kubevirt_pkg_api_v1_CniNetwork(ref common.ReferenceCallback) common.
 					},
 					"default": {
 						SchemaProps: spec.SchemaProps{
-							Description: "For Multus CNI select the default network and add it to the multus-cni.io/default-network annotation. Ignored for all other CNIs.",
+							Description: "For Multus CNI select the default network and add it to the multus-cni.io/default-network annotation. Forbidden for all other CNIs.",
 							Type:        []string{"boolean"},
 							Format:      "",
 						},

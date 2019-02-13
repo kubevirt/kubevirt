@@ -4085,7 +4085,7 @@
     ],
     "properties": {
      "default": {
-      "description": "For Multus CNI select the default network and add it to the\nmultus-cni.io/default-network annotation. Ignored for all\nother CNIs.",
+      "description": "For Multus CNI select the default network and add it to the\nmultus-cni.io/default-network annotation. Forbidden for all\nother CNIs.",
       "type": "boolean"
      },
      "networkName": {
