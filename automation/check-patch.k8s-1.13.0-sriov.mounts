@@ -3,7 +3,6 @@
 /var/cache:/var/host_cache
 /var/run/docker.sock:/var/run/docker.sock
 /var/lib/stdci/shared:/var/lib/stdci/shared
-/var/run/docker/netns:/var/run/netns
-
+/run/docker/netns:/run/docker/netns
 /dev/vfio:/dev/vfio
 /sys/bus/pci/devices:/sys/bus/pci/devices
