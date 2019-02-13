@@ -25,6 +25,8 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"path"
+	"strings"
 	"time"
 
 	"github.com/spf13/cobra"
@@ -51,7 +53,8 @@ const (
 
 	uploadPodWaitInterval = 2 * time.Second
 
-	uploadProxyURI = "/v1alpha1/upload"
+	//UploadProxyURI is a URI of the upoad proxy
+	UploadProxyURI = "/v1alpha1/upload"
 )
 
 var (
@@ -202,8 +205,27 @@ func getHTTPClient(insecure bool) *http.Client {
 	return client
 }
 
+//ConstructUploadProxyPath - receives uploadproxy adress and concatenates to it URI
+func ConstructUploadProxyPath(uploadProxyURL string) (string, error) {
+	u, err := url.Parse(uploadProxyURL)
+
+	if err != nil {
+		return "", err
+	}
+
+	if !strings.Contains(uploadProxyURL, UploadProxyURI) {
+		u.Path = path.Join(u.Path, UploadProxyURI)
+	}
+
+	return u.String(), nil
+}
+
 func uploadData(uploadProxyURL, token string, file *os.File, insecure bool) error {
-	url := uploadProxyURL + uploadProxyURI
+
+	url, err := ConstructUploadProxyPath(uploadProxyURL)
+	if err != nil {
+		return err
+	}
 
 	fi, err := file.Stat()
 	if err != nil {
