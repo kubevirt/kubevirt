@@ -764,6 +764,46 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 				}, 60*time.Second, 1*time.Second).Should(Equal("Unschedulable"), "VMI should be unchedulable")
 			})
 
+			It("the vmi with cpu.feature policy 'forbid' should not be scheduled on a node with that cpu feature label", func() {
+
+				nodes, err := virtClient.CoreV1().Nodes().List(metav1.ListOptions{})
+				Expect(err).ToNot(HaveOccurred(), "Should list nodes")
+				Expect(nodes.Items).ToNot(BeEmpty(), "There should be some nodes")
+
+				vmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(tests.ContainerDiskFor(tests.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n")
+				vmi.Spec.Domain.CPU = &v1.CPU{
+					Cores: 1,
+					Features: []v1.CPUFeature{
+						{
+							Name:   "monitor",
+							Policy: "forbid",
+						},
+					},
+				}
+
+				// Add node affinity first to test later on that although there is node affinity to
+				// the specific node - the feature policy 'forbid' will deny shceduling on that node.
+				addNodeAffinityToVMI(vmi, nodes.Items[0].Name)
+
+				node := &nodes.Items[0]
+				node, err = virtClient.CoreV1().Nodes().Patch(node.Name, types.StrategicMergePatchType,
+					[]byte(fmt.Sprintf(`{"metadata": { "labels": {"%s": "true"}}}`, services.NFD_CPU_FEATURE_PREFIX+"monitor")))
+				Expect(err).ToNot(HaveOccurred(), "Should patch node successfully")
+
+				_, err = virtClient.VirtualMachineInstance(vmi.Namespace).Create(vmi)
+				Expect(err).ToNot(HaveOccurred(), "Should create VMI")
+
+				By("Waiting for the VirtualMachineInstance to be unschedulable")
+				Eventually(func() string {
+					curVMI, err := virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &metav1.GetOptions{})
+					Expect(err).ToNot(HaveOccurred(), "Should get vmi")
+					if curVMI.Status.Conditions != nil {
+						return curVMI.Status.Conditions[0].Reason
+					}
+					return ""
+				}, 60*time.Second, 1*time.Second).Should(Equal("Unschedulable"), "VMI should be unchedulable")
+			})
+
 		})
 
 		Context("with non default namespace", func() {

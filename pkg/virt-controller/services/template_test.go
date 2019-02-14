@@ -280,6 +280,10 @@ var _ = Describe("Template", func() {
 										Name:   "mmx",
 										Policy: "disable",
 									},
+									{
+										Name:   "ssse3",
+										Policy: "forbid",
+									},
 								},
 							},
 						},

@@ -173,10 +173,47 @@ func CPUFeatureLabelsFromCPUFeatures(vmi *v1.VirtualMachineInstance) []string {
 	var labels []string
 	if vmi.Spec.Domain.CPU != nil && vmi.Spec.Domain.CPU.Features != nil {
 		for _, feature := range vmi.Spec.Domain.CPU.Features {
-			labels = append(labels, NFD_CPU_FEATURE_PREFIX+feature.Name)
+			if feature.Policy == "" || feature.Policy == "require" {
+				labels = append(labels, NFD_CPU_FEATURE_PREFIX+feature.Name)
+			} else if feature.Policy == "forbid" {
+				setNodeAffinityForForbiddenFeaturePolicy(vmi, feature)
+			}
 		}
 	}
 	return labels
+}
+
+func setNodeAffinityForForbiddenFeaturePolicy(vmi *v1.VirtualMachineInstance, feature v1.CPUFeature) {
+
+	term := k8sv1.NodeSelectorTerm{
+		MatchExpressions: []k8sv1.NodeSelectorRequirement{
+			{Key: NFD_CPU_FEATURE_PREFIX + feature.Name,
+				Operator: k8sv1.NodeSelectorOpDoesNotExist, Values: []string{"true"}}}}
+
+	nodeAffinity := &k8sv1.NodeAffinity{
+		RequiredDuringSchedulingIgnoredDuringExecution: &k8sv1.NodeSelector{
+			NodeSelectorTerms: []k8sv1.NodeSelectorTerm{term},
+		},
+	}
+
+	if vmi.Spec.Affinity != nil && vmi.Spec.Affinity.NodeAffinity != nil {
+		if vmi.Spec.Affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution != nil {
+			vmi.Spec.Affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution.NodeSelectorTerms =
+				append(vmi.Spec.Affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution.NodeSelectorTerms, term)
+		} else {
+			vmi.Spec.Affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution = &k8sv1.NodeSelector{
+				NodeSelectorTerms: []k8sv1.NodeSelectorTerm{term},
+			}
+		}
+
+	} else if vmi.Spec.Affinity != nil {
+		vmi.Spec.Affinity.NodeAffinity = nodeAffinity
+	} else {
+		vmi.Spec.Affinity = &k8sv1.Affinity{
+			NodeAffinity: nodeAffinity,
+		}
+
+	}
 }
 
 // Request a resource by name. This function bumps the number of resources,
