@@ -27,12 +27,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-operator/util"
 )
 
-func Create(kv *v1.KubeVirt, config util.KubeVirtDeploymentConfig, stores util.Stores, clientset kubecli.KubevirtClient, expectations *util.Expectations) (int, error) {
-
-	strategy, err := installstrategy.LoadInstallStrategyFromCache(stores, config.ImageTag)
-	if err != nil {
-		return 0, err
-	}
+func Create(kv *v1.KubeVirt, config util.KubeVirtDeploymentConfig, stores util.Stores, clientset kubecli.KubevirtClient, expectations *util.Expectations, strategy *installstrategy.InstallStrategy) (int, error) {
 
 	objectsAdded, err := installstrategy.CreateAll(kv, strategy, config, stores, clientset, expectations)
 

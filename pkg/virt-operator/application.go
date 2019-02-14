@@ -26,6 +26,7 @@ import (
 	"os"
 
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"github.com/spf13/pflag"
 
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/kubernetes/scheme"
@@ -79,6 +80,8 @@ func Execute() {
 	var err error
 	app := VirtOperatorApp{}
 
+	dumpInstallStrategy := pflag.Bool("dump-install-strategy", false, "Dump install strategy to configmap and exit")
+
 	service.Setup(&app)
 
 	log.InitializeLogging("virt-operator")
@@ -96,9 +99,12 @@ func Execute() {
 		golog.Fatalf("Error searching for namespace: %v", err)
 	}
 
-	err = installstrategy.DumpInstallStrategyToConfigMap(app.clientSet)
-	if err != nil {
-		golog.Fatal(err)
+	if *dumpInstallStrategy {
+		err = installstrategy.DumpInstallStrategyToConfigMap(app.clientSet)
+		if err != nil {
+			golog.Fatal(err)
+		}
+		os.Exit(0)
 	}
 
 	app.informerFactory = controller.NewKubeInformerFactory(app.restClient, app.clientSet, app.operatorNamespace)
@@ -107,29 +113,31 @@ func Execute() {
 	app.kubeVirtCache = app.kubeVirtInformer.GetStore()
 
 	app.informers = util.Informers{
-		ServiceAccount:     app.informerFactory.OperatorServiceAccount(),
-		ClusterRole:        app.informerFactory.OperatorClusterRole(),
-		ClusterRoleBinding: app.informerFactory.OperatorClusterRoleBinding(),
-		Role:               app.informerFactory.OperatorRole(),
-		RoleBinding:        app.informerFactory.OperatorRoleBinding(),
-		Crd:                app.informerFactory.OperatorCRD(),
-		Service:            app.informerFactory.OperatorService(),
-		Deployment:         app.informerFactory.OperatorDeployment(),
-		DaemonSet:          app.informerFactory.OperatorDaemonSet(),
-		InstallStrategies:  app.informerFactory.OperatorInstallStrategyConfigMaps(),
+		ServiceAccount:      app.informerFactory.OperatorServiceAccount(),
+		ClusterRole:         app.informerFactory.OperatorClusterRole(),
+		ClusterRoleBinding:  app.informerFactory.OperatorClusterRoleBinding(),
+		Role:                app.informerFactory.OperatorRole(),
+		RoleBinding:         app.informerFactory.OperatorRoleBinding(),
+		Crd:                 app.informerFactory.OperatorCRD(),
+		Service:             app.informerFactory.OperatorService(),
+		Deployment:          app.informerFactory.OperatorDeployment(),
+		DaemonSet:           app.informerFactory.OperatorDaemonSet(),
+		InstallStrategies:   app.informerFactory.OperatorInstallStrategyConfigMaps(),
+		InstallStrategyJobs: app.informerFactory.OperatorInstallStrategyJobs(),
 	}
 
 	app.stores = util.Stores{
-		ServiceAccountCache:     app.informerFactory.OperatorServiceAccount().GetStore(),
-		ClusterRoleCache:        app.informerFactory.OperatorClusterRole().GetStore(),
-		ClusterRoleBindingCache: app.informerFactory.OperatorClusterRoleBinding().GetStore(),
-		RoleCache:               app.informerFactory.OperatorRole().GetStore(),
-		RoleBindingCache:        app.informerFactory.OperatorRoleBinding().GetStore(),
-		CrdCache:                app.informerFactory.OperatorCRD().GetStore(),
-		ServiceCache:            app.informerFactory.OperatorService().GetStore(),
-		DeploymentCache:         app.informerFactory.OperatorDeployment().GetStore(),
-		DaemonSetCache:          app.informerFactory.OperatorDaemonSet().GetStore(),
-		InstallStrategyCache:    app.informerFactory.OperatorInstallStrategyConfigMaps().GetStore(),
+		ServiceAccountCache:      app.informerFactory.OperatorServiceAccount().GetStore(),
+		ClusterRoleCache:         app.informerFactory.OperatorClusterRole().GetStore(),
+		ClusterRoleBindingCache:  app.informerFactory.OperatorClusterRoleBinding().GetStore(),
+		RoleCache:                app.informerFactory.OperatorRole().GetStore(),
+		RoleBindingCache:         app.informerFactory.OperatorRoleBinding().GetStore(),
+		CrdCache:                 app.informerFactory.OperatorCRD().GetStore(),
+		ServiceCache:             app.informerFactory.OperatorService().GetStore(),
+		DeploymentCache:          app.informerFactory.OperatorDeployment().GetStore(),
+		DaemonSetCache:           app.informerFactory.OperatorDaemonSet().GetStore(),
+		InstallStrategyCache:     app.informerFactory.OperatorInstallStrategyConfigMaps().GetStore(),
+		InstallStrategyJobsCache: app.informerFactory.OperatorInstallStrategyJobs().GetStore(),
 	}
 
 	onOpenShift, err := util.IsOnOpenshift(app.clientSet)

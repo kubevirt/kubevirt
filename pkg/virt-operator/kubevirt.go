@@ -22,9 +22,11 @@ package virt_operator
 import (
 	"fmt"
 	"reflect"
+	"sync"
 	"time"
 
 	appsv1 "k8s.io/api/apps/v1"
+	batchv1 "k8s.io/api/batch/v1"
 	k8sv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -38,6 +40,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/log"
 	"kubevirt.io/kubevirt/pkg/virt-operator/creation"
 	"kubevirt.io/kubevirt/pkg/virt-operator/deletion"
+	"kubevirt.io/kubevirt/pkg/virt-operator/install-strategy"
 	"kubevirt.io/kubevirt/pkg/virt-operator/util"
 )
 
@@ -58,6 +61,8 @@ type KubeVirtController struct {
 	stores               util.Stores
 	informers            util.Informers
 	kubeVirtExpectations util.Expectations
+	installStrategyMutex sync.Mutex
+	installStrategyMap   map[string]*installstrategy.InstallStrategy
 }
 
 func NewKubeVirtController(
@@ -76,16 +81,18 @@ func NewKubeVirtController(
 		stores:           stores,
 		informers:        informers,
 		kubeVirtExpectations: util.Expectations{
-			ServiceAccount:     controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectationsWithName("ServiceAccount")),
-			ClusterRole:        controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectationsWithName("ClusterRole")),
-			ClusterRoleBinding: controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectationsWithName("ClusterRoleBinding")),
-			Role:               controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectationsWithName("Role")),
-			RoleBinding:        controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectationsWithName("RoleBinding")),
-			Crd:                controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectationsWithName("Crd")),
-			Service:            controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectationsWithName("Service")),
-			Deployment:         controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectationsWithName("Deployment")),
-			DaemonSet:          controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectationsWithName("DaemonSet")),
+			ServiceAccount:      controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectationsWithName("ServiceAccount")),
+			ClusterRole:         controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectationsWithName("ClusterRole")),
+			ClusterRoleBinding:  controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectationsWithName("ClusterRoleBinding")),
+			Role:                controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectationsWithName("Role")),
+			RoleBinding:         controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectationsWithName("RoleBinding")),
+			Crd:                 controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectationsWithName("Crd")),
+			Service:             controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectationsWithName("Service")),
+			Deployment:          controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectationsWithName("Deployment")),
+			DaemonSet:           controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectationsWithName("DaemonSet")),
+			InstallStrategyJobs: controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectationsWithName("Jobs")),
 		},
+		installStrategyMap: make(map[string]*installstrategy.InstallStrategy),
 	}
 
 	c.kubeVirtInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
@@ -199,6 +206,18 @@ func NewKubeVirtController(
 		},
 		UpdateFunc: func(oldObj, newObj interface{}) {
 			c.genericUpdateHandler(oldObj, newObj, c.kubeVirtExpectations.DaemonSet)
+		},
+	})
+
+	c.informers.InstallStrategyJobs.AddEventHandler(cache.ResourceEventHandlerFuncs{
+		AddFunc: func(obj interface{}) {
+			c.genericAddHandler(obj, c.kubeVirtExpectations.InstallStrategyJobs)
+		},
+		DeleteFunc: func(obj interface{}) {
+			c.genericDeleteHandler(obj, c.kubeVirtExpectations.InstallStrategyJobs)
+		},
+		UpdateFunc: func(oldObj, newObj interface{}) {
+			c.genericUpdateHandler(oldObj, newObj, c.kubeVirtExpectations.InstallStrategyJobs)
 		},
 	})
 
@@ -422,6 +441,136 @@ func (c *KubeVirtController) execute(key string) error {
 	return syncError
 }
 
+func (c *KubeVirtController) generateInstallStrategyJob(kv *v1.KubeVirt, imageTag string, imageRegistry string) *batchv1.Job {
+
+	pullPolicy := k8sv1.PullIfNotPresent
+	if string(kv.Spec.ImagePullPolicy) != "" {
+		pullPolicy = kv.Spec.ImagePullPolicy
+	}
+	job := &batchv1.Job{
+		TypeMeta: metav1.TypeMeta{
+			APIVersion: "batch/v1",
+			Kind:       "Job",
+		},
+
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: kv.Namespace,
+			Name:      fmt.Sprintf("virt-install-strategy-job-%s", imageTag),
+			Labels: map[string]string{
+				v1.AppLabel:                    "",
+				v1.ManagedByLabel:              v1.ManagedByLabelOperatorValue,
+				v1.InstallStrategyVersionLabel: imageTag,
+			},
+		},
+		Spec: batchv1.JobSpec{
+			Template: k8sv1.PodTemplateSpec{
+
+				Spec: k8sv1.PodSpec{
+					ServiceAccountName: "kubevirt-operator",
+					RestartPolicy:      k8sv1.RestartPolicyNever,
+					Containers: []k8sv1.Container{
+						{
+							Name:            "install-strategy-upload",
+							Image:           fmt.Sprintf("%s/%s:%s", imageRegistry, "virt-operator", imageTag),
+							ImagePullPolicy: pullPolicy,
+							Command: []string{
+								"virt-operator",
+								"--dump-install-strategy",
+							},
+							Env: []k8sv1.EnvVar{
+								{
+									Name:  util.OperatorImageEnvName,
+									Value: fmt.Sprintf("%s/%s:%s", imageRegistry, "virt-operator", imageTag),
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	return job
+}
+
+// Loads install strategies into memory, and generates jobs to
+// create install strategies that don't exist yet.
+func (c *KubeVirtController) loadInstallStrategy(kv *v1.KubeVirt) (*installstrategy.InstallStrategy, bool, error) {
+
+	kvkey, err := controller.KeyFunc(kv)
+	if err != nil {
+		return nil, true, err
+	}
+
+	// 1. see if we already loaded the install strategy
+	c.installStrategyMutex.Lock()
+	strategy, ok := c.installStrategyMap[c.config.ImageTag]
+	// don't use a defer here because we don't want to block this lock
+	// while we make API calls later on in the function
+	c.installStrategyMutex.Unlock()
+
+	if ok {
+		// we already loaded this strategy into memory
+		return strategy, false, nil
+	}
+
+	// 2. look for install strategy config map in cache.
+	strategy, err = installstrategy.LoadInstallStrategyFromCache(c.stores, c.config.ImageTag)
+	if err == nil {
+		c.installStrategyMutex.Lock()
+		defer c.installStrategyMutex.Unlock()
+		c.installStrategyMap[c.config.ImageTag] = strategy
+		return strategy, false, nil
+	}
+
+	// 3. See if we have a pending job in flight for this install strategy.
+	batch := c.clientset.BatchV1()
+	job := c.generateInstallStrategyJob(kv, c.config.ImageTag, c.config.ImageRegistry)
+	obj, exists, _ := c.stores.InstallStrategyJobsCache.Get(job)
+
+	if exists {
+		cachedJob := obj.(*batchv1.Job)
+
+		if cachedJob.Status.CompletionTime != nil {
+			// job completed but we don't have a install strategy still
+			// delete the job and we'll re-execute it once it is removed.
+
+			if cachedJob.DeletionTimestamp == nil {
+
+				key, err := controller.KeyFunc(cachedJob)
+				if err != nil {
+					return nil, true, err
+				}
+
+				c.kubeVirtExpectations.InstallStrategyJobs.AddExpectedDeletion(kvkey, key)
+				err = batch.Jobs(kv.Namespace).Delete(cachedJob.Name, &metav1.DeleteOptions{})
+				if err != nil {
+					c.kubeVirtExpectations.InstallStrategyJobs.DeletionObserved(kvkey, key)
+
+					return nil, true, err
+				}
+				// waiting on deleted job to disappear before re-creating it.
+				return nil, true, err
+			}
+
+			// waiting on deleted job to disappear before re-creating it.
+			return nil, true, nil
+		}
+	}
+
+	// 4. execute a job to generate the install strategy for the target version of KubeVirt that's being installed/updated
+	c.kubeVirtExpectations.InstallStrategyJobs.RaiseExpectations(kvkey, 1, 0)
+	_, err = batch.Jobs(kv.Namespace).Create(job)
+	if err != nil {
+		c.kubeVirtExpectations.InstallStrategyJobs.LowerExpectations(kvkey, 1, 0)
+		return nil, true, err
+	}
+
+	// pending is true here because we're waiting on the job
+	// to generate the install strategy
+	return nil, true, nil
+}
+
 func (c *KubeVirtController) syncDeployment(kv *v1.KubeVirt) error {
 	logger := log.Log.Object(kv)
 	logger.Infof("Handling deployment")
@@ -453,8 +602,18 @@ func (c *KubeVirtController) syncDeployment(kv *v1.KubeVirt) error {
 	// add finalizer to prevent deletion of CR before KubeVirt was undeployed
 	util.AddFinalizer(kv)
 
+	strategy, pending, err := c.loadInstallStrategy(kv)
+	if err != nil {
+		return err
+	}
+
+	// we're waiting on the job to finish and the config map to be created
+	if pending {
+		return nil
+	}
+
 	// deploy
-	objectsAdded, err := creation.Create(kv, c.config, c.stores, c.clientset, &c.kubeVirtExpectations)
+	objectsAdded, err := creation.Create(kv, c.config, c.stores, c.clientset, &c.kubeVirtExpectations, strategy)
 
 	if err != nil {
 		// deployment failed

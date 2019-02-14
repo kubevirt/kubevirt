@@ -27,6 +27,7 @@ import (
 	secv1 "github.com/openshift/api/security/v1"
 
 	appsv1 "k8s.io/api/apps/v1"
+	batchv1 "k8s.io/api/batch/v1"
 	k8sv1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	extv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
@@ -129,6 +130,9 @@ type KubeInformerFactory interface {
 
 	// ConfigMaps for operator install strategies
 	OperatorInstallStrategyConfigMaps() cache.SharedIndexInformer
+
+	// Jobs for dumping operator install strategies
+	OperatorInstallStrategyJobs() cache.SharedIndexInformer
 }
 
 type kubeInformerFactory struct {
@@ -432,5 +436,17 @@ func (f *kubeInformerFactory) OperatorInstallStrategyConfigMaps() cache.SharedIn
 
 		lw := NewListWatchFromClient(f.clientSet.CoreV1().RESTClient(), "configmaps", k8sv1.NamespaceAll, fields.Everything(), labelSelector)
 		return cache.NewSharedIndexInformer(lw, &k8sv1.ConfigMap{}, f.defaultResync, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
+	})
+}
+
+func (f *kubeInformerFactory) OperatorInstallStrategyJobs() cache.SharedIndexInformer {
+	return f.getInformer("installStrategyJobsInformer", func() cache.SharedIndexInformer {
+		labelSelector, err := labels.Parse(kubev1.InstallStrategyVersionLabel)
+		if err != nil {
+			panic(err)
+		}
+
+		lw := NewListWatchFromClient(f.clientSet.BatchV1().RESTClient(), "jobs", k8sv1.NamespaceAll, fields.Everything(), labelSelector)
+		return cache.NewSharedIndexInformer(lw, &batchv1.Job{}, f.defaultResync, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
 	})
 }
