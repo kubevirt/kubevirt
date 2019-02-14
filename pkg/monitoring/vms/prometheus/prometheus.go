@@ -43,58 +43,45 @@ var (
 	)
 
 	storageIopsDesc = prometheus.NewDesc(
-		"kubevirt_vm_storage_iops",
+		"kubevirt_vm_storage_iops_total",
 		"I/O operation performed.",
 		[]string{"domain", "drive", "type"},
 		nil,
 	)
 	// from now on: TODO: validate
 	vcpuUsageDesc = prometheus.NewDesc(
-		"kubevirt_vm_vcpu_time",
-		"Vcpu elapsed time, seconds.",
+		"kubevirt_vm_vcpu_seconds",
+		"Vcpu elapsed time.",
 		[]string{"domain", "id", "state"},
 		nil,
 	)
 	networkTrafficDesc = prometheus.NewDesc(
-		"kubevirt_vm_network_traffic_bytes",
-		"network traffic, bytes.",
+		"kubevirt_vm_network_traffic_bytes_total",
+		"network traffi.",
 		[]string{"domain", "interface", "type"},
 		nil,
 	)
-	memoryUsageDesc = prometheus.NewDesc(
-		"kubevirt_vm_memory_amount_bytes",
-		"memory amount, bytes.",
-		[]string{"domain", "type"},
+	memoryAvailableDesc = prometheus.NewDesc(
+		"kubevirt_vm_memory_available_bytes",
+		"amount of usable memory as seen by the domain.",
+		[]string{"domain"},
+		nil,
+	)
+	memoryResidentDesc = prometheus.NewDesc(
+		"kubevirt_vm_memory_resident_bytes",
+		"resident set size of the process running the domain",
+		[]string{"domain"},
 		nil,
 	)
 )
 
 func updateMemory(vmStats *stats.DomainStats, ch chan<- prometheus.Metric) {
-	if vmStats.Memory.UnusedSet {
-		mv, err := prometheus.NewConstMetric(
-			memoryUsageDesc, prometheus.GaugeValue,
-			float64(vmStats.Memory.Unused),
-			vmStats.Name, "unused",
-		)
-		if err == nil {
-			ch <- mv
-		}
-	}
 	if vmStats.Memory.AvailableSet {
 		mv, err := prometheus.NewConstMetric(
-			memoryUsageDesc, prometheus.GaugeValue,
-			float64(vmStats.Memory.Available),
-			vmStats.Name, "available",
-		)
-		if err == nil {
-			ch <- mv
-		}
-	}
-	if vmStats.Memory.ActualBalloonSet {
-		mv, err := prometheus.NewConstMetric(
-			memoryUsageDesc, prometheus.GaugeValue,
-			float64(vmStats.Memory.ActualBalloon),
-			vmStats.Name, "balloon",
+			memoryAvailableDesc, prometheus.GaugeValue,
+			// the libvirt value is in KiB
+			float64(vmStats.Memory.Available)*1024,
+			vmStats.Name,
 		)
 		if err == nil {
 			ch <- mv
@@ -102,9 +89,10 @@ func updateMemory(vmStats *stats.DomainStats, ch chan<- prometheus.Metric) {
 	}
 	if vmStats.Memory.RSSSet {
 		mv, err := prometheus.NewConstMetric(
-			memoryUsageDesc, prometheus.GaugeValue,
-			float64(vmStats.Memory.RSS),
-			vmStats.Name, "resident",
+			memoryResidentDesc, prometheus.GaugeValue,
+			// the libvirt value is in KiB
+			float64(vmStats.Memory.RSS)*1024,
+			vmStats.Name,
 		)
 		if err == nil {
 			ch <- mv
@@ -151,16 +139,6 @@ func updateBlock(vmStats *stats.DomainStats, ch chan<- prometheus.Metric) {
 				storageIopsDesc, prometheus.CounterValue,
 				float64(block.WrReqs),
 				vmStats.Name, block.Name, "write",
-			)
-			if err == nil {
-				ch <- mv
-			}
-		}
-		if block.FlReqsSet {
-			mv, err := prometheus.NewConstMetric(
-				storageIopsDesc, prometheus.CounterValue,
-				float64(block.FlReqs),
-				vmStats.Name, block.Name, "flush",
 			)
 			if err == nil {
 				ch <- mv
@@ -228,7 +206,8 @@ func (co *Collector) Describe(ch chan<- *prometheus.Desc) {
 	ch <- storageIopsDesc
 	ch <- vcpuUsageDesc
 	ch <- networkTrafficDesc
-	ch <- memoryUsageDesc
+	ch <- memoryAvailableDesc
+	ch <- memoryResidentDesc
 }
 
 // Note that Collect could be called concurrently
