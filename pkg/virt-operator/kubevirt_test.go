@@ -38,6 +38,7 @@ import (
 	extclientfake "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset/fake"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	discoveryFake "k8s.io/client-go/discovery/fake"
 	"k8s.io/client-go/kubernetes/fake"
 	"k8s.io/client-go/testing"
 	"k8s.io/client-go/tools/cache"
@@ -82,6 +83,7 @@ var _ = Describe("KubeVirt Operator", func() {
 	var kubeClient *fake.Clientset
 	var secClient *secv1fake.FakeSecurityV1
 	var extClient *extclientfake.Clientset
+	var discoveryClient *discoveryFake.FakeDiscovery
 
 	var informers util.Informers
 	var stores util.Stores
@@ -189,12 +191,16 @@ var _ = Describe("KubeVirt Operator", func() {
 			Fake: &fake.NewSimpleClientset().Fake,
 		}
 		extClient = extclientfake.NewSimpleClientset()
+		discoveryClient = &discoveryFake.FakeDiscovery{
+			Fake: &fake.NewSimpleClientset().Fake,
+		}
 
 		virtClient.EXPECT().CoreV1().Return(kubeClient.CoreV1()).AnyTimes()
 		virtClient.EXPECT().RbacV1().Return(kubeClient.RbacV1()).AnyTimes()
 		virtClient.EXPECT().AppsV1().Return(kubeClient.AppsV1()).AnyTimes()
 		virtClient.EXPECT().SecClient().Return(secClient).AnyTimes()
 		virtClient.EXPECT().ExtensionsClient().Return(extClient).AnyTimes()
+		virtClient.EXPECT().DiscoveryClient().Return(discoveryClient).AnyTimes()
 
 		// Make sure that all unexpected calls to kubeClient will fail
 		kubeClient.Fake.PrependReactor("*", "*", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
@@ -206,6 +212,10 @@ var _ = Describe("KubeVirt Operator", func() {
 			return true, nil, nil
 		})
 		extClient.Fake.PrependReactor("*", "*", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
+			Expect(action).To(BeNil())
+			return true, nil, nil
+		})
+		discoveryClient.Fake.PrependReactor("*", "*", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
 			Expect(action).To(BeNil())
 			return true, nil, nil
 		})
@@ -565,6 +575,12 @@ var _ = Describe("KubeVirt Operator", func() {
 		kubeClient.Fake.PrependReactor("create", "daemonsets", genericCreateFunc)
 	}
 
+	shouldExpectOpenShiftTest := func() {
+		discoveryClient.Fake.PrependReactor("get", "resource", func(action testing.Action) (handled bool, ret runtime.Object, err error) {
+			return true, nil, nil
+		})
+	}
+
 	shouldExpectKubeVirtUpdate := func(times int) {
 		update := kvInterface.EXPECT().Update(gomock.Any())
 		update.Do(func(kv *v1.KubeVirt) {
@@ -635,6 +651,7 @@ var _ = Describe("KubeVirt Operator", func() {
 			addAll()
 			makeApiAndControllerReady()
 			makeHandlerReady()
+			shouldExpectOpenShiftTest()
 
 			controller.Execute()
 
@@ -653,6 +670,7 @@ var _ = Describe("KubeVirt Operator", func() {
 
 			shouldExpectKubeVirtUpdate(1)
 			shouldExpectCreations()
+			shouldExpectOpenShiftTest()
 
 			controller.Execute()
 
