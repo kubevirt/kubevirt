@@ -20,6 +20,8 @@
 package installstrategy
 
 import (
+	"bufio"
+	"bytes"
 	"fmt"
 	"io/ioutil"
 	"strings"
@@ -36,7 +38,10 @@ import (
 	"kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/kubecli"
 	"kubevirt.io/kubevirt/pkg/log"
+	"kubevirt.io/kubevirt/pkg/virt-operator/creation/components"
+	"kubevirt.io/kubevirt/pkg/virt-operator/creation/rbac"
 	"kubevirt.io/kubevirt/pkg/virt-operator/util"
+	marshalutil "kubevirt.io/kubevirt/tools/util"
 )
 
 type InstallStrategy struct {
@@ -55,6 +60,108 @@ type InstallStrategy struct {
 	daemonSets  []*appsv1.DaemonSet
 }
 
+func DumpInstallStrategyToBytes(strategy *InstallStrategy) []byte {
+
+	var b bytes.Buffer
+	writer := bufio.NewWriter(&b)
+
+	for _, entry := range strategy.serviceAccounts {
+		marshalutil.MarshallObject(entry, writer)
+	}
+	for _, entry := range strategy.clusterRoles {
+		marshalutil.MarshallObject(entry, writer)
+	}
+	for _, entry := range strategy.clusterRoleBindings {
+		marshalutil.MarshallObject(entry, writer)
+	}
+	for _, entry := range strategy.roles {
+		marshalutil.MarshallObject(entry, writer)
+	}
+	for _, entry := range strategy.roleBindings {
+		marshalutil.MarshallObject(entry, writer)
+	}
+	for _, entry := range strategy.crds {
+		marshalutil.MarshallObject(entry, writer)
+	}
+	for _, entry := range strategy.services {
+		marshalutil.MarshallObject(entry, writer)
+	}
+	for _, entry := range strategy.deployments {
+		marshalutil.MarshallObject(entry, writer)
+	}
+	for _, entry := range strategy.daemonSets {
+		marshalutil.MarshallObject(entry, writer)
+	}
+	writer.Flush()
+
+	return b.Bytes()
+}
+
+func GenerateCurrentInstallStrategy(namespace string,
+	version string,
+	repository string,
+	imagePullPolicy corev1.PullPolicy,
+	verbosity string) (*InstallStrategy, error) {
+
+	strategy := &InstallStrategy{}
+
+	strategy.crds = append(strategy.crds, components.NewVirtualMachineInstanceCrd())
+	strategy.crds = append(strategy.crds, components.NewPresetCrd())
+	strategy.crds = append(strategy.crds, components.NewReplicaSetCrd())
+	strategy.crds = append(strategy.crds, components.NewVirtualMachineCrd())
+	strategy.crds = append(strategy.crds, components.NewVirtualMachineInstanceMigrationCrd())
+
+	rbaclist := make([]interface{}, 0)
+	rbaclist = append(rbaclist, rbac.GetAllCluster(namespace)...)
+	rbaclist = append(rbaclist, rbac.GetAllApiServer(namespace)...)
+	rbaclist = append(rbaclist, rbac.GetAllController(namespace)...)
+	rbaclist = append(rbaclist, rbac.GetAllHandler(namespace)...)
+
+	for _, entry := range rbaclist {
+		cr, ok := entry.(*rbacv1.ClusterRole)
+		if ok {
+			strategy.clusterRoles = append(strategy.clusterRoles, cr)
+		}
+		crb, ok := entry.(*rbacv1.ClusterRoleBinding)
+		if ok {
+			strategy.clusterRoleBindings = append(strategy.clusterRoleBindings, crb)
+		}
+
+		r, ok := entry.(*rbacv1.Role)
+		if ok {
+			strategy.roles = append(strategy.roles, r)
+		}
+
+		rb, ok := entry.(*rbacv1.RoleBinding)
+		if ok {
+			strategy.roleBindings = append(strategy.roleBindings, rb)
+		}
+	}
+
+	strategy.services = append(strategy.services, components.NewPrometheusService(namespace))
+
+	strategy.services = append(strategy.services, components.NewApiServerService(namespace))
+	apiDeployment, err := components.NewApiServerDeployment(namespace, repository, version, imagePullPolicy, verbosity)
+	if err != nil {
+		return nil, fmt.Errorf("error generating virt-apiserver deployment %v", err)
+	}
+	strategy.deployments = append(strategy.deployments, apiDeployment)
+
+	controller, err := components.NewControllerDeployment(namespace, repository, version, imagePullPolicy, verbosity)
+	if err != nil {
+		return nil, fmt.Errorf("error generating virt-controller deployment %v", err)
+	}
+	strategy.deployments = append(strategy.deployments, controller)
+
+	handler, err := components.NewHandlerDaemonSet(namespace, repository, version, imagePullPolicy, verbosity)
+	if err != nil {
+		return nil, fmt.Errorf("error generating virt-handler deployment %v", err)
+	}
+	strategy.daemonSets = append(strategy.daemonSets, handler)
+
+	return strategy, nil
+}
+
 func LoadInstallStrategyFromFile(filePath string) (*InstallStrategy, error) {
 
 	b, err := ioutil.ReadFile(filePath)
@@ -62,8 +169,89 @@ func LoadInstallStrategyFromFile(filePath string) (*InstallStrategy, error) {
 		return nil, err
 	}
 
-	return ParseInstallStrategy(string(b))
+	return LoadInstallStrategyFromBytes(string(b))
 
+}
+
+func LoadInstallStrategyFromBytes(data string) (*InstallStrategy, error) {
+	strategy := &InstallStrategy{}
+	entries := strings.Split(data, "---")
+
+	for _, entry := range entries {
+		entry := strings.TrimSpace(entry)
+		if entry == "" {
+			continue
+		}
+
+		var obj metav1.TypeMeta
+		if err := yaml.Unmarshal([]byte(entry), &obj); err != nil {
+			return nil, err
+		}
+
+		switch obj.Kind {
+		case "ServiceAccount":
+			sa := &corev1.ServiceAccount{}
+			if err := yaml.Unmarshal([]byte(entry), &sa); err != nil {
+				return nil, err
+			}
+			strategy.serviceAccounts = append(strategy.serviceAccounts, sa)
+		case "ClusterRole":
+			cr := &rbacv1.ClusterRole{}
+			if err := yaml.Unmarshal([]byte(entry), &cr); err != nil {
+				return nil, err
+			}
+			strategy.clusterRoles = append(strategy.clusterRoles, cr)
+		case "ClusterRoleBinding":
+			crb := &rbacv1.ClusterRoleBinding{}
+			if err := yaml.Unmarshal([]byte(entry), &crb); err != nil {
+				return nil, err
+			}
+			strategy.clusterRoleBindings = append(strategy.clusterRoleBindings, crb)
+		case "Role":
+			r := &rbacv1.Role{}
+			if err := yaml.Unmarshal([]byte(entry), &r); err != nil {
+				return nil, err
+			}
+			strategy.roles = append(strategy.roles, r)
+		case "RoleBinding":
+			rb := &rbacv1.RoleBinding{}
+			if err := yaml.Unmarshal([]byte(entry), &rb); err != nil {
+				return nil, err
+			}
+			strategy.roleBindings = append(strategy.roleBindings, rb)
+		case "Service":
+			s := &corev1.Service{}
+			if err := yaml.Unmarshal([]byte(entry), &s); err != nil {
+				return nil, err
+			}
+			strategy.services = append(strategy.services, s)
+		case "Deployment":
+			d := &appsv1.Deployment{}
+			if err := yaml.Unmarshal([]byte(entry), &d); err != nil {
+				return nil, err
+			}
+			strategy.deployments = append(strategy.deployments, d)
+		case "DaemonSet":
+			d := &appsv1.DaemonSet{}
+			if err := yaml.Unmarshal([]byte(entry), &d); err != nil {
+				return nil, err
+			}
+			strategy.daemonSets = append(strategy.daemonSets, d)
+		case "CustomResourceDefinition":
+			crd := &extv1beta1.CustomResourceDefinition{}
+			if err := yaml.Unmarshal([]byte(entry), &crd); err != nil {
+				return nil, err
+			}
+			strategy.crds = append(strategy.crds, crd)
+		case "Namespace":
+			// skipped. We don't do anything with namespaces
+		default:
+			return nil, fmt.Errorf("UNKNOWN TYPE %s detected", obj.Kind)
+
+		}
+		log.Log.Infof("%s loaded", obj.Kind)
+	}
+	return strategy, nil
 }
 
 func CreateAll(kv *v1.KubeVirt,
@@ -226,85 +414,4 @@ func CreateAll(kv *v1.KubeVirt,
 	}
 
 	return objectsAdded, nil
-}
-
-func ParseInstallStrategy(data string) (*InstallStrategy, error) {
-	strategy := &InstallStrategy{}
-	entries := strings.Split(data, "---")
-
-	for _, entry := range entries {
-		entry := strings.TrimSpace(entry)
-		if entry == "" {
-			continue
-		}
-
-		var obj metav1.TypeMeta
-		if err := yaml.Unmarshal([]byte(entry), &obj); err != nil {
-			return nil, err
-		}
-
-		switch obj.Kind {
-		case "ServiceAccount":
-			sa := &corev1.ServiceAccount{}
-			if err := yaml.Unmarshal([]byte(entry), &sa); err != nil {
-				return nil, err
-			}
-			strategy.serviceAccounts = append(strategy.serviceAccounts, sa)
-		case "ClusterRole":
-			cr := &rbacv1.ClusterRole{}
-			if err := yaml.Unmarshal([]byte(entry), &cr); err != nil {
-				return nil, err
-			}
-			strategy.clusterRoles = append(strategy.clusterRoles, cr)
-		case "ClusterRoleBinding":
-			crb := &rbacv1.ClusterRoleBinding{}
-			if err := yaml.Unmarshal([]byte(entry), &crb); err != nil {
-				return nil, err
-			}
-			strategy.clusterRoleBindings = append(strategy.clusterRoleBindings, crb)
-		case "Role":
-			r := &rbacv1.Role{}
-			if err := yaml.Unmarshal([]byte(entry), &r); err != nil {
-				return nil, err
-			}
-			strategy.roles = append(strategy.roles, r)
-		case "RoleBinding":
-			rb := &rbacv1.RoleBinding{}
-			if err := yaml.Unmarshal([]byte(entry), &rb); err != nil {
-				return nil, err
-			}
-			strategy.roleBindings = append(strategy.roleBindings, rb)
-		case "Service":
-			s := &corev1.Service{}
-			if err := yaml.Unmarshal([]byte(entry), &s); err != nil {
-				return nil, err
-			}
-			strategy.services = append(strategy.services, s)
-		case "Deployment":
-			d := &appsv1.Deployment{}
-			if err := yaml.Unmarshal([]byte(entry), &d); err != nil {
-				return nil, err
-			}
-			strategy.deployments = append(strategy.deployments, d)
-		case "DaemonSet":
-			d := &appsv1.DaemonSet{}
-			if err := yaml.Unmarshal([]byte(entry), &d); err != nil {
-				return nil, err
-			}
-			strategy.daemonSets = append(strategy.daemonSets, d)
-		case "CustomResourceDefinition":
-			crd := &extv1beta1.CustomResourceDefinition{}
-			if err := yaml.Unmarshal([]byte(entry), &crd); err != nil {
-				return nil, err
-			}
-			strategy.crds = append(strategy.crds, crd)
-		case "Namespace":
-			// skipped. We don't do anything with namespaces
-		default:
-			return nil, fmt.Errorf("UNKNOWN TYPE %s detected", obj.Kind)
-
-		}
-		log.Log.Infof("%s loaded", obj.Kind)
-	}
-	return strategy, nil
 }
