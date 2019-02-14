@@ -32,12 +32,14 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	extv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
+	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/kubecli"
 	"kubevirt.io/kubevirt/pkg/log"
+	kvutil "kubevirt.io/kubevirt/pkg/util"
 	"kubevirt.io/kubevirt/pkg/virt-operator/creation/components"
 	"kubevirt.io/kubevirt/pkg/virt-operator/creation/rbac"
 	"kubevirt.io/kubevirt/pkg/virt-operator/util"
@@ -58,6 +60,59 @@ type InstallStrategy struct {
 	services    []*corev1.Service
 	deployments []*appsv1.Deployment
 	daemonSets  []*appsv1.DaemonSet
+}
+
+func generateConfigMapName(imageTag string, imageRegistry string) string {
+	return fmt.Sprintf("kubevirt-installstrategy-%s-%s", imageRegistry, imageTag)
+}
+
+func DumpInstallStrategyToConfigMap(clientset kubecli.KubevirtClient) error {
+
+	conf := util.GetConfig()
+	imageTag := conf.ImageTag
+	imageRegistry := conf.ImageRegistry
+
+	namespace, err := kvutil.GetNamespace()
+	if err != nil {
+		return err
+	}
+
+	strategy, err := GenerateCurrentInstallStrategy(
+		namespace,
+		imageTag,
+		imageRegistry,
+		corev1.PullIfNotPresent,
+		"2")
+	if err != nil {
+		return err
+	}
+
+	configMap := &corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: generateConfigMapName(imageTag, imageRegistry),
+			Labels: map[string]string{
+				v1.ManagedByLabel:              v1.ManagedByLabelOperatorValue,
+				v1.InstallStrategyVersionLabel: imageTag,
+			},
+		},
+		Data: map[string]string{
+			"manifests": string(DumpInstallStrategyToBytes(strategy)),
+		},
+	}
+	_, err = clientset.CoreV1().ConfigMaps(namespace).Create(configMap)
+
+	// force an update if it already exists
+	if !errors.IsAlreadyExists(err) {
+		// force update
+		_, err = clientset.CoreV1().ConfigMaps(namespace).Update(configMap)
+		if err != nil {
+			return err
+		}
+	} else if err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func DumpInstallStrategyToBytes(strategy *InstallStrategy) []byte {

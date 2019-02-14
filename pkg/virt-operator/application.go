@@ -40,6 +40,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/log"
 	"kubevirt.io/kubevirt/pkg/service"
 	kvutil "kubevirt.io/kubevirt/pkg/util"
+	"kubevirt.io/kubevirt/pkg/virt-operator/install-strategy"
 	"kubevirt.io/kubevirt/pkg/virt-operator/util"
 )
 
@@ -94,6 +95,12 @@ func Execute() {
 	if err != nil {
 		golog.Fatalf("Error searching for namespace: %v", err)
 	}
+
+	err = installstrategy.DumpInstallStrategyToConfigMap(app.clientSet)
+	if err != nil {
+		golog.Fatal(err)
+	}
+
 	app.informerFactory = controller.NewKubeInformerFactory(app.restClient, app.clientSet, app.operatorNamespace)
 
 	app.kubeVirtInformer = app.informerFactory.KubeVirt()
