@@ -3,16 +3,8 @@ export GO15VENDOREXPERIMENT := 1
 all:
 	hack/dockerized "./hack/check.sh && KUBEVIRT_VERSION=${KUBEVIRT_VERSION} ./hack/build-go.sh install ${WHAT} && ./hack/build-copy-artifacts.sh ${WHAT} && DOCKER_PREFIX=${DOCKER_PREFIX} DOCKER_TAG=${DOCKER_TAG} IMAGE_PULL_POLICY=${IMAGE_PULL_POLICY} VERBOSITY=${VERBOSITY} ./hack/build-manifests.sh"
 
-bazel-buildifier:
-	SYNC_VENDOR=true hack/dockerized "bazel run //:buildifier"
-
-bazel-buildozer:
-	SYNC_VENDOR=true hack/dockerized "\
-		bazel run @com_github_bazelbuild_buildtools//buildozer -- 'add cdeps //:libvirt-libs //:libvirt-headers' //vendor/github.com/libvirt/libvirt-go:go_default_library && \
-		bazel run @com_github_bazelbuild_buildtools//buildozer -- 'add copts -Ibazel-out/k8-fastbuild/genfiles' //vendor/github.com/libvirt/libvirt-go:go_default_library"
-
 bazel-generate:
-	SYNC_VENDOR=true hack/dockerized "bazel run //:gazelle"
+	SYNC_VENDOR=true hack/dockerized "./hack/bazel-generate.sh"
 
 bazel-build:
 	hack/dockerized "bazel build \
@@ -28,7 +20,7 @@ bazel-push-images:
 		--define container_tag=${CONTAINER_TAG} \
 		//:push-images"
 
-generate: bazel-generate bazel-buildozer bazel-buildifier
+generate: bazel-generate
 	hack/dockerized "DOCKER_PREFIX=${DOCKER_PREFIX} DOCKER_TAG=${DOCKER_TAG} IMAGE_PULL_POLICY=${IMAGE_PULL_POLICY} VERBOSITY=${VERBOSITY} ./hack/generate.sh"
 
 apidocs:
@@ -63,11 +55,11 @@ distclean: clean
 	rm -rf vendor/
 
 deps-install:
-	SYNC_VENDOR=true hack/dockerized "glide install --strip-vendor"
+	SYNC_VENDOR=true hack/dockerized "glide install --strip-vendor && ./hack/bazel-generate.sh"
 	hack/dep-prune.sh
 
 deps-update:
-	SYNC_VENDOR=true hack/dockerized "glide cc && glide update --strip-vendor"
+	SYNC_VENDOR=true hack/dockerized "glide cc && glide update --strip-vendor && ./hack/bazel-generate.sh"
 	hack/dep-prune.sh
 
 docker: build
@@ -121,8 +113,6 @@ builder-publish:
 	./hack/builder/publish.sh
 
 .PHONY: \
-	bazel-buildifier \
-	bazel-buildozer \
 	bazel-generate \
 	bazel-build \
 	bazel-build-images \

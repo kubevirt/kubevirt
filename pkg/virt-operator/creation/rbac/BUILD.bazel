@@ -6,6 +6,7 @@ go_library(
         "apiserver.go",
         "cluster.go",
         "controller.go",
+        "handler.go",
     ],
     importpath = "kubevirt.io/kubevirt/pkg/virt-operator/creation/rbac",
     visibility = ["//visibility:public"],

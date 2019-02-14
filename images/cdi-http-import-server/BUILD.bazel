@@ -46,17 +46,17 @@ pkg_tar(
 container_image(
     name = "cdi-http-import-server-image",
     base = "@cdi-http-import-server-base//image",
+    directory = "/",
+    entrypoint = ["/entrypoint.sh"],
     files = [
         "entrypoint.sh",
         "expose-as-iscsi.sh",
     ],
+    ports = ["80"],
     tars = [
         ":alpine-tar",
         ":cirros-img-tar",
         ":nginx-config-tar",
     ],
-    directory = "/",
-    ports = ["80"],
-    entrypoint = ["/entrypoint.sh"],
     visibility = ["//visibility:public"],
 )

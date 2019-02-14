@@ -7,9 +7,9 @@ load("@bazel_tools//tools/build_defs/pkg:pkg.bzl", "pkg_tar")
 container_image(
     name = "container-disk-v1alpha-image",
     base = "@libvirt//image",
-    files = ["entrypoint.sh"],
     directory = "/",
     entrypoint = ["/entrypoint.sh"],
+    files = ["entrypoint.sh"],
     visibility = ["//visibility:public"],
 )
 
@@ -30,9 +30,9 @@ pkg_tar(
 container_image(
     name = "alpine-container-disk-image",
     base = ":container-disk-v1alpha-image",
-    tars = [":alpine-iso-tar"],
     directory = "/",
     entrypoint = ["/entrypoint.sh"],
+    tars = [":alpine-iso-tar"],
     visibility = ["//visibility:public"],
 )
 
@@ -67,12 +67,12 @@ pkg_tar(
 container_image(
     name = "cirros-container-disk-image",
     base = ":container-disk-v1alpha-image",
+    directory = "/",
+    entrypoint = ["/entrypoint.sh"],
     tars = [
         ":cirros-iso-tar",
         ":cirros-custom-iso-tar",
     ],
-    directory = "/",
-    entrypoint = ["/entrypoint.sh"],
     visibility = ["//visibility:public"],
 )
 
@@ -94,9 +94,9 @@ pkg_tar(
 container_image(
     name = "fedora-cloud-container-disk-image",
     base = ":container-disk-v1alpha-image",
-    tars = [":fedora-cloud-iso-tar"],
     directory = "/",
     entrypoint = ["/entrypoint.sh"],
+    tars = [":fedora-cloud-iso-tar"],
     visibility = ["//visibility:public"],
 )
 
@@ -118,8 +118,8 @@ pkg_tar(
 container_image(
     name = "virtio-container-disk-image",
     base = ":container-disk-v1alpha-image",
-    tars = [":virtio-win-iso-tar"],
     directory = "/",
     entrypoint = ["/entrypoint.sh"],
+    tars = [":virtio-win-iso-tar"],
     visibility = ["//visibility:public"],
 )

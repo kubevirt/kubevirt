@@ -6,7 +6,7 @@ load(
 container_image(
     name = "winrmcli-image",
     base = "@fedora//image",
-    files = ["@com_github_masterzen_winrmcli//:winrm-cli"],
     directory = "/usr/bin",
+    files = ["@com_github_masterzen_winrmcli//:winrm-cli"],
     visibility = ["//visibility:public"],
 )

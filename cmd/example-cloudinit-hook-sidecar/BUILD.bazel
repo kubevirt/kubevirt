@@ -29,8 +29,8 @@ load(
 container_image(
     name = "example-cloudinit-hook-sidecar-image",
     base = "@fedora//image",
-    files = [":example-cloudinit-hook-sidecar"],
     directory = "/",
     entrypoint = ["/example-cloudinit-hook-sidecar"],
+    files = [":example-cloudinit-hook-sidecar"],
     visibility = ["//visibility:public"],
 )

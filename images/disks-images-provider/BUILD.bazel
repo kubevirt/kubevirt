@@ -52,13 +52,13 @@ pkg_tar(
 container_image(
     name = "disks-images-provider-image",
     base = "@libvirt//image",
+    directory = "/",
+    entrypoint = ["/entrypoint.sh"],
     files = ["entrypoint.sh"],
     tars = [
         ":alpine-tar",
         ":cirros-tar",
         ":custom-tar",
     ],
-    directory = "/",
-    entrypoint = ["/entrypoint.sh"],
     visibility = ["//visibility:public"],
 )

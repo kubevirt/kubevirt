@@ -32,16 +32,16 @@ load(
 container_image(
     name = "version-container",
     base = "//:passwd-image",
-    files = ["//:get-version"],
     directory = "/",
+    files = ["//:get-version"],
 )
 
 container_image(
     name = "virt-api-image",
     base = ":version-container",
-    files = [":virt-api"],
     directory = "/usr/bin/",
     entrypoint = ["/usr/bin/virt-api"],
+    files = [":virt-api"],
     user = "1001",
     visibility = ["//visibility:public"],
 )

@@ -1,3 +1,4 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
 load("@bazel_gazelle//:def.bzl", "gazelle")
 
 # gazelle:prefix kubevirt.io/kubevirt
@@ -82,10 +83,10 @@ load("@bazel_tools//tools/build_defs/pkg:pkg.bzl", "pkg_tar")
 
 passwd_entry(
     name = "nonroot-user",
+    gid = 1001,
     home = "/home/nonroot-user",
     shell = "/bin/bash",
     uid = 1001,
-    gid = 1001,
     username = "nonroot-user",
 )
 
@@ -160,4 +161,30 @@ load("@io_bazel_rules_docker//contrib:push-all.bzl", "docker_push")
 docker_push(
     name = "push-images",
     bundle = ":build-images",
+)
+
+go_library(
+    name = "go_default_library",
+    srcs = [
+        "doc.go",
+        "libvirt.h",
+        "libvirt-admin.h",
+        "libvirt-common.h",
+        "libvirt-domain.h",
+        "libvirt-domain-snapshot.h",
+        "libvirt-event.h",
+        "libvirt-host.h",
+        "libvirt-interface.h",
+        "libvirt-lxc.h",
+        "libvirt-network.h",
+        "libvirt-nodedev.h",
+        "libvirt-nwfilter.h",
+        "libvirt-qemu.h",
+        "libvirt-secret.h",
+        "libvirt-storage.h",
+        "libvirt-stream.h",
+        "virterror.h",
+    ],
+    importpath = "kubevirt.io/kubevirt",
+    visibility = ["//visibility:public"],
 )

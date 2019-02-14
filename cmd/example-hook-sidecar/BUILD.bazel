@@ -30,8 +30,8 @@ load(
 container_image(
     name = "example-hook-sidecar-image",
     base = "@fedora//image",
-    files = [":example-hook-sidecar"],
     directory = "/",
     entrypoint = ["/example-hook-sidecar"],
+    files = [":example-hook-sidecar"],
     visibility = ["//visibility:public"],
 )

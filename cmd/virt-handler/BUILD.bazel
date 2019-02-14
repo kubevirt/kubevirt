@@ -51,15 +51,15 @@ load(
 container_image(
     name = "version-container",
     base = "@fedora//image",
-    files = ["//:get-version"],
     directory = "/",
+    files = ["//:get-version"],
 )
 
 container_image(
     name = "virt-handler-image",
     base = ":version-container",
-    files = [":virt-handler"],
     directory = "/usr/bin/",
     entrypoint = ["/usr/bin/virt-handler"],
+    files = [":virt-handler"],
     visibility = ["//visibility:public"],
 )

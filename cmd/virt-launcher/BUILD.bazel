@@ -46,8 +46,8 @@ pkg_tar(
     srcs = [
         "sock-connector",
     ],
-    package_dir = "/usr/share/kubevirt/virt-launcher",
     mode = "755",
+    package_dir = "/usr/share/kubevirt/virt-launcher",
 )
 
 pkg_tar(
@@ -67,8 +67,8 @@ load(
 container_image(
     name = "version-container",
     base = "@libvirt//image",
-    files = ["//:get-version"],
     directory = "/",
+    files = ["//:get-version"],
 )
 
 container_image(

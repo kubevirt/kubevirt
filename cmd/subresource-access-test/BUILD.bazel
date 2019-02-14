@@ -25,9 +25,9 @@ load(
 container_image(
     name = "subresource-access-test-image",
     base = "//:passwd-image",
-    files = [":subresource-access-test"],
     directory = "/",
     entrypoint = ["/subresource-access-test"],
+    files = [":subresource-access-test"],
     user = "1001",
     visibility = ["//visibility:public"],
 )

@@ -27,16 +27,16 @@ load(
 container_image(
     name = "version-container",
     base = "//:passwd-image",
-    files = ["//:get-version"],
     directory = "/",
+    files = ["//:get-version"],
 )
 
 container_image(
     name = "virt-operator-image",
     base = ":version-container",
-    files = [":virt-operator"],
     directory = "/usr/bin/",
     entrypoint = ["/usr/bin/virt-operator"],
+    files = [":virt-operator"],
     user = "1001",
     visibility = ["//visibility:public"],
 )
