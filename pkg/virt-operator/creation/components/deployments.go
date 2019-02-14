@@ -92,7 +92,7 @@ func CreateControllers(clientset kubecli.KubevirtClient, kv *virtv1.KubeVirt, co
 		}
 	}
 
-	handler, err := NewHandlerDaemonSet(kv.Namespace, config.ImageRegistry, config.ImageTag, kv.Spec.ImagePullPolicy, verbosity)
+	handler, err := newHandlerDaemonSetWithOpenshiftCheck(kv.Namespace, config.ImageRegistry, config.ImageTag, kv.Spec.ImagePullPolicy, verbosity, clientset)
 	if err != nil {
 		return objectsAdded, err
 	}
@@ -358,6 +358,32 @@ func NewControllerDeployment(namespace string, repository string, version string
 		TimeoutSeconds:      10,
 	}
 	return deployment, nil
+}
+
+func newHandlerDaemonSetWithOpenshiftCheck(namespace string, repository string, version string, pullPolicy corev1.PullPolicy, verbosity string, clientset kubecli.KubevirtClient) (*appsv1.DaemonSet, error) {
+
+	// use a compute node selector on OpenShift
+	onOpenShift, err := util.IsOnOpenshift(clientset)
+	if err != nil {
+		return nil, err
+	}
+
+	handler, err := NewHandlerDaemonSet(namespace, repository, version, pullPolicy, verbosity)
+	if err != nil {
+		return nil, err
+	}
+
+	if onOpenShift {
+		ns := handler.Spec.Template.Spec.NodeSelector
+		if ns == nil {
+			ns = make(map[string]string)
+		}
+		ns["node-role.kubernetes.io/compute"] = "true"
+		handler.Spec.Template.Spec.NodeSelector = ns
+	}
+
+	return handler, nil
+
 }
 
 func NewHandlerDaemonSet(namespace string, repository string, version string, pullPolicy corev1.PullPolicy, verbosity string) (*appsv1.DaemonSet, error) {
