@@ -116,6 +116,7 @@ func Execute() {
 		Service:            app.informerFactory.OperatorService(),
 		Deployment:         app.informerFactory.OperatorDeployment(),
 		DaemonSet:          app.informerFactory.OperatorDaemonSet(),
+		InstallStrategies:  app.informerFactory.OperatorInstallStrategyConfigMaps(),
 	}
 
 	app.stores = util.Stores{
@@ -128,6 +129,7 @@ func Execute() {
 		ServiceCache:            app.informerFactory.OperatorService().GetStore(),
 		DeploymentCache:         app.informerFactory.OperatorDeployment().GetStore(),
 		DaemonSetCache:          app.informerFactory.OperatorDaemonSet().GetStore(),
+		InstallStrategyCache:    app.informerFactory.OperatorInstallStrategyConfigMaps().GetStore(),
 	}
 
 	onOpenShift, err := util.IsOnOpenshift(app.clientSet)

@@ -35,6 +35,7 @@ type Stores struct {
 	DeploymentCache         cache.Store
 	DaemonSetCache          cache.Store
 	SCCCache                cache.Store
+	InstallStrategyCache    cache.Store
 }
 
 func (s *Stores) AllEmpty() bool {
@@ -47,6 +48,8 @@ func (s *Stores) AllEmpty() bool {
 		IsStoreEmpty(s.ServiceCache) &&
 		IsStoreEmpty(s.DeploymentCache) &&
 		IsStoreEmpty(s.DaemonSetCache)
+	// Don't add InstallStrategyCache to this list. The install
+	// strategies persist even after deletion and updates.
 }
 
 func IsStoreEmpty(store cache.Store) bool {
@@ -76,6 +79,7 @@ type Informers struct {
 	Deployment         cache.SharedIndexInformer
 	DaemonSet          cache.SharedIndexInformer
 	SCC                cache.SharedIndexInformer
+	InstallStrategies  cache.SharedIndexInformer
 }
 
 func (e *Expectations) DeleteExpectations(key string) {

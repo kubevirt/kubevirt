@@ -126,6 +126,9 @@ type KubeInformerFactory interface {
 
 	// Fake SecurityContextConstraints informer used when not on openshift
 	DummyOperatorSCC() cache.SharedIndexInformer
+
+	// ConfigMaps for operator install strategies
+	OperatorInstallStrategyConfigMaps() cache.SharedIndexInformer
 }
 
 type kubeInformerFactory struct {
@@ -417,5 +420,17 @@ func (f *kubeInformerFactory) DummyOperatorSCC() cache.SharedIndexInformer {
 	return f.getInformer("FakeOperatorSCC", func() cache.SharedIndexInformer {
 		informer, _ := testutils.NewFakeInformerFor(&secv1.SecurityContextConstraints{})
 		return informer
+	})
+}
+
+func (f *kubeInformerFactory) OperatorInstallStrategyConfigMaps() cache.SharedIndexInformer {
+	return f.getInformer("installStrategyConfigMapInformer", func() cache.SharedIndexInformer {
+		labelSelector, err := labels.Parse(kubev1.InstallStrategyVersionLabel)
+		if err != nil {
+			panic(err)
+		}
+
+		lw := NewListWatchFromClient(f.clientSet.CoreV1().RESTClient(), "configmaps", k8sv1.NamespaceAll, fields.Everything(), labelSelector)
+		return cache.NewSharedIndexInformer(lw, &k8sv1.ConfigMap{}, f.defaultResync, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
 	})
 }

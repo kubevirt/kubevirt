@@ -62,8 +62,8 @@ type InstallStrategy struct {
 	daemonSets  []*appsv1.DaemonSet
 }
 
-func generateConfigMapName(imageTag string, imageRegistry string) string {
-	return fmt.Sprintf("kubevirt-installstrategy-%s-%s", imageRegistry, imageTag)
+func generateConfigMapName(imageTag string) string {
+	return fmt.Sprintf("kubevirt-installstrategy-%s", imageTag)
 }
 
 func DumpInstallStrategyToConfigMap(clientset kubecli.KubevirtClient) error {
@@ -89,7 +89,7 @@ func DumpInstallStrategyToConfigMap(clientset kubecli.KubevirtClient) error {
 
 	configMap := &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: generateConfigMapName(imageTag, imageRegistry),
+			Name: generateConfigMapName(imageTag),
 			Labels: map[string]string{
 				v1.ManagedByLabel:              v1.ManagedByLabelOperatorValue,
 				v1.InstallStrategyVersionLabel: imageTag,
@@ -191,6 +191,11 @@ func GenerateCurrentInstallStrategy(namespace string,
 		if ok {
 			strategy.roleBindings = append(strategy.roleBindings, rb)
 		}
+
+		sa, ok := entry.(*corev1.ServiceAccount)
+		if ok {
+			strategy.serviceAccounts = append(strategy.serviceAccounts, sa)
+		}
 	}
 
 	strategy.services = append(strategy.services, components.NewPrometheusService(namespace))
@@ -213,6 +218,39 @@ func GenerateCurrentInstallStrategy(namespace string,
 		return nil, fmt.Errorf("error generating virt-handler deployment %v", err)
 	}
 	strategy.daemonSets = append(strategy.daemonSets, handler)
+
+	return strategy, nil
+}
+
+func LoadInstallStrategyFromCache(stores util.Stores, imageTag string) (*InstallStrategy, error) {
+
+	namespace, err := kvutil.GetNamespace()
+	if err != nil {
+		return nil, err
+	}
+
+	configMap := &corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      generateConfigMapName(imageTag),
+			Namespace: namespace,
+		},
+	}
+	obj, exists, _ := stores.InstallStrategyCache.Get(configMap)
+
+	if !exists {
+		return nil, fmt.Errorf("no install strategy configmap found for version %s", imageTag)
+	}
+
+	configMap = obj.(*corev1.ConfigMap)
+	data, ok := configMap.Data["manifests"]
+	if !ok {
+		return nil, fmt.Errorf("install strategy configmap %s does not contain 'manifests' key", configMap.Name)
+	}
+
+	strategy, err := LoadInstallStrategyFromBytes(data)
+	if err != nil {
+		return nil, err
+	}
 
 	return strategy, nil
 }
@@ -309,6 +347,13 @@ func LoadInstallStrategyFromBytes(data string) (*InstallStrategy, error) {
 	return strategy, nil
 }
 
+func addOperatorLabel(objectMeta *metav1.ObjectMeta) {
+	if objectMeta.Labels == nil {
+		objectMeta.Labels = make(map[string]string)
+	}
+	objectMeta.Labels[v1.ManagedByLabel] = v1.ManagedByLabelOperatorValue
+}
+
 func CreateAll(kv *v1.KubeVirt,
 	strategy *InstallStrategy,
 	config util.KubeVirtDeploymentConfig,
@@ -326,6 +371,7 @@ func CreateAll(kv *v1.KubeVirt,
 
 	// CRDs
 	for _, crd := range strategy.crds {
+		addOperatorLabel(&crd.ObjectMeta)
 		if _, exists, _ := stores.CrdCache.Get(crd); !exists {
 			expectations.Crd.RaiseExpectations(kvkey, 1, 0)
 			_, err := ext.ApiextensionsV1beta1().CustomResourceDefinitions().Create(crd)
@@ -342,6 +388,7 @@ func CreateAll(kv *v1.KubeVirt,
 
 	// ServiceAccounts
 	for _, sa := range strategy.serviceAccounts {
+		addOperatorLabel(&sa.ObjectMeta)
 		if _, exists, _ := stores.ServiceAccountCache.Get(sa); !exists {
 			expectations.ServiceAccount.RaiseExpectations(kvkey, 1, 0)
 			_, err := core.ServiceAccounts(kv.Namespace).Create(sa)
@@ -358,6 +405,7 @@ func CreateAll(kv *v1.KubeVirt,
 
 	// ClusterRoles
 	for _, cr := range strategy.clusterRoles {
+		addOperatorLabel(&cr.ObjectMeta)
 		if _, exists, _ := stores.ClusterRoleCache.Get(cr); !exists {
 			expectations.ClusterRole.RaiseExpectations(kvkey, 1, 0)
 			_, err := rbac.ClusterRoles().Create(cr)
@@ -374,6 +422,7 @@ func CreateAll(kv *v1.KubeVirt,
 
 	// ClusterRoleBindings
 	for _, crb := range strategy.clusterRoleBindings {
+		addOperatorLabel(&crb.ObjectMeta)
 		if _, exists, _ := stores.ClusterRoleBindingCache.Get(crb); !exists {
 			expectations.ClusterRoleBinding.RaiseExpectations(kvkey, 1, 0)
 			_, err := rbac.ClusterRoleBindings().Create(crb)
@@ -390,6 +439,7 @@ func CreateAll(kv *v1.KubeVirt,
 
 	// Roles
 	for _, r := range strategy.roles {
+		addOperatorLabel(&r.ObjectMeta)
 		if _, exists, _ := stores.RoleCache.Get(r); !exists {
 			expectations.Role.RaiseExpectations(kvkey, 1, 0)
 			_, err := rbac.Roles(kv.Namespace).Create(r)
@@ -406,6 +456,7 @@ func CreateAll(kv *v1.KubeVirt,
 
 	// RoleBindings
 	for _, rb := range strategy.roleBindings {
+		addOperatorLabel(&rb.ObjectMeta)
 		if _, exists, _ := stores.RoleBindingCache.Get(rb); !exists {
 			expectations.RoleBinding.RaiseExpectations(kvkey, 1, 0)
 			_, err := rbac.RoleBindings(kv.Namespace).Create(rb)
@@ -422,6 +473,7 @@ func CreateAll(kv *v1.KubeVirt,
 
 	// Services
 	for _, service := range strategy.services {
+		addOperatorLabel(&service.ObjectMeta)
 		if _, exists, _ := stores.ServiceCache.Get(service); !exists {
 			expectations.Service.RaiseExpectations(kvkey, 1, 0)
 			_, err := core.Services(kv.Namespace).Create(service)
@@ -438,6 +490,7 @@ func CreateAll(kv *v1.KubeVirt,
 
 	// Deployments
 	for _, deployment := range strategy.deployments {
+		addOperatorLabel(&deployment.ObjectMeta)
 		if _, exists, _ := stores.DeploymentCache.Get(deployment); !exists {
 			expectations.Deployment.RaiseExpectations(kvkey, 1, 0)
 			_, err := apps.Deployments(kv.Namespace).Create(deployment)
@@ -454,6 +507,7 @@ func CreateAll(kv *v1.KubeVirt,
 
 	// Daemonsets
 	for _, daemonSet := range strategy.daemonSets {
+		addOperatorLabel(&daemonSet.ObjectMeta)
 		if _, exists, _ := stores.DaemonSetCache.Get(daemonSet); !exists {
 			expectations.DaemonSet.RaiseExpectations(kvkey, 1, 0)
 			_, err = apps.DaemonSets(kv.Namespace).Create(daemonSet)
