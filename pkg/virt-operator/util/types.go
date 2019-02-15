@@ -67,6 +67,7 @@ type Expectations struct {
 	Service             *controller.UIDTrackingControllerExpectations
 	Deployment          *controller.UIDTrackingControllerExpectations
 	DaemonSet           *controller.UIDTrackingControllerExpectations
+	InstallStrategies   *controller.UIDTrackingControllerExpectations
 	InstallStrategyJobs *controller.UIDTrackingControllerExpectations
 }
 
@@ -95,6 +96,7 @@ func (e *Expectations) DeleteExpectations(key string) {
 	e.Service.DeleteExpectations(key)
 	e.Deployment.DeleteExpectations(key)
 	e.DaemonSet.DeleteExpectations(key)
+	e.InstallStrategies.DeleteExpectations(key)
 	e.InstallStrategyJobs.DeleteExpectations(key)
 }
 
@@ -108,6 +110,7 @@ func (e *Expectations) ResetExpectations(key string) {
 	e.Service.SetExpectations(key, 0, 0)
 	e.Deployment.SetExpectations(key, 0, 0)
 	e.DaemonSet.SetExpectations(key, 0, 0)
+	e.InstallStrategies.SetExpectations(key, 0, 0)
 	e.InstallStrategyJobs.SetExpectations(key, 0, 0)
 }
 
@@ -121,5 +124,6 @@ func (e *Expectations) SatisfiedExpectations(key string) bool {
 		e.Service.SatisfiedExpectations(key) &&
 		e.Deployment.SatisfiedExpectations(key) &&
 		e.DaemonSet.SatisfiedExpectations(key) &&
+		e.InstallStrategies.SatisfiedExpectations(key) &&
 		e.InstallStrategyJobs.SatisfiedExpectations(key)
 }

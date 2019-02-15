@@ -32,6 +32,7 @@ import (
 	secv1fake "github.com/openshift/client-go/security/clientset/versioned/typed/security/v1/fake"
 
 	appsv1 "k8s.io/api/apps/v1"
+	batchv1 "k8s.io/api/batch/v1"
 	k8sv1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	extv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
@@ -50,6 +51,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/testutils"
 	"kubevirt.io/kubevirt/pkg/virt-operator/creation/components"
 	"kubevirt.io/kubevirt/pkg/virt-operator/creation/rbac"
+	"kubevirt.io/kubevirt/pkg/virt-operator/install-strategy"
 	"kubevirt.io/kubevirt/pkg/virt-operator/util"
 )
 
@@ -71,6 +73,8 @@ var _ = Describe("KubeVirt Operator", func() {
 	var deploymentSource *framework.FakeControllerSource
 	var daemonSetSource *framework.FakeControllerSource
 	var sccSource *framework.FakeControllerSource
+	var installStrategyConfigMapSource *framework.FakeControllerSource
+	var installStrategyJobSource *framework.FakeControllerSource
 
 	var stop chan struct{}
 	var controller *KubeVirtController
@@ -86,7 +90,7 @@ var _ = Describe("KubeVirt Operator", func() {
 	var informers util.Informers
 	var stores util.Stores
 
-	os.Setenv(util.OperatorImageEnvName, "whatever/virt-operator:thisversion")
+	os.Setenv(util.OperatorImageEnvName, "somerepository/virt-operator:v9.9.9")
 
 	var totalAdds int
 	var totalDeletions int
@@ -106,6 +110,8 @@ var _ = Describe("KubeVirt Operator", func() {
 		go informers.Deployment.Run(stop)
 		go informers.DaemonSet.Run(stop)
 		go informers.SCC.Run(stop)
+		go informers.InstallStrategyJobs.Run(stop)
+		go informers.InstallStrategies.Run(stop)
 
 		Expect(cache.WaitForCacheSync(stop, kvInformer.HasSynced)).To(BeTrue())
 
@@ -119,6 +125,8 @@ var _ = Describe("KubeVirt Operator", func() {
 		cache.WaitForCacheSync(stop, informers.Deployment.HasSynced)
 		cache.WaitForCacheSync(stop, informers.DaemonSet.HasSynced)
 		cache.WaitForCacheSync(stop, informers.SCC.HasSynced)
+		cache.WaitForCacheSync(stop, informers.InstallStrategyJobs.HasSynced)
+		cache.WaitForCacheSync(stop, informers.InstallStrategies.HasSynced)
 
 	}
 
@@ -176,6 +184,12 @@ var _ = Describe("KubeVirt Operator", func() {
 		informers.SCC, sccSource = testutils.NewFakeInformerFor(&secv1.SecurityContextConstraints{})
 		stores.SCCCache = informers.SCC.GetStore()
 
+		informers.InstallStrategies, installStrategyConfigMapSource = testutils.NewFakeInformerFor(&k8sv1.ConfigMap{})
+		stores.InstallStrategyCache = informers.InstallStrategies.GetStore()
+
+		informers.InstallStrategyJobs, installStrategyJobSource = testutils.NewFakeInformerFor(&batchv1.Job{})
+		stores.InstallStrategyJobsCache = informers.InstallStrategyJobs.GetStore()
+
 		controller = NewKubeVirtController(virtClient, kvInformer, recorder, stores, informers)
 
 		// Wrap our workqueue to have a way to detect when we are done processing updates
@@ -191,6 +205,7 @@ var _ = Describe("KubeVirt Operator", func() {
 		extClient = extclientfake.NewSimpleClientset()
 
 		virtClient.EXPECT().CoreV1().Return(kubeClient.CoreV1()).AnyTimes()
+		virtClient.EXPECT().BatchV1().Return(kubeClient.BatchV1()).AnyTimes()
 		virtClient.EXPECT().RbacV1().Return(kubeClient.RbacV1()).AnyTimes()
 		virtClient.EXPECT().AppsV1().Return(kubeClient.AppsV1()).AnyTimes()
 		virtClient.EXPECT().SecClient().Return(secClient).AnyTimes()
@@ -285,6 +300,18 @@ var _ = Describe("KubeVirt Operator", func() {
 		mockQueue.Wait()
 	}
 
+	addInstallStrategyConfigMap := func(c *k8sv1.ConfigMap) {
+		mockQueue.ExpectAdds(1)
+		installStrategyConfigMapSource.Add(c)
+		mockQueue.Wait()
+	}
+
+	addInstallStrategyJob := func(job *batchv1.Job) {
+		mockQueue.ExpectAdds(1)
+		installStrategyJobSource.Add(job)
+		mockQueue.Wait()
+	}
+
 	addResource := func(obj runtime.Object) {
 		switch resource := obj.(type) {
 		case *k8sv1.ServiceAccount:
@@ -305,19 +332,37 @@ var _ = Describe("KubeVirt Operator", func() {
 			addDeployment(resource)
 		case *appsv1.DaemonSet:
 			addDaemonset(resource)
+		case *batchv1.Job:
+			addInstallStrategyJob(resource)
+		case *k8sv1.ConfigMap:
+			addInstallStrategyConfigMap(resource)
 		default:
 			Fail("unknown resource type")
 		}
 	}
 
+	addInstallStrategy := func() {
+		repository := "somerepository"
+		version := "v9.9.9"
+
+		// install strategy config
+		resource, _ := installstrategy.NewInstallStrategyConfigMap(NAMESPACE, version, repository)
+		addResource(resource)
+
+	}
+
 	addAll := func() {
-		repository := "kubevirt"
-		version := "latest"
+		repository := "somerepository"
+		version := "v9.9.9"
 		pullPolicy := "IfNotPresent"
 		imagePullPolicy := k8sv1.PullPolicy(pullPolicy)
 		verbosity := "2"
 
 		all := make([]interface{}, 0)
+
+		// install strategy config
+		addInstallStrategy()
+
 		// rbac
 		all = append(all, rbac.GetAllCluster(NAMESPACE)...)
 		all = append(all, rbac.GetAllApiServer(NAMESPACE)...)
@@ -505,7 +550,6 @@ var _ = Describe("KubeVirt Operator", func() {
 		addResource(create.GetObject())
 		return true, create.GetObject(), nil
 	}
-
 	genericDeleteFunc := func(action testing.Action) (handled bool, obj runtime.Object, err error) {
 		delete, ok := action.(testing.DeleteAction)
 		Expect(ok).To(BeTrue())
@@ -518,13 +562,11 @@ var _ = Describe("KubeVirt Operator", func() {
 		deleteResource(delete.GetResource().Resource, key)
 		return true, nil, nil
 	}
-
 	expectUsers := func(sccObj runtime.Object, count int) {
 		scc, ok := sccObj.(*secv1.SecurityContextConstraints)
 		ExpectWithOffset(2, ok).To(BeTrue())
 		ExpectWithOffset(2, len(scc.Users)).To(Equal(count))
 	}
-
 	shouldExpectDeletions := func() {
 		kubeClient.Fake.PrependReactor("delete", "serviceaccounts", genericDeleteFunc)
 		kubeClient.Fake.PrependReactor("delete", "clusterroles", genericDeleteFunc)
@@ -544,7 +586,6 @@ var _ = Describe("KubeVirt Operator", func() {
 		kubeClient.Fake.PrependReactor("delete", "deployments", genericDeleteFunc)
 		kubeClient.Fake.PrependReactor("delete", "daemonsets", genericDeleteFunc)
 	}
-
 	shouldExpectCreations := func() {
 		kubeClient.Fake.PrependReactor("create", "serviceaccounts", genericCreateFunc)
 		kubeClient.Fake.PrependReactor("create", "clusterroles", genericCreateFunc)
@@ -564,7 +605,6 @@ var _ = Describe("KubeVirt Operator", func() {
 		kubeClient.Fake.PrependReactor("create", "deployments", genericCreateFunc)
 		kubeClient.Fake.PrependReactor("create", "daemonsets", genericCreateFunc)
 	}
-
 	shouldExpectKubeVirtUpdate := func(times int) {
 		update := kvInterface.EXPECT().Update(gomock.Any())
 		update.Do(func(kv *v1.KubeVirt) {
@@ -636,7 +676,7 @@ var _ = Describe("KubeVirt Operator", func() {
 							Message: "All components are ready.",
 						},
 					},
-					OperatorVersion: "v0.0.0-master+$Format:%h$",
+					OperatorVersion: "v9.9.9",
 				},
 			}
 
@@ -708,6 +748,7 @@ var _ = Describe("KubeVirt Operator", func() {
 				},
 			}
 			addKubeVirt(kv)
+			addInstallStrategy()
 
 			shouldExpectKubeVirtUpdate(1)
 			shouldExpectCreations()

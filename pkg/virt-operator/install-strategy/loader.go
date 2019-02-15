@@ -63,7 +63,35 @@ type InstallStrategy struct {
 }
 
 func generateConfigMapName(imageTag string) string {
-	return fmt.Sprintf("kubevirt-installstrategy-%s", imageTag)
+	return fmt.Sprintf("kubevirt-install-strategy-%s", imageTag)
+}
+
+func NewInstallStrategyConfigMap(namespace string, imageTag string, imageRegistry string) (*corev1.ConfigMap, error) {
+
+	strategy, err := GenerateCurrentInstallStrategy(
+		namespace,
+		imageTag,
+		imageRegistry,
+		corev1.PullIfNotPresent,
+		"2")
+	if err != nil {
+		return nil, err
+	}
+
+	configMap := &corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      generateConfigMapName(imageTag),
+			Namespace: namespace,
+			Labels: map[string]string{
+				v1.ManagedByLabel:              v1.ManagedByLabelOperatorValue,
+				v1.InstallStrategyVersionLabel: imageTag,
+			},
+		},
+		Data: map[string]string{
+			"manifests": string(DumpInstallStrategyToBytes(strategy)),
+		},
+	}
+	return configMap, nil
 }
 
 func DumpInstallStrategyToConfigMap(clientset kubecli.KubevirtClient) error {
@@ -77,30 +105,12 @@ func DumpInstallStrategyToConfigMap(clientset kubecli.KubevirtClient) error {
 		return err
 	}
 
-	strategy, err := GenerateCurrentInstallStrategy(
-		namespace,
-		imageTag,
-		imageRegistry,
-		corev1.PullIfNotPresent,
-		"2")
+	configMap, err := NewInstallStrategyConfigMap(namespace, imageTag, imageRegistry)
 	if err != nil {
 		return err
 	}
 
-	configMap := &corev1.ConfigMap{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: generateConfigMapName(imageTag),
-			Labels: map[string]string{
-				v1.ManagedByLabel:              v1.ManagedByLabelOperatorValue,
-				v1.InstallStrategyVersionLabel: imageTag,
-			},
-		},
-		Data: map[string]string{
-			"manifests": string(DumpInstallStrategyToBytes(strategy)),
-		},
-	}
 	_, err = clientset.CoreV1().ConfigMaps(namespace).Create(configMap)
-
 	// force an update if it already exists
 	if !errors.IsAlreadyExists(err) {
 		// force update
@@ -222,12 +232,7 @@ func GenerateCurrentInstallStrategy(namespace string,
 	return strategy, nil
 }
 
-func LoadInstallStrategyFromCache(stores util.Stores, imageTag string) (*InstallStrategy, error) {
-
-	namespace, err := kvutil.GetNamespace()
-	if err != nil {
-		return nil, err
-	}
+func LoadInstallStrategyFromCache(stores util.Stores, namespace string, imageTag string) (*InstallStrategy, error) {
 
 	configMap := &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{

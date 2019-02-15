@@ -90,6 +90,7 @@ func NewKubeVirtController(
 			Service:             controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectationsWithName("Service")),
 			Deployment:          controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectationsWithName("Deployment")),
 			DaemonSet:           controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectationsWithName("DaemonSet")),
+			InstallStrategies:   controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectationsWithName("ConfigMap")),
 			InstallStrategyJobs: controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectationsWithName("Jobs")),
 		},
 		installStrategyMap: make(map[string]*installstrategy.InstallStrategy),
@@ -206,6 +207,18 @@ func NewKubeVirtController(
 		},
 		UpdateFunc: func(oldObj, newObj interface{}) {
 			c.genericUpdateHandler(oldObj, newObj, c.kubeVirtExpectations.DaemonSet)
+		},
+	})
+
+	c.informers.InstallStrategies.AddEventHandler(cache.ResourceEventHandlerFuncs{
+		AddFunc: func(obj interface{}) {
+			c.genericAddHandler(obj, c.kubeVirtExpectations.InstallStrategies)
+		},
+		DeleteFunc: func(obj interface{}) {
+			c.genericDeleteHandler(obj, c.kubeVirtExpectations.InstallStrategies)
+		},
+		UpdateFunc: func(oldObj, newObj interface{}) {
+			c.genericUpdateHandler(oldObj, newObj, c.kubeVirtExpectations.InstallStrategies)
 		},
 	})
 
@@ -515,7 +528,7 @@ func (c *KubeVirtController) loadInstallStrategy(kv *v1.KubeVirt) (*installstrat
 	}
 
 	// 2. look for install strategy config map in cache.
-	strategy, err = installstrategy.LoadInstallStrategyFromCache(c.stores, c.config.ImageTag)
+	strategy, err = installstrategy.LoadInstallStrategyFromCache(c.stores, kv.Namespace, c.config.ImageTag)
 	if err == nil {
 		c.installStrategyMutex.Lock()
 		defer c.installStrategyMutex.Unlock()
