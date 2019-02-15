@@ -27,6 +27,7 @@ import (
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	k8smetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/cache"
 
@@ -515,6 +516,72 @@ var _ = Describe("Mutating Webhook Presets", func() {
 
 			Expect(vmi.Spec.Domain.CPU).ToNot(BeNil())
 			Expect(int(vmi.Spec.Domain.CPU.Cores)).To(Equal(4))
+		})
+	})
+
+	Context("Apply default cpu model", func() {
+		var vmi v1.VirtualMachineInstance
+		var configMapIndexer cache.Indexer
+		var defaultCPUModel = "Haswell"
+		var cfgMap k8sv1.ConfigMap
+
+		BeforeEach(func() {
+			configMapIndexer = cache.NewIndexer(cache.DeletionHandlingMetaNamespaceKeyFunc, nil)
+			vmi = v1.VirtualMachineInstance{Spec: v1.VirtualMachineInstanceSpec{Domain: v1.DomainSpec{}}}
+		})
+
+		It("Should set default cpu model when vmi doesn't have it", func() {
+			cfgMap = k8sv1.ConfigMap{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace: "kubevirt",
+					Name:      "kubevirt-config",
+				},
+				Data: map[string]string{
+					defaultCPUModelKey: defaultCPUModel,
+				},
+			}
+			configMapIndexer.Add(&cfgMap)
+			setDefaultCPUModel(&vmi, configMapIndexer)
+
+			Expect(vmi.Spec.Domain.CPU).ToNot(BeNil())
+			Expect(vmi.Spec.Domain.CPU.Model).To(Equal(defaultCPUModel))
+		})
+
+		It("Should not set default cpu model when vmi does have it", func() {
+			cfgMap = k8sv1.ConfigMap{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace: "kubevirt",
+					Name:      "kubevirt-config",
+				},
+				Data: map[string]string{
+					defaultCPUModelKey: defaultCPUModel,
+				},
+			}
+			configMapIndexer.Add(&cfgMap)
+
+			vmCPUModel := "EPYC"
+			vmi.Spec.Domain.CPU = &v1.CPU{
+				Model: vmCPUModel,
+			}
+			setDefaultCPUModel(&vmi, configMapIndexer)
+
+			Expect(vmi.Spec.Domain.CPU).ToNot(BeNil())
+			Expect(vmi.Spec.Domain.CPU.Model).To(Equal(vmCPUModel))
+		})
+
+		It("Should has empty cpu model when cpu model is not set", func() {
+			cfgMap = k8sv1.ConfigMap{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace: "kubevirt",
+					Name:      "kubevirt-config",
+				},
+				Data: map[string]string{},
+			}
+			configMapIndexer.Add(&cfgMap)
+			vmi.Spec.Domain.CPU = &v1.CPU{}
+			setDefaultCPUModel(&vmi, configMapIndexer)
+			Expect(vmi.Spec.Domain.CPU).ToNot(BeNil())
+			Expect(vmi.Spec.Domain.CPU.Model).To(BeEmpty())
 		})
 	})
 

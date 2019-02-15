@@ -33,7 +33,12 @@ import (
 	"kubevirt.io/kubevirt/pkg/log"
 )
 
-const exclusionMarking = "virtualmachineinstancepresets.admission.kubevirt.io/exclude"
+const (
+	exclusionMarking   = "virtualmachineinstancepresets.admission.kubevirt.io/exclude"
+	namespaceKubevirt  = "kubevirt"
+	configMapName      = "kubevirt-config"
+	defaultCPUModelKey = "default-cpu-model"
+)
 
 // listPresets returns all VirtualMachinePresets by namespace
 func listPresets(vmiPresetInformer cache.SharedIndexInformer, namespace string) ([]kubev1.VirtualMachineInstancePreset, error) {
@@ -274,4 +279,22 @@ func isVMIExcluded(vmi *kubev1.VirtualMachineInstance) bool {
 		return ok && (excluded == "true")
 	}
 	return false
+}
+
+//setDefaultCPUModel sets default cpu model from config if vmi doesn't have cpu model
+func setDefaultCPUModel(vmi *kubev1.VirtualMachineInstance, configMapStore cache.Store) {
+	//if vmi doesn't have cpu topology or cpu model set
+	if vmi.Spec.Domain.CPU == nil || vmi.Spec.Domain.CPU.Model == "" {
+		// if default cluster cpu model is defined
+		if obj, exists, err := configMapStore.GetByKey(namespaceKubevirt + "/" + configMapName); err == nil && exists {
+			if obj.(*k8sv1.ConfigMap).Data[defaultCPUModelKey] != "" {
+				// create cpu topology struct
+				if vmi.Spec.Domain.CPU == nil {
+					vmi.Spec.Domain.CPU = &kubev1.CPU{}
+				}
+				//set is as vmi cpu model
+				vmi.Spec.Domain.CPU.Model = obj.(*k8sv1.ConfigMap).Data[defaultCPUModelKey]
+			}
+		}
+	}
 }

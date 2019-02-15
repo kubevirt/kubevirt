@@ -1013,11 +1013,13 @@ func (app *virtAPIApp) Run() {
 	go webhookInformers.VMIInformer.Run(stopChan)
 	go webhookInformers.VMIPresetInformer.Run(stopChan)
 	go webhookInformers.NamespaceLimitsInformer.Run(stopChan)
+	go webhookInformers.ConfigMapInformer.Run(stopChan)
 
 	cache.WaitForCacheSync(stopChan,
 		webhookInformers.VMIInformer.HasSynced,
 		webhookInformers.VMIPresetInformer.HasSynced,
-		webhookInformers.NamespaceLimitsInformer.HasSynced)
+		webhookInformers.NamespaceLimitsInformer.HasSynced,
+		webhookInformers.ConfigMapInformer.HasSynced)
 
 	// Verify/create webhook endpoint.
 	err = app.createWebhook()
