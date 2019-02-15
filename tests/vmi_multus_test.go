@@ -486,6 +486,7 @@ var _ = Describe("Multus", func() {
 			})
 
 			It("should report guest interfaces in VMI status", func() {
+				fmt.Print("Starting guest agent test")
 				interfaces := []v1.Interface{
 					{Name: "default", InterfaceBindingMethod: v1.InterfaceBindingMethod{Bridge: &v1.InterfaceBridge{}}},
 					{Name: "ovs", InterfaceBindingMethod: v1.InterfaceBindingMethod{Bridge: &v1.InterfaceBridge{}}},
@@ -509,7 +510,7 @@ var _ = Describe("Multus", func() {
 					yum install -y qemu-guest-agent
 					systemctl start  qemu-guest-agent
 	                `, ep1Ip, ep2Ip, ep1IpV6, ep2IpV6))
-
+				fmt.Print("!!! STARTING GUEST AGENT TEST!")
 				agentVMI.Spec.Domain.Devices.Interfaces = interfaces
 				agentVMI.Spec.Networks = networks
 				agentVMI.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("1024M")
@@ -517,31 +518,52 @@ var _ = Describe("Multus", func() {
 				By("Starting a VirtualMachineInstance")
 				agentVMI, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(agentVMI)
 				Expect(err).ToNot(HaveOccurred(), "Should create VMI successfully")
+				fmt.Print("Waiting for vmi to start ...")
+
+				fmt.Print("!!! Waiting for VMI start  ...")
 				tests.WaitForSuccessfulVMIStart(agentVMI)
+				fmt.Print("!!! ... DONE - VMI Started!")
 
 				getOptions := &metav1.GetOptions{}
 				var updatedVmi *v1.VirtualMachineInstance
+
+				fmt.Print("!!! Waiting for agent connection  ...")
 
 				// Need to wait for cloud init to finnish and start the agent inside the vmi.
 				Eventually(func() bool {
 					updatedVmi, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Get(agentVMI.Name, getOptions)
 					Expect(err).ToNot(HaveOccurred())
 					for _, condition := range updatedVmi.Status.Conditions {
+						fmt.Printf("!!! len(updatedVmi.Status.Conditions) -  %d", len(updatedVmi.Status.Conditions))
+
 						if condition.Type == "AgentConnected" && condition.Status == "True" {
+							fmt.Print("!!! Agent connected successfully")
 							return true
 						}
 					}
 					return false
 				}, 420*time.Second, 2).Should(BeTrue(), "Should have agent connected condition")
+				fmt.Print("!!! ... DONE:   AGENT CONNECTED")
+
+				fmt.Print("!!! Waiting for interfaces in status  ...")
 
 				Eventually(func() bool {
 					updatedVmi, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Get(agentVMI.Name, getOptions)
+					fmt.Printf("!!! Interface COUNT -  %d", len(updatedVmi.Status.Interfaces))
+					fmt.Printf("!!! Interfaces: %+v", updatedVmi.Status.Interfaces)
+
 					return len(updatedVmi.Status.Interfaces) == 4
 				}, 420*time.Second, 4).Should(BeTrue(), "Should have interfaces in vmi status")
+				fmt.Print("!!! ... DONE -    INTERFACES=4")
 
+				fmt.Print("!!! Waiting for updated VMI info  ...")
 				updatedVmi, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Get(agentVMI.Name, getOptions)
+				fmt.Printf("Error on update: %+v", err)
+				fmt.Print("!!! ... DONE")
+
 				Expect(err).ToNot(HaveOccurred())
 
+				fmt.Print("!!! Checking interfaces")
 				Expect(len(updatedVmi.Status.Interfaces)).To(Equal(4))
 				interfaceByIfcName := make(map[string]v1.VirtualMachineInstanceNetworkInterface)
 				for _, ifc := range updatedVmi.Status.Interfaces {
@@ -562,6 +584,8 @@ var _ = Describe("Multus", func() {
 				Expect(interfaceByIfcName["ep2"].InterfaceName).To(Equal("ep2"))
 				Expect(interfaceByIfcName["ep2"].IP).To(Equal(ep2Ip))
 				Expect(interfaceByIfcName["ep2"].IPs).To(Equal([]string{ep2Ip, ep2IpV6}))
+				fmt.Print("!!! ... DONE")
+				fmt.Print("!!! TEST DONE!")
 			})
 		})
 	})
