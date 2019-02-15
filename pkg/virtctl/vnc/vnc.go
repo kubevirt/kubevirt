@@ -201,7 +201,7 @@ func (o *VNC) Run(cmd *cobra.Command, args []string) error {
 				viewResChan <- err
 				return
 			}
-		case "linux":
+		case "linux", "windows":
 			_, err := exec.LookPath(REMOTE_VIEWER)
 			if exec.ErrNotFound == err {
 				viewResChan <- fmt.Errorf("could not find the remote-viewer binary in $PATH")
