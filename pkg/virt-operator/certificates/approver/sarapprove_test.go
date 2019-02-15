@@ -69,6 +69,7 @@ func TestHasKubeletUsages(t *testing.T) {
 				capi.UsageKeyEncipherment,
 				capi.UsageDigitalSignature,
 				capi.UsageClientAuth,
+				capi.UsageServerAuth,
 			},
 			expected: true,
 		},
@@ -192,8 +193,7 @@ func TestRecognizers(t *testing.T) {
 		},
 	}
 
-	testRecognizer(t, goodCases, isNodeClientCert, true)
-	testRecognizer(t, goodCases, isSelfNodeClientCert, true)
+	testRecognizer(t, goodCases, isKubeVirtClientCert, true)
 
 	badCases := []func(b *csrBuilder){
 		func(b *csrBuilder) {
@@ -210,8 +210,7 @@ func TestRecognizers(t *testing.T) {
 		},
 	}
 
-	testRecognizer(t, badCases, isNodeClientCert, false)
-	testRecognizer(t, badCases, isSelfNodeClientCert, false)
+	testRecognizer(t, badCases, isKubeVirtClientCert, false)
 
 	// cn different then requestor
 	differentCN := []func(b *csrBuilder){
@@ -219,24 +218,24 @@ func TestRecognizers(t *testing.T) {
 			b.requestor = "joe"
 		},
 		func(b *csrBuilder) {
-			b.cn = "system:node:bar"
+			b.cn = "kubevirt.io:system:bar"
 		},
 	}
 
-	testRecognizer(t, differentCN, isNodeClientCert, true)
-	testRecognizer(t, differentCN, isSelfNodeClientCert, false)
+	testRecognizer(t, differentCN, isKubeVirtClientCert, true)
 }
 
 func testRecognizer(t *testing.T, cases []func(b *csrBuilder), recognizeFunc func(csr *capi.CertificateSigningRequest, x509cr *x509.CertificateRequest) bool, shouldRecognize bool) {
 	for _, c := range cases {
 		b := csrBuilder{
-			cn:        "system:node:foo",
-			orgs:      []string{"system:nodes"},
-			requestor: "system:node:foo",
+			cn:        "kubevirt.io:system:foo",
+			orgs:      []string{"kubevirt.io:system"},
+			requestor: "kubevirt.io:system:foo",
 			usages: []capi.KeyUsage{
 				capi.UsageKeyEncipherment,
 				capi.UsageDigitalSignature,
 				capi.UsageClientAuth,
+				capi.UsageServerAuth,
 			},
 		}
 		c(&b)

@@ -62,7 +62,7 @@ func LoadClientCertForNode(bootstrapClient certificatesclient.CertificatesV1beta
 		}
 	}
 
-	certData, err := RequestKubeVirtCertificate(bootstrapClient.CertificateSigningRequests(), keyData, "nodes:"+string(name))
+	certData, err := RequestKubeVirtCertificate(bootstrapClient.CertificateSigningRequests(), keyData, "kubevirt.io:system:nodes:"+string(name))
 	if err != nil {
 		return err
 	}
@@ -77,12 +77,12 @@ func LoadClientCertForNode(bootstrapClient certificatesclient.CertificatesV1beta
 // Afterwards it creates as certificate signing request and fetches the result after it got signed.
 func LoadClientCertForService(client kubecli.KubevirtClient, certStore certificate.Store, serviceName string, namespace string) error {
 
-	keyData, err := LoadKeyFromSecret(client, namespace, "kubevirt-certs-"+serviceName)
+	keyData, err := LoadKeyFromSecret(client, namespace, "kubevirt.io-system-certificates-"+serviceName)
 	if err != nil {
 		return err
 	}
 
-	certData, err := RequestKubeVirtCertificate(client.CertificatesV1beta1().CertificateSigningRequests(), keyData, "service:"+serviceName)
+	certData, err := RequestKubeVirtCertificate(client.CertificatesV1beta1().CertificateSigningRequests(), keyData, "kubevirt.io:system:service:"+serviceName)
 	if err != nil {
 		return err
 	}
@@ -144,8 +144,8 @@ func verifyKeyData(data []byte) bool {
 
 func RequestKubeVirtCertificate(client certificatesclient.CertificateSigningRequestInterface, privateKeyData []byte, name string) (certData []byte, err error) {
 	subject := &pkix.Name{
-		Organization: []string{"system:kubevirt"},
-		CommonName:   "system:kubevirt:" + name,
+		Organization: []string{"kubevirt.io:system"},
+		CommonName:   "kubevirt.io:system:" + name,
 	}
 
 	privateKey, err := certutil.ParsePrivateKeyPEM(privateKeyData)
@@ -161,6 +161,7 @@ func RequestKubeVirtCertificate(client certificatesclient.CertificateSigningRequ
 		certificates.UsageDigitalSignature,
 		certificates.UsageKeyEncipherment,
 		certificates.UsageClientAuth,
+		certificates.UsageServerAuth,
 	}
 	req, err := csr.RequestCertificate(client, csrData, name, usages, privateKey)
 	if err != nil {

@@ -58,13 +58,8 @@ func NewCSRApprovingController(client clientset.Interface, csrInformer certifica
 func recognizers() []csrRecognizer {
 	recognizers := []csrRecognizer{
 		{
-			recognize:      isSelfNodeClientCert,
-			permission:     authorization.ResourceAttributes{Group: "certificates.k8s.io", Resource: "certificatesigningrequests", Verb: "create", Subresource: "selfnodeclient"},
-			successMessage: "Auto approving self kubelet client certificate after SubjectAccessReview.",
-		},
-		{
-			recognize:      isNodeClientCert,
-			permission:     authorization.ResourceAttributes{Group: "certificates.k8s.io", Resource: "certificatesigningrequests", Verb: "create", Subresource: "nodeclient"},
+			recognize:      isKubeVirtClientCert,
+			permission:     authorization.ResourceAttributes{Group: "certificates.k8s.io", Resource: "certificatesigningrequests", Verb: "create", Subresource: "kubevirt"},
 			successMessage: "Auto approving kubelet client certificate after SubjectAccessReview.",
 		},
 	}
@@ -166,10 +161,11 @@ var kubeletClientUsages = []capi.KeyUsage{
 	capi.UsageKeyEncipherment,
 	capi.UsageDigitalSignature,
 	capi.UsageClientAuth,
+	capi.UsageServerAuth,
 }
 
-func isNodeClientCert(csr *capi.CertificateSigningRequest, x509cr *x509.CertificateRequest) bool {
-	if !reflect.DeepEqual([]string{"system:nodes"}, x509cr.Subject.Organization) {
+func isKubeVirtClientCert(csr *capi.CertificateSigningRequest, x509cr *x509.CertificateRequest) bool {
+	if !reflect.DeepEqual([]string{"kubevirt.io:system"}, x509cr.Subject.Organization) {
 		return false
 	}
 	if (len(x509cr.DNSNames) > 0) || (len(x509cr.EmailAddresses) > 0) || (len(x509cr.IPAddresses) > 0) {
@@ -178,17 +174,7 @@ func isNodeClientCert(csr *capi.CertificateSigningRequest, x509cr *x509.Certific
 	if !hasExactUsages(csr, kubeletClientUsages) {
 		return false
 	}
-	if !strings.HasPrefix(x509cr.Subject.CommonName, "system:node:") {
-		return false
-	}
-	return true
-}
-
-func isSelfNodeClientCert(csr *capi.CertificateSigningRequest, x509cr *x509.CertificateRequest) bool {
-	if !isNodeClientCert(csr, x509cr) {
-		return false
-	}
-	if csr.Spec.Username != x509cr.Subject.CommonName {
+	if !strings.HasPrefix(x509cr.Subject.CommonName, "kubevirt.io:system") {
 		return false
 	}
 	return true

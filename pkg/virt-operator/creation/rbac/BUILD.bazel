@@ -4,6 +4,7 @@ go_library(
     name = "go_default_library",
     srcs = [
         "apiserver.go",
+        "certificates.go",
         "cluster.go",
         "controller.go",
         "handler.go",

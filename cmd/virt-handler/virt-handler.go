@@ -38,10 +38,8 @@ import (
 	"k8s.io/client-go/tools/record"
 	"k8s.io/client-go/util/certificate"
 
-	"kubevirt.io/kubevirt/pkg/util"
-
 	v1 "kubevirt.io/kubevirt/pkg/api/v1"
-	"kubevirt.io/kubevirt/pkg/certificate/bootstrap"
+	"kubevirt.io/kubevirt/pkg/certificates/bootstrap"
 	"kubevirt.io/kubevirt/pkg/controller"
 	inotifyinformer "kubevirt.io/kubevirt/pkg/inotify-informer"
 	"kubevirt.io/kubevirt/pkg/kubecli"
@@ -51,6 +49,7 @@ import (
 	promvm "kubevirt.io/kubevirt/pkg/monitoring/vms/prometheus"  // import for prometheus metrics
 	_ "kubevirt.io/kubevirt/pkg/monitoring/workqueue/prometheus" // import for prometheus metrics
 	"kubevirt.io/kubevirt/pkg/service"
+	"kubevirt.io/kubevirt/pkg/util"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	virthandler "kubevirt.io/kubevirt/pkg/virt-handler"
 	virtcache "kubevirt.io/kubevirt/pkg/virt-handler/cache"
@@ -73,7 +72,7 @@ const (
 
 	virtShareDir = "/var/run/kubevirt"
 
-	certificateDir = "/var/run/kubevirt-certificates"
+	certificateDir = "/var/lib/kubevirt/certificates"
 
 	// This value is derived from default MaxPods in Kubelet Config
 	maxDevices = 110

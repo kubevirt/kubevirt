@@ -469,6 +469,7 @@ func NewHandlerDaemonSet(namespace string, repository string, version string, pu
 		{"virt-share-dir", "/var/run/kubevirt"},
 		{"virt-private-dir", "/var/run/kubevirt-private"},
 		{"device-plugin", "/var/lib/kubelet/device-plugins"},
+		{"certificates", "/var/lib/kubevirt/certificates"},
 	}
 
 	for _, volume := range volumes {

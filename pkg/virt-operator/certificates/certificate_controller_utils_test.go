@@ -20,7 +20,7 @@ import (
 	"testing"
 
 	"k8s.io/api/certificates/v1beta1"
-	"k8s.io/apimachinery/pkg/apis/meta/v1"
+	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 func TestIsCertificateRequestApproved(t *testing.T) {

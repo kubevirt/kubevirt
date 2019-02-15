@@ -103,7 +103,7 @@ var _ = Describe("KubeVirt Operator", func() {
 	var totalDeletions int
 
 	NAMESPACE := "kubevirt-test"
-	resourceCount := 29
+	resourceCount := 31
 	patchCount := 13
 	updateCount := 16
 
@@ -572,6 +572,7 @@ var _ = Describe("KubeVirt Operator", func() {
 		all = append(all, rbac.GetAllApiServer(NAMESPACE)...)
 		all = append(all, rbac.GetAllHandler(NAMESPACE)...)
 		all = append(all, rbac.GetAllController(NAMESPACE)...)
+		all = append(all, rbac.GetAllCertificateSigner(NAMESPACE)...)
 		// crds
 		all = append(all, components.NewVirtualMachineInstanceCrd())
 		all = append(all, components.NewPresetCrd())
@@ -1292,8 +1293,8 @@ var _ = Describe("KubeVirt Operator", func() {
 			// -2 because waiting on controller and virt-handler daemonset until API server deploys successfully
 			Expect(totalAdds).To(Equal(resourceCount - 2))
 			Expect(len(controller.stores.ServiceAccountCache.List())).To(Equal(3))
-			Expect(len(controller.stores.ClusterRoleCache.List())).To(Equal(7))
-			Expect(len(controller.stores.ClusterRoleBindingCache.List())).To(Equal(5))
+			Expect(len(controller.stores.ClusterRoleCache.List())).To(Equal(8))
+			Expect(len(controller.stores.ClusterRoleBindingCache.List())).To(Equal(6))
 			Expect(len(controller.stores.RoleCache.List())).To(Equal(2))
 			Expect(len(controller.stores.RoleBindingCache.List())).To(Equal(2))
 			Expect(len(controller.stores.CrdCache.List())).To(Equal(5))

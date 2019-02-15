@@ -14,7 +14,7 @@ go_library(
     visibility = ["//visibility:public"],
     deps = [
         "//pkg/api/v1:go_default_library",
-        "//pkg/certificate/bootstrap:go_default_library",
+        "//pkg/certificates/bootstrap:go_default_library",
         "//pkg/container-disk:go_default_library",
         "//pkg/controller:go_default_library",
         "//pkg/kubecli:go_default_library",
