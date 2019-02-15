@@ -27,6 +27,11 @@ import (
 
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/spf13/pflag"
+	"k8s.io/apimachinery/pkg/apis/meta/v1"
+	k8sinformers "k8s.io/client-go/informers"
+	"k8s.io/client-go/informers/certificates/v1beta1"
+
+	"kubevirt.io/kubevirt/pkg/virt-operator/certificates/approver"
 
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/kubernetes/scheme"
@@ -188,7 +193,11 @@ func (app *VirtOperatorApp) Run() {
 	defer close(stop)
 
 	app.informerFactory.Start(stop)
+	f := k8sinformers.NewSharedInformerFactoryWithOptions(app.clientSet, 0)
+	f.Start(stop)
+	csrInformer := v1beta1.New(f, app.operatorNamespace, func(*v1.ListOptions) {}).CertificateSigningRequests()
 	go app.kubeVirtController.Run(controllerThreads, stop)
+	go approver.NewCSRApprovingController(app.clientSet, csrInformer).Run(controllerThreads, stop)
 
 	// serve metrics
 	http.Handle("/metrics", promhttp.Handler())
