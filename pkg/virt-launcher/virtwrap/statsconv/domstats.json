@@ -1,0 +1,98 @@
+[
+   {
+      "Vcpu" : [
+         {
+            "StateSet" : true,
+            "TimeSet" : true,
+            "State" : 1,
+            "Time" : 23810000000
+         },
+         {
+            "State" : 1,
+            "StateSet" : true,
+            "TimeSet" : true,
+            "Time" : 17800000000
+         },
+         {
+            "State" : 1,
+            "StateSet" : true,
+            "TimeSet" : true,
+            "Time" : 23310000000
+         },
+         {
+            "State" : 1,
+            "StateSet" : true,
+            "TimeSet" : true,
+            "Time" : 17360000000
+         }
+      ],
+      "Perf" : null,
+      "Cpu" : {
+         "TimeSet" : true,
+         "UserSet" : true,
+         "SystemSet" : true,
+         "System" : 27980000000,
+         "User" : 1620000000,
+         "Time" : 86393420788
+      },
+      "Domain" : {},
+      "State" : null,
+      "Block" : [
+         {
+            "ErrorsSet" : false,
+            "PathSet" : true,
+            "Path" : "/var/lib/libvirt/images/f28-worker-0.qcow2",
+            "WrBytesSet" : true,
+            "RdTimes" : 3642065293,
+            "RdTimesSet" : true,
+            "WrBytes" : 184719872,
+            "FlTimes" : 3721268610,
+            "FlTimesSet" : true,
+            "BackingIndex" : 0,
+            "Physical" : 41385254912,
+            "Errors" : 0,
+            "PhysicalSet" : true,
+            "RdBytesSet" : true,
+            "WrTimes" : 1374368654,
+            "WrTimesSet" : true,
+            "RdBytes" : 348838912,
+            "Capacity" : 42949672960,
+            "Allocation" : 42099802112,
+            "AllocationSet" : true,
+            "CapacitySet" : true,
+            "WrReqsSet" : true,
+            "BackingIndexSet" : false,
+            "Name" : "vda",
+            "NameSet" : true,
+            "FlReqsSet" : true,
+            "RdReqs" : 11104,
+            "FlReqs" : 613,
+            "RdReqsSet" : true,
+            "WrReqs" : 9949
+         }
+      ],
+      "Balloon" : null,
+      "Net" : [
+         {
+            "RxPkts" : 15177,
+            "TxPktsSet" : true,
+            "RxErrs" : 0,
+            "RxBytesSet" : true,
+            "TxDropSet" : true,
+            "RxBytes" : 29735062,
+            "RxDrop" : 0,
+            "TxErrsSet" : true,
+            "TxDrop" : 0,
+            "RxErrsSet" : true,
+            "TxErrs" : 0,
+            "Name" : "vnet0",
+            "TxBytesSet" : true,
+            "RxDropSet" : true,
+            "TxBytes" : 577941,
+            "RxPktsSet" : true,
+            "NameSet" : true,
+            "TxPkts" : 8875
+         }
+      ]
+   }
+]

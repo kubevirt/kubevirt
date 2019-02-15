@@ -54,6 +54,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/cli"
 	domainerrors "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/errors"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/network"
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/stats"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/util"
 )
 
@@ -67,6 +68,7 @@ type DomainManager interface {
 	ListAllDomains() ([]*api.Domain, error)
 	MigrateVMI(*v1.VirtualMachineInstance) error
 	PrepareMigrationTarget(*v1.VirtualMachineInstance, bool) error
+	GetDomainStats() ([]*stats.DomainStats, error)
 }
 
 type LibvirtDomainManager struct {
@@ -916,4 +918,11 @@ func (l *LibvirtDomainManager) setDomainSpecWithHooks(vmi *v1.VirtualMachineInst
 		return nil, err
 	}
 	return util.SetDomainSpecStr(l.virConn, vmi, domainSpec)
+}
+
+func (l *LibvirtDomainManager) GetDomainStats() ([]*stats.DomainStats, error) {
+	statsTypes := libvirt.DOMAIN_STATS_CPU_TOTAL | libvirt.DOMAIN_STATS_VCPU | libvirt.DOMAIN_STATS_INTERFACE | libvirt.DOMAIN_STATS_BLOCK
+	flags := libvirt.CONNECT_GET_ALL_DOMAINS_STATS_RUNNING
+
+	return l.virConn.GetDomainStats(statsTypes, flags)
 }

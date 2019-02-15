@@ -23,6 +23,7 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
+	"strings"
 	"time"
 
 	. "github.com/onsi/ginkgo"
@@ -98,6 +99,41 @@ var _ = Describe("Infrastructure", func() {
 				Expect(stdout).To(ContainSubstring("go_goroutines"))
 			}
 		})
+		It("should include the metrics for a running VM", func() {
+			By("Creating the VirtualMachineInstance")
+			vmi := tests.NewRandomVMI()
+
+			By("Starting a new VirtualMachineInstance")
+			obj, err := virtClient.RestClient().Post().Resource("virtualmachineinstances").Namespace(tests.NamespaceTestDefault).Body(vmi).Do().Get()
+			Expect(err).ToNot(HaveOccurred(), "Should create VMI")
+
+			By("Waiting until the VM is ready")
+			tests.WaitForSuccessfulVMIStart(obj)
+
+			By("Finding the prometheus endpoint")
+			l, err := labels.Parse("kubevirt.io=virt-handler")
+			Expect(err).ToNot(HaveOccurred())
+			pods, err := virtClient.CoreV1().Pods(tests.KubeVirtInstallNamespace).List(metav1.ListOptions{LabelSelector: l.String()})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(pods.Items).ToNot(BeEmpty())
+
+			By("Scraping the Prometheus endpoint")
+			pod := pods.Items[0] // only one compute node in the test environment
+
+			Eventually(func() string {
+				stdout, _, err := tests.ExecuteCommandOnPodV2(virtClient,
+					&pod, "virt-handler",
+					[]string{
+						"curl",
+						"-L",
+						"-k",
+						fmt.Sprintf("https://%s:%s/metrics", pod.Status.PodIP, "8443"),
+					})
+				Expect(err).ToNot(HaveOccurred())
+				lines := filterMetricsOutput(stdout, "kubevirt")
+				return strings.Join(lines, "\n")
+			}, 30*time.Second, 2*time.Second).Should(ContainSubstring("kubevirt"))
+		}, 300)
 	})
 
 	Describe("Start a VirtualMachineInstance", func() {
@@ -142,6 +178,7 @@ var _ = Describe("Infrastructure", func() {
 				tests.WaitForSuccessfulVMIStart(obj)
 			}, 150)
 		})
+
 	})
 })
 
@@ -173,4 +210,15 @@ func getNewLeaderPod(virtClient kubecli.KubevirtClient) *k8sv1.Pod {
 		}
 	}
 	return nil
+}
+
+func filterMetricsOutput(output, prefix string) []string {
+	lines := strings.Split(output, "\n")
+	var ret []string
+	for _, line := range lines {
+		if strings.HasPrefix(line, prefix) {
+			ret = append(ret, line)
+		}
+	}
+	return ret
 }
