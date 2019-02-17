@@ -49,6 +49,20 @@ func generateHelloWorldServer(vmi *v1.VirtualMachineInstance, virtClient kubecli
 	Expect(err).ToNot(HaveOccurred())
 }
 
+func waitForJobToCompleteWithStatus(virtClient *kubecli.KubevirtClient, jobPod *k8sv1.Pod, expectedResult string, timeoutSec int) {
+	jobPodPhase := k8sv1.PodFailed
+
+	if expectedResult == "success" {
+		jobPodPhase = k8sv1.PodSucceeded
+	}
+
+	EventuallyWithOffset(1, func() k8sv1.PodPhase {
+		pod, err := (*virtClient).CoreV1().Pods(jobPod.Namespace).Get(jobPod.Name, k8smetav1.GetOptions{})
+		ExpectWithOffset(1, err).ToNot(HaveOccurred())
+		return pod.Status.Phase
+	}, time.Duration(timeoutSec)*time.Second, 1*time.Second).Should(Equal(jobPodPhase))
+}
+
 var _ = Describe("Expose", func() {
 
 	flag.Parse()
@@ -85,12 +99,7 @@ var _ = Describe("Expose", func() {
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Waiting for the pod to report a successful connection attempt")
-				getStatus := func() k8sv1.PodPhase {
-					pod, err := virtClient.CoreV1().Pods(job.Namespace).Get(job.Name, k8smetav1.GetOptions{})
-					Expect(err).ToNot(HaveOccurred())
-					return pod.Status.Phase
-				}
-				Eventually(getStatus, 60, 1).Should(Equal(k8sv1.PodSucceeded))
+				waitForJobToCompleteWithStatus(&virtClient, job, "success", 60)
 			})
 		})
 
@@ -178,12 +187,7 @@ var _ = Describe("Expose", func() {
 					Expect(err).ToNot(HaveOccurred())
 
 					By("Waiting for the pod to report a successful connection attempt")
-					getStatus := func() k8sv1.PodPhase {
-						pod, err := virtClient.CoreV1().Pods(job.Namespace).Get(job.Name, k8smetav1.GetOptions{})
-						Expect(err).ToNot(HaveOccurred())
-						return pod.Status.Phase
-					}
-					Eventually(getStatus, 60, 1).Should(Equal(k8sv1.PodSucceeded))
+					waitForJobToCompleteWithStatus(&virtClient, job, "success", 60)
 				}
 			})
 		})
@@ -219,12 +223,7 @@ var _ = Describe("Expose", func() {
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Waiting for the pod to report a successful connection attempt")
-				getStatus := func() k8sv1.PodPhase {
-					pod, err := virtClient.CoreV1().Pods(job.Namespace).Get(job.Name, k8smetav1.GetOptions{})
-					Expect(err).ToNot(HaveOccurred())
-					return pod.Status.Phase
-				}
-				Eventually(getStatus, 60, 1).Should(Equal(k8sv1.PodSucceeded))
+				waitForJobToCompleteWithStatus(&virtClient, job, "success", 60)
 			})
 		})
 
@@ -266,12 +265,7 @@ var _ = Describe("Expose", func() {
 					Expect(err).ToNot(HaveOccurred())
 
 					By("Waiting for the pod to report a successful connection attempt")
-					getStatus := func() k8sv1.PodPhase {
-						pod, err := virtClient.CoreV1().Pods(job.Namespace).Get(job.Name, k8smetav1.GetOptions{})
-						Expect(err).ToNot(HaveOccurred())
-						return pod.Status.Phase
-					}
-					Eventually(getStatus, 60, 1).Should(Equal(k8sv1.PodSucceeded))
+					waitForJobToCompleteWithStatus(&virtClient, job, "success", 60)
 				}
 			})
 		})
@@ -332,12 +326,7 @@ var _ = Describe("Expose", func() {
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Waiting for the pod to report a successful connection attempt")
-				getStatus := func() k8sv1.PodPhase {
-					pod, err := virtClient.CoreV1().Pods(job.Namespace).Get(job.Name, k8smetav1.GetOptions{})
-					Expect(err).ToNot(HaveOccurred())
-					return pod.Status.Phase
-				}
-				Eventually(getStatus, 60, 1).Should(Equal(k8sv1.PodSucceeded))
+				waitForJobToCompleteWithStatus(&virtClient, job, "success", 60)
 			})
 		})
 	})
@@ -399,13 +388,7 @@ var _ = Describe("Expose", func() {
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Waiting for the pod to report a successful connection attempt")
-				getStatus := func() k8sv1.PodPhase {
-					pod, err := virtClient.CoreV1().Pods(job.Namespace).Get(job.Name, k8smetav1.GetOptions{})
-					Expect(err).ToNot(HaveOccurred())
-					return pod.Status.Phase
-				}
-
-				Eventually(getStatus, 60, 1).Should(Equal(k8sv1.PodSucceeded))
+				waitForJobToCompleteWithStatus(&virtClient, job, "success", 60)
 			})
 
 			It("[test_id:345]Should verify the exposed service is functional before and after VM restart.", func() {
@@ -422,13 +405,7 @@ var _ = Describe("Expose", func() {
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Waiting for the pod to report a successful connection attempt.")
-				getStatus := func() k8sv1.PodPhase {
-					pod, err := virtClient.CoreV1().Pods(job.Namespace).Get(job.Name, k8smetav1.GetOptions{})
-					Expect(err).ToNot(HaveOccurred())
-					return pod.Status.Phase
-				}
-
-				Eventually(getStatus, 60, 1).Should(Equal(k8sv1.PodSucceeded))
+				waitForJobToCompleteWithStatus(&virtClient, job, "success", 120)
 
 				// Retrieve the current VMI UID, to be compared with the new UID after restart.
 				var vmi *v1.VirtualMachineInstance
@@ -460,13 +437,60 @@ var _ = Describe("Expose", func() {
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Waiting for the pod to report a successful connection attempt.")
-				getStatus = func() k8sv1.PodPhase {
-					pod, err := virtClient.CoreV1().Pods(job.Namespace).Get(job.Name, k8smetav1.GetOptions{})
-					Expect(err).ToNot(HaveOccurred())
-					return pod.Status.Phase
-				}
+				waitForJobToCompleteWithStatus(&virtClient, job, "success", 120)
+			})
 
-				Eventually(getStatus, 60, 1).Should(Equal(k8sv1.PodSucceeded))
+			It("[test_id:343]Should Verify an exposed service of a VM is not functional after VM deletion.", func() {
+				By("Getting back the cluster IP given for the service")
+				svc, err := virtClient.CoreV1().Services(vm.Namespace).Get(serviceName, k8smetav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				serviceIP := svc.Spec.ClusterIP
+
+				By("Starting a pod which tries to reach the VMI via ClusterIP")
+				job := tests.NewHelloWorldJob(serviceIP, servicePort)
+				job, err = virtClient.CoreV1().Pods(vm.Namespace).Create(job)
+				Expect(err).ToNot(HaveOccurred())
+
+				By("Waiting for the pod to report a successful connection attempt")
+				waitForJobToCompleteWithStatus(&virtClient, job, "success", 120)
+
+				By("Comparing the service's endpoints IP address to the VM pod IP address.")
+				// Get the IP address of the VM pod.
+				vmi, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(vm.Name, &k8smetav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				vmPod := tests.GetRunningPodByVirtualMachineInstance(vmi, vmi.Namespace)
+				vmPodIpAddress := vmPod.Status.PodIP
+
+				// Get the IP address of the service's endpoint.
+				endpointsName := serviceName
+				svcEndpoints, err := virtClient.CoreV1().Endpoints(vm.Namespace).Get(endpointsName, k8smetav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+
+				// There should be one - and only one - subset for this endpoint,
+				// pointing to a single pod (the VMI's virt-launcher pod).
+				// This subset should hold a single IP address only - the VM's pod address.
+				Expect(len(svcEndpoints.Subsets)).To(Equal(1))
+				Expect(len(svcEndpoints.Subsets[0].Addresses)).To(Equal(1))
+				endptSubsetIpAddress := svcEndpoints.Subsets[0].Addresses[0].IP
+
+				Eventually(endptSubsetIpAddress).Should(BeEquivalentTo(vmPodIpAddress))
+
+				By("Deleting the VM.")
+				Expect(virtClient.VirtualMachine(vm.Namespace).Delete(vm.Name, &k8smetav1.DeleteOptions{})).To(Succeed())
+				tests.WaitForVirtualMachineToDisappearWithTimeout(vmi, 120)
+
+				By("Verifying the endpoints' single subset, which points to the VM's pod, is deleted once the VM was deleted.")
+				svcEndpoints, err = virtClient.CoreV1().Endpoints(vm.Namespace).Get(endpointsName, k8smetav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				Expect(svcEndpoints.Subsets).To(BeNil())
+
+				By("Starting a pod which tries to reach the VMI via the ClusterIP service.")
+				job = tests.NewHelloWorldJob(serviceIP, servicePort)
+				job, err = virtClient.CoreV1().Pods(vm.Namespace).Create(job)
+				Expect(err).ToNot(HaveOccurred())
+
+				By("Waiting for the pod to report a failed connection attempt.")
+				waitForJobToCompleteWithStatus(&virtClient, job, "failure", 120)
 			})
 		})
 	})
