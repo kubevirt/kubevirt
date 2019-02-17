@@ -175,44 +175,58 @@ func CPUFeatureLabelsFromCPUFeatures(vmi *v1.VirtualMachineInstance) []string {
 		for _, feature := range vmi.Spec.Domain.CPU.Features {
 			if feature.Policy == "" || feature.Policy == "require" {
 				labels = append(labels, NFD_CPU_FEATURE_PREFIX+feature.Name)
-			} else if feature.Policy == "forbid" {
-				setNodeAffinityForForbiddenFeaturePolicy(vmi, feature)
 			}
 		}
 	}
 	return labels
 }
 
-func setNodeAffinityForForbiddenFeaturePolicy(vmi *v1.VirtualMachineInstance, feature v1.CPUFeature) {
+func SetNodeAffinityForForbiddenFeaturePolicy(vmi *v1.VirtualMachineInstance, pod *k8sv1.Pod) {
 
-	term := k8sv1.NodeSelectorTerm{
-		MatchExpressions: []k8sv1.NodeSelectorRequirement{
-			{Key: NFD_CPU_FEATURE_PREFIX + feature.Name,
-				Operator: k8sv1.NodeSelectorOpDoesNotExist, Values: []string{"true"}}}}
-
-	nodeAffinity := &k8sv1.NodeAffinity{
-		RequiredDuringSchedulingIgnoredDuringExecution: &k8sv1.NodeSelector{
-			NodeSelectorTerms: []k8sv1.NodeSelectorTerm{term},
-		},
+	if vmi.Spec.Domain.CPU == nil || vmi.Spec.Domain.CPU.Features == nil {
+		return
 	}
 
-	if vmi.Spec.Affinity != nil && vmi.Spec.Affinity.NodeAffinity != nil {
-		if vmi.Spec.Affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution != nil {
-			vmi.Spec.Affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution.NodeSelectorTerms =
-				append(vmi.Spec.Affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution.NodeSelectorTerms, term)
-		} else {
-			vmi.Spec.Affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution = &k8sv1.NodeSelector{
-				NodeSelectorTerms: []k8sv1.NodeSelectorTerm{term},
+	for _, feature := range vmi.Spec.Domain.CPU.Features {
+		if feature.Policy == "forbid" {
+
+			requirement := k8sv1.NodeSelectorRequirement{
+				Key:      NFD_CPU_FEATURE_PREFIX + feature.Name,
+				Operator: k8sv1.NodeSelectorOpDoesNotExist,
+			}
+			term := k8sv1.NodeSelectorTerm{
+				MatchExpressions: []k8sv1.NodeSelectorRequirement{requirement}}
+
+			nodeAffinity := &k8sv1.NodeAffinity{
+				RequiredDuringSchedulingIgnoredDuringExecution: &k8sv1.NodeSelector{
+					NodeSelectorTerms: []k8sv1.NodeSelectorTerm{term},
+				},
+			}
+
+			if pod.Spec.Affinity != nil && pod.Spec.Affinity.NodeAffinity != nil {
+				if pod.Spec.Affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution != nil {
+					terms := pod.Spec.Affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution.NodeSelectorTerms
+					// Since NodeSelectorTerms are ORed , the anti affinity requirement will be added to each term.
+					for i, selectorTerm := range terms {
+						pod.Spec.Affinity.NodeAffinity.
+							RequiredDuringSchedulingIgnoredDuringExecution.
+							NodeSelectorTerms[i].MatchExpressions = append(selectorTerm.MatchExpressions, requirement)
+					}
+				} else {
+					pod.Spec.Affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution = &k8sv1.NodeSelector{
+						NodeSelectorTerms: []k8sv1.NodeSelectorTerm{term},
+					}
+				}
+
+			} else if pod.Spec.Affinity != nil {
+				pod.Spec.Affinity.NodeAffinity = nodeAffinity
+			} else {
+				pod.Spec.Affinity = &k8sv1.Affinity{
+					NodeAffinity: nodeAffinity,
+				}
+
 			}
 		}
-
-	} else if vmi.Spec.Affinity != nil {
-		vmi.Spec.Affinity.NodeAffinity = nodeAffinity
-	} else {
-		vmi.Spec.Affinity = &k8sv1.Affinity{
-			NodeAffinity: nodeAffinity,
-		}
-
 	}
 }
 
@@ -853,19 +867,11 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 	}
 
 	if vmi.Spec.Affinity != nil {
-		pod.Spec.Affinity = &k8sv1.Affinity{}
+		pod.Spec.Affinity = vmi.Spec.Affinity.DeepCopy()
+	}
 
-		if vmi.Spec.Affinity.NodeAffinity != nil {
-			pod.Spec.Affinity.NodeAffinity = vmi.Spec.Affinity.NodeAffinity
-		}
-
-		if vmi.Spec.Affinity.PodAffinity != nil {
-			pod.Spec.Affinity.PodAffinity = vmi.Spec.Affinity.PodAffinity
-		}
-
-		if vmi.Spec.Affinity.PodAntiAffinity != nil {
-			pod.Spec.Affinity.PodAntiAffinity = vmi.Spec.Affinity.PodAntiAffinity
-		}
+	if IsCPUNodeDiscoveryEnabled(t.configMapStore) {
+		SetNodeAffinityForForbiddenFeaturePolicy(vmi, &pod)
 	}
 
 	if vmi.Spec.Tolerations != nil {
