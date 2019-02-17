@@ -141,12 +141,12 @@ container_pull(
     #tag = "5.0.0",
 )
 
-# Pull base image cdi-http-import-server
+# Pull kubevirt-testing image
 container_pull(
-    name = "cdi-http-import-server-base",
-    digest = "sha256:7cf1dd568d853884e558f714a24566682c091ff783495cccac0349e82c8a874f",
+    name = "kubevirt-testing",
+    digest = "sha256:2e43d16abaaea55672b125515e89ae69d8c6424fc2c110273aaf7db047f0b82f",
     registry = "index.docker.io",
-    repository = "kubevirt/cdi-http-import-server-base",
+    repository = "kubevirtci/kubevirt-testing",
     #tag = "28",
 )
 
@@ -156,3 +156,59 @@ load(
 )
 
 _go_image_repos()
+
+http_archive(
+    name = "io_bazel_rules_container_rpm",
+    sha256 = "7ace5bc7aa10697196d3c48ef5d73b0fc52b6e27c0bad3ce10751f66c5cc383c",
+    strip_prefix = "rules_container_rpm-0.0.3",
+    urls = ["https://github.com/rmohr/rules_container_rpm/archive/v0.0.3.tar.gz"],
+)
+
+# Get container-disk-v1alpha RPM's
+http_file(
+    name = "qemu-img",
+    sha256 = "611d6ff8e08eca0d543486f3e8b437f7ddbc362e4d281c7422677d712d017d61",
+    urls = [
+        "https://dl.fedoraproject.org/pub/fedora/linux/updates/28/Everything/x86_64/Packages/q/qemu-img-2.11.2-4.fc28.x86_64.rpm",
+    ],
+)
+
+http_file(
+    name = "bzip2",
+    sha256 = "5248b7b85e58319c6c16e9b545dc04f1b25ba236e0507a7c923d74b00fe8741c",
+    urls = [
+        "https://dl.fedoraproject.org/pub/fedora/linux/releases/28/Everything/x86_64/os/Packages/b/bzip2-1.0.6-26.fc28.x86_64.rpm",
+    ],
+)
+
+http_file(
+    name = "capstone",
+    sha256 = "847ebb3a852f82cfe932230d1700cb8b90f602acbe9f9dcf5de7129a1d222c6b",
+    urls = [
+        "https://dl.fedoraproject.org/pub/fedora/linux/updates/28/Everything/x86_64/Packages/c/capstone-3.0.5-1.fc28.x86_64.rpm",
+    ],
+)
+
+http_file(
+    name = "libaio",
+    sha256 = "da731218ec1a8e8f690c880d7a45d09722ea01090caba0ae25d9202e0d521404",
+    urls = [
+        "https://dl.fedoraproject.org/pub/fedora/linux/releases/28/Everything/x86_64/os/Packages/l/libaio-0.3.110-11.fc28.x86_64.rpm",
+    ],
+)
+
+http_file(
+    name = "libstdc",
+    sha256 = "91e909dda77de31d5653e14e342bb4f0c0e44a82e688d343a192b3ed71479708",
+    urls = [
+        "https://dl.fedoraproject.org/pub/fedora/linux/updates/28/Everything/x86_64/Packages/l/libstdc++-8.2.1-6.fc28.x86_64.rpm",
+    ],
+)
+
+http_file(
+    name = "qemu-guest-agent",
+    sha256 = "1d76ae3e482017439412e9cc8e179afb8f47ab415a8a9a7ceaa9b4ee4f9c85e8",
+    urls = [
+        "https://dl.fedoraproject.org/pub/fedora/linux/updates/28/Everything/x86_64/Packages/q/qemu-guest-agent-2.11.2-4.fc28.x86_64.rpm",
+    ],
+)

@@ -21,6 +21,9 @@
 
 trap 'echo "Graceful exit"; exit 0' SIGINT SIGQUIT SIGTERM
 
+# Expose qemu-guest-agent via nginx server
+cp /usr/bin/qemu-ga /usr/share/nginx/html/
+
 ALPINE_IMAGE_PATH=/usr/share/nginx/html/images/alpine.iso
 CIRROS_IMAGE_PATH=/usr/share/nginx/html/images/cirros.img
 IMAGE_PATH=/images

@@ -9,6 +9,7 @@ RUN dnf install -y dnf-plugins-core && \
     dnf -y install \
         libvirt-devel-${LIBVIRT_VERSION} \
         bazel \
+        cpio \
         patch \
         make \
         git \

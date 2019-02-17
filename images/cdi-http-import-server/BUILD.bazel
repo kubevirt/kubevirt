@@ -3,6 +3,19 @@ load(
     "container_image",
 )
 load("@bazel_tools//tools/build_defs/pkg:pkg.bzl", "pkg_tar")
+load("@io_bazel_rules_container_rpm//rpm:rpm.bzl", "rpm_image")
+
+rpm_image(
+    name = "cdi-http-import-server-base-image",
+    base = "@kubevirt-testing//image",
+    rpms = [
+        "@qemu-img//file",
+        "@qemu-guest-agent//file",
+        "@libstdc//file",
+        "@capstone//file",
+        "@libaio//file",
+    ],
+)
 
 genrule(
     name = "alpine-iso",
@@ -45,7 +58,7 @@ pkg_tar(
 
 container_image(
     name = "cdi-http-import-server-image",
-    base = "@cdi-http-import-server-base//image",
+    base = ":cdi-http-import-server-base-image",
     directory = "/",
     entrypoint = ["/entrypoint.sh"],
     files = [

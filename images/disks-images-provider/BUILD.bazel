@@ -3,6 +3,18 @@ load(
     "container_image",
 )
 load("@bazel_tools//tools/build_defs/pkg:pkg.bzl", "pkg_tar")
+load("@io_bazel_rules_container_rpm//rpm:rpm.bzl", "rpm_image")
+
+rpm_image(
+    name = "qemu-img-image",
+    base = "@fedora//image",
+    rpms = [
+        "@qemu-img//file",
+        "@capstone//file",
+        "@libaio//file",
+        "@libstdc//file",
+    ],
+)
 
 genrule(
     name = "alpine-img",
@@ -51,7 +63,7 @@ pkg_tar(
 
 container_image(
     name = "disks-images-provider-image",
-    base = "@libvirt//image",
+    base = ":qemu-img-image",
     directory = "/",
     entrypoint = ["/entrypoint.sh"],
     files = ["entrypoint.sh"],

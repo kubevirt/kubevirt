@@ -1,12 +1,22 @@
-load(
-    "@io_bazel_rules_docker//container:container.bzl",
-    "container_image",
-)
+load("@io_bazel_rules_docker//container:container.bzl", "container_image")
 load("@bazel_tools//tools/build_defs/pkg:pkg.bzl", "pkg_tar")
+load("@io_bazel_rules_container_rpm//rpm:rpm.bzl", "rpm_image")
+
+rpm_image(
+    name = "container-disk-v1alpha-base-image",
+    base = "@fedora//image",
+    rpms = [
+        "@qemu-img//file",
+        "@capstone//file",
+        "@libaio//file",
+        "@libstdc//file",
+        "@bzip2//file",
+    ],
+)
 
 container_image(
     name = "container-disk-v1alpha-image",
-    base = "@libvirt//image",
+    base = ":container-disk-v1alpha-base-image",
     directory = "/",
     entrypoint = ["/entrypoint.sh"],
     files = ["entrypoint.sh"],
