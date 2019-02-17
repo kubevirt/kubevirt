@@ -105,7 +105,7 @@ var _ = Describe("Networking", func() {
 		ExpectWithOffset(1, strings.TrimSpace(output)).To(Equal(expectedValue))
 	}
 
-	Describe("[rfe_id:150][crit:medium][vendor:cnv-qe@redhat.com][level:component]Multiple virtual machines connectivity", func() {
+	Describe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:component]Multiple virtual machines connectivity", func() {
 		tests.BeforeAll(func() {
 			tests.BeforeTestCleanup()
 
