@@ -59,6 +59,8 @@ spec:
           name: virt-private-dir
         - mountPath: /var/lib/kubelet/device-plugins
           name: device-plugin
+        - mountPath: /var/lib/kubevirt/certificates
+          name: certificates
       hostPID: true
       serviceAccountName: kubevirt-handler
       volumes:
@@ -74,5 +76,8 @@ spec:
       - hostPath:
           path: /var/lib/kubelet/device-plugins
         name: device-plugin
+      - hostPath:
+          path: /var/lib/kubevirt/certificates
+        name: certificates
   updateStrategy:
     type: RollingUpdate

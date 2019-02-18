@@ -79,6 +79,17 @@ rules:
   verbs:
   - watch
   - list
+- apiGroups:
+  - certificates.k8s.io
+  resources:
+  - certificatesigningrequests
+  verbs:
+  - create
+  - update
+  - get
+  - delete
+  - watch
+  - list
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
@@ -181,6 +192,16 @@ rules:
 - apiGroups:
   - ""
   resources:
+  - secrets
+  verbs:
+  - get
+  - list
+  - delete
+  - update
+  - create
+- apiGroups:
+  - ""
+  resources:
   - pods
   - configmaps
   - endpoints
@@ -243,6 +264,17 @@ rules:
   - get
   - list
   - watch
+- apiGroups:
+  - certificates.k8s.io
+  resources:
+  - certificatesigningrequests
+  verbs:
+  - create
+  - update
+  - get
+  - delete
+  - watch
+  - list
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
@@ -302,6 +334,17 @@ rules:
   verbs:
   - create
   - patch
+- apiGroups:
+  - certificates.k8s.io
+  resources:
+  - certificatesigningrequests
+  verbs:
+  - create
+  - update
+  - get
+  - delete
+  - watch
+  - list
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
