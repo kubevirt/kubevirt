@@ -18,11 +18,9 @@
 #
 
 # https://fedoraproject.org/wiki/Scsi-target-utils_Quickstart_Guide
+set -x
 
 trap 'echo "Graceful exit"; exit 0' SIGINT SIGQUIT SIGTERM
-
-# Expose qemu-guest-agent via nginx server
-cp /usr/bin/qemu-ga /usr/share/nginx/html/
 
 ALPINE_IMAGE_PATH=/usr/share/nginx/html/images/alpine.iso
 CIRROS_IMAGE_PATH=/usr/share/nginx/html/images/cirros.img
@@ -37,6 +35,7 @@ alpine) CONVERT_PATH=$ALPINE_IMAGE_PATH ;;
     ;;
 esac
 
+# use as ISCSI target
 if [ -n "$AS_ISCSI" ]; then
     mkdir -p $IMAGE_PATH
     /usr/bin/qemu-img convert -O raw $CONVERT_PATH $IMAGE_PATH/disk.raw
@@ -47,4 +46,9 @@ if [ -n "$AS_ISCSI" ]; then
 
     touch /tmp/healthy
     bash expose-as-iscsi.sh "${IMAGE_PATH}/disk.raw"
+    # use as nginx server
+else
+    # Expose qemu-guest-agent via nginx server
+    cp /usr/bin/qemu-ga /usr/share/nginx/html/
+    /usr/sbin/nginx
 fi
