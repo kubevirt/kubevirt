@@ -125,7 +125,6 @@ func NewPrometheusService(namespace string) *corev1.Service {
 			Name:      "kubevirt-prometheus-metrics",
 			Labels: map[string]string{
 				virtv1.AppLabel:          "",
-				virtv1.ManagedByLabel:    virtv1.ManagedByLabelOperatorValue,
 				"prometheus.kubevirt.io": "",
 			},
 		},
@@ -158,8 +157,7 @@ func NewApiServerService(namespace string) *corev1.Service {
 			Namespace: namespace,
 			Name:      "virt-api",
 			Labels: map[string]string{
-				virtv1.AppLabel:       "virt-api",
-				virtv1.ManagedByLabel: virtv1.ManagedByLabelOperatorValue,
+				virtv1.AppLabel: "virt-api",
 			},
 		},
 		Spec: corev1.ServiceSpec{
@@ -233,8 +231,7 @@ func newBaseDeployment(name string, namespace string, repository string, version
 			Namespace: namespace,
 			Name:      name,
 			Labels: map[string]string{
-				virtv1.AppLabel:       name,
-				virtv1.ManagedByLabel: virtv1.ManagedByLabelOperatorValue,
+				virtv1.AppLabel: name,
 			},
 		},
 		Spec: appsv1.DeploymentSpec{
@@ -376,8 +373,7 @@ func NewHandlerDaemonSet(namespace string, repository string, version string, pu
 			Namespace: namespace,
 			Name:      "virt-handler",
 			Labels: map[string]string{
-				virtv1.AppLabel:       "virt-handler",
-				virtv1.ManagedByLabel: virtv1.ManagedByLabelOperatorValue,
+				virtv1.AppLabel: "virt-handler",
 			},
 		},
 		Spec: appsv1.DaemonSetSpec{

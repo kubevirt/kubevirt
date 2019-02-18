@@ -88,7 +88,7 @@ func NewInstallStrategyConfigMap(namespace string, imageTag string, imageRegistr
 			},
 		},
 		Data: map[string]string{
-			"manifests": string(DumpInstallStrategyToBytes(strategy)),
+			"manifests": string(dumpInstallStrategyToBytes(strategy)),
 		},
 	}
 	return configMap, nil
@@ -125,7 +125,7 @@ func DumpInstallStrategyToConfigMap(clientset kubecli.KubevirtClient) error {
 	return nil
 }
 
-func DumpInstallStrategyToBytes(strategy *InstallStrategy) []byte {
+func dumpInstallStrategyToBytes(strategy *InstallStrategy) []byte {
 
 	var b bytes.Buffer
 	writer := bufio.NewWriter(&b)
@@ -252,7 +252,7 @@ func LoadInstallStrategyFromCache(stores util.Stores, namespace string, imageTag
 		return nil, fmt.Errorf("install strategy configmap %s does not contain 'manifests' key", configMap.Name)
 	}
 
-	strategy, err := LoadInstallStrategyFromBytes(data)
+	strategy, err := loadInstallStrategyFromBytes(data)
 	if err != nil {
 		return nil, err
 	}
@@ -267,11 +267,11 @@ func LoadInstallStrategyFromFile(filePath string) (*InstallStrategy, error) {
 		return nil, err
 	}
 
-	return LoadInstallStrategyFromBytes(string(b))
+	return loadInstallStrategyFromBytes(string(b))
 
 }
 
-func LoadInstallStrategyFromBytes(data string) (*InstallStrategy, error) {
+func loadInstallStrategyFromBytes(data string) (*InstallStrategy, error) {
 	strategy := &InstallStrategy{}
 	entries := strings.Split(data, "---")
 
