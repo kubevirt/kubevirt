@@ -1299,7 +1299,7 @@ func schema_kubevirt_pkg_api_v1_Input(ref common.ReferenceCallback) common.OpenA
 						},
 					},
 				},
-				Required: []string{"bus", "type", "name"},
+				Required: []string{"type", "name"},
 			},
 		},
 		Dependencies: []string{},

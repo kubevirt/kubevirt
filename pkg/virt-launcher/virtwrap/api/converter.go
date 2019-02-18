@@ -405,8 +405,12 @@ func Convert_v1_Rng_To_api_Rng(source *v1.Rng, rng *Rng, _ *ConverterContext) er
 }
 
 func Convert_v1_Input_To_api_InputDevice(input *v1.Input, inputDevice *Input, _ *ConverterContext) error {
-	if input.Bus != "virtio" && input.Bus != "usb" {
+	if input.Bus != "virtio" && input.Bus != "usb" && input.Bus != "" {
 		return fmt.Errorf("input contains unsupported bus %s", input.Bus)
+	}
+
+	if input.Bus != "virtio" && input.Bus != "usb" {
+		input.Bus = "usb"
 	}
 
 	if input.Type != "tablet" {

@@ -1140,83 +1140,60 @@ var _ = Describe("Validating Webhook", func() {
 			Expect(causes[0].Field).To(Equal("fake.domain.devices.disks[0].name"))
 			Expect(causes[1].Field).To(Equal("fake.domain.devices.disks[0]"))
 		})
-		It("should accept correct tablet input device", func() {
-			vmi := v1.NewMinimalVMI("testvmi")
 
-			vmi.Spec.Domain.Devices.Inputs = append(vmi.Spec.Domain.Devices.Inputs, v1.Input{
-				Type: "tablet",
-				Name: "tablet0",
-				Bus:  "virtio",
-			})
+		table.DescribeTable("should verify input device",
+			func(input v1.Input, expectedErrors int, expectedErrorTypes []string, expectMessage string) {
+				vmi := v1.NewMinimalVMI("testvmi")
+				vmi.Spec.Domain.Devices.Inputs = append(vmi.Spec.Domain.Devices.Inputs, input)
+				causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec)
+				Expect(len(causes)).To(Equal(expectedErrors), fmt.Sprintf("Expect %d errors", expectedErrors))
+				for i, errorType := range expectedErrorTypes {
+					Expect(causes[i].Field).To(Equal(errorType), expectMessage)
+				}
+			},
+			table.Entry("and accept input with virtio bus",
+				v1.Input{
+					Type: "tablet",
+					Name: "tablet0",
+					Bus:  "virtio",
+				}, 0, []string{}, "Expect no errors"),
+			table.Entry("and accept input with usb bus",
+				v1.Input{
+					Type: "tablet",
+					Name: "tablet0",
+					Bus:  "usb",
+				}, 0, []string{}, "Expect no errors"),
+			table.Entry("and accept input without bus",
+				v1.Input{
+					Type: "tablet",
+					Name: "tablet0",
+				}, 0, []string{}, "Expect no errors"),
+			table.Entry("and reject input with ps2 bus",
+				v1.Input{
+					Type: "tablet",
+					Name: "tablet0",
+					Bus:  "ps2",
+				}, 1, []string{"fake.domain.devices.inputs[0].bus"}, "Expect bus error"),
+			table.Entry("and reject input with keyboard type and virtio bus",
+				v1.Input{
+					Type: "keyboard",
+					Name: "tablet0",
+					Bus:  "virtio",
+				}, 1, []string{"fake.domain.devices.inputs[0].type"}, "Expect type error"),
+			table.Entry("and reject input with keyboard type and usb bus",
+				v1.Input{
+					Type: "keyboard",
+					Name: "tablet0",
+					Bus:  "usb",
+				}, 1, []string{"fake.domain.devices.inputs[0].type"}, "Expect type error"),
+			table.Entry("and reject input with wrong type and wrong bus",
+				v1.Input{
+					Type: "keyboard",
+					Name: "tablet0",
+					Bus:  "ps2",
+				}, 2, []string{"fake.domain.devices.inputs[0].bus", "fake.domain.devices.inputs[0].type"}, "Expect type error"),
+		)
 
-			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec)
-			Expect(len(causes)).To(Equal(0), "Expect no errors")
-		})
-		It("should accept correct tablet input device", func() {
-			vmi := v1.NewMinimalVMI("testvmi")
-
-			vmi.Spec.Domain.Devices.Inputs = append(vmi.Spec.Domain.Devices.Inputs, v1.Input{
-				Type: "tablet",
-				Name: "tablet0",
-				Bus:  "usb",
-			})
-
-			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec)
-			Expect(len(causes)).To(Equal(0), "Expect no errors")
-		})
-		It("should reject tablet input device with wrong bus", func() {
-			vmi := v1.NewMinimalVMI("testvmi")
-
-			vmi.Spec.Domain.Devices.Inputs = append(vmi.Spec.Domain.Devices.Inputs, v1.Input{
-				Type: "tablet",
-				Name: "tablet0",
-				Bus:  "ps2",
-			})
-
-			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec)
-			Expect(len(causes)).To(Equal(1), "Expect error")
-			Expect(causes[0].Field).To(Equal("fake.domain.devices.inputs[0].bus"), "Expect bus error")
-		})
-		It("should reject tablet input device with wrong type and virtio bus", func() {
-			vmi := v1.NewMinimalVMI("testvmi")
-
-			vmi.Spec.Domain.Devices.Inputs = append(vmi.Spec.Domain.Devices.Inputs, v1.Input{
-				Type: "keyboard",
-				Name: "tablet0",
-				Bus:  "virtio",
-			})
-
-			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec)
-			Expect(len(causes)).To(Equal(1), "Expect error")
-			Expect(causes[0].Field).To(Equal("fake.domain.devices.inputs[0].type"), "Expect type error")
-		})
-		It("should reject tablet input device with wrong type and usb bus", func() {
-			vmi := v1.NewMinimalVMI("testvmi")
-
-			vmi.Spec.Domain.Devices.Inputs = append(vmi.Spec.Domain.Devices.Inputs, v1.Input{
-				Type: "keyboard",
-				Name: "tablet0",
-				Bus:  "usb",
-			})
-
-			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec)
-			Expect(len(causes)).To(Equal(1), "Expect error")
-			Expect(causes[0].Field).To(Equal("fake.domain.devices.inputs[0].type"), "Expect type error")
-		})
-		It("should reject tablet input device with wrong type and bus", func() {
-			vmi := v1.NewMinimalVMI("testvmi")
-
-			vmi.Spec.Domain.Devices.Inputs = append(vmi.Spec.Domain.Devices.Inputs, v1.Input{
-				Type: "keyboard",
-				Name: "tablet0",
-				Bus:  "ps2",
-			})
-
-			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec)
-			Expect(len(causes)).To(Equal(2), "Expect errors")
-			Expect(causes[0].Field).To(Equal("fake.domain.devices.inputs[0].bus"), "Expect bus error")
-			Expect(causes[1].Field).To(Equal("fake.domain.devices.inputs[0].type"), "Expect type error")
-		})
 		It("should reject negative requests.memory size value", func() {
 			vm := v1.NewMinimalVMI("testvm")
 

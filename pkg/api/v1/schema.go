@@ -290,7 +290,7 @@ type Devices struct {
 type Input struct {
 	// Bus indicates the bus of input device to emulate.
 	// Supported values: virtio, usb.
-	Bus string `json:"bus"`
+	Bus string `json:"bus,omitempty"`
 	// Type indicated the type of input device.
 	// Supported values: tablet.
 	Type string `json:"type"`

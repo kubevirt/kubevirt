@@ -1218,7 +1218,7 @@ func ValidateVirtualMachineInstanceSpec(field *k8sfield.Path, spec *v1.VirtualMa
 	}
 
 	for idx, input := range spec.Domain.Devices.Inputs {
-		if input.Bus != "virtio" && input.Bus != "usb" {
+		if input.Bus != "virtio" && input.Bus != "usb" && input.Bus != "" {
 			causes = append(causes, metav1.StatusCause{
 				Type:    metav1.CauseTypeFieldValueInvalid,
 				Message: fmt.Sprintf("Input device can have only virtio or usb bus."),

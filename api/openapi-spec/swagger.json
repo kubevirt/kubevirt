@@ -4735,7 +4735,6 @@
    },
    "v1.Input": {
     "required": [
-     "bus",
      "type",
      "name"
     ],
