@@ -530,17 +530,21 @@ func (c *KubeVirtController) loadInstallStrategy(kv *v1.KubeVirt) (*installstrat
 	// 2. look for install strategy config map in cache.
 	strategy, err = installstrategy.LoadInstallStrategyFromCache(c.stores, kv.Namespace, c.config.ImageTag)
 	if err == nil {
+
 		c.installStrategyMutex.Lock()
 		defer c.installStrategyMutex.Unlock()
 		c.installStrategyMap[c.config.ImageTag] = strategy
+		log.Log.Infof("Loaded install strategy for kubevirt version %s into cache", c.config.ImageTag)
 		return strategy, false, nil
 	}
+
+	log.Log.Infof("Install strategy config map not loaded. reason: %v", err)
 
 	// 3. See if we have a pending job in flight for this install strategy.
 	batch := c.clientset.BatchV1()
 	job := c.generateInstallStrategyJob(kv, c.config.ImageTag, c.config.ImageRegistry)
-	obj, exists, _ := c.stores.InstallStrategyJobCache.Get(job)
 
+	obj, exists, _ := c.stores.InstallStrategyJobCache.Get(job)
 	if exists {
 		cachedJob := obj.(*batchv1.Job)
 
@@ -548,6 +552,7 @@ func (c *KubeVirtController) loadInstallStrategy(kv *v1.KubeVirt) (*installstrat
 			// job completed but we don't have a install strategy still
 			// delete the job and we'll re-execute it once it is removed.
 
+			log.Log.Object(cachedJob).Errorf("Job failed to create install strategy for version %s", c.config.ImageTag)
 			if cachedJob.DeletionTimestamp == nil {
 
 				// Just in case there's an issue causing the job to fail
@@ -575,6 +580,7 @@ func (c *KubeVirtController) loadInstallStrategy(kv *v1.KubeVirt) (*installstrat
 
 						return nil, true, err
 					}
+					log.Log.Object(cachedJob).Errorf("Deleting job for install strategy version %s because configmap was not generated", c.config.ImageTag)
 				}
 				// waiting on deleted job to disappear before re-creating it.
 				return nil, true, err
@@ -592,6 +598,7 @@ func (c *KubeVirtController) loadInstallStrategy(kv *v1.KubeVirt) (*installstrat
 		c.kubeVirtExpectations.InstallStrategyJob.LowerExpectations(kvkey, 1, 0)
 		return nil, true, err
 	}
+	log.Log.Infof("Created job to generate install strategy configmap for version %s", c.config.ImageTag)
 
 	// pending is true here because we're waiting on the job
 	// to generate the install strategy

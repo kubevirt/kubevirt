@@ -23,7 +23,6 @@ import (
 	"bufio"
 	"bytes"
 	"fmt"
-	"io/ioutil"
 	"strings"
 
 	"github.com/ghodss/yaml"
@@ -111,15 +110,16 @@ func DumpInstallStrategyToConfigMap(clientset kubecli.KubevirtClient) error {
 	}
 
 	_, err = clientset.CoreV1().ConfigMaps(namespace).Create(configMap)
-	// force an update if it already exists
-	if !errors.IsAlreadyExists(err) {
-		// force update
-		_, err = clientset.CoreV1().ConfigMaps(namespace).Update(configMap)
-		if err != nil {
+	if err != nil {
+		if errors.IsAlreadyExists(err) {
+			// force update if already exists
+			_, err = clientset.CoreV1().ConfigMaps(namespace).Update(configMap)
+			if err != nil {
+				return err
+			}
+		} else {
 			return err
 		}
-	} else if err != nil {
-		return err
 	}
 
 	return nil
@@ -258,17 +258,6 @@ func LoadInstallStrategyFromCache(stores util.Stores, namespace string, imageTag
 	}
 
 	return strategy, nil
-}
-
-func LoadInstallStrategyFromFile(filePath string) (*InstallStrategy, error) {
-
-	b, err := ioutil.ReadFile(filePath)
-	if err != nil {
-		return nil, err
-	}
-
-	return loadInstallStrategyFromBytes(string(b))
-
 }
 
 func loadInstallStrategyFromBytes(data string) (*InstallStrategy, error) {
