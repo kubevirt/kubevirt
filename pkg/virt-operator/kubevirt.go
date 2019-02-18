@@ -550,17 +550,31 @@ func (c *KubeVirtController) loadInstallStrategy(kv *v1.KubeVirt) (*installstrat
 
 			if cachedJob.DeletionTimestamp == nil {
 
-				key, err := controller.KeyFunc(cachedJob)
-				if err != nil {
-					return nil, true, err
-				}
+				// Just in case there's an issue causing the job to fail
+				// immediately after being posted, lets perform a rudimentary
+				// for of rate-limiting for how quickly we'll re-attempt.
+				now := time.Now().UTC().Unix()
+				secondsSinceCompletion := now - cachedJob.Status.CompletionTime.UTC().Unix()
+				if secondsSinceCompletion < 10 {
+					secondsLeft := int64(10)
+					if secondsSinceCompletion > 0 {
+						secondsLeft = secondsSinceCompletion
+					}
+					c.queue.AddAfter(kvkey, time.Duration(secondsLeft)*time.Second)
 
-				c.kubeVirtExpectations.InstallStrategyJobs.AddExpectedDeletion(kvkey, key)
-				err = batch.Jobs(kv.Namespace).Delete(cachedJob.Name, &metav1.DeleteOptions{})
-				if err != nil {
-					c.kubeVirtExpectations.InstallStrategyJobs.DeletionObserved(kvkey, key)
+				} else {
+					key, err := controller.KeyFunc(cachedJob)
+					if err != nil {
+						return nil, true, err
+					}
 
-					return nil, true, err
+					c.kubeVirtExpectations.InstallStrategyJobs.AddExpectedDeletion(kvkey, key)
+					err = batch.Jobs(kv.Namespace).Delete(cachedJob.Name, &metav1.DeleteOptions{})
+					if err != nil {
+						c.kubeVirtExpectations.InstallStrategyJobs.DeletionObserved(kvkey, key)
+
+						return nil, true, err
+					}
 				}
 				// waiting on deleted job to disappear before re-creating it.
 				return nil, true, err

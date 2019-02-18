@@ -518,6 +518,13 @@ var _ = Describe("KubeVirt Operator", func() {
 		mockQueue.Wait()
 	}
 
+	deleteInstallStrategyJob := func(key string) {
+		mockQueue.ExpectAdds(1)
+		if obj, exists, _ := informers.InstallStrategyJobs.GetStore().GetByKey(key); exists {
+			installStrategyJobSource.Delete(obj.(runtime.Object))
+		}
+		mockQueue.Wait()
+	}
 	deleteResource := func(resource string, key string) {
 		switch resource {
 		case "serviceaccounts":
@@ -538,6 +545,8 @@ var _ = Describe("KubeVirt Operator", func() {
 			deleteDeployment(key)
 		case "daemonsets":
 			deleteDaemonset(key)
+		case "jobs":
+			deleteInstallStrategyJob(key)
 		default:
 			Fail("unknown resource type")
 		}
@@ -586,6 +595,15 @@ var _ = Describe("KubeVirt Operator", func() {
 		kubeClient.Fake.PrependReactor("delete", "deployments", genericDeleteFunc)
 		kubeClient.Fake.PrependReactor("delete", "daemonsets", genericDeleteFunc)
 	}
+
+	shouldExpectJobDeletion := func() {
+		kubeClient.Fake.PrependReactor("delete", "jobs", genericDeleteFunc)
+	}
+
+	shouldExpectJobCreation := func() {
+		kubeClient.Fake.PrependReactor("create", "jobs", genericCreateFunc)
+	}
+
 	shouldExpectCreations := func() {
 		kubeClient.Fake.PrependReactor("create", "serviceaccounts", genericCreateFunc)
 		kubeClient.Fake.PrependReactor("create", "clusterroles", genericCreateFunc)
@@ -735,6 +753,83 @@ var _ = Describe("KubeVirt Operator", func() {
 			shouldExpectKubeVirtUpdateFailureCondition()
 
 			controller.execute(fmt.Sprintf("%s/%s", kv2.Namespace, kv2.Name))
+
+		}, 15)
+
+		It("should generate install strategy creation job if no install strategy exists", func(done Done) {
+			defer close(done)
+
+			kv := &v1.KubeVirt{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:       "test-install",
+					Namespace:  NAMESPACE,
+					Finalizers: []string{util.KubeVirtFinalizer},
+				},
+				Status: v1.KubeVirtStatus{},
+			}
+
+			// create all resources which should already exist
+			addKubeVirt(kv)
+			shouldExpectKubeVirtUpdate(1)
+			shouldExpectJobCreation()
+			controller.Execute()
+
+		}, 15)
+
+		It("should delete install strategy creation job if job has failed", func(done Done) {
+			defer close(done)
+
+			kv := &v1.KubeVirt{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:       "test-install",
+					Namespace:  NAMESPACE,
+					Finalizers: []string{util.KubeVirtFinalizer},
+				},
+				Status: v1.KubeVirtStatus{},
+			}
+
+			job := controller.generateInstallStrategyJob(kv, "v9.9.9", "somerepository")
+
+			// will only create a new job after 10 seconds has passed.
+			// this is just a simple mechanism to prevent spin loops
+			// in the event that jobs are fast failing for some unknown reason.
+			completionTime := time.Now().Add(time.Duration(-10) * time.Second)
+			job.Status.CompletionTime = &metav1.Time{Time: completionTime}
+
+			// create all resources which should already exist
+			addKubeVirt(kv)
+			addInstallStrategyJob(job)
+
+			shouldExpectJobDeletion()
+			shouldExpectKubeVirtUpdate(1)
+
+			controller.Execute()
+
+		}, 15)
+
+		It("should not delete delete install strategy creation job if job has failed less that 10 seconds ago", func(done Done) {
+			defer close(done)
+
+			kv := &v1.KubeVirt{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:       "test-install",
+					Namespace:  NAMESPACE,
+					Finalizers: []string{util.KubeVirtFinalizer},
+				},
+				Status: v1.KubeVirtStatus{},
+			}
+
+			job := controller.generateInstallStrategyJob(kv, "v9.9.9", "somerepository")
+
+			job.Status.CompletionTime = now()
+
+			// create all resources which should already exist
+			addKubeVirt(kv)
+			addInstallStrategyJob(job)
+
+			shouldExpectKubeVirtUpdate(1)
+
+			controller.Execute()
 
 		}, 15)
 
