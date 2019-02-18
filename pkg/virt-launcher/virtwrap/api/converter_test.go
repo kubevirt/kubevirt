@@ -991,7 +991,6 @@ var _ = Describe("Converter", func() {
 			}
 			vmi.Spec.Domain.Devices.Interfaces[0].Name = "red1"
 			vmi.Spec.Domain.Devices.Interfaces[1].Name = "red2"
-			// 3rd network is the default pod network, name is "default"
 			vmi.Spec.Networks = []v1.Network{
 				v1.Network{
 					Name: "red1",
