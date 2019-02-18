@@ -81,17 +81,17 @@ func NewKubeVirtController(
 		stores:           stores,
 		informers:        informers,
 		kubeVirtExpectations: util.Expectations{
-			ServiceAccount:      controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectationsWithName("ServiceAccount")),
-			ClusterRole:         controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectationsWithName("ClusterRole")),
-			ClusterRoleBinding:  controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectationsWithName("ClusterRoleBinding")),
-			Role:                controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectationsWithName("Role")),
-			RoleBinding:         controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectationsWithName("RoleBinding")),
-			Crd:                 controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectationsWithName("Crd")),
-			Service:             controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectationsWithName("Service")),
-			Deployment:          controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectationsWithName("Deployment")),
-			DaemonSet:           controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectationsWithName("DaemonSet")),
-			InstallStrategies:   controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectationsWithName("ConfigMap")),
-			InstallStrategyJobs: controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectationsWithName("Jobs")),
+			ServiceAccount:           controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectationsWithName("ServiceAccount")),
+			ClusterRole:              controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectationsWithName("ClusterRole")),
+			ClusterRoleBinding:       controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectationsWithName("ClusterRoleBinding")),
+			Role:                     controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectationsWithName("Role")),
+			RoleBinding:              controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectationsWithName("RoleBinding")),
+			Crd:                      controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectationsWithName("Crd")),
+			Service:                  controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectationsWithName("Service")),
+			Deployment:               controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectationsWithName("Deployment")),
+			DaemonSet:                controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectationsWithName("DaemonSet")),
+			InstallStrategyConfigMap: controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectationsWithName("ConfigMap")),
+			InstallStrategyJob:       controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectationsWithName("Jobs")),
 		},
 		installStrategyMap: make(map[string]*installstrategy.InstallStrategy),
 	}
@@ -210,27 +210,27 @@ func NewKubeVirtController(
 		},
 	})
 
-	c.informers.InstallStrategies.AddEventHandler(cache.ResourceEventHandlerFuncs{
+	c.informers.InstallStrategyConfigMap.AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
-			c.genericAddHandler(obj, c.kubeVirtExpectations.InstallStrategies)
+			c.genericAddHandler(obj, c.kubeVirtExpectations.InstallStrategyConfigMap)
 		},
 		DeleteFunc: func(obj interface{}) {
-			c.genericDeleteHandler(obj, c.kubeVirtExpectations.InstallStrategies)
+			c.genericDeleteHandler(obj, c.kubeVirtExpectations.InstallStrategyConfigMap)
 		},
 		UpdateFunc: func(oldObj, newObj interface{}) {
-			c.genericUpdateHandler(oldObj, newObj, c.kubeVirtExpectations.InstallStrategies)
+			c.genericUpdateHandler(oldObj, newObj, c.kubeVirtExpectations.InstallStrategyConfigMap)
 		},
 	})
 
-	c.informers.InstallStrategyJobs.AddEventHandler(cache.ResourceEventHandlerFuncs{
+	c.informers.InstallStrategyJob.AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
-			c.genericAddHandler(obj, c.kubeVirtExpectations.InstallStrategyJobs)
+			c.genericAddHandler(obj, c.kubeVirtExpectations.InstallStrategyJob)
 		},
 		DeleteFunc: func(obj interface{}) {
-			c.genericDeleteHandler(obj, c.kubeVirtExpectations.InstallStrategyJobs)
+			c.genericDeleteHandler(obj, c.kubeVirtExpectations.InstallStrategyJob)
 		},
 		UpdateFunc: func(oldObj, newObj interface{}) {
-			c.genericUpdateHandler(oldObj, newObj, c.kubeVirtExpectations.InstallStrategyJobs)
+			c.genericUpdateHandler(oldObj, newObj, c.kubeVirtExpectations.InstallStrategyJob)
 		},
 	})
 
@@ -539,7 +539,7 @@ func (c *KubeVirtController) loadInstallStrategy(kv *v1.KubeVirt) (*installstrat
 	// 3. See if we have a pending job in flight for this install strategy.
 	batch := c.clientset.BatchV1()
 	job := c.generateInstallStrategyJob(kv, c.config.ImageTag, c.config.ImageRegistry)
-	obj, exists, _ := c.stores.InstallStrategyJobsCache.Get(job)
+	obj, exists, _ := c.stores.InstallStrategyJobCache.Get(job)
 
 	if exists {
 		cachedJob := obj.(*batchv1.Job)
@@ -568,10 +568,10 @@ func (c *KubeVirtController) loadInstallStrategy(kv *v1.KubeVirt) (*installstrat
 						return nil, true, err
 					}
 
-					c.kubeVirtExpectations.InstallStrategyJobs.AddExpectedDeletion(kvkey, key)
+					c.kubeVirtExpectations.InstallStrategyJob.AddExpectedDeletion(kvkey, key)
 					err = batch.Jobs(kv.Namespace).Delete(cachedJob.Name, &metav1.DeleteOptions{})
 					if err != nil {
-						c.kubeVirtExpectations.InstallStrategyJobs.DeletionObserved(kvkey, key)
+						c.kubeVirtExpectations.InstallStrategyJob.DeletionObserved(kvkey, key)
 
 						return nil, true, err
 					}
@@ -586,10 +586,10 @@ func (c *KubeVirtController) loadInstallStrategy(kv *v1.KubeVirt) (*installstrat
 	}
 
 	// 4. execute a job to generate the install strategy for the target version of KubeVirt that's being installed/updated
-	c.kubeVirtExpectations.InstallStrategyJobs.RaiseExpectations(kvkey, 1, 0)
+	c.kubeVirtExpectations.InstallStrategyJob.RaiseExpectations(kvkey, 1, 0)
 	_, err = batch.Jobs(kv.Namespace).Create(job)
 	if err != nil {
-		c.kubeVirtExpectations.InstallStrategyJobs.LowerExpectations(kvkey, 1, 0)
+		c.kubeVirtExpectations.InstallStrategyJob.LowerExpectations(kvkey, 1, 0)
 		return nil, true, err
 	}
 

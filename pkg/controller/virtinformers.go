@@ -132,7 +132,7 @@ type KubeInformerFactory interface {
 	OperatorInstallStrategyConfigMaps() cache.SharedIndexInformer
 
 	// Jobs for dumping operator install strategies
-	OperatorInstallStrategyJobs() cache.SharedIndexInformer
+	OperatorInstallStrategyJob() cache.SharedIndexInformer
 }
 
 type kubeInformerFactory struct {
@@ -439,7 +439,7 @@ func (f *kubeInformerFactory) OperatorInstallStrategyConfigMaps() cache.SharedIn
 	})
 }
 
-func (f *kubeInformerFactory) OperatorInstallStrategyJobs() cache.SharedIndexInformer {
+func (f *kubeInformerFactory) OperatorInstallStrategyJob() cache.SharedIndexInformer {
 	return f.getInformer("installStrategyJobsInformer", func() cache.SharedIndexInformer {
 		labelSelector, err := labels.Parse(kubev1.InstallStrategyVersionLabel)
 		if err != nil {

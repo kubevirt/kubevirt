@@ -240,7 +240,7 @@ func LoadInstallStrategyFromCache(stores util.Stores, namespace string, imageTag
 			Namespace: namespace,
 		},
 	}
-	obj, exists, _ := stores.InstallStrategyCache.Get(configMap)
+	obj, exists, _ := stores.InstallStrategyConfigMapCache.Get(configMap)
 
 	if !exists {
 		return nil, fmt.Errorf("no install strategy configmap found for version %s", imageTag)

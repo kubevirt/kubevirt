@@ -110,8 +110,8 @@ var _ = Describe("KubeVirt Operator", func() {
 		go informers.Deployment.Run(stop)
 		go informers.DaemonSet.Run(stop)
 		go informers.SCC.Run(stop)
-		go informers.InstallStrategyJobs.Run(stop)
-		go informers.InstallStrategies.Run(stop)
+		go informers.InstallStrategyJob.Run(stop)
+		go informers.InstallStrategyConfigMap.Run(stop)
 
 		Expect(cache.WaitForCacheSync(stop, kvInformer.HasSynced)).To(BeTrue())
 
@@ -125,8 +125,8 @@ var _ = Describe("KubeVirt Operator", func() {
 		cache.WaitForCacheSync(stop, informers.Deployment.HasSynced)
 		cache.WaitForCacheSync(stop, informers.DaemonSet.HasSynced)
 		cache.WaitForCacheSync(stop, informers.SCC.HasSynced)
-		cache.WaitForCacheSync(stop, informers.InstallStrategyJobs.HasSynced)
-		cache.WaitForCacheSync(stop, informers.InstallStrategies.HasSynced)
+		cache.WaitForCacheSync(stop, informers.InstallStrategyJob.HasSynced)
+		cache.WaitForCacheSync(stop, informers.InstallStrategyConfigMap.HasSynced)
 
 	}
 
@@ -184,11 +184,11 @@ var _ = Describe("KubeVirt Operator", func() {
 		informers.SCC, sccSource = testutils.NewFakeInformerFor(&secv1.SecurityContextConstraints{})
 		stores.SCCCache = informers.SCC.GetStore()
 
-		informers.InstallStrategies, installStrategyConfigMapSource = testutils.NewFakeInformerFor(&k8sv1.ConfigMap{})
-		stores.InstallStrategyCache = informers.InstallStrategies.GetStore()
+		informers.InstallStrategyConfigMap, installStrategyConfigMapSource = testutils.NewFakeInformerFor(&k8sv1.ConfigMap{})
+		stores.InstallStrategyConfigMapCache = informers.InstallStrategyConfigMap.GetStore()
 
-		informers.InstallStrategyJobs, installStrategyJobSource = testutils.NewFakeInformerFor(&batchv1.Job{})
-		stores.InstallStrategyJobsCache = informers.InstallStrategyJobs.GetStore()
+		informers.InstallStrategyJob, installStrategyJobSource = testutils.NewFakeInformerFor(&batchv1.Job{})
+		stores.InstallStrategyJobCache = informers.InstallStrategyJob.GetStore()
 
 		controller = NewKubeVirtController(virtClient, kvInformer, recorder, stores, informers)
 
@@ -520,7 +520,7 @@ var _ = Describe("KubeVirt Operator", func() {
 
 	deleteInstallStrategyJob := func(key string) {
 		mockQueue.ExpectAdds(1)
-		if obj, exists, _ := informers.InstallStrategyJobs.GetStore().GetByKey(key); exists {
+		if obj, exists, _ := informers.InstallStrategyJob.GetStore().GetByKey(key); exists {
 			installStrategyJobSource.Delete(obj.(runtime.Object))
 		}
 		mockQueue.Wait()
