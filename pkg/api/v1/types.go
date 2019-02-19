@@ -365,6 +365,13 @@ type VirtualMachineInstanceMigrationState struct {
 	MigrationUID types.UID `json:"migrationUid,omitempty"`
 }
 
+type MigrationConfig struct {
+	// The time for GiB of data to wait for the migration to be completed before aborting it
+	CompletionTimeoutPerGiB int64 `json:"completionTimeoutPerGiB,omitempty"`
+	// The time to wait for live migration to make progress in transferring data.
+	ProgressTimeout int64 `json:"progressTimeout,omitempty"`
+}
+
 // ---
 // +k8s:openapi-gen=true
 type VirtualMachineInstanceMigrationMethod string

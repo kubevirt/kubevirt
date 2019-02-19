@@ -78,6 +78,13 @@ func (VirtualMachineInstanceMigrationState) SwaggerDoc() map[string]string {
 	}
 }
 
+func (MigrationConfig) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"completionTimeoutPerGiB": "The time for GiB of data to wait for the migration to be completed before aborting it",
+		"progressTimeout":         "The time to wait for live migration to make progress in transferring data.",
+	}
+}
+
 func (VMISelector) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"name": "Name of the VirtualMachineInstance to migrate",
