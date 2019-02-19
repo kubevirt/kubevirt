@@ -929,6 +929,14 @@ func ValidateVirtualMachineInstanceSpec(field *k8sfield.Path, spec *v1.VirtualMa
 			})
 		}
 
+		if podExists && multusDefaultCount > 0 {
+			causes = append(causes, metav1.StatusCause{
+				Type:    metav1.CauseTypeFieldValueInvalid,
+				Message: fmt.Sprintf("Pod network cannot be defined when Multus default network is defined"),
+				Field:   field.Child("networks").String(),
+			})
+		}
+
 		// Make sure interfaces and networks are 1to1 related
 		networkInterfaceMap := make(map[string]struct{})
 
