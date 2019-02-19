@@ -116,11 +116,11 @@ func GenerateContainers(vmi *v1.VirtualMachineInstance, podVolumeName string, po
 			if vmi.IsCPUDedicated() {
 				resources.Limits = make(kubev1.ResourceList)
 				// TODO(vladikr): adjust the correct cpu/mem values - this is mainly needed to allow QemuImg to run correctly
-				resources.Limits[kubev1.ResourceCPU] = resource.MustParse("200m")
+				resources.Limits[kubev1.ResourceCPU] = resource.MustParse("400m")
 				// k8s minimum memory reservation is linuxMinMemory = 4194304
-				resources.Limits[kubev1.ResourceMemory] = resource.MustParse("64M")
+				resources.Limits[kubev1.ResourceMemory] = resource.MustParse("128M")
 			}
-			containers = append(containers, kubev1.Container{
+			container := kubev1.Container{
 				Name:            diskContainerName,
 				Image:           diskContainerImage,
 				ImagePullPolicy: kubev1.PullIfNotPresent,
@@ -129,10 +129,6 @@ func GenerateContainers(vmi *v1.VirtualMachineInstance, podVolumeName string, po
 					{
 						Name:  "COPY_PATH",
 						Value: volumeMountDir + "/" + filePrefix,
-					},
-					{
-						Name:  "IMAGE_PATH",
-						Value: volume.ContainerDisk.Path,
 					},
 				},
 				VolumeMounts: []kubev1.VolumeMount{
@@ -160,7 +156,16 @@ func GenerateContainers(vmi *v1.VirtualMachineInstance, podVolumeName string, po
 					SuccessThreshold:    int32(successThreshold),
 					FailureThreshold:    int32(failureThreshold),
 				},
-			})
+			}
+
+			if volume.ContainerDisk.Path != "" {
+				container.Env = append(container.Env, kubev1.EnvVar{
+					Name:  "IMAGE_PATH",
+					Value: volume.ContainerDisk.Path,
+				})
+			}
+
+			containers = append(containers, container)
 		}
 	}
 	return containers

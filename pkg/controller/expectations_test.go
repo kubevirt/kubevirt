@@ -54,7 +54,7 @@ func NewFakeControllerExpectationsLookup(ttl time.Duration) (*ControllerExpectat
 	ttlPolicy := &cache.TTLPolicy{Ttl: ttl, Clock: fakeClock}
 	ttlStore := cache.NewFakeExpirationStore(
 		ExpKeyFunc, nil, ttlPolicy, fakeClock)
-	return &ControllerExpectations{ttlStore}, fakeClock
+	return &ControllerExpectations{ttlStore, ""}, fakeClock
 }
 
 func newReplicationController(replicas int) *v1.ReplicationController {
@@ -80,7 +80,7 @@ func newReplicationController(replicas int) *v1.ReplicationController {
 				Spec: v1.PodSpec{
 					Containers: []v1.Container{
 						{
-							Image: "foo/bar",
+							Image:                  "foo/bar",
 							TerminationMessagePath: v1.TerminationMessagePathDefault,
 							ImagePullPolicy:        v1.PullIfNotPresent,
 							SecurityContext:        ValidSecurityContextWithContainerDefaults(),

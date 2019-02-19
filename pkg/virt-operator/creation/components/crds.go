@@ -19,11 +19,55 @@
 package components
 
 import (
+	"fmt"
+
+	"kubevirt.io/kubevirt/pkg/controller"
+	"kubevirt.io/kubevirt/pkg/log"
+	"kubevirt.io/kubevirt/pkg/virt-operator/util"
+
+	corev1 "k8s.io/api/core/v1"
 	extv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	virtv1 "kubevirt.io/kubevirt/pkg/api/v1"
+	"kubevirt.io/kubevirt/pkg/kubecli"
 )
+
+func CreateCRDs(clientset kubecli.KubevirtClient, kv *virtv1.KubeVirt, stores util.Stores, expectations *util.Expectations) (int, error) {
+
+	objectsAdded := 0
+	kvkey, err := controller.KeyFunc(kv)
+	if err != nil {
+		return 0, err
+	}
+
+	ext := clientset.ExtensionsClient()
+
+	crds := []*extv1beta1.CustomResourceDefinition{
+		NewVirtualMachineInstanceCrd(),
+		NewVirtualMachineCrd(),
+		NewReplicaSetCrd(),
+		NewPresetCrd(),
+		NewVirtualMachineInstanceMigrationCrd(),
+	}
+
+	for _, crd := range crds {
+		if _, exists, _ := stores.CrdCache.Get(crd); !exists {
+			expectations.Crd.RaiseExpectations(kvkey, 1, 0)
+			_, err := ext.ApiextensionsV1beta1().CustomResourceDefinitions().Create(crd)
+			if err != nil {
+				expectations.Crd.LowerExpectations(kvkey, 1, 0)
+				return objectsAdded, fmt.Errorf("unable to create crd %+v: %v", crd, err)
+			} else if err == nil {
+				objectsAdded++
+			}
+		} else {
+			log.Log.V(4).Infof("crd %v already exists", crd.GetName())
+		}
+	}
+
+	return objectsAdded, nil
+}
 
 func newBlankCrd() *extv1beta1.CustomResourceDefinition {
 	return &extv1beta1.CustomResourceDefinition{
@@ -33,7 +77,8 @@ func newBlankCrd() *extv1beta1.CustomResourceDefinition {
 		},
 		ObjectMeta: metav1.ObjectMeta{
 			Labels: map[string]string{
-				"kubevirt.io": "",
+				virtv1.AppLabel:       "",
+				virtv1.ManagedByLabel: virtv1.ManagedByLabelOperatorValue,
 			},
 		},
 	}
@@ -165,4 +210,57 @@ func NewVirtualMachineInstanceMigrationCrd() *extv1beta1.CustomResourceDefinitio
 	}
 
 	return crd
+}
+
+func NewKubeVirtCrd() *extv1beta1.CustomResourceDefinition {
+
+	// we use a different label here, so no newBlankCrd()
+	crd := &extv1beta1.CustomResourceDefinition{
+		TypeMeta: metav1.TypeMeta{
+			APIVersion: "apiextensions.k8s.io/v1beta1",
+			Kind:       "CustomResourceDefinition",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Labels: map[string]string{
+				"operator.kubevirt.io": "",
+			},
+		},
+	}
+
+	crd.ObjectMeta.Name = "kubevirts." + virtv1.KubeVirtGroupVersionKind.Group
+	crd.Spec = extv1beta1.CustomResourceDefinitionSpec{
+		Group:   virtv1.KubeVirtGroupVersionKind.Group,
+		Version: virtv1.KubeVirtGroupVersionKind.Version,
+		Scope:   "Namespaced",
+
+		Names: extv1beta1.CustomResourceDefinitionNames{
+			Plural:     "kubevirts",
+			Singular:   "kubevirt",
+			Kind:       virtv1.KubeVirtGroupVersionKind.Kind,
+			ShortNames: []string{"kv", "kvs"},
+		},
+		AdditionalPrinterColumns: []extv1beta1.CustomResourceColumnDefinition{
+			{Name: "Age", Type: "date", JSONPath: ".metadata.creationTimestamp"},
+			{Name: "Phase", Type: "string", JSONPath: ".status.phase"},
+		},
+	}
+
+	return crd
+}
+
+// used by manifest generation
+func NewKubeVirtCR(namespace string, pullPolicy corev1.PullPolicy) *virtv1.KubeVirt {
+	return &virtv1.KubeVirt{
+		TypeMeta: metav1.TypeMeta{
+			APIVersion: virtv1.GroupVersion.String(),
+			Kind:       "KubeVirt",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: namespace,
+			Name:      "kubevirt",
+		},
+		Spec: virtv1.KubeVirtSpec{
+			ImagePullPolicy: pullPolicy,
+		},
+	}
 }

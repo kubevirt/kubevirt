@@ -1,5 +1,5 @@
 ---
-apiVersion: kubevirt.io/v1alpha2
+apiVersion: kubevirt.io/v1alpha3
 kind: VirtualMachineInstanceReplicaSet
 metadata:
   name: vmi-replicaset-cirros
@@ -19,7 +19,6 @@ spec:
           - disk:
               bus: virtio
             name: containerdisk
-            volumeName: registryvolume
         machine:
           type: ""
         resources:
@@ -29,4 +28,4 @@ spec:
       volumes:
       - containerDisk:
           image: registry:5000/kubevirt/cirros-container-disk-demo:devel
-        name: registryvolume
+        name: containerdisk

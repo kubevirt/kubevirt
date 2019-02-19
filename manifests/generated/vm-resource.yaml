@@ -26,4 +26,4 @@ spec:
     - vms
     singular: virtualmachine
   scope: Namespaced
-  version: v1alpha2
+  version: v1alpha3

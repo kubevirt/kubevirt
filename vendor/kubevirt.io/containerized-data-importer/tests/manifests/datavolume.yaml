@@ -1,0 +1,14 @@
+apiVersion: cdi.kubevirt.io/v1alpha1
+kind: DataVolume
+metadata:
+  name: test-dv
+spec:
+  source:
+      http:
+         url: "https://www.example.com/example.img"
+  pvc:
+    accessModes:
+      - ReadWriteOnce
+    resources:
+      requests:
+        storage: 500Mi

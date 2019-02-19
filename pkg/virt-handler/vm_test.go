@@ -585,25 +585,33 @@ var _ = Describe("VirtualMachineInstance", func() {
 			// something has to be listening to the cmd socket
 			// for the proxy to work.
 			os.MkdirAll(cmdclient.SocketsDirectory(shareDir), os.ModePerm)
-			socketFile := cmdclient.SocketFromUID(shareDir, string(vmi.UID))
-			socket, err := net.Listen("unix", socketFile)
-			Expect(err).NotTo(HaveOccurred())
-			defer socket.Close()
-
+			portsList := []int{0, 49152}
+			for _, port := range portsList {
+				key := string(vmi.UID)
+				if port != 0 {
+					key += fmt.Sprintf("-%d", port)
+				}
+				socketFile := cmdclient.SocketFromUID(shareDir, key)
+				socket, err := net.Listen("unix", socketFile)
+				Expect(err).NotTo(HaveOccurred())
+				defer socket.Close()
+			}
 			// since a random port is generated, we have to create the proxy
 			// here in order to know what port will be in the update.
 			err = controller.handleMigrationProxy(vmi)
 			Expect(err).NotTo(HaveOccurred())
+			err = controller.handlePostSyncMigrationProxy(vmi)
+			Expect(err).NotTo(HaveOccurred())
 
-			curPort := controller.migrationProxy.GetTargetListenerPort(string(vmi.UID))
+			destSrcPorts := controller.migrationProxy.GetTargetListenerPorts(string(vmi.UID))
+			fmt.Println("destSrcPorts: ", destSrcPorts)
 			updatedVmi := vmi.DeepCopy()
-			updatedVmi.Status.MigrationState.TargetNodeAddress = fmt.Sprintf("%s:%d", controller.ipAddress, curPort)
+			updatedVmi.Status.MigrationState.TargetNodeAddress = controller.ipAddress
+			updatedVmi.Status.MigrationState.TargetDirectMigrationNodePorts = destSrcPorts
 
 			client.EXPECT().Ping()
 			client.EXPECT().SyncMigrationTarget(vmi)
-
 			vmiInterface.EXPECT().Update(updatedVmi)
-
 			controller.Execute()
 		}, 3)
 
@@ -616,10 +624,11 @@ var _ = Describe("VirtualMachineInstance", func() {
 			vmi.Status.NodeName = host
 			vmi.Labels[v1.MigrationTargetNodeNameLabel] = "othernode"
 			vmi.Status.MigrationState = &v1.VirtualMachineInstanceMigrationState{
-				TargetNode:        "othernode",
-				TargetNodeAddress: "127.0.0.1:12345",
-				SourceNode:        host,
-				MigrationUID:      "123",
+				TargetNode:                     "othernode",
+				TargetNodeAddress:              "127.0.0.1:12345",
+				SourceNode:                     host,
+				MigrationUID:                   "123",
+				TargetDirectMigrationNodePorts: map[int]int{49152: 12132},
 			}
 			vmi.Status.Conditions = []v1.VirtualMachineInstanceCondition{
 				{
@@ -635,7 +644,6 @@ var _ = Describe("VirtualMachineInstance", func() {
 			vmiFeeder.Add(vmi)
 
 			client.EXPECT().MigrateVirtualMachine(vmi)
-
 			controller.Execute()
 		}, 3)
 
@@ -708,8 +716,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 			vmi := v1.NewMinimalVMI("testvmi")
 			vmi.Spec.Domain.Devices.Disks = []v1.Disk{
 				{
-					Name:       "mydisk",
-					VolumeName: "myvolume",
+					Name: "mydisk",
 					DiskDevice: v1.DiskDevice{
 						Disk: &v1.DiskTarget{
 							Bus: "virtio",
@@ -739,8 +746,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 			vmi := v1.NewMinimalVMI("testvmi")
 			vmi.Spec.Domain.Devices.Disks = []v1.Disk{
 				{
-					Name:       "mydisk",
-					VolumeName: "myvolume",
+					Name: "mydisk",
 					DiskDevice: v1.DiskDevice{
 						Disk: &v1.DiskTarget{
 							Bus: "virtio",
@@ -769,8 +775,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 			vmi := v1.NewMinimalVMI("testvmi")
 			vmi.Spec.Domain.Devices.Disks = []v1.Disk{
 				{
-					Name:       "mydisk",
-					VolumeName: "myvolume",
+					Name: "mydisk",
 					DiskDevice: v1.DiskDevice{
 						Disk: &v1.DiskTarget{
 							Bus: "virtio",
@@ -796,13 +801,12 @@ var _ = Describe("VirtualMachineInstance", func() {
 			Expect(blockMigrate).To(BeTrue())
 			Expect(err).To(Equal(fmt.Errorf("cannot migrate VMI with non-shared PVCs")))
 		})
-		It("should not be allowed to migrate a mix of shared and non-shared disks", func() {
+		It("should be allowed to migrate a mix of shared and non-shared disks", func() {
 
 			vmi := v1.NewMinimalVMI("testvmi")
 			vmi.Spec.Domain.Devices.Disks = []v1.Disk{
 				{
-					Name:       "mydisk",
-					VolumeName: "myvolume",
+					Name: "mydisk",
 					DiskDevice: v1.DiskDevice{
 						Disk: &v1.DiskTarget{
 							Bus: "virtio",
@@ -810,8 +814,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 					},
 				},
 				{
-					Name:       "mydisk1",
-					VolumeName: "myvolume1",
+					Name: "mydisk1",
 					DiskDevice: v1.DiskDevice{
 						Disk: &v1.DiskTarget{
 							Bus: "virtio",
@@ -841,16 +844,16 @@ var _ = Describe("VirtualMachineInstance", func() {
 			}
 
 			virtClient.CoreV1().PersistentVolumeClaims(vmi.Namespace).Create(testBlockPvc)
-			_, err := controller.checkVolumesForMigration(vmi)
-			Expect(err).To(Equal(fmt.Errorf("cannot migrate VMI with mixed shared and non-shared volumes")))
+			blockMigrate, err := controller.checkVolumesForMigration(vmi)
+			Expect(blockMigrate).To(BeTrue())
+			Expect(err).To(BeNil())
 		})
-		It("should not be allowed to migrate a mix of non-shared and shared disks", func() {
+		It("should be allowed to migrate a mix of non-shared and shared disks", func() {
 
 			vmi := v1.NewMinimalVMI("testvmi")
 			vmi.Spec.Domain.Devices.Disks = []v1.Disk{
 				{
-					Name:       "mydisk",
-					VolumeName: "myvolume",
+					Name: "mydisk",
 					DiskDevice: v1.DiskDevice{
 						Disk: &v1.DiskTarget{
 							Bus: "virtio",
@@ -858,8 +861,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 					},
 				},
 				{
-					Name:       "mydisk1",
-					VolumeName: "myvolume1",
+					Name: "mydisk1",
 					DiskDevice: v1.DiskDevice{
 						Disk: &v1.DiskTarget{
 							Bus: "virtio",
@@ -889,16 +891,16 @@ var _ = Describe("VirtualMachineInstance", func() {
 			}
 
 			virtClient.CoreV1().PersistentVolumeClaims(vmi.Namespace).Create(testBlockPvc)
-			_, err := controller.checkVolumesForMigration(vmi)
-			Expect(err).To(Equal(fmt.Errorf("cannot migrate VMI with mixed shared and non-shared volumes")))
+			blockMigrate, err := controller.checkVolumesForMigration(vmi)
+			Expect(blockMigrate).To(BeTrue())
+			Expect(err).To(BeNil())
 		})
 		It("should be allowed to live-migrate shared HostDisks ", func() {
 			_true := true
 			vmi := v1.NewMinimalVMI("testvmi")
 			vmi.Spec.Domain.Devices.Disks = []v1.Disk{
 				{
-					Name:       "mydisk",
-					VolumeName: "myvolume",
+					Name: "myvolume",
 					DiskDevice: v1.DiskDevice{
 						Disk: &v1.DiskTarget{
 							Bus: "virtio",
@@ -930,8 +932,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 			vmi := v1.NewMinimalVMI("testvmi")
 			vmi.Spec.Domain.Devices.Disks = []v1.Disk{
 				{
-					Name:       "mydisk",
-					VolumeName: "myvolume",
+					Name: "mydisk",
 					DiskDevice: v1.DiskDevice{
 						Disk: &v1.DiskTarget{
 							Bus: "virtio",
@@ -939,8 +940,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 					},
 				},
 				{
-					Name:       "mydisk1",
-					VolumeName: "myvolume1",
+					Name: "mydisk1",
 					DiskDevice: v1.DiskDevice{
 						Disk: &v1.DiskTarget{
 							Bus: "virtio",

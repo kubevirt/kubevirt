@@ -33,7 +33,7 @@ import (
 	"kubevirt.io/kubevirt/tests"
 )
 
-var _ = Describe("Console", func() {
+var _ = Describe("[rfe_id:127][posneg:negative][crit:medium][vendor:cnv-qe@redhat.com][level:component]Console", func() {
 
 	flag.Parse()
 
@@ -76,11 +76,11 @@ var _ = Describe("Console", func() {
 		return expecter, errChan
 	}
 
-	Describe("A new VirtualMachineInstance", func() {
+	Describe("[rfe_id:127][posneg:negative][crit:medium][vendor:cnv-qe@redhat.com][level:component]A new VirtualMachineInstance", func() {
 		Context("with a serial console", func() {
 			Context("with a cirros image", func() {
 
-				It("should return that we are running cirros", func() {
+				It("[test_id:1588]should return that we are running cirros", func() {
 					vmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(tests.ContainerDiskFor(tests.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n")
 					RunVMIAndWaitForStart(vmi)
 					ExpectConsoleOutput(
@@ -91,7 +91,7 @@ var _ = Describe("Console", func() {
 			})
 
 			Context("with a fedora image", func() {
-				It("should return that we are running fedora", func() {
+				It("[test_id:1589]should return that we are running fedora", func() {
 					vmi := tests.NewRandomVMIWithEphemeralDiskHighMemory(tests.ContainerDiskFor(tests.ContainerDiskFedora))
 					RunVMIAndWaitForStart(vmi)
 					ExpectConsoleOutput(
@@ -101,7 +101,7 @@ var _ = Describe("Console", func() {
 				}, 140)
 			})
 
-			It("should be able to reconnect to console multiple times", func() {
+			It("[test_id:1590]should be able to reconnect to console multiple times", func() {
 				vmi := tests.NewRandomVMIWithEphemeralDisk(tests.ContainerDiskFor(tests.ContainerDiskAlpine))
 
 				RunVMIAndWaitForStart(vmi)
@@ -111,7 +111,7 @@ var _ = Describe("Console", func() {
 				}
 			}, 220)
 
-			It("should close console connection when new console connection is opened", func() {
+			It("[test_id:1591]should close console connection when new console connection is opened", func(done Done) {
 				vmi := tests.NewRandomVMIWithEphemeralDisk(tests.ContainerDiskFor(tests.ContainerDiskAlpine))
 
 				RunVMIAndWaitForStart(vmi)
@@ -125,7 +125,8 @@ var _ = Describe("Console", func() {
 					defer GinkgoRecover()
 					select {
 					case receivedErr := <-errChan:
-						Expect(receivedErr.Error()).To(ContainSubstring("closed"))
+						Expect(receivedErr.Error()).To(ContainSubstring("close"))
+						close(done)
 					case <-time.After(60 * time.Second):
 						Fail("timed out waiting for closed 1st connection")
 					}
@@ -133,19 +134,19 @@ var _ = Describe("Console", func() {
 
 				By("opening 2nd console connection")
 				ExpectConsoleOutput(vmi, "login")
-
 			}, 220)
 
-			It("should wait until the virtual machine is in running state and return a stream interface", func() {
+			It("[test_id:1592]should wait until the virtual machine is in running state and return a stream interface", func() {
 				vmi := tests.NewRandomVMIWithEphemeralDisk(tests.ContainerDiskFor(tests.ContainerDiskAlpine))
 				By("Creating a new VirtualMachineInstance")
-				Expect(virtClient.RestClient().Post().Resource("virtualmachineinstances").Namespace(tests.NamespaceTestDefault).Body(vmi).Do().Error()).To(Succeed())
+				_, err := virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
+				Expect(err).ToNot(HaveOccurred())
 
-				_, err := virtClient.VirtualMachineInstance(vmi.Namespace).SerialConsole(vmi.Name, 30*time.Second)
+				_, err = virtClient.VirtualMachineInstance(vmi.Namespace).SerialConsole(vmi.Name, 30*time.Second)
 				Expect(err).ToNot(HaveOccurred())
 			}, 220)
 
-			It("should fail waiting for the virtual machine instance to be running", func() {
+			It("[test_id:1593]should fail waiting for the virtual machine instance to be running", func() {
 				vmi := tests.NewRandomVMIWithEphemeralDisk(tests.ContainerDiskFor(tests.ContainerDiskAlpine))
 				vmi.Spec.Affinity = &k8sv1.Affinity{
 					NodeAffinity: &k8sv1.NodeAffinity{
@@ -169,7 +170,7 @@ var _ = Describe("Console", func() {
 				Expect(err.Error()).To(Equal("Timeout trying to connect to the virtual machine instance"))
 			}, 180)
 
-			It("should fail waiting for the expecter", func() {
+			It("[test_id:1594]should fail waiting for the expecter", func() {
 				vmi := tests.NewRandomVMIWithEphemeralDisk(tests.ContainerDiskFor(tests.ContainerDiskAlpine))
 				vmi.Spec.Affinity = &k8sv1.Affinity{
 					NodeAffinity: &k8sv1.NodeAffinity{

@@ -36,11 +36,12 @@ import (
 	v1 "kubevirt.io/kubevirt/pkg/api/v1"
 	hooksInfo "kubevirt.io/kubevirt/pkg/hooks/info"
 	hooksV1alpha1 "kubevirt.io/kubevirt/pkg/hooks/v1alpha1"
+	hooksV1alpha2 "kubevirt.io/kubevirt/pkg/hooks/v1alpha2"
 	"kubevirt.io/kubevirt/pkg/log"
 	virtwrapApi "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 )
 
-type callackClient struct {
+type callBackClient struct {
 	SocketPath          string
 	Version             string
 	subsribedHookPoints []*hooksInfo.HookPoint
@@ -50,12 +51,12 @@ var manager *Manager
 var once sync.Once
 
 type Manager struct {
-	callbacksPerHookPoint map[string][]*callackClient
+	callbacksPerHookPoint map[string][]*callBackClient
 }
 
 func GetManager() *Manager {
 	once.Do(func() {
-		manager = &Manager{callbacksPerHookPoint: make(map[string][]*callackClient)}
+		manager = &Manager{callbacksPerHookPoint: make(map[string][]*callBackClient)}
 	})
 	return manager
 }
@@ -76,8 +77,8 @@ func (m *Manager) Collect(numberOfRequestedHookSidecars uint, timeout time.Durat
 }
 
 // TODO: Handle sockets in parallel, when a socket appears, run a goroutine trying to read Info from it
-func collectSideCarSockets(numberOfRequestedHookSidecars uint, timeout time.Duration) (map[string][]*callackClient, error) {
-	callbacksPerHookPoint := make(map[string][]*callackClient)
+func collectSideCarSockets(numberOfRequestedHookSidecars uint, timeout time.Duration) (map[string][]*callBackClient, error) {
+	callbacksPerHookPoint := make(map[string][]*callBackClient)
 	processedSockets := make(map[string]bool)
 
 	timeoutCh := time.After(timeout)
@@ -97,7 +98,7 @@ func collectSideCarSockets(numberOfRequestedHookSidecars uint, timeout time.Dura
 					continue
 				}
 
-				callackClient, notReady, err := processSideCarSocket(HookSocketsSharedDirectory + "/" + socket.Name())
+				callBackClient, notReady, err := processSideCarSocket(HookSocketsSharedDirectory + "/" + socket.Name())
 				if notReady {
 					log.Log.Info("Sidecar server might not be ready yet, retrying in the next iteration")
 					continue
@@ -106,8 +107,8 @@ func collectSideCarSockets(numberOfRequestedHookSidecars uint, timeout time.Dura
 					return nil, err
 				}
 
-				for _, subsribedHookPoint := range callackClient.subsribedHookPoints {
-					callbacksPerHookPoint[subsribedHookPoint.GetName()] = append(callbacksPerHookPoint[subsribedHookPoint.GetName()], callackClient)
+				for _, subsribedHookPoint := range callBackClient.subsribedHookPoints {
+					callbacksPerHookPoint[subsribedHookPoint.GetName()] = append(callbacksPerHookPoint[subsribedHookPoint.GetName()], callBackClient)
 				}
 
 				processedSockets[socket.Name()] = true
@@ -120,7 +121,7 @@ func collectSideCarSockets(numberOfRequestedHookSidecars uint, timeout time.Dura
 	return callbacksPerHookPoint, nil
 }
 
-func processSideCarSocket(socketPath string) (*callackClient, bool, error) {
+func processSideCarSocket(socketPath string) (*callBackClient, bool, error) {
 	conn, err := dialSocket(socketPath)
 	if err != nil {
 		log.Log.Reason(err).Infof("Failed to Dial hook socket: %s", socketPath)
@@ -141,18 +142,26 @@ func processSideCarSocket(socketPath string) (*callackClient, bool, error) {
 		versionsSet[version] = true
 	}
 
-	if _, found := versionsSet[hooksV1alpha1.Version]; found {
-		return &callackClient{
+	if _, found := versionsSet[hooksV1alpha2.Version]; found {
+		return &callBackClient{
+			SocketPath:          socketPath,
+			Version:             hooksV1alpha2.Version,
+			subsribedHookPoints: info.GetHookPoints(),
+		}, false, nil
+	} else if _, found := versionsSet[hooksV1alpha1.Version]; found {
+		return &callBackClient{
 			SocketPath:          socketPath,
 			Version:             hooksV1alpha1.Version,
 			subsribedHookPoints: info.GetHookPoints(),
 		}, false, nil
 	} else {
-		return nil, false, fmt.Errorf("Hook sidecar does not expose a supported version. Exposed versions: %v, supported versions: %s", versionsSet, hooksV1alpha1.Version)
+		return nil, false,
+			fmt.Errorf("Hook sidecar does not expose a supported version. Exposed versions: %v, supported versions: %v",
+				info.GetVersions(), []string{hooksV1alpha1.Version, hooksV1alpha2.Version})
 	}
 }
 
-func sortCallbacksPerHookPoint(callbacksPerHookPoint map[string][]*callackClient) {
+func sortCallbacksPerHookPoint(callbacksPerHookPoint map[string][]*callBackClient) {
 	for _, callbacks := range callbacksPerHookPoint {
 		for _, callback := range callbacks {
 			sort.Slice(callbacks, func(i, j int) bool {
@@ -173,7 +182,7 @@ func (m *Manager) OnDefineDomain(domainSpec *virtwrapApi.DomainSpec, vmi *v1.Vir
 	}
 	if callbacks, found := m.callbacksPerHookPoint[hooksInfo.OnDefineDomainHookPointName]; found {
 		for _, callback := range callbacks {
-			if callback.Version == hooksV1alpha1.Version {
+			if callback.Version == hooksV1alpha1.Version || callback.Version == hooksV1alpha2.Version {
 
 				vmiJSON, err := json.Marshal(vmi)
 				if err != nil {
@@ -205,6 +214,52 @@ func (m *Manager) OnDefineDomain(domainSpec *virtwrapApi.DomainSpec, vmi *v1.Vir
 		}
 	}
 	return string(domainSpecXML), nil
+}
+
+func (m *Manager) PreCloudInitIso(vmi *v1.VirtualMachineInstance, cloudInitData *v1.CloudInitNoCloudSource) (*v1.CloudInitNoCloudSource, error) {
+	if callbacks, found := m.callbacksPerHookPoint[hooksInfo.PreCloudInitIsoHookPointName]; found {
+		for _, callback := range callbacks {
+			if callback.Version == hooksV1alpha2.Version {
+				var resultSource *v1.CloudInitNoCloudSource
+				vmiJSON, err := json.Marshal(vmi)
+				if err != nil {
+					return cloudInitData, fmt.Errorf("Failed to marshal VMI spec: %v", vmi)
+				}
+
+				cloudInitDataJSON, err := json.Marshal(cloudInitData)
+				if err != nil {
+					return cloudInitData, fmt.Errorf("Failed to marshal CloudInitNoCloudSource: %v", cloudInitData)
+				}
+
+				conn, err := dialSocket(callback.SocketPath)
+				if err != nil {
+					log.Log.Reason(err).Infof("Failed to Dial hook socket: %s", callback.SocketPath)
+					return cloudInitData, err
+				}
+				defer conn.Close()
+
+				client := hooksV1alpha2.NewCallbacksClient(conn)
+				ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
+				defer cancel()
+				result, err := client.PreCloudInitIso(ctx, &hooksV1alpha2.PreCloudInitIsoParams{
+					CloudInitData: cloudInitDataJSON,
+					Vmi:           vmiJSON,
+				})
+				if err != nil {
+					return cloudInitData, err
+				}
+
+				err = json.Unmarshal(result.GetCloudInitData(), &resultSource)
+				if err != nil {
+					return cloudInitData, err
+				}
+				return resultSource, nil
+			} else {
+				panic("Should never happen, version compatibility check is done during Info call")
+			}
+		}
+	}
+	return cloudInitData, nil
 }
 
 func dialSocket(socketPath string) (*grpc.ClientConn, error) {

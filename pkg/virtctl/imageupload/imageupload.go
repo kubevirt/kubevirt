@@ -25,6 +25,8 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"path"
+	"strings"
 	"time"
 
 	"github.com/spf13/cobra"
@@ -37,7 +39,7 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/clientcmd"
 
-	uploadcdiv1 "kubevirt.io/containerized-data-importer/pkg/apis/uploadcontroller/v1alpha1"
+	uploadcdiv1 "kubevirt.io/containerized-data-importer/pkg/apis/upload/v1alpha1"
 	cdiClientset "kubevirt.io/containerized-data-importer/pkg/client/clientset/versioned"
 	"kubevirt.io/kubevirt/pkg/kubecli"
 	"kubevirt.io/kubevirt/pkg/virtctl/templates"
@@ -51,7 +53,8 @@ const (
 
 	uploadPodWaitInterval = 2 * time.Second
 
-	uploadProxyURI = "/v1alpha1/upload"
+	//UploadProxyURI is a URI of the upoad proxy
+	UploadProxyURI = "/v1alpha1/upload"
 )
 
 var (
@@ -202,8 +205,27 @@ func getHTTPClient(insecure bool) *http.Client {
 	return client
 }
 
+//ConstructUploadProxyPath - receives uploadproxy adress and concatenates to it URI
+func ConstructUploadProxyPath(uploadProxyURL string) (string, error) {
+	u, err := url.Parse(uploadProxyURL)
+
+	if err != nil {
+		return "", err
+	}
+
+	if !strings.Contains(uploadProxyURL, UploadProxyURI) {
+		u.Path = path.Join(u.Path, UploadProxyURI)
+	}
+
+	return u.String(), nil
+}
+
 func uploadData(uploadProxyURL, token string, file *os.File, insecure bool) error {
-	url := uploadProxyURL + uploadProxyURI
+
+	url, err := ConstructUploadProxyPath(uploadProxyURL)
+	if err != nil {
+		return err
+	}
 
 	fi, err := file.Stat()
 	if err != nil {
@@ -276,7 +298,22 @@ func waitUploadPodRunning(client kubernetes.Interface, namespace, name string, i
 
 		podPhase, _ := pvc.Annotations[PodPhaseAnnotation]
 
-		done := (podPhase == string(v1.PodRunning)) && (len(endpoints.Subsets) > 0)
+		done := false
+		availableEndpoint := false
+		for _, subset := range endpoints.Subsets {
+			if len(subset.Addresses) > 0 {
+				// we're looking to make sure the service endpoint has
+				// the upload pod marked as being available, which means
+				// that it is ready to accept connections
+				availableEndpoint = true
+				break
+			}
+		}
+		running := (podPhase == string(v1.PodRunning))
+
+		if running && availableEndpoint {
+			done = true
+		}
 
 		if !done && !loggedStatus {
 			fmt.Printf("Waiting for PVC %s upload pod to be running...\n", name)

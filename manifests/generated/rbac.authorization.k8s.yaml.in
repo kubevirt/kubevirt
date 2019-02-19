@@ -50,9 +50,15 @@ rules:
   resources:
   - virtualmachineinstances/console
   - virtualmachineinstances/vnc
-  - virtualmachines/restart
   verbs:
   - get
+- apiGroups:
+  - subresources.kubevirt.io
+  resources:
+  - virtualmachines/restart
+  verbs:
+  - put
+  - update
 - apiGroups:
   - kubevirt.io
   resources:
@@ -83,9 +89,15 @@ rules:
   resources:
   - virtualmachineinstances/console
   - virtualmachineinstances/vnc
-  - virtualmachines/restart
   verbs:
   - get
+- apiGroups:
+  - subresources.kubevirt.io
+  resources:
+  - virtualmachines/restart
+  verbs:
+  - put
+  - update
 - apiGroups:
   - kubevirt.io
   resources:
@@ -121,30 +133,6 @@ rules:
   - get
   - list
   - watch
----
-apiVersion: v1
-kind: ServiceAccount
-metadata:
-  labels:
-    kubevirt.io: ""
-  name: kubevirt-privileged
-  namespace: {{.Namespace}}
----
-apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRoleBinding
-metadata:
-  labels:
-    kubevirt.io: ""
-  name: kubevirt-privileged-cluster-admin
-  namespace: {{.Namespace}}
-roleRef:
-  apiGroup: rbac.authorization.k8s.io
-  kind: ClusterRole
-  name: cluster-admin
-subjects:
-- kind: ServiceAccount
-  name: kubevirt-privileged
-  namespace: {{.Namespace}}
 ---
 apiVersion: v1
 kind: ServiceAccount
@@ -233,7 +221,6 @@ metadata:
   labels:
     kubevirt.io: ""
   name: kubevirt-apiserver
-  namespace: {{.Namespace}}
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
@@ -249,7 +236,6 @@ metadata:
   labels:
     kubevirt.io: ""
   name: kubevirt-apiserver-auth-delegator
-  namespace: {{.Namespace}}
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
@@ -389,7 +375,6 @@ metadata:
   labels:
     kubevirt.io: ""
   name: kubevirt-controller
-  namespace: {{.Namespace}}
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
@@ -397,4 +382,96 @@ roleRef:
 subjects:
 - kind: ServiceAccount
   name: kubevirt-controller
+  namespace: {{.Namespace}}
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  labels:
+    kubevirt.io: ""
+  name: kubevirt-handler
+  namespace: {{.Namespace}}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  labels:
+    kubevirt.io: ""
+  name: kubevirt-handler
+rules:
+- apiGroups:
+  - kubevirt.io
+  resources:
+  - virtualmachineinstances
+  verbs:
+  - update
+  - list
+  - watch
+- apiGroups:
+  - ""
+  resources:
+  - secrets
+  - persistentvolumeclaims
+  verbs:
+  - get
+- apiGroups:
+  - ""
+  resources:
+  - nodes
+  verbs:
+  - patch
+- apiGroups:
+  - ""
+  resources:
+  - events
+  verbs:
+  - create
+  - patch
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  labels:
+    kubevirt.io: ""
+  name: kubevirt-handler
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: kubevirt-handler
+subjects:
+- kind: ServiceAccount
+  name: kubevirt-handler
+  namespace: {{.Namespace}}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  labels:
+    kubevirt.io: ""
+  name: kubevirt-handler
+  namespace: {{.Namespace}}
+rules:
+- apiGroups:
+  - ""
+  resources:
+  - configmaps
+  verbs:
+  - get
+  - list
+  - watch
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  labels:
+    kubevirt.io: ""
+  name: kubevirt-handler
+  namespace: {{.Namespace}}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: kubevirt-handler
+subjects:
+- kind: ServiceAccount
+  name: kubevirt-handler
   namespace: {{.Namespace}}

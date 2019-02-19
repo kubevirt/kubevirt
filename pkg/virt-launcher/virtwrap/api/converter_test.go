@@ -41,9 +41,8 @@ var _ = Describe("Converter", func() {
 		It("Should add boot order when provided", func() {
 			order := uint(1)
 			kubevirtDisk := &v1.Disk{
-				Name:       "mydisk",
-				BootOrder:  &order,
-				VolumeName: "myvolume",
+				Name:      "mydisk",
+				BootOrder: &order,
 				DiskDevice: v1.DiskDevice{
 					Disk: &v1.DiskTarget{
 						Bus: "virtio",
@@ -63,8 +62,7 @@ var _ = Describe("Converter", func() {
 
 		It("Should omit boot order when not provided", func() {
 			kubevirtDisk := &v1.Disk{
-				Name:       "mydisk",
-				VolumeName: "myvolume",
+				Name: "mydisk",
 				DiskDevice: v1.DiskDevice{
 					Disk: &v1.DiskTarget{
 						Bus: "virtio",
@@ -138,6 +136,7 @@ var _ = Describe("Converter", func() {
 			}
 			vmi.Spec.Domain.Features = &v1.Features{
 				APIC: &v1.FeatureAPIC{},
+				SMM:  &v1.FeatureState{},
 				Hyperv: &v1.FeatureHyperv{
 					Relaxed:    &v1.FeatureState{Enabled: &_false},
 					VAPIC:      &v1.FeatureState{Enabled: &_true},
@@ -152,10 +151,16 @@ var _ = Describe("Converter", func() {
 			}
 			vmi.Spec.Domain.Resources.Limits = make(k8sv1.ResourceList)
 			vmi.Spec.Domain.Resources.Requests = make(k8sv1.ResourceList)
+			vmi.Spec.Domain.Devices.Inputs = []v1.Input{
+				{
+					Bus:  "virtio",
+					Type: "tablet",
+					Name: "tablet0",
+				},
+			}
 			vmi.Spec.Domain.Devices.Disks = []v1.Disk{
 				{
-					Name:       "mydisk",
-					VolumeName: "myvolume",
+					Name: "myvolume",
 					DiskDevice: v1.DiskDevice{
 						Disk: &v1.DiskTarget{
 							Bus: "virtio",
@@ -164,8 +169,7 @@ var _ = Describe("Converter", func() {
 					DedicatedIOThread: &_true,
 				},
 				{
-					Name:       "mydisk1",
-					VolumeName: "nocloud",
+					Name: "nocloud",
 					DiskDevice: v1.DiskDevice{
 						Disk: &v1.DiskTarget{
 							Bus: "virtio",
@@ -174,8 +178,7 @@ var _ = Describe("Converter", func() {
 					DedicatedIOThread: &_true,
 				},
 				{
-					Name:       "cdrom_tray_unspecified",
-					VolumeName: "volume0",
+					Name: "cdrom_tray_unspecified",
 					DiskDevice: v1.DiskDevice{
 						CDRom: &v1.CDRomTarget{
 							ReadOnly: &_false,
@@ -184,8 +187,7 @@ var _ = Describe("Converter", func() {
 					DedicatedIOThread: &_false,
 				},
 				{
-					Name:       "cdrom_tray_open",
-					VolumeName: "volume1",
+					Name: "cdrom_tray_open",
 					DiskDevice: v1.DiskDevice{
 						CDRom: &v1.CDRomTarget{
 							Tray: v1.TrayStateOpen,
@@ -193,15 +195,13 @@ var _ = Describe("Converter", func() {
 					},
 				},
 				{
-					Name:       "floppy_tray_unspecified",
-					VolumeName: "volume2",
+					Name: "floppy_tray_unspecified",
 					DiskDevice: v1.DiskDevice{
 						Floppy: &v1.FloppyTarget{},
 					},
 				},
 				{
-					Name:       "floppy_tray_open",
-					VolumeName: "volume3",
+					Name: "floppy_tray_open",
 					DiskDevice: v1.DiskDevice{
 						Floppy: &v1.FloppyTarget{
 							Tray:     v1.TrayStateOpen,
@@ -210,32 +210,26 @@ var _ = Describe("Converter", func() {
 					},
 				},
 				{
-					Name:       "should_default_to_disk",
-					VolumeName: "volume4",
+					Name: "should_default_to_disk",
 				},
 				{
-					Name:       "ephemeral_pvc",
-					VolumeName: "volume5",
-					Cache:      "none",
+					Name:  "ephemeral_pvc",
+					Cache: "none",
 				},
 				{
-					Name:       "secret_test",
-					VolumeName: "volume6",
-					Serial:     "D23YZ9W6WA5DJ487",
+					Name:   "secret_test",
+					Serial: "D23YZ9W6WA5DJ487",
 				},
 				{
-					Name:       "configmap_test",
-					VolumeName: "volume7",
-					Serial:     "CVLY623300HK240D",
+					Name:   "configmap_test",
+					Serial: "CVLY623300HK240D",
 				},
 				{
-					Name:       "pvc_block_test",
-					VolumeName: "volume8",
-					Cache:      "writethrough",
+					Name:  "pvc_block_test",
+					Cache: "writethrough",
 				},
 				{
-					Name:       "serviceaccount_test",
-					VolumeName: "volume9",
+					Name: "serviceaccount_test",
 				},
 			}
 			vmi.Spec.Volumes = []v1.Volume{
@@ -253,20 +247,22 @@ var _ = Describe("Converter", func() {
 					Name: "nocloud",
 					VolumeSource: v1.VolumeSource{
 						CloudInitNoCloud: &v1.CloudInitNoCloudSource{
-							UserDataBase64: "1234",
+							UserDataBase64:    "1234",
+							NetworkDataBase64: "1234",
 						},
 					},
 				},
 				{
-					Name: "volume0",
+					Name: "cdrom_tray_unspecified",
 					VolumeSource: v1.VolumeSource{
 						CloudInitNoCloud: &v1.CloudInitNoCloudSource{
-							UserDataBase64: "1234",
+							UserDataBase64:    "1234",
+							NetworkDataBase64: "1234",
 						},
 					},
 				},
 				{
-					Name: "volume1",
+					Name: "cdrom_tray_open",
 					VolumeSource: v1.VolumeSource{
 						HostDisk: &v1.HostDisk{
 							Path:     "/var/run/kubevirt-private/vmi-disks/volume1/disk.img",
@@ -276,7 +272,7 @@ var _ = Describe("Converter", func() {
 					},
 				},
 				{
-					Name: "volume2",
+					Name: "floppy_tray_unspecified",
 					VolumeSource: v1.VolumeSource{
 						HostDisk: &v1.HostDisk{
 							Path:     "/var/run/kubevirt-private/vmi-disks/volume2/disk.img",
@@ -286,7 +282,7 @@ var _ = Describe("Converter", func() {
 					},
 				},
 				{
-					Name: "volume3",
+					Name: "floppy_tray_open",
 					VolumeSource: v1.VolumeSource{
 						HostDisk: &v1.HostDisk{
 							Path:     "/var/run/kubevirt-private/vmi-disks/volume3/disk.img",
@@ -296,7 +292,7 @@ var _ = Describe("Converter", func() {
 					},
 				},
 				{
-					Name: "volume4",
+					Name: "should_default_to_disk",
 					VolumeSource: v1.VolumeSource{
 						HostDisk: &v1.HostDisk{
 							Path:     "/var/run/kubevirt-private/vmi-disks/volume4/disk.img",
@@ -306,7 +302,7 @@ var _ = Describe("Converter", func() {
 					},
 				},
 				{
-					Name: "volume5",
+					Name: "ephemeral_pvc",
 					VolumeSource: v1.VolumeSource{
 						Ephemeral: &v1.EphemeralVolumeSource{
 							PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{
@@ -316,7 +312,7 @@ var _ = Describe("Converter", func() {
 					},
 				},
 				{
-					Name: "volume6",
+					Name: "secret_test",
 					VolumeSource: v1.VolumeSource{
 						Secret: &v1.SecretVolumeSource{
 							SecretName: "testsecret",
@@ -324,7 +320,7 @@ var _ = Describe("Converter", func() {
 					},
 				},
 				{
-					Name: "volume7",
+					Name: "configmap_test",
 					VolumeSource: v1.VolumeSource{
 						ConfigMap: &v1.ConfigMapVolumeSource{
 							LocalObjectReference: k8sv1.LocalObjectReference{
@@ -334,7 +330,7 @@ var _ = Describe("Converter", func() {
 					},
 				},
 				{
-					Name: "volume8",
+					Name: "pvc_block_test",
 					VolumeSource: v1.VolumeSource{
 						PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{
 							ClaimName: "testblock",
@@ -342,7 +338,7 @@ var _ = Describe("Converter", func() {
 					},
 				},
 				{
-					Name: "volume9",
+					Name: "serviceaccount_test",
 					VolumeSource: v1.VolumeSource{
 						ServiceAccount: &v1.ServiceAccountVolumeSource{
 							ServiceAccountName: "testaccount",
@@ -355,7 +351,8 @@ var _ = Describe("Converter", func() {
 			vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{*v1.DefaultNetworkInterface()}
 
 			vmi.Spec.Domain.Firmware = &v1.Firmware{
-				UUID: "e4686d2c-6e8d-4335-b8fd-81bee22f4814",
+				UUID:   "e4686d2c-6e8d-4335-b8fd-81bee22f4814",
+				Serial: "e4686d2c-6e8d-4335-b8fd-81bee22f4815",
 			}
 
 			gracePerod := int64(5)
@@ -373,6 +370,7 @@ var _ = Describe("Converter", func() {
   <sysinfo type="smbios">
     <system>
       <entry name="uuid">e4686d2c-6e8d-4335-b8fd-81bee22f4814</entry>
+      <entry name="serial">e4686d2c-6e8d-4335-b8fd-81bee22f4815</entry>
     </system>
     <bios></bios>
     <baseBoard></baseBoard>
@@ -398,13 +396,13 @@ var _ = Describe("Converter", func() {
       <source file="/var/run/kubevirt-private/vmi-disks/myvolume/disk.img"></source>
       <target bus="virtio" dev="vda"></target>
       <driver name="qemu" type="raw" iothread="2"></driver>
-      <alias name="ua-mydisk"></alias>
+      <alias name="ua-myvolume"></alias>
     </disk>
     <disk device="disk" type="file">
       <source file="/var/run/libvirt/cloud-init-dir/mynamespace/testvmi/noCloud.iso"></source>
       <target bus="virtio" dev="vdb"></target>
       <driver name="qemu" type="raw" iothread="3"></driver>
-      <alias name="ua-mydisk1"></alias>
+      <alias name="ua-nocloud"></alias>
     </disk>
     <disk device="cdrom" type="file">
       <source file="/var/run/libvirt/cloud-init-dir/mynamespace/testvmi/noCloud.iso"></source>
@@ -439,31 +437,31 @@ var _ = Describe("Converter", func() {
       <alias name="ua-should_default_to_disk"></alias>
     </disk>
     <disk device="disk" type="file">
-      <source file="/var/run/libvirt/kubevirt-ephemeral-disk/volume5/disk.qcow2"></source>
+      <source file="/var/run/libvirt/kubevirt-ephemeral-disk/ephemeral_pvc/disk.qcow2"></source>
       <target bus="sata" dev="sdd"></target>
       <driver cache="none" name="qemu" type="qcow2" iothread="1"></driver>
       <alias name="ua-ephemeral_pvc"></alias>
       <backingStore type="file">
         <format type="raw"></format>
-        <source file="/var/run/kubevirt-private/vmi-disks/volume5/disk.img"></source>
+        <source file="/var/run/kubevirt-private/vmi-disks/ephemeral_pvc/disk.img"></source>
       </backingStore>
     </disk>
     <disk device="disk" type="file">
-      <source file="/var/run/kubevirt-private/secret-disks/volume6.iso"></source>
+      <source file="/var/run/kubevirt-private/secret-disks/secret_test.iso"></source>
       <target bus="sata" dev="sde"></target>
       <serial>D23YZ9W6WA5DJ487</serial>
       <driver name="qemu" type="raw" iothread="1"></driver>
       <alias name="ua-secret_test"></alias>
     </disk>
     <disk device="disk" type="file">
-      <source file="/var/run/kubevirt-private/config-map-disks/volume7.iso"></source>
+      <source file="/var/run/kubevirt-private/config-map-disks/configmap_test.iso"></source>
       <target bus="sata" dev="sdf"></target>
       <serial>CVLY623300HK240D</serial>
       <driver name="qemu" type="raw" iothread="1"></driver>
       <alias name="ua-configmap_test"></alias>
     </disk>
     <disk device="disk" type="block">
-      <source dev="/dev/volume8"></source>
+      <source dev="/dev/pvc_block_test"></source>
       <target bus="sata" dev="sdg"></target>
       <driver cache="writethrough" name="qemu" type="raw" iothread="1"></driver>
       <alias name="ua-pvc_block_test"></alias>
@@ -474,6 +472,9 @@ var _ = Describe("Converter", func() {
       <driver name="qemu" type="raw" iothread="1"></driver>
       <alias name="ua-serviceaccount_test"></alias>
     </disk>
+    <input type="tablet" bus="virtio">
+      <alias name="ua-tablet0"></alias>
+    </input>
     <serial type="unix">
       <target port="0"></target>
       <source mode="bind" path="/var/run/kubevirt-private/f4686d2c-6e8d-4335-b8fd-81bee22f4814/virt-serial0"></source>
@@ -517,6 +518,7 @@ var _ = Describe("Converter", func() {
       <reset state="on"></reset>
       <vendor_id state="off" value="myvendor"></vendor_id>
     </hyperv>
+    <smm></smm>
   </features>
   <cpu mode="host-model">
     <topology sockets="1" cores="1" threads="1"></topology>
@@ -528,7 +530,7 @@ var _ = Describe("Converter", func() {
 		var c *ConverterContext
 
 		isBlockPVCMap := make(map[string]bool)
-		isBlockPVCMap["volume8"] = true
+		isBlockPVCMap["pvc_block_test"] = true
 		BeforeEach(func() {
 			c = &ConverterContext{
 				VirtualMachine: vmi,
@@ -722,6 +724,45 @@ var _ = Describe("Converter", func() {
 			vmi.Spec.Domain.Devices.Disks[0].Disk.PciAddress = "0000:81:01.0"
 			vmi.Spec.Domain.Devices.Disks[0].Disk.Bus = "scsi"
 			Expect(Convert_v1_VirtualMachine_To_api_Domain(vmi, &Domain{}, c)).ToNot(Succeed())
+		})
+
+		It("should not disable usb controller when usb device is present", func() {
+			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
+			vmi.Spec.Domain.Devices.Inputs[0].Bus = "usb"
+			domain := vmiToDomain(vmi, c)
+			disabled := false
+			for _, controller := range domain.Spec.Devices.Controllers {
+				if controller.Type == "usb" && controller.Model == "none" {
+					disabled = !disabled
+				}
+			}
+
+			Expect(disabled).To(Equal(false), "Expect controller not to be disabled")
+		})
+
+		It("should fail when input device is set to ps2 bus", func() {
+			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
+			vmi.Spec.Domain.Devices.Inputs[0].Bus = "ps2"
+			Expect(Convert_v1_VirtualMachine_To_api_Domain(vmi, &Domain{}, c)).ToNot(Succeed(), "Expect error")
+		})
+
+		It("should fail when input device is set to keyboard type", func() {
+			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
+			vmi.Spec.Domain.Devices.Inputs[0].Type = "keyboard"
+			Expect(Convert_v1_VirtualMachine_To_api_Domain(vmi, &Domain{}, c)).ToNot(Succeed(), "Expect error")
+		})
+
+		It("should succeed when input device is set to usb bus", func() {
+			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
+			vmi.Spec.Domain.Devices.Inputs[0].Bus = "usb"
+			Expect(Convert_v1_VirtualMachine_To_api_Domain(vmi, &Domain{}, c)).To(Succeed(), "Expect success")
+		})
+
+		It("should succeed when input device bus is empty", func() {
+			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
+			vmi.Spec.Domain.Devices.Inputs[0].Bus = ""
+			domain := vmiToDomain(vmi, c)
+			Expect(domain.Spec.Devices.Inputs[0].Bus).To(Equal("usb"), "Expect usb bus")
 		})
 
 		It("should select explicitly chosen network model", func() {
@@ -1167,8 +1208,7 @@ var _ = Describe("Converter", func() {
 						Devices: v1.Devices{
 							Disks: []v1.Disk{
 								{
-									Name:       "dedicated",
-									VolumeName: "volume0",
+									Name: "dedicated",
 									DiskDevice: v1.DiskDevice{
 										Disk: &v1.DiskTarget{
 											Bus: "virtio",
@@ -1177,8 +1217,7 @@ var _ = Describe("Converter", func() {
 									DedicatedIOThread: &_true,
 								},
 								{
-									Name:       "shared",
-									VolumeName: "volume1",
+									Name: "shared",
 									DiskDevice: v1.DiskDevice{
 										Disk: &v1.DiskTarget{
 											Bus: "virtio",
@@ -1187,8 +1226,7 @@ var _ = Describe("Converter", func() {
 									DedicatedIOThread: &_false,
 								},
 								{
-									Name:       "omitted1",
-									VolumeName: "volume2",
+									Name: "omitted1",
 									DiskDevice: v1.DiskDevice{
 										Disk: &v1.DiskTarget{
 											Bus: "virtio",
@@ -1196,8 +1234,7 @@ var _ = Describe("Converter", func() {
 									},
 								},
 								{
-									Name:       "omitted2",
-									VolumeName: "volume3",
+									Name: "omitted2",
 									DiskDevice: v1.DiskDevice{
 										Disk: &v1.DiskTarget{
 											Bus: "virtio",
@@ -1205,8 +1242,7 @@ var _ = Describe("Converter", func() {
 									},
 								},
 								{
-									Name:       "omitted3",
-									VolumeName: "volume4",
+									Name: "omitted3",
 									DiskDevice: v1.DiskDevice{
 										Disk: &v1.DiskTarget{
 											Bus: "virtio",
@@ -1214,8 +1250,7 @@ var _ = Describe("Converter", func() {
 									},
 								},
 								{
-									Name:       "omitted4",
-									VolumeName: "volume5",
+									Name: "omitted4",
 									DiskDevice: v1.DiskDevice{
 										Disk: &v1.DiskTarget{
 											Bus: "virtio",
@@ -1223,8 +1258,7 @@ var _ = Describe("Converter", func() {
 									},
 								},
 								{
-									Name:       "omitted5",
-									VolumeName: "volume5",
+									Name: "omitted5",
 									DiskDevice: v1.DiskDevice{
 										Disk: &v1.DiskTarget{
 											Bus: "virtio",
@@ -1236,7 +1270,7 @@ var _ = Describe("Converter", func() {
 					},
 					Volumes: []v1.Volume{
 						{
-							Name: "volume0",
+							Name: "dedicated",
 							VolumeSource: v1.VolumeSource{
 								Ephemeral: &v1.EphemeralVolumeSource{
 									PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{
@@ -1246,7 +1280,7 @@ var _ = Describe("Converter", func() {
 							},
 						},
 						{
-							Name: "volume1",
+							Name: "shared",
 							VolumeSource: v1.VolumeSource{
 								Ephemeral: &v1.EphemeralVolumeSource{
 									PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{
@@ -1256,7 +1290,7 @@ var _ = Describe("Converter", func() {
 							},
 						},
 						{
-							Name: "volume2",
+							Name: "omitted1",
 							VolumeSource: v1.VolumeSource{
 								Ephemeral: &v1.EphemeralVolumeSource{
 									PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{
@@ -1266,7 +1300,7 @@ var _ = Describe("Converter", func() {
 							},
 						},
 						{
-							Name: "volume3",
+							Name: "omitted2",
 							VolumeSource: v1.VolumeSource{
 								Ephemeral: &v1.EphemeralVolumeSource{
 									PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{
@@ -1276,7 +1310,7 @@ var _ = Describe("Converter", func() {
 							},
 						},
 						{
-							Name: "volume4",
+							Name: "omitted3",
 							VolumeSource: v1.VolumeSource{
 								Ephemeral: &v1.EphemeralVolumeSource{
 									PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{
@@ -1286,7 +1320,7 @@ var _ = Describe("Converter", func() {
 							},
 						},
 						{
-							Name: "volume5",
+							Name: "omitted4",
 							VolumeSource: v1.VolumeSource{
 								Ephemeral: &v1.EphemeralVolumeSource{
 									PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{
@@ -1296,7 +1330,7 @@ var _ = Describe("Converter", func() {
 							},
 						},
 						{
-							Name: "volume6",
+							Name: "omitted5",
 							VolumeSource: v1.VolumeSource{
 								Ephemeral: &v1.EphemeralVolumeSource{
 									PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{
@@ -1342,8 +1376,7 @@ var _ = Describe("Converter", func() {
 			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
 			vmi.Spec.Domain.Devices.Disks = []v1.Disk{
 				{
-					Name:       "mydisk",
-					VolumeName: "myvolume",
+					Name: "mydisk",
 					DiskDevice: v1.DiskDevice{
 						Disk: &v1.DiskTarget{
 							Bus: "virtio",
@@ -1353,7 +1386,7 @@ var _ = Describe("Converter", func() {
 			}
 			vmi.Spec.Volumes = []v1.Volume{
 				{
-					Name: "myvolume",
+					Name: "mydisk",
 					VolumeSource: v1.VolumeSource{
 						HostDisk: &v1.HostDisk{
 							Path:     "/var/run/kubevirt-private/vmi-disks/myvolume/disk.img",
@@ -1569,6 +1602,73 @@ var _ = Describe("Converter", func() {
 			Expect(domain.Spec.Devices.HostDevices[1].Source.Address.Bus).To(Equal("0x81"))
 			Expect(domain.Spec.Devices.HostDevices[1].Source.Address.Slot).To(Equal("0x11"))
 			Expect(domain.Spec.Devices.HostDevices[1].Source.Address.Function).To(Equal("0x2"))
+		})
+	})
+
+	Context("Bootloader", func() {
+		var vmi *v1.VirtualMachineInstance
+		var c *ConverterContext
+
+		BeforeEach(func() {
+			vmi = &v1.VirtualMachineInstance{
+				ObjectMeta: k8smeta.ObjectMeta{
+					Name:      "testvmi",
+					Namespace: "mynamespace",
+				},
+			}
+
+			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
+
+			c = &ConverterContext{
+				VirtualMachine: vmi,
+				UseEmulation:   true,
+			}
+		})
+
+		Context("when bootloader is not set", func() {
+			It("should configure the BIOS bootloader", func() {
+				vmi.Spec.Domain.Firmware = &v1.Firmware{}
+				domainSpec := vmiToDomainXMLToDomainSpec(vmi, c)
+				Expect(domainSpec.OS.BootLoader).To(BeNil())
+				Expect(domainSpec.OS.NVRam).To(BeNil())
+			})
+		})
+
+		Context("when bootloader is set", func() {
+			It("should configure the BIOS bootloader if no BIOS or EFI option", func() {
+				vmi.Spec.Domain.Firmware = &v1.Firmware{
+					Bootloader: &v1.Bootloader{},
+				}
+				domainSpec := vmiToDomainXMLToDomainSpec(vmi, c)
+				Expect(domainSpec.OS.BootLoader).To(BeNil())
+				Expect(domainSpec.OS.NVRam).To(BeNil())
+			})
+
+			It("should configure the BIOS bootloader if BIOS", func() {
+				vmi.Spec.Domain.Firmware = &v1.Firmware{
+					Bootloader: &v1.Bootloader{
+						BIOS: &v1.BIOS{},
+					},
+				}
+				domainSpec := vmiToDomainXMLToDomainSpec(vmi, c)
+				Expect(domainSpec.OS.BootLoader).To(BeNil())
+				Expect(domainSpec.OS.NVRam).To(BeNil())
+			})
+
+			It("should configure the EFI bootloader if EFI insecure option", func() {
+
+				vmi.Spec.Domain.Firmware = &v1.Firmware{
+					Bootloader: &v1.Bootloader{
+						EFI: &v1.EFI{},
+					},
+				}
+				domainSpec := vmiToDomainXMLToDomainSpec(vmi, c)
+				Expect(domainSpec.OS.BootLoader.ReadOnly).To(Equal("yes"))
+				Expect(domainSpec.OS.BootLoader.Type).To(Equal("pflash"))
+				Expect(domainSpec.OS.BootLoader.Path).To(Equal(EFIPath))
+				Expect(domainSpec.OS.NVRam.Template).To(Equal(EFIVarsPath))
+				Expect(domainSpec.OS.NVRam.NVRam).To(Equal("/tmp/mynamespace_testvmi"))
+			})
 		})
 	})
 })

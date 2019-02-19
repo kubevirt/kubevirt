@@ -45,7 +45,7 @@
      "produces": [
       "application/json"
      ],
-     "summary": "Get a KubeVirt API group",
+     "summary": "Get a KubeVirt CDI API group",
      "operationId": "getAPIGroup",
      "responses": {
       "200": {
@@ -87,6 +87,84 @@
        "description": "OK",
        "schema": {
         "$ref": "#/definitions/v1.APIResourceList"
+       }
+      }
+     }
+    }
+   },
+   "/apis/cdi.kubevirt.io/v1alpha1/cdis": {
+    "get": {
+     "produces": [
+      "application/json",
+      "application/yaml",
+      "application/json;stream=watch"
+     ],
+     "summary": "Get a list of all CDI objects.",
+     "operationId": "listCDIForAllNamespaces",
+     "parameters": [
+      {
+       "type": "string",
+       "description": "The continue option should be set when retrieving more results from the server. Since this value is server defined, clients may only use the continue value from a previous query result with identical query parameters (except for the value of continue) and the server may reject a continue value it does not recognize. If the specified continue value is no longer valid whether due to expiration (generally five to fifteen minutes) or a configuration change on the server the server will respond with a 410 ResourceExpired error indicating the client must restart their list without the continue field. This field is not supported when watch is true. Clients may start a watch from the last resourceVersion value returned by the server and not miss any modifications.",
+       "name": "continue",
+       "in": "query"
+      },
+      {
+       "type": "string",
+       "description": "A selector to restrict the list of returned objects by their fields. Defaults to everything.",
+       "name": "fieldSelector",
+       "in": "query"
+      },
+      {
+       "type": "boolean",
+       "description": "If true, partially initialized resources are included in the response.",
+       "name": "includeUninitialized",
+       "in": "query"
+      },
+      {
+       "type": "string",
+       "description": "A selector to restrict the list of returned objects by their labels. Defaults to everything",
+       "name": "labelSelector",
+       "in": "query"
+      },
+      {
+       "type": "integer",
+       "description": "limit is a maximum number of responses to return for a list call. If more items exist, the server will set the `continue` field on the list metadata to a value that can be used with the same initial query to retrieve the next set of results. Setting a limit may return fewer than the requested amount of items (up to zero items) in the event all requested objects are filtered out and clients should only use the presence of the continue field to determine whether more results are available. Servers may choose not to support the limit argument and will return all of the available results. If limit is specified and the continue field is empty, clients may assume that no more results are available. This field is not supported if watch is true.\n\nThe server guarantees that the objects returned when using continue will be identical to issuing a single list call without a limit - that is, no objects created, modified, or deleted after the first request is issued will be included in any subsequent continued requests. This is sometimes referred to as a consistent snapshot, and ensures that a client that is using limit to receive smaller chunks of a very large result can ensure they see all possible objects. If objects are updated during a chunked list the version of the object that was present at the time the first list result was calculated is returned.",
+       "name": "limit",
+       "in": "query"
+      },
+      {
+       "type": "string",
+       "description": "When specified with a watch call, shows changes that occur after that particular version of a resource. Defaults to changes from the beginning of history.",
+       "name": "resourceVersion",
+       "in": "query"
+      },
+      {
+       "type": "integer",
+       "description": "TimeoutSeconds for the list/watch call.",
+       "name": "timeoutSeconds",
+       "in": "query"
+      },
+      {
+       "type": "boolean",
+       "description": "Watch for changes to the described resources and return them as a stream of add, update, and remove notifications. Specify resourceVersion.",
+       "name": "watch",
+       "in": "query"
+      }
+     ],
+     "responses": {
+      "200": {
+       "description": "OK",
+       "schema": {
+        "$ref": "#/definitions/v1alpha1.CDIList"
+       }
+      },
+      "401": {
+       "description": "Unauthorized"
+      },
+      "default": {
+       "description": "OK",
+       "schema": {
+        "$ref": "#/definitions/v1alpha1.CDIList"
        }
       }
      }
@@ -165,6 +243,472 @@
        "description": "OK",
        "schema": {
         "$ref": "#/definitions/v1alpha1.DataVolumeList"
+       }
+      }
+     }
+    }
+   },
+   "/apis/cdi.kubevirt.io/v1alpha1/namespaces/{namespace}/cdis": {
+    "get": {
+     "produces": [
+      "application/json",
+      "application/yaml",
+      "application/json;stream=watch"
+     ],
+     "summary": "Get a list of CDI objects.",
+     "operationId": "listNamespacedCDI",
+     "parameters": [
+      {
+       "pattern": "[a-z0-9][a-z0-9\\-]*",
+       "type": "string",
+       "description": "Object name and auth scope, such as for teams and projects",
+       "name": "namespace",
+       "in": "path",
+       "required": true
+      },
+      {
+       "type": "string",
+       "description": "The continue option should be set when retrieving more results from the server. Since this value is server defined, clients may only use the continue value from a previous query result with identical query parameters (except for the value of continue) and the server may reject a continue value it does not recognize. If the specified continue value is no longer valid whether due to expiration (generally five to fifteen minutes) or a configuration change on the server the server will respond with a 410 ResourceExpired error indicating the client must restart their list without the continue field. This field is not supported when watch is true. Clients may start a watch from the last resourceVersion value returned by the server and not miss any modifications.",
+       "name": "continue",
+       "in": "query"
+      },
+      {
+       "type": "string",
+       "description": "A selector to restrict the list of returned objects by their fields. Defaults to everything.",
+       "name": "fieldSelector",
+       "in": "query"
+      },
+      {
+       "type": "boolean",
+       "description": "If true, partially initialized resources are included in the response.",
+       "name": "includeUninitialized",
+       "in": "query"
+      },
+      {
+       "type": "string",
+       "description": "A selector to restrict the list of returned objects by their labels. Defaults to everything",
+       "name": "labelSelector",
+       "in": "query"
+      },
+      {
+       "type": "integer",
+       "description": "limit is a maximum number of responses to return for a list call. If more items exist, the server will set the `continue` field on the list metadata to a value that can be used with the same initial query to retrieve the next set of results. Setting a limit may return fewer than the requested amount of items (up to zero items) in the event all requested objects are filtered out and clients should only use the presence of the continue field to determine whether more results are available. Servers may choose not to support the limit argument and will return all of the available results. If limit is specified and the continue field is empty, clients may assume that no more results are available. This field is not supported if watch is true.\n\nThe server guarantees that the objects returned when using continue will be identical to issuing a single list call without a limit - that is, no objects created, modified, or deleted after the first request is issued will be included in any subsequent continued requests. This is sometimes referred to as a consistent snapshot, and ensures that a client that is using limit to receive smaller chunks of a very large result can ensure they see all possible objects. If objects are updated during a chunked list the version of the object that was present at the time the first list result was calculated is returned.",
+       "name": "limit",
+       "in": "query"
+      },
+      {
+       "type": "string",
+       "description": "When specified with a watch call, shows changes that occur after that particular version of a resource. Defaults to changes from the beginning of history.",
+       "name": "resourceVersion",
+       "in": "query"
+      },
+      {
+       "type": "integer",
+       "description": "TimeoutSeconds for the list/watch call.",
+       "name": "timeoutSeconds",
+       "in": "query"
+      },
+      {
+       "type": "boolean",
+       "description": "Watch for changes to the described resources and return them as a stream of add, update, and remove notifications. Specify resourceVersion.",
+       "name": "watch",
+       "in": "query"
+      }
+     ],
+     "responses": {
+      "200": {
+       "description": "OK",
+       "schema": {
+        "$ref": "#/definitions/v1alpha1.CDIList"
+       }
+      },
+      "401": {
+       "description": "Unauthorized"
+      },
+      "default": {
+       "description": "OK",
+       "schema": {
+        "$ref": "#/definitions/v1alpha1.CDIList"
+       }
+      }
+     }
+    },
+    "post": {
+     "consumes": [
+      "application/json",
+      "application/yaml"
+     ],
+     "produces": [
+      "application/json",
+      "application/yaml"
+     ],
+     "summary": "Create a CDI object.",
+     "operationId": "createNamespacedCDI",
+     "parameters": [
+      {
+       "name": "body",
+       "in": "body",
+       "required": true,
+       "schema": {
+        "$ref": "#/definitions/v1alpha1.CDI"
+       }
+      },
+      {
+       "pattern": "[a-z0-9][a-z0-9\\-]*",
+       "type": "string",
+       "description": "Object name and auth scope, such as for teams and projects",
+       "name": "namespace",
+       "in": "path",
+       "required": true
+      }
+     ],
+     "responses": {
+      "200": {
+       "description": "OK",
+       "schema": {
+        "$ref": "#/definitions/v1alpha1.CDI"
+       }
+      },
+      "201": {
+       "description": "Created",
+       "schema": {
+        "$ref": "#/definitions/v1alpha1.CDI"
+       }
+      },
+      "202": {
+       "description": "Accepted",
+       "schema": {
+        "$ref": "#/definitions/v1alpha1.CDI"
+       }
+      },
+      "401": {
+       "description": "Unauthorized"
+      },
+      "default": {
+       "description": "OK",
+       "schema": {
+        "$ref": "#/definitions/v1alpha1.CDI"
+       }
+      }
+     }
+    },
+    "delete": {
+     "produces": [
+      "application/json",
+      "application/yaml"
+     ],
+     "summary": "Delete a collection of CDI objects.",
+     "operationId": "deleteCollectionNamespacedCDI",
+     "parameters": [
+      {
+       "type": "string",
+       "description": "The continue option should be set when retrieving more results from the server. Since this value is server defined, clients may only use the continue value from a previous query result with identical query parameters (except for the value of continue) and the server may reject a continue value it does not recognize. If the specified continue value is no longer valid whether due to expiration (generally five to fifteen minutes) or a configuration change on the server the server will respond with a 410 ResourceExpired error indicating the client must restart their list without the continue field. This field is not supported when watch is true. Clients may start a watch from the last resourceVersion value returned by the server and not miss any modifications.",
+       "name": "continue",
+       "in": "query"
+      },
+      {
+       "type": "string",
+       "description": "A selector to restrict the list of returned objects by their fields. Defaults to everything.",
+       "name": "fieldSelector",
+       "in": "query"
+      },
+      {
+       "type": "boolean",
+       "description": "If true, partially initialized resources are included in the response.",
+       "name": "includeUninitialized",
+       "in": "query"
+      },
+      {
+       "type": "string",
+       "description": "A selector to restrict the list of returned objects by their labels. Defaults to everything",
+       "name": "labelSelector",
+       "in": "query"
+      },
+      {
+       "type": "integer",
+       "description": "limit is a maximum number of responses to return for a list call. If more items exist, the server will set the `continue` field on the list metadata to a value that can be used with the same initial query to retrieve the next set of results. Setting a limit may return fewer than the requested amount of items (up to zero items) in the event all requested objects are filtered out and clients should only use the presence of the continue field to determine whether more results are available. Servers may choose not to support the limit argument and will return all of the available results. If limit is specified and the continue field is empty, clients may assume that no more results are available. This field is not supported if watch is true.\n\nThe server guarantees that the objects returned when using continue will be identical to issuing a single list call without a limit - that is, no objects created, modified, or deleted after the first request is issued will be included in any subsequent continued requests. This is sometimes referred to as a consistent snapshot, and ensures that a client that is using limit to receive smaller chunks of a very large result can ensure they see all possible objects. If objects are updated during a chunked list the version of the object that was present at the time the first list result was calculated is returned.",
+       "name": "limit",
+       "in": "query"
+      },
+      {
+       "type": "string",
+       "description": "When specified with a watch call, shows changes that occur after that particular version of a resource. Defaults to changes from the beginning of history.",
+       "name": "resourceVersion",
+       "in": "query"
+      },
+      {
+       "type": "integer",
+       "description": "TimeoutSeconds for the list/watch call.",
+       "name": "timeoutSeconds",
+       "in": "query"
+      },
+      {
+       "type": "boolean",
+       "description": "Watch for changes to the described resources and return them as a stream of add, update, and remove notifications. Specify resourceVersion.",
+       "name": "watch",
+       "in": "query"
+      }
+     ],
+     "responses": {
+      "200": {
+       "description": "OK",
+       "schema": {
+        "$ref": "#/definitions/v1.Status"
+       }
+      },
+      "401": {
+       "description": "Unauthorized"
+      },
+      "default": {
+       "description": "OK",
+       "schema": {
+        "$ref": "#/definitions/v1.Status"
+       }
+      }
+     }
+    }
+   },
+   "/apis/cdi.kubevirt.io/v1alpha1/namespaces/{namespace}/cdis/{name}": {
+    "get": {
+     "produces": [
+      "application/json",
+      "application/yaml",
+      "application/json;stream=watch"
+     ],
+     "summary": "Get a CDI object.",
+     "operationId": "readNamespacedCDI",
+     "parameters": [
+      {
+       "pattern": "[a-z0-9][a-z0-9\\-]*",
+       "type": "string",
+       "description": "Name of the resource",
+       "name": "name",
+       "in": "path",
+       "required": true
+      },
+      {
+       "pattern": "[a-z0-9][a-z0-9\\-]*",
+       "type": "string",
+       "description": "Object name and auth scope, such as for teams and projects",
+       "name": "namespace",
+       "in": "path",
+       "required": true
+      },
+      {
+       "type": "boolean",
+       "description": "Should the export be exact. Exact export maintains cluster-specific fields like 'Namespace'.",
+       "name": "exact",
+       "in": "query"
+      },
+      {
+       "type": "boolean",
+       "description": "Should this value be exported. Export strips fields that a user can not specify.",
+       "name": "export",
+       "in": "query"
+      }
+     ],
+     "responses": {
+      "200": {
+       "description": "OK",
+       "schema": {
+        "$ref": "#/definitions/v1alpha1.CDI"
+       }
+      },
+      "401": {
+       "description": "Unauthorized"
+      },
+      "default": {
+       "description": "OK",
+       "schema": {
+        "$ref": "#/definitions/v1alpha1.CDI"
+       }
+      }
+     }
+    },
+    "put": {
+     "consumes": [
+      "application/json",
+      "application/yaml"
+     ],
+     "produces": [
+      "application/json",
+      "application/yaml"
+     ],
+     "summary": "Update a CDI object.",
+     "operationId": "replaceNamespacedCDI",
+     "parameters": [
+      {
+       "name": "body",
+       "in": "body",
+       "required": true,
+       "schema": {
+        "$ref": "#/definitions/v1alpha1.CDI"
+       }
+      },
+      {
+       "pattern": "[a-z0-9][a-z0-9\\-]*",
+       "type": "string",
+       "description": "Object name and auth scope, such as for teams and projects",
+       "name": "namespace",
+       "in": "path",
+       "required": true
+      },
+      {
+       "pattern": "[a-z0-9][a-z0-9\\-]*",
+       "type": "string",
+       "description": "Name of the resource",
+       "name": "name",
+       "in": "path",
+       "required": true
+      }
+     ],
+     "responses": {
+      "200": {
+       "description": "OK",
+       "schema": {
+        "$ref": "#/definitions/v1alpha1.CDI"
+       }
+      },
+      "201": {
+       "description": "Create",
+       "schema": {
+        "$ref": "#/definitions/v1alpha1.CDI"
+       }
+      },
+      "401": {
+       "description": "Unauthorized"
+      },
+      "default": {
+       "description": "OK",
+       "schema": {
+        "$ref": "#/definitions/v1alpha1.CDI"
+       }
+      }
+     }
+    },
+    "delete": {
+     "consumes": [
+      "application/json",
+      "application/yaml"
+     ],
+     "produces": [
+      "application/json",
+      "application/yaml"
+     ],
+     "summary": "Delete a CDI object.",
+     "operationId": "deleteNamespacedCDI",
+     "parameters": [
+      {
+       "name": "body",
+       "in": "body",
+       "required": true,
+       "schema": {
+        "$ref": "#/definitions/v1.DeleteOptions"
+       }
+      },
+      {
+       "pattern": "[a-z0-9][a-z0-9\\-]*",
+       "type": "string",
+       "description": "Object name and auth scope, such as for teams and projects",
+       "name": "namespace",
+       "in": "path",
+       "required": true
+      },
+      {
+       "pattern": "[a-z0-9][a-z0-9\\-]*",
+       "type": "string",
+       "description": "Name of the resource",
+       "name": "name",
+       "in": "path",
+       "required": true
+      },
+      {
+       "type": "integer",
+       "description": "The duration in seconds before the object should be deleted. Value must be non-negative integer. The value zero indicates delete immediately. If this value is nil, the default grace period for the specified type will be used. Defaults to a per object value if not specified. zero means delete immediately.",
+       "name": "gracePeriodSeconds",
+       "in": "query"
+      },
+      {
+       "type": "boolean",
+       "description": "Deprecated: please use the PropagationPolicy, this field will be deprecated in 1.7. Should the dependent objects be orphaned. If true/false, the \"orphan\" finalizer will be added to/removed from the object's finalizers list. Either this field or PropagationPolicy may be set, but not both.",
+       "name": "orphanDependents",
+       "in": "query"
+      },
+      {
+       "type": "string",
+       "description": "Whether and how garbage collection will be performed. Either this field or OrphanDependents may be set, but not both. The default policy is decided by the existing finalizer set in the metadata.finalizers and the resource-specific default policy. Acceptable values are: 'Orphan' - orphan the dependents; 'Background' - allow the garbage collector to delete the dependents in the background; 'Foreground' - a cascading policy that deletes all dependents in the foreground.",
+       "name": "propagationPolicy",
+       "in": "query"
+      }
+     ],
+     "responses": {
+      "200": {
+       "description": "OK",
+       "schema": {
+        "$ref": "#/definitions/v1.Status"
+       }
+      },
+      "401": {
+       "description": "Unauthorized"
+      },
+      "default": {
+       "description": "OK",
+       "schema": {
+        "$ref": "#/definitions/v1.Status"
+       }
+      }
+     }
+    },
+    "patch": {
+     "consumes": [
+      "application/json-patch+json",
+      "application/merge-patch+json"
+     ],
+     "produces": [
+      "application/json"
+     ],
+     "summary": "Patch a CDI object.",
+     "operationId": "patchNamespacedCDI",
+     "parameters": [
+      {
+       "name": "body",
+       "in": "body",
+       "required": true,
+       "schema": {
+        "$ref": "#/definitions/v1.Patch"
+       }
+      },
+      {
+       "pattern": "[a-z0-9][a-z0-9\\-]*",
+       "type": "string",
+       "description": "Object name and auth scope, such as for teams and projects",
+       "name": "namespace",
+       "in": "path",
+       "required": true
+      },
+      {
+       "pattern": "[a-z0-9][a-z0-9\\-]*",
+       "type": "string",
+       "description": "Name of the resource",
+       "name": "name",
+       "in": "path",
+       "required": true
+      }
+     ],
+     "responses": {
+      "200": {
+       "description": "OK",
+       "schema": {
+        "$ref": "#/definitions/v1alpha1.CDI"
+       }
+      },
+      "401": {
+       "description": "Unauthorized"
+      },
+      "default": {
+       "description": "OK",
+       "schema": {
+        "$ref": "#/definitions/v1alpha1.CDI"
        }
       }
      }
@@ -636,6 +1180,82 @@
      }
     }
    },
+   "/apis/cdi.kubevirt.io/v1alpha1/watch/cdis": {
+    "get": {
+     "produces": [
+      "application/json"
+     ],
+     "summary": "Watch a CDIList object.",
+     "operationId": "watchCDIListForAllNamespaces",
+     "parameters": [
+      {
+       "type": "string",
+       "description": "The continue option should be set when retrieving more results from the server. Since this value is server defined, clients may only use the continue value from a previous query result with identical query parameters (except for the value of continue) and the server may reject a continue value it does not recognize. If the specified continue value is no longer valid whether due to expiration (generally five to fifteen minutes) or a configuration change on the server the server will respond with a 410 ResourceExpired error indicating the client must restart their list without the continue field. This field is not supported when watch is true. Clients may start a watch from the last resourceVersion value returned by the server and not miss any modifications.",
+       "name": "continue",
+       "in": "query"
+      },
+      {
+       "type": "string",
+       "description": "A selector to restrict the list of returned objects by their fields. Defaults to everything.",
+       "name": "fieldSelector",
+       "in": "query"
+      },
+      {
+       "type": "boolean",
+       "description": "If true, partially initialized resources are included in the response.",
+       "name": "includeUninitialized",
+       "in": "query"
+      },
+      {
+       "type": "string",
+       "description": "A selector to restrict the list of returned objects by their labels. Defaults to everything",
+       "name": "labelSelector",
+       "in": "query"
+      },
+      {
+       "type": "integer",
+       "description": "limit is a maximum number of responses to return for a list call. If more items exist, the server will set the `continue` field on the list metadata to a value that can be used with the same initial query to retrieve the next set of results. Setting a limit may return fewer than the requested amount of items (up to zero items) in the event all requested objects are filtered out and clients should only use the presence of the continue field to determine whether more results are available. Servers may choose not to support the limit argument and will return all of the available results. If limit is specified and the continue field is empty, clients may assume that no more results are available. This field is not supported if watch is true.\n\nThe server guarantees that the objects returned when using continue will be identical to issuing a single list call without a limit - that is, no objects created, modified, or deleted after the first request is issued will be included in any subsequent continued requests. This is sometimes referred to as a consistent snapshot, and ensures that a client that is using limit to receive smaller chunks of a very large result can ensure they see all possible objects. If objects are updated during a chunked list the version of the object that was present at the time the first list result was calculated is returned.",
+       "name": "limit",
+       "in": "query"
+      },
+      {
+       "type": "string",
+       "description": "When specified with a watch call, shows changes that occur after that particular version of a resource. Defaults to changes from the beginning of history.",
+       "name": "resourceVersion",
+       "in": "query"
+      },
+      {
+       "type": "integer",
+       "description": "TimeoutSeconds for the list/watch call.",
+       "name": "timeoutSeconds",
+       "in": "query"
+      },
+      {
+       "type": "boolean",
+       "description": "Watch for changes to the described resources and return them as a stream of add, update, and remove notifications. Specify resourceVersion.",
+       "name": "watch",
+       "in": "query"
+      }
+     ],
+     "responses": {
+      "200": {
+       "description": "OK",
+       "schema": {
+        "$ref": "#/definitions/v1.WatchEvent"
+       }
+      },
+      "401": {
+       "description": "Unauthorized"
+      },
+      "default": {
+       "description": "OK",
+       "schema": {
+        "$ref": "#/definitions/v1.WatchEvent"
+       }
+      }
+     }
+    }
+   },
    "/apis/cdi.kubevirt.io/v1alpha1/watch/datavolumes": {
     "get": {
      "produces": [
@@ -644,6 +1264,90 @@
      "summary": "Watch a DataVolumeList object.",
      "operationId": "watchDataVolumeListForAllNamespaces",
      "parameters": [
+      {
+       "type": "string",
+       "description": "The continue option should be set when retrieving more results from the server. Since this value is server defined, clients may only use the continue value from a previous query result with identical query parameters (except for the value of continue) and the server may reject a continue value it does not recognize. If the specified continue value is no longer valid whether due to expiration (generally five to fifteen minutes) or a configuration change on the server the server will respond with a 410 ResourceExpired error indicating the client must restart their list without the continue field. This field is not supported when watch is true. Clients may start a watch from the last resourceVersion value returned by the server and not miss any modifications.",
+       "name": "continue",
+       "in": "query"
+      },
+      {
+       "type": "string",
+       "description": "A selector to restrict the list of returned objects by their fields. Defaults to everything.",
+       "name": "fieldSelector",
+       "in": "query"
+      },
+      {
+       "type": "boolean",
+       "description": "If true, partially initialized resources are included in the response.",
+       "name": "includeUninitialized",
+       "in": "query"
+      },
+      {
+       "type": "string",
+       "description": "A selector to restrict the list of returned objects by their labels. Defaults to everything",
+       "name": "labelSelector",
+       "in": "query"
+      },
+      {
+       "type": "integer",
+       "description": "limit is a maximum number of responses to return for a list call. If more items exist, the server will set the `continue` field on the list metadata to a value that can be used with the same initial query to retrieve the next set of results. Setting a limit may return fewer than the requested amount of items (up to zero items) in the event all requested objects are filtered out and clients should only use the presence of the continue field to determine whether more results are available. Servers may choose not to support the limit argument and will return all of the available results. If limit is specified and the continue field is empty, clients may assume that no more results are available. This field is not supported if watch is true.\n\nThe server guarantees that the objects returned when using continue will be identical to issuing a single list call without a limit - that is, no objects created, modified, or deleted after the first request is issued will be included in any subsequent continued requests. This is sometimes referred to as a consistent snapshot, and ensures that a client that is using limit to receive smaller chunks of a very large result can ensure they see all possible objects. If objects are updated during a chunked list the version of the object that was present at the time the first list result was calculated is returned.",
+       "name": "limit",
+       "in": "query"
+      },
+      {
+       "type": "string",
+       "description": "When specified with a watch call, shows changes that occur after that particular version of a resource. Defaults to changes from the beginning of history.",
+       "name": "resourceVersion",
+       "in": "query"
+      },
+      {
+       "type": "integer",
+       "description": "TimeoutSeconds for the list/watch call.",
+       "name": "timeoutSeconds",
+       "in": "query"
+      },
+      {
+       "type": "boolean",
+       "description": "Watch for changes to the described resources and return them as a stream of add, update, and remove notifications. Specify resourceVersion.",
+       "name": "watch",
+       "in": "query"
+      }
+     ],
+     "responses": {
+      "200": {
+       "description": "OK",
+       "schema": {
+        "$ref": "#/definitions/v1.WatchEvent"
+       }
+      },
+      "401": {
+       "description": "Unauthorized"
+      },
+      "default": {
+       "description": "OK",
+       "schema": {
+        "$ref": "#/definitions/v1.WatchEvent"
+       }
+      }
+     }
+    }
+   },
+   "/apis/cdi.kubevirt.io/v1alpha1/watch/namespaces/{namespace}/cdis": {
+    "get": {
+     "produces": [
+      "application/json"
+     ],
+     "summary": "Watch a CDI object.",
+     "operationId": "watchNamespacedCDI",
+     "parameters": [
+      {
+       "pattern": "[a-z0-9][a-z0-9\\-]*",
+       "type": "string",
+       "description": "Object name and auth scope, such as for teams and projects",
+       "name": "namespace",
+       "in": "path",
+       "required": true
+      },
       {
        "type": "string",
        "description": "The continue option should be set when retrieving more results from the server. Since this value is server defined, clients may only use the continue value from a previous query result with identical query parameters (except for the value of continue) and the server may reject a continue value it does not recognize. If the specified continue value is no longer valid whether due to expiration (generally five to fifteen minutes) or a configuration change on the server the server will respond with a 410 ResourceExpired error indicating the client must restart their list without the continue field. This field is not supported when watch is true. Clients may start a watch from the last resourceVersion value returned by the server and not miss any modifications.",
@@ -1143,6 +1847,13 @@
       "description": "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#resources",
       "type": "string"
      },
+     "dryRun": {
+      "description": "When present, indicates that modifications should not be persisted. An invalid or unrecognized dryRun directive will result in an error response and no further processing of the request. Valid values are: - All: all dry run stages will be processed",
+      "type": "array",
+      "items": {
+       "type": "string"
+      }
+     },
      "gracePeriodSeconds": {
       "description": "The duration in seconds before the object should be deleted. Value must be non-negative integer. The value zero indicates delete immediately. If this value is nil, the default grace period for the specified type will be used. Defaults to a per object value if not specified. zero means delete immediately.",
       "type": "integer",
@@ -1262,7 +1973,7 @@
     "description": "ListMeta describes metadata that synthetic resources must have, including lists and various status objects. A resource may have only one of {ObjectMeta, ListMeta}.",
     "properties": {
      "continue": {
-      "description": "continue may be set if the user set a limit on the number of items returned, and indicates that the server has more data available. The value is opaque and may be used to issue another request to the endpoint that served this list to retrieve the next set of available objects. Continuing a list may not be possible if the server configuration has changed or more than a few minutes have passed. The resourceVersion field returned when using this continue value will be identical to the value in the first response.",
+      "description": "continue may be set if the user set a limit on the number of items returned, and indicates that the server has more data available. The value is opaque and may be used to issue another request to the endpoint that served this list to retrieve the next set of available objects. Continuing a consistent list may not be possible if the server configuration has changed or more than a few minutes have passed. The resourceVersion field returned when using this continue value will be identical to the value in the first response, unless you have received this token from an error message.",
       "type": "string"
      },
      "resourceVersion": {
@@ -1402,6 +2113,9 @@
    "v1.PersistentVolumeAccessMode": {},
    "v1.PersistentVolumeClaimSpec": {
     "description": "PersistentVolumeClaimSpec describes the common attributes of storage devices and allows a Source for provider-specific attributes",
+    "required": [
+     "dataSource"
+    ],
     "properties": {
      "accessModes": {
       "description": "AccessModes contains the desired access modes the volume should have. More info: https://kubernetes.io/docs/concepts/storage/persistent-volumes#access-modes-1",
@@ -1409,6 +2123,10 @@
       "items": {
        "$ref": "#/definitions/v1.PersistentVolumeAccessMode"
       }
+     },
+     "dataSource": {
+      "description": "This field requires the VolumeSnapshotDataSource alpha feature gate to be enabled and currently VolumeSnapshot is the only supported data source. If the provisioner can support VolumeSnapshot data source, it will create a new volume and data will be restored to the volume at the same time. If the provisioner does not support VolumeSnapshot data source, volume will not be created and the failure will be reported as an event. In the future, we plan to support more data source types and the behavior of the provisioner may change.",
+      "$ref": "#/definitions/v1.TypedLocalObjectReference"
      },
      "resources": {
       "description": "Resources represents the minimum resources the volume should have. More info: https://kubernetes.io/docs/concepts/storage/persistent-volumes#resources",
@@ -1566,6 +2284,28 @@
      }
     }
    },
+   "v1.TypedLocalObjectReference": {
+    "description": "TypedLocalObjectReference contains enough information to let you locate the typed referenced object inside the same namespace.",
+    "required": [
+     "apiGroup",
+     "kind",
+     "name"
+    ],
+    "properties": {
+     "apiGroup": {
+      "description": "APIGroup is the group for the resource being referenced. If APIGroup is not specified, the specified Kind must be in the core API group. For any other third-party types, APIGroup is required.",
+      "type": "string"
+     },
+     "kind": {
+      "description": "Kind is the type of resource being referenced",
+      "type": "string"
+     },
+     "name": {
+      "description": "Name is the name of resource being referenced",
+      "type": "string"
+     }
+    }
+   },
    "v1.WatchEvent": {
     "required": [
      "type",
@@ -1580,11 +2320,127 @@
      }
     }
    },
-   "v1alpha1.DataVolume": {
-    "description": "DataVolume provides a representation of our data volume\n+genclient\n+k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object",
+   "v1alpha1.CDI": {
+    "description": "CDI is the CDI Operator CRD\n+genclient\n+k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object",
     "required": [
      "spec",
      "status"
+    ],
+    "properties": {
+     "apiVersion": {
+      "description": "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#resources",
+      "type": "string"
+     },
+     "kind": {
+      "description": "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#types-kinds",
+      "type": "string"
+     },
+     "metadata": {
+      "$ref": "#/definitions/v1.ObjectMeta"
+     },
+     "spec": {
+      "$ref": "#/definitions/v1alpha1.CDISpec"
+     },
+     "status": {
+      "$ref": "#/definitions/v1alpha1.CDIStatus"
+     }
+    }
+   },
+   "v1alpha1.CDICondition": {
+    "description": "CDICondition represents a condition of a CDI deployment",
+    "required": [
+     "type",
+     "status"
+    ],
+    "properties": {
+     "lastProbeTime": {
+      "type": [
+       "string",
+       "null"
+      ]
+     },
+     "lastTransitionTime": {
+      "type": [
+       "string",
+       "null"
+      ]
+     },
+     "message": {
+      "type": "string"
+     },
+     "reason": {
+      "type": "string"
+     },
+     "status": {
+      "type": "string"
+     },
+     "type": {
+      "type": "string"
+     }
+    }
+   },
+   "v1alpha1.CDIList": {
+    "description": "CDIList provides the needed parameters to do request a list of CDIs from the system\n+k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object",
+    "required": [
+     "metadata",
+     "items"
+    ],
+    "properties": {
+     "apiVersion": {
+      "description": "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#resources",
+      "type": "string"
+     },
+     "items": {
+      "description": "Items provides a list of CDIs",
+      "type": "array",
+      "items": {
+       "$ref": "#/definitions/v1alpha1.CDI"
+      }
+     },
+     "kind": {
+      "description": "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#types-kinds",
+      "type": "string"
+     },
+     "metadata": {
+      "$ref": "#/definitions/v1.ListMeta"
+     }
+    }
+   },
+   "v1alpha1.CDISpec": {
+    "description": "CDISpec defines our specification for the CDI installation",
+    "properties": {
+     "imagePullPolicy": {
+      "type": "string"
+     }
+    }
+   },
+   "v1alpha1.CDIStatus": {
+    "description": "CDIStatus defines the status of the CDI installation",
+    "properties": {
+     "conditions": {
+      "type": "array",
+      "items": {
+       "$ref": "#/definitions/v1alpha1.CDICondition"
+      }
+     },
+     "observedVersion": {
+      "type": "string"
+     },
+     "operatorVersion": {
+      "type": "string"
+     },
+     "phase": {
+      "type": "string"
+     },
+     "targetVersion": {
+      "type": "string"
+     }
+    }
+   },
+   "v1alpha1.DataVolume": {
+    "description": "DataVolume provides a representation of our data volume\n+genclient\n+k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object",
+    "required": [
+     "spec"
     ],
     "properties": {
      "apiVersion": {
@@ -1719,6 +2575,10 @@
      "pvc"
     ],
     "properties": {
+     "contentType": {
+      "description": "DataVolumeContentType options: \"kubevirt\", \"archive\"",
+      "type": "string"
+     },
      "pvc": {
       "description": "PVC is a pointer to the PVC Spec we want to use",
       "$ref": "#/definitions/v1.PersistentVolumeClaimSpec"

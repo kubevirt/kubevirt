@@ -177,6 +177,7 @@ type Features struct {
 	ACPI   *FeatureEnabled `xml:"acpi,omitempty"`
 	APIC   *FeatureEnabled `xml:"apic,omitempty"`
 	Hyperv *FeatureHyperv  `xml:"hyperv,omitempty"`
+	SMM    *FeatureEnabled `xml:"smm,omitempty"`
 }
 
 type FeatureHyperv struct {
@@ -283,10 +284,18 @@ type Devices struct {
 	Graphics    []Graphics   `xml:"graphics"`
 	Ballooning  *Ballooning  `xml:"memballoon,omitempty"`
 	Disks       []Disk       `xml:"disk"`
+	Inputs      []Input      `xml:"input"`
 	Serials     []Serial     `xml:"serial"`
 	Consoles    []Console    `xml:"console"`
 	Watchdog    *Watchdog    `xml:"watchdog,omitempty"`
 	Rng         *Rng         `xml:"rng,omitempty"`
+}
+
+// Input represents input device, e.g. tablet
+type Input struct {
+	Type  string `xml:"type,attr"`
+	Bus   string `xml:"bus,attr"`
+	Alias *Alias `xml:"alias,omitempty"`
 }
 
 // BEGIN HostDevice -----------------------------
@@ -531,6 +540,8 @@ type OS struct {
 	BootOrder  []Boot    `xml:"boot"`
 	BootMenu   *BootMenu `xml:"bootmenu,omitempty"`
 	BIOS       *BIOS     `xml:"bios,omitempty"`
+	BootLoader *Loader   `xml:"loader,omitempty"`
+	NVRam      *NVRam    `xml:"nvram,omitempty"`
 	Kernel     string    `xml:"kernel,omitempty"`
 	Initrd     string    `xml:"initrd,omitempty"`
 	KernelArgs string    `xml:"cmdline,omitempty"`
@@ -547,8 +558,8 @@ type SMBios struct {
 }
 
 type NVRam struct {
-	NVRam    string `xml:",chardata,omitempty"`
 	Template string `xml:"template,attr,omitempty"`
+	NVRam    string `xml:",chardata"`
 }
 
 type Boot struct {
@@ -561,11 +572,15 @@ type BootMenu struct {
 }
 
 // TODO <loader readonly='yes' secure='no' type='rom'>/usr/lib/xen/boot/hvmloader</loader>
-type BIOS struct {
+type Loader struct {
+	ReadOnly string `xml:"readonly,attr,omitempty"`
+	Secure   string `xml:"secure,attr,omitempty"`
+	Type     string `xml:"type,attr,omitempty"`
+	Path     string `xml:",chardata"`
 }
 
 // TODO <bios useserial='yes' rebootTimeout='0'/>
-type Loader struct {
+type BIOS struct {
 }
 
 type SysInfo struct {

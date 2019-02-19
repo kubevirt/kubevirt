@@ -20,6 +20,12 @@ var _ = Describe("Defaults", func() {
 		Expect(vmi.Spec.Domain.Features.Hyperv).To(BeNil())
 	})
 
+	It("should not add SMM feature if it is unspecified", func() {
+		vmi := &VirtualMachineInstance{}
+		SetObjectDefaults_VirtualMachineInstance(vmi)
+		Expect(vmi.Spec.Domain.Features.SMM).To(BeNil())
+	})
+
 	It("should add interface and pod network by default", func() {
 		vmi := &VirtualMachineInstance{}
 		SetObjectDefaults_VirtualMachineInstance(vmi)
@@ -35,6 +41,7 @@ var _ = Describe("Defaults", func() {
 		}
 		vmi.Spec.Domain.Features = &Features{
 			ACPI: FeatureState{},
+			SMM:  &FeatureState{},
 			APIC: &FeatureAPIC{},
 			Hyperv: &FeatureHyperv{
 				Relaxed:    &FeatureState{},
@@ -54,6 +61,7 @@ var _ = Describe("Defaults", func() {
 		hyperv := features.Hyperv
 
 		Expect(*features.ACPI.Enabled).To(BeTrue())
+		Expect(*features.SMM.Enabled).To(BeTrue())
 		Expect(*features.APIC.Enabled).To(BeTrue())
 		Expect(*hyperv.Relaxed.Enabled).To(BeTrue())
 		Expect(*hyperv.VAPIC.Enabled).To(BeTrue())

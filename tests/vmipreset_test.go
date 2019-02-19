@@ -38,7 +38,7 @@ import (
 	"kubevirt.io/kubevirt/tests"
 )
 
-var _ = Describe("VMIPreset", func() {
+var _ = Describe("[rfe_id:609][crit:medium][vendor:cnv-qe@redhat.com][level:component]VMIPreset", func() {
 	flag.Parse()
 
 	virtClient, err := kubecli.GetKubevirtClient()
@@ -88,9 +88,9 @@ var _ = Describe("VMIPreset", func() {
 
 	Context("CRD Validation", func() {
 
-		It("Should reject POST if schema is invalid", func() {
+		It("[test_id:1595]Should reject POST if schema is invalid", func() {
 			// Preset with missing selector should fail CRD validation
-			jsonString := "{\"kind\":\"VirtualMachineInstancePreset\",\"apiVersion\":\"kubevirt.io/v1alpha2\",\"metadata\":{\"generateName\":\"test-memory-\",\"creationTimestamp\":null},\"spec\":{}}"
+			jsonString := "{\"kind\":\"VirtualMachineInstancePreset\",\"apiVersion\":\"kubevirt.io/v1alpha3\",\"metadata\":{\"generateName\":\"test-memory-\",\"creationTimestamp\":null},\"spec\":{}}"
 
 			result := virtClient.RestClient().Post().Resource("virtualmachineinstancepresets").Namespace(tests.NamespaceTestDefault).Body([]byte(jsonString)).SetHeader("Content-Type", "application/json").Do()
 
@@ -99,7 +99,7 @@ var _ = Describe("VMIPreset", func() {
 			result.StatusCode(&statusCode)
 			Expect(statusCode).To(Equal(http.StatusUnprocessableEntity))
 		})
-		It("should reject POST if validation webhoook deems the spec is invalid", func() {
+		It("[test_id:1596]should reject POST if validation webhoook deems the spec is invalid", func() {
 			preset := &v1.VirtualMachineInstancePreset{
 				ObjectMeta: k8smetav1.ObjectMeta{GenerateName: "fake"},
 				Spec: v1.VirtualMachineInstancePresetSpec{
@@ -109,8 +109,7 @@ var _ = Describe("VMIPreset", func() {
 			}
 			// disk with two targets is invalid
 			preset.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
-				Name:       "testdisk",
-				VolumeName: "testvolume",
+				Name: "testdisk",
 				DiskDevice: v1.DiskDevice{
 					Disk:   &v1.DiskTarget{},
 					Floppy: &v1.FloppyTarget{},
@@ -133,12 +132,12 @@ var _ = Describe("VMIPreset", func() {
 	})
 	Context("Preset Matching", func() {
 
-		It("Should be accepted on POST", func() {
+		It("[test_id:1597]Should be accepted on POST", func() {
 			err := virtClient.RestClient().Post().Resource("virtualmachineinstancepresets").Namespace(tests.NamespaceTestDefault).Body(memoryPreset).Do().Error()
 			Expect(err).To(BeNil())
 		})
 
-		It("Should reject a second submission of a VMIPreset", func() {
+		It("[test_id:1598]Should reject a second submission of a VMIPreset", func() {
 			// This test requires an explicit name or the resources won't conflict
 			presetName := "test-preset"
 			memoryPreset.Name = presetName
@@ -154,7 +153,7 @@ var _ = Describe("VMIPreset", func() {
 			Expect(err).ToNot(HaveOccurred())
 		})
 
-		It("Should return 404 if VMIPreset does not exist", func() {
+		It("[test_id:1599]Should return 404 if VMIPreset does not exist", func() {
 			b, err := virtClient.RestClient().Get().Resource("virtualmachineinstancepresets").Namespace(tests.NamespaceTestDefault).Name("wrong").DoRaw()
 			Expect(err).To(HaveOccurred())
 			status := k8smetav1.Status{}
@@ -163,7 +162,7 @@ var _ = Describe("VMIPreset", func() {
 			Expect(status.Code).To(Equal(int32(http.StatusNotFound)))
 		})
 
-		It("Should reject presets that conflict with VirtualMachineInstance settings", func() {
+		It("[test_id:1600]Should reject presets that conflict with VirtualMachineInstance settings", func() {
 			err := virtClient.RestClient().Post().Resource("virtualmachineinstancepresets").Namespace(tests.NamespaceTestDefault).Body(memoryPreset).Do().Error()
 			Expect(err).ToNot(HaveOccurred())
 
@@ -182,7 +181,7 @@ var _ = Describe("VMIPreset", func() {
 			Expect(found).To(BeFalse())
 		})
 
-		It("Should accept presets that don't conflict with VirtualMachineInstance settings", func() {
+		It("[test_id:1601]Should accept presets that don't conflict with VirtualMachineInstance settings", func() {
 			err := virtClient.RestClient().Post().Resource("virtualmachineinstancepresets").Namespace(tests.NamespaceTestDefault).Body(cpuPreset).Do().Error()
 			Expect(err).ToNot(HaveOccurred())
 
@@ -200,13 +199,13 @@ var _ = Describe("VMIPreset", func() {
 
 			// check the annotations
 			annotationKey := fmt.Sprintf("virtualmachinepreset.%s/%s", v1.GroupName, newPreset.Name)
-			Expect(newVMI.Annotations[annotationKey]).To(Equal("kubevirt.io/v1alpha2"))
+			Expect(newVMI.Annotations[annotationKey]).To(Equal("kubevirt.io/v1alpha3"))
 
 			// check a setting from the preset itself to show it was applied
 			Expect(int(newVMI.Spec.Domain.CPU.Cores)).To(Equal(cores))
 		})
 
-		It("Should ignore VMIs that don't match", func() {
+		It("[test_id:1602]Should ignore VMIs that don't match", func() {
 			err := virtClient.RestClient().Post().Resource("virtualmachineinstancepresets").Namespace(tests.NamespaceTestDefault).Body(memoryPreset).Do().Error()
 			Expect(err).ToNot(HaveOccurred())
 
@@ -227,7 +226,7 @@ var _ = Describe("VMIPreset", func() {
 			Expect(newVMI.Status.Phase).ToNot(Equal(v1.Failed))
 		})
 
-		It("Should not be applied to existing VMIs", func() {
+		It("[test_id:1603]Should not be applied to existing VMIs", func() {
 			// create the VirtualMachineInstance first
 			newVMI, err := virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
 			Expect(err).ToNot(HaveOccurred())
@@ -247,7 +246,7 @@ var _ = Describe("VMIPreset", func() {
 	})
 
 	Context("Exclusions", func() {
-		It("Should not apply presets to VirtualMachineInstance's with the exclusion marking", func() {
+		It("[test_id:1604]Should not apply presets to VirtualMachineInstance's with the exclusion marking", func() {
 			err := virtClient.RestClient().Post().Resource("virtualmachineinstancepresets").Namespace(tests.NamespaceTestDefault).Body(cpuPreset).Do().Error()
 			Expect(err).ToNot(HaveOccurred())
 
@@ -295,7 +294,7 @@ var _ = Describe("VMIPreset", func() {
 			}
 		})
 
-		It("should denied to start the VMI", func() {
+		It("[test_id:1605]should denied to start the VMI", func() {
 			err := virtClient.RestClient().Post().Resource("virtualmachineinstancepresets").Namespace(tests.NamespaceTestDefault).Body(conflictPreset).Do().Error()
 			Expect(err).ToNot(HaveOccurred())
 			waitForPreset(virtClient, conflictPrefix)

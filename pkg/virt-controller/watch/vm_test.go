@@ -15,12 +15,12 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/testing"
 	"k8s.io/client-go/tools/cache"
-	framework "k8s.io/client-go/tools/cache/testing"
+	"k8s.io/client-go/tools/cache/testing"
 	"k8s.io/client-go/tools/record"
 
-	cdiv1 "kubevirt.io/containerized-data-importer/pkg/apis/datavolumecontroller/v1alpha1"
+	cdiv1 "kubevirt.io/containerized-data-importer/pkg/apis/core/v1alpha1"
 	cdifake "kubevirt.io/containerized-data-importer/pkg/client/clientset/versioned/fake"
-	v1 "kubevirt.io/kubevirt/pkg/api/v1"
+	"kubevirt.io/kubevirt/pkg/api/v1"
 	virtv1 "kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/kubecli"
 	"kubevirt.io/kubevirt/pkg/testutils"
@@ -175,6 +175,61 @@ var _ = Describe("VirtualMachine", func() {
 			testutils.ExpectEvent(recorder, SuccessfulDataVolumeCreateReason)
 		})
 
+		It("should not delete failed DataVolume for VirtualMachineInstance until after timeout", func() {
+			vm, _ := DefaultVirtualMachine(true)
+			vm.Spec.Template.Spec.Volumes = append(vm.Spec.Template.Spec.Volumes, v1.Volume{
+				Name: "test1",
+				VolumeSource: v1.VolumeSource{
+					DataVolume: &v1.DataVolumeSource{
+						Name: "dv1",
+					},
+				},
+			})
+			vm.Spec.Template.Spec.Volumes = append(vm.Spec.Template.Spec.Volumes, v1.Volume{
+				Name: "test1",
+				VolumeSource: v1.VolumeSource{
+					DataVolume: &v1.DataVolumeSource{
+						Name: "dv2",
+					},
+				},
+			})
+
+			vm.Spec.DataVolumeTemplates = append(vm.Spec.DataVolumeTemplates, cdiv1.DataVolume{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "dv1",
+				},
+			})
+			vm.Spec.DataVolumeTemplates = append(vm.Spec.DataVolumeTemplates, cdiv1.DataVolume{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "dv2",
+				},
+			})
+			addVirtualMachine(vm)
+
+			existingDataVolume1 := createDataVolumeManifest(&vm.Spec.DataVolumeTemplates[0], vm)
+			existingDataVolume1.Namespace = "default"
+			existingDataVolume1.Status.Phase = cdiv1.Failed
+
+			// set the delete after timestamp way into the future
+			existingDataVolume1.Annotations[dataVolumeDeleteAfterTimestampAnno] = strconv.FormatInt(time.Now().UTC().Unix()+60, 10)
+
+			existingDataVolume2 := createDataVolumeManifest(&vm.Spec.DataVolumeTemplates[1], vm)
+			existingDataVolume2.Namespace = "default"
+			existingDataVolume2.Status.Phase = cdiv1.Succeeded
+
+			dataVolumeFeeder.Add(existingDataVolume1)
+			dataVolumeFeeder.Add(existingDataVolume2)
+
+			deletionCount := 0
+
+			vmInterface.EXPECT().Update(gomock.Any()).Times(1).Return(vm, nil)
+
+			controller.Execute()
+
+			Expect(deletionCount).To(Equal(0))
+			testutils.ExpectEvent(recorder, FailedDataVolumeImportReason)
+		})
+
 		It("should delete failed DataVolume for VirtualMachineInstance", func() {
 			vm, _ := DefaultVirtualMachine(true)
 			vm.Spec.Template.Spec.Volumes = append(vm.Spec.Template.Spec.Volumes, v1.Volume{
@@ -267,6 +322,60 @@ var _ = Describe("VirtualMachine", func() {
 			existingDataVolume2 := createDataVolumeManifest(&vm.Spec.DataVolumeTemplates[1], vm)
 			existingDataVolume2.Namespace = "default"
 			existingDataVolume2.Status.Phase = cdiv1.Succeeded
+
+			dataVolumeFeeder.Add(existingDataVolume1)
+			dataVolumeFeeder.Add(existingDataVolume2)
+
+			shouldExpectDataVolumeUpdate(vm.UID, existingDataVolume1.Name)
+
+			vmInterface.EXPECT().Update(gomock.Any()).Times(1).Return(vm, nil)
+
+			controller.Execute()
+
+			testutils.ExpectEvent(recorder, FailedDataVolumeImportReason)
+		})
+
+		It("should handle failed DataVolume without Annotations", func() {
+			vm, _ := DefaultVirtualMachine(true)
+			vm.Spec.Template.Spec.Volumes = append(vm.Spec.Template.Spec.Volumes, v1.Volume{
+				Name: "test1",
+				VolumeSource: v1.VolumeSource{
+					DataVolume: &v1.DataVolumeSource{
+						Name: "dv1",
+					},
+				},
+			})
+			vm.Spec.Template.Spec.Volumes = append(vm.Spec.Template.Spec.Volumes, v1.Volume{
+				Name: "test1",
+				VolumeSource: v1.VolumeSource{
+					DataVolume: &v1.DataVolumeSource{
+						Name: "dv2",
+					},
+				},
+			})
+
+			vm.Spec.DataVolumeTemplates = append(vm.Spec.DataVolumeTemplates, cdiv1.DataVolume{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "dv1",
+				},
+			})
+			vm.Spec.DataVolumeTemplates = append(vm.Spec.DataVolumeTemplates, cdiv1.DataVolume{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "dv2",
+				},
+			})
+			addVirtualMachine(vm)
+
+			existingDataVolume1 := createDataVolumeManifest(&vm.Spec.DataVolumeTemplates[0], vm)
+			existingDataVolume1.Namespace = "default"
+			existingDataVolume1.Status.Phase = cdiv1.Failed
+			// explicitly delete the annotations field
+			existingDataVolume1.Annotations = nil
+
+			existingDataVolume2 := createDataVolumeManifest(&vm.Spec.DataVolumeTemplates[1], vm)
+			existingDataVolume2.Namespace = "default"
+			existingDataVolume2.Status.Phase = cdiv1.Succeeded
+			existingDataVolume2.Annotations = nil
 
 			dataVolumeFeeder.Add(existingDataVolume1)
 			dataVolumeFeeder.Add(existingDataVolume2)
@@ -421,8 +530,9 @@ var _ = Describe("VirtualMachine", func() {
 			controller.Execute()
 		})
 
-		It("should update status to created and ready when vmi is running", func() {
+		It("should update status to created and ready when vmi is running and running", func() {
 			vm, vmi := DefaultVirtualMachine(true)
+			markAsReady(vmi)
 
 			addVirtualMachine(vm)
 			vmiFeeder.Add(vmi)

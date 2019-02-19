@@ -34,6 +34,8 @@ import (
 	"kubevirt.io/kubevirt/tests"
 )
 
+const InvalidDataVolumeUrl = "http://127.0.0.1/invalid"
+
 var _ = Describe("DataVolume Integration", func() {
 	flag.Parse()
 
@@ -98,6 +100,35 @@ var _ = Describe("DataVolume Integration", func() {
 				}
 				err = virtClient.CdiClient().CdiV1alpha1().DataVolumes(dataVolume.Namespace).Delete(dataVolume.Name, &metav1.DeleteOptions{})
 				Expect(err).To(BeNil())
+			})
+		})
+	})
+
+	Describe("Starting a VirtualMachine with an invalid DataVolume", func() {
+		Context("using DataVolume with invalid URL", func() {
+			It("should correctly handle invalid DataVolumes", func() {
+				// Don't actually create the DataVolume since it's invalid.
+				dataVolume := tests.NewRandomDataVolumeWithHttpImport(InvalidDataVolumeUrl, tests.NamespaceTestDefault)
+				//  Add the invalid DataVolume to a VMI
+				vmi := tests.NewRandomVMIWithDataVolume(dataVolume.Name)
+				// Create a VM for this VMI
+				vm := tests.NewRandomVirtualMachine(vmi, true)
+
+				By("Creating a VM with an invalid DataVolume")
+				_, err := virtClient.VirtualMachine(vm.Namespace).Create(vm)
+				Expect(err).ToNot(HaveOccurred())
+
+				By("Waiting for VMI to be created")
+				Eventually(func() v1.VirtualMachineInstancePhase {
+					vmi, err = virtClient.VirtualMachineInstance(vm.Namespace).Get(vm.GetName(), &metav1.GetOptions{})
+					if err != nil {
+						Expect(err.Error()).To(ContainSubstring("not found"),
+							"A 404 while VMI is being created would be normal. All other errors are unexpected")
+						return v1.VmPhaseUnset
+					}
+					return vmi.Status.Phase
+
+				}, 100*time.Second, 5*time.Second).Should(Equal(v1.Pending), "VMI with invalid DataVolume should not be scheduled")
 			})
 		})
 	})

@@ -32,6 +32,7 @@ import (
 	. "github.com/onsi/gomega"
 	k8sv1 "k8s.io/api/core/v1"
 	v12 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	v13 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
@@ -104,7 +105,7 @@ var _ = Describe("Networking", func() {
 		ExpectWithOffset(1, strings.TrimSpace(output)).To(Equal(expectedValue))
 	}
 
-	Describe("Multiple virtual machines connectivity", func() {
+	Describe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:component]Multiple virtual machines connectivity", func() {
 		tests.BeforeAll(func() {
 			tests.BeforeTestCleanup()
 
@@ -229,10 +230,10 @@ var _ = Describe("Networking", func() {
 			}, 15)
 			Expect(err).ToNot(HaveOccurred())
 		},
-			table.Entry("the Inbound VirtualMachineInstance", "InboundVMI"),
-			table.Entry("the Inbound VirtualMachineInstance with pod network connectivity explicitly set", "InboundVMIWithPodNetworkSet"),
-			table.Entry("the Inbound VirtualMachineInstance with custom MAC address", "InboundVMIWithCustomMacAddress"),
-			table.Entry("the internet", "Internet"),
+			table.Entry("[test_id:1539]the Inbound VirtualMachineInstance", "InboundVMI"),
+			table.Entry("[test_id:1540]the Inbound VirtualMachineInstance with pod network connectivity explicitly set", "InboundVMIWithPodNetworkSet"),
+			table.Entry("[test_id:1541]the Inbound VirtualMachineInstance with custom MAC address", "InboundVMIWithCustomMacAddress"),
+			table.Entry("[test_id:1542]the internet", "Internet"),
 		)
 
 		table.DescribeTable("should be reachable via the propagated IP from a Pod", func(op v12.NodeSelectorOperator, hostNetwork bool) {
@@ -269,10 +270,10 @@ var _ = Describe("Networking", func() {
 			phase := waitForPodToFinish(job)
 			Expect(phase).To(Equal(v12.PodSucceeded))
 		},
-			table.Entry("on the same node from Pod", v12.NodeSelectorOpIn, false),
-			table.Entry("on a different node from Pod", v12.NodeSelectorOpNotIn, false),
-			table.Entry("on the same node from Node", v12.NodeSelectorOpIn, true),
-			table.Entry("on a different node from Node", v12.NodeSelectorOpNotIn, true),
+			table.Entry("[test_id:1543]on the same node from Pod", v12.NodeSelectorOpIn, false),
+			table.Entry("[test_id:1544]on a different node from Pod", v12.NodeSelectorOpNotIn, false),
+			table.Entry("[test_id:1545]on the same node from Node", v12.NodeSelectorOpIn, true),
+			table.Entry("[test_id:1546]on a different node from Node", v12.NodeSelectorOpNotIn, true),
 		)
 
 		Context("with a service matching the vmi exposed", func() {
@@ -295,7 +296,7 @@ var _ = Describe("Networking", func() {
 				Expect(err).ToNot(HaveOccurred())
 
 			})
-			It(" should be able to reach the vmi based on labels specified on the vmi", func() {
+			It("[test_id:1547] should be able to reach the vmi based on labels specified on the vmi", func() {
 
 				By("starting a pod which tries to reach the vmi via the defined service")
 				job := tests.NewHelloWorldJob(fmt.Sprintf("%s.%s", "myservice", inboundVMI.Namespace), strconv.Itoa(testPort))
@@ -306,7 +307,7 @@ var _ = Describe("Networking", func() {
 				phase := waitForPodToFinish(job)
 				Expect(phase).To(Equal(v12.PodSucceeded))
 			})
-			It("should fail to reach the vmi if an invalid servicename is used", func() {
+			It("[test_id:1548]should fail to reach the vmi if an invalid servicename is used", func() {
 
 				By("starting a pod which tries to reach the vmi via a non-existent service")
 				job := tests.NewHelloWorldJob(fmt.Sprintf("%s.%s", "wrongservice", inboundVMI.Namespace), strconv.Itoa(testPort))
@@ -345,7 +346,7 @@ var _ = Describe("Networking", func() {
 				Expect(err).ToNot(HaveOccurred())
 			})
 
-			It("should be able to reach the vmi via its unique fully qualified domain name", func() {
+			It("[test_id:1549]should be able to reach the vmi via its unique fully qualified domain name", func() {
 				By("starting a pod which tries to reach the vm via the defined service")
 				job := tests.NewHelloWorldJob(fmt.Sprintf("%s.%s.%s", inboundVMI.Spec.Hostname, inboundVMI.Spec.Subdomain, inboundVMI.Namespace), strconv.Itoa(testPort))
 				job, err = virtClient.CoreV1().Pods(inboundVMI.Namespace).Create(job)
@@ -361,13 +362,25 @@ var _ = Describe("Networking", func() {
 			})
 		})
 
-		Context("VirtualMachineInstance with default interface model", func() {
-			It("should expose the right device type to the guest", func() {
+		Context("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:component]VirtualMachineInstance with default interface model", func() {
+			// Unless an explicit interface model is specified, the default interface model is virtio.
+			It("[test_id:1550]should expose the right device type to the guest", func() {
 				By("checking the device vendor in /sys/class")
+
+				// Taken from https://wiki.osdev.org/Virtio#Technical_Details
+				virtio_vid := "0x1af4"
+
 				for _, networkVMI := range []*v1.VirtualMachineInstance{inboundVMI, outboundVMI} {
 					// as defined in https://vendev.org/pci/ven_1af4/
-					checkNetworkVendor(networkVMI, "0x1af4", "\\$ ")
+					checkNetworkVendor(networkVMI, virtio_vid, "\\$ ")
 				}
+			})
+
+			It("[test_id:1551]should reject the creation of virtual machine with unsupported interface model", func() {
+				// Create a virtual machine with an unsupported interface model
+				customIfVMI := NewRandomVMIWithInvalidNetworkInterface()
+				_, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(customIfVMI)
+				Expect(err).To(HaveOccurred())
 			})
 		})
 	})
@@ -420,6 +433,22 @@ var _ = Describe("Networking", func() {
 
 			tests.WaitUntilVMIReady(beafdeadVMI, tests.LoggedInAlpineExpecter)
 			checkMacAddress(beafdeadVMI, "be:af:00:00:de:ad", "localhost:~#")
+		})
+	})
+
+	Context("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:component]VirtualMachineInstance with invalid MAC addres", func() {
+		BeforeEach(func() {
+			tests.BeforeTestCleanup()
+		})
+
+		It("[test_id:700]should failed to start with invalid MAC address", func() {
+			By("Start VMI")
+			beafdeadVMI := tests.NewRandomVMIWithCustomMacAddress()
+			beafdeadVMI.Spec.Domain.Devices.Interfaces[0].MacAddress = "de:00c:00c:00:00:de:abc"
+			_, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(beafdeadVMI)
+			Expect(err).To(HaveOccurred())
+			testErr := err.(*errors.StatusError)
+			Expect(testErr.ErrStatus.Reason).To(BeEquivalentTo("Invalid"))
 		})
 	})
 
@@ -569,6 +598,7 @@ var _ = Describe("Networking", func() {
 				BootFileName:   "config",
 				TFTPServerName: "tftp.kubevirt.io",
 				NTPServers:     []string{"127.0.0.1", "127.0.0.2"},
+				PrivateOptions: []v1.DHCPPrivateOptions{v1.DHCPPrivateOptions{Option: 240, Value: "private.options.kubevirt.io"}},
 			}
 
 			_, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(dhcpVMI)
@@ -591,9 +621,43 @@ var _ = Describe("Networking", func() {
 				&expect.BExp{R: "#"},
 				&expect.BSnd{S: "cat /dhcp-env\n"},
 				&expect.BExp{R: "new_ntp_servers=127.0.0.1 127.0.0.2"},
+				&expect.BExp{R: "new_unknown_240=private.options.kubevirt.io"},
 				&expect.BExp{R: "#"},
 			}, 15)
 
+			Expect(err).ToNot(HaveOccurred())
+		})
+	})
+
+	Context("VirtualMachineInstance with custom dns", func() {
+		BeforeEach(func() {
+			tests.BeforeTestCleanup()
+		})
+		It("should have custom resolv.conf", func() {
+			userData := "#cloud-config\n"
+			dnsVMI := tests.NewRandomVMIWithEphemeralDiskAndUserdata(tests.ContainerDiskFor(tests.ContainerDiskCirros), userData)
+
+			dnsVMI.Spec.DNSPolicy = "None"
+			dnsVMI.Spec.DNSConfig = &k8sv1.PodDNSConfig{
+				Nameservers: []string{"8.8.8.8", "4.2.2.1"},
+				Searches:    []string{"example.com"},
+			}
+			_, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(dnsVMI)
+			Expect(err).ToNot(HaveOccurred())
+			tests.WaitUntilVMIReady(dnsVMI, tests.LoggedInCirrosExpecter)
+			err = tests.CheckForTextExpecter(dnsVMI, []expect.Batcher{
+				&expect.BSnd{S: "\n\n"},
+				&expect.BExp{R: "$"},
+				&expect.BSnd{S: "cat /etc/resolv.conf\n"},
+				&expect.BExp{R: "search example.com"},
+				&expect.BExp{R: "$"},
+				&expect.BSnd{S: "cat /etc/resolv.conf\n"},
+				&expect.BExp{R: "nameserver 8.8.8.8"},
+				&expect.BExp{R: "$"},
+				&expect.BSnd{S: "cat /etc/resolv.conf\n"},
+				&expect.BExp{R: "nameserver 4.2.2.1"},
+				&expect.BExp{R: "$"},
+			}, 15)
 			Expect(err).ToNot(HaveOccurred())
 		})
 	})
@@ -718,5 +782,13 @@ func waitUntilVMIReady(vmi *v1.VirtualMachineInstance, expecterFactory tests.VMI
 	expecter, err := expecterFactory(vmi)
 	Expect(err).ToNot(HaveOccurred())
 	expecter.Close()
+	return vmi
+}
+
+func NewRandomVMIWithInvalidNetworkInterface() *v1.VirtualMachineInstance {
+	// Use alpine because cirros dhcp client starts prematurily before link is ready
+	vmi := tests.NewRandomVMIWithEphemeralDisk(tests.ContainerDiskFor(tests.ContainerDiskAlpine))
+	tests.AddExplicitPodNetworkInterface(vmi)
+	vmi.Spec.Domain.Devices.Interfaces[0].Model = "gibberish"
 	return vmi
 }

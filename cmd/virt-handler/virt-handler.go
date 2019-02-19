@@ -45,6 +45,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/log"
 	_ "kubevirt.io/kubevirt/pkg/monitoring/client/prometheus"    // import for prometheus metrics
 	_ "kubevirt.io/kubevirt/pkg/monitoring/reflector/prometheus" // import for prometheus metrics
+	promvm "kubevirt.io/kubevirt/pkg/monitoring/vms/prometheus"  // import for prometheus metrics
 	_ "kubevirt.io/kubevirt/pkg/monitoring/workqueue/prometheus" // import for prometheus metrics
 	"kubevirt.io/kubevirt/pkg/service"
 	"kubevirt.io/kubevirt/pkg/util"
@@ -166,7 +167,7 @@ func (app *virtHandlerApp) Run() {
 		domainSharedInformer,
 		gracefulShutdownInformer,
 		int(app.WatchdogTimeoutDuration.Seconds()),
-		maxDevices,
+		app.MaxDevices,
 	)
 
 	certsDirectory, err := ioutil.TempDir("", "certsdir")
@@ -182,6 +183,9 @@ func (app *virtHandlerApp) Run() {
 	if err != nil {
 		glog.Fatalf("unable to generate certificates: %v", err)
 	}
+
+	promvm.SetupCollector(app.VirtShareDir)
+
 	// Bootstrapping. From here on the startup order matters
 	stop := make(chan struct{})
 	defer close(stop)

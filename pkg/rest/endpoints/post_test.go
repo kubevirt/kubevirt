@@ -37,7 +37,7 @@ import (
 )
 
 func newValidJSONPostRequest() *http.Request {
-	request, _ := http.NewRequest("POST", "/apis/kubevirt.io/v1alpha2/namespaces/default/virtualmachineinstances", nil)
+	request, _ := http.NewRequest("POST", "/apis/kubevirt.io/v1alpha3/namespaces/default/virtualmachineinstances", nil)
 	request.Body = marshalToJSON(payload{Name: "test", Email: "test@test.com"})
 	request.Header.Set("Content-Type", rest.MIME_JSON)
 	return request
@@ -60,7 +60,7 @@ var _ = Describe("Post", func() {
 		handler = http.Handler(restful.NewContainer().Add(ws))
 
 		target := MakeGoRestfulWrapper(NewHandlerBuilder().Post((*payload)(nil)).Endpoint(testPostEndpoint).Build(ctx))
-		ws.Route(ws.POST("/apis/kubevirt.io/v1alpha2/namespaces/{namespace}/virtualmachineinstances").To(target))
+		ws.Route(ws.POST("/apis/kubevirt.io/v1alpha3/namespaces/{namespace}/virtualmachineinstances").To(target))
 
 		request = newValidJSONPostRequest()
 		recorder = httptest.NewRecorder()

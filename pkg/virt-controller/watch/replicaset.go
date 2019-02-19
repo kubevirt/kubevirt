@@ -100,7 +100,7 @@ type VMIReplicaSet struct {
 	burstReplicas uint
 }
 
-func (c *VMIReplicaSet) Run(threadiness int, stopCh chan struct{}) {
+func (c *VMIReplicaSet) Run(threadiness int, stopCh <-chan struct{}) {
 	defer controller.HandlePanic()
 	defer c.Queue.ShutDown()
 	log.Log.Info("Starting VirtualMachineInstanceReplicaSet controller.")
@@ -349,7 +349,7 @@ func (c *VMIReplicaSet) filterActiveVMIs(vmis []*virtv1.VirtualMachineInstance) 
 // filterReadyVMIs takes a list of VMIs and returns all VMIs which are in ready state.
 func (c *VMIReplicaSet) filterReadyVMIs(vmis []*virtv1.VirtualMachineInstance) []*virtv1.VirtualMachineInstance {
 	return filter(vmis, func(vmi *virtv1.VirtualMachineInstance) bool {
-		return vmi.IsReady()
+		return controller.NewVirtualMachineInstanceConditionManager().HasConditionWithStatus(vmi, virtv1.VirtualMachineInstanceConditionType(k8score.PodReady), k8score.ConditionTrue)
 	})
 }
 

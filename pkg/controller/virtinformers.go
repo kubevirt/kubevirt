@@ -24,18 +24,28 @@ import (
 	"sync"
 	"time"
 
+	secv1 "github.com/openshift/api/security/v1"
+
+	appsv1 "k8s.io/api/apps/v1"
 	k8sv1 "k8s.io/api/core/v1"
+	rbacv1 "k8s.io/api/rbac/v1"
+	extv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
+	extclient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
 
-	cdiv1 "kubevirt.io/containerized-data-importer/pkg/apis/datavolumecontroller/v1alpha1"
+	cdiv1 "kubevirt.io/containerized-data-importer/pkg/apis/core/v1alpha1"
 	cdiv1informers "kubevirt.io/containerized-data-importer/pkg/client/informers/externalversions"
 	kubev1 "kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/kubecli"
 	"kubevirt.io/kubevirt/pkg/log"
 	"kubevirt.io/kubevirt/pkg/testutils"
+)
+
+const (
+	OperatorLabel = kubev1.ManagedByLabel + "=" + kubev1.ManagedByLabelOperatorValue
 )
 
 type newSharedInformer func() cache.SharedIndexInformer
@@ -80,6 +90,42 @@ type KubeInformerFactory interface {
 
 	// Fake CDI DataVolume informer used when feature gate is disabled
 	DummyDataVolume() cache.SharedIndexInformer
+
+	// Wachtes for KubeVirt objects
+	KubeVirt() cache.SharedIndexInformer
+
+	// Service Accounts
+	OperatorServiceAccount() cache.SharedIndexInformer
+
+	// ClusterRole
+	OperatorClusterRole() cache.SharedIndexInformer
+
+	// ClusterRoleBinding
+	OperatorClusterRoleBinding() cache.SharedIndexInformer
+
+	// Roles
+	OperatorRole() cache.SharedIndexInformer
+
+	// RoleBinding
+	OperatorRoleBinding() cache.SharedIndexInformer
+
+	// CRD
+	OperatorCRD() cache.SharedIndexInformer
+
+	// Service
+	OperatorService() cache.SharedIndexInformer
+
+	// DaemonSet
+	OperatorDaemonSet() cache.SharedIndexInformer
+
+	// Deployment
+	OperatorDeployment() cache.SharedIndexInformer
+
+	// SecurityContextConstraints
+	OperatorSCC() cache.SharedIndexInformer
+
+	// Fake SecurityContextConstraints informer used when not on openshift
+	DummyOperatorSCC() cache.SharedIndexInformer
 }
 
 type kubeInformerFactory struct {
@@ -236,8 +282,140 @@ func (f *kubeInformerFactory) LimitRanges() cache.SharedIndexInformer {
 	})
 }
 
+func (f *kubeInformerFactory) KubeVirt() cache.SharedIndexInformer {
+	return f.getInformer("kubeVirtInformer", func() cache.SharedIndexInformer {
+		lw := cache.NewListWatchFromClient(f.restClient, "kubevirts", k8sv1.NamespaceAll, fields.Everything())
+		return cache.NewSharedIndexInformer(lw, &kubev1.KubeVirt{}, f.defaultResync, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
+	})
+}
+
 // resyncPeriod computes the time interval a shared informer waits before resyncing with the api server
 func resyncPeriod(minResyncPeriod time.Duration) time.Duration {
 	factor := rand.Float64() + 1
 	return time.Duration(float64(minResyncPeriod.Nanoseconds()) * factor)
+}
+
+func (f *kubeInformerFactory) OperatorServiceAccount() cache.SharedIndexInformer {
+	return f.getInformer("OperatorServiceAccountInformer", func() cache.SharedIndexInformer {
+		labelSelector, err := labels.Parse(OperatorLabel)
+		if err != nil {
+			panic(err)
+		}
+
+		lw := NewListWatchFromClient(f.clientSet.CoreV1().RESTClient(), "serviceaccounts", k8sv1.NamespaceAll, fields.Everything(), labelSelector)
+		return cache.NewSharedIndexInformer(lw, &k8sv1.ServiceAccount{}, f.defaultResync, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
+	})
+}
+
+func (f *kubeInformerFactory) OperatorClusterRole() cache.SharedIndexInformer {
+	return f.getInformer("OperatorClusterRoleInformer", func() cache.SharedIndexInformer {
+		labelSelector, err := labels.Parse(OperatorLabel)
+		if err != nil {
+			panic(err)
+		}
+
+		lw := NewListWatchFromClient(f.clientSet.RbacV1().RESTClient(), "clusterroles", k8sv1.NamespaceAll, fields.Everything(), labelSelector)
+		return cache.NewSharedIndexInformer(lw, &rbacv1.ClusterRole{}, f.defaultResync, cache.Indexers{})
+	})
+}
+func (f *kubeInformerFactory) OperatorClusterRoleBinding() cache.SharedIndexInformer {
+	return f.getInformer("OperatorClusterRoleBindingInformer", func() cache.SharedIndexInformer {
+		labelSelector, err := labels.Parse(OperatorLabel)
+		if err != nil {
+			panic(err)
+		}
+
+		lw := NewListWatchFromClient(f.clientSet.RbacV1().RESTClient(), "clusterrolebindings", k8sv1.NamespaceAll, fields.Everything(), labelSelector)
+		return cache.NewSharedIndexInformer(lw, &rbacv1.ClusterRoleBinding{}, f.defaultResync, cache.Indexers{})
+	})
+}
+func (f *kubeInformerFactory) OperatorRole() cache.SharedIndexInformer {
+	return f.getInformer("OperatorRoleInformer", func() cache.SharedIndexInformer {
+		labelSelector, err := labels.Parse(OperatorLabel)
+		if err != nil {
+			panic(err)
+		}
+
+		lw := NewListWatchFromClient(f.clientSet.RbacV1().RESTClient(), "roles", k8sv1.NamespaceAll, fields.Everything(), labelSelector)
+		return cache.NewSharedIndexInformer(lw, &rbacv1.Role{}, f.defaultResync, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
+	})
+}
+
+func (f *kubeInformerFactory) OperatorRoleBinding() cache.SharedIndexInformer {
+	return f.getInformer("OperatorRoleBindingInformer", func() cache.SharedIndexInformer {
+		labelSelector, err := labels.Parse(OperatorLabel)
+		if err != nil {
+			panic(err)
+		}
+
+		lw := NewListWatchFromClient(f.clientSet.RbacV1().RESTClient(), "rolebindings", k8sv1.NamespaceAll, fields.Everything(), labelSelector)
+		return cache.NewSharedIndexInformer(lw, &rbacv1.RoleBinding{}, f.defaultResync, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
+	})
+}
+
+func (f *kubeInformerFactory) OperatorCRD() cache.SharedIndexInformer {
+	return f.getInformer("OperatorCRDInformer", func() cache.SharedIndexInformer {
+		labelSelector, err := labels.Parse(OperatorLabel)
+		if err != nil {
+			panic(err)
+		}
+
+		ext, err := extclient.NewForConfig(f.clientSet.Config())
+		if err != nil {
+			panic(err)
+		}
+
+		lw := NewListWatchFromClient(ext.ApiextensionsV1beta1().RESTClient(), "customresourcedefinitions", k8sv1.NamespaceAll, fields.Everything(), labelSelector)
+		return cache.NewSharedIndexInformer(lw, &extv1beta1.CustomResourceDefinition{}, f.defaultResync, cache.Indexers{})
+	})
+}
+
+func (f *kubeInformerFactory) OperatorService() cache.SharedIndexInformer {
+	return f.getInformer("OperatorServiceInformer", func() cache.SharedIndexInformer {
+		labelSelector, err := labels.Parse(OperatorLabel)
+		if err != nil {
+			panic(err)
+		}
+
+		lw := NewListWatchFromClient(f.clientSet.CoreV1().RESTClient(), "services", k8sv1.NamespaceAll, fields.Everything(), labelSelector)
+		return cache.NewSharedIndexInformer(lw, &k8sv1.Service{}, f.defaultResync, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
+	})
+}
+
+func (f *kubeInformerFactory) OperatorDeployment() cache.SharedIndexInformer {
+	return f.getInformer("OperatorDeploymentInformer", func() cache.SharedIndexInformer {
+		labelSelector, err := labels.Parse(OperatorLabel)
+		if err != nil {
+			panic(err)
+		}
+
+		lw := NewListWatchFromClient(f.clientSet.AppsV1().RESTClient(), "deployments", k8sv1.NamespaceAll, fields.Everything(), labelSelector)
+		return cache.NewSharedIndexInformer(lw, &appsv1.Deployment{}, f.defaultResync, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
+	})
+}
+
+func (f *kubeInformerFactory) OperatorDaemonSet() cache.SharedIndexInformer {
+	return f.getInformer("OperatorDaemonSetInformer", func() cache.SharedIndexInformer {
+		labelSelector, err := labels.Parse(OperatorLabel)
+		if err != nil {
+			panic(err)
+		}
+
+		lw := NewListWatchFromClient(f.clientSet.AppsV1().RESTClient(), "daemonsets", k8sv1.NamespaceAll, fields.Everything(), labelSelector)
+		return cache.NewSharedIndexInformer(lw, &appsv1.DaemonSet{}, f.defaultResync, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
+	})
+}
+
+func (f *kubeInformerFactory) OperatorSCC() cache.SharedIndexInformer {
+	return f.getInformer("OperatorSCC", func() cache.SharedIndexInformer {
+		lw := cache.NewListWatchFromClient(f.clientSet.SecClient().RESTClient(), "securitycontextconstraints", k8sv1.NamespaceAll, fields.Everything())
+		return cache.NewSharedIndexInformer(lw, &secv1.SecurityContextConstraints{}, f.defaultResync, cache.Indexers{})
+	})
+}
+
+func (f *kubeInformerFactory) DummyOperatorSCC() cache.SharedIndexInformer {
+	return f.getInformer("FakeOperatorSCC", func() cache.SharedIndexInformer {
+		informer, _ := testutils.NewFakeInformerFor(&secv1.SecurityContextConstraints{})
+		return informer
+	})
 }

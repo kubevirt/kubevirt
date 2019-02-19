@@ -30,6 +30,8 @@ func (VirtualMachineInstanceSpec) SwaggerDoc() map[string]string {
 		"hostname":                      "Specifies the hostname of the vmi\nIf not specified, the hostname will be set to the name of the vmi, if dhcp or cloud-init is configured properly.\n+optional",
 		"subdomain":                     "If specified, the fully qualified vmi hostname will be \"<hostname>.<subdomain>.<pod namespace>.svc.<cluster domain>\".\nIf not specified, the vmi will not have a domainname at all. The DNS entry will resolve to the vmi,\nno matter if the vmi itself can pick up a hostname.\n+optional",
 		"networks":                      "List of networks that can be attached to a vm's virtual interface.",
+		"dnsPolicy":                     "Set DNS policy for the pod.\nDefaults to \"ClusterFirst\".\nValid values are 'ClusterFirstWithHostNet', 'ClusterFirst', 'Default' or 'None'.\nDNS parameters given in DNSConfig will be merged with the policy selected with DNSPolicy.\nTo have DNS options set along with hostNetwork, you have to specify DNS policy\nexplicitly to 'ClusterFirstWithHostNet'.\n+optional",
+		"dnsConfig":                     "Specifies the DNS parameters of a pod.\nParameters specified here will be merged to the generated DNS\nconfiguration based on DNSPolicy.\n+optional",
 	}
 }
 
@@ -62,15 +64,17 @@ func (VirtualMachineInstanceNetworkInterface) SwaggerDoc() map[string]string {
 
 func (VirtualMachineInstanceMigrationState) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"startTimestamp":           "The time the migration action began",
-		"endTimestamp":             "The time the migration action ended",
-		"targetNodeDomainDetected": "The Target Node has seen the Domain Start Event",
-		"targetNodeAddress":        "The address of the target node to use for the migration",
-		"targetNode":               "The target node that the VMI is moving to",
-		"sourceNode":               "The source node that the VMI originated on",
-		"completed":                "Indicates the migration completed",
-		"failed":                   "Indicates that the migration failed",
-		"migrationUid":             "The VirtualMachineInstanceMigration object associated with this migration",
+		"startTimestamp":                 "The time the migration action began",
+		"endTimestamp":                   "The time the migration action ended",
+		"targetNodeDomainDetected":       "The Target Node has seen the Domain Start Event",
+		"targetNodeAddress":              "The address of the target node to use for the migration",
+		"targetDirectMigrationNodePorts": "The list of ports opened for live migration on the destination node",
+		"targetNode":                     "The target node that the VMI is moving to",
+		"targetPod":                      "The target pod that the VMI is moving to",
+		"sourceNode":                     "The source node that the VMI originated on",
+		"completed":                      "Indicates the migration completed",
+		"failed":                         "Indicates that the migration failed",
+		"migrationUid":                   "The VirtualMachineInstanceMigration object associated with this migration",
 	}
 }
 
@@ -213,11 +217,41 @@ func (Handler) SwaggerDoc() map[string]string {
 
 func (Probe) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"": "Probe describes a health check to be performed against a VirtualMachineInstance to determine whether it is\nalive or ready to receive traffic.",
+		"":                    "Probe describes a health check to be performed against a VirtualMachineInstance to determine whether it is\nalive or ready to receive traffic.",
 		"initialDelaySeconds": "Number of seconds after the VirtualMachineInstance has started before liveness probes are initiated.\nMore info: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle#container-probes\n+optional",
 		"timeoutSeconds":      "Number of seconds after which the probe times out.\nDefaults to 1 second. Minimum value is 1.\nMore info: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle#container-probes\n+optional",
 		"periodSeconds":       "How often (in seconds) to perform the probe.\nDefault to 10 seconds. Minimum value is 1.\n+optional",
 		"successThreshold":    "Minimum consecutive successes for the probe to be considered successful after having failed.\nDefaults to 1. Must be 1 for liveness. Minimum value is 1.\n+optional",
 		"failureThreshold":    "Minimum consecutive failures for the probe to be considered failed after having succeeded.\nDefaults to 3. Minimum value is 1.\n+optional",
+	}
+}
+
+func (KubeVirt) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"": "KubeVirt represents the object deploying all KubeVirt resources",
+	}
+}
+
+func (KubeVirtList) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"": "KubeVirtList is a list of KubeVirts",
+	}
+}
+
+func (KubeVirtSpec) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"imagePullPolicy": "The ImagePullPolicy to use.",
+	}
+}
+
+func (KubeVirtStatus) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"": "KubeVirtStatus represents information pertaining to a KubeVirt deployment.",
+	}
+}
+
+func (KubeVirtCondition) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"": "KubeVirtCondition represents a condition of a KubeVirt deployment",
 	}
 }

@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"time"
 
 	"github.com/golang/mock/gomock"
@@ -124,7 +125,13 @@ var _ = Describe("ImageUpload", func() {
 				Namespace: pvcNamespace,
 			},
 			Subsets: []v1.EndpointSubset{
-				{},
+				{
+					Addresses: []v1.EndpointAddress{
+						{
+							IP: "10.10.10.10",
+						},
+					},
+				},
 			},
 		}
 	}
@@ -146,6 +153,7 @@ var _ = Describe("ImageUpload", func() {
 		server = httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			w.WriteHeader(statusCode)
 		}))
+
 		imageupload.SetHTTPClientCreator(func(bool) *http.Client {
 			return server.Client()
 		})
@@ -254,5 +262,18 @@ var _ = Describe("ImageUpload", func() {
 		AfterEach(func() {
 			testDone()
 		})
+	})
+
+	Context("URL validation", func() {
+		serverURL := "http://localhost:12345"
+		DescribeTable("Server URL validations", func(serverUrl string, expected string) {
+			path, err := imageupload.ConstructUploadProxyPath(serverUrl)
+			Expect(err).To(BeNil())
+			Expect(strings.Compare(path, expected)).To(BeZero())
+		},
+			Entry("Server URL with trailing slash should pass", serverURL+"/", serverURL+imageupload.UploadProxyURI),
+			Entry("Server URL with URI should pass", serverURL+imageupload.UploadProxyURI, serverURL+imageupload.UploadProxyURI),
+			Entry("Server URL only should pass", serverURL, serverURL+imageupload.UploadProxyURI),
+		)
 	})
 })

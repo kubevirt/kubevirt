@@ -10,7 +10,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 
-	cdiv1 "kubevirt.io/containerized-data-importer/pkg/apis/datavolumecontroller/v1alpha1"
+	cdiv1 "kubevirt.io/containerized-data-importer/pkg/apis/core/v1alpha1"
 	cdiclientset "kubevirt.io/containerized-data-importer/pkg/client/clientset/versioned"
 )
 
@@ -23,7 +23,9 @@ const (
 
 const (
 	// TinyCoreIsoURL provides a test url for the tineyCore iso image
-	TinyCoreIsoURL = "http://cdi-file-host.kube-system/tinyCore.iso"
+	TinyCoreIsoURL = "http://cdi-file-host.cdi/tinyCore.iso"
+	// TinyCoreIsoRegistryURL provides a test url for the tineyCore iso image stored in docker registry
+	TinyCoreIsoRegistryURL = "docker://cdi-docker-registry-host.cdi/tinycore.qcow2"
 )
 
 // CreateDataVolumeFromDefinition is used by tests to create a testable Data Volume
@@ -54,8 +56,8 @@ func DeleteDataVolume(clientSet *cdiclientset.Clientset, namespace, name string)
 	})
 }
 
-// NewDataVolumeWithPVCImport initializes a DataVolume struct with PVC annotations
-func NewDataVolumeWithPVCImport(dataVolumeName string, size string, targetPvc *k8sv1.PersistentVolumeClaim) *cdiv1.DataVolume {
+// NewCloningDataVolume initializes a DataVolume struct with PVC annotations
+func NewCloningDataVolume(dataVolumeName string, size string, sourcePvc *k8sv1.PersistentVolumeClaim) *cdiv1.DataVolume {
 	return &cdiv1.DataVolume{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: dataVolumeName,
@@ -63,8 +65,8 @@ func NewDataVolumeWithPVCImport(dataVolumeName string, size string, targetPvc *k
 		Spec: cdiv1.DataVolumeSpec{
 			Source: cdiv1.DataVolumeSource{
 				PVC: &cdiv1.DataVolumeSourcePVC{
-					Name:      targetPvc.Name,
-					Namespace: targetPvc.Namespace,
+					Name:      sourcePvc.Name,
+					Namespace: sourcePvc.Namespace,
 				},
 			},
 			PVC: &k8sv1.PersistentVolumeClaimSpec{
@@ -89,6 +91,99 @@ func NewDataVolumeWithHTTPImport(dataVolumeName string, size string, httpURL str
 			Source: cdiv1.DataVolumeSource{
 				HTTP: &cdiv1.DataVolumeSourceHTTP{
 					URL: httpURL,
+				},
+			},
+			PVC: &k8sv1.PersistentVolumeClaimSpec{
+				AccessModes: []k8sv1.PersistentVolumeAccessMode{k8sv1.ReadWriteOnce},
+				Resources: k8sv1.ResourceRequirements{
+					Requests: k8sv1.ResourceList{
+						k8sv1.ResourceName(k8sv1.ResourceStorage): resource.MustParse(size),
+					},
+				},
+			},
+		},
+	}
+}
+
+// NewDataVolumeForUpload initializes a DataVolume struct with Upload annotations
+func NewDataVolumeForUpload(dataVolumeName string, size string) *cdiv1.DataVolume {
+	return &cdiv1.DataVolume{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: dataVolumeName,
+		},
+		Spec: cdiv1.DataVolumeSpec{
+			Source: cdiv1.DataVolumeSource{
+				Upload: &cdiv1.DataVolumeSourceUpload{},
+			},
+			PVC: &k8sv1.PersistentVolumeClaimSpec{
+				AccessModes: []k8sv1.PersistentVolumeAccessMode{k8sv1.ReadWriteOnce},
+				Resources: k8sv1.ResourceRequirements{
+					Requests: k8sv1.ResourceList{
+						k8sv1.ResourceName(k8sv1.ResourceStorage): resource.MustParse(size),
+					},
+				},
+			},
+		},
+	}
+}
+
+// NewDataVolumeForBlankRawImage initializes a DataVolume struct for creating blank raw image
+func NewDataVolumeForBlankRawImage(dataVolumeName, size string) *cdiv1.DataVolume {
+	return &cdiv1.DataVolume{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: dataVolumeName,
+		},
+		Spec: cdiv1.DataVolumeSpec{
+			Source: cdiv1.DataVolumeSource{
+				Blank: &cdiv1.DataVolumeBlankImage{},
+			},
+			PVC: &k8sv1.PersistentVolumeClaimSpec{
+				AccessModes: []k8sv1.PersistentVolumeAccessMode{k8sv1.ReadWriteOnce},
+				Resources: k8sv1.ResourceRequirements{
+					Requests: k8sv1.ResourceList{
+						k8sv1.ResourceName(k8sv1.ResourceStorage): resource.MustParse(size),
+					},
+				},
+			},
+		},
+	}
+}
+
+// NewDataVolumeForImageCloning initializes a DataVolume struct for cloning disk image
+func NewDataVolumeForImageCloning(dataVolumeName, size string, namespace, pvcName string) *cdiv1.DataVolume {
+	return &cdiv1.DataVolume{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: dataVolumeName,
+		},
+		Spec: cdiv1.DataVolumeSpec{
+			Source: cdiv1.DataVolumeSource{
+				PVC: &cdiv1.DataVolumeSourcePVC{
+					Namespace: namespace,
+					Name:      pvcName,
+				},
+			},
+			PVC: &k8sv1.PersistentVolumeClaimSpec{
+				AccessModes: []k8sv1.PersistentVolumeAccessMode{k8sv1.ReadWriteOnce},
+				Resources: k8sv1.ResourceRequirements{
+					Requests: k8sv1.ResourceList{
+						k8sv1.ResourceName(k8sv1.ResourceStorage): resource.MustParse(size),
+					},
+				},
+			},
+		},
+	}
+}
+
+// NewDataVolumeWithRegistryImport initializes a DataVolume struct with registry annotations
+func NewDataVolumeWithRegistryImport(dataVolumeName string, size string, registryURL string) *cdiv1.DataVolume {
+	return &cdiv1.DataVolume{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: dataVolumeName,
+		},
+		Spec: cdiv1.DataVolumeSpec{
+			Source: cdiv1.DataVolumeSource{
+				Registry: &cdiv1.DataVolumeSourceRegistry{
+					URL: registryURL,
 				},
 			},
 			PVC: &k8sv1.PersistentVolumeClaimSpec{

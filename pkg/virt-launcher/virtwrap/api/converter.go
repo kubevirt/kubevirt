@@ -46,7 +46,11 @@ import (
 )
 
 const (
-	defaultIOThread = uint(1)
+	CPUModeHostPassthrough = "host-passthrough"
+	CPUModeHostModel       = "host-model"
+	defaultIOThread        = uint(1)
+	EFIPath                = "/usr/share/OVMF/OVMF_CODE.fd"
+	EFIVarsPath            = "/usr/share/OVMF/OVMF_VARS.fd"
 )
 
 type ConverterContext struct {
@@ -400,6 +404,25 @@ func Convert_v1_Rng_To_api_Rng(source *v1.Rng, rng *Rng, _ *ConverterContext) er
 	return nil
 }
 
+func Convert_v1_Input_To_api_InputDevice(input *v1.Input, inputDevice *Input, _ *ConverterContext) error {
+	if input.Bus != "virtio" && input.Bus != "usb" && input.Bus != "" {
+		return fmt.Errorf("input contains unsupported bus %s", input.Bus)
+	}
+
+	if input.Bus != "virtio" && input.Bus != "usb" {
+		input.Bus = "usb"
+	}
+
+	if input.Type != "tablet" {
+		return fmt.Errorf("input contains unsupported type %s", input.Type)
+	}
+
+	inputDevice.Bus = input.Bus
+	inputDevice.Type = input.Type
+	inputDevice.Alias = &Alias{Name: input.Name}
+	return nil
+}
+
 func Convert_v1_Clock_To_api_Clock(source *v1.Clock, clock *Clock, c *ConverterContext) error {
 	if source.UTC != nil {
 		clock.Offset = "utc"
@@ -456,9 +479,27 @@ func convertFeatureState(source *v1.FeatureState) *FeatureState {
 	return nil
 }
 
+//isUSBDevicePresent checks if exists device with usb bus in vmi
+func isUSBDevicePresent(vmi *v1.VirtualMachineInstance) bool {
+	usbDeviceExists := false
+	for _, input := range vmi.Spec.Domain.Devices.Inputs {
+		if input.Bus == "usb" {
+			usbDeviceExists = true
+			return usbDeviceExists
+		}
+	}
+
+	return usbDeviceExists
+}
+
 func Convert_v1_Features_To_api_Features(source *v1.Features, features *Features, c *ConverterContext) error {
 	if source.ACPI.Enabled == nil || *source.ACPI.Enabled {
 		features.ACPI = &FeatureEnabled{}
+	}
+	if source.SMM != nil {
+		if source.SMM.Enabled == nil || *source.SMM.Enabled {
+			features.SMM = &FeatureEnabled{}
+		}
 	}
 	if source.APIC != nil {
 		if source.APIC.Enabled == nil || *source.APIC.Enabled {
@@ -594,6 +635,25 @@ func Convert_v1_VirtualMachine_To_api_Domain(vmi *v1.VirtualMachineInstance, dom
 				Value: string(vmi.Spec.Domain.Firmware.UUID),
 			},
 		}
+
+		if vmi.Spec.Domain.Firmware.Bootloader != nil && vmi.Spec.Domain.Firmware.Bootloader.EFI != nil {
+
+			domain.Spec.OS.BootLoader = &Loader{
+				Path:     EFIPath,
+				ReadOnly: "yes",
+				Secure:   "no",
+				Type:     "pflash",
+			}
+
+			domain.Spec.OS.NVRam = &NVRam{
+				NVRam:    filepath.Join("/tmp", domain.Spec.Name),
+				Template: EFIVarsPath,
+			}
+		}
+
+		if len(vmi.Spec.Domain.Firmware.Serial) > 0 {
+			domain.Spec.SysInfo.System = append(domain.Spec.SysInfo.System, Entry{Name: "serial", Value: string(vmi.Spec.Domain.Firmware.Serial)})
+		}
 	}
 
 	// Take memory from the requested memory
@@ -694,9 +754,9 @@ func Convert_v1_VirtualMachine_To_api_Domain(vmi *v1.VirtualMachineInstance, dom
 		if err != nil {
 			return err
 		}
-		volume := volumes[disk.VolumeName]
+		volume := volumes[disk.Name]
 		if volume == nil {
-			return fmt.Errorf("No matching volume with name %s found", disk.VolumeName)
+			return fmt.Errorf("No matching volume with name %s found", disk.Name)
 		}
 		err = Convert_v1_Volume_To_api_Disk(volume, &newDisk, c)
 		if err != nil {
@@ -741,6 +801,30 @@ func Convert_v1_VirtualMachine_To_api_Domain(vmi *v1.VirtualMachineInstance, dom
 			return err
 		}
 		domain.Spec.Devices.Rng = newRng
+	}
+
+	//usb controller is turned on, only when user specify input device with usb bus,
+	//otherwise it is turned off
+	if usbDeviceExists := isUSBDevicePresent(vmi); !usbDeviceExists {
+		// disable usb controller
+		domain.Spec.Devices.Controllers = append(domain.Spec.Devices.Controllers, Controller{
+			Type:  "usb",
+			Index: "0",
+			Model: "none",
+		})
+	}
+
+	if vmi.Spec.Domain.Devices.Inputs != nil {
+		inputDevices := make([]Input, 0)
+		for _, input := range vmi.Spec.Domain.Devices.Inputs {
+			inputDevice := Input{}
+			err := Convert_v1_Input_To_api_InputDevice(&input, &inputDevice, c)
+			inputDevices = append(inputDevices, inputDevice)
+			if err != nil {
+				return err
+			}
+		}
+		domain.Spec.Devices.Inputs = inputDevices
 	}
 
 	if vmi.Spec.Domain.Clock != nil {

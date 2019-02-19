@@ -20,6 +20,7 @@ import (
 	"github.com/golang/glog"
 
 	"k8s.io/apimachinery/pkg/api/resource"
+	cdiv1 "kubevirt.io/containerized-data-importer/pkg/apis/core/v1alpha1"
 	"kubevirt.io/containerized-data-importer/pkg/common"
 	"kubevirt.io/containerized-data-importer/pkg/controller"
 	"kubevirt.io/containerized-data-importer/pkg/image"
@@ -50,7 +51,7 @@ func main() {
 	imageSize, _ := util.ParseEnvVar(common.ImporterImageSize, false)
 
 	dest := common.ImporterWritePath
-	if contentType == controller.ContentTypeArchive || source == controller.SourceRegistry {
+	if contentType == string(cdiv1.DataVolumeArchive) || source == controller.SourceRegistry {
 		dest = common.ImporterVolumePath
 	}
 
@@ -65,7 +66,7 @@ func main() {
 		imageSize,
 	}
 
-	if source == controller.SourceNone && contentType == controller.ContentTypeKubevirt {
+	if source == controller.SourceNone && contentType == string(cdiv1.DataVolumeKubeVirt) {
 		requestImageSizeQuantity := resource.MustParse(imageSize)
 		minSizeQuantity := util.MinQuantity(resource.NewScaledQuantity(util.GetAvailableSpace(common.ImporterVolumePath), 0), &requestImageSizeQuantity)
 		if minSizeQuantity.Cmp(requestImageSizeQuantity) != 0 {

@@ -104,6 +104,15 @@ type CloudInitNoCloudSource struct {
 	// UserData contains NoCloud inline cloud-init userdata.
 	// + optional
 	UserData string `json:"userData,omitempty"`
+	// NetworkDataSecretRef references a k8s secret that contains NoCloud networkdata.
+	// + optional
+	NetworkDataSecretRef *v1.LocalObjectReference `json:"networkDataSecretRef,omitempty"`
+	// NetworkDataBase64 contains NoCloud cloud-init networkdata as a base64 encoded string.
+	// + optional
+	NetworkDataBase64 string `json:"networkDataBase64,omitempty"`
+	// NetworkData contains NoCloud inline cloud-init networkdata.
+	// + optional
+	NetworkData string `json:"networkData,omitempty"`
 }
 
 // ---
@@ -126,7 +135,7 @@ type DomainSpec struct {
 	// Clock sets the clock and timers of the vmi.
 	// +optional
 	Clock *Clock `json:"clock,omitempty"`
-	// Features like acpi, apic, hyperv.
+	// Features like acpi, apic, hyperv, smm.
 	// +optional
 	Features *Features `json:"features,omitempty"`
 	// Devices allows adding disks, network interfaces, ...
@@ -136,6 +145,31 @@ type DomainSpec struct {
 	// One of: shared, auto
 	// +optional
 	IOThreadsPolicy *IOThreadsPolicy `json:"ioThreadsPolicy,omitempty"`
+}
+
+// Represents the firmware blob used to assist in the domain creation process.
+// Used for setting the QEMU BIOS file path for the libvirt domain.
+// ---
+// +k8s:openapi-gen=true
+type Bootloader struct {
+	// If set (default), BIOS will be used.
+	// +optional
+	BIOS *BIOS `json:"bios,omitempty"`
+	// If set, EFI will be used instead of BIOS.
+	// +optional
+	EFI *EFI `json:"efi,omitempty"`
+}
+
+// If set (default), BIOS will be used.
+// ---
+// +k8s:openapi-gen=true
+type BIOS struct {
+}
+
+// If set, EFI will be used instead of BIOS.
+// ---
+// +k8s:openapi-gen=true
+type EFI struct {
 }
 
 // ---
@@ -217,6 +251,11 @@ type Firmware struct {
 	// UUID reported by the vmi bios.
 	// Defaults to a random generated uid.
 	UUID types.UID `json:"uuid,omitempty"`
+	// Settings to control the bootloader that is used.
+	// +optional
+	Bootloader *Bootloader `json:"bootloader,omitempty"`
+	// The system-serial-number in SMBIOS
+	Serial string `json:"serial,omitempty"`
 }
 
 // ---
@@ -228,6 +267,8 @@ type Devices struct {
 	Watchdog *Watchdog `json:"watchdog,omitempty"`
 	// Interfaces describe network interfaces which are added to the vmi.
 	Interfaces []Interface `json:"interfaces,omitempty"`
+	// Inputs describe input devices
+	Inputs []Input `json:"inputs,omitempty"`
 	// Whether to attach a pod network interface. Defaults to true.
 	AutoattachPodInterface *bool `json:"autoattachPodInterface,omitempty"`
 	// Whether to attach the default graphics device or not.
@@ -246,12 +287,22 @@ type Devices struct {
 
 // ---
 // +k8s:openapi-gen=true
+type Input struct {
+	// Bus indicates the bus of input device to emulate.
+	// Supported values: virtio, usb.
+	Bus string `json:"bus,omitempty"`
+	// Type indicated the type of input device.
+	// Supported values: tablet.
+	Type string `json:"type"`
+	// Name is the device name
+	Name string `json:"name"`
+}
+
+// ---
+// +k8s:openapi-gen=true
 type Disk struct {
 	// Name is the device name
 	Name string `json:"name"`
-	// Name of the volume which is referenced.
-	// Must match the Name of a Volume.
-	VolumeName string `json:"volumeName"`
 	// DiskDevice specifies as which device the disk should be added to the guest.
 	// Defaults to Disk.
 	DiskDevice `json:",inline"`
@@ -633,6 +684,10 @@ type Features struct {
 	// Defaults to the machine type setting.
 	// +optional
 	Hyperv *FeatureHyperv `json:"hyperv,omitempty"`
+	// SMM enables/disables System Management Mode.
+	// TSEG not yet implemented.
+	// +optional
+	SMM *FeatureState `json:"smm,omitempty"`
 }
 
 // Represents if a feature is enabled or disabled.
@@ -824,6 +879,19 @@ type DHCPOptions struct {
 	// If specified will pass the configured NTP server to the VM via DHCP option 042.
 	// +optional
 	NTPServers []string `json:"ntpServers,omitempty"`
+	// If specified will pass extra DHCP options for private use, range: 224-254
+	// +optional
+	PrivateOptions []DHCPPrivateOptions `json:"privateOptions,omitempty"`
+}
+
+// DHCPExtraOptions defines Extra DHCP options for a VM.
+type DHCPPrivateOptions struct {
+	// Option is an Integer value from 224-254
+	// Required.
+	Option int `json:"option"`
+	// Value is a String value for the Option provided
+	// Required.
+	Value string `json:"value"`
 }
 
 // Represents the method which will be used to connect the interface to the guest.

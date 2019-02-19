@@ -334,7 +334,7 @@ var _ = Describe("Template", func() {
 						NodeSelector: nodeSelector,
 						Domain: v1.DomainSpec{
 							CPU: &v1.CPU{
-								Cores: 2,
+								Cores:                 2,
 								DedicatedCPUPlacement: true,
 							},
 						},
@@ -509,8 +509,8 @@ var _ = Describe("Template", func() {
 
 				Expect(pod.Spec.Containers[0].Resources.Requests.Cpu().String()).To(Equal("1m"))
 				Expect(pod.Spec.Containers[0].Resources.Limits.Cpu().String()).To(Equal("2m"))
-				Expect(pod.Spec.Containers[0].Resources.Requests.Memory().String()).To(Equal("1099507557"))
-				Expect(pod.Spec.Containers[0].Resources.Limits.Memory().String()).To(Equal("2099507557"))
+				Expect(pod.Spec.Containers[0].Resources.Requests.Memory().String()).To(Equal("1163507557"))
+				Expect(pod.Spec.Containers[0].Resources.Limits.Memory().String()).To(Equal("2163507557"))
 			})
 			It("should overcommit guest overhead if selected, by only adding the overhead to memory limits", func() {
 
@@ -539,7 +539,7 @@ var _ = Describe("Template", func() {
 				Expect(err).ToNot(HaveOccurred())
 
 				Expect(pod.Spec.Containers[0].Resources.Requests.Memory().String()).To(Equal("1G"))
-				Expect(pod.Spec.Containers[0].Resources.Limits.Memory().String()).To(Equal("2099507557"))
+				Expect(pod.Spec.Containers[0].Resources.Limits.Memory().String()).To(Equal("2163507557"))
 			})
 			It("should not add unset resources", func() {
 
@@ -567,7 +567,7 @@ var _ = Describe("Template", func() {
 
 				Expect(vmi.Spec.Domain.Resources.Requests.Memory().String()).To(Equal("64M"))
 				Expect(pod.Spec.Containers[0].Resources.Requests.Cpu().String()).To(Equal("1m"))
-				Expect(pod.Spec.Containers[0].Resources.Requests.Memory().ToDec().ScaledValue(resource.Mega)).To(Equal(int64(179)))
+				Expect(pod.Spec.Containers[0].Resources.Requests.Memory().ToDec().ScaledValue(resource.Mega)).To(Equal(int64(243)))
 
 				// Limits for KVM and TUN devices should be requested.
 				Expect(pod.Spec.Containers[0].Resources.Limits).ToNot(BeNil())
@@ -602,9 +602,9 @@ var _ = Describe("Template", func() {
 				Expect(err).ToNot(HaveOccurred())
 				Expect(pod.Spec.Containers[0].Resources.Requests.Memory().ToDec().ScaledValue(resource.Mega)).To(Equal(int64(memory)))
 			},
-				table.Entry("and consider graphics overhead if it is not set", nil, 179),
-				table.Entry("and consider graphics overhead if it is set to true", True(), 179),
-				table.Entry("and not consider graphics overhead if it is set to false", False(), 162),
+				table.Entry("and consider graphics overhead if it is not set", nil, 243),
+				table.Entry("and consider graphics overhead if it is set to true", True(), 243),
+				table.Entry("and not consider graphics overhead if it is set to false", False(), 226),
 			)
 		})
 
@@ -638,8 +638,8 @@ var _ = Describe("Template", func() {
 				pod, err := svc.RenderLaunchManifest(&vmi)
 				Expect(err).ToNot(HaveOccurred())
 
-				Expect(pod.Spec.Containers[0].Resources.Requests.Memory().ToDec().ScaledValue(resource.Mega)).To(Equal(int64(98)))
-				Expect(pod.Spec.Containers[0].Resources.Limits.Memory().ToDec().ScaledValue(resource.Mega)).To(Equal(int64(98)))
+				Expect(pod.Spec.Containers[0].Resources.Requests.Memory().ToDec().ScaledValue(resource.Mega)).To(Equal(int64(162)))
+				Expect(pod.Spec.Containers[0].Resources.Limits.Memory().ToDec().ScaledValue(resource.Mega)).To(Equal(int64(162)))
 
 				hugepageType := kubev1.ResourceName(kubev1.ResourceHugePagesPrefix + value)
 				hugepagesRequest := pod.Spec.Containers[0].Resources.Requests[hugepageType]
@@ -944,10 +944,10 @@ var _ = Describe("Template", func() {
 				domain := v1.DomainSpec{}
 				domain.Devices.Interfaces = []v1.Interface{
 					{Name: "testnet",
-						Ports: ports1,
+						Ports:                  ports1,
 						InterfaceBindingMethod: v1.InterfaceBindingMethod{Slirp: &slirpInterface1}},
 					{Name: "testnet",
-						Ports: ports2,
+						Ports:                  ports2,
 						InterfaceBindingMethod: v1.InterfaceBindingMethod{Slirp: &slirpInterface2}}}
 
 				vmi := v1.VirtualMachineInstance{

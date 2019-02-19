@@ -35,11 +35,11 @@ type NetworkTemplateConfig struct {
 
 var exampleJSON = `{
   "kind": "VirtualMachineInstance",
-  "apiVersion": "kubevirt.io/v1alpha2",
+  "apiVersion": "kubevirt.io/v1alpha3",
   "metadata": {
     "name": "testvmi",
     "namespace": "default",
-    "selfLink": "/apis/kubevirt.io/v1alpha2/namespaces/default/virtualmachineinstances/testvmi",
+    "selfLink": "/apis/kubevirt.io/v1alpha3/namespaces/default/virtualmachineinstances/testvmi",
     "creationTimestamp": null
   },
   "spec": {
@@ -119,13 +119,15 @@ var exampleJSON = `{
             "enabled": true,
             "vendorid": "vendor"
           }
+        },
+        "smm": {
+          "enabled": true
         }
       },
       "devices": {
         "disks": [
           {
             "name": "disk0",
-            "volumeName": "volume0",
             "disk": {
               "bus": "virtio"
             },
@@ -133,7 +135,6 @@ var exampleJSON = `{
           },
           {
             "name": "cdrom0",
-            "volumeName": "volume1",
             "cdrom": {
               "bus": "virtio",
               "readonly": true,
@@ -142,7 +143,6 @@ var exampleJSON = `{
           },
           {
             "name": "floppy0",
-            "volumeName": "volume2",
             "floppy": {
               "readonly": true,
               "tray": "open"
@@ -150,7 +150,6 @@ var exampleJSON = `{
           },
           {
             "name": "lun0",
-            "volumeName": "volume3",
             "lun": {
               "bus": "virtio",
               "readonly": true
@@ -158,7 +157,6 @@ var exampleJSON = `{
           },
           {
             "name": "disk1",
-            "volumeName": "volume4",
             "disk": {
               "bus": "virtio"
             },
@@ -171,6 +169,13 @@ var exampleJSON = `{
             {{.InterfaceConfig}}
           }
         ],
+        "inputs": [
+          {
+            "bus": "virtio",
+            "type": "tablet",
+            "name": "tablet0"
+          }
+        ],
         "rng": {},
         "blockMultiQueue": true
       },
@@ -178,22 +183,25 @@ var exampleJSON = `{
     },
     "volumes": [
       {
-        "name": "volume0",
+        "name": "disk0",
         "containerDisk": {
           "image": "test/image",
           "path": "/disk.img"
         }
       },
       {
-        "name": "volume1",
+        "name": "cdrom0",
         "cloudInitNoCloud": {
           "secretRef": {
             "name": "testsecret"
+          },
+          "networkDataSecretRef": {
+            "name": "testnetworksecret"
           }
         }
       },
       {
-        "name": "volume2",
+        "name": "floppy0",
         "persistentVolumeClaim": {
           "claimName": "testclaim"
         }
@@ -218,8 +226,7 @@ var _ = Describe("Schema", func() {
 
 		exampleVMI.Spec.Domain.Devices.Disks = []Disk{
 			{
-				Name:       "disk0",
-				VolumeName: "volume0",
+				Name: "disk0",
 				DiskDevice: DiskDevice{
 					Disk: &DiskTarget{
 						Bus:      "virtio",
@@ -229,8 +236,7 @@ var _ = Describe("Schema", func() {
 				DedicatedIOThread: _true,
 			},
 			{
-				Name:       "cdrom0",
-				VolumeName: "volume1",
+				Name: "cdrom0",
 				DiskDevice: DiskDevice{
 					CDRom: &CDRomTarget{
 						Bus:      "virtio",
@@ -240,8 +246,7 @@ var _ = Describe("Schema", func() {
 				},
 			},
 			{
-				Name:       "floppy0",
-				VolumeName: "volume2",
+				Name: "floppy0",
 				DiskDevice: DiskDevice{
 					Floppy: &FloppyTarget{
 						ReadOnly: true,
@@ -250,8 +255,7 @@ var _ = Describe("Schema", func() {
 				},
 			},
 			{
-				Name:       "lun0",
-				VolumeName: "volume3",
+				Name: "lun0",
 				DiskDevice: DiskDevice{
 					LUN: &LunTarget{
 						Bus:      "virtio",
@@ -260,9 +264,8 @@ var _ = Describe("Schema", func() {
 				},
 			},
 			{
-				Name:       "disk1",
-				VolumeName: "volume4",
-				Serial:     "sn-11223344",
+				Name:   "disk1",
+				Serial: "sn-11223344",
 				DiskDevice: DiskDevice{
 					Disk: &DiskTarget{
 						Bus:      "virtio",
@@ -273,11 +276,18 @@ var _ = Describe("Schema", func() {
 		}
 
 		exampleVMI.Spec.Domain.Devices.Rng = &Rng{}
+		exampleVMI.Spec.Domain.Devices.Inputs = []Input{
+			{
+				Bus:  "virtio",
+				Type: "tablet",
+				Name: "tablet0",
+			},
+		}
 		exampleVMI.Spec.Domain.Devices.BlockMultiQueue = _true
 
 		exampleVMI.Spec.Volumes = []Volume{
 			{
-				Name: "volume0",
+				Name: "disk0",
 				VolumeSource: VolumeSource{
 					ContainerDisk: &ContainerDiskSource{
 						Image: "test/image",
@@ -286,17 +296,20 @@ var _ = Describe("Schema", func() {
 				},
 			},
 			{
-				Name: "volume1",
+				Name: "cdrom0",
 				VolumeSource: VolumeSource{
 					CloudInitNoCloud: &CloudInitNoCloudSource{
 						UserDataSecretRef: &v1.LocalObjectReference{
 							Name: "testsecret",
 						},
+						NetworkDataSecretRef: &v1.LocalObjectReference{
+							Name: "testnetworksecret",
+						},
 					},
 				},
 			},
 			{
-				Name: "volume2",
+				Name: "floppy0",
 				VolumeSource: VolumeSource{
 					PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{
 						ClaimName: "testclaim",
@@ -306,6 +319,7 @@ var _ = Describe("Schema", func() {
 		}
 		exampleVMI.Spec.Domain.Features = &Features{
 			ACPI: FeatureState{Enabled: _false},
+			SMM:  &FeatureState{Enabled: _true},
 			APIC: &FeatureAPIC{Enabled: _true},
 			Hyperv: &FeatureHyperv{
 				Relaxed:    &FeatureState{Enabled: _true},
@@ -335,10 +349,10 @@ var _ = Describe("Schema", func() {
 			UUID: "28a42a60-44ef-4428-9c10-1a6aee94627f",
 		}
 		exampleVMI.Spec.Domain.CPU = &CPU{
-			Cores:   3,
-			Sockets: 1,
-			Threads: 1,
-			Model:   "Conroe",
+			Cores:                 3,
+			Sockets:               1,
+			Threads:               1,
+			Model:                 "Conroe",
 			DedicatedCPUPlacement: true,
 		}
 		exampleVMI.Spec.Networks = []Network{

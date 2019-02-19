@@ -10,7 +10,7 @@ import (
 
 	"github.com/golang/glog"
 	"github.com/pkg/errors"
-	"k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -25,7 +25,7 @@ import (
 	cdiClientset "kubevirt.io/containerized-data-importer/pkg/client/clientset/versioned"
 	"kubevirt.io/containerized-data-importer/pkg/common"
 	"kubevirt.io/containerized-data-importer/tests/utils"
-	"kubevirt.io/qe-tools/pkg/ginkgo-reporters"
+	ginkgo_reporters "kubevirt.io/qe-tools/pkg/ginkgo-reporters"
 )
 
 const (
@@ -102,7 +102,7 @@ func init() {
 	fmt.Fprintf(ginkgo.GinkgoWriter, "Making sure junit flag is available %v\n", ginkgo_reporters.JunitOutput)
 	kubectlPath = flag.String("kubectl-path", "kubectl", "The path to the kubectl binary")
 	ocPath = flag.String("oc-path", "oc", "The path to the oc binary")
-	cdiInstallNs = flag.String("cdi-namespace", "kube-system", "The namespace of the CDI controller")
+	cdiInstallNs = flag.String("cdi-namespace", "cdi", "The namespace of the CDI controller")
 	kubeConfig = flag.String("kubeconfig", "/var/run/kubernetes/admin.kubeconfig", "The absolute path to the kubeconfig file")
 	master = flag.String("master", "", "master url:port")
 	goCLIPath = flag.String("gocli-path", "cli.sh", "The path to cli script")

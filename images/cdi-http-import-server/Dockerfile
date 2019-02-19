@@ -26,6 +26,7 @@ RUN dnf install -y nginx qemu-guest-agent qemu-img scsi-target-utils \
 
 RUN mkdir -p /usr/share/nginx/html/images \
     && curl http://dl-cdn.alpinelinux.org/alpine/v3.7/releases/x86_64/alpine-virt-3.7.0-x86_64.iso > /usr/share/nginx/html/images/alpine.iso \
+    && curl https://download.cirros-cloud.net/0.4.0/cirros-0.4.0-x86_64-disk.img > /usr/share/nginx/html/images/cirros.img \
     && rm -f /etc/nginx/nginx.conf
 
 RUN cp /usr/bin/qemu-ga /usr/share/nginx/html/

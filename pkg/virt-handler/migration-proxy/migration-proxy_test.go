@@ -20,10 +20,10 @@
 package migrationproxy
 
 import (
-	"fmt"
 	"io/ioutil"
 	"net"
 	"os"
+	"strings"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -128,41 +128,59 @@ var _ = Describe("MigrationProxy", func() {
 			})
 
 			It("by creating both ends with a manager and sending a message", func() {
+				directMigrationPort := "49152"
 				libvirtdSock := tmpDir + "/libvirtd-sock"
 				libvirtdListener, err := net.Listen("unix", libvirtdSock)
+				directSock := tmpDir + "/mykey-" + directMigrationPort
+				directListener, err := net.Listen("unix", directSock)
 
 				Expect(err).ShouldNot(HaveOccurred())
 
 				manager := NewMigrationProxyManager(tmpDir)
-				manager.StartTargetListener("mykey", libvirtdSock)
-				manager.StartSourceListener("mykey", fmt.Sprintf("127.0.0.1:%d", manager.GetTargetListenerPort("mykey")))
+				manager.StartTargetListener("mykey", []string{libvirtdSock, directSock})
+				destSrcPortMap := manager.GetTargetListenerPorts("mykey")
+				manager.StartSourceListener("mykey", "127.0.0.1", destSrcPortMap)
 
 				defer manager.StopTargetListener("myKey")
 				defer manager.StopSourceListener("myKey")
 
-				numBytes := make(chan int)
-				go func() {
-					fd, err := libvirtdListener.Accept()
+				libvirtChan := make(chan int)
+				directChan := make(chan int)
+
+				msgReader := func(listener net.Listener, numBytes chan int) {
+					fd, err := listener.Accept()
 					Expect(err).ShouldNot(HaveOccurred())
 
 					var bytes [1024]byte
 					n, err := fd.Read(bytes[0:])
 					Expect(err).ShouldNot(HaveOccurred())
 					numBytes <- n
-				}()
+				}
 
-				conn, err := net.Dial("unix", manager.GetSourceListenerFile("mykey"))
-				Expect(err).ShouldNot(HaveOccurred())
+				msgWriter := func(sockFile string, numBytes chan int, message string) {
+					conn, err := net.Dial("unix", sockFile)
+					Expect(err).ShouldNot(HaveOccurred())
 
-				message := "some message"
-				messageBytes := []byte(message)
-				sentLen, err := conn.Write(messageBytes)
-				Expect(err).ShouldNot(HaveOccurred())
+					messageBytes := []byte(message)
+					sentLen, err := conn.Write(messageBytes)
+					Expect(err).ShouldNot(HaveOccurred())
 
-				Expect(sentLen).To(Equal(len(messageBytes)))
+					Expect(sentLen).To(Equal(len(messageBytes)))
 
-				num := <-numBytes
-				Expect(num).To(Equal(sentLen))
+					num := <-numBytes
+					Expect(num).To(Equal(sentLen))
+				}
+
+				go msgReader(libvirtdListener, libvirtChan)
+				go msgReader(directListener, directChan)
+
+				for _, sockFile := range manager.GetSourceListenerFiles("mykey") {
+					if strings.Contains(sockFile, directMigrationPort) {
+						msgWriter(sockFile, directChan, "some direct message")
+					} else {
+						msgWriter(sockFile, libvirtChan, "some libvirt message")
+					}
+				}
 			})
 		})
 	})
