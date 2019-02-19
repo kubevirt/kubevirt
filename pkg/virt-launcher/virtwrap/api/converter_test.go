@@ -151,6 +151,13 @@ var _ = Describe("Converter", func() {
 			}
 			vmi.Spec.Domain.Resources.Limits = make(k8sv1.ResourceList)
 			vmi.Spec.Domain.Resources.Requests = make(k8sv1.ResourceList)
+			vmi.Spec.Domain.Devices.Inputs = []v1.Input{
+				{
+					Bus:  "virtio",
+					Type: "tablet",
+					Name: "tablet0",
+				},
+			}
 			vmi.Spec.Domain.Devices.Disks = []v1.Disk{
 				{
 					Name: "myvolume",
@@ -465,6 +472,9 @@ var _ = Describe("Converter", func() {
       <driver name="qemu" type="raw" iothread="1"></driver>
       <alias name="ua-serviceaccount_test"></alias>
     </disk>
+    <input type="tablet" bus="virtio">
+      <alias name="ua-tablet0"></alias>
+    </input>
     <serial type="unix">
       <target port="0"></target>
       <source mode="bind" path="/var/run/kubevirt-private/f4686d2c-6e8d-4335-b8fd-81bee22f4814/virt-serial0"></source>
@@ -714,6 +724,45 @@ var _ = Describe("Converter", func() {
 			vmi.Spec.Domain.Devices.Disks[0].Disk.PciAddress = "0000:81:01.0"
 			vmi.Spec.Domain.Devices.Disks[0].Disk.Bus = "scsi"
 			Expect(Convert_v1_VirtualMachine_To_api_Domain(vmi, &Domain{}, c)).ToNot(Succeed())
+		})
+
+		It("should not disable usb controller when usb device is present", func() {
+			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
+			vmi.Spec.Domain.Devices.Inputs[0].Bus = "usb"
+			domain := vmiToDomain(vmi, c)
+			disabled := false
+			for _, controller := range domain.Spec.Devices.Controllers {
+				if controller.Type == "usb" && controller.Model == "none" {
+					disabled = !disabled
+				}
+			}
+
+			Expect(disabled).To(Equal(false), "Expect controller not to be disabled")
+		})
+
+		It("should fail when input device is set to ps2 bus", func() {
+			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
+			vmi.Spec.Domain.Devices.Inputs[0].Bus = "ps2"
+			Expect(Convert_v1_VirtualMachine_To_api_Domain(vmi, &Domain{}, c)).ToNot(Succeed(), "Expect error")
+		})
+
+		It("should fail when input device is set to keyboard type", func() {
+			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
+			vmi.Spec.Domain.Devices.Inputs[0].Type = "keyboard"
+			Expect(Convert_v1_VirtualMachine_To_api_Domain(vmi, &Domain{}, c)).ToNot(Succeed(), "Expect error")
+		})
+
+		It("should succeed when input device is set to usb bus", func() {
+			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
+			vmi.Spec.Domain.Devices.Inputs[0].Bus = "usb"
+			Expect(Convert_v1_VirtualMachine_To_api_Domain(vmi, &Domain{}, c)).To(Succeed(), "Expect success")
+		})
+
+		It("should succeed when input device bus is empty", func() {
+			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
+			vmi.Spec.Domain.Devices.Inputs[0].Bus = ""
+			domain := vmiToDomain(vmi, c)
+			Expect(domain.Spec.Devices.Inputs[0].Bus).To(Equal("usb"), "Expect usb bus")
 		})
 
 		It("should select explicitly chosen network model", func() {

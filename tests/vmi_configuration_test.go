@@ -353,6 +353,139 @@ var _ = Describe("Configurations", func() {
 
 		})
 
+		Context("with usb controller", func() {
+			It("should start the VMI with usb controller when usb device is present", func() {
+				vmi := tests.NewRandomVMIWithEphemeralDisk(tests.ContainerDiskFor(tests.ContainerDiskAlpine))
+				vmi.Spec.Domain.Devices.Inputs = []v1.Input{
+					{
+						Name: "tablet0",
+						Type: "tablet",
+						Bus:  "usb",
+					},
+				}
+				By("Starting a VirtualMachineInstance")
+				vmi, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
+				Expect(err).ToNot(HaveOccurred(), "should start vmi")
+				tests.WaitForSuccessfulVMIStart(vmi)
+
+				By("Expecting the VirtualMachineInstance console")
+				expecter, err := tests.LoggedInAlpineExpecter(vmi)
+				Expect(err).ToNot(HaveOccurred(), "should get console")
+				defer expecter.Close()
+
+				By("Checking the number of usb under guest OS")
+				_, err = expecter.ExpectBatch([]expect.Batcher{
+					&expect.BSnd{S: "ls -l /sys/bus/usb/devices/usb* | wc -l\n"},
+					&expect.BExp{R: "[1-9][0-9]*$"},
+				}, 60*time.Second)
+				Expect(err).ToNot(HaveOccurred(), "should report number of usb")
+			})
+
+			It("should start the VMI without usb controller", func() {
+				vmi := tests.NewRandomVMIWithEphemeralDisk(tests.ContainerDiskFor(tests.ContainerDiskAlpine))
+				By("Starting a VirtualMachineInstance")
+				vmi, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
+				Expect(err).ToNot(HaveOccurred(), "should start vmi")
+
+				tests.WaitForSuccessfulVMIStart(vmi)
+
+				By("Expecting the VirtualMachineInstance console")
+				expecter, err := tests.LoggedInAlpineExpecter(vmi)
+				Expect(err).ToNot(HaveOccurred(), "should start console")
+				defer expecter.Close()
+				By("Checking the number of usb under guest OS")
+				_, err = expecter.ExpectBatch([]expect.Batcher{
+					&expect.BSnd{S: "ls -l /sys/bus/usb/devices/usb* | wc -l\n"},
+					&expect.BExp{R: "0"},
+				}, 60*time.Second)
+				Expect(err).ToNot(HaveOccurred(), "should report number of usb")
+			})
+		})
+
+		Context("with input devices", func() {
+			It("should failed to start the VMI with wrong type of input device", func() {
+				vmi := tests.NewRandomVMIWithEphemeralDisk(tests.ContainerDiskFor(tests.ContainerDiskFedora))
+				vmi.Spec.Domain.Devices.Inputs = []v1.Input{
+					{
+						Name: "tablet0",
+						Type: "keyboard",
+						Bus:  "virtio",
+					},
+				}
+				By("Starting a VirtualMachineInstance")
+				vmi, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
+				Expect(err).To(HaveOccurred(), "should not start vmi")
+			})
+
+			It("should failed to start the VMI with wrong bus of input device", func() {
+				vmi := tests.NewRandomVMIWithEphemeralDisk(tests.ContainerDiskFor(tests.ContainerDiskFedora))
+				vmi.Spec.Domain.Devices.Inputs = []v1.Input{
+					{
+						Name: "tablet0",
+						Type: "tablet",
+						Bus:  "ps2",
+					},
+				}
+				By("Starting a VirtualMachineInstance")
+				vmi, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
+				Expect(err).To(HaveOccurred(), "should not start vmi")
+			})
+
+			It("should start the VMI with tablet input device with virtio bus", func() {
+				vmi := tests.NewRandomVMIWithEphemeralDisk(tests.ContainerDiskFor(tests.ContainerDiskAlpine))
+				vmi.Spec.Domain.Devices.Inputs = []v1.Input{
+					{
+						Name: "tablet0",
+						Type: "tablet",
+						Bus:  "virtio",
+					},
+				}
+				By("Starting a VirtualMachineInstance")
+				vmi, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
+				Expect(err).ToNot(HaveOccurred(), "should start vmi")
+				tests.WaitForSuccessfulVMIStart(vmi)
+
+				By("Expecting the VirtualMachineInstance console")
+				expecter, err := tests.LoggedInAlpineExpecter(vmi)
+				Expect(err).ToNot(HaveOccurred(), "should start console")
+				defer expecter.Close()
+
+				By("Checking the tablet input under guest OS")
+				_, err = expecter.ExpectBatch([]expect.Batcher{
+					&expect.BSnd{S: "grep -rs '^QEMU Virtio Tablet' /sys/devices | wc -l\n"},
+					&expect.BExp{R: "1"},
+				}, 60*time.Second)
+				Expect(err).ToNot(HaveOccurred(), "should report input device")
+			})
+
+			It("should start the VMI with tablet input device with usb bus", func() {
+				vmi := tests.NewRandomVMIWithEphemeralDisk(tests.ContainerDiskFor(tests.ContainerDiskAlpine))
+				vmi.Spec.Domain.Devices.Inputs = []v1.Input{
+					{
+						Name: "tablet0",
+						Type: "tablet",
+						Bus:  "usb",
+					},
+				}
+				By("Starting a VirtualMachineInstance")
+				vmi, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
+				Expect(err).ToNot(HaveOccurred(), "should start vmi")
+				tests.WaitForSuccessfulVMIStart(vmi)
+
+				By("Expecting the VirtualMachineInstance console")
+				expecter, err := tests.LoggedInAlpineExpecter(vmi)
+				Expect(err).ToNot(HaveOccurred(), "should start console")
+				defer expecter.Close()
+
+				By("Checking the tablet input under guest OS")
+				_, err = expecter.ExpectBatch([]expect.Batcher{
+					&expect.BSnd{S: "grep -rs '^QEMU USB Tablet' /sys/devices | wc -l\n"},
+					&expect.BExp{R: "1"},
+				}, 60*time.Second)
+				Expect(err).ToNot(HaveOccurred(), "should report input device")
+			})
+		})
+
 		Context("[rfe_id:140][crit:medium][vendor:cnv-qe@redhat.com][level:component]with namespace memory limits above VMI required memory", func() {
 			var vmi *v1.VirtualMachineInstance
 			It("[test_id:1670]should failed to start the VMI", func() {

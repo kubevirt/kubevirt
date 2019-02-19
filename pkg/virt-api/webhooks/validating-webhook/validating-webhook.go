@@ -1217,6 +1217,23 @@ func ValidateVirtualMachineInstanceSpec(field *k8sfield.Path, spec *v1.VirtualMa
 		}
 	}
 
+	for idx, input := range spec.Domain.Devices.Inputs {
+		if input.Bus != "virtio" && input.Bus != "usb" && input.Bus != "" {
+			causes = append(causes, metav1.StatusCause{
+				Type:    metav1.CauseTypeFieldValueInvalid,
+				Message: fmt.Sprintf("Input device can have only virtio or usb bus."),
+				Field:   field.Child("domain", "devices", "inputs").Index(idx).Child("bus").String(),
+			})
+		}
+
+		if input.Type != "tablet" {
+			causes = append(causes, metav1.StatusCause{
+				Type:    metav1.CauseTypeFieldValueInvalid,
+				Message: fmt.Sprintf("Input device can have only tablet type."),
+				Field:   field.Child("domain", "devices", "inputs").Index(idx).Child("type").String(),
+			})
+		}
+	}
 	_, requestOk := spec.Domain.Resources.Requests[k8sv1.ResourceCPU]
 	_, limitOK := spec.Domain.Resources.Limits[k8sv1.ResourceCPU]
 	isCPUResourcesSet := (requestOk == true) || (limitOK == true)

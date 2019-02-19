@@ -63,6 +63,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"kubevirt.io/kubevirt/pkg/api/v1.Hugepages":                                 schema_kubevirt_pkg_api_v1_Hugepages(ref),
 		"kubevirt.io/kubevirt/pkg/api/v1.HypervTimer":                               schema_kubevirt_pkg_api_v1_HypervTimer(ref),
 		"kubevirt.io/kubevirt/pkg/api/v1.I6300ESBWatchdog":                          schema_kubevirt_pkg_api_v1_I6300ESBWatchdog(ref),
+		"kubevirt.io/kubevirt/pkg/api/v1.Input":                                     schema_kubevirt_pkg_api_v1_Input(ref),
 		"kubevirt.io/kubevirt/pkg/api/v1.Interface":                                 schema_kubevirt_pkg_api_v1_Interface(ref),
 		"kubevirt.io/kubevirt/pkg/api/v1.InterfaceBindingMethod":                    schema_kubevirt_pkg_api_v1_InterfaceBindingMethod(ref),
 		"kubevirt.io/kubevirt/pkg/api/v1.InterfaceBridge":                           schema_kubevirt_pkg_api_v1_InterfaceBridge(ref),
@@ -562,6 +563,19 @@ func schema_kubevirt_pkg_api_v1_Devices(ref common.ReferenceCallback) common.Ope
 							},
 						},
 					},
+					"inputs": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Inputs describe input devices",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Ref: ref("kubevirt.io/kubevirt/pkg/api/v1.Input"),
+									},
+								},
+							},
+						},
+					},
 					"autoattachPodInterface": {
 						SchemaProps: spec.SchemaProps{
 							Description: "Whether to attach a pod network interface. Defaults to true.",
@@ -600,7 +614,7 @@ func schema_kubevirt_pkg_api_v1_Devices(ref common.ReferenceCallback) common.Ope
 			},
 		},
 		Dependencies: []string{
-			"kubevirt.io/kubevirt/pkg/api/v1.Disk", "kubevirt.io/kubevirt/pkg/api/v1.Interface", "kubevirt.io/kubevirt/pkg/api/v1.Rng", "kubevirt.io/kubevirt/pkg/api/v1.Watchdog"},
+			"kubevirt.io/kubevirt/pkg/api/v1.Disk", "kubevirt.io/kubevirt/pkg/api/v1.Input", "kubevirt.io/kubevirt/pkg/api/v1.Interface", "kubevirt.io/kubevirt/pkg/api/v1.Rng", "kubevirt.io/kubevirt/pkg/api/v1.Watchdog"},
 	}
 }
 
@@ -1252,6 +1266,40 @@ func schema_kubevirt_pkg_api_v1_I6300ESBWatchdog(ref common.ReferenceCallback) c
 						},
 					},
 				},
+			},
+		},
+		Dependencies: []string{},
+	}
+}
+
+func schema_kubevirt_pkg_api_v1_Input(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Properties: map[string]spec.Schema{
+					"bus": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Bus indicates the bus of input device to emulate. Supported values: virtio, usb.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"type": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Type indicated the type of input device. Supported values: tablet.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"name": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Name is the device name",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+				},
+				Required: []string{"type", "name"},
 			},
 		},
 		Dependencies: []string{},
