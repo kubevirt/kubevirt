@@ -380,6 +380,12 @@ func schema_kubevirt_pkg_api_v1_CniNetwork(ref common.ReferenceCallback) common.
 							Format:      "",
 						},
 					},
+					"interfacePrefix": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
 				},
 				Required: []string{"networkName"},
 			},
@@ -1750,7 +1756,7 @@ func schema_kubevirt_pkg_api_v1_Network(ref common.ReferenceCallback) common.Ope
 							Ref: ref("kubevirt.io/kubevirt/pkg/api/v1.CniNetwork"),
 						},
 					},
-					"tungstenfabric": {
+					"npwgv1": {
 						SchemaProps: spec.SchemaProps{
 							Ref: ref("kubevirt.io/kubevirt/pkg/api/v1.CniNetwork"),
 						},
@@ -1785,7 +1791,7 @@ func schema_kubevirt_pkg_api_v1_NetworkSource(ref common.ReferenceCallback) comm
 							Ref: ref("kubevirt.io/kubevirt/pkg/api/v1.CniNetwork"),
 						},
 					},
-					"tungstenfabric": {
+					"npwgv1": {
 						SchemaProps: spec.SchemaProps{
 							Ref: ref("kubevirt.io/kubevirt/pkg/api/v1.CniNetwork"),
 						},

@@ -944,10 +944,10 @@ type Network struct {
 // ---
 // +k8s:openapi-gen=true
 type NetworkSource struct {
-	Pod            *PodNetwork `json:"pod,omitempty"`
-	Multus         *CniNetwork `json:"multus,omitempty"`
-	Genie          *CniNetwork `json:"genie,omitempty"`
-	Tungstenfabric *CniNetwork `json:"tungstenfabric,omitempty"`
+	Pod    *PodNetwork `json:"pod,omitempty"`
+	Multus *CniNetwork `json:"multus,omitempty"`
+	Genie  *CniNetwork `json:"genie,omitempty"`
+	Npwgv1 *CniNetwork `json:"npwgv1,omitempty"`
 }
 
 // Represents the stock pod network interface.
@@ -973,5 +973,6 @@ type CniNetwork struct {
 	// <networkName>, <namespace>/<networkName>. If namespace is not
 	// specified, VMI namespace is assumed.
 	// In case of genie, it references the CNI plugin name.
-	NetworkName string `json:"networkName"`
+	NetworkName     string `json:"networkName"`
+	InterfacePrefix string `json:"interfacePrefix,omitempty"`
 }

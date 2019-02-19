@@ -908,8 +908,8 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 				v1.Network{
 					Name: networkName,
 					NetworkSource: v1.NetworkSource{
-						Multus: &v1.CniNetwork{
-							NetworkName: "multus",
+						Npwgv1: &v1.CniNetwork{
+							NetworkName: "npwgv1",
 						},
 					},
 				},

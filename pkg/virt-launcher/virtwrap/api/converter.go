@@ -906,7 +906,7 @@ func Convert_v1_VirtualMachine_To_api_Domain(vmi *v1.VirtualMachineInstance, dom
 		if network.Pod != nil {
 			numberOfSources++
 		}
-		if network.Multus != nil || network.Tungstenfabric != nil {
+		if network.Npwgv1 != nil {
 			cniNetworks[network.Name] = len(cniNetworks) + 1
 			numberOfSources++
 		}
@@ -998,9 +998,13 @@ func Convert_v1_VirtualMachine_To_api_Domain(vmi *v1.VirtualMachineInstance, dom
 				if value, ok := cniNetworks[iface.Name]; ok {
 					prefix := ""
 					// no error check, we assume that CNI type was set correctly
-					if net.Multus != nil {
-						prefix = "net"
-					} else if net.Genie != nil || net.Tungstenfabric != nil {
+					if net.Npwgv1 != nil {
+						if net.Npwgv1.InterfacePrefix != "" {
+							prefix = net.Npwgv1.InterfacePrefix
+						} else {
+							prefix = "net"
+						}
+					} else if net.Genie != nil {
 						prefix = "eth"
 					}
 					domainIface.Source = InterfaceSource{

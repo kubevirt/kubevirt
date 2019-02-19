@@ -65,7 +65,7 @@ const LibvirtStartupDelay = 10
 //to match a VirtualMachineInstance CPU model(Family) to nodes that support this model.
 const NFD_CPU_MODEL_PREFIX = "feature.node.kubernetes.io/cpu-model-"
 
-const MULTUS_RESOURCE_NAME_ANNOTATION = "k8s.v1.cni.cncf.io/resourceName"
+const NPWGV1_RESOURCE_NAME_ANNOTATION = "k8s.v1.cni.cncf.io/resourceName"
 
 type TemplateService interface {
 	RenderLaunchManifest(*v1.VirtualMachineInstance) (*k8sv1.Pod, error)
@@ -623,8 +623,8 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 		return nil, err
 	}
 
-	// Register resource requests and limits corresponding to attached multus networks.
-	// TODO(ihar) remove when we adopt Multus mutating webhook that handles the job.
+	// Register resource requests and limits corresponding to attached npwgv1 networks.
+	// TODO(ihar) remove when we adopt Npwgv1 mutating webhook that handles the job.
 	for _, resourceName := range networkToResourceMap {
 		if resourceName != "" {
 			requestResource(&resources, resourceName)
@@ -941,7 +941,7 @@ func getPortsFromVMI(vmi *v1.VirtualMachineInstance) []k8sv1.ContainerPort {
 }
 
 func getResourceNameForNetwork(network *networkv1.NetworkAttachmentDefinition) string {
-	resourceName, ok := network.Annotations[MULTUS_RESOURCE_NAME_ANNOTATION]
+	resourceName, ok := network.Annotations[NPWGV1_RESOURCE_NAME_ANNOTATION]
 	if ok {
 		return resourceName
 	}
@@ -962,8 +962,8 @@ func getNamespaceAndNetworkName(vmi *v1.VirtualMachineInstance, fullNetworkName 
 func getNetworkToResourceMap(virtClient kubecli.KubevirtClient, vmi *v1.VirtualMachineInstance) (networkToResourceMap map[string]string, err error) {
 	networkToResourceMap = make(map[string]string)
 	for _, network := range vmi.Spec.Networks {
-		if network.Multus != nil {
-			namespace, networkName := getNamespaceAndNetworkName(vmi, network.Multus.NetworkName)
+		if network.Npwgv1 != nil {
+			namespace, networkName := getNamespaceAndNetworkName(vmi, network.Npwgv1.NetworkName)
 			crd, err := virtClient.NetworkClient().K8sCniCncfIo().NetworkAttachmentDefinitions(namespace).Get(networkName, metav1.GetOptions{})
 			if err != nil {
 				return map[string]string{}, fmt.Errorf("Failed to locate network attachment definition %s/%s", namespace, networkName)
@@ -977,13 +977,11 @@ func getNetworkToResourceMap(virtClient kubecli.KubevirtClient, vmi *v1.VirtualM
 func getCniInterfaceList(vmi *v1.VirtualMachineInstance) (ifaceListString string, cniAnnotation string) {
 	ifaceList := make([]string, 0)
 
-	var tungstenfabric bool = false
-
 	for _, network := range vmi.Spec.Networks {
 		// set the type for the first network
 		// all other networks must have same type
-		if network.Multus != nil {
-			ifaceList = append(ifaceList, network.Multus.NetworkName)
+		if network.Npwgv1 != nil {
+			ifaceList = append(ifaceList, network.Npwgv1.NetworkName)
 			if cniAnnotation == "" {
 				cniAnnotation = "k8s.v1.cni.cncf.io/networks"
 			}
@@ -992,24 +990,9 @@ func getCniInterfaceList(vmi *v1.VirtualMachineInstance) (ifaceListString string
 			if cniAnnotation == "" {
 				cniAnnotation = "cni"
 			}
-		} else if network.Tungstenfabric != nil {
-			tungstenfabric = true
-			ifaceList = append(ifaceList, network.Tungstenfabric.NetworkName)
-			if cniAnnotation == "" {
-				cniAnnotation = "k8s.v1.cni.cncf.io/networks"
-			}
 		}
 	}
-
-	if tungstenfabric {
-		ifaceListString = fmt.Sprintf("[\n")
-		for _, iface := range ifaceList {
-			ifaceListString += fmt.Sprintf("  %s,\n", iface)
-		}
-		ifaceListString += fmt.Sprintf("]\n")
-	} else {
-		ifaceListString = strings.Join(ifaceList, ",")
-	}
+	ifaceListString = strings.Join(ifaceList, ",")
 	return
 }
 

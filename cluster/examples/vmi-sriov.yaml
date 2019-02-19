@@ -28,9 +28,9 @@ spec:
   networks:
   - name: default
     pod: {}
-  - multus:
+  - name: sriov-net
+    npwgv1:
       networkName: sriov-net
-    name: sriov-net
   terminationGracePeriodSeconds: 0
   volumes:
   - containerDisk:

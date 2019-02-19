@@ -4128,6 +4128,9 @@
      "networkName"
     ],
     "properties": {
+     "interfacePrefix": {
+      "type": "string"
+     },
      "networkName": {
       "description": "References to a NetworkAttachmentDefinition CRD object. Format:\n\u003cnetworkName\u003e, \u003cnamespace\u003e/\u003cnetworkName\u003e. If namespace is not\nspecified, VMI namespace is assumed.\nIn case of genie, it references the CNI plugin name.",
       "type": "string"
@@ -4907,11 +4910,11 @@
       "description": "Network name.\nMust be a DNS_LABEL and unique within the vm.\nMore info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names",
       "type": "string"
      },
+     "npwgv1": {
+      "$ref": "#/definitions/v1.CniNetwork"
+     },
      "pod": {
       "$ref": "#/definitions/v1.PodNetwork"
-     },
-     "tungstenfabric": {
-      "$ref": "#/definitions/v1.CniNetwork"
      }
     }
    },

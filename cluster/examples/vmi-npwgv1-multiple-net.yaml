@@ -3,8 +3,8 @@ apiVersion: kubevirt.io/v1alpha3
 kind: VirtualMachineInstance
 metadata:
   labels:
-    special: vmi-multus-multiple-net
-  name: vmi-multus-multiple-net
+    special: vmi-npwgv1-multiple-net
+  name: vmi-npwgv1-multiple-net
 spec:
   domain:
     devices:
@@ -28,9 +28,9 @@ spec:
   networks:
   - name: default
     pod: {}
-  - multus:
+  - name: ptp
+    npwgv1:
       networkName: ptp-conf
-    name: ptp
   terminationGracePeriodSeconds: 0
   volumes:
   - containerDisk:

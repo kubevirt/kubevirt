@@ -1152,7 +1152,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 			vmi.Spec.Networks = []v1.Network{
 				v1.Network{
 					Name:          "other_name",
-					NetworkSource: v1.NetworkSource{Multus: &v1.CniNetwork{}},
+					NetworkSource: v1.NetworkSource{Npwgv1: &v1.CniNetwork{}},
 				},
 				v1.Network{
 					Name:          interface_name,

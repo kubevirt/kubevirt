@@ -1382,7 +1382,7 @@ var _ = Describe("Validating Webhook", func() {
 
 				vmi.Spec.Networks = append(vmi.Spec.Networks,
 					v1.Network{Name: networkName, NetworkSource: v1.NetworkSource{
-						Multus: &v1.CniNetwork{NetworkName: networkName}}})
+						Npwgv1: &v1.CniNetwork{NetworkName: networkName}}})
 			}
 			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec)
 			Expect(len(causes)).To(Equal(0))
@@ -1409,7 +1409,7 @@ var _ = Describe("Validating Webhook", func() {
 				networkName := fmt.Sprintf("default%d", i)
 				vmi.Spec.Networks = append(vmi.Spec.Networks,
 					v1.Network{Name: networkName, NetworkSource: v1.NetworkSource{
-						Multus: &v1.CniNetwork{NetworkName: networkName}}})
+						Npwgv1: &v1.CniNetwork{NetworkName: networkName}}})
 			}
 			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec)
 			Expect(len(causes)).To(Equal(1))
@@ -1518,7 +1518,7 @@ var _ = Describe("Validating Webhook", func() {
 			Expect(len(causes)).To(Equal(1))
 			Expect(causes[0].Field).To(Equal("fake.domain.devices.interfaces[0].name"))
 		})
-		It("should reject unassign multus network", func() {
+		It("should reject unassign npwgv1 network", func() {
 			vm := v1.NewMinimalVMI("testvm")
 			vm.Spec.Domain.Devices.Interfaces = []v1.Interface{*v1.DefaultNetworkInterface()}
 			vm.Spec.Networks = []v1.Network{
@@ -1531,7 +1531,7 @@ var _ = Describe("Validating Webhook", func() {
 				{
 					Name: "redtest",
 					NetworkSource: v1.NetworkSource{
-						Multus: &v1.CniNetwork{NetworkName: "test-conf"},
+						Npwgv1: &v1.CniNetwork{NetworkName: "test-conf"},
 					},
 				},
 			}
@@ -1553,14 +1553,14 @@ var _ = Describe("Validating Webhook", func() {
 			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vm.Spec)
 			Expect(len(causes)).To(Equal(0))
 		})
-		It("should accept networks with a multus network source and bridge interface", func() {
+		It("should accept networks with a npwgv1 network source and bridge interface", func() {
 			vm := v1.NewMinimalVMI("testvm")
 			vm.Spec.Domain.Devices.Interfaces = []v1.Interface{*v1.DefaultNetworkInterface()}
 			vm.Spec.Networks = []v1.Network{
 				v1.Network{
 					Name: "default",
 					NetworkSource: v1.NetworkSource{
-						Multus: &v1.CniNetwork{NetworkName: "default"},
+						Npwgv1: &v1.CniNetwork{NetworkName: "default"},
 					},
 				},
 			}
@@ -1568,6 +1568,21 @@ var _ = Describe("Validating Webhook", func() {
 			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vm.Spec)
 			Expect(causes).To(BeEmpty())
 		})
+                It("should accept networks with a multus network source and bridge interface", func() {
+                        vm := v1.NewMinimalVMI("testvm")
+                        vm.Spec.Domain.Devices.Interfaces = []v1.Interface{*v1.DefaultNetworkInterface()}
+                        vm.Spec.Networks = []v1.Network{
+                                v1.Network{
+                                        Name: "default",
+                                        NetworkSource: v1.NetworkSource{
+                                                Multus: &v1.CniNetwork{NetworkName: "default"},
+                                        },
+                                },
+                        }
+
+                        causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vm.Spec)
+                        Expect(causes).To(BeEmpty())
+                })
 		It("should accept networks with a genie network source and bridge interface", func() {
 			vm := v1.NewMinimalVMI("testvm")
 			vm.Spec.Domain.Devices.Interfaces = []v1.Interface{*v1.DefaultNetworkInterface()}
@@ -1590,7 +1605,7 @@ var _ = Describe("Validating Webhook", func() {
 				v1.Network{
 					Name: "default",
 					NetworkSource: v1.NetworkSource{
-						Multus: &v1.CniNetwork{NetworkName: "default1"},
+						Npwgv1: &v1.CniNetwork{NetworkName: "default1"},
 						Genie:  &v1.CniNetwork{NetworkName: "default2"},
 					},
 				},
@@ -1607,8 +1622,8 @@ var _ = Describe("Validating Webhook", func() {
 				*v1.DefaultNetworkInterface(),
 				*v1.DefaultNetworkInterface(),
 			}
-			vm.Spec.Domain.Devices.Interfaces[0].Name = "multus1"
-			vm.Spec.Domain.Devices.Interfaces[1].Name = "multus2"
+			vm.Spec.Domain.Devices.Interfaces[0].Name = "npwg1"
+			vm.Spec.Domain.Devices.Interfaces[1].Name = "npwg2"
 			// 3rd interfaces uses the default pod network, name is "default"
 			vm.Spec.Networks = []v1.Network{
 				v1.Network{
@@ -1618,15 +1633,15 @@ var _ = Describe("Validating Webhook", func() {
 					},
 				},
 				v1.Network{
-					Name: "multus1",
+					Name: "npwg1",
 					NetworkSource: v1.NetworkSource{
-						Multus: &v1.CniNetwork{NetworkName: "multus-net1"},
+						Npwgv1: &v1.CniNetwork{NetworkName: "npwg-net1"},
 					},
 				},
 				v1.Network{
-					Name: "multus2",
+					Name: "npwg2",
 					NetworkSource: v1.NetworkSource{
-						Multus: &v1.CniNetwork{NetworkName: "multus-net2"},
+						Npwgv1: &v1.CniNetwork{NetworkName: "npwg-net2"},
 					},
 				},
 			}
@@ -1640,13 +1655,13 @@ var _ = Describe("Validating Webhook", func() {
 				*v1.DefaultNetworkInterface(),
 				*v1.DefaultNetworkInterface(),
 			}
-			vm.Spec.Domain.Devices.Interfaces[0].Name = "multus"
+			vm.Spec.Domain.Devices.Interfaces[0].Name = "npwgv1"
 			vm.Spec.Domain.Devices.Interfaces[1].Name = "genie"
 			vm.Spec.Networks = []v1.Network{
 				v1.Network{
-					Name: "multus",
+					Name: "npwgv1",
 					NetworkSource: v1.NetworkSource{
-						Multus: &v1.CniNetwork{NetworkName: "default1"},
+						Npwgv1: &v1.CniNetwork{NetworkName: "default1"},
 					},
 				},
 				v1.Network{
@@ -1688,14 +1703,14 @@ var _ = Describe("Validating Webhook", func() {
 			Expect(causes).To(HaveLen(1))
 			Expect(causes[0].Field).To(Equal("fake.networks[1]"))
 		})
-		It("should reject multus network source without networkName", func() {
+		It("should reject npwgv1 network source without networkName", func() {
 			vm := v1.NewMinimalVMI("testvm")
 			vm.Spec.Domain.Devices.Interfaces = []v1.Interface{*v1.DefaultNetworkInterface()}
 			vm.Spec.Networks = []v1.Network{
 				v1.Network{
 					Name: "default",
 					NetworkSource: v1.NetworkSource{
-						Multus: &v1.CniNetwork{},
+						Npwgv1: &v1.CniNetwork{},
 					},
 				},
 			}
@@ -1704,7 +1719,7 @@ var _ = Describe("Validating Webhook", func() {
 			Expect(causes).To(HaveLen(1))
 			Expect(causes[0].Field).To(Equal("fake.networks[0]"))
 		})
-		It("should reject networks with a multus network source and slirp interface", func() {
+		It("should reject networks with a npwgv1 network source and slirp interface", func() {
 			vm := v1.NewMinimalVMI("testvm")
 			vm.Spec.Domain.Devices.Interfaces = []v1.Interface{v1.Interface{
 				Name: "default",
@@ -1715,7 +1730,7 @@ var _ = Describe("Validating Webhook", func() {
 				v1.Network{
 					Name: "default",
 					NetworkSource: v1.NetworkSource{
-						Multus: &v1.CniNetwork{NetworkName: "default"},
+						Npwgv1: &v1.CniNetwork{NetworkName: "default"},
 					},
 				},
 			}
@@ -1792,7 +1807,7 @@ var _ = Describe("Validating Webhook", func() {
 			vm.Spec.Networks = []v1.Network{
 				v1.Network{
 					Name:          "default",
-					NetworkSource: v1.NetworkSource{Multus: &v1.CniNetwork{NetworkName: "test"}},
+					NetworkSource: v1.NetworkSource{Npwgv1: &v1.CniNetwork{NetworkName: "test"}},
 				},
 			}
 
@@ -2152,7 +2167,7 @@ var _ = Describe("Validating Webhook", func() {
 				v1.Network{
 					Name: "sriov",
 					NetworkSource: v1.NetworkSource{
-						Multus: &v1.CniNetwork{NetworkName: "sriov"},
+						Npwgv1: &v1.CniNetwork{NetworkName: "sriov"},
 					},
 				},
 			)
@@ -3135,7 +3150,7 @@ var _ = Describe("Function getNumberOfPodInterfaces()", func() {
 		net1 := v1.Network{
 			NetworkSource: v1.NetworkSource{
 				Pod:    &v1.PodNetwork{},
-				Multus: &v1.CniNetwork{NetworkName: "testnet1"},
+				Npwgv1: &v1.CniNetwork{NetworkName: "testnet1"},
 			},
 		}
 		iface1 := v1.Interface{Name: net1.Name}

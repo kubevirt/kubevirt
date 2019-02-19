@@ -937,7 +937,7 @@ var _ = Describe("Converter", func() {
 			Expect(domain.Spec.Devices.Interfaces[1].Type).To(Equal("user"))
 			Expect(domain.Spec.Devices.Interfaces[1].Model.Type).To(Equal("e1000"))
 		})
-		It("Should set domain interface source correctly for multus", func() {
+		It("Should set domain interface source correctly for npwgv1", func() {
 			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
 			vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{
 				*v1.DefaultNetworkInterface(),
@@ -951,13 +951,13 @@ var _ = Describe("Converter", func() {
 				v1.Network{
 					Name: "red1",
 					NetworkSource: v1.NetworkSource{
-						Multus: &v1.CniNetwork{NetworkName: "red"},
+						Npwgv1: &v1.CniNetwork{NetworkName: "red"},
 					},
 				},
 				v1.Network{
 					Name: "red2",
 					NetworkSource: v1.NetworkSource{
-						Multus: &v1.CniNetwork{NetworkName: "red"},
+						Npwgv1: &v1.CniNetwork{NetworkName: "red"},
 					},
 				},
 				v1.Network{
@@ -975,6 +975,38 @@ var _ = Describe("Converter", func() {
 			Expect(domain.Spec.Devices.Interfaces[1].Source.Bridge).To(Equal("k6t-net2"))
 			Expect(domain.Spec.Devices.Interfaces[2].Source.Bridge).To(Equal("k6t-eth0"))
 		})
+                It("Should set domain interface source and prefix correctly for npwgv1", func() {
+                        v1.SetObjectDefaults_VirtualMachineInstance(vmi)
+                        vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{
+                                *v1.DefaultNetworkInterface(),
+                                *v1.DefaultNetworkInterface(),
+                        }
+                        vmi.Spec.Domain.Devices.Interfaces[0].Name = "red1"
+                        vmi.Spec.Domain.Devices.Interfaces[1].Name = "red2"
+                        vmi.Spec.Networks = []v1.Network{
+                                v1.Network{
+                                        Name: "red1",
+                                        NetworkSource: v1.NetworkSource{
+                                                Npwgv1: &v1.CniNetwork{
+							NetworkName: "red",
+							InterfacePrefix: "eth"
+						},
+                                        },
+                                },
+                                v1.Network{
+                                        Name: "red2",
+                                        NetworkSource: v1.NetworkSource{
+                                                Npwgv1: &v1.CniNetwork{NetworkName: "red"},
+                                        },
+                                },
+                        }
+
+                        domain := vmiToDomain(vmi, c)
+                        Expect(domain).ToNot(Equal(nil))
+                        Expect(domain.Spec.Devices.Interfaces).To(HaveLen(3))
+                        Expect(domain.Spec.Devices.Interfaces[0].Source.Bridge).To(Equal("k6t-eth1"))
+                        Expect(domain.Spec.Devices.Interfaces[1].Source.Bridge).To(Equal("k6t-net2"))
+                })
 		It("Should set domain interface source correctly for genie", func() {
 			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
 			vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{
@@ -1003,27 +1035,6 @@ var _ = Describe("Converter", func() {
 			Expect(domain.Spec.Devices.Interfaces).To(HaveLen(2))
 			Expect(domain.Spec.Devices.Interfaces[0].Source.Bridge).To(Equal("k6t-eth0"))
 			Expect(domain.Spec.Devices.Interfaces[1].Source.Bridge).To(Equal("k6t-eth1"))
-		})
-		It("Should set domain interface source correctly for tungsten fabric", func() {
-			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
-			vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{
-				*v1.DefaultNetworkInterface(),
-			}
-			vmi.Spec.Domain.Devices.Interfaces[0].Name = "red1"
-			vmi.Spec.Networks = []v1.Network{
-				v1.Network{
-					Name: "red1",
-					NetworkSource: v1.NetworkSource{
-						Tungstenfabric: &v1.CniNetwork{NetworkName: "'{\"name\":\"red\"}'"},
-					},
-				},
-			}
-
-			domain := vmiToDomain(vmi, c)
-			Expect(domain).ToNot(Equal(nil))
-			Expect(domain.Spec.Devices.Interfaces).To(HaveLen(1))
-			Expect(vmi.Spec.Networks[0].Tungstenfabric).ToNot(Equal(nil))
-			Expect(domain.Spec.Devices.Interfaces[0].Source.Bridge).To(Equal("k6t-eth1"))
 		})
 		It("should allow setting boot order", func() {
 			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
@@ -1065,7 +1076,7 @@ var _ = Describe("Converter", func() {
 			Expect(domain.Spec.Devices.Interfaces).To(HaveLen(1))
 			Expect(domain.Spec.Devices.Interfaces[0].Source.Bridge).To(Equal("k6t-eth0"))
 		})
-		It("Should create network configuration for masquerade interface and the pod network and a secondary network using multus", func() {
+		It("Should create network configuration for masquerade interface and the pod network and a secondary network using npwgv1", func() {
 			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
 			name1 := "Name"
 
@@ -1081,7 +1092,7 @@ var _ = Describe("Converter", func() {
 				{
 					Name: "red1",
 					NetworkSource: v1.NetworkSource{
-						Multus: &v1.CniNetwork{NetworkName: "red"},
+						Npwgv1: &v1.CniNetwork{NetworkName: "red"},
 					},
 				}}
 
@@ -1500,7 +1511,7 @@ var _ = Describe("Converter", func() {
 		sriovNetwork := v1.Network{
 			Name: "sriov",
 			NetworkSource: v1.NetworkSource{
-				Multus: &v1.CniNetwork{NetworkName: "sriov"},
+				Npwgv1: &v1.CniNetwork{NetworkName: "sriov"},
 			},
 		}
 		vmi.Spec.Networks = append(vmi.Spec.Networks, sriovNetwork)
@@ -1515,7 +1526,7 @@ var _ = Describe("Converter", func() {
 		sriovNetwork2 := v1.Network{
 			Name: "sriov2",
 			NetworkSource: v1.NetworkSource{
-				Multus: &v1.CniNetwork{NetworkName: "sriov2"},
+				Npwgv1: &v1.CniNetwork{NetworkName: "sriov2"},
 			},
 		}
 		vmi.Spec.Networks = append(vmi.Spec.Networks, sriovNetwork2)

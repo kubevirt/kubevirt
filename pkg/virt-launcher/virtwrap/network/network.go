@@ -51,8 +51,8 @@ func SetupNetworkInterfaces(vmi *v1.VirtualMachineInstance, domain *api.Domain) 
 	cniNetworks := map[string]int{}
 	for _, network := range vmi.Spec.Networks {
 		networks[network.Name] = network.DeepCopy()
-		if networks[network.Name].Multus != nil || networks[network.Name].Tungstenfabric != nil {
-			// multus pod interfaces start from 1
+		if networks[network.Name].Npwgv1 != nil {
+			// npwgv1 pod interfaces start from 1
 			cniNetworks[network.Name] = len(cniNetworks) + 1
 		} else if networks[network.Name].Genie != nil {
 			// genie pod interfaces start from 0
@@ -70,10 +70,15 @@ func SetupNetworkInterfaces(vmi *v1.VirtualMachineInstance, domain *api.Domain) 
 			return err
 		}
 
-		if networks[iface.Name].Multus != nil {
-			// multus pod interfaces named netX
-			podInterfaceName = fmt.Sprintf("net%d", cniNetworks[iface.Name])
-		} else if networks[iface.Name].Genie != nil || networks[iface.Name].Tungstenfabric != nil {
+		if networks[iface.Name].Npwgv1 != nil {
+			// Npwgv1 pod interfaces named netX if interfacePrefix not specified
+			if networks[iface.Name].Npwgv1.InterfacePrefix != "" {
+				podInterfaceName = fmt.Sprintf("%s%d", networks[iface.Name].Npwgv1.InterfacePrefix,
+					cniNetworks[iface.Name])
+			} else {
+				podInterfaceName = fmt.Sprintf("net%d", cniNetworks[iface.Name])
+			}
+		} else if networks[iface.Name].Genie != nil {
 			// genie and tf pod interfaces named ethX
 			podInterfaceName = fmt.Sprintf("eth%d", cniNetworks[iface.Name])
 		} else {
@@ -90,7 +95,7 @@ func SetupNetworkInterfaces(vmi *v1.VirtualMachineInstance, domain *api.Domain) 
 
 // a factory to get suitable network interface
 func getNetworkClass(network *v1.Network) (NetworkInterface, error) {
-	if network.Pod != nil || network.Multus != nil || network.Genie != nil || network.Tungstenfabric != nil {
+	if network.Pod != nil || network.Npwgv1 != nil || network.Genie != nil {
 		return new(PodInterface), nil
 	}
 	return nil, fmt.Errorf("Network not implemented")

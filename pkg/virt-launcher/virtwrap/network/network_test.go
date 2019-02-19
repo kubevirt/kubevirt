@@ -61,11 +61,11 @@ var _ = Describe("Network", func() {
 			err := SetupNetworkInterfaces(vmi, domain)
 			Expect(err).To(BeNil())
 		})
-		It("should configure networking with multus", func() {
+		It("should configure networking with npwgv1", func() {
 			NetworkInterfaceFactory = func(network *v1.Network) (NetworkInterface, error) {
 				return mockNetworkInterface, nil
 			}
-			const multusInterfaceName = "net1"
+			const npwgv1InterfaceName = "net1"
 			domain := &api.Domain{}
 			vm := newVMIBridgeInterface("testnamespace", "testVmName")
 			api.SetObjectDefaults_Domain(domain)
@@ -73,7 +73,7 @@ var _ = Describe("Network", func() {
 			cniNet := &v1.Network{
 				Name: "default",
 				NetworkSource: v1.NetworkSource{
-					Multus: &v1.CniNetwork{NetworkName: "default"},
+					Npwgv1: &v1.CniNetwork{NetworkName: "default"},
 				},
 			}
 			vm.Spec.Networks = []v1.Network{*cniNet}

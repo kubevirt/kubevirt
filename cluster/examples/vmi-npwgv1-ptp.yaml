@@ -3,8 +3,8 @@ apiVersion: kubevirt.io/v1alpha3
 kind: VirtualMachineInstance
 metadata:
   labels:
-    special: vmi-multus-ptp
-  name: vmi-multus-ptp
+    special: vmi-npwgv1-ptp
+  name: vmi-npwgv1-ptp
 spec:
   domain:
     devices:
@@ -24,9 +24,9 @@ spec:
       requests:
         memory: 1024M
   networks:
-  - multus:
+  - name: ptp
+    npwgv1:
       networkName: ptp-conf
-    name: ptp
   terminationGracePeriodSeconds: 0
   volumes:
   - containerDisk:
