@@ -835,11 +835,13 @@ var _ = Describe("Configurations", func() {
 	Context("[rfe_id:140][crit:medium][vendor:cnv-qe@redhat.com][level:component]with CPU spec", func() {
 		libvirtCPUModelRegexp := regexp.MustCompile(`<model>(\w+)\-*\w*</model>`)
 		libvirtCPUVendorRegexp := regexp.MustCompile(`<vendor>(\w+)</vendor>`)
+		libvirtCPUFeatureRegexp := regexp.MustCompile(`<feature name='(\w+)'/>`)
 		cpuModelNameRegexp := regexp.MustCompile(`Model name:\s*([\s\w\-@\.\(\)]+)`)
 
 		var libvirtCpuModel string
 		var libvirtCpuVendor string
 		var cpuModelName string
+		var cpuFeatures []string
 		var cpuVmi *v1.VirtualMachineInstance
 
 		BeforeEach(func() {
@@ -856,6 +858,12 @@ var _ = Describe("Configurations", func() {
 			vendor := libvirtCPUVendorRegexp.FindStringSubmatch(virshCaps)
 			Expect(len(vendor)).To(Equal(2))
 			libvirtCpuVendor = vendor[1]
+
+			cpuFeaturesList := libvirtCPUFeatureRegexp.FindAllStringSubmatch(virshCaps, -1)
+
+			for _, cpuFeature := range cpuFeaturesList {
+				cpuFeatures = append(cpuFeatures, cpuFeature[1])
+			}
 
 			cpuInfo := tests.GetNodeCPUInfo(nodes.Items[0].Name)
 			modelName := cpuModelNameRegexp.FindStringSubmatch(cpuInfo)
@@ -960,11 +968,7 @@ var _ = Describe("Configurations", func() {
 					Model: vmiModel,
 					Features: []v1.CPUFeature{
 						{
-							Name: "apic",
-						},
-						{
-							Name:   "clflush",
-							Policy: "optional",
+							Name: cpuFeatures[0],
 						},
 					},
 				}
@@ -973,6 +977,19 @@ var _ = Describe("Configurations", func() {
 				_, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(cpuVmi)
 				Expect(err).ToNot(HaveOccurred())
 				tests.WaitForSuccessfulVMIStart(cpuVmi)
+
+				By("Expecting the VirtualMachineInstance console")
+				expecter, err := tests.LoggedInCirrosExpecter(cpuVmi)
+				Expect(err).ToNot(HaveOccurred())
+				defer expecter.Close()
+
+				By("Checking the CPU model under the guest OS")
+				_, err = expecter.ExpectBatch([]expect.Batcher{
+					&expect.BSnd{S: fmt.Sprintf("grep %s /proc/cpuinfo\n", cpuFeatures[0])},
+					&expect.BExp{R: "flags"},
+				}, 10*time.Second)
+				Expect(err).ToNot(HaveOccurred())
+
 			})
 		})
 	})
