@@ -81,7 +81,7 @@ var _ = Describe("Multus", func() {
 	ovsNetwork := v1.Network{
 		Name: "ovs",
 		NetworkSource: v1.NetworkSource{
-			Multus: &v1.CniNetwork{
+			Multus: &v1.MultusNetwork{
 				NetworkName: "ovs-net-vlan100",
 			},
 		},
@@ -158,7 +158,7 @@ var _ = Describe("Multus", func() {
 			detachedVMI.Spec.Domain.Devices.Interfaces = []v1.Interface{{Name: "ptp", InterfaceBindingMethod: v1.InterfaceBindingMethod{Bridge: &v1.InterfaceBridge{}}}}
 			detachedVMI.Spec.Networks = []v1.Network{
 				{Name: "ptp", NetworkSource: v1.NetworkSource{
-					Multus: &v1.CniNetwork{NetworkName: "ptp-conf"},
+					Multus: &v1.MultusNetwork{NetworkName: "ptp-conf"},
 				}},
 			}
 
@@ -175,7 +175,7 @@ var _ = Describe("Multus", func() {
 			detachedVMI.Spec.Domain.Devices.Interfaces = []v1.Interface{{Name: "ptp", InterfaceBindingMethod: v1.InterfaceBindingMethod{Bridge: &v1.InterfaceBridge{}}}}
 			detachedVMI.Spec.Networks = []v1.Network{
 				{Name: "ptp", NetworkSource: v1.NetworkSource{
-					Multus: &v1.CniNetwork{NetworkName: fmt.Sprintf("%s/%s", tests.NamespaceTestAlternative, "ptp-conf-2")},
+					Multus: &v1.MultusNetwork{NetworkName: fmt.Sprintf("%s/%s", tests.NamespaceTestAlternative, "ptp-conf-2")},
 				}},
 			}
 
@@ -196,7 +196,7 @@ var _ = Describe("Multus", func() {
 			detachedVMI.Spec.Networks = []v1.Network{
 				defaultNetwork,
 				{Name: "ptp", NetworkSource: v1.NetworkSource{
-					Multus: &v1.CniNetwork{NetworkName: "ptp-conf"},
+					Multus: &v1.MultusNetwork{NetworkName: "ptp-conf"},
 				}},
 			}
 
@@ -238,7 +238,7 @@ var _ = Describe("Multus", func() {
 			tests.AddExplicitPodNetworkInterface(vmiOne)
 
 			iface := v1.Interface{Name: "sriov", InterfaceBindingMethod: v1.InterfaceBindingMethod{SRIOV: &v1.InterfaceSRIOV{}}}
-			network := v1.Network{Name: "sriov", NetworkSource: v1.NetworkSource{Multus: &v1.CniNetwork{NetworkName: "sriov"}}}
+			network := v1.Network{Name: "sriov", NetworkSource: v1.NetworkSource{Multus: &v1.MultusNetwork{NetworkName: "sriov"}}}
 			vmiOne.Spec.Domain.Devices.Interfaces = append(vmiOne.Spec.Domain.Devices.Interfaces, iface)
 			vmiOne.Spec.Networks = append(vmiOne.Spec.Networks, network)
 
@@ -295,7 +295,7 @@ var _ = Describe("Multus", func() {
 
 			for _, name := range []string{"sriov", "sriov2"} {
 				iface := v1.Interface{Name: name, InterfaceBindingMethod: v1.InterfaceBindingMethod{SRIOV: &v1.InterfaceSRIOV{}}}
-				network := v1.Network{Name: name, NetworkSource: v1.NetworkSource{Multus: &v1.CniNetwork{NetworkName: name}}}
+				network := v1.Network{Name: name, NetworkSource: v1.NetworkSource{Multus: &v1.MultusNetwork{NetworkName: name}}}
 				vmiOne.Spec.Domain.Devices.Interfaces = append(vmiOne.Spec.Domain.Devices.Interfaces, iface)
 				vmiOne.Spec.Networks = append(vmiOne.Spec.Networks, network)
 			}

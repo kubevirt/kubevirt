@@ -156,11 +156,11 @@ var _ = Describe("Template", func() {
 						Networks: []v1.Network{
 							{Name: "default",
 								NetworkSource: v1.NetworkSource{
-									Multus: &v1.CniNetwork{NetworkName: "default"},
+									Multus: &v1.MultusNetwork{NetworkName: "default"},
 								}},
 							{Name: "test1",
 								NetworkSource: v1.NetworkSource{
-									Multus: &v1.CniNetwork{NetworkName: "test1"},
+									Multus: &v1.MultusNetwork{NetworkName: "test1"},
 								}},
 						},
 					},
@@ -184,11 +184,11 @@ var _ = Describe("Template", func() {
 						Networks: []v1.Network{
 							{Name: "default",
 								NetworkSource: v1.NetworkSource{
-									Multus: &v1.CniNetwork{NetworkName: "default", Default: true},
+									Multus: &v1.MultusNetwork{NetworkName: "default", Default: true},
 								}},
 							{Name: "test1",
 								NetworkSource: v1.NetworkSource{
-									Multus: &v1.CniNetwork{NetworkName: "test1"},
+									Multus: &v1.MultusNetwork{NetworkName: "test1"},
 								}},
 						},
 					},
@@ -217,11 +217,11 @@ var _ = Describe("Template", func() {
 						Networks: []v1.Network{
 							{Name: "default",
 								NetworkSource: v1.NetworkSource{
-									Genie: &v1.CniNetwork{NetworkName: "default"},
+									Genie: &v1.GenieNetwork{NetworkName: "default"},
 								}},
 							{Name: "test1",
 								NetworkSource: v1.NetworkSource{
-									Genie: &v1.CniNetwork{NetworkName: "test1"},
+									Genie: &v1.GenieNetwork{NetworkName: "test1"},
 								}},
 						},
 					},

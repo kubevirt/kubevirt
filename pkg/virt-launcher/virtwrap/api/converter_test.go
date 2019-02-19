@@ -1000,13 +1000,13 @@ var _ = Describe("Converter", func() {
 				v1.Network{
 					Name: "red1",
 					NetworkSource: v1.NetworkSource{
-						Multus: &v1.CniNetwork{NetworkName: "red"},
+						Multus: &v1.MultusNetwork{NetworkName: "red"},
 					},
 				},
 				v1.Network{
 					Name: "red2",
 					NetworkSource: v1.NetworkSource{
-						Multus: &v1.CniNetwork{NetworkName: "red"},
+						Multus: &v1.MultusNetwork{NetworkName: "red"},
 					},
 				},
 				v1.Network{
@@ -1036,13 +1036,13 @@ var _ = Describe("Converter", func() {
 				v1.Network{
 					Name: "red1",
 					NetworkSource: v1.NetworkSource{
-						Multus: &v1.CniNetwork{NetworkName: "red", Default: true},
+						Multus: &v1.MultusNetwork{NetworkName: "red", Default: true},
 					},
 				},
 				v1.Network{
 					Name: "red2",
 					NetworkSource: v1.NetworkSource{
-						Multus: &v1.CniNetwork{NetworkName: "red"},
+						Multus: &v1.MultusNetwork{NetworkName: "red"},
 					},
 				},
 			}
@@ -1065,13 +1065,13 @@ var _ = Describe("Converter", func() {
 				v1.Network{
 					Name: "red1",
 					NetworkSource: v1.NetworkSource{
-						Genie: &v1.CniNetwork{NetworkName: "red"},
+						Genie: &v1.GenieNetwork{NetworkName: "red"},
 					},
 				},
 				v1.Network{
 					Name: "red2",
 					NetworkSource: v1.NetworkSource{
-						Genie: &v1.CniNetwork{NetworkName: "red"},
+						Genie: &v1.GenieNetwork{NetworkName: "red"},
 					},
 				},
 			}
@@ -1138,7 +1138,7 @@ var _ = Describe("Converter", func() {
 				{
 					Name: "red1",
 					NetworkSource: v1.NetworkSource{
-						Multus: &v1.CniNetwork{NetworkName: "red"},
+						Multus: &v1.MultusNetwork{NetworkName: "red"},
 					},
 				}}
 
@@ -1557,7 +1557,7 @@ var _ = Describe("Converter", func() {
 		sriovNetwork := v1.Network{
 			Name: "sriov",
 			NetworkSource: v1.NetworkSource{
-				Multus: &v1.CniNetwork{NetworkName: "sriov"},
+				Multus: &v1.MultusNetwork{NetworkName: "sriov"},
 			},
 		}
 		vmi.Spec.Networks = append(vmi.Spec.Networks, sriovNetwork)
@@ -1572,7 +1572,7 @@ var _ = Describe("Converter", func() {
 		sriovNetwork2 := v1.Network{
 			Name: "sriov2",
 			NetworkSource: v1.NetworkSource{
-				Multus: &v1.CniNetwork{NetworkName: "sriov2"},
+				Multus: &v1.MultusNetwork{NetworkName: "sriov2"},
 			},
 		}
 		vmi.Spec.Networks = append(vmi.Spec.Networks, sriovNetwork2)
