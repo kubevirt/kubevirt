@@ -506,6 +506,32 @@ func (c *KubeVirtController) generateInstallStrategyJob(kv *v1.KubeVirt, imageTa
 	return job
 }
 
+func (c *KubeVirtController) garbageCollectInstallStrategyJobs() error {
+	batch := c.clientset.BatchV1()
+	jobs := c.stores.InstallStrategyJobCache.List()
+
+	for _, obj := range jobs {
+		job, ok := obj.(*batchv1.Job)
+		if !ok {
+			continue
+		}
+		if job.Status.CompletionTime == nil {
+			continue
+		}
+
+		propagationPolicy := metav1.DeletePropagationForeground
+		err := batch.Jobs(job.Namespace).Delete(job.Name, &metav1.DeleteOptions{
+			PropagationPolicy: &propagationPolicy,
+		})
+		if err != nil {
+			return err
+		}
+		log.Log.Object(job).Errorf("Garbage collected completed install strategy job")
+	}
+
+	return nil
+}
+
 // Loads install strategies into memory, and generates jobs to
 // create install strategies that don't exist yet.
 func (c *KubeVirtController) loadInstallStrategy(kv *v1.KubeVirt) (*installstrategy.InstallStrategy, bool, error) {
@@ -558,6 +584,10 @@ func (c *KubeVirtController) loadInstallStrategy(kv *v1.KubeVirt) (*installstrat
 				// Just in case there's an issue causing the job to fail
 				// immediately after being posted, lets perform a rudimentary
 				// for of rate-limiting for how quickly we'll re-attempt.
+				// TODO there's an alpha feature that lets us set a TTL on the job
+				// itself which will ensure it is automatically cleaned up for us
+				// after completion. That feature is feature-gated and isn't something
+				// we can depend on right now though.
 				now := time.Now().UTC().Unix()
 				secondsSinceCompletion := now - cachedJob.Status.CompletionTime.UTC().Unix()
 				if secondsSinceCompletion < 10 {
@@ -574,7 +604,10 @@ func (c *KubeVirtController) loadInstallStrategy(kv *v1.KubeVirt) (*installstrat
 					}
 
 					c.kubeVirtExpectations.InstallStrategyJob.AddExpectedDeletion(kvkey, key)
-					err = batch.Jobs(kv.Namespace).Delete(cachedJob.Name, &metav1.DeleteOptions{})
+					propagationPolicy := metav1.DeletePropagationForeground
+					err = batch.Jobs(kv.Namespace).Delete(cachedJob.Name, &metav1.DeleteOptions{
+						PropagationPolicy: &propagationPolicy,
+					})
 					if err != nil {
 						c.kubeVirtExpectations.InstallStrategyJob.DeletionObserved(kvkey, key)
 
@@ -645,6 +678,10 @@ func (c *KubeVirtController) syncDeployment(kv *v1.KubeVirt) error {
 	if pending {
 		return nil
 	}
+
+	// once all the install strategies are loaded, garbage collect any
+	// install strategy jobs that were created.
+	c.garbageCollectInstallStrategyJobs()
 
 	// deploy
 	objectsAdded, err := creation.Create(kv, c.config, c.stores, c.clientset, &c.kubeVirtExpectations, strategy)

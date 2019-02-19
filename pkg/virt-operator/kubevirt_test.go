@@ -847,6 +847,15 @@ var _ = Describe("KubeVirt Operator", func() {
 			addKubeVirt(kv)
 			addInstallStrategy()
 
+			job := controller.generateInstallStrategyJob(kv, "v9.9.9", "somerepository")
+
+			job.Status.CompletionTime = now()
+			addInstallStrategyJob(job)
+
+			// ensure completed jobs are garbage collected once install strategy
+			// is loaded
+			shouldExpectJobDeletion()
+
 			shouldExpectKubeVirtUpdate(1)
 			shouldExpectCreations()
 
