@@ -1,0 +1,104 @@
+{
+  "Block": [
+    {
+      "Allocation": 42099802112, 
+      "AllocationSet": true, 
+      "BackingIndex": 0, 
+      "BackingIndexSet": false, 
+      "Capacity": 42949672960, 
+      "CapacitySet": true, 
+      "Errors": 0, 
+      "ErrorsSet": false, 
+      "FlReqs": 613, 
+      "FlReqsSet": true, 
+      "FlTimes": 3721268610, 
+      "FlTimesSet": true, 
+      "Name": "vda", 
+      "NameSet": true, 
+      "Path": "/var/lib/libvirt/images/f28-worker-0.qcow2", 
+      "PathSet": true, 
+      "Physical": 41385254912, 
+      "PhysicalSet": true, 
+      "RdBytes": 348838912, 
+      "RdBytesSet": true, 
+      "RdReqs": 11104, 
+      "RdReqsSet": true, 
+      "RdTimes": 3642065293, 
+      "RdTimesSet": true, 
+      "WrBytes": 184719872, 
+      "WrBytesSet": true, 
+      "WrReqs": 9949, 
+      "WrReqsSet": true, 
+      "WrTimes": 1374368654, 
+      "WrTimesSet": true
+    }
+  ], 
+  "Cpu": {
+    "System": 27980000000, 
+    "SystemSet": true, 
+    "Time": 86393420788, 
+    "TimeSet": true, 
+    "User": 1620000000, 
+    "UserSet": true
+  }, 
+  "Memory": {
+    "ActualBalloon": 0, 
+    "ActualBalloonSet": false, 
+    "Available": 0, 
+    "AvailableSet": false, 
+    "RSS": 0, 
+    "RSSSet": false, 
+    "Unused": 0, 
+    "UnusedSet": false
+  }, 
+  "Name": "testName", 
+  "Net": [
+    {
+      "Name": "vnet0", 
+      "NameSet": true, 
+      "RxBytes": 29735062, 
+      "RxBytesSet": true, 
+      "RxDrop": 0, 
+      "RxDropSet": true, 
+      "RxErrs": 0, 
+      "RxErrsSet": true, 
+      "RxPkts": 15177, 
+      "RxPktsSet": true, 
+      "TxBytes": 577941, 
+      "TxBytesSet": true, 
+      "TxDrop": 0, 
+      "TxDropSet": true, 
+      "TxErrs": 0, 
+      "TxErrsSet": true, 
+      "TxPkts": 8875, 
+      "TxPktsSet": true
+    }
+  ], 
+  "UUID": "testUUID", 
+  "Vcpu": [
+    {
+      "State": 1, 
+      "StateSet": true, 
+      "Time": 23810000000, 
+      "TimeSet": true
+    }, 
+    {
+      "State": 1, 
+      "StateSet": true, 
+      "Time": 17800000000, 
+      "TimeSet": true
+    }, 
+    {
+      "State": 1, 
+      "StateSet": true, 
+      "Time": 23310000000, 
+      "TimeSet": true
+    }, 
+    {
+      "State": 1, 
+      "StateSet": true, 
+      "Time": 17360000000, 
+      "TimeSet": true
+    }
+  ]
+}

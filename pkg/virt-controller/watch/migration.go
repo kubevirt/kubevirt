@@ -90,7 +90,7 @@ func NewMigrationController(templateService services.TemplateService,
 	return c
 }
 
-func (c *MigrationController) Run(threadiness int, stopCh chan struct{}) {
+func (c *MigrationController) Run(threadiness int, stopCh <-chan struct{}) {
 	defer controller.HandlePanic()
 	defer c.Queue.ShutDown()
 	log.Log.Info("Starting migration controller.")
@@ -431,6 +431,7 @@ func (c *MigrationController) sync(migration *virtv1.VirtualMachineInstanceMigra
 				MigrationUID: migration.UID,
 				TargetNode:   pod.Spec.NodeName,
 				SourceNode:   vmi.Status.NodeName,
+				TargetPod:    pod.Name,
 			}
 
 			// By setting this label, virt-handler on the target node will receive

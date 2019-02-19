@@ -42,7 +42,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes/scheme"
 
-	cdiv1 "kubevirt.io/containerized-data-importer/pkg/apis/datavolumecontroller/v1alpha1"
+	cdiv1 "kubevirt.io/containerized-data-importer/pkg/apis/core/v1alpha1"
 	"kubevirt.io/kubevirt/pkg/precond"
 )
 
@@ -185,6 +185,19 @@ type VirtualMachineInstanceSpec struct {
 	Subdomain string `json:"subdomain,omitempty"`
 	// List of networks that can be attached to a vm's virtual interface.
 	Networks []Network `json:"networks,omitempty"`
+	// Set DNS policy for the pod.
+	// Defaults to "ClusterFirst".
+	// Valid values are 'ClusterFirstWithHostNet', 'ClusterFirst', 'Default' or 'None'.
+	// DNS parameters given in DNSConfig will be merged with the policy selected with DNSPolicy.
+	// To have DNS options set along with hostNetwork, you have to specify DNS policy
+	// explicitly to 'ClusterFirstWithHostNet'.
+	// +optional
+	DNSPolicy k8sv1.DNSPolicy `json:"dnsPolicy,omitempty" protobuf:"bytes,6,opt,name=dnsPolicy,casttype=DNSPolicy"`
+	// Specifies the DNS parameters of a pod.
+	// Parameters specified here will be merged to the generated DNS
+	// configuration based on DNSPolicy.
+	// +optional
+	DNSConfig *k8sv1.PodDNSConfig `json:"dnsConfig,omitempty" protobuf:"bytes,26,opt,name=dnsConfig"`
 }
 
 // VirtualMachineInstanceStatus represents information about the status of a VirtualMachineInstance. Status may trail the actual
@@ -336,8 +349,12 @@ type VirtualMachineInstanceMigrationState struct {
 	TargetNodeDomainDetected bool `json:"targetNodeDomainDetected,omitempty"`
 	// The address of the target node to use for the migration
 	TargetNodeAddress string `json:"targetNodeAddress,omitempty"`
+	// The list of ports opened for live migration on the destination node
+	TargetDirectMigrationNodePorts map[int]int `json:"targetDirectMigrationNodePorts,omitempty"`
 	// The target node that the VMI is moving to
 	TargetNode string `json:"targetNode,omitempty"`
+	// The target pod that the VMI is moving to
+	TargetPod string `json:"targetPod,omitempty"`
 	// The source node that the VMI originated on
 	SourceNode string `json:"sourceNode,omitempty"`
 	// Indicates the migration completed
@@ -1068,6 +1085,10 @@ type KubeVirtConditionType string
 
 // These are the valid KubeVirt condition types
 const (
-	// Whether the deployment or deletion was successful
-	KubeVirtConditionSynchronized KubeVirtConditionType = "KubeVirtSynchronized"
+	// Whether the deployment or deletion was successful (only used if false)
+	KubeVirtConditionSynchronized KubeVirtConditionType = "Synchronized"
+	// Whether all resources were created
+	KubeVirtConditionCreated KubeVirtConditionType = "Created"
+	// Whether all components were ready
+	KubeVirtConditionReady KubeVirtConditionType = "Ready"
 )

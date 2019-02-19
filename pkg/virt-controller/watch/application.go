@@ -20,6 +20,7 @@
 package watch
 
 import (
+	"context"
 	"io/ioutil"
 	golog "log"
 	"net/http"
@@ -195,8 +196,8 @@ func (vca *VirtControllerApp) Run() {
 	if err != nil {
 		glog.Fatalf("unable to generate certificates: %v", err)
 	}
-	stop := make(chan struct{})
-	defer close(stop)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
 	go func() {
 		httpLogger := logger.With("service", "http")
 		httpLogger.Level(log.INFO).Log("action", "listening", "interface", vca.BindAddress, "port", vca.Port)
@@ -232,14 +233,15 @@ func (vca *VirtControllerApp) Run() {
 			RenewDeadline: vca.LeaderElection.RenewDeadline.Duration,
 			RetryPeriod:   vca.LeaderElection.RetryPeriod.Duration,
 			Callbacks: leaderelection.LeaderCallbacks{
-				OnStartedLeading: func(stopCh <-chan struct{}) {
+				OnStartedLeading: func(ctx context.Context) {
+					stop := ctx.Done()
 					vca.informerFactory.Start(stop)
 					go vca.nodeController.Run(controllerThreads, stop)
 					go vca.vmiController.Run(controllerThreads, stop)
 					go vca.rsController.Run(controllerThreads, stop)
 					go vca.vmController.Run(controllerThreads, stop)
 					go vca.migrationController.Run(controllerThreads, stop)
-					cache.WaitForCacheSync(stopCh, vca.persistentVolumeClaimInformer.HasSynced)
+					cache.WaitForCacheSync(stop, vca.persistentVolumeClaimInformer.HasSynced)
 					close(vca.readyChan)
 				},
 				OnStoppedLeading: func() {
@@ -251,7 +253,7 @@ func (vca *VirtControllerApp) Run() {
 		golog.Fatal(err)
 	}
 
-	leaderElector.Run()
+	leaderElector.Run(ctx)
 	panic("unreachable")
 }
 

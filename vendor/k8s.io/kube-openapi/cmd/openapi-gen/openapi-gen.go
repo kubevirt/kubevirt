@@ -14,49 +14,37 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
+// This package generates openAPI definition file to be used in open API spec generation on API servers. To generate
+// definition for a specific type or package add "+k8s:openapi-gen=true" tag to the type/package comment lines. To
+// exclude a type from a tagged package, add "+k8s:openapi-gen=false" tag to the type comment lines.
+
 package main
 
 import (
+	"flag"
 	"log"
-	"os"
-	"path/filepath"
 
-	"k8s.io/gengo/args"
+	generatorargs "k8s.io/kube-openapi/cmd/openapi-gen/args"
 	"k8s.io/kube-openapi/pkg/generators"
-)
 
-const (
-	outputBase         = "pkg"
-	outputPackage      = "generated"
-	outputBaseFilename = "openapi_generated"
+	"github.com/spf13/pflag"
 )
 
 func main() {
+	genericArgs, customArgs := generatorargs.NewDefaults()
 
-	// Assumes all parameters are input directories.
-	// TODO: Input directories as flags; add initial flag parsing.
-	testdataDirs := []string{}
-	if len(os.Args) == 1 {
-		log.Fatalln("Missing parameter: no input directories")
-	} else {
-		for _, dir := range os.Args[1:] {
-			testdataDirs = append(testdataDirs, dir)
-		}
+	genericArgs.AddFlags(pflag.CommandLine)
+	customArgs.AddFlags(pflag.CommandLine)
+	flag.Set("logtostderr", "true")
+	pflag.CommandLine.AddGoFlagSet(flag.CommandLine)
+	pflag.Parse()
+
+	if err := generatorargs.Validate(genericArgs); err != nil {
+		log.Fatalf("Arguments validation error: %v", err)
 	}
-	log.Printf("Input directories: %s", testdataDirs)
-
-	// Set up the gengo arguments for code generation.
-	// TODO: Generated output filename as a parameter.
-	generatedFilepath := filepath.Join(outputBase, outputPackage, outputBaseFilename+".go")
-	log.Printf("Generated File: %s", generatedFilepath)
-	arguments := args.Default()
-	arguments.InputDirs = testdataDirs
-	arguments.OutputBase = outputBase
-	arguments.OutputPackagePath = outputPackage
-	arguments.OutputFileBaseName = outputBaseFilename
 
 	// Generates the code for the OpenAPIDefinitions.
-	if err := arguments.Execute(
+	if err := genericArgs.Execute(
 		generators.NameSystems(),
 		generators.DefaultNameSystem(),
 		generators.Packages,

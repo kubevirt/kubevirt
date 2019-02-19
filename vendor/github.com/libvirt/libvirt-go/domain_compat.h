@@ -911,4 +911,32 @@ struct _virDomainInterface {
 #define VIR_DOMAIN_MEMORY_STAT_DISK_CACHES 10
 #endif
 
+/* 4.10.0 */
+
+#ifndef VIR_DOMAIN_SHUTOFF_DAEMON
+#define VIR_DOMAIN_SHUTOFF_DAEMON 8
+#endif
+
+#ifndef VIR_DOMAIN_STATS_IOTHREAD
+#define VIR_DOMAIN_STATS_IOTHREAD (1 << 7)
+#endif
+
+#ifndef VIR_DOMAIN_IOTHREAD_POLL_GROW
+#define VIR_DOMAIN_IOTHREAD_POLL_GROW "poll_grow"
+#endif
+
+#ifndef VIR_DOMAIN_IOTHREAD_POLL_SHRINK
+#define VIR_DOMAIN_IOTHREAD_POLL_SHRINK "poll_shrink"
+#endif
+
+#ifndef VIR_DOMAIN_IOTHREAD_POLL_MAX_NS
+#define VIR_DOMAIN_IOTHREAD_POLL_MAX_NS "poll_max_ns"
+#endif
+
+/* 5.0.0 */
+
+#ifndef VIR_DOMAIN_JOB_MEMORY_POSTCOPY_REQS
+#define VIR_DOMAIN_JOB_MEMORY_POSTCOPY_REQS "memory_postcopy_requests"
+#endif
+
 #endif /* LIBVIRT_GO_DOMAIN_COMPAT_H__ */

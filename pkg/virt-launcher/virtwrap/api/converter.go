@@ -46,7 +46,11 @@ import (
 )
 
 const (
-	defaultIOThread = uint(1)
+	CPUModeHostPassthrough = "host-passthrough"
+	CPUModeHostModel       = "host-model"
+	defaultIOThread        = uint(1)
+	EFIPath                = "/usr/share/OVMF/OVMF_CODE.fd"
+	EFIVarsPath            = "/usr/share/OVMF/OVMF_VARS.fd"
 )
 
 type ConverterContext struct {
@@ -460,6 +464,11 @@ func Convert_v1_Features_To_api_Features(source *v1.Features, features *Features
 	if source.ACPI.Enabled == nil || *source.ACPI.Enabled {
 		features.ACPI = &FeatureEnabled{}
 	}
+	if source.SMM != nil {
+		if source.SMM.Enabled == nil || *source.SMM.Enabled {
+			features.SMM = &FeatureEnabled{}
+		}
+	}
 	if source.APIC != nil {
 		if source.APIC.Enabled == nil || *source.APIC.Enabled {
 			features.APIC = &FeatureEnabled{}
@@ -593,6 +602,25 @@ func Convert_v1_VirtualMachine_To_api_Domain(vmi *v1.VirtualMachineInstance, dom
 				Name:  "uuid",
 				Value: string(vmi.Spec.Domain.Firmware.UUID),
 			},
+		}
+
+		if vmi.Spec.Domain.Firmware.Bootloader != nil && vmi.Spec.Domain.Firmware.Bootloader.EFI != nil {
+
+			domain.Spec.OS.BootLoader = &Loader{
+				Path:     EFIPath,
+				ReadOnly: "yes",
+				Secure:   "no",
+				Type:     "pflash",
+			}
+
+			domain.Spec.OS.NVRam = &NVRam{
+				NVRam:    filepath.Join("/tmp", domain.Spec.Name),
+				Template: EFIVarsPath,
+			}
+		}
+
+		if len(vmi.Spec.Domain.Firmware.Serial) > 0 {
+			domain.Spec.SysInfo.System = append(domain.Spec.SysInfo.System, Entry{Name: "serial", Value: string(vmi.Spec.Domain.Firmware.Serial)})
 		}
 	}
 

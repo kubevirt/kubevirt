@@ -25,24 +25,26 @@ import (
 	v1beta12 "k8s.io/client-go/kubernetes/typed/authorization/v1beta1"
 	v15 "k8s.io/client-go/kubernetes/typed/autoscaling/v1"
 	v2beta1 "k8s.io/client-go/kubernetes/typed/autoscaling/v2beta1"
+	v2beta2 "k8s.io/client-go/kubernetes/typed/autoscaling/v2beta2"
 	v16 "k8s.io/client-go/kubernetes/typed/batch/v1"
 	v1beta13 "k8s.io/client-go/kubernetes/typed/batch/v1beta1"
 	v2alpha1 "k8s.io/client-go/kubernetes/typed/batch/v2alpha1"
 	v1beta14 "k8s.io/client-go/kubernetes/typed/certificates/v1beta1"
+	v1beta15 "k8s.io/client-go/kubernetes/typed/coordination/v1beta1"
 	v17 "k8s.io/client-go/kubernetes/typed/core/v1"
-	v1beta15 "k8s.io/client-go/kubernetes/typed/events/v1beta1"
-	v1beta16 "k8s.io/client-go/kubernetes/typed/extensions/v1beta1"
+	v1beta16 "k8s.io/client-go/kubernetes/typed/events/v1beta1"
+	v1beta17 "k8s.io/client-go/kubernetes/typed/extensions/v1beta1"
 	v18 "k8s.io/client-go/kubernetes/typed/networking/v1"
-	v1beta17 "k8s.io/client-go/kubernetes/typed/policy/v1beta1"
+	v1beta18 "k8s.io/client-go/kubernetes/typed/policy/v1beta1"
 	v19 "k8s.io/client-go/kubernetes/typed/rbac/v1"
 	v1alpha10 "k8s.io/client-go/kubernetes/typed/rbac/v1alpha1"
-	v1beta18 "k8s.io/client-go/kubernetes/typed/rbac/v1beta1"
+	v1beta19 "k8s.io/client-go/kubernetes/typed/rbac/v1beta1"
 	v1alpha11 "k8s.io/client-go/kubernetes/typed/scheduling/v1alpha1"
-	v1beta19 "k8s.io/client-go/kubernetes/typed/scheduling/v1beta1"
+	v1beta110 "k8s.io/client-go/kubernetes/typed/scheduling/v1beta1"
 	v1alpha12 "k8s.io/client-go/kubernetes/typed/settings/v1alpha1"
 	v110 "k8s.io/client-go/kubernetes/typed/storage/v1"
 	v1alpha13 "k8s.io/client-go/kubernetes/typed/storage/v1alpha1"
-	v1beta110 "k8s.io/client-go/kubernetes/typed/storage/v1beta1"
+	v1beta111 "k8s.io/client-go/kubernetes/typed/storage/v1beta1"
 	rest "k8s.io/client-go/rest"
 
 	versioned0 "kubevirt.io/containerized-data-importer/pkg/client/clientset/versioned"
@@ -178,6 +180,16 @@ func (_m *MockKubevirtClient) SecClient() v1.SecurityV1Interface {
 
 func (_mr *_MockKubevirtClientRecorder) SecClient() *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "SecClient")
+}
+
+func (_m *MockKubevirtClient) DiscoveryClient() discovery.DiscoveryInterface {
+	ret := _m.ctrl.Call(_m, "DiscoveryClient")
+	ret0, _ := ret[0].(discovery.DiscoveryInterface)
+	return ret0
+}
+
+func (_mr *_MockKubevirtClientRecorder) DiscoveryClient() *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "DiscoveryClient")
 }
 
 func (_m *MockKubevirtClient) Discovery() discovery.DiscoveryInterface {
@@ -350,6 +362,16 @@ func (_mr *_MockKubevirtClientRecorder) AutoscalingV2beta1() *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "AutoscalingV2beta1")
 }
 
+func (_m *MockKubevirtClient) AutoscalingV2beta2() v2beta2.AutoscalingV2beta2Interface {
+	ret := _m.ctrl.Call(_m, "AutoscalingV2beta2")
+	ret0, _ := ret[0].(v2beta2.AutoscalingV2beta2Interface)
+	return ret0
+}
+
+func (_mr *_MockKubevirtClientRecorder) AutoscalingV2beta2() *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "AutoscalingV2beta2")
+}
+
 func (_m *MockKubevirtClient) BatchV1() v16.BatchV1Interface {
 	ret := _m.ctrl.Call(_m, "BatchV1")
 	ret0, _ := ret[0].(v16.BatchV1Interface)
@@ -410,6 +432,26 @@ func (_mr *_MockKubevirtClientRecorder) Certificates() *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "Certificates")
 }
 
+func (_m *MockKubevirtClient) CoordinationV1beta1() v1beta15.CoordinationV1beta1Interface {
+	ret := _m.ctrl.Call(_m, "CoordinationV1beta1")
+	ret0, _ := ret[0].(v1beta15.CoordinationV1beta1Interface)
+	return ret0
+}
+
+func (_mr *_MockKubevirtClientRecorder) CoordinationV1beta1() *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "CoordinationV1beta1")
+}
+
+func (_m *MockKubevirtClient) Coordination() v1beta15.CoordinationV1beta1Interface {
+	ret := _m.ctrl.Call(_m, "Coordination")
+	ret0, _ := ret[0].(v1beta15.CoordinationV1beta1Interface)
+	return ret0
+}
+
+func (_mr *_MockKubevirtClientRecorder) Coordination() *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "Coordination")
+}
+
 func (_m *MockKubevirtClient) CoreV1() v17.CoreV1Interface {
 	ret := _m.ctrl.Call(_m, "CoreV1")
 	ret0, _ := ret[0].(v17.CoreV1Interface)
@@ -430,9 +472,9 @@ func (_mr *_MockKubevirtClientRecorder) Core() *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "Core")
 }
 
-func (_m *MockKubevirtClient) EventsV1beta1() v1beta15.EventsV1beta1Interface {
+func (_m *MockKubevirtClient) EventsV1beta1() v1beta16.EventsV1beta1Interface {
 	ret := _m.ctrl.Call(_m, "EventsV1beta1")
-	ret0, _ := ret[0].(v1beta15.EventsV1beta1Interface)
+	ret0, _ := ret[0].(v1beta16.EventsV1beta1Interface)
 	return ret0
 }
 
@@ -440,9 +482,9 @@ func (_mr *_MockKubevirtClientRecorder) EventsV1beta1() *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "EventsV1beta1")
 }
 
-func (_m *MockKubevirtClient) Events() v1beta15.EventsV1beta1Interface {
+func (_m *MockKubevirtClient) Events() v1beta16.EventsV1beta1Interface {
 	ret := _m.ctrl.Call(_m, "Events")
-	ret0, _ := ret[0].(v1beta15.EventsV1beta1Interface)
+	ret0, _ := ret[0].(v1beta16.EventsV1beta1Interface)
 	return ret0
 }
 
@@ -450,9 +492,9 @@ func (_mr *_MockKubevirtClientRecorder) Events() *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "Events")
 }
 
-func (_m *MockKubevirtClient) ExtensionsV1beta1() v1beta16.ExtensionsV1beta1Interface {
+func (_m *MockKubevirtClient) ExtensionsV1beta1() v1beta17.ExtensionsV1beta1Interface {
 	ret := _m.ctrl.Call(_m, "ExtensionsV1beta1")
-	ret0, _ := ret[0].(v1beta16.ExtensionsV1beta1Interface)
+	ret0, _ := ret[0].(v1beta17.ExtensionsV1beta1Interface)
 	return ret0
 }
 
@@ -460,9 +502,9 @@ func (_mr *_MockKubevirtClientRecorder) ExtensionsV1beta1() *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "ExtensionsV1beta1")
 }
 
-func (_m *MockKubevirtClient) Extensions() v1beta16.ExtensionsV1beta1Interface {
+func (_m *MockKubevirtClient) Extensions() v1beta17.ExtensionsV1beta1Interface {
 	ret := _m.ctrl.Call(_m, "Extensions")
-	ret0, _ := ret[0].(v1beta16.ExtensionsV1beta1Interface)
+	ret0, _ := ret[0].(v1beta17.ExtensionsV1beta1Interface)
 	return ret0
 }
 
@@ -490,9 +532,9 @@ func (_mr *_MockKubevirtClientRecorder) Networking() *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "Networking")
 }
 
-func (_m *MockKubevirtClient) PolicyV1beta1() v1beta17.PolicyV1beta1Interface {
+func (_m *MockKubevirtClient) PolicyV1beta1() v1beta18.PolicyV1beta1Interface {
 	ret := _m.ctrl.Call(_m, "PolicyV1beta1")
-	ret0, _ := ret[0].(v1beta17.PolicyV1beta1Interface)
+	ret0, _ := ret[0].(v1beta18.PolicyV1beta1Interface)
 	return ret0
 }
 
@@ -500,9 +542,9 @@ func (_mr *_MockKubevirtClientRecorder) PolicyV1beta1() *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "PolicyV1beta1")
 }
 
-func (_m *MockKubevirtClient) Policy() v1beta17.PolicyV1beta1Interface {
+func (_m *MockKubevirtClient) Policy() v1beta18.PolicyV1beta1Interface {
 	ret := _m.ctrl.Call(_m, "Policy")
-	ret0, _ := ret[0].(v1beta17.PolicyV1beta1Interface)
+	ret0, _ := ret[0].(v1beta18.PolicyV1beta1Interface)
 	return ret0
 }
 
@@ -530,9 +572,9 @@ func (_mr *_MockKubevirtClientRecorder) Rbac() *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "Rbac")
 }
 
-func (_m *MockKubevirtClient) RbacV1beta1() v1beta18.RbacV1beta1Interface {
+func (_m *MockKubevirtClient) RbacV1beta1() v1beta19.RbacV1beta1Interface {
 	ret := _m.ctrl.Call(_m, "RbacV1beta1")
-	ret0, _ := ret[0].(v1beta18.RbacV1beta1Interface)
+	ret0, _ := ret[0].(v1beta19.RbacV1beta1Interface)
 	return ret0
 }
 
@@ -560,9 +602,9 @@ func (_mr *_MockKubevirtClientRecorder) SchedulingV1alpha1() *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "SchedulingV1alpha1")
 }
 
-func (_m *MockKubevirtClient) SchedulingV1beta1() v1beta19.SchedulingV1beta1Interface {
+func (_m *MockKubevirtClient) SchedulingV1beta1() v1beta110.SchedulingV1beta1Interface {
 	ret := _m.ctrl.Call(_m, "SchedulingV1beta1")
-	ret0, _ := ret[0].(v1beta19.SchedulingV1beta1Interface)
+	ret0, _ := ret[0].(v1beta110.SchedulingV1beta1Interface)
 	return ret0
 }
 
@@ -570,9 +612,9 @@ func (_mr *_MockKubevirtClientRecorder) SchedulingV1beta1() *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "SchedulingV1beta1")
 }
 
-func (_m *MockKubevirtClient) Scheduling() v1beta19.SchedulingV1beta1Interface {
+func (_m *MockKubevirtClient) Scheduling() v1beta110.SchedulingV1beta1Interface {
 	ret := _m.ctrl.Call(_m, "Scheduling")
-	ret0, _ := ret[0].(v1beta19.SchedulingV1beta1Interface)
+	ret0, _ := ret[0].(v1beta110.SchedulingV1beta1Interface)
 	return ret0
 }
 
@@ -600,9 +642,9 @@ func (_mr *_MockKubevirtClientRecorder) Settings() *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "Settings")
 }
 
-func (_m *MockKubevirtClient) StorageV1beta1() v1beta110.StorageV1beta1Interface {
+func (_m *MockKubevirtClient) StorageV1beta1() v1beta111.StorageV1beta1Interface {
 	ret := _m.ctrl.Call(_m, "StorageV1beta1")
-	ret0, _ := ret[0].(v1beta110.StorageV1beta1Interface)
+	ret0, _ := ret[0].(v1beta111.StorageV1beta1Interface)
 	return ret0
 }
 

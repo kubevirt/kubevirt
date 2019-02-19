@@ -430,6 +430,7 @@ var _ = Describe("Migration watcher", func() {
 				MigrationUID: migration.UID,
 				TargetNode:   "node01",
 				SourceNode:   "node02",
+				TargetPod:    pod.Name,
 			}
 			vmi.Labels[v1.MigrationTargetNodeNameLabel] = "node01"
 			addMigration(migration)

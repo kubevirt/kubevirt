@@ -2,7 +2,7 @@
 // source: api.proto
 
 /*
-Package v1alpha is a generated protocol buffer package.
+Package v1alpha1 is a generated protocol buffer package.
 
 It is generated from these files:
 	api.proto
@@ -11,7 +11,7 @@ It has these top-level messages:
 	OnDefineDomainParams
 	OnDefineDomainResult
 */
-package v1alpha
+package v1alpha1
 
 import proto "github.com/golang/protobuf/proto"
 import fmt "fmt"

@@ -106,6 +106,30 @@ func pollPVCAnnotation(clientSet *kubernetes.Clientset, namespace string, pvc *k
 	return err
 }
 
+// NewPVCDefinitionWithSelector creates a PVC definition.
+func NewPVCDefinitionWithSelector(pvcName, size string, selector map[string]string, annotations, labels map[string]string,
+	storageClassName string) *k8sv1.PersistentVolumeClaim {
+	return &k8sv1.PersistentVolumeClaim{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:        pvcName,
+			Annotations: annotations,
+			Labels:      labels,
+		},
+		Spec: k8sv1.PersistentVolumeClaimSpec{
+			AccessModes: []k8sv1.PersistentVolumeAccessMode{k8sv1.ReadWriteOnce},
+			Resources: k8sv1.ResourceRequirements{
+				Requests: k8sv1.ResourceList{
+					k8sv1.ResourceName(k8sv1.ResourceStorage): resource.MustParse(size),
+				},
+			},
+			StorageClassName: &storageClassName,
+			Selector: &metav1.LabelSelector{
+				MatchLabels: selector,
+			},
+		},
+	}
+}
+
 // NewPVCDefinition creates a PVC definition using the passed in name and requested size.
 // You can use the following annotation keys to request an import or clone. The values are defined in the controller package
 // AnnEndpoint

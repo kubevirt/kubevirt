@@ -60,7 +60,7 @@ spec:
         - mountPath: /var/lib/kubelet/device-plugins
           name: device-plugin
       hostPID: true
-      serviceAccountName: kubevirt-privileged
+      serviceAccountName: kubevirt-handler
       volumes:
       - hostPath:
           path: /var/run/kubevirt-libvirt-runtimes

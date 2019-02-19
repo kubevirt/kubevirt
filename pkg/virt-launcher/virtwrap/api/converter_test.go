@@ -136,6 +136,7 @@ var _ = Describe("Converter", func() {
 			}
 			vmi.Spec.Domain.Features = &v1.Features{
 				APIC: &v1.FeatureAPIC{},
+				SMM:  &v1.FeatureState{},
 				Hyperv: &v1.FeatureHyperv{
 					Relaxed:    &v1.FeatureState{Enabled: &_false},
 					VAPIC:      &v1.FeatureState{Enabled: &_true},
@@ -239,7 +240,8 @@ var _ = Describe("Converter", func() {
 					Name: "nocloud",
 					VolumeSource: v1.VolumeSource{
 						CloudInitNoCloud: &v1.CloudInitNoCloudSource{
-							UserDataBase64: "1234",
+							UserDataBase64:    "1234",
+							NetworkDataBase64: "1234",
 						},
 					},
 				},
@@ -247,7 +249,8 @@ var _ = Describe("Converter", func() {
 					Name: "cdrom_tray_unspecified",
 					VolumeSource: v1.VolumeSource{
 						CloudInitNoCloud: &v1.CloudInitNoCloudSource{
-							UserDataBase64: "1234",
+							UserDataBase64:    "1234",
+							NetworkDataBase64: "1234",
 						},
 					},
 				},
@@ -341,7 +344,8 @@ var _ = Describe("Converter", func() {
 			vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{*v1.DefaultNetworkInterface()}
 
 			vmi.Spec.Domain.Firmware = &v1.Firmware{
-				UUID: "e4686d2c-6e8d-4335-b8fd-81bee22f4814",
+				UUID:   "e4686d2c-6e8d-4335-b8fd-81bee22f4814",
+				Serial: "e4686d2c-6e8d-4335-b8fd-81bee22f4815",
 			}
 
 			gracePerod := int64(5)
@@ -359,6 +363,7 @@ var _ = Describe("Converter", func() {
   <sysinfo type="smbios">
     <system>
       <entry name="uuid">e4686d2c-6e8d-4335-b8fd-81bee22f4814</entry>
+      <entry name="serial">e4686d2c-6e8d-4335-b8fd-81bee22f4815</entry>
     </system>
     <bios></bios>
     <baseBoard></baseBoard>
@@ -503,6 +508,7 @@ var _ = Describe("Converter", func() {
       <reset state="on"></reset>
       <vendor_id state="off" value="myvendor"></vendor_id>
     </hyperv>
+    <smm></smm>
   </features>
   <cpu mode="host-model">
     <topology sockets="1" cores="1" threads="1"></topology>
@@ -1539,6 +1545,73 @@ var _ = Describe("Converter", func() {
 			Expect(domain.Spec.Devices.HostDevices[1].Source.Address.Bus).To(Equal("0x81"))
 			Expect(domain.Spec.Devices.HostDevices[1].Source.Address.Slot).To(Equal("0x11"))
 			Expect(domain.Spec.Devices.HostDevices[1].Source.Address.Function).To(Equal("0x2"))
+		})
+	})
+
+	Context("Bootloader", func() {
+		var vmi *v1.VirtualMachineInstance
+		var c *ConverterContext
+
+		BeforeEach(func() {
+			vmi = &v1.VirtualMachineInstance{
+				ObjectMeta: k8smeta.ObjectMeta{
+					Name:      "testvmi",
+					Namespace: "mynamespace",
+				},
+			}
+
+			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
+
+			c = &ConverterContext{
+				VirtualMachine: vmi,
+				UseEmulation:   true,
+			}
+		})
+
+		Context("when bootloader is not set", func() {
+			It("should configure the BIOS bootloader", func() {
+				vmi.Spec.Domain.Firmware = &v1.Firmware{}
+				domainSpec := vmiToDomainXMLToDomainSpec(vmi, c)
+				Expect(domainSpec.OS.BootLoader).To(BeNil())
+				Expect(domainSpec.OS.NVRam).To(BeNil())
+			})
+		})
+
+		Context("when bootloader is set", func() {
+			It("should configure the BIOS bootloader if no BIOS or EFI option", func() {
+				vmi.Spec.Domain.Firmware = &v1.Firmware{
+					Bootloader: &v1.Bootloader{},
+				}
+				domainSpec := vmiToDomainXMLToDomainSpec(vmi, c)
+				Expect(domainSpec.OS.BootLoader).To(BeNil())
+				Expect(domainSpec.OS.NVRam).To(BeNil())
+			})
+
+			It("should configure the BIOS bootloader if BIOS", func() {
+				vmi.Spec.Domain.Firmware = &v1.Firmware{
+					Bootloader: &v1.Bootloader{
+						BIOS: &v1.BIOS{},
+					},
+				}
+				domainSpec := vmiToDomainXMLToDomainSpec(vmi, c)
+				Expect(domainSpec.OS.BootLoader).To(BeNil())
+				Expect(domainSpec.OS.NVRam).To(BeNil())
+			})
+
+			It("should configure the EFI bootloader if EFI insecure option", func() {
+
+				vmi.Spec.Domain.Firmware = &v1.Firmware{
+					Bootloader: &v1.Bootloader{
+						EFI: &v1.EFI{},
+					},
+				}
+				domainSpec := vmiToDomainXMLToDomainSpec(vmi, c)
+				Expect(domainSpec.OS.BootLoader.ReadOnly).To(Equal("yes"))
+				Expect(domainSpec.OS.BootLoader.Type).To(Equal("pflash"))
+				Expect(domainSpec.OS.BootLoader.Path).To(Equal(EFIPath))
+				Expect(domainSpec.OS.NVRam.Template).To(Equal(EFIVarsPath))
+				Expect(domainSpec.OS.NVRam.NVRam).To(Equal("/tmp/mynamespace_testvmi"))
+			})
 		})
 	})
 })

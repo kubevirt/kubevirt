@@ -16,21 +16,14 @@
 # Copyright 2017 Red Hat, Inc.
 #
 
-FROM kubevirt/libvirt:4.9.0
+FROM kubevirt/libvirt:5.0.0
 
 LABEL maintainer="The KubeVirt Project <kubevirt-dev@googlegroups.com>"
 
-RUN dnf -y install \
-  socat \
-  genisoimage \
-  && dnf -y clean all && \
-  test $(id -u qemu) = 107 # make sure that the qemu user really is 107
+RUN test $(id -u qemu) = 107 # make sure that the qemu user really is 107
 
 COPY virt-launcher /usr/bin/virt-launcher
 COPY .version /.version
-
-# Allow qemu to bind privileged ports
-RUN setcap CAP_NET_BIND_SERVICE=+eip /usr/bin/qemu-system-x86_64
 
 RUN mkdir -p /usr/share/kubevirt/virt-launcher
 COPY sock-connector /usr/share/kubevirt/virt-launcher/

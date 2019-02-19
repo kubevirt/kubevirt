@@ -52,7 +52,15 @@ func Create(kv *v1.KubeVirt, config util.KubeVirtDeploymentConfig, stores util.S
 		return objectsAdded, err
 	}
 
-	err = util.UpdateScc(clientset, kv, true)
+	added, err = rbac.CreateHandlerRBAC(clientset, kv, stores, expectations)
+	objectsAdded = objectsAdded + added
+	if err != nil {
+		log.Log.Errorf("Failed to create handler RBAC: %v", err)
+		return objectsAdded, err
+	}
+
+	err = util.UpdateScc(clientset, stores.SCCCache, kv, true)
+
 	if err != nil {
 		log.Log.Errorf("Failed to update SCC: %v", err)
 		return objectsAdded, err

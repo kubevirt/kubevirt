@@ -34,7 +34,7 @@ cat <<EOF | kubectl apply -f -
 kind: Service
 metadata:
   name: cdi-uploadproxy-nodeport
-  namespace: kube-system
+  namespace: cdi
   labels:
     cdi.kubevirt.io: "cdi-uploadproxy"
 spec:
@@ -57,7 +57,7 @@ apiVersion: v1
 kind: Route
 metadata:
   name: cdi-uploadproxy
-  namespace: kube-system 
+  namespace: cdi
 spec:
   to:
     kind: Service
@@ -142,7 +142,7 @@ curl -v --insecure -H "Authorization: Bearer $TOKEN" --data-binary @tests/images
 ### Minishift
 
 ```bash
-curl -v --insecure -H "Authorization: Bearer $TOKEN" --data-binary @tests/images/cirros-qcow2.img https://cdi-uploadproxy-kube-system.$(minishift ip).nip.io/v1alpha1/upload
+curl -v --insecure -H "Authorization: Bearer $TOKEN" --data-binary @tests/images/cirros-qcow2.img https://cdi-uploadproxy-cdi.$(minishift ip).nip.io/v1alpha1/upload
 ```
 
 Assuming you did not get an error, the PVC `upload-test` should now contain a bootable VM image.

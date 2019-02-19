@@ -4,7 +4,7 @@ all:
 	hack/dockerized "./hack/check.sh && KUBEVIRT_VERSION=${KUBEVIRT_VERSION} ./hack/build-go.sh install ${WHAT} && ./hack/build-copy-artifacts.sh ${WHAT} && DOCKER_PREFIX=${DOCKER_PREFIX} DOCKER_TAG=${DOCKER_TAG} IMAGE_PULL_POLICY=${IMAGE_PULL_POLICY} VERBOSITY=${VERBOSITY} ./hack/build-manifests.sh"
 
 generate:
-	hack/dockerized "./hack/generate.sh"
+	hack/dockerized "DOCKER_PREFIX=${DOCKER_PREFIX} DOCKER_TAG=${DOCKER_TAG} IMAGE_PULL_POLICY=${IMAGE_PULL_POLICY} VERBOSITY=${VERBOSITY} ./hack/generate.sh"
 
 apidocs:
 	hack/dockerized "./hack/generate.sh && ./hack/gen-swagger-doc/gen-swagger-docs.sh v1 html"
@@ -50,7 +50,7 @@ docker: build
 push: docker
 	hack/build-docker.sh push ${WHAT}
 
-push-cache:
+push-cache: docker verify-build
 	hack/build-docker.sh push-cache ${WHAT}
 
 pull-cache:
@@ -88,9 +88,10 @@ cluster-deploy: cluster-clean
 
 cluster-sync: cluster-build cluster-deploy
 
-cluster-deploy-operator: cluster-clean
-	./cluster/deploy-operator.sh
+builder-build:
+	./hack/builder/build.sh
 
-cluster-sync-operator: cluster-build cluster-deploy-operator
+builder-publish:
+	./hack/builder/publish.sh
 
 .PHONY: build test clean distclean checksync sync docker manifests publish functest release-announce cluster-up cluster-down cluster-clean cluster-deploy cluster-sync

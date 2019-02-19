@@ -53,7 +53,7 @@ func CreateApiServerRBAC(clientset kubecli.KubevirtClient, kv *virtv1.KubeVirt, 
 			objectsAdded++
 		}
 	} else {
-		log.Log.Infof("serviceaccount %v already exists", sa.GetName())
+		log.Log.V(4).Infof("serviceaccount %v already exists", sa.GetName())
 	}
 
 	rbac := clientset.RbacV1()
@@ -69,7 +69,7 @@ func CreateApiServerRBAC(clientset kubecli.KubevirtClient, kv *virtv1.KubeVirt, 
 			objectsAdded++
 		}
 	} else {
-		log.Log.Infof("clusterrole %v already exists", cr.GetName())
+		log.Log.V(4).Infof("clusterrole %v already exists", cr.GetName())
 	}
 
 	clusterRoleBindings := []*rbacv1.ClusterRoleBinding{
@@ -87,7 +87,7 @@ func CreateApiServerRBAC(clientset kubecli.KubevirtClient, kv *virtv1.KubeVirt, 
 				objectsAdded++
 			}
 		} else {
-			log.Log.Infof("clusterrolebinding %v already exists", crb.GetName())
+			log.Log.V(4).Infof("clusterrolebinding %v already exists", crb.GetName())
 		}
 	}
 
@@ -102,7 +102,7 @@ func CreateApiServerRBAC(clientset kubecli.KubevirtClient, kv *virtv1.KubeVirt, 
 			objectsAdded++
 		}
 	} else {
-		log.Log.Infof("role %v already exists", r.GetName())
+		log.Log.V(4).Infof("role %v already exists", r.GetName())
 	}
 
 	rb := newApiServerRoleBinding(kv.Namespace)
@@ -116,7 +116,7 @@ func CreateApiServerRBAC(clientset kubecli.KubevirtClient, kv *virtv1.KubeVirt, 
 			objectsAdded++
 		}
 	} else {
-		log.Log.Infof("rolebinding %v already exists", rb.GetName())
+		log.Log.V(4).Infof("rolebinding %v already exists", rb.GetName())
 	}
 
 	return objectsAdded, nil

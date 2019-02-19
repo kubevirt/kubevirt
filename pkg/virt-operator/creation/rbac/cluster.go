@@ -25,7 +25,6 @@ import (
 	"kubevirt.io/kubevirt/pkg/log"
 	"kubevirt.io/kubevirt/pkg/virt-operator/util"
 
-	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
@@ -39,21 +38,6 @@ func CreateClusterRBAC(clientset kubecli.KubevirtClient, kv *virtv1.KubeVirt, st
 	kvkey, err := controller.KeyFunc(kv)
 	if err != nil {
 		return 0, err
-	}
-
-	core := clientset.CoreV1()
-	sa := newPrivilegedServiceAccount(kv.Namespace)
-	if _, exists, _ := stores.ServiceAccountCache.Get(sa); !exists {
-		expectations.ServiceAccount.RaiseExpectations(kvkey, 1, 0)
-		_, err := core.ServiceAccounts(kv.Namespace).Create(sa)
-		if err != nil {
-			expectations.ServiceAccount.LowerExpectations(kvkey, 1, 0)
-			return objectsAdded, fmt.Errorf("unable to create serviceaccount %+v: %v", sa, err)
-		} else if err == nil {
-			objectsAdded++
-		}
-	} else {
-		log.Log.Infof("serviceaccount %v already exists", sa.GetName())
 	}
 
 	rbac := clientset.RbacV1()
@@ -75,13 +59,12 @@ func CreateClusterRBAC(clientset kubecli.KubevirtClient, kv *virtv1.KubeVirt, st
 				objectsAdded++
 			}
 		} else {
-			log.Log.Infof("clusterrole %v already exists", cr.GetName())
+			log.Log.V(4).Infof("clusterrole %v already exists", cr.GetName())
 		}
 	}
 
 	clusterRoleBindings := []*rbacv1.ClusterRoleBinding{
 		newDefaultClusterRoleBinding(),
-		newPrivilegedClusterRoleBinding(kv.Namespace),
 	}
 	for _, crb := range clusterRoleBindings {
 		if _, exists, _ := stores.ClusterRoleBindingCache.Get(crb); !exists {
@@ -94,7 +77,7 @@ func CreateClusterRBAC(clientset kubecli.KubevirtClient, kv *virtv1.KubeVirt, st
 				objectsAdded++
 			}
 		} else {
-			log.Log.Infof("clusterrolebinding %v already exists", crb.GetName())
+			log.Log.V(4).Infof("clusterrolebinding %v already exists", crb.GetName())
 		}
 	}
 
@@ -108,8 +91,6 @@ func GetAllCluster(namespace string) []interface{} {
 		newAdminClusterRole(),
 		newEditClusterRole(),
 		newViewClusterRole(),
-		newPrivilegedServiceAccount(namespace),
-		newPrivilegedClusterRoleBinding(namespace),
 	}
 }
 
@@ -322,51 +303,6 @@ func newViewClusterRole() *rbacv1.ClusterRole {
 				Verbs: []string{
 					"get", "list", "watch",
 				},
-			},
-		},
-	}
-}
-
-func newPrivilegedServiceAccount(namespace string) *corev1.ServiceAccount {
-	return &corev1.ServiceAccount{
-		TypeMeta: metav1.TypeMeta{
-			APIVersion: "v1",
-			Kind:       "ServiceAccount",
-		},
-		ObjectMeta: metav1.ObjectMeta{
-			Namespace: namespace,
-			Name:      "kubevirt-privileged",
-			Labels: map[string]string{
-				virtv1.AppLabel:       "",
-				virtv1.ManagedByLabel: virtv1.ManagedByLabelOperatorValue,
-			},
-		},
-	}
-}
-
-func newPrivilegedClusterRoleBinding(namespace string) *rbacv1.ClusterRoleBinding {
-	return &rbacv1.ClusterRoleBinding{
-		TypeMeta: metav1.TypeMeta{
-			APIVersion: "rbac.authorization.k8s.io/v1",
-			Kind:       "ClusterRoleBinding",
-		},
-		ObjectMeta: metav1.ObjectMeta{
-			Name: "kubevirt-privileged-cluster-admin",
-			Labels: map[string]string{
-				virtv1.AppLabel:       "",
-				virtv1.ManagedByLabel: virtv1.ManagedByLabelOperatorValue,
-			},
-		},
-		RoleRef: rbacv1.RoleRef{
-			APIGroup: "rbac.authorization.k8s.io",
-			Kind:     "ClusterRole",
-			Name:     "cluster-admin",
-		},
-		Subjects: []rbacv1.Subject{
-			{
-				Kind:      "ServiceAccount",
-				Namespace: namespace,
-				Name:      "kubevirt-privileged",
 			},
 		},
 	}

@@ -24,6 +24,8 @@ import (
 	"sync"
 	"time"
 
+	secv1 "github.com/openshift/api/security/v1"
+
 	appsv1 "k8s.io/api/apps/v1"
 	k8sv1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
@@ -34,7 +36,7 @@ import (
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
 
-	cdiv1 "kubevirt.io/containerized-data-importer/pkg/apis/datavolumecontroller/v1alpha1"
+	cdiv1 "kubevirt.io/containerized-data-importer/pkg/apis/core/v1alpha1"
 	cdiv1informers "kubevirt.io/containerized-data-importer/pkg/client/informers/externalversions"
 	kubev1 "kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/kubecli"
@@ -118,6 +120,12 @@ type KubeInformerFactory interface {
 
 	// Deployment
 	OperatorDeployment() cache.SharedIndexInformer
+
+	// SecurityContextConstraints
+	OperatorSCC() cache.SharedIndexInformer
+
+	// Fake SecurityContextConstraints informer used when not on openshift
+	DummyOperatorSCC() cache.SharedIndexInformer
 }
 
 type kubeInformerFactory struct {
@@ -395,5 +403,19 @@ func (f *kubeInformerFactory) OperatorDaemonSet() cache.SharedIndexInformer {
 
 		lw := NewListWatchFromClient(f.clientSet.AppsV1().RESTClient(), "daemonsets", k8sv1.NamespaceAll, fields.Everything(), labelSelector)
 		return cache.NewSharedIndexInformer(lw, &appsv1.DaemonSet{}, f.defaultResync, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
+	})
+}
+
+func (f *kubeInformerFactory) OperatorSCC() cache.SharedIndexInformer {
+	return f.getInformer("OperatorSCC", func() cache.SharedIndexInformer {
+		lw := cache.NewListWatchFromClient(f.clientSet.SecClient().RESTClient(), "securitycontextconstraints", k8sv1.NamespaceAll, fields.Everything())
+		return cache.NewSharedIndexInformer(lw, &secv1.SecurityContextConstraints{}, f.defaultResync, cache.Indexers{})
+	})
+}
+
+func (f *kubeInformerFactory) DummyOperatorSCC() cache.SharedIndexInformer {
+	return f.getInformer("FakeOperatorSCC", func() cache.SharedIndexInformer {
+		informer, _ := testutils.NewFakeInformerFor(&secv1.SecurityContextConstraints{})
+		return informer
 	})
 }

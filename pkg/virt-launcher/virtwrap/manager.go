@@ -54,8 +54,11 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/cli"
 	domainerrors "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/errors"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/network"
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/stats"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/util"
 )
+
+const LibvirtLocalConnectionPort = 22222
 
 type DomainManager interface {
 	SyncVMI(*v1.VirtualMachineInstance, bool) (*api.DomainSpec, error)
@@ -65,6 +68,7 @@ type DomainManager interface {
 	ListAllDomains() ([]*api.Domain, error)
 	MigrateVMI(*v1.VirtualMachineInstance) error
 	PrepareMigrationTarget(*v1.VirtualMachineInstance, bool) error
+	GetDomainStats() ([]*stats.DomainStats, error)
 }
 
 type LibvirtDomainManager struct {
@@ -76,6 +80,11 @@ type LibvirtDomainManager struct {
 	virtShareDir           string
 	notifier               *eventsclient.NotifyClient
 	lessPVCSpaceToleration int
+}
+
+type migrationDisks struct {
+	shared    map[string]bool
+	generated map[string]bool
 }
 
 func NewLibvirtDomainManager(connection cli.Connection, virtShareDir string, notifier *eventsclient.NotifyClient, lessPVCSpaceToleration int) (DomainManager, error) {
@@ -200,13 +209,87 @@ func (l *LibvirtDomainManager) setMigrationResultHelper(vmi *v1.VirtualMachineIn
 }
 
 func prepateMigrationFlags(isBlockMigration bool) libvirt.DomainMigrateFlags {
-	migrateFlags := libvirt.MIGRATE_LIVE | libvirt.MIGRATE_PEER2PEER | libvirt.MIGRATE_TUNNELLED
+	migrateFlags := libvirt.MIGRATE_LIVE | libvirt.MIGRATE_PEER2PEER
 
 	if isBlockMigration {
 		migrateFlags |= libvirt.MIGRATE_NON_SHARED_INC
 	}
 	return migrateFlags
 
+}
+
+func (d *migrationDisks) isSharedVolume(name string) bool {
+	_, shared := d.shared[name]
+	return shared
+}
+
+func (d *migrationDisks) isGeneratedVolume(name string) bool {
+	_, generated := d.generated[name]
+	return generated
+}
+
+func classifyVolumesForMigration(vmi *v1.VirtualMachineInstance) *migrationDisks {
+	// This method collects all VMI volumes that should not be copied during
+	// live migration. It also collects all generated disks suck as cloudinit, secrets, ServiceAccount and ConfigMaps
+	// to make sure that these are being copied during migration.
+	// Persistent volume claims without ReadWriteMany access mode
+	// should be filtered out earlier in the process
+
+	disks := &migrationDisks{
+		shared:    make(map[string]bool),
+		generated: make(map[string]bool),
+	}
+	for _, volume := range vmi.Spec.Volumes {
+		volSrc := volume.VolumeSource
+		if volSrc.PersistentVolumeClaim != nil ||
+			(volSrc.HostDisk != nil && *volSrc.HostDisk.Shared) {
+			disks.shared[volume.Name] = true
+		}
+		if volSrc.ConfigMap != nil || volSrc.Secret != nil ||
+			volSrc.ServiceAccount != nil || volSrc.CloudInitNoCloud != nil {
+			disks.generated[volume.Name] = true
+		}
+	}
+	return disks
+}
+
+func getAllDomainDisks(dom cli.VirDomain) ([]api.Disk, error) {
+	xmlstr, err := dom.GetXMLDesc(0)
+	if err != nil {
+		return nil, err
+	}
+
+	var newSpec api.DomainSpec
+	err = xml.Unmarshal([]byte(xmlstr), &newSpec)
+	if err != nil {
+		return nil, err
+	}
+
+	return newSpec.Devices.Disks, nil
+}
+
+func getDiskTargetsForMigration(dom cli.VirDomain, vmi *v1.VirtualMachineInstance) []string {
+	// This method collects all VMI disks that needs to be copied during live migration
+	// and returns a list of its target device names.
+	// Shared volues are being excluded.
+	copyDisks := []string{}
+	migrationVols := classifyVolumesForMigration(vmi)
+
+	disks, err := getAllDomainDisks(dom)
+	if err != nil {
+		log.Log.Object(vmi).Reason(err).Error("failed to parse domain XML to get disks.")
+	}
+	// the name of the volume should match the alias
+	for _, disk := range disks {
+		if disk.ReadOnly != nil && !migrationVols.isGeneratedVolume(disk.Alias.Name) {
+			continue
+		}
+		if (disk.Type != "file" && disk.Type != "block") || migrationVols.isSharedVolume(disk.Alias.Name) {
+			continue
+		}
+		copyDisks = append(copyDisks, disk.Target.Device)
+	}
+	return copyDisks
 }
 
 func (l *LibvirtDomainManager) asyncMigrate(vmi *v1.VirtualMachineInstance) {
@@ -216,26 +299,38 @@ func (l *LibvirtDomainManager) asyncMigrate(vmi *v1.VirtualMachineInstance) {
 		// Start local migration proxy.
 		//
 		// Right now Libvirt won't let us perform a migration using a unix socket, so
-		// we have to create this local host tcp server that forwards the traffic
+		// we have to create a local host tcp server (on port 22222) that forwards the traffic
 		// to libvirt in order to trick libvirt into doing what we want.
-		migrationProxy := migrationproxy.NewTargetProxy("127.0.0.1", 22222, migrationproxy.SourceUnixFile(l.virtShareDir, string(vmi.UID)))
+		// This also creates a tcp server for each additional direct migration connections
+		// that will be proxied to the destination pod
 
-		err := migrationProxy.StartListening()
+		isBlockMigration := (vmi.Status.MigrationMethod == v1.BlockMigration)
+		migrationPortsRange := migrationproxy.GetMigrationPortsList(isBlockMigration)
+
+		// Create a tcp server for each direct connection proxy
+		for _, port := range migrationPortsRange {
+			key := migrationproxy.ConstructProxyKey(string(vmi.UID), port)
+			migrationProxy := migrationproxy.NewTargetProxy("127.0.0.1", port, migrationproxy.SourceUnixFile(l.virtShareDir, key))
+			defer migrationProxy.StopListening()
+			err := migrationProxy.StartListening()
+			if err != nil {
+				l.setMigrationResult(vmi, true, fmt.Sprintf("%v", err))
+				return
+			}
+		}
+
+		//  proxy incoming migration requests on port 22222 to the vmi's existing libvirt connection
+		libvirtConnectionProxy := migrationproxy.NewTargetProxy("127.0.0.1", LibvirtLocalConnectionPort, migrationproxy.SourceUnixFile(l.virtShareDir, string(vmi.UID)))
+		defer libvirtConnectionProxy.StopListening()
+		err := libvirtConnectionProxy.StartListening()
 		if err != nil {
 			l.setMigrationResult(vmi, true, fmt.Sprintf("%v", err))
 			return
 		}
 
-		defer migrationProxy.StopListening()
-
 		// For a tunnelled migration, this is always the uri
-		dstUri := "qemu+tcp://127.0.0.1:22222/system"
-
-		destConn, err := libvirt.NewConnect(dstUri)
-		if err != nil {
-			log.Log.Object(vmi).Reason(err).Error("Failed to establish connection with target pod's libvirtd for migration.")
-			return
-		}
+		dstUri := fmt.Sprintf("qemu+tcp://127.0.0.1:%d/system", LibvirtLocalConnectionPort)
+		migrUri := "tcp://127.0.0.1"
 
 		domName := api.VMINamespaceKeyFunc(vmi)
 		dom, err := l.virConn.LookupDomainByName(domName)
@@ -245,12 +340,18 @@ func (l *LibvirtDomainManager) asyncMigrate(vmi *v1.VirtualMachineInstance) {
 			return
 		}
 
-		isBlockMigration := false
-		if vmi.Status.MigrationMethod == v1.BlockMigration {
-			isBlockMigration = true
-		}
 		migrateFlags := prepateMigrationFlags(isBlockMigration)
-		_, err = dom.Migrate(destConn, migrateFlags, "", "", 0)
+
+		params := &libvirt.DomainMigrateParameters{
+			URI:    migrUri,
+			URISet: true,
+		}
+		copyDisks := getDiskTargetsForMigration(dom, vmi)
+		if len(copyDisks) != 0 {
+			params.MigrateDisks = copyDisks
+			params.MigrateDisksSet = true
+		}
+		err = dom.MigrateToURI3(dstUri, params, migrateFlags)
 		if err != nil {
 
 			log.Log.Object(vmi).Reason(err).Error("Live migration failed.")
@@ -278,8 +379,25 @@ func (l *LibvirtDomainManager) MigrateVMI(vmi *v1.VirtualMachineInstance) error 
 		return nil
 	}
 
+	if err := updateHostsFile(fmt.Sprintf("%s %s\n", "127.0.0.1", vmi.Status.MigrationState.TargetPod)); err != nil {
+		return fmt.Errorf("failed to update the hosts file: %v", err)
+	}
 	l.asyncMigrate(vmi)
 
+	return nil
+}
+
+var updateHostsFile = func(entry string) error {
+	file, err := os.OpenFile("/etc/hosts", os.O_WRONLY|os.O_APPEND, 0644)
+	if err != nil {
+		return fmt.Errorf("failed opening file: %s", err)
+	}
+	defer file.Close()
+
+	_, err = file.WriteString(entry)
+	if err != nil {
+		return fmt.Errorf("failed writing to file: %s", err)
+	}
 	return nil
 }
 
@@ -317,6 +435,27 @@ func (l *LibvirtDomainManager) PrepareMigrationTarget(vmi *v1.VirtualMachineInst
 	if err != nil {
 		return fmt.Errorf("executing custom preStart hooks failed: %v", err)
 	}
+
+	if err := updateHostsFile(fmt.Sprintf("%s %s\n", "127.0.0.1", vmi.Status.MigrationState.TargetPod)); err != nil {
+		return fmt.Errorf("failed to update the hosts file: %v", err)
+	}
+
+	isBlockMigration := (vmi.Status.MigrationMethod == v1.BlockMigration)
+	migrationPortsRange := migrationproxy.GetMigrationPortsList(isBlockMigration)
+	for _, port := range migrationPortsRange {
+		// Prepare the direct migration proxy
+		key := migrationproxy.ConstructProxyKey(string(vmi.UID), port)
+		curDirectAddress := fmt.Sprintf("%s:%d", "127.0.0.1", port)
+		unixSocketPath := migrationproxy.SourceUnixFile(l.virtShareDir, key)
+		migrationProxy := migrationproxy.NewSourceProxy(unixSocketPath, curDirectAddress)
+
+		err := migrationProxy.StartListening()
+		if err != nil {
+			logger.Reason(err).Errorf("proxy listening failed, socket %s", unixSocketPath)
+			return err
+		}
+	}
+
 	return nil
 }
 
@@ -342,6 +481,15 @@ func (l *LibvirtDomainManager) preStartHook(vmi *v1.VirtualMachineInstance, doma
 
 	// generate cloud-init data
 	cloudInitData := cloudinit.GetCloudInitNoCloudSource(vmi)
+
+	// Pass cloud-init data to PreCloudInitIso hook
+	logger.Info("Starting PreCloudInitIso hook")
+	hooksManager := hooks.GetManager()
+	cloudInitData, err = hooksManager.PreCloudInitIso(vmi, cloudInitData)
+	if err != nil {
+		return domain, fmt.Errorf("PreCloudInitIso hook failed: %v", err)
+	}
+
 	if cloudInitData != nil {
 		hostname := dns.SanitizeHostname(vmi)
 
@@ -770,4 +918,11 @@ func (l *LibvirtDomainManager) setDomainSpecWithHooks(vmi *v1.VirtualMachineInst
 		return nil, err
 	}
 	return util.SetDomainSpecStr(l.virConn, vmi, domainSpec)
+}
+
+func (l *LibvirtDomainManager) GetDomainStats() ([]*stats.DomainStats, error) {
+	statsTypes := libvirt.DOMAIN_STATS_CPU_TOTAL | libvirt.DOMAIN_STATS_VCPU | libvirt.DOMAIN_STATS_INTERFACE | libvirt.DOMAIN_STATS_BLOCK
+	flags := libvirt.CONNECT_GET_ALL_DOMAINS_STATS_RUNNING
+
+	return l.virConn.GetDomainStats(statsTypes, flags)
 }

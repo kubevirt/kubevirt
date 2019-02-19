@@ -36,7 +36,7 @@ import (
 	"k8s.io/client-go/tools/record"
 	"k8s.io/client-go/util/workqueue"
 
-	cdiv1 "kubevirt.io/containerized-data-importer/pkg/apis/datavolumecontroller/v1alpha1"
+	cdiv1 "kubevirt.io/containerized-data-importer/pkg/apis/core/v1alpha1"
 	virtv1 "kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/kubecli"
@@ -101,7 +101,7 @@ type VMController struct {
 	dataVolumeExpectations *controller.UIDTrackingControllerExpectations
 }
 
-func (c *VMController) Run(threadiness int, stopCh chan struct{}) {
+func (c *VMController) Run(threadiness int, stopCh <-chan struct{}) {
 	defer controller.HandlePanic()
 	defer c.Queue.ShutDown()
 	log.Log.Info("Starting VirtualMachine controller.")
@@ -396,7 +396,10 @@ func (c *VMController) handleDataVolumes(vm *virtv1.VirtualMachine, dataVolumes 
 
 				if deleteAfterTimestamp == 0 {
 					dataVolumeCopy := curDataVolume.DeepCopy()
-					deleteAfterTimestamp := now + int64(rand.Intn(dataVolumeDeleteJitterSeconds)+10)
+					deleteAfterTimestamp = now + int64(rand.Intn(dataVolumeDeleteJitterSeconds)+10)
+					if dataVolumeCopy.Annotations == nil {
+						dataVolumeCopy.Annotations = map[string]string{}
+					}
 					dataVolumeCopy.Annotations[dataVolumeDeleteAfterTimestampAnno] = strconv.FormatInt(deleteAfterTimestamp, 10)
 					_, err := c.clientset.CdiClient().CdiV1alpha1().DataVolumes(dataVolumeCopy.Namespace).Update(dataVolumeCopy)
 					if err != nil {
@@ -405,7 +408,7 @@ func (c *VMController) handleDataVolumes(vm *virtv1.VirtualMachine, dataVolumes 
 				}
 
 				if curDataVolume.DeletionTimestamp == nil {
-					if deleteAfterTimestamp >= now {
+					if now >= deleteAfterTimestamp {
 						// By deleting the failed DataVolume,
 						// a new DataVolume will be created to take it's place.
 						c.dataVolumeExpectations.ExpectDeletions(vmKey, []string{controller.DataVolumeKey(curDataVolume)})
@@ -415,7 +418,7 @@ func (c *VMController) handleDataVolumes(vm *virtv1.VirtualMachine, dataVolumes 
 							return ready, err
 						}
 					} else {
-						timeLeft := now - deleteAfterTimestamp
+						timeLeft := deleteAfterTimestamp - now
 						c.Queue.AddAfter(vmKey, time.Duration(timeLeft)*time.Second)
 					}
 				}

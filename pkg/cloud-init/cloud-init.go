@@ -120,17 +120,6 @@ func GetDomainBasePath(domain string, namespace string) string {
 	return fmt.Sprintf("%s/%s/%s", cloudInitLocalDir, namespace, domain)
 }
 
-func validateArgs(source *v1.CloudInitNoCloudSource) error {
-	precond.MustNotBeNil(source)
-
-	// TODO what if I only want the metadata to e.g. set up the network
-	if source.UserDataBase64 == "" {
-		return fmt.Errorf("userDataBase64 is required for no-cloud data source")
-	}
-
-	return nil
-}
-
 func RemoveLocalData(domain string, namespace string) error {
 	domainBasePath := GetDomainBasePath(domain, namespace)
 	err := os.RemoveAll(domainBasePath)
@@ -157,22 +146,40 @@ func ResolveSecrets(source *v1.CloudInitNoCloudSource, namespace string, clients
 	precond.CheckNotEmpty(namespace)
 	precond.CheckNotNil(clientset)
 
-	if source.UserDataSecretRef == nil {
+	if source.UserDataSecretRef == nil && source.NetworkDataSecretRef == nil {
 		return nil
 	}
-	secretID := source.UserDataSecretRef.Name
 
-	secret, err := clientset.CoreV1().Secrets(namespace).Get(secretID, metav1.GetOptions{})
-	if err != nil {
-		return err
+	if source.UserDataSecretRef != nil {
+		secretID := source.UserDataSecretRef.Name
+
+		secret, err := clientset.CoreV1().Secrets(namespace).Get(secretID, metav1.GetOptions{})
+		if err != nil {
+			return err
+		}
+
+		userData, ok := secret.Data["userdata"]
+		if ok == false {
+			return fmt.Errorf("userdata key not found in k8s secret %s %v", secretID, err)
+		}
+		source.UserData = string(userData)
 	}
 
-	userData, ok := secret.Data["userdata"]
-	if ok == false {
-		return fmt.Errorf("no user-data value found in k8s secret %s %v", secretID, err)
+	if source.NetworkDataSecretRef != nil {
+		secretID := source.NetworkDataSecretRef.Name
+
+		secret, err := clientset.CoreV1().Secrets(namespace).Get(secretID, metav1.GetOptions{})
+		if err != nil {
+			return err
+		}
+
+		networkData, ok := secret.Data["networkdata"]
+		if ok == false {
+			return fmt.Errorf("networkdata key not found in k8s secret %s %v", secretID, err)
+		}
+		source.NetworkData = string(networkData)
 	}
 
-	source.UserData = string(userData)
 	return nil
 }
 
@@ -189,8 +196,10 @@ func GenerateLocalData(vmiName string, hostname string, namespace string, source
 
 	metaFile := fmt.Sprintf("%s/%s", domainBasePath, "meta-data")
 	userFile := fmt.Sprintf("%s/%s", domainBasePath, "user-data")
+	networkFile := fmt.Sprintf("%s/%s", domainBasePath, "network-config")
 	iso := fmt.Sprintf("%s/%s", domainBasePath, NoCloudFile)
 	isoStaging := fmt.Sprintf("%s/%s.staging", domainBasePath, NoCloudFile)
+
 	var userData []byte
 	if source.UserData != "" {
 		userData = []byte(source.UserData)
@@ -202,10 +211,22 @@ func GenerateLocalData(vmiName string, hostname string, namespace string, source
 	} else {
 		return fmt.Errorf("userDataBase64 or userData is required for no-cloud data source")
 	}
+
+	var networkData []byte
+	if source.NetworkData != "" {
+		networkData = []byte(source.NetworkData)
+	} else if source.NetworkDataBase64 != "" {
+		networkData, err = base64.StdEncoding.DecodeString(source.NetworkDataBase64)
+		if err != nil {
+			return err
+		}
+	}
+
 	metaData := []byte(fmt.Sprintf("{ \"instance-id\": \"%s.%s\", \"local-hostname\": \"%s\" }\n", vmiName, namespace, hostname))
 
 	diskutils.RemoveFile(userFile)
 	diskutils.RemoveFile(metaFile)
+	diskutils.RemoveFile(networkFile)
 	diskutils.RemoveFile(isoStaging)
 
 	err = ioutil.WriteFile(userFile, userData, 0644)
@@ -217,15 +238,25 @@ func GenerateLocalData(vmiName string, hostname string, namespace string, source
 		return err
 	}
 
-	files := make([]string, 0, 2)
+	files := make([]string, 0, 3)
 	files = append(files, metaFile)
 	files = append(files, userFile)
+
+	if len(networkData) > 0 {
+		err = ioutil.WriteFile(networkFile, networkData, 0644)
+		if err != nil {
+			return err
+		}
+		files = append(files, networkFile)
+	}
+
 	err = cloudInitIsoFunc(isoStaging, files)
 	if err != nil {
 		return err
 	}
 	diskutils.RemoveFile(metaFile)
 	diskutils.RemoveFile(userFile)
+	diskutils.RemoveFile(networkFile)
 
 	err = diskutils.SetFileOwnership(cloudInitOwner, isoStaging)
 	if err != nil {

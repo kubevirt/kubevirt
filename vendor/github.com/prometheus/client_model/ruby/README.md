@@ -2,10 +2,6 @@
 
 Data model artifacts for the [Prometheus Ruby client][1].
 
-## Installation
-
-    gem install prometheus-client-model
-
 ## Usage
 
 Build the artifacts from the protobuf specification:

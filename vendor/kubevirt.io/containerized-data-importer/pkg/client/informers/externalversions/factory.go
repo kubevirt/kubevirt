@@ -28,9 +28,9 @@ import (
 	schema "k8s.io/apimachinery/pkg/runtime/schema"
 	cache "k8s.io/client-go/tools/cache"
 	versioned "kubevirt.io/containerized-data-importer/pkg/client/clientset/versioned"
-	datavolumecontroller "kubevirt.io/containerized-data-importer/pkg/client/informers/externalversions/datavolumecontroller"
+	core "kubevirt.io/containerized-data-importer/pkg/client/informers/externalversions/core"
 	internalinterfaces "kubevirt.io/containerized-data-importer/pkg/client/informers/externalversions/internalinterfaces"
-	uploadcontroller "kubevirt.io/containerized-data-importer/pkg/client/informers/externalversions/uploadcontroller"
+	upload "kubevirt.io/containerized-data-importer/pkg/client/informers/externalversions/upload"
 )
 
 // SharedInformerOption defines the functional option type for SharedInformerFactory.
@@ -173,14 +173,14 @@ type SharedInformerFactory interface {
 	ForResource(resource schema.GroupVersionResource) (GenericInformer, error)
 	WaitForCacheSync(stopCh <-chan struct{}) map[reflect.Type]bool
 
-	Cdi() datavolumecontroller.Interface
-	Upload() uploadcontroller.Interface
+	Cdi() core.Interface
+	Upload() upload.Interface
 }
 
-func (f *sharedInformerFactory) Cdi() datavolumecontroller.Interface {
-	return datavolumecontroller.New(f, f.namespace, f.tweakListOptions)
+func (f *sharedInformerFactory) Cdi() core.Interface {
+	return core.New(f, f.namespace, f.tweakListOptions)
 }
 
-func (f *sharedInformerFactory) Upload() uploadcontroller.Interface {
-	return uploadcontroller.New(f, f.namespace, f.tweakListOptions)
+func (f *sharedInformerFactory) Upload() upload.Interface {
+	return upload.New(f, f.namespace, f.tweakListOptions)
 }

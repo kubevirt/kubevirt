@@ -22,16 +22,26 @@
 trap 'echo "Graceful exit"; exit 0' SIGINT SIGQUIT SIGTERM
 
 ALPINE_IMAGE_PATH=/usr/share/nginx/html/images/alpine.iso
+CIRROS_IMAGE_PATH=/usr/share/nginx/html/images/cirros.img
 IMAGE_PATH=/images
+IMAGE_NAME=${IMAGE_NAME:-cirros}
+
+case "$IMAGE_NAME" in
+cirros) CONVERT_PATH=$CIRROS_IMAGE_PATH ;;
+alpine) CONVERT_PATH=$ALPINE_IMAGE_PATH ;;
+*)
+    echo "failed to find image $IMAGE_NAME"
+    ;;
+esac
 
 if [ -n "$AS_ISCSI" ]; then
     mkdir -p $IMAGE_PATH
-    /usr/bin/qemu-img convert $ALPINE_IMAGE_PATH $IMAGE_PATH/alpine.raw
+    /usr/bin/qemu-img convert -O raw $CONVERT_PATH $IMAGE_PATH/disk.raw
     if [ $? -ne 0 ]; then
-        echo "Failed to convert image $ALPINE_IMAGE_PATH to .raw file"
+        echo "Failed to convert image $CONVERT_PATH to .raw file"
         exit 1
     fi
 
     touch /tmp/healthy
-    bash expose-as-iscsi.sh "${IMAGE_PATH}/alpine.raw"
+    bash expose-as-iscsi.sh "${IMAGE_PATH}/disk.raw"
 fi

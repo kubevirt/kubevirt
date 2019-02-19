@@ -42,7 +42,7 @@ import (
 	"kubevirt.io/kubevirt/tests"
 )
 
-var _ = Describe("VirtualMachine", func() {
+var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:component]VirtualMachine", func() {
 
 	flag.Parse()
 
@@ -55,7 +55,7 @@ var _ = Describe("VirtualMachine", func() {
 
 	Context("An invalid VirtualMachine given", func() {
 
-		It("should be rejected on POST", func() {
+		It("[test_id:1518]should be rejected on POST", func() {
 			vmiImage := tests.ContainerDiskFor(tests.ContainerDiskCirros)
 			template := tests.NewRandomVMIWithEphemeralDiskAndUserdata(vmiImage, "echo Hi\n")
 			newVMI := NewRandomVirtualMachine(template, false)
@@ -78,7 +78,7 @@ var _ = Describe("VirtualMachine", func() {
 			Expect(statusCode).To(Equal(http.StatusUnprocessableEntity))
 
 		})
-		It("should reject POST if validation webhoook deems the spec is invalid", func() {
+		It("[test_id:1519]should reject POST if validation webhoook deems the spec is invalid", func() {
 			vmiImage := tests.ContainerDiskFor(tests.ContainerDiskCirros)
 			template := tests.NewRandomVMIWithEphemeralDiskAndUserdata(vmiImage, "echo Hi\n")
 			// Add a disk that doesn't map to a volume.
@@ -189,7 +189,7 @@ var _ = Describe("VirtualMachine", func() {
 			return updatedVMI
 		}
 
-		It("should update VirtualMachine once VMIs are up", func() {
+		It("[test_id:1520]should update VirtualMachine once VMIs are up", func() {
 			newVMI := newVirtualMachine(true)
 			Eventually(func() bool {
 				vm, err := virtClient.VirtualMachine(tests.NamespaceTestDefault).Get(newVMI.Name, &v12.GetOptions{})
@@ -198,7 +198,7 @@ var _ = Describe("VirtualMachine", func() {
 			}, 300*time.Second, 1*time.Second).Should(BeTrue())
 		})
 
-		It("should remove VirtualMachineInstance once the VMI is marked for deletion", func() {
+		It("[test_id:1521]should remove VirtualMachineInstance once the VMI is marked for deletion", func() {
 			newVMI := newVirtualMachine(true)
 			// Delete it
 			Expect(virtClient.VirtualMachine(newVMI.Namespace).Delete(newVMI.Name, &v12.DeleteOptions{})).To(Succeed())
@@ -210,7 +210,7 @@ var _ = Describe("VirtualMachine", func() {
 			}, 300*time.Second, 2*time.Second).Should(BeZero(), "The VirtualMachineInstance did not disappear")
 		})
 
-		It("should remove owner references on the VirtualMachineInstance if it is orphan deleted", func() {
+		It("[test_id:1522]should remove owner references on the VirtualMachineInstance if it is orphan deleted", func() {
 			newVMI := newVirtualMachine(true)
 
 			Eventually(func() []v12.OwnerReference {
@@ -238,7 +238,7 @@ var _ = Describe("VirtualMachine", func() {
 			Expect(err).ToNot(HaveOccurred())
 		})
 
-		It("should recreate VirtualMachineInstance if it gets deleted", func() {
+		It("[test_id:1523]should recreate VirtualMachineInstance if it gets deleted", func() {
 			newVMI := startVMI(newVirtualMachine(false))
 
 			currentVMI, err := virtClient.VirtualMachineInstance(newVMI.Namespace).Get(newVMI.Name, &v12.GetOptions{})
@@ -258,7 +258,7 @@ var _ = Describe("VirtualMachine", func() {
 			}, 240*time.Second, 1*time.Second).Should(BeTrue())
 		})
 
-		It("should recreate VirtualMachineInstance if the VirtualMachineInstance's pod gets deleted", func() {
+		It("[test_id:1524]should recreate VirtualMachineInstance if the VirtualMachineInstance's pod gets deleted", func() {
 			var firstVMI *v1.VirtualMachineInstance
 			var curVMI *v1.VirtualMachineInstance
 			var err error
@@ -318,7 +318,7 @@ var _ = Describe("VirtualMachine", func() {
 			Expect(pod.Name).ToNot(Equal(firstPod.Name))
 		})
 
-		It("should stop VirtualMachineInstance if running set to false", func() {
+		It("[test_id:1525]should stop VirtualMachineInstance if running set to false", func() {
 
 			currVMI := newVirtualMachine(false)
 			currVMI = startVMI(currVMI)
@@ -326,7 +326,7 @@ var _ = Describe("VirtualMachine", func() {
 
 		})
 
-		It("should start and stop VirtualMachineInstance multiple times", func() {
+		It("[test_id:1526]should start and stop VirtualMachineInstance multiple times", func() {
 			var currVMI *v1.VirtualMachine
 
 			currVMI = newVirtualMachine(false)
@@ -339,7 +339,7 @@ var _ = Describe("VirtualMachine", func() {
 			}
 		})
 
-		It("should not update the VirtualMachineInstance spec if Running", func() {
+		It("[test_id:1527]should not update the VirtualMachineInstance spec if Running", func() {
 			newVMI := newVirtualMachine(true)
 
 			Eventually(func() bool {
@@ -380,7 +380,7 @@ var _ = Describe("VirtualMachine", func() {
 			Expect(vmiMemory.Cmp(*vmMemory)).To(Equal(0))
 		})
 
-		It("should survive guest shutdown, multiple times", func() {
+		It("[test_id:1528]should survive guest shutdown, multiple times", func() {
 			By("Creating new VMI, not running")
 			newVMI := newVirtualMachine(false)
 			newVMI = startVMI(newVMI)
@@ -429,7 +429,7 @@ var _ = Describe("VirtualMachine", func() {
 		})
 
 		Context("Using virtctl interface", func() {
-			It("should start a VirtualMachineInstance once", func() {
+			It("[test_id:1529]should start a VirtualMachineInstance once", func() {
 				var vmi *v1.VirtualMachineInstance
 				var err error
 				By("getting an VMI")
@@ -460,7 +460,7 @@ var _ = Describe("VirtualMachine", func() {
 				Expect(err).To(HaveOccurred())
 			})
 
-			It("should stop a VirtualMachineInstance once", func() {
+			It("[test_id:1530]should stop a VirtualMachineInstance once", func() {
 				var err error
 				By("getting an VMI")
 				newVMI := newVirtualMachine(true)

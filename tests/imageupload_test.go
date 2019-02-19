@@ -7,6 +7,8 @@ import (
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+
+	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"kubevirt.io/kubevirt/pkg/kubecli"
@@ -73,5 +75,13 @@ var _ = Describe("ImageUpload", func() {
 			vmi, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Get(vmi.ObjectMeta.Name, &metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 		})
+	})
+
+	AfterEach(func() {
+		err := virtClient.CoreV1().PersistentVolumeClaims(namespace).Delete(pvcName, &metav1.DeleteOptions{})
+		if errors.IsNotFound(err) {
+			return
+		}
+		Expect(err).ToNot(HaveOccurred())
 	})
 })
