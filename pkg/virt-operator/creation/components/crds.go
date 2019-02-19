@@ -247,7 +247,9 @@ func NewKubeVirtCrd() *extv1beta1.CustomResourceDefinition {
 	return crd
 }
 
-// used by manifest generation
+// Used by manifest generation
+// If you change something, you probably need to change the CSV manifest too,
+// see /manifests/release/kubevirt.vVERSION.csv.yaml.in
 func NewKubeVirtCR(namespace string, pullPolicy corev1.PullPolicy) *virtv1.KubeVirt {
 	return &virtv1.KubeVirt{
 		TypeMeta: metav1.TypeMeta{

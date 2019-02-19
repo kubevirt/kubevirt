@@ -180,17 +180,11 @@ func NewApiServerService(namespace string) *corev1.Service {
 
 func newPodTemplateSpec(name string, repository string, version string, pullPolicy corev1.PullPolicy) (*corev1.PodTemplateSpec, error) {
 
-	tolerations := []corev1.Toleration{
-		{
-			Key:      "CriticalAddonsOnly",
-			Operator: corev1.TolerationOpExists,
-		},
-	}
-	tolerationsStr, err := json.Marshal(tolerations)
-
+	tolerations, err := criticalAddonsToleration()
 	if err != nil {
-		return nil, fmt.Errorf("unable to create service: %v", err)
+		return nil, fmt.Errorf("unable to create toleration: %v", err)
 	}
+
 	return &corev1.PodTemplateSpec{
 		ObjectMeta: metav1.ObjectMeta{
 			Labels: map[string]string{
@@ -199,7 +193,7 @@ func newPodTemplateSpec(name string, repository string, version string, pullPoli
 			},
 			Annotations: map[string]string{
 				"scheduler.alpha.kubernetes.io/critical-pod": "",
-				"scheduler.alpha.kubernetes.io/tolerations":  string(tolerationsStr),
+				"scheduler.alpha.kubernetes.io/tolerations":  string(tolerations),
 			},
 			Name: name,
 		},
@@ -468,9 +462,123 @@ func NewHandlerDaemonSet(namespace string, repository string, version string, pu
 
 }
 
+// Used for manifest generation only
+func NewOperatorDeployment(namespace string, repository string, version string, pullPolicy corev1.PullPolicy, verbosity string) (*appsv1.Deployment, error) {
+
+	name := "virt-operator"
+	image := fmt.Sprintf("%s/%s:%s", repository, name, version)
+
+	tolerations, err := criticalAddonsToleration()
+	if err != nil {
+		return nil, fmt.Errorf("unable to create toleration: %v", err)
+	}
+
+	deployment := &appsv1.Deployment{
+		TypeMeta: metav1.TypeMeta{
+			APIVersion: "apps/v1",
+			Kind:       "Deployment",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: namespace,
+			Name:      name,
+			Labels: map[string]string{
+				virtv1.AppLabel: name,
+			},
+		},
+		Spec: appsv1.DeploymentSpec{
+			Replicas: int32Ptr(1),
+			Selector: &metav1.LabelSelector{
+				MatchLabels: map[string]string{
+					virtv1.AppLabel: name,
+				},
+			},
+			Template: corev1.PodTemplateSpec{
+				ObjectMeta: metav1.ObjectMeta{
+					Labels: map[string]string{
+						virtv1.AppLabel:          name,
+						"prometheus.kubevirt.io": "",
+					},
+					Annotations: map[string]string{
+						"scheduler.alpha.kubernetes.io/critical-pod": "",
+						"scheduler.alpha.kubernetes.io/tolerations":  string(tolerations),
+					},
+					Name: name,
+				},
+				Spec: corev1.PodSpec{
+					ServiceAccountName: "kubevirt-operator",
+					Containers: []corev1.Container{
+						{
+							Name:            name,
+							Image:           image,
+							ImagePullPolicy: pullPolicy,
+							Command: []string{
+								"virt-operator",
+								"--port",
+								"8443",
+								"-v",
+								verbosity,
+							},
+							Ports: []corev1.ContainerPort{
+								{
+									Name:          "metrics",
+									Protocol:      corev1.ProtocolTCP,
+									ContainerPort: 8443,
+								},
+							},
+							ReadinessProbe: &corev1.Probe{
+								Handler: corev1.Handler{
+									HTTPGet: &corev1.HTTPGetAction{
+										Scheme: corev1.URISchemeHTTPS,
+										Port: intstr.IntOrString{
+											Type:   intstr.Int,
+											IntVal: 8443,
+										},
+										Path: "/metrics",
+									},
+								},
+								InitialDelaySeconds: 5,
+								TimeoutSeconds:      10,
+							},
+							Env: []corev1.EnvVar{
+								{
+									Name:  "OPERATOR_IMAGE",
+									Value: image,
+								},
+								{
+									Name: "WATCH_NAMESPACE", // not used yet
+									ValueFrom: &corev1.EnvVarSource{
+										FieldRef: &corev1.ObjectFieldSelector{
+											FieldPath: "metadata.annotations['olm.targetNamespaces']", // filled by OLM
+										},
+									},
+								},
+							},
+						},
+					},
+					SecurityContext: &corev1.PodSecurityContext{
+						RunAsNonRoot: boolPtr(true),
+					},
+				},
+			},
+		},
+	}
+
+	return deployment, nil
+}
+
 func int32Ptr(i int32) *int32 {
 	return &i
 }
 func boolPtr(b bool) *bool {
 	return &b
+}
+func criticalAddonsToleration() ([]byte, error) {
+	tolerations := []corev1.Toleration{
+		{
+			Key:      "CriticalAddonsOnly",
+			Operator: corev1.TolerationOpExists,
+		},
+	}
+	tolerationsStr, err := json.Marshal(tolerations)
+	return tolerationsStr, err
 }

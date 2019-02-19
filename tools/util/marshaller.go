@@ -89,10 +89,15 @@ func MarshallObject(obj interface{}, writer io.Writer) error {
 		return err
 	}
 
-	// fix templates by removing quotes...
+	// fix templates by removing unneeded single quotes...
 	s := string(yamlBytes)
 	s = strings.Replace(s, "'{{", "{{", -1)
 	s = strings.Replace(s, "}}'", "}}", -1)
+
+	// fix double quoted strings by removing unneeded single quotes...
+	s = strings.Replace(s, " '\"", " \"", -1)
+	s = strings.Replace(s, "\"'\n", "\"\n", -1)
+
 	yamlBytes = []byte(s)
 
 	_, err = writer.Write([]byte("---\n"))

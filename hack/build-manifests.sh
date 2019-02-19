@@ -23,6 +23,7 @@ source hack/common.sh
 source hack/config.sh
 
 manifest_docker_prefix=${manifest_docker_prefix-${docker_prefix}}
+kubevirt_logo_path="assets/kubevirt_logo.png"
 
 rm -rf ${MANIFESTS_OUT_DIR}
 rm -rf ${MANIFEST_TEMPLATES_OUT_DIR}
@@ -44,12 +45,18 @@ done
 # then process variables
 args=$(cd ${KUBEVIRT_DIR}/manifests && find . -type f -name "*.yaml.in.tmp")
 for arg in $args; do
-    final_out_dir=$(dirname ${MANIFESTS_OUT_DIR}/${arg})
-    final_templates_out_dir=$(dirname ${MANIFEST_TEMPLATES_OUT_DIR}/${arg})
-    mkdir -p ${final_out_dir}
-    mkdir -p ${final_templates_out_dir}
-    manifest=$(basename -s .in.tmp ${arg})
+
     infile=${KUBEVIRT_DIR}/manifests/${arg}
+
+    final_out_dir=$(dirname ${MANIFESTS_OUT_DIR}/${arg})
+    mkdir -p ${final_out_dir}
+
+    final_templates_out_dir=$(dirname ${MANIFEST_TEMPLATES_OUT_DIR}/${arg})
+    mkdir -p ${final_templates_out_dir}
+
+    manifest=$(basename -s .in.tmp ${arg})
+    manifest="${manifest/VERSION/${csv_version}}"
+
     outfile=${final_out_dir}/${manifest}
     template_outfile=${final_templates_out_dir}/${manifest}.j2
 
@@ -61,6 +68,8 @@ for arg in $args; do
         --container-tag=${docker_tag} \
         --image-pull-policy=${image_pull_policy} \
         --verbosity=${verbosity} \
+        --csv-version=${csv_version} \
+        --kubevirt-logo-path=${kubevirt_logo_path} \
         --input-file=${infile} >${outfile}
 
     ${KUBEVIRT_DIR}/tools/manifest-templator/manifest-templator \
@@ -71,6 +80,8 @@ for arg in $args; do
         --container-tag="{{ docker_tag }}" \
         --image-pull-policy="{{ image_pull_policy }}" \
         --verbosity=${verbosity} \
+        --csv-version=${csv_version} \
+        --kubevirt-logo-path=${kubevirt_logo_path} \
         --input-file=${infile} >${template_outfile}
 done
 

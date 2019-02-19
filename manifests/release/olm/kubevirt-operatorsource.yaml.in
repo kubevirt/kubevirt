@@ -1,0 +1,11 @@
+apiVersion: marketplace.redhat.com/v1alpha1
+kind: OperatorSource
+metadata:
+  name: kubevirt
+  namespace: marketplace
+spec:
+  type: appregistry
+  endpoint: https://quay.io/cnr
+  registryNamespace: kubevirt
+  displayName: "KubeVirt"
+  publisher: "Red Hat"
