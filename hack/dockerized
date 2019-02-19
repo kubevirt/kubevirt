@@ -91,7 +91,7 @@ _rsync \
 
 # Run the command
 test -t 1 && USE_TTY="-it"
-docker run --network host --rm -v "${BUILDER}:/root:rw,z" --security-opt label:disable ${USE_TTY} -w "/root/go/src/kubevirt.io/kubevirt" ${BUILDER} "$@"
+docker run --network host --rm -v "${BUILDER}:/root:rw,z" -v "${HOME}/.docker:/root/.docker:ro,z" --security-opt label:disable ${USE_TTY} -w "/root/go/src/kubevirt.io/kubevirt" ${BUILDER} "$@"
 
 # Copy the whole kubevirt data out to get generated sources and formatting changes
 _rsync \
