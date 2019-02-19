@@ -989,7 +989,7 @@ var _ = Describe("Converter", func() {
                                         NetworkSource: v1.NetworkSource{
                                                 Npwgv1: &v1.CniNetwork{
 							NetworkName: "red",
-							InterfacePrefix: "eth"
+							InterfacePrefix: "eth",
 						},
                                         },
                                 },
