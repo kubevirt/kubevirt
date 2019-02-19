@@ -17,9 +17,14 @@ go_library(
 
 go_test(
     name = "go_default_test",
-    srcs = ["sarapprove_test.go"],
+    srcs = [
+        "approver_suite_test.go",
+        "sarapprove_test.go",
+    ],
     embed = [":go_default_library"],
     deps = [
+        "//vendor/github.com/onsi/ginkgo:go_default_library",
+        "//vendor/github.com/onsi/gomega:go_default_library",
         "//vendor/k8s.io/api/authorization/v1beta1:go_default_library",
         "//vendor/k8s.io/api/certificates/v1beta1:go_default_library",
         "//vendor/k8s.io/apimachinery/pkg/runtime:go_default_library",

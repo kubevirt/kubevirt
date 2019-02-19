@@ -16,8 +16,7 @@ func newSignerClusterRole() *rbacv1.ClusterRole {
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "kubevirt.io:system:certificates.k8s.io:certificatesigningrequests:kubevirt",
 			Labels: map[string]string{
-				virtv1.AppLabel:       "",
-				virtv1.ManagedByLabel: virtv1.ManagedByLabelOperatorValue,
+				virtv1.AppLabel: "",
 			},
 			Annotations: map[string]string{
 				"rbac.authorization.kubernetes.io/autoupdate": "true",
@@ -48,8 +47,7 @@ func newSignerClusterRoleBinding(namespace string) *rbacv1.ClusterRoleBinding {
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "kubevirt.io:system:bootstrap",
 			Labels: map[string]string{
-				virtv1.AppLabel:       "",
-				virtv1.ManagedByLabel: virtv1.ManagedByLabelOperatorValue,
+				virtv1.AppLabel: "",
 			},
 		},
 		RoleRef: rbacv1.RoleRef{

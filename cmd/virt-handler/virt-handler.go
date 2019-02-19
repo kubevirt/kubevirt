@@ -21,6 +21,7 @@ package main
 
 import (
 	"fmt"
+	"net"
 	"net/http"
 	"os"
 	"time"
@@ -31,7 +32,6 @@ import (
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/labels"
-	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes/scheme"
 	k8coresv1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/client-go/tools/cache"
@@ -81,6 +81,7 @@ const (
 type virtHandlerApp struct {
 	service.ServiceListen
 	HostOverride            string
+	PodName                 string
 	PodIpAddress            string
 	VirtShareDir            string
 	CertDir                 string
@@ -100,8 +101,13 @@ func (app *virtHandlerApp) Run() {
 		app.HostOverride = defaultHostName
 	}
 
-	if app.PodIpAddress == "" {
-		panic(fmt.Errorf("no pod ip detected"))
+	if app.PodName == "" {
+		app.PodName = app.HostOverride
+	}
+
+	podIP := net.ParseIP(app.PodIpAddress)
+	if podIP == nil {
+		glog.Fatalf("Invalid Pod IP: %s", app.PodIpAddress)
 	}
 
 	logger := log.Log
@@ -191,7 +197,7 @@ func (app *virtHandlerApp) Run() {
 		glog.Fatalf("unable to initialize certificae store: %v", err)
 	}
 
-	err = bootstrap.LoadClientCertForNode(virtCli.CertificatesV1beta1(), store, types.NodeName(app.HostOverride))
+	err = bootstrap.LoadCertForNode(virtCli.CertificatesV1beta1(), store, app.PodName, []string{app.PodName}, []net.IP{podIP})
 	if err != nil {
 		glog.Fatalf("failed to request or fetch the certificate: %v", err)
 	}
@@ -224,11 +230,14 @@ func (app *virtHandlerApp) AddFlags() {
 	flag.StringVar(&app.PodIpAddress, "pod-ip-address", podIpAddress,
 		"The pod ip address")
 
+	flag.StringVar(&app.PodName, "pod-name", hostOverride,
+		"The pod name")
+
 	flag.StringVar(&app.VirtShareDir, "kubevirt-share-dir", virtShareDir,
 		"Shared directory between virt-handler and virt-launcher")
 
 	flag.StringVar(&app.CertDir, "cert-dir", certificateDir,
-		"Shared directory between virt-handler and virt-launcher")
+		"Certificate store directory")
 
 	flag.DurationVar(&app.WatchdogTimeoutDuration, "watchdog-timeout", defaultWatchdogTimeout,
 		"Watchdog file timeout")

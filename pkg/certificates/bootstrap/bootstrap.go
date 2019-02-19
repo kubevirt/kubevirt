@@ -19,30 +19,24 @@ package bootstrap
 import (
 	"crypto/x509/pkix"
 	"fmt"
+	"net"
 	"time"
 
 	"github.com/golang/glog"
 	certificates "k8s.io/api/certificates/v1beta1"
-	v12 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/errors"
-	v13 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/types"
 	certificatesclient "k8s.io/client-go/kubernetes/typed/certificates/v1beta1"
 	certutil "k8s.io/client-go/util/cert"
 	"k8s.io/client-go/util/certificate"
 	"k8s.io/client-go/util/certificate/csr"
-
-	v1 "kubevirt.io/kubevirt/pkg/api/v1"
-	"kubevirt.io/kubevirt/pkg/kubecli"
 )
 
 const (
 	keyBytesValue = "key-bytes"
 )
 
-// LoadClientCertForService requests a client cert for a component if the the certDir does not contain a certificate.
+// loadCert requests a client cert for a component if the the certDir does not contain a certificate.
 // The certificate and key file are stored in certDir.
-func LoadClientCertForNode(bootstrapClient certificatesclient.CertificatesV1beta1Interface, certStore certificate.Store, name types.NodeName) error {
+func loadCert(bootstrapClient certificatesclient.CertificatesV1beta1Interface, certStore certificate.Store, name string, dnsSANs []string, ipSANs []net.IP) error {
 
 	var keyData []byte
 	if cert, err := certStore.Current(); err == nil {
@@ -62,7 +56,7 @@ func LoadClientCertForNode(bootstrapClient certificatesclient.CertificatesV1beta
 		}
 	}
 
-	certData, err := RequestKubeVirtCertificate(bootstrapClient.CertificateSigningRequests(), keyData, "kubevirt.io:system:nodes:"+string(name))
+	certData, err := RequestKubeVirtCertificate(bootstrapClient.CertificateSigningRequests(), keyData, "kubevirt.io:system:"+name, dnsSANs, ipSANs)
 	if err != nil {
 		return err
 	}
@@ -73,62 +67,12 @@ func LoadClientCertForNode(bootstrapClient certificatesclient.CertificatesV1beta
 	return nil
 }
 
-// LoadClientCertForService fetches a client key from a secret or generates one and updates the secret.
-// Afterwards it creates as certificate signing request and fetches the result after it got signed.
-func LoadClientCertForService(client kubecli.KubevirtClient, certStore certificate.Store, serviceName string, namespace string) error {
-
-	keyData, err := LoadKeyFromSecret(client, namespace, "kubevirt.io-system-certificates-"+serviceName)
-	if err != nil {
-		return err
-	}
-
-	certData, err := RequestKubeVirtCertificate(client.CertificatesV1beta1().CertificateSigningRequests(), keyData, "kubevirt.io:system:service:"+serviceName)
-	if err != nil {
-		return err
-	}
-	if _, err := certStore.Update(certData, keyData); err != nil {
-		return err
-	}
-
-	return nil
+func LoadCertForNode(bootstrapClient certificatesclient.CertificatesV1beta1Interface, certStore certificate.Store, name string, dnsSANs []string, ipSANs []net.IP) error {
+	return loadCert(bootstrapClient, certStore, "nodes:"+name, dnsSANs, ipSANs)
 }
 
-// LoadCertificateFromSecret create a certificate key and uploads it in to a secret if not preset.
-// If the secret is already present, it returns the private certificate key
-func LoadKeyFromSecret(client kubecli.KubevirtClient, secretNamespace, secretName string) ([]byte, error) {
-	keyData, err := certutil.MakeEllipticPrivateKeyPEM()
-	if err != nil {
-		return nil, err
-	}
-	secret := &v12.Secret{
-		ObjectMeta: v13.ObjectMeta{
-			Name:      secretName,
-			Namespace: secretNamespace,
-			Labels: map[string]string{
-				v1.AppLabel: "",
-			},
-		},
-		Type: "Opaque",
-		Data: map[string][]byte{
-			keyBytesValue: keyData,
-		},
-	}
-
-	_, err = client.CoreV1().Secrets(secretNamespace).Create(secret)
-	if errors.IsAlreadyExists(err) {
-		secret, err := client.CoreV1().Secrets(secretNamespace).Get(secretName, v13.GetOptions{})
-		if err != nil {
-			return nil, err
-		}
-		if len(secret.Data[keyBytesValue]) > 0 {
-			return secret.Data[keyBytesValue], nil
-		} else {
-			return nil, fmt.Errorf("found a secret but no key")
-		}
-	} else if err != nil {
-		return nil, err
-	}
-	return keyData, nil
+func LoadCertForService(bootstrapClient certificatesclient.CertificatesV1beta1Interface, certStore certificate.Store, name string, dnsSANs []string, ipSANs []net.IP) error {
+	return loadCert(bootstrapClient, certStore, "services:"+name, dnsSANs, ipSANs)
 }
 
 // verifyKeyData returns true if the provided data appears to be a valid private key.
@@ -142,17 +86,17 @@ func verifyKeyData(data []byte) bool {
 	return true
 }
 
-func RequestKubeVirtCertificate(client certificatesclient.CertificateSigningRequestInterface, privateKeyData []byte, name string) (certData []byte, err error) {
+func RequestKubeVirtCertificate(client certificatesclient.CertificateSigningRequestInterface, privateKeyData []byte, name string, dnsSANs []string, ipSANs []net.IP) (certData []byte, err error) {
 	subject := &pkix.Name{
 		Organization: []string{"kubevirt.io:system"},
-		CommonName:   "kubevirt.io:system:" + name,
+		CommonName:   name,
 	}
 
 	privateKey, err := certutil.ParsePrivateKeyPEM(privateKeyData)
 	if err != nil {
 		return nil, fmt.Errorf("invalid private key for certificate request: %v", err)
 	}
-	csrData, err := certutil.MakeCSR(privateKey, subject, nil, nil)
+	csrData, err := certutil.MakeCSR(privateKey, subject, dnsSANs, ipSANs)
 	if err != nil {
 		return nil, fmt.Errorf("unable to generate certificate request: %v", err)
 	}

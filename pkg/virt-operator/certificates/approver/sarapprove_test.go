@@ -193,7 +193,7 @@ func TestRecognizers(t *testing.T) {
 		},
 	}
 
-	testRecognizer(t, goodCases, isKubeVirtClientCert, true)
+	testRecognizer(t, goodCases, isKubeVirtCert, true)
 
 	badCases := []func(b *csrBuilder){
 		func(b *csrBuilder) {
@@ -210,7 +210,7 @@ func TestRecognizers(t *testing.T) {
 		},
 	}
 
-	testRecognizer(t, badCases, isKubeVirtClientCert, false)
+	testRecognizer(t, badCases, isKubeVirtCert, false)
 
 	// cn different then requestor
 	differentCN := []func(b *csrBuilder){
@@ -222,7 +222,7 @@ func TestRecognizers(t *testing.T) {
 		},
 	}
 
-	testRecognizer(t, differentCN, isKubeVirtClientCert, true)
+	testRecognizer(t, differentCN, isKubeVirtCert, true)
 }
 
 func testRecognizer(t *testing.T, cases []func(b *csrBuilder), recognizeFunc func(csr *capi.CertificateSigningRequest, x509cr *x509.CertificateRequest) bool, shouldRecognize bool) {

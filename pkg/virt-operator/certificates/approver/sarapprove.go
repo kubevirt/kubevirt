@@ -58,7 +58,7 @@ func NewCSRApprovingController(client clientset.Interface, csrInformer certifica
 func recognizers() []csrRecognizer {
 	recognizers := []csrRecognizer{
 		{
-			recognize:      isKubeVirtClientCert,
+			recognize:      isKubeVirtCert,
 			permission:     authorization.ResourceAttributes{Group: "certificates.k8s.io", Resource: "certificatesigningrequests", Verb: "create", Subresource: "kubevirt"},
 			successMessage: "Auto approving kubelet client certificate after SubjectAccessReview.",
 		},
@@ -164,11 +164,11 @@ var kubeletClientUsages = []capi.KeyUsage{
 	capi.UsageServerAuth,
 }
 
-func isKubeVirtClientCert(csr *capi.CertificateSigningRequest, x509cr *x509.CertificateRequest) bool {
+func isKubeVirtCert(csr *capi.CertificateSigningRequest, x509cr *x509.CertificateRequest) bool {
 	if !reflect.DeepEqual([]string{"kubevirt.io:system"}, x509cr.Subject.Organization) {
 		return false
 	}
-	if (len(x509cr.DNSNames) > 0) || (len(x509cr.EmailAddresses) > 0) || (len(x509cr.IPAddresses) > 0) {
+	if len(x509cr.EmailAddresses) > 0 {
 		return false
 	}
 	if !hasExactUsages(csr, kubeletClientUsages) {

@@ -198,6 +198,7 @@ func GenerateCurrentInstallStrategy(namespace string,
 	rbaclist := make([]interface{}, 0)
 	rbaclist = append(rbaclist, rbac.GetAllCluster(namespace)...)
 	rbaclist = append(rbaclist, rbac.GetAllApiServer(namespace)...)
+	rbaclist = append(rbaclist, rbac.GetAllCertificateSigner(namespace)...)
 	rbaclist = append(rbaclist, rbac.GetAllController(namespace)...)
 	rbaclist = append(rbaclist, rbac.GetAllHandler(namespace)...)
 

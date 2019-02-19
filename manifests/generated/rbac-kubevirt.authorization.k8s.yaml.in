@@ -164,6 +164,40 @@ subjects:
   name: kubevirt-apiserver
   namespace: {{.Namespace}}
 ---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  labels:
+    kubevirt.io: ""
+  name: kubevirt.io:system:bootstrap
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: kubevirt.io:system:certificates.k8s.io:certificatesigningrequests:kubevirt
+subjects:
+- kind: ServiceAccount
+  name: kubevirt-controller
+  namespace: {{.Namespace}}
+- kind: ServiceAccount
+  name: kubevirt-handler
+  namespace: {{.Namespace}}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  annotations:
+    rbac.authorization.kubernetes.io/autoupdate: "true"
+  labels:
+    kubevirt.io: ""
+  name: kubevirt.io:system:certificates.k8s.io:certificatesigningrequests:kubevirt
+rules:
+- apiGroups:
+  - certificates.k8s.io
+  resources:
+  - certificatesigningrequests/kubevirt
+  verbs:
+  - create
+---
 apiVersion: v1
 kind: ServiceAccount
 metadata:

@@ -61,6 +61,7 @@ func main() {
 	case "kubevirt-rbac":
 		all := make([]interface{}, 0)
 		all = append(all, rbac.GetAllApiServer(*namespace)...)
+		all = append(all, rbac.GetAllCertificateSigner(*namespace)...)
 		all = append(all, rbac.GetAllController(*namespace)...)
 		all = append(all, rbac.GetAllHandler(*namespace)...)
 		for _, r := range all {

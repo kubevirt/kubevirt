@@ -21,8 +21,8 @@ package watch
 
 import (
 	"context"
-	"io/ioutil"
 	golog "log"
+	"net"
 	"net/http"
 	"os"
 
@@ -69,6 +69,12 @@ const (
 	ephemeralDiskDir = virtShareDir + "-ephemeral-disks"
 
 	controllerThreads = 3
+
+	hostOverride = ""
+
+	podIpAddress = ""
+
+	certificateDir = "/var/lib/kubevirt/certificates"
 )
 
 type VirtControllerApp struct {
@@ -115,6 +121,11 @@ type VirtControllerApp struct {
 	kubevirtNamespace          string
 	evacuationController       *evacuation.EvacuationController
 	disruptionBudgetController *disruptionbudget.DisruptionBudgetController
+
+	// for certificate management
+	PodName      string
+	PodIpAddress string
+	CertDir      string
 }
 
 var _ service.Service = &VirtControllerApp{}
@@ -194,17 +205,26 @@ func Execute() {
 
 func (vca *VirtControllerApp) Run() {
 	logger := log.Log
-	certsDirectory, err := ioutil.TempDir("", "certsdir")
-	if err != nil {
-		panic(err)
+
+	if vca.PodName == "" {
+		defaultHostName, err := os.Hostname()
+		if err != nil {
+			panic(err)
+		}
+		vca.PodName = defaultHostName
 	}
 
-	certStore, err := certificate.NewFileStore("kubevirt-client", certsDirectory, certsDirectory, "", "")
+	podIP := net.ParseIP(vca.PodIpAddress)
+	if podIP == nil {
+		glog.Fatalf("Invalid Pod IP: %s", vca.PodIpAddress)
+	}
+
+	certStore, err := certificate.NewFileStore("kubevirt-client", vca.CertDir, vca.CertDir, "", "")
 	if err != nil {
 		glog.Fatalf("unable to initialize certificae store: %v", err)
 	}
 
-	err = bootstrap.LoadClientCertForService(vca.clientSet, certStore, "virt-controller", vca.kubevirtNamespace)
+	err = bootstrap.LoadCertForService(vca.clientSet.CertificatesV1beta1(), certStore, "virt-controller:"+vca.PodName, []string{vca.PodName}, []net.IP{podIP})
 	if err != nil {
 		glog.Fatalf("failed to request or fetch the certificate: %v", err)
 	}
@@ -377,4 +397,13 @@ func (vca *VirtControllerApp) AddFlags() {
 
 	flag.StringVar(&vca.ephemeralDiskDir, "ephemeral-disk-dir", ephemeralDiskDir,
 		"Base directory for ephemeral disk data")
+
+	flag.StringVar(&vca.PodIpAddress, "pod-ip-address", podIpAddress,
+		"The pod ip address")
+
+	flag.StringVar(&vca.PodName, "pod-name", hostOverride,
+		"The pod name")
+
+	flag.StringVar(&vca.CertDir, "cert-dir", certificateDir,
+		"Certificate store directory")
 }

@@ -338,9 +338,32 @@ func NewControllerDeployment(namespace string, repository string, version string
 		fmt.Sprintf("%s/%s:%s", repository, "virt-launcher", version),
 		"--port",
 		"8443",
+		"--pod-ip-address",
+		"$(MY_POD_IP)",
+		"--pod-name",
+		"$(MY_POD_NAME)",
 		"-v",
 		verbosity,
 	}
+	container.Env = []corev1.EnvVar{
+		{
+			Name: "MY_POD_IP",
+			ValueFrom: &corev1.EnvVarSource{
+				FieldRef: &corev1.ObjectFieldSelector{
+					FieldPath: "status.podIP",
+				},
+			},
+		},
+		{
+			Name: "MY_POD_NAME",
+			ValueFrom: &corev1.EnvVarSource{
+				FieldRef: &corev1.ObjectFieldSelector{
+					FieldPath: "metadata.name",
+				},
+			},
+		},
+	}
+
 	container.Ports = []corev1.ContainerPort{
 		{
 			Name:          "metrics",
@@ -377,6 +400,17 @@ func NewControllerDeployment(namespace string, repository string, version string
 		InitialDelaySeconds: 15,
 		TimeoutSeconds:      10,
 	}
+
+	container.VolumeMounts = append(container.VolumeMounts, corev1.VolumeMount{
+		Name:      "certificates",
+		MountPath: "/var/lib/kubevirt/certificates",
+	})
+	pod.Volumes = append(pod.Volumes, corev1.Volume{
+		Name: "certificates",
+		VolumeSource: corev1.VolumeSource{
+			EmptyDir: &corev1.EmptyDirVolumeSource{},
+		},
+	})
 	return deployment, nil
 }
 
@@ -424,6 +458,8 @@ func NewHandlerDaemonSet(namespace string, repository string, version string, pu
 		"$(NODE_NAME)",
 		"--pod-ip-address",
 		"$(MY_POD_IP)",
+		"--pod-name",
+		"$(MY_POD_NAME)",
 		"-v",
 		verbosity,
 	}
@@ -454,6 +490,14 @@ func NewHandlerDaemonSet(namespace string, repository string, version string, pu
 				},
 			},
 		},
+		{
+			Name: "MY_POD_NAME",
+			ValueFrom: &corev1.EnvVarSource{
+				FieldRef: &corev1.ObjectFieldSelector{
+					FieldPath: "metadata.name",
+				},
+			},
+		},
 	}
 
 	container.VolumeMounts = []corev1.VolumeMount{}
@@ -469,7 +513,6 @@ func NewHandlerDaemonSet(namespace string, repository string, version string, pu
 		{"virt-share-dir", "/var/run/kubevirt"},
 		{"virt-private-dir", "/var/run/kubevirt-private"},
 		{"device-plugin", "/var/lib/kubelet/device-plugins"},
-		{"certificates", "/var/lib/kubevirt/certificates"},
 	}
 
 	for _, volume := range volumes {
@@ -487,6 +530,16 @@ func NewHandlerDaemonSet(namespace string, repository string, version string, pu
 		})
 	}
 
+	container.VolumeMounts = append(container.VolumeMounts, corev1.VolumeMount{
+		Name:      "certificates",
+		MountPath: "/var/lib/kubevirt/certificates",
+	})
+	pod.Volumes = append(pod.Volumes, corev1.Volume{
+		Name: "certificates",
+		VolumeSource: corev1.VolumeSource{
+			EmptyDir: &corev1.EmptyDirVolumeSource{},
+		},
+	})
 	return daemonset, nil
 
 }

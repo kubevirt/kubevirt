@@ -41,8 +41,21 @@ spec:
         - {{.DockerPrefix}}/virt-launcher:{{.DockerTag}}
         - --port
         - "8443"
+        - --pod-ip-address
+        - $(MY_POD_IP)
+        - --pod-name
+        - $(MY_POD_NAME)
         - -v
         - {{.Verbosity}}
+        env:
+        - name: MY_POD_IP
+          valueFrom:
+            fieldRef:
+              fieldPath: status.podIP
+        - name: MY_POD_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
         image: {{.DockerPrefix}}/virt-controller:{{.DockerTag}}
         imagePullPolicy: {{.ImagePullPolicy}}
         livenessProbe:
@@ -66,6 +79,12 @@ spec:
           initialDelaySeconds: 15
           timeoutSeconds: 10
         resources: {}
+        volumeMounts:
+        - mountPath: /var/lib/kubevirt/certificates
+          name: certificates
       securityContext:
         runAsNonRoot: true
       serviceAccountName: kubevirt-controller
+      volumes:
+      - emptyDir: {}
+        name: certificates
