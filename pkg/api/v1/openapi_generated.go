@@ -222,14 +222,14 @@ func schema_kubevirt_pkg_api_v1_CPU(ref common.ReferenceCallback) common.OpenAPI
 					},
 					"model": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Model specifies the CPU model inside the VMI. List of available models https://github.com/libvirt/libvirt/blob/master/src/cpu/cpu_map.xml. It is possible to specify special cases like \"host-passthrough\" to get the same CPU as the node and \"host-model\" to get CPU closest to the node one. For more information see https://libvirt.org/formatdomain.html#elementsCPU. Defaults to host-model.",
+							Description: "Model specifies the CPU model inside the VMI. List of available models https://github.com/libvirt/libvirt/blob/master/src/cpu/cpu_map.xml. It is possible to specify special cases like \"host-passthrough\" to get the same CPU as the node and \"host-model\" to get CPU closest to the node one. Defaults to host-model.",
 							Type:        []string{"string"},
 							Format:      "",
 						},
 					},
 					"features": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Features specifies the CPU features list inside the VMI. For more information see https://libvirt.org/formatdomain.html#elementsCPU.",
+							Description: "Features specifies the CPU features list inside the VMI.",
 							Type:        []string{"array"},
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{

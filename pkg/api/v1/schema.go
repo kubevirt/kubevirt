@@ -206,12 +206,10 @@ type CPU struct {
 	// List of available models https://github.com/libvirt/libvirt/blob/master/src/cpu/cpu_map.xml.
 	// It is possible to specify special cases like "host-passthrough" to get the same CPU as the node
 	// and "host-model" to get CPU closest to the node one.
-	// For more information see https://libvirt.org/formatdomain.html#elementsCPU.
 	// Defaults to host-model.
 	// +optional
 	Model string `json:"model,omitempty"`
 	// Features specifies the CPU features list inside the VMI.
-	// For more information see https://libvirt.org/formatdomain.html#elementsCPU.
 	// +optional
 	Features []CPUFeature `json:"features,omitempty"`
 	// DedicatedCPUPlacement requests the scheduler to place the VirtualMachineInstance on a node

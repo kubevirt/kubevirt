@@ -960,12 +960,7 @@ var _ = Describe("Configurations", func() {
 
 		Context("when CPU features defined", func() {
 			It("should start a Virtaul Machine with matching features", func() {
-				vmiModel := "Conroe"
-				if libvirtCpuVendor == "AMD" {
-					vmiModel = "Opteron_G1"
-				}
 				cpuVmi.Spec.Domain.CPU = &v1.CPU{
-					Model: vmiModel,
 					Features: []v1.CPUFeature{
 						{
 							Name: cpuFeatures[0],
@@ -983,7 +978,7 @@ var _ = Describe("Configurations", func() {
 				Expect(err).ToNot(HaveOccurred())
 				defer expecter.Close()
 
-				By("Checking the CPU model under the guest OS")
+				By("Checking the CPU features under the guest OS")
 				_, err = expecter.ExpectBatch([]expect.Batcher{
 					&expect.BSnd{S: fmt.Sprintf("grep %s /proc/cpuinfo\n", cpuFeatures[0])},
 					&expect.BExp{R: "flags"},

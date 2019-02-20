@@ -4049,14 +4049,14 @@
       "type": "boolean"
      },
      "features": {
-      "description": "Features specifies the CPU features list inside the VMI.\nFor more information see https://libvirt.org/formatdomain.html#elementsCPU.\n+optional",
+      "description": "Features specifies the CPU features list inside the VMI.\n+optional",
       "type": "array",
       "items": {
        "$ref": "#/definitions/v1.CPUFeature"
       }
      },
      "model": {
-      "description": "Model specifies the CPU model inside the VMI.\nList of available models https://github.com/libvirt/libvirt/blob/master/src/cpu/cpu_map.xml.\nIt is possible to specify special cases like \"host-passthrough\" to get the same CPU as the node\nand \"host-model\" to get CPU closest to the node one.\nFor more information see https://libvirt.org/formatdomain.html#elementsCPU.\nDefaults to host-model.\n+optional",
+      "description": "Model specifies the CPU model inside the VMI.\nList of available models https://github.com/libvirt/libvirt/blob/master/src/cpu/cpu_map.xml.\nIt is possible to specify special cases like \"host-passthrough\" to get the same CPU as the node\nand \"host-model\" to get CPU closest to the node one.\nDefaults to host-model.\n+optional",
       "type": "string"
      },
      "sockets": {
