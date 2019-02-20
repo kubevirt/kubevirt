@@ -18,6 +18,7 @@ container_image(
     name = "container-disk-v1alpha-image",
     base = ":container-disk-v1alpha-base-image",
     directory = "/",
+    empty_dirs = ["/disk"],
     entrypoint = ["/entry-point.sh"],
     files = ["entry-point.sh"],
     visibility = ["//visibility:public"],
