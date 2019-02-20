@@ -89,9 +89,15 @@ _rsync \
     ${KUBEVIRT_DIR}/ \
     "rsync://root@127.0.0.1:${RSYNCD_PORT}/build"
 
+volumes="-v ${BUILDER}:/root:rw,z"
+# if exists, append .docker directory as volume
+if [ -d "${HOME}/.docker" ]; then
+    volumes="$volumes -v ${HOME}/.docker:/root/.docker:ro,z"
+fi
+
 # Run the command
 test -t 1 && USE_TTY="-it"
-docker run --network host --rm -v "${BUILDER}:/root:rw,z" -v "${HOME}/.docker:/root/.docker:ro,z" --security-opt label:disable ${USE_TTY} -w "/root/go/src/kubevirt.io/kubevirt" ${BUILDER} "$@"
+docker run --network host --rm ${volumes} --security-opt label:disable ${USE_TTY} -w "/root/go/src/kubevirt.io/kubevirt" ${BUILDER} "$@"
 
 # Copy the whole kubevirt data out to get generated sources and formatting changes
 _rsync \
