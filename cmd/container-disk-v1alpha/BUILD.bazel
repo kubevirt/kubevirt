@@ -18,8 +18,8 @@ container_image(
     name = "container-disk-v1alpha-image",
     base = ":container-disk-v1alpha-base-image",
     directory = "/",
-    entrypoint = ["/entrypoint.sh"],
-    files = ["entrypoint.sh"],
+    entrypoint = ["/entry-point.sh"],
+    files = ["entry-point.sh"],
     visibility = ["//visibility:public"],
 )
 
@@ -41,7 +41,7 @@ container_image(
     name = "alpine-container-disk-image",
     base = ":container-disk-v1alpha-image",
     directory = "/",
-    entrypoint = ["/entrypoint.sh"],
+    entrypoint = ["/entry-point.sh"],
     tars = [":alpine-iso-tar"],
     visibility = ["//visibility:public"],
 )
@@ -78,7 +78,7 @@ container_image(
     name = "cirros-container-disk-image",
     base = ":container-disk-v1alpha-image",
     directory = "/",
-    entrypoint = ["/entrypoint.sh"],
+    entrypoint = ["/entry-point.sh"],
     tars = [
         ":cirros-iso-tar",
         ":cirros-custom-iso-tar",
@@ -105,7 +105,7 @@ container_image(
     name = "fedora-cloud-container-disk-image",
     base = ":container-disk-v1alpha-image",
     directory = "/",
-    entrypoint = ["/entrypoint.sh"],
+    entrypoint = ["/entry-point.sh"],
     tars = [":fedora-cloud-iso-tar"],
     visibility = ["//visibility:public"],
 )
@@ -129,7 +129,7 @@ container_image(
     name = "virtio-container-disk-image",
     base = ":container-disk-v1alpha-image",
     directory = "/",
-    entrypoint = ["/entrypoint.sh"],
+    entrypoint = ["/entry-point.sh"],
     tars = [":virtio-win-iso-tar"],
     visibility = ["//visibility:public"],
 )
