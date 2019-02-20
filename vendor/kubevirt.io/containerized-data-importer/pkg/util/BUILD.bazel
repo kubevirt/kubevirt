@@ -1,0 +1,19 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "go_default_library",
+    srcs = [
+        "prometheus.go",
+        "util.go",
+    ],
+    importmap = "kubevirt.io/kubevirt/vendor/kubevirt.io/containerized-data-importer/pkg/util",
+    importpath = "kubevirt.io/containerized-data-importer/pkg/util",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//vendor/github.com/prometheus/client_golang/prometheus/promhttp:go_default_library",
+        "//vendor/k8s.io/apimachinery/pkg/api/resource:go_default_library",
+        "//vendor/kubevirt.io/containerized-data-importer/pkg/keys:go_default_library",
+        "@com_github_golang_glog//:go_default_library",
+        "@com_github_pkg_errors//:go_default_library",
+    ],
+)

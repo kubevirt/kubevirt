@@ -1,0 +1,23 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "go_default_library",
+    srcs = ["migration-proxy.go"],
+    importpath = "kubevirt.io/kubevirt/pkg/virt-handler/migration-proxy",
+    visibility = ["//visibility:public"],
+    deps = ["//pkg/log:go_default_library"],
+)
+
+go_test(
+    name = "go_default_test",
+    srcs = [
+        "migration-proxy_test.go",
+        "migration_proxy_suite_test.go",
+    ],
+    embed = [":go_default_library"],
+    deps = [
+        "//pkg/log:go_default_library",
+        "//vendor/github.com/onsi/ginkgo:go_default_library",
+        "//vendor/github.com/onsi/gomega:go_default_library",
+    ],
+)

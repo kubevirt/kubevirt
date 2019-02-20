@@ -176,6 +176,13 @@ set -e
 echo "Nodes are ready:"
 kubectl get nodes
 
+# Create .bazelrc to use remote cache
+cat >.bazelrc <<EOF
+startup --host_jvm_args=-Dbazel.DigestFunction=sha256
+build --remote_local_fallback
+build --remote_http_cache=http://bazel-cache.kubevirt-prow.svc.cluster.local:8080/kubevirt.io/kubevirt
+EOF
+
 make cluster-sync
 
 # OpenShift is running important containers under default namespace

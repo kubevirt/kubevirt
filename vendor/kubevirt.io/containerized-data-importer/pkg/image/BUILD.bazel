@@ -1,0 +1,24 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "go_default_library",
+    srcs = [
+        "filefmt.go",
+        "qemu.go",
+        "skopeo.go",
+        "validate.go",
+    ],
+    importmap = "kubevirt.io/kubevirt/vendor/kubevirt.io/containerized-data-importer/pkg/image",
+    importpath = "kubevirt.io/containerized-data-importer/pkg/image",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//vendor/github.com/prometheus/client_golang/prometheus:go_default_library",
+        "//vendor/github.com/prometheus/client_model/go:go_default_library",
+        "//vendor/k8s.io/apimachinery/pkg/api/resource:go_default_library",
+        "//vendor/kubevirt.io/containerized-data-importer/pkg/common:go_default_library",
+        "//vendor/kubevirt.io/containerized-data-importer/pkg/system:go_default_library",
+        "//vendor/kubevirt.io/containerized-data-importer/pkg/util:go_default_library",
+        "@com_github_golang_glog//:go_default_library",
+        "@com_github_pkg_errors//:go_default_library",
+    ],
+)

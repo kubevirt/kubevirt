@@ -124,7 +124,7 @@ func GenerateContainers(vmi *v1.VirtualMachineInstance, podVolumeName string, po
 				Name:            diskContainerName,
 				Image:           diskContainerImage,
 				ImagePullPolicy: kubev1.PullIfNotPresent,
-				Command:         []string{"/entry-point.sh"},
+				Command:         []string{"/entrypoint.sh"},
 				Env: []kubev1.EnvVar{
 					{
 						Name:  "COPY_PATH",

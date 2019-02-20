@@ -50,7 +50,7 @@ function build() {
 
     # Build everyting and publish it
     ${KUBEVIRT_PATH}hack/dockerized "DOCKER_PREFIX=${DOCKER_PREFIX} DOCKER_TAG=${DOCKER_TAG} KUBEVIRT_PROVIDER=${KUBEVIRT_PROVIDER} IMAGE_PULL_POLICY=${IMAGE_PULL_POLICY} VERBOSITY=${VERBOSITY} ./hack/build-manifests.sh"
-    make push
+    CONTAINER_PREFIX=${docker_prefix} CONTAINER_TAG=${docker_tag} make bazel-push-images
 
     # Make sure that all nodes use the newest images
     container=""

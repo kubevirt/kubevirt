@@ -66,22 +66,10 @@ fi
 
 if [ "${target}" = "push-cache" ]; then
     docker push kubevirt/builder-cache:${KUBEVIRT_UPDATE_CACHE_FROM}
-    if [ -n "$KUBEVIRT_UPDATE_CACHE_FROM" ]; then
-        for arg in $args; do
-            BIN_NAME=$(basename $arg)
-            docker push kubevirt/${BIN_NAME}:${KUBEVIRT_UPDATE_CACHE_FROM}
-        done
-    fi
 fi
 
 if [ "${target}" = "pull-cache" ]; then
     docker pull kubevirt/builder-cache:${KUBEVIRT_CACHE_FROM}
-    if [ -n "$KUBEVIRT_CACHE_FROM" ]; then
-        for arg in $args; do
-            BIN_NAME=$(basename $arg)
-            docker pull kubevirt/${BIN_NAME}:${KUBEVIRT_CACHE_FROM} || true
-        done
-    fi
 fi
 
 if [[ "${build_tests}" == "true" ]]; then

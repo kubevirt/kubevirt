@@ -1,0 +1,15 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_binary", "go_library")
+
+go_library(
+    name = "go_default_library",
+    srcs = ["fake-qemu.go"],
+    importpath = "kubevirt.io/kubevirt/cmd/fake-qemu-process",
+    visibility = ["//visibility:private"],
+    deps = ["//vendor/github.com/spf13/pflag:go_default_library"],
+)
+
+go_binary(
+    name = "fake-qemu-process",
+    embed = [":go_default_library"],
+    visibility = ["//visibility:public"],
+)

@@ -3,7 +3,24 @@ export GO15VENDOREXPERIMENT := 1
 all:
 	hack/dockerized "./hack/check.sh && KUBEVIRT_VERSION=${KUBEVIRT_VERSION} ./hack/build-go.sh install ${WHAT} && ./hack/build-copy-artifacts.sh ${WHAT} && DOCKER_PREFIX=${DOCKER_PREFIX} DOCKER_TAG=${DOCKER_TAG} IMAGE_PULL_POLICY=${IMAGE_PULL_POLICY} VERBOSITY=${VERBOSITY} ./hack/build-manifests.sh"
 
-generate:
+bazel-generate:
+	SYNC_VENDOR=true hack/dockerized "./hack/bazel-generate.sh"
+
+bazel-build:
+	hack/dockerized "bazel build \
+		--platforms=@io_bazel_rules_go//go/toolchain:linux_amd64 \
+		--workspace_status_command=./hack/print-workspace-status.sh \
+		//cmd/..."
+
+bazel-push-images:
+	hack/dockerized "bazel run \
+		--platforms=@io_bazel_rules_go//go/toolchain:linux_amd64 \
+		--workspace_status_command=./hack/print-workspace-status.sh \
+		--define container_prefix=${CONTAINER_PREFIX} \
+		--define container_tag=${CONTAINER_TAG} \
+		//:push-images"
+
+generate: bazel-generate
 	hack/dockerized "DOCKER_PREFIX=${DOCKER_PREFIX} DOCKER_TAG=${DOCKER_TAG} IMAGE_PULL_POLICY=${IMAGE_PULL_POLICY} VERBOSITY=${VERBOSITY} ./hack/generate.sh"
 
 apidocs:
@@ -30,6 +47,7 @@ functest:
 
 clean:
 	hack/dockerized "./hack/build-go.sh clean ${WHAT} && rm _out/* -rf"
+	hack/dockerized "bazel clean --expunge"
 	rm -f tools/openapispec/openapispec tools/resource-generator/resource-generator tools/manifest-templator/manifests-templator tools/vms-generator/vms-generator
 
 distclean: clean
@@ -37,11 +55,11 @@ distclean: clean
 	rm -rf vendor/
 
 deps-install:
-	SYNC_VENDOR=true hack/dockerized "glide install --strip-vendor"
+	SYNC_VENDOR=true hack/dockerized "glide install --strip-vendor && ./hack/bazel-generate.sh"
 	hack/dep-prune.sh
 
 deps-update:
-	SYNC_VENDOR=true hack/dockerized "glide cc && glide update --strip-vendor"
+	SYNC_VENDOR=true hack/dockerized "glide cc && glide update --strip-vendor && ./hack/bazel-generate.sh"
 	hack/dep-prune.sh
 
 docker: build
@@ -94,4 +112,24 @@ builder-build:
 builder-publish:
 	./hack/builder/publish.sh
 
-.PHONY: build test clean distclean checksync sync docker manifests publish functest release-announce cluster-up cluster-down cluster-clean cluster-deploy cluster-sync
+.PHONY: \
+	bazel-generate \
+	bazel-build \
+	bazel-build-images \
+	bazel-push-images \
+	build \
+	test \
+	clean \
+	distclean \
+	checksync \
+	sync \
+	docker \
+	manifests \
+	publish \
+	functest \
+	release-announce \
+	cluster-up \
+	cluster-down \
+	cluster-clean \
+	cluster-deploy \
+	cluster-sync
