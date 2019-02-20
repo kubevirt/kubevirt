@@ -24,6 +24,6 @@ ENV container docker
 
 RUN yum install -y bzip2 qemu-img && dnf clean all && mkdir -p /disk
 
-ADD entrypoint.sh /
+ADD entry-point.sh /
 
-CMD ["/entrypoint.sh"]
+CMD ["/entry-point.sh"]
