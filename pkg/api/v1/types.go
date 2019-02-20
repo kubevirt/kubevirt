@@ -743,7 +743,8 @@ func (vl *VirtualMachineInstanceMigrationList) GetListMeta() meta.List {
 // +k8s:openapi-gen=true
 type VirtualMachineInstanceMigrationSpec struct {
 	// The name of the VMI to perform the migration on. VMI must exist in the migration objects namespace
-	VMIName string `json:"vmiName,omitempty" valid:"required"`
+	VMIName string           `json:"vmiName,omitempty" valid:"required"`
+	Config  *MigrationConfig `json:"configuration,omitempty"`
 }
 
 // VirtualMachineInstanceMigration reprents information pertaining to a VMI's migration.
