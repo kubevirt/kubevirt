@@ -117,6 +117,16 @@ var _ = Describe("Subresource Api", func() {
 			})
 		})
 	})
+
+	Describe("the openapi spec for the subresources", func() {
+		It("should be aggregated into the the apiserver openapi spec", func() {
+			Eventually(func() string {
+				spec, err := virtCli.RestClient().Get().AbsPath("/openapi/v2").DoRaw()
+				Expect(err).ToNot(HaveOccurred())
+				return string(spec)
+			}, 60*time.Second, 1*time.Second).Should(ContainSubstring("subresources.kubevirt.io"))
+		})
+	})
 })
 
 func testClientJob(virtCli kubecli.KubevirtClient, withServiceAccount bool, resource string) {
