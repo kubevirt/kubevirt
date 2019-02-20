@@ -446,6 +446,10 @@ func isComputeContainerDown(pod *k8sv1.Pod) bool {
 	return false
 }
 
+func podHasSucceeded(pod *k8sv1.Pod) bool {
+	return pod.Status.Phase == k8sv1.PodSucceeded
+}
+
 func podIsDown(pod *k8sv1.Pod) bool {
 	return pod.Status.Phase == k8sv1.PodSucceeded || pod.Status.Phase == k8sv1.PodFailed
 }
@@ -465,6 +469,11 @@ func (c *VMIController) sync(vmi *virtv1.VirtualMachineInstance, pod *k8sv1.Pod,
 			return &syncErrorImpl{fmt.Errorf("failed to delete pod: %v", err), FailedDeletePodReason}
 		}
 		return nil
+	}
+
+	garbageCollectErr := c.garbageCollectMatchingCompletedPods(vmi, pod)
+	if garbageCollectErr != nil {
+		return &syncErrorImpl{fmt.Errorf("failed to garbage collect pod: %v", garbageCollectErr), FailedDeletePodReason}
 	}
 
 	if vmi.IsFinal() {
@@ -821,6 +830,77 @@ func (c *VMIController) allPodsDeleted(vmi *virtv1.VirtualMachineInstance) (bool
 
 	return true, nil
 
+}
+
+func (c *VMIController) garbageCollectMatchingCompletedPods(vmi *virtv1.VirtualMachineInstance, currentPod *k8sv1.Pod) error {
+	pods, err := c.listPodsFromNamespace(vmi.Namespace)
+	if err != nil {
+		return err
+	}
+
+	now := time.Now().UTC().Unix()
+	vmiKey := controller.VirtualMachineKey(vmi)
+
+	// deletion TTL gives us a chance to collect logs
+	// from succeded pods before they get deleted.
+	deletionTTL := int64(120)
+
+	// if we're waiting on a TTL, this tells us the min
+	// amount of time we need to wait until the TTL expires.
+	// We re-enqueue the key for this duration to ensure
+	// garbage collection occurs.
+	reEnqueueAfter := int64(0)
+
+	for _, pod := range pods {
+		if pod.Name == currentPod.Name {
+			continue
+		}
+
+		if pod.DeletionTimestamp != nil {
+			continue
+		}
+
+		if !controller.IsControlledBy(pod, vmi) {
+			continue
+		}
+
+		// only completed pods with phase == succeeded are garbage collected.
+		// When a pod fails, we want to leave it around for debugging
+		if !podHasSucceeded(pod) {
+			continue
+		}
+
+		var secondsElapsed int64
+		for _, containerStatus := range pod.Status.ContainerStatuses {
+			if containerStatus.Name != "compute" || containerStatus.State.Terminated == nil {
+				continue
+			}
+
+			secondsElapsed = now - containerStatus.State.Terminated.FinishedAt.UTC().Unix()
+		}
+
+		if secondsElapsed >= deletionTTL {
+			c.podExpectations.ExpectDeletions(vmiKey, []string{controller.PodKey(pod)})
+			err := c.clientset.CoreV1().Pods(vmi.Namespace).Delete(pod.Name, &v1.DeleteOptions{})
+			if err != nil {
+				c.podExpectations.DeletionObserved(vmiKey, controller.PodKey(pod))
+				c.recorder.Eventf(vmi, k8sv1.EventTypeWarning, FailedDeletePodReason, "Failed to delete virtual machine pod %s", pod.Name)
+				return err
+			}
+			c.recorder.Eventf(vmi, k8sv1.EventTypeNormal, SuccessfulDeletePodReason, "Garbage collected completed virtual machine pod %s", pod.Name)
+		} else {
+			secondsLeft := deletionTTL - secondsElapsed
+			if reEnqueueAfter == 0 || reEnqueueAfter > secondsLeft {
+				reEnqueueAfter = secondsLeft
+			}
+		}
+	}
+
+	if reEnqueueAfter != 0 {
+		c.Queue.AddAfter(vmiKey, time.Duration(reEnqueueAfter)*time.Second)
+	}
+
+	return nil
 }
 
 func (c *VMIController) deleteAllMatchingPods(vmi *virtv1.VirtualMachineInstance) error {
