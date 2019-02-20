@@ -389,6 +389,19 @@ var _ = Describe("Expose", func() {
 
 				By("Waiting for the pod to report a successful connection attempt")
 				waitForJobToCompleteWithStatus(&virtClient, job, "success", 60)
+
+				By("Starting an HTTP server on the VM, to verify HTTP connection also succeeds using the exposed VM.")
+				vmi, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(vm.Name, &k8smetav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				tests.StartHTTPServer(vmi, testPort)
+
+				By("Starting a pod which tries to reach the VMI via ClusterIP over HTTP.")
+				job = tests.NewHelloWorldJobHttp(serviceIP, servicePort)
+				job, err = virtClient.CoreV1().Pods(vm.Namespace).Create(job)
+				Expect(err).ToNot(HaveOccurred())
+
+				By("Waiting for the HTTP job pod to report a successful connection attempt.")
+				waitForJobToCompleteWithStatus(&virtClient, job, "success", 120)
 			})
 
 			It("[test_id:345]Should verify the exposed service is functional before and after VM restart.", func() {
