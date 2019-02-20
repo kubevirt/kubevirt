@@ -21,6 +21,7 @@ package watch
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo"
@@ -379,7 +380,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 
 			controller.Execute()
 		})
-		table.DescribeTable("should not delete the corresponding Pod if the vmi is in", func(phase v1.VirtualMachineInstancePhase) {
+		table.DescribeTable("should not delete the latest corresponding Pod if the vmi is in", func(phase v1.VirtualMachineInstancePhase) {
 			vmi := NewPendingVirtualMachine("testvmi")
 			vmi.Status.Phase = phase
 			pod := NewPodForVirtualMachine(vmi, k8sv1.PodRunning)
@@ -392,6 +393,77 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			table.Entry("succeeded state", v1.Failed),
 			table.Entry("failed state", v1.Succeeded),
 		)
+
+		table.DescribeTable("should not delete the latest corresponding Pod after garbage collection TTL if the vmi is in", func(phase v1.VirtualMachineInstancePhase) {
+			vmi := NewPendingVirtualMachine("testvmi")
+			vmi.Status.Phase = phase
+			pod := NewPodForVirtualMachine(vmi, k8sv1.PodSucceeded)
+
+			for i, _ := range pod.Status.ContainerStatuses {
+				pod.Status.ContainerStatuses[i].State.Terminated = &k8sv1.ContainerStateTerminated{
+					FinishedAt: *garbageCollectionExpiredTime(),
+				}
+			}
+
+			addVirtualMachine(vmi)
+			podFeeder.Add(pod)
+
+			controller.Execute()
+		},
+			table.Entry("succeeded state", v1.Failed),
+			table.Entry("failed state", v1.Succeeded),
+		)
+
+		table.DescribeTable("garbage collect old complete pods", func(phase k8sv1.PodPhase, shouldDelete bool, finishedAt *metav1.Time) {
+			vmi := NewPendingVirtualMachine("testvmi")
+			vmi.Status.Phase = v1.Running
+
+			currentPod := NewPodForVirtualMachine(vmi, k8sv1.PodRunning)
+			currentPod.CreationTimestamp = *now()
+
+			oldPod := currentPod.DeepCopy()
+			oldPod.Status.Phase = phase
+			oldPod.CreationTimestamp = *finishedAt
+			oldPod.Name = "test2"
+			oldPod.UID = "123-123-123"
+
+			oldPod2 := currentPod.DeepCopy()
+			oldPod2.Status.Phase = phase
+			oldPod2.CreationTimestamp = *finishedAt
+			oldPod2.Name = "test3"
+			oldPod2.UID = "1234-1234-1234"
+
+			for i, _ := range oldPod.Status.ContainerStatuses {
+				oldPod.Status.ContainerStatuses[i].State.Terminated = &k8sv1.ContainerStateTerminated{
+					FinishedAt: *finishedAt,
+				}
+				oldPod2.Status.ContainerStatuses[i].State.Terminated = &k8sv1.ContainerStateTerminated{
+					FinishedAt: *finishedAt,
+				}
+			}
+
+			addVirtualMachine(vmi)
+			podFeeder.Add(currentPod)
+			podFeeder.Add(oldPod)
+			podFeeder.Add(oldPod2)
+
+			deletionCount := 0
+			if shouldDelete {
+				shouldExpectMultiplePodDeletions(oldPod, &deletionCount)
+			}
+
+			controller.Execute()
+			if shouldDelete {
+				Expect(deletionCount).To(Equal(2))
+				testutils.ExpectEvent(recorder, SuccessfulDeletePodReason)
+				testutils.ExpectEvent(recorder, SuccessfulDeletePodReason)
+			}
+		},
+			table.Entry("with succeeded phase should be deleted with expired TTL", k8sv1.PodSucceeded, true, garbageCollectionExpiredTime()),
+			table.Entry("with failed phase should not be deleted with expired TTL", k8sv1.PodFailed, false, garbageCollectionExpiredTime()),
+			table.Entry("with succeeded phase should not be deleted with unexpired TTL", k8sv1.PodSucceeded, false, now()),
+		)
+
 		It("should do nothing if the vmi is in final state", func() {
 			vmi := NewPendingVirtualMachine("testvmi")
 			vmi.Status.Phase = v1.Failed
@@ -950,6 +1022,14 @@ func NewPodForVirtualMachine(vmi *v1.VirtualMachineInstance, phase k8sv1.PodPhas
 			},
 		},
 	}
+}
+
+func garbageCollectionExpiredTime() *metav1.Time {
+
+	ttl := podGarbageCollectionTTL + 1
+	finishTime := time.Now().Add(time.Duration(-ttl) * time.Second)
+
+	return &metav1.Time{Time: finishTime}
 }
 
 func now() *metav1.Time {

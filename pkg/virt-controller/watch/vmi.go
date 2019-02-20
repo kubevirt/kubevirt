@@ -92,6 +92,8 @@ const (
 	FailedMigrationReason = "FailedMigration"
 )
 
+const podGarbageCollectionTTL = int64(120)
+
 func NewVMIController(templateService services.TemplateService,
 	vmiInformer cache.SharedIndexInformer,
 	podInformer cache.SharedIndexInformer,
@@ -841,10 +843,6 @@ func (c *VMIController) garbageCollectMatchingCompletedPods(vmi *virtv1.VirtualM
 	now := time.Now().UTC().Unix()
 	vmiKey := controller.VirtualMachineKey(vmi)
 
-	// deletion TTL gives us a chance to collect logs
-	// from succeded pods before they get deleted.
-	deletionTTL := int64(120)
-
 	// if we're waiting on a TTL, this tells us the min
 	// amount of time we need to wait until the TTL expires.
 	// We re-enqueue the key for this duration to ensure
@@ -879,17 +877,19 @@ func (c *VMIController) garbageCollectMatchingCompletedPods(vmi *virtv1.VirtualM
 			secondsElapsed = now - containerStatus.State.Terminated.FinishedAt.UTC().Unix()
 		}
 
-		if secondsElapsed >= deletionTTL {
+		// deletion TTL gives us a chance to collect logs
+		// from succeded pods before they get deleted.
+		if secondsElapsed >= podGarbageCollectionTTL {
 			c.podExpectations.ExpectDeletions(vmiKey, []string{controller.PodKey(pod)})
 			err := c.clientset.CoreV1().Pods(vmi.Namespace).Delete(pod.Name, &v1.DeleteOptions{})
 			if err != nil {
 				c.podExpectations.DeletionObserved(vmiKey, controller.PodKey(pod))
-				c.recorder.Eventf(vmi, k8sv1.EventTypeWarning, FailedDeletePodReason, "Failed to delete virtual machine pod %s", pod.Name)
+				c.recorder.Eventf(vmi, k8sv1.EventTypeWarning, FailedDeletePodReason, "Failed to garbage collect virtual machine pod %s", pod.Name)
 				return err
 			}
 			c.recorder.Eventf(vmi, k8sv1.EventTypeNormal, SuccessfulDeletePodReason, "Garbage collected completed virtual machine pod %s", pod.Name)
 		} else {
-			secondsLeft := deletionTTL - secondsElapsed
+			secondsLeft := podGarbageCollectionTTL - secondsElapsed
 			if reEnqueueAfter == 0 || reEnqueueAfter > secondsLeft {
 				reEnqueueAfter = secondsLeft
 			}
