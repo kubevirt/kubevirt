@@ -418,6 +418,7 @@ func liveMigrationMonitor(vmi *v1.VirtualMachineInstance, dom cli.VirDomain, l *
 	// TODO:(vladikr) move to configMap
 	completionTimeoutPerGiB := int64(800)
 	acceptableCompletionTime := completionTimeoutPerGiB * getVMIMigrationDataSize(vmi)
+monitorLoop:
 	for {
 		stats, err := dom.GetJobInfo()
 		if err != nil {
@@ -446,7 +447,7 @@ func liveMigrationMonitor(vmi *v1.VirtualMachineInstance, dom cli.VirDomain, l *
 					logger.Reason(err).Error("failed to abort migration")
 				}
 				l.setMigrationResult(vmi, true, fmt.Sprintf("Live migration stuck for %d sec and has been aborted", progressDelay))
-				break
+				break monitorLoop
 			}
 
 			// check the overall migration time
@@ -459,21 +460,21 @@ func liveMigrationMonitor(vmi *v1.VirtualMachineInstance, dom cli.VirDomain, l *
 					logger.Reason(err).Error("failed to abort migration")
 				}
 				l.setMigrationResult(vmi, true, fmt.Sprintf("Live migration is not completed after %d sec and has been aborted", acceptableCompletionTime))
-				break
+				break monitorLoop
 			}
 
 		case libvirt.DOMAIN_JOB_NONE:
 			logger.Info("Migration job didn't start yet")
 		case libvirt.DOMAIN_JOB_COMPLETED:
 			logger.Info("Migration has beem completed")
-			break
+			break monitorLoop
 		case libvirt.DOMAIN_JOB_FAILED:
 			logger.Info("Migration job failed")
 			// migration failed
-			break
+			break monitorLoop
 		case libvirt.DOMAIN_JOB_CANCELLED:
 			logger.Info("Migration was canceled")
-			break
+			break monitorLoop
 		}
 		time.Sleep(500 * time.Millisecond)
 	}
