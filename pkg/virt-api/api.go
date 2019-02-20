@@ -264,7 +264,7 @@ func (app *virtAPIApp) composeSubresources() {
 					Namespaced: true,
 				},
 				{
-					Name:       "virtualmachineinstances/restart",
+					Name:       "virtualmachines/restart",
 					Namespaced: true,
 				},
 				{
@@ -329,11 +329,11 @@ func (app *virtAPIApp) composeSubresources() {
 		Returns(http.StatusNotFound, "Not Found", nil))
 
 	once := sync.Once{}
+	var openapispec *spec.Swagger
 	ws.Route(ws.GET("openapi/v2").
 		Consumes(restful.MIME_JSON).
 		Produces(restful.MIME_JSON).
 		To(func(request *restful.Request, response *restful.Response) {
-			var openapispec *spec.Swagger
 			once.Do(func() {
 				openapispec = openapi.LoadOpenAPISpec([]*restful.WebService{ws, subws})
 				openapispec.Info.Version = version.Get().String()
