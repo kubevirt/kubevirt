@@ -1358,6 +1358,19 @@ func ValidateVirtualMachineInstanceSpec(field *k8sfield.Path, spec *v1.VirtualMa
 	return causes
 }
 
+func ValidateVirtualMachineInstanceMetadata(field *k8sfield.Path, vmi *v1.VirtualMachineInstance) []metav1.StatusCause {
+	var causes []metav1.StatusCause
+	// Validate ignition feature gate if set when the corresponding annotation is found
+	if vmi.GetObjectMeta().GetAnnotations()[v1.IgnitionAnnotation] != "" && !virtconfig.IgnitionEnabled() {
+		causes = append(causes, metav1.StatusCause{
+			Type:    metav1.CauseTypeFieldValueInvalid,
+			Message: fmt.Sprintf("ExperimentalIgnitionSupport feature gate is not enabled in kubevirt-config"),
+			Field:   field.String(),
+		})
+	}
+	return causes
+}
+
 func ValidateVirtualMachineSpec(field *k8sfield.Path, spec *v1.VirtualMachineSpec) []metav1.StatusCause {
 	var causes []metav1.StatusCause
 
@@ -1401,7 +1414,14 @@ func ValidateVirtualMachineSpec(field *k8sfield.Path, spec *v1.VirtualMachineSpe
 			}
 		}
 	}
-
+	// Validate ignition feature gate if set when the corresponding annotation is found
+	if spec.Template.ObjectMeta.GetAnnotations()[v1.IgnitionAnnotation] != "" && !virtconfig.IgnitionEnabled() {
+		causes = append(causes, metav1.StatusCause{
+			Type:    metav1.CauseTypeFieldValueInvalid,
+			Message: fmt.Sprintf("ExperimentalIgnitionSupport feature gate is not enabled in kubevirt-config"),
+			Field:   field.String(),
+		})
+	}
 	return causes
 }
 
@@ -1504,6 +1524,7 @@ func admitVMICreate(ar *v1beta1.AdmissionReview) *v1beta1.AdmissionResponse {
 
 	causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("spec"), &vmi.Spec)
 	causes = append(causes, ValidateVirtualMachineInstanceMandatoryFields(k8sfield.NewPath("spec"), &vmi.Spec)...)
+	causes = append(causes, ValidateVirtualMachineInstanceMetadata(k8sfield.NewPath("spec"), vmi)...)
 
 	if len(causes) > 0 {
 		return webhooks.ToAdmissionResponse(causes)

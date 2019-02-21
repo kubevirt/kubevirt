@@ -41,8 +41,7 @@ var _ = Describe("Ignition", func() {
 			vmi = v1.NewMinimalVMI(vmName)
 			It("should success", func() {
 				data := "{ \"ignition\": { \"config\": {}, \"version\": \"2.2.0\" }, \"networkd\": {}, \"storage\": { \"files\": [ { \"contents\": { \"source\": \"data:,test\", \"verification\": {} }, \"filesystem\": \"root\", \"mode\": 420, \"path\": \"/etc/hostname\" } ] }, \"systemd\": {} }"
-				vmi.Annotations = map[string]string{"kubevirt.io/ignitiondata": data}
-				// vmi.Annotations["kubevirt.io/ignitiondata"] = data
+				vmi.Annotations = map[string]string{v1.IgnitionAnnotation: data}
 				err := GenerateIgnitionLocalData(vmi, namespace)
 				Expect(err).ToNot(HaveOccurred())
 				_, err = os.Stat(fmt.Sprintf("%s/%s/%s/data.ign", ignitionLocalDir, namespace, vmName))

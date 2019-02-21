@@ -441,6 +441,9 @@ const (
 
 	VirtualMachineInstanceFinalizer string = "foregroundDeleteVirtualMachine"
 	CPUManager                      string = "cpumanager"
+	// This annotation is used to inject ignition data
+	// Used on VirtualMachineInstance.
+	IgnitionAnnotation string = "kubevirt.io/ignitiondata"
 )
 
 func NewVMI(name string, uid types.UID) *VirtualMachineInstance {

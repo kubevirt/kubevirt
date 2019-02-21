@@ -35,7 +35,7 @@ const IgnitionFile = "data.ign"
 
 func GetIgnitionSource(vmi *v1.VirtualMachineInstance) string {
 	precond.MustNotBeNil(vmi)
-	return vmi.Annotations["kubevirt.io/ignitiondata"]
+	return vmi.Annotations[v1.IgnitionAnnotation]
 }
 
 // func SetIgnitionLocalDirectory(dir string) error {
@@ -61,7 +61,7 @@ func GetDomainBasePath(domain string, namespace string) string {
 
 func GenerateIgnitionLocalData(vmi *v1.VirtualMachineInstance, namespace string) error {
 	precond.MustNotBeEmpty(vmi.Name)
-	precond.MustNotBeNil(vmi.Annotations["kubevirt.io/ignitiondata"])
+	precond.MustNotBeNil(vmi.Annotations[v1.IgnitionAnnotation])
 
 	domainBasePath := GetDomainBasePath(vmi.Name, namespace)
 	err := os.MkdirAll(domainBasePath, 0755)
@@ -71,7 +71,7 @@ func GenerateIgnitionLocalData(vmi *v1.VirtualMachineInstance, namespace string)
 	}
 
 	ignitionFile := fmt.Sprintf("%s/%s", domainBasePath, "data.ign")
-	ignitionData := []byte(vmi.Annotations["kubevirt.io/ignitiondata"])
+	ignitionData := []byte(vmi.Annotations[v1.IgnitionAnnotation])
 	err = ioutil.WriteFile(ignitionFile, ignitionData, 0644)
 	if err != nil {
 		return err

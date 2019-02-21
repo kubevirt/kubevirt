@@ -44,7 +44,6 @@ import (
 	"kubevirt.io/kubevirt/pkg/precond"
 	"kubevirt.io/kubevirt/pkg/util"
 	"kubevirt.io/kubevirt/pkg/util/net/dns"
-	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 )
 
 const (
@@ -330,7 +329,7 @@ func Convert_v1_CloudInitNoCloudSource_To_api_Disk(source *v1.CloudInitNoCloudSo
 }
 
 func Convert_v1_IgnitionData_To_api_Disk(disk *Disk, c *ConverterContext) error {
-	disk.Source.File = fmt.Sprintf("%s/%s", ignition.GetDomainBasePath(c.VirtualMachine.Name, c.VirtualMachine.Namespace), c.VirtualMachine.Annotations["kubevirt.io/ignitiondata"])
+	disk.Source.File = fmt.Sprintf("%s/%s", ignition.GetDomainBasePath(c.VirtualMachine.Name, c.VirtualMachine.Namespace), c.VirtualMachine.Annotations[v1.IgnitionAnnotation])
 	disk.Type = "file"
 	disk.Driver.Type = "raw"
 	return nil
@@ -1114,21 +1113,18 @@ func Convert_v1_VirtualMachine_To_api_Domain(vmi *v1.VirtualMachineInstance, dom
 	}
 
 	// Add Ignition Command Line if present
-	ignitiondata, _ := vmi.Annotations["kubevirt.io/ignitiondata"]
+	ignitiondata, _ := vmi.Annotations[v1.IgnitionAnnotation]
 	if ignitiondata != "" && strings.Contains(ignitiondata, "ignition") {
-		virtconfig.Init()
-		if virtconfig.IgnitionEnabled() {
-			if domain.Spec.QEMUCmd == nil {
-				domain.Spec.QEMUCmd = &Commandline{}
-			}
-
-			if domain.Spec.QEMUCmd.QEMUArg == nil {
-				domain.Spec.QEMUCmd.QEMUArg = make([]Arg, 0)
-			}
-			domain.Spec.QEMUCmd.QEMUArg = append(domain.Spec.QEMUCmd.QEMUArg, Arg{Value: "-fw_cfg"})
-			ignitionpath := fmt.Sprintf("%s/data.ign", ignition.GetDomainBasePath(c.VirtualMachine.Name, c.VirtualMachine.Namespace))
-			domain.Spec.QEMUCmd.QEMUArg = append(domain.Spec.QEMUCmd.QEMUArg, Arg{Value: fmt.Sprintf("name=opt/com.coreos/config,file=%s", ignitionpath)})
+		if domain.Spec.QEMUCmd == nil {
+			domain.Spec.QEMUCmd = &Commandline{}
 		}
+
+		if domain.Spec.QEMUCmd.QEMUArg == nil {
+			domain.Spec.QEMUCmd.QEMUArg = make([]Arg, 0)
+		}
+		domain.Spec.QEMUCmd.QEMUArg = append(domain.Spec.QEMUCmd.QEMUArg, Arg{Value: "-fw_cfg"})
+		ignitionpath := fmt.Sprintf("%s/data.ign", ignition.GetDomainBasePath(c.VirtualMachine.Name, c.VirtualMachine.Namespace))
+		domain.Spec.QEMUCmd.QEMUArg = append(domain.Spec.QEMUCmd.QEMUArg, Arg{Value: fmt.Sprintf("name=opt/com.coreos/config,file=%s", ignitionpath)})
 	}
 	return nil
 }
