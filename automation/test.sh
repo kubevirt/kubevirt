@@ -47,8 +47,8 @@ if [[ $TARGET =~ openshift-.* ]]; then
   fi
 elif [[ $TARGET =~ .*-1.10.4 ]]; then
   export KUBEVIRT_PROVIDER="k8s-1.10.11"
-elif [[ $TARGET =~ .*-multus-1.12.2 ]]; then
-  export KUBEVIRT_PROVIDER="k8s-multus-1.12.2"
+elif [[ $TARGET =~ .*-multus-1.13.3 ]]; then
+  export KUBEVIRT_PROVIDER="k8s-multus-1.13.3"
 elif [[ $TARGET =~ .*-genie-1.11.1 ]]; then
   export KUBEVIRT_PROVIDER="k8s-genie-1.11.1"
 else
