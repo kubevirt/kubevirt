@@ -155,6 +155,19 @@ if [ -n "${KUBEVIRT_CACHE_FROM}" ]; then
 fi
 
 make cluster-down
+
+
+# Create .bazelrc to use remote cache
+cat >.bazelrc <<EOF
+startup --host_jvm_args=-Dbazel.DigestFunction=sha256
+build --remote_local_fallback
+build --remote_http_cache=http://bazel-cache.kubevirt-prow.svc.cluster.local:8080/kubevirt.io/kubevirt
+EOF
+
+# Build artifacts
+source hack/config.sh
+CONTAINER_PREFIX=${docker_prefix} CONTAINER_TAG=${docker_tag} make bazel-build-images
+
 make cluster-up
 
 # Wait for nodes to become ready
@@ -171,13 +184,6 @@ set -e
 
 echo "Nodes are ready:"
 kubectl get nodes
-
-# Create .bazelrc to use remote cache
-cat >.bazelrc <<EOF
-startup --host_jvm_args=-Dbazel.DigestFunction=sha256
-build --remote_local_fallback
-build --remote_http_cache=http://bazel-cache.kubevirt-prow.svc.cluster.local:8080/kubevirt.io/kubevirt
-EOF
 
 make cluster-sync
 
