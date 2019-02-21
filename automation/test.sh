@@ -156,7 +156,6 @@ fi
 
 make cluster-down
 
-
 # Create .bazelrc to use remote cache
 cat >.bazelrc <<EOF
 startup --host_jvm_args=-Dbazel.DigestFunction=sha256
