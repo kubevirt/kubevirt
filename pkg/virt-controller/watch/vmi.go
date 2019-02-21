@@ -850,7 +850,7 @@ func (c *VMIController) garbageCollectMatchingCompletedPods(vmi *virtv1.VirtualM
 	reEnqueueAfter := int64(0)
 
 	for _, pod := range pods {
-		if pod.Name == currentPod.Name {
+		if currentPod != nil && pod.Name == currentPod.Name {
 			continue
 		}
 
