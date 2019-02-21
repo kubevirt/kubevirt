@@ -20,6 +20,7 @@
 package services
 
 import (
+	"encoding/json"
 	"fmt"
 	"path/filepath"
 	"strconv"
@@ -976,12 +977,17 @@ func getNetworkToResourceMap(virtClient kubecli.KubevirtClient, vmi *v1.VirtualM
 
 func getCniInterfaceList(vmi *v1.VirtualMachineInstance) (ifaceListString string, cniAnnotation string) {
 	ifaceList := make([]string, 0)
+	ifaceListMap := make([]map[string]string, 0)
 
-	for _, network := range vmi.Spec.Networks {
+	for idx, network := range vmi.Spec.Networks {
 		// set the type for the first network
 		// all other networks must have same type
 		if network.Npwgv1 != nil {
-			ifaceList = append(ifaceList, network.Npwgv1.NetworkName)
+			ifaceMap := map[string]string{
+				"name":      network.Npwgv1.NetworkName,
+				"interface": fmt.Sprintf("net%d", idx+1),
+			}
+			ifaceListMap = append(ifaceListMap, ifaceMap)
 			if cniAnnotation == "" {
 				cniAnnotation = "k8s.v1.cni.cncf.io/networks"
 			}
@@ -992,7 +998,12 @@ func getCniInterfaceList(vmi *v1.VirtualMachineInstance) (ifaceListString string
 			}
 		}
 	}
-	ifaceListString = strings.Join(ifaceList, ",")
+	if len(ifaceListMap) > 0 {
+		ifaceJsonString, _ := json.Marshal(ifaceListMap)
+		ifaceListString = fmt.Sprintf("'%s'", ifaceJsonString)
+	} else {
+		ifaceListString = strings.Join(ifaceList, ",")
+	}
 	return
 }
 

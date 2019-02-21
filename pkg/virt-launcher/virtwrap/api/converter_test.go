@@ -975,38 +975,6 @@ var _ = Describe("Converter", func() {
 			Expect(domain.Spec.Devices.Interfaces[1].Source.Bridge).To(Equal("k6t-net2"))
 			Expect(domain.Spec.Devices.Interfaces[2].Source.Bridge).To(Equal("k6t-eth0"))
 		})
-                It("Should set domain interface source and prefix correctly for npwgv1", func() {
-                        v1.SetObjectDefaults_VirtualMachineInstance(vmi)
-                        vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{
-                                *v1.DefaultNetworkInterface(),
-                                *v1.DefaultNetworkInterface(),
-                        }
-                        vmi.Spec.Domain.Devices.Interfaces[0].Name = "red1"
-                        vmi.Spec.Domain.Devices.Interfaces[1].Name = "red2"
-                        vmi.Spec.Networks = []v1.Network{
-                                v1.Network{
-                                        Name: "red1",
-                                        NetworkSource: v1.NetworkSource{
-                                                Npwgv1: &v1.CniNetwork{
-							NetworkName: "red",
-							InterfacePrefix: "eth",
-						},
-                                        },
-                                },
-                                v1.Network{
-                                        Name: "red2",
-                                        NetworkSource: v1.NetworkSource{
-                                                Npwgv1: &v1.CniNetwork{NetworkName: "red"},
-                                        },
-                                },
-                        }
-
-                        domain := vmiToDomain(vmi, c)
-                        Expect(domain).ToNot(Equal(nil))
-                        Expect(domain.Spec.Devices.Interfaces).To(HaveLen(3))
-                        Expect(domain.Spec.Devices.Interfaces[0].Source.Bridge).To(Equal("k6t-eth1"))
-                        Expect(domain.Spec.Devices.Interfaces[1].Source.Bridge).To(Equal("k6t-net2"))
-                })
 		It("Should set domain interface source correctly for genie", func() {
 			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
 			vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{

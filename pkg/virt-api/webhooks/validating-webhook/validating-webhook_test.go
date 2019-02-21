@@ -1568,21 +1568,21 @@ var _ = Describe("Validating Webhook", func() {
 			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vm.Spec)
 			Expect(causes).To(BeEmpty())
 		})
-                It("should accept networks with a multus network source and bridge interface", func() {
-                        vm := v1.NewMinimalVMI("testvm")
-                        vm.Spec.Domain.Devices.Interfaces = []v1.Interface{*v1.DefaultNetworkInterface()}
-                        vm.Spec.Networks = []v1.Network{
-                                v1.Network{
-                                        Name: "default",
-                                        NetworkSource: v1.NetworkSource{
-                                                Multus: &v1.CniNetwork{NetworkName: "default"},
-                                        },
-                                },
-                        }
+		It("should accept networks with a multus network source and bridge interface", func() {
+			vm := v1.NewMinimalVMI("testvm")
+			vm.Spec.Domain.Devices.Interfaces = []v1.Interface{*v1.DefaultNetworkInterface()}
+			vm.Spec.Networks = []v1.Network{
+				v1.Network{
+					Name: "default",
+					NetworkSource: v1.NetworkSource{
+						Multus: &v1.CniNetwork{NetworkName: "default"},
+					},
+				},
+			}
 
-                        causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vm.Spec)
-                        Expect(causes).To(BeEmpty())
-                })
+			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vm.Spec)
+			Expect(causes).To(BeEmpty())
+		})
 		It("should accept networks with a genie network source and bridge interface", func() {
 			vm := v1.NewMinimalVMI("testvm")
 			vm.Spec.Domain.Devices.Interfaces = []v1.Interface{*v1.DefaultNetworkInterface()}

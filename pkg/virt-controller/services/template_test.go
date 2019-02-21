@@ -173,36 +173,36 @@ var _ = Describe("Template", func() {
 				Expect(value).To(Equal("default,test1"))
 			})
 		})
-                Context("with multus annotation", func() {
-                        It("should add npwgv1 networks in the pod annotation", func() {
-                                vmi := v1.VirtualMachineInstance{
-                                        ObjectMeta: metav1.ObjectMeta{
-                                                Name:      "testvmi",
-                                                Namespace: "default",
-                                                UID:       "1234",
-                                        },
-                                        Spec: v1.VirtualMachineInstanceSpec{
-                                                Domain: v1.DomainSpec{},
-                                                Networks: []v1.Network{
-                                                        {Name: "default",
-                                                                NetworkSource: v1.NetworkSource{
-                                                                        Multus: &v1.CniNetwork{NetworkName: "default"},
-                                                                }},
-                                                        {Name: "test1",
-                                                                NetworkSource: v1.NetworkSource{
-                                                                        Multus: &v1.CniNetwork{NetworkName: "test1"},
-                                                                }},
-                                                },
-                                        },
-                                }
+		Context("with multus annotation", func() {
+			It("should add npwgv1 networks in the pod annotation", func() {
+				vmi := v1.VirtualMachineInstance{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "testvmi",
+						Namespace: "default",
+						UID:       "1234",
+					},
+					Spec: v1.VirtualMachineInstanceSpec{
+						Domain: v1.DomainSpec{},
+						Networks: []v1.Network{
+							{Name: "default",
+								NetworkSource: v1.NetworkSource{
+									Multus: &v1.CniNetwork{NetworkName: "default"},
+								}},
+							{Name: "test1",
+								NetworkSource: v1.NetworkSource{
+									Multus: &v1.CniNetwork{NetworkName: "test1"},
+								}},
+						},
+					},
+				}
 
-                                pod, err := svc.RenderLaunchManifest(&vmi)
-                                Expect(err).ToNot(HaveOccurred())
-                                value, ok := pod.Annotations["k8s.v1.cni.cncf.io/networks"]
-                                Expect(ok).To(Equal(true))
-                                Expect(value).To(Equal("default,test1"))
-                        })
-                })
+				pod, err := svc.RenderLaunchManifest(&vmi)
+				Expect(err).ToNot(HaveOccurred())
+				value, ok := pod.Annotations["k8s.v1.cni.cncf.io/networks"]
+				Expect(ok).To(Equal(true))
+				Expect(value).To(Equal("default,test1"))
+			})
+		})
 		Context("with genie annotation", func() {
 			It("should add genie networks in the pod annotation", func() {
 				vmi := v1.VirtualMachineInstance{

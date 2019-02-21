@@ -973,6 +973,5 @@ type CniNetwork struct {
 	// <networkName>, <namespace>/<networkName>. If namespace is not
 	// specified, VMI namespace is assumed.
 	// In case of genie, it references the CNI plugin name.
-	NetworkName     string `json:"networkName"`
-	InterfacePrefix string `json:"interfacePrefix,omitempty"`
+	NetworkName string `json:"networkName"`
 }

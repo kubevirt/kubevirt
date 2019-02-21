@@ -380,12 +380,6 @@ func schema_kubevirt_pkg_api_v1_CniNetwork(ref common.ReferenceCallback) common.
 							Format:      "",
 						},
 					},
-					"interfacePrefix": {
-						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
-						},
-					},
 				},
 				Required: []string{"networkName"},
 			},

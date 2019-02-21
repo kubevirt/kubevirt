@@ -4128,9 +4128,6 @@
      "networkName"
     ],
     "properties": {
-     "interfacePrefix": {
-      "type": "string"
-     },
      "networkName": {
       "description": "References to a NetworkAttachmentDefinition CRD object. Format:\n\u003cnetworkName\u003e, \u003cnamespace\u003e/\u003cnetworkName\u003e. If namespace is not\nspecified, VMI namespace is assumed.\nIn case of genie, it references the CNI plugin name.",
       "type": "string"

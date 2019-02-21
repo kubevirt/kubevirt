@@ -999,11 +999,7 @@ func Convert_v1_VirtualMachine_To_api_Domain(vmi *v1.VirtualMachineInstance, dom
 					prefix := ""
 					// no error check, we assume that CNI type was set correctly
 					if net.Npwgv1 != nil {
-						if net.Npwgv1.InterfacePrefix != "" {
-							prefix = net.Npwgv1.InterfacePrefix
-						} else {
-							prefix = "net"
-						}
+						prefix = "net"
 					} else if net.Genie != nil {
 						prefix = "eth"
 					}

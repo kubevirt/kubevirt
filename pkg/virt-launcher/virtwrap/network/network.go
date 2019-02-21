@@ -72,12 +72,7 @@ func SetupNetworkInterfaces(vmi *v1.VirtualMachineInstance, domain *api.Domain) 
 
 		if networks[iface.Name].Npwgv1 != nil {
 			// Npwgv1 pod interfaces named netX if interfacePrefix not specified
-			if networks[iface.Name].Npwgv1.InterfacePrefix != "" {
-				podInterfaceName = fmt.Sprintf("%s%d", networks[iface.Name].Npwgv1.InterfacePrefix,
-					cniNetworks[iface.Name])
-			} else {
-				podInterfaceName = fmt.Sprintf("net%d", cniNetworks[iface.Name])
-			}
+			podInterfaceName = fmt.Sprintf("net%d", cniNetworks[iface.Name])
 		} else if networks[iface.Name].Genie != nil {
 			// genie and tf pod interfaces named ethX
 			podInterfaceName = fmt.Sprintf("eth%d", cniNetworks[iface.Name])
