@@ -1,0 +1,29 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_binary", "go_library")
+
+go_library(
+    name = "go_default_library",
+    srcs = [
+        "dependencies.go",
+        "goconvey.go",
+    ],
+    importmap = "kubevirt.io/kubevirt/vendor/github.com/smartystreets/goconvey",
+    importpath = "github.com/smartystreets/goconvey",
+    visibility = ["//visibility:private"],
+    deps = [
+        "//vendor/github.com/smartystreets/goconvey/web/server/api:go_default_library",
+        "//vendor/github.com/smartystreets/goconvey/web/server/contract:go_default_library",
+        "//vendor/github.com/smartystreets/goconvey/web/server/executor:go_default_library",
+        "//vendor/github.com/smartystreets/goconvey/web/server/messaging:go_default_library",
+        "//vendor/github.com/smartystreets/goconvey/web/server/parser:go_default_library",
+        "//vendor/github.com/smartystreets/goconvey/web/server/system:go_default_library",
+        "//vendor/github.com/smartystreets/goconvey/web/server/watch:go_default_library",
+        "@com_github_jtolds_gls//:go_default_library",
+        "@com_github_smartystreets_assertions//:go_default_library",
+    ],
+)
+
+go_binary(
+    name = "goconvey",
+    embed = [":go_default_library"],
+    visibility = ["//visibility:public"],
+)

@@ -32,3 +32,4 @@ tools/vms-generator/vms-generator
 .coverprofile
 coverage.html
 manifests/**/*.tmp
+bazel-*

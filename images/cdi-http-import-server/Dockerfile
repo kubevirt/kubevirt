@@ -35,7 +35,7 @@ ADD nginx.conf /etc/nginx/
 
 EXPOSE 80
 
-ADD entry-point.sh /
+ADD entrypoint.sh /
 ADD expose-as-iscsi.sh /
 
-CMD ["/entry-point.sh"]
+CMD ["/entrypoint.sh"]

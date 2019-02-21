@@ -1,0 +1,53 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "go_default_library",
+    srcs = [
+        "builder.go",
+        "decoders.go",
+        "encoders.go",
+    ],
+    importpath = "kubevirt.io/kubevirt/pkg/rest/endpoints",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//pkg/middleware:go_default_library",
+        "//pkg/precond:go_default_library",
+        "//pkg/rest:go_default_library",
+        "//vendor/github.com/asaskevich/govalidator:go_default_library",
+        "//vendor/github.com/emicklei/go-restful:go_default_library",
+        "//vendor/github.com/ghodss/yaml:go_default_library",
+        "//vendor/github.com/go-kit/kit/endpoint:go_default_library",
+        "//vendor/github.com/go-kit/kit/transport/http:go_default_library",
+        "//vendor/golang.org/x/net/context:go_default_library",
+        "//vendor/gopkg.in/ini.v1:go_default_library",
+        "//vendor/k8s.io/apimachinery/pkg/apis/meta/v1:go_default_library",
+        "//vendor/k8s.io/apimachinery/pkg/types:go_default_library",
+    ],
+)
+
+go_test(
+    name = "go_default_test",
+    srcs = [
+        "delete_test.go",
+        "endpoints_suite_test.go",
+        "get_test.go",
+        "patch_test.go",
+        "post_test.go",
+        "put_test.go",
+    ],
+    embed = [":go_default_library"],
+    deps = [
+        "//pkg/log:go_default_library",
+        "//pkg/middleware:go_default_library",
+        "//pkg/rest:go_default_library",
+        "//vendor/github.com/emicklei/go-restful:go_default_library",
+        "//vendor/github.com/evanphx/json-patch:go_default_library",
+        "//vendor/github.com/ghodss/yaml:go_default_library",
+        "//vendor/github.com/go-kit/kit/transport/http:go_default_library",
+        "//vendor/github.com/onsi/ginkgo:go_default_library",
+        "//vendor/github.com/onsi/gomega:go_default_library",
+        "//vendor/golang.org/x/net/context:go_default_library",
+        "//vendor/gopkg.in/ini.v1:go_default_library",
+        "//vendor/gopkg.in/yaml.v2:go_default_library",
+    ],
+)

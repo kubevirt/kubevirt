@@ -1,0 +1,14 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "go_default_library",
+    srcs = ["prlimit.go"],
+    importmap = "kubevirt.io/kubevirt/vendor/kubevirt.io/containerized-data-importer/pkg/system",
+    importpath = "kubevirt.io/containerized-data-importer/pkg/system",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//vendor/golang.org/x/sys/unix:go_default_library",
+        "@com_github_golang_glog//:go_default_library",
+        "@com_github_pkg_errors//:go_default_library",
+    ],
+)

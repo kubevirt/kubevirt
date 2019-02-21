@@ -1,0 +1,22 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_binary", "go_library")
+
+go_library(
+    name = "go_default_library",
+    srcs = ["openapispec.go"],
+    importpath = "kubevirt.io/kubevirt/tools/openapispec",
+    visibility = ["//visibility:private"],
+    deps = [
+        "//pkg/log:go_default_library",
+        "//pkg/util/openapi:go_default_library",
+        "//pkg/virt-api:go_default_library",
+        "//pkg/virt-api/rest:go_default_library",
+        "//vendor/github.com/emicklei/go-restful:go_default_library",
+        "//vendor/github.com/spf13/pflag:go_default_library",
+    ],
+)
+
+go_binary(
+    name = "openapispec",
+    embed = [":go_default_library"],
+    visibility = ["//visibility:public"],
+)

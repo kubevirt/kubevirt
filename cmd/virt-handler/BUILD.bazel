@@ -1,0 +1,66 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_binary", "go_library")
+
+go_library(
+    name = "go_default_library",
+    srcs = ["virt-handler.go"],
+    importpath = "kubevirt.io/kubevirt/cmd/virt-handler",
+    visibility = ["//visibility:private"],
+    deps = [
+        "//pkg/api/v1:go_default_library",
+        "//pkg/certificates:go_default_library",
+        "//pkg/controller:go_default_library",
+        "//pkg/inotify-informer:go_default_library",
+        "//pkg/kubecli:go_default_library",
+        "//pkg/log:go_default_library",
+        "//pkg/monitoring/client/prometheus:go_default_library",
+        "//pkg/monitoring/reflector/prometheus:go_default_library",
+        "//pkg/monitoring/vms/prometheus:go_default_library",
+        "//pkg/monitoring/workqueue/prometheus:go_default_library",
+        "//pkg/service:go_default_library",
+        "//pkg/util:go_default_library",
+        "//pkg/virt-handler:go_default_library",
+        "//pkg/virt-handler/cache:go_default_library",
+        "//pkg/virt-launcher:go_default_library",
+        "//pkg/virt-launcher/virtwrap/api:go_default_library",
+        "//vendor/github.com/prometheus/client_golang/prometheus/promhttp:go_default_library",
+        "//vendor/github.com/spf13/pflag:go_default_library",
+        "//vendor/k8s.io/api/core/v1:go_default_library",
+        "//vendor/k8s.io/apimachinery/pkg/fields:go_default_library",
+        "//vendor/k8s.io/apimachinery/pkg/labels:go_default_library",
+        "//vendor/k8s.io/client-go/kubernetes/scheme:go_default_library",
+        "//vendor/k8s.io/client-go/kubernetes/typed/core/v1:go_default_library",
+        "//vendor/k8s.io/client-go/tools/cache:go_default_library",
+        "//vendor/k8s.io/client-go/tools/record:go_default_library",
+        "@com_github_golang_glog//:go_default_library",
+    ],
+)
+
+load("//pkg/version:def.bzl", "version_x_defs")
+
+go_binary(
+    name = "virt-handler",
+    embed = [":go_default_library"],
+    visibility = ["//visibility:public"],
+    x_defs = version_x_defs(),
+)
+
+load(
+    "@io_bazel_rules_docker//container:container.bzl",
+    "container_image",
+)
+
+container_image(
+    name = "version-container",
+    base = "@fedora//image",
+    directory = "/",
+    files = ["//:get-version"],
+)
+
+container_image(
+    name = "virt-handler-image",
+    base = ":version-container",
+    directory = "/usr/bin/",
+    entrypoint = ["/usr/bin/virt-handler"],
+    files = [":virt-handler"],
+    visibility = ["//visibility:public"],
+)

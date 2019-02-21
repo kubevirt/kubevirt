@@ -1,0 +1,75 @@
+load(
+    "@io_bazel_rules_docker//container:container.bzl",
+    "container_image",
+)
+load("@bazel_tools//tools/build_defs/pkg:pkg.bzl", "pkg_tar")
+load("@io_bazel_rules_container_rpm//rpm:rpm.bzl", "rpm_image")
+
+rpm_image(
+    name = "cdi-http-import-server-base-image",
+    base = "@kubevirt-testing//image",
+    rpms = [
+        "@qemu-img//file",
+        "@qemu-guest-agent//file",
+        "@libstdc//file",
+        "@capstone//file",
+        "@libaio//file",
+    ],
+)
+
+genrule(
+    name = "alpine-iso",
+    srcs = ["@alpine_image//file"],
+    outs = ["usr/share/nginx/html/images/alpine.iso"],
+    cmd = "mkdir -p usr/share/nginx/html/images && cat $(location @alpine_image//file) > $@",
+)
+
+pkg_tar(
+    name = "alpine-tar",
+    srcs = [
+        ":alpine-iso",
+    ],
+    mode = "644",
+    package_dir = "usr/share/nginx/html/images",
+)
+
+genrule(
+    name = "cirros-img",
+    srcs = ["@cirros_image//file"],
+    outs = ["usr/share/nginx/html/images/cirros.img"],
+    cmd = "mkdir disk && cat $(location @cirros_image//file) > $@",
+)
+
+pkg_tar(
+    name = "cirros-img-tar",
+    srcs = [":cirros-img"],
+    mode = "644",
+    package_dir = "usr/share/nginx/html/images",
+)
+
+pkg_tar(
+    name = "nginx-config-tar",
+    srcs = [
+        "nginx.conf",
+    ],
+    mode = "664",
+    package_dir = "/etc/nginx",
+)
+
+container_image(
+    name = "cdi-http-import-server-image",
+    base = ":cdi-http-import-server-base-image",
+    directory = "/",
+    entrypoint = ["/entrypoint.sh"],
+    files = [
+        "entrypoint.sh",
+        "expose-as-iscsi.sh",
+    ],
+    ports = ["80"],
+    tars = [
+        ":alpine-tar",
+        ":cirros-img-tar",
+        ":nginx-config-tar",
+    ],
+    visibility = ["//visibility:public"],
+)

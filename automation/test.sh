@@ -47,8 +47,8 @@ if [[ $TARGET =~ openshift-.* ]]; then
   fi
 elif [[ $TARGET =~ .*-1.10.4 ]]; then
   export KUBEVIRT_PROVIDER="k8s-1.10.11"
-elif [[ $TARGET =~ .*-multus-1.12.2 ]]; then
-  export KUBEVIRT_PROVIDER="k8s-multus-1.12.2"
+elif [[ $TARGET =~ .*-multus-1.13.3 ]]; then
+  export KUBEVIRT_PROVIDER="k8s-multus-1.13.3"
 elif [[ $TARGET =~ .*-genie-1.11.1 ]]; then
   export KUBEVIRT_PROVIDER="k8s-genie-1.11.1"
 else
@@ -175,6 +175,13 @@ set -e
 
 echo "Nodes are ready:"
 kubectl get nodes
+
+# Create .bazelrc to use remote cache
+cat >.bazelrc <<EOF
+startup --host_jvm_args=-Dbazel.DigestFunction=sha256
+build --remote_local_fallback
+build --remote_http_cache=http://bazel-cache.kubevirt-prow.svc.cluster.local:8080/kubevirt.io/kubevirt
+EOF
 
 make cluster-sync
 
