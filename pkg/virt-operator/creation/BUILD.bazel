@@ -9,8 +9,7 @@ go_library(
         "//pkg/api/v1:go_default_library",
         "//pkg/kubecli:go_default_library",
         "//pkg/log:go_default_library",
-        "//pkg/virt-operator/creation/components:go_default_library",
-        "//pkg/virt-operator/creation/rbac:go_default_library",
+        "//pkg/virt-operator/install-strategy:go_default_library",
         "//pkg/virt-operator/util:go_default_library",
     ],
 )
