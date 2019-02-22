@@ -948,6 +948,7 @@ func ValidateVirtualMachineInstanceSpec(field *k8sfield.Path, spec *v1.VirtualMa
 			// convert Multus to Npwgv1 network for backwards compatibility
 			if network.NetworkSource.Multus != nil {
 				network.NetworkSource = v1.NetworkSource{Npwgv1: network.NetworkSource.Multus}
+				spec.Networks[idx] = network
 			}
 			if network.NetworkSource.Npwgv1 != nil {
 				cniTypesCount++

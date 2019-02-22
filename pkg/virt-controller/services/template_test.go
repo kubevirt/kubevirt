@@ -21,6 +21,7 @@ package services
 
 import (
 	"errors"
+	"fmt"
 	"strconv"
 	"testing"
 
@@ -170,7 +171,7 @@ var _ = Describe("Template", func() {
 				Expect(err).ToNot(HaveOccurred())
 				value, ok := pod.Annotations["k8s.v1.cni.cncf.io/networks"]
 				Expect(ok).To(Equal(true))
-				Expect(value).To(Equal("'[{\"interface\":\"net1\",\"name\":\"default\"},{\"interface\":\"net2\",\"name\":\"test1\"}]'"))
+				Expect(value).To(Equal("[{\"interface\":\"net1\",\"name\":\"default\"},{\"interface\":\"net2\",\"name\":\"test1\"}]"))
 			})
 		})
 		Context("with multus annotation", func() {
@@ -200,7 +201,7 @@ var _ = Describe("Template", func() {
 				Expect(err).ToNot(HaveOccurred())
 				value, ok := pod.Annotations["k8s.v1.cni.cncf.io/networks"]
 				Expect(ok).To(Equal(true))
-				Expect(value).To(Equal("default,test1"))
+				Expect(value).To(Equal("[{\"interface\":\"net1\",\"name\":\"default\"},{\"interface\":\"net2\",\"name\":\"test1\"}]"))
 			})
 		})
 		Context("with genie annotation", func() {

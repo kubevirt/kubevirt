@@ -962,7 +962,13 @@ func getNamespaceAndNetworkName(vmi *v1.VirtualMachineInstance, fullNetworkName 
 
 func getNetworkToResourceMap(virtClient kubecli.KubevirtClient, vmi *v1.VirtualMachineInstance) (networkToResourceMap map[string]string, err error) {
 	networkToResourceMap = make(map[string]string)
-	for _, network := range vmi.Spec.Networks {
+	for idx, network := range vmi.Spec.Networks {
+		if network.Multus != nil {
+			networkSource := v1.NetworkSource{Npwgv1: network.Multus}
+			npwgv1Network := v1.Network{Name: network.Name, NetworkSource: networkSource}
+			vmi.Spec.Networks[idx] = npwgv1Network
+			network.Npwgv1 = network.Multus
+		}
 		if network.Npwgv1 != nil {
 			namespace, networkName := getNamespaceAndNetworkName(vmi, network.Npwgv1.NetworkName)
 			crd, err := virtClient.NetworkClient().K8sCniCncfIo().NetworkAttachmentDefinitions(namespace).Get(networkName, metav1.GetOptions{})
@@ -982,6 +988,12 @@ func getCniInterfaceList(vmi *v1.VirtualMachineInstance) (ifaceListString string
 	for idx, network := range vmi.Spec.Networks {
 		// set the type for the first network
 		// all other networks must have same type
+		if network.Multus != nil {
+			networkSource := v1.NetworkSource{Npwgv1: network.Multus}
+			npwgv1Network := v1.Network{Name: network.Name, NetworkSource: networkSource}
+			vmi.Spec.Networks[idx] = npwgv1Network
+			network.Npwgv1 = network.Multus
+		}
 		if network.Npwgv1 != nil {
 			ifaceMap := map[string]string{
 				"name":      network.Npwgv1.NetworkName,
