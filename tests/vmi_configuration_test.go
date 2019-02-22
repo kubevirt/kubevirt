@@ -395,7 +395,7 @@ var _ = Describe("Configurations", func() {
 				defer expecter.Close()
 				By("Checking the number of usb under guest OS")
 				_, err = expecter.ExpectBatch([]expect.Batcher{
-					&expect.BSnd{S: "ls -l /sys/bus/usb/devices/usb* | wc -l\n"},
+					&expect.BSnd{S: "ls -l /sys/bus/usb/devices/usb* 2>/dev/null | wc -l\n"},
 					&expect.BExp{R: "0"},
 				}, 60*time.Second)
 				Expect(err).ToNot(HaveOccurred(), "should report number of usb")
