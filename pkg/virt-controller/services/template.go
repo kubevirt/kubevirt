@@ -50,6 +50,7 @@ const configMapName = "kubevirt-config"
 const UseEmulationKey = "debug.useEmulation"
 const ImagePullPolicyKey = "dev.imagePullPolicy"
 const LessPVCSpaceTolerationKey = "pvc-tolerate-less-space-up-to-percent"
+const NodeSelectorsKey = "node-selectors"
 const KvmDevice = "devices.kubevirt.io/kvm"
 const TunDevice = "devices.kubevirt.io/tun"
 const VhostNetDevice = "devices.kubevirt.io/vhost-net"
@@ -137,6 +138,23 @@ func GetlessPVCSpaceToleration(store cache.Store) (toleration int, err error) {
 			err = fmt.Errorf("Invalid lessPVCSpaceToleration in ConfigMap: %s", value)
 			return
 		}
+	}
+	return
+}
+
+func getNodeSelectors(store cache.Store) (nodeSelectors map[string]string, err error) {
+	var value string
+	nodeSelectors = make(map[string]string)
+
+	if value, err = getConfigMapEntry(store, NodeSelectorsKey); err != nil || value == "" {
+		return
+	}
+	for _, s := range strings.Split(strings.TrimSpace(value), "\n") {
+		v := strings.Split(s, "=")
+		if len(v) != 2 {
+			return nil, fmt.Errorf("Invalid node selector: %s", s)
+		}
+		nodeSelectors[v[0]] = v[1]
 	}
 	return
 }
@@ -702,6 +720,13 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 	}
 
 	nodeSelector[v1.NodeSchedulable] = "true"
+	nodeSelectors, err := getNodeSelectors(t.configMapStore)
+	if err != nil {
+		return nil, err
+	}
+	for k, v := range nodeSelectors {
+		nodeSelector[k] = v
+	}
 
 	podLabels := map[string]string{}
 
