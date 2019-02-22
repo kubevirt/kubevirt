@@ -999,8 +999,9 @@ func getCniInterfaceList(vmi *v1.VirtualMachineInstance) (ifaceListString string
 		}
 	}
 	if len(ifaceListMap) > 0 {
+		//ifaceListString, _ = json.Marshal(ifaceListMap)
 		ifaceJsonString, _ := json.Marshal(ifaceListMap)
-		ifaceListString = fmt.Sprintf("'%s'", ifaceJsonString)
+		ifaceListString = fmt.Sprintf("%s", ifaceJsonString)
 	} else {
 		ifaceListString = strings.Join(ifaceList, ",")
 	}
