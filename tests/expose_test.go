@@ -99,7 +99,7 @@ var _ = Describe("Expose", func() {
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Waiting for the pod to report a successful connection attempt")
-				waitForJobToCompleteWithStatus(&virtClient, job, "success", 60)
+				waitForJobToCompleteWithStatus(&virtClient, job, "success", 120)
 			})
 		})
 
@@ -187,7 +187,7 @@ var _ = Describe("Expose", func() {
 					Expect(err).ToNot(HaveOccurred())
 
 					By("Waiting for the pod to report a successful connection attempt")
-					waitForJobToCompleteWithStatus(&virtClient, job, "success", 60)
+					waitForJobToCompleteWithStatus(&virtClient, job, "success", 120)
 				}
 			})
 		})
@@ -223,7 +223,7 @@ var _ = Describe("Expose", func() {
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Waiting for the pod to report a successful connection attempt")
-				waitForJobToCompleteWithStatus(&virtClient, job, "success", 60)
+				waitForJobToCompleteWithStatus(&virtClient, job, "success", 120)
 			})
 		})
 
@@ -265,7 +265,7 @@ var _ = Describe("Expose", func() {
 					Expect(err).ToNot(HaveOccurred())
 
 					By("Waiting for the pod to report a successful connection attempt")
-					waitForJobToCompleteWithStatus(&virtClient, job, "success", 60)
+					waitForJobToCompleteWithStatus(&virtClient, job, "success", 120)
 				}
 			})
 		})
@@ -326,7 +326,7 @@ var _ = Describe("Expose", func() {
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Waiting for the pod to report a successful connection attempt")
-				waitForJobToCompleteWithStatus(&virtClient, job, "success", 60)
+				waitForJobToCompleteWithStatus(&virtClient, job, "success", 120)
 			})
 		})
 	})
@@ -388,7 +388,7 @@ var _ = Describe("Expose", func() {
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Waiting for the pod to report a successful connection attempt")
-				waitForJobToCompleteWithStatus(&virtClient, job, "success", 60)
+				waitForJobToCompleteWithStatus(&virtClient, job, "success", 120)
 
 				By("Starting an HTTP server on the VM, to verify HTTP connection also succeeds using the exposed VM.")
 				vmi, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(vm.Name, &k8smetav1.GetOptions{})
