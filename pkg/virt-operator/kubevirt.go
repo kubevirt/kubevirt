@@ -532,6 +532,33 @@ func (c *KubeVirtController) garbageCollectInstallStrategyJobs() error {
 	return nil
 }
 
+func (c *KubeVirtController) getInstallStrategyFromMap(version string) (*installstrategy.InstallStrategy, bool) {
+	c.installStrategyMutex.Lock()
+	defer c.installStrategyMutex.Unlock()
+
+	strategy, ok := c.installStrategyMap[version]
+	return strategy, ok
+}
+
+func (c *KubeVirtController) deleteAllInstallStrategy() error {
+	for _, obj := range c.stores.InstallStrategyConfigMapCache.List() {
+
+		configMap, ok := obj.(*k8sv1.ConfigMap)
+		if ok {
+			err := c.clientset.CoreV1().ConfigMaps(configMap.Namespace).Delete(configMap.Name, &metav1.DeleteOptions{})
+			if err != nil {
+				return err
+			}
+		}
+	}
+	c.installStrategyMutex.Lock()
+	defer c.installStrategyMutex.Unlock()
+	// reset the local map
+	c.installStrategyMap = make(map[string]*installstrategy.InstallStrategy)
+
+	return nil
+}
+
 // Loads install strategies into memory, and generates jobs to
 // create install strategies that don't exist yet.
 func (c *KubeVirtController) loadInstallStrategy(kv *v1.KubeVirt) (*installstrategy.InstallStrategy, bool, error) {
@@ -542,12 +569,7 @@ func (c *KubeVirtController) loadInstallStrategy(kv *v1.KubeVirt) (*installstrat
 	}
 
 	// 1. see if we already loaded the install strategy
-	c.installStrategyMutex.Lock()
-	strategy, ok := c.installStrategyMap[c.config.ImageTag]
-	// don't use a defer here because we don't want to block this lock
-	// while we make API calls later on in the function
-	c.installStrategyMutex.Unlock()
-
+	strategy, ok := c.getInstallStrategyFromMap(c.config.ImageTag)
 	if ok {
 		// we already loaded this strategy into memory
 		return strategy, false, nil
@@ -556,7 +578,6 @@ func (c *KubeVirtController) loadInstallStrategy(kv *v1.KubeVirt) (*installstrat
 	// 2. look for install strategy config map in cache.
 	strategy, err = installstrategy.LoadInstallStrategyFromCache(c.stores, kv.Namespace, c.config.ImageTag)
 	if err == nil {
-
 		c.installStrategyMutex.Lock()
 		defer c.installStrategyMutex.Unlock()
 		c.installStrategyMap[c.config.ImageTag] = strategy
@@ -765,6 +786,14 @@ func (c *KubeVirtController) syncDeletion(kv *v1.KubeVirt) error {
 		util.UpdateCondition(kv, v1.KubeVirtConditionSynchronized, k8sv1.ConditionFalse, ConditionReasonDeletionFailedError, fmt.Sprintf("An error occurred during deletion: %v", err))
 		return err
 	}
+
+	err = c.deleteAllInstallStrategy()
+	if err != nil {
+		// garbage collection of install strategies failed
+		util.UpdateCondition(kv, v1.KubeVirtConditionSynchronized, k8sv1.ConditionFalse, ConditionReasonDeletionFailedError, fmt.Sprintf("An error occurred during deletion: %v", err))
+		return err
+	}
+
 	util.RemoveCondition(kv, v1.KubeVirtConditionSynchronized)
 
 	if c.stores.AllEmpty() {

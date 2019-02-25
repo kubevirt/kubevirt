@@ -527,6 +527,14 @@ var _ = Describe("KubeVirt Operator", func() {
 		}
 		mockQueue.Wait()
 	}
+
+	deleteInstallStrategyConfigMap := func(key string) {
+		mockQueue.ExpectAdds(1)
+		if obj, exists, _ := informers.InstallStrategyConfigMap.GetStore().GetByKey(key); exists {
+			installStrategyConfigMapSource.Delete(obj.(runtime.Object))
+		}
+		mockQueue.Wait()
+	}
 	deleteResource := func(resource string, key string) {
 		switch resource {
 		case "serviceaccounts":
@@ -549,6 +557,8 @@ var _ = Describe("KubeVirt Operator", func() {
 			deleteDaemonset(key)
 		case "jobs":
 			deleteInstallStrategyJob(key)
+		case "configmaps":
+			deleteInstallStrategyConfigMap(key)
 		default:
 			Fail("unknown resource type")
 		}
@@ -578,6 +588,22 @@ var _ = Describe("KubeVirt Operator", func() {
 		ExpectWithOffset(2, ok).To(BeTrue())
 		ExpectWithOffset(2, len(scc.Users)).To(Equal(count))
 	}
+
+	shouldExpectInstallStrategyDeletion := func() {
+		kubeClient.Fake.PrependReactor("delete", "configmaps", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
+
+			delete, ok := action.(testing.DeleteAction)
+			Expect(ok).To(BeTrue())
+			var key string
+			if len(delete.GetNamespace()) > 0 {
+				key = delete.GetNamespace() + "/"
+			}
+			key += delete.GetName()
+			deleteResource(delete.GetResource().Resource, key)
+			return true, nil, nil
+		})
+	}
+
 	shouldExpectDeletions := func() {
 		kubeClient.Fake.PrependReactor("delete", "serviceaccounts", genericDeleteFunc)
 		kubeClient.Fake.PrependReactor("delete", "clusterroles", genericDeleteFunc)
@@ -941,6 +967,7 @@ var _ = Describe("KubeVirt Operator", func() {
 
 			shouldExpectKubeVirtUpdate(1)
 			shouldExpectDeletions()
+			shouldExpectInstallStrategyDeletion()
 
 			controller.Execute()
 
