@@ -1174,6 +1174,7 @@ var _ = Describe("Configurations", func() {
 				_, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(cpuVmi)
 				Expect(err).ToNot(HaveOccurred())
 				node := tests.WaitForSuccessfulVMIStart(cpuVmi)
+				// what should i do here it will always pass for us (false positve)
 				Expect(node).NotTo(ContainSubstring("node01"))
 
 				By("Checking that the pod QOS is guaranteed")
@@ -1234,6 +1235,7 @@ var _ = Describe("Configurations", func() {
 				_, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(cpuVmi)
 				Expect(err).ToNot(HaveOccurred())
 				node := tests.WaitForSuccessfulVMIStart(cpuVmi)
+				// what should i do here it will always pass for us (false positve)
 				Expect(node).NotTo(ContainSubstring("node01"))
 
 				By("Expecting the VirtualMachineInstance console")
@@ -1328,6 +1330,7 @@ var _ = Describe("Configurations", func() {
 				_, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(Vmi)
 				Expect(err).ToNot(HaveOccurred())
 				node1 := tests.WaitForSuccessfulVMIStart(Vmi)
+				// what should i do here it will always fail for us
 				Expect(node1).To(ContainSubstring("node02"))
 			})
 		})
