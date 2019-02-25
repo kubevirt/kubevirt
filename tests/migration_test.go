@@ -24,8 +24,11 @@ import (
 	"fmt"
 	"time"
 
+	expect "github.com/google/goexpect"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+	k8sv1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/rand"
 
@@ -87,6 +90,25 @@ var _ = Describe("Migrations", func() {
 		Expect(vmi.Status.Phase).To(Equal(v1.Running))
 	}
 
+	confirmVMIPostMigrationFailed := func(vmi *v1.VirtualMachineInstance, migrationUID string) {
+		By("Retrieving the VMI post migration")
+		vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &metav1.GetOptions{})
+		Expect(err).To(BeNil())
+
+		By("Verifying the VMI's migration state")
+		Expect(vmi.Status.MigrationState).ToNot(BeNil())
+		Expect(vmi.Status.MigrationState.StartTimestamp).ToNot(BeNil())
+		Expect(vmi.Status.MigrationState.EndTimestamp).ToNot(BeNil())
+		Expect(vmi.Status.MigrationState.SourceNode).To(Equal(vmi.Status.NodeName))
+		Expect(vmi.Status.MigrationState.TargetNode).ToNot(Equal(vmi.Status.MigrationState.SourceNode))
+		Expect(vmi.Status.MigrationState.Completed).To(Equal(true))
+		Expect(vmi.Status.MigrationState.Failed).To(Equal(true))
+		Expect(vmi.Status.MigrationState.TargetNodeAddress).ToNot(Equal(""))
+		Expect(string(vmi.Status.MigrationState.MigrationUID)).To(Equal(migrationUID))
+
+		By("Verifying the VMI's is in the running state")
+		Expect(vmi.Status.Phase).To(Equal(v1.Running))
+	}
 	runMigrationAndExpectCompletion := func(migration *v1.VirtualMachineInstanceMigration, timeout int) string {
 		By("Starting a Migration")
 		Eventually(func() error {
@@ -104,6 +126,31 @@ var _ = Describe("Migrations", func() {
 
 			uid = string(migration.UID)
 			if migration.Status.Phase == v1.MigrationSucceeded {
+				return true
+			}
+			return false
+
+		}, timeout, 1*time.Second).Should(Equal(true))
+		return uid
+	}
+
+	runMigrationAndExpectFailure := func(migration *v1.VirtualMachineInstanceMigration, timeout int) string {
+		By("Starting a Migration")
+		Eventually(func() error {
+			_, err := virtClient.VirtualMachineInstanceMigration(migration.Namespace).Create(migration)
+			return err
+		}, timeout, 1*time.Second).ShouldNot(HaveOccurred())
+		By("Waiting until the Migration Completes")
+
+		uid := ""
+		Eventually(func() bool {
+			migration, err := virtClient.VirtualMachineInstanceMigration(migration.Namespace).Get(migration.Name, &metav1.GetOptions{})
+			Expect(err).To(BeNil())
+
+			Expect(migration.Status.Phase).NotTo(Equal(v1.MigrationSucceeded))
+
+			uid = string(migration.UID)
+			if migration.Status.Phase == v1.MigrationFailed {
 				return true
 			}
 			return false
@@ -267,6 +314,66 @@ var _ = Describe("Migrations", func() {
 
 				By("Waiting for VMI to disappear")
 				tests.WaitForVirtualMachineToDisappearWithTimeout(vmi, 120)
+			})
+		})
+		Context("migration monitor", func() {
+			It("should abort a vmi migration without progress", func() {
+
+				vmi := tests.NewRandomVMIWithEphemeralDisk(tests.ContainerDiskFor(tests.ContainerDiskFedora))
+				vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("1Gi")
+				tests.AddUserData(vmi, "cloud-init", fmt.Sprintf(`#!/bin/bash
+					echo "fedora" |passwd fedora --stdin
+					yum install -y stress qemu-guest-agent
+                    systemctl start  qemu-guest-agent`))
+
+				By("Starting the VirtualMachineInstance")
+				vmi = runVMIAndExpectLaunch(vmi, 240)
+
+				getOptions := &metav1.GetOptions{}
+				var updatedVmi *v1.VirtualMachineInstance
+				By("Checking that the VirtualMachineInstance console has expected output")
+				expecter, expecterErr := tests.LoggedInFedoraExpecter(vmi)
+				Expect(expecterErr).To(BeNil())
+				defer expecter.Close()
+
+				// Need to wait for cloud init to finnish and start the agent inside the vmi.
+				Eventually(func() bool {
+					updatedVmi, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Get(vmi.Name, getOptions)
+					Expect(err).ToNot(HaveOccurred())
+					for _, condition := range updatedVmi.Status.Conditions {
+						if condition.Type == "AgentConnected" && condition.Status == "True" {
+							return true
+						}
+					}
+					return false
+				}, 420*time.Second, 2).Should(BeTrue(), "Should have agent connected condition")
+
+				By("Run a stress test")
+				_, err = expecter.ExpectBatch([]expect.Batcher{
+					&expect.BSnd{S: "stress --vm 1 --vm-bytes 600M --vm-keep --timeout 1600s&\n"},
+				}, 15*time.Second)
+				Expect(err).ToNot(HaveOccurred(), "should run a stress test")
+
+				// execute a migration, wait for finalized state
+				By("Starting the Migration")
+				migration := tests.NewRandomMigration(vmi.Name, vmi.Namespace)
+				migration.Spec.Config = &v1.MigrationConfig{
+					CompletionTimeoutPerGiB: 5,
+					ProgressTimeout:         50,
+				}
+				migrationUID := runMigrationAndExpectFailure(migration, 180)
+
+				// check VMI, confirm migration state
+				confirmVMIPostMigrationFailed(vmi, migrationUID)
+
+				// delete VMI
+				By("Deleting the VMI")
+				err = virtClient.VirtualMachineInstance(vmi.Namespace).Delete(vmi.Name, &metav1.DeleteOptions{})
+				Expect(err).To(BeNil())
+
+				By("Waiting for VMI to disappear")
+				tests.WaitForVirtualMachineToDisappearWithTimeout(vmi, 240)
+
 			})
 		})
 	})
