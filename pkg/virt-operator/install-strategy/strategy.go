@@ -350,7 +350,6 @@ func addOperatorLabel(objectMeta *metav1.ObjectMeta) {
 
 func CreateAll(kv *v1.KubeVirt,
 	strategy *InstallStrategy,
-	config util.KubeVirtDeploymentConfig,
 	stores util.Stores,
 	clientset kubecli.KubevirtClient,
 	expectations *util.Expectations) (int, error) {

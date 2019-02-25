@@ -705,7 +705,7 @@ func (c *KubeVirtController) syncDeployment(kv *v1.KubeVirt) error {
 	c.garbageCollectInstallStrategyJobs()
 
 	// deploy
-	objectsAdded, err := creation.Create(kv, c.config, c.stores, c.clientset, &c.kubeVirtExpectations, strategy)
+	objectsAdded, err := creation.Create(kv, c.stores, c.clientset, &c.kubeVirtExpectations, strategy)
 
 	if err != nil {
 		// deployment failed

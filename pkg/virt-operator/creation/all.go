@@ -27,9 +27,9 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-operator/util"
 )
 
-func Create(kv *v1.KubeVirt, config util.KubeVirtDeploymentConfig, stores util.Stores, clientset kubecli.KubevirtClient, expectations *util.Expectations, strategy *installstrategy.InstallStrategy) (int, error) {
+func Create(kv *v1.KubeVirt, stores util.Stores, clientset kubecli.KubevirtClient, expectations *util.Expectations, strategy *installstrategy.InstallStrategy) (int, error) {
 
-	objectsAdded, err := installstrategy.CreateAll(kv, strategy, config, stores, clientset, expectations)
+	objectsAdded, err := installstrategy.CreateAll(kv, strategy, stores, clientset, expectations)
 
 	if err != nil {
 		return objectsAdded, err
