@@ -2378,6 +2378,40 @@ var _ = Describe("Validating Webhook", func() {
 			Expect(causes[0].Field).To(Equal("fake.domain.resources.requests.memory"))
 		})
 	})
+
+	Context("with CPU features", func() {
+		It("should accept valid CPU feature policies", func() {
+			vmi := v1.NewMinimalVMI("testvm")
+			vmi.Spec.Domain.CPU = &v1.CPU{
+				Features: []v1.CPUFeature{
+					{
+						Name: "lahf_lm",
+					},
+				},
+			}
+
+			for _, policy := range validCPUFeaturePolicies {
+				vmi.Spec.Domain.CPU.Features[0].Policy = policy
+				causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec)
+				Expect(len(causes)).To(Equal(0))
+			}
+		})
+
+		It("should reject invalid CPU feature policy", func() {
+			vmi := v1.NewMinimalVMI("testvm")
+			vmi.Spec.Domain.CPU = &v1.CPU{
+				Features: []v1.CPUFeature{
+					{
+						Name:   "lahf_lm",
+						Policy: "invalid_policy",
+					},
+				},
+			}
+			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec)
+			Expect(len(causes)).To(Equal(1))
+		})
+	})
+
 	Context("with Volume", func() {
 		table.DescribeTable("should accept valid volumes",
 			func(volumeSource v1.VolumeSource) {

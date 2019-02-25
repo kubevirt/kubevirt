@@ -62,9 +62,10 @@ const CAP_SYS_NICE = "SYS_NICE"
 // Libvirt needs roughly 10 seconds to start.
 const LibvirtStartupDelay = 10
 
-//This is a perfix for node feature discovery, used in a NodeSelector on the pod
-//to match a VirtualMachineInstance CPU model(Family) to nodes that support this model.
+//These perfixes for node feature discovery, are used in a NodeSelector on the pod
+//to match a VirtualMachineInstance CPU model(Family) and/or features to nodes that support them.
 const NFD_CPU_MODEL_PREFIX = "feature.node.kubernetes.io/cpu-model-"
+const NFD_CPU_FEATURE_PREFIX = "feature.node.kubernetes.io/cpu-feature-"
 
 const MULTUS_RESOURCE_NAME_ANNOTATION = "k8s.v1.cni.cncf.io/resourceName"
 
@@ -184,6 +185,67 @@ func CPUModelLabelFromCPUModel(vmi *v1.VirtualMachineInstance) (label string, er
 	}
 	label = NFD_CPU_MODEL_PREFIX + vmi.Spec.Domain.CPU.Model
 	return
+}
+
+func CPUFeatureLabelsFromCPUFeatures(vmi *v1.VirtualMachineInstance) []string {
+	var labels []string
+	if vmi.Spec.Domain.CPU != nil && vmi.Spec.Domain.CPU.Features != nil {
+		for _, feature := range vmi.Spec.Domain.CPU.Features {
+			if feature.Policy == "" || feature.Policy == "require" {
+				labels = append(labels, NFD_CPU_FEATURE_PREFIX+feature.Name)
+			}
+		}
+	}
+	return labels
+}
+
+func SetNodeAffinityForForbiddenFeaturePolicy(vmi *v1.VirtualMachineInstance, pod *k8sv1.Pod) {
+
+	if vmi.Spec.Domain.CPU == nil || vmi.Spec.Domain.CPU.Features == nil {
+		return
+	}
+
+	for _, feature := range vmi.Spec.Domain.CPU.Features {
+		if feature.Policy == "forbid" {
+
+			requirement := k8sv1.NodeSelectorRequirement{
+				Key:      NFD_CPU_FEATURE_PREFIX + feature.Name,
+				Operator: k8sv1.NodeSelectorOpDoesNotExist,
+			}
+			term := k8sv1.NodeSelectorTerm{
+				MatchExpressions: []k8sv1.NodeSelectorRequirement{requirement}}
+
+			nodeAffinity := &k8sv1.NodeAffinity{
+				RequiredDuringSchedulingIgnoredDuringExecution: &k8sv1.NodeSelector{
+					NodeSelectorTerms: []k8sv1.NodeSelectorTerm{term},
+				},
+			}
+
+			if pod.Spec.Affinity != nil && pod.Spec.Affinity.NodeAffinity != nil {
+				if pod.Spec.Affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution != nil {
+					terms := pod.Spec.Affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution.NodeSelectorTerms
+					// Since NodeSelectorTerms are ORed , the anti affinity requirement will be added to each term.
+					for i, selectorTerm := range terms {
+						pod.Spec.Affinity.NodeAffinity.
+							RequiredDuringSchedulingIgnoredDuringExecution.
+							NodeSelectorTerms[i].MatchExpressions = append(selectorTerm.MatchExpressions, requirement)
+					}
+				} else {
+					pod.Spec.Affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution = &k8sv1.NodeSelector{
+						NodeSelectorTerms: []k8sv1.NodeSelectorTerm{term},
+					}
+				}
+
+			} else if pod.Spec.Affinity != nil {
+				pod.Spec.Affinity.NodeAffinity = nodeAffinity
+			} else {
+				pod.Spec.Affinity = &k8sv1.Affinity{
+					NodeAffinity: nodeAffinity,
+				}
+
+			}
+		}
+	}
 }
 
 // Request a resource by name. This function bumps the number of resources,
@@ -717,6 +779,9 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 				nodeSelector[cpuModelLabel] = "true"
 			}
 		}
+		for _, cpuFeatureLable := range CPUFeatureLabelsFromCPUFeatures(vmi) {
+			nodeSelector[cpuFeatureLable] = "true"
+		}
 	}
 
 	nodeSelector[v1.NodeSchedulable] = "true"
@@ -827,19 +892,11 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 	}
 
 	if vmi.Spec.Affinity != nil {
-		pod.Spec.Affinity = &k8sv1.Affinity{}
+		pod.Spec.Affinity = vmi.Spec.Affinity.DeepCopy()
+	}
 
-		if vmi.Spec.Affinity.NodeAffinity != nil {
-			pod.Spec.Affinity.NodeAffinity = vmi.Spec.Affinity.NodeAffinity
-		}
-
-		if vmi.Spec.Affinity.PodAffinity != nil {
-			pod.Spec.Affinity.PodAffinity = vmi.Spec.Affinity.PodAffinity
-		}
-
-		if vmi.Spec.Affinity.PodAntiAffinity != nil {
-			pod.Spec.Affinity.PodAntiAffinity = vmi.Spec.Affinity.PodAntiAffinity
-		}
+	if IsCPUNodeDiscoveryEnabled(t.configMapStore) {
+		SetNodeAffinityForForbiddenFeaturePolicy(vmi, &pod)
 	}
 
 	if vmi.Spec.Tolerations != nil {
