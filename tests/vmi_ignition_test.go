@@ -21,7 +21,6 @@ package tests_test
 
 import (
 	"flag"
-	"os"
 	"time"
 
 	expect "github.com/google/goexpect"
@@ -54,7 +53,7 @@ var _ = Describe("[rfe_id:151][crit:high][vendor:cnv-qe@redhat.com][level:compon
 
 	VerifyIgnitionDataVMI := func(vmi *v1.VirtualMachineInstance, commands []expect.Batcher, timeout time.Duration) {
 		By("Expecting the VirtualMachineInstance console")
-		expecter, err := tests.LoggedInCirrosExpecter(vmi)
+		expecter, _, err := tests.NewConsoleExpecter(virtClient, vmi, 10*time.Second)
 		Expect(err).ToNot(HaveOccurred())
 		defer expecter.Close()
 
@@ -72,8 +71,7 @@ var _ = Describe("[rfe_id:151][crit:high][vendor:cnv-qe@redhat.com][level:compon
 		Context("with IgnitionData annotation", func() {
 			Context("with injected data", func() {
 				It("[test_id:1616]should have injected data under firmware directory", func() {
-					os.Setenv("FEATURE_GATES", "ExperimentalIgnitionSupport")
-					vmi := tests.NewRandomVMIWithEphemeralDisk(tests.ContainerDiskFor(tests.ContainerDiskCirros))
+					vmi := tests.NewRandomVMIWithEphemeralDiskAndUserdataHighMemory(tests.ContainerDiskFor(tests.ContainerDiskFedora), "#!/bin/sh\n\necho fedora| passwd --stdin fedora\n")
 					ignitionData := "ignition injected"
 					vmi.Annotations = map[string]string{"kubevirt.io/ignitiondata": ignitionData}
 
@@ -81,7 +79,12 @@ var _ = Describe("[rfe_id:151][crit:high][vendor:cnv-qe@redhat.com][level:compon
 
 					VerifyIgnitionDataVMI(vmi, []expect.Batcher{
 						&expect.BSnd{S: "\n"},
-						&expect.BSnd{S: "\\$ "},
+						&expect.BSnd{S: "\n"},
+						&expect.BExp{R: "login:"},
+						&expect.BSnd{S: "fedora\n"},
+						&expect.BExp{R: "Password:"},
+						&expect.BSnd{S: "fedora" + "\n"},
+						&expect.BExp{R: "$"},
 						&expect.BSnd{S: "ls /sys/firmware/qemu_fw_cfg/by_name/opt/com.coreos/config\n"},
 						&expect.BExp{R: "raw"},
 					}, time.Second*300)

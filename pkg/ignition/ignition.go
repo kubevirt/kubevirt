@@ -20,11 +20,13 @@
 package ignition
 
 import (
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"os"
 
 	"kubevirt.io/kubevirt/pkg/api/v1"
+	diskutils "kubevirt.io/kubevirt/pkg/ephemeral-disk-utils"
 	"kubevirt.io/kubevirt/pkg/log"
 	"kubevirt.io/kubevirt/pkg/precond"
 )
@@ -38,22 +40,22 @@ func GetIgnitionSource(vmi *v1.VirtualMachineInstance) string {
 	return vmi.Annotations[v1.IgnitionAnnotation]
 }
 
-// func SetIgnitionLocalDirectory(dir string) error {
-// 	err := os.MkdirAll(dir, 0755)
-// 	if err != nil {
-// 		return errors.New(fmt.Sprintf("Unable to initialize Ignition local cache directory (%s). %v", dir, err))
-// 	}
-//
-// 	exists, err := diskutils.FileExists(dir)
-// 	if err != nil {
-// 		return errors.New(fmt.Sprintf("Ignition local cache directory (%s) does not exist or is inaccessible. %v", dir, err))
-// 	} else if exists == false {
-// 		return errors.New(fmt.Sprintf("Ignition local cache directory (%s) does not exist or is inaccessible.", dir))
-// 	}
-//
-// 	ignitionLocalDir = dir
-// 	return nil
-// }
+func SetLocalDirectory(dir string) error {
+	err := os.MkdirAll(dir, 0755)
+	if err != nil {
+		return errors.New(fmt.Sprintf("Unable to initialize Ignition local cache directory (%s). %v", dir, err))
+	}
+
+	exists, err := diskutils.FileExists(dir)
+	if err != nil {
+		return errors.New(fmt.Sprintf("Ignition local cache directory (%s) does not exist or is inaccessible. %v", dir, err))
+	} else if exists == false {
+		return errors.New(fmt.Sprintf("Ignition local cache directory (%s) does not exist or is inaccessible.", dir))
+	}
+
+	ignitionLocalDir = dir
+	return nil
+}
 
 func GetDomainBasePath(domain string, namespace string) string {
 	return fmt.Sprintf("%s/%s/%s", ignitionLocalDir, namespace, domain)

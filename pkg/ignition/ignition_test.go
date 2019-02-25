@@ -21,6 +21,7 @@ package ignition
 
 import (
 	"fmt"
+	"io/ioutil"
 	"os"
 
 	. "github.com/onsi/ginkgo"
@@ -33,8 +34,20 @@ var _ = Describe("Ignition", func() {
 
 	const vmName = "my-vm"
 	const namespace = "my-namespace"
-	const ignitionLocalDir = "/var/run/libvirt/ignition-dir"
+	tmpDir, _ := ioutil.TempDir("", "ignitiontest")
+	// const ignitionLocalDir = "/var/run/libvirt/ignition-dir"
 	var vmi *v1.VirtualMachineInstance
+
+	BeforeSuite(func() {
+		err := SetLocalDirectory(tmpDir)
+		if err != nil {
+			panic(err)
+		}
+	})
+
+	AfterSuite(func() {
+		os.RemoveAll(tmpDir)
+	})
 
 	Describe("A new VirtualMachineInstance definition", func() {
 		Context("with ignition data", func() {
@@ -44,7 +57,7 @@ var _ = Describe("Ignition", func() {
 				vmi.Annotations = map[string]string{v1.IgnitionAnnotation: data}
 				err := GenerateIgnitionLocalData(vmi, namespace)
 				Expect(err).ToNot(HaveOccurred())
-				_, err = os.Stat(fmt.Sprintf("%s/%s/%s/data.ign", ignitionLocalDir, namespace, vmName))
+				_, err = os.Stat(fmt.Sprintf("%s/%s/%s/data.ign", tmpDir, namespace, vmName))
 				Expect(err).ToNot(HaveOccurred())
 			})
 		})
