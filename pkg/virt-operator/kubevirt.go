@@ -528,7 +528,7 @@ func (c *KubeVirtController) garbageCollectInstallStrategyJobs() error {
 		if err != nil {
 			return err
 		}
-		log.Log.Object(job).Errorf("Garbage collected completed install strategy job")
+		log.Log.Object(job).Infof("Garbage collected completed install strategy job")
 	}
 
 	return nil

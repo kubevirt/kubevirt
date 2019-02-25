@@ -40,6 +40,6 @@ func Create(kv *v1.KubeVirt, stores util.Stores, clientset kubecli.KubevirtClien
 		return objectsAdded, err
 	}
 
-	log.Log.Errorf("Created %d objects this round", objectsAdded)
+	log.Log.Object(kv).Infof("Created %d objects this round", objectsAdded)
 	return objectsAdded, nil
 }
