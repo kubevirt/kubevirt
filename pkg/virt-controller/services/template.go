@@ -606,21 +606,19 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 		})
 	}
 
+	vcpus := hardware.GetNumberOfVCPUs(vmi.Spec.Domain.CPU)
+
+	if vcpus != 0 {
+		resources.Requests[k8sv1.ResourceCPU] = *resource.NewQuantity(vcpus, resource.BinarySI)
+	}
 	// Handle CPU pinning
 	if vmi.IsCPUDedicated() {
 		// schedule only on nodes with a running cpu manager
 		nodeSelector[v1.CPUManager] = "true"
-
-		vcpus := hardware.GetNumberOfVCPUs(vmi.Spec.Domain.CPU)
-
-		if vcpus != 0 {
-			resources.Limits[k8sv1.ResourceCPU] = *resource.NewQuantity(vcpus, resource.BinarySI)
-		} else {
-			if cpuLimit, ok := resources.Limits[k8sv1.ResourceCPU]; ok {
-				resources.Requests[k8sv1.ResourceCPU] = cpuLimit
-			} else if cpuRequest, ok := resources.Requests[k8sv1.ResourceCPU]; ok {
-				resources.Limits[k8sv1.ResourceCPU] = cpuRequest
-			}
+		if cpuLimit, ok := resources.Limits[k8sv1.ResourceCPU]; ok && vcpus == 0 {
+			resources.Requests[k8sv1.ResourceCPU] = cpuLimit
+		} else if cpuRequest, ok := resources.Requests[k8sv1.ResourceCPU]; ok && vcpus == 0 {
+			resources.Limits[k8sv1.ResourceCPU] = cpuRequest
 		}
 		resources.Limits[k8sv1.ResourceMemory] = *resources.Requests.Memory()
 	}

@@ -41,7 +41,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/hooks"
 	"kubevirt.io/kubevirt/pkg/kubecli"
 	"kubevirt.io/kubevirt/pkg/log"
-	"kubevirt.io/kubevirt/pkg/virt-config"
+	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 )
 
 const namespaceKubevirt = "kubevirt"
@@ -324,6 +324,38 @@ var _ = Describe("Template", func() {
 				Expect(pod.Spec.NodeSelector).To(HaveKeyWithValue("node-role.kubernetes.io/compute", "true"))
 			})
 
+			It("should add default cpu resources if cpu pinning was not requested and cpu spec is set", func() {
+				nodeSelector := map[string]string{
+					"kubernetes.io/hostname": "master",
+					v1.NodeSchedulable:       "true",
+				}
+				annotations := map[string]string{
+					hooks.HookSidecarListAnnotationName: `[{"image": "some-image:v1", "imagePullPolicy": "IfNotPresent"}]`,
+				}
+				vmi := v1.VirtualMachineInstance{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:        "testvmi",
+						Namespace:   "default",
+						UID:         "1234",
+						Annotations: annotations,
+					},
+					Spec: v1.VirtualMachineInstanceSpec{
+						NodeSelector: nodeSelector,
+						Domain: v1.DomainSpec{
+							CPU: &v1.CPU{
+								Sockets: 2,
+								Cores:   2,
+								Threads: 2,
+							},
+						},
+					},
+				}
+
+				pod, err := svc.RenderLaunchManifest(&vmi)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(pod.Spec.Containers[0].Resources.Requests.Cpu().Value()).To(Equal(int64(8)), "Resource requests")
+			})
+
 			It("should add default cpu/memory resources to the sidecar container if cpu pinning was requested", func() {
 				nodeSelector := map[string]string{
 					"kubernetes.io/hostname": "master",
@@ -560,7 +592,6 @@ var _ = Describe("Template", func() {
 					},
 					Spec: v1.VirtualMachineInstanceSpec{
 						Domain: v1.DomainSpec{
-							CPU: &v1.CPU{Cores: 3},
 							Resources: v1.ResourceRequirements{
 								Requests: kubev1.ResourceList{
 									kubev1.ResourceCPU:    resource.MustParse("1m"),
@@ -576,7 +607,7 @@ var _ = Describe("Template", func() {
 
 				Expect(vmi.Spec.Domain.Resources.Requests.Memory().String()).To(Equal("64M"))
 				Expect(pod.Spec.Containers[0].Resources.Requests.Cpu().String()).To(Equal("1m"))
-				Expect(pod.Spec.Containers[0].Resources.Requests.Memory().ToDec().ScaledValue(resource.Mega)).To(Equal(int64(243)))
+				Expect(pod.Spec.Containers[0].Resources.Requests.Memory().ToDec().ScaledValue(resource.Mega)).To(Equal(int64(226)))
 
 				// Limits for KVM and TUN devices should be requested.
 				Expect(pod.Spec.Containers[0].Resources.Limits).ToNot(BeNil())

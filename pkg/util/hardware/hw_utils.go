@@ -62,6 +62,10 @@ func ParseCPUSetLine(cpusetLine string) (cpusList []int, err error) {
 //GetNumberOfVCPUs returns number of vCPUs
 //It counts sockets*cores*threads
 func GetNumberOfVCPUs(cpuSpec *v1.CPU) int64 {
+	if cpuSpec == nil {
+		return int64(0)
+	}
+
 	vCPUs := cpuSpec.Cores
 	if cpuSpec.Sockets != 0 {
 		if vCPUs == 0 {
