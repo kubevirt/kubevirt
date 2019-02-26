@@ -2813,6 +2813,16 @@ func NewHelloWorldJobUDP(host string, port string) *k8sv1.Pod {
 	return job
 }
 
+// NewHelloWorldJobHttp gets an IP address and a port, which it uses to create a pod.
+// This pod tries to contact the host on the provided port, over HTTP.
+// On success - it expects to receive "Hello World!".
+func NewHelloWorldJobHttp(host string, port string) *k8sv1.Pod {
+	check := []string{fmt.Sprintf(`set -x; x="$(head -n 1 < <(curl %s:%s))"; echo "$x" ; if [ "$x" = "Hello World!" ]; then echo "succeeded"; exit 0; else echo "failed"; exit 1; fi`, host, port)}
+	job := RenderJob("curl", []string{"/bin/bash", "-c"}, check)
+
+	return job
+}
+
 func GetNodeWithHugepages(virtClient kubecli.KubevirtClient, hugepages k8sv1.ResourceName) *k8sv1.Node {
 	nodes, err := virtClient.Core().Nodes().List(metav1.ListOptions{})
 	ExpectWithOffset(1, err).ToNot(HaveOccurred())
