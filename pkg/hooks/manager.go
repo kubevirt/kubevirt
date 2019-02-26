@@ -196,20 +196,33 @@ func (m *Manager) OnDefineDomain(domainSpec *virtwrapApi.DomainSpec, vmi *v1.Vir
 				}
 				defer conn.Close()
 
-				client := hooksV1alpha1.NewCallbacksClient(conn)
-
 				ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
 				defer cancel()
-				result, err := client.OnDefineDomain(ctx, &hooksV1alpha1.OnDefineDomainParams{
-					DomainXML: domainSpecXML,
-					Vmi:       vmiJSON,
-				})
-				if err != nil {
-					return "", err
+
+				switch callback.Version {
+				case hooksV1alpha1.Version:
+					client := hooksV1alpha1.NewCallbacksClient(conn)
+					result, err := client.OnDefineDomain(ctx, &hooksV1alpha1.OnDefineDomainParams{
+						DomainXML: domainSpecXML,
+						Vmi:       vmiJSON,
+					})
+					if err != nil {
+						return "", err
+					}
+					domainSpecXML = result.GetDomainXML()
+				case hooksV1alpha2.Version:
+					client := hooksV1alpha2.NewCallbacksClient(conn)
+					result, err := client.OnDefineDomain(ctx, &hooksV1alpha2.OnDefineDomainParams{
+						DomainXML: domainSpecXML,
+						Vmi:       vmiJSON,
+					})
+					if err != nil {
+						return "", err
+					}
+					domainSpecXML = result.GetDomainXML()
+				default:
+					panic("Should never happen, version compatibility check is done during Info call")
 				}
-				domainSpecXML = result.GetDomainXML()
-			} else {
-				panic("Should never happen, version compatibility check is done during Info call")
 			}
 		}
 	}
