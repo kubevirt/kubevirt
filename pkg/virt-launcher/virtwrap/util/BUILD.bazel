@@ -1,0 +1,36 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "go_default_library",
+    srcs = [
+        "cpu_utils.go",
+        "libvirt_helper.go",
+    ],
+    importpath = "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/util",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//pkg/api/v1:go_default_library",
+        "//pkg/log:go_default_library",
+        "//pkg/util/hardware:go_default_library",
+        "//pkg/virt-launcher/virtwrap/api:go_default_library",
+        "//pkg/virt-launcher/virtwrap/cli:go_default_library",
+        "//vendor/github.com/libvirt/libvirt-go:go_default_library",
+        "//vendor/k8s.io/apimachinery/pkg/apis/meta/v1:go_default_library",
+        "//vendor/k8s.io/apimachinery/pkg/types:go_default_library",
+    ],
+)
+
+go_test(
+    name = "go_default_test",
+    srcs = [
+        "libvirt_helper_test.go",
+        "util_suite_test.go",
+    ],
+    embed = [":go_default_library"],
+    deps = [
+        "//pkg/log:go_default_library",
+        "//vendor/github.com/go-kit/kit/log:go_default_library",
+        "//vendor/github.com/onsi/ginkgo:go_default_library",
+        "//vendor/github.com/onsi/gomega:go_default_library",
+    ],
+)

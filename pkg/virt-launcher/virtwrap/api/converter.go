@@ -404,6 +404,25 @@ func Convert_v1_Rng_To_api_Rng(source *v1.Rng, rng *Rng, _ *ConverterContext) er
 	return nil
 }
 
+func Convert_v1_Input_To_api_InputDevice(input *v1.Input, inputDevice *Input, _ *ConverterContext) error {
+	if input.Bus != "virtio" && input.Bus != "usb" && input.Bus != "" {
+		return fmt.Errorf("input contains unsupported bus %s", input.Bus)
+	}
+
+	if input.Bus != "virtio" && input.Bus != "usb" {
+		input.Bus = "usb"
+	}
+
+	if input.Type != "tablet" {
+		return fmt.Errorf("input contains unsupported type %s", input.Type)
+	}
+
+	inputDevice.Bus = input.Bus
+	inputDevice.Type = input.Type
+	inputDevice.Alias = &Alias{Name: input.Name}
+	return nil
+}
+
 func Convert_v1_Clock_To_api_Clock(source *v1.Clock, clock *Clock, c *ConverterContext) error {
 	if source.UTC != nil {
 		clock.Offset = "utc"
@@ -458,6 +477,19 @@ func convertFeatureState(source *v1.FeatureState) *FeatureState {
 		}
 	}
 	return nil
+}
+
+//isUSBDevicePresent checks if exists device with usb bus in vmi
+func isUSBDevicePresent(vmi *v1.VirtualMachineInstance) bool {
+	usbDeviceExists := false
+	for _, input := range vmi.Spec.Domain.Devices.Inputs {
+		if input.Bus == "usb" {
+			usbDeviceExists = true
+			return usbDeviceExists
+		}
+	}
+
+	return usbDeviceExists
 }
 
 func Convert_v1_Features_To_api_Features(source *v1.Features, features *Features, c *ConverterContext) error {
@@ -771,6 +803,30 @@ func Convert_v1_VirtualMachine_To_api_Domain(vmi *v1.VirtualMachineInstance, dom
 		domain.Spec.Devices.Rng = newRng
 	}
 
+	//usb controller is turned on, only when user specify input device with usb bus,
+	//otherwise it is turned off
+	if usbDeviceExists := isUSBDevicePresent(vmi); !usbDeviceExists {
+		// disable usb controller
+		domain.Spec.Devices.Controllers = append(domain.Spec.Devices.Controllers, Controller{
+			Type:  "usb",
+			Index: "0",
+			Model: "none",
+		})
+	}
+
+	if vmi.Spec.Domain.Devices.Inputs != nil {
+		inputDevices := make([]Input, 0)
+		for _, input := range vmi.Spec.Domain.Devices.Inputs {
+			inputDevice := Input{}
+			err := Convert_v1_Input_To_api_InputDevice(&input, &inputDevice, c)
+			inputDevices = append(inputDevices, inputDevice)
+			if err != nil {
+				return err
+			}
+		}
+		domain.Spec.Devices.Inputs = inputDevices
+	}
+
 	if vmi.Spec.Domain.Clock != nil {
 		clock := vmi.Spec.Domain.Clock
 		newClock := &Clock{}
@@ -812,6 +868,16 @@ func Convert_v1_VirtualMachine_To_api_Domain(vmi *v1.VirtualMachineInstance, dom
 			} else {
 				domain.Spec.CPU.Mode = "custom"
 				domain.Spec.CPU.Model = vmi.Spec.Domain.CPU.Model
+			}
+		}
+
+		// Set VM CPU features
+		if vmi.Spec.Domain.CPU.Features != nil {
+			for _, feature := range vmi.Spec.Domain.CPU.Features {
+				domain.Spec.CPU.Features = append(domain.Spec.CPU.Features, CPUFeature{
+					Name:   feature.Name,
+					Policy: feature.Policy,
+				})
 			}
 		}
 

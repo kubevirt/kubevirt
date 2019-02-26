@@ -1,0 +1,33 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_binary", "go_library")
+
+go_library(
+    name = "go_default_library",
+    srcs = ["subresource-access-test.go"],
+    importpath = "kubevirt.io/kubevirt/cmd/subresource-access-test",
+    visibility = ["//visibility:private"],
+    deps = [
+        "//pkg/kubecli:go_default_library",
+        "//vendor/k8s.io/client-go/rest:go_default_library",
+    ],
+)
+
+go_binary(
+    name = "subresource-access-test",
+    embed = [":go_default_library"],
+    visibility = ["//visibility:public"],
+)
+
+load(
+    "@io_bazel_rules_docker//container:container.bzl",
+    "container_image",
+)
+
+container_image(
+    name = "subresource-access-test-image",
+    base = "//:passwd-image",
+    directory = "/",
+    entrypoint = ["/subresource-access-test"],
+    files = [":subresource-access-test"],
+    user = "1001",
+    visibility = ["//visibility:public"],
+)

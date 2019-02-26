@@ -164,7 +164,13 @@ type VCPU struct {
 type CPU struct {
 	Mode     string       `xml:"mode,attr,omitempty"`
 	Model    string       `xml:"model,omitempty"`
+	Features []CPUFeature `xml:"feature"`
 	Topology *CPUTopology `xml:"topology"`
+}
+
+type CPUFeature struct {
+	Name   string `xml:"name,attr"`
+	Policy string `xml:"policy,attr,omitempty"`
 }
 
 type CPUTopology struct {
@@ -284,10 +290,18 @@ type Devices struct {
 	Graphics    []Graphics   `xml:"graphics"`
 	Ballooning  *Ballooning  `xml:"memballoon,omitempty"`
 	Disks       []Disk       `xml:"disk"`
+	Inputs      []Input      `xml:"input"`
 	Serials     []Serial     `xml:"serial"`
 	Consoles    []Console    `xml:"console"`
 	Watchdog    *Watchdog    `xml:"watchdog,omitempty"`
 	Rng         *Rng         `xml:"rng,omitempty"`
+}
+
+// Input represents input device, e.g. tablet
+type Input struct {
+	Type  string `xml:"type,attr"`
+	Bus   string `xml:"bus,attr"`
+	Alias *Alias `xml:"alias,omitempty"`
 }
 
 // BEGIN HostDevice -----------------------------

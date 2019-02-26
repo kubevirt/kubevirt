@@ -1,0 +1,31 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "go_default_library",
+    srcs = ["watchdog.go"],
+    importpath = "kubevirt.io/kubevirt/pkg/watchdog",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//pkg/api/v1:go_default_library",
+        "//pkg/ephemeral-disk-utils:go_default_library",
+        "//pkg/log:go_default_library",
+        "//pkg/precond:go_default_library",
+        "//pkg/virt-launcher/virtwrap/api:go_default_library",
+    ],
+)
+
+go_test(
+    name = "go_default_test",
+    srcs = [
+        "watchdog_suite_test.go",
+        "watchdog_test.go",
+    ],
+    embed = [":go_default_library"],
+    deps = [
+        "//pkg/api/v1:go_default_library",
+        "//pkg/log:go_default_library",
+        "//pkg/precond:go_default_library",
+        "//vendor/github.com/onsi/ginkgo:go_default_library",
+        "//vendor/github.com/onsi/gomega:go_default_library",
+    ],
+)

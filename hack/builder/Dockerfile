@@ -5,12 +5,19 @@ ENV LIBVIRT_VERSION 5.0.0
 # Install packages
 RUN dnf install -y dnf-plugins-core && \
     dnf copr enable -y @virtmaint-sig/virt-preview && \
-    dnf -y install libvirt-devel-${LIBVIRT_VERSION} \
+    dnf copr enable -y vbatts/bazel && \
+    dnf -y install \
+        libvirt-devel-${LIBVIRT_VERSION} \
+        bazel \
+        cpio \
+        patch \
         make \
         git \
         mercurial \
         sudo \
         gcc \
+        gcc-c++ \
+        glibc-devel \
         findutils \
         gradle \
         rsync-daemon \

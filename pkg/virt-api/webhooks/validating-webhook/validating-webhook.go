@@ -63,6 +63,7 @@ const (
 
 var validInterfaceModels = []string{"e1000", "e1000e", "ne2k_pci", "pcnet", "rtl8139", "virtio"}
 var validIOThreadsPolicies = []v1.IOThreadsPolicy{v1.IOThreadsPolicyShared, v1.IOThreadsPolicyAuto}
+var validCPUFeaturePolicies = []string{"", "force", "require", "optional", "disable", "forbid"}
 
 type admitFunc func(*v1beta1.AdmissionReview) *v1beta1.AdmissionResponse
 
@@ -857,6 +858,27 @@ func ValidateVirtualMachineInstanceSpec(field *k8sfield.Path, spec *v1.VirtualMa
 		}
 	}
 
+	// Validate CPU Feature Policies
+	if spec.Domain.CPU != nil && spec.Domain.CPU.Features != nil {
+		isValidPolicy := func(policy string) bool {
+			for _, p := range validCPUFeaturePolicies {
+				if p == policy {
+					return true
+				}
+			}
+			return false
+		}
+		for idx, feature := range spec.Domain.CPU.Features {
+			if !isValidPolicy(feature.Policy) {
+				causes = append(causes, metav1.StatusCause{
+					Type:    metav1.CauseTypeFieldValueNotSupported,
+					Message: fmt.Sprintf("CPU feature %s uses policy %s that is not supported.", feature.Name, feature.Policy),
+					Field:   field.Child("domain", "cpu", "features").Index(idx).Child("policy").String(),
+				})
+			}
+		}
+	}
+
 	podNetworkInterfacePresent := false
 
 	if len(spec.Domain.Devices.Interfaces) > arrayLenMax {
@@ -1217,6 +1239,23 @@ func ValidateVirtualMachineInstanceSpec(field *k8sfield.Path, spec *v1.VirtualMa
 		}
 	}
 
+	for idx, input := range spec.Domain.Devices.Inputs {
+		if input.Bus != "virtio" && input.Bus != "usb" && input.Bus != "" {
+			causes = append(causes, metav1.StatusCause{
+				Type:    metav1.CauseTypeFieldValueInvalid,
+				Message: fmt.Sprintf("Input device can have only virtio or usb bus."),
+				Field:   field.Child("domain", "devices", "inputs").Index(idx).Child("bus").String(),
+			})
+		}
+
+		if input.Type != "tablet" {
+			causes = append(causes, metav1.StatusCause{
+				Type:    metav1.CauseTypeFieldValueInvalid,
+				Message: fmt.Sprintf("Input device can have only tablet type."),
+				Field:   field.Child("domain", "devices", "inputs").Index(idx).Child("type").String(),
+			})
+		}
+	}
 	_, requestOk := spec.Domain.Resources.Requests[k8sv1.ResourceCPU]
 	_, limitOK := spec.Domain.Resources.Limits[k8sv1.ResourceCPU]
 	isCPUResourcesSet := (requestOk == true) || (limitOK == true)

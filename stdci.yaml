@@ -4,7 +4,7 @@ sub-stages:
       timeout: 4h
   - k8s-1.11.0:
       timeout: 4h
-  - k8s-multus-1.12.2
+  - k8s-multus-1.13.3
   - k8s-genie-1.11.1
   - openshift-3.11:
       timeout: 4h

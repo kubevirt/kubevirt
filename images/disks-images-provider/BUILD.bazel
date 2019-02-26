@@ -1,0 +1,76 @@
+load(
+    "@io_bazel_rules_docker//container:container.bzl",
+    "container_image",
+)
+load("@bazel_tools//tools/build_defs/pkg:pkg.bzl", "pkg_tar")
+load("@io_bazel_rules_container_rpm//rpm:rpm.bzl", "rpm_image")
+
+rpm_image(
+    name = "qemu-img-image",
+    base = "@fedora//image",
+    rpms = [
+        "@qemu-img//file",
+        "@capstone//file",
+        "@libaio//file",
+        "@libstdc//file",
+    ],
+)
+
+genrule(
+    name = "alpine-img",
+    srcs = ["@alpine_image//file"],
+    outs = ["images/alpine/disk.img"],
+    cmd = "mkdir -p images/alpine && cat $(location @alpine_image//file) > $@",
+)
+
+genrule(
+    name = "cirros-img",
+    srcs = ["@cirros_image//file"],
+    outs = ["images/cirros/disk.img"],
+    cmd = "mkdir -p images/cirros && cat $(location @cirros_image//file) > $@",
+)
+
+genrule(
+    name = "custom-img",
+    srcs = [],
+    outs = ["images/custom/disk.img"],
+    cmd = "mkdir -p images/custom && truncate -s 64M disk.img && cat disk.img > $@",
+)
+
+pkg_tar(
+    name = "alpine-tar",
+    srcs = [
+        ":alpine-img",
+    ],
+    package_dir = "images/alpine",
+)
+
+pkg_tar(
+    name = "cirros-tar",
+    srcs = [
+        ":cirros-img",
+    ],
+    package_dir = "images/cirros",
+)
+
+pkg_tar(
+    name = "custom-tar",
+    srcs = [
+        ":custom-img",
+    ],
+    package_dir = "images/custom",
+)
+
+container_image(
+    name = "disks-images-provider-image",
+    base = ":qemu-img-image",
+    directory = "/",
+    entrypoint = ["/entrypoint.sh"],
+    files = ["entrypoint.sh"],
+    tars = [
+        ":alpine-tar",
+        ":cirros-tar",
+        ":custom-tar",
+    ],
+    visibility = ["//visibility:public"],
+)

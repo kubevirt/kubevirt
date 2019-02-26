@@ -37,7 +37,7 @@ import (
 )
 
 const ConnectionTimeout = 15 * time.Second
-const ConnectionInterval = 10 * time.Second
+const ConnectionInterval = 500 * time.Millisecond
 
 // TODO: Should we handle libvirt connection errors transparent or panic?
 type Connection interface {
@@ -343,6 +343,7 @@ func NewConnection(uri string, user string, pass string, checkInterval time.Dura
 	err = utilwait.PollImmediate(ConnectionInterval, ConnectionTimeout, func() (done bool, err error) {
 		virConn, err = newConnection(uri, user, pass)
 		if err != nil {
+			logger.V(1).Infof("Connecting to libvirt daemon failed: %v", err)
 			return false, nil
 		}
 		return true, nil

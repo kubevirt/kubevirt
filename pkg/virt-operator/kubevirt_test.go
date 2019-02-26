@@ -573,6 +573,16 @@ var _ = Describe("KubeVirt Operator", func() {
 		}).Times(times)
 	}
 
+	shouldExpectKubeVirtUpdateFailureCondition := func() {
+		update := kvInterface.EXPECT().Update(gomock.Any())
+		update.Do(func(kv *v1.KubeVirt) {
+			Expect(len(kv.Status.Conditions)).To(Equal(1))
+			Expect(kv.Status.Conditions[0].Reason).To(Equal(ConditionReasonDeploymentFailedExisting))
+			kvInformer.GetStore().Update(kv)
+			update.Return(kv, nil)
+		}).Times(1)
+	}
+
 	getLatestKubeVirt := func(kv *v1.KubeVirt) *v1.KubeVirt {
 		if obj, exists, _ := kvInformer.GetStore().GetByKey(kv.GetNamespace() + "/" + kv.GetName()); exists {
 			if kvLatest, ok := obj.(*v1.KubeVirt); ok {
@@ -637,6 +647,54 @@ var _ = Describe("KubeVirt Operator", func() {
 			makeHandlerReady()
 
 			controller.Execute()
+
+		}, 15)
+
+		It("should fail if KubeVirt object already exists", func(done Done) {
+			defer close(done)
+
+			kv1 := &v1.KubeVirt{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:       "test-install",
+					Namespace:  NAMESPACE,
+					UID:        "11111111111",
+					Finalizers: []string{util.KubeVirtFinalizer},
+				},
+				Status: v1.KubeVirtStatus{
+					Phase: v1.KubeVirtPhaseDeployed,
+					Conditions: []v1.KubeVirtCondition{
+						{
+							Type:    v1.KubeVirtConditionCreated,
+							Status:  k8sv1.ConditionTrue,
+							Reason:  ConditionReasonDeploymentCreated,
+							Message: "All resources were created.",
+						},
+						{
+							Type:    v1.KubeVirtConditionReady,
+							Status:  k8sv1.ConditionTrue,
+							Reason:  ConditionReasonDeploymentReady,
+							Message: "All components are ready.",
+						},
+					},
+					OperatorVersion: "v0.0.0-master+$Format:%h$",
+				},
+			}
+
+			kv2 := &v1.KubeVirt{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-install2",
+					Namespace: NAMESPACE,
+					UID:       "123123123",
+				},
+				Status: v1.KubeVirtStatus{},
+			}
+
+			addKubeVirt(kv1)
+			addKubeVirt(kv2)
+
+			shouldExpectKubeVirtUpdateFailureCondition()
+
+			controller.execute(fmt.Sprintf("%s/%s", kv2.Namespace, kv2.Name))
 
 		}, 15)
 

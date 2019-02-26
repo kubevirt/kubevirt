@@ -1,0 +1,31 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "go_default_library",
+    srcs = ["container-disk.go"],
+    importpath = "kubevirt.io/kubevirt/pkg/container-disk",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//pkg/api/v1:go_default_library",
+        "//pkg/ephemeral-disk-utils:go_default_library",
+        "//pkg/precond:go_default_library",
+        "//vendor/k8s.io/api/core/v1:go_default_library",
+        "//vendor/k8s.io/apimachinery/pkg/api/resource:go_default_library",
+    ],
+)
+
+go_test(
+    name = "go_default_test",
+    srcs = [
+        "container-disk_suite_test.go",
+        "container-disk_test.go",
+    ],
+    embed = [":go_default_library"],
+    deps = [
+        "//pkg/api/v1:go_default_library",
+        "//pkg/log:go_default_library",
+        "//vendor/github.com/onsi/ginkgo:go_default_library",
+        "//vendor/github.com/onsi/ginkgo/extensions/table:go_default_library",
+        "//vendor/github.com/onsi/gomega:go_default_library",
+    ],
+)

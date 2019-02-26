@@ -271,17 +271,57 @@ var _ = Describe("Template", func() {
 						Domain: v1.DomainSpec{
 							CPU: &v1.CPU{
 								Model: "Conroe",
+								Features: []v1.CPUFeature{
+									{
+										Name:   "lahf_lm",
+										Policy: "require",
+									},
+									{
+										Name:   "mmx",
+										Policy: "disable",
+									},
+									{
+										Name:   "ssse3",
+										Policy: "forbid",
+									},
+								},
 							},
 						},
 					},
 				}
 
-				cpuModelLabel, err := CPUModelLabelFromCPUModel(&vmi)
-				Expect(err).ToNot(HaveOccurred())
 				pod, err := svc.RenderLaunchManifest(&vmi)
 				Expect(err).ToNot(HaveOccurred())
 
+				cpuModelLabel, err := CPUModelLabelFromCPUModel(&vmi)
+				Expect(err).ToNot(HaveOccurred())
 				Expect(pod.Spec.NodeSelector).Should(HaveKeyWithValue(cpuModelLabel, "true"))
+
+				cpuFeatureLabels := CPUFeatureLabelsFromCPUFeatures(&vmi)
+				for _, featureLabel := range cpuFeatureLabels {
+					Expect(pod.Spec.NodeSelector).Should(HaveKeyWithValue(featureLabel, "true"))
+				}
+			})
+
+			It("should add node selectors from kubevirt-config configMap", func() {
+				cfgMap := kubev1.ConfigMap{
+					ObjectMeta: metav1.ObjectMeta{
+						Namespace: namespaceKubevirt,
+						Name:      "kubevirt-config",
+					},
+					Data: map[string]string{NodeSelectorsKey: "kubernetes.io/hostname=node02\nnode-role.kubernetes.io/compute=true\n"},
+				}
+				cmCache.Add(&cfgMap)
+				vmi := v1.VirtualMachineInstance{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "testvmi", Namespace: "default", UID: "1234",
+					},
+					Spec: v1.VirtualMachineInstanceSpec{Volumes: []v1.Volume{}, Domain: v1.DomainSpec{}},
+				}
+				pod, err := svc.RenderLaunchManifest(&vmi)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(pod.Spec.NodeSelector).To(HaveKeyWithValue("kubernetes.io/hostname", "node02"))
+				Expect(pod.Spec.NodeSelector).To(HaveKeyWithValue("node-role.kubernetes.io/compute", "true"))
 			})
 
 			It("should add default cpu/memory resources to the sidecar container if cpu pinning was requested", func() {

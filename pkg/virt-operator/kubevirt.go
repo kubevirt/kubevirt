@@ -438,11 +438,11 @@ func (c *KubeVirtController) syncDeployment(kv *v1.KubeVirt) error {
 	// TODO move this into a new validating webhook
 	kvs := c.kubeVirtInformer.GetStore().List()
 	for _, obj := range kvs {
-		if fromStore, ok := obj.(v1.KubeVirt); ok {
+		if fromStore, ok := obj.(*v1.KubeVirt); ok {
 			if fromStore.UID == kv.UID {
 				continue
 			}
-			if isKubeVirtActive(&fromStore) {
+			if isKubeVirtActive(fromStore) {
 				logger.Warningf("There is already a KubeVirt deployment!")
 				util.UpdateCondition(kv, v1.KubeVirtConditionSynchronized, k8sv1.ConditionFalse, ConditionReasonDeploymentFailedExisting, "There is an active KubeVirt deployment")
 				return nil
