@@ -1,17 +1,6 @@
 ---
 sub-stages:
-  - k8s-1.10.11:
-      timeout: 4h
-  - k8s-1.11.0:
-      timeout: 4h
   - k8s-multus-1.13.3
-  - k8s-genie-1.11.1
-  - openshift-3.11:
-      timeout: 4h
-  - openshift-3.11-crio:
-      timeout: 4h
-  - openshift-3.11-multus
-  - windows2016
 runtime_requirements:
   support_nesting_level: 2
   isolation_level: container

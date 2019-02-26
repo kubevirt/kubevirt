@@ -525,7 +525,7 @@ var _ = Describe("Multus", func() {
 				deleteVMIs(virtClient, []*v1.VirtualMachineInstance{agentVMI})
 			})
 
-			It("should report guest interfaces in VMI status", func() {
+			FIt("should report guest interfaces in VMI status", func() {
 				fmt.Print("Starting guest agent test")
 				interfaces := []v1.Interface{
 					defaultInterface,
