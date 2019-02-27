@@ -361,6 +361,8 @@ type VirtualMachineInstanceMigrationState struct {
 	Completed bool `json:"completed,omitempty"`
 	// Indicates that the migration failed
 	Failed bool `json:"failed,omitempty"`
+	// Indicates that the migration has been aborted
+	Aborted bool `json:"aborted,omitempty"`
 	// The VirtualMachineInstanceMigration object associated with this migration
 	MigrationUID types.UID `json:"migrationUid,omitempty"`
 	// Config contains migration configuration options
@@ -785,6 +787,8 @@ const (
 	MigrationSucceeded VirtualMachineInstanceMigrationPhase = "Succeeded"
 	// The migration failed
 	MigrationFailed VirtualMachineInstanceMigrationPhase = "Failed"
+	// The migration is aborting
+	MigrationAborting VirtualMachineInstanceMigrationPhase = "Aborting"
 )
 
 // ---
