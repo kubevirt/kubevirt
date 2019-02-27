@@ -240,6 +240,7 @@ func uploadData(uploadProxyURL, token string, file *os.File, insecure bool) erro
 
 	req.Header.Add("Authorization", "Bearer "+token)
 	req.Header.Add("Content-Type", "application/octet-stream")
+	req.ContentLength = fi.Size()
 
 	fmt.Println()
 	bar.Start()
