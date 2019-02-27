@@ -407,6 +407,48 @@ var _ = Describe("Multus", func() {
 		})
 	})
 
+	Context("VirtualMachineInstance with multus network as default network", func() {
+		AfterEach(func() {
+			virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Delete(detachedVMI.Name, &v13.DeleteOptions{})
+			fmt.Printf("Waiting for vmi %s in %s namespace to be removed, this can take a while ...\n", detachedVMI.Name, tests.NamespaceTestDefault)
+			EventuallyWithOffset(1, func() bool {
+				return errors.IsNotFound(virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Delete(detachedVMI.Name, nil))
+			}, 180*time.Second, 1*time.Second).
+				Should(BeTrue())
+		})
+
+		It("should create a virtual machine with one interface with multus default network definition", func() {
+			detachedVMI = tests.NewRandomVMIWithEphemeralDiskAndUserdata(tests.ContainerDiskFor(tests.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n")
+			detachedVMI.Spec.Domain.Devices.Interfaces = []v1.Interface{{Name: "ptp", InterfaceBindingMethod: v1.InterfaceBindingMethod{Bridge: &v1.InterfaceBridge{}}}}
+			detachedVMI.Spec.Networks = []v1.Network{
+				{Name: "ptp", NetworkSource: v1.NetworkSource{
+					Multus: &v1.MultusNetwork{
+						NetworkName: fmt.Sprintf("%s/%s", tests.NamespaceTestDefault, "ptp-conf"),
+						Default:     true,
+					}}},
+			}
+
+			_, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(detachedVMI)
+			Expect(err).ToNot(HaveOccurred())
+			tests.WaitUntilVMIReady(detachedVMI, tests.LoggedInCirrosExpecter)
+
+			By("checking virtual machine instance can ping 10.1.1.1 using ptp cni plugin")
+			pingVirtualMachine(detachedVMI, "10.1.1.1", "\\$ ")
+
+			By("checking virtual machine instance has one interface")
+			// lo0, eth0
+			err = tests.CheckForTextExpecter(detachedVMI, []expect.Batcher{
+				&expect.BSnd{S: "\n"},
+				&expect.BExp{R: "\\$ "},
+				&expect.BSnd{S: "ip link show | grep -c 'UP'\n"},
+				&expect.BExp{R: "2"},
+			}, 15)
+			Expect(err).ToNot(HaveOccurred())
+
+		})
+
+	})
+
 	Context("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:component]VirtualMachineInstance with ovs-cni plugin interface and custom MAC address.", func() {
 		interfaces := []v1.Interface{ovsInterface}
 		networks := []v1.Network{ovsNetwork}
