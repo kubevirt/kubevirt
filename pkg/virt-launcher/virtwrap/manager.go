@@ -199,9 +199,8 @@ func (l *LibvirtDomainManager) setMigrationResultHelper(vmi *v1.VirtualMachineIn
 	if failed {
 		domainSpec.Metadata.KubeVirt.Migration.Failed = true
 		domainSpec.Metadata.KubeVirt.Migration.FailureReason = reason
-	} else {
-		domainSpec.Metadata.KubeVirt.Migration.Completed = true
 	}
+	domainSpec.Metadata.KubeVirt.Migration.Completed = true
 	domainSpec.Metadata.KubeVirt.Migration.EndTimestamp = &now
 
 	_, err = l.setDomainSpecWithHooks(vmi, domainSpec)
