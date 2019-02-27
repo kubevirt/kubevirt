@@ -31,14 +31,14 @@ func (_m *MockNetworkInterface) EXPECT() *_MockNetworkInterfaceRecorder {
 	return _m.recorder
 }
 
-func (_m *MockNetworkInterface) Plug(iface *v1.Interface, network *v1.Network, domain *api.Domain, podInterfaceName string) error {
-	ret := _m.ctrl.Call(_m, "Plug", iface, network, domain, podInterfaceName)
+func (_m *MockNetworkInterface) Plug(vmi *v1.VirtualMachineInstance, iface *v1.Interface, network *v1.Network, domain *api.Domain, podInterfaceName string) error {
+	ret := _m.ctrl.Call(_m, "Plug", vmi, iface, network, domain, podInterfaceName)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
-func (_mr *_MockNetworkInterfaceRecorder) Plug(arg0, arg1, arg2, arg3 interface{}) *gomock.Call {
-	return _mr.mock.ctrl.RecordCall(_mr.mock, "Plug", arg0, arg1, arg2, arg3)
+func (_mr *_MockNetworkInterfaceRecorder) Plug(arg0, arg1, arg2, arg3, arg4 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "Plug", arg0, arg1, arg2, arg3, arg4)
 }
 
 func (_m *MockNetworkInterface) Unplug() {
