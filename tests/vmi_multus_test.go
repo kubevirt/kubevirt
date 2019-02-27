@@ -22,6 +22,7 @@ package tests_test
 import (
 	"flag"
 	"fmt"
+	"strings"
 	"time"
 
 	expect "github.com/google/goexpect"
@@ -435,18 +436,21 @@ var _ = Describe("Multus", func() {
 			By("checking virtual machine instance can ping 10.1.1.1 using ptp cni plugin")
 			pingVirtualMachine(detachedVMI, "10.1.1.1", "\\$ ")
 
-			By("checking virtual machine instance has one interface")
+			By("checking virtual machine instance only has one interface")
 			// lo0, eth0
 			err = tests.CheckForTextExpecter(detachedVMI, []expect.Batcher{
 				&expect.BSnd{S: "\n"},
 				&expect.BExp{R: "\\$ "},
-				&expect.BSnd{S: "ip link show | grep -c 'UP'\n"},
+				&expect.BSnd{S: "ip link show | grep -c UP\n"},
 				&expect.BExp{R: "2"},
 			}, 15)
 			Expect(err).ToNot(HaveOccurred())
 
+			By("checking pod has only one interface")
+			// lo0, eth0, k6t-eth0, vnet0
+			output := tests.RunCommandOnVmiPod(detachedVMI, []string{"/bin/bash", "-c", "/usr/sbin/ip link show|grep -c UP"})
+			ExpectWithOffset(1, strings.TrimSpace(output)).To(Equal("4"))
 		})
-
 	})
 
 	Context("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:component]VirtualMachineInstance with ovs-cni plugin interface and custom MAC address.", func() {
