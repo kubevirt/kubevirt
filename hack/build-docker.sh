@@ -22,44 +22,9 @@ set -e
 source hack/common.sh
 source hack/config.sh
 
-if [ -z "$1" ]; then
-    target="build"
-else
-    target=$1
-    shift
-fi
-
 if [ $# -eq 0 ]; then
     args=$docker_images
     build_tests="true"
-else
-    args=$@
-fi
-
-for arg in $args; do
-    BUILDER_EXTRA_ARGS=""
-    BIN_NAME=$(basename $arg)
-    if [ "${target}" = "build" ]; then
-        (
-            if [ -n "$KUBEVIRT_CACHE_FROM" ]; then
-                BUILDER_EXTRA_ARGS="${BUILDER_EXTRA_ARGS} --cache-from kubevirt/${BIN_NAME}:${KUBEVIRT_CACHE_FROM}"
-            fi
-            if [ -n "$KUBEVIRT_UPDATE_CACHE_FROM" ]; then
-                BUILDER_EXTRA_ARGS="${BUILDER_EXTRA_ARGS} -t kubevirt/${BIN_NAME}:${KUBEVIRT_UPDATE_CACHE_FROM}"
-            fi
-            cd ${CMD_OUT_DIR}/${BIN_NAME}/
-            docker build -t ${docker_prefix}/${BIN_NAME}:${docker_tag} --label ${job_prefix} --label ${BIN_NAME} ${BUILDER_EXTRA_ARGS} .
-        )
-    elif [ "${target}" = "push" ]; then
-        (
-            cd ${CMD_OUT_DIR}/${BIN_NAME}/
-            docker push ${docker_prefix}/${BIN_NAME}:${docker_tag}
-        )
-    fi
-done
-
-if [ $# -eq 0 ]; then
-    args=$docker_images_cacheable
 else
     args=$@
 fi
