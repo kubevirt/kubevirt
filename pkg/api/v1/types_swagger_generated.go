@@ -74,6 +74,7 @@ func (VirtualMachineInstanceMigrationState) SwaggerDoc() map[string]string {
 		"sourceNode":                     "The source node that the VMI originated on",
 		"completed":                      "Indicates the migration completed",
 		"failed":                         "Indicates that the migration failed",
+		"aborted":                        "Indicates that the migration has been aborted",
 		"migrationUid":                   "The VirtualMachineInstanceMigration object associated with this migration",
 		"migrationConfig":                "Config contains migration configuration options",
 	}

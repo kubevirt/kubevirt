@@ -5895,6 +5895,10 @@
    },
    "v1.VirtualMachineInstanceMigrationState": {
     "properties": {
+     "aborted": {
+      "description": "Indicates that the migration has been aborted",
+      "type": "boolean"
+     },
      "completed": {
       "description": "Indicates the migration completed",
       "type": "boolean"
