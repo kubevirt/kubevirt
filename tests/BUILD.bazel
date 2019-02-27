@@ -72,6 +72,7 @@ go_test(
         "vmi_configuration_test.go",
         "vmi_genie_test.go",
         "vmi_hook_sidecar_test.go",
+        "vmi_ignition_test.go",
         "vmi_iothreads_test.go",
         "vmi_lifecycle_test.go",
         "vmi_monitoring_test.go",
