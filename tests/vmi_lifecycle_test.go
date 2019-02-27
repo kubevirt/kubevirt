@@ -190,7 +190,8 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 				tests.WaitForSuccessfulVMIStart(vmi)
 				vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred(), "cannot fetch VirtualMachineInstance %q: %v", vmi.Name, err)
-				Eventually(controller.NewVirtualMachineInstanceConditionManager().HasConditionWithStatus(vmi, v1.VirtualMachineInstanceConditionType(k8sv1.PodReady), k8sv1.ConditionTrue), 2*time.Second, 100*time.Millisecond).Should(BeTrue(), "VirtualMachineInstance %q is not ready: %v", vmi.Name, vmi.Status.Phase)
+
+				Eventually(controller.NewVirtualMachineInstanceConditionManager().HasConditionWithStatus(vmi, v1.VirtualMachineInstanceConditionType(k8sv1.PodReady), k8sv1.ConditionTrue), 30*time.Second, 100*time.Millisecond).Should(BeTrue(), "VirtualMachineInstance %q is not ready: %v", vmi.Name, vmi.Status.Phase)
 
 				By("Obtaining serial console")
 				expecter, err := tests.LoggedInAlpineExpecter(vmi)
