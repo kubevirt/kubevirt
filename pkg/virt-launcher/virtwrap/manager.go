@@ -73,6 +73,7 @@ type DomainManager interface {
 	MigrateVMI(*v1.VirtualMachineInstance) error
 	PrepareMigrationTarget(*v1.VirtualMachineInstance, bool) error
 	GetDomainStats() ([]*stats.DomainStats, error)
+	CancelVMIMigration(*v1.VirtualMachineInstance) error
 }
 
 type LibvirtDomainManager struct {
@@ -488,6 +489,28 @@ monitorLoop:
 		}
 		time.Sleep(500 * time.Millisecond)
 	}
+}
+
+func (l *LibvirtDomainManager) CancelVMIMigration(vmi *v1.VirtualMachineInstance) error {
+	domName := api.VMINamespaceKeyFunc(vmi)
+	dom, err := l.virConn.LookupDomainByName(domName)
+	if err != nil {
+		log.Log.Object(vmi).Reason(err).Warning("failed to cancel migration, domain not found ")
+		return err
+	}
+	stats, err := dom.GetJobInfo()
+	if err != nil {
+		log.Log.Object(vmi).Reason(err).Error("failed to get domain job info")
+		return err
+	}
+	if stats.Type == libvirt.DOMAIN_JOB_UNBOUNDED {
+		err := dom.AbortJob()
+		if err != nil {
+			log.Log.Object(vmi).Reason(err).Error("failed to cancel migration")
+			return err
+		}
+	}
+	return nil
 }
 
 func (l *LibvirtDomainManager) MigrateVMI(vmi *v1.VirtualMachineInstance) error {

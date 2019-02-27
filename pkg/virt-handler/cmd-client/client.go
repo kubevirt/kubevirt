@@ -59,6 +59,7 @@ type LauncherClient interface {
 	ShutdownVirtualMachine(vmi *v1.VirtualMachineInstance) error
 	KillVirtualMachine(vmi *v1.VirtualMachineInstance) error
 	MigrateVirtualMachine(vmi *v1.VirtualMachineInstance) error
+	CancelVirtualMachineMigration(vmi *v1.VirtualMachineInstance) error
 	DeleteDomain(vmi *v1.VirtualMachineInstance) error
 	GetDomain() (*api.Domain, bool, error)
 	GetDomainStats() (*stats.DomainStats, bool, error)
@@ -143,6 +144,17 @@ func (c *VirtLauncherClient) ShutdownVirtualMachine(vmi *v1.VirtualMachineInstan
 
 func (c *VirtLauncherClient) MigrateVirtualMachine(vmi *v1.VirtualMachineInstance) error {
 	cmd := "Launcher.Migrate"
+
+	args := &Args{
+		VMI: vmi,
+	}
+	_, err := c.genericSendCmd(args, cmd)
+
+	return err
+}
+
+func (c *VirtLauncherClient) CancelVirtualMachineMigration(vmi *v1.VirtualMachineInstance) error {
+	cmd := "Launcher.CancelMigration"
 
 	args := &Args{
 		VMI: vmi,
