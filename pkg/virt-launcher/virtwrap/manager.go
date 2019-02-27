@@ -412,11 +412,21 @@ func liveMigrationMonitor(vmi *v1.VirtualMachineInstance, dom cli.VirDomain, l *
 	start := time.Now().UTC().Unix()
 	lastProgressUpdate := start
 	progressWatermark := int64(0)
-	// TODO:(vladikr) move to configMap
-	progressTimeout := int64(150)
 
-	// TODO:(vladikr) move to configMap
+	progressTimeout := int64(150)
 	completionTimeoutPerGiB := int64(800)
+
+	// update timeouts from migration config
+	conf := vmi.Status.MigrationState
+	if conf != nil {
+		if conf.CompletionTimeoutPerGiB != 0 {
+			completionTimeoutPerGiB = conf.CompletionTimeoutPerGiB
+		}
+		if conf.ProgressTimeout != 0 {
+			progressTimeout = conf.ProgressTimeout
+		}
+	}
+
 	acceptableCompletionTime := completionTimeoutPerGiB * getVMIMigrationDataSize(vmi)
 monitorLoop:
 	for {
