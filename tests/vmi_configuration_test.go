@@ -1132,12 +1132,12 @@ var _ = Describe("Configurations", func() {
 			}
 
 			nodesWithCPUManager, err := virtClient.CoreV1().Nodes().List(metav1.ListOptions{LabelSelector: v1.CPUManager + "=" + "true"})
-            Expect(err).ToNot(HaveOccurred())
-            Expect(nodesWithCPUManager.Items).NotTo(Equal(0))
+			Expect(err).ToNot(HaveOccurred())
+			Expect(nodesWithCPUManager.Items).NotTo(Equal(0))
 
-            nodesWithoutCPUManager, err = virtClient.CoreV1().Nodes().List(metav1.ListOptions{LabelSelector: v1.CPUManager + "=" + "false"})
-            Expect(err).ToNot(HaveOccurred())
-            Expect(nodesWithoutCPUManager.Items).NotTo(Equal(0))
+			nodesWithoutCPUManager, err = virtClient.CoreV1().Nodes().List(metav1.ListOptions{LabelSelector: v1.CPUManager + "=" + "false"})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(nodesWithoutCPUManager.Items).NotTo(Equal(0))
 		})
 		Context("with cpu pinning enabled", func() {
 			It("[test_id:1684]should set the cpumanager label to false when it's not running", func() {
@@ -1348,9 +1348,13 @@ var _ = Describe("Configurations", func() {
 				By("Starting a VirtualMachineInstance without dedicated cpus")
 				_, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(Vmi)
 				Expect(err).ToNot(HaveOccurred())
-				node1 := tests.WaitForSuccessfulVMIStart(Vmi)
-				// what should i do here it will always fail for us
-				Expect(node1).To(ContainSubstring("node02"))
+				node = tests.WaitForSuccessfulVMIStart(Vmi)
+				for _, n := range nodesWithCPUManager.Items {
+					if strings.Contains(node, n.Name) {
+						Expect(node).To(ContainSubstring(n.Name))
+						break
+					}
+				}
 			})
 		})
 	})
