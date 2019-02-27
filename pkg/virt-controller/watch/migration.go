@@ -176,6 +176,10 @@ func (c *MigrationController) execute(key string) error {
 
 	var syncErr error
 
+	if migration.DeletionTimestamp != nil && !migration.IsFinal() {
+		migration.Status.Phase = virtv1.MigrationAborting
+	}
+
 	if needsSync && !migration.IsFinal() {
 		syncErr = c.sync(migration, vmi, targetPods)
 	}
@@ -422,6 +426,20 @@ func (c *MigrationController) sync(migration *virtv1.VirtualMachineInstanceMigra
 			return c.createTargetPod(migration, vmi)
 		}
 		return nil
+	case virtv1.MigrationAborting:
+		vmiCopy := vmi.DeepCopy()
+		if vmiCopy.Status.MigrationState != nil {
+			vmiCopy.Status.MigrationState.Aborted = true
+			if !reflect.DeepEqual(vmi.Status, vmiCopy.Status) ||
+				!reflect.DeepEqual(vmi.Labels, vmiCopy.Labels) {
+				_, err := c.clientset.VirtualMachineInstance(vmi.Namespace).Update(vmiCopy)
+				if err != nil {
+					c.recorder.Eventf(migration, k8sv1.EventTypeWarning, "FailedAbortMigration", fmt.Sprintf("Failed to set MigrationStat in VMI status. :%v", err))
+					return err
+				}
+				c.recorder.Eventf(migration, k8sv1.EventTypeNormal, "SuccessfulAbortMigration", "Migration is ready to be canceled by virt-handler.")
+			}
+		}
 	case virtv1.MigrationScheduled:
 		// once target pod is scheduled, alert the VMI of the migration by
 		// setting the target and source nodes. This kicks off the preparation stage.
