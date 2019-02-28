@@ -51,6 +51,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/kubecli"
 	"kubevirt.io/kubevirt/pkg/log"
 	"kubevirt.io/kubevirt/pkg/testutils"
+	"kubevirt.io/kubevirt/pkg/version"
 	"kubevirt.io/kubevirt/pkg/virt-operator/creation/components"
 	"kubevirt.io/kubevirt/pkg/virt-operator/creation/rbac"
 	"kubevirt.io/kubevirt/pkg/virt-operator/install-strategy"
@@ -725,7 +726,9 @@ var _ = Describe("KubeVirt Operator", func() {
 							Message: "All components are ready.",
 						},
 					},
-					OperatorVersion: "v9.9.9",
+					OperatorVersion:         version.Get().String(),
+					TargetKubeVirtVersion:   "v9.9.9",
+					ObservedKubeVirtVersion: "v9.9.9",
 				},
 			}
 
@@ -819,7 +822,7 @@ var _ = Describe("KubeVirt Operator", func() {
 				Status: v1.KubeVirtStatus{},
 			}
 
-			job := controller.generateInstallStrategyJob(kv, "v9.9.9", "somerepository")
+			job := controller.generateInstallStrategyJob(kv)
 
 			// will only create a new job after 10 seconds has passed.
 			// this is just a simple mechanism to prevent spin loops
@@ -850,7 +853,7 @@ var _ = Describe("KubeVirt Operator", func() {
 				Status: v1.KubeVirtStatus{},
 			}
 
-			job := controller.generateInstallStrategyJob(kv, "v9.9.9", "somerepository")
+			job := controller.generateInstallStrategyJob(kv)
 
 			job.Status.CompletionTime = now()
 
@@ -876,7 +879,7 @@ var _ = Describe("KubeVirt Operator", func() {
 			addKubeVirt(kv)
 			addInstallStrategy()
 
-			job := controller.generateInstallStrategyJob(kv, "v9.9.9", "somerepository")
+			job := controller.generateInstallStrategyJob(kv)
 
 			job.Status.CompletionTime = now()
 			addInstallStrategyJob(job)
