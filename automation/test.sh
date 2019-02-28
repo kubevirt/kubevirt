@@ -32,27 +32,23 @@ export WORKSPACE="${WORKSPACE:-$PWD}"
 readonly ARTIFACTS_PATH="$WORKSPACE/exported-artifacts"
 readonly TEMPLATES_SERVER="https://templates.ovirt.org/kubevirt/"
 
-if [[ $TARGET =~ openshift-.* ]]; then
+if [[ $TARGET =~ windows.* ]]; then
+  export KUBEVIRT_PROVIDER="k8s-1.11.0"
+else
+  export KUBEVIRT_PROVIDER=$TARGET
+fi
+
+if [ ! -d "cluster/$KUBEVIRT_PROVIDER" ]; then
+  echo "The cluster provider $KUBEVIRT_PROVIDER does not exist"
+  exit 1
+fi
+
+if [[ $TARGET =~ os-.* ]]; then
   # when testing on slow CI system cleanup sometimes takes very long.
   # openshift clusters are more memory demanding. If the cleanup
   # of old vms does not go fast enough they run out of memory.
   # To still allow continuing with the tests, give more memory in CI.
   export KUBEVIRT_MEMORY_SIZE=6144M
-  if [[ $TARGET =~ .*-crio ]]; then
-    export KUBEVIRT_PROVIDER="os-3.11.0-crio"
-  elif [[ $TARGET =~ .*-multus ]]; then
-    export KUBEVIRT_PROVIDER="os-3.11.0-multus"
-  else
-    export KUBEVIRT_PROVIDER="os-3.11.0"
-  fi
-elif [[ $TARGET =~ .*-1.10.4 ]]; then
-  export KUBEVIRT_PROVIDER="k8s-1.10.11"
-elif [[ $TARGET =~ .*-multus-1.13.3 ]]; then
-  export KUBEVIRT_PROVIDER="k8s-multus-1.13.3"
-elif [[ $TARGET =~ .*-genie-1.11.1 ]]; then
-  export KUBEVIRT_PROVIDER="k8s-genie-1.11.1"
-else
-  export KUBEVIRT_PROVIDER="k8s-1.11.0"
 fi
 
 export KUBEVIRT_NUM_NODES=2
@@ -110,7 +106,7 @@ safe_download() (
     fi
 )
 
-if [[ $TARGET =~ openshift.* ]]; then
+if [[ $TARGET =~ os-.* ]]; then
     # Create images directory
     if [[ ! -d $RHEL_NFS_DIR ]]; then
         mkdir -p $RHEL_NFS_DIR
@@ -260,7 +256,7 @@ else
 fi
 
 # Prepare RHEL PV for Template testing
-if [[ $TARGET =~ openshift-.* ]]; then
+if [[ $TARGET =~ os-.* ]]; then
   ginko_params="$ginko_params|Networkpolicy"
 
   kubectl create -f - <<EOF
