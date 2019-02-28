@@ -27,6 +27,7 @@ import (
 
 	"github.com/ghodss/yaml"
 
+	secv1 "github.com/openshift/api/security/v1"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
@@ -45,6 +46,21 @@ import (
 	marshalutil "kubevirt.io/kubevirt/tools/util"
 )
 
+const customSccPrivilegedAccountsType = "KubevirtCustomSccRule"
+
+type customSccPrivilegedAccounts struct {
+	// this isn't a real k8s object. We use the meta type
+	// because it gives a consistent way to separate k8s
+	// objects from our custom actions
+	metav1.TypeMeta `json:",inline"`
+
+	// this is the target scc we're adding service accounts to
+	TargetScc string `json:"TargetScc"`
+
+	// these are the service accounts being added to the scc
+	ServiceAccounts []string `json:"serviceAccounts"`
+}
+
 type InstallStrategy struct {
 	serviceAccounts []*corev1.ServiceAccount
 
@@ -59,6 +75,8 @@ type InstallStrategy struct {
 	services    []*corev1.Service
 	deployments []*appsv1.Deployment
 	daemonSets  []*appsv1.DaemonSet
+
+	customSccPrivileges []*customSccPrivilegedAccounts
 }
 
 func generateConfigMapName(imageTag string) string {
@@ -157,6 +175,9 @@ func dumpInstallStrategyToBytes(strategy *InstallStrategy) []byte {
 	for _, entry := range strategy.daemonSets {
 		marshalutil.MarshallObject(entry, writer)
 	}
+	for _, entry := range strategy.customSccPrivileges {
+		marshalutil.MarshallObject(entry, writer)
+	}
 	writer.Flush()
 
 	return b.Bytes()
@@ -228,6 +249,20 @@ func GenerateCurrentInstallStrategy(namespace string,
 		return nil, fmt.Errorf("error generating virt-handler deployment %v", err)
 	}
 	strategy.daemonSets = append(strategy.daemonSets, handler)
+
+	prefix := "system:serviceaccount"
+	typeMeta := metav1.TypeMeta{
+		Kind: customSccPrivilegedAccountsType,
+	}
+	strategy.customSccPrivileges = append(strategy.customSccPrivileges, &customSccPrivilegedAccounts{
+		TypeMeta:  typeMeta,
+		TargetScc: "privileged",
+		ServiceAccounts: []string{
+			fmt.Sprintf("%s:%s:%s", prefix, namespace, "kubevirt-handler"),
+			fmt.Sprintf("%s:%s:%s", prefix, namespace, "kubevirt-apiserver"),
+			fmt.Sprintf("%s:%s:%s", prefix, namespace, "kubevirt-controller"),
+		},
+	})
 
 	return strategy, nil
 }
@@ -330,8 +365,12 @@ func loadInstallStrategyFromBytes(data string) (*InstallStrategy, error) {
 				return nil, err
 			}
 			strategy.crds = append(strategy.crds, crd)
-		case "Namespace":
-			// skipped. We don't do anything with namespaces
+		case customSccPrivilegedAccountsType:
+			priv := &customSccPrivilegedAccounts{}
+			if err := yaml.Unmarshal([]byte(entry), &priv); err != nil {
+				return nil, err
+			}
+			strategy.customSccPrivileges = append(strategy.customSccPrivileges, priv)
 		default:
 			return nil, fmt.Errorf("UNKNOWN TYPE %s detected", obj.Kind)
 
@@ -348,6 +387,261 @@ func addOperatorLabel(objectMeta *metav1.ObjectMeta) {
 	objectMeta.Labels[v1.ManagedByLabel] = v1.ManagedByLabelOperatorValue
 }
 
+func remove(users []string, user string) ([]string, bool) {
+	var newUsers []string
+	modified := false
+	for _, u := range users {
+		if u != user {
+			newUsers = append(newUsers, u)
+		} else {
+			modified = true
+		}
+	}
+	return newUsers, modified
+}
+
+func contains(users []string, user string) bool {
+	for _, u := range users {
+		if u == user {
+			return true
+		}
+	}
+	return false
+}
+
+func DeleteAll(kv *v1.KubeVirt,
+	strategy *InstallStrategy,
+	stores util.Stores,
+	clientset kubecli.KubevirtClient,
+	expectations *util.Expectations) error {
+
+	kvkey, err := controller.KeyFunc(kv)
+	if err != nil {
+		return err
+	}
+
+	gracePeriod := int64(0)
+	deleteOptions := &metav1.DeleteOptions{
+		GracePeriodSeconds: &gracePeriod,
+	}
+
+	// first delete CRDs only
+	ext := clientset.ExtensionsClient()
+	objects := stores.CrdCache.List()
+	for _, obj := range objects {
+		if crd, ok := obj.(*extv1beta1.CustomResourceDefinition); ok && crd.DeletionTimestamp == nil {
+			if key, err := controller.KeyFunc(crd); err == nil {
+				expectations.Crd.AddExpectedDeletion(kvkey, key)
+				err := ext.ApiextensionsV1beta1().CustomResourceDefinitions().Delete(crd.Name, deleteOptions)
+				if err != nil {
+					expectations.Crd.DeletionObserved(kvkey, key)
+					log.Log.Errorf("Failed to delete crd %+v: %v", crd, err)
+					return err
+				}
+			}
+		} else if !ok {
+			log.Log.Errorf("Cast failed! obj: %+v", obj)
+			return nil
+		}
+
+	}
+	if !util.IsStoreEmpty(stores.CrdCache) {
+		// wait until CRDs are gone
+		return nil
+	}
+
+	// delete handler daemonset
+	obj, exists, err := stores.DaemonSetCache.GetByKey(fmt.Sprintf("%s/%s", kv.Namespace, "virt-handler"))
+	if err != nil {
+		log.Log.Errorf("Failed to get virt-handler: %v", err)
+		return err
+	} else if exists {
+		if ds, ok := obj.(*appsv1.DaemonSet); ok && ds.DeletionTimestamp == nil {
+			if key, err := controller.KeyFunc(ds); err == nil {
+				expectations.DaemonSet.AddExpectedDeletion(kvkey, key)
+				err := clientset.AppsV1().DaemonSets(kv.Namespace).Delete("virt-handler", deleteOptions)
+				if err != nil {
+					expectations.DaemonSet.DeletionObserved(kvkey, key)
+					log.Log.Errorf("Failed to delete virt-handler: %v", err)
+					return err
+				}
+			}
+		} else if !ok {
+			log.Log.Errorf("Cast failed! obj: %+v", obj)
+			return nil
+		}
+	}
+
+	// delete controller and apiserver deployment
+	for _, name := range []string{"virt-controller", "virt-api"} {
+		obj, exists, err := stores.DeploymentCache.GetByKey(fmt.Sprintf("%s/%s", kv.Namespace, name))
+		if err != nil {
+			log.Log.Errorf("Failed to get %v: %v", name, err)
+			return err
+		} else if exists {
+			if depl, ok := obj.(*appsv1.Deployment); ok && depl.DeletionTimestamp == nil {
+				if key, err := controller.KeyFunc(depl); err == nil {
+					expectations.Deployment.AddExpectedDeletion(kvkey, key)
+					err := clientset.AppsV1().Deployments(kv.Namespace).Delete(name, deleteOptions)
+					if err != nil {
+						expectations.Deployment.DeletionObserved(kvkey, key)
+						log.Log.Errorf("Failed to delete virt-handler: %v", err)
+						return err
+					}
+				}
+			} else if !ok {
+				log.Log.Errorf("Cast failed! obj: %+v", obj)
+				return nil
+			}
+		}
+	}
+
+	// delete services
+	objects = stores.ServiceCache.List()
+	for _, obj := range objects {
+		if svc, ok := obj.(*corev1.Service); ok && svc.DeletionTimestamp == nil {
+			if key, err := controller.KeyFunc(svc); err == nil {
+				expectations.Service.AddExpectedDeletion(kvkey, key)
+				err := clientset.CoreV1().Services(kv.Namespace).Delete(svc.Name, deleteOptions)
+				if err != nil {
+					expectations.Service.DeletionObserved(kvkey, key)
+					log.Log.Errorf("Failed to delete service %+v: %v", svc, err)
+					return err
+				}
+			}
+		} else if !ok {
+			log.Log.Errorf("Cast failed! obj: %+v", obj)
+			return nil
+		}
+	}
+
+	// delete RBAC
+	objects = stores.ClusterRoleBindingCache.List()
+	for _, obj := range objects {
+		if crb, ok := obj.(*rbacv1.ClusterRoleBinding); ok && crb.DeletionTimestamp == nil {
+			if key, err := controller.KeyFunc(crb); err == nil {
+				expectations.ClusterRoleBinding.AddExpectedDeletion(kvkey, key)
+				err := clientset.RbacV1().ClusterRoleBindings().Delete(crb.Name, deleteOptions)
+				if err != nil {
+					expectations.ClusterRoleBinding.DeletionObserved(kvkey, key)
+					log.Log.Errorf("Failed to delete crb %+v: %v", crb, err)
+					return err
+				}
+			}
+		} else if !ok {
+			log.Log.Errorf("Cast failed! obj: %+v", obj)
+			return nil
+		}
+	}
+
+	objects = stores.ClusterRoleCache.List()
+	for _, obj := range objects {
+		if cr, ok := obj.(*rbacv1.ClusterRole); ok && cr.DeletionTimestamp == nil {
+			if key, err := controller.KeyFunc(cr); err == nil {
+				expectations.ClusterRole.AddExpectedDeletion(kvkey, key)
+				err := clientset.RbacV1().ClusterRoles().Delete(cr.Name, deleteOptions)
+				if err != nil {
+					expectations.ClusterRole.DeletionObserved(kvkey, key)
+					log.Log.Errorf("Failed to delete cr %+v: %v", cr, err)
+					return err
+				}
+			}
+		} else if !ok {
+			log.Log.Errorf("Cast failed! obj: %+v", obj)
+			return nil
+		}
+	}
+
+	objects = stores.RoleBindingCache.List()
+	for _, obj := range objects {
+		if rb, ok := obj.(*rbacv1.RoleBinding); ok && rb.DeletionTimestamp == nil {
+			if key, err := controller.KeyFunc(rb); err == nil {
+				expectations.RoleBinding.AddExpectedDeletion(kvkey, key)
+				err := clientset.RbacV1().RoleBindings(kv.Namespace).Delete(rb.Name, deleteOptions)
+				if err != nil {
+					expectations.RoleBinding.DeletionObserved(kvkey, key)
+					log.Log.Errorf("Failed to delete rb %+v: %v", rb, err)
+					return err
+				}
+			}
+		} else if !ok {
+			log.Log.Errorf("Cast failed! obj: %+v", obj)
+			return nil
+		}
+	}
+
+	objects = stores.RoleCache.List()
+	for _, obj := range objects {
+		if role, ok := obj.(*rbacv1.Role); ok && role.DeletionTimestamp == nil {
+			if key, err := controller.KeyFunc(role); err == nil {
+				expectations.Role.AddExpectedDeletion(kvkey, key)
+				err := clientset.RbacV1().Roles(kv.Namespace).Delete(role.Name, deleteOptions)
+				if err != nil {
+					expectations.Role.DeletionObserved(kvkey, key)
+					log.Log.Errorf("Failed to delete role %+v: %v", role, err)
+					return err
+				}
+			}
+		} else if !ok {
+			log.Log.Errorf("Cast failed! obj: %+v", obj)
+			return nil
+		}
+	}
+
+	objects = stores.ServiceAccountCache.List()
+	for _, obj := range objects {
+		if sa, ok := obj.(*corev1.ServiceAccount); ok && sa.DeletionTimestamp == nil {
+			if key, err := controller.KeyFunc(sa); err == nil {
+				expectations.ServiceAccount.AddExpectedDeletion(kvkey, key)
+				err := clientset.CoreV1().ServiceAccounts(kv.Namespace).Delete(sa.Name, deleteOptions)
+				if err != nil {
+					expectations.ServiceAccount.DeletionObserved(kvkey, key)
+					log.Log.Errorf("Failed to delete serviceaccount %+v: %v", sa, err)
+					return err
+				}
+			}
+		} else if !ok {
+			log.Log.Errorf("Cast failed! obj: %+v", obj)
+			return nil
+		}
+	}
+
+	scc := clientset.SecClient()
+	for _, sccPriv := range strategy.customSccPrivileges {
+		privSccObj, exists, err := stores.SCCCache.GetByKey(sccPriv.TargetScc)
+		if !exists {
+			return nil
+		} else if err != nil {
+			return err
+		}
+
+		privScc, ok := privSccObj.(*secv1.SecurityContextConstraints)
+		if !ok {
+			return fmt.Errorf("couldn't cast object to SecurityContextConstraints: %+v", privSccObj)
+		}
+		privSccCopy := privScc.DeepCopy()
+
+		modified := false
+		users := privSccCopy.Users
+		for _, acc := range sccPriv.ServiceAccounts {
+			removed := false
+			users, removed = remove(users, acc)
+			modified = modified || removed
+		}
+
+		if modified {
+			privSccCopy.Users = users
+			_, err = scc.SecurityContextConstraints().Update(privSccCopy)
+			if err != nil {
+				return fmt.Errorf("unable to update scc: %v", err)
+			}
+		}
+	}
+
+	return nil
+
+}
+
 func CreateAll(kv *v1.KubeVirt,
 	strategy *InstallStrategy,
 	stores util.Stores,
@@ -361,6 +655,7 @@ func CreateAll(kv *v1.KubeVirt,
 	core := clientset.CoreV1()
 	rbac := clientset.RbacV1()
 	apps := clientset.AppsV1()
+	scc := clientset.SecClient()
 
 	// CRDs
 	for _, crd := range strategy.crds {
@@ -512,6 +807,39 @@ func CreateAll(kv *v1.KubeVirt,
 			}
 		} else {
 			log.Log.V(4).Infof("daemonset %v already exists", daemonSet.GetName())
+		}
+	}
+
+	// Add service accounts to SCC
+	for _, sccPriv := range strategy.customSccPrivileges {
+		privSccObj, exists, err := stores.SCCCache.GetByKey(sccPriv.TargetScc)
+		if !exists {
+			return objectsAdded, nil
+		} else if err != nil {
+			return objectsAdded, err
+		}
+
+		privScc, ok := privSccObj.(*secv1.SecurityContextConstraints)
+		if !ok {
+			return objectsAdded, fmt.Errorf("couldn't cast object to SecurityContextConstraints: %+v", privSccObj)
+		}
+		privSccCopy := privScc.DeepCopy()
+
+		modified := false
+		users := privSccCopy.Users
+		for _, acc := range sccPriv.ServiceAccounts {
+			if !contains(users, acc) {
+				users = append(users, acc)
+				modified = true
+			}
+		}
+
+		if modified {
+			privSccCopy.Users = users
+			_, err = scc.SecurityContextConstraints().Update(privSccCopy)
+			if err != nil {
+				return objectsAdded, fmt.Errorf("unable to update scc: %v", err)
+			}
 		}
 	}
 
