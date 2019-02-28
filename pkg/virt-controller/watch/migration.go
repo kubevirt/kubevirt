@@ -434,10 +434,10 @@ func (c *MigrationController) sync(migration *virtv1.VirtualMachineInstanceMigra
 				!reflect.DeepEqual(vmi.Labels, vmiCopy.Labels) {
 				_, err := c.clientset.VirtualMachineInstance(vmi.Namespace).Update(vmiCopy)
 				if err != nil {
-					c.recorder.Eventf(migration, k8sv1.EventTypeWarning, "FailedAbortMigration", fmt.Sprintf("Failed to set MigrationStat in VMI status. :%v", err))
+					c.recorder.Eventf(migration, k8sv1.EventTypeWarning, FailedAbortMigrationReason, fmt.Sprintf("Failed to set MigrationStat in VMI status. :%v", err))
 					return err
 				}
-				c.recorder.Eventf(migration, k8sv1.EventTypeNormal, "SuccessfulAbortMigration", "Migration is ready to be canceled by virt-handler.")
+				c.recorder.Eventf(migration, k8sv1.EventTypeNormal, SuccessfulAbortMigrationReason, "Migration is ready to be canceled by virt-handler.")
 			}
 		}
 	case virtv1.MigrationScheduled:
