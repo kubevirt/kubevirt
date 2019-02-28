@@ -36,7 +36,7 @@ var _ = Describe("ImageUpload", func() {
 		pvcNamespace = "default"
 		pvcName      = "test-pvc"
 		pvcSize      = "500Mi"
-		imagePath    = "../../../vendor/kubevirt.io/containerized-data-importer/tests/images/cirros-qcow2.img"
+		imagePath    = "../../../external/cirros_image/file/downloaded"
 	)
 
 	var (

@@ -28,6 +28,7 @@ go_test(
         "imageupload_suite_test.go",
         "imageupload_test.go",
     ],
+    data = ["@cirros_image//file"],
     embed = [":go_default_library"],
     deps = [
         "//pkg/kubecli:go_default_library",
