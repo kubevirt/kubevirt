@@ -679,7 +679,7 @@ var _ = Describe("KubeVirt Operator", func() {
 	}
 
 	Context("On valid KubeVirt object", func() {
-		It("should do nothing if KubeVirt object is deleted", func(done Done) {
+		It("should delete install strategy configmap once kubevirt install is deleted", func(done Done) {
 			defer close(done)
 
 			kv := &v1.KubeVirt{
@@ -693,7 +693,10 @@ var _ = Describe("KubeVirt Operator", func() {
 			}
 			kv.DeletionTimestamp = now()
 
+			shouldExpectInstallStrategyDeletion()
+
 			addKubeVirt(kv)
+			addInstallStrategy()
 			controller.Execute()
 		}, 15)
 

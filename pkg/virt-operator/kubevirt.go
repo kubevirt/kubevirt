@@ -38,8 +38,6 @@ import (
 	"kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/kubecli"
 	"kubevirt.io/kubevirt/pkg/log"
-	"kubevirt.io/kubevirt/pkg/virt-operator/creation"
-	"kubevirt.io/kubevirt/pkg/virt-operator/deletion"
 	"kubevirt.io/kubevirt/pkg/virt-operator/install-strategy"
 	"kubevirt.io/kubevirt/pkg/virt-operator/util"
 )
@@ -707,7 +705,7 @@ func (c *KubeVirtController) syncDeployment(kv *v1.KubeVirt) error {
 	c.garbageCollectInstallStrategyJobs()
 
 	// deploy
-	objectsAdded, err := creation.Create(kv, c.stores, c.clientset, &c.kubeVirtExpectations, strategy)
+	objectsAdded, err := installstrategy.CreateAll(kv, strategy, c.stores, c.clientset, &c.kubeVirtExpectations)
 
 	if err != nil {
 		// deployment failed
@@ -775,6 +773,16 @@ func (c *KubeVirtController) syncDeletion(kv *v1.KubeVirt) error {
 	logger := log.Log.Object(kv)
 	logger.Info("Handling deletion")
 
+	strategy, pending, err := c.loadInstallStrategy(kv)
+	if err != nil {
+		return err
+	}
+
+	// we're waiting on the job to finish and the config map to be created
+	if pending {
+		return nil
+	}
+
 	// set phase to deleting
 	kv.Status.Phase = v1.KubeVirtPhaseDeleting
 
@@ -782,16 +790,9 @@ func (c *KubeVirtController) syncDeletion(kv *v1.KubeVirt) error {
 	util.RemoveCondition(kv, v1.KubeVirtConditionCreated)
 	util.RemoveCondition(kv, v1.KubeVirtConditionReady)
 
-	err := deletion.Delete(kv, c.clientset, c.stores, &c.kubeVirtExpectations)
+	err = installstrategy.DeleteAll(kv, strategy, c.stores, c.clientset, &c.kubeVirtExpectations)
 	if err != nil {
 		// deletion failed
-		util.UpdateCondition(kv, v1.KubeVirtConditionSynchronized, k8sv1.ConditionFalse, ConditionReasonDeletionFailedError, fmt.Sprintf("An error occurred during deletion: %v", err))
-		return err
-	}
-
-	err = c.deleteAllInstallStrategy()
-	if err != nil {
-		// garbage collection of install strategies failed
 		util.UpdateCondition(kv, v1.KubeVirtConditionSynchronized, k8sv1.ConditionFalse, ConditionReasonDeletionFailedError, fmt.Sprintf("An error occurred during deletion: %v", err))
 		return err
 	}
@@ -799,6 +800,13 @@ func (c *KubeVirtController) syncDeletion(kv *v1.KubeVirt) error {
 	util.RemoveCondition(kv, v1.KubeVirtConditionSynchronized)
 
 	if c.stores.AllEmpty() {
+
+		err = c.deleteAllInstallStrategy()
+		if err != nil {
+			// garbage collection of install strategies failed
+			util.UpdateCondition(kv, v1.KubeVirtConditionSynchronized, k8sv1.ConditionFalse, ConditionReasonDeletionFailedError, fmt.Sprintf("An error occurred during deletion: %v", err))
+			return err
+		}
 
 		// deletion successful
 		kv.Status.Phase = v1.KubeVirtPhaseDeleted

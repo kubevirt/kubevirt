@@ -16,8 +16,6 @@ go_library(
         "//pkg/log:go_default_library",
         "//pkg/service:go_default_library",
         "//pkg/util:go_default_library",
-        "//pkg/virt-operator/creation:go_default_library",
-        "//pkg/virt-operator/deletion:go_default_library",
         "//pkg/virt-operator/install-strategy:go_default_library",
         "//pkg/virt-operator/util:go_default_library",
         "//vendor/github.com/prometheus/client_golang/prometheus/promhttp:go_default_library",
