@@ -93,7 +93,9 @@ var _ = Describe("KubeVirt Operator", func() {
 	var informers util.Informers
 	var stores util.Stores
 
-	os.Setenv(util.OperatorImageEnvName, "somerepository/virt-operator:v9.9.9")
+	defaultImageTag := "v9.9.9"
+	defaultRegistry := "someregistry"
+	os.Setenv(util.OperatorImageEnvName, fmt.Sprintf("%s/virt-operator:%s", defaultRegistry, defaultImageTag))
 
 	var totalAdds int
 	var totalDeletions int
@@ -344,14 +346,10 @@ var _ = Describe("KubeVirt Operator", func() {
 		}
 	}
 
-	addInstallStrategy := func() {
-		repository := "somerepository"
-		version := "v9.9.9"
-
+	addInstallStrategy := func(imageTag string, imageRegistry string) {
 		// install strategy config
-		resource, _ := installstrategy.NewInstallStrategyConfigMap(NAMESPACE, version, repository)
+		resource, _ := installstrategy.NewInstallStrategyConfigMap(NAMESPACE, imageTag, imageRegistry)
 		addResource(resource)
-
 	}
 
 	addAll := func() {
@@ -362,9 +360,6 @@ var _ = Describe("KubeVirt Operator", func() {
 		verbosity := "2"
 
 		all := make([]interface{}, 0)
-
-		// install strategy config
-		addInstallStrategy()
 
 		// rbac
 		all = append(all, rbac.GetAllCluster(NAMESPACE)...)
@@ -652,9 +647,21 @@ var _ = Describe("KubeVirt Operator", func() {
 		kubeClient.Fake.PrependReactor("create", "deployments", genericCreateFunc)
 		kubeClient.Fake.PrependReactor("create", "daemonsets", genericCreateFunc)
 	}
+
 	shouldExpectKubeVirtUpdate := func(times int) {
 		update := kvInterface.EXPECT().Update(gomock.Any())
 		update.Do(func(kv *v1.KubeVirt) {
+			kvInformer.GetStore().Update(kv)
+			update.Return(kv, nil)
+		}).Times(times)
+	}
+
+	shouldExpectKubeVirtUpdateVersion := func(times int, imageTag string) {
+		update := kvInterface.EXPECT().Update(gomock.Any())
+		update.Do(func(kv *v1.KubeVirt) {
+
+			Expect(kv.Status.TargetKubeVirtVersion).To(Equal(imageTag))
+			Expect(kv.Status.ObservedKubeVirtVersion).To(Equal(imageTag))
 			kvInformer.GetStore().Update(kv)
 			update.Return(kv, nil)
 		}).Times(times)
@@ -697,8 +704,54 @@ var _ = Describe("KubeVirt Operator", func() {
 			shouldExpectInstallStrategyDeletion()
 
 			addKubeVirt(kv)
-			addInstallStrategy()
+			addInstallStrategy(defaultImageTag, defaultRegistry)
 			controller.Execute()
+		}, 15)
+
+		It("should observe custom image tag in status during deploy", func(done Done) {
+			defer close(done)
+
+			kv := &v1.KubeVirt{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:       "test-install",
+					Namespace:  NAMESPACE,
+					Finalizers: []string{util.KubeVirtFinalizer},
+				},
+				Spec: v1.KubeVirtSpec{
+					ImageTag: "custom.tag",
+				},
+				Status: v1.KubeVirtStatus{
+					Phase: v1.KubeVirtPhaseDeployed,
+					Conditions: []v1.KubeVirtCondition{
+						{
+							Type:    v1.KubeVirtConditionCreated,
+							Status:  k8sv1.ConditionTrue,
+							Reason:  ConditionReasonDeploymentCreated,
+							Message: "All resources were created.",
+						},
+						{
+							Type:    v1.KubeVirtConditionReady,
+							Status:  k8sv1.ConditionTrue,
+							Reason:  ConditionReasonDeploymentReady,
+							Message: "All components are ready.",
+						},
+					},
+					OperatorVersion: version.Get().String(),
+				},
+			}
+
+			// create all resources which should already exist
+			addKubeVirt(kv)
+			addAll()
+			// install strategy config
+			addInstallStrategy("custom.tag", defaultRegistry)
+
+			makeApiAndControllerReady()
+			makeHandlerReady()
+
+			shouldExpectKubeVirtUpdateVersion(1, "custom.tag")
+			controller.Execute()
+
 		}, 15)
 
 		It("should do nothing if KubeVirt object is deployed", func(done Done) {
@@ -734,6 +787,7 @@ var _ = Describe("KubeVirt Operator", func() {
 
 			// create all resources which should already exist
 			addKubeVirt(kv)
+			addInstallStrategy(defaultImageTag, defaultRegistry)
 			addAll()
 			makeApiAndControllerReady()
 			makeHandlerReady()
@@ -877,7 +931,7 @@ var _ = Describe("KubeVirt Operator", func() {
 				},
 			}
 			addKubeVirt(kv)
-			addInstallStrategy()
+			addInstallStrategy(defaultImageTag, defaultRegistry)
 
 			job := controller.generateInstallStrategyJob(kv)
 
@@ -969,6 +1023,7 @@ var _ = Describe("KubeVirt Operator", func() {
 			addKubeVirt(kv)
 
 			// create all resources which should be deleted
+			addInstallStrategy(defaultImageTag, defaultRegistry)
 			addAll()
 
 			shouldExpectKubeVirtUpdate(1)

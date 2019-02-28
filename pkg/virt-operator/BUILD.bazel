@@ -46,6 +46,7 @@ go_test(
         "//pkg/kubecli:go_default_library",
         "//pkg/log:go_default_library",
         "//pkg/testutils:go_default_library",
+        "//pkg/version:go_default_library",
         "//pkg/virt-operator/creation/components:go_default_library",
         "//pkg/virt-operator/creation/rbac:go_default_library",
         "//pkg/virt-operator/install-strategy:go_default_library",
