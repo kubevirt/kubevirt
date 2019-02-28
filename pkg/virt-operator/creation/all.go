@@ -23,62 +23,23 @@ import (
 	"kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/kubecli"
 	"kubevirt.io/kubevirt/pkg/log"
-	"kubevirt.io/kubevirt/pkg/virt-operator/creation/components"
-	"kubevirt.io/kubevirt/pkg/virt-operator/creation/rbac"
+	"kubevirt.io/kubevirt/pkg/virt-operator/install-strategy"
 	"kubevirt.io/kubevirt/pkg/virt-operator/util"
 )
 
-func Create(kv *v1.KubeVirt, config util.KubeVirtDeploymentConfig, stores util.Stores, clientset kubecli.KubevirtClient, expectations *util.Expectations) (int, error) {
+func Create(kv *v1.KubeVirt, stores util.Stores, clientset kubecli.KubevirtClient, expectations *util.Expectations, strategy *installstrategy.InstallStrategy) (int, error) {
 
-	objectsAdded := 0
+	objectsAdded, err := installstrategy.CreateAll(kv, strategy, stores, clientset, expectations)
 
-	added, err := rbac.CreateClusterRBAC(clientset, kv, stores, expectations)
-	objectsAdded = objectsAdded + added
 	if err != nil {
-		log.Log.Errorf("Failed to create cluster RBAC: %v", err)
-		return objectsAdded, err
-	}
-	added, err = rbac.CreateApiServerRBAC(clientset, kv, stores, expectations)
-	objectsAdded = objectsAdded + added
-	if err != nil {
-		log.Log.Errorf("Failed to create apiserver RBAC: %v", err)
-		return objectsAdded, err
-	}
-
-	added, err = rbac.CreateControllerRBAC(clientset, kv, stores, expectations)
-	objectsAdded = objectsAdded + added
-	if err != nil {
-		log.Log.Errorf("Failed to create controller RBAC: %v", err)
-		return objectsAdded, err
-	}
-
-	added, err = rbac.CreateHandlerRBAC(clientset, kv, stores, expectations)
-	objectsAdded = objectsAdded + added
-	if err != nil {
-		log.Log.Errorf("Failed to create handler RBAC: %v", err)
 		return objectsAdded, err
 	}
 
 	err = util.UpdateScc(clientset, stores.SCCCache, kv, true)
-
 	if err != nil {
-		log.Log.Errorf("Failed to update SCC: %v", err)
 		return objectsAdded, err
 	}
 
-	added, err = components.CreateCRDs(clientset, kv, stores, expectations)
-	objectsAdded = objectsAdded + added
-	if err != nil {
-		log.Log.Errorf("Failed to create crds: %v", err)
-		return objectsAdded, err
-	}
-
-	added, err = components.CreateControllers(clientset, kv, config, stores, expectations)
-	objectsAdded = objectsAdded + added
-	if err != nil {
-		log.Log.Errorf("Failed to create controllers: %v", err)
-		return objectsAdded, err
-	}
-
+	log.Log.Object(kv).Infof("Created %d objects this round", objectsAdded)
 	return objectsAdded, nil
 }

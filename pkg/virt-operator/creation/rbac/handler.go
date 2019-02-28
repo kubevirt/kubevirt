@@ -138,8 +138,7 @@ func newHandlerServiceAccount(namespace string) *corev1.ServiceAccount {
 			Namespace: namespace,
 			Name:      "kubevirt-handler",
 			Labels: map[string]string{
-				virtv1.AppLabel:       "",
-				virtv1.ManagedByLabel: virtv1.ManagedByLabelOperatorValue,
+				virtv1.AppLabel: "",
 			},
 		},
 	}
@@ -154,8 +153,7 @@ func newHandlerClusterRole() *rbacv1.ClusterRole {
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "kubevirt-handler",
 			Labels: map[string]string{
-				virtv1.AppLabel:       "",
-				virtv1.ManagedByLabel: virtv1.ManagedByLabelOperatorValue,
+				virtv1.AppLabel: "",
 			},
 		},
 		Rules: []rbacv1.PolicyRule{
@@ -216,8 +214,7 @@ func newHandlerClusterRoleBinding(namespace string) *rbacv1.ClusterRoleBinding {
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "kubevirt-handler",
 			Labels: map[string]string{
-				virtv1.AppLabel:       "",
-				virtv1.ManagedByLabel: virtv1.ManagedByLabelOperatorValue,
+				virtv1.AppLabel: "",
 			},
 		},
 		RoleRef: rbacv1.RoleRef{
@@ -245,8 +242,7 @@ func newHandlerRole(namespace string) *rbacv1.Role {
 			Namespace: namespace,
 			Name:      "kubevirt-handler",
 			Labels: map[string]string{
-				virtv1.AppLabel:       "",
-				virtv1.ManagedByLabel: virtv1.ManagedByLabelOperatorValue,
+				virtv1.AppLabel: "",
 			},
 		},
 		Rules: []rbacv1.PolicyRule{
@@ -275,8 +271,7 @@ func newHandlerRoleBinding(namespace string) *rbacv1.RoleBinding {
 			Namespace: namespace,
 			Name:      "kubevirt-handler",
 			Labels: map[string]string{
-				virtv1.AppLabel:       "",
-				virtv1.ManagedByLabel: virtv1.ManagedByLabelOperatorValue,
+				virtv1.AppLabel: "",
 			},
 		},
 		RoleRef: rbacv1.RoleRef{

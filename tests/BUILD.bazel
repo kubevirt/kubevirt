@@ -57,6 +57,7 @@ go_test(
         "infra_test.go",
         "migration_test.go",
         "networkpolicy_test.go",
+        "operator_test.go",
         "probes_test.go",
         "registry_disk_test.go",
         "replicaset_test.go",

@@ -438,6 +438,8 @@ const (
 	// This label will be set on all resources created by the operator
 	ManagedByLabel              = "app.kubernetes.io/managed-by"
 	ManagedByLabelOperatorValue = "kubevirt-operator"
+	// This label represents the kubevirt version for an install strategy configmap.
+	InstallStrategyVersionLabel = "kubevirt.io/install-strategy-version"
 
 	VirtualMachineInstanceFinalizer string = "foregroundDeleteVirtualMachine"
 	CPUManager                      string = "cpumanager"
