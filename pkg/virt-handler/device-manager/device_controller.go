@@ -20,11 +20,7 @@
 package device_manager
 
 import (
-	"fmt"
 	"os"
-	"path/filepath"
-
-	"github.com/fsnotify/fsnotify"
 
 	"kubevirt.io/kubevirt/pkg/log"
 )
@@ -62,73 +58,31 @@ func (c *DeviceController) nodeHasDevice(devicePath string) bool {
 	return (err == nil)
 }
 
-func (c *DeviceController) waitForPath(target string, stop chan struct{}) error {
-	logger := log.DefaultLogger()
-
-	_, err := os.Stat(target)
-	if err != nil {
-		if !os.IsNotExist(err) {
-			return err
-		}
-	} else {
-		// File already exists, so there's nothing to wait for
-		return nil
-	}
-
-	watcher, err := fsnotify.NewWatcher()
-	if err != nil {
-		return err
-	}
-	defer watcher.Close()
-
-	// Can't watch for a nonexistent file, so watch the parent directory
-	dirName := filepath.Dir(target)
-
-	_, err = os.Stat(dirName)
-	if err != nil {
-		// If the parent directory doesn't exist, there's nothing to watch
-		return err
-	}
-
-	err = watcher.Add(dirName)
-	if err != nil {
-		logger.Errorf("Error adding path to watcher: %v", err)
-		return err
-	}
-
-	for {
-		select {
-		case event := <-watcher.Events:
-			if (event.Op == fsnotify.Create) && (event.Name == target) {
-				return nil
-			}
-		case <-stop:
-			return fmt.Errorf("shutting down")
-		}
-	}
-}
-
 func (c *DeviceController) startDevicePlugin(dev GenericDevice, stop chan struct{}) error {
 	logger := log.DefaultLogger()
-	devicePath := dev.GetDevicePath()
 	deviceName := dev.GetDeviceName()
-	if !c.nodeHasDevice(devicePath) {
-		logger.Infof("%s device not found. Waiting.", deviceName)
-		err := c.waitForPath(devicePath, stop)
+
+	for {
+		done, err := dev.Start(stop)
 		if err != nil {
-			logger.Errorf("error waiting for %s device: %v", deviceName, err)
+			logger.Errorf("Error starting %s device plugin: %v", deviceName, err)
 			return err
 		}
-	}
 
-	err := dev.Start(stop)
-	if err != nil {
-		logger.Errorf("Error starting %s device plugin: %v", deviceName, err)
-		return err
-	}
+		logger.Infof("%s device plugin started", deviceName)
 
-	logger.Infof("%s device plugin started", deviceName)
-	return nil
+		// Let's wait until the device plugin stopped
+		<-done
+
+		select {
+		case <-stop:
+			// Ok we don't want to re-register
+			return nil
+		default:
+			// Let's re-register
+		}
+
+	}
 }
 
 func (c *DeviceController) Run(stop chan struct{}) error {

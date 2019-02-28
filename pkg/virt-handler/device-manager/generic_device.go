@@ -42,7 +42,7 @@ const (
 )
 
 type GenericDevice interface {
-	Start(chan struct{}) error
+	Start(chan struct{}) (done chan struct{}, err error)
 	GetDevicePath() string
 	GetDeviceName() string
 }
@@ -56,6 +56,8 @@ type GenericDevicePlugin struct {
 	health     chan string
 	devicePath string
 	deviceName string
+	done       chan struct{}
+	deviceRoot string
 }
 
 func NewGenericDevicePlugin(deviceName string, devicePath string, maxDevices int) *GenericDevicePlugin {
@@ -67,6 +69,7 @@ func NewGenericDevicePlugin(deviceName string, devicePath string, maxDevices int
 		health:     make(chan string),
 		deviceName: deviceName,
 		devicePath: devicePath,
+		deviceRoot: "/proc/1/root/",
 	}
 	for i := 0; i < maxDevices; i++ {
 		dpi.addNewGenericDevice()
@@ -111,23 +114,20 @@ func (dpi *GenericDevicePlugin) GetDeviceName() string {
 }
 
 // Start starts the gRPC server of the device plugin
-func (dpi *GenericDevicePlugin) Start(stop chan struct{}) error {
-	if dpi.server != nil {
-		return fmt.Errorf("gRPC server already started")
-	}
-
+func (dpi *GenericDevicePlugin) Start(stop chan struct{}) (done chan struct{}, err error) {
 	logger := log.DefaultLogger()
 	dpi.stop = stop
+	dpi.done = make(chan struct{})
 
-	err := dpi.cleanup()
+	err = dpi.cleanup()
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	sock, err := net.Listen("unix", dpi.socketPath)
 	if err != nil {
 		logger.Errorf("[%s] Error creating GRPC server socket: %v", dpi.deviceName, err)
-		return err
+		return nil, err
 	}
 
 	dpi.server = grpc.NewServer([]grpc.ServerOption{}...)
@@ -136,33 +136,28 @@ func (dpi *GenericDevicePlugin) Start(stop chan struct{}) error {
 	err = dpi.Register()
 	if err != nil {
 		logger.Errorf("[%s] Error registering with device plugin manager: %v", dpi.deviceName, err)
-		return err
+		return nil, err
 	}
 
 	go dpi.server.Serve(sock)
 
 	err = waitForGrpcServer(dpi.socketPath, connectionTimeout)
 	if err != nil {
-		// this err is returned at the end of the Start function
 		logger.Errorf("[%s] Error connecting to GRPC server: %v", dpi.deviceName, err)
+		return nil, err
 	}
 
 	go dpi.healthCheck()
 
 	logger.V(3).Infof("[%s] Device plugin server ready", dpi.deviceName)
 
-	return err
+	return dpi.done, nil
 }
 
 // Stop stops the gRPC server
 func (dpi *GenericDevicePlugin) Stop() error {
-	if dpi.server == nil {
-		return nil
-	}
-
+	defer close(dpi.done)
 	dpi.server.Stop()
-	dpi.server = nil
-
 	return dpi.cleanup()
 }
 
@@ -218,6 +213,8 @@ func (dpi *GenericDevicePlugin) ListAndWatch(e *pluginapi.Empty, s pluginapi.Dev
 			s.Send(&pluginapi.ListAndWatchResponse{Devices: dpi.devs})
 		case <-dpi.stop:
 			return nil
+		case <-dpi.done:
+			return nil
 		}
 	}
 }
@@ -258,6 +255,7 @@ func (dpi *GenericDevicePlugin) PreStartContainer(ctx context.Context, in *plugi
 }
 
 func (dpi *GenericDevicePlugin) healthCheck() error {
+	defer dpi.Stop()
 	logger := log.DefaultLogger()
 	watcher, err := fsnotify.NewWatcher()
 	if err != nil {
@@ -266,21 +264,37 @@ func (dpi *GenericDevicePlugin) healthCheck() error {
 	}
 	defer watcher.Close()
 
-	healthy := pluginapi.Healthy
-	_, err = os.Stat(dpi.devicePath)
+	// This way we don't have to mount /dev from the node
+	devicePath := filepath.Join(dpi.deviceRoot, dpi.devicePath)
+
+	// Start watching the files before we check for their existence to avoid races
+	dirName := filepath.Dir(devicePath)
+	err = watcher.Add(dirName)
+
+	if err != nil {
+		logger.Errorf("Unable to add path to fsnotify watcher: %v", err)
+		return err
+	}
+
+	_, err = os.Stat(devicePath)
 	if err != nil {
 		if !os.IsNotExist(err) {
 			logger.Errorf("Unable to stat device: %v", err)
 			return err
 		}
-		healthy = pluginapi.Unhealthy
+		dpi.health <- pluginapi.Unhealthy
 	}
 
-	dirName := filepath.Dir(dpi.devicePath)
-
+	dirName = filepath.Dir(dpi.socketPath)
 	err = watcher.Add(dirName)
+
 	if err != nil {
 		logger.Errorf("Unable to add path to fsnotify watcher: %v", err)
+		return err
+	}
+	_, err = os.Stat(dpi.socketPath)
+	if err != nil {
+		logger.Errorf("Unable to stat socket: %v", err)
 		return err
 	}
 
@@ -288,17 +302,22 @@ func (dpi *GenericDevicePlugin) healthCheck() error {
 		select {
 		case <-dpi.stop:
 			return nil
+		case err := <-watcher.Errors:
+			logger.Reason(err).Errorf("error watching devices and device plugin directory")
 		case event := <-watcher.Events:
-			logger.Infof("health Event: %v", event)
-			logger.Infof("health Event Name: %s", event.Name)
-			if event.Name == dpi.devicePath {
+			logger.V(4).Infof("health Event: %v", event)
+			if event.Name == devicePath {
 				// Health in this case is if the device path actually exists
 				if event.Op == fsnotify.Create {
-					healthy = pluginapi.Healthy
+					logger.Infof("monitored device %s appeared", dpi.deviceName)
+					dpi.health <- pluginapi.Healthy
 				} else if (event.Op == fsnotify.Remove) || (event.Op == fsnotify.Rename) {
-					healthy = pluginapi.Unhealthy
+					logger.Infof("monitored device %s disappeared", dpi.deviceName)
+					dpi.health <- pluginapi.Unhealthy
 				}
-				dpi.health <- healthy
+			} else if event.Name == dpi.socketPath && event.Op == fsnotify.Remove {
+				logger.Infof("device socket file for device %s was removed, kubelet probably restarted.", dpi.deviceName)
+				return nil
 			}
 		}
 	}

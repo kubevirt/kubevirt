@@ -1,7 +1,6 @@
 package device_manager
 
 import (
-	"fmt"
 	"io/ioutil"
 	"os"
 	"path"
@@ -15,12 +14,13 @@ type FakePlugin struct {
 	started    chan struct{}
 	devicePath string
 	deviceName string
+	done       chan struct{}
 }
 
-func (fp *FakePlugin) Start(stop chan struct{}) error {
+func (fp *FakePlugin) Start(stop chan struct{}) (done chan struct{}, err error) {
 	//fp.started <- struct{}{}
 	close(fp.started)
-	return nil
+	return fp.done, nil
 }
 
 func (fp *FakePlugin) GetDevicePath() string {
@@ -36,6 +36,7 @@ func NewFakePlugin(name string, path string) *FakePlugin {
 		deviceName: name,
 		devicePath: path,
 		started:    make(chan struct{}),
+		done:       make(chan struct{}),
 	}
 }
 
@@ -72,43 +73,6 @@ var _ = Describe("Device Controller", func() {
 
 			res = deviceController.nodeHasDevice(devicePath)
 			Expect(res).To(BeTrue())
-		})
-
-		It("Should stop waiting if channel is closed", func() {
-			deviceController = NewDeviceController(host, 10)
-			devicePath := path.Join(workDir, "fake-device")
-			stopChan := make(chan struct{})
-			close(stopChan)
-			err := deviceController.waitForPath(devicePath, stopChan)
-			Expect(err).To(HaveOccurred())
-		})
-
-		It("Should wait for path to exist", func() {
-			deviceController = NewDeviceController(host, 10)
-			devicePath := path.Join(workDir, "fake-device")
-
-			By(fmt.Sprintf("Device Path: %s", devicePath))
-
-			timeout := make(chan struct{})
-			errChan := make(chan error)
-			go func(devicePath string) {
-				time.Sleep(1 * time.Second)
-
-				fileObj, err := os.Create(devicePath)
-				fileObj.Close()
-				errChan <- err
-			}(devicePath)
-
-			go func(timeout chan struct{}) {
-				time.Sleep(5 * time.Second)
-				close(timeout)
-			}(timeout)
-
-			err := <-errChan
-			Expect(err).ToNot(HaveOccurred())
-
-			err = deviceController.waitForPath(devicePath, timeout)
-			Expect(err).ToNot(HaveOccurred())
 		})
 	})
 
@@ -155,31 +119,6 @@ var _ = Describe("Device Controller", func() {
 
 			Expect(started).To(BeTrue(), "device plugin never started")
 			Expect(timedOut).To(BeFalse(), "device plugin should not have timed out")
-		})
-
-		It("Should block until ready", func() {
-			deviceController = NewDeviceController(host, 10)
-			deviceController.devicePlugins = []GenericDevice{plugin1, plugin2}
-			go deviceController.Run(stop)
-
-			timeout := make(chan struct{})
-
-			go func() {
-				time.Sleep(1 * time.Second)
-				close(timeout)
-			}()
-
-			started := false
-			timedOut := false
-			select {
-			case <-plugin1.started:
-				started = true
-			case <-timeout:
-				timedOut = true
-			}
-
-			Expect(started).To(BeFalse(), "device plugin should not have started")
-			Expect(timedOut).To(BeTrue(), "device plugin should have timed out")
 		})
 	})
 })

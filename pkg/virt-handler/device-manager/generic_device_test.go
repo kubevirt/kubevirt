@@ -4,10 +4,12 @@ import (
 	"io/ioutil"
 	"os"
 	"path"
+	"path/filepath"
 	"time"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+	"google.golang.org/grpc"
 
 	pluginapi "kubevirt.io/kubevirt/pkg/virt-handler/device-manager/deviceplugin/v1beta1"
 )
@@ -29,6 +31,10 @@ var _ = Describe("Generic Device", func() {
 		fileObj.Close()
 
 		dpi = NewGenericDevicePlugin("foo", devicePath, 1)
+		dpi.socketPath = filepath.Join(workDir, "test.sock")
+		dpi.server = grpc.NewServer([]grpc.ServerOption{}...)
+		dpi.done = make(chan struct{})
+		dpi.deviceRoot = "/"
 		stop = make(chan struct{})
 		dpi.stop = stop
 
@@ -47,7 +53,38 @@ var _ = Describe("Generic Device", func() {
 		Expect(len(dpi.devs)).To(Equal(dpi.counter))
 	})
 
+	It("should stop if the kubelet deletes the socket because of restarts", func() {
+		Expect(dpi.healthCheck()).To(HaveOccurred())
+	})
+
+	It("should stop if it is already running and the socket path gets removed", func() {
+		os.OpenFile(dpi.socketPath, os.O_RDONLY|os.O_CREATE, 0666)
+
+		go dpi.healthCheck()
+		Consistently(func() bool {
+			select {
+			case <-dpi.done:
+				return true
+			default:
+				return false
+			}
+		}, 1*time.Second).Should(BeFalse())
+
+		os.RemoveAll(dpi.socketPath)
+		Eventually(func() bool {
+			select {
+			case <-dpi.done:
+				return true
+			default:
+				return false
+			}
+		}).Should(BeTrue())
+	})
+
 	It("Should monitor health of device node", func() {
+
+		os.OpenFile(dpi.socketPath, os.O_RDONLY|os.O_CREATE, 0666)
+
 		go dpi.healthCheck()
 		Expect(dpi.devs[0].Health).To(Equal(pluginapi.Healthy))
 
