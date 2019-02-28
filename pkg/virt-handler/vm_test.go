@@ -647,6 +647,44 @@ var _ = Describe("VirtualMachineInstance", func() {
 			controller.Execute()
 		}, 3)
 
+		It("should abort vmi migration vmi when migration object indicates deletion", func() {
+			vmi := v1.NewMinimalVMI("testvmi")
+			vmi.UID = testUUID
+			vmi.ObjectMeta.ResourceVersion = "1"
+			vmi.Status.Phase = v1.Running
+			vmi.Labels = make(map[string]string)
+			vmi.Status.NodeName = host
+			vmi.Labels[v1.MigrationTargetNodeNameLabel] = "othernode"
+			vmi.Status.MigrationState = &v1.VirtualMachineInstanceMigrationState{
+				Aborted:                        true,
+				TargetNode:                     "othernode",
+				TargetNodeAddress:              "127.0.0.1:12345",
+				SourceNode:                     host,
+				MigrationUID:                   "123",
+				TargetDirectMigrationNodePorts: map[int]int{49152: 12132},
+			}
+			vmi.Status.Conditions = []v1.VirtualMachineInstanceCondition{
+				{
+					Type:   v1.VirtualMachineInstanceIsMigratable,
+					Status: k8sv1.ConditionTrue,
+				},
+			}
+
+			mockWatchdog.CreateFile(vmi)
+			domain := api.NewMinimalDomainWithUUID("testvmi", testUUID)
+			domain.Status.Status = api.Running
+			now := metav1.Time{Time: time.Unix(time.Now().UTC().Unix(), 0)}
+			domain.Spec.Metadata.KubeVirt.Migration = &api.MigrationMetadata{
+				UID:            "123",
+				StartTimestamp: &now,
+			}
+			domainFeeder.Add(domain)
+			vmiFeeder.Add(vmi)
+
+			client.EXPECT().CancelVirtualMachineMigration(vmi)
+			controller.Execute()
+		}, 3)
+
 		It("Handoff domain to other node after completed migration", func() {
 			vmi := v1.NewMinimalVMI("testvmi")
 			vmi.UID = testUUID
