@@ -109,6 +109,40 @@ var _ = Describe("Migrations", func() {
 		By("Verifying the VMI's is in the running state")
 		Expect(vmi.Status.Phase).To(Equal(v1.Running))
 	}
+	confirmVMIPostMigrationAborted := func(vmi *v1.VirtualMachineInstance, migrationUID string, timeout int) *v1.VirtualMachineInstance {
+		By("Waiting until the migration is completed")
+		Eventually(func() bool {
+			vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &metav1.GetOptions{})
+			Expect(err).To(BeNil())
+
+			Expect(vmi.Status.MigrationState).ToNot(BeNil())
+
+			if vmi.Status.MigrationState.Completed {
+				return true
+			}
+			return false
+
+		}, timeout, 1*time.Second).Should(Equal(true))
+
+		By("Retrieving the VMI post migration")
+		vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &metav1.GetOptions{})
+		Expect(err).To(BeNil())
+
+		By("Verifying the VMI's migration state")
+		Expect(vmi.Status.MigrationState).ToNot(BeNil())
+		Expect(vmi.Status.MigrationState.StartTimestamp).ToNot(BeNil())
+		Expect(vmi.Status.MigrationState.EndTimestamp).ToNot(BeNil())
+		Expect(vmi.Status.MigrationState.SourceNode).To(Equal(vmi.Status.NodeName))
+		Expect(vmi.Status.MigrationState.TargetNode).ToNot(Equal(vmi.Status.MigrationState.SourceNode))
+		Expect(vmi.Status.MigrationState.TargetNodeAddress).ToNot(Equal(""))
+		Expect(string(vmi.Status.MigrationState.MigrationUID)).To(Equal(migrationUID))
+		Expect(vmi.Status.MigrationState.Failed).To(Equal(true))
+		Expect(vmi.Status.MigrationState.Aborted).To(Equal(true))
+
+		By("Verifying the VMI's is in the running state")
+		Expect(vmi.Status.Phase).To(Equal(v1.Running))
+		return vmi
+	}
 	runMigrationAndExpectCompletion := func(migration *v1.VirtualMachineInstanceMigration, timeout int) string {
 		By("Starting a Migration")
 		Eventually(func() error {
@@ -131,6 +165,39 @@ var _ = Describe("Migrations", func() {
 			return false
 
 		}, timeout, 1*time.Second).Should(Equal(true))
+		return uid
+	}
+	runAndCancelMigration := func(migration *v1.VirtualMachineInstanceMigration, vmi *v1.VirtualMachineInstance, timeout int) string {
+		By("Starting a Migration")
+		Eventually(func() error {
+			_, err := virtClient.VirtualMachineInstanceMigration(migration.Namespace).Create(migration)
+			return err
+		}, timeout, 1*time.Second).ShouldNot(HaveOccurred())
+
+		By("Waiting until the Migration is Running")
+
+		uid := ""
+		Eventually(func() bool {
+			migration, err := virtClient.VirtualMachineInstanceMigration(migration.Namespace).Get(migration.Name, &metav1.GetOptions{})
+			Expect(err).To(BeNil())
+
+			Expect(migration.Status.Phase).ToNot(Equal(v1.MigrationFailed))
+			uid = string(migration.UID)
+			if migration.Status.Phase == v1.MigrationRunning {
+				vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &metav1.GetOptions{})
+				Expect(err).To(BeNil())
+				if vmi.Status.MigrationState.Completed != true {
+					return true
+				}
+			}
+			return false
+
+		}, timeout, 1*time.Second).Should(Equal(true))
+
+		By("Cancelling a Migration")
+		orphanPolicy := metav1.DeletePropagationOrphan
+		Expect(virtClient.VirtualMachineInstanceMigration(migration.Namespace).Delete(migration.Name, &metav1.DeleteOptions{PropagationPolicy: &orphanPolicy})).To(Succeed(), "Migration should be deleted successfully")
+
 		return uid
 	}
 
@@ -424,6 +491,41 @@ var _ = Describe("Migrations", func() {
 
 				By("Waiting for VMI to disappear")
 				tests.WaitForVirtualMachineToDisappearWithTimeout(vmi, 120)
+			})
+			It("should be able successfully cancel a migration", func() {
+
+				vmi := tests.NewRandomVMIWithEphemeralDisk(tests.ContainerDiskFor(tests.ContainerDiskCirros))
+				tests.AddUserData(vmi, "cloud-init", "#!/bin/bash\necho 'hello'\n")
+
+				By("Starting the VirtualMachineInstance")
+				vmi = runVMIAndExpectLaunch(vmi, 240)
+
+				By("Checking that the VirtualMachineInstance console has expected output")
+				expecter, err := tests.LoggedInCirrosExpecter(vmi)
+				Expect(err).To(BeNil())
+				expecter.Close()
+
+				// execute a migration, wait for finalized state
+				By("Starting the Migration")
+				migration := tests.NewRandomMigration(vmi.Name, vmi.Namespace)
+				migration.Spec.Config = &v1.MigrationConfig{
+					CompletionTimeoutPerGiB: 800,
+					ProgressTimeout:         800,
+				}
+
+				migrationUID := runAndCancelMigration(migration, vmi, 180)
+
+				// check VMI, confirm migration state
+				confirmVMIPostMigrationAborted(vmi, migrationUID, 180)
+
+				// delete VMI
+				By("Deleting the VMI")
+				err = virtClient.VirtualMachineInstance(vmi.Namespace).Delete(vmi.Name, &metav1.DeleteOptions{})
+				Expect(err).To(BeNil())
+
+				By("Waiting for VMI to disappear")
+				tests.WaitForVirtualMachineToDisappearWithTimeout(vmi, 240)
+
 			})
 		})
 	})
