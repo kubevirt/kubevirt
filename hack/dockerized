@@ -13,7 +13,6 @@ SYNC_VENDOR=${SYNC_VENDOR:-false}
 
 TEMPFILE=".rsynctemp"
 
-# Reduce verbosity if an automated build
 BUILDER_EXTRA_ARGS=""
 if [ -n "${KUBEVIRT_CACHE_FROM}" ]; then
     BUILDER_EXTRA_ARGS="${BUILDER_EXTRA_ARGS} --cache-from kubevirt/builder-cache:${KUBEVIRT_CACHE_FROM}"
@@ -21,6 +20,13 @@ fi
 
 if [ -n "${KUBEVIRT_UPDATE_CACHE_FROM}" ]; then
     BUILDER_EXTRA_ARGS="${BUILDER_EXTRA_ARGS} -t kubevirt/builder-cache:${KUBEVIRT_UPDATE_CACHE_FROM}"
+fi
+
+# Be less verbose with bazel
+if [ -n "${TRAVIS_JOB_ID}" ]; then
+    cat >.bazelrc <<EOF
+common --noshow_progress --noshow_loading_progress
+EOF
 fi
 
 # Build the build container
