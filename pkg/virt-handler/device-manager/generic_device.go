@@ -61,7 +61,7 @@ type GenericDevicePlugin struct {
 }
 
 func NewGenericDevicePlugin(deviceName string, devicePath string, maxDevices int) *GenericDevicePlugin {
-	serverSock := fmt.Sprintf(pluginapi.DevicePluginPath+"kubevirt-%s.sock", deviceName)
+	serverSock := SocketPath(deviceName)
 	dpi := &GenericDevicePlugin{
 		counter:    0,
 		devs:       []*pluginapi.Device{},
@@ -321,4 +321,8 @@ func (dpi *GenericDevicePlugin) healthCheck() error {
 			}
 		}
 	}
+}
+
+func SocketPath(deviceName string) string {
+	return filepath.Join(pluginapi.DevicePluginPath, fmt.Sprintf("kubevirt-%s.sock", deviceName))
 }
