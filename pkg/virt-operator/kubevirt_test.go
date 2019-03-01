@@ -37,10 +37,8 @@ import (
 	rbacv1 "k8s.io/api/rbac/v1"
 	extv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
 	extclientfake "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset/fake"
-	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/kubernetes/fake"
 	"k8s.io/client-go/testing"
 	"k8s.io/client-go/tools/cache"
@@ -353,8 +351,8 @@ var _ = Describe("KubeVirt Operator", func() {
 	}
 
 	addAll := func() {
-		repository := "somerepository"
-		version := "v9.9.9"
+		repository := defaultRegistry
+		version := defaultImageTag
 		pullPolicy := "IfNotPresent"
 		imagePullPolicy := k8sv1.PullPolicy(pullPolicy)
 		verbosity := "2"
@@ -779,9 +777,11 @@ var _ = Describe("KubeVirt Operator", func() {
 							Message: "All components are ready.",
 						},
 					},
-					OperatorVersion:         version.Get().String(),
-					TargetKubeVirtVersion:   "v9.9.9",
-					ObservedKubeVirtVersion: "v9.9.9",
+					OperatorVersion:          version.Get().String(),
+					TargetKubeVirtVersion:    defaultImageTag,
+					TargetKubeVirtRegistry:   defaultRegistry,
+					ObservedKubeVirtVersion:  defaultImageTag,
+					ObservedKubeVirtRegistry: defaultRegistry,
 				},
 			}
 
@@ -1052,7 +1052,16 @@ var _ = Describe("KubeVirt Operator", func() {
 				Expect(ok).To(BeTrue())
 
 				configMap := create.GetObject().(*k8sv1.ConfigMap)
-				Expect(configMap.Name).To(Equal("kubevirt-install-strategy-v9.9.9"))
+				Expect(configMap.GenerateName).To(Equal("kubevirt-install-strategy-"))
+
+				version, ok := configMap.ObjectMeta.Annotations[v1.InstallStrategyVersionAnnotation]
+				Expect(ok).To(BeTrue())
+
+				Expect(version).To(Equal(defaultImageTag))
+
+				registry, ok := configMap.ObjectMeta.Annotations[v1.InstallStrategyRegistryAnnotation]
+				Expect(registry).To(Equal(defaultRegistry))
+				Expect(ok).To(BeTrue())
 
 				_, ok = configMap.Data["manifests"]
 				Expect(ok).To(BeTrue())
@@ -1061,34 +1070,6 @@ var _ = Describe("KubeVirt Operator", func() {
 			})
 
 			// This generates and posts the install strategy config map
-			installstrategy.DumpInstallStrategyToConfigMap(virtClient)
-		}, 15)
-
-		It("should update an existing install strategy config map", func(done Done) {
-			defer close(done)
-
-			kubeClient.Fake.PrependReactor("create", "configmaps", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
-				create, ok := action.(testing.CreateAction)
-				Expect(ok).To(BeTrue())
-
-				configMap := create.GetObject().(*k8sv1.ConfigMap)
-				Expect(configMap.Name).To(Equal("kubevirt-install-strategy-v9.9.9"))
-				return true, nil, errors.NewAlreadyExists(schema.GroupResource{}, configMap.Name)
-			})
-			kubeClient.Fake.PrependReactor("update", "configmaps", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
-				update, ok := action.(testing.UpdateAction)
-				Expect(ok).To(BeTrue())
-
-				configMap := update.GetObject().(*k8sv1.ConfigMap)
-				Expect(configMap.Name).To(Equal("kubevirt-install-strategy-v9.9.9"))
-
-				_, ok = configMap.Data["manifests"]
-				Expect(ok).To(BeTrue())
-
-				return true, update.GetObject(), nil
-			})
-
-			// This should update an already existing install strategy
 			installstrategy.DumpInstallStrategyToConfigMap(virtClient)
 		}, 15)
 	})

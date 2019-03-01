@@ -79,10 +79,6 @@ type InstallStrategy struct {
 	customSccPrivileges []*customSccPrivilegedAccounts
 }
 
-func generateConfigMapName(imageTag string) string {
-	return fmt.Sprintf("kubevirt-install-strategy-%s", imageTag)
-}
-
 func NewInstallStrategyConfigMap(namespace string, imageTag string, imageRegistry string) (*corev1.ConfigMap, error) {
 
 	strategy, err := GenerateCurrentInstallStrategy(
@@ -97,11 +93,15 @@ func NewInstallStrategyConfigMap(namespace string, imageTag string, imageRegistr
 
 	configMap := &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      generateConfigMapName(imageTag),
-			Namespace: namespace,
+			GenerateName: "kubevirt-install-strategy-",
+			Namespace:    namespace,
 			Labels: map[string]string{
-				v1.ManagedByLabel:              v1.ManagedByLabelOperatorValue,
-				v1.InstallStrategyVersionLabel: imageTag,
+				v1.ManagedByLabel:       v1.ManagedByLabelOperatorValue,
+				v1.InstallStrategyLabel: "",
+			},
+			Annotations: map[string]string{
+				v1.InstallStrategyVersionAnnotation:  imageTag,
+				v1.InstallStrategyRegistryAnnotation: imageRegistry,
 			},
 		},
 		Data: map[string]string{
@@ -267,21 +267,42 @@ func GenerateCurrentInstallStrategy(namespace string,
 	return strategy, nil
 }
 
-func LoadInstallStrategyFromCache(stores util.Stores, namespace string, imageTag string) (*InstallStrategy, error) {
+func LoadInstallStrategyFromCache(stores util.Stores, namespace string, imageTag string, imageRegistry string) (*InstallStrategy, error) {
+	var configMap *corev1.ConfigMap
+	var matchingConfigMaps []*corev1.ConfigMap
 
-	configMap := &corev1.ConfigMap{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      generateConfigMapName(imageTag),
-			Namespace: namespace,
-		},
+	for _, obj := range stores.InstallStrategyConfigMapCache.List() {
+		config, ok := obj.(*corev1.ConfigMap)
+		if !ok {
+			continue
+		}
+		if config.ObjectMeta.Annotations == nil {
+			continue
+		}
+
+		version, _ := config.ObjectMeta.Annotations[v1.InstallStrategyVersionAnnotation]
+		registry, _ := config.ObjectMeta.Annotations[v1.InstallStrategyRegistryAnnotation]
+		if version == imageTag && registry == imageRegistry {
+			matchingConfigMaps = append(matchingConfigMaps, config)
+		}
 	}
-	obj, exists, _ := stores.InstallStrategyConfigMapCache.Get(configMap)
 
-	if !exists {
-		return nil, fmt.Errorf("no install strategy configmap found for version %s", imageTag)
+	if len(matchingConfigMaps) == 0 {
+		return nil, fmt.Errorf("no install strategy configmap found for version %s with registry %s", imageTag, imageRegistry)
 	}
 
-	configMap = obj.(*corev1.ConfigMap)
+	// choose the most recent configmap if multiple match.
+	mostRecentTime := metav1.Time{}
+	for _, config := range matchingConfigMaps {
+		if configMap == nil {
+			configMap = config
+			mostRecentTime = config.ObjectMeta.CreationTimestamp
+		} else if mostRecentTime.Before(&config.ObjectMeta.CreationTimestamp) {
+			configMap = config
+			mostRecentTime = config.ObjectMeta.CreationTimestamp
+		}
+	}
+
 	data, ok := configMap.Data["manifests"]
 	if !ok {
 		return nil, fmt.Errorf("install strategy configmap %s does not contain 'manifests' key", configMap.Name)

@@ -447,8 +447,13 @@ const (
 	// This label will be set on all resources created by the operator
 	ManagedByLabel              = "app.kubernetes.io/managed-by"
 	ManagedByLabelOperatorValue = "kubevirt-operator"
-	// This label represents the kubevirt version for an install strategy configmap.
-	InstallStrategyVersionLabel = "kubevirt.io/install-strategy-version"
+	// This annotation represents the kubevirt version for an install strategy configmap.
+	InstallStrategyVersionAnnotation = "kubevirt.io/install-strategy-version"
+	// This annotation represents the kubevirt registry used for an install strategy configmap.
+	InstallStrategyRegistryAnnotation = "kubevirt.io/install-strategy-registry"
+
+	// This label indicates the object is a part of the install strategy retrieval process.
+	InstallStrategyLabel = "kubevirt.io/install-strategy"
 
 	VirtualMachineInstanceFinalizer string = "foregroundDeleteVirtualMachine"
 	CPUManager                      string = "cpumanager"
@@ -1065,11 +1070,13 @@ type KubeVirtSpec struct {
 // ---
 // +k8s:openapi-gen=true
 type KubeVirtStatus struct {
-	Phase                   KubeVirtPhase       `json:"phase,omitempty"`
-	Conditions              []KubeVirtCondition `json:"conditions,omitempty" optional:"true"`
-	OperatorVersion         string              `json:"operatorVersion,omitempty" optional:"true"`
-	TargetKubeVirtVersion   string              `json:"targetKubeVirtVersion,omitempty" optional:"true"`
-	ObservedKubeVirtVersion string              `json:"observedKubeVirtVersion,omitempty" optional:"true"`
+	Phase                    KubeVirtPhase       `json:"phase,omitempty"`
+	Conditions               []KubeVirtCondition `json:"conditions,omitempty" optional:"true"`
+	OperatorVersion          string              `json:"operatorVersion,omitempty" optional:"true"`
+	TargetKubeVirtVersion    string              `json:"targetKubeVirtVersion,omitempty" optional:"true"`
+	TargetKubeVirtRegistry   string              `json:"targetKubeVirtRegistry,omitempty" optional:"true"`
+	ObservedKubeVirtVersion  string              `json:"observedKubeVirtVersion,omitempty" optional:"true"`
+	ObservedKubeVirtRegistry string              `json:"observedKubeVirtRegistry,omitempty" optional:"true"`
 }
 
 // KubeVirtPhase is a label for the phase of a KubeVirt deployment at the current time.

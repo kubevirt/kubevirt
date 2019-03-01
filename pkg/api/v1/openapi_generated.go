@@ -1741,7 +1741,19 @@ func schema_kubevirt_pkg_api_v1_KubeVirtStatus(ref common.ReferenceCallback) com
 							Format: "",
 						},
 					},
+					"targetKubeVirtRegistry": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
 					"observedKubeVirtVersion": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"observedKubeVirtRegistry": {
 						SchemaProps: spec.SchemaProps{
 							Type:   []string{"string"},
 							Format: "",
