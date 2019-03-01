@@ -17,6 +17,7 @@ function prepare_config() {
     cat >hack/config-provider-$KUBEVIRT_PROVIDER.sh <<EOF
 master_ip=$(_main_ip)
 docker_tag=devel
+docker_tag_alt=devel-alt
 kubeconfig=${BASE_PATH}/cluster/$KUBEVIRT_PROVIDER/.kubeconfig
 kubectl=${BASE_PATH}/cluster/$KUBEVIRT_PROVIDER/.kubectl
 docker_prefix=localhost:$(_port registry)/kubevirt
@@ -50,10 +51,13 @@ function build() {
         local name=$(basename $arg)
         container="${container} ${manifest_docker_prefix}/${name}:${docker_tag}"
         container_alias="${container_alias} ${manifest_docker_prefix}/${name}:${docker_tag} kubevirt/${name}:${docker_tag}"
+        # the alt tag is another image tag alias we can use while testing the virt operator
+        container_alt_alias="${container_alt_alias} ${manifest_docker_prefix}/${name}:${docker_tag} ${manifest_docker_prefix}/${name}:${docker_tag_alt}"
     done
     for i in $(seq 1 ${KUBEVIRT_NUM_NODES}); do
         ${_cli} ssh --prefix $provider_prefix "node$(printf "%02d" ${i})" "echo \"${container}\" | xargs \-\-max-args=1 sudo docker pull"
         ${_cli} ssh --prefix $provider_prefix "node$(printf "%02d" ${i})" "echo \"${container_alias}\" | xargs \-\-max-args=2 sudo docker tag"
+        ${_cli} ssh --prefix $provider_prefix "node$(printf "%02d" ${i})" "echo \"${container_alt_alias}\" | xargs \-\-max-args=2 sudo docker tag"
     done
 }
 

@@ -735,9 +735,6 @@ func (c *KubeVirtController) syncDeployment(kv *v1.KubeVirt) error {
 		}
 	}
 
-	// add finalizer to prevent deletion of CR before KubeVirt was undeployed
-	util.AddFinalizer(kv)
-
 	strategy, pending, err := c.loadInstallStrategy(kv, c.getImageTag(kv), c.getImageRegistry(kv))
 	if err != nil {
 		return err
@@ -747,6 +744,9 @@ func (c *KubeVirtController) syncDeployment(kv *v1.KubeVirt) error {
 	if pending {
 		return nil
 	}
+
+	// add finalizer to prevent deletion of CR before KubeVirt was undeployed
+	util.AddFinalizer(kv)
 
 	// once all the install strategies are loaded, garbage collect any
 	// install strategy jobs that were created.
