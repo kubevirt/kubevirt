@@ -267,6 +267,22 @@ func GenerateCurrentInstallStrategy(namespace string,
 	return strategy, nil
 }
 
+func mostRecentConfigMap(configMaps []*corev1.ConfigMap) *corev1.ConfigMap {
+	var configMap *corev1.ConfigMap
+	// choose the most recent configmap if multiple match.
+	mostRecentTime := metav1.Time{}
+	for _, config := range configMaps {
+		if configMap == nil {
+			configMap = config
+			mostRecentTime = config.ObjectMeta.CreationTimestamp
+		} else if mostRecentTime.Before(&config.ObjectMeta.CreationTimestamp) {
+			configMap = config
+			mostRecentTime = config.ObjectMeta.CreationTimestamp
+		}
+	}
+	return configMap
+}
+
 func LoadInstallStrategyFromCache(stores util.Stores, namespace string, imageTag string, imageRegistry string) (*InstallStrategy, error) {
 	var configMap *corev1.ConfigMap
 	var matchingConfigMaps []*corev1.ConfigMap
@@ -292,16 +308,7 @@ func LoadInstallStrategyFromCache(stores util.Stores, namespace string, imageTag
 	}
 
 	// choose the most recent configmap if multiple match.
-	mostRecentTime := metav1.Time{}
-	for _, config := range matchingConfigMaps {
-		if configMap == nil {
-			configMap = config
-			mostRecentTime = config.ObjectMeta.CreationTimestamp
-		} else if mostRecentTime.Before(&config.ObjectMeta.CreationTimestamp) {
-			configMap = config
-			mostRecentTime = config.ObjectMeta.CreationTimestamp
-		}
-	}
+	configMap = mostRecentConfigMap(matchingConfigMaps)
 
 	data, ok := configMap.Data["manifests"]
 	if !ok {
