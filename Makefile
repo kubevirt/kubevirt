@@ -20,6 +20,9 @@ bazel-push-images:
 		--define container_tag=${CONTAINER_TAG} \
 		//:push-images"
 
+bazel-tests:
+	hack/dockerized "bazel test --test_output=errors -- //pkg/... "
+
 generate: bazel-generate
 	hack/dockerized "DOCKER_PREFIX=${DOCKER_PREFIX} DOCKER_TAG=${DOCKER_TAG} IMAGE_PULL_POLICY=${IMAGE_PULL_POLICY} VERBOSITY=${VERBOSITY} ./hack/generate.sh"
 
@@ -115,8 +118,8 @@ builder-publish:
 .PHONY: \
 	bazel-generate \
 	bazel-build \
-	bazel-build-images \
 	bazel-push-images \
+	bazel-tests \
 	build \
 	test \
 	clean \
