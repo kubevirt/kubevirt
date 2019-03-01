@@ -665,11 +665,11 @@ var _ = Describe("KubeVirt Operator", func() {
 		}).Times(times)
 	}
 
-	shouldExpectKubeVirtUpdateFailureCondition := func() {
+	shouldExpectKubeVirtUpdateFailureCondition := func(reason string) {
 		update := kvInterface.EXPECT().Update(gomock.Any())
 		update.Do(func(kv *v1.KubeVirt) {
 			Expect(len(kv.Status.Conditions)).To(Equal(1))
-			Expect(kv.Status.Conditions[0].Reason).To(Equal(ConditionReasonDeploymentFailedExisting))
+			Expect(kv.Status.Conditions[0].Reason).To(Equal(reason))
 			kvInformer.GetStore().Update(kv)
 			update.Return(kv, nil)
 		}).Times(1)
@@ -796,6 +796,56 @@ var _ = Describe("KubeVirt Operator", func() {
 
 		}, 15)
 
+		// TODO this test case will be removed once updates are implemented
+		It("shouldn't allow updating kubevirt image tag until updates are implemented", func(done Done) {
+			defer close(done)
+
+			kv := &v1.KubeVirt{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:       "test-install",
+					Namespace:  NAMESPACE,
+					UID:        "11111111111",
+					Finalizers: []string{util.KubeVirtFinalizer},
+				},
+				Spec: v1.KubeVirtSpec{
+					ImageTag: "1.1.1",
+				},
+				Status: v1.KubeVirtStatus{
+					TargetKubeVirtVersion: "2.2.2.2",
+				},
+			}
+
+			addKubeVirt(kv)
+
+			shouldExpectKubeVirtUpdateFailureCondition(ConditionReasonUpdateNotImplementedError)
+			controller.Execute()
+		}, 15)
+
+		// TODO this test case will be removed once updates are implemented
+		It("shouldn't allow updating kubevirt image registry until updates are implemented", func(done Done) {
+			defer close(done)
+
+			kv := &v1.KubeVirt{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:       "test-install",
+					Namespace:  NAMESPACE,
+					UID:        "11111111111",
+					Finalizers: []string{util.KubeVirtFinalizer},
+				},
+				Spec: v1.KubeVirtSpec{
+					ImageRegistry: "someregistry1",
+				},
+				Status: v1.KubeVirtStatus{
+					TargetKubeVirtRegistry: "someregistry2",
+				},
+			}
+
+			addKubeVirt(kv)
+
+			shouldExpectKubeVirtUpdateFailureCondition(ConditionReasonUpdateNotImplementedError)
+			controller.Execute()
+		}, 15)
+
 		It("should fail if KubeVirt object already exists", func(done Done) {
 			defer close(done)
 
@@ -838,7 +888,7 @@ var _ = Describe("KubeVirt Operator", func() {
 			addKubeVirt(kv1)
 			addKubeVirt(kv2)
 
-			shouldExpectKubeVirtUpdateFailureCondition()
+			shouldExpectKubeVirtUpdateFailureCondition(ConditionReasonDeploymentFailedExisting)
 
 			controller.execute(fmt.Sprintf("%s/%s", kv2.Namespace, kv2.Name))
 
