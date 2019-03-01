@@ -144,8 +144,9 @@ var _ = Describe("Migration watcher", func() {
 			Expect(arg.(*v1.VirtualMachineInstance).Status.MigrationState.SourceNode).To(Equal(vmi.Status.NodeName))
 			Expect(arg.(*v1.VirtualMachineInstance).Status.MigrationState.TargetNode).To(Equal(targetNode))
 			Expect(arg.(*v1.VirtualMachineInstance).Labels[v1.MigrationTargetNodeNameLabel]).To(Equal(targetNode))
-			Expect(arg.(*v1.VirtualMachineInstance).Status.MigrationState.CompletionTimeoutPerGiB).To(Equal(conf.CompletionTimeoutPerGiB))
-			Expect(arg.(*v1.VirtualMachineInstance).Status.MigrationState.ProgressTimeout).To(Equal(conf.ProgressTimeout))
+			Expect(arg.(*v1.VirtualMachineInstance).Status.MigrationState.Config).ToNot(BeNil())
+			Expect(arg.(*v1.VirtualMachineInstance).Status.MigrationState.Config.CompletionTimeoutPerGiB).To(Equal(conf.CompletionTimeoutPerGiB))
+			Expect(arg.(*v1.VirtualMachineInstance).Status.MigrationState.Config.ProgressTimeout).To(Equal(conf.ProgressTimeout))
 		}).Return(vmi, nil)
 	}
 

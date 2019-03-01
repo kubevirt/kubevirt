@@ -5899,11 +5899,6 @@
       "description": "Indicates the migration completed",
       "type": "boolean"
      },
-     "completionTimeoutPerGiB": {
-      "description": "The time for GiB of data to wait for the migration to be completed before aborting it",
-      "type": "integer",
-      "format": "int64"
-     },
      "endTimestamp": {
       "description": "The time the migration action ended",
       "type": "string"
@@ -5912,14 +5907,13 @@
       "description": "Indicates that the migration failed",
       "type": "boolean"
      },
+     "migrationConfig": {
+      "description": "Config contains migration configuration options",
+      "$ref": "#/definitions/v1.MigrationConfig"
+     },
      "migrationUid": {
       "description": "The VirtualMachineInstanceMigration object associated with this migration",
       "type": "string"
-     },
-     "progressTimeout": {
-      "description": "The time to wait for live migration to make progress in transferring data.",
-      "type": "integer",
-      "format": "int64"
      },
      "sourceNode": {
       "description": "The source node that the VMI originated on",

@@ -363,10 +363,8 @@ type VirtualMachineInstanceMigrationState struct {
 	Failed bool `json:"failed,omitempty"`
 	// The VirtualMachineInstanceMigration object associated with this migration
 	MigrationUID types.UID `json:"migrationUid,omitempty"`
-	// The time for GiB of data to wait for the migration to be completed before aborting it
-	CompletionTimeoutPerGiB int64 `json:"completionTimeoutPerGiB,omitempty"`
-	// The time to wait for live migration to make progress in transferring data.
-	ProgressTimeout int64 `json:"progressTimeout,omitempty"`
+	// Config contains migration configuration options
+	Config *MigrationConfig `json:"migrationConfig,omitempty"`
 }
 
 type MigrationConfig struct {

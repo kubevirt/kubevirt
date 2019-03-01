@@ -434,14 +434,7 @@ func (c *MigrationController) sync(migration *virtv1.VirtualMachineInstanceMigra
 				TargetPod:    pod.Name,
 			}
 			if migration.Spec.Config != nil {
-				completionTimeout := migration.Spec.Config.CompletionTimeoutPerGiB
-				progressTimeout := migration.Spec.Config.ProgressTimeout
-				if completionTimeout != 0 {
-					vmiCopy.Status.MigrationState.CompletionTimeoutPerGiB = completionTimeout
-				}
-				if progressTimeout != 0 {
-					vmiCopy.Status.MigrationState.ProgressTimeout = progressTimeout
-				}
+				vmiCopy.Status.MigrationState.Config = migration.Spec.Config.DeepCopy()
 			}
 
 			// By setting this label, virt-handler on the target node will receive

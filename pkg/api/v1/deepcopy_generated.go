@@ -2088,6 +2088,15 @@ func (in *VirtualMachineInstanceMigrationState) DeepCopyInto(out *VirtualMachine
 			(*out)[key] = val
 		}
 	}
+	if in.Config != nil {
+		in, out := &in.Config, &out.Config
+		if *in == nil {
+			*out = nil
+		} else {
+			*out = new(MigrationConfig)
+			**out = **in
+		}
+	}
 	return
 }
 

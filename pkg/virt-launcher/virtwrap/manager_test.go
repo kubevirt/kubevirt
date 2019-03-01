@@ -219,11 +219,15 @@ var _ = Describe("Manager", func() {
 				DataRemaining: 32479827394,
 			}
 
-			vmi := newVMI(testNamespace, testVmName)
-			vmi.Status.MigrationState = &v1.VirtualMachineInstanceMigrationState{
-				MigrationUID:            "111222333",
+			mConfig := &v1.MigrationConfig{
 				ProgressTimeout:         2,
 				CompletionTimeoutPerGiB: 300,
+			}
+
+			vmi := newVMI(testNamespace, testVmName)
+			vmi.Status.MigrationState = &v1.VirtualMachineInstanceMigrationState{
+				MigrationUID: "111222333",
+				Config:       mConfig,
 			}
 
 			domainSpec := expectIsolationDetectionForVMI(vmi)
@@ -256,11 +260,14 @@ var _ = Describe("Manager", func() {
 				}
 			}()
 
-			vmi := newVMI(testNamespace, testVmName)
-			vmi.Status.MigrationState = &v1.VirtualMachineInstanceMigrationState{
-				MigrationUID:            "111222333",
+			mConfig := &v1.MigrationConfig{
 				ProgressTimeout:         3,
 				CompletionTimeoutPerGiB: 150,
+			}
+			vmi := newVMI(testNamespace, testVmName)
+			vmi.Status.MigrationState = &v1.VirtualMachineInstanceMigrationState{
+				MigrationUID: "111222333",
+				Config:       mConfig,
 			}
 
 			domainSpec := expectIsolationDetectionForVMI(vmi)

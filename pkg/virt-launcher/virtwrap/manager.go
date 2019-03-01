@@ -416,8 +416,9 @@ func liveMigrationMonitor(vmi *v1.VirtualMachineInstance, dom cli.VirDomain, l *
 	completionTimeoutPerGiB := int64(800)
 
 	// update timeouts from migration config
-	conf := vmi.Status.MigrationState
-	if conf != nil {
+
+	if vmi.Status.MigrationState != nil && vmi.Status.MigrationState.Config != nil {
+		conf := vmi.Status.MigrationState.Config
 		if conf.CompletionTimeoutPerGiB != 0 {
 			completionTimeoutPerGiB = conf.CompletionTimeoutPerGiB
 		}
