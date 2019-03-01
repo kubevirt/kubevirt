@@ -53,34 +53,6 @@ var _ = Describe("Generic Device", func() {
 		Expect(len(dpi.devs)).To(Equal(dpi.counter))
 	})
 
-	It("should stop if the kubelet deletes the socket because of restarts", func() {
-		Expect(dpi.healthCheck()).To(HaveOccurred())
-	})
-
-	It("should stop if it is already running and the socket path gets removed", func() {
-		os.OpenFile(dpi.socketPath, os.O_RDONLY|os.O_CREATE, 0666)
-
-		go dpi.healthCheck()
-		Consistently(func() bool {
-			select {
-			case <-dpi.done:
-				return true
-			default:
-				return false
-			}
-		}, 1*time.Second).Should(BeFalse())
-
-		os.RemoveAll(dpi.socketPath)
-		Eventually(func() bool {
-			select {
-			case <-dpi.done:
-				return true
-			default:
-				return false
-			}
-		}).Should(BeTrue())
-	})
-
 	It("Should monitor health of device node", func() {
 
 		os.OpenFile(dpi.socketPath, os.O_RDONLY|os.O_CREATE, 0666)

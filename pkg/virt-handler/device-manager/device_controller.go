@@ -21,6 +21,7 @@ package device_manager
 
 import (
 	"os"
+	"time"
 
 	"kubevirt.io/kubevirt/pkg/log"
 )
@@ -58,28 +59,23 @@ func (c *DeviceController) nodeHasDevice(devicePath string) bool {
 	return (err == nil)
 }
 
-func (c *DeviceController) startDevicePlugin(dev GenericDevice, stop chan struct{}) error {
+func (c *DeviceController) startDevicePlugin(dev GenericDevice, stop chan struct{}) {
 	logger := log.DefaultLogger()
 	deviceName := dev.GetDeviceName()
 
 	for {
-		done, err := dev.Start(stop)
+		err := dev.Start(stop)
 		if err != nil {
 			logger.Errorf("Error starting %s device plugin: %v", deviceName, err)
-			return err
 		}
-
-		logger.Infof("%s device plugin started", deviceName)
-
-		// Let's wait until the device plugin stopped
-		<-done
 
 		select {
 		case <-stop:
 			// Ok we don't want to re-register
-			return nil
+			return
 		default:
-			// Let's re-register
+			// Wait a little bit and re-register
+			time.Sleep(1 * time.Second)
 		}
 
 	}

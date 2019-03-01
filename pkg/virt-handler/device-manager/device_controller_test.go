@@ -14,13 +14,11 @@ type FakePlugin struct {
 	started    chan struct{}
 	devicePath string
 	deviceName string
-	done       chan struct{}
 }
 
-func (fp *FakePlugin) Start(stop chan struct{}) (done chan struct{}, err error) {
-	//fp.started <- struct{}{}
-	close(fp.started)
-	return fp.done, nil
+func (fp *FakePlugin) Start(stop chan struct{}) (err error) {
+	fp.started <- struct{}{}
+	return nil
 }
 
 func (fp *FakePlugin) GetDevicePath() string {
@@ -36,7 +34,6 @@ func NewFakePlugin(name string, path string) *FakePlugin {
 		deviceName: name,
 		devicePath: path,
 		started:    make(chan struct{}),
-		done:       make(chan struct{}),
 	}
 }
 

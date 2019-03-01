@@ -42,7 +42,7 @@ const (
 )
 
 type GenericDevice interface {
-	Start(chan struct{}) (done chan struct{}, err error)
+	Start(chan struct{}) (err error)
 	GetDevicePath() string
 	GetDeviceName() string
 }
@@ -113,45 +113,55 @@ func (dpi *GenericDevicePlugin) GetDeviceName() string {
 	return dpi.deviceName
 }
 
-// Start starts the gRPC server of the device plugin
-func (dpi *GenericDevicePlugin) Start(stop chan struct{}) (done chan struct{}, err error) {
+// Start starts the device plugin
+func (dpi *GenericDevicePlugin) Start(stop chan struct{}) (err error) {
 	logger := log.DefaultLogger()
 	dpi.stop = stop
 	dpi.done = make(chan struct{})
 
 	err = dpi.cleanup()
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	sock, err := net.Listen("unix", dpi.socketPath)
 	if err != nil {
 		logger.Errorf("[%s] Error creating GRPC server socket: %v", dpi.deviceName, err)
-		return nil, err
+		return err
 	}
 
 	dpi.server = grpc.NewServer([]grpc.ServerOption{}...)
-	pluginapi.RegisterDevicePluginServer(dpi.server, dpi)
+	defer dpi.Stop()
 
+	pluginapi.RegisterDevicePluginServer(dpi.server, dpi)
 	err = dpi.Register()
 	if err != nil {
 		logger.Errorf("[%s] Error registering with device plugin manager: %v", dpi.deviceName, err)
-		return nil, err
+		return err
 	}
 
-	go dpi.server.Serve(sock)
+	errChan := make(chan error, 2)
+
+	go func() {
+		errChan <- dpi.server.Serve(sock)
+	}()
 
 	err = waitForGrpcServer(dpi.socketPath, connectionTimeout)
 	if err != nil {
 		logger.Errorf("[%s] Error connecting to GRPC server: %v", dpi.deviceName, err)
-		return nil, err
+		return err
 	}
-
-	go dpi.healthCheck()
 
 	logger.V(3).Infof("[%s] Device plugin server ready", dpi.deviceName)
 
-	return dpi.done, nil
+	go func() {
+		errChan <- dpi.healthCheck()
+	}()
+
+	logger.Infof("%s device plugin started", dpi.deviceName)
+	err = <-errChan
+
+	return err
 }
 
 // Stop stops the gRPC server
@@ -255,7 +265,6 @@ func (dpi *GenericDevicePlugin) PreStartContainer(ctx context.Context, in *plugi
 }
 
 func (dpi *GenericDevicePlugin) healthCheck() error {
-	defer dpi.Stop()
 	logger := log.DefaultLogger()
 	watcher, err := fsnotify.NewWatcher()
 	if err != nil {
