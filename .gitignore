@@ -34,3 +34,7 @@ coverage.html
 manifests/**/*.tmp
 bazel-*
 .bazelrc
+
+cluster/k8s-1.13.0-sriov/cache/
+cluster/k8s-1.13.0-sriov/config
+cluster/k8s-1.13.0-sriov/http-cache/
