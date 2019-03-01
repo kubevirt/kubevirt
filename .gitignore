@@ -36,3 +36,6 @@ manifests/**/*.tmp
 /bazel-*
 /.bazelrc
 _ci-configs/
+cluster/k8s-1.13.0-sriov/cache/
+cluster/k8s-1.13.0-sriov/config
+cluster/k8s-1.13.0-sriov/http-cache/

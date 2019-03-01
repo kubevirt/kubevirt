@@ -76,6 +76,31 @@ until _kubectl -n kubevirt get kv kubevirt; do
 done
 
 # wait until KubeVirt is ready
-_kubectl wait -n kubevirt kv kubevirt --for condition=Ready --timeout 180s || (echo "KubeVirt not ready in time" && exit 1)
+<<<<<<< HEAD:hack/cluster-deploy.sh
+
+_kubectl wait -n kubevirt kv kubevirt --for condition=Ready --timeout 360s || (echo "KubeVirt not ready in time" && exit 1)
+=======
+if [[ "$KUBEVIRT_PROVIDER" =~ .*.10..* ]]; then
+    # k8s version 1.10.* does not have wait command
+    # TODO: drop it once we get rid of 1.10.* provider
+    timeout=180
+    sample=30
+    current_time=0
+    while [ -n "$(_kubectl -n kubevirt get kv kubevirt -o'custom-columns=status:status.conditions[*].type' --no-headers | grep -v Ready)" ]; do
+        echo "Waiting for kubevirt operator to have the Ready condition ..."
+        _kubectl -n kubevirt get kv kubevirt -o'custom-columns=status:status.conditions[*].type' --no-headers | grep >&2 -v Ready || true
+        sleep $sample
+
+        current_time=$((current_time + sample))
+        if [ $current_time -gt $timeout ]; then
+            exit 1
+        fi
+    done
+else
+    date
+    _kubectl wait -n kubevirt kv kubevirt --for condition=Ready --timeout 180s || (echo "KubeVirt not ready in time" && date && exit 1)
+    date
+fi
+>>>>>>> DO NOT MERGE: log time it takes for kubevirt to get up in sriov job:cluster/deploy.sh
 
 echo "Done"
