@@ -136,6 +136,9 @@ $kubectl apply -f $MANIFESTS_DIR/multus.yaml
 $kubectl apply -f $MANIFESTS_DIR/sriov-crd.yaml
 $kubectl apply -f $MANIFESTS_DIR/sriov-cni-daemonset.yaml
 
+# prepare kernel for vfio passthrough
+modprobe vfio-pci
+
 # deploy sriov device plugin
 $mastercmd ./automation/configure_sriovdp.sh
 $kubectl apply -f $MANIFESTS_DIR/sriovdp-daemonset.yaml
