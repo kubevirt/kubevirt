@@ -1121,8 +1121,6 @@ var _ = Describe("Configurations", func() {
 	})
 	Describe("[rfe_id:897][crit:medium][vendor:cnv-qe@redhat.com][level:component]VirtualMachineInstance with CPU pinning", func() {
 		var nodes *kubev1.NodeList
-		var nodesWithCPUManager *kubev1.NodeList
-		var nodesWithoutCPUManager *kubev1.NodeList
 
 		BeforeEach(func() {
 			nodes, err = virtClient.CoreV1().Nodes().List(metav1.ListOptions{})
@@ -1130,14 +1128,6 @@ var _ = Describe("Configurations", func() {
 			if len(nodes.Items) == 1 {
 				Skip("Skip cpu pinning test that requires multiple nodes when only one node is present.")
 			}
-
-			nodesWithCPUManager, err := virtClient.CoreV1().Nodes().List(metav1.ListOptions{LabelSelector: v1.CPUManager + "=" + "true"})
-			Expect(err).ToNot(HaveOccurred())
-			Expect(nodesWithCPUManager.Items).NotTo(Equal(0))
-
-			nodesWithoutCPUManager, err = virtClient.CoreV1().Nodes().List(metav1.ListOptions{LabelSelector: v1.CPUManager + "=" + "false"})
-			Expect(err).ToNot(HaveOccurred())
-			Expect(nodesWithoutCPUManager.Items).NotTo(Equal(0))
 		})
 		Context("with cpu pinning enabled", func() {
 			It("[test_id:1684]should set the cpumanager label to false when it's not running", func() {
@@ -1181,14 +1171,20 @@ var _ = Describe("Configurations", func() {
 						kubev1.ResourceMemory: resource.MustParse("64M"),
 					},
 				}
+
 				By("Starting a VirtualMachineInstance")
 				_, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(cpuVmi)
 				Expect(err).ToNot(HaveOccurred())
-				node := tests.WaitForSuccessfulVMIStart(cpuVmi)
+				vmiHaveCpuManagerLabel := false
+				nodeLabels := cpuVmi.GetLabels()
 
-				for _, n := range nodesWithoutCPUManager.Items {
-					Expect(node).ToNot(ContainSubstring(n.Name))
+				for label, val := range nodeLabels {
+					if label == "cpumanager" && val == "true" {
+						vmiHaveCpuManagerLabel = true
+						break
+					}
 				}
+				Expect(vmiHaveCpuManagerLabel).To(Equal("true"))
 
 				By("Checking that the pod QOS is guaranteed")
 				readyPod := tests.GetRunningPodByVirtualMachineInstance(cpuVmi, tests.NamespaceTestDefault)
@@ -1247,10 +1243,17 @@ var _ = Describe("Configurations", func() {
 				By("Starting a VirtualMachineInstance")
 				_, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(cpuVmi)
 				Expect(err).ToNot(HaveOccurred())
-				node := tests.WaitForSuccessfulVMIStart(cpuVmi)
-				for _, n := range nodesWithoutCPUManager.Items {
-					Expect(node).ToNot(ContainSubstring(n.Name))
+				vmiHaveCpuManagerLabel := false
+				nodeLabels := cpuVmi.GetLabels()
+
+				for label, val := range nodeLabels {
+					if label == "cpumanager" && val == "true" {
+						vmiHaveCpuManagerLabel = true
+						break
+					}
 				}
+				Expect(vmiHaveCpuManagerLabel).To(Equal("false"))
+
 
 				By("Expecting the VirtualMachineInstance console")
 				expecter, err := tests.LoggedInCirrosExpecter(cpuVmi)
@@ -1337,24 +1340,30 @@ var _ = Describe("Configurations", func() {
 				By("Starting a VirtualMachineInstance with dedicated cpus")
 				_, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(cpuVmi)
 				Expect(err).ToNot(HaveOccurred())
-				node := tests.WaitForSuccessfulVMIStart(cpuVmi)
-				for _, n := range nodesWithCPUManager.Items {
-					if strings.Contains(node, n.Name) {
-						Expect(node).To(ContainSubstring(n.Name))
+				vmiHaveCpuManagerLabel := false
+				nodeLabels := cpuVmi.GetLabels()
+
+				for label, val := range nodeLabels {
+					if label == "cpumanager" && val == "true" {
+						vmiHaveCpuManagerLabel = true
 						break
 					}
 				}
+				Expect(vmiHaveCpuManagerLabel).To(Equal("false"))
 
 				By("Starting a VirtualMachineInstance without dedicated cpus")
 				_, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(Vmi)
 				Expect(err).ToNot(HaveOccurred())
-				node = tests.WaitForSuccessfulVMIStart(Vmi)
-				for _, n := range nodesWithCPUManager.Items {
-					if strings.Contains(node, n.Name) {
-						Expect(node).To(ContainSubstring(n.Name))
+				vmiHaveCpuManagerLabel = false
+				nodeLabels = cpuVmi.GetLabels()
+
+				for label, val := range nodeLabels {
+					if label == "cpumanager" && val == "true" {
+						vmiHaveCpuManagerLabel = true
 						break
 					}
 				}
+				Expect(vmiHaveCpuManagerLabel).To(Equal("true"))
 			})
 		})
 	})
