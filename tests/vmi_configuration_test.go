@@ -1122,7 +1122,7 @@ var _ = Describe("Configurations", func() {
 	Describe("[rfe_id:897][crit:medium][vendor:cnv-qe@redhat.com][level:component]VirtualMachineInstance with CPU pinning", func() {
 		var nodes *kubev1.NodeList
 
-		isNodeHasCPUManagerLabel := func (nodeName string) (bool) {
+		isNodeHasCPUManagerLabel := func(nodeName string) bool {
 			Expect(nodeName).ToNot(BeEmpty())
 
 			nodeObject, err := virtClient.CoreV1().Nodes().Get(nodeName, metav1.GetOptions{})
@@ -1255,7 +1255,7 @@ var _ = Describe("Configurations", func() {
 				_, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(cpuVmi)
 				Expect(err).ToNot(HaveOccurred())
 				node := tests.WaitForSuccessfulVMIStart(cpuVmi)
-				Expect(isNodeHasCPUManagerLabel(node)).ToNot(BeTrue())
+				Expect(isNodeHasCPUManagerLabel(node)).To(BeFalse())
 
 				By("Expecting the VirtualMachineInstance console")
 				expecter, err := tests.LoggedInCirrosExpecter(cpuVmi)
@@ -1343,7 +1343,7 @@ var _ = Describe("Configurations", func() {
 				_, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(cpuVmi)
 				Expect(err).ToNot(HaveOccurred())
 				node := tests.WaitForSuccessfulVMIStart(cpuVmi)
-				Expect(isNodeHasCPUManagerLabel(node)).ToNot(BeTrue())
+				Expect(isNodeHasCPUManagerLabel(node)).To(BeFalse())
 
 				By("Starting a VirtualMachineInstance without dedicated cpus")
 				_, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(Vmi)
