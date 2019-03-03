@@ -1122,6 +1122,23 @@ var _ = Describe("Configurations", func() {
 	Describe("[rfe_id:897][crit:medium][vendor:cnv-qe@redhat.com][level:component]VirtualMachineInstance with CPU pinning", func() {
 		var nodes *kubev1.NodeList
 
+		isNodeHasCPUManagerLabel := func (nodeName string) (bool) {
+			Expect(nodeName).ToNot(BeEmpty())
+
+			nodeObject, err := virtClient.CoreV1().Nodes().Get(nodeName, metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			nodeHaveCpuManagerLabel := false
+			nodeLabels := nodeObject.GetLabels()
+
+			for label, val := range nodeLabels {
+				if label == v1.CPUManager && val == "true" {
+					nodeHaveCpuManagerLabel = true
+					break
+				}
+			}
+			return nodeHaveCpuManagerLabel
+		}
+
 		BeforeEach(func() {
 			nodes, err = virtClient.CoreV1().Nodes().List(metav1.ListOptions{})
 			tests.PanicOnError(err)
@@ -1129,6 +1146,7 @@ var _ = Describe("Configurations", func() {
 				Skip("Skip cpu pinning test that requires multiple nodes when only one node is present.")
 			}
 		})
+
 		Context("with cpu pinning enabled", func() {
 			It("[test_id:1684]should set the cpumanager label to false when it's not running", func() {
 
@@ -1176,20 +1194,8 @@ var _ = Describe("Configurations", func() {
 				_, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(cpuVmi)
 				Expect(err).ToNot(HaveOccurred())
 				node := tests.WaitForSuccessfulVMIStart(cpuVmi)
-				Expect(node).ToNot(BeEmpty())
 
-				nodeObject, err := virtClient.CoreV1().Nodes().Get(node, metav1.GetOptions{})
-				Expect(err).ToNot(HaveOccurred())
-				nodeHaveCpuManagerLabel := false
-				nodeLabels := nodeObject.GetLabels()
-
-				for label, val := range nodeLabels {
-					if label == "cpumanager" && val == "true" {
-						nodeHaveCpuManagerLabel = true
-						break
-					}
-				}
-				Expect(nodeHaveCpuManagerLabel).To(Equal("true"))
+				Expect(isNodeHasCPUManagerLabel(node)).To(BeTrue())
 
 				By("Checking that the pod QOS is guaranteed")
 				readyPod := tests.GetRunningPodByVirtualMachineInstance(cpuVmi, tests.NamespaceTestDefault)
@@ -1249,20 +1255,7 @@ var _ = Describe("Configurations", func() {
 				_, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(cpuVmi)
 				Expect(err).ToNot(HaveOccurred())
 				node := tests.WaitForSuccessfulVMIStart(cpuVmi)
-				Expect(node).ToNot(BeEmpty())
-
-				nodeObject, err := virtClient.CoreV1().Nodes().Get(node, metav1.GetOptions{})
-				Expect(err).ToNot(HaveOccurred())
-				nodeHaveCpuManagerLabel := false
-				nodeLabels := nodeObject.GetLabels()
-
-				for label, val := range nodeLabels {
-					if label == "cpumanager" && val == "true" {
-						nodeHaveCpuManagerLabel = true
-						break
-					}
-				}
-				Expect(nodeHaveCpuManagerLabel).To(Equal("false"))
+				Expect(isNodeHasCPUManagerLabel(node)).ToNot(BeTrue())
 
 				By("Expecting the VirtualMachineInstance console")
 				expecter, err := tests.LoggedInCirrosExpecter(cpuVmi)
@@ -1350,39 +1343,13 @@ var _ = Describe("Configurations", func() {
 				_, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(cpuVmi)
 				Expect(err).ToNot(HaveOccurred())
 				node := tests.WaitForSuccessfulVMIStart(cpuVmi)
-				Expect(node).ToNot(BeEmpty())
-
-				nodeObject, err := virtClient.CoreV1().Nodes().Get(node, metav1.GetOptions{})
-				Expect(err).ToNot(HaveOccurred())
-				nodeHaveCpuManagerLabel := false
-				nodeLabels := nodeObject.GetLabels()
-
-				for label, val := range nodeLabels {
-					if label == "cpumanager" && val == "true" {
-						nodeHaveCpuManagerLabel = true
-						break
-					}
-				}
-				Expect(nodeHaveCpuManagerLabel).To(Equal("false"))
+				Expect(isNodeHasCPUManagerLabel(node)).ToNot(BeTrue())
 
 				By("Starting a VirtualMachineInstance without dedicated cpus")
 				_, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(Vmi)
 				Expect(err).ToNot(HaveOccurred())
 				node = tests.WaitForSuccessfulVMIStart(cpuVmi)
-				Expect(node).ToNot(BeEmpty())
-
-				nodeObject, err = virtClient.CoreV1().Nodes().Get(node, metav1.GetOptions{})
-				Expect(err).ToNot(HaveOccurred())
-				nodeHaveCpuManagerLabel = false
-				nodeLabels = nodeObject.GetLabels()
-
-				for label, val := range nodeLabels {
-					if label == "cpumanager" && val == "true" {
-						nodeHaveCpuManagerLabel = true
-						break
-					}
-				}
-				Expect(nodeHaveCpuManagerLabel).To(Equal("true"))
+				Expect(isNodeHasCPUManagerLabel(node)).To(BeTrue())
 			})
 		})
 	})
