@@ -801,6 +801,37 @@ var _ = Describe("VirtualMachineInstance", func() {
 			Expect(blockMigrate).To(BeTrue())
 			Expect(err).To(Equal(fmt.Errorf("cannot migrate VMI with non-shared PVCs")))
 		})
+		It("should fail migration for non-shared data volume PVCs", func() {
+
+			vmi := v1.NewMinimalVMI("testvmi")
+			vmi.Spec.Domain.Devices.Disks = []v1.Disk{
+				{
+					Name: "mydisk",
+					DiskDevice: v1.DiskDevice{
+						Disk: &v1.DiskTarget{
+							Bus: "virtio",
+						},
+					},
+				},
+			}
+			vmi.Spec.Volumes = []v1.Volume{
+				{
+					Name: "myvolume",
+					VolumeSource: v1.VolumeSource{
+						DataVolume: &v1.DataVolumeSource{
+							Name: "testblock",
+						},
+					},
+				},
+			}
+
+			testBlockPvc.Spec.AccessModes = []k8sv1.PersistentVolumeAccessMode{k8sv1.ReadWriteOnce}
+
+			virtClient.CoreV1().PersistentVolumeClaims(vmi.Namespace).Create(testBlockPvc)
+			blockMigrate, err := controller.checkVolumesForMigration(vmi)
+			Expect(blockMigrate).To(BeTrue())
+			Expect(err).To(Equal(fmt.Errorf("cannot migrate VMI with non-shared PVCs")))
+		})
 		It("should be allowed to migrate a mix of shared and non-shared disks", func() {
 
 			vmi := v1.NewMinimalVMI("testvmi")
