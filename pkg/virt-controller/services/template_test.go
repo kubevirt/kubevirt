@@ -143,8 +143,8 @@ var _ = Describe("Template", func() {
 				Expect(pod.Spec.Subdomain).To(BeEmpty())
 			})
 		})
-		Context("with npwgv1 annotation", func() {
-			It("should add npwgv1 networks in the pod annotation", func() {
+		Context("with npwg annotation", func() {
+			It("should add npwg networks in the pod annotation", func() {
 				vmi := v1.VirtualMachineInstance{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      "testvmi",
@@ -156,11 +156,11 @@ var _ = Describe("Template", func() {
 						Networks: []v1.Network{
 							{Name: "default",
 								NetworkSource: v1.NetworkSource{
-									Npwgv1: &v1.CniNetwork{NetworkName: "default"},
+									Npwg: &v1.CniNetwork{NetworkName: "default"},
 								}},
 							{Name: "test1",
 								NetworkSource: v1.NetworkSource{
-									Npwgv1: &v1.CniNetwork{NetworkName: "test1"},
+									Npwg: &v1.CniNetwork{NetworkName: "test1"},
 								}},
 						},
 					},
@@ -174,7 +174,7 @@ var _ = Describe("Template", func() {
 			})
 		})
 		Context("with multus annotation", func() {
-			It("should add npwgv1 networks in the pod annotation", func() {
+			It("should add npwg networks in the pod annotation", func() {
 				vmi := v1.VirtualMachineInstance{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      "testvmi",
@@ -1406,7 +1406,7 @@ var _ = Describe("getResourceNameForNetwork", func() {
 		network := &networkv1.NetworkAttachmentDefinition{
 			ObjectMeta: metav1.ObjectMeta{
 				Annotations: map[string]string{
-					NPWGV1_RESOURCE_NAME_ANNOTATION: "fake.com/fakeResource",
+					NPWG_MULTUS_RESOURCE_NAME_ANNOTATION: "fake.com/fakeResource",
 				},
 			},
 		}
