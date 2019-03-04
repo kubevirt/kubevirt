@@ -368,6 +368,38 @@ func (_mr *_MockVirDomainRecorder) MemoryStats(arg0, arg1 interface{}) *gomock.C
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "MemoryStats", arg0, arg1)
 }
 
+func (_m *MockVirDomain) GetJobStats(flags libvirt_go.DomainGetJobStatsFlags) (*libvirt_go.DomainJobInfo, error) {
+	ret := _m.ctrl.Call(_m, "GetJobStats", flags)
+	ret0, _ := ret[0].(*libvirt_go.DomainJobInfo)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+func (_mr *_MockVirDomainRecorder) GetJobStats(arg0 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "GetJobStats", arg0)
+}
+
+func (_m *MockVirDomain) GetJobInfo() (*libvirt_go.DomainJobInfo, error) {
+	ret := _m.ctrl.Call(_m, "GetJobInfo")
+	ret0, _ := ret[0].(*libvirt_go.DomainJobInfo)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+func (_mr *_MockVirDomainRecorder) GetJobInfo() *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "GetJobInfo")
+}
+
+func (_m *MockVirDomain) AbortJob() error {
+	ret := _m.ctrl.Call(_m, "AbortJob")
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+func (_mr *_MockVirDomainRecorder) AbortJob() *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "AbortJob")
+}
+
 func (_m *MockVirDomain) Free() error {
 	ret := _m.ctrl.Call(_m, "Free")
 	ret0, _ := ret[0].(error)

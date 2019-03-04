@@ -210,6 +210,86 @@ var _ = Describe("Manager", func() {
 			Expect(newspec).ToNot(BeNil())
 		})
 	})
+	Context("test migration monitor", func() {
+		It("migration should be canceled if it's not progressing", func() {
+			// Make sure that we always free the domain after use
+			mockDomain.EXPECT().Free().AnyTimes()
+			fake_jobinfo := &libvirt.DomainJobInfo{
+				Type:          libvirt.DOMAIN_JOB_UNBOUNDED,
+				DataRemaining: 32479827394,
+			}
+
+			mConfig := &v1.MigrationConfig{
+				ProgressTimeout:         2,
+				CompletionTimeoutPerGiB: 300,
+			}
+
+			vmi := newVMI(testNamespace, testVmName)
+			vmi.Status.MigrationState = &v1.VirtualMachineInstanceMigrationState{
+				MigrationUID: "111222333",
+				Config:       mConfig,
+			}
+
+			domainSpec := expectIsolationDetectionForVMI(vmi)
+			xml, err := xml.Marshal(domainSpec)
+			Expect(err).To(BeNil())
+			manager := &LibvirtDomainManager{
+				virConn:                mockConn,
+				virtShareDir:           "fake",
+				notifier:               nil,
+				lessPVCSpaceToleration: 0,
+			}
+			mockDomain.EXPECT().GetState().Return(libvirt.DOMAIN_RUNNING, 1, nil)
+			mockConn.EXPECT().LookupDomainByName(testDomainName).Return(mockDomain, nil)
+			mockDomain.EXPECT().GetJobInfo().AnyTimes().Return(fake_jobinfo, nil)
+			mockDomain.EXPECT().AbortJob()
+			mockDomain.EXPECT().GetXMLDesc(gomock.Eq(libvirt.DOMAIN_XML_MIGRATABLE)).Return(string(xml), nil)
+			mockDomain.EXPECT().GetXMLDesc(gomock.Eq(libvirt.DOMAIN_XML_INACTIVE)).Return(string(xml), nil)
+
+			liveMigrationMonitor(vmi, mockDomain, manager)
+		})
+		It("migration should be canceled if timeout has been reached", func() {
+			// Make sure that we always free the domain after use
+			var migrationData = 32479827394
+			mockDomain.EXPECT().Free().AnyTimes()
+			fake_jobinfo := func() *libvirt.DomainJobInfo {
+				migrationData -= 125
+				return &libvirt.DomainJobInfo{
+					Type:          libvirt.DOMAIN_JOB_UNBOUNDED,
+					DataRemaining: uint64(migrationData),
+				}
+			}()
+
+			mConfig := &v1.MigrationConfig{
+				ProgressTimeout:         3,
+				CompletionTimeoutPerGiB: 150,
+			}
+			vmi := newVMI(testNamespace, testVmName)
+			vmi.Status.MigrationState = &v1.VirtualMachineInstanceMigrationState{
+				MigrationUID: "111222333",
+				Config:       mConfig,
+			}
+
+			domainSpec := expectIsolationDetectionForVMI(vmi)
+			xml, err := xml.Marshal(domainSpec)
+			Expect(err).To(BeNil())
+			manager := &LibvirtDomainManager{
+				virConn:                mockConn,
+				virtShareDir:           "fake",
+				notifier:               nil,
+				lessPVCSpaceToleration: 0,
+			}
+			mockDomain.EXPECT().GetState().Return(libvirt.DOMAIN_RUNNING, 1, nil)
+			mockConn.EXPECT().LookupDomainByName(testDomainName).Return(mockDomain, nil)
+			mockDomain.EXPECT().GetJobInfo().AnyTimes().Return(fake_jobinfo, nil)
+			mockDomain.EXPECT().AbortJob()
+			mockDomain.EXPECT().GetXMLDesc(gomock.Eq(libvirt.DOMAIN_XML_MIGRATABLE)).Return(string(xml), nil)
+			mockDomain.EXPECT().GetXMLDesc(gomock.Eq(libvirt.DOMAIN_XML_INACTIVE)).Return(string(xml), nil)
+
+			liveMigrationMonitor(vmi, mockDomain, manager)
+		})
+
+	})
 
 	Context("on successful VirtualMachineInstance migrate", func() {
 		It("should prepare the target pod", func() {

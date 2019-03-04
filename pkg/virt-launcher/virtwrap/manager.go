@@ -29,6 +29,7 @@ import (
 	"encoding/xml"
 	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
 	"sync"
 	"time"
@@ -36,6 +37,8 @@ import (
 	eventsclient "kubevirt.io/kubevirt/pkg/virt-launcher/notify-client"
 
 	libvirt "github.com/libvirt/libvirt-go"
+	k8sv1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	utilwait "k8s.io/apimachinery/pkg/util/wait"
 
@@ -196,9 +199,8 @@ func (l *LibvirtDomainManager) setMigrationResultHelper(vmi *v1.VirtualMachineIn
 	if failed {
 		domainSpec.Metadata.KubeVirt.Migration.Failed = true
 		domainSpec.Metadata.KubeVirt.Migration.FailureReason = reason
-	} else {
-		domainSpec.Metadata.KubeVirt.Migration.Completed = true
 	}
+	domainSpec.Metadata.KubeVirt.Migration.Completed = true
 	domainSpec.Metadata.KubeVirt.Migration.EndTimestamp = &now
 
 	_, err = l.setDomainSpecWithHooks(vmi, domainSpec)
@@ -352,6 +354,8 @@ func (l *LibvirtDomainManager) asyncMigrate(vmi *v1.VirtualMachineInstance) {
 			params.MigrateDisks = copyDisks
 			params.MigrateDisksSet = true
 		}
+		// start live migration tracking
+		go liveMigrationMonitor(vmi, dom, l)
 		err = dom.MigrateToURI3(dstUri, params, migrateFlags)
 		if err != nil {
 
@@ -363,6 +367,127 @@ func (l *LibvirtDomainManager) asyncMigrate(vmi *v1.VirtualMachineInstance) {
 		log.Log.Object(vmi).Infof("Live migration succeeded.")
 		l.setMigrationResult(vmi, false, "")
 	}(l, vmi)
+}
+
+func getVMIEphemeralDisksTotalSize() *resource.Quantity {
+	var baseDir = "/var/run/kubevirt-ephemeral-disks/"
+	totalSize := int64(0)
+	err := filepath.Walk(baseDir, func(path string, f os.FileInfo, err error) error {
+		if !f.IsDir() {
+			totalSize += f.Size()
+		}
+		return err
+	})
+	if err != nil {
+		log.Log.Reason(err).Warning("failed to get VMI ephemeral disks size")
+		return &resource.Quantity{Format: resource.BinarySI}
+	}
+
+	return resource.NewScaledQuantity(totalSize, 0)
+}
+
+func getVMIMigrationDataSize(vmi *v1.VirtualMachineInstance) int64 {
+	var memory resource.Quantity
+
+	// Take memory from the requested memory
+	if v, ok := vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory]; ok {
+		memory = v
+	}
+	// In case that guest memory is explicitly set, override it
+	if vmi.Spec.Domain.Memory != nil && vmi.Spec.Domain.Memory.Guest != nil {
+		memory = *vmi.Spec.Domain.Memory.Guest
+	}
+
+	//get total data Size
+	if vmi.Status.MigrationMethod == v1.BlockMigration {
+		disksSize := getVMIEphemeralDisksTotalSize()
+		memory.Add(*disksSize)
+	}
+	return memory.ScaledValue(resource.Giga)
+}
+
+func liveMigrationMonitor(vmi *v1.VirtualMachineInstance, dom cli.VirDomain, l *LibvirtDomainManager) {
+	logger := log.Log.Object(vmi)
+	start := time.Now().UTC().Unix()
+	lastProgressUpdate := start
+	progressWatermark := int64(0)
+
+	progressTimeout := int64(150)
+	completionTimeoutPerGiB := int64(800)
+
+	// update timeouts from migration config
+
+	if vmi.Status.MigrationState != nil && vmi.Status.MigrationState.Config != nil {
+		conf := vmi.Status.MigrationState.Config
+		if conf.CompletionTimeoutPerGiB != 0 {
+			completionTimeoutPerGiB = conf.CompletionTimeoutPerGiB
+		}
+		if conf.ProgressTimeout != 0 {
+			progressTimeout = conf.ProgressTimeout
+		}
+	}
+
+	acceptableCompletionTime := completionTimeoutPerGiB * getVMIMigrationDataSize(vmi)
+monitorLoop:
+	for {
+		stats, err := dom.GetJobInfo()
+		if err != nil {
+			logger.Reason(err).Error("failed to get domain job info")
+			break
+		}
+		remainingData := int64(stats.DataRemaining)
+		switch stats.Type {
+		case libvirt.DOMAIN_JOB_UNBOUNDED:
+			// Migration is running
+			now := time.Now().UTC().Unix()
+			elapsed := now - start
+
+			if (progressWatermark == 0) ||
+				(progressWatermark > remainingData) {
+				progressWatermark = remainingData
+				lastProgressUpdate = now
+			}
+			// check if the migration is progressing
+			progressDelay := now - lastProgressUpdate
+			if progressTimeout != 0 &&
+				progressDelay > progressTimeout {
+				logger.Warningf("Live migration stuck for %d sec", progressDelay)
+				err := dom.AbortJob()
+				if err != nil {
+					logger.Reason(err).Error("failed to abort migration")
+				}
+				l.setMigrationResult(vmi, true, fmt.Sprintf("Live migration stuck for %d sec and has been aborted", progressDelay))
+				break monitorLoop
+			}
+
+			// check the overall migration time
+			if acceptableCompletionTime != 0 &&
+				elapsed > acceptableCompletionTime {
+				logger.Warningf("Live migration is not completed after %d sec",
+					acceptableCompletionTime)
+				err := dom.AbortJob()
+				if err != nil {
+					logger.Reason(err).Error("failed to abort migration")
+				}
+				l.setMigrationResult(vmi, true, fmt.Sprintf("Live migration is not completed after %d sec and has been aborted", acceptableCompletionTime))
+				break monitorLoop
+			}
+
+		case libvirt.DOMAIN_JOB_NONE:
+			logger.Info("Migration job didn't start yet")
+		case libvirt.DOMAIN_JOB_COMPLETED:
+			logger.Info("Migration has beem completed")
+			break monitorLoop
+		case libvirt.DOMAIN_JOB_FAILED:
+			logger.Info("Migration job failed")
+			// migration failed
+			break monitorLoop
+		case libvirt.DOMAIN_JOB_CANCELLED:
+			logger.Info("Migration was canceled")
+			break monitorLoop
+		}
+		time.Sleep(500 * time.Millisecond)
+	}
 }
 
 func (l *LibvirtDomainManager) MigrateVMI(vmi *v1.VirtualMachineInstance) error {
