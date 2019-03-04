@@ -596,6 +596,11 @@ func CreateHostPathPvWithSize(osName string, hostPath string, size string) {
 	hostPathType := k8sv1.HostPathDirectoryOrCreate
 
 	name := fmt.Sprintf("%s-disk-for-tests", osName)
+
+	nodes := GetAllSchedulableNodes(virtCli)
+	Expect(len(nodes.Items) > 0).To(BeTrue())
+	nodeName := nodes.Items[0].Name
+
 	pv := &k8sv1.PersistentVolume{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: name,
@@ -624,7 +629,7 @@ func CreateHostPathPvWithSize(osName string, hostPath string, size string) {
 								{
 									Key:      "kubernetes.io/hostname",
 									Operator: k8sv1.NodeSelectorOpIn,
-									Values:   []string{"node01"},
+									Values:   []string{nodeName},
 								},
 							},
 						},
@@ -1501,6 +1506,12 @@ func newBlockVolumePV(name string, labelSelector map[string]string, size string)
 	storageClass := BlockVolumeStorageClass
 	volumeMode := k8sv1.PersistentVolumeBlock
 
+	virtCli, err := kubecli.GetKubevirtClient()
+	PanicOnError(err)
+
+	nodes := GetAllSchedulableNodes(virtCli)
+	Expect(len(nodes.Items) > 0).To(BeTrue())
+	nodeName := nodes.Items[0].Name
 	// Note: the path depends on kubevirtci!
 	// It's configured to have a device backed by a cirros image at exactly that place on node01
 	// And the local storage provider also has access to it
@@ -1529,7 +1540,7 @@ func newBlockVolumePV(name string, labelSelector map[string]string, size string)
 								{
 									Key:      "kubernetes.io/hostname",
 									Operator: k8sv1.NodeSelectorOpIn,
-									Values:   []string{"node01"},
+									Values:   []string{nodeName},
 								},
 							},
 						},
