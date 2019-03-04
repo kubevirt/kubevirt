@@ -1517,8 +1517,8 @@ func (in *NetworkSource) DeepCopyInto(out *NetworkSource) {
 			**out = **in
 		}
 	}
-	if in.Npwgv1 != nil {
-		in, out := &in.Npwgv1, &out.Npwgv1
+	if in.Npwg != nil {
+		in, out := &in.Npwg, &out.Npwg
 		if *in == nil {
 			*out = nil
 		} else {

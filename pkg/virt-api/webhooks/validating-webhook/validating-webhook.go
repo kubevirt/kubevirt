@@ -930,7 +930,7 @@ func ValidateVirtualMachineInstanceSpec(field *k8sfield.Path, spec *v1.VirtualMa
 	}
 
 	if len(spec.Networks) > 0 && len(spec.Domain.Devices.Interfaces) > 0 {
-		npwgv1Exists := false
+		multusNpwgExists := false
 		genieExists := false
 		podExists := false
 
@@ -945,15 +945,10 @@ func ValidateVirtualMachineInstanceSpec(field *k8sfield.Path, spec *v1.VirtualMa
 				podExists = true
 			}
 
-			// convert Multus to Npwgv1 network for backwards compatibility
-			if network.NetworkSource.Multus != nil {
-				network.NetworkSource = v1.NetworkSource{Npwgv1: network.NetworkSource.Multus}
-				spec.Networks[idx] = network
-			}
-			if network.NetworkSource.Npwgv1 != nil {
+			if multusOrNpwgNetworkName := util.GetMultusOrNpwgNetworkName(network); multusOrNpwgNetworkName != "" {
 				cniTypesCount++
-				npwgv1Exists = true
-				networkNameExistsOrNotNeeded = network.Npwgv1.NetworkName != ""
+				multusNpwgExists = true
+				networkNameExistsOrNotNeeded = multusOrNpwgNetworkName != ""
 			}
 
 			if network.NetworkSource.Genie != nil {
@@ -974,7 +969,7 @@ func ValidateVirtualMachineInstanceSpec(field *k8sfield.Path, spec *v1.VirtualMa
 					Message: fmt.Sprintf("should have only one network type"),
 					Field:   field.Child("networks").Index(idx).String(),
 				})
-			} else if genieExists && (podExists || npwgv1Exists) {
+			} else if genieExists && (podExists || multusNpwgExists) {
 				causes = append(causes, metav1.StatusCause{
 					Type:    metav1.CauseTypeFieldValueRequired,
 					Message: fmt.Sprintf("cannot combine Genie with other CNIs across networks"),

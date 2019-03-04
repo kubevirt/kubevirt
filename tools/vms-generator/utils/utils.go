@@ -36,28 +36,28 @@ import (
 )
 
 const (
-	VmiEphemeral         = "vmi-ephemeral"
-	VmiMigratable        = "vmi-migratable"
-	VmiFlavorSmall       = "vmi-flavor-small"
-	VmiSata              = "vmi-sata"
-	VmiFedora            = "vmi-fedora"
-	VmiAlpineEFI         = "vmi-alpine-efi"
-	VmiNoCloud           = "vmi-nocloud"
-	VmiPVC               = "vmi-pvc"
-	VmiBlockPVC          = "vmi-block-pvc"
-	VmiWindows           = "vmi-windows"
-	VmiSlirp             = "vmi-slirp"
-	VmiMasquerade        = "vmi-masquerade"
-	VmiSRIOV             = "vmi-sriov"
-	VmiWithHookSidecar   = "vmi-with-sidecar-hook"
-	VmiNpwgv1Ptp         = "vmi-npwgv1-ptp"
-	VmiNpwgv1MultipleNet = "vmi-npwgv1-multiple-net"
-	VmiGeniePtp          = "vmi-genie-ptp"
-	VmiGenieMultipleNet  = "vmi-genie-multiple-net"
-	VmiHostDisk          = "vmi-host-disk"
-	VmTemplateFedora     = "vm-template-fedora"
-	VmTemplateRHEL7      = "vm-template-rhel7"
-	VmTemplateWindows    = "vm-template-windows2012r2"
+	VmiEphemeral        = "vmi-ephemeral"
+	VmiMigratable       = "vmi-migratable"
+	VmiFlavorSmall      = "vmi-flavor-small"
+	VmiSata             = "vmi-sata"
+	VmiFedora           = "vmi-fedora"
+	VmiAlpineEFI        = "vmi-alpine-efi"
+	VmiNoCloud          = "vmi-nocloud"
+	VmiPVC              = "vmi-pvc"
+	VmiBlockPVC         = "vmi-block-pvc"
+	VmiWindows          = "vmi-windows"
+	VmiSlirp            = "vmi-slirp"
+	VmiMasquerade       = "vmi-masquerade"
+	VmiSRIOV            = "vmi-sriov"
+	VmiWithHookSidecar  = "vmi-with-sidecar-hook"
+	VmiNpwgPtp          = "vmi-npwg-ptp"
+	VmiNpwgMultipleNet  = "vmi-npwg-multiple-net"
+	VmiGeniePtp         = "vmi-genie-ptp"
+	VmiGenieMultipleNet = "vmi-genie-multiple-net"
+	VmiHostDisk         = "vmi-host-disk"
+	VmTemplateFedora    = "vm-template-fedora"
+	VmTemplateRHEL7     = "vm-template-rhel7"
+	VmTemplateWindows   = "vm-template-windows2012r2"
 )
 
 const (
@@ -359,7 +359,7 @@ func GetVMIMasquerade() *v1.VirtualMachineInstance {
 func GetVMISRIOV() *v1.VirtualMachineInstance {
 	vm := getBaseVMI(VmiSRIOV)
 	vm.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("1024M")
-	vm.Spec.Networks = []v1.Network{*v1.DefaultPodNetwork(), {Name: "sriov-net", NetworkSource: v1.NetworkSource{Npwgv1: &v1.CniNetwork{NetworkName: "sriov-net"}}}}
+	vm.Spec.Networks = []v1.Network{*v1.DefaultPodNetwork(), {Name: "sriov-net", NetworkSource: v1.NetworkSource{Npwg: &v1.CniNetwork{NetworkName: "sriov-net"}}}}
 	addContainerDisk(&vm.Spec, fmt.Sprintf("%s/%s:%s", DockerPrefix, imageFedora, DockerTag), busVirtio)
 	addNoCloudDiskWitUserData(&vm.Spec, "#!/bin/bash\necho \"fedora\" |passwd fedora --stdin\ndhclient eth1\n")
 
@@ -369,10 +369,10 @@ func GetVMISRIOV() *v1.VirtualMachineInstance {
 	return vm
 }
 
-func GetVMINpwgv1Ptp() *v1.VirtualMachineInstance {
-	vm := getBaseVMI(VmiNpwgv1Ptp)
+func GetVMINpwgPtp() *v1.VirtualMachineInstance {
+	vm := getBaseVMI(VmiNpwgPtp)
 	vm.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("1024M")
-	vm.Spec.Networks = []v1.Network{{Name: "ptp", NetworkSource: v1.NetworkSource{Npwgv1: &v1.CniNetwork{NetworkName: "ptp-conf"}}}}
+	vm.Spec.Networks = []v1.Network{{Name: "ptp", NetworkSource: v1.NetworkSource{Npwg: &v1.CniNetwork{NetworkName: "ptp-conf"}}}}
 	addContainerDisk(&vm.Spec, fmt.Sprintf("%s/%s:%s", DockerPrefix, imageFedora, DockerTag), busVirtio)
 	addNoCloudDiskWitUserData(&vm.Spec, "#!/bin/bash\necho \"fedora\" |passwd fedora --stdin\n")
 
@@ -381,10 +381,10 @@ func GetVMINpwgv1Ptp() *v1.VirtualMachineInstance {
 	return vm
 }
 
-func GetVMINpwgv1MultipleNet() *v1.VirtualMachineInstance {
-	vm := getBaseVMI(VmiNpwgv1MultipleNet)
+func GetVMINpwgMultipleNet() *v1.VirtualMachineInstance {
+	vm := getBaseVMI(VmiNpwgMultipleNet)
 	vm.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("1024M")
-	vm.Spec.Networks = []v1.Network{*v1.DefaultPodNetwork(), {Name: "ptp", NetworkSource: v1.NetworkSource{Npwgv1: &v1.CniNetwork{NetworkName: "ptp-conf"}}}}
+	vm.Spec.Networks = []v1.Network{*v1.DefaultPodNetwork(), {Name: "ptp", NetworkSource: v1.NetworkSource{Npwg: &v1.CniNetwork{NetworkName: "ptp-conf"}}}}
 	addContainerDisk(&vm.Spec, fmt.Sprintf("%s/%s:%s", DockerPrefix, imageFedora, DockerTag), busVirtio)
 	addNoCloudDiskWitUserData(&vm.Spec, "#!/bin/bash\necho \"fedora\" |passwd fedora --stdin\ndhclient eth1\n")
 

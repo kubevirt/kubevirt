@@ -3,8 +3,8 @@ apiVersion: kubevirt.io/v1alpha3
 kind: VirtualMachineInstance
 metadata:
   labels:
-    special: vmi-npwgv1-multiple-net
-  name: vmi-npwgv1-multiple-net
+    special: vmi-npwg-ptp
+  name: vmi-npwg-ptp
 spec:
   domain:
     devices:
@@ -17,8 +17,6 @@ spec:
         name: cloudinitdisk
       interfaces:
       - bridge: {}
-        name: default
-      - bridge: {}
         name: ptp
     machine:
       type: ""
@@ -26,10 +24,8 @@ spec:
       requests:
         memory: 1024M
   networks:
-  - name: default
-    pod: {}
   - name: ptp
-    npwgv1:
+    npwg:
       networkName: ptp-conf
   terminationGracePeriodSeconds: 0
   volumes:
@@ -40,5 +36,4 @@ spec:
       userData: |
         #!/bin/bash
         echo "fedora" |passwd fedora --stdin
-        dhclient eth1
     name: cloudinitdisk

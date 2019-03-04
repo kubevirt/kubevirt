@@ -937,7 +937,7 @@ var _ = Describe("Converter", func() {
 			Expect(domain.Spec.Devices.Interfaces[1].Type).To(Equal("user"))
 			Expect(domain.Spec.Devices.Interfaces[1].Model.Type).To(Equal("e1000"))
 		})
-		It("Should set domain interface source correctly for npwgv1", func() {
+		It("Should set domain interface source correctly for npwg", func() {
 			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
 			vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{
 				*v1.DefaultNetworkInterface(),
@@ -951,13 +951,13 @@ var _ = Describe("Converter", func() {
 				v1.Network{
 					Name: "red1",
 					NetworkSource: v1.NetworkSource{
-						Npwgv1: &v1.CniNetwork{NetworkName: "red"},
+						Npwg: &v1.CniNetwork{NetworkName: "red"},
 					},
 				},
 				v1.Network{
 					Name: "red2",
 					NetworkSource: v1.NetworkSource{
-						Npwgv1: &v1.CniNetwork{NetworkName: "red"},
+						Npwg: &v1.CniNetwork{NetworkName: "red"},
 					},
 				},
 				v1.Network{
@@ -1044,7 +1044,7 @@ var _ = Describe("Converter", func() {
 			Expect(domain.Spec.Devices.Interfaces).To(HaveLen(1))
 			Expect(domain.Spec.Devices.Interfaces[0].Source.Bridge).To(Equal("k6t-eth0"))
 		})
-		It("Should create network configuration for masquerade interface and the pod network and a secondary network using npwgv1", func() {
+		It("Should create network configuration for masquerade interface and the pod network and a secondary network using npwg", func() {
 			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
 			name1 := "Name"
 
@@ -1060,7 +1060,7 @@ var _ = Describe("Converter", func() {
 				{
 					Name: "red1",
 					NetworkSource: v1.NetworkSource{
-						Npwgv1: &v1.CniNetwork{NetworkName: "red"},
+						Npwg: &v1.CniNetwork{NetworkName: "red"},
 					},
 				}}
 
@@ -1479,7 +1479,7 @@ var _ = Describe("Converter", func() {
 		sriovNetwork := v1.Network{
 			Name: "sriov",
 			NetworkSource: v1.NetworkSource{
-				Npwgv1: &v1.CniNetwork{NetworkName: "sriov"},
+				Npwg: &v1.CniNetwork{NetworkName: "sriov"},
 			},
 		}
 		vmi.Spec.Networks = append(vmi.Spec.Networks, sriovNetwork)
@@ -1494,7 +1494,7 @@ var _ = Describe("Converter", func() {
 		sriovNetwork2 := v1.Network{
 			Name: "sriov2",
 			NetworkSource: v1.NetworkSource{
-				Npwgv1: &v1.CniNetwork{NetworkName: "sriov2"},
+				Npwg: &v1.CniNetwork{NetworkName: "sriov2"},
 			},
 		}
 		vmi.Spec.Networks = append(vmi.Spec.Networks, sriovNetwork2)
