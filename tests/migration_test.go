@@ -373,7 +373,57 @@ var _ = Describe("Migrations", func() {
 
 				By("Waiting for VMI to disappear")
 				tests.WaitForVirtualMachineToDisappearWithTimeout(vmi, 240)
+			})
+		})
+		Context("with an Cirros non-shared ISCSI PVC", func() {
+			var pvName string
+			BeforeEach(func() {
+				pvName = "test-iscsi-lun" + rand.String(48)
+				// Start a ISCSI POD and service
+				By("Starting an iSCSI POD")
+				iscsiIP := tests.CreateISCSITargetPOD(tests.ContainerDiskCirros)
+				// create a new PV and PVC (PVs can't be reused)
+				By("create a new iSCSI PV and PVC")
+				tests.NewISCSIPvAndPvc(pvName, "1Gi", iscsiIP, k8sv1.ReadWriteOnce)
+			}, 60)
 
+			AfterEach(func() {
+				// create a new PV and PVC (PVs can't be reused)
+				tests.DeletePvAndPvc(pvName)
+			}, 60)
+			It("should reject migrations for a non-migratable vmi", func() {
+				// Start the VirtualMachineInstance with the PVC attached
+				vmi := tests.NewRandomVMIWithPVC(pvName)
+				tests.AddUserData(vmi, "cloud-init", "#!/bin/bash\necho 'hello'\n")
+				vmi.Spec.Hostname = fmt.Sprintf("%s", tests.ContainerDiskCirros)
+				vmi = runVMIAndExpectLaunch(vmi, 180)
+
+				By("Checking that the VirtualMachineInstance console has expected output")
+				expecter, err := tests.LoggedInCirrosExpecter(vmi)
+				Expect(err).To(BeNil())
+				expecter.Close()
+
+				for _, c := range vmi.Status.Conditions {
+					if c.Type == v1.VirtualMachineInstanceIsMigratable {
+						Expect(c.Status).To(Equal(k8sv1.ConditionFalse))
+					}
+				}
+
+				// execute a migration, wait for finalized state
+				migration := tests.NewRandomMigration(vmi.Name, vmi.Namespace)
+
+				By("Starting a Migration")
+				_, err = virtClient.VirtualMachineInstanceMigration(migration.Namespace).Create(migration)
+				Expect(err).ToNot(BeNil())
+				Expect(err.Error()).To(ContainSubstring("DisksNotLiveMigratable"))
+
+				// delete VMI
+				By("Deleting the VMI")
+				err = virtClient.VirtualMachineInstance(vmi.Namespace).Delete(vmi.Name, &metav1.DeleteOptions{})
+				Expect(err).To(BeNil())
+
+				By("Waiting for VMI to disappear")
+				tests.WaitForVirtualMachineToDisappearWithTimeout(vmi, 120)
 			})
 		})
 	})

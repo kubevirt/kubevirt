@@ -2686,21 +2686,25 @@ func CreateISCSITargetPOD(containerDiskName ContainerDisk) (iscsiTargetIP string
 }
 
 func CreateISCSIPvAndPvc(name string, size string, iscsiTargetIP string) {
+	accessMode := k8sv1.ReadWriteMany
+	NewISCSIPvAndPvc(name, size, iscsiTargetIP, accessMode)
+}
+func NewISCSIPvAndPvc(name string, size string, iscsiTargetIP string, accessMode k8sv1.PersistentVolumeAccessMode) {
 	virtCli, err := kubecli.GetKubevirtClient()
 	PanicOnError(err)
 
-	_, err = virtCli.CoreV1().PersistentVolumes().Create(newISCSIPV(name, size, iscsiTargetIP))
+	_, err = virtCli.CoreV1().PersistentVolumes().Create(newISCSIPV(name, size, iscsiTargetIP, accessMode))
 	if !errors.IsAlreadyExists(err) {
 		PanicOnError(err)
 	}
 
-	_, err = virtCli.CoreV1().PersistentVolumeClaims(NamespaceTestDefault).Create(newISCSIPVC(name, size))
+	_, err = virtCli.CoreV1().PersistentVolumeClaims(NamespaceTestDefault).Create(newISCSIPVC(name, size, accessMode))
 	if !errors.IsAlreadyExists(err) {
 		PanicOnError(err)
 	}
 }
 
-func newISCSIPV(name string, size string, iscsiTargetIP string) *k8sv1.PersistentVolume {
+func newISCSIPV(name string, size string, iscsiTargetIP string, accessMode k8sv1.PersistentVolumeAccessMode) *k8sv1.PersistentVolume {
 	quantity, err := resource.ParseQuantity(size)
 	PanicOnError(err)
 
@@ -2712,7 +2716,7 @@ func newISCSIPV(name string, size string, iscsiTargetIP string) *k8sv1.Persisten
 			Name: name,
 		},
 		Spec: k8sv1.PersistentVolumeSpec{
-			AccessModes: []k8sv1.PersistentVolumeAccessMode{k8sv1.ReadWriteMany},
+			AccessModes: []k8sv1.PersistentVolumeAccessMode{accessMode},
 			Capacity: k8sv1.ResourceList{
 				"storage": quantity,
 			},
@@ -2734,7 +2738,7 @@ func newISCSIPV(name string, size string, iscsiTargetIP string) *k8sv1.Persisten
 	}
 }
 
-func newISCSIPVC(name string, size string) *k8sv1.PersistentVolumeClaim {
+func newISCSIPVC(name string, size string, accessMode k8sv1.PersistentVolumeAccessMode) *k8sv1.PersistentVolumeClaim {
 	quantity, err := resource.ParseQuantity(size)
 	PanicOnError(err)
 
@@ -2744,7 +2748,7 @@ func newISCSIPVC(name string, size string) *k8sv1.PersistentVolumeClaim {
 	return &k8sv1.PersistentVolumeClaim{
 		ObjectMeta: metav1.ObjectMeta{Name: name},
 		Spec: k8sv1.PersistentVolumeClaimSpec{
-			AccessModes: []k8sv1.PersistentVolumeAccessMode{k8sv1.ReadWriteMany},
+			AccessModes: []k8sv1.PersistentVolumeAccessMode{accessMode},
 			Resources: k8sv1.ResourceRequirements{
 				Requests: k8sv1.ResourceList{
 					"storage": quantity,

@@ -864,13 +864,17 @@ var _ = Describe("Validating Webhook", func() {
 
 		It("should reject Migration spec for non-migratable VMIs", func() {
 			vmi := v1.NewMinimalVMI("testmigratevmi3")
-			vmi.Status.Phase = v1.Succeeded
+			vmi.Status.Phase = v1.Running
 			vmi.Status.Conditions = []v1.VirtualMachineInstanceCondition{
 				{
 					Type:    v1.VirtualMachineInstanceIsMigratable,
 					Status:  k8sv1.ConditionFalse,
 					Reason:  v1.VirtualMachineInstanceReasonDisksNotMigratable,
 					Message: "cannot migrate VMI with mixes shared and non-shared volumes",
+				},
+				{
+					Type:   v1.VirtualMachineInstanceReady,
+					Status: k8sv1.ConditionTrue,
 				},
 			}
 
@@ -900,6 +904,7 @@ var _ = Describe("Validating Webhook", func() {
 
 			resp := admitMigrationCreate(ar)
 			Expect(resp.Allowed).To(Equal(false))
+			Expect(resp.Result.Message).To(ContainSubstring("DisksNotLiveMigratable"))
 		})
 
 		It("should reject Migration on update if spec changes", func() {
