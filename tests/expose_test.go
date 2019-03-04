@@ -63,7 +63,7 @@ func waitForJobToCompleteWithStatus(virtClient *kubecli.KubevirtClient, jobPod *
 	}, time.Duration(timeoutSec)*time.Second, 1*time.Second).Should(Equal(jobPodPhase))
 }
 
-var _ = Describe("Expose", func() {
+var _ = Describe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:component]Expose", func() {
 
 	flag.Parse()
 
@@ -71,7 +71,7 @@ var _ = Describe("Expose", func() {
 	tests.PanicOnError(err)
 	const testPort = 1500
 
-	Context("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:component]Expose service on a VM", func() {
+	Context("Expose service on a VM", func() {
 		var tcpVM *v1.VirtualMachineInstance
 		tests.BeforeAll(func() {
 			tcpVM = newLabeledVM("vm", virtClient)
@@ -331,7 +331,7 @@ var _ = Describe("Expose", func() {
 		})
 	})
 
-	Context("[rfe_id:253][crit:high][vendor:cnv-qe@redhat.com][level:component]Expose a VM as a service.", func() {
+	Context("Expose a VM as a service.", func() {
 		const servicePort = "27017"
 		const serviceName = "cluster-ip-vm"
 		var vm *v1.VirtualMachine

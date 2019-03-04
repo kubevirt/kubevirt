@@ -44,7 +44,7 @@ import (
 	"kubevirt.io/kubevirt/tests"
 )
 
-var _ = Describe("Networking", func() {
+var _ = Describe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:component]Networking", func() {
 
 	flag.Parse()
 
@@ -105,7 +105,7 @@ var _ = Describe("Networking", func() {
 		ExpectWithOffset(1, strings.TrimSpace(output)).To(Equal(expectedValue))
 	}
 
-	Describe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:component]Multiple virtual machines connectivity", func() {
+	Describe("Multiple virtual machines connectivity", func() {
 		tests.BeforeAll(func() {
 			tests.BeforeTestCleanup()
 
@@ -362,7 +362,7 @@ var _ = Describe("Networking", func() {
 			})
 		})
 
-		Context("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:component]VirtualMachineInstance with default interface model", func() {
+		Context("VirtualMachineInstance with default interface model", func() {
 			// Unless an explicit interface model is specified, the default interface model is virtio.
 			It("[test_id:1550]should expose the right device type to the guest", func() {
 				By("checking the device vendor in /sys/class")
@@ -390,7 +390,7 @@ var _ = Describe("Networking", func() {
 			tests.BeforeTestCleanup()
 		})
 
-		It("should expose the right device type to the guest", func() {
+		It("[test_id:1770]should expose the right device type to the guest", func() {
 			By("checking the device vendor in /sys/class")
 			// Create a machine with e1000 interface model
 			e1000VMI := tests.NewRandomVMIWithe1000NetworkInterface()
@@ -408,7 +408,7 @@ var _ = Describe("Networking", func() {
 			tests.BeforeTestCleanup()
 		})
 
-		It("should configure custom MAC address", func() {
+		It("[test_id:1771]should configure custom MAC address", func() {
 			By("checking eth0 MAC address")
 			deadbeafVMI := tests.NewRandomVMIWithCustomMacAddress()
 			_, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(deadbeafVMI)
@@ -424,7 +424,7 @@ var _ = Describe("Networking", func() {
 			tests.BeforeTestCleanup()
 		})
 
-		It("should configure custom MAC address", func() {
+		It("[test_id:1772]should configure custom MAC address", func() {
 			By("checking eth0 MAC address")
 			beafdeadVMI := tests.NewRandomVMIWithCustomMacAddress()
 			beafdeadVMI.Spec.Domain.Devices.Interfaces[0].MacAddress = "BE-AF-00-00-DE-AD"
@@ -436,7 +436,7 @@ var _ = Describe("Networking", func() {
 		})
 	})
 
-	Context("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:component]VirtualMachineInstance with invalid MAC addres", func() {
+	Context("VirtualMachineInstance with invalid MAC addres", func() {
 		BeforeEach(func() {
 			tests.BeforeTestCleanup()
 		})
@@ -457,7 +457,7 @@ var _ = Describe("Networking", func() {
 			tests.BeforeTestCleanup()
 		})
 
-		It("should configure custom MAC address", func() {
+		It("[test_id:1773]should configure custom MAC address", func() {
 			By("checking eth0 MAC address")
 			deadbeafVMI := tests.NewRandomVMIWithSlirpInterfaceEphemeralDiskAndUserdata(tests.ContainerDiskFor(tests.ContainerDiskAlpine), "#!/bin/bash\necho 'hello'\n", []v1.Port{})
 			deadbeafVMI.Spec.Domain.Devices.Interfaces[0].MacAddress = "de:ad:00:00:be:af"
@@ -474,7 +474,7 @@ var _ = Describe("Networking", func() {
 			tests.BeforeTestCleanup()
 		})
 
-		It("should not configure any external interfaces", func() {
+		It("[test_id:1774]should not configure any external interfaces", func() {
 			By("checking loopback is the only guest interface")
 			autoAttach := false
 			detachedVMI := tests.NewRandomVMIWithEphemeralDiskAndUserdata(tests.ContainerDiskFor(tests.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n")
@@ -493,7 +493,7 @@ var _ = Describe("Networking", func() {
 			Expect(err).ToNot(HaveOccurred())
 		})
 
-		It("should not request a tun device", func() {
+		It("[test_id:1775]should not request a tun device", func() {
 			By("Creating random VirtualMachineInstance")
 			autoAttach := false
 			vmi := tests.NewRandomVMIWithEphemeralDisk(tests.ContainerDiskFor(tests.ContainerDiskAlpine))
@@ -554,7 +554,7 @@ var _ = Describe("Networking", func() {
 			Expect(err).ToNot(HaveOccurred())
 		}
 
-		It("should configure custom Pci address", func() {
+		It("[test_id:1776]should configure custom Pci address", func() {
 			By("checking eth0 Pci address")
 			testVMI := tests.NewRandomVMIWithEphemeralDiskAndUserdata(tests.ContainerDiskFor(tests.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n")
 			tests.AddExplicitPodNetworkInterface(testVMI)
@@ -572,7 +572,7 @@ var _ = Describe("Networking", func() {
 			tests.BeforeTestCleanup()
 		})
 
-		It("should disable learning on pod iface", func() {
+		It("[test_id:1777]should disable learning on pod iface", func() {
 			By("checking learning flag")
 			learningDisabledVMI := tests.NewRandomVMIWithEphemeralDiskAndUserdata(tests.ContainerDiskFor(tests.ContainerDiskAlpine), "#!/bin/bash\necho 'hello'\n")
 			_, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(learningDisabledVMI)
@@ -588,7 +588,7 @@ var _ = Describe("Networking", func() {
 			tests.BeforeTestCleanup()
 		})
 
-		It("should offer extra dhcp options to pod iface", func() {
+		It("[test_id:1778]should offer extra dhcp options to pod iface", func() {
 			userData := "#cloud-config\npassword: fedora\nchpasswd: { expire: False }\n"
 			dhcpVMI := tests.NewRandomVMIWithEphemeralDiskAndUserdata(tests.ContainerDiskFor(tests.ContainerDiskFedora), userData)
 			tests.AddExplicitPodNetworkInterface(dhcpVMI)
@@ -633,7 +633,7 @@ var _ = Describe("Networking", func() {
 		BeforeEach(func() {
 			tests.BeforeTestCleanup()
 		})
-		It("should have custom resolv.conf", func() {
+		It("[test_id:1779]should have custom resolv.conf", func() {
 			userData := "#cloud-config\n"
 			dnsVMI := tests.NewRandomVMIWithEphemeralDiskAndUserdata(tests.ContainerDiskFor(tests.ContainerDiskCirros), userData)
 
@@ -674,7 +674,7 @@ var _ = Describe("Networking", func() {
 			return vmi
 		}
 
-		It("should allow regular network connection", func() {
+		It("[test_id:1780]should allow regular network connection", func() {
 			By("creating two virtual machines")
 			ports := []v1.Port{{Name: "http", Port: 8080}}
 			serverVMI = masqueradeVMI(tests.ContainerDiskFor(tests.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n", ports)
@@ -739,7 +739,7 @@ var _ = Describe("Networking", func() {
 			tests.BeforeTestCleanup()
 		})
 
-		It("should get turned off for interfaces that serve dhcp", func() {
+		It("[test_id:1781]should get turned off for interfaces that serve dhcp", func() {
 			vmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(tests.ContainerDiskFor(tests.ContainerDiskAlpine), "#!/bin/bash\necho")
 			vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceName("memory")] = resource.MustParse("1024M")
 
