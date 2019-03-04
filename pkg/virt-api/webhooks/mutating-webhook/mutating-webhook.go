@@ -105,6 +105,8 @@ func mutateVMIs(ar *v1beta1.AdmissionReview) *v1beta1.AdmissionResponse {
 			},
 		}
 	}
+	// Apply default cpu model
+	setDefaultCPUModel(&vmi, informers.ConfigMapInformer.GetStore())
 
 	// Apply namespace limits
 	applyNamespaceLimitRangeValues(&vmi, informers.NamespaceLimitsInformer)
