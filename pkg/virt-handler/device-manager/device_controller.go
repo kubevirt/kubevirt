@@ -20,6 +20,7 @@
 package device_manager
 
 import (
+	"math"
 	"os"
 	"time"
 
@@ -39,6 +40,7 @@ type DeviceController struct {
 	devicePlugins []GenericDevice
 	host          string
 	maxDevices    int
+	backoff       []time.Duration
 }
 
 func NewDeviceController(host string, maxDevices int) *DeviceController {
@@ -50,6 +52,7 @@ func NewDeviceController(host string, maxDevices int) *DeviceController {
 		},
 		host:       host,
 		maxDevices: maxDevices,
+		backoff:    []time.Duration{1 * time.Second, 2 * time.Second, 5 * time.Second, 10 * time.Second},
 	}
 }
 
@@ -62,11 +65,15 @@ func (c *DeviceController) nodeHasDevice(devicePath string) bool {
 func (c *DeviceController) startDevicePlugin(dev GenericDevice, stop chan struct{}) {
 	logger := log.DefaultLogger()
 	deviceName := dev.GetDeviceName()
+	retries := 0
 
 	for {
 		err := dev.Start(stop)
 		if err != nil {
-			logger.Errorf("Error starting %s device plugin: %v", deviceName, err)
+			logger.Reason(err).Errorf("Error starting %s device plugin", deviceName)
+			retries = int(math.Min(float64(retries+1), float64(len(c.backoff)-1)))
+		} else {
+			retries = 0
 		}
 
 		select {
@@ -75,9 +82,8 @@ func (c *DeviceController) startDevicePlugin(dev GenericDevice, stop chan struct
 			return
 		default:
 			// Wait a little bit and re-register
-			time.Sleep(1 * time.Second)
+			time.Sleep(c.backoff[retries])
 		}
-
 	}
 }
 

@@ -126,8 +126,7 @@ func (dpi *GenericDevicePlugin) Start(stop chan struct{}) (err error) {
 
 	sock, err := net.Listen("unix", dpi.socketPath)
 	if err != nil {
-		logger.Errorf("[%s] Error creating GRPC server socket: %v", dpi.deviceName, err)
-		return err
+		return fmt.Errorf("error creating GRPC server socket: %v", err)
 	}
 
 	dpi.server = grpc.NewServer([]grpc.ServerOption{}...)
@@ -136,8 +135,7 @@ func (dpi *GenericDevicePlugin) Start(stop chan struct{}) (err error) {
 	pluginapi.RegisterDevicePluginServer(dpi.server, dpi)
 	err = dpi.Register()
 	if err != nil {
-		logger.Errorf("[%s] Error registering with device plugin manager: %v", dpi.deviceName, err)
-		return err
+		return fmt.Errorf("error registering with device plugin manager: %v", err)
 	}
 
 	errChan := make(chan error, 2)
@@ -148,11 +146,8 @@ func (dpi *GenericDevicePlugin) Start(stop chan struct{}) (err error) {
 
 	err = waitForGrpcServer(dpi.socketPath, connectionTimeout)
 	if err != nil {
-		logger.Errorf("[%s] Error connecting to GRPC server: %v", dpi.deviceName, err)
-		return err
+		return fmt.Errorf("error starting the GRPC server: %v", err)
 	}
-
-	logger.V(3).Infof("[%s] Device plugin server ready", dpi.deviceName)
 
 	go func() {
 		errChan <- dpi.healthCheck()
@@ -268,8 +263,7 @@ func (dpi *GenericDevicePlugin) healthCheck() error {
 	logger := log.DefaultLogger()
 	watcher, err := fsnotify.NewWatcher()
 	if err != nil {
-		logger.Errorf("Unable to create fsnotify watcher: %v", err)
-		return nil
+		return fmt.Errorf("failed to creating a fsnotify watcher: %v", err)
 	}
 	defer watcher.Close()
 
@@ -281,15 +275,13 @@ func (dpi *GenericDevicePlugin) healthCheck() error {
 	err = watcher.Add(dirName)
 
 	if err != nil {
-		logger.Errorf("Unable to add path to fsnotify watcher: %v", err)
-		return err
+		return fmt.Errorf("failed to add the device root path to the watcher: %v", err)
 	}
 
 	_, err = os.Stat(devicePath)
 	if err != nil {
 		if !os.IsNotExist(err) {
-			logger.Errorf("Unable to stat device: %v", err)
-			return err
+			return fmt.Errorf("could not stat the device: %v", err)
 		}
 		dpi.health <- pluginapi.Unhealthy
 	}
@@ -298,13 +290,11 @@ func (dpi *GenericDevicePlugin) healthCheck() error {
 	err = watcher.Add(dirName)
 
 	if err != nil {
-		logger.Errorf("Unable to add path to fsnotify watcher: %v", err)
-		return err
+		return fmt.Errorf("failed to add the device-plugin kubelet path to the watcher: %v", err)
 	}
 	_, err = os.Stat(dpi.socketPath)
 	if err != nil {
-		logger.Errorf("Unable to stat socket: %v", err)
-		return err
+		return fmt.Errorf("failed to stat the device-plugin socket: %v", err)
 	}
 
 	for {

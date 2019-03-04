@@ -53,6 +53,21 @@ var _ = Describe("Generic Device", func() {
 		Expect(len(dpi.devs)).To(Equal(dpi.counter))
 	})
 
+	It("Should stop if the device plugin socket file is deleted", func() {
+		os.OpenFile(dpi.socketPath, os.O_RDONLY|os.O_CREATE, 0666)
+
+		errChan := make(chan error, 1)
+		go func(errChan chan error) {
+			errChan <- dpi.healthCheck()
+		}(errChan)
+		Consistently(func() string {
+			return dpi.devs[0].Health
+		}, 2*time.Second, 500*time.Millisecond).Should(Equal(pluginapi.Healthy))
+		Expect(os.Remove(dpi.socketPath)).To(Succeed())
+
+		Expect(<-errChan).To(BeNil())
+	})
+
 	It("Should monitor health of device node", func() {
 
 		os.OpenFile(dpi.socketPath, os.O_RDONLY|os.O_CREATE, 0666)
