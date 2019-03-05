@@ -70,6 +70,7 @@ const LibvirtStartupDelay = 10
 //to match a VirtualMachineInstance CPU model(Family) and/or features to nodes that support them.
 const NFD_CPU_MODEL_PREFIX = "feature.node.kubernetes.io/cpu-model-"
 const NFD_CPU_FEATURE_PREFIX = "feature.node.kubernetes.io/cpu-feature-"
+const NFD_KVM_INFO_PREFIX = "feature.node.kubernetes.io/kvm-info-"
 
 const MULTUS_RESOURCE_NAME_ANNOTATION = "k8s.v1.cni.cncf.io/resourceName"
 const MULTUS_DEFAULT_NETWORK_CNI_ANNOTATION = "v1.multus-cni.io/default-network"
@@ -186,6 +187,17 @@ func IsCPUNodeDiscoveryEnabled(store cache.Store) bool {
 	return false
 }
 
+func isHyperVSupportRequired(store cache.Store) bool {
+	value, err := getConfigMapEntry(store, virtconfig.FeatureGatesKey)
+	if err != nil {
+		return false
+	}
+	if !strings.Contains(value, virtconfig.HypervSupportGate) {
+		return false
+	}
+	return true
+}
+
 func CPUModelLabelFromCPUModel(vmi *v1.VirtualMachineInstance) (label string, err error) {
 	if vmi.Spec.Domain.CPU == nil || vmi.Spec.Domain.CPU.Model == "" {
 		err = fmt.Errorf("Cannot create CPU Model label, vmi spec is mising CPU model")
@@ -205,6 +217,10 @@ func CPUFeatureLabelsFromCPUFeatures(vmi *v1.VirtualMachineInstance) []string {
 		}
 	}
 	return labels
+}
+
+func KVMInfoHypervSupportLabel() string {
+	return NFD_KVM_INFO_PREFIX + "hyperv"
 }
 
 func SetNodeAffinityForForbiddenFeaturePolicy(vmi *v1.VirtualMachineInstance, pod *k8sv1.Pod) {
@@ -790,6 +806,11 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 		for _, cpuFeatureLable := range CPUFeatureLabelsFromCPUFeatures(vmi) {
 			nodeSelector[cpuFeatureLable] = "true"
 		}
+	}
+
+	if isHyperVSupportRequired(t.configMapStore) {
+		key := KVMInfoHypervSupportLabel()
+		nodeSelector[key] = "true"
 	}
 
 	nodeSelector[v1.NodeSchedulable] = "true"
