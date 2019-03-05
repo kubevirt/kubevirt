@@ -767,7 +767,10 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 		v1.DomainAnnotation: domain,
 	}
 
-	cniNetworks, cniAnnotation := getCniInterfaceList(vmi)
+	cniNetworks, cniAnnotation, err := getCniInterfaceList(vmi)
+	if err != nil {
+		return nil, err
+	}
 	if len(cniNetworks) > 0 {
 		annotationsList[cniAnnotation] = cniNetworks
 	}
@@ -977,7 +980,7 @@ func getNetworkToResourceMap(virtClient kubecli.KubevirtClient, vmi *v1.VirtualM
 	return
 }
 
-func getCniInterfaceList(vmi *v1.VirtualMachineInstance) (ifaceListString string, cniAnnotation string) {
+func getCniInterfaceList(vmi *v1.VirtualMachineInstance) (ifaceListString string, cniAnnotation string, err error) {
 	ifaceList := make([]string, 0)
 	ifaceListMap := make([]map[string]string, 0)
 
@@ -1001,7 +1004,10 @@ func getCniInterfaceList(vmi *v1.VirtualMachineInstance) (ifaceListString string
 		}
 	}
 	if len(ifaceListMap) > 0 {
-		ifaceJsonString, _ := json.Marshal(ifaceListMap)
+		ifaceJsonString, err := json.Marshal(ifaceListMap)
+		if err != nil {
+			return "", "", fmt.Errorf("Failed to create json list for map %s", ifaceListMap)
+		}
 		ifaceListString = fmt.Sprintf("%s", ifaceJsonString)
 	} else {
 		ifaceListString = strings.Join(ifaceList, ",")
