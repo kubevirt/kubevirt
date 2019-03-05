@@ -16,8 +16,8 @@ bazel-push-images:
 	hack/dockerized "bazel run \
 		--platforms=@io_bazel_rules_go//go/toolchain:linux_amd64 \
 		--workspace_status_command=./hack/print-workspace-status.sh \
-		--define container_prefix=${CONTAINER_PREFIX} \
-		--define container_tag=${CONTAINER_TAG} \
+		--define container_prefix=${DOCKER_PREFIX} \
+		--define container_tag=${DOCKER_TAG} \
 		//:push-images"
 
 bazel-tests:
