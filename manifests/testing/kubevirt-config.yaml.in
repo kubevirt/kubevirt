@@ -6,4 +6,4 @@ metadata:
   labels:
     kubevirt.io: ""
 data:
-  feature-gates: "DataVolumes, CPUManager, LiveMigration"
+  feature-gates: "DataVolumes, CPUManager, LiveMigration, ExperimentalIgnitionSupport"

@@ -63,7 +63,7 @@ func waitForJobToCompleteWithStatus(virtClient *kubecli.KubevirtClient, jobPod *
 	}, time.Duration(timeoutSec)*time.Second, 1*time.Second).Should(Equal(jobPodPhase))
 }
 
-var _ = Describe("Expose", func() {
+var _ = Describe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:component]Expose", func() {
 
 	flag.Parse()
 
@@ -71,7 +71,7 @@ var _ = Describe("Expose", func() {
 	tests.PanicOnError(err)
 	const testPort = 1500
 
-	Context("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:component]Expose service on a VM", func() {
+	Context("Expose service on a VM", func() {
 		var tcpVM *v1.VirtualMachineInstance
 		tests.BeforeAll(func() {
 			tcpVM = newLabeledVM("vm", virtClient)
@@ -99,7 +99,7 @@ var _ = Describe("Expose", func() {
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Waiting for the pod to report a successful connection attempt")
-				waitForJobToCompleteWithStatus(&virtClient, job, "success", 60)
+				waitForJobToCompleteWithStatus(&virtClient, job, "success", 120)
 			})
 		})
 
@@ -187,7 +187,7 @@ var _ = Describe("Expose", func() {
 					Expect(err).ToNot(HaveOccurred())
 
 					By("Waiting for the pod to report a successful connection attempt")
-					waitForJobToCompleteWithStatus(&virtClient, job, "success", 60)
+					waitForJobToCompleteWithStatus(&virtClient, job, "success", 120)
 				}
 			})
 		})
@@ -223,7 +223,7 @@ var _ = Describe("Expose", func() {
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Waiting for the pod to report a successful connection attempt")
-				waitForJobToCompleteWithStatus(&virtClient, job, "success", 60)
+				waitForJobToCompleteWithStatus(&virtClient, job, "success", 120)
 			})
 		})
 
@@ -265,7 +265,7 @@ var _ = Describe("Expose", func() {
 					Expect(err).ToNot(HaveOccurred())
 
 					By("Waiting for the pod to report a successful connection attempt")
-					waitForJobToCompleteWithStatus(&virtClient, job, "success", 60)
+					waitForJobToCompleteWithStatus(&virtClient, job, "success", 120)
 				}
 			})
 		})
@@ -326,12 +326,12 @@ var _ = Describe("Expose", func() {
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Waiting for the pod to report a successful connection attempt")
-				waitForJobToCompleteWithStatus(&virtClient, job, "success", 60)
+				waitForJobToCompleteWithStatus(&virtClient, job, "success", 120)
 			})
 		})
 	})
 
-	Context("[rfe_id:253][crit:high][vendor:cnv-qe@redhat.com][level:component]Expose a VM as a service.", func() {
+	Context("Expose a VM as a service.", func() {
 		const servicePort = "27017"
 		const serviceName = "cluster-ip-vm"
 		var vm *v1.VirtualMachine
@@ -388,7 +388,20 @@ var _ = Describe("Expose", func() {
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Waiting for the pod to report a successful connection attempt")
-				waitForJobToCompleteWithStatus(&virtClient, job, "success", 60)
+				waitForJobToCompleteWithStatus(&virtClient, job, "success", 120)
+
+				By("Starting an HTTP server on the VM, to verify HTTP connection also succeeds using the exposed VM.")
+				vmi, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(vm.Name, &k8smetav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				tests.StartHTTPServer(vmi, testPort)
+
+				By("Starting a pod which tries to reach the VMI via ClusterIP over HTTP.")
+				job = tests.NewHelloWorldJobHttp(serviceIP, servicePort)
+				job, err = virtClient.CoreV1().Pods(vm.Namespace).Create(job)
+				Expect(err).ToNot(HaveOccurred())
+
+				By("Waiting for the HTTP job pod to report a successful connection attempt.")
+				waitForJobToCompleteWithStatus(&virtClient, job, "success", 120)
 			})
 
 			It("[test_id:345]Should verify the exposed service is functional before and after VM restart.", func() {

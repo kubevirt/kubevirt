@@ -33,3 +33,4 @@ tools/vms-generator/vms-generator
 coverage.html
 manifests/**/*.tmp
 bazel-*
+.bazelrc

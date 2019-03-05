@@ -395,7 +395,7 @@ var _ = Describe("Configurations", func() {
 				defer expecter.Close()
 				By("Checking the number of usb under guest OS")
 				_, err = expecter.ExpectBatch([]expect.Batcher{
-					&expect.BSnd{S: "ls -l /sys/bus/usb/devices/usb* | wc -l\n"},
+					&expect.BSnd{S: "ls -l /sys/bus/usb/devices/usb* 2>/dev/null | wc -l\n"},
 					&expect.BExp{R: "0"},
 				}, 60*time.Second)
 				Expect(err).ToNot(HaveOccurred(), "should report number of usb")
@@ -835,11 +835,13 @@ var _ = Describe("Configurations", func() {
 	Context("[rfe_id:140][crit:medium][vendor:cnv-qe@redhat.com][level:component]with CPU spec", func() {
 		libvirtCPUModelRegexp := regexp.MustCompile(`<model>(\w+)\-*\w*</model>`)
 		libvirtCPUVendorRegexp := regexp.MustCompile(`<vendor>(\w+)</vendor>`)
+		libvirtCPUFeatureRegexp := regexp.MustCompile(`<feature name='(\w+)'/>`)
 		cpuModelNameRegexp := regexp.MustCompile(`Model name:\s*([\s\w\-@\.\(\)]+)`)
 
 		var libvirtCpuModel string
 		var libvirtCpuVendor string
 		var cpuModelName string
+		var cpuFeatures []string
 		var cpuVmi *v1.VirtualMachineInstance
 
 		BeforeEach(func() {
@@ -856,6 +858,12 @@ var _ = Describe("Configurations", func() {
 			vendor := libvirtCPUVendorRegexp.FindStringSubmatch(virshCaps)
 			Expect(len(vendor)).To(Equal(2))
 			libvirtCpuVendor = vendor[1]
+
+			cpuFeaturesList := libvirtCPUFeatureRegexp.FindAllStringSubmatch(virshCaps, -1)
+
+			for _, cpuFeature := range cpuFeaturesList {
+				cpuFeatures = append(cpuFeatures, cpuFeature[1])
+			}
 
 			cpuInfo := tests.GetNodeCPUInfo(nodes.Items[0].Name)
 			modelName := cpuModelNameRegexp.FindStringSubmatch(cpuInfo)
@@ -947,6 +955,36 @@ var _ = Describe("Configurations", func() {
 					&expect.BSnd{S: fmt.Sprintf("grep %s /proc/cpuinfo\n", libvirtCpuModel)},
 					&expect.BExp{R: "model name"},
 				}, 10*time.Second)
+			})
+		})
+
+		Context("when CPU features defined", func() {
+			It("should start a Virtaul Machine with matching features", func() {
+				cpuVmi.Spec.Domain.CPU = &v1.CPU{
+					Features: []v1.CPUFeature{
+						{
+							Name: cpuFeatures[0],
+						},
+					},
+				}
+
+				By("Starting a VirtualMachineInstance")
+				_, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(cpuVmi)
+				Expect(err).ToNot(HaveOccurred())
+				tests.WaitForSuccessfulVMIStart(cpuVmi)
+
+				By("Expecting the VirtualMachineInstance console")
+				expecter, err := tests.LoggedInCirrosExpecter(cpuVmi)
+				Expect(err).ToNot(HaveOccurred())
+				defer expecter.Close()
+
+				By("Checking the CPU features under the guest OS")
+				_, err = expecter.ExpectBatch([]expect.Batcher{
+					&expect.BSnd{S: fmt.Sprintf("grep %s /proc/cpuinfo\n", cpuFeatures[0])},
+					&expect.BExp{R: "flags"},
+				}, 10*time.Second)
+				Expect(err).ToNot(HaveOccurred())
+
 			})
 		})
 	})
@@ -1083,6 +1121,24 @@ var _ = Describe("Configurations", func() {
 	})
 	Describe("[rfe_id:897][crit:medium][vendor:cnv-qe@redhat.com][level:component]VirtualMachineInstance with CPU pinning", func() {
 		var nodes *kubev1.NodeList
+
+		isNodeHasCPUManagerLabel := func(nodeName string) bool {
+			Expect(nodeName).ToNot(BeEmpty())
+
+			nodeObject, err := virtClient.CoreV1().Nodes().Get(nodeName, metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			nodeHaveCpuManagerLabel := false
+			nodeLabels := nodeObject.GetLabels()
+
+			for label, val := range nodeLabels {
+				if label == v1.CPUManager && val == "true" {
+					nodeHaveCpuManagerLabel = true
+					break
+				}
+			}
+			return nodeHaveCpuManagerLabel
+		}
+
 		BeforeEach(func() {
 			nodes, err = virtClient.CoreV1().Nodes().List(metav1.ListOptions{})
 			tests.PanicOnError(err)
@@ -1090,6 +1146,7 @@ var _ = Describe("Configurations", func() {
 				Skip("Skip cpu pinning test that requires multiple nodes when only one node is present.")
 			}
 		})
+
 		Context("with cpu pinning enabled", func() {
 			It("[test_id:1684]should set the cpumanager label to false when it's not running", func() {
 
@@ -1132,11 +1189,13 @@ var _ = Describe("Configurations", func() {
 						kubev1.ResourceMemory: resource.MustParse("64M"),
 					},
 				}
+
 				By("Starting a VirtualMachineInstance")
 				_, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(cpuVmi)
 				Expect(err).ToNot(HaveOccurred())
 				node := tests.WaitForSuccessfulVMIStart(cpuVmi)
-				Expect(node).NotTo(ContainSubstring("node01"))
+
+				Expect(isNodeHasCPUManagerLabel(node)).To(BeTrue())
 
 				By("Checking that the pod QOS is guaranteed")
 				readyPod := tests.GetRunningPodByVirtualMachineInstance(cpuVmi, tests.NamespaceTestDefault)
@@ -1196,7 +1255,7 @@ var _ = Describe("Configurations", func() {
 				_, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(cpuVmi)
 				Expect(err).ToNot(HaveOccurred())
 				node := tests.WaitForSuccessfulVMIStart(cpuVmi)
-				Expect(node).NotTo(ContainSubstring("node01"))
+				Expect(isNodeHasCPUManagerLabel(node)).To(BeTrue())
 
 				By("Expecting the VirtualMachineInstance console")
 				expecter, err := tests.LoggedInCirrosExpecter(cpuVmi)
@@ -1284,13 +1343,13 @@ var _ = Describe("Configurations", func() {
 				_, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(cpuVmi)
 				Expect(err).ToNot(HaveOccurred())
 				node := tests.WaitForSuccessfulVMIStart(cpuVmi)
-				Expect(node).To(ContainSubstring("node02"))
+				Expect(isNodeHasCPUManagerLabel(node)).To(BeTrue())
 
 				By("Starting a VirtualMachineInstance without dedicated cpus")
 				_, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(Vmi)
 				Expect(err).ToNot(HaveOccurred())
-				node1 := tests.WaitForSuccessfulVMIStart(Vmi)
-				Expect(node1).To(ContainSubstring("node02"))
+				node = tests.WaitForSuccessfulVMIStart(cpuVmi)
+				Expect(isNodeHasCPUManagerLabel(node)).To(BeTrue())
 			})
 		})
 	})

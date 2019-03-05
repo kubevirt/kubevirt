@@ -32,12 +32,15 @@ import (
 	secv1fake "github.com/openshift/client-go/security/clientset/versioned/typed/security/v1/fake"
 
 	appsv1 "k8s.io/api/apps/v1"
+	batchv1 "k8s.io/api/batch/v1"
 	k8sv1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	extv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
 	extclientfake "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset/fake"
+	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/kubernetes/fake"
 	"k8s.io/client-go/testing"
 	"k8s.io/client-go/tools/cache"
@@ -50,6 +53,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/testutils"
 	"kubevirt.io/kubevirt/pkg/virt-operator/creation/components"
 	"kubevirt.io/kubevirt/pkg/virt-operator/creation/rbac"
+	"kubevirt.io/kubevirt/pkg/virt-operator/install-strategy"
 	"kubevirt.io/kubevirt/pkg/virt-operator/util"
 )
 
@@ -71,6 +75,8 @@ var _ = Describe("KubeVirt Operator", func() {
 	var deploymentSource *framework.FakeControllerSource
 	var daemonSetSource *framework.FakeControllerSource
 	var sccSource *framework.FakeControllerSource
+	var installStrategyConfigMapSource *framework.FakeControllerSource
+	var installStrategyJobSource *framework.FakeControllerSource
 
 	var stop chan struct{}
 	var controller *KubeVirtController
@@ -86,7 +92,7 @@ var _ = Describe("KubeVirt Operator", func() {
 	var informers util.Informers
 	var stores util.Stores
 
-	os.Setenv(util.OperatorImageEnvName, "whatever/virt-operator:thisversion")
+	os.Setenv(util.OperatorImageEnvName, "somerepository/virt-operator:v9.9.9")
 
 	var totalAdds int
 	var totalDeletions int
@@ -106,6 +112,8 @@ var _ = Describe("KubeVirt Operator", func() {
 		go informers.Deployment.Run(stop)
 		go informers.DaemonSet.Run(stop)
 		go informers.SCC.Run(stop)
+		go informers.InstallStrategyJob.Run(stop)
+		go informers.InstallStrategyConfigMap.Run(stop)
 
 		Expect(cache.WaitForCacheSync(stop, kvInformer.HasSynced)).To(BeTrue())
 
@@ -119,6 +127,8 @@ var _ = Describe("KubeVirt Operator", func() {
 		cache.WaitForCacheSync(stop, informers.Deployment.HasSynced)
 		cache.WaitForCacheSync(stop, informers.DaemonSet.HasSynced)
 		cache.WaitForCacheSync(stop, informers.SCC.HasSynced)
+		cache.WaitForCacheSync(stop, informers.InstallStrategyJob.HasSynced)
+		cache.WaitForCacheSync(stop, informers.InstallStrategyConfigMap.HasSynced)
 
 	}
 
@@ -176,6 +186,12 @@ var _ = Describe("KubeVirt Operator", func() {
 		informers.SCC, sccSource = testutils.NewFakeInformerFor(&secv1.SecurityContextConstraints{})
 		stores.SCCCache = informers.SCC.GetStore()
 
+		informers.InstallStrategyConfigMap, installStrategyConfigMapSource = testutils.NewFakeInformerFor(&k8sv1.ConfigMap{})
+		stores.InstallStrategyConfigMapCache = informers.InstallStrategyConfigMap.GetStore()
+
+		informers.InstallStrategyJob, installStrategyJobSource = testutils.NewFakeInformerFor(&batchv1.Job{})
+		stores.InstallStrategyJobCache = informers.InstallStrategyJob.GetStore()
+
 		controller = NewKubeVirtController(virtClient, kvInformer, recorder, stores, informers)
 
 		// Wrap our workqueue to have a way to detect when we are done processing updates
@@ -191,6 +207,7 @@ var _ = Describe("KubeVirt Operator", func() {
 		extClient = extclientfake.NewSimpleClientset()
 
 		virtClient.EXPECT().CoreV1().Return(kubeClient.CoreV1()).AnyTimes()
+		virtClient.EXPECT().BatchV1().Return(kubeClient.BatchV1()).AnyTimes()
 		virtClient.EXPECT().RbacV1().Return(kubeClient.RbacV1()).AnyTimes()
 		virtClient.EXPECT().AppsV1().Return(kubeClient.AppsV1()).AnyTimes()
 		virtClient.EXPECT().SecClient().Return(secClient).AnyTimes()
@@ -285,6 +302,18 @@ var _ = Describe("KubeVirt Operator", func() {
 		mockQueue.Wait()
 	}
 
+	addInstallStrategyConfigMap := func(c *k8sv1.ConfigMap) {
+		mockQueue.ExpectAdds(1)
+		installStrategyConfigMapSource.Add(c)
+		mockQueue.Wait()
+	}
+
+	addInstallStrategyJob := func(job *batchv1.Job) {
+		mockQueue.ExpectAdds(1)
+		installStrategyJobSource.Add(job)
+		mockQueue.Wait()
+	}
+
 	addResource := func(obj runtime.Object) {
 		switch resource := obj.(type) {
 		case *k8sv1.ServiceAccount:
@@ -305,19 +334,37 @@ var _ = Describe("KubeVirt Operator", func() {
 			addDeployment(resource)
 		case *appsv1.DaemonSet:
 			addDaemonset(resource)
+		case *batchv1.Job:
+			addInstallStrategyJob(resource)
+		case *k8sv1.ConfigMap:
+			addInstallStrategyConfigMap(resource)
 		default:
 			Fail("unknown resource type")
 		}
 	}
 
+	addInstallStrategy := func() {
+		repository := "somerepository"
+		version := "v9.9.9"
+
+		// install strategy config
+		resource, _ := installstrategy.NewInstallStrategyConfigMap(NAMESPACE, version, repository)
+		addResource(resource)
+
+	}
+
 	addAll := func() {
-		repository := "kubevirt"
-		version := "latest"
+		repository := "somerepository"
+		version := "v9.9.9"
 		pullPolicy := "IfNotPresent"
 		imagePullPolicy := k8sv1.PullPolicy(pullPolicy)
 		verbosity := "2"
 
 		all := make([]interface{}, 0)
+
+		// install strategy config
+		addInstallStrategy()
+
 		// rbac
 		all = append(all, rbac.GetAllCluster(NAMESPACE)...)
 		all = append(all, rbac.GetAllApiServer(NAMESPACE)...)
@@ -473,6 +520,21 @@ var _ = Describe("KubeVirt Operator", func() {
 		mockQueue.Wait()
 	}
 
+	deleteInstallStrategyJob := func(key string) {
+		mockQueue.ExpectAdds(1)
+		if obj, exists, _ := informers.InstallStrategyJob.GetStore().GetByKey(key); exists {
+			installStrategyJobSource.Delete(obj.(runtime.Object))
+		}
+		mockQueue.Wait()
+	}
+
+	deleteInstallStrategyConfigMap := func(key string) {
+		mockQueue.ExpectAdds(1)
+		if obj, exists, _ := informers.InstallStrategyConfigMap.GetStore().GetByKey(key); exists {
+			installStrategyConfigMapSource.Delete(obj.(runtime.Object))
+		}
+		mockQueue.Wait()
+	}
 	deleteResource := func(resource string, key string) {
 		switch resource {
 		case "serviceaccounts":
@@ -493,6 +555,10 @@ var _ = Describe("KubeVirt Operator", func() {
 			deleteDeployment(key)
 		case "daemonsets":
 			deleteDaemonset(key)
+		case "jobs":
+			deleteInstallStrategyJob(key)
+		case "configmaps":
+			deleteInstallStrategyConfigMap(key)
 		default:
 			Fail("unknown resource type")
 		}
@@ -505,7 +571,6 @@ var _ = Describe("KubeVirt Operator", func() {
 		addResource(create.GetObject())
 		return true, create.GetObject(), nil
 	}
-
 	genericDeleteFunc := func(action testing.Action) (handled bool, obj runtime.Object, err error) {
 		delete, ok := action.(testing.DeleteAction)
 		Expect(ok).To(BeTrue())
@@ -518,11 +583,25 @@ var _ = Describe("KubeVirt Operator", func() {
 		deleteResource(delete.GetResource().Resource, key)
 		return true, nil, nil
 	}
-
 	expectUsers := func(sccObj runtime.Object, count int) {
 		scc, ok := sccObj.(*secv1.SecurityContextConstraints)
 		ExpectWithOffset(2, ok).To(BeTrue())
 		ExpectWithOffset(2, len(scc.Users)).To(Equal(count))
+	}
+
+	shouldExpectInstallStrategyDeletion := func() {
+		kubeClient.Fake.PrependReactor("delete", "configmaps", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
+
+			delete, ok := action.(testing.DeleteAction)
+			Expect(ok).To(BeTrue())
+			var key string
+			if len(delete.GetNamespace()) > 0 {
+				key = delete.GetNamespace() + "/"
+			}
+			key += delete.GetName()
+			deleteResource(delete.GetResource().Resource, key)
+			return true, nil, nil
+		})
 	}
 
 	shouldExpectDeletions := func() {
@@ -545,6 +624,14 @@ var _ = Describe("KubeVirt Operator", func() {
 		kubeClient.Fake.PrependReactor("delete", "daemonsets", genericDeleteFunc)
 	}
 
+	shouldExpectJobDeletion := func() {
+		kubeClient.Fake.PrependReactor("delete", "jobs", genericDeleteFunc)
+	}
+
+	shouldExpectJobCreation := func() {
+		kubeClient.Fake.PrependReactor("create", "jobs", genericCreateFunc)
+	}
+
 	shouldExpectCreations := func() {
 		kubeClient.Fake.PrependReactor("create", "serviceaccounts", genericCreateFunc)
 		kubeClient.Fake.PrependReactor("create", "clusterroles", genericCreateFunc)
@@ -564,13 +651,22 @@ var _ = Describe("KubeVirt Operator", func() {
 		kubeClient.Fake.PrependReactor("create", "deployments", genericCreateFunc)
 		kubeClient.Fake.PrependReactor("create", "daemonsets", genericCreateFunc)
 	}
-
 	shouldExpectKubeVirtUpdate := func(times int) {
 		update := kvInterface.EXPECT().Update(gomock.Any())
 		update.Do(func(kv *v1.KubeVirt) {
 			kvInformer.GetStore().Update(kv)
 			update.Return(kv, nil)
 		}).Times(times)
+	}
+
+	shouldExpectKubeVirtUpdateFailureCondition := func() {
+		update := kvInterface.EXPECT().Update(gomock.Any())
+		update.Do(func(kv *v1.KubeVirt) {
+			Expect(len(kv.Status.Conditions)).To(Equal(1))
+			Expect(kv.Status.Conditions[0].Reason).To(Equal(ConditionReasonDeploymentFailedExisting))
+			kvInformer.GetStore().Update(kv)
+			update.Return(kv, nil)
+		}).Times(1)
 	}
 
 	getLatestKubeVirt := func(kv *v1.KubeVirt) *v1.KubeVirt {
@@ -626,7 +722,7 @@ var _ = Describe("KubeVirt Operator", func() {
 							Message: "All components are ready.",
 						},
 					},
-					OperatorVersion: "v0.0.0-master+$Format:%h$",
+					OperatorVersion: "v9.9.9",
 				},
 			}
 
@@ -635,6 +731,131 @@ var _ = Describe("KubeVirt Operator", func() {
 			addAll()
 			makeApiAndControllerReady()
 			makeHandlerReady()
+
+			controller.Execute()
+
+		}, 15)
+
+		It("should fail if KubeVirt object already exists", func(done Done) {
+			defer close(done)
+
+			kv1 := &v1.KubeVirt{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:       "test-install",
+					Namespace:  NAMESPACE,
+					UID:        "11111111111",
+					Finalizers: []string{util.KubeVirtFinalizer},
+				},
+				Status: v1.KubeVirtStatus{
+					Phase: v1.KubeVirtPhaseDeployed,
+					Conditions: []v1.KubeVirtCondition{
+						{
+							Type:    v1.KubeVirtConditionCreated,
+							Status:  k8sv1.ConditionTrue,
+							Reason:  ConditionReasonDeploymentCreated,
+							Message: "All resources were created.",
+						},
+						{
+							Type:    v1.KubeVirtConditionReady,
+							Status:  k8sv1.ConditionTrue,
+							Reason:  ConditionReasonDeploymentReady,
+							Message: "All components are ready.",
+						},
+					},
+					OperatorVersion: "v0.0.0-master+$Format:%h$",
+				},
+			}
+
+			kv2 := &v1.KubeVirt{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-install2",
+					Namespace: NAMESPACE,
+					UID:       "123123123",
+				},
+				Status: v1.KubeVirtStatus{},
+			}
+
+			addKubeVirt(kv1)
+			addKubeVirt(kv2)
+
+			shouldExpectKubeVirtUpdateFailureCondition()
+
+			controller.execute(fmt.Sprintf("%s/%s", kv2.Namespace, kv2.Name))
+
+		}, 15)
+
+		It("should generate install strategy creation job if no install strategy exists", func(done Done) {
+			defer close(done)
+
+			kv := &v1.KubeVirt{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:       "test-install",
+					Namespace:  NAMESPACE,
+					Finalizers: []string{util.KubeVirtFinalizer},
+				},
+				Status: v1.KubeVirtStatus{},
+			}
+
+			// create all resources which should already exist
+			addKubeVirt(kv)
+			shouldExpectKubeVirtUpdate(1)
+			shouldExpectJobCreation()
+			controller.Execute()
+
+		}, 15)
+
+		It("should delete install strategy creation job if job has failed", func(done Done) {
+			defer close(done)
+
+			kv := &v1.KubeVirt{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:       "test-install",
+					Namespace:  NAMESPACE,
+					Finalizers: []string{util.KubeVirtFinalizer},
+				},
+				Status: v1.KubeVirtStatus{},
+			}
+
+			job := controller.generateInstallStrategyJob(kv, "v9.9.9", "somerepository")
+
+			// will only create a new job after 10 seconds has passed.
+			// this is just a simple mechanism to prevent spin loops
+			// in the event that jobs are fast failing for some unknown reason.
+			completionTime := time.Now().Add(time.Duration(-10) * time.Second)
+			job.Status.CompletionTime = &metav1.Time{Time: completionTime}
+
+			// create all resources which should already exist
+			addKubeVirt(kv)
+			addInstallStrategyJob(job)
+
+			shouldExpectJobDeletion()
+			shouldExpectKubeVirtUpdate(1)
+
+			controller.Execute()
+
+		}, 15)
+
+		It("should not delete delete install strategy creation job if job has failed less that 10 seconds ago", func(done Done) {
+			defer close(done)
+
+			kv := &v1.KubeVirt{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:       "test-install",
+					Namespace:  NAMESPACE,
+					Finalizers: []string{util.KubeVirtFinalizer},
+				},
+				Status: v1.KubeVirtStatus{},
+			}
+
+			job := controller.generateInstallStrategyJob(kv, "v9.9.9", "somerepository")
+
+			job.Status.CompletionTime = now()
+
+			// create all resources which should already exist
+			addKubeVirt(kv)
+			addInstallStrategyJob(job)
+
+			shouldExpectKubeVirtUpdate(1)
 
 			controller.Execute()
 
@@ -650,6 +871,16 @@ var _ = Describe("KubeVirt Operator", func() {
 				},
 			}
 			addKubeVirt(kv)
+			addInstallStrategy()
+
+			job := controller.generateInstallStrategyJob(kv, "v9.9.9", "somerepository")
+
+			job.Status.CompletionTime = now()
+			addInstallStrategyJob(job)
+
+			// ensure completed jobs are garbage collected once install strategy
+			// is loaded
+			shouldExpectJobDeletion()
 
 			shouldExpectKubeVirtUpdate(1)
 			shouldExpectCreations()
@@ -736,6 +967,7 @@ var _ = Describe("KubeVirt Operator", func() {
 
 			shouldExpectKubeVirtUpdate(1)
 			shouldExpectDeletions()
+			shouldExpectInstallStrategyDeletion()
 
 			controller.Execute()
 
@@ -748,6 +980,55 @@ var _ = Describe("KubeVirt Operator", func() {
 			Expect(kv.Status.Phase).To(Equal(v1.KubeVirtPhaseDeleted))
 			Expect(len(kv.Status.Conditions)).To(Equal(0))
 
+		}, 15)
+	})
+	Context("On install strategy dump", func() {
+		It("should generate latest install strategy and post as config map", func(done Done) {
+			defer close(done)
+
+			kubeClient.Fake.PrependReactor("create", "configmaps", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
+				create, ok := action.(testing.CreateAction)
+				Expect(ok).To(BeTrue())
+
+				configMap := create.GetObject().(*k8sv1.ConfigMap)
+				Expect(configMap.Name).To(Equal("kubevirt-install-strategy-v9.9.9"))
+
+				_, ok = configMap.Data["manifests"]
+				Expect(ok).To(BeTrue())
+
+				return true, create.GetObject(), nil
+			})
+
+			// This generates and posts the install strategy config map
+			installstrategy.DumpInstallStrategyToConfigMap(virtClient)
+		}, 15)
+
+		It("should update an existing install strategy config map", func(done Done) {
+			defer close(done)
+
+			kubeClient.Fake.PrependReactor("create", "configmaps", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
+				create, ok := action.(testing.CreateAction)
+				Expect(ok).To(BeTrue())
+
+				configMap := create.GetObject().(*k8sv1.ConfigMap)
+				Expect(configMap.Name).To(Equal("kubevirt-install-strategy-v9.9.9"))
+				return true, nil, errors.NewAlreadyExists(schema.GroupResource{}, configMap.Name)
+			})
+			kubeClient.Fake.PrependReactor("update", "configmaps", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
+				update, ok := action.(testing.UpdateAction)
+				Expect(ok).To(BeTrue())
+
+				configMap := update.GetObject().(*k8sv1.ConfigMap)
+				Expect(configMap.Name).To(Equal("kubevirt-install-strategy-v9.9.9"))
+
+				_, ok = configMap.Data["manifests"]
+				Expect(ok).To(BeTrue())
+
+				return true, update.GetObject(), nil
+			})
+
+			// This should update an already existing install strategy
+			installstrategy.DumpInstallStrategyToConfigMap(virtClient)
 		}, 15)
 	})
 })

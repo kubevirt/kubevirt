@@ -104,7 +104,6 @@ func newDefaultClusterRole() *rbacv1.ClusterRole {
 			Name: "kubevirt.io:default",
 			Labels: map[string]string{
 				virtv1.AppLabel:               "",
-				virtv1.ManagedByLabel:         virtv1.ManagedByLabelOperatorValue,
 				"kubernetes.io/bootstrapping": "rbac-defaults",
 			},
 			Annotations: map[string]string{
@@ -136,8 +135,7 @@ func newDefaultClusterRoleBinding() *rbacv1.ClusterRoleBinding {
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "kubevirt.io:default",
 			Labels: map[string]string{
-				virtv1.AppLabel:       "",
-				virtv1.ManagedByLabel: virtv1.ManagedByLabelOperatorValue,
+				virtv1.AppLabel: "",
 			},
 			Annotations: map[string]string{
 				"rbac.authorization.kubernetes.io/autoupdate": "true",
@@ -172,8 +170,7 @@ func newAdminClusterRole() *rbacv1.ClusterRole {
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "kubevirt.io:admin",
 			Labels: map[string]string{
-				virtv1.AppLabel:       "",
-				virtv1.ManagedByLabel: virtv1.ManagedByLabelOperatorValue,
+				virtv1.AppLabel: "",
 				"rbac.authorization.k8s.io/aggregate-to-admin": "true",
 			},
 		},
@@ -228,8 +225,7 @@ func newEditClusterRole() *rbacv1.ClusterRole {
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "kubevirt.io:edit",
 			Labels: map[string]string{
-				virtv1.AppLabel:       "",
-				virtv1.ManagedByLabel: virtv1.ManagedByLabelOperatorValue,
+				virtv1.AppLabel: "",
 				"rbac.authorization.k8s.io/aggregate-to-edit": "true",
 			},
 		},
@@ -284,8 +280,7 @@ func newViewClusterRole() *rbacv1.ClusterRole {
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "kubevirt.io:view",
 			Labels: map[string]string{
-				virtv1.AppLabel:       "",
-				virtv1.ManagedByLabel: virtv1.ManagedByLabelOperatorValue,
+				virtv1.AppLabel: "",
 				"rbac.authorization.k8s.io/aggregate-to-view": "true",
 			},
 		},

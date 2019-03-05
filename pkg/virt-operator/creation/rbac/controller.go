@@ -107,8 +107,7 @@ func newControllerServiceAccount(namespace string) *corev1.ServiceAccount {
 			Namespace: namespace,
 			Name:      "kubevirt-controller",
 			Labels: map[string]string{
-				virtv1.AppLabel:       "",
-				virtv1.ManagedByLabel: virtv1.ManagedByLabelOperatorValue,
+				virtv1.AppLabel: "",
 			},
 		},
 	}
@@ -123,8 +122,7 @@ func newControllerClusterRole() *rbacv1.ClusterRole {
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "kubevirt-controller",
 			Labels: map[string]string{
-				virtv1.AppLabel:       "",
-				virtv1.ManagedByLabel: virtv1.ManagedByLabelOperatorValue,
+				virtv1.AppLabel: "",
 			},
 		},
 		Rules: []rbacv1.PolicyRule{
@@ -229,8 +227,7 @@ func newControllerClusterRoleBinding(namespace string) *rbacv1.ClusterRoleBindin
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "kubevirt-controller",
 			Labels: map[string]string{
-				virtv1.AppLabel:       "",
-				virtv1.ManagedByLabel: virtv1.ManagedByLabelOperatorValue,
+				virtv1.AppLabel: "",
 			},
 		},
 		RoleRef: rbacv1.RoleRef{

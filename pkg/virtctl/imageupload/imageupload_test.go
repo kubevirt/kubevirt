@@ -1,9 +1,11 @@
 package imageupload_test
 
 import (
+	"flag"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -11,7 +13,7 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
-	v1 "k8s.io/api/core/v1"
+	"k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -30,14 +32,22 @@ const (
 	podPhaseAnnotation      = "cdi.kubevirt.io/storage.pod.phase"
 )
 
-var _ = Describe("ImageUpload", func() {
+const (
+	pvcNamespace = "default"
+	pvcName      = "test-pvc"
+	pvcSize      = "500Mi"
+)
 
-	const (
-		pvcNamespace = "default"
-		pvcName      = "test-pvc"
-		pvcSize      = "500Mi"
-		imagePath    = "../../../vendor/kubevirt.io/containerized-data-importer/tests/images/cirros-qcow2.img"
-	)
+var imagePath string
+
+func init() {
+	// how could this ever happen that we have a 13MB blob in our repo?
+	flag.StringVar(&imagePath, "cirros-image-path", "vendor/kubevirt.io/containerized-data-importer/tests/images/cirros-qcow2.img", "path to cirros test image")
+	flag.Parse()
+	imagePath = filepath.Join("../../../", imagePath)
+}
+
+var _ = Describe("ImageUpload", func() {
 
 	var (
 		ctrl       *gomock.Controller
@@ -60,6 +70,7 @@ var _ = Describe("ImageUpload", func() {
 	})
 
 	addPodPhaseAnnotation := func() {
+		defer GinkgoRecover()
 		time.Sleep(10 * time.Millisecond)
 		pvc, err := kubeClient.CoreV1().PersistentVolumeClaims(pvcNamespace).Get(pvcName, metav1.GetOptions{})
 		Expect(err).To(BeNil())

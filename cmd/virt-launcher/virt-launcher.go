@@ -41,6 +41,7 @@ import (
 	containerdisk "kubevirt.io/kubevirt/pkg/container-disk"
 	ephemeraldisk "kubevirt.io/kubevirt/pkg/ephemeral-disk"
 	"kubevirt.io/kubevirt/pkg/hooks"
+	"kubevirt.io/kubevirt/pkg/ignition"
 	"kubevirt.io/kubevirt/pkg/log"
 	cmdclient "kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
 	virtlauncher "kubevirt.io/kubevirt/pkg/virt-launcher"
@@ -186,6 +187,11 @@ func initializeDirs(virtShareDir string,
 	}
 
 	err = cloudinit.SetLocalDirectory(ephemeralDiskDir + "/cloud-init-data")
+	if err != nil {
+		panic(err)
+	}
+
+	err = ignition.SetLocalDirectory(ephemeralDiskDir + "/ignition-data")
 	if err != nil {
 		panic(err)
 	}
@@ -455,6 +461,7 @@ func ForkAndMonitor(qemuProcessCommandPrefix string) error {
 		return err
 	}
 
+	exitStatus := make(chan syscall.WaitStatus, 10)
 	sigs := make(chan os.Signal, 10)
 	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT, syscall.SIGCHLD)
 	go func() {
@@ -466,6 +473,15 @@ func ForkAndMonitor(qemuProcessCommandPrefix string) error {
 				if err != nil {
 					log.Log.Reason(err).Errorf("Failed to reap process %d", wpid)
 				}
+
+				// there's a race between cmd.Wait() and syscall.Wait4 when
+				// cleaning up the cmd's pid after it exits. This allows us
+				// to detect the correct exit code regardless of which wait
+				// wins the race.
+				if wpid == cmd.Process.Pid {
+					exitStatus <- wstatus
+				}
+
 			default:
 				log.Log.V(3).Log("signalling virt-launcher to shut down")
 				err := cmd.Process.Signal(syscall.SIGTERM)
@@ -480,13 +496,19 @@ func ForkAndMonitor(qemuProcessCommandPrefix string) error {
 	// wait for virt-launcher and collect the exit code
 	exitCode := 0
 	if err := cmd.Wait(); err != nil {
-		exitCode = 1
-		if exiterr, ok := err.(*exec.ExitError); ok {
-			if status, ok := exiterr.Sys().(syscall.WaitStatus); ok {
-				exitCode = status.ExitStatus()
+		select {
+		case status := <-exitStatus:
+			exitCode = int(status)
+		default:
+			exitCode = 1
+			if exiterr, ok := err.(*exec.ExitError); ok {
+				if status, ok := exiterr.Sys().(syscall.WaitStatus); ok {
+					exitCode = status.ExitStatus()
+				}
 			}
+			log.Log.Reason(err).Error("dirty virt-launcher shutdown")
 		}
-		log.Log.Reason(err).Error("dirty virt-launcher shutdown")
+
 	}
 	// give qemu some time to shut down in case it survived virt-handler
 	pid, _ := virtlauncher.FindPid(qemuProcessCommandPrefix)

@@ -19,6 +19,7 @@ go_library(
         "//pkg/container-disk:go_default_library",
         "//pkg/emptydisk:go_default_library",
         "//pkg/ephemeral-disk:go_default_library",
+        "//pkg/ignition:go_default_library",
         "//pkg/log:go_default_library",
         "//pkg/precond:go_default_library",
         "//pkg/util:go_default_library",
