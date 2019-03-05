@@ -1,4 +1,4 @@
-load("@io_bazel_rules_go//go:def.bzl", "go_library")
+load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
 
 go_library(
     name = "go_default_library",
@@ -206,4 +206,27 @@ go_library(
     importmap = "kubevirt.io/kubevirt/vendor/golang.org/x/sys/unix",
     importpath = "golang.org/x/sys/unix",
     visibility = ["//visibility:public"],
+)
+
+go_test(
+    name = "go_default_test",
+    srcs = [
+        "creds_test.go",
+        "dev_darwin_test.go",
+        "dev_dragonfly_test.go",
+        "dev_linux_test.go",
+        "dev_netbsd_test.go",
+        "dev_openbsd_test.go",
+        "dev_solaris_test.go",
+        "export_test.go",
+        "mmap_unix_test.go",
+        "openbsd_test.go",
+        "syscall_bsd_test.go",
+        "syscall_freebsd_test.go",
+        "syscall_linux_test.go",
+        "syscall_solaris_test.go",
+        "syscall_test.go",
+        "syscall_unix_test.go",
+    ],
+    embed = [":go_default_library"],
 )

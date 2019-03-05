@@ -1,4 +1,4 @@
-load("@io_bazel_rules_go//go:def.bzl", "go_library")
+load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
 
 go_library(
     name = "go_default_library",
@@ -14,6 +14,21 @@ go_library(
     importmap = "kubevirt.io/kubevirt/vendor/github.com/emicklei/go-restful-openapi",
     importpath = "github.com/emicklei/go-restful-openapi",
     visibility = ["//visibility:public"],
+    deps = [
+        "//vendor/github.com/emicklei/go-restful:go_default_library",
+        "//vendor/github.com/go-openapi/spec:go_default_library",
+    ],
+)
+
+go_test(
+    name = "go_default_test",
+    srcs = [
+        "build_path_test.go",
+        "definition_builder_test.go",
+        "property_ext_test.go",
+        "utils_test.go",
+    ],
+    embed = [":go_default_library"],
     deps = [
         "//vendor/github.com/emicklei/go-restful:go_default_library",
         "//vendor/github.com/go-openapi/spec:go_default_library",

@@ -1,4 +1,4 @@
-load("@io_bazel_rules_go//go:def.bzl", "go_library")
+load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
 
 go_library(
     name = "go_default_library",
@@ -14,6 +14,26 @@ go_library(
     visibility = ["//visibility:public"],
     deps = [
         "//vendor/golang.org/x/text/internal/colltab:go_default_library",
+        "//vendor/golang.org/x/text/language:go_default_library",
+        "//vendor/golang.org/x/text/unicode/norm:go_default_library",
+    ],
+)
+
+go_test(
+    name = "go_default_test",
+    srcs = [
+        "collate_test.go",
+        "export_test.go",
+        "option_test.go",
+        "reg_test.go",
+        "sort_test.go",
+        "table_test.go",
+    ],
+    embed = [":go_default_library"],
+    deps = [
+        "//vendor/golang.org/x/text/collate/build:go_default_library",
+        "//vendor/golang.org/x/text/internal/colltab:go_default_library",
+        "//vendor/golang.org/x/text/internal/gen:go_default_library",
         "//vendor/golang.org/x/text/language:go_default_library",
         "//vendor/golang.org/x/text/unicode/norm:go_default_library",
     ],

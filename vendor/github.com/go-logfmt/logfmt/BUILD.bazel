@@ -1,4 +1,4 @@
-load("@io_bazel_rules_go//go:def.bzl", "go_library")
+load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
 
 go_library(
     name = "go_default_library",
@@ -11,4 +11,17 @@ go_library(
     importmap = "kubevirt.io/kubevirt/vendor/github.com/go-logfmt/logfmt",
     importpath = "github.com/go-logfmt/logfmt",
     visibility = ["//visibility:public"],
+)
+
+go_test(
+    name = "go_default_test",
+    srcs = [
+        "decode-bench_test.go",
+        "decode_test.go",
+        "encode_internal_test.go",
+        "encode_test.go",
+        "example_test.go",
+    ],
+    embed = [":go_default_library"],
+    deps = ["//vendor/github.com/kr/logfmt:go_default_library"],
 )

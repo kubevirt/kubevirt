@@ -1,4 +1,4 @@
-load("@io_bazel_rules_go//go:def.bzl", "go_library")
+load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
 
 go_library(
     name = "go_default_library",
@@ -90,4 +90,23 @@ go_library(
     importmap = "kubevirt.io/kubevirt/vendor/github.com/libvirt/libvirt-go",
     importpath = "github.com/libvirt/libvirt-go",
     visibility = ["//visibility:public"],
+)
+
+go_test(
+    name = "go_default_test",
+    srcs = [
+        "common_test.go",
+        "connect_test.go",
+        "domain_events_test.go",
+        "domain_test.go",
+        "interface_test.go",
+        "network_events_test.go",
+        "network_test.go",
+        "node_device_events_test.go",
+        "storage_pool_events_test.go",
+        "storage_pool_test.go",
+        "storage_volume_test.go",
+        "typedparams_test.go",
+    ],
+    embed = [":go_default_library"],
 )

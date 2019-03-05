@@ -1,4 +1,4 @@
-load("@io_bazel_rules_go//go:def.bzl", "go_library")
+load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
 
 go_library(
     name = "go_default_library",
@@ -17,6 +17,18 @@ go_library(
         "//vendor/google.golang.org/appengine/datastore:go_default_library",
         "//vendor/google.golang.org/appengine/internal:go_default_library",
         "//vendor/google.golang.org/appengine/internal/base:go_default_library",
+        "//vendor/google.golang.org/appengine/internal/blobstore:go_default_library",
+    ],
+)
+
+go_test(
+    name = "go_default_test",
+    srcs = ["blobstore_test.go"],
+    embed = [":go_default_library"],
+    deps = [
+        "//vendor/golang.org/x/text/encoding/htmlindex:go_default_library",
+        "//vendor/google.golang.org/appengine:go_default_library",
+        "//vendor/google.golang.org/appengine/internal/aetesting:go_default_library",
         "//vendor/google.golang.org/appengine/internal/blobstore:go_default_library",
     ],
 )

@@ -1,4 +1,4 @@
-load("@io_bazel_rules_go//go:def.bzl", "go_library")
+load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
 
 go_library(
     name = "go_default_library",
@@ -17,4 +17,13 @@ go_library(
     importmap = "kubevirt.io/kubevirt/vendor/golang.org/x/crypto/poly1305",
     importpath = "golang.org/x/crypto/poly1305",
     visibility = ["//visibility:public"],
+)
+
+go_test(
+    name = "go_default_test",
+    srcs = [
+        "poly1305_test.go",
+        "vectors_test.go",
+    ],
+    embed = [":go_default_library"],
 )

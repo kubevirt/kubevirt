@@ -1,4 +1,4 @@
-load("@io_bazel_rules_go//go:def.bzl", "go_library")
+load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
 
 go_library(
     name = "go_default_library",
@@ -12,6 +12,19 @@ go_library(
         "//vendor/google.golang.org/grpc/benchmark/latency:go_default_library",
         "//vendor/google.golang.org/grpc/benchmark/stats:go_default_library",
         "//vendor/google.golang.org/grpc/grpclog:go_default_library",
+        "@org_golang_google_grpc//:go_default_library",
+    ],
+)
+
+go_test(
+    name = "go_default_test",
+    srcs = [
+        "benchmark16_test.go",
+        "benchmark17_test.go",
+    ],
+    embed = [":go_default_library"],
+    deps = [
+        "//vendor/google.golang.org/grpc/benchmark/stats:go_default_library",
         "@org_golang_google_grpc//:go_default_library",
     ],
 )

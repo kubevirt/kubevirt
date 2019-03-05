@@ -1,4 +1,4 @@
-load("@io_bazel_rules_go//go:def.bzl", "go_library")
+load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
 
 go_library(
     name = "go_default_library",
@@ -26,6 +26,29 @@ go_library(
     deps = select({
         "@io_bazel_rules_go//go/platform:linux": [
             "//vendor/github.com/vishvananda/netns:go_default_library",
+            "//vendor/golang.org/x/sys/unix:go_default_library",
+        ],
+        "//conditions:default": [],
+    }),
+)
+
+go_test(
+    name = "go_default_test",
+    srcs = [
+        "addr_linux_test.go",
+        "bridge_linux_test.go",
+        "link_linux_test.go",
+        "nl_linux_test.go",
+        "route_linux_test.go",
+        "tc_linux_test.go",
+        "xfrm_linux_test.go",
+        "xfrm_monitor_linux_test.go",
+        "xfrm_policy_linux_test.go",
+        "xfrm_state_linux_test.go",
+    ],
+    embed = [":go_default_library"],
+    deps = select({
+        "@io_bazel_rules_go//go/platform:linux": [
             "//vendor/golang.org/x/sys/unix:go_default_library",
         ],
         "//conditions:default": [],

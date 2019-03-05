@@ -1,0 +1,37 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_test")
+
+go_test(
+    name = "go_default_test",
+    srcs = [
+        "array_test.go",
+        "int_test.go",
+        "map_elem_array_test.go",
+        "map_elem_bytes_test.go",
+        "map_elem_eface_test.go",
+        "map_elem_map_test.go",
+        "map_elem_struct_test.go",
+        "map_key_eface_test.go",
+        "map_key_iface_test.go",
+        "map_key_ptr_test.go",
+        "map_test.go",
+        "op_test.go",
+        "slice_array_test.go",
+        "slice_bytes_test.go",
+        "slice_eface_test.go",
+        "slice_iface_test.go",
+        "slice_map_test.go",
+        "slice_ptr_test.go",
+        "slice_string_test.go",
+        "slice_struct_test.go",
+        "slice_test.go",
+        "struct_eface_test.go",
+        "struct_ptr_test.go",
+        "struct_test.go",
+    ],
+    deps = [
+        "//vendor/github.com/modern-go/reflect2:go_default_library",
+        "@com_github_modern_go_test//:go_default_library",
+        "@com_github_modern_go_test//must:go_default_library",
+        "@com_github_modern_go_test//should:go_default_library",
+    ],
+)

@@ -1,4 +1,4 @@
-load("@io_bazel_rules_go//go:def.bzl", "go_library")
+load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
 
 go_library(
     name = "go_default_library",
@@ -13,6 +13,20 @@ go_library(
     importpath = "github.com/smartystreets/goconvey/web/server/parser",
     visibility = ["//visibility:public"],
     deps = [
+        "//vendor/github.com/smartystreets/goconvey/convey/reporting:go_default_library",
+        "//vendor/github.com/smartystreets/goconvey/web/server/contract:go_default_library",
+    ],
+)
+
+go_test(
+    name = "go_default_test",
+    srcs = [
+        "package_parser_test.go",
+        "parser_test.go",
+    ],
+    embed = [":go_default_library"],
+    deps = [
+        "//vendor/github.com/smartystreets/goconvey/convey:go_default_library",
         "//vendor/github.com/smartystreets/goconvey/convey/reporting:go_default_library",
         "//vendor/github.com/smartystreets/goconvey/web/server/contract:go_default_library",
     ],

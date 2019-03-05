@@ -1,4 +1,4 @@
-load("@io_bazel_rules_go//go:def.bzl", "go_library")
+load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
 
 go_library(
     name = "go_default_library",
@@ -73,5 +73,33 @@ go_library(
         "//vendor/golang.org/x/net/bpf:go_default_library",
         "//vendor/golang.org/x/net/internal/iana:go_default_library",
         "//vendor/golang.org/x/net/internal/socket:go_default_library",
+    ],
+)
+
+go_test(
+    name = "go_default_test",
+    srcs = [
+        "bpf_test.go",
+        "control_test.go",
+        "example_test.go",
+        "header_test.go",
+        "icmp_test.go",
+        "mocktransponder_test.go",
+        "multicast_test.go",
+        "multicastlistener_test.go",
+        "multicastsockopt_test.go",
+        "readwrite_go1_8_test.go",
+        "readwrite_go1_9_test.go",
+        "readwrite_test.go",
+        "sockopt_test.go",
+        "unicast_test.go",
+        "unicastsockopt_test.go",
+    ],
+    embed = [":go_default_library"],
+    deps = [
+        "//vendor/golang.org/x/net/bpf:go_default_library",
+        "//vendor/golang.org/x/net/icmp:go_default_library",
+        "//vendor/golang.org/x/net/internal/iana:go_default_library",
+        "//vendor/golang.org/x/net/internal/nettest:go_default_library",
     ],
 )

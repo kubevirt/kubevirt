@@ -1,4 +1,4 @@
-load("@io_bazel_rules_go//go:def.bzl", "go_library")
+load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
 
 go_library(
     name = "go_default_library",
@@ -25,6 +25,29 @@ go_library(
         "@io_bazel_rules_go//proto/wkt:duration_go_proto",
         "@org_golang_google_api//option:go_default_library",
         "@org_golang_google_api//transport:go_default_library",
+        "@org_golang_google_grpc//:go_default_library",
+    ],
+)
+
+go_test(
+    name = "go_default_test",
+    srcs = [
+        "admin_test.go",
+        "bigtable_test.go",
+        "reader_test.go",
+        "retry_test.go",
+    ],
+    data = glob(["testdata/**"]),
+    embed = [":go_default_library"],
+    deps = [
+        "//vendor/cloud.google.com/go/bigtable/bttest:go_default_library",
+        "//vendor/github.com/golang/protobuf/proto:go_default_library",
+        "//vendor/golang.org/x/net/context:go_default_library",
+        "//vendor/google.golang.org/grpc/codes:go_default_library",
+        "@go_googleapis//google/bigtable/v2:bigtable_go_proto",
+        "@go_googleapis//google/rpc:status_go_proto",
+        "@io_bazel_rules_go//proto/wkt:wrappers_go_proto",
+        "@org_golang_google_api//option:go_default_library",
         "@org_golang_google_grpc//:go_default_library",
     ],
 )

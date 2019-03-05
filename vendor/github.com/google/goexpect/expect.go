@@ -74,6 +74,15 @@ func CheckDuration(d time.Duration) Option {
 	}
 }
 
+// SendTimeout set timeout for Send commands
+func SendTimeout(timeout time.Duration) Option {
+	return func(e *GExpect) Option {
+		prev := e.sendTimeout
+		e.sendTimeout = timeout
+		return SendTimeout(prev)
+	}
+}
+
 // Verbose enables/disables verbose logging of matches and sends.
 func Verbose(v bool) Option {
 	return func(e *GExpect) Option {
@@ -540,6 +549,8 @@ type GExpect struct {
 	cls func(*GExpect) error
 	// timeout contains the default timeout for a spawned command.
 	timeout time.Duration
+	// sendTimeout contains the default timeout for a send command.
+	sendTimeout time.Duration
 	// chkDuration contains the duration between checks for new incoming data.
 	chkDuration time.Duration
 	// verbose enables verbose logging.
@@ -1090,21 +1101,28 @@ func (e *GExpect) Send(in string) error {
 	if !e.check() {
 		return errors.New("expect: Process not running")
 	}
-	e.snd <- in
+
+	if e.sendTimeout == 0 {
+		e.snd <- in
+	} else {
+		select {
+		case <-time.After(e.sendTimeout):
+			return fmt.Errorf("send to spawned process command reached the timeout %v", e.sendTimeout)
+		case e.snd <- in:
+		}
+	}
+
 	if e.verbose {
 		if e.verboseWriter != nil {
 			vStr := fmt.Sprintln(term.Blue("Sent:").String() + fmt.Sprintf(" %q", in))
-			for n, bytesRead, err := 0, 0, error(nil); bytesRead < len(vStr); bytesRead += n {
-				n, err = e.verboseWriter.Write([]byte(vStr)[n:])
-				if err != nil {
-					log.Printf("Write to Verbose Writer failed: %v", err)
-					break
-				}
-				return nil
+			_, err := e.verboseWriter.Write([]byte(vStr))
+			if err != nil {
+				log.Printf("Write to Verbose Writer failed: %v", err)
 			}
 		}
 		log.Printf("Sent: %q", in)
 	}
+
 	return nil
 }
 

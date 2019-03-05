@@ -1,4 +1,4 @@
-load("@io_bazel_rules_go//go:def.bzl", "go_library")
+load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
 
 go_library(
     name = "go_default_library",
@@ -35,5 +35,47 @@ go_library(
         "//vendor/github.com/go-openapi/spec:go_default_library",
         "//vendor/github.com/go-openapi/strfmt:go_default_library",
         "//vendor/github.com/go-openapi/swag:go_default_library",
+    ],
+)
+
+go_test(
+    name = "go_default_test",
+    srcs = [
+        "debug_test.go",
+        "default_validator_test.go",
+        "doc_test.go",
+        "example_validator_test.go",
+        "formats_test.go",
+        "helpers_test.go",
+        "items_validator_test.go",
+        "jsonschema_test.go",
+        "messages_test.go",
+        "object_validator_test.go",
+        "options_test.go",
+        "parameter_validator_test.go",
+        "result_test.go",
+        "rexp_test.go",
+        "schema_props_test.go",
+        "schema_test.go",
+        "slice_validator_test.go",
+        "spec_test.go",
+        "swagger_test.go",
+        "type_test.go",
+        "validator_test.go",
+        "values_test.go",
+    ],
+    embed = [":go_default_library"],
+    deps = [
+        "//vendor/github.com/go-openapi/analysis:go_default_library",
+        "//vendor/github.com/go-openapi/errors:go_default_library",
+        "//vendor/github.com/go-openapi/loads:go_default_library",
+        "//vendor/github.com/go-openapi/loads/fmts:go_default_library",
+        "//vendor/github.com/go-openapi/runtime:go_default_library",
+        "//vendor/github.com/go-openapi/spec:go_default_library",
+        "//vendor/github.com/go-openapi/strfmt:go_default_library",
+        "//vendor/github.com/go-openapi/swag:go_default_library",
+        "//vendor/github.com/stretchr/testify/assert:go_default_library",
+        "//vendor/github.com/stretchr/testify/require:go_default_library",
+        "//vendor/gopkg.in/yaml.v2:go_default_library",
     ],
 )

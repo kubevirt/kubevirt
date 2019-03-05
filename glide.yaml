@@ -17,9 +17,10 @@ ignore:
 - github.com/gogo/protobuf/test/issue312
 - github.com/spf13/cobra/doc
 - github.com/prometheus/procfs/nfs
+- github.com/prometheus/procfs/iostats
 import:
 - package: github.com/prometheus/client_golang
-  version: 0.8.0
+  version: 0.9.2
 - package: github.com/go-kit/kit
   version: fe6fe28ba0d54b39f27e79cddba4911b7e4fffc7
   subpackages:

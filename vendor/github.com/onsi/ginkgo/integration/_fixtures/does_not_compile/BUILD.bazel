@@ -1,0 +1,14 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_test")
+
+go_test(
+    name = "go_default_test",
+    srcs = [
+        "does_not_compile_suite_test.go",
+        "does_not_compile_test.go",
+    ],
+    deps = [
+        "//vendor/github.com/onsi/ginkgo:go_default_library",
+        "//vendor/github.com/onsi/gomega:go_default_library",
+        "@com_github_onsi_ginkgo//integration/_fixtures/does_not_compile:go_default_library",
+    ],
+)

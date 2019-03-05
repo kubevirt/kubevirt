@@ -1,4 +1,4 @@
-load("@io_bazel_rules_go//go:def.bzl", "go_library")
+load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
 
 go_library(
     name = "go_default_library",
@@ -6,4 +6,35 @@ go_library(
     importmap = "kubevirt.io/kubevirt/vendor/github.com/onsi/ginkgo/integration",
     importpath = "github.com/onsi/ginkgo/integration",
     visibility = ["//visibility:public"],
+)
+
+go_test(
+    name = "go_default_test",
+    srcs = [
+        "convert_test.go",
+        "coverage_test.go",
+        "fail_test.go",
+        "flags_test.go",
+        "integration_suite_test.go",
+        "interrupt_test.go",
+        "precompiled_test.go",
+        "progress_test.go",
+        "run_test.go",
+        "skip_test.go",
+        "subcommand_test.go",
+        "suite_command_test.go",
+        "suite_setup_test.go",
+        "tags_test.go",
+        "test_description_test.go",
+        "verbose_and_succinct_test.go",
+        "watch_test.go",
+    ],
+    embed = [":go_default_library"],
+    deps = [
+        "//vendor/github.com/onsi/ginkgo:go_default_library",
+        "//vendor/github.com/onsi/ginkgo/types:go_default_library",
+        "//vendor/github.com/onsi/gomega:go_default_library",
+        "//vendor/github.com/onsi/gomega/gbytes:go_default_library",
+        "//vendor/github.com/onsi/gomega/gexec:go_default_library",
+    ],
 )

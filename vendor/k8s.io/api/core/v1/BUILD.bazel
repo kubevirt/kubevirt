@@ -1,4 +1,4 @@
-load("@io_bazel_rules_go//go:def.bzl", "go_library")
+load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
 
 go_library(
     name = "go_default_library",
@@ -28,4 +28,13 @@ go_library(
         "//vendor/k8s.io/apimachinery/pkg/types:go_default_library",
         "//vendor/k8s.io/apimachinery/pkg/util/intstr:go_default_library",
     ],
+)
+
+go_test(
+    name = "go_default_test",
+    srcs = [
+        "taint_test.go",
+        "toleration_test.go",
+    ],
+    embed = [":go_default_library"],
 )

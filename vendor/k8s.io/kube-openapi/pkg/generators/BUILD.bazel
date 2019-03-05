@@ -1,4 +1,4 @@
-load("@io_bazel_rules_go//go:def.bzl", "go_library")
+load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
 
 go_library(
     name = "go_default_library",
@@ -19,6 +19,23 @@ go_library(
         "@io_k8s_gengo//examples/set-gen/sets:go_default_library",
         "@io_k8s_gengo//generator:go_default_library",
         "@io_k8s_gengo//namer:go_default_library",
+        "@io_k8s_gengo//types:go_default_library",
+    ],
+)
+
+go_test(
+    name = "go_default_test",
+    srcs = [
+        "extension_test.go",
+        "openapi_test.go",
+    ],
+    embed = [":go_default_library"],
+    deps = [
+        "//vendor/github.com/stretchr/testify/assert:go_default_library",
+        "@io_k8s_gengo//examples/set-gen/sets:go_default_library",
+        "@io_k8s_gengo//generator:go_default_library",
+        "@io_k8s_gengo//namer:go_default_library",
+        "@io_k8s_gengo//parser:go_default_library",
         "@io_k8s_gengo//types:go_default_library",
     ],
 )
