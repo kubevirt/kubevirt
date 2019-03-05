@@ -1148,7 +1148,7 @@ func ValidateVirtualMachineInstanceSpec(field *k8sfield.Path, spec *v1.VirtualMa
 		if hyField, enabled := hyperVL2FlagEnabled(field, spec.Domain.Features.Hyperv); enabled && !virtconfig.HyperVL2Enabled() {
 			causes = append(causes, metav1.StatusCause{
 				Type:    metav1.CauseTypeFieldValueInvalid,
-				Message: fmt.Sprintf("SRIOV feature gate is not enabled in kubevirt-config"),
+				Message: fmt.Sprintf("HyperVL2 feature gate is not enabled in kubevirt-config"),
 				Field:   hyField,
 			})
 		}
