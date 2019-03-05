@@ -167,7 +167,6 @@ go_library(
     name = "go_default_library",
     srcs = [
         "doc.go",
-        "foo.go",
         "libvirt.h",
         "libvirt-admin.h",
         "libvirt-common.h",
