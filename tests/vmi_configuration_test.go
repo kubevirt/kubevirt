@@ -915,7 +915,9 @@ var _ = Describe("Configurations", func() {
 		})
 
 		Context("with cpu pinning enabled", func() {
+
 			It("should set the cpumanager label to false when it's not running", func() {
+				Skip("Skip cpu pinning tests for 0.13")
 
 				By("adding a cpumanger=true lable to a node")
 				nodes, err := virtClient.CoreV1().Nodes().List(metav1.ListOptions{LabelSelector: v1.CPUManager + "=" + "false"})
@@ -934,6 +936,8 @@ var _ = Describe("Configurations", func() {
 				}, 2*time.Minute, 2*time.Second).Should(Equal("false"))
 			})
 			It("non master node should have a cpumanager label", func() {
+				Skip("Skip cpu pinning tests for 0.13")
+
 				cpuManagerEnabled := false
 				for idx := 1; idx < len(nodes.Items); idx++ {
 					labels := nodes.Items[idx].GetLabels()
@@ -946,6 +950,8 @@ var _ = Describe("Configurations", func() {
 				Expect(cpuManagerEnabled).To(BeTrue())
 			})
 			It("should be scheduled on a node with running cpu manager", func() {
+				Skip("Skip cpu pinning tests for 0.13")
+
 				cpuVmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(tests.ContainerDiskFor(tests.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n")
 				cpuVmi.Spec.Domain.CPU = &v1.CPU{
 					Cores:                 2,
@@ -1008,6 +1014,8 @@ var _ = Describe("Configurations", func() {
 			})
 
 			It("should configure correct number of vcpus with requests.cpus", func() {
+				Skip("Skip cpu pinning tests for 0.13")
+
 				cpuVmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(tests.ContainerDiskFor(tests.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n")
 				cpuVmi.Spec.Domain.CPU = &v1.CPU{
 					DedicatedCPUPlacement: true,
@@ -1039,6 +1047,8 @@ var _ = Describe("Configurations", func() {
 			})
 
 			It("should fail the vmi creation if the requested resources are inconsistent", func() {
+				Skip("Skip cpu pinning tests for 0.13")
+
 				cpuVmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(tests.ContainerDiskFor(tests.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n")
 				cpuVmi.Spec.Domain.CPU = &v1.CPU{
 					Cores:                 2,
@@ -1055,6 +1065,8 @@ var _ = Describe("Configurations", func() {
 				Expect(err).To(HaveOccurred())
 			})
 			It("should fail the vmi creation if cpu is not an integer", func() {
+				Skip("Skip cpu pinning tests for 0.13")
+
 				cpuVmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(tests.ContainerDiskFor(tests.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n")
 				cpuVmi.Spec.Domain.CPU = &v1.CPU{
 					DedicatedCPUPlacement: true,
@@ -1070,6 +1082,8 @@ var _ = Describe("Configurations", func() {
 				Expect(err).To(HaveOccurred())
 			})
 			It("should fail the vmi creation if Guaranteed QOS cannot be set", func() {
+				Skip("Skip cpu pinning tests for 0.13")
+
 				cpuVmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(tests.ContainerDiskFor(tests.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n")
 				cpuVmi.Spec.Domain.CPU = &v1.CPU{
 					DedicatedCPUPlacement: true,
@@ -1088,6 +1102,8 @@ var _ = Describe("Configurations", func() {
 				Expect(err).To(HaveOccurred())
 			})
 			It("should start a vm with no cpu pinning after a vm with cpu pinning on same node", func() {
+				Skip("Skip cpu pinning tests for 0.13")
+
 				Vmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(tests.ContainerDiskFor(tests.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n")
 				cpuVmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(tests.ContainerDiskFor(tests.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n")
 				cpuVmi.Spec.Domain.CPU = &v1.CPU{
