@@ -40,9 +40,11 @@ import (
 	"k8s.io/client-go/tools/leaderelection/resourcelock"
 	"k8s.io/client-go/tools/record"
 
+	"kubevirt.io/kubevirt/pkg/certificates"
+
+	"kubevirt.io/kubevirt/pkg/virt-controller/watch/drain/disruptionbudget"
 	"kubevirt.io/kubevirt/pkg/virt-controller/watch/drain/evacuation"
 
-	"kubevirt.io/kubevirt/pkg/certificates"
 	containerdisk "kubevirt.io/kubevirt/pkg/container-disk"
 	"kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/kubecli"
@@ -107,14 +109,15 @@ type VirtControllerApp struct {
 
 	LeaderElection leaderelectionconfig.Configuration
 
-	launcherImage        string
-	imagePullSecret      string
-	virtShareDir         string
-	ephemeralDiskDir     string
-	readyChan            chan bool
-	kubevirtNamespace    string
-	evacuationController *evacuation.EvacuationController
-	k8sInformers         informers.SharedInformerFactory
+	launcherImage              string
+	imagePullSecret            string
+	virtShareDir               string
+	ephemeralDiskDir           string
+	readyChan                  chan bool
+	kubevirtNamespace          string
+	evacuationController       *evacuation.EvacuationController
+	disruptionBudgetController *disruptionbudget.DisruptionBudgetController
+	k8sInformers               informers.SharedInformerFactory
 }
 
 var _ service.Service = &VirtControllerApp{}
@@ -188,6 +191,7 @@ func Execute() {
 	app.initCommon()
 	app.initReplicaSet()
 	app.initVirtualMachines()
+	app.initDisruptionBudgetController()
 	app.initEvacuationController()
 	app.Run()
 }
@@ -247,6 +251,7 @@ func (vca *VirtControllerApp) Run() {
 					vca.informerFactory.Start(stop)
 					vca.k8sInformers.Start(stop)
 					go vca.evacuationController.Run(1, stop)
+					go vca.disruptionBudgetController.Run(controllerThreads, stop)
 					go vca.nodeController.Run(controllerThreads, stop)
 					go vca.vmiController.Run(controllerThreads, stop)
 					go vca.rsController.Run(controllerThreads, stop)
@@ -311,6 +316,17 @@ func (vca *VirtControllerApp) initVirtualMachines() {
 		vca.dataVolumeInformer,
 		recorder,
 		vca.clientSet)
+}
+
+func (vca *VirtControllerApp) initDisruptionBudgetController() {
+	recorder := vca.getNewRecorder(k8sv1.NamespaceAll, "disruptionbudget-controller")
+	vca.disruptionBudgetController = disruptionbudget.NewDisruptionBudgetController(
+		vca.vmiInformer,
+		vca.k8sInformers.Policy().V1beta1().PodDisruptionBudgets().Informer(),
+		recorder,
+		vca.clientSet,
+	)
+
 }
 
 func (vca *VirtControllerApp) initEvacuationController() {

@@ -25,6 +25,7 @@ go_library(
         "//pkg/virt-controller/leaderelectionconfig:go_default_library",
         "//pkg/virt-controller/rest:go_default_library",
         "//pkg/virt-controller/services:go_default_library",
+        "//pkg/virt-controller/watch/drain/disruptionbudget:go_default_library",
         "//pkg/virt-controller/watch/drain/evacuation:go_default_library",
         "//vendor/github.com/emicklei/go-restful:go_default_library",
         "//vendor/github.com/pborman/uuid:go_default_library",
