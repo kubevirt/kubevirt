@@ -38,6 +38,16 @@ spec:
         prometheus.kubevirt.io: ""
       name: virt-api
     spec:
+      affinity:
+        podAntiAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+          - labelSelector:
+              matchExpressions:
+              - key: kubevirt.io
+                operator: In
+                values:
+                - virt-api
+            topologyKey: kubernetes.io/hostname
       containers:
       - command:
         - virt-api
