@@ -72,6 +72,9 @@ const (
 
 	// This value is derived from default MaxPods in Kubelet Config
 	maxDevices = 110
+
+	// This value is derived from discussion in https://github.com/kubevirt/kubevirt/issues/2012
+	maxRequestsInFlight = 3
 )
 
 type virtHandlerApp struct {
@@ -81,6 +84,7 @@ type virtHandlerApp struct {
 	VirtShareDir            string
 	WatchdogTimeoutDuration time.Duration
 	MaxDevices              int
+	MaxRequestsInFlight     int
 }
 
 var _ service.Service = &virtHandlerApp{}
@@ -191,7 +195,9 @@ func (app *virtHandlerApp) Run() {
 	defer close(stop)
 	go vmController.Run(3, stop)
 
-	http.Handle("/metrics", promhttp.Handler())
+	logger.V(1).Infof("metrics: max concurrent requests=%d", app.MaxRequestsInFlight)
+	http.Handle("/metrics", promvm.Handler(app.MaxRequestsInFlight))
+
 	err = http.ListenAndServeTLS(app.ServiceListen.Address(), certStore.CurrentPath(), certStore.CurrentPath(), nil)
 	if err != nil {
 		log.Log.Reason(err).Error("Serving prometheus failed.")
@@ -224,6 +230,9 @@ func (app *virtHandlerApp) AddFlags() {
 	// This should be deprecated if the API allows for shared resources in the future
 	flag.IntVar(&app.MaxDevices, "max-devices", maxDevices,
 		"Number of devices to register with Kubernetes device plugin framework")
+
+	flag.IntVar(&app.MaxRequestsInFlight, "max-metric-requests", maxRequestsInFlight,
+		"Number of concurrent requests to the metrics endpoint")
 }
 
 func main() {

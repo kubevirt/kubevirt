@@ -402,6 +402,8 @@ func NewHandlerDaemonSet(namespace string, repository string, version string, pu
 		"$(NODE_NAME)",
 		"--pod-ip-address",
 		"$(MY_POD_IP)",
+		"--max-metric-requests",
+		"3",
 		"-v",
 		verbosity,
 	}

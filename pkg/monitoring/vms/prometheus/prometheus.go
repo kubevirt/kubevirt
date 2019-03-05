@@ -21,9 +21,11 @@ package prometheus
 
 import (
 	"fmt"
+	"net/http"
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 
 	"kubevirt.io/kubevirt/pkg/log"
 	"kubevirt.io/kubevirt/pkg/version"
@@ -287,4 +289,15 @@ func (ps *prometheusScraper) Report(socketFile string, vmStats *stats.DomainStat
 	updateVcpu(vmStats, ps.ch)
 	updateBlock(vmStats, ps.ch)
 	updateNetwork(vmStats, ps.ch)
+}
+
+func Handler(MaxRequestsInFlight int) http.Handler {
+	return promhttp.InstrumentMetricHandler(
+		prometheus.DefaultRegisterer,
+		promhttp.HandlerFor(
+			prometheus.DefaultGatherer,
+			promhttp.HandlerOpts{
+				MaxRequestsInFlight: MaxRequestsInFlight,
+			}),
+	)
 }
