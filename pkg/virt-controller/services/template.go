@@ -202,7 +202,7 @@ func isFeatureStateEnabled(fs *v1.FeatureState) bool {
 	return fs != nil && fs.Enabled != nil && *fs.Enabled
 }
 
-func isHyperVRequestedByVMI(vmi *v1.VirtualMachineInstance) bool {
+func isHypervVMI(vmi *v1.VirtualMachineInstance) bool {
 	if vmi.Spec.Domain.Features == nil || vmi.Spec.Domain.Features.Hyperv == nil {
 		return false
 	}
@@ -837,7 +837,7 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 		}
 	}
 
-	if isHyperVSupportRequired(t.configMapStore) && isHyperVRequestedByVMI(vmi) {
+	if isHyperVSupportRequired(t.configMapStore) && isHypervVMI(vmi) {
 		key := KVMInfoHypervSupportLabel()
 		nodeSelector[key] = "true"
 	}
