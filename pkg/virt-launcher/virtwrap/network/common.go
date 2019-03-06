@@ -52,6 +52,18 @@ type VIF struct {
 	Mtu     uint16
 }
 
+func (vif VIF) String() string {
+	return fmt.Sprintf(
+		"VIF: { Name: %s, IP: %s, Mask: %s, MAC: %s, Gateway: %s, MTU: %d}",
+		vif.Name,
+		vif.IP.IP,
+		vif.IP.Mask,
+		vif.MAC,
+		vif.Gateway,
+		vif.Mtu,
+	)
+}
+
 type NetworkHandler interface {
 	LinkByName(name string) (netlink.Link, error)
 	AddrList(link netlink.Link, family int) ([]netlink.Addr, error)
