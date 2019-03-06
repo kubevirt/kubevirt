@@ -22,6 +22,7 @@ package installstrategy
 import (
 	"bufio"
 	"bytes"
+	"encoding/json"
 	"fmt"
 	"strings"
 
@@ -34,6 +35,7 @@ import (
 	extv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 
 	"kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/controller"
@@ -658,10 +660,15 @@ func DeleteAll(kv *v1.KubeVirt,
 		}
 
 		if modified {
-			privSccCopy.Users = users
-			_, err = scc.SecurityContextConstraints().Update(privSccCopy)
+			userBytes, err := json.Marshal(users)
 			if err != nil {
-				return fmt.Errorf("unable to update scc: %v", err)
+				return err
+			}
+
+			data := []byte(fmt.Sprintf(`{"users": %s}`, userBytes))
+			_, err = scc.SecurityContextConstraints().Patch(sccPriv.TargetScc, types.StrategicMergePatchType, data)
+			if err != nil {
+				return fmt.Errorf("unable to patch scc: %v", err)
 			}
 		}
 	}
@@ -863,10 +870,15 @@ func CreateAll(kv *v1.KubeVirt,
 		}
 
 		if modified {
-			privSccCopy.Users = users
-			_, err = scc.SecurityContextConstraints().Update(privSccCopy)
+			userBytes, err := json.Marshal(users)
 			if err != nil {
-				return objectsAdded, fmt.Errorf("unable to update scc: %v", err)
+				return objectsAdded, err
+			}
+
+			data := []byte(fmt.Sprintf(`{"users": %s}`, userBytes))
+			_, err = scc.SecurityContextConstraints().Patch(sccPriv.TargetScc, types.StrategicMergePatchType, data)
+			if err != nil {
+				return objectsAdded, fmt.Errorf("unable to patch scc: %v", err)
 			}
 		}
 	}

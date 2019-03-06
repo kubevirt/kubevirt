@@ -20,6 +20,7 @@
 package virt_operator
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 	"time"
@@ -577,10 +578,15 @@ var _ = Describe("KubeVirt Operator", func() {
 		deleteResource(delete.GetResource().Resource, key)
 		return true, nil, nil
 	}
-	expectUsers := func(sccObj runtime.Object, count int) {
-		scc, ok := sccObj.(*secv1.SecurityContextConstraints)
-		ExpectWithOffset(2, ok).To(BeTrue())
-		ExpectWithOffset(2, len(scc.Users)).To(Equal(count))
+	expectUsers := func(userBytes []byte, count int) {
+
+		type _users struct {
+			Users []string `json:"users"`
+		}
+		users := &_users{}
+
+		json.Unmarshal(userBytes, users)
+		ExpectWithOffset(2, len(users.Users)).To(Equal(count))
 	}
 
 	shouldExpectInstallStrategyDeletion := func() {
@@ -605,11 +611,10 @@ var _ = Describe("KubeVirt Operator", func() {
 		kubeClient.Fake.PrependReactor("delete", "roles", genericDeleteFunc)
 		kubeClient.Fake.PrependReactor("delete", "rolebindings", genericDeleteFunc)
 
-		secClient.Fake.PrependReactor("update", "securitycontextconstraints", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
-			update, _ := action.(testing.UpdateAction)
-			updatedObj := update.GetObject()
-			expectUsers(updatedObj, 1)
-			return true, updatedObj, nil
+		secClient.Fake.PrependReactor("patch", "securitycontextconstraints", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
+			patch, _ := action.(testing.PatchAction)
+			expectUsers(patch.GetPatch(), 1)
+			return true, nil, nil
 		})
 		extClient.Fake.PrependReactor("delete", "customresourcedefinitions", genericDeleteFunc)
 
@@ -633,11 +638,10 @@ var _ = Describe("KubeVirt Operator", func() {
 		kubeClient.Fake.PrependReactor("create", "roles", genericCreateFunc)
 		kubeClient.Fake.PrependReactor("create", "rolebindings", genericCreateFunc)
 
-		secClient.Fake.PrependReactor("update", "securitycontextconstraints", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
-			update, _ := action.(testing.UpdateAction)
-			updatedObj := update.GetObject()
-			expectUsers(updatedObj, 4)
-			return true, updatedObj, nil
+		secClient.Fake.PrependReactor("patch", "securitycontextconstraints", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
+			patch, _ := action.(testing.PatchAction)
+			expectUsers(patch.GetPatch(), 4)
+			return true, nil, nil
 		})
 		extClient.Fake.PrependReactor("create", "customresourcedefinitions", genericCreateFunc)
 
