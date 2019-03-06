@@ -95,7 +95,7 @@ if [[ "$KUBEVIRT_PROVIDER" =~ .*.10..* ]]; then
         fi
     done
 else
-    _kubectl wait -n kubevirt kv kubevirt --for condition=Ready --timeout 180s || (echo "KubeVirt not ready in time" && exit 1)
+    _kubectl wait -n kubevirt kv kubevirt --for condition=Ready --timeout 360s || (echo "KubeVirt not ready in time" && exit 1)
 fi
 
 echo "Done"
