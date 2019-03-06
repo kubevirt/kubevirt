@@ -444,6 +444,107 @@ var _ = Describe("Template", func() {
 				Expect(pod.Spec.NodeSelector).To(HaveKeyWithValue("node-role.kubernetes.io/compute", "true"))
 			})
 
+			It("should add node selector for hyperv nodes if VMI requests hyperv features", func() {
+
+				cfgMap := kubev1.ConfigMap{
+					ObjectMeta: metav1.ObjectMeta{
+						Namespace: namespaceKubevirt,
+						Name:      "kubevirt-config",
+					},
+					Data: map[string]string{virtconfig.FeatureGatesKey: virtconfig.HypervSupportGate},
+				}
+				cmCache.Add(&cfgMap)
+
+				enabled := true
+				vmi := v1.VirtualMachineInstance{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "testvmi",
+						Namespace: "default",
+						UID:       "1234",
+					},
+					Spec: v1.VirtualMachineInstanceSpec{
+						Domain: v1.DomainSpec{
+							Features: &v1.Features{
+								Hyperv: &v1.FeatureHyperv{
+									SyNIC: &v1.FeatureState{
+										Enabled: &enabled,
+									},
+								},
+							},
+						},
+					},
+				}
+
+				pod, err := svc.RenderLaunchManifest(&vmi)
+				Expect(err).ToNot(HaveOccurred())
+
+				label := KVMInfoHypervSupportLabel()
+				Expect(pod.Spec.NodeSelector).Should(HaveKeyWithValue(label, "true"))
+				Expect(pod.Spec.NodeSelector).Should(Not(HaveKeyWithValue(label, "false")))
+			})
+
+			It("should not add node selector for hyperv nodes if VMI does not request hyperv features", func() {
+
+				cfgMap := kubev1.ConfigMap{
+					ObjectMeta: metav1.ObjectMeta{
+						Namespace: namespaceKubevirt,
+						Name:      "kubevirt-config",
+					},
+					Data: map[string]string{virtconfig.FeatureGatesKey: virtconfig.HypervSupportGate},
+				}
+				cmCache.Add(&cfgMap)
+
+				vmi := v1.VirtualMachineInstance{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "testvmi",
+						Namespace: "default",
+						UID:       "1234",
+					},
+					Spec: v1.VirtualMachineInstanceSpec{
+						Domain: v1.DomainSpec{
+							Features: &v1.Features{
+								Hyperv: &v1.FeatureHyperv{},
+							},
+						},
+					},
+				}
+
+				pod, err := svc.RenderLaunchManifest(&vmi)
+				Expect(err).ToNot(HaveOccurred())
+
+				label := KVMInfoHypervSupportLabel()
+				Expect(pod.Spec.NodeSelector).Should(Not(HaveKey(label)))
+			})
+
+			It("should not add node selector for hyperv nodes if VMI requests hyperv features, but feature gate is disabled", func() {
+
+				enabled := true
+				vmi := v1.VirtualMachineInstance{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "testvmi",
+						Namespace: "default",
+						UID:       "1234",
+					},
+					Spec: v1.VirtualMachineInstanceSpec{
+						Domain: v1.DomainSpec{
+							Features: &v1.Features{
+								Hyperv: &v1.FeatureHyperv{
+									SyNIC: &v1.FeatureState{
+										Enabled: &enabled,
+									},
+								},
+							},
+						},
+					},
+				}
+
+				pod, err := svc.RenderLaunchManifest(&vmi)
+				Expect(err).ToNot(HaveOccurred())
+
+				label := KVMInfoHypervSupportLabel()
+				Expect(pod.Spec.NodeSelector).Should(Not(HaveKey(label)))
+			})
+
 			It("should add default cpu/memory resources to the sidecar container if cpu pinning was requested", func() {
 				nodeSelector := map[string]string{
 					"kubernetes.io/hostname": "master",
