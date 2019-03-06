@@ -48,16 +48,16 @@ import (
 	marshalutil "kubevirt.io/kubevirt/tools/util"
 )
 
-const customSccPrivilegedAccountsType = "KubevirtCustomSccRule"
+const customSCCPrivilegedAccountsType = "KubevirtCustomSCCRule"
 
-type customSccPrivilegedAccounts struct {
+type customSCCPrivilegedAccounts struct {
 	// this isn't a real k8s object. We use the meta type
 	// because it gives a consistent way to separate k8s
 	// objects from our custom actions
 	metav1.TypeMeta `json:",inline"`
 
 	// this is the target scc we're adding service accounts to
-	TargetScc string `json:"TargetScc"`
+	TargetSCC string `json:"TargetSCC"`
 
 	// these are the service accounts being added to the scc
 	ServiceAccounts []string `json:"serviceAccounts"`
@@ -78,7 +78,7 @@ type InstallStrategy struct {
 	deployments []*appsv1.Deployment
 	daemonSets  []*appsv1.DaemonSet
 
-	customSccPrivileges []*customSccPrivilegedAccounts
+	customSCCPrivileges []*customSCCPrivilegedAccounts
 }
 
 func NewInstallStrategyConfigMap(namespace string, imageTag string, imageRegistry string) (*corev1.ConfigMap, error) {
@@ -177,7 +177,7 @@ func dumpInstallStrategyToBytes(strategy *InstallStrategy) []byte {
 	for _, entry := range strategy.daemonSets {
 		marshalutil.MarshallObject(entry, writer)
 	}
-	for _, entry := range strategy.customSccPrivileges {
+	for _, entry := range strategy.customSCCPrivileges {
 		marshalutil.MarshallObject(entry, writer)
 	}
 	writer.Flush()
@@ -254,11 +254,11 @@ func GenerateCurrentInstallStrategy(namespace string,
 
 	prefix := "system:serviceaccount"
 	typeMeta := metav1.TypeMeta{
-		Kind: customSccPrivilegedAccountsType,
+		Kind: customSCCPrivilegedAccountsType,
 	}
-	strategy.customSccPrivileges = append(strategy.customSccPrivileges, &customSccPrivilegedAccounts{
+	strategy.customSCCPrivileges = append(strategy.customSCCPrivileges, &customSCCPrivilegedAccounts{
 		TypeMeta:  typeMeta,
-		TargetScc: "privileged",
+		TargetSCC: "privileged",
 		ServiceAccounts: []string{
 			fmt.Sprintf("%s:%s:%s", prefix, namespace, "kubevirt-handler"),
 			fmt.Sprintf("%s:%s:%s", prefix, namespace, "kubevirt-apiserver"),
@@ -395,12 +395,12 @@ func loadInstallStrategyFromBytes(data string) (*InstallStrategy, error) {
 				return nil, err
 			}
 			strategy.crds = append(strategy.crds, crd)
-		case customSccPrivilegedAccountsType:
-			priv := &customSccPrivilegedAccounts{}
+		case customSCCPrivilegedAccountsType:
+			priv := &customSCCPrivilegedAccounts{}
 			if err := yaml.Unmarshal([]byte(entry), &priv); err != nil {
 				return nil, err
 			}
-			strategy.customSccPrivileges = append(strategy.customSccPrivileges, priv)
+			strategy.customSCCPrivileges = append(strategy.customSCCPrivileges, priv)
 		default:
 			return nil, fmt.Errorf("UNKNOWN TYPE %s detected", obj.Kind)
 
@@ -637,22 +637,22 @@ func DeleteAll(kv *v1.KubeVirt,
 	}
 
 	scc := clientset.SecClient()
-	for _, sccPriv := range strategy.customSccPrivileges {
-		privSccObj, exists, err := stores.SCCCache.GetByKey(sccPriv.TargetScc)
+	for _, sccPriv := range strategy.customSCCPrivileges {
+		privSCCObj, exists, err := stores.SCCCache.GetByKey(sccPriv.TargetSCC)
 		if !exists {
 			return nil
 		} else if err != nil {
 			return err
 		}
 
-		privScc, ok := privSccObj.(*secv1.SecurityContextConstraints)
+		privSCC, ok := privSCCObj.(*secv1.SecurityContextConstraints)
 		if !ok {
-			return fmt.Errorf("couldn't cast object to SecurityContextConstraints: %+v", privSccObj)
+			return fmt.Errorf("couldn't cast object to SecurityContextConstraints: %+v", privSCCObj)
 		}
-		privSccCopy := privScc.DeepCopy()
+		privSCCCopy := privSCC.DeepCopy()
 
 		modified := false
-		users := privSccCopy.Users
+		users := privSCCCopy.Users
 		for _, acc := range sccPriv.ServiceAccounts {
 			removed := false
 			users, removed = remove(users, acc)
@@ -666,7 +666,7 @@ func DeleteAll(kv *v1.KubeVirt,
 			}
 
 			data := []byte(fmt.Sprintf(`{"users": %s}`, userBytes))
-			_, err = scc.SecurityContextConstraints().Patch(sccPriv.TargetScc, types.StrategicMergePatchType, data)
+			_, err = scc.SecurityContextConstraints().Patch(sccPriv.TargetSCC, types.StrategicMergePatchType, data)
 			if err != nil {
 				return fmt.Errorf("unable to patch scc: %v", err)
 			}
@@ -846,22 +846,22 @@ func CreateAll(kv *v1.KubeVirt,
 	}
 
 	// Add service accounts to SCC
-	for _, sccPriv := range strategy.customSccPrivileges {
-		privSccObj, exists, err := stores.SCCCache.GetByKey(sccPriv.TargetScc)
+	for _, sccPriv := range strategy.customSCCPrivileges {
+		privSCCObj, exists, err := stores.SCCCache.GetByKey(sccPriv.TargetSCC)
 		if !exists {
 			return objectsAdded, nil
 		} else if err != nil {
 			return objectsAdded, err
 		}
 
-		privScc, ok := privSccObj.(*secv1.SecurityContextConstraints)
+		privSCC, ok := privSCCObj.(*secv1.SecurityContextConstraints)
 		if !ok {
-			return objectsAdded, fmt.Errorf("couldn't cast object to SecurityContextConstraints: %+v", privSccObj)
+			return objectsAdded, fmt.Errorf("couldn't cast object to SecurityContextConstraints: %+v", privSCCObj)
 		}
-		privSccCopy := privScc.DeepCopy()
+		privSCCCopy := privSCC.DeepCopy()
 
 		modified := false
-		users := privSccCopy.Users
+		users := privSCCCopy.Users
 		for _, acc := range sccPriv.ServiceAccounts {
 			if !contains(users, acc) {
 				users = append(users, acc)
@@ -876,7 +876,7 @@ func CreateAll(kv *v1.KubeVirt,
 			}
 
 			data := []byte(fmt.Sprintf(`{"users": %s}`, userBytes))
-			_, err = scc.SecurityContextConstraints().Patch(sccPriv.TargetScc, types.StrategicMergePatchType, data)
+			_, err = scc.SecurityContextConstraints().Patch(sccPriv.TargetSCC, types.StrategicMergePatchType, data)
 			if err != nil {
 				return objectsAdded, fmt.Errorf("unable to patch scc: %v", err)
 			}
