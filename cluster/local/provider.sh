@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 function _cert_dir() {
     echo $GOPATH/src/kubevirt.io/kubevirt/cluster/local/certs
