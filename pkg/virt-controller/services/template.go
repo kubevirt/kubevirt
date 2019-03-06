@@ -198,6 +198,35 @@ func isHyperVSupportRequired(store cache.Store) bool {
 	return true
 }
 
+func isFeatureStateEnabled(fs *v1.FeatureState) bool {
+	return fs != nil && fs.Enabled != nil && *fs.Enabled
+}
+
+func isHyperVRequestedByVMI(vmi *v1.VirtualMachineInstance) bool {
+	if vmi.Spec.Domain.Features == nil || vmi.Spec.Domain.Features.Hyperv == nil {
+		return false
+	}
+
+	hyperv := vmi.Spec.Domain.Features.Hyperv // shortcut
+	if isFeatureStateEnabled(hyperv.Relaxed) ||
+		isFeatureStateEnabled(hyperv.VAPIC) ||
+		isFeatureStateEnabled(hyperv.VPIndex) ||
+		isFeatureStateEnabled(hyperv.Runtime) ||
+		isFeatureStateEnabled(hyperv.SyNIC) ||
+		isFeatureStateEnabled(hyperv.SyNICTimer) ||
+		isFeatureStateEnabled(hyperv.Reset) {
+		return true
+	}
+	// special cases: these are not v1.FeatureState
+	if hyperv.Spinlocks != nil && hyperv.Spinlocks.Enabled != nil && *hyperv.Spinlocks.Enabled {
+		return true
+	}
+	if hyperv.VendorID != nil && hyperv.VendorID.Enabled != nil && *hyperv.VendorID.Enabled {
+		return true
+	}
+	return false
+}
+
 func CPUModelLabelFromCPUModel(vmi *v1.VirtualMachineInstance) (label string, err error) {
 	if vmi.Spec.Domain.CPU == nil || vmi.Spec.Domain.CPU.Model == "" {
 		err = fmt.Errorf("Cannot create CPU Model label, vmi spec is mising CPU model")
@@ -808,7 +837,7 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 		}
 	}
 
-	if isHyperVSupportRequired(t.configMapStore) {
+	if isHyperVSupportRequired(t.configMapStore) && isHyperVRequestedByVMI(vmi) {
 		key := KVMInfoHypervSupportLabel()
 		nodeSelector[key] = "true"
 	}
