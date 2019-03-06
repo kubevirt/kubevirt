@@ -472,7 +472,7 @@ func (c *KubeVirtController) generateInstallStrategyJob(kv *v1.KubeVirt) *batchv
 
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: kv.Namespace,
-			Name:      fmt.Sprintf("virt-install-strategy-job-%s", imageTag),
+			Name:      fmt.Sprintf("%s-job", kv.Name),
 			Labels: map[string]string{
 				v1.AppLabel:             "",
 				v1.ManagedByLabel:       v1.ManagedByLabelOperatorValue,

@@ -13,7 +13,7 @@ bazel-build:
 		//cmd/..."
 
 bazel-push-images:
-	hack/dockerized "DOCKER_PREFIX=${DOCKER_PREFIX} DOCKER_TAG=${DOCKER_TAG} ./hack/bazel-push-images.sh"
+	hack/dockerized "DOCKER_PREFIX=${DOCKER_PREFIX} DOCKER_TAG=${DOCKER_TAG} DOCKER_TAG_ALT=${DOCKER_TAG_ALT} ./hack/bazel-push-images.sh"
 
 bazel-tests:
 	hack/dockerized "bazel test --test_output=errors -- //pkg/... "
