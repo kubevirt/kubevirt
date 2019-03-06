@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 # remove libvirt BUILD file to regenerate it each time
 rm -f vendor/github.com/libvirt/libvirt-go/BUILD.bazel
