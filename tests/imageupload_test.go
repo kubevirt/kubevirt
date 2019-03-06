@@ -57,7 +57,7 @@ var _ = Describe("ImageUpload", func() {
 				"--pvc-size", pvcSize,
 				"--uploadproxy-url", fmt.Sprintf("https://127.0.0.1:%d", localUploadProxyPort),
 				"--wait-secs", "30",
-				"--storage-class", "local",
+				"--storage-class", tests.LocalStorageClass,
 				"--insecure")
 			err = virtctlCmd()
 			if err != nil {

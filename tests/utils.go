@@ -1216,7 +1216,7 @@ func PanicOnError(err error) {
 func NewRandomDataVolumeWithHttpImport(imageUrl string, namespace string) *cdiv1.DataVolume {
 
 	name := "test-datavolume-" + rand.String(12)
-	storageClassName := "local"
+	storageClass := LocalStorageClass
 	quantity, err := resource.ParseQuantity("2Gi")
 	PanicOnError(err)
 	dataVolume := &cdiv1.DataVolume{
@@ -1237,7 +1237,7 @@ func NewRandomDataVolumeWithHttpImport(imageUrl string, namespace string) *cdiv1
 						"storage": quantity,
 					},
 				},
-				StorageClassName: &storageClassName,
+				StorageClassName: &storageClass,
 			},
 		},
 	}
