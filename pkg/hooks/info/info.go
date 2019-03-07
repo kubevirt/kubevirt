@@ -17,7 +17,7 @@
  *
  */
 
-package info
+package kubevirt_hooks_info
 
 const OnDefineDomainHookPointName = "OnDefineDomain"
 const PreCloudInitIsoHookPointName = "PreCloudInitIso"

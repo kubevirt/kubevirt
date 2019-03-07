@@ -7,8 +7,8 @@ load(
 # Additional bazel rules
 http_archive(
     name = "io_bazel_rules_go",
-    sha256 = "7be7dc01f1e0afdba6c8eb2b43d2fa01c743be1b9273ab1eaf6c233df078d705",
-    url = "https://github.com/bazelbuild/rules_go/releases/download/0.16.5/rules_go-0.16.5.tar.gz",
+    urls = ["https://github.com/bazelbuild/rules_go/releases/download/0.18.0/rules_go-0.18.0.tar.gz"],
+    sha256 = "301c8b39b0808c49f98895faa6aa8c92cbd605ab5ad4b6a3a652da33a1a2ba2e",
 )
 
 http_archive(
@@ -86,14 +86,17 @@ http_file(
 )
 
 load(
-    "@io_bazel_rules_go//go:def.bzl",
+    "@io_bazel_rules_go//go:deps.bzl",
     "go_register_toolchains",
     "go_rules_dependencies",
 )
 
 go_rules_dependencies()
 
-go_register_toolchains()
+go_register_toolchains(
+    go_version = "1.11.5",
+    nogo = "@//:nogo_vet",
+        )
 
 load(
     "@bazel_gazelle//:deps.bzl",
