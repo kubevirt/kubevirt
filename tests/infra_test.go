@@ -134,11 +134,16 @@ var _ = Describe("Infrastructure", func() {
 		It("should include the storage metrics for a running VM", func() {
 			By("Creating the VirtualMachineInstance")
 
+			// WARNING: we assume the VM will have a VirtIO disk (vda)
 			vmi := tests.NewRandomVMIWithWatchdog()
 			blockPVName := "block-pv-storage-metrics"
 			tests.CreateBlockVolumePvAndPvc(blockPVName, "1Gi")
 			defer tests.DeletePvAndPvc(blockPVName)
 
+			//... and we add our own vdb on which we do our test.
+			// but if the default disk is not vda, the test will break
+			// TODO: introspect the VMI and get the device name of this
+			// block device?
 			tests.AddPVCDisk(vmi, "block-pvc", "virtio", blockPVName)
 
 			By("Starting a new VirtualMachineInstance")
