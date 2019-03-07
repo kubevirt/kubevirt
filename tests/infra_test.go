@@ -23,11 +23,16 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
+	"sort"
+	"strconv"
 	"strings"
 	"time"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+
+	expect "github.com/google/goexpect"
+
 	k8sv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
@@ -121,19 +126,74 @@ var _ = Describe("Infrastructure", func() {
 			pod := pods.Items[0] // only one compute node in the test environment
 
 			Eventually(func() string {
-				stdout, _, err := tests.ExecuteCommandOnPodV2(virtClient,
-					&pod, "virt-handler",
-					[]string{
-						"curl",
-						"-L",
-						"-k",
-						fmt.Sprintf("https://%s:%s/metrics", pod.Status.PodIP, "8443"),
-					})
-				Expect(err).ToNot(HaveOccurred())
-				lines := filterMetricsOutput(stdout, "kubevirt")
+				lines := getKubevirtVMMetrics(virtClient, &pod, "virt-handler")
 				return strings.Join(lines, "\n")
 			}, 30*time.Second, 2*time.Second).Should(ContainSubstring("kubevirt"))
 		}, 300)
+
+		It("should include the storage metrics for a running VM", func() {
+			By("Creating the VirtualMachineInstance")
+
+			vmi := tests.NewRandomVMIWithWatchdog()
+			blockPVName := "block-pv-storage-metrics"
+			tests.CreateBlockVolumePvAndPvc(blockPVName, "1Gi")
+			defer tests.DeletePvAndPvc(blockPVName)
+
+			tests.AddPVCDisk(vmi, "block-pvc", "virtio", blockPVName)
+
+			By("Starting a new VirtualMachineInstance")
+			obj, err := virtClient.RestClient().Post().Resource("virtualmachineinstances").Namespace(tests.NamespaceTestDefault).Body(vmi).Do().Get()
+			Expect(err).ToNot(HaveOccurred(), "Should create VMI")
+
+			By("Waiting until the VM is ready")
+			tests.WaitForSuccessfulVMIStart(obj)
+
+			By("Expecting the VirtualMachineInstance console")
+			expecter, err := tests.LoggedInAlpineExpecter(vmi)
+
+			Expect(err).ToNot(HaveOccurred())
+			defer expecter.Close()
+
+			By("Writing some data to the disk")
+			_, err = expecter.ExpectBatch([]expect.Batcher{
+				&expect.BSnd{S: "dd if=/dev/zero of=/dev/vdb bs=1M count=1\n"},
+				&expect.BExp{R: "localhost:~#"},
+				&expect.BSnd{S: "sync\n"},
+				&expect.BExp{R: "localhost:~#"},
+			}, 10*time.Second)
+			Expect(err).ToNot(HaveOccurred())
+
+			By("Finding the prometheus endpoint")
+			l, err := labels.Parse("kubevirt.io=virt-handler")
+			Expect(err).ToNot(HaveOccurred())
+			pods, err := virtClient.CoreV1().Pods(tests.KubeVirtInstallNamespace).List(metav1.ListOptions{LabelSelector: l.String()})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(pods.Items).ToNot(BeEmpty())
+
+			By("Scraping the Prometheus endpoint")
+			pod := pods.Items[0] // only one compute node in the test environment
+
+			var lines []string
+			for tryNum := 0; tryNum < 20; tryNum++ {
+				lines = getKubevirtVMMetrics(virtClient, &pod, "virt-handler")
+				time.Sleep(2 * time.Second)
+			}
+			Expect(len(lines)).To(BeNumerically(">", 1))
+			metrics, err := parseMetricsToMap(lines)
+			Expect(err).ToNot(HaveOccurred())
+			var keys []string
+			for metric := range metrics {
+				keys = append(keys, metric)
+			}
+			sort.Strings(keys)
+			for _, key := range keys {
+				if strings.HasPrefix(key, "kubevirt_vm_storage_") && strings.Contains(key, "vdb") {
+					value := metrics[key]
+					Expect(value).To(BeNumerically(">", float64(0.0)))
+				}
+			}
+		}, 300)
+
 	})
 
 	Describe("Start a VirtualMachineInstance", func() {
@@ -210,6 +270,35 @@ func getNewLeaderPod(virtClient kubecli.KubevirtClient) *k8sv1.Pod {
 		}
 	}
 	return nil
+}
+
+func getKubevirtVMMetrics(virtClient kubecli.KubevirtClient, pod *k8sv1.Pod, containerName string) []string {
+	stdout, _, err := tests.ExecuteCommandOnPodV2(virtClient,
+		pod, containerName,
+		[]string{
+			"curl",
+			"-L",
+			"-k",
+			fmt.Sprintf("https://%s:%s/metrics", pod.Status.PodIP, "8443"),
+		})
+	Expect(err).ToNot(HaveOccurred())
+	return filterMetricsOutput(stdout, "kubevirt")
+}
+
+func parseMetricsToMap(lines []string) (map[string]float64, error) {
+	metrics := make(map[string]float64)
+	for _, line := range lines {
+		items := strings.Split(line, " ")
+		if len(items) != 2 {
+			return nil, fmt.Errorf("can't split properly line '%s'", line)
+		}
+		v, err := strconv.ParseFloat(items[1], 64)
+		if err != nil {
+			return nil, err
+		}
+		metrics[items[0]] = v
+	}
+	return metrics, nil
 }
 
 func filterMetricsOutput(output, prefix string) []string {
