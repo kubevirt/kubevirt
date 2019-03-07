@@ -46,7 +46,9 @@ var _ = Describe("Pod Network", func() {
 	var mockNetwork *MockNetworkHandler
 	var ctrl *gomock.Controller
 	var dummy *netlink.Dummy
+	var dummySwap *netlink.Dummy
 	var addrList []netlink.Addr
+	var newPodInterfaceName string
 	var routeList []netlink.Route
 	var routeAddr netlink.Route
 	var fakeMac net.HardwareAddr
@@ -90,7 +92,9 @@ var _ = Describe("Pod Network", func() {
 		testMac := "12:34:56:78:9A:BC"
 		updateTestMac := "AF:B3:1F:78:2A:CA"
 		mtu = 1410
+		dummySwap = &netlink.Dummy{LinkAttrs: netlink.LinkAttrs{Name: primaryPodInterfaceName}}
 		dummy = &netlink.Dummy{LinkAttrs: netlink.LinkAttrs{Index: 1, MTU: mtu}}
+		newPodInterfaceName = fmt.Sprintf("%s-nic", primaryPodInterfaceName)
 		address := &net.IPNet{IP: net.IPv4(10, 35, 0, 6), Mask: net.CIDRMask(24, 32)}
 		gw := net.IPv4(10, 35, 0, 1)
 		fakeMac, _ = net.ParseMAC(testMac)
@@ -179,7 +183,10 @@ var _ = Describe("Pod Network", func() {
 	TestPodInterfaceIPBinding := func(vm *v1.VirtualMachineInstance, domain *api.Domain) {
 
 		//For Bridge tests
+		mockNetwork.EXPECT().LinkSetName(dummySwap, newPodInterfaceName).Return(nil)
 		mockNetwork.EXPECT().LinkByName(primaryPodInterfaceName).Return(dummy, nil).Times(2)
+		mockNetwork.EXPECT().LinkByName(primaryPodInterfaceName).Return(dummySwap, nil)
+		mockNetwork.EXPECT().AddrReplace(dummySwap, &fakeAddr).Return(nil)
 		mockNetwork.EXPECT().AddrList(dummy, netlink.FAMILY_V4).Return(addrList, nil)
 		mockNetwork.EXPECT().AddrList(dummy, netlink.FAMILY_ALL).Return(addrList, nil)
 		mockNetwork.EXPECT().RouteList(dummy, netlink.FAMILY_V4).Return(routeList, nil)

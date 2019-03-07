@@ -94,8 +94,10 @@ type NetworkHandler interface {
 	RouteList(link netlink.Link, family int) ([]netlink.Route, error)
 	AddrDel(link netlink.Link, addr *netlink.Addr) error
 	AddrAdd(link netlink.Link, addr *netlink.Addr) error
+	AddrReplace(link netlink.Link, addr *netlink.Addr) error
 	LinkSetDown(link netlink.Link) error
 	LinkSetUp(link netlink.Link) error
+	LinkSetName(link netlink.Link, name string) error
 	LinkAdd(link netlink.Link) error
 	LinkSetLearningOff(link netlink.Link) error
 	ParseAddr(s string) (*netlink.Addr, error)
@@ -109,6 +111,7 @@ type NetworkHandler interface {
 	IsIpv6Enabled(interfaceName string) (bool, error)
 	IsIpv4Primary() (bool, error)
 	ConfigureIpv6Forwarding() error
+	ConfigureIpv4ArpIgnore() error
 	IptablesNewChain(proto iptables.Protocol, table, chain string) error
 	IptablesAppendRule(proto iptables.Protocol, table, chain string, rulespec ...string) error
 	NftablesNewChain(proto iptables.Protocol, table, chain string) error
@@ -140,6 +143,9 @@ func (h *NetworkUtilsHandler) AddrList(link netlink.Link, family int) ([]netlink
 func (h *NetworkUtilsHandler) RouteList(link netlink.Link, family int) ([]netlink.Route, error) {
 	return netlink.RouteList(link, family)
 }
+func (h *NetworkUtilsHandler) AddrReplace(link netlink.Link, addr *netlink.Addr) error {
+	return netlink.AddrReplace(link, addr)
+}
 func (h *NetworkUtilsHandler) AddrDel(link netlink.Link, addr *netlink.Addr) error {
 	return netlink.AddrDel(link, addr)
 }
@@ -148,6 +154,9 @@ func (h *NetworkUtilsHandler) LinkSetDown(link netlink.Link) error {
 }
 func (h *NetworkUtilsHandler) LinkSetUp(link netlink.Link) error {
 	return netlink.LinkSetUp(link)
+}
+func (h *NetworkUtilsHandler) LinkSetName(link netlink.Link, name string) error {
+	return netlink.LinkSetName(link, name)
 }
 func (h *NetworkUtilsHandler) LinkAdd(link netlink.Link) error {
 	return netlink.LinkAdd(link)
@@ -178,6 +187,11 @@ func (h *NetworkUtilsHandler) HasNatIptables(proto iptables.Protocol) bool {
 	}
 
 	return true
+}
+
+func (h *NetworkUtilsHandler) ConfigureIpv4ArpIgnore() error {
+	err := sysctl.New().SetSysctl(sysctl.New().GetIpv4ArpIgnoreAll(), 1)
+	return err
 }
 
 func (h *NetworkUtilsHandler) ConfigureIpv6Forwarding() error {

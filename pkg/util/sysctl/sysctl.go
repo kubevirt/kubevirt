@@ -17,6 +17,7 @@ Originally copied from https://github.com/kubernetes/kubernetes/blob/d8695d06b71
 package sysctl
 
 import (
+	"fmt"
 	"io/ioutil"
 	"path"
 	"strconv"
@@ -34,6 +35,8 @@ type Interface interface {
 	GetSysctl(sysctl string) (int, error)
 	// SetSysctl modifies the specified sysctl flag to the new value
 	SetSysctl(sysctl string, newVal int) error
+	// GetIpv4ArpIgnoreAll returns the interface's path to set arp_ignore
+	GetIpv4ArpIgnoreAll() string
 }
 
 // New returns a new Interface for accessing sysctl
@@ -43,6 +46,11 @@ func New() Interface {
 
 // procSysctl implements Interface by reading and writing files under /proc/sys
 type procSysctl struct {
+}
+
+// GetIpv4ArpIgnoreAll returns a path to set arp_ignore on all interfaces
+func (*procSysctl) GetIpv4ArpIgnoreAll() string {
+	return fmt.Sprintf("net/ipv4/conf/all/arp_ignore")
 }
 
 // GetSysctl returns the value for the specified sysctl setting

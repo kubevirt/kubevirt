@@ -376,6 +376,7 @@ type BridgeBindMechanism struct {
 	domain              *api.Domain
 	podInterfaceName    string
 	bridgeInterfaceName string
+	arpIgnore           bool
 }
 
 func (b *BridgeBindMechanism) discoverPodNetworkInterface() error {
@@ -458,12 +459,22 @@ func (b *BridgeBindMechanism) preparePodNetworkInterfaces(queueNumber uint32, la
 		return err
 	}
 
-	if _, err := Handler.SetRandomMac(b.podInterfaceName); err != nil {
-		return err
+	if !b.vif.IPAMDisabled {
+		// Remove IP from POD interface
+		err := Handler.AddrDel(b.podNicLink, &b.vif.IP)
+
+		if err != nil {
+			log.Log.Reason(err).Errorf("failed to delete address for interface: %s", b.podInterfaceName)
+			return err
+		}
+
+		if err := b.switchPodInterfaceWithDummy(); err != nil {
+			log.Log.Reason(err).Error("failed to switch pod interface with a dummy")
+			return err
+		}
 	}
 
-	if err := Handler.LinkSetUp(b.podNicLink); err != nil {
-		log.Log.Reason(err).Errorf("failed to bring link up for interface: %s", b.podInterfaceName)
+	if _, err := Handler.SetRandomMac(b.podInterfaceName); err != nil {
 		return err
 	}
 
@@ -478,14 +489,16 @@ func (b *BridgeBindMechanism) preparePodNetworkInterfaces(queueNumber uint32, la
 		return err
 	}
 
-	if !b.vif.IPAMDisabled {
-		// Remove IP from POD interface
-		err := Handler.AddrDel(b.podNicLink, &b.vif.IP)
-
-		if err != nil {
-			log.Log.Reason(err).Errorf("failed to delete address for interface: %s", b.podInterfaceName)
+	if b.arpIgnore {
+		if err := Handler.ConfigureIpv4ArpIgnore(); err != nil {
+			log.Log.Reason(err).Errorf("failed to set arp_ignore=1 on interface %s", b.bridgeInterfaceName)
 			return err
 		}
+	}
+
+	if err := Handler.LinkSetUp(b.podNicLink); err != nil {
+		log.Log.Reason(err).Errorf("failed to bring link up for interface: %s", b.podInterfaceName)
+		return err
 	}
 
 	if err := Handler.LinkSetLearningOff(b.podNicLink); err != nil {
@@ -618,6 +631,52 @@ func (b *BridgeBindMechanism) createBridge() error {
 
 	if err = Handler.DisableTXOffloadChecksum(b.bridgeInterfaceName); err != nil {
 		log.Log.Reason(err).Error("failed to disable TX offload checksum on bridge interface")
+		return err
+	}
+
+	return nil
+}
+
+func (b *BridgeBindMechanism) switchPodInterfaceWithDummy() error {
+	originalPodInterfaceName := b.podInterfaceName
+	newPodInterfaceName := fmt.Sprintf("%s-nic", originalPodInterfaceName)
+	dummy := &netlink.Dummy{LinkAttrs: netlink.LinkAttrs{Name: originalPodInterfaceName}}
+
+	if b.podNicLink.Type() != "dummy" {
+		// Set arp_ignore=1 on the bridge interface to avoid
+		// the interface being seen by Duplicate Address Detection (DAD).
+		// Without this, some VMs will lose their ip address after a few
+		// minutes.
+		b.arpIgnore = true
+
+		// Rename pod interface to free the original name for a new dummy interface
+		err := Handler.LinkSetName(b.podNicLink, newPodInterfaceName)
+		if err != nil {
+			log.Log.Reason(err).Errorf("failed to rename interface : %s", b.podInterfaceName)
+			return err
+		}
+
+		b.podInterfaceName = newPodInterfaceName
+		b.podNicLink, err = Handler.LinkByName(newPodInterfaceName)
+		if err != nil {
+			log.Log.Reason(err).Errorf("failed to get a link for interface: %s", b.podInterfaceName)
+			return err
+		}
+
+		// Create a dummy interface named after the original interface
+		err = Handler.LinkAdd(dummy)
+		if err != nil {
+			log.Log.Reason(err).Errorf("failed to create dummy interface : %s", newPodInterfaceName)
+			return err
+		}
+	}
+
+	// Replace original pod interface IP address to the dummy
+	// Since the dummy is not connected to anything, it should not affect networking
+	// Replace will add if ip doesn't exist or modify the ip
+	err := Handler.AddrReplace(dummy, &b.vif.IP)
+	if err != nil {
+		log.Log.Reason(err).Errorf("failed to replace original IP address to dummy interface: %s", newPodInterfaceName)
 		return err
 	}
 
