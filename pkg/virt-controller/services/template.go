@@ -624,8 +624,8 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 		return nil, err
 	}
 
-	// Register resource requests and limits corresponding to attached npwg/multus networks.
-	// TODO(ihar) remove when we adopt Npwg/Multus mutating webhook that handles the job.
+	// Register resource requests and limits corresponding to attached multus networks.
+	// TODO(ihar) remove when we adopt Multus mutating webhook that handles the job.
 	for _, resourceName := range networkToResourceMap {
 		if resourceName != "" {
 			requestResource(&resources, resourceName)
@@ -966,10 +966,8 @@ func getNamespaceAndNetworkName(vmi *v1.VirtualMachineInstance, fullNetworkName 
 func getNetworkToResourceMap(virtClient kubecli.KubevirtClient, vmi *v1.VirtualMachineInstance) (networkToResourceMap map[string]string, err error) {
 	networkToResourceMap = make(map[string]string)
 	for _, network := range vmi.Spec.Networks {
-		var namespace string
-		var networkName string
 		if multusOrNpwgNetworkName := util.GetMultusOrNpwgNetworkName(network); multusOrNpwgNetworkName != "" {
-			namespace, networkName = getNamespaceAndNetworkName(vmi, multusOrNpwgNetworkName)
+			namespace, networkName := getNamespaceAndNetworkName(vmi, multusOrNpwgNetworkName)
 			crd, err := virtClient.NetworkClient().K8sCniCncfIo().NetworkAttachmentDefinitions(namespace).Get(networkName, metav1.GetOptions{})
 			if err != nil {
 				return map[string]string{}, fmt.Errorf("Failed to locate network attachment definition %s/%s", namespace, networkName)
@@ -1003,6 +1001,8 @@ func getCniInterfaceList(vmi *v1.VirtualMachineInstance) (ifaceListString string
 			}
 		}
 	}
+	// If Genie will support JSON list annotation, this if can be removed.
+	// For now we keep comma separated list for Genie.
 	if len(ifaceListMap) > 0 {
 		ifaceJsonString, err := json.Marshal(ifaceListMap)
 		if err != nil {

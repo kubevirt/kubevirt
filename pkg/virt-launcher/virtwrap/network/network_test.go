@@ -82,6 +82,27 @@ var _ = Describe("Network", func() {
 			err := SetupNetworkInterfaces(vm, domain)
 			Expect(err).To(BeNil())
 		})
+		It("should configure networking with multus", func() {
+			NetworkInterfaceFactory = func(network *v1.Network) (NetworkInterface, error) {
+				return mockNetworkInterface, nil
+			}
+			const multusInterfaceName = "net1"
+			domain := &api.Domain{}
+			vm := newVMIBridgeInterface("testnamespace", "testVmName")
+			api.SetObjectDefaults_Domain(domain)
+			iface := v1.DefaultNetworkInterface()
+			cniNet := &v1.Network{
+				Name: "default",
+				NetworkSource: v1.NetworkSource{
+					Multus: &v1.CniNetwork{NetworkName: "default"},
+				},
+			}
+			vm.Spec.Networks = []v1.Network{*cniNet}
+
+			mockNetworkInterface.EXPECT().Plug(iface, cniNet, domain, "net1")
+			err := SetupNetworkInterfaces(vm, domain)
+			Expect(err).To(BeNil())
+		})
 		It("should configure networking with genie", func() {
 			NetworkInterfaceFactory = func(network *v1.Network) (NetworkInterface, error) {
 				return mockNetworkInterface, nil

@@ -975,6 +975,44 @@ var _ = Describe("Converter", func() {
 			Expect(domain.Spec.Devices.Interfaces[1].Source.Bridge).To(Equal("k6t-net2"))
 			Expect(domain.Spec.Devices.Interfaces[2].Source.Bridge).To(Equal("k6t-eth0"))
 		})
+		It("Should set domain interface source correctly for multus", func() {
+			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
+			vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{
+				*v1.DefaultNetworkInterface(),
+				*v1.DefaultNetworkInterface(),
+				*v1.DefaultNetworkInterface(),
+			}
+			vmi.Spec.Domain.Devices.Interfaces[0].Name = "red1"
+			vmi.Spec.Domain.Devices.Interfaces[1].Name = "red2"
+			// 3rd network is the default pod network, name is "default"
+			vmi.Spec.Networks = []v1.Network{
+				v1.Network{
+					Name: "red1",
+					NetworkSource: v1.NetworkSource{
+						Multus: &v1.CniNetwork{NetworkName: "red"},
+					},
+				},
+				v1.Network{
+					Name: "red2",
+					NetworkSource: v1.NetworkSource{
+						Multus: &v1.CniNetwork{NetworkName: "red"},
+					},
+				},
+				v1.Network{
+					Name: "default",
+					NetworkSource: v1.NetworkSource{
+						Pod: &v1.PodNetwork{},
+					},
+				},
+			}
+
+			domain := vmiToDomain(vmi, c)
+			Expect(domain).ToNot(Equal(nil))
+			Expect(domain.Spec.Devices.Interfaces).To(HaveLen(3))
+			Expect(domain.Spec.Devices.Interfaces[0].Source.Bridge).To(Equal("k6t-net1"))
+			Expect(domain.Spec.Devices.Interfaces[1].Source.Bridge).To(Equal("k6t-net2"))
+			Expect(domain.Spec.Devices.Interfaces[2].Source.Bridge).To(Equal("k6t-eth0"))
+		})
 		It("Should set domain interface source correctly for genie", func() {
 			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
 			vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{
@@ -1061,6 +1099,32 @@ var _ = Describe("Converter", func() {
 					Name: "red1",
 					NetworkSource: v1.NetworkSource{
 						Npwg: &v1.CniNetwork{NetworkName: "red"},
+					},
+				}}
+
+			domain := vmiToDomain(vmi, c)
+			Expect(domain).ToNot(Equal(nil))
+			Expect(domain.Spec.Devices.Interfaces).To(HaveLen(2))
+			Expect(domain.Spec.Devices.Interfaces[0].Source.Bridge).To(Equal("k6t-eth0"))
+			Expect(domain.Spec.Devices.Interfaces[1].Source.Bridge).To(Equal("k6t-net1"))
+		})
+		It("Should create network configuration for masquerade interface and the pod network and a secondary network using multus", func() {
+			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
+			name1 := "Name"
+
+			iface1 := v1.Interface{Name: name1, InterfaceBindingMethod: v1.InterfaceBindingMethod{Masquerade: &v1.InterfaceMasquerade{}}}
+			iface1.InterfaceBindingMethod.Slirp = &v1.InterfaceSlirp{}
+			net1 := v1.DefaultPodNetwork()
+			net1.Name = name1
+
+			vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{iface1, *v1.DefaultNetworkInterface()}
+			vmi.Spec.Domain.Devices.Interfaces[1].Name = "red1"
+
+			vmi.Spec.Networks = []v1.Network{*net1,
+				{
+					Name: "red1",
+					NetworkSource: v1.NetworkSource{
+						Multus: &v1.CniNetwork{NetworkName: "red"},
 					},
 				}}
 
@@ -1460,7 +1524,7 @@ var _ = Describe("Converter", func() {
 		})
 	})
 
-	Context("sriov", func() {
+	Context("sriov npwg", func() {
 		vmi := &v1.VirtualMachineInstance{
 			ObjectMeta: k8smeta.ObjectMeta{
 				Name:      "testvmi",
@@ -1495,6 +1559,73 @@ var _ = Describe("Converter", func() {
 			Name: "sriov2",
 			NetworkSource: v1.NetworkSource{
 				Npwg: &v1.CniNetwork{NetworkName: "sriov2"},
+			},
+		}
+		vmi.Spec.Networks = append(vmi.Spec.Networks, sriovNetwork2)
+
+		It("should convert sriov interfaces into host devices", func() {
+			c := &ConverterContext{
+				UseEmulation: true,
+				SRIOVDevices: map[string][]string{
+					"sriov":  []string{"0000:81:11.1"},
+					"sriov2": []string{"0000:81:11.2"},
+				},
+			}
+			domain := vmiToDomain(vmi, c)
+
+			// check that new sriov interfaces are *not* represented in xml domain as interfaces
+			Expect(len(domain.Spec.Devices.Interfaces)).To(Equal(1))
+
+			// check that the sriov interfaces are represented as PCI host devices
+			Expect(len(domain.Spec.Devices.HostDevices)).To(Equal(2))
+			Expect(domain.Spec.Devices.HostDevices[0].Type).To(Equal("pci"))
+			Expect(domain.Spec.Devices.HostDevices[0].Source.Address.Domain).To(Equal("0x0000"))
+			Expect(domain.Spec.Devices.HostDevices[0].Source.Address.Bus).To(Equal("0x81"))
+			Expect(domain.Spec.Devices.HostDevices[0].Source.Address.Slot).To(Equal("0x11"))
+			Expect(domain.Spec.Devices.HostDevices[0].Source.Address.Function).To(Equal("0x1"))
+			Expect(domain.Spec.Devices.HostDevices[1].Type).To(Equal("pci"))
+			Expect(domain.Spec.Devices.HostDevices[1].Source.Address.Domain).To(Equal("0x0000"))
+			Expect(domain.Spec.Devices.HostDevices[1].Source.Address.Bus).To(Equal("0x81"))
+			Expect(domain.Spec.Devices.HostDevices[1].Source.Address.Slot).To(Equal("0x11"))
+			Expect(domain.Spec.Devices.HostDevices[1].Source.Address.Function).To(Equal("0x2"))
+		})
+	})
+
+	Context("sriov multus", func() {
+		vmi := &v1.VirtualMachineInstance{
+			ObjectMeta: k8smeta.ObjectMeta{
+				Name:      "testvmi",
+				Namespace: "mynamespace",
+			},
+		}
+		v1.SetObjectDefaults_VirtualMachineInstance(vmi)
+
+		sriovInterface := v1.Interface{
+			Name: "sriov",
+			InterfaceBindingMethod: v1.InterfaceBindingMethod{
+				SRIOV: &v1.InterfaceSRIOV{},
+			},
+		}
+		vmi.Spec.Domain.Devices.Interfaces = append(vmi.Spec.Domain.Devices.Interfaces, sriovInterface)
+		sriovNetwork := v1.Network{
+			Name: "sriov",
+			NetworkSource: v1.NetworkSource{
+				Multus: &v1.CniNetwork{NetworkName: "sriov"},
+			},
+		}
+		vmi.Spec.Networks = append(vmi.Spec.Networks, sriovNetwork)
+
+		sriovInterface2 := v1.Interface{
+			Name: "sriov2",
+			InterfaceBindingMethod: v1.InterfaceBindingMethod{
+				SRIOV: &v1.InterfaceSRIOV{},
+			},
+		}
+		vmi.Spec.Domain.Devices.Interfaces = append(vmi.Spec.Domain.Devices.Interfaces, sriovInterface2)
+		sriovNetwork2 := v1.Network{
+			Name: "sriov2",
+			NetworkSource: v1.NetworkSource{
+				Multus: &v1.CniNetwork{NetworkName: "sriov2"},
 			},
 		}
 		vmi.Spec.Networks = append(vmi.Spec.Networks, sriovNetwork2)

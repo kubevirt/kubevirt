@@ -174,7 +174,7 @@ var _ = Describe("Template", func() {
 			})
 		})
 		Context("with multus annotation", func() {
-			It("should add npwg networks in the pod annotation", func() {
+			It("should add multus networks in the pod annotation", func() {
 				vmi := v1.VirtualMachineInstance{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      "testvmi",
