@@ -6,7 +6,7 @@ all:
 bazel-generate:
 	SYNC_VENDOR=true hack/dockerized "./hack/bazel-generate.sh"
 
-bazel-build:
+bazel-build: bazel-generate
 	hack/dockerized "bazel build \
 		--platforms=@io_bazel_rules_go//go/toolchain:linux_amd64 \
 		--workspace_status_command=./hack/print-workspace-status.sh \
