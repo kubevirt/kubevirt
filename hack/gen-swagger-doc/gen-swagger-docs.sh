@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 # gen-swagger-docs.sh $API_VERSION $OUTPUT_FORMAT
 # API_VERSION=v1

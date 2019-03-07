@@ -51,7 +51,7 @@ var _ = Describe("Network", func() {
 			iface := v1.DefaultNetworkInterface()
 			defaultNet := v1.DefaultPodNetwork()
 
-			mockNetworkInterface.EXPECT().Plug(iface, defaultNet, domain, podInterface)
+			mockNetworkInterface.EXPECT().Plug(vm, iface, defaultNet, domain, podInterface)
 			err := SetupNetworkInterfaces(vm, domain)
 			Expect(err).To(BeNil())
 		})
@@ -78,7 +78,7 @@ var _ = Describe("Network", func() {
 			}
 			vm.Spec.Networks = []v1.Network{*cniNet}
 
-			mockNetworkInterface.EXPECT().Plug(iface, cniNet, domain, "net1")
+			mockNetworkInterface.EXPECT().Plug(vm, iface, cniNet, domain, "net1")
 			err := SetupNetworkInterfaces(vm, domain)
 			Expect(err).To(BeNil())
 		})
@@ -99,7 +99,7 @@ var _ = Describe("Network", func() {
 			}
 			vm.Spec.Networks = []v1.Network{*cniNet}
 
-			mockNetworkInterface.EXPECT().Plug(iface, cniNet, domain, genieInterfaceName)
+			mockNetworkInterface.EXPECT().Plug(vm, iface, cniNet, domain, genieInterfaceName)
 			err := SetupNetworkInterfaces(vm, domain)
 			Expect(err).To(BeNil())
 		})

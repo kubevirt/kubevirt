@@ -32,8 +32,8 @@ tools/vms-generator/vms-generator
 .coverprofile
 coverage.html
 manifests/**/*.tmp
-bazel-*
-.bazelrc
+/bazel-*
+/.bazelrc
 
 cluster/k8s-1.13.0-sriov/cache/
 cluster/k8s-1.13.0-sriov/config
