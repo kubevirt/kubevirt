@@ -30,7 +30,7 @@ spec:
         - --pod-ip-address
         - $(MY_POD_IP)
         - --max-metric-requests
-        - $(MAX_REQUESTS) 
+        - "3"
         - -v
         - {{.Verbosity}}
         env:
@@ -42,8 +42,6 @@ spec:
           valueFrom:
             fieldRef:
               fieldPath: status.podIP
-        - name: MAX_REQUESTS
-          value: 3
         image: {{.DockerPrefix}}/virt-handler:{{.DockerTag}}
         imagePullPolicy: {{.ImagePullPolicy}}
         name: virt-handler
