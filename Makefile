@@ -13,12 +13,7 @@ bazel-build:
 		//cmd/..."
 
 bazel-push-images:
-	hack/dockerized "bazel run \
-		--platforms=@io_bazel_rules_go//go/toolchain:linux_amd64 \
-		--workspace_status_command=./hack/print-workspace-status.sh \
-		--define container_prefix=${DOCKER_PREFIX} \
-		--define container_tag=${DOCKER_TAG} \
-		//:push-images"
+	hack/dockerized "DOCKER_PREFIX=${DOCKER_PREFIX} DOCKER_TAG=${DOCKER_TAG} ./hack/bazel-push-images.sh"
 
 bazel-tests:
 	hack/dockerized "bazel test --test_output=errors -- //pkg/... "
