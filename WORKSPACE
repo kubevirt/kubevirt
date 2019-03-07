@@ -159,9 +159,9 @@ _go_image_repos()
 
 http_archive(
     name = "io_bazel_rules_container_rpm",
-    sha256 = "7ace5bc7aa10697196d3c48ef5d73b0fc52b6e27c0bad3ce10751f66c5cc383c",
-    strip_prefix = "rules_container_rpm-0.0.3",
-    urls = ["https://github.com/rmohr/rules_container_rpm/archive/v0.0.3.tar.gz"],
+    sha256 = "b419c25576e148e537a93fafdc10cb78faf1174558d853754727b586793e71d1",
+    strip_prefix = "rules_container_rpm-0.0.4",
+    urls = ["https://github.com/rmohr/rules_container_rpm/archive/v0.0.4.tar.gz"],
 )
 
 # Get container-disk-v1alpha RPM's
