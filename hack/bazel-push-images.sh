@@ -1,4 +1,4 @@
-#!/usr/bin/env bash
+#!/bin/bash
 #
 # This file is part of the KubeVirt project
 #
@@ -22,4 +22,9 @@ set -e
 source hack/common.sh
 source hack/config.sh
 
-build_func_tests
+bazel run \
+    --platforms=@io_bazel_rules_go//go/toolchain:linux_amd64 \
+    --workspace_status_command=./hack/print-workspace-status.sh \
+    --define container_prefix=${docker_prefix} \
+    --define container_tag=${docker_tag} \
+    //:push-images

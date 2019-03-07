@@ -333,7 +333,7 @@ var _ = Describe("Pod Network", func() {
 					vmi := newVMIBridgeInterface("testnamespace", "testVmName")
 					api.SetObjectDefaults_Domain(domain)
 					vmi.Spec.Domain.Devices.Interfaces[0].MacAddress = "de-ad-00-00-be-af"
-					driver, err := getBinding(&vmi.Spec.Domain.Devices.Interfaces[0], &vmi.Spec.Networks[0], domain, podInterface)
+					driver, err := getBinding(vmi, &vmi.Spec.Domain.Devices.Interfaces[0], &vmi.Spec.Networks[0], domain, podInterface)
 					Expect(err).ToNot(HaveOccurred())
 					bridge, ok := driver.(*BridgePodInterface)
 					Expect(ok).To(BeTrue())
@@ -354,8 +354,9 @@ var _ = Describe("Pod Network", func() {
 						SRIOV: &v1.InterfaceSRIOV{},
 					},
 				}
+				vmi := newVMI("testnamespace", "testVmName")
 				podiface := PodInterface{}
-				err := podiface.Plug(iface, net, domain, "fakeiface")
+				err := podiface.Plug(vmi, iface, net, domain, "fakeiface")
 				Expect(err).ToNot(HaveOccurred())
 			})
 		})
@@ -376,7 +377,7 @@ var _ = Describe("Pod Network", func() {
 
 				api.SetObjectDefaults_Domain(domain)
 
-				driver, err := getBinding(&vmi.Spec.Domain.Devices.Interfaces[0], &vmi.Spec.Networks[0], domain, podInterface)
+				driver, err := getBinding(vmi, &vmi.Spec.Domain.Devices.Interfaces[0], &vmi.Spec.Networks[0], domain, podInterface)
 				Expect(err).ToNot(HaveOccurred())
 				TestRunPlug(driver)
 				Expect(len(domain.Spec.Devices.Interfaces)).To(Equal(0))
@@ -391,7 +392,7 @@ var _ = Describe("Pod Network", func() {
 				api.SetObjectDefaults_Domain(domain)
 				vmi.Spec.Domain.Devices.Interfaces[0].MacAddress = "de-ad-00-00-be-af"
 
-				driver, err := getBinding(&vmi.Spec.Domain.Devices.Interfaces[0], &vmi.Spec.Networks[0], domain, podInterface)
+				driver, err := getBinding(vmi, &vmi.Spec.Domain.Devices.Interfaces[0], &vmi.Spec.Networks[0], domain, podInterface)
 				Expect(err).ToNot(HaveOccurred())
 				TestRunPlug(driver)
 				Expect(len(domain.Spec.Devices.Interfaces)).To(Equal(0))
@@ -417,7 +418,7 @@ var _ = Describe("Pod Network", func() {
 						Name: "default",
 					}})
 
-				driver, err := getBinding(&vmi.Spec.Domain.Devices.Interfaces[0], &vmi.Spec.Networks[0], domain, podInterface)
+				driver, err := getBinding(vmi, &vmi.Spec.Domain.Devices.Interfaces[0], &vmi.Spec.Networks[0], domain, podInterface)
 				Expect(err).ToNot(HaveOccurred())
 				TestRunPlug(driver)
 				Expect(len(domain.Spec.Devices.Interfaces)).To(Equal(1))
