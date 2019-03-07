@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 #
 # This file is part of the KubeVirt project
 #
@@ -69,6 +69,7 @@ for i in ${namespaces[@]}; do
         _kubectl -n ${i} delete serviceaccounts -l ${label}
         _kubectl -n ${i} delete configmaps -l ${label}
         _kubectl -n ${i} delete secrets -l ${label}
+        _kubectl -n ${i} delete jobs -l ${label}
     done
 done
 

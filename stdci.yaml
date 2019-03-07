@@ -4,13 +4,13 @@ sub-stages:
       timeout: 4h
   - k8s-1.11.0:
       timeout: 4h
-  - k8s-multus-1.12.2
+  - k8s-multus-1.13.3
   - k8s-genie-1.11.1
-  - openshift-3.11:
+  - os-3.11.0:
       timeout: 4h
-  - openshift-3.11-crio:
+  - os-3.11.0-crio:
       timeout: 4h
-  - openshift-3.11-multus
+  - os-3.11.0-multus
   - windows2016
 runtime_requirements:
   support_nesting_level: 2

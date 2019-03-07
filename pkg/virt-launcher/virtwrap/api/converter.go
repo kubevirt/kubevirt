@@ -39,6 +39,7 @@ import (
 	containerdisk "kubevirt.io/kubevirt/pkg/container-disk"
 	"kubevirt.io/kubevirt/pkg/emptydisk"
 	ephemeraldisk "kubevirt.io/kubevirt/pkg/ephemeral-disk"
+	"kubevirt.io/kubevirt/pkg/ignition"
 	"kubevirt.io/kubevirt/pkg/log"
 	"kubevirt.io/kubevirt/pkg/precond"
 	"kubevirt.io/kubevirt/pkg/util"
@@ -327,6 +328,13 @@ func Convert_v1_CloudInitNoCloudSource_To_api_Disk(source *v1.CloudInitNoCloudSo
 	return nil
 }
 
+func Convert_v1_IgnitionData_To_api_Disk(disk *Disk, c *ConverterContext) error {
+	disk.Source.File = fmt.Sprintf("%s/%s", ignition.GetDomainBasePath(c.VirtualMachine.Name, c.VirtualMachine.Namespace), c.VirtualMachine.Annotations[v1.IgnitionAnnotation])
+	disk.Type = "file"
+	disk.Driver.Type = "raw"
+	return nil
+}
+
 func Convert_v1_EmptyDiskSource_To_api_Disk(volumeName string, _ *v1.EmptyDiskSource, disk *Disk, c *ConverterContext) error {
 	if disk.Type == "lun" {
 		return fmt.Errorf("device %s is of type lun. Not compatible with a file based disk", disk.Alias.Name)
@@ -404,6 +412,25 @@ func Convert_v1_Rng_To_api_Rng(source *v1.Rng, rng *Rng, _ *ConverterContext) er
 	return nil
 }
 
+func Convert_v1_Input_To_api_InputDevice(input *v1.Input, inputDevice *Input, _ *ConverterContext) error {
+	if input.Bus != "virtio" && input.Bus != "usb" && input.Bus != "" {
+		return fmt.Errorf("input contains unsupported bus %s", input.Bus)
+	}
+
+	if input.Bus != "virtio" && input.Bus != "usb" {
+		input.Bus = "usb"
+	}
+
+	if input.Type != "tablet" {
+		return fmt.Errorf("input contains unsupported type %s", input.Type)
+	}
+
+	inputDevice.Bus = input.Bus
+	inputDevice.Type = input.Type
+	inputDevice.Alias = &Alias{Name: input.Name}
+	return nil
+}
+
 func Convert_v1_Clock_To_api_Clock(source *v1.Clock, clock *Clock, c *ConverterContext) error {
 	if source.UTC != nil {
 		clock.Offset = "utc"
@@ -458,6 +485,19 @@ func convertFeatureState(source *v1.FeatureState) *FeatureState {
 		}
 	}
 	return nil
+}
+
+//isUSBDevicePresent checks if exists device with usb bus in vmi
+func isUSBDevicePresent(vmi *v1.VirtualMachineInstance) bool {
+	usbDeviceExists := false
+	for _, input := range vmi.Spec.Domain.Devices.Inputs {
+		if input.Bus == "usb" {
+			usbDeviceExists = true
+			return usbDeviceExists
+		}
+	}
+
+	return usbDeviceExists
 }
 
 func Convert_v1_Features_To_api_Features(source *v1.Features, features *Features, c *ConverterContext) error {
@@ -771,6 +811,30 @@ func Convert_v1_VirtualMachine_To_api_Domain(vmi *v1.VirtualMachineInstance, dom
 		domain.Spec.Devices.Rng = newRng
 	}
 
+	//usb controller is turned on, only when user specify input device with usb bus,
+	//otherwise it is turned off
+	if usbDeviceExists := isUSBDevicePresent(vmi); !usbDeviceExists {
+		// disable usb controller
+		domain.Spec.Devices.Controllers = append(domain.Spec.Devices.Controllers, Controller{
+			Type:  "usb",
+			Index: "0",
+			Model: "none",
+		})
+	}
+
+	if vmi.Spec.Domain.Devices.Inputs != nil {
+		inputDevices := make([]Input, 0)
+		for _, input := range vmi.Spec.Domain.Devices.Inputs {
+			inputDevice := Input{}
+			err := Convert_v1_Input_To_api_InputDevice(&input, &inputDevice, c)
+			inputDevices = append(inputDevices, inputDevice)
+			if err != nil {
+				return err
+			}
+		}
+		domain.Spec.Devices.Inputs = inputDevices
+	}
+
 	if vmi.Spec.Domain.Clock != nil {
 		clock := vmi.Spec.Domain.Clock
 		newClock := &Clock{}
@@ -812,6 +876,16 @@ func Convert_v1_VirtualMachine_To_api_Domain(vmi *v1.VirtualMachineInstance, dom
 			} else {
 				domain.Spec.CPU.Mode = "custom"
 				domain.Spec.CPU.Model = vmi.Spec.Domain.CPU.Model
+			}
+		}
+
+		// Set VM CPU features
+		if vmi.Spec.Domain.CPU.Features != nil {
+			for _, feature := range vmi.Spec.Domain.CPU.Features {
+				domain.Spec.CPU.Features = append(domain.Spec.CPU.Features, CPUFeature{
+					Name:   feature.Name,
+					Policy: feature.Policy,
+				})
 			}
 		}
 
@@ -1038,6 +1112,20 @@ func Convert_v1_VirtualMachine_To_api_Domain(vmi *v1.VirtualMachineInstance, dom
 		}
 	}
 
+	// Add Ignition Command Line if present
+	ignitiondata, _ := vmi.Annotations[v1.IgnitionAnnotation]
+	if ignitiondata != "" && strings.Contains(ignitiondata, "ignition") {
+		if domain.Spec.QEMUCmd == nil {
+			domain.Spec.QEMUCmd = &Commandline{}
+		}
+
+		if domain.Spec.QEMUCmd.QEMUArg == nil {
+			domain.Spec.QEMUCmd.QEMUArg = make([]Arg, 0)
+		}
+		domain.Spec.QEMUCmd.QEMUArg = append(domain.Spec.QEMUCmd.QEMUArg, Arg{Value: "-fw_cfg"})
+		ignitionpath := fmt.Sprintf("%s/data.ign", ignition.GetDomainBasePath(c.VirtualMachine.Name, c.VirtualMachine.Namespace))
+		domain.Spec.QEMUCmd.QEMUArg = append(domain.Spec.QEMUCmd.QEMUArg, Arg{Value: fmt.Sprintf("name=opt/com.coreos/config,file=%s", ignitionpath)})
+	}
 	return nil
 }
 

@@ -63,6 +63,7 @@ const (
 
 var validInterfaceModels = []string{"e1000", "e1000e", "ne2k_pci", "pcnet", "rtl8139", "virtio"}
 var validIOThreadsPolicies = []v1.IOThreadsPolicy{v1.IOThreadsPolicyShared, v1.IOThreadsPolicyAuto}
+var validCPUFeaturePolicies = []string{"", "force", "require", "optional", "disable", "forbid"}
 
 type admitFunc func(*v1beta1.AdmissionReview) *v1beta1.AdmissionResponse
 
@@ -857,6 +858,27 @@ func ValidateVirtualMachineInstanceSpec(field *k8sfield.Path, spec *v1.VirtualMa
 		}
 	}
 
+	// Validate CPU Feature Policies
+	if spec.Domain.CPU != nil && spec.Domain.CPU.Features != nil {
+		isValidPolicy := func(policy string) bool {
+			for _, p := range validCPUFeaturePolicies {
+				if p == policy {
+					return true
+				}
+			}
+			return false
+		}
+		for idx, feature := range spec.Domain.CPU.Features {
+			if !isValidPolicy(feature.Policy) {
+				causes = append(causes, metav1.StatusCause{
+					Type:    metav1.CauseTypeFieldValueNotSupported,
+					Message: fmt.Sprintf("CPU feature %s uses policy %s that is not supported.", feature.Name, feature.Policy),
+					Field:   field.Child("domain", "cpu", "features").Index(idx).Child("policy").String(),
+				})
+			}
+		}
+	}
+
 	podNetworkInterfacePresent := false
 
 	if len(spec.Domain.Devices.Interfaces) > arrayLenMax {
@@ -1217,6 +1239,23 @@ func ValidateVirtualMachineInstanceSpec(field *k8sfield.Path, spec *v1.VirtualMa
 		}
 	}
 
+	for idx, input := range spec.Domain.Devices.Inputs {
+		if input.Bus != "virtio" && input.Bus != "usb" && input.Bus != "" {
+			causes = append(causes, metav1.StatusCause{
+				Type:    metav1.CauseTypeFieldValueInvalid,
+				Message: fmt.Sprintf("Input device can have only virtio or usb bus."),
+				Field:   field.Child("domain", "devices", "inputs").Index(idx).Child("bus").String(),
+			})
+		}
+
+		if input.Type != "tablet" {
+			causes = append(causes, metav1.StatusCause{
+				Type:    metav1.CauseTypeFieldValueInvalid,
+				Message: fmt.Sprintf("Input device can have only tablet type."),
+				Field:   field.Child("domain", "devices", "inputs").Index(idx).Child("type").String(),
+			})
+		}
+	}
 	_, requestOk := spec.Domain.Resources.Requests[k8sv1.ResourceCPU]
 	_, limitOK := spec.Domain.Resources.Limits[k8sv1.ResourceCPU]
 	isCPUResourcesSet := (requestOk == true) || (limitOK == true)
@@ -1319,6 +1358,19 @@ func ValidateVirtualMachineInstanceSpec(field *k8sfield.Path, spec *v1.VirtualMa
 	return causes
 }
 
+func ValidateVirtualMachineInstanceMetadata(field *k8sfield.Path, vmi *v1.VirtualMachineInstance) []metav1.StatusCause {
+	var causes []metav1.StatusCause
+	// Validate ignition feature gate if set when the corresponding annotation is found
+	if vmi.GetObjectMeta().GetAnnotations()[v1.IgnitionAnnotation] != "" && !virtconfig.IgnitionEnabled() {
+		causes = append(causes, metav1.StatusCause{
+			Type:    metav1.CauseTypeFieldValueInvalid,
+			Message: fmt.Sprintf("ExperimentalIgnitionSupport feature gate is not enabled in kubevirt-config"),
+			Field:   field.String(),
+		})
+	}
+	return causes
+}
+
 func ValidateVirtualMachineSpec(field *k8sfield.Path, spec *v1.VirtualMachineSpec) []metav1.StatusCause {
 	var causes []metav1.StatusCause
 
@@ -1362,7 +1414,14 @@ func ValidateVirtualMachineSpec(field *k8sfield.Path, spec *v1.VirtualMachineSpe
 			}
 		}
 	}
-
+	// Validate ignition feature gate if set when the corresponding annotation is found
+	if spec.Template.ObjectMeta.GetAnnotations()[v1.IgnitionAnnotation] != "" && !virtconfig.IgnitionEnabled() {
+		causes = append(causes, metav1.StatusCause{
+			Type:    metav1.CauseTypeFieldValueInvalid,
+			Message: fmt.Sprintf("ExperimentalIgnitionSupport feature gate is not enabled in kubevirt-config"),
+			Field:   field.String(),
+		})
+	}
 	return causes
 }
 
@@ -1465,6 +1524,7 @@ func admitVMICreate(ar *v1beta1.AdmissionReview) *v1beta1.AdmissionResponse {
 
 	causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("spec"), &vmi.Spec)
 	causes = append(causes, ValidateVirtualMachineInstanceMandatoryFields(k8sfield.NewPath("spec"), &vmi.Spec)...)
+	causes = append(causes, ValidateVirtualMachineInstanceMetadata(k8sfield.NewPath("spec"), vmi)...)
 
 	if len(causes) > 0 {
 		return webhooks.ToAdmissionResponse(causes)
@@ -1669,11 +1729,13 @@ func admitMigrationCreate(ar *v1beta1.AdmissionReview) *v1beta1.AdmissionRespons
 	}
 
 	// Reject migration jobs for non-migratable VMIs
-	cond := getVMIMigrationCondition(vmi)
-	if cond != nil && cond.Status == k8sv1.ConditionFalse {
-		errMsg := fmt.Errorf("Cannot migrate VMI, Reason: %s, Message: %s",
-			cond.Reason, cond.Message)
-		return webhooks.ToAdmissionResponseError(errMsg)
+	for _, c := range vmi.Status.Conditions {
+		if c.Type == v1.VirtualMachineInstanceIsMigratable &&
+			c.Status == k8sv1.ConditionFalse {
+			errMsg := fmt.Errorf("Cannot migrate VMI, Reason: %s, Message: %s",
+				c.Reason, c.Message)
+			return webhooks.ToAdmissionResponseError(errMsg)
+		}
 	}
 
 	// Don't allow new migration jobs to be introduced when previous migration jobs
@@ -1689,15 +1751,6 @@ func admitMigrationCreate(ar *v1beta1.AdmissionReview) *v1beta1.AdmissionRespons
 	reviewResponse := v1beta1.AdmissionResponse{}
 	reviewResponse.Allowed = true
 	return &reviewResponse
-}
-
-func getVMIMigrationCondition(vmi *v1.VirtualMachineInstance) (cond *v1.VirtualMachineInstanceCondition) {
-	for _, c := range vmi.Status.Conditions {
-		if c.Type == v1.VirtualMachineInstanceIsMigratable {
-			cond = &c
-		}
-	}
-	return cond
 }
 
 func ServeMigrationCreate(resp http.ResponseWriter, req *http.Request) {

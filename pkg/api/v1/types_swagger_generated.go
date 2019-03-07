@@ -75,6 +75,14 @@ func (VirtualMachineInstanceMigrationState) SwaggerDoc() map[string]string {
 		"completed":                      "Indicates the migration completed",
 		"failed":                         "Indicates that the migration failed",
 		"migrationUid":                   "The VirtualMachineInstanceMigration object associated with this migration",
+		"migrationConfig":                "Config contains migration configuration options",
+	}
+}
+
+func (MigrationConfig) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"completionTimeoutPerGiB": "The time for GiB of data to wait for the migration to be completed before aborting it",
+		"progressTimeout":         "The time to wait for live migration to make progress in transferring data.",
 	}
 }
 

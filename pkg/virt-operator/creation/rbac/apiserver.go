@@ -143,8 +143,7 @@ func newApiServerServiceAccount(namespace string) *corev1.ServiceAccount {
 			Namespace: namespace,
 			Name:      "kubevirt-apiserver",
 			Labels: map[string]string{
-				virtv1.AppLabel:       "",
-				virtv1.ManagedByLabel: virtv1.ManagedByLabelOperatorValue,
+				virtv1.AppLabel: "",
 			},
 		},
 	}
@@ -159,8 +158,7 @@ func newApiServerClusterRole() *rbacv1.ClusterRole {
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "kubevirt-apiserver",
 			Labels: map[string]string{
-				virtv1.AppLabel:       "",
-				virtv1.ManagedByLabel: virtv1.ManagedByLabelOperatorValue,
+				virtv1.AppLabel: "",
 			},
 		},
 		Rules: []rbacv1.PolicyRule{
@@ -271,8 +269,7 @@ func newApiServerClusterRoleBinding(namespace string) *rbacv1.ClusterRoleBinding
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "kubevirt-apiserver",
 			Labels: map[string]string{
-				virtv1.AppLabel:       "",
-				virtv1.ManagedByLabel: virtv1.ManagedByLabelOperatorValue,
+				virtv1.AppLabel: "",
 			},
 		},
 		RoleRef: rbacv1.RoleRef{
@@ -299,8 +296,7 @@ func newApiServerAuthDelegatorClusterRoleBinding(namespace string) *rbacv1.Clust
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "kubevirt-apiserver-auth-delegator",
 			Labels: map[string]string{
-				virtv1.AppLabel:       "",
-				virtv1.ManagedByLabel: virtv1.ManagedByLabelOperatorValue,
+				virtv1.AppLabel: "",
 			},
 		},
 		RoleRef: rbacv1.RoleRef{
@@ -328,8 +324,7 @@ func newApiServerRole(namespace string) *rbacv1.Role {
 			Namespace: namespace,
 			Name:      "kubevirt-apiserver",
 			Labels: map[string]string{
-				virtv1.AppLabel:       "",
-				virtv1.ManagedByLabel: virtv1.ManagedByLabelOperatorValue,
+				virtv1.AppLabel: "",
 			},
 		},
 		Rules: []rbacv1.PolicyRule{
@@ -369,8 +364,7 @@ func newApiServerRoleBinding(namespace string) *rbacv1.RoleBinding {
 			Namespace: namespace,
 			Name:      "kubevirt-apiserver",
 			Labels: map[string]string{
-				virtv1.AppLabel:       "",
-				virtv1.ManagedByLabel: virtv1.ManagedByLabelOperatorValue,
+				virtv1.AppLabel: "",
 			},
 		},
 		RoleRef: rbacv1.RoleRef{

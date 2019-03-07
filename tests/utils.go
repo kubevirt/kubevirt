@@ -592,6 +592,11 @@ func CreateHostPathPvWithSize(osName string, hostPath string, size string) {
 	hostPathType := k8sv1.HostPathDirectoryOrCreate
 
 	name := fmt.Sprintf("%s-disk-for-tests", osName)
+
+	nodes := GetAllSchedulableNodes(virtCli)
+	Expect(len(nodes.Items) > 0).To(BeTrue())
+	nodeName := nodes.Items[0].Name
+
 	pv := &k8sv1.PersistentVolume{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: name,
@@ -620,7 +625,7 @@ func CreateHostPathPvWithSize(osName string, hostPath string, size string) {
 								{
 									Key:      "kubernetes.io/hostname",
 									Operator: k8sv1.NodeSelectorOpIn,
-									Values:   []string{"node01"},
+									Values:   []string{nodeName},
 								},
 							},
 						},
@@ -1550,6 +1555,12 @@ func newBlockVolumePV(name string, labelSelector map[string]string, size string)
 	storageClass := StorageClassBlockVolume
 	volumeMode := k8sv1.PersistentVolumeBlock
 
+	virtCli, err := kubecli.GetKubevirtClient()
+	PanicOnError(err)
+
+	nodes := GetAllSchedulableNodes(virtCli)
+	Expect(len(nodes.Items) > 0).To(BeTrue())
+	nodeName := nodes.Items[0].Name
 	// Note: the path depends on kubevirtci!
 	// It's configured to have a device backed by a cirros image at exactly that place on node01
 	// And the local storage provider also has access to it
@@ -1578,7 +1589,7 @@ func newBlockVolumePV(name string, labelSelector map[string]string, size string)
 								{
 									Key:      "kubernetes.io/hostname",
 									Operator: k8sv1.NodeSelectorOpIn,
-									Values:   []string{"node01"},
+									Values:   []string{nodeName},
 								},
 							},
 						},
@@ -2675,21 +2686,25 @@ func CreateISCSITargetPOD(containerDiskName ContainerDisk) (iscsiTargetIP string
 }
 
 func CreateISCSIPvAndPvc(name string, size string, iscsiTargetIP string) {
+	accessMode := k8sv1.ReadWriteMany
+	NewISCSIPvAndPvc(name, size, iscsiTargetIP, accessMode)
+}
+func NewISCSIPvAndPvc(name string, size string, iscsiTargetIP string, accessMode k8sv1.PersistentVolumeAccessMode) {
 	virtCli, err := kubecli.GetKubevirtClient()
 	PanicOnError(err)
 
-	_, err = virtCli.CoreV1().PersistentVolumes().Create(newISCSIPV(name, size, iscsiTargetIP))
+	_, err = virtCli.CoreV1().PersistentVolumes().Create(newISCSIPV(name, size, iscsiTargetIP, accessMode))
 	if !errors.IsAlreadyExists(err) {
 		PanicOnError(err)
 	}
 
-	_, err = virtCli.CoreV1().PersistentVolumeClaims(NamespaceTestDefault).Create(newISCSIPVC(name, size))
+	_, err = virtCli.CoreV1().PersistentVolumeClaims(NamespaceTestDefault).Create(newISCSIPVC(name, size, accessMode))
 	if !errors.IsAlreadyExists(err) {
 		PanicOnError(err)
 	}
 }
 
-func newISCSIPV(name string, size string, iscsiTargetIP string) *k8sv1.PersistentVolume {
+func newISCSIPV(name string, size string, iscsiTargetIP string, accessMode k8sv1.PersistentVolumeAccessMode) *k8sv1.PersistentVolume {
 	quantity, err := resource.ParseQuantity(size)
 	PanicOnError(err)
 
@@ -2701,7 +2716,7 @@ func newISCSIPV(name string, size string, iscsiTargetIP string) *k8sv1.Persisten
 			Name: name,
 		},
 		Spec: k8sv1.PersistentVolumeSpec{
-			AccessModes: []k8sv1.PersistentVolumeAccessMode{k8sv1.ReadWriteMany},
+			AccessModes: []k8sv1.PersistentVolumeAccessMode{accessMode},
 			Capacity: k8sv1.ResourceList{
 				"storage": quantity,
 			},
@@ -2723,7 +2738,7 @@ func newISCSIPV(name string, size string, iscsiTargetIP string) *k8sv1.Persisten
 	}
 }
 
-func newISCSIPVC(name string, size string) *k8sv1.PersistentVolumeClaim {
+func newISCSIPVC(name string, size string, accessMode k8sv1.PersistentVolumeAccessMode) *k8sv1.PersistentVolumeClaim {
 	quantity, err := resource.ParseQuantity(size)
 	PanicOnError(err)
 
@@ -2733,7 +2748,7 @@ func newISCSIPVC(name string, size string) *k8sv1.PersistentVolumeClaim {
 	return &k8sv1.PersistentVolumeClaim{
 		ObjectMeta: metav1.ObjectMeta{Name: name},
 		Spec: k8sv1.PersistentVolumeClaimSpec{
-			AccessModes: []k8sv1.PersistentVolumeAccessMode{k8sv1.ReadWriteMany},
+			AccessModes: []k8sv1.PersistentVolumeAccessMode{accessMode},
 			Resources: k8sv1.ResourceRequirements{
 				Requests: k8sv1.ResourceList{
 					"storage": quantity,
@@ -2809,6 +2824,16 @@ func NewHelloWorldJobUDP(host string, port string) *k8sv1.Pod {
 	check := []string{fmt.Sprintf(`set -x; x="$(head -n 1 < <(echo | nc -up %d %s %s -i 1 -w 1 & nc -ul %d))"; echo "$x" ; if [ "$x" = "Hello UDP World!" ]; then echo "succeeded"; exit 0; else echo "failed"; exit 1; fi`,
 		localPort, host, port, localPort)}
 	job := RenderJob("netcat", []string{"/bin/bash", "-c"}, check)
+
+	return job
+}
+
+// NewHelloWorldJobHttp gets an IP address and a port, which it uses to create a pod.
+// This pod tries to contact the host on the provided port, over HTTP.
+// On success - it expects to receive "Hello World!".
+func NewHelloWorldJobHttp(host string, port string) *k8sv1.Pod {
+	check := []string{fmt.Sprintf(`set -x; x="$(head -n 1 < <(curl %s:%s))"; echo "$x" ; if [ "$x" = "Hello World!" ]; then echo "succeeded"; exit 0; else echo "failed"; exit 1; fi`, host, port)}
+	job := RenderJob("curl", []string{"/bin/bash", "-c"}, check)
 
 	return job
 }

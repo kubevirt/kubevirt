@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 for file in $(find vendor/ -name "*_test.go"); do rm ${file}; done
 rm -rf vendor/github.com/golang/glog
 mkdir -p vendor/github.com/golang/

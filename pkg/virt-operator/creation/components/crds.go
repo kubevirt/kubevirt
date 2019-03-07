@@ -77,8 +77,7 @@ func newBlankCrd() *extv1beta1.CustomResourceDefinition {
 		},
 		ObjectMeta: metav1.ObjectMeta{
 			Labels: map[string]string{
-				virtv1.AppLabel:       "",
-				virtv1.ManagedByLabel: virtv1.ManagedByLabelOperatorValue,
+				virtv1.AppLabel: "",
 			},
 		},
 	}

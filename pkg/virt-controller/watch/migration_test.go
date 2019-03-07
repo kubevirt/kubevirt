@@ -136,6 +136,19 @@ var _ = Describe("Migration watcher", func() {
 
 		}).Return(vmi, nil)
 	}
+	shouldExpectVirtualMachineHandoffWithConfig := func(vmi *v1.VirtualMachineInstance, migrationUid types.UID, targetNode string, conf *v1.MigrationConfig) {
+		vmiInterface.EXPECT().Update(gomock.Any()).Do(func(arg interface{}) {
+			Expect(arg.(*v1.VirtualMachineInstance).Status.MigrationState).ToNot(BeNil())
+			Expect(arg.(*v1.VirtualMachineInstance).Status.MigrationState.MigrationUID).To(Equal(migrationUid))
+
+			Expect(arg.(*v1.VirtualMachineInstance).Status.MigrationState.SourceNode).To(Equal(vmi.Status.NodeName))
+			Expect(arg.(*v1.VirtualMachineInstance).Status.MigrationState.TargetNode).To(Equal(targetNode))
+			Expect(arg.(*v1.VirtualMachineInstance).Labels[v1.MigrationTargetNodeNameLabel]).To(Equal(targetNode))
+			Expect(arg.(*v1.VirtualMachineInstance).Status.MigrationState.Config).ToNot(BeNil())
+			Expect(arg.(*v1.VirtualMachineInstance).Status.MigrationState.Config.CompletionTimeoutPerGiB).To(Equal(conf.CompletionTimeoutPerGiB))
+			Expect(arg.(*v1.VirtualMachineInstance).Status.MigrationState.Config.ProgressTimeout).To(Equal(conf.ProgressTimeout))
+		}).Return(vmi, nil)
+	}
 
 	syncCaches := func(stop chan struct{}) {
 		go vmiInformer.Run(stop)
@@ -394,6 +407,28 @@ var _ = Describe("Migration watcher", func() {
 			podFeeder.Add(pod)
 
 			shouldExpectVirtualMachineHandoff(vmi, migration.UID, "node01")
+
+			controller.Execute()
+			testutils.ExpectEvent(recorder, SuccessfulHandOverPodReason)
+		})
+		It("should hand pod over to target virt-handler with migration config", func() {
+			vmi := newVirtualMachine("testvmi", v1.Running)
+			vmi.Status.NodeName = "node02"
+			migration := newMigration("testmigration", vmi.Name, v1.MigrationScheduled)
+			migrationConfig := &v1.MigrationConfig{
+				CompletionTimeoutPerGiB: 300,
+				ProgressTimeout:         100,
+			}
+			migration.Spec.Config = migrationConfig
+
+			pod := newTargetPodForVirtualMachine(vmi, migration, k8sv1.PodPending)
+			pod.Spec.NodeName = "node01"
+
+			addMigration(migration)
+			addVirtualMachine(vmi)
+			podFeeder.Add(pod)
+
+			shouldExpectVirtualMachineHandoffWithConfig(vmi, migration.UID, "node01", migrationConfig)
 
 			controller.Execute()
 			testutils.ExpectEvent(recorder, SuccessfulHandOverPodReason)

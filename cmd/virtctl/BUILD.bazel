@@ -1,0 +1,21 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_binary", "go_library")
+
+go_library(
+    name = "go_default_library",
+    srcs = ["virtctl.go"],
+    importpath = "kubevirt.io/kubevirt/cmd/virtctl",
+    visibility = ["//visibility:private"],
+    deps = [
+        "//pkg/virtctl:go_default_library",
+        "//vendor/k8s.io/client-go/plugin/pkg/client/auth:go_default_library",
+    ],
+)
+
+load("//pkg/version:def.bzl", "version_x_defs")
+
+go_binary(
+    name = "virtctl",
+    embed = [":go_default_library"],
+    visibility = ["//visibility:public"],
+    x_defs = version_x_defs(),
+)

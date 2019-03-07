@@ -54,6 +54,16 @@ var exampleJSON = `{
         "sockets": 1,
         "threads": 1,
         "model": "Conroe",
+        "features": [
+          {
+            "name": "pcid",
+            "policy": "require"
+          },
+          {
+            "name": "monitor",
+            "policy": "disable"
+          }
+        ],
         "dedicatedCpuPlacement": true
       },
       "machine": {
@@ -169,6 +179,13 @@ var exampleJSON = `{
             {{.InterfaceConfig}}
           }
         ],
+        "inputs": [
+          {
+            "bus": "virtio",
+            "type": "tablet",
+            "name": "tablet0"
+          }
+        ],
         "rng": {},
         "blockMultiQueue": true
       },
@@ -269,6 +286,13 @@ var _ = Describe("Schema", func() {
 		}
 
 		exampleVMI.Spec.Domain.Devices.Rng = &Rng{}
+		exampleVMI.Spec.Domain.Devices.Inputs = []Input{
+			{
+				Bus:  "virtio",
+				Type: "tablet",
+				Name: "tablet0",
+			},
+		}
 		exampleVMI.Spec.Domain.Devices.BlockMultiQueue = _true
 
 		exampleVMI.Spec.Volumes = []Volume{
@@ -335,10 +359,20 @@ var _ = Describe("Schema", func() {
 			UUID: "28a42a60-44ef-4428-9c10-1a6aee94627f",
 		}
 		exampleVMI.Spec.Domain.CPU = &CPU{
-			Cores:                 3,
-			Sockets:               1,
-			Threads:               1,
-			Model:                 "Conroe",
+			Cores:   3,
+			Sockets: 1,
+			Threads: 1,
+			Model:   "Conroe",
+			Features: []CPUFeature{
+				{
+					Name:   "pcid",
+					Policy: "require",
+				},
+				{
+					Name:   "monitor",
+					Policy: "disable",
+				},
+			},
 			DedicatedCPUPlacement: true,
 		}
 		exampleVMI.Spec.Networks = []Network{

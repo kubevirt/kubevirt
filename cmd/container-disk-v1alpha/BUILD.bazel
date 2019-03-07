@@ -1,0 +1,136 @@
+load("@io_bazel_rules_docker//container:container.bzl", "container_image")
+load("@bazel_tools//tools/build_defs/pkg:pkg.bzl", "pkg_tar")
+load("@io_bazel_rules_container_rpm//rpm:rpm.bzl", "rpm_image")
+
+rpm_image(
+    name = "container-disk-v1alpha-base-image",
+    base = "@fedora//image",
+    rpms = [
+        "@qemu-img//file",
+        "@capstone//file",
+        "@libaio//file",
+        "@libstdc//file",
+        "@bzip2//file",
+    ],
+)
+
+container_image(
+    name = "container-disk-v1alpha-image",
+    base = ":container-disk-v1alpha-base-image",
+    directory = "/",
+    empty_dirs = ["/disk"],
+    entrypoint = ["/entry-point.sh"],
+    files = ["entry-point.sh"],
+    visibility = ["//visibility:public"],
+)
+
+genrule(
+    name = "alpine-iso",
+    srcs = ["@alpine_image//file"],
+    outs = ["disk/alpine.iso"],
+    cmd = "mkdir disk && cat $(location @alpine_image//file) > $@",
+)
+
+pkg_tar(
+    name = "alpine-iso-tar",
+    srcs = [":alpine-iso"],
+    mode = "0644",
+    package_dir = "disk",
+)
+
+container_image(
+    name = "alpine-container-disk-image",
+    base = ":container-disk-v1alpha-image",
+    directory = "/",
+    entrypoint = ["/entry-point.sh"],
+    tars = [":alpine-iso-tar"],
+    visibility = ["//visibility:public"],
+)
+
+genrule(
+    name = "cirros-iso",
+    srcs = ["@cirros_image//file"],
+    outs = ["disk/cirros.img"],
+    cmd = "mkdir disk && cat $(location @cirros_image//file) > $@",
+)
+
+pkg_tar(
+    name = "cirros-iso-tar",
+    srcs = [":cirros-iso"],
+    mode = "0644",
+    package_dir = "disk",
+)
+
+genrule(
+    name = "cirros-custom-iso",
+    srcs = ["@cirros_image//file"],
+    outs = ["custom-disk/cirros.img"],
+    cmd = "mkdir custom-disk && cat $(location @cirros_image//file) > $@",
+)
+
+pkg_tar(
+    name = "cirros-custom-iso-tar",
+    srcs = [":cirros-custom-iso"],
+    mode = "0644",
+    package_dir = "custom-disk",
+)
+
+container_image(
+    name = "cirros-container-disk-image",
+    base = ":container-disk-v1alpha-image",
+    directory = "/",
+    entrypoint = ["/entry-point.sh"],
+    tars = [
+        ":cirros-iso-tar",
+        ":cirros-custom-iso-tar",
+    ],
+    visibility = ["//visibility:public"],
+)
+
+genrule(
+    name = "fedora-cloud-iso",
+    srcs = ["@fedora_image//file"],
+    outs = ["disk/fedora.qcow2"],
+    cmd = "mkdir disk && cat $(location @fedora_image//file) > $@",
+)
+
+pkg_tar(
+    name = "fedora-cloud-iso-tar",
+    srcs = [":fedora-cloud-iso"],
+    mode = "0644",
+    package_dir = "disk",
+    visibility = ["//visibility:public"],
+)
+
+container_image(
+    name = "fedora-cloud-container-disk-image",
+    base = ":container-disk-v1alpha-image",
+    directory = "/",
+    entrypoint = ["/entry-point.sh"],
+    tars = [":fedora-cloud-iso-tar"],
+    visibility = ["//visibility:public"],
+)
+
+genrule(
+    name = "virtio-win-iso",
+    srcs = ["@virtio_win_image//file"],
+    outs = ["disk/virtio-win.iso"],
+    cmd = "mkdir disk && cat $(location @virtio_win_image//file) > $@",
+)
+
+pkg_tar(
+    name = "virtio-win-iso-tar",
+    srcs = [":virtio-win-iso"],
+    mode = "0644",
+    package_dir = "disk",
+    visibility = ["//visibility:public"],
+)
+
+container_image(
+    name = "virtio-container-disk-image",
+    base = ":container-disk-v1alpha-image",
+    directory = "/",
+    entrypoint = ["/entry-point.sh"],
+    tars = [":virtio-win-iso-tar"],
+    visibility = ["//visibility:public"],
+)

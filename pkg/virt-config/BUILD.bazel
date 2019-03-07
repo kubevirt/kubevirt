@@ -1,0 +1,21 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "go_default_library",
+    srcs = [
+        "config-map.go",
+        "feature-gates.go",
+        "virt-properties.go",
+    ],
+    importpath = "kubevirt.io/kubevirt/pkg/virt-config",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//pkg/kubecli:go_default_library",
+        "//pkg/log:go_default_library",
+        "//pkg/util:go_default_library",
+        "//vendor/k8s.io/api/core/v1:go_default_library",
+        "//vendor/k8s.io/apimachinery/pkg/api/errors:go_default_library",
+        "//vendor/k8s.io/apimachinery/pkg/apis/meta/v1:go_default_library",
+        "//vendor/k8s.io/apimachinery/pkg/util/wait:go_default_library",
+    ],
+)

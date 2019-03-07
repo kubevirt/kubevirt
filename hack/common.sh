@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 KUBEVIRT_DIR="$(
     cd "$(dirname "$BASH_SOURCE[0]")/../"

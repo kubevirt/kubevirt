@@ -864,13 +864,17 @@ var _ = Describe("Validating Webhook", func() {
 
 		It("should reject Migration spec for non-migratable VMIs", func() {
 			vmi := v1.NewMinimalVMI("testmigratevmi3")
-			vmi.Status.Phase = v1.Succeeded
+			vmi.Status.Phase = v1.Running
 			vmi.Status.Conditions = []v1.VirtualMachineInstanceCondition{
 				{
 					Type:    v1.VirtualMachineInstanceIsMigratable,
 					Status:  k8sv1.ConditionFalse,
 					Reason:  v1.VirtualMachineInstanceReasonDisksNotMigratable,
 					Message: "cannot migrate VMI with mixes shared and non-shared volumes",
+				},
+				{
+					Type:   v1.VirtualMachineInstanceReady,
+					Status: k8sv1.ConditionTrue,
 				},
 			}
 
@@ -900,6 +904,7 @@ var _ = Describe("Validating Webhook", func() {
 
 			resp := admitMigrationCreate(ar)
 			Expect(resp.Allowed).To(Equal(false))
+			Expect(resp.Result.Message).To(ContainSubstring("DisksNotLiveMigratable"))
 		})
 
 		It("should reject Migration on update if spec changes", func() {
@@ -1140,6 +1145,60 @@ var _ = Describe("Validating Webhook", func() {
 			Expect(causes[0].Field).To(Equal("fake.domain.devices.disks[0].name"))
 			Expect(causes[1].Field).To(Equal("fake.domain.devices.disks[0]"))
 		})
+
+		table.DescribeTable("should verify input device",
+			func(input v1.Input, expectedErrors int, expectedErrorTypes []string, expectMessage string) {
+				vmi := v1.NewMinimalVMI("testvmi")
+				vmi.Spec.Domain.Devices.Inputs = append(vmi.Spec.Domain.Devices.Inputs, input)
+				causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec)
+				Expect(len(causes)).To(Equal(expectedErrors), fmt.Sprintf("Expect %d errors", expectedErrors))
+				for i, errorType := range expectedErrorTypes {
+					Expect(causes[i].Field).To(Equal(errorType), expectMessage)
+				}
+			},
+			table.Entry("and accept input with virtio bus",
+				v1.Input{
+					Type: "tablet",
+					Name: "tablet0",
+					Bus:  "virtio",
+				}, 0, []string{}, "Expect no errors"),
+			table.Entry("and accept input with usb bus",
+				v1.Input{
+					Type: "tablet",
+					Name: "tablet0",
+					Bus:  "usb",
+				}, 0, []string{}, "Expect no errors"),
+			table.Entry("and accept input without bus",
+				v1.Input{
+					Type: "tablet",
+					Name: "tablet0",
+				}, 0, []string{}, "Expect no errors"),
+			table.Entry("and reject input with ps2 bus",
+				v1.Input{
+					Type: "tablet",
+					Name: "tablet0",
+					Bus:  "ps2",
+				}, 1, []string{"fake.domain.devices.inputs[0].bus"}, "Expect bus error"),
+			table.Entry("and reject input with keyboard type and virtio bus",
+				v1.Input{
+					Type: "keyboard",
+					Name: "tablet0",
+					Bus:  "virtio",
+				}, 1, []string{"fake.domain.devices.inputs[0].type"}, "Expect type error"),
+			table.Entry("and reject input with keyboard type and usb bus",
+				v1.Input{
+					Type: "keyboard",
+					Name: "tablet0",
+					Bus:  "usb",
+				}, 1, []string{"fake.domain.devices.inputs[0].type"}, "Expect type error"),
+			table.Entry("and reject input with wrong type and wrong bus",
+				v1.Input{
+					Type: "keyboard",
+					Name: "tablet0",
+					Bus:  "ps2",
+				}, 2, []string{"fake.domain.devices.inputs[0].bus", "fake.domain.devices.inputs[0].type"}, "Expect type error"),
+		)
+
 		It("should reject negative requests.memory size value", func() {
 			vm := v1.NewMinimalVMI("testvm")
 
@@ -2478,6 +2537,40 @@ var _ = Describe("Validating Webhook", func() {
 			Expect(causes[0].Field).To(Equal("fake.domain.resources.requests.memory"))
 		})
 	})
+
+	Context("with CPU features", func() {
+		It("should accept valid CPU feature policies", func() {
+			vmi := v1.NewMinimalVMI("testvm")
+			vmi.Spec.Domain.CPU = &v1.CPU{
+				Features: []v1.CPUFeature{
+					{
+						Name: "lahf_lm",
+					},
+				},
+			}
+
+			for _, policy := range validCPUFeaturePolicies {
+				vmi.Spec.Domain.CPU.Features[0].Policy = policy
+				causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec)
+				Expect(len(causes)).To(Equal(0))
+			}
+		})
+
+		It("should reject invalid CPU feature policy", func() {
+			vmi := v1.NewMinimalVMI("testvm")
+			vmi.Spec.Domain.CPU = &v1.CPU{
+				Features: []v1.CPUFeature{
+					{
+						Name:   "lahf_lm",
+						Policy: "invalid_policy",
+					},
+				},
+			}
+			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec)
+			Expect(len(causes)).To(Equal(1))
+		})
+	})
+
 	Context("with Volume", func() {
 		table.DescribeTable("should accept valid volumes",
 			func(volumeSource v1.VolumeSource) {

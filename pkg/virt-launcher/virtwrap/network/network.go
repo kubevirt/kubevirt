@@ -41,7 +41,7 @@ var NetworkInterfaceFactory = getNetworkClass
 var podInterfaceName = podInterface
 
 type NetworkInterface interface {
-	Plug(iface *v1.Interface, network *v1.Network, domain *api.Domain, podInterfaceName string) error
+	Plug(vmi *v1.VirtualMachineInstance, iface *v1.Interface, network *v1.Network, domain *api.Domain, podInterfaceName string) error
 	Unplug()
 }
 
@@ -80,7 +80,7 @@ func SetupNetworkInterfaces(vmi *v1.VirtualMachineInstance, domain *api.Domain) 
 			podInterfaceName = podInterface
 		}
 
-		err = vif.Plug(&iface, network, domain, podInterfaceName)
+		err = vif.Plug(vmi, &iface, network, domain, podInterfaceName)
 		if err != nil {
 			return err
 		}

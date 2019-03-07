@@ -22,6 +22,8 @@ set -euo pipefail
 # gracefully handle the TERM signal sent when deleting the daemonset
 trap 'exit' TERM
 
+mkdir -p /images/datavolume1 /images/datavolume2 /images/datavolume3
+
 echo "converting cirros image from qcow2 to raw, and copying it to local-storage directory, and creating a loopback device from it"
 # /local-storage will be mapped to the host dir, which will also be used by the local storage provider
 qemu-img convert -f qcow2 -O raw /images/cirros/disk.img /local-storage/cirros.img.raw
@@ -31,6 +33,7 @@ ln -s $LOOP_DEVICE /local-storage/cirros-block-device
 
 echo "copy all images to host mount directory"
 cp -R /images/* /hostImages/
+chmod -R 777 /hostImages
 
 # for some reason without sleep, container sometime fails to create the file
 sleep 10

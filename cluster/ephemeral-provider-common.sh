@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 set -e
 
@@ -32,25 +32,16 @@ function _add_common_params() {
     local params="--nodes ${KUBEVIRT_NUM_NODES} --memory ${KUBEVIRT_MEMORY_SIZE} --cpu 5 --random-ports --background --prefix $provider_prefix --registry-volume $(_registry_volume) kubevirtci/${image} ${KUBEVIRT_PROVIDER_EXTRA_ARGS}"
     if [[ $TARGET =~ windows.* ]]; then
         params=" --nfs-data $WINDOWS_NFS_DIR $params"
-    elif [[ $TARGET =~ openshift.* ]]; then
+    elif [[ $TARGET =~ os-.* ]]; then
         params=" --nfs-data $RHEL_NFS_DIR $params"
     fi
     echo $params
 }
 
 function build() {
-    # Let's first prune old images, keep the last 5 iterations to improve the cache hit chance
-    for arg in ${docker_images}; do
-        local name=$(basename $arg)
-        images_to_prune="$(docker images --filter "label=${job_prefix}" --filter "label=${name}" --format="{{.ID}} {{.Repository}}:{{.Tag}}" | cat -n | sort -uk2,2 | sort -k1 | tr -s ' ' | grep -v "<none>" | cut -d' ' -f3 | tail -n +6)"
-        if [ -n "${images_to_prune}" ]; then
-            docker rmi ${images_to_prune}
-        fi
-    done
-
     # Build everyting and publish it
     ${KUBEVIRT_PATH}hack/dockerized "DOCKER_PREFIX=${DOCKER_PREFIX} DOCKER_TAG=${DOCKER_TAG} KUBEVIRT_PROVIDER=${KUBEVIRT_PROVIDER} IMAGE_PULL_POLICY=${IMAGE_PULL_POLICY} VERBOSITY=${VERBOSITY} ./hack/build-manifests.sh"
-    make push
+    CONTAINER_PREFIX=${docker_prefix} CONTAINER_TAG=${docker_tag} make bazel-push-images
 
     # Make sure that all nodes use the newest images
     container=""

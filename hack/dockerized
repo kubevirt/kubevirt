@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 set -e
 
 source $(dirname "$0")/common.sh
@@ -13,7 +13,6 @@ SYNC_VENDOR=${SYNC_VENDOR:-false}
 
 TEMPFILE=".rsynctemp"
 
-# Reduce verbosity if an automated build
 BUILDER_EXTRA_ARGS=""
 if [ -n "${KUBEVIRT_CACHE_FROM}" ]; then
     BUILDER_EXTRA_ARGS="${BUILDER_EXTRA_ARGS} --cache-from kubevirt/builder-cache:${KUBEVIRT_CACHE_FROM}"
@@ -21,6 +20,13 @@ fi
 
 if [ -n "${KUBEVIRT_UPDATE_CACHE_FROM}" ]; then
     BUILDER_EXTRA_ARGS="${BUILDER_EXTRA_ARGS} -t kubevirt/builder-cache:${KUBEVIRT_UPDATE_CACHE_FROM}"
+fi
+
+# Be less verbose with bazel
+if [ -n "${TRAVIS_JOB_ID}" ]; then
+    cat >.bazelrc <<EOF
+common --noshow_progress --noshow_loading_progress
+EOF
 fi
 
 # Build the build container
@@ -74,14 +80,49 @@ _rsync() {
 rm -f ${KUBEVIRT_DIR}/.glide*.hash
 
 # Copy kubevirt into the persistent docker volume
-_rsync --delete --exclude 'cluster/**/.kubectl' --exclude 'cluster/**/.oc' --exclude 'cluster/**/.kubeconfig' --exclude "_out" --exclude ".vagrant" ${KUBEVIRT_DIR}/ "rsync://root@127.0.0.1:${RSYNCD_PORT}/build"
+_rsync \
+    --delete \
+    --exclude 'bazel-bin' \
+    --exclude 'bazel-genfiles' \
+    --exclude 'bazel-kubevirt' \
+    --exclude 'bazel-out' \
+    --exclude 'bazel-testlogs' \
+    --exclude 'cluster/**/.kubectl' \
+    --exclude 'cluster/**/.oc' \
+    --exclude 'cluster/**/.kubeconfig' \
+    --exclude "_out" \
+    --exclude ".vagrant" \
+    ${KUBEVIRT_DIR}/ \
+    "rsync://root@127.0.0.1:${RSYNCD_PORT}/build"
+
+volumes="-v ${BUILDER}:/root:rw,z"
+# if exists, append .docker directory as volume
+if [ -d "${HOME}/.docker" ]; then
+    volumes="$volumes -v ${HOME}/.docker:/root/.docker:ro,z"
+fi
 
 # Run the command
 test -t 1 && USE_TTY="-it"
-docker run --rm -v "${BUILDER}:/root:rw,z" --security-opt label:disable ${USE_TTY} -w "/root/go/src/kubevirt.io/kubevirt" ${BUILDER} "$@"
+docker run --network host --rm ${volumes} --security-opt label:disable ${USE_TTY} -w "/root/go/src/kubevirt.io/kubevirt" ${BUILDER} "$@"
 
 # Copy the whole kubevirt data out to get generated sources and formatting changes
-_rsync --exclude '.glide*' --exclude 'cluster/**/.kubectl' --exclude 'cluster/**/.oc' --exclude 'cluster/**/.kubeconfig' --exclude "_out" --exclude "vendor" --exclude ".vagrant" --exclude ".git" "rsync://root@127.0.0.1:${RSYNCD_PORT}/build" ${KUBEVIRT_DIR}/
+_rsync \
+    --exclude 'bazel-bin' \
+    --exclude 'bazel-genfiles' \
+    --exclude 'bazel-kubevirt' \
+    --exclude 'bazel-out' \
+    --exclude 'bazel-testlogs' \
+    --exclude '.glide*' \
+    --exclude 'cluster/**/.kubectl' \
+    --exclude 'cluster/**/.oc' \
+    --exclude 'cluster/**/.kubeconfig' \
+    --exclude "_out" \
+    --exclude "vendor" \
+    --exclude ".vagrant" \
+    --exclude ".git" \
+    "rsync://root@127.0.0.1:${RSYNCD_PORT}/build" \
+    ${KUBEVIRT_DIR}/
+
 _rsync --delete "rsync://root@127.0.0.1:${RSYNCD_PORT}/build/manifests/generated/" "${KUBEVIRT_DIR}/manifests/generated"
 _rsync --delete "rsync://root@127.0.0.1:${RSYNCD_PORT}/build/cluster/examples/" "${KUBEVIRT_DIR}/cluster/examples"
 if [ "$SYNC_VENDOR" = "true" ]; then

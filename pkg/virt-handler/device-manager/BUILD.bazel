@@ -1,0 +1,36 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
+
+# gazelle:ignore
+
+go_library(
+    name = "go_default_library",
+    srcs = [
+        "device_controller.go",
+        "generic_device.go",
+    ],
+    importpath = "kubevirt.io/kubevirt/pkg/virt-handler/device-manager",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//pkg/log:go_default_library",
+        "//pkg/virt-handler/device-manager/deviceplugin/v1beta1:go_default_library",
+        "//vendor/github.com/fsnotify/fsnotify:go_default_library",
+        "//vendor/golang.org/x/net/context:go_default_library",
+        "//vendor/google.golang.org/grpc:go_default_library",
+    ],
+)
+
+go_test(
+    name = "go_default_test",
+    srcs = [
+        "device_controller_test.go",
+        "device_manager_suite_test.go",
+        "generic_device_test.go",
+    ],
+    embed = [":go_default_library"],
+    deps = [
+        "//pkg/log:go_default_library",
+        "//pkg/virt-handler/device-manager/deviceplugin/v1beta1:go_default_library",
+        "//vendor/github.com/onsi/ginkgo:go_default_library",
+        "//vendor/github.com/onsi/gomega:go_default_library",
+    ],
+)

@@ -433,6 +433,9 @@ func (c *MigrationController) sync(migration *virtv1.VirtualMachineInstanceMigra
 				SourceNode:   vmi.Status.NodeName,
 				TargetPod:    pod.Name,
 			}
+			if migration.Spec.Config != nil {
+				vmiCopy.Status.MigrationState.Config = migration.Spec.Config.DeepCopy()
+			}
 
 			// By setting this label, virt-handler on the target node will receive
 			// the vmi and prepare the local environment for the migration

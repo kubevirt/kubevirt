@@ -65,6 +65,9 @@ var exampleXML = `<domain type="kvm" xmlns:qemu="http://libvirt.org/schemas/doma
       <driver name="qemu" type="raw"></driver>
       <alias name="ua-mydisk2"></alias>
     </disk>
+    <input type="tablet" bus="virtio">
+      <alias name="ua-tablet0"></alias>
+    </input>
     <console type="pty"></console>
     <watchdog model="i6300esb" action="poweroff">
       <alias name="ua-mywatchdog"></alias>
@@ -87,6 +90,8 @@ var exampleXML = `<domain type="kvm" xmlns:qemu="http://libvirt.org/schemas/doma
   </features>
   <cpu mode="custom">
     <model>Conroe</model>
+    <feature name="pcid" policy="require"></feature>
+    <feature name="monitor" policy="disable"></feature>
     <topology sockets="1" cores="2" threads="1"></topology>
   </cpu>
   <vcpu placement="static">2</vcpu>
@@ -132,6 +137,16 @@ var _ = Describe("Schema", func() {
 			Target: DiskTarget{Device: "vdc"},
 			Alias: &Alias{
 				Name: "mydisk2",
+			},
+		},
+	}
+
+	exampleDomain.Spec.Devices.Inputs = []Input{
+		{
+			Type: "tablet",
+			Bus:  "virtio",
+			Alias: &Alias{
+				Name: "tablet0",
 			},
 		},
 	}
@@ -183,6 +198,16 @@ var _ = Describe("Schema", func() {
 	}
 	exampleDomain.Spec.CPU.Mode = "custom"
 	exampleDomain.Spec.CPU.Model = "Conroe"
+	exampleDomain.Spec.CPU.Features = []CPUFeature{
+		{
+			Name:   "pcid",
+			Policy: "require",
+		},
+		{
+			Name:   "monitor",
+			Policy: "disable",
+		},
+	}
 	exampleDomain.Spec.Metadata.KubeVirt.UID = "f4686d2c-6e8d-4335-b8fd-81bee22f4814"
 	exampleDomain.Spec.Metadata.KubeVirt.GracePeriod = &GracePeriodMetadata{}
 	exampleDomain.Spec.Metadata.KubeVirt.GracePeriod.DeletionGracePeriodSeconds = 5

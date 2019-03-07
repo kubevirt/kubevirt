@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 #
 # This file is part of the KubeVirt project
 #
@@ -31,10 +31,4 @@ fi
 for arg in $args; do
     BIN_NAME=$(basename $arg)
     rsync -avzq --exclude "**/*.md" --exclude "**/*.go" --exclude "**/.*" $arg/ ${CMD_OUT_DIR}/${BIN_NAME}/
-    # TODO the version of docker we're using in our vagrant dev environment
-    # does not support using ARGS in FROM field.
-    # https://docs.docker.com/engine/reference/builder/#understand-how-arg-and-from-interact
-    # Because of this we have to manipulate the Dockerfile for kubevirt containers
-    # that depend on other kubevirt containers.
-    cat $arg/Dockerfile | sed -e "s#kubevirt/container-disk-v1alpha#${docker_prefix}/container-disk-v1alpha\:${docker_tag}#g" >${CMD_OUT_DIR}/${BIN_NAME}/Dockerfile
 done

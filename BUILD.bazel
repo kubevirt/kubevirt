@@ -1,0 +1,190 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+load("@bazel_gazelle//:def.bzl", "gazelle")
+
+# gazelle:prefix kubevirt.io/kubevirt
+gazelle(name = "gazelle")
+
+load("@com_github_bazelbuild_buildtools//buildifier:def.bzl", "buildifier")
+
+buildifier(name = "buildifier")
+
+genrule(
+    name = "get-version",
+    srcs = [],
+    outs = [".version"],
+    cmd = "grep ^STABLE_BUILD_SCM_REVISION bazel-out/stable-status.txt | cut -d' ' -f2 >$@",
+    stamp = 1,
+    visibility = ["//visibility:public"],
+)
+
+genrule(
+    name = "libvirt-shared-libs",
+    srcs = ["@libvirt_libs//file"],
+    outs = [
+        "libvirt.so.0.5000.0",
+        "libvirt-lxc.so.0.5000.0",
+        "libvirt-qemu.so.0.5000.0",
+    ],
+    cmd = "\n".join([
+        "rpm2archive $(location @libvirt_libs//file)",
+        "tar -xzf $(location @libvirt_libs//file).tgz",
+        "cp -R usr/lib64/*.so.0.5000.0 $(@D)",
+    ]),
+)
+
+cc_library(
+    name = "libvirt-libs",
+    srcs = [
+        ":libvirt-shared-libs",
+    ],
+    linkstatic = 1,
+    visibility = ["//visibility:public"],
+)
+
+genrule(
+    name = "libvirt-devel-headers",
+    srcs = ["@libvirt_devel//file"],
+    outs = [
+        "libvirt/libvirt-admin.h",
+        "libvirt/libvirt-common.h",
+        "libvirt/libvirt-domain.h",
+        "libvirt/libvirt-domain-snapshot.h",
+        "libvirt/libvirt-event.h",
+        "libvirt/libvirt.h",
+        "libvirt/libvirt-host.h",
+        "libvirt/libvirt-interface.h",
+        "libvirt/libvirt-lxc.h",
+        "libvirt/libvirt-network.h",
+        "libvirt/libvirt-nodedev.h",
+        "libvirt/libvirt-nwfilter.h",
+        "libvirt/libvirt-qemu.h",
+        "libvirt/libvirt-secret.h",
+        "libvirt/libvirt-storage.h",
+        "libvirt/libvirt-stream.h",
+        "libvirt/virterror.h",
+    ],
+    cmd = "\n".join([
+        "rpm2archive $(location @libvirt_devel//file)",
+        "tar -xzf $(location @libvirt_devel//file).tgz",
+        "cp -R usr/include/libvirt $(@D)",
+    ]),
+)
+
+cc_library(
+    name = "libvirt-headers",
+    hdrs = [
+        ":libvirt-devel-headers",
+    ],
+    visibility = ["//visibility:public"],
+)
+
+load("@io_bazel_rules_docker//contrib:passwd.bzl", "passwd_entry", "passwd_file")
+load("@bazel_tools//tools/build_defs/pkg:pkg.bzl", "pkg_tar")
+
+passwd_entry(
+    name = "nonroot-user",
+    gid = 1001,
+    home = "/home/nonroot-user",
+    shell = "/bin/bash",
+    uid = 1001,
+    username = "nonroot-user",
+)
+
+passwd_file(
+    name = "passwd",
+    entries = [
+        ":nonroot-user",
+    ],
+)
+
+pkg_tar(
+    name = "passwd-tar",
+    srcs = [":passwd"],
+    mode = "0644",
+    package_dir = "etc",
+    visibility = ["//visibility:public"],
+)
+
+load(
+    "@io_bazel_rules_docker//container:container.bzl",
+    "container_image",
+    container_repositories = "repositories",
+)
+
+container_image(
+    name = "passwd-image",
+    base = "@fedora//image",
+    tars = [":passwd-tar"],
+    user = "1001",
+    visibility = ["//visibility:public"],
+)
+
+load(
+    "@io_bazel_rules_docker//container:container.bzl",
+    "container_bundle",
+    container_repositories = "repositories",
+)
+
+config_setting(
+    name = "release",
+    values = {"define": "release=true"},
+)
+
+container_bundle(
+    name = "build-images",
+    images = {
+        # cmd images
+        "$(container_prefix)/container-disk-v1alpha:$(container_tag)": "//cmd/container-disk-v1alpha:container-disk-v1alpha-image",
+        "$(container_prefix)/example-hook-sidecar:$(container_tag)": "//cmd/example-hook-sidecar:example-hook-sidecar-image",
+        "$(container_prefix)/example-cloudinit-hook-sidecar:$(container_tag)": "//cmd/example-cloudinit-hook-sidecar:example-cloudinit-hook-sidecar-image",
+        "$(container_prefix)/subresource-access-test:$(container_tag)": "//cmd/subresource-access-test:subresource-access-test-image",
+        "$(container_prefix)/virt-controller:$(container_tag)": "//cmd/virt-controller:virt-controller-image",
+        "$(container_prefix)/virt-launcher:$(container_tag)": "//cmd/virt-launcher:virt-launcher-image",
+        "$(container_prefix)/virt-handler:$(container_tag)": "//cmd/virt-handler:virt-handler-image",
+        "$(container_prefix)/virt-api:$(container_tag)": "//cmd/virt-api:virt-api-image",
+        "$(container_prefix)/virt-operator:$(container_tag)": "//cmd/virt-operator:virt-operator-image",
+        # container-disk images
+        "$(container_prefix)/alpine-container-disk-demo:$(container_tag)": "//cmd/container-disk-v1alpha:alpine-container-disk-image",
+        "$(container_prefix)/cirros-container-disk-demo:$(container_tag)": "//cmd/container-disk-v1alpha:cirros-container-disk-image",
+        "$(container_prefix)/fedora-cloud-container-disk-demo:$(container_tag)": "//cmd/container-disk-v1alpha:fedora-cloud-container-disk-image",
+        "$(container_prefix)/virtio-container-disk:$(container_tag)": "//cmd/container-disk-v1alpha:virtio-container-disk-image",
+        # testing images
+        "$(container_prefix)/disks-images-provider:$(container_tag)": "//images/disks-images-provider:disks-images-provider-image",
+        "$(container_prefix)/cdi-http-import-server:$(container_tag)": "//images/cdi-http-import-server:cdi-http-import-server-image",
+        "$(container_prefix)/vm-killer:$(container_tag)": "//images/vm-killer:vm-killer-image",
+        "$(container_prefix)/winrmcli:$(container_tag)": "//images/winrmcli:winrmcli-image",
+    },
+)
+
+load("@io_bazel_rules_docker//contrib:push-all.bzl", "docker_push")
+
+docker_push(
+    name = "push-images",
+    bundle = ":build-images",
+)
+
+go_library(
+    name = "go_default_library",
+    srcs = [
+        "doc.go",
+        "libvirt.h",
+        "libvirt-admin.h",
+        "libvirt-common.h",
+        "libvirt-domain.h",
+        "libvirt-domain-snapshot.h",
+        "libvirt-event.h",
+        "libvirt-host.h",
+        "libvirt-interface.h",
+        "libvirt-lxc.h",
+        "libvirt-network.h",
+        "libvirt-nodedev.h",
+        "libvirt-nwfilter.h",
+        "libvirt-qemu.h",
+        "libvirt-secret.h",
+        "libvirt-storage.h",
+        "libvirt-stream.h",
+        "virterror.h",
+    ],
+    importpath = "kubevirt.io/kubevirt",
+    visibility = ["//visibility:public"],
+)
