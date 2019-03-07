@@ -223,11 +223,6 @@ func (b *BridgePodInterface) preparePodNetworkInterfaces() error {
 		return err
 	}
 
-	if err := Handler.LinkSetUp(b.podNicLink); err != nil {
-		log.Log.Reason(err).Errorf("failed to bring link up for interface: %s", b.podInterfaceName)
-		return err
-	}
-
 	if err := b.createBridge(); err != nil {
 		return err
 	}
@@ -241,7 +236,17 @@ func (b *BridgePodInterface) preparePodNetworkInterfaces() error {
 			return err
 		}
 
+		if err := b.switchPodInterfaceWithDummy(); err != nil {
+			log.Log.Reason(err).Error("failed to switch pod interface with a dummy")
+			return err
+		}
+
 		b.startDHCPServer()
+	}
+
+	if err := Handler.LinkSetUp(b.podNicLink); err != nil {
+		log.Log.Reason(err).Errorf("failed to bring link up for interface: %s", b.podInterfaceName)
+		return err
 	}
 
 	if err := Handler.LinkSetLearningOff(b.podNicLink); err != nil {
@@ -338,6 +343,37 @@ func (b *BridgePodInterface) createBridge() error {
 
 	if err := Handler.AddrAdd(bridge, fakeaddr); err != nil {
 		log.Log.Reason(err).Errorf("failed to set bridge IP")
+		return err
+	}
+
+	return nil
+}
+
+func (b *BridgePodInterface) switchPodInterfaceWithDummy() error {
+	originalPodInterfaceName := b.podInterfaceName
+	newPodInterfaceName := fmt.Sprintf("%s-nic", originalPodInterfaceName)
+
+	// Rename pod interface to free the original name for a new dummy interface
+	err := Handler.LinkSetName(b.podNicLink, newPodInterfaceName)
+	if err != nil {
+		log.Log.Reason(err).Errorf("failed to rename interface : %s", b.podInterfaceName)
+		return err
+	}
+	b.podInterfaceName = newPodInterfaceName
+
+	// Create a dummy interface named after the original interface
+	dummy := &netlink.Dummy{LinkAttrs: netlink.LinkAttrs{Name: originalPodInterfaceName}}
+	err = Handler.LinkAdd(dummy)
+	if err != nil {
+		log.Log.Reason(err).Errorf("failed to create dummy interface : %s", newPodInterfaceName)
+		return err
+	}
+
+	// Add original pod interface IP address to the dummy
+	// Since the dummy is not connected to anything, it should not affect networking
+	err = Handler.AddrAdd(dummy, &b.vif.IP)
+	if err != nil {
+		log.Log.Reason(err).Errorf("failed to add original IP address to dummy interface: %s", newPodInterfaceName)
 		return err
 	}
 
