@@ -41,7 +41,7 @@ function _add_common_params() {
 function build() {
     # Build everyting and publish it
     ${KUBEVIRT_PATH}hack/dockerized "DOCKER_PREFIX=${DOCKER_PREFIX} DOCKER_TAG=${DOCKER_TAG} KUBEVIRT_PROVIDER=${KUBEVIRT_PROVIDER} IMAGE_PULL_POLICY=${IMAGE_PULL_POLICY} VERBOSITY=${VERBOSITY} ./hack/build-manifests.sh"
-    DOCKER_PREFIX=${docker_prefix} DOCKER_TAG=${docker_tag} make bazel-push-images
+    hack/dockerized "DOCKER_PREFIX=${DOCKER_PREFIX} DOCKER_TAG=${DOCKER_TAG} KUBEVIRT_PROVIDER=${KUBEVIRT_PROVIDER} ./hack/bazel-push-images.sh"
 
     # Make sure that all nodes use the newest images
     container=""
