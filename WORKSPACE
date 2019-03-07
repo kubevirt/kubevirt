@@ -7,8 +7,8 @@ load(
 # Additional bazel rules
 http_archive(
     name = "io_bazel_rules_go",
-    urls = ["https://github.com/bazelbuild/rules_go/releases/download/0.18.0/rules_go-0.18.0.tar.gz"],
     sha256 = "301c8b39b0808c49f98895faa6aa8c92cbd605ab5ad4b6a3a652da33a1a2ba2e",
+    urls = ["https://github.com/bazelbuild/rules_go/releases/download/0.18.0/rules_go-0.18.0.tar.gz"],
 )
 
 http_archive(
@@ -33,6 +33,12 @@ git_repository(
     name = "io_bazel_rules_docker",
     remote = "https://github.com/bazelbuild/rules_docker.git",
     tag = "v0.5.1",
+)
+
+http_archive(
+    name = "com_github_atlassian_bazel_tools",
+    strip_prefix = "bazel-tools-02472d814d1867de2ad75801760732c9e595c9d9",
+    urls = ["https://github.com/atlassian/bazel-tools/archive/02472d814d1867de2ad75801760732c9e595c9d9.zip"],
 )
 
 # Libvirt dependencies
@@ -96,7 +102,11 @@ go_rules_dependencies()
 go_register_toolchains(
     go_version = "1.11.5",
     nogo = "@//:nogo_vet",
-        )
+)
+
+load("@com_github_atlassian_bazel_tools//goimports:deps.bzl", "goimports_dependencies")
+
+goimports_dependencies()
 
 load(
     "@bazel_gazelle//:deps.bzl",
