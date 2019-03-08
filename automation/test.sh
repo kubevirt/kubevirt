@@ -180,6 +180,7 @@ build --remote_http_cache=http://bazel-cache.kubevirt-prow.svc.cluster.local:808
 EOF
 
 make cluster-sync
+hack/dockerized bazel shutdown
 
 # OpenShift is running important containers under default namespace
 namespaces=(kubevirt default)
