@@ -50,10 +50,10 @@ go-build:
 coverage:
 	hack/dockerized "./hack/coverage.sh ${WHAT}"
 
-goveralls:
+goveralls: go-build
 	SYNC_OUT=false hack/dockerized "TRAVIS_JOB_ID=${TRAVIS_JOB_ID} TRAVIS_PULL_REQUEST=${TRAVIS_PULL_REQUEST} TRAVIS_BRANCH=${TRAVIS_BRANCH} ./hack/goveralls.sh"
 
-go-test:
+go-test: go-build
 	SYNC_OUT=false hack/dockerized "./hack/build-go.sh test ${WHAT}"
 
 test: bazel-tests
