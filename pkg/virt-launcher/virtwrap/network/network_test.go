@@ -135,9 +135,9 @@ var _ = Describe("Network", func() {
 
 			vm.Spec.Networks = []v1.Network{*additionalCNINet1, *cniNet, *additionalCNINet2}
 
-			mockNetworkInterface.EXPECT().Plug(&vm.Spec.Domain.Devices.Interfaces[0], additionalCNINet1, domain, "net1")
-			mockNetworkInterface.EXPECT().Plug(&vm.Spec.Domain.Devices.Interfaces[1], cniNet, domain, "eth0")
-			mockNetworkInterface.EXPECT().Plug(&vm.Spec.Domain.Devices.Interfaces[2], additionalCNINet2, domain, "net2")
+			mockNetworkInterface.EXPECT().Plug(vm, &vm.Spec.Domain.Devices.Interfaces[0], additionalCNINet1, domain, "net1")
+			mockNetworkInterface.EXPECT().Plug(vm, &vm.Spec.Domain.Devices.Interfaces[1], cniNet, domain, "eth0")
+			mockNetworkInterface.EXPECT().Plug(vm, &vm.Spec.Domain.Devices.Interfaces[2], additionalCNINet2, domain, "net2")
 			err := SetupNetworkInterfaces(vm, domain)
 			Expect(err).To(BeNil())
 		})
