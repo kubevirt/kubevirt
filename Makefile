@@ -1,13 +1,21 @@
 export GO15VENDOREXPERIMENT := 1
 
+
 all:
-	hack/dockerized "./hack/check.sh && KUBEVIRT_VERSION=${KUBEVIRT_VERSION} ./hack/build-go.sh install ${WHAT} && ./hack/build-copy-artifacts.sh ${WHAT} && DOCKER_PREFIX=${DOCKER_PREFIX} DOCKER_TAG=${DOCKER_TAG} IMAGE_PULL_POLICY=${IMAGE_PULL_POLICY} VERBOSITY=${VERBOSITY} ./hack/build-manifests.sh"
+	hack/dockerized "DOCKER_PREFIX=${DOCKER_PREFIX} DOCKER_TAG=${DOCKER_TAG} IMAGE_PULL_POLICY=${IMAGE_PULL_POLICY} VERBOSITY=${VERBOSITY} ./hack/build-manifests.sh && \
+	    hack/bazel-fmt.sh && bazel build \
+		--platforms=@io_bazel_rules_go//go/toolchain:linux_amd64 \
+		--workspace_status_command=./hack/print-workspace-status.sh \
+		//cmd/..."
+
+go-all:
+	hack/dockerized "KUBEVIRT_VERSION=${KUBEVIRT_VERSION} ./hack/build-go.sh install ${WHAT} && ./hack/build-copy-artifacts.sh ${WHAT} && DOCKER_PREFIX=${DOCKER_PREFIX} DOCKER_TAG=${DOCKER_TAG} IMAGE_PULL_POLICY=${IMAGE_PULL_POLICY} VERBOSITY=${VERBOSITY} ./hack/build-manifests.sh"
 
 bazel-generate:
 	SYNC_VENDOR=true hack/dockerized "./hack/bazel-generate.sh"
 
 bazel-build:
-	hack/dockerized "bazel build \
+	hack/dockerized "hack/bazel-fmt.sh && bazel build \
 		--platforms=@io_bazel_rules_go//go/toolchain:linux_amd64 \
 		--workspace_status_command=./hack/print-workspace-status.sh \
 		//cmd/..."
@@ -16,10 +24,15 @@ bazel-build-images:
 	hack/dockerized "DOCKER_PREFIX=${DOCKER_PREFIX} DOCKER_TAG=${DOCKER_TAG} DOCKER_TAG_ALT=${DOCKER_TAG_ALT} ./hack/bazel-build-images.sh"
 
 bazel-push-images:
-	hack/dockerized "DOCKER_PREFIX=${DOCKER_PREFIX} DOCKER_TAG=${DOCKER_TAG} DOCKER_TAG_ALT=${DOCKER_TAG_ALT} ./hack/bazel-push-images.sh"
+	hack/dockerized "hack/bazel-fmt.sh && DOCKER_PREFIX=${DOCKER_PREFIX} DOCKER_TAG=${DOCKER_TAG} DOCKER_TAG_ALT=${DOCKER_TAG_ALT} ./hack/bazel-push-images.sh"
+
+push: bazel-push-images
 
 bazel-tests:
-	hack/dockerized "bazel test --test_output=errors -- //pkg/... "
+	hack/dockerized "hack/bazel-fmt.sh && bazel test \
+		--platforms=@io_bazel_rules_go//go/toolchain:linux_amd64 \
+		--workspace_status_command=./hack/print-workspace-status.sh \
+        --test_output=errors -- //pkg/..."
 
 generate:
 	hack/dockerized "DOCKER_PREFIX=${DOCKER_PREFIX} DOCKER_TAG=${DOCKER_TAG} IMAGE_PULL_POLICY=${IMAGE_PULL_POLICY} VERBOSITY=${VERBOSITY} ./hack/generate.sh"
@@ -31,17 +44,19 @@ apidocs:
 client-python:
 	hack/dockerized "./hack/generate.sh && TRAVIS_TAG=${TRAVIS_TAG} ./hack/gen-client-python/generate.sh"
 
-build:
-	hack/dockerized "./hack/check.sh && KUBEVIRT_VERSION=${KUBEVIRT_VERSION} ./hack/build-go.sh install ${WHAT}" && ./hack/build-copy-artifacts.sh ${WHAT}
+go-build:
+	hack/dockerized "KUBEVIRT_VERSION=${KUBEVIRT_VERSION} ./hack/build-go.sh install ${WHAT}" && ./hack/build-copy-artifacts.sh ${WHAT}
 
 coverage:
-	hack/dockerized "./hack/check.sh && ./hack/coverage.sh ${WHAT}"
+	hack/dockerized "./hack/coverage.sh ${WHAT}"
 
 goveralls:
-	SYNC_OUT=false hack/dockerized "./hack/check.sh && TRAVIS_JOB_ID=${TRAVIS_JOB_ID} TRAVIS_PULL_REQUEST=${TRAVIS_PULL_REQUEST} TRAVIS_BRANCH=${TRAVIS_BRANCH} ./hack/goveralls.sh"
+	SYNC_OUT=false hack/dockerized "TRAVIS_JOB_ID=${TRAVIS_JOB_ID} TRAVIS_PULL_REQUEST=${TRAVIS_PULL_REQUEST} TRAVIS_BRANCH=${TRAVIS_BRANCH} ./hack/goveralls.sh"
 
-test:
-	SYNC_OUT=false hack/dockerized "./hack/check.sh && ./hack/build-go.sh test ${WHAT}"
+go-test:
+	SYNC_OUT=false hack/dockerized "./hack/build-go.sh test ${WHAT}"
+
+test: bazel-tests
 
 functest:
 	hack/dockerized "hack/build-func-tests.sh"
@@ -62,11 +77,11 @@ deps-install:
 deps-update:
 	SYNC_VENDOR=true hack/dockerized "glide cc && glide update --strip-vendor && hack/dep-prune.sh && ./hack/bazel-generate.sh"
 
+check:
+	hack/dockerized "./hack/check.sh"
+
 docker: build
 	hack/build-docker.sh build ${WHAT}
-
-push: docker
-	hack/build-docker.sh push ${WHAT}
 
 push-cache: docker verify-build
 	hack/build-docker.sh push-cache ${WHAT}
@@ -113,6 +128,9 @@ builder-publish:
 	./hack/builder/publish.sh
 
 .PHONY: \
+	go-build \
+	go-test \
+	go-all \
 	bazel-generate \
 	bazel-build \
 	bazel-build-images \
