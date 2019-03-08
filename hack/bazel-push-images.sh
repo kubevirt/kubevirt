@@ -28,3 +28,12 @@ bazel run \
     --define container_prefix=${docker_prefix} \
     --define container_tag=${docker_tag} \
     //:push-images
+
+if [ -n "$docker_tag_alt" ]; then
+    bazel run \
+        --platforms=@io_bazel_rules_go//go/toolchain:linux_amd64 \
+        --workspace_status_command=./hack/print-workspace-status.sh \
+        --define container_prefix=${docker_prefix} \
+        --define container_tag=${docker_tag_alt} \
+        //:push-images
+fi
