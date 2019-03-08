@@ -3,6 +3,28 @@
 A quick start guide to get KubeVirt up and running inside our container based
 development cluster.
 
+## I just want it built and run it on my cluser
+
+First, point the `Makefile` to the docker registry of your choice:
+
+```bash
+export DOCKER_PREFIX=index.docker.io/myrepo
+export DOCKER_TAG=mybuild
+```
+
+Then build the manifests and images:
+
+```bash
+make && make push
+```
+
+Finally push the manifests to your cluster:
+
+```bash
+kubectl create -f _out/manifests/release/kubevirt-operator.yaml
+kubectl create -f _out/manifests/release/kubevirt-cr.yaml
+```
+
 ## Building
 
 The KubeVirt build system runs completely inside docker. In order to build
@@ -53,19 +75,6 @@ because default node memory size is set.
 ```bash
 export KUBEVIRT_MEMORY_SIZE=8192M # node has 8GB memory size
 make cluster-up
-```
-
-You could also run some build steps individually:
-
-```bash
-# To build all binaries
-make
-
-# Or to build just one binary
-make build WHAT=cmd/virt-controller
-
-# To build all kubevirt containers
-make docker
 ```
 
 To destroy the created cluster, type
@@ -237,3 +246,13 @@ to start a remote session with `remote-viewer`.
 virtual machine specific commands with it and is a supplement to `kubectl`.
 
 **Note:** If accessing your cluster through ssh, be sure to forward your X11 session in order to launch `virtctl vnc`.
+
+### Bazel and KubeVirt
+
+#### Build.bazel merge conflicts
+
+You may encounter merge conflicts in `BUILD.bazel` files when creating pull
+requests. Normally you can resolve these conflicts extremely easy by simply
+accepting the new upstream version of the files and run `make` again. That will
+update the build files with your changes.
+
