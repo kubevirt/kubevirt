@@ -1,0 +1,2 @@
+bazel,https://copr-be.cloud.fedoraproject.org/results/vbatts/bazel/epel-7-$basearch/
+ius,https://dl.iuscommunity.org/pub/ius/stable/CentOS/7/$basearch

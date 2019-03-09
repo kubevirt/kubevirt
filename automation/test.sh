@@ -179,6 +179,20 @@ build --remote_local_fallback
 build --remote_http_cache=http://bazel-cache.kubevirt-prow.svc.cluster.local:8080/kubevirt.io/kubevirt
 EOF
 
+set +e
+bazel info
+bazel build //cmd/container-disk-v1alpha:fedora-cloud-container-disk-image
+bazel clean --expunge
+bazel build //cmd/container-disk-v1alpha:fedora-cloud-container-disk-image
+bazel clean --expunge
+bazel build //cmd/container-disk-v1alpha:fedora-cloud-container-disk-image
+bazel clean --expunge
+bazel build //cmd/container-disk-v1alpha:fedora-cloud-container-disk-image
+bazel clean --expunge
+bazel build //cmd/container-disk-v1alpha:fedora-cloud-container-disk-image
+set -e
+exit 1
+
 make cluster-sync
 hack/dockerized bazel shutdown
 

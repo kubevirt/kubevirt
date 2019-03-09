@@ -1,4 +1,5 @@
-git
 rsync
 docker
 make
+bazel
+git2u-all
