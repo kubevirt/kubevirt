@@ -1173,10 +1173,12 @@ type KubeVirtConditionType string
 const (
 	// Whether the deployment or deletion was successful (only used if false)
 	KubeVirtConditionSynchronized KubeVirtConditionType = "Synchronized"
-	// Whether all resources were created
+	// Whether all resources were created and up-to-date
 	KubeVirtConditionCreated KubeVirtConditionType = "Created"
 	// Whether all components were ready
 	KubeVirtConditionReady KubeVirtConditionType = "Ready"
+	// Whether we're in the process of updating previously deployed version
+	KubeVirtConditionUpdating KubeVirtConditionType = "Updating"
 )
 
 const (

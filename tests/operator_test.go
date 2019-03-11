@@ -29,6 +29,7 @@ import (
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 
 	v1 "kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/kubecli"
@@ -113,7 +114,7 @@ var _ = Describe("Operator", func() {
 		}, 10*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
 	}
 
-	allPodsAreReady := func() {
+	allPodsAreReady := func(expectedVersion string) {
 		var err error
 		var pods *k8sv1.PodList
 
@@ -124,13 +125,51 @@ var _ = Describe("Operator", func() {
 
 		}, 10*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
 
+		podsReadyAndOwned := 0
 		for _, pod := range pods.Items {
 			Expect(pod.Status.Phase).To(Equal(k8sv1.PodRunning))
 			for _, containerStatus := range pod.Status.ContainerStatuses {
 				Expect(containerStatus.Ready).To(Equal(true))
 			}
 
+			managed, ok := pod.Labels[v1.ManagedByLabel]
+			if !ok || managed != v1.ManagedByLabelOperatorValue {
+				continue
+			}
+
+			// if we're here, then this pod is both ready and owned by the operator
+			// make sure it is up to date with the latest version.
+
+			version, ok := pod.Annotations[v1.InstallStrategyVersionAnnotation]
+			Expect(ok).To(BeTrue())
+			Expect(version).To(Equal(expectedVersion))
+			podsReadyAndOwned++
 		}
+
+		// this just sanity checks that at least one pod was found and verified.
+		// 0 would indicate our labeling was incorrect.
+		Expect(podsReadyAndOwned).ToNot(Equal(0))
+	}
+
+	waitForUpdateCondition := func(kv *v1.KubeVirt) {
+		Eventually(func() error {
+			kv, err := virtClient.KubeVirt(tests.KubeVirtInstallNamespace).Get(kv.Name, &metav1.GetOptions{})
+			if err != nil {
+				return err
+			}
+
+			updating := false
+			for _, condition := range kv.Status.Conditions {
+				if condition.Type == v1.KubeVirtConditionUpdating {
+					updating = true
+				}
+			}
+			if !updating {
+				return fmt.Errorf("Waiting for updating condition")
+			}
+			return nil
+		}, 30*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
+
 	}
 
 	waitForKv := func(newKv *v1.KubeVirt) {
@@ -159,6 +198,15 @@ var _ = Describe("Operator", func() {
 			}
 			return nil
 		}, 120*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
+	}
+
+	patchKvVersion := func(name string, version string) {
+		data := []byte(fmt.Sprintf(`[{ "op": "add", "path": "/spec/imageTag", "value": "%s"}]`, version))
+		Eventually(func() error {
+			_, err := virtClient.KubeVirt(tests.KubeVirtInstallNamespace).Patch(name, types.JSONPatchType, data)
+
+			return err
+		}, 10*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
 	}
 
 	deleteAllKvAndWait := func(ignoreOriginal bool) {
@@ -208,12 +256,12 @@ var _ = Describe("Operator", func() {
 			createKv(copyOriginalKv())
 		}
 		waitForKv(originalKv)
-		allPodsAreReady()
+		allPodsAreReady(tests.KubeVirtVersionTag)
 	})
 
 	Describe("infrastructure management", func() {
 		It("should be able to delete and re-create kubevirt install", func() {
-			allPodsAreReady()
+			allPodsAreReady(tests.KubeVirtVersionTag)
 			sanityCheckDeploymentsExist()
 
 			By("Deleting KubeVirt object")
@@ -230,7 +278,7 @@ var _ = Describe("Operator", func() {
 			waitForKv(originalKv)
 
 			By("Verifying infrastructure is Ready")
-			allPodsAreReady()
+			allPodsAreReady(tests.KubeVirtVersionTag)
 			// We're just verifying that a few common components that
 			// should always exist get re-deployed.
 			sanityCheckDeploymentsExist()
@@ -242,7 +290,7 @@ var _ = Describe("Operator", func() {
 				Skip("Skip operator custom image tag test because alt tag is not present")
 			}
 
-			allPodsAreReady()
+			allPodsAreReady(tests.KubeVirtVersionTag)
 			sanityCheckDeploymentsExist()
 
 			By("Deleting KubeVirt object")
@@ -265,13 +313,60 @@ var _ = Describe("Operator", func() {
 			waitForKv(kv)
 
 			By("Verifying infrastructure is Ready")
-			allPodsAreReady()
+			allPodsAreReady(tests.KubeVirtVersionTagAlt)
 			// We're just verifying that a few common components that
 			// should always exist get re-deployed.
 			sanityCheckDeploymentsExist()
 
 			By("Deleting KubeVirt object")
 			deleteAllKvAndWait(false)
+		})
+
+		It("should be able to update kubevirt install with custom image tag", func() {
+
+			if tests.KubeVirtVersionTagAlt == "" {
+				Skip("Skip operator custom image tag test because alt tag is not present")
+			}
+
+			allPodsAreReady(tests.KubeVirtVersionTag)
+			sanityCheckDeploymentsExist()
+
+			By("Deleting KubeVirt object")
+			deleteAllKvAndWait(false)
+
+			// this is just verifying some common known components do in fact get deleted.
+			By("Sanity Checking Deployments infrastructure is deleted")
+			sanityCheckDeploymentsDeleted()
+
+			By("Creating KubeVirt Object")
+			kv := copyOriginalKv()
+			kv.Name = "kubevirt-alt-install"
+			createKv(kv)
+
+			By("Creating KubeVirt Object Created and Ready Condition")
+			waitForKv(kv)
+
+			By("Verifying infrastructure is Ready")
+			allPodsAreReady(tests.KubeVirtVersionTag)
+			// We're just verifying that a few common components that
+			// should always exist get re-deployed.
+			sanityCheckDeploymentsExist()
+
+			By("Updating KubeVirtObject With Alt Tag")
+			patchKvVersion(kv.Name, tests.KubeVirtVersionTagAlt)
+
+			By("Wait for Updating Condition")
+			waitForUpdateCondition(kv)
+
+			By("Waiting for KV to stabilize")
+			waitForKv(kv)
+
+			By("Verifying infrastructure Is Updated")
+			allPodsAreReady(tests.KubeVirtVersionTagAlt)
+
+			By("Deleting KubeVirt object")
+			deleteAllKvAndWait(false)
+
 		})
 
 		It("should fail if KV object already exists", func() {

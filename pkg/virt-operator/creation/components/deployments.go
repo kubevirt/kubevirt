@@ -143,6 +143,7 @@ func NewPrometheusService(namespace string) *corev1.Service {
 					Protocol: corev1.ProtocolTCP,
 				},
 			},
+			Type: corev1.ServiceTypeClusterIP,
 		},
 	}
 }
@@ -174,6 +175,7 @@ func NewApiServerService(namespace string) *corev1.Service {
 					Protocol: corev1.ProtocolTCP,
 				},
 			},
+			Type: corev1.ServiceTypeClusterIP,
 		},
 	}
 }
