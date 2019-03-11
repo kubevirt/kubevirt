@@ -694,7 +694,10 @@ func (l *LibvirtDomainManager) preStartHook(vmi *v1.VirtualMachineInstance, doma
 	}
 
 	// generate cloud-init data
-	cloudInitData := cloudinit.GetCloudInitNoCloudSource(vmi)
+	cloudInitData, err := cloudinit.ReadCloudInitVolumeDataSource(vmi)
+	if err != nil {
+		return domain, fmt.Errorf("PreCloudInitIso hook failed: %v", err)
+	}
 
 	// Pass cloud-init data to PreCloudInitIso hook
 	logger.Info("Starting PreCloudInitIso hook")

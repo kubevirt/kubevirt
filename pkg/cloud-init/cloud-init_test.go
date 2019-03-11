@@ -21,7 +21,6 @@ package cloudinit
 
 import (
 	"encoding/base64"
-	"errors"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -53,11 +52,8 @@ var _ = Describe("CloudInit", func() {
 	if err != nil {
 		panic(err)
 	}
-	isoCreationFunc := func(isoOutFile string, inFiles []string) error {
-		if isoOutFile == "noCloud" && len(inFiles) != 2 {
-			return errors.New("unexpected number of files for noCloud")
-		}
-
+	isoCreationFunc := func(isoOutFile, volumeID string, inDir string) error {
+		// TODO check volume id and inDir
 		// fake creating the iso
 		_, err := os.Create(isoOutFile)
 
@@ -86,7 +82,7 @@ var _ = Describe("CloudInit", func() {
 			It("should fail local data generation", func() {
 
 				timedOut := false
-				customCreationFunc := func(isoOutFile string, inFiles []string) error {
+				customCreationFunc := func(isoOutFile, volumeID string, inDir string) error {
 					var args []string
 
 					args = append(args, "10")
@@ -120,9 +116,10 @@ var _ = Describe("CloudInit", func() {
 				namespace := "fake-namespace"
 				domain := "fake-domain"
 				userData := "fake\nuser\ndata\n"
-				cloudInitData := &v1.CloudInitNoCloudSource{
+				source := &v1.CloudInitNoCloudSource{
 					UserDataBase64: base64.StdEncoding.EncodeToString([]byte(userData)),
 				}
+				cloudInitData, _ := readCloudInitNoCloudSource(source)
 				err := GenerateLocalData(domain, domain, namespace, cloudInitData)
 				Expect(err).To(HaveOccurred())
 				Expect(timedOut).To(Equal(true))
@@ -132,7 +129,7 @@ var _ = Describe("CloudInit", func() {
 				It("should fail to remove local data", func() {
 					namespace := "fake-namespace"
 					domain := "fake-domain"
-					err = RemoveLocalData(domain, namespace)
+					err = removeLocalData(domain, namespace)
 					Expect(err).ToNot(HaveOccurred())
 				})
 			})
@@ -156,7 +153,7 @@ var _ = Describe("CloudInit", func() {
 						Expect(err).ToNot(HaveOccurred())
 					}
 
-					vmis, err := ListVmWithLocalData()
+					vmis, err := listVmWithLocalData()
 					for _, vmi := range vmis {
 						namespace := precond.MustNotBeEmpty(vmi.GetObjectMeta().GetNamespace())
 						domain := precond.MustNotBeEmpty(vmi.GetObjectMeta().GetName())
@@ -174,17 +171,18 @@ var _ = Describe("CloudInit", func() {
 		})
 
 		Describe("A new VirtualMachineInstance definition", func() {
-			verifyCloudInitIso := func(dataSource *v1.CloudInitNoCloudSource) {
+			verifyCloudInitIso := func(source *v1.CloudInitNoCloudSource) {
 				namespace := "fake-namespace"
 				domain := "fake-domain"
-				err := GenerateLocalData(domain, domain, namespace, dataSource)
+				cloudInitData, _ := readCloudInitNoCloudSource(source)
+				err := GenerateLocalData(domain, domain, namespace, cloudInitData)
 				Expect(err).ToNot(HaveOccurred())
 
 				// verify iso is created
 				_, err = os.Stat(fmt.Sprintf("%s/%s/%s/noCloud.iso", tmpDir, namespace, domain))
 				Expect(err).ToNot(HaveOccurred())
 
-				err = RemoveLocalData(domain, namespace)
+				err = removeLocalData(domain, namespace)
 				Expect(err).ToNot(HaveOccurred())
 
 				// verify iso and entire dir is deleted
@@ -237,36 +235,30 @@ var _ = Describe("CloudInit", func() {
 			})
 			Context("with bad cloudInitNoCloud UserDataBase64", func() {
 				It("should fail", func() {
-					cloudInitData := &v1.CloudInitNoCloudSource{
+					source := &v1.CloudInitNoCloudSource{
 						UserDataBase64: "#######garbage******",
 					}
-					namespace := "fake-namespace"
-					domain := "fake-domain"
-					err := GenerateLocalData(domain, domain, namespace, cloudInitData)
+					_, err := readCloudInitNoCloudSource(source)
 					Expect(err.Error()).Should(Equal("illegal base64 data at input byte 0"))
 				})
 			})
 			Context("with bad cloudInitNoCloud NetworkDataBase64", func() {
 				It("should fail", func() {
-					cloudInitData := &v1.CloudInitNoCloudSource{
+					source := &v1.CloudInitNoCloudSource{
 						UserData:          "fake",
 						NetworkDataBase64: "#######garbage******",
 					}
-					namespace := "fake-namespace"
-					domain := "fake-domain"
-					err := GenerateLocalData(domain, domain, namespace, cloudInitData)
+					_, err := readCloudInitNoCloudSource(source)
 					Expect(err.Error()).Should(Equal("illegal base64 data at input byte 0"))
 				})
 			})
 			Context("with cloudInitNoCloud networkData source", func() {
 				It("should fail", func() {
 					networkData := "FakeNetwork"
-					cloudInitData := &v1.CloudInitNoCloudSource{
+					source := &v1.CloudInitNoCloudSource{
 						NetworkData: networkData,
 					}
-					namespace := "fake-namespace"
-					domain := "fake-domain"
-					err := GenerateLocalData(domain, domain, namespace, cloudInitData)
+					_, err := readCloudInitNoCloudSource(source)
 					Expect(err).Should(MatchError("userDataBase64 or userData is required for no-cloud data source"))
 				})
 
@@ -298,7 +290,7 @@ var _ = Describe("CloudInit", func() {
 						UserDataSecretRef: &k8sv1.LocalObjectReference{Name: "userDataSecretName"},
 					}
 
-					err := ResolveSecrets(cloudInitData, namespace, virtClient)
+					err := resolveNoCloudSecrets(cloudInitData, namespace, virtClient)
 					Expect(err).To(BeNil())
 					Expect(cloudInitData.UserData).To(Equal("secretUserData"))
 				})
@@ -343,7 +335,7 @@ var _ = Describe("CloudInit", func() {
 						NetworkDataSecretRef: &k8sv1.LocalObjectReference{Name: "networkDataSecretName"},
 					}
 
-					err := ResolveSecrets(cloudInitData, namespace, virtClient)
+					err := resolveNoCloudSecrets(cloudInitData, namespace, virtClient)
 					Expect(err).To(BeNil())
 					Expect(cloudInitData.UserData).To(Equal("secretUserData"))
 					Expect(cloudInitData.NetworkData).To(Equal("secretNetworkData"))
@@ -357,7 +349,7 @@ var _ = Describe("CloudInit", func() {
 					fakeClient := fake.NewSimpleClientset()
 					virtClient.EXPECT().CoreV1().Return(fakeClient.CoreV1())
 					cloudInitData := &v1.CloudInitNoCloudSource{}
-					err := ResolveSecrets(cloudInitData, namespace, virtClient)
+					err := resolveNoCloudSecrets(cloudInitData, namespace, virtClient)
 					Expect(err).To(BeNil())
 				})
 			})
@@ -373,7 +365,7 @@ var _ = Describe("CloudInit", func() {
 						UserDataSecretRef: &k8sv1.LocalObjectReference{Name: "userDataSecretName"},
 					}
 
-					err := ResolveSecrets(cloudInitData, namespace, virtClient)
+					err := resolveNoCloudSecrets(cloudInitData, namespace, virtClient)
 					Expect(err.Error()).To(Equal("secrets \"userDataSecretName\" not found"))
 				})
 			})
@@ -389,7 +381,7 @@ var _ = Describe("CloudInit", func() {
 						NetworkDataSecretRef: &k8sv1.LocalObjectReference{Name: "networkDataSecretName"},
 					}
 
-					err := ResolveSecrets(cloudInitData, namespace, virtClient)
+					err := resolveNoCloudSecrets(cloudInitData, namespace, virtClient)
 					Expect(err.Error()).To(Equal("secrets \"networkDataSecretName\" not found"))
 				})
 			})
@@ -415,7 +407,7 @@ var _ = Describe("CloudInit", func() {
 						UserDataSecretRef: &k8sv1.LocalObjectReference{Name: "userDataSecretName"},
 					}
 
-					err := ResolveSecrets(cloudInitData, namespace, virtClient)
+					err := resolveNoCloudSecrets(cloudInitData, namespace, virtClient)
 					Expect(err.Error()).To(Equal("userdata key not found in k8s secret userDataSecretName <nil>"))
 				})
 			})
@@ -441,7 +433,7 @@ var _ = Describe("CloudInit", func() {
 						NetworkDataSecretRef: &k8sv1.LocalObjectReference{Name: "networkDataSecretName"},
 					}
 
-					err := ResolveSecrets(cloudInitData, namespace, virtClient)
+					err := resolveNoCloudSecrets(cloudInitData, namespace, virtClient)
 					Expect(err.Error()).To(Equal("networkdata key not found in k8s secret networkDataSecretName <nil>"))
 				})
 			})
