@@ -429,7 +429,7 @@ func (f *kubeInformerFactory) DummyOperatorSCC() cache.SharedIndexInformer {
 
 func (f *kubeInformerFactory) OperatorInstallStrategyConfigMaps() cache.SharedIndexInformer {
 	return f.getInformer("installStrategyConfigMapInformer", func() cache.SharedIndexInformer {
-		labelSelector, err := labels.Parse(kubev1.InstallStrategyVersionLabel)
+		labelSelector, err := labels.Parse(kubev1.InstallStrategyLabel)
 		if err != nil {
 			panic(err)
 		}
@@ -441,7 +441,7 @@ func (f *kubeInformerFactory) OperatorInstallStrategyConfigMaps() cache.SharedIn
 
 func (f *kubeInformerFactory) OperatorInstallStrategyJob() cache.SharedIndexInformer {
 	return f.getInformer("installStrategyJobsInformer", func() cache.SharedIndexInformer {
-		labelSelector, err := labels.Parse(kubev1.InstallStrategyVersionLabel)
+		labelSelector, err := labels.Parse(kubev1.InstallStrategyLabel)
 		if err != nil {
 			panic(err)
 		}

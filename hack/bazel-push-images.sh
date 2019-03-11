@@ -1,4 +1,4 @@
-#!/usr/bin/env bash
+#!/bin/bash
 #
 # This file is part of the KubeVirt project
 #
@@ -22,10 +22,18 @@ set -e
 source hack/common.sh
 source hack/config.sh
 
-functest_docker_prefix=${manifest_docker_prefix-${docker_prefix}}
+bazel run \
+    --platforms=@io_bazel_rules_go//go/toolchain:linux_amd64 \
+    --workspace_status_command=./hack/print-workspace-status.sh \
+    --define container_prefix=${docker_prefix} \
+    --define container_tag=${docker_tag} \
+    //:push-images
 
-if [[ ${TARGET} == openshift* ]]; then
-    oc=${kubectl}
+if [ -n "$docker_tag_alt" ]; then
+    bazel run \
+        --platforms=@io_bazel_rules_go//go/toolchain:linux_amd64 \
+        --workspace_status_command=./hack/print-workspace-status.sh \
+        --define container_prefix=${docker_prefix} \
+        --define container_tag=${docker_tag_alt} \
+        //:push-images
 fi
-
-${TESTS_OUT_DIR}/tests.test -kubeconfig=${kubeconfig} -container-tag=${docker_tag} -container-tag-alt=${docker_tag_alt} -container-prefix=${functest_docker_prefix} -oc-path=${oc} -kubectl-path=${kubectl} -test.timeout 180m ${FUNC_TEST_ARGS} -installed-namespace=${namespace}

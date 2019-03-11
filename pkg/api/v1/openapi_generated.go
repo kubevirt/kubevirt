@@ -1677,6 +1677,20 @@ func schema_kubevirt_pkg_api_v1_KubeVirtSpec(ref common.ReferenceCallback) commo
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
 				Properties: map[string]spec.Schema{
+					"imageTag": {
+						SchemaProps: spec.SchemaProps{
+							Description: "The image tag to use for the continer images installed. Defaults to the same tag as the operator's container image.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"imageRegistry": {
+						SchemaProps: spec.SchemaProps{
+							Description: "The image registry to pull the container images from Defaults to the same registry the operator's container image is pulled from.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
 					"imagePullPolicy": {
 						SchemaProps: spec.SchemaProps{
 							Description: "The ImagePullPolicy to use.",
@@ -1727,7 +1741,19 @@ func schema_kubevirt_pkg_api_v1_KubeVirtStatus(ref common.ReferenceCallback) com
 							Format: "",
 						},
 					},
+					"targetKubeVirtRegistry": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
 					"observedKubeVirtVersion": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"observedKubeVirtRegistry": {
 						SchemaProps: spec.SchemaProps{
 							Type:   []string{"string"},
 							Format: "",

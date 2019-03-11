@@ -75,6 +75,7 @@ import (
 )
 
 var KubeVirtVersionTag = "latest"
+var KubeVirtVersionTagAlt = ""
 var KubeVirtRepoPrefix = "kubevirt"
 var ContainerizedDataImporterNamespace = "cdi"
 var KubeVirtKubectlPath = ""
@@ -87,6 +88,7 @@ var PathToTestingInfrastrucureManifests = ""
 
 func init() {
 	flag.StringVar(&KubeVirtVersionTag, "container-tag", "latest", "Set the image tag or digest to use")
+	flag.StringVar(&KubeVirtVersionTagAlt, "container-tag-alt", "", "An alternate tag that can be used to test operator deployments")
 	flag.StringVar(&KubeVirtRepoPrefix, "container-prefix", "kubevirt", "Set the repository prefix for all images")
 	flag.StringVar(&ContainerizedDataImporterNamespace, "cdi-namespace", "cdi", "Set the repository prefix for CDI components")
 	flag.StringVar(&KubeVirtKubectlPath, "kubectl-path", "", "Set path to kubectl binary")
@@ -1212,7 +1214,7 @@ func PanicOnError(err error) {
 func NewRandomDataVolumeWithHttpImport(imageUrl string, namespace string) *cdiv1.DataVolume {
 
 	name := "test-datavolume-" + rand.String(12)
-	storageClassName := "local"
+	storageClass := StorageClassLocal
 	quantity, err := resource.ParseQuantity("2Gi")
 	PanicOnError(err)
 	dataVolume := &cdiv1.DataVolume{
@@ -1233,7 +1235,7 @@ func NewRandomDataVolumeWithHttpImport(imageUrl string, namespace string) *cdiv1
 						"storage": quantity,
 					},
 				},
-				StorageClassName: &storageClassName,
+				StorageClassName: &storageClass,
 			},
 		},
 	}

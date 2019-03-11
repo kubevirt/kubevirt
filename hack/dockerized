@@ -101,9 +101,15 @@ if [ -d "${HOME}/.docker" ]; then
     volumes="$volumes -v ${HOME}/.docker:/root/.docker:ro,z"
 fi
 
+# Ensure that a bazel server is running
+
+if [ -z "$(docker ps --format '{{.Names}}' | grep ${BUILDER}-bazel-server)" ]; then
+    docker run --network host -d ${volumes} --security-opt label:disable --name ${BUILDER}-bazel-server -w "/root/go/src/kubevirt.io/kubevirt" --rm ${BUILDER} hack/bazel-server.sh
+fi
+
 # Run the command
 test -t 1 && USE_TTY="-it"
-docker run --network host --rm ${volumes} --security-opt label:disable ${USE_TTY} -w "/root/go/src/kubevirt.io/kubevirt" ${BUILDER} "$@"
+docker exec ${USE_TTY} ${BUILDER}-bazel-server /entrypoint.sh "$@"
 
 # Copy the whole kubevirt data out to get generated sources and formatting changes
 _rsync \
