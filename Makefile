@@ -12,6 +12,9 @@ bazel-build:
 		--workspace_status_command=./hack/print-workspace-status.sh \
 		//cmd/..."
 
+bazel-build-images:
+	hack/dockerized "DOCKER_PREFIX=${DOCKER_PREFIX} DOCKER_TAG=${DOCKER_TAG} DOCKER_TAG_ALT=${DOCKER_TAG_ALT} ./hack/bazel-build-images.sh"
+
 bazel-push-images:
 	hack/dockerized "DOCKER_PREFIX=${DOCKER_PREFIX} DOCKER_TAG=${DOCKER_TAG} DOCKER_TAG_ALT=${DOCKER_TAG_ALT} ./hack/bazel-push-images.sh"
 
@@ -113,6 +116,7 @@ builder-publish:
 .PHONY: \
 	bazel-generate \
 	bazel-build \
+	bazel-build-images \
 	bazel-push-images \
 	bazel-tests \
 	build \
