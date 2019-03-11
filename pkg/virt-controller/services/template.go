@@ -20,6 +20,7 @@
 package services
 
 import (
+	"encoding/json"
 	"fmt"
 	"path/filepath"
 	"strconv"
@@ -54,6 +55,9 @@ const NodeSelectorsKey = "node-selectors"
 const KvmDevice = "devices.kubevirt.io/kvm"
 const TunDevice = "devices.kubevirt.io/tun"
 const VhostNetDevice = "devices.kubevirt.io/vhost-net"
+
+const MultusNetworksAnnotation = "k8s.v1.cni.cncf.io/networks"
+const GenieNetworksAnnotation = "cni"
 
 const CAP_NET_ADMIN = "NET_ADMIN"
 const CAP_SYS_NICE = "SYS_NICE"
@@ -856,9 +860,12 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 		v1.DomainAnnotation: domain,
 	}
 
-	cniNetworks, cniAnnotation := getCniInterfaceList(vmi)
-	if len(cniNetworks) > 0 {
-		annotationsList[cniAnnotation] = cniNetworks
+	cniAnnotations, err := getCniAnnotations(vmi)
+	if err != nil {
+		return nil, err
+	}
+	for k, v := range cniAnnotations {
+		annotationsList[k] = v
 	}
 
 	// TODO use constants for podLabels
@@ -1056,26 +1063,33 @@ func getNetworkToResourceMap(virtClient kubecli.KubevirtClient, vmi *v1.VirtualM
 	return
 }
 
-func getCniInterfaceList(vmi *v1.VirtualMachineInstance) (ifaceListString string, cniAnnotation string) {
+func getCniAnnotations(vmi *v1.VirtualMachineInstance) (cniAnnotations map[string]string, err error) {
 	ifaceList := make([]string, 0)
+	ifaceListMap := make([]map[string]string, 0)
+	cniAnnotations = make(map[string]string, 0)
 
-	for _, network := range vmi.Spec.Networks {
-		// set the type for the first network
-		// all other networks must have same type
+	for idx, network := range vmi.Spec.Networks {
+		// Set the type for the first network. All other networks must have same type.
 		if network.Multus != nil {
-			ifaceList = append(ifaceList, network.Multus.NetworkName)
-			if cniAnnotation == "" {
-				cniAnnotation = "k8s.v1.cni.cncf.io/networks"
+			ifaceMap := map[string]string{
+				"name":      network.Multus.NetworkName,
+				"interface": fmt.Sprintf("net%d", idx+1),
 			}
+			ifaceListMap = append(ifaceListMap, ifaceMap)
 		} else if network.Genie != nil {
+			// We have to handle Genie separately because it doesn't support JSON format.
 			ifaceList = append(ifaceList, network.Genie.NetworkName)
-			if cniAnnotation == "" {
-				cniAnnotation = "cni"
-			}
 		}
 	}
-
-	ifaceListString = strings.Join(ifaceList, ",")
+	if len(ifaceListMap) > 0 {
+		ifaceJsonString, err := json.Marshal(ifaceListMap)
+		if err != nil {
+			return map[string]string{}, fmt.Errorf("Failed to create JSON list from CNI interface map %s", ifaceListMap)
+		}
+		cniAnnotations[MultusNetworksAnnotation] = fmt.Sprintf("%s", ifaceJsonString)
+	} else if len(ifaceList) > 0 {
+		cniAnnotations[GenieNetworksAnnotation] = strings.Join(ifaceList, ",")
+	}
 	return
 }
 
