@@ -5,8 +5,6 @@ import (
 	"io/ioutil"
 	"os"
 	"strings"
-
-	"kubevirt.io/kubevirt/pkg/api/v1"
 )
 
 const ServiceAccountNamespaceFile = "/var/run/secrets/kubernetes.io/serviceaccount/namespace"
@@ -21,14 +19,4 @@ func GetNamespace() (string, error) {
 		return "", fmt.Errorf("failed to determine namespace from %s: %v", ServiceAccountNamespaceFile, err)
 	}
 	return namespaceKubevirt, nil
-}
-
-func GetMultusOrNpwgNetworkName(network v1.Network) string {
-	if network.Npwg != nil {
-		return network.Npwg.NetworkName
-	}
-	if network.Multus != nil {
-		return network.Multus.NetworkName
-	}
-	return ""
 }

@@ -967,10 +967,10 @@ func ValidateVirtualMachineInstanceSpec(field *k8sfield.Path, spec *v1.VirtualMa
 				podExists = true
 			}
 
-			if multusOrNpwgNetworkName := util.GetMultusOrNpwgNetworkName(network); multusOrNpwgNetworkName != "" {
+			if network.IsMultusOrNpwgNetwork() {
 				cniTypesCount++
 				multusNpwgExists = true
-				networkNameExistsOrNotNeeded = multusOrNpwgNetworkName != ""
+				networkNameExistsOrNotNeeded = network.GetMultusOrNpwgNetworkName() != ""
 			}
 
 			if network.NetworkSource.Genie != nil {

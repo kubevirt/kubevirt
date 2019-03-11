@@ -1009,3 +1009,20 @@ type CniNetwork struct {
 	// In case of genie, it references the CNI plugin name.
 	NetworkName string `json:"networkName"`
 }
+
+func (network *Network) GetMultusOrNpwgNetworkName() string {
+	if network.Npwg != nil {
+		return network.Npwg.NetworkName
+	}
+	if network.Multus != nil {
+		return network.Multus.NetworkName
+	}
+	return ""
+}
+
+func (network *Network) IsMultusOrNpwgNetwork() bool {
+	if network.Npwg != nil || network.Multus != nil {
+		return true
+	}
+	return false
+}

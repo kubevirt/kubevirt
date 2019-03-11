@@ -51,7 +51,7 @@ func SetupNetworkInterfaces(vmi *v1.VirtualMachineInstance, domain *api.Domain) 
 	cniNetworks := map[string]int{}
 	for _, network := range vmi.Spec.Networks {
 		networks[network.Name] = network.DeepCopy()
-		if networks[network.Name].Npwg != nil || networks[network.Name].Multus != nil {
+		if networks[network.Name].IsMultusOrNpwgNetwork() {
 			// npwg/multus pod interfaces start from 1
 			cniNetworks[network.Name] = len(cniNetworks) + 1
 		} else if networks[network.Name].Genie != nil {
@@ -70,7 +70,7 @@ func SetupNetworkInterfaces(vmi *v1.VirtualMachineInstance, domain *api.Domain) 
 			return err
 		}
 
-		if networks[iface.Name].Npwg != nil || networks[iface.Name].Multus != nil {
+		if networks[iface.Name].IsMultusOrNpwgNetwork() {
 			// Npwg/Multus pod interfaces named netX
 			podInterfaceName = fmt.Sprintf("net%d", cniNetworks[iface.Name])
 		} else if networks[iface.Name].Genie != nil {
@@ -90,7 +90,7 @@ func SetupNetworkInterfaces(vmi *v1.VirtualMachineInstance, domain *api.Domain) 
 
 // a factory to get suitable network interface
 func getNetworkClass(network *v1.Network) (NetworkInterface, error) {
-	if network.Pod != nil || network.Npwg != nil || network.Multus != nil || network.Genie != nil {
+	if network.Pod != nil || network.IsMultusOrNpwgNetwork() || network.Genie != nil {
 		return new(PodInterface), nil
 	}
 	return nil, fmt.Errorf("Network not implemented")
