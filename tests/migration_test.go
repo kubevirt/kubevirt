@@ -117,7 +117,8 @@ var _ = Describe("Migrations", func() {
 
 			Expect(vmi.Status.MigrationState).ToNot(BeNil())
 
-			if vmi.Status.MigrationState.Completed {
+			if vmi.Status.MigrationState.Completed &&
+				vmi.Status.MigrationState.AbortStatus == v1.MigrationAbortSucceeded {
 				return true
 			}
 			return false
@@ -137,7 +138,7 @@ var _ = Describe("Migrations", func() {
 		Expect(vmi.Status.MigrationState.TargetNodeAddress).ToNot(Equal(""))
 		Expect(string(vmi.Status.MigrationState.MigrationUID)).To(Equal(migrationUID))
 		Expect(vmi.Status.MigrationState.Failed).To(Equal(true))
-		Expect(vmi.Status.MigrationState.Aborted).To(Equal(true))
+		Expect(vmi.Status.MigrationState.AbortRequested).To(Equal(true))
 
 		By("Verifying the VMI's is in the running state")
 		Expect(vmi.Status.Phase).To(Equal(v1.Running))
@@ -494,16 +495,40 @@ var _ = Describe("Migrations", func() {
 			})
 			It("should be able successfully cancel a migration", func() {
 
-				vmi := tests.NewRandomVMIWithEphemeralDisk(tests.ContainerDiskFor(tests.ContainerDiskCirros))
-				tests.AddUserData(vmi, "cloud-init", "#!/bin/bash\necho 'hello'\n")
+				vmi := tests.NewRandomVMIWithEphemeralDisk(tests.ContainerDiskFor(tests.ContainerDiskFedora))
+				vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("1Gi")
+				tests.AddUserData(vmi, "cloud-init", fmt.Sprintf(`#!/bin/bash
+					echo "fedora" |passwd fedora --stdin
+					yum install -y stress qemu-guest-agent
+                    systemctl start  qemu-guest-agent`))
 
 				By("Starting the VirtualMachineInstance")
 				vmi = runVMIAndExpectLaunch(vmi, 240)
 
+				getOptions := &metav1.GetOptions{}
+				var updatedVmi *v1.VirtualMachineInstance
 				By("Checking that the VirtualMachineInstance console has expected output")
-				expecter, err := tests.LoggedInCirrosExpecter(vmi)
-				Expect(err).To(BeNil())
-				expecter.Close()
+				expecter, expecterErr := tests.LoggedInFedoraExpecter(vmi)
+				Expect(expecterErr).To(BeNil())
+				defer expecter.Close()
+
+				// Need to wait for cloud init to finnish and start the agent inside the vmi.
+				Eventually(func() bool {
+					updatedVmi, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Get(vmi.Name, getOptions)
+					Expect(err).ToNot(HaveOccurred())
+					for _, condition := range updatedVmi.Status.Conditions {
+						if condition.Type == "AgentConnected" && condition.Status == "True" {
+							return true
+						}
+					}
+					return false
+				}, 420*time.Second, 2).Should(BeTrue(), "Should have agent connected condition")
+
+				By("Run a stress test")
+				_, err = expecter.ExpectBatch([]expect.Batcher{
+					&expect.BSnd{S: "stress --vm 1 --vm-bytes 600M --vm-keep --timeout 1600s&\n"},
+				}, 15*time.Second)
+				Expect(err).ToNot(HaveOccurred(), "should run a stress test")
 
 				// execute a migration, wait for finalized state
 				By("Starting the Migration")
