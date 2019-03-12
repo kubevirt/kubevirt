@@ -231,3 +231,13 @@ go_library(
     importpath = "kubevirt.io/kubevirt",
     visibility = ["//visibility:public"],
 )
+
+genrule(
+    name = "build-virtctl",
+    srcs = [
+        "//cmd/virtctl",
+    ],
+    outs = ["virtctl-copier"],
+    cmd = "echo '#!/bin/sh\n\ncp $(SRCS) $$1' > \"$@\"",
+    executable = 1,
+)

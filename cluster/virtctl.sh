@@ -32,9 +32,4 @@ elif [ -n "$KUBECONFIG" ]; then
     CONFIG_ARGS="--kubeconfig=${KUBECONFIG}"
 fi
 
-VIRTCTL=virtctl
-if [ "$(uname -s)" = "Darwin" ]; then
-    VIRTCTL='virtctl-darwin'
-fi
-
-${KUBEVIRT_DIR}/_out/cmd/virtctl/${VIRTCTL} $CONFIG_ARGS "$@"
+${KUBEVIRT_DIR}/_out/cmd/virtctl/virtctl $CONFIG_ARGS "$@"

@@ -3,10 +3,7 @@ export GO15VENDOREXPERIMENT := 1
 
 all:
 	hack/dockerized "DOCKER_PREFIX=${DOCKER_PREFIX} DOCKER_TAG=${DOCKER_TAG} IMAGE_PULL_POLICY=${IMAGE_PULL_POLICY} VERBOSITY=${VERBOSITY} ./hack/build-manifests.sh && \
-	    hack/bazel-fmt.sh && bazel build \
-		--platforms=@io_bazel_rules_go//go/toolchain:linux_amd64 \
-		--workspace_status_command=./hack/print-workspace-status.sh \
-		//cmd/..."
+	    hack/bazel-fmt.sh && hack/bazel-build.sh"
 
 go-all:
 	hack/dockerized "KUBEVIRT_VERSION=${KUBEVIRT_VERSION} ./hack/build-go.sh install ${WHAT} && ./hack/build-copy-artifacts.sh ${WHAT} && DOCKER_PREFIX=${DOCKER_PREFIX} DOCKER_TAG=${DOCKER_TAG} IMAGE_PULL_POLICY=${IMAGE_PULL_POLICY} VERBOSITY=${VERBOSITY} ./hack/build-manifests.sh"
@@ -15,10 +12,7 @@ bazel-generate:
 	SYNC_VENDOR=true hack/dockerized "./hack/bazel-generate.sh"
 
 bazel-build:
-	hack/dockerized "hack/bazel-fmt.sh && bazel build \
-		--platforms=@io_bazel_rules_go//go/toolchain:linux_amd64 \
-		--workspace_status_command=./hack/print-workspace-status.sh \
-		//cmd/..."
+	hack/dockerized "hack/bazel-fmt.sh && hack/bazel-build.sh"
 
 bazel-build-images:
 	hack/dockerized "DOCKER_PREFIX=${DOCKER_PREFIX} DOCKER_TAG=${DOCKER_TAG} DOCKER_TAG_ALT=${DOCKER_TAG_ALT} ./hack/bazel-build-images.sh"
