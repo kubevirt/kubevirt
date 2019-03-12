@@ -656,7 +656,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 			vmi.Status.NodeName = host
 			vmi.Labels[v1.MigrationTargetNodeNameLabel] = "othernode"
 			vmi.Status.MigrationState = &v1.VirtualMachineInstanceMigrationState{
-				Aborted:                        true,
+				AbortRequested:                 true,
 				TargetNode:                     "othernode",
 				TargetNodeAddress:              "127.0.0.1:12345",
 				SourceNode:                     host,

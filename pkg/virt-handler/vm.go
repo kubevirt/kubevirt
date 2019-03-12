@@ -926,20 +926,23 @@ func (d *VirtualMachineController) execute(key string) error {
 	// node this is executed on.
 
 	if vmiExists && d.isMigrationSource(vmi) &&
-		vmi.Status.MigrationState.Aborted &&
+		vmi.Status.MigrationState.AbortRequested &&
 		!domain.Spec.Metadata.KubeVirt.Migration.Failed {
 		// Cancel the live migration if it's in progress but the migration
 		// object has been deleted
 		client, err := d.getLauncherClient(vmi)
 		if err != nil {
 			log.Log.Object(vmi).Reason(err).Errorf("failed to get virt-launcher client")
+			vmi.Status.MigrationState.AbortStatus = v1.MigrationAbortFailed
 			return fmt.Errorf("unable to create virt-launcher client connection: %v", err)
 		}
 		err = client.CancelVirtualMachineMigration(vmi)
 		if err != nil {
 			log.Log.Object(vmi).Reason(err).Errorf("failed to cancel live migration!")
+			vmi.Status.MigrationState.AbortStatus = v1.MigrationAbortFailed
 			return err
 		}
+		vmi.Status.MigrationState.AbortStatus = v1.MigrationAbortSucceeded
 		return nil
 	}
 
