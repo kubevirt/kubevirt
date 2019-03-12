@@ -294,6 +294,15 @@ const (
 	VirtualMachineInstanceReasonDisksNotMigratable = "DisksNotLiveMigratable"
 )
 
+// +k8s:openapi-gen=true
+type VirtualMachineInstanceMigrationConditionType string
+
+// These are valid conditions of VMIs.
+const (
+	// VirtualMachineInstanceMigrationAbortRequested indicates that live migration abort has been requested
+	VirtualMachineInstanceMigrationAbortRequested VirtualMachineInstanceMigrationConditionType = "migrationAbortRequested"
+)
+
 // ---
 // +k8s:openapi-gen=true
 type VirtualMachineInstanceCondition struct {
@@ -303,6 +312,17 @@ type VirtualMachineInstanceCondition struct {
 	LastTransitionTime metav1.Time                         `json:"lastTransitionTime,omitempty"`
 	Reason             string                              `json:"reason,omitempty"`
 	Message            string                              `json:"message,omitempty"`
+}
+
+// ---
+// +k8s:openapi-gen=true
+type VirtualMachineInstanceMigrationCondition struct {
+	Type               VirtualMachineInstanceMigrationConditionType `json:"type"`
+	Status             k8sv1.ConditionStatus                        `json:"status"`
+	LastProbeTime      metav1.Time                                  `json:"lastProbeTime,omitempty"`
+	LastTransitionTime metav1.Time                                  `json:"lastTransitionTime,omitempty"`
+	Reason             string                                       `json:"reason,omitempty"`
+	Message            string                                       `json:"message,omitempty"`
 }
 
 // The migration phase indicates that the job has completed
@@ -760,7 +780,8 @@ type VirtualMachineInstanceMigrationSpec struct {
 // ---
 // +k8s:openapi-gen=true
 type VirtualMachineInstanceMigrationStatus struct {
-	Phase VirtualMachineInstanceMigrationPhase `json:"phase,omitempty"`
+	Phase      VirtualMachineInstanceMigrationPhase       `json:"phase,omitempty"`
+	Conditions []VirtualMachineInstanceMigrationCondition `json:"conditions,omitempty"`
 }
 
 // VirtualMachineInstanceMigrationPhase is a label for the condition of a VirtualMachineInstanceMigration at the current time.
