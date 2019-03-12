@@ -4186,6 +4186,35 @@
      }
     }
    },
+   "v1.CloudInitConfigDriveSource": {
+    "description": "Represents a cloud-init config drive user data source.\nMore info: https://cloudinit.readthedocs.io/en/latest/topics/datasources/configdrive.html",
+    "properties": {
+     "networkData": {
+      "description": "NetworkData contains config drive inline cloud-init networkdata.\n+ optional",
+      "type": "string"
+     },
+     "networkDataBase64": {
+      "description": "NetworkDataBase64 contains config drive cloud-init networkdata as a base64 encoded string.\n+ optional",
+      "type": "string"
+     },
+     "networkDataSecretRef": {
+      "description": "NetworkDataSecretRef references a k8s secret that contains config drive networkdata.\n+ optional",
+      "$ref": "#/definitions/v1.LocalObjectReference"
+     },
+     "secretRef": {
+      "description": "UserDataSecretRef references a k8s secret that contains config drive userdata.\n+ optional",
+      "$ref": "#/definitions/v1.LocalObjectReference"
+     },
+     "userData": {
+      "description": "UserData contains config drive inline cloud-init userdata.\n+ optional",
+      "type": "string"
+     },
+     "userDataBase64": {
+      "description": "UserDataBase64 contains config drive cloud-init userdata as a base64 encoded string.\n+ optional",
+      "type": "string"
+     }
+    }
+   },
    "v1.CloudInitNoCloudSource": {
     "description": "Represents a cloud-init nocloud user data source.\nMore info: http://cloudinit.readthedocs.io/en/latest/topics/datasources/nocloud.html",
     "properties": {
@@ -6528,6 +6557,10 @@
      "name"
     ],
     "properties": {
+     "cloudInitConfigDrive": {
+      "description": "CloudInitConfigDrive represents a cloud-init Config Drive user-data source.\nThe Config Drive data will be added as a disk to the vmi. A proper cloud-init installation is required inside the guest.\nMore info: https://cloudinit.readthedocs.io/en/latest/topics/datasources/configdrive.html\n+optional",
+      "$ref": "#/definitions/v1.CloudInitConfigDriveSource"
+     },
      "cloudInitNoCloud": {
       "description": "CloudInitNoCloud represents a cloud-init NoCloud user-data source.\nThe NoCloud data will be added as a disk to the vmi. A proper cloud-init installation is required inside the guest.\nMore info: http://cloudinit.readthedocs.io/en/latest/topics/datasources/nocloud.html\n+optional",
       "$ref": "#/definitions/v1.CloudInitNoCloudSource"
