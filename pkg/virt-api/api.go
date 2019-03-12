@@ -827,6 +827,9 @@ func (app *virtAPIApp) createMutatingWebhook() error {
 	http.HandleFunc(vmiMutatePath, func(w http.ResponseWriter, r *http.Request) {
 		mutating_webhook.ServeVMIs(w, r)
 	})
+	http.HandleFunc(vmiMutatePath, func(w http.ResponseWriter, r *http.Request) {
+		mutating__webhook.ServeMigrationCreate(w, r)
+	})
 	return nil
 }
 

@@ -477,8 +477,9 @@ const (
 	// This label indicates the object is a part of the install strategy retrieval process.
 	InstallStrategyLabel = "kubevirt.io/install-strategy"
 
-	VirtualMachineInstanceFinalizer string = "foregroundDeleteVirtualMachine"
-	CPUManager                      string = "cpumanager"
+	VirtualMachineInstanceFinalizer          string = "foregroundDeleteVirtualMachine"
+	VirtualMachineInstanceMigrationFinalizer string = "kubevirt.io/migrationJobFinalize"
+	CPUManager                               string = "cpumanager"
 	// This annotation is used to inject ignition data
 	// Used on VirtualMachineInstance.
 	IgnitionAnnotation string = "kubevirt.io/ignitiondata"
