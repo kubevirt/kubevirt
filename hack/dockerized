@@ -96,10 +96,10 @@ _rsync \
     "rsync://root@127.0.0.1:${RSYNCD_PORT}/build"
 
 volumes="-v ${BUILDER}:/root:rw,z"
-# if exists, append .docker directory as volume
-if [ -d "${HOME}/.docker" ]; then
-    volumes="$volumes -v ${HOME}/.docker:/root/.docker:ro,z"
-fi
+
+# append .docker directory as volume
+mkdir -p "${HOME}/.docker"
+volumes="$volumes -v ${HOME}/.docker:/root/.docker:ro,z"
 
 # Ensure that a bazel server is running
 

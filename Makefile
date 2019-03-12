@@ -21,8 +21,9 @@ bazel-push-images:
 bazel-tests:
 	hack/dockerized "bazel test --test_output=errors -- //pkg/... "
 
-generate: bazel-generate
+generate:
 	hack/dockerized "DOCKER_PREFIX=${DOCKER_PREFIX} DOCKER_TAG=${DOCKER_TAG} IMAGE_PULL_POLICY=${IMAGE_PULL_POLICY} VERBOSITY=${VERBOSITY} ./hack/generate.sh"
+	SYNC_VENDOR=true hack/dockerized "./hack/bazel-generate.sh"
 
 apidocs:
 	hack/dockerized "./hack/generate.sh && ./hack/gen-swagger-doc/gen-swagger-docs.sh v1 html"
@@ -56,12 +57,10 @@ distclean: clean
 	rm -rf vendor/
 
 deps-install:
-	SYNC_VENDOR=true hack/dockerized "glide install --strip-vendor && ./hack/bazel-generate.sh"
-	hack/dep-prune.sh
+	SYNC_VENDOR=true hack/dockerized "glide install --strip-vendor && hack/dep-prune.sh && ./hack/bazel-generate.sh"
 
 deps-update:
-	SYNC_VENDOR=true hack/dockerized "glide cc && glide update --strip-vendor && ./hack/bazel-generate.sh"
-	hack/dep-prune.sh
+	SYNC_VENDOR=true hack/dockerized "glide cc && glide update --strip-vendor && hack/dep-prune.sh && ./hack/bazel-generate.sh"
 
 docker: build
 	hack/build-docker.sh build ${WHAT}
