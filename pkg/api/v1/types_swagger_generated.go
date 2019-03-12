@@ -52,6 +52,10 @@ func (VirtualMachineInstanceCondition) SwaggerDoc() map[string]string {
 	return map[string]string{}
 }
 
+func (VirtualMachineInstanceMigrationCondition) SwaggerDoc() map[string]string {
+	return map[string]string{}
+}
+
 func (VirtualMachineInstanceNetworkInterface) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"ipAddress":     "IP address of a Virtual Machine interface",
@@ -74,7 +78,8 @@ func (VirtualMachineInstanceMigrationState) SwaggerDoc() map[string]string {
 		"sourceNode":                     "The source node that the VMI originated on",
 		"completed":                      "Indicates the migration completed",
 		"failed":                         "Indicates that the migration failed",
-		"aborted":                        "Indicates that the migration has been aborted",
+		"abortRequested":                 "Indicates that the migration has been requested to abort",
+		"abortStatus":                    "Indicates that the migration has been requested to abort",
 		"migrationUid":                   "The VirtualMachineInstanceMigration object associated with this migration",
 		"migrationConfig":                "Config contains migration configuration options",
 	}
