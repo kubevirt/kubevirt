@@ -49,8 +49,8 @@ verify)
 
 push)
 
-    if [[ -z "$CSV_VERSION" ]] || [[ -z "$QUAY_USERNAME" ]] || [[ -z "$QUAY_USERNAME" ]]; then
-        echo "please set CSV_VERSION, QUAY_USERNAME and QUAY_PASSWORD"
+    if [[ -z "$CSV_VERSION" ]] || [[ -z "$QUAY_USERNAME" ]] || [[ -z "$QUAY_USERNAME" ]] || [[ -z "$QUAY_REPOSITORY" ]]; then
+        echo "please set CSV_VERSION, QUAY_USERNAME, QUAY_PASSWORD and QUAY_REPOSITORY"
         exit 1
     fi
 
@@ -64,7 +64,7 @@ push)
         }' | jq -r '.token')
 
     echo "pushing bundle"
-    operator-courier push "$BUNDLE_DIR" "$QUAY_USERNAME" kubevirt "$CSV_VERSION" "$AUTH_TOKEN"
+    operator-courier push "$BUNDLE_DIR" "$QUAY_REPOSITORY" kubevirt "$CSV_VERSION" "$AUTH_TOKEN"
 
     ;;
 esac

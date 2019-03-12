@@ -125,7 +125,7 @@ olm-verify:
 	hack/dockerized "./hack/olm.sh verify"
 
 olm-push:
-	hack/dockerized "CSV_VERSION=${CSV_VERSION} QUAY_USERNAME=${QUAY_USERNAME} QUAY_PASSWORD=${QUAY_PASSWORD} ./hack/olm.sh push"
+	hack/dockerized "CSV_VERSION=${CSV_VERSION} QUAY_USERNAME=${QUAY_USERNAME} QUAY_PASSWORD=${QUAY_PASSWORD} QUAY_REPOSITORY=${QUAY_REPOSITORY} ./hack/olm.sh push"
 
 .PHONY: \
 	go-build \

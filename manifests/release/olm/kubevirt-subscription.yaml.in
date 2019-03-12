@@ -4,7 +4,7 @@ metadata:
   name: kubevirt
   namespace: {{.Namespace}}
 spec:
-  channel: alpha
+  channel: beta
   name: kubevirt
   source: kubevirt
   sourceNamespace: olm

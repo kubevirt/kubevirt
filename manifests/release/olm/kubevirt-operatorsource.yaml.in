@@ -8,4 +8,4 @@ spec:
   endpoint: https://quay.io/cnr
   registryNamespace: kubevirt
   displayName: "KubeVirt"
-  publisher: "Red Hat"
+  publisher: "KubeVirt project"

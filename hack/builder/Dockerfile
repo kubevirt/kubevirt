@@ -25,7 +25,8 @@ RUN dnf install -y dnf-plugins-core && \
         qemu-img \
         protobuf-compiler \
         python3-devel \
-        redhat-rpm-config && \
+        redhat-rpm-config \
+        jq && \
     dnf -y clean all
 
 ENV GIMME_GO_VERSION=1.11.5

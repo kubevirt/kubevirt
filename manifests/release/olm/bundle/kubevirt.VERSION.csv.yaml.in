@@ -1,7 +1,7 @@
 apiVersion: operators.coreos.com/v1alpha1
 kind: ClusterServiceVersion
 metadata:
-  name: kubevirtoperator.v{{.CsvVersion}}
+  name: kubevirtoperator.{{.CsvVersion}}
   namespace: placeholder
   annotations:
     capabilities: "Full Lifecycle"
@@ -34,10 +34,10 @@ spec:
   maturity: alpha
   #replaces: kubevirtoperator.v?.?.?
   maintainers:
-    - name: Red Hat
+    - name: KubeVirt project
       email: kubevirt-dev@googlegroups.com
   provider:
-    name: Red Hat
+    name: KubeVirt project
   links:
     - name: KubeVirt
       url: https://kubevirt.io
