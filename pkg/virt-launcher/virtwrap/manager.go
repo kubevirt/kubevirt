@@ -283,7 +283,8 @@ func classifyVolumesForMigration(vmi *v1.VirtualMachineInstance) *migrationDisks
 			disks.shared[volume.Name] = true
 		}
 		if volSrc.ConfigMap != nil || volSrc.Secret != nil ||
-			volSrc.ServiceAccount != nil || volSrc.CloudInitNoCloud != nil {
+			volSrc.ServiceAccount != nil || volSrc.CloudInitNoCloud != nil ||
+			volSrc.CloudInitConfigDrive != nil {
 			disks.generated[volume.Name] = true
 		}
 	}
