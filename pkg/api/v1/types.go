@@ -381,8 +381,10 @@ type VirtualMachineInstanceMigrationState struct {
 	Completed bool `json:"completed,omitempty"`
 	// Indicates that the migration failed
 	Failed bool `json:"failed,omitempty"`
-	// Indicates that the migration has been aborted
-	Aborted bool `json:"aborted,omitempty"`
+	// Indicates that the migration has been requested to abort
+	AbortRequested bool `json:"abortRequested,omitempty"`
+	// Indicates that the migration has been requested to abort
+	AbortStatus MigrationAbortStatus `json:"abortStatus,omitempty"`
 	// The VirtualMachineInstanceMigration object associated with this migration
 	MigrationUID types.UID `json:"migrationUid,omitempty"`
 	// Config contains migration configuration options
@@ -395,6 +397,17 @@ type MigrationConfig struct {
 	// The time to wait for live migration to make progress in transferring data.
 	ProgressTimeout int64 `json:"progressTimeout,omitempty"`
 }
+
+// ---
+// +k8s:openapi-gen=true
+type MigrationAbortStatus string
+
+const (
+	// Succeeded means that the VirtualMachineInstance live migration has been aborted
+	MigrationAbortSucceeded MigrationAbortStatus = "Succeeded"
+	// Failed means that the vmi live migration has failed to be abort
+	MigrationAbortFailed MigrationAbortStatus = "Failed"
+)
 
 // ---
 // +k8s:openapi-gen=true
