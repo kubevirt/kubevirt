@@ -16,6 +16,12 @@ func (VirtualMachineInstanceList) SwaggerDoc() map[string]string {
 	}
 }
 
+func (Toleration) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"evictionPolicy": "Defines if a VMI should be live-migrated or shut-down if it gets evicted by k8s",
+	}
+}
+
 func (VirtualMachineInstanceSpec) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"":                              "VirtualMachineInstanceSpec is a description of a VirtualMachineInstance.",

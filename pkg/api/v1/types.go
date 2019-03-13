@@ -143,6 +143,16 @@ type VirtualMachineInstanceList struct {
 	Items           []VirtualMachineInstance `json:"items"`
 }
 
+// ---
+// +k8s:openapi-gen=true
+type Toleration struct {
+	k8sv1.Toleration `json:",inline"`
+	// Defines if a VMI should be live-migrated or shut-down if it gets evicted by k8s
+	// ---
+	// +optional
+	EvictionPolicy *EvictionPolicy `json:"evictionPolicy,omitempty"`
+}
+
 // VirtualMachineInstanceSpec is a description of a VirtualMachineInstance.
 // ---
 // +k8s:openapi-gen=true
@@ -157,7 +167,7 @@ type VirtualMachineInstanceSpec struct {
 	// If affinity is specifies, obey all the affinity rules
 	Affinity *k8sv1.Affinity `json:"affinity,omitempty"`
 	// If toleration is specified, obey all the toleration rules.
-	Tolerations []k8sv1.Toleration `json:"tolerations,omitempty"`
+	Tolerations []Toleration `json:"tolerations,omitempty"`
 	// Grace period observed after signalling a VirtualMachineInstance to stop after which the VirtualMachineInstance is force terminated.
 	TerminationGracePeriodSeconds *int64 `json:"terminationGracePeriodSeconds,omitempty"`
 	// List of volumes that can be mounted by disks belonging to the vmi.
@@ -462,7 +472,7 @@ const (
 	MigrationJobNameAnnotation string = "kubevirt.io/migrationJobName"
 	// This label is used to match virtual machine instance IDs with pods.
 	// Similar to kubevirt.io/domain. Used on Pod.
-	// Deprecated: would be replaced by a Controller Reference in a future release.
+	// Internal use only.
 	CreatedByLabel string = "kubevirt.io/created-by"
 	// This label is used to indicate that this pod is the target of a migration job.
 	MigrationJobLabel string = "kubevirt.io/migrationJobUID"
@@ -1159,4 +1169,13 @@ const (
 	KubeVirtConditionCreated KubeVirtConditionType = "Created"
 	// Whether all components were ready
 	KubeVirtConditionReady KubeVirtConditionType = "Ready"
+)
+
+// ---
+// +k8s:openapi-gen=true
+type EvictionPolicy string
+
+const (
+	EvictionPolicyNone        EvictionPolicy = "None"
+	EvictionPolicyLiveMigrate EvictionPolicy = "LiveMigrate"
 )

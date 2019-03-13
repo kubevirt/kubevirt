@@ -608,7 +608,7 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 
 			It("[test_id:1635]the vmi with tolerations should be scheduled", func() {
 				vmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(tests.ContainerDiskFor(tests.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n")
-				vmi.Spec.Tolerations = []k8sv1.Toleration{{Key: "test", Value: "123"}}
+				vmi.Spec.Tolerations = []v1.Toleration{{Toleration: k8sv1.Toleration{Key: "test", Value: "123"}}}
 				addNodeAffinityToVMI(vmi, nodes.Items[0].Name)
 				_, err = virtClient.VirtualMachineInstance(vmi.Namespace).Create(vmi)
 				Expect(err).ToNot(HaveOccurred(), "Should create VMI")
