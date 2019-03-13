@@ -31,6 +31,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	flag "github.com/spf13/pflag"
 	k8sv1 "k8s.io/api/core/v1"
+	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes/scheme"
 	k8coresv1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	clientrest "k8s.io/client-go/rest"
@@ -38,6 +39,8 @@ import (
 	"k8s.io/client-go/tools/leaderelection"
 	"k8s.io/client-go/tools/leaderelection/resourcelock"
 	"k8s.io/client-go/tools/record"
+
+	"kubevirt.io/kubevirt/pkg/virt-controller/watch/drain/evacuation"
 
 	"kubevirt.io/kubevirt/pkg/certificates"
 	containerdisk "kubevirt.io/kubevirt/pkg/container-disk"
@@ -104,12 +107,14 @@ type VirtControllerApp struct {
 
 	LeaderElection leaderelectionconfig.Configuration
 
-	launcherImage     string
-	imagePullSecret   string
-	virtShareDir      string
-	ephemeralDiskDir  string
-	readyChan         chan bool
-	kubevirtNamespace string
+	launcherImage        string
+	imagePullSecret      string
+	virtShareDir         string
+	ephemeralDiskDir     string
+	readyChan            chan bool
+	kubevirtNamespace    string
+	evacuationController *evacuation.EvacuationController
+	k8sInformers         informers.SharedInformerFactory
 }
 
 var _ service.Service = &VirtControllerApp{}
@@ -146,6 +151,7 @@ func Execute() {
 		golog.Fatalf("Error searching for namespace: %v", err)
 	}
 	app.informerFactory = controller.NewKubeInformerFactory(app.restClient, app.clientSet, app.kubevirtNamespace)
+	app.k8sInformers = informers.NewSharedInformerFactoryWithOptions(app.clientSet, 0)
 
 	app.vmiInformer = app.informerFactory.VMI()
 	app.podInformer = app.informerFactory.KubeVirtPod()
@@ -161,6 +167,8 @@ func Execute() {
 
 	app.persistentVolumeClaimInformer = app.informerFactory.PersistentVolumeClaim()
 	app.persistentVolumeClaimCache = app.persistentVolumeClaimInformer.GetStore()
+
+	app.k8sInformers.Policy().V1beta1().PodDisruptionBudgets().Informer()
 
 	app.vmInformer = app.informerFactory.VirtualMachine()
 
@@ -180,6 +188,7 @@ func Execute() {
 	app.initCommon()
 	app.initReplicaSet()
 	app.initVirtualMachines()
+	app.initEvacuationController()
 	app.Run()
 }
 
@@ -236,6 +245,8 @@ func (vca *VirtControllerApp) Run() {
 				OnStartedLeading: func(ctx context.Context) {
 					stop := ctx.Done()
 					vca.informerFactory.Start(stop)
+					vca.k8sInformers.Start(stop)
+					go vca.evacuationController.Run(1, stop)
 					go vca.nodeController.Run(controllerThreads, stop)
 					go vca.vmiController.Run(controllerThreads, stop)
 					go vca.rsController.Run(controllerThreads, stop)
@@ -300,6 +311,17 @@ func (vca *VirtControllerApp) initVirtualMachines() {
 		vca.dataVolumeInformer,
 		recorder,
 		vca.clientSet)
+}
+
+func (vca *VirtControllerApp) initEvacuationController() {
+	recorder := vca.getNewRecorder(k8sv1.NamespaceAll, "disruptionbudget-controller")
+	vca.evacuationController = evacuation.NewEvacuationController(
+		vca.vmiInformer,
+		vca.migrationInformer,
+		vca.nodeInformer,
+		recorder,
+		vca.clientSet,
+	)
 }
 
 func (vca *VirtControllerApp) leaderProbe(_ *restful.Request, response *restful.Response) {
