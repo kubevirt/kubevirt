@@ -926,7 +926,15 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 	if vmi.Spec.Tolerations != nil {
 		pod.Spec.Tolerations = []k8sv1.Toleration{}
 		for _, v := range vmi.Spec.Tolerations {
-			pod.Spec.Tolerations = append(pod.Spec.Tolerations, v)
+			if v.EvictionPolicy != nil && *v.EvictionPolicy == v1.EvictionPolicyLiveMigrate {
+				// tolerationSeconds, if present, needs to be interpreted by the evacuation controller
+				// to allow migrations.
+				toleration := v.Toleration.DeepCopy()
+				toleration.TolerationSeconds = nil
+				pod.Spec.Tolerations = append(pod.Spec.Tolerations, *toleration)
+			} else {
+				pod.Spec.Tolerations = append(pod.Spec.Tolerations, v.Toleration)
+			}
 		}
 	}
 
