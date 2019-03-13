@@ -167,7 +167,7 @@ func mutateMigrationCreate(ar *v1beta1.AdmissionReview) *v1beta1.AdmissionRespon
 		return webhooks.ToAdmissionResponseError(err)
 	}
 
-	// Add foreground finalizer
+	// Add a finalizer
 	migration.Finalizers = append(migration.Finalizers, v1.VirtualMachineInstanceMigrationFinalizer)
 	var patch []patchOperation
 	var value interface{}

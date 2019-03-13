@@ -5932,7 +5932,7 @@
       "type": "boolean"
      },
      "abortStatus": {
-      "description": "Indicates that the migration has been requested to abort",
+      "description": "Indicates the final status of the live migration abortion",
       "type": "string"
      },
      "completed": {
