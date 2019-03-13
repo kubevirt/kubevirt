@@ -107,6 +107,50 @@ var _ = Describe("Validating Webhook", func() {
 			Expect(resp.Result.Message).To(ContainSubstring("no memory requested"))
 		})
 
+		Context("tolerations with eviction policies given", func() {
+			var vmi *v1.VirtualMachineInstance
+			BeforeEach(func() {
+				vmi = v1.NewMinimalVMI("testvmi")
+				vmi.Spec.Tolerations = []v1.Toleration{
+					{
+						Toleration: k8sv1.Toleration{},
+					},
+				}
+			})
+			table.DescribeTable("it should allow", func(policy v1.EvictionPolicy) {
+				vmi.Spec.Tolerations[0].EvictionPolicy = &policy
+				resp := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec)
+				Expect(resp).To(BeEmpty())
+			},
+				table.Entry("default policy to be set", v1.EvictionPolicyNone),
+				table.Entry("migration policy to be set", v1.EvictionPolicyLiveMigrate),
+			)
+
+			It("should allow no eviction policy to be set", func() {
+				vmi.Spec.Tolerations[0].EvictionPolicy = nil
+				resp := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec)
+				Expect(resp).To(BeEmpty())
+
+			})
+
+			It("should  not allow unknown eviction policies", func() {
+				policy := v1.EvictionPolicy("fantasy")
+				vmi.Spec.Tolerations[0].EvictionPolicy = &policy
+				resp := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec)
+				Expect(resp).To(HaveLen(1))
+				Expect(resp[0].Message).To(Equal("fake.tolerations.evictionPolicy is set with an unrecognized option: fantasy"))
+			})
+
+			It("should not allow to set an EvictionPolicy of liveMigrate on the NoExecute effect", func() {
+				policy := v1.EvictionPolicyLiveMigrate
+				vmi.Spec.Tolerations[0].Effect = k8sv1.TaintEffectNoExecute
+				vmi.Spec.Tolerations[0].EvictionPolicy = &policy
+				resp := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec)
+				Expect(resp).To(HaveLen(1))
+				Expect(resp[0].Message).To(Equal("fake.tolerations.evictionPolicy must not be set to LiveMigrate on the taint effect NoExecute"))
+			})
+		})
+
 		Context("with probes given", func() {
 			It("should reject probes with not probe action configured", func() {
 				vmi := v1.NewMinimalVMI("testvmi")

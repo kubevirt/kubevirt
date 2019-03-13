@@ -1416,6 +1416,30 @@ func ValidateVirtualMachineInstanceSpec(field *k8sfield.Path, spec *v1.VirtualMa
 		causes = append(causes, validateDNSPolicy(&spec.DNSPolicy, field.Child("dnsPolicy"))...)
 	}
 	causes = append(causes, validatePodDNSConfig(spec.DNSConfig, &spec.DNSPolicy, field.Child("dnsConfig"))...)
+
+	for _, toleration := range spec.Tolerations {
+
+		if toleration.EvictionPolicy != nil &&
+			*toleration.EvictionPolicy != v1.EvictionPolicyNone &&
+			*toleration.EvictionPolicy != v1.EvictionPolicyLiveMigrate {
+			causes = append(causes, metav1.StatusCause{
+				Type:    metav1.CauseTypeFieldValueInvalid,
+				Message: fmt.Sprintf("%s is set with an unrecognized option: %s", field.Child("tolerations", "evictionPolicy").String(), *toleration.EvictionPolicy),
+				Field:   field.Child("tolerations", "evictionPolicy").String(),
+			})
+		}
+
+		if toleration.EvictionPolicy != nil &&
+			*toleration.EvictionPolicy == v1.EvictionPolicyLiveMigrate &&
+			toleration.Effect == k8sv1.TaintEffectNoExecute {
+			causes = append(causes, metav1.StatusCause{
+				Type:    metav1.CauseTypeFieldValueInvalid,
+				Message: fmt.Sprintf("%s must not be set to %s on the taint effect %s", field.Child("tolerations", "evictionPolicy").String(), *toleration.EvictionPolicy, k8sv1.TaintEffectNoExecute),
+				Field:   field.Child("tolerations", "evictionPolicy").String(),
+			})
+		}
+	}
+
 	return causes
 }
 
