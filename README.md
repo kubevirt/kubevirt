@@ -1,0 +1,31 @@
+# Hyperconverged Cluster Operator
+
+The goal of the hyperconverged-cluster-operator (HCO) is to provide a single
+entrypoint for multiple operators - kubevirt, cdi, networking, ect... - where
+users can deploy and configure them in a single object. This operator is
+sometimes referred to as a "meta operator" or an "operator for operators".
+Most importantly, this operator doesn't replace or interfere with OLM.
+It only creates operator CRs, which is the user's prerogative.
+
+## Using the HCO
+TODO:
+  - Golang code to generate deployment manifests
+  - Manifest that launches HCO, kubevirt, CDI, network, and UI operators for
+    initial non OLM deployments
+  - Unifed CSV file that lauches all operators through OLM
+
+Launch the HCO.
+```bash
+oc create -f deploy/
+```
+
+Launch the KubeVirt operator.
+```bash
+oc create -f https://github.com/kubevirt/kubevirt/releases/download/v0.15.0/kubevirt-operator.yaml
+```
+
+Create an HCO CustomResource, which creates the KubeVirt CR, launching KubeVirt.
+```bash
+oc create -f deploy/crds/hco_v1alpha1_hyperconverged_crd.yaml
+oc create -f deploy/crds/hco_v1alpha1_hyperconverged_cr.yaml
+```
