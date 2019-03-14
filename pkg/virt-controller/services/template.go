@@ -1068,13 +1068,15 @@ func getCniAnnotations(vmi *v1.VirtualMachineInstance) (cniAnnotations map[strin
 	ifaceListMap := make([]map[string]string, 0)
 	cniAnnotations = make(map[string]string, 0)
 
-	for idx, network := range vmi.Spec.Networks {
+	next_idx := 0
+	for _, network := range vmi.Spec.Networks {
 		// Set the type for the first network. All other networks must have same type.
 		if network.Multus != nil {
 			ifaceMap := map[string]string{
 				"name":      network.Multus.NetworkName,
-				"interface": fmt.Sprintf("net%d", idx+1),
+				"interface": fmt.Sprintf("net%d", next_idx+1),
 			}
+			next_idx = next_idx + 1
 			ifaceListMap = append(ifaceListMap, ifaceMap)
 		} else if network.Genie != nil {
 			// We have to handle Genie separately because it doesn't support JSON format.
