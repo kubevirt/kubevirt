@@ -79,7 +79,7 @@ http_file(
 
 http_file(
     name = "virtio_win_image",
-    sha256 = "7a770f738d5853378204648a583d559753920f4f95aa54b5d4c6ff16ab37eaea",
+    sha256 = "594678f509ba6827c7b75d076ecfb64d45c6ad95e9fccba7258e6eee9a6a3560",
     urls = [
         "https://fedorapeople.org/groups/virt/virtio-win/direct-downloads/latest-virtio/virtio-win.iso",
     ],
