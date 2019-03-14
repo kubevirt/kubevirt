@@ -97,13 +97,13 @@ func (s *Launcher) CancelMigration(args *cmdclient.Args, reply *cmdclient.Reply)
 
 	err = s.domainManager.CancelVMIMigration(vmi)
 	if err != nil {
-		log.Log.Object(vmi).Reason(err).Errorf("Failed to prepare migration target pod")
+		log.Log.Object(vmi).Reason(err).Errorf("failed to abort live migration")
 		reply.Success = false
 		reply.Message = getErrorMessage(err)
 		return nil
 	}
 
-	log.Log.Object(vmi).Info("Prepared migration target pod")
+	log.Log.Object(vmi).Info("Live migration as been aborted")
 	return nil
 
 }
