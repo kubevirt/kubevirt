@@ -30,6 +30,7 @@ function down() {
 }
 
 function build() {
+    prepare_config
     # Build code and manifests
     ${KUBEVIRT_PATH}hack/dockerized "DOCKER_TAG=${DOCKER_TAG} DOCKER_PREFIX=${docker_prefix} KUBEVIRT_PROVIDER=${KUBEVIRT_PROVIDER} ./hack/build-manifests.sh"
     DOCKER_PREFIX=${docker_prefix} DOCKER_TAG=${docker_tag} make bazel-push-images
