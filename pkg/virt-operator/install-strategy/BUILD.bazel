@@ -2,7 +2,11 @@ load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
 
 go_library(
     name = "go_default_library",
-    srcs = ["strategy.go"],
+    srcs = [
+        "create.go",
+        "delete.go",
+        "strategy.go",
+    ],
     importpath = "kubevirt.io/kubevirt/pkg/virt-operator/install-strategy",
     visibility = ["//visibility:public"],
     deps = [
