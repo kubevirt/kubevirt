@@ -22,7 +22,6 @@ package virt_operator
 import (
 	"fmt"
 	"reflect"
-	"strings"
 	"sync"
 	"time"
 
@@ -871,135 +870,11 @@ func (c *KubeVirtController) syncDeployment(kv *v1.KubeVirt) error {
 	return nil
 }
 
-func daemonsetIsReady(kv *v1.KubeVirt, daemonset *appsv1.DaemonSet, stores util.Stores) bool {
-	if daemonset.Status.DesiredNumberScheduled == 0 ||
-		daemonset.Status.DesiredNumberScheduled != daemonset.Status.NumberReady {
-
-		log.Log.V(4).Infof("DaemonSet %v not ready yet", daemonset.Name)
-		return false
-	}
-
-	// cross check that we have 'daemonset.Status.NumberReady' pods with
-	// the desired version tag. This ensures we wait for rolling update to complete
-	// before marking the infrastructure as 100% ready.
-	var podsReady int32
-	for _, obj := range stores.InfrastructurePodCache.List() {
-		if pod, ok := obj.(*k8sv1.Pod); ok {
-			if !podIsRunning(pod) {
-				continue
-			} else if !podHasNamePrefix(pod, daemonset.Name) {
-				continue
-			}
-
-			if !podIsUpToDate(pod, kv) {
-				log.Log.Infof("DaemonSet %v waiting for out of date pods to terminate.", daemonset.Name)
-				return false
-			}
-
-			if podIsReady(pod) {
-				podsReady++
-			}
-		}
-	}
-
-	if podsReady == 0 {
-		log.Log.Infof("DaemonSet %v not ready yet. Waiting on at least one ready pod", daemonset.Name)
-		return false
-	}
-
-	return true
-}
-
-func deploymentIsReady(kv *v1.KubeVirt, deployment *appsv1.Deployment, stores util.Stores) bool {
-	var specReplicas int32 = 1
-	if deployment.Spec.Replicas != nil {
-		specReplicas = *deployment.Spec.Replicas
-	}
-	if specReplicas != deployment.Status.Replicas ||
-		deployment.Status.Replicas != deployment.Status.ReadyReplicas {
-		log.Log.V(4).Infof("Deployment %v not ready yet", deployment.Name)
-		return false
-	}
-
-	// cross check that we have 'deployment.Status.ReadyReplicas' pods with
-	// the desired version tag. This ensures we wait for rolling update to complete
-	// before marking the infrastructure as 100% ready.
-	var podsReady int32
-	for _, obj := range stores.InfrastructurePodCache.List() {
-		if pod, ok := obj.(*k8sv1.Pod); ok {
-			if !podIsRunning(pod) {
-				continue
-			} else if !podHasNamePrefix(pod, deployment.Name) {
-				continue
-			}
-
-			if !podIsUpToDate(pod, kv) {
-				log.Log.Infof("Deployment %v waiting for out of date pods to terminate.", deployment.Name)
-				return false
-			}
-
-			if podIsReady(pod) {
-				podsReady++
-			}
-		}
-	}
-
-	if podsReady == 0 {
-		log.Log.Infof("Deployment %v not ready yet. Waiting for at least one pod to become ready", deployment.Name)
-		return false
-	}
-	return true
-}
-
-func podIsDown(pod *k8sv1.Pod) bool {
-	return pod.Status.Phase == k8sv1.PodSucceeded || pod.Status.Phase == k8sv1.PodFailed
-}
-
-func podIsRunning(pod *k8sv1.Pod) bool {
-	return pod.Status.Phase == k8sv1.PodRunning
-}
-
-func podHasNamePrefix(pod *k8sv1.Pod, namePrefix string) bool {
-	if strings.Contains(pod.Name, namePrefix) {
-		return true
-	}
-	return false
-}
-
-func podIsUpToDate(pod *k8sv1.Pod, kv *v1.KubeVirt) bool {
-	if pod.Annotations == nil {
-		return false
-	}
-
-	imageTag, ok := pod.Annotations[v1.InstallStrategyVersionAnnotation]
-	if !ok || imageTag != kv.Status.TargetKubeVirtVersion {
-		return false
-	}
-
-	imageRegistry, ok := pod.Annotations[v1.InstallStrategyRegistryAnnotation]
-	if !ok || imageRegistry != kv.Status.TargetKubeVirtRegistry {
-		return false
-	}
-	return true
-}
-
-func podIsReady(pod *k8sv1.Pod) bool {
-	if pod.Status.Phase != k8sv1.PodRunning {
-		return false
-	}
-	for _, containerStatus := range pod.Status.ContainerStatuses {
-		if !containerStatus.Ready {
-			return false
-		}
-	}
-	return true
-}
-
 func (c *KubeVirtController) isReady(kv *v1.KubeVirt) bool {
 
 	for _, obj := range c.stores.DeploymentCache.List() {
 		if deployment, ok := obj.(*appsv1.Deployment); ok {
-			if !deploymentIsReady(kv, deployment, c.stores) {
+			if !util.DeploymentIsReady(kv, deployment, c.stores) {
 				return false
 			}
 		}
@@ -1007,7 +882,7 @@ func (c *KubeVirtController) isReady(kv *v1.KubeVirt) bool {
 
 	for _, obj := range c.stores.DaemonSetCache.List() {
 		if daemonset, ok := obj.(*appsv1.DaemonSet); ok {
-			if !daemonsetIsReady(kv, daemonset, c.stores) {
+			if !util.DaemonsetIsReady(kv, daemonset, c.stores) {
 				return false
 			}
 		}

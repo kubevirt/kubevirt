@@ -1097,7 +1097,18 @@ func SyncAll(kv *v1.KubeVirt,
 		}
 	}
 
-	// TODO we need to wait on all Daemonsets to roll over to the new version before updating the deployments
+	// We must ensure our daemonsets have completely rolled over
+	// before continuing with deployments
+	// TODO when rolling the API backwards, we'll need to reverse this and
+	// ensure the deployments are updated first
+	if prevStrategy != nil {
+		for _, daemonSet := range targetStrategy.daemonSets {
+			if !util.DaemonsetIsReady(kv, daemonSet, stores) {
+				log.Log.V(2).Infof("Waiting on daemonset %v to roll over to latest version", daemonSet.GetName())
+				return false, nil
+			}
+		}
+	}
 
 	// create/update Deployments
 	for _, deployment := range targetStrategy.deployments {
