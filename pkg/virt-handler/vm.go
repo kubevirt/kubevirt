@@ -339,6 +339,7 @@ func (d *VirtualMachineController) updateVMIStatus(vmi *v1.VirtualMachineInstanc
 			if vmi.Status.MigrationState.EndTimestamp == nil {
 				vmi.Status.MigrationState.EndTimestamp = migrationMetadata.EndTimestamp
 			}
+			vmi.Status.MigrationState.AbortStatus = v1.MigrationAbortStatus(migrationMetadata.AbortStatus)
 			vmi.Status.MigrationState.Completed = migrationMetadata.Completed
 			vmi.Status.MigrationState.Failed = migrationMetadata.Failed
 		}
@@ -933,16 +934,12 @@ func (d *VirtualMachineController) execute(key string) error {
 		client, err := d.getLauncherClient(vmi)
 		if err != nil {
 			log.Log.Object(vmi).Reason(err).Errorf("failed to get virt-launcher client")
-			vmi.Status.MigrationState.AbortStatus = v1.MigrationAbortFailed
 			return fmt.Errorf("unable to create virt-launcher client connection: %v", err)
 		}
 		err = client.CancelVirtualMachineMigration(vmi)
 		if err != nil {
-			log.Log.Object(vmi).Reason(err).Errorf("failed to cancel live migration!")
-			vmi.Status.MigrationState.AbortStatus = v1.MigrationAbortFailed
 			return err
 		}
-		vmi.Status.MigrationState.AbortStatus = v1.MigrationAbortSucceeded
 		return nil
 	}
 
