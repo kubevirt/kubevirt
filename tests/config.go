@@ -37,15 +37,15 @@ func init() {
 // KubeVirtTestsConfiguration contains the configuration for KubeVirt tests
 type KubeVirtTestsConfiguration struct {
 	// StorageClass to use to create local PVCs
-	StorageClassLocal string `json:"StorageClassLocal"`
+	StorageClassLocal string `json:"storageClassLocal"`
 	// StorageClass to use to create host-path PVCs
-	StorageClassHostPath string `json:"StorageClassHostPath"`
+	StorageClassHostPath string `json:"storageClassHostPath"`
 	// StorageClass to use to create block-volume PVCs
-	StorageClassBlockVolume string `json:"StorageClassBlockVolume"`
+	StorageClassBlockVolume string `json:"storageClassBlockVolume"`
 	// StorageClass to use to create rhel PVCs
-	StorageClassRhel string `json:"StorageClassRhel"`
+	StorageClassRhel string `json:"storageClassRhel"`
 	// StorageClass to use to create windows PVCs
-	StorageClassWindows string `json:"StorageClassWindows"`
+	StorageClassWindows string `json:"storageClassWindows"`
 }
 
 func NewKubeVirtTestsConfiguration() *KubeVirtTestsConfiguration {
