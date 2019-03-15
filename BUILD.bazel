@@ -150,8 +150,8 @@ pkg_tar(
 
 load(
     "@io_bazel_rules_docker//container:container.bzl",
+    "container_bundle",
     "container_image",
-    container_repositories = "repositories",
 )
 
 container_image(
@@ -163,8 +163,7 @@ container_image(
 )
 
 load(
-    "@io_bazel_rules_docker//container:container.bzl",
-    "container_bundle",
+    "@io_bazel_rules_docker//repositories:repositories.bzl",
     container_repositories = "repositories",
 )
 

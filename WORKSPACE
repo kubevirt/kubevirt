@@ -19,6 +19,7 @@ http_archive(
 
 http_archive(
     name = "com_github_bazelbuild_buildtools",
+    sha256 = "e0b5b400cfef17d65886365dc7289cb4ef8dfe07066165607413a271a32aa2a4",
     strip_prefix = "buildtools-db073457c5a56d810e46efc18bb93a4fd7aa7b5e",
     # version 0.20.0
     url = "https://github.com/bazelbuild/buildtools/archive/db073457c5a56d810e46efc18bb93a4fd7aa7b5e.zip",
@@ -29,14 +30,16 @@ load(
     "git_repository",
 )
 
-git_repository(
+http_archive(
     name = "io_bazel_rules_docker",
-    remote = "https://github.com/bazelbuild/rules_docker.git",
-    tag = "v0.5.1",
+    sha256 = "aed1c249d4ec8f703edddf35cbe9dfaca0b5f5ea6e4cd9e83e99f3b0d1136c3d",
+    strip_prefix = "rules_docker-0.7.0",
+    urls = ["https://github.com/bazelbuild/rules_docker/archive/v0.7.0.tar.gz"],
 )
 
 http_archive(
     name = "com_github_atlassian_bazel_tools",
+    sha256 = "61d23119b15feae081ac199621b1b07644e056645910aa2cbb1bcd98659d41ff",
     strip_prefix = "bazel-tools-02472d814d1867de2ad75801760732c9e595c9d9",
     urls = ["https://github.com/atlassian/bazel-tools/archive/02472d814d1867de2ad75801760732c9e595c9d9.zip"],
 )
@@ -131,6 +134,9 @@ load(
     "@io_bazel_rules_docker//container:container.bzl",
     "container_image",
     "container_pull",
+)
+load(
+    "@io_bazel_rules_docker//repositories:repositories.bzl",
     container_repositories = "repositories",
 )
 
@@ -172,9 +178,9 @@ _go_image_repos()
 
 http_archive(
     name = "io_bazel_rules_container_rpm",
-    sha256 = "b419c25576e148e537a93fafdc10cb78faf1174558d853754727b586793e71d1",
-    strip_prefix = "rules_container_rpm-0.0.4",
-    urls = ["https://github.com/rmohr/rules_container_rpm/archive/v0.0.4.tar.gz"],
+    sha256 = "151261f1b81649de6e36f027c945722bff31176f1340682679cade2839e4b1e1",
+    strip_prefix = "rules_container_rpm-0.0.5",
+    urls = ["https://github.com/rmohr/rules_container_rpm/archive/v0.0.5.tar.gz"],
 )
 
 # Get container-disk-v1alpha RPM's
