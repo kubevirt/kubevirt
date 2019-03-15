@@ -199,9 +199,9 @@ http_file(
 
 http_file(
     name = "libstdc",
-    sha256 = "91e909dda77de31d5653e14e342bb4f0c0e44a82e688d343a192b3ed71479708",
+    sha256 = "61743bc70033f02604fc18991f2a06efebd3b0f55abcbf5b1f7bd3e3cdca6293",
     urls = [
-        "https://dl.fedoraproject.org/pub/fedora/linux/updates/28/Everything/x86_64/Packages/l/libstdc++-8.2.1-6.fc28.x86_64.rpm",
+        "https://dl.fedoraproject.org/pub/fedora/linux/updates/28/Everything/x86_64/Packages/l/libstdc++-8.3.1-2.fc28.x86_64.rpm",
     ],
 )
 
