@@ -77,6 +77,7 @@ var _ = Describe("KubeVirt Operator", func() {
 	var sccSource *framework.FakeControllerSource
 	var installStrategyConfigMapSource *framework.FakeControllerSource
 	var installStrategyJobSource *framework.FakeControllerSource
+	var infrastructurePodSource *framework.FakeControllerSource
 
 	var stop chan struct{}
 	var controller *KubeVirtController
@@ -116,6 +117,7 @@ var _ = Describe("KubeVirt Operator", func() {
 		go informers.SCC.Run(stop)
 		go informers.InstallStrategyJob.Run(stop)
 		go informers.InstallStrategyConfigMap.Run(stop)
+		go informers.InfrastructurePod.Run(stop)
 
 		Expect(cache.WaitForCacheSync(stop, kvInformer.HasSynced)).To(BeTrue())
 
@@ -131,7 +133,7 @@ var _ = Describe("KubeVirt Operator", func() {
 		cache.WaitForCacheSync(stop, informers.SCC.HasSynced)
 		cache.WaitForCacheSync(stop, informers.InstallStrategyJob.HasSynced)
 		cache.WaitForCacheSync(stop, informers.InstallStrategyConfigMap.HasSynced)
-
+		cache.WaitForCacheSync(stop, informers.InfrastructurePod.HasSynced)
 	}
 
 	getSCC := func() secv1.SecurityContextConstraints {
@@ -194,6 +196,9 @@ var _ = Describe("KubeVirt Operator", func() {
 		informers.InstallStrategyJob, installStrategyJobSource = testutils.NewFakeInformerFor(&batchv1.Job{})
 		stores.InstallStrategyJobCache = informers.InstallStrategyJob.GetStore()
 
+		informers.InfrastructurePod, infrastructurePodSource = testutils.NewFakeInformerFor(&k8sv1.Pod{})
+		stores.InfrastructurePodCache = informers.InfrastructurePod.GetStore()
+
 		controller = NewKubeVirtController(virtClient, kvInformer, recorder, stores, informers)
 
 		// Wrap our workqueue to have a way to detect when we are done processing updates
@@ -243,6 +248,23 @@ var _ = Describe("KubeVirt Operator", func() {
 		Expect(recorder.Events).To(BeEmpty())
 		ctrl.Finish()
 	})
+
+	injectMetadata := func(objectMeta *metav1.ObjectMeta, version string, registry string) {
+
+		if version == "" && registry == "" {
+			return
+		}
+		if objectMeta.Labels == nil {
+			objectMeta.Labels = make(map[string]string)
+		}
+		objectMeta.Labels[v1.ManagedByLabel] = v1.ManagedByLabelOperatorValue
+
+		if objectMeta.Annotations == nil {
+			objectMeta.Annotations = make(map[string]string)
+		}
+		objectMeta.Annotations[v1.InstallStrategyVersionAnnotation] = version
+		objectMeta.Annotations[v1.InstallStrategyRegistryAnnotation] = registry
+	}
 
 	addKubeVirt := func(kv *v1.KubeVirt) {
 		mockQueue.ExpectAdds(1)
@@ -316,30 +338,50 @@ var _ = Describe("KubeVirt Operator", func() {
 		mockQueue.Wait()
 	}
 
-	addResource := func(obj runtime.Object) {
+	addPod := func(pod *k8sv1.Pod) {
+		mockQueue.ExpectAdds(1)
+		infrastructurePodSource.Add(pod)
+		mockQueue.Wait()
+	}
+
+	addResource := func(obj runtime.Object, version string, registry string) {
 		switch resource := obj.(type) {
 		case *k8sv1.ServiceAccount:
+			injectMetadata(&obj.(*k8sv1.ServiceAccount).ObjectMeta, version, registry)
 			addServiceAccount(resource)
 		case *rbacv1.ClusterRole:
+			injectMetadata(&obj.(*rbacv1.ClusterRole).ObjectMeta, version, registry)
 			addClusterRole(resource)
 		case *rbacv1.ClusterRoleBinding:
+			injectMetadata(&obj.(*rbacv1.ClusterRoleBinding).ObjectMeta, version, registry)
 			addClusterRoleBinding(resource)
 		case *rbacv1.Role:
+			injectMetadata(&obj.(*rbacv1.Role).ObjectMeta, version, registry)
 			addRole(resource)
 		case *rbacv1.RoleBinding:
+			injectMetadata(&obj.(*rbacv1.RoleBinding).ObjectMeta, version, registry)
 			addRoleBinding(resource)
 		case *extv1beta1.CustomResourceDefinition:
+			injectMetadata(&obj.(*extv1beta1.CustomResourceDefinition).ObjectMeta, version, registry)
 			addCrd(resource)
 		case *k8sv1.Service:
+			injectMetadata(&obj.(*k8sv1.Service).ObjectMeta, version, registry)
 			addService(resource)
 		case *appsv1.Deployment:
+			injectMetadata(&obj.(*appsv1.Deployment).ObjectMeta, version, registry)
 			addDeployment(resource)
 		case *appsv1.DaemonSet:
+			injectMetadata(&obj.(*appsv1.DaemonSet).ObjectMeta, version, registry)
 			addDaemonset(resource)
 		case *batchv1.Job:
+			injectMetadata(&obj.(*batchv1.Job).ObjectMeta, version, registry)
 			addInstallStrategyJob(resource)
 		case *k8sv1.ConfigMap:
+			injectMetadata(&obj.(*k8sv1.ConfigMap).ObjectMeta, version, registry)
 			addInstallStrategyConfigMap(resource)
+		case *k8sv1.Pod:
+			injectMetadata(&obj.(*k8sv1.Pod).ObjectMeta, version, registry)
+			addPod(resource)
 		default:
 			Fail("unknown resource type")
 		}
@@ -348,12 +390,66 @@ var _ = Describe("KubeVirt Operator", func() {
 	addInstallStrategy := func(imageTag string, imageRegistry string) {
 		// install strategy config
 		resource, _ := installstrategy.NewInstallStrategyConfigMap(NAMESPACE, imageTag, imageRegistry)
-		addResource(resource)
+		addResource(resource, imageTag, imageRegistry)
 	}
 
-	addAll := func() {
-		repository := defaultRegistry
-		version := defaultImageTag
+	addPods := func(version string, registry string) {
+		pullPolicy := "IfNotPresent"
+		imagePullPolicy := k8sv1.PullPolicy(pullPolicy)
+		verbosity := "2"
+
+		// we need at least one active pod for
+		// virt-api
+		// virt-controller
+		// virt-handler
+		apiDeployment, _ := components.NewApiServerDeployment(NAMESPACE, registry, version, imagePullPolicy, verbosity)
+
+		pod := &k8sv1.Pod{
+			ObjectMeta: apiDeployment.Spec.Template.ObjectMeta,
+			Spec:       apiDeployment.Spec.Template.Spec,
+			Status: k8sv1.PodStatus{
+				Phase: k8sv1.PodRunning,
+				ContainerStatuses: []k8sv1.ContainerStatus{
+					{Ready: true, Name: "somecontainer"},
+				},
+			},
+		}
+		injectMetadata(&pod.ObjectMeta, version, registry)
+		pod.Name = "virt-api-xxxx"
+		addPod(pod)
+
+		controller, _ := components.NewControllerDeployment(NAMESPACE, registry, version, imagePullPolicy, verbosity)
+		pod = &k8sv1.Pod{
+			ObjectMeta: controller.Spec.Template.ObjectMeta,
+			Spec:       controller.Spec.Template.Spec,
+			Status: k8sv1.PodStatus{
+				Phase: k8sv1.PodRunning,
+				ContainerStatuses: []k8sv1.ContainerStatus{
+					{Ready: true, Name: "somecontainer"},
+				},
+			},
+		}
+		pod.Name = "virt-controller-xxxx"
+		injectMetadata(&pod.ObjectMeta, version, registry)
+		addPod(pod)
+
+		handler, _ := components.NewHandlerDaemonSet(NAMESPACE, registry, version, imagePullPolicy, verbosity)
+		pod = &k8sv1.Pod{
+			ObjectMeta: handler.Spec.Template.ObjectMeta,
+			Spec:       handler.Spec.Template.Spec,
+			Status: k8sv1.PodStatus{
+				Phase: k8sv1.PodRunning,
+				ContainerStatuses: []k8sv1.ContainerStatus{
+					{Ready: true, Name: "somecontainer"},
+				},
+			},
+		}
+		injectMetadata(&pod.ObjectMeta, version, registry)
+		pod.Name = "virt-handler-xxxx"
+		addPod(pod)
+	}
+
+	addAll := func(version string, registry string) {
 		pullPolicy := "IfNotPresent"
 		imagePullPolicy := k8sv1.PullPolicy(pullPolicy)
 		verbosity := "2"
@@ -374,14 +470,15 @@ var _ = Describe("KubeVirt Operator", func() {
 		// services and deployments
 		all = append(all, components.NewPrometheusService(NAMESPACE))
 		all = append(all, components.NewApiServerService(NAMESPACE))
-		apiDeployment, _ := components.NewApiServerDeployment(NAMESPACE, repository, version, imagePullPolicy, verbosity)
-		controller, _ := components.NewControllerDeployment(NAMESPACE, repository, version, imagePullPolicy, verbosity)
-		handler, _ := components.NewHandlerDaemonSet(NAMESPACE, repository, version, imagePullPolicy, verbosity)
+		apiDeployment, _ := components.NewApiServerDeployment(NAMESPACE, registry, version, imagePullPolicy, verbosity)
+		controller, _ := components.NewControllerDeployment(NAMESPACE, registry, version, imagePullPolicy, verbosity)
+		handler, _ := components.NewHandlerDaemonSet(NAMESPACE, registry, version, imagePullPolicy, verbosity)
 		all = append(all, apiDeployment, controller, handler)
 
 		for _, obj := range all {
+
 			if resource, ok := obj.(runtime.Object); ok {
-				addResource(resource)
+				addResource(resource, version, registry)
 			} else {
 				Fail("could not cast to runtime.Object")
 			}
@@ -423,7 +520,6 @@ var _ = Describe("KubeVirt Operator", func() {
 				time.Sleep(time.Second)
 			}
 		}
-
 	}
 
 	makeHandlerReady := func() {
@@ -563,7 +659,7 @@ var _ = Describe("KubeVirt Operator", func() {
 		create, ok := action.(testing.CreateAction)
 		Expect(ok).To(BeTrue())
 		totalAdds++
-		addResource(create.GetObject())
+		addResource(create.GetObject(), "", "")
 		return true, create.GetObject(), nil
 	}
 	genericDeleteFunc := func(action testing.Action) (handled bool, obj runtime.Object, err error) {
@@ -744,7 +840,7 @@ var _ = Describe("KubeVirt Operator", func() {
 
 			// create all resources which should already exist
 			addKubeVirt(kv)
-			addAll()
+			addAll("custom.tag", defaultRegistry)
 			// install strategy config
 			addInstallStrategy("custom.tag", defaultRegistry)
 
@@ -792,7 +888,8 @@ var _ = Describe("KubeVirt Operator", func() {
 			// create all resources which should already exist
 			addKubeVirt(kv)
 			addInstallStrategy(defaultImageTag, defaultRegistry)
-			addAll()
+			addAll(defaultImageTag, defaultRegistry)
+			addPods(defaultImageTag, defaultRegistry)
 			makeApiAndControllerReady()
 			makeHandlerReady()
 
@@ -800,62 +897,12 @@ var _ = Describe("KubeVirt Operator", func() {
 
 		}, 15)
 
-		// TODO this test case will be removed once updates are implemented
-		It("shouldn't allow updating kubevirt image tag until updates are implemented", func(done Done) {
-			defer close(done)
-
-			kv := &v1.KubeVirt{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:       "test-install",
-					Namespace:  NAMESPACE,
-					UID:        "11111111111",
-					Finalizers: []string{util.KubeVirtFinalizer},
-				},
-				Spec: v1.KubeVirtSpec{
-					ImageTag: "1.1.1",
-				},
-				Status: v1.KubeVirtStatus{
-					TargetKubeVirtVersion: "2.2.2.2",
-				},
-			}
-
-			addKubeVirt(kv)
-
-			shouldExpectKubeVirtUpdateFailureCondition(ConditionReasonUpdateNotImplementedError)
-			controller.Execute()
-		}, 15)
-
-		// TODO this test case will be removed once updates are implemented
-		It("shouldn't allow updating kubevirt image registry until updates are implemented", func(done Done) {
-			defer close(done)
-
-			kv := &v1.KubeVirt{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:       "test-install",
-					Namespace:  NAMESPACE,
-					UID:        "11111111111",
-					Finalizers: []string{util.KubeVirtFinalizer},
-				},
-				Spec: v1.KubeVirtSpec{
-					ImageRegistry: "someregistry1",
-				},
-				Status: v1.KubeVirtStatus{
-					TargetKubeVirtRegistry: "someregistry2",
-				},
-			}
-
-			addKubeVirt(kv)
-
-			shouldExpectKubeVirtUpdateFailureCondition(ConditionReasonUpdateNotImplementedError)
-			controller.Execute()
-		}, 15)
-
 		It("should fail if KubeVirt object already exists", func(done Done) {
 			defer close(done)
 
 			kv1 := &v1.KubeVirt{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:       "test-install",
+					Name:       "test-install-1",
 					Namespace:  NAMESPACE,
 					UID:        "11111111111",
 					Finalizers: []string{util.KubeVirtFinalizer},
@@ -882,7 +929,7 @@ var _ = Describe("KubeVirt Operator", func() {
 
 			kv2 := &v1.KubeVirt{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      "test-install2",
+					Name:      "test-install-2",
 					Namespace: NAMESPACE,
 					UID:       "123123123",
 				},
@@ -1014,31 +1061,19 @@ var _ = Describe("KubeVirt Operator", func() {
 
 			kv = getLatestKubeVirt(kv)
 			Expect(kv.Status.Phase).To(Equal(v1.KubeVirtPhaseDeploying))
-			Expect(len(kv.Status.Conditions)).To(Equal(0))
-
-			// in 2nd run everything should already be created, and the Created condition should be set
-			totalAdds = 0
-			shouldExpectKubeVirtUpdate(1)
-			controller.Execute()
-
-			Expect(totalAdds).To(Equal(0))
-
-			kv = getLatestKubeVirt(kv)
-			Expect(kv.Status.Phase).To(Equal(v1.KubeVirtPhaseDeploying))
 			Expect(len(kv.Status.Conditions)).To(Equal(1))
 			condition := kv.Status.Conditions[0]
 			Expect(condition.Type).To(Equal(v1.KubeVirtConditionCreated))
 			Expect(condition.Status).To(Equal(k8sv1.ConditionTrue))
 			Expect(condition.Reason).To(Equal(ConditionReasonDeploymentCreated))
 
+			// On Second run, we expect everything to be deployed
+
+			// The controller looks to make sure the pods
+			// are active and the right version
+			addPods(defaultImageTag, defaultRegistry)
 			// make some(!) components ready
 			makeApiAndControllerReady()
-
-			// nothing should change as long as not every component is ready
-			totalAdds = 0
-			controller.Execute()
-			Expect(totalAdds).To(Equal(0))
-
 			// make last component ready
 			makeHandlerReady()
 
@@ -1078,7 +1113,7 @@ var _ = Describe("KubeVirt Operator", func() {
 
 			// create all resources which should be deleted
 			addInstallStrategy(defaultImageTag, defaultRegistry)
-			addAll()
+			addAll(defaultImageTag, defaultRegistry)
 
 			shouldExpectKubeVirtUpdate(1)
 			shouldExpectDeletions()
