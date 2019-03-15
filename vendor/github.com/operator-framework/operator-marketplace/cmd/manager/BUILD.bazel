@@ -1,0 +1,30 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_binary", "go_library")
+
+go_library(
+    name = "go_default_library",
+    srcs = ["main.go"],
+    importmap = "kubevirt.io/kubevirt/vendor/github.com/operator-framework/operator-marketplace/cmd/manager",
+    importpath = "github.com/operator-framework/operator-marketplace/cmd/manager",
+    visibility = ["//visibility:private"],
+    deps = [
+        "//vendor/github.com/operator-framework/operator-marketplace/pkg/apis:go_default_library",
+        "//vendor/github.com/operator-framework/operator-marketplace/pkg/catalogsourceconfig:go_default_library",
+        "//vendor/github.com/operator-framework/operator-marketplace/pkg/controller:go_default_library",
+        "//vendor/github.com/operator-framework/operator-marketplace/pkg/operatorsource:go_default_library",
+        "//vendor/github.com/operator-framework/operator-marketplace/pkg/status:go_default_library",
+        "//vendor/k8s.io/client-go/plugin/pkg/client/auth/gcp:go_default_library",
+        "//vendor/sigs.k8s.io/controller-runtime/pkg/client/config:go_default_library",
+        "//vendor/sigs.k8s.io/controller-runtime/pkg/manager:go_default_library",
+        "@com_github_operator_framework_operator_lifecycle_manager//pkg/api/apis/operators/v1alpha1:go_default_library",
+        "@com_github_operator_framework_operator_lifecycle_manager//pkg/lib/signals:go_default_library",
+        "@com_github_operator_framework_operator_sdk//pkg/k8sutil:go_default_library",
+        "@com_github_operator_framework_operator_sdk//version:go_default_library",
+        "@com_github_sirupsen_logrus//:go_default_library",
+    ],
+)
+
+go_binary(
+    name = "manager",
+    embed = [":go_default_library"],
+    visibility = ["//visibility:public"],
+)

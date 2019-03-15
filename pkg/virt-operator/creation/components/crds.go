@@ -211,6 +211,9 @@ func NewVirtualMachineInstanceMigrationCrd() *extv1beta1.CustomResourceDefinitio
 	return crd
 }
 
+// Used by manifest generation
+// If you change something here, you probably need to change the CSV manifest too,
+// see /manifests/release/kubevirt.VERSION.csv.yaml.in
 func NewKubeVirtCrd() *extv1beta1.CustomResourceDefinition {
 
 	// we use a different label here, so no newBlankCrd()
@@ -248,8 +251,6 @@ func NewKubeVirtCrd() *extv1beta1.CustomResourceDefinition {
 }
 
 // Used by manifest generation
-// If you change something, you probably need to change the CSV manifest too,
-// see /manifests/release/kubevirt.vVERSION.csv.yaml.in
 func NewKubeVirtCR(namespace string, pullPolicy corev1.PullPolicy) *virtv1.KubeVirt {
 	return &virtv1.KubeVirt{
 		TypeMeta: metav1.TypeMeta{

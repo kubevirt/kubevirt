@@ -51,7 +51,7 @@ func newOperatorServiceAccount(namespace string) *corev1.ServiceAccount {
 	}
 }
 
-// pulic, because it's used in manifest-templator
+// public, because it's used in manifest-templator
 func NewOperatorClusterRole() *rbacv1.ClusterRole {
 	// These are permissions needed by the operator itself.
 	// For successfully deploying KubeVirt with the operator, you need to add everything

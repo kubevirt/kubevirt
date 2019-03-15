@@ -13,4 +13,4 @@ test -f "hack/config-provider-${KUBEVIRT_PROVIDER}.sh" && source hack/config-pro
 test -f "hack/config-local.sh" && source hack/config-local.sh
 
 export binaries docker_images docker_prefix docker_tag docker_tag_alt manifest_templates \
-    master_ip network_provider kubeconfig namespace image_pull_policy verbosity csv_version
+    master_ip network_provider kubeconfig manifest_docker_prefix namespace image_pull_policy verbosity csv_version

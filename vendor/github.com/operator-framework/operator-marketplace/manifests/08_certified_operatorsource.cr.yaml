@@ -1,0 +1,13 @@
+apiVersion: "operators.coreos.com/v1"
+kind: "OperatorSource"
+metadata:
+  name: "certified-operators"
+  namespace: "openshift-marketplace"
+  labels:
+    opsrc-provider: certified
+spec:
+  type: appregistry
+  endpoint: "https://quay.io/cnr"
+  registryNamespace: "certified-operators"
+  displayName: "Certified Operators"
+  publisher: "Red Hat"

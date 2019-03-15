@@ -42,6 +42,8 @@ for arg in $args; do
         --input-file=${infile} >${outfile}
 done
 
+bundle_out_dir=${MANIFESTS_OUT_DIR}/release/olm/bundle
+
 # then process variables
 args=$(cd ${KUBEVIRT_DIR}/manifests && find . -type f -name "*.yaml.in.tmp")
 for arg in $args; do
@@ -70,7 +72,8 @@ for arg in $args; do
         --verbosity=${verbosity} \
         --csv-version=${csv_version} \
         --kubevirt-logo-path=${kubevirt_logo_path} \
-        --input-file=${infile} >${outfile}
+        --input-file=${infile} \
+        --bundle-out-dir=${bundle_out_dir} >${outfile}
 
     ${KUBEVIRT_DIR}/tools/manifest-templator/manifest-templator \
         --process-vars \
@@ -113,7 +116,7 @@ for file in $(find ${MANIFEST_TEMPLATES_OUT_DIR}/ -type f); do
 done
 
 # If diff fails then we have an issue
-diff -ru ${MANIFESTS_OUT_DIR} ${TMP_DIR}/${MANIFEST_TEMPLATES_OUT_DIR} || (
+diff -ru -x "bundle" ${MANIFESTS_OUT_DIR} ${TMP_DIR}/${MANIFEST_TEMPLATES_OUT_DIR} || (
     echo "Error: Generated manifests don't match"
     false
 )

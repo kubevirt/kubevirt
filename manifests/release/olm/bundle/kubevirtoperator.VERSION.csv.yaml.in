@@ -32,7 +32,7 @@ spec:
     - Virtualization
   version: {{.CsvVersion}}
   maturity: alpha
-  #replaces: kubevirtoperator.v?.?.?
+{{.ReplacesCsvVersion}}
   maintainers:
     - name: KubeVirt project
       email: kubevirt-dev@googlegroups.com

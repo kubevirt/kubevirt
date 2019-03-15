@@ -1,0 +1,24 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "go_default_library",
+    srcs = [
+        "deleg.go",
+        "kube_helpers.go",
+        "log.go",
+        "null.go",
+    ],
+    importmap = "kubevirt.io/kubevirt/vendor/sigs.k8s.io/controller-runtime/pkg/runtime/log",
+    importpath = "sigs.k8s.io/controller-runtime/pkg/runtime/log",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//vendor/k8s.io/apimachinery/pkg/api/meta:go_default_library",
+        "//vendor/k8s.io/apimachinery/pkg/runtime:go_default_library",
+        "//vendor/k8s.io/apimachinery/pkg/types:go_default_library",
+        "@com_github_go_logr_logr//:go_default_library",
+        "@com_github_go_logr_zapr//:go_default_library",
+        "@org_uber_go_zap//:go_default_library",
+        "@org_uber_go_zap//buffer:go_default_library",
+        "@org_uber_go_zap//zapcore:go_default_library",
+    ],
+)

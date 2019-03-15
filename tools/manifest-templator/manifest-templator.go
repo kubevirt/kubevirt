@@ -30,10 +30,11 @@ import (
 	"strings"
 	"text/template"
 
-	"k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
 
 	"kubevirt.io/kubevirt/pkg/virt-operator/creation/components"
 	"kubevirt.io/kubevirt/pkg/virt-operator/creation/rbac"
+	"kubevirt.io/kubevirt/tools/marketplace/helper"
 	"kubevirt.io/kubevirt/tools/util"
 
 	"github.com/spf13/pflag"
@@ -47,6 +48,7 @@ type templateData struct {
 	ImagePullPolicy        string
 	Verbosity              string
 	CsvVersion             string
+	ReplacesCsvVersion     string
 	OperatorDeploymentSpec string
 	OperatorRules          string
 	KubeVirtLogo           string
@@ -66,6 +68,7 @@ func main() {
 	processFiles := flag.Bool("process-files", false, "")
 	processVars := flag.Bool("process-vars", false, "")
 	kubeVirtLogoPath := flag.String("kubevirt-logo-path", "", "")
+	bundleOutDir := flag.String("bundle-out-dir", "", "")
 
 	pflag.CommandLine.AddGoFlagSet(flag.CommandLine)
 	pflag.CommandLine.ParseErrorsWhitelist.UnknownFlags = true
@@ -90,6 +93,24 @@ func main() {
 		data.OperatorDeploymentSpec = getOperatorDeploymentSpec(data)
 		data.OperatorRules = getOperatorRules()
 		data.KubeVirtLogo = getKubeVirtLogo(*kubeVirtLogoPath)
+
+		// prevent loading latest bundle from Quay for every file, only do it for the CSV manifest
+		data.ReplacesCsvVersion = ""
+		if strings.Contains(*inputFile, ".csv.yaml") {
+			bundleHelper, err := helper.NewBundleHelper("kubevirt")
+			if err != nil {
+				panic(err)
+			}
+			latestVersion := bundleHelper.GetLatestPublishedCSVVersion()
+			if latestVersion != "" {
+				data.ReplacesCsvVersion = fmt.Sprintf("  replaces: %v", latestVersion)
+				// also copy old manifests to out dir
+				if *bundleOutDir != "" {
+					bundleHelper.AddOldManifests(*bundleOutDir, *csvVersion)
+				}
+			}
+		}
+
 	} else {
 		// keep templates
 		data.Namespace = "{{.Namespace}}"
@@ -99,6 +120,7 @@ func main() {
 		data.ImagePullPolicy = "{{.ImagePullPolicy}}"
 		data.Verbosity = "{{.Verbosity}}"
 		data.CsvVersion = "{{.CsvVersion}}"
+		data.ReplacesCsvVersion = "{{.ReplacesCsvVersion}}"
 		data.OperatorDeploymentSpec = "{{.OperatorDeploymentSpec}}"
 		data.OperatorRules = "{{.OperatorRules}}"
 		data.KubeVirtLogo = "{{.KubeVirtLogo}}"

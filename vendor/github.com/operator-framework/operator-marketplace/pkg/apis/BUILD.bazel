@@ -1,0 +1,16 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "go_default_library",
+    srcs = [
+        "addtoscheme_operators_v1.go",
+        "apis.go",
+    ],
+    importmap = "kubevirt.io/kubevirt/vendor/github.com/operator-framework/operator-marketplace/pkg/apis",
+    importpath = "github.com/operator-framework/operator-marketplace/pkg/apis",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//vendor/github.com/operator-framework/operator-marketplace/pkg/apis/operators/v1:go_default_library",
+        "//vendor/k8s.io/apimachinery/pkg/runtime:go_default_library",
+    ],
+)

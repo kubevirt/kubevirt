@@ -1,0 +1,13 @@
+apiVersion: "operators.coreos.com/v1"
+kind: "OperatorSource"
+metadata:
+  name: "redhat-operators"
+  namespace: "openshift-marketplace"
+  labels:
+    opsrc-provider: redhat
+spec:
+  type: appregistry
+  endpoint: "https://quay.io/cnr"
+  registryNamespace: "redhat-operators"
+  displayName: "Red Hat Operators"
+  publisher: "Red Hat"

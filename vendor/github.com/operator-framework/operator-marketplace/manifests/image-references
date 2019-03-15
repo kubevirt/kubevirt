@@ -1,0 +1,12 @@
+kind: ImageStream
+apiVersion: image.openshift.io/v1
+spec:
+  tags:
+  - name: operator-marketplace
+    from:
+      kind: DockerImage
+      name:  quay.io/openshift/origin-operator-marketplace:latest
+  - name: operator-registry
+    from:
+      kind: DockerImage
+      name: quay.io/openshift/origin-operator-registry

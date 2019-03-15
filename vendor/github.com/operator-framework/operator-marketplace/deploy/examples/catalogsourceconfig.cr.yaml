@@ -1,0 +1,9 @@
+apiVersion: "operators.coreos.com/v1"
+kind: "CatalogSourceConfig"
+metadata:
+  name: "installed-upstream-community-operators"
+  namespace: "marketplace"
+spec:
+  targetNamespace: local-operators
+  packages: jaeger
+
