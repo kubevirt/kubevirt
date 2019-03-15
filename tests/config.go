@@ -65,7 +65,7 @@ func loadConfig() *KubeVirtTestsConfiguration {
 		err := loadConfigFromFile(ConfigFile, config)
 
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "Warning: error loading configuration file: %s\n", err)
+			panic(fmt.Sprintf("Couldn't load test suite configuration file: %s\n", err))
 		}
 	}
 
