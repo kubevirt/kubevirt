@@ -31,7 +31,7 @@ var ConfigFile = ""
 var Config *KubeVirtTestsConfiguration
 
 func init() {
-	flag.StringVar(&ConfigFile, "config", "", "Path to a JSON formatted file from which the test suite will load its configuration. The path may be absolute or relative; relative paths start at the current working directory.")
+	flag.StringVar(&ConfigFile, "config", "tests/default-config.json", "Path to a JSON formatted file from which the test suite will load its configuration. The path may be absolute or relative; relative paths start at the current working directory.")
 }
 
 // KubeVirtTestsConfiguration contains the configuration for KubeVirt tests
