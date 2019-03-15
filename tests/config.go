@@ -22,8 +22,8 @@ package tests
 import (
 	"encoding/json"
 	"flag"
-	"io/ioutil"
 	"fmt"
+	"io/ioutil"
 	"os"
 )
 
