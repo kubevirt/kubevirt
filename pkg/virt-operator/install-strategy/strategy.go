@@ -1102,10 +1102,12 @@ func SyncAll(kv *v1.KubeVirt,
 	// TODO when rolling the API backwards, we'll need to reverse this and
 	// ensure the deployments are updated first
 	if prevStrategy != nil {
-		for _, daemonSet := range targetStrategy.daemonSets {
-			if !util.DaemonsetIsReady(kv, daemonSet, stores) {
-				log.Log.V(2).Infof("Waiting on daemonset %v to roll over to latest version", daemonSet.GetName())
-				return false, nil
+		for _, obj := range stores.DaemonSetCache.List() {
+			if daemonset, ok := obj.(*appsv1.DaemonSet); ok {
+				if !util.DaemonsetIsReady(kv, daemonset, stores) {
+					log.Log.V(2).Infof("Waiting on daemonset %v to roll over to latest version", daemonset.GetName())
+					return false, nil
+				}
 			}
 		}
 	}
