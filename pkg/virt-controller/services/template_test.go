@@ -90,6 +90,15 @@ var _ = Describe("Template", func() {
 			err := networkClient.Tracker().Create(gvr, network, "default")
 			Expect(err).To(Not(HaveOccurred()))
 		}
+		// create a network in a different namespace
+		network := &networkv1.NetworkAttachmentDefinition{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "test1",
+				Namespace: "other-namespace",
+			},
+		}
+		err := networkClient.Tracker().Create(gvr, network, "other-namespace")
+		Expect(err).To(Not(HaveOccurred()))
 	})
 
 	Describe("Rendering", func() {
@@ -162,6 +171,10 @@ var _ = Describe("Template", func() {
 								NetworkSource: v1.NetworkSource{
 									Multus: &v1.CniNetwork{NetworkName: "test1"},
 								}},
+							{Name: "other-test1",
+								NetworkSource: v1.NetworkSource{
+									Multus: &v1.CniNetwork{NetworkName: "other-namespace/test1"},
+								}},
 						},
 					},
 				}
@@ -171,8 +184,9 @@ var _ = Describe("Template", func() {
 				value, ok := pod.Annotations["k8s.v1.cni.cncf.io/networks"]
 				Expect(ok).To(Equal(true))
 				expectedIfaces := ("[" +
-					"{\"interface\":\"net1\",\"name\":\"default\"}," +
-					"{\"interface\":\"net2\",\"name\":\"test1\"}" +
+					"{\"interface\":\"net1\",\"name\":\"default\",\"namespace\":\"default\"}," +
+					"{\"interface\":\"net2\",\"name\":\"test1\",\"namespace\":\"default\"}," +
+					"{\"interface\":\"net3\",\"name\":\"test1\",\"namespace\":\"other-namespace\"}" +
 					"]")
 				Expect(value).To(Equal(expectedIfaces))
 			})

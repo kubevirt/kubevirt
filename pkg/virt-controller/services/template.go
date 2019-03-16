@@ -1072,8 +1072,10 @@ func getCniAnnotations(vmi *v1.VirtualMachineInstance) (cniAnnotations map[strin
 	for _, network := range vmi.Spec.Networks {
 		// Set the type for the first network. All other networks must have same type.
 		if network.Multus != nil {
+			namespace, networkName := getNamespaceAndNetworkName(vmi, network.Multus.NetworkName)
 			ifaceMap := map[string]string{
-				"name":      network.Multus.NetworkName,
+				"name":      networkName,
+				"namespace": namespace,
 				"interface": fmt.Sprintf("net%d", next_idx+1),
 			}
 			next_idx = next_idx + 1
