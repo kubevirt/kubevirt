@@ -376,7 +376,9 @@ var _ = Describe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 		})
 
 		Context("Expose a VM as a ClusterIP service.", func() {
-			It("[test_id:1538]Connect to ClusterIP services that was set when VM was offline", func() {
+			It("[test_id:1538]Connect to ClusterIP service that was set when VM was offline.", func() {
+				// This TC also covers:
+				// [test_id:1795] Exposed VM (as a service) can be reconnected multiple times.
 				By("Getting back the cluster IP given for the service")
 				svc, err := virtClient.CoreV1().Services(vm.Namespace).Get(serviceName, k8smetav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
@@ -390,12 +392,7 @@ var _ = Describe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 				By("Waiting for the pod to report a successful connection attempt")
 				waitForJobToCompleteWithStatus(&virtClient, job, "success", 120)
 
-				By("Starting an HTTP server on the VM, to verify HTTP connection also succeeds using the exposed VM.")
-				vmi, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(vm.Name, &k8smetav1.GetOptions{})
-				Expect(err).ToNot(HaveOccurred())
-				tests.StartHTTPServer(vmi, testPort)
-
-				By("Starting a pod which tries to reach the VMI via ClusterIP over HTTP.")
+				By("Starting a pod which tries to reach the VMI again via the same ClusterIP, this time over HTTP.")
 				job = tests.NewHelloWorldJobHttp(serviceIP, servicePort)
 				job, err = virtClient.CoreV1().Pods(vm.Namespace).Create(job)
 				Expect(err).ToNot(HaveOccurred())
