@@ -809,8 +809,6 @@ func (c *KubeVirtController) syncDeployment(kv *v1.KubeVirt) error {
 	targetStrategy, pending, err = c.loadInstallStrategy(kv, kv.Status.TargetKubeVirtVersion, kv.Status.TargetKubeVirtRegistry)
 	if err != nil {
 		return err
-	} else if pending {
-		return nil
 	}
 
 	// we're waiting on the job to finish and the config map to be created

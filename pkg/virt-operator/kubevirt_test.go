@@ -108,6 +108,8 @@ var _ = Describe("KubeVirt Operator", func() {
 	patchCount := 13
 	updateCount := 16
 
+	deleteFromCache := true
+
 	syncCaches := func(stop chan struct{}) {
 		go kvInformer.Run(stop)
 		go informers.ServiceAccount.Run(stop)
@@ -158,6 +160,7 @@ var _ = Describe("KubeVirt Operator", func() {
 		totalUpdates = 0
 		totalPatches = 0
 		totalDeletions = 0
+		deleteFromCache = true
 
 		stop = make(chan struct{})
 		ctrl = gomock.NewController(GinkgoT())
@@ -458,6 +461,103 @@ var _ = Describe("KubeVirt Operator", func() {
 		addPod(pod)
 	}
 
+	generateRandomResources := func() int {
+		version := fmt.Sprintf("rand-%s", rand.String(10))
+		registry := fmt.Sprintf("rand-%s", rand.String(10))
+
+		all := make([]interface{}, 0)
+		all = append(all, &k8sv1.ServiceAccount{
+			TypeMeta: metav1.TypeMeta{
+				APIVersion: "v1",
+				Kind:       "ServiceAccount",
+			},
+			ObjectMeta: metav1.ObjectMeta{
+				Name: fmt.Sprintf("rand-%s", rand.String(10)),
+			},
+		})
+		all = append(all, &rbacv1.ClusterRole{
+			TypeMeta: metav1.TypeMeta{
+				APIVersion: "rbac.authorization.k8s.io/v1",
+				Kind:       "ClusterRole",
+			},
+			ObjectMeta: metav1.ObjectMeta{
+				Name: fmt.Sprintf("rand-%s", rand.String(10)),
+			},
+		})
+		all = append(all, &rbacv1.ClusterRoleBinding{
+			TypeMeta: metav1.TypeMeta{
+				APIVersion: "rbac.authorization.k8s.io/v1",
+				Kind:       "ClusterRoleBinding",
+			},
+			ObjectMeta: metav1.ObjectMeta{
+				Name: fmt.Sprintf("rand-%s", rand.String(10)),
+			},
+		})
+		all = append(all, &rbacv1.Role{
+			TypeMeta: metav1.TypeMeta{
+				APIVersion: "rbac.authorization.k8s.io/v1",
+				Kind:       "Role",
+			},
+			ObjectMeta: metav1.ObjectMeta{
+				Name: fmt.Sprintf("rand-%s", rand.String(10)),
+			},
+		})
+		all = append(all, &rbacv1.RoleBinding{
+			TypeMeta: metav1.TypeMeta{
+				APIVersion: "rbac.authorization.k8s.io/v1",
+				Kind:       "RoleBinding",
+			},
+			ObjectMeta: metav1.ObjectMeta{
+				Name: fmt.Sprintf("rand-%s", rand.String(10)),
+			},
+		})
+		all = append(all, &extv1beta1.CustomResourceDefinition{
+			TypeMeta: metav1.TypeMeta{
+				APIVersion: "apiextensions.k8s.io/v1beta1",
+				Kind:       "CustomResourceDefinition",
+			},
+			ObjectMeta: metav1.ObjectMeta{
+				Name: fmt.Sprintf("rand-%s", rand.String(10)),
+			},
+		})
+
+		all = append(all, &k8sv1.Service{
+			TypeMeta: metav1.TypeMeta{
+				APIVersion: "v1",
+				Kind:       "Service",
+			},
+			ObjectMeta: metav1.ObjectMeta{
+				Name: fmt.Sprintf("rand-%s", rand.String(10)),
+			},
+		})
+		all = append(all, &appsv1.DaemonSet{
+			TypeMeta: metav1.TypeMeta{
+				APIVersion: "apps/v1",
+				Kind:       "DaemonSet",
+			},
+			ObjectMeta: metav1.ObjectMeta{
+				Name: fmt.Sprintf("rand-%s", rand.String(10)),
+			},
+		})
+		all = append(all, &appsv1.Deployment{
+			TypeMeta: metav1.TypeMeta{
+				APIVersion: "apps/v1",
+				Kind:       "Deployment",
+			},
+			ObjectMeta: metav1.ObjectMeta{
+				Name: fmt.Sprintf("rand-%s", rand.String(10)),
+			},
+		})
+		for _, obj := range all {
+
+			if resource, ok := obj.(runtime.Object); ok {
+				addResource(resource, version, registry)
+			} else {
+				Fail("could not cast to runtime.Object")
+			}
+		}
+		return len(all)
+	}
 	addAll := func(version string, registry string) {
 		pullPolicy := "IfNotPresent"
 		imagePullPolicy := k8sv1.PullPolicy(pullPolicy)
@@ -699,7 +799,9 @@ var _ = Describe("KubeVirt Operator", func() {
 			key = delete.GetNamespace() + "/"
 		}
 		key += delete.GetName()
-		deleteResource(delete.GetResource().Resource, key)
+		if deleteFromCache {
+			deleteResource(delete.GetResource().Resource, key)
+		}
 		return true, nil, nil
 	}
 	expectUsers := func(userBytes []byte, count int) {
@@ -937,6 +1039,51 @@ var _ = Describe("KubeVirt Operator", func() {
 
 			controller.Execute()
 
+		}, 15)
+
+		It("should delete operator managed resources not in the deployed installstrategy", func(done Done) {
+			defer close(done)
+
+			kv := &v1.KubeVirt{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:       "test-install",
+					Namespace:  NAMESPACE,
+					Finalizers: []string{util.KubeVirtFinalizer},
+				},
+				Status: v1.KubeVirtStatus{
+					Phase: v1.KubeVirtPhaseDeployed,
+					Conditions: []v1.KubeVirtCondition{
+						{
+							Type:    v1.KubeVirtConditionCreated,
+							Status:  k8sv1.ConditionTrue,
+							Reason:  ConditionReasonDeploymentCreated,
+							Message: "All resources were created.",
+						},
+					},
+					OperatorVersion:          version.Get().String(),
+					TargetKubeVirtVersion:    defaultImageTag,
+					TargetKubeVirtRegistry:   defaultRegistry,
+					ObservedKubeVirtVersion:  defaultImageTag,
+					ObservedKubeVirtRegistry: defaultRegistry,
+				},
+			}
+
+			deleteFromCache = false
+
+			// create all resources which should already exist
+			addKubeVirt(kv)
+			addInstallStrategy(defaultImageTag, defaultRegistry)
+			addAll(defaultImageTag, defaultRegistry)
+			numResources := generateRandomResources()
+			addPods(defaultImageTag, defaultRegistry)
+
+			makeApiAndControllerReady()
+			makeHandlerReady()
+
+			shouldExpectDeletions()
+
+			controller.Execute()
+			Expect(totalDeletions).To(Equal(numResources))
 		}, 15)
 
 		It("should fail if KubeVirt object already exists", func(done Done) {
