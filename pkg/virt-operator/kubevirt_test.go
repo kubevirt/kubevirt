@@ -40,6 +40,7 @@ import (
 	extclientfake "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset/fake"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/util/rand"
 	"k8s.io/client-go/kubernetes/fake"
 	"k8s.io/client-go/testing"
 	"k8s.io/client-go/tools/cache"
@@ -98,10 +99,14 @@ var _ = Describe("KubeVirt Operator", func() {
 	os.Setenv(util.OperatorImageEnvName, fmt.Sprintf("%s/virt-operator:%s", defaultRegistry, defaultImageTag))
 
 	var totalAdds int
+	var totalUpdates int
+	var totalPatches int
 	var totalDeletions int
 
 	NAMESPACE := "kubevirt-test"
 	resourceCount := 29
+	patchCount := 13
+	updateCount := 16
 
 	syncCaches := func(stop chan struct{}) {
 		go kvInformer.Run(stop)
@@ -150,6 +155,8 @@ var _ = Describe("KubeVirt Operator", func() {
 	BeforeEach(func() {
 
 		totalAdds = 0
+		totalUpdates = 0
+		totalPatches = 0
 		totalDeletions = 0
 
 		stop = make(chan struct{})
@@ -390,6 +397,8 @@ var _ = Describe("KubeVirt Operator", func() {
 	addInstallStrategy := func(imageTag string, imageRegistry string) {
 		// install strategy config
 		resource, _ := installstrategy.NewInstallStrategyConfigMap(NAMESPACE, imageTag, imageRegistry)
+
+		resource.Name = fmt.Sprintf("%s-%s", resource.Name, rand.String(10))
 		addResource(resource, imageTag, imageRegistry)
 	}
 
@@ -655,6 +664,25 @@ var _ = Describe("KubeVirt Operator", func() {
 		}
 	}
 
+	genericUpdateFunc := func(action testing.Action) (handled bool, obj runtime.Object, err error) {
+		update, ok := action.(testing.UpdateAction)
+		Expect(ok).To(BeTrue())
+		totalUpdates++
+		// TODO check labels and annotations
+		//addResource(obj, "", "")
+		return true, update.GetObject(), nil
+	}
+
+	genericPatchFunc := func(action testing.Action) (handled bool, obj runtime.Object, err error) {
+		_, ok := action.(testing.PatchAction)
+		Expect(ok).To(BeTrue())
+		totalPatches++
+		// TODO check labels and annotations
+		//obj := patch.GetPatch()
+
+		return true, nil, nil
+	}
+
 	genericCreateFunc := func(action testing.Action) (handled bool, obj runtime.Object, err error) {
 		create, ok := action.(testing.CreateAction)
 		Expect(ok).To(BeTrue())
@@ -725,6 +753,20 @@ var _ = Describe("KubeVirt Operator", func() {
 
 	shouldExpectJobCreation := func() {
 		kubeClient.Fake.PrependReactor("create", "jobs", genericCreateFunc)
+	}
+
+	shouldExpectPatchesAndUpdates := func() {
+		kubeClient.Fake.PrependReactor("patch", "serviceaccounts", genericPatchFunc)
+		kubeClient.Fake.PrependReactor("update", "clusterroles", genericUpdateFunc)
+		kubeClient.Fake.PrependReactor("update", "clusterrolebindings", genericUpdateFunc)
+		kubeClient.Fake.PrependReactor("update", "roles", genericUpdateFunc)
+		kubeClient.Fake.PrependReactor("update", "rolebindings", genericUpdateFunc)
+
+		extClient.Fake.PrependReactor("patch", "customresourcedefinitions", genericPatchFunc)
+
+		kubeClient.Fake.PrependReactor("patch", "services", genericPatchFunc)
+		kubeClient.Fake.PrependReactor("patch", "daemonsets", genericPatchFunc)
+		kubeClient.Fake.PrependReactor("patch", "deployments", genericPatchFunc)
 	}
 
 	shouldExpectCreations := func() {
@@ -945,6 +987,56 @@ var _ = Describe("KubeVirt Operator", func() {
 
 		}, 15)
 
+		It("should generate install strategy creation job for update version", func(done Done) {
+			defer close(done)
+
+			updatedVersion := "1.1.1"
+			updatedRegistry := "otherregistry"
+
+			kv := &v1.KubeVirt{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:       "test-install",
+					Namespace:  NAMESPACE,
+					Finalizers: []string{util.KubeVirtFinalizer},
+				},
+				Spec: v1.KubeVirtSpec{
+					ImageTag:      updatedVersion,
+					ImageRegistry: updatedRegistry,
+				},
+				Status: v1.KubeVirtStatus{
+					Phase: v1.KubeVirtPhaseDeployed,
+					Conditions: []v1.KubeVirtCondition{
+						{
+							Type:    v1.KubeVirtConditionCreated,
+							Status:  k8sv1.ConditionTrue,
+							Reason:  ConditionReasonDeploymentCreated,
+							Message: "All resources were created.",
+						},
+						{
+							Type:    v1.KubeVirtConditionReady,
+							Status:  k8sv1.ConditionTrue,
+							Reason:  ConditionReasonDeploymentReady,
+							Message: "All components are ready.",
+						},
+					},
+					OperatorVersion:          version.Get().String(),
+					TargetKubeVirtVersion:    defaultImageTag,
+					TargetKubeVirtRegistry:   defaultRegistry,
+					ObservedKubeVirtVersion:  defaultImageTag,
+					ObservedKubeVirtRegistry: defaultRegistry,
+				},
+			}
+
+			// create all resources which should already exist
+			addKubeVirt(kv)
+			addInstallStrategy(defaultImageTag, defaultRegistry)
+
+			shouldExpectKubeVirtUpdate(1)
+			shouldExpectJobCreation()
+			controller.Execute()
+
+		}, 15)
+
 		It("should generate install strategy creation job if no install strategy exists", func(done Done) {
 			defer close(done)
 
@@ -996,7 +1088,7 @@ var _ = Describe("KubeVirt Operator", func() {
 
 		}, 15)
 
-		It("should not delete delete install strategy creation job if job has failed less that 10 seconds ago", func(done Done) {
+		It("should not delete completed install strategy creation job if job has failed less that 10 seconds ago", func(done Done) {
 			defer close(done)
 
 			kv := &v1.KubeVirt{
@@ -1096,6 +1188,136 @@ var _ = Describe("KubeVirt Operator", func() {
 			Expect(condition2.Type).To(Equal(v1.KubeVirtConditionReady))
 			Expect(condition2.Status).To(Equal(k8sv1.ConditionTrue))
 			Expect(condition2.Reason).To(Equal(ConditionReasonDeploymentReady))
+
+		}, 15)
+
+		It("should pause update until daemonsets are rolled over.", func(done Done) {
+			defer close(done)
+
+			updatedVersion := "1.1.1"
+			updatedRegistry := "otherregistry"
+
+			kv := &v1.KubeVirt{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:       "test-install",
+					Namespace:  NAMESPACE,
+					Finalizers: []string{util.KubeVirtFinalizer},
+				},
+				Spec: v1.KubeVirtSpec{
+					ImageTag:      updatedVersion,
+					ImageRegistry: updatedRegistry,
+				},
+				Status: v1.KubeVirtStatus{
+					Phase: v1.KubeVirtPhaseDeployed,
+					Conditions: []v1.KubeVirtCondition{
+						{
+							Type:    v1.KubeVirtConditionCreated,
+							Status:  k8sv1.ConditionTrue,
+							Reason:  ConditionReasonDeploymentCreated,
+							Message: "All resources were created.",
+						},
+						{
+							Type:    v1.KubeVirtConditionReady,
+							Status:  k8sv1.ConditionTrue,
+							Reason:  ConditionReasonDeploymentReady,
+							Message: "All components are ready.",
+						},
+					},
+					OperatorVersion:          version.Get().String(),
+					TargetKubeVirtVersion:    defaultImageTag,
+					TargetKubeVirtRegistry:   defaultRegistry,
+					ObservedKubeVirtVersion:  defaultImageTag,
+					ObservedKubeVirtRegistry: defaultRegistry,
+				},
+			}
+
+			// create all resources which should already exist
+			addKubeVirt(kv)
+			addInstallStrategy(defaultImageTag, defaultRegistry)
+			addInstallStrategy(updatedVersion, updatedRegistry)
+
+			addAll(defaultImageTag, defaultRegistry)
+			addPods(defaultImageTag, defaultRegistry)
+
+			makeApiAndControllerReady()
+			makeHandlerReady()
+
+			shouldExpectPatchesAndUpdates()
+			shouldExpectKubeVirtUpdate(1)
+
+			controller.Execute()
+
+			// deployments won't get updated until daemonset's pods are online.
+			Expect(totalPatches).To(Equal(patchCount - 2))
+			Expect(totalUpdates).To(Equal(updateCount))
+		}, 15)
+
+		It("should update resources when changing KubeVirt version.", func(done Done) {
+			defer close(done)
+
+			updatedVersion := "1.1.1"
+			updatedRegistry := "otherregistry"
+
+			kv := &v1.KubeVirt{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:       "test-install",
+					Namespace:  NAMESPACE,
+					Finalizers: []string{util.KubeVirtFinalizer},
+				},
+				Spec: v1.KubeVirtSpec{
+					ImageTag:      updatedVersion,
+					ImageRegistry: updatedRegistry,
+				},
+				Status: v1.KubeVirtStatus{
+					Phase: v1.KubeVirtPhaseDeployed,
+					Conditions: []v1.KubeVirtCondition{
+						{
+							Type:    v1.KubeVirtConditionCreated,
+							Status:  k8sv1.ConditionTrue,
+							Reason:  ConditionReasonDeploymentCreated,
+							Message: "All resources were created.",
+						},
+						{
+							Type:    v1.KubeVirtConditionReady,
+							Status:  k8sv1.ConditionTrue,
+							Reason:  ConditionReasonDeploymentReady,
+							Message: "All components are ready.",
+						},
+					},
+					OperatorVersion:          version.Get().String(),
+					TargetKubeVirtVersion:    defaultImageTag,
+					TargetKubeVirtRegistry:   defaultRegistry,
+					ObservedKubeVirtVersion:  defaultImageTag,
+					ObservedKubeVirtRegistry: defaultRegistry,
+				},
+			}
+
+			// create all resources which should already exist
+			addKubeVirt(kv)
+			addInstallStrategy(defaultImageTag, defaultRegistry)
+			addInstallStrategy(updatedVersion, updatedRegistry)
+
+			addAll(defaultImageTag, defaultRegistry)
+			addPods(defaultImageTag, defaultRegistry)
+
+			// pods for the new version are added so this test won't
+			// wait for daemonsets to rollover before updating/patching
+			// all resources.
+			addPods(updatedVersion, updatedRegistry)
+
+			makeApiAndControllerReady()
+			makeHandlerReady()
+
+			shouldExpectPatchesAndUpdates()
+			shouldExpectKubeVirtUpdate(1)
+
+			controller.Execute()
+
+			Expect(totalPatches).To(Equal(patchCount))
+			Expect(totalUpdates).To(Equal(updateCount))
+
+			// ensure every resource is either patched or updated
+			Expect(totalUpdates + totalPatches).To(Equal(resourceCount))
 
 		}, 15)
 
