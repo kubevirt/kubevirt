@@ -135,16 +135,12 @@ var _ = Describe("Infrastructure", func() {
 			By("Creating the VirtualMachineInstance")
 
 			// WARNING: we assume the VM will have a VirtIO disk (vda)
-			vmi := tests.NewRandomVMIWithWatchdog()
-			blockPVName := "block-pv-storage-metrics"
-			tests.CreateBlockVolumePvAndPvc(blockPVName, "1Gi")
-			defer tests.DeletePvAndPvc(blockPVName)
-
-			//... and we add our own vdb on which we do our test.
+			// and we add our own vdb on which we do our test.
 			// but if the default disk is not vda, the test will break
 			// TODO: introspect the VMI and get the device name of this
 			// block device?
-			tests.AddPVCDisk(vmi, "block-pvc", "virtio", blockPVName)
+			vmi := tests.NewRandomVMIWithEphemeralDisk(tests.ContainerDiskFor(tests.ContainerDiskAlpine))
+			tests.AppendEmptyDisk(vmi, "testdisk", "virtio", "1Gi")
 
 			By("Starting a new VirtualMachineInstance")
 			obj, err := virtClient.RestClient().Post().Resource("virtualmachineinstances").Namespace(tests.NamespaceTestDefault).Body(vmi).Do().Get()
