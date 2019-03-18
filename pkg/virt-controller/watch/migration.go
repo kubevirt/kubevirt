@@ -238,7 +238,7 @@ func (c *MigrationController) updateStatus(migration *virtv1.VirtualMachineInsta
 		pod = pods[0]
 	}
 
-	// Remove the finilizer and conditions if the migration has already completed
+	// Remove the finalizer and conditions if the migration has already completed
 	if migration.IsFinal() {
 		controller.RemoveFinalizer(migrationCopy, virtv1.VirtualMachineInstanceMigrationFinalizer)
 
@@ -337,7 +337,8 @@ func (c *MigrationController) updateStatus(migration *virtv1.VirtualMachineInsta
 		}
 	}
 
-	if !reflect.DeepEqual(migration.Status, migrationCopy.Status) {
+	if !reflect.DeepEqual(migration.Status, migrationCopy.Status) ||
+		!reflect.DeepEqual(migration.Finalizers, migrationCopy.Finalizers) {
 		_, err := c.clientset.VirtualMachineInstanceMigration(migration.Namespace).Update(migrationCopy)
 		if err != nil {
 			return err
@@ -402,7 +403,8 @@ func (c *MigrationController) sync(migration *virtv1.VirtualMachineInstanceMigra
 	if podExists {
 		pod = pods[0]
 	}
-	if conditionManager.HasCondition(migration, virtv1.VirtualMachineInstanceMigrationAbortRequested) {
+
+	if vmi != nil && conditionManager.HasCondition(migration, virtv1.VirtualMachineInstanceMigrationAbortRequested) {
 		vmiCopy := vmi.DeepCopy()
 		if vmiCopy.Status.MigrationState != nil {
 			vmiCopy.Status.MigrationState.AbortRequested = true

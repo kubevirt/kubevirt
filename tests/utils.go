@@ -1923,6 +1923,15 @@ func WaitForVirtualMachineToDisappearWithTimeout(vmi *v1.VirtualMachineInstance,
 	}, seconds, 1*time.Second).Should(BeTrue())
 }
 
+func WaitForMigrationToDisappearWithTimeout(migration *v1.VirtualMachineInstanceMigration, seconds int) {
+	virtClient, err := kubecli.GetKubevirtClient()
+	ExpectWithOffset(1, err).ToNot(HaveOccurred())
+	EventuallyWithOffset(1, func() bool {
+		_, err := virtClient.VirtualMachineInstanceMigration(migration.Namespace).Get(migration.Name, &metav1.GetOptions{})
+		return errors.IsNotFound(err)
+	}, seconds, 1*time.Second).Should(BeTrue())
+}
+
 func WaitForSuccessfulVMIStart(vmi runtime.Object) string {
 	return waitForVMIStart(vmi, 180, false)
 }

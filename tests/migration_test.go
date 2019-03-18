@@ -543,6 +543,9 @@ var _ = Describe("Migrations", func() {
 				// check VMI, confirm migration state
 				confirmVMIPostMigrationAborted(vmi, migrationUID, 180)
 
+				By("Waiting for the migration object to disappear")
+				tests.WaitForMigrationToDisappearWithTimeout(migration, 240)
+
 				// delete VMI
 				By("Deleting the VMI")
 				err = virtClient.VirtualMachineInstance(vmi.Namespace).Delete(vmi.Name, &metav1.DeleteOptions{})
