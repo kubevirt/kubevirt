@@ -27,11 +27,15 @@ import (
 	"os"
 )
 
+const (
+	DefaultConfigFile string = "tests/default-config.json"
+)
+
 var ConfigFile = ""
 var Config *KubeVirtTestsConfiguration
 
 func init() {
-	flag.StringVar(&ConfigFile, "config", "tests/default-config.json", "Path to a JSON formatted file from which the test suite will load its configuration. The path may be absolute or relative; relative paths start at the current working directory.")
+	flag.StringVar(&ConfigFile, "config", "", "Path to a JSON formatted file from which the test suite will load its configuration. The path may be absolute or relative; relative paths start at the current working directory.")
 }
 
 // KubeVirtTestsConfiguration contains the configuration for KubeVirt tests
@@ -48,14 +52,17 @@ type KubeVirtTestsConfiguration struct {
 	StorageClassWindows string `json:"storageClassWindows"`
 }
 
+// Returns a new KubeVirtTestsConfiguration with default values
 func NewKubeVirtTestsConfiguration() *KubeVirtTestsConfiguration {
-	return &KubeVirtTestsConfiguration{
-		StorageClassLocal:       "local",
-		StorageClassHostPath:    "host-path",
-		StorageClassBlockVolume: "block-volume",
-		StorageClassRhel:        "rhel",
-		StorageClassWindows:     "windows",
+	config := &KubeVirtTestsConfiguration{}
+
+	err := loadConfigFromFile(DefaultConfigFile, config)
+
+	if err != nil {
+		panic(fmt.Sprintf("Couldn't load default test suite configuration: %s\n", err))
 	}
+
+	return config
 }
 
 func loadConfig() *KubeVirtTestsConfiguration {
