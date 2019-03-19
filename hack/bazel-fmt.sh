@@ -20,20 +20,18 @@
 set -e
 
 source hack/common.sh
-source hack/config.sh
 
+shfmt -i 4 -w ${KUBEVIRT_DIR}/cluster/ ${KUBEVIRT_DIR}/hack/ ${KUBEVIRT_DIR}/images/
 bazel run \
     --platforms=@io_bazel_rules_go//go/toolchain:linux_amd64 \
     --workspace_status_command=./hack/print-workspace-status.sh \
-    --define container_prefix=${docker_prefix} \
-    --define container_tag=${docker_tag} \
-    //:push-images
-
-if [ -n "$docker_tag_alt" ]; then
-    bazel run \
-        --platforms=@io_bazel_rules_go//go/toolchain:linux_amd64 \
-        --workspace_status_command=./hack/print-workspace-status.sh \
-        --define container_prefix=${docker_prefix} \
-        --define container_tag=${docker_tag_alt} \
-        //:push-images
-fi
+    //:gazelle -- pkg/ tools/ tests/ cmd/
+bazel run \
+    --platforms=@io_bazel_rules_go//go/toolchain:linux_amd64 \
+    --workspace_status_command=./hack/print-workspace-status.sh \
+    //:goimports
+# allign BAZEL files to a single format
+bazel run \
+    --platforms=@io_bazel_rules_go//go/toolchain:linux_amd64 \
+    --workspace_status_command=./hack/print-workspace-status.sh \
+    //:buildifier

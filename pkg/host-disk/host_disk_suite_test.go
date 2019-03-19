@@ -1,4 +1,4 @@
-package hostdisk_test
+package hostdisk
 
 import (
 	"testing"

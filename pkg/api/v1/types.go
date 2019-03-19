@@ -32,7 +32,7 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"k8s.io/api/autoscaling/v1"
+	v1 "k8s.io/api/autoscaling/v1"
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -447,8 +447,13 @@ const (
 	// This label will be set on all resources created by the operator
 	ManagedByLabel              = "app.kubernetes.io/managed-by"
 	ManagedByLabelOperatorValue = "kubevirt-operator"
-	// This label represents the kubevirt version for an install strategy configmap.
-	InstallStrategyVersionLabel = "kubevirt.io/install-strategy-version"
+	// This annotation represents the kubevirt version for an install strategy configmap.
+	InstallStrategyVersionAnnotation = "kubevirt.io/install-strategy-version"
+	// This annotation represents the kubevirt registry used for an install strategy configmap.
+	InstallStrategyRegistryAnnotation = "kubevirt.io/install-strategy-registry"
+
+	// This label indicates the object is a part of the install strategy retrieval process.
+	InstallStrategyLabel = "kubevirt.io/install-strategy"
 
 	VirtualMachineInstanceFinalizer string = "foregroundDeleteVirtualMachine"
 	CPUManager                      string = "cpumanager"
@@ -1050,6 +1055,13 @@ func (kl *KubeVirtList) GetListMeta() meta.List {
 // ---
 // +k8s:openapi-gen=true
 type KubeVirtSpec struct {
+	// The image tag to use for the continer images installed.
+	// Defaults to the same tag as the operator's container image.
+	ImageTag string `json:"imageTag,omitempty"`
+	// The image registry to pull the container images from
+	// Defaults to the same registry the operator's container image is pulled from.
+	ImageRegistry string `json:"imageRegistry,omitempty"`
+
 	// The ImagePullPolicy to use.
 	ImagePullPolicy k8sv1.PullPolicy `json:"imagePullPolicy,omitempty" valid:"required"`
 }
@@ -1058,11 +1070,13 @@ type KubeVirtSpec struct {
 // ---
 // +k8s:openapi-gen=true
 type KubeVirtStatus struct {
-	Phase                   KubeVirtPhase       `json:"phase,omitempty"`
-	Conditions              []KubeVirtCondition `json:"conditions,omitempty" optional:"true"`
-	OperatorVersion         string              `json:"operatorVersion,omitempty" optional:"true"`
-	TargetKubeVirtVersion   string              `json:"targetKubeVirtVersion,omitempty" optional:"true"`
-	ObservedKubeVirtVersion string              `json:"observedKubeVirtVersion,omitempty" optional:"true"`
+	Phase                    KubeVirtPhase       `json:"phase,omitempty"`
+	Conditions               []KubeVirtCondition `json:"conditions,omitempty" optional:"true"`
+	OperatorVersion          string              `json:"operatorVersion,omitempty" optional:"true"`
+	TargetKubeVirtVersion    string              `json:"targetKubeVirtVersion,omitempty" optional:"true"`
+	TargetKubeVirtRegistry   string              `json:"targetKubeVirtRegistry,omitempty" optional:"true"`
+	ObservedKubeVirtVersion  string              `json:"observedKubeVirtVersion,omitempty" optional:"true"`
+	ObservedKubeVirtRegistry string              `json:"observedKubeVirtRegistry,omitempty" optional:"true"`
 }
 
 // KubeVirtPhase is a label for the phase of a KubeVirt deployment at the current time.

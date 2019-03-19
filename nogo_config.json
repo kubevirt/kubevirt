@@ -1,0 +1,122 @@
+{
+  "structtag": {
+    "exclude_files": {
+      "vendor/": "vendor doesn't pass vet",
+      "external/": "externaldoesn't pass vet"
+    }
+  },
+  "asmdecl": {
+    "exclude_files": {
+      "vendor/": "vendor doesn't pass vet",
+      "external/": "externaldoesn't pass vet"
+    }
+  },
+  "assign": {
+    "exclude_files": {
+      "vendor/": "vendor doesn't pass vet",
+      "external/": "externaldoesn't pass vet"
+    }
+  },
+  "atomic": {
+    "exclude_files": {
+      "vendor/": "vendor doesn't pass vet",
+      "external/": "externaldoesn't pass vet"
+    }
+  },
+  "bools": {
+    "exclude_files": {
+      "vendor/": "vendor doesn't pass vet",
+      "external/": "externaldoesn't pass vet"
+    }
+  },
+  "buildtag": {
+    "exclude_files": {
+      "vendor/": "vendor doesn't pass vet",
+      "external/": "externaldoesn't pass vet"
+    }
+  },
+  "cgocall": {
+    "exclude_files": {
+      "vendor/": "vendor doesn't pass vet",
+      "external/": "externaldoesn't pass vet"
+    }
+  },
+  "composites": {
+    "exclude_files": {
+      "vendor/": "vendor doesn't pass vet",
+      "external/": "externaldoesn't pass vet"
+    }
+  },
+  "copylocks": {
+    "exclude_files": {
+      "vendor/": "vendor doesn't pass vet",
+      "external/": "externaldoesn't pass vet"
+    }
+  },
+  "httpresponse": {
+    "exclude_files": {
+      "vendor/": "vendor doesn't pass vet",
+      "external/": "externaldoesn't pass vet"
+    }
+  },
+  "loopclosure": {
+    "exclude_files": {
+      "vendor/": "vendor doesn't pass vet",
+      "external/": "externaldoesn't pass vet"
+    }
+  },
+  "lostcancel": {
+    "exclude_files": {
+      "vendor/": "vendor doesn't pass vet",
+      "external/": "externaldoesn't pass vet"
+    }
+  },
+  "nilfunc": {
+    "exclude_files": {
+      "vendor/": "vendor doesn't pass vet",
+      "external/": "externaldoesn't pass vet"
+    }
+  },
+  "printf": {
+    "exclude_files": {
+      "vendor/": "vendor doesn't pass vet",
+      "external/": "externaldoesn't pass vet"
+    }
+  },
+  "shift": {
+    "exclude_files": {
+      "vendor/": "vendor doesn't pass vet",
+      "external/": "externaldoesn't pass vet"
+    }
+  },
+  "stdmethods": {
+    "exclude_files": {
+      "vendor/": "vendor doesn't pass vet",
+      "external/": "externaldoesn't pass vet"
+    }
+  },
+  "tests": {
+    "exclude_files": {
+      "vendor/": "vendor doesn't pass vet",
+      "external/": "externaldoesn't pass vet"
+    }
+  },
+  "unreachable": {
+    "exclude_files": {
+      "vendor/": "vendor doesn't pass vet",
+      "external/": "externaldoesn't pass vet"
+    }
+  },
+  "unsafeptr": {
+    "exclude_files": {
+      "vendor/": "vendor doesn't pass vet",
+      "external/": "externaldoesn't pass vet"
+    }
+  },
+  "unusedresult": {
+    "exclude_files": {
+      "vendor/": "vendor doesn't pass vet",
+      "external/": "externaldoesn't pass vet"
+    }
+  }
+}

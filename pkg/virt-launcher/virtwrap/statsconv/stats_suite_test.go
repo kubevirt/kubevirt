@@ -1,4 +1,4 @@
-package statsconv_test
+package statsconv
 
 import (
 	"testing"

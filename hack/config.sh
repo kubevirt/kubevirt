@@ -1,4 +1,4 @@
-unset binaries docker_images docker_prefix docker_tag manifest_templates \
+unset binaries docker_images docker_prefix docker_tag docker_tag_alt manifest_templates \
     master_ip network_provider kubeconfig manifest_docker_prefix namespace image_pull_policy verbosity
 
 KUBEVIRT_PROVIDER=${KUBEVIRT_PROVIDER:-${PROVIDER}}
@@ -12,5 +12,5 @@ test -f "hack/config-provider-${KUBEVIRT_PROVIDER}.sh" && source hack/config-pro
 # to change the version controlled config-default.sh file
 test -f "hack/config-local.sh" && source hack/config-local.sh
 
-export binaries docker_images docker_prefix docker_tag manifest_templates \
+export binaries docker_images docker_prefix docker_tag docker_tag_alt manifest_templates \
     master_ip network_provider kubeconfig namespace image_pull_policy verbosity

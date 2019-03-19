@@ -1,4 +1,4 @@
-package mutating_webhook_test
+package mutating_webhook
 
 import (
 	"testing"

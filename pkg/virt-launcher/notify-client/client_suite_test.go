@@ -1,4 +1,4 @@
-package eventsclient_test
+package eventsclient
 
 import (
 	"testing"

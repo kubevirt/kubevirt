@@ -90,8 +90,16 @@ safe_download() (
     local remote_sha1_url="${download_from}.sha1"
     local local_sha1_file="${download_to}.sha1"
     local remote_sha1
+    local retry=3
     # Remote file includes only sha1 w/o filename suffix
-    remote_sha1="$(curl -s "${remote_sha1_url}")"
+    for i in $(seq 1 $retry);
+    do
+      remote_sha1="$(curl -s "${remote_sha1_url}")"
+      if [[ "$remote_sha1" != "" ]]; then
+        break
+      fi
+    done
+
     if [[ "$(cat "$local_sha1_file")" != "$remote_sha1" ]]; then
         echo "${download_to} is not up to date, corrupted or doesn't exist."
         echo "Downloading file from: ${remote_sha1_url}"
@@ -155,6 +163,26 @@ if [ -n "${KUBEVIRT_CACHE_FROM}" ]; then
 fi
 
 make cluster-down
+
+# Create .bazelrc to use remote cache
+cat >.bazelrc <<EOF
+startup --host_jvm_args=-Dbazel.DigestFunction=sha256
+build --remote_local_fallback
+build --remote_http_cache=http://bazel-cache.kubevirt-prow.svc.cluster.local:8080/kubevirt.io/kubevirt
+EOF
+
+# build all images with the basic repeat logic
+# probably because load on the node, possible situation when the bazel
+# fails to download artifacts, to avoid job fails because of it,
+# we repeat the build images action
+set +e
+for i in $(seq 1 3);
+do
+  make bazel-build-images
+done
+set -e
+make bazel-build-images
+
 make cluster-up
 
 # Wait for nodes to become ready
@@ -172,14 +200,8 @@ set -e
 echo "Nodes are ready:"
 kubectl get nodes
 
-# Create .bazelrc to use remote cache
-cat >.bazelrc <<EOF
-startup --host_jvm_args=-Dbazel.DigestFunction=sha256
-build --remote_local_fallback
-build --remote_http_cache=http://bazel-cache.kubevirt-prow.svc.cluster.local:8080/kubevirt.io/kubevirt
-EOF
-
 make cluster-sync
+hack/dockerized bazel shutdown
 
 # OpenShift is running important containers under default namespace
 namespaces=(kubevirt default)

@@ -1,4 +1,4 @@
-package prometheus_test
+package prometheus
 
 import (
 	"testing"

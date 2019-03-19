@@ -236,6 +236,44 @@ var _ = Describe("Operator", func() {
 			sanityCheckDeploymentsExist()
 		})
 
+		It("should be able to create kubevirt install with custom image tag", func() {
+
+			if tests.KubeVirtVersionTagAlt == "" {
+				Skip("Skip operator custom image tag test because alt tag is not present")
+			}
+
+			allPodsAreReady()
+			sanityCheckDeploymentsExist()
+
+			By("Deleting KubeVirt object")
+			deleteAllKvAndWait(false)
+
+			// this is just verifying some common known components do in fact get deleted.
+			By("Sanity Checking Deployments infrastructure is deleted")
+			sanityCheckDeploymentsDeleted()
+
+			By("Creating KubeVirt Object")
+			kv := copyOriginalKv()
+			kv.Name = "kubevirt-alt-install"
+			kv.Spec = v1.KubeVirtSpec{
+				ImageTag:      tests.KubeVirtVersionTagAlt,
+				ImageRegistry: tests.KubeVirtRepoPrefix,
+			}
+			createKv(kv)
+
+			By("Creating KubeVirt Object Created and Ready Condition")
+			waitForKv(kv)
+
+			By("Verifying infrastructure is Ready")
+			allPodsAreReady()
+			// We're just verifying that a few common components that
+			// should always exist get re-deployed.
+			sanityCheckDeploymentsExist()
+
+			By("Deleting KubeVirt object")
+			deleteAllKvAndWait(false)
+		})
+
 		It("should fail if KV object already exists", func() {
 
 			newKv := copyOriginalKv()

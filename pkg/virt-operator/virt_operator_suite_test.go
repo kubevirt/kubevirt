@@ -1,4 +1,4 @@
-package virt_operator_test
+package virt_operator
 
 import (
 	"testing"

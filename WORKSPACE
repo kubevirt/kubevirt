@@ -7,8 +7,8 @@ load(
 # Additional bazel rules
 http_archive(
     name = "io_bazel_rules_go",
-    sha256 = "7be7dc01f1e0afdba6c8eb2b43d2fa01c743be1b9273ab1eaf6c233df078d705",
-    url = "https://github.com/bazelbuild/rules_go/releases/download/0.16.5/rules_go-0.16.5.tar.gz",
+    sha256 = "301c8b39b0808c49f98895faa6aa8c92cbd605ab5ad4b6a3a652da33a1a2ba2e",
+    urls = ["https://github.com/bazelbuild/rules_go/releases/download/0.18.0/rules_go-0.18.0.tar.gz"],
 )
 
 http_archive(
@@ -19,6 +19,7 @@ http_archive(
 
 http_archive(
     name = "com_github_bazelbuild_buildtools",
+    sha256 = "e0b5b400cfef17d65886365dc7289cb4ef8dfe07066165607413a271a32aa2a4",
     strip_prefix = "buildtools-db073457c5a56d810e46efc18bb93a4fd7aa7b5e",
     # version 0.20.0
     url = "https://github.com/bazelbuild/buildtools/archive/db073457c5a56d810e46efc18bb93a4fd7aa7b5e.zip",
@@ -29,10 +30,18 @@ load(
     "git_repository",
 )
 
-git_repository(
+http_archive(
     name = "io_bazel_rules_docker",
-    remote = "https://github.com/bazelbuild/rules_docker.git",
-    tag = "v0.5.1",
+    sha256 = "aed1c249d4ec8f703edddf35cbe9dfaca0b5f5ea6e4cd9e83e99f3b0d1136c3d",
+    strip_prefix = "rules_docker-0.7.0",
+    urls = ["https://github.com/bazelbuild/rules_docker/archive/v0.7.0.tar.gz"],
+)
+
+http_archive(
+    name = "com_github_atlassian_bazel_tools",
+    sha256 = "61d23119b15feae081ac199621b1b07644e056645910aa2cbb1bcd98659d41ff",
+    strip_prefix = "bazel-tools-02472d814d1867de2ad75801760732c9e595c9d9",
+    urls = ["https://github.com/atlassian/bazel-tools/archive/02472d814d1867de2ad75801760732c9e595c9d9.zip"],
 )
 
 # Libvirt dependencies
@@ -79,21 +88,28 @@ http_file(
 
 http_file(
     name = "virtio_win_image",
-    sha256 = "7a770f738d5853378204648a583d559753920f4f95aa54b5d4c6ff16ab37eaea",
+    sha256 = "594678f509ba6827c7b75d076ecfb64d45c6ad95e9fccba7258e6eee9a6a3560",
     urls = [
         "https://fedorapeople.org/groups/virt/virtio-win/direct-downloads/latest-virtio/virtio-win.iso",
     ],
 )
 
 load(
-    "@io_bazel_rules_go//go:def.bzl",
+    "@io_bazel_rules_go//go:deps.bzl",
     "go_register_toolchains",
     "go_rules_dependencies",
 )
 
 go_rules_dependencies()
 
-go_register_toolchains()
+go_register_toolchains(
+    go_version = "1.11.5",
+    nogo = "@//:nogo_vet",
+)
+
+load("@com_github_atlassian_bazel_tools//goimports:deps.bzl", "goimports_dependencies")
+
+goimports_dependencies()
 
 load(
     "@bazel_gazelle//:deps.bzl",
@@ -118,6 +134,9 @@ load(
     "@io_bazel_rules_docker//container:container.bzl",
     "container_image",
     "container_pull",
+)
+load(
+    "@io_bazel_rules_docker//repositories:repositories.bzl",
     container_repositories = "repositories",
 )
 
@@ -159,9 +178,9 @@ _go_image_repos()
 
 http_archive(
     name = "io_bazel_rules_container_rpm",
-    sha256 = "b419c25576e148e537a93fafdc10cb78faf1174558d853754727b586793e71d1",
-    strip_prefix = "rules_container_rpm-0.0.4",
-    urls = ["https://github.com/rmohr/rules_container_rpm/archive/v0.0.4.tar.gz"],
+    sha256 = "151261f1b81649de6e36f027c945722bff31176f1340682679cade2839e4b1e1",
+    strip_prefix = "rules_container_rpm-0.0.5",
+    urls = ["https://github.com/rmohr/rules_container_rpm/archive/v0.0.5.tar.gz"],
 )
 
 # Get container-disk-v1alpha RPM's
@@ -199,9 +218,9 @@ http_file(
 
 http_file(
     name = "libstdc",
-    sha256 = "91e909dda77de31d5653e14e342bb4f0c0e44a82e688d343a192b3ed71479708",
+    sha256 = "61743bc70033f02604fc18991f2a06efebd3b0f55abcbf5b1f7bd3e3cdca6293",
     urls = [
-        "https://dl.fedoraproject.org/pub/fedora/linux/updates/28/Everything/x86_64/Packages/l/libstdc++-8.2.1-6.fc28.x86_64.rpm",
+        "https://dl.fedoraproject.org/pub/fedora/linux/updates/28/Everything/x86_64/Packages/l/libstdc++-8.3.1-2.fc28.x86_64.rpm",
     ],
 )
 

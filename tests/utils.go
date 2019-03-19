@@ -75,6 +75,7 @@ import (
 )
 
 var KubeVirtVersionTag = "latest"
+var KubeVirtVersionTagAlt = ""
 var KubeVirtRepoPrefix = "kubevirt"
 var ContainerizedDataImporterNamespace = "cdi"
 var KubeVirtKubectlPath = ""
@@ -87,6 +88,7 @@ var PathToTestingInfrastrucureManifests = ""
 
 func init() {
 	flag.StringVar(&KubeVirtVersionTag, "container-tag", "latest", "Set the image tag or digest to use")
+	flag.StringVar(&KubeVirtVersionTagAlt, "container-tag-alt", "", "An alternate tag that can be used to test operator deployments")
 	flag.StringVar(&KubeVirtRepoPrefix, "container-prefix", "kubevirt", "Set the repository prefix for all images")
 	flag.StringVar(&ContainerizedDataImporterNamespace, "cdi-namespace", "cdi", "Set the repository prefix for CDI components")
 	flag.StringVar(&KubeVirtKubectlPath, "kubectl-path", "", "Set path to kubectl binary")
@@ -132,14 +134,6 @@ const (
 	NamespaceTestDefault = "kubevirt-test-default"
 	// NamespaceTestAlternative is used to test controller-namespace independency.
 	NamespaceTestAlternative = "kubevirt-test-alternative"
-)
-
-const (
-	StorageClassLocal       = "local"
-	StorageClassHostPath    = "host-path"
-	StorageClassBlockVolume = "block-volume"
-	StorageClassRhel        = "rhel"
-	StorageClassWindows     = "windows"
 )
 
 var testNamespaces = []string{NamespaceTestDefault, NamespaceTestAlternative}
@@ -454,6 +448,8 @@ func BeforeTestSuitSetup() {
 	log.InitializeLogging("tests")
 	log.Log.SetIOWriter(GinkgoWriter)
 
+	Config = loadConfig()
+
 	createNamespaces()
 	createServiceAccounts()
 	if DeployTestingInfrastructureFlag {
@@ -464,8 +460,8 @@ func BeforeTestSuitSetup() {
 	CreateHostPathPv(osAlpineHostPath, HostPathAlpine)
 	CreateHostPathPVC(osAlpineHostPath, defaultDiskSize)
 
-	CreatePVC(osWindows, defaultWindowsDiskSize, StorageClassWindows)
-	CreatePVC(osRhel, defaultRhelDiskSize, StorageClassRhel)
+	CreatePVC(osWindows, defaultWindowsDiskSize, Config.StorageClassWindows)
+	CreatePVC(osRhel, defaultRhelDiskSize, Config.StorageClassRhel)
 
 	EnsureKVMPresent()
 
@@ -540,7 +536,7 @@ func CreateSecret(name string, data map[string]string) {
 }
 
 func CreateHostPathPVC(os, size string) {
-	CreatePVC(os, size, StorageClassHostPath)
+	CreatePVC(os, size, Config.StorageClassHostPath)
 }
 
 func CreatePVC(os, size, storageClass string) {
@@ -616,7 +612,7 @@ func CreateHostPathPvWithSize(osName string, hostPath string, size string) {
 					Type: &hostPathType,
 				},
 			},
-			StorageClassName: StorageClassHostPath,
+			StorageClassName: Config.StorageClassHostPath,
 			NodeAffinity: &k8sv1.VolumeNodeAffinity{
 				Required: &k8sv1.NodeSelector{
 					NodeSelectorTerms: []k8sv1.NodeSelectorTerm{
@@ -1212,7 +1208,7 @@ func PanicOnError(err error) {
 func NewRandomDataVolumeWithHttpImport(imageUrl string, namespace string) *cdiv1.DataVolume {
 
 	name := "test-datavolume-" + rand.String(12)
-	storageClass := StorageClassLocal
+	storageClass := Config.StorageClassLocal
 	quantity, err := resource.ParseQuantity("2Gi")
 	PanicOnError(err)
 	dataVolume := &cdiv1.DataVolume{
@@ -1552,7 +1548,7 @@ func newBlockVolumePV(name string, labelSelector map[string]string, size string)
 	quantity, err := resource.ParseQuantity(size)
 	PanicOnError(err)
 
-	storageClass := StorageClassBlockVolume
+	storageClass := Config.StorageClassBlockVolume
 	volumeMode := k8sv1.PersistentVolumeBlock
 
 	virtCli, err := kubecli.GetKubevirtClient()
@@ -1604,7 +1600,7 @@ func newBlockVolumePVC(name string, labelSelector map[string]string, size string
 	quantity, err := resource.ParseQuantity(size)
 	PanicOnError(err)
 
-	storageClass := StorageClassBlockVolume
+	storageClass := Config.StorageClassBlockVolume
 	volumeMode := k8sv1.PersistentVolumeBlock
 
 	return &k8sv1.PersistentVolumeClaim{
@@ -2708,7 +2704,7 @@ func newISCSIPV(name string, size string, iscsiTargetIP string, accessMode k8sv1
 	quantity, err := resource.ParseQuantity(size)
 	PanicOnError(err)
 
-	storageClass := StorageClassLocal
+	storageClass := Config.StorageClassLocal
 	volumeMode := k8sv1.PersistentVolumeBlock
 
 	return &k8sv1.PersistentVolume{
@@ -2742,7 +2738,7 @@ func newISCSIPVC(name string, size string, accessMode k8sv1.PersistentVolumeAcce
 	quantity, err := resource.ParseQuantity(size)
 	PanicOnError(err)
 
-	storageClass := StorageClassLocal
+	storageClass := Config.StorageClassLocal
 	volumeMode := k8sv1.PersistentVolumeBlock
 
 	return &k8sv1.PersistentVolumeClaim{
@@ -2958,7 +2954,7 @@ func KubevirtFailHandler(message string, callerSkip ...int) {
 		return
 	}
 
-	for _, ns := range []string{KubeVirtInstallNamespace, metav1.NamespaceSystem, NamespaceTestDefault} {
+	for _, ns := range []string{KubeVirtInstallNamespace, ContainerizedDataImporterNamespace, metav1.NamespaceSystem, NamespaceTestDefault} {
 		// Get KubeVirt and CDI specific pods information
 		labels := []string{"kubevirt.io", "cdi.kubevirt.io"}
 		allPods := []k8sv1.Pod{}

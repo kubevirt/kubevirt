@@ -20,9 +20,11 @@
 package virtlauncher
 
 import (
+	"flag"
 	"io/ioutil"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 	"sync"
 	"syscall"
@@ -33,6 +35,14 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/log"
 )
+
+var fakeQEMUBinary string
+
+func init() {
+	flag.StringVar(&fakeQEMUBinary, "fake-qemu-binary-path", "_out/cmd/fake-qemu-process/fake-qemu-process", "path to cirros test image")
+	flag.Parse()
+	fakeQEMUBinary = filepath.Join("../../", fakeQEMUBinary)
+}
 
 var _ = Describe("VirtLauncher", func() {
 	var mon *monitor
@@ -48,16 +58,13 @@ var _ = Describe("VirtLauncher", func() {
 	dir := os.Getenv("PWD")
 	dir = strings.TrimSuffix(dir, "pkg/virt-launcher")
 
-	processName := "fake-qemu-process"
-	processPath := dir + "/_out/cmd/fake-qemu-process/" + processName
-
 	processStarted := false
 
 	StartProcess := func() {
 		cmdLock.Lock()
 		defer cmdLock.Unlock()
 
-		cmd = exec.Command(processPath, "--uuid", uuid)
+		cmd = exec.Command(fakeQEMUBinary, "--uuid", uuid)
 		err := cmd.Start()
 		Expect(err).ToNot(HaveOccurred())
 

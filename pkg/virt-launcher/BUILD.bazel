@@ -21,6 +21,11 @@ go_test(
         "monitor_test.go",
         "virt_launcher_suite_test.go",
     ],
+    args = [
+        "--fake-qemu-binary-path",
+        "$(location //cmd/fake-qemu-process)",
+    ],
+    data = ["//cmd/fake-qemu-process"],
     embed = [":go_default_library"],
     deps = [
         "//pkg/log:go_default_library",

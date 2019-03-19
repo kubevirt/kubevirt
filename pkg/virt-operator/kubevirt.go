@@ -34,22 +34,21 @@ import (
 	"k8s.io/client-go/tools/record"
 	"k8s.io/client-go/util/workqueue"
 
-	"kubevirt.io/kubevirt/pkg/api/v1"
+	v1 "kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/kubecli"
 	"kubevirt.io/kubevirt/pkg/log"
-	"kubevirt.io/kubevirt/pkg/virt-operator/creation"
-	"kubevirt.io/kubevirt/pkg/virt-operator/deletion"
-	"kubevirt.io/kubevirt/pkg/virt-operator/install-strategy"
+	installstrategy "kubevirt.io/kubevirt/pkg/virt-operator/install-strategy"
 	"kubevirt.io/kubevirt/pkg/virt-operator/util"
 )
 
 const (
-	ConditionReasonDeploymentFailedExisting = "ExistingDeployment"
-	ConditionReasonDeploymentFailedError    = "DeploymentFailed"
-	ConditionReasonDeletionFailedError      = "DeletionFailed"
-	ConditionReasonDeploymentCreated        = "AllResourcesCreated"
-	ConditionReasonDeploymentReady          = "AllComponentsReady"
+	ConditionReasonDeploymentFailedExisting  = "ExistingDeployment"
+	ConditionReasonDeploymentFailedError     = "DeploymentFailed"
+	ConditionReasonDeletionFailedError       = "DeletionFailed"
+	ConditionReasonUpdateNotImplementedError = "UpdatesNotImplemented"
+	ConditionReasonDeploymentCreated         = "AllResourcesCreated"
+	ConditionReasonDeploymentReady           = "AllComponentsReady"
 )
 
 type KubeVirtController struct {
@@ -456,7 +455,10 @@ func (c *KubeVirtController) execute(key string) error {
 	return syncError
 }
 
-func (c *KubeVirtController) generateInstallStrategyJob(kv *v1.KubeVirt, imageTag string, imageRegistry string) *batchv1.Job {
+func (c *KubeVirtController) generateInstallStrategyJob(kv *v1.KubeVirt) *batchv1.Job {
+
+	imageTag := c.getImageTag(kv)
+	imageRegistry := c.getImageRegistry(kv)
 
 	pullPolicy := k8sv1.PullIfNotPresent
 	if string(kv.Spec.ImagePullPolicy) != "" {
@@ -470,11 +472,15 @@ func (c *KubeVirtController) generateInstallStrategyJob(kv *v1.KubeVirt, imageTa
 
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: kv.Namespace,
-			Name:      fmt.Sprintf("virt-install-strategy-job-%s", imageTag),
+			Name:      fmt.Sprintf("%s-job", kv.Name),
 			Labels: map[string]string{
-				v1.AppLabel:                    "",
-				v1.ManagedByLabel:              v1.ManagedByLabelOperatorValue,
-				v1.InstallStrategyVersionLabel: imageTag,
+				v1.AppLabel:             "",
+				v1.ManagedByLabel:       v1.ManagedByLabelOperatorValue,
+				v1.InstallStrategyLabel: "",
+			},
+			Annotations: map[string]string{
+				v1.InstallStrategyVersionAnnotation:  imageTag,
+				v1.InstallStrategyRegistryAnnotation: imageRegistry,
 			},
 		},
 		Spec: batchv1.JobSpec{
@@ -534,12 +540,20 @@ func (c *KubeVirtController) garbageCollectInstallStrategyJobs() error {
 	return nil
 }
 
-func (c *KubeVirtController) getInstallStrategyFromMap(version string) (*installstrategy.InstallStrategy, bool) {
+func (c *KubeVirtController) getInstallStrategyFromMap(version string, registry string) (*installstrategy.InstallStrategy, bool) {
 	c.installStrategyMutex.Lock()
 	defer c.installStrategyMutex.Unlock()
 
-	strategy, ok := c.installStrategyMap[version]
+	strategy, ok := c.installStrategyMap[fmt.Sprintf("%s/%s", registry, version)]
 	return strategy, ok
+}
+
+func (c *KubeVirtController) cacheInstallStrategyInMap(strategy *installstrategy.InstallStrategy, version string, registry string) {
+
+	c.installStrategyMutex.Lock()
+	defer c.installStrategyMutex.Unlock()
+	c.installStrategyMap[fmt.Sprintf("%s/%s", registry, version)] = strategy
+
 }
 
 func (c *KubeVirtController) deleteAllInstallStrategy() error {
@@ -561,9 +575,27 @@ func (c *KubeVirtController) deleteAllInstallStrategy() error {
 	return nil
 }
 
+func (c *KubeVirtController) getImageTag(kv *v1.KubeVirt) string {
+	if kv.Status.TargetKubeVirtVersion != "" {
+		return kv.Status.TargetKubeVirtVersion
+	} else if kv.Spec.ImageTag == "" {
+		return c.config.ImageTag
+	}
+	return kv.Spec.ImageTag
+}
+
+func (c *KubeVirtController) getImageRegistry(kv *v1.KubeVirt) string {
+	if kv.Status.TargetKubeVirtRegistry != "" {
+		return kv.Status.TargetKubeVirtRegistry
+	} else if kv.Spec.ImageRegistry == "" {
+		return c.config.ImageRegistry
+	}
+	return kv.Spec.ImageRegistry
+}
+
 // Loads install strategies into memory, and generates jobs to
 // create install strategies that don't exist yet.
-func (c *KubeVirtController) loadInstallStrategy(kv *v1.KubeVirt) (*installstrategy.InstallStrategy, bool, error) {
+func (c *KubeVirtController) loadInstallStrategy(kv *v1.KubeVirt, imageTag string, registry string) (*installstrategy.InstallStrategy, bool, error) {
 
 	kvkey, err := controller.KeyFunc(kv)
 	if err != nil {
@@ -571,19 +603,17 @@ func (c *KubeVirtController) loadInstallStrategy(kv *v1.KubeVirt) (*installstrat
 	}
 
 	// 1. see if we already loaded the install strategy
-	strategy, ok := c.getInstallStrategyFromMap(c.config.ImageTag)
+	strategy, ok := c.getInstallStrategyFromMap(imageTag, registry)
 	if ok {
 		// we already loaded this strategy into memory
 		return strategy, false, nil
 	}
 
 	// 2. look for install strategy config map in cache.
-	strategy, err = installstrategy.LoadInstallStrategyFromCache(c.stores, kv.Namespace, c.config.ImageTag)
+	strategy, err = installstrategy.LoadInstallStrategyFromCache(c.stores, kv.Namespace, imageTag, registry)
 	if err == nil {
-		c.installStrategyMutex.Lock()
-		defer c.installStrategyMutex.Unlock()
-		c.installStrategyMap[c.config.ImageTag] = strategy
-		log.Log.Infof("Loaded install strategy for kubevirt version %s into cache", c.config.ImageTag)
+		c.cacheInstallStrategyInMap(strategy, imageTag, registry)
+		log.Log.Infof("Loaded install strategy for kubevirt version %s into cache", imageTag)
 		return strategy, false, nil
 	}
 
@@ -591,7 +621,7 @@ func (c *KubeVirtController) loadInstallStrategy(kv *v1.KubeVirt) (*installstrat
 
 	// 3. See if we have a pending job in flight for this install strategy.
 	batch := c.clientset.BatchV1()
-	job := c.generateInstallStrategyJob(kv, c.config.ImageTag, c.config.ImageRegistry)
+	job := c.generateInstallStrategyJob(kv)
 
 	obj, exists, _ := c.stores.InstallStrategyJobCache.Get(job)
 	if exists {
@@ -601,7 +631,7 @@ func (c *KubeVirtController) loadInstallStrategy(kv *v1.KubeVirt) (*installstrat
 			// job completed but we don't have a install strategy still
 			// delete the job and we'll re-execute it once it is removed.
 
-			log.Log.Object(cachedJob).Errorf("Job failed to create install strategy for version %s", c.config.ImageTag)
+			log.Log.Object(cachedJob).Errorf("Job failed to create install strategy for version %s", imageTag)
 			if cachedJob.DeletionTimestamp == nil {
 
 				// Just in case there's an issue causing the job to fail
@@ -636,7 +666,7 @@ func (c *KubeVirtController) loadInstallStrategy(kv *v1.KubeVirt) (*installstrat
 
 						return nil, true, err
 					}
-					log.Log.Object(cachedJob).Errorf("Deleting job for install strategy version %s because configmap was not generated", c.config.ImageTag)
+					log.Log.Object(cachedJob).Errorf("Deleting job for install strategy version %s because configmap was not generated", imageTag)
 				}
 				// waiting on deleted job to disappear before re-creating it.
 				return nil, true, err
@@ -654,7 +684,7 @@ func (c *KubeVirtController) loadInstallStrategy(kv *v1.KubeVirt) (*installstrat
 		c.kubeVirtExpectations.InstallStrategyJob.LowerExpectations(kvkey, 1, 0)
 		return nil, true, err
 	}
-	log.Log.Infof("Created job to generate install strategy configmap for version %s", c.config.ImageTag)
+	log.Log.Infof("Created job to generate install strategy configmap for version %s", c.getImageTag(kv))
 
 	// pending is true here because we're waiting on the job
 	// to generate the install strategy
@@ -666,8 +696,24 @@ func (c *KubeVirtController) syncDeployment(kv *v1.KubeVirt) error {
 	logger.Infof("Handling deployment")
 
 	// Set versions...
-	if kv.Status.OperatorVersion == "" {
-		util.SetVersions(kv, c.config)
+	util.SetOperatorVersion(kv)
+	// record the version we're targetting to install
+	if kv.Status.TargetKubeVirtVersion == "" {
+		kv.Status.TargetKubeVirtVersion = c.getImageTag(kv)
+	}
+	if kv.Status.TargetKubeVirtRegistry == "" {
+		kv.Status.TargetKubeVirtRegistry = c.getImageRegistry(kv)
+	}
+
+	// TODO once updates are enabled, we'll allow transitioning between image tags.
+	// for now, we don't support this though.
+	if kv.Spec.ImageTag != "" && kv.Spec.ImageTag != kv.Status.TargetKubeVirtVersion {
+		util.UpdateCondition(kv, v1.KubeVirtConditionSynchronized, k8sv1.ConditionFalse, ConditionReasonUpdateNotImplementedError, fmt.Sprintf("Unable to update to image tag %s because updates are not yet supported", kv.Spec.ImageTag))
+		return nil
+	}
+	if kv.Spec.ImageRegistry != "" && kv.Spec.ImageRegistry != kv.Status.TargetKubeVirtRegistry {
+		util.UpdateCondition(kv, v1.KubeVirtConditionSynchronized, k8sv1.ConditionFalse, ConditionReasonUpdateNotImplementedError, fmt.Sprintf("Unable to update to image in registry %s because updates are not yet supported", kv.Spec.ImageRegistry))
+		return nil
 	}
 
 	// Set phase to deploying
@@ -689,10 +735,7 @@ func (c *KubeVirtController) syncDeployment(kv *v1.KubeVirt) error {
 		}
 	}
 
-	// add finalizer to prevent deletion of CR before KubeVirt was undeployed
-	util.AddFinalizer(kv)
-
-	strategy, pending, err := c.loadInstallStrategy(kv)
+	strategy, pending, err := c.loadInstallStrategy(kv, c.getImageTag(kv), c.getImageRegistry(kv))
 	if err != nil {
 		return err
 	}
@@ -702,12 +745,15 @@ func (c *KubeVirtController) syncDeployment(kv *v1.KubeVirt) error {
 		return nil
 	}
 
+	// add finalizer to prevent deletion of CR before KubeVirt was undeployed
+	util.AddFinalizer(kv)
+
 	// once all the install strategies are loaded, garbage collect any
 	// install strategy jobs that were created.
 	c.garbageCollectInstallStrategyJobs()
 
 	// deploy
-	objectsAdded, err := creation.Create(kv, c.stores, c.clientset, &c.kubeVirtExpectations, strategy)
+	objectsAdded, err := installstrategy.CreateAll(kv, strategy, c.stores, c.clientset, &c.kubeVirtExpectations)
 
 	if err != nil {
 		// deployment failed
@@ -719,6 +765,10 @@ func (c *KubeVirtController) syncDeployment(kv *v1.KubeVirt) error {
 	util.RemoveCondition(kv, v1.KubeVirtConditionSynchronized)
 
 	if objectsAdded == 0 {
+
+		// record the version just installed
+		kv.Status.ObservedKubeVirtVersion = c.getImageTag(kv)
+		kv.Status.ObservedKubeVirtRegistry = c.getImageRegistry(kv)
 
 		// add Created condition
 		util.UpdateCondition(kv, v1.KubeVirtConditionCreated, k8sv1.ConditionTrue, ConditionReasonDeploymentCreated, "All resources were created.")
@@ -775,6 +825,16 @@ func (c *KubeVirtController) syncDeletion(kv *v1.KubeVirt) error {
 	logger := log.Log.Object(kv)
 	logger.Info("Handling deletion")
 
+	strategy, pending, err := c.loadInstallStrategy(kv, c.getImageTag(kv), c.getImageRegistry(kv))
+	if err != nil {
+		return err
+	}
+
+	// we're waiting on the job to finish and the config map to be created
+	if pending {
+		return nil
+	}
+
 	// set phase to deleting
 	kv.Status.Phase = v1.KubeVirtPhaseDeleting
 
@@ -782,16 +842,9 @@ func (c *KubeVirtController) syncDeletion(kv *v1.KubeVirt) error {
 	util.RemoveCondition(kv, v1.KubeVirtConditionCreated)
 	util.RemoveCondition(kv, v1.KubeVirtConditionReady)
 
-	err := deletion.Delete(kv, c.clientset, c.stores, &c.kubeVirtExpectations)
+	err = installstrategy.DeleteAll(kv, strategy, c.stores, c.clientset, &c.kubeVirtExpectations)
 	if err != nil {
 		// deletion failed
-		util.UpdateCondition(kv, v1.KubeVirtConditionSynchronized, k8sv1.ConditionFalse, ConditionReasonDeletionFailedError, fmt.Sprintf("An error occurred during deletion: %v", err))
-		return err
-	}
-
-	err = c.deleteAllInstallStrategy()
-	if err != nil {
-		// garbage collection of install strategies failed
 		util.UpdateCondition(kv, v1.KubeVirtConditionSynchronized, k8sv1.ConditionFalse, ConditionReasonDeletionFailedError, fmt.Sprintf("An error occurred during deletion: %v", err))
 		return err
 	}
@@ -799,6 +852,13 @@ func (c *KubeVirtController) syncDeletion(kv *v1.KubeVirt) error {
 	util.RemoveCondition(kv, v1.KubeVirtConditionSynchronized)
 
 	if c.stores.AllEmpty() {
+
+		err = c.deleteAllInstallStrategy()
+		if err != nil {
+			// garbage collection of install strategies failed
+			util.UpdateCondition(kv, v1.KubeVirtConditionSynchronized, k8sv1.ConditionFalse, ConditionReasonDeletionFailedError, fmt.Sprintf("An error occurred during deletion: %v", err))
+			return err
+		}
 
 		// deletion successful
 		kv.Status.Phase = v1.KubeVirtPhaseDeleted
