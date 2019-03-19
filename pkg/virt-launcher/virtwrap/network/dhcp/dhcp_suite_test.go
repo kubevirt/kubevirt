@@ -1,4 +1,4 @@
-package dhcp_test
+package dhcp
 
 import (
 	"testing"

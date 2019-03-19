@@ -1,4 +1,4 @@
-package network_test
+package network
 
 import (
 	"testing"

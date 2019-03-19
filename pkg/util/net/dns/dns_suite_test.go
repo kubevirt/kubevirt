@@ -1,4 +1,4 @@
-package dns_test
+package dns
 
 import (
 	"testing"

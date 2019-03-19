@@ -16,7 +16,7 @@
  * Copyright 2018 Red Hat, Inc.
  *
  */
-package util_test
+package util
 
 import (
 	"testing"
