@@ -496,7 +496,7 @@ monitorLoop:
 
 func (l *LibvirtDomainManager) CancelVMIMigration(vmi *v1.VirtualMachineInstance) error {
 	if vmi.Status.MigrationState == nil || vmi.Status.MigrationState.Completed ||
-		vmi.Status.MigrationState.Failed {
+		vmi.Status.MigrationState.Failed || vmi.Status.MigrationState.StartTimestamp == nil {
 
 		return fmt.Errorf("failed to cancel migration - vmi is not migrating")
 	}
