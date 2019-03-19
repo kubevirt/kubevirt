@@ -1,4 +1,4 @@
-package installstrategy_test
+package installstrategy
 
 import (
 	"testing"

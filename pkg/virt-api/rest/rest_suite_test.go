@@ -17,7 +17,7 @@
  *
  */
 
-package rest_test
+package rest
 
 import (
 	"testing"

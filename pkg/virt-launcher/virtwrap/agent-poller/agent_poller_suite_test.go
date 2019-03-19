@@ -16,7 +16,7 @@
  * Copyright 2018 Red Hat, Inc.
  *
  */
-package agentpoller_test
+package agentpoller
 
 import (
 	"testing"
