@@ -318,17 +318,13 @@ var _ = Describe("Migrations", func() {
 				Expect(err).To(BeNil())
 				expecter.Close()
 
-				num := 2
+                // execute a migration, wait for finalized state
+                migration := tests.NewRandomMigration(vmi.Name, vmi.Namespace)
+                migrationUID := runMigrationAndExpectCompletion(migration, 180)
 
-				for i := 0; i < num; i++ {
-					// execute a migration, wait for finalized state
-					By(fmt.Sprintf("Starting the Migration for iteration %d", i))
-					migration := tests.NewRandomMigration(vmi.Name, vmi.Namespace)
-					migrationUID := runMigrationAndExpectCompletion(migration, 180)
+                // check VMI, confirm migration state
+                confirmVMIPostMigration(vmi, migrationUID)
 
-					// check VMI, confirm migration state
-					confirmVMIPostMigration(vmi, migrationUID)
-				}
 				// delete VMI
 				By("Deleting the VMI")
 				err = virtClient.VirtualMachineInstance(vmi.Namespace).Delete(vmi.Name, &metav1.DeleteOptions{})
