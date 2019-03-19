@@ -4,6 +4,7 @@ import (
 	"context"
 
 	hcov1alpha1 "github.com/kubevirt/hyperconverged-cluster-operator/pkg/apis/hco/v1alpha1"
+	cdi "kubevirt.io/containerized-data-importer/pkg/apis/core/v1alpha1"
 	kubevirt "kubevirt.io/kubevirt/pkg/api/v1"
 
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -47,9 +48,15 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 		return err
 	}
 
-	// TODO(user): Modify this to be the types you create that are owned by the primary resource
-	// Watch for changes to secondary resource Pods and requeue the owner HyperConverged
 	err = c.Watch(&source.Kind{Type: &kubevirt.KubeVirt{}}, &handler.EnqueueRequestForOwner{
+		IsController: true,
+		OwnerType:    &hcov1alpha1.HyperConverged{},
+	})
+	if err != nil {
+		return err
+	}
+
+	err = c.Watch(&source.Kind{Type: &cdi.CDI{}}, &handler.EnqueueRequestForOwner{
 		IsController: true,
 		OwnerType:    &hcov1alpha1.HyperConverged{},
 	})
@@ -102,23 +109,53 @@ func (r *ReconcileHyperConverged) Reconcile(request reconcile.Request) (reconcil
 	}
 
 	// Check if this KubeVirt CR already exists
-	found := &kubevirt.KubeVirt{}
-	err = r.client.Get(context.TODO(), types.NamespacedName{Name: virtCR.Name, Namespace: virtCR.Namespace}, found)
+	foundKubeVirt := &kubevirt.KubeVirt{}
+	err = r.client.Get(context.TODO(), types.NamespacedName{Name: virtCR.Name, Namespace: virtCR.Namespace}, foundKubeVirt)
+	result, err := manageComponentCR(err, virtCR, "KubeVirt", r.client)
+
+	// KubeVirt failed to create, requeue
+	if err != nil {
+		return result, err
+	}
+
+	// Define a new CDI object
+	cdiCR := newCDIForCR(instance)
+
+	// Set HyperConverged instance as the owner and controller
+	if err := controllerutil.SetControllerReference(instance, cdiCR, r.scheme); err != nil {
+		return reconcile.Result{}, err
+	}
+
+	// Check if this CDI CR already exists
+	foundCDI := &cdi.CDI{}
+	err = r.client.Get(context.TODO(), types.NamespacedName{Name: cdiCR.Name, Namespace: cdiCR.Namespace}, foundCDI)
+	result, err = manageComponentCR(err, cdiCR, "CDI", r.client)
+
+	// CDI failed to create, requeue
+	if err != nil {
+		return result, err
+	}
+
+	return result, nil
+}
+
+func manageComponentCR(err error, o runtime.Object, kind string, c client.Client) (reconcile.Result, error) {
 	if err != nil && errors.IsNotFound(err) {
-		reqLogger.Info("Creating a new KubeVirt CR")
-		err = r.client.Create(context.TODO(), virtCR)
+		log.Info("Creating a new %s CR", kind)
+		err = c.Create(context.TODO(), o)
 		if err != nil {
 			return reconcile.Result{}, err
 		}
 
-		// KubeVirt CR created successfully - don't requeue
+		// Object CR created successfully - don't requeue
 		return reconcile.Result{}, nil
 	} else if err != nil {
 		return reconcile.Result{}, err
 	}
 
-	// KubeVirt CR already exists - don't requeue
-	reqLogger.Info("Skip reconcile: KubeVirt CR already exists")
+	// Object CR already exists - don't requeue
+	log.Info("Skip reconcile: %s CR already exists", kind)
+
 	return reconcile.Result{}, nil
 }
 
@@ -130,10 +167,27 @@ func newKubeVirtForCR(cr *hcov1alpha1.HyperConverged) *kubevirt.KubeVirt {
 	return &kubevirt.KubeVirt{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "kubevirt-" + cr.Name,
-			Namespace: cr.Namespace,
+			Namespace: "kubevirt",
 			Labels:    labels,
 		},
 		Spec: kubevirt.KubeVirtSpec{
+			ImagePullPolicy: "IfNotPresent",
+		},
+	}
+}
+
+// newCDIForCr returns a CDI CR
+func newCDIForCR(cr *hcov1alpha1.HyperConverged) *cdi.CDI {
+	labels := map[string]string{
+		"app": cr.Name,
+	}
+	return &cdi.CDI{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "cdi-" + cr.Name,
+			Namespace: "cdi",
+			Labels:    labels,
+		},
+		Spec: cdi.CDISpec{
 			ImagePullPolicy: "IfNotPresent",
 		},
 	}

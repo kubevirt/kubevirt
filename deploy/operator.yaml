@@ -2,6 +2,8 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: hyperconverged-cluster-operator
+  labels:
+      operator.hco.kubevirt.io: ""
 spec:
   replicas: 1
   selector:

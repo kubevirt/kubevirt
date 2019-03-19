@@ -14,8 +14,20 @@ TODO:
     initial non OLM deployments
   - Unifed CSV file that lauches all operators through OLM
 
+Create component operator namespaces.
+```bash
+oc create ns kubevirt
+oc create ns cdi
+```
+
+Switch to the kubevirt namespace.
+```bash
+oc project kubevirt
+```
+
 Launch the HCO.
 ```bash
+oc create -f deploy/crds/hco_v1alpha1_hyperconverged_crd.yaml
 oc create -f deploy/
 ```
 
@@ -24,8 +36,12 @@ Launch the KubeVirt operator.
 oc create -f https://github.com/kubevirt/kubevirt/releases/download/v0.15.0/kubevirt-operator.yaml
 ```
 
+Launch the CDI operator.
+```bash
+oc create -f https://github.com/kubevirt/containerized-data-importer/releases/download/v1.6.0/cdi-operator.yaml
+```
+
 Create an HCO CustomResource, which creates the KubeVirt CR, launching KubeVirt.
 ```bash
-oc create -f deploy/crds/hco_v1alpha1_hyperconverged_crd.yaml
 oc create -f deploy/crds/hco_v1alpha1_hyperconverged_cr.yaml
 ```

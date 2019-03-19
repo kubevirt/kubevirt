@@ -1,11 +1,14 @@
-kind: RoleBinding
 apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
 metadata:
   name: hyperconverged-cluster-operator
+  labels:
+    operator.hco.kubevirt.io: ""
 subjects:
 - kind: ServiceAccount
   name: hyperconverged-cluster-operator
+  namespace: kubevirt
 roleRef:
-  kind: Role
-  name: hyperconverged-cluster-operator
-  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: cluster-admin
+  apiGroup: ""
