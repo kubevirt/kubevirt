@@ -363,12 +363,11 @@ func (l *LibvirtDomainManager) asyncMigrate(vmi *v1.VirtualMachineInstance) {
 		if err != nil {
 
 			log.Log.Object(vmi).Reason(err).Error("Live migration failed.")
-			l.setMigrationResult(vmi, true, fmt.Sprintf("%v", err), "")
 			return
 		}
 
 		log.Log.Object(vmi).Infof("Live migration succeeded.")
-		l.setMigrationResult(vmi, false, "", "")
+        l.setMigrationResult(vmi, false, "", "")
 	}(l, vmi)
 }
 
@@ -479,14 +478,16 @@ monitorLoop:
 		case libvirt.DOMAIN_JOB_NONE:
 			logger.Info("Migration job didn't start yet")
 		case libvirt.DOMAIN_JOB_COMPLETED:
-			logger.Info("Migration has beem completed")
+			logger.Info("Migration has been completed")
+			l.setMigrationResult(vmi, false, "", "")
 			break monitorLoop
 		case libvirt.DOMAIN_JOB_FAILED:
 			logger.Info("Migration job failed")
-			// migration failed
+			l.setMigrationResult(vmi, true, fmt.Sprintf("%v", err), "")
 			break monitorLoop
 		case libvirt.DOMAIN_JOB_CANCELLED:
 			logger.Info("Migration was canceled")
+			l.setMigrationResult(vmi, true, "Live migration aborted ", v1.MigrationAbortSucceeded)
 			break monitorLoop
 		}
 		time.Sleep(500 * time.Millisecond)
@@ -497,7 +498,6 @@ func (l *LibvirtDomainManager) CancelVMIMigration(vmi *v1.VirtualMachineInstance
 	if vmi.Status.MigrationState == nil || vmi.Status.MigrationState.Completed ||
 		vmi.Status.MigrationState.Failed {
 
-		l.setMigrationResult(vmi, false, "", v1.MigrationAbortFailed)
 		return fmt.Errorf("failed to cancel migration - vmi is not migrating")
 	}
 	l.asyncMigrationAbort(vmi)
@@ -511,23 +511,20 @@ func (l *LibvirtDomainManager) asyncMigrationAbort(vmi *v1.VirtualMachineInstanc
 		dom, err := l.virConn.LookupDomainByName(domName)
 		if err != nil {
 			log.Log.Object(vmi).Reason(err).Warning("failed to cancel migration, domain not found ")
-			l.setMigrationResult(vmi, false, "", v1.MigrationAbortFailed)
 			return
 		}
 		stats, err := dom.GetJobInfo()
 		if err != nil {
 			log.Log.Object(vmi).Reason(err).Error("failed to get domain job info")
-			l.setMigrationResult(vmi, false, "", v1.MigrationAbortFailed)
 			return
 		}
 		if stats.Type == libvirt.DOMAIN_JOB_UNBOUNDED {
 			err := dom.AbortJob()
 			if err != nil {
 				log.Log.Object(vmi).Reason(err).Error("failed to cancel migration")
-				l.setMigrationResult(vmi, false, "", v1.MigrationAbortFailed)
 				return
 			}
-			l.setMigrationResult(vmi, true, "Live migration aborted ", v1.MigrationAbortSucceeded)
+			log.Log.Object(vmi).Info("Live migration abort succeeded")
 		}
 		return
 	}(l, vmi)
