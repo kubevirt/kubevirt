@@ -126,7 +126,8 @@ var _ = Describe("Infrastructure", func() {
 			pod := pods.Items[0] // only one compute node in the test environment
 
 			Eventually(func() string {
-				lines := getKubevirtVMMetrics(virtClient, &pod, "virt-handler")
+				out := getKubevirtVMMetrics(virtClient, &pod, "virt-handler")
+				lines := takeMetricsWithPrefix(out, "kubevirt")
 				return strings.Join(lines, "\n")
 			}, 30*time.Second, 2*time.Second).Should(ContainSubstring("kubevirt"))
 		}, 300)
@@ -176,7 +177,8 @@ var _ = Describe("Infrastructure", func() {
 
 			var lines []string
 			for tryNum := 0; tryNum < 20; tryNum++ {
-				lines = getKubevirtVMMetrics(virtClient, &pod, "virt-handler")
+				out := getKubevirtVMMetrics(virtClient, &pod, "virt-handler")
+				lines = takeMetricsWithPrefix(out, "kubevirt")
 				time.Sleep(2 * time.Second)
 			}
 			Expect(len(lines)).To(BeNumerically(">", 1))
@@ -273,7 +275,7 @@ func getNewLeaderPod(virtClient kubecli.KubevirtClient) *k8sv1.Pod {
 	return nil
 }
 
-func getKubevirtVMMetrics(virtClient kubecli.KubevirtClient, pod *k8sv1.Pod, containerName string) []string {
+func getKubevirtVMMetrics(virtClient kubecli.KubevirtClient, pod *k8sv1.Pod, containerName string) string {
 	stdout, _, err := tests.ExecuteCommandOnPodV2(virtClient,
 		pod, containerName,
 		[]string{
@@ -283,7 +285,7 @@ func getKubevirtVMMetrics(virtClient kubecli.KubevirtClient, pod *k8sv1.Pod, con
 			fmt.Sprintf("https://%s:%s/metrics", pod.Status.PodIP, "8443"),
 		})
 	Expect(err).ToNot(HaveOccurred())
-	return filterMetricsOutput(stdout, "kubevirt")
+	return stdout
 }
 
 func parseMetricsToMap(lines []string) (map[string]float64, error) {
@@ -302,7 +304,7 @@ func parseMetricsToMap(lines []string) (map[string]float64, error) {
 	return metrics, nil
 }
 
-func filterMetricsOutput(output, prefix string) []string {
+func takeMetricsWithPrefix(output, prefix string) []string {
 	lines := strings.Split(output, "\n")
 	var ret []string
 	for _, line := range lines {
