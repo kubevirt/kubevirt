@@ -50,7 +50,7 @@ goveralls: go-build
 go-test: go-build
 	SYNC_OUT=false hack/dockerized "./hack/build-go.sh test ${WHAT}"
 
-test: bazel-tests
+test: go-test
 
 functest:
 	hack/dockerized "hack/build-func-tests.sh"
