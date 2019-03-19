@@ -173,7 +173,7 @@ var _ = Describe("Template", func() {
 								}},
 							{Name: "other-test1",
 								NetworkSource: v1.NetworkSource{
-									Multus: &v1.CniNetwork{NetworkName: "other-namespace/test1"},
+									Multus: &v1.MultusNetwork{NetworkName: "other-namespace/test1"},
 								}},
 						},
 					},
