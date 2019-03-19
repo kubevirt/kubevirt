@@ -20,6 +20,7 @@
 package watch
 
 import (
+    "encoding/json"
 	"fmt"
 	"reflect"
 	"time"
@@ -408,12 +409,22 @@ func (c *MigrationController) sync(migration *virtv1.VirtualMachineInstanceMigra
 		vmiCopy := vmi.DeepCopy()
 		if vmiCopy.Status.MigrationState != nil {
 			vmiCopy.Status.MigrationState.AbortRequested = true
-			if !reflect.DeepEqual(vmi.Status, vmiCopy.Status) ||
-				!reflect.DeepEqual(vmi.Labels, vmiCopy.Labels) {
-				_, err := c.clientset.VirtualMachineInstance(vmi.Namespace).Update(vmiCopy)
+			if !reflect.DeepEqual(vmi.Status, vmiCopy.Status) {
+                newStatus, err := json.Marshal(vmiCopy.Status)
+                if err != nil {
+                    return err
+                }
+                oldStatus, err := json.Marshal(vmi.Status)
+                if err != nil {
+                    return err
+                }
+                test := fmt.Sprintf(`{ "op": "test", "path": "/status", "value": %s }`, string(oldStatus))
+                patch := fmt.Sprintf(`{ "op": "replace", "path": "/status", "value": %s }`, string(newStatus))
+                _, err = c.clientset.VirtualMachineInstance(vmi.Namespace).Patch(vmi.Name, types.JSONPatchType, []byte(fmt.Sprintf("[ %s, %s ]", test, patch)))
 				if err != nil {
-					c.recorder.Eventf(migration, k8sv1.EventTypeWarning, FailedAbortMigrationReason, fmt.Sprintf("Failed to set MigrationStat in VMI status. :%v", err))
-					return err
+                    msg := fmt.Sprintf("failed to set MigrationState in VMI status. :%v", err)
+					c.recorder.Eventf(migration, k8sv1.EventTypeWarning, FailedAbortMigrationReason, msg)
+					return fmt.Errorf(msg)
 				}
 				c.recorder.Eventf(migration, k8sv1.EventTypeNormal, SuccessfulAbortMigrationReason, "Migration is ready to be canceled by virt-handler.")
 			}

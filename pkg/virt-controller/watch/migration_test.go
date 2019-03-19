@@ -150,12 +150,6 @@ var _ = Describe("Migration watcher", func() {
 		}).Return(vmi, nil)
 	}
 
-	shouldExpectMigrationAbortState := func(vmi *v1.VirtualMachineInstance) {
-		vmiInterface.EXPECT().Update(gomock.Any()).Do(func(arg interface{}) {
-			Expect(arg.(*v1.VirtualMachineInstance).Status.MigrationState.AbortRequested).To(BeTrue())
-		}).Return(vmi, nil)
-	}
-
 	syncCaches := func(stop chan struct{}) {
 		go vmiInformer.Run(stop)
 		go podInformer.Run(stop)
@@ -583,7 +577,7 @@ var _ = Describe("Migration watcher", func() {
 			addVirtualMachine(vmi)
 			podFeeder.Add(pod)
 
-			shouldExpectMigrationAbortState(vmi)
+            vmiInterface.EXPECT().Patch(vmi.Name, types.JSONPatchType, gomock.Any()).Return(vmi, nil)
 
 			controller.Execute()
 			testutils.ExpectEvent(recorder, SuccessfulAbortMigrationReason)
