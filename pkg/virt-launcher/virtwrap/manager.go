@@ -367,7 +367,7 @@ func (l *LibvirtDomainManager) asyncMigrate(vmi *v1.VirtualMachineInstance) {
 		}
 
 		log.Log.Object(vmi).Infof("Live migration succeeded.")
-        l.setMigrationResult(vmi, false, "", "")
+		l.setMigrationResult(vmi, false, "", "")
 	}(l, vmi)
 }
 

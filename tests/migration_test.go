@@ -318,12 +318,12 @@ var _ = Describe("Migrations", func() {
 				Expect(err).To(BeNil())
 				expecter.Close()
 
-                // execute a migration, wait for finalized state
-                migration := tests.NewRandomMigration(vmi.Name, vmi.Namespace)
-                migrationUID := runMigrationAndExpectCompletion(migration, 180)
+				// execute a migration, wait for finalized state
+				migration := tests.NewRandomMigration(vmi.Name, vmi.Namespace)
+				migrationUID := runMigrationAndExpectCompletion(migration, 180)
 
-                // check VMI, confirm migration state
-                confirmVMIPostMigration(vmi, migrationUID)
+				// check VMI, confirm migration state
+				confirmVMIPostMigration(vmi, migrationUID)
 
 				// delete VMI
 				By("Deleting the VMI")
