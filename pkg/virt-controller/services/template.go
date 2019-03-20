@@ -78,6 +78,8 @@ const MULTUS_DEFAULT_NETWORK_CNI_ANNOTATION = "v1.multus-cni.io/default-network"
 // Istio list of virtual interfaces whose inbound traffic (from VM) will be treated as outbound traffic in envoy
 const ISTIO_KUBEVIRT_ANNOTATION = "traffic.sidecar.istio.io/kubevirtInterfaces"
 
+const KVMInfoHypervSupportLabel = NFD_KVM_INFO_PREFIX + "hyperv"
+
 type TemplateService interface {
 	RenderLaunchManifest(*v1.VirtualMachineInstance) (*k8sv1.Pod, error)
 }
@@ -246,10 +248,6 @@ func CPUFeatureLabelsFromCPUFeatures(vmi *v1.VirtualMachineInstance) []string {
 		}
 	}
 	return labels
-}
-
-func KVMInfoHypervSupportLabel() string {
-	return NFD_KVM_INFO_PREFIX + "hyperv"
 }
 
 func SetNodeAffinityForForbiddenFeaturePolicy(vmi *v1.VirtualMachineInstance, pod *k8sv1.Pod) {
@@ -838,8 +836,7 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 	}
 
 	if isHyperVSupportRequired(t.configMapStore) && isHypervVMI(vmi) {
-		key := KVMInfoHypervSupportLabel()
-		nodeSelector[key] = "true"
+		nodeSelector[KVMInfoHypervSupportLabel] = "true"
 	}
 
 	nodeSelector[v1.NodeSchedulable] = "true"

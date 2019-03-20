@@ -478,9 +478,8 @@ var _ = Describe("Template", func() {
 				pod, err := svc.RenderLaunchManifest(&vmi)
 				Expect(err).ToNot(HaveOccurred())
 
-				label := KVMInfoHypervSupportLabel()
-				Expect(pod.Spec.NodeSelector).Should(HaveKeyWithValue(label, "true"))
-				Expect(pod.Spec.NodeSelector).Should(Not(HaveKeyWithValue(label, "false")))
+				Expect(pod.Spec.NodeSelector).Should(HaveKeyWithValue(KVMInfoHypervSupportLabel, "true"))
+				Expect(pod.Spec.NodeSelector).Should(Not(HaveKeyWithValue(KVMInfoHypervSupportLabel, "false")))
 			})
 
 			It("should not add node selector for hyperv nodes if VMI does not request hyperv features", func() {
@@ -512,8 +511,7 @@ var _ = Describe("Template", func() {
 				pod, err := svc.RenderLaunchManifest(&vmi)
 				Expect(err).ToNot(HaveOccurred())
 
-				label := KVMInfoHypervSupportLabel()
-				Expect(pod.Spec.NodeSelector).Should(Not(HaveKey(label)))
+				Expect(pod.Spec.NodeSelector).Should(Not(HaveKey(KVMInfoHypervSupportLabel)))
 			})
 
 			It("should not add node selector for hyperv nodes if VMI requests hyperv features, but feature gate is disabled", func() {
@@ -541,8 +539,7 @@ var _ = Describe("Template", func() {
 				pod, err := svc.RenderLaunchManifest(&vmi)
 				Expect(err).ToNot(HaveOccurred())
 
-				label := KVMInfoHypervSupportLabel()
-				Expect(pod.Spec.NodeSelector).Should(Not(HaveKey(label)))
+				Expect(pod.Spec.NodeSelector).Should(Not(HaveKey(KVMInfoHypervSupportLabel)))
 			})
 
 			It("should add default cpu/memory resources to the sidecar container if cpu pinning was requested", func() {
