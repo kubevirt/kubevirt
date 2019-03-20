@@ -39,9 +39,9 @@ http_archive(
 
 http_archive(
     name = "com_github_atlassian_bazel_tools",
-    sha256 = "61d23119b15feae081ac199621b1b07644e056645910aa2cbb1bcd98659d41ff",
-    strip_prefix = "bazel-tools-02472d814d1867de2ad75801760732c9e595c9d9",
-    urls = ["https://github.com/atlassian/bazel-tools/archive/02472d814d1867de2ad75801760732c9e595c9d9.zip"],
+    sha256 = "e4737fd3636d23f12cd3f9880b1cfa75c1bbdd4a967852785e227f3b0ab11844",
+    strip_prefix = "bazel-tools-7d296003f478325b4a933c2b1372426d3a0926f0",
+    urls = ["https://github.com/atlassian/bazel-tools/archive/7d296003f478325b4a933c2b1372426d3a0926f0.zip"],
 )
 
 # Libvirt dependencies
