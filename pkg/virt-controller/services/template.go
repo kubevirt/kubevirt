@@ -189,17 +189,6 @@ func IsCPUNodeDiscoveryEnabled(store cache.Store) bool {
 	return false
 }
 
-func isHyperVSupportRequired(store cache.Store) bool {
-	value, err := getConfigMapEntry(store, virtconfig.FeatureGatesKey)
-	if err != nil {
-		return false
-	}
-	if !strings.Contains(value, virtconfig.HypervSupportGate) {
-		return false
-	}
-	return true
-}
-
 func isFeatureStateEnabled(fs *v1.FeatureState) bool {
 	return fs != nil && fs.Enabled != nil && *fs.Enabled
 }
@@ -835,7 +824,7 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 		}
 	}
 
-	if isHyperVSupportRequired(t.configMapStore) && isHypervVMI(vmi) {
+	if virtconfig.HypervSupportEnabled() && isHypervVMI(vmi) {
 		nodeSelector[KVMInfoHypervSupportLabel] = "true"
 	}
 

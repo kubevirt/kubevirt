@@ -101,6 +101,10 @@ var _ = Describe("Template", func() {
 		Expect(err).To(Not(HaveOccurred()))
 	})
 
+	AfterEach(func() {
+		virtconfig.Clear()
+	})
+
 	Describe("Rendering", func() {
 		Context("launch template with correct parameters", func() {
 			It("should work", func() {
@@ -445,7 +449,6 @@ var _ = Describe("Template", func() {
 			})
 
 			It("should add node selector for hyperv nodes if VMI requests hyperv features", func() {
-
 				cfgMap := kubev1.ConfigMap{
 					ObjectMeta: metav1.ObjectMeta{
 						Namespace: namespaceKubevirt,
@@ -453,7 +456,7 @@ var _ = Describe("Template", func() {
 					},
 					Data: map[string]string{virtconfig.FeatureGatesKey: virtconfig.HypervSupportGate},
 				}
-				cmCache.Add(&cfgMap)
+				virtconfig.InitFromConfigMap(&cfgMap)
 
 				enabled := true
 				vmi := v1.VirtualMachineInstance{
@@ -483,7 +486,6 @@ var _ = Describe("Template", func() {
 			})
 
 			It("should not add node selector for hyperv nodes if VMI does not request hyperv features", func() {
-
 				cfgMap := kubev1.ConfigMap{
 					ObjectMeta: metav1.ObjectMeta{
 						Namespace: namespaceKubevirt,
@@ -491,7 +493,7 @@ var _ = Describe("Template", func() {
 					},
 					Data: map[string]string{virtconfig.FeatureGatesKey: virtconfig.HypervSupportGate},
 				}
-				cmCache.Add(&cfgMap)
+				virtconfig.InitFromConfigMap(&cfgMap)
 
 				vmi := v1.VirtualMachineInstance{
 					ObjectMeta: metav1.ObjectMeta{
@@ -515,7 +517,6 @@ var _ = Describe("Template", func() {
 			})
 
 			It("should not add node selector for hyperv nodes if VMI requests hyperv features, but feature gate is disabled", func() {
-
 				enabled := true
 				vmi := v1.VirtualMachineInstance{
 					ObjectMeta: metav1.ObjectMeta{

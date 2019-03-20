@@ -58,3 +58,7 @@ func LiveMigrationEnabled() bool {
 func SRIOVEnabled() bool {
 	return strings.Contains(os.Getenv(featureGateEnvVar), SRIOVGate)
 }
+
+func HypervSupportEnabled() bool {
+	return strings.Contains(os.Getenv(featureGateEnvVar), HypervSupportGate)
+}
