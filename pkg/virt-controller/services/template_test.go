@@ -219,7 +219,7 @@ var _ = Describe("Template", func() {
 				Expect(value).To(Equal("default"))
 				value, ok = pod.Annotations["k8s.v1.cni.cncf.io/networks"]
 				Expect(ok).To(Equal(true))
-				Expect(value).To(Equal("test1"))
+				Expect(value).To(Equal("[{\"interface\":\"net1\",\"name\":\"test1\",\"namespace\":\"default\"}]"))
 			})
 		})
 		Context("with genie annotation", func() {
