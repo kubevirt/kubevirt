@@ -2256,11 +2256,7 @@ func ExecuteCommandOnPodV2(virtCli kubecli.KubevirtClient, pod *k8sv1.Pod, conta
 		Tty:    false,
 	})
 
-	if err != nil {
-		return "", "", err
-	}
-
-	return stdoutBuf.String(), stderrBuf.String(), nil
+	return stdoutBuf.String(), stderrBuf.String(), err
 }
 
 func GetRunningVirtualMachineInstanceDomainXML(virtClient kubecli.KubevirtClient, vmi *v1.VirtualMachineInstance) (string, error) {
