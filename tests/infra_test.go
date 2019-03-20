@@ -175,31 +175,30 @@ var _ = Describe("Infrastructure", func() {
 			By("Scraping the Prometheus endpoint")
 			pod := pods.Items[0] // only one compute node in the test environment
 
-			var lines []string
-			// retry loop for slow CI. 20 is "random high enough" number, no special meaning
-			for tryNum := 0; tryNum < 20; tryNum++ {
+			var metrics map[string]float64
+			// this is because slow CI. 20 is "random high enough" number, no special meaning
+			Eventually(func() map[string]float64 {
+				var err error
 				out := getKubevirtVMMetrics(virtClient, &pod, "virt-handler")
-				lines = takeMetricsWithPrefix(out, "kubevirt")
-				time.Sleep(2 * time.Second)
-			}
+				lines := takeMetricsWithPrefix(out, "kubevirt")
+				metrics, err = parseMetricsToMap(lines)
+				Expect(err).ToNot(HaveOccurred())
+				return metrics
+			}, 30*time.Second, 2*time.Second).Should(HaveKey(ContainSubstring("kubevirt_vm_storage_")))
 
 			By("Checking the collected metrics")
-			metrics, err := parseMetricsToMap(lines)
-			Expect(err).ToNot(HaveOccurred())
 			var keys []string
 			for metric := range metrics {
 				keys = append(keys, metric)
 			}
+			// we sort keys only to make debug of test failures easier
 			sort.Strings(keys)
-			storageMetrics := 0
 			for _, key := range keys {
 				if strings.HasPrefix(key, "kubevirt_vm_storage_") && strings.Contains(key, "vdb") {
 					value := metrics[key]
-					storageMetrics++
 					Expect(value).To(BeNumerically(">", float64(0.0)))
 				}
 			}
-			Expect(storageMetrics).To(BeNumerically(">", 1))
 		}, 300)
 
 	})
