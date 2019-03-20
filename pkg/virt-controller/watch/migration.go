@@ -399,13 +399,12 @@ func (c *MigrationController) createTargetPod(migration *virtv1.VirtualMachineIn
 func (c *MigrationController) sync(migration *virtv1.VirtualMachineInstanceMigration, vmi *virtv1.VirtualMachineInstance, pods []*k8sv1.Pod) error {
 
 	var pod *k8sv1.Pod = nil
-	conditionManager := controller.NewVirtualMachineInstanceMigrationConditionManager()
 	podExists := len(pods) > 0
 	if podExists {
 		pod = pods[0]
 	}
 
-	if vmi != nil && conditionManager.HasCondition(migration, virtv1.VirtualMachineInstanceMigrationAbortRequested) {
+	if vmi != nil && migration.DeletionTimestamp != nil && !migration.IsFinal() {
 		vmiCopy := vmi.DeepCopy()
 		if vmiCopy.Status.MigrationState != nil {
 			vmiCopy.Status.MigrationState.AbortRequested = true

@@ -1342,11 +1342,13 @@ func (d *VirtualMachineController) processVmUpdate(origVMI *v1.VirtualMachineIns
 		}
 	} else if d.isMigrationSource(vmi) {
 		if vmi.Status.MigrationState.AbortRequested {
-			err = client.CancelVirtualMachineMigration(vmi)
-			if err != nil {
-				return err
+			if vmi.Status.MigrationState.AbortStatus != v1.MigrationAbortInProgress {
+				err = client.CancelVirtualMachineMigration(vmi)
+				if err != nil {
+					return err
+				}
+				d.recorder.Event(vmi, k8sv1.EventTypeNormal, v1.Migrating.String(), "VirtualMachineInstance is aborting migration.")
 			}
-			d.recorder.Event(vmi, k8sv1.EventTypeNormal, v1.Migrating.String(), "VirtualMachineInstance is aborting migration.")
 		} else {
 			err = client.MigrateVirtualMachine(vmi)
 			if err != nil {

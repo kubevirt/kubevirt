@@ -403,10 +403,12 @@ type MigrationConfig struct {
 type MigrationAbortStatus string
 
 const (
-	// Succeeded means that the VirtualMachineInstance live migration has been aborted
+	// MigrationAbortSucceeded means that the VirtualMachineInstance live migration has been aborted
 	MigrationAbortSucceeded MigrationAbortStatus = "Succeeded"
-	// Failed means that the vmi live migration has failed to be abort
+	// MigrationAbortFailed means that the vmi live migration has failed to be abort
 	MigrationAbortFailed MigrationAbortStatus = "Failed"
+	// MigrationAbortInProgress mean that the vmi live migration is aborting
+	MigrationAbortInProgress MigrationAbortStatus = "Aborting"
 )
 
 // ---

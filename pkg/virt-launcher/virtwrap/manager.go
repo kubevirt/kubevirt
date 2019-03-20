@@ -150,7 +150,7 @@ func (l *LibvirtDomainManager) setMigrationResult(vmi *v1.VirtualMachineInstance
 	connectionTimeout := 60 * time.Second
 
 	err := utilwait.PollImmediate(connectionInterval, connectionTimeout, func() (done bool, err error) {
-		err = l.setMigrationResultHelper(vmi, failed, reason, abortStatus)
+		err = l.setMigrationResultHelper(vmi, failed, true, reason, abortStatus)
 		if err != nil {
 			return false, nil
 		}
@@ -165,7 +165,30 @@ func (l *LibvirtDomainManager) setMigrationResult(vmi *v1.VirtualMachineInstance
 
 }
 
-func (l *LibvirtDomainManager) setMigrationResultHelper(vmi *v1.VirtualMachineInstance, failed bool, reason string, abortStatus v1.MigrationAbortStatus) error {
+func (l *LibvirtDomainManager) setMigrationAbortStatus(vmi *v1.VirtualMachineInstance, abortStatus v1.MigrationAbortStatus) error {
+	connectionInterval := 10 * time.Second
+	connectionTimeout := 60 * time.Second
+
+	err := utilwait.PollImmediate(connectionInterval, connectionTimeout, func() (done bool, err error) {
+		err = l.setMigrationResultHelper(vmi, false, false, "", abortStatus)
+		if err != nil {
+			if err == domainerrors.MigrationAbortInProgressError {
+				return false, err
+			}
+			return false, nil
+		}
+		return true, nil
+	})
+
+	if err != nil {
+		log.Log.Object(vmi).Reason(err).Error("Unable to post migration results to libvirt after multiple tries")
+		return err
+	}
+	return nil
+
+}
+
+func (l *LibvirtDomainManager) setMigrationResultHelper(vmi *v1.VirtualMachineInstance, failed bool, completed bool, reason string, abortStatus v1.MigrationAbortStatus) error {
 
 	l.domainModifyLock.Lock()
 	defer l.domainModifyLock.Unlock()
@@ -196,6 +219,10 @@ func (l *LibvirtDomainManager) setMigrationResultHelper(vmi *v1.VirtualMachineIn
 
 	now := metav1.Now()
 	if abortStatus != "" {
+		metaAbortStatus := domainSpec.Metadata.KubeVirt.Migration.AbortStatus
+		if metaAbortStatus == string(abortStatus) && metaAbortStatus == string(v1.MigrationAbortInProgress) {
+			return domainerrors.MigrationAbortInProgressError
+		}
 		domainSpec.Metadata.KubeVirt.Migration.AbortStatus = string(abortStatus)
 	}
 
@@ -203,9 +230,10 @@ func (l *LibvirtDomainManager) setMigrationResultHelper(vmi *v1.VirtualMachineIn
 		domainSpec.Metadata.KubeVirt.Migration.Failed = true
 		domainSpec.Metadata.KubeVirt.Migration.FailureReason = reason
 	}
-	domainSpec.Metadata.KubeVirt.Migration.Completed = true
-	domainSpec.Metadata.KubeVirt.Migration.EndTimestamp = &now
-
+	if completed {
+		domainSpec.Metadata.KubeVirt.Migration.Completed = true
+		domainSpec.Metadata.KubeVirt.Migration.EndTimestamp = &now
+	}
 	_, err = l.setDomainSpecWithHooks(vmi, domainSpec)
 	if err != nil {
 		return err
@@ -500,6 +528,11 @@ func (l *LibvirtDomainManager) CancelVMIMigration(vmi *v1.VirtualMachineInstance
 
 		return fmt.Errorf("failed to cancel migration - vmi is not migrating")
 	}
+	err := l.setMigrationAbortStatus(vmi, v1.MigrationAbortInProgress)
+	if err != nil {
+		return err
+	}
+
 	l.asyncMigrationAbort(vmi)
 	return nil
 }
@@ -522,6 +555,7 @@ func (l *LibvirtDomainManager) asyncMigrationAbort(vmi *v1.VirtualMachineInstanc
 			err := dom.AbortJob()
 			if err != nil {
 				log.Log.Object(vmi).Reason(err).Error("failed to cancel migration")
+				l.setMigrationAbortStatus(vmi, v1.MigrationAbortFailed)
 				return
 			}
 			log.Log.Object(vmi).Info("Live migration abort succeeded")
