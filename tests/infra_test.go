@@ -184,7 +184,7 @@ var _ = Describe("Infrastructure", func() {
 				metrics, err = parseMetricsToMap(lines)
 				Expect(err).ToNot(HaveOccurred())
 				return metrics
-			}, 30*time.Second, 2*time.Second).Should(HaveKey(ContainSubstring("kubevirt_vm_storage_")))
+			}, 120*time.Second, 5*time.Second).Should(HaveKey(ContainSubstring("kubevirt_vm_storage_")))
 
 			By("Checking the collected metrics")
 			var keys []string
