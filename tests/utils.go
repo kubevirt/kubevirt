@@ -1156,6 +1156,16 @@ func cleanNamespaces() {
 
 		// Remove all Migration Objects
 		PanicOnError(virtCli.RestClient().Delete().Namespace(namespace).Resource("virtualmachineinstancemigrations").Do().Error())
+		migrations, err := virtCli.VirtualMachineInstanceMigration(namespace).List(&metav1.ListOptions{})
+		PanicOnError(err)
+		for _, migration := range migrations.Items {
+			if controller.HasFinalizer(&migration, v1.VirtualMachineInstanceFinalizer) {
+				_, err := virtCli.VirtualMachineInstanceMigration(migration.Namespace).Patch(migration.Name, types.JSONPatchType, []byte("[{ \"op\": \"remove\", \"path\": \"/metadata/finalizers\" }]"))
+				if !errors.IsNotFound(err) {
+					PanicOnError(err)
+				}
+			}
+		}
 
 	}
 }
