@@ -577,7 +577,7 @@ var _ = Describe("Migration watcher", func() {
 			addVirtualMachine(vmi)
 			podFeeder.Add(pod)
 
-            vmiInterface.EXPECT().Patch(vmi.Name, types.JSONPatchType, gomock.Any()).Return(vmi, nil)
+			vmiInterface.EXPECT().Patch(vmi.Name, types.JSONPatchType, gomock.Any()).Return(vmi, nil)
 
 			controller.Execute()
 			testutils.ExpectEvent(recorder, SuccessfulAbortMigrationReason)

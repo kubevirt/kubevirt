@@ -682,6 +682,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 			vmiFeeder.Add(vmi)
 
 			client.EXPECT().CancelVirtualMachineMigration(vmi)
+			vmiInterface.EXPECT().Update(gomock.Any())
 			controller.Execute()
 		}, 3)
 

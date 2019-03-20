@@ -196,8 +196,7 @@ var _ = Describe("Migrations", func() {
 		}, timeout, 1*time.Second).Should(Equal(true))
 
 		By("Cancelling a Migration")
-		orphanPolicy := metav1.DeletePropagationOrphan
-		Expect(virtClient.VirtualMachineInstanceMigration(migration.Namespace).Delete(migration.Name, &metav1.DeleteOptions{PropagationPolicy: &orphanPolicy})).To(Succeed(), "Migration should be deleted successfully")
+		Expect(virtClient.VirtualMachineInstanceMigration(migration.Namespace).Delete(migration.Name, &metav1.DeleteOptions{})).To(Succeed(), "Migration should be deleted successfully")
 
 		return uid
 	}

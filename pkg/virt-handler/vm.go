@@ -926,23 +926,6 @@ func (d *VirtualMachineController) execute(key string) error {
 	// Take different execution paths depending on the state of the migration and the
 	// node this is executed on.
 
-	if vmiExists && d.isMigrationSource(vmi) &&
-		vmi.Status.MigrationState.AbortRequested &&
-		!domain.Spec.Metadata.KubeVirt.Migration.Failed {
-		// Cancel the live migration if it's in progress but the migration
-		// object has been deleted
-		client, err := d.getLauncherClient(vmi)
-		if err != nil {
-			log.Log.Object(vmi).Reason(err).Errorf("failed to get virt-launcher client")
-			return fmt.Errorf("unable to create virt-launcher client connection: %v", err)
-		}
-		err = client.CancelVirtualMachineMigration(vmi)
-		if err != nil {
-			return err
-		}
-		return nil
-	}
-
 	if vmiExists && d.isPreMigrationTarget(vmi) {
 		// 1. PRE-MIGRATION TARGET PREPARATION PATH
 		//
@@ -1358,12 +1341,19 @@ func (d *VirtualMachineController) processVmUpdate(origVMI *v1.VirtualMachineIns
 			return fmt.Errorf("failed to handle post sync migration proxy: %v", err)
 		}
 	} else if d.isMigrationSource(vmi) {
-		err = client.MigrateVirtualMachine(vmi)
-		if err != nil {
-			return err
+		if vmi.Status.MigrationState.AbortRequested {
+			err = client.CancelVirtualMachineMigration(vmi)
+			if err != nil {
+				return err
+			}
+			d.recorder.Event(vmi, k8sv1.EventTypeNormal, v1.Migrating.String(), "VirtualMachineInstance is aborting migration.")
+		} else {
+			err = client.MigrateVirtualMachine(vmi)
+			if err != nil {
+				return err
+			}
+			d.recorder.Event(vmi, k8sv1.EventTypeNormal, v1.Migrating.String(), "VirtualMachineInstance is migrating.")
 		}
-		d.recorder.Event(vmi, k8sv1.EventTypeNormal, v1.Migrating.String(), "VirtualMachineInstance is migrating.")
-
 	} else {
 		err = client.SyncVirtualMachine(vmi)
 		if err != nil {
