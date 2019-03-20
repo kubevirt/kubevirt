@@ -43,7 +43,6 @@ var _ = Describe("Device Controller", func() {
 	var workDir string
 	var err error
 	var host string
-	var deviceController *DeviceController
 	var stop chan struct{}
 
 	BeforeEach(func() {
@@ -61,7 +60,7 @@ var _ = Describe("Device Controller", func() {
 
 	Context("Basic Tests", func() {
 		It("Should indicate if node has device", func() {
-			deviceController = NewDeviceController(host, 10)
+			deviceController := NewDeviceController(host, 10)
 			devicePath := path.Join(workDir, "fake-device")
 			res := deviceController.nodeHasDevice(devicePath)
 			Expect(res).To(BeFalse())
@@ -94,7 +93,7 @@ var _ = Describe("Device Controller", func() {
 
 		It("should restart the device plugin immeidiately without delays", func() {
 			plugin2 = NewFakePlugin("fake-device2", devicePath2)
-			deviceController = NewDeviceController(host, 10)
+			deviceController := NewDeviceController(host, 10)
 			deviceController.devicePlugins = []GenericDevice{plugin2}
 			deviceController.backoff = []time.Duration{10 * time.Millisecond, 10 * time.Second}
 			go deviceController.Run(stop)
@@ -105,9 +104,9 @@ var _ = Describe("Device Controller", func() {
 
 		It("should restart the device plugin with delays if it returns errors", func() {
 			plugin2 = NewFakePlugin("fake-device2", devicePath2)
-			deviceController.backoff = []time.Duration{10 * time.Millisecond, 100 * time.Millisecond}
 			plugin2.Error = fmt.Errorf("failing")
-			deviceController = NewDeviceController(host, 10)
+			deviceController := NewDeviceController(host, 10)
+			deviceController.backoff = []time.Duration{10 * time.Millisecond, 300 * time.Millisecond}
 			deviceController.devicePlugins = []GenericDevice{plugin2}
 			go deviceController.Run(stop)
 			Consistently(func() int {
@@ -117,7 +116,7 @@ var _ = Describe("Device Controller", func() {
 		})
 
 		It("Should not block on other plugins", func() {
-			deviceController = NewDeviceController(host, 10)
+			deviceController := NewDeviceController(host, 10)
 			deviceController.devicePlugins = []GenericDevice{plugin1, plugin2}
 			go deviceController.Run(stop)
 
