@@ -173,7 +173,7 @@ functionality is not provided by kubernetes itself.
 We will try to leverage as much of Kubernetes regarding to mounting and preparing images for VMI.
 However, `virt-handler` may provide a plugin mechanism to allow storage mounting and setup from the host, if the KubeVirt requirements do not fit into the Kubernetes storage scenarios.
 
-Since host side preparation of storage may not be enough, a cluster-wide [Storage Controller](###storage-controller) can be used to prepare storage.
+Since host side preparation of storage may not be enough, a cluster-wide [Storage Controller](https://gist.github.com/asabaylus/3071099) can be used to prepare storage.
 
 Investigations are still in progress.
 
@@ -188,7 +188,7 @@ However KubeVirt might define a Storage CRD along side with a flow description w
 We will try to leverage as much of Kubernetes networking plugin mechanisms (e.g. CNI).
 However, `virt-handler` may provide a plugin mechanism to allow network setup on a host, if the KubeVirt requirements do not fit into the Kubernetes storage scenarios.
 
-Since host side preparation of network interfaces may not be enough, a cluster-wide [Network Controller](###network-controller) can be used to prepare the network.
+Since host side preparation of network interfaces may not be enough, a cluster-wide [Network Controller](https://github.com/kubevirt/kubevirt/blob/master/docs/components.md#network-controller) can be used to prepare the network.
 
 Investigations are still in progress.
 

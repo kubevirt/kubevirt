@@ -9,7 +9,7 @@ so there is a need to convert between the public resource descriptions and the
 libvirt XML document formats.
 
 This document will only consider the configuration associated with a specific
-instance  of a virtual machine. It will ignore the topic of 'templating' by
+instance  of a virtual machine. It will ignore the topic of `templating` by
 which a higher level generalised config can be used as a cookie cutter for
 creating many guests.
 
@@ -42,7 +42,7 @@ disks to use, or it may require license key reactivation. Changing the backend
 configuration is totally transparent to the guest (aside from performance
 differences inherent in different backend choices).
 
-![VMI configuration diagram](vm-configuration.png "VMI Configuration")
+![VMI configuration diagram](vm-configuration.png `VMI Configuration`)
 
 
 Portability issues
@@ -81,7 +81,7 @@ IP/MAC/ARP spoofing on the network.
 There is a fine grained access control mechanism for the host facing management
 API, however, the checks are performed against the (subject, object, action)
 tuple. So while you can block a user or application from being able to invoke
-the 'virDomainDefineXML' action, if you allow this API, you cannot then control
+the `virDomainDefineXML` action, if you allow this API, you cannot then control
 what information is passed in its parameters. For example, when configuring
 disks in the domain XML, arbitrary host paths can be specified as the backing
 storage for the virtual disk. Libvirt will happily let /etc/passwd be specified

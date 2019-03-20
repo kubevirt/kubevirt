@@ -29,7 +29,7 @@ design.
 In addition to the hard requirements, there are a few items which are likely
 to become relevant in future, and should be considered in this design:
 
-* "Flavour", "Instance Type", or "Template" like functionality
+* `Flavour`, `Instance Type`, or `Template` like functionality
 * Hot-(un-)plugging
 * Representation of dynamic instance specific data
 * Defaulting (to support OS compatibility)
