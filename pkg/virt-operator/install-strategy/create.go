@@ -33,6 +33,8 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 
+	"github.com/blang/semver"
+
 	v1 "kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/kubecli"
@@ -250,6 +252,35 @@ func syncDeployment(kv *v1.KubeVirt,
 	return nil
 }
 
+func shouldTakeUpdatePath(targetVersion, currentVersion string) bool {
+
+	// if no current version, then this can't be an update
+	if currentVersion == "" {
+		return false
+	}
+
+	// semver doesn't like the 'v' prefix
+	targetVersion = strings.TrimPrefix(targetVersion, "v")
+	currentVersion = strings.TrimPrefix(currentVersion, "v")
+
+	// our default position is that this is an update.
+	// So if the target and current version do not
+	// adhere to the semver spec, we assume by default the
+	// update path is the correct path.
+	shouldTakeUpdatePath := true
+	target, err := semver.Make(targetVersion)
+	if err == nil {
+		current, err := semver.Make(currentVersion)
+		if err == nil {
+			if target.Compare(current) <= 0 {
+				shouldTakeUpdatePath = false
+			}
+		}
+	}
+
+	return shouldTakeUpdatePath
+}
+
 func SyncAll(kv *v1.KubeVirt,
 	prevStrategy *InstallStrategy,
 	targetStrategy *InstallStrategy,
@@ -274,6 +305,8 @@ func SyncAll(kv *v1.KubeVirt,
 
 	imageTag := kv.Status.TargetKubeVirtVersion
 	imageRegistry := kv.Status.TargetKubeVirtRegistry
+
+	takeUpdatePath := shouldTakeUpdatePath(kv.Status.TargetKubeVirtVersion, kv.Status.ObservedKubeVirtVersion)
 
 	// -------- CREATE AND ROLE OUT UPDATED OBJECTS --------
 
@@ -570,60 +603,6 @@ func SyncAll(kv *v1.KubeVirt,
 		}
 	}
 
-	// create/update Daemonsets
-	for _, daemonSet := range targetStrategy.daemonSets {
-		err := syncDaemonSet(kv, daemonSet, stores, clientset, expectations)
-		if err != nil {
-			return false, err
-		}
-	}
-
-	// We must ensure our daemonsets have completely rolled over
-	// before continuing with deployments
-	// TODO when rolling the API backwards, we'll need to reverse this and
-	// ensure the deployments are updated first
-	if prevStrategy != nil {
-		for _, daemonSet := range targetStrategy.daemonSets {
-			if !util.DaemonsetIsReady(kv, daemonSet, stores) {
-				log.Log.V(2).Infof("Waiting on daemonset %v to roll over to latest version", daemonSet.GetName())
-				// not rolled out yet
-				return false, nil
-			}
-		}
-	}
-
-	// create/update Controller Deployments
-	for _, deployment := range controllerDeployments(targetStrategy) {
-		err := syncDeployment(kv, deployment, stores, clientset, expectations)
-		if err != nil {
-			return false, err
-		}
-
-	}
-
-	// We must ensure our controllers have completely rolled over
-	// before continuing with exposing the API
-	// TODO when rolling the API backwards, we'll need to reverse this and
-	// ensure the deployments are updated first
-	if prevStrategy != nil {
-		for _, deployment := range controllerDeployments(targetStrategy) {
-			if !util.DeploymentIsReady(kv, deployment, stores) {
-				log.Log.V(2).Infof("Waiting on deployment %v to roll over to latest version", deployment.GetName())
-				// not rolled out yet
-				return false, nil
-			}
-		}
-	}
-
-	// create/update API Deployments
-	for _, deployment := range apiDeployments(targetStrategy) {
-		deployment := deployment.DeepCopy()
-		err := syncDeployment(kv, deployment, stores, clientset, expectations)
-		if err != nil {
-			return false, err
-		}
-	}
-
 	// Add new SCC Privileges and remove unsed SCC Privileges
 	for _, sccPriv := range targetStrategy.customSCCPrivileges {
 		var curSccPriv *customSCCPrivilegedAccounts
@@ -692,6 +671,98 @@ func SyncAll(kv *v1.KubeVirt,
 				return false, fmt.Errorf("unable to patch scc: %v", err)
 			}
 		}
+	}
+
+	if takeUpdatePath {
+		// UPDATE PATH IS
+		// 1. daemonsets - ensures all compute nodes are updated to handle new features
+		// 2. wait for daemonsets to roll over
+		// 3. controllers - ensures controll plane is ready for new features
+		// 4. wait for controllers to roll over
+		// 5. apiserver - toggles on new features.
+
+		// create/update Daemonsets
+		for _, daemonSet := range targetStrategy.daemonSets {
+			err := syncDaemonSet(kv, daemonSet, stores, clientset, expectations)
+			if err != nil {
+				return false, err
+			}
+		}
+
+		// create/update Controller Deployments
+		for _, deployment := range controllerDeployments(targetStrategy) {
+			err := syncDeployment(kv, deployment, stores, clientset, expectations)
+			if err != nil {
+				return false, err
+			}
+
+		}
+
+		// wait for daemonsets
+		for _, daemonSet := range targetStrategy.daemonSets {
+			if !util.DaemonsetIsReady(kv, daemonSet, stores) {
+				log.Log.V(2).Infof("Waiting on daemonset %v to roll over to latest version", daemonSet.GetName())
+				// not rolled out yet
+				return false, nil
+			}
+		}
+		// wait for controller deployments
+		for _, deployment := range controllerDeployments(targetStrategy) {
+			if !util.DeploymentIsReady(kv, deployment, stores) {
+				log.Log.V(2).Infof("Waiting on deployment %v to roll over to latest version", deployment.GetName())
+				// not rolled out yet
+				return false, nil
+			}
+		}
+
+		// create/update API Deployments
+		for _, deployment := range apiDeployments(targetStrategy) {
+			deployment := deployment.DeepCopy()
+			err := syncDeployment(kv, deployment, stores, clientset, expectations)
+			if err != nil {
+				return false, err
+			}
+		}
+	} else {
+		// CREATE/ROLLBACK PATH IS
+		// 1. apiserver - ensures validation of objects occur before allowing any controll plane to act on them.
+		// 2. wait for apiservers to roll over
+		// 3. controllers and daemonsets
+
+		// create/update API Deployments
+		for _, deployment := range apiDeployments(targetStrategy) {
+			deployment := deployment.DeepCopy()
+			err := syncDeployment(kv, deployment, stores, clientset, expectations)
+			if err != nil {
+				return false, err
+			}
+		}
+
+		// wait on api servers to roll over
+		for _, deployment := range apiDeployments(targetStrategy) {
+			if !util.DeploymentIsReady(kv, deployment, stores) {
+				log.Log.V(2).Infof("Waiting on deployment %v to roll over to latest version", deployment.GetName())
+				// not rolled out yet
+				return false, nil
+			}
+		}
+
+		// create/update Controller Deployments
+		for _, deployment := range controllerDeployments(targetStrategy) {
+			err := syncDeployment(kv, deployment, stores, clientset, expectations)
+			if err != nil {
+				return false, err
+			}
+
+		}
+		// create/update Daemonsets
+		for _, daemonSet := range targetStrategy.daemonSets {
+			err := syncDaemonSet(kv, daemonSet, stores, clientset, expectations)
+			if err != nil {
+				return false, err
+			}
+		}
+
 	}
 
 	// -------- CLEAN UP OLD UNUSED OBJECTS --------

@@ -197,7 +197,7 @@ var _ = Describe("Operator", func() {
 				return fmt.Errorf("Waiting for phase to be deployed")
 			}
 			return nil
-		}, 120*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
+		}, 160*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
 	}
 
 	patchKvVersion := func(name string, version string) {
