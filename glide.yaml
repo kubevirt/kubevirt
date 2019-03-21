@@ -99,6 +99,8 @@ import:
 - package: github.com/operator-framework/operator-marketplace
   subpackages:
   - pkg/appregistry
+- package: github.com/blang/semver
+  version: v3.5.1
 testImport:
 - package: github.com/elazarl/goproxy
   version: 07b16b6e30fcac0ad8c0435548e743bcf2ca7e92

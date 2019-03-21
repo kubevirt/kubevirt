@@ -6,7 +6,6 @@ import (
 	"time"
 
 	"github.com/operator-framework/operator-sdk/pkg/test"
-
 	apps "k8s.io/api/apps/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -15,8 +14,10 @@ import (
 )
 
 const (
-	retryInterval = time.Second * 5
-	timeout       = time.Minute * 5
+	retryInterval        = time.Second * 5
+	timeout              = time.Minute * 5
+	cleanupRetryInterval = time.Second * 1
+	cleanupTimeout       = time.Second * 30
 )
 
 // WaitForResult polls the cluster for a particular resource name and namespace
@@ -70,4 +71,16 @@ func WaitForSuccessfulDeployment(t *testing.T, f *test.Framework, deployment app
 	}
 	t.Logf("Deployment %s has been initialized successfully\n", deployment.Name)
 	return nil
+}
+
+// createRuntimeObject creates a runtime object using the test framework
+func createRuntimeObject(f *test.Framework, ctx *test.TestCtx, obj runtime.Object) error {
+	return f.Client.Create(
+		context.TODO(),
+		obj,
+		&test.CleanupOptions{
+			TestContext:   ctx,
+			Timeout:       cleanupTimeout,
+			RetryInterval: cleanupRetryInterval,
+		})
 }

@@ -1,5 +1,5 @@
-hash: 254877ec57df9773ee7ad52268108066143c4557c67394f7534d05a1e90689fc
-updated: 2019-03-25T20:46:59.522236073Z
+hash: dd3c0e654d0f2fe456f396eb915900c5ae2609f679bb4e2bef70c9b8951c04eb
+updated: 2019-04-03T14:13:45.55303625Z
 imports:
 - name: cloud.google.com/go
   version: 3b1ae45394a234c385be014e9a488f2bb6eef821
@@ -20,6 +20,8 @@ imports:
   version: 3a771d992973f24aa725d07868b467d1ddfceafb
   subpackages:
   - quantile
+- name: github.com/blang/semver
+  version: 2ee87856327ba09384cabd113bc6b5d174e9ec0f
 - name: github.com/coreos/go-iptables
   version: 47f22b0dd3355c0ba570ba12b0b8a36bf214c04b
   subpackages:
@@ -105,7 +107,7 @@ imports:
   subpackages:
   - lru
 - name: github.com/golang/mock
-  version: 2105010f04ec0f4d7a7335a70547be132ebd7b7b
+  version: 73dc87cad333b55a02058f4b3d872dbbafddc2b0
   subpackages:
   - gomock
 - name: github.com/golang/protobuf
@@ -119,7 +121,7 @@ imports:
 - name: github.com/google/btree
   version: 7d79101e329e5a3adf994758c578dab82b90c017
 - name: github.com/google/goexpect
-  version: 3ee1e840338e9846880a5c1c33f071d97cca21be
+  version: ebfe2174586a5f4f9ec8b504e19cc9faf16dc7bc
 - name: github.com/google/gofuzz
   version: 44d81051d367757e1c7c6a5a86423ece9afcf63c
 - name: github.com/google/goterm
@@ -261,7 +263,7 @@ imports:
   - appregistry/package_appr
   - models
 - name: github.com/operator-framework/operator-marketplace
-  version: e274d6b40505e977e12061becf27218f5eb717fb
+  version: 2ccd92393c1cbc40810bb81ccb1ea11eb070a041
   subpackages:
   - pkg/apis/operators/v1
   - pkg/appregistry
@@ -286,9 +288,7 @@ imports:
   - internal/bitbucket.org/ww/goautoneg
   - model
 - name: github.com/prometheus/procfs
-  version: 65c1f6f8f0fc1e2185eb9863a3bc751496404259
-  subpackages:
-  - xfs
+  version: ea9eea63887261e4d8ed8315f4078e88d540c725
 - name: github.com/PuerkitoBio/purell
   version: 8a290539e2e8629dbc4e6bad948158f790ec31f4
 - name: github.com/PuerkitoBio/urlesc
@@ -697,7 +697,7 @@ testImports:
 - name: github.com/facebookgo/structtag
   version: 217e25fb96916cc60332e399c9aa63f5c422ceed
 - name: github.com/smartystreets/goconvey
-  version: 200a235640ff2643e3126834b67f3e93df76640a
+  version: 68dc04aab96ae4326137d6b77330c224063a927e
   subpackages:
   - convey
 - name: github.com/stretchr/testify
