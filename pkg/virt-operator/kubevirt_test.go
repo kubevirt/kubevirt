@@ -739,9 +739,9 @@ var _ = Describe("KubeVirt Operator", func() {
 		scc := getSCC()
 		prefix := "system:serviceaccount"
 		scc.Users = append(scc.Users,
-			fmt.Sprintf("%s:%s:%s", prefix, NAMESPACE, "kubevirt-handler"),
-			fmt.Sprintf("%s:%s:%s", prefix, NAMESPACE, "kubevirt-apiserver"),
-			fmt.Sprintf("%s:%s:%s", prefix, NAMESPACE, "kubevirt-controller"))
+			fmt.Sprintf("%s:%s:%s", prefix, NAMESPACE, rbac.HandlerServiceAccountName),
+			fmt.Sprintf("%s:%s:%s", prefix, NAMESPACE, rbac.ApiServiceAccountName),
+			fmt.Sprintf("%s:%s:%s", prefix, NAMESPACE, rbac.ControllerServiceAccountName))
 		sccSource.Modify(&scc)
 
 	}
