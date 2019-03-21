@@ -530,6 +530,9 @@ func (l *LibvirtDomainManager) CancelVMIMigration(vmi *v1.VirtualMachineInstance
 	}
 	err := l.setMigrationAbortStatus(vmi, v1.MigrationAbortInProgress)
 	if err != nil {
+        if err == domainerrors.MigrationAbortInProgressError {
+            return nil
+        }
 		return err
 	}
 
