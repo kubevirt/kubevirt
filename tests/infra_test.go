@@ -164,6 +164,7 @@ var _ = Describe("Infrastructure", func() {
 				&expect.BExp{R: "localhost:~#"},
 			}, 10*time.Second)
 			Expect(err).ToNot(HaveOccurred())
+			// we wrote data to the disk, so from now on the VM *is* running
 
 			By("Finding the prometheus endpoint")
 			l, err := labels.Parse("kubevirt.io=virt-handler")
@@ -175,16 +176,12 @@ var _ = Describe("Infrastructure", func() {
 			By("Scraping the Prometheus endpoint")
 			pod := pods.Items[0] // only one compute node in the test environment
 
-			var metrics map[string]float64
-			// this is because slow CI. 20 is "random high enough" number, no special meaning
-			Eventually(func() map[string]float64 {
-				var err error
-				out := getKubevirtVMMetrics(virtClient, &pod, "virt-handler")
-				lines := takeMetricsWithPrefix(out, "kubevirt")
-				metrics, err = parseMetricsToMap(lines)
-				Expect(err).ToNot(HaveOccurred())
-				return metrics
-			}, 120*time.Second, 5*time.Second).Should(HaveKey(ContainSubstring("kubevirt_vm_storage_")))
+			// the VM *is* running, so we must have metrics promptly reported
+			out := getKubevirtVMMetrics(virtClient, &pod, "virt-handler")
+			lines := takeMetricsWithPrefix(out, "kubevirt")
+			metrics, err := parseMetricsToMap(lines)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(metrics).To(HaveKey(ContainSubstring("kubevirt_vm_storage_")))
 
 			By("Checking the collected metrics")
 			var keys []string
