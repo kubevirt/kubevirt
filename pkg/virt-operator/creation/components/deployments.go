@@ -92,7 +92,7 @@ func CreateControllers(clientset kubecli.KubevirtClient, kv *virtv1.KubeVirt, co
 		}
 	}
 
-	handler, err := NewHandlerDaemonSet(kv.Namespace, config.ImageRegistry, config.ImageTag, kv.Spec.ImagePullPolicy, verbosity)
+	handler, err := NewHandlerDaemonSet(kv.Namespace, config.ImageRegistry, config.ImageTag, kv.Spec.ImagePullPolicy, "5")
 	if err != nil {
 		return objectsAdded, err
 	}
