@@ -395,7 +395,6 @@ func (l *LibvirtDomainManager) asyncMigrate(vmi *v1.VirtualMachineInstance) {
 		}
 
 		log.Log.Object(vmi).Infof("Live migration succeeded.")
-		l.setMigrationResult(vmi, false, "", "")
 	}(l, vmi)
 }
 
@@ -530,9 +529,9 @@ func (l *LibvirtDomainManager) CancelVMIMigration(vmi *v1.VirtualMachineInstance
 	}
 	err := l.setMigrationAbortStatus(vmi, v1.MigrationAbortInProgress)
 	if err != nil {
-        if err == domainerrors.MigrationAbortInProgressError {
-            return nil
-        }
+		if err == domainerrors.MigrationAbortInProgressError {
+			return nil
+		}
 		return err
 	}
 

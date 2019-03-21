@@ -25,8 +25,8 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
-	"time"
 	"os/user"
+	"time"
 
 	"github.com/golang/mock/gomock"
 	libvirt "github.com/libvirt/libvirt-go"
@@ -329,15 +329,15 @@ var _ = Describe("Manager", func() {
 			now := metav1.Time{Time: time.Unix(time.Now().UTC().Unix(), 0)}
 			vmi := newVMI(testNamespace, testVmName)
 			vmi.Status.MigrationState = &v1.VirtualMachineInstanceMigrationState{
-				MigrationUID: "111222333",
-                StartTimestamp: &now,
+				MigrationUID:   "111222333",
+				StartTimestamp: &now,
 			}
 
 			domainSpec := expectIsolationDetectionForVMI(vmi)
 			domainSpec.Metadata.KubeVirt.Migration = &api.MigrationMetadata{
 
-				UID: vmi.Status.MigrationState.MigrationUID,
-                AbortStatus: string(v1.MigrationAbortInProgress),
+				UID:         vmi.Status.MigrationState.MigrationUID,
+				AbortStatus: string(v1.MigrationAbortInProgress),
 			}
 
 			xml, err := xml.Marshal(domainSpec)
@@ -348,7 +348,7 @@ var _ = Describe("Manager", func() {
 			mockDomain.EXPECT().GetXMLDesc(gomock.Eq(libvirt.DOMAIN_XML_INACTIVE)).AnyTimes().Return(string(xml), nil)
 			manager, _ := NewLibvirtDomainManager(mockConn, "fake", nil, 0)
 			err = manager.CancelVMIMigration(vmi)
-            Expect(err).To(BeNil())
+			Expect(err).To(BeNil())
 		})
 
 	})
