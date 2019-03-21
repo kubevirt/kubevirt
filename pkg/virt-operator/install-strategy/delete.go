@@ -79,19 +79,16 @@ func DeleteAll(kv *v1.KubeVirt,
 		return nil
 	}
 
-	// delete handler daemonset
-	obj, exists, err := stores.DaemonSetCache.GetByKey(fmt.Sprintf("%s/%s", kv.Namespace, "virt-handler"))
-	if err != nil {
-		log.Log.Errorf("Failed to get virt-handler: %v", err)
-		return err
-	} else if exists {
+	// delete daemonsets
+	objects = stores.DaemonSetCache.List()
+	for _, obj := range objects {
 		if ds, ok := obj.(*appsv1.DaemonSet); ok && ds.DeletionTimestamp == nil {
 			if key, err := controller.KeyFunc(ds); err == nil {
 				expectations.DaemonSet.AddExpectedDeletion(kvkey, key)
-				err := clientset.AppsV1().DaemonSets(kv.Namespace).Delete("virt-handler", deleteOptions)
+				err := clientset.AppsV1().DaemonSets(ds.Namespace).Delete(ds.Name, deleteOptions)
 				if err != nil {
 					expectations.DaemonSet.DeletionObserved(kvkey, key)
-					log.Log.Errorf("Failed to delete virt-handler: %v", err)
+					log.Log.Errorf("Failed to delete %s: %v", ds.Name, err)
 					return err
 				}
 			}
@@ -101,27 +98,22 @@ func DeleteAll(kv *v1.KubeVirt,
 		}
 	}
 
-	// delete controller and apiserver deployment
-	for _, name := range []string{"virt-controller", "virt-api"} {
-		obj, exists, err := stores.DeploymentCache.GetByKey(fmt.Sprintf("%s/%s", kv.Namespace, name))
-		if err != nil {
-			log.Log.Errorf("Failed to get %v: %v", name, err)
-			return err
-		} else if exists {
-			if depl, ok := obj.(*appsv1.Deployment); ok && depl.DeletionTimestamp == nil {
-				if key, err := controller.KeyFunc(depl); err == nil {
-					expectations.Deployment.AddExpectedDeletion(kvkey, key)
-					err := clientset.AppsV1().Deployments(kv.Namespace).Delete(name, deleteOptions)
-					if err != nil {
-						expectations.Deployment.DeletionObserved(kvkey, key)
-						log.Log.Errorf("Failed to delete virt-handler: %v", err)
-						return err
-					}
+	// delete deployments
+	objects = stores.DeploymentCache.List()
+	for _, obj := range objects {
+		if depl, ok := obj.(*appsv1.Deployment); ok && depl.DeletionTimestamp == nil {
+			if key, err := controller.KeyFunc(depl); err == nil {
+				expectations.Deployment.AddExpectedDeletion(kvkey, key)
+				err := clientset.AppsV1().Deployments(depl.Namespace).Delete(depl.Name, deleteOptions)
+				if err != nil {
+					expectations.Deployment.DeletionObserved(kvkey, key)
+					log.Log.Errorf("Failed to delete %s: %v", depl.Name, err)
+					return err
 				}
-			} else if !ok {
-				log.Log.Errorf("Cast failed! obj: %+v", obj)
-				return nil
 			}
+		} else if !ok {
+			log.Log.Errorf("Cast failed! obj: %+v", obj)
+			return nil
 		}
 	}
 
