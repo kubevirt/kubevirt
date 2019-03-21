@@ -74,6 +74,9 @@ const NFD_CPU_FEATURE_PREFIX = "feature.node.kubernetes.io/cpu-feature-"
 const MULTUS_RESOURCE_NAME_ANNOTATION = "k8s.v1.cni.cncf.io/resourceName"
 const MULTUS_DEFAULT_NETWORK_CNI_ANNOTATION = "v1.multus-cni.io/default-network"
 
+// Istio list of virtual interfaces whose inbound traffic (from VM) will be treated as outbound traffic in envoy
+const ISTIO_KUBEVIRT_ANNOTATION = "traffic.sidecar.istio.io/kubevirtInterfaces"
+
 type TemplateService interface {
 	RenderLaunchManifest(*v1.VirtualMachineInstance) (*k8sv1.Pod, error)
 }
@@ -875,6 +878,10 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 		}
 	}
 
+	if HaveMasqueradeInterface(vmi.Spec.Domain.Devices.Interfaces) {
+		annotationsList[ISTIO_KUBEVIRT_ANNOTATION] = "k6t-eth0"
+	}
+
 	// TODO use constants for podLabels
 	pod := k8sv1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
@@ -1034,6 +1041,16 @@ func getPortsFromVMI(vmi *v1.VirtualMachineInstance) []k8sv1.ContainerPort {
 	}
 
 	return ports
+}
+
+func HaveMasqueradeInterface(interfaces []v1.Interface) bool {
+	for _, iface := range interfaces {
+		if iface.Masquerade != nil {
+			return true
+		}
+	}
+
+	return false
 }
 
 func getResourceNameForNetwork(network *networkv1.NetworkAttachmentDefinition) string {

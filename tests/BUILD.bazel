@@ -102,6 +102,7 @@ go_test(
         "//pkg/virt-controller/leaderelectionconfig:go_default_library",
         "//pkg/virt-controller/services:go_default_library",
         "//pkg/virt-controller/watch:go_default_library",
+        "//pkg/virt-handler/device-manager:go_default_library",
         "//pkg/virt-launcher/virtwrap/api:go_default_library",
         "//pkg/virtctl/expose:go_default_library",
         "//pkg/virtctl/vm:go_default_library",
