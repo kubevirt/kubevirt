@@ -30,6 +30,16 @@ import (
 )
 
 func DaemonsetIsReady(kv *v1.KubeVirt, daemonset *appsv1.DaemonSet, stores Stores) bool {
+
+	// ensure we're looking at the latest daemonset from cache
+	obj, exists, _ := stores.DaemonSetCache.Get(daemonset)
+	if exists {
+		daemonset = obj.(*appsv1.DaemonSet)
+	} else {
+		// not in cache yet
+		return false
+	}
+
 	if daemonset.Status.DesiredNumberScheduled == 0 ||
 		daemonset.Status.DesiredNumberScheduled != daemonset.Status.NumberReady {
 
@@ -69,6 +79,15 @@ func DaemonsetIsReady(kv *v1.KubeVirt, daemonset *appsv1.DaemonSet, stores Store
 }
 
 func DeploymentIsReady(kv *v1.KubeVirt, deployment *appsv1.Deployment, stores Stores) bool {
+	// ensure we're looking at the latest deployment from cache
+	obj, exists, _ := stores.DeploymentCache.Get(deployment)
+	if exists {
+		deployment = obj.(*appsv1.Deployment)
+	} else {
+		// not in cache yet
+		return false
+	}
+
 	var specReplicas int32 = 1
 	if deployment.Spec.Replicas != nil {
 		specReplicas = *deployment.Spec.Replicas

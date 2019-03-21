@@ -23,6 +23,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"reflect"
+	"strings"
 
 	secv1 "github.com/openshift/api/security/v1"
 	appsv1 "k8s.io/api/apps/v1"
@@ -53,6 +54,32 @@ func objectMatchesVersion(objectMeta *metav1.ObjectMeta, imageTag string, imageR
 	}
 
 	return false
+}
+
+func apiDeployments(strategy *InstallStrategy) []*appsv1.Deployment {
+	var deployments []*appsv1.Deployment
+
+	for _, deployment := range strategy.deployments {
+		if !strings.Contains(deployment.Name, "virt-api") {
+			continue
+		}
+		deployments = append(deployments, deployment)
+
+	}
+	return deployments
+}
+
+func controllerDeployments(strategy *InstallStrategy) []*appsv1.Deployment {
+	var deployments []*appsv1.Deployment
+
+	for _, deployment := range strategy.deployments {
+		if strings.Contains(deployment.Name, "virt-api") {
+			continue
+		}
+		deployments = append(deployments, deployment)
+
+	}
+	return deployments
 }
 
 func injectOperatorLabelAndAnnotations(objectMeta *metav1.ObjectMeta, imageTag string, imageRegistry string) {
@@ -96,6 +123,133 @@ func createLabelsAndAnnotationsPatch(objectMeta *metav1.ObjectMeta) ([]string, e
 	return ops, nil
 }
 
+func syncDaemonSet(kv *v1.KubeVirt,
+	daemonSet *appsv1.DaemonSet,
+	stores util.Stores,
+	clientset kubecli.KubevirtClient,
+	expectations *util.Expectations) error {
+
+	daemonSet = daemonSet.DeepCopy()
+
+	apps := clientset.AppsV1()
+	imageTag := kv.Status.TargetKubeVirtVersion
+	imageRegistry := kv.Status.TargetKubeVirtRegistry
+
+	injectOperatorLabelAndAnnotations(&daemonSet.ObjectMeta, imageTag, imageRegistry)
+	injectOperatorLabelAndAnnotations(&daemonSet.Spec.Template.ObjectMeta, imageTag, imageRegistry)
+
+	kvkey, err := controller.KeyFunc(kv)
+	if err != nil {
+		return err
+	}
+
+	var cachedDaemonSet *appsv1.DaemonSet
+	obj, exists, _ := stores.DaemonSetCache.Get(daemonSet)
+	if exists {
+		cachedDaemonSet = obj.(*appsv1.DaemonSet)
+	}
+	if !exists {
+		expectations.DaemonSet.RaiseExpectations(kvkey, 1, 0)
+		_, err = apps.DaemonSets(kv.Namespace).Create(daemonSet)
+		if err != nil {
+			expectations.DaemonSet.LowerExpectations(kvkey, 1, 0)
+			return fmt.Errorf("unable to create daemonset %+v: %v", daemonSet, err)
+		}
+	} else if !objectMatchesVersion(&cachedDaemonSet.ObjectMeta, imageTag, imageRegistry) {
+		// Patch if old version
+		var ops []string
+
+		// Add Labels and Annotations Patches
+		labelAnnotationPatch, err := createLabelsAndAnnotationsPatch(&daemonSet.ObjectMeta)
+		if err != nil {
+			return err
+		}
+		ops = append(ops, labelAnnotationPatch...)
+
+		// Add Spec Patch
+		newSpec, err := json.Marshal(daemonSet.Spec)
+		if err != nil {
+			return err
+		}
+		ops = append(ops, fmt.Sprintf(`{ "op": "replace", "path": "/spec", "value": %s }`, string(newSpec)))
+
+		_, err = apps.DaemonSets(kv.Namespace).Patch(daemonSet.Name, types.JSONPatchType, generatePatchBytes(ops))
+		if err != nil {
+			return fmt.Errorf("unable to patch daemonset %+v: %v", daemonSet, err)
+		}
+		log.Log.V(2).Infof("daemonset %v updated", daemonSet.GetName())
+
+	} else {
+		log.Log.V(4).Infof("daemonset %v is up-to-date", daemonSet.GetName())
+	}
+	return nil
+}
+
+func syncDeployment(kv *v1.KubeVirt,
+	deployment *appsv1.Deployment,
+	stores util.Stores,
+	clientset kubecli.KubevirtClient,
+	expectations *util.Expectations) error {
+
+	deployment = deployment.DeepCopy()
+
+	apps := clientset.AppsV1()
+	imageTag := kv.Status.TargetKubeVirtVersion
+	imageRegistry := kv.Status.TargetKubeVirtRegistry
+
+	injectOperatorLabelAndAnnotations(&deployment.ObjectMeta, imageTag, imageRegistry)
+	injectOperatorLabelAndAnnotations(&deployment.Spec.Template.ObjectMeta, imageTag, imageRegistry)
+
+	kvkey, err := controller.KeyFunc(kv)
+	if err != nil {
+		return err
+	}
+
+	var cachedDeployment *appsv1.Deployment
+
+	obj, exists, _ := stores.DeploymentCache.Get(deployment)
+	if exists {
+		cachedDeployment = obj.(*appsv1.Deployment)
+	}
+
+	if !exists {
+		expectations.Deployment.RaiseExpectations(kvkey, 1, 0)
+		_, err = apps.Deployments(kv.Namespace).Create(deployment)
+		if err != nil {
+			expectations.Deployment.LowerExpectations(kvkey, 1, 0)
+			return fmt.Errorf("unable to create deployment %+v: %v", deployment, err)
+		}
+	} else if !objectMatchesVersion(&cachedDeployment.ObjectMeta, imageTag, imageRegistry) {
+		// Patch if old version
+		var ops []string
+
+		// Add Labels and Annotations Patches
+		labelAnnotationPatch, err := createLabelsAndAnnotationsPatch(&deployment.ObjectMeta)
+		if err != nil {
+			return err
+		}
+		ops = append(ops, labelAnnotationPatch...)
+
+		// Add Spec Patch
+		newSpec, err := json.Marshal(deployment.Spec)
+		if err != nil {
+			return err
+		}
+		ops = append(ops, fmt.Sprintf(`{ "op": "replace", "path": "/spec", "value": %s }`, string(newSpec)))
+
+		_, err = apps.Deployments(kv.Namespace).Patch(deployment.Name, types.JSONPatchType, generatePatchBytes(ops))
+		if err != nil {
+			return fmt.Errorf("unable to patch deployment %+v: %v", deployment, err)
+		}
+		log.Log.V(2).Infof("deployment %v updated", deployment.GetName())
+
+	} else {
+		log.Log.V(4).Infof("deployment %v is up-to-date", deployment.GetName())
+	}
+
+	return nil
+}
+
 func SyncAll(kv *v1.KubeVirt,
 	prevStrategy *InstallStrategy,
 	targetStrategy *InstallStrategy,
@@ -116,7 +270,6 @@ func SyncAll(kv *v1.KubeVirt,
 	ext := clientset.ExtensionsClient()
 	core := clientset.CoreV1()
 	rbac := clientset.RbacV1()
-	apps := clientset.AppsV1()
 	scc := clientset.SecClient()
 
 	imageTag := kv.Status.TargetKubeVirtVersion
@@ -419,50 +572,9 @@ func SyncAll(kv *v1.KubeVirt,
 
 	// create/update Daemonsets
 	for _, daemonSet := range targetStrategy.daemonSets {
-		var cachedDaemonSet *appsv1.DaemonSet
-		daemonSet := daemonSet.DeepCopy()
-
-		obj, exists, _ := stores.DaemonSetCache.Get(daemonSet)
-
-		if exists {
-			cachedDaemonSet = obj.(*appsv1.DaemonSet)
-		}
-
-		injectOperatorLabelAndAnnotations(&daemonSet.ObjectMeta, imageTag, imageRegistry)
-		injectOperatorLabelAndAnnotations(&daemonSet.Spec.Template.ObjectMeta, imageTag, imageRegistry)
-		if !exists {
-			expectations.DaemonSet.RaiseExpectations(kvkey, 1, 0)
-			_, err = apps.DaemonSets(kv.Namespace).Create(daemonSet)
-			if err != nil {
-				expectations.DaemonSet.LowerExpectations(kvkey, 1, 0)
-				return false, fmt.Errorf("unable to create daemonset %+v: %v", daemonSet, err)
-			}
-		} else if !objectMatchesVersion(&cachedDaemonSet.ObjectMeta, imageTag, imageRegistry) {
-			// Patch if old version
-			var ops []string
-
-			// Add Labels and Annotations Patches
-			labelAnnotationPatch, err := createLabelsAndAnnotationsPatch(&daemonSet.ObjectMeta)
-			if err != nil {
-				return false, err
-			}
-			ops = append(ops, labelAnnotationPatch...)
-
-			// Add Spec Patch
-			newSpec, err := json.Marshal(daemonSet.Spec)
-			if err != nil {
-				return false, err
-			}
-			ops = append(ops, fmt.Sprintf(`{ "op": "replace", "path": "/spec", "value": %s }`, string(newSpec)))
-
-			_, err = apps.DaemonSets(kv.Namespace).Patch(daemonSet.Name, types.JSONPatchType, generatePatchBytes(ops))
-			if err != nil {
-				return false, fmt.Errorf("unable to patch daemonset %+v: %v", daemonSet, err)
-			}
-			log.Log.V(2).Infof("daemonset %v updated", daemonSet.GetName())
-
-		} else {
-			log.Log.V(4).Infof("daemonset %v is up-to-date", daemonSet.GetName())
+		err := syncDaemonSet(kv, daemonSet, stores, clientset, expectations)
+		if err != nil {
+			return false, err
 		}
 	}
 
@@ -472,67 +584,43 @@ func SyncAll(kv *v1.KubeVirt,
 	// ensure the deployments are updated first
 	if prevStrategy != nil {
 		for _, daemonSet := range targetStrategy.daemonSets {
-			obj, exists, _ := stores.DaemonSetCache.Get(daemonSet)
-			if exists {
-				ds := obj.(*appsv1.DaemonSet)
-				if !util.DaemonsetIsReady(kv, ds, stores) {
-					log.Log.V(2).Infof("Waiting on daemonset %v to roll over to latest version", ds.GetName())
-					// not rolled out yet
-					return false, nil
-				}
-			} else {
-				// not in cache yet
+			if !util.DaemonsetIsReady(kv, daemonSet, stores) {
+				log.Log.V(2).Infof("Waiting on daemonset %v to roll over to latest version", daemonSet.GetName())
+				// not rolled out yet
 				return false, nil
 			}
 		}
 	}
 
-	// create/update Deployments
-	for _, deployment := range targetStrategy.deployments {
-		var cachedDeployment *appsv1.Deployment
-		deployment := deployment.DeepCopy()
-
-		obj, exists, _ := stores.DeploymentCache.Get(deployment)
-
-		if exists {
-			cachedDeployment = obj.(*appsv1.Deployment)
+	// create/update Controller Deployments
+	for _, deployment := range controllerDeployments(targetStrategy) {
+		err := syncDeployment(kv, deployment, stores, clientset, expectations)
+		if err != nil {
+			return false, err
 		}
 
-		injectOperatorLabelAndAnnotations(&deployment.ObjectMeta, imageTag, imageRegistry)
-		injectOperatorLabelAndAnnotations(&deployment.Spec.Template.ObjectMeta, imageTag, imageRegistry)
-		if !exists {
-			expectations.Deployment.RaiseExpectations(kvkey, 1, 0)
-			_, err = apps.Deployments(kv.Namespace).Create(deployment)
-			if err != nil {
-				expectations.Deployment.LowerExpectations(kvkey, 1, 0)
-				return false, fmt.Errorf("unable to create deployment %+v: %v", deployment, err)
-			}
-		} else if !objectMatchesVersion(&cachedDeployment.ObjectMeta, imageTag, imageRegistry) {
-			// Patch if old version
-			var ops []string
+	}
 
-			// Add Labels and Annotations Patches
-			labelAnnotationPatch, err := createLabelsAndAnnotationsPatch(&deployment.ObjectMeta)
-			if err != nil {
-				return false, err
+	// We must ensure our controllers have completely rolled over
+	// before continuing with exposing the API
+	// TODO when rolling the API backwards, we'll need to reverse this and
+	// ensure the deployments are updated first
+	if prevStrategy != nil {
+		for _, deployment := range controllerDeployments(targetStrategy) {
+			if !util.DeploymentIsReady(kv, deployment, stores) {
+				log.Log.V(2).Infof("Waiting on deployment %v to roll over to latest version", deployment.GetName())
+				// not rolled out yet
+				return false, nil
 			}
-			ops = append(ops, labelAnnotationPatch...)
+		}
+	}
 
-			// Add Spec Patch
-			newSpec, err := json.Marshal(deployment.Spec)
-			if err != nil {
-				return false, err
-			}
-			ops = append(ops, fmt.Sprintf(`{ "op": "replace", "path": "/spec", "value": %s }`, string(newSpec)))
-
-			_, err = apps.Deployments(kv.Namespace).Patch(deployment.Name, types.JSONPatchType, generatePatchBytes(ops))
-			if err != nil {
-				return false, fmt.Errorf("unable to patch deployment %+v: %v", deployment, err)
-			}
-			log.Log.V(2).Infof("deployment %v updated", deployment.GetName())
-
-		} else {
-			log.Log.V(4).Infof("deployment %v is up-to-date", deployment.GetName())
+	// create/update API Deployments
+	for _, deployment := range apiDeployments(targetStrategy) {
+		deployment := deployment.DeepCopy()
+		err := syncDeployment(kv, deployment, stores, clientset, expectations)
+		if err != nil {
+			return false, err
 		}
 	}
 
