@@ -33,6 +33,8 @@ import (
 	"kubevirt.io/kubevirt/pkg/kubecli"
 )
 
+const ApiServiceAccountName = "kubevirt-apiserver"
+
 func CreateApiServerRBAC(clientset kubecli.KubevirtClient, kv *virtv1.KubeVirt, stores util.Stores, expectations *util.Expectations) (int, error) {
 
 	objectsAdded := 0
@@ -141,7 +143,7 @@ func newApiServerServiceAccount(namespace string) *corev1.ServiceAccount {
 		},
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: namespace,
-			Name:      "kubevirt-apiserver",
+			Name:      ApiServiceAccountName,
 			Labels: map[string]string{
 				virtv1.AppLabel: "",
 			},
@@ -156,7 +158,7 @@ func newApiServerClusterRole() *rbacv1.ClusterRole {
 			Kind:       "ClusterRole",
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name: "kubevirt-apiserver",
+			Name: ApiServiceAccountName,
 			Labels: map[string]string{
 				virtv1.AppLabel: "",
 			},
@@ -264,7 +266,7 @@ func newApiServerClusterRoleBinding(namespace string) *rbacv1.ClusterRoleBinding
 			Kind:       "ClusterRoleBinding",
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name: "kubevirt-apiserver",
+			Name: ApiServiceAccountName,
 			Labels: map[string]string{
 				virtv1.AppLabel: "",
 			},
@@ -272,13 +274,13 @@ func newApiServerClusterRoleBinding(namespace string) *rbacv1.ClusterRoleBinding
 		RoleRef: rbacv1.RoleRef{
 			APIGroup: "rbac.authorization.k8s.io",
 			Kind:     "ClusterRole",
-			Name:     "kubevirt-apiserver",
+			Name:     ApiServiceAccountName,
 		},
 		Subjects: []rbacv1.Subject{
 			{
 				Kind:      "ServiceAccount",
 				Namespace: namespace,
-				Name:      "kubevirt-apiserver",
+				Name:      ApiServiceAccountName,
 			},
 		},
 	}
@@ -305,7 +307,7 @@ func newApiServerAuthDelegatorClusterRoleBinding(namespace string) *rbacv1.Clust
 			{
 				Kind:      "ServiceAccount",
 				Namespace: namespace,
-				Name:      "kubevirt-apiserver",
+				Name:      ApiServiceAccountName,
 			},
 		},
 	}
@@ -319,7 +321,7 @@ func newApiServerRole(namespace string) *rbacv1.Role {
 		},
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: namespace,
-			Name:      "kubevirt-apiserver",
+			Name:      ApiServiceAccountName,
 			Labels: map[string]string{
 				virtv1.AppLabel: "",
 			},
@@ -359,7 +361,7 @@ func newApiServerRoleBinding(namespace string) *rbacv1.RoleBinding {
 		},
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: namespace,
-			Name:      "kubevirt-apiserver",
+			Name:      ApiServiceAccountName,
 			Labels: map[string]string{
 				virtv1.AppLabel: "",
 			},
@@ -367,13 +369,13 @@ func newApiServerRoleBinding(namespace string) *rbacv1.RoleBinding {
 		RoleRef: rbacv1.RoleRef{
 			APIGroup: "rbac.authorization.k8s.io",
 			Kind:     "Role",
-			Name:     "kubevirt-apiserver",
+			Name:     ApiServiceAccountName,
 		},
 		Subjects: []rbacv1.Subject{
 			{
 				Kind:      "ServiceAccount",
 				Namespace: namespace,
-				Name:      "kubevirt-apiserver",
+				Name:      ApiServiceAccountName,
 			},
 		},
 	}

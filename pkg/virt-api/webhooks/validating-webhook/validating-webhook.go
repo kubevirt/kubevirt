@@ -44,6 +44,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/util/hardware"
 	"kubevirt.io/kubevirt/pkg/virt-api/webhooks"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
+	"kubevirt.io/kubevirt/pkg/virt-operator/creation/rbac"
 )
 
 const (
@@ -65,6 +66,7 @@ var validInterfaceModels = []string{"e1000", "e1000e", "ne2k_pci", "pcnet", "rtl
 var validIOThreadsPolicies = []v1.IOThreadsPolicy{v1.IOThreadsPolicyShared, v1.IOThreadsPolicyAuto}
 var validCPUFeaturePolicies = []string{"", "force", "require", "optional", "disable", "forbid"}
 var validRunStrategies = []v1.VirtualMachineRunStrategy{v1.RunStrategyHalted, v1.RunStrategyManual, v1.RunStrategyAlways, v1.RunStrategyRerunOnFailure}
+var allowedServiceAccountsMap = getAllowedServiceAccountsMap()
 
 type admitFunc func(*v1beta1.AdmissionReview) *v1beta1.AdmissionResponse
 
@@ -1683,9 +1685,32 @@ func admitVMIUpdate(ar *v1beta1.AdmissionReview) *v1beta1.AdmissionResponse {
 		})
 	}
 
+	// Skip validation if the request came from one of our components
+	if _, ok := allowedServiceAccountsMap[ar.Request.UserInfo.Username]; !ok {
+		cause := validateKubevirtIOLabels(oldVMI, newVMI)
+		if cause != nil {
+			return webhooks.ToAdmissionResponse([]metav1.StatusCause{*cause})
+		}
+	}
 	reviewResponse := v1beta1.AdmissionResponse{}
 	reviewResponse.Allowed = true
 	return &reviewResponse
+}
+
+func getAllowedServiceAccountsMap() map[string]struct{} {
+	ns, err := util.GetNamespace()
+	if err != nil {
+		log.Log.Info("Failed to get namespace. Fallback to default: 'kubevirt'")
+		ns = "kubevirt"
+	}
+
+	// system:serviceaccount:{kubevirt-namespace}:{kubevirt-component}
+	prefix := fmt.Sprintf("%s:%s:%s", "system", "serviceaccount", ns)
+	return map[string]struct{}{
+		fmt.Sprintf("%s:%s", prefix, rbac.ApiServiceAccountName):        {},
+		fmt.Sprintf("%s:%s", prefix, rbac.HandlerServiceAccountName):    {},
+		fmt.Sprintf("%s:%s", prefix, rbac.ControllerServiceAccountName): {},
+	}
 }
 
 func ServeVMIUpdate(resp http.ResponseWriter, req *http.Request) {
@@ -2016,4 +2041,48 @@ func ValidateDuplicateDHCPPrivateOptions(PrivateOptions []v1.DHCPPrivateOptions)
 		isUnique[DHCPPrivateOption.Option] = true
 	}
 	return nil
+}
+
+func validateKubevirtIOLabels(oldVMI *v1.VirtualMachineInstance, newVMI *v1.VirtualMachineInstance) *metav1.StatusCause {
+	allModifiedKeys := make(map[string]struct{})
+
+	// We convert slices to map keys to remove duplications
+	sliceToEmptyKeys(allModifiedKeys, getModifiedKIOKeys(oldVMI, newVMI))
+	sliceToEmptyKeys(allModifiedKeys, getModifiedKIOKeys(newVMI, oldVMI))
+
+	if len(allModifiedKeys) > 0 {
+		modifiedKeys := make([]string, len(allModifiedKeys))
+		var i int
+		for k := range allModifiedKeys {
+			modifiedKeys[i] = k
+			i++
+		}
+		return &metav1.StatusCause{
+			Type:    metav1.CauseTypeFieldValueNotSupported,
+			Message: fmt.Sprintf("Update of kubevirt.io labels is restricted. You have modified: %s", modifiedKeys),
+		}
+	}
+	return nil
+}
+
+// append elements of slice s to map m as keys pointing to an empty struct
+func sliceToEmptyKeys(m map[string]struct{}, s []string) {
+	var empty struct{}
+	for _, k := range s {
+		m[k] = empty
+	}
+}
+
+// getModifiedKIOKeys returns a slice of modified kubevirt.io label keys between two VMIs.
+func getModifiedKIOKeys(vmi1 *v1.VirtualMachineInstance, vmi2 *v1.VirtualMachineInstance) []string {
+	modifiedLabels := make([]string, 0)
+	for k, vmi1Value := range vmi1.ObjectMeta.Labels {
+		if !strings.HasPrefix(k, "kubevirt.io/") {
+			continue
+		}
+		if vmi2Value, ok := vmi2.ObjectMeta.Labels[k]; !ok || vmi1Value != vmi2Value {
+			modifiedLabels = append(modifiedLabels, k)
+		}
+	}
+	return modifiedLabels
 }

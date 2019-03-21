@@ -21,6 +21,8 @@ package components
 import (
 	"fmt"
 
+	"kubevirt.io/kubevirt/pkg/virt-operator/creation/rbac"
+
 	"kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/log"
 
@@ -275,7 +277,7 @@ func NewApiServerDeployment(namespace string, repository string, version string,
 	}
 
 	pod := &deployment.Spec.Template.Spec
-	pod.ServiceAccountName = "kubevirt-apiserver"
+	pod.ServiceAccountName = rbac.ApiServiceAccountName
 	pod.SecurityContext = &corev1.PodSecurityContext{
 		RunAsNonRoot: boolPtr(true),
 	}
@@ -326,7 +328,7 @@ func NewControllerDeployment(namespace string, repository string, version string
 	}
 
 	pod := &deployment.Spec.Template.Spec
-	pod.ServiceAccountName = "kubevirt-controller"
+	pod.ServiceAccountName = rbac.ControllerServiceAccountName
 	pod.SecurityContext = &corev1.PodSecurityContext{
 		RunAsNonRoot: boolPtr(true),
 	}
@@ -412,7 +414,7 @@ func NewHandlerDaemonSet(namespace string, repository string, version string, pu
 	}
 
 	pod := &daemonset.Spec.Template.Spec
-	pod.ServiceAccountName = "kubevirt-handler"
+	pod.ServiceAccountName = rbac.HandlerServiceAccountName
 	pod.HostPID = true
 
 	container := &pod.Containers[0]

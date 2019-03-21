@@ -31,6 +31,7 @@ import (
 	"github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
 	"k8s.io/api/admission/v1beta1"
+	authenticationv1 "k8s.io/api/authentication/v1"
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -372,6 +373,108 @@ var _ = Describe("Validating Webhook", func() {
 				admitVMIRS,
 			),
 		)
+		It("should return a slice of modified kubevirt.io labels", func() {
+			vmi1 := testutils.NewVMIReferenceWithLabels("testvmi")
+			vmi1.ObjectMeta.Labels[v1.NodeNameLabel] = "foo"
+			vmi1.ObjectMeta.Labels[v1.CreatedByLabel] = "foo"
+			vmi2 := vmi1.DeepCopy()
+			vmi2.ObjectMeta.Labels[v1.NodeNameLabel] = "bar"
+			resp := getModifiedKIOKeys(vmi1, vmi2)
+			exp := []string{"kubevirt.io/nodeName"}
+			Expect(resp).To(Equal(exp))
+		})
+		It("should append slice elements to the map", func() {
+			m := make(map[string]struct{})
+			s := []string{"a", "b", "c"}
+			sliceToEmptyKeys(m, s)
+			var empty struct{}
+			exp := map[string]struct{}{
+				"a": empty,
+				"b": empty,
+				"c": empty,
+			}
+			Expect(m).To(Equal(exp))
+		})
+		It("should allow update of kubevirt.io labels by kubevirt components", func() {
+			vmi := testutils.NewVMIReferenceWithLabels("testvmi")
+			updateVmi := vmi.DeepCopy()
+			vmi.ObjectMeta.Labels[v1.NodeNameLabel] = "foo"
+			updateVmi.ObjectMeta.Labels[v1.NodeNameLabel] = "bar"
+
+			newVMIBytes, _ := json.Marshal(&updateVmi)
+			oldVMIBytes, _ := json.Marshal(&vmi)
+
+			for svc := range getAllowedServiceAccountsMap() {
+				ar := &v1beta1.AdmissionReview{
+					Request: &v1beta1.AdmissionRequest{
+						UserInfo: authenticationv1.UserInfo{
+							Username: svc,
+						},
+						Resource: webhooks.VirtualMachineInstanceGroupVersionResource,
+						Object: runtime.RawExtension{
+							Raw: newVMIBytes,
+						},
+						OldObject: runtime.RawExtension{
+							Raw: oldVMIBytes,
+						},
+						Operation: v1beta1.Update,
+					},
+				}
+
+				resp := admitVMIUpdate(ar)
+				Expect(resp.Allowed).To(Equal(true))
+			}
+		})
+		It("should reject update of kubevirt.io labels by non kubevirt components", func() {
+			vmi := testutils.NewVMIReferenceWithLabels("testvmi")
+			updateVmi := vmi.DeepCopy()
+			vmi.ObjectMeta.Labels[v1.NodeNameLabel] = "foo"
+			updateVmi.ObjectMeta.Labels[v1.NodeNameLabel] = "bar"
+
+			newVMIBytes, _ := json.Marshal(&updateVmi)
+			oldVMIBytes, _ := json.Marshal(&vmi)
+
+			ar := &v1beta1.AdmissionReview{
+				Request: &v1beta1.AdmissionRequest{
+					Resource: webhooks.VirtualMachineInstanceGroupVersionResource,
+					Object: runtime.RawExtension{
+						Raw: newVMIBytes,
+					},
+					OldObject: runtime.RawExtension{
+						Raw: oldVMIBytes,
+					},
+					Operation: v1beta1.Update,
+				},
+			}
+
+			resp := admitVMIUpdate(ar)
+			Expect(resp.Allowed).To(Equal(false))
+		})
+		It("should allow update of non-kubevirt.io labels by non-kubevirt components", func() {
+			vmi := testutils.NewVMIReferenceWithLabels("testvmi")
+			updateVmi := vmi.DeepCopy()
+			vmi.ObjectMeta.Labels["some-random-label"] = "foo"
+			updateVmi.ObjectMeta.Labels["some-random-label"] = "bar"
+
+			newVMIBytes, _ := json.Marshal(&updateVmi)
+			oldVMIBytes, _ := json.Marshal(&vmi)
+
+			ar := &v1beta1.AdmissionReview{
+				Request: &v1beta1.AdmissionRequest{
+					Resource: webhooks.VirtualMachineInstanceGroupVersionResource,
+					Object: runtime.RawExtension{
+						Raw: newVMIBytes,
+					},
+					OldObject: runtime.RawExtension{
+						Raw: oldVMIBytes,
+					},
+					Operation: v1beta1.Update,
+				},
+			}
+
+			resp := admitVMIUpdate(ar)
+			Expect(resp.Allowed).To(Equal(true))
+		})
 		It("should reject valid VirtualMachineInstance spec on update", func() {
 			vmi := v1.NewMinimalVMI("testvmi")
 
