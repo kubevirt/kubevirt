@@ -558,6 +558,7 @@ var _ = Describe("KubeVirt Operator", func() {
 		}
 		return len(all)
 	}
+
 	addAll := func(version string, registry string) {
 		pullPolicy := "IfNotPresent"
 		imagePullPolicy := k8sv1.PullPolicy(pullPolicy)
@@ -768,8 +769,6 @@ var _ = Describe("KubeVirt Operator", func() {
 		update, ok := action.(testing.UpdateAction)
 		Expect(ok).To(BeTrue())
 		totalUpdates++
-		// TODO check labels and annotations
-		//addResource(obj, "", "")
 		return true, update.GetObject(), nil
 	}
 
@@ -777,8 +776,6 @@ var _ = Describe("KubeVirt Operator", func() {
 		_, ok := action.(testing.PatchAction)
 		Expect(ok).To(BeTrue())
 		totalPatches++
-		// TODO check labels and annotations
-		//obj := patch.GetPatch()
 
 		return true, nil, nil
 	}
@@ -858,13 +855,12 @@ var _ = Describe("KubeVirt Operator", func() {
 	}
 
 	shouldExpectPatchesAndUpdates := func() {
+		extClient.Fake.PrependReactor("patch", "customresourcedefinitions", genericPatchFunc)
 		kubeClient.Fake.PrependReactor("patch", "serviceaccounts", genericPatchFunc)
 		kubeClient.Fake.PrependReactor("update", "clusterroles", genericUpdateFunc)
 		kubeClient.Fake.PrependReactor("update", "clusterrolebindings", genericUpdateFunc)
 		kubeClient.Fake.PrependReactor("update", "roles", genericUpdateFunc)
 		kubeClient.Fake.PrependReactor("update", "rolebindings", genericUpdateFunc)
-
-		extClient.Fake.PrependReactor("patch", "customresourcedefinitions", genericPatchFunc)
 
 		kubeClient.Fake.PrependReactor("patch", "services", genericPatchFunc)
 		kubeClient.Fake.PrependReactor("patch", "daemonsets", genericPatchFunc)
@@ -987,6 +983,7 @@ var _ = Describe("KubeVirt Operator", func() {
 			addAll("custom.tag", defaultRegistry)
 			// install strategy config
 			addInstallStrategy("custom.tag", defaultRegistry)
+			addPods("custom.tag", defaultRegistry)
 
 			makeApiAndControllerReady()
 			makeHandlerReady()
@@ -1280,14 +1277,19 @@ var _ = Describe("KubeVirt Operator", func() {
 
 			// ensure completed jobs are garbage collected once install strategy
 			// is loaded
+			deleteFromCache = false
 			shouldExpectJobDeletion()
-
 			shouldExpectKubeVirtUpdate(1)
 			shouldExpectCreations()
 
 			controller.Execute()
 
-			Expect(totalAdds).To(Equal(resourceCount))
+			kv = getLatestKubeVirt(kv)
+			Expect(kv.Status.Phase).To(Equal(v1.KubeVirtPhaseDeploying))
+			Expect(len(kv.Status.Conditions)).To(Equal(0))
+
+			// -2 because waiting on controller and virt-handler daemonset until API server deploys successfully
+			Expect(totalAdds).To(Equal(resourceCount - 2))
 			Expect(len(controller.stores.ServiceAccountCache.List())).To(Equal(3))
 			Expect(len(controller.stores.ClusterRoleCache.List())).To(Equal(7))
 			Expect(len(controller.stores.ClusterRoleBindingCache.List())).To(Equal(5))
@@ -1295,53 +1297,79 @@ var _ = Describe("KubeVirt Operator", func() {
 			Expect(len(controller.stores.RoleBindingCache.List())).To(Equal(2))
 			Expect(len(controller.stores.CrdCache.List())).To(Equal(5))
 			Expect(len(controller.stores.ServiceCache.List())).To(Equal(2))
-			Expect(len(controller.stores.DeploymentCache.List())).To(Equal(2))
-			Expect(len(controller.stores.DaemonSetCache.List())).To(Equal(1))
-
-			kv = getLatestKubeVirt(kv)
-			Expect(kv.Status.Phase).To(Equal(v1.KubeVirtPhaseDeploying))
-			Expect(len(kv.Status.Conditions)).To(Equal(1))
-			condition := kv.Status.Conditions[0]
-			Expect(condition.Type).To(Equal(v1.KubeVirtConditionCreated))
-			Expect(condition.Status).To(Equal(k8sv1.ConditionTrue))
-			Expect(condition.Reason).To(Equal(ConditionReasonDeploymentCreated))
-
-			// On Second run, we expect everything to be deployed
-
-			// The controller looks to make sure the pods
-			// are active and the right version
-			addPods(defaultImageTag, defaultRegistry)
-			// make some(!) components ready
-			makeApiAndControllerReady()
-			// make last component ready
-			makeHandlerReady()
-
-			// when everything is ready, the Deployed status and Created + Ready condition should be set
-			totalAdds = 0
-			shouldExpectKubeVirtUpdate(1)
-			controller.Execute()
-			Expect(totalAdds).To(Equal(0))
-
-			kv = getLatestKubeVirt(kv)
-			Expect(kv.Status.Phase).To(Equal(v1.KubeVirtPhaseDeployed))
-			Expect(len(kv.Status.Conditions)).To(Equal(2))
-
-			condition1 := kv.Status.Conditions[0]
-			Expect(condition1.Type).To(Equal(v1.KubeVirtConditionCreated))
-			Expect(condition1.Status).To(Equal(k8sv1.ConditionTrue))
-			Expect(condition1.Reason).To(Equal(ConditionReasonDeploymentCreated))
-
-			condition2 := kv.Status.Conditions[1]
-			Expect(condition2.Type).To(Equal(v1.KubeVirtConditionReady))
-			Expect(condition2.Status).To(Equal(k8sv1.ConditionTrue))
-			Expect(condition2.Reason).To(Equal(ConditionReasonDeploymentReady))
-
+			Expect(len(controller.stores.DeploymentCache.List())).To(Equal(1))
+			Expect(len(controller.stores.DaemonSetCache.List())).To(Equal(0))
 		}, 15)
 
-		It("should pause update until daemonsets are rolled over.", func(done Done) {
+		It("should pause rollback until api server is rolled over.", func(done Done) {
 			defer close(done)
 
-			updatedVersion := "1.1.1"
+			rollbackVersion := "9.9.7"
+			rollbackRegistry := "otherregistry"
+
+			kv := &v1.KubeVirt{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:       "test-install",
+					Namespace:  NAMESPACE,
+					Finalizers: []string{util.KubeVirtFinalizer},
+				},
+				Spec: v1.KubeVirtSpec{
+					ImageTag:      rollbackVersion,
+					ImageRegistry: rollbackRegistry,
+				},
+				Status: v1.KubeVirtStatus{
+					Phase: v1.KubeVirtPhaseDeployed,
+					Conditions: []v1.KubeVirtCondition{
+						{
+							Type:    v1.KubeVirtConditionCreated,
+							Status:  k8sv1.ConditionTrue,
+							Reason:  ConditionReasonDeploymentCreated,
+							Message: "All resources were created.",
+						},
+						{
+							Type:    v1.KubeVirtConditionReady,
+							Status:  k8sv1.ConditionTrue,
+							Reason:  ConditionReasonDeploymentReady,
+							Message: "All components are ready.",
+						},
+					},
+					OperatorVersion:          version.Get().String(),
+					TargetKubeVirtVersion:    defaultImageTag,
+					TargetKubeVirtRegistry:   defaultRegistry,
+					ObservedKubeVirtVersion:  defaultImageTag,
+					ObservedKubeVirtRegistry: defaultRegistry,
+				},
+			}
+
+			// create all resources which should already exist
+			addKubeVirt(kv)
+			addInstallStrategy(defaultImageTag, defaultRegistry)
+			addInstallStrategy(rollbackVersion, rollbackRegistry)
+
+			addAll(defaultImageTag, defaultRegistry)
+			addPods(defaultImageTag, defaultRegistry)
+
+			makeApiAndControllerReady()
+			makeHandlerReady()
+
+			shouldExpectPatchesAndUpdates()
+			shouldExpectKubeVirtUpdate(1)
+
+			controller.Execute()
+
+			// on rollback or create, api server must be online first before controllers and daemonset.
+			// On rollback this prevents someone from posting invalid specs to
+			// the cluster from newer versions when an older version is being deployed.
+			// On create this prevents invalid specs from entering the cluster
+			// while controllers are available to process them.
+			Expect(totalPatches).To(Equal(patchCount - 2))
+			Expect(totalUpdates).To(Equal(updateCount))
+		}, 15)
+
+		It("should pause update until daemonsets and controllers are rolled over.", func(done Done) {
+			defer close(done)
+
+			updatedVersion := "9.9.10"
 			updatedRegistry := "otherregistry"
 
 			kv := &v1.KubeVirt{
@@ -1394,8 +1422,9 @@ var _ = Describe("KubeVirt Operator", func() {
 
 			controller.Execute()
 
-			// deployments won't get updated until daemonset's pods are online.
-			Expect(totalPatches).To(Equal(patchCount - 2))
+			// on update, apiserver won't get patched until daemonset and controller pods are online.
+			// this prevents the new API from coming online until the controllers can manage it.
+			Expect(totalPatches).To(Equal(patchCount - 1))
 			Expect(totalUpdates).To(Equal(updateCount))
 		}, 15)
 
