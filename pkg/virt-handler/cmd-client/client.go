@@ -37,6 +37,7 @@ import (
 
 	v1 "kubevirt.io/kubevirt/pkg/api/v1"
 	diskutils "kubevirt.io/kubevirt/pkg/ephemeral-disk-utils"
+	"kubevirt.io/kubevirt/pkg/log"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/stats"
 )
@@ -81,6 +82,12 @@ func ListAllSockets(baseDir string) ([]string, error) {
 
 	if exists == false {
 		return socketFiles, nil
+	}
+
+	if fileinfo, err := os.Stat(fileDir); err == nil {
+		if stat, ok := fileinfo.Sys().(*syscall.Stat_t); ok {
+			log.Log.Infof("scanning for sockets in dir %s inode %v", fileDir, stat.Ino)
+		}
 	}
 
 	files, err := ioutil.ReadDir(fileDir)
