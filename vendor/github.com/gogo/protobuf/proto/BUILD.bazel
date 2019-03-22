@@ -1,4 +1,4 @@
-load("@io_bazel_rules_go//go:def.bzl", "go_library")
+load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
 
 go_library(
     name = "go_default_library",
@@ -30,4 +30,30 @@ go_library(
     importmap = "kubevirt.io/kubevirt/vendor/github.com/gogo/protobuf/proto",
     importpath = "github.com/gogo/protobuf/proto",
     visibility = ["//visibility:public"],
+)
+
+go_test(
+    name = "go_default_test",
+    srcs = [
+        "all_test.go",
+        "any_test.go",
+        "clone_test.go",
+        "decode_test.go",
+        "encode_test.go",
+        "equal_test.go",
+        "extensions_test.go",
+        "map_test.go",
+        "message_set_test.go",
+        "proto3_test.go",
+        "size2_test.go",
+        "size_test.go",
+        "text_parser_test.go",
+        "text_test.go",
+    ],
+    embed = [":go_default_library"],
+    deps = [
+        "//vendor/github.com/gogo/protobuf/proto/proto3_proto:go_default_library",
+        "//vendor/github.com/gogo/protobuf/proto/testdata:go_default_library",
+        "//vendor/github.com/gogo/protobuf/types:go_default_library",
+    ],
 )

@@ -25,17 +25,14 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/golang/glog"
 	"github.com/pkg/errors"
-
+	"github.com/prometheus/client_golang/prometheus"
+	dto "github.com/prometheus/client_model/go"
+	"k8s.io/apimachinery/pkg/api/resource"
+	"k8s.io/klog"
 	"kubevirt.io/containerized-data-importer/pkg/common"
 	"kubevirt.io/containerized-data-importer/pkg/system"
 	"kubevirt.io/containerized-data-importer/pkg/util"
-
-	dto "github.com/prometheus/client_model/go"
-
-	"github.com/prometheus/client_golang/prometheus"
-	"k8s.io/apimachinery/pkg/api/resource"
 )
 
 const (
@@ -63,7 +60,7 @@ type QEMUOperations interface {
 	ConvertQcow2ToRawStream(*url.URL, string) error
 	Resize(string, resource.Quantity) error
 	Info(string) (*ImgInfo, error)
-	Validate(string, string) error
+	Validate(string, string, int64) error
 	CreateBlankImage(dest string, size resource.Quantity) error
 }
 
@@ -71,7 +68,7 @@ type qemuOperations struct{}
 
 var (
 	qemuExecFunction = system.ExecWithLimits
-	qemuLimits       = &system.ProcessLimitValues{AddressSpaceLimit: maxMemory, CPUTimeLimit: maxCPUSecs}
+	qemuInfoLimits   = &system.ProcessLimitValues{AddressSpaceLimit: maxMemory, CPUTimeLimit: maxCPUSecs}
 	qemuIterface     = NewQEMUOperations()
 	re               = regexp.MustCompile(matcherString)
 
@@ -96,7 +93,7 @@ func NewQEMUOperations() QEMUOperations {
 }
 
 func (o *qemuOperations) ConvertQcow2ToRaw(src, dest string) error {
-	_, err := qemuExecFunction(qemuLimits, nil, "qemu-img", "convert", "-p", "-f", "qcow2", "-O", "raw", src, dest)
+	_, err := qemuExecFunction(nil, nil, "qemu-img", "convert", "-p", "-f", "qcow2", "-O", "raw", src, dest)
 	if err != nil {
 		os.Remove(dest)
 		return errors.Wrap(err, "could not convert local qcow2 image to raw")
@@ -108,7 +105,7 @@ func (o *qemuOperations) ConvertQcow2ToRaw(src, dest string) error {
 func (o *qemuOperations) ConvertQcow2ToRawStream(url *url.URL, dest string) error {
 	jsonArg := fmt.Sprintf("json: {\"file.driver\": \"%s\", \"file.url\": \"%s\", \"file.timeout\": %d}", url.Scheme, url, networkTimeoutSecs)
 
-	_, err := qemuExecFunction(qemuLimits, reportProgress, "qemu-img", "convert", "-p", "-f", "qcow2", "-O", "raw", jsonArg, dest)
+	_, err := qemuExecFunction(nil, reportProgress, "qemu-img", "convert", "-p", "-f", "qcow2", "-O", "raw", jsonArg, dest)
 	if err != nil {
 		os.Remove(dest)
 		return errors.Wrap(err, "could not stream/convert qcow2 image to raw")
@@ -128,7 +125,7 @@ func convertQuantityToQemuSize(size resource.Quantity) string {
 }
 
 func (o *qemuOperations) Resize(image string, size resource.Quantity) error {
-	_, err := qemuExecFunction(qemuLimits, nil, "qemu-img", "resize", "-f", "raw", image, convertQuantityToQemuSize(size))
+	_, err := qemuExecFunction(nil, nil, "qemu-img", "resize", "-f", "raw", image, convertQuantityToQemuSize(size))
 	if err != nil {
 		return errors.Wrapf(err, "Error resizing image %s", image)
 	}
@@ -136,20 +133,29 @@ func (o *qemuOperations) Resize(image string, size resource.Quantity) error {
 }
 
 func (o *qemuOperations) Info(image string) (*ImgInfo, error) {
-	output, err := qemuExecFunction(qemuLimits, nil, "qemu-img", "info", "--output=json", image)
+	url, err := url.Parse(image)
+	var output []byte
+
+	if url != nil && len(url.Scheme) > 0 {
+		// Image is a URL, make sure the timeout is long enough.
+		jsonArg := fmt.Sprintf("json: {\"file.driver\": \"%s\", \"file.url\": \"%s\", \"file.timeout\": %d}", url.Scheme, url, networkTimeoutSecs)
+		output, err = qemuExecFunction(qemuInfoLimits, nil, "qemu-img", "info", "--output=json", jsonArg)
+	} else {
+		output, err = qemuExecFunction(qemuInfoLimits, nil, "qemu-img", "info", "--output=json", image)
+	}
 	if err != nil {
 		return nil, errors.Wrapf(err, "Error getting info on image %s", image)
 	}
 	var info ImgInfo
 	err = json.Unmarshal(output, &info)
 	if err != nil {
-		glog.Errorf("Invalid JSON:\n%s\n", string(output))
+		klog.Errorf("Invalid JSON:\n%s\n", string(output))
 		return nil, errors.Wrapf(err, "Invalid json for image %s", image)
 	}
 	return &info, nil
 }
 
-func (o *qemuOperations) Validate(image, format string) error {
+func (o *qemuOperations) Validate(image, format string, availableSize int64) error {
 	info, err := o.Info(image)
 	if err != nil {
 		return err
@@ -163,6 +169,9 @@ func (o *qemuOperations) Validate(image, format string) error {
 		return errors.Errorf("Image %s is invalid because it has backing file %s", image, info.BackingFile)
 	}
 
+	if availableSize < info.VirtualSize {
+		return errors.Errorf("Virtual image size %d is larger than available size %d, shrink not yet supported.", info.VirtualSize, availableSize)
+	}
 	return nil
 }
 
@@ -178,15 +187,15 @@ func ConvertQcow2ToRawStream(url *url.URL, dest string) error {
 }
 
 // Validate does basic validation of a qemu image
-func Validate(image, format string) error {
-	return qemuIterface.Validate(image, format)
+func Validate(image, format string, availableSize int64) error {
+	return qemuIterface.Validate(image, format, availableSize)
 }
 
 func reportProgress(line string) {
 	// (45.34/100%)
 	matches := re.FindStringSubmatch(line)
 	if len(matches) == 2 && ownerUID != "" {
-		glog.V(1).Info(matches[1])
+		klog.V(1).Info(matches[1])
 		// Don't need to check for an error, the regex made sure its a number we can parse.
 		v, _ := strconv.ParseFloat(matches[1], 64)
 		metric := &dto.Metric{}
@@ -199,14 +208,14 @@ func reportProgress(line string) {
 
 // CreateBlankImage creates empty raw image
 func CreateBlankImage(dest string, size resource.Quantity) error {
-	glog.V(1).Infof("creating raw image with size %s", size)
+	klog.V(1).Infof("creating raw image with size %s", size.String())
 	return qemuIterface.CreateBlankImage(dest, size)
 }
 
 // CreateBlankImage creates a raw image with a given size
 func (o *qemuOperations) CreateBlankImage(dest string, size resource.Quantity) error {
-	glog.V(3).Infof("image size is %s", size.String())
-	_, err := qemuExecFunction(qemuLimits, nil, "qemu-img", "create", "-f", "raw", dest, convertQuantityToQemuSize(size))
+	klog.V(3).Infof("image size is %s", size.String())
+	_, err := qemuExecFunction(nil, nil, "qemu-img", "create", "-f", "raw", dest, convertQuantityToQemuSize(size))
 	if err != nil {
 		os.Remove(dest)
 		return errors.Wrap(err, fmt.Sprintf("could not create raw image with size %s in %s", size.String(), dest))

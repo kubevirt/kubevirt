@@ -1,5 +1,5 @@
 FROM fedora:28
 
-COPY ./cdi-uploadproxy /cdi-uploadproxy
+COPY ./cdi-uploadproxy /usr/bin/cdi-uploadproxy
 
-ENTRYPOINT [ "/cdi-uploadproxy", "-alsologtostderr"]
+ENTRYPOINT [ "/usr/bin/cdi-uploadproxy", "-alsologtostderr"]

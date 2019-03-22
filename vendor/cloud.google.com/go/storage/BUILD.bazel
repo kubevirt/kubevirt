@@ -1,4 +1,4 @@
-load("@io_bazel_rules_go//go:def.bzl", "go_library")
+load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
 
 go_library(
     name = "go_default_library",
@@ -19,5 +19,24 @@ go_library(
         "@org_golang_google_api//option:go_default_library",
         "@org_golang_google_api//storage/v1:go_default_library",
         "@org_golang_google_api//transport:go_default_library",
+    ],
+)
+
+go_test(
+    name = "go_default_test",
+    srcs = [
+        "example_test.go",
+        "integration_test.go",
+        "storage_test.go",
+        "writer_test.go",
+    ],
+    data = glob(["testdata/**"]),
+    embed = [":go_default_library"],
+    deps = [
+        "//vendor/cloud.google.com/go/internal/testutil:go_default_library",
+        "//vendor/golang.org/x/net/context:go_default_library",
+        "@org_golang_google_api//googleapi:go_default_library",
+        "@org_golang_google_api//option:go_default_library",
+        "@org_golang_google_api//storage/v1:go_default_library",
     ],
 )

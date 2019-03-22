@@ -1,4 +1,4 @@
-load("@io_bazel_rules_go//go:def.bzl", "go_library")
+load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
 
 go_library(
     name = "go_default_library",
@@ -6,4 +6,11 @@ go_library(
     importmap = "kubevirt.io/kubevirt/vendor/github.com/gophercloud/gophercloud/internal/testing",
     importpath = "github.com/gophercloud/gophercloud/internal/testing",
     visibility = ["//vendor/github.com/gophercloud/gophercloud:__subpackages__"],
+)
+
+go_test(
+    name = "go_default_test",
+    srcs = ["util_test.go"],
+    embed = [":go_default_library"],
+    deps = ["//vendor/github.com/gophercloud/gophercloud/internal:go_default_library"],
 )

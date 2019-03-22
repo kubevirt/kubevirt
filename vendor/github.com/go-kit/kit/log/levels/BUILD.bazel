@@ -1,4 +1,4 @@
-load("@io_bazel_rules_go//go:def.bzl", "go_library")
+load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
 
 go_library(
     name = "go_default_library",
@@ -6,5 +6,12 @@ go_library(
     importmap = "kubevirt.io/kubevirt/vendor/github.com/go-kit/kit/log/levels",
     importpath = "github.com/go-kit/kit/log/levels",
     visibility = ["//visibility:public"],
+    deps = ["//vendor/github.com/go-kit/kit/log:go_default_library"],
+)
+
+go_test(
+    name = "go_default_test",
+    srcs = ["levels_test.go"],
+    embed = [":go_default_library"],
     deps = ["//vendor/github.com/go-kit/kit/log:go_default_library"],
 )

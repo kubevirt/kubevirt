@@ -1,8 +1,8 @@
 FROM fedora:28
 
-RUN dnf install -y qemu xz gzip git gradle && dnf clean all
+RUN dnf install -y qemu xz gzip git gradle gcc && dnf clean all
 
-ENV GIMME_GO_VERSION=1.10 GOPATH="/go"
+ENV GIMME_GO_VERSION=1.11.5 GOPATH="/go" KUBEBUILDER_VERSION="1.0.7" ARCH="amd64"
 
 RUN mkdir -p /gimme && curl -sL https://raw.githubusercontent.com/travis-ci/gimme/master/gimme | HOME=/gimme bash >> /etc/profile.d/gimme.sh
 
@@ -37,7 +37,11 @@ RUN \
     (go get -u -d github.com/Masterminds/glide && \
      cd $GOPATH/src/github.com/Masterminds/glide && \
      git checkout v0.13.2 -b build-v0.13.2 && \
-     go install ./...)
+     go install ./...) && \
+    (curl -L -O "https://github.com/kubernetes-sigs/kubebuilder/releases/download/v${KUBEBUILDER_VERSION}/kubebuilder_${KUBEBUILDER_VERSION}_linux_${ARCH}.tar.gz" && \
+     tar -zxvf kubebuilder_${KUBEBUILDER_VERSION}_linux_${ARCH}.tar.gz && \
+     mv kubebuilder_${KUBEBUILDER_VERSION}_linux_${ARCH} /usr/local/kubebuilder && \
+     rm kubebuilder_${KUBEBUILDER_VERSION}_linux_${ARCH}.tar.gz )
 
 ADD entrypoint.sh /entrypoint.sh
 

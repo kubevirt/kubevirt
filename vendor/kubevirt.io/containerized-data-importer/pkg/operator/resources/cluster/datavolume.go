@@ -19,14 +19,7 @@ package cluster
 import (
 	extv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
 )
-
-func createCRDResources(args *FactoryArgs) []runtime.Object {
-	return []runtime.Object{
-		createDataVolumeCRD(),
-	}
-}
 
 func createDataVolumeCRD() *extv1beta1.CustomResourceDefinition {
 	return &extv1beta1.CustomResourceDefinition{

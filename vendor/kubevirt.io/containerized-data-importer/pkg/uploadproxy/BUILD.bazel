@@ -1,4 +1,4 @@
-load("@io_bazel_rules_go//go:def.bzl", "go_library")
+load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
 
 go_library(
     name = "go_default_library",
@@ -11,7 +11,18 @@ go_library(
         "//vendor/k8s.io/client-go/util/cert:go_default_library",
         "//vendor/kubevirt.io/containerized-data-importer/pkg/apiserver:go_default_library",
         "//vendor/kubevirt.io/containerized-data-importer/pkg/uploadserver:go_default_library",
-        "@com_github_golang_glog//:go_default_library",
         "@com_github_pkg_errors//:go_default_library",
+        "@io_k8s_klog//:go_default_library",
+    ],
+)
+
+go_test(
+    name = "go_default_test",
+    srcs = ["uploadproxy_test.go"],
+    embed = [":go_default_library"],
+    deps = [
+        "//vendor/k8s.io/client-go/util/cert:go_default_library",
+        "//vendor/k8s.io/client-go/util/cert/triple:go_default_library",
+        "//vendor/kubevirt.io/containerized-data-importer/pkg/apiserver:go_default_library",
     ],
 )

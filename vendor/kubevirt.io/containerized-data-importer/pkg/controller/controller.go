@@ -1,7 +1,8 @@
 package controller
 
 import (
-	"github.com/golang/glog"
+	"time"
+
 	"github.com/pkg/errors"
 	"k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -12,15 +13,17 @@ import (
 	corelisters "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
+	"k8s.io/klog"
 	"kubevirt.io/containerized-data-importer/pkg/expectations"
-	"time"
 )
 
 const (
+	// AnnAPIGroup is the APIGroup for CDI
+	AnnAPIGroup = "cdi.kubevirt.io"
 	//AnnCreatedBy is a pod annotation indicating if the pod was created by the PVC
-	AnnCreatedBy = "cdi.kubevirt.io/storage.createdByController"
+	AnnCreatedBy = AnnAPIGroup + "/storage.createdByController"
 	//AnnPodPhase is a PVC annotation indicating the related pod progress (phase)
-	AnnPodPhase = "cdi.kubevirt.io/storage.pod.phase"
+	AnnPodPhase = AnnAPIGroup + "/storage.pod.phase"
 )
 
 //Controller is a struct that contains common information and functionality used by all CDI controllers.
@@ -66,6 +69,7 @@ func NewController(client kubernetes.Interface,
 		UpdateFunc: func(old, new interface{}) {
 			c.enqueuePVC(new)
 		},
+		DeleteFunc: c.enqueuePVC,
 	})
 
 	// Bind the pod SharedIndexInformer to the pod queue
@@ -81,7 +85,6 @@ func NewController(client kubernetes.Interface,
 			}
 			c.handlePodUpdate(new)
 		},
-
 		DeleteFunc: c.handlePodDelete,
 	})
 
@@ -116,9 +119,9 @@ func (c *Controller) handlePodObject(obj interface{}, verb string) {
 			runtime.HandleError(errors.Errorf("error decoding object tombstone, invalid type"))
 			return
 		}
-		glog.V(3).Infof("Recovered deleted object '%s' from tombstone", object.GetName())
+		klog.V(3).Infof("Recovered deleted object '%s' from tombstone", object.GetName())
 	}
-	glog.V(3).Infof("Processing object: %s", object.GetName())
+	klog.V(3).Infof("Processing object: %s", object.GetName())
 	if ownerRef := metav1.GetControllerOf(object); ownerRef != nil {
 		_, createdByUs := object.GetAnnotations()[AnnCreatedBy]
 
@@ -138,7 +141,7 @@ func (c *Controller) handlePodObject(obj interface{}, verb string) {
 		}
 
 		if err != nil {
-			glog.V(3).Infof("ignoring orphaned object '%s' of pvc '%s'", object.GetSelfLink(), ownerRef.Name)
+			klog.V(3).Infof("ignoring orphaned object '%s' of pvc '%s'", object.GetSelfLink(), ownerRef.Name)
 			return
 		}
 
@@ -171,7 +174,7 @@ func (c *Controller) run(threadiness int, stopCh <-chan struct{}, controller int
 	defer func() {
 		c.queue.ShutDown()
 	}()
-	glog.V(3).Infoln("Starting cdi controller Run loop")
+	klog.V(3).Infoln("Starting cdi controller Run loop")
 	if threadiness < 1 {
 		return errors.Errorf("expected >0 threads, got %d", threadiness)
 	}
@@ -182,7 +185,7 @@ func (c *Controller) run(threadiness int, stopCh <-chan struct{}, controller int
 	if !cache.WaitForCacheSync(stopCh, c.podInformer.HasSynced) {
 		return errors.New("Timeout waiting for pod cache sync")
 	}
-	glog.V(3).Infoln("Controller cache has synced")
+	klog.V(3).Infoln("Controller cache has synced")
 	for i := 0; i < threadiness; i++ {
 		//Go is not pure object oriented language. The command repetition below is a result of that.
 		switch t := controller.(type) {
@@ -199,7 +202,7 @@ func (c *Controller) run(threadiness int, stopCh <-chan struct{}, controller int
 // forget the passed-in key for this event and optionally log a message.
 func (c *Controller) forgetKey(key interface{}, msg string) bool {
 	if len(msg) > 0 {
-		glog.V(3).Info(msg)
+		klog.V(3).Info(msg)
 	}
 	c.queue.Forget(key)
 	return true

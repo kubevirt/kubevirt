@@ -1,4 +1,4 @@
-load("@io_bazel_rules_go//go:def.bzl", "go_library")
+load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
 
 go_library(
     name = "go_default_library",
@@ -32,8 +32,32 @@ go_library(
         "//vendor/kubevirt.io/containerized-data-importer/pkg/keys:go_default_library",
         "//vendor/kubevirt.io/containerized-data-importer/pkg/operator:go_default_library",
         "//vendor/kubevirt.io/containerized-data-importer/pkg/util:go_default_library",
-        "@com_github_golang_glog//:go_default_library",
         "@com_github_pkg_errors//:go_default_library",
         "@in_gopkg_square_go_jose_v2//:go_default_library",
+        "@io_k8s_klog//:go_default_library",
+    ],
+)
+
+go_test(
+    name = "go_default_test",
+    srcs = [
+        "apiserver_test.go",
+        "authorizer_test.go",
+    ],
+    embed = [":go_default_library"],
+    deps = [
+        "//vendor/github.com/emicklei/go-restful:go_default_library",
+        "//vendor/k8s.io/api/core/v1:go_default_library",
+        "//vendor/k8s.io/apimachinery/pkg/apis/meta/v1:go_default_library",
+        "//vendor/k8s.io/apimachinery/pkg/runtime:go_default_library",
+        "//vendor/k8s.io/apimachinery/pkg/runtime/schema:go_default_library",
+        "//vendor/k8s.io/apimachinery/pkg/util/diff:go_default_library",
+        "//vendor/k8s.io/client-go/kubernetes/fake:go_default_library",
+        "//vendor/k8s.io/client-go/testing:go_default_library",
+        "//vendor/k8s.io/client-go/util/cert/triple:go_default_library",
+        "//vendor/k8s.io/kube-aggregator/pkg/apis/apiregistration/v1beta1:go_default_library",
+        "//vendor/k8s.io/kube-aggregator/pkg/client/clientset_generated/clientset/fake:go_default_library",
+        "//vendor/kubevirt.io/containerized-data-importer/pkg/apis/upload/v1alpha1:go_default_library",
+        "//vendor/kubevirt.io/containerized-data-importer/pkg/keys/keystest:go_default_library",
     ],
 )

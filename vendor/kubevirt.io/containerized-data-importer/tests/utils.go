@@ -31,6 +31,17 @@ func CDIFailHandler(message string, callerSkip ...int) {
 
 //RunKubectlCommand ...
 func RunKubectlCommand(f *framework.Framework, args ...string) (string, error) {
+	cmd := CreateKubectlCommand(f, args...)
+
+	stdOutBytes, err := cmd.Output()
+	if err != nil {
+		return string(stdOutBytes), err
+	}
+	return string(stdOutBytes), nil
+}
+
+// CreateKubectlCommand returns the Cmd to execute kubectl
+func CreateKubectlCommand(f *framework.Framework, args ...string) *exec.Cmd {
 	kubeconfig := f.KubeConfig
 	path := f.KubectlPath
 
@@ -38,11 +49,7 @@ func RunKubectlCommand(f *framework.Framework, args ...string) (string, error) {
 	kubeconfEnv := fmt.Sprintf("KUBECONFIG=%s", kubeconfig)
 	cmd.Env = append(os.Environ(), kubeconfEnv)
 
-	stdOutBytes, err := cmd.Output()
-	if err != nil {
-		return string(stdOutBytes), err
-	}
-	return string(stdOutBytes), nil
+	return cmd
 }
 
 //PrintControllerLog ...

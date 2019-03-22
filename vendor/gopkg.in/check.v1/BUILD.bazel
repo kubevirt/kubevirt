@@ -1,4 +1,4 @@
-load("@io_bazel_rules_go//go:def.bzl", "go_library")
+load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
 
 go_library(
     name = "go_default_library",
@@ -15,4 +15,23 @@ go_library(
     importpath = "gopkg.in/check.v1",
     visibility = ["//visibility:public"],
     deps = ["@com_github_kr_pretty//:go_default_library"],
+)
+
+go_test(
+    name = "go_default_test",
+    srcs = [
+        "benchmark_test.go",
+        "bootstrap_test.go",
+        "check_test.go",
+        "checkers_test.go",
+        "export_test.go",
+        "fixture_test.go",
+        "foundation_test.go",
+        "helpers_test.go",
+        "integration_test.go",
+        "printer_test.go",
+        "reporter_test.go",
+        "run_test.go",
+    ],
+    embed = [":go_default_library"],
 )

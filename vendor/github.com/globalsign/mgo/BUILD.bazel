@@ -1,4 +1,4 @@
-load("@io_bazel_rules_go//go:def.bzl", "go_library")
+load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
 
 go_library(
     name = "go_default_library",
@@ -26,5 +26,31 @@ go_library(
     deps = [
         "//vendor/github.com/globalsign/mgo/bson:go_default_library",
         "//vendor/github.com/globalsign/mgo/internal/scram:go_default_library",
+    ],
+)
+
+go_test(
+    name = "go_default_test",
+    srcs = [
+        "auth_test.go",
+        "bulk_test.go",
+        "changestreams_test.go",
+        "cluster_test.go",
+        "coarse_time_test.go",
+        "example_test.go",
+        "export_test.go",
+        "gridfs_test.go",
+        "queue_test.go",
+        "server_test.go",
+        "session_internal_test.go",
+        "session_test.go",
+        "suite_test.go",
+        "syscall_test.go",
+        "syscall_windows_test.go",
+    ],
+    embed = [":go_default_library"],
+    deps = [
+        "//vendor/github.com/globalsign/mgo/bson:go_default_library",
+        "//vendor/gopkg.in/check.v1:go_default_library",
     ],
 )

@@ -33,5 +33,5 @@ for tgt in ${targets}; do
         cp -f "${CDI_DIR}/cmd/${bin_name}/cloner_startup.sh" "${dest_dir}"
     fi
     # Copy respective docker files to the directory of the build artifact
-    cp -f "${BUILD_DIR}/docker/${bin_name}/Dockerfile" "${dest_dir}"
+    cp -f "${BUILD_DIR}/docker/${bin_name}/"* "${dest_dir}"
 done

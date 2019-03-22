@@ -31,7 +31,6 @@ import (
 // FakeCDIs implements CDIInterface
 type FakeCDIs struct {
 	Fake *FakeCdiV1alpha1
-	ns   string
 }
 
 var cdisResource = schema.GroupVersionResource{Group: "cdi.kubevirt.io", Version: "v1alpha1", Resource: "cdis"}
@@ -41,8 +40,7 @@ var cdisKind = schema.GroupVersionKind{Group: "cdi.kubevirt.io", Version: "v1alp
 // Get takes name of the cDI, and returns the corresponding cDI object, and an error if there is any.
 func (c *FakeCDIs) Get(name string, options v1.GetOptions) (result *v1alpha1.CDI, err error) {
 	obj, err := c.Fake.
-		Invokes(testing.NewGetAction(cdisResource, c.ns, name), &v1alpha1.CDI{})
-
+		Invokes(testing.NewRootGetAction(cdisResource, name), &v1alpha1.CDI{})
 	if obj == nil {
 		return nil, err
 	}
@@ -52,8 +50,7 @@ func (c *FakeCDIs) Get(name string, options v1.GetOptions) (result *v1alpha1.CDI
 // List takes label and field selectors, and returns the list of CDIs that match those selectors.
 func (c *FakeCDIs) List(opts v1.ListOptions) (result *v1alpha1.CDIList, err error) {
 	obj, err := c.Fake.
-		Invokes(testing.NewListAction(cdisResource, cdisKind, c.ns, opts), &v1alpha1.CDIList{})
-
+		Invokes(testing.NewRootListAction(cdisResource, cdisKind, opts), &v1alpha1.CDIList{})
 	if obj == nil {
 		return nil, err
 	}
@@ -74,15 +71,13 @@ func (c *FakeCDIs) List(opts v1.ListOptions) (result *v1alpha1.CDIList, err erro
 // Watch returns a watch.Interface that watches the requested cDIs.
 func (c *FakeCDIs) Watch(opts v1.ListOptions) (watch.Interface, error) {
 	return c.Fake.
-		InvokesWatch(testing.NewWatchAction(cdisResource, c.ns, opts))
-
+		InvokesWatch(testing.NewRootWatchAction(cdisResource, opts))
 }
 
 // Create takes the representation of a cDI and creates it.  Returns the server's representation of the cDI, and an error, if there is any.
 func (c *FakeCDIs) Create(cDI *v1alpha1.CDI) (result *v1alpha1.CDI, err error) {
 	obj, err := c.Fake.
-		Invokes(testing.NewCreateAction(cdisResource, c.ns, cDI), &v1alpha1.CDI{})
-
+		Invokes(testing.NewRootCreateAction(cdisResource, cDI), &v1alpha1.CDI{})
 	if obj == nil {
 		return nil, err
 	}
@@ -92,8 +87,7 @@ func (c *FakeCDIs) Create(cDI *v1alpha1.CDI) (result *v1alpha1.CDI, err error) {
 // Update takes the representation of a cDI and updates it. Returns the server's representation of the cDI, and an error, if there is any.
 func (c *FakeCDIs) Update(cDI *v1alpha1.CDI) (result *v1alpha1.CDI, err error) {
 	obj, err := c.Fake.
-		Invokes(testing.NewUpdateAction(cdisResource, c.ns, cDI), &v1alpha1.CDI{})
-
+		Invokes(testing.NewRootUpdateAction(cdisResource, cDI), &v1alpha1.CDI{})
 	if obj == nil {
 		return nil, err
 	}
@@ -104,8 +98,7 @@ func (c *FakeCDIs) Update(cDI *v1alpha1.CDI) (result *v1alpha1.CDI, err error) {
 // Add a +genclient:noStatus comment above the type to avoid generating UpdateStatus().
 func (c *FakeCDIs) UpdateStatus(cDI *v1alpha1.CDI) (*v1alpha1.CDI, error) {
 	obj, err := c.Fake.
-		Invokes(testing.NewUpdateSubresourceAction(cdisResource, "status", c.ns, cDI), &v1alpha1.CDI{})
-
+		Invokes(testing.NewRootUpdateSubresourceAction(cdisResource, "status", cDI), &v1alpha1.CDI{})
 	if obj == nil {
 		return nil, err
 	}
@@ -115,14 +108,13 @@ func (c *FakeCDIs) UpdateStatus(cDI *v1alpha1.CDI) (*v1alpha1.CDI, error) {
 // Delete takes name of the cDI and deletes it. Returns an error if one occurs.
 func (c *FakeCDIs) Delete(name string, options *v1.DeleteOptions) error {
 	_, err := c.Fake.
-		Invokes(testing.NewDeleteAction(cdisResource, c.ns, name), &v1alpha1.CDI{})
-
+		Invokes(testing.NewRootDeleteAction(cdisResource, name), &v1alpha1.CDI{})
 	return err
 }
 
 // DeleteCollection deletes a collection of objects.
 func (c *FakeCDIs) DeleteCollection(options *v1.DeleteOptions, listOptions v1.ListOptions) error {
-	action := testing.NewDeleteCollectionAction(cdisResource, c.ns, listOptions)
+	action := testing.NewRootDeleteCollectionAction(cdisResource, listOptions)
 
 	_, err := c.Fake.Invokes(action, &v1alpha1.CDIList{})
 	return err
@@ -131,8 +123,7 @@ func (c *FakeCDIs) DeleteCollection(options *v1.DeleteOptions, listOptions v1.Li
 // Patch applies the patch and returns the patched cDI.
 func (c *FakeCDIs) Patch(name string, pt types.PatchType, data []byte, subresources ...string) (result *v1alpha1.CDI, err error) {
 	obj, err := c.Fake.
-		Invokes(testing.NewPatchSubresourceAction(cdisResource, c.ns, name, data, subresources...), &v1alpha1.CDI{})
-
+		Invokes(testing.NewRootPatchSubresourceAction(cdisResource, name, data, subresources...), &v1alpha1.CDI{})
 	if obj == nil {
 		return nil, err
 	}

@@ -1,0 +1,10 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_test")
+
+go_test(
+    name = "go_default_test",
+    srcs = [
+        "extra_functions_test.go",
+        "outside_package_test.go",
+        "xunit_test.go",
+    ],
+)

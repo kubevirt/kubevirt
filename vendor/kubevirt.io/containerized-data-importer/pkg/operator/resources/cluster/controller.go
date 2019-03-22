@@ -67,6 +67,7 @@ func createControllerClusterRole() *rbacv1.ClusterRole {
 				"create",
 				"update",
 				"patch",
+				"delete",
 			},
 		},
 		{
@@ -116,6 +117,31 @@ func createControllerClusterRole() *rbacv1.ClusterRole {
 				"",
 			},
 			Resources: []string{
+				"namespaces",
+			},
+			Verbs: []string{
+				"get",
+				"list",
+			},
+		},
+		{
+			APIGroups: []string{
+				"extensions",
+			},
+			Resources: []string{
+				"ingresses",
+			},
+			Verbs: []string{
+				"get",
+				"list",
+				"watch",
+			},
+		},
+		{
+			APIGroups: []string{
+				"",
+			},
+			Resources: []string{
 				"configmaps",
 			},
 			Verbs: []string{
@@ -135,6 +161,20 @@ func createControllerClusterRole() *rbacv1.ClusterRole {
 			},
 			Verbs: []string{
 				"get",
+				"list",
+			},
+		},
+		{
+			APIGroups: []string{
+				"route.openshift.io",
+			},
+			Resources: []string{
+				"routes",
+			},
+			Verbs: []string{
+				"get",
+				"list",
+				"watch",
 			},
 		},
 		{

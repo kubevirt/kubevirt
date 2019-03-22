@@ -5,8 +5,8 @@ import (
 	"encoding/hex"
 	"strconv"
 
-	"github.com/golang/glog"
 	"github.com/pkg/errors"
+	"k8s.io/klog"
 )
 
 // MaxExpectedHdrSize defines the Size of buffer used to read file headers.
@@ -82,6 +82,6 @@ func (h Header) Size(b []byte) (int64, error) {
 	if err != nil {
 		return 0, errors.Wrapf(err, "unable to determine original file size from %+v", s)
 	}
-	glog.V(3).Infof("Size: %q size in bytes (at off %d:%d): %d", h.Format, h.SizeOff, h.SizeOff+h.SizeLen, size)
+	klog.V(3).Infof("Size: %q size in bytes (at off %d:%d): %d", h.Format, h.SizeOff, h.SizeOff+h.SizeLen, size)
 	return size, nil
 }

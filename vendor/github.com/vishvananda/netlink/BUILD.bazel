@@ -1,4 +1,4 @@
-load("@io_bazel_rules_go//go:def.bzl", "go_library")
+load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
 
 go_library(
     name = "go_default_library",
@@ -88,6 +88,40 @@ go_library(
         ],
         "@io_bazel_rules_go//go/platform:windows": [
             "//vendor/github.com/vishvananda/netns:go_default_library",
+        ],
+        "//conditions:default": [],
+    }),
+)
+
+go_test(
+    name = "go_default_test",
+    srcs = [
+        "addr_test.go",
+        "bridge_linux_test.go",
+        "class_test.go",
+        "conntrack_test.go",
+        "filter_test.go",
+        "fou_test.go",
+        "gtp_test.go",
+        "handle_test.go",
+        "link_test.go",
+        "neigh_test.go",
+        "netlink_test.go",
+        "protinfo_test.go",
+        "qdisc_test.go",
+        "route_test.go",
+        "rule_test.go",
+        "socket_test.go",
+        "xfrm_monitor_test.go",
+        "xfrm_policy_test.go",
+        "xfrm_state_test.go",
+    ],
+    embed = [":go_default_library"],
+    deps = select({
+        "@io_bazel_rules_go//go/platform:linux": [
+            "//vendor/github.com/vishvananda/netlink/nl:go_default_library",
+            "//vendor/github.com/vishvananda/netns:go_default_library",
+            "//vendor/golang.org/x/sys/unix:go_default_library",
         ],
         "//conditions:default": [],
     }),

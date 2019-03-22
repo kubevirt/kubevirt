@@ -1,4 +1,4 @@
-load("@io_bazel_rules_go//go:def.bzl", "go_library")
+load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
 
 go_library(
     name = "go_default_library",
@@ -17,5 +17,23 @@ go_library(
         "//vendor/github.com/go-openapi/runtime/logger:go_default_library",
         "//vendor/github.com/go-openapi/runtime/middleware:go_default_library",
         "//vendor/github.com/go-openapi/strfmt:go_default_library",
+    ],
+)
+
+go_test(
+    name = "go_default_test",
+    srcs = [
+        "auth_info_test.go",
+        "keepalive_test.go",
+        "request_test.go",
+        "response_test.go",
+        "runtime_test.go",
+    ],
+    embed = [":go_default_library"],
+    deps = [
+        "//vendor/github.com/go-openapi/runtime:go_default_library",
+        "//vendor/github.com/go-openapi/strfmt:go_default_library",
+        "//vendor/github.com/stretchr/testify/assert:go_default_library",
+        "//vendor/github.com/stretchr/testify/require:go_default_library",
     ],
 )

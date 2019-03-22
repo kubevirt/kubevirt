@@ -1,5 +1,5 @@
-hash: 384b06c66c287b878232f18844dd0b80c9220f60064d813b16f36e6ef342e51d
-updated: 2019-01-16T21:38:45.249509738Z
+hash: d084cb6b6a3f3a73f904cc37ac72a84165b7f776659c4681b868e11cfb755b9f
+updated: 2019-03-06T23:19:52.96702+09:00
 imports:
 - name: github.com/beorn7/perks
   version: 3ac7bf7a47d159a033b107610db8a1b6575507a4
@@ -22,7 +22,7 @@ imports:
 - name: github.com/ghodss/yaml
   version: 73d445a93680fa1a78ae23a5839bad48f32ba1ee
 - name: github.com/go-ini/ini
-  version: 6ed8d5f64cd79a498d1f3fab5880cc376ce41bbe
+  version: ece0e89bb05aec0d6768f7bc1e77f11f03da0d11
 - name: github.com/go-logr/logr
   version: 9fb12b3b21c5415d16ac18dc5cd42c1cfdd40c4e
 - name: github.com/go-logr/zapr
@@ -41,7 +41,7 @@ imports:
   - proto
   - sortkeys
 - name: github.com/golang/glog
-  version: 23def4e6c14b4da8ac2ed8007337bc5eb5007998
+  version: 44145f04b68cf362d9c4df2182967c2275eaefed
 - name: github.com/golang/groupcache
   version: 02826c3e79038b59d737d3b1c0a1d937f71a4433
   subpackages:
@@ -65,7 +65,7 @@ imports:
   - compiler
   - extensions
 - name: github.com/gorilla/mux
-  version: e3702bed27f0d39777b0b37b664b6280e8ef8fbf
+  version: a7962380ca08b5a188038c69871b8d3fbdf31e89
 - name: github.com/gregjones/httpcache
   version: 787624de3eb7bd915c329cba748687a3b22666a6
   subpackages:
@@ -102,7 +102,7 @@ imports:
   - pkg/s3utils
   - pkg/set
 - name: github.com/mitchellh/go-homedir
-  version: ae18d6b8b3205b561c79e8e5f69bff09736185f4
+  version: af06845cf3004701891bf4fdb884bfe4920b3727
 - name: github.com/modern-go/concurrent
   version: bacd9c7ef1dd9b15be4a9909b8ac7a4e313eec94
 - name: github.com/modern-go/reflect2
@@ -132,6 +132,8 @@ imports:
   version: 5533ce8a0da374da682cd53d70ddcc54adf1a710
   subpackages:
   - format
+  - gbytes
+  - gexec
   - internal/assertion
   - internal/asyncassertion
   - internal/oraclematcher
@@ -144,12 +146,28 @@ imports:
   - types
 - name: github.com/openshift/api
   version: 5ad8479f64f1b60ee9c62ce8ef1fe6638838725e
+  subpackages:
+  - route/v1
+  - security/v1
+- name: github.com/openshift/client-go
+  version: 431ec9a26e5021f35fa41ee9a89842db9bfdb370
+  subpackages:
+  - route/clientset/versioned
+  - route/clientset/versioned/fake
+  - route/clientset/versioned/scheme
+  - route/clientset/versioned/typed/route/v1
+  - route/clientset/versioned/typed/route/v1/fake
+  - route/informers/externalversions
+  - route/informers/externalversions/internalinterfaces
+  - route/informers/externalversions/route
+  - route/informers/externalversions/route/v1
+  - route/listers/route/v1
 - name: github.com/pborman/uuid
   version: ca53cad383cad2479bbba7f7a1a05797ec1386e4
 - name: github.com/peterbourgon/diskv
   version: 5f041e8faa004a95c88a202771f4cc3e991971e6
 - name: github.com/pkg/errors
-  version: ffb6e22f01932bf7ac35e0bad9be11f01d1c8685
+  version: 27936f6d90f9c8e1145f11ed52ffffbfdb9e0af7
 - name: github.com/prometheus/client_golang
   version: 505eaef017263e299324067d40ca2c48f6a2cf50
   subpackages:
@@ -177,7 +195,7 @@ imports:
 - name: github.com/spf13/pflag
   version: 583c0c0531f06d5278b7d917446061adc344b5cd
 - name: github.com/ulikunitz/xz
-  version: 590df8077fbcb06ad62d7714da06c00e5dd2316d
+  version: 6f934d456d51e742b4eeab20d925a827ef22320a
   subpackages:
   - internal/hash
   - internal/xlog
@@ -189,7 +207,7 @@ imports:
 - name: go.uber.org/multierr
   version: 3c4937480c32f4c13a875a1829af76c98ca3d40a
 - name: go.uber.org/zap
-  version: 67bc79d13d155c02fd008f721863ff8cc5f30659
+  version: d2a364dac1d9b70c651d9f47381c5912361e5596
   subpackages:
   - buffer
   - internal/bufferpool
@@ -257,7 +275,7 @@ imports:
   subpackages:
   - rate
 - name: google.golang.org/appengine
-  version: e9657d882bb81064595ca3b56cbe2546bbabf7b1
+  version: 54a98f90d1c46b7731eb8fb305d2a321c30ef610
   subpackages:
   - internal
   - internal/base
@@ -269,7 +287,7 @@ imports:
 - name: gopkg.in/inf.v0
   version: 3887ee99ecf07df5b447e9b00d9c0b2adaa9f3e4
 - name: gopkg.in/square/go-jose.v2
-  version: e94fb177d3668d35ab39c61cbb2f311550557e83
+  version: 628223f44a71f715d2881ea69afc795a1e9c01be
   subpackages:
   - cipher
   - json
@@ -316,6 +334,9 @@ imports:
   subpackages:
   - pkg/apis/apiextensions
   - pkg/apis/apiextensions/v1beta1
+  - pkg/client/clientset/clientset
+  - pkg/client/clientset/clientset/scheme
+  - pkg/client/clientset/clientset/typed/apiextensions/v1beta1
 - name: k8s.io/apimachinery
   version: 49ce2735e5074ffc3f8190c8406cf51a96302dad
   subpackages:
@@ -547,7 +568,9 @@ imports:
 - name: k8s.io/code-generator
   version: b1289fc74931d4b6b04bd1a259acfc88a2cb0a66
 - name: k8s.io/gengo
-  version: f8a0810f38afb8478882b3835a615aebfda39afa
+  version: 7a1b7fb0289f3b6f206589cdcfcad73009b6e840
+- name: k8s.io/klog
+  version: 8e90cee79f823779174776412c13478955131846
 - name: k8s.io/kube-aggregator
   version: e95ebe3de8a24c3da1ad7606ca5a2444a64f4c82
   subpackages:
@@ -580,8 +603,11 @@ imports:
   - pkg/client
   - pkg/client/apiutil
   - pkg/client/config
+  - pkg/client/fake
   - pkg/controller
   - pkg/controller/controllerutil
+  - pkg/envtest
+  - pkg/envtest/printer
   - pkg/event
   - pkg/handler
   - pkg/internal/controller
@@ -603,4 +629,10 @@ imports:
   - pkg/webhook/admission/types
   - pkg/webhook/internal/metrics
   - pkg/webhook/types
+- name: sigs.k8s.io/testing_frameworks
+  version: 57f07443c2d47d9c7f932a9a4fc87fbf3408215d
+  subpackages:
+  - integration
+  - integration/addr
+  - integration/internal
 testImports: []

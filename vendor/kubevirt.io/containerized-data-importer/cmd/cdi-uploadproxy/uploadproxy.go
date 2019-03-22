@@ -5,12 +5,10 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/golang/glog"
 	"github.com/pkg/errors"
-
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/clientcmd"
-
+	"k8s.io/klog"
 	"kubevirt.io/containerized-data-importer/pkg/uploadproxy"
 )
 
@@ -33,6 +31,15 @@ func init() {
 	flag.StringVar(&configPath, "kubeconfig", os.Getenv("KUBECONFIG"), "(Optional) Overrides $KUBECONFIG")
 	flag.StringVar(&masterURL, "server", "", "(Optional) URL address of a remote api server.  Do not set for local clusters.")
 	flag.Parse()
+	klogFlags := flag.NewFlagSet("klog", flag.ExitOnError)
+	klog.InitFlags(klogFlags)
+	flag.CommandLine.VisitAll(func(f1 *flag.Flag) {
+		f2 := klogFlags.Lookup(f1.Name)
+		if f2 != nil {
+			value := f1.Value.String()
+			f2.Value.Set(value)
+		}
+	})
 
 	// get the verbose level so it can be passed to the importer pod
 	defVerbose := fmt.Sprintf("%d", 1) // note flag values are strings
@@ -44,24 +51,24 @@ func init() {
 		}
 	})
 	if verbose == defVerbose {
-		glog.V(1).Infof("Note: increase the -v level in the api deployment for more detailed logging, eg. -v=%d or -v=%d\n", 2, 3)
+		klog.V(1).Infof("Note: increase the -v level in the api deployment for more detailed logging, eg. -v=%d or -v=%d\n", 2, 3)
 	}
 }
 
 func main() {
-	defer glog.Flush()
+	defer klog.Flush()
 
 	cfg, err := clientcmd.BuildConfigFromFlags(masterURL, configPath)
 	if err != nil {
-		glog.Fatalf("Unable to get kube config: %v\n", errors.WithStack(err))
+		klog.Fatalf("Unable to get kube config: %v\n", errors.WithStack(err))
 	}
 	client, err := kubernetes.NewForConfig(cfg)
 	if err != nil {
-		glog.Fatalf("Unable to get kube client: %v\n", errors.WithStack(err))
+		klog.Fatalf("Unable to get kube client: %v\n", errors.WithStack(err))
 	}
 	apiServerPublicKey, err := getAPIServerPublicKey()
 	if err != nil {
-		glog.Fatalf("Unable to get apiserver public key %v\n", errors.WithStack(err))
+		klog.Fatalf("Unable to get apiserver public key %v\n", errors.WithStack(err))
 	}
 
 	uploadProxy, err := uploadproxy.NewUploadProxy(defaultHost,
@@ -74,12 +81,12 @@ func main() {
 		os.Getenv("SERVICE_TLS_CERT"),
 		client)
 	if err != nil {
-		glog.Fatalf("UploadProxy failed to initialize: %v\n", errors.WithStack(err))
+		klog.Fatalf("UploadProxy failed to initialize: %v\n", errors.WithStack(err))
 	}
 
 	err = uploadProxy.Start()
 	if err != nil {
-		glog.Fatalf("TLS server failed: %v\n", errors.WithStack(err))
+		klog.Fatalf("TLS server failed: %v\n", errors.WithStack(err))
 	}
 }
 

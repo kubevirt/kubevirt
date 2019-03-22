@@ -23,9 +23,8 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/golang/glog"
 	"github.com/pkg/errors"
-
+	"k8s.io/klog"
 	"kubevirt.io/containerized-data-importer/pkg/system"
 	"kubevirt.io/containerized-data-importer/pkg/util"
 )
@@ -35,7 +34,7 @@ const whFilePrefix string = ".wh."
 
 // SkopeoOperations defines the interface for executing skopeo subprocesses
 type SkopeoOperations interface {
-	CopyImage(string, string, string, string) error
+	CopyImage(string, string, string, string, string, bool) error
 }
 
 type skopeoOperations struct{}
@@ -52,7 +51,6 @@ type layer struct {
 
 var (
 	skopeoExecFunction = system.ExecWithLimits
-	processLimits      = &system.ProcessLimitValues{AddressSpaceLimit: maxMemory, CPUTimeLimit: maxCPUSecs}
 	// SkopeoInterface the skopeo operations interface
 	SkopeoInterface = NewSkopeoOperations()
 )
@@ -62,14 +60,21 @@ func NewSkopeoOperations() SkopeoOperations {
 	return &skopeoOperations{}
 }
 
-func (o *skopeoOperations) CopyImage(url, dest, accessKey, secKey string) error {
+func (o *skopeoOperations) CopyImage(url, dest, accessKey, secKey, certDir string, insecureRegistry bool) error {
 	var err error
-	if len(accessKey) > 0 && len(secKey) > 0 {
-		var creds = "--src-creds=" + accessKey + ":" + secKey
-		_, err = skopeoExecFunction(processLimits, nil, "skopeo", "copy", url, dest, creds)
-	} else {
-		_, err = skopeoExecFunction(processLimits, nil, "skopeo", "copy", url, dest, "--src-tls-verify=false")
+	args := []string{"copy", url, dest}
+	if accessKey != "" && secKey != "" {
+		creds := "--src-creds=" + accessKey + ":" + secKey
+		args = append(args, creds)
 	}
+	if certDir != "" {
+		klog.Infof("Using user specified TLS certs at %s", certDir)
+		args = append(args, "--src-cert-dir="+certDir)
+	} else if insecureRegistry {
+		klog.Infof("Disabling TLS verification for URL %s", url)
+		args = append(args, "--src-tls-verify=false")
+	}
+	_, err = skopeoExecFunction(nil, nil, "skopeo", args...)
 	if err != nil {
 		return errors.Wrap(err, "could not copy image")
 	}
@@ -77,26 +82,42 @@ func (o *skopeoOperations) CopyImage(url, dest, accessKey, secKey string) error 
 }
 
 // CopyRegistryImage download image from registry with skopeo
-func CopyRegistryImage(url, dest, accessKey, secKey string) error {
-	skopeoDest := "dir:" + dest + dataTmpDir
-	err := SkopeoInterface.CopyImage(url, skopeoDest, accessKey, secKey)
+// url: source registry url.
+// dest: the scratch space destination.
+// accessKey: accessKey for the registry described in url.
+// secKey: secretKey for the registry decribed in url.
+// certDir: directory public CA keys are stored for registry identity verification
+// insecureRegistry: boolean if true will allow insecure registries.
+func CopyRegistryImage(url, dest, destFile, accessKey, secKey, certDir string, insecureRegistry bool) error {
+	skopeoDest := "dir:" + filepath.Join(dest, dataTmpDir)
+
+	// Copy to scratch space
+	err := SkopeoInterface.CopyImage(url, skopeoDest, accessKey, secKey, certDir, insecureRegistry)
 	if err != nil {
-		os.RemoveAll(dest + dataTmpDir)
+		os.RemoveAll(filepath.Join(dest, dataTmpDir))
 		return errors.Wrap(err, "Failed to download from registry")
 	}
-	err = extractImageLayers(dest)
+	// Extract image layers to target space.
+	err = extractImageLayers(dest, destFile)
 	if err != nil {
 		return errors.Wrap(err, "Failed to extract image layers")
 	}
 
-	// Clean temp folder
-	os.RemoveAll(dest + dataTmpDir)
+	//If a specifc file was requested verify it exists, if not - fail
+	if len(destFile) > 0 {
+		if _, err = os.Stat(filepath.Join(dest, destFile)); err != nil {
+			klog.Errorf("Failed to find VM disk image file in the container image")
+			err = errors.New("Failed to find VM disk image file in the container image")
+		}
+	}
+	// Clean scratch space
+	os.RemoveAll(filepath.Join(dest, dataTmpDir))
 
 	return err
 }
 
-var extractImageLayers = func(dest string) error {
-	glog.V(1).Infof("extracting image layers to %q\n", dest)
+var extractImageLayers = func(dest string, arg ...string) error {
+	klog.V(1).Infof("extracting image layers to %q\n", dest)
 	// Parse manifest file
 	manifest, err := getImageManifest(dest + dataTmpDir)
 	if err != nil {
@@ -120,9 +141,16 @@ var extractImageLayers = func(dest string) error {
 		layer := strings.TrimPrefix(layerID, "sha256:")
 		filePath := filepath.Join(dest, dataTmpDir, layer)
 
-		if err := util.UnArchiveLocalTar(filePath, dest, "z"); err != nil {
-			return errors.Wrap(err, "could not extract layer tar")
+		//prepend z option to the beggining of untar arguments
+		args := append([]string{"z"}, arg...)
+
+		if err := util.UnArchiveLocalTar(filePath, dest, args...); err != nil {
+			//ignore errors if specific file extract was requested - we validate whether the file was extracted at the end of the sequence
+			if len(arg) == 0 {
+				return errors.Wrap(err, "could not extract layer tar")
+			}
 		}
+
 		err = cleanWhiteoutFiles(dest)
 	}
 	return err

@@ -28,8 +28,12 @@ type FakeCdiV1alpha1 struct {
 	*testing.Fake
 }
 
-func (c *FakeCdiV1alpha1) CDIs(namespace string) v1alpha1.CDIInterface {
-	return &FakeCDIs{c, namespace}
+func (c *FakeCdiV1alpha1) CDIs() v1alpha1.CDIInterface {
+	return &FakeCDIs{c}
+}
+
+func (c *FakeCdiV1alpha1) CDIConfigs() v1alpha1.CDIConfigInterface {
+	return &FakeCDIConfigs{c}
 }
 
 func (c *FakeCdiV1alpha1) DataVolumes(namespace string) v1alpha1.DataVolumeInterface {

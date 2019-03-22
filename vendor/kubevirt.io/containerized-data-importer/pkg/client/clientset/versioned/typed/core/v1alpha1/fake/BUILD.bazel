@@ -5,6 +5,7 @@ go_library(
     srcs = [
         "doc.go",
         "fake_cdi.go",
+        "fake_cdiconfig.go",
         "fake_core_client.go",
         "fake_datavolume.go",
     ],

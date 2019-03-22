@@ -129,6 +129,11 @@ func WaitTimeoutForPodSucceeded(clientSet *kubernetes.Clientset, podName, namesp
 	return WaitTimeoutForPodStatus(clientSet, podName, namespace, k8sv1.PodSucceeded, timeout)
 }
 
+// WaitTimeoutForPodFailed waits for pod to fail
+func WaitTimeoutForPodFailed(clientSet *kubernetes.Clientset, podName, namespace string, timeout time.Duration) error {
+	return WaitTimeoutForPodStatus(clientSet, podName, namespace, k8sv1.PodFailed, timeout)
+}
+
 // WaitTimeoutForPodStatus waits for the given pod to be created and have a expected status
 func WaitTimeoutForPodStatus(clientSet *kubernetes.Clientset, podName, namespace string, status k8sv1.PodPhase, timeout time.Duration) error {
 	return wait.PollImmediate(2*time.Second, timeout, podStatus(clientSet, podName, namespace, status))

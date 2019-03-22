@@ -1,4 +1,4 @@
-load("@io_bazel_rules_go//go:def.bzl", "go_library")
+load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
 
 go_library(
     name = "go_default_library",
@@ -15,5 +15,22 @@ go_library(
     deps = [
         "//vendor/github.com/globalsign/mgo:go_default_library",
         "//vendor/github.com/globalsign/mgo/bson:go_default_library",
+    ],
+)
+
+go_test(
+    name = "go_default_test",
+    srcs = [
+        "dockey_test.go",
+        "sim_test.go",
+        "tarjan_test.go",
+        "txn_test.go",
+    ],
+    embed = [":go_default_library"],
+    deps = [
+        "//vendor/github.com/globalsign/mgo:go_default_library",
+        "//vendor/github.com/globalsign/mgo/bson:go_default_library",
+        "//vendor/github.com/globalsign/mgo/dbtest:go_default_library",
+        "//vendor/gopkg.in/check.v1:go_default_library",
     ],
 )

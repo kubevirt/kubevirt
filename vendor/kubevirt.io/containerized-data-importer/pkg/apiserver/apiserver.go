@@ -5,6 +5,7 @@ import (
 	"crypto/tls"
 	"encoding/json"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"net/http"
 	"os"
@@ -12,21 +13,18 @@ import (
 	"reflect"
 	"strings"
 
+	restful "github.com/emicklei/go-restful"
+	"github.com/pkg/errors"
 	admissionregistrationv1beta1 "k8s.io/api/admissionregistration/v1beta1"
 	v1 "k8s.io/api/core/v1"
-	"k8s.io/client-go/util/cert/triple"
-
-	"github.com/golang/glog"
-	"github.com/pkg/errors"
-
-	restful "github.com/emicklei/go-restful"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/util/cert"
+	"k8s.io/client-go/util/cert/triple"
+	"k8s.io/klog"
 	apiregistrationv1beta1 "k8s.io/kube-aggregator/pkg/apis/apiregistration/v1beta1"
 	aggregatorclient "k8s.io/kube-aggregator/pkg/client/clientset_generated/clientset"
-
 	cdicorev1alpha1 "kubevirt.io/containerized-data-importer/pkg/apis/core/v1alpha1"
 	cdiuploadv1alpha1 "kubevirt.io/containerized-data-importer/pkg/apis/upload/v1alpha1"
 	validatingwebhook "kubevirt.io/containerized-data-importer/pkg/apiserver/webhooks/validating-webhook"
@@ -50,6 +48,8 @@ const (
 	apiWebhookValidator = "cdi-api-validator"
 
 	dvCreateValidatePath = "/datavolume-validate-create"
+
+	healthzPath = "/healthz"
 )
 
 // CdiAPIServer is the public interface to the CDI API
@@ -129,17 +129,19 @@ func NewCdiAPIServer(bindAddress string,
 			}
 		}
 		chain.ProcessFilter(req, resp)
-		glog.V(1).Infof("----------------------------")
-		glog.V(1).Infof("remoteAddress:%s", strings.Split(req.Request.RemoteAddr, ":")[0])
-		glog.V(1).Infof("username: %s", username)
-		glog.V(1).Infof("method: %s", req.Request.Method)
-		glog.V(1).Infof("url: %s", req.Request.URL.RequestURI())
-		glog.V(1).Infof("proto: %s", req.Request.Proto)
-		glog.V(1).Infof("headers: %v", req.Request.Header)
-		glog.V(1).Infof("statusCode: %d", resp.StatusCode())
-		glog.V(1).Infof("contentLength: %d", resp.ContentLength())
+		klog.V(1).Infof("----------------------------")
+		klog.V(1).Infof("remoteAddress:%s", strings.Split(req.Request.RemoteAddr, ":")[0])
+		klog.V(1).Infof("username: %s", username)
+		klog.V(1).Infof("method: %s", req.Request.Method)
+		klog.V(1).Infof("url: %s", req.Request.URL.RequestURI())
+		klog.V(1).Infof("proto: %s", req.Request.Proto)
+		klog.V(1).Infof("headers: %v", req.Request.Header)
+		klog.V(1).Infof("statusCode: %d", resp.StatusCode())
+		klog.V(1).Infof("contentLength: %d", resp.ContentLength())
 
 	})
+
+	validatingwebhook.SetClient(client)
 
 	err = app.createWebhook()
 	if err != nil {
@@ -326,11 +328,11 @@ func (app *cdiAPIApp) uploadHandler(request *restful.Request, response *restful.
 
 	allowed, reason, err := app.authorizer.Authorize(request)
 	if err != nil {
-		glog.Error(err)
+		klog.Error(err)
 		response.WriteHeader(http.StatusInternalServerError)
 		return
 	} else if !allowed {
-		glog.Infof("Rejected Request: %s", reason)
+		klog.Infof("Rejected Request: %s", reason)
 		response.WriteErrorString(http.StatusUnauthorized, reason)
 		return
 	}
@@ -339,7 +341,7 @@ func (app *cdiAPIApp) uploadHandler(request *restful.Request, response *restful.
 	defer request.Request.Body.Close()
 	body, err := ioutil.ReadAll(request.Request.Body)
 	if err != nil {
-		glog.Error(err)
+		klog.Error(err)
 		response.WriteError(http.StatusBadRequest, err)
 		return
 	}
@@ -347,7 +349,7 @@ func (app *cdiAPIApp) uploadHandler(request *restful.Request, response *restful.
 	uploadToken := &cdiuploadv1alpha1.UploadTokenRequest{}
 	err = json.Unmarshal(body, uploadToken)
 	if err != nil {
-		glog.Error(err)
+		klog.Error(err)
 		response.WriteError(http.StatusBadRequest, err)
 		return
 	}
@@ -356,11 +358,11 @@ func (app *cdiAPIApp) uploadHandler(request *restful.Request, response *restful.
 	pvc, err := app.client.CoreV1().PersistentVolumeClaims(namespace).Get(pvcName, metav1.GetOptions{})
 	if err != nil {
 		if k8serrors.IsNotFound(err) {
-			glog.Infof("Rejecting request for PVC %s that doesn't exist", pvcName)
+			klog.Infof("Rejecting request for PVC %s that doesn't exist", pvcName)
 			response.WriteError(http.StatusBadRequest, err)
 			return
 		}
-		glog.Error(err)
+		klog.Error(err)
 		response.WriteError(http.StatusInternalServerError, err)
 		return
 	}
@@ -486,7 +488,13 @@ func (app *cdiAPIApp) composeUploadTokenAPI() {
 		Returns(http.StatusOK, "OK", metav1.APIGroupList{}).
 		Returns(http.StatusNotFound, "Not Found", nil))
 
+	ws.Route(ws.GET(healthzPath).To(app.healthzHandler))
+
 	app.container.Add(ws)
+}
+
+func (app *cdiAPIApp) healthzHandler(req *restful.Request, resp *restful.Response) {
+	io.WriteString(resp, "OK")
 }
 
 func (app *cdiAPIApp) createAPIService() error {

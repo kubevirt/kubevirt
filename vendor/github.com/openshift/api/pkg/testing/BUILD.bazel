@@ -1,4 +1,4 @@
-load("@io_bazel_rules_go//go:def.bzl", "go_library")
+load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
 
 go_library(
     name = "go_default_library",
@@ -6,4 +6,32 @@ go_library(
     importmap = "kubevirt.io/kubevirt/vendor/github.com/openshift/api/pkg/testing",
     importpath = "github.com/openshift/api/pkg/testing",
     visibility = ["//visibility:public"],
+)
+
+go_test(
+    name = "go_default_test",
+    srcs = ["deepcopy_test.go"],
+    embed = [":go_default_library"],
+    deps = [
+        "//vendor/github.com/openshift/api/apps/v1:go_default_library",
+        "//vendor/github.com/openshift/api/authorization/v1:go_default_library",
+        "//vendor/github.com/openshift/api/build/v1:go_default_library",
+        "//vendor/github.com/openshift/api/image/v1:go_default_library",
+        "//vendor/github.com/openshift/api/network/v1:go_default_library",
+        "//vendor/github.com/openshift/api/oauth/v1:go_default_library",
+        "//vendor/github.com/openshift/api/project/v1:go_default_library",
+        "//vendor/github.com/openshift/api/quota/v1:go_default_library",
+        "//vendor/github.com/openshift/api/route/v1:go_default_library",
+        "//vendor/github.com/openshift/api/security/v1:go_default_library",
+        "//vendor/github.com/openshift/api/template/v1:go_default_library",
+        "//vendor/github.com/openshift/api/user/v1:go_default_library",
+        "//vendor/k8s.io/apimachinery/pkg/apis/meta/fuzzer:go_default_library",
+        "//vendor/k8s.io/apimachinery/pkg/apis/meta/v1:go_default_library",
+        "//vendor/k8s.io/apimachinery/pkg/runtime:go_default_library",
+        "//vendor/k8s.io/apimachinery/pkg/runtime/schema:go_default_library",
+        "//vendor/k8s.io/apimachinery/pkg/runtime/serializer:go_default_library",
+        "//vendor/k8s.io/apimachinery/pkg/util/sets:go_default_library",
+        "@io_k8s_apimachinery//pkg/api/testing/fuzzer:go_default_library",
+        "@io_k8s_apimachinery//pkg/api/testing/roundtrip:go_default_library",
+    ],
 )

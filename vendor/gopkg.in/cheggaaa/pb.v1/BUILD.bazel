@@ -1,4 +1,4 @@
-load("@io_bazel_rules_go//go:def.bzl", "go_library")
+load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
 
 go_library(
     name = "go_default_library",
@@ -44,4 +44,21 @@ go_library(
         ],
         "//conditions:default": [],
     }),
+)
+
+go_test(
+    name = "go_default_test",
+    srcs = [
+        "example_copy_test.go",
+        "example_multiple_test.go",
+        "example_test.go",
+        "format_test.go",
+        "pb_test.go",
+        "runecount_test.go",
+    ],
+    embed = [":go_default_library"],
+    deps = [
+        "@com_github_fatih_color//:go_default_library",
+        "@com_github_mattn_go_colorable//:go_default_library",
+    ],
 )

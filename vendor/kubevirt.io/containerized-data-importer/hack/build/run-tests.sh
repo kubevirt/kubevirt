@@ -22,7 +22,7 @@ source hack/build/common.sh
 # parsetTestOpts sets 'pkgs' and test_args
 parseTestOpts "${@}"
 
-test_command="go test -v -test.timeout 30m ${pkgs} ${test_args:+-args $test_args}"
+test_command="go test -v -test.timeout 60m ${pkgs} ${test_args:+-args $test_args}"
 if [ -f "${TESTS_OUT_DIR}/tests.test" ]; then
     test_command="${TESTS_OUT_DIR}/tests.test -test.timeout 90m ${test_args}"
 	echo "${test_command}"
