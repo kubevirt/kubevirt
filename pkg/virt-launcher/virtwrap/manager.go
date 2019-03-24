@@ -517,7 +517,7 @@ monitorLoop:
 			l.setMigrationResult(vmi, true, "Live migration aborted ", v1.MigrationAbortSucceeded)
 			break monitorLoop
 		}
-		time.Sleep(500 * time.Millisecond)
+		time.Sleep(400 * time.Millisecond)
 	}
 }
 
