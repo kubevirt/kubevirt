@@ -340,11 +340,13 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
+	log.Log.Infof("hooks done")
 
 	vm := v1.NewVMIReferenceFromNameWithNS(*namespace, *name)
 
 	// Initialize local and shared directories
 	initializeDirs(*virtShareDir, *ephemeralDiskDir, *uid)
+	log.Log.Infof("dirs created")
 
 	// Start libvirtd, virtlogd, and establish libvirt connection
 	stopChan := make(chan struct{})
@@ -353,6 +355,7 @@ func main() {
 		*namespace,
 		*name)
 	watchdogDone := startWatchdogTicker(watchdogFile, *watchdogInterval, stopChan, *uid)
+	log.Log.Infof("watchdog set")
 
 	err = util.SetupLibvirt()
 	if err != nil {
@@ -363,19 +366,23 @@ func main() {
 		panic(err)
 	}
 	util.StartVirtlog(stopChan)
+	log.Log.Infof("libvirt daemons running for %v", *uid)
 
 	domainConn := createLibvirtConnection()
 	defer domainConn.Close()
+	log.Log.Infof("connected to libvirt")
 
 	notifier, err := notifyclient.NewNotifyClient(*virtShareDir)
 	if err != nil {
 		panic(err)
 	}
+	log.Log.Infof("notify client (%s) done for %s", *virtShareDir, *uid)
 
 	domainManager, err := virtwrap.NewLibvirtDomainManager(domainConn, *virtShareDir, notifier, *lessPVCSpaceToleration)
 	if err != nil {
 		panic(err)
 	}
+	log.Log.Infof("domain manager created, starting command server for %s", *uid)
 
 	// Start the virt-launcher command service.
 	// Clients can use this service to tell virt-launcher
@@ -383,6 +390,8 @@ func main() {
 	options := cmdserver.NewServerOptions(*useEmulation)
 	socketPath := cmdclient.SocketFromUID(*virtShareDir, *uid)
 	cmdServerDone := startCmdServer(socketPath, domainManager, stopChan, options)
+
+	log.Log.Infof("started command server for %s", *uid)
 
 	gracefulShutdownTriggerFile := virtlauncher.GracefulShutdownTriggerFromNamespaceName(*virtShareDir,
 		*namespace,
@@ -424,6 +433,8 @@ func main() {
 	// This informs virt-controller that virt-launcher is ready to handle
 	// managing virtual machines.
 	markReady(*readinessFile)
+
+	log.Log.Infof("marked ready for %s", *uid)
 
 	domain := waitForDomainUUID(*qemuTimeout, events, signalStopChan, domainManager)
 	if domain != nil {
