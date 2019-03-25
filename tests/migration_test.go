@@ -46,8 +46,8 @@ var _ = Describe("Migrations", func() {
 	BeforeEach(func() {
 		tests.BeforeTestCleanup()
 
-		nodes, err := virtClient.CoreV1().Nodes().List(metav1.ListOptions{LabelSelector: v1.NodeSchedulable + "=" + "true"})
-		Expect(err).To(BeNil())
+		nodes := tests.GetAllSchedulableNodes(virtClient)
+		Expect(nodes.Items).ToNot(BeEmpty(), "There should be some compute node")
 
 		if len(nodes.Items) < 2 {
 			Skip("Migration tests require at least 2 nodes")
