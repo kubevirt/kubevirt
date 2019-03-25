@@ -7,7 +7,7 @@ import (
 	"time"
 
 	k8sv1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/apis/meta/v1"
+	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/record"
@@ -449,7 +449,7 @@ func (c *EvacuationController) filterNotToleratedVMIs(now time.Time, vmis []*vir
 	migrationCandidates := []*notolerate{}
 
 	for _, vmi := range vmis {
-		if notTolerated, temporaryTolerated, firstRequeueTime := findNotToleratedTaints(now, vmi.Spec.Tolerations, taints); notTolerated != nil || temporaryTolerated != nil {
+		if notTolerated, temporaryTolerated, firstRequeueTime := findNotToleratedTaints(now, vmi.Spec.EvictionPolicy, taints); notTolerated != nil || temporaryTolerated != nil {
 			migrationCandidates = append(migrationCandidates, &notolerate{vmi, notTolerated, temporaryTolerated, firstRequeueTime})
 		}
 	}
@@ -467,11 +467,14 @@ type notolerate struct {
 	FirstReque         *time.Time
 }
 
-func findNotToleratedTaints(now time.Time, tolerations []virtv1.Toleration, taints []k8sv1.Taint) (notTolerated []k8sv1.Taint, temporaryTolerated []k8sv1.Taint, firstRequeueTime *time.Time) {
+func findNotToleratedTaints(now time.Time, evictionStrategies *virtv1.EvictionPolicy, taints []k8sv1.Taint) (notTolerated []k8sv1.Taint, temporaryTolerated []k8sv1.Taint, firstRequeueTime *time.Time) {
+	if evictionStrategies == nil {
+		return
+	}
 
 	for _, taint := range taints {
-		var tolerated *virtv1.Toleration
-		for _, toleration := range tolerations {
+		var tolerated *virtv1.TaintEvictionPolicy
+		for _, toleration := range evictionStrategies.Taints {
 			if toleration.ToleratesTaint(&taint) {
 				tolerated = &toleration
 				break
@@ -479,7 +482,7 @@ func findNotToleratedTaints(now time.Time, tolerations []virtv1.Toleration, tain
 		}
 		if tolerated != nil {
 			// we only care about VMIs with an eviction policy of LiveMigrate
-			if tolerated.EvictionPolicy == nil || *tolerated.EvictionPolicy != virtv1.EvictionPolicyLiveMigrate {
+			if tolerated.Strategy == nil || *tolerated.Strategy != virtv1.EvictionStrategyLiveMigrate {
 				continue
 			} else if tolerated.TolerationSeconds != nil && taint.TimeAdded != nil {
 				toleratedUntil := now.Add(time.Duration(*tolerated.TolerationSeconds) * time.Second)

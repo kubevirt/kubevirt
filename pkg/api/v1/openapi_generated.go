@@ -91,8 +91,8 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"kubevirt.io/kubevirt/pkg/api/v1.Rng":                                       schema_kubevirt_pkg_api_v1_Rng(ref),
 		"kubevirt.io/kubevirt/pkg/api/v1.SecretVolumeSource":                        schema_kubevirt_pkg_api_v1_SecretVolumeSource(ref),
 		"kubevirt.io/kubevirt/pkg/api/v1.ServiceAccountVolumeSource":                schema_kubevirt_pkg_api_v1_ServiceAccountVolumeSource(ref),
+		"kubevirt.io/kubevirt/pkg/api/v1.TaintEvictionPolicy":                       schema_kubevirt_pkg_api_v1_TaintEvictionPolicy(ref),
 		"kubevirt.io/kubevirt/pkg/api/v1.Timer":                                     schema_kubevirt_pkg_api_v1_Timer(ref),
-		"kubevirt.io/kubevirt/pkg/api/v1.Toleration":                                schema_kubevirt_pkg_api_v1_Toleration(ref),
 		"kubevirt.io/kubevirt/pkg/api/v1.VirtualMachine":                            schema_kubevirt_pkg_api_v1_VirtualMachine(ref),
 		"kubevirt.io/kubevirt/pkg/api/v1.VirtualMachineCondition":                   schema_kubevirt_pkg_api_v1_VirtualMachineCondition(ref),
 		"kubevirt.io/kubevirt/pkg/api/v1.VirtualMachineInstance":                    schema_kubevirt_pkg_api_v1_VirtualMachineInstance(ref),
@@ -2155,6 +2155,60 @@ func schema_kubevirt_pkg_api_v1_ServiceAccountVolumeSource(ref common.ReferenceC
 	}
 }
 
+func schema_kubevirt_pkg_api_v1_TaintEvictionPolicy(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Properties: map[string]spec.Schema{
+					"key": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Key is the taint key that the toleration applies to. Empty means match all taint keys. If the key is empty, operator must be Exists; this combination means to match all values and all keys.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"operator": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Operator represents a key's relationship to the value. Valid operators are Exists and Equal. Defaults to Equal. Exists is equivalent to wildcard for value, so that a pod can tolerate all taints of a particular category.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"value": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Value is the taint value the toleration matches to. If the operator is Exists, the value should be empty, otherwise just a regular string.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"effect": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Effect indicates the taint effect to match. Empty means match all taint effects. When specified, allowed values are NoSchedule, PreferNoSchedule and NoExecute.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"tolerationSeconds": {
+						SchemaProps: spec.SchemaProps{
+							Description: "TolerationSeconds represents the period of time the toleration (which must be of effect NoExecute, otherwise this field is ignored) tolerates the taint. By default, it is not set, which means tolerate the taint forever (do not evict). Zero and negative values will be treated as 0 (evict immediately) by the system.",
+							Type:        []string{"integer"},
+							Format:      "int64",
+						},
+					},
+					"strategy": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Defines if a VMI should be live-migrated or shut-down if it gets evicted by k8s",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{},
+	}
+}
+
 func schema_kubevirt_pkg_api_v1_Timer(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -2196,60 +2250,6 @@ func schema_kubevirt_pkg_api_v1_Timer(ref common.ReferenceCallback) common.OpenA
 		},
 		Dependencies: []string{
 			"kubevirt.io/kubevirt/pkg/api/v1.HPETTimer", "kubevirt.io/kubevirt/pkg/api/v1.HypervTimer", "kubevirt.io/kubevirt/pkg/api/v1.KVMTimer", "kubevirt.io/kubevirt/pkg/api/v1.PITTimer", "kubevirt.io/kubevirt/pkg/api/v1.RTCTimer"},
-	}
-}
-
-func schema_kubevirt_pkg_api_v1_Toleration(ref common.ReferenceCallback) common.OpenAPIDefinition {
-	return common.OpenAPIDefinition{
-		Schema: spec.Schema{
-			SchemaProps: spec.SchemaProps{
-				Properties: map[string]spec.Schema{
-					"key": {
-						SchemaProps: spec.SchemaProps{
-							Description: "Key is the taint key that the toleration applies to. Empty means match all taint keys. If the key is empty, operator must be Exists; this combination means to match all values and all keys.",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
-					"operator": {
-						SchemaProps: spec.SchemaProps{
-							Description: "Operator represents a key's relationship to the value. Valid operators are Exists and Equal. Defaults to Equal. Exists is equivalent to wildcard for value, so that a pod can tolerate all taints of a particular category.",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
-					"value": {
-						SchemaProps: spec.SchemaProps{
-							Description: "Value is the taint value the toleration matches to. If the operator is Exists, the value should be empty, otherwise just a regular string.",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
-					"effect": {
-						SchemaProps: spec.SchemaProps{
-							Description: "Effect indicates the taint effect to match. Empty means match all taint effects. When specified, allowed values are NoSchedule, PreferNoSchedule and NoExecute.",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
-					"tolerationSeconds": {
-						SchemaProps: spec.SchemaProps{
-							Description: "TolerationSeconds represents the period of time the toleration (which must be of effect NoExecute, otherwise this field is ignored) tolerates the taint. By default, it is not set, which means tolerate the taint forever (do not evict). Zero and negative values will be treated as 0 (evict immediately) by the system.",
-							Type:        []string{"integer"},
-							Format:      "int64",
-						},
-					},
-					"evictionPolicy": {
-						SchemaProps: spec.SchemaProps{
-							Description: "Defines if a VMI should be live-migrated or shut-down if it gets evicted by k8s",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
-				},
-			},
-		},
-		Dependencies: []string{},
 	}
 }
 
@@ -3108,10 +3108,15 @@ func schema_kubevirt_pkg_api_v1_VirtualMachineInstanceSpec(ref common.ReferenceC
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
-										Ref: ref("kubevirt.io/kubevirt/pkg/api/v1.Toleration"),
+										Ref: ref("k8s.io/api/core/v1.Toleration"),
 									},
 								},
 							},
+						},
+					},
+					"evictionStrategies": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("kubevirt.io/kubevirt/pkg/api/v1.EvictionPolicy"),
 						},
 					},
 					"terminationGracePeriodSeconds": {
@@ -3191,7 +3196,7 @@ func schema_kubevirt_pkg_api_v1_VirtualMachineInstanceSpec(ref common.ReferenceC
 			},
 		},
 		Dependencies: []string{
-			"k8s.io/api/core/v1.Affinity", "k8s.io/api/core/v1.PodDNSConfig", "kubevirt.io/kubevirt/pkg/api/v1.DomainSpec", "kubevirt.io/kubevirt/pkg/api/v1.Network", "kubevirt.io/kubevirt/pkg/api/v1.Probe", "kubevirt.io/kubevirt/pkg/api/v1.Toleration", "kubevirt.io/kubevirt/pkg/api/v1.Volume"},
+			"k8s.io/api/core/v1.Affinity", "k8s.io/api/core/v1.PodDNSConfig", "k8s.io/api/core/v1.Toleration", "kubevirt.io/kubevirt/pkg/api/v1.DomainSpec", "kubevirt.io/kubevirt/pkg/api/v1.EvictionPolicy", "kubevirt.io/kubevirt/pkg/api/v1.Network", "kubevirt.io/kubevirt/pkg/api/v1.Probe", "kubevirt.io/kubevirt/pkg/api/v1.Volume"},
 	}
 }
 

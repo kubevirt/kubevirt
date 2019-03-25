@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"k8s.io/api/policy/v1beta1"
-	"k8s.io/apimachinery/pkg/apis/meta/v1"
+	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/tools/cache"
@@ -395,8 +395,11 @@ func (c *DisruptionBudgetController) pdbForVMI(namespace, name string) (*v1beta1
 }
 
 func wantsToMigrateOnTaints(vmi *virtv1.VirtualMachineInstance) bool {
-	for _, tolerations := range vmi.Spec.Tolerations {
-		if tolerations.EvictionPolicy != nil && *tolerations.EvictionPolicy == virtv1.EvictionPolicyLiveMigrate {
+	if vmi.Spec.EvictionPolicy == nil {
+		return false
+	}
+	for _, taint := range vmi.Spec.EvictionPolicy.Taints {
+		if taint.Strategy != nil && *taint.Strategy == virtv1.EvictionStrategyLiveMigrate {
 			return true
 		}
 	}

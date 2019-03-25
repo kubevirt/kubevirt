@@ -1,4 +1,4 @@
-package evacuation_test
+package evacuation
 
 import (
 	. "github.com/onsi/ginkgo"

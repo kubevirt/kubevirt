@@ -923,20 +923,7 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 		SetNodeAffinityForForbiddenFeaturePolicy(vmi, &pod)
 	}
 
-	if vmi.Spec.Tolerations != nil {
-		pod.Spec.Tolerations = []k8sv1.Toleration{}
-		for _, v := range vmi.Spec.Tolerations {
-			if v.EvictionPolicy != nil && *v.EvictionPolicy == v1.EvictionPolicyLiveMigrate {
-				// tolerationSeconds, if present, needs to be interpreted by the evacuation controller
-				// to allow migrations.
-				toleration := v.Toleration.DeepCopy()
-				toleration.TolerationSeconds = nil
-				pod.Spec.Tolerations = append(pod.Spec.Tolerations, *toleration)
-			} else {
-				pod.Spec.Tolerations = append(pod.Spec.Tolerations, v.Toleration)
-			}
-		}
-	}
+	pod.Spec.Tolerations = vmi.Spec.Tolerations
 
 	if len(serviceAccountName) > 0 {
 		pod.Spec.ServiceAccountName = serviceAccountName

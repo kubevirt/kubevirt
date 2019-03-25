@@ -111,43 +111,44 @@ var _ = Describe("Validating Webhook", func() {
 			var vmi *v1.VirtualMachineInstance
 			BeforeEach(func() {
 				vmi = v1.NewMinimalVMI("testvmi")
-				vmi.Spec.Tolerations = []v1.Toleration{
+				vmi.Spec.EvictionPolicy = &v1.EvictionPolicy{Taints: []v1.TaintEvictionPolicy{
 					{
 						Toleration: k8sv1.Toleration{},
 					},
+				},
 				}
 			})
-			table.DescribeTable("it should allow", func(policy v1.EvictionPolicy) {
-				vmi.Spec.Tolerations[0].EvictionPolicy = &policy
+			table.DescribeTable("it should allow", func(policy v1.EvictionStrategy) {
+				vmi.Spec.EvictionPolicy.Taints[0].Strategy = &policy
 				resp := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec)
 				Expect(resp).To(BeEmpty())
 			},
-				table.Entry("default policy to be set", v1.EvictionPolicyNone),
-				table.Entry("migration policy to be set", v1.EvictionPolicyLiveMigrate),
+				table.Entry("default policy to be set", v1.EvictionStrategyNone),
+				table.Entry("migration policy to be set", v1.EvictionStrategyLiveMigrate),
 			)
 
 			It("should allow no eviction policy to be set", func() {
-				vmi.Spec.Tolerations[0].EvictionPolicy = nil
+				vmi.Spec.EvictionPolicy.Taints[0].Strategy = nil
 				resp := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec)
 				Expect(resp).To(BeEmpty())
 
 			})
 
 			It("should  not allow unknown eviction policies", func() {
-				policy := v1.EvictionPolicy("fantasy")
-				vmi.Spec.Tolerations[0].EvictionPolicy = &policy
+				policy := v1.EvictionStrategy("fantasy")
+				vmi.Spec.EvictionPolicy.Taints[0].Strategy = &policy
 				resp := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec)
 				Expect(resp).To(HaveLen(1))
-				Expect(resp[0].Message).To(Equal("fake.tolerations.evictionPolicy is set with an unrecognized option: fantasy"))
+				Expect(resp[0].Message).To(Equal("fake.evictionStrategies.evictionPolicy is set with an unrecognized option: fantasy"))
 			})
 
-			It("should not allow to set an EvictionPolicy of liveMigrate on the NoExecute effect", func() {
-				policy := v1.EvictionPolicyLiveMigrate
-				vmi.Spec.Tolerations[0].Effect = k8sv1.TaintEffectNoExecute
-				vmi.Spec.Tolerations[0].EvictionPolicy = &policy
+			It("should not allow to set an Strategy of liveMigrate on the NoExecute effect", func() {
+				policy := v1.EvictionStrategyLiveMigrate
+				vmi.Spec.EvictionPolicy.Taints[0].Effect = k8sv1.TaintEffectNoExecute
+				vmi.Spec.EvictionPolicy.Taints[0].Strategy = &policy
 				resp := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec)
 				Expect(resp).To(HaveLen(1))
-				Expect(resp[0].Message).To(Equal("fake.tolerations.evictionPolicy must not be set to LiveMigrate on the taint effect NoExecute"))
+				Expect(resp[0].Message).To(Equal("fake.evictionStrategies.evictionPolicy must not be set to LiveMigrate on the taint effect NoExecute"))
 			})
 		})
 

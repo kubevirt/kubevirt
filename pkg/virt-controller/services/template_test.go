@@ -538,12 +538,10 @@ var _ = Describe("Template", func() {
 				vm := v1.VirtualMachineInstance{
 					ObjectMeta: metav1.ObjectMeta{Name: "testvm", Namespace: "default", UID: "1234"},
 					Spec: v1.VirtualMachineInstanceSpec{
-						Tolerations: []v1.Toleration{
+						Tolerations: []kubev1.Toleration{
 							{
-								Toleration: kubev1.Toleration{
-									Key:               podToleration.Key,
-									TolerationSeconds: &tolerationSeconds,
-								},
+								Key:               podToleration.Key,
+								TolerationSeconds: &tolerationSeconds,
 							},
 						},
 						Domain: v1.DomainSpec{},
@@ -552,30 +550,6 @@ var _ = Describe("Template", func() {
 				pod, err := svc.RenderLaunchManifest(&vm)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(pod.Spec.Tolerations).To(BeEquivalentTo([]kubev1.Toleration{{Key: podToleration.Key, TolerationSeconds: &tolerationSeconds}}))
-			})
-
-			It("should add tolerations to pod without toleration seconds, if eviction policy is set to migrations", func() {
-				podToleration := kubev1.Toleration{Key: "test"}
-				var tolerationSeconds int64 = 14
-				evictionPolicy := v1.EvictionPolicyLiveMigrate
-				vm := v1.VirtualMachineInstance{
-					ObjectMeta: metav1.ObjectMeta{Name: "testvm", Namespace: "default", UID: "1234"},
-					Spec: v1.VirtualMachineInstanceSpec{
-						Tolerations: []v1.Toleration{
-							{
-								Toleration: kubev1.Toleration{
-									Key:               podToleration.Key,
-									TolerationSeconds: &tolerationSeconds,
-								},
-								EvictionPolicy: &evictionPolicy,
-							},
-						},
-						Domain: v1.DomainSpec{},
-					},
-				}
-				pod, err := svc.RenderLaunchManifest(&vm)
-				Expect(err).ToNot(HaveOccurred())
-				Expect(pod.Spec.Tolerations).To(BeEquivalentTo([]kubev1.Toleration{{Key: podToleration.Key}}))
 			})
 
 			It("should use the hostname and subdomain if specified on the vm", func() {

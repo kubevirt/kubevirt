@@ -145,12 +145,16 @@ type VirtualMachineInstanceList struct {
 
 // ---
 // +k8s:openapi-gen=true
-type Toleration struct {
+type TaintEvictionPolicy struct {
 	k8sv1.Toleration `json:",inline"`
 	// Defines if a VMI should be live-migrated or shut-down if it gets evicted by k8s
 	// ---
 	// +optional
-	EvictionPolicy *EvictionPolicy `json:"evictionPolicy,omitempty"`
+	Strategy *EvictionStrategy `json:"strategy,omitempty"`
+}
+
+type EvictionPolicy struct {
+	Taints []TaintEvictionPolicy `json:"taints,omitempty"`
 }
 
 // VirtualMachineInstanceSpec is a description of a VirtualMachineInstance.
@@ -167,7 +171,12 @@ type VirtualMachineInstanceSpec struct {
 	// If affinity is specifies, obey all the affinity rules
 	Affinity *k8sv1.Affinity `json:"affinity,omitempty"`
 	// If toleration is specified, obey all the toleration rules.
-	Tolerations []Toleration `json:"tolerations,omitempty"`
+	Tolerations []k8sv1.Toleration `json:"tolerations,omitempty"`
+
+	// ---
+	// +optional
+	EvictionPolicy *EvictionPolicy `json:"evictionStrategies,omitempty"`
+
 	// Grace period observed after signalling a VirtualMachineInstance to stop after which the VirtualMachineInstance is force terminated.
 	TerminationGracePeriodSeconds *int64 `json:"terminationGracePeriodSeconds,omitempty"`
 	// List of volumes that can be mounted by disks belonging to the vmi.
@@ -1173,9 +1182,9 @@ const (
 
 // ---
 // +k8s:openapi-gen=true
-type EvictionPolicy string
+type EvictionStrategy string
 
 const (
-	EvictionPolicyNone        EvictionPolicy = "None"
-	EvictionPolicyLiveMigrate EvictionPolicy = "LiveMigrate"
+	EvictionStrategyNone        EvictionStrategy = "None"
+	EvictionStrategyLiveMigrate EvictionStrategy = "LiveMigrate"
 )
