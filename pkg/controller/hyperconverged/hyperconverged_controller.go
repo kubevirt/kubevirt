@@ -7,6 +7,7 @@ import (
 	cdi "kubevirt.io/containerized-data-importer/pkg/apis/core/v1alpha1"
 	kubevirt "kubevirt.io/kubevirt/pkg/api/v1"
 
+        v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -22,6 +23,11 @@ import (
 )
 
 var log = logf.Log.WithName("controller_hyperconverged")
+
+var (
+    KubeVirtImagePullPolicy = "IfNotPresent"
+    CDIImagePullPolicy = "IfNotPresent"
+)
 
 // Add creates a new HyperConverged Controller and adds it to the Manager. The Manager will set fields on the Controller
 // and Start it when the Manager is Started.
@@ -100,6 +106,18 @@ func (r *ReconcileHyperConverged) Reconcile(request reconcile.Request) (reconcil
 		return reconcile.Result{}, err
 	}
 
+        if instance.Spec.KubeVirtImagePullPolicy != "" {
+           reqLogger := log.WithValues("imagePullPolicy", instance.Spec.KubeVirtImagePullPolicy)
+           reqLogger.Info("HCO CR contains KubeVirt Image Pull Policy")
+           KubeVirtImagePullPolicy = instance.Spec.KubeVirtImagePullPolicy
+        }
+
+        if instance.Spec.CDIImagePullPolicy != "" {
+           reqLogger := log.WithValues("imagePullPolicy", instance.Spec.CDIImagePullPolicy)
+           reqLogger.Info("HCO CR contains CDI Image Pull Policy")
+           CDIImagePullPolicy = instance.Spec.CDIImagePullPolicy
+        }
+
 	// Define a new KubeVirt object
 	virtCR := newKubeVirtForCR(instance)
 
@@ -171,7 +189,7 @@ func newKubeVirtForCR(cr *hcov1alpha1.HyperConverged) *kubevirt.KubeVirt {
 			Labels:    labels,
 		},
 		Spec: kubevirt.KubeVirtSpec{
-			ImagePullPolicy: "IfNotPresent",
+			ImagePullPolicy: v1.PullPolicy(KubeVirtImagePullPolicy),
 		},
 	}
 }
@@ -188,7 +206,7 @@ func newCDIForCR(cr *hcov1alpha1.HyperConverged) *cdi.CDI {
 			Labels:    labels,
 		},
 		Spec: cdi.CDISpec{
-			ImagePullPolicy: "IfNotPresent",
+			ImagePullPolicy: v1.PullPolicy(CDIImagePullPolicy),
 		},
 	}
 }
