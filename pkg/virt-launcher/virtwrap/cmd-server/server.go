@@ -247,18 +247,24 @@ func createSocket(socketPath string) (net.Listener, error) {
 	}
 
 	socket, err := net.Listen("unix", socketPath)
-
-	socketDir := filepath.Dir(socketPath)
-	if fileinfo, err := os.Stat(filepath.Dir(socketPath)); err == nil {
-		if stat, ok := fileinfo.Sys().(*syscall.Stat_t); ok {
-			log.Log.Infof("socketpath %s created on dir %s inode %v", socketPath, socketDir, stat.Ino)
-		}
-	}
-
 	if err != nil {
 		log.Log.Reason(err).Error("failed to create unix socket for launcher cmd service")
 		return nil, err
 	}
+
+	log.Log.Infof("socketpath %s created", socketPath)
+
+	socketDir := filepath.Dir(socketPath)
+	if fileinfo, err := os.Stat(socketDir); err == nil {
+		if stat, ok := fileinfo.Sys().(*syscall.Stat_t); ok {
+			log.Log.Infof("socketpath %s created on dir %s inode %v", socketPath, socketDir, stat.Ino)
+		} else {
+			log.Log.Infof("return value not Stat_t: %#v", stat)
+		}
+	} else {
+		log.Log.Reason(err).Errorf("failed to stat %s: %s", socketDir, err)
+	}
+
 	return socket, nil
 }
 
