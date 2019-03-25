@@ -1,0 +1,51 @@
+#!/bin/bash
+
+TEMP_DIR=`mktemp -d`
+
+# Use upstream manifests with downstream containers
+KUBEVIRT_MANIFEST_VERSION="v0.15.0"
+CDI_MANIFEST_VERSION="v1.6.0"
+
+CDI_CONTAINER_REGISTRY="${CDI_CONTAINER_REGISTRY:-docker.io/kubevirt}"
+KUBEVIRT_CONTAINER_REGISTRY="${KUBEVIRT_CONTAINER_REGISTRY:-docker.io/kubevirt}"
+
+CDI_OPERATOR_NAME="${CDI_OPERATOR_NAME:-cdi-operator}"
+
+CDI_DOCKER_PREFIX=`basename "${CDI_CONTAINER_REGISTRY}"`
+
+CONTROLLER_IMAGE="${CONTROLLER_IMAGE:-cdi-controller}"
+IMPORTER_IMAGE="${IMPORTER_IMAGE:-cdi-importer}"
+CLONER_IMAGE="${CLONER_IMAGE:-cdi-cloner}"
+APISERVER_IMAGE="${APISERVER_IMAGE:-cdi-apiserver}"
+UPLOADPROXY_IMAGE="${UPLOADPROXY_IMAGE:-cdi-uploadproxy}"
+UPLOADSERVER_IMAGE="${UPLOADSERVER_IMAGE:-cdi-uploadserver}"
+
+if echo "${CDI_CONTAINER_REGISTRY}" | grep 'brew'; then
+    CONTROLLER_IMAGE="virt-${CONTROLLER_IMAGE}"
+    IMPORTER_IMAGE="virt-$IMPORTER_IMAGE"
+    CLONER_IMAGE="virt-$CLONER_IMAGE"
+    APISERVER_IMAGE="virt-$APISERVER_IMAGE"
+    UPLOADPROXY_IMAGE="virt-$UPLOADPROXY_IMAGE"
+    UPLOADSERVER_IMAGE="virt-$UPLOADSERVER_IMAGE"
+fi
+
+function kubevirt_sed {
+    sed -i "s|          image: \&image docker\.io\/kubevirt\/virt-operator:${KUBEVIRT_MANIFEST_VERSION}|          image: \&image ${KUBEVIRT_CONTAINER_REGISTRY}\/virt-operator:${KUBEVIRT_VERSION}|g" ${TEMP_DIR}/kubevirt-operator.yaml
+}
+
+function cdi_sed {
+    sed -i "s|          image: kubevirt\/cdi-operator:${CDI_MANIFEST_VERSION}|          image: ${CDI_CONTAINER_REGISTRY}\/${CDI_OPERATOR_NAME}:${CDI_VERSION}|g" ${TEMP_DIR}/cdi-operator.yaml.j2
+
+    ls "${TEMP_DIR}"/cdi-operator.yaml.j2
+
+    python "${REPO_ROOT}"/hack/jinja2/cdi-j2.py "${TEMP_DIR}"/cdi-operator.yaml.j2 "${CDI_DOCKER_PREFIX}" "${CDI_OPERATOR_NAME}" "${CDI_VERSION}" "${CONTROLLER_IMAGE}" "${IMPORTER_IMAGE}" "${CLONER_IMAGE}" "${APISERVER_IMAGE}" "${UPLOADPROXY_IMAGE}" "${UPLOADSERVER_IMAGE}"
+
+    rm "${TEMP_DIR}"/cdi-operator.yaml.j2
+}
+
+# Deploy upstream operators
+OPERATOR_MANIFESTS="https://github.com/kubevirt/kubevirt/releases/download/${KUBEVIRT_MANIFEST_VERSION}/kubevirt-operator.yaml
+https://github.com/kubevirt/containerized-data-importer/releases/download/${CDI_MANIFEST_VERSION}/cdi-operator.yaml.j2"
+
+OPERATOR_CRS="https://github.com/kubevirt/kubevirt/releases/download/${KUBEVIRT_MANIFEST_VERSION}/kubevirt-cr.yaml
+https://github.com/kubevirt/containerized-data-importer/releases/download/${CDI_MANIFEST_VERSION}/cdi-operator-cr.yaml"
