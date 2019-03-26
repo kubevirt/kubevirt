@@ -5857,6 +5857,38 @@
      }
     }
    },
+   "v1.VirtualMachineInstanceMigrationCondition": {
+    "required": [
+     "type",
+     "status"
+    ],
+    "properties": {
+     "lastProbeTime": {
+      "type": [
+       "string",
+       "null"
+      ]
+     },
+     "lastTransitionTime": {
+      "type": [
+       "string",
+       "null"
+      ]
+     },
+     "message": {
+      "type": "string"
+     },
+     "reason": {
+      "type": "string"
+     },
+     "status": {
+      "type": "string"
+     },
+     "type": {
+      "type": "string"
+     }
+    }
+   },
    "v1.VirtualMachineInstanceMigrationList": {
     "description": "VirtualMachineInstanceMigrationList is a list of VirtualMachineMigrations",
     "required": [
@@ -5895,6 +5927,14 @@
    },
    "v1.VirtualMachineInstanceMigrationState": {
     "properties": {
+     "abortRequested": {
+      "description": "Indicates that the migration has been requested to abort",
+      "type": "boolean"
+     },
+     "abortStatus": {
+      "description": "Indicates the final status of the live migration abortion",
+      "type": "string"
+     },
      "completed": {
       "description": "Indicates the migration completed",
       "type": "boolean"
@@ -5948,6 +5988,12 @@
    "v1.VirtualMachineInstanceMigrationStatus": {
     "description": "VirtualMachineInstanceMigration reprents information pertaining to a VMI's migration.",
     "properties": {
+     "conditions": {
+      "type": "array",
+      "items": {
+       "$ref": "#/definitions/v1.VirtualMachineInstanceMigrationCondition"
+      }
+     },
      "phase": {
       "type": "string"
      }

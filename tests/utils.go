@@ -1156,6 +1156,16 @@ func cleanNamespaces() {
 
 		// Remove all Migration Objects
 		PanicOnError(virtCli.RestClient().Delete().Namespace(namespace).Resource("virtualmachineinstancemigrations").Do().Error())
+		migrations, err := virtCli.VirtualMachineInstanceMigration(namespace).List(&metav1.ListOptions{})
+		PanicOnError(err)
+		for _, migration := range migrations.Items {
+			if controller.HasFinalizer(&migration, v1.VirtualMachineInstanceMigrationFinalizer) {
+				_, err := virtCli.VirtualMachineInstanceMigration(namespace).Patch(migration.Name, types.JSONPatchType, []byte("[{ \"op\": \"remove\", \"path\": \"/metadata/finalizers\" }]"))
+				if !errors.IsNotFound(err) {
+					PanicOnError(err)
+				}
+			}
+		}
 
 	}
 }
@@ -1919,6 +1929,15 @@ func WaitForVirtualMachineToDisappearWithTimeout(vmi *v1.VirtualMachineInstance,
 	ExpectWithOffset(1, err).ToNot(HaveOccurred())
 	EventuallyWithOffset(1, func() bool {
 		_, err := virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &metav1.GetOptions{})
+		return errors.IsNotFound(err)
+	}, seconds, 1*time.Second).Should(BeTrue())
+}
+
+func WaitForMigrationToDisappearWithTimeout(migration *v1.VirtualMachineInstanceMigration, seconds int) {
+	virtClient, err := kubecli.GetKubevirtClient()
+	ExpectWithOffset(1, err).ToNot(HaveOccurred())
+	EventuallyWithOffset(1, func() bool {
+		_, err := virtClient.VirtualMachineInstanceMigration(migration.Namespace).Get(migration.Name, &metav1.GetOptions{})
 		return errors.IsNotFound(err)
 	}, seconds, 1*time.Second).Should(BeTrue())
 }

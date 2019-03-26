@@ -294,6 +294,15 @@ const (
 	VirtualMachineInstanceReasonDisksNotMigratable = "DisksNotLiveMigratable"
 )
 
+// +k8s:openapi-gen=true
+type VirtualMachineInstanceMigrationConditionType string
+
+// These are valid conditions of VMIs.
+const (
+	// VirtualMachineInstanceMigrationAbortRequested indicates that live migration abort has been requested
+	VirtualMachineInstanceMigrationAbortRequested VirtualMachineInstanceMigrationConditionType = "migrationAbortRequested"
+)
+
 // ---
 // +k8s:openapi-gen=true
 type VirtualMachineInstanceCondition struct {
@@ -303,6 +312,17 @@ type VirtualMachineInstanceCondition struct {
 	LastTransitionTime metav1.Time                         `json:"lastTransitionTime,omitempty"`
 	Reason             string                              `json:"reason,omitempty"`
 	Message            string                              `json:"message,omitempty"`
+}
+
+// ---
+// +k8s:openapi-gen=true
+type VirtualMachineInstanceMigrationCondition struct {
+	Type               VirtualMachineInstanceMigrationConditionType `json:"type"`
+	Status             k8sv1.ConditionStatus                        `json:"status"`
+	LastProbeTime      metav1.Time                                  `json:"lastProbeTime,omitempty"`
+	LastTransitionTime metav1.Time                                  `json:"lastTransitionTime,omitempty"`
+	Reason             string                                       `json:"reason,omitempty"`
+	Message            string                                       `json:"message,omitempty"`
 }
 
 // The migration phase indicates that the job has completed
@@ -361,6 +381,10 @@ type VirtualMachineInstanceMigrationState struct {
 	Completed bool `json:"completed,omitempty"`
 	// Indicates that the migration failed
 	Failed bool `json:"failed,omitempty"`
+	// Indicates that the migration has been requested to abort
+	AbortRequested bool `json:"abortRequested,omitempty"`
+	// Indicates the final status of the live migration abortion
+	AbortStatus MigrationAbortStatus `json:"abortStatus,omitempty"`
 	// The VirtualMachineInstanceMigration object associated with this migration
 	MigrationUID types.UID `json:"migrationUid,omitempty"`
 	// Config contains migration configuration options
@@ -373,6 +397,19 @@ type MigrationConfig struct {
 	// The time to wait for live migration to make progress in transferring data.
 	ProgressTimeout int64 `json:"progressTimeout,omitempty"`
 }
+
+// ---
+// +k8s:openapi-gen=true
+type MigrationAbortStatus string
+
+const (
+	// MigrationAbortSucceeded means that the VirtualMachineInstance live migration has been aborted
+	MigrationAbortSucceeded MigrationAbortStatus = "Succeeded"
+	// MigrationAbortFailed means that the vmi live migration has failed to be abort
+	MigrationAbortFailed MigrationAbortStatus = "Failed"
+	// MigrationAbortInProgress mean that the vmi live migration is aborting
+	MigrationAbortInProgress MigrationAbortStatus = "Aborting"
+)
 
 // ---
 // +k8s:openapi-gen=true
@@ -455,8 +492,9 @@ const (
 	// This label indicates the object is a part of the install strategy retrieval process.
 	InstallStrategyLabel = "kubevirt.io/install-strategy"
 
-	VirtualMachineInstanceFinalizer string = "foregroundDeleteVirtualMachine"
-	CPUManager                      string = "cpumanager"
+	VirtualMachineInstanceFinalizer          string = "foregroundDeleteVirtualMachine"
+	VirtualMachineInstanceMigrationFinalizer string = "kubevirt.io/migrationJobFinalize"
+	CPUManager                               string = "cpumanager"
 	// This annotation is used to inject ignition data
 	// Used on VirtualMachineInstance.
 	IgnitionAnnotation string = "kubevirt.io/ignitiondata"
@@ -758,7 +796,8 @@ type VirtualMachineInstanceMigrationSpec struct {
 // ---
 // +k8s:openapi-gen=true
 type VirtualMachineInstanceMigrationStatus struct {
-	Phase VirtualMachineInstanceMigrationPhase `json:"phase,omitempty"`
+	Phase      VirtualMachineInstanceMigrationPhase       `json:"phase,omitempty"`
+	Conditions []VirtualMachineInstanceMigrationCondition `json:"conditions,omitempty"`
 }
 
 // VirtualMachineInstanceMigrationPhase is a label for the condition of a VirtualMachineInstanceMigration at the current time.

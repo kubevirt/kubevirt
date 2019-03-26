@@ -90,6 +90,10 @@ const (
 	SuccessfulMigrationReason = "SuccessfulMigration"
 	// FailedMigrationReason is added when a migration attempt fails
 	FailedMigrationReason = "FailedMigration"
+	// SuccessfulAbortMigrationReason is added when an attempt to abort migration completes successfully
+	SuccessfulAbortMigrationReason = "SuccessfulAbortMigration"
+	// FailedAbortMigrationReason is added when an attempt to abort migration fails
+	FailedAbortMigrationReason = "FailedAbortMigration"
 )
 
 func NewVMIController(templateService services.TemplateService,

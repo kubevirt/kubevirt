@@ -20,10 +20,13 @@
 package errors
 
 import (
+	"errors"
 	"fmt"
 
 	libvirt "github.com/libvirt/libvirt-go"
 )
+
+var MigrationAbortInProgressError = errors.New("Migration abort is in progress")
 
 func checkError(err error, expectedError libvirt.ErrorNumber) bool {
 	libvirtError, ok := err.(libvirt.Error)

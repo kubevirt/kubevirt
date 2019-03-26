@@ -97,6 +97,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"kubevirt.io/kubevirt/pkg/api/v1.VirtualMachineInstanceCondition":           schema_kubevirt_pkg_api_v1_VirtualMachineInstanceCondition(ref),
 		"kubevirt.io/kubevirt/pkg/api/v1.VirtualMachineInstanceList":                schema_kubevirt_pkg_api_v1_VirtualMachineInstanceList(ref),
 		"kubevirt.io/kubevirt/pkg/api/v1.VirtualMachineInstanceMigration":           schema_kubevirt_pkg_api_v1_VirtualMachineInstanceMigration(ref),
+		"kubevirt.io/kubevirt/pkg/api/v1.VirtualMachineInstanceMigrationCondition":  schema_kubevirt_pkg_api_v1_VirtualMachineInstanceMigrationCondition(ref),
 		"kubevirt.io/kubevirt/pkg/api/v1.VirtualMachineInstanceMigrationList":       schema_kubevirt_pkg_api_v1_VirtualMachineInstanceMigrationList(ref),
 		"kubevirt.io/kubevirt/pkg/api/v1.VirtualMachineInstanceMigrationSpec":       schema_kubevirt_pkg_api_v1_VirtualMachineInstanceMigrationSpec(ref),
 		"kubevirt.io/kubevirt/pkg/api/v1.VirtualMachineInstanceMigrationStatus":     schema_kubevirt_pkg_api_v1_VirtualMachineInstanceMigrationStatus(ref),
@@ -2444,6 +2445,54 @@ func schema_kubevirt_pkg_api_v1_VirtualMachineInstanceMigration(ref common.Refer
 	}
 }
 
+func schema_kubevirt_pkg_api_v1_VirtualMachineInstanceMigrationCondition(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Properties: map[string]spec.Schema{
+					"type": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"status": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"lastProbeTime": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("k8s.io/apimachinery/pkg/apis/meta/v1.Time"),
+						},
+					},
+					"lastTransitionTime": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("k8s.io/apimachinery/pkg/apis/meta/v1.Time"),
+						},
+					},
+					"reason": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"message": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+				},
+				Required: []string{"type", "status"},
+			},
+		},
+		Dependencies: []string{
+			"k8s.io/apimachinery/pkg/apis/meta/v1.Time"},
+	}
+}
+
 func schema_kubevirt_pkg_api_v1_VirtualMachineInstanceMigrationList(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -2527,10 +2576,23 @@ func schema_kubevirt_pkg_api_v1_VirtualMachineInstanceMigrationStatus(ref common
 							Format: "",
 						},
 					},
+					"conditions": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Ref: ref("kubevirt.io/kubevirt/pkg/api/v1.VirtualMachineInstanceMigrationCondition"),
+									},
+								},
+							},
+						},
+					},
 				},
 			},
 		},
-		Dependencies: []string{},
+		Dependencies: []string{
+			"kubevirt.io/kubevirt/pkg/api/v1.VirtualMachineInstanceMigrationCondition"},
 	}
 }
 
