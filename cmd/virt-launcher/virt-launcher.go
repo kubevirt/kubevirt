@@ -76,6 +76,8 @@ func startCmdServer(socketPath string,
 	stopChan chan struct{},
 	options *cmdserver.ServerOptions) chan struct{} {
 
+	log.Log.Infof("startCmdServer %s", socketPath)
+
 	err := os.RemoveAll(socketPath)
 	if err != nil {
 		log.Log.Reason(err).Error("Could not clean up virt-launcher cmd socket")
@@ -88,11 +90,15 @@ func startCmdServer(socketPath string,
 		panic(err)
 	}
 
+	log.Log.Infof("startCmdServer %s runserver", socketPath)
+
 	done, err := cmdserver.RunServer(socketPath, domainManager, stopChan, options)
 	if err != nil {
 		log.Log.Reason(err).Error("Failed to start virt-launcher cmd server")
 		panic(err)
 	}
+
+	log.Log.Infof("startCmdServer %s poll", socketPath)
 
 	// ensure the cmdserver is responsive before continuing
 	// PollImmediate breaks the poll loop when bool or err are returned OR if timeout occurs.
