@@ -25,6 +25,23 @@ kubectl create -f _out/manifests/release/kubevirt-operator.yaml
 kubectl create -f _out/manifests/release/kubevirt-cr.yaml
 ```
 
+### Docker Desktop for Mac
+The bazel build system doesn't support the macOS keychain. Please ensure that
+you deactivate the option `Securely store Docker longins in macOS keychain` in
+the Docker preferences. After restarting the docker service login with `docker
+login`. Your `$HOME/.docker/config.json` should look like:
+
+```json
+{
+  "auths" : {
+    "https://index.docker.io/v1/" : {
+      "auth" : "XXXXXXXXXX"
+    }
+  },
+  "credSstore" : ""
+}
+```
+
 ## Building
 
 The KubeVirt build system runs completely inside docker. In order to build
