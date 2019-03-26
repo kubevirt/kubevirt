@@ -486,7 +486,7 @@ var _ = Describe("Configurations", func() {
 			})
 		})
 
-		Context("[rfe_id:140][crit:medium][vendor:cnv-qe@redhat.com][level:component]with namespace memory limits above VMI required memory", func() {
+		Context("[rfe_id:140][crit:medium][vendor:cnv-qe@redhat.com][level:component]with namespace memory limits lower than VMI required memory", func() {
 			var vmi *v1.VirtualMachineInstance
 			It("[test_id:1670]should failed to start the VMI", func() {
 				// create a namespace default limit
@@ -520,6 +520,93 @@ var _ = Describe("Configurations", func() {
 					virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Delete(vmi.Name, &metav1.DeleteOptions{})
 					return err
 				}, 5*time.Second, 1*time.Second).Should(MatchError("admission webhook \"virtualmachineinstances-create-validator.kubevirt.io\" denied the request: spec.domain.resources.requests.memory '64M' is greater than spec.domain.resources.limits.memory '32Mi'"))
+			})
+		})
+
+		Context("with namespace cpu limits lower than VMI required cpu", func() {
+			var vmi *v1.VirtualMachineInstance
+			It("should fail to start the VMI", func() {
+				// create a namespace default limit
+				limitRangeObj := kubev1.LimitRange{
+
+					ObjectMeta: metav1.ObjectMeta{Name: "abc1", Namespace: tests.NamespaceTestDefault},
+					Spec: kubev1.LimitRangeSpec{
+						Limits: []kubev1.LimitRangeItem{
+							{
+								Type: kubev1.LimitTypeContainer,
+								Default: kubev1.ResourceList{
+									kubev1.ResourceCPU: resource.MustParse("500m"),
+								},
+							},
+						},
+					},
+				}
+				_, err := virtClient.Core().LimitRanges(tests.NamespaceTestDefault).Create(&limitRangeObj)
+				Expect(err).ToNot(HaveOccurred())
+
+				By("Starting a VirtualMachineInstance")
+				// Retrying up to 5 sec, then if you still succeeds in VMI creation, things must be going wrong.
+				Eventually(func() error {
+					vmi = tests.NewRandomVMIWithEphemeralDisk(tests.ContainerDiskFor(tests.ContainerDiskAlpine))
+					vmi.Spec.Domain.Resources = v1.ResourceRequirements{
+						Requests: kubev1.ResourceList{
+							kubev1.ResourceCPU:    resource.MustParse("800m"),
+							kubev1.ResourceMemory: resource.MustParse("64M"),
+						},
+					}
+					vmi, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
+					virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Delete(vmi.Name, &metav1.DeleteOptions{})
+					return err
+				}, 5*time.Second, 1*time.Second).Should(MatchError("admission webhook \"virtualmachineinstances-create-validator.kubevirt.io\" denied the request: spec.domain.resources.requests.cpu '800m' is greater than spec.domain.resources.limits.cpu '500m'"))
+			})
+		})
+
+		Context("with namespace limits higher than VMI requests", func() {
+			var vmi *v1.VirtualMachineInstance
+			It("should start the VMI with the right default settings from namespace limits", func() {
+				// create a namespace default limit
+				limitRangeObj := kubev1.LimitRange{
+
+					ObjectMeta: metav1.ObjectMeta{Name: "abc1", Namespace: tests.NamespaceTestDefault},
+					Spec: kubev1.LimitRangeSpec{
+						Limits: []kubev1.LimitRangeItem{
+							{
+								Type: kubev1.LimitTypeContainer,
+								Default: kubev1.ResourceList{
+									kubev1.ResourceCPU:    resource.MustParse("2000m"),
+									kubev1.ResourceMemory: resource.MustParse("512M"),
+								},
+								DefaultRequest: kubev1.ResourceList{
+									kubev1.ResourceCPU: resource.MustParse("500m"),
+								},
+							},
+						},
+					},
+				}
+				_, err := virtClient.Core().LimitRanges(tests.NamespaceTestDefault).Create(&limitRangeObj)
+				Expect(err).ToNot(HaveOccurred())
+
+				vmi = tests.NewRandomVMIWithEphemeralDisk(tests.ContainerDiskFor(tests.ContainerDiskAlpine))
+				vmi.Spec.Domain.Resources = v1.ResourceRequirements{
+					Requests: kubev1.ResourceList{
+						kubev1.ResourceMemory: resource.MustParse("64M"),
+					},
+					Limits: kubev1.ResourceList{
+						kubev1.ResourceCPU: resource.MustParse("1000m"),
+					},
+				}
+
+				By("Starting a VirtualMachineInstance")
+				vmi, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
+				Expect(err).ToNot(HaveOccurred(), "should start vmi")
+				tests.WaitForSuccessfulVMIStart(vmi)
+
+				Expect(vmi.Spec.Domain.Resources.Requests.Memory().ToDec().ScaledValue(resource.Mega)).To(Equal(int64(64)))
+				Expect(vmi.Spec.Domain.Resources.Limits.Memory().ToDec().ScaledValue(resource.Mega)).To(Equal(int64(512)))
+				Expect(vmi.Spec.Domain.Resources.Requests.Cpu().MilliValue()).To(Equal(int64(500)))
+				Expect(vmi.Spec.Domain.Resources.Limits.Cpu().MilliValue()).To(Equal(int64(1000)))
+
+				Expect(err).ToNot(HaveOccurred())
 			})
 		})
 

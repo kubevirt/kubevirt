@@ -21,7 +21,6 @@ package mutating_webhook
 
 import (
 	k8sv1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/client-go/tools/cache"
 
 	kubev1 "kubevirt.io/kubevirt/pkg/api/v1"
@@ -29,50 +28,64 @@ import (
 )
 
 func applyNamespaceLimitRangeValues(vmi *kubev1.VirtualMachineInstance, limitrangeInformer cache.SharedIndexInformer) {
-	isMemoryFieldExist := func(resource k8sv1.ResourceList) bool {
-		_, ok := resource[k8sv1.ResourceMemory]
-		return ok
-	}
-
-	vmiResources := vmi.Spec.Domain.Resources
-
-	// Copy namespace memory limits (if exists) to the VM spec
-	if vmiResources.Limits == nil || !isMemoryFieldExist(vmiResources.Limits) {
-
-		namespaceMemLimit, err := getNamespaceLimits(vmi.Namespace, limitrangeInformer)
-		if err == nil && !namespaceMemLimit.IsZero() {
-			if vmiResources.Limits == nil {
-				vmi.Spec.Domain.Resources.Limits = make(k8sv1.ResourceList)
+	isResourceRequirementMissing := func(vmiResources kubev1.ResourceRequirements) bool {
+		if vmiResources.Limits == nil || vmiResources.Requests == nil {
+			return true
+		}
+		isMemoryAndCpuExist := func(resource k8sv1.ResourceList) bool {
+			for _, v := range []k8sv1.ResourceName{k8sv1.ResourceMemory, k8sv1.ResourceCPU} {
+				if _, ok := resource[v]; !ok {
+					return false
+				}
 			}
-			log.Log.Object(vmi).V(4).Info("Apply namespace limits")
-			vmi.Spec.Domain.Resources.Limits[k8sv1.ResourceMemory] = *namespaceMemLimit
+			return true
+		}
+		if !isMemoryAndCpuExist(vmiResources.Limits) || !isMemoryAndCpuExist(vmiResources.Requests) {
+			return true
+		}
+		return false
+	}
+
+	// Copy namespace limits (if exist) to the VM spec
+	if isResourceRequirementMissing(vmi.Spec.Domain.Resources) {
+		limits, err := limitrangeInformer.GetIndexer().ByIndex(cache.NamespaceIndex, vmi.Namespace)
+		if err != nil {
+			return
+		}
+
+		log.Log.Object(vmi).V(4).Info("Apply namespace limits")
+		for _, limit := range limits {
+			defaultRequirements := defaultVMIResourceRequirements(limit.(*k8sv1.LimitRange))
+			mergeVMIResources(vmi, &defaultRequirements)
 		}
 	}
-
 }
 
-func getNamespaceLimits(namespace string, limitrangeInformer cache.SharedIndexInformer) (*resource.Quantity, error) {
-	finalLimit := &resource.Quantity{Format: resource.BinarySI}
-
-	// there can be multiple LimitRange values set for the same resource in
-	// a namespace, we need to find the minimal
-	limits, err := limitrangeInformer.GetIndexer().ByIndex(cache.NamespaceIndex, namespace)
-	if err != nil {
-		return nil, err
+// See mergeContainerResources in https://github.com/kubernetes/kubernetes/blob/master/plugin/pkg/admission/limitranger/admission.go
+func mergeVMIResources(vmi *kubev1.VirtualMachineInstance, defaultRequirements *k8sv1.ResourceRequirements) {
+	if vmi.Spec.Domain.Resources.Limits == nil {
+		vmi.Spec.Domain.Resources.Limits = k8sv1.ResourceList{}
 	}
-
-	for _, limit := range limits {
-		defaultRequirements := defaultContainerResourceRequirements(limit.(*k8sv1.LimitRange))
-		if v, found := defaultRequirements.Limits[k8sv1.ResourceMemory]; found {
-			finalLimit = v.Copy()
+	if vmi.Spec.Domain.Resources.Requests == nil {
+		vmi.Spec.Domain.Resources.Requests = k8sv1.ResourceList{}
+	}
+	// TODO: generate annotations like limitranger admission-plugin in kubernetes
+	for k, v := range defaultRequirements.Limits {
+		_, found := vmi.Spec.Domain.Resources.Limits[k]
+		if !found {
+			vmi.Spec.Domain.Resources.Limits[k] = *v.Copy()
 		}
 	}
-	return finalLimit, nil
+	for k, v := range defaultRequirements.Requests {
+		_, found := vmi.Spec.Domain.Resources.Requests[k]
+		if !found {
+			vmi.Spec.Domain.Resources.Requests[k] = *v.Copy()
+		}
+	}
 }
 
-// Imitate kubernetes when choosing default resource requirements from a collection of LimitRanges
 // See defaultContainerResourceRequirements in https://github.com/kubernetes/kubernetes/blob/master/plugin/pkg/admission/limitranger/admission.go
-func defaultContainerResourceRequirements(limitRange *k8sv1.LimitRange) k8sv1.ResourceRequirements {
+func defaultVMIResourceRequirements(limitRange *k8sv1.LimitRange) k8sv1.ResourceRequirements {
 	requirements := k8sv1.ResourceRequirements{}
 	requirements.Requests = k8sv1.ResourceList{}
 	requirements.Limits = k8sv1.ResourceList{}
