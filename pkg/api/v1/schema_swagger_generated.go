@@ -487,9 +487,17 @@ func (Rng) SwaggerDoc() map[string]string {
 	}
 }
 
-func (CniNetwork) SwaggerDoc() map[string]string {
+func (GenieNetwork) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"":            "Represents the cni network.",
-		"networkName": "References to a NetworkAttachmentDefinition CRD object. Format:\n<networkName>, <namespace>/<networkName>. If namespace is not\nspecified, VMI namespace is assumed.\nIn case of genie, it references the CNI plugin name.",
+		"":            "Represents the genie cni network.",
+		"networkName": "References the CNI plugin name.",
+	}
+}
+
+func (MultusNetwork) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"":            "Represents the multus cni network.",
+		"networkName": "References to a NetworkAttachmentDefinition CRD object. Format:\n<networkName>, <namespace>/<networkName>. If namespace is not\nspecified, VMI namespace is assumed.",
+		"default":     "Select the default network and add it to the\nmultus-cni.io/default-network annotation.",
 	}
 }

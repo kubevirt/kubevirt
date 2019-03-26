@@ -63,7 +63,7 @@ var _ = Describe("Genie", func() {
 			detachedVMI.Spec.Domain.Devices.Interfaces = []v1.Interface{{Name: "ptp", InterfaceBindingMethod: v1.InterfaceBindingMethod{Bridge: &v1.InterfaceBridge{}}}}
 			detachedVMI.Spec.Networks = []v1.Network{
 				{Name: "ptp", NetworkSource: v1.NetworkSource{
-					Genie: &v1.CniNetwork{NetworkName: "ptp"},
+					Genie: &v1.GenieNetwork{NetworkName: "ptp"},
 				}},
 			}
 
@@ -90,10 +90,10 @@ var _ = Describe("Genie", func() {
 				{Name: "ptp", InterfaceBindingMethod: v1.InterfaceBindingMethod{Bridge: &v1.InterfaceBridge{}}}}
 			detachedVMI.Spec.Networks = []v1.Network{
 				{Name: "default", NetworkSource: v1.NetworkSource{
-					Genie: &v1.CniNetwork{NetworkName: "flannel"},
+					Genie: &v1.GenieNetwork{NetworkName: "flannel"},
 				}},
 				{Name: "ptp", NetworkSource: v1.NetworkSource{
-					Genie: &v1.CniNetwork{NetworkName: "ptp"},
+					Genie: &v1.GenieNetwork{NetworkName: "ptp"},
 				}},
 			}
 

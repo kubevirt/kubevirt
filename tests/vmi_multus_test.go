@@ -84,7 +84,7 @@ var _ = Describe("Multus", func() {
 	ovsNetwork := v1.Network{
 		Name: "ovs",
 		NetworkSource: v1.NetworkSource{
-			Multus: &v1.CniNetwork{
+			Multus: &v1.MultusNetwork{
 				NetworkName: "ovs-net-vlan100",
 			},
 		},
@@ -170,7 +170,7 @@ var _ = Describe("Multus", func() {
 				detachedVMI.Spec.Domain.Devices.Interfaces = []v1.Interface{{Name: "ptp", InterfaceBindingMethod: v1.InterfaceBindingMethod{Bridge: &v1.InterfaceBridge{}}}}
 				detachedVMI.Spec.Networks = []v1.Network{
 					{Name: "ptp", NetworkSource: v1.NetworkSource{
-						Multus: &v1.CniNetwork{NetworkName: "ptp-conf"},
+						Multus: &v1.MultusNetwork{NetworkName: "ptp-conf"},
 					}},
 				}
 
@@ -187,7 +187,7 @@ var _ = Describe("Multus", func() {
 				detachedVMI.Spec.Domain.Devices.Interfaces = []v1.Interface{{Name: "ptp", InterfaceBindingMethod: v1.InterfaceBindingMethod{Bridge: &v1.InterfaceBridge{}}}}
 				detachedVMI.Spec.Networks = []v1.Network{
 					{Name: "ptp", NetworkSource: v1.NetworkSource{
-						Multus: &v1.CniNetwork{NetworkName: fmt.Sprintf("%s/%s", tests.NamespaceTestAlternative, "ptp-conf-2")},
+						Multus: &v1.MultusNetwork{NetworkName: fmt.Sprintf("%s/%s", tests.NamespaceTestAlternative, "ptp-conf-2")},
 					}},
 				}
 
@@ -208,7 +208,7 @@ var _ = Describe("Multus", func() {
 				detachedVMI.Spec.Networks = []v1.Network{
 					defaultNetwork,
 					{Name: "ptp", NetworkSource: v1.NetworkSource{
-						Multus: &v1.CniNetwork{NetworkName: "ptp-conf"},
+						Multus: &v1.MultusNetwork{NetworkName: "ptp-conf"},
 					}},
 				}
 
@@ -235,6 +235,51 @@ var _ = Describe("Multus", func() {
 			})
 		})
 
+		Context("VirtualMachineInstance with multus network as default network", func() {
+			AfterEach(func() {
+				virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Delete(detachedVMI.Name, &v13.DeleteOptions{})
+				fmt.Printf("Waiting for vmi %s in %s namespace to be removed, this can take a while ...\n", detachedVMI.Name, tests.NamespaceTestDefault)
+				EventuallyWithOffset(1, func() bool {
+					return errors.IsNotFound(virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Delete(detachedVMI.Name, nil))
+				}, 180*time.Second, 1*time.Second).
+					Should(BeTrue())
+			})
+
+			It("should create a virtual machine with one interface with multus default network definition", func() {
+				detachedVMI = tests.NewRandomVMIWithEphemeralDiskAndUserdata(tests.ContainerDiskFor(tests.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n")
+				detachedVMI.Spec.Domain.Devices.Interfaces = []v1.Interface{{Name: "ptp", InterfaceBindingMethod: v1.InterfaceBindingMethod{Bridge: &v1.InterfaceBridge{}}}}
+				detachedVMI.Spec.Networks = []v1.Network{
+					{Name: "ptp", NetworkSource: v1.NetworkSource{
+						Multus: &v1.MultusNetwork{
+							NetworkName: fmt.Sprintf("%s/%s", tests.NamespaceTestDefault, "ptp-conf"),
+							Default:     true,
+						}}},
+				}
+
+				_, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(detachedVMI)
+				Expect(err).ToNot(HaveOccurred())
+				tests.WaitUntilVMIReady(detachedVMI, tests.LoggedInCirrosExpecter)
+
+				By("checking virtual machine instance can ping 10.1.1.1 using ptp cni plugin")
+				pingVirtualMachine(detachedVMI, "10.1.1.1", "\\$ ")
+
+				By("checking virtual machine instance only has one interface")
+				// lo0, eth0
+				err = tests.CheckForTextExpecter(detachedVMI, []expect.Batcher{
+					&expect.BSnd{S: "\n"},
+					&expect.BExp{R: "\\$ "},
+					&expect.BSnd{S: "ip link show | grep -c UP\n"},
+					&expect.BExp{R: "2"},
+				}, 15)
+				Expect(err).ToNot(HaveOccurred())
+
+				By("checking pod has only one interface")
+				// lo0, eth0, k6t-eth0, vnet0
+				output := tests.RunCommandOnVmiPod(detachedVMI, []string{"/bin/bash", "-c", "/usr/sbin/ip link show|grep -c UP"})
+				ExpectWithOffset(1, strings.TrimSpace(output)).To(Equal("4"))
+			})
+		})
+
 		Context("VirtualMachineInstance with cni ptp plugin interface with custom MAC address", func() {
 			AfterEach(func() {
 				deleteVMIs(virtClient, []*v1.VirtualMachineInstance{vmiOne})
@@ -251,7 +296,7 @@ var _ = Describe("Multus", func() {
 				ptpNetwork := v1.Network{
 					Name: "ptp",
 					NetworkSource: v1.NetworkSource{
-						Multus: &v1.CniNetwork{
+						Multus: &v1.MultusNetwork{
 							NetworkName: networkName,
 						},
 					},
@@ -307,7 +352,7 @@ var _ = Describe("Multus", func() {
 				tests.AddExplicitPodNetworkInterface(vmiOne)
 
 				iface := v1.Interface{Name: "sriov", InterfaceBindingMethod: v1.InterfaceBindingMethod{SRIOV: &v1.InterfaceSRIOV{}}}
-				network := v1.Network{Name: "sriov", NetworkSource: v1.NetworkSource{Multus: &v1.CniNetwork{NetworkName: "sriov"}}}
+				network := v1.Network{Name: "sriov", NetworkSource: v1.NetworkSource{Multus: &v1.MultusNetwork{NetworkName: "sriov"}}}
 				vmiOne.Spec.Domain.Devices.Interfaces = append(vmiOne.Spec.Domain.Devices.Interfaces, iface)
 				vmiOne.Spec.Networks = append(vmiOne.Spec.Networks, network)
 
@@ -364,7 +409,7 @@ var _ = Describe("Multus", func() {
 
 				for _, name := range []string{"sriov", "sriov2"} {
 					iface := v1.Interface{Name: name, InterfaceBindingMethod: v1.InterfaceBindingMethod{SRIOV: &v1.InterfaceSRIOV{}}}
-					network := v1.Network{Name: name, NetworkSource: v1.NetworkSource{Multus: &v1.CniNetwork{NetworkName: name}}}
+					network := v1.Network{Name: name, NetworkSource: v1.NetworkSource{Multus: &v1.MultusNetwork{NetworkName: name}}}
 					vmiOne.Spec.Domain.Devices.Interfaces = append(vmiOne.Spec.Domain.Devices.Interfaces, iface)
 					vmiOne.Spec.Networks = append(vmiOne.Spec.Networks, network)
 				}

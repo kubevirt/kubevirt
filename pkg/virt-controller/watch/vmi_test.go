@@ -911,7 +911,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 				v1.Network{
 					Name: networkName,
 					NetworkSource: v1.NetworkSource{
-						Multus: &v1.CniNetwork{
+						Multus: &v1.MultusNetwork{
 							NetworkName: "multus",
 						},
 					},
