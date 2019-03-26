@@ -553,6 +553,35 @@ var _ = Describe("Migration watcher", func() {
 
 			controller.Execute()
 		})
+		It("should abort the migration", func() {
+			vmi := newVirtualMachine("testvmi", v1.Running)
+			vmi.Status.NodeName = "node02"
+			migration := newMigration("testmigration", vmi.Name, v1.MigrationTargetReady)
+			condition := v1.VirtualMachineInstanceMigrationCondition{
+				Type:          v1.VirtualMachineInstanceMigrationAbortRequested,
+				Status:        k8sv1.ConditionTrue,
+				LastProbeTime: *now(),
+			}
+			migration.Status.Conditions = append(migration.Status.Conditions, condition)
+			pod := newTargetPodForVirtualMachine(vmi, migration, k8sv1.PodPending)
+			pod.Spec.NodeName = "node01"
+			migration.DeletionTimestamp = now()
+			vmi.Status.MigrationState = &v1.VirtualMachineInstanceMigrationState{
+				MigrationUID:      migration.UID,
+				TargetNode:        "node01",
+				SourceNode:        "node02",
+				TargetNodeAddress: "10.10.10.10:1234",
+				StartTimestamp:    now(),
+			}
+			addMigration(migration)
+			addVirtualMachine(vmi)
+			podFeeder.Add(pod)
+
+			vmiInterface.EXPECT().Patch(vmi.Name, types.JSONPatchType, gomock.Any()).Return(vmi, nil)
+
+			controller.Execute()
+			testutils.ExpectEvent(recorder, SuccessfulAbortMigrationReason)
+		})
 	})
 })
 

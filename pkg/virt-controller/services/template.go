@@ -1087,6 +1087,15 @@ func getNetworkToResourceMap(virtClient kubecli.KubevirtClient, vmi *v1.VirtualM
 	return
 }
 
+func getIfaceByName(vmi *v1.VirtualMachineInstance, name string) *v1.Interface {
+	for _, iface := range vmi.Spec.Domain.Devices.Interfaces {
+		if iface.Name == name {
+			return &iface
+		}
+	}
+	return nil
+}
+
 func getCniAnnotations(vmi *v1.VirtualMachineInstance) (cniAnnotations map[string]string, err error) {
 	ifaceList := make([]string, 0)
 	ifaceListMap := make([]map[string]string, 0)
@@ -1104,6 +1113,15 @@ func getCniAnnotations(vmi *v1.VirtualMachineInstance) (cniAnnotations map[strin
 				"name":      networkName,
 				"namespace": namespace,
 				"interface": fmt.Sprintf("net%d", next_idx+1),
+			}
+			iface := getIfaceByName(vmi, network.Name)
+			if iface != nil && iface.MacAddress != "" {
+				// De-facto Standard doesn't define exact string format for
+				// MAC addresses pasted down to CNI.  Here we just pass through
+				// whatever the value our API layer accepted as legit.
+				// Note: while standard allows for 20-byte InfiniBand addresses,
+				// we forbid them in API.
+				ifaceMap["mac"] = iface.MacAddress
 			}
 			next_idx = next_idx + 1
 			ifaceListMap = append(ifaceListMap, ifaceMap)

@@ -408,9 +408,8 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 			It("[test_id:1633]should indicate that a node is ready for vmis", func() {
 
 				By("adding a heartbeat annotation and a schedulable label to the node")
-				nodes, err := virtClient.CoreV1().Nodes().List(metav1.ListOptions{LabelSelector: v1.NodeSchedulable + "=" + "true"})
-				Expect(err).ToNot(HaveOccurred(), "Should list nodes successfully")
-				Expect(nodes.Items).ToNot(BeEmpty(), "There should be some nodes")
+				nodes := tests.GetAllSchedulableNodes(virtClient)
+				Expect(nodes.Items).ToNot(BeEmpty(), "There should be some compute node")
 				for _, node := range nodes.Items {
 					Expect(node.Annotations[v1.VirtHandlerHeartbeat]).ToNot(HaveLen(0), "Nodes should have be ready for VMI")
 				}
@@ -590,9 +589,8 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 			var nodes *k8sv1.NodeList
 			var err error
 			BeforeEach(func() {
-				nodes, err = virtClient.CoreV1().Nodes().List(metav1.ListOptions{})
-				Expect(err).ToNot(HaveOccurred(), "Should list nodes")
-				Expect(nodes.Items).NotTo(BeEmpty(), "There should be some node")
+				nodes = tests.GetAllSchedulableNodes(virtClient)
+				Expect(nodes.Items).ToNot(BeEmpty(), "There should be some compute node")
 
 				// Taint first node with "NoSchedule"
 				data := []byte(`{"spec":{"taints":[{"effect":"NoSchedule","key":"test","timeAdded":null,"value":"123"}]}}`)
@@ -639,9 +637,8 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 			var err error
 
 			BeforeEach(func() {
-				nodes, err = virtClient.CoreV1().Nodes().List(metav1.ListOptions{})
-				Expect(err).ToNot(HaveOccurred(), "Should list nodes")
-				Expect(nodes.Items).NotTo(BeEmpty(), "There should be some node")
+				nodes = tests.GetAllSchedulableNodes(virtClient)
+				Expect(nodes.Items).ToNot(BeEmpty(), "There should be some compute node")
 			})
 
 			It("[test_id:1637]the vmi with node affinity and no conflicts should be scheduled", func() {
@@ -793,9 +790,8 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 			var originalFeatureGates string
 
 			BeforeEach(func() {
-				nodes, err := virtClient.CoreV1().Nodes().List(metav1.ListOptions{})
-				Expect(err).ToNot(HaveOccurred(), "Should list nodes")
-				Expect(nodes.Items).ToNot(BeEmpty(), "There should be some nodes")
+				nodes := tests.GetAllSchedulableNodes(virtClient)
+				Expect(nodes.Items).ToNot(BeEmpty(), "There should be some compute node")
 				node = &nodes.Items[0]
 				originalLabels = node.GetObjectMeta().GetLabels()
 

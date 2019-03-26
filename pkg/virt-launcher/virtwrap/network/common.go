@@ -198,9 +198,9 @@ func (h *NetworkUtilsHandler) SetRandomMac(iface string) (net.HardwareAddr, erro
 		if changed {
 			mac, err = Handler.GetMacDetails(iface)
 			if err != nil {
+				log.Log.Reason(err).Errorf("updated MAC for interface: %s - %s -> %s", iface, currentMac, mac)
 				return nil, err
 			}
-			log.Log.Reason(err).Errorf("updated MAC for interface: %s - %s", iface, mac)
 			break
 		}
 	}

@@ -221,6 +221,50 @@ var _ = Describe("Template", func() {
 				Expect(ok).To(Equal(true))
 				Expect(value).To(Equal("[{\"interface\":\"net1\",\"name\":\"test1\",\"namespace\":\"default\"}]"))
 			})
+			It("should add MAC address in the pod annotation", func() {
+				vmi := v1.VirtualMachineInstance{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "testvmi",
+						Namespace: "default",
+						UID:       "1234",
+					},
+					Spec: v1.VirtualMachineInstanceSpec{
+						Domain: v1.DomainSpec{
+							Devices: v1.Devices{
+								Interfaces: []v1.Interface{
+									v1.Interface{
+										Name: "test1",
+										InterfaceBindingMethod: v1.InterfaceBindingMethod{
+											SRIOV: &v1.InterfaceSRIOV{},
+										},
+										MacAddress: "de:ad:00:00:be:af",
+									},
+								},
+							},
+						},
+						Networks: []v1.Network{
+							{Name: "default",
+								NetworkSource: v1.NetworkSource{
+									Multus: &v1.MultusNetwork{NetworkName: "default"},
+								}},
+							{Name: "test1",
+								NetworkSource: v1.NetworkSource{
+									Multus: &v1.MultusNetwork{NetworkName: "test1"},
+								}},
+						},
+					},
+				}
+
+				pod, err := svc.RenderLaunchManifest(&vmi)
+				Expect(err).ToNot(HaveOccurred())
+				value, ok := pod.Annotations["k8s.v1.cni.cncf.io/networks"]
+				Expect(ok).To(Equal(true))
+				expectedIfaces := ("[" +
+					"{\"interface\":\"net1\",\"name\":\"default\",\"namespace\":\"default\"}," +
+					"{\"interface\":\"net2\",\"mac\":\"de:ad:00:00:be:af\",\"name\":\"test1\",\"namespace\":\"default\"}" +
+					"]")
+				Expect(value).To(Equal(expectedIfaces))
+			})
 		})
 		Context("with genie annotation", func() {
 			It("should add genie networks in the pod annotation", func() {

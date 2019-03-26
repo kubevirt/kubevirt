@@ -84,6 +84,30 @@ func (s *Launcher) Migrate(args *cmdclient.Args, reply *cmdclient.Reply) error {
 	return nil
 }
 
+func (s *Launcher) CancelMigration(args *cmdclient.Args, reply *cmdclient.Reply) error {
+
+	reply.Success = true
+
+	vmi, err := getVmfromClientArgs(args)
+	if err != nil {
+		reply.Success = false
+		reply.Message = err.Error()
+		return nil
+	}
+
+	err = s.domainManager.CancelVMIMigration(vmi)
+	if err != nil {
+		log.Log.Object(vmi).Reason(err).Errorf("failed to abort live migration")
+		reply.Success = false
+		reply.Message = getErrorMessage(err)
+		return nil
+	}
+
+	log.Log.Object(vmi).Info("Live migration as been aborted")
+	return nil
+
+}
+
 func (s *Launcher) SyncMigrationTarget(args *cmdclient.Args, reply *cmdclient.Reply) error {
 
 	reply.Success = true
