@@ -22,18 +22,11 @@ set -e
 source hack/common.sh
 source hack/config.sh
 
-bazel build \
-    --platforms=@io_bazel_rules_go//go/toolchain:linux_amd64 \
-    --workspace_status_command=./hack/print-workspace-status.sh \
-    --define container_prefix=${docker_prefix} \
-    --define container_tag=${docker_tag} \
-    //:build-images
-
-if [ -n "$docker_tag_alt" ]; then
+for tag in ${docker_tag} ${docker_tag_alt}; do
     bazel build \
         --platforms=@io_bazel_rules_go//go/toolchain:linux_amd64 \
         --workspace_status_command=./hack/print-workspace-status.sh \
         --define container_prefix=${docker_prefix} \
-        --define container_tag=${docker_tag_alt} \
+        --define container_tag=${tag} \
         //:build-images
-fi
+done
