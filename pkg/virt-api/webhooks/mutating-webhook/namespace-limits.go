@@ -62,16 +62,33 @@ func getNamespaceLimits(namespace string, limitrangeInformer cache.SharedIndexIn
 	}
 
 	for _, limit := range limits {
-		for _, val := range limit.(*k8sv1.LimitRange).Spec.Limits {
-			mem := val.Default.Memory()
-			if val.Type == k8sv1.LimitTypeContainer {
-				if !mem.IsZero() {
-					if finalLimit.IsZero() != (mem.Cmp(*finalLimit) < 0) {
-						finalLimit = mem
-					}
-				}
-			}
+		defaultRequirements := defaultContainerResourceRequirements(limit.(*k8sv1.LimitRange))
+		if v, found := defaultRequirements.Limits[k8sv1.ResourceMemory]; found {
+			finalLimit = v.Copy()
 		}
 	}
 	return finalLimit, nil
+}
+
+// Imitate kubernetes when choosing default resource requirements from a collection of LimitRanges
+// See defaultContainerResourceRequirements in https://github.com/kubernetes/kubernetes/blob/master/plugin/pkg/admission/limitranger/admission.go
+func defaultContainerResourceRequirements(limitRange *k8sv1.LimitRange) k8sv1.ResourceRequirements {
+	requirements := k8sv1.ResourceRequirements{}
+	requirements.Requests = k8sv1.ResourceList{}
+	requirements.Limits = k8sv1.ResourceList{}
+
+	for i := range limitRange.Spec.Limits {
+		limit := limitRange.Spec.Limits[i]
+		if limit.Type == k8sv1.LimitTypeContainer {
+			for k, v := range limit.DefaultRequest {
+				value := v.Copy()
+				requirements.Requests[k8sv1.ResourceName(k)] = *value
+			}
+			for k, v := range limit.Default {
+				value := v.Copy()
+				requirements.Limits[k8sv1.ResourceName(k)] = *value
+			}
+		}
+	}
+	return requirements
 }

@@ -24,7 +24,6 @@ import (
 	. "github.com/onsi/gomega"
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
-	k8smetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/tools/cache"
 
 	v1 "kubevirt.io/kubevirt/pkg/api/v1"
@@ -87,38 +86,6 @@ var _ = Describe("Mutating Webhook Namespace Limits", func() {
 			applyNamespaceLimitRangeValues(vmiCopy, namespaceLimitInformer)
 
 			Expect(vmiCopy.Spec.Domain.Resources.Limits.Memory().String()).To(Equal("128M"))
-		})
-
-		When("namespace has more than one limit range", func() {
-			var additionalNamespaceLimit *k8sv1.LimitRange
-
-			BeforeEach(func() {
-				additionalLimitMemory, _ := resource.ParseQuantity("76M")
-				additionalNamespaceLimit = &k8sv1.LimitRange{
-					ObjectMeta: k8smetav1.ObjectMeta{
-						Name: "additional-limit-range",
-					},
-					Spec: k8sv1.LimitRangeSpec{
-						Limits: []k8sv1.LimitRangeItem{
-							{
-								Type: k8sv1.LimitTypeContainer,
-								Default: k8sv1.ResourceList{
-									k8sv1.ResourceMemory: additionalLimitMemory,
-								},
-							},
-						},
-					},
-				}
-				namespaceLimitInformer.GetIndexer().Add(additionalNamespaceLimit)
-			})
-
-			It("should apply range with minimal limit", func() {
-				vmiCopy := vmi.DeepCopy()
-				By("Applying namespace range values on the VMI")
-				applyNamespaceLimitRangeValues(vmiCopy, namespaceLimitInformer)
-
-				Expect(vmiCopy.Spec.Domain.Resources.Limits.Memory().String()).To(Equal("76M"))
-			})
 		})
 	})
 })
