@@ -29,12 +29,27 @@ common --noshow_progress --noshow_loading_progress
 EOF
 fi
 
-# Build the build container
-(cd ${DOCKER_DIR} && docker build . ${BUILDER_EXTRA_ARGS} -t ${BUILDER})
+# Check if the bazel server needs to be stopped because of build container updates
+if [ -n "$(docker ps --format '{{.Names}}' | grep ${BUILDER}-bazel-server)" ]; then
+    running=$(docker exec ${BUILDER}-bazel-server /bin/sh -c "cd /root/go/src/kubevirt.io/kubevirt && find hack/kubevirt-builder/ -type f -exec sha256sum {} \; | sha256sum| cut -d ' ' -f1")
+    current=$(find hack/kubevirt-builder/ -type f -exec sha256sum {} \; | sha256sum | cut -d ' ' -f1)
+    current=${current//[$'\t\r\n']/}
+    running=${running//[$'\t\r\n']/}
+    if [ "${running}" != "${current}" ]; then
+        echo "Builder shasums don't match, stopping bazel server ..." 1>&2
+        docker exec ${BUILDER}-bazel-server /bin/sh -c "cd /root/go/src/kubevirt.io/kubevirt &&  bazel shutdown"
+        sleep 2
+        echo "Builder shasums don't match, rebuilding builder container ..." 1>&2
+        (cd ${DOCKER_DIR} && docker build . ${BUILDER_EXTRA_ARGS} -t ${BUILDER})
+    fi
+else
+    # Build the build container
+    (cd ${DOCKER_DIR} && docker build . ${BUILDER_EXTRA_ARGS} -t ${BUILDER})
 
-# Create the persistent docker volume
-if [ -z "$(docker volume list | grep ${BUILDER})" ]; then
-    docker volume create --name ${BUILDER}
+    # Create the persistent docker volume
+    if [ -z "$(docker volume list | grep ${BUILDER})" ]; then
+        docker volume create --name ${BUILDER}
+    fi
 fi
 
 # Make sure that the output directory exists
@@ -102,7 +117,6 @@ mkdir -p "${HOME}/.docker"
 volumes="$volumes -v ${HOME}/.docker:/root/.docker:ro,z"
 
 # Ensure that a bazel server is running
-
 if [ -z "$(docker ps --format '{{.Names}}' | grep ${BUILDER}-bazel-server)" ]; then
     docker run --network host -d ${volumes} --security-opt label:disable --name ${BUILDER}-bazel-server -w "/root/go/src/kubevirt.io/kubevirt" --rm ${BUILDER} hack/bazel-server.sh
 fi
