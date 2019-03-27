@@ -3139,8 +3139,8 @@ func StartVirtualMachine(vm *v1.VirtualMachine) *v1.VirtualMachine {
 	return updatedVM
 }
 
-func HasCDI() bool {
-	hasCDI := false
+func HasFeature(feature string) bool {
+	hasFeature := false
 	virtClient, err := kubecli.GetKubevirtClient()
 	PanicOnError(err)
 	options := metav1.GetOptions{}
@@ -3148,15 +3148,23 @@ func HasCDI() bool {
 	if err == nil {
 		val, ok := cfgMap.Data[virtconfig.FeatureGatesKey]
 		if !ok {
-			return hasCDI
+			return hasFeature
 		}
-		hasCDI = strings.Contains(val, "DataVolumes")
+		hasFeature = strings.Contains(val, feature)
 	} else {
 		if !errors.IsNotFound(err) {
 			PanicOnError(err)
 		}
 	}
-	return hasCDI
+	return hasFeature
+}
+
+func HasCDI() bool {
+	return HasFeature("DataVolumes")
+}
+
+func HasLiveMigration() bool {
+	return HasFeature("LiveMigration")
 }
 
 func StartTCPServer(vmi *v1.VirtualMachineInstance, port int) {
