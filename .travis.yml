@@ -41,7 +41,7 @@ deploy:
     condition: $TRAVIS_BRANCH != revert-*
 - provider: script
   script: docker login -u="$DOCKER_USER" -p="$DOCKER_PASS" && DOCKER_PREFIX="index.docker.io/kubevirt"
-    DOCKER_TAG="$TRAVIS_TAG" CSV_VERSION="${TRAVIS_TAG/v/}" QUAY_REPOSITORY="kubevirt" sh -c 'make bazel-push-images && make manifests && make olm-push'
+    DOCKER_TAG="$TRAVIS_TAG" QUAY_REPOSITORY="kubevirt" sh -c 'make bazel-push-images && make manifests && make olm-push'
   skip_cleanup: true
   file:
   on:

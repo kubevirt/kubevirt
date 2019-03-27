@@ -1,4 +1,4 @@
-apiVersion: marketplace.redhat.com/v1alpha1
+apiVersion: operators.coreos.com/v1
 kind: OperatorSource
 metadata:
   name: kubevirt
@@ -6,6 +6,6 @@ metadata:
 spec:
   type: appregistry
   endpoint: https://quay.io/cnr
-  registryNamespace: kubevirt
+  registryNamespace: {{.QuayRepository}}
   displayName: "KubeVirt"
   publisher: "KubeVirt project"

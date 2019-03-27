@@ -88,7 +88,7 @@ func (bh *BundleHelper) downloadAndParseBundle() error {
 	}
 
 	if len(bundles) == 0 {
-		fmt.Println("no old bundles found")
+		fmt.Errorf("no old bundles found\n")
 		return nil
 	}
 	bundleMetaData := bundles[0]

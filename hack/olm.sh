@@ -20,6 +20,7 @@
 set -e
 
 source $(dirname "$0")/common.sh
+source $(dirname "$0")/config.sh
 
 if [ $# -ne 1 ]; then
     echo "usage: ${0} verify | push"
@@ -49,8 +50,8 @@ verify)
 
 push)
 
-    if [[ -z "$CSV_VERSION" ]] || [[ -z "$QUAY_USERNAME" ]] || [[ -z "$QUAY_USERNAME" ]] || [[ -z "$QUAY_REPOSITORY" ]]; then
-        echo "please set CSV_VERSION, QUAY_USERNAME, QUAY_PASSWORD and QUAY_REPOSITORY"
+    if [[ -z "$QUAY_USERNAME" ]] || [[ -z "$QUAY_USERNAME" ]]; then
+        echo "please set QUAY_USERNAME, QUAY_PASSWORD"
         exit 1
     fi
 
@@ -64,7 +65,7 @@ push)
         }' | jq -r '.token')
 
     echo "pushing bundle"
-    operator-courier push "$BUNDLE_DIR" "$QUAY_REPOSITORY" kubevirt "$CSV_VERSION" "$AUTH_TOKEN"
+    operator-courier push "$BUNDLE_DIR" "$quay_repository" kubevirt "$csv_version" "$AUTH_TOKEN"
 
     ;;
 esac

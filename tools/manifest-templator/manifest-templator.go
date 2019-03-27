@@ -48,6 +48,7 @@ type templateData struct {
 	ImagePullPolicy        string
 	Verbosity              string
 	CsvVersion             string
+	QuayRepository         string
 	ReplacesCsvVersion     string
 	OperatorDeploymentSpec string
 	OperatorRules          string
@@ -69,6 +70,7 @@ func main() {
 	processVars := flag.Bool("process-vars", false, "")
 	kubeVirtLogoPath := flag.String("kubevirt-logo-path", "", "")
 	bundleOutDir := flag.String("bundle-out-dir", "", "")
+	quayRepository := flag.String("quay-repository", "", "")
 
 	pflag.CommandLine.AddGoFlagSet(flag.CommandLine)
 	pflag.CommandLine.ParseErrorsWhitelist.UnknownFlags = true
@@ -90,14 +92,14 @@ func main() {
 		data.ImagePullPolicy = *imagePullPolicy
 		data.Verbosity = fmt.Sprintf("\"%s\"", *verbosity)
 		data.CsvVersion = *csvVersion
+		data.QuayRepository = *quayRepository
 		data.OperatorDeploymentSpec = getOperatorDeploymentSpec(data)
 		data.OperatorRules = getOperatorRules()
 		data.KubeVirtLogo = getKubeVirtLogo(*kubeVirtLogoPath)
-
 		// prevent loading latest bundle from Quay for every file, only do it for the CSV manifest
 		data.ReplacesCsvVersion = ""
-		if strings.Contains(*inputFile, ".csv.yaml") {
-			bundleHelper, err := helper.NewBundleHelper("kubevirt")
+		if strings.Contains(*inputFile, ".csv.yaml") && *bundleOutDir != "" {
+			bundleHelper, err := helper.NewBundleHelper(*quayRepository)
 			if err != nil {
 				panic(err)
 			}
@@ -120,6 +122,7 @@ func main() {
 		data.ImagePullPolicy = "{{.ImagePullPolicy}}"
 		data.Verbosity = "{{.Verbosity}}"
 		data.CsvVersion = "{{.CsvVersion}}"
+		data.QuayRepository = "{{.QuayRepository}}"
 		data.ReplacesCsvVersion = "{{.ReplacesCsvVersion}}"
 		data.OperatorDeploymentSpec = "{{.OperatorDeploymentSpec}}"
 		data.OperatorRules = "{{.OperatorRules}}"

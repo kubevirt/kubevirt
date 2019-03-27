@@ -90,7 +90,7 @@ verify-build:
 	hack/verify-build.sh
 
 manifests:
-	hack/dockerized "CSV_VERSION=${CSV_VERSION} \
+	hack/dockerized "CSV_VERSION=${CSV_VERSION} QUAY_REPOSITORY=${QUAY_REPOSITORY} \
 	  DOCKER_PREFIX=${DOCKER_PREFIX} DOCKER_TAG=${DOCKER_TAG} \
 	  IMAGE_PULL_POLICY=${IMAGE_PULL_POLICY} VERBOSITY=${VERBOSITY} ./hack/build-manifests.sh"
 
@@ -127,7 +127,7 @@ olm-verify:
 	hack/dockerized "./hack/olm.sh verify"
 
 olm-push:
-	hack/dockerized "CSV_VERSION=${CSV_VERSION} QUAY_USERNAME=${QUAY_USERNAME} QUAY_PASSWORD=${QUAY_PASSWORD} QUAY_REPOSITORY=${QUAY_REPOSITORY} ./hack/olm.sh push"
+	hack/dockerized "DOCKER_TAG=${DOCKER_TAG} CSV_VERSION=${CSV_VERSION} QUAY_USERNAME=${QUAY_USERNAME} QUAY_PASSWORD=${QUAY_PASSWORD} QUAY_REPOSITORY=${QUAY_REPOSITORY} ./hack/olm.sh push"
 
 .PHONY: \
 	go-build \
