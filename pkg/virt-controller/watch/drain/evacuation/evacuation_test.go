@@ -1,174 +1,265 @@
-package evacuation
+package evacuation_test
 
 import (
-	"time"
+	"github.com/golang/mock/gomock"
+	v12 "k8s.io/api/core/v1"
+	v13 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/client-go/kubernetes/fake"
+	"k8s.io/client-go/testing"
+	"k8s.io/client-go/tools/cache"
+	framework "k8s.io/client-go/tools/cache/testing"
+	"k8s.io/client-go/tools/record"
+
+	v1 "kubevirt.io/kubevirt/pkg/api/v1"
+	"kubevirt.io/kubevirt/pkg/kubecli"
+	"kubevirt.io/kubevirt/pkg/testutils"
+	"kubevirt.io/kubevirt/pkg/virt-controller/watch/drain/evacuation"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	v1 "k8s.io/api/core/v1"
-	v13 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
-	v12 "kubevirt.io/kubevirt/pkg/api/v1"
 )
 
 var _ = Describe("Evacuation", func() {
+	var ctrl *gomock.Controller
+	var stop chan struct{}
+	var virtClient *kubecli.MockKubevirtClient
+	var migrationInterface *kubecli.MockVirtualMachineInstanceMigrationInterface
+	var vmiSource *framework.FakeControllerSource
+	var vmiInformer cache.SharedIndexInformer
+	var nodeSource *framework.FakeControllerSource
+	var nodeInformer cache.SharedIndexInformer
+	var migrationInformer cache.SharedIndexInformer
+	var migrationSource *framework.FakeControllerSource
+	var recorder *record.FakeRecorder
+	var mockQueue *testutils.MockWorkQueue
+	var kubeClient *fake.Clientset
+	var migrationFeeder *testutils.MigrationFeeder
+	var vmiFeeder *testutils.VirtualMachineFeeder
 
-	Context("filtering VMIs", func() {
+	var controller *evacuation.EvacuationController
 
-		var taints []v1.Taint
-		var evictionStrategies *v12.EvictionPolicy
+	syncCaches := func(stop chan struct{}) {
+		go vmiInformer.Run(stop)
+		go migrationInformer.Run(stop)
+		go nodeInformer.Run(stop)
 
-		BeforeEach(func() {
-			taints = []v1.Taint{
-				{
-					Key:    "key",
-					Effect: "effect",
-				},
-			}
-			evictionStrategies = &v12.EvictionPolicy{
+		Expect(cache.WaitForCacheSync(stop,
+			vmiInformer.HasSynced,
+			migrationInformer.HasSynced,
+			nodeInformer.HasSynced,
+		)).To(BeTrue())
+	}
 
-				Taints: []v12.TaintEvictionPolicy{
-					{
-						Toleration: v1.Toleration{
-							Key:    "key1",
-							Effect: "effect1",
-						},
-					},
-				},
-			}
+	addNode := func(node *v12.Node) {
+		mockQueue.ExpectAdds(1)
+		nodeSource.Add(node)
+		mockQueue.Wait()
+	}
+
+	BeforeEach(func() {
+		stop = make(chan struct{})
+		ctrl = gomock.NewController(GinkgoT())
+		virtClient = kubecli.NewMockKubevirtClient(ctrl)
+		migrationInterface = kubecli.NewMockVirtualMachineInstanceMigrationInterface(ctrl)
+
+		vmiInformer, vmiSource = testutils.NewFakeInformerWithIndexersFor(&v1.VirtualMachineInstance{}, cache.Indexers{
+			cache.NamespaceIndex: cache.MetaNamespaceIndexFunc,
+			"node": func(obj interface{}) (strings []string, e error) {
+				return []string{obj.(*v1.VirtualMachineInstance).Status.NodeName}, nil
+			},
+		})
+		migrationInformer, migrationSource = testutils.NewFakeInformerFor(&v1.VirtualMachineInstanceMigration{})
+		nodeInformer, nodeSource = testutils.NewFakeInformerFor(&v12.Node{})
+		recorder = record.NewFakeRecorder(100)
+
+		controller = evacuation.NewEvacuationController(vmiInformer, migrationInformer, nodeInformer, recorder, virtClient)
+		mockQueue = testutils.NewMockWorkQueue(controller.Queue)
+		controller.Queue = mockQueue
+		migrationFeeder = testutils.NewMigrationFeeder(mockQueue, migrationSource)
+		vmiFeeder = testutils.NewVirtualMachineFeeder(mockQueue, vmiSource)
+
+		// Set up mock client
+		virtClient.EXPECT().VirtualMachineInstanceMigration(v12.NamespaceDefault).Return(migrationInterface).AnyTimes()
+		kubeClient = fake.NewSimpleClientset()
+		virtClient.EXPECT().CoreV1().Return(kubeClient.CoreV1()).AnyTimes()
+		virtClient.EXPECT().PolicyV1beta1().Return(kubeClient.PolicyV1beta1()).AnyTimes()
+
+		// Make sure that all unexpected calls to kubeClient will fail
+		kubeClient.Fake.PrependReactor("*", "*", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
+			Expect(action).To(BeNil())
+			return true, nil, nil
+		})
+		syncCaches(stop)
+	})
+
+	Context("no node eviction in progress", func() {
+
+		It("should do nothing with VMIs", func() {
+			node := newNode("testnode")
+			addNode(node)
+			vmi := newVirtualMachine("testvm", node.Name)
+			vmiFeeder.Add(vmi)
+
+			controller.Execute()
 		})
 
-		It("should ignore taints if they don't have an eviction policy of LiveMigrate set", func() {
-			policy := v12.EvictionStrategyNone
-			evictionStrategies.Taints = append(evictionStrategies.Taints, v12.TaintEvictionPolicy{
-				Toleration: v1.Toleration{
-					Key:    "key",
-					Effect: "effect",
-				},
-				Strategy: &policy,
-			})
-			notTolerated, temporaryTolerated, retryTime := findNotToleratedTaints(time.Now(), evictionStrategies, taints)
-			Expect(notTolerated).To(BeEmpty())
-			Expect(temporaryTolerated).To(BeEmpty())
-			Expect(retryTime).To(BeNil())
-		})
+		It("should do nothing if the target node is not evicting", func() {
+			node := newNode("testnode")
+			node1 := newNode("anothernode")
+			node.Spec.Taints = append(node.Spec.Taints, *newTaint())
+			addNode(node)
+			addNode(node1)
+			vmi := newVirtualMachine("testvm", node1.Name)
+			vmi.Spec.EvictionPolicy = newEvictionPolicy()
+			vmiFeeder.Add(vmi)
 
-		It("should ignore taints if they is no eviction policy set", func() {
-			evictionStrategies.Taints = append(evictionStrategies.Taints, v12.TaintEvictionPolicy{
-				Toleration: v1.Toleration{
-					Key:    "key",
-					Effect: "effect",
-				},
-				Strategy: nil,
-			})
-			notTolerated, temporaryTolerated, retryTime := findNotToleratedTaints(time.Now(), evictionStrategies, taints)
-			Expect(notTolerated).To(BeEmpty())
-			Expect(temporaryTolerated).To(BeEmpty())
-			Expect(retryTime).To(BeNil())
-		})
-
-		It("should not tolerate taints if they have an eviction policy of LiveMigrate set", func() {
-			policy := v12.EvictionStrategyLiveMigrate
-			evictionStrategies.Taints = append(evictionStrategies.Taints, v12.TaintEvictionPolicy{
-				Toleration: v1.Toleration{
-					Key:    "key",
-					Effect: "effect",
-				},
-				Strategy: &policy,
-			})
-			notTolerated, temporaryTolerated, retryTime := findNotToleratedTaints(time.Now(), evictionStrategies, taints)
-			Expect(notTolerated).To(HaveLen(1))
-			Expect(temporaryTolerated).To(BeEmpty())
-			Expect(retryTime).To(BeNil())
-		})
-
-		It("should detect if a taint is only temporarily tolerated", func() {
-			now := v13.Now()
-			var tolerationSeconds int64 = 10
-			policy := v12.EvictionStrategyLiveMigrate
-			taints = append(taints, v1.Taint{
-				Key:       "key2",
-				Effect:    "effect2",
-				TimeAdded: &now,
-			})
-			evictionStrategies.Taints = append(evictionStrategies.Taints, v12.TaintEvictionPolicy{
-				Toleration: v1.Toleration{
-					Key:               "key2",
-					Effect:            "effect2",
-					TolerationSeconds: &tolerationSeconds,
-				},
-				Strategy: &policy,
-			})
-			notTolerated, temporaryTolerated, retryTime := findNotToleratedTaints(now.Time, evictionStrategies, taints)
-			Expect(notTolerated).To(BeEmpty())
-			Expect(temporaryTolerated).To(HaveLen(1))
-			expectedRetryTime := now.Add(time.Duration(tolerationSeconds) * time.Second)
-			Expect(retryTime).To(Equal(&expectedRetryTime))
-		})
-
-		It("should detect the earliest retry delay", func() {
-			now := v13.Now()
-			var tolerationSeconds int64 = 10
-			var shortTolerationSeconds int64 = 5
-			policy := v12.EvictionStrategyLiveMigrate
-			taints = append(taints, []v1.Taint{
-				{
-					Key:       "key2",
-					Effect:    "effect2",
-					TimeAdded: &now,
-				},
-				{
-					Key:       "key3",
-					Effect:    "effect3",
-					TimeAdded: &now,
-				},
-			}...)
-			evictionStrategies.Taints = append(evictionStrategies.Taints, []v12.TaintEvictionPolicy{
-				{
-					Toleration: v1.Toleration{
-						Key:               "key2",
-						Effect:            "effect2",
-						TolerationSeconds: &tolerationSeconds,
-					},
-					Strategy: &policy,
-				},
-				{
-					Toleration: v1.Toleration{
-						Key:               "key3",
-						Effect:            "effect3",
-						TolerationSeconds: &shortTolerationSeconds,
-					},
-					Strategy: &policy,
-				},
-			}...)
-			notTolerated, temporaryTolerated, retryTime := findNotToleratedTaints(now.Time, evictionStrategies, taints)
-			Expect(notTolerated).To(BeEmpty())
-			Expect(temporaryTolerated).To(HaveLen(2))
-			expectedRetryTime := now.Add(time.Duration(shortTolerationSeconds) * time.Second)
-			Expect(retryTime).To(Equal(&expectedRetryTime))
-		})
-
-		It("should detect if a temporary taint toleration expired ", func() {
-			now := v13.Now()
-			var tolerationSeconds int64 = 10
-			policy := v12.EvictionStrategyLiveMigrate
-			taints = append(taints, v1.Taint{
-				Key:       "key2",
-				Effect:    "effect2",
-				TimeAdded: &now,
-			})
-			evictionStrategies.Taints = append(evictionStrategies.Taints, v12.TaintEvictionPolicy{
-				Toleration: v1.Toleration{
-					Key:               "key2",
-					Effect:            "effect2",
-					TolerationSeconds: &tolerationSeconds,
-				},
-				Strategy: &policy,
-			})
-			notTolerated, temporaryTolerated, retryTime := findNotToleratedTaints(now.Time.Add(-11*time.Second), evictionStrategies, taints)
-			Expect(notTolerated).To(HaveLen(1))
-			Expect(temporaryTolerated).To(BeEmpty())
-			Expect(retryTime).To(BeNil())
+			controller.Execute()
 		})
 	})
+
+	Context("node eviction in progress", func() {
+
+		It("should evict the VMI", func() {
+			node := newNode("testnode")
+			node1 := newNode("anothernode")
+			node.Spec.Taints = append(node.Spec.Taints, *newTaint())
+			addNode(node)
+			addNode(node1)
+
+			vmi := newVirtualMachine("testvm", node.Name)
+			vmi.Spec.EvictionPolicy = newEvictionPolicy()
+			vmiFeeder.Add(vmi)
+
+			migrationInterface.EXPECT().Create(gomock.Any())
+
+			controller.Execute()
+		})
+
+		It("should ignore VMIs which are not migratable", func() {
+			node := newNode("testnode")
+			node1 := newNode("anothernode")
+			node.Spec.Taints = append(node.Spec.Taints, *newTaint())
+			addNode(node)
+			addNode(node1)
+
+			vmi := newVirtualMachine("testvm", node.Name)
+			vmi.Spec.EvictionPolicy = newEvictionPolicy()
+			vmi.Status.Conditions = []v1.VirtualMachineInstanceCondition{{Type: v1.VirtualMachineInstanceIsMigratable, Status: v12.ConditionFalse}}
+			vmiFeeder.Add(vmi)
+
+			vmi1 := newVirtualMachine("testvm1", node.Name)
+			vmi1.Spec.EvictionPolicy = newEvictionPolicy()
+			vmi1.Status.Conditions = nil
+			vmiFeeder.Add(vmi1)
+
+			controller.Execute()
+		})
+
+		It("should not evict VMIs if 5 migrations are in progress", func() {
+			node := newNode("testnode")
+			node.Spec.Taints = append(node.Spec.Taints, *newTaint())
+			addNode(node)
+
+			vmi := newVirtualMachine("testvm", node.Name)
+			vmi.Spec.EvictionPolicy = newEvictionPolicy()
+			vmi1 := newVirtualMachine("testvm1", node.Name)
+			vmi1.Spec.EvictionPolicy = newEvictionPolicy()
+			vmiFeeder.Add(vmi)
+			vmiFeeder.Add(vmi1)
+
+			migrationFeeder.Add(newMigration("mig1", vmi.Name, v1.MigrationRunning))
+			migrationFeeder.Add(newMigration("mig2", vmi.Name, v1.MigrationRunning))
+			migrationFeeder.Add(newMigration("mig3", vmi.Name, v1.MigrationRunning))
+			migrationFeeder.Add(newMigration("mig4", vmi.Name, v1.MigrationRunning))
+			migrationFeeder.Add(newMigration("mig5", vmi.Name, v1.MigrationRunning))
+
+			controller.Execute()
+
+		})
+
+		It("should start another migration if one completes and we have a free spot", func() {
+			node := newNode("testnode")
+			node.Spec.Taints = append(node.Spec.Taints, *newTaint())
+			addNode(node)
+
+			vmi := newVirtualMachine("testvm", node.Name)
+			vmi.Spec.EvictionPolicy = newEvictionPolicy()
+			vmi1 := newVirtualMachine("testvm1", node.Name)
+			vmi1.Spec.EvictionPolicy = newEvictionPolicy()
+			vmiFeeder.Add(vmi)
+			vmiFeeder.Add(vmi1)
+			migration := newMigration("mig1", vmi.Name, v1.MigrationRunning)
+
+			migrationFeeder.Add(migration)
+			migrationFeeder.Add(newMigration("mig2", vmi.Name, v1.MigrationRunning))
+			migrationFeeder.Add(newMigration("mig3", vmi.Name, v1.MigrationRunning))
+			migrationFeeder.Add(newMigration("mig4", vmi.Name, v1.MigrationRunning))
+			migrationFeeder.Add(newMigration("mig5", vmi.Name, v1.MigrationRunning))
+
+			controller.Execute()
+
+			migration.Status.Phase = v1.MigrationSucceeded
+			migrationFeeder.Modify(migration)
+
+			migrationInterface.EXPECT().Create(gomock.Any())
+			controller.Execute()
+		})
+	})
+
+	AfterEach(func() {
+		close(stop)
+		// Ensure that we add checks for expected events to every test
+		Expect(recorder.Events).To(BeEmpty())
+		ctrl.Finish()
+	})
 })
+
+func newNode(name string) *v12.Node {
+	return &v12.Node{
+		ObjectMeta: v13.ObjectMeta{
+			Name: name,
+		},
+		Spec: v12.NodeSpec{},
+	}
+}
+
+func newVirtualMachine(name string, nodeName string) *v1.VirtualMachineInstance {
+	vmi := v1.NewMinimalVMI("testvm")
+	vmi.Name = name
+	vmi.Status.NodeName = nodeName
+	vmi.Namespace = v12.NamespaceDefault
+	vmi.UID = "1234"
+	vmi.Status.Conditions = []v1.VirtualMachineInstanceCondition{{Type: v1.VirtualMachineInstanceIsMigratable, Status: v12.ConditionTrue}}
+	return vmi
+}
+
+func newMigration(name string, vmi string, phase v1.VirtualMachineInstanceMigrationPhase) *v1.VirtualMachineInstanceMigration {
+	migration := kubecli.NewMinimalMigration(name)
+	migration.Status.Phase = phase
+	migration.Spec.VMIName = vmi
+	migration.Namespace = v12.NamespaceDefault
+	return migration
+}
+
+func newEvictionPolicy() *v1.EvictionPolicy {
+	strategy := v1.EvictionStrategyLiveMigrate
+	return &v1.EvictionPolicy{
+		Taints: []v1.TaintEvictionPolicy{
+			{
+				Toleration: v12.Toleration{
+					Key:    "test",
+					Effect: v12.TaintEffectNoSchedule,
+				},
+				Strategy: &strategy,
+			},
+		},
+	}
+}
+
+func newTaint() *v12.Taint {
+	return &v12.Taint{
+		Effect: v12.TaintEffectNoSchedule,
+		Key:    "test",
+	}
+}

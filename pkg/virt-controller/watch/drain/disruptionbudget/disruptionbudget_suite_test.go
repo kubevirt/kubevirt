@@ -1,4 +1,4 @@
-package evacuation
+package disruptionbudget_test
 
 import (
 	. "github.com/onsi/ginkgo"
@@ -9,8 +9,8 @@ import (
 	"testing"
 )
 
-func TestEvacuation(t *testing.T) {
+func TestDisruptionbudget(t *testing.T) {
 	log.Log.SetIOWriter(GinkgoWriter)
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Evacuation Suite")
+	RunSpecs(t, "Disruptionbudget Suite")
 }

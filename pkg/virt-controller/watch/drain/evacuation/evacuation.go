@@ -319,7 +319,7 @@ func (c *EvacuationController) sync(node *k8sv1.Node, vmisOnNode []*virtv1.Virtu
 		return nil
 	}
 
-	if len(activeMigrations) > 5 {
+	if len(activeMigrations) >= 5 {
 		// Don't overload the cluster with migrations
 		return nil
 	}
@@ -385,22 +385,6 @@ func (c *EvacuationController) sync(node *k8sv1.Node, vmisOnNode []*virtv1.Virtu
 	return nil
 }
 
-func (c *EvacuationController) migrationForVMI(namespace, name string) (*virtv1.VirtualMachineInstanceMigration, error) {
-	migrations, err := c.migrationInformer.GetIndexer().ByIndex(cache.NamespaceIndex, namespace)
-	if err != nil {
-		return nil, err
-	}
-
-	for _, migration := range migrations {
-		p := v1.GetControllerOf(migration.(*virtv1.VirtualMachineInstanceMigration))
-		if p != nil && p.Kind == virtv1.VirtualMachineInstanceGroupVersionKind.Kind &&
-			p.Name == name {
-			return migration.(*virtv1.VirtualMachineInstanceMigration), nil
-		}
-	}
-	return nil, nil
-}
-
 func (c *EvacuationController) listVMIsOnNode(nodeName string) ([]*virtv1.VirtualMachineInstance, error) {
 	objs, err := c.vmiInformer.GetIndexer().ByIndex("node", nodeName)
 	if err != nil {
@@ -434,6 +418,10 @@ func (c *EvacuationController) filterRunningNonMigratingVMIs(vmis []*virtv1.Virt
 	migrationCandidates := []*virtv1.VirtualMachineInstance{}
 
 	for _, vmi := range vmis {
+
+		if !controller.NewVirtualMachineInstanceConditionManager().HasConditionWithStatus(vmi, virtv1.VirtualMachineInstanceIsMigratable, k8sv1.ConditionTrue) {
+			continue
+		}
 		if exists := lookup[vmi.Namespace+"/"+vmi.Name]; !exists &&
 			!vmi.IsFinal() && vmi.DeletionTimestamp == nil {
 			// no migration exists,
