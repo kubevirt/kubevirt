@@ -38,7 +38,6 @@ var _ = Describe("Mutating Webhook Namespace Limits", func() {
 
 	memory, _ := resource.ParseQuantity("64M")
 	limitMemory, _ := resource.ParseQuantity("128M")
-	zeroMemory, _ := resource.ParseQuantity("0M")
 
 	BeforeEach(func() {
 		vmi = v1.VirtualMachineInstance{
@@ -88,25 +87,6 @@ var _ = Describe("Mutating Webhook Namespace Limits", func() {
 			applyNamespaceLimitRangeValues(vmiCopy, namespaceLimitInformer)
 
 			Expect(vmiCopy.Spec.Domain.Resources.Limits.Memory().String()).To(Equal("128M"))
-		})
-
-		When("namespace limit equals 0", func() {
-			It("should not apply namespace limits", func() {
-				vmiCopy := vmi.DeepCopy()
-
-				namespaceLimitCopy := namespaceLimit.DeepCopy()
-				namespaceLimitCopy.Spec.Limits[0].Default[k8sv1.ResourceMemory] = zeroMemory
-				namespaceLimitInformer.GetIndexer().Update(namespaceLimitCopy)
-
-				By("Applying namespace range values on the VMI")
-				applyNamespaceLimitRangeValues(vmiCopy, namespaceLimitInformer)
-				_, ok := vmiCopy.Spec.Domain.Resources.Limits[k8sv1.ResourceMemory]
-				Expect(ok).To(Equal(false))
-			})
-
-			AfterEach(func() {
-				namespaceLimitInformer.GetIndexer().Update(namespaceLimit)
-			})
 		})
 
 		When("namespace has more than one limit range", func() {
