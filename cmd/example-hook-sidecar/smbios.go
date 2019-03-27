@@ -26,19 +26,23 @@ import (
 	"net"
 	"os"
 
+	"github.com/spf13/pflag"
 	"google.golang.org/grpc"
 
 	vmSchema "kubevirt.io/kubevirt/pkg/api/v1"
-	hooks "kubevirt.io/kubevirt/pkg/hooks"
+	"kubevirt.io/kubevirt/pkg/hooks"
 	hooksInfo "kubevirt.io/kubevirt/pkg/hooks/info"
 	hooksV1alpha1 "kubevirt.io/kubevirt/pkg/hooks/v1alpha1"
+	hooksV1alpha2 "kubevirt.io/kubevirt/pkg/hooks/v1alpha2"
 	"kubevirt.io/kubevirt/pkg/log"
 	domainSchema "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 )
 
 const baseBoardManufacturerAnnotation = "smbios.vm.kubevirt.io/baseBoardManufacturer"
 
-type infoServer struct{}
+type infoServer struct {
+	Version string
+}
 
 func (s infoServer) Info(ctx context.Context, params *hooksInfo.InfoParams) (*hooksInfo.InfoResult, error) {
 	log.Log.Info("Hook's Info method has been called")
@@ -46,7 +50,7 @@ func (s infoServer) Info(ctx context.Context, params *hooksInfo.InfoParams) (*ho
 	return &hooksInfo.InfoResult{
 		Name: "smbios",
 		Versions: []string{
-			hooksV1alpha1.Version,
+			s.Version,
 		},
 		HookPoints: []*hooksInfo.HookPoint{
 			&hooksInfo.HookPoint{
@@ -58,11 +62,38 @@ func (s infoServer) Info(ctx context.Context, params *hooksInfo.InfoParams) (*ho
 }
 
 type v1alpha1Server struct{}
+type v1alpha2Server struct{}
+
+func (s v1alpha2Server) OnDefineDomain(ctx context.Context, params *hooksV1alpha2.OnDefineDomainParams) (*hooksV1alpha2.OnDefineDomainResult, error) {
+	log.Log.Info("Hook's OnDefineDomain callback method has been called")
+	newDomainXML, err := onDefineDomain(params.GetVmi(), params.GetDomainXML())
+	if err != nil {
+		return nil, err
+	}
+	return &hooksV1alpha2.OnDefineDomainResult{
+		DomainXML: newDomainXML,
+	}, nil
+}
+func (s v1alpha2Server) PreCloudInitIso(_ context.Context, params *hooksV1alpha2.PreCloudInitIsoParams) (*hooksV1alpha2.PreCloudInitIsoResult, error) {
+	return &hooksV1alpha2.PreCloudInitIsoResult{
+		CloudInitData: params.GetCloudInitData(),
+	}, nil
+}
 
 func (s v1alpha1Server) OnDefineDomain(ctx context.Context, params *hooksV1alpha1.OnDefineDomainParams) (*hooksV1alpha1.OnDefineDomainResult, error) {
 	log.Log.Info("Hook's OnDefineDomain callback method has been called")
+	newDomainXML, err := onDefineDomain(params.GetVmi(), params.GetDomainXML())
+	if err != nil {
+		return nil, err
+	}
+	return &hooksV1alpha1.OnDefineDomainResult{
+		DomainXML: newDomainXML,
+	}, nil
+}
 
-	vmiJSON := params.GetVmi()
+func onDefineDomain(vmiJSON []byte, domainXML []byte) ([]byte, error) {
+	log.Log.Info("Hook's OnDefineDomain callback method has been called")
+
 	vmiSpec := vmSchema.VirtualMachineInstance{}
 	err := json.Unmarshal(vmiJSON, &vmiSpec)
 	if err != nil {
@@ -74,12 +105,9 @@ func (s v1alpha1Server) OnDefineDomain(ctx context.Context, params *hooksV1alpha
 
 	if _, found := annotations[baseBoardManufacturerAnnotation]; !found {
 		log.Log.Info("SM BIOS hook sidecar was requested, but no attributes provided. Returning original domain spec")
-		return &hooksV1alpha1.OnDefineDomainResult{
-			DomainXML: params.GetDomainXML(),
-		}, nil
+		return domainXML, nil
 	}
 
-	domainXML := params.GetDomainXML()
 	domainSpec := domainSchema.DomainSpec{}
 	err = xml.Unmarshal(domainXML, &domainSpec)
 	if err != nil {
@@ -108,13 +136,15 @@ func (s v1alpha1Server) OnDefineDomain(ctx context.Context, params *hooksV1alpha
 
 	log.Log.Info("Successfully updated original domain spec with requested SMBIOS attributes")
 
-	return &hooksV1alpha1.OnDefineDomainResult{
-		DomainXML: newDomainXML,
-	}, nil
+	return newDomainXML, nil
 }
 
 func main() {
 	log.InitializeLogging("smbios-hook-sidecar")
+
+	var version string
+	pflag.StringVar(&version, "version", "", "hook version to use")
+	pflag.Parse()
 
 	socketPath := hooks.HookSocketsSharedDirectory + "/smbios.sock"
 	socket, err := net.Listen("unix", socketPath)
@@ -126,8 +156,11 @@ func main() {
 	defer os.Remove(socketPath)
 
 	server := grpc.NewServer([]grpc.ServerOption{}...)
-	hooksInfo.RegisterInfoServer(server, infoServer{})
+
+	//hooksV1alpha1.Version,
+	hooksInfo.RegisterInfoServer(server, infoServer{Version: version})
 	hooksV1alpha1.RegisterCallbacksServer(server, v1alpha1Server{})
+	hooksV1alpha2.RegisterCallbacksServer(server, v1alpha2Server{})
 	log.Log.Infof("Starting hook server exposing 'info' and 'v1alpha1' services on socket %s", socketPath)
 	server.Serve(socket)
 }

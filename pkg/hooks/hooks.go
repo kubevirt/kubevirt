@@ -35,6 +35,8 @@ type HookSidecarList []HookSidecar
 type HookSidecar struct {
 	Image           string           `json:"image"`
 	ImagePullPolicy k8sv1.PullPolicy `json:"imagePullPolicy"`
+	Command         []string         `json:"command,omitempty"`
+	Args            []string         `json:"args,omitempty"`
 }
 
 func UnmarshalHookSidecarList(vmiObject *v1.VirtualMachineInstance) (HookSidecarList, error) {
