@@ -28,6 +28,7 @@
 
 set -ex
 
+
 export WORKSPACE="${WORKSPACE:-$PWD}"
 readonly ARTIFACTS_PATH="$WORKSPACE/exported-artifacts"
 readonly TEMPLATES_SERVER="https://templates.ovirt.org/kubevirt/"
@@ -56,6 +57,7 @@ export RHEL_NFS_DIR=${RHEL_NFS_DIR:-/var/lib/stdci/shared/kubevirt-images/rhel7}
 export RHEL_LOCK_PATH=${RHEL_LOCK_PATH:-/var/lib/stdci/shared/download_rhel_image.lock}
 export WINDOWS_NFS_DIR=${WINDOWS_NFS_DIR:-/var/lib/stdci/shared/kubevirt-images/windows2016}
 export WINDOWS_LOCK_PATH=${WINDOWS_LOCK_PATH:-/var/lib/stdci/shared/download_windows_image.lock}
+export PROFILE_LOG="$ARTIFACTS_PATH/cmd_profile.log"
 
 wait_for_download_lock() {
   local max_lock_attempts=60
@@ -114,6 +116,31 @@ safe_download() (
     fi
 )
 
+function _init_profile_log() {
+  cat <<-EOF > "$PROFILE_LOG"
+hostname: $PHYSICAL_NODE_NAME
+podname: $HOSTNAME
+data:
+EOF
+}
+
+function _profile() {
+  local cmd=("${@}")
+  # Make sure we're not using bash's buildin time cmd
+  local _time
+  _time="$(which time)"
+
+  epoch="$(date +%s)"
+  "$_time" \
+    --format="- {cmd: '${cmd[*]}', elapsed: '%e', user_cpu_sec: '%U', krnl_cpu_sec: '%S', max_mem_res: '%M', time: $epoch}" \
+    --output="$PROFILE_LOG" --append \
+    "${cmd[@]}"
+}
+
+mkdir -p "$ARTIFACTS_PATH"
+
+_init_profile_log
+
 if [[ $TARGET =~ os-.* ]]; then
     # Create images directory
     if [[ ! -d $RHEL_NFS_DIR ]]; then
@@ -153,16 +180,16 @@ fi
 
 
 # Make sure that the VM is properly shut down on exit
-trap '{ make cluster-down; }' EXIT SIGINT SIGTERM SIGSTOP
+trap '{ _profile make cluster-down; }' EXIT SIGINT SIGTERM SIGSTOP
 
 
 # Check if we are on a pull request in jenkins.
 export KUBEVIRT_CACHE_FROM=${ghprbTargetBranch}
 if [ -n "${KUBEVIRT_CACHE_FROM}" ]; then
-    make pull-cache
+    _profile make pull-cache
 fi
 
-make cluster-down
+_profile make cluster-down
 
 # Create .bazelrc to use remote cache
 cat >.bazelrc <<EOF
@@ -178,12 +205,12 @@ EOF
 set +e
 for i in $(seq 1 3);
 do
-  make bazel-build-images
+  _profile make bazel-build-images
 done
 set -e
-make bazel-build-images
+_profile make bazel-build-images
 
-make cluster-up
+_profile make cluster-up
 
 # Wait for nodes to become ready
 set +e
@@ -200,7 +227,7 @@ set -e
 echo "Nodes are ready:"
 kubectl get nodes
 
-make cluster-sync
+_profile make cluster-sync
 hack/dockerized bazel shutdown
 
 # OpenShift is running important containers under default namespace
@@ -242,8 +269,6 @@ for i in ${namespaces[@]}; do
 done
 
 kubectl version
-
-mkdir -p "$ARTIFACTS_PATH"
 
 ginko_params="--ginkgo.noColor --junit-output=$ARTIFACTS_PATH/tests.junit.xml"
 
@@ -303,4 +328,4 @@ fi
 
 
 # Run functional tests
-FUNC_TEST_ARGS=$ginko_params make functest
+FUNC_TEST_ARGS=$ginko_params _profile make functest

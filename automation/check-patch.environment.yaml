@@ -2,3 +2,6 @@
 - name: 'ghprbTargetBranch'
   valueFrom:
     runtimeEnv: 'ghprbTargetBranch'
+- name: 'PHYSICAL_NODE_NAME'
+  valueFrom:
+    runtimeEnv: '_CI_ENV_NODE_NAME'
