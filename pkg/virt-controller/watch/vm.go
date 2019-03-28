@@ -527,6 +527,7 @@ func (c *VMController) setupVMIFromVM(vm *virtv1.VirtualMachine) *virtv1.Virtual
 	vmi.ObjectMeta = vm.Spec.Template.ObjectMeta
 	vmi.ObjectMeta.Name = basename
 	vmi.ObjectMeta.GenerateName = basename
+	vmi.ObjectMeta.Namespace = vm.ObjectMeta.Namespace
 	vmi.Spec = vm.Spec.Template.Spec
 
 	setupStableFirmwareUUID(vm, vmi)
