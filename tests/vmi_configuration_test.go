@@ -550,8 +550,7 @@ var _ = Describe("Configurations", func() {
 					vmi = tests.NewRandomVMIWithEphemeralDisk(tests.ContainerDiskFor(tests.ContainerDiskAlpine))
 					vmi.Spec.Domain.Resources = v1.ResourceRequirements{
 						Requests: kubev1.ResourceList{
-							kubev1.ResourceCPU:    resource.MustParse("800m"),
-							kubev1.ResourceMemory: resource.MustParse("64M"),
+							kubev1.ResourceCPU: resource.MustParse("800m"),
 						},
 					}
 					vmi, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
