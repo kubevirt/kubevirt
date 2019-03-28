@@ -105,6 +105,10 @@ func main() {
 			}
 			latestVersion := bundleHelper.GetLatestPublishedCSVVersion()
 			if latestVersion != "" {
+				// prevent generating the same version again
+				if strings.HasSuffix(latestVersion, *csvVersion) {
+					panic(fmt.Errorf("CSV version %s is already published!", *csvVersion))
+				}
 				data.ReplacesCsvVersion = fmt.Sprintf("  replaces: %v", latestVersion)
 				// also copy old manifests to out dir
 				if *bundleOutDir != "" {
