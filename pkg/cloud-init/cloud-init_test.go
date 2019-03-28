@@ -43,21 +43,17 @@ import (
 
 var _ = Describe("CloudInit", func() {
 
-	var ctrl *gomock.Controller
-	var virtClient *kubecli.MockKubevirtClient
+	var (
+		ctrl            *gomock.Controller
+		virtClient      *kubecli.MockKubevirtClient
+		isoCreationFunc IsoCreationFunc
+	)
 
 	tmpDir, _ := ioutil.TempDir("", "cloudinittest")
 
 	owner, err := user.Current()
 	if err != nil {
 		panic(err)
-	}
-	isoCreationFunc := func(isoOutFile, volumeID string, inDir string) error {
-		// TODO check volume id and inDir
-		// fake creating the iso
-		_, err := os.Create(isoOutFile)
-
-		return err
 	}
 
 	BeforeSuite(func() {
@@ -66,10 +62,27 @@ var _ = Describe("CloudInit", func() {
 			panic(err)
 		}
 		SetLocalDataOwner(owner.Username)
-		SetIsoCreationFunction(isoCreationFunc)
 	})
 
 	BeforeEach(func() {
+		ctrl = gomock.NewController(GinkgoT())
+		virtClient = kubecli.NewMockKubevirtClient(ctrl)
+		isoCreationFunc = func(isoOutFile, volumeID string, inDir string) error {
+			switch volumeID {
+			case "cidata", "config-2":
+				// Valid volume IDs for nocloud and configdrive
+			default:
+				return fmt.Errorf("unexpected volume ID '%s'", volumeID)
+			}
+
+			// fake creating the iso
+			_, err := os.Create(isoOutFile)
+
+			return err
+		}
+	})
+
+	JustBeforeEach(func() {
 		SetIsoCreationFunction(isoCreationFunc)
 	})
 
@@ -77,12 +90,12 @@ var _ = Describe("CloudInit", func() {
 		os.RemoveAll(tmpDir)
 	})
 
-	Describe("No-Cloud data source", func() {
+	Describe("Volume-based data source", func() {
 		Context("when ISO generation fails", func() {
-			It("should fail local data generation", func() {
+			timedOut := false
 
-				timedOut := false
-				customCreationFunc := func(isoOutFile, volumeID string, inDir string) error {
+			BeforeEach(func() {
+				isoCreationFunc = func(isoOutFile, volumeID string, inDir string) error {
 					var args []string
 
 					args = append(args, "10")
@@ -111,8 +124,9 @@ var _ = Describe("CloudInit", func() {
 						}
 					}
 				}
-				SetIsoCreationFunction(customCreationFunc)
+			})
 
+			It("should fail local data generation", func() {
 				namespace := "fake-namespace"
 				domain := "fake-domain"
 				userData := "fake\nuser\ndata\n"
@@ -136,19 +150,20 @@ var _ = Describe("CloudInit", func() {
 
 			Context("with multiple data dirs and files", func() {
 				It("should list all VirtualMachineInstance's", func() {
-					var domains []string
-					domains = append(domains, "fakens1/fakedomain1")
-					domains = append(domains, "fakens1/fakedomain2")
-					domains = append(domains, "fakens2/fakedomain1")
-					domains = append(domains, "fakens2/fakedomain2")
-					domains = append(domains, "fakens3/fakedomain1")
-					domains = append(domains, "fakens4/fakedomain1")
+					domains := []string{
+						"fakens1/fakedomain1",
+						"fakens1/fakedomain2",
+						"fakens2/fakedomain1",
+						"fakens2/fakedomain2",
+						"fakens3/fakedomain1",
+						"fakens4/fakedomain1",
+					}
+					msg := "fake content"
+					bytes := []byte(msg)
 
 					for _, dom := range domains {
 						err := os.MkdirAll(fmt.Sprintf("%s/%s/some-other-dir", tmpDir, dom), 0755)
 						Expect(err).ToNot(HaveOccurred())
-						msg := "fake content"
-						bytes := []byte(msg)
 						err = ioutil.WriteFile(fmt.Sprintf("%s/%s/some-file", tmpDir, dom), bytes, 0644)
 						Expect(err).ToNot(HaveOccurred())
 					}
@@ -171,10 +186,10 @@ var _ = Describe("CloudInit", func() {
 		})
 
 		Describe("A new VirtualMachineInstance definition", func() {
-			verifyCloudInitIso := func(source *v1.CloudInitNoCloudSource) {
+			verifyCloudInitData := func(cloudInitData *CloudInitData) {
 				namespace := "fake-namespace"
 				domain := "fake-domain"
-				cloudInitData, _ := readCloudInitNoCloudSource(source)
+
 				err := GenerateLocalData(domain, domain, namespace, cloudInitData)
 				Expect(err).ToNot(HaveOccurred())
 
@@ -193,57 +208,57 @@ var _ = Describe("CloudInit", func() {
 				Expect(err).ToNot(HaveOccurred())
 			}
 
-			Context("with cloudInitNoCloud userDataBase64 volume source", func() {
-				It("should success", func() {
+			Context("with CloudInitNoCloud volume source", func() {
+				verifyCloudInitNoCloudIso := func(source *v1.CloudInitNoCloudSource) {
+					cloudInitData, _ := readCloudInitNoCloudSource(source)
+					verifyCloudInitData(cloudInitData)
+				}
+
+				It("should succeed to verify userDataBase64 ", func() {
 					userData := "fake\nuser\ndata\n"
 					cloudInitData := &v1.CloudInitNoCloudSource{
 						UserDataBase64: base64.StdEncoding.EncodeToString([]byte(userData)),
 					}
-					verifyCloudInitIso(cloudInitData)
+					verifyCloudInitNoCloudIso(cloudInitData)
 				})
-			})
-			Context("with cloudInitNoCloud userDataBase64 and networkData volume source", func() {
-				It("should success", func() {
+
+				It("should succeed to verify userDataBase64 and networkData", func() {
 					userData := "fake\nuser\ndata\n"
 					networkData := "fake\nnetwork\ndata\n"
 					cloudInitData := &v1.CloudInitNoCloudSource{
 						UserDataBase64: base64.StdEncoding.EncodeToString([]byte(userData)),
 						NetworkData:    networkData,
 					}
-					verifyCloudInitIso(cloudInitData)
+					verifyCloudInitNoCloudIso(cloudInitData)
 				})
-			})
-			Context("with cloudInitNoCloud userDataBase64 and networkDataBase64 volume source", func() {
-				It("should success", func() {
+
+				It("should succeed to verify userDataBase64 and networkDataBase64", func() {
 					userData := "fake\nuser\ndata\n"
 					networkData := "fake\nnetwork\ndata\n"
 					cloudInitData := &v1.CloudInitNoCloudSource{
 						UserDataBase64:    base64.StdEncoding.EncodeToString([]byte(userData)),
 						NetworkDataBase64: base64.StdEncoding.EncodeToString([]byte(networkData)),
 					}
-					verifyCloudInitIso(cloudInitData)
+					verifyCloudInitNoCloudIso(cloudInitData)
 				})
-			})
-			Context("with cloudInitNoCloud userData volume source", func() {
-				It("should success", func() {
+
+				It("should succeed to verify userData", func() {
 					userData := "fake\nuser\ndata\n"
 					cloudInitData := &v1.CloudInitNoCloudSource{
 						UserData: userData,
 					}
-					verifyCloudInitIso(cloudInitData)
+					verifyCloudInitNoCloudIso(cloudInitData)
 				})
-			})
-			Context("with bad cloudInitNoCloud UserDataBase64", func() {
-				It("should fail", func() {
+
+				It("should fail to verify bad cloudInitNoCloud UserDataBase64", func() {
 					source := &v1.CloudInitNoCloudSource{
 						UserDataBase64: "#######garbage******",
 					}
 					_, err := readCloudInitNoCloudSource(source)
 					Expect(err.Error()).Should(Equal("illegal base64 data at input byte 0"))
 				})
-			})
-			Context("with bad cloudInitNoCloud NetworkDataBase64", func() {
-				It("should fail", func() {
+
+				It("should fail to verify bad cloudInitNoCloud NetworkDataBase64", func() {
 					source := &v1.CloudInitNoCloudSource{
 						UserData:          "fake",
 						NetworkDataBase64: "#######garbage******",
@@ -251,9 +266,8 @@ var _ = Describe("CloudInit", func() {
 					_, err := readCloudInitNoCloudSource(source)
 					Expect(err.Error()).Should(Equal("illegal base64 data at input byte 0"))
 				})
-			})
-			Context("with cloudInitNoCloud networkData source", func() {
-				It("should fail", func() {
+
+				It("should fail to verify networkData without userData", func() {
 					networkData := "FakeNetwork"
 					source := &v1.CloudInitNoCloudSource{
 						NetworkData: networkData,
@@ -262,179 +276,129 @@ var _ = Describe("CloudInit", func() {
 					Expect(err).Should(MatchError("userDataBase64 or userData is required for no-cloud data source"))
 				})
 
-			})
-		})
-		Describe("A new VirtualMachineInstance definition", func() {
-			Context("with cloudInitNoCloud userDataSecretRef", func() {
-				It("should succeed", func() {
-					ctrl = gomock.NewController(GinkgoT())
-					virtClient = kubecli.NewMockKubevirtClient(ctrl)
-
+				Context("with secretRefs", func() {
+					userDataSecretName := "userDataSecretName"
+					networkDataSecretName := "networkDataSecretName"
 					namespace := "testing"
 
-					userSecret := &k8sv1.Secret{
-						ObjectMeta: metav1.ObjectMeta{
-							Name:      "userDataSecretName",
-							Namespace: namespace,
-						},
-						Type: "Opaque",
-						Data: map[string][]byte{
-							"userdata": []byte("secretUserData"),
-						},
+					createSecret := func(name, dataKey, dataValue string) *k8sv1.Secret {
+						return &k8sv1.Secret{
+							ObjectMeta: metav1.ObjectMeta{
+								Name:      name,
+								Namespace: namespace,
+							},
+							Type: "Opaque",
+							Data: map[string][]byte{
+								dataKey: []byte(dataValue),
+							},
+						}
+					}
+					createUserDataSecret := func(data string) *k8sv1.Secret {
+						return createSecret(userDataSecretName, "userdata", data)
+					}
+					createBadUserDataSecret := func(data string) *k8sv1.Secret {
+						return createSecret(userDataSecretName, "baduserdara", data)
+					}
+					createNetworkDataSecret := func(data string) *k8sv1.Secret {
+						return createSecret(networkDataSecretName, "networkdata", data)
+					}
+					createBadNetworkDataSecret := func(data string) *k8sv1.Secret {
+						return createSecret(networkDataSecretName, "badnetworkdata", data)
 					}
 
-					userClient := fake.NewSimpleClientset(userSecret)
-					virtClient.EXPECT().CoreV1().Return(userClient.CoreV1()).AnyTimes()
+					It("should succeed to verify userDataSecretRef", func() {
+						userSecret := createUserDataSecret("secretUserData")
+						userClient := fake.NewSimpleClientset(userSecret)
+						virtClient.EXPECT().CoreV1().Return(userClient.CoreV1()).AnyTimes()
 
-					cloudInitData := &v1.CloudInitNoCloudSource{
-						UserDataSecretRef: &k8sv1.LocalObjectReference{Name: "userDataSecretName"},
-					}
+						cloudInitData := &v1.CloudInitNoCloudSource{
+							UserDataSecretRef: &k8sv1.LocalObjectReference{Name: userDataSecretName},
+						}
 
-					err := resolveNoCloudSecrets(cloudInitData, namespace, virtClient)
-					Expect(err).To(BeNil())
-					Expect(cloudInitData.UserData).To(Equal("secretUserData"))
-				})
-			})
-			Context("with cloudInitNoCloud userDataSecretRef and networkDataSecretRef", func() {
-				It("should succeed", func() {
-					ctrl = gomock.NewController(GinkgoT())
-					virtClient = kubecli.NewMockKubevirtClient(ctrl)
-					namespace := "testing"
+						err := resolveNoCloudSecrets(cloudInitData, namespace, virtClient)
+						Expect(err).To(BeNil())
+						Expect(cloudInitData.UserData).To(Equal("secretUserData"))
+					})
 
-					userSecret := &k8sv1.Secret{
-						ObjectMeta: metav1.ObjectMeta{
-							Name:      "userDataSecretName",
-							Namespace: namespace,
-						},
-						Type: "Opaque",
-						Data: map[string][]byte{
-							"userdata": []byte("secretUserData"),
-						},
-					}
-					userClient := fake.NewSimpleClientset(userSecret)
+					It("should succeed to verify userDataSecretRef and networkDataSecretRef", func() {
+						userSecret := createUserDataSecret("secretUserData")
+						userClient := fake.NewSimpleClientset(userSecret)
+						networkSecret := createNetworkDataSecret("secretNetworkData")
+						networkClient := fake.NewSimpleClientset(networkSecret)
 
-					networkSecret := &k8sv1.Secret{
-						ObjectMeta: metav1.ObjectMeta{
-							Name:      "networkDataSecretName",
-							Namespace: namespace,
-						},
-						Type: "Opaque",
-						Data: map[string][]byte{
-							"networkdata": []byte("secretNetworkData"),
-						},
-					}
-					networkClient := fake.NewSimpleClientset(networkSecret)
+						gomock.InOrder(
+							virtClient.EXPECT().CoreV1().Return(userClient.CoreV1()),
+							virtClient.EXPECT().CoreV1().Return(networkClient.CoreV1()),
+						)
 
-					gomock.InOrder(
-						virtClient.EXPECT().CoreV1().Return(userClient.CoreV1()),
-						virtClient.EXPECT().CoreV1().Return(networkClient.CoreV1()),
-					)
+						cloudInitData := &v1.CloudInitNoCloudSource{
+							UserDataSecretRef:    &k8sv1.LocalObjectReference{Name: userDataSecretName},
+							NetworkDataSecretRef: &k8sv1.LocalObjectReference{Name: networkDataSecretName},
+						}
 
-					cloudInitData := &v1.CloudInitNoCloudSource{
-						UserDataSecretRef:    &k8sv1.LocalObjectReference{Name: "userDataSecretName"},
-						NetworkDataSecretRef: &k8sv1.LocalObjectReference{Name: "networkDataSecretName"},
-					}
+						err := resolveNoCloudSecrets(cloudInitData, namespace, virtClient)
+						Expect(err).To(BeNil())
+						Expect(cloudInitData.UserData).To(Equal("secretUserData"))
+						Expect(cloudInitData.NetworkData).To(Equal("secretNetworkData"))
+					})
 
-					err := resolveNoCloudSecrets(cloudInitData, namespace, virtClient)
-					Expect(err).To(BeNil())
-					Expect(cloudInitData.UserData).To(Equal("secretUserData"))
-					Expect(cloudInitData.NetworkData).To(Equal("secretNetworkData"))
-				})
-			})
-			Context("with nothing", func() {
-				It("should succeed", func() {
-					ctrl = gomock.NewController(GinkgoT())
-					virtClient = kubecli.NewMockKubevirtClient(ctrl)
-					namespace := "testing"
-					fakeClient := fake.NewSimpleClientset()
-					virtClient.EXPECT().CoreV1().Return(fakeClient.CoreV1())
-					cloudInitData := &v1.CloudInitNoCloudSource{}
-					err := resolveNoCloudSecrets(cloudInitData, namespace, virtClient)
-					Expect(err).To(BeNil())
-				})
-			})
-			Context("with UserDataSecretRef defined without a secret", func() {
-				It("should fail", func() {
-					ctrl = gomock.NewController(GinkgoT())
-					virtClient = kubecli.NewMockKubevirtClient(ctrl)
-					namespace := "testing"
-					fakeClient := fake.NewSimpleClientset()
-					virtClient.EXPECT().CoreV1().Return(fakeClient.CoreV1())
+					It("should succeed to verify nothing", func() {
+						fakeClient := fake.NewSimpleClientset()
+						virtClient.EXPECT().CoreV1().Return(fakeClient.CoreV1())
+						cloudInitData := &v1.CloudInitNoCloudSource{}
+						err := resolveNoCloudSecrets(cloudInitData, namespace, virtClient)
+						Expect(err).To(BeNil())
+					})
 
-					cloudInitData := &v1.CloudInitNoCloudSource{
-						UserDataSecretRef: &k8sv1.LocalObjectReference{Name: "userDataSecretName"},
-					}
+					It("should fail to verify UserDataSecretRef without a secret", func() {
+						fakeClient := fake.NewSimpleClientset()
+						virtClient.EXPECT().CoreV1().Return(fakeClient.CoreV1())
 
-					err := resolveNoCloudSecrets(cloudInitData, namespace, virtClient)
-					Expect(err.Error()).To(Equal("secrets \"userDataSecretName\" not found"))
-				})
-			})
-			Context("with NetworkDataSecretRef defined without a secret", func() {
-				It("should fail", func() {
-					ctrl = gomock.NewController(GinkgoT())
-					virtClient = kubecli.NewMockKubevirtClient(ctrl)
-					namespace := "testing"
-					fakeClient := fake.NewSimpleClientset()
-					virtClient.EXPECT().CoreV1().Return(fakeClient.CoreV1())
+						cloudInitData := &v1.CloudInitNoCloudSource{
+							UserDataSecretRef: &k8sv1.LocalObjectReference{Name: userDataSecretName},
+						}
 
-					cloudInitData := &v1.CloudInitNoCloudSource{
-						NetworkDataSecretRef: &k8sv1.LocalObjectReference{Name: "networkDataSecretName"},
-					}
+						err := resolveNoCloudSecrets(cloudInitData, namespace, virtClient)
+						Expect(err.Error()).To(Equal(fmt.Sprintf("secrets \"%s\" not found", userDataSecretName)))
+					})
 
-					err := resolveNoCloudSecrets(cloudInitData, namespace, virtClient)
-					Expect(err.Error()).To(Equal("secrets \"networkDataSecretName\" not found"))
-				})
-			})
-			Context("with UserDataSecretRef defined with a misnamed secret", func() {
-				It("should fail", func() {
-					ctrl = gomock.NewController(GinkgoT())
-					virtClient = kubecli.NewMockKubevirtClient(ctrl)
-					namespace := "testing"
-					userSecret := &k8sv1.Secret{
-						ObjectMeta: metav1.ObjectMeta{
-							Name:      "userDataSecretName",
-							Namespace: namespace,
-						},
-						Type: "Opaque",
-						Data: map[string][]byte{
-							"baduserdata": []byte("secretUserData"),
-						},
-					}
-					userClient := fake.NewSimpleClientset(userSecret)
-					virtClient.EXPECT().CoreV1().Return(userClient.CoreV1()).AnyTimes()
+					It("should fail to verify NetworkDataSecretRef without a secret", func() {
+						fakeClient := fake.NewSimpleClientset()
+						virtClient.EXPECT().CoreV1().Return(fakeClient.CoreV1())
 
-					cloudInitData := &v1.CloudInitNoCloudSource{
-						UserDataSecretRef: &k8sv1.LocalObjectReference{Name: "userDataSecretName"},
-					}
+						cloudInitData := &v1.CloudInitNoCloudSource{
+							NetworkDataSecretRef: &k8sv1.LocalObjectReference{Name: networkDataSecretName},
+						}
 
-					err := resolveNoCloudSecrets(cloudInitData, namespace, virtClient)
-					Expect(err.Error()).To(Equal("userdata key not found in k8s secret userDataSecretName <nil>"))
-				})
-			})
-			Context("with NetworkDataSecretRef defined with a misnamed secret", func() {
-				It("should fail", func() {
-					ctrl = gomock.NewController(GinkgoT())
-					virtClient = kubecli.NewMockKubevirtClient(ctrl)
-					namespace := "testing"
-					networkSecret := &k8sv1.Secret{
-						ObjectMeta: metav1.ObjectMeta{
-							Name:      "networkDataSecretName",
-							Namespace: namespace,
-						},
-						Type: "Opaque",
-						Data: map[string][]byte{
-							"badnetworkdata": []byte("secretNetworkData"),
-						},
-					}
-					networkClient := fake.NewSimpleClientset(networkSecret)
-					virtClient.EXPECT().CoreV1().Return(networkClient.CoreV1())
+						err := resolveNoCloudSecrets(cloudInitData, namespace, virtClient)
+						Expect(err.Error()).To(Equal(fmt.Sprintf("secrets \"%s\" not found", networkDataSecretName)))
+					})
 
-					cloudInitData := &v1.CloudInitNoCloudSource{
-						NetworkDataSecretRef: &k8sv1.LocalObjectReference{Name: "networkDataSecretName"},
-					}
+					It("should fail to verify UserDataSecretRef with a misnamed secret", func() {
+						userSecret := createBadUserDataSecret("secretUserData")
+						userClient := fake.NewSimpleClientset(userSecret)
+						virtClient.EXPECT().CoreV1().Return(userClient.CoreV1()).AnyTimes()
 
-					err := resolveNoCloudSecrets(cloudInitData, namespace, virtClient)
-					Expect(err.Error()).To(Equal("networkdata key not found in k8s secret networkDataSecretName <nil>"))
+						cloudInitData := &v1.CloudInitNoCloudSource{
+							UserDataSecretRef: &k8sv1.LocalObjectReference{Name: userDataSecretName},
+						}
+
+						err := resolveNoCloudSecrets(cloudInitData, namespace, virtClient)
+						Expect(err.Error()).To(Equal(fmt.Sprintf("userdata key not found in k8s secret %s <nil>", userDataSecretName)))
+					})
+
+					It("should fail to verify NetworkDataSecretRef with a misnamed secret", func() {
+						networkSecret := createBadNetworkDataSecret("secretNetworkData")
+						networkClient := fake.NewSimpleClientset(networkSecret)
+						virtClient.EXPECT().CoreV1().Return(networkClient.CoreV1())
+
+						cloudInitData := &v1.CloudInitNoCloudSource{
+							NetworkDataSecretRef: &k8sv1.LocalObjectReference{Name: networkDataSecretName},
+						}
+
+						err := resolveNoCloudSecrets(cloudInitData, namespace, virtClient)
+						Expect(err.Error()).To(Equal(fmt.Sprintf("networkdata key not found in k8s secret %s <nil>", networkDataSecretName)))
+					})
 				})
 			})
 		})
