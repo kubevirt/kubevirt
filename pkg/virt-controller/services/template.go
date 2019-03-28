@@ -818,10 +818,12 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 			resources.Limits[k8sv1.ResourceCPU] = resource.MustParse("200m")
 			resources.Limits[k8sv1.ResourceMemory] = resource.MustParse("64M")
 		}
-		containers = append(containers, k8sv1.Container{
+		sidecar := k8sv1.Container{
 			Name:            fmt.Sprintf("hook-sidecar-%d", i),
 			Image:           requestedHookSidecar.Image,
 			ImagePullPolicy: requestedHookSidecar.ImagePullPolicy,
+			Command:         requestedHookSidecar.Command,
+			Args:            requestedHookSidecar.Args,
 			Resources:       resources,
 			VolumeMounts: []k8sv1.VolumeMount{
 				k8sv1.VolumeMount{
@@ -829,7 +831,8 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 					MountPath: hooks.HookSocketsSharedDirectory,
 				},
 			},
-		})
+		}
+		containers = append(containers, sidecar)
 	}
 
 	// XXX: reduce test time. Adding one more container delays the start.

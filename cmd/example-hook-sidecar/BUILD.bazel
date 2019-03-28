@@ -10,8 +10,10 @@ go_library(
         "//pkg/hooks:go_default_library",
         "//pkg/hooks/info:go_default_library",
         "//pkg/hooks/v1alpha1:go_default_library",
+        "//pkg/hooks/v1alpha2:go_default_library",
         "//pkg/log:go_default_library",
         "//pkg/virt-launcher/virtwrap/api:go_default_library",
+        "//vendor/github.com/spf13/pflag:go_default_library",
         "@org_golang_google_grpc//:go_default_library",
     ],
 )
