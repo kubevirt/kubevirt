@@ -615,8 +615,8 @@ var _ = Describe("Validating Webhook", func() {
 			vmiPDomain.Devices.Disks = append(vmiPDomain.Devices.Disks, v1.Disk{
 				Name: "testdisk",
 				DiskDevice: v1.DiskDevice{
-					Disk:   &v1.DiskTarget{},
-					Floppy: &v1.FloppyTarget{},
+					Disk:  &v1.DiskTarget{},
+					CDRom: &v1.CDRomTarget{},
 				},
 			})
 			vmiPreset := &v1.VirtualMachineInstancePreset{
@@ -1134,8 +1134,8 @@ var _ = Describe("Validating Webhook", func() {
 			vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
 				Name: "testdisk",
 				DiskDevice: v1.DiskDevice{
-					Disk:   &v1.DiskTarget{},
-					Floppy: &v1.FloppyTarget{},
+					Disk:  &v1.DiskTarget{},
+					CDRom: &v1.CDRomTarget{},
 				},
 			})
 
@@ -2888,13 +2888,25 @@ var _ = Describe("Validating Webhook", func() {
 			table.Entry("with LUN target",
 				v1.Disk{Name: "testdisk", DiskDevice: v1.DiskDevice{LUN: &v1.LunTarget{}}},
 			),
-			table.Entry("with Floppy target",
-				v1.Disk{Name: "testdisk", DiskDevice: v1.DiskDevice{Floppy: &v1.FloppyTarget{}}},
-			),
 			table.Entry("with CDRom target",
 				v1.Disk{Name: "testdisk", DiskDevice: v1.DiskDevice{CDRom: &v1.CDRomTarget{}}},
 			),
 		)
+
+		It("should reject floppy disks", func() {
+			vmi := v1.NewMinimalVMI("testvmi")
+
+			vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
+				Name: "floppydisk",
+				DiskDevice: v1.DiskDevice{
+					Floppy: &v1.FloppyTarget{},
+				},
+			})
+			causes := validateDisks(k8sfield.NewPath("fake"), vmi.Spec.Domain.Devices.Disks)
+			Expect(len(causes)).To(Equal(1))
+			Expect(causes[0].Field).To(Equal("fake[0].name"))
+		})
+
 		It("should allow disk without a target", func() {
 			vmi := v1.NewMinimalVMI("testvmi")
 
@@ -2912,6 +2924,7 @@ var _ = Describe("Validating Webhook", func() {
 			causes := validateDisks(k8sfield.NewPath("fake"), vmi.Spec.Domain.Devices.Disks)
 			Expect(len(causes)).To(Equal(0))
 		})
+
 		It("should reject disks with duplicate names ", func() {
 			vmi := v1.NewMinimalVMI("testvmi")
 
@@ -2970,8 +2983,8 @@ var _ = Describe("Validating Webhook", func() {
 			vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
 				Name: "testdisk",
 				DiskDevice: v1.DiskDevice{
-					Disk:   &v1.DiskTarget{},
-					Floppy: &v1.FloppyTarget{},
+					Disk:  &v1.DiskTarget{},
+					CDRom: &v1.CDRomTarget{},
 				},
 			})
 			vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
