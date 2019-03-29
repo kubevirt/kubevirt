@@ -242,7 +242,7 @@ func (l *LibvirtDomainManager) setMigrationResultHelper(vmi *v1.VirtualMachineIn
 
 }
 
-func prepateMigrationFlags(isBlockMigration bool) libvirt.DomainMigrateFlags {
+func preprateMigrationFlags(isBlockMigration bool) libvirt.DomainMigrateFlags {
 	migrateFlags := libvirt.MIGRATE_LIVE | libvirt.MIGRATE_PEER2PEER
 
 	if isBlockMigration {
@@ -374,11 +374,12 @@ func (l *LibvirtDomainManager) asyncMigrate(vmi *v1.VirtualMachineInstance) {
 			return
 		}
 
-		migrateFlags := prepateMigrationFlags(isBlockMigration)
+		migrateFlags := preprateMigrationFlags(isBlockMigration)
 
 		params := &libvirt.DomainMigrateParameters{
-			URI:    migrUri,
-			URISet: true,
+			Bandwidth: 32, // MiB/s
+			URI:       migrUri,
+			URISet:    true,
 		}
 		copyDisks := getDiskTargetsForMigration(dom, vmi)
 		if len(copyDisks) != 0 {

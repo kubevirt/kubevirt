@@ -13,6 +13,8 @@ import (
 	"k8s.io/client-go/tools/record"
 	"k8s.io/client-go/util/workqueue"
 
+	migrationutils "kubevirt.io/kubevirt/pkg/util/migrations"
+
 	virtv1 "kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/kubecli"
@@ -298,15 +300,13 @@ func (c *EvacuationController) execute(key string) error {
 
 	vmis, err := c.listVMIsOnNode(node.Name)
 	if err != nil {
-		// XXX
-		return err
+		return fmt.Errorf("failed to list VMIs on node: %v", err)
 	}
 
-	migrations, err := c.listRunningMigrations()
+	migrations, err := migrationutils.ListNotFinishedMigrations(c.migrationInformer)
 
 	if err != nil {
-		// XXX
-		return err
+		return fmt.Errorf("failed to list not finished migrations: %v", err)
 	}
 
 	return c.sync(node, vmis, migrations)
@@ -404,18 +404,6 @@ func (c *EvacuationController) listVMIsOnNode(nodeName string) ([]*virtv1.Virtua
 		vmis = append(vmis, obj.(*virtv1.VirtualMachineInstance))
 	}
 	return vmis, nil
-}
-
-func (c *EvacuationController) listRunningMigrations() ([]*virtv1.VirtualMachineInstanceMigration, error) {
-	objs := c.migrationInformer.GetStore().List()
-	migrations := []*virtv1.VirtualMachineInstanceMigration{}
-	for _, obj := range objs {
-		migration := obj.(*virtv1.VirtualMachineInstanceMigration)
-		if migration.Status.Phase != virtv1.MigrationFailed && migration.Status.Phase != virtv1.MigrationSucceeded {
-			migrations = append(migrations, migration)
-		}
-	}
-	return migrations, nil
 }
 
 func (c *EvacuationController) filterRunningNonMigratingVMIs(vmis []*virtv1.VirtualMachineInstance, migrations []*virtv1.VirtualMachineInstanceMigration) []*virtv1.VirtualMachineInstance {
