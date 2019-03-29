@@ -319,11 +319,6 @@ func (c *EvacuationController) sync(node *k8sv1.Node, vmisOnNode []*virtv1.Virtu
 		return nil
 	}
 
-	if len(activeMigrations) >= 5 {
-		// Don't overload the cluster with migrations
-		return nil
-	}
-
 	now := time.Now()
 
 	notMigratingVMIs := c.filterRunningNonMigratingVMIs(vmisOnNode, activeMigrations)
@@ -338,6 +333,20 @@ func (c *EvacuationController) sync(node *k8sv1.Node, vmisOnNode []*virtv1.Virtu
 		} else if candidate.FirstReque != nil {
 			c.Queue.AddAfter(node.Name, candidate.FirstReque.Sub(now))
 		}
+	}
+
+	if len(migrationCandidates) == 0 {
+		// nothing to do
+		return nil
+	}
+
+	if len(activeMigrations) >= 5 {
+		// Don't create hundreds of pending migration objects.
+		// This is just best-effort and is *not* intended to not overload the cluster
+		// The migration controller needs to limit itself to a reasonable number
+		// We have to re-enqueue since migrations from other controllers or workers` don't wake us up again
+		c.Queue.AddAfter(node.Name, 5*time.Second)
+		return nil
 	}
 
 	diff := int(math.Min(float64(5-len(activeMigrations)), float64(len(migrationCandidates))))
