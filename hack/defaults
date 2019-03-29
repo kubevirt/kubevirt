@@ -1,6 +1,7 @@
 #!/bin/bash
 
 TEMP_DIR=`mktemp -d`
+WAIT_TIMEOUT="${WAIT_TIMEOUT:-30s}"
 
 # Use upstream manifests with downstream containers
 KUBEVIRT_MANIFEST_VERSION="v0.15.0"

@@ -41,12 +41,12 @@ sleep 10
 VIRT_POD=`oc get pods -n kubevirt | grep virt-operator | head -1 | awk '{ print $1 }'`
 CDI_POD=`oc get pods -n cdi | grep cdi-operator | head -1 | awk '{ print $1 }'`
 NETWORK_ADDONS_POD=`oc get pods -n cluster-network-addons-operator | grep cluster-network-addons-operator | head -1 | awk '{ print $1 }'`
-oc wait pod $VIRT_POD --for condition=Ready -n kubevirt
-oc wait pod $CDI_POD --for condition=Ready -n cdi
-oc wait pod $NETWORK_ADDONS_POD --for condition=Ready -n cluster-network-addons-operator
+oc wait pod $VIRT_POD --for condition=Ready -n kubevirt --timeout="${WAIT_TIMEOUT}"
+oc wait pod $CDI_POD --for condition=Ready -n cdi --timeout="${WAIT_TIMEOUT}"
+oc wait pod $NETWORK_ADDONS_POD --for condition=Ready -n cluster-network-addons-operator --timeout="${WAIT_TIMEOUT}"
 
 oc create -f ${TEMP_DIR}/crs
 
 echo "Let the API server process the CRs"
 sleep 10
-oc wait kubevirt kubevirt --for condition=Ready -n kubevirt
+oc wait kubevirt kubevirt --for condition=Ready -n kubevirt --timeout="${WAIT_TIMEOUT}"
