@@ -22,6 +22,10 @@ required = [
   version = "=v0.15.0"
 
 [[override]]
+  name = "github.com/kubevirt/cluster-network-addons-operator"
+  version = "=v0.2.0"
+
+[[override]]
   name = "k8s.io/code-generator"
   # revision for tag "kubernetes-1.13.1"
   revision = "c2090bec4d9b1fb25de3812f868accc2bc9ecbae"

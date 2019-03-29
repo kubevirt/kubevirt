@@ -7,6 +7,7 @@ import (
 	"os"
 	"runtime"
 
+	networkaddons "github.com/kubevirt/cluster-network-addons-operator/pkg/apis"
 	cdiv1alpha1 "kubevirt.io/containerized-data-importer/pkg/apis/core/v1alpha1"
 
 	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/apis"
@@ -103,6 +104,12 @@ func main() {
 
 	// Setup Scheme for CDI
 	if err := cdiv1alpha1.AddToScheme(mgr.GetScheme()); err != nil {
+		log.Error(err, "")
+		os.Exit(1)
+	}
+
+	// Setup Scheme for NetworkAddonsConfig
+	if err := networkaddons.AddToScheme(mgr.GetScheme()); err != nil {
 		log.Error(err, "")
 		os.Exit(1)
 	}

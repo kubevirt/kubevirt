@@ -3,11 +3,13 @@ package hyperconverged
 import (
 	"context"
 
+	networkaddons "github.com/kubevirt/cluster-network-addons-operator/pkg/apis/networkaddonsoperator/v1alpha1"
+	networkaddonsnames "github.com/kubevirt/cluster-network-addons-operator/pkg/names"
 	hcov1alpha1 "github.com/kubevirt/hyperconverged-cluster-operator/pkg/apis/hco/v1alpha1"
 	cdi "kubevirt.io/containerized-data-importer/pkg/apis/core/v1alpha1"
 	kubevirt "kubevirt.io/kubevirt/pkg/api/v1"
 
-        v1 "k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -25,8 +27,9 @@ import (
 var log = logf.Log.WithName("controller_hyperconverged")
 
 var (
-    KubeVirtImagePullPolicy = "IfNotPresent"
-    CDIImagePullPolicy = "IfNotPresent"
+	KubeVirtImagePullPolicy      = "IfNotPresent"
+	CDIImagePullPolicy           = "IfNotPresent"
+	NetworkAddonsImagePullPolicy = "IfNotPresent"
 )
 
 // Add creates a new HyperConverged Controller and adds it to the Manager. The Manager will set fields on the Controller
@@ -70,6 +73,14 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 		return err
 	}
 
+	err = c.Watch(&source.Kind{Type: &networkaddons.NetworkAddonsConfig{}}, &handler.EnqueueRequestForOwner{
+		IsController: true,
+		OwnerType:    &hcov1alpha1.HyperConverged{},
+	})
+	if err != nil {
+		return err
+	}
+
 	return nil
 }
 
@@ -106,17 +117,23 @@ func (r *ReconcileHyperConverged) Reconcile(request reconcile.Request) (reconcil
 		return reconcile.Result{}, err
 	}
 
-        if instance.Spec.KubeVirtImagePullPolicy != "" {
-           reqLogger := log.WithValues("imagePullPolicy", instance.Spec.KubeVirtImagePullPolicy)
-           reqLogger.Info("HCO CR contains KubeVirt Image Pull Policy")
-           KubeVirtImagePullPolicy = instance.Spec.KubeVirtImagePullPolicy
-        }
+	if instance.Spec.KubeVirtImagePullPolicy != "" {
+		reqLogger := log.WithValues("imagePullPolicy", instance.Spec.KubeVirtImagePullPolicy)
+		reqLogger.Info("HCO CR contains KubeVirt Image Pull Policy")
+		KubeVirtImagePullPolicy = instance.Spec.KubeVirtImagePullPolicy
+	}
 
-        if instance.Spec.CDIImagePullPolicy != "" {
-           reqLogger := log.WithValues("imagePullPolicy", instance.Spec.CDIImagePullPolicy)
-           reqLogger.Info("HCO CR contains CDI Image Pull Policy")
-           CDIImagePullPolicy = instance.Spec.CDIImagePullPolicy
-        }
+	if instance.Spec.CDIImagePullPolicy != "" {
+		reqLogger := log.WithValues("imagePullPolicy", instance.Spec.CDIImagePullPolicy)
+		reqLogger.Info("HCO CR contains CDI Image Pull Policy")
+		CDIImagePullPolicy = instance.Spec.CDIImagePullPolicy
+	}
+
+	if instance.Spec.NetworkAddonsImagePullPolicy != "" {
+		reqLogger := log.WithValues("imagePullPolicy", instance.Spec.NetworkAddonsImagePullPolicy)
+		reqLogger.Info("HCO CR contains Network Addons Image Pull Policy")
+		NetworkAddonsImagePullPolicy = instance.Spec.NetworkAddonsImagePullPolicy
+	}
 
 	// Define a new KubeVirt object
 	virtCR := newKubeVirtForCR(instance)
@@ -150,6 +167,24 @@ func (r *ReconcileHyperConverged) Reconcile(request reconcile.Request) (reconcil
 	result, err = manageComponentCR(err, cdiCR, "CDI", r.client)
 
 	// CDI failed to create, requeue
+	if err != nil {
+		return result, err
+	}
+
+	// Define a new NetworkAddonsConfig object
+	networkAddonsCR := newNetworkAddonsForCR(instance)
+
+	// Set HyperConverged instance as the owner and controller
+	if err := controllerutil.SetControllerReference(instance, networkAddonsCR, r.scheme); err != nil {
+		return reconcile.Result{}, err
+	}
+
+	// Check if this NetworkAddonsConfig CR already exists
+	foundNetworkAddons := &networkaddons.NetworkAddonsConfig{}
+	err = r.client.Get(context.TODO(), types.NamespacedName{Name: networkAddonsCR.Name, Namespace: ""}, foundNetworkAddons)
+	result, err = manageComponentCR(err, networkAddonsCR, "NetworkAddonsConfig", r.client)
+
+	// NetworkAddonsConfig failed to create, requeue
 	if err != nil {
 		return result, err
 	}
@@ -207,6 +242,24 @@ func newCDIForCR(cr *hcov1alpha1.HyperConverged) *cdi.CDI {
 		},
 		Spec: cdi.CDISpec{
 			ImagePullPolicy: v1.PullPolicy(CDIImagePullPolicy),
+		},
+	}
+}
+
+// newNetworkAddonsForCR returns a NetworkAddonsConfig CR
+func newNetworkAddonsForCR(cr *hcov1alpha1.HyperConverged) *networkaddons.NetworkAddonsConfig {
+	labels := map[string]string{
+		"app": cr.Name,
+	}
+	return &networkaddons.NetworkAddonsConfig{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:   networkaddonsnames.OPERATOR_CONFIG,
+			Labels: labels,
+		},
+		Spec: networkaddons.NetworkAddonsConfigSpec{
+			Multus:          &networkaddons.Multus{},
+			LinuxBridge:     &networkaddons.LinuxBridge{},
+			ImagePullPolicy: NetworkAddonsImagePullPolicy,
 		},
 	}
 }

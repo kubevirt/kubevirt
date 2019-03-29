@@ -5,9 +5,11 @@ TEMP_DIR=`mktemp -d`
 # Use upstream manifests with downstream containers
 KUBEVIRT_MANIFEST_VERSION="v0.15.0"
 CDI_MANIFEST_VERSION="v1.6.0"
+NETWORK_ADDONS_MANIFEST_VERSION="v0.2.0"
 
 CDI_CONTAINER_REGISTRY="${CDI_CONTAINER_REGISTRY:-docker.io/kubevirt}"
 KUBEVIRT_CONTAINER_REGISTRY="${KUBEVIRT_CONTAINER_REGISTRY:-docker.io/kubevirt}"
+NETWORK_ADDONS_CONTAINER_REGISTRY="${NETWORK_ADDONS_CONTAINER_REGISTRY:-quay.io/kubevirt}"
 
 CDI_OPERATOR_NAME="${CDI_OPERATOR_NAME:-cdi-operator}"
 
@@ -43,9 +45,18 @@ function cdi_sed {
     rm "${TEMP_DIR}"/cdi-operator.yaml.j2
 }
 
+function network_addons_sed {
+    sed -i "s|          image: \&image quay\.io\/kubevirt\/cluster-network-addons-operator:${NETWORK_ADDONS_MANIFEST_VERSION}|          image: \&image ${NETWORK_ADDONS_CONTAINER_REGISTRY}\/cluster-network-addons-operator:${NETWORK_ADDONS_VERSION}|g" ${TEMP_DIR}/cluster-network-addons-operator_03_deployment.yaml
+}
+
 # Deploy upstream operators
 OPERATOR_MANIFESTS="https://github.com/kubevirt/kubevirt/releases/download/${KUBEVIRT_MANIFEST_VERSION}/kubevirt-operator.yaml
-https://github.com/kubevirt/containerized-data-importer/releases/download/${CDI_MANIFEST_VERSION}/cdi-operator.yaml.j2"
+https://github.com/kubevirt/containerized-data-importer/releases/download/${CDI_MANIFEST_VERSION}/cdi-operator.yaml.j2
+https://github.com/kubevirt/cluster-network-addons-operator/releases/download/${NETWORK_ADDONS_MANIFEST_VERSION}/cluster-network-addons-operator_00_namespace.yaml
+https://github.com/kubevirt/cluster-network-addons-operator/releases/download/${NETWORK_ADDONS_MANIFEST_VERSION}/cluster-network-addons-operator_01_crd.yaml
+https://github.com/kubevirt/cluster-network-addons-operator/releases/download/${NETWORK_ADDONS_MANIFEST_VERSION}/cluster-network-addons-operator_02_rbac.yaml
+https://github.com/kubevirt/cluster-network-addons-operator/releases/download/${NETWORK_ADDONS_MANIFEST_VERSION}/cluster-network-addons-operator_03_deployment.yaml"
 
 OPERATOR_CRS="https://github.com/kubevirt/kubevirt/releases/download/${KUBEVIRT_MANIFEST_VERSION}/kubevirt-cr.yaml
-https://github.com/kubevirt/containerized-data-importer/releases/download/${CDI_MANIFEST_VERSION}/cdi-operator-cr.yaml"
+https://github.com/kubevirt/containerized-data-importer/releases/download/${CDI_MANIFEST_VERSION}/cdi-operator-cr.yaml
+https://github.com/kubevirt/cluster-network-addons-operator/releases/download/${NETWORK_ADDONS_MANIFEST_VERSION}/cluster-network-addons-operator_04_cr.yaml"

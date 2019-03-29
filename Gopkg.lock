@@ -261,6 +261,18 @@
   version = "v1.1.5"
 
 [[projects]]
+  digest = "1:dfb8920d67d05ab4440a474e1404bd4602955e1bdcfe063f7825a429d4828ecc"
+  name = "github.com/kubevirt/cluster-network-addons-operator"
+  packages = [
+    "pkg/apis",
+    "pkg/apis/networkaddonsoperator/v1alpha1",
+    "pkg/names",
+  ]
+  pruneopts = "NT"
+  revision = "a84d74caaa74780d0cfd5b0557c1d4989a3d6747"
+  version = "v0.2.0"
+
+[[projects]]
   branch = "master"
   digest = "1:4925ec3736ef6c299cfcf61597782e3d66ec13114f7476019d04c742a7be55d0"
   name = "github.com/mailru/easyjson"
@@ -932,12 +944,16 @@
   analyzer-version = 1
   input-imports = [
     "github.com/go-openapi/spec",
+    "github.com/kubevirt/cluster-network-addons-operator/pkg/apis",
+    "github.com/kubevirt/cluster-network-addons-operator/pkg/apis/networkaddonsoperator/v1alpha1",
+    "github.com/kubevirt/cluster-network-addons-operator/pkg/names",
     "github.com/operator-framework/operator-sdk/pkg/k8sutil",
     "github.com/operator-framework/operator-sdk/pkg/leader",
     "github.com/operator-framework/operator-sdk/pkg/log/zap",
     "github.com/operator-framework/operator-sdk/pkg/metrics",
     "github.com/operator-framework/operator-sdk/version",
     "github.com/spf13/pflag",
+    "k8s.io/api/core/v1",
     "k8s.io/apimachinery/pkg/api/errors",
     "k8s.io/apimachinery/pkg/apis/meta/v1",
     "k8s.io/apimachinery/pkg/runtime",
@@ -954,6 +970,7 @@
     "k8s.io/kube-openapi/cmd/openapi-gen",
     "k8s.io/kube-openapi/pkg/common",
     "kubevirt.io/containerized-data-importer",
+    "kubevirt.io/containerized-data-importer/pkg/apis/core/v1alpha1",
     "kubevirt.io/kubevirt",
     "kubevirt.io/kubevirt/pkg/api/v1",
     "sigs.k8s.io/controller-runtime/pkg/client",

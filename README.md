@@ -41,6 +41,14 @@ Launch the CDI operator.
 oc create -f https://github.com/kubevirt/containerized-data-importer/releases/download/v1.6.0/cdi-operator.yaml
 ```
 
+Launch the Cluster Network Addons operator.
+```bash
+oc create -f https://github.com/kubevirt/cluster-network-addons-operator/releases/download/v0.1.0/cluster-network-addons-operator_00_namespace.yaml
+oc create -f https://github.com/kubevirt/cluster-network-addons-operator/releases/download/v0.1.0/cluster-network-addons-operator_01_crd.yaml
+oc create -f https://github.com/kubevirt/cluster-network-addons-operator/releases/download/v0.1.0/cluster-network-addons-operator_02_rbac.yaml
+oc create -f https://github.com/kubevirt/cluster-network-addons-operator/releases/download/v0.1.0/cluster-network-addons-operator_03_deployment.yaml
+```
+
 Create an HCO CustomResource, which creates the KubeVirt CR, launching KubeVirt.
 ```bash
 oc create -f deploy/crds/hco_v1alpha1_hyperconverged_cr.yaml
