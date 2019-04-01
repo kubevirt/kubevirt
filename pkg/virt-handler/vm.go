@@ -33,6 +33,7 @@ import (
 
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/resource"
 	v12 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -1350,7 +1351,10 @@ func (d *VirtualMachineController) processVmUpdate(origVMI *v1.VirtualMachineIns
 				d.recorder.Event(vmi, k8sv1.EventTypeNormal, v1.Migrating.String(), "VirtualMachineInstance is aborting migration.")
 			}
 		} else {
-			err = client.MigrateVirtualMachine(vmi)
+			options := &cmdclient.MigrationOptions{
+				Bandwidth: resource.MustParse("64Mi"),
+			}
+			err = client.MigrateVirtualMachine(vmi, options)
 			if err != nil {
 				return err
 			}

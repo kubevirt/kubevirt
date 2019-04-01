@@ -54,6 +54,13 @@ func getVmfromClientArgs(args *cmdclient.Args) (*v1.VirtualMachineInstance, erro
 	return args.VMI, nil
 }
 
+func getMigrationOptionsfromClientArgs(args *cmdclient.Args) (*cmdclient.MigrationOptions, error) {
+	if args.MigrationOptions == nil {
+		return nil, goerror.New(fmt.Sprintf("migration options object not present in command server args"))
+	}
+	return args.MigrationOptions, nil
+}
+
 func getErrorMessage(err error) string {
 	if virErr := launcherErrors.FormatLibvirtError(err); virErr != "" {
 		return virErr
@@ -72,7 +79,14 @@ func (s *Launcher) Migrate(args *cmdclient.Args, reply *cmdclient.Reply) error {
 		return nil
 	}
 
-	err = s.domainManager.MigrateVMI(vmi)
+	options, err := getMigrationOptionsfromClientArgs(args)
+	if err != nil {
+		reply.Success = false
+		reply.Message = err.Error()
+		return nil
+	}
+
+	err = s.domainManager.MigrateVMI(vmi, options)
 	if err != nil {
 		log.Log.Object(vmi).Reason(err).Errorf("Failed to migrate vmi")
 		reply.Success = false

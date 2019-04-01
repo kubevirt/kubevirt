@@ -36,6 +36,7 @@ import (
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
 
 	v1 "kubevirt.io/kubevirt/pkg/api/v1"
 	cloudinit "kubevirt.io/kubevirt/pkg/cloud-init"
@@ -395,8 +396,10 @@ var _ = Describe("Manager", func() {
 
 			mockDomain.EXPECT().GetXMLDesc(gomock.Eq(libvirt.DOMAIN_XML_MIGRATABLE)).Return(string(xml), nil)
 			mockDomain.EXPECT().GetXMLDesc(gomock.Eq(libvirt.DOMAIN_XML_INACTIVE)).Return(string(xml), nil)
-
-			err = manager.MigrateVMI(vmi)
+			options := &cmdclient.MigrationOptions{
+				Bandwidth: resource.MustParse("64Mi"),
+			}
+			err = manager.MigrateVMI(vmi, options)
 			Expect(err).To(BeNil())
 		})
 		It("should correctly collect a list of disks for migration", func() {
