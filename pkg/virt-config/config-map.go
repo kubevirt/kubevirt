@@ -20,13 +20,18 @@
 package virtconfig
 
 import (
+	"encoding/json"
+	"fmt"
 	"os"
+	"strings"
 	"time"
 
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/client-go/tools/cache"
 
 	"kubevirt.io/kubevirt/pkg/kubecli"
 	"kubevirt.io/kubevirt/pkg/log"
@@ -39,6 +44,13 @@ const (
 	FeatureGatesKey        = "feature-gates"
 	emulatedMachinesEnvVar = "VIRT_EMULATED_MACHINES"
 	emulatedMachinesKey    = "emulated-machines"
+	useEmulationKey        = "debug.useEmulation"
+	imagePullPolicyKey     = "dev.imagePullPolicy"
+	migrationsConfigKey    = "migrations"
+
+	ParallelOutboundMigrationsPerNodeDefault uint32 = 2
+	ParallelMigrationsPerClusterDefault      uint32 = 5
+	BandwithPerMigrationDefault                     = "64Mi"
 )
 
 // We cannot rely on automatic invocation of 'init' method because this initialization
@@ -87,4 +99,85 @@ func getConfigMap() *k8sv1.ConfigMap {
 	}
 
 	return cfgMap
+}
+
+func NewClusterConfig(configMapInformer cache.Store) *ClusterConfig {
+	c := &ClusterConfig{
+		store: configMapInformer,
+	}
+	return c
+}
+
+type MigrationConfig struct {
+	ParallelOutboundMigrationsPerNode *uint32            `json:"parallelOutboundMigrationsPerNode,omitempty"`
+	ParallelMigrationsPerCluster      *uint32            `json:"parallelMigrationsPerCluster,omitempty"`
+	BandwidthPerMigration             *resource.Quantity `json:"bandwidthPerMigration,omitempty"`
+}
+
+type ClusterConfig struct {
+	store cache.Store
+}
+
+func (c *ClusterConfig) IsUseEmulation() (bool, error) {
+	useEmulationValue, err := getConfigMapEntry(c.store, useEmulationKey)
+	if err != nil || useEmulationValue == "" {
+		return false, err
+	}
+	if useEmulationValue == "" {
+	}
+	return (strings.ToLower(useEmulationValue) == "true"), nil
+}
+
+func (c *ClusterConfig) GetMigrationConfig() *MigrationConfig {
+
+	parallelOutboundMigrationsPerNodeDefault := ParallelOutboundMigrationsPerNodeDefault
+	parallelMigrationsPerClusterDefault := ParallelMigrationsPerClusterDefault
+	bandwithPerMigrationDefault := resource.MustParse(BandwithPerMigrationDefault)
+	defaultConfig := &MigrationConfig{
+		ParallelMigrationsPerCluster:      &parallelMigrationsPerClusterDefault,
+		ParallelOutboundMigrationsPerNode: &parallelOutboundMigrationsPerNodeDefault,
+		BandwidthPerMigration:             &bandwithPerMigrationDefault,
+	}
+	config, err := getConfigMapEntry(c.store, migrationsConfigKey)
+	if err != nil || config == "" {
+		return defaultConfig
+	}
+
+	_ = json.Unmarshal([]byte(config), defaultConfig)
+	return defaultConfig
+}
+
+func (c *ClusterConfig) GetImagePullPolicy() (policy k8sv1.PullPolicy, err error) {
+	var value string
+	if value, err = getConfigMapEntry(c.store, imagePullPolicyKey); err != nil || value == "" {
+		policy = k8sv1.PullIfNotPresent // Default if not specified
+	} else {
+		switch value {
+		case "Always":
+			policy = k8sv1.PullAlways
+		case "Never":
+			policy = k8sv1.PullNever
+		case "IfNotPresent":
+			policy = k8sv1.PullIfNotPresent
+		default:
+			err = fmt.Errorf("Invalid ImagePullPolicy in ConfigMap: %s", value)
+		}
+	}
+	return
+}
+
+func getConfigMapEntry(store cache.Store, key string) (string, error) {
+
+	namespace, err := util.GetNamespace()
+	if err != nil {
+		return "", err
+	}
+
+	if obj, exists, err := store.GetByKey(namespace + "/" + configMapName); err != nil {
+		return "", err
+	} else if !exists {
+		return "", nil
+	} else {
+		return obj.(*k8sv1.ConfigMap).Data[key], nil
+	}
 }
