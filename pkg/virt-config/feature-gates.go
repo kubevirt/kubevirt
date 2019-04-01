@@ -30,16 +30,21 @@ import (
 )
 
 const (
-	dataVolumesGate      = "DataVolumes"
-	cpuManager           = "CPUManager"
-	ignitionGate         = "ExperimentalIgnitionSupport"
-	liveMigrationGate    = "LiveMigration"
-	SRIOVGate            = "SRIOV"
-	CPUNodeDiscoveryGate = "CPUNodeDiscovery"
+	dataVolumesGate         = "DataVolumes"
+	cpuManager              = "CPUManager"
+	ignitionGate            = "ExperimentalIgnitionSupport"
+	liveMigrationGate       = "LiveMigration"
+	SRIOVGate               = "SRIOV"
+	CPUNodeDiscoveryGate    = "CPUNodeDiscovery"
+	liveMigrateOnDrainsGate = "LiveMigrateOnDrains"
 )
 
 func DataVolumesEnabled() bool {
 	return strings.Contains(os.Getenv(featureGateEnvVar), dataVolumesGate)
+}
+
+func LiveMigrateOnDrainsEnabled() bool {
+	return strings.Contains(os.Getenv(featureGateEnvVar), liveMigrateOnDrainsGate)
 }
 
 func CPUManagerEnabled() bool {

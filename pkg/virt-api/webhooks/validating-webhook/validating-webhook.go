@@ -1417,6 +1417,14 @@ func ValidateVirtualMachineInstanceSpec(field *k8sfield.Path, spec *v1.VirtualMa
 	}
 	causes = append(causes, validatePodDNSConfig(spec.DNSConfig, &spec.DNSPolicy, field.Child("dnsConfig"))...)
 
+	if !virtconfig.LiveMigrateOnDrainsEnabled() && spec.EvictionPolicy != nil {
+		causes = append(causes, metav1.StatusCause{
+			Type:    metav1.CauseTypeFieldValueInvalid,
+			Message: "LiveMigrateOnDrains feature gate is not enabled",
+			Field:   field.Child("evictionStrategies").String(),
+		})
+	}
+
 	if spec.EvictionPolicy != nil {
 		for _, taint := range spec.EvictionPolicy.Taints {
 

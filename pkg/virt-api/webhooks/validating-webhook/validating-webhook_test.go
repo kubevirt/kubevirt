@@ -58,6 +58,10 @@ var _ = Describe("Validating Webhook", func() {
 		})
 	})
 
+	AfterEach(func() {
+		os.Setenv("FEATURE_GATES", "")
+	})
+
 	Context("with VirtualMachineInstance admission review", func() {
 		It("should reject invalid VirtualMachineInstance spec on create", func() {
 			vmi := v1.NewMinimalVMI("testvmi")
@@ -110,6 +114,7 @@ var _ = Describe("Validating Webhook", func() {
 		Context("tolerations with eviction policies given", func() {
 			var vmi *v1.VirtualMachineInstance
 			BeforeEach(func() {
+				os.Setenv("FEATURE_GATES", "LiveMigrateOnDrains")
 				vmi = v1.NewMinimalVMI("testvmi")
 				vmi.Spec.EvictionPolicy = &v1.EvictionPolicy{Taints: []v1.TaintEvictionPolicy{
 					{
@@ -127,11 +132,17 @@ var _ = Describe("Validating Webhook", func() {
 				table.Entry("migration policy to be set", v1.EvictionStrategyLiveMigrate),
 			)
 
+			It("should block setting eviction policies if the feature gate is disabled", func() {
+				os.Setenv("FEATURE_GATES", "")
+				vmi.Spec.EvictionPolicy.Taints[0].Strategy = nil
+				resp := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec)
+				Expect(resp[0].Message).To(ContainSubstring("LiveMigrateOnDrains feature gate is not enabled"))
+			})
+
 			It("should allow no eviction policy to be set", func() {
 				vmi.Spec.EvictionPolicy.Taints[0].Strategy = nil
 				resp := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec)
 				Expect(resp).To(BeEmpty())
-
 			})
 
 			It("should  not allow unknown eviction policies", func() {
