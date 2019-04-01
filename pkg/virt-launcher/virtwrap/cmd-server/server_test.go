@@ -63,7 +63,7 @@ var _ = Describe("Virt remote commands", func() {
 		useEmulation = true
 		options = NewServerOptions(useEmulation)
 		RunServer(shareDir+"/server.sock", domainManager, stop, options)
-		client, err = cmdclient.GetClient(shareDir + "/server.sock")
+		client, err = cmdclient.NewClient(shareDir + "/server.sock")
 		Expect(err).ToNot(HaveOccurred())
 	})
 
@@ -126,7 +126,7 @@ var _ = Describe("Virt remote commands", func() {
 			Expect(err).To(HaveOccurred())
 			Expect(cmdclient.IsDisconnected(err)).To(Equal(true))
 
-			_, err = cmdclient.GetClient(shareDir + "/server.sock")
+			_, err = cmdclient.NewClient(shareDir + "/server.sock")
 			Expect(err).To(HaveOccurred())
 		})
 

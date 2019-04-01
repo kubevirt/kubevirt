@@ -290,7 +290,7 @@ type prometheusScraper struct {
 
 func (ps *prometheusScraper) Scrape(socketFile string) {
 	ts := time.Now()
-	cli, err := cmdclient.GetClient(socketFile)
+	cli, err := cmdclient.NewClient(socketFile)
 	if err != nil {
 		log.Log.Reason(err).Error("failed to connect to cmd client socket")
 		// Ignore failure to connect to client.

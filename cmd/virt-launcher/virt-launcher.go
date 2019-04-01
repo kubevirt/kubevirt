@@ -99,7 +99,7 @@ func startCmdServer(socketPath string,
 	//
 	// Timing out causes an error to be returned
 	err = utilwait.PollImmediate(1*time.Second, 15*time.Second, func() (bool, error) {
-		client, err := cmdclient.GetClient(socketPath)
+		client, err := cmdclient.NewClient(socketPath)
 		if err != nil {
 			return false, nil
 		}

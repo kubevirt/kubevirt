@@ -100,7 +100,7 @@ var _ = Describe("Domain informer", func() {
 			cmdserver.RunServer(socketPath, domainManager, stopChan, nil)
 
 			// ensure we can connect to the server first.
-			client, err := cmdclient.GetClient(socketPath)
+			client, err := cmdclient.NewClient(socketPath)
 			Expect(err).ToNot(HaveOccurred())
 			client.Close()
 
@@ -126,7 +126,7 @@ var _ = Describe("Domain informer", func() {
 			cmdserver.RunServer(socketPath, domainManager, stopChan, nil)
 
 			// ensure we can connect to the server first.
-			client, err := cmdclient.GetClient(socketPath)
+			client, err := cmdclient.NewClient(socketPath)
 			Expect(err).ToNot(HaveOccurred())
 			client.Close()
 
@@ -185,7 +185,7 @@ var _ = Describe("Domain informer", func() {
 			cmdserver.RunServer(socketPath, domainManager, stopChan, nil)
 
 			// ensure we can connect to the server first.
-			client, err := cmdclient.GetClient(socketPath)
+			client, err := cmdclient.NewClient(socketPath)
 			Expect(err).ToNot(HaveOccurred())
 			client.Close()
 

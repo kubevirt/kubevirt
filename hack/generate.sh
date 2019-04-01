@@ -41,3 +41,4 @@ protoc --proto_path=pkg/hooks/info --go_out=plugins=grpc,import_path=kubevirt_ho
 protoc --proto_path=pkg/hooks/v1alpha1 --go_out=plugins=grpc,import_path=kubevirt_hooks_v1alpha1:pkg/hooks/v1alpha1 pkg/hooks/v1alpha1/api.proto
 protoc --proto_path=pkg/hooks/v1alpha2 --go_out=plugins=grpc,import_path=kubevirt_hooks_v1alpha2:pkg/hooks/v1alpha2 pkg/hooks/v1alpha2/api.proto
 protoc --go_out=plugins=grpc:. pkg/handler-launcher-com/notify/v1/notify.proto
+protoc --go_out=plugins=grpc:. pkg/handler-launcher-com/cmd/v1/cmd.proto

@@ -125,7 +125,7 @@ func (d *DomainWatcher) listAllKnownDomains() ([]*api.Domain, error) {
 	}
 	for _, socketFile := range socketFiles {
 		log.Log.V(3).Infof("List domains from sock %s", socketFile)
-		client, err := cmdclient.GetClient(socketFile)
+		client, err := cmdclient.NewClient(socketFile)
 		if err != nil {
 			log.Log.Reason(err).Error("failed to connect to cmd client socket")
 			// Ignore failure to connect to client.

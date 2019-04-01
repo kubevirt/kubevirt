@@ -1036,7 +1036,7 @@ func (d *VirtualMachineController) getLauncherClient(vmi *v1.VirtualMachineInsta
 		return client, nil
 	}
 
-	client, err := cmdclient.GetClient(sockFile)
+	client, err := cmdclient.NewClient(sockFile)
 	if err != nil {
 		return nil, err
 	}
