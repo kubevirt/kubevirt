@@ -75,13 +75,31 @@ var _ = Describe("ConfigMap", func() {
 		Expect(result).To(Equal(kubev1.PullIfNotPresent))
 	})
 
-	It("Should return migration config values", func() {
+	It("Should return migration config values if specified as json", func() {
 		cfgMap := kubev1.ConfigMap{
 			ObjectMeta: metav1.ObjectMeta{
 				Namespace: "kubevirt",
 				Name:      "kubevirt-config",
 			},
 			Data: map[string]string{migrationsConfigKey: `{"parallelOutboundMigrationsPerNode" : 10, "parallelMigrationsPerCluster": 20, "bandwidthPerMigration": "110Mi"}`},
+		}
+		clusterConfig := MakeClusterConfig([]kubev1.ConfigMap{cfgMap}, stopChan)
+		result := clusterConfig.GetMigrationConfig()
+		Expect(*result.ParallelOutboundMigrationsPerNode).To(BeNumerically("==", 10))
+		Expect(*result.ParallelMigrationsPerCluster).To(BeNumerically("==", 20))
+		Expect(result.BandwidthPerMigration.String()).To(Equal("110Mi"))
+	})
+
+	It("Should return migration config values if specified as yaml", func() {
+		cfgMap := kubev1.ConfigMap{
+			ObjectMeta: metav1.ObjectMeta{
+				Namespace: "kubevirt",
+				Name:      "kubevirt-config",
+			},
+			Data: map[string]string{migrationsConfigKey: `
+                "parallelOutboundMigrationsPerNode" : 10
+                "parallelMigrationsPerCluster": 20
+                "bandwidthPerMigration": "110Mi"`},
 		}
 		clusterConfig := MakeClusterConfig([]kubev1.ConfigMap{cfgMap}, stopChan)
 		result := clusterConfig.GetMigrationConfig()

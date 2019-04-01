@@ -20,7 +20,6 @@
 package virtconfig
 
 import (
-	"encoding/json"
 	"fmt"
 	"os"
 	"strings"
@@ -31,6 +30,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/apimachinery/pkg/util/yaml"
 	"k8s.io/client-go/tools/cache"
 
 	"kubevirt.io/kubevirt/pkg/kubecli"
@@ -143,7 +143,7 @@ func (c *ClusterConfig) GetMigrationConfig() *MigrationConfig {
 		return defaultConfig
 	}
 
-	_ = json.Unmarshal([]byte(config), defaultConfig)
+	_ = yaml.NewYAMLOrJSONDecoder(strings.NewReader(config), 1024).Decode(defaultConfig)
 	return defaultConfig
 }
 
