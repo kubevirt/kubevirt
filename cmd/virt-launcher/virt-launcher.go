@@ -391,6 +391,7 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
+	defer notifier.Close()
 
 	domainManager, err := virtwrap.NewLibvirtDomainManager(domainConn, *virtShareDir, notifier, *lessPVCSpaceToleration)
 	if err != nil {

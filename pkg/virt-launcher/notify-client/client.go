@@ -1,25 +1,25 @@
 package eventsclient
 
 import (
-	"encoding/json"
 	"fmt"
-	"net/rpc"
 	"path/filepath"
 	"time"
 
+	"github.com/libvirt/libvirt-go"
+	"golang.org/x/net/context"
+	"google.golang.org/grpc"
+
+	k8sv1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/json"
+	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/tools/reference"
 
 	v1 "kubevirt.io/kubevirt/pkg/api/v1"
-
-	k8sv1 "k8s.io/api/core/v1"
-
-	libvirt "github.com/libvirt/libvirt-go"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/apimachinery/pkg/watch"
-
+	notifyv1 "kubevirt.io/kubevirt/pkg/handler-launcher-com/notify/v1"
 	"kubevirt.io/kubevirt/pkg/log"
-	notifyserver "kubevirt.io/kubevirt/pkg/virt-handler/notify-server"
+	grpcutil "kubevirt.io/kubevirt/pkg/util/net/grpc"
 	agentpoller "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/agent-poller"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/cli"
@@ -28,7 +28,8 @@ import (
 )
 
 type NotifyClient struct {
-	client *rpc.Client
+	client notifyv1.NotifyClient
+	conn   *grpc.ClientConn
 }
 
 type libvirtEvent struct {
@@ -39,13 +40,21 @@ type libvirtEvent struct {
 
 func NewNotifyClient(virtShareDir string) (*NotifyClient, error) {
 	socketPath := filepath.Join(virtShareDir, "domain-notify.sock")
-	conn, err := rpc.Dial("unix", socketPath)
+	conn, err := grpcutil.DialSocket(socketPath)
 	if err != nil {
-		log.Log.Reason(err).Errorf("client failed to connect to domain notifier socket: %s", socketPath)
+		log.Log.Reason(err).Infof("Failed to dial notify socket: %s", socketPath)
 		return nil, err
 	}
+	client := notifyv1.NewNotifyClient(conn)
 
-	return &NotifyClient{client: conn}, nil
+	return &NotifyClient{
+		client: client,
+		conn:   conn,
+	}, nil
+}
+
+func (c *NotifyClient) Close() {
+	c.conn.Close()
 }
 
 func (c *NotifyClient) SendDomainEvent(event watch.Event) error {
@@ -67,18 +76,20 @@ func (c *NotifyClient) SendDomainEvent(event watch.Event) error {
 			return err
 		}
 	}
-	args := &notifyserver.DomainEventArgs{
-		DomainJSON: string(domainJSON),
-		StatusJSON: string(statusJSON),
+	request := notifyv1.DomainEventRequest{
+		DomainJSON: domainJSON,
+		StatusJSON: statusJSON,
 		EventType:  string(event.Type),
 	}
-	reply := &notifyserver.Reply{}
 
-	err = c.client.Call("Notify.DomainEvent", args, reply)
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	response, err := c.client.HandleDomainEvent(ctx, &request)
+
 	if err != nil {
 		return err
-	} else if reply.Success != true {
-		msg := fmt.Sprintf("failed to notify domain event: %s", reply.Message)
+	} else if response.Success != true {
+		msg := fmt.Sprintf("failed to notify domain event: %s", response.Message)
 		return fmt.Errorf(msg)
 	}
 
@@ -241,8 +252,6 @@ func (c *NotifyClient) StartDomainNotifier(domainConn cli.Connection, deleteNoti
 
 func (c *NotifyClient) SendK8sEvent(vmi *v1.VirtualMachineInstance, severity string, reason string, message string) error {
 
-	reply := &notifyserver.Reply{}
-
 	vmiRef, err := reference.GetReference(v1.Scheme, vmi)
 	if err != nil {
 		return err
@@ -255,11 +264,23 @@ func (c *NotifyClient) SendK8sEvent(vmi *v1.VirtualMachineInstance, severity str
 		Message:        message,
 	}
 
-	err = c.client.Call("Notify.K8sEvent", event, reply)
+	json, err := json.Marshal(event)
 	if err != nil {
 		return err
-	} else if reply.Success != true {
-		msg := fmt.Sprintf("failed to notify k8s event: %s", reply.Message)
+	}
+
+	request := notifyv1.K8SEventRequest{
+		EventJSON: json,
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	response, err := c.client.HandleK8SEvent(ctx, &request)
+
+	if err != nil {
+		return err
+	} else if response.Success != true {
+		msg := fmt.Sprintf("failed to notify k8s event: %s", response.Message)
 		return fmt.Errorf(msg)
 	}
 

@@ -117,7 +117,7 @@ var _ = Describe("Notify", func() {
 					Expect(reflect.DeepEqual(domain.Spec, newDomain.Spec)).To(Equal(true))
 					Expect(event.Type).To(Equal(kubeEventType))
 				}
-				Expect(timedOut).To(Equal(false))
+				Expect(timedOut).To(Equal(false), "should not time out")
 			},
 				table.Entry("modified for crashed VMIs", libvirt.DOMAIN_CRASHED, libvirt.DOMAIN_EVENT_CRASHED, api.Crashed, watch.Modified),
 				table.Entry("modified for stopped VMIs", libvirt.DOMAIN_SHUTOFF, libvirt.DOMAIN_EVENT_SHUTDOWN, api.Shutoff, watch.Modified),
@@ -240,7 +240,8 @@ var _ = Describe("Notify", func() {
 			eventReason := "fooReason"
 			eventMessage := "barMessage"
 
-			client.SendK8sEvent(vmi, eventType, eventReason, eventMessage)
+			err := client.SendK8sEvent(vmi, eventType, eventReason, eventMessage)
+			Expect(err).ToNot(HaveOccurred())
 
 			event := <-recorder.Events
 			Expect(event).To(Equal(fmt.Sprintf("%s %s %s", eventType, eventReason, eventMessage)))

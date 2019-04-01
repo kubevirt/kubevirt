@@ -1,0 +1,24 @@
+syntax = "proto3";
+
+package kubevirt.notify.v1;
+option go_package = "v1";
+
+service Notify {
+  rpc HandleDomainEvent(DomainEventRequest) returns (Response) {}
+  rpc HandleK8sEvent(K8sEventRequest) returns (Response) {}
+}
+
+message DomainEventRequest {
+  bytes domainJSON = 1;
+  bytes statusJSON = 2;
+  string eventType = 3;
+}
+
+message K8sEventRequest {
+  bytes eventJSON = 1;
+}
+
+message Response {
+  bool success = 1;
+  string message = 2;
+}
