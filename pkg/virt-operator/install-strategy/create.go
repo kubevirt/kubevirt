@@ -676,10 +676,9 @@ func SyncAll(kv *v1.KubeVirt,
 	if takeUpdatePath {
 		// UPDATE PATH IS
 		// 1. daemonsets - ensures all compute nodes are updated to handle new features
-		// 2. wait for daemonsets to roll over
-		// 3. controllers - ensures controll plane is ready for new features
-		// 4. wait for controllers to roll over
-		// 5. apiserver - toggles on new features.
+		// 2. controllers - ensures controll plane is ready for new features
+		// 3. wait for daemonsets and controllers to roll over
+		// 4. apiserver - toggles on new features.
 
 		// create/update Daemonsets
 		for _, daemonSet := range targetStrategy.daemonSets {
@@ -725,7 +724,7 @@ func SyncAll(kv *v1.KubeVirt,
 		}
 	} else {
 		// CREATE/ROLLBACK PATH IS
-		// 1. apiserver - ensures validation of objects occur before allowing any controll plane to act on them.
+		// 1. apiserver - ensures validation of objects occur before allowing any control plane to act on them.
 		// 2. wait for apiservers to roll over
 		// 3. controllers and daemonsets
 
