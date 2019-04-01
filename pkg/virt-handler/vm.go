@@ -33,7 +33,6 @@ import (
 
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/api/resource"
 	v12 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -71,6 +70,7 @@ func NewController(
 	gracefulShutdownInformer cache.SharedIndexInformer,
 	watchdogTimeoutSeconds int,
 	maxDevices int,
+	clusterConfig *virtconfig.ClusterConfig,
 ) *VirtualMachineController {
 
 	queue := workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter())
@@ -90,6 +90,7 @@ func NewController(
 		watchdogTimeoutSeconds:   watchdogTimeoutSeconds,
 		migrationProxy:           migrationproxy.NewMigrationProxyManager(virtShareDir),
 		podIsolationDetector:     isolation.NewSocketBasedIsolationDetector(virtShareDir),
+		clusterConfig:            clusterConfig,
 	}
 
 	vmiSourceInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
@@ -141,6 +142,7 @@ type VirtualMachineController struct {
 	kvmController            *device_manager.DeviceController
 	migrationProxy           migrationproxy.ProxyManager
 	podIsolationDetector     isolation.PodIsolationDetector
+	clusterConfig            *virtconfig.ClusterConfig
 }
 
 // Determines if a domain's grace period has expired during shutdown.
@@ -1352,7 +1354,7 @@ func (d *VirtualMachineController) processVmUpdate(origVMI *v1.VirtualMachineIns
 			}
 		} else {
 			options := &cmdclient.MigrationOptions{
-				Bandwidth: resource.MustParse("64Mi"),
+				Bandwidth: *d.clusterConfig.GetMigrationConfig().BandwidthPerMigration,
 			}
 			err = client.MigrateVirtualMachine(vmi, options)
 			if err != nil {

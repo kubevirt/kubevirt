@@ -117,6 +117,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 			gracefulShutdownInformer,
 			1,
 			10,
+			testutils.MakeFakeClusterConfig(nil, stop),
 		)
 
 		testUUID = uuid.NewUUID()

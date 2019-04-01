@@ -35,6 +35,8 @@ import (
 	"k8s.io/client-go/tools/record"
 	"k8s.io/client-go/util/workqueue"
 
+	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
+
 	"kubevirt.io/kubevirt/pkg/util/migrations"
 
 	virtv1 "kubevirt.io/kubevirt/pkg/api/v1"
@@ -54,6 +56,7 @@ type MigrationController struct {
 	recorder           record.EventRecorder
 	podExpectations    *controller.UIDTrackingControllerExpectations
 	migrationStartLock *sync.Mutex
+	clusterConfig      *virtconfig.ClusterConfig
 }
 
 func NewMigrationController(templateService services.TemplateService,
@@ -61,7 +64,9 @@ func NewMigrationController(templateService services.TemplateService,
 	podInformer cache.SharedIndexInformer,
 	migrationInformer cache.SharedIndexInformer,
 	recorder record.EventRecorder,
-	clientset kubecli.KubevirtClient) *MigrationController {
+	clientset kubecli.KubevirtClient,
+	clusterConfig *virtconfig.ClusterConfig,
+) *MigrationController {
 
 	c := &MigrationController{
 		templateService:    templateService,
@@ -73,6 +78,7 @@ func NewMigrationController(templateService services.TemplateService,
 		clientset:          clientset,
 		podExpectations:    controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectations()),
 		migrationStartLock: &sync.Mutex{},
+		clusterConfig:      clusterConfig,
 	}
 
 	c.vmiInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
@@ -479,7 +485,7 @@ func (c *MigrationController) sync(key string, migration *virtv1.VirtualMachineI
 			}
 
 			// XXX: Make this configurable, think about limit per node, bandwidth per migration, and so on.
-			if len(runningMigrations) >= 5 {
+			if len(runningMigrations) >= int(*c.clusterConfig.GetMigrationConfig().ParallelMigrationsPerCluster) {
 				// Let's wait until some migrations are done
 				c.Queue.AddAfter(key, time.Second*5)
 				return nil
@@ -491,7 +497,7 @@ func (c *MigrationController) sync(key string, migration *virtv1.VirtualMachineI
 				return err
 			}
 
-			if outboundMigrations >= 2 {
+			if outboundMigrations >= int(*c.clusterConfig.GetMigrationConfig().ParallelOutboundMigrationsPerNode) {
 				// Let's ensure that we only have two outbound migrations per node
 				// XXX: Make this configurebale, thinkg about inbout migration limit, bandwidh per migration, and so on.
 				c.Queue.AddAfter(key, time.Second*5)

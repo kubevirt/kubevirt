@@ -185,7 +185,9 @@ var _ = Describe("Migration watcher", func() {
 			podInformer,
 			migrationInformer,
 			recorder,
-			virtClient)
+			virtClient,
+			testutils.MakeFakeClusterConfig(nil, stop),
+		)
 		// Wrap our workqueue to have a way to detect when we are done processing updates
 		mockQueue = testutils.NewMockWorkQueue(controller.Queue)
 		controller.Queue = mockQueue
