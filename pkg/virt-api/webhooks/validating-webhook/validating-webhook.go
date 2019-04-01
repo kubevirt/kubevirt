@@ -610,11 +610,18 @@ func ValidateVirtualMachineInstanceSpec(field *k8sfield.Path, spec *v1.VirtualMa
 		}
 	}
 
-	// Validate memory size if values are not negative
+	// Validate memory size if values are not negative or too small
 	if spec.Domain.Resources.Requests.Memory().Value() < 0 {
 		causes = append(causes, metav1.StatusCause{
 			Type: metav1.CauseTypeFieldValueInvalid,
 			Message: fmt.Sprintf("%s '%s': must be greater than or equal to 0.", field.Child("domain", "resources", "requests", "memory").String(),
+				spec.Domain.Resources.Requests.Memory()),
+			Field: field.Child("domain", "resources", "requests", "memory").String(),
+		})
+	} else if spec.Domain.Resources.Requests.Memory().Value() > 0 && spec.Domain.Resources.Requests.Memory().Cmp(resource.MustParse("1M")) < 0 {
+		causes = append(causes, metav1.StatusCause{
+			Type: metav1.CauseTypeFieldValueInvalid,
+			Message: fmt.Sprintf("%s '%s': must be greater than or equal to 1M.", field.Child("domain", "resources", "requests", "memory").String(),
 				spec.Domain.Resources.Requests.Memory()),
 			Field: field.Child("domain", "resources", "requests", "memory").String(),
 		})
@@ -1573,7 +1580,7 @@ func admitVMIUpdate(ar *v1beta1.AdmissionReview) *v1beta1.AdmissionResponse {
 	// Reject VMI update if VMI spec changed
 	if !reflect.DeepEqual(newVMI.Spec, oldVMI.Spec) {
 		return webhooks.ToAdmissionResponse([]metav1.StatusCause{
-			metav1.StatusCause{
+			{
 				Type:    metav1.CauseTypeFieldValueNotSupported,
 				Message: "update of VMI object is restricted",
 			},
@@ -1791,7 +1798,7 @@ func admitMigrationUpdate(ar *v1beta1.AdmissionReview) *v1beta1.AdmissionRespons
 	// Reject Migration update if spec changed
 	if !reflect.DeepEqual(newMigration.Spec, oldMigration.Spec) {
 		return webhooks.ToAdmissionResponse([]metav1.StatusCause{
-			metav1.StatusCause{
+			{
 				Type:    metav1.CauseTypeFieldValueNotSupported,
 				Message: "update of Migration object's spec is restricted",
 			},
