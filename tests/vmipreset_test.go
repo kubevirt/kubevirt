@@ -111,8 +111,8 @@ var _ = Describe("[rfe_id:609][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 			preset.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
 				Name: "testdisk",
 				DiskDevice: v1.DiskDevice{
-					Disk:   &v1.DiskTarget{},
-					Floppy: &v1.FloppyTarget{},
+					Disk:  &v1.DiskTarget{},
+					CDRom: &v1.CDRomTarget{},
 				},
 			})
 			result := virtClient.RestClient().Post().Resource("virtualmachineinstancepresets").Namespace(tests.NamespaceTestDefault).Body(preset).Do()

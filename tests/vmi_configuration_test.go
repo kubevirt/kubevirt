@@ -1074,9 +1074,7 @@ var _ = Describe("Configurations", func() {
 			vmi = tests.NewRandomVMIWithEphemeralDiskAndUserdata(containerImage, "echo hi!\n")
 			// sata
 			tests.AddEphemeralDisk(vmi, "disk2", "sata", containerImage)
-			// floppy
-			tests.AddEphemeralFloppy(vmi, "disk3", containerImage)
-			// NOTE: we have one disk per bus, so we expect vda, sda, fda
+			// NOTE: we have one disk per bus, so we expect vda, sda
 		})
 		checkPciAddress := func(vmi *v1.VirtualMachineInstance, expectedPciAddress string, prompt string) {
 			err := tests.CheckForTextExpecter(vmi, []expect.Batcher{
@@ -1088,7 +1086,6 @@ var _ = Describe("Configurations", func() {
 			Expect(err).ToNot(HaveOccurred())
 		}
 
-		// FIXME floppy is not recognized by the used image right now
 		It("[test_id:1682]should have all the device nodes", func() {
 			vmi, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
 			Expect(err).ToNot(HaveOccurred())

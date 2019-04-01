@@ -125,6 +125,16 @@ func validateDisks(field *k8sfield.Path, disks []v1.Disk) []metav1.StatusCause {
 				Field:   field.Index(idx).Child("name").String(),
 			})
 		}
+
+		// Reject Floppy disks
+		if disk.Floppy != nil {
+			causes = append(causes, metav1.StatusCause{
+				Type:    metav1.CauseTypeFieldValueNotSupported,
+				Message: fmt.Sprintf("Floppy disks are deprecated and will be removed from the API soon."),
+				Field:   field.Index(idx).Child("name").String(),
+			})
+		}
+
 		// Verify only a single device type is set.
 		deviceTargetSetCount := 0
 		var diskType, bus string
