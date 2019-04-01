@@ -1,4 +1,4 @@
-load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
 
 go_library(
     name = "go_default_library",
@@ -11,18 +11,4 @@ go_library(
     importpath = "github.com/smartystreets/goconvey/web/server/watch",
     visibility = ["//visibility:public"],
     deps = ["//vendor/github.com/smartystreets/goconvey/web/server/messaging:go_default_library"],
-)
-
-go_test(
-    name = "go_default_test",
-    srcs = [
-        "functional_core_test.go",
-        "integration_test.go",
-        "util_test.go",
-    ],
-    embed = [":go_default_library"],
-    deps = [
-        "//vendor/github.com/smartystreets/goconvey/convey:go_default_library",
-        "//vendor/github.com/smartystreets/goconvey/web/server/messaging:go_default_library",
-    ],
 )

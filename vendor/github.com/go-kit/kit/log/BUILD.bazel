@@ -1,4 +1,4 @@
-load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
 
 go_library(
     name = "go_default_library",
@@ -15,27 +15,6 @@ go_library(
     importmap = "kubevirt.io/kubevirt/vendor/github.com/go-kit/kit/log",
     importpath = "github.com/go-kit/kit/log",
     visibility = ["//visibility:public"],
-    deps = [
-        "//vendor/github.com/go-logfmt/logfmt:go_default_library",
-        "//vendor/github.com/go-stack/stack:go_default_library",
-    ],
-)
-
-go_test(
-    name = "go_default_test",
-    srcs = [
-        "benchmark_test.go",
-        "concurrency_test.go",
-        "example_test.go",
-        "json_logger_test.go",
-        "log_test.go",
-        "logfmt_logger_test.go",
-        "nop_logger_test.go",
-        "stdlib_test.go",
-        "sync_test.go",
-        "value_test.go",
-    ],
-    embed = [":go_default_library"],
     deps = [
         "//vendor/github.com/go-logfmt/logfmt:go_default_library",
         "//vendor/github.com/go-stack/stack:go_default_library",

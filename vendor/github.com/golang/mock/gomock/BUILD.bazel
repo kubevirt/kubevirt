@@ -1,4 +1,4 @@
-load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
 
 go_library(
     name = "go_default_library",
@@ -11,16 +11,4 @@ go_library(
     importmap = "kubevirt.io/kubevirt/vendor/github.com/golang/mock/gomock",
     importpath = "github.com/golang/mock/gomock",
     visibility = ["//visibility:public"],
-)
-
-go_test(
-    name = "go_default_test",
-    srcs = [
-        "call_test.go",
-        "callset_test.go",
-        "controller_test.go",
-        "matchers_test.go",
-    ],
-    embed = [":go_default_library"],
-    deps = ["//vendor/github.com/golang/mock/gomock/internal/mock_matcher:go_default_library"],
 )

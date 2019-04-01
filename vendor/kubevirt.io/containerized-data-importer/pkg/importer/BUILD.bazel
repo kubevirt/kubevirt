@@ -1,4 +1,4 @@
-load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
 
 go_library(
     name = "go_default_library",
@@ -20,32 +20,5 @@ go_library(
         "@com_github_pkg_errors//:go_default_library",
         "@com_github_ulikunitz_xz//:go_default_library",
         "@io_k8s_klog//:go_default_library",
-    ],
-)
-
-go_test(
-    name = "go_default_test",
-    srcs = [
-        "dataStream_test.go",
-        "importer_suite_test.go",
-        "importer_test.go",
-        "registry_test.go",
-        "util_test.go",
-    ],
-    embed = [":go_default_library"],
-    deps = [
-        "//vendor/github.com/onsi/ginkgo:go_default_library",
-        "//vendor/github.com/onsi/ginkgo/extensions/table:go_default_library",
-        "//vendor/github.com/onsi/gomega:go_default_library",
-        "//vendor/k8s.io/apimachinery/pkg/api/resource:go_default_library",
-        "//vendor/k8s.io/client-go/util/cert:go_default_library",
-        "//vendor/k8s.io/client-go/util/cert/triple:go_default_library",
-        "//vendor/kubevirt.io/containerized-data-importer/pkg/apis/core/v1alpha1:go_default_library",
-        "//vendor/kubevirt.io/containerized-data-importer/pkg/common:go_default_library",
-        "//vendor/kubevirt.io/containerized-data-importer/pkg/controller:go_default_library",
-        "//vendor/kubevirt.io/containerized-data-importer/pkg/image:go_default_library",
-        "//vendor/kubevirt.io/containerized-data-importer/pkg/util:go_default_library",
-        "//vendor/kubevirt.io/containerized-data-importer/tests/reporters:go_default_library",
-        "//vendor/kubevirt.io/containerized-data-importer/tests/utils:go_default_library",
     ],
 )

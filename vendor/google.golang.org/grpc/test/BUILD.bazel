@@ -1,4 +1,4 @@
-load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
 
 go_library(
     name = "go_default_library",
@@ -13,46 +13,5 @@ go_library(
     deps = [
         "//vendor/golang.org/x/net/http2:go_default_library",
         "//vendor/golang.org/x/net/http2/hpack:go_default_library",
-    ],
-)
-
-go_test(
-    name = "go_default_test",
-    srcs = [
-        "channelz_test.go",
-        "end2end_test.go",
-        "gracefulstop_test.go",
-    ],
-    embed = [":go_default_library"],
-    deps = [
-        "//vendor/github.com/golang/protobuf/proto:go_default_library",
-        "//vendor/golang.org/x/net/context:go_default_library",
-        "//vendor/golang.org/x/net/http2:go_default_library",
-        "//vendor/google.golang.org/grpc/balancer/grpclb:go_default_library",
-        "//vendor/google.golang.org/grpc/balancer/roundrobin:go_default_library",
-        "//vendor/google.golang.org/grpc/codes:go_default_library",
-        "//vendor/google.golang.org/grpc/connectivity:go_default_library",
-        "//vendor/google.golang.org/grpc/credentials:go_default_library",
-        "//vendor/google.golang.org/grpc/encoding/gzip:go_default_library",
-        "//vendor/google.golang.org/grpc/grpclog/glogger:go_default_library",
-        "//vendor/google.golang.org/grpc/health:go_default_library",
-        "//vendor/google.golang.org/grpc/health/grpc_health_v1:go_default_library",
-        "//vendor/google.golang.org/grpc/internal:go_default_library",
-        "//vendor/google.golang.org/grpc/internal/channelz:go_default_library",
-        "//vendor/google.golang.org/grpc/internal/leakcheck:go_default_library",
-        "//vendor/google.golang.org/grpc/keepalive:go_default_library",
-        "//vendor/google.golang.org/grpc/metadata:go_default_library",
-        "//vendor/google.golang.org/grpc/peer:go_default_library",
-        "//vendor/google.golang.org/grpc/resolver:go_default_library",
-        "//vendor/google.golang.org/grpc/resolver/manual:go_default_library",
-        "//vendor/google.golang.org/grpc/resolver/passthrough:go_default_library",
-        "//vendor/google.golang.org/grpc/stats:go_default_library",
-        "//vendor/google.golang.org/grpc/status:go_default_library",
-        "//vendor/google.golang.org/grpc/tap:go_default_library",
-        "//vendor/google.golang.org/grpc/test/grpc_testing:go_default_library",
-        "//vendor/google.golang.org/grpc/testdata:go_default_library",
-        "@go_googleapis//google/rpc:status_go_proto",
-        "@io_bazel_rules_go//proto/wkt:any_go_proto",
-        "@org_golang_google_grpc//:go_default_library",
     ],
 )

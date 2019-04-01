@@ -1,4 +1,4 @@
-load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
 
 go_library(
     name = "go_default_library",
@@ -17,15 +17,5 @@ go_library(
     importmap = "kubevirt.io/kubevirt/vendor/github.com/go-kit/kit/log/term",
     importpath = "github.com/go-kit/kit/log/term",
     visibility = ["//visibility:public"],
-    deps = ["//vendor/github.com/go-kit/kit/log:go_default_library"],
-)
-
-go_test(
-    name = "go_default_test",
-    srcs = [
-        "colorlogger_test.go",
-        "example_test.go",
-    ],
-    embed = [":go_default_library"],
     deps = ["//vendor/github.com/go-kit/kit/log:go_default_library"],
 )

@@ -1,4 +1,4 @@
-load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
 
 go_library(
     name = "go_default_library",
@@ -32,28 +32,6 @@ go_library(
             "//vendor/golang.org/x/sys/unix:go_default_library",
         ],
         "@io_bazel_rules_go//go/platform:openbsd": [
-            "//vendor/golang.org/x/sys/unix:go_default_library",
-        ],
-        "//conditions:default": [],
-    }),
-)
-
-go_test(
-    name = "go_default_test",
-    srcs = [
-        "example_test.go",
-        "fsnotify_test.go",
-        "inotify_poller_test.go",
-        "inotify_test.go",
-        "integration_darwin_test.go",
-        "integration_test.go",
-    ],
-    embed = [":go_default_library"],
-    deps = select({
-        "@io_bazel_rules_go//go/platform:darwin": [
-            "//vendor/golang.org/x/sys/unix:go_default_library",
-        ],
-        "@io_bazel_rules_go//go/platform:linux": [
             "//vendor/golang.org/x/sys/unix:go_default_library",
         ],
         "//conditions:default": [],

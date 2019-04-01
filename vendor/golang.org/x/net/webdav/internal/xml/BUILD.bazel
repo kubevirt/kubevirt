@@ -1,4 +1,4 @@
-load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
 
 go_library(
     name = "go_default_library",
@@ -11,16 +11,4 @@ go_library(
     importmap = "kubevirt.io/kubevirt/vendor/golang.org/x/net/webdav/internal/xml",
     importpath = "golang.org/x/net/webdav/internal/xml",
     visibility = ["//vendor/golang.org/x/net/webdav:__subpackages__"],
-)
-
-go_test(
-    name = "go_default_test",
-    srcs = [
-        "atom_test.go",
-        "example_test.go",
-        "marshal_test.go",
-        "read_test.go",
-        "xml_test.go",
-    ],
-    embed = [":go_default_library"],
 )

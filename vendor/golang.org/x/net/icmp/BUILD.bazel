@@ -1,4 +1,4 @@
-load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
 
 go_library(
     name = "go_default_library",
@@ -27,26 +27,6 @@ go_library(
     visibility = ["//visibility:public"],
     deps = [
         "//vendor/golang.org/x/net/internal/iana:go_default_library",
-        "//vendor/golang.org/x/net/internal/socket:go_default_library",
-        "//vendor/golang.org/x/net/ipv4:go_default_library",
-        "//vendor/golang.org/x/net/ipv6:go_default_library",
-    ],
-)
-
-go_test(
-    name = "go_default_test",
-    srcs = [
-        "example_test.go",
-        "extension_test.go",
-        "ipv4_test.go",
-        "message_test.go",
-        "multipart_test.go",
-        "ping_test.go",
-    ],
-    embed = [":go_default_library"],
-    deps = [
-        "//vendor/golang.org/x/net/internal/iana:go_default_library",
-        "//vendor/golang.org/x/net/internal/nettest:go_default_library",
         "//vendor/golang.org/x/net/internal/socket:go_default_library",
         "//vendor/golang.org/x/net/ipv4:go_default_library",
         "//vendor/golang.org/x/net/ipv6:go_default_library",

@@ -1,4 +1,4 @@
-load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
 
 go_library(
     name = "go_default_library",
@@ -28,31 +28,6 @@ go_library(
         "@io_bazel_rules_go//proto/wkt:wrappers_go_proto",
         "@org_golang_google_api//option:go_default_library",
         "@org_golang_google_api//transport:go_default_library",
-        "@org_golang_google_grpc//:go_default_library",
-    ],
-)
-
-go_test(
-    name = "go_default_test",
-    srcs = [
-        "datastore_test.go",
-        "example_test.go",
-        "examples_test.go",
-        "integration_test.go",
-        "key_test.go",
-        "load_test.go",
-        "query_test.go",
-        "save_test.go",
-        "time_test.go",
-    ],
-    data = glob(["testdata/**"]),
-    embed = [":go_default_library"],
-    deps = [
-        "//vendor/cloud.google.com/go/internal/testutil:go_default_library",
-        "//vendor/github.com/golang/protobuf/proto:go_default_library",
-        "//vendor/golang.org/x/net/context:go_default_library",
-        "@go_googleapis//google/datastore/v1:datastore_go_proto",
-        "@org_golang_google_api//option:go_default_library",
         "@org_golang_google_grpc//:go_default_library",
     ],
 )

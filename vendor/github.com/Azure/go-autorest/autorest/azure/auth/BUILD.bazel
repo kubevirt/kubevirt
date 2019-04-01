@@ -1,4 +1,4 @@
-load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
 
 go_library(
     name = "go_default_library",
@@ -13,10 +13,4 @@ go_library(
         "//vendor/golang.org/x/crypto/pkcs12:go_default_library",
         "@com_github_dimchansky_utfbom//:go_default_library",
     ],
-)
-
-go_test(
-    name = "go_default_test",
-    srcs = ["auth_test.go"],
-    embed = [":go_default_library"],
 )

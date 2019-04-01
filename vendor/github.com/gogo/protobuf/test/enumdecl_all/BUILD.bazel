@@ -1,4 +1,4 @@
-load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
 
 go_library(
     name = "go_default_library",
@@ -11,17 +11,6 @@ go_library(
     visibility = ["//visibility:public"],
     deps = [
         "//vendor/github.com/gogo/protobuf/gogoproto:go_default_library",
-        "//vendor/github.com/gogo/protobuf/proto:go_default_library",
-    ],
-)
-
-go_test(
-    name = "go_default_test",
-    srcs = ["enumdeclallpb_test.go"],
-    embed = [":go_default_library"],
-    deps = [
-        "//vendor/github.com/gogo/protobuf/gogoproto:go_default_library",
-        "//vendor/github.com/gogo/protobuf/jsonpb:go_default_library",
         "//vendor/github.com/gogo/protobuf/proto:go_default_library",
     ],
 )

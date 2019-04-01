@@ -1,4 +1,4 @@
-load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
 
 go_library(
     name = "go_default_library",
@@ -30,30 +30,5 @@ go_library(
         "//vendor/golang.org/x/crypto/openpgp/elgamal:go_default_library",
         "//vendor/golang.org/x/crypto/openpgp/errors:go_default_library",
         "//vendor/golang.org/x/crypto/openpgp/s2k:go_default_library",
-    ],
-)
-
-go_test(
-    name = "go_default_test",
-    srcs = [
-        "compressed_test.go",
-        "encrypted_key_test.go",
-        "ocfb_test.go",
-        "opaque_test.go",
-        "packet_test.go",
-        "private_key_test.go",
-        "public_key_test.go",
-        "public_key_v3_test.go",
-        "signature_test.go",
-        "signature_v3_test.go",
-        "symmetric_key_encrypted_test.go",
-        "symmetrically_encrypted_test.go",
-        "userattribute_test.go",
-        "userid_test.go",
-    ],
-    embed = [":go_default_library"],
-    deps = [
-        "//vendor/golang.org/x/crypto/openpgp/armor:go_default_library",
-        "//vendor/golang.org/x/crypto/openpgp/errors:go_default_library",
     ],
 )

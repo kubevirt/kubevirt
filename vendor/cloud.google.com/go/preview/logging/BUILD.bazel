@@ -1,4 +1,4 @@
-load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
 
 go_library(
     name = "go_default_library",
@@ -25,40 +25,5 @@ go_library(
         "@io_bazel_rules_go//proto/wkt:timestamp_go_proto",
         "@org_golang_google_api//iterator:go_default_library",
         "@org_golang_google_api//option:go_default_library",
-    ],
-)
-
-go_test(
-    name = "go_default_test",
-    srcs = [
-        "example_entry_iterator_test.go",
-        "example_metric_iterator_test.go",
-        "example_paging_test.go",
-        "example_resource_iterator_test.go",
-        "example_sink_iterator_test.go",
-        "examples_test.go",
-        "logging_test.go",
-        "metrics_test.go",
-        "resources_test.go",
-        "sinks_test.go",
-        "unique_test.go",
-    ],
-    embed = [":go_default_library"],
-    deps = [
-        "//vendor/cloud.google.com/go/internal/bundler:go_default_library",
-        "//vendor/cloud.google.com/go/internal/testutil:go_default_library",
-        "//vendor/cloud.google.com/go/preview/logging/internal/testing:go_default_library",
-        "//vendor/cloud.google.com/go/storage:go_default_library",
-        "//vendor/github.com/golang/protobuf/proto:go_default_library",
-        "//vendor/golang.org/x/net/context:go_default_library",
-        "//vendor/golang.org/x/oauth2:go_default_library",
-        "@com_github_golang_protobuf//ptypes:go_default_library_gen",
-        "@go_googleapis//google/api:monitoredres_go_proto",
-        "@go_googleapis//google/logging/type:ltype_go_proto",
-        "@go_googleapis//google/logging/v2:logging_go_proto",
-        "@io_bazel_rules_go//proto/wkt:struct_go_proto",
-        "@org_golang_google_api//iterator:go_default_library",
-        "@org_golang_google_api//option:go_default_library",
-        "@org_golang_google_grpc//:go_default_library",
     ],
 )

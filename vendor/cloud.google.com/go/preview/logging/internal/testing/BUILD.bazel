@@ -1,4 +1,4 @@
-load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
 
 go_library(
     name = "go_default_library",
@@ -14,16 +14,5 @@ go_library(
         "@go_googleapis//google/logging/v2:logging_go_proto",
         "@io_bazel_rules_go//proto/wkt:empty_go_proto",
         "@io_bazel_rules_go//proto/wkt:timestamp_go_proto",
-    ],
-)
-
-go_test(
-    name = "go_default_test",
-    srcs = ["fake_test.go"],
-    embed = [":go_default_library"],
-    deps = [
-        "@go_googleapis//google/logging/v2:logging_go_proto",
-        "@io_bazel_rules_go//proto/wkt:timestamp_go_proto",
-        "@org_golang_google_grpc//:go_default_library",
     ],
 )

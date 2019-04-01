@@ -1,4 +1,4 @@
-load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
 
 go_library(
     name = "go_default_library",
@@ -52,55 +52,5 @@ go_library(
         "//vendor/kubevirt.io/containerized-data-importer/pkg/util:go_default_library",
         "@com_github_pkg_errors//:go_default_library",
         "@io_k8s_klog//:go_default_library",
-    ],
-)
-
-go_test(
-    name = "go_default_test",
-    srcs = [
-        "clone-controller_test.go",
-        "config-controller_test.go",
-        "controller_suite_test.go",
-        "controller_test.go",
-        "datavolume-controller_test.go",
-        "import-controller_test.go",
-        "import_controller_ginkgo_test.go",
-        "upload-controller_test.go",
-        "util_test.go",
-    ],
-    embed = [":go_default_library"],
-    deps = [
-        "//vendor/github.com/onsi/ginkgo:go_default_library",
-        "//vendor/github.com/onsi/gomega:go_default_library",
-        "//vendor/github.com/openshift/api/route/v1:go_default_library",
-        "//vendor/github.com/openshift/client-go/route/clientset/versioned/fake:go_default_library",
-        "//vendor/github.com/openshift/client-go/route/informers/externalversions:go_default_library",
-        "//vendor/k8s.io/api/core/v1:go_default_library",
-        "//vendor/k8s.io/api/extensions/v1beta1:go_default_library",
-        "//vendor/k8s.io/api/storage/v1:go_default_library",
-        "//vendor/k8s.io/apimachinery/pkg/api/resource:go_default_library",
-        "//vendor/k8s.io/apimachinery/pkg/apis/meta/v1:go_default_library",
-        "//vendor/k8s.io/apimachinery/pkg/runtime:go_default_library",
-        "//vendor/k8s.io/apimachinery/pkg/runtime/schema:go_default_library",
-        "//vendor/k8s.io/apimachinery/pkg/util/diff:go_default_library",
-        "//vendor/k8s.io/apimachinery/pkg/util/intstr:go_default_library",
-        "//vendor/k8s.io/client-go/informers:go_default_library",
-        "//vendor/k8s.io/client-go/kubernetes:go_default_library",
-        "//vendor/k8s.io/client-go/kubernetes/fake:go_default_library",
-        "//vendor/k8s.io/client-go/testing:go_default_library",
-        "//vendor/k8s.io/client-go/tools/bootstrap/token/api:go_default_library",
-        "//vendor/k8s.io/client-go/tools/cache:go_default_library",
-        "//vendor/k8s.io/client-go/tools/cache/testing:go_default_library",
-        "//vendor/k8s.io/client-go/tools/record:go_default_library",
-        "//vendor/k8s.io/client-go/util/cert/triple:go_default_library",
-        "//vendor/k8s.io/client-go/util/workqueue:go_default_library",
-        "//vendor/kubevirt.io/containerized-data-importer/pkg/apis/core/v1alpha1:go_default_library",
-        "//vendor/kubevirt.io/containerized-data-importer/pkg/client/clientset/versioned/fake:go_default_library",
-        "//vendor/kubevirt.io/containerized-data-importer/pkg/client/informers/externalversions:go_default_library",
-        "//vendor/kubevirt.io/containerized-data-importer/pkg/common:go_default_library",
-        "//vendor/kubevirt.io/containerized-data-importer/pkg/keys:go_default_library",
-        "//vendor/kubevirt.io/containerized-data-importer/pkg/util:go_default_library",
-        "//vendor/kubevirt.io/containerized-data-importer/tests/reporters:go_default_library",
-        "@com_github_pkg_errors//:go_default_library",
     ],
 )
