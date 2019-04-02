@@ -243,7 +243,7 @@ func (l *LibvirtDomainManager) setMigrationResultHelper(vmi *v1.VirtualMachineIn
 
 }
 
-func preprateMigrationFlags(isBlockMigration bool) libvirt.DomainMigrateFlags {
+func prepareMigrationFlags(isBlockMigration bool) libvirt.DomainMigrateFlags {
 	migrateFlags := libvirt.MIGRATE_LIVE | libvirt.MIGRATE_PEER2PEER
 
 	if isBlockMigration {
@@ -375,7 +375,7 @@ func (l *LibvirtDomainManager) asyncMigrate(vmi *v1.VirtualMachineInstance, opti
 			return
 		}
 
-		migrateFlags := preprateMigrationFlags(isBlockMigration)
+		migrateFlags := prepareMigrationFlags(isBlockMigration)
 
 		bandwidth, err := api.QuantityToMebiByte(options.Bandwidth)
 

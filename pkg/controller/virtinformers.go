@@ -25,6 +25,7 @@ import (
 	"time"
 
 	secv1 "github.com/openshift/api/security/v1"
+	"k8s.io/client-go/informers"
 
 	appsv1 "k8s.io/api/apps/v1"
 	batchv1 "k8s.io/api/batch/v1"
@@ -133,6 +134,8 @@ type KubeInformerFactory interface {
 
 	// Jobs for dumping operator install strategies
 	OperatorInstallStrategyJob() cache.SharedIndexInformer
+
+	K8SInformerFactory() informers.SharedInformerFactory
 }
 
 type kubeInformerFactory struct {
@@ -144,6 +147,7 @@ type kubeInformerFactory struct {
 	informers         map[string]cache.SharedIndexInformer
 	startedInformers  map[string]bool
 	kubevirtNamespace string
+	k8sInformers      informers.SharedInformerFactory
 }
 
 func NewKubeInformerFactory(restClient *rest.RESTClient, clientSet kubecli.KubevirtClient, kubevirtNamespace string) KubeInformerFactory {
@@ -155,6 +159,7 @@ func NewKubeInformerFactory(restClient *rest.RESTClient, clientSet kubecli.Kubev
 		informers:         make(map[string]cache.SharedIndexInformer),
 		startedInformers:  make(map[string]bool),
 		kubevirtNamespace: kubevirtNamespace,
+		k8sInformers:      informers.NewSharedInformerFactoryWithOptions(clientSet, 0),
 	}
 }
 
@@ -175,6 +180,7 @@ func (f *kubeInformerFactory) Start(stopCh <-chan struct{}) {
 		go informer.Run(stopCh)
 		f.startedInformers[name] = true
 	}
+	f.k8sInformers.Start(stopCh)
 }
 
 // internal function used to retrieve an already created informer
@@ -454,4 +460,8 @@ func (f *kubeInformerFactory) OperatorInstallStrategyJob() cache.SharedIndexInfo
 		lw := NewListWatchFromClient(f.clientSet.BatchV1().RESTClient(), "jobs", k8sv1.NamespaceAll, fields.Everything(), labelSelector)
 		return cache.NewSharedIndexInformer(lw, &batchv1.Job{}, f.defaultResync, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
 	})
+}
+
+func (f *kubeInformerFactory) K8SInformerFactory() informers.SharedInformerFactory {
+	return f.k8sInformers
 }

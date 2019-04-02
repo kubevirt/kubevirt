@@ -26,12 +26,11 @@ import (
 	"net/http"
 	"os"
 
-	restful "github.com/emicklei/go-restful"
+	"github.com/emicklei/go-restful"
 	"github.com/golang/glog"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	flag "github.com/spf13/pflag"
 	k8sv1 "k8s.io/api/core/v1"
-	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes/scheme"
 	k8coresv1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	clientrest "k8s.io/client-go/rest"
@@ -117,7 +116,6 @@ type VirtControllerApp struct {
 	kubevirtNamespace          string
 	evacuationController       *evacuation.EvacuationController
 	disruptionBudgetController *disruptionbudget.DisruptionBudgetController
-	k8sInformers               informers.SharedInformerFactory
 }
 
 var _ service.Service = &VirtControllerApp{}
@@ -154,7 +152,6 @@ func Execute() {
 		golog.Fatalf("Error searching for namespace: %v", err)
 	}
 	app.informerFactory = controller.NewKubeInformerFactory(app.restClient, app.clientSet, app.kubevirtNamespace)
-	app.k8sInformers = informers.NewSharedInformerFactoryWithOptions(app.clientSet, 0)
 
 	app.vmiInformer = app.informerFactory.VMI()
 	app.podInformer = app.informerFactory.KubeVirtPod()
@@ -171,7 +168,7 @@ func Execute() {
 	app.persistentVolumeClaimInformer = app.informerFactory.PersistentVolumeClaim()
 	app.persistentVolumeClaimCache = app.persistentVolumeClaimInformer.GetStore()
 
-	app.k8sInformers.Policy().V1beta1().PodDisruptionBudgets().Informer()
+	app.informerFactory.K8SInformerFactory().Policy().V1beta1().PodDisruptionBudgets().Informer()
 
 	app.vmInformer = app.informerFactory.VirtualMachine()
 
@@ -249,7 +246,6 @@ func (vca *VirtControllerApp) Run() {
 				OnStartedLeading: func(ctx context.Context) {
 					stop := ctx.Done()
 					vca.informerFactory.Start(stop)
-					vca.k8sInformers.Start(stop)
 					go vca.evacuationController.Run(controllerThreads, stop)
 					go vca.disruptionBudgetController.Run(controllerThreads, stop)
 					go vca.nodeController.Run(controllerThreads, stop)
@@ -322,7 +318,7 @@ func (vca *VirtControllerApp) initDisruptionBudgetController() {
 	recorder := vca.getNewRecorder(k8sv1.NamespaceAll, "disruptionbudget-controller")
 	vca.disruptionBudgetController = disruptionbudget.NewDisruptionBudgetController(
 		vca.vmiInformer,
-		vca.k8sInformers.Policy().V1beta1().PodDisruptionBudgets().Informer(),
+		vca.informerFactory.K8SInformerFactory().Policy().V1beta1().PodDisruptionBudgets().Informer(),
 		recorder,
 		vca.clientSet,
 	)
