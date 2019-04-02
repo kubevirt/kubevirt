@@ -13,6 +13,8 @@ import (
 	"k8s.io/client-go/tools/record"
 	"k8s.io/client-go/util/workqueue"
 
+	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
+
 	migrationutils "kubevirt.io/kubevirt/pkg/util/migrations"
 
 	virtv1 "kubevirt.io/kubevirt/pkg/api/v1"
@@ -29,6 +31,7 @@ type EvacuationController struct {
 	recorder              record.EventRecorder
 	migrationExpectations *controller.UIDTrackingControllerExpectations
 	nodeInformer          cache.SharedIndexInformer
+	clusterConfig         *virtconfig.ClusterConfig
 }
 
 func NewEvacuationController(
@@ -37,6 +40,7 @@ func NewEvacuationController(
 	nodeInformer cache.SharedIndexInformer,
 	recorder record.EventRecorder,
 	clientset kubecli.KubevirtClient,
+	clusterConfig *virtconfig.ClusterConfig,
 ) *EvacuationController {
 
 	c := &EvacuationController{
@@ -47,6 +51,7 @@ func NewEvacuationController(
 		recorder:              recorder,
 		clientset:             clientset,
 		migrationExpectations: controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectations()),
+		clusterConfig:         clusterConfig,
 	}
 
 	c.vmiInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
@@ -303,7 +308,7 @@ func (c *EvacuationController) execute(key string) error {
 		return fmt.Errorf("failed to list VMIs on node: %v", err)
 	}
 
-	migrations, err := migrationutils.ListNotFinishedMigrations(c.migrationInformer)
+	migrations, err := migrationutils.ListUnfinishedMigrations(c.migrationInformer)
 
 	if err != nil {
 		return fmt.Errorf("failed to list not finished migrations: %v", err)
@@ -340,16 +345,17 @@ func (c *EvacuationController) sync(node *k8sv1.Node, vmisOnNode []*virtv1.Virtu
 		return nil
 	}
 
-	if len(activeMigrations) >= 5 {
-		// Don't create hundreds of pending migration objects.
-		// This is just best-effort and is *not* intended to not overload the cluster
-		// The migration controller needs to limit itself to a reasonable number
+	// Don't create hundreds of pending migration objects.
+	// This is just best-effort and is *not* intended to not overload the cluster.
+	// It is possible that more migrations than the limit are created because of evacuations on other nodes.
+	// The migration controller needs to limit itself to a reasonable number of running migrations
+	maxParallelMigrations := int(*c.clusterConfig.GetMigrationConfig().ParallelMigrationsPerCluster)
+	if len(activeMigrations) >= maxParallelMigrations {
 		// We have to re-enqueue since migrations from other controllers or workers` don't wake us up again
 		c.Queue.AddAfter(node.Name, 5*time.Second)
 		return nil
 	}
-
-	diff := int(math.Min(float64(5-len(activeMigrations)), float64(len(migrationCandidates))))
+	diff := int(math.Min(float64(maxParallelMigrations-len(activeMigrations)), float64(len(migrationCandidates))))
 
 	if diff == 0 {
 		// nothing to do

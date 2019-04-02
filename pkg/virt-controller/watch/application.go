@@ -250,7 +250,7 @@ func (vca *VirtControllerApp) Run() {
 					stop := ctx.Done()
 					vca.informerFactory.Start(stop)
 					vca.k8sInformers.Start(stop)
-					go vca.evacuationController.Run(1, stop)
+					go vca.evacuationController.Run(controllerThreads, stop)
 					go vca.disruptionBudgetController.Run(controllerThreads, stop)
 					go vca.nodeController.Run(controllerThreads, stop)
 					go vca.vmiController.Run(controllerThreads, stop)
@@ -337,6 +337,7 @@ func (vca *VirtControllerApp) initEvacuationController() {
 		vca.nodeInformer,
 		recorder,
 		vca.clientSet,
+		virtconfig.NewClusterConfig(vca.configMapInformer.GetStore()),
 	)
 }
 

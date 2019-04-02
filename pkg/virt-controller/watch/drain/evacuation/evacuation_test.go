@@ -73,7 +73,7 @@ var _ = Describe("Evacuation", func() {
 		nodeInformer, nodeSource = testutils.NewFakeInformerFor(&v12.Node{})
 		recorder = record.NewFakeRecorder(100)
 
-		controller = evacuation.NewEvacuationController(vmiInformer, migrationInformer, nodeInformer, recorder, virtClient)
+		controller = evacuation.NewEvacuationController(vmiInformer, migrationInformer, nodeInformer, recorder, virtClient, testutils.MakeFakeClusterConfig(nil, stop))
 		mockQueue = testutils.NewMockWorkQueue(controller.Queue)
 		controller.Queue = mockQueue
 		migrationFeeder = testutils.NewMigrationFeeder(mockQueue, migrationSource)

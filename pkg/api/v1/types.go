@@ -349,6 +349,14 @@ func (m *VirtualMachineInstanceMigration) IsFinal() bool {
 	return m.Status.Phase == MigrationFailed || m.Status.Phase == MigrationSucceeded
 }
 
+func (m *VirtualMachineInstanceMigration) IsRunning() bool {
+	switch m.Status.Phase {
+	case MigrationFailed, MigrationPending, MigrationPhaseUnset, MigrationSucceeded:
+		return false
+	}
+	return true
+}
+
 // The migration phase indicates that the target pod should have already been created
 func (m *VirtualMachineInstanceMigration) TargetIsCreated() bool {
 	return m.Status.Phase != MigrationPhaseUnset &&
