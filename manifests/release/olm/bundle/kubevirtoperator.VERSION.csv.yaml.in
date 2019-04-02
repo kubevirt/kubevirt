@@ -86,6 +86,16 @@ spec:
             path: imagePullPolicy
             x-descriptors:
               - 'urn:alm:descriptor:io.kubernetes:imagePullPolicy'
+          - description: The ImageRegistry to use for the KubeVirt components.
+            displayName: ImageRegistry
+            path: imageRegistry
+            x-descriptors:
+              - 'urn:alm:descriptor:text'
+          - description: The ImageTag to use for the KubeVirt components.
+            displayName: ImageTag
+            path: imageTag
+            x-descriptors:
+              - 'urn:alm:descriptor:text'
         statusDescriptors:
           - description: The deployment phase.
             displayName: Phase
@@ -104,6 +114,14 @@ spec:
           - description: The targeted version of the KubeVirt deployment.
             displayName: Target KubeVirt Version
             path: targetKubeVirtVersion
+              - 'urn:alm:descriptor:text'
+          - description: The observed registry of the KubeVirt deployment.
+            displayName: Observed KubeVirt registry
+            path: ObservedKubeVirtRegistry
+              - 'urn:alm:descriptor:text'
+          - description: The targeted registry of the KubeVirt deployment.
+            displayName: Target KubeVirt registry
+            path: TargetKubeVirtRegistry
               - 'urn:alm:descriptor:text'
           - description: The version of the KubeVirt Operator.
             displayName: KubeVirt Operator Version
