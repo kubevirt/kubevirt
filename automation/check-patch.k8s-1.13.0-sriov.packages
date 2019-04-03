@@ -4,3 +4,4 @@ docker
 make
 kubectl
 iproute
+golang
