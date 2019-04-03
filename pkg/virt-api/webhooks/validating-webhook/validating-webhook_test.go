@@ -115,7 +115,7 @@ var _ = Describe("Validating Webhook", func() {
 			var vmi *v1.VirtualMachineInstance
 			var policy = v1.EvictionStrategyLiveMigrate
 			BeforeEach(func() {
-				os.Setenv("FEATURE_GATES", "LiveMigrateOnDrains")
+				os.Setenv("FEATURE_GATES", "LiveMigration")
 				vmi = v1.NewMinimalVMI("testvmi")
 				vmi.Spec.EvictionStrategy = nil
 			})
@@ -132,7 +132,7 @@ var _ = Describe("Validating Webhook", func() {
 				os.Setenv("FEATURE_GATES", "")
 				vmi.Spec.EvictionStrategy = &policy
 				resp := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec)
-				Expect(resp[0].Message).To(ContainSubstring("LiveMigrateOnDrains feature gate is not enabled"))
+				Expect(resp[0].Message).To(ContainSubstring("LiveMigration feature gate is not enabled"))
 			})
 
 			It("should allow no eviction policy to be set", func() {
