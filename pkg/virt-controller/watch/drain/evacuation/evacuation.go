@@ -298,8 +298,14 @@ func (c *EvacuationController) execute(key string) error {
 
 	node := obj.(*k8sv1.Node)
 
-	// If the node has not taints, we have nothing to do
-	if !nodeHasTaint(node) {
+	// If the node has no drain taint, we have nothing to do
+	taintKey := *c.clusterConfig.GetMigrationConfig().NodeDrainTaintKey
+	taint := &k8sv1.Taint{
+		Key:    taintKey,
+		Effect: k8sv1.TaintEffectNoSchedule,
+	}
+
+	if !nodeHasTaint(taint, node) {
 		return nil
 	}
 
@@ -324,21 +330,7 @@ func (c *EvacuationController) sync(node *k8sv1.Node, vmisOnNode []*virtv1.Virtu
 		return nil
 	}
 
-	now := time.Now()
-
-	notMigratingVMIs := c.filterRunningNonMigratingVMIs(vmisOnNode, activeMigrations)
-	notForeverToleratedVMIs := c.filterNotToleratedVMIs(now, notMigratingVMIs, node.Spec.Taints)
-
-	// Ensure we enqueue VMIs again which are only temporary tolerated
-	// and treat the others as migration candidates
-	migrationCandidates := []*notolerate{}
-	for _, candidate := range notForeverToleratedVMIs {
-		if len(candidate.NotTolerated) > 0 {
-			migrationCandidates = append(migrationCandidates, candidate)
-		} else if candidate.FirstReque != nil {
-			c.Queue.AddAfter(node.Name, candidate.FirstReque.Sub(now))
-		}
-	}
+	migrationCandidates := c.filterRunningNonMigratingVMIs(vmisOnNode, activeMigrations)
 
 	if len(migrationCandidates) == 0 {
 		// nothing to do
@@ -372,22 +364,22 @@ func (c *EvacuationController) sync(node *k8sv1.Node, vmisOnNode []*virtv1.Virtu
 	errChan := make(chan error, diff)
 
 	c.migrationExpectations.ExpectCreations(node.Name, diff)
-	for _, entry := range selectedCandidates {
-		go func(entry *notolerate) {
+	for _, vmi := range selectedCandidates {
+		go func(vmi *virtv1.VirtualMachineInstance) {
 			defer wg.Done()
-			_, err := c.clientset.VirtualMachineInstanceMigration(entry.VMI.Namespace).Create(&virtv1.VirtualMachineInstanceMigration{
+			_, err := c.clientset.VirtualMachineInstanceMigration(vmi.Namespace).Create(&virtv1.VirtualMachineInstanceMigration{
 				ObjectMeta: v1.ObjectMeta{
 					GenerateName: "kubevirt-evacuation-",
 				},
 				Spec: virtv1.VirtualMachineInstanceMigrationSpec{
-					VMIName: entry.VMI.Name,
+					VMIName: vmi.Name,
 				},
 			})
 			if err != nil {
 				c.migrationExpectations.CreationObserved(node.Name)
 				errChan <- err
 			}
-		}(entry)
+		}(vmi)
 	}
 
 	wg.Wait()
@@ -422,7 +414,13 @@ func (c *EvacuationController) filterRunningNonMigratingVMIs(vmis []*virtv1.Virt
 
 	for _, vmi := range vmis {
 
+		// does not want to migrate
+		if vmi.Spec.EvictionStrategy == nil || *vmi.Spec.EvictionStrategy != virtv1.EvictionStrategyLiveMigrate {
+			continue
+		}
+		// can't migrate
 		if !controller.NewVirtualMachineInstanceConditionManager().HasConditionWithStatus(vmi, virtv1.VirtualMachineInstanceIsMigratable, k8sv1.ConditionTrue) {
+			// TODO write event
 			continue
 		}
 		if exists := lookup[vmi.Namespace+"/"+vmi.Name]; !exists &&
@@ -435,20 +433,13 @@ func (c *EvacuationController) filterRunningNonMigratingVMIs(vmis []*virtv1.Virt
 	return migrationCandidates
 }
 
-func (c *EvacuationController) filterNotToleratedVMIs(now time.Time, vmis []*virtv1.VirtualMachineInstance, taints []k8sv1.Taint) []*notolerate {
-
-	migrationCandidates := []*notolerate{}
-
-	for _, vmi := range vmis {
-		if notTolerated, temporaryTolerated, firstRequeueTime := findNotToleratedTaints(now, vmi.Spec.EvictionPolicy, taints); notTolerated != nil || temporaryTolerated != nil {
-			migrationCandidates = append(migrationCandidates, &notolerate{vmi, notTolerated, temporaryTolerated, firstRequeueTime})
+func nodeHasTaint(taint *k8sv1.Taint, node *k8sv1.Node) bool {
+	for _, t := range node.Spec.Taints {
+		if t.MatchTaint(taint) {
+			return true
 		}
 	}
-	return migrationCandidates
-}
-
-func nodeHasTaint(node *k8sv1.Node) bool {
-	return len(node.Spec.Taints) > 0
+	return false
 }
 
 type notolerate struct {
@@ -456,41 +447,4 @@ type notolerate struct {
 	NotTolerated       []k8sv1.Taint
 	TemporaryTolerated []k8sv1.Taint
 	FirstReque         *time.Time
-}
-
-func findNotToleratedTaints(now time.Time, evictionStrategies *virtv1.EvictionPolicy, taints []k8sv1.Taint) (notTolerated []k8sv1.Taint, temporaryTolerated []k8sv1.Taint, firstRequeueTime *time.Time) {
-	if evictionStrategies == nil {
-		return
-	}
-
-	for _, taint := range taints {
-		var tolerated *virtv1.TaintEvictionPolicy
-		for _, toleration := range evictionStrategies.Taints {
-			if toleration.ToleratesTaint(&taint) {
-				tolerated = &toleration
-				break
-			}
-		}
-		if tolerated != nil {
-			// we only care about VMIs with an eviction policy of LiveMigrate
-			if tolerated.Strategy == nil || *tolerated.Strategy != virtv1.EvictionStrategyLiveMigrate {
-				continue
-			} else if tolerated.TolerationSeconds != nil && taint.TimeAdded != nil {
-				toleratedUntil := now.Add(time.Duration(*tolerated.TolerationSeconds) * time.Second)
-				if toleratedUntil.Before(taint.TimeAdded.Time) {
-					notTolerated = append(notTolerated, taint)
-				} else {
-					if firstRequeueTime == nil {
-						firstRequeueTime = &toleratedUntil
-					} else if firstRequeueTime.After(toleratedUntil) {
-						firstRequeueTime = &toleratedUntil
-					}
-					temporaryTolerated = append(temporaryTolerated, taint)
-				}
-			} else {
-				notTolerated = append(notTolerated, taint)
-			}
-		}
-	}
-	return
 }

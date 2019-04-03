@@ -24,7 +24,6 @@ go_library(
 go_test(
     name = "go_default_test",
     srcs = [
-        "evacuation_filter_test.go",
         "evacuation_suite_test.go",
         "evacuation_test.go",
     ],

@@ -52,6 +52,8 @@ const (
 	ParallelOutboundMigrationsPerNodeDefault uint32 = 2
 	ParallelMigrationsPerClusterDefault      uint32 = 5
 	BandwithPerMigrationDefault                     = "64Mi"
+
+	NodeDrainTaintDefaultKey = "kubevirt.io/drain"
 )
 
 // We cannot rely on automatic invocation of 'init' method because this initialization
@@ -123,6 +125,7 @@ func defaultClusterConfig() *Config {
 	parallelOutboundMigrationsPerNodeDefault := ParallelOutboundMigrationsPerNodeDefault
 	parallelMigrationsPerClusterDefault := ParallelMigrationsPerClusterDefault
 	bandwithPerMigrationDefault := resource.MustParse(BandwithPerMigrationDefault)
+	nodeDrainTaintDefaultKey := NodeDrainTaintDefaultKey
 	return &Config{
 		ResourceVersion: "0",
 		ImagePullPolicy: k8sv1.PullIfNotPresent,
@@ -131,6 +134,7 @@ func defaultClusterConfig() *Config {
 			ParallelMigrationsPerCluster:      &parallelMigrationsPerClusterDefault,
 			ParallelOutboundMigrationsPerNode: &parallelOutboundMigrationsPerNodeDefault,
 			BandwidthPerMigration:             &bandwithPerMigrationDefault,
+			NodeDrainTaintKey:                 &nodeDrainTaintDefaultKey,
 		},
 	}
 }
@@ -146,6 +150,7 @@ type MigrationConfig struct {
 	ParallelOutboundMigrationsPerNode *uint32            `json:"parallelOutboundMigrationsPerNode,omitempty"`
 	ParallelMigrationsPerCluster      *uint32            `json:"parallelMigrationsPerCluster,omitempty"`
 	BandwidthPerMigration             *resource.Quantity `json:"bandwidthPerMigration,omitempty"`
+	NodeDrainTaintKey                 *string            `json:"nodeDrainTaintKey,omitempty"`
 }
 
 type ClusterConfig struct {

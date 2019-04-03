@@ -4447,16 +4447,6 @@
      }
     }
    },
-   "v1.EvictionPolicy": {
-    "properties": {
-     "taints": {
-      "type": "array",
-      "items": {
-       "$ref": "#/definitions/v1.TaintEvictionPolicy"
-      }
-     }
-    }
-   },
    "v1.EvictionStrategy": {},
    "v1.FeatureAPIC": {
     "properties": {
@@ -5651,35 +5641,6 @@
      }
     }
    },
-   "v1.TaintEvictionPolicy": {
-    "properties": {
-     "effect": {
-      "description": "Effect indicates the taint effect to match. Empty means match all taint effects. When specified, allowed values are NoSchedule, PreferNoSchedule and NoExecute.",
-      "type": "string"
-     },
-     "key": {
-      "description": "Key is the taint key that the toleration applies to. Empty means match all taint keys. If the key is empty, operator must be Exists; this combination means to match all values and all keys.",
-      "type": "string"
-     },
-     "operator": {
-      "description": "Operator represents a key's relationship to the value. Valid operators are Exists and Equal. Defaults to Equal. Exists is equivalent to wildcard for value, so that a pod can tolerate all taints of a particular category.",
-      "type": "string"
-     },
-     "strategy": {
-      "description": "Defines if a VMI should be live-migrated or shut-down if it gets evicted by k8s",
-      "$ref": "#/definitions/v1.EvictionStrategy"
-     },
-     "tolerationSeconds": {
-      "description": "TolerationSeconds represents the period of time the toleration (which must be of effect NoExecute, otherwise this field is ignored) tolerates the taint. By default, it is not set, which means tolerate the taint forever (do not evict). Zero and negative values will be treated as 0 (evict immediately) by the system.",
-      "type": "integer",
-      "format": "int64"
-     },
-     "value": {
-      "description": "Value is the taint value the toleration matches to. If the operator is Exists, the value should be empty, otherwise just a regular string.",
-      "type": "string"
-     }
-    }
-   },
    "v1.Timer": {
     "description": "Represents all available timers in a vmi.",
     "properties": {
@@ -6293,8 +6254,9 @@
       "description": "Specification of the desired behavior of the VirtualMachineInstance on the host.",
       "$ref": "#/definitions/v1.DomainSpec"
      },
-     "evictionStrategies": {
-      "$ref": "#/definitions/v1.EvictionPolicy"
+     "evictionStrategy": {
+      "description": "EvictionStrategy can be set to \"LiveMigrate\" if the VirtualMachineInstance should be\nmigrated instead of shut-off in case of a node drain.",
+      "$ref": "#/definitions/v1.EvictionStrategy"
      },
      "hostname": {
       "description": "Specifies the hostname of the vmi\nIf not specified, the hostname will be set to the name of the vmi, if dhcp or cloud-init is configured properly.\n+optional",

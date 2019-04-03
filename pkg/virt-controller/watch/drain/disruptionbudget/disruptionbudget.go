@@ -320,7 +320,7 @@ func (c *DisruptionBudgetController) sync(key string, vmi *virtv1.VirtualMachine
 	if vmi == nil && pdb != nil {
 		delete = true
 	} else if vmi != nil {
-		wantsToMigrate := wantsToMigrateOnTaints(vmi)
+		wantsToMigrate := wantsToMigrateOnDrain(vmi)
 		if vmi.DeletionTimestamp != nil && pdb != nil {
 			// pdb can already be deleted, shutdown already in process
 			delete = true
@@ -394,14 +394,12 @@ func (c *DisruptionBudgetController) pdbForVMI(namespace, name string) (*v1beta1
 	return nil, nil
 }
 
-func wantsToMigrateOnTaints(vmi *virtv1.VirtualMachineInstance) bool {
-	if vmi.Spec.EvictionPolicy == nil {
+func wantsToMigrateOnDrain(vmi *virtv1.VirtualMachineInstance) bool {
+	if vmi.Spec.EvictionStrategy == nil {
 		return false
 	}
-	for _, taint := range vmi.Spec.EvictionPolicy.Taints {
-		if taint.Strategy != nil && *taint.Strategy == virtv1.EvictionStrategyLiveMigrate {
-			return true
-		}
+	if *vmi.Spec.EvictionStrategy == virtv1.EvictionStrategyLiveMigrate {
+		return true
 	}
 	return false
 }

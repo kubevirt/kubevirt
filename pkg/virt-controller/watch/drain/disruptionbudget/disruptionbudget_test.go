@@ -130,7 +130,7 @@ var _ = Describe("Disruptionbudget", func() {
 
 		It("should do nothing, if a pdb exists", func() {
 			vmi := newVirtualMachine("testvm")
-			vmi.Spec.EvictionPolicy = newEvictionPolicy()
+			vmi.Spec.EvictionStrategy = newEvictionStrategy()
 			addVirtualMachine(vmi)
 			pdb := newPodDisruptionBudget(vmi)
 			pdbFeeder.Add(pdb)
@@ -140,7 +140,7 @@ var _ = Describe("Disruptionbudget", func() {
 
 		It("should remove the pdb if the VMI disappears", func() {
 			vmi := newVirtualMachine("testvm")
-			vmi.Spec.EvictionPolicy = newEvictionPolicy()
+			vmi.Spec.EvictionStrategy = newEvictionStrategy()
 			addVirtualMachine(vmi)
 			pdb := newPodDisruptionBudget(vmi)
 			pdbFeeder.Add(pdb)
@@ -154,14 +154,14 @@ var _ = Describe("Disruptionbudget", func() {
 
 		It("should remove the pdb if the VMI does not want to be migrated anymore", func() {
 			vmi := newVirtualMachine("testvm")
-			vmi.Spec.EvictionPolicy = newEvictionPolicy()
+			vmi.Spec.EvictionStrategy = newEvictionStrategy()
 			addVirtualMachine(vmi)
 			pdb := newPodDisruptionBudget(vmi)
 			pdbFeeder.Add(pdb)
 
 			controller.Execute()
 
-			vmi.Spec.EvictionPolicy = nil
+			vmi.Spec.EvictionStrategy = nil
 			vmiFeeder.Modify(vmi)
 			shouldExpectPDBDeletion(pdb)
 			controller.Execute()
@@ -169,7 +169,7 @@ var _ = Describe("Disruptionbudget", func() {
 
 		It("should add the pdb, if it does not exist", func() {
 			vmi := newVirtualMachine("testvm")
-			vmi.Spec.EvictionPolicy = newEvictionPolicy()
+			vmi.Spec.EvictionStrategy = newEvictionStrategy()
 			addVirtualMachine(vmi)
 
 			shouldExpectPDBCreation(vmi.UID)
@@ -178,7 +178,7 @@ var _ = Describe("Disruptionbudget", func() {
 
 		It("should recreate the pdb, if it disappears", func() {
 			vmi := newVirtualMachine("testvm")
-			vmi.Spec.EvictionPolicy = newEvictionPolicy()
+			vmi.Spec.EvictionStrategy = newEvictionStrategy()
 			addVirtualMachine(vmi)
 			pdb := newPodDisruptionBudget(vmi)
 			pdbFeeder.Add(pdb)
@@ -191,7 +191,7 @@ var _ = Describe("Disruptionbudget", func() {
 
 		It("should recreate the pdb, if the pdb is orphaned", func() {
 			vmi := newVirtualMachine("testvm")
-			vmi.Spec.EvictionPolicy = newEvictionPolicy()
+			vmi.Spec.EvictionStrategy = newEvictionStrategy()
 			addVirtualMachine(vmi)
 			pdb := newPodDisruptionBudget(vmi)
 			pdbFeeder.Add(pdb)
@@ -241,17 +241,7 @@ func newPodDisruptionBudget(vmi *v1.VirtualMachineInstance) *v1beta1.PodDisrupti
 	}
 }
 
-func newEvictionPolicy() *v1.EvictionPolicy {
+func newEvictionStrategy() *v1.EvictionStrategy {
 	strategy := v1.EvictionStrategyLiveMigrate
-	return &v1.EvictionPolicy{
-		Taints: []v1.TaintEvictionPolicy{
-			{
-				Toleration: v12.Toleration{
-					Key:    "test",
-					Effect: v12.TaintEffectNoSchedule,
-				},
-				Strategy: &strategy,
-			},
-		},
-	}
+	return &strategy
 }

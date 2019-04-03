@@ -143,19 +143,8 @@ type VirtualMachineInstanceList struct {
 	Items           []VirtualMachineInstance `json:"items"`
 }
 
-// ---
 // +k8s:openapi-gen=true
-type TaintEvictionPolicy struct {
-	k8sv1.Toleration `json:",inline"`
-	// Defines if a VMI should be live-migrated or shut-down if it gets evicted by k8s
-	// ---
-	// +optional
-	Strategy *EvictionStrategy `json:"strategy,omitempty"`
-}
-
-type EvictionPolicy struct {
-	Taints []TaintEvictionPolicy `json:"taints,omitempty"`
-}
+type EvictionStrategy string
 
 // VirtualMachineInstanceSpec is a description of a VirtualMachineInstance.
 // ---
@@ -173,9 +162,11 @@ type VirtualMachineInstanceSpec struct {
 	// If toleration is specified, obey all the toleration rules.
 	Tolerations []k8sv1.Toleration `json:"tolerations,omitempty"`
 
+	// EvictionStrategy can be set to "LiveMigrate" if the VirtualMachineInstance should be
+	// migrated instead of shut-off in case of a node drain.
 	// ---
 	// +optional
-	EvictionPolicy *EvictionPolicy `json:"evictionStrategies,omitempty"`
+	EvictionStrategy *EvictionStrategy `json:"evictionStrategy,omitempty"`
 
 	// Grace period observed after signalling a VirtualMachineInstance to stop after which the VirtualMachineInstance is force terminated.
 	TerminationGracePeriodSeconds *int64 `json:"terminationGracePeriodSeconds,omitempty"`
@@ -1188,11 +1179,6 @@ const (
 	KubeVirtConditionReady KubeVirtConditionType = "Ready"
 )
 
-// ---
-// +k8s:openapi-gen=true
-type EvictionStrategy string
-
 const (
-	EvictionStrategyNone        EvictionStrategy = "None"
 	EvictionStrategyLiveMigrate EvictionStrategy = "LiveMigrate"
 )

@@ -111,7 +111,7 @@ var _ = Describe("Evacuation", func() {
 			addNode(node)
 			addNode(node1)
 			vmi := newVirtualMachine("testvm", node1.Name)
-			vmi.Spec.EvictionPolicy = newEvictionPolicy()
+			vmi.Spec.EvictionStrategy = newEvictionStrategy()
 			vmiFeeder.Add(vmi)
 
 			controller.Execute()
@@ -128,7 +128,7 @@ var _ = Describe("Evacuation", func() {
 			addNode(node1)
 
 			vmi := newVirtualMachine("testvm", node.Name)
-			vmi.Spec.EvictionPolicy = newEvictionPolicy()
+			vmi.Spec.EvictionStrategy = newEvictionStrategy()
 			vmiFeeder.Add(vmi)
 
 			migrationInterface.EXPECT().Create(gomock.Any())
@@ -144,12 +144,12 @@ var _ = Describe("Evacuation", func() {
 			addNode(node1)
 
 			vmi := newVirtualMachine("testvm", node.Name)
-			vmi.Spec.EvictionPolicy = newEvictionPolicy()
+			vmi.Spec.EvictionStrategy = newEvictionStrategy()
 			vmi.Status.Conditions = []v1.VirtualMachineInstanceCondition{{Type: v1.VirtualMachineInstanceIsMigratable, Status: v12.ConditionFalse}}
 			vmiFeeder.Add(vmi)
 
 			vmi1 := newVirtualMachine("testvm1", node.Name)
-			vmi1.Spec.EvictionPolicy = newEvictionPolicy()
+			vmi1.Spec.EvictionStrategy = newEvictionStrategy()
 			vmi1.Status.Conditions = nil
 			vmiFeeder.Add(vmi1)
 
@@ -162,9 +162,9 @@ var _ = Describe("Evacuation", func() {
 			addNode(node)
 
 			vmi := newVirtualMachine("testvm", node.Name)
-			vmi.Spec.EvictionPolicy = newEvictionPolicy()
+			vmi.Spec.EvictionStrategy = newEvictionStrategy()
 			vmi1 := newVirtualMachine("testvm1", node.Name)
-			vmi1.Spec.EvictionPolicy = newEvictionPolicy()
+			vmi1.Spec.EvictionStrategy = newEvictionStrategy()
 			vmiFeeder.Add(vmi)
 			vmiFeeder.Add(vmi1)
 
@@ -184,9 +184,9 @@ var _ = Describe("Evacuation", func() {
 			addNode(node)
 
 			vmi := newVirtualMachine("testvm", node.Name)
-			vmi.Spec.EvictionPolicy = newEvictionPolicy()
+			vmi.Spec.EvictionStrategy = newEvictionStrategy()
 			vmi1 := newVirtualMachine("testvm1", node.Name)
-			vmi1.Spec.EvictionPolicy = newEvictionPolicy()
+			vmi1.Spec.EvictionStrategy = newEvictionStrategy()
 			vmiFeeder.Add(vmi)
 			vmiFeeder.Add(vmi1)
 			migration := newMigration("mig1", vmi.Name, v1.MigrationRunning)
@@ -242,24 +242,14 @@ func newMigration(name string, vmi string, phase v1.VirtualMachineInstanceMigrat
 	return migration
 }
 
-func newEvictionPolicy() *v1.EvictionPolicy {
+func newEvictionStrategy() *v1.EvictionStrategy {
 	strategy := v1.EvictionStrategyLiveMigrate
-	return &v1.EvictionPolicy{
-		Taints: []v1.TaintEvictionPolicy{
-			{
-				Toleration: v12.Toleration{
-					Key:    "test",
-					Effect: v12.TaintEffectNoSchedule,
-				},
-				Strategy: &strategy,
-			},
-		},
-	}
+	return &strategy
 }
 
 func newTaint() *v12.Taint {
 	return &v12.Taint{
 		Effect: v12.TaintEffectNoSchedule,
-		Key:    "test",
+		Key:    "kubevirt.io/drain",
 	}
 }

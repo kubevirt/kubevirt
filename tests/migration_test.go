@@ -657,16 +657,6 @@ var _ = Describe("Migrations", func() {
 func vmiWithEvictionStrategy() *v1.VirtualMachineInstance {
 	strategy := v1.EvictionStrategyLiveMigrate
 	vmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(tests.ContainerDiskFor(tests.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n")
-	vmi.Spec.EvictionPolicy = &v1.EvictionPolicy{
-		Taints: []v1.TaintEvictionPolicy{
-			{
-				Strategy: &strategy,
-				Toleration: k8sv1.Toleration{
-					Key:    "kubevirt.io/drain",
-					Effect: k8sv1.TaintEffectNoSchedule,
-				},
-			},
-		},
-	}
+	vmi.Spec.EvictionStrategy = &strategy
 	return vmi
 }
