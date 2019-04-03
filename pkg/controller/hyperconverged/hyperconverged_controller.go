@@ -194,7 +194,7 @@ func (r *ReconcileHyperConverged) Reconcile(request reconcile.Request) (reconcil
 
 func manageComponentCR(err error, o runtime.Object, kind string, c client.Client) (reconcile.Result, error) {
 	if err != nil && errors.IsNotFound(err) {
-		log.Info("Creating a new %s CR", kind)
+		log.Info("Creating a new CR", "Kind", kind)
 		err = c.Create(context.TODO(), o)
 		if err != nil {
 			return reconcile.Result{}, err
@@ -207,7 +207,7 @@ func manageComponentCR(err error, o runtime.Object, kind string, c client.Client
 	}
 
 	// Object CR already exists - don't requeue
-	log.Info("Skip reconcile: %s CR already exists", kind)
+	log.Info("Skip reconcile: CR already exists", "Kind", kind)
 
 	return reconcile.Result{}, nil
 }
