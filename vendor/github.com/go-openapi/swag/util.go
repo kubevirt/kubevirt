@@ -226,7 +226,7 @@ func lower(str string) string {
 
 // Camelize an uppercased word
 func Camelize(word string) (camelized string) {
-	for pos, ru := range word {
+	for pos, ru := range []rune(word) {
 		if pos > 0 {
 			camelized += string(unicode.ToLower(ru))
 		} else {
@@ -282,7 +282,7 @@ func ToHumanNameTitle(name string) string {
 	for _, w := range in {
 		uw := upper(w)
 		if !isInitialism(uw) {
-			out = append(out, upper(w[:1])+lower(w[1:]))
+			out = append(out, Camelize(w))
 		} else {
 			out = append(out, w)
 		}
@@ -300,7 +300,7 @@ func ToJSONName(name string) string {
 			out = append(out, lower(w))
 			continue
 		}
-		out = append(out, upper(w[:1])+lower(w[1:]))
+		out = append(out, Camelize(w))
 	}
 	return strings.Join(out, "")
 }
@@ -326,19 +326,15 @@ func ToGoName(name string) string {
 		uw := upper(w)
 		mod := int(math.Min(float64(len(uw)), 2))
 		if !isInitialism(uw) && !isInitialism(uw[:len(uw)-mod]) {
-			uw = upper(w[:1]) + lower(w[1:])
+			uw = Camelize(w)
 		}
 		out = append(out, uw)
 	}
 
 	result := strings.Join(out, "")
 	if len(result) > 0 {
-		ud := upper(result[:1])
-		ru := []rune(ud)
-		if unicode.IsUpper(ru[0]) {
-			result = ud + result[1:]
-		} else {
-			result = "X" + ud + result[1:]
+		if !unicode.IsUpper([]rune(result)[0]) {
+			result = "X" + result
 		}
 	}
 	return result

@@ -1,4 +1,11 @@
 #!/usr/bin/env bash
 
-docker tag kubevirt/builder:28-5.0.0 docker.io/kubevirt/builder:28-5.0.0
-docker push docker.io/kubevirt/builder:28-5.0.0
+SCRIPT_DIR="$(
+    cd "$(dirname "$BASH_SOURCE[0]")"
+    pwd
+)"
+
+. ${SCRIPT_DIR}/version.sh
+
+docker tag kubevirt/builder:${VERSION} docker.io/kubevirt/builder:${VERSION}
+docker push docker.io/kubevirt/builder:${VERSION}

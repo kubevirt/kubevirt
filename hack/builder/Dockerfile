@@ -1,6 +1,6 @@
 FROM fedora:28
 
-ENV LIBVIRT_VERSION 5.0.0
+ENV LIBVIRT_VERSION 5.1.0
 
 # Install packages
 RUN dnf install -y dnf-plugins-core && \
@@ -23,7 +23,10 @@ RUN dnf install -y dnf-plugins-core && \
         rsync-daemon \
         rsync \
         qemu-img \
-        protobuf-compiler && \
+        protobuf-compiler \
+        python3-devel \
+        redhat-rpm-config \
+        jq && \
     dnf -y clean all
 
 ENV GIMME_GO_VERSION=1.11.5

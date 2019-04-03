@@ -5,4 +5,6 @@ SCRIPT_DIR="$(
     pwd
 )"
 
-docker build -t kubevirt/builder:28-5.0.0 -f ${SCRIPT_DIR}/Dockerfile ${SCRIPT_DIR}
+. ${SCRIPT_DIR}/version.sh
+
+docker build -t kubevirt/builder:${VERSION} -f ${SCRIPT_DIR}/Dockerfile ${SCRIPT_DIR}

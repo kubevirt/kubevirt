@@ -1,0 +1,129 @@
+apiVersion: operators.coreos.com/v1alpha1
+kind: ClusterServiceVersion
+metadata:
+  name: kubevirtoperator.{{.CsvVersion}}
+  namespace: placeholder
+  annotations:
+    capabilities: "Full Lifecycle"
+    categories: "Virtualization"
+    alm-examples: |
+      [
+        {
+          "apiVersion":"kubevirt.io/v1alpha3",
+          "kind":"KubeVirt",
+          "metadata": {
+            "name":"kubevirt",
+            "namespace":"kubevirt"
+          },
+          "spec": {
+            "imagePullPolicy":"Always"
+          }
+        }
+      ]
+    description: Creates and maintains KubeVirt deployments
+spec:
+  displayName: KubeVirt
+  description: |
+    KubeVirt is a cluster add-on that provides a way to run virtualized workloads alongside containerized workload in a Kubernetes / OpenShift native way.
+
+    _The KubeVirt Operator does not support updates yet._
+  keywords:
+    - KubeVirt
+    - Virtualization
+  version: {{.CsvVersion}}
+  maturity: alpha
+{{.ReplacesCsvVersion}}
+  maintainers:
+    - name: KubeVirt project
+      email: kubevirt-dev@googlegroups.com
+  provider:
+    name: KubeVirt project
+  links:
+    - name: KubeVirt
+      url: https://kubevirt.io
+    - name: Source Code
+      url: https://github.com/kubevirt/kubevirt
+  icon:
+    - base64data: {{.KubeVirtLogo}}
+      mediatype: image/png
+  labels:
+    alm-owner-kubevirt: kubevirtoperator
+    operated-by: kubevirtoperator
+  selector:
+    matchLabels:
+      alm-owner-kubevirt: kubevirtoperator
+      operated-by: kubevirtoperator
+  installModes:
+    - type: OwnNamespace
+      supported: true
+    - type: SingleNamespace
+      supported: true
+    - type: MultiNamespace
+      supported: true
+    - type: AllNamespaces
+      supported: true
+  install:
+    strategy: deployment
+    spec:
+      clusterPermissions:
+        - serviceAccountName: kubevirt-operator
+          rules:
+{{.OperatorRules}}
+      deployments:
+        - name: virt-operator
+          spec:
+{{.OperatorDeploymentSpec}}
+  customresourcedefinitions:
+    owned:
+      - name: kubevirts.kubevirt.io
+        version: v1alpha3
+        kind: KubeVirt
+        displayName: KubeVirt deployment
+        description: Represents a KubeVirt deployment.
+        specDescriptors:
+          - description: The ImagePullPolicy to use for the KubeVirt components.
+            displayName: ImagePullPolicy
+            path: imagePullPolicy
+            x-descriptors:
+              - 'urn:alm:descriptor:io.kubernetes:imagePullPolicy'
+          - description: The ImageRegistry to use for the KubeVirt components.
+            displayName: ImageRegistry
+            path: imageRegistry
+            x-descriptors:
+              - 'urn:alm:descriptor:text'
+          - description: The ImageTag to use for the KubeVirt components.
+            displayName: ImageTag
+            path: imageTag
+            x-descriptors:
+              - 'urn:alm:descriptor:text'
+        statusDescriptors:
+          - description: The deployment phase.
+            displayName: Phase
+            path: phase
+            x-descriptors:
+              - 'urn:alm:descriptor:io.kubernetes.phase'
+          - description: Explanation for the current status of the cluster.
+            displayName: Conditions
+            path: conditions
+            x-descriptors:
+              - 'urn:alm:descriptor:io.kubernetes.conditions'
+          - description: The observed version of the KubeVirt deployment.
+            displayName: Observed KubeVirt Version
+            path: observedKubeVirtVersion
+              - 'urn:alm:descriptor:text'
+          - description: The targeted version of the KubeVirt deployment.
+            displayName: Target KubeVirt Version
+            path: targetKubeVirtVersion
+              - 'urn:alm:descriptor:text'
+          - description: The observed registry of the KubeVirt deployment.
+            displayName: Observed KubeVirt registry
+            path: ObservedKubeVirtRegistry
+              - 'urn:alm:descriptor:text'
+          - description: The targeted registry of the KubeVirt deployment.
+            displayName: Target KubeVirt registry
+            path: TargetKubeVirtRegistry
+              - 'urn:alm:descriptor:text'
+          - description: The version of the KubeVirt Operator.
+            displayName: KubeVirt Operator Version
+            path: operatorVersion
+              - 'urn:alm:descriptor:text'

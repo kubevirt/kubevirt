@@ -3,6 +3,7 @@
 tools/openapispec/openapispec
 tools/crd-generator/crd-generator
 tools/resource-generator/resource-generator
+tools/marketplace/marketplace
 **/bin
 bin/*
 .vagrant

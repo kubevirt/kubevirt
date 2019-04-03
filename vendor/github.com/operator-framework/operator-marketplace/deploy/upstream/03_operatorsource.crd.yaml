@@ -1,0 +1,74 @@
+apiVersion: apiextensions.k8s.io/v1beta1
+kind: CustomResourceDefinition
+metadata:
+  name: operatorsources.operators.coreos.com
+  annotations:
+    displayName: Operator Source
+    description: Represents an OperatorSource.
+spec:
+  group: operators.coreos.com
+  names:
+    kind: OperatorSource
+    listKind: OperatorSourceList
+    plural: operatorsources
+    singular: operatorsource
+    shortNames:
+    - opsrc
+  scope: Namespaced
+  version: v1
+  additionalPrinterColumns:
+  - name: Type
+    type: string
+    description: The type of the OperatorSource
+    JSONPath: .spec.type
+  - name: Endpoint
+    type: string
+    description: The endpoint of the OperatorSource
+    JSONPath: .spec.endpoint
+  - name: Registry
+    type: string
+    description: App registry namespace
+    JSONPath: .spec.registryNamespace
+  - name: DisplayName
+    type: string
+    description: Display (pretty) name to indicate the OperatorSource's name
+    JSONPath: .spec.displayName
+  - name: Publisher
+    type: string
+    description: Publisher of the OperatorSource
+    JSONPath: .spec.publisher
+  - name: Status
+    type: string
+    description: Current status of the OperatorSource
+    JSONPath: .status.currentPhase.phase.name
+  - name: Message
+    type: string
+    description: Message associated with the current status
+    JSONPath: .status.currentPhase.phase.message
+  - name: Age
+    type: date
+    JSONPath: .metadata.creationTimestamp
+  validation:
+    openAPIV3Schema:
+      properties:
+        spec:
+          type: object
+          description: Spec for an OperatorSource.
+          required:
+          - type
+          - endpoint
+          - registryNamespace
+          properties:
+            type:
+              type: string
+              description: The type of the OperatorSource
+              pattern: 'appregistry'
+            endpoint:
+              type: string
+              description: Points to the remote app registry server from where operator manifests can be fetched.
+            registryNamespace:
+              type: string
+              description: |-
+                The namespace in app registry.
+                Only operator manifests under this namespace will be visible.
+                Please note that this is not a k8s namespace.

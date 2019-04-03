@@ -10,5 +10,8 @@ go_library(
     importmap = "kubevirt.io/kubevirt/vendor/github.com/golang/mock/mockgen/internal/tests/vendor_dep",
     importpath = "github.com/golang/mock/mockgen/internal/tests/vendor_dep",
     visibility = ["//vendor/github.com/golang/mock/mockgen:__subpackages__"],
-    deps = ["//vendor/github.com/golang/mock/gomock:go_default_library"],
+    deps = [
+        "//vendor/github.com/golang/mock/gomock:go_default_library",
+        "@org_golang_x_tools//present:go_default_library",
+    ],
 )
