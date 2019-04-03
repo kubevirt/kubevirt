@@ -1,0 +1,6 @@
+{{.HCO.ClusterRoleString}}
+{{if .Converged}}
+{{.KubeVirt.ClusterRoleString}}
+{{.CDI.ClusterRoleString}}
+{{.CNA.ClusterRoleString}}
+{{end}}

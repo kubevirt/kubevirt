@@ -21,6 +21,17 @@
 //
 // Synthesizes natural-sounding speech by applying powerful neural network
 // models.
+//
+// Use of Context
+//
+// The ctx passed to NewClient is used for authentication requests and
+// for creating the underlying connection, but is not used for subsequent calls.
+// Individual methods on the client use the ctx given to them.
+//
+// To close the open connection, use the Close() method.
+//
+// For information about setting deadlines, reusing contexts, and more
+// please visit godoc.org/cloud.google.com/go.
 package texttospeech // import "cloud.google.com/go/texttospeech/apiv1"
 
 import (
@@ -87,4 +98,4 @@ func versionGo() string {
 	return "UNKNOWN"
 }
 
-const versionClient = "20190306"
+const versionClient = "20190322"

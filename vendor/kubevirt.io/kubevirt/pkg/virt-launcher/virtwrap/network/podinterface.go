@@ -59,7 +59,7 @@ func findInterfaceByName(ifaces []api.Interface, name string) (int, error) {
 }
 
 // Plug connect a Pod network device to the virtual machine
-func (l *PodInterface) Plug(iface *v1.Interface, network *v1.Network, domain *api.Domain, podInterfaceName string) error {
+func (l *PodInterface) Plug(vmi *v1.VirtualMachineInstance, iface *v1.Interface, network *v1.Network, domain *api.Domain, podInterfaceName string) error {
 	precond.MustNotBeNil(domain)
 	initHandler()
 
@@ -68,7 +68,7 @@ func (l *PodInterface) Plug(iface *v1.Interface, network *v1.Network, domain *ap
 		return nil
 	}
 
-	driver, err := getBinding(iface, network, domain, podInterfaceName)
+	driver, err := getBinding(vmi, iface, network, domain, podInterfaceName)
 	if err != nil {
 		return err
 	}
@@ -107,7 +107,7 @@ func (l *PodInterface) Plug(iface *v1.Interface, network *v1.Network, domain *ap
 	return nil
 }
 
-func getBinding(iface *v1.Interface, network *v1.Network, domain *api.Domain, podInterfaceName string) (BindMechanism, error) {
+func getBinding(vmi *v1.VirtualMachineInstance, iface *v1.Interface, network *v1.Network, domain *api.Domain, podInterfaceName string) (BindMechanism, error) {
 	podInterfaceNum, err := findInterfaceByName(domain.Spec.Devices.Interfaces, iface.Name)
 	if err != nil {
 		return nil, err
@@ -128,6 +128,7 @@ func getBinding(iface *v1.Interface, network *v1.Network, domain *api.Domain, po
 		vif := &VIF{Name: podInterfaceName}
 		populateMacAddress(vif, iface)
 		return &BridgePodInterface{iface: iface,
+			vmi:                 vmi,
 			vif:                 vif,
 			domain:              domain,
 			podInterfaceNum:     podInterfaceNum,
@@ -138,6 +139,7 @@ func getBinding(iface *v1.Interface, network *v1.Network, domain *api.Domain, po
 		vif := &VIF{Name: podInterfaceName}
 		populateMacAddress(vif, iface)
 		return &MasqueradePodInterface{iface: iface,
+			vmi:                 vmi,
 			vif:                 vif,
 			domain:              domain,
 			podInterfaceNum:     podInterfaceNum,
@@ -146,12 +148,13 @@ func getBinding(iface *v1.Interface, network *v1.Network, domain *api.Domain, po
 			bridgeInterfaceName: fmt.Sprintf("k6t-%s", podInterfaceName)}, nil
 	}
 	if iface.Slirp != nil {
-		return &SlirpPodInterface{iface: iface, domain: domain, podInterfaceNum: podInterfaceNum}, nil
+		return &SlirpPodInterface{vmi: vmi, iface: iface, domain: domain, podInterfaceNum: podInterfaceNum}, nil
 	}
 	return nil, fmt.Errorf("Not implemented")
 }
 
 type BridgePodInterface struct {
+	vmi                 *v1.VirtualMachineInstance
 	vif                 *VIF
 	iface               *v1.Interface
 	podNicLink          netlink.Link
@@ -252,6 +255,7 @@ func (b *BridgePodInterface) preparePodNetworkInterfaces() error {
 func (b *BridgePodInterface) startDHCPServer() {
 	// Start DHCP Server
 	fakeServerAddr, _ := netlink.ParseAddr(fmt.Sprintf(bridgeFakeIP, b.podInterfaceNum))
+	log.Log.Object(b.vmi).Infof("bridge pod interface: %s", b.vif)
 	Handler.StartDHCP(b.vif, fakeServerAddr, b.bridgeInterfaceName, b.iface.DHCPOptions)
 }
 
@@ -341,6 +345,7 @@ func (b *BridgePodInterface) createBridge() error {
 }
 
 type MasqueradePodInterface struct {
+	vmi                 *v1.VirtualMachineInstance
 	vif                 *VIF
 	iface               *v1.Interface
 	podNicLink          netlink.Link
@@ -438,6 +443,7 @@ func (p *MasqueradePodInterface) preparePodNetworkInterfaces() error {
 
 func (p *MasqueradePodInterface) startDHCPServer() {
 	// Start DHCP Server
+	log.Log.Object(p.vmi).Infof("masquerade pod interface: %s", p.vif)
 	Handler.StartDHCP(p.vif, p.gatewayAddr, p.bridgeInterfaceName, p.iface.DHCPOptions)
 }
 
@@ -582,6 +588,7 @@ func (p *MasqueradePodInterface) createNatRules() error {
 }
 
 type SlirpPodInterface struct {
+	vmi             *v1.VirtualMachineInstance
 	iface           *v1.Interface
 	domain          *api.Domain
 	podInterfaceNum int

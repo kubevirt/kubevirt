@@ -41,8 +41,6 @@ type CloudRedisCallOptions struct {
 	CreateInstance   []gax.CallOption
 	UpdateInstance   []gax.CallOption
 	DeleteInstance   []gax.CallOption
-	ImportInstance   []gax.CallOption
-	ExportInstance   []gax.CallOption
 	FailoverInstance []gax.CallOption
 }
 
@@ -61,8 +59,6 @@ func defaultCloudRedisCallOptions() *CloudRedisCallOptions {
 		CreateInstance:   retry[[2]string{"default", "non_idempotent"}],
 		UpdateInstance:   retry[[2]string{"default", "non_idempotent"}],
 		DeleteInstance:   retry[[2]string{"default", "non_idempotent"}],
-		ImportInstance:   retry[[2]string{"default", "non_idempotent"}],
-		ExportInstance:   retry[[2]string{"default", "non_idempotent"}],
 		FailoverInstance: retry[[2]string{"default", "non_idempotent"}],
 	}
 }
@@ -108,7 +104,7 @@ type CloudRedisClient struct {
 //   As such, Redis instances are resources of the form:
 //   /projects/{project_id}/locations/{location_id}/instances/{instance_id}
 //
-// Note that location_id must be refering to a GCP region; for example:
+// Note that location_id must be referring to a GCP region; for example:
 //
 //   projects/redpepper-1290/locations/us-central1/instances/my-redis
 func NewCloudRedisClient(ctx context.Context, opts ...option.ClientOption) (*CloudRedisClient, error) {
@@ -284,54 +280,6 @@ func (c *CloudRedisClient) DeleteInstance(ctx context.Context, req *redispb.Dele
 		return nil, err
 	}
 	return &DeleteInstanceOperation{
-		lro: longrunning.InternalNewOperation(c.LROClient, resp),
-	}, nil
-}
-
-// ImportInstance import a Redis RDB snapshot file from GCS into a Redis instance.
-//
-// Redis may stop serving during this operation. Instance state will be
-// IMPORTING for entire operation. When complete, the instance will contain
-// only data from the imported file.
-//
-// The returned operation is automatically deleted after a few hours, so
-// there is no need to call DeleteOperation.
-func (c *CloudRedisClient) ImportInstance(ctx context.Context, req *redispb.ImportInstanceRequest, opts ...gax.CallOption) (*ImportInstanceOperation, error) {
-	ctx = insertMetadata(ctx, c.xGoogMetadata)
-	opts = append(c.CallOptions.ImportInstance[0:len(c.CallOptions.ImportInstance):len(c.CallOptions.ImportInstance)], opts...)
-	var resp *longrunningpb.Operation
-	err := gax.Invoke(ctx, func(ctx context.Context, settings gax.CallSettings) error {
-		var err error
-		resp, err = c.cloudRedisClient.ImportInstance(ctx, req, settings.GRPC...)
-		return err
-	}, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return &ImportInstanceOperation{
-		lro: longrunning.InternalNewOperation(c.LROClient, resp),
-	}, nil
-}
-
-// ExportInstance export Redis instance data into a Redis RDB format file in GCS.
-//
-// Redis will continue serving during this operation.
-//
-// The returned operation is automatically deleted after a few hours, so
-// there is no need to call DeleteOperation.
-func (c *CloudRedisClient) ExportInstance(ctx context.Context, req *redispb.ExportInstanceRequest, opts ...gax.CallOption) (*ExportInstanceOperation, error) {
-	ctx = insertMetadata(ctx, c.xGoogMetadata)
-	opts = append(c.CallOptions.ExportInstance[0:len(c.CallOptions.ExportInstance):len(c.CallOptions.ExportInstance)], opts...)
-	var resp *longrunningpb.Operation
-	err := gax.Invoke(ctx, func(ctx context.Context, settings gax.CallSettings) error {
-		var err error
-		resp, err = c.cloudRedisClient.ExportInstance(ctx, req, settings.GRPC...)
-		return err
-	}, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return &ExportInstanceOperation{
 		lro: longrunning.InternalNewOperation(c.LROClient, resp),
 	}, nil
 }
@@ -522,75 +470,6 @@ func (op *DeleteInstanceOperation) Name() string {
 	return op.lro.Name()
 }
 
-// ExportInstanceOperation manages a long-running operation from ExportInstance.
-type ExportInstanceOperation struct {
-	lro *longrunning.Operation
-}
-
-// ExportInstanceOperation returns a new ExportInstanceOperation from a given name.
-// The name must be that of a previously created ExportInstanceOperation, possibly from a different process.
-func (c *CloudRedisClient) ExportInstanceOperation(name string) *ExportInstanceOperation {
-	return &ExportInstanceOperation{
-		lro: longrunning.InternalNewOperation(c.LROClient, &longrunningpb.Operation{Name: name}),
-	}
-}
-
-// Wait blocks until the long-running operation is completed, returning the response and any errors encountered.
-//
-// See documentation of Poll for error-handling information.
-func (op *ExportInstanceOperation) Wait(ctx context.Context, opts ...gax.CallOption) (*redispb.Instance, error) {
-	var resp redispb.Instance
-	if err := op.lro.WaitWithInterval(ctx, &resp, 360000*time.Millisecond, opts...); err != nil {
-		return nil, err
-	}
-	return &resp, nil
-}
-
-// Poll fetches the latest state of the long-running operation.
-//
-// Poll also fetches the latest metadata, which can be retrieved by Metadata.
-//
-// If Poll fails, the error is returned and op is unmodified. If Poll succeeds and
-// the operation has completed with failure, the error is returned and op.Done will return true.
-// If Poll succeeds and the operation has completed successfully,
-// op.Done will return true, and the response of the operation is returned.
-// If Poll succeeds and the operation has not completed, the returned response and error are both nil.
-func (op *ExportInstanceOperation) Poll(ctx context.Context, opts ...gax.CallOption) (*redispb.Instance, error) {
-	var resp redispb.Instance
-	if err := op.lro.Poll(ctx, &resp, opts...); err != nil {
-		return nil, err
-	}
-	if !op.Done() {
-		return nil, nil
-	}
-	return &resp, nil
-}
-
-// Metadata returns metadata associated with the long-running operation.
-// Metadata itself does not contact the server, but Poll does.
-// To get the latest metadata, call this method after a successful call to Poll.
-// If the metadata is not available, the returned metadata and error are both nil.
-func (op *ExportInstanceOperation) Metadata() (*redispb.OperationMetadata, error) {
-	var meta redispb.OperationMetadata
-	if err := op.lro.Metadata(&meta); err == longrunning.ErrNoMetadata {
-		return nil, nil
-	} else if err != nil {
-		return nil, err
-	}
-	return &meta, nil
-}
-
-// Done reports whether the long-running operation has completed.
-func (op *ExportInstanceOperation) Done() bool {
-	return op.lro.Done()
-}
-
-// Name returns the name of the long-running operation.
-// The name is assigned by the server and is unique within the service from which the operation is created.
-func (op *ExportInstanceOperation) Name() string {
-	return op.lro.Name()
-}
-
 // FailoverInstanceOperation manages a long-running operation from FailoverInstance.
 type FailoverInstanceOperation struct {
 	lro *longrunning.Operation
@@ -657,75 +536,6 @@ func (op *FailoverInstanceOperation) Done() bool {
 // Name returns the name of the long-running operation.
 // The name is assigned by the server and is unique within the service from which the operation is created.
 func (op *FailoverInstanceOperation) Name() string {
-	return op.lro.Name()
-}
-
-// ImportInstanceOperation manages a long-running operation from ImportInstance.
-type ImportInstanceOperation struct {
-	lro *longrunning.Operation
-}
-
-// ImportInstanceOperation returns a new ImportInstanceOperation from a given name.
-// The name must be that of a previously created ImportInstanceOperation, possibly from a different process.
-func (c *CloudRedisClient) ImportInstanceOperation(name string) *ImportInstanceOperation {
-	return &ImportInstanceOperation{
-		lro: longrunning.InternalNewOperation(c.LROClient, &longrunningpb.Operation{Name: name}),
-	}
-}
-
-// Wait blocks until the long-running operation is completed, returning the response and any errors encountered.
-//
-// See documentation of Poll for error-handling information.
-func (op *ImportInstanceOperation) Wait(ctx context.Context, opts ...gax.CallOption) (*redispb.Instance, error) {
-	var resp redispb.Instance
-	if err := op.lro.WaitWithInterval(ctx, &resp, 360000*time.Millisecond, opts...); err != nil {
-		return nil, err
-	}
-	return &resp, nil
-}
-
-// Poll fetches the latest state of the long-running operation.
-//
-// Poll also fetches the latest metadata, which can be retrieved by Metadata.
-//
-// If Poll fails, the error is returned and op is unmodified. If Poll succeeds and
-// the operation has completed with failure, the error is returned and op.Done will return true.
-// If Poll succeeds and the operation has completed successfully,
-// op.Done will return true, and the response of the operation is returned.
-// If Poll succeeds and the operation has not completed, the returned response and error are both nil.
-func (op *ImportInstanceOperation) Poll(ctx context.Context, opts ...gax.CallOption) (*redispb.Instance, error) {
-	var resp redispb.Instance
-	if err := op.lro.Poll(ctx, &resp, opts...); err != nil {
-		return nil, err
-	}
-	if !op.Done() {
-		return nil, nil
-	}
-	return &resp, nil
-}
-
-// Metadata returns metadata associated with the long-running operation.
-// Metadata itself does not contact the server, but Poll does.
-// To get the latest metadata, call this method after a successful call to Poll.
-// If the metadata is not available, the returned metadata and error are both nil.
-func (op *ImportInstanceOperation) Metadata() (*redispb.OperationMetadata, error) {
-	var meta redispb.OperationMetadata
-	if err := op.lro.Metadata(&meta); err == longrunning.ErrNoMetadata {
-		return nil, nil
-	} else if err != nil {
-		return nil, err
-	}
-	return &meta, nil
-}
-
-// Done reports whether the long-running operation has completed.
-func (op *ImportInstanceOperation) Done() bool {
-	return op.lro.Done()
-}
-
-// Name returns the name of the long-running operation.
-// The name is assigned by the server and is unique within the service from which the operation is created.
-func (op *ImportInstanceOperation) Name() string {
 	return op.lro.Name()
 }
 

@@ -8,9 +8,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"go/token"
-	"strconv"
-	"strings"
+	"log"
 
 	"golang.org/x/tools/go/analysis"
 	"golang.org/x/tools/go/analysis/passes/asmdecl"
@@ -35,12 +33,12 @@ import (
 	"golang.org/x/tools/go/analysis/passes/unreachable"
 	"golang.org/x/tools/go/analysis/passes/unsafeptr"
 	"golang.org/x/tools/go/analysis/passes/unusedresult"
-
 	"golang.org/x/tools/go/packages"
+	"golang.org/x/tools/internal/span"
 )
 
 type Diagnostic struct {
-	Range
+	span.Span
 	Message  string
 	Source   string
 	Severity DiagnosticSeverity
@@ -53,80 +51,96 @@ const (
 	SeverityError
 )
 
-func Diagnostics(ctx context.Context, v View, uri URI) (map[string][]Diagnostic, error) {
+func Diagnostics(ctx context.Context, v View, uri span.URI) (map[span.URI][]Diagnostic, error) {
 	f, err := v.GetFile(ctx, uri)
 	if err != nil {
 		return nil, err
 	}
 	pkg := f.GetPackage(ctx)
-	// Prepare the reports we will send for this package.
-	reports := make(map[string][]Diagnostic)
-	for _, filename := range pkg.CompiledGoFiles {
-		reports[filename] = []Diagnostic{}
+	if pkg == nil {
+		return map[span.URI][]Diagnostic{
+			uri: []Diagnostic{{
+				Source:   "LSP",
+				Span:     span.New(uri, span.Point{}, span.Point{}),
+				Message:  fmt.Sprintf("not part of a package"),
+				Severity: SeverityError,
+			}},
+		}, nil
 	}
-	var parseErrors, typeErrors []packages.Error
-	for _, err := range pkg.Errors {
+	// Prepare the reports we will send for this package.
+	reports := make(map[span.URI][]Diagnostic)
+	for _, filename := range pkg.GetFilenames() {
+		reports[span.FileURI(filename)] = []Diagnostic{}
+	}
+	var listErrors, parseErrors, typeErrors []packages.Error
+	for _, err := range pkg.GetErrors() {
 		switch err.Kind {
 		case packages.ParseError:
 			parseErrors = append(parseErrors, err)
 		case packages.TypeError:
 			typeErrors = append(typeErrors, err)
 		default:
-			// ignore other types of errors
-			continue
+			listErrors = append(listErrors, err)
 		}
 	}
-	// Don't report type errors if there are parse errors.
+	// Don't report type errors if there are parse errors or list errors.
 	diags := typeErrors
 	if len(parseErrors) > 0 {
 		diags = parseErrors
+	} else if len(listErrors) > 0 {
+		diags = listErrors
 	}
 	for _, diag := range diags {
-		pos := errorPos(diag)
-		diagFile, err := v.GetFile(ctx, ToURI(pos.Filename))
-		if err != nil {
-			continue
-		}
-		diagTok := diagFile.GetToken(ctx)
-		end, err := identifierEnd(diagFile.GetContent(ctx), pos.Line, pos.Column)
-		// Don't set a range if it's anything other than a type error.
-		if err != nil || diag.Kind != packages.TypeError {
-			end = 0
-		}
-		startPos := fromTokenPosition(diagTok, pos.Line, pos.Column)
-		if !startPos.IsValid() {
-			continue
-		}
-		endPos := fromTokenPosition(diagTok, pos.Line, pos.Column+end)
-		if !endPos.IsValid() {
-			continue
+		spn := span.Parse(diag.Pos)
+		if spn.IsPoint() && diag.Kind == packages.TypeError {
+			// Don't set a range if it's anything other than a type error.
+			if diagFile, err := v.GetFile(ctx, spn.URI()); err == nil {
+				tok := diagFile.GetToken(ctx)
+				if tok == nil {
+					continue // ignore errors
+				}
+				content := diagFile.GetContent(ctx)
+				c := span.NewTokenConverter(diagFile.GetFileSet(ctx), tok)
+				s, err := spn.WithOffset(c)
+				//we just don't bother producing an error if this failed
+				if err == nil {
+					start := s.Start()
+					offset := start.Offset()
+					if l := bytes.IndexAny(content[offset:], " \n,():;[]"); l > 0 {
+						spn = span.New(spn.URI(), start, span.NewPoint(start.Line(), start.Column()+l, offset+l))
+					}
+				}
+			}
 		}
 		diagnostic := Diagnostic{
-			Range: Range{
-				Start: startPos,
-				End:   endPos,
-			},
+			Span:     spn,
 			Message:  diag.Msg,
 			Severity: SeverityError,
 		}
-		if _, ok := reports[pos.Filename]; ok {
-			reports[pos.Filename] = append(reports[pos.Filename], diagnostic)
+		if _, ok := reports[spn.URI()]; ok {
+			reports[spn.URI()] = append(reports[spn.URI()], diagnostic)
 		}
 	}
 	if len(diags) > 0 {
 		return reports, nil
 	}
 	// Type checking and parsing succeeded. Run analyses.
-	runAnalyses(v.GetAnalysisCache(), pkg, func(a *analysis.Analyzer, diag analysis.Diagnostic) {
-		pos := pkg.Fset.Position(diag.Pos)
+	runAnalyses(ctx, v, pkg, func(a *analysis.Analyzer, diag analysis.Diagnostic) {
+		r := span.NewRange(v.FileSet(), diag.Pos, 0)
+		s, err := r.Span()
+		if err != nil {
+			//TODO: we could not process the diag.Pos, and thus have no valid span
+			//we don't have anywhere to put this error though
+			log.Print(err)
+		}
 		category := a.Name
 		if diag.Category != "" {
 			category += "." + category
 		}
 
-		reports[pos.Filename] = append(reports[pos.Filename], Diagnostic{
+		reports[s.URI()] = append(reports[s.URI()], Diagnostic{
 			Source:   category,
-			Range:    Range{Start: diag.Pos, End: diag.Pos},
+			Span:     s,
 			Message:  fmt.Sprintf(diag.Message),
 			Severity: SeverityWarning,
 		})
@@ -135,58 +149,7 @@ func Diagnostics(ctx context.Context, v View, uri URI) (map[string][]Diagnostic,
 	return reports, nil
 }
 
-// fromTokenPosition converts a token.Position (1-based line and column
-// number) to a token.Pos (byte offset value). This requires the token.File
-// to which the token.Pos belongs.
-func fromTokenPosition(f *token.File, line, col int) token.Pos {
-	linePos := lineStart(f, line)
-	// TODO: This is incorrect, as pos.Column represents bytes, not characters.
-	// This needs to be handled to address golang.org/issue/29149.
-	return linePos + token.Pos(col-1)
-}
-
-func errorPos(pkgErr packages.Error) token.Position {
-	remainder1, first, hasLine := chop(pkgErr.Pos)
-	remainder2, second, hasColumn := chop(remainder1)
-	var pos token.Position
-	if hasLine && hasColumn {
-		pos.Filename = remainder2
-		pos.Line = second
-		pos.Column = first
-	} else if hasLine {
-		pos.Filename = remainder1
-		pos.Line = first
-	}
-	return pos
-}
-
-func chop(text string) (remainder string, value int, ok bool) {
-	i := strings.LastIndex(text, ":")
-	if i < 0 {
-		return text, 0, false
-	}
-	v, err := strconv.ParseInt(text[i+1:], 10, 64)
-	if err != nil {
-		return text, 0, false
-	}
-	return text[:i], int(v), true
-}
-
-// identifierEnd returns the length of an identifier within a string,
-// given the starting line and column numbers of the identifier.
-func identifierEnd(content []byte, l, c int) (int, error) {
-	lines := bytes.Split(content, []byte("\n"))
-	if len(lines) < l {
-		return 0, fmt.Errorf("invalid line number: got %v, but only %v lines", l, len(lines))
-	}
-	line := lines[l-1]
-	if len(line) < c {
-		return 0, fmt.Errorf("invalid column number: got %v, but the length of the line is %v", c, len(line))
-	}
-	return bytes.IndexAny(line[c-1:], " \n,():;[]"), nil
-}
-
-func runAnalyses(c *AnalysisCache, pkg *packages.Package, report func(a *analysis.Analyzer, diag analysis.Diagnostic)) error {
+func runAnalyses(ctx context.Context, v View, pkg Package, report func(a *analysis.Analyzer, diag analysis.Diagnostic)) error {
 	// the traditional vet suite:
 	analyzers := []*analysis.Analyzer{
 		asmdecl.Analyzer,
@@ -213,7 +176,7 @@ func runAnalyses(c *AnalysisCache, pkg *packages.Package, report func(a *analysi
 		unusedresult.Analyzer,
 	}
 
-	roots := c.analyze([]*packages.Package{pkg}, analyzers)
+	roots := analyze(ctx, v, []Package{pkg}, analyzers)
 
 	// Report diagnostics and errors from root analyzers.
 	for _, r := range roots {
@@ -223,7 +186,7 @@ func runAnalyses(c *AnalysisCache, pkg *packages.Package, report func(a *analysi
 				// which isn't super useful...
 				return r.err
 			}
-			report(r.a, diag)
+			report(r.Analyzer, diag)
 		}
 	}
 

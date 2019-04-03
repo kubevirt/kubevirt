@@ -474,7 +474,12 @@ func initializeConfig(cfg Config) error {
 	config = cfg
 
 	if config.Service == "" {
-		config.Service = os.Getenv("GAE_SERVICE")
+		for _, ev := range []string{"GAE_SERVICE", "K_SERVICE"} {
+			if val := os.Getenv(ev); val != "" {
+				config.Service = val
+				break
+			}
+		}
 	}
 	if config.Service == "" {
 		return errors.New("service name must be configured")
@@ -484,7 +489,12 @@ func initializeConfig(cfg Config) error {
 	}
 
 	if config.ServiceVersion == "" {
-		config.ServiceVersion = os.Getenv("GAE_VERSION")
+		for _, ev := range []string{"GAE_VERSION", "K_REVISION"} {
+			if val := os.Getenv(ev); val != "" {
+				config.ServiceVersion = val
+				break
+			}
+		}
 	}
 
 	if projectID := os.Getenv("GOOGLE_CLOUD_PROJECT"); config.ProjectID == "" && projectID != "" {

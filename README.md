@@ -7,49 +7,109 @@ sometimes referred to as a "meta operator" or an "operator for operators".
 Most importantly, this operator doesn't replace or interfere with OLM.
 It only creates operator CRs, which is the user's prerogative.
 
-## Using the HCO
 TODO:
-  - Golang code to generate deployment manifests
-  - Manifest that launches HCO, kubevirt, CDI, network, and UI operators for
-    initial non OLM deployments
-  - Unifed CSV file that lauches all operators through OLM
+- [x] Golang code to generate deployment manifests
+- [x] Unifed CSV file that lauches all operators through OLM
+- [ ] Use operator-courier to publish HCO CSV
+- [ ] Manifest that launches HCO, kubevirt, CDI, network, and UI operators for
+  initial non OLM deployments
 
-Create component operator namespaces.
+## Using the HCO
+
+Create the namespace for the HCO.
 ```bash
-oc create ns kubevirt
-oc create ns cdi
+oc create ns kubevirt-hyperconverged
 ```
 
-Switch to the kubevirt namespace.
+Switch to the HCO namespace.
 ```bash
-oc project kubevirt
+oc project kubevirt-hyperconverged
 ```
 
-Launch the HCO.
+Launch all of the CRDs.
 ```bash
-oc create -f deploy/crds/hco_v1alpha1_hyperconverged_crd.yaml
-oc create -f deploy/
+oc create -f deploy/converged/crds/hco.crd.yaml
+oc create -f deploy/converged/crds/kubevirt.crd.yaml
+oc create -f deploy/converged/crds/cdi.crd.yaml
+oc create -f deploy/converged/crds/cna.crd.yaml
 ```
 
-Launch the KubeVirt operator.
+Launch all of the Service Accounts, Cluster Role(Binding)s, and Operators.
 ```bash
-oc create -f https://github.com/kubevirt/kubevirt/releases/download/v0.15.0/kubevirt-operator.yaml
-```
-
-Launch the CDI operator.
-```bash
-oc create -f https://github.com/kubevirt/containerized-data-importer/releases/download/v1.6.0/cdi-operator.yaml
-```
-
-Launch the Cluster Network Addons operator.
-```bash
-oc create -f https://github.com/kubevirt/cluster-network-addons-operator/releases/download/v0.1.0/cluster-network-addons-operator_00_namespace.yaml
-oc create -f https://github.com/kubevirt/cluster-network-addons-operator/releases/download/v0.1.0/cluster-network-addons-operator_01_crd.yaml
-oc create -f https://github.com/kubevirt/cluster-network-addons-operator/releases/download/v0.1.0/cluster-network-addons-operator_02_rbac.yaml
-oc create -f https://github.com/kubevirt/cluster-network-addons-operator/releases/download/v0.1.0/cluster-network-addons-operator_03_deployment.yaml
+oc create -f deploy/converged
 ```
 
 Create an HCO CustomResource, which creates the KubeVirt CR, launching KubeVirt.
 ```bash
-oc create -f deploy/crds/hco_v1alpha1_hyperconverged_cr.yaml
+oc create -f deploy/converged/crds/hco.cr.yaml
+```
+
+## Launching the HCO through OLM
+
+**NOTE**
+Until we determine how to publish (and consume) the HCO through
+operator-courier|Marketplace|operatorhub.io, this is a means to demonstrate the
+HCO workflow through OLM. Replace `<docker_org>` with your Docker organization
+as official operator-registry images for HCO will not be provided.
+
+Build and push the converged HCO operator-registry image.
+
+```bash
+cd deploy/converged
+export HCO_DOCKER_ORG=<docker_org>
+docker build --no-cache -t docker.io/$HCO_DOCKER_ORG/hco-registry:example -f Dockerfile .
+docker push docker.io/$HCO_DOCKER_ORG/hco-registry:example
+```
+
+Create the namespace for the HCO.
+```bash
+oc create ns kubevirt-hyperconverged
+```
+
+Create an OperatorGroup.
+```bash
+cat <<EOF | kubectl create -f -
+apiVersion: operators.coreos.com/v1alpha2
+kind: OperatorGroup
+metadata:
+  name: hco-operatorgroup
+  namespace: kubevirt-hyperconverged
+EOF
+```
+
+Create a Catalog Source.
+```bash
+cat <<EOF | kubectl create -f -
+apiVersion: operators.coreos.com/v1alpha1
+kind: CatalogSource
+metadata:
+  name: hco-catalogsource
+  namespace: openshift-operator-lifecycle-manager
+spec:
+  sourceType: grpc
+  image: docker.io/$HCO_DOCKER_ORG/hco-registry:example
+  displayName: KubeVirt HyperConverged
+  publisher: Red Hat
+EOF
+```
+
+Create a subscription.
+```bash
+cat <<EOF | kubectl create -f -
+apiVersion: operators.coreos.com/v1alpha1
+kind: Subscription
+metadata:
+  name: hco-subscription
+  namespace: kubevirt-hyperconverged
+spec:
+  channel: alpha
+  name: kubevirt-hyperconverged
+  source: hco-catalogsource
+  sourceNamespace: openshift-operator-lifecycle-manager
+EOF
+```
+
+Create an HCO CustomResource, which creates the KubeVirt CR, launching KubeVirt.
+```bash
+oc create -f deploy/converged/crds/hco.cr.yaml
 ```

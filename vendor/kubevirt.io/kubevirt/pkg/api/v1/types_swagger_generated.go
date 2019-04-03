@@ -52,6 +52,10 @@ func (VirtualMachineInstanceCondition) SwaggerDoc() map[string]string {
 	return map[string]string{}
 }
 
+func (VirtualMachineInstanceMigrationCondition) SwaggerDoc() map[string]string {
+	return map[string]string{}
+}
+
 func (VirtualMachineInstanceNetworkInterface) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"ipAddress":     "IP address of a Virtual Machine interface",
@@ -74,6 +78,8 @@ func (VirtualMachineInstanceMigrationState) SwaggerDoc() map[string]string {
 		"sourceNode":                     "The source node that the VMI originated on",
 		"completed":                      "Indicates the migration completed",
 		"failed":                         "Indicates that the migration failed",
+		"abortRequested":                 "Indicates that the migration has been requested to abort",
+		"abortStatus":                    "Indicates the final status of the live migration abortion",
 		"migrationUid":                   "The VirtualMachineInstanceMigration object associated with this migration",
 		"migrationConfig":                "Config contains migration configuration options",
 	}
@@ -248,6 +254,8 @@ func (KubeVirtList) SwaggerDoc() map[string]string {
 
 func (KubeVirtSpec) SwaggerDoc() map[string]string {
 	return map[string]string{
+		"imageTag":        "The image tag to use for the continer images installed.\nDefaults to the same tag as the operator's container image.",
+		"imageRegistry":   "The image registry to pull the container images from\nDefaults to the same registry the operator's container image is pulled from.",
 		"imagePullPolicy": "The ImagePullPolicy to use.",
 	}
 }

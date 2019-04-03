@@ -18,8 +18,14 @@ required = [
   version = "=v1.6.0"
 
 [[override]]
+  # TODO: Update once OLM integration is released
   name = "kubevirt.io/kubevirt"
-  version = "=v0.15.0"
+  #version = "=v0.15.0"
+  branch = "master"
+
+[[override]]
+  name = "github.com/go-kit/kit"
+  revision = "fe6fe28ba0d54b39f27e79cddba4911b7e4fffc7"
 
 [[override]]
   name = "github.com/kubevirt/cluster-network-addons-operator"
@@ -60,7 +66,17 @@ required = [
 [[override]]
   name = "k8s.io/client-go"
   # revision for tag "kubernetes-1.13.1"
-  revision = "8d9ed539ba3134352c586810e749e58df4e94e4f"
+  # revision = "8d9ed539ba3134352c586810e749e58df4e94e4f"
+  # revision for tag "kubernetes-1.12.4
+  revision = "5e6a3d4e34f694e895b13ae728111e726a5b69df"
+
+[[override]]
+  name = "github.com/openshift/api"
+  revision = "5ad8479f64f1b60ee9c62ce8ef1fe6638838725e"
+
+[[override]]
+  name = "github.com/openshift/client-go"
+  revision = "431ec9a26e5021f35fa41ee9a89842db9bfdb370"
 
 [[override]]
   name = "github.com/coreos/prometheus-operator"

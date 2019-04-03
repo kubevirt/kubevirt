@@ -137,6 +137,7 @@ func (r *ReconcileHyperConverged) Reconcile(request reconcile.Request) (reconcil
 
 	// Define a new KubeVirt object
 	virtCR := newKubeVirtForCR(instance)
+	virtCR.ObjectMeta.Namespace = request.Namespace
 
 	// Set HyperConverged instance as the owner and controller
 	if err := controllerutil.SetControllerReference(instance, virtCR, r.scheme); err != nil {
@@ -155,6 +156,7 @@ func (r *ReconcileHyperConverged) Reconcile(request reconcile.Request) (reconcil
 
 	// Define a new CDI object
 	cdiCR := newCDIForCR(instance)
+	cdiCR.ObjectMeta.Namespace = request.Namespace
 
 	// Set HyperConverged instance as the owner and controller
 	if err := controllerutil.SetControllerReference(instance, cdiCR, r.scheme); err != nil {
@@ -219,9 +221,8 @@ func newKubeVirtForCR(cr *hcov1alpha1.HyperConverged) *kubevirt.KubeVirt {
 	}
 	return &kubevirt.KubeVirt{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "kubevirt-" + cr.Name,
-			Namespace: "kubevirt",
-			Labels:    labels,
+			Name:   "kubevirt-" + cr.Name,
+			Labels: labels,
 		},
 		Spec: kubevirt.KubeVirtSpec{
 			ImagePullPolicy: v1.PullPolicy(KubeVirtImagePullPolicy),
@@ -236,9 +237,8 @@ func newCDIForCR(cr *hcov1alpha1.HyperConverged) *cdi.CDI {
 	}
 	return &cdi.CDI{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "cdi-" + cr.Name,
-			Namespace: "cdi",
-			Labels:    labels,
+			Name:   "cdi-" + cr.Name,
+			Labels: labels,
 		},
 		Spec: cdi.CDISpec{
 			ImagePullPolicy: v1.PullPolicy(CDIImagePullPolicy),

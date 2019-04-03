@@ -308,8 +308,9 @@ an Outer's properties would be equivalent to those of:
 		Z          bool
 	}
 
-Note that the "flatten" option cannot be used for Entity value fields.
-The server will reject any dotted field names for an Entity value.
+Note that the "flatten" option cannot be used for Entity value fields or
+PropertyLoadSaver implementers. The server will reject any dotted field names
+for an Entity value.
 
 
 The PropertyLoadSaver Interface

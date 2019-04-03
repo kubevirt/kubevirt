@@ -21,6 +21,17 @@
 // Provides reliable, many-to-many, asynchronous messaging between
 // applications.
 //
+// Use of Context
+//
+// The ctx passed to NewClient is used for authentication requests and
+// for creating the underlying connection, but is not used for subsequent calls.
+// Individual methods on the client use the ctx given to them.
+//
+// To close the open connection, use the Close() method.
+//
+// For information about setting deadlines, reusing contexts, and more
+// please visit godoc.org/cloud.google.com/go.
+//
 // Use the client at cloud.google.com/go/pubsub in preference to this.
 package pubsub // import "cloud.google.com/go/pubsub/apiv1"
 
@@ -89,4 +100,4 @@ func versionGo() string {
 	return "UNKNOWN"
 }
 
-const versionClient = "20190306"
+const versionClient = "20190322"

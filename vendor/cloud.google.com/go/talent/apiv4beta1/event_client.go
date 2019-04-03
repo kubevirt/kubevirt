@@ -106,7 +106,7 @@ func (c *EventClient) setGoogleClientInfo(keyval ...string) {
 // self service
 // tools (at https://console.cloud.google.com/talent-solution/overview).
 // Learn
-// more (at https://cloud.google.com/talent-solution/job-search/docs/management-tools)
+// more (at https://cloud.google.com/talent-solution/docs/management-tools)
 // about self service tools.
 func (c *EventClient) CreateClientEvent(ctx context.Context, req *talentpb.CreateClientEventRequest, opts ...gax.CallOption) (*talentpb.ClientEvent, error) {
 	ctx = insertMetadata(ctx, c.xGoogMetadata)

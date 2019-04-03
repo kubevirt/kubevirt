@@ -24,6 +24,31 @@ import (
 	"strings"
 )
 
+// ReadStats retrieves bcache runtime statistics for each bcache.
+func ReadStats(sysfs string) ([]*Stats, error) {
+	matches, err := filepath.Glob(path.Join(sysfs, "fs/bcache/*-*"))
+	if err != nil {
+		return nil, err
+	}
+
+	stats := make([]*Stats, 0, len(matches))
+	for _, uuidPath := range matches {
+		// "*-*" in glob above indicates the name of the bcache.
+		name := filepath.Base(uuidPath)
+
+		// stats
+		s, err := GetStats(uuidPath)
+		if err != nil {
+			return nil, err
+		}
+
+		s.Name = name
+		stats = append(stats, s)
+	}
+
+	return stats, nil
+}
+
 // ParsePseudoFloat parses the peculiar format produced by bcache's bch_hprint.
 func parsePseudoFloat(str string) (float64, error) {
 	ss := strings.Split(str, ".")

@@ -17,7 +17,6 @@ limitations under the License.
 package azure
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
@@ -27,7 +26,7 @@ import (
 	"github.com/Azure/go-autorest/autorest"
 	"github.com/Azure/go-autorest/autorest/adal"
 	"github.com/Azure/go-autorest/autorest/azure"
-	"k8s.io/klog"
+	"github.com/golang/glog"
 
 	"k8s.io/apimachinery/pkg/util/net"
 	restclient "k8s.io/client-go/rest"
@@ -50,7 +49,7 @@ const (
 
 func init() {
 	if err := restclient.RegisterAuthProviderPlugin("azure", newAzureAuthProvider); err != nil {
-		klog.Fatalf("Failed to register azure auth plugin: %v", err)
+		glog.Fatalf("Failed to register azure auth plugin: %v", err)
 	}
 }
 
@@ -124,7 +123,7 @@ func (r *azureRoundTripper) RoundTrip(req *http.Request) (*http.Response, error)
 
 	token, err := r.tokenSource.Token()
 	if err != nil {
-		klog.Errorf("Failed to acquire a token: %v", err)
+		glog.Errorf("Failed to acquire a token: %v", err)
 		return nil, fmt.Errorf("acquiring a token for authorization header: %v", err)
 	}
 
@@ -244,9 +243,9 @@ func (ts *azureTokenSource) retrieveTokenFromCfg() (*azureToken, error) {
 		token: adal.Token{
 			AccessToken:  accessToken,
 			RefreshToken: refreshToken,
-			ExpiresIn:    json.Number(expiresIn),
-			ExpiresOn:    json.Number(expiresOn),
-			NotBefore:    json.Number(expiresOn),
+			ExpiresIn:    expiresIn,
+			ExpiresOn:    expiresOn,
+			NotBefore:    expiresOn,
 			Resource:     fmt.Sprintf("spn:%s", apiserverID),
 			Type:         tokenType,
 		},
@@ -263,8 +262,8 @@ func (ts *azureTokenSource) storeTokenInCfg(token *azureToken) error {
 	newCfg[cfgClientID] = token.clientID
 	newCfg[cfgTenantID] = token.tenantID
 	newCfg[cfgApiserverID] = token.apiserverID
-	newCfg[cfgExpiresIn] = string(token.token.ExpiresIn)
-	newCfg[cfgExpiresOn] = string(token.token.ExpiresOn)
+	newCfg[cfgExpiresIn] = token.token.ExpiresIn
+	newCfg[cfgExpiresOn] = token.token.ExpiresOn
 
 	err := ts.persister.Persist(newCfg)
 	if err != nil {

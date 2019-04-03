@@ -70,7 +70,7 @@ func defaultOperationsCallOptions() *OperationsCallOptions {
 	}
 }
 
-// OperationsClient is a client for interacting with Google Long Running Operations API.
+// OperationsClient is a client for interacting with Long Running Operations API.
 //
 // Methods, except Close, may be called concurrently. However, fields must not be modified concurrently with method calls.
 type OperationsClient struct {
@@ -92,12 +92,12 @@ type OperationsClient struct {
 // Manages long-running operations with an API service.
 //
 // When an API method normally takes long time to complete, it can be designed
-// to return [Operation][google.longrunning.Operation] to the client, and the
-// client can use this interface to receive the real response asynchronously by
-// polling the operation resource, or pass the operation resource to another API
-// (such as Google Cloud Pub/Sub API) to receive the response.  Any API service
-// that returns long-running operations should implement the Operations
-// interface so developers can have a consistent client experience.
+// to return [Operation][google.longrunning.Operation] to the client, and the client can use this
+// interface to receive the real response asynchronously by polling the
+// operation resource, or pass the operation resource to another API (such as
+// Google Cloud Pub/Sub API) to receive the response.  Any API service that
+// returns long-running operations should implement the Operations interface
+// so developers can have a consistent client experience.
 func NewOperationsClient(ctx context.Context, opts ...option.ClientOption) (*OperationsClient, error) {
 	conn, err := transport.DialGRPC(ctx, append(defaultOperationsClientOptions(), opts...)...)
 	if err != nil {
@@ -154,8 +154,13 @@ func (c *OperationsClient) GetOperation(ctx context.Context, req *longrunningpb.
 // ListOperations lists operations that match the specified filter in the request. If the
 // server doesn't support this method, it returns UNIMPLEMENTED.
 //
-// NOTE: the name binding below allows API services to override the binding
-// to use different resource name schemes, such as users/*/operations.
+// NOTE: the name binding allows API services to override the binding
+// to use different resource name schemes, such as users/*/operations. To
+// override the binding, API services can add a binding such as
+// "/v1/{name=users/*}/operations" to their service configuration.
+// For backwards compatibility, the default name includes the operations
+// collection id, however overriding users must ensure the name binding
+// is the parent resource, without the operations collection id.
 func (c *OperationsClient) ListOperations(ctx context.Context, req *longrunningpb.ListOperationsRequest, opts ...gax.CallOption) *OperationIterator {
 	ctx = insertMetadata(ctx, c.xGoogMetadata)
 	opts = append(c.CallOptions.ListOperations[0:len(c.CallOptions.ListOperations):len(c.CallOptions.ListOperations)], opts...)
@@ -200,9 +205,8 @@ func (c *OperationsClient) ListOperations(ctx context.Context, req *longrunningp
 // other methods to check whether the cancellation succeeded or whether the
 // operation completed despite cancellation. On successful cancellation,
 // the operation is not deleted; instead, it becomes an operation with
-// an [Operation.error][google.longrunning.Operation.error] value with a
-// [google.rpc.Status.code][google.rpc.Status.code] of 1, corresponding to
-// Code.CANCELLED.
+// an [Operation.error][google.longrunning.Operation.error] value with a [google.rpc.Status.code][google.rpc.Status.code] of 1,
+// corresponding to Code.CANCELLED.
 func (c *OperationsClient) CancelOperation(ctx context.Context, req *longrunningpb.CancelOperationRequest, opts ...gax.CallOption) error {
 	ctx = insertMetadata(ctx, c.xGoogMetadata)
 	opts = append(c.CallOptions.CancelOperation[0:len(c.CallOptions.CancelOperation):len(c.CallOptions.CancelOperation)], opts...)

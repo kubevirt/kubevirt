@@ -2,7 +2,6 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-// Package nettest provides utilities for network testing.
 package nettest
 
 import (
@@ -18,11 +17,6 @@ import (
 	"time"
 )
 
-var (
-	aLongTimeAgo = time.Unix(233431200, 0)
-	neverTimeout = time.Time{}
-)
-
 // MakePipe creates a connection between two endpoints and returns the pair
 // as c1 and c2, such that anything written to c1 is read by c2 and vice-versa.
 // The stop function closes all resources, including c1, c2, and the underlying
@@ -35,7 +29,17 @@ type MakePipe func() (c1, c2 net.Conn, stop func(), err error)
 // run multiple times. For maximal effectiveness, run the tests under the
 // race detector.
 func TestConn(t *testing.T, mp MakePipe) {
-	testConn(t, mp)
+	t.Run("BasicIO", func(t *testing.T) { timeoutWrapper(t, mp, testBasicIO) })
+	t.Run("PingPong", func(t *testing.T) { timeoutWrapper(t, mp, testPingPong) })
+	t.Run("RacyRead", func(t *testing.T) { timeoutWrapper(t, mp, testRacyRead) })
+	t.Run("RacyWrite", func(t *testing.T) { timeoutWrapper(t, mp, testRacyWrite) })
+	t.Run("ReadTimeout", func(t *testing.T) { timeoutWrapper(t, mp, testReadTimeout) })
+	t.Run("WriteTimeout", func(t *testing.T) { timeoutWrapper(t, mp, testWriteTimeout) })
+	t.Run("PastTimeout", func(t *testing.T) { timeoutWrapper(t, mp, testPastTimeout) })
+	t.Run("PresentTimeout", func(t *testing.T) { timeoutWrapper(t, mp, testPresentTimeout) })
+	t.Run("FutureTimeout", func(t *testing.T) { timeoutWrapper(t, mp, testFutureTimeout) })
+	t.Run("CloseTimeout", func(t *testing.T) { timeoutWrapper(t, mp, testCloseTimeout) })
+	t.Run("ConcurrentMethods", func(t *testing.T) { timeoutWrapper(t, mp, testConcurrentMethods) })
 }
 
 type connTester func(t *testing.T, c1, c2 net.Conn)
@@ -86,7 +90,7 @@ func testBasicIO(t *testing.T, c1, c2 net.Conn) {
 	}()
 
 	if got := <-dataCh; !bytes.Equal(got, want) {
-		t.Errorf("transmitted data differs")
+		t.Error("transmitted data differs")
 	}
 }
 

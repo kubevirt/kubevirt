@@ -148,6 +148,61 @@ func mutateVMIs(ar *v1beta1.AdmissionReview) *v1beta1.AdmissionResponse {
 
 }
 
+func mutateMigrationCreate(ar *v1beta1.AdmissionReview) *v1beta1.AdmissionResponse {
+
+	if ar.Request.Resource != webhooks.MigrationGroupVersionResource {
+		err := fmt.Errorf("expect resource to be '%s'", webhooks.MigrationGroupVersionResource.Resource)
+		return webhooks.ToAdmissionResponseError(err)
+	}
+
+	if resp := webhooks.ValidateSchema(v1.VirtualMachineInstanceMigrationGroupVersionKind, ar.Request.Object.Raw); resp != nil {
+		return resp
+	}
+
+	raw := ar.Request.Object.Raw
+	migration := v1.VirtualMachineInstanceMigration{}
+
+	err := json.Unmarshal(raw, &migration)
+	if err != nil {
+		return webhooks.ToAdmissionResponseError(err)
+	}
+
+	// Add a finalizer
+	migration.Finalizers = append(migration.Finalizers, v1.VirtualMachineInstanceMigrationFinalizer)
+	var patch []patchOperation
+	var value interface{}
+
+	value = migration.Spec
+	patch = append(patch, patchOperation{
+		Op:    "replace",
+		Path:  "/spec",
+		Value: value,
+	})
+
+	value = migration.ObjectMeta
+	patch = append(patch, patchOperation{
+		Op:    "replace",
+		Path:  "/metadata",
+		Value: value,
+	})
+
+	patchBytes, err := json.Marshal(patch)
+	if err != nil {
+		return webhooks.ToAdmissionResponseError(err)
+	}
+
+	jsonPatchType := v1beta1.PatchTypeJSONPatch
+	return &v1beta1.AdmissionResponse{
+		Allowed:   true,
+		Patch:     patchBytes,
+		PatchType: &jsonPatchType,
+	}
+}
+
 func ServeVMIs(resp http.ResponseWriter, req *http.Request) {
 	serve(resp, req, mutateVMIs)
+}
+
+func ServeMigrationCreate(resp http.ResponseWriter, req *http.Request) {
+	serve(resp, req, mutateMigrationCreate)
 }

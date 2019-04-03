@@ -21,6 +21,17 @@
 // Cloud Spanner is a managed, mission-critical, globally consistent and
 // scalable relational database service.
 //
+// Use of Context
+//
+// The ctx passed to NewClient is used for authentication requests and
+// for creating the underlying connection, but is not used for subsequent calls.
+// Individual methods on the client use the ctx given to them.
+//
+// To close the open connection, use the Close() method.
+//
+// For information about setting deadlines, reusing contexts, and more
+// please visit godoc.org/cloud.google.com/go.
+//
 // Use the client at cloud.google.com/go/spanner in preference to this.
 package spanner // import "cloud.google.com/go/spanner/apiv1"
 
@@ -89,4 +100,4 @@ func versionGo() string {
 	return "UNKNOWN"
 }
 
-const versionClient = "20190306"
+const versionClient = "20190322"

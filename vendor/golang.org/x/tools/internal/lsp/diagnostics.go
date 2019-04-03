@@ -10,42 +10,50 @@ import (
 
 	"golang.org/x/tools/internal/lsp/protocol"
 	"golang.org/x/tools/internal/lsp/source"
+	"golang.org/x/tools/internal/span"
 )
 
-func (s *server) cacheAndDiagnose(ctx context.Context, uri protocol.DocumentURI, content string) {
-	sourceURI, err := fromProtocolURI(uri)
-	if err != nil {
-		return // handle error?
-	}
-	if err := s.setContent(ctx, sourceURI, []byte(content)); err != nil {
-		return // handle error?
+func (s *server) cacheAndDiagnose(ctx context.Context, uri span.URI, content string) error {
+	if err := s.setContent(ctx, uri, []byte(content)); err != nil {
+		return err
 	}
 	go func() {
+		//TODO: this is an ugly hack to make the diagnostics call happen after the
+		// configuration is collected, we need to rewrite all the concurrency
+		<-s.configured
 		ctx := s.view.BackgroundContext()
 		if ctx.Err() != nil {
 			return
 		}
-		reports, err := source.Diagnostics(ctx, s.view, sourceURI)
+		reports, err := source.Diagnostics(ctx, s.view, uri)
 		if err != nil {
 			return // handle error?
 		}
-		for filename, diagnostics := range reports {
+		for uri, diagnostics := range reports {
+			protocolDiagnostics, err := toProtocolDiagnostics(ctx, s.view, diagnostics)
+			if err != nil {
+				continue // handle errors?
+			}
 			s.client.PublishDiagnostics(ctx, &protocol.PublishDiagnosticsParams{
-				URI:         protocol.DocumentURI(source.ToURI(filename)),
-				Diagnostics: toProtocolDiagnostics(ctx, s.view, diagnostics),
+				Diagnostics: protocolDiagnostics,
+				URI:         protocol.NewURI(uri),
 			})
 		}
 	}()
+	return nil
 }
 
-func (s *server) setContent(ctx context.Context, uri source.URI, content []byte) error {
+func (s *server) setContent(ctx context.Context, uri span.URI, content []byte) error {
 	return s.view.SetContent(ctx, uri, content)
 }
 
-func toProtocolDiagnostics(ctx context.Context, v source.View, diagnostics []source.Diagnostic) []protocol.Diagnostic {
+func toProtocolDiagnostics(ctx context.Context, v source.View, diagnostics []source.Diagnostic) ([]protocol.Diagnostic, error) {
 	reports := []protocol.Diagnostic{}
 	for _, diag := range diagnostics {
-		tok := v.FileSet().File(diag.Start)
+		_, m, err := newColumnMap(ctx, v, diag.Span.URI())
+		if err != nil {
+			return nil, err
+		}
 		src := diag.Source
 		if src == "" {
 			src = "LSP"
@@ -57,14 +65,18 @@ func toProtocolDiagnostics(ctx context.Context, v source.View, diagnostics []sou
 		case source.SeverityWarning:
 			severity = protocol.SeverityWarning
 		}
+		rng, err := m.Range(diag.Span)
+		if err != nil {
+			return nil, err
+		}
 		reports = append(reports, protocol.Diagnostic{
 			Message:  diag.Message,
-			Range:    toProtocolRange(tok, diag.Range),
+			Range:    rng,
 			Severity: severity,
 			Source:   src,
 		})
 	}
-	return reports
+	return reports, nil
 }
 
 func sorted(d []protocol.Diagnostic) {

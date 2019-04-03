@@ -26,7 +26,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/discovery"
 
-	"k8s.io/klog"
+	"github.com/golang/glog"
 )
 
 // APIGroupResources is an API group with a mapping of versions to
@@ -212,7 +212,7 @@ func (d *DeferredDiscoveryRESTMapper) getDelegate() (meta.RESTMapper, error) {
 // Reset resets the internally cached Discovery information and will
 // cause the next mapping request to re-discover.
 func (d *DeferredDiscoveryRESTMapper) Reset() {
-	klog.V(5).Info("Invalidating discovery information")
+	glog.V(5).Info("Invalidating discovery information")
 
 	d.initMu.Lock()
 	defer d.initMu.Unlock()

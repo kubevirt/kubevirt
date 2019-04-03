@@ -15,28 +15,30 @@ import (
 )
 
 func toProtocolCompletionItems(candidates []source.CompletionItem, prefix string, pos protocol.Position, snippetsSupported, signatureHelpEnabled bool) []protocol.CompletionItem {
-	insertTextFormat := protocol.PlainTextFormat
+	insertTextFormat := protocol.PlainTextTextFormat
 	if snippetsSupported {
 		insertTextFormat = protocol.SnippetTextFormat
 	}
 	sort.SliceStable(candidates, func(i, j int) bool {
 		return candidates[i].Score > candidates[j].Score
 	})
-	var items []protocol.CompletionItem
+	items := []protocol.CompletionItem{}
 	for i, candidate := range candidates {
 		// Matching against the label.
 		if !strings.HasPrefix(candidate.Label, prefix) {
 			continue
 		}
+		// InsertText is deprecated in favor of TextEdits.
+		// TODO(rstambler): Remove this logic when we are confident that we no
+		// longer need to support it.
 		insertText, triggerSignatureHelp := labelToProtocolSnippets(candidate.Label, candidate.Kind, insertTextFormat, signatureHelpEnabled)
 		if strings.HasPrefix(insertText, prefix) {
 			insertText = insertText[len(prefix):]
 		}
 		item := protocol.CompletionItem{
-			Label:            candidate.Label,
-			Detail:           candidate.Detail,
-			Kind:             float64(toProtocolCompletionItemKind(candidate.Kind)),
-			InsertTextFormat: insertTextFormat,
+			Label:  candidate.Label,
+			Detail: candidate.Detail,
+			Kind:   toProtocolCompletionItemKind(candidate.Kind),
 			TextEdit: &protocol.TextEdit{
 				NewText: insertText,
 				Range: protocol.Range{
@@ -44,12 +46,12 @@ func toProtocolCompletionItems(candidates []source.CompletionItem, prefix string
 					End:   pos,
 				},
 			},
-			// InsertText is deprecated in favor of TextEdit.
-			InsertText: insertText,
 			// This is a hack so that the client sorts completion results in the order
 			// according to their score. This can be removed upon the resolution of
 			// https://github.com/Microsoft/language-server-protocol/issues/348.
-			SortText: fmt.Sprintf("%05d", i),
+			SortText:   fmt.Sprintf("%05d", i),
+			FilterText: insertText,
+			Preselect:  i == 0,
 		}
 		// If we are completing a function, we should trigger signature help if possible.
 		if triggerSignatureHelp && signatureHelpEnabled {
@@ -105,7 +107,7 @@ func labelToProtocolSnippets(label string, kind source.CompletionItemKind, inser
 			return label, true
 		}
 		// Don't add parameters or parens for the plaintext insert format.
-		if insertTextFormat == protocol.PlainTextFormat {
+		if insertTextFormat == protocol.PlainTextTextFormat {
 			return trimmed, true
 		}
 		// If we do have signature help enabled, the user can see parameters as

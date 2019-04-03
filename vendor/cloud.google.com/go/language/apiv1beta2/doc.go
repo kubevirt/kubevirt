@@ -22,6 +22,17 @@
 // Google Cloud Natural Language API provides natural language understanding
 // technologies to developers. Examples include sentiment analysis, entity
 // recognition, and text annotations.
+//
+// Use of Context
+//
+// The ctx passed to NewClient is used for authentication requests and
+// for creating the underlying connection, but is not used for subsequent calls.
+// Individual methods on the client use the ctx given to them.
+//
+// To close the open connection, use the Close() method.
+//
+// For information about setting deadlines, reusing contexts, and more
+// please visit godoc.org/cloud.google.com/go.
 package language // import "cloud.google.com/go/language/apiv1beta2"
 
 import (
@@ -88,4 +99,4 @@ func versionGo() string {
 	return "UNKNOWN"
 }
 
-const versionClient = "20190306"
+const versionClient = "20190322"

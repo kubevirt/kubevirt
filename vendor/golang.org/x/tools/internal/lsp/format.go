@@ -2,59 +2,65 @@ package lsp
 
 import (
 	"context"
+	"fmt"
 
 	"golang.org/x/tools/internal/lsp/protocol"
 	"golang.org/x/tools/internal/lsp/source"
+	"golang.org/x/tools/internal/span"
 )
 
 // formatRange formats a document with a given range.
-func formatRange(ctx context.Context, v source.View, uri protocol.DocumentURI, rng *protocol.Range) ([]protocol.TextEdit, error) {
-	sourceURI, err := fromProtocolURI(uri)
+func formatRange(ctx context.Context, v source.View, s span.Span) ([]protocol.TextEdit, error) {
+	f, m, err := newColumnMap(ctx, v, s.URI())
 	if err != nil {
 		return nil, err
 	}
-	f, err := v.GetFile(ctx, sourceURI)
+	rng, err := s.Range(m.Converter)
 	if err != nil {
 		return nil, err
 	}
-	tok := f.GetToken(ctx)
-	var r source.Range
-	if rng == nil {
-		r.Start = tok.Pos(0)
-		r.End = tok.Pos(tok.Size())
-	} else {
-		r = fromProtocolRange(tok, *rng)
+	if rng.Start == rng.End {
+		// If we have a single point, assume we want the whole file.
+		tok := f.GetToken(ctx)
+		if tok == nil {
+			return nil, fmt.Errorf("no file information for %s", f.URI())
+		}
+		rng.End = tok.Pos(tok.Size())
 	}
-	edits, err := source.Format(ctx, f, r)
+	edits, err := source.Format(ctx, f, rng)
 	if err != nil {
 		return nil, err
 	}
-	return toProtocolEdits(ctx, f, edits), nil
+	return toProtocolEdits(m, edits)
 }
 
-func toProtocolEdits(ctx context.Context, f source.File, edits []source.TextEdit) []protocol.TextEdit {
+func toProtocolEdits(m *protocol.ColumnMapper, edits []source.TextEdit) ([]protocol.TextEdit, error) {
 	if edits == nil {
-		return nil
+		return nil, nil
 	}
-	tok := f.GetToken(ctx)
-	content := f.GetContent(ctx)
-	// When a file ends with an empty line, the newline character is counted
-	// as part of the previous line. This causes the formatter to insert
-	// another unnecessary newline on each formatting. We handle this case by
-	// checking if the file already ends with a newline character.
-	hasExtraNewline := content[len(content)-1] == '\n'
 	result := make([]protocol.TextEdit, len(edits))
 	for i, edit := range edits {
-		rng := toProtocolRange(tok, edit.Range)
-		// If the edit ends at the end of the file, add the extra line.
-		if hasExtraNewline && tok.Offset(edit.Range.End) == len(content) {
-			rng.End.Line++
-			rng.End.Character = 0
+		rng, err := m.Range(edit.Span)
+		if err != nil {
+			return nil, err
 		}
 		result[i] = protocol.TextEdit{
 			Range:   rng,
 			NewText: edit.NewText,
 		}
 	}
-	return result
+	return result, nil
+}
+
+func newColumnMap(ctx context.Context, v source.View, uri span.URI) (source.File, *protocol.ColumnMapper, error) {
+	f, err := v.GetFile(ctx, uri)
+	if err != nil {
+		return nil, nil, err
+	}
+	tok := f.GetToken(ctx)
+	if tok == nil {
+		return nil, nil, fmt.Errorf("no file information for %v", f.URI())
+	}
+	m := protocol.NewColumnMapper(f.URI(), f.GetFileSet(ctx), tok, f.GetContent(ctx))
+	return f, m, nil
 }

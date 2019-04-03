@@ -111,3 +111,41 @@ func (d *VirtualMachineConditionManager) GetPodCondition(pod *k8sv1.Pod, conditi
 func NewVirtualMachineInstanceConditionManager() *VirtualMachineConditionManager {
 	return &VirtualMachineConditionManager{}
 }
+
+type VirtualMachineInstanceMigrationConditionManager struct {
+}
+
+func (d *VirtualMachineInstanceMigrationConditionManager) HasCondition(migration *v1.VirtualMachineInstanceMigration, cond v1.VirtualMachineInstanceMigrationConditionType) bool {
+	for _, c := range migration.Status.Conditions {
+		if c.Type == cond {
+			return true
+		}
+	}
+	return false
+}
+
+func (d *VirtualMachineInstanceMigrationConditionManager) HasConditionWithStatus(migration *v1.VirtualMachineInstanceMigration, cond v1.VirtualMachineInstanceMigrationConditionType, status k8sv1.ConditionStatus) bool {
+	for _, c := range migration.Status.Conditions {
+		if c.Type == cond {
+			if c.Status == status {
+				return true
+			}
+			return false
+		}
+	}
+	return false
+}
+
+func (d *VirtualMachineInstanceMigrationConditionManager) RemoveCondition(migration *v1.VirtualMachineInstanceMigration, cond v1.VirtualMachineInstanceMigrationConditionType) {
+	var conds []v1.VirtualMachineInstanceMigrationCondition
+	for _, c := range migration.Status.Conditions {
+		if c.Type == cond {
+			continue
+		}
+		conds = append(conds, c)
+	}
+	migration.Status.Conditions = conds
+}
+func NewVirtualMachineInstanceMigrationConditionManager() *VirtualMachineInstanceMigrationConditionManager {
+	return &VirtualMachineInstanceMigrationConditionManager{}
+}

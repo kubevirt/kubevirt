@@ -23,7 +23,7 @@ import (
 	"io"
 	"strings"
 
-	"kubevirt.io/kubevirt/pkg/api/v1"
+	v1 "kubevirt.io/kubevirt/pkg/api/v1"
 
 	"github.com/ghodss/yaml"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -89,10 +89,15 @@ func MarshallObject(obj interface{}, writer io.Writer) error {
 		return err
 	}
 
-	// fix templates by removing quotes...
+	// fix templates by removing unneeded single quotes...
 	s := string(yamlBytes)
 	s = strings.Replace(s, "'{{", "{{", -1)
 	s = strings.Replace(s, "}}'", "}}", -1)
+
+	// fix double quoted strings by removing unneeded single quotes...
+	s = strings.Replace(s, " '\"", " \"", -1)
+	s = strings.Replace(s, "\"'\n", "\"\n", -1)
+
 	yamlBytes = []byte(s)
 
 	_, err = writer.Write([]byte("---\n"))

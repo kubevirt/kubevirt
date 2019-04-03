@@ -29,6 +29,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/golang/glog"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -36,7 +37,6 @@ import (
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 	certutil "k8s.io/client-go/util/cert"
 	"k8s.io/client-go/util/flowcontrol"
-	"k8s.io/klog"
 )
 
 const (
@@ -69,11 +69,6 @@ type Config struct {
 	// refresh tokens for an OAuth2 flow.
 	// TODO: demonstrate an OAuth2 compatible client.
 	BearerToken string
-
-	// Path to a file containing a BearerToken.
-	// If set, the contents are periodically read.
-	// The last successfully read value takes precedence over BearerToken.
-	BearerTokenFile string
 
 	// Impersonate is the configuration that RESTClient will use for impersonation.
 	Impersonate ImpersonationConfig
@@ -327,15 +322,16 @@ func InClusterConfig() (*Config, error) {
 		return nil, ErrNotInCluster
 	}
 
-	token, err := ioutil.ReadFile(tokenFile)
-	if err != nil {
+	ts := newCachedPathTokenSource(tokenFile)
+
+	if _, err := ts.Token(); err != nil {
 		return nil, err
 	}
 
 	tlsClientConfig := TLSClientConfig{}
 
 	if _, err := certutil.NewPool(rootCAFile); err != nil {
-		klog.Errorf("Expected to load root CA config from %s, but got err: %v", rootCAFile, err)
+		glog.Errorf("Expected to load root CA config from %s, but got err: %v", rootCAFile, err)
 	} else {
 		tlsClientConfig.CAFile = rootCAFile
 	}
@@ -344,8 +340,7 @@ func InClusterConfig() (*Config, error) {
 		// TODO: switch to using cluster DNS.
 		Host:            "https://" + net.JoinHostPort(host, port),
 		TLSClientConfig: tlsClientConfig,
-		BearerToken:     string(token),
-		BearerTokenFile: tokenFile,
+		WrapTransport:   TokenSourceWrapTransport(ts),
 	}, nil
 }
 
@@ -435,13 +430,12 @@ func AnonymousClientConfig(config *Config) *Config {
 // CopyConfig returns a copy of the given config
 func CopyConfig(config *Config) *Config {
 	return &Config{
-		Host:            config.Host,
-		APIPath:         config.APIPath,
-		ContentConfig:   config.ContentConfig,
-		Username:        config.Username,
-		Password:        config.Password,
-		BearerToken:     config.BearerToken,
-		BearerTokenFile: config.BearerTokenFile,
+		Host:          config.Host,
+		APIPath:       config.APIPath,
+		ContentConfig: config.ContentConfig,
+		Username:      config.Username,
+		Password:      config.Password,
+		BearerToken:   config.BearerToken,
 		Impersonate: ImpersonationConfig{
 			Groups:   config.Impersonate.Groups,
 			Extra:    config.Impersonate.Extra,

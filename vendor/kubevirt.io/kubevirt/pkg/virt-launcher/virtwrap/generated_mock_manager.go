@@ -114,3 +114,13 @@ func (_m *MockDomainManager) GetDomainStats() ([]*stats.DomainStats, error) {
 func (_mr *_MockDomainManagerRecorder) GetDomainStats() *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "GetDomainStats")
 }
+
+func (_m *MockDomainManager) CancelVMIMigration(_param0 *v1.VirtualMachineInstance) error {
+	ret := _m.ctrl.Call(_m, "CancelVMIMigration", _param0)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+func (_mr *_MockDomainManagerRecorder) CancelVMIMigration(arg0 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "CancelVMIMigration", arg0)
+}

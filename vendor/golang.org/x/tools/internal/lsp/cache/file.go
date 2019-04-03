@@ -9,22 +9,35 @@ import (
 	"go/ast"
 	"go/token"
 	"io/ioutil"
+	"path/filepath"
+	"strings"
 
-	"golang.org/x/tools/go/packages"
 	"golang.org/x/tools/internal/lsp/source"
+	"golang.org/x/tools/internal/span"
 )
 
 // File holds all the information we know about a file.
 type File struct {
-	URI     source.URI
+	uris     []span.URI
+	filename string
+	basename string
+
 	view    *View
 	active  bool
 	content []byte
 	ast     *ast.File
 	token   *token.File
-	pkg     *packages.Package
+	pkg     *Package
 	meta    *metadata
 	imports []*ast.ImportSpec
+}
+
+func basename(filename string) string {
+	return strings.ToLower(filepath.Base(filename))
+}
+
+func (f *File) URI() span.URI {
+	return f.uris[0]
 }
 
 // GetContent returns the contents of the file, reading it from file system if needed.
@@ -48,7 +61,7 @@ func (f *File) GetToken(ctx context.Context) *token.File {
 	defer f.view.mu.Unlock()
 
 	if f.token == nil || len(f.view.contentChanges) > 0 {
-		if err := f.view.parse(ctx, f.URI); err != nil {
+		if _, err := f.view.parse(ctx, f); err != nil {
 			return nil
 		}
 	}
@@ -60,19 +73,23 @@ func (f *File) GetAST(ctx context.Context) *ast.File {
 	defer f.view.mu.Unlock()
 
 	if f.ast == nil || len(f.view.contentChanges) > 0 {
-		if err := f.view.parse(ctx, f.URI); err != nil {
+		if _, err := f.view.parse(ctx, f); err != nil {
 			return nil
 		}
 	}
 	return f.ast
 }
 
-func (f *File) GetPackage(ctx context.Context) *packages.Package {
+func (f *File) GetPackage(ctx context.Context) source.Package {
 	f.view.mu.Lock()
 	defer f.view.mu.Unlock()
-
 	if f.pkg == nil || len(f.view.contentChanges) > 0 {
-		if err := f.view.parse(ctx, f.URI); err != nil {
+		errs, err := f.view.parse(ctx, f)
+		if err != nil {
+			// Create diagnostics for errors if we are able to.
+			if len(errs) > 0 {
+				return &Package{errors: errs}
+			}
 			return nil
 		}
 	}
@@ -96,11 +113,7 @@ func (f *File) read(ctx context.Context) {
 		}
 	}
 	// We don't know the content yet, so read it.
-	filename, err := f.URI.Filename()
-	if err != nil {
-		return
-	}
-	content, err := ioutil.ReadFile(filename)
+	content, err := ioutil.ReadFile(f.filename)
 	if err != nil {
 		return
 	}

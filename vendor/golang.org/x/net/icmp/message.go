@@ -18,6 +18,7 @@ import (
 	"encoding/binary"
 	"errors"
 	"net"
+	"runtime"
 
 	"golang.org/x/net/internal/iana"
 	"golang.org/x/net/ipv4"
@@ -33,10 +34,10 @@ var (
 	errMessageTooShort  = errors.New("message too short")
 	errHeaderTooShort   = errors.New("header too short")
 	errBufferTooShort   = errors.New("buffer too short")
-	errOpNoSupport      = errors.New("operation not supported")
 	errInvalidBody      = errors.New("invalid body")
 	errNoExtension      = errors.New("no extension")
 	errInvalidExtension = errors.New("invalid extension")
+	errNotImplemented   = errors.New("not implemented on " + runtime.GOOS + "/" + runtime.GOARCH)
 )
 
 func checksum(b []byte) uint16 {

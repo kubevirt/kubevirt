@@ -125,6 +125,16 @@ func validateDisks(field *k8sfield.Path, disks []v1.Disk) []metav1.StatusCause {
 				Field:   field.Index(idx).Child("name").String(),
 			})
 		}
+
+		// Reject Floppy disks
+		if disk.Floppy != nil {
+			causes = append(causes, metav1.StatusCause{
+				Type:    metav1.CauseTypeFieldValueNotSupported,
+				Message: fmt.Sprintf("Floppy disks are deprecated and will be removed from the API soon."),
+				Field:   field.Index(idx).Child("name").String(),
+			})
+		}
+
 		// Verify only a single device type is set.
 		deviceTargetSetCount := 0
 		var diskType, bus string
@@ -768,6 +778,37 @@ func ValidateVirtualMachineInstanceSpec(field *k8sfield.Path, spec *v1.VirtualMa
 		}
 	}
 
+	// Validate cpu if values are not negative
+	if spec.Domain.Resources.Requests.Cpu().MilliValue() < 0 {
+		causes = append(causes, metav1.StatusCause{
+			Type: metav1.CauseTypeFieldValueInvalid,
+			Message: fmt.Sprintf("%s '%s': must be greater than or equal to 0.", field.Child("domain", "resources", "requests", "cpu").String(),
+				spec.Domain.Resources.Requests.Cpu()),
+			Field: field.Child("domain", "resources", "requests", "cpu").String(),
+		})
+	}
+
+	if spec.Domain.Resources.Limits.Cpu().MilliValue() < 0 {
+		causes = append(causes, metav1.StatusCause{
+			Type: metav1.CauseTypeFieldValueInvalid,
+			Message: fmt.Sprintf("%s '%s': must be greater than or equal to 0.", field.Child("domain", "resources", "limits", "cpu").String(),
+				spec.Domain.Resources.Limits.Cpu()),
+			Field: field.Child("domain", "resources", "limits", "cpu").String(),
+		})
+	}
+
+	if spec.Domain.Resources.Limits.Cpu().MilliValue() > 0 &&
+		spec.Domain.Resources.Requests.Cpu().MilliValue() > spec.Domain.Resources.Limits.Cpu().MilliValue() {
+		causes = append(causes, metav1.StatusCause{
+			Type: metav1.CauseTypeFieldValueInvalid,
+			Message: fmt.Sprintf("%s '%s' is greater than %s '%s'", field.Child("domain", "resources", "requests", "cpu").String(),
+				spec.Domain.Resources.Requests.Cpu(),
+				field.Child("domain", "resources", "limits", "cpu").String(),
+				spec.Domain.Resources.Limits.Cpu()),
+			Field: field.Child("domain", "resources", "requests", "cpu").String(),
+		})
+	}
+
 	// Validate CPU pinning
 	if spec.Domain.CPU != nil && spec.Domain.CPU.DedicatedCPUPlacement {
 		requestsMem := spec.Domain.Resources.Requests.Memory().Value()
@@ -952,6 +993,7 @@ func ValidateVirtualMachineInstanceSpec(field *k8sfield.Path, spec *v1.VirtualMa
 	}
 
 	if len(spec.Networks) > 0 && len(spec.Domain.Devices.Interfaces) > 0 {
+		multusDefaultCount := 0
 		multusExists := false
 		genieExists := false
 		podExists := false
@@ -971,6 +1013,9 @@ func ValidateVirtualMachineInstanceSpec(field *k8sfield.Path, spec *v1.VirtualMa
 				cniTypesCount++
 				multusExists = true
 				networkNameExistsOrNotNeeded = network.Multus.NetworkName != ""
+				if network.NetworkSource.Multus.Default {
+					multusDefaultCount++
+				}
 			}
 
 			if network.NetworkSource.Genie != nil {
@@ -1008,6 +1053,22 @@ func ValidateVirtualMachineInstanceSpec(field *k8sfield.Path, spec *v1.VirtualMa
 			}
 
 			networkNameMap[spec.Networks[idx].Name] = &spec.Networks[idx]
+		}
+
+		if multusDefaultCount > 1 {
+			causes = append(causes, metav1.StatusCause{
+				Type:    metav1.CauseTypeFieldValueInvalid,
+				Message: fmt.Sprintf("Multus CNI should only have one default network"),
+				Field:   field.Child("networks").String(),
+			})
+		}
+
+		if podExists && multusDefaultCount > 0 {
+			causes = append(causes, metav1.StatusCause{
+				Type:    metav1.CauseTypeFieldValueInvalid,
+				Message: fmt.Sprintf("Pod network cannot be defined when Multus default network is defined"),
+				Field:   field.Child("networks").String(),
+			})
 		}
 
 		// Make sure interfaces and networks are 1to1 related

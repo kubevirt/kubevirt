@@ -29,5 +29,5 @@ package icmp
 //	ListenPacket("ip6:ipv6-icmp", "fe80::1%en0")
 //	ListenPacket("ip6:58", "::")
 func ListenPacket(network, address string) (*PacketConn, error) {
-	return nil, errOpNoSupport
+	return nil, errNotImplemented
 }

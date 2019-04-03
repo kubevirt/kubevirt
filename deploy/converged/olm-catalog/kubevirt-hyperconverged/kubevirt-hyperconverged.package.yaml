@@ -1,0 +1,4 @@
+packageName: kubevirt-hyperconverged
+channels:
+- name: alpha
+  currentCSV: kubevirt-hyperconverged-operator.v0.0.1

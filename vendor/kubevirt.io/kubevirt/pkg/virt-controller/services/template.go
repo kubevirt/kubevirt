@@ -20,6 +20,7 @@
 package services
 
 import (
+	"encoding/json"
 	"fmt"
 	"path/filepath"
 	"strconv"
@@ -43,7 +44,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/util/hardware"
 	"kubevirt.io/kubevirt/pkg/util/net/dns"
 	"kubevirt.io/kubevirt/pkg/util/types"
-	"kubevirt.io/kubevirt/pkg/virt-config"
+	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 )
 
 const configMapName = "kubevirt-config"
@@ -54,6 +55,9 @@ const NodeSelectorsKey = "node-selectors"
 const KvmDevice = "devices.kubevirt.io/kvm"
 const TunDevice = "devices.kubevirt.io/tun"
 const VhostNetDevice = "devices.kubevirt.io/vhost-net"
+
+const MultusNetworksAnnotation = "k8s.v1.cni.cncf.io/networks"
+const GenieNetworksAnnotation = "cni"
 
 const CAP_NET_ADMIN = "NET_ADMIN"
 const CAP_SYS_NICE = "SYS_NICE"
@@ -68,6 +72,10 @@ const NFD_CPU_MODEL_PREFIX = "feature.node.kubernetes.io/cpu-model-"
 const NFD_CPU_FEATURE_PREFIX = "feature.node.kubernetes.io/cpu-feature-"
 
 const MULTUS_RESOURCE_NAME_ANNOTATION = "k8s.v1.cni.cncf.io/resourceName"
+const MULTUS_DEFAULT_NETWORK_CNI_ANNOTATION = "v1.multus-cni.io/default-network"
+
+// Istio list of virtual interfaces whose inbound traffic (from VM) will be treated as outbound traffic in envoy
+const ISTIO_KUBEVIRT_ANNOTATION = "traffic.sidecar.istio.io/kubevirtInterfaces"
 
 type TemplateService interface {
 	RenderLaunchManifest(*v1.VirtualMachineInstance) (*k8sv1.Pod, error)
@@ -810,10 +818,12 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 			resources.Limits[k8sv1.ResourceCPU] = resource.MustParse("200m")
 			resources.Limits[k8sv1.ResourceMemory] = resource.MustParse("64M")
 		}
-		containers = append(containers, k8sv1.Container{
+		sidecar := k8sv1.Container{
 			Name:            fmt.Sprintf("hook-sidecar-%d", i),
 			Image:           requestedHookSidecar.Image,
 			ImagePullPolicy: requestedHookSidecar.ImagePullPolicy,
+			Command:         requestedHookSidecar.Command,
+			Args:            requestedHookSidecar.Args,
 			Resources:       resources,
 			VolumeMounts: []k8sv1.VolumeMount{
 				k8sv1.VolumeMount{
@@ -821,7 +831,8 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 					MountPath: hooks.HookSocketsSharedDirectory,
 				},
 			},
-		})
+		}
+		containers = append(containers, sidecar)
 	}
 
 	// XXX: reduce test time. Adding one more container delays the start.
@@ -856,9 +867,22 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 		v1.DomainAnnotation: domain,
 	}
 
-	cniNetworks, cniAnnotation := getCniInterfaceList(vmi)
-	if len(cniNetworks) > 0 {
-		annotationsList[cniAnnotation] = cniNetworks
+	cniAnnotations, err := getCniAnnotations(vmi)
+	if err != nil {
+		return nil, err
+	}
+	for k, v := range cniAnnotations {
+		annotationsList[k] = v
+	}
+
+	for _, network := range vmi.Spec.Networks {
+		if network.Multus != nil && network.Multus.Default {
+			annotationsList[MULTUS_DEFAULT_NETWORK_CNI_ANNOTATION] = network.Multus.NetworkName
+		}
+	}
+
+	if HaveMasqueradeInterface(vmi.Spec.Domain.Devices.Interfaces) {
+		annotationsList[ISTIO_KUBEVIRT_ANNOTATION] = "k6t-eth0"
 	}
 
 	// TODO use constants for podLabels
@@ -1022,6 +1046,16 @@ func getPortsFromVMI(vmi *v1.VirtualMachineInstance) []k8sv1.ContainerPort {
 	return ports
 }
 
+func HaveMasqueradeInterface(interfaces []v1.Interface) bool {
+	for _, iface := range interfaces {
+		if iface.Masquerade != nil {
+			return true
+		}
+	}
+
+	return false
+}
+
 func getResourceNameForNetwork(network *networkv1.NetworkAttachmentDefinition) string {
 	resourceName, ok := network.Annotations[MULTUS_RESOURCE_NAME_ANNOTATION]
 	if ok {
@@ -1056,26 +1090,58 @@ func getNetworkToResourceMap(virtClient kubecli.KubevirtClient, vmi *v1.VirtualM
 	return
 }
 
-func getCniInterfaceList(vmi *v1.VirtualMachineInstance) (ifaceListString string, cniAnnotation string) {
-	ifaceList := make([]string, 0)
-
-	for _, network := range vmi.Spec.Networks {
-		// set the type for the first network
-		// all other networks must have same type
-		if network.Multus != nil {
-			ifaceList = append(ifaceList, network.Multus.NetworkName)
-			if cniAnnotation == "" {
-				cniAnnotation = "k8s.v1.cni.cncf.io/networks"
-			}
-		} else if network.Genie != nil {
-			ifaceList = append(ifaceList, network.Genie.NetworkName)
-			if cniAnnotation == "" {
-				cniAnnotation = "cni"
-			}
+func getIfaceByName(vmi *v1.VirtualMachineInstance, name string) *v1.Interface {
+	for _, iface := range vmi.Spec.Domain.Devices.Interfaces {
+		if iface.Name == name {
+			return &iface
 		}
 	}
+	return nil
+}
 
-	ifaceListString = strings.Join(ifaceList, ",")
+func getCniAnnotations(vmi *v1.VirtualMachineInstance) (cniAnnotations map[string]string, err error) {
+	ifaceList := make([]string, 0)
+	ifaceListMap := make([]map[string]string, 0)
+	cniAnnotations = make(map[string]string, 0)
+
+	next_idx := 0
+	for _, network := range vmi.Spec.Networks {
+		// Set the type for the first network. All other networks must have same type.
+		if network.Multus != nil {
+			if network.Multus.Default {
+				continue
+			}
+			namespace, networkName := getNamespaceAndNetworkName(vmi, network.Multus.NetworkName)
+			ifaceMap := map[string]string{
+				"name":      networkName,
+				"namespace": namespace,
+				"interface": fmt.Sprintf("net%d", next_idx+1),
+			}
+			iface := getIfaceByName(vmi, network.Name)
+			if iface != nil && iface.MacAddress != "" {
+				// De-facto Standard doesn't define exact string format for
+				// MAC addresses pasted down to CNI.  Here we just pass through
+				// whatever the value our API layer accepted as legit.
+				// Note: while standard allows for 20-byte InfiniBand addresses,
+				// we forbid them in API.
+				ifaceMap["mac"] = iface.MacAddress
+			}
+			next_idx = next_idx + 1
+			ifaceListMap = append(ifaceListMap, ifaceMap)
+		} else if network.Genie != nil {
+			// We have to handle Genie separately because it doesn't support JSON format.
+			ifaceList = append(ifaceList, network.Genie.NetworkName)
+		}
+	}
+	if len(ifaceListMap) > 0 {
+		ifaceJsonString, err := json.Marshal(ifaceListMap)
+		if err != nil {
+			return map[string]string{}, fmt.Errorf("Failed to create JSON list from CNI interface map %s", ifaceListMap)
+		}
+		cniAnnotations[MultusNetworksAnnotation] = fmt.Sprintf("%s", ifaceJsonString)
+	} else if len(ifaceList) > 0 {
+		cniAnnotations[GenieNetworksAnnotation] = strings.Join(ifaceList, ",")
+	}
 	return
 }
 

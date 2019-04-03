@@ -22,8 +22,7 @@ import (
 	"strings"
 	"time"
 
-	"golang.org/x/oauth2"
-	"k8s.io/klog"
+	"github.com/golang/glog"
 
 	utilnet "k8s.io/apimachinery/pkg/util/net"
 )
@@ -45,11 +44,7 @@ func HTTPWrappersForConfig(config *Config, rt http.RoundTripper) (http.RoundTrip
 	case config.HasBasicAuth() && config.HasTokenAuth():
 		return nil, fmt.Errorf("username/password or bearer token may be set, but not both")
 	case config.HasTokenAuth():
-		var err error
-		rt, err = NewBearerAuthWithRefreshRoundTripper(config.BearerToken, config.BearerTokenFile, rt)
-		if err != nil {
-			return nil, err
-		}
+		rt = NewBearerAuthRoundTripper(config.BearerToken, rt)
 	case config.HasBasicAuth():
 		rt = NewBasicAuthRoundTripper(config.Username, config.Password, rt)
 	}
@@ -67,13 +62,13 @@ func HTTPWrappersForConfig(config *Config, rt http.RoundTripper) (http.RoundTrip
 // DebugWrappers wraps a round tripper and logs based on the current log level.
 func DebugWrappers(rt http.RoundTripper) http.RoundTripper {
 	switch {
-	case bool(klog.V(9)):
+	case bool(glog.V(9)):
 		rt = newDebuggingRoundTripper(rt, debugCurlCommand, debugURLTiming, debugResponseHeaders)
-	case bool(klog.V(8)):
+	case bool(glog.V(8)):
 		rt = newDebuggingRoundTripper(rt, debugJustURL, debugRequestHeaders, debugResponseStatus, debugResponseHeaders)
-	case bool(klog.V(7)):
+	case bool(glog.V(7)):
 		rt = newDebuggingRoundTripper(rt, debugJustURL, debugRequestHeaders, debugResponseStatus)
-	case bool(klog.V(6)):
+	case bool(glog.V(6)):
 		rt = newDebuggingRoundTripper(rt, debugURLTiming)
 	}
 
@@ -143,7 +138,7 @@ func (rt *authProxyRoundTripper) CancelRequest(req *http.Request) {
 	if canceler, ok := rt.rt.(requestCanceler); ok {
 		canceler.CancelRequest(req)
 	} else {
-		klog.Errorf("CancelRequest not implemented by %T", rt.rt)
+		glog.Errorf("CancelRequest not implemented by %T", rt.rt)
 	}
 }
 
@@ -171,7 +166,7 @@ func (rt *userAgentRoundTripper) CancelRequest(req *http.Request) {
 	if canceler, ok := rt.rt.(requestCanceler); ok {
 		canceler.CancelRequest(req)
 	} else {
-		klog.Errorf("CancelRequest not implemented by %T", rt.rt)
+		glog.Errorf("CancelRequest not implemented by %T", rt.rt)
 	}
 }
 
@@ -202,7 +197,7 @@ func (rt *basicAuthRoundTripper) CancelRequest(req *http.Request) {
 	if canceler, ok := rt.rt.(requestCanceler); ok {
 		canceler.CancelRequest(req)
 	} else {
-		klog.Errorf("CancelRequest not implemented by %T", rt.rt)
+		glog.Errorf("CancelRequest not implemented by %T", rt.rt)
 	}
 }
 
@@ -262,7 +257,7 @@ func (rt *impersonatingRoundTripper) CancelRequest(req *http.Request) {
 	if canceler, ok := rt.delegate.(requestCanceler); ok {
 		canceler.CancelRequest(req)
 	} else {
-		klog.Errorf("CancelRequest not implemented by %T", rt.delegate)
+		glog.Errorf("CancelRequest not implemented by %T", rt.delegate)
 	}
 }
 
@@ -270,35 +265,13 @@ func (rt *impersonatingRoundTripper) WrappedRoundTripper() http.RoundTripper { r
 
 type bearerAuthRoundTripper struct {
 	bearer string
-	source oauth2.TokenSource
 	rt     http.RoundTripper
 }
 
 // NewBearerAuthRoundTripper adds the provided bearer token to a request
 // unless the authorization header has already been set.
 func NewBearerAuthRoundTripper(bearer string, rt http.RoundTripper) http.RoundTripper {
-	return &bearerAuthRoundTripper{bearer, nil, rt}
-}
-
-// NewBearerAuthRoundTripper adds the provided bearer token to a request
-// unless the authorization header has already been set.
-// If tokenFile is non-empty, it is periodically read,
-// and the last successfully read content is used as the bearer token.
-// If tokenFile is non-empty and bearer is empty, the tokenFile is read
-// immediately to populate the initial bearer token.
-func NewBearerAuthWithRefreshRoundTripper(bearer string, tokenFile string, rt http.RoundTripper) (http.RoundTripper, error) {
-	if len(tokenFile) == 0 {
-		return &bearerAuthRoundTripper{bearer, nil, rt}, nil
-	}
-	source := NewCachedFileTokenSource(tokenFile)
-	if len(bearer) == 0 {
-		token, err := source.Token()
-		if err != nil {
-			return nil, err
-		}
-		bearer = token.AccessToken
-	}
-	return &bearerAuthRoundTripper{bearer, source, rt}, nil
+	return &bearerAuthRoundTripper{bearer, rt}
 }
 
 func (rt *bearerAuthRoundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
@@ -307,13 +280,7 @@ func (rt *bearerAuthRoundTripper) RoundTrip(req *http.Request) (*http.Response, 
 	}
 
 	req = utilnet.CloneRequest(req)
-	token := rt.bearer
-	if rt.source != nil {
-		if refreshedToken, err := rt.source.Token(); err == nil {
-			token = refreshedToken.AccessToken
-		}
-	}
-	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", token))
+	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", rt.bearer))
 	return rt.rt.RoundTrip(req)
 }
 
@@ -321,7 +288,7 @@ func (rt *bearerAuthRoundTripper) CancelRequest(req *http.Request) {
 	if canceler, ok := rt.rt.(requestCanceler); ok {
 		canceler.CancelRequest(req)
 	} else {
-		klog.Errorf("CancelRequest not implemented by %T", rt.rt)
+		glog.Errorf("CancelRequest not implemented by %T", rt.rt)
 	}
 }
 
@@ -405,7 +372,7 @@ func (rt *debuggingRoundTripper) CancelRequest(req *http.Request) {
 	if canceler, ok := rt.delegatedRoundTripper.(requestCanceler); ok {
 		canceler.CancelRequest(req)
 	} else {
-		klog.Errorf("CancelRequest not implemented by %T", rt.delegatedRoundTripper)
+		glog.Errorf("CancelRequest not implemented by %T", rt.delegatedRoundTripper)
 	}
 }
 
@@ -413,17 +380,17 @@ func (rt *debuggingRoundTripper) RoundTrip(req *http.Request) (*http.Response, e
 	reqInfo := newRequestInfo(req)
 
 	if rt.levels[debugJustURL] {
-		klog.Infof("%s %s", reqInfo.RequestVerb, reqInfo.RequestURL)
+		glog.Infof("%s %s", reqInfo.RequestVerb, reqInfo.RequestURL)
 	}
 	if rt.levels[debugCurlCommand] {
-		klog.Infof("%s", reqInfo.toCurl())
+		glog.Infof("%s", reqInfo.toCurl())
 
 	}
 	if rt.levels[debugRequestHeaders] {
-		klog.Infof("Request Headers:")
+		glog.Infof("Request Headers:")
 		for key, values := range reqInfo.RequestHeaders {
 			for _, value := range values {
-				klog.Infof("    %s: %s", key, value)
+				glog.Infof("    %s: %s", key, value)
 			}
 		}
 	}
@@ -435,16 +402,16 @@ func (rt *debuggingRoundTripper) RoundTrip(req *http.Request) (*http.Response, e
 	reqInfo.complete(response, err)
 
 	if rt.levels[debugURLTiming] {
-		klog.Infof("%s %s %s in %d milliseconds", reqInfo.RequestVerb, reqInfo.RequestURL, reqInfo.ResponseStatus, reqInfo.Duration.Nanoseconds()/int64(time.Millisecond))
+		glog.Infof("%s %s %s in %d milliseconds", reqInfo.RequestVerb, reqInfo.RequestURL, reqInfo.ResponseStatus, reqInfo.Duration.Nanoseconds()/int64(time.Millisecond))
 	}
 	if rt.levels[debugResponseStatus] {
-		klog.Infof("Response Status: %s in %d milliseconds", reqInfo.ResponseStatus, reqInfo.Duration.Nanoseconds()/int64(time.Millisecond))
+		glog.Infof("Response Status: %s in %d milliseconds", reqInfo.ResponseStatus, reqInfo.Duration.Nanoseconds()/int64(time.Millisecond))
 	}
 	if rt.levels[debugResponseHeaders] {
-		klog.Infof("Response Headers:")
+		glog.Infof("Response Headers:")
 		for key, values := range reqInfo.ResponseHeaders {
 			for _, value := range values {
-				klog.Infof("    %s: %s", key, value)
+				glog.Infof("    %s: %s", key, value)
 			}
 		}
 	}

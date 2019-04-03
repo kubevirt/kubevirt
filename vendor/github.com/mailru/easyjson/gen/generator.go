@@ -427,9 +427,10 @@ func lowerFirst(s string) string {
 	for i := range s {
 		ch := s[i]
 		if isUpper(ch) {
-			if i == 0 {
+			switch {
+			case i == 0:
 				str += string(ch + 32)
-			} else if !foundLower { // Currently just a stream of capitals, eg JSONRESTS[erver]
+			case !foundLower: // Currently just a stream of capitals, eg JSONRESTS[erver]
 				if strlen > (i+1) && isLower(s[i+1]) {
 					// Next char is lower, keep this a capital
 					str += string(ch)
@@ -437,7 +438,7 @@ func lowerFirst(s string) string {
 					// Either at end of string or next char is capital
 					str += string(ch + 32)
 				}
-			} else {
+			default:
 				str += string(ch)
 			}
 		} else {

@@ -1,0 +1,207 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: hyperconverged-cluster-operator
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      name: hyperconverged-cluster-operator
+  strategy: {}
+  template:
+    metadata:
+      creationTimestamp: null
+      labels:
+        name: hyperconverged-cluster-operator
+    spec:
+      containers:
+      - command:
+        - hyperconverged-cluster-operator
+        env:
+        - name: OPERATOR_IMAGE
+          value: rthallisey/hyperconverged-cluster-operator:latest
+        - name: OPERATOR_NAME
+          value: hyperconverged-cluster-operator
+        - name: POD_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
+        - name: WATCH_NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+        image: rthallisey/hyperconverged-cluster-operator:latest
+        imagePullPolicy: Always
+        name: hyperconverged-cluster-operator
+        resources: {}
+      serviceAccountName: hyperconverged-cluster-operator
+
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    kubevirt.io: virt-operator
+  name: virt-operator
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      kubevirt.io: virt-operator
+  strategy: {}
+  template:
+    metadata:
+      annotations:
+        scheduler.alpha.kubernetes.io/critical-pod: ""
+        scheduler.alpha.kubernetes.io/tolerations: '[{"key":"CriticalAddonsOnly","operator":"Exists"}]'
+      creationTimestamp: null
+      labels:
+        kubevirt.io: virt-operator
+        prometheus.kubevirt.io: ""
+      name: virt-operator
+    spec:
+      containers:
+      - command:
+        - virt-operator
+        - --port
+        - "8443"
+        - -v
+        - "2"
+        env:
+        - name: OPERATOR_IMAGE
+          value: kubevirt/virt-operator:latest
+        - name: WATCH_NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.annotations['olm.targetNamespaces']
+        image: kubevirt/virt-operator:latest
+        imagePullPolicy: IfNotPresent
+        name: virt-operator
+        ports:
+        - containerPort: 8443
+          name: metrics
+          protocol: TCP
+        readinessProbe:
+          httpGet:
+            path: /metrics
+            port: 8443
+            scheme: HTTPS
+          initialDelaySeconds: 5
+          timeoutSeconds: 10
+        resources: {}
+      securityContext:
+        runAsNonRoot: true
+      serviceAccountName: kubevirt-operator
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: cdi-operator
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      name: cdi-operator
+  strategy: {}
+  template:
+    metadata:
+      creationTimestamp: null
+      labels:
+        name: cdi-operator
+    spec:
+      containers:
+      - env:
+        - name: OPERATOR_IMAGE
+          value: kubevirt/cdi-operator:v1.7.0
+        - name: OPERATOR_NAME
+          value: cdi-operator
+        - name: POD_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
+        - name: WATCH_NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+        - name: DEPLOY_CLUSTER_RESOURCES
+          value: "true"
+        - name: DOCKER_REPO
+          value: kubevirt
+        - name: DOCKER_TAG
+          value: v1.7.0
+        - name: CONTROLLER_IMAGE
+          value: cdi-controller
+        - name: IMPORTER_IMAGE
+          value: cdi-importer
+        - name: CLONER_IMAGE
+          value: cdi-cloner
+        - name: APISERVER_IMAGE
+          value: cdi-apiserver
+        - name: UPLOAD_PROXY_IMAGE
+          value: cdi-uploadproxy
+        - name: UPLOAD_SERVER_IMAGE
+          value: cdi-uploadserver
+        - name: VERBOSITY
+          value: "1"
+        - name: PULL_POLICY
+          value: IfNotPresent
+        image: kubevirt/cdi-operator:v1.7.0
+        imagePullPolicy: Always
+        name: cdi-operator
+        ports:
+        - containerPort: 60000
+          name: metrics
+          protocol: TCP
+        resources: {}
+      serviceAccountName: cdi-operator
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: cluster-network-addons-operator
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      name: cluster-network-addons-operator
+  strategy: {}
+  template:
+    metadata:
+      creationTimestamp: null
+      labels:
+        name: cluster-network-addons-operator
+    spec:
+      containers:
+      - env:
+        - name: MULTUS_IMAGE
+          value: docker.io/nfvpe/multus:latest
+        - name: LINUX_BRIDGE_IMAGE
+          value: quay.io/kubevirt/cni-default-plugins
+        - name: SRIOV_DP_IMAGE
+          value: quay.io/booxter/sriov-device-plugin:latest
+        - name: SRIOV_CNI_IMAGE
+          value: docker.io/nfvpe/sriov-cni:latest
+        - name: SRIOV_ROOT_DEVICES
+        - name: KUBEMACPOOL_IMAGE
+          value: quay.io/schseba/mac-controller:latest
+        - name: OPERATOR_IMAGE
+          value: quay.io/kubevirt/cluster-network-addons-operator:latest
+        - name: OPERATOR_NAME
+          value: cluster-network-addons-operator
+        - name: POD_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
+        - name: WATCH_NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+        image: quay.io/kubevirt/cluster-network-addons-operator:latest
+        imagePullPolicy: Always
+        name: cluster-network-addons-operator
+        resources: {}
+      serviceAccountName: cluster-network-addons-operator

@@ -41,7 +41,7 @@ var NetworkInterfaceFactory = getNetworkClass
 var podInterfaceName = podInterface
 
 type NetworkInterface interface {
-	Plug(iface *v1.Interface, network *v1.Network, domain *api.Domain, podInterfaceName string) error
+	Plug(vmi *v1.VirtualMachineInstance, iface *v1.Interface, network *v1.Network, domain *api.Domain, podInterfaceName string) error
 	Unplug()
 }
 
@@ -51,7 +51,7 @@ func SetupNetworkInterfaces(vmi *v1.VirtualMachineInstance, domain *api.Domain) 
 	cniNetworks := map[string]int{}
 	for _, network := range vmi.Spec.Networks {
 		networks[network.Name] = network.DeepCopy()
-		if networks[network.Name].Multus != nil {
+		if networks[network.Name].Multus != nil && !networks[network.Name].Multus.Default {
 			// multus pod interfaces start from 1
 			cniNetworks[network.Name] = len(cniNetworks) + 1
 		} else if networks[network.Name].Genie != nil {
@@ -70,7 +70,7 @@ func SetupNetworkInterfaces(vmi *v1.VirtualMachineInstance, domain *api.Domain) 
 			return err
 		}
 
-		if networks[iface.Name].Multus != nil {
+		if networks[iface.Name].Multus != nil && !networks[iface.Name].Multus.Default {
 			// multus pod interfaces named netX
 			podInterfaceName = fmt.Sprintf("net%d", cniNetworks[iface.Name])
 		} else if networks[iface.Name].Genie != nil {
@@ -80,7 +80,7 @@ func SetupNetworkInterfaces(vmi *v1.VirtualMachineInstance, domain *api.Domain) 
 			podInterfaceName = podInterface
 		}
 
-		err = vif.Plug(&iface, network, domain, podInterfaceName)
+		err = vif.Plug(vmi, &iface, network, domain, podInterfaceName)
 		if err != nil {
 			return err
 		}
