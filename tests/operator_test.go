@@ -115,40 +115,47 @@ var _ = Describe("Operator", func() {
 	}
 
 	allPodsAreReady := func(expectedVersion string) {
-		var err error
-		var pods *k8sv1.PodList
-
 		Eventually(func() error {
+			podsReadyAndOwned := 0
 
-			pods, err = virtClient.CoreV1().Pods(tests.KubeVirtInstallNamespace).List(metav1.ListOptions{LabelSelector: "kubevirt.io"})
-			return err
-
-		}, 10*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
-
-		podsReadyAndOwned := 0
-		for _, pod := range pods.Items {
-			Expect(pod.Status.Phase).To(Equal(k8sv1.PodRunning))
-			for _, containerStatus := range pod.Status.ContainerStatuses {
-				Expect(containerStatus.Ready).To(Equal(true))
+			pods, err := virtClient.CoreV1().Pods(tests.KubeVirtInstallNamespace).List(metav1.ListOptions{LabelSelector: "kubevirt.io"})
+			if err != nil {
+				return err
 			}
 
-			managed, ok := pod.Labels[v1.ManagedByLabel]
-			if !ok || managed != v1.ManagedByLabelOperatorValue {
-				continue
+			for _, pod := range pods.Items {
+				managed, ok := pod.Labels[v1.ManagedByLabel]
+				if !ok || managed != v1.ManagedByLabelOperatorValue {
+					continue
+				}
+
+				if pod.Status.Phase != k8sv1.PodRunning {
+					return fmt.Errorf("Waiting for pod %s with phase %s to reach Running phase", pod.Name, pod.Status.Phase)
+				}
+
+				for _, containerStatus := range pod.Status.ContainerStatuses {
+					if !containerStatus.Ready {
+						return fmt.Errorf("Waiting for pod %s to have all containers in Ready state", pod.Name)
+					}
+				}
+
+				version, ok := pod.Annotations[v1.InstallStrategyVersionAnnotation]
+				if !ok {
+					return fmt.Errorf("Pod %s is owned by operator but has no version annotation", pod.Name)
+				}
+
+				if version != expectedVersion {
+					return fmt.Errorf("Pod %s is of version %s when we expected version %s", pod.Name, version, expectedVersion)
+				}
+				podsReadyAndOwned++
 			}
 
-			// if we're here, then this pod is both ready and owned by the operator
-			// make sure it is up to date with the latest version.
+			// this just sanity checks that at least one pod was found and verified.
+			// 0 would indicate our labeling was incorrect.
+			Expect(podsReadyAndOwned).ToNot(Equal(0))
 
-			version, ok := pod.Annotations[v1.InstallStrategyVersionAnnotation]
-			Expect(ok).To(BeTrue())
-			Expect(version).To(Equal(expectedVersion))
-			podsReadyAndOwned++
-		}
-
-		// this just sanity checks that at least one pod was found and verified.
-		// 0 would indicate our labeling was incorrect.
-		Expect(podsReadyAndOwned).ToNot(Equal(0))
+			return nil
+		}, 120*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
 	}
 
 	waitForUpdateCondition := func(kv *v1.KubeVirt) {
