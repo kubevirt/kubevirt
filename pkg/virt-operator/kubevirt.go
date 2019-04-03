@@ -618,7 +618,6 @@ func (c *KubeVirtController) getImageRegistry(kv *v1.KubeVirt) string {
 }
 
 func (c *KubeVirtController) getInstallStrategyJob(imageTag string, registry string) (*batchv1.Job, bool) {
-
 	objs := c.stores.InstallStrategyJobCache.List()
 	for _, obj := range objs {
 		if job, ok := obj.(*batchv1.Job); ok {
@@ -717,13 +716,12 @@ func (c *KubeVirtController) loadInstallStrategy(kv *v1.KubeVirt, imageTag strin
 					}
 					log.Log.Object(cachedJob).Errorf("Deleting job for install strategy version %s because configmap was not generated", imageTag)
 				}
-				// waiting on deleted job to disappear before re-creating it.
-				return nil, true, err
 			}
-
-			// waiting on deleted job to disappear before re-creating it.
-			return nil, true, nil
 		}
+
+		// we're either waiting on the job to be deleted or complete.
+		log.Log.Object(cachedJob).Errorf("Waiting on install strategy to be posted from job %s", cachedJob.Name)
+		return nil, true, nil
 	}
 
 	// 4. execute a job to generate the install strategy for the target version of KubeVirt that's being installed/updated
@@ -733,7 +731,7 @@ func (c *KubeVirtController) loadInstallStrategy(kv *v1.KubeVirt, imageTag strin
 		c.kubeVirtExpectations.InstallStrategyJob.LowerExpectations(kvkey, 1, 0)
 		return nil, true, err
 	}
-	log.Log.Infof("Created job to generate install strategy configmap for version %s", c.getImageTag(kv))
+	log.Log.Infof("Created job to generate install strategy configmap for version %s using registry %s", imageTag, registry)
 
 	// pending is true here because we're waiting on the job
 	// to generate the install strategy
