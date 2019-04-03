@@ -778,6 +778,37 @@ func ValidateVirtualMachineInstanceSpec(field *k8sfield.Path, spec *v1.VirtualMa
 		}
 	}
 
+	// Validate cpu if values are not negative
+	if spec.Domain.Resources.Requests.Cpu().MilliValue() < 0 {
+		causes = append(causes, metav1.StatusCause{
+			Type: metav1.CauseTypeFieldValueInvalid,
+			Message: fmt.Sprintf("%s '%s': must be greater than or equal to 0.", field.Child("domain", "resources", "requests", "cpu").String(),
+				spec.Domain.Resources.Requests.Cpu()),
+			Field: field.Child("domain", "resources", "requests", "cpu").String(),
+		})
+	}
+
+	if spec.Domain.Resources.Limits.Cpu().MilliValue() < 0 {
+		causes = append(causes, metav1.StatusCause{
+			Type: metav1.CauseTypeFieldValueInvalid,
+			Message: fmt.Sprintf("%s '%s': must be greater than or equal to 0.", field.Child("domain", "resources", "limits", "cpu").String(),
+				spec.Domain.Resources.Limits.Cpu()),
+			Field: field.Child("domain", "resources", "limits", "cpu").String(),
+		})
+	}
+
+	if spec.Domain.Resources.Limits.Cpu().MilliValue() > 0 &&
+		spec.Domain.Resources.Requests.Cpu().MilliValue() > spec.Domain.Resources.Limits.Cpu().MilliValue() {
+		causes = append(causes, metav1.StatusCause{
+			Type: metav1.CauseTypeFieldValueInvalid,
+			Message: fmt.Sprintf("%s '%s' is greater than %s '%s'", field.Child("domain", "resources", "requests", "cpu").String(),
+				spec.Domain.Resources.Requests.Cpu(),
+				field.Child("domain", "resources", "limits", "cpu").String(),
+				spec.Domain.Resources.Limits.Cpu()),
+			Field: field.Child("domain", "resources", "requests", "cpu").String(),
+		})
+	}
+
 	// Validate CPU pinning
 	if spec.Domain.CPU != nil && spec.Domain.CPU.DedicatedCPUPlacement {
 		requestsMem := spec.Domain.Resources.Requests.Memory().Value()
