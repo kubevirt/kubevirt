@@ -293,11 +293,11 @@ func (c *VMIReplicaSet) scale(rs *virtv1.VirtualMachineInstanceReplicaSet, vmis 
 				if err != nil {
 					// We can't observe a delete if it was not accepted by the server
 					c.expectations.DeletionObserved(rsKey, controller.VirtualMachineKey(deleteCandidate))
-					c.recorder.Eventf(rs, k8score.EventTypeWarning, FailedDeleteVirtualMachineReason, "Error deleting virtual machine %s: %v", deleteCandidate.ObjectMeta.Name, err)
+					c.recorder.Eventf(rs, k8score.EventTypeWarning, FailedDeleteVirtualMachineReason, "Error deleting virtual machine instance %s: %v", deleteCandidate.ObjectMeta.Name, err)
 					errChan <- err
 					return
 				}
-				c.recorder.Eventf(rs, k8score.EventTypeNormal, SuccessfulDeleteVirtualMachineReason, "Deleted virtual machine: %v", deleteCandidate.ObjectMeta.UID)
+				c.recorder.Eventf(rs, k8score.EventTypeNormal, SuccessfulDeleteVirtualMachineReason, "Stopped the virtual machine by deleting the virtual machine instance %v", deleteCandidate.ObjectMeta.UID)
 			}(i)
 		}
 
@@ -320,11 +320,11 @@ func (c *VMIReplicaSet) scale(rs *virtv1.VirtualMachineInstanceReplicaSet, vmis 
 				vmi, err := c.clientset.VirtualMachineInstance(rs.ObjectMeta.Namespace).Create(vmi)
 				if err != nil {
 					c.expectations.CreationObserved(rsKey)
-					c.recorder.Eventf(rs, k8score.EventTypeWarning, FailedCreateVirtualMachineReason, "Error creating virtual machine: %v", err)
+					c.recorder.Eventf(rs, k8score.EventTypeWarning, FailedCreateVirtualMachineReason, "Error creating virtual machine instance: %v", err)
 					errChan <- err
 					return
 				}
-				c.recorder.Eventf(rs, k8score.EventTypeNormal, SuccessfulCreateVirtualMachineReason, "Created virtual machine: %v", vmi.ObjectMeta.Name)
+				c.recorder.Eventf(rs, k8score.EventTypeNormal, SuccessfulCreateVirtualMachineReason, "Started the virtual machine by creating the new virtual machine instance %v", vmi.ObjectMeta.Name)
 			}()
 		}
 	}
