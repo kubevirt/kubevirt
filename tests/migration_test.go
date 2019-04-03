@@ -561,7 +561,7 @@ var _ = Describe("Migrations", func() {
 		})
 	})
 
-	Context("with a live-migrate eviction strategy set", func() {
+	FContext("with a live-migrate eviction strategy set", func() {
 
 		AfterEach(func() {
 			tests.CleanNodes()

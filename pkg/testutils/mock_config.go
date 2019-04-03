@@ -26,5 +26,5 @@ func MakeFakeClusterConfig(configMaps []v1.ConfigMap, stopChan chan struct{}) *v
 	cmInformer := cache.NewSharedIndexInformer(cmListWatch, &v1.ConfigMap{}, 0, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
 	go cmInformer.Run(stopChan)
 	cache.WaitForCacheSync(stopChan, cmInformer.HasSynced)
-	return virtconfig.NewClusterConfig(cmInformer.GetStore())
+	return virtconfig.NewClusterConfig(cmInformer.GetStore(), "kubevirt")
 }

@@ -177,7 +177,7 @@ func (app *virtHandlerApp) Run() {
 		gracefulShutdownInformer,
 		int(app.WatchdogTimeoutDuration.Seconds()),
 		app.MaxDevices,
-		virtconfig.NewClusterConfig(factory.ConfigMap().GetStore()),
+		virtconfig.NewClusterConfig(factory.ConfigMap().GetStore(), namespace),
 	)
 
 	certsDirectory, err := ioutil.TempDir("", "certsdir")

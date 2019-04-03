@@ -295,7 +295,7 @@ func (vca *VirtControllerApp) initCommon() {
 	vca.vmiController = NewVMIController(vca.templateService, vca.vmiInformer, vca.podInformer, vca.vmiRecorder, vca.clientSet, vca.configMapInformer, vca.dataVolumeInformer)
 	recorder := vca.getNewRecorder(k8sv1.NamespaceAll, "node-controller")
 	vca.nodeController = NewNodeController(vca.clientSet, vca.nodeInformer, vca.vmiInformer, recorder)
-	vca.migrationController = NewMigrationController(vca.templateService, vca.vmiInformer, vca.podInformer, vca.migrationInformer, vca.vmiRecorder, vca.clientSet, virtconfig.NewClusterConfig(vca.configMapInformer.GetStore()))
+	vca.migrationController = NewMigrationController(vca.templateService, vca.vmiInformer, vca.podInformer, vca.migrationInformer, vca.vmiRecorder, vca.clientSet, virtconfig.NewClusterConfig(vca.configMapInformer.GetStore(), vca.kubevirtNamespace))
 }
 
 func (vca *VirtControllerApp) initReplicaSet() {
@@ -333,7 +333,7 @@ func (vca *VirtControllerApp) initEvacuationController() {
 		vca.nodeInformer,
 		recorder,
 		vca.clientSet,
-		virtconfig.NewClusterConfig(vca.configMapInformer.GetStore()),
+		virtconfig.NewClusterConfig(vca.configMapInformer.GetStore(), vca.kubevirtNamespace),
 	)
 }
 
