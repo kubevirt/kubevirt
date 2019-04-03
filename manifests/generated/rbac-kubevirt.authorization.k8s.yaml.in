@@ -169,6 +169,16 @@ metadata:
   name: kubevirt-controller
 rules:
 - apiGroups:
+  - policy
+  resources:
+  - poddisruptionbudgets
+  verbs:
+  - get
+  - list
+  - watch
+  - delete
+  - create
+- apiGroups:
   - ""
   resources:
   - pods

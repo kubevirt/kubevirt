@@ -26,7 +26,7 @@ import (
 	"net/http"
 	"os"
 
-	restful "github.com/emicklei/go-restful"
+	"github.com/emicklei/go-restful"
 	"github.com/golang/glog"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	flag "github.com/spf13/pflag"
@@ -40,6 +40,10 @@ import (
 	"k8s.io/client-go/tools/record"
 
 	"kubevirt.io/kubevirt/pkg/certificates"
+
+	"kubevirt.io/kubevirt/pkg/virt-controller/watch/drain/disruptionbudget"
+	"kubevirt.io/kubevirt/pkg/virt-controller/watch/drain/evacuation"
+
 	containerdisk "kubevirt.io/kubevirt/pkg/container-disk"
 	"kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/kubecli"
@@ -104,12 +108,14 @@ type VirtControllerApp struct {
 
 	LeaderElection leaderelectionconfig.Configuration
 
-	launcherImage     string
-	imagePullSecret   string
-	virtShareDir      string
-	ephemeralDiskDir  string
-	readyChan         chan bool
-	kubevirtNamespace string
+	launcherImage              string
+	imagePullSecret            string
+	virtShareDir               string
+	ephemeralDiskDir           string
+	readyChan                  chan bool
+	kubevirtNamespace          string
+	evacuationController       *evacuation.EvacuationController
+	disruptionBudgetController *disruptionbudget.DisruptionBudgetController
 }
 
 var _ service.Service = &VirtControllerApp{}
@@ -162,6 +168,8 @@ func Execute() {
 	app.persistentVolumeClaimInformer = app.informerFactory.PersistentVolumeClaim()
 	app.persistentVolumeClaimCache = app.persistentVolumeClaimInformer.GetStore()
 
+	app.informerFactory.K8SInformerFactory().Policy().V1beta1().PodDisruptionBudgets().Informer()
+
 	app.vmInformer = app.informerFactory.VirtualMachine()
 
 	app.migrationInformer = app.informerFactory.VirtualMachineInstanceMigration()
@@ -180,6 +188,8 @@ func Execute() {
 	app.initCommon()
 	app.initReplicaSet()
 	app.initVirtualMachines()
+	app.initDisruptionBudgetController()
+	app.initEvacuationController()
 	app.Run()
 }
 
@@ -236,6 +246,8 @@ func (vca *VirtControllerApp) Run() {
 				OnStartedLeading: func(ctx context.Context) {
 					stop := ctx.Done()
 					vca.informerFactory.Start(stop)
+					go vca.evacuationController.Run(controllerThreads, stop)
+					go vca.disruptionBudgetController.Run(controllerThreads, stop)
 					go vca.nodeController.Run(controllerThreads, stop)
 					go vca.vmiController.Run(controllerThreads, stop)
 					go vca.rsController.Run(controllerThreads, stop)
@@ -283,7 +295,7 @@ func (vca *VirtControllerApp) initCommon() {
 	vca.vmiController = NewVMIController(vca.templateService, vca.vmiInformer, vca.podInformer, vca.vmiRecorder, vca.clientSet, vca.configMapInformer, vca.dataVolumeInformer)
 	recorder := vca.getNewRecorder(k8sv1.NamespaceAll, "node-controller")
 	vca.nodeController = NewNodeController(vca.clientSet, vca.nodeInformer, vca.vmiInformer, recorder)
-	vca.migrationController = NewMigrationController(vca.templateService, vca.vmiInformer, vca.podInformer, vca.migrationInformer, vca.vmiRecorder, vca.clientSet)
+	vca.migrationController = NewMigrationController(vca.templateService, vca.vmiInformer, vca.podInformer, vca.migrationInformer, vca.vmiRecorder, vca.clientSet, virtconfig.NewClusterConfig(vca.configMapInformer.GetStore(), vca.kubevirtNamespace))
 }
 
 func (vca *VirtControllerApp) initReplicaSet() {
@@ -300,6 +312,29 @@ func (vca *VirtControllerApp) initVirtualMachines() {
 		vca.dataVolumeInformer,
 		recorder,
 		vca.clientSet)
+}
+
+func (vca *VirtControllerApp) initDisruptionBudgetController() {
+	recorder := vca.getNewRecorder(k8sv1.NamespaceAll, "disruptionbudget-controller")
+	vca.disruptionBudgetController = disruptionbudget.NewDisruptionBudgetController(
+		vca.vmiInformer,
+		vca.informerFactory.K8SInformerFactory().Policy().V1beta1().PodDisruptionBudgets().Informer(),
+		recorder,
+		vca.clientSet,
+	)
+
+}
+
+func (vca *VirtControllerApp) initEvacuationController() {
+	recorder := vca.getNewRecorder(k8sv1.NamespaceAll, "disruptionbudget-controller")
+	vca.evacuationController = evacuation.NewEvacuationController(
+		vca.vmiInformer,
+		vca.migrationInformer,
+		vca.nodeInformer,
+		recorder,
+		vca.clientSet,
+		virtconfig.NewClusterConfig(vca.configMapInformer.GetStore(), vca.kubevirtNamespace),
+	)
 }
 
 func (vca *VirtControllerApp) leaderProbe(_ *restful.Request, response *restful.Response) {

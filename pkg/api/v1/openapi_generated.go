@@ -3059,6 +3059,13 @@ func schema_kubevirt_pkg_api_v1_VirtualMachineInstanceSpec(ref common.ReferenceC
 							},
 						},
 					},
+					"evictionStrategy": {
+						SchemaProps: spec.SchemaProps{
+							Description: "EvictionStrategy can be set to \"LiveMigrate\" if the VirtualMachineInstance should be migrated instead of shut-off in case of a node drain.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
 					"terminationGracePeriodSeconds": {
 						SchemaProps: spec.SchemaProps{
 							Description: "Grace period observed after signalling a VirtualMachineInstance to stop after which the VirtualMachineInstance is force terminated.",

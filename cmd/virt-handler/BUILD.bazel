@@ -18,6 +18,7 @@ go_library(
         "//pkg/monitoring/workqueue/prometheus:go_default_library",
         "//pkg/service:go_default_library",
         "//pkg/util:go_default_library",
+        "//pkg/virt-config:go_default_library",
         "//pkg/virt-handler:go_default_library",
         "//pkg/virt-handler/cache:go_default_library",
         "//pkg/virt-launcher:go_default_library",

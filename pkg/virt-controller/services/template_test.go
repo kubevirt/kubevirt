@@ -680,12 +680,14 @@ var _ = Describe("Template", func() {
 
 			It("should add tolerations to pod", func() {
 				podToleration := kubev1.Toleration{Key: "test"}
+				var tolerationSeconds int64 = 14
 				vm := v1.VirtualMachineInstance{
 					ObjectMeta: metav1.ObjectMeta{Name: "testvm", Namespace: "default", UID: "1234"},
 					Spec: v1.VirtualMachineInstanceSpec{
 						Tolerations: []kubev1.Toleration{
 							{
-								Key: podToleration.Key,
+								Key:               podToleration.Key,
+								TolerationSeconds: &tolerationSeconds,
 							},
 						},
 						Domain: v1.DomainSpec{},
@@ -693,7 +695,7 @@ var _ = Describe("Template", func() {
 				}
 				pod, err := svc.RenderLaunchManifest(&vm)
 				Expect(err).ToNot(HaveOccurred())
-				Expect(pod.Spec.Tolerations).To(BeEquivalentTo([]kubev1.Toleration{{Key: podToleration.Key}}))
+				Expect(pod.Spec.Tolerations).To(BeEquivalentTo([]kubev1.Toleration{{Key: podToleration.Key, TolerationSeconds: &tolerationSeconds}}))
 			})
 
 			It("should use the hostname and subdomain if specified on the vm", func() {

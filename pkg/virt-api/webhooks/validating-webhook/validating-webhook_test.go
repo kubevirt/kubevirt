@@ -58,6 +58,10 @@ var _ = Describe("Validating Webhook", func() {
 		})
 	})
 
+	AfterEach(func() {
+		os.Setenv("FEATURE_GATES", "")
+	})
+
 	Context("with VirtualMachineInstance admission review", func() {
 		It("should reject invalid VirtualMachineInstance spec on create", func() {
 			vmi := v1.NewMinimalVMI("testvmi")
@@ -105,6 +109,45 @@ var _ = Describe("Validating Webhook", func() {
 			resp := admitVMICreate(ar)
 			Expect(resp.Allowed).To(Equal(false))
 			Expect(resp.Result.Message).To(ContainSubstring("no memory requested"))
+		})
+
+		Context("tolerations with eviction policies given", func() {
+			var vmi *v1.VirtualMachineInstance
+			var policy = v1.EvictionStrategyLiveMigrate
+			BeforeEach(func() {
+				os.Setenv("FEATURE_GATES", "LiveMigration")
+				vmi = v1.NewMinimalVMI("testvmi")
+				vmi.Spec.EvictionStrategy = nil
+			})
+
+			table.DescribeTable("it should allow", func(policy v1.EvictionStrategy) {
+				vmi.Spec.EvictionStrategy = &policy
+				resp := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec)
+				Expect(resp).To(BeEmpty())
+			},
+				table.Entry("migration policy to be set", v1.EvictionStrategyLiveMigrate),
+			)
+
+			It("should block setting eviction policies if the feature gate is disabled", func() {
+				os.Setenv("FEATURE_GATES", "")
+				vmi.Spec.EvictionStrategy = &policy
+				resp := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec)
+				Expect(resp[0].Message).To(ContainSubstring("LiveMigration feature gate is not enabled"))
+			})
+
+			It("should allow no eviction policy to be set", func() {
+				vmi.Spec.EvictionStrategy = nil
+				resp := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec)
+				Expect(resp).To(BeEmpty())
+			})
+
+			It("should  not allow unknown eviction policies", func() {
+				policy := v1.EvictionStrategy("fantasy")
+				vmi.Spec.EvictionStrategy = &policy
+				resp := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec)
+				Expect(resp).To(HaveLen(1))
+				Expect(resp[0].Message).To(Equal("fake.evictionStrategy is set with an unrecognized option: fantasy"))
+			})
 		})
 
 		Context("with probes given", func() {

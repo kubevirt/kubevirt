@@ -57,6 +57,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/rand"
+	"k8s.io/apimachinery/pkg/util/strategicpatch"
 	"k8s.io/apimachinery/pkg/util/yaml"
 	k8sversion "k8s.io/apimachinery/pkg/version"
 	"k8s.io/client-go/kubernetes/scheme"
@@ -438,10 +439,127 @@ func AfterTestSuitCleanup() {
 	}
 	removeNamespaces()
 
+	CleanNodes()
 }
 
 func BeforeTestCleanup() {
 	cleanNamespaces()
+	CleanNodes()
+}
+
+func CleanNodes() {
+	virtCli, err := kubecli.GetKubevirtClient()
+	PanicOnError(err)
+	nodes := GetAllSchedulableNodes(virtCli).Items
+
+	for _, node := range nodes {
+
+		old, err := json.Marshal(node)
+		Expect(err).ToNot(HaveOccurred())
+		new := node.DeepCopy()
+
+		found := false
+		taints := []k8sv1.Taint{}
+		for _, taint := range node.Spec.Taints {
+
+			if taint.Key == "kubevirt.io/drain" && taint.Effect == k8sv1.TaintEffectNoSchedule {
+				found = true
+			} else {
+				taints = append(taints, taint)
+			}
+
+		}
+		new.Spec.Taints = taints
+
+		for k, _ := range node.Labels {
+			if strings.HasPrefix(k, "tests.kubevirt.io") {
+				found = true
+				delete(new.Labels, k)
+			}
+		}
+
+		if !found {
+			continue
+		}
+		newJson, err := json.Marshal(new)
+		Expect(err).ToNot(HaveOccurred())
+
+		patch, err := strategicpatch.CreateTwoWayMergePatch(old, newJson, node)
+		Expect(err).ToNot(HaveOccurred())
+
+		_, err = virtCli.CoreV1().Nodes().Patch(node.Name, types.StrategicMergePatchType, patch)
+		Expect(err).ToNot(HaveOccurred())
+	}
+}
+
+func AddLabelToNode(nodeName string, key string, value string) {
+	virtCli, err := kubecli.GetKubevirtClient()
+	PanicOnError(err)
+	node, err := virtCli.CoreV1().Nodes().Get(nodeName, metav1.GetOptions{})
+	Expect(err).ToNot(HaveOccurred())
+
+	old, err := json.Marshal(node)
+	Expect(err).ToNot(HaveOccurred())
+	new := node.DeepCopy()
+	new.Labels[key] = value
+
+	newJson, err := json.Marshal(new)
+	Expect(err).ToNot(HaveOccurred())
+
+	patch, err := strategicpatch.CreateTwoWayMergePatch(old, newJson, node)
+	Expect(err).ToNot(HaveOccurred())
+
+	_, err = virtCli.CoreV1().Nodes().Patch(node.Name, types.StrategicMergePatchType, patch)
+	Expect(err).ToNot(HaveOccurred())
+}
+
+func RemoveLabelFromNode(nodeName string, key string) {
+	virtCli, err := kubecli.GetKubevirtClient()
+	PanicOnError(err)
+	node, err := virtCli.CoreV1().Nodes().Get(nodeName, metav1.GetOptions{})
+	Expect(err).ToNot(HaveOccurred())
+
+	if _, exists := node.Labels[key]; !exists {
+		return
+	}
+
+	old, err := json.Marshal(node)
+	Expect(err).ToNot(HaveOccurred())
+	new := node.DeepCopy()
+	delete(new.Labels, key)
+
+	newJson, err := json.Marshal(new)
+	Expect(err).ToNot(HaveOccurred())
+
+	patch, err := strategicpatch.CreateTwoWayMergePatch(old, newJson, node)
+	Expect(err).ToNot(HaveOccurred())
+
+	_, err = virtCli.CoreV1().Nodes().Patch(node.Name, types.StrategicMergePatchType, patch)
+	Expect(err).ToNot(HaveOccurred())
+}
+
+func Taint(nodeName string, key string, effect k8sv1.TaintEffect) {
+	virtCli, err := kubecli.GetKubevirtClient()
+	PanicOnError(err)
+	node, err := virtCli.CoreV1().Nodes().Get(nodeName, metav1.GetOptions{})
+	Expect(err).ToNot(HaveOccurred())
+
+	old, err := json.Marshal(node)
+	Expect(err).ToNot(HaveOccurred())
+	new := node.DeepCopy()
+	new.Spec.Taints = append(new.Spec.Taints, k8sv1.Taint{
+		Key:    key,
+		Effect: effect,
+	})
+
+	newJson, err := json.Marshal(new)
+	Expect(err).ToNot(HaveOccurred())
+
+	patch, err := strategicpatch.CreateTwoWayMergePatch(old, newJson, node)
+	Expect(err).ToNot(HaveOccurred())
+
+	_, err = virtCli.CoreV1().Nodes().Patch(node.Name, types.StrategicMergePatchType, patch)
+	Expect(err).ToNot(HaveOccurred())
 }
 
 func BeforeTestSuitSetup() {

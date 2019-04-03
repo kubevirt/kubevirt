@@ -4447,6 +4447,7 @@
      }
     }
    },
+   "v1.EvictionStrategy": {},
    "v1.FeatureAPIC": {
     "properties": {
      "enabled": {
@@ -6252,6 +6253,10 @@
      "domain": {
       "description": "Specification of the desired behavior of the VirtualMachineInstance on the host.",
       "$ref": "#/definitions/v1.DomainSpec"
+     },
+     "evictionStrategy": {
+      "description": "EvictionStrategy can be set to \"LiveMigrate\" if the VirtualMachineInstance should be\nmigrated instead of shut-off in case of a node drain.",
+      "$ref": "#/definitions/v1.EvictionStrategy"
      },
      "hostname": {
       "description": "Specifies the hostname of the vmi\nIf not specified, the hostname will be set to the name of the vmi, if dhcp or cloud-init is configured properly.\n+optional",

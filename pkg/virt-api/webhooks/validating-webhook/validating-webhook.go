@@ -1416,6 +1416,24 @@ func ValidateVirtualMachineInstanceSpec(field *k8sfield.Path, spec *v1.VirtualMa
 		causes = append(causes, validateDNSPolicy(&spec.DNSPolicy, field.Child("dnsPolicy"))...)
 	}
 	causes = append(causes, validatePodDNSConfig(spec.DNSConfig, &spec.DNSPolicy, field.Child("dnsConfig"))...)
+
+	if !virtconfig.LiveMigrationEnabled() && spec.EvictionStrategy != nil {
+		causes = append(causes, metav1.StatusCause{
+			Type:    metav1.CauseTypeFieldValueInvalid,
+			Message: "LiveMigration feature gate is not enabled",
+			Field:   field.Child("evictionStrategy").String(),
+		})
+	} else if spec.EvictionStrategy != nil {
+		if *spec.EvictionStrategy != v1.EvictionStrategyLiveMigrate {
+			causes = append(causes, metav1.StatusCause{
+				Type:    metav1.CauseTypeFieldValueInvalid,
+				Message: fmt.Sprintf("%s is set with an unrecognized option: %s", field.Child("evictionStrategy").String(), *spec.EvictionStrategy),
+				Field:   field.Child("evictionStrategy").String(),
+			})
+		}
+
+	}
+
 	return causes
 }
 

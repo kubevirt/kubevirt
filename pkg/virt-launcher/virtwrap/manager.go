@@ -34,6 +34,7 @@ import (
 	"sync"
 	"time"
 
+	cmdclient "kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
 	eventsclient "kubevirt.io/kubevirt/pkg/virt-launcher/notify-client"
 
 	libvirt "github.com/libvirt/libvirt-go"
@@ -70,7 +71,7 @@ type DomainManager interface {
 	DeleteVMI(*v1.VirtualMachineInstance) error
 	SignalShutdownVMI(*v1.VirtualMachineInstance) error
 	ListAllDomains() ([]*api.Domain, error)
-	MigrateVMI(*v1.VirtualMachineInstance) error
+	MigrateVMI(*v1.VirtualMachineInstance, *cmdclient.MigrationOptions) error
 	PrepareMigrationTarget(*v1.VirtualMachineInstance, bool) error
 	GetDomainStats() ([]*stats.DomainStats, error)
 	CancelVMIMigration(*v1.VirtualMachineInstance) error
@@ -242,7 +243,7 @@ func (l *LibvirtDomainManager) setMigrationResultHelper(vmi *v1.VirtualMachineIn
 
 }
 
-func prepateMigrationFlags(isBlockMigration bool) libvirt.DomainMigrateFlags {
+func prepareMigrationFlags(isBlockMigration bool) libvirt.DomainMigrateFlags {
 	migrateFlags := libvirt.MIGRATE_LIVE | libvirt.MIGRATE_PEER2PEER
 
 	if isBlockMigration {
@@ -326,7 +327,7 @@ func getDiskTargetsForMigration(dom cli.VirDomain, vmi *v1.VirtualMachineInstanc
 	return copyDisks
 }
 
-func (l *LibvirtDomainManager) asyncMigrate(vmi *v1.VirtualMachineInstance) {
+func (l *LibvirtDomainManager) asyncMigrate(vmi *v1.VirtualMachineInstance, options *cmdclient.MigrationOptions) {
 
 	go func(l *LibvirtDomainManager, vmi *v1.VirtualMachineInstance) {
 
@@ -374,11 +375,19 @@ func (l *LibvirtDomainManager) asyncMigrate(vmi *v1.VirtualMachineInstance) {
 			return
 		}
 
-		migrateFlags := prepateMigrationFlags(isBlockMigration)
+		migrateFlags := prepareMigrationFlags(isBlockMigration)
+
+		bandwidth, err := api.QuantityToMebiByte(options.Bandwidth)
+
+		if err != nil {
+			log.Log.Object(vmi).Reason(err).Error("Live migration failed. Invalid bandwidth supplied.")
+			return
+		}
 
 		params := &libvirt.DomainMigrateParameters{
-			URI:    migrUri,
-			URISet: true,
+			Bandwidth: bandwidth, // MiB/s
+			URI:       migrUri,
+			URISet:    true,
 		}
 		copyDisks := getDiskTargetsForMigration(dom, vmi)
 		if len(copyDisks) != 0 {
@@ -566,7 +575,7 @@ func (l *LibvirtDomainManager) asyncMigrationAbort(vmi *v1.VirtualMachineInstanc
 	}(l, vmi)
 }
 
-func (l *LibvirtDomainManager) MigrateVMI(vmi *v1.VirtualMachineInstance) error {
+func (l *LibvirtDomainManager) MigrateVMI(vmi *v1.VirtualMachineInstance, options *cmdclient.MigrationOptions) error {
 
 	if vmi.Status.MigrationState == nil {
 		return fmt.Errorf("cannot migration VMI until migrationState is ready")
@@ -584,7 +593,7 @@ func (l *LibvirtDomainManager) MigrateVMI(vmi *v1.VirtualMachineInstance) error 
 	if err := updateHostsFile(fmt.Sprintf("%s %s\n", "127.0.0.1", vmi.Status.MigrationState.TargetPod)); err != nil {
 		return fmt.Errorf("failed to update the hosts file: %v", err)
 	}
-	l.asyncMigrate(vmi)
+	l.asyncMigrate(vmi, options)
 
 	return nil
 }

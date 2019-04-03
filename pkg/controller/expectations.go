@@ -110,6 +110,7 @@ type ControllerExpectationsInterface interface {
 	DeletionObserved(controllerKey string)
 	RaiseExpectations(controllerKey string, add, del int)
 	LowerExpectations(controllerKey string, add, del int)
+	AllPendingCreations() (creations int64)
 }
 
 // ControllerExpectations is a cache mapping controllers to what they expect to see before being woken up for a sync.
@@ -210,6 +211,16 @@ func (r *ControllerExpectations) RaiseExpectations(controllerKey string, add, de
 // CreationObserved atomically decrements the `add` expectation count of the given controller.
 func (r *ControllerExpectations) CreationObserved(controllerKey string) {
 	r.LowerExpectations(controllerKey, 1, 0)
+}
+
+func (r *ControllerExpectations) AllPendingCreations() (sum int64) {
+	for _, key := range r.ListKeys() {
+		exp, exists, _ := r.GetExpectations(key)
+		if exists {
+			sum = sum + exp.add
+		}
+	}
+	return
 }
 
 // DeletionObserved atomically decrements the `del` expectation count of the given controller.

@@ -971,12 +971,7 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 		SetNodeAffinityForForbiddenFeaturePolicy(vmi, &pod)
 	}
 
-	if vmi.Spec.Tolerations != nil {
-		pod.Spec.Tolerations = []k8sv1.Toleration{}
-		for _, v := range vmi.Spec.Tolerations {
-			pod.Spec.Tolerations = append(pod.Spec.Tolerations, v)
-		}
-	}
+	pod.Spec.Tolerations = vmi.Spec.Tolerations
 
 	if len(serviceAccountName) > 0 {
 		pod.Spec.ServiceAccountName = serviceAccountName

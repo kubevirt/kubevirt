@@ -182,6 +182,16 @@ rules:
   - list
   - watch
 - apiGroups:
+  - policy
+  resources:
+  - poddisruptionbudgets
+  verbs:
+  - get
+  - list
+  - watch
+  - delete
+  - create
+- apiGroups:
   - ""
   resources:
   - pods

@@ -143,6 +143,9 @@ type VirtualMachineInstanceList struct {
 	Items           []VirtualMachineInstance `json:"items"`
 }
 
+// +k8s:openapi-gen=true
+type EvictionStrategy string
+
 // VirtualMachineInstanceSpec is a description of a VirtualMachineInstance.
 // ---
 // +k8s:openapi-gen=true
@@ -158,6 +161,13 @@ type VirtualMachineInstanceSpec struct {
 	Affinity *k8sv1.Affinity `json:"affinity,omitempty"`
 	// If toleration is specified, obey all the toleration rules.
 	Tolerations []k8sv1.Toleration `json:"tolerations,omitempty"`
+
+	// EvictionStrategy can be set to "LiveMigrate" if the VirtualMachineInstance should be
+	// migrated instead of shut-off in case of a node drain.
+	// ---
+	// +optional
+	EvictionStrategy *EvictionStrategy `json:"evictionStrategy,omitempty"`
+
 	// Grace period observed after signalling a VirtualMachineInstance to stop after which the VirtualMachineInstance is force terminated.
 	TerminationGracePeriodSeconds *int64 `json:"terminationGracePeriodSeconds,omitempty"`
 	// List of volumes that can be mounted by disks belonging to the vmi.
@@ -330,6 +340,14 @@ func (m *VirtualMachineInstanceMigration) IsFinal() bool {
 	return m.Status.Phase == MigrationFailed || m.Status.Phase == MigrationSucceeded
 }
 
+func (m *VirtualMachineInstanceMigration) IsRunning() bool {
+	switch m.Status.Phase {
+	case MigrationFailed, MigrationPending, MigrationPhaseUnset, MigrationSucceeded:
+		return false
+	}
+	return true
+}
+
 // The migration phase indicates that the target pod should have already been created
 func (m *VirtualMachineInstanceMigration) TargetIsCreated() bool {
 	return m.Status.Phase != MigrationPhaseUnset &&
@@ -462,7 +480,7 @@ const (
 	MigrationJobNameAnnotation string = "kubevirt.io/migrationJobName"
 	// This label is used to match virtual machine instance IDs with pods.
 	// Similar to kubevirt.io/domain. Used on Pod.
-	// Deprecated: would be replaced by a Controller Reference in a future release.
+	// Internal use only.
 	CreatedByLabel string = "kubevirt.io/created-by"
 	// This label is used to indicate that this pod is the target of a migration job.
 	MigrationJobLabel string = "kubevirt.io/migrationJobUID"
@@ -1159,4 +1177,8 @@ const (
 	KubeVirtConditionCreated KubeVirtConditionType = "Created"
 	// Whether all components were ready
 	KubeVirtConditionReady KubeVirtConditionType = "Ready"
+)
+
+const (
+	EvictionStrategyLiveMigrate EvictionStrategy = "LiveMigrate"
 )
