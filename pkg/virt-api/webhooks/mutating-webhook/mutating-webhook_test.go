@@ -150,6 +150,7 @@ var _ = Describe("Mutating Webhook", func() {
 			vmiSpec, _ := getVMISpecMetaFromResponse()
 			Expect(vmiSpec.Domain.Machine.Type).To(Equal("q35"))
 			Expect(vmiSpec.Domain.CPU.Model).To(Equal(""))
+			Expect(vmiSpec.Domain.Resources.Requests.Cpu().String()).To(Equal("100m"))
 		})
 
 		It("should apply configurable defaults on VMI create", func() {
@@ -162,15 +163,19 @@ var _ = Describe("Mutating Webhook", func() {
 		It("should not override specified properties with defaults on VMI create", func() {
 			vmCPUModel := "EPYC"
 			vmMachineType := "q35"
+			cpu := "600m"
+			vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceCPU] = resource.MustParse(cpu)
 			vmi.Spec.Domain.CPU = &v1.CPU{
 				Model: vmCPUModel,
 			}
 			vmi.Spec.Domain.Machine.Type = vmMachineType
 
+			vmiSpec, _ := getVMISpecMetaFromResponse()
 			setDefaultCPUModel(vmi, cpuModelFromConfig)
 			setDefaultMachineType(vmi, machineTypeFromConfig)
 			Expect(vmi.Spec.Domain.CPU.Model).To(Equal(vmCPUModel))
 			Expect(vmi.Spec.Domain.Machine.Type).To(Equal(vmMachineType))
+			Expect(vmiSpec.Domain.Resources.Requests.Cpu().String()).To(Equal(cpu))
 		})
 
 		It("should apply foreground finalizer on VMI create", func() {
