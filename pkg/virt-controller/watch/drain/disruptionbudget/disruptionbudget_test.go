@@ -123,6 +123,7 @@ var _ = Describe("Disruptionbudget", func() {
 
 			shouldExpectPDBDeletion(pdb)
 			controller.Execute()
+			testutils.ExpectEvent(recorder, disruptionbudget.SuccessfulDeletePodDisruptionBudgetReason)
 		})
 	})
 
@@ -150,6 +151,7 @@ var _ = Describe("Disruptionbudget", func() {
 			vmiFeeder.Delete(vmi)
 			shouldExpectPDBDeletion(pdb)
 			controller.Execute()
+			testutils.ExpectEvent(recorder, disruptionbudget.SuccessfulDeletePodDisruptionBudgetReason)
 		})
 
 		It("should remove the pdb if the VMI does not want to be migrated anymore", func() {
@@ -165,6 +167,7 @@ var _ = Describe("Disruptionbudget", func() {
 			vmiFeeder.Modify(vmi)
 			shouldExpectPDBDeletion(pdb)
 			controller.Execute()
+			testutils.ExpectEvent(recorder, disruptionbudget.SuccessfulDeletePodDisruptionBudgetReason)
 		})
 
 		It("should add the pdb, if it does not exist", func() {
@@ -174,6 +177,7 @@ var _ = Describe("Disruptionbudget", func() {
 
 			shouldExpectPDBCreation(vmi.UID)
 			controller.Execute()
+			testutils.ExpectEvent(recorder, disruptionbudget.SuccessfulCreatePodDisruptionBudgetReason)
 		})
 
 		It("should recreate the pdb, if it disappears", func() {
@@ -187,6 +191,7 @@ var _ = Describe("Disruptionbudget", func() {
 			shouldExpectPDBCreation(vmi.UID)
 			pdbFeeder.Delete(pdb)
 			controller.Execute()
+			testutils.ExpectEvent(recorder, disruptionbudget.SuccessfulCreatePodDisruptionBudgetReason)
 		})
 
 		It("should recreate the pdb, if the pdb is orphaned", func() {
@@ -202,6 +207,7 @@ var _ = Describe("Disruptionbudget", func() {
 			newPdb.OwnerReferences = nil
 			pdbFeeder.Modify(newPdb)
 			controller.Execute()
+			testutils.ExpectEvent(recorder, disruptionbudget.SuccessfulCreatePodDisruptionBudgetReason)
 		})
 	})
 

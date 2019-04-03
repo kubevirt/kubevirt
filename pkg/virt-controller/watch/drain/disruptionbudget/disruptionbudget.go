@@ -5,6 +5,7 @@ import (
 	"reflect"
 	"time"
 
+	v12 "k8s.io/api/core/v1"
 	"k8s.io/api/policy/v1beta1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
@@ -17,6 +18,17 @@ import (
 	"kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/kubecli"
 	"kubevirt.io/kubevirt/pkg/log"
+)
+
+const (
+	// FailedCreatePodDisruptionBudgetReason is added in an event if creating a PodDisruptionBudget failed.
+	FailedCreatePodDisruptionBudgetReason = "FailedCreate"
+	// SuccessfulCreatePodDisruptionBudgetReason is added in an event if creating a PodDisruptionBudget succeeded.
+	SuccessfulCreatePodDisruptionBudgetReason = "SuccessfulCreate"
+	// FailedDeletePodDisruptionBudgetReason is added in an event if deleting a PodDisruptionBudget failed.
+	FailedDeletePodDisruptionBudgetReason = "FailedDelete"
+	// SuccessfulDeletePodDisruptionBudgetReason is added in an event if deleting a PodDisruptionBudget succeeded.
+	SuccessfulDeletePodDisruptionBudgetReason = "SuccessfulDelete"
 )
 
 type DisruptionBudgetController struct {
@@ -348,13 +360,15 @@ func (c *DisruptionBudgetController) sync(key string, vmi *virtv1.VirtualMachine
 		err = c.clientset.PolicyV1beta1().PodDisruptionBudgets(pdb.Namespace).Delete(pdb.Name, &v1.DeleteOptions{})
 		if err != nil {
 			c.podDisruptionBudgetExpectations.DeletionObserved(key, pdbKey)
+			c.recorder.Eventf(vmi, v12.EventTypeWarning, FailedDeletePodDisruptionBudgetReason, "Error deleting the PodDisruptionBudget %s: %v", pdb.Name, err)
 			return err
 		}
+		c.recorder.Eventf(vmi, v12.EventTypeNormal, SuccessfulDeletePodDisruptionBudgetReason, "Deleted PodDisruptionBudget %s", pdb.Name)
 		return nil
 	} else if create {
 		one := intstr.FromInt(1)
 		c.podDisruptionBudgetExpectations.ExpectCreations(key, 1)
-		_, err := c.clientset.PolicyV1beta1().PodDisruptionBudgets(vmi.Namespace).Create(&v1beta1.PodDisruptionBudget{
+		createdPDB, err := c.clientset.PolicyV1beta1().PodDisruptionBudgets(vmi.Namespace).Create(&v1beta1.PodDisruptionBudget{
 			ObjectMeta: v1.ObjectMeta{
 				OwnerReferences: []v1.OwnerReference{
 					*v1.NewControllerRef(vmi, virtv1.VirtualMachineInstanceGroupVersionKind),
@@ -372,8 +386,10 @@ func (c *DisruptionBudgetController) sync(key string, vmi *virtv1.VirtualMachine
 		})
 		if err != nil {
 			c.podDisruptionBudgetExpectations.CreationObserved(key)
+			c.recorder.Eventf(vmi, v12.EventTypeWarning, FailedCreatePodDisruptionBudgetReason, "Error creating a PodDisruptionBudget: %v", err)
 			return err
 		}
+		c.recorder.Eventf(vmi, v12.EventTypeNormal, SuccessfulCreatePodDisruptionBudgetReason, "Created PodDisruptionBudget %s", createdPDB.Name)
 	}
 	return nil
 }

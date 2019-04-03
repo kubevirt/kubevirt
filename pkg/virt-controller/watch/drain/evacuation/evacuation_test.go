@@ -131,9 +131,10 @@ var _ = Describe("Evacuation", func() {
 			vmi.Spec.EvictionStrategy = newEvictionStrategy()
 			vmiFeeder.Add(vmi)
 
-			migrationInterface.EXPECT().Create(gomock.Any())
+			migrationInterface.EXPECT().Create(gomock.Any()).Return(&v1.VirtualMachineInstanceMigration{ObjectMeta: v13.ObjectMeta{Name: "something"}}, nil)
 
 			controller.Execute()
+			testutils.ExpectEvent(recorder, evacuation.SuccessfulCreateVirtualMachineInstanceMigrationReason)
 		})
 
 		It("should ignore VMIs which are not migratable", func() {
@@ -154,6 +155,10 @@ var _ = Describe("Evacuation", func() {
 			vmiFeeder.Add(vmi1)
 
 			controller.Execute()
+			testutils.ExpectEvents(recorder,
+				evacuation.FailedCreateVirtualMachineInstanceMigrationReason,
+				evacuation.FailedCreateVirtualMachineInstanceMigrationReason,
+			)
 		})
 
 		It("should not evict VMIs if 5 migrations are in progress", func() {
@@ -202,8 +207,9 @@ var _ = Describe("Evacuation", func() {
 			migration.Status.Phase = v1.MigrationSucceeded
 			migrationFeeder.Modify(migration)
 
-			migrationInterface.EXPECT().Create(gomock.Any())
+			migrationInterface.EXPECT().Create(gomock.Any()).Return(&v1.VirtualMachineInstanceMigration{ObjectMeta: v13.ObjectMeta{Name: "something"}}, nil)
 			controller.Execute()
+			testutils.ExpectEvent(recorder, evacuation.SuccessfulCreateVirtualMachineInstanceMigrationReason)
 		})
 	})
 

@@ -23,6 +23,13 @@ import (
 	"kubevirt.io/kubevirt/pkg/log"
 )
 
+const (
+	// FailedCreateVirtualMachineInstanceMigrationReason is added in an event if creating a VirtualMachineInstanceMigration failed.
+	FailedCreateVirtualMachineInstanceMigrationReason = "FailedCreate"
+	// SuccessfulCreateVirtualMachineInstanceMigrationReason is added in an event if creating a VirtualMachineInstanceMigration succeeded.
+	SuccessfulCreateVirtualMachineInstanceMigrationReason = "SuccessfulCreate"
+)
+
 type EvacuationController struct {
 	clientset             kubecli.KubevirtClient
 	Queue                 workqueue.RateLimitingInterface
@@ -330,12 +337,7 @@ func (c *EvacuationController) sync(node *k8sv1.Node, vmisOnNode []*virtv1.Virtu
 		return nil
 	}
 
-	migrationCandidates := c.filterRunningNonMigratingVMIs(vmisOnNode, activeMigrations)
-
-	if len(migrationCandidates) == 0 {
-		// nothing to do
-		return nil
-	}
+	migrationCandidates, nonMigrateable := c.filterRunningNonMigratingVMIs(vmisOnNode, activeMigrations)
 
 	// Don't create hundreds of pending migration objects.
 	// This is just best-effort and is *not* intended to not overload the cluster.
@@ -343,19 +345,38 @@ func (c *EvacuationController) sync(node *k8sv1.Node, vmisOnNode []*virtv1.Virtu
 	// The migration controller needs to limit itself to a reasonable number of running migrations
 	maxParallelMigrations := int(*c.clusterConfig.GetMigrationConfig().ParallelMigrationsPerCluster)
 	if len(activeMigrations) >= maxParallelMigrations {
-		// We have to re-enqueue since migrations from other controllers or workers` don't wake us up again
-		c.Queue.AddAfter(node.Name, 5*time.Second)
+		// We have to re-enqueue if some work is left, since migrations from other controllers or workers` don't wake us up again
+		if len(migrationCandidates) > 0 || len(nonMigrateable) > 0 {
+			c.Queue.AddAfter(node.Name, 5*time.Second)
+		}
 		return nil
 	}
-	diff := int(math.Min(float64(maxParallelMigrations-len(activeMigrations)), float64(len(migrationCandidates))))
+	freeSpots := maxParallelMigrations - len(activeMigrations)
+	diff := int(math.Min(float64(freeSpots), float64(len(migrationCandidates))))
+	remaining := freeSpots - diff
+	remainingForNonMigrateableDiff := int(math.Min(float64(remaining), float64(len(nonMigrateable))))
+
+	if remainingForNonMigrateableDiff > 0 {
+		// for all non-migrating VMIs which would get e spot emit a warning
+		for _, vmi := range nonMigrateable[0:remainingForNonMigrateableDiff] {
+			c.recorder.Eventf(vmi, k8sv1.EventTypeNormal, FailedCreateVirtualMachineInstanceMigrationReason, "VirtualMachineInstance is not migrateable")
+		}
+
+	}
 
 	if diff == 0 {
+		if remainingForNonMigrateableDiff > 0 {
+			// Let's ensure that some warnings will stay in the event log and periodically update
+			// In theory the warnings could disappear after one hour if nothing else updates
+			c.Queue.AddAfter(node.Name, 1*time.Minute)
+		}
 		// nothing to do
 		return nil
 	}
 
 	// TODO: should the order be randomized?
 	selectedCandidates := migrationCandidates[0:diff]
+
 	log.DefaultLogger().Infof("node: %v, migrations: %v, candidates: %v, selected: %v", node.Name, len(activeMigrations), len(migrationCandidates), len(selectedCandidates))
 
 	wg := &sync.WaitGroup{}
@@ -367,7 +388,7 @@ func (c *EvacuationController) sync(node *k8sv1.Node, vmisOnNode []*virtv1.Virtu
 	for _, vmi := range selectedCandidates {
 		go func(vmi *virtv1.VirtualMachineInstance) {
 			defer wg.Done()
-			_, err := c.clientset.VirtualMachineInstanceMigration(vmi.Namespace).Create(&virtv1.VirtualMachineInstanceMigration{
+			createdMigration, err := c.clientset.VirtualMachineInstanceMigration(vmi.Namespace).Create(&virtv1.VirtualMachineInstanceMigration{
 				ObjectMeta: v1.ObjectMeta{
 					GenerateName: "kubevirt-evacuation-",
 				},
@@ -377,7 +398,11 @@ func (c *EvacuationController) sync(node *k8sv1.Node, vmisOnNode []*virtv1.Virtu
 			})
 			if err != nil {
 				c.migrationExpectations.CreationObserved(node.Name)
+				c.recorder.Eventf(vmi, k8sv1.EventTypeWarning, FailedCreateVirtualMachineInstanceMigrationReason, "Error creating a Migration: %v", err)
 				errChan <- err
+				return
+			} else {
+				c.recorder.Eventf(vmi, k8sv1.EventTypeNormal, SuccessfulCreateVirtualMachineInstanceMigrationReason, "Created Migration %s", createdMigration.Name)
 			}
 		}(vmi)
 	}
@@ -404,13 +429,11 @@ func (c *EvacuationController) listVMIsOnNode(nodeName string) ([]*virtv1.Virtua
 	return vmis, nil
 }
 
-func (c *EvacuationController) filterRunningNonMigratingVMIs(vmis []*virtv1.VirtualMachineInstance, migrations []*virtv1.VirtualMachineInstanceMigration) []*virtv1.VirtualMachineInstance {
+func (c *EvacuationController) filterRunningNonMigratingVMIs(vmis []*virtv1.VirtualMachineInstance, migrations []*virtv1.VirtualMachineInstanceMigration) (migrateable []*virtv1.VirtualMachineInstance, nonMigrateable []*virtv1.VirtualMachineInstance) {
 	lookup := map[string]bool{}
 	for _, migration := range migrations {
 		lookup[migration.Namespace+"/"+migration.Spec.VMIName] = true
 	}
-
-	migrationCandidates := []*virtv1.VirtualMachineInstance{}
 
 	for _, vmi := range vmis {
 
@@ -420,17 +443,17 @@ func (c *EvacuationController) filterRunningNonMigratingVMIs(vmis []*virtv1.Virt
 		}
 		// can't migrate
 		if !controller.NewVirtualMachineInstanceConditionManager().HasConditionWithStatus(vmi, virtv1.VirtualMachineInstanceIsMigratable, k8sv1.ConditionTrue) {
-			// TODO write event
+			nonMigrateable = append(nonMigrateable, vmi)
 			continue
 		}
 		if exists := lookup[vmi.Namespace+"/"+vmi.Name]; !exists &&
 			!vmi.IsFinal() && vmi.DeletionTimestamp == nil {
 			// no migration exists,
 			// the vmi is running,
-			migrationCandidates = append(migrationCandidates, vmi)
+			migrateable = append(migrateable, vmi)
 		}
 	}
-	return migrationCandidates
+	return migrateable, nonMigrateable
 }
 
 func nodeHasTaint(taint *k8sv1.Taint, node *k8sv1.Node) bool {

@@ -59,7 +59,7 @@ var _ = Describe("ConfigMap", func() {
 	},
 		table.Entry("is PullAlways, it should return PullAlways", "Always", kubev1.PullAlways),
 		table.Entry("is Never, it should return Never", "Never", kubev1.PullNever),
-		table.Entry("is IsNotPresent, it should return IsNotPresent", "IsNotPresent", kubev1.PullIfNotPresent),
+		table.Entry("is IsNotPresent, it should return IsNotPresent", "IfNotPresent", kubev1.PullIfNotPresent),
 		table.Entry("when unset, it should return PullIfNotPresent", "", kubev1.PullIfNotPresent),
 		table.Entry("when invalid, it should return the default", "invalid", kubev1.PullIfNotPresent),
 	)
