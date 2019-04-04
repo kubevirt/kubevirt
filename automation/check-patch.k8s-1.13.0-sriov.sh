@@ -72,7 +72,7 @@ flock -e  -w "$SRIOV_TIMEOUT_SEC" "$fd" || {
 go get -u sigs.k8s.io/kind
 kind create cluster --name=${CLUSTER_NAME} --config=${MANIFESTS_DIR}/kind.yaml
 
-KUBECONFIG=$(kind get kubeconfig-path --name=${CLUSTER_NAME})
+export KUBECONFIG=$(kind get kubeconfig-path --name=${CLUSTER_NAME})
 kubectl cluster-info
 
 # wait for nodes to become ready
@@ -158,6 +158,7 @@ wait_containers_ready
 # ===============
 # deploy kubevirt
 # ===============
+export KUBEVIRT_PROVIDER=external
 make
 make docker
 make cluster-deploy
