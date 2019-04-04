@@ -205,7 +205,13 @@ func getHypervNodeSelectors(vmi *v1.VirtualMachineInstance) (map[string]string, 
 	// The following HyperV features don't require support from the host kernel, according to inspection
 	// of the QEMU sources (4.0 - adb3321bfd)
 	// VAPIC, Relaxed, Spinlocks, VendorID
-	// see https://schd.ws/hosted_files/devconfcz2019/cf/vkuznets_enlightening_kvm_devconf2019.pdf
+	// VPIndex, SyNIC: depend on both MSR and capability
+	// IPI, TLBFlush: depend on KVM Capabilities
+	// Runtime, Reset, SyNICTimer, Frequencies, Reenlightenment: depend on KVM MSRs availability
+	// EVMCS: depends on KVM capability, but the only way to know that is enable it, QEMU doesn't do
+	// any check before that, so we leave it out
+	//
+	// see also https://schd.ws/hosted_files/devconfcz2019/cf/vkuznets_enlightening_kvm_devconf2019.pdf
 	// to learn about dependencies between enlightenments
 
 	hyperv := vmi.Spec.Domain.Features.Hyperv // shortcut
@@ -231,6 +237,22 @@ func getHypervNodeSelectors(vmi *v1.VirtualMachineInstance) (map[string]string, 
 			// TODO: SyNICTimer depends on SyNIC and Relaxed. We should enforce this constraint.
 			Feature: hyperv.SyNICTimer,
 			Label:   "synictimer",
+		},
+		hvFeatureLabel{
+			Feature: hyperv.Frequencies,
+			Label:   "frequencies",
+		},
+		hvFeatureLabel{
+			Feature: hyperv.Reenlightenment,
+			Label:   "reenlightenment",
+		},
+		hvFeatureLabel{
+			Feature: hyperv.TLBFlush,
+			Label:   "tlbflush",
+		},
+		hvFeatureLabel{
+			Feature: hyperv.IPI,
+			Label:   "ipi",
 		},
 	}
 	for _, hv := range hvFeatureLabels {
