@@ -222,7 +222,7 @@ var _ = Describe("Manager", func() {
 			}
 
 			options := &cmdclient.MigrationOptions{
-				Bandwidth: resource.MustParse("64Mi"),
+				Bandwidth:               resource.MustParse("64Mi"),
 				ProgressTimeout:         2,
 				CompletionTimeoutPerGiB: 300,
 			}
@@ -263,7 +263,7 @@ var _ = Describe("Manager", func() {
 			}()
 
 			options := &cmdclient.MigrationOptions{
-				Bandwidth: resource.MustParse("64Mi"),
+				Bandwidth:               resource.MustParse("64Mi"),
 				ProgressTimeout:         3,
 				CompletionTimeoutPerGiB: 150,
 			}
@@ -392,7 +392,7 @@ var _ = Describe("Manager", func() {
 			mockDomain.EXPECT().GetXMLDesc(gomock.Eq(libvirt.DOMAIN_XML_MIGRATABLE)).Return(string(xml), nil)
 			mockDomain.EXPECT().GetXMLDesc(gomock.Eq(libvirt.DOMAIN_XML_INACTIVE)).Return(string(xml), nil)
 			options := &cmdclient.MigrationOptions{
-				Bandwidth: resource.MustParse("64Mi"),
+				Bandwidth:               resource.MustParse("64Mi"),
 				ProgressTimeout:         150,
 				CompletionTimeoutPerGiB: 300,
 			}

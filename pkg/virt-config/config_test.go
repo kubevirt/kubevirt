@@ -71,13 +71,15 @@ var _ = Describe("ConfigMap", func() {
 				Namespace:       "kubevirt",
 				Name:            "kubevirt-config",
 			},
-			Data: map[string]string{migrationsConfigKey: `{"parallelOutboundMigrationsPerNode" : 10, "parallelMigrationsPerCluster": 20, "bandwidthPerMigration": "110Mi"}`},
+			Data: map[string]string{migrationsConfigKey: `{"parallelOutboundMigrationsPerNode" : 10, "parallelMigrationsPerCluster": 20, "bandwidthPerMigration": "110Mi", "progressTimeout" : 5, "completionTimeoutPerGiB": 5}`},
 		}
 		clusterConfig, _ := MakeClusterConfig([]kubev1.ConfigMap{cfgMap}, stopChan)
 		result := clusterConfig.GetMigrationConfig()
 		Expect(*result.ParallelOutboundMigrationsPerNode).To(BeNumerically("==", 10))
 		Expect(*result.ParallelMigrationsPerCluster).To(BeNumerically("==", 20))
 		Expect(result.BandwidthPerMigration.String()).To(Equal("110Mi"))
+		Expect(*result.ProgressTimeout).To(BeNumerically("==", 5))
+		Expect(*result.CompletionTimeoutPerGiB).To(BeNumerically("==", 5))
 	})
 
 	It("Should return migration config values if specified as yaml", func() {

@@ -165,7 +165,7 @@ type MigrationConfig struct {
 	ParallelMigrationsPerCluster      *uint32            `json:"parallelMigrationsPerCluster,omitempty"`
 	BandwidthPerMigration             *resource.Quantity `json:"bandwidthPerMigration,omitempty"`
 	NodeDrainTaintKey                 *string            `json:"nodeDrainTaintKey,omitempty"`
-	ProgressTimeout                   *int64             `json:"progressTimeout,,omitempty"`
+	ProgressTimeout                   *int64             `json:"progressTimeout,omitempty"`
 	CompletionTimeoutPerGiB           *int64             `json:"completionTimeoutPerGiB,omitempty"`
 }
 
