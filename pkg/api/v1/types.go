@@ -405,15 +405,6 @@ type VirtualMachineInstanceMigrationState struct {
 	AbortStatus MigrationAbortStatus `json:"abortStatus,omitempty"`
 	// The VirtualMachineInstanceMigration object associated with this migration
 	MigrationUID types.UID `json:"migrationUid,omitempty"`
-	// Config contains migration configuration options
-	Config *MigrationConfig `json:"migrationConfig,omitempty"`
-}
-
-type MigrationConfig struct {
-	// The time for GiB of data to wait for the migration to be completed before aborting it
-	CompletionTimeoutPerGiB int64 `json:"completionTimeoutPerGiB,omitempty"`
-	// The time to wait for live migration to make progress in transferring data.
-	ProgressTimeout int64 `json:"progressTimeout,omitempty"`
 }
 
 // ---
@@ -806,8 +797,7 @@ func (vl *VirtualMachineInstanceMigrationList) GetListMeta() meta.List {
 // +k8s:openapi-gen=true
 type VirtualMachineInstanceMigrationSpec struct {
 	// The name of the VMI to perform the migration on. VMI must exist in the migration objects namespace
-	VMIName string           `json:"vmiName,omitempty" valid:"required"`
-	Config  *MigrationConfig `json:"configuration,omitempty"`
+	VMIName string `json:"vmiName,omitempty" valid:"required"`
 }
 
 // VirtualMachineInstanceMigration reprents information pertaining to a VMI's migration.
