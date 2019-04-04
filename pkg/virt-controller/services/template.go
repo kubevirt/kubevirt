@@ -191,6 +191,11 @@ func isFeatureStateEnabled(fs *v1.FeatureState) bool {
 	return fs != nil && fs.Enabled != nil && *fs.Enabled
 }
 
+type hvFeatureLabel struct {
+	Feature *v1.FeatureState
+	Label   string
+}
+
 func getHypervNodeSelectors(vmi *v1.VirtualMachineInstance) (map[string]string, error) {
 	if vmi.Spec.Domain.Features == nil || vmi.Spec.Domain.Features.Hyperv == nil {
 		return nil, nil
@@ -204,22 +209,34 @@ func getHypervNodeSelectors(vmi *v1.VirtualMachineInstance) (map[string]string, 
 	// to learn about dependencies between enlightenments
 
 	hyperv := vmi.Spec.Domain.Features.Hyperv // shortcut
-	if isFeatureStateEnabled(hyperv.VPIndex) {
-		nodeSelectors[NFD_KVM_INFO_PREFIX+"vpindex"] = "true"
+	hvFeatureLabels := []hvFeatureLabel{
+		hvFeatureLabel{
+			Feature: hyperv.VPIndex,
+			Label:   "vpindex",
+		},
+		hvFeatureLabel{
+			Feature: hyperv.Runtime,
+			Label:   "runtime",
+		},
+		hvFeatureLabel{
+			Feature: hyperv.Reset,
+			Label:   "reset",
+		},
+		hvFeatureLabel{
+			// TODO: SyNIC depends on vp-index on QEMU level. We should enforce this constraint.
+			Feature: hyperv.SyNIC,
+			Label:   "synic",
+		},
+		hvFeatureLabel{
+			// TODO: SyNICTimer depends on SyNIC and Relaxed. We should enforce this constraint.
+			Feature: hyperv.SyNICTimer,
+			Label:   "synictimer",
+		},
 	}
-	if isFeatureStateEnabled(hyperv.Runtime) {
-		nodeSelectors[NFD_KVM_INFO_PREFIX+"runtime"] = "true"
-	}
-	if isFeatureStateEnabled(hyperv.Reset) {
-		nodeSelectors[NFD_KVM_INFO_PREFIX+"reset"] = "true"
-	}
-	if isFeatureStateEnabled(hyperv.SyNIC) {
-		nodeSelectors[NFD_KVM_INFO_PREFIX+"synic"] = "true"
-		// TODO: SyNIC depends on vp-index on QEMU level. We should enforce this constraint.
-	}
-	if isFeatureStateEnabled(hyperv.SyNICTimer) {
-		nodeSelectors[NFD_KVM_INFO_PREFIX+"synictimer"] = "true"
-		// TODO: SyNICTimer depends on SyNIC and Relaxed. We should enforce this constraint.
+	for _, hv := range hvFeatureLabels {
+		if isFeatureStateEnabled(hv.Feature) {
+			nodeSelectors[NFD_KVM_INFO_PREFIX+hv.Label] = "true"
+		}
 	}
 	return nodeSelectors, nil
 }
