@@ -10,6 +10,8 @@ GOBIN=~/go/bin
 PATH=$PATH:$GOBIN
 
 CLUSTER_NAME=sriov-ci-$(uuidgen)
+CLUSTER_CONTROL_PLANE=${CLUSTER_NAME}-control-plane
+CONTAINER_REGISTRY_HOST="localhost:5000"
 
 KUBEVIRT_PATH=`pwd`
 CLUSTER_DIR="cluster/k8s-1.13.0-sriov"
@@ -71,10 +73,33 @@ flock -e  -w "$SRIOV_TIMEOUT_SEC" "$fd" || {
 # bring up cluster
 # ================
 go get -u sigs.k8s.io/kind
+
 kind create cluster --name=${CLUSTER_NAME} --config=${MANIFESTS_DIR}/kind.yaml
 
 export KUBECONFIG=$(kind get kubeconfig-path --name=${CLUSTER_NAME})
 kubectl cluster-info
+
+# copied from https://github.com/kubernetes-sigs/federation-v2/blob/master/scripts/create-clusters.sh
+function configure-insecure-registry-and-reload() {
+    local cmd_context="${1}" # context to run command e.g. sudo, docker exec
+    ${cmd_context} "$(insecure-registry-config-cmd)"
+    ${cmd_context} "$(reload-docker-daemon-cmd)"
+}
+
+function reload-docker-daemon-cmd() {
+    echo "kill -s SIGHUP \$(pgrep dockerd)"
+}
+
+function insecure-registry-config-cmd() {
+    echo "cat <<EOF > /etc/docker/daemon.json
+{
+    \"insecure-registries\": [\"${CONTAINER_REGISTRY_HOST}\"]
+}
+EOF
+"
+}
+
+configure-insecure-registry-and-reload "docker exec ${CLUSTER_CONTROL_PLANE} bash -c"
 
 # copy config for debugging purposes
 cp ${KUBECONFIG} ${CLUSTER_DIR}/cluster.config
@@ -166,13 +191,13 @@ until [ -z "$(docker ps -a | grep registry)" ]; do
     sleep 5
 done
 docker run -d -p 5000:5000 --restart=always --name registry registry:2
-docker exec -it -d ${CLUSTER_NAME}-control-plane socat TCP-LISTEN:5000,fork TCP:172.17.0.1:5000
+docker exec -it -d ${CLUSTER_CONTROL_PLANE} socat TCP-LISTEN:5000,fork TCP:172.17.0.1:5000
 
 # ===============
 # deploy kubevirt
 # ===============
 export KUBEVIRT_PROVIDER=external
-export DOCKER_PREFIX=localhost:5000/kubevirt
+export DOCKER_PREFIX=${CONTAINER_REGISTRY_HOST}/kubevirt
 make cluster-build
 make cluster-deploy
 wait_kubevirt_up
