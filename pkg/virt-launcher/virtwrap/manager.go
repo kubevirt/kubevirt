@@ -395,7 +395,7 @@ func (l *LibvirtDomainManager) asyncMigrate(vmi *v1.VirtualMachineInstance, opti
 			params.MigrateDisksSet = true
 		}
 		// start live migration tracking
-		go liveMigrationMonitor(vmi, dom, l)
+		go liveMigrationMonitor(vmi, dom, l, options)
 		err = dom.MigrateToURI3(dstUri, params, migrateFlags)
 		if err != nil {
 
@@ -444,26 +444,15 @@ func getVMIMigrationDataSize(vmi *v1.VirtualMachineInstance) int64 {
 	return memory.ScaledValue(resource.Giga)
 }
 
-func liveMigrationMonitor(vmi *v1.VirtualMachineInstance, dom cli.VirDomain, l *LibvirtDomainManager) {
+func liveMigrationMonitor(vmi *v1.VirtualMachineInstance, dom cli.VirDomain, l *LibvirtDomainManager, options *cmdclient.MigrationOptions) {
 	logger := log.Log.Object(vmi)
 	start := time.Now().UTC().Unix()
 	lastProgressUpdate := start
 	progressWatermark := int64(0)
 
-	progressTimeout := int64(150)
-	completionTimeoutPerGiB := int64(800)
-
 	// update timeouts from migration config
-
-	if vmi.Status.MigrationState != nil && vmi.Status.MigrationState.Config != nil {
-		conf := vmi.Status.MigrationState.Config
-		if conf.CompletionTimeoutPerGiB != 0 {
-			completionTimeoutPerGiB = conf.CompletionTimeoutPerGiB
-		}
-		if conf.ProgressTimeout != 0 {
-			progressTimeout = conf.ProgressTimeout
-		}
-	}
+	progressTimeout := options.ProgressTimeout
+	completionTimeoutPerGiB := options.CompletionTimeoutPerGiB
 
 	acceptableCompletionTime := completionTimeoutPerGiB * getVMIMigrationDataSize(vmi)
 monitorLoop:
