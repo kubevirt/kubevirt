@@ -57,7 +57,7 @@ var _ = Describe("[rfe_id:127][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 
 		Context("with VNC connection", func() {
 
-			It("[test_id:1611]should allow accessing the VNC device", func() {
+			vncConnect := func() {
 				pipeInReader, _ := io.Pipe()
 				pipeOutReader, pipeOutWriter := io.Pipe()
 				defer pipeInReader.Close()
@@ -113,6 +113,17 @@ var _ = Describe("[rfe_id:127][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 				By("Checking the response from VNC server")
 				Expect(response).To(Equal("RFB 003.008\n"))
 				Expect(err).To(BeNil())
+			}
+
+			It("[test_id:1611]should allow accessing the VNC device", func() {
+				vncConnect()
+			})
+
+			It("should allow accessing the VNC device multiple times", func() {
+
+				for i := 0; i < 10; i++ {
+					vncConnect()
+				}
 			})
 		})
 
