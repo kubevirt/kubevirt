@@ -172,9 +172,8 @@ docker exec -it -d ${CLUSTER_NAME}-control-plane socat TCP-LISTEN:5000,fork TCP:
 # deploy kubevirt
 # ===============
 export KUBEVIRT_PROVIDER=external
-export DOCKER_PREFIX=172.17.0.1:5000/kubevirt
-make
-make docker
+export DOCKER_PREFIX=localhost:5000/kubevirt
+make cluster-build
 make cluster-deploy
 wait_kubevirt_up
 
