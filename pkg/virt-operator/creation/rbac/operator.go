@@ -82,6 +82,7 @@ func NewOperatorClusterRole() *rbacv1.ClusterRole {
 					"watch",
 					"patch",
 					"update",
+					"patch",
 				},
 			},
 			{
@@ -99,6 +100,7 @@ func NewOperatorClusterRole() *rbacv1.ClusterRole {
 					"create",
 					"update",
 					"delete",
+					"patch",
 				},
 			},
 			{
@@ -114,6 +116,7 @@ func NewOperatorClusterRole() *rbacv1.ClusterRole {
 					"watch",
 					"create",
 					"delete",
+					"patch",
 				},
 			},
 			{
@@ -130,6 +133,7 @@ func NewOperatorClusterRole() *rbacv1.ClusterRole {
 					"watch",
 					"create",
 					"delete",
+					"patch",
 				},
 			},
 			{
@@ -148,6 +152,8 @@ func NewOperatorClusterRole() *rbacv1.ClusterRole {
 					"watch",
 					"create",
 					"delete",
+					"patch",
+					"update",
 				},
 			},
 			{
@@ -163,6 +169,7 @@ func NewOperatorClusterRole() *rbacv1.ClusterRole {
 					"watch",
 					"create",
 					"delete",
+					"patch",
 				},
 			},
 			{
