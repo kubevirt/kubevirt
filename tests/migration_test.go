@@ -428,10 +428,6 @@ var _ = Describe("Migrations", func() {
 				// execute a migration, wait for finalized state
 				By("Starting the Migration")
 				migration := tests.NewRandomMigration(vmi.Name, vmi.Namespace)
-				migration.Spec.Config = &v1.MigrationConfig{
-					CompletionTimeoutPerGiB: 5,
-					ProgressTimeout:         50,
-				}
 				migrationUID := runMigrationAndExpectFailure(migration, 180)
 
 				// check VMI, confirm migration state
@@ -536,10 +532,6 @@ var _ = Describe("Migrations", func() {
 				// execute a migration, wait for finalized state
 				By("Starting the Migration")
 				migration := tests.NewRandomMigration(vmi.Name, vmi.Namespace)
-				migration.Spec.Config = &v1.MigrationConfig{
-					CompletionTimeoutPerGiB: 800,
-					ProgressTimeout:         800,
-				}
 
 				migrationUID := runAndCancelMigration(migration, vmi, 180)
 

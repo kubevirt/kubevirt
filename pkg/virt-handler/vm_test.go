@@ -645,6 +645,8 @@ var _ = Describe("VirtualMachineInstance", func() {
 			vmiFeeder.Add(vmi)
 			options := &cmdclient.MigrationOptions{
 				Bandwidth: resource.MustParse("64Mi"),
+                ProgressTimeout:         150,
+                CompletionTimeoutPerGiB: 800,
 			}
 			client.EXPECT().MigrateVirtualMachine(vmi, options)
 			controller.Execute()
