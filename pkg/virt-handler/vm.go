@@ -70,6 +70,7 @@ func NewController(
 	gracefulShutdownInformer cache.SharedIndexInformer,
 	watchdogTimeoutSeconds int,
 	maxDevices int,
+	clusterConfig *virtconfig.ClusterConfig,
 ) *VirtualMachineController {
 
 	queue := workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter())
@@ -89,6 +90,7 @@ func NewController(
 		watchdogTimeoutSeconds:   watchdogTimeoutSeconds,
 		migrationProxy:           migrationproxy.NewMigrationProxyManager(virtShareDir),
 		podIsolationDetector:     isolation.NewSocketBasedIsolationDetector(virtShareDir),
+		clusterConfig:            clusterConfig,
 	}
 
 	vmiSourceInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
@@ -140,6 +142,7 @@ type VirtualMachineController struct {
 	kvmController            *device_manager.DeviceController
 	migrationProxy           migrationproxy.ProxyManager
 	podIsolationDetector     isolation.PodIsolationDetector
+	clusterConfig            *virtconfig.ClusterConfig
 }
 
 // Determines if a domain's grace period has expired during shutdown.
@@ -339,6 +342,7 @@ func (d *VirtualMachineController) updateVMIStatus(vmi *v1.VirtualMachineInstanc
 			if vmi.Status.MigrationState.EndTimestamp == nil {
 				vmi.Status.MigrationState.EndTimestamp = migrationMetadata.EndTimestamp
 			}
+			vmi.Status.MigrationState.AbortStatus = v1.MigrationAbortStatus(migrationMetadata.AbortStatus)
 			vmi.Status.MigrationState.Completed = migrationMetadata.Completed
 			vmi.Status.MigrationState.Failed = migrationMetadata.Failed
 		}
@@ -1340,12 +1344,24 @@ func (d *VirtualMachineController) processVmUpdate(origVMI *v1.VirtualMachineIns
 			return fmt.Errorf("failed to handle post sync migration proxy: %v", err)
 		}
 	} else if d.isMigrationSource(vmi) {
-		err = client.MigrateVirtualMachine(vmi)
-		if err != nil {
-			return err
+		if vmi.Status.MigrationState.AbortRequested {
+			if vmi.Status.MigrationState.AbortStatus != v1.MigrationAbortInProgress {
+				err = client.CancelVirtualMachineMigration(vmi)
+				if err != nil {
+					return err
+				}
+				d.recorder.Event(vmi, k8sv1.EventTypeNormal, v1.Migrating.String(), "VirtualMachineInstance is aborting migration.")
+			}
+		} else {
+			options := &cmdclient.MigrationOptions{
+				Bandwidth: *d.clusterConfig.GetMigrationConfig().BandwidthPerMigration,
+			}
+			err = client.MigrateVirtualMachine(vmi, options)
+			if err != nil {
+				return err
+			}
+			d.recorder.Event(vmi, k8sv1.EventTypeNormal, v1.Migrating.String(), "VirtualMachineInstance is migrating.")
 		}
-		d.recorder.Event(vmi, k8sv1.EventTypeNormal, v1.Migrating.String(), "VirtualMachineInstance is migrating.")
-
 	} else {
 		err = client.SyncVirtualMachine(vmi)
 		if err != nil {

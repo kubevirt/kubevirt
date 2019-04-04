@@ -24,7 +24,7 @@ import (
 	"fmt"
 	"os"
 
-	"k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
 
 	"kubevirt.io/kubevirt/pkg/virt-operator/creation/components"
 	"kubevirt.io/kubevirt/pkg/virt-operator/creation/rbac"
@@ -58,12 +58,21 @@ func main() {
 		util.MarshallObject(components.NewKubeVirtCrd(), os.Stdout)
 	case "kv-cr":
 		util.MarshallObject(components.NewKubeVirtCR(*namespace, imagePullPolicy), os.Stdout)
-	case "rbac":
+	case "kubevirt-rbac":
 		all := make([]interface{}, 0)
-		all = append(all, rbac.GetAllCluster(*namespace)...)
 		all = append(all, rbac.GetAllApiServer(*namespace)...)
 		all = append(all, rbac.GetAllController(*namespace)...)
 		all = append(all, rbac.GetAllHandler(*namespace)...)
+		for _, r := range all {
+			util.MarshallObject(r, os.Stdout)
+		}
+	case "cluster-rbac":
+		all := rbac.GetAllCluster(*namespace)
+		for _, r := range all {
+			util.MarshallObject(r, os.Stdout)
+		}
+	case "operator-rbac":
+		all := rbac.GetAllOperator(*namespace)
 		for _, r := range all {
 			util.MarshallObject(r, os.Stdout)
 		}
@@ -93,6 +102,13 @@ func main() {
 			panic(fmt.Errorf("error generating virt-handler deployment %v", err))
 		}
 		util.MarshallObject(handler, os.Stdout)
+	case "virt-operator":
+		operator, err := components.NewOperatorDeployment(*namespace, *repository, *version, imagePullPolicy, *verbosity)
+		if err != nil {
+			panic(fmt.Errorf("error generating virt-operator deployment %v", err))
+
+		}
+		util.MarshallObject(operator, os.Stdout)
 	default:
 		panic(fmt.Errorf("unknown resource type %s", *resourceType))
 	}

@@ -1,0 +1,12 @@
+apiVersion: config.openshift.io/v1
+kind: ClusterVersion
+metadata:
+  name: version
+spec:
+  channel: fast
+  upstream: https://api.openshift.com/api/upgrades_info/v1/graph
+  overrides:
+    - kind: Deployment
+      name: marketplace-operator
+      namespace: openshift-marketplace
+      unmanaged: true

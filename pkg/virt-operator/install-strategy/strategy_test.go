@@ -23,6 +23,7 @@ import (
 	"reflect"
 
 	. "github.com/onsi/ginkgo"
+	"github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
 
 	"kubevirt.io/kubevirt/pkg/log"
@@ -31,6 +32,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	extv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 var _ = Describe("Install Strategy", func() {
@@ -152,6 +154,52 @@ var _ = Describe("Install Strategy", func() {
 				}
 				Expect(reflect.DeepEqual(original, converted)).To(Equal(true))
 			}
+		})
+	})
+
+	Context("should calculate", func() {
+
+		table.DescribeTable("update path based on semver", func(target string, current string, expected bool) {
+			takeUpdatePath := shouldTakeUpdatePath(target, current)
+
+			Expect(takeUpdatePath).To(Equal(expected))
+		},
+			table.Entry("with increasing semver", "v0.15.0", "v0.14.0", true),
+			table.Entry("with decreasing semver", "v0.14.0", "v0.15.0", false),
+			table.Entry("with identical semver", "v0.15.0", "v0.15.0", false),
+			table.Entry("with invalid semver", "devel", "v0.14.0", true),
+			table.Entry("with increasing semver no prefix", "0.15.0", "0.14.0", true),
+			table.Entry("with decreasing semver no prefix", "0.14.0", "0.15.0", false),
+			table.Entry("with identical semver no prefix", "0.15.0", "0.15.0", false),
+			table.Entry("with invalid semver no prefix", "devel", "0.14.0", true),
+			table.Entry("with no current no prefix", "devel", "", false),
+		)
+	})
+	Context("should match", func() {
+		It("the most recent install strategy.", func() {
+			var configMaps []*corev1.ConfigMap
+
+			configMaps = append(configMaps, &corev1.ConfigMap{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:              "test1",
+					CreationTimestamp: metav1.Time{},
+				},
+			})
+			configMaps = append(configMaps, &corev1.ConfigMap{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:              "test2",
+					CreationTimestamp: metav1.Now(),
+				},
+			})
+			configMaps = append(configMaps, &corev1.ConfigMap{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:              "test3",
+					CreationTimestamp: metav1.Time{},
+				},
+			})
+
+			configMap := mostRecentConfigMap(configMaps)
+			Expect(configMap.Name).To(Equal("test2"))
 		})
 	})
 })

@@ -1,4 +1,4 @@
-package cmdserver_test
+package cmdserver
 
 import (
 	"testing"

@@ -14,7 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-# Copyright 2017 Red Hat, Inc.
+# Copyright 2019 Red Hat, Inc.
 #
 
 set -e
@@ -22,9 +22,11 @@ set -e
 source hack/common.sh
 source hack/config.sh
 
-bazel run \
-    --platforms=@io_bazel_rules_go//go/toolchain:linux_amd64 \
-    --workspace_status_command=./hack/print-workspace-status.sh \
-    --define container_prefix=${docker_prefix} \
-    --define container_tag=${docker_tag} \
-    //:push-images
+for tag in ${docker_tag} ${docker_tag_alt}; do
+    bazel run \
+        --platforms=@io_bazel_rules_go//go/toolchain:linux_amd64 \
+        --workspace_status_command=./hack/print-workspace-status.sh \
+        --define container_prefix=${docker_prefix} \
+        --define container_tag=${tag} \
+        //:push-images
+done

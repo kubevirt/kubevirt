@@ -20,6 +20,8 @@
 package watch
 
 import (
+	"fmt"
+
 	"github.com/golang/mock/gomock"
 	fakenetworkclient "github.com/k8snetworkplumbingwg/network-attachment-definition-client/pkg/client/clientset/versioned/fake"
 	. "github.com/onsi/ginkgo"
@@ -29,6 +31,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/rand"
 	"k8s.io/client-go/kubernetes/fake"
 	"k8s.io/client-go/testing"
 	"k8s.io/client-go/tools/cache"
@@ -182,7 +185,9 @@ var _ = Describe("Migration watcher", func() {
 			podInformer,
 			migrationInformer,
 			recorder,
-			virtClient)
+			virtClient,
+			testutils.MakeFakeClusterConfig(nil, stop),
+		)
 		// Wrap our workqueue to have a way to detect when we are done processing updates
 		mockQueue = testutils.NewMockWorkQueue(controller.Queue)
 		controller.Queue = mockQueue
@@ -235,6 +240,135 @@ var _ = Describe("Migration watcher", func() {
 			controller.Execute()
 
 			testutils.ExpectEvent(recorder, SuccessfulCreatePodReason)
+		})
+
+		It("should create another target pods if only 4 migrations are in progress", func() {
+			// It should create a pod for this one
+			vmi := newVirtualMachine("testvmi", v1.Running)
+			migration := newMigration("testmigration", vmi.Name, v1.MigrationPending)
+
+			addMigration(migration)
+			addVirtualMachine(vmi)
+
+			// Ensure that 4 migrations are there which are in non-final state
+			for i := 0; i < 4; i++ {
+				vmi := newVirtualMachine(fmt.Sprintf("testvmi%v", i), v1.Running)
+				vmi.Status.NodeName = fmt.Sprintf("node%v", i)
+				migration := newMigration(fmt.Sprintf("testmigration%v", i), vmi.Name, v1.MigrationScheduling)
+
+				addMigration(migration)
+				addVirtualMachine(vmi)
+			}
+
+			// Add two pending migrations without a target pod to see that tye get ignored
+			for i := 0; i < 2; i++ {
+				vmi := newVirtualMachine(fmt.Sprintf("xtestvmi%v", i), v1.Running)
+				migration := newMigration(fmt.Sprintf("xtestmigration%v", i), vmi.Name, v1.MigrationPending)
+				vmi.Status.NodeName = fmt.Sprintf("node%v", i)
+
+				addMigration(migration)
+				addVirtualMachine(vmi)
+			}
+
+			shouldExpectPodCreation(vmi.UID, migration.UID, 1, 0, 0)
+			controller.Execute()
+			testutils.ExpectEvent(recorder, SuccessfulCreatePodReason)
+		})
+
+		It("should not overload the cluster and only run 5 migrations in parallel", func() {
+			// It should create a pod for this one if we would not limit migrations
+			vmi := newVirtualMachine("testvmi", v1.Running)
+			migration := newMigration("testmigration", vmi.Name, v1.MigrationPending)
+
+			addMigration(migration)
+			addVirtualMachine(vmi)
+
+			// Ensure that 5 migrations are there which are in non-final state
+			for i := 0; i < 5; i++ {
+				vmi := newVirtualMachine(fmt.Sprintf("testvmi%v", i), v1.Running)
+				migration := newMigration(fmt.Sprintf("testmigration%v", i), vmi.Name, v1.MigrationScheduling)
+				vmi.Status.NodeName = fmt.Sprintf("node%v", i)
+
+				addMigration(migration)
+				addVirtualMachine(vmi)
+			}
+
+			controller.Execute()
+		})
+
+		It("should not overload the cluster and detect pending migrations as running if they have a target pod", func() {
+			// It should create a pod for this one if we would not limit migrations
+			vmi := newVirtualMachine("testvmi", v1.Running)
+			migration := newMigration("testmigration", vmi.Name, v1.MigrationPending)
+
+			addMigration(migration)
+			addVirtualMachine(vmi)
+
+			// Ensure that 3 migrations are there which are running
+			for i := 0; i < 3; i++ {
+				vmi := newVirtualMachine(fmt.Sprintf("testvmi%v", i), v1.Running)
+				migration := newMigration(fmt.Sprintf("testmigration%v", i), vmi.Name, v1.MigrationScheduling)
+				vmi.Status.NodeName = fmt.Sprintf("node%v", i)
+
+				addMigration(migration)
+				addVirtualMachine(vmi)
+			}
+
+			// Ensure that 2 migrations are pending but have a target pod
+			for i := 0; i < 2; i++ {
+				vmi := newVirtualMachine(fmt.Sprintf("xtestvmi%v", i), v1.Running)
+				migration := newMigration(fmt.Sprintf("xtestmigration%v", i), vmi.Name, v1.MigrationPending)
+				pod := newTargetPodForVirtualMachine(vmi, migration, k8sv1.PodPending)
+				vmi.Status.NodeName = fmt.Sprintf("node%v", i)
+
+				addMigration(migration)
+				addVirtualMachine(vmi)
+				podInformer.GetStore().Add(pod)
+			}
+
+			controller.Execute()
+		})
+
+		It("should create another target pods if there is only one outbound migration on the node", func() {
+			// It should create a pod for this one
+			vmi := newVirtualMachine("testvmi", v1.Running)
+			migration := newMigration("testmigration", vmi.Name, v1.MigrationPending)
+
+			addMigration(migration)
+			addVirtualMachine(vmi)
+
+			// Ensure that 4 migrations are there which are in non-final state
+			for i := 0; i < 1; i++ {
+				vmi := newVirtualMachine(fmt.Sprintf("testvmi%v", i), v1.Running)
+				migration := newMigration(fmt.Sprintf("testmigration%v", i), vmi.Name, v1.MigrationScheduling)
+
+				addMigration(migration)
+				addVirtualMachine(vmi)
+			}
+
+			shouldExpectPodCreation(vmi.UID, migration.UID, 1, 0, 0)
+			controller.Execute()
+			testutils.ExpectEvent(recorder, SuccessfulCreatePodReason)
+		})
+
+		It("should not overload the node and only run 2 outbound migrations in parallel", func() {
+			// It should create a pod for this one if we would not limit migrations
+			vmi := newVirtualMachine("testvmi", v1.Running)
+			migration := newMigration("testmigration", vmi.Name, v1.MigrationPending)
+
+			addMigration(migration)
+			addVirtualMachine(vmi)
+
+			// Ensure that 5 migrations are there which are in non-final state
+			for i := 0; i < 2; i++ {
+				vmi := newVirtualMachine(fmt.Sprintf("testvmi%v", i), v1.Running)
+				migration := newMigration(fmt.Sprintf("testmigration%v", i), vmi.Name, v1.MigrationScheduling)
+
+				addMigration(migration)
+				addVirtualMachine(vmi)
+			}
+
+			controller.Execute()
 		})
 
 		It("should create target pod and not override existing affinity rules", func() {
@@ -553,6 +687,35 @@ var _ = Describe("Migration watcher", func() {
 
 			controller.Execute()
 		})
+		It("should abort the migration", func() {
+			vmi := newVirtualMachine("testvmi", v1.Running)
+			vmi.Status.NodeName = "node02"
+			migration := newMigration("testmigration", vmi.Name, v1.MigrationTargetReady)
+			condition := v1.VirtualMachineInstanceMigrationCondition{
+				Type:          v1.VirtualMachineInstanceMigrationAbortRequested,
+				Status:        k8sv1.ConditionTrue,
+				LastProbeTime: *now(),
+			}
+			migration.Status.Conditions = append(migration.Status.Conditions, condition)
+			pod := newTargetPodForVirtualMachine(vmi, migration, k8sv1.PodPending)
+			pod.Spec.NodeName = "node01"
+			migration.DeletionTimestamp = now()
+			vmi.Status.MigrationState = &v1.VirtualMachineInstanceMigrationState{
+				MigrationUID:      migration.UID,
+				TargetNode:        "node01",
+				SourceNode:        "node02",
+				TargetNodeAddress: "10.10.10.10:1234",
+				StartTimestamp:    now(),
+			}
+			addMigration(migration)
+			addVirtualMachine(vmi)
+			podFeeder.Add(pod)
+
+			vmiInterface.EXPECT().Patch(vmi.Name, types.JSONPatchType, gomock.Any()).Return(vmi, nil)
+
+			controller.Execute()
+			testutils.ExpectEvent(recorder, SuccessfulAbortMigrationReason)
+		})
 	})
 })
 
@@ -571,15 +734,16 @@ func newMigration(name string, vmiName string, phase v1.VirtualMachineInstanceMi
 		APIVersion: v1.GroupVersion.String(),
 		Kind:       "VirtualMachineInstanceMigration",
 	}
-	migration.UID = "1234"
+	migration.UID = types.UID(name)
 	migration.Status.Phase = phase
 	return migration
 }
 
 func newVirtualMachine(name string, phase v1.VirtualMachineInstancePhase) *v1.VirtualMachineInstance {
 	vmi := v1.NewMinimalVMI(name)
-	vmi.UID = "1234"
+	vmi.UID = types.UID(name)
 	vmi.Status.Phase = phase
+	vmi.Status.NodeName = "tefwegwrerg"
 	vmi.ObjectMeta.Labels = make(map[string]string)
 	return vmi
 }
@@ -587,7 +751,7 @@ func newVirtualMachine(name string, phase v1.VirtualMachineInstancePhase) *v1.Vi
 func newTargetPodForVirtualMachine(vmi *v1.VirtualMachineInstance, migration *v1.VirtualMachineInstanceMigration, phase k8sv1.PodPhase) *k8sv1.Pod {
 	return &k8sv1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "test",
+			Name:      rand.String(10),
 			Namespace: vmi.Namespace,
 			Labels: map[string]string{
 				v1.AppLabel:          "virt-launcher",

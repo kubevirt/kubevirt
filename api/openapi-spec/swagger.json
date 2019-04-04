@@ -4145,18 +4145,6 @@
      }
     }
    },
-   "v1.CniNetwork": {
-    "description": "Represents the cni network.",
-    "required": [
-     "networkName"
-    ],
-    "properties": {
-     "networkName": {
-      "description": "References to a NetworkAttachmentDefinition CRD object. Format:\n\u003cnetworkName\u003e, \u003cnamespace\u003e/\u003cnetworkName\u003e. If namespace is not\nspecified, VMI namespace is assumed.\nIn case of genie, it references the CNI plugin name.",
-      "type": "string"
-     }
-    }
-   },
    "v1.ConfigMapVolumeSource": {
     "description": "ConfigMapVolumeSource adapts a ConfigMap into a volume.\nMore info: https://kubernetes.io/docs/concepts/storage/volumes/#configmap",
     "properties": {
@@ -4459,6 +4447,7 @@
      }
     }
    },
+   "v1.EvictionStrategy": {},
    "v1.FeatureAPIC": {
     "properties": {
      "enabled": {
@@ -4589,6 +4578,18 @@
      },
      "tray": {
       "description": "Tray indicates if the tray of the device is open or closed.\nAllowed values are \"open\" and \"closed\".\nDefaults to closed.\n+optional",
+      "type": "string"
+     }
+    }
+   },
+   "v1.GenieNetwork": {
+    "description": "Represents the genie cni network.",
+    "required": [
+     "networkName"
+    ],
+    "properties": {
+     "networkName": {
+      "description": "References the CNI plugin name.",
       "type": "string"
      }
     }
@@ -4955,6 +4956,22 @@
      }
     }
    },
+   "v1.MultusNetwork": {
+    "description": "Represents the multus cni network.",
+    "required": [
+     "networkName"
+    ],
+    "properties": {
+     "default": {
+      "description": "Select the default network and add it to the\nmultus-cni.io/default-network annotation.",
+      "type": "boolean"
+     },
+     "networkName": {
+      "description": "References to a NetworkAttachmentDefinition CRD object. Format:\n\u003cnetworkName\u003e, \u003cnamespace\u003e/\u003cnetworkName\u003e. If namespace is not\nspecified, VMI namespace is assumed.",
+      "type": "string"
+     }
+    }
+   },
    "v1.Network": {
     "description": "Network represents a network type and a resource that should be connected to the vm.",
     "required": [
@@ -4962,10 +4979,10 @@
     ],
     "properties": {
      "genie": {
-      "$ref": "#/definitions/v1.CniNetwork"
+      "$ref": "#/definitions/v1.GenieNetwork"
      },
      "multus": {
-      "$ref": "#/definitions/v1.CniNetwork"
+      "$ref": "#/definitions/v1.MultusNetwork"
      },
      "name": {
       "description": "Network name.\nMust be a DNS_LABEL and unique within the vm.\nMore info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names",
@@ -5857,6 +5874,38 @@
      }
     }
    },
+   "v1.VirtualMachineInstanceMigrationCondition": {
+    "required": [
+     "type",
+     "status"
+    ],
+    "properties": {
+     "lastProbeTime": {
+      "type": [
+       "string",
+       "null"
+      ]
+     },
+     "lastTransitionTime": {
+      "type": [
+       "string",
+       "null"
+      ]
+     },
+     "message": {
+      "type": "string"
+     },
+     "reason": {
+      "type": "string"
+     },
+     "status": {
+      "type": "string"
+     },
+     "type": {
+      "type": "string"
+     }
+    }
+   },
    "v1.VirtualMachineInstanceMigrationList": {
     "description": "VirtualMachineInstanceMigrationList is a list of VirtualMachineMigrations",
     "required": [
@@ -5895,6 +5944,14 @@
    },
    "v1.VirtualMachineInstanceMigrationState": {
     "properties": {
+     "abortRequested": {
+      "description": "Indicates that the migration has been requested to abort",
+      "type": "boolean"
+     },
+     "abortStatus": {
+      "description": "Indicates the final status of the live migration abortion",
+      "type": "string"
+     },
      "completed": {
       "description": "Indicates the migration completed",
       "type": "boolean"
@@ -5948,6 +6005,12 @@
    "v1.VirtualMachineInstanceMigrationStatus": {
     "description": "VirtualMachineInstanceMigration reprents information pertaining to a VMI's migration.",
     "properties": {
+     "conditions": {
+      "type": "array",
+      "items": {
+       "$ref": "#/definitions/v1.VirtualMachineInstanceMigrationCondition"
+      }
+     },
      "phase": {
       "type": "string"
      }
@@ -6190,6 +6253,10 @@
      "domain": {
       "description": "Specification of the desired behavior of the VirtualMachineInstance on the host.",
       "$ref": "#/definitions/v1.DomainSpec"
+     },
+     "evictionStrategy": {
+      "description": "EvictionStrategy can be set to \"LiveMigrate\" if the VirtualMachineInstance should be\nmigrated instead of shut-off in case of a node drain.",
+      "$ref": "#/definitions/v1.EvictionStrategy"
      },
      "hostname": {
       "description": "Specifies the hostname of the vmi\nIf not specified, the hostname will be set to the name of the vmi, if dhcp or cloud-init is configured properly.\n+optional",

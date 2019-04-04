@@ -585,6 +585,9 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			table.Entry("with ready compute container and no infra container",
 				[]k8sv1.ContainerStatus{{Name: "compute", Ready: true}},
 			),
+			table.Entry("with ready compute container and no ready istio-proxy container",
+				[]k8sv1.ContainerStatus{{Name: "compute", Ready: true}, {Name: "istio-proxy", Ready: false}},
+			),
 		)
 		table.DescribeTable("should not hand over pod to virt-handler if pod is ready and running", func(containerStatus []k8sv1.ContainerStatus) {
 			vmi := NewPendingVirtualMachine("testvmi")
@@ -908,7 +911,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 				v1.Network{
 					Name: networkName,
 					NetworkSource: v1.NetworkSource{
-						Multus: &v1.CniNetwork{
+						Multus: &v1.MultusNetwork{
 							NetworkName: "multus",
 						},
 					},

@@ -41,7 +41,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/log"
 	"kubevirt.io/kubevirt/pkg/service"
 	kvutil "kubevirt.io/kubevirt/pkg/util"
-	"kubevirt.io/kubevirt/pkg/virt-operator/install-strategy"
+	installstrategy "kubevirt.io/kubevirt/pkg/virt-operator/install-strategy"
 	"kubevirt.io/kubevirt/pkg/virt-operator/util"
 )
 
@@ -124,6 +124,7 @@ func Execute() {
 		DaemonSet:                app.informerFactory.OperatorDaemonSet(),
 		InstallStrategyConfigMap: app.informerFactory.OperatorInstallStrategyConfigMaps(),
 		InstallStrategyJob:       app.informerFactory.OperatorInstallStrategyJob(),
+		InfrastructurePod:        app.informerFactory.OperatorPod(),
 	}
 
 	app.stores = util.Stores{
@@ -138,6 +139,7 @@ func Execute() {
 		DaemonSetCache:                app.informerFactory.OperatorDaemonSet().GetStore(),
 		InstallStrategyConfigMapCache: app.informerFactory.OperatorInstallStrategyConfigMaps().GetStore(),
 		InstallStrategyJobCache:       app.informerFactory.OperatorInstallStrategyJob().GetStore(),
+		InfrastructurePodCache:        app.informerFactory.OperatorPod().GetStore(),
 	}
 
 	onOpenShift, err := util.IsOnOpenshift(app.clientSet)

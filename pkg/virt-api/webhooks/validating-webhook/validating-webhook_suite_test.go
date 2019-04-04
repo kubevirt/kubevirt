@@ -1,4 +1,4 @@
-package validating_webhook_test
+package validating_webhook
 
 import (
 	"testing"

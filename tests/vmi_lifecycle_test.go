@@ -39,6 +39,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/rand"
 
 	"kubevirt.io/kubevirt/pkg/controller"
+	device_manager "kubevirt.io/kubevirt/pkg/virt-handler/device-manager"
 
 	v1 "kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/kubecli"
@@ -392,6 +393,14 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 					Expect(err).ToNot(HaveOccurred(), "Should get VMI successfully")
 					return vmi.Status.Phase
 				}(), 10, 1).Should(Equal(v1.Failed), "VMI should be failed")
+
+				By("checking that it can still start VMIs")
+				newVMI := newCirrosVMI()
+				newVMI.Spec.NodeSelector = map[string]string{"kubernetes.io/hostname": nodeName}
+				newVMI, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(newVMI)
+				Expect(err).To(BeNil())
+
+				tests.WaitForSuccessfulVMIStart(newVMI)
 			})
 		})
 
@@ -399,9 +408,8 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 			It("[test_id:1633]should indicate that a node is ready for vmis", func() {
 
 				By("adding a heartbeat annotation and a schedulable label to the node")
-				nodes, err := virtClient.CoreV1().Nodes().List(metav1.ListOptions{LabelSelector: v1.NodeSchedulable + "=" + "true"})
-				Expect(err).ToNot(HaveOccurred(), "Should list nodes successfully")
-				Expect(nodes.Items).ToNot(BeEmpty(), "There should be some nodes")
+				nodes := tests.GetAllSchedulableNodes(virtClient)
+				Expect(nodes.Items).ToNot(BeEmpty(), "There should be some compute node")
 				for _, node := range nodes.Items {
 					Expect(node.Annotations[v1.VirtHandlerHeartbeat]).ToNot(HaveLen(0), "Nodes should have be ready for VMI")
 				}
@@ -423,6 +431,62 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 					Expect(err).ToNot(HaveOccurred(), "Should get nodes successfully")
 					return n.Labels[v1.VirtHandlerHeartbeat]
 				}()).ShouldNot(Equal(timestamp), "Should not have old vmi heartbeat")
+			})
+
+			It("device plugins should re-register if the kubelet restarts", func() {
+
+				By("starting a VMI on a node")
+				vmi, err := virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
+				Expect(err).To(BeNil(), "Should submit VMI successfully")
+
+				// Start a VirtualMachineInstance
+				nodeName := tests.WaitForSuccessfulVMIStart(vmi)
+
+				By("triggering a device plugin re-registration on that node")
+				pod, err := kubecli.NewVirtHandlerClient(virtClient).ForNode(nodeName).Pod()
+				Expect(err).ToNot(HaveOccurred())
+
+				_, _, err = tests.ExecuteCommandOnPodV2(virtClient, pod,
+					"virt-handler",
+					[]string{
+						"rm",
+						// We want to fail if the file does not exist, but don't want to be asked
+						// if we really want to remove write-protected files
+						"--interactive=never",
+						device_manager.SocketPath(device_manager.KVMName),
+					})
+				Expect(err).ToNot(HaveOccurred())
+
+				By("checking if we see the device plugin restart in the logs")
+				virtHandlerPod, err := kubecli.NewVirtHandlerClient(virtClient).ForNode(nodeName).Pod()
+				Expect(err).ToNot(HaveOccurred(), "Should get virthandler client for node")
+
+				handlerName := virtHandlerPod.GetObjectMeta().GetName()
+				handlerNamespace := virtHandlerPod.GetObjectMeta().GetNamespace()
+				seconds := int64(10)
+				logsQuery := virtClient.CoreV1().Pods(handlerNamespace).GetLogs(handlerName, &k8sv1.PodLogOptions{SinceSeconds: &seconds, Container: "virt-handler"})
+				Eventually(func() string {
+					data, err := logsQuery.DoRaw()
+					Expect(err).ToNot(HaveOccurred(), "Should get logs")
+					return string(data)
+				}, 60, 1).Should(
+					ContainSubstring(
+						fmt.Sprintf("device socket file for device %s was removed, kubelet probably restarted.", "kvm"),
+					), "Should log device plugin restart")
+
+				// This is a little bit arbitrar
+				// Background is that new pods go into a crash loop if the devices are still report but virt-handler
+				// re-registers exactly during that moment. This is not too bad, since normally kubelet itself deletes
+				// the socket and knows that the devices are not there. However we have to wait in this test a little bit.
+				time.Sleep(10 * time.Second)
+
+				By("starting another VMI on the same node, to verify devices still work")
+				newVMI := newCirrosVMI()
+				newVMI.Spec.NodeSelector = map[string]string{"kubernetes.io/hostname": nodeName}
+				newVMI, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(newVMI)
+				Expect(err).To(BeNil())
+
+				tests.WaitForSuccessfulVMIStart(newVMI)
 			})
 		})
 
@@ -525,9 +589,8 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 			var nodes *k8sv1.NodeList
 			var err error
 			BeforeEach(func() {
-				nodes, err = virtClient.CoreV1().Nodes().List(metav1.ListOptions{})
-				Expect(err).ToNot(HaveOccurred(), "Should list nodes")
-				Expect(nodes.Items).NotTo(BeEmpty(), "There should be some node")
+				nodes = tests.GetAllSchedulableNodes(virtClient)
+				Expect(nodes.Items).ToNot(BeEmpty(), "There should be some compute node")
 
 				// Taint first node with "NoSchedule"
 				data := []byte(`{"spec":{"taints":[{"effect":"NoSchedule","key":"test","timeAdded":null,"value":"123"}]}}`)
@@ -574,9 +637,8 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 			var err error
 
 			BeforeEach(func() {
-				nodes, err = virtClient.CoreV1().Nodes().List(metav1.ListOptions{})
-				Expect(err).ToNot(HaveOccurred(), "Should list nodes")
-				Expect(nodes.Items).NotTo(BeEmpty(), "There should be some node")
+				nodes = tests.GetAllSchedulableNodes(virtClient)
+				Expect(nodes.Items).ToNot(BeEmpty(), "There should be some compute node")
 			})
 
 			It("[test_id:1637]the vmi with node affinity and no conflicts should be scheduled", func() {
@@ -728,9 +790,8 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 			var originalFeatureGates string
 
 			BeforeEach(func() {
-				nodes, err := virtClient.CoreV1().Nodes().List(metav1.ListOptions{})
-				Expect(err).ToNot(HaveOccurred(), "Should list nodes")
-				Expect(nodes.Items).ToNot(BeEmpty(), "There should be some nodes")
+				nodes := tests.GetAllSchedulableNodes(virtClient)
+				Expect(nodes.Items).ToNot(BeEmpty(), "There should be some compute node")
 				node = &nodes.Items[0]
 				originalLabels = node.GetObjectMeta().GetLabels()
 
@@ -1458,11 +1519,9 @@ func getVirtLauncherLogs(virtCli kubecli.KubevirtClient, vmi *v1.VirtualMachineI
 	}
 	Expect(podName).ToNot(BeEmpty(), "Should find pod not scheduled for deletion")
 
-	var tailLines int64 = 100
 	logsRaw, err := virtCli.CoreV1().
 		Pods(namespace).
 		GetLogs(podName, &k8sv1.PodLogOptions{
-			TailLines: &tailLines,
 			Container: "compute",
 		}).
 		DoRaw()

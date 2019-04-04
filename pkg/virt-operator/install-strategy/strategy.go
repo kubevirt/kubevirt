@@ -34,8 +34,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	"kubevirt.io/kubevirt/pkg/api/v1"
-	"kubevirt.io/kubevirt/pkg/controller"
+	v1 "kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/kubecli"
 	"kubevirt.io/kubevirt/pkg/log"
 	kvutil "kubevirt.io/kubevirt/pkg/util"
@@ -44,6 +43,21 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-operator/util"
 	marshalutil "kubevirt.io/kubevirt/tools/util"
 )
+
+const customSCCPrivilegedAccountsType = "KubevirtCustomSCCRule"
+
+type customSCCPrivilegedAccounts struct {
+	// this isn't a real k8s object. We use the meta type
+	// because it gives a consistent way to separate k8s
+	// objects from our custom actions
+	metav1.TypeMeta `json:",inline"`
+
+	// this is the target scc we're adding service accounts to
+	TargetSCC string `json:"TargetSCC"`
+
+	// these are the service accounts being added to the scc
+	ServiceAccounts []string `json:"serviceAccounts"`
+}
 
 type InstallStrategy struct {
 	serviceAccounts []*corev1.ServiceAccount
@@ -59,10 +73,8 @@ type InstallStrategy struct {
 	services    []*corev1.Service
 	deployments []*appsv1.Deployment
 	daemonSets  []*appsv1.DaemonSet
-}
 
-func generateConfigMapName(imageTag string) string {
-	return fmt.Sprintf("kubevirt-install-strategy-%s", imageTag)
+	customSCCPrivileges []*customSCCPrivilegedAccounts
 }
 
 func NewInstallStrategyConfigMap(namespace string, imageTag string, imageRegistry string) (*corev1.ConfigMap, error) {
@@ -79,11 +91,15 @@ func NewInstallStrategyConfigMap(namespace string, imageTag string, imageRegistr
 
 	configMap := &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      generateConfigMapName(imageTag),
-			Namespace: namespace,
+			GenerateName: "kubevirt-install-strategy-",
+			Namespace:    namespace,
 			Labels: map[string]string{
-				v1.ManagedByLabel:              v1.ManagedByLabelOperatorValue,
-				v1.InstallStrategyVersionLabel: imageTag,
+				v1.ManagedByLabel:       v1.ManagedByLabelOperatorValue,
+				v1.InstallStrategyLabel: "",
+			},
+			Annotations: map[string]string{
+				v1.InstallStrategyVersionAnnotation:  imageTag,
+				v1.InstallStrategyRegistryAnnotation: imageRegistry,
 			},
 		},
 		Data: map[string]string{
@@ -155,6 +171,9 @@ func dumpInstallStrategyToBytes(strategy *InstallStrategy) []byte {
 		marshalutil.MarshallObject(entry, writer)
 	}
 	for _, entry := range strategy.daemonSets {
+		marshalutil.MarshallObject(entry, writer)
+	}
+	for _, entry := range strategy.customSCCPrivileges {
 		marshalutil.MarshallObject(entry, writer)
 	}
 	writer.Flush()
@@ -229,24 +248,66 @@ func GenerateCurrentInstallStrategy(namespace string,
 	}
 	strategy.daemonSets = append(strategy.daemonSets, handler)
 
+	prefix := "system:serviceaccount"
+	typeMeta := metav1.TypeMeta{
+		Kind: customSCCPrivilegedAccountsType,
+	}
+	strategy.customSCCPrivileges = append(strategy.customSCCPrivileges, &customSCCPrivilegedAccounts{
+		TypeMeta:  typeMeta,
+		TargetSCC: "privileged",
+		ServiceAccounts: []string{
+			fmt.Sprintf("%s:%s:%s", prefix, namespace, "kubevirt-handler"),
+			fmt.Sprintf("%s:%s:%s", prefix, namespace, "kubevirt-apiserver"),
+			fmt.Sprintf("%s:%s:%s", prefix, namespace, "kubevirt-controller"),
+		},
+	})
+
 	return strategy, nil
 }
 
-func LoadInstallStrategyFromCache(stores util.Stores, namespace string, imageTag string) (*InstallStrategy, error) {
-
-	configMap := &corev1.ConfigMap{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      generateConfigMapName(imageTag),
-			Namespace: namespace,
-		},
+func mostRecentConfigMap(configMaps []*corev1.ConfigMap) *corev1.ConfigMap {
+	var configMap *corev1.ConfigMap
+	// choose the most recent configmap if multiple match.
+	mostRecentTime := metav1.Time{}
+	for _, config := range configMaps {
+		if configMap == nil {
+			configMap = config
+			mostRecentTime = config.ObjectMeta.CreationTimestamp
+		} else if mostRecentTime.Before(&config.ObjectMeta.CreationTimestamp) {
+			configMap = config
+			mostRecentTime = config.ObjectMeta.CreationTimestamp
+		}
 	}
-	obj, exists, _ := stores.InstallStrategyConfigMapCache.Get(configMap)
+	return configMap
+}
 
-	if !exists {
-		return nil, fmt.Errorf("no install strategy configmap found for version %s", imageTag)
+func LoadInstallStrategyFromCache(stores util.Stores, namespace string, imageTag string, imageRegistry string) (*InstallStrategy, error) {
+	var configMap *corev1.ConfigMap
+	var matchingConfigMaps []*corev1.ConfigMap
+
+	for _, obj := range stores.InstallStrategyConfigMapCache.List() {
+		config, ok := obj.(*corev1.ConfigMap)
+		if !ok {
+			continue
+		}
+		if config.ObjectMeta.Annotations == nil {
+			continue
+		}
+
+		version, _ := config.ObjectMeta.Annotations[v1.InstallStrategyVersionAnnotation]
+		registry, _ := config.ObjectMeta.Annotations[v1.InstallStrategyRegistryAnnotation]
+		if version == imageTag && registry == imageRegistry {
+			matchingConfigMaps = append(matchingConfigMaps, config)
+		}
 	}
 
-	configMap = obj.(*corev1.ConfigMap)
+	if len(matchingConfigMaps) == 0 {
+		return nil, fmt.Errorf("no install strategy configmap found for version %s with registry %s", imageTag, imageRegistry)
+	}
+
+	// choose the most recent configmap if multiple match.
+	configMap = mostRecentConfigMap(matchingConfigMaps)
+
 	data, ok := configMap.Data["manifests"]
 	if !ok {
 		return nil, fmt.Errorf("install strategy configmap %s does not contain 'manifests' key", configMap.Name)
@@ -330,8 +391,12 @@ func loadInstallStrategyFromBytes(data string) (*InstallStrategy, error) {
 				return nil, err
 			}
 			strategy.crds = append(strategy.crds, crd)
-		case "Namespace":
-			// skipped. We don't do anything with namespaces
+		case customSCCPrivilegedAccountsType:
+			priv := &customSCCPrivilegedAccounts{}
+			if err := yaml.Unmarshal([]byte(entry), &priv); err != nil {
+				return nil, err
+			}
+			strategy.customSCCPrivileges = append(strategy.customSCCPrivileges, priv)
 		default:
 			return nil, fmt.Errorf("UNKNOWN TYPE %s detected", obj.Kind)
 
@@ -341,179 +406,24 @@ func loadInstallStrategyFromBytes(data string) (*InstallStrategy, error) {
 	return strategy, nil
 }
 
-func addOperatorLabel(objectMeta *metav1.ObjectMeta) {
-	if objectMeta.Labels == nil {
-		objectMeta.Labels = make(map[string]string)
+func remove(users []string, user string) ([]string, bool) {
+	var newUsers []string
+	modified := false
+	for _, u := range users {
+		if u != user {
+			newUsers = append(newUsers, u)
+		} else {
+			modified = true
+		}
 	}
-	objectMeta.Labels[v1.ManagedByLabel] = v1.ManagedByLabelOperatorValue
+	return newUsers, modified
 }
 
-func CreateAll(kv *v1.KubeVirt,
-	strategy *InstallStrategy,
-	stores util.Stores,
-	clientset kubecli.KubevirtClient,
-	expectations *util.Expectations) (int, error) {
-
-	kvkey, err := controller.KeyFunc(kv)
-
-	objectsAdded := 0
-	ext := clientset.ExtensionsClient()
-	core := clientset.CoreV1()
-	rbac := clientset.RbacV1()
-	apps := clientset.AppsV1()
-
-	// CRDs
-	for _, crd := range strategy.crds {
-		addOperatorLabel(&crd.ObjectMeta)
-		if _, exists, _ := stores.CrdCache.Get(crd); !exists {
-			expectations.Crd.RaiseExpectations(kvkey, 1, 0)
-			_, err := ext.ApiextensionsV1beta1().CustomResourceDefinitions().Create(crd)
-			if err != nil {
-				expectations.Crd.LowerExpectations(kvkey, 1, 0)
-				return objectsAdded, fmt.Errorf("unable to create crd %+v: %v", crd, err)
-			} else if err == nil {
-				objectsAdded++
-			}
-		} else {
-			log.Log.V(4).Infof("crd %v already exists", crd.GetName())
+func contains(users []string, user string) bool {
+	for _, u := range users {
+		if u == user {
+			return true
 		}
 	}
-
-	// ServiceAccounts
-	for _, sa := range strategy.serviceAccounts {
-		addOperatorLabel(&sa.ObjectMeta)
-		if _, exists, _ := stores.ServiceAccountCache.Get(sa); !exists {
-			expectations.ServiceAccount.RaiseExpectations(kvkey, 1, 0)
-			_, err := core.ServiceAccounts(kv.Namespace).Create(sa)
-			if err != nil {
-				expectations.ServiceAccount.LowerExpectations(kvkey, 1, 0)
-				return objectsAdded, fmt.Errorf("unable to create serviceaccount %+v: %v", sa, err)
-			} else if err == nil {
-				objectsAdded++
-			}
-		} else {
-			log.Log.V(4).Infof("serviceaccount %v already exists", sa.GetName())
-		}
-	}
-
-	// ClusterRoles
-	for _, cr := range strategy.clusterRoles {
-		addOperatorLabel(&cr.ObjectMeta)
-		if _, exists, _ := stores.ClusterRoleCache.Get(cr); !exists {
-			expectations.ClusterRole.RaiseExpectations(kvkey, 1, 0)
-			_, err := rbac.ClusterRoles().Create(cr)
-			if err != nil {
-				expectations.ClusterRole.LowerExpectations(kvkey, 1, 0)
-				return objectsAdded, fmt.Errorf("unable to create clusterrole %+v: %v", cr, err)
-			} else if err == nil {
-				objectsAdded++
-			}
-		} else {
-			log.Log.V(4).Infof("clusterrole %v already exists", cr.GetName())
-		}
-	}
-
-	// ClusterRoleBindings
-	for _, crb := range strategy.clusterRoleBindings {
-		addOperatorLabel(&crb.ObjectMeta)
-		if _, exists, _ := stores.ClusterRoleBindingCache.Get(crb); !exists {
-			expectations.ClusterRoleBinding.RaiseExpectations(kvkey, 1, 0)
-			_, err := rbac.ClusterRoleBindings().Create(crb)
-			if err != nil {
-				expectations.ClusterRoleBinding.LowerExpectations(kvkey, 1, 0)
-				return objectsAdded, fmt.Errorf("unable to create clusterrolebinding %+v: %v", crb, err)
-			} else if err == nil {
-				objectsAdded++
-			}
-		} else {
-			log.Log.V(4).Infof("clusterrolebinding %v already exists", crb.GetName())
-		}
-	}
-
-	// Roles
-	for _, r := range strategy.roles {
-		addOperatorLabel(&r.ObjectMeta)
-		if _, exists, _ := stores.RoleCache.Get(r); !exists {
-			expectations.Role.RaiseExpectations(kvkey, 1, 0)
-			_, err := rbac.Roles(kv.Namespace).Create(r)
-			if err != nil {
-				expectations.Role.LowerExpectations(kvkey, 1, 0)
-				return objectsAdded, fmt.Errorf("unable to create role %+v: %v", r, err)
-			} else if err == nil {
-				objectsAdded++
-			}
-		} else {
-			log.Log.V(4).Infof("role %v already exists", r.GetName())
-		}
-	}
-
-	// RoleBindings
-	for _, rb := range strategy.roleBindings {
-		addOperatorLabel(&rb.ObjectMeta)
-		if _, exists, _ := stores.RoleBindingCache.Get(rb); !exists {
-			expectations.RoleBinding.RaiseExpectations(kvkey, 1, 0)
-			_, err := rbac.RoleBindings(kv.Namespace).Create(rb)
-			if err != nil {
-				expectations.RoleBinding.LowerExpectations(kvkey, 1, 0)
-				return objectsAdded, fmt.Errorf("unable to create rolebinding %+v: %v", rb, err)
-			} else if err == nil {
-				objectsAdded++
-			}
-		} else {
-			log.Log.V(4).Infof("rolebinding %v already exists", rb.GetName())
-		}
-	}
-
-	// Services
-	for _, service := range strategy.services {
-		addOperatorLabel(&service.ObjectMeta)
-		if _, exists, _ := stores.ServiceCache.Get(service); !exists {
-			expectations.Service.RaiseExpectations(kvkey, 1, 0)
-			_, err := core.Services(kv.Namespace).Create(service)
-			if err != nil {
-				expectations.Service.LowerExpectations(kvkey, 1, 0)
-				return objectsAdded, fmt.Errorf("unable to create service %+v: %v", service, err)
-			} else if err == nil {
-				objectsAdded++
-			}
-		} else {
-			log.Log.V(4).Infof("service %v already exists", service.GetName())
-		}
-	}
-
-	// Deployments
-	for _, deployment := range strategy.deployments {
-		addOperatorLabel(&deployment.ObjectMeta)
-		if _, exists, _ := stores.DeploymentCache.Get(deployment); !exists {
-			expectations.Deployment.RaiseExpectations(kvkey, 1, 0)
-			_, err := apps.Deployments(kv.Namespace).Create(deployment)
-			if err != nil {
-				expectations.Deployment.LowerExpectations(kvkey, 1, 0)
-				return objectsAdded, fmt.Errorf("unable to create deployment %+v: %v", deployment, err)
-			} else if err == nil {
-				objectsAdded++
-			}
-		} else {
-			log.Log.V(4).Infof("deployment %v already exists", deployment.GetName())
-		}
-	}
-
-	// Daemonsets
-	for _, daemonSet := range strategy.daemonSets {
-		addOperatorLabel(&daemonSet.ObjectMeta)
-		if _, exists, _ := stores.DaemonSetCache.Get(daemonSet); !exists {
-			expectations.DaemonSet.RaiseExpectations(kvkey, 1, 0)
-			_, err = apps.DaemonSets(kv.Namespace).Create(daemonSet)
-			if err != nil {
-				expectations.DaemonSet.LowerExpectations(kvkey, 1, 0)
-				return objectsAdded, fmt.Errorf("unable to create daemonset %+v: %v", daemonSet, err)
-			} else if err == nil {
-				objectsAdded++
-			}
-		} else {
-			log.Log.V(4).Infof("daemonset %v already exists", daemonSet.GetName())
-		}
-	}
-
-	return objectsAdded, nil
+	return false
 }

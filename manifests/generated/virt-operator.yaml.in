@@ -1,0 +1,56 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    kubevirt.io: virt-operator
+  name: virt-operator
+  namespace: {{.Namespace}}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      kubevirt.io: virt-operator
+  strategy: {}
+  template:
+    metadata:
+      annotations:
+        scheduler.alpha.kubernetes.io/critical-pod: ""
+        scheduler.alpha.kubernetes.io/tolerations: '[{"key":"CriticalAddonsOnly","operator":"Exists"}]'
+      labels:
+        kubevirt.io: virt-operator
+        prometheus.kubevirt.io: ""
+      name: virt-operator
+    spec:
+      containers:
+      - command:
+        - virt-operator
+        - --port
+        - "8443"
+        - -v
+        - {{.Verbosity}}
+        env:
+        - name: OPERATOR_IMAGE
+          value: {{.DockerPrefix}}/virt-operator:{{.DockerTag}}
+        - name: WATCH_NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.annotations['olm.targetNamespaces']
+        image: {{.DockerPrefix}}/virt-operator:{{.DockerTag}}
+        imagePullPolicy: {{.ImagePullPolicy}}
+        name: virt-operator
+        ports:
+        - containerPort: 8443
+          name: metrics
+          protocol: TCP
+        readinessProbe:
+          httpGet:
+            path: /metrics
+            port: 8443
+            scheme: HTTPS
+          initialDelaySeconds: 5
+          timeoutSeconds: 10
+        resources: {}
+      securityContext:
+        runAsNonRoot: true
+      serviceAccountName: kubevirt-operator

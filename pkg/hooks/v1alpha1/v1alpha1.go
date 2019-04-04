@@ -17,6 +17,6 @@
  *
  */
 
-package v1alpha1
+package kubevirt_hooks_v1alpha1
 
 const Version = "v1alpha"

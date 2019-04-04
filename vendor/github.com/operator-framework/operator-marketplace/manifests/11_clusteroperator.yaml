@@ -1,0 +1,10 @@
+apiVersion: config.openshift.io/v1
+kind: ClusterOperator
+metadata:
+  name: marketplace
+  namespace: openshift-marketplace
+status:
+  versions:
+    - name: operator
+      # The string "0.0.1-snapshot" is substituted by the CVO with the version of the payload
+      version: "0.0.1-snapshot"

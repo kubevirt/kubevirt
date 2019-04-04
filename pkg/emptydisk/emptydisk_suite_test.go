@@ -1,4 +1,4 @@
-package emptydisk_test
+package emptydisk
 
 import (
 	"testing"

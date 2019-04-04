@@ -58,6 +58,10 @@ var _ = Describe("Validating Webhook", func() {
 		})
 	})
 
+	AfterEach(func() {
+		os.Setenv("FEATURE_GATES", "")
+	})
+
 	Context("with VirtualMachineInstance admission review", func() {
 		It("should reject invalid VirtualMachineInstance spec on create", func() {
 			vmi := v1.NewMinimalVMI("testvmi")
@@ -105,6 +109,45 @@ var _ = Describe("Validating Webhook", func() {
 			resp := admitVMICreate(ar)
 			Expect(resp.Allowed).To(Equal(false))
 			Expect(resp.Result.Message).To(ContainSubstring("no memory requested"))
+		})
+
+		Context("tolerations with eviction policies given", func() {
+			var vmi *v1.VirtualMachineInstance
+			var policy = v1.EvictionStrategyLiveMigrate
+			BeforeEach(func() {
+				os.Setenv("FEATURE_GATES", "LiveMigration")
+				vmi = v1.NewMinimalVMI("testvmi")
+				vmi.Spec.EvictionStrategy = nil
+			})
+
+			table.DescribeTable("it should allow", func(policy v1.EvictionStrategy) {
+				vmi.Spec.EvictionStrategy = &policy
+				resp := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec)
+				Expect(resp).To(BeEmpty())
+			},
+				table.Entry("migration policy to be set", v1.EvictionStrategyLiveMigrate),
+			)
+
+			It("should block setting eviction policies if the feature gate is disabled", func() {
+				os.Setenv("FEATURE_GATES", "")
+				vmi.Spec.EvictionStrategy = &policy
+				resp := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec)
+				Expect(resp[0].Message).To(ContainSubstring("LiveMigration feature gate is not enabled"))
+			})
+
+			It("should allow no eviction policy to be set", func() {
+				vmi.Spec.EvictionStrategy = nil
+				resp := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec)
+				Expect(resp).To(BeEmpty())
+			})
+
+			It("should  not allow unknown eviction policies", func() {
+				policy := v1.EvictionStrategy("fantasy")
+				vmi.Spec.EvictionStrategy = &policy
+				resp := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec)
+				Expect(resp).To(HaveLen(1))
+				Expect(resp[0].Message).To(Equal("fake.evictionStrategy is set with an unrecognized option: fantasy"))
+			})
 		})
 
 		Context("with probes given", func() {
@@ -615,8 +658,8 @@ var _ = Describe("Validating Webhook", func() {
 			vmiPDomain.Devices.Disks = append(vmiPDomain.Devices.Disks, v1.Disk{
 				Name: "testdisk",
 				DiskDevice: v1.DiskDevice{
-					Disk:   &v1.DiskTarget{},
-					Floppy: &v1.FloppyTarget{},
+					Disk:  &v1.DiskTarget{},
+					CDRom: &v1.CDRomTarget{},
 				},
 			})
 			vmiPreset := &v1.VirtualMachineInstancePreset{
@@ -1134,8 +1177,8 @@ var _ = Describe("Validating Webhook", func() {
 			vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
 				Name: "testdisk",
 				DiskDevice: v1.DiskDevice{
-					Disk:   &v1.DiskTarget{},
-					Floppy: &v1.FloppyTarget{},
+					Disk:  &v1.DiskTarget{},
+					CDRom: &v1.CDRomTarget{},
 				},
 			})
 
@@ -1199,11 +1242,72 @@ var _ = Describe("Validating Webhook", func() {
 				}, 2, []string{"fake.domain.devices.inputs[0].bus", "fake.domain.devices.inputs[0].type"}, "Expect type error"),
 		)
 
+		It("should reject negative requests.cpu value", func() {
+			vm := v1.NewMinimalVMI("testvm")
+
+			vm.Spec.Domain.Resources.Requests = k8sv1.ResourceList{
+				k8sv1.ResourceCPU: resource.MustParse("-200m"),
+			}
+
+			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vm.Spec)
+			Expect(len(causes)).To(Equal(1))
+			Expect(causes[0].Field).To(Equal("fake.domain.resources.requests.cpu"))
+		})
+		It("should reject negative limits.cpu size value", func() {
+			vm := v1.NewMinimalVMI("testvm")
+
+			vm.Spec.Domain.Resources.Limits = k8sv1.ResourceList{
+				k8sv1.ResourceCPU: resource.MustParse("-3"),
+			}
+
+			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vm.Spec)
+			Expect(len(causes)).To(Equal(1))
+			Expect(causes[0].Field).To(Equal("fake.domain.resources.limits.cpu"))
+		})
+		It("should reject greater requests.cpu than limits.cpu", func() {
+			vm := v1.NewMinimalVMI("testvm")
+
+			vm.Spec.Domain.Resources.Requests = k8sv1.ResourceList{
+				k8sv1.ResourceCPU: resource.MustParse("2500m"),
+			}
+			vm.Spec.Domain.Resources.Limits = k8sv1.ResourceList{
+				k8sv1.ResourceCPU: resource.MustParse("500m"),
+			}
+
+			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vm.Spec)
+			Expect(len(causes)).To(Equal(1))
+			Expect(causes[0].Field).To(Equal("fake.domain.resources.requests.cpu"))
+		})
+		It("should accept correct cpu size values", func() {
+			vm := v1.NewMinimalVMI("testvm")
+
+			vm.Spec.Domain.Resources.Requests = k8sv1.ResourceList{
+				k8sv1.ResourceCPU: resource.MustParse("1500m"),
+			}
+			vm.Spec.Domain.Resources.Limits = k8sv1.ResourceList{
+				k8sv1.ResourceCPU: resource.MustParse("2"),
+			}
+
+			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vm.Spec)
+			Expect(len(causes)).To(Equal(0))
+		})
+
 		It("should reject negative requests.memory size value", func() {
 			vm := v1.NewMinimalVMI("testvm")
 
 			vm.Spec.Domain.Resources.Requests = k8sv1.ResourceList{
 				k8sv1.ResourceMemory: resource.MustParse("-64Mi"),
+			}
+
+			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vm.Spec)
+			Expect(len(causes)).To(Equal(1))
+			Expect(causes[0].Field).To(Equal("fake.domain.resources.requests.memory"))
+		})
+		It("should reject small requests.memory size value", func() {
+			vm := v1.NewMinimalVMI("testvm")
+
+			vm.Spec.Domain.Resources.Requests = k8sv1.ResourceList{
+				k8sv1.ResourceMemory: resource.MustParse("64m"),
 			}
 
 			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vm.Spec)
@@ -1441,7 +1545,7 @@ var _ = Describe("Validating Webhook", func() {
 
 				vmi.Spec.Networks = append(vmi.Spec.Networks,
 					v1.Network{Name: networkName, NetworkSource: v1.NetworkSource{
-						Multus: &v1.CniNetwork{NetworkName: networkName}}})
+						Multus: &v1.MultusNetwork{NetworkName: networkName}}})
 			}
 			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec)
 			Expect(len(causes)).To(Equal(0))
@@ -1468,7 +1572,7 @@ var _ = Describe("Validating Webhook", func() {
 				networkName := fmt.Sprintf("default%d", i)
 				vmi.Spec.Networks = append(vmi.Spec.Networks,
 					v1.Network{Name: networkName, NetworkSource: v1.NetworkSource{
-						Multus: &v1.CniNetwork{NetworkName: networkName}}})
+						Multus: &v1.MultusNetwork{NetworkName: networkName}}})
 			}
 			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec)
 			Expect(len(causes)).To(Equal(1))
@@ -1590,7 +1694,7 @@ var _ = Describe("Validating Webhook", func() {
 				{
 					Name: "redtest",
 					NetworkSource: v1.NetworkSource{
-						Multus: &v1.CniNetwork{NetworkName: "test-conf"},
+						Multus: &v1.MultusNetwork{NetworkName: "test-conf"},
 					},
 				},
 			}
@@ -1619,7 +1723,7 @@ var _ = Describe("Validating Webhook", func() {
 				v1.Network{
 					Name: "default",
 					NetworkSource: v1.NetworkSource{
-						Multus: &v1.CniNetwork{NetworkName: "default"},
+						Multus: &v1.MultusNetwork{NetworkName: "default"},
 					},
 				},
 			}
@@ -1634,7 +1738,7 @@ var _ = Describe("Validating Webhook", func() {
 				v1.Network{
 					Name: "default",
 					NetworkSource: v1.NetworkSource{
-						Genie: &v1.CniNetwork{NetworkName: "default"},
+						Genie: &v1.GenieNetwork{NetworkName: "default"},
 					},
 				},
 			}
@@ -1649,8 +1753,8 @@ var _ = Describe("Validating Webhook", func() {
 				v1.Network{
 					Name: "default",
 					NetworkSource: v1.NetworkSource{
-						Multus: &v1.CniNetwork{NetworkName: "default1"},
-						Genie:  &v1.CniNetwork{NetworkName: "default2"},
+						Multus: &v1.MultusNetwork{NetworkName: "default1"},
+						Genie:  &v1.GenieNetwork{NetworkName: "default2"},
 					},
 				},
 			}
@@ -1679,19 +1783,94 @@ var _ = Describe("Validating Webhook", func() {
 				v1.Network{
 					Name: "multus1",
 					NetworkSource: v1.NetworkSource{
-						Multus: &v1.CniNetwork{NetworkName: "multus-net1"},
+						Multus: &v1.MultusNetwork{NetworkName: "multus-net1"},
 					},
 				},
 				v1.Network{
 					Name: "multus2",
 					NetworkSource: v1.NetworkSource{
-						Multus: &v1.CniNetwork{NetworkName: "multus-net2"},
+						Multus: &v1.MultusNetwork{NetworkName: "multus-net2"},
 					},
 				},
 			}
 
 			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vm.Spec)
 			Expect(causes).To(BeEmpty())
+		})
+		It("should allow single multus network with a multus default", func() {
+			vm := v1.NewMinimalVMI("testvm")
+			vm.Spec.Domain.Devices.Interfaces = []v1.Interface{
+				*v1.DefaultNetworkInterface(),
+			}
+			vm.Spec.Domain.Devices.Interfaces[0].Name = "multus1"
+			vm.Spec.Networks = []v1.Network{
+				v1.Network{
+					Name: "multus1",
+					NetworkSource: v1.NetworkSource{
+						Multus: &v1.MultusNetwork{NetworkName: "multus-net1", Default: true},
+					},
+				},
+			}
+
+			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vm.Spec)
+			Expect(causes).To(BeEmpty())
+		})
+		It("should reject multiple multus networks with a multus default", func() {
+			vm := v1.NewMinimalVMI("testvm")
+			vm.Spec.Domain.Devices.Interfaces = []v1.Interface{
+				*v1.DefaultNetworkInterface(),
+				*v1.DefaultNetworkInterface(),
+			}
+			vm.Spec.Domain.Devices.Interfaces[0].Name = "multus1"
+			vm.Spec.Domain.Devices.Interfaces[1].Name = "multus2"
+			vm.Spec.Networks = []v1.Network{
+				v1.Network{
+					Name: "multus1",
+					NetworkSource: v1.NetworkSource{
+						Multus: &v1.MultusNetwork{NetworkName: "multus-net1", Default: true},
+					},
+				},
+				v1.Network{
+					Name: "multus2",
+					NetworkSource: v1.NetworkSource{
+						Multus: &v1.MultusNetwork{NetworkName: "multus-net2", Default: true},
+					},
+				},
+			}
+
+			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vm.Spec)
+			Expect(causes).To(HaveLen(1))
+			Expect(string(causes[0].Type)).To(Equal("FieldValueInvalid"))
+			Expect(causes[0].Field).To(Equal("fake.networks"))
+			Expect(causes[0].Message).To(Equal("Multus CNI should only have one default network"))
+		})
+		It("should reject pod network with a multus default", func() {
+			vm := v1.NewMinimalVMI("testvm")
+			vm.Spec.Domain.Devices.Interfaces = []v1.Interface{
+				*v1.DefaultNetworkInterface(),
+				*v1.DefaultNetworkInterface(),
+			}
+			vm.Spec.Domain.Devices.Interfaces[1].Name = "multus1"
+			vm.Spec.Networks = []v1.Network{
+				v1.Network{
+					Name: "default",
+					NetworkSource: v1.NetworkSource{
+						Pod: &v1.PodNetwork{},
+					},
+				},
+				v1.Network{
+					Name: "multus1",
+					NetworkSource: v1.NetworkSource{
+						Multus: &v1.MultusNetwork{NetworkName: "multus-net1", Default: true},
+					},
+				},
+			}
+
+			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vm.Spec)
+			Expect(causes).To(HaveLen(1))
+			Expect(string(causes[0].Type)).To(Equal("FieldValueInvalid"))
+			Expect(causes[0].Field).To(Equal("fake.networks"))
+			Expect(causes[0].Message).To(Equal("Pod network cannot be defined when Multus default network is defined"))
 		})
 		It("should reject when CNI networks of different types are defined", func() {
 			vm := v1.NewMinimalVMI("testvm")
@@ -1705,13 +1884,13 @@ var _ = Describe("Validating Webhook", func() {
 				v1.Network{
 					Name: "multus",
 					NetworkSource: v1.NetworkSource{
-						Multus: &v1.CniNetwork{NetworkName: "default1"},
+						Multus: &v1.MultusNetwork{NetworkName: "default1"},
 					},
 				},
 				v1.Network{
 					Name: "genie",
 					NetworkSource: v1.NetworkSource{
-						Genie: &v1.CniNetwork{NetworkName: "default2"},
+						Genie: &v1.GenieNetwork{NetworkName: "default2"},
 					},
 				},
 			}
@@ -1738,7 +1917,7 @@ var _ = Describe("Validating Webhook", func() {
 				v1.Network{
 					Name: "genie",
 					NetworkSource: v1.NetworkSource{
-						Genie: &v1.CniNetwork{NetworkName: "genie-net"},
+						Genie: &v1.GenieNetwork{NetworkName: "genie-net"},
 					},
 				},
 			}
@@ -1754,7 +1933,7 @@ var _ = Describe("Validating Webhook", func() {
 				v1.Network{
 					Name: "default",
 					NetworkSource: v1.NetworkSource{
-						Multus: &v1.CniNetwork{},
+						Multus: &v1.MultusNetwork{},
 					},
 				},
 			}
@@ -1774,7 +1953,7 @@ var _ = Describe("Validating Webhook", func() {
 				v1.Network{
 					Name: "default",
 					NetworkSource: v1.NetworkSource{
-						Multus: &v1.CniNetwork{NetworkName: "default"},
+						Multus: &v1.MultusNetwork{NetworkName: "default"},
 					},
 				},
 			}
@@ -1851,7 +2030,7 @@ var _ = Describe("Validating Webhook", func() {
 			vm.Spec.Networks = []v1.Network{
 				v1.Network{
 					Name:          "default",
-					NetworkSource: v1.NetworkSource{Multus: &v1.CniNetwork{NetworkName: "test"}},
+					NetworkSource: v1.NetworkSource{Multus: &v1.MultusNetwork{NetworkName: "test"}},
 				},
 			}
 
@@ -2211,7 +2390,7 @@ var _ = Describe("Validating Webhook", func() {
 				v1.Network{
 					Name: "sriov",
 					NetworkSource: v1.NetworkSource{
-						Multus: &v1.CniNetwork{NetworkName: "sriov"},
+						Multus: &v1.MultusNetwork{NetworkName: "sriov"},
 					},
 				},
 			)
@@ -2813,13 +2992,25 @@ var _ = Describe("Validating Webhook", func() {
 			table.Entry("with LUN target",
 				v1.Disk{Name: "testdisk", DiskDevice: v1.DiskDevice{LUN: &v1.LunTarget{}}},
 			),
-			table.Entry("with Floppy target",
-				v1.Disk{Name: "testdisk", DiskDevice: v1.DiskDevice{Floppy: &v1.FloppyTarget{}}},
-			),
 			table.Entry("with CDRom target",
 				v1.Disk{Name: "testdisk", DiskDevice: v1.DiskDevice{CDRom: &v1.CDRomTarget{}}},
 			),
 		)
+
+		It("should reject floppy disks", func() {
+			vmi := v1.NewMinimalVMI("testvmi")
+
+			vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
+				Name: "floppydisk",
+				DiskDevice: v1.DiskDevice{
+					Floppy: &v1.FloppyTarget{},
+				},
+			})
+			causes := validateDisks(k8sfield.NewPath("fake"), vmi.Spec.Domain.Devices.Disks)
+			Expect(len(causes)).To(Equal(1))
+			Expect(causes[0].Field).To(Equal("fake[0].name"))
+		})
+
 		It("should allow disk without a target", func() {
 			vmi := v1.NewMinimalVMI("testvmi")
 
@@ -2837,6 +3028,7 @@ var _ = Describe("Validating Webhook", func() {
 			causes := validateDisks(k8sfield.NewPath("fake"), vmi.Spec.Domain.Devices.Disks)
 			Expect(len(causes)).To(Equal(0))
 		})
+
 		It("should reject disks with duplicate names ", func() {
 			vmi := v1.NewMinimalVMI("testvmi")
 
@@ -2895,8 +3087,8 @@ var _ = Describe("Validating Webhook", func() {
 			vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
 				Name: "testdisk",
 				DiskDevice: v1.DiskDevice{
-					Disk:   &v1.DiskTarget{},
-					Floppy: &v1.FloppyTarget{},
+					Disk:  &v1.DiskTarget{},
+					CDRom: &v1.CDRomTarget{},
 				},
 			})
 			vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
@@ -3228,7 +3420,7 @@ var _ = Describe("Function getNumberOfPodInterfaces()", func() {
 		net1 := v1.Network{
 			NetworkSource: v1.NetworkSource{
 				Pod:    &v1.PodNetwork{},
-				Multus: &v1.CniNetwork{NetworkName: "testnet1"},
+				Multus: &v1.MultusNetwork{NetworkName: "testnet1"},
 			},
 		}
 		iface1 := v1.Interface{Name: net1.Name}

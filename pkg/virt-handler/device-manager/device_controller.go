@@ -20,11 +20,9 @@
 package device_manager
 
 import (
-	"fmt"
+	"math"
 	"os"
-	"path/filepath"
-
-	"github.com/fsnotify/fsnotify"
+	"time"
 
 	"kubevirt.io/kubevirt/pkg/log"
 )
@@ -42,6 +40,7 @@ type DeviceController struct {
 	devicePlugins []GenericDevice
 	host          string
 	maxDevices    int
+	backoff       []time.Duration
 }
 
 func NewDeviceController(host string, maxDevices int) *DeviceController {
@@ -53,6 +52,7 @@ func NewDeviceController(host string, maxDevices int) *DeviceController {
 		},
 		host:       host,
 		maxDevices: maxDevices,
+		backoff:    []time.Duration{1 * time.Second, 2 * time.Second, 5 * time.Second, 10 * time.Second},
 	}
 }
 
@@ -62,73 +62,29 @@ func (c *DeviceController) nodeHasDevice(devicePath string) bool {
 	return (err == nil)
 }
 
-func (c *DeviceController) waitForPath(target string, stop chan struct{}) error {
+func (c *DeviceController) startDevicePlugin(dev GenericDevice, stop chan struct{}) {
 	logger := log.DefaultLogger()
-
-	_, err := os.Stat(target)
-	if err != nil {
-		if !os.IsNotExist(err) {
-			return err
-		}
-	} else {
-		// File already exists, so there's nothing to wait for
-		return nil
-	}
-
-	watcher, err := fsnotify.NewWatcher()
-	if err != nil {
-		return err
-	}
-	defer watcher.Close()
-
-	// Can't watch for a nonexistent file, so watch the parent directory
-	dirName := filepath.Dir(target)
-
-	_, err = os.Stat(dirName)
-	if err != nil {
-		// If the parent directory doesn't exist, there's nothing to watch
-		return err
-	}
-
-	err = watcher.Add(dirName)
-	if err != nil {
-		logger.Errorf("Error adding path to watcher: %v", err)
-		return err
-	}
+	deviceName := dev.GetDeviceName()
+	retries := 0
 
 	for {
-		select {
-		case event := <-watcher.Events:
-			if (event.Op == fsnotify.Create) && (event.Name == target) {
-				return nil
-			}
-		case <-stop:
-			return fmt.Errorf("shutting down")
-		}
-	}
-}
-
-func (c *DeviceController) startDevicePlugin(dev GenericDevice, stop chan struct{}) error {
-	logger := log.DefaultLogger()
-	devicePath := dev.GetDevicePath()
-	deviceName := dev.GetDeviceName()
-	if !c.nodeHasDevice(devicePath) {
-		logger.Infof("%s device not found. Waiting.", deviceName)
-		err := c.waitForPath(devicePath, stop)
+		err := dev.Start(stop)
 		if err != nil {
-			logger.Errorf("error waiting for %s device: %v", deviceName, err)
-			return err
+			logger.Reason(err).Errorf("Error starting %s device plugin", deviceName)
+			retries = int(math.Min(float64(retries+1), float64(len(c.backoff)-1)))
+		} else {
+			retries = 0
+		}
+
+		select {
+		case <-stop:
+			// Ok we don't want to re-register
+			return
+		default:
+			// Wait a little bit and re-register
+			time.Sleep(c.backoff[retries])
 		}
 	}
-
-	err := dev.Start(stop)
-	if err != nil {
-		logger.Errorf("Error starting %s device plugin: %v", deviceName, err)
-		return err
-	}
-
-	logger.Infof("%s device plugin started", deviceName)
-	return nil
 }
 
 func (c *DeviceController) Run(stop chan struct{}) error {

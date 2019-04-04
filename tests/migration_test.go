@@ -28,12 +28,15 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	k8sv1 "k8s.io/api/core/v1"
+	"k8s.io/api/policy/v1beta1"
+	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/rand"
 
 	v1 "kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/kubecli"
+	migrations2 "kubevirt.io/kubevirt/pkg/util/migrations"
 	"kubevirt.io/kubevirt/tests"
 )
 
@@ -45,9 +48,12 @@ var _ = Describe("Migrations", func() {
 
 	BeforeEach(func() {
 		tests.BeforeTestCleanup()
+		if !tests.HasLiveMigration() {
+			Skip("LiveMigration feature gate is not enabled in kubevirt-config")
+		}
 
-		nodes, err := virtClient.CoreV1().Nodes().List(metav1.ListOptions{LabelSelector: v1.NodeSchedulable + "=" + "true"})
-		Expect(err).To(BeNil())
+		nodes := tests.GetAllSchedulableNodes(virtClient)
+		Expect(nodes.Items).ToNot(BeEmpty(), "There should be some compute node")
 
 		if len(nodes.Items) < 2 {
 			Skip("Migration tests require at least 2 nodes")
@@ -67,7 +73,9 @@ var _ = Describe("Migrations", func() {
 		}, timeout, 1*time.Second).ShouldNot(HaveOccurred())
 		By("Waiting until the VirtualMachineInstance starts")
 		tests.WaitForSuccessfulVMIStartWithTimeout(obj, timeout)
-		return obj
+		vmi, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Get(vmi.Name, &metav1.GetOptions{})
+		Expect(err).ToNot(HaveOccurred())
+		return vmi
 	}
 
 	confirmVMIPostMigration := func(vmi *v1.VirtualMachineInstance, migrationUID string) {
@@ -109,6 +117,41 @@ var _ = Describe("Migrations", func() {
 		By("Verifying the VMI's is in the running state")
 		Expect(vmi.Status.Phase).To(Equal(v1.Running))
 	}
+	confirmVMIPostMigrationAborted := func(vmi *v1.VirtualMachineInstance, migrationUID string, timeout int) *v1.VirtualMachineInstance {
+		By("Waiting until the migration is completed")
+		Eventually(func() bool {
+			vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &metav1.GetOptions{})
+			Expect(err).To(BeNil())
+
+			Expect(vmi.Status.MigrationState).ToNot(BeNil())
+
+			if vmi.Status.MigrationState.Completed &&
+				vmi.Status.MigrationState.AbortStatus == v1.MigrationAbortSucceeded {
+				return true
+			}
+			return false
+
+		}, timeout, 1*time.Second).Should(Equal(true))
+
+		By("Retrieving the VMI post migration")
+		vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &metav1.GetOptions{})
+		Expect(err).To(BeNil())
+
+		By("Verifying the VMI's migration state")
+		Expect(vmi.Status.MigrationState).ToNot(BeNil())
+		Expect(vmi.Status.MigrationState.StartTimestamp).ToNot(BeNil())
+		Expect(vmi.Status.MigrationState.EndTimestamp).ToNot(BeNil())
+		Expect(vmi.Status.MigrationState.SourceNode).To(Equal(vmi.Status.NodeName))
+		Expect(vmi.Status.MigrationState.TargetNode).ToNot(Equal(vmi.Status.MigrationState.SourceNode))
+		Expect(vmi.Status.MigrationState.TargetNodeAddress).ToNot(Equal(""))
+		Expect(string(vmi.Status.MigrationState.MigrationUID)).To(Equal(migrationUID))
+		Expect(vmi.Status.MigrationState.Failed).To(Equal(true))
+		Expect(vmi.Status.MigrationState.AbortRequested).To(Equal(true))
+
+		By("Verifying the VMI's is in the running state")
+		Expect(vmi.Status.Phase).To(Equal(v1.Running))
+		return vmi
+	}
 	runMigrationAndExpectCompletion := func(migration *v1.VirtualMachineInstanceMigration, timeout int) string {
 		By("Starting a Migration")
 		Eventually(func() error {
@@ -131,6 +174,38 @@ var _ = Describe("Migrations", func() {
 			return false
 
 		}, timeout, 1*time.Second).Should(Equal(true))
+		return uid
+	}
+	runAndCancelMigration := func(migration *v1.VirtualMachineInstanceMigration, vmi *v1.VirtualMachineInstance, timeout int) string {
+		By("Starting a Migration")
+		Eventually(func() error {
+			_, err := virtClient.VirtualMachineInstanceMigration(migration.Namespace).Create(migration)
+			return err
+		}, timeout, 1*time.Second).ShouldNot(HaveOccurred())
+
+		By("Waiting until the Migration is Running")
+
+		uid := ""
+		Eventually(func() bool {
+			migration, err := virtClient.VirtualMachineInstanceMigration(migration.Namespace).Get(migration.Name, &metav1.GetOptions{})
+			Expect(err).To(BeNil())
+
+			Expect(migration.Status.Phase).ToNot(Equal(v1.MigrationFailed))
+			uid = string(migration.UID)
+			if migration.Status.Phase == v1.MigrationRunning {
+				vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &metav1.GetOptions{})
+				Expect(err).To(BeNil())
+				if vmi.Status.MigrationState.Completed != true {
+					return true
+				}
+			}
+			return false
+
+		}, timeout, 1*time.Second).Should(Equal(true))
+
+		By("Cancelling a Migration")
+		Expect(virtClient.VirtualMachineInstanceMigration(migration.Namespace).Delete(migration.Name, &metav1.DeleteOptions{})).To(Succeed(), "Migration should be deleted successfully")
+
 		return uid
 	}
 
@@ -250,17 +325,13 @@ var _ = Describe("Migrations", func() {
 				Expect(err).To(BeNil())
 				expecter.Close()
 
-				num := 2
+				// execute a migration, wait for finalized state
+				migration := tests.NewRandomMigration(vmi.Name, vmi.Namespace)
+				migrationUID := runMigrationAndExpectCompletion(migration, 180)
 
-				for i := 0; i < num; i++ {
-					// execute a migration, wait for finalized state
-					By(fmt.Sprintf("Starting the Migration for iteration %d", i))
-					migration := tests.NewRandomMigration(vmi.Name, vmi.Namespace)
-					migrationUID := runMigrationAndExpectCompletion(migration, 180)
+				// check VMI, confirm migration state
+				confirmVMIPostMigration(vmi, migrationUID)
 
-					// check VMI, confirm migration state
-					confirmVMIPostMigration(vmi, migrationUID)
-				}
 				// delete VMI
 				By("Deleting the VMI")
 				err = virtClient.VirtualMachineInstance(vmi.Namespace).Delete(vmi.Name, &metav1.DeleteOptions{})
@@ -425,7 +496,167 @@ var _ = Describe("Migrations", func() {
 				By("Waiting for VMI to disappear")
 				tests.WaitForVirtualMachineToDisappearWithTimeout(vmi, 120)
 			})
+			It("should be able successfully cancel a migration", func() {
+
+				vmi := tests.NewRandomVMIWithEphemeralDisk(tests.ContainerDiskFor(tests.ContainerDiskFedora))
+				vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("1Gi")
+				tests.AddUserData(vmi, "cloud-init", fmt.Sprintf(`#!/bin/bash
+					echo "fedora" |passwd fedora --stdin
+					yum install -y stress qemu-guest-agent
+                    systemctl start  qemu-guest-agent`))
+
+				By("Starting the VirtualMachineInstance")
+				vmi = runVMIAndExpectLaunch(vmi, 240)
+
+				getOptions := &metav1.GetOptions{}
+				var updatedVmi *v1.VirtualMachineInstance
+				By("Checking that the VirtualMachineInstance console has expected output")
+				expecter, expecterErr := tests.LoggedInFedoraExpecter(vmi)
+				Expect(expecterErr).To(BeNil())
+				defer expecter.Close()
+
+				// Need to wait for cloud init to finnish and start the agent inside the vmi.
+				Eventually(func() bool {
+					updatedVmi, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Get(vmi.Name, getOptions)
+					Expect(err).ToNot(HaveOccurred())
+					for _, condition := range updatedVmi.Status.Conditions {
+						if condition.Type == "AgentConnected" && condition.Status == "True" {
+							return true
+						}
+					}
+					return false
+				}, 420*time.Second, 2).Should(BeTrue(), "Should have agent connected condition")
+
+				By("Run a stress test")
+				_, err = expecter.ExpectBatch([]expect.Batcher{
+					&expect.BSnd{S: "stress --vm 1 --vm-bytes 600M --vm-keep --timeout 1600s&\n"},
+				}, 15*time.Second)
+				Expect(err).ToNot(HaveOccurred(), "should run a stress test")
+
+				// execute a migration, wait for finalized state
+				By("Starting the Migration")
+				migration := tests.NewRandomMigration(vmi.Name, vmi.Namespace)
+				migration.Spec.Config = &v1.MigrationConfig{
+					CompletionTimeoutPerGiB: 800,
+					ProgressTimeout:         800,
+				}
+
+				migrationUID := runAndCancelMigration(migration, vmi, 180)
+
+				// check VMI, confirm migration state
+				confirmVMIPostMigrationAborted(vmi, migrationUID, 180)
+
+				By("Waiting for the migration object to disappear")
+				tests.WaitForMigrationToDisappearWithTimeout(migration, 240)
+
+				// delete VMI
+				By("Deleting the VMI")
+				err = virtClient.VirtualMachineInstance(vmi.Namespace).Delete(vmi.Name, &metav1.DeleteOptions{})
+				Expect(err).To(BeNil())
+
+				By("Waiting for VMI to disappear")
+				tests.WaitForVirtualMachineToDisappearWithTimeout(vmi, 240)
+
+			})
 		})
 	})
 
+	Context("with a live-migrate eviction strategy set", func() {
+
+		AfterEach(func() {
+			tests.CleanNodes()
+		})
+
+		Context("with a VMI running with an eviction strategy set", func() {
+
+			var vmi *v1.VirtualMachineInstance
+
+			BeforeEach(func() {
+				vmi = vmiWithEvictionStrategy()
+			})
+
+			It("should block the eviction api", func() {
+				vmi = runVMIAndExpectLaunch(vmi, 180)
+				pod := tests.GetRunningPodByVirtualMachineInstance(vmi, vmi.Namespace)
+				err := virtClient.CoreV1().Pods(vmi.Namespace).Evict(&v1beta1.Eviction{ObjectMeta: metav1.ObjectMeta{Name: pod.Name}})
+				Expect(errors.IsTooManyRequests(err)).To(BeTrue())
+			})
+
+			Context("with node tainted", func() {
+
+				It("should migrate the VMI to another node", func() {
+					vmi = runVMIAndExpectLaunch(vmi, 180)
+					node := vmi.Status.NodeName
+					tests.Taint(node, "kubevirt.io/drain", k8sv1.TaintEffectNoSchedule)
+					Eventually(func() string {
+						vmi, err := virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &metav1.GetOptions{})
+						Expect(err).ToNot(HaveOccurred())
+						return vmi.Status.NodeName
+					}, 60*time.Second, 1*time.Second).ShouldNot(Equal(node))
+				})
+
+			})
+
+		})
+		Context("with multiple VMIs with eviction policies set", func() {
+
+			It("should not migrate more than two VMIs at the same time from a node", func() {
+				var vmis []*v1.VirtualMachineInstance
+				for i := 0; i < 4; i++ {
+					vmi := vmiWithEvictionStrategy()
+					vmi.Spec.NodeSelector = map[string]string{"tests.kubevirt.io": "target"}
+					vmis = append(vmis, vmi)
+				}
+
+				By("selecting a node as the source")
+				sourceNode := tests.GetAllSchedulableNodes(virtClient).Items[0]
+				tests.AddLabelToNode(sourceNode.Name, "tests.kubevirt.io", "target")
+
+				By("starting four VMIs on that node")
+				for _, vmi := range vmis {
+					_, err := virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
+					Expect(err).ToNot(HaveOccurred())
+				}
+
+				By("waiting until the VMIs are ready")
+				for _, vmi := range vmis {
+					tests.WaitForSuccessfulVMIStartWithTimeout(vmi, 180)
+				}
+
+				By("selecting a  node as the target")
+				targetNode := tests.GetAllSchedulableNodes(virtClient).Items[1]
+				tests.AddLabelToNode(targetNode.Name, "tests.kubevirt.io", "target")
+
+				By("tainting the source node as non-schedulabele")
+				tests.Taint(sourceNode.Name, "kubevirt.io/drain", k8sv1.TaintEffectNoSchedule)
+
+				By("checking that all VMIs were migrated, and we never see more than two running migrations in parallel")
+				Eventually(func() []string {
+					var nodes []string
+					for _, vmi := range vmis {
+						vmi, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Get(vmi.Name, &metav1.GetOptions{})
+						nodes = append(nodes, vmi.Status.NodeName)
+					}
+					migrations, err := virtClient.VirtualMachineInstanceMigration(k8sv1.NamespaceAll).List(&metav1.ListOptions{})
+					Expect(err).ToNot(HaveOccurred())
+					runningMigrations := migrations2.FilterRunningMigrations(migrations.Items)
+					Expect(len(runningMigrations)).To(BeNumerically("<=", 2))
+					return nodes
+				}, 4*time.Minute, 1*time.Second).Should(ConsistOf(
+					targetNode.Name,
+					targetNode.Name,
+					targetNode.Name,
+					targetNode.Name,
+				))
+			})
+		})
+
+	})
 })
+
+func vmiWithEvictionStrategy() *v1.VirtualMachineInstance {
+	strategy := v1.EvictionStrategyLiveMigrate
+	vmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(tests.ContainerDiskFor(tests.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n")
+	vmi.Spec.EvictionStrategy = &strategy
+	return vmi
+}

@@ -13,6 +13,7 @@ spec:
     targetPort: 8443
   selector:
     kubevirt.io: virt-api
+  type: ClusterIP
 ---
 apiVersion: apps/v1
 kind: Deployment

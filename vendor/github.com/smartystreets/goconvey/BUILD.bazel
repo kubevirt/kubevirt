@@ -5,6 +5,8 @@ go_library(
     srcs = [
         "dependencies.go",
         "goconvey.go",
+        "goconvey_1_8.go",
+        "goconvey_1_9.go",
     ],
     importmap = "kubevirt.io/kubevirt/vendor/github.com/smartystreets/goconvey",
     importpath = "github.com/smartystreets/goconvey",
@@ -19,6 +21,7 @@ go_library(
         "//vendor/github.com/smartystreets/goconvey/web/server/watch:go_default_library",
         "@com_github_jtolds_gls//:go_default_library",
         "@com_github_smartystreets_assertions//:go_default_library",
+        "@org_golang_x_tools//go/packages:go_default_library",
     ],
 )
 

@@ -9,9 +9,12 @@ go_library(
         "ipvs.go",
         "mdstat.go",
         "mountstats.go",
+        "net_dev.go",
         "proc.go",
         "proc_io.go",
         "proc_limits.go",
+        "proc_ns.go",
+        "proc_psi.go",
         "proc_stat.go",
         "stat.go",
         "xfrm.go",
@@ -19,5 +22,4 @@ go_library(
     importmap = "kubevirt.io/kubevirt/vendor/github.com/prometheus/procfs",
     importpath = "github.com/prometheus/procfs",
     visibility = ["//visibility:public"],
-    deps = ["//vendor/github.com/prometheus/procfs/xfs:go_default_library"],
 )

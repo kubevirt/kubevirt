@@ -800,6 +800,19 @@ var _ = Describe("Converter", func() {
 			Expect(*domain.Spec.Devices.Interfaces[0].Address).To(Equal(test_address))
 		})
 
+		It("should calculate mebibyte from a quantity", func() {
+			mi64, _ := resource.ParseQuantity("2G")
+			q, err := QuantityToMebiByte(mi64)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(q).To(BeNumerically("==", 1907))
+		})
+
+		It("should fail calculating mebibyte if the quantity is less than 0", func() {
+			mi64, _ := resource.ParseQuantity("-2G")
+			_, err := QuantityToMebiByte(mi64)
+			Expect(err).To(HaveOccurred())
+		})
+
 		It("should calculate memory in bytes", func() {
 			By("specifying memory 64M")
 			m64, _ := resource.ParseQuantity("64M")
@@ -1014,13 +1027,13 @@ var _ = Describe("Converter", func() {
 				v1.Network{
 					Name: "red1",
 					NetworkSource: v1.NetworkSource{
-						Multus: &v1.CniNetwork{NetworkName: "red"},
+						Multus: &v1.MultusNetwork{NetworkName: "red"},
 					},
 				},
 				v1.Network{
 					Name: "red2",
 					NetworkSource: v1.NetworkSource{
-						Multus: &v1.CniNetwork{NetworkName: "red"},
+						Multus: &v1.MultusNetwork{NetworkName: "red"},
 					},
 				},
 				v1.Network{
@@ -1038,6 +1051,35 @@ var _ = Describe("Converter", func() {
 			Expect(domain.Spec.Devices.Interfaces[1].Source.Bridge).To(Equal("k6t-net2"))
 			Expect(domain.Spec.Devices.Interfaces[2].Source.Bridge).To(Equal("k6t-eth0"))
 		})
+		It("Should set domain interface source correctly for default multus", func() {
+			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
+			vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{
+				*v1.DefaultNetworkInterface(),
+				*v1.DefaultNetworkInterface(),
+			}
+			vmi.Spec.Domain.Devices.Interfaces[0].Name = "red1"
+			vmi.Spec.Domain.Devices.Interfaces[1].Name = "red2"
+			vmi.Spec.Networks = []v1.Network{
+				v1.Network{
+					Name: "red1",
+					NetworkSource: v1.NetworkSource{
+						Multus: &v1.MultusNetwork{NetworkName: "red", Default: true},
+					},
+				},
+				v1.Network{
+					Name: "red2",
+					NetworkSource: v1.NetworkSource{
+						Multus: &v1.MultusNetwork{NetworkName: "red"},
+					},
+				},
+			}
+
+			domain := vmiToDomain(vmi, c)
+			Expect(domain).ToNot(Equal(nil))
+			Expect(domain.Spec.Devices.Interfaces).To(HaveLen(2))
+			Expect(domain.Spec.Devices.Interfaces[0].Source.Bridge).To(Equal("k6t-eth0"))
+			Expect(domain.Spec.Devices.Interfaces[1].Source.Bridge).To(Equal("k6t-net1"))
+		})
 		It("Should set domain interface source correctly for genie", func() {
 			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
 			vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{
@@ -1050,13 +1092,13 @@ var _ = Describe("Converter", func() {
 				v1.Network{
 					Name: "red1",
 					NetworkSource: v1.NetworkSource{
-						Genie: &v1.CniNetwork{NetworkName: "red"},
+						Genie: &v1.GenieNetwork{NetworkName: "red"},
 					},
 				},
 				v1.Network{
 					Name: "red2",
 					NetworkSource: v1.NetworkSource{
-						Genie: &v1.CniNetwork{NetworkName: "red"},
+						Genie: &v1.GenieNetwork{NetworkName: "red"},
 					},
 				},
 			}
@@ -1123,7 +1165,7 @@ var _ = Describe("Converter", func() {
 				{
 					Name: "red1",
 					NetworkSource: v1.NetworkSource{
-						Multus: &v1.CniNetwork{NetworkName: "red"},
+						Multus: &v1.MultusNetwork{NetworkName: "red"},
 					},
 				}}
 
@@ -1542,7 +1584,7 @@ var _ = Describe("Converter", func() {
 		sriovNetwork := v1.Network{
 			Name: "sriov",
 			NetworkSource: v1.NetworkSource{
-				Multus: &v1.CniNetwork{NetworkName: "sriov"},
+				Multus: &v1.MultusNetwork{NetworkName: "sriov"},
 			},
 		}
 		vmi.Spec.Networks = append(vmi.Spec.Networks, sriovNetwork)
@@ -1557,7 +1599,7 @@ var _ = Describe("Converter", func() {
 		sriovNetwork2 := v1.Network{
 			Name: "sriov2",
 			NetworkSource: v1.NetworkSource{
-				Multus: &v1.CniNetwork{NetworkName: "sriov2"},
+				Multus: &v1.MultusNetwork{NetworkName: "sriov2"},
 			},
 		}
 		vmi.Spec.Networks = append(vmi.Spec.Networks, sriovNetwork2)

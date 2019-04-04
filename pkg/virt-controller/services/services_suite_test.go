@@ -17,7 +17,7 @@
  *
  */
 
-package services_test
+package services
 
 import (
 	"testing"

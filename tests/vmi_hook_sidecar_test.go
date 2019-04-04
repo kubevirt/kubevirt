@@ -30,6 +30,8 @@ import (
 	k8sv1 "k8s.io/api/core/v1"
 
 	v1 "kubevirt.io/kubevirt/pkg/api/v1"
+	hooksv1alpha1 "kubevirt.io/kubevirt/pkg/hooks/v1alpha1"
+	hooksv1alpha2 "kubevirt.io/kubevirt/pkg/hooks/v1alpha2"
 	"kubevirt.io/kubevirt/pkg/kubecli"
 	"kubevirt.io/kubevirt/tests"
 )
@@ -48,10 +50,7 @@ var _ = Describe("HookSidecars", func() {
 	BeforeEach(func() {
 		tests.BeforeTestCleanup()
 		vmi = tests.NewRandomVMIWithEphemeralDisk(tests.ContainerDiskFor(tests.ContainerDiskAlpine))
-		vmi.ObjectMeta.Annotations = map[string]string{
-			"hooks.kubevirt.io/hookSidecars":              fmt.Sprintf(`[{"image": "%s/%s:%s", "imagePullPolicy": "IfNotPresent"}]`, tests.KubeVirtRepoPrefix, hookSidecarImage, tests.KubeVirtVersionTag),
-			"smbios.vm.kubevirt.io/baseBoardManufacturer": "Radical Edward",
-		}
+		vmi.ObjectMeta.Annotations = RenderSidecar(hooksv1alpha1.Version)
 	})
 
 	Describe("VMI definition", func() {
@@ -59,6 +58,14 @@ var _ = Describe("HookSidecars", func() {
 			It("should successfully start with hook sidecar annotation", func() {
 				By("Starting a VMI")
 				vmi, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
+				Expect(err).ToNot(HaveOccurred())
+				tests.WaitForSuccessfulVMIStart(vmi)
+			}, 300)
+
+			It("should successfully start with hook sidecar annotation for v1alpha2", func() {
+				By("Starting a VMI")
+				vmi, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
+				vmi.ObjectMeta.Annotations = RenderSidecar(hooksv1alpha2.Version)
 				Expect(err).ToNot(HaveOccurred())
 				tests.WaitForSuccessfulVMIStart(vmi)
 			}, 300)
@@ -124,4 +131,11 @@ func getVmDomainXml(virtCli kubecli.KubevirtClient, vmi *v1.VirtualMachineInstan
 	Expect(err).ToNot(HaveOccurred())
 
 	return vmDomainXML
+}
+
+func RenderSidecar(version string) map[string]string {
+	return map[string]string{
+		"hooks.kubevirt.io/hookSidecars":              fmt.Sprintf(`[{"args": ["--version", "%s"],"image": "%s/%s:%s", "imagePullPolicy": "IfNotPresent"}]`, version, tests.KubeVirtRepoPrefix, hookSidecarImage, tests.KubeVirtVersionTag),
+		"smbios.vm.kubevirt.io/baseBoardManufacturer": "Radical Edward",
+	}
 }

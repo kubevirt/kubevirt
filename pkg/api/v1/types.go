@@ -32,7 +32,7 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"k8s.io/api/autoscaling/v1"
+	v1 "k8s.io/api/autoscaling/v1"
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -143,6 +143,9 @@ type VirtualMachineInstanceList struct {
 	Items           []VirtualMachineInstance `json:"items"`
 }
 
+// +k8s:openapi-gen=true
+type EvictionStrategy string
+
 // VirtualMachineInstanceSpec is a description of a VirtualMachineInstance.
 // ---
 // +k8s:openapi-gen=true
@@ -158,6 +161,13 @@ type VirtualMachineInstanceSpec struct {
 	Affinity *k8sv1.Affinity `json:"affinity,omitempty"`
 	// If toleration is specified, obey all the toleration rules.
 	Tolerations []k8sv1.Toleration `json:"tolerations,omitempty"`
+
+	// EvictionStrategy can be set to "LiveMigrate" if the VirtualMachineInstance should be
+	// migrated instead of shut-off in case of a node drain.
+	// ---
+	// +optional
+	EvictionStrategy *EvictionStrategy `json:"evictionStrategy,omitempty"`
+
 	// Grace period observed after signalling a VirtualMachineInstance to stop after which the VirtualMachineInstance is force terminated.
 	TerminationGracePeriodSeconds *int64 `json:"terminationGracePeriodSeconds,omitempty"`
 	// List of volumes that can be mounted by disks belonging to the vmi.
@@ -294,6 +304,15 @@ const (
 	VirtualMachineInstanceReasonDisksNotMigratable = "DisksNotLiveMigratable"
 )
 
+// +k8s:openapi-gen=true
+type VirtualMachineInstanceMigrationConditionType string
+
+// These are valid conditions of VMIs.
+const (
+	// VirtualMachineInstanceMigrationAbortRequested indicates that live migration abort has been requested
+	VirtualMachineInstanceMigrationAbortRequested VirtualMachineInstanceMigrationConditionType = "migrationAbortRequested"
+)
+
 // ---
 // +k8s:openapi-gen=true
 type VirtualMachineInstanceCondition struct {
@@ -305,9 +324,28 @@ type VirtualMachineInstanceCondition struct {
 	Message            string                              `json:"message,omitempty"`
 }
 
+// ---
+// +k8s:openapi-gen=true
+type VirtualMachineInstanceMigrationCondition struct {
+	Type               VirtualMachineInstanceMigrationConditionType `json:"type"`
+	Status             k8sv1.ConditionStatus                        `json:"status"`
+	LastProbeTime      metav1.Time                                  `json:"lastProbeTime,omitempty"`
+	LastTransitionTime metav1.Time                                  `json:"lastTransitionTime,omitempty"`
+	Reason             string                                       `json:"reason,omitempty"`
+	Message            string                                       `json:"message,omitempty"`
+}
+
 // The migration phase indicates that the job has completed
 func (m *VirtualMachineInstanceMigration) IsFinal() bool {
 	return m.Status.Phase == MigrationFailed || m.Status.Phase == MigrationSucceeded
+}
+
+func (m *VirtualMachineInstanceMigration) IsRunning() bool {
+	switch m.Status.Phase {
+	case MigrationFailed, MigrationPending, MigrationPhaseUnset, MigrationSucceeded:
+		return false
+	}
+	return true
 }
 
 // The migration phase indicates that the target pod should have already been created
@@ -361,6 +399,10 @@ type VirtualMachineInstanceMigrationState struct {
 	Completed bool `json:"completed,omitempty"`
 	// Indicates that the migration failed
 	Failed bool `json:"failed,omitempty"`
+	// Indicates that the migration has been requested to abort
+	AbortRequested bool `json:"abortRequested,omitempty"`
+	// Indicates the final status of the live migration abortion
+	AbortStatus MigrationAbortStatus `json:"abortStatus,omitempty"`
 	// The VirtualMachineInstanceMigration object associated with this migration
 	MigrationUID types.UID `json:"migrationUid,omitempty"`
 	// Config contains migration configuration options
@@ -373,6 +415,19 @@ type MigrationConfig struct {
 	// The time to wait for live migration to make progress in transferring data.
 	ProgressTimeout int64 `json:"progressTimeout,omitempty"`
 }
+
+// ---
+// +k8s:openapi-gen=true
+type MigrationAbortStatus string
+
+const (
+	// MigrationAbortSucceeded means that the VirtualMachineInstance live migration has been aborted
+	MigrationAbortSucceeded MigrationAbortStatus = "Succeeded"
+	// MigrationAbortFailed means that the vmi live migration has failed to be abort
+	MigrationAbortFailed MigrationAbortStatus = "Failed"
+	// MigrationAbortInProgress mean that the vmi live migration is aborting
+	MigrationAbortInProgress MigrationAbortStatus = "Aborting"
+)
 
 // ---
 // +k8s:openapi-gen=true
@@ -425,7 +480,7 @@ const (
 	MigrationJobNameAnnotation string = "kubevirt.io/migrationJobName"
 	// This label is used to match virtual machine instance IDs with pods.
 	// Similar to kubevirt.io/domain. Used on Pod.
-	// Deprecated: would be replaced by a Controller Reference in a future release.
+	// Internal use only.
 	CreatedByLabel string = "kubevirt.io/created-by"
 	// This label is used to indicate that this pod is the target of a migration job.
 	MigrationJobLabel string = "kubevirt.io/migrationJobUID"
@@ -447,11 +502,17 @@ const (
 	// This label will be set on all resources created by the operator
 	ManagedByLabel              = "app.kubernetes.io/managed-by"
 	ManagedByLabelOperatorValue = "kubevirt-operator"
-	// This label represents the kubevirt version for an install strategy configmap.
-	InstallStrategyVersionLabel = "kubevirt.io/install-strategy-version"
+	// This annotation represents the kubevirt version for an install strategy configmap.
+	InstallStrategyVersionAnnotation = "kubevirt.io/install-strategy-version"
+	// This annotation represents the kubevirt registry used for an install strategy configmap.
+	InstallStrategyRegistryAnnotation = "kubevirt.io/install-strategy-registry"
 
-	VirtualMachineInstanceFinalizer string = "foregroundDeleteVirtualMachine"
-	CPUManager                      string = "cpumanager"
+	// This label indicates the object is a part of the install strategy retrieval process.
+	InstallStrategyLabel = "kubevirt.io/install-strategy"
+
+	VirtualMachineInstanceFinalizer          string = "foregroundDeleteVirtualMachine"
+	VirtualMachineInstanceMigrationFinalizer string = "kubevirt.io/migrationJobFinalize"
+	CPUManager                               string = "cpumanager"
 	// This annotation is used to inject ignition data
 	// Used on VirtualMachineInstance.
 	IgnitionAnnotation string = "kubevirt.io/ignitiondata"
@@ -753,7 +814,8 @@ type VirtualMachineInstanceMigrationSpec struct {
 // ---
 // +k8s:openapi-gen=true
 type VirtualMachineInstanceMigrationStatus struct {
-	Phase VirtualMachineInstanceMigrationPhase `json:"phase,omitempty"`
+	Phase      VirtualMachineInstanceMigrationPhase       `json:"phase,omitempty"`
+	Conditions []VirtualMachineInstanceMigrationCondition `json:"conditions,omitempty"`
 }
 
 // VirtualMachineInstanceMigrationPhase is a label for the condition of a VirtualMachineInstanceMigration at the current time.
@@ -1050,6 +1112,13 @@ func (kl *KubeVirtList) GetListMeta() meta.List {
 // ---
 // +k8s:openapi-gen=true
 type KubeVirtSpec struct {
+	// The image tag to use for the continer images installed.
+	// Defaults to the same tag as the operator's container image.
+	ImageTag string `json:"imageTag,omitempty"`
+	// The image registry to pull the container images from
+	// Defaults to the same registry the operator's container image is pulled from.
+	ImageRegistry string `json:"imageRegistry,omitempty"`
+
 	// The ImagePullPolicy to use.
 	ImagePullPolicy k8sv1.PullPolicy `json:"imagePullPolicy,omitempty" valid:"required"`
 }
@@ -1058,11 +1127,13 @@ type KubeVirtSpec struct {
 // ---
 // +k8s:openapi-gen=true
 type KubeVirtStatus struct {
-	Phase                   KubeVirtPhase       `json:"phase,omitempty"`
-	Conditions              []KubeVirtCondition `json:"conditions,omitempty" optional:"true"`
-	OperatorVersion         string              `json:"operatorVersion,omitempty" optional:"true"`
-	TargetKubeVirtVersion   string              `json:"targetKubeVirtVersion,omitempty" optional:"true"`
-	ObservedKubeVirtVersion string              `json:"observedKubeVirtVersion,omitempty" optional:"true"`
+	Phase                    KubeVirtPhase       `json:"phase,omitempty"`
+	Conditions               []KubeVirtCondition `json:"conditions,omitempty" optional:"true"`
+	OperatorVersion          string              `json:"operatorVersion,omitempty" optional:"true"`
+	TargetKubeVirtVersion    string              `json:"targetKubeVirtVersion,omitempty" optional:"true"`
+	TargetKubeVirtRegistry   string              `json:"targetKubeVirtRegistry,omitempty" optional:"true"`
+	ObservedKubeVirtVersion  string              `json:"observedKubeVirtVersion,omitempty" optional:"true"`
+	ObservedKubeVirtRegistry string              `json:"observedKubeVirtRegistry,omitempty" optional:"true"`
 }
 
 // KubeVirtPhase is a label for the phase of a KubeVirt deployment at the current time.
@@ -1102,8 +1173,14 @@ type KubeVirtConditionType string
 const (
 	// Whether the deployment or deletion was successful (only used if false)
 	KubeVirtConditionSynchronized KubeVirtConditionType = "Synchronized"
-	// Whether all resources were created
+	// Whether all resources were created and up-to-date
 	KubeVirtConditionCreated KubeVirtConditionType = "Created"
 	// Whether all components were ready
 	KubeVirtConditionReady KubeVirtConditionType = "Ready"
+	// Whether we're in the process of updating previously deployed version
+	KubeVirtConditionUpdating KubeVirtConditionType = "Updating"
+)
+
+const (
+	EvictionStrategyLiveMigrate EvictionStrategy = "LiveMigrate"
 )

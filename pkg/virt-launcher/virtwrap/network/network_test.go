@@ -73,12 +73,71 @@ var _ = Describe("Network", func() {
 			cniNet := &v1.Network{
 				Name: "default",
 				NetworkSource: v1.NetworkSource{
-					Multus: &v1.CniNetwork{NetworkName: "default"},
+					Multus: &v1.MultusNetwork{NetworkName: "default"},
 				},
 			}
 			vm.Spec.Networks = []v1.Network{*cniNet}
 
-			mockNetworkInterface.EXPECT().Plug(vm, iface, cniNet, domain, "net1")
+			mockNetworkInterface.EXPECT().Plug(vm, iface, cniNet, domain, multusInterfaceName)
+			err := SetupNetworkInterfaces(vm, domain)
+			Expect(err).To(BeNil())
+		})
+		It("should configure networking with multus and a default multus network", func() {
+			NetworkInterfaceFactory = func(network *v1.Network) (NetworkInterface, error) {
+				return mockNetworkInterface, nil
+			}
+
+			domain := &api.Domain{}
+			vm := newVMIBridgeInterface("testnamespace", "testVmName")
+			api.SetObjectDefaults_Domain(domain)
+
+			// We plug three multus interfaces in, with the default being second, to ensure the netN
+			// interfaces are numbered correctly
+			vm.Spec.Domain.Devices.Interfaces = []v1.Interface{
+				v1.Interface{
+					Name: "additional1",
+					InterfaceBindingMethod: v1.InterfaceBindingMethod{
+						Bridge: &v1.InterfaceBridge{},
+					},
+				},
+				v1.Interface{
+					Name: "default",
+					InterfaceBindingMethod: v1.InterfaceBindingMethod{
+						Bridge: &v1.InterfaceBridge{},
+					},
+				},
+				v1.Interface{
+					Name: "additional2",
+					InterfaceBindingMethod: v1.InterfaceBindingMethod{
+						Bridge: &v1.InterfaceBridge{},
+					},
+				},
+			}
+
+			cniNet := &v1.Network{
+				Name: "default",
+				NetworkSource: v1.NetworkSource{
+					Multus: &v1.MultusNetwork{NetworkName: "default", Default: true},
+				},
+			}
+			additionalCNINet1 := &v1.Network{
+				Name: "additional1",
+				NetworkSource: v1.NetworkSource{
+					Multus: &v1.MultusNetwork{NetworkName: "additional1"},
+				},
+			}
+			additionalCNINet2 := &v1.Network{
+				Name: "additional2",
+				NetworkSource: v1.NetworkSource{
+					Multus: &v1.MultusNetwork{NetworkName: "additional2"},
+				},
+			}
+
+			vm.Spec.Networks = []v1.Network{*additionalCNINet1, *cniNet, *additionalCNINet2}
+
+			mockNetworkInterface.EXPECT().Plug(vm, &vm.Spec.Domain.Devices.Interfaces[0], additionalCNINet1, domain, "net1")
+			mockNetworkInterface.EXPECT().Plug(vm, &vm.Spec.Domain.Devices.Interfaces[1], cniNet, domain, "eth0")
+			mockNetworkInterface.EXPECT().Plug(vm, &vm.Spec.Domain.Devices.Interfaces[2], additionalCNINet2, domain, "net2")
 			err := SetupNetworkInterfaces(vm, domain)
 			Expect(err).To(BeNil())
 		})
@@ -94,7 +153,7 @@ var _ = Describe("Network", func() {
 			cniNet := &v1.Network{
 				Name: "default",
 				NetworkSource: v1.NetworkSource{
-					Genie: &v1.CniNetwork{NetworkName: "default"},
+					Genie: &v1.GenieNetwork{NetworkName: "default"},
 				},
 			}
 			vm.Spec.Networks = []v1.Network{*cniNet}

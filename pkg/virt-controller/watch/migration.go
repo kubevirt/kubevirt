@@ -20,8 +20,10 @@
 package watch
 
 import (
+	"encoding/json"
 	"fmt"
 	"reflect"
+	"sync"
 	"time"
 
 	k8sv1 "k8s.io/api/core/v1"
@@ -33,6 +35,10 @@ import (
 	"k8s.io/client-go/tools/record"
 	"k8s.io/client-go/util/workqueue"
 
+	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
+
+	"kubevirt.io/kubevirt/pkg/util/migrations"
+
 	virtv1 "kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/kubecli"
@@ -41,14 +47,16 @@ import (
 )
 
 type MigrationController struct {
-	templateService   services.TemplateService
-	clientset         kubecli.KubevirtClient
-	Queue             workqueue.RateLimitingInterface
-	vmiInformer       cache.SharedIndexInformer
-	podInformer       cache.SharedIndexInformer
-	migrationInformer cache.SharedIndexInformer
-	recorder          record.EventRecorder
-	podExpectations   *controller.UIDTrackingControllerExpectations
+	templateService    services.TemplateService
+	clientset          kubecli.KubevirtClient
+	Queue              workqueue.RateLimitingInterface
+	vmiInformer        cache.SharedIndexInformer
+	podInformer        cache.SharedIndexInformer
+	migrationInformer  cache.SharedIndexInformer
+	recorder           record.EventRecorder
+	podExpectations    *controller.UIDTrackingControllerExpectations
+	migrationStartLock *sync.Mutex
+	clusterConfig      *virtconfig.ClusterConfig
 }
 
 func NewMigrationController(templateService services.TemplateService,
@@ -56,17 +64,21 @@ func NewMigrationController(templateService services.TemplateService,
 	podInformer cache.SharedIndexInformer,
 	migrationInformer cache.SharedIndexInformer,
 	recorder record.EventRecorder,
-	clientset kubecli.KubevirtClient) *MigrationController {
+	clientset kubecli.KubevirtClient,
+	clusterConfig *virtconfig.ClusterConfig,
+) *MigrationController {
 
 	c := &MigrationController{
-		templateService:   templateService,
-		Queue:             workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter()),
-		vmiInformer:       vmiInformer,
-		podInformer:       podInformer,
-		migrationInformer: migrationInformer,
-		recorder:          recorder,
-		clientset:         clientset,
-		podExpectations:   controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectations()),
+		templateService:    templateService,
+		Queue:              workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter()),
+		vmiInformer:        vmiInformer,
+		podInformer:        podInformer,
+		migrationInformer:  migrationInformer,
+		recorder:           recorder,
+		clientset:          clientset,
+		podExpectations:    controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectations()),
+		migrationStartLock: &sync.Mutex{},
+		clusterConfig:      clusterConfig,
 	}
 
 	c.vmiInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
@@ -177,7 +189,7 @@ func (c *MigrationController) execute(key string) error {
 	var syncErr error
 
 	if needsSync && !migration.IsFinal() {
-		syncErr = c.sync(migration, vmi, targetPods)
+		syncErr = c.sync(key, migration, vmi, targetPods)
 	}
 
 	err = c.updateStatus(migration, vmi, targetPods, syncErr)
@@ -230,25 +242,24 @@ func (c *MigrationController) canMigrateVMI(migration *virtv1.VirtualMachineInst
 func (c *MigrationController) updateStatus(migration *virtv1.VirtualMachineInstanceMigration, vmi *virtv1.VirtualMachineInstance, pods []*k8sv1.Pod, syncErr error) error {
 
 	var pod *k8sv1.Pod = nil
-
-	// Nothing to do here if the migration has already completed
-	if migration.IsFinal() {
-		return nil
-	}
+	conditionManager := controller.NewVirtualMachineInstanceMigrationConditionManager()
+	migrationCopy := migration.DeepCopy()
 
 	podExists := len(pods) > 0
 	if podExists {
 		pod = pods[0]
 	}
 
-	migrationCopy := migration.DeepCopy()
+	// Remove the finalizer and conditions if the migration has already completed
+	if migration.IsFinal() {
+		controller.RemoveFinalizer(migrationCopy, virtv1.VirtualMachineInstanceMigrationFinalizer)
 
-	// Status checking of active Migration job.
-	//
-	// 1. Fail if VMI isn't in running state.
-	// 2. Fail if target pod exists and has gone down for any reason.
-	// 3. Begin progressing migration state based on VMI's MigrationState status.
-	if vmi == nil {
+		// Status checking of active Migration job.
+		//
+		// 1. Fail if VMI isn't in running state.
+		// 2. Fail if target pod exists and has gone down for any reason.
+		// 3. Begin progressing migration state based on VMI's MigrationState status.
+	} else if vmi == nil {
 		migrationCopy.Status.Phase = virtv1.MigrationFailed
 		c.recorder.Eventf(migration, k8sv1.EventTypeWarning, FailedMigrationReason, "Migration failed because vmi does not exist.")
 		log.Log.Object(migration).Error("vmi does not exist")
@@ -282,6 +293,15 @@ func (c *MigrationController) updateStatus(migration *virtv1.VirtualMachineInsta
 		migrationCopy.Status.Phase = virtv1.MigrationFailed
 		c.recorder.Eventf(migration, k8sv1.EventTypeWarning, FailedMigrationReason, "Source node reported migration failed")
 		log.Log.Object(migration).Error("VMI reported migration failed.")
+	} else if migration.DeletionTimestamp != nil && !migration.IsFinal() {
+		if !conditionManager.HasCondition(migration, virtv1.VirtualMachineInstanceMigrationAbortRequested) {
+			condition := virtv1.VirtualMachineInstanceMigrationCondition{
+				Type:          virtv1.VirtualMachineInstanceMigrationAbortRequested,
+				Status:        k8sv1.ConditionTrue,
+				LastProbeTime: v1.Now(),
+			}
+			migrationCopy.Status.Conditions = append(migrationCopy.Status.Conditions, condition)
+		}
 	} else {
 
 		switch migration.Status.Phase {
@@ -329,7 +349,8 @@ func (c *MigrationController) updateStatus(migration *virtv1.VirtualMachineInsta
 		}
 	}
 
-	if !reflect.DeepEqual(migration.Status, migrationCopy.Status) {
+	if !reflect.DeepEqual(migration.Status, migrationCopy.Status) ||
+		!reflect.DeepEqual(migration.Finalizers, migrationCopy.Finalizers) {
 		_, err := c.clientset.VirtualMachineInstanceMigration(migration.Namespace).Update(migrationCopy)
 		if err != nil {
 			return err
@@ -386,12 +407,39 @@ func (c *MigrationController) createTargetPod(migration *virtv1.VirtualMachineIn
 	return nil
 }
 
-func (c *MigrationController) sync(migration *virtv1.VirtualMachineInstanceMigration, vmi *virtv1.VirtualMachineInstance, pods []*k8sv1.Pod) error {
+func (c *MigrationController) sync(key string, migration *virtv1.VirtualMachineInstanceMigration, vmi *virtv1.VirtualMachineInstance, pods []*k8sv1.Pod) error {
 
 	var pod *k8sv1.Pod = nil
 	podExists := len(pods) > 0
 	if podExists {
 		pod = pods[0]
+	}
+
+	if vmi != nil && migration.DeletionTimestamp != nil && !migration.IsFinal() {
+		vmiCopy := vmi.DeepCopy()
+		if vmiCopy.Status.MigrationState != nil {
+			vmiCopy.Status.MigrationState.AbortRequested = true
+			if !reflect.DeepEqual(vmi.Status, vmiCopy.Status) {
+				newStatus, err := json.Marshal(vmiCopy.Status)
+				if err != nil {
+					return err
+				}
+				oldStatus, err := json.Marshal(vmi.Status)
+				if err != nil {
+					return err
+				}
+				test := fmt.Sprintf(`{ "op": "test", "path": "/status", "value": %s }`, string(oldStatus))
+				patch := fmt.Sprintf(`{ "op": "replace", "path": "/status", "value": %s }`, string(newStatus))
+				_, err = c.clientset.VirtualMachineInstance(vmi.Namespace).Patch(vmi.Name, types.JSONPatchType, []byte(fmt.Sprintf("[ %s, %s ]", test, patch)))
+				if err != nil {
+					msg := fmt.Sprintf("failed to set MigrationState in VMI status. :%v", err)
+					c.recorder.Eventf(migration, k8sv1.EventTypeWarning, FailedAbortMigrationReason, msg)
+					return fmt.Errorf(msg)
+				}
+				c.recorder.Eventf(migration, k8sv1.EventTypeNormal, SuccessfulAbortMigrationReason, "Migration is ready to be canceled by virt-handler.")
+			}
+		}
+		return nil
 	}
 
 	if vmi == nil || vmi.DeletionTimestamp != nil {
@@ -416,12 +464,53 @@ func (c *MigrationController) sync(migration *virtv1.VirtualMachineInstanceMigra
 
 	switch migration.Status.Phase {
 	case virtv1.MigrationPending:
-		// migration was accepted into the system, now see if we
-		// should create the target pod
-		if !podExists && vmi.IsRunning() {
-			return c.createTargetPod(migration, vmi)
+		if podExists {
+			// nothing to do if the target pod already exists
+			return nil
 		}
-		return nil
+		return func() error {
+			c.migrationStartLock.Lock()
+			defer c.migrationStartLock.Unlock()
+
+			// Don't start new migrations if we wait for cache updates on migration target pods
+			if c.podExpectations.AllPendingCreations() > 0 {
+				c.Queue.AddAfter(key, 1*time.Second)
+				return nil
+			}
+
+			// Don't start new migrations if we wait for migration object updates because of new target pods
+			runningMigrations, err := c.findRunningMigrations()
+			if err != nil {
+				return fmt.Errorf("failed to determin the number of running migrations: %v", err)
+			}
+
+			// XXX: Make this configurable, think about limit per node, bandwidth per migration, and so on.
+			if len(runningMigrations) >= int(*c.clusterConfig.GetMigrationConfig().ParallelMigrationsPerCluster) {
+				// Let's wait until some migrations are done
+				c.Queue.AddAfter(key, time.Second*5)
+				return nil
+			}
+
+			outboundMigrations, err := c.outboundMigrationsOnNode(vmi.Status.NodeName, runningMigrations)
+
+			if err != nil {
+				return err
+			}
+
+			if outboundMigrations >= int(*c.clusterConfig.GetMigrationConfig().ParallelOutboundMigrationsPerNode) {
+				// Let's ensure that we only have two outbound migrations per node
+				// XXX: Make this configurebale, thinkg about inbout migration limit, bandwidh per migration, and so on.
+				c.Queue.AddAfter(key, time.Second*5)
+				return nil
+			}
+
+			// migration was accepted into the system, now see if we
+			// should create the target pod
+			if vmi.IsRunning() {
+				return c.createTargetPod(migration, vmi)
+			}
+			return nil
+		}()
 	case virtv1.MigrationScheduled:
 		// once target pod is scheduled, alert the VMI of the migration by
 		// setting the target and source nodes. This kicks off the preparation stage.
@@ -732,4 +821,52 @@ func (c *MigrationController) deleteVMI(obj interface{}) {
 		log.Log.V(4).Object(vmi).Infof("vmi deleted for migration %s", migration.Name)
 		c.enqueueMigration(migration)
 	}
+}
+
+func (c *MigrationController) outboundMigrationsOnNode(node string, runningMigrations []*virtv1.VirtualMachineInstanceMigration) (int, error) {
+	sum := 0
+	for _, migration := range runningMigrations {
+		if vmi, exists, _ := c.vmiInformer.GetStore().GetByKey(migration.Namespace + "/" + migration.Spec.VMIName); exists {
+			if vmi.(*virtv1.VirtualMachineInstance).Status.NodeName == node {
+				sum = sum + 1
+			}
+		}
+	}
+	return sum, nil
+}
+
+// findRunningMigrations calcules how many migrations are running or in flight to be triggered to running
+// Migrations which are in running phase are added alongside with migrations which are still pending but
+// where we already see a target pod.
+func (c *MigrationController) findRunningMigrations() ([]*virtv1.VirtualMachineInstanceMigration, error) {
+
+	// Don't start new migrations if we wait for migration object updates because of new target pods
+	notFinishedMigrations, err := migrations.ListUnfinishedMigrations(c.migrationInformer)
+	if err != nil {
+		return nil, err
+	}
+
+	var runningMigrations []*virtv1.VirtualMachineInstanceMigration
+	for _, migration := range notFinishedMigrations {
+		if migration.IsRunning() {
+			runningMigrations = append(runningMigrations, migration)
+		} else {
+
+			vmi, exists, err := c.vmiInformer.GetStore().GetByKey(migration.Namespace + "/" + migration.Spec.VMIName)
+			if err != nil {
+				return nil, err
+			}
+			if !exists {
+				continue
+			}
+			pods, err := c.listMatchingTargetPods(migration, vmi.(*virtv1.VirtualMachineInstance))
+			if err != nil {
+				return nil, err
+			}
+			if len(pods) > 0 {
+				runningMigrations = append(runningMigrations, migration)
+			}
+		}
+	}
+	return runningMigrations, nil
 }

@@ -36,6 +36,10 @@ func main() {
 		glog.Exit(err)
 	}
 
+	if scale < 3 {
+		glog.Exitf("scale must be at least 3 for this sample to work")
+	}
+
 	e, _, err := expect.Spawn(command, -1)
 	if err != nil {
 		glog.Exit(err)

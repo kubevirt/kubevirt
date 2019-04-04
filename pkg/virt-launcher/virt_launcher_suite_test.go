@@ -1,4 +1,4 @@
-package virtlauncher_test
+package virtlauncher
 
 import (
 	"testing"

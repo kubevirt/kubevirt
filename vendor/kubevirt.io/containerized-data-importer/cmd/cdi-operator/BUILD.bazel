@@ -12,10 +12,10 @@ go_library(
         "//vendor/kubevirt.io/containerized-data-importer/pkg/apis/core/v1alpha1:go_default_library",
         "//vendor/kubevirt.io/containerized-data-importer/pkg/operator/controller:go_default_library",
         "//vendor/kubevirt.io/containerized-data-importer/pkg/util:go_default_library",
-        "@io_k8s_sigs_controller_runtime//pkg/client/config:go_default_library",
-        "@io_k8s_sigs_controller_runtime//pkg/manager:go_default_library",
-        "@io_k8s_sigs_controller_runtime//pkg/runtime/log:go_default_library",
-        "@io_k8s_sigs_controller_runtime//pkg/runtime/signals:go_default_library",
+        "//vendor/sigs.k8s.io/controller-runtime/pkg/client/config:go_default_library",
+        "//vendor/sigs.k8s.io/controller-runtime/pkg/manager:go_default_library",
+        "//vendor/sigs.k8s.io/controller-runtime/pkg/runtime/log:go_default_library",
+        "//vendor/sigs.k8s.io/controller-runtime/pkg/runtime/signals:go_default_library",
     ],
 )
 

@@ -10,7 +10,6 @@ find ${KUBEVIRT_DIR}/pkg/ -name "*generated*.go" -exec rm {} -f \;
 ${KUBEVIRT_DIR}/hack/build-go.sh generate ${WHAT}
 /${KUBEVIRT_DIR}/hack/bootstrap-ginkgo.sh
 (cd ${KUBEVIRT_DIR}/tools/openapispec/ && go build)
-goimports -w -local kubevirt.io ${KUBEVIRT_DIR}/cmd/ ${KUBEVIRT_DIR}/pkg/ ${KUBEVIRT_DIR}/tests/
 
 ${KUBEVIRT_DIR}/tools/openapispec/openapispec --dump-api-spec-path ${KUBEVIRT_DIR}/api/openapi-spec/swagger.json
 
@@ -24,17 +23,20 @@ ${KUBEVIRT_DIR}/tools/resource-generator/resource-generator --type=vm >${KUBEVIR
 ${KUBEVIRT_DIR}/tools/resource-generator/resource-generator --type=vmim >${KUBEVIRT_DIR}/manifests/generated/vmim-resource.yaml
 ${KUBEVIRT_DIR}/tools/resource-generator/resource-generator --type=kv >${KUBEVIRT_DIR}/manifests/generated/kv-resource.yaml
 ${KUBEVIRT_DIR}/tools/resource-generator/resource-generator --type=kv-cr --namespace={{.Namespace}} --pullPolicy={{.ImagePullPolicy}} >${KUBEVIRT_DIR}/manifests/generated/kubevirt-cr.yaml.in
-${KUBEVIRT_DIR}/tools/resource-generator/resource-generator --type=rbac --namespace={{.Namespace}} >${KUBEVIRT_DIR}/manifests/generated/rbac.authorization.k8s.yaml.in
+${KUBEVIRT_DIR}/tools/resource-generator/resource-generator --type=kubevirt-rbac --namespace={{.Namespace}} >${KUBEVIRT_DIR}/manifests/generated/rbac-kubevirt.authorization.k8s.yaml.in
+${KUBEVIRT_DIR}/tools/resource-generator/resource-generator --type=cluster-rbac --namespace={{.Namespace}} >${KUBEVIRT_DIR}/manifests/generated/rbac-cluster.authorization.k8s.yaml.in
+${KUBEVIRT_DIR}/tools/resource-generator/resource-generator --type=operator-rbac --namespace={{.Namespace}} >${KUBEVIRT_DIR}/manifests/generated/rbac-operator.authorization.k8s.yaml.in
 ${KUBEVIRT_DIR}/tools/resource-generator/resource-generator --type=prometheus --namespace={{.Namespace}} >${KUBEVIRT_DIR}/manifests/generated/prometheus.yaml.in
 ${KUBEVIRT_DIR}/tools/resource-generator/resource-generator --type=virt-api --namespace={{.Namespace}} --repository={{.DockerPrefix}} --version={{.DockerTag}} --pullPolicy={{.ImagePullPolicy}} --verbosity={{.Verbosity}} >${KUBEVIRT_DIR}/manifests/generated/virt-api.yaml.in
 ${KUBEVIRT_DIR}/tools/resource-generator/resource-generator --type=virt-controller --namespace={{.Namespace}} --repository={{.DockerPrefix}} --version={{.DockerTag}} --pullPolicy={{.ImagePullPolicy}} --verbosity={{.Verbosity}} >${KUBEVIRT_DIR}/manifests/generated/virt-controller.yaml.in
 ${KUBEVIRT_DIR}/tools/resource-generator/resource-generator --type=virt-handler --namespace={{.Namespace}} --repository={{.DockerPrefix}} --version={{.DockerTag}} --pullPolicy={{.ImagePullPolicy}} --verbosity={{.Verbosity}} >${KUBEVIRT_DIR}/manifests/generated/virt-handler.yaml.in
+${KUBEVIRT_DIR}/tools/resource-generator/resource-generator --type=virt-operator --namespace={{.Namespace}} --repository={{.DockerPrefix}} --version={{.DockerTag}} --pullPolicy={{.ImagePullPolicy}} --verbosity={{.Verbosity}} >${KUBEVIRT_DIR}/manifests/generated/virt-operator.yaml.in
 
 (cd ${KUBEVIRT_DIR}/tools/vms-generator/ && go build)
 vms_docker_prefix=${DOCKER_PREFIX:-registry:5000/kubevirt}
 vms_docker_tag=${DOCKER_TAG:-devel}
 ${KUBEVIRT_DIR}/tools/vms-generator/vms-generator --container-prefix=${vms_docker_prefix} --container-tag=${vms_docker_tag} --generated-vms-dir=${KUBEVIRT_DIR}/cluster/examples
 
-protoc --proto_path=pkg/hooks/info --go_out=plugins=grpc,import_path=info:pkg/hooks/info pkg/hooks/info/api.proto
-protoc --proto_path=pkg/hooks/v1alpha1 --go_out=plugins=grpc,import_path=v1alpha1:pkg/hooks/v1alpha1 pkg/hooks/v1alpha1/api.proto
-protoc --proto_path=pkg/hooks/v1alpha2 --go_out=plugins=grpc,import_path=v1alpha2:pkg/hooks/v1alpha2 pkg/hooks/v1alpha2/api.proto
+protoc --proto_path=pkg/hooks/info --go_out=plugins=grpc,import_path=kubevirt_hooks_info:pkg/hooks/info pkg/hooks/info/api.proto
+protoc --proto_path=pkg/hooks/v1alpha1 --go_out=plugins=grpc,import_path=kubevirt_hooks_v1alpha1:pkg/hooks/v1alpha1 pkg/hooks/v1alpha1/api.proto
+protoc --proto_path=pkg/hooks/v1alpha2 --go_out=plugins=grpc,import_path=kubevirt_hooks_v1alpha2:pkg/hooks/v1alpha2 pkg/hooks/v1alpha2/api.proto

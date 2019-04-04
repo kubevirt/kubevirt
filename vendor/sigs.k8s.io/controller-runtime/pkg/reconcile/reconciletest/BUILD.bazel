@@ -1,0 +1,10 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "go_default_library",
+    srcs = ["reconcile.go"],
+    importmap = "kubevirt.io/kubevirt/vendor/sigs.k8s.io/controller-runtime/pkg/reconcile/reconciletest",
+    importpath = "sigs.k8s.io/controller-runtime/pkg/reconcile/reconciletest",
+    visibility = ["//visibility:public"],
+    deps = ["//vendor/sigs.k8s.io/controller-runtime/pkg/reconcile:go_default_library"],
+)
