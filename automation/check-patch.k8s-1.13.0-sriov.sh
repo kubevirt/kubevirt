@@ -10,10 +10,15 @@ GOBIN=~/go/bin
 PATH=$PATH:$GOBIN
 
 CLUSTER_NAME=sriov-ci-$(uuidgen)
+CLUSTER_CONTROL_PLANE=${CLUSTER_NAME}-control-plane
+CONTAINER_REGISTRY_HOST="localhost:5000"
 
-KUBEVIRT_FOLDER=`pwd`
-MANIFESTS_DIR="cluster/k8s-1.13.0-sriov/manifests"
-ARTIFACTS_DIR="$KUBEVIRT_FOLDER/exported-artifacts"
+CLUSTER_CMD="docker exec -it -d ${CLUSTER_CONTROL_PLANE}"
+
+KUBEVIRT_PATH=`pwd`
+CLUSTER_DIR="cluster/k8s-1.13.0-sriov"
+MANIFESTS_DIR="${CLUSTER_DIR}/manifests"
+ARTIFACTS_DIR="${KUBEVIRT_PATH}/exported-artifacts"
 
 SHARED_DIR="/var/lib/stdci/shared"
 SRIOV_JOB_LOCKFILE="${SHARED_DIR}/sriov.lock"
@@ -52,7 +57,7 @@ function collect_artifacts {
 
 function finish {
     collect_artifacts
-    kind delete cluster --name=${CLUSTER_NAME}
+    #kind delete cluster --name=${CLUSTER_NAME}
 }
 
 trap finish EXIT
@@ -70,10 +75,36 @@ flock -e  -w "$SRIOV_TIMEOUT_SEC" "$fd" || {
 # bring up cluster
 # ================
 go get -u sigs.k8s.io/kind
+
 kind create cluster --name=${CLUSTER_NAME} --config=${MANIFESTS_DIR}/kind.yaml
 
 export KUBECONFIG=$(kind get kubeconfig-path --name=${CLUSTER_NAME})
 kubectl cluster-info
+
+# copied from https://github.com/kubernetes-sigs/federation-v2/blob/master/scripts/create-clusters.sh
+function configure-insecure-registry-and-reload() {
+    local cmd_context="${1}" # context to run command e.g. sudo, docker exec
+    ${cmd_context} "$(insecure-registry-config-cmd)"
+    ${cmd_context} "$(reload-docker-daemon-cmd)"
+}
+
+function reload-docker-daemon-cmd() {
+    echo "kill -s SIGHUP \$(pgrep dockerd)"
+}
+
+function insecure-registry-config-cmd() {
+    echo "cat <<EOF > /etc/docker/daemon.json
+{
+    \"insecure-registries\": [\"${CONTAINER_REGISTRY_HOST}\"]
+}
+EOF
+"
+}
+
+configure-insecure-registry-and-reload "${CLUSTER_CMD} bash -c"
+
+# copy config for debugging purposes
+cp ${KUBECONFIG} ${CLUSTER_DIR}/cluster.config
 
 # wait for nodes to become ready
 until kubectl get nodes --no-headers
@@ -155,12 +186,29 @@ sleep 10
 # make sure all containers are ready
 wait_containers_ready
 
+# start local registry
+until [ -z "$(docker ps -a | grep registry)" ]; do
+    docker stop registry || true
+    docker rm registry || true
+    sleep 5
+done
+docker run -d -p 5000:5000 --restart=always --name registry registry:2
+${CLUSTER_CMD} socat TCP-LISTEN:5000,fork TCP:172.17.0.1:5000
+
+# prepare local storage
+for i in {1..10}; do
+    ${CLUSTER_CMD} mkdir -p /var/local/kubevirt-storage/local-volume/disk${i}
+    ${CLUSTER_CMD} mkdir -p /mnt/local-storage/local/disk${i}
+done
+${CLUSTER_CMD} chmod -R 777 /var/local/kubevirt-storage/local-volume
+${CLUSTER_CMD} mknod /dev/loop0 b 7 0
+
 # ===============
 # deploy kubevirt
 # ===============
 export KUBEVIRT_PROVIDER=external
-make
-make docker
+export DOCKER_PREFIX=${CONTAINER_REGISTRY_HOST}/kubevirt
+make cluster-build
 make cluster-deploy
 wait_kubevirt_up
 
@@ -177,4 +225,4 @@ wait_kubevirt_up
 # ========================
 # execute functional tests
 # ========================
-./cluster/k8s-1.13.0-sriov/test.sh
+./${CLUSTER_DIR}/test.sh
