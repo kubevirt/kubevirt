@@ -221,7 +221,8 @@ var _ = Describe("Manager", func() {
 				DataRemaining: 32479827394,
 			}
 
-			mConfig := &v1.MigrationConfig{
+			options := &cmdclient.MigrationOptions{
+				Bandwidth:               resource.MustParse("64Mi"),
 				ProgressTimeout:         2,
 				CompletionTimeoutPerGiB: 300,
 			}
@@ -229,7 +230,6 @@ var _ = Describe("Manager", func() {
 			vmi := newVMI(testNamespace, testVmName)
 			vmi.Status.MigrationState = &v1.VirtualMachineInstanceMigrationState{
 				MigrationUID: "111222333",
-				Config:       mConfig,
 			}
 
 			domainSpec := expectIsolationDetectionForVMI(vmi)
@@ -248,7 +248,7 @@ var _ = Describe("Manager", func() {
 			mockDomain.EXPECT().GetXMLDesc(gomock.Eq(libvirt.DOMAIN_XML_MIGRATABLE)).Return(string(xml), nil)
 			mockDomain.EXPECT().GetXMLDesc(gomock.Eq(libvirt.DOMAIN_XML_INACTIVE)).Return(string(xml), nil)
 
-			liveMigrationMonitor(vmi, mockDomain, manager)
+			liveMigrationMonitor(vmi, mockDomain, manager, options)
 		})
 		It("migration should be canceled if timeout has been reached", func() {
 			// Make sure that we always free the domain after use
@@ -262,14 +262,14 @@ var _ = Describe("Manager", func() {
 				}
 			}()
 
-			mConfig := &v1.MigrationConfig{
+			options := &cmdclient.MigrationOptions{
+				Bandwidth:               resource.MustParse("64Mi"),
 				ProgressTimeout:         3,
 				CompletionTimeoutPerGiB: 150,
 			}
 			vmi := newVMI(testNamespace, testVmName)
 			vmi.Status.MigrationState = &v1.VirtualMachineInstanceMigrationState{
 				MigrationUID: "111222333",
-				Config:       mConfig,
 			}
 
 			domainSpec := expectIsolationDetectionForVMI(vmi)
@@ -288,7 +288,7 @@ var _ = Describe("Manager", func() {
 			mockDomain.EXPECT().GetXMLDesc(gomock.Eq(libvirt.DOMAIN_XML_MIGRATABLE)).Return(string(xml), nil)
 			mockDomain.EXPECT().GetXMLDesc(gomock.Eq(libvirt.DOMAIN_XML_INACTIVE)).Return(string(xml), nil)
 
-			liveMigrationMonitor(vmi, mockDomain, manager)
+			liveMigrationMonitor(vmi, mockDomain, manager, options)
 		})
 		It("migration should be canceled when requested", func() {
 			// Make sure that we always free the domain after use
@@ -300,14 +300,9 @@ var _ = Describe("Manager", func() {
 				}
 			}()
 
-			mConfig := &v1.MigrationConfig{
-				ProgressTimeout:         3,
-				CompletionTimeoutPerGiB: 150,
-			}
 			vmi := newVMI(testNamespace, testVmName)
 			vmi.Status.MigrationState = &v1.VirtualMachineInstanceMigrationState{
 				MigrationUID: "111222333",
-				Config:       mConfig,
 			}
 
 			domainSpec := expectIsolationDetectionForVMI(vmi)
@@ -397,7 +392,9 @@ var _ = Describe("Manager", func() {
 			mockDomain.EXPECT().GetXMLDesc(gomock.Eq(libvirt.DOMAIN_XML_MIGRATABLE)).Return(string(xml), nil)
 			mockDomain.EXPECT().GetXMLDesc(gomock.Eq(libvirt.DOMAIN_XML_INACTIVE)).Return(string(xml), nil)
 			options := &cmdclient.MigrationOptions{
-				Bandwidth: resource.MustParse("64Mi"),
+				Bandwidth:               resource.MustParse("64Mi"),
+				ProgressTimeout:         150,
+				CompletionTimeoutPerGiB: 300,
 			}
 			err = manager.MigrateVMI(vmi, options)
 			Expect(err).To(BeNil())

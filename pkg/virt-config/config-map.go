@@ -52,6 +52,8 @@ const (
 	ParallelOutboundMigrationsPerNodeDefault uint32 = 2
 	ParallelMigrationsPerClusterDefault      uint32 = 5
 	BandwithPerMigrationDefault                     = "64Mi"
+	MigrationProgressTimeout                 int64  = 150
+	MigrationCompletionTimeoutPerGiB         int64  = 800
 
 	NodeDrainTaintDefaultKey = "kubevirt.io/drain"
 )
@@ -134,6 +136,8 @@ func defaultClusterConfig() *Config {
 	parallelMigrationsPerClusterDefault := ParallelMigrationsPerClusterDefault
 	bandwithPerMigrationDefault := resource.MustParse(BandwithPerMigrationDefault)
 	nodeDrainTaintDefaultKey := NodeDrainTaintDefaultKey
+	progressTimeout := MigrationProgressTimeout
+	completionTimeoutPerGiB := MigrationCompletionTimeoutPerGiB
 	return &Config{
 		ResourceVersion: "0",
 		ImagePullPolicy: k8sv1.PullIfNotPresent,
@@ -143,6 +147,8 @@ func defaultClusterConfig() *Config {
 			ParallelOutboundMigrationsPerNode: &parallelOutboundMigrationsPerNodeDefault,
 			BandwidthPerMigration:             &bandwithPerMigrationDefault,
 			NodeDrainTaintKey:                 &nodeDrainTaintDefaultKey,
+			ProgressTimeout:                   &progressTimeout,
+			CompletionTimeoutPerGiB:           &completionTimeoutPerGiB,
 		},
 	}
 }
@@ -159,6 +165,8 @@ type MigrationConfig struct {
 	ParallelMigrationsPerCluster      *uint32            `json:"parallelMigrationsPerCluster,omitempty"`
 	BandwidthPerMigration             *resource.Quantity `json:"bandwidthPerMigration,omitempty"`
 	NodeDrainTaintKey                 *string            `json:"nodeDrainTaintKey,omitempty"`
+	ProgressTimeout                   *int64             `json:"progressTimeout,omitempty"`
+	CompletionTimeoutPerGiB           *int64             `json:"completionTimeoutPerGiB,omitempty"`
 }
 
 type ClusterConfig struct {
