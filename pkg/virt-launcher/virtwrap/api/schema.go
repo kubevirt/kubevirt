@@ -36,6 +36,13 @@ import (
 	"kubevirt.io/kubevirt/pkg/precond"
 )
 
+// For versioning of the virt-handler and -launcher communication,
+// you need to increase the Version const when making changes,
+// and make necessary changes in the cmd and notify rpc implementation!
+const (
+	DomainVersion = "v1"
+)
+
 type LifeCycle string
 type StateChangeReason string
 

@@ -287,6 +287,8 @@ func RunServer(socketPath string,
 		useEmulation:  useEmulation,
 	}
 	cmdv1.RegisterCmdServer(grpcServer, server)
+	registerInfoServer(grpcServer)
+
 	sock, err := grpcutil.CreateSocket(socketPath)
 	if err != nil {
 		return nil, err

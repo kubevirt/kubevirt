@@ -9,6 +9,7 @@ import (
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
 
+	corev1 "k8s.io/api/core/v1"
 	k8sv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -17,6 +18,7 @@ import (
 	"k8s.io/client-go/tools/reference"
 
 	v1 "kubevirt.io/kubevirt/pkg/api/v1"
+	"kubevirt.io/kubevirt/pkg/handler-launcher-com/notify/info"
 	notifyv1 "kubevirt.io/kubevirt/pkg/handler-launcher-com/notify/v1"
 	"kubevirt.io/kubevirt/pkg/log"
 	grpcutil "kubevirt.io/kubevirt/pkg/util/net/grpc"
@@ -45,12 +47,41 @@ func NewNotifyClient(virtShareDir string) (*NotifyClient, error) {
 		log.Log.Reason(err).Infof("Failed to dial notify socket: %s", socketPath)
 		return nil, err
 	}
+
+	// check if the cmd server is compatible
+	infoClient := info.NewNotifyInfoClient(conn)
+	ctx, _ := context.WithTimeout(context.Background(), 5*time.Second)
+	info, err := infoClient.Info(ctx, &info.NotifyInfoRequest{})
+	if err != nil {
+		return nil, fmt.Errorf("could not check notify server version: %v", err)
+	}
+	if !checkVersions(info) {
+		return nil, fmt.Errorf("incompatible notify server: %+v", info)
+	}
+
 	client := notifyv1.NewNotifyClient(conn)
 
 	return &NotifyClient{
 		client: client,
 		conn:   conn,
 	}, nil
+}
+
+func checkVersions(info *info.NotifyInfoResponse) bool {
+	// for now only check if the server supports our current versions
+	return containsVersion(info.SupportedNotifyVersions, notifyv1.NotifyVersion) &&
+		containsVersion(info.SupportedDomainVersions, api.DomainVersion) &&
+		containsVersion(info.SupportedK8SMetaAPIVersions, metav1.SchemeGroupVersion.String()) &&
+		containsVersion(info.SupportedK8SEventAPIVersions, corev1.SchemeGroupVersion.String())
+}
+
+func containsVersion(all []string, needed string) bool {
+	for _, version := range all {
+		if version == needed {
+			return true
+		}
+	}
+	return false
 }
 
 func (c *NotifyClient) Close() {

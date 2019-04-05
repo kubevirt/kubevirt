@@ -11,6 +11,7 @@ go_library(
     deps = [
         "//pkg/api/v1:go_default_library",
         "//pkg/ephemeral-disk-utils:go_default_library",
+        "//pkg/handler-launcher-com/cmd/info:go_default_library",
         "//pkg/handler-launcher-com/cmd/v1:go_default_library",
         "//pkg/log:go_default_library",
         "//pkg/util/net/grpc:go_default_library",

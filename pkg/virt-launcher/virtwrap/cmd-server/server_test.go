@@ -110,6 +110,7 @@ var _ = Describe("Virt remote commands", func() {
 
 			Expect(exists).To(Equal(true))
 			Expect(domain).ToNot(Equal(nil))
+			Expect(domain.ObjectMeta.Name).To(Equal("testvmi1"))
 		})
 
 		It("client should return disconnected after server stops", func() {
@@ -144,6 +145,8 @@ var _ = Describe("Virt remote commands", func() {
 
 			Expect(exists).To(Equal(true))
 			Expect(domStats).ToNot(Equal(nil))
+			Expect(domStats.Name).To(Equal(list[0].Name))
+			Expect(domStats.UUID).To(Equal(list[0].UUID))
 		})
 	})
 })

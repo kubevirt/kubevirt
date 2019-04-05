@@ -17,6 +17,7 @@ go_proto_library(
 
 go_library(
     name = "go_default_library",
+    srcs = ["version.go"],
     embed = [":kubevirt_notify_go_proto"],
     importpath = "kubevirt.io/kubevirt/pkg/handler-launcher-com/notify/v1",
     visibility = ["//visibility:public"],
