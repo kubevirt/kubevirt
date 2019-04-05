@@ -64,6 +64,22 @@ var _ = Describe("ConfigMap", func() {
 		table.Entry("when invalid, it should return the default", "invalid", kubev1.PullIfNotPresent),
 	)
 
+	table.DescribeTable(" when machineType", func(value string, result string) {
+		cfgMap := kubev1.ConfigMap{
+			ObjectMeta: metav1.ObjectMeta{
+				ResourceVersion: "1234",
+				Namespace:       "kubevirt",
+				Name:            "kubevirt-config",
+			},
+			Data: map[string]string{machineTypeKey: value},
+		}
+		clusterConfig, _ := MakeClusterConfig([]kubev1.ConfigMap{cfgMap}, stopChan)
+		Expect(clusterConfig.GetMachineType()).To(Equal(result))
+	},
+		table.Entry("when set, it should return the value", "pc-q35-3.0", "pc-q35-3.0"),
+		table.Entry("when unset, it should return the default", "", DefaultMachineType),
+	)
+
 	It("Should return migration config values if specified as json", func() {
 		cfgMap := kubev1.ConfigMap{
 			ObjectMeta: metav1.ObjectMeta{

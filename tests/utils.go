@@ -23,6 +23,7 @@ import (
 	"bytes"
 	"encoding/base64"
 	"encoding/json"
+	"encoding/xml"
 	goerrors "errors"
 	"flag"
 	"fmt"
@@ -71,6 +72,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/util/net/dns"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
+	launcherApi "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/pkg/virtctl"
 	vmsgen "kubevirt.io/kubevirt/tools/vms-generator/utils"
 )
@@ -3337,4 +3339,20 @@ func AppendEmptyDisk(vmi *v1.VirtualMachineInstance, diskName, busName, diskSize
 			},
 		},
 	})
+}
+
+func GetRunningVMISpec(vmi *v1.VirtualMachineInstance) (*launcherApi.DomainSpec, error) {
+	runningVMISpec := launcherApi.DomainSpec{}
+	cli, err := kubecli.GetKubevirtClient()
+	if err != nil {
+		return nil, err
+	}
+
+	domXML, err := GetRunningVirtualMachineInstanceDomainXML(cli, vmi)
+	if err != nil {
+		return nil, err
+	}
+
+	err = xml.Unmarshal([]byte(domXML), &runningVMISpec)
+	return &runningVMISpec, err
 }

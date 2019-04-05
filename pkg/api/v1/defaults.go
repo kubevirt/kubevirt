@@ -123,9 +123,6 @@ func SetDefaults_VirtualMachineInstance(obj *VirtualMachineInstance) {
 	if obj.Spec.Domain.Features == nil {
 		obj.Spec.Domain.Features = &Features{}
 	}
-	if obj.Spec.Domain.Machine.Type == "" {
-		obj.Spec.Domain.Machine.Type = "q35"
-	}
 
 	setDefaults_Disk(obj)
 	SetDefaults_NetworkInterface(obj)

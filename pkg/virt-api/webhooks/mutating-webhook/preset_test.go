@@ -569,7 +569,7 @@ var _ = Describe("Mutating Webhook Presets", func() {
 			Expect(vmi.Spec.Domain.CPU.Model).To(Equal(vmCPUModel))
 		})
 
-		It("Should has empty cpu model when cpu model is not set", func() {
+		It("Should have empty cpu model when cpu model is not set", func() {
 			cfgMap = k8sv1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{
 					Namespace: "kubevirt",

@@ -45,6 +45,7 @@ const (
 	FeatureGatesKey        = "feature-gates"
 	emulatedMachinesEnvVar = "VIRT_EMULATED_MACHINES"
 	emulatedMachinesKey    = "emulated-machines"
+	machineTypeKey         = "machine-type"
 	useEmulationKey        = "debug.useEmulation"
 	imagePullPolicyKey     = "dev.imagePullPolicy"
 	migrationsConfigKey    = "migrations"
@@ -54,6 +55,7 @@ const (
 	BandwithPerMigrationDefault                     = "64Mi"
 	MigrationProgressTimeout                 int64  = 150
 	MigrationCompletionTimeoutPerGiB         int64  = 800
+	DefaultMachineType                              = "q35"
 
 	NodeDrainTaintDefaultKey = "kubevirt.io/drain"
 )
@@ -150,6 +152,7 @@ func defaultClusterConfig() *Config {
 			ProgressTimeout:                   &progressTimeout,
 			CompletionTimeoutPerGiB:           &completionTimeoutPerGiB,
 		},
+		MachineType: DefaultMachineType,
 	}
 }
 
@@ -158,6 +161,7 @@ type Config struct {
 	UseEmulation    bool
 	MigrationConfig *MigrationConfig
 	ImagePullPolicy k8sv1.PullPolicy
+	MachineType     string
 }
 
 type MigrationConfig struct {
@@ -188,6 +192,10 @@ func (c *ClusterConfig) GetMigrationConfig() *MigrationConfig {
 
 func (c *ClusterConfig) GetImagePullPolicy() (policy k8sv1.PullPolicy) {
 	return c.getConfig().ImagePullPolicy
+}
+
+func (c *ClusterConfig) GetMachineType() string {
+	return c.getConfig().MachineType
 }
 
 // setConfig parses the provided config map and updates the provided config.
@@ -233,6 +241,11 @@ func setConfig(config *Config, configMap *k8sv1.ConfigMap) error {
 		config.UseEmulation = false
 	default:
 		return fmt.Errorf("invalid debug.useEmulation in config: %v", useEmulation)
+	}
+
+	// set machine type
+	if machineType := strings.TrimSpace(configMap.Data[machineTypeKey]); machineType != "" {
+		config.MachineType = machineType
 	}
 
 	return nil
