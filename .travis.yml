@@ -61,7 +61,7 @@ deploy:
   - _out/templates/manifests/release/kubevirt-operator.yaml.j2
   - _out/templates/manifests/release/kubevirt-cr.yaml.j2
   - _out/manifests/release/olm/kubevirt-operatorsource.yaml
-  - _out/manifests/release/olm/bundle/kubevirt.*.csv.yaml
+  - _out/manifests/release/olm/bundle/kubevirtoperator.*.csv.yaml
   prerelease: true
   overwrite: true
   name: $TRAVIS_TAG
