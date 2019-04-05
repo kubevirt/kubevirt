@@ -48,6 +48,10 @@
     "AvailableSet": false, 
     "RSS": 0, 
     "RSSSet": false, 
+    "SwapIn": 0,
+    "SwapInSet": false,
+    "SwapOut": 0,
+    "SwapOutSet": false,
     "Unused": 0, 
     "UnusedSet": false
   }, 
