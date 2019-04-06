@@ -13,6 +13,8 @@ CLUSTER_NAME=sriov-ci-$(uuidgen)
 CLUSTER_CONTROL_PLANE=${CLUSTER_NAME}-control-plane
 CONTAINER_REGISTRY_HOST="localhost:5000"
 
+CLUSTER_CMD="docker exec -it -d ${CLUSTER_CONTROL_PLANE}"
+
 KUBEVIRT_PATH=`pwd`
 CLUSTER_DIR="cluster/k8s-1.13.0-sriov"
 MANIFESTS_DIR="${CLUSTER_DIR}/manifests"
@@ -99,7 +101,7 @@ EOF
 "
 }
 
-configure-insecure-registry-and-reload "docker exec ${CLUSTER_CONTROL_PLANE} bash -c"
+configure-insecure-registry-and-reload "${CLUSTER_CMD} bash -c"
 
 # copy config for debugging purposes
 cp ${KUBECONFIG} ${CLUSTER_DIR}/cluster.config
@@ -191,7 +193,15 @@ until [ -z "$(docker ps -a | grep registry)" ]; do
     sleep 5
 done
 docker run -d -p 5000:5000 --restart=always --name registry registry:2
-docker exec -it -d ${CLUSTER_CONTROL_PLANE} socat TCP-LISTEN:5000,fork TCP:172.17.0.1:5000
+${CLUSTER_CMD} socat TCP-LISTEN:5000,fork TCP:172.17.0.1:5000
+
+# prepare local storage
+for i in {1..10}; do
+    ${CLUSTER_CMD} mkdir -p /var/local/kubevirt-storage/local-volume/disk${i}
+    ${CLUSTER_CMD} mkdir -p /mnt/local-storage/local/disk${i}
+done
+${CLUSTER_CMD} chmod -R 777 /var/local/kubevirt-storage/local-volume
+${CLUSTER_CMD} mknod /dev/loop0 b 7 0
 
 # ===============
 # deploy kubevirt
