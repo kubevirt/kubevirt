@@ -27,19 +27,22 @@ import (
 	"reflect"
 	"time"
 
-	"k8s.io/client-go/tools/cache"
-	"k8s.io/client-go/tools/record"
-
 	"github.com/golang/mock/gomock"
-	libvirt "github.com/libvirt/libvirt-go"
+	"github.com/libvirt/libvirt-go"
 	. "github.com/onsi/ginkgo"
 	"github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
+	"google.golang.org/grpc"
+
 	"k8s.io/apimachinery/pkg/watch"
+	"k8s.io/client-go/tools/cache"
+	"k8s.io/client-go/tools/record"
 
 	v1 "kubevirt.io/kubevirt/pkg/api/v1"
+	com "kubevirt.io/kubevirt/pkg/handler-launcher-com"
+	"kubevirt.io/kubevirt/pkg/handler-launcher-com/notify/info"
+	notifyv1 "kubevirt.io/kubevirt/pkg/handler-launcher-com/notify/v1"
 	"kubevirt.io/kubevirt/pkg/testutils"
-
 	notifyserver "kubevirt.io/kubevirt/pkg/virt-handler/notify-server"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/cli"
@@ -55,7 +58,7 @@ var _ = Describe("Notify", func() {
 		var stopped bool
 		var eventChan chan watch.Event
 		var deleteNotificationSent chan watch.Event
-		var client *NotifyClient
+		var client *Notifier
 
 		var mockDomain *cli.MockVirDomain
 		var mockCon *cli.MockConnection
@@ -79,7 +82,8 @@ var _ = Describe("Notify", func() {
 			}()
 
 			time.Sleep(1 * time.Second)
-			client, err = NewNotifyClient(shareDir)
+
+			client, err = NewNotifier(shareDir)
 			Expect(err).ToNot(HaveOccurred())
 		})
 
@@ -87,6 +91,7 @@ var _ = Describe("Notify", func() {
 			if stopped == false {
 				close(stop)
 			}
+			client.Close()
 			os.RemoveAll(shareDir)
 			ctrl.Finish()
 		})
@@ -199,7 +204,7 @@ var _ = Describe("Notify", func() {
 		var stop chan struct{}
 		var stopped bool
 		var eventChan chan watch.Event
-		var client *NotifyClient
+		var client *Notifier
 		var recorder *record.FakeRecorder
 		var vmiStore cache.Store
 
@@ -219,7 +224,8 @@ var _ = Describe("Notify", func() {
 			}()
 
 			time.Sleep(1 * time.Second)
-			client, err = NewNotifyClient(shareDir)
+
+			client, err = NewNotifier(shareDir)
 			Expect(err).ToNot(HaveOccurred())
 		})
 
@@ -227,6 +233,7 @@ var _ = Describe("Notify", func() {
 			if stopped == false {
 				close(stop)
 			}
+			client.Close()
 			os.RemoveAll(shareDir)
 		})
 
@@ -247,5 +254,86 @@ var _ = Describe("Notify", func() {
 			Expect(event).To(Equal(fmt.Sprintf("%s %s %s", eventType, eventReason, eventMessage)))
 			close(done)
 		}, 5)
+	})
+
+	Describe("Version mismatch", func() {
+
+		var err error
+		var shareDir string
+		var conn *grpc.ClientConn
+		var ctrl *gomock.Controller
+		var infoClient *info.MockNotifyInfoClient
+		var notifyClient notifyv1.NotifyClient
+
+		BeforeEach(func() {
+
+			shareDir, err = ioutil.TempDir("", "kubevirt-share")
+			Expect(err).ToNot(HaveOccurred())
+
+			By("Starting the notify server")
+			stop := make(chan struct{})
+			eventChan := make(chan watch.Event, 100)
+			go func() {
+				notifyserver.RunServer(shareDir, stop, eventChan, nil, nil)
+			}()
+
+			time.Sleep(1 * time.Second)
+
+			By("Starting the notify clients")
+			_, notifyClient, conn, err = com.NewNotifyClients(shareDir)
+			Expect(err).ToNot(HaveOccurred())
+
+			ctrl = gomock.NewController(GinkgoT())
+			infoClient = info.NewMockNotifyInfoClient(ctrl)
+
+		})
+
+		AfterEach(func() {
+			ctrl.Finish()
+			conn.Close()
+			os.RemoveAll(shareDir)
+		})
+
+		fillMissing := func(response info.NotifyInfoResponse) info.NotifyInfoResponse {
+			if response.SupportedNotifyVersions == nil {
+				response.SupportedNotifyVersions = []string{"v1"}
+			}
+			if response.SupportedDomainVersions == nil {
+				response.SupportedDomainVersions = []string{"v1"}
+			}
+			if response.SupportedK8SMetaAPIVersions == nil {
+				response.SupportedK8SMetaAPIVersions = []string{"meta.k8s.io/v1"}
+			}
+			if response.SupportedK8SEventAPIVersions == nil {
+				response.SupportedK8SEventAPIVersions = []string{"v1"}
+			}
+			return response
+		}
+
+		table.DescribeTable("Should report error when server version mismatches", func(response info.NotifyInfoResponse) {
+
+			infoClient.EXPECT().Info(gomock.Any(), gomock.Any()).Return(&response, nil)
+
+			By("Initializing the notifier")
+			_, err = NewNotifierWithRPCClients(infoClient, notifyClient, conn)
+
+			Expect(err).To(HaveOccurred(), "Should have returned error about incompatible versions")
+			Expect(err.Error()).To(ContainSubstring("incompatible"), "Expected error message to contain 'incompatible'")
+
+		},
+			table.Entry("with wrong notify version", fillMissing(info.NotifyInfoResponse{
+				SupportedNotifyVersions: []string{"foo"},
+			})),
+			table.Entry("with wrong domain version", fillMissing(info.NotifyInfoResponse{
+				SupportedDomainVersions: []string{"foo"},
+			})),
+			table.Entry("with wrong meta version", fillMissing(info.NotifyInfoResponse{
+				SupportedK8SMetaAPIVersions: []string{"foo"},
+			})),
+			table.Entry("with wrong core version", fillMissing(info.NotifyInfoResponse{
+				SupportedK8SEventAPIVersions: []string{"foo"},
+			})),
+		)
+
 	})
 })

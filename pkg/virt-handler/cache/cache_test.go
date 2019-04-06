@@ -30,6 +30,7 @@ import (
 	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/tools/cache"
 
@@ -200,7 +201,7 @@ var _ = Describe("Domain informer", func() {
 			go informer.Run(stopChan)
 			cache.WaitForCacheSync(stopChan, informer.HasSynced)
 
-			client, err := notifyclient.NewNotifyClient(shareDir)
+			client, err := notifyclient.NewNotifier(shareDir)
 			Expect(err).ToNot(HaveOccurred())
 
 			// verify add

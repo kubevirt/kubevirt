@@ -2,14 +2,12 @@ package eventsclient
 
 import (
 	"fmt"
-	"path/filepath"
 	"time"
 
 	"github.com/libvirt/libvirt-go"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
 
-	corev1 "k8s.io/api/core/v1"
 	k8sv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -18,10 +16,10 @@ import (
 	"k8s.io/client-go/tools/reference"
 
 	v1 "kubevirt.io/kubevirt/pkg/api/v1"
+	com "kubevirt.io/kubevirt/pkg/handler-launcher-com"
 	"kubevirt.io/kubevirt/pkg/handler-launcher-com/notify/info"
 	notifyv1 "kubevirt.io/kubevirt/pkg/handler-launcher-com/notify/v1"
 	"kubevirt.io/kubevirt/pkg/log"
-	grpcutil "kubevirt.io/kubevirt/pkg/util/net/grpc"
 	agentpoller "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/agent-poller"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/cli"
@@ -29,7 +27,14 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/util"
 )
 
-type NotifyClient struct {
+var (
+	supportedNotifyVersions      = []string{"v1"}
+	supportedDomainVersions      = []string{"v1"}
+	supportedK8SMetaAPIVersions  = []string{"meta.k8s.io/v1"}
+	supportedK8SEventAPIVersions = []string{"v1"} // core has no group
+)
+
+type Notifier struct {
 	client notifyv1.NotifyClient
 	conn   *grpc.ClientConn
 }
@@ -40,16 +45,18 @@ type libvirtEvent struct {
 	AgentEvent *libvirt.DomainEventAgentLifecycle
 }
 
-func NewNotifyClient(virtShareDir string) (*NotifyClient, error) {
-	socketPath := filepath.Join(virtShareDir, "domain-notify.sock")
-	conn, err := grpcutil.DialSocket(socketPath)
+func NewNotifier(virtShareDir string) (*Notifier, error) {
+	// prepare notify clients
+	infoClient, client, conn, err := com.NewNotifyClients(virtShareDir)
 	if err != nil {
-		log.Log.Reason(err).Infof("Failed to dial notify socket: %s", socketPath)
 		return nil, err
 	}
+	return NewNotifierWithRPCClients(infoClient, client, conn)
+}
 
-	// check if the cmd server is compatible
-	infoClient := info.NewNotifyInfoClient(conn)
+func NewNotifierWithRPCClients(infoClient info.NotifyInfoClient, client notifyv1.NotifyClient, conn *grpc.ClientConn) (*Notifier, error) {
+
+	// check if the notify server is compatible
 	ctx, _ := context.WithTimeout(context.Background(), 5*time.Second)
 	info, err := infoClient.Info(ctx, &info.NotifyInfoRequest{})
 	if err != nil {
@@ -59,36 +66,20 @@ func NewNotifyClient(virtShareDir string) (*NotifyClient, error) {
 		return nil, fmt.Errorf("incompatible notify server: %+v", info)
 	}
 
-	client := notifyv1.NewNotifyClient(conn)
-
-	return &NotifyClient{
+	return &Notifier{
 		client: client,
 		conn:   conn,
 	}, nil
 }
 
 func checkVersions(info *info.NotifyInfoResponse) bool {
-	// for now only check if the server supports our current versions
-	return containsVersion(info.SupportedNotifyVersions, notifyv1.NotifyVersion) &&
-		containsVersion(info.SupportedDomainVersions, api.DomainVersion) &&
-		containsVersion(info.SupportedK8SMetaAPIVersions, metav1.SchemeGroupVersion.String()) &&
-		containsVersion(info.SupportedK8SEventAPIVersions, corev1.SchemeGroupVersion.String())
+	return com.ContainsVersion(info.SupportedNotifyVersions, supportedNotifyVersions) &&
+		com.ContainsVersion(info.SupportedDomainVersions, supportedDomainVersions) &&
+		com.ContainsVersion(info.SupportedK8SMetaAPIVersions, supportedK8SMetaAPIVersions) &&
+		com.ContainsVersion(info.SupportedK8SEventAPIVersions, supportedK8SEventAPIVersions)
 }
 
-func containsVersion(all []string, needed string) bool {
-	for _, version := range all {
-		if version == needed {
-			return true
-		}
-	}
-	return false
-}
-
-func (c *NotifyClient) Close() {
-	c.conn.Close()
-}
-
-func (c *NotifyClient) SendDomainEvent(event watch.Event) error {
+func (n *Notifier) SendDomainEvent(event watch.Event) error {
 
 	var domainJSON []byte
 	var statusJSON []byte
@@ -115,7 +106,7 @@ func (c *NotifyClient) SendDomainEvent(event watch.Event) error {
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
-	response, err := c.client.HandleDomainEvent(ctx, &request)
+	response, err := n.client.HandleDomainEvent(ctx, &request)
 
 	if err != nil {
 		return err
@@ -131,7 +122,7 @@ func newWatchEventError(err error) watch.Event {
 	return watch.Event{Type: watch.Error, Object: &metav1.Status{Status: metav1.StatusFailure, Message: err.Error()}}
 }
 
-func eventCallback(c cli.Connection, domain *api.Domain, libvirtEvent libvirtEvent, client *NotifyClient, events chan watch.Event, interfaceStatus *[]api.InterfaceStatus) {
+func eventCallback(c cli.Connection, domain *api.Domain, libvirtEvent libvirtEvent, client *Notifier, events chan watch.Event, interfaceStatus *[]api.InterfaceStatus) {
 	d, err := c.LookupDomainByName(util.DomainFromNamespaceName(domain.ObjectMeta.Namespace, domain.ObjectMeta.Name))
 	if err != nil {
 		if !domainerrors.IsNotFound(err) {
@@ -203,7 +194,7 @@ func eventCallback(c cli.Connection, domain *api.Domain, libvirtEvent libvirtEve
 	}
 }
 
-func (c *NotifyClient) StartDomainNotifier(domainConn cli.Connection, deleteNotificationSent chan watch.Event, vmiUID types.UID, qemuAgentPollerInterval *time.Duration) error {
+func (n *Notifier) StartDomainNotifier(domainConn cli.Connection, deleteNotificationSent chan watch.Event, vmiUID types.UID, qemuAgentPollerInterval *time.Duration) error {
 	eventChan := make(chan libvirtEvent, 10)
 	agentUpdateChan := make(chan agentpoller.AgentUpdateEvent, 10)
 
@@ -220,7 +211,7 @@ func (c *NotifyClient) StartDomainNotifier(domainConn cli.Connection, deleteNoti
 			select {
 			case event := <-eventChan:
 				domain := util.NewDomainFromName(event.Domain, vmiUID)
-				eventCallback(domainConn, domain, event, c, deleteNotificationSent, interfaceStatuses)
+				eventCallback(domainConn, domain, event, n, deleteNotificationSent, interfaceStatuses)
 				agentPoller.UpdateDomain(domain)
 				if event.AgentEvent != nil {
 					if event.AgentEvent.State == libvirt.CONNECT_DOMAIN_EVENT_AGENT_LIFECYCLE_STATE_CONNECTED {
@@ -233,9 +224,9 @@ func (c *NotifyClient) StartDomainNotifier(domainConn cli.Connection, deleteNoti
 			case agentUpdate := <-agentUpdateChan:
 				interfaceStatuses = agentUpdate.InterfaceStatuses
 				domainName := agentUpdate.DomainName
-				eventCallback(domainConn, util.NewDomainFromName(domainName, vmiUID), libvirtEvent{}, c, deleteNotificationSent, interfaceStatuses)
+				eventCallback(domainConn, util.NewDomainFromName(domainName, vmiUID), libvirtEvent{}, n, deleteNotificationSent, interfaceStatuses)
 			case <-reconnectChan:
-				c.SendDomainEvent(newWatchEventError(fmt.Errorf("Libvirt reconnect")))
+				n.SendDomainEvent(newWatchEventError(fmt.Errorf("Libvirt reconnect")))
 				return
 			}
 		}
@@ -281,7 +272,7 @@ func (c *NotifyClient) StartDomainNotifier(domainConn cli.Connection, deleteNoti
 	return nil
 }
 
-func (c *NotifyClient) SendK8sEvent(vmi *v1.VirtualMachineInstance, severity string, reason string, message string) error {
+func (n *Notifier) SendK8sEvent(vmi *v1.VirtualMachineInstance, severity string, reason string, message string) error {
 
 	vmiRef, err := reference.GetReference(v1.Scheme, vmi)
 	if err != nil {
@@ -306,7 +297,7 @@ func (c *NotifyClient) SendK8sEvent(vmi *v1.VirtualMachineInstance, severity str
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
-	response, err := c.client.HandleK8SEvent(ctx, &request)
+	response, err := n.client.HandleK8SEvent(ctx, &request)
 
 	if err != nil {
 		return err
@@ -316,4 +307,8 @@ func (c *NotifyClient) SendK8sEvent(vmi *v1.VirtualMachineInstance, severity str
 	}
 
 	return nil
+}
+
+func (n *Notifier) Close() {
+	n.conn.Close()
 }

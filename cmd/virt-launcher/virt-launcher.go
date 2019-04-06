@@ -29,8 +29,9 @@ import (
 	"syscall"
 	"time"
 
-	libvirt "github.com/libvirt/libvirt-go"
+	"github.com/libvirt/libvirt-go"
 	"github.com/spf13/pflag"
+
 	"k8s.io/apimachinery/pkg/types"
 	utilwait "k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/apimachinery/pkg/watch"
@@ -103,6 +104,7 @@ func startCmdServer(socketPath string,
 		if err != nil {
 			return false, nil
 		}
+		defer client.Close()
 
 		err = client.Ping()
 		if err != nil {
@@ -128,7 +130,7 @@ func createLibvirtConnection() virtcli.Connection {
 	return domainConn
 }
 
-func startDomainEventMonitoring(notifier *notifyclient.NotifyClient, virtShareDir string, domainConn virtcli.Connection, deleteNotificationSent chan watch.Event, vmiUID types.UID, qemuAgentPollerInterval *time.Duration) {
+func startDomainEventMonitoring(notifier *notifyclient.Notifier, virtShareDir string, domainConn virtcli.Connection, deleteNotificationSent chan watch.Event, vmiUID types.UID, qemuAgentPollerInterval *time.Duration) {
 	go func() {
 		for {
 			if res := libvirt.EventRunDefaultImpl(); res != nil {
@@ -387,7 +389,7 @@ func main() {
 	domainConn := createLibvirtConnection()
 	defer domainConn.Close()
 
-	notifier, err := notifyclient.NewNotifyClient(*virtShareDir)
+	notifier, err := notifyclient.NewNotifier(*virtShareDir)
 	if err != nil {
 		panic(err)
 	}

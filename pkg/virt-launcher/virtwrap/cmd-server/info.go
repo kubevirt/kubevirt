@@ -37,7 +37,7 @@ func (i InfoServer) Info(context.Context, *info.CmdInfoRequest) (*info.CmdInfoRe
 	// add older versions as soon as they are supported
 	return &info.CmdInfoResponse{
 		SupportedCmdVersions:         []string{cmdv1.CmdVersion},
-		SupportedKubeVirtAPIVersions: []string{v1.GroupVersion.Version},
+		SupportedKubeVirtAPIVersions: []string{v1.GroupVersion.String()},
 		SupportedDomainVersions:      []string{api.DomainVersion},
 		SupportedDomainStatsVersions: []string{stats.DomainStatsVersion},
 	}, nil

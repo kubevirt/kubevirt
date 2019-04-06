@@ -46,12 +46,19 @@ import (
 
 	v1 "kubevirt.io/kubevirt/pkg/api/v1"
 	diskutils "kubevirt.io/kubevirt/pkg/ephemeral-disk-utils"
+	com "kubevirt.io/kubevirt/pkg/handler-launcher-com"
 	"kubevirt.io/kubevirt/pkg/handler-launcher-com/cmd/info"
 	cmdv1 "kubevirt.io/kubevirt/pkg/handler-launcher-com/cmd/v1"
 	"kubevirt.io/kubevirt/pkg/log"
-	grpcutil "kubevirt.io/kubevirt/pkg/util/net/grpc"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/stats"
+)
+
+var (
+	supportedCmdVersions         = []string{"v1"}
+	SupportedKubeVirtAPIVersions = []string{"kubevirt.io/v1alpha3"}
+	SupportedDomainVersions      = []string{"v1"}
+	SupportedDomainStatsVersions = []string{"v1"}
 )
 
 type MigrationOptions struct {
@@ -112,14 +119,17 @@ func SocketFromUID(baseDir string, uid string) string {
 }
 
 func NewClient(socketPath string) (LauncherClient, error) {
-	conn, err := grpcutil.DialSocket(socketPath)
+	// prepare cmd clients
+	infoClient, client, conn, err := com.NewCmdClients(socketPath)
 	if err != nil {
-		log.Log.Reason(err).Infof("Failed to dial notify socket: %s", socketPath)
 		return nil, err
 	}
+	return NewClientWithRPCClients(infoClient, client, conn)
+}
+
+func NewClientWithRPCClients(infoClient info.CmdInfoClient, client cmdv1.CmdClient, conn *grpc.ClientConn) (LauncherClient, error) {
 
 	// check if the cmd server is compatible
-	infoClient := info.NewCmdInfoClient(conn)
 	ctx, _ := context.WithTimeout(context.Background(), 5*time.Second)
 	info, err := infoClient.Info(ctx, &info.CmdInfoRequest{})
 	if err != nil {
@@ -129,8 +139,6 @@ func NewClient(socketPath string) (LauncherClient, error) {
 		return nil, fmt.Errorf("incompatible cmd server: %+v", info)
 	}
 
-	client := cmdv1.NewCmdClient(conn)
-
 	return &VirtLauncherClient{
 		client: client,
 		conn:   conn,
@@ -138,20 +146,10 @@ func NewClient(socketPath string) (LauncherClient, error) {
 }
 
 func checkVersions(info *info.CmdInfoResponse) bool {
-	// for now only check if the server supports our current versions
-	return containsVersion(info.SupportedCmdVersions, cmdv1.CmdVersion) &&
-		containsVersion(info.SupportedKubeVirtAPIVersions, v1.GroupVersion.Version) &&
-		containsVersion(info.SupportedDomainVersions, api.DomainVersion) &&
-		containsVersion(info.SupportedDomainStatsVersions, stats.DomainStatsVersion)
-}
-
-func containsVersion(all []string, needed string) bool {
-	for _, version := range all {
-		if version == needed {
-			return true
-		}
-	}
-	return false
+	return com.ContainsVersion(info.SupportedCmdVersions, supportedCmdVersions) &&
+		com.ContainsVersion(info.SupportedKubeVirtAPIVersions, SupportedKubeVirtAPIVersions) &&
+		com.ContainsVersion(info.SupportedDomainVersions, SupportedDomainVersions) &&
+		com.ContainsVersion(info.SupportedDomainStatsVersions, SupportedDomainStatsVersions)
 }
 
 func (c *VirtLauncherClient) Close() {

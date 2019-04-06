@@ -36,14 +36,10 @@ const (
 )
 
 func DialSocket(socketPath string) (*grpc.ClientConn, error) {
-	return dialSocketWithTimeout(socketPath, 0)
+	return DialSocketWithTimeout(socketPath, 0)
 }
 
 func DialSocketWithTimeout(socketPath string, timeout int) (*grpc.ClientConn, error) {
-	return dialSocketWithTimeout(socketPath, timeout)
-}
-
-func dialSocketWithTimeout(socketPath string, timeout int) (*grpc.ClientConn, error) {
 
 	options := []grpc.DialOption{
 		grpc.WithInsecure(),
