@@ -195,6 +195,7 @@ container_bundle(
         "$(container_prefix)/cdi-http-import-server:$(container_tag)": "//images/cdi-http-import-server:cdi-http-import-server-image",
         "$(container_prefix)/vm-killer:$(container_tag)": "//images/vm-killer:vm-killer-image",
         "$(container_prefix)/winrmcli:$(container_tag)": "//images/winrmcli:winrmcli-image",
+        "$(container_prefix)/rbd-hotplug-sidecar:$(container_tag)": "//cmd/rbd-hotplug-sidecar:rbd-hotplug-sidecar-image",
     },
 )
 
