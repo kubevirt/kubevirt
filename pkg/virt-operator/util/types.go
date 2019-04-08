@@ -37,6 +37,7 @@ type Stores struct {
 	SCCCache                      cache.Store
 	InstallStrategyConfigMapCache cache.Store
 	InstallStrategyJobCache       cache.Store
+	InfrastructurePodCache        cache.Store
 }
 
 func (s *Stores) AllEmpty() bool {
@@ -84,6 +85,7 @@ type Informers struct {
 	SCC                      cache.SharedIndexInformer
 	InstallStrategyConfigMap cache.SharedIndexInformer
 	InstallStrategyJob       cache.SharedIndexInformer
+	InfrastructurePod        cache.SharedIndexInformer
 }
 
 func (e *Expectations) DeleteExpectations(key string) {

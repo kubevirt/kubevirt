@@ -6,7 +6,8 @@ metadata:
     kubevirt.io: ""
   name: {{.Namespace}}
 {{index .GeneratedManifests "prometheus.yaml.in"}}
-{{index .GeneratedManifests "rbac.authorization.k8s.yaml.in"}}
+{{index .GeneratedManifests "rbac-cluster.authorization.k8s.yaml.in"}}
+{{index .GeneratedManifests "rbac-kubevirt.authorization.k8s.yaml.in"}}
 {{index .GeneratedManifests "virt-api.yaml.in"}}
 {{index .GeneratedManifests "virt-controller.yaml.in"}}
 {{index .GeneratedManifests "virt-handler.yaml.in"}}

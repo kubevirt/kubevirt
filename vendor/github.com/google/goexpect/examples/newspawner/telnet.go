@@ -1,4 +1,4 @@
-// telnet crates a new Expect spawner for Telnet.
+// telnet creates a new Expect spawner for Telnet.
 package main
 
 import (

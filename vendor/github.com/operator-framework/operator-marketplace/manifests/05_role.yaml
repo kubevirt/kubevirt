@@ -1,0 +1,84 @@
+kind: ClusterRole
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: marketplace-operator
+rules:
+- apiGroups:
+  - operators.coreos.com
+  resources:
+  - catalogsources
+  verbs:
+  - get
+  - create
+  - delete
+  - update
+  - list
+- apiGroups:
+  - config.openshift.io
+  resources:
+  - clusteroperators
+  - clusteroperators/status
+  verbs:
+  - create
+  - get
+  - update
+---
+kind: Role
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: marketplace-operator
+  namespace: openshift-marketplace
+rules:
+- apiGroups:
+  - operators.coreos.com
+  resources:
+  - catalogsources
+  - catalogsourceconfigs
+  - operatorsources
+  verbs:
+  - get
+  - create
+  - delete
+  - update
+  - list
+  - watch
+- apiGroups:
+  - ""
+  resources:
+  - secrets
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - ""
+  resources:
+  - services
+  - serviceaccounts
+  verbs:
+  - get
+  - create
+  - delete
+  - update
+  - list
+- apiGroups:
+  - apps
+  resources:
+  - deployments
+  verbs:
+  - get
+  - create
+  - delete
+  - update
+  - list
+- apiGroups:
+  - rbac.authorization.k8s.io
+  resources:
+  - roles
+  - rolebindings
+  verbs:
+  - get
+  - create
+  - delete
+  - update
+  - list

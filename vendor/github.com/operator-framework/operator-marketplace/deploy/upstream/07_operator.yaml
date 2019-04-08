@@ -1,0 +1,44 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: marketplace-operator
+  namespace: marketplace
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      name: marketplace-operator
+  template:
+    metadata:
+      labels:
+        name: marketplace-operator
+    spec:
+      serviceAccountName: marketplace-operator
+      containers:
+        - name: marketplace-operator
+          image: quay.io/openshift/origin-operator-marketplace:latest
+          ports:
+          - containerPort: 60000
+            name: metrics
+          - containerPort: 8080
+            name: healthz
+          command:
+          - marketplace-operator
+          args:
+          - -registryServerImage=quay.io/openshift/origin-operator-registry
+          imagePullPolicy: Always
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: 8080
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: 8080
+          env:
+            - name: WATCH_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+            - name: OPERATOR_NAME
+              value: "marketplace-operator"

@@ -1,0 +1,46 @@
+apiVersion: apiextensions.k8s.io/v1beta1
+kind: CustomResourceDefinition
+metadata:
+  name: catalogsourceconfigs.operators.coreos.com
+  annotations:
+    displayName: Catalog Source Config
+    description: Represents a CatalogSourceConfig.
+spec:
+  group: operators.coreos.com
+  names:
+    kind: CatalogSourceConfig
+    listKind: CatalogSourceConfigList
+    plural: catalogsourceconfigs
+    singular: catalogsourceconfig
+    shortNames:
+    - csc
+  scope: Namespaced
+  version: v1
+  additionalPrinterColumns:
+  - name: Status
+    type: string
+    description: Current status of the CatalogSourceConfig
+    JSONPath: .status.currentPhase.phase.name
+  - name: Message
+    type: string
+    description: Message associated with the current status
+    JSONPath: .status.currentPhase.phase.message
+  - name: Age
+    type: date
+    JSONPath: .metadata.creationTimestamp
+  validation:
+    openAPIV3Schema:
+      properties:
+        spec:
+          type: object
+          description: Spec for a CatalogSourceConfig
+          required:
+          - targetNamespace
+          - packages
+          properties:
+            targetNamespace:
+              type: string
+              description: The namespace where the operators will be enabled
+            packages:
+              type: string
+              description: Comma separated list of operator(s) without spaces which will be enabled in the target namespace

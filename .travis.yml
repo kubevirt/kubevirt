@@ -15,7 +15,7 @@ script:
 - make generate
 - if [[ -n "$(git status --porcelain)" ]] ; then echo "It seems like you need to run
   `make generate`. Please run it and commit the changes"; git status --porcelain; false; fi
-- if diff <(git grep -c '') <(git grep -cI '') | egrep -v -e 'docs/.*\.png|swagger-ui' -e 'vendor/*'
+- if diff <(git grep -c '') <(git grep -cI '') | egrep -v -e 'docs/.*\.png|swagger-ui' -e 'vendor/*' -e 'assets/*'
   | grep '^<'; then echo "Binary files are present in git repostory."; false; fi
 - make build
 - if [[ -n "$(git status --porcelain)" ]] ; then echo "It seems like you need to run
@@ -24,6 +24,7 @@ script:
 - make apidocs
 - make client-python
 - make manifests DOCKER_PREFIX="docker.io/kubevirt" DOCKER_TAG=$TRAVIS_TAG # falls back to latest if not on a tag
+- make olm-verify
 
 deploy:
 - provider: script
@@ -39,7 +40,8 @@ deploy:
     all_branches: true
     condition: $TRAVIS_BRANCH != revert-*
 - provider: script
-  script: docker login -u="$DOCKER_USER" -p="$DOCKER_PASS" && DOCKER_PREFIX="index.docker.io/kubevirt" DOCKER_TAG="$TRAVIS_TAG" make bazel-push-images
+  script: docker login -u="$DOCKER_USER" -p="$DOCKER_PASS" && DOCKER_PREFIX="index.docker.io/kubevirt"
+    DOCKER_TAG="$TRAVIS_TAG" QUAY_REPOSITORY="kubevirt" sh -c 'make bazel-push-images && make manifests && make olm-push'
   skip_cleanup: true
   file:
   on:
@@ -58,6 +60,8 @@ deploy:
   - _out/manifests/release/kubevirt-cr.yaml
   - _out/templates/manifests/release/kubevirt-operator.yaml.j2
   - _out/templates/manifests/release/kubevirt-cr.yaml.j2
+  - _out/manifests/release/olm/kubevirt-operatorsource.yaml
+  - _out/manifests/release/olm/bundle/kubevirtoperator.*.csv.yaml
   prerelease: true
   overwrite: true
   name: $TRAVIS_TAG
@@ -85,6 +89,10 @@ env:
   - secure: qU6IqYNN7P9UiQjvgfXdqvbvD1RLIP4a6uH9fX4Dx3UFXmutXE38/RIWhOtIAzDz8QHhm2l8vfefaC9VwGJI3XPv6gfKCCRPYj+0EKn0E7mJBM0uk7NRiujLg9Kh2zFCkYJT4Q91L39/STbDdoSBLHjwuMKUPOQlysOr8sQS6JT1xb7qJ/Vhcgy7Ex0jba4qHiDsLlJQulOE7YS5HxfwUN+cN9maQjFZNM7NpLf3YFqZ1Yq7hnBxXjpteMWSuGsCsSE2hlKwHvtYhcMoSWR7dw3x25XapwBI5YB5z8CEZvWsHbx9qnbe5VGMBVMubWw9xjQkAImKp2PFceMVRSgx01ufZBf434jLYA1+OmBgow15iGJhy9icxSOvXn0aA46rhzGkFHsd4MDd04bO8S1KXvr9ALfU8OP+VqG9Gnt0mCV+qrT1JpYyR0NrS3uMd1R7F+o8CL1Mf5V/UGkHsfdHWSgBqKfmHaR5xEmp5M2wHHkgD9PFedimyUZDuhJPAu26UNeCHxhzq3+sReFsdPQbVA/eRvXNu5Fj1qNtIaCj/2L31AeR7SpCDSgYrnBVAojSjNiVYD9fSIT7TGsZ9oNaqGfCh08hbVGrxD4qJuyzkJPOkdhohfPS0MhYMf9GJ36qCn/odOdchOl2RyKOt5NiWN+qrRG4aXXKcUvO2RVuTJo=
   - secure: ipzpBip/KzzrMXy0SjvnpxMhj95ygcAqI7zpth8L0b7nBIsdyfFZj8MoE4PNiaG+YQdK3eVyLjDU3U67HzrviCLHeWcCaCqzIdNes9ig2kuL65LcHom0YmfWtZY3WKwqtu2Cr4UW+16FPecWEg0pNRBrI/u0Yzmn1K/Ll46iycndtyCU4uysPeN0JBK7Ht6J4YUlhZQ0rnA2p+TpH3lwSW63qmZgwGOsixwAMe35vXrPZVPBk2ROG6+MfToFcU+5h+snEOenCnyVyfxP5UqNVRE/ZAmcWBSIo7/FyGJ3/VMJMCBFqXLJAU5DF9N182p7VwQcMctq4Iba1Yjmezdit2f5F2KPtPttWXV0fqy9zB1/Hlbz41htaAwSrsnsFaN33W+hdbFWC9vGgXSy71RngPBTaq/rwb2125CKxoehcUijAavFJMt8926HrHXztWTjyNSerms9EGoJjDspDmySNg4hMOrTtJbE+L+1Ze5I7ZfgfFU9oACM2SffpbtKAnqEbi8+UkNi33MntNSSvULfE/RFRYbl7ld54CNTUFQinLThLnRCtyVQN0VadA554qf+4HTXgvW6ifYljHKUkl6QEkuf0GCDZg3R8sIkvkqf7jpDwdq9+wErLao2z+SW1LV/vnHQxuKZTBTquGIhroehO4lljUdeE8BU0P+S+n+nzFg=
   - secure: pS1N+T7f20B9PJ2S6e4Bc0z0vK6wnUgtGrs1982iXYocVZZtL6LreXYV/9a5ANrykLx+/qeRxbR4FTknfJwsmm2MX1WN7FIEtp7wGxt5uU0Q+b5pERbgUL8amkvhc6Hj9eWn59fbEKSmAEeMupeYydPPCFJp8oumEEP6szb0zCj7LQPWxhEMtVLY2U8d3WbkhBoxC1Bv5kTOajaiyuwjgiJd3yvR6WfNOQUL167TCoyzRDoe7jUSZ9EScyDRg7mC2Nk2o4vzZwmaz8QjO6T6f2za95t7/kxhYrL7WAfa3POxdhHPP0XX4ZsypU6++hDj0txPAB/ICa55Za6A+BhFrUdGeoYb3T8jtWIF9UDHq6m8yhurtDPooR7VMjkR2ghz4Ol4cv2f1QWv5MGDg4hh9gKgjE+gbbeZyA5+t3l/Zf2HozZQCIDpMpi4EUUS3rCGkr44h0AjiZP9s4QrUY74kpT6GEGluFTlkXar+R3bvnTVY2J4vj6XGdAXHYtAbKI2/yaq20wqkbsC6BKHITcZ/E3eIBh2kc0WD4pdm8MnI0chuuMSkM6ynRDcPNYi235VmhxuUBaNWrkQEHGVOjXJPLB+xMRc6vVxAjV/OFaKXsbPb4aJl1TRJ1RclHAf4Am3SPuiowm8JmODTrmmYkF67rAGILO1oVxwmvwVLAmcJSI=
+  # QUAY_USERNAME
+  - secure: TDZ2IlrZOQGzZJoSigXeTzpiYCi93Vhy1uIvSFT1Co6C87x0rI57OTCY+5vZoD/l7EQT+q+kj2D+kFk/2gBoHhDA4k5iI+SgHdLhM3hgkrX0jGb72YTaQ8iJzBgLjF+z8DkCW6cze9THPH+HNQTwP9r2K3ptBOy5364eAiARCDqMf9gEMzsetoxR+2603f6ZEkUeDZCBT7e/wQy9kkC97NQ32GlEMCg3dk5xK2VHAqPL7Rbv58NDKrWDlfyRCRjL5RQmnuJTUwhX8awrDHAFjb4DUSMWPz7Xq/XyA1F7vD56Wpi2+ALnutdRrvO2dn3XuMkXBJpMEZXBsEorsLYB5UTUrYuWNO4RQIJIlth36kE7QmnnOb24PRjtNPLAzaTT6A1fr7rZAGmD2zINfPohym7JhuzmWWF1QXTo7Br45ASiEHExOZQfihRWhyvcpN9Iwl7PgbUkrp65M6XLfi6/YnAwY+sK2TYF3wn7eK8Lg9gUbxhnT42ANJui+00Gqm6mHtu+VqglMi98XxsicW/tiQO7hJ9A1uSGU9eJWG7M+6umCpvMyq1dTZ0gFSTnr8L1JzIyQnlea9jbcdrGeZsM+jQPOwE1bB6V7+s67j8qAJQRH8NBSWtCk8cb9UEpYZNdYwdvqaPFh07XXr8NXsx1iUqLZLa9CeqmeAzgGmMQFRY=
+  # QUAY_PASSWORD
+  - secure: b6mV6HECiehqEpInOG4iy++EQ/snKBSshCP/L9TjZ3vuBcnyd/ZR/ZMpcoR5515E1DHQtniI+KzyuJw2kzTHpaZVzXY6wuf/ti2/Dx4Pn5LXlZP9FOvdEXjuSOBo0YNR2Bf5jrjeJXnmTlmNBHdiOvkIMU9sy9ENKkJ8af6MzKFV+r3pVgH31bK61aRal/xkA/ccWgvM83XYxTUBP1kpT1Kwy1damG2yxRPgoNg3ErUml9NI9cIjNmH9sI1LPhAVTjAVMjJE9pFd5w4hysjrZlPxdEYx9p0KAZnmoRmhEhuLxmAXIohMKRtMNqWkq9DT5CnpV9yN1iBLYPoRlQ/1rK1nBPO41j+CyqcGDDRV6kNNxnFKgL/5hTQlI/BXnTR3CYJrMPyV2IbUKCV7agSS1VQzT6dphZT9G/e3J7IHONiKluwW/4JuoPYKC8IRmqOum0KVHIe8cdXMnHwNwFzl73t6LUrzge+ZbgdVmIudzRZ5lzolt33e6M0ODaGnO9lYgqW/fD7PjCebbV4t45I9336xrhT9x2NM7OejEtg2uXyQoOFn62VbcCrBhfdW2E9sY4TBYKn0RkpgzuRcxUrFmibzfpyjfeF/Da6DpBgNzvP/8u2MIwYrxHcCM98Y59E9JpnYvvXkGg3x2rcOX9dA5jg3a21giosi4Pv7uMxU7DQ=
 
 notifications:
   irc:

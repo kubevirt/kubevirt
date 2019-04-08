@@ -800,6 +800,19 @@ var _ = Describe("Converter", func() {
 			Expect(*domain.Spec.Devices.Interfaces[0].Address).To(Equal(test_address))
 		})
 
+		It("should calculate mebibyte from a quantity", func() {
+			mi64, _ := resource.ParseQuantity("2G")
+			q, err := QuantityToMebiByte(mi64)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(q).To(BeNumerically("==", 1907))
+		})
+
+		It("should fail calculating mebibyte if the quantity is less than 0", func() {
+			mi64, _ := resource.ParseQuantity("-2G")
+			_, err := QuantityToMebiByte(mi64)
+			Expect(err).To(HaveOccurred())
+		})
+
 		It("should calculate memory in bytes", func() {
 			By("specifying memory 64M")
 			m64, _ := resource.ParseQuantity("64M")

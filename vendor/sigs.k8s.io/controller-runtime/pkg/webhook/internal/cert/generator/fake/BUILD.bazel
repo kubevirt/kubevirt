@@ -1,0 +1,10 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "go_default_library",
+    srcs = ["certgenerator.go"],
+    importmap = "kubevirt.io/kubevirt/vendor/sigs.k8s.io/controller-runtime/pkg/webhook/internal/cert/generator/fake",
+    importpath = "sigs.k8s.io/controller-runtime/pkg/webhook/internal/cert/generator/fake",
+    visibility = ["//vendor/sigs.k8s.io/controller-runtime/pkg/webhook:__subpackages__"],
+    deps = ["//vendor/sigs.k8s.io/controller-runtime/pkg/webhook/internal/cert/generator:go_default_library"],
+)

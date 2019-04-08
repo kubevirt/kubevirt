@@ -1,0 +1,10 @@
+apiVersion: operators.coreos.com/v1alpha1
+kind: Subscription
+metadata:
+  name: kubevirt
+  namespace: {{.Namespace}}
+spec:
+  channel: beta
+  name: kubevirt
+  source: kubevirt
+  sourceNamespace: olm

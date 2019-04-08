@@ -28,12 +28,15 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	k8sv1 "k8s.io/api/core/v1"
+	"k8s.io/api/policy/v1beta1"
+	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/rand"
 
 	v1 "kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/kubecli"
+	migrations2 "kubevirt.io/kubevirt/pkg/util/migrations"
 	"kubevirt.io/kubevirt/tests"
 )
 
@@ -70,7 +73,9 @@ var _ = Describe("Migrations", func() {
 		}, timeout, 1*time.Second).ShouldNot(HaveOccurred())
 		By("Waiting until the VirtualMachineInstance starts")
 		tests.WaitForSuccessfulVMIStartWithTimeout(obj, timeout)
-		return obj
+		vmi, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Get(vmi.Name, &metav1.GetOptions{})
+		Expect(err).ToNot(HaveOccurred())
+		return vmi
 	}
 
 	confirmVMIPostMigration := func(vmi *v1.VirtualMachineInstance, migrationUID string) {
@@ -383,6 +388,30 @@ var _ = Describe("Migrations", func() {
 			})
 		})
 		Context("migration monitor", func() {
+			var options metav1.GetOptions
+			var cfgMap *k8sv1.ConfigMap
+			var originalMigrationConfig string
+			var kubevirtConfig = "kubevirt-config"
+
+			BeforeEach(func() {
+				// update migration timeouts
+				options = metav1.GetOptions{}
+				cfgMap, err = virtClient.CoreV1().ConfigMaps(namespaceKubevirt).Get(kubevirtConfig, options)
+				Expect(err).ToNot(HaveOccurred())
+				originalMigrationConfig = cfgMap.Data["migrations"]
+				cfgMap.Data["migrations"] = `{"progressTimeout" : 5, "completionTimeoutPerGiB": 5}`
+
+				_, err = virtClient.CoreV1().ConfigMaps(namespaceKubevirt).Update(cfgMap)
+				Expect(err).ToNot(HaveOccurred())
+				time.Sleep(5 * time.Second)
+			})
+			AfterEach(func() {
+				cfgMap, err = virtClient.CoreV1().ConfigMaps(namespaceKubevirt).Get(kubevirtConfig, options)
+				Expect(err).ToNot(HaveOccurred())
+				cfgMap.Data["migrations"] = originalMigrationConfig
+				_, err = virtClient.CoreV1().ConfigMaps(namespaceKubevirt).Update(cfgMap)
+				Expect(err).ToNot(HaveOccurred())
+			})
 			It("should abort a vmi migration without progress", func() {
 
 				vmi := tests.NewRandomVMIWithEphemeralDisk(tests.ContainerDiskFor(tests.ContainerDiskFedora))
@@ -423,10 +452,6 @@ var _ = Describe("Migrations", func() {
 				// execute a migration, wait for finalized state
 				By("Starting the Migration")
 				migration := tests.NewRandomMigration(vmi.Name, vmi.Namespace)
-				migration.Spec.Config = &v1.MigrationConfig{
-					CompletionTimeoutPerGiB: 5,
-					ProgressTimeout:         50,
-				}
 				migrationUID := runMigrationAndExpectFailure(migration, 180)
 
 				// check VMI, confirm migration state
@@ -531,10 +556,6 @@ var _ = Describe("Migrations", func() {
 				// execute a migration, wait for finalized state
 				By("Starting the Migration")
 				migration := tests.NewRandomMigration(vmi.Name, vmi.Namespace)
-				migration.Spec.Config = &v1.MigrationConfig{
-					CompletionTimeoutPerGiB: 800,
-					ProgressTimeout:         800,
-				}
 
 				migrationUID := runAndCancelMigration(migration, vmi, 180)
 
@@ -556,4 +577,102 @@ var _ = Describe("Migrations", func() {
 		})
 	})
 
+	Context("with a live-migrate eviction strategy set", func() {
+
+		AfterEach(func() {
+			tests.CleanNodes()
+		})
+
+		Context("with a VMI running with an eviction strategy set", func() {
+
+			var vmi *v1.VirtualMachineInstance
+
+			BeforeEach(func() {
+				vmi = vmiWithEvictionStrategy()
+			})
+
+			It("should block the eviction api", func() {
+				vmi = runVMIAndExpectLaunch(vmi, 180)
+				pod := tests.GetRunningPodByVirtualMachineInstance(vmi, vmi.Namespace)
+				err := virtClient.CoreV1().Pods(vmi.Namespace).Evict(&v1beta1.Eviction{ObjectMeta: metav1.ObjectMeta{Name: pod.Name}})
+				Expect(errors.IsTooManyRequests(err)).To(BeTrue())
+			})
+
+			Context("with node tainted", func() {
+
+				It("should migrate the VMI to another node", func() {
+					vmi = runVMIAndExpectLaunch(vmi, 180)
+					node := vmi.Status.NodeName
+					tests.Taint(node, "kubevirt.io/drain", k8sv1.TaintEffectNoSchedule)
+					Eventually(func() string {
+						vmi, err := virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &metav1.GetOptions{})
+						Expect(err).ToNot(HaveOccurred())
+						return vmi.Status.NodeName
+					}, 60*time.Second, 1*time.Second).ShouldNot(Equal(node))
+				})
+
+			})
+
+		})
+		Context("with multiple VMIs with eviction policies set", func() {
+
+			It("should not migrate more than two VMIs at the same time from a node", func() {
+				var vmis []*v1.VirtualMachineInstance
+				for i := 0; i < 4; i++ {
+					vmi := vmiWithEvictionStrategy()
+					vmi.Spec.NodeSelector = map[string]string{"tests.kubevirt.io": "target"}
+					vmis = append(vmis, vmi)
+				}
+
+				By("selecting a node as the source")
+				sourceNode := tests.GetAllSchedulableNodes(virtClient).Items[0]
+				tests.AddLabelToNode(sourceNode.Name, "tests.kubevirt.io", "target")
+
+				By("starting four VMIs on that node")
+				for _, vmi := range vmis {
+					_, err := virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
+					Expect(err).ToNot(HaveOccurred())
+				}
+
+				By("waiting until the VMIs are ready")
+				for _, vmi := range vmis {
+					tests.WaitForSuccessfulVMIStartWithTimeout(vmi, 180)
+				}
+
+				By("selecting a  node as the target")
+				targetNode := tests.GetAllSchedulableNodes(virtClient).Items[1]
+				tests.AddLabelToNode(targetNode.Name, "tests.kubevirt.io", "target")
+
+				By("tainting the source node as non-schedulabele")
+				tests.Taint(sourceNode.Name, "kubevirt.io/drain", k8sv1.TaintEffectNoSchedule)
+
+				By("checking that all VMIs were migrated, and we never see more than two running migrations in parallel")
+				Eventually(func() []string {
+					var nodes []string
+					for _, vmi := range vmis {
+						vmi, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Get(vmi.Name, &metav1.GetOptions{})
+						nodes = append(nodes, vmi.Status.NodeName)
+					}
+					migrations, err := virtClient.VirtualMachineInstanceMigration(k8sv1.NamespaceAll).List(&metav1.ListOptions{})
+					Expect(err).ToNot(HaveOccurred())
+					runningMigrations := migrations2.FilterRunningMigrations(migrations.Items)
+					Expect(len(runningMigrations)).To(BeNumerically("<=", 2))
+					return nodes
+				}, 4*time.Minute, 1*time.Second).Should(ConsistOf(
+					targetNode.Name,
+					targetNode.Name,
+					targetNode.Name,
+					targetNode.Name,
+				))
+			})
+		})
+
+	})
 })
+
+func vmiWithEvictionStrategy() *v1.VirtualMachineInstance {
+	strategy := v1.EvictionStrategyLiveMigrate
+	vmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(tests.ContainerDiskFor(tests.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n")
+	vmi.Spec.EvictionStrategy = &strategy
+	return vmi
+}

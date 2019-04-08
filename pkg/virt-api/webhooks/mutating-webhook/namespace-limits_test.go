@@ -24,7 +24,6 @@ import (
 	. "github.com/onsi/gomega"
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
-	k8smetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/tools/cache"
 
 	v1 "kubevirt.io/kubevirt/pkg/api/v1"
@@ -36,19 +35,11 @@ var _ = Describe("Mutating Webhook Namespace Limits", func() {
 	var namespaceLimit *k8sv1.LimitRange
 	var namespaceLimitInformer cache.SharedIndexInformer
 
-	memory, _ := resource.ParseQuantity("64M")
-	limitMemory, _ := resource.ParseQuantity("128M")
-	zeroMemory, _ := resource.ParseQuantity("0M")
-
 	BeforeEach(func() {
 		vmi = v1.VirtualMachineInstance{
 			Spec: v1.VirtualMachineInstanceSpec{
 				Domain: v1.DomainSpec{
-					Resources: v1.ResourceRequirements{
-						Requests: k8sv1.ResourceList{
-							"memory": memory,
-						},
-					},
+					Resources: v1.ResourceRequirements{},
 				},
 			},
 		}
@@ -58,7 +49,12 @@ var _ = Describe("Mutating Webhook Namespace Limits", func() {
 					{
 						Type: k8sv1.LimitTypeContainer,
 						Default: k8sv1.ResourceList{
-							k8sv1.ResourceMemory: limitMemory,
+							k8sv1.ResourceMemory: resource.MustParse("256M"),
+							k8sv1.ResourceCPU:    resource.MustParse("4"),
+						},
+						DefaultRequest: k8sv1.ResourceList{
+							k8sv1.ResourceMemory: resource.MustParse("128M"),
+							k8sv1.ResourceCPU:    resource.MustParse("1"),
 						},
 					},
 				},
@@ -68,77 +64,74 @@ var _ = Describe("Mutating Webhook Namespace Limits", func() {
 		namespaceLimitInformer.GetIndexer().Add(namespaceLimit)
 	})
 
-	When("VMI has limits under spec", func() {
+	When("VMI has all limits under spec", func() {
 		It("should not apply namespace limits", func() {
-			vmiCopy := vmi.DeepCopy()
-			vmiCopy.Spec.Domain.Resources.Limits = k8sv1.ResourceList{
-				k8sv1.ResourceMemory: memory,
+			vmi.Spec.Domain.Resources.Limits = k8sv1.ResourceList{
+				k8sv1.ResourceMemory: resource.MustParse("64M"),
+				k8sv1.ResourceCPU:    resource.MustParse("2"),
 			}
-			By("Applying namespace range values on the VMI")
-			applyNamespaceLimitRangeValues(vmiCopy, namespaceLimitInformer)
+			vmi.Spec.Domain.Resources.Requests = k8sv1.ResourceList{
+				k8sv1.ResourceMemory: resource.MustParse("32M"),
+				k8sv1.ResourceCPU:    resource.MustParse("500m"),
+			}
 
-			Expect(vmiCopy.Spec.Domain.Resources.Limits.Memory().String()).To(Equal("64M"))
+			By("Applying namespace range values on the VMI")
+			applyNamespaceLimitRangeValues(&vmi, namespaceLimitInformer)
+
+			Expect(vmi.Spec.Domain.Resources.Limits.Memory().String()).To(Equal("64M"))
+			Expect(vmi.Spec.Domain.Resources.Limits.Cpu().String()).To(Equal("2"))
+			Expect(vmi.Spec.Domain.Resources.Requests.Memory().String()).To(Equal("32M"))
+			Expect(vmi.Spec.Domain.Resources.Requests.Cpu().String()).To(Equal("500m"))
 		})
 	})
 
 	When("VMI does not have limits under spec", func() {
-		It("should apply namespace limits", func() {
-			vmiCopy := vmi.DeepCopy()
+		It("should apply all namespace limits", func() {
 			By("Applying namespace range values on the VMI")
-			applyNamespaceLimitRangeValues(vmiCopy, namespaceLimitInformer)
+			applyNamespaceLimitRangeValues(&vmi, namespaceLimitInformer)
 
-			Expect(vmiCopy.Spec.Domain.Resources.Limits.Memory().String()).To(Equal("128M"))
+			Expect(vmi.Spec.Domain.Resources.Limits.Memory().String()).To(Equal("256M"))
+			Expect(vmi.Spec.Domain.Resources.Limits.Cpu().String()).To(Equal("4"))
+			Expect(vmi.Spec.Domain.Resources.Requests.Memory().String()).To(Equal("128M"))
+			Expect(vmi.Spec.Domain.Resources.Requests.Cpu().String()).To(Equal("1"))
+		})
+	})
+
+	When("VMI has some limits under spec", func() {
+		It("should apply only missing namespace default limits", func() {
+			vmi.Spec.Domain.Resources.Limits = k8sv1.ResourceList{
+				k8sv1.ResourceCPU: resource.MustParse("2"),
+			}
+			vmi.Spec.Domain.Resources.Requests = k8sv1.ResourceList{
+				k8sv1.ResourceMemory: resource.MustParse("32M"),
+				k8sv1.ResourceCPU:    resource.MustParse("500m"),
+			}
+
+			By("Applying namespace range values on the VMI")
+			applyNamespaceLimitRangeValues(&vmi, namespaceLimitInformer)
+
+			Expect(vmi.Spec.Domain.Resources.Limits.Memory().String()).To(Equal("256M"))
+			Expect(vmi.Spec.Domain.Resources.Limits.Cpu().String()).To(Equal("2"))
+			Expect(vmi.Spec.Domain.Resources.Requests.Memory().String()).To(Equal("32M"))
+			Expect(vmi.Spec.Domain.Resources.Requests.Cpu().String()).To(Equal("500m"))
 		})
 
-		When("namespace limit equals 0", func() {
-			It("should not apply namespace limits", func() {
-				vmiCopy := vmi.DeepCopy()
+		It("should apply only missing namespace defaultRequest limits", func() {
+			vmi.Spec.Domain.Resources.Limits = k8sv1.ResourceList{
+				k8sv1.ResourceMemory: resource.MustParse("64M"),
+				k8sv1.ResourceCPU:    resource.MustParse("2"),
+			}
+			vmi.Spec.Domain.Resources.Requests = k8sv1.ResourceList{
+				k8sv1.ResourceMemory: resource.MustParse("32M"),
+			}
 
-				namespaceLimitCopy := namespaceLimit.DeepCopy()
-				namespaceLimitCopy.Spec.Limits[0].Default[k8sv1.ResourceMemory] = zeroMemory
-				namespaceLimitInformer.GetIndexer().Update(namespaceLimitCopy)
+			By("Applying namespace range values on the VMI")
+			applyNamespaceLimitRangeValues(&vmi, namespaceLimitInformer)
 
-				By("Applying namespace range values on the VMI")
-				applyNamespaceLimitRangeValues(vmiCopy, namespaceLimitInformer)
-				_, ok := vmiCopy.Spec.Domain.Resources.Limits[k8sv1.ResourceMemory]
-				Expect(ok).To(Equal(false))
-			})
-
-			AfterEach(func() {
-				namespaceLimitInformer.GetIndexer().Update(namespaceLimit)
-			})
-		})
-
-		When("namespace has more than one limit range", func() {
-			var additionalNamespaceLimit *k8sv1.LimitRange
-
-			BeforeEach(func() {
-				additionalLimitMemory, _ := resource.ParseQuantity("76M")
-				additionalNamespaceLimit = &k8sv1.LimitRange{
-					ObjectMeta: k8smetav1.ObjectMeta{
-						Name: "additional-limit-range",
-					},
-					Spec: k8sv1.LimitRangeSpec{
-						Limits: []k8sv1.LimitRangeItem{
-							{
-								Type: k8sv1.LimitTypeContainer,
-								Default: k8sv1.ResourceList{
-									k8sv1.ResourceMemory: additionalLimitMemory,
-								},
-							},
-						},
-					},
-				}
-				namespaceLimitInformer.GetIndexer().Add(additionalNamespaceLimit)
-			})
-
-			It("should apply range with minimal limit", func() {
-				vmiCopy := vmi.DeepCopy()
-				By("Applying namespace range values on the VMI")
-				applyNamespaceLimitRangeValues(vmiCopy, namespaceLimitInformer)
-
-				Expect(vmiCopy.Spec.Domain.Resources.Limits.Memory().String()).To(Equal("76M"))
-			})
+			Expect(vmi.Spec.Domain.Resources.Limits.Memory().String()).To(Equal("64M"))
+			Expect(vmi.Spec.Domain.Resources.Limits.Cpu().String()).To(Equal("2"))
+			Expect(vmi.Spec.Domain.Resources.Requests.Memory().String()).To(Equal("32M"))
+			Expect(vmi.Spec.Domain.Resources.Requests.Cpu().String()).To(Equal("1"))
 		})
 	})
 })

@@ -117,6 +117,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 			gracefulShutdownInformer,
 			1,
 			10,
+			testutils.MakeFakeClusterConfig(nil, stop),
 		)
 
 		testUUID = uuid.NewUUID()
@@ -642,8 +643,12 @@ var _ = Describe("VirtualMachineInstance", func() {
 			domain.Status.Status = api.Running
 			domainFeeder.Add(domain)
 			vmiFeeder.Add(vmi)
-
-			client.EXPECT().MigrateVirtualMachine(vmi)
+			options := &cmdclient.MigrationOptions{
+				Bandwidth:               resource.MustParse("64Mi"),
+				ProgressTimeout:         150,
+				CompletionTimeoutPerGiB: 800,
+			}
+			client.EXPECT().MigrateVirtualMachine(vmi, options)
 			controller.Execute()
 		}, 3)
 

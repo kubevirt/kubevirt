@@ -1,0 +1,994 @@
+swagger: "2.0"
+info:
+  description: |
+    APPR API documentation
+  version: "0.2.6"
+  title: APPR API
+  termsOfService: http://
+  contact:
+    name: antoine.legrand@coreos.com
+  license:
+    name: Apache 2.0
+    url: "http://www.apache.org/licenses/LICENSE-2.0.html"
+host: localhost:5000
+basePath: /
+schemes:
+  - https
+
+paths:
+  /api/v1/packages/{namespace}/{package}/blobs/sha256/{digest}/json:
+    get:
+      tags:
+        - blobs
+      summary: Pull a package blob by digest
+      description: ""
+      operationId: pullBlobJson
+      consumes:
+       - application/json
+      produces:
+       - application/json
+      parameters:
+        - in: path
+          name: namespace
+          description: namespace
+          required: true
+          type: string
+
+        - in: path
+          name: package
+          description: package name
+          required: true
+          type: string
+
+        - in: path
+          name: digest
+          description: content digest
+          required: true
+          type: string
+
+        - in: query
+          name: format
+          description: return format type(json or gzip)
+          required: false
+          type: string
+          default: gzip
+      responses:
+        "200":
+          description: successful operation
+          schema:
+            $ref: "#/definitions/PullJson"
+        "404":
+          description: Package not found
+          schema:
+            $ref: "#/definitions/Error"
+        "401":
+          description: Not authorized to read the package
+          schema:
+            $ref: "#/definitions/Error"
+
+  /api/v1/packages/{namespace}/{package}/blobs/sha256/{digest}:
+    get:
+      tags:
+        - blobs
+      summary: Pull a package blob by digest
+      description: ""
+      operationId: pullBlob
+      consumes:
+       - application/json
+      produces:
+       - 'application/x-gzip'
+      parameters:
+        - in: path
+          name: namespace
+          description: namespace
+          required: true
+          type: string
+
+        - in: path
+          name: package
+          description: package name
+          required: true
+          type: string
+
+        - in: path
+          name: digest
+          description: content digest
+          required: true
+          type: string
+
+      responses:
+        "200":
+          description: successful operation
+          schema:
+            type: file
+            title: package-targz
+        "404":
+          description: Package not found
+          schema:
+            $ref: "#/definitions/Error"
+        "401":
+          description: Not authorized to read the package
+          schema:
+            $ref: "#/definitions/Error"
+
+  /version:
+    get:
+      tags:
+        - info
+      summary: Display api version
+      description: ""
+      operationId: getVersion
+      consumes:
+        - application/json
+      produces:
+        - application/json
+      responses:
+        "200":
+          description: successful operation
+          schema:
+            $ref: "#/definitions/Version"
+
+  /api/v1/packages:
+    post:
+      tags:
+        - package
+      summary: Push new package release to the registry
+      description: ""
+      operationId: createPackage
+      consumes:
+        - application/json
+      produces:
+        - application/json
+      parameters:
+        - in: query
+          name: force
+          description: Force push the release (if allowed)
+          required: false
+          type: boolean
+          default: false
+
+        - in: body
+          name: body
+          description: Package object to be added to the registry
+          required: true
+          schema:
+            $ref: "#/definitions/PostPackage"
+      responses:
+        "200":
+          description: successful operation
+          schema:
+            $ref: "#/definitions/Package"
+        "404":
+          description: Package not found (if force=true)
+          schema:
+            $ref: "#/definitions/Error"
+        "409":
+          description: Package already exists
+          schema:
+            $ref: "#/definitions/Error"
+        "401":
+          description: Not authorized to create the package
+          schema:
+            $ref: "#/definitions/Error"
+        "422":
+          description: Bad version or name format
+          schema:
+            $ref: "#/definitions/Error"
+
+    get:
+      tags:
+        - package
+      summary: List packages
+      description: ""
+      operationId: listPackages
+      consumes:
+        - application/json
+      produces:
+        - application/json
+      parameters:
+        - in: query
+          name: namespace
+          description: "Filter by namespace"
+          required: false
+          type: string
+        - in: query
+          name: query
+          description: "Lookup value for package search"
+          required: false
+          type: string
+        - in: query
+          name: media_type
+          description: "Filter by media-type"
+          required: false
+          type: string
+      responses:
+        "200":
+          description: successful operation
+          schema:
+            $ref: "#/definitions/Packages"
+
+  /api/v1/packages/{namespace}/{package}:
+    get:
+      tags:
+        - package
+      summary: List all releases for a package
+      description: ""
+      operationId: showPackageReleases
+      consumes:
+        - application/json
+      produces:
+        - application/json
+      parameters:
+        - in: path
+          name: namespace
+          description: namespace
+          required: true
+          type: string
+        - in: path
+          name: package
+          description: package name
+          required: true
+          type: string
+        - in: query
+          name: media_type
+          description: "Filter by media-type"
+          required: false
+          type: string
+      responses:
+        "200":
+          description: successful operation
+          schema:
+            $ref: "#/definitions/PackageManifest"
+        "404":
+          description: Package not found
+          schema:
+            $ref: "#/definitions/Error"
+        "401":
+          description: Not authorized to read the package
+          schema:
+            $ref: "#/definitions/Error"
+
+  /api/v1/packages/{namespace}/{package}/{release}:
+    get:
+      tags:
+        - package
+      summary: List all manifests for a package
+      description: ""
+      operationId: showPackageManifests
+      consumes:
+        - application/json
+      produces:
+        - application/json
+      parameters:
+        - in: path
+          name: namespace
+          description: namespace
+          required: true
+          type: string
+
+        - in: path
+          name: package
+          description: package name
+          required: true
+          type: string
+
+        - in: path
+          name: release
+          description: release name
+          required: true
+          type: string
+      responses:
+        "200":
+          description: successful operation
+          schema:
+            $ref: "#/definitions/PackageManifest"
+        "404":
+          description: Package not found
+          schema:
+            $ref: "#/definitions/Error"
+        "401":
+          description: Not authorized to read the package
+          schema:
+            $ref: "#/definitions/Error"
+
+  /api/v1/packages/{namespace}/{package}/{release}/{media_type}:
+    get:
+      tags:
+        - package
+      summary: Show a package
+      description: ""
+      operationId: showPackage
+      consumes:
+        - application/json
+      produces:
+        - application/json
+      parameters:
+        - in: path
+          name: namespace
+          description: namespace
+          required: true
+          type: string
+
+        - in: path
+          name: package
+          description: package name
+          required: true
+          type: string
+
+        - in: path
+          name: release
+          description: release name
+          required: true
+          type: string
+
+        - in: path
+          name: media_type
+          description: content type
+          required: true
+          type: string
+
+      responses:
+        "200":
+          description: successful operation
+          schema:
+            $ref: "#/definitions/Package"
+        "404":
+          description: Package not found
+          schema:
+            $ref: "#/definitions/Error"
+        "401":
+          description: Not authorized to read the package
+          schema:
+            $ref: "#/definitions/Error"
+
+    delete:
+      tags:
+        - package
+      summary: Delete a package release
+      description: ""
+      operationId: deletePackage
+      consumes:
+        - application/json
+      produces:
+        - application/json
+      parameters:
+        - in: path
+          name: namespace
+          description: namespace
+          required: true
+          type: string
+
+        - in: path
+          name: package
+          description: package name
+          required: true
+          type: string
+
+        - in: path
+          name: release
+          description: release name
+          required: true
+          type: string
+
+        - in: path
+          name: media_type
+          description: content type
+          required: true
+          type: string
+
+      responses:
+        "200":
+          description: successful operation
+          schema:
+            $ref: "#/definitions/Package"
+        "404":
+          description: Package not found
+          schema:
+            $ref: "#/definitions/Error"
+        "401":
+          description: Not authorized to read the package
+          schema:
+            $ref: "#/definitions/Error"
+
+  /api/v1/packages/{namespace}/{package}/{release}/{media_type}/pull/json:
+    get:
+      tags:
+        - package
+        - blobs
+      summary: Download the package
+      description: ""
+      operationId: pullPackageJson
+      consumes:
+        - application/json
+      produces:
+        - application/json
+      parameters:
+        - in: path
+          name: namespace
+          description: namespace
+          required: true
+          type: string
+
+        - in: path
+          name: package
+          description: package name
+          required: true
+          type: string
+
+        - in: path
+          name: release
+          description: release name
+          required: true
+          type: string
+
+        - in: path
+          name: media_type
+          description: content type
+          required: true
+          type: string
+
+        - in: query
+          name: format
+          description: 'reponse format: json or blob'
+          required: false
+          type: string
+      responses:
+        "200":
+          description: successful operation
+          schema:
+            $ref: "#/definitions/PullJson"
+        "404":
+          description: Package not found
+          schema:
+            $ref: "#/definitions/Error"
+        "401":
+          description: Not authorized to read the package
+          schema:
+            $ref: "#/definitions/Error"
+
+  /api/v1/packages/{namespace}/{package}/{release}/{media_type}/pull:
+    get:
+      tags:
+        - package
+        - blobs
+      summary: Download the package
+      description: ""
+      operationId: pullPackage
+      consumes:
+        - application/json
+      produces:
+        - 'application/x-gzip'
+      parameters:
+        - in: path
+          name: namespace
+          description: namespace
+          required: true
+          type: string
+
+        - in: path
+          name: package
+          description: package name
+          required: true
+          type: string
+
+        - in: path
+          name: release
+          description: release name
+          required: true
+          type: string
+
+        - in: path
+          name: media_type
+          description: content type
+          required: true
+          type: string
+
+        - in: query
+          name: format
+          description: 'reponse format: json or blob'
+          required: false
+          type: string
+      responses:
+        "200":
+          description: successful operation
+          schema:
+            type: file
+            title: package-targz
+        "404":
+          description: Package not found
+          schema:
+            $ref: "#/definitions/Error"
+        "401":
+          description: Not authorized to read the package
+          schema:
+            $ref: "#/definitions/Error"
+
+  /api/v1/packages/{namespace}/{package}/channels:
+    get:
+      tags:
+        - channel
+      summary: List channels
+      description: ""
+      operationId: listChannels
+      consumes:
+        - application/json
+      produces:
+        - application/json
+      parameters:
+        - in: path
+          name: namespace
+          description: namespace
+          required: true
+          type: string
+
+        - in: path
+          name: package
+          description: package name
+          required: true
+          type: string
+      responses:
+        "200":
+          description: successful operation
+          schema:
+            type: array
+            title: channels
+            items:
+              $ref: "#/definitions/Channel"
+        "404":
+          description: Package not found
+          schema:
+            $ref: "#/definitions/Error"
+        "401":
+          description: Not authorized to read the package
+          schema:
+            $ref: "#/definitions/Error"
+
+    post:
+      tags:
+        - channel
+      summary: Create a new channel
+      description: ""
+      operationId: createChannel
+      consumes:
+        - application/json
+      produces:
+        - application/json
+      parameters:
+        - in: query
+          name: name
+          description: Channel name
+          required: true
+          type: string
+        - in: path
+          name: namespace
+          description: namespace
+          required: true
+          type: string
+        - in: path
+          name: package
+          description: package name
+          required: true
+          type: string
+      responses:
+        "200":
+          description: successful operation
+          schema:
+            $ref: "#/definitions/Channel"
+        "404":
+          description: Package not found
+          schema:
+            $ref: "#/definitions/Error"
+        "409":
+          description: Channel already exists
+          schema:
+            $ref: "#/definitions/Error"
+        "401":
+          description: Not authorized to create the channel
+          schema:
+            $ref: "#/definitions/Error"
+
+  /api/v1/packages/{namespace}/{package}/channels/{channel}:
+    get:
+      tags:
+        - channel
+      summary: show channel
+      description: ""
+      operationId: showChannel
+      consumes:
+        - application/json
+      produces:
+        - application/json
+      parameters:
+        - in: path
+          name: channel
+          description: channel name
+          required: true
+          type: string
+        - in: path
+          name: namespace
+          description: namespace
+          required: true
+          type: string
+        - in: path
+          name: package
+          description: package name
+          required: true
+          type: string
+      responses:
+        "200":
+          description: successful operation
+          schema:
+            type: array
+            title: channels
+            items:
+              $ref: "#/definitions/Channel"
+        "404":
+          description: Package not found
+          schema:
+            $ref: "#/definitions/Error"
+        "401":
+          description: Not authorized to read the package
+          schema:
+            $ref: "#/definitions/Error"
+
+    delete:
+      tags:
+        - channel
+      summary: Delete channel
+      description: ""
+      operationId: deleteChannel
+      consumes:
+        - application/json
+      produces:
+        - application/json
+      parameters:
+        - in: path
+          name: namespace
+          description: namespace
+          required: true
+          type: string
+        - in: path
+          name: channel
+          description: channel name
+          required: true
+          type: string
+        - in: path
+          name: package
+          description: full package name
+          required: true
+          type: string
+      responses:
+        "200":
+          description: successful operation
+          schema:
+            type: array
+            title: channels
+            items:
+              $ref: "#/definitions/Channel"
+        "404":
+          description: Package not found
+          schema:
+            $ref: "#/definitions/Error"
+        "401":
+          description: Not authorized to read the package
+          schema:
+            $ref: "#/definitions/Error"
+
+  /api/v1/packages/{namespace}/{package}/channels/{channel}/{release}:
+    post:
+      tags:
+        - channel
+      summary: Add a release to a channel
+      description: ""
+      operationId: createChannelRelease
+      consumes:
+        - application/json
+      produces:
+        - application/json
+      parameters:
+        - in: path
+          name: channel
+          description: channel name
+          required: true
+          type: string
+        - in: path
+          name: namespace
+          description: namespace
+          required: true
+          type: string
+        - in: path
+          name: package
+          description: full package name
+          required: true
+          type: string
+        - in: path
+          name: release
+          type: string
+          description: Release name
+          required: true
+      responses:
+        "200":
+          description: successful operation
+          schema:
+            $ref: "#/definitions/Channel"
+        "404":
+          description: Package not found
+          schema:
+            $ref: "#/definitions/Error"
+        "401":
+          description: Not authorized to read the package
+          schema:
+            $ref: "#/definitions/Error"
+
+    delete:
+      tags:
+        - channel
+      summary: Remove a release from the channel
+      description: ""
+      operationId: deleteChannelRelease
+      consumes:
+        - application/json
+      produces:
+        - application/json
+      parameters:
+        - in: path
+          name: channel
+          description: channel name
+          required: true
+          type: string
+        - in: path
+          name: namespace
+          description: namespace
+          required: true
+          type: string
+        - in: path
+          name: package
+          description: full package name
+          required: true
+          type: string
+        - in: path
+          name: release
+          type: string
+          description: Release name
+          required: true
+      responses:
+        "200":
+          description: successful operation
+          schema:
+            type: array
+            title: channels
+            items:
+              $ref: "#/definitions/Channel"
+        "404":
+          description: Resource not found
+          schema:
+            $ref: "#/definitions/Error"
+        "401":
+          description: Not authorized to read the package
+          schema:
+            $ref: "#/definitions/Error"
+
+
+
+definitions:
+
+  Channel:
+    type: object
+    title: Channel
+    description: 'Organize releases into channel, eg: dev/beta/stable'
+    properties:
+      name:
+        type: string
+        title: Channel name
+        description: Channel name
+      current:
+        type: string
+        title: Latest release
+        description: Current/latest release in the channel. The channel returns this release by default
+      releases:
+        type: array
+        title: Releases
+        description: All availables releases in the channel
+        items:
+          type: string
+          title: Release name
+          description: Release name
+
+  Version:
+    type: object
+    properties:
+      appr-api:
+        type: string
+
+  Error:
+    type: object
+    properties:
+      code:
+        type: integer
+        description: http status code
+        title: http-code
+      message:
+        type: string
+        description: "error message"
+      details:
+        type: object
+        description: error extra data
+
+  PackageManifest:
+    type: array
+    title: manifests
+    description: manifests
+    items:
+      $ref: "#/definitions/Manifest"
+
+  OciDescriptor:
+    type: object
+    description: OCI descriptor
+    title: descriptor
+    properties:
+      digest:
+        type: string
+        title: digest
+        description: content digest
+      size:
+        type: integer
+        format: int64
+        title: content-size
+        description: blob size
+      mediaType:
+        type: string
+        title: media-type
+        description: content type
+      urls:
+        type: array
+        title: urls
+        description: download mirrors
+        items:
+          type: string
+          title: url
+          description: url
+
+  Manifest:
+    type: object
+    title: manifest
+    properties:
+      mediaType:
+        type: string
+        title: media-type
+        description: manifest-type
+      created_at:
+        type: string
+        pattern: '\d{4}-\d{1,2}-\d{1,2}T\d{2}:\d{2}:\d{2}\.\d+'
+        description: creation data
+        title: created-at
+      metadata:
+        type: object
+        description: KeyValue object to add complementary and format specific information
+        title: metadata
+      package:
+        type: string
+        description: package name
+        title: package-name
+      release:
+        type: string
+        description: release name
+        title: release-name
+      content:
+        $ref: "#/definitions/OciDescriptor"
+
+  Packages:
+    type: array
+    title: Packages
+    description: List packages, short view
+    items:
+      type: object
+      description: test
+      properties:
+        created_at:
+          type: string
+          title: created_at
+          description: Package creation date
+        name:
+          type: string
+          title: package-name
+          description: Package name
+        visibility:
+          type: string
+          title: visibility
+          description: package visibility (public or private)
+        default:
+          type: string
+          title: default-release
+          description: Default/latest release version
+        releases:
+          type: array
+          title: available-releases
+          description: All available releases
+          items:
+            type: string
+            title: release-name
+            description: Release name
+        manifests:
+          type: array
+          title: available-manifests
+          description: All formats
+          items:
+            type: string
+            title: format-name
+            description: format name
+
+  Package:
+    type: object
+    title: Package
+    description: Package object
+    properties:
+      mediaType:
+        type: string
+        title: media-type
+        description: manifest-type
+      channels:
+        title: channels
+        type: array
+        items:
+          type: string
+          title: channel-name
+          description: List channels for that release
+      created_at:
+        type: string
+        pattern: '\d{4}-\d{1,2}-\d{1,2}T\d{2}:\d{2}:\d{2}.\d+'
+        title: created_at
+        description: Package creation date
+      content:
+        $ref: "#/definitions/OciDescriptor"
+      package:
+        type: string
+        title: package-name
+        description: Package name
+      release:
+        type: string
+        title: package-release
+        description: Package release
+
+  PullJson:
+    type: object
+    title: PackageContent
+    description: Package content
+    properties:
+      blob:
+        type: string
+        title: blob
+        description: "Package blob: a tar.gz in b64-encoded"
+      package:
+        type: string
+        title: package-name
+        description: Package name
+      release:
+        type: string
+        title: package-version
+        description: Package version
+      filename:
+        type: string
+        title: filename
+        description: suggested filename
+
+  PostPackage:
+    type: object
+    title: Package
+    description: Package object
+    properties:
+      blob:
+        type: string
+        title: blob
+        description: "Package blob: a tar.gz in b64-encoded"
+      package:
+        type: string
+        title: package-name
+        description: Package name
+      release:
+        type: string
+        title: package-version
+        description: Package version
+      media_type:
+        type: string
+        title: package-type
+        description: mediatype of the blob

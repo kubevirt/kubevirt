@@ -23,6 +23,7 @@ import (
 	"reflect"
 
 	. "github.com/onsi/ginkgo"
+	"github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
 
 	"kubevirt.io/kubevirt/pkg/log"
@@ -156,6 +157,24 @@ var _ = Describe("Install Strategy", func() {
 		})
 	})
 
+	Context("should calculate", func() {
+
+		table.DescribeTable("update path based on semver", func(target string, current string, expected bool) {
+			takeUpdatePath := shouldTakeUpdatePath(target, current)
+
+			Expect(takeUpdatePath).To(Equal(expected))
+		},
+			table.Entry("with increasing semver", "v0.15.0", "v0.14.0", true),
+			table.Entry("with decreasing semver", "v0.14.0", "v0.15.0", false),
+			table.Entry("with identical semver", "v0.15.0", "v0.15.0", false),
+			table.Entry("with invalid semver", "devel", "v0.14.0", true),
+			table.Entry("with increasing semver no prefix", "0.15.0", "0.14.0", true),
+			table.Entry("with decreasing semver no prefix", "0.14.0", "0.15.0", false),
+			table.Entry("with identical semver no prefix", "0.15.0", "0.15.0", false),
+			table.Entry("with invalid semver no prefix", "devel", "0.14.0", true),
+			table.Entry("with no current no prefix", "devel", "", false),
+		)
+	})
 	Context("should match", func() {
 		It("the most recent install strategy.", func() {
 			var configMaps []*corev1.ConfigMap

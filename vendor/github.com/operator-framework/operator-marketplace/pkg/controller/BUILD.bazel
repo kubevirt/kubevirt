@@ -1,0 +1,18 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "go_default_library",
+    srcs = [
+        "add_catalogsourceconfig.go",
+        "add_operatorsource.go",
+        "controller.go",
+    ],
+    importmap = "kubevirt.io/kubevirt/vendor/github.com/operator-framework/operator-marketplace/pkg/controller",
+    importpath = "github.com/operator-framework/operator-marketplace/pkg/controller",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//vendor/github.com/operator-framework/operator-marketplace/pkg/controller/catalogsourceconfig:go_default_library",
+        "//vendor/github.com/operator-framework/operator-marketplace/pkg/controller/operatorsource:go_default_library",
+        "//vendor/sigs.k8s.io/controller-runtime/pkg/manager:go_default_library",
+    ],
+)

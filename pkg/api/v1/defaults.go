@@ -112,9 +112,10 @@ func SetDefaults_Firmware(obj *Firmware) {
 func SetDefaults_VirtualMachineInstance(obj *VirtualMachineInstance) {
 	// FIXME we need proper validation and configurable defaulting instead of this
 	if _, exists := obj.Spec.Domain.Resources.Requests[v1.ResourceMemory]; !exists {
-		obj.Spec.Domain.Resources.Requests = v1.ResourceList{
-			v1.ResourceMemory: resource.MustParse("8192Ki"),
+		if obj.Spec.Domain.Resources.Requests == nil {
+			obj.Spec.Domain.Resources.Requests = v1.ResourceList{}
 		}
+		obj.Spec.Domain.Resources.Requests[v1.ResourceMemory] = resource.MustParse("8192Ki")
 	}
 	if obj.Spec.Domain.Firmware == nil {
 		obj.Spec.Domain.Firmware = &Firmware{}
@@ -122,9 +123,6 @@ func SetDefaults_VirtualMachineInstance(obj *VirtualMachineInstance) {
 
 	if obj.Spec.Domain.Features == nil {
 		obj.Spec.Domain.Features = &Features{}
-	}
-	if obj.Spec.Domain.Machine.Type == "" {
-		obj.Spec.Domain.Machine.Type = "q35"
 	}
 
 	setDefaults_Disk(obj)

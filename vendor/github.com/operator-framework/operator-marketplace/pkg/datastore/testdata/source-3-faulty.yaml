@@ -1,0 +1,12 @@
+data:
+  customResourceDefinitions: |-      
+    - apiVersion: apiextensions.k8s.io/v1beta1
+      kind: CustomResourceDefinition
+      metadata:
+        name: faulty.foo.redhat.com
+  clusterServiceVersions: |-
+  packages: |-
+    - packageName: faulty
+      channels:
+      - name: alpha
+        currentCSV: where-is-my-csvs

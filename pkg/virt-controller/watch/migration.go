@@ -23,6 +23,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"reflect"
+	"sync"
 	"time"
 
 	k8sv1 "k8s.io/api/core/v1"
@@ -34,6 +35,10 @@ import (
 	"k8s.io/client-go/tools/record"
 	"k8s.io/client-go/util/workqueue"
 
+	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
+
+	"kubevirt.io/kubevirt/pkg/util/migrations"
+
 	virtv1 "kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/kubecli"
@@ -42,14 +47,16 @@ import (
 )
 
 type MigrationController struct {
-	templateService   services.TemplateService
-	clientset         kubecli.KubevirtClient
-	Queue             workqueue.RateLimitingInterface
-	vmiInformer       cache.SharedIndexInformer
-	podInformer       cache.SharedIndexInformer
-	migrationInformer cache.SharedIndexInformer
-	recorder          record.EventRecorder
-	podExpectations   *controller.UIDTrackingControllerExpectations
+	templateService    services.TemplateService
+	clientset          kubecli.KubevirtClient
+	Queue              workqueue.RateLimitingInterface
+	vmiInformer        cache.SharedIndexInformer
+	podInformer        cache.SharedIndexInformer
+	migrationInformer  cache.SharedIndexInformer
+	recorder           record.EventRecorder
+	podExpectations    *controller.UIDTrackingControllerExpectations
+	migrationStartLock *sync.Mutex
+	clusterConfig      *virtconfig.ClusterConfig
 }
 
 func NewMigrationController(templateService services.TemplateService,
@@ -57,17 +64,21 @@ func NewMigrationController(templateService services.TemplateService,
 	podInformer cache.SharedIndexInformer,
 	migrationInformer cache.SharedIndexInformer,
 	recorder record.EventRecorder,
-	clientset kubecli.KubevirtClient) *MigrationController {
+	clientset kubecli.KubevirtClient,
+	clusterConfig *virtconfig.ClusterConfig,
+) *MigrationController {
 
 	c := &MigrationController{
-		templateService:   templateService,
-		Queue:             workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter()),
-		vmiInformer:       vmiInformer,
-		podInformer:       podInformer,
-		migrationInformer: migrationInformer,
-		recorder:          recorder,
-		clientset:         clientset,
-		podExpectations:   controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectations()),
+		templateService:    templateService,
+		Queue:              workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter()),
+		vmiInformer:        vmiInformer,
+		podInformer:        podInformer,
+		migrationInformer:  migrationInformer,
+		recorder:           recorder,
+		clientset:          clientset,
+		podExpectations:    controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectations()),
+		migrationStartLock: &sync.Mutex{},
+		clusterConfig:      clusterConfig,
 	}
 
 	c.vmiInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
@@ -178,7 +189,7 @@ func (c *MigrationController) execute(key string) error {
 	var syncErr error
 
 	if needsSync && !migration.IsFinal() {
-		syncErr = c.sync(migration, vmi, targetPods)
+		syncErr = c.sync(key, migration, vmi, targetPods)
 	}
 
 	err = c.updateStatus(migration, vmi, targetPods, syncErr)
@@ -396,7 +407,7 @@ func (c *MigrationController) createTargetPod(migration *virtv1.VirtualMachineIn
 	return nil
 }
 
-func (c *MigrationController) sync(migration *virtv1.VirtualMachineInstanceMigration, vmi *virtv1.VirtualMachineInstance, pods []*k8sv1.Pod) error {
+func (c *MigrationController) sync(key string, migration *virtv1.VirtualMachineInstanceMigration, vmi *virtv1.VirtualMachineInstance, pods []*k8sv1.Pod) error {
 
 	var pod *k8sv1.Pod = nil
 	podExists := len(pods) > 0
@@ -453,12 +464,53 @@ func (c *MigrationController) sync(migration *virtv1.VirtualMachineInstanceMigra
 
 	switch migration.Status.Phase {
 	case virtv1.MigrationPending:
-		// migration was accepted into the system, now see if we
-		// should create the target pod
-		if !podExists && vmi.IsRunning() {
-			return c.createTargetPod(migration, vmi)
+		if podExists {
+			// nothing to do if the target pod already exists
+			return nil
 		}
-		return nil
+		return func() error {
+			c.migrationStartLock.Lock()
+			defer c.migrationStartLock.Unlock()
+
+			// Don't start new migrations if we wait for cache updates on migration target pods
+			if c.podExpectations.AllPendingCreations() > 0 {
+				c.Queue.AddAfter(key, 1*time.Second)
+				return nil
+			}
+
+			// Don't start new migrations if we wait for migration object updates because of new target pods
+			runningMigrations, err := c.findRunningMigrations()
+			if err != nil {
+				return fmt.Errorf("failed to determin the number of running migrations: %v", err)
+			}
+
+			// XXX: Make this configurable, think about limit per node, bandwidth per migration, and so on.
+			if len(runningMigrations) >= int(*c.clusterConfig.GetMigrationConfig().ParallelMigrationsPerCluster) {
+				// Let's wait until some migrations are done
+				c.Queue.AddAfter(key, time.Second*5)
+				return nil
+			}
+
+			outboundMigrations, err := c.outboundMigrationsOnNode(vmi.Status.NodeName, runningMigrations)
+
+			if err != nil {
+				return err
+			}
+
+			if outboundMigrations >= int(*c.clusterConfig.GetMigrationConfig().ParallelOutboundMigrationsPerNode) {
+				// Let's ensure that we only have two outbound migrations per node
+				// XXX: Make this configurebale, thinkg about inbout migration limit, bandwidh per migration, and so on.
+				c.Queue.AddAfter(key, time.Second*5)
+				return nil
+			}
+
+			// migration was accepted into the system, now see if we
+			// should create the target pod
+			if vmi.IsRunning() {
+				return c.createTargetPod(migration, vmi)
+			}
+			return nil
+		}()
 	case virtv1.MigrationScheduled:
 		// once target pod is scheduled, alert the VMI of the migration by
 		// setting the target and source nodes. This kicks off the preparation stage.
@@ -469,9 +521,6 @@ func (c *MigrationController) sync(migration *virtv1.VirtualMachineInstanceMigra
 				TargetNode:   pod.Spec.NodeName,
 				SourceNode:   vmi.Status.NodeName,
 				TargetPod:    pod.Name,
-			}
-			if migration.Spec.Config != nil {
-				vmiCopy.Status.MigrationState.Config = migration.Spec.Config.DeepCopy()
 			}
 
 			// By setting this label, virt-handler on the target node will receive
@@ -769,4 +818,52 @@ func (c *MigrationController) deleteVMI(obj interface{}) {
 		log.Log.V(4).Object(vmi).Infof("vmi deleted for migration %s", migration.Name)
 		c.enqueueMigration(migration)
 	}
+}
+
+func (c *MigrationController) outboundMigrationsOnNode(node string, runningMigrations []*virtv1.VirtualMachineInstanceMigration) (int, error) {
+	sum := 0
+	for _, migration := range runningMigrations {
+		if vmi, exists, _ := c.vmiInformer.GetStore().GetByKey(migration.Namespace + "/" + migration.Spec.VMIName); exists {
+			if vmi.(*virtv1.VirtualMachineInstance).Status.NodeName == node {
+				sum = sum + 1
+			}
+		}
+	}
+	return sum, nil
+}
+
+// findRunningMigrations calcules how many migrations are running or in flight to be triggered to running
+// Migrations which are in running phase are added alongside with migrations which are still pending but
+// where we already see a target pod.
+func (c *MigrationController) findRunningMigrations() ([]*virtv1.VirtualMachineInstanceMigration, error) {
+
+	// Don't start new migrations if we wait for migration object updates because of new target pods
+	notFinishedMigrations, err := migrations.ListUnfinishedMigrations(c.migrationInformer)
+	if err != nil {
+		return nil, err
+	}
+
+	var runningMigrations []*virtv1.VirtualMachineInstanceMigration
+	for _, migration := range notFinishedMigrations {
+		if migration.IsRunning() {
+			runningMigrations = append(runningMigrations, migration)
+		} else {
+
+			vmi, exists, err := c.vmiInformer.GetStore().GetByKey(migration.Namespace + "/" + migration.Spec.VMIName)
+			if err != nil {
+				return nil, err
+			}
+			if !exists {
+				continue
+			}
+			pods, err := c.listMatchingTargetPods(migration, vmi.(*virtv1.VirtualMachineInstance))
+			if err != nil {
+				return nil, err
+			}
+			if len(pods) > 0 {
+				runningMigrations = append(runningMigrations, migration)
+			}
+		}
+	}
+	return runningMigrations, nil
 }

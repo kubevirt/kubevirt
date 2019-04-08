@@ -20,7 +20,6 @@
 package tests_test
 
 import (
-	"encoding/xml"
 	"flag"
 	"fmt"
 	"regexp"
@@ -43,7 +42,6 @@ import (
 	"kubevirt.io/kubevirt/pkg/kubecli"
 	"kubevirt.io/kubevirt/pkg/log"
 	hw_utils "kubevirt.io/kubevirt/pkg/util/hardware"
-	launcherApi "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/tests"
 )
 
@@ -486,7 +484,7 @@ var _ = Describe("Configurations", func() {
 			})
 		})
 
-		Context("[rfe_id:140][crit:medium][vendor:cnv-qe@redhat.com][level:component]with namespace memory limits above VMI required memory", func() {
+		Context("[rfe_id:140][crit:medium][vendor:cnv-qe@redhat.com][level:component]with namespace memory limits lower than VMI required memory", func() {
 			var vmi *v1.VirtualMachineInstance
 			It("[test_id:1670]should failed to start the VMI", func() {
 				// create a namespace default limit
@@ -520,6 +518,92 @@ var _ = Describe("Configurations", func() {
 					virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Delete(vmi.Name, &metav1.DeleteOptions{})
 					return err
 				}, 5*time.Second, 1*time.Second).Should(MatchError("admission webhook \"virtualmachineinstances-create-validator.kubevirt.io\" denied the request: spec.domain.resources.requests.memory '64M' is greater than spec.domain.resources.limits.memory '32Mi'"))
+			})
+		})
+
+		Context("with namespace cpu limits lower than VMI required cpu", func() {
+			var vmi *v1.VirtualMachineInstance
+			It("should fail to start the VMI", func() {
+				// create a namespace default limit
+				limitRangeObj := kubev1.LimitRange{
+
+					ObjectMeta: metav1.ObjectMeta{Name: "abc1", Namespace: tests.NamespaceTestDefault},
+					Spec: kubev1.LimitRangeSpec{
+						Limits: []kubev1.LimitRangeItem{
+							{
+								Type: kubev1.LimitTypeContainer,
+								Default: kubev1.ResourceList{
+									kubev1.ResourceCPU: resource.MustParse("500m"),
+								},
+							},
+						},
+					},
+				}
+				_, err := virtClient.Core().LimitRanges(tests.NamespaceTestDefault).Create(&limitRangeObj)
+				Expect(err).ToNot(HaveOccurred())
+
+				By("Starting a VirtualMachineInstance")
+				// Retrying up to 5 sec, then if you still succeeds in VMI creation, things must be going wrong.
+				Eventually(func() error {
+					vmi = tests.NewRandomVMIWithEphemeralDisk(tests.ContainerDiskFor(tests.ContainerDiskAlpine))
+					vmi.Spec.Domain.Resources = v1.ResourceRequirements{
+						Requests: kubev1.ResourceList{
+							kubev1.ResourceCPU: resource.MustParse("800m"),
+						},
+					}
+					vmi, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
+					virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Delete(vmi.Name, &metav1.DeleteOptions{})
+					return err
+				}, 5*time.Second, 1*time.Second).Should(MatchError("admission webhook \"virtualmachineinstances-create-validator.kubevirt.io\" denied the request: spec.domain.resources.requests.cpu '800m' is greater than spec.domain.resources.limits.cpu '500m'"))
+			})
+		})
+
+		Context("with namespace limits higher than VMI requests", func() {
+			var vmi *v1.VirtualMachineInstance
+			It("should start the VMI with the right default settings from namespace limits", func() {
+				// create a namespace default limit
+				limitRangeObj := kubev1.LimitRange{
+
+					ObjectMeta: metav1.ObjectMeta{Name: "abc1", Namespace: tests.NamespaceTestDefault},
+					Spec: kubev1.LimitRangeSpec{
+						Limits: []kubev1.LimitRangeItem{
+							{
+								Type: kubev1.LimitTypeContainer,
+								Default: kubev1.ResourceList{
+									kubev1.ResourceCPU:    resource.MustParse("2000m"),
+									kubev1.ResourceMemory: resource.MustParse("512M"),
+								},
+								DefaultRequest: kubev1.ResourceList{
+									kubev1.ResourceCPU: resource.MustParse("500m"),
+								},
+							},
+						},
+					},
+				}
+				_, err := virtClient.Core().LimitRanges(tests.NamespaceTestDefault).Create(&limitRangeObj)
+				Expect(err).ToNot(HaveOccurred())
+
+				vmi = tests.NewRandomVMIWithEphemeralDisk(tests.ContainerDiskFor(tests.ContainerDiskAlpine))
+				vmi.Spec.Domain.Resources = v1.ResourceRequirements{
+					Requests: kubev1.ResourceList{
+						kubev1.ResourceMemory: resource.MustParse("64M"),
+					},
+					Limits: kubev1.ResourceList{
+						kubev1.ResourceCPU: resource.MustParse("1000m"),
+					},
+				}
+
+				By("Starting a VirtualMachineInstance")
+				vmi, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
+				Expect(err).ToNot(HaveOccurred(), "should start vmi")
+				tests.WaitForSuccessfulVMIStart(vmi)
+
+				Expect(vmi.Spec.Domain.Resources.Requests.Memory().ToDec().ScaledValue(resource.Mega)).To(Equal(int64(64)))
+				Expect(vmi.Spec.Domain.Resources.Limits.Memory().ToDec().ScaledValue(resource.Mega)).To(Equal(int64(512)))
+				Expect(vmi.Spec.Domain.Resources.Requests.Cpu().MilliValue()).To(Equal(int64(500)))
+				Expect(vmi.Spec.Domain.Resources.Limits.Cpu().MilliValue()).To(Equal(int64(1000)))
+
+				Expect(err).ToNot(HaveOccurred())
 			})
 		})
 
@@ -989,6 +1073,56 @@ var _ = Describe("Configurations", func() {
 		})
 	})
 
+	Context("with machine type settings", func() {
+		defaultMachineTypeKey := "machine-type"
+
+		AfterEach(func() {
+			cfgMap, err := virtClient.CoreV1().ConfigMaps(namespaceKubevirt).Get(kubevirtConfig, metav1.GetOptions{})
+			Expect(err).NotTo(HaveOccurred())
+
+			cfgMap.Data[defaultMachineTypeKey] = ""
+
+			_, err = virtClient.CoreV1().ConfigMaps(namespaceKubevirt).Update(cfgMap)
+			Expect(err).ToNot(HaveOccurred())
+		})
+
+		It("should set machine type from VMI spec", func() {
+			vmi := tests.NewRandomVMI()
+			vmi.Spec.Domain.Machine.Type = "pc-q35-3.0"
+			tests.RunVMIAndExpectLaunch(vmi, false, 30)
+			runningVMISpec, err := tests.GetRunningVMISpec(vmi)
+
+			Expect(err).ToNot(HaveOccurred())
+			Expect(runningVMISpec.OS.Type.Machine).To(Equal("pc-q35-3.0"))
+		})
+
+		It("should set default machine type when it is not provided", func() {
+			vmi := tests.NewRandomVMI()
+			vmi.Spec.Domain.Machine.Type = ""
+			tests.RunVMIAndExpectLaunch(vmi, false, 30)
+			runningVMISpec, err := tests.GetRunningVMISpec(vmi)
+
+			Expect(err).ToNot(HaveOccurred())
+			Expect(runningVMISpec.OS.Type.Machine).To(ContainSubstring("q35"))
+		})
+
+		It("should set machine type from kubevirt-confg", func() {
+			cfgMap, err := virtClient.CoreV1().ConfigMaps(namespaceKubevirt).Get(kubevirtConfig, metav1.GetOptions{})
+			Expect(err).To(BeNil())
+			cfgMap.Data[defaultMachineTypeKey] = "pc-q35-3.0"
+			_, err = virtClient.CoreV1().ConfigMaps(namespaceKubevirt).Update(cfgMap)
+			Expect(err).ToNot(HaveOccurred())
+
+			vmi := tests.NewRandomVMI()
+			vmi.Spec.Domain.Machine.Type = ""
+			tests.RunVMIAndExpectLaunch(vmi, false, 30)
+			runningVMISpec, err := tests.GetRunningVMISpec(vmi)
+
+			Expect(err).ToNot(HaveOccurred())
+			Expect(runningVMISpec.OS.Type.Machine).To(Equal("pc-q35-3.0"))
+		})
+	})
+
 	Context("[rfe_id:904][crit:medium][vendor:cnv-qe@redhat.com][level:component]with driver cache settings", func() {
 		blockPVName := "block-pv-" + rand.String(48)
 
@@ -1019,10 +1153,7 @@ var _ = Describe("Configurations", func() {
 			tests.AddHostDisk(vmi, "/run/kubevirt-private/vm-disks/test-disk.img", v1.HostDiskExistsOrCreate, "hostdisk")
 			tests.RunVMIAndExpectLaunch(vmi, false, 60)
 
-			runningVMISpec := launcherApi.DomainSpec{}
-			domXml, err := tests.GetRunningVirtualMachineInstanceDomainXML(virtClient, vmi)
-			Expect(err).ToNot(HaveOccurred())
-			err = xml.Unmarshal([]byte(domXml), &runningVMISpec)
+			runningVMISpec, err := tests.GetRunningVMISpec(vmi)
 			Expect(err).ToNot(HaveOccurred())
 
 			disks := runningVMISpec.Devices.Disks
@@ -1074,9 +1205,7 @@ var _ = Describe("Configurations", func() {
 			vmi = tests.NewRandomVMIWithEphemeralDiskAndUserdata(containerImage, "echo hi!\n")
 			// sata
 			tests.AddEphemeralDisk(vmi, "disk2", "sata", containerImage)
-			// floppy
-			tests.AddEphemeralFloppy(vmi, "disk3", containerImage)
-			// NOTE: we have one disk per bus, so we expect vda, sda, fda
+			// NOTE: we have one disk per bus, so we expect vda, sda
 		})
 		checkPciAddress := func(vmi *v1.VirtualMachineInstance, expectedPciAddress string, prompt string) {
 			err := tests.CheckForTextExpecter(vmi, []expect.Batcher{
@@ -1088,7 +1217,6 @@ var _ = Describe("Configurations", func() {
 			Expect(err).ToNot(HaveOccurred())
 		}
 
-		// FIXME floppy is not recognized by the used image right now
 		It("[test_id:1682]should have all the device nodes", func() {
 			vmi, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
 			Expect(err).ToNot(HaveOccurred())

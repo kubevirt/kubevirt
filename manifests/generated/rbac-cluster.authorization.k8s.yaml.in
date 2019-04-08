@@ -1,0 +1,135 @@
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  annotations:
+    rbac.authorization.kubernetes.io/autoupdate: "true"
+  labels:
+    kubernetes.io/bootstrapping: rbac-defaults
+    kubevirt.io: ""
+  name: kubevirt.io:default
+rules:
+- apiGroups:
+  - subresources.kubevirt.io
+  resources:
+  - version
+  verbs:
+  - get
+  - list
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  annotations:
+    rbac.authorization.kubernetes.io/autoupdate: "true"
+  labels:
+    kubevirt.io: ""
+  name: kubevirt.io:default
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: kubevirt.io:default
+subjects:
+- apiGroup: rbac.authorization.k8s.io
+  kind: Group
+  name: system:authenticated
+- apiGroup: rbac.authorization.k8s.io
+  kind: Group
+  name: system:unauthenticated
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  labels:
+    kubevirt.io: ""
+    rbac.authorization.k8s.io/aggregate-to-admin: "true"
+  name: kubevirt.io:admin
+rules:
+- apiGroups:
+  - subresources.kubevirt.io
+  resources:
+  - virtualmachineinstances/console
+  - virtualmachineinstances/vnc
+  verbs:
+  - get
+- apiGroups:
+  - subresources.kubevirt.io
+  resources:
+  - virtualmachines/restart
+  verbs:
+  - put
+  - update
+- apiGroups:
+  - kubevirt.io
+  resources:
+  - virtualmachines
+  - virtualmachineinstances
+  - virtualmachineinstancepresets
+  - virtualmachineinstancereplicasets
+  verbs:
+  - get
+  - delete
+  - create
+  - update
+  - patch
+  - list
+  - watch
+  - deletecollection
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  labels:
+    kubevirt.io: ""
+    rbac.authorization.k8s.io/aggregate-to-edit: "true"
+  name: kubevirt.io:edit
+rules:
+- apiGroups:
+  - subresources.kubevirt.io
+  resources:
+  - virtualmachineinstances/console
+  - virtualmachineinstances/vnc
+  verbs:
+  - get
+- apiGroups:
+  - subresources.kubevirt.io
+  resources:
+  - virtualmachines/restart
+  verbs:
+  - put
+  - update
+- apiGroups:
+  - kubevirt.io
+  resources:
+  - virtualmachines
+  - virtualmachineinstances
+  - virtualmachineinstancepresets
+  - virtualmachineinstancereplicasets
+  verbs:
+  - get
+  - delete
+  - create
+  - update
+  - patch
+  - list
+  - watch
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  labels:
+    kubevirt.io: ""
+    rbac.authorization.k8s.io/aggregate-to-view: "true"
+  name: kubevirt.io:view
+rules:
+- apiGroups:
+  - kubevirt.io
+  resources:
+  - virtualmachines
+  - virtualmachineinstances
+  - virtualmachineinstancepresets
+  - virtualmachineinstancereplicasets
+  verbs:
+  - get
+  - list
+  - watch

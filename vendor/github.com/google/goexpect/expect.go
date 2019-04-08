@@ -44,7 +44,7 @@ func NewStatus(code codes.Code, msg string) *Status {
 	return &Status{code, msg}
 }
 
-// NewStatusf returns a Status with the providead code and a formatted message.
+// NewStatusf returns a Status with the provided code and a formatted message.
 func NewStatusf(code codes.Code, format string, a ...interface{}) *Status {
 	return NewStatus(code, fmt.Sprintf(fmt.Sprintf(format, a...)))
 }
@@ -71,6 +71,15 @@ func CheckDuration(d time.Duration) Option {
 		prev := e.chkDuration
 		e.chkDuration = d
 		return CheckDuration(prev)
+	}
+}
+
+// SendTimeout set timeout for Send commands
+func SendTimeout(timeout time.Duration) Option {
+	return func(e *GExpect) Option {
+		prev := e.sendTimeout
+		e.sendTimeout = timeout
+		return SendTimeout(prev)
 	}
 }
 
@@ -167,6 +176,15 @@ func SetSysProcAttr(args *syscall.SysProcAttr) Option {
 		prev := e.cmd.SysProcAttr
 		e.cmd.SysProcAttr = args
 		return SetSysProcAttr(prev)
+	}
+}
+
+// PartialMatch enables/disables the returning of unmatched buffer so that consecutive expect call works.
+func PartialMatch(v bool) Option {
+	return func(e *GExpect) Option {
+		prev := e.partialMatch
+		e.partialMatch = v
+		return PartialMatch(prev)
 	}
 }
 
@@ -540,6 +558,8 @@ type GExpect struct {
 	cls func(*GExpect) error
 	// timeout contains the default timeout for a spawned command.
 	timeout time.Duration
+	// sendTimeout contains the default timeout for a send command.
+	sendTimeout time.Duration
 	// chkDuration contains the duration between checks for new incoming data.
 	chkDuration time.Duration
 	// verbose enables verbose logging.
@@ -548,6 +568,8 @@ type GExpect struct {
 	verboseWriter io.Writer
 	// teeWriter receives a duplicate of the spawned process's output when set.
 	teeWriter io.WriteCloser
+	// PartialMatch enables the returning of unmatched buffer so that consecutive expect call works.
+	partialMatch bool
 
 	// mu protects the output buffer. It must be held for any operations on out.
 	mu  sync.Mutex
@@ -702,8 +724,16 @@ func (e *GExpect) ExpectSwitchCase(cs []Caser, timeout time.Duration) (string, [
 				}
 			}
 
-			// Clear the buffer directly after match.
-			o := tbuf.String()
+			tbufString := tbuf.String()
+			o := tbufString
+
+			if e.partialMatch {
+				// Return the part of the buffer that is not matched by the regular expression so that the next expect call will be able to match it.
+				matchIndex := rs[i].FindStringIndex(tbufString)
+				o = tbufString[0:matchIndex[1]]
+				e.returnUnmatchedSuffix(tbufString[matchIndex[1]:])
+			} 
+
 			tbuf.Reset()
 
 			st := c.String()
@@ -1085,26 +1115,41 @@ func (e *GExpect) Read(p []byte) (nr int, err error) {
 	return e.out.Read(p)
 }
 
+func (e *GExpect) returnUnmatchedSuffix(p string) {
+    e.mu.Lock()
+    defer e.mu.Unlock()
+    newBuffer := bytes.NewBufferString(p)
+    newBuffer.WriteString(e.out.String())
+    e.out = *newBuffer
+}
+
 // Send sends a string to spawned process.
 func (e *GExpect) Send(in string) error {
 	if !e.check() {
 		return errors.New("expect: Process not running")
 	}
-	e.snd <- in
+
+	if e.sendTimeout == 0 {
+		e.snd <- in
+	} else {
+		select {
+		case <-time.After(e.sendTimeout):
+			return fmt.Errorf("send to spawned process command reached the timeout %v", e.sendTimeout)
+		case e.snd <- in:
+		}
+	}
+
 	if e.verbose {
 		if e.verboseWriter != nil {
 			vStr := fmt.Sprintln(term.Blue("Sent:").String() + fmt.Sprintf(" %q", in))
-			for n, bytesRead, err := 0, 0, error(nil); bytesRead < len(vStr); bytesRead += n {
-				n, err = e.verboseWriter.Write([]byte(vStr)[n:])
-				if err != nil {
-					log.Printf("Write to Verbose Writer failed: %v", err)
-					break
-				}
-				return nil
+			_, err := e.verboseWriter.Write([]byte(vStr))
+			if err != nil {
+				log.Printf("Write to Verbose Writer failed: %v", err)
 			}
 		}
 		log.Printf("Sent: %q", in)
 	}
+
 	return nil
 }
 

@@ -5,6 +5,7 @@ import (
 	"sync/atomic"
 
 	k8sv1 "k8s.io/api/core/v1"
+	"k8s.io/api/policy/v1beta1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/tools/cache"
 	framework "k8s.io/client-go/tools/cache/testing"
@@ -78,6 +79,12 @@ func NewFakeInformerFor(obj runtime.Object) (cache.SharedIndexInformer, *framewo
 	return objInformer, objSource
 }
 
+func NewFakeInformerWithIndexersFor(obj runtime.Object, indexers cache.Indexers) (cache.SharedIndexInformer, *framework.FakeControllerSource) {
+	objSource := framework.NewFakeControllerSource()
+	objInformer := cache.NewSharedIndexInformer(objSource, obj, 0, indexers)
+	return objInformer, objSource
+}
+
 type VirtualMachineFeeder struct {
 	MockQueue *MockWorkQueue
 	Source    *framework.FakeControllerSource
@@ -133,6 +140,66 @@ func (v *PodFeeder) Delete(pod *k8sv1.Pod) {
 
 func NewPodFeeder(queue *MockWorkQueue, source *framework.FakeControllerSource) *PodFeeder {
 	return &PodFeeder{
+		MockQueue: queue,
+		Source:    source,
+	}
+}
+
+type PodDisruptionBudgetFeeder struct {
+	MockQueue *MockWorkQueue
+	Source    *framework.FakeControllerSource
+}
+
+func (v *PodDisruptionBudgetFeeder) Add(pdb *v1beta1.PodDisruptionBudget) {
+	v.MockQueue.ExpectAdds(1)
+	v.Source.Add(pdb)
+	v.MockQueue.Wait()
+}
+
+func (v *PodDisruptionBudgetFeeder) Modify(pdb *v1beta1.PodDisruptionBudget) {
+	v.MockQueue.ExpectAdds(1)
+	v.Source.Modify(pdb)
+	v.MockQueue.Wait()
+}
+
+func (v *PodDisruptionBudgetFeeder) Delete(pdb *v1beta1.PodDisruptionBudget) {
+	v.MockQueue.ExpectAdds(1)
+	v.Source.Delete(pdb)
+	v.MockQueue.Wait()
+}
+
+func NewPodDisruptionBudgetFeeder(queue *MockWorkQueue, source *framework.FakeControllerSource) *PodDisruptionBudgetFeeder {
+	return &PodDisruptionBudgetFeeder{
+		MockQueue: queue,
+		Source:    source,
+	}
+}
+
+type MigrationFeeder struct {
+	MockQueue *MockWorkQueue
+	Source    *framework.FakeControllerSource
+}
+
+func (v *MigrationFeeder) Add(migration *v1.VirtualMachineInstanceMigration) {
+	v.MockQueue.ExpectAdds(1)
+	v.Source.Add(migration)
+	v.MockQueue.Wait()
+}
+
+func (v *MigrationFeeder) Modify(migration *v1.VirtualMachineInstanceMigration) {
+	v.MockQueue.ExpectAdds(1)
+	v.Source.Modify(migration)
+	v.MockQueue.Wait()
+}
+
+func (v *MigrationFeeder) Delete(migration *v1.VirtualMachineInstanceMigration) {
+	v.MockQueue.ExpectAdds(1)
+	v.Source.Delete(migration)
+	v.MockQueue.Wait()
+}
+
+func NewMigrationFeeder(queue *MockWorkQueue, source *framework.FakeControllerSource) *MigrationFeeder {
+	return &MigrationFeeder{
 		MockQueue: queue,
 		Source:    source,
 	}

@@ -46,6 +46,11 @@ everytime the check is run. Can be used for troubleshooting and debugging of Spa
 
 The ChangeCheck option makes it possible to replace the Spawner Check function with a brand new one.
 
+### SendTimeout
+
+The SendTimeout set timeout on the `Send` command, without timeout the `Send` command will wait forewer for the expecter process.
+
+
 ## Basic Examples
 
 ### networkbit.ch

@@ -2580,16 +2580,10 @@ func schema_kubevirt_pkg_api_v1_VirtualMachineInstanceMigrationSpec(ref common.R
 							Format:      "",
 						},
 					},
-					"configuration": {
-						SchemaProps: spec.SchemaProps{
-							Ref: ref("kubevirt.io/kubevirt/pkg/api/v1.MigrationConfig"),
-						},
-					},
 				},
 			},
 		},
-		Dependencies: []string{
-			"kubevirt.io/kubevirt/pkg/api/v1.MigrationConfig"},
+		Dependencies: []string{},
 	}
 }
 
@@ -3057,6 +3051,13 @@ func schema_kubevirt_pkg_api_v1_VirtualMachineInstanceSpec(ref common.ReferenceC
 									},
 								},
 							},
+						},
+					},
+					"evictionStrategy": {
+						SchemaProps: spec.SchemaProps{
+							Description: "EvictionStrategy can be set to \"LiveMigrate\" if the VirtualMachineInstance should be migrated instead of shut-off in case of a node drain.",
+							Type:        []string{"string"},
+							Format:      "",
 						},
 					},
 					"terminationGracePeriodSeconds": {

@@ -195,10 +195,6 @@ var _ = Describe("Mutating Webhook", func() {
 				},
 				Spec: v1.VirtualMachineInstanceMigrationSpec{
 					VMIName: "testVmi",
-					Config: &v1.MigrationConfig{
-						CompletionTimeoutPerGiB: 800,
-						ProgressTimeout:         150,
-					},
 				},
 			}
 		})
@@ -206,8 +202,6 @@ var _ = Describe("Mutating Webhook", func() {
 		It("should verify migration spec", func() {
 			migrationSpec, _ := getMigrationSpecMetaFromResponse()
 			Expect(migrationSpec.VMIName).To(Equal("testVmi"))
-			Expect(migrationSpec.Config.CompletionTimeoutPerGiB).To(Equal(int64(800)))
-			Expect(migrationSpec.Config.ProgressTimeout).To(Equal(int64(150)))
 		})
 
 		It("should apply finalizer on migration create", func() {

@@ -35,6 +35,8 @@ import (
 	"path/filepath"
 	"syscall"
 
+	"k8s.io/apimachinery/pkg/api/resource"
+
 	v1 "kubevirt.io/kubevirt/pkg/api/v1"
 	diskutils "kubevirt.io/kubevirt/pkg/ephemeral-disk-utils"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
@@ -50,7 +52,14 @@ type Reply struct {
 
 type Args struct {
 	// used for domain management
-	VMI *v1.VirtualMachineInstance
+	VMI              *v1.VirtualMachineInstance
+	MigrationOptions *MigrationOptions
+}
+
+type MigrationOptions struct {
+	Bandwidth               resource.Quantity
+	ProgressTimeout         int64
+	CompletionTimeoutPerGiB int64
 }
 
 type LauncherClient interface {
@@ -58,7 +67,7 @@ type LauncherClient interface {
 	SyncMigrationTarget(vmi *v1.VirtualMachineInstance) error
 	ShutdownVirtualMachine(vmi *v1.VirtualMachineInstance) error
 	KillVirtualMachine(vmi *v1.VirtualMachineInstance) error
-	MigrateVirtualMachine(vmi *v1.VirtualMachineInstance) error
+	MigrateVirtualMachine(vmi *v1.VirtualMachineInstance, options *MigrationOptions) error
 	CancelVirtualMachineMigration(vmi *v1.VirtualMachineInstance) error
 	DeleteDomain(vmi *v1.VirtualMachineInstance) error
 	GetDomain() (*api.Domain, bool, error)
@@ -142,11 +151,12 @@ func (c *VirtLauncherClient) ShutdownVirtualMachine(vmi *v1.VirtualMachineInstan
 	return err
 }
 
-func (c *VirtLauncherClient) MigrateVirtualMachine(vmi *v1.VirtualMachineInstance) error {
+func (c *VirtLauncherClient) MigrateVirtualMachine(vmi *v1.VirtualMachineInstance, options *MigrationOptions) error {
 	cmd := "Launcher.Migrate"
 
 	args := &Args{
-		VMI: vmi,
+		VMI:              vmi,
+		MigrationOptions: options,
 	}
 	_, err := c.genericSendCmd(args, cmd)
 

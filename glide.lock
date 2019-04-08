@@ -1,5 +1,5 @@
-hash: 5d0b604464a42a05804d927e0c50f2f9d981bbd55bd1397012f16901913ee63e
-updated: 2019-02-05T10:23:21.606235037Z
+hash: dd3c0e654d0f2fe456f396eb915900c5ae2609f679bb4e2bef70c9b8951c04eb
+updated: 2019-04-03T14:13:45.55303625Z
 imports:
 - name: cloud.google.com/go
   version: 3b1ae45394a234c385be014e9a488f2bb6eef821
@@ -20,6 +20,8 @@ imports:
   version: 3a771d992973f24aa725d07868b467d1ddfceafb
   subpackages:
   - quantile
+- name: github.com/blang/semver
+  version: 2ee87856327ba09384cabd113bc6b5d174e9ec0f
 - name: github.com/coreos/go-iptables
   version: 47f22b0dd3355c0ba570ba12b0b8a36bf214c04b
   subpackages:
@@ -75,12 +77,20 @@ imports:
   version: 150d36912387ec2f607be674c5be309ddccc0eed
 - name: github.com/go-openapi/runtime
   version: 231d7876b7019dbcbfc97a7ba764379497b67c1d
+  subpackages:
+  - client
+  - logger
+  - middleware
+  - middleware/denco
+  - middleware/header
+  - middleware/untyped
+  - security
 - name: github.com/go-openapi/spec
   version: 5bae59e25b21498baea7f9d46e9c147ec106a42e
 - name: github.com/go-openapi/strfmt
   version: 35fe47352985e13cc75f13120d70d26fd764ed51
 - name: github.com/go-openapi/swag
-  version: b28747f5c7f9eb6b0b82d2f87f365fff72b535c9
+  version: b3e2804c8535ee0d1b89320afd98474d5b8e9e3b
 - name: github.com/go-openapi/validate
   version: d2eab7d93009e9215fc85b2faa2c2f2a98c2af48
 - name: github.com/go-stack/stack
@@ -97,7 +107,7 @@ imports:
   subpackages:
   - lru
 - name: github.com/golang/mock
-  version: c20582278a829e4b3259747a3ce0eceb1763ee13
+  version: 73dc87cad333b55a02058f4b3d872dbbafddc2b0
   subpackages:
   - gomock
 - name: github.com/golang/protobuf
@@ -111,11 +121,11 @@ imports:
 - name: github.com/google/btree
   version: 7d79101e329e5a3adf994758c578dab82b90c017
 - name: github.com/google/goexpect
-  version: 31a95e9b7189161fd216fb1f32b74eebbc3c982f
+  version: ebfe2174586a5f4f9ec8b504e19cc9faf16dc7bc
 - name: github.com/google/gofuzz
   version: 44d81051d367757e1c7c6a5a86423ece9afcf63c
 - name: github.com/google/goterm
-  version: 70e1c263818522aa1ecbdd34d7e143639d447ced
+  version: ce302be1d1149d49ed520b8f0d9c956b2663b3d6
   subpackages:
   - term
 - name: github.com/googleapis/gnostic
@@ -195,7 +205,7 @@ imports:
 - name: github.com/modern-go/reflect2
   version: 05fbef0ca5da472bbf96c9322b84a53edc03c9fd
 - name: github.com/onsi/ginkgo
-  version: f4937865e46ae8fd3aff745450e1b51b4aad3552
+  version: eea6ad008b96acdaa524f5b409513bf062b500ad
   subpackages:
   - config
   - extensions/table
@@ -216,7 +226,7 @@ imports:
   - reporters/stenographer/support/go-isatty
   - types
 - name: github.com/onsi/gomega
-  version: 5533ce8a0da374da682cd53d70ddcc54adf1a710
+  version: 90e289841c1ed79b7a598a7cd9959750cb5e89e2
   subpackages:
   - format
   - ghttp
@@ -233,7 +243,7 @@ imports:
   - matchers/support/goraph/util
   - types
 - name: github.com/openshift/api
-  version: 5ad8479f64f1b60ee9c62ce8ef1fe6638838725e
+  version: 8741ff068a473be041d7bafb4502c12e4f10aab5
   subpackages:
   - security/v1
 - name: github.com/openshift/client-go
@@ -242,6 +252,22 @@ imports:
   - security/clientset/versioned/scheme
   - security/clientset/versioned/typed/security/v1
   - security/clientset/versioned/typed/security/v1/fake
+- name: github.com/operator-framework/go-appr
+  version: f2aef88446f2a736fcb18db8ae57d708c52fdad0
+  subpackages:
+  - appregistry
+  - appregistry/appr
+  - appregistry/blobs
+  - appregistry/channel
+  - appregistry/info
+  - appregistry/package_appr
+  - models
+- name: github.com/operator-framework/operator-marketplace
+  version: 2ccd92393c1cbc40810bb81ccb1ea11eb070a041
+  subpackages:
+  - pkg/apis/operators/v1
+  - pkg/appregistry
+  - pkg/datastore
 - name: github.com/pborman/uuid
   version: ca53cad383cad2479bbba7f7a1a05797ec1386e4
 - name: github.com/peterbourgon/diskv
@@ -262,9 +288,7 @@ imports:
   - internal/bitbucket.org/ww/goautoneg
   - model
 - name: github.com/prometheus/procfs
-  version: 65c1f6f8f0fc1e2185eb9863a3bc751496404259
-  subpackages:
-  - xfs
+  version: ea9eea63887261e4d8ed8315f4078e88d540c725
 - name: github.com/PuerkitoBio/purell
   version: 8a290539e2e8629dbc4e6bad948158f790ec31f4
 - name: github.com/PuerkitoBio/urlesc
@@ -354,7 +378,7 @@ imports:
   subpackages:
   - rate
 - name: google.golang.org/appengine
-  version: 2d2298565d5a399bdfec98dbc259d6393e3cf8ba
+  version: 54a98f90d1c46b7731eb8fb305d2a321c30ef610
   subpackages:
   - internal
   - internal/app_identity
@@ -397,13 +421,13 @@ imports:
   - tap
   - transport
 - name: gopkg.in/cheggaaa/pb.v1
-  version: 1cc5bbe20449079337944d56292c7383510c534c
+  version: f907f6f5dd81f77c2bbc1cde92e4c5a04720cb11
 - name: gopkg.in/fsnotify/fsnotify.v1
   version: c2828203cd70a50dcccfb2761f8b1f8ceef9a8e9
 - name: gopkg.in/inf.v0
   version: 3887ee99ecf07df5b447e9b00d9c0b2adaa9f3e4
 - name: gopkg.in/ini.v1
-  version: 6ed8d5f64cd79a498d1f3fab5880cc376ce41bbe
+  version: c85607071cf08ca1adaf48319cd1aa322e81d8c1
 - name: gopkg.in/tomb.v1
   version: c131134a1947e9afd9cecfe11f4c6dff0732ae58
 - name: gopkg.in/yaml.v2
@@ -663,13 +687,17 @@ imports:
   subpackages:
   - pkg/ginkgo-reporters
   - pkg/polarion-xml
+- name: sigs.k8s.io/controller-runtime
+  version: f6f0bc9611363b43664d08fb097ab13243ef621d
+  subpackages:
+  - pkg/runtime/scheme
 testImports:
 - name: github.com/elazarl/goproxy
   version: 07b16b6e30fcac0ad8c0435548e743bcf2ca7e92
 - name: github.com/facebookgo/structtag
   version: 217e25fb96916cc60332e399c9aa63f5c422ceed
 - name: github.com/smartystreets/goconvey
-  version: 044398e4856c3a83fb98f9de0a8ed1c6495e2843
+  version: 68dc04aab96ae4326137d6b77330c224063a927e
   subpackages:
   - convey
 - name: github.com/stretchr/testify
@@ -677,7 +705,7 @@ testImports:
   subpackages:
   - assert
 - name: golang.org/x/sync
-  version: 37e7f081c4d4c64e13b10787722085407fe5d15f
+  version: e225da77a7e68af35c70ccbf71af2b83e6acac3c
   subpackages:
   - errgroup
 - name: gopkg.in/check.v1

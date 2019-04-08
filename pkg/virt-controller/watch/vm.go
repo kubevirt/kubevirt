@@ -481,10 +481,10 @@ func (c *VMController) startVMI(vm *virtv1.VirtualMachine) error {
 	if err != nil {
 		log.Log.Object(vm).Infof("Failed to create VirtualMachineInstance: %s/%s", vmi.Namespace, vmi.Name)
 		c.expectations.CreationObserved(vmKey)
-		c.recorder.Eventf(vm, k8score.EventTypeWarning, FailedCreateVirtualMachineReason, "Error creating virtual machine: %v", err)
+		c.recorder.Eventf(vm, k8score.EventTypeWarning, FailedCreateVirtualMachineReason, "Error creating virtual machine instance: %v", err)
 		return err
 	}
-	c.recorder.Eventf(vm, k8score.EventTypeNormal, SuccessfulCreateVirtualMachineReason, "Created virtual machine: %v", vmi.ObjectMeta.Name)
+	c.recorder.Eventf(vm, k8score.EventTypeNormal, SuccessfulCreateVirtualMachineReason, "Started the virtual machine by creating the new virtual machine instance %v", vmi.ObjectMeta.Name)
 
 	return nil
 }
@@ -509,11 +509,11 @@ func (c *VMController) stopVMI(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMac
 	if err != nil {
 		// We can't observe a delete if it was not accepted by the server
 		c.expectations.DeletionObserved(vmKey, controller.VirtualMachineKey(vmi))
-		c.recorder.Eventf(vm, k8score.EventTypeWarning, FailedDeleteVirtualMachineReason, "Error deleting virtual machine %s: %v", vmi.ObjectMeta.Name, err)
+		c.recorder.Eventf(vm, k8score.EventTypeWarning, FailedDeleteVirtualMachineReason, "Error deleting virtual machine instance %s: %v", vmi.ObjectMeta.Name, err)
 		return err
 	}
 
-	c.recorder.Eventf(vm, k8score.EventTypeNormal, SuccessfulDeleteVirtualMachineReason, "Deleted virtual machine: %v", vmi.ObjectMeta.UID)
+	c.recorder.Eventf(vm, k8score.EventTypeNormal, SuccessfulDeleteVirtualMachineReason, "Stopped the virtual machine by deleting the virtual machine instance %v", vmi.ObjectMeta.UID)
 	log.Log.Object(vm).Info("Dispatching delete event")
 
 	return nil
@@ -527,6 +527,7 @@ func (c *VMController) setupVMIFromVM(vm *virtv1.VirtualMachine) *virtv1.Virtual
 	vmi.ObjectMeta = vm.Spec.Template.ObjectMeta
 	vmi.ObjectMeta.Name = basename
 	vmi.ObjectMeta.GenerateName = basename
+	vmi.ObjectMeta.Namespace = vm.ObjectMeta.Namespace
 	vmi.Spec = vm.Spec.Template.Spec
 
 	setupStableFirmwareUUID(vm, vmi)

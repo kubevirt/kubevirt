@@ -23,6 +23,7 @@ func (VirtualMachineInstanceSpec) SwaggerDoc() map[string]string {
 		"nodeSelector":                  "NodeSelector is a selector which must be true for the vmi to fit on a node.\nSelector which must match a node's labels for the vmi to be scheduled on that node.\nMore info: https://kubernetes.io/docs/concepts/configuration/assign-pod-node/\n+optional",
 		"affinity":                      "If affinity is specifies, obey all the affinity rules",
 		"tolerations":                   "If toleration is specified, obey all the toleration rules.",
+		"evictionStrategy":              "EvictionStrategy can be set to \"LiveMigrate\" if the VirtualMachineInstance should be\nmigrated instead of shut-off in case of a node drain.",
 		"terminationGracePeriodSeconds": "Grace period observed after signalling a VirtualMachineInstance to stop after which the VirtualMachineInstance is force terminated.",
 		"volumes":                       "List of volumes that can be mounted by disks belonging to the vmi.",
 		"livenessProbe":                 "Periodic probe of VirtualMachineInstance liveness.\nVirtualmachineInstances will be stopped if the probe fails.\nCannot be updated.\nMore info: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle#container-probes\n+optional",
@@ -81,14 +82,6 @@ func (VirtualMachineInstanceMigrationState) SwaggerDoc() map[string]string {
 		"abortRequested":                 "Indicates that the migration has been requested to abort",
 		"abortStatus":                    "Indicates the final status of the live migration abortion",
 		"migrationUid":                   "The VirtualMachineInstanceMigration object associated with this migration",
-		"migrationConfig":                "Config contains migration configuration options",
-	}
-}
-
-func (MigrationConfig) SwaggerDoc() map[string]string {
-	return map[string]string{
-		"completionTimeoutPerGiB": "The time for GiB of data to wait for the migration to be completed before aborting it",
-		"progressTimeout":         "The time to wait for live migration to make progress in transferring data.",
 	}
 }
 
