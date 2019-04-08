@@ -272,3 +272,35 @@ func (m *Manager) PreCloudInitIso(vmi *v1.VirtualMachineInstance, cloudInitData 
 	}
 	return cloudInitData, nil
 }
+
+func (m *Manager) OnSyncVMI(vmi *v1.VirtualMachineInstance) error {
+	if callbacks, found := m.callbacksPerHookPoint[hooksInfo.OnSyncVMI]; found {
+		for _, callback := range callbacks {
+			if callback.Version == hooksV1alpha2.Version {
+				vmiJSON, err := json.Marshal(vmi)
+				if err != nil {
+					return fmt.Errorf("Failed to marshal VMI spec: %v", vmi)
+				}
+
+				conn, err := dialSocket(callback.SocketPath)
+				if err != nil {
+					log.Log.Reason(err).Infof("Failed to Dial hook socket: %s", callback.SocketPath)
+					return err
+				}
+				defer conn.Close()
+
+				ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
+				defer cancel()
+				client := hooksV1alpha2.NewCallbacksClient(conn)
+				_, err = client.OnSyncVMI(ctx, &hooksV1alpha2.OnSyncVMIParams{
+					Vmi: vmiJSON,
+				})
+				if err != nil {
+					// ignore this error to stay backward compatable if OnSyncVMI is not implemented
+					continue
+				}
+			}
+		}
+	}
+	return nil
+}

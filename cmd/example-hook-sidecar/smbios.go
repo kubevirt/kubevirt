@@ -79,6 +79,9 @@ func (s v1alpha2Server) PreCloudInitIso(_ context.Context, params *hooksV1alpha2
 		CloudInitData: params.GetCloudInitData(),
 	}, nil
 }
+func (s v1alpha2Server) OnSyncVMI(_ context.Context, params *hooksV1alpha2.OnSyncVMIParams) (*hooksV1alpha2.Empty, error) {
+	return nil, nil
+}
 
 func (s v1alpha1Server) OnDefineDomain(ctx context.Context, params *hooksV1alpha1.OnDefineDomainParams) (*hooksV1alpha1.OnDefineDomainResult, error) {
 	log.Log.Info("Hook's OnDefineDomain callback method has been called")

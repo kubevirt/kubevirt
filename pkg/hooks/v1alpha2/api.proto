@@ -5,6 +5,7 @@ package kubevirt.hooks.v1alpha2;
 service Callbacks {
   rpc OnDefineDomain (OnDefineDomainParams) returns (OnDefineDomainResult);
   rpc PreCloudInitIso (PreCloudInitIsoParams) returns (PreCloudInitIsoResult);
+  rpc OnSyncVMI (OnSyncVMIParams) returns (Empty);
 }
 
 message OnDefineDomainParams {
@@ -29,4 +30,12 @@ message PreCloudInitIsoParams {
 message PreCloudInitIsoResult {
   // cloudInitData is an object of CloudInitNoCloudSource encoded as JSON
   bytes cloudInitData = 1;
+}
+
+message OnSyncVMIParams {
+  // vmi is VirtualMachineInstance is object of virtual machine currently processed by virt-launcher, it is encoded as JSON
+  bytes vmi = 1;
+}
+
+message Empty {
 }

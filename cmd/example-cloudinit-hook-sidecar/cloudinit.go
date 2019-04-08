@@ -98,6 +98,10 @@ func (s v1alpha2Server) PreCloudInitIso(ctx context.Context, params *hooksV1alph
 	}, nil
 }
 
+func (s v1alpha2Server) OnSyncVMI(_ context.Context, params *hooksV1alpha2.OnSyncVMIParams) (*hooksV1alpha2.Empty, error) {
+	return nil, nil
+}
+
 func main() {
 	log.InitializeLogging("cloudinit-hook-sidecar")
 

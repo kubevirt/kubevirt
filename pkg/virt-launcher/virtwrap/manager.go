@@ -857,6 +857,12 @@ func (l *LibvirtDomainManager) SyncVMI(vmi *v1.VirtualMachineInstance, useEmulat
 	// Set defaults which are not coming from the cluster
 	api.SetObjectDefaults_Domain(domain)
 
+	hooksManager := hooks.GetManager()
+	err = hooksManager.OnSyncVMI(vmi)
+	if err != nil {
+		logger.Reason(err).Error("executing custom sync VMI hook failed: %v")
+	}
+
 	dom, err := l.virConn.LookupDomainByName(domain.Spec.Name)
 	newDomain := false
 	if err != nil {
