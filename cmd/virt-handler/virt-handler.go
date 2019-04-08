@@ -27,6 +27,7 @@ import (
 	"time"
 
 	"github.com/golang/glog"
+	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	flag "github.com/spf13/pflag"
 	k8sv1 "k8s.io/api/core/v1"
@@ -197,10 +198,23 @@ func (app *virtHandlerApp) Run() {
 		glog.Fatalf("unable to initialize certificae store: %v", err)
 	}
 
-	err = bootstrap.LoadCertForNode(virtCli.CertificatesV1beta1(), store, app.PodName, []string{app.PodName}, []net.IP{podIP})
+	certExpirationGauge := prometheus.NewGauge(
+		prometheus.GaugeOpts{
+			Namespace: "virt_handler",
+			Subsystem: "certificate_manager",
+			Name:      "client_expiration_seconds",
+			Help:      "Gauge of the lifetime of a certificate. The value is the date the certificate will expire in seconds since January 1, 1970 UTC.",
+		},
+	)
+	prometheus.MustRegister(certExpirationGauge)
+
+	config := bootstrap.LoadCertConfigForNode(store, app.PodName, []string{app.PodName}, []net.IP{podIP})
+	manager, err := bootstrap.NewCertificateManager(config, virtCli.CertificatesV1beta1())
 	if err != nil {
 		glog.Fatalf("failed to request or fetch the certificate: %v", err)
 	}
+	go manager.Start()
+
 	factory.Start(stop)
 	cache.WaitForCacheSync(stop, factory.ConfigMap().HasSynced)
 

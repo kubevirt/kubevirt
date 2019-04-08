@@ -28,6 +28,7 @@ import (
 
 	"github.com/emicklei/go-restful"
 	"github.com/golang/glog"
+	prometheus "github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	flag "github.com/spf13/pflag"
 	k8sv1 "k8s.io/api/core/v1"
@@ -224,10 +225,22 @@ func (vca *VirtControllerApp) Run() {
 		glog.Fatalf("unable to initialize certificae store: %v", err)
 	}
 
-	err = bootstrap.LoadCertForService(vca.clientSet.CertificatesV1beta1(), certStore, "virt-controller:"+vca.PodName, []string{vca.PodName}, []net.IP{podIP})
+	certExpirationGauge := prometheus.NewGauge(
+		prometheus.GaugeOpts{
+			Namespace: "virt_controller",
+			Subsystem: "certificate_manager",
+			Name:      "client_expiration_seconds",
+			Help:      "Gauge of the lifetime of a certificate. The value is the date the certificate will expire in seconds since January 1, 1970 UTC.",
+		},
+	)
+	prometheus.MustRegister(certExpirationGauge)
+	config := bootstrap.LoadCertConfigForService(certStore, "virt-controller:"+vca.PodName, []string{vca.PodName}, []net.IP{podIP})
+	config.CertificateExpiration = certExpirationGauge
+	manager, err := bootstrap.NewCertificateManager(config, vca.clientSet.CertificatesV1beta1())
 	if err != nil {
 		glog.Fatalf("failed to request or fetch the certificate: %v", err)
 	}
+	go manager.Start()
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
