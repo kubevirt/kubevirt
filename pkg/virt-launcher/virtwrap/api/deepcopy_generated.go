@@ -941,12 +941,8 @@ func (in *DiskSource) DeepCopyInto(out *DiskSource) {
 	*out = *in
 	if in.Host != nil {
 		in, out := &in.Host, &out.Host
-		if *in == nil {
-			*out = nil
-		} else {
-			*out = new(DiskSourceHost)
-			**out = **in
-		}
+		*out = make([]DiskSourceHost, len(*in))
+		copy(*out, *in)
 	}
 	return
 }

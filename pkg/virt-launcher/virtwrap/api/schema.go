@@ -348,6 +348,7 @@ type ControllerDriver struct {
 // BEGIN Disk -----------------------------
 
 type Disk struct {
+	XMLName      xml.Name      `xml:"disk"`
 	Device       string        `xml:"device,attr"`
 	Snapshot     string        `xml:"snapshot,attr,omitempty"`
 	Type         string        `xml:"type,attr"`
@@ -377,12 +378,12 @@ type DiskSecret struct {
 type ReadOnly struct{}
 
 type DiskSource struct {
-	Dev           string          `xml:"dev,attr,omitempty"`
-	File          string          `xml:"file,attr,omitempty"`
-	StartupPolicy string          `xml:"startupPolicy,attr,omitempty"`
-	Protocol      string          `xml:"protocol,attr,omitempty"`
-	Name          string          `xml:"name,attr,omitempty"`
-	Host          *DiskSourceHost `xml:"host,omitempty"`
+	Dev           string           `xml:"dev,attr,omitempty"`
+	File          string           `xml:"file,attr,omitempty"`
+	StartupPolicy string           `xml:"startupPolicy,attr,omitempty"`
+	Protocol      string           `xml:"protocol,attr,omitempty"`
+	Name          string           `xml:"name,attr,omitempty"`
+	Host          []DiskSourceHost `xml:"host,omitempty"`
 }
 
 type DiskTarget struct {
