@@ -106,6 +106,24 @@ rules:
   - patch
   - update
 - apiGroups:
+  - certificates.k8s.io
+  resources:
+  - certificatesigningrequests
+  - certificatesigningrequests/approval
+  verbs:
+  - update
+  - create
+  - get
+  - delete
+  - watch
+  - list
+- apiGroups:
+  - certificates.k8s.io
+  resources:
+  - certificatesigningrequests/kubevirt
+  verbs:
+  - create
+- apiGroups:
   - admissionregistration.k8s.io
   resources:
   - validatingwebhookconfigurations
@@ -201,6 +219,16 @@ rules:
 - apiGroups:
   - ""
   resources:
+  - secrets
+  verbs:
+  - get
+  - list
+  - delete
+  - update
+  - create
+- apiGroups:
+  - ""
+  resources:
   - pods
   - configmaps
   - endpoints
@@ -264,6 +292,16 @@ rules:
   - list
   - watch
 - apiGroups:
+  - certificates.k8s.io
+  resources:
+  - certificatesigningrequests
+  verbs:
+  - create
+  - get
+  - delete
+  - watch
+  - list
+- apiGroups:
   - kubevirt.io
   resources:
   - virtualmachineinstances
@@ -291,6 +329,16 @@ rules:
   verbs:
   - create
   - patch
+- apiGroups:
+  - certificates.k8s.io
+  resources:
+  - certificatesigningrequests
+  verbs:
+  - create
+  - get
+  - delete
+  - watch
+  - list
 - apiGroups:
   - ""
   resources:

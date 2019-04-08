@@ -21,6 +21,8 @@ package watch
 
 import (
 	"context"
+	"crypto/tls"
+	"fmt"
 	golog "log"
 	"net"
 	"net/http"
@@ -242,13 +244,32 @@ func (vca *VirtControllerApp) Run() {
 	}
 	go manager.Start()
 
+	tlsConfig := &tls.Config{
+		MinVersion: tls.VersionTLS12,
+	}
+	tlsConfig.GetCertificate = func(info *tls.ClientHelloInfo) (*tls.Certificate, error) {
+		cert := manager.Current()
+		if cert == nil {
+			return nil, fmt.Errorf("no serving certificate available for virt-controller")
+		}
+		return cert, nil
+	}
+
+	handler := http.NewServeMux()
+	server := &http.Server{
+		Addr:      vca.Address(),
+		TLSConfig: tlsConfig,
+		Handler:   handler,
+	}
+	handler.Handle("/metrics", promhttp.Handler())
+	handler.Handle("/", restful.DefaultContainer)
+
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	go func() {
 		httpLogger := logger.With("service", "http")
 		httpLogger.Level(log.INFO).Log("action", "listening", "interface", vca.BindAddress, "port", vca.Port)
-		http.Handle("/metrics", promhttp.Handler())
-		if err := http.ListenAndServeTLS(vca.Address(), certStore.CurrentPath(), certStore.CurrentPath(), nil); err != nil {
+		if err := server.ListenAndServeTLS("", ""); err != nil {
 			golog.Fatal(err)
 		}
 	}()

@@ -39,7 +39,7 @@ func NewCertificateConfig(certStore certificate.Store, name string, dnsSANs []st
 		Template: &x509.CertificateRequest{
 			Subject: pkix.Name{
 				Organization: []string{"kubevirt.io:system"},
-				CommonName:   name,
+				CommonName:   "kubevirt.io:system:" + name,
 			},
 			DNSNames:    dnsSANs,
 			IPAddresses: ipSANs,

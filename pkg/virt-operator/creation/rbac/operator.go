@@ -201,6 +201,34 @@ func NewOperatorClusterRole() *rbacv1.ClusterRole {
 					"update",
 				},
 			},
+			{
+				APIGroups: []string{
+					"certificates.k8s.io",
+				},
+				Resources: []string{
+					"certificatesigningrequests",
+					"certificatesigningrequests/approval",
+				},
+				Verbs: []string{
+					"update",
+					"create",
+					"get",
+					"delete",
+					"watch",
+					"list",
+				},
+			},
+			{
+				APIGroups: []string{
+					"certificates.k8s.io",
+				},
+				Resources: []string{
+					"certificatesigningrequests/kubevirt",
+				},
+				Verbs: []string{
+					"create",
+				},
+			},
 		},
 	}
 

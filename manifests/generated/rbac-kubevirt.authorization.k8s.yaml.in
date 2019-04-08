@@ -304,7 +304,6 @@ rules:
   - certificatesigningrequests
   verbs:
   - create
-  - update
   - get
   - delete
   - watch
@@ -374,7 +373,6 @@ rules:
   - certificatesigningrequests
   verbs:
   - create
-  - update
   - get
   - delete
   - watch

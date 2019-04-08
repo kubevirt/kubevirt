@@ -20,12 +20,14 @@
 package main
 
 import (
+	"crypto/tls"
 	"fmt"
 	"net"
 	"net/http"
 	"os"
 	"time"
 
+	"github.com/emicklei/go-restful"
 	"github.com/golang/glog"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
@@ -209,6 +211,7 @@ func (app *virtHandlerApp) Run() {
 	prometheus.MustRegister(certExpirationGauge)
 
 	config := bootstrap.LoadCertConfigForNode(store, app.PodName, []string{app.PodName}, []net.IP{podIP})
+	config.CertificateExpiration = certExpirationGauge
 	manager, err := bootstrap.NewCertificateManager(config, virtCli.CertificatesV1beta1())
 	if err != nil {
 		glog.Fatalf("failed to request or fetch the certificate: %v", err)
@@ -218,12 +221,30 @@ func (app *virtHandlerApp) Run() {
 	factory.Start(stop)
 	cache.WaitForCacheSync(stop, factory.ConfigMap().HasSynced)
 
+	tlsConfig := &tls.Config{
+		MinVersion: tls.VersionTLS12,
+	}
+	tlsConfig.GetCertificate = func(info *tls.ClientHelloInfo) (*tls.Certificate, error) {
+		cert := manager.Current()
+		if cert == nil {
+			return nil, fmt.Errorf("no serving certificate available for virt-handler")
+		}
+		return cert, nil
+	}
+
 	go vmController.Run(3, stop)
+	handler := http.NewServeMux()
+	server := &http.Server{
+		Addr:      app.ServiceListen.Address(),
+		TLSConfig: tlsConfig,
+		Handler:   handler,
+	}
 
 	promvm.SetupCollector(app.VirtShareDir)
 
-	http.Handle("/metrics", promhttp.Handler())
-	err = http.ListenAndServeTLS(app.ServiceListen.Address(), store.CurrentPath(), store.CurrentPath(), nil)
+	handler.Handle("/metrics", promhttp.Handler())
+	handler.Handle("/", restful.DefaultContainer)
+	err = server.ListenAndServeTLS("", "")
 	if err != nil {
 		log.Log.Reason(err).Error("Serving prometheus failed.")
 		panic(err)
