@@ -98,7 +98,7 @@ func main() {
 		data.KubeVirtLogo = getKubeVirtLogo(*kubeVirtLogoPath)
 		// prevent loading latest bundle from Quay for every file, only do it for the CSV manifest
 		data.ReplacesCsvVersion = ""
-		if strings.Contains(*inputFile, ".csv.yaml") && *bundleOutDir != "" {
+		if strings.Contains(*inputFile, ".csv.yaml") && *bundleOutDir != "" && data.QuayRepository != "" {
 			bundleHelper, err := helper.NewBundleHelper(*quayRepository)
 			if err != nil {
 				panic(err)
