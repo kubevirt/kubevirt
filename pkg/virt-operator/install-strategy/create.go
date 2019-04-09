@@ -281,6 +281,36 @@ func shouldTakeUpdatePath(targetVersion, currentVersion string) bool {
 	return shouldTakeUpdatePath
 }
 
+func verifyCRDUpdatePath(targetStrategy *InstallStrategy, stores util.Stores, kv *v1.KubeVirt) error {
+	imageTag := kv.Status.TargetKubeVirtVersion
+	imageRegistry := kv.Status.TargetKubeVirtRegistry
+
+	for _, crd := range targetStrategy.crds {
+		var cachedCrd *extv1beta1.CustomResourceDefinition
+
+		obj, exists, _ := stores.CrdCache.Get(crd)
+		if exists {
+			cachedCrd = obj.(*extv1beta1.CustomResourceDefinition)
+		}
+
+		if !exists {
+			// we can always update to a "new" crd that doesn't exist yet.
+			continue
+		} else if objectMatchesVersion(&cachedCrd.ObjectMeta, imageTag, imageRegistry) {
+			// already up-to-date
+			continue
+		}
+
+		if crd.Spec.Version != cachedCrd.Spec.Version {
+			// We don't currently allow transitioning between versions until
+			// the conversion webhook is supported.
+			return fmt.Errorf("No supported update path from crd %s version %s to version %s", crd.Name, cachedCrd.Spec.Version, crd.Spec.Version)
+		}
+	}
+
+	return nil
+}
+
 func SyncAll(kv *v1.KubeVirt,
 	prevStrategy *InstallStrategy,
 	targetStrategy *InstallStrategy,
@@ -311,6 +341,13 @@ func SyncAll(kv *v1.KubeVirt,
 	// -------- CREATE AND ROLE OUT UPDATED OBJECTS --------
 
 	// create/update CRDs
+
+	// Verify we can transition to the target API version
+	err = verifyCRDUpdatePath(targetStrategy, stores, kv)
+	if err != nil {
+		return false, err
+	}
+
 	for _, crd := range targetStrategy.crds {
 		var cachedCrd *extv1beta1.CustomResourceDefinition
 
@@ -334,12 +371,6 @@ func SyncAll(kv *v1.KubeVirt,
 		} else if !objectMatchesVersion(&cachedCrd.ObjectMeta, imageTag, imageRegistry) {
 			// Patch if old version
 			var ops []string
-
-			if crd.Spec.Version != cachedCrd.Spec.Version {
-				// We can't support transitioning between versions until
-				// the conversion webhook is supported.
-				return false, fmt.Errorf("No supported update path from crd %s version %s to version %s", crd.Name, cachedCrd.Spec.Version, crd.Spec.Version)
-			}
 
 			// Add Labels and Annotations Patches
 			labelAnnotationPatch, err := createLabelsAndAnnotationsPatch(&crd.ObjectMeta)
