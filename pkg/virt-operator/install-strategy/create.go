@@ -26,12 +26,15 @@ import (
 	"strings"
 
 	secv1 "github.com/openshift/api/security/v1"
+	admissionregistrationv1beta1 "k8s.io/api/admissionregistration/v1beta1"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	extv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/util/cert"
+	"k8s.io/client-go/util/cert/triple"
 
 	"github.com/blang/semver"
 
@@ -348,6 +351,169 @@ func haveDaemonSetsRolledOver(targetStrategy *InstallStrategy, kv *v1.KubeVirt, 
 	return true
 }
 
+func createDummyWebhookValidator(targetStrategy *InstallStrategy,
+	kv *v1.KubeVirt,
+	clientset kubecli.KubevirtClient,
+	stores util.Stores,
+	expectations *util.Expectations) error {
+
+	var webhooks []admissionregistrationv1beta1.Webhook
+
+	kvkey, err := controller.KeyFunc(kv)
+	if err != nil {
+		return err
+	}
+	imageTag := kv.Status.TargetKubeVirtVersion
+	imageRegistry := kv.Status.TargetKubeVirtRegistry
+
+	// If webhook already exists in cache, then exit.
+	objects := stores.ValidationWebhookCache.List()
+	for _, obj := range objects {
+		if webhook, ok := obj.(*admissionregistrationv1beta1.ValidatingWebhookConfiguration); ok {
+
+			if objectMatchesVersion(&webhook.ObjectMeta, imageTag, imageRegistry) {
+				// already created blocking webhook for this version
+				return nil
+			}
+		}
+	}
+
+	// generate a fake cert. this isn't actually used
+	failurePolicy := admissionregistrationv1beta1.Fail
+
+	for _, crd := range targetStrategy.crds {
+		_, exists, _ := stores.CrdCache.Get(crd)
+		if exists {
+			// this CRD isn't new, it already exists in cache so we don't
+			// need a blocking admission webhook to wait until the new
+			// apiserver is active
+			continue
+		}
+		path := fmt.Sprintf("/fake-path/%s", crd.Name)
+		webhooks = append(webhooks, admissionregistrationv1beta1.Webhook{
+			Name:          fmt.Sprintf("%s-tmp-validator", crd.Name),
+			FailurePolicy: &failurePolicy,
+			Rules: []admissionregistrationv1beta1.RuleWithOperations{{
+				Operations: []admissionregistrationv1beta1.OperationType{
+					admissionregistrationv1beta1.Create,
+				},
+				Rule: admissionregistrationv1beta1.Rule{
+					APIGroups:   []string{crd.Spec.Group},
+					APIVersions: []string{crd.Spec.Version},
+					Resources:   []string{crd.Spec.Names.Plural},
+				},
+			}},
+			ClientConfig: admissionregistrationv1beta1.WebhookClientConfig{
+				Service: &admissionregistrationv1beta1.ServiceReference{
+					Namespace: kv.Namespace,
+					Name:      "fake-validation-service",
+					Path:      &path,
+				},
+			},
+		})
+	}
+
+	// nothing to do here if we have no new CRDs to create webhooks for
+	if len(webhooks) == 0 {
+		return nil
+	}
+
+	// Set some fake signing cert bytes in for each rule so the k8s apiserver will
+	// allow us to create the webhook.
+	caKeyPair, _ := triple.NewCA("fake.kubevirt.io")
+	signingCertBytes := cert.EncodeCertPEM(caKeyPair.Cert)
+	for _, webhook := range webhooks {
+		webhook.ClientConfig.CABundle = signingCertBytes
+
+	}
+
+	validationWebhook := &admissionregistrationv1beta1.ValidatingWebhookConfiguration{
+		ObjectMeta: metav1.ObjectMeta{
+			GenerateName: "virt-operator-tmp-webhook",
+		},
+		Webhooks: webhooks,
+	}
+	injectOperatorLabelAndAnnotations(&validationWebhook.ObjectMeta, imageTag, imageRegistry)
+
+	expectations.ValidationWebhook.RaiseExpectations(kvkey, 1, 0)
+	_, err = clientset.AdmissionregistrationV1beta1().ValidatingWebhookConfigurations().Create(validationWebhook)
+	if err != nil {
+		expectations.ValidationWebhook.LowerExpectations(kvkey, 1, 0)
+		return fmt.Errorf("unable to create validation webhook: %v", err)
+	}
+	log.Log.V(2).Infof("Validation webhook created for image %s and registry %s", imageTag, imageRegistry)
+
+	return nil
+}
+
+func createOrUpdateCrds(kv *v1.KubeVirt,
+	targetStrategy *InstallStrategy,
+	stores util.Stores,
+	clientset kubecli.KubevirtClient,
+	expectations *util.Expectations) error {
+
+	ext := clientset.ExtensionsClient()
+
+	kvkey, err := controller.KeyFunc(kv)
+	if err != nil {
+		return err
+	}
+
+	imageTag := kv.Status.TargetKubeVirtVersion
+	imageRegistry := kv.Status.TargetKubeVirtRegistry
+
+	for _, crd := range targetStrategy.crds {
+		var cachedCrd *extv1beta1.CustomResourceDefinition
+
+		crd := crd.DeepCopy()
+		obj, exists, _ := stores.CrdCache.Get(crd)
+		if exists {
+			cachedCrd = obj.(*extv1beta1.CustomResourceDefinition)
+		}
+
+		injectOperatorLabelAndAnnotations(&crd.ObjectMeta, imageTag, imageRegistry)
+		if !exists {
+			// Create non existent
+			expectations.Crd.RaiseExpectations(kvkey, 1, 0)
+			_, err := ext.ApiextensionsV1beta1().CustomResourceDefinitions().Create(crd)
+			if err != nil {
+				expectations.Crd.LowerExpectations(kvkey, 1, 0)
+				return fmt.Errorf("unable to create crd %+v: %v", crd, err)
+			}
+			log.Log.V(2).Infof("crd %v created", crd.GetName())
+
+		} else if !objectMatchesVersion(&cachedCrd.ObjectMeta, imageTag, imageRegistry) {
+			// Patch if old version
+			var ops []string
+
+			// Add Labels and Annotations Patches
+			labelAnnotationPatch, err := createLabelsAndAnnotationsPatch(&crd.ObjectMeta)
+			if err != nil {
+				return err
+			}
+			ops = append(ops, labelAnnotationPatch...)
+
+			// Add Spec Patch
+			newSpec, err := json.Marshal(crd.Spec)
+			if err != nil {
+				return err
+			}
+			ops = append(ops, fmt.Sprintf(`{ "op": "replace", "path": "/spec", "value": %s }`, string(newSpec)))
+
+			_, err = ext.ApiextensionsV1beta1().CustomResourceDefinitions().Patch(crd.Name, types.JSONPatchType, generatePatchBytes(ops))
+			if err != nil {
+				return fmt.Errorf("unable to patch crd %+v: %v", crd, err)
+			}
+			log.Log.V(2).Infof("crd %v updated", crd.GetName())
+
+		} else {
+			log.Log.V(4).Infof("crd %v is up-to-date", crd.GetName())
+		}
+	}
+
+	return nil
+}
+
 func SyncAll(kv *v1.KubeVirt,
 	prevStrategy *InstallStrategy,
 	targetStrategy *InstallStrategy,
@@ -389,53 +555,24 @@ func SyncAll(kv *v1.KubeVirt,
 		return false, err
 	}
 
-	for _, crd := range targetStrategy.crds {
-		var cachedCrd *extv1beta1.CustomResourceDefinition
-
-		crd := crd.DeepCopy()
-		obj, exists, _ := stores.CrdCache.Get(crd)
-		if exists {
-			cachedCrd = obj.(*extv1beta1.CustomResourceDefinition)
+	// creates a blocking webhook for any new CRDs that don't exist previously.
+	// this webhook is removed once the new apiserver is online.
+	if !apiDeploymentsRolledOver {
+		err := createDummyWebhookValidator(targetStrategy, kv, clientset, stores, expectations)
+		if err != nil {
+			return false, err
 		}
-
-		injectOperatorLabelAndAnnotations(&crd.ObjectMeta, imageTag, imageRegistry)
-		if !exists {
-			// Create non existent
-			expectations.Crd.RaiseExpectations(kvkey, 1, 0)
-			_, err := ext.ApiextensionsV1beta1().CustomResourceDefinitions().Create(crd)
-			if err != nil {
-				expectations.Crd.LowerExpectations(kvkey, 1, 0)
-				return false, fmt.Errorf("unable to create crd %+v: %v", crd, err)
-			}
-			log.Log.V(2).Infof("crd %v created", crd.GetName())
-
-		} else if !objectMatchesVersion(&cachedCrd.ObjectMeta, imageTag, imageRegistry) {
-			// Patch if old version
-			var ops []string
-
-			// Add Labels and Annotations Patches
-			labelAnnotationPatch, err := createLabelsAndAnnotationsPatch(&crd.ObjectMeta)
-			if err != nil {
-				return false, err
-			}
-			ops = append(ops, labelAnnotationPatch...)
-
-			// Add Spec Patch
-			newSpec, err := json.Marshal(crd.Spec)
-			if err != nil {
-				return false, err
-			}
-			ops = append(ops, fmt.Sprintf(`{ "op": "replace", "path": "/spec", "value": %s }`, string(newSpec)))
-
-			_, err = ext.ApiextensionsV1beta1().CustomResourceDefinitions().Patch(crd.Name, types.JSONPatchType, generatePatchBytes(ops))
-			if err != nil {
-				return false, fmt.Errorf("unable to patch crd %+v: %v", crd, err)
-			}
-			log.Log.V(2).Infof("crd %v updated", crd.GetName())
-
-		} else {
-			log.Log.V(4).Infof("crd %v is up-to-date", crd.GetName())
+	} else {
+		err := deleteDummyWebhookValidators(kv, clientset, stores, expectations)
+		if err != nil {
+			return false, err
 		}
+	}
+
+	// create/update CRDs
+	err = createOrUpdateCrds(kv, targetStrategy, stores, clientset, expectations)
+	if err != nil {
+		return false, err
 	}
 
 	// create/update ServiceAccounts

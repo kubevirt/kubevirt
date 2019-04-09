@@ -202,6 +202,17 @@ func NewOperatorClusterRole() *rbacv1.ClusterRole {
 					"update",
 				},
 			},
+			{
+				APIGroups: []string{
+					"admissionregistration.k8s.io",
+				},
+				Resources: []string{
+					"validatingwebhookconfigurations",
+				},
+				Verbs: []string{
+					"get", "list", "watch", "create", "delete",
+				},
+			},
 		},
 	}
 
