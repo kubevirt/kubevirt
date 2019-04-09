@@ -1486,6 +1486,13 @@ func NewRandomVMIWithEphemeralDiskAndUserdataHighMemory(containerImage string, u
 	return vmi
 }
 
+func NewRandomVMIWithEphemeralDiskAndConfigDriveUserdataHighMemory(containerImage string, userData string) *v1.VirtualMachineInstance {
+	vmi := NewRandomVMIWithEphemeralDiskAndConfigDriveUserdata(containerImage, userData)
+
+	vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("512M")
+	return vmi
+}
+
 func NewRandomVMIWithEFIBootloader() *v1.VirtualMachineInstance {
 	vmi := NewRandomVMIWithEphemeralDiskHighMemory(ContainerDiskFor(ContainerDiskAlpine))
 
@@ -1623,13 +1630,61 @@ func NewRandomVMIWithEphemeralDiskAndUserdata(containerImage string, userData st
 	return vmi
 }
 
+func NewRandomVMIWithEphemeralDiskAndConfigDriveUserdata(containerImage string, userData string) *v1.VirtualMachineInstance {
+	vmi := NewRandomVMIWithEphemeralDisk(containerImage)
+	AddCloudInitConfigDriveData(vmi, "disk1", userData, "", false)
+	return vmi
+}
+
 func NewRandomVMIWithEphemeralDiskAndUserdataNetworkData(containerImage, userData, networkData string, b64encode bool) *v1.VirtualMachineInstance {
 	vmi := NewRandomVMIWithEphemeralDisk(containerImage)
-	AddCloudInitData(vmi, "disk1", userData, networkData, b64encode)
+	AddCloudInitNoCloudData(vmi, "disk1", userData, networkData, b64encode)
+	return vmi
+}
+
+func NewRandomVMIWithEphemeralDiskAndConfigDriveUserdataNetworkData(containerImage, userData, networkData string, b64encode bool) *v1.VirtualMachineInstance {
+	vmi := NewRandomVMIWithEphemeralDisk(containerImage)
+	AddCloudInitConfigDriveData(vmi, "disk1", userData, networkData, b64encode)
 	return vmi
 }
 
 func AddUserData(vmi *v1.VirtualMachineInstance, name string, userData string) {
+	AddCloudInitNoCloudData(vmi, name, userData, "", true)
+}
+
+func AddCloudInitNoCloudData(vmi *v1.VirtualMachineInstance, name, userData, networkData string, b64encode bool) {
+	cloudInitNoCloudSource := v1.CloudInitNoCloudSource{}
+	if b64encode {
+		cloudInitNoCloudSource.UserDataBase64 = base64.StdEncoding.EncodeToString([]byte(userData))
+		if networkData != "" {
+			cloudInitNoCloudSource.NetworkDataBase64 = base64.StdEncoding.EncodeToString([]byte(networkData))
+		}
+	} else {
+		cloudInitNoCloudSource.UserData = userData
+		if networkData != "" {
+			cloudInitNoCloudSource.NetworkData = networkData
+		}
+	}
+	addCloudInitDiskAndVolume(vmi, name, v1.VolumeSource{CloudInitNoCloud: &cloudInitNoCloudSource})
+}
+
+func AddCloudInitConfigDriveData(vmi *v1.VirtualMachineInstance, name, userData, networkData string, b64encode bool) {
+	cloudInitConfigDriveSource := v1.CloudInitConfigDriveSource{}
+	if b64encode {
+		cloudInitConfigDriveSource.UserDataBase64 = base64.StdEncoding.EncodeToString([]byte(userData))
+		if networkData != "" {
+			cloudInitConfigDriveSource.NetworkDataBase64 = base64.StdEncoding.EncodeToString([]byte(networkData))
+		}
+	} else {
+		cloudInitConfigDriveSource.UserData = userData
+		if networkData != "" {
+			cloudInitConfigDriveSource.NetworkData = networkData
+		}
+	}
+	addCloudInitDiskAndVolume(vmi, name, v1.VolumeSource{CloudInitConfigDrive: &cloudInitConfigDriveSource})
+}
+
+func addCloudInitDiskAndVolume(vmi *v1.VirtualMachineInstance, name string, volumeSource v1.VolumeSource) {
 	vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
 		Name: name,
 		DiskDevice: v1.DiskDevice{
@@ -1639,45 +1694,9 @@ func AddUserData(vmi *v1.VirtualMachineInstance, name string, userData string) {
 		},
 	})
 	vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
-		Name: name,
-		VolumeSource: v1.VolumeSource{
-			CloudInitNoCloud: &v1.CloudInitNoCloudSource{
-				UserDataBase64: base64.StdEncoding.EncodeToString([]byte(userData)),
-			},
-		},
+		Name:         name,
+		VolumeSource: volumeSource,
 	})
-}
-
-func AddCloudInitData(vmi *v1.VirtualMachineInstance, name, userData, networkData string, b64encode bool) {
-	vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
-		Name: name,
-		DiskDevice: v1.DiskDevice{
-			Disk: &v1.DiskTarget{
-				Bus: "virtio",
-			},
-		},
-	})
-	if b64encode {
-		vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
-			Name: name,
-			VolumeSource: v1.VolumeSource{
-				CloudInitNoCloud: &v1.CloudInitNoCloudSource{
-					UserDataBase64:    base64.StdEncoding.EncodeToString([]byte(userData)),
-					NetworkDataBase64: base64.StdEncoding.EncodeToString([]byte(networkData)),
-				},
-			},
-		})
-	} else {
-		vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
-			Name: name,
-			VolumeSource: v1.VolumeSource{
-				CloudInitNoCloud: &v1.CloudInitNoCloudSource{
-					UserData:    userData,
-					NetworkData: networkData,
-				},
-			},
-		})
-	}
 }
 
 func NewRandomVMIWithPVC(claimName string) *v1.VirtualMachineInstance {
