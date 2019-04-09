@@ -311,6 +311,43 @@ func verifyCRDUpdatePath(targetStrategy *InstallStrategy, stores util.Stores, kv
 	return nil
 }
 
+func haveApiDeploymentsRolledOver(targetStrategy *InstallStrategy, kv *v1.KubeVirt, stores util.Stores) bool {
+	for _, deployment := range apiDeployments(targetStrategy) {
+		if !util.DeploymentIsReady(kv, deployment, stores) {
+			log.Log.V(2).Infof("Waiting on deployment %v to roll over to latest version", deployment.GetName())
+			// not rolled out yet
+			return false
+		}
+	}
+
+	return true
+}
+
+func haveControllerDeploymentsRolledOver(targetStrategy *InstallStrategy, kv *v1.KubeVirt, stores util.Stores) bool {
+
+	for _, deployment := range controllerDeployments(targetStrategy) {
+		if !util.DeploymentIsReady(kv, deployment, stores) {
+			log.Log.V(2).Infof("Waiting on deployment %v to roll over to latest version", deployment.GetName())
+			// not rolled out yet
+			return false
+		}
+	}
+	return true
+}
+
+func haveDaemonSetsRolledOver(targetStrategy *InstallStrategy, kv *v1.KubeVirt, stores util.Stores) bool {
+
+	for _, daemonSet := range targetStrategy.daemonSets {
+		if !util.DaemonsetIsReady(kv, daemonSet, stores) {
+			log.Log.V(2).Infof("Waiting on daemonset %v to roll over to latest version", daemonSet.GetName())
+			// not rolled out yet
+			return false
+		}
+	}
+
+	return true
+}
+
 func SyncAll(kv *v1.KubeVirt,
 	prevStrategy *InstallStrategy,
 	targetStrategy *InstallStrategy,
@@ -327,6 +364,10 @@ func SyncAll(kv *v1.KubeVirt,
 	deleteOptions := &metav1.DeleteOptions{
 		GracePeriodSeconds: &gracePeriod,
 	}
+
+	apiDeploymentsRolledOver := haveApiDeploymentsRolledOver(targetStrategy, kv, stores)
+	controllerDeploymentsRolledOver := haveControllerDeploymentsRolledOver(targetStrategy, kv, stores)
+	daemonSetsRolledOver := haveDaemonSetsRolledOver(targetStrategy, kv, stores)
 
 	ext := clientset.ExtensionsClient()
 	core := clientset.CoreV1()
@@ -728,21 +769,10 @@ func SyncAll(kv *v1.KubeVirt,
 
 		}
 
-		// wait for daemonsets
-		for _, daemonSet := range targetStrategy.daemonSets {
-			if !util.DaemonsetIsReady(kv, daemonSet, stores) {
-				log.Log.V(2).Infof("Waiting on daemonset %v to roll over to latest version", daemonSet.GetName())
-				// not rolled out yet
-				return false, nil
-			}
-		}
-		// wait for controller deployments
-		for _, deployment := range controllerDeployments(targetStrategy) {
-			if !util.DeploymentIsReady(kv, deployment, stores) {
-				log.Log.V(2).Infof("Waiting on deployment %v to roll over to latest version", deployment.GetName())
-				// not rolled out yet
-				return false, nil
-			}
+		// wait for daemonsets and controllers
+		if !daemonSetsRolledOver || !controllerDeploymentsRolledOver {
+			// not rolled out yet
+			return false, nil
 		}
 
 		// create/update API Deployments
@@ -769,12 +799,9 @@ func SyncAll(kv *v1.KubeVirt,
 		}
 
 		// wait on api servers to roll over
-		for _, deployment := range apiDeployments(targetStrategy) {
-			if !util.DeploymentIsReady(kv, deployment, stores) {
-				log.Log.V(2).Infof("Waiting on deployment %v to roll over to latest version", deployment.GetName())
-				// not rolled out yet
-				return false, nil
-			}
+		if !apiDeploymentsRolledOver {
+			// not rolled out yet
+			return false, nil
 		}
 
 		// create/update Controller Deployments
