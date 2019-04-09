@@ -118,6 +118,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 			1,
 			10,
 			testutils.MakeFakeClusterConfig(nil, stop),
+			nil,
 		)
 
 		testUUID = uuid.NewUUID()

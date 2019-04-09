@@ -39,6 +39,7 @@ import (
 	k8coresv1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/record"
+	certutil "k8s.io/client-go/util/cert"
 	"k8s.io/client-go/util/certificate"
 
 	v1 "kubevirt.io/kubevirt/pkg/api/v1"
@@ -170,28 +171,6 @@ func (app *virtHandlerApp) Run() {
 
 	factory := controller.NewKubeInformerFactory(virtCli.RestClient(), virtCli, namespace)
 
-	gracefulShutdownInformer := cache.NewSharedIndexInformer(
-		inotifyinformer.NewFileListWatchFromClient(
-			virtlauncher.GracefulShutdownTriggerDir(app.VirtShareDir)),
-		&virt_api.Domain{},
-		0,
-		cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
-
-	vmController := virthandler.NewController(
-		recorder,
-		virtCli,
-		app.HostOverride,
-		app.PodIpAddress,
-		app.VirtShareDir,
-		vmSourceSharedInformer,
-		vmTargetSharedInformer,
-		domainSharedInformer,
-		gracefulShutdownInformer,
-		int(app.WatchdogTimeoutDuration.Seconds()),
-		app.MaxDevices,
-		virtconfig.NewClusterConfig(factory.ConfigMap().GetStore(), namespace),
-	)
-
 	stop := make(chan struct{})
 	defer close(stop)
 
@@ -218,25 +197,76 @@ func (app *virtHandlerApp) Run() {
 	}
 	go manager.Start()
 
+	certPool, err := certutil.NewPool("/var/run/secrets/kubernetes.io/serviceaccount/ca.crt")
+	if err != nil {
+		panic(err)
+	}
+
+	promTLSConfig := &tls.Config{
+		MinVersion: tls.VersionTLS12,
+		ClientCAs:  certPool,
+		RootCAs:    certPool,
+		GetCertificate: func(info *tls.ClientHelloInfo) (*tls.Certificate, error) {
+			cert := manager.Current()
+			if cert == nil {
+				return nil, fmt.Errorf("no serving certificate available for virt-handler")
+			}
+			return cert, nil
+		},
+	}
+
+	migrationTLSConfig := &tls.Config{
+		MinVersion: tls.VersionTLS12,
+		ClientAuth: tls.RequireAndVerifyClientCert,
+		ClientCAs:  certPool,
+		RootCAs:    certPool,
+		GetClientCertificate: func(info *tls.CertificateRequestInfo) (*tls.Certificate, error) {
+			cert := manager.Current()
+			if cert == nil {
+				return nil, fmt.Errorf("no serving certificate available for virt-handler")
+			}
+			return cert, nil
+		},
+		GetCertificate: func(info *tls.ClientHelloInfo) (*tls.Certificate, error) {
+			cert := manager.Current()
+			if cert == nil {
+				return nil, fmt.Errorf("no serving certificate available for virt-handler")
+			}
+			return cert, nil
+		},
+	}
+
+	gracefulShutdownInformer := cache.NewSharedIndexInformer(
+		inotifyinformer.NewFileListWatchFromClient(
+			virtlauncher.GracefulShutdownTriggerDir(app.VirtShareDir)),
+		&virt_api.Domain{},
+		0,
+		cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
+
+	vmController := virthandler.NewController(
+		recorder,
+		virtCli,
+		app.HostOverride,
+		app.PodIpAddress,
+		app.VirtShareDir,
+		vmSourceSharedInformer,
+		vmTargetSharedInformer,
+		domainSharedInformer,
+		gracefulShutdownInformer,
+		int(app.WatchdogTimeoutDuration.Seconds()),
+		app.MaxDevices,
+		virtconfig.NewClusterConfig(factory.ConfigMap().GetStore(), namespace),
+		migrationTLSConfig,
+	)
+
 	factory.Start(stop)
 	cache.WaitForCacheSync(stop, factory.ConfigMap().HasSynced)
-
-	tlsConfig := &tls.Config{
-		MinVersion: tls.VersionTLS12,
-	}
-	tlsConfig.GetCertificate = func(info *tls.ClientHelloInfo) (*tls.Certificate, error) {
-		cert := manager.Current()
-		if cert == nil {
-			return nil, fmt.Errorf("no serving certificate available for virt-handler")
-		}
-		return cert, nil
-	}
-
 	go vmController.Run(3, stop)
+
 	handler := http.NewServeMux()
 	server := &http.Server{
 		Addr:      app.ServiceListen.Address(),
-		TLSConfig: tlsConfig,
+		TLSConfig: promTLSConfig,
 		Handler:   handler,
 	}
 

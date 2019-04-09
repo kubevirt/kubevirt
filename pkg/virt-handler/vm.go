@@ -20,6 +20,7 @@
 package virthandler
 
 import (
+	"crypto/tls"
 	"encoding/json"
 	goerror "errors"
 	"fmt"
@@ -71,6 +72,7 @@ func NewController(
 	watchdogTimeoutSeconds int,
 	maxDevices int,
 	clusterConfig *virtconfig.ClusterConfig,
+	tlsConfig *tls.Config,
 ) *VirtualMachineController {
 
 	queue := workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter())
@@ -88,7 +90,7 @@ func NewController(
 		gracefulShutdownInformer: gracefulShutdownInformer,
 		heartBeatInterval:        1 * time.Minute,
 		watchdogTimeoutSeconds:   watchdogTimeoutSeconds,
-		migrationProxy:           migrationproxy.NewMigrationProxyManager(virtShareDir),
+		migrationProxy:           migrationproxy.NewMigrationProxyManager(virtShareDir, tlsConfig),
 		podIsolationDetector:     isolation.NewSocketBasedIsolationDetector(virtShareDir),
 		clusterConfig:            clusterConfig,
 	}
