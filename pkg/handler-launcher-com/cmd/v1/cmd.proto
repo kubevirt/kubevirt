@@ -8,7 +8,7 @@ service Cmd {
   rpc ShutdownVirtualMachine(VMIRequest) returns (Response) {}
   rpc KillVirtualMachine(VMIRequest) returns (Response) {}
   rpc DeleteVirtualMachine(VMIRequest) returns (Response) {}
-  rpc MigrateVirtualMachine(VMIRequest) returns (Response) {}
+  rpc MigrateVirtualMachine(MigrationRequest) returns (Response) {}
   rpc SyncMigrationTarget(VMIRequest) returns (Response) {}
   rpc CancelVirtualMachineMigration(VMIRequest) returns (Response) {}
   rpc GetDomain(EmptyRequest) returns (DomainResponse) {}
@@ -16,8 +16,17 @@ service Cmd {
   rpc Ping(EmptyRequest) returns (Response) {}
 }
 
-message VMIRequest {
+message VMI {
   bytes vmiJson = 1;
+}
+
+message VMIRequest {
+  VMI vmi = 1;
+}
+
+message MigrationRequest {
+  VMI vmi = 1;
+  bytes options = 2;
 }
 
 message EmptyRequest {}

@@ -41,8 +41,8 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
-	"k8s.io/apimachinery/pkg/util/json"
 	"k8s.io/apimachinery/pkg/api/resource"
+	"k8s.io/apimachinery/pkg/util/json"
 
 	v1 "kubevirt.io/kubevirt/pkg/api/v1"
 	diskutils "kubevirt.io/kubevirt/pkg/ephemeral-disk-utils"
@@ -166,9 +166,13 @@ func (c *VirtLauncherClient) genericSendVMICmd(cmdName string,
 	if err != nil {
 		return err
 	}
+
 	request := &cmdv1.VMIRequest{
-		VmiJson: vmiJson,
+		Vmi: &cmdv1.VMI{
+			VmiJson: vmiJson,
+		},
 	}
+
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	response, err := cmdFunc(ctx, request)
@@ -240,7 +244,31 @@ func (c *VirtLauncherClient) DeleteDomain(vmi *v1.VirtualMachineInstance) error 
 }
 
 func (c *VirtLauncherClient) MigrateVirtualMachine(vmi *v1.VirtualMachineInstance, options *MigrationOptions) error {
-	return c.genericSendVMICmd("Migrate", c.client.MigrateVirtualMachine, vmi)
+
+	vmiJson, err := json.Marshal(vmi)
+	if err != nil {
+		return err
+	}
+
+	optionsJson, err := json.Marshal(options)
+	if err != nil {
+		return err
+	}
+
+	request := &cmdv1.MigrationRequest{
+		Vmi: &cmdv1.VMI{
+			VmiJson: vmiJson,
+		},
+		Options: optionsJson,
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	response, err := c.client.MigrateVirtualMachine(ctx, request)
+
+	err = handleError(err, "Migrate", response)
+	return err
+
 }
 
 func (c *VirtLauncherClient) CancelVirtualMachineMigration(vmi *v1.VirtualMachineInstance) error {

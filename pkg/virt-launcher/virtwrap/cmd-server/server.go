@@ -20,11 +20,11 @@
 package cmdserver
 
 import (
+	"fmt"
 	"os"
 
-	"google.golang.org/grpc"
-
 	"golang.org/x/net/context"
+	"google.golang.org/grpc"
 
 	"k8s.io/apimachinery/pkg/util/json"
 
@@ -32,6 +32,7 @@ import (
 	cmdv1 "kubevirt.io/kubevirt/pkg/handler-launcher-com/cmd/v1"
 	"kubevirt.io/kubevirt/pkg/log"
 	grpcutil "kubevirt.io/kubevirt/pkg/util/net/grpc"
+	cmdclient "kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap"
 	launcherErrors "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/errors"
 )
@@ -49,7 +50,7 @@ type Launcher struct {
 	useEmulation  bool
 }
 
-func getVMIFromRequest(request *cmdv1.VMIRequest) (*v1.VirtualMachineInstance, *cmdv1.Response) {
+func getVMIFromRequest(request *cmdv1.VMI) (*v1.VirtualMachineInstance, *cmdv1.Response) {
 
 	response := &cmdv1.Response{
 		Success: true,
@@ -64,11 +65,18 @@ func getVMIFromRequest(request *cmdv1.VMIRequest) (*v1.VirtualMachineInstance, *
 	return &vmi, response
 }
 
-func getMigrationOptionsfromClientArgs(args *cmdclient.Args) (*cmdclient.MigrationOptions, error) {
-	if args.MigrationOptions == nil {
-		return nil, goerror.New(fmt.Sprintf("migration options object not present in command server args"))
+func getMigrationOptionsFromRequest(request *cmdv1.MigrationRequest) (*cmdclient.MigrationOptions, error) {
+
+	if request.Options == nil {
+		return nil, fmt.Errorf("migration options object not present in command server request")
 	}
-	return args.MigrationOptions, nil
+
+	var options *cmdclient.MigrationOptions
+	if err := json.Unmarshal(request.Options, &options); err != nil {
+		return nil, fmt.Errorf("no valid migration options object present in command server request: %v", err)
+	}
+
+	return options, nil
 }
 
 func getErrorMessage(err error) string {
@@ -78,14 +86,14 @@ func getErrorMessage(err error) string {
 	return err.Error()
 }
 
-func (l *Launcher) MigrateVirtualMachine(ctx context.Context, request *cmdv1.VMIRequest) (*cmdv1.Response, error) {
+func (l *Launcher) MigrateVirtualMachine(ctx context.Context, request *cmdv1.MigrationRequest) (*cmdv1.Response, error) {
 
-	vmi, response := getVMIFromRequest(request)
+	vmi, response := getVMIFromRequest(request.Vmi)
 	if !response.Success {
 		return response, nil
 	}
 
-	options, err := getMigrationOptionsfromClientArgs(request)
+	options, err := getMigrationOptionsFromRequest(request)
 	if err != nil {
 		response.Success = false
 		response.Message = err.Error()
@@ -105,7 +113,7 @@ func (l *Launcher) MigrateVirtualMachine(ctx context.Context, request *cmdv1.VMI
 
 func (l *Launcher) CancelVirtualMachineMigration(ctx context.Context, request *cmdv1.VMIRequest) (*cmdv1.Response, error) {
 
-	vmi, response := getVMIFromRequest(request)
+	vmi, response := getVMIFromRequest(request.Vmi)
 	if !response.Success {
 		return response, nil
 	}
@@ -124,7 +132,7 @@ func (l *Launcher) CancelVirtualMachineMigration(ctx context.Context, request *c
 
 func (l *Launcher) SyncMigrationTarget(ctx context.Context, request *cmdv1.VMIRequest) (*cmdv1.Response, error) {
 
-	vmi, response := getVMIFromRequest(request)
+	vmi, response := getVMIFromRequest(request.Vmi)
 	if !response.Success {
 		return response, nil
 	}
@@ -143,7 +151,7 @@ func (l *Launcher) SyncMigrationTarget(ctx context.Context, request *cmdv1.VMIRe
 
 func (l *Launcher) SyncVirtualMachine(ctx context.Context, request *cmdv1.VMIRequest) (*cmdv1.Response, error) {
 
-	vmi, response := getVMIFromRequest(request)
+	vmi, response := getVMIFromRequest(request.Vmi)
 	if !response.Success {
 		return response, nil
 	}
@@ -161,7 +169,7 @@ func (l *Launcher) SyncVirtualMachine(ctx context.Context, request *cmdv1.VMIReq
 
 func (l *Launcher) KillVirtualMachine(ctx context.Context, request *cmdv1.VMIRequest) (*cmdv1.Response, error) {
 
-	vmi, response := getVMIFromRequest(request)
+	vmi, response := getVMIFromRequest(request.Vmi)
 	if !response.Success {
 		return response, nil
 	}
@@ -179,7 +187,7 @@ func (l *Launcher) KillVirtualMachine(ctx context.Context, request *cmdv1.VMIReq
 
 func (l *Launcher) ShutdownVirtualMachine(ctx context.Context, request *cmdv1.VMIRequest) (*cmdv1.Response, error) {
 
-	vmi, response := getVMIFromRequest(request)
+	vmi, response := getVMIFromRequest(request.Vmi)
 	if !response.Success {
 		return response, nil
 	}
@@ -197,7 +205,7 @@ func (l *Launcher) ShutdownVirtualMachine(ctx context.Context, request *cmdv1.VM
 
 func (l *Launcher) DeleteVirtualMachine(ctx context.Context, request *cmdv1.VMIRequest) (*cmdv1.Response, error) {
 
-	vmi, response := getVMIFromRequest(request)
+	vmi, response := getVMIFromRequest(request.Vmi)
 	if !response.Success {
 		return response, nil
 	}
