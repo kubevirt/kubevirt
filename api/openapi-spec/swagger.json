@@ -4464,11 +4464,11 @@
     "description": "Hyperv specific features.",
     "properties": {
      "evmcs": {
-      "description": "EVMCS Speeds up L2 vmexits, but disables other virtualization features. Requires vapic\nDefaults to the machine type setting.\n+optional",
+      "description": "EVMCS Speeds up L2 vmexits, but disables other virtualization features. Requires vapic.\nDefaults to the machine type setting.\n+optional",
       "$ref": "#/definitions/v1.FeatureState"
      },
      "frequencies": {
-      "description": "Frequencies improve Hyper-V on KVM (TSC clock source)\nDefaults to the machine type setting.\n+optional",
+      "description": "Frequencies improve Hyper-V on KVM (TSC clock source).\nDefaults to the machine type setting.\n+optional",
       "$ref": "#/definitions/v1.FeatureState"
      },
      "ipi": {
@@ -4476,7 +4476,7 @@
       "$ref": "#/definitions/v1.FeatureState"
      },
      "reenlightenment": {
-      "description": "Reenlightenment improve Hyper-V on KVM (TSC clock source)\nDefaults to the machine type setting.\n+optional",
+      "description": "Reenlightenment improve Hyper-V on KVM (TSC clock source).\nDefaults to the machine type setting.\n+optional",
       "$ref": "#/definitions/v1.FeatureState"
      },
      "relaxed": {

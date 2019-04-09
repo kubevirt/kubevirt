@@ -797,11 +797,11 @@ type FeatureHyperv struct {
 	// Defaults to the machine type setting.
 	// +optional
 	VendorID *FeatureVendorID `json:"vendorid,omitempty"`
-	// Frequencies improve Hyper-V on KVM (TSC clock source)
+	// Frequencies improve Hyper-V on KVM (TSC clock source).
 	// Defaults to the machine type setting.
 	// +optional
 	Frequencies *FeatureState `json:"frequencies,omitempty"`
-	// Reenlightenment improve Hyper-V on KVM (TSC clock source)
+	// Reenlightenment improve Hyper-V on KVM (TSC clock source).
 	// Defaults to the machine type setting.
 	// +optional
 	Reenlightenment *FeatureState `json:"reenlightenment,omitempty"`
@@ -813,7 +813,7 @@ type FeatureHyperv struct {
 	// Defaults to the machine type setting.
 	// +optional
 	IPI *FeatureState `json:"ipi,omitempty"`
-	// EVMCS Speeds up L2 vmexits, but disables other virtualization features. Requires vapic
+	// EVMCS Speeds up L2 vmexits, but disables other virtualization features. Requires vapic.
 	// Defaults to the machine type setting.
 	// +optional
 	EVMCS *FeatureState `json:"evmcs,omitempty"`

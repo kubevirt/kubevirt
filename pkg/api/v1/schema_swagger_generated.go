@@ -376,11 +376,11 @@ func (FeatureHyperv) SwaggerDoc() map[string]string {
 		"synictimer":      "SyNICTimer enable Synthetic Interrupt Controller timer.\nDefaults to the machine type setting.\n+optional",
 		"reset":           "Reset enables Hyperv reboot/reset for the vmi. Requires synic.\nDefaults to the machine type setting.\n+optional",
 		"vendorid":        "VendorID allows setting the hypervisor vendor id.\nDefaults to the machine type setting.\n+optional",
-		"frequencies":     "Frequencies improve Hyper-V on KVM (TSC clock source)\nDefaults to the machine type setting.\n+optional",
-		"reenlightenment": "Reenlightenment improve Hyper-V on KVM (TSC clock source)\nDefaults to the machine type setting.\n+optional",
+		"frequencies":     "Frequencies improve Hyper-V on KVM (TSC clock source).\nDefaults to the machine type setting.\n+optional",
+		"reenlightenment": "Reenlightenment improve Hyper-V on KVM (TSC clock source).\nDefaults to the machine type setting.\n+optional",
 		"tlbflush":        "TLBFlush improves performances in overcommited environments. Requires vpindex.\nDefaults to the machine type setting.\n+optional",
 		"ipi":             "IPI improves performances in overcommited environments. Requires vpindex.\nDefaults to the machine type setting.\n+optional",
-		"evmcs":           "EVMCS Speeds up L2 vmexits, but disables other virtualization features. Requires vapic\nDefaults to the machine type setting.\n+optional",
+		"evmcs":           "EVMCS Speeds up L2 vmexits, but disables other virtualization features. Requires vapic.\nDefaults to the machine type setting.\n+optional",
 	}
 }
 

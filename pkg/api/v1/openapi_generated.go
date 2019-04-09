@@ -995,13 +995,13 @@ func schema_kubevirt_pkg_api_v1_FeatureHyperv(ref common.ReferenceCallback) comm
 					},
 					"frequencies": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Frequencies improve Hyper-V on KVM (TSC clock source) Defaults to the machine type setting.",
+							Description: "Frequencies improve Hyper-V on KVM (TSC clock source). Defaults to the machine type setting.",
 							Ref:         ref("kubevirt.io/kubevirt/pkg/api/v1.FeatureState"),
 						},
 					},
 					"reenlightenment": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Reenlightenment improve Hyper-V on KVM (TSC clock source) Defaults to the machine type setting.",
+							Description: "Reenlightenment improve Hyper-V on KVM (TSC clock source). Defaults to the machine type setting.",
 							Ref:         ref("kubevirt.io/kubevirt/pkg/api/v1.FeatureState"),
 						},
 					},
@@ -1019,7 +1019,7 @@ func schema_kubevirt_pkg_api_v1_FeatureHyperv(ref common.ReferenceCallback) comm
 					},
 					"evmcs": {
 						SchemaProps: spec.SchemaProps{
-							Description: "EVMCS Speeds up L2 vmexits, but disables other virtualization features. Requires vapic Defaults to the machine type setting.",
+							Description: "EVMCS Speeds up L2 vmexits, but disables other virtualization features. Requires vapic. Defaults to the machine type setting.",
 							Ref:         ref("kubevirt.io/kubevirt/pkg/api/v1.FeatureState"),
 						},
 					},
