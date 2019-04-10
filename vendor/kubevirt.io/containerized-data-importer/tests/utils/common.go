@@ -2,6 +2,10 @@ package utils
 
 // cdi-file-host pod/service relative values
 const (
+	//RegistryHostName provides a deploymnet and service name for registry
+	RegistryHostName = "cdi-docker-registry-host"
+	// RegistryHostNs provides a deployment ans service namespace for tests
+	RegistryHostNs = "cdi"
 	// FileHostName provides a deployment and service name for tests
 	FileHostName = "cdi-file-host"
 	// FileHostNs provides a deployment ans service namespace for tests
@@ -16,6 +20,14 @@ const (
 	HTTPAuthPort = 81
 	// HttpNoAuthPort provides a cdi-file-host service no-auth port for tests, requires AccessKeyValue and SecretKeyValue
 	HTTPNoAuthPort = 80
+	// HTTPRateLimitPort provides a cdi-file-host service rate limit port for tests, speed is limited to 25k/s to allow for testing slow connection behavior. No auth.
+	HTTPRateLimitPort = 82
 	// S3Port provides a cdi-file-host service S3 port, requires AccessKey and SecretKeyValue
 	S3Port = 9000
+	// HTTPSPort is the https port of cdi-file-host
+	HTTPSNoAuthPort = 443
+	// RegistryCertConfigMap is the ConfigMap where the cert for the docker registry is stored
+	RegistryCertConfigMap = "cdi-docker-registry-host-certs"
+	// FileHostCertConfigMap is the ConfigMap where the cert fir the file host is stored
+	FileHostCertConfigMap = "cdi-file-host-certs"
 )

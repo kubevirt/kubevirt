@@ -1,14 +1,13 @@
 package utils
 
 import (
-	"github.com/golang/glog"
 	"github.com/pkg/errors"
-
 	"k8s.io/api/core/v1"
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes"
+	"k8s.io/klog"
 )
 
 // GetServiceInNamespaceOrDie attempts to get the service in namespace `ns` by `name`.  Returns pointer to service on
@@ -16,7 +15,7 @@ import (
 func GetServiceInNamespaceOrDie(c *kubernetes.Clientset, ns, name string) *v1.Service {
 	svc, err := GetServiceInNamespace(c, ns, name)
 	if err != nil || svc == nil {
-		glog.Fatal(err)
+		klog.Fatal(err)
 	}
 	return svc
 }
@@ -36,7 +35,7 @@ func GetServiceInNamespace(c *kubernetes.Clientset, ns, name string) (*v1.Servic
 			return false, errors.Wrap(err, "Service not found")
 		}
 		// log non-fatal errors
-		glog.Error(errors.Wrapf(err, "Encountered non-fatal error getting service \"%s/%s\". retrying", ns, name))
+		klog.Error(errors.Wrapf(err, "Encountered non-fatal error getting service \"%s/%s\". retrying", ns, name))
 		return false, nil
 	})
 	return svc, err
@@ -55,7 +54,7 @@ func GetServicesInNamespaceByLabel(c *kubernetes.Clientset, ns, labelSelector st
 			return true, nil
 		}
 		// log non-fatal errors
-		glog.Error(errors.Wrapf(err, "Encountered non-fatal error getting service list in namespace %s", ns))
+		klog.Error(errors.Wrapf(err, "Encountered non-fatal error getting service list in namespace %s", ns))
 		return false, nil
 	})
 	return svcList, err

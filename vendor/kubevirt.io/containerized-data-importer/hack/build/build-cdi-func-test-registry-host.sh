@@ -22,18 +22,17 @@ source "${script_dir}"/config.sh
 
 REGISTRY_INIT_PATH="tools/${FUNC_TEST_REGISTRY_INIT}"
 
-${BUILD_DIR}/build-copy-artifacts.sh "${REGISTRY_INIT_PATH}"
-
 OUT_PATH="${OUT_DIR}/tools"
 
-mkdir -p   "${OUT_PATH}/${FUNC_TEST_REGISTRY}"
-mkdir -p   "${OUT_PATH}/${FUNC_TEST_REGISTRY_POPULATE}"
-mkdir -p   "${OUT_PATH}/${FUNC_TEST_REGISTRY_INIT}"
+mkdir -p "${OUT_PATH}/${FUNC_TEST_REGISTRY}"
+mkdir -p "${OUT_PATH}/${FUNC_TEST_REGISTRY_POPULATE}"
+mkdir -p "${OUT_PATH}/${FUNC_TEST_REGISTRY_INIT}"
 
 DOCKER_REPO=""
+
+${BUILD_DIR}/build-copy-artifacts.sh "${REGISTRY_INIT_PATH}"
 
 cp ${BUILD_DIR}/docker/${FUNC_TEST_REGISTRY}/* ${OUT_PATH}/${FUNC_TEST_REGISTRY}/
 cp ${BUILD_DIR}/docker/${FUNC_TEST_REGISTRY_POPULATE}/* ${OUT_PATH}/${FUNC_TEST_REGISTRY_POPULATE}/
 cp -r ${BUILD_DIR}/docker/${FUNC_TEST_REGISTRY_INIT}/* ${OUT_PATH}/${FUNC_TEST_REGISTRY_INIT}/
 cp "${CDI_DIR}/tests/images/tinyCore.iso" ${OUT_PATH}/${FUNC_TEST_REGISTRY_INIT}/
-

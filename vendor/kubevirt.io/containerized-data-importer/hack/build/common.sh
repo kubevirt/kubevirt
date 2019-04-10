@@ -13,6 +13,7 @@
 #limitations under the License.
 
 CDI_DIR="$(readlink -f $(dirname $0)/../../)"
+CDI_GO_PACKAGE=kubevirt.io/containerized-data-importer
 BIN_DIR=${CDI_DIR}/bin
 OUT_DIR=${CDI_DIR}/_out
 CMD_OUT_DIR=${OUT_DIR}/cmd

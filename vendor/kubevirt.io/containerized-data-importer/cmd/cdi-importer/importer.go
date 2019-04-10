@@ -16,75 +16,102 @@ import (
 	"flag"
 	"io/ioutil"
 	"os"
-
-	"github.com/golang/glog"
+	"strconv"
 
 	"k8s.io/apimachinery/pkg/api/resource"
+	"k8s.io/klog"
 	cdiv1 "kubevirt.io/containerized-data-importer/pkg/apis/core/v1alpha1"
 	"kubevirt.io/containerized-data-importer/pkg/common"
 	"kubevirt.io/containerized-data-importer/pkg/controller"
 	"kubevirt.io/containerized-data-importer/pkg/image"
 	"kubevirt.io/containerized-data-importer/pkg/importer"
 	"kubevirt.io/containerized-data-importer/pkg/util"
+	prometheusutil "kubevirt.io/containerized-data-importer/pkg/util/prometheus"
 )
 
 func init() {
 	flag.Parse()
+	klogFlags := flag.NewFlagSet("klog", flag.ExitOnError)
+	klog.InitFlags(klogFlags)
+	flag.CommandLine.VisitAll(func(f1 *flag.Flag) {
+		f2 := klogFlags.Lookup(f1.Name)
+		if f2 != nil {
+			value := f1.Value.String()
+			f2.Value.Set(value)
+		}
+	})
 }
 
 func main() {
-	defer glog.Flush()
+	defer klog.Flush()
 
 	certsDirectory, err := ioutil.TempDir("", "certsdir")
 	if err != nil {
 		panic(err)
 	}
 	defer os.RemoveAll(certsDirectory)
-	util.StartPrometheusEndpoint(certsDirectory)
+	prometheusutil.StartPrometheusEndpoint(certsDirectory)
 
-	glog.V(1).Infoln("Starting importer")
+	klog.V(1).Infoln("Starting importer")
 	ep, _ := util.ParseEnvVar(common.ImporterEndpoint, false)
 	acc, _ := util.ParseEnvVar(common.ImporterAccessKeyID, false)
 	sec, _ := util.ParseEnvVar(common.ImporterSecretKey, false)
 	source, _ := util.ParseEnvVar(common.ImporterSource, false)
 	contentType, _ := util.ParseEnvVar(common.ImporterContentType, false)
 	imageSize, _ := util.ParseEnvVar(common.ImporterImageSize, false)
+	certDir, _ := util.ParseEnvVar(common.ImporterCertDirVar, false)
+	insecureTLS, _ := strconv.ParseBool(os.Getenv(common.InsecureTLSVar))
 
-	dest := common.ImporterWritePath
-	if contentType == string(cdiv1.DataVolumeArchive) || source == controller.SourceRegistry {
-		dest = common.ImporterVolumePath
+	//Registry import currently support only kubevirt content type
+	if contentType != string(cdiv1.DataVolumeKubeVirt) && source == controller.SourceRegistry {
+		klog.Errorf("Unsupported content type %s when importing from registry", contentType)
+		os.Exit(1)
 	}
 
-	glog.V(1).Infoln("begin import process")
+	dest := common.ImporterWritePath
+	if contentType == string(cdiv1.DataVolumeArchive) {
+		dest = common.ImporterVolumePath
+	}
+	dataDir := common.ImporterDataDir
+
+	klog.V(1).Infoln("begin import process")
 	dso := &importer.DataStreamOptions{
-		dest,
-		ep,
-		acc,
-		sec,
-		source,
-		contentType,
-		imageSize,
+		Dest:               dest,
+		DataDir:            dataDir,
+		Endpoint:           ep,
+		AccessKey:          acc,
+		SecKey:             sec,
+		Source:             source,
+		ContentType:        contentType,
+		ImageSize:          imageSize,
+		AvailableDestSpace: util.GetAvailableSpace(common.ImporterVolumePath),
+		CertDir:            certDir,
+		InsecureTLS:        insecureTLS,
+		ScratchDataDir:     common.ScratchDataDir,
 	}
 
 	if source == controller.SourceNone && contentType == string(cdiv1.DataVolumeKubeVirt) {
 		requestImageSizeQuantity := resource.MustParse(imageSize)
-		minSizeQuantity := util.MinQuantity(resource.NewScaledQuantity(util.GetAvailableSpace(common.ImporterVolumePath), 0), &requestImageSizeQuantity)
+		minSizeQuantity := util.MinQuantity(resource.NewScaledQuantity(dso.AvailableDestSpace, 0), &requestImageSizeQuantity)
 		if minSizeQuantity.Cmp(requestImageSizeQuantity) != 0 {
 			// Available dest space is smaller than the size we want to create
-			glog.Warningf("Available space less than requested size, creating blank image sized to available space: %s.\n", minSizeQuantity.String())
+			klog.Warningf("Available space less than requested size, creating blank image sized to available space: %s.\n", minSizeQuantity.String())
 		}
 		err := image.CreateBlankImage(common.ImporterWritePath, minSizeQuantity)
 		if err != nil {
-			glog.Errorf("%+v", err)
+			klog.Errorf("%+v", err)
 			os.Exit(1)
 		}
 	} else {
-		glog.V(1).Infoln("begin import process")
+		klog.V(1).Infoln("begin import process")
 		err = importer.CopyData(dso)
 		if err != nil {
-			glog.Errorf("%+v", err)
+			klog.Errorf("%+v", err)
+			if err == importer.ErrRequiresScratchSpace {
+				os.Exit(common.ScratchSpaceNeededExitCode)
+			}
 			os.Exit(1)
 		}
 	}
-	glog.V(1).Infoln("import complete")
+	klog.V(1).Infoln("import complete")
 }

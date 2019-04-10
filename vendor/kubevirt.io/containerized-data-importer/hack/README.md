@@ -35,41 +35,71 @@ The standard workflow is performed inside a helper container to normalize the bu
 #### Make Targets
 
 - `all`: cleans up previous build artifacts, compiles all CDI packages and builds containers
-- `clean`: cleans up previous build artifacts
+- `apidocs`: generate client-go code (same as 'make generate') and swagger docs.  
 - `build`: compile all CDI binary artifacts and generate controller manifest
     - `build-controller`: compile cdi-controller binary
     - `build-importer`: compile cdi-importer binary
+    - `build-apiserver`: compile cdi-apiserver binary
+    - `build-uploadproxy`: compile cdi-uploadproxy binary
+    - `build-uploadserver`: compile cdi-uploadserver binary
+    - `build-operator`: compile cdi-operator binary
     - No `build-cloner` target exists as the code is written in bash
-- `test`: execute all tests (_NOTE:_ `WHAT` is expected to match the go cli pattern for paths e.g. `./pkg/...`.  This differs slightly from rest of the `make` targets)
-    - `test-unit`: execute all tests under `./pkg/...`
-    - `test-functional`: execute functional tests under `./tests/...`. Additional test flags can be passed to the test binary via the TEST_ARGS variable, see below for an example and restrictions.
-    - `test-lint` runs `gofmt` and `golint` tests against src files
-- `build-functest-image-init`: build the init container for the testing file server. (NOTE: the http and s3 components contain no CDI code, so do no require a build)
-- `build-functest-image-http` build the http container for the testing file server
+- `build-functest-file-image-init`: build the init container for the testing file server. (NOTE: the http and s3 components contain no CDI code, so do no require a build)
+- `build-functest-image-http`: build the http container for the testing file server
+- `build-functest-registry-init`: build the init container for the testing docker registry server
+- `docker-functest-registry-populate`: build the container that popuplates registry server with various container images 
+- `docker-functest-registry`: build the container that hosts docker registry
+- `clean`: cleans up previous build artifacts
+- `cluster-up`: start a default Kubernetes or Open Shift cluster. set KUBEVIRT_PROVIDER environment variable to either 'k8s-1.11.0' or 'os-3.11.0' to select the type of cluster. set KUBEVIRT_NUM_NODES to something higher than 1 to have more than one node.
+- `cluster-down`: stop the cluster, doing a make cluster-down && make cluster-up will basically restart the cluster into an empty fresh state.
+- `cluster-down-purge`: cluster-down and cleanup all cached images from docker registry. Accepts [make variables](#make-variables) DOCKER_REPO. Removes all images of the specified repository. If not specified removes localhost repository of current cluster instance.
+- `cluster-sync`: builds the controller/importer/cloner, and pushes it into a running cluster. The cluster must be up before running a cluster sync. Also generates a manifest and applies it to the running cluster after pushing the images to it.
+    - `cluster-sync-controller`: builds the controller and pushes it into a running cluster. 
+    - `cluster-sync-importer`: builds the importer and pushes it into a running cluster.
+    - `cluster-sync-cloner`: builds the cloner and pushes it into a running cluster.
+    - `cluster-sync-apiserver`: builds the apiserver and pushes it into a running cluster.
+    - `cluster-sync-uploadproxy`: builds the uploadproxy and pushes it into a running cluster.
+    - `cluster-sync-uploadserver`: builds the uploadserver and pushes it into a running cluster.
+    - `cluster-sync-operator`: builds the operator and pushes it into a running cluster.
+- `deps-update`: runs 'glide cc' and 'glide update'
 - `docker`: compile all binaries and build all containerized
     - `docker-controller`: compile cdi-controller and build cdi-controller image
     - `docker-importer`: compile cdi-importer and build cdi-importer image
     - `docker-cloner`: build the cdi-cloner image (cloner is driven by a shell script, not a binary)
-    - `docker-functest-image`: Compile and build the file host image for functional tests
-        - `docker-functest-image-init`: Compile and build the file host init image for functional tests
-        - `docker-functest-image-http`: Only build the file host http container for functional tests
-        - `docker-functest-registry-init`:Compile and build the registry init image for functional testa
-        - `docker-functest-registry-populate`: Only build registry-populate container for functional tests
-        - `docker-functest-registry`: Only build docker-registry container for functional tests
+    - `docker-apiserver`: compile cdi-apiserver and build cdi-apiserver image
+    - `docker-uploadproxy`: compile cdi-uploadproxy and build cdi-uploadproxy image
+    - `docker-uploadserver`: compile cdi-uploadserver and build cdi-uploadserver image
+    - `docker-operator`: compile cdi-operator and build cdi-operator image
+    - `docker-registry-cleanup`: remove all images of specifed repo from local docker registry. if not specified removes from localhost repo of current cluster instance. Accepts [make variables](#make-variables) DOCKER_REPO.  
+    - `docker-functest-images`: compile and build the file host and docker registry images for functional tests
+        - `docker-functest-image-init`: compile and build the file host init image for functional tests
+        - `docker-functest-image-http`: only build the file host http container for functional tests
+        - `docker-functest-registry-init`:compile and build the registry init image for functional tests
+        - `docker-functest-registry-populate`: only build registry-populate container for functional tests
+        - `docker-functest-registry`: only build docker-registry container for functional tests
         - Note: there is no target for the S3 container, an offical Minio container is used instead
-- `manifests`: Generate a cdi-controller manifest in `manifests/generated/`.  Accepts [make variables](#make-variables) DOCKER_TAG, DOCKER_REPO, VERBOSITY, and PULL_POLICY
+- `format`: execute `shfmt`, `goimports`, and `go vet` on all CDI packages.  Writes back to the source files.
+- `generate`: generate client-go deepcopy functions, clientset, listers and informers.
+- `generate-verify`: generate client-go deepcopy functions, clientset, listers and informers and validate codegen.
+- `goveralls`: run code coverage tracking system.
+- `manifests`: generate a cdi-controller manifest in `manifests/generated/`.  Accepts [make variables](#make-variables) DOCKER_TAG, DOCKER_REPO, VERBOSITY, and PULL_POLICY
+- `publish`: CI ONLY - this recipe is not intended for use by developers
 - `push`: compiles, builds, and pushes to the repo passed in `DOCKER_REPO=<my repo>`
     - `push-controller`: compile, build, and push cdi-controller
     - `push-importer`: compile, build, and push cdi-importer
     - `push-cloner`: compile, build, and push cdi-cloner
-- `vet`: lint all CDI packages
-- `format`: Execute `shfmt`, `goimports`, and `go vet` on all CDI packages.  Writes back to the source files.
-- `publish`: CI ONLY - this recipe is not intended for use by developers
-- `cluster-up`: Start a default Kubernetes or Open Shift cluster. set KUBEVIRT_PROVIDER environment variable to either 'k8s-1.11.0' or 'os-3.11.0' to select the type of cluster. set KUBEVIRT_NUM_NODES to something higher than 1 to have more than one node.
-- `cluster-down`: Stop the cluster, doing a make cluster-down && make cluster-up will basically restart the cluster into an empty fresh state.
-- `cluster-sync`: Builds the controller/importer/cloner, and pushes it into a running cluster. The cluster must be up before running a cluster sync. Also generates a manifest and applies it to the running cluster after pushing the images to it.
-- `release-description`: Generate a release announcement detailing changes between 2 commits (typically tags).  Expects `RELREF` and `PREREF` to be set
+    - `push-apiserver`: compile, build, and push cdi-apiserver
+    - `push-uploadproxy`: compile, build, and push cdi-uploadproxy
+    - `push-uploadserver`: compile, build, and push cdi-uploadserver
+    - `push-operator`: compile, build, and push cdi-operator
+- `release-description`: generate a release announcement detailing changes between 2 commits (typically tags).  Expects `RELREF` and `PREREF` to be set
     -  e.g. `$ make release-description RELREF=v1.1.1 PREREF=v1.1.1-alpha.1`
+- `test`: execute all tests (_NOTE:_ `WHAT` is expected to match the go cli pattern for paths e.g. `./pkg/...`.  This differs slightly from rest of the `make` targets)
+    - `test-unit`: execute all tests under `./pkg/...`
+    - `test-functional`: execute functional tests under `./tests/...`. Additional test flags can be passed to the test binary via the TEST_ARGS variable, see below for an example and restrictions.
+    - `test-lint` runs `gofmt` and `golint` tests against src files
+- `vet`: lint all CDI packages
+
 
 #### Make Variables
 
@@ -125,6 +155,11 @@ Clean Up
  # make cluster-down
 ```
 
+Clean Up with docker container cache cleanup
+To cleanup all container images from local registry and to free a considerable amount of disk space. Note: caveat - cluser-sync will take longer since will have to fetch all the data again 
+```
+ # make cluster-down-purge
+``` 
 #### Execute Alternative Environment Functional Tests
 
 If running in a non-standard environment such as Mac or Cloud where the *kubevirtci framework* is
@@ -138,7 +173,7 @@ not supported, then you can use the following example to run Functional Tests.
 
    - To generate latest manifests
    ```
-   # make manifests
+   # make manifests 
    ```
    *To customize environment variables see [make targets](#make-targets)*
 
@@ -153,12 +188,25 @@ not supported, then you can use the following example to run Functional Tests.
      customresourcedefinition.apiextensions.k8s.io/datavolumes.cdi.kubevirt.io created
    ```
 
-4. Run the host-file-server
-
-   - host-file-server is required by the functional tests and provides an
+4. Build and run the func test servers
+   In order to run fucntional tests the below servers have to be run
+   - *host-file-server* is required by the functional tests and provides an
      endpoint server for image files and s3 buckets
+   - *registry-server* is required by the functional tests and provides an endpoint server for container images.
+
+
+   Build and Push to registry 
    ```
-   # make docker-functest-image
+   # DOCKER_REPO=<repo> DOCKER_TAG=<tag> make docker-functest-images
+   ```
+   Generate manifests
+   ```
+   # DOCKER_REPO=<repo> DOCKER_TAG=<tag> make manifests 
+   ```
+   Run servers
+   ```
+   # ./cluster/kubectl.sh apply -f ./manifests/generated/file-host.yaml
+   # ./cluster/kubectl.sh apply -f ./manifests/generated/registry-host.yaml
    ```
 
 5. Run the tests

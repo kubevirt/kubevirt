@@ -5,7 +5,7 @@ language: go
 go_import_path: kubevirt.io/containerized-data-importer
 
 go:
-- 1.10.x
+- 1.11.5
 
 services:
 - docker
@@ -26,6 +26,7 @@ install:
   - make generate-verify
   - make docker
   - make manifests
+  - make apidocs
 
 before_script:
 
@@ -67,16 +68,18 @@ deploy:
   skip_cleanup: true
   file_glob: true
   file:
-  - _out/cmd/cdi-controller/cdi-controller
-  - _out/cmd/cdi-importer/cdi-importer
-  - _out/cmd/cdi-cloner/cloner_startup.sh
-  - manifests/generated/cdi-controller.yaml
-  - manifests/generated/cdi-controller.yaml.j2
+  - _out/cmd/cdi-controller/*
+  - _out/cmd/cdi-importer/*
+  - _out/cmd/cdi-apiserver/*
+  - _out/cmd/cdi-cloner/*
+  - _out/cmd/cdi-operator/*
+  - _out/cmd/cdi-uploadproxy/*
+  - _out/cmd/cdi-uploadserver/*
+  - manifests/generated/*.yaml
+  - manifests/generated/*.yaml.j2
   - manifests/example/*
-# need github token assigned to API_REFERENCE_PUSH_TOKEN
-# in order to enable the following
-#- provider: script
-#  skip_cleanup: true
-#  script: bash hack/gen-swagger-doc/deploy.sh
-#  on:
-#    tags: true
+- provider: script
+  skip_cleanup: true
+  script: bash hack/gen-swagger-doc/deploy.sh
+  on:
+    tags: true

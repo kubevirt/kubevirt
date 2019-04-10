@@ -51,17 +51,19 @@ func (DataVolumeSourceS3) SwaggerDoc() map[string]string {
 
 func (DataVolumeSourceRegistry) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"":          "DataVolumeSourceRegistry provides the parameters to create a Data Volume from an registry source",
-		"url":       "URL is the url of the Registry source",
-		"secretRef": "SecretRef provides the secret reference needed to access the Registry source",
+		"":              "DataVolumeSourceRegistry provides the parameters to create a Data Volume from an registry source",
+		"url":           "URL is the url of the Registry source",
+		"secretRef":     "SecretRef provides the secret reference needed to access the Registry source",
+		"certConfigMap": "CertConfigMap provides a reference to the Registry certs",
 	}
 }
 
 func (DataVolumeSourceHTTP) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"":          "DataVolumeSourceHTTP provides the parameters to create a Data Volume from an HTTP source",
-		"url":       "URL is the URL of the http source",
-		"secretRef": "SecretRef provides the secret reference needed to access the HTTP source",
+		"":              "DataVolumeSourceHTTP provides the parameters to create a Data Volume from an HTTP source",
+		"url":           "URL is the URL of the http source",
+		"secretRef":     "SecretRef provides the secret reference needed to access the HTTP source",
+		"certConfigMap": "CertConfigMap provides a reference to the Registry certs",
 	}
 }
 
@@ -107,5 +109,30 @@ func (CDIList) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"":      "CDIList provides the needed parameters to do request a list of CDIs from the system\n+k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object",
 		"items": "Items provides a list of CDIs",
+	}
+}
+
+func (CDIConfig) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"": "CDIConfig provides a user configuration for CDI\n+genclient\n+k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object",
+	}
+}
+
+func (CDIConfigSpec) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"": "CDIConfigSpec defines specification for user configuration",
+	}
+}
+
+func (CDIConfigStatus) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"": "CDIConfigStatus provides",
+	}
+}
+
+func (CDIConfigList) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"":      "CDIConfigList provides the needed parameters to do request a list of CDIConfigs from the system\n+k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object",
+		"items": "Items provides a list of CDIConfigs",
 	}
 }

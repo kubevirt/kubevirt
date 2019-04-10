@@ -1,3 +1,4 @@
+# This example assumes you are using a default storage class
 apiVersion: cdi.kubevirt.io/v1alpha1
 kind: DataVolume
 metadata:
@@ -6,8 +7,6 @@ spec:
   source:
       upload: {}
   pvc:
-    #the storageClassName is optional, if missing we use the default storage class.
-    #storageClassName: "hostpath"
     accessModes:
       - ReadWriteOnce
     resources:

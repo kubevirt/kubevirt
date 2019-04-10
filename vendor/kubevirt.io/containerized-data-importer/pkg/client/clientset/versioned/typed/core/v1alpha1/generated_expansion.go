@@ -20,4 +20,6 @@ package v1alpha1
 
 type CDIExpansion interface{}
 
+type CDIConfigExpansion interface{}
+
 type DataVolumeExpansion interface{}

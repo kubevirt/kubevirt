@@ -7,9 +7,10 @@ go_library(
     importpath = "kubevirt.io/containerized-data-importer/tools/cdi-func-test-file-host-init",
     visibility = ["//visibility:private"],
     deps = [
+        "//vendor/kubevirt.io/containerized-data-importer/pkg/util:go_default_library",
         "//vendor/kubevirt.io/containerized-data-importer/tests/utils:go_default_library",
-        "@com_github_golang_glog//:go_default_library",
         "@com_github_pkg_errors//:go_default_library",
+        "@io_k8s_klog//:go_default_library",
     ],
 )
 

@@ -9,7 +9,7 @@ go_library(
     deps = [
         "//vendor/kubevirt.io/containerized-data-importer/pkg/common:go_default_library",
         "//vendor/kubevirt.io/containerized-data-importer/pkg/uploadserver:go_default_library",
-        "@com_github_golang_glog//:go_default_library",
+        "@io_k8s_klog//:go_default_library",
     ],
 )
 

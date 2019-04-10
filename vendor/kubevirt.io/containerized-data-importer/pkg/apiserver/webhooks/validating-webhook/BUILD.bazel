@@ -2,16 +2,21 @@ load("@io_bazel_rules_go//go:def.bzl", "go_library")
 
 go_library(
     name = "go_default_library",
-    srcs = ["validating-webhook.go"],
+    srcs = [
+        "util.go",
+        "validating-webhook.go",
+    ],
     importmap = "kubevirt.io/kubevirt/vendor/kubevirt.io/containerized-data-importer/pkg/apiserver/webhooks/validating-webhook",
     importpath = "kubevirt.io/containerized-data-importer/pkg/apiserver/webhooks/validating-webhook",
     visibility = ["//visibility:public"],
     deps = [
         "//vendor/k8s.io/api/admission/v1beta1:go_default_library",
+        "//vendor/k8s.io/apimachinery/pkg/api/errors:go_default_library",
         "//vendor/k8s.io/apimachinery/pkg/apis/meta/v1:go_default_library",
         "//vendor/k8s.io/apimachinery/pkg/runtime:go_default_library",
         "//vendor/k8s.io/apimachinery/pkg/util/validation/field:go_default_library",
+        "//vendor/k8s.io/client-go/kubernetes:go_default_library",
         "//vendor/kubevirt.io/containerized-data-importer/pkg/apis/core/v1alpha1:go_default_library",
-        "@com_github_golang_glog//:go_default_library",
+        "@io_k8s_klog//:go_default_library",
     ],
 )

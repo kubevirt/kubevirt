@@ -1,6 +1,6 @@
 package: kubevirt.io/containerized-data-importer
 import:
-- package: github.com/golang/glog
+- package: k8s.io/klog
 - package: github.com/gorilla/mux
   version: ^1.6.1
 - package: github.com/minio/minio-go
@@ -35,4 +35,6 @@ import:
 - package: github.com/kelseyhightower/envconfig
   version: ^v1.3.0
 - package: github.com/openshift/api
+  version: release-3.11
+- package: github.com/openshift/client-go
   version: release-3.11

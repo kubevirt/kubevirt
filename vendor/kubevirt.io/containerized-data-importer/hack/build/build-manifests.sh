@@ -60,6 +60,15 @@ for tmpl in ${templates}; do
     ) 1>"${MANIFEST_GENERATED_DIR}/${outFile}.j2"
 done
 
+cat > "${MANIFEST_GENERATED_DIR}/cdi-controller.yaml" << EOF
+apiVersion: v1
+kind: Namespace
+metadata:
+  labels:
+    cdi.kubevirt.io: ""
+  name: cdi
+EOF
+
 (${generator} -code-group=everything \
     -docker-repo="${DOCKER_REPO}" \
     -docker-tag="${DOCKER_TAG}" \
@@ -72,7 +81,16 @@ done
     -verbosity="${VERBOSITY}" \
     -pull-policy="${PULL_POLICY}" \
     -namespace="${NAMESPACE}"
-) 1>"${MANIFEST_GENERATED_DIR}/cdi-controller.yaml"
+) 1>>"${MANIFEST_GENERATED_DIR}/cdi-controller.yaml"
+
+cat > "${MANIFEST_GENERATED_DIR}/cdi-controller.yaml.j2" << EOF
+apiVersion: v1
+kind: Namespace
+metadata:
+  labels:
+    cdi.kubevirt.io: ""
+  name: {{ cdi_namespace }}
+EOF
 
 (${generator} -code-group=everything \
     -docker-repo="{{ docker_prefix }}" \
@@ -86,7 +104,7 @@ done
     -verbosity="{{ verbosity }}" \
     -pull-policy="{{ pull_policy }}" \
     -namespace="{{ cdi_namespace }}"
-) 1>"${MANIFEST_GENERATED_DIR}/cdi-controller.yaml.j2"
+) 1>>"${MANIFEST_GENERATED_DIR}/cdi-controller.yaml.j2"
 
 # Remove empty lines at the end of files which are added by go templating
 find ${MANIFEST_GENERATED_DIR}/ -type f -exec sed -i {} -e '${/^$/d;}' \;

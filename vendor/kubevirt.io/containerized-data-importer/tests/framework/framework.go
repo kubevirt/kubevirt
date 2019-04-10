@@ -7,8 +7,6 @@ import (
 
 	"github.com/onsi/ginkgo"
 	"github.com/onsi/gomega"
-
-	"github.com/golang/glog"
 	"github.com/pkg/errors"
 	v1 "k8s.io/api/core/v1"
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
@@ -21,7 +19,7 @@ import (
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
-
+	"k8s.io/klog"
 	cdiClientset "kubevirt.io/containerized-data-importer/pkg/client/clientset/versioned"
 	"kubevirt.io/containerized-data-importer/pkg/common"
 	"kubevirt.io/containerized-data-importer/tests/utils"
@@ -133,6 +131,16 @@ func NewFramework(prefix string, config Config) (*Framework, error) {
 	// handle run-time flags
 	if !flag.Parsed() {
 		flag.Parse()
+		klogFlags := flag.NewFlagSet("klog", flag.ExitOnError)
+		klog.InitFlags(klogFlags)
+		flag.CommandLine.VisitAll(func(f1 *flag.Flag) {
+			f2 := klogFlags.Lookup(f1.Name)
+			if f2 != nil {
+				value := f1.Value.String()
+				f2.Value.Set(value)
+			}
+		})
+
 		fmt.Fprintf(ginkgo.GinkgoWriter, "** Test flags:\n")
 		flag.Visit(func(f *flag.Flag) {
 			fmt.Fprintf(ginkgo.GinkgoWriter, "   %s = %q\n", f.Name, f.Value.String())
@@ -233,7 +241,7 @@ func (f *Framework) CreateNamespace(prefix string, labels map[string]string) (*v
 		if err == nil || apierrs.IsAlreadyExists(err) {
 			return true, nil // done
 		}
-		glog.Warningf("Unexpected error while creating %q namespace: %v", ns.GenerateName, err)
+		klog.Warningf("Unexpected error while creating %q namespace: %v", ns.GenerateName, err)
 		return false, err // keep trying
 	})
 	if err != nil {
@@ -254,7 +262,7 @@ func DeleteNS(c *kubernetes.Clientset, ns string) error {
 	return wait.PollImmediate(2*time.Second, nsDeleteTime, func() (bool, error) {
 		err := c.CoreV1().Namespaces().Delete(ns, nil)
 		if err != nil && !apierrs.IsNotFound(err) {
-			glog.Warningf("namespace %q Delete api err: %v", ns, err)
+			klog.Warningf("namespace %q Delete api err: %v", ns, err)
 			return false, nil // keep trying
 		}
 		// see if ns is really deleted
@@ -263,7 +271,7 @@ func DeleteNS(c *kubernetes.Clientset, ns string) error {
 			return true, nil // deleted, done
 		}
 		if err != nil {
-			glog.Warningf("namespace %q Get api error: %v", ns, err)
+			klog.Warningf("namespace %q Get api error: %v", ns, err)
 		}
 		return false, nil // keep trying
 	})
@@ -316,7 +324,7 @@ func (f *Framework) CreatePrometheusServiceInNs(namespace string) (*v1.Service, 
 			Ports: []v1.ServicePort{
 				{
 					Name: "metrics",
-					Port: 443,
+					Port: 8443,
 					TargetPort: intstr.IntOrString{
 						StrVal: "metrics",
 					},

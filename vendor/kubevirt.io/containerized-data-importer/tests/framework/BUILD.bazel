@@ -31,7 +31,7 @@ go_library(
         "//vendor/kubevirt.io/containerized-data-importer/pkg/common:go_default_library",
         "//vendor/kubevirt.io/containerized-data-importer/tests/utils:go_default_library",
         "//vendor/kubevirt.io/qe-tools/pkg/ginkgo-reporters:go_default_library",
-        "@com_github_golang_glog//:go_default_library",
         "@com_github_pkg_errors//:go_default_library",
+        "@io_k8s_klog//:go_default_library",
     ],
 )

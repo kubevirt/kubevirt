@@ -14,7 +14,8 @@
 #See the License for the specific language governing permissions and
 #limitations under the License.
 
-set +e
+# Keep the pipefail here, or the unit tests won't return an error when needed.
+set -eo pipefail
 
 source /etc/profile.d/gimme.sh
 

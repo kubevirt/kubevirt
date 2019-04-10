@@ -41,21 +41,17 @@ import (
 	"github.com/kelseyhightower/envconfig"
 
 	cdiv1alpha1 "kubevirt.io/containerized-data-importer/pkg/apis/core/v1alpha1"
+	"kubevirt.io/containerized-data-importer/pkg/operator"
 	cdicluster "kubevirt.io/containerized-data-importer/pkg/operator/resources/cluster"
 	cdinamespaced "kubevirt.io/containerized-data-importer/pkg/operator/resources/namespaced"
 	"kubevirt.io/containerized-data-importer/pkg/util"
 )
 
 const (
-	// ConfigMapName is the name of the CDI Operator config map
-	// used to determine which CDI instance is "active"
-	// and maybe other stuff someday
-	ConfigMapName = "cdi-config"
-
 	finalizerName = "operator.cdi.kubevirt.io"
 )
 
-var log = logf.Log.WithName("controler")
+var log = logf.Log.WithName("cdi-operator")
 
 // Add creates a new CDI Controller and adds it to the Manager. The Manager will set fields on the Controller
 // and Start it when the Manager is Started.
@@ -96,7 +92,7 @@ var _ reconcile.Reconciler = &ReconcileCDI{}
 
 // ReconcileCDI reconciles a CDI object
 type ReconcileCDI struct {
-	// This client, initialized using mgr.Client() above, is a split client
+	// This Client, initialized using mgr.client() above, is a split Client
 	// that reads objects from the cache and writes to the apiserver
 	client client.Client
 	scheme *runtime.Scheme
@@ -225,6 +221,10 @@ func (r *ReconcileCDI) reconcileUpdate(logger logr.Logger, cr *cdiv1alpha1.CDI) 
 				"name", desiredMetaObj.GetName(),
 				"type", fmt.Sprintf("%T", desiredMetaObj))
 		} else {
+			if !r.shouldUpdateObject(currentRuntimeObj) {
+				continue
+			}
+
 			currentMetaObj := currentRuntimeObj.(metav1.Object)
 
 			// allow users to add new annotations (but not change ours)
@@ -264,6 +264,15 @@ func (r *ReconcileCDI) reconcileUpdate(logger logr.Logger, cr *cdiv1alpha1.CDI) 
 	}
 
 	return reconcile.Result{}, nil
+}
+
+func (r *ReconcileCDI) shouldUpdateObject(obj runtime.Object) bool {
+	switch obj.(type) {
+	case *corev1.Secret:
+	case *corev1.ConfigMap:
+		return false
+	}
+	return true
 }
 
 // I hate that this function exists, but major refactoring required to make CDI CR the owner of all the things
@@ -361,6 +370,8 @@ func (r *ReconcileCDI) reconcileError(logger logr.Logger, cr *cdiv1alpha1.CDI) (
 }
 
 func (r *ReconcileCDI) checkReady(logger logr.Logger, cr *cdiv1alpha1.CDI) error {
+	readyCond := conditionReady
+
 	deployments, err := r.getAllDeployments(cr)
 	if err != nil {
 		return err
@@ -373,19 +384,22 @@ func (r *ReconcileCDI) checkReady(logger logr.Logger, cr *cdiv1alpha1.CDI) error
 			return err
 		}
 
-		if deployment.Status.Replicas != deployment.Status.ReadyReplicas {
-			if err = r.conditionRemove(cdiv1alpha1.CDIConditionRunning, cr); err != nil {
-				return err
-			}
+		desiredReplicas := deployment.Spec.Replicas
+		if desiredReplicas == nil {
+			one := int32(1)
+			desiredReplicas = &one
+		}
 
-			return nil
+		if *desiredReplicas != deployment.Status.Replicas ||
+			deployment.Status.Replicas != deployment.Status.ReadyReplicas {
+			readyCond = conditionNotReady
 		}
 
 	}
 
-	logger.Info("CDI is running")
+	logger.Info("CDI Ready check", "Status", readyCond.Status)
 
-	if err = r.conditionUpdate(conditionReady, cr); err != nil {
+	if err = r.conditionUpdate(readyCond, cr); err != nil {
 		return err
 	}
 
@@ -418,7 +432,7 @@ func (r *ReconcileCDI) watch(c controller.Controller) error {
 
 func (r *ReconcileCDI) getConfigMap() (*corev1.ConfigMap, error) {
 	cm := &corev1.ConfigMap{}
-	key := client.ObjectKey{Name: ConfigMapName, Namespace: r.namespace}
+	key := client.ObjectKey{Name: operator.ConfigMapName, Namespace: r.namespace}
 
 	if err := r.client.Get(context.TODO(), key, cm); err != nil {
 		if errors.IsNotFound(err) {
@@ -433,7 +447,7 @@ func (r *ReconcileCDI) getConfigMap() (*corev1.ConfigMap, error) {
 func (r *ReconcileCDI) createConfigMap(cr *cdiv1alpha1.CDI) error {
 	cm := &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      ConfigMapName,
+			Name:      operator.ConfigMapName,
 			Namespace: r.namespace,
 			Labels:    map[string]string{"operator.cdi.kubevirt.io": ""},
 		},

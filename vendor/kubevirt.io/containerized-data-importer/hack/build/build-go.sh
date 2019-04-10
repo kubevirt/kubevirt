@@ -19,6 +19,7 @@ set -eo pipefail
 script_dir="$(readlink -f $(dirname $0))"
 source "${script_dir}"/common.sh
 source "${script_dir}"/config.sh
+source "${script_dir}"/version.sh
 
 mkdir -p ${BIN_DIR}
 mkdir -p ${CMD_OUT_DIR}
@@ -57,7 +58,7 @@ elif [ "${go_opt}" == "build" ]; then
             cd $tgt
 
             # Only build executables for linux amd64
-            GOOS=linux GOARCH=amd64 go build -o ${outFile} -ldflags '-extldflags "static"'
+            GOOS=linux GOARCH=amd64 go build -o ${outFile} -ldflags '-extldflags "static"' -ldflags "$(cdi::version::ldflags)"
 
             ln -sf ${outFile} ${outLink}
         )

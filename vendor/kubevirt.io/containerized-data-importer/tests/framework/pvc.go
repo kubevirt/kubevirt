@@ -87,3 +87,16 @@ func (f *Framework) VerifyTargetPVCContentMD5(namespace *k8sv1.Namespace, pvc *k
 	}
 	return strings.Compare(expectedHash, output[:32]) == 0, nil
 }
+
+// RunCommandAndCaptureOutput runs a command on a pod that has the passed in PVC mounted and captures the output.
+func (f *Framework) RunCommandAndCaptureOutput(pvc *k8sv1.PersistentVolumeClaim, cmd string) (string, error) {
+	executorPod, err := f.CreateExecutorPodWithPVC("execute-command", pvc)
+	gomega.Expect(err).ToNot(gomega.HaveOccurred())
+	err = f.WaitTimeoutForPodReady(executorPod.Name, utils.PodWaitForTime)
+	gomega.Expect(err).ToNot(gomega.HaveOccurred())
+	output, err := f.ExecShellInPod(executorPod.Name, f.Namespace.Name, cmd)
+	if err != nil {
+		return "", err
+	}
+	return output, nil
+}

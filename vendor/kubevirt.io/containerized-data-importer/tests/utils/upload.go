@@ -1,8 +1,6 @@
 package utils
 
 import (
-	"fmt"
-
 	k8sv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
@@ -13,14 +11,10 @@ import (
 
 const (
 	// UploadFileMD5 is the expected MD5 of the uploaded file
-	UploadFileMD5 = "2a7a52285c846314d1dbd79e9818270d"
+	UploadFileMD5 = "bf07a12664935c64c472e907e5cbce7e"
 
 	uploadTargetAnnotation = "cdi.kubevirt.io/storage.upload.target"
 	uploadStatusAnnotation = "cdi.kubevirt.io/storage.pod.phase"
-
-	tmpDir            = "/tmp/cdi-upload-test"
-	imageFile         = "tinyCore.iso"
-	imageDownloadPath = tmpDir + "/" + imageFile
 )
 
 // UploadPodName returns the name of the upload server pod associated with a PVC
@@ -57,45 +51,4 @@ func RequestUploadToken(clientSet *cdiClientset.Clientset, pvc *k8sv1.Persistent
 	}
 
 	return response.Status.Token, nil
-}
-
-// DownloadImageToNode downloads an image file to node01 in the cluster
-func DownloadImageToNode(clientSet *kubernetes.Clientset, cliCommandPath string) error {
-	RunGoCLICommand(cliCommandPath, "ssh", "node01", "rm -rf "+tmpDir)
-	err := RunGoCLICommand(cliCommandPath, "ssh", "node01", "mkdir "+tmpDir)
-	if err != nil {
-		return err
-	}
-
-	fileServerService, err := GetServiceInNamespace(clientSet, FileHostNs, FileHostName)
-	if err != nil {
-		return err
-	}
-
-	downloadURL := fmt.Sprintf("http://%s/%s", fileServerService.Spec.ClusterIP, imageFile)
-	err = RunGoCLICommand(cliCommandPath, "ssh", "node01", fmt.Sprintf("curl -o %s %s", imageDownloadPath, downloadURL))
-	if err != nil {
-		return err
-	}
-
-	return nil
-}
-
-// UploadImageFromNode uploads the image to the upload proxy
-func UploadImageFromNode(clientSet *kubernetes.Clientset, cliCommandPath, token string) error {
-	uploadProxyService, err := GetServiceInNamespace(clientSet, "cdi", "cdi-uploadproxy")
-	if err != nil {
-		return err
-	}
-
-	authHeader := "Authorization: Bearer " + token
-	curlCommand := fmt.Sprintf("curl -v --insecure -H \"%s\" --data-binary @%s https://%s/v1alpha1/upload",
-		authHeader, imageDownloadPath, uploadProxyService.Spec.ClusterIP)
-
-	err = RunGoCLICommand(cliCommandPath, "ssh", "node01", curlCommand)
-	if err != nil {
-		return err
-	}
-
-	return nil
 }

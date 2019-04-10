@@ -33,6 +33,13 @@ var (
 		Reason:  "All deployments running and ready",
 		Message: "Have fun!",
 	}
+
+	conditionNotReady = cdiv1alpha1.CDICondition{
+		Type:    cdiv1alpha1.CDIConditionRunning,
+		Status:  corev1.ConditionFalse,
+		Reason:  "CDI deployment state inconsistent",
+		Message: "Hang in there!",
+	}
 )
 
 func (r *ReconcileCDI) crInit(cr *cdiv1alpha1.CDI) error {
@@ -81,26 +88,13 @@ func (r *ReconcileCDI) conditionUpdate(condition cdiv1alpha1.CDICondition, cr *c
 		cr.Status.Conditions[i] = condition
 
 	} else {
+		if condition.Status == corev1.ConditionFalse {
+			// condition starts off as true
+			return nil
+		}
+
 		cr.Status.Conditions = append(cr.Status.Conditions, condition)
 	}
 
 	return r.crUpdate(cr.Status.Phase, cr)
-}
-
-func (r *ReconcileCDI) conditionRemove(conditionType cdiv1alpha1.CDIConditionType, cr *cdiv1alpha1.CDI) error {
-	i := -1
-	for j, c := range cr.Status.Conditions {
-		if conditionType == c.Type {
-			i = j
-			break
-		}
-	}
-
-	if i >= 0 {
-		cr.Status.Conditions = append(cr.Status.Conditions[:i], cr.Status.Conditions[i+1:]...)
-
-		return r.crUpdate(cr.Status.Phase, cr)
-	}
-
-	return nil
 }

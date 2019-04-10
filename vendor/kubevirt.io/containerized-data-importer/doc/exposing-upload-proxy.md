@@ -47,23 +47,21 @@ EOF
 
 ### Openshift
 
-Create Route for the upload proxy:
+Using router wildcard certificate and generated hostname with reencrypt route:
 
 ```bash
-cat <<EOF | oc apply -f -
-apiVersion: v1
-kind: Route
-metadata:
-  name: cdi-uploadproxy-route
-  namespace: cdi
-spec:
-  host: cdi-uploadproxy.example.com
-  to:
-    kind: Service
-    name: cdi-uploadproxy
-  tls:
-    termination: passthrough
-EOF
+oc get secret -n cdi cdi-upload-proxy-ca-key -o=jsonpath="{.data['tls\.crt']}" | base64 -d > tls.crt && \
+oc create route reencrypt -n cdi --service=cdi-uploadproxy --dest-ca-cert=tls.crt && \
+rm tls.crt
+```
+
+Using your own key/cert with passthrough route
+
+```bash
+oc delete secret -n cdi cdi-upload-proxy-server-key && \
+oc create secret tls -n cdi cdi-upload-proxy-server-key --key tls.key --cert tls.crt && \
+oc create route passthrough -n cdi --service=cdi-uploadproxy && \
+oc delete pod -n cdi -l cdi.kubevirt.io=cdi-uploadproxy
 ```
 
 ### Upload an Image
@@ -71,5 +69,5 @@ EOF
 Assuming you completed the steps in [Upload document](upload.md) execute the following to upload the image:
 
 ```bash
-curl -v --insecure -H "Authorization: Bearer $TOKEN" --data-binary @tests/images/cirros-qcow2.img https://cdi-uploadproxy.example.com/v1alpha1/upload
+curl -v -H "Authorization: Bearer $TOKEN" --data-binary @tests/images/cirros-qcow2.img https://cdi-uploadproxy.example.com/v1alpha1/upload
 ```

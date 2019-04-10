@@ -14,10 +14,9 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/golang/glog"
 	"github.com/pkg/errors"
-
 	"k8s.io/apimachinery/pkg/api/resource"
+	"k8s.io/klog"
 )
 
 // CountingReader is a reader that keeps track of how much has been read
@@ -79,7 +78,10 @@ func (r *CountingReader) Close() error {
 // GetAvailableSpace gets the amount of available space at the path specified.
 func GetAvailableSpace(path string) int64 {
 	var stat syscall.Statfs_t
-	syscall.Statfs(path, &stat)
+	err := syscall.Statfs(path, &stat)
+	if err != nil {
+		return int64(-1)
+	}
 	return int64(stat.Bavail) * int64(stat.Bsize)
 }
 
@@ -94,9 +96,16 @@ func MinQuantity(availableSpace, imageSize *resource.Quantity) resource.Quantity
 // UnArchiveTar unarchives a tar file and streams its files
 // using the specified io.Reader to the specified destination.
 func UnArchiveTar(reader io.Reader, destDir string, arg ...string) error {
-	glog.V(1).Infof("begin untar...\n")
-	args := fmt.Sprintf("-%s%s", strings.Join(arg, ""), "xvC")
-	untar := exec.Command("/usr/bin/tar", args, destDir)
+	klog.V(1).Infof("begin untar...\n")
+
+	var tarOptions string
+	var args = arg
+	if len(arg) > 0 {
+		tarOptions = arg[0]
+		args = arg[1:]
+	}
+	options := fmt.Sprintf("-%s%s", tarOptions, "xvC")
+	untar := exec.Command("/usr/bin/tar", options, destDir, strings.Join(args, ""))
 	untar.Stdin = reader
 	var errBuf bytes.Buffer
 	untar.Stderr = &errBuf
@@ -106,8 +115,8 @@ func UnArchiveTar(reader io.Reader, destDir string, arg ...string) error {
 	}
 	err = untar.Wait()
 	if err != nil {
-		glog.V(3).Infof("%s\n", string(errBuf.Bytes()))
-		glog.Errorf("%s\n", err.Error())
+		klog.V(3).Infof("%s\n", string(errBuf.Bytes()))
+		klog.Errorf("%s\n", err.Error())
 		return err
 	}
 	return nil
@@ -121,4 +130,34 @@ func UnArchiveLocalTar(filePath, destDir string, arg ...string) error {
 	}
 	fileReader := bufio.NewReader(file)
 	return UnArchiveTar(fileReader, destDir, arg...)
+}
+
+// CopyFile copies a file from one location to another.
+func CopyFile(src, dst string) error {
+	in, err := os.Open(src)
+	if err != nil {
+		return err
+	}
+	defer in.Close()
+
+	out, err := os.Create(dst)
+	if err != nil {
+		return err
+	}
+	defer out.Close()
+
+	_, err = io.Copy(out, in)
+	if err != nil {
+		return err
+	}
+	return out.Close()
+}
+
+// MoveFileAcrossFs moves a file by doing a copy and then removing the source file. This works across file system which os.Rename won't
+func MoveFileAcrossFs(src, dst string) error {
+	err := CopyFile(src, dst)
+	if err != nil {
+		return err
+	}
+	return os.Remove(src)
 }
