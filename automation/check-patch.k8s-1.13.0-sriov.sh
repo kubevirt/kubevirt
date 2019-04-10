@@ -57,7 +57,7 @@ function collect_artifacts {
 
 function finish {
     collect_artifacts
-    #kind delete cluster --name=${CLUSTER_NAME}
+    kind delete cluster --name=${CLUSTER_NAME}
 }
 
 trap finish EXIT
@@ -177,7 +177,6 @@ kubectl apply -f $MANIFESTS_DIR/sriov-cni-daemonset.yaml
 modprobe vfio-pci
 
 # deploy sriov device plugin
-./automation/configure_sriovdp.sh
 kubectl apply -f $MANIFESTS_DIR/sriovdp-daemonset.yaml
 
 # give them some time to create pods before checking pod status
