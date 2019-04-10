@@ -47,17 +47,17 @@ http_archive(
 # Libvirt dependencies
 http_file(
     name = "libvirt_libs",
-    sha256 = "95d317fd645fb52745d642578263a9bcb0d796beadf00aeadebc0d692f5529ba",
+    sha256 = "45448bd85014d575fbd79f6f302749fa85dd24fcbed1cf05ac9b19931e49810f",
     urls = [
-        "https://libvirt.org/sources/libvirt-libs-5.0.0-1.fc28.x86_64.rpm",
+        "https://libvirt.org/sources/libvirt-libs-5.1.0-1.fc28.x86_64.rpm",
     ],
 )
 
 http_file(
     name = "libvirt_devel",
-    sha256 = "6573a047d777ed00f6858c2e75c780053b1f898ae1c3f7415e991c94c5ccdd70",
+    sha256 = "885edf8828ab4e22537da5721deae1d852edb94bbfba061a14ae61631270476d",
     urls = [
-        "https://libvirt.org/sources/libvirt-devel-5.0.0-1.fc28.x86_64.rpm",
+        "https://libvirt.org/sources/libvirt-devel-5.1.0-1.fc28.x86_64.rpm",
     ],
 )
 
@@ -154,7 +154,7 @@ container_pull(
 # Pull base image libvirt
 container_pull(
     name = "libvirt",
-    digest = "sha256:081f113a73748775e5f37d8fb877a574f595df1551e39e48ebbe8e8afd501d3b",
+    digest = "sha256:64d075a7d5976ce6d69f7483ae4d2d9997e6a18a04a1a435995dbc152c8eb0db",
     registry = "index.docker.io",
     repository = "kubevirt/libvirt",
     #tag = "5.0.0",

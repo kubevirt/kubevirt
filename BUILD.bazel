@@ -64,14 +64,14 @@ genrule(
     name = "libvirt-shared-libs",
     srcs = ["@libvirt_libs//file"],
     outs = [
-        "libvirt.so.0.5000.0",
-        "libvirt-lxc.so.0.5000.0",
-        "libvirt-qemu.so.0.5000.0",
+        "libvirt.so.0.5001.0",
+        "libvirt-lxc.so.0.5001.0",
+        "libvirt-qemu.so.0.5001.0",
     ],
     cmd = "\n".join([
         "rpm2archive $(location @libvirt_libs//file)",
         "tar -xzf $(location @libvirt_libs//file).tgz",
-        "cp -R usr/lib64/*.so.0.5000.0 $(@D)",
+        "cp -R usr/lib64/*.so.0.5001.0 $(@D)",
     ]),
 )
 
