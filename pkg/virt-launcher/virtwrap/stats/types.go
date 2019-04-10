@@ -134,4 +134,8 @@ type DomainStatsMemory struct {
 	ActualBalloon    uint64
 	RSSSet           bool
 	RSS              uint64
+	SwapInSet        bool
+	SwapIn           uint64
+	SwapOutSet       bool
+	SwapOut          uint64
 }
