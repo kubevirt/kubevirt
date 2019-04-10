@@ -4,6 +4,6 @@ RUN dnf install -y qemu-img && dnf clean all
 
 RUN mkdir /data
 
-COPY ./cdi-uploadserver /cdi-uploadserver
+COPY ./cdi-uploadserver /usr/bin/cdi-uploadserver
 
-ENTRYPOINT [ "/cdi-uploadserver", "-alsologtostderr"]
+ENTRYPOINT [ "/usr/bin/cdi-uploadserver", "-alsologtostderr"]

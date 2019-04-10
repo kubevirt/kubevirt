@@ -1,0 +1,14 @@
+apiVersion: cdi.kubevirt.io/v1alpha1
+kind: DataVolume
+metadata:
+  name: test-dv
+spec:
+  source:
+    pvc:
+      namespace: "source-ns"
+  pvc:
+    accessModes:
+      - ReadWriteOnce
+    resources:
+      requests:
+        storage: 500Mi

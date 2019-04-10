@@ -9,7 +9,7 @@ go_library(
     deps = [
         "//vendor/k8s.io/apimachinery/pkg/apis/meta/v1:go_default_library",
         "//vendor/k8s.io/client-go/kubernetes:go_default_library",
-        "//vendor/kubevirt.io/containerized-data-importer/pkg/operator/controller:go_default_library",
         "//vendor/kubevirt.io/containerized-data-importer/pkg/util:go_default_library",
+        "@io_k8s_klog//:go_default_library",
     ],
 )

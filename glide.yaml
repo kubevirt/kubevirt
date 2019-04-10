@@ -94,8 +94,8 @@ import:
   subpackages:
   - proto
 - package: kubevirt.io/containerized-data-importer
-  version: 1.5.1
-  repo: https://github.com/kubevirt/containerized-data-importer.git
+  repo:    https://github.com/kubevirt/containerized-data-importer.git
+  version: 1.7.0
 - package: github.com/operator-framework/operator-marketplace
   subpackages:
   - pkg/appregistry

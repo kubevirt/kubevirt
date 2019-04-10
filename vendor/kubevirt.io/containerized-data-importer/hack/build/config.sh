@@ -49,7 +49,7 @@ VERBOSITY=${VERBOSITY:-1}
 PULL_POLICY=${PULL_POLICY:-IfNotPresent}
 NAMESPACE=${NAMESPACE:-cdi}
 
-KUBERNETES_IMAGE="k8s-1.11.0@sha256:3412f158ecad53543c9b0aa8468db84dd043f01832a66f0db90327b7dc36a8e8"
+KUBERNETES_IMAGE="k8s-1.11.0@sha256:e02ec414c7673a3644b5ba742b550a124c9195eaacb280151406bf9e8201a95f"
 OPENSHIFT_IMAGE="os-3.11.0-crio@sha256:3f11a6f437fcdf2d70de4fcc31e0383656f994d0d05f9a83face114ea7254bc0"
 
 
@@ -92,4 +92,17 @@ function getClusterType() {
         ;;
     esac
     echo "$image"
+}
+
+function getTestPullPolicy() {
+    local pp
+    case "${KUBEVIRT_PROVIDER}" in
+    "k8s-1.11.0")
+        pp=$PULL_POLICY
+        ;;
+    "os-3.11.0")
+        pp=Always
+        ;;
+    esac
+    echo "$pp"
 }

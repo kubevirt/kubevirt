@@ -45,6 +45,7 @@ const (
 	FeatureGatesKey        = "feature-gates"
 	emulatedMachinesEnvVar = "VIRT_EMULATED_MACHINES"
 	emulatedMachinesKey    = "emulated-machines"
+	machineTypeKey         = "machine-type"
 	useEmulationKey        = "debug.useEmulation"
 	imagePullPolicyKey     = "dev.imagePullPolicy"
 	migrationsConfigKey    = "migrations"
@@ -52,6 +53,9 @@ const (
 	ParallelOutboundMigrationsPerNodeDefault uint32 = 2
 	ParallelMigrationsPerClusterDefault      uint32 = 5
 	BandwithPerMigrationDefault                     = "64Mi"
+	MigrationProgressTimeout                 int64  = 150
+	MigrationCompletionTimeoutPerGiB         int64  = 800
+	DefaultMachineType                              = "q35"
 
 	NodeDrainTaintDefaultKey = "kubevirt.io/drain"
 )
@@ -134,6 +138,8 @@ func defaultClusterConfig() *Config {
 	parallelMigrationsPerClusterDefault := ParallelMigrationsPerClusterDefault
 	bandwithPerMigrationDefault := resource.MustParse(BandwithPerMigrationDefault)
 	nodeDrainTaintDefaultKey := NodeDrainTaintDefaultKey
+	progressTimeout := MigrationProgressTimeout
+	completionTimeoutPerGiB := MigrationCompletionTimeoutPerGiB
 	return &Config{
 		ResourceVersion: "0",
 		ImagePullPolicy: k8sv1.PullIfNotPresent,
@@ -143,7 +149,10 @@ func defaultClusterConfig() *Config {
 			ParallelOutboundMigrationsPerNode: &parallelOutboundMigrationsPerNodeDefault,
 			BandwidthPerMigration:             &bandwithPerMigrationDefault,
 			NodeDrainTaintKey:                 &nodeDrainTaintDefaultKey,
+			ProgressTimeout:                   &progressTimeout,
+			CompletionTimeoutPerGiB:           &completionTimeoutPerGiB,
 		},
+		MachineType: DefaultMachineType,
 	}
 }
 
@@ -152,6 +161,7 @@ type Config struct {
 	UseEmulation    bool
 	MigrationConfig *MigrationConfig
 	ImagePullPolicy k8sv1.PullPolicy
+	MachineType     string
 }
 
 type MigrationConfig struct {
@@ -159,6 +169,8 @@ type MigrationConfig struct {
 	ParallelMigrationsPerCluster      *uint32            `json:"parallelMigrationsPerCluster,omitempty"`
 	BandwidthPerMigration             *resource.Quantity `json:"bandwidthPerMigration,omitempty"`
 	NodeDrainTaintKey                 *string            `json:"nodeDrainTaintKey,omitempty"`
+	ProgressTimeout                   *int64             `json:"progressTimeout,omitempty"`
+	CompletionTimeoutPerGiB           *int64             `json:"completionTimeoutPerGiB,omitempty"`
 }
 
 type ClusterConfig struct {
@@ -180,6 +192,10 @@ func (c *ClusterConfig) GetMigrationConfig() *MigrationConfig {
 
 func (c *ClusterConfig) GetImagePullPolicy() (policy k8sv1.PullPolicy) {
 	return c.getConfig().ImagePullPolicy
+}
+
+func (c *ClusterConfig) GetMachineType() string {
+	return c.getConfig().MachineType
 }
 
 // setConfig parses the provided config map and updates the provided config.
@@ -225,6 +241,11 @@ func setConfig(config *Config, configMap *k8sv1.ConfigMap) error {
 		config.UseEmulation = false
 	default:
 		return fmt.Errorf("invalid debug.useEmulation in config: %v", useEmulation)
+	}
+
+	// set machine type
+	if machineType := strings.TrimSpace(configMap.Data[machineTypeKey]); machineType != "" {
+		config.MachineType = machineType
 	}
 
 	return nil

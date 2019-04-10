@@ -3,7 +3,7 @@ package common
 import (
 	"time"
 
-	"k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
 )
 
 // Common types and constants used by the importer and controller.
@@ -34,8 +34,12 @@ const (
 	ImporterPodName = "importer"
 	// ImporterDataDir provides a constant for the controller pkg to use as a hardcoded path to where content is transferred to/from (controller only)
 	ImporterDataDir = "/data"
+	// ScratchDataDir provides a constant for the controller pkg to use as a hardcoded path to where scratch space is located.
+	ScratchDataDir = "/scratch"
 	// ImporterS3Host provides an S3 string used by importer/dataStream.go only
 	ImporterS3Host = "s3.amazonaws.com"
+	// ImporterCertDir is where the configmap containg certs will be mounted
+	ImporterCertDir = "/certs"
 	// DefaultPullPolicy imports k8s "IfNotPresent" string for the import_controller_gingko_test and the cdi-controller executable
 	DefaultPullPolicy = string(v1.PullIfNotPresent)
 
@@ -53,6 +57,10 @@ const (
 	ImporterSecretKey = "IMPORTER_SECRET_KEY"
 	// ImporterImageSize provides a constant to capture our env variable "IMPORTER_IMAGE_SIZE"
 	ImporterImageSize = "IMPORTER_IMAGE_SIZE"
+	// ImporterCertDirVar provides a constant to capture our env variable "IMPORTER_CERT_DIR"
+	ImporterCertDirVar = "IMPORTER_CERT_DIR"
+	// InsecureTLSVar provides a constant to capture our env variable "INSECURE_TLS"
+	InsecureTLSVar = "INSECURE_TLS"
 
 	// CloningLabelKey provides a constant to use as a label name for pod affinity (controller pkg only)
 	CloningLabelKey = "cloning"
@@ -79,6 +87,11 @@ const (
 	UploadServerDataDir = ImporterDataDir
 	// UploadServerServiceLabel is the label selector for upload server services
 	UploadServerServiceLabel = "service"
+	// UploadImageSize provides a constant to capture our env variable "UPLOAD_IMAGE_SIZE"
+	UploadImageSize = "UPLOAD_IMAGE_SIZE"
+
+	// ConfigName is the name of default CDI Config
+	ConfigName = "config"
 
 	// OwnerUID provides the UID of the owner entity (either PVC or DV)
 	OwnerUID = "OWNER_UID"
@@ -90,4 +103,10 @@ const (
 
 	// DefaultResyncPeriod sets a 10 minute resync period, used in the controller pkg and the controller cmd executable
 	DefaultResyncPeriod = 10 * time.Minute
+
+	// InsecureRegistryConfigMap is the name of the ConfigMap for insecure registries
+	InsecureRegistryConfigMap = "cdi-insecure-registries"
+
+	// ScratchSpaceNeededExitCode is the exit code that indicates the importer pod requires scratch space to function properly.
+	ScratchSpaceNeededExitCode = 42
 )

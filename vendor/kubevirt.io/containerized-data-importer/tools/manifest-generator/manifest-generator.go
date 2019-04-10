@@ -17,10 +17,8 @@ import (
 	"os"
 	"text/template"
 
-	"github.com/golang/glog"
-
 	"k8s.io/apimachinery/pkg/runtime"
-
+	"k8s.io/klog"
 	cdicluster "kubevirt.io/containerized-data-importer/pkg/operator/resources/cluster"
 	cdinamespaced "kubevirt.io/containerized-data-importer/pkg/operator/resources/namespaced"
 )
@@ -59,6 +57,15 @@ func main() {
 	templFile := flag.String("template", "", "")
 	codeGroup := flag.String("code-group", "everything", "")
 	flag.Parse()
+	klogFlags := flag.NewFlagSet("klog", flag.ExitOnError)
+	klog.InitFlags(klogFlags)
+	flag.CommandLine.VisitAll(func(f1 *flag.Flag) {
+		f2 := klogFlags.Lookup(f1.Name)
+		if f2 != nil {
+			value := f1.Value.String()
+			f2.Value.Set(value)
+		}
+	})
 
 	if *templFile != "" {
 		generateFromFile(*templFile)
@@ -86,14 +93,14 @@ func generateFromFile(templFile string) {
 
 	file, err := os.OpenFile(templFile, os.O_RDONLY, 0)
 	if err != nil {
-		glog.Fatalf("Failed to open file %s: %v\n", templFile, err)
+		klog.Fatalf("Failed to open file %s: %v\n", templFile, err)
 	}
 	defer file.Close()
 
 	tmpl := template.Must(template.ParseFiles(templFile))
 	err = tmpl.Execute(os.Stdout, data)
 	if err != nil {
-		glog.Fatalf("Error executing template: %v\n", err)
+		klog.Fatalf("Error executing template: %v\n", err)
 	}
 }
 
@@ -102,14 +109,14 @@ func generateFromCode(codeGroup string) {
 
 	crs, err := getClusterResources(codeGroup)
 	if err != nil {
-		glog.Fatalf("Error getting cluster resources: %v\n", err)
+		klog.Fatalf("Error getting cluster resources: %v\n", err)
 	}
 
 	resources = append(resources, crs...)
 
 	nsrs, err := getNamespacedResources(codeGroup)
 	if err != nil {
-		glog.Fatalf("Error getting namespaced resources: %v\n", err)
+		klog.Fatalf("Error getting namespaced resources: %v\n", err)
 	}
 
 	resources = append(resources, nsrs...)
@@ -117,7 +124,7 @@ func generateFromCode(codeGroup string) {
 	for _, resource := range resources {
 		err = MarshallObject(resource, os.Stdout)
 		if err != nil {
-			glog.Fatalf("Error marshalling resource: %v\n", err)
+			klog.Fatalf("Error marshalling resource: %v\n", err)
 		}
 	}
 }

@@ -2580,16 +2580,10 @@ func schema_kubevirt_pkg_api_v1_VirtualMachineInstanceMigrationSpec(ref common.R
 							Format:      "",
 						},
 					},
-					"configuration": {
-						SchemaProps: spec.SchemaProps{
-							Ref: ref("kubevirt.io/kubevirt/pkg/api/v1.MigrationConfig"),
-						},
-					},
 				},
 			},
 		},
-		Dependencies: []string{
-			"kubevirt.io/kubevirt/pkg/api/v1.MigrationConfig"},
+		Dependencies: []string{},
 	}
 }
 

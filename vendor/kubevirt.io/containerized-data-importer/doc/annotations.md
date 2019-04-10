@@ -18,101 +18,81 @@ There is an additional annotation that determines the content type of the http/s
 If the contentType is missing, it is defaulted to kubevirt.
 
 #### examples
-Creating a PVC that imports data from an http source with kubevirt contentType:
+Creating a Datavolume that imports data from an http source with kubevirt(the default) contentType:
 ```yaml
-apiVersion: v1
-kind: PersistentVolumeClaim
+apiVersion: cdi.kubevirt.io/v1alpha1
+kind: DataVolume
 metadata:
-  name: "example-pvc"
-  labels:
-    app: containerized-data-importer
-  annotations:
-    cdi.kubevirt.io/storage.import.source: "http" #defaults to http if missing or invalid
-    cdi.kubevirt.io/storage.contentType: "kubevirt" #defaults to kubevirt if missing or invalid.
-    cdi.kubevirt.io/storage.import.endpoint: "https://www.source.example/path/of/data" # http or https is supported
-    cdi.kubevirt.io/storage.import.secretName: "" # Optional. The name of the secret containing credentials for the end point
+  name: my-data-volume
 spec:
-  accessModes:
-  - ReadWriteOnce
-  resources:
-    requests:
-      storage: 10Gi # Request a size that is large enough to accept the data from the source, including conversion
-  # Optional: Set the storage class or omit to accept the default
-  # storageClassName: local
+  source:
+      http:
+         url: "https://download.cirros-cloud.net/0.4.0/cirros-0.4.0-x86_64-disk.img"
+  contentType: kubevirt
+  pvc:
+    accessModes:
+      - ReadWriteOnce
+    resources:
+      requests:
+        storage: 500Mi
 ``` 
 
-Creating a PVC that imports data from an http source with archive contentType:
+Creating a Datavolume that imports data from an http source with archive contentType:
 ```yaml
-apiVersion: v1
-kind: PersistentVolumeClaim
+apiVersion: cdi.kubevirt.io/v1alpha1
+kind: DataVolume
 metadata:
-  name: "example-pvc"
-  labels:
-    app: containerized-data-importer
-  annotations:
-    cdi.kubevirt.io/storage.import.source: "http" #defaults to http if missing or invalid
-    cdi.kubevirt.io/storage.contentType: "archive" #defaults to kubevirt if missing or invalid.
-    cdi.kubevirt.io/storage.import.endpoint: "http://www.source.example/path/of/data.tar" # http or https is supported
-    cdi.kubevirt.io/storage.import.secretName: "" # Optional. The name of the secret containing credentials for the end point
+  name: import-archive-datavolume
 spec:
-  accessModes:
-  - ReadWriteOnce
-  resources:
-    requests:
-      storage: 10Gi # Request a size that is large enough to accept the data from the source, including conversion
-  # Optional: Set the storage class or omit to accept the default
-  # storageClassName: local
+  source:
+      http:
+         url: "http://geolite.maxmind.com/download/geoip/database/GeoLite2-Country.tar.gz"
+  contentType: archive
+  pvc:
+    accessModes:
+      - ReadWriteOnce
+    resources:
+      requests:
+        storage: 500Mi
 ``` 
 
-Creating a PVC that imports data from an registry source with kubevirt contentType:
+Creating a Datavolume that imports data from an registry source with kubevirt contentType:
 ```yaml
-apiVersion: v1
-kind: PersistentVolumeClaim
+apiVersion: cdi.kubevirt.io/v1alpha1
+kind: DataVolume
 metadata:
-  name: "example-pvc"
-  labels:
-    app: containerized-data-importer
-  annotations:
-    cdi.kubevirt.io/storage.import.source: "registry" #defaults to http if missing or invalid
-    cdi.kubevirt.io/storage.contentType: "kubevirt" #defaults to kubevirt if missing or invalid.
-    cdi.kubevirt.io/storage.import.endpoint: "docker://registry:5000/fedora" # docker, oci
-    cdi.kubevirt.io/storage.import.secretName: "" # Optional. The name of the secret containing credentials for the end point
+  name: registry-image-datavolume
 spec:
-  accessModes:
-  - ReadWriteOnce
-  resources:
-    requests:
-      storage: 10Gi # Request a size that is large enough to accept the data from the source, including conversion
-  # Optional: Set the storage class or omit to accept the default
-  # storageClassName: local
+  source:
+      registry: "docker://kubevirt/fedora-cloud-registry-disk-demo"
+  pvc:
+    accessModes:
+      - ReadWriteOnce
+    resources:
+      requests:
+        storage: 5Gi
 ``` 
 
 ### None
-The none source indicates there is no source to get data from and instead a default action should be taken based on the contentType.
+The none source indicates there is no source to get data from and instead the default action for the contentType should be taken.
 
 #### contentType
-There is currently only one contentType that any meaning with a source of None. If the contentType is kubevirt, it will create an empty Virtual Machine image of the size specified in the PersistentVolumeClaim(PVC) request. Specifying a source of none and a contentType of archive will not do anything.
+There is currently only one contentType that any meaning with a source of None. If the contentType is kubevirt, it will create an empty Virtual Machine image of the size specified in the Datavolume(DV) request. Specifying a source of none and a contentType of archive will not do anything.
 
 #### example
-Creating a PVC that creates an empty virtual machine disk:
+Creating a Datavolume that creates an empty virtual image:
 ```yaml
-apiVersion: v1
-kind: PersistentVolumeClaim
+apiVersion: cdi.kubevirt.io/v1alpha1
+kind: DataVolume
 metadata:
-  name: "example-pvc"
-  labels:
-    app: containerized-data-importer
-  annotations:
-    cdi.kubevirt.io/storage.import.source: "none"
-    cdi.kubevirt.io/storage.contentType: "kubevirt" #defaults to kubevirt if missing or invalid.
+  name: blank-image-datavolume
 spec:
-  accessModes:
-  - ReadWriteOnce
-  resources:
-    requests:
-      storage: 10Gi # Request a size that is large enough to accept the data from the source, including conversion
-  # Optional: Set the storage class or omit to accept the default
-  # storageClassName: local
+  source:
+      blank: {}
+  pvc:
+    accessModes:
+      - ReadWriteOnce
+    resources:
+      requests:
+        storage: 500Mi
 ``` 
-
-

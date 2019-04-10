@@ -1,5 +1,5 @@
 FROM fedora:28
 
-COPY ./cdi-apiserver /cdi-apiserver
+COPY ./cdi-apiserver /usr/bin/cdi-apiserver
 
-ENTRYPOINT [ "/cdi-apiserver", "-alsologtostderr"]
+ENTRYPOINT [ "/usr/bin/cdi-apiserver", "-alsologtostderr"]

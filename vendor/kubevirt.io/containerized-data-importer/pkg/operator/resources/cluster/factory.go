@@ -35,6 +35,13 @@ var factoryFunctions = map[string]factoryFunc{
 	"apiserver":  createAPIServerResources,
 }
 
+func createCRDResources(args *FactoryArgs) []runtime.Object {
+	return []runtime.Object{
+		createDataVolumeCRD(),
+		createCDIConfigCRD(),
+	}
+}
+
 // CreateAllResources creates all cluster-wide resources
 func CreateAllResources(args *FactoryArgs) ([]runtime.Object, error) {
 	var resources []runtime.Object

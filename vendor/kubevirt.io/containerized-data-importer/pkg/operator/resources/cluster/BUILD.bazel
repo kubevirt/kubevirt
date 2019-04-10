@@ -4,6 +4,7 @@ go_library(
     name = "go_default_library",
     srcs = [
         "apiserver.go",
+        "cdiconfig.go",
         "controller.go",
         "datavolume.go",
         "factory.go",

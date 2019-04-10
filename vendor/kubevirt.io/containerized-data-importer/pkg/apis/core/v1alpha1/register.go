@@ -33,6 +33,8 @@ func addKnownTypes(scheme *runtime.Scheme) error {
 	scheme.AddKnownTypes(SchemeGroupVersion,
 		&DataVolume{},
 		&DataVolumeList{},
+		&CDIConfig{},
+		&CDIConfigList{},
 		&CDI{},
 		&CDIList{},
 	)

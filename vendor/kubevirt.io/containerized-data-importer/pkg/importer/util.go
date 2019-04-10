@@ -2,12 +2,13 @@ package importer
 
 import (
 	"io"
+	"io/ioutil"
 	"net/url"
 	"os"
+	"path/filepath"
 
-	"github.com/golang/glog"
 	"github.com/pkg/errors"
-
+	"k8s.io/klog"
 	"kubevirt.io/containerized-data-importer/pkg/common"
 	"kubevirt.io/containerized-data-importer/pkg/util"
 )
@@ -27,6 +28,16 @@ func ParseEndpoint(endpt string) (*url.URL, error) {
 	return url.Parse(endpt)
 }
 
+//MoveFile - moves file
+func MoveFile(src, dst string) error {
+	klog.Infof("Moving %s to %s", src, dst)
+	err := os.Rename(src, dst)
+	if err != nil {
+		klog.Errorf(err.Error(), "Failed moving %s to %s, are they in the same lun?")
+	}
+	return err
+}
+
 // StreamDataToFile provides a function to stream the specified io.Reader to the specified local file
 func StreamDataToFile(dataReader io.Reader, filePath string) error {
 	// Attempt to create the file with name filePath.  If it exists, fail.
@@ -35,10 +46,28 @@ func StreamDataToFile(dataReader io.Reader, filePath string) error {
 	if err != nil {
 		return errors.Wrapf(err, "could not open file %q", filePath)
 	}
-	glog.V(1).Infof("begin import...\n")
+	klog.V(1).Infof("begin import...\n")
 	if _, err = io.Copy(outFile, dataReader); err != nil {
+		klog.Errorf("Unable to write file from dataReader: %v\n", err)
 		os.Remove(outFile.Name())
 		return errors.Wrapf(err, "unable to write to file")
+	}
+	return nil
+}
+
+// CleanDir cleans the contents of a directory including its sub directories, but does NOT remove the
+// directory itself.
+func CleanDir(dest string) error {
+	dir, err := ioutil.ReadDir(dest)
+	if err != nil {
+		return err
+	}
+	for _, d := range dir {
+		klog.V(3).Infoln("deleting file: " + filepath.Join(dest, d.Name()))
+		err = os.RemoveAll(filepath.Join(dest, d.Name()))
+		if err != nil {
+			return err
+		}
 	}
 	return nil
 }

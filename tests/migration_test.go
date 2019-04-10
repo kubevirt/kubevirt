@@ -388,6 +388,30 @@ var _ = Describe("Migrations", func() {
 			})
 		})
 		Context("migration monitor", func() {
+			var options metav1.GetOptions
+			var cfgMap *k8sv1.ConfigMap
+			var originalMigrationConfig string
+			var kubevirtConfig = "kubevirt-config"
+
+			BeforeEach(func() {
+				// update migration timeouts
+				options = metav1.GetOptions{}
+				cfgMap, err = virtClient.CoreV1().ConfigMaps(namespaceKubevirt).Get(kubevirtConfig, options)
+				Expect(err).ToNot(HaveOccurred())
+				originalMigrationConfig = cfgMap.Data["migrations"]
+				cfgMap.Data["migrations"] = `{"progressTimeout" : 5, "completionTimeoutPerGiB": 5}`
+
+				_, err = virtClient.CoreV1().ConfigMaps(namespaceKubevirt).Update(cfgMap)
+				Expect(err).ToNot(HaveOccurred())
+				time.Sleep(5 * time.Second)
+			})
+			AfterEach(func() {
+				cfgMap, err = virtClient.CoreV1().ConfigMaps(namespaceKubevirt).Get(kubevirtConfig, options)
+				Expect(err).ToNot(HaveOccurred())
+				cfgMap.Data["migrations"] = originalMigrationConfig
+				_, err = virtClient.CoreV1().ConfigMaps(namespaceKubevirt).Update(cfgMap)
+				Expect(err).ToNot(HaveOccurred())
+			})
 			It("should abort a vmi migration without progress", func() {
 
 				vmi := tests.NewRandomVMIWithEphemeralDisk(tests.ContainerDiskFor(tests.ContainerDiskFedora))
@@ -428,10 +452,6 @@ var _ = Describe("Migrations", func() {
 				// execute a migration, wait for finalized state
 				By("Starting the Migration")
 				migration := tests.NewRandomMigration(vmi.Name, vmi.Namespace)
-				migration.Spec.Config = &v1.MigrationConfig{
-					CompletionTimeoutPerGiB: 5,
-					ProgressTimeout:         50,
-				}
 				migrationUID := runMigrationAndExpectFailure(migration, 180)
 
 				// check VMI, confirm migration state
@@ -536,10 +556,6 @@ var _ = Describe("Migrations", func() {
 				// execute a migration, wait for finalized state
 				By("Starting the Migration")
 				migration := tests.NewRandomMigration(vmi.Name, vmi.Namespace)
-				migration.Spec.Config = &v1.MigrationConfig{
-					CompletionTimeoutPerGiB: 800,
-					ProgressTimeout:         800,
-				}
 
 				migrationUID := runAndCancelMigration(migration, vmi, 180)
 

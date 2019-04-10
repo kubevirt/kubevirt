@@ -12,7 +12,7 @@
 #See the License for the specific language governing permissions and
 #limitations under the License.
 
-.PHONY: build build-controller build-importer build-cloner build-apiserver build-uploadproxy build-uploadserver build-operator build-functest-image-init build-functest-image-http build-functest-registry-init  build-func-test-registry-populate  build-functest \
+.PHONY: build build-controller build-importer build-cloner build-apiserver build-uploadproxy build-uploadserver build-operator build-functest-file-image-init build-functest-registry-image-init  build-functest \
 		docker docker-controller docker-cloner docker-importer docker-apiserver docker-uploadproxy docker-uploadserver docker-operator docker-functest-image-init docker-functest-image-http docker-functest-registry-populate docker-functest-registry docker-functest-registry-init \
 		cluster-sync cluster-sync-controller cluster-sync-cloner cluster-sync-importer cluster-sync-apiserver cluster-sync-uploadproxy cluster-sync-uploadserver \
 		test test-functional test-unit test-lint \
@@ -64,8 +64,10 @@ build-cloner: WHAT = cmd/cdi-cloner
 build-cloner: build
 build-operator: WHAT = cmd/cdi-operator
 build-operator: build
-build-functest-image-init: WHAT = tools/cdi-func-test-file-host-init
-build-functest-image-init:
+build-functest-file-image-init: WHAT = tools/cdi-func-test-file-host-init
+build-functest-file-image-init:
+build-functest-registry-image-init: WHAT= tools/cdi-func-test-registry-init
+build-functest-registry-image-init:
 build-functest:
 	${DO} ./hack/build/build-functest.sh
 
@@ -103,21 +105,25 @@ docker-uploadserver: WHAT = cmd/cdi-uploadserver
 docker-uploadserver: docker
 docker-operator: WHAT = cmd/cdi-operator
 docker-operator: docker
-
-docker-functest-image: docker-functest-image-http docker-functest-image-init docker-functest-registry-init docker-functest-registry-populate docker-functest-registry
+docker-functest-images: docker-functest-image-http docker-functest-image-init docker-functest-registry-init docker-functest-registry-populate docker-functest-registry
 docker-functest-image-init: WHAT = tools/cdi-func-test-file-host-init
 docker-functest-image-init: docker
 docker-functest-image-http: WHAT = tools/cdi-func-test-file-host-http
 docker-functest-image-http: # no code to compile, just build image
 	./hack/build/build-cdi-func-test-file-host.sh && ./hack/build/build-docker.sh build ${WHAT}
 docker-functest-registry-init: WHAT = tools/cdi-func-test-registry-init
-docker-functest-registry-init: docker
+docker-functest-registry-init: docker 
+	./hack/build/build-cdi-func-test-file-host.sh && ./hack/build/build-docker.sh build ${WHAT}
 docker-functest-registry-populate: WHAT = tools/cdi-func-test-registry-populate
 docker-functest-registry-populate: # no code to compile, just build image
 	./hack/build/build-cdi-func-test-registry-host.sh && ./hack/build/build-docker.sh build ${WHAT}
 docker-functest-registry: WHAT = tools/cdi-func-test-registry
 docker-functest-registry: # no code to compile, just build image
 	./hack/build/build-cdi-func-test-registry-host.sh && ./hack/build/build-docker.sh build ${WHAT}
+
+docker-registry-cleanup: 
+	./hack/build/cleanup_docker.sh 
+
 
 push: docker
 	./hack/build/build-docker.sh push ${WHAT}
@@ -126,7 +132,7 @@ push-controller: WHAT = cmd/cdi-controller
 push-controller: push
 push-importer: WHAT = cmd/cdi-importer
 push-importer: push
-push-cloner: WHAT = cdm/cdi-cloner
+push-cloner: WHAT = cmd/cdi-cloner
 push-cloner: push
 push-apiserver: WHAT = cmd/cdi-apiserver
 push-apiserver: push
@@ -158,8 +164,10 @@ release-description:
 cluster-up:
 	./cluster/up.sh
 
-cluster-down:
+cluster-down: 
 	./cluster/down.sh
+
+cluster-down-purge: docker-registry-cleanup cluster-down
 
 cluster-clean:
 	./cluster/clean.sh
@@ -179,11 +187,4 @@ cluster-sync-uploadproxy: WHAT = cmd/cdi-uploadproxy
 cluster-sync-uploadproxy: cluster-sync
 cluster-sync-uploadserver: WHAT = cmd/cdi-uploadserver
 cluster-sync-uploadserver: cluster-sync
-
-functest:
-	./hack/build/functests.sh
-
-functest-image-host: WHAT=tools/cdi-func-test-file-host-init
-functest-image-host:  manifests build
-	${DO} ./hack/build/build-cdi-func-test-file-host.sh && ./hack/build/build-docker.sh "tools/cdi-func-test-file-host-init tools/cdi-func-test-file-host-http tools/cdi-func-test-registry-init tools/cdi-func-test-registry tools/cdi-func-test-registry-populate"
 

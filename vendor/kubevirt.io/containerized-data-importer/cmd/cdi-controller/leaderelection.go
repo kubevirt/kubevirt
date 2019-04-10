@@ -5,8 +5,6 @@ import (
 	"os"
 	"time"
 
-	"github.com/golang/glog"
-
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -18,8 +16,9 @@ import (
 	"k8s.io/client-go/tools/leaderelection"
 	"k8s.io/client-go/tools/leaderelection/resourcelock"
 	"k8s.io/client-go/tools/record"
-
+	"k8s.io/klog"
 	"kubevirt.io/containerized-data-importer/pkg/common"
+	"kubevirt.io/containerized-data-importer/pkg/operator"
 	"kubevirt.io/containerized-data-importer/pkg/util"
 )
 
@@ -48,7 +47,7 @@ func startLeaderElection(ctx context.Context, config *rest.Config, leaderFunc fu
 		return err
 	}
 
-	glog.Info("Attempting to acquire leader lease")
+	klog.Info("Attempting to acquire leader lease")
 	go leaderElector.Run(ctx)
 
 	return nil
@@ -65,7 +64,12 @@ func createConfigMap(client kubernetes.Interface, namespace, name string) error 
 		},
 	}
 
-	_, err := client.CoreV1().ConfigMaps(namespace).Create(cm)
+	err := operator.SetOwner(client, cm)
+	if err != nil {
+		return err
+	}
+
+	_, err = client.CoreV1().ConfigMaps(namespace).Create(cm)
 	return err
 }
 
@@ -96,11 +100,11 @@ func createLeaderElector(resourceLock resourcelock.Interface, leaderFunc func())
 		RetryPeriod:   2 * time.Second,
 		Callbacks: leaderelection.LeaderCallbacks{
 			OnStartedLeading: func(_ context.Context) {
-				glog.Info("Successfully acquired leadership lease")
+				klog.Info("Successfully acquired leadership lease")
 				leaderFunc()
 			},
 			OnStoppedLeading: func() {
-				glog.Fatal("NO LONGER LEADER, EXITING")
+				klog.Fatal("NO LONGER LEADER, EXITING")
 			},
 		},
 	})

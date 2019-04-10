@@ -22,9 +22,9 @@ package v1alpha1
 // CDILister.
 type CDIListerExpansion interface{}
 
-// CDINamespaceListerExpansion allows custom methods to be added to
-// CDINamespaceLister.
-type CDINamespaceListerExpansion interface{}
+// CDIConfigListerExpansion allows custom methods to be added to
+// CDIConfigLister.
+type CDIConfigListerExpansion interface{}
 
 // DataVolumeListerExpansion allows custom methods to be added to
 // DataVolumeLister.

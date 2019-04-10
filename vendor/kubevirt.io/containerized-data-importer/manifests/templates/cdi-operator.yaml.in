@@ -31,7 +31,7 @@ roleRef:
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: "cdi-controler-leader-election"
+  name: "cdi-operator-leader-election-helper"
   namespace: {{ .Namespace }}
   labels:
     operator.cdi.kubevirt.io: ""
@@ -60,7 +60,7 @@ spec:
           ports:
           - containerPort: 60000
             name: metrics
-          imagePullPolicy: Always
+          imagePullPolicy: {{ .PullPolicy }}
           env:
           - name: DEPLOY_CLUSTER_RESOURCES
             value: 'true'
@@ -89,6 +89,8 @@ apiVersion: apiextensions.k8s.io/v1beta1
 kind: CustomResourceDefinition
 metadata:
   name: cdis.cdi.kubevirt.io
+  labels:
+    operator.cdi.kubevirt.io: ""
 spec:
   group: cdi.kubevirt.io
   names:

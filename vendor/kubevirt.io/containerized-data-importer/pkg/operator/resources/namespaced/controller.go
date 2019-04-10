@@ -51,6 +51,7 @@ func createControllerResources(args *FactoryArgs) []runtime.Object {
 			args.DockerTag,
 			args.Verbosity,
 			args.PullPolicy),
+		createInsecureRegConfigMap(),
 	}
 }
 
@@ -78,6 +79,19 @@ func createControllerDeployment(repo, controllerImage, importerImage, clonerImag
 			Name:  "UPLOADPROXY_SERVICE",
 			Value: uploadProxyResourceName,
 		},
+		{
+			Name:  "PULL_POLICY",
+			Value: pullPolicy,
+		},
+	}
+	container.ReadinessProbe = &corev1.Probe{
+		Handler: corev1.Handler{
+			Exec: &corev1.ExecAction{
+				Command: []string{"cat", "/tmp/ready"},
+			},
+		},
+		InitialDelaySeconds: 2,
+		PeriodSeconds:       5,
 	}
 	deployment.Spec.Template.Spec.Containers = []corev1.Container{container}
 	return deployment
@@ -111,6 +125,19 @@ func createPrometheusService() *corev1.Service {
 					Protocol: corev1.ProtocolTCP,
 				},
 			},
+		},
+	}
+}
+
+func createInsecureRegConfigMap() *corev1.ConfigMap {
+	return &corev1.ConfigMap{
+		TypeMeta: metav1.TypeMeta{
+			APIVersion: "v1",
+			Kind:       "ConfigMap",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:   common.InsecureRegistryConfigMap,
+			Labels: withCommonLabels(nil),
 		},
 	}
 }

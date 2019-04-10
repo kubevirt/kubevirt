@@ -3,7 +3,7 @@
 ## Introduction
 Data Volumes(DV) are an abstraction on top of Persistent Volume Claims(PVC) and the Containerized Data Importer(CDI). The DV will monitor and orchestrate the upload/import of the data into the PVC. Once the process is completed, the DV will be in a consistent state that allow consumers to make certain assumptions about the DV in order to progress their own orchestration.
 
-Why is this an improvement over simply looking at the state annotation created and managed by CDI? Data Volumes provide a versioned API that other project like Kubevirt](https://github.com/kubevirt/kubevirt) can integrate with. This way those project can rely on an API staying the same for a particular version and have guarantees about what that API will look like. Any changes to the API will result in a new version of the API.
+Why is this an improvement over simply looking at the state annotation created and managed by CDI? Data Volumes provide a versioned API that other project like [Kubevirt](https://github.com/kubevirt/kubevirt) can integrate with. This way those project can rely on an API staying the same for a particular version and have guarantees about what that API will look like. Any changes to the API will result in a new version of the API.
 
 ### Status phases
 The following statuses are possible.
@@ -29,6 +29,7 @@ spec:
       http:
          url: "https://download.cirros-cloud.net/0.4.0/cirros-0.4.0-x86_64-disk.img" # Or S3
          secretRef: "" # Optional
+         certConfigMap: "" # Optional
   pvc:
     accessModes:
       - ReadWriteOnce
@@ -36,8 +37,41 @@ spec:
       requests:
         storage: "64Mi"
 ```
-[Get example](../manifests/example/example-import-dv.yaml)
-[Get secret example](../manifest/example/endpoint-secret.yaml)
+[Get example](../manifests/example/import-kubevirt-datavolume.yaml)
+[Get secret example](../manifests/example/endpoint-secret.yaml)
+[Get certificate example](../manifests/example/cert-configmap.yaml)
+
+Alternatively, if your certificate is stored in a local file, you can create the `ConfigMap` like this:
+
+```bash
+kubectl create configmap import-certs --from-file=ca.pem
+```
+
+### Content-type
+You can specify the content type of the source image. The following content-type is valid:
+* kubevirt (Virtual disk image, the default if missing)
+* archive (Tar archive)
+If the content type is kubevirt, the source will be treated as a virtual disk, converted to raw, and sized appropriately. If the content type is archive it will be treated as a tar archive and CDI will attempt to extract the contents of that archive into the Data Volume.
+An example of an archive from an http source:
+
+```yaml
+apiVersion: cdi.kubevirt.io/v1alpha1
+kind: DataVolume
+metadata:
+  name: "example-import-dv"
+spec:
+  source:
+      http:
+         url: "http://server/archive.tar"
+         secretRef: "" # Optional
+   contentType: "archive"
+  pvc:
+    accessModes:
+      - ReadWriteOnce
+    resources:
+      requests:
+        storage: "64Mi"
+```
 
 ## PVC source
 You can also use a PVC as an input source for a DV which will cause a clone to happen of the original PVC. You set the 'source' to be PVC, and specify the name and namespace of the PVC you want to have cloned. Be sure to specify the right amount of space to allocate for the new DV or the clone can't complete.
@@ -62,7 +96,40 @@ spec:
 [Get example](../manifests/example/example-clone-dv.yaml)
 
 ## Upload Data Volumes
-TBD, this has not been implemented yet.
+You can upload a virtual disk image directly into a data volume as well, just like with PVCs. The steps to follow are identical as [upload for PVC](upload.md) except that the yaml for a Data Volume is slightly different.
+```yaml
+apiVersion: cdi.kubevirt.io/v1alpha1
+kind: DataVolume
+metadata:
+  name: example-upload-dv
+spec:
+  source:
+    upload: {}
+  pvc:
+    accessModes:
+      - ReadWriteOnce
+    resources:
+      requests:
+        storage: 1Gi
+```
+
+## Blank Data Volume
+You can create a blank virtual disk image in a Data Volume as well, with the following yaml:
+```yaml
+apiVersion: cdi.kubevirt.io/v1alpha1
+kind: DataVolume
+metadata:
+  name: example-blank-dv
+spec:
+  source:
+    blank: {}
+  pvc:
+    accessModes:
+      - ReadWriteOnce
+    resources:
+      requests:
+        storage: 1Gi
+```
 
 ## Kubevirt integration
 [Kubevirt](https://github.com/kubevirt/kubevirt) is an extension to Kubernetes that allows one to run Virtual Machines(VM) on the same infra structure as the containers managed by Kubernetes. CDI provides a mechanism to get a disk image into a PVC in order for Kubevirt to consume it. The following steps have to be taken in order for Kubevirt to consume a CDI provided disk image.

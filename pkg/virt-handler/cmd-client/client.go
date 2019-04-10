@@ -57,7 +57,9 @@ type Args struct {
 }
 
 type MigrationOptions struct {
-	Bandwidth resource.Quantity
+	Bandwidth               resource.Quantity
+	ProgressTimeout         int64
+	CompletionTimeoutPerGiB int64
 }
 
 type LauncherClient interface {

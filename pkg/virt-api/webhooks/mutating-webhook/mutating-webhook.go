@@ -31,7 +31,9 @@ import (
 	kubev1 "kubevirt.io/kubevirt/pkg/api/v1"
 	v1 "kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/log"
+	"kubevirt.io/kubevirt/pkg/util"
 	"kubevirt.io/kubevirt/pkg/virt-api/webhooks"
+	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 )
 
 type patchOperation struct {
@@ -94,6 +96,11 @@ func mutateVMIs(ar *v1beta1.AdmissionReview) *v1beta1.AdmissionResponse {
 	}
 
 	informers := webhooks.GetInformers()
+	namespace, err := util.GetNamespace()
+	if err != nil {
+		return webhooks.ToAdmissionResponseError(err)
+	}
+	config := virtconfig.NewClusterConfig(informers.ConfigMapInformer.GetStore(), namespace)
 
 	// Apply presets
 	err = applyPresets(&vmi, informers.VMIPresetInformer)
@@ -113,6 +120,9 @@ func mutateVMIs(ar *v1beta1.AdmissionReview) *v1beta1.AdmissionResponse {
 
 	// Set VMI defaults
 	log.Log.Object(&vmi).V(4).Info("Apply defaults")
+	if vmi.Spec.Domain.Machine.Type == "" {
+		vmi.Spec.Domain.Machine.Type = config.GetMachineType()
+	}
 	kubev1.SetObjectDefaults_VirtualMachineInstance(&vmi)
 
 	// Add foreground finalizer

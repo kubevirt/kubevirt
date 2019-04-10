@@ -24,14 +24,28 @@ function  ready {
     touch $1
 }
 
+#healthy if registry is accessible and can return the list of images
 function health {
     echo "health"
-    touch $1
+    registry=$registry_host":"$registry_port
+    status=$?
+    curl -k -X GET https://$registry/v2/_catalog &> /dev/null
+    if [ $status -eq 0 ]; then 
+       touch $1
+    else 
+       echo "registry is inaccessible"
+    fi
+}
+
+function imageList {
+    registry=$registry_host":"$registry_port
+    echo curl -k -X GET https://$registry/v2/_catalog
 }
 
 #Convert all images to docker build consumable format
 DIR="-dir"
 DOCKERFILE="Dockerfile"
+VMIMAGEFILENAME="disk.img"
 
 function prepareImages {
    images_in=$1
@@ -47,10 +61,17 @@ function prepareImages {
         mkdir -p $FILENAME$DIR
         cp  $FILENAME $FILENAME$DIR
 
+        local IMAGE_LOCATION 
+        if [[ $FILENAME == *"gz"* ]]; then
+            IMAGE_LOCATION="/"
+        else
+            IMAGE_LOCATION="/disk"
+        fi
+
         FILE=$FILENAME$DIR"/"$DOCKERFILE
         /bin/cat  >$FILE <<-EOF
-                FROM scratch
-                ADD / $FILENAME
+                FROM kubevirt/container-disk-v1alpha
+                COPY $FILENAME $IMAGE_LOCATION
 EOF
 
         rm $FILENAME
@@ -72,23 +93,24 @@ function pushImages {
    registry_tls=$4
    registry=$registry_host":"$registry_port
    
-   retval=$?
    shopt -s nullglob
    for IMAGEDIR in *$DIR; do
         cd $IMAGEDIR
-        FILE=$(ls | grep -v $DOCKERFILE)
         declare -l FILE
-        FILE=$FILE
-        echo "building image "$FILE
-        buildah bud -t $FILE":buildah" $images"/"$IMAGEDIR"/"; $retval
-	error $retval	
-        echo "pushing image "$FILE" to registry-service: "$resgistry
-        buildah push $registry_tls  $FILE":buildah" "docker://"$registry"/"$FILE; $retVal
-	error $retval
+        FILE=$(ls | grep -v $DOCKERFILE)
+        IMAGENAME=${FILE//.}
+        echo "building image "$IMAGENAME
+        buildah bud -t $IMAGENAME":latest" $images"/"$IMAGEDIR"/"
+	error $?	
+        echo "pushing image "$IMAGENAME" to registry-service: "$registry
+        buildah push $registry_tls  $IMAGENAME":latest" "docker://"$registry"/"$IMAGENAME
+	error $?
         cd ../
    done
 }
 
+#remove storage.conf if exists 
+rm -rf /etc/containers/storage.conf
 
 #start health beat
 health $HEALTH_PATH $HEALTH_PERIOD &

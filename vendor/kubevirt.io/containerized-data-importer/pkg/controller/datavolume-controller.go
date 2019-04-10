@@ -21,7 +21,6 @@ import (
 	"reflect"
 	"time"
 
-	"github.com/golang/glog"
 	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
@@ -37,7 +36,7 @@ import (
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/record"
 	"k8s.io/client-go/util/workqueue"
-
+	"k8s.io/klog"
 	cdiv1 "kubevirt.io/containerized-data-importer/pkg/apis/core/v1alpha1"
 	clientset "kubevirt.io/containerized-data-importer/pkg/client/clientset/versioned"
 	cdischeme "kubevirt.io/containerized-data-importer/pkg/client/clientset/versioned/scheme"
@@ -155,9 +154,9 @@ func NewDataVolumeController(
 	// Add datavolume-controller types to the default Kubernetes Scheme so Events can be
 	// logged for datavolume-controller types.
 	cdischeme.AddToScheme(scheme.Scheme)
-	glog.V(3).Info("Creating event broadcaster")
+	klog.V(3).Info("Creating event broadcaster")
 	eventBroadcaster := record.NewBroadcaster()
-	eventBroadcaster.StartLogging(glog.V(2).Infof)
+	eventBroadcaster.StartLogging(klog.V(2).Infof)
 	eventBroadcaster.StartRecordingToSink(&typedcorev1.EventSinkImpl{Interface: kubeclientset.CoreV1().Events("")})
 	recorder := eventBroadcaster.NewRecorder(scheme.Scheme, corev1.EventSource{Component: controllerAgentName})
 
@@ -173,7 +172,7 @@ func NewDataVolumeController(
 		pvcExpectations:   expectations.NewUIDTrackingControllerExpectations(expectations.NewControllerExpectations()),
 	}
 
-	glog.V(2).Info("Setting up event handlers")
+	klog.V(2).Info("Setting up event handlers")
 
 	// Set up an event handler for when DataVolume resources change
 	dataVolumeInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
@@ -181,6 +180,7 @@ func NewDataVolumeController(
 		UpdateFunc: func(old, new interface{}) {
 			controller.enqueueDataVolume(new)
 		},
+		DeleteFunc: controller.enqueueDataVolume,
 	})
 	// Set up an event handler for when PVC resources change
 	// handleObject function ensures we filter PVCs not created by this controller
@@ -211,23 +211,23 @@ func (c *DataVolumeController) Run(threadiness int, stopCh <-chan struct{}) erro
 	defer c.workqueue.ShutDown()
 
 	// Start the informer factories to begin populating the informer caches
-	glog.V(2).Info("Starting DataVolume controller")
+	klog.V(2).Info("Starting DataVolume controller")
 
 	// Wait for the caches to be synced before starting workers
-	glog.V(2).Info("Waiting for informer caches to sync")
+	klog.V(2).Info("Waiting for informer caches to sync")
 	if ok := cache.WaitForCacheSync(stopCh, c.pvcsSynced, c.dataVolumesSynced); !ok {
 		return errors.Errorf("failed to wait for caches to sync")
 	}
 
-	glog.V(2).Info("Starting workers")
+	klog.V(2).Info("Starting workers")
 	// Launch two workers to process DataVolume resources
 	for i := 0; i < threadiness; i++ {
 		go wait.Until(c.runWorker, time.Second, stopCh)
 	}
 
-	glog.V(2).Info("Started workers")
+	klog.V(2).Info("Started workers")
 	<-stopCh
-	glog.V(2).Info("Shutting down workers")
+	klog.V(2).Info("Shutting down workers")
 
 	return nil
 }
@@ -281,7 +281,7 @@ func (c *DataVolumeController) processNextWorkItem() bool {
 		// Finally, if no error occurs we Forget this item so it does not
 		// get queued again until another change happens.
 		c.workqueue.Forget(obj)
-		glog.V(2).Infof("Successfully synced '%s'", key)
+		klog.V(2).Infof("Successfully synced '%s'", key)
 		return nil
 	}(obj)
 
@@ -319,6 +319,10 @@ func (c *DataVolumeController) syncHandler(key string) error {
 		}
 
 		return err
+	}
+
+	if dataVolume.DeletionTimestamp != nil {
+		return nil
 	}
 
 	// Get the pvc with the name specified in DataVolume.spec
@@ -566,9 +570,9 @@ func (c *DataVolumeController) handleObject(obj interface{}, verb string) {
 			runtime.HandleError(errors.Errorf("error decoding object tombstone, invalid type"))
 			return
 		}
-		glog.V(3).Infof("Recovered deleted object '%s' from tombstone", object.GetName())
+		klog.V(3).Infof("Recovered deleted object '%s' from tombstone", object.GetName())
 	}
-	glog.V(3).Infof("Processing object: %s", object.GetName())
+	klog.V(3).Infof("Processing object: %s", object.GetName())
 	if ownerRef := metav1.GetControllerOf(object); ownerRef != nil {
 		// If this object is not owned by a DataVolume, we should not do anything more
 		// with it.
@@ -576,27 +580,9 @@ func (c *DataVolumeController) handleObject(obj interface{}, verb string) {
 			return
 		}
 
-		// BUG: GH Issue #523, currently you can delete a DV and the object will be removed before it's referenced objects are actually
-		// removed (ie POD in a retry loop).  So we need to deal with that by cleaning up any PODs associated with the PVC so that it
-		// can actually be deleted.  The trick here is that we may not have a DV any longer, but still have a PVC and a POD, so deal with it
 		dataVolume, err := c.dataVolumesLister.DataVolumes(object.GetNamespace()).Get(ownerRef.Name)
 		if err != nil {
-			volume, ok := obj.(*corev1.PersistentVolumeClaim)
-			if !ok {
-				// That's weird, how did the PVC handler get a non-pvc object?
-				return
-			}
-			// If there's a DeletionTimestamp that indicates a delete request was received, let's make sure we don't need to clean up any pods
-			if volume.ObjectMeta.DeletionTimestamp != nil {
-				glog.V(3).Infof("verifying deletion of PODs associated with deleted DataVolume PVC: %s", volume.Name)
-				err = c.kubeclientset.CoreV1().Pods(volume.Namespace).Delete(volume.Annotations[AnnImportPod], &metav1.DeleteOptions{})
-				if err != nil && !k8serrors.IsNotFound(err) {
-					glog.V(3).Infof("error encountered cleaning up associated PODS from orphaned DataVolume PVC: %v", err)
-
-				}
-			} else {
-				glog.V(3).Infof("ignoring orphaned object '%s' of dataVolume '%s'", object.GetSelfLink(), ownerRef.Name)
-			}
+			klog.V(3).Infof("ignoring orphaned object '%s' of datavolume '%s'", object.GetSelfLink(), ownerRef.Name)
 			return
 		}
 
@@ -643,6 +629,9 @@ func newPersistentVolumeClaim(dataVolume *cdiv1.DataVolume) (*corev1.PersistentV
 		if dataVolume.Spec.Source.HTTP.SecretRef != "" {
 			annotations[AnnSecret] = dataVolume.Spec.Source.HTTP.SecretRef
 		}
+		if dataVolume.Spec.Source.HTTP.CertConfigMap != "" {
+			annotations[AnnCertConfigMap] = dataVolume.Spec.Source.HTTP.CertConfigMap
+		}
 	} else if dataVolume.Spec.Source.S3 != nil {
 		annotations[AnnEndpoint] = dataVolume.Spec.Source.S3.URL
 		if dataVolume.Spec.Source.S3.SecretRef != "" {
@@ -653,6 +642,9 @@ func newPersistentVolumeClaim(dataVolume *cdiv1.DataVolume) (*corev1.PersistentV
 		annotations[AnnEndpoint] = dataVolume.Spec.Source.Registry.URL
 		if dataVolume.Spec.Source.Registry.SecretRef != "" {
 			annotations[AnnSecret] = dataVolume.Spec.Source.Registry.SecretRef
+		}
+		if dataVolume.Spec.Source.Registry.CertConfigMap != "" {
+			annotations[AnnCertConfigMap] = dataVolume.Spec.Source.Registry.CertConfigMap
 		}
 	} else if dataVolume.Spec.Source.PVC != nil {
 		if dataVolume.Spec.Source.PVC.Namespace != "" {

@@ -1354,7 +1354,9 @@ func (d *VirtualMachineController) processVmUpdate(origVMI *v1.VirtualMachineIns
 			}
 		} else {
 			options := &cmdclient.MigrationOptions{
-				Bandwidth: *d.clusterConfig.GetMigrationConfig().BandwidthPerMigration,
+				Bandwidth:               *d.clusterConfig.GetMigrationConfig().BandwidthPerMigration,
+				ProgressTimeout:         *d.clusterConfig.GetMigrationConfig().ProgressTimeout,
+				CompletionTimeoutPerGiB: *d.clusterConfig.GetMigrationConfig().CompletionTimeoutPerGiB,
 			}
 			err = client.MigrateVirtualMachine(vmi, options)
 			if err != nil {

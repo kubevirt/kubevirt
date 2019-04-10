@@ -4942,20 +4942,6 @@
      }
     }
    },
-   "v1.MigrationConfig": {
-    "properties": {
-     "completionTimeoutPerGiB": {
-      "description": "The time for GiB of data to wait for the migration to be completed before aborting it",
-      "type": "integer",
-      "format": "int64"
-     },
-     "progressTimeout": {
-      "description": "The time to wait for live migration to make progress in transferring data.",
-      "type": "integer",
-      "format": "int64"
-     }
-    }
-   },
    "v1.MultusNetwork": {
     "description": "Represents the multus cni network.",
     "required": [
@@ -5933,9 +5919,6 @@
    },
    "v1.VirtualMachineInstanceMigrationSpec": {
     "properties": {
-     "configuration": {
-      "$ref": "#/definitions/v1.MigrationConfig"
-     },
      "vmiName": {
       "description": "The name of the VMI to perform the migration on. VMI must exist in the migration objects namespace",
       "type": "string"
@@ -5963,10 +5946,6 @@
      "failed": {
       "description": "Indicates that the migration failed",
       "type": "boolean"
-     },
-     "migrationConfig": {
-      "description": "Config contains migration configuration options",
-      "$ref": "#/definitions/v1.MigrationConfig"
      },
      "migrationUid": {
       "description": "The VirtualMachineInstanceMigration object associated with this migration",
@@ -6581,6 +6560,10 @@
    "v1alpha1.DataVolumeSourceHTTP": {
     "description": "DataVolumeSourceHTTP provides the parameters to create a Data Volume from an HTTP source",
     "properties": {
+     "certConfigMap": {
+      "description": "CertConfigMap provides a reference to the Registry certs",
+      "type": "string"
+     },
      "secretRef": {
       "description": "SecretRef provides the secret reference needed to access the HTTP source",
       "type": "string"
@@ -6605,6 +6588,10 @@
    "v1alpha1.DataVolumeSourceRegistry": {
     "description": "DataVolumeSourceRegistry provides the parameters to create a Data Volume from an registry source",
     "properties": {
+     "certConfigMap": {
+      "description": "CertConfigMap provides a reference to the Registry certs",
+      "type": "string"
+     },
      "secretRef": {
       "description": "SecretRef provides the secret reference needed to access the Registry source",
       "type": "string"
