@@ -886,7 +886,11 @@ func DeleteRawManifest(object unstructured.Unstructured) error {
 
 	uri := composeResourceURI(object)
 	uri = uri + "/" + object.GetName()
-	result := virtCli.CoreV1().RESTClient().Delete().RequestURI(uri).Do()
+
+	policy := metav1.DeletePropagationBackground
+	options := &metav1.DeleteOptions{PropagationPolicy: &policy}
+
+	result := virtCli.CoreV1().RESTClient().Delete().RequestURI(uri).Body(options).Do()
 	if result.Error() != nil && !errors.IsNotFound(result.Error()) {
 		fmt.Printf(fmt.Sprintf("ERROR: Can not delete %s err: %#v %s\n", object.GetName(), result.Error(), object))
 		panic(err)
