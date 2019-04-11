@@ -391,9 +391,11 @@ func (app *virtAPIApp) getClientCert() error {
 
 	clientCA, ok := authConfigMap.Data["client-ca-file"]
 	if !ok {
-		return fmt.Errorf("client-ca-file value not found in auth config map.")
+		// client-ca-file doesn't always exist in all deployments.
+		log.Log.Warning("client-ca-file value not found in auth config map.")
+	} else {
+		app.clientCABytes = []byte(clientCA)
 	}
-	app.clientCABytes = []byte(clientCA)
 
 	// request-header-ca-file doesn't always exist in all deployments.
 	// set it if the value is set though.
@@ -926,13 +928,15 @@ func (app *virtAPIApp) setupTLS(fs Filesystem) error {
 	app.clientCAFile = filepath.Join(app.certsDirectory, "/clientCA.crt")
 
 	// Write the certs to disk
-	err := fs.WriteFile(app.clientCAFile, app.clientCABytes, 0600)
-	if err != nil {
-		return err
+	if len(app.clientCABytes) != 0 {
+		err := fs.WriteFile(app.clientCAFile, app.clientCABytes, 0600)
+		if err != nil {
+			return err
+		}
 	}
 
 	if len(app.requestHeaderClientCABytes) != 0 {
-		f, err := fs.OpenFile(app.clientCAFile, os.O_APPEND|os.O_WRONLY, 0600)
+		f, err := fs.OpenFile(app.clientCAFile, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0600)
 		if err != nil {
 			return err
 		}
@@ -944,7 +948,7 @@ func (app *virtAPIApp) setupTLS(fs Filesystem) error {
 		}
 	}
 
-	err = fs.WriteFile(app.keyFile, app.keyBytes, 0600)
+	err := fs.WriteFile(app.keyFile, app.keyBytes, 0600)
 	if err != nil {
 		return err
 	}
