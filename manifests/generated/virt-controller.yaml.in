@@ -24,14 +24,16 @@ spec:
     spec:
       affinity:
         podAntiAffinity:
-          requiredDuringSchedulingIgnoredDuringExecution:
-          - labelSelector:
-              matchExpressions:
-              - key: kubevirt.io
-                operator: In
-                values:
-                - virt-controller
-            topologyKey: kubernetes.io/hostname
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - podAffinityTerm:
+              labelSelector:
+                matchExpressions:
+                - key: kubevirt.io
+                  operator: In
+                  values:
+                  - virt-controller
+              topologyKey: kubernetes.io/hostname
+            weight: 1
       containers:
       - command:
         - virt-controller

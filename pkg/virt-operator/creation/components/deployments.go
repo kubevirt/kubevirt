@@ -246,18 +246,21 @@ func newBaseDeployment(name string, namespace string, repository string, version
 func newPodAntiAffinity(key, topologyKey string, operator metav1.LabelSelectorOperator, values []string) *corev1.Affinity {
 	return &corev1.Affinity{
 		PodAntiAffinity: &corev1.PodAntiAffinity{
-			RequiredDuringSchedulingIgnoredDuringExecution: []corev1.PodAffinityTerm{
+			PreferredDuringSchedulingIgnoredDuringExecution: []corev1.WeightedPodAffinityTerm{
 				{
-					LabelSelector: &metav1.LabelSelector{
-						MatchExpressions: []metav1.LabelSelectorRequirement{
-							{
-								Key:      key,
-								Operator: operator,
-								Values:   values,
+					Weight: 1,
+					PodAffinityTerm: corev1.PodAffinityTerm{
+						LabelSelector: &metav1.LabelSelector{
+							MatchExpressions: []metav1.LabelSelectorRequirement{
+								{
+									Key:      key,
+									Operator: operator,
+									Values:   values,
+								},
 							},
 						},
+						TopologyKey: topologyKey,
 					},
-					TopologyKey: topologyKey,
 				},
 			},
 		},
