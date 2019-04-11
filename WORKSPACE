@@ -154,7 +154,7 @@ container_pull(
 # Pull base image libvirt
 container_pull(
     name = "libvirt",
-    digest = "sha256:64d075a7d5976ce6d69f7483ae4d2d9997e6a18a04a1a435995dbc152c8eb0db",
+    digest = "sha256:47d1306ac25b1a5903f619a96117ff13192923892b3462e318313376e5aed984",
     registry = "index.docker.io",
     repository = "kubevirt/libvirt",
     #tag = "5.0.0",
