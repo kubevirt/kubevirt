@@ -49,6 +49,7 @@ const (
 	useEmulationKey        = "debug.useEmulation"
 	imagePullPolicyKey     = "dev.imagePullPolicy"
 	migrationsConfigKey    = "migrations"
+	cpuModelKey            = "default-cpu-model"
 
 	ParallelOutboundMigrationsPerNodeDefault uint32 = 2
 	ParallelMigrationsPerClusterDefault      uint32 = 5
@@ -162,6 +163,7 @@ type Config struct {
 	MigrationConfig *MigrationConfig
 	ImagePullPolicy k8sv1.PullPolicy
 	MachineType     string
+	CPUModel        string
 }
 
 type MigrationConfig struct {
@@ -196,6 +198,10 @@ func (c *ClusterConfig) GetImagePullPolicy() (policy k8sv1.PullPolicy) {
 
 func (c *ClusterConfig) GetMachineType() string {
 	return c.getConfig().MachineType
+}
+
+func (c *ClusterConfig) GetCPUModel() string {
+	return c.getConfig().CPUModel
 }
 
 // setConfig parses the provided config map and updates the provided config.
@@ -246,6 +252,10 @@ func setConfig(config *Config, configMap *k8sv1.ConfigMap) error {
 	// set machine type
 	if machineType := strings.TrimSpace(configMap.Data[machineTypeKey]); machineType != "" {
 		config.MachineType = machineType
+	}
+
+	if cpuModel := strings.TrimSpace(configMap.Data[cpuModelKey]); cpuModel != "" {
+		config.CPUModel = cpuModel
 	}
 
 	return nil

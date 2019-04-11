@@ -47,6 +47,7 @@ var _ = Describe("Mutating Webhook", func() {
 
 		memory, _ := resource.ParseQuantity("64M")
 		limitMemory, _ := resource.ParseQuantity("128M")
+		cpuModelFromConfig := "Haswell"
 
 		getVMISpecMetaFromResponse := func() (*v1.VirtualMachineInstanceSpec, *k8smetav1.ObjectMeta) {
 			vmiBytes, err := json.Marshal(vmi)
@@ -147,6 +148,21 @@ var _ = Describe("Mutating Webhook", func() {
 		It("should apply defaults on VMI create", func() {
 			vmiSpec, _ := getVMISpecMetaFromResponse()
 			Expect(vmiSpec.Domain.Machine.Type).To(Equal("q35"))
+			Expect(vmiSpec.Domain.CPU.Model).To(Equal(""))
+		})
+
+		It("should apply configurable defaults on VMI create", func() {
+			setDefaultCPUModel(vmi, cpuModelFromConfig)
+			Expect(vmi.Spec.Domain.CPU.Model).To(Equal(cpuModelFromConfig))
+		})
+
+		It("should not override specified properties with defaults on VMI create", func() {
+			vmCPUModel := "EPYC"
+			vmi.Spec.Domain.CPU = &v1.CPU{
+				Model: vmCPUModel,
+			}
+			setDefaultCPUModel(vmi, cpuModelFromConfig)
+			Expect(vmi.Spec.Domain.CPU.Model).To(Equal(vmCPUModel))
 		})
 
 		It("should apply foreground finalizer on VMI create", func() {
