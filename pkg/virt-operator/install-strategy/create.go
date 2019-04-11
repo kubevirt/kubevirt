@@ -446,6 +446,185 @@ func createDummyWebhookValidator(targetStrategy *InstallStrategy,
 	return nil
 }
 
+func createOrUpdateRoleBinding(rb *rbacv1.RoleBinding,
+	kvkey string,
+	imageTag string,
+	imageRegistry string,
+	namespace string,
+	stores util.Stores,
+	clientset kubecli.KubevirtClient,
+	expectations *util.Expectations) error {
+
+	var err error
+	rbac := clientset.RbacV1()
+
+	var cachedRb *rbacv1.RoleBinding
+
+	rb = rb.DeepCopy()
+	obj, exists, _ := stores.RoleBindingCache.Get(rb)
+
+	if exists {
+		cachedRb = obj.(*rbacv1.RoleBinding)
+	}
+
+	injectOperatorLabelAndAnnotations(&rb.ObjectMeta, imageTag, imageRegistry)
+	if !exists {
+		// Create non existent
+		expectations.RoleBinding.RaiseExpectations(kvkey, 1, 0)
+		_, err := rbac.RoleBindings(namespace).Create(rb)
+		if err != nil {
+			expectations.RoleBinding.LowerExpectations(kvkey, 1, 0)
+			return fmt.Errorf("unable to create rolebinding %+v: %v", rb, err)
+		}
+		log.Log.V(2).Infof("rolebinding %v created", rb.GetName())
+	} else if !objectMatchesVersion(&cachedRb.ObjectMeta, imageTag, imageRegistry) {
+		// Update existing, we don't need to patch for rbac rules.
+		_, err = rbac.RoleBindings(namespace).Update(rb)
+		if err != nil {
+			return fmt.Errorf("unable to update rolebinding %+v: %v", rb, err)
+		}
+		log.Log.V(2).Infof("rolebinding %v updated", rb.GetName())
+
+	} else {
+		log.Log.V(4).Infof("rolebinding %v already exists", rb.GetName())
+	}
+
+	return nil
+}
+
+func createOrUpdateRole(r *rbacv1.Role,
+	kvkey string,
+	imageTag string,
+	imageRegistry string,
+	namespace string,
+	stores util.Stores,
+	clientset kubecli.KubevirtClient,
+	expectations *util.Expectations) error {
+
+	var err error
+	rbac := clientset.RbacV1()
+
+	var cachedR *rbacv1.Role
+
+	r = r.DeepCopy()
+	obj, exists, _ := stores.RoleCache.Get(r)
+	if exists {
+		cachedR = obj.(*rbacv1.Role)
+	}
+
+	injectOperatorLabelAndAnnotations(&r.ObjectMeta, imageTag, imageRegistry)
+	if !exists {
+		// Create non existent
+		expectations.Role.RaiseExpectations(kvkey, 1, 0)
+		_, err := rbac.Roles(namespace).Create(r)
+		if err != nil {
+			expectations.Role.LowerExpectations(kvkey, 1, 0)
+			return fmt.Errorf("unable to create role %+v: %v", r, err)
+		}
+		log.Log.V(2).Infof("role %v created", r.GetName())
+	} else if !objectMatchesVersion(&cachedR.ObjectMeta, imageTag, imageRegistry) {
+		// Update existing, we don't need to patch for rbac rules.
+		_, err = rbac.Roles(namespace).Update(r)
+		if err != nil {
+			return fmt.Errorf("unable to update role %+v: %v", r, err)
+		}
+		log.Log.V(2).Infof("role %v updated", r.GetName())
+
+	} else {
+		log.Log.V(4).Infof("role %v already exists", r.GetName())
+	}
+	return nil
+}
+
+func createOrUpdateClusterRoleBinding(crb *rbacv1.ClusterRoleBinding,
+	kvkey string,
+	imageTag string,
+	imageRegistry string,
+	stores util.Stores,
+	clientset kubecli.KubevirtClient,
+	expectations *util.Expectations) error {
+
+	var err error
+	rbac := clientset.RbacV1()
+
+	var cachedCrb *rbacv1.ClusterRoleBinding
+
+	crb = crb.DeepCopy()
+	obj, exists, _ := stores.ClusterRoleBindingCache.Get(crb)
+	if exists {
+		cachedCrb = obj.(*rbacv1.ClusterRoleBinding)
+	}
+
+	injectOperatorLabelAndAnnotations(&crb.ObjectMeta, imageTag, imageRegistry)
+	if !exists {
+		// Create non existent
+		expectations.ClusterRoleBinding.RaiseExpectations(kvkey, 1, 0)
+		_, err := rbac.ClusterRoleBindings().Create(crb)
+		if err != nil {
+			expectations.ClusterRoleBinding.LowerExpectations(kvkey, 1, 0)
+			return fmt.Errorf("unable to create clusterrolebinding %+v: %v", crb, err)
+		}
+		log.Log.V(2).Infof("clusterrolebinding %v created", crb.GetName())
+	} else if !objectMatchesVersion(&cachedCrb.ObjectMeta, imageTag, imageRegistry) {
+		// Update existing, we don't need to patch for rbac rules.
+		_, err = rbac.ClusterRoleBindings().Update(crb)
+		if err != nil {
+			return fmt.Errorf("unable to update clusterrolebinding %+v: %v", crb, err)
+		}
+		log.Log.V(2).Infof("clusterrolebinding %v updated", crb.GetName())
+
+	} else {
+		log.Log.V(4).Infof("clusterrolebinding %v already exists", crb.GetName())
+	}
+
+	return nil
+}
+
+func createOrUpdateClusterRole(cr *rbacv1.ClusterRole,
+	kvkey string,
+	imageTag string,
+	imageRegistry string,
+	stores util.Stores,
+	clientset kubecli.KubevirtClient,
+	expectations *util.Expectations) error {
+
+	var err error
+	rbac := clientset.RbacV1()
+
+	var cachedCr *rbacv1.ClusterRole
+
+	cr = cr.DeepCopy()
+	obj, exists, _ := stores.ClusterRoleCache.Get(cr)
+
+	if exists {
+		cachedCr = obj.(*rbacv1.ClusterRole)
+	}
+
+	injectOperatorLabelAndAnnotations(&cr.ObjectMeta, imageTag, imageRegistry)
+	if !exists {
+		// Create non existent
+		expectations.ClusterRole.RaiseExpectations(kvkey, 1, 0)
+		_, err := rbac.ClusterRoles().Create(cr)
+		if err != nil {
+			expectations.ClusterRole.LowerExpectations(kvkey, 1, 0)
+			return fmt.Errorf("unable to create clusterrole %+v: %v", cr, err)
+		}
+		log.Log.V(2).Infof("clusterrole %v created", cr.GetName())
+	} else if !objectMatchesVersion(&cachedCr.ObjectMeta, imageTag, imageRegistry) {
+		// Update existing, we don't need to patch for rbac rules.
+		_, err = rbac.ClusterRoles().Update(cr)
+		if err != nil {
+			return fmt.Errorf("unable to update clusterrole %+v: %v", cr, err)
+		}
+		log.Log.V(2).Infof("clusterrole %v updated", cr.GetName())
+
+	} else {
+		log.Log.V(4).Infof("clusterrole %v already exists", cr.GetName())
+	}
+
+	return nil
+}
+
 func createOrUpdateCrds(kv *v1.KubeVirt,
 	targetStrategy *InstallStrategy,
 	stores util.Stores,
@@ -514,6 +693,129 @@ func createOrUpdateCrds(kv *v1.KubeVirt,
 	return nil
 }
 
+func createOrUpdateRbac(kv *v1.KubeVirt,
+	prevStrategy *InstallStrategy,
+	targetStrategy *InstallStrategy,
+	stores util.Stores,
+	clientset kubecli.KubevirtClient,
+	expectations *util.Expectations) error {
+
+	kvkey, err := controller.KeyFunc(kv)
+	if err != nil {
+		return err
+	}
+
+	core := clientset.CoreV1()
+
+	imageTag := kv.Status.TargetKubeVirtVersion
+	imageRegistry := kv.Status.TargetKubeVirtRegistry
+
+	// create/update ServiceAccounts
+	for _, sa := range targetStrategy.serviceAccounts {
+		var cachedSa *corev1.ServiceAccount
+
+		sa := sa.DeepCopy()
+		obj, exists, _ := stores.ServiceAccountCache.Get(sa)
+		if exists {
+			cachedSa = obj.(*corev1.ServiceAccount)
+		}
+
+		injectOperatorLabelAndAnnotations(&sa.ObjectMeta, imageTag, imageRegistry)
+		if !exists {
+			// Create non existent
+			expectations.ServiceAccount.RaiseExpectations(kvkey, 1, 0)
+			_, err := core.ServiceAccounts(kv.Namespace).Create(sa)
+			if err != nil {
+				expectations.ServiceAccount.LowerExpectations(kvkey, 1, 0)
+				return fmt.Errorf("unable to create serviceaccount %+v: %v", sa, err)
+			}
+			log.Log.V(2).Infof("serviceaccount %v created", sa.GetName())
+		} else if !objectMatchesVersion(&cachedSa.ObjectMeta, imageTag, imageRegistry) {
+			// Patch if old version
+			var ops []string
+
+			// Patch Labels and Annotations
+			labelAnnotationPatch, err := createLabelsAndAnnotationsPatch(&sa.ObjectMeta)
+			if err != nil {
+				return err
+			}
+			ops = append(ops, labelAnnotationPatch...)
+
+			_, err = core.ServiceAccounts(kv.Namespace).Patch(sa.Name, types.JSONPatchType, generatePatchBytes(ops))
+			if err != nil {
+				return fmt.Errorf("unable to patch serviceaccount %+v: %v", sa, err)
+			}
+			log.Log.V(2).Infof("serviceaccount %v updated", sa.GetName())
+
+		} else {
+			// Up to date
+			log.Log.V(2).Infof("serviceaccount %v already exists and is up-to-date", sa.GetName())
+		}
+	}
+
+	// TODO create backup RBACK for whatever already exists in cache
+
+	// create/update ClusterRoles
+	for _, cr := range targetStrategy.clusterRoles {
+		err := createOrUpdateClusterRole(cr,
+			kvkey,
+			imageTag,
+			imageRegistry,
+			stores,
+			clientset,
+			expectations)
+		if err != nil {
+			return err
+		}
+	}
+
+	// create/update ClusterRoleBindings
+	for _, crb := range targetStrategy.clusterRoleBindings {
+		err := createOrUpdateClusterRoleBinding(crb,
+			kvkey,
+			imageTag,
+			imageRegistry,
+			stores,
+			clientset,
+			expectations)
+		if err != nil {
+			return err
+		}
+
+	}
+
+	// create/update Roles
+	for _, r := range targetStrategy.roles {
+		err := createOrUpdateRole(r,
+			kvkey,
+			imageTag,
+			imageRegistry,
+			kv.Namespace,
+			stores,
+			clientset,
+			expectations)
+		if err != nil {
+			return err
+		}
+	}
+
+	// create/update RoleBindings
+	for _, rb := range targetStrategy.roleBindings {
+		err := createOrUpdateRoleBinding(rb,
+			kvkey,
+			imageTag,
+			imageRegistry,
+			kv.Namespace,
+			stores,
+			clientset,
+			expectations)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
 func SyncAll(kv *v1.KubeVirt,
 	prevStrategy *InstallStrategy,
 	targetStrategy *InstallStrategy,
@@ -537,7 +839,6 @@ func SyncAll(kv *v1.KubeVirt,
 
 	ext := clientset.ExtensionsClient()
 	core := clientset.CoreV1()
-	rbac := clientset.RbacV1()
 	scc := clientset.SecClient()
 
 	imageTag := kv.Status.TargetKubeVirtVersion
@@ -575,182 +876,15 @@ func SyncAll(kv *v1.KubeVirt,
 		return false, err
 	}
 
-	// create/update ServiceAccounts
-	for _, sa := range targetStrategy.serviceAccounts {
-		var cachedSa *corev1.ServiceAccount
-
-		sa := sa.DeepCopy()
-		obj, exists, _ := stores.ServiceAccountCache.Get(sa)
-		if exists {
-			cachedSa = obj.(*corev1.ServiceAccount)
-		}
-
-		injectOperatorLabelAndAnnotations(&sa.ObjectMeta, imageTag, imageRegistry)
-		if !exists {
-			// Create non existent
-			expectations.ServiceAccount.RaiseExpectations(kvkey, 1, 0)
-			_, err := core.ServiceAccounts(kv.Namespace).Create(sa)
-			if err != nil {
-				expectations.ServiceAccount.LowerExpectations(kvkey, 1, 0)
-				return false, fmt.Errorf("unable to create serviceaccount %+v: %v", sa, err)
-			}
-			log.Log.V(2).Infof("serviceaccount %v created", sa.GetName())
-		} else if !objectMatchesVersion(&cachedSa.ObjectMeta, imageTag, imageRegistry) {
-			// Patch if old version
-			var ops []string
-
-			// Patch Labels and Annotations
-			labelAnnotationPatch, err := createLabelsAndAnnotationsPatch(&sa.ObjectMeta)
-			if err != nil {
-				return false, err
-			}
-			ops = append(ops, labelAnnotationPatch...)
-
-			_, err = core.ServiceAccounts(kv.Namespace).Patch(sa.Name, types.JSONPatchType, generatePatchBytes(ops))
-			if err != nil {
-				return false, fmt.Errorf("unable to patch serviceaccount %+v: %v", sa, err)
-			}
-			log.Log.V(2).Infof("serviceaccount %v updated", sa.GetName())
-
-		} else {
-			// Up to date
-			log.Log.V(2).Infof("serviceaccount %v already exists and is up-to-date", sa.GetName())
-		}
-	}
-
-	// create/update ClusterRoles
-	for _, cr := range targetStrategy.clusterRoles {
-		var cachedCr *rbacv1.ClusterRole
-
-		cr := cr.DeepCopy()
-		obj, exists, _ := stores.ClusterRoleCache.Get(cr)
-
-		if exists {
-			cachedCr = obj.(*rbacv1.ClusterRole)
-		}
-
-		injectOperatorLabelAndAnnotations(&cr.ObjectMeta, imageTag, imageRegistry)
-		if !exists {
-			// Create non existent
-			expectations.ClusterRole.RaiseExpectations(kvkey, 1, 0)
-			_, err := rbac.ClusterRoles().Create(cr)
-			if err != nil {
-				expectations.ClusterRole.LowerExpectations(kvkey, 1, 0)
-				return false, fmt.Errorf("unable to create clusterrole %+v: %v", cr, err)
-			}
-			log.Log.V(2).Infof("clusterrole %v created", cr.GetName())
-		} else if !objectMatchesVersion(&cachedCr.ObjectMeta, imageTag, imageRegistry) {
-			// Update existing, we don't need to patch for rbac rules.
-			_, err = rbac.ClusterRoles().Update(cr)
-			if err != nil {
-				return false, fmt.Errorf("unable to update clusterrole %+v: %v", cr, err)
-			}
-			log.Log.V(2).Infof("clusterrole %v updated", cr.GetName())
-
-		} else {
-			log.Log.V(4).Infof("clusterrole %v already exists", cr.GetName())
-		}
-	}
-
-	// create/update ClusterRoleBindings
-	for _, crb := range targetStrategy.clusterRoleBindings {
-
-		var cachedCrb *rbacv1.ClusterRoleBinding
-
-		crb := crb.DeepCopy()
-		obj, exists, _ := stores.ClusterRoleBindingCache.Get(crb)
-		if exists {
-			cachedCrb = obj.(*rbacv1.ClusterRoleBinding)
-		}
-
-		injectOperatorLabelAndAnnotations(&crb.ObjectMeta, imageTag, imageRegistry)
-		if !exists {
-			// Create non existent
-			expectations.ClusterRoleBinding.RaiseExpectations(kvkey, 1, 0)
-			_, err := rbac.ClusterRoleBindings().Create(crb)
-			if err != nil {
-				expectations.ClusterRoleBinding.LowerExpectations(kvkey, 1, 0)
-				return false, fmt.Errorf("unable to create clusterrolebinding %+v: %v", crb, err)
-			}
-			log.Log.V(2).Infof("clusterrolebinding %v created", crb.GetName())
-		} else if !objectMatchesVersion(&cachedCrb.ObjectMeta, imageTag, imageRegistry) {
-			// Update existing, we don't need to patch for rbac rules.
-			_, err = rbac.ClusterRoleBindings().Update(crb)
-			if err != nil {
-				return false, fmt.Errorf("unable to update clusterrolebinding %+v: %v", crb, err)
-			}
-			log.Log.V(2).Infof("clusterrolebinding %v updated", crb.GetName())
-
-		} else {
-			log.Log.V(4).Infof("clusterrolebinding %v already exists", crb.GetName())
-		}
-	}
-
-	// create/update Roles
-	for _, r := range targetStrategy.roles {
-		var cachedR *rbacv1.Role
-
-		r := r.DeepCopy()
-		obj, exists, _ := stores.RoleCache.Get(r)
-		if exists {
-			cachedR = obj.(*rbacv1.Role)
-		}
-
-		injectOperatorLabelAndAnnotations(&r.ObjectMeta, imageTag, imageRegistry)
-		if !exists {
-			// Create non existent
-			expectations.Role.RaiseExpectations(kvkey, 1, 0)
-			_, err := rbac.Roles(kv.Namespace).Create(r)
-			if err != nil {
-				expectations.Role.LowerExpectations(kvkey, 1, 0)
-				return false, fmt.Errorf("unable to create role %+v: %v", r, err)
-			}
-			log.Log.V(2).Infof("role %v created", r.GetName())
-		} else if !objectMatchesVersion(&cachedR.ObjectMeta, imageTag, imageRegistry) {
-			// Update existing, we don't need to patch for rbac rules.
-			_, err = rbac.Roles(kv.Namespace).Update(r)
-			if err != nil {
-				return false, fmt.Errorf("unable to update role %+v: %v", r, err)
-			}
-			log.Log.V(2).Infof("role %v updated", r.GetName())
-
-		} else {
-			log.Log.V(4).Infof("role %v already exists", r.GetName())
-		}
-	}
-
-	// create/update RoleBindings
-	for _, rb := range targetStrategy.roleBindings {
-		var cachedRb *rbacv1.RoleBinding
-
-		rb := rb.DeepCopy()
-		obj, exists, _ := stores.RoleBindingCache.Get(rb)
-
-		if exists {
-			cachedRb = obj.(*rbacv1.RoleBinding)
-		}
-
-		injectOperatorLabelAndAnnotations(&rb.ObjectMeta, imageTag, imageRegistry)
-		if !exists {
-			// Create non existent
-			expectations.RoleBinding.RaiseExpectations(kvkey, 1, 0)
-			_, err := rbac.RoleBindings(kv.Namespace).Create(rb)
-			if err != nil {
-				expectations.RoleBinding.LowerExpectations(kvkey, 1, 0)
-				return false, fmt.Errorf("unable to create rolebinding %+v: %v", rb, err)
-			}
-			log.Log.V(2).Infof("rolebinding %v created", rb.GetName())
-		} else if !objectMatchesVersion(&cachedRb.ObjectMeta, imageTag, imageRegistry) {
-			// Update existing, we don't need to patch for rbac rules.
-			_, err = rbac.RoleBindings(kv.Namespace).Update(rb)
-			if err != nil {
-				return false, fmt.Errorf("unable to update rolebinding %+v: %v", rb, err)
-			}
-			log.Log.V(2).Infof("rolebinding %v updated", rb.GetName())
-
-		} else {
-			log.Log.V(4).Infof("rolebinding %v already exists", rb.GetName())
-		}
+	// create/update all RBAC rules
+	err = createOrUpdateRbac(kv,
+		prevStrategy,
+		targetStrategy,
+		stores,
+		clientset,
+		expectations)
+	if err != nil {
+		return false, err
 	}
 
 	// create/update Services
