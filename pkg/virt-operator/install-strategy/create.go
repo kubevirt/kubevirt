@@ -693,8 +693,398 @@ func createOrUpdateCrds(kv *v1.KubeVirt,
 	return nil
 }
 
+func needsClusterRoleBindingBackup(kv *v1.KubeVirt, stores util.Stores, crb *rbacv1.ClusterRoleBinding) bool {
+	curImageTag := kv.Status.TargetKubeVirtVersion
+	curImageRegistry := kv.Status.TargetKubeVirtRegistry
+
+	if objectMatchesVersion(&crb.ObjectMeta, curImageTag, curImageRegistry) {
+		// matches current target version already, so doesn't need backup
+		return false
+	}
+
+	if crb.Annotations == nil {
+		return false
+	}
+
+	_, ok := crb.Annotations[v1.EphemeralBackupObject]
+	if ok {
+		// ephemeral backup objects don't need to be backed up because
+		// they are the backup
+		return false
+	}
+
+	imageTag, ok := crb.Annotations[v1.InstallStrategyVersionAnnotation]
+	if !ok {
+		return false
+	}
+
+	imageRegistry, ok := crb.Annotations[v1.InstallStrategyRegistryAnnotation]
+	if !ok {
+		return false
+	}
+
+	// loop through cache and determine if there's an ephemeral backup
+	// for this object already
+	objects := stores.ClusterRoleBindingCache.List()
+	for _, obj := range objects {
+		cachedCrb, ok := obj.(*rbacv1.ClusterRoleBinding)
+
+		if !ok ||
+			cachedCrb.DeletionTimestamp != nil ||
+			crb.Annotations == nil {
+			continue
+		}
+
+		uid, ok := cachedCrb.Annotations[v1.EphemeralBackupObject]
+		if !ok {
+			// this is not an ephemeral backup object
+			continue
+		}
+
+		if uid == string(crb.UID) && objectMatchesVersion(&cachedCrb.ObjectMeta, imageTag, imageRegistry) {
+			// found backup. UID matches and versions match
+			// note, it's possible for a single UID to have multiple backups with
+			// different versions
+			return false
+		}
+	}
+
+	return true
+}
+
+func needsClusterRoleBackup(kv *v1.KubeVirt, stores util.Stores, cr *rbacv1.ClusterRole) bool {
+	curImageTag := kv.Status.TargetKubeVirtVersion
+	curImageRegistry := kv.Status.TargetKubeVirtRegistry
+
+	if objectMatchesVersion(&cr.ObjectMeta, curImageTag, curImageRegistry) {
+		// matches current target version already, so doesn't need backup
+		return false
+	}
+
+	if cr.Annotations == nil {
+		return false
+	}
+
+	_, ok := cr.Annotations[v1.EphemeralBackupObject]
+	if ok {
+		// ephemeral backup objects don't need to be backed up because
+		// they are the backup
+		return false
+	}
+
+	imageTag, ok := cr.Annotations[v1.InstallStrategyVersionAnnotation]
+	if !ok {
+		return false
+	}
+
+	imageRegistry, ok := cr.Annotations[v1.InstallStrategyRegistryAnnotation]
+	if !ok {
+		return false
+	}
+
+	// loop through cache and determine if there's an ephemeral backup
+	// for this object already
+	objects := stores.ClusterRoleCache.List()
+	for _, obj := range objects {
+		cachedCr, ok := obj.(*rbacv1.ClusterRole)
+
+		if !ok ||
+			cachedCr.DeletionTimestamp != nil ||
+			cr.Annotations == nil {
+			continue
+		}
+
+		uid, ok := cachedCr.Annotations[v1.EphemeralBackupObject]
+		if !ok {
+			// this is not an ephemeral backup object
+			continue
+		}
+
+		if uid == string(cr.UID) && objectMatchesVersion(&cachedCr.ObjectMeta, imageTag, imageRegistry) {
+			// found backup. UID matches and versions match
+			// note, it's possible for a single UID to have multiple backups with
+			// different versions
+			return false
+		}
+	}
+
+	return true
+}
+
+func needsRoleBindingBackup(kv *v1.KubeVirt, stores util.Stores, rb *rbacv1.RoleBinding) bool {
+	curImageTag := kv.Status.TargetKubeVirtVersion
+	curImageRegistry := kv.Status.TargetKubeVirtRegistry
+
+	if objectMatchesVersion(&rb.ObjectMeta, curImageTag, curImageRegistry) {
+		// matches current target version already, so doesn't need backup
+		return false
+	}
+
+	if rb.Annotations == nil {
+		return false
+	}
+
+	_, ok := rb.Annotations[v1.EphemeralBackupObject]
+	if ok {
+		// ephemeral backup objects don't need to be backed up because
+		// they are the backup
+		return false
+	}
+
+	imageTag, ok := rb.Annotations[v1.InstallStrategyVersionAnnotation]
+	if !ok {
+		return false
+	}
+
+	imageRegistry, ok := rb.Annotations[v1.InstallStrategyRegistryAnnotation]
+	if !ok {
+		return false
+	}
+
+	// loop through cache and determine if there's an ephemeral backup
+	// for this object already
+	objects := stores.RoleBindingCache.List()
+	for _, obj := range objects {
+		cachedRb, ok := obj.(*rbacv1.RoleBinding)
+
+		if !ok ||
+			cachedRb.DeletionTimestamp != nil ||
+			rb.Annotations == nil {
+			continue
+		}
+
+		uid, ok := cachedRb.Annotations[v1.EphemeralBackupObject]
+		if !ok {
+			// this is not an ephemeral backup object
+			continue
+		}
+
+		if uid == string(rb.UID) && objectMatchesVersion(&cachedRb.ObjectMeta, imageTag, imageRegistry) {
+			// found backup. UID matches and versions match
+			// note, it's possible for a single UID to have multiple backups with
+			// different versions
+			return false
+		}
+	}
+
+	return true
+}
+
+func needsRoleBackup(kv *v1.KubeVirt, stores util.Stores, r *rbacv1.Role) bool {
+	curImageTag := kv.Status.TargetKubeVirtVersion
+	curImageRegistry := kv.Status.TargetKubeVirtRegistry
+
+	if objectMatchesVersion(&r.ObjectMeta, curImageTag, curImageRegistry) {
+		// matches current target version already, so doesn't need backup
+		return false
+	}
+
+	if r.Annotations == nil {
+		return false
+	}
+
+	_, ok := r.Annotations[v1.EphemeralBackupObject]
+	if ok {
+		// ephemeral backup objects don't need to be backed up because
+		// they are the backup
+		return false
+	}
+
+	imageTag, ok := r.Annotations[v1.InstallStrategyVersionAnnotation]
+	if !ok {
+		return false
+	}
+
+	imageRegistry, ok := r.Annotations[v1.InstallStrategyRegistryAnnotation]
+	if !ok {
+		return false
+	}
+
+	// loop through cache and determine if there's an ephemeral backup
+	// for this object already
+	objects := stores.RoleCache.List()
+	for _, obj := range objects {
+		cachedR, ok := obj.(*rbacv1.Role)
+
+		if !ok ||
+			cachedR.DeletionTimestamp != nil ||
+			r.Annotations == nil {
+			continue
+		}
+
+		uid, ok := cachedR.Annotations[v1.EphemeralBackupObject]
+		if !ok {
+			// this is not an ephemeral backup object
+			continue
+		}
+
+		if uid == string(r.UID) && objectMatchesVersion(&cachedR.ObjectMeta, imageTag, imageRegistry) {
+			// found backup. UID matches and versions match
+			// note, it's possible for a single UID to have multiple backups with
+			// different versions
+			return false
+		}
+	}
+
+	return true
+}
+
+func backupRbac(kv *v1.KubeVirt,
+	stores util.Stores,
+	clientset kubecli.KubevirtClient,
+	expectations *util.Expectations) error {
+
+	kvkey, err := controller.KeyFunc(kv)
+	if err != nil {
+		return err
+	}
+
+	rbac := clientset.RbacV1()
+
+	// Backup existing ClusterRoles
+	objects := stores.ClusterRoleCache.List()
+	for _, obj := range objects {
+		cachedCr, ok := obj.(*rbacv1.ClusterRole)
+		if !ok || !needsClusterRoleBackup(kv, stores, cachedCr) {
+			continue
+		}
+		imageTag, ok := cachedCr.Annotations[v1.InstallStrategyVersionAnnotation]
+		if !ok {
+			continue
+		}
+		imageRegistry, ok := cachedCr.Annotations[v1.InstallStrategyRegistryAnnotation]
+		if !ok {
+			continue
+		}
+
+		// needs backup, so create a new object that will temporarily
+		// backup this object while the update is in progress.
+		cr := cachedCr.DeepCopy()
+		cr.ObjectMeta = metav1.ObjectMeta{
+			GenerateName: cachedCr.Name,
+		}
+		injectOperatorLabelAndAnnotations(&cr.ObjectMeta, imageTag, imageRegistry)
+		cr.Annotations[v1.EphemeralBackupObject] = string(cachedCr.UID)
+
+		// Create backup
+		expectations.ClusterRole.RaiseExpectations(kvkey, 1, 0)
+		_, err := rbac.ClusterRoles().Create(cr)
+		if err != nil {
+			expectations.ClusterRole.LowerExpectations(kvkey, 1, 0)
+			return fmt.Errorf("unable to create backup clusterrole %+v: %v", cr, err)
+		}
+		log.Log.V(2).Infof("backup clusterrole %v created", cr.GetName())
+	}
+
+	// Backup existing ClusterRoleBindings
+	objects = stores.ClusterRoleBindingCache.List()
+	for _, obj := range objects {
+		cachedCrb, ok := obj.(*rbacv1.ClusterRoleBinding)
+		if !ok || !needsClusterRoleBindingBackup(kv, stores, cachedCrb) {
+			continue
+		}
+		imageTag, ok := cachedCrb.Annotations[v1.InstallStrategyVersionAnnotation]
+		if !ok {
+			continue
+		}
+		imageRegistry, ok := cachedCrb.Annotations[v1.InstallStrategyRegistryAnnotation]
+		if !ok {
+			continue
+		}
+
+		// needs backup, so create a new object that will temporarily
+		// backup this object while the update is in progress.
+		crb := cachedCrb.DeepCopy()
+		crb.ObjectMeta = metav1.ObjectMeta{
+			GenerateName: cachedCrb.Name,
+		}
+		injectOperatorLabelAndAnnotations(&crb.ObjectMeta, imageTag, imageRegistry)
+		crb.Annotations[v1.EphemeralBackupObject] = string(cachedCrb.UID)
+
+		// Create backup
+		expectations.ClusterRoleBinding.RaiseExpectations(kvkey, 1, 0)
+		_, err := rbac.ClusterRoleBindings().Create(crb)
+		if err != nil {
+			expectations.ClusterRoleBinding.LowerExpectations(kvkey, 1, 0)
+			return fmt.Errorf("unable to create backup clusterrolebinding %+v: %v", crb, err)
+		}
+		log.Log.V(2).Infof("backup clusterrolebinding %v created", crb.GetName())
+	}
+
+	// Backup existing Roles
+	objects = stores.RoleCache.List()
+	for _, obj := range objects {
+		cachedCr, ok := obj.(*rbacv1.Role)
+		if !ok || !needsRoleBackup(kv, stores, cachedCr) {
+			continue
+		}
+		imageTag, ok := cachedCr.Annotations[v1.InstallStrategyVersionAnnotation]
+		if !ok {
+			continue
+		}
+		imageRegistry, ok := cachedCr.Annotations[v1.InstallStrategyRegistryAnnotation]
+		if !ok {
+			continue
+		}
+
+		// needs backup, so create a new object that will temporarily
+		// backup this object while the update is in progress.
+		r := cachedCr.DeepCopy()
+		r.ObjectMeta = metav1.ObjectMeta{
+			GenerateName: cachedCr.Name,
+		}
+		injectOperatorLabelAndAnnotations(&r.ObjectMeta, imageTag, imageRegistry)
+		r.Annotations[v1.EphemeralBackupObject] = string(cachedCr.UID)
+
+		// Create backup
+		expectations.Role.RaiseExpectations(kvkey, 1, 0)
+		_, err := rbac.Roles(cachedCr.Namespace).Create(r)
+		if err != nil {
+			expectations.Role.LowerExpectations(kvkey, 1, 0)
+			return fmt.Errorf("unable to create backup role %+v: %v", r, err)
+		}
+		log.Log.V(2).Infof("backup role %v created", r.GetName())
+	}
+
+	// Backup existing RoleBindings
+	objects = stores.RoleBindingCache.List()
+	for _, obj := range objects {
+		cachedRb, ok := obj.(*rbacv1.RoleBinding)
+		if !ok || !needsRoleBindingBackup(kv, stores, cachedRb) {
+			continue
+		}
+		imageTag, ok := cachedRb.Annotations[v1.InstallStrategyVersionAnnotation]
+		if !ok {
+			continue
+		}
+		imageRegistry, ok := cachedRb.Annotations[v1.InstallStrategyRegistryAnnotation]
+		if !ok {
+			continue
+		}
+
+		// needs backup, so create a new object that will temporarily
+		// backup this object while the update is in progress.
+		rb := cachedRb.DeepCopy()
+		rb.ObjectMeta = metav1.ObjectMeta{
+			GenerateName: cachedRb.Name,
+		}
+		injectOperatorLabelAndAnnotations(&rb.ObjectMeta, imageTag, imageRegistry)
+		rb.Annotations[v1.EphemeralBackupObject] = string(cachedRb.UID)
+
+		// Create backup
+		expectations.RoleBinding.RaiseExpectations(kvkey, 1, 0)
+		_, err := rbac.RoleBindings(cachedRb.Namespace).Create(rb)
+		if err != nil {
+			expectations.RoleBinding.LowerExpectations(kvkey, 1, 0)
+			return fmt.Errorf("unable to create backup rolebinding %+v: %v", rb, err)
+		}
+		log.Log.V(2).Infof("backup rolebinding %v created", rb.GetName())
+	}
+
+	return nil
+}
+
 func createOrUpdateRbac(kv *v1.KubeVirt,
-	prevStrategy *InstallStrategy,
 	targetStrategy *InstallStrategy,
 	stores util.Stores,
 	clientset kubecli.KubevirtClient,
@@ -752,8 +1142,6 @@ func createOrUpdateRbac(kv *v1.KubeVirt,
 			log.Log.V(2).Infof("serviceaccount %v already exists and is up-to-date", sa.GetName())
 		}
 	}
-
-	// TODO create backup RBACK for whatever already exists in cache
 
 	// create/update ClusterRoles
 	for _, cr := range targetStrategy.clusterRoles {
@@ -876,9 +1264,19 @@ func SyncAll(kv *v1.KubeVirt,
 		return false, err
 	}
 
+	// backup any old RBAC rules that don't match current version
+	if !apiDeploymentsRolledOver || !controllerDeploymentsRolledOver || !daemonSetsRolledOver {
+		err = backupRbac(kv,
+			stores,
+			clientset,
+			expectations)
+		if err != nil {
+			return false, err
+		}
+	}
+
 	// create/update all RBAC rules
 	err = createOrUpdateRbac(kv,
-		prevStrategy,
 		targetStrategy,
 		stores,
 		clientset,
@@ -1094,6 +1492,10 @@ func SyncAll(kv *v1.KubeVirt,
 	}
 
 	// -------- CLEAN UP OLD UNUSED OBJECTS --------
+	if !apiDeploymentsRolledOver || !controllerDeploymentsRolledOver || !daemonSetsRolledOver {
+		// still waiting on roll out before cleaning up.
+		return false, nil
+	}
 
 	// remove unused crds
 	objects := stores.CrdCache.List()

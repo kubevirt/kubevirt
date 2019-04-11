@@ -110,6 +110,7 @@ var _ = Describe("KubeVirt Operator", func() {
 	updateCount := 16
 
 	deleteFromCache := true
+	addToCache := true
 
 	syncCaches := func(stop chan struct{}) {
 		go kvInformer.Run(stop)
@@ -166,6 +167,7 @@ var _ = Describe("KubeVirt Operator", func() {
 		totalPatches = 0
 		totalDeletions = 0
 		deleteFromCache = true
+		addToCache = true
 
 		stop = make(chan struct{})
 		ctrl = gomock.NewController(GinkgoT())
@@ -826,7 +828,9 @@ var _ = Describe("KubeVirt Operator", func() {
 		create, ok := action.(testing.CreateAction)
 		Expect(ok).To(BeTrue())
 		totalAdds++
-		addResource(create.GetObject(), "", "")
+		if addToCache {
+			addResource(create.GetObject(), "", "")
+		}
 		return true, create.GetObject(), nil
 	}
 	genericDeleteFunc := func(action testing.Action) (handled bool, obj runtime.Object, err error) {
@@ -908,6 +912,13 @@ var _ = Describe("KubeVirt Operator", func() {
 		kubeClient.Fake.PrependReactor("patch", "services", genericPatchFunc)
 		kubeClient.Fake.PrependReactor("patch", "daemonsets", genericPatchFunc)
 		kubeClient.Fake.PrependReactor("patch", "deployments", genericPatchFunc)
+	}
+
+	shouldExpectRbacBackupCreations := func() {
+		kubeClient.Fake.PrependReactor("create", "clusterroles", genericCreateFunc)
+		kubeClient.Fake.PrependReactor("create", "clusterrolebindings", genericCreateFunc)
+		kubeClient.Fake.PrependReactor("create", "roles", genericCreateFunc)
+		kubeClient.Fake.PrependReactor("create", "rolebindings", genericCreateFunc)
 	}
 
 	shouldExpectCreations := func() {
@@ -1453,6 +1464,8 @@ var _ = Describe("KubeVirt Operator", func() {
 			makeApiAndControllerReady()
 			makeHandlerReady()
 
+			addToCache = false
+			shouldExpectRbacBackupCreations()
 			shouldExpectPatchesAndUpdates()
 			shouldExpectKubeVirtUpdate(1)
 
@@ -1518,6 +1531,8 @@ var _ = Describe("KubeVirt Operator", func() {
 			makeApiAndControllerReady()
 			makeHandlerReady()
 
+			addToCache = false
+			shouldExpectRbacBackupCreations()
 			shouldExpectPatchesAndUpdates()
 			shouldExpectKubeVirtUpdate(1)
 
