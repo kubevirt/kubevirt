@@ -46,7 +46,6 @@ var exampleJSON = `{
     "domain": {
       "resources": {
         "requests": {
-          "cpu": "100m",
           "memory": "8Mi"
         }
       },

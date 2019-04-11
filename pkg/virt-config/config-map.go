@@ -50,6 +50,7 @@ const (
 	imagePullPolicyKey     = "dev.imagePullPolicy"
 	migrationsConfigKey    = "migrations"
 	cpuModelKey            = "default-cpu-model"
+	cpuRequestKey          = "cpu-request"
 
 	ParallelOutboundMigrationsPerNodeDefault uint32 = 2
 	ParallelMigrationsPerClusterDefault      uint32 = 5
@@ -57,6 +58,7 @@ const (
 	MigrationProgressTimeout                 int64  = 150
 	MigrationCompletionTimeoutPerGiB         int64  = 800
 	DefaultMachineType                              = "q35"
+	DefaultCPURequest                               = "100m"
 
 	NodeDrainTaintDefaultKey = "kubevirt.io/drain"
 )
@@ -141,6 +143,7 @@ func defaultClusterConfig() *Config {
 	nodeDrainTaintDefaultKey := NodeDrainTaintDefaultKey
 	progressTimeout := MigrationProgressTimeout
 	completionTimeoutPerGiB := MigrationCompletionTimeoutPerGiB
+	cpuRequestDefault := resource.MustParse(DefaultCPURequest)
 	return &Config{
 		ResourceVersion: "0",
 		ImagePullPolicy: k8sv1.PullIfNotPresent,
@@ -154,6 +157,7 @@ func defaultClusterConfig() *Config {
 			CompletionTimeoutPerGiB:           &completionTimeoutPerGiB,
 		},
 		MachineType: DefaultMachineType,
+		CPURequest:  cpuRequestDefault,
 	}
 }
 
@@ -164,6 +168,7 @@ type Config struct {
 	ImagePullPolicy k8sv1.PullPolicy
 	MachineType     string
 	CPUModel        string
+	CPURequest      resource.Quantity
 }
 
 type MigrationConfig struct {
@@ -202,6 +207,10 @@ func (c *ClusterConfig) GetMachineType() string {
 
 func (c *ClusterConfig) GetCPUModel() string {
 	return c.getConfig().CPUModel
+}
+
+func (c *ClusterConfig) GetCPURequest() resource.Quantity {
+	return c.getConfig().CPURequest
 }
 
 // setConfig parses the provided config map and updates the provided config.
@@ -256,6 +265,10 @@ func setConfig(config *Config, configMap *k8sv1.ConfigMap) error {
 
 	if cpuModel := strings.TrimSpace(configMap.Data[cpuModelKey]); cpuModel != "" {
 		config.CPUModel = cpuModel
+	}
+
+	if cpuRequest := strings.TrimSpace(configMap.Data[cpuRequestKey]); cpuRequest != "" {
+		config.CPURequest = resource.MustParse(cpuRequest)
 	}
 
 	return nil

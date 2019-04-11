@@ -25,6 +25,8 @@ import (
 	"net/http"
 
 	"k8s.io/api/admission/v1beta1"
+	k8sv1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 
@@ -121,6 +123,9 @@ func mutateVMIs(ar *v1beta1.AdmissionReview) *v1beta1.AdmissionResponse {
 	setDefaultCPUModel(&vmi, config.GetCPUModel())
 	setDefaultMachineType(&vmi, config.GetMachineType())
 	kubev1.SetObjectDefaults_VirtualMachineInstance(&vmi)
+	// Default CPU request is done after the Resources section is initialized, if needed,
+	// in v1.SetObjectDefaults_VirtualMachineInstance. TODO: set default memory here
+	setDefaultCPURequest(&vmi, config.GetCPURequest())
 
 	// Add foreground finalizer
 	vmi.Finalizers = append(vmi.Finalizers, v1.VirtualMachineInstanceFinalizer)
@@ -223,6 +228,15 @@ func setDefaultCPUModel(vmi *kubev1.VirtualMachineInstance, defaultCPUModel stri
 func setDefaultMachineType(vmi *kubev1.VirtualMachineInstance, defaultMachineType string) {
 	if vmi.Spec.Domain.Machine.Type == "" {
 		vmi.Spec.Domain.Machine.Type = defaultMachineType
+	}
+}
+
+func setDefaultCPURequest(vmi *v1.VirtualMachineInstance, defaultCPURequest resource.Quantity) {
+	if _, exists := vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceCPU]; !exists {
+		if vmi.Spec.Domain.CPU != nil && vmi.Spec.Domain.CPU.DedicatedCPUPlacement {
+			return
+		}
+		vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceCPU] = defaultCPURequest
 	}
 }
 

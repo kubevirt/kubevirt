@@ -117,9 +117,6 @@ func SetDefaults_VirtualMachineInstance(obj *VirtualMachineInstance) {
 		}
 		obj.Spec.Domain.Resources.Requests[v1.ResourceMemory] = resource.MustParse("8192Ki")
 	}
-	if _, exists := obj.Spec.Domain.Resources.Requests[v1.ResourceCPU]; !exists {
-		obj.Spec.Domain.Resources.Requests[v1.ResourceCPU] = resource.MustParse("100m")
-	}
 	if obj.Spec.Domain.Firmware == nil {
 		obj.Spec.Domain.Firmware = &Firmware{}
 	}

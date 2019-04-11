@@ -269,22 +269,6 @@ var _ = Describe("Configurations", func() {
 				Expect(domXml).To(ContainSubstring("driver name='vhost' queues='3'"))
 			})
 
-			It("[test_id:1666]should reject virtio block queues without cores", func() {
-				_true := true
-				vmi.Spec.Domain.Resources = v1.ResourceRequirements{
-					Requests: kubev1.ResourceList{
-						kubev1.ResourceMemory: resource.MustParse("64M"),
-					},
-				}
-				vmi.Spec.Domain.Devices.BlockMultiQueue = &_true
-
-				By("Starting a VirtualMachineInstance")
-				vmi, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
-				Expect(err).To(HaveOccurred())
-				regexp := "(MultiQueue for block devices|the server rejected our request)"
-				Expect(err.Error()).To(MatchRegexp(regexp))
-			})
-
 			It("[test_id:1667]should not enforce explicitly rejected virtio block queues without cores", func() {
 				_false := false
 				vmi.Spec.Domain.Resources = v1.ResourceRequirements{
