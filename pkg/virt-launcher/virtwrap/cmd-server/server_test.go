@@ -27,14 +27,10 @@ import (
 
 	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo"
-	"github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
-	"google.golang.org/grpc"
 
 	v1 "kubevirt.io/kubevirt/pkg/api/v1"
-	com "kubevirt.io/kubevirt/pkg/handler-launcher-com"
 	"kubevirt.io/kubevirt/pkg/handler-launcher-com/cmd/info"
-	cmdv1 "kubevirt.io/kubevirt/pkg/handler-launcher-com/cmd/v1"
 	"kubevirt.io/kubevirt/pkg/log"
 	cmdclient "kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap"
@@ -162,82 +158,32 @@ var _ = Describe("Virt remote commands", func() {
 	Describe("Version mismatch", func() {
 
 		var err error
-		var shareDir string
-		var conn *grpc.ClientConn
 		var ctrl *gomock.Controller
 		var infoClient *info.MockCmdInfoClient
-		var cmdClient cmdv1.CmdClient
 
 		BeforeEach(func() {
-
-			shareDir, err = ioutil.TempDir("", "kubevirt-share")
-			Expect(err).ToNot(HaveOccurred())
-
-			socketPath := filepath.Join(shareDir, "server.sock")
-
-			By("Starting the cmd server")
-			useEmulation = true
-			options = NewServerOptions(useEmulation)
-			RunServer(socketPath, domainManager, stop, options)
-
-			time.Sleep(1 * time.Second)
-
-			By("Starting the notify clients")
-			_, cmdClient, conn, err = com.NewCmdClients(socketPath)
-			Expect(err).ToNot(HaveOccurred())
-
 			ctrl = gomock.NewController(GinkgoT())
 			infoClient = info.NewMockCmdInfoClient(ctrl)
-
 		})
 
 		AfterEach(func() {
 			ctrl.Finish()
-			conn.Close()
-			os.RemoveAll(shareDir)
 		})
 
-		fillMissing := func(response info.CmdInfoResponse) info.CmdInfoResponse {
-			if response.SupportedCmdVersions == nil {
-				response.SupportedCmdVersions = []string{"v1"}
-			}
-			if response.SupportedKubeVirtAPIVersions == nil {
-				response.SupportedKubeVirtAPIVersions = []string{"kubevirt.io/v1alpha3"}
-			}
-			if response.SupportedDomainVersions == nil {
-				response.SupportedDomainVersions = []string{"v1"}
-			}
-			if response.SupportedDomainStatsVersions == nil {
-				response.SupportedDomainStatsVersions = []string{"v1"}
-			}
-			return response
-		}
+		It("Should report error when server version mismatches", func() {
 
-		table.DescribeTable("Should report error when server version mismatches", func(response info.CmdInfoResponse) {
-
-			infoClient.EXPECT().Info(gomock.Any(), gomock.Any()).Return(&response, nil)
+			fakeResponse := info.CmdInfoResponse{
+				SupportedCmdVersions: []uint32{42},
+			}
+			infoClient.EXPECT().Info(gomock.Any(), gomock.Any()).Return(&fakeResponse, nil)
 
 			By("Initializing the notifier")
-			_, err = cmdclient.NewClientWithRPCClients(infoClient, cmdClient, conn)
+			_, err = cmdclient.NewClientWithInfoClient(infoClient, nil)
 
 			Expect(err).To(HaveOccurred(), "Should have returned error about incompatible versions")
-			Expect(err.Error()).To(ContainSubstring("incompatible"), "Expected error message to contain 'incompatible'")
+			Expect(err.Error()).To(ContainSubstring("no compatible version found"), "Expected error message to contain 'no compatible version found'")
 
-		},
-			table.Entry("with wrong cmd version", fillMissing(info.CmdInfoResponse{
-				SupportedCmdVersions: []string{"foo"},
-			})),
-			table.Entry("with wrong kubevirt api version", fillMissing(info.CmdInfoResponse{
-				SupportedKubeVirtAPIVersions: []string{"foo"},
-			})),
-			table.Entry("with wrong domain version", fillMissing(info.CmdInfoResponse{
-				SupportedDomainVersions: []string{"foo"},
-			})),
-			table.Entry("with wrong domain stats version", fillMissing(info.CmdInfoResponse{
-				SupportedDomainStatsVersions: []string{"foo"},
-			})),
-		)
-
+		})
 	})
 
 })

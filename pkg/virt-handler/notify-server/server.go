@@ -126,8 +126,11 @@ func RunServer(virtShareDir string, stopChan chan struct{}, c chan watch.Event, 
 		recorder:  recorder,
 		vmiStore:  vmiStore,
 	}
-	notifyv1.RegisterNotifyServer(grpcServer, notifyServer)
 	registerInfoServer(grpcServer)
+
+	// register more versions as soon as needed
+	// and add them to info.go
+	notifyv1.RegisterNotifyServer(grpcServer, notifyServer)
 
 	sockFile := filepath.Join(virtShareDir, "domain-notify.sock")
 	sock, err := grpcutil.CreateSocket(sockFile)

@@ -10,8 +10,5 @@ service NotifyInfo {
 message NotifyInfoRequest {}
 
 message NotifyInfoResponse {
-  repeated string supportedNotifyVersions = 1;
-  repeated string supportedDomainVersions = 2;
-  repeated string supportedK8SMetaAPIVersions = 3;
-  repeated string supportedK8SEventAPIVersions = 4;
+  repeated uint32 supportedNotifyVersions = 1;
 }

@@ -2,6 +2,7 @@ package eventsclient
 
 import (
 	"fmt"
+	"path/filepath"
 	"time"
 
 	"github.com/libvirt/libvirt-go"
@@ -20,6 +21,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/handler-launcher-com/notify/info"
 	notifyv1 "kubevirt.io/kubevirt/pkg/handler-launcher-com/notify/v1"
 	"kubevirt.io/kubevirt/pkg/log"
+	grpcutil "kubevirt.io/kubevirt/pkg/util/net/grpc"
 	agentpoller "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/agent-poller"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/cli"
@@ -28,15 +30,14 @@ import (
 )
 
 var (
-	supportedNotifyVersions      = []string{"v1"}
-	supportedDomainVersions      = []string{"v1"}
-	supportedK8SMetaAPIVersions  = []string{"meta.k8s.io/v1"}
-	supportedK8SEventAPIVersions = []string{"v1"} // core has no group
+	// add older version when supported
+	// don't use the variable in pkg/handler-launcher-com/notify/v1/version.go in order to detect version mismatches early
+	supportedNotifyVersions = []uint32{1}
 )
 
 type Notifier struct {
-	client notifyv1.NotifyClient
-	conn   *grpc.ClientConn
+	v1client notifyv1.NotifyClient
+	conn     *grpc.ClientConn
 }
 
 type libvirtEvent struct {
@@ -46,37 +47,48 @@ type libvirtEvent struct {
 }
 
 func NewNotifier(virtShareDir string) (*Notifier, error) {
-	// prepare notify clients
-	infoClient, client, conn, err := com.NewNotifyClients(virtShareDir)
+	// dial socket
+	socketPath := filepath.Join(virtShareDir, "domain-notify.sock")
+	conn, err := grpcutil.DialSocket(socketPath)
 	if err != nil {
+		log.Log.Reason(err).Infof("failed to dial notify socket: %s", socketPath)
 		return nil, err
 	}
-	return NewNotifierWithRPCClients(infoClient, client, conn)
+
+	// create info v1client and find cmd version to use
+	infoClient := info.NewNotifyInfoClient(conn)
+	return NewNotifierWithInfoClient(infoClient, conn)
+
 }
 
-func NewNotifierWithRPCClients(infoClient info.NotifyInfoClient, client notifyv1.NotifyClient, conn *grpc.ClientConn) (*Notifier, error) {
+func NewNotifierWithInfoClient(infoClient info.NotifyInfoClient, conn *grpc.ClientConn) (*Notifier, error) {
 
-	// check if the notify server is compatible
 	ctx, _ := context.WithTimeout(context.Background(), 5*time.Second)
 	info, err := infoClient.Info(ctx, &info.NotifyInfoRequest{})
 	if err != nil {
-		return nil, fmt.Errorf("could not check notify server version: %v", err)
+		return nil, fmt.Errorf("could not check cmd server version: %v", err)
 	}
-	if !checkVersions(info) {
-		return nil, fmt.Errorf("incompatible notify server: %+v", info)
+	version, err := com.GetHighestCompatibleVersion(info.SupportedNotifyVersions, supportedNotifyVersions)
+	if err != nil {
+		return nil, err
 	}
 
-	return &Notifier{
-		client: client,
-		conn:   conn,
-	}, nil
+	// create cmd v1client
+	switch version {
+	case 1:
+		client := notifyv1.NewNotifyClient(conn)
+		return newV1Notifier(client, conn), nil
+	default:
+		return nil, fmt.Errorf("cmd v1client version %v not implemented yet", version)
+	}
+
 }
 
-func checkVersions(info *info.NotifyInfoResponse) bool {
-	return com.ContainsVersion(info.SupportedNotifyVersions, supportedNotifyVersions) &&
-		com.ContainsVersion(info.SupportedDomainVersions, supportedDomainVersions) &&
-		com.ContainsVersion(info.SupportedK8SMetaAPIVersions, supportedK8SMetaAPIVersions) &&
-		com.ContainsVersion(info.SupportedK8SEventAPIVersions, supportedK8SEventAPIVersions)
+func newV1Notifier(client notifyv1.NotifyClient, conn *grpc.ClientConn) *Notifier {
+	return &Notifier{
+		v1client: client,
+		conn:     conn,
+	}
 }
 
 func (n *Notifier) SendDomainEvent(event watch.Event) error {
@@ -106,7 +118,7 @@ func (n *Notifier) SendDomainEvent(event watch.Event) error {
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
-	response, err := n.client.HandleDomainEvent(ctx, &request)
+	response, err := n.v1client.HandleDomainEvent(ctx, &request)
 
 	if err != nil {
 		return err
@@ -297,7 +309,7 @@ func (n *Notifier) SendK8sEvent(vmi *v1.VirtualMachineInstance, severity string,
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
-	response, err := n.client.HandleK8SEvent(ctx, &request)
+	response, err := n.v1client.HandleK8SEvent(ctx, &request)
 
 	if err != nil {
 		return err

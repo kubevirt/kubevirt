@@ -10,8 +10,5 @@ service CmdInfo {
 message CmdInfoRequest {}
 
 message CmdInfoResponse {
-  repeated string supportedCmdVersions = 1;
-  repeated string supportedKubeVirtAPIVersions = 2;
-  repeated string supportedDomainVersions = 3;
-  repeated string supportedDomainStatsVersions = 4;
+  repeated uint32 supportedCmdVersions = 1;
 }

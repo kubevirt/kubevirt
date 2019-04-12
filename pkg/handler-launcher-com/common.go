@@ -19,48 +19,20 @@
 package handler_launcher_com
 
 import (
-	"path/filepath"
-
-	"google.golang.org/grpc"
-
-	cmdinfo "kubevirt.io/kubevirt/pkg/handler-launcher-com/cmd/info"
-	cmdv1 "kubevirt.io/kubevirt/pkg/handler-launcher-com/cmd/v1"
-	notifyinfo "kubevirt.io/kubevirt/pkg/handler-launcher-com/notify/info"
-	notifyv1 "kubevirt.io/kubevirt/pkg/handler-launcher-com/notify/v1"
-	"kubevirt.io/kubevirt/pkg/log"
-	grpcutil "kubevirt.io/kubevirt/pkg/util/net/grpc"
+	"fmt"
+	"sort"
 )
 
-func NewNotifyClients(virtShareDir string) (notifyinfo.NotifyInfoClient, notifyv1.NotifyClient, *grpc.ClientConn, error) {
-	socketPath := filepath.Join(virtShareDir, "domain-notify.sock")
-	conn, err := grpcutil.DialSocket(socketPath)
-	if err != nil {
-		log.Log.Reason(err).Infof("Failed to dial notify socket: %s", socketPath)
-		return nil, nil, nil, err
-	}
-	infoClient := notifyinfo.NewNotifyInfoClient(conn)
-	notifyClient := notifyv1.NewNotifyClient(conn)
-	return infoClient, notifyClient, conn, nil
-}
-
-func NewCmdClients(socketPath string) (cmdinfo.CmdInfoClient, cmdv1.CmdClient, *grpc.ClientConn, error) {
-	conn, err := grpcutil.DialSocket(socketPath)
-	if err != nil {
-		log.Log.Reason(err).Infof("Failed to dial cmd socket: %s", socketPath)
-		return nil, nil, nil, err
-	}
-	infoClient := cmdinfo.NewCmdInfoClient(conn)
-	cmdClient := cmdv1.NewCmdClient(conn)
-	return infoClient, cmdClient, conn, nil
-}
-
-func ContainsVersion(serverVersions []string, clientVersions []string) bool {
-	for _, serverVersion := range serverVersions {
-		for _, clientVersion := range clientVersions {
-			if serverVersion == clientVersion {
-				return true
+func GetHighestCompatibleVersion(serverVersions []uint32, clientVersions []uint32) (uint32, error) {
+	// sort serverversions descending
+	sort.Slice(serverVersions, func(i, j int) bool { return serverVersions[i] > serverVersions[j] })
+	for _, s := range serverVersions {
+		for _, c := range clientVersions {
+			if s == c {
+				return s, nil
 			}
+
 		}
 	}
-	return false
+	return 0, fmt.Errorf("no compatible version found, server: %v, client: %v", serverVersions, clientVersions)
 }

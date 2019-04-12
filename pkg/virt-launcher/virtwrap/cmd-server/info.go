@@ -22,11 +22,8 @@ import (
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
 
-	v1 "kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/handler-launcher-com/cmd/info"
 	cmdv1 "kubevirt.io/kubevirt/pkg/handler-launcher-com/cmd/v1"
-	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
-	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/stats"
 )
 
 type InfoServer struct{}
@@ -36,10 +33,7 @@ func (i InfoServer) Info(context.Context, *info.CmdInfoRequest) (*info.CmdInfoRe
 	// since this is the first versioned version, we only support the current versions
 	// add older versions as soon as they are supported
 	return &info.CmdInfoResponse{
-		SupportedCmdVersions:         []string{cmdv1.CmdVersion},
-		SupportedKubeVirtAPIVersions: []string{v1.GroupVersion.String()},
-		SupportedDomainVersions:      []string{api.DomainVersion},
-		SupportedDomainStatsVersions: []string{stats.DomainStatsVersion},
+		SupportedCmdVersions: []uint32{cmdv1.CmdVersion},
 	}, nil
 
 }

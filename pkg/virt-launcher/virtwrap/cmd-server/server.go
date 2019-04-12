@@ -294,8 +294,11 @@ func RunServer(socketPath string,
 		domainManager: domainManager,
 		useEmulation:  useEmulation,
 	}
-	cmdv1.RegisterCmdServer(grpcServer, server)
 	registerInfoServer(grpcServer)
+
+	// register more versions as soon as needed
+	// and add them to info.go
+	cmdv1.RegisterCmdServer(grpcServer, server)
 
 	sock, err := grpcutil.CreateSocket(socketPath)
 	if err != nil {

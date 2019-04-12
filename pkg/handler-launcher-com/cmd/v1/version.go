@@ -18,4 +18,4 @@
  */
 package v1
 
-const CmdVersion = "v1"
+const CmdVersion = 1

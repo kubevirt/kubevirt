@@ -18,4 +18,4 @@
  */
 package v1
 
-const NotifyVersion = "v1"
+const NotifyVersion = 1

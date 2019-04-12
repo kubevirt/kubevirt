@@ -32,16 +32,13 @@ import (
 	. "github.com/onsi/ginkgo"
 	"github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
-	"google.golang.org/grpc"
 
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/record"
 
 	v1 "kubevirt.io/kubevirt/pkg/api/v1"
-	com "kubevirt.io/kubevirt/pkg/handler-launcher-com"
 	"kubevirt.io/kubevirt/pkg/handler-launcher-com/notify/info"
-	notifyv1 "kubevirt.io/kubevirt/pkg/handler-launcher-com/notify/v1"
 	"kubevirt.io/kubevirt/pkg/testutils"
 	notifyserver "kubevirt.io/kubevirt/pkg/virt-handler/notify-server"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
@@ -259,81 +256,32 @@ var _ = Describe("Notify", func() {
 	Describe("Version mismatch", func() {
 
 		var err error
-		var shareDir string
-		var conn *grpc.ClientConn
 		var ctrl *gomock.Controller
 		var infoClient *info.MockNotifyInfoClient
-		var notifyClient notifyv1.NotifyClient
 
 		BeforeEach(func() {
-
-			shareDir, err = ioutil.TempDir("", "kubevirt-share")
-			Expect(err).ToNot(HaveOccurred())
-
-			By("Starting the notify server")
-			stop := make(chan struct{})
-			eventChan := make(chan watch.Event, 100)
-			go func() {
-				notifyserver.RunServer(shareDir, stop, eventChan, nil, nil)
-			}()
-
-			time.Sleep(1 * time.Second)
-
-			By("Starting the notify clients")
-			_, notifyClient, conn, err = com.NewNotifyClients(shareDir)
-			Expect(err).ToNot(HaveOccurred())
-
 			ctrl = gomock.NewController(GinkgoT())
 			infoClient = info.NewMockNotifyInfoClient(ctrl)
-
 		})
 
 		AfterEach(func() {
 			ctrl.Finish()
-			conn.Close()
-			os.RemoveAll(shareDir)
 		})
 
-		fillMissing := func(response info.NotifyInfoResponse) info.NotifyInfoResponse {
-			if response.SupportedNotifyVersions == nil {
-				response.SupportedNotifyVersions = []string{"v1"}
-			}
-			if response.SupportedDomainVersions == nil {
-				response.SupportedDomainVersions = []string{"v1"}
-			}
-			if response.SupportedK8SMetaAPIVersions == nil {
-				response.SupportedK8SMetaAPIVersions = []string{"meta.k8s.io/v1"}
-			}
-			if response.SupportedK8SEventAPIVersions == nil {
-				response.SupportedK8SEventAPIVersions = []string{"v1"}
-			}
-			return response
-		}
+		It("Should report error when server version mismatches", func() {
 
-		table.DescribeTable("Should report error when server version mismatches", func(response info.NotifyInfoResponse) {
-
-			infoClient.EXPECT().Info(gomock.Any(), gomock.Any()).Return(&response, nil)
+			fakeResponse := info.NotifyInfoResponse{
+				SupportedNotifyVersions: []uint32{42},
+			}
+			infoClient.EXPECT().Info(gomock.Any(), gomock.Any()).Return(&fakeResponse, nil)
 
 			By("Initializing the notifier")
-			_, err = NewNotifierWithRPCClients(infoClient, notifyClient, conn)
+			_, err = NewNotifierWithInfoClient(infoClient, nil)
 
 			Expect(err).To(HaveOccurred(), "Should have returned error about incompatible versions")
-			Expect(err.Error()).To(ContainSubstring("incompatible"), "Expected error message to contain 'incompatible'")
+			Expect(err.Error()).To(ContainSubstring("no compatible version found"), "Expected error message to contain 'no compatible version found'")
 
-		},
-			table.Entry("with wrong notify version", fillMissing(info.NotifyInfoResponse{
-				SupportedNotifyVersions: []string{"foo"},
-			})),
-			table.Entry("with wrong domain version", fillMissing(info.NotifyInfoResponse{
-				SupportedDomainVersions: []string{"foo"},
-			})),
-			table.Entry("with wrong meta version", fillMissing(info.NotifyInfoResponse{
-				SupportedK8SMetaAPIVersions: []string{"foo"},
-			})),
-			table.Entry("with wrong core version", fillMissing(info.NotifyInfoResponse{
-				SupportedK8SEventAPIVersions: []string{"foo"},
-			})),
-		)
+		})
 
 	})
 })
