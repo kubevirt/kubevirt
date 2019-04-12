@@ -1377,7 +1377,7 @@ func updateService(kv *v1.KubeVirt,
 		// merge cached into target spec
 		spec := mergeServiceSpec(&service.Spec, &cachedService.Spec)
 
-		if !reflect.DeepEquals(spec, cachedService.Spec) {
+		if !reflect.DeepEqual(*spec, cachedService.Spec) {
 			// if the resulting merged spec is different than what is already present
 			// in the cluster, then patch it
 			newSpec, err := json.Marshal(spec)
@@ -1448,6 +1448,84 @@ func createOrUpdateService(kv *v1.KubeVirt,
 	return isPending, nil
 }
 
+func addOrRemoveSSC(targetStrategy *InstallStrategy,
+	prevStrategy *InstallStrategy,
+	clientset kubecli.KubevirtClient,
+	stores util.Stores,
+	addOnly bool) error {
+
+	scc := clientset.SecClient()
+	for _, sccPriv := range targetStrategy.customSCCPrivileges {
+		var curSccPriv *customSCCPrivilegedAccounts
+		if prevStrategy != nil {
+			for _, entry := range prevStrategy.customSCCPrivileges {
+				if sccPriv.TargetSCC == entry.TargetSCC {
+					curSccPriv = entry
+					break
+				}
+			}
+		}
+
+		privSCCObj, exists, err := stores.SCCCache.GetByKey(sccPriv.TargetSCC)
+		if !exists {
+			continue
+		} else if err != nil {
+			return err
+		}
+
+		privSCC, ok := privSCCObj.(*secv1.SecurityContextConstraints)
+		if !ok {
+			return fmt.Errorf("couldn't cast object to SecurityContextConstraints: %+v", privSCCObj)
+		}
+		privSCCCopy := privSCC.DeepCopy()
+
+		modified := false
+		users := privSCCCopy.Users
+
+		// remove users from previous
+		if curSccPriv != nil && !addOnly {
+			for _, acc := range curSccPriv.ServiceAccounts {
+				shouldRemove := true
+				// only remove if the target doesn't contain the same
+				// rule, otherwise leave as is.
+				for _, targetAcc := range sccPriv.ServiceAccounts {
+					if acc == targetAcc {
+						shouldRemove = false
+						break
+					}
+				}
+				if shouldRemove {
+					removed := false
+					users, removed = remove(users, acc)
+					modified = modified || removed
+				}
+			}
+		}
+
+		// add any users from target that don't already exist
+		for _, acc := range sccPriv.ServiceAccounts {
+			if !contains(users, acc) {
+				users = append(users, acc)
+				modified = true
+			}
+		}
+
+		if modified {
+			userBytes, err := json.Marshal(users)
+			if err != nil {
+				return err
+			}
+
+			data := []byte(fmt.Sprintf(`{"users": %s}`, userBytes))
+			_, err = scc.SecurityContextConstraints().Patch(sccPriv.TargetSCC, types.StrategicMergePatchType, data)
+			if err != nil {
+				return fmt.Errorf("unable to patch scc: %v", err)
+			}
+		}
+	}
+	return nil
+}
+
 func SyncAll(kv *v1.KubeVirt,
 	prevStrategy *InstallStrategy,
 	targetStrategy *InstallStrategy,
@@ -1475,7 +1553,6 @@ func SyncAll(kv *v1.KubeVirt,
 	}
 
 	ext := clientset.ExtensionsClient()
-	scc := clientset.SecClient()
 
 	takeUpdatePath := shouldTakeUpdatePath(kv.Status.TargetKubeVirtVersion, kv.Status.ObservedKubeVirtVersion)
 
@@ -1549,72 +1626,16 @@ func SyncAll(kv *v1.KubeVirt,
 	}
 
 	// Add new SCC Privileges and remove unsed SCC Privileges
-	for _, sccPriv := range targetStrategy.customSCCPrivileges {
-		var curSccPriv *customSCCPrivilegedAccounts
-		if prevStrategy != nil {
-			for _, entry := range prevStrategy.customSCCPrivileges {
-				if sccPriv.TargetSCC == entry.TargetSCC {
-					curSccPriv = entry
-					break
-				}
-			}
-		}
-
-		privSCCObj, exists, err := stores.SCCCache.GetByKey(sccPriv.TargetSCC)
-		if !exists {
-			continue
-		} else if err != nil {
+	if infrastructureRolledOver {
+		err := addOrRemoveSSC(targetStrategy, prevStrategy, clientset, stores, false)
+		if err != nil {
 			return false, err
 		}
 
-		privSCC, ok := privSCCObj.(*secv1.SecurityContextConstraints)
-		if !ok {
-			return false, fmt.Errorf("couldn't cast object to SecurityContextConstraints: %+v", privSCCObj)
-		}
-		privSCCCopy := privSCC.DeepCopy()
-
-		modified := false
-		users := privSCCCopy.Users
-
-		// remove users from previous
-		if curSccPriv != nil {
-			for _, acc := range curSccPriv.ServiceAccounts {
-				shouldRemove := true
-				// only remove if the target doesn't contain the same
-				// rule, otherwise leave as is.
-				for _, targetAcc := range sccPriv.ServiceAccounts {
-					if acc == targetAcc {
-						shouldRemove = false
-						break
-					}
-				}
-				if shouldRemove {
-					removed := false
-					users, removed = remove(users, acc)
-					modified = modified || removed
-				}
-			}
-		}
-
-		// add any users from target that don't already exist
-		for _, acc := range sccPriv.ServiceAccounts {
-			if !contains(users, acc) {
-				users = append(users, acc)
-				modified = true
-			}
-		}
-
-		if modified {
-			userBytes, err := json.Marshal(users)
-			if err != nil {
-				return false, err
-			}
-
-			data := []byte(fmt.Sprintf(`{"users": %s}`, userBytes))
-			_, err = scc.SecurityContextConstraints().Patch(sccPriv.TargetSCC, types.StrategicMergePatchType, data)
-			if err != nil {
-				return false, fmt.Errorf("unable to patch scc: %v", err)
-			}
+	} else {
+		err := addOrRemoveSSC(targetStrategy, prevStrategy, clientset, stores, true)
+		if err != nil {
+			return false, err
 		}
 	}
 
