@@ -1,0 +1,14 @@
+syntax = "proto3";
+
+package kubevirt.notify.info;
+option go_package = "info";
+
+service NotifyInfo {
+  rpc Info (NotifyInfoRequest) returns (NotifyInfoResponse) {}
+}
+
+message NotifyInfoRequest {}
+
+message NotifyInfoResponse {
+  repeated uint32 supportedNotifyVersions = 1;
+}

@@ -22,6 +22,7 @@ package cmdserver
 import (
 	"io/ioutil"
 	"os"
+	"path/filepath"
 	"time"
 
 	"github.com/golang/mock/gomock"
@@ -29,6 +30,7 @@ import (
 	. "github.com/onsi/gomega"
 
 	v1 "kubevirt.io/kubevirt/pkg/api/v1"
+	"kubevirt.io/kubevirt/pkg/handler-launcher-com/cmd/info"
 	"kubevirt.io/kubevirt/pkg/log"
 	cmdclient "kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap"
@@ -60,10 +62,12 @@ var _ = Describe("Virt remote commands", func() {
 		ctrl = gomock.NewController(GinkgoT())
 		domainManager = virtwrap.NewMockDomainManager(ctrl)
 
+		socketPath := filepath.Join(shareDir, "server.sock")
+
 		useEmulation = true
 		options = NewServerOptions(useEmulation)
-		RunServer(shareDir+"/server.sock", domainManager, stop, options)
-		client, err = cmdclient.GetClient(shareDir + "/server.sock")
+		RunServer(socketPath, domainManager, stop, options)
+		client, err = cmdclient.NewClient(socketPath)
 		Expect(err).ToNot(HaveOccurred())
 	})
 
@@ -72,6 +76,7 @@ var _ = Describe("Virt remote commands", func() {
 			close(stop)
 		}
 		ctrl.Finish()
+		client.Close()
 		os.RemoveAll(shareDir)
 	})
 
@@ -110,6 +115,7 @@ var _ = Describe("Virt remote commands", func() {
 
 			Expect(exists).To(Equal(true))
 			Expect(domain).ToNot(Equal(nil))
+			Expect(domain.ObjectMeta.Name).To(Equal("testvmi1"))
 		})
 
 		It("client should return disconnected after server stops", func() {
@@ -126,7 +132,7 @@ var _ = Describe("Virt remote commands", func() {
 			Expect(err).To(HaveOccurred())
 			Expect(cmdclient.IsDisconnected(err)).To(Equal(true))
 
-			_, err = cmdclient.GetClient(shareDir + "/server.sock")
+			_, err = cmdclient.NewClient(shareDir + "/server.sock")
 			Expect(err).To(HaveOccurred())
 		})
 
@@ -144,6 +150,40 @@ var _ = Describe("Virt remote commands", func() {
 
 			Expect(exists).To(Equal(true))
 			Expect(domStats).ToNot(Equal(nil))
+			Expect(domStats.Name).To(Equal(list[0].Name))
+			Expect(domStats.UUID).To(Equal(list[0].UUID))
 		})
 	})
+
+	Describe("Version mismatch", func() {
+
+		var err error
+		var ctrl *gomock.Controller
+		var infoClient *info.MockCmdInfoClient
+
+		BeforeEach(func() {
+			ctrl = gomock.NewController(GinkgoT())
+			infoClient = info.NewMockCmdInfoClient(ctrl)
+		})
+
+		AfterEach(func() {
+			ctrl.Finish()
+		})
+
+		It("Should report error when server version mismatches", func() {
+
+			fakeResponse := info.CmdInfoResponse{
+				SupportedCmdVersions: []uint32{42},
+			}
+			infoClient.EXPECT().Info(gomock.Any(), gomock.Any()).Return(&fakeResponse, nil)
+
+			By("Initializing the notifier")
+			_, err = cmdclient.NewClientWithInfoClient(infoClient, nil)
+
+			Expect(err).To(HaveOccurred(), "Should have returned error about incompatible versions")
+			Expect(err.Error()).To(ContainSubstring("no compatible version found"), "Expected error message to contain 'no compatible version found'")
+
+		})
+	})
+
 })

@@ -40,3 +40,10 @@ ${KUBEVIRT_DIR}/tools/vms-generator/vms-generator --container-prefix=${vms_docke
 protoc --proto_path=pkg/hooks/info --go_out=plugins=grpc,import_path=kubevirt_hooks_info:pkg/hooks/info pkg/hooks/info/api.proto
 protoc --proto_path=pkg/hooks/v1alpha1 --go_out=plugins=grpc,import_path=kubevirt_hooks_v1alpha1:pkg/hooks/v1alpha1 pkg/hooks/v1alpha1/api.proto
 protoc --proto_path=pkg/hooks/v1alpha2 --go_out=plugins=grpc,import_path=kubevirt_hooks_v1alpha2:pkg/hooks/v1alpha2 pkg/hooks/v1alpha2/api.proto
+protoc --go_out=plugins=grpc:. pkg/handler-launcher-com/notify/v1/notify.proto
+protoc --go_out=plugins=grpc:. pkg/handler-launcher-com/notify/info/info.proto
+protoc --go_out=plugins=grpc:. pkg/handler-launcher-com/cmd/v1/cmd.proto
+protoc --go_out=plugins=grpc:. pkg/handler-launcher-com/cmd/info/info.proto
+
+mockgen -source pkg/handler-launcher-com/notify/info/info.pb.go -package=info -destination=pkg/handler-launcher-com/notify/info/generated_mock_info.go
+mockgen -source pkg/handler-launcher-com/cmd/info/info.pb.go -package=info -destination=pkg/handler-launcher-com/cmd/info/generated_mock_info.go

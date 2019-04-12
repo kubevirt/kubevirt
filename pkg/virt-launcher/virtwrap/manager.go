@@ -84,7 +84,7 @@ type LibvirtDomainManager struct {
 	domainModifyLock sync.Mutex
 
 	virtShareDir           string
-	notifier               *eventsclient.NotifyClient
+	notifier               *eventsclient.Notifier
 	lessPVCSpaceToleration int
 }
 
@@ -93,7 +93,7 @@ type migrationDisks struct {
 	generated map[string]bool
 }
 
-func NewLibvirtDomainManager(connection cli.Connection, virtShareDir string, notifier *eventsclient.NotifyClient, lessPVCSpaceToleration int) (DomainManager, error) {
+func NewLibvirtDomainManager(connection cli.Connection, virtShareDir string, notifier *eventsclient.Notifier, lessPVCSpaceToleration int) (DomainManager, error) {
 	manager := LibvirtDomainManager{
 		virConn:                connection,
 		virtShareDir:           virtShareDir,

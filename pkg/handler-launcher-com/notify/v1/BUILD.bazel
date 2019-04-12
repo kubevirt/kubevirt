@@ -1,0 +1,36 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+load("@io_bazel_rules_go//proto:def.bzl", "go_proto_library")
+
+proto_library(
+    name = "kubevirt_notify_proto",
+    srcs = ["notify.proto"],
+    visibility = ["//visibility:public"],
+)
+
+go_proto_library(
+    name = "kubevirt_notify_go_proto",
+    compilers = ["@io_bazel_rules_go//proto:go_grpc"],
+    importpath = "kubevirt.io/kubevirt/pkg/handler-launcher-com/notify/v1",
+    proto = ":v1_proto",
+    visibility = ["//visibility:public"],
+)
+
+go_library(
+    name = "go_default_library",
+    srcs = ["version.go"],
+    embed = [":kubevirt_notify_go_proto"],
+    importpath = "kubevirt.io/kubevirt/pkg/handler-launcher-com/notify/v1",
+    visibility = ["//visibility:public"],
+)
+
+proto_library(
+    name = "v1_proto",
+    srcs = ["notify.proto"],
+    visibility = ["//visibility:public"],
+)
+
+proto_library(
+    name = "kubevirt_notify_v1_proto",
+    srcs = ["notify.proto"],
+    visibility = ["//visibility:public"],
+)
