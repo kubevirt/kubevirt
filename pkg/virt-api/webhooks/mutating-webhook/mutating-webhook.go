@@ -119,9 +119,7 @@ func mutateVMIs(ar *v1beta1.AdmissionReview) *v1beta1.AdmissionResponse {
 	// Set VMI defaults
 	log.Log.Object(&vmi).V(4).Info("Apply defaults")
 	setDefaultCPUModel(&vmi, config.GetCPUModel())
-	if vmi.Spec.Domain.Machine.Type == "" {
-		vmi.Spec.Domain.Machine.Type = config.GetMachineType()
-	}
+	setDefaultMachineType(&vmi, config.GetMachineType())
 	kubev1.SetObjectDefaults_VirtualMachineInstance(&vmi)
 
 	// Add foreground finalizer
@@ -219,6 +217,12 @@ func setDefaultCPUModel(vmi *kubev1.VirtualMachineInstance, defaultCPUModel stri
 			//set is as vmi cpu model
 			vmi.Spec.Domain.CPU.Model = defaultCPUModel
 		}
+	}
+}
+
+func setDefaultMachineType(vmi *kubev1.VirtualMachineInstance, defaultMachineType string) {
+	if vmi.Spec.Domain.Machine.Type == "" {
+		vmi.Spec.Domain.Machine.Type = defaultMachineType
 	}
 }
 
