@@ -577,6 +577,53 @@ var _ = Describe("Migrations", func() {
 		})
 	})
 
+	Context("with sata disks", func() {
+
+		It("VM with containerDisk + CloudInit + ServiceAccount + ConfigMap + Secret", func() {
+			configMapName := "configmap-" + rand.String(5)
+			secretName := "secret-" + rand.String(5)
+
+			config_data := map[string]string{
+				"config1": "value1",
+				"config2": "value2",
+			}
+
+			secret_data := map[string]string{
+				"user":     "admin",
+				"password": "redhat",
+			}
+
+			tests.CreateConfigMap(configMapName, config_data)
+			tests.CreateSecret(secretName, secret_data)
+
+			vmi := tests.NewRandomVMIWithEphemeralDisk(tests.ContainerDiskFor(tests.ContainerDiskFedora))
+			vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("2G")
+			vmi.Spec.Domain.Devices.Rng = &v1.Rng{}
+			tests.AddUserData(vmi, "cloud-init", "#cloud-config\npassword: fedora\nchpasswd: { expire: False }\n")
+			tests.AddConfigMapDisk(vmi, configMapName)
+			tests.AddSecretDisk(vmi, secretName)
+			tests.AddServiceAccountDisk(vmi, "default")
+
+			vmi = runVMIAndExpectLaunch(vmi, 180)
+
+			// execute a migration, wait for finalized state
+			By("Starting the Migration")
+			migration := tests.NewRandomMigration(vmi.Name, vmi.Namespace)
+			migrationUID := runMigrationAndExpectCompletion(migration, 180)
+
+			// check VMI, confirm migration state
+			confirmVMIPostMigration(vmi, migrationUID)
+
+			// delete VMI
+			By("Deleting the VMI")
+			err = virtClient.VirtualMachineInstance(vmi.Namespace).Delete(vmi.Name, &metav1.DeleteOptions{})
+			Expect(err).To(BeNil())
+
+			By("Waiting for VMI to disappear")
+			tests.WaitForVirtualMachineToDisappearWithTimeout(vmi, 120)
+		})
+	})
+
 	Context("with a live-migrate eviction strategy set", func() {
 
 		AfterEach(func() {
