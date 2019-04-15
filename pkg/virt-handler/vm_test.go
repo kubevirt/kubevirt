@@ -647,6 +647,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 				Bandwidth:               resource.MustParse("64Mi"),
 				ProgressTimeout:         150,
 				CompletionTimeoutPerGiB: 800,
+				UnsafeMigration:         false,
 			}
 			client.EXPECT().MigrateVirtualMachine(vmi, options)
 			controller.Execute()

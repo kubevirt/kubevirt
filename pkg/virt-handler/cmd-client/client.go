@@ -60,6 +60,7 @@ type MigrationOptions struct {
 	Bandwidth               resource.Quantity
 	ProgressTimeout         int64
 	CompletionTimeoutPerGiB int64
+	UnsafeMigration         bool
 }
 
 type LauncherClient interface {
