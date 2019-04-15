@@ -322,16 +322,17 @@
   revision = "b84e30acd515aadc4b783ad4ff83aff3299bdfe0"
 
 [[projects]]
-  digest = "1:dfb8920d67d05ab4440a474e1404bd4602955e1bdcfe063f7825a429d4828ecc"
+  digest = "1:8700960e67a16b40f3198489db3f4ab546d8ef83b50e0792cceaf548c134c6ac"
   name = "github.com/kubevirt/cluster-network-addons-operator"
   packages = [
     "pkg/apis",
     "pkg/apis/networkaddonsoperator/v1alpha1",
+    "pkg/components",
     "pkg/names",
   ]
   pruneopts = "NT"
-  revision = "a84d74caaa74780d0cfd5b0557c1d4989a3d6747"
-  version = "v0.2.0"
+  revision = "f9a57341ff202a2b5d94f48e0e32ad4a6efea0b4"
+  version = "v0.3.0"
 
 [[projects]]
   branch = "master"
@@ -1090,6 +1091,7 @@
     "github.com/go-openapi/spec",
     "github.com/kubevirt/cluster-network-addons-operator/pkg/apis",
     "github.com/kubevirt/cluster-network-addons-operator/pkg/apis/networkaddonsoperator/v1alpha1",
+    "github.com/kubevirt/cluster-network-addons-operator/pkg/components",
     "github.com/kubevirt/cluster-network-addons-operator/pkg/names",
     "github.com/operator-framework/operator-sdk/pkg/k8sutil",
     "github.com/operator-framework/operator-sdk/pkg/leader",

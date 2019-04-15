@@ -259,7 +259,8 @@ func newNetworkAddonsForCR(cr *hcov1alpha1.HyperConverged) *networkaddons.Networ
 		Spec: networkaddons.NetworkAddonsConfigSpec{
 			Multus:          &networkaddons.Multus{},
 			LinuxBridge:     &networkaddons.LinuxBridge{},
-			ImagePullPolicy: NetworkAddonsImagePullPolicy,
+			KubeMacPool:     &networkaddons.KubeMacPool{},
+			ImagePullPolicy: v1.PullPolicy(NetworkAddonsImagePullPolicy),
 		},
 	}
 }

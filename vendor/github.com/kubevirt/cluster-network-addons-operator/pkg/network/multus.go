@@ -5,16 +5,17 @@ import (
 	"path/filepath"
 	"reflect"
 
-	osnetv1 "github.com/openshift/cluster-network-operator/pkg/apis/networkoperator/v1"
+	osv1 "github.com/openshift/api/operator/v1"
 	"github.com/pkg/errors"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 
 	opv1alpha1 "github.com/kubevirt/cluster-network-addons-operator/pkg/apis/networkaddonsoperator/v1alpha1"
+	"github.com/kubevirt/cluster-network-addons-operator/pkg/network/cni"
 	"github.com/kubevirt/cluster-network-addons-operator/pkg/render"
 )
 
 // ValidateMultus validates the combination of DisableMultiNetwork and AddtionalNetworks
-func validateMultus(conf *opv1alpha1.NetworkAddonsConfigSpec, openshiftNetworkConfig *osnetv1.NetworkConfig) []error {
+func validateMultus(conf *opv1alpha1.NetworkAddonsConfigSpec, openshiftNetworkConfig *osv1.Network) []error {
 	if conf.Multus == nil {
 		return []error{}
 	}
@@ -36,7 +37,7 @@ func changeSafeMultus(prev, next *opv1alpha1.NetworkAddonsConfigSpec) []error {
 }
 
 // RenderMultus generates the manifests of Multus
-func renderMultus(conf *opv1alpha1.NetworkAddonsConfigSpec, manifestDir string, openshiftNetworkConfig *osnetv1.NetworkConfig, enableSCC bool) ([]*unstructured.Unstructured, error) {
+func renderMultus(conf *opv1alpha1.NetworkAddonsConfigSpec, manifestDir string, openshiftNetworkConfig *osv1.Network, clusterInfo *ClusterInfo) ([]*unstructured.Unstructured, error) {
 	if conf.Multus == nil || openshiftNetworkConfig != nil {
 		return nil, nil
 	}
@@ -45,7 +46,14 @@ func renderMultus(conf *opv1alpha1.NetworkAddonsConfigSpec, manifestDir string, 
 	data := render.MakeRenderData()
 	data.Data["MultusImage"] = os.Getenv("MULTUS_IMAGE")
 	data.Data["ImagePullPolicy"] = conf.ImagePullPolicy
-	data.Data["EnableSCC"] = enableSCC
+	if clusterInfo.OpenShift4 {
+		data.Data["CNIConfigDir"] = cni.ConfigDirOpenShift4
+		data.Data["CNIBinDir"] = cni.BinDirOpenShift4
+	} else {
+		data.Data["CNIConfigDir"] = cni.ConfigDir
+		data.Data["CNIBinDir"] = cni.BinDir
+	}
+	data.Data["EnableSCC"] = clusterInfo.SCCAvailable
 
 	objs, err := render.RenderDir(filepath.Join(manifestDir, "multus"), &data)
 	if err != nil {

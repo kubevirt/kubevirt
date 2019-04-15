@@ -3,8 +3,9 @@ package network
 import (
 	"log"
 	"reflect"
+	"strings"
 
-	osnetv1 "github.com/openshift/cluster-network-operator/pkg/apis/networkoperator/v1"
+	osv1 "github.com/openshift/api/operator/v1"
 	"github.com/pkg/errors"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 
@@ -18,14 +19,15 @@ func Canonicalize(conf *opv1alpha1.NetworkAddonsConfigSpec) {
 
 // Validate checks that the supplied configuration is reasonable.
 // This should be called after Canonicalize
-func Validate(conf *opv1alpha1.NetworkAddonsConfigSpec, openshiftNetworkConfig *osnetv1.NetworkConfig) error {
+func Validate(conf *opv1alpha1.NetworkAddonsConfigSpec, openshiftNetworkConfig *osv1.Network) error {
 	errs := []error{}
 
 	errs = append(errs, validateMultus(conf, openshiftNetworkConfig)...)
+	errs = append(errs, validateKubeMacPool(conf)...)
 	errs = append(errs, validateImagePullPolicy(conf)...)
 
 	if len(errs) > 0 {
-		return errors.Errorf("invalid configuration: %v", errs)
+		return errors.Errorf("invalid configuration:\n%s", errorListToMultiLineString(errs))
 	}
 	return nil
 }
@@ -55,27 +57,43 @@ func IsChangeSafe(prev, next *opv1alpha1.NetworkAddonsConfigSpec) error {
 
 	errs = append(errs, changeSafeMultus(prev, next)...)
 	errs = append(errs, changeSafeLinuxBridge(prev, next)...)
+	errs = append(errs, changeSafeSriov(prev, next)...)
+	errs = append(errs, changeSafeKubeMacPool(prev, next)...)
 	errs = append(errs, changeSafeImagePullPolicy(prev, next)...)
 
 	if len(errs) > 0 {
-		return errors.Errorf("invalid configuration: %v", errs)
+		return errors.Errorf("invalid configuration:\n%s", errorListToMultiLineString(errs))
 	}
 	return nil
 }
 
-func Render(conf *opv1alpha1.NetworkAddonsConfigSpec, manifestDir string, openshiftNetworkConfig *osnetv1.NetworkConfig, enableSCC bool) ([]*unstructured.Unstructured, error) {
+func Render(conf *opv1alpha1.NetworkAddonsConfigSpec, manifestDir string, openshiftNetworkConfig *osv1.Network, clusterInfo *ClusterInfo) ([]*unstructured.Unstructured, error) {
 	log.Print("starting render phase")
 	objs := []*unstructured.Unstructured{}
 
 	// render Multus
-	o, err := renderMultus(conf, manifestDir, openshiftNetworkConfig, enableSCC)
+	o, err := renderMultus(conf, manifestDir, openshiftNetworkConfig, clusterInfo)
 	if err != nil {
 		return nil, err
 	}
 	objs = append(objs, o...)
 
 	// render Linux Bridge
-	o, err = renderLinuxBridge(conf, manifestDir, enableSCC)
+	o, err = renderLinuxBridge(conf, manifestDir, clusterInfo)
+	if err != nil {
+		return nil, err
+	}
+	objs = append(objs, o...)
+
+	// render SR-IOV
+	o, err = renderSriov(conf, manifestDir, clusterInfo)
+	if err != nil {
+		return nil, err
+	}
+	objs = append(objs, o...)
+
+	// render kubeMacPool
+	o, err = renderKubeMacPool(conf, manifestDir)
 	if err != nil {
 		return nil, err
 	}
@@ -83,4 +101,12 @@ func Render(conf *opv1alpha1.NetworkAddonsConfigSpec, manifestDir string, opensh
 
 	log.Printf("render phase done, rendered %d objects", len(objs))
 	return objs, nil
+}
+
+func errorListToMultiLineString(errs []error) string {
+	stringErrs := []string{}
+	for _, err := range errs {
+		stringErrs = append(stringErrs, err.Error())
+	}
+	return strings.Join(stringErrs, "\n")
 }

@@ -49,4 +49,5 @@ oc create -f ${TEMP_DIR}/crs
 
 echo "Let the API server process the CRs"
 sleep 10
+oc wait networkaddonsconfig cluster --for condition=Ready --timeout="${WAIT_TIMEOUT}"
 oc wait kubevirt kubevirt --for condition=Ready -n kubevirt --timeout="${WAIT_TIMEOUT}"

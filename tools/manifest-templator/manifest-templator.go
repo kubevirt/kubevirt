@@ -33,8 +33,8 @@ import (
 	"k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 
+	cnacomponents "github.com/kubevirt/cluster-network-addons-operator/pkg/components"
 	cdicomponents "github.com/kubevirt/hyperconverged-cluster-operator/pkg/cdicomponents"
-	cnacomponents "github.com/kubevirt/hyperconverged-cluster-operator/pkg/cnacomponents"
 	hcocomponents "github.com/kubevirt/hyperconverged-cluster-operator/pkg/components"
 	extv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
 	kvcomponents "kubevirt.io/kubevirt/pkg/virt-operator/creation/components"

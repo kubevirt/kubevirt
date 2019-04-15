@@ -18,9 +18,9 @@ import (
 
 // GetAppliedConfiguration retrieves the configuration we applied.
 // Returns nil with no error if no previous configuration was observed.
-func getAppliedConfiguration(ctx context.Context, client k8sclient.Client, name string) (*opv1alphav1.NetworkAddonsConfigSpec, error) {
+func getAppliedConfiguration(ctx context.Context, client k8sclient.Client, name string, namespace string) (*opv1alphav1.NetworkAddonsConfigSpec, error) {
 	cm := &corev1.ConfigMap{}
-	err := client.Get(ctx, types.NamespacedName{Namespace: names.APPLIED_NAMESPACE, Name: names.APPLIED_PREFIX + name}, cm)
+	err := client.Get(ctx, types.NamespacedName{Name: names.APPLIED_PREFIX + name, Namespace: namespace}, cm)
 	if err != nil && apierrors.IsNotFound(err) {
 		return nil, nil
 	} else if err != nil {
@@ -37,7 +37,7 @@ func getAppliedConfiguration(ctx context.Context, client k8sclient.Client, name 
 
 // AppliedConfiguration renders the ConfigMap in which we store the configuration
 // we've applied.
-func appliedConfiguration(applied *opv1alphav1.NetworkAddonsConfig) (*uns.Unstructured, error) {
+func appliedConfiguration(applied *opv1alphav1.NetworkAddonsConfig, namespace string) (*uns.Unstructured, error) {
 	app, err := json.Marshal(applied.Spec)
 	if err != nil {
 		return nil, err
@@ -48,8 +48,8 @@ func appliedConfiguration(applied *opv1alphav1.NetworkAddonsConfig) (*uns.Unstru
 			Kind:       "ConfigMap",
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Namespace: names.APPLIED_NAMESPACE,
 			Name:      names.APPLIED_PREFIX + applied.Name,
+			Namespace: namespace,
 		},
 		Data: map[string]string{
 			"applied": string(app),

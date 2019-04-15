@@ -7,7 +7,7 @@ import (
 	opv1alpha1 "github.com/kubevirt/cluster-network-addons-operator/pkg/apis/networkaddonsoperator/v1alpha1"
 )
 
-const defaultImagePullPolicy = string(v1.PullIfNotPresent)
+const defaultImagePullPolicy = v1.PullIfNotPresent
 
 func validateImagePullPolicy(conf *opv1alpha1.NetworkAddonsConfigSpec) []error {
 	if conf.ImagePullPolicy == "" {
@@ -39,8 +39,7 @@ func changeSafeImagePullPolicy(prev, next *opv1alpha1.NetworkAddonsConfigSpec) [
 }
 
 // Verify if the value is a valid PullPolicy
-func verifyPullPolicyType(policy string) bool {
-	imagePullPolicy := v1.PullPolicy(policy)
+func verifyPullPolicyType(imagePullPolicy v1.PullPolicy) bool {
 	switch imagePullPolicy {
 	case v1.PullAlways:
 		return true

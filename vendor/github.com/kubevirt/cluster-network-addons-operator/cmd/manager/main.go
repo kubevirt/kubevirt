@@ -8,7 +8,7 @@ import (
 	"os"
 	"runtime"
 
-	netapis "github.com/openshift/cluster-network-operator/pkg/apis"
+	osv1 "github.com/openshift/api/operator/v1"
 	"github.com/operator-framework/operator-sdk/pkg/k8sutil"
 	"github.com/operator-framework/operator-sdk/pkg/leader"
 	"github.com/operator-framework/operator-sdk/pkg/metrics"
@@ -82,8 +82,8 @@ func main() {
 		log.Printf("failed adding network addons scheme to the client: %v", err)
 		os.Exit(1)
 	}
-	if err := netapis.AddToScheme(mgr.GetScheme()); err != nil {
-		log.Printf("failed adding openshift network scheme to the client: %v", err)
+	if err := osv1.AddToScheme(mgr.GetScheme()); err != nil {
+		log.Printf("failed adding openshift scheme to the client: %v", err)
 		os.Exit(1)
 	}
 
