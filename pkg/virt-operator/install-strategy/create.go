@@ -1212,39 +1212,47 @@ func mergeServiceSpec(targetSpec, prevSpec *corev1.ServiceSpec) *corev1.ServiceS
 	// add any overlapping non-conflicting selectors or ports to the merged spec.
 	for _, port := range prevSpec.Ports {
 		mergePort := true
-		for _, curPort := range targetSpec.Ports {
-			if port.Name != "" && port.Name == curPort.Name {
-				// non-overlapping port name
+
+		// determin if the previous port can be merged in or not
+		for _, targetPort := range targetSpec.Ports {
+			if port.Name == "" || targetPort.Name == "" {
+				// an empty name is only supported in the event there is only a single port.
 				mergePort = false
 				break
 			}
 
-			if port.Protocol != curPort.Protocol &&
-				port.Protocol != "" && curPort.Protocol != "" {
-				// different protocols are in use.
-				continue
-			} else if port.Protocol == "" && curPort.Protocol != corev1.ProtocolTCP {
-				// different protocols are in use.
-				continue
-			} else if port.Protocol == corev1.ProtocolTCP && curPort.Protocol != "" {
-				// different protocols are in use.
-				continue
-			}
-
-			if port.Port == curPort.Port {
-				// non-overlapping exposed port
-				mergePort = false
-				break
-			}
-			if port.TargetPort.IntValue() != 0 &&
-				port.TargetPort.IntValue() == curPort.TargetPort.IntValue() {
-				// non-overlapping target port
+			if port.Name == targetPort.Name {
+				// can't be merged. two ports can't have the same name.
 				mergePort = false
 				break
 			}
 
-			if port.NodePort == curPort.NodePort {
-				// non-overlapping node port
+			// ignore compairing ports with different Protocol types.
+			if port.Protocol != targetPort.Protocol &&
+				port.Protocol != "" && targetPort.Protocol != "" {
+				// different protocols are in use.
+				continue
+			} else if port.Protocol == "" && targetPort.Protocol != corev1.ProtocolTCP {
+				// different protocols are in use.
+				continue
+			} else if port.Protocol == corev1.ProtocolTCP && targetPort.Protocol != "" {
+				// different protocols are in use.
+				continue
+			}
+
+			if port.Port == targetPort.Port {
+				// can't merge in a duplicate port with same protocol.
+				mergePort = false
+				break
+			}
+			if !reflect.DeepEqual(port.TargetPort, targetPort.TargetPort) {
+				// can't merge in a duplicate port with same protocol.
+				mergePort = false
+				break
+			}
+
+			if port.NodePort == targetPort.NodePort {
+				// can't merge in a duplicate port with same protocol.
 				mergePort = false
 				break
 			}
@@ -1279,6 +1287,114 @@ func mergeServiceSpec(targetSpec, prevSpec *corev1.ServiceSpec) *corev1.ServiceS
 	return mergedSpec
 }
 
+// This function determines how to process updating a service endpoint.
+//
+// If the update involves fields that can't be mutated, then the deleteAndReplace bool will be set.
+// If the update involves patching fields, then a list of patch operations will be returned.
+// If neither patchOps nor deleteAndReplace are set, then the service is already up-to-date
+//
+// NOTE. see the unit test that exercises this function to further learn about the expected behavior.
+func generateServicePatch(kv *v1.KubeVirt,
+	cachedService *corev1.Service,
+	service *corev1.Service,
+	infrastructureRolledOver bool) ([]string, bool, error) {
+
+	var patchOps []string
+	var deleteAndReplace bool
+
+	if (cachedService.Spec.Type != "" && cachedService.Spec.Type != corev1.ServiceTypeClusterIP) ||
+		(service.Spec.Type != "" && service.Spec.Type != corev1.ServiceTypeClusterIP) {
+
+		// we're only going to attempt to mutate ClusterIPs right now because
+		// that's the only logic we have tested.
+
+		// This means both the matching cached service and the new target service must be of
+		// type "ClusterIP". Type == "" defaults to ClusterIP, so that is acceptable as well.
+		deleteAndReplace = true
+	} else if cachedService.Spec.ClusterIP != service.Spec.ClusterIP &&
+		service.Spec.ClusterIP != "" {
+
+		// clusterIP is not mutable. A ClusterIP == "" will mean one is dynamically assigned.
+		// It is okay if the cached service has a ClusterIP and the target one is empty. We just
+		// ensure the cached ClusterIP is carried over in the Patch.
+		deleteAndReplace = true
+	}
+	if deleteAndReplace {
+		return patchOps, deleteAndReplace, nil
+	}
+
+	// If we've made it this far, we're going to generate a Patch.
+	// Ensure that we always preserve the ClusterIP value from the
+	// cached service
+	service.Spec.ClusterIP = cachedService.Spec.ClusterIP
+
+	imageTag := kv.Status.TargetKubeVirtVersion
+	imageRegistry := kv.Status.TargetKubeVirtRegistry
+
+	updateLabels := false
+	mergeSpec := false
+	replaceSpec := false
+
+	// If version labels match, only ensure the spec is completely replaced by the target
+	// once the infrastructure has rolled over. THis ensures we don't clobber a
+	// merged spec during an update.
+	if objectMatchesVersion(&cachedService.ObjectMeta, imageTag, imageRegistry) {
+
+		// if we're rolled over, make sure the spec is replaced.
+		// The spec might not match in the event that items were merged.
+		if infrastructureRolledOver && !reflect.DeepEqual(cachedService.Spec, service.Spec) {
+			replaceSpec = true
+		}
+	} else {
+		// Versions don't match, so ensure labels are updated and that
+		// the specs are merged until the infrastructure rolls over.
+		updateLabels = true
+
+		// If the Specs don't equal each other, decide whether to merge them
+		// or replace based on whether or not the new infrastructure has rolled over.
+		if !reflect.DeepEqual(cachedService.Spec, service.Spec) {
+			if infrastructureRolledOver {
+				replaceSpec = true
+			} else {
+				mergeSpec = true
+			}
+		}
+	}
+
+	if updateLabels {
+		// Add Labels and Annotations Patches
+		labelAnnotationPatch, err := createLabelsAndAnnotationsPatch(&service.ObjectMeta)
+		if err != nil {
+			return patchOps, deleteAndReplace, err
+		}
+		patchOps = append(patchOps, labelAnnotationPatch...)
+	}
+
+	if replaceSpec {
+		// Add Spec Patch
+		newSpec, err := json.Marshal(service.Spec)
+		if err != nil {
+			return patchOps, deleteAndReplace, err
+		}
+		patchOps = append(patchOps, fmt.Sprintf(`{ "op": "replace", "path": "/spec", "value": %s }`, string(newSpec)))
+	} else if mergeSpec {
+		// merge cached into target spec
+		spec := mergeServiceSpec(&service.Spec, &cachedService.Spec)
+
+		if !reflect.DeepEqual(*spec, cachedService.Spec) {
+			// if the resulting merged spec is different than what is already present
+			// in the cluster, then patch it
+			newSpec, err := json.Marshal(spec)
+			if err != nil {
+				return patchOps, deleteAndReplace, err
+			}
+			patchOps = append(patchOps, fmt.Sprintf(`{ "op": "replace", "path": "/spec", "value": %s }`, string(newSpec)))
+		}
+	}
+
+	return patchOps, deleteAndReplace, nil
+}
+
 func updateService(kv *v1.KubeVirt,
 	cachedService *corev1.Service,
 	service *corev1.Service,
@@ -1297,43 +1413,8 @@ func updateService(kv *v1.KubeVirt,
 	}
 
 	core := clientset.CoreV1()
-	imageTag := kv.Status.TargetKubeVirtVersion
-	imageRegistry := kv.Status.TargetKubeVirtRegistry
 
-	updateLabels := false
-	mergeSpec := false
-	replaceSpec := false
-	deleteAndReplace := false
-
-	// If version labels match, only ensure the spec is merged once the
-	// infrastructure has rolled over. THis ensures we don't clobber a
-	// merged spec during an update.
-	if objectMatchesVersion(&cachedService.ObjectMeta, imageTag, imageRegistry) {
-
-		// if we're rolled over, make sure the spec is replaced.
-		// The spec might not match in the event that items were merged.
-		if infrastructureRolledOver && !reflect.DeepEqual(cachedService.Spec, service.Spec) {
-			replaceSpec = true
-		}
-	} else {
-		// Versions don't match, so ensure labels are updated and that
-		// the specs are merged until the infrastructure rolls over.
-		updateLabels = true
-		if !reflect.DeepEqual(cachedService.Spec, service.Spec) {
-			if infrastructureRolledOver {
-				replaceSpec = true
-			} else {
-				mergeSpec = true
-			}
-		}
-	}
-
-	if cachedService.Spec.Type != service.Spec.Type ||
-		cachedService.Spec.ClusterIP != service.Spec.ClusterIP {
-		// we can't mutate a service endpoint of a different type
-		// also, clusterIP isn't mutable
-		deleteAndReplace = true
-	}
+	patchOps, deleteAndReplace, err := generateServicePatch(kv, cachedService, service, infrastructureRolledOver)
 
 	if deleteAndReplace {
 		if cachedService.DeletionTimestamp == nil {
@@ -1352,44 +1433,8 @@ func updateService(kv *v1.KubeVirt,
 		// waiting for old service to be deleted,
 		// after which the operator will recreate using new spec
 		return true, nil
-	}
-
-	// Patch
-	var ops []string
-
-	if updateLabels {
-		// Add Labels and Annotations Patches
-		labelAnnotationPatch, err := createLabelsAndAnnotationsPatch(&service.ObjectMeta)
-		if err != nil {
-			return false, err
-		}
-		ops = append(ops, labelAnnotationPatch...)
-	}
-
-	if replaceSpec {
-		// Add Spec Patch
-		newSpec, err := json.Marshal(service.Spec)
-		if err != nil {
-			return false, err
-		}
-		ops = append(ops, fmt.Sprintf(`{ "op": "replace", "path": "/spec", "value": %s }`, string(newSpec)))
-	} else if mergeSpec {
-		// merge cached into target spec
-		spec := mergeServiceSpec(&service.Spec, &cachedService.Spec)
-
-		if !reflect.DeepEqual(*spec, cachedService.Spec) {
-			// if the resulting merged spec is different than what is already present
-			// in the cluster, then patch it
-			newSpec, err := json.Marshal(spec)
-			if err != nil {
-				return false, err
-			}
-			ops = append(ops, fmt.Sprintf(`{ "op": "replace", "path": "/spec", "value": %s }`, string(newSpec)))
-		}
-	}
-
-	if len(ops) != 0 {
-		_, err = core.Services(kv.Namespace).Patch(service.Name, types.JSONPatchType, generatePatchBytes(ops))
+	} else if len(patchOps) != 0 {
+		_, err = core.Services(kv.Namespace).Patch(service.Name, types.JSONPatchType, generatePatchBytes(patchOps))
 		if err != nil {
 			return false, fmt.Errorf("unable to patch service %+v: %v", service, err)
 		}
@@ -1399,7 +1444,6 @@ func updateService(kv *v1.KubeVirt,
 	}
 
 	return false, nil
-
 }
 
 func createOrUpdateService(kv *v1.KubeVirt,
@@ -1418,7 +1462,11 @@ func createOrUpdateService(kv *v1.KubeVirt,
 		return false, err
 	}
 
-	isPending := false
+	gracePeriod := int64(0)
+	deleteOptions := &metav1.DeleteOptions{
+		GracePeriodSeconds: &gracePeriod,
+	}
+
 	for _, service := range targetStrategy.services {
 		var cachedService *corev1.Service
 		service = service.DeepCopy()
@@ -1437,15 +1485,41 @@ func createOrUpdateService(kv *v1.KubeVirt,
 				return false, fmt.Errorf("unable to create service %+v: %v", service, err)
 			}
 		} else {
-			pending, err := updateService(kv, cachedService, service, clientset, expectations, infrastructureRolledOver)
+
+			patchOps, deleteAndReplace, err := generateServicePatch(kv, cachedService, service, infrastructureRolledOver)
 			if err != nil {
-				return isPending, err
-			} else if pending {
-				isPending = true
+				return false, fmt.Errorf("unable to generate service endpoint patch operations for %+v: %v", service, err)
+			}
+
+			if deleteAndReplace {
+				if cachedService.DeletionTimestamp == nil {
+					if key, err := controller.KeyFunc(cachedService); err == nil {
+						expectations.Service.AddExpectedDeletion(kvkey, key)
+						err := core.Services(kv.Namespace).Delete(cachedService.Name, deleteOptions)
+						if err != nil {
+							expectations.Service.DeletionObserved(kvkey, key)
+							log.Log.Errorf("Failed to delete service %+v: %v", cachedService, err)
+							return false, err
+						}
+
+						log.Log.V(2).Infof("service %v deleted. It must be re-created", cachedService.GetName())
+					}
+				}
+				// waiting for old service to be deleted,
+				// after which the operator will recreate using new spec
+				return true, nil
+			} else if len(patchOps) != 0 {
+				_, err = core.Services(kv.Namespace).Patch(service.Name, types.JSONPatchType, generatePatchBytes(patchOps))
+				if err != nil {
+					return false, fmt.Errorf("unable to patch service %+v: %v", service, err)
+				}
+				log.Log.V(2).Infof("service %v patched", service.GetName())
+			} else {
+				log.Log.V(4).Infof("service %v is up-to-date", service.GetName())
 			}
 		}
 	}
-	return isPending, nil
+	return false, nil
 }
 
 func addOrRemoveSSC(targetStrategy *InstallStrategy,
