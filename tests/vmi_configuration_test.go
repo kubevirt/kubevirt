@@ -52,6 +52,20 @@ var _ = Describe("Configurations", func() {
 	virtClient, err := kubecli.GetKubevirtClient()
 	tests.PanicOnError(err)
 
+	getComputeContainerOfPod := func(pod *kubev1.Pod) *kubev1.Container {
+		var computeContainer *kubev1.Container
+		for _, container := range pod.Spec.Containers {
+			if container.Name == "compute" {
+				computeContainer = &container
+				break
+			}
+		}
+		if computeContainer == nil {
+			tests.PanicOnError(fmt.Errorf("could not find the compute container"))
+		}
+		return computeContainer
+	}
+
 	BeforeEach(func() {
 		tests.BeforeTestCleanup()
 	})
@@ -1096,6 +1110,67 @@ var _ = Describe("Configurations", func() {
 
 			Expect(err).ToNot(HaveOccurred())
 			Expect(runningVMISpec.OS.Type.Machine).To(Equal("pc-q35-3.0"))
+		})
+	})
+
+	Context("with CPU request settings", func() {
+		defaultCPURequestKey := "cpu-request"
+
+		AfterEach(func() {
+			cfgMap, err := virtClient.CoreV1().ConfigMaps(namespaceKubevirt).Get(kubevirtConfig, metav1.GetOptions{})
+			Expect(err).NotTo(HaveOccurred())
+
+			cfgMap.Data[defaultCPURequestKey] = ""
+
+			_, err = virtClient.CoreV1().ConfigMaps(namespaceKubevirt).Update(cfgMap)
+			Expect(err).ToNot(HaveOccurred())
+		})
+
+		It("should set CPU request from VMI spec", func() {
+			vmi := tests.NewRandomVMI()
+			vmi.Spec.Domain.Resources.Requests[kubev1.ResourceCPU] = resource.MustParse("500m")
+			runningVMI := tests.RunVMIAndExpectScheduling(vmi, 30)
+
+			readyPod := tests.GetPodByVirtualMachineInstance(runningVMI, tests.NamespaceTestDefault)
+			computeContainer := getComputeContainerOfPod(readyPod)
+			cpuRequest := computeContainer.Resources.Requests[kubev1.ResourceCPU]
+			Expect(cpuRequest.String()).To(Equal("500m"))
+		})
+
+		It("should set CPU request when it is not provided", func() {
+			vmi := tests.NewRandomVMI()
+			vmi.Spec.Domain.Resources = v1.ResourceRequirements{
+				Requests: kubev1.ResourceList{
+					kubev1.ResourceMemory: resource.MustParse("64M"),
+				},
+			}
+			runningVMI := tests.RunVMIAndExpectScheduling(vmi, 30)
+
+			readyPod := tests.GetPodByVirtualMachineInstance(runningVMI, tests.NamespaceTestDefault)
+			computeContainer := getComputeContainerOfPod(readyPod)
+			cpuRequest := computeContainer.Resources.Requests[kubev1.ResourceCPU]
+			Expect(cpuRequest.String()).To(Equal("100m"))
+		})
+
+		It("should set CPU request from kubevirt-config", func() {
+			cfgMap, err := virtClient.CoreV1().ConfigMaps(namespaceKubevirt).Get(kubevirtConfig, metav1.GetOptions{})
+			Expect(err).To(BeNil())
+			cfgMap.Data[defaultCPURequestKey] = "800m"
+			_, err = virtClient.CoreV1().ConfigMaps(namespaceKubevirt).Update(cfgMap)
+			Expect(err).ToNot(HaveOccurred())
+
+			vmi := tests.NewRandomVMI()
+			vmi.Spec.Domain.Resources = v1.ResourceRequirements{
+				Requests: kubev1.ResourceList{
+					kubev1.ResourceMemory: resource.MustParse("64M"),
+				},
+			}
+			runningVMI := tests.RunVMIAndExpectScheduling(vmi, 30)
+
+			readyPod := tests.GetPodByVirtualMachineInstance(runningVMI, tests.NamespaceTestDefault)
+			computeContainer := getComputeContainerOfPod(readyPod)
+			cpuRequest := computeContainer.Resources.Requests[kubev1.ResourceCPU]
+			Expect(cpuRequest.String()).To(Equal("800m"))
 		})
 	})
 
