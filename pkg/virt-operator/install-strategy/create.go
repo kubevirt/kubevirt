@@ -1617,12 +1617,24 @@ func SyncAll(kv *v1.KubeVirt,
 		GracePeriodSeconds: &gracePeriod,
 	}
 
+	targetImageTag := kv.Status.TargetKubeVirtVersion
+	targetImageRegistry := kv.Status.TargetKubeVirtRegistry
+	observedImageTag := kv.Status.ObservedKubeVirtVersion
+	observedImageRegistry := kv.Status.ObservedKubeVirtRegistry
+
 	apiDeploymentsRolledOver := haveApiDeploymentsRolledOver(targetStrategy, kv, stores)
 	controllerDeploymentsRolledOver := haveControllerDeploymentsRolledOver(targetStrategy, kv, stores)
 	daemonSetsRolledOver := haveDaemonSetsRolledOver(targetStrategy, kv, stores)
 
 	infrastructureRolledOver := false
 	if apiDeploymentsRolledOver && controllerDeploymentsRolledOver && daemonSetsRolledOver {
+
+		// infrastructure has rolled over and is available
+		infrastructureRolledOver = true
+	} else if (targetImageTag == observedImageTag) && (targetImageRegistry == observedImageRegistry) {
+
+		// infrastructure was observed to have rolled over successfully
+		// in the past
 		infrastructureRolledOver = true
 	}
 
@@ -1661,7 +1673,7 @@ func SyncAll(kv *v1.KubeVirt,
 	}
 
 	// backup any old RBAC rules that don't match current version
-	if !apiDeploymentsRolledOver || !controllerDeploymentsRolledOver || !daemonSetsRolledOver {
+	if !infrastructureRolledOver {
 		err = backupRbac(kv,
 			stores,
 			clientset,
