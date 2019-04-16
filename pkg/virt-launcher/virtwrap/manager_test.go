@@ -509,17 +509,22 @@ var _ = Describe("Manager", func() {
 		)
 	})
 	table.DescribeTable("check migration flags",
-		func(isBlockMigration bool) {
-			flags := prepareMigrationFlags(isBlockMigration)
+		func(migrationType string) {
+			isBlockMigration := migrationType == "block"
+			isUnsafeMigration := migrationType == "unsafe"
+			flags := prepareMigrationFlags(isBlockMigration, isUnsafeMigration)
 			expectedMigrateFlags := libvirt.MIGRATE_LIVE | libvirt.MIGRATE_PEER2PEER
 
 			if isBlockMigration {
 				expectedMigrateFlags |= libvirt.MIGRATE_NON_SHARED_INC
+			} else if migrationType == "unsafe" {
+				expectedMigrateFlags |= libvirt.MIGRATE_UNSAFE
 			}
 			Expect(flags).To(Equal(expectedMigrateFlags))
 		},
-		table.Entry("with block migration", true),
-		table.Entry("without block migration", false),
+		table.Entry("with block migration", "block"),
+		table.Entry("without block migration", "live"),
+		table.Entry("unsafe migration", "unsafe"),
 	)
 
 	table.DescribeTable("on successful list all domains",
