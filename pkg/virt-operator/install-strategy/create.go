@@ -1209,11 +1209,11 @@ func createOrUpdateRbac(kv *v1.KubeVirt,
 func mergeServiceSpec(targetSpec, prevSpec *corev1.ServiceSpec) *corev1.ServiceSpec {
 	mergedSpec := targetSpec.DeepCopy()
 
-	// add any overlapping non-conflicting selectors or ports to the merged spec.
+	// add any overlapping non-conflicting selectors and ports to the merged spec.
 	for _, port := range prevSpec.Ports {
 		mergePort := true
 
-		// determin if the previous port can be merged in or not
+		// determine if the previous port can be merged in or not
 		for _, targetPort := range targetSpec.Ports {
 			if port.Name == "" || targetPort.Name == "" {
 				// an empty name is only supported in the event there is only a single port.
@@ -1228,14 +1228,7 @@ func mergeServiceSpec(targetSpec, prevSpec *corev1.ServiceSpec) *corev1.ServiceS
 			}
 
 			// ignore compairing ports with different Protocol types.
-			if port.Protocol != targetPort.Protocol &&
-				port.Protocol != "" && targetPort.Protocol != "" {
-				// different protocols are in use.
-				continue
-			} else if port.Protocol == "" && targetPort.Protocol != corev1.ProtocolTCP {
-				// different protocols are in use.
-				continue
-			} else if port.Protocol == corev1.ProtocolTCP && targetPort.Protocol != "" {
+			if getPortProtocol(&port) != getPortProtocol(&targetPort) {
 				// different protocols are in use.
 				continue
 			}
@@ -1245,13 +1238,14 @@ func mergeServiceSpec(targetSpec, prevSpec *corev1.ServiceSpec) *corev1.ServiceS
 				mergePort = false
 				break
 			}
-			if !reflect.DeepEqual(port.TargetPort, targetPort.TargetPort) {
+
+			if (port.TargetPort.IntVal != 0 || port.TargetPort.StrVal != "") && reflect.DeepEqual(port.TargetPort, targetPort.TargetPort) {
 				// can't merge in a duplicate port with same protocol.
 				mergePort = false
 				break
 			}
 
-			if port.NodePort == targetPort.NodePort {
+			if port.NodePort != 0 && port.NodePort == targetPort.NodePort {
 				// can't merge in a duplicate port with same protocol.
 				mergePort = false
 				break
@@ -1269,22 +1263,29 @@ func mergeServiceSpec(targetSpec, prevSpec *corev1.ServiceSpec) *corev1.ServiceS
 
 		// merge any non-overlapping selectors
 		for key, val := range prevSpec.Selector {
-
-			merge := false
-			if targetSpec.Selector == nil {
-
-			} else {
-				_, ok := targetSpec.Selector[key]
-				if !ok {
-					merge = true
-				}
-			}
-			if merge {
+			_, ok := mergedSpec.Selector[key]
+			if !ok {
+				// if the selector doesn't already exist. then merge
 				mergedSpec.Selector[key] = val
 			}
 		}
 	}
 	return mergedSpec
+}
+
+func getPortProtocol(port *corev1.ServicePort) corev1.Protocol {
+	if port.Protocol == "" {
+		return corev1.ProtocolTCP
+	}
+
+	return port.Protocol
+}
+
+func isServiceClusterIP(service *corev1.Service) bool {
+	if service.Spec.Type == "" || service.Spec.Type == corev1.ServiceTypeClusterIP {
+		return true
+	}
+	return false
 }
 
 // This function determines how to process updating a service endpoint.
@@ -1302,34 +1303,45 @@ func generateServicePatch(kv *v1.KubeVirt,
 	var patchOps []string
 	var deleteAndReplace bool
 
-	if (cachedService.Spec.Type != "" && cachedService.Spec.Type != corev1.ServiceTypeClusterIP) ||
-		(service.Spec.Type != "" && service.Spec.Type != corev1.ServiceTypeClusterIP) {
+	imageTag := kv.Status.TargetKubeVirtVersion
+	imageRegistry := kv.Status.TargetKubeVirtRegistry
 
-		// we're only going to attempt to mutate ClusterIPs right now because
+	if isServiceClusterIP(service) && isServiceClusterIP(cachedService) && service.Spec.ClusterIP == "" {
+		// Ensure that we always preserve the ClusterIP value from the cached service.
+		// This value is dynamically set when it is equal to "" and can't be mutated once it is set.
+		service.Spec.ClusterIP = cachedService.Spec.ClusterIP
+	}
+
+	// First check if there's anything to do.
+	if objectMatchesVersion(&cachedService.ObjectMeta, imageTag, imageRegistry) {
+		if !isServiceClusterIP(cachedService) {
+			// Type != ClusterIP and the cached service is already up to date. Nothing to do
+			return patchOps, false, nil
+		} else if reflect.DeepEqual(cachedService.Spec, service.Spec) {
+			// spec and annotations are already up to date. Nothing to do
+			return patchOps, false, nil
+		}
+	}
+
+	if !isServiceClusterIP(cachedService) || !isServiceClusterIP(service) {
+		// we're only going to attempt to mutate Type ==ClusterIPs right now because
 		// that's the only logic we have tested.
 
 		// This means both the matching cached service and the new target service must be of
-		// type "ClusterIP". Type == "" defaults to ClusterIP, so that is acceptable as well.
+		// type "ClusterIP" for us to attempt any Patch operation
 		deleteAndReplace = true
-	} else if cachedService.Spec.ClusterIP != service.Spec.ClusterIP &&
-		service.Spec.ClusterIP != "" {
+	} else if cachedService.Spec.ClusterIP != service.Spec.ClusterIP {
 
 		// clusterIP is not mutable. A ClusterIP == "" will mean one is dynamically assigned.
 		// It is okay if the cached service has a ClusterIP and the target one is empty. We just
 		// ensure the cached ClusterIP is carried over in the Patch.
 		deleteAndReplace = true
 	}
+
 	if deleteAndReplace {
+		// spec can not be merged or mutated. The only way to update is to replace.
 		return patchOps, deleteAndReplace, nil
 	}
-
-	// If we've made it this far, we're going to generate a Patch.
-	// Ensure that we always preserve the ClusterIP value from the
-	// cached service
-	service.Spec.ClusterIP = cachedService.Spec.ClusterIP
-
-	imageTag := kv.Status.TargetKubeVirtVersion
-	imageRegistry := kv.Status.TargetKubeVirtRegistry
 
 	updateLabels := false
 	mergeSpec := false
@@ -1393,57 +1405,6 @@ func generateServicePatch(kv *v1.KubeVirt,
 	}
 
 	return patchOps, deleteAndReplace, nil
-}
-
-func updateService(kv *v1.KubeVirt,
-	cachedService *corev1.Service,
-	service *corev1.Service,
-	clientset kubecli.KubevirtClient,
-	expectations *util.Expectations,
-	infrastructureRolledOver bool) (bool, error) {
-
-	kvkey, err := controller.KeyFunc(kv)
-	if err != nil {
-		return false, err
-	}
-
-	gracePeriod := int64(0)
-	deleteOptions := &metav1.DeleteOptions{
-		GracePeriodSeconds: &gracePeriod,
-	}
-
-	core := clientset.CoreV1()
-
-	patchOps, deleteAndReplace, err := generateServicePatch(kv, cachedService, service, infrastructureRolledOver)
-
-	if deleteAndReplace {
-		if cachedService.DeletionTimestamp == nil {
-			if key, err := controller.KeyFunc(cachedService); err == nil {
-				expectations.Service.AddExpectedDeletion(kvkey, key)
-				err := core.Services(kv.Namespace).Delete(cachedService.Name, deleteOptions)
-				if err != nil {
-					expectations.Service.DeletionObserved(kvkey, key)
-					log.Log.Errorf("Failed to delete service %+v: %v", cachedService, err)
-					return false, err
-				}
-
-				log.Log.V(2).Infof("service %v deleted. It must be re-created", cachedService.GetName())
-			}
-		}
-		// waiting for old service to be deleted,
-		// after which the operator will recreate using new spec
-		return true, nil
-	} else if len(patchOps) != 0 {
-		_, err = core.Services(kv.Namespace).Patch(service.Name, types.JSONPatchType, generatePatchBytes(patchOps))
-		if err != nil {
-			return false, fmt.Errorf("unable to patch service %+v: %v", service, err)
-		}
-		log.Log.V(2).Infof("service %v updated", service.GetName())
-	} else {
-		log.Log.V(4).Infof("service %v is up-to-date", service.GetName())
-	}
-
-	return false, nil
 }
 
 func createOrUpdateService(kv *v1.KubeVirt,
