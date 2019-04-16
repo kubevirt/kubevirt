@@ -246,13 +246,13 @@ func (vca *VirtControllerApp) Run() {
 
 	tlsConfig := &tls.Config{
 		MinVersion: tls.VersionTLS12,
-	}
-	tlsConfig.GetCertificate = func(info *tls.ClientHelloInfo) (*tls.Certificate, error) {
-		cert := manager.Current()
-		if cert == nil {
-			return nil, fmt.Errorf("no serving certificate available for virt-controller")
-		}
-		return cert, nil
+		GetCertificate: func(info *tls.ClientHelloInfo) (*tls.Certificate, error) {
+			cert := manager.Current()
+			if cert == nil {
+				return nil, fmt.Errorf("no serving certificate available for virt-controller")
+			}
+			return cert, nil
+		},
 	}
 
 	handler := http.NewServeMux()

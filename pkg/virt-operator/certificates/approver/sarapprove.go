@@ -60,7 +60,7 @@ func recognizers() []csrRecognizer {
 		{
 			recognize:      isKubeVirtCert,
 			permission:     authorization.ResourceAttributes{Group: "certificates.k8s.io", Resource: "certificatesigningrequests", Verb: "create", Subresource: "kubevirt"},
-			successMessage: "Auto approving kubelet client certificate after SubjectAccessReview.",
+			successMessage: "Auto approving kubevirt.io client certificate after SubjectAccessReview.",
 		},
 	}
 	return recognizers

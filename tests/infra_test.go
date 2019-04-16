@@ -20,19 +20,22 @@
 package tests_test
 
 import (
+	"crypto/tls"
+	"crypto/x509"
 	"encoding/json"
 	"flag"
 	"fmt"
+	"io/ioutil"
+	"net/http"
 	"sort"
 	"strconv"
 	"strings"
 	"time"
 
-	. "github.com/onsi/ginkgo"
-	. "github.com/onsi/gomega"
-
 	expect "github.com/google/goexpect"
-
+	. "github.com/onsi/ginkgo"
+	"github.com/onsi/ginkgo/extensions/table"
+	. "github.com/onsi/gomega"
 	k8sv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
@@ -56,6 +59,17 @@ var _ = Describe("Infrastructure", func() {
 	})
 
 	Describe("Prometheus Endpoints", func() {
+
+		var stopChan chan struct{}
+
+		BeforeEach(func() {
+			stopChan = make(chan struct{})
+		})
+
+		AfterEach(func() {
+			close(stopChan)
+		})
+
 		It("should be exposed and and registered on the metrics endpoint", func() {
 			endpoint, err := virtClient.CoreV1().Endpoints(tests.KubeVirtInstallNamespace).Get("kubevirt-prometheus-metrics", metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
@@ -82,18 +96,82 @@ var _ = Describe("Infrastructure", func() {
 				Expect(ips).To(HaveKey(pod.Status.PodIP), fmt.Sprintf("IP of Pod %s not found in metrics endpoint", pod.Name))
 			}
 		})
+
+		table.DescribeTable("should provide a valid certificate", func(component string) {
+
+			var pod *k8sv1.Pod
+			switch component {
+			case "virt-handler":
+				pod, err = tests.GetRandomVirtHandler(tests.KubeVirtInstallNamespace)
+				Expect(err).NotTo(HaveOccurred())
+			case "virt-controller":
+				pod, err = tests.GetRandomVirtController(tests.KubeVirtInstallNamespace)
+				Expect(err).NotTo(HaveOccurred())
+			default:
+				Expect(true).To(BeFalse())
+			}
+
+			// XXX use random ports, but our client-go version does not support retrieving the random port
+			Expect(tests.ForwardPorts(pod, []string{"4321:8443"}, stopChan, 10*time.Second)).To(Succeed())
+
+			transport := &http.Transport{TLSClientConfig: &tls.Config{
+				RootCAs:            tests.ClusterCA,
+				ClientCAs:          tests.ClusterCA,
+				InsecureSkipVerify: true,
+				VerifyPeerCertificate: func(rawCerts [][]byte, verifiedChains [][]*x509.Certificate) error {
+					c, err := x509.ParseCertificate(rawCerts[0])
+					if err != nil {
+						return fmt.Errorf("failed to parse certificate: %v", err)
+					}
+					// It should be verifyable against the k8s ca.crt
+					_, err = c.Verify(x509.VerifyOptions{
+						Roots:   tests.ClusterCA,
+						DNSName: pod.Name,
+					})
+					if err != nil {
+						return fmt.Errorf("failed to verify certificate against k8s CA: %v", err)
+					}
+
+					if len(c.IPAddresses) == 0 {
+						return fmt.Errorf("certificate should contain the pod IP but is empty")
+					}
+					if c.IPAddresses[0].String() != pod.Status.PodIP {
+						return fmt.Errorf("expected IP %s but got %s", pod.Status.PodIP, c.IPAddresses[0])
+					}
+
+					// It should not be verifyable against default CAs
+					systemPool, err := x509.SystemCertPool()
+					_, err = c.Verify(x509.VerifyOptions{
+						DNSName: pod.Name,
+						Roots:   systemPool,
+					})
+					if err == nil {
+						return fmt.Errorf("expected to fail verification against system CAs, but it passed")
+					}
+					return nil
+				},
+			}}
+
+			client := http.Client{Transport: transport}
+			resp, err := client.Get(fmt.Sprintf("https://localhost:%s/metrics", "4321"))
+			Expect(err).ToNot(HaveOccurred())
+			metrics, err := ioutil.ReadAll(resp.Body)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(string(metrics)).To(ContainSubstring("go_goroutines"))
+		},
+			table.Entry("on virt-handler", "virt-handler"),
+			table.Entry("on virt-controller", "virt-controller"),
+		)
+
 		It("should return Prometheus metrics", func() {
 			endpoint, err := virtClient.CoreV1().Endpoints(tests.KubeVirtInstallNamespace).Get("kubevirt-prometheus-metrics", metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
-			l, err := labels.Parse("kubevirt.io=virt-handler")
-			Expect(err).ToNot(HaveOccurred())
-			pods, err := virtClient.CoreV1().Pods(tests.KubeVirtInstallNamespace).List(metav1.ListOptions{LabelSelector: l.String()})
-			Expect(err).ToNot(HaveOccurred())
-			Expect(pods.Items).ToNot(BeEmpty())
+			handler, err := tests.GetRandomVirtHandler(tests.KubeVirtInstallNamespace)
+			Expect(err).NotTo(HaveOccurred())
 
 			for _, ep := range endpoint.Subsets[0].Addresses {
 				stdout, _, err := tests.ExecuteCommandOnPodV2(virtClient,
-					&pods.Items[0], "virt-handler",
+					handler, "virt-handler",
 					[]string{
 						"curl",
 						"-L",
@@ -121,7 +199,7 @@ var _ = Describe("Infrastructure", func() {
 
 			By("Scraping the Prometheus endpoint")
 			Eventually(func() string {
-				out := getKubevirtVMMetrics(virtClient, pod, "virt-handler")
+				out := getKubevirtVMMetrics(pod)
 				lines := takeMetricsWithPrefix(out, "kubevirt")
 				return strings.Join(lines, "\n")
 			}, 30*time.Second, 2*time.Second).Should(ContainSubstring("kubevirt"))
@@ -167,7 +245,7 @@ var _ = Describe("Infrastructure", func() {
 
 			By("Scraping the Prometheus endpoint")
 			// the VM *is* running, so we must have metrics promptly reported
-			out := getKubevirtVMMetrics(virtClient, pod, "virt-handler")
+			out := getKubevirtVMMetrics(pod)
 			lines := takeMetricsWithPrefix(out, "kubevirt")
 			metrics, err := parseMetricsToMap(lines)
 			Expect(err).ToNot(HaveOccurred())
@@ -206,7 +284,7 @@ var _ = Describe("Infrastructure", func() {
 			By("Scraping the Prometheus endpoint")
 			var metrics map[string]float64
 			Eventually(func() map[string]float64 {
-				out := getKubevirtVMMetrics(virtClient, pod, "virt-handler")
+				out := getKubevirtVMMetrics(pod)
 				lines := takeMetricsWithPrefix(out, "kubevirt")
 				metrics, err := parseMetricsToMap(lines)
 				Expect(err).ToNot(HaveOccurred())
@@ -306,19 +384,6 @@ func getNewLeaderPod(virtClient kubecli.KubevirtClient) *k8sv1.Pod {
 	return nil
 }
 
-func getKubevirtVMMetrics(virtClient kubecli.KubevirtClient, pod *k8sv1.Pod, containerName string) string {
-	stdout, _, err := tests.ExecuteCommandOnPodV2(virtClient,
-		pod, containerName,
-		[]string{
-			"curl",
-			"-L",
-			"-k",
-			fmt.Sprintf("https://%s:%s/metrics", pod.Status.PodIP, "8443"),
-		})
-	Expect(err).ToNot(HaveOccurred())
-	return stdout
-}
-
 func parseMetricsToMap(lines []string) (map[string]float64, error) {
 	metrics := make(map[string]float64)
 	for _, line := range lines {
@@ -344,4 +409,15 @@ func takeMetricsWithPrefix(output, prefix string) []string {
 		}
 	}
 	return ret
+}
+
+func getKubevirtVMMetrics(pod *k8sv1.Pod) (metrics string) {
+	stopChan := make(chan struct{})
+	defer close(stopChan)
+	Expect(tests.ForwardPorts(pod, []string{"4321:8443"}, stopChan, 10*time.Second)).To(Succeed())
+	resp, err := tests.GetK8sHTTPClient().Get(fmt.Sprintf("https://localhost:%s/metrics", "4321"))
+	Expect(err).ToNot(HaveOccurred())
+	data, err := ioutil.ReadAll(resp.Body)
+	Expect(err).ToNot(HaveOccurred())
+	return string(data)
 }

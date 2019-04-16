@@ -21,6 +21,8 @@ package tests
 
 import (
 	"bytes"
+	"crypto/tls"
+	"crypto/x509"
 	"encoding/base64"
 	"encoding/json"
 	"encoding/xml"
@@ -62,7 +64,9 @@ import (
 	"k8s.io/apimachinery/pkg/util/yaml"
 	k8sversion "k8s.io/apimachinery/pkg/version"
 	"k8s.io/client-go/kubernetes/scheme"
+	"k8s.io/client-go/tools/portforward"
 	"k8s.io/client-go/tools/remotecommand"
+	"k8s.io/client-go/transport/spdy"
 
 	cdiv1 "kubevirt.io/containerized-data-importer/pkg/apis/core/v1alpha1"
 	v1 "kubevirt.io/kubevirt/pkg/api/v1"
@@ -86,6 +90,7 @@ var KubeVirtKubectlPath = ""
 var KubeVirtOcPath = ""
 var KubeVirtVirtctlPath = ""
 var KubeVirtInstallNamespace string
+var ClusterCA *x509.CertPool
 
 var DeployTestingInfrastructureFlag = false
 var PathToTestingInfrastrucureManifests = ""
@@ -589,6 +594,26 @@ func BeforeTestSuitSetup() {
 
 	SetDefaultEventuallyTimeout(defaultEventuallyTimeout)
 	SetDefaultEventuallyPollingInterval(defaultEventuallyPollingInterval)
+
+	SetClusterCA()
+}
+
+func SetClusterCA() {
+	virtClient, err := kubecli.GetKubevirtClient()
+	PanicOnError(err)
+	pod, err := GetRandomVirtHandler(KubeVirtInstallNamespace)
+	stdout, _, err := ExecuteCommandOnPodV2(virtClient,
+		pod, "virt-handler",
+		[]string{
+			"cat",
+			"/var/run/secrets/kubernetes.io/serviceaccount/ca.crt",
+		})
+	PanicOnError(err)
+	ClusterCA = x509.NewCertPool()
+	ok := ClusterCA.AppendCertsFromPEM([]byte(stdout))
+	if !ok {
+		panic("Could not extract the cluster CA")
+	}
 }
 
 func EnsureKVMPresent() {
@@ -3427,4 +3452,104 @@ func GetRunningVMISpec(vmi *v1.VirtualMachineInstance) (*launcherApi.DomainSpec,
 
 	err = xml.Unmarshal([]byte(domXML), &runningVMISpec)
 	return &runningVMISpec, err
+}
+
+func ForwardPorts(pod *k8sv1.Pod, ports []string, stop chan struct{}, readyTimeout time.Duration) error {
+	errChan := make(chan error, 1)
+	readyChan := make(chan struct{})
+	go func() {
+		cli, err := kubecli.GetKubevirtClient()
+		if err != nil {
+			errChan <- err
+			return
+		}
+
+		req := cli.CoreV1().RESTClient().Post().
+			Resource("pods").
+			Namespace(pod.Namespace).
+			Name(pod.Name).
+			SubResource("portforward")
+
+		config, err := kubecli.GetKubevirtClientConfig()
+		if err != nil {
+			errChan <- err
+			return
+		}
+		transport, upgrader, err := spdy.RoundTripperFor(config)
+		if err != nil {
+			errChan <- err
+			return
+		}
+		dialer := spdy.NewDialer(upgrader, &http.Client{Transport: transport}, "POST", req.URL())
+		forwarder, err := portforward.New(dialer, ports, stop, readyChan, GinkgoWriter, GinkgoWriter)
+		if err != nil {
+			errChan <- err
+			return
+		}
+		err = forwarder.ForwardPorts()
+		if err != nil {
+			errChan <- err
+		}
+	}()
+
+	select {
+	case err := <-errChan:
+		return err
+	case <-readyChan:
+		return nil
+	case <-time.After(readyTimeout):
+		return fmt.Errorf("failed to forward ports, timed out")
+	}
+}
+
+func GetRandomVirtHandler(namespace string) (pod *k8sv1.Pod, err error) {
+	return GetRandomKubeVirtComponent(namespace, "virt-handler")
+}
+
+func GetRandomKubeVirtComponent(namespace string, component string) (pod *k8sv1.Pod, err error) {
+
+	rand.Seed(time.Now().Unix())
+	cli, err := kubecli.GetKubevirtClient()
+	if err != nil {
+		return nil, err
+	}
+	l, err := labels.Parse(fmt.Sprintf("kubevirt.io=%s", component))
+	Expect(err).ToNot(HaveOccurred())
+	pods, err := cli.CoreV1().Pods(namespace).List(metav1.ListOptions{LabelSelector: l.String()})
+	if err != nil {
+		return nil, err
+	}
+	if len(pods.Items) == 0 {
+		return nil, fmt.Errorf("no virt-handler found in namespace %s", namespace)
+	}
+	return &pods.Items[rand.Intn(len(pods.Items))], nil
+}
+
+func GetRandomVirtController(namespace string) (pod *k8sv1.Pod, err error) {
+	return GetRandomKubeVirtComponent(namespace, "virt-controller")
+}
+
+// GetK8sHTTPClient return a http client which can use and verify connections over kubectl-like forwarded ports
+func GetK8sHTTPClient() *http.Client {
+	transport := &http.Transport{TLSClientConfig: &tls.Config{
+		RootCAs:            ClusterCA,
+		ClientCAs:          ClusterCA,
+		InsecureSkipVerify: true,
+		VerifyPeerCertificate: func(rawCerts [][]byte, verifiedChains [][]*x509.Certificate) error {
+			c, err := x509.ParseCertificate(rawCerts[0])
+			if err != nil {
+				return fmt.Errorf("failed to parse certificate: %v", err)
+			}
+			// Verify everything except DNS name and IPs
+			_, err = c.Verify(x509.VerifyOptions{
+				Roots: ClusterCA,
+			})
+			if err != nil {
+				return fmt.Errorf("failed to verify certificate against k8s CA: %v", err)
+			}
+			return nil
+		},
+	}}
+
+	return &http.Client{Transport: transport}
 }
