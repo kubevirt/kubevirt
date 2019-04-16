@@ -72,6 +72,7 @@ for arg in $args; do
         --verbosity=${verbosity} \
         --csv-version=${csv_version} \
         --kubevirt-logo-path=${kubevirt_logo_path} \
+        --package-name=${package_name} \
         --input-file=${infile} \
         --bundle-out-dir=${bundle_out_dir} \
         --quay-repository=${QUAY_REPOSITORY} >${outfile}
@@ -86,6 +87,7 @@ for arg in $args; do
         --verbosity=${verbosity} \
         --csv-version=${csv_version} \
         --kubevirt-logo-path=${kubevirt_logo_path} \
+        --package-name=${package_name} \
         --input-file=${infile} \
         --quay-repository=${QUAY_REPOSITORY} >${template_outfile}
 done
