@@ -1,6 +1,6 @@
 unset binaries docker_images docker_prefix docker_tag docker_tag_alt manifest_templates \
     master_ip network_provider kubeconfig manifest_docker_prefix namespace image_pull_policy verbosity \
-    csv_version
+    csv_version package_name
 
 KUBEVIRT_PROVIDER=${KUBEVIRT_PROVIDER:-${PROVIDER}}
 
@@ -15,4 +15,4 @@ test -f "${KUBEVIRT_PATH}hack/config-local.sh" && source ${KUBEVIRT_PATH}hack/co
 
 export binaries docker_images docker_prefix docker_tag docker_tag_alt manifest_templates \
     master_ip network_provider kubeconfig manifest_docker_prefix namespace image_pull_policy verbosity \
-    csv_version
+    csv_version package_name

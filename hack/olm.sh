@@ -65,7 +65,7 @@ push)
         }' | jq -r '.token')
 
     echo "pushing bundle"
-    operator-courier push "$BUNDLE_DIR" "$QUAY_REPOSITORY" kubevirt "$csv_version" "$AUTH_TOKEN"
+    operator-courier push "$BUNDLE_DIR" "$QUAY_REPOSITORY" "$package_name" "$csv_version" "$AUTH_TOKEN"
 
     ;;
 esac

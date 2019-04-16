@@ -53,6 +53,7 @@ type templateData struct {
 	OperatorDeploymentSpec string
 	OperatorRules          string
 	KubeVirtLogo           string
+	PackageName            string
 	GeneratedManifests     map[string]string
 }
 
@@ -69,6 +70,7 @@ func main() {
 	processFiles := flag.Bool("process-files", false, "")
 	processVars := flag.Bool("process-vars", false, "")
 	kubeVirtLogoPath := flag.String("kubevirt-logo-path", "", "")
+	packageName := flag.String("package-name", "", "")
 	bundleOutDir := flag.String("bundle-out-dir", "", "")
 	quayRepository := flag.String("quay-repository", "", "")
 
@@ -96,6 +98,7 @@ func main() {
 		data.OperatorDeploymentSpec = getOperatorDeploymentSpec(data)
 		data.OperatorRules = getOperatorRules()
 		data.KubeVirtLogo = getKubeVirtLogo(*kubeVirtLogoPath)
+		data.PackageName = *packageName
 		// prevent loading latest bundle from Quay for every file, only do it for the CSV manifest
 		data.ReplacesCsvVersion = ""
 		if strings.Contains(*inputFile, ".csv.yaml") && *bundleOutDir != "" && data.QuayRepository != "" {
@@ -131,6 +134,7 @@ func main() {
 		data.OperatorDeploymentSpec = "{{.OperatorDeploymentSpec}}"
 		data.OperatorRules = "{{.OperatorRules}}"
 		data.KubeVirtLogo = "{{.KubeVirtLogo}}"
+		data.PackageName = "{{.PackageName}}"
 	}
 
 	if *processFiles {
