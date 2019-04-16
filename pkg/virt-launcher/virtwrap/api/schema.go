@@ -679,11 +679,14 @@ type GraphicsListen struct {
 }
 
 type Address struct {
-	Type     string `xml:"type,attr"`
-	Domain   string `xml:"domain,attr"`
-	Bus      string `xml:"bus,attr"`
-	Slot     string `xml:"slot,attr"`
-	Function string `xml:"function,attr"`
+	Type       string `xml:"type,attr"`
+	Domain     string `xml:"domain,attr,omitempty"`
+	Bus        string `xml:"bus,attr"`
+	Slot       string `xml:"slot,attr,omitempty"`
+	Function   string `xml:"function,attr,omitempty"`
+	Controller string `xml:"controller,attr,omitempty"`
+	Target     string `xml:"target,attr,omitempty"`
+	Unit       string `xml:"unit,attr,omitempty"`
 }
 
 //END Video -------------------
