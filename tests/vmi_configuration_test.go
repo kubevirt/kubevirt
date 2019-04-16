@@ -1079,7 +1079,7 @@ var _ = Describe("Configurations", func() {
 		It("should set machine type from VMI spec", func() {
 			vmi := tests.NewRandomVMI()
 			vmi.Spec.Domain.Machine.Type = "pc-q35-3.0"
-			tests.RunVMIAndExpectLaunch(vmi, false, 30)
+			tests.RunVMIAndExpectLaunch(vmi, 30)
 			runningVMISpec, err := tests.GetRunningVMISpec(vmi)
 
 			Expect(err).ToNot(HaveOccurred())
@@ -1089,14 +1089,14 @@ var _ = Describe("Configurations", func() {
 		It("should set default machine type when it is not provided", func() {
 			vmi := tests.NewRandomVMI()
 			vmi.Spec.Domain.Machine.Type = ""
-			tests.RunVMIAndExpectLaunch(vmi, false, 30)
+			tests.RunVMIAndExpectLaunch(vmi, 30)
 			runningVMISpec, err := tests.GetRunningVMISpec(vmi)
 
 			Expect(err).ToNot(HaveOccurred())
 			Expect(runningVMISpec.OS.Type.Machine).To(ContainSubstring("q35"))
 		})
 
-		It("should set machine type from kubevirt-confg", func() {
+		It("should set machine type from kubevirt-config", func() {
 			cfgMap, err := virtClient.CoreV1().ConfigMaps(namespaceKubevirt).Get(kubevirtConfig, metav1.GetOptions{})
 			Expect(err).To(BeNil())
 			cfgMap.Data[defaultMachineTypeKey] = "pc-q35-3.0"
@@ -1105,7 +1105,7 @@ var _ = Describe("Configurations", func() {
 
 			vmi := tests.NewRandomVMI()
 			vmi.Spec.Domain.Machine.Type = ""
-			tests.RunVMIAndExpectLaunch(vmi, false, 30)
+			tests.RunVMIAndExpectLaunch(vmi, 30)
 			runningVMISpec, err := tests.GetRunningVMISpec(vmi)
 
 			Expect(err).ToNot(HaveOccurred())
@@ -1202,7 +1202,7 @@ var _ = Describe("Configurations", func() {
 			tests.AddPVCDisk(vmi, "hostpath-pvc", "virtio", tests.DiskAlpineHostPath)
 			tests.AddPVCDisk(vmi, "block-pvc", "virtio", blockPVName)
 			tests.AddHostDisk(vmi, "/run/kubevirt-private/vm-disks/test-disk.img", v1.HostDiskExistsOrCreate, "hostdisk")
-			tests.RunVMIAndExpectLaunch(vmi, false, 60)
+			tests.RunVMIAndExpectLaunch(vmi, 60)
 
 			runningVMISpec, err := tests.GetRunningVMISpec(vmi)
 			Expect(err).ToNot(HaveOccurred())
