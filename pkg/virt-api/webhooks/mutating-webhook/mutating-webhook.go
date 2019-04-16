@@ -112,17 +112,14 @@ func mutateVMIs(ar *v1beta1.AdmissionReview) *v1beta1.AdmissionResponse {
 			},
 		}
 	}
-	// Apply default cpu model
-	setDefaultCPUModel(&vmi, informers.ConfigMapInformer.GetStore())
 
 	// Apply namespace limits
 	applyNamespaceLimitRangeValues(&vmi, informers.NamespaceLimitsInformer)
 
 	// Set VMI defaults
 	log.Log.Object(&vmi).V(4).Info("Apply defaults")
-	if vmi.Spec.Domain.Machine.Type == "" {
-		vmi.Spec.Domain.Machine.Type = config.GetMachineType()
-	}
+	setDefaultCPUModel(&vmi, config.GetCPUModel())
+	setDefaultMachineType(&vmi, config.GetMachineType())
 	kubev1.SetObjectDefaults_VirtualMachineInstance(&vmi)
 
 	// Add foreground finalizer
@@ -206,6 +203,26 @@ func mutateMigrationCreate(ar *v1beta1.AdmissionReview) *v1beta1.AdmissionRespon
 		Allowed:   true,
 		Patch:     patchBytes,
 		PatchType: &jsonPatchType,
+	}
+}
+
+func setDefaultCPUModel(vmi *kubev1.VirtualMachineInstance, defaultCPUModel string) {
+	//if vmi doesn't have cpu topology or cpu model set
+	if vmi.Spec.Domain.CPU == nil || vmi.Spec.Domain.CPU.Model == "" {
+		if defaultCPUModel != "" {
+			// create cpu topology struct
+			if vmi.Spec.Domain.CPU == nil {
+				vmi.Spec.Domain.CPU = &kubev1.CPU{}
+			}
+			//set is as vmi cpu model
+			vmi.Spec.Domain.CPU.Model = defaultCPUModel
+		}
+	}
+}
+
+func setDefaultMachineType(vmi *kubev1.VirtualMachineInstance, defaultMachineType string) {
+	if vmi.Spec.Domain.Machine.Type == "" {
+		vmi.Spec.Domain.Machine.Type = defaultMachineType
 	}
 }
 

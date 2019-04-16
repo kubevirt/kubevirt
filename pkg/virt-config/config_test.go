@@ -80,6 +80,22 @@ var _ = Describe("ConfigMap", func() {
 		table.Entry("when unset, it should return the default", "", DefaultMachineType),
 	)
 
+	table.DescribeTable(" when cpuModel", func(value string, result string) {
+		cfgMap := kubev1.ConfigMap{
+			ObjectMeta: metav1.ObjectMeta{
+				ResourceVersion: "1234",
+				Namespace:       "kubevirt",
+				Name:            "kubevirt-config",
+			},
+			Data: map[string]string{cpuModelKey: value},
+		}
+		clusterConfig, _ := MakeClusterConfig([]kubev1.ConfigMap{cfgMap}, stopChan)
+		Expect(clusterConfig.GetCPUModel()).To(Equal(result))
+	},
+		table.Entry("when set, it should return the value", "Haswell", "Haswell"),
+		table.Entry("when unset, it should return empty string", "", ""),
+	)
+
 	It("Should return migration config values if specified as json", func() {
 		cfgMap := kubev1.ConfigMap{
 			ObjectMeta: metav1.ObjectMeta{
