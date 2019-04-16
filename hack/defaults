@@ -47,7 +47,7 @@ function cdi_sed {
 }
 
 function network_addons_sed {
-    sed -i "s|          image: \&image quay\.io\/kubevirt\/cluster-network-addons-operator:${NETWORK_ADDONS_MANIFEST_VERSION}|          image: \&image ${NETWORK_ADDONS_CONTAINER_REGISTRY}\/cluster-network-addons-operator:${NETWORK_ADDONS_VERSION}|g" ${TEMP_DIR}/operator.yaml
+    sed -i "s|quay\.io\/kubevirt\/cluster-network-addons-operator:${NETWORK_ADDONS_MANIFEST_VERSION}|${NETWORK_ADDONS_CONTAINER_REGISTRY}\/cluster-network-addons-operator:${NETWORK_ADDONS_VERSION}|g" ${TEMP_DIR}/operator.yaml
 }
 
 # Deploy upstream operators
