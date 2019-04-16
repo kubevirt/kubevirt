@@ -74,7 +74,7 @@ for arg in $args; do
         --kubevirt-logo-path=${kubevirt_logo_path} \
         --input-file=${infile} \
         --bundle-out-dir=${bundle_out_dir} \
-        --quay-repository=${quay_repository} >${outfile}
+        --quay-repository=${QUAY_REPOSITORY} >${outfile}
 
     ${KUBEVIRT_DIR}/tools/manifest-templator/manifest-templator \
         --process-vars \
@@ -87,7 +87,7 @@ for arg in $args; do
         --csv-version=${csv_version} \
         --kubevirt-logo-path=${kubevirt_logo_path} \
         --input-file=${infile} \
-        --quay-repository=${quay_repository} >${template_outfile}
+        --quay-repository=${QUAY_REPOSITORY} >${template_outfile}
 done
 
 # Remove tmp files
