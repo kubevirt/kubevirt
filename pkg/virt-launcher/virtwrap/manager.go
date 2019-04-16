@@ -243,11 +243,14 @@ func (l *LibvirtDomainManager) setMigrationResultHelper(vmi *v1.VirtualMachineIn
 
 }
 
-func prepareMigrationFlags(isBlockMigration bool) libvirt.DomainMigrateFlags {
+func prepareMigrationFlags(isBlockMigration bool, isUnsafeMigration bool) libvirt.DomainMigrateFlags {
 	migrateFlags := libvirt.MIGRATE_LIVE | libvirt.MIGRATE_PEER2PEER
 
 	if isBlockMigration {
 		migrateFlags |= libvirt.MIGRATE_NON_SHARED_INC
+	}
+	if isUnsafeMigration {
+		migrateFlags |= libvirt.MIGRATE_UNSAFE
 	}
 	return migrateFlags
 
@@ -375,7 +378,10 @@ func (l *LibvirtDomainManager) asyncMigrate(vmi *v1.VirtualMachineInstance, opti
 			return
 		}
 
-		migrateFlags := prepareMigrationFlags(isBlockMigration)
+		migrateFlags := prepareMigrationFlags(isBlockMigration, options.UnsafeMigration)
+		if options.UnsafeMigration {
+			log.Log.Object(vmi).Info("UNSAFE_MIGRATION flag is set, libvirt's migration checks will be disabled!")
+		}
 
 		bandwidth, err := api.QuantityToMebiByte(options.Bandwidth)
 
