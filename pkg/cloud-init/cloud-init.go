@@ -35,6 +35,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/kubecli"
 	"kubevirt.io/kubevirt/pkg/log"
 	"kubevirt.io/kubevirt/pkg/precond"
+	"kubevirt.io/kubevirt/pkg/util/net/dns"
 )
 
 type IsoCreationFunc func(isoOutFile, volumeID string, inDir string) error
@@ -60,18 +61,14 @@ const (
 // holds cloud-init user and network data
 type CloudInitData struct {
 	DataSource  DataSourceType
+	MetaData    string
 	UserData    string
 	NetworkData string
 }
 
 // IsValidCloudInitData checks if the given CloudInitData object is valid in the sense that GenerateLocalData can be called with it.
 func IsValidCloudInitData(cloudInitData *CloudInitData) bool {
-	if cloudInitData == nil {
-		return false
-	} else if cloudInitData.UserData == "" {
-		return false
-	}
-	return true
+	return cloudInitData != nil && cloudInitData.UserData != "" && cloudInitData.MetaData != ""
 }
 
 // ReadCloudInitVolumeDataSource scans the given VMI for CloutInit volumes and
@@ -79,14 +76,17 @@ func IsValidCloudInitData(cloudInitData *CloudInitData) bool {
 // To ensure that secrets are read correctly, call InjectCloudInitSecrets beforehand.
 func ReadCloudInitVolumeDataSource(vmi *v1.VirtualMachineInstance) (cloudInitData *CloudInitData, err error) {
 	precond.MustNotBeNil(vmi)
+	hostname := dns.SanitizeHostname(vmi)
 
 	for _, volume := range vmi.Spec.Volumes {
 		if volume.CloudInitNoCloud != nil {
 			cloudInitData, err = readCloudInitNoCloudSource(volume.CloudInitNoCloud)
+			cloudInitData.MetaData = readCloudInitNoCloudMetaData(vmi.Name, hostname, vmi.Namespace)
 			return cloudInitData, err
 		}
 		if volume.CloudInitConfigDrive != nil {
 			cloudInitData, err = readCloudInitConfigDriveSource(volume.CloudInitConfigDrive)
+			cloudInitData.MetaData = readCloudInitConfigDriveMetaData(string(vmi.UID), vmi.Name, hostname, vmi.Namespace)
 			return cloudInitData, err
 		}
 	}
@@ -155,6 +155,14 @@ func readCloudInitConfigDriveSource(source *v1.CloudInitConfigDriveSource) (*Clo
 		UserData:    userData,
 		NetworkData: networkData,
 	}, nil
+}
+
+func readCloudInitNoCloudMetaData(name, hostname, namespace string) string {
+	return fmt.Sprintf("{ \"instance-id\": \"%s.%s\", \"local-hostname\": \"%s\" }\n", name, namespace, hostname)
+}
+
+func readCloudInitConfigDriveMetaData(uid, name, hostname, namespace string) string {
+	return fmt.Sprintf("{ \"uuid\": \"%s\", \"instance-id\": \"%s.%s\", \"hostname\": \"%s\" }\n", uid, name, namespace, hostname)
 }
 
 func defaultIsoFunc(isoOutFile, volumeID string, inDir string) error {
@@ -332,7 +340,7 @@ func resolveSecrets(secretRefs []*corev1.LocalObjectReference, dataKeys []string
 	return resolvedData, nil
 }
 
-func GenerateLocalData(vmiName string, hostname string, namespace string, data *CloudInitData) error {
+func GenerateLocalData(vmiName string, namespace string, data *CloudInitData) error {
 	precond.MustNotBeEmpty(vmiName)
 	precond.MustNotBeNil(data)
 
@@ -375,7 +383,13 @@ func GenerateLocalData(vmiName string, hostname string, namespace string, data *
 		networkData = []byte(data.NetworkData)
 	}
 
-	metaData := []byte(fmt.Sprintf("{ \"instance-id\": \"%s.%s\", \"local-hostname\": \"%s\" }\n", vmiName, namespace, hostname))
+	var metaData []byte
+	if data.MetaData == "" {
+		log.Log.V(2).Infof("No metadata found in cloud-init data. Create minimal metadata with instance-id.")
+		metaData = []byte(fmt.Sprintf("{ \"instance-id\": \"%s.%s\" }\n", vmiName, namespace))
+	} else {
+		metaData = []byte(data.MetaData)
+	}
 
 	diskutils.RemoveFile(userFile)
 	diskutils.RemoveFile(metaFile)
