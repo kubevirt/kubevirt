@@ -51,8 +51,11 @@ function wait_kubevirt_up {
 }
 
 function collect_artifacts {
-    mkdir -p "$ARTIFACTS_DIR"
-    kind export logs ${ARTIFACTS_DIR} --name=${CLUSTER_NAME}
+    mkdir -p "$ARTIFACTS_DIR/containers"
+    for c in $(docker ps -a | tail -n +2 | awk -e '{print$1}'); do
+        docker logs $c 2>&1 > $ARTIFACTS_DIR/containers/$c.log || true
+    done
+    kind export logs ${ARTIFACTS_DIR} --name=${CLUSTER_NAME} || true
 }
 
 function finish {
