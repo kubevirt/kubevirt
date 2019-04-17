@@ -231,3 +231,11 @@ http_file(
         "https://dl.fedoraproject.org/pub/fedora/linux/updates/28/Everything/x86_64/Packages/q/qemu-guest-agent-2.11.2-4.fc28.x86_64.rpm",
     ],
 )
+
+http_file(
+    name = "stress",
+    sha256 = "bd93021d826c98cbec15b4bf7e0800f723f986e7ed89357c56284a7efa6394b5",
+    urls = [
+        "https://dl.fedoraproject.org/pub/fedora/linux/releases/28/Everything/x86_64/os/Packages/s/stress-1.0.4-20.fc28.x86_64.rpm",
+    ],
+)
