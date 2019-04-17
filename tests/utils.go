@@ -2180,6 +2180,17 @@ func NewRandomReplicaSetFromVMI(vmi *v1.VirtualMachineInstance, replicas int32) 
 	return rs
 }
 
+func NewRandomVirtualMachineSnapshot(vm *v1.VirtualMachine) *v1.VirtualMachineSnapshot {
+	name := "virtualmachinesnapshot" + rand.String(5)
+	vms := &v1.VirtualMachineSnapshot{
+		ObjectMeta: metav1.ObjectMeta{Name: name},
+		Spec: v1.VirtualMachineSnapshotSpec{
+			VirtualMachine: vm.Name,
+		},
+	}
+	return vms
+}
+
 func NewBool(x bool) *bool {
 	return &x
 }

@@ -89,6 +89,7 @@ go_test(
         "vmi_slirp_interface_test.go",
         "vmidefaults_test.go",
         "vmipreset_test.go",
+        "vms_test.go",
         "vnc_test.go",
         "windows_test.go",
     ],
