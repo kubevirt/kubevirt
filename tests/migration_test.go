@@ -387,6 +387,7 @@ var _ = Describe("Migrations", func() {
 				tests.WaitForVirtualMachineToDisappearWithTimeout(vmi, 120)
 			})
 		})
+
 		Context("migration monitor", func() {
 			var options metav1.GetOptions
 			var cfgMap *k8sv1.ConfigMap
@@ -413,13 +414,8 @@ var _ = Describe("Migrations", func() {
 				Expect(err).ToNot(HaveOccurred())
 			})
 			It("should abort a vmi migration without progress", func() {
-
-				vmi := tests.NewRandomVMIWithEphemeralDisk(tests.ContainerDiskFor(tests.ContainerDiskFedora))
+				vmi := tests.NewRandomFedoraVMIWitGuestAgent()
 				vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("1Gi")
-				tests.AddUserData(vmi, "cloud-init", fmt.Sprintf(`#!/bin/bash
-					echo "fedora" |passwd fedora --stdin
-					yum install -y stress qemu-guest-agent
-                    systemctl start  qemu-guest-agent`))
 
 				By("Starting the VirtualMachineInstance")
 				vmi = runVMIAndExpectLaunch(vmi, 240)
@@ -517,13 +513,8 @@ var _ = Describe("Migrations", func() {
 				tests.WaitForVirtualMachineToDisappearWithTimeout(vmi, 120)
 			})
 			It("should be able successfully cancel a migration", func() {
-
-				vmi := tests.NewRandomVMIWithEphemeralDisk(tests.ContainerDiskFor(tests.ContainerDiskFedora))
+				vmi := tests.NewRandomFedoraVMIWitGuestAgent()
 				vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("1Gi")
-				tests.AddUserData(vmi, "cloud-init", fmt.Sprintf(`#!/bin/bash
-					echo "fedora" |passwd fedora --stdin
-					yum install -y stress qemu-guest-agent
-                    systemctl start  qemu-guest-agent`))
 
 				By("Starting the VirtualMachineInstance")
 				vmi = runVMIAndExpectLaunch(vmi, 240)
