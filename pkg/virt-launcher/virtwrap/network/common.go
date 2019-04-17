@@ -25,7 +25,6 @@ import (
 	"crypto/rand"
 	"encoding/json"
 	"fmt"
-
 	"io/ioutil"
 	"net"
 	"os"
@@ -83,6 +82,7 @@ type NetworkHandler interface {
 	StartDHCP(nic *VIF, serverAddr *netlink.Addr, bridgeInterfaceName string, dhcpOptions *v1.DHCPOptions)
 	IptablesNewChain(table, chain string) error
 	IptablesAppendRule(table, chain string, rulespec ...string) error
+	NeighDelete(iface, macAddress string) error
 }
 
 type NetworkUtilsHandler struct{}
@@ -252,6 +252,31 @@ func (h *NetworkUtilsHandler) GenerateRandomMac() (net.HardwareAddr, error) {
 		return nil, err
 	}
 	return net.HardwareAddr(append(prefix, suffix...)), nil
+}
+
+func (h *NetworkUtilsHandler) NeighDelete(iface, macAddress string) error {
+	link, err := netlink.LinkByName(iface)
+	if err != nil {
+		return err
+	}
+
+	neighList, err := netlink.NeighList(link.Attrs().Index, 7)
+	if err != nil {
+		return err
+	}
+
+	for _, neigh := range neighList {
+		if neigh.HardwareAddr.String() == macAddress {
+			err := netlink.NeighDel(&neigh)
+			if err != nil {
+				return err
+			}
+
+			return nil
+		}
+	}
+
+	return fmt.Errorf("requested mac address %s wasn't found on interface %s", macAddress, iface)
 }
 
 // Allow mocking for tests

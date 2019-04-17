@@ -321,7 +321,24 @@ var _ = Describe("Multus", func() {
 					[]string{"sh", "-c", "ip a"},
 				)
 				Expect(err).ToNot(HaveOccurred())
-				Expect(strings.Contains(out, customMacAddress)).To(BeFalse())
+
+				// The mac address should exist on the pod if we are using the tuning cni plugin
+				if strings.Contains(networkName, "tuning") {
+					Expect(strings.Contains(out, customMacAddress)).To(BeTrue())
+				} else {
+					Expect(strings.Contains(out, customMacAddress)).To(BeFalse())
+				}
+
+				By("Verifying the interface is not configured inside the bridge forward database.")
+				vmiPod = tests.GetRunningPodByVirtualMachineInstance(vmiOne, tests.NamespaceTestDefault)
+				out, err = tests.ExecuteCommandOnPod(
+					virtClient,
+					vmiPod,
+					"compute",
+					[]string{"sh", "-c", fmt.Sprintf("bridge fdb | grep eth0 | grep %s | wc -l", customMacAddress)},
+				)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(out).To(Equal("0\n"))
 			},
 				table.Entry("when not using tuning plugin", "ptp-conf"),
 				table.Entry("when using tuning plugin", "ptp-conf-tuning"),
@@ -543,7 +560,18 @@ var _ = Describe("Multus", func() {
 					[]string{"sh", "-c", "ip a"},
 				)
 				Expect(err).ToNot(HaveOccurred())
-				Expect(strings.Contains(out, customMacAddress)).To(BeFalse())
+				Expect(strings.Contains(out, customMacAddress)).To(BeTrue())
+
+				By("Verifying the interface is not configured inside the bridge forward database.")
+				vmiPod = tests.GetRunningPodByVirtualMachineInstance(vmiOne, tests.NamespaceTestDefault)
+				out, err = tests.ExecuteCommandOnPod(
+					virtClient,
+					vmiPod,
+					"compute",
+					[]string{"sh", "-c", fmt.Sprintf("bridge fdb | grep eth0 | grep %s | wc -l", customMacAddress)},
+				)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(out).To(Equal("0\n"))
 
 				By("Ping from the VM with the custom MAC to the other VM.")
 				pingVirtualMachine(vmiOne, "10.1.1.2", "localhost:~#")
