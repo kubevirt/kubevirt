@@ -44,7 +44,6 @@ import (
 	v1 "kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/testutils"
 	"kubevirt.io/kubevirt/pkg/virt-api/webhooks"
-	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 )
 
 var _ = Describe("Validating Webhook", func() {
@@ -55,8 +54,10 @@ var _ = Describe("Validating Webhook", func() {
 
 	BeforeSuite(func() {
 		vmiInformer, _ = testutils.NewFakeInformerFor(&v1.VirtualMachineInstance{})
+		configMapInformer, _ := testutils.NewFakeInformerFor(&k8sv1.ConfigMap{})
 		webhooks.SetInformers(&webhooks.Informers{
-			VMIInformer: vmiInformer,
+			VMIInformer:       vmiInformer,
+			ConfigMapInformer: configMapInformer,
 		})
 	})
 
@@ -1028,14 +1029,11 @@ var _ = Describe("Validating Webhook", func() {
 
 	Context("with VirtualMachineInstance spec", func() {
 		It("should accept valid machine type", func() {
-			supportedMachines := virtconfig.SupportedEmulatedMachines()
-			if len(supportedMachines) > 0 {
-				vmi := v1.NewMinimalVMI("testvmi")
-				vmi.Spec.Domain.Machine.Type = supportedMachines[0]
+			vmi := v1.NewMinimalVMI("testvmi")
+			vmi.Spec.Domain.Machine.Type = "q35"
 
-				causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec)
-				Expect(len(causes)).To(Equal(0))
-			}
+			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec)
+			Expect(len(causes)).To(Equal(0))
 		})
 		It("should reject invalid machine type", func() {
 			vmi := v1.NewMinimalVMI("testvmi")

@@ -40,18 +40,17 @@ import (
 )
 
 const (
-	configMapName          = "kubevirt-config"
-	featureGateEnvVar      = "FEATURE_GATES"
-	FeatureGatesKey        = "feature-gates"
-	emulatedMachinesEnvVar = "VIRT_EMULATED_MACHINES"
-	emulatedMachinesKey    = "emulated-machines"
-	machineTypeKey         = "machine-type"
-	useEmulationKey        = "debug.useEmulation"
-	imagePullPolicyKey     = "dev.imagePullPolicy"
-	migrationsConfigKey    = "migrations"
-	cpuModelKey            = "default-cpu-model"
-	cpuRequestKey          = "cpu-request"
-	memoryRequestKey       = "memory-request"
+	configMapName       = "kubevirt-config"
+	featureGateEnvVar   = "FEATURE_GATES"
+	FeatureGatesKey     = "feature-gates"
+	emulatedMachinesKey = "emulated-machines"
+	machineTypeKey      = "machine-type"
+	useEmulationKey     = "debug.useEmulation"
+	imagePullPolicyKey  = "dev.imagePullPolicy"
+	migrationsConfigKey = "migrations"
+	cpuModelKey         = "default-cpu-model"
+	cpuRequestKey       = "cpu-request"
+	memoryRequestKey    = "memory-request"
 
 	ParallelOutboundMigrationsPerNodeDefault uint32 = 2
 	ParallelMigrationsPerClusterDefault      uint32 = 5
@@ -61,6 +60,7 @@ const (
 	DefaultMachineType                              = "q35"
 	DefaultCPURequest                               = "100m"
 	DefaultMemoryRequest                            = "8Mi"
+	DefaultEmulatedMachines                         = "q35*,pc-q35*"
 
 	NodeDrainTaintDefaultKey = "kubevirt.io/drain"
 )
@@ -75,14 +75,10 @@ func InitFromConfigMap(cfgMap *k8sv1.ConfigMap) {
 	if val, ok := cfgMap.Data[FeatureGatesKey]; ok {
 		os.Setenv(featureGateEnvVar, val)
 	}
-	if val, ok := cfgMap.Data[emulatedMachinesKey]; ok {
-		os.Setenv(emulatedMachinesEnvVar, val)
-	}
 }
 
 func Clear() {
 	os.Unsetenv(featureGateEnvVar)
-	os.Unsetenv(emulatedMachinesEnvVar)
 }
 
 func getConfigMap() *k8sv1.ConfigMap {
@@ -147,6 +143,7 @@ func defaultClusterConfig() *Config {
 	completionTimeoutPerGiB := MigrationCompletionTimeoutPerGiB
 	cpuRequestDefault := resource.MustParse(DefaultCPURequest)
 	memoryRequestDefault := resource.MustParse(DefaultMemoryRequest)
+	emulatedMachinesDefault := strings.Split(DefaultEmulatedMachines, ",")
 	return &Config{
 		ResourceVersion: "0",
 		ImagePullPolicy: k8sv1.PullIfNotPresent,
@@ -160,21 +157,23 @@ func defaultClusterConfig() *Config {
 			CompletionTimeoutPerGiB:           &completionTimeoutPerGiB,
 			UnsafeMigrationOverride:           false,
 		},
-		MachineType:   DefaultMachineType,
-		CPURequest:    cpuRequestDefault,
-		MemoryRequest: memoryRequestDefault,
+		MachineType:      DefaultMachineType,
+		CPURequest:       cpuRequestDefault,
+		MemoryRequest:    memoryRequestDefault,
+		EmulatedMachines: emulatedMachinesDefault,
 	}
 }
 
 type Config struct {
-	ResourceVersion string
-	UseEmulation    bool
-	MigrationConfig *MigrationConfig
-	ImagePullPolicy k8sv1.PullPolicy
-	MachineType     string
-	CPUModel        string
-	CPURequest      resource.Quantity
-	MemoryRequest   resource.Quantity
+	ResourceVersion  string
+	UseEmulation     bool
+	MigrationConfig  *MigrationConfig
+	ImagePullPolicy  k8sv1.PullPolicy
+	MachineType      string
+	CPUModel         string
+	CPURequest       resource.Quantity
+	MemoryRequest    resource.Quantity
+	EmulatedMachines []string
 }
 
 type MigrationConfig struct {
@@ -222,6 +221,10 @@ func (c *ClusterConfig) GetCPURequest() resource.Quantity {
 
 func (c *ClusterConfig) GetMemoryRequest() resource.Quantity {
 	return c.getConfig().MemoryRequest
+}
+
+func (c *ClusterConfig) GetEmulatedMachines() []string {
+	return c.getConfig().EmulatedMachines
 }
 
 // setConfig parses the provided config map and updates the provided config.
@@ -284,6 +287,14 @@ func setConfig(config *Config, configMap *k8sv1.ConfigMap) error {
 
 	if memoryRequest := strings.TrimSpace(configMap.Data[memoryRequestKey]); memoryRequest != "" {
 		config.MemoryRequest = resource.MustParse(memoryRequest)
+	}
+
+	if emulatedMachines := strings.TrimSpace(configMap.Data[emulatedMachinesKey]); emulatedMachines != "" {
+		vals := strings.Split(emulatedMachines, ",")
+		for i := range vals {
+			vals[i] = strings.TrimSpace(vals[i])
+		}
+		config.EmulatedMachines = vals
 	}
 
 	return nil
