@@ -181,6 +181,9 @@ subjects:
 - kind: ServiceAccount
   name: kubevirt-handler
   namespace: {{.Namespace}}
+- kind: ServiceAccount
+  name: kubevirt-apiserver
+  namespace: {{.Namespace}}
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
@@ -197,6 +200,15 @@ rules:
   - certificatesigningrequests/kubevirt
   verbs:
   - create
+- apiGroups:
+  - certificates.k8s.io
+  resources:
+  - certificatesigningrequests
+  verbs:
+  - create
+  - get
+  - watch
+  - list
 ---
 apiVersion: v1
 kind: ServiceAccount
@@ -298,16 +310,6 @@ rules:
   - get
   - list
   - watch
-- apiGroups:
-  - certificates.k8s.io
-  resources:
-  - certificatesigningrequests
-  verbs:
-  - create
-  - get
-  - delete
-  - watch
-  - list
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
@@ -367,16 +369,6 @@ rules:
   verbs:
   - create
   - patch
-- apiGroups:
-  - certificates.k8s.io
-  resources:
-  - certificatesigningrequests
-  verbs:
-  - create
-  - get
-  - delete
-  - watch
-  - list
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding

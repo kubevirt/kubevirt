@@ -55,9 +55,22 @@ spec:
         - virt-api
         - --port
         - "8443"
+        - --pod-ip-address
+        - $(MY_POD_IP)
+        - --pod-name
+        - $(MY_POD_NAME)
         - --subresources-only
         - -v
         - {{.Verbosity}}
+        env:
+        - name: MY_POD_IP
+          valueFrom:
+            fieldRef:
+              fieldPath: status.podIP
+        - name: MY_POD_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
         image: {{.DockerPrefix}}/virt-api:{{.DockerTag}}
         imagePullPolicy: {{.ImagePullPolicy}}
         name: virt-api
@@ -65,7 +78,7 @@ spec:
         - containerPort: 8443
           name: virt-api
           protocol: TCP
-        - containerPort: 8443
+        - containerPort: 9443
           name: metrics
           protocol: TCP
         readinessProbe:
@@ -76,6 +89,12 @@ spec:
           initialDelaySeconds: 15
           periodSeconds: 10
         resources: {}
+        volumeMounts:
+        - mountPath: /var/lib/kubevirt/certificates
+          name: certdir
       securityContext:
         runAsNonRoot: true
       serviceAccountName: kubevirt-apiserver
+      volumes:
+      - emptyDir: {}
+        name: certdir

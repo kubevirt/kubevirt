@@ -236,21 +236,6 @@ func newControllerClusterRole() *rbacv1.ClusterRole {
 					"get", "list", "watch",
 				},
 			},
-			{
-				APIGroups: []string{
-					"certificates.k8s.io",
-				},
-				Resources: []string{
-					"certificatesigningrequests",
-				},
-				Verbs: []string{
-					"create",
-					"get",
-					"delete",
-					"watch",
-					"list",
-				},
-			},
 		},
 	}
 }

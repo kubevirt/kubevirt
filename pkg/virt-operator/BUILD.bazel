@@ -10,7 +10,7 @@ go_library(
     visibility = ["//visibility:public"],
     deps = [
         "//pkg/api/v1:go_default_library",
-        "//pkg/certificates:go_default_library",
+        "//pkg/certificates/bootstrap:go_default_library",
         "//pkg/controller:go_default_library",
         "//pkg/kubecli:go_default_library",
         "//pkg/log:go_default_library",
@@ -19,6 +19,7 @@ go_library(
         "//pkg/virt-operator/certificates/approver:go_default_library",
         "//pkg/virt-operator/install-strategy:go_default_library",
         "//pkg/virt-operator/util:go_default_library",
+        "//vendor/github.com/emicklei/go-restful:go_default_library",
         "//vendor/github.com/prometheus/client_golang/prometheus/promhttp:go_default_library",
         "//vendor/github.com/spf13/pflag:go_default_library",
         "//vendor/k8s.io/api/apps/v1:go_default_library",

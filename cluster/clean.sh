@@ -70,7 +70,6 @@ for i in ${namespaces[@]}; do
         _kubectl -n ${i} delete configmaps -l ${label}
         _kubectl -n ${i} delete secrets -l ${label}
         _kubectl -n ${i} delete jobs -l ${label}
-        _kubectl -n ${i} delete csr --all
     done
 done
 

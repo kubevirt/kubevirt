@@ -114,7 +114,6 @@ rules:
   - update
   - create
   - get
-  - delete
   - watch
   - list
 - apiGroups:
@@ -292,16 +291,6 @@ rules:
   - list
   - watch
 - apiGroups:
-  - certificates.k8s.io
-  resources:
-  - certificatesigningrequests
-  verbs:
-  - create
-  - get
-  - delete
-  - watch
-  - list
-- apiGroups:
   - kubevirt.io
   resources:
   - virtualmachineinstances
@@ -329,16 +318,6 @@ rules:
   verbs:
   - create
   - patch
-- apiGroups:
-  - certificates.k8s.io
-  resources:
-  - certificatesigningrequests
-  verbs:
-  - create
-  - get
-  - delete
-  - watch
-  - list
 - apiGroups:
   - ""
   resources:

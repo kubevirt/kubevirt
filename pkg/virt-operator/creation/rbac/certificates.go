@@ -34,6 +34,20 @@ func newSignerClusterRole() *rbacv1.ClusterRole {
 					"create",
 				},
 			},
+			{
+				APIGroups: []string{
+					"certificates.k8s.io",
+				},
+				Resources: []string{
+					"certificatesigningrequests",
+				},
+				Verbs: []string{
+					"create",
+					"get",
+					"watch",
+					"list",
+				},
+			},
 		},
 	}
 }
@@ -65,6 +79,11 @@ func newSignerClusterRoleBinding(namespace string) *rbacv1.ClusterRoleBinding {
 				Kind:      "ServiceAccount",
 				Namespace: namespace,
 				Name:      "kubevirt-handler",
+			},
+			{
+				Kind:      "ServiceAccount",
+				Namespace: namespace,
+				Name:      "kubevirt-apiserver",
 			},
 		},
 	}

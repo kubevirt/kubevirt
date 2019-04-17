@@ -5,5 +5,14 @@ go_library(
     srcs = ["service.go"],
     importpath = "kubevirt.io/kubevirt/pkg/service",
     visibility = ["//visibility:public"],
-    deps = ["//vendor/github.com/spf13/pflag:go_default_library"],
+    deps = [
+        "//pkg/certificates/bootstrap:go_default_library",
+        "//pkg/kubecli:go_default_library",
+        "//pkg/log:go_default_library",
+        "//vendor/github.com/prometheus/client_golang/prometheus:go_default_library",
+        "//vendor/github.com/spf13/pflag:go_default_library",
+        "//vendor/k8s.io/client-go/util/cert:go_default_library",
+        "//vendor/k8s.io/client-go/util/certificate:go_default_library",
+        "@com_github_golang_glog//:go_default_library",
+    ],
 )

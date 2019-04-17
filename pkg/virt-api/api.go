@@ -45,6 +45,8 @@ import (
 	apiregistrationv1beta1 "k8s.io/kube-aggregator/pkg/apis/apiregistration/v1beta1"
 	aggregatorclient "k8s.io/kube-aggregator/pkg/client/clientset_generated/clientset"
 
+	"kubevirt.io/kubevirt/pkg/certificates/bootstrap"
+
 	v1 "kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/healthz"
 	"kubevirt.io/kubevirt/pkg/kubecli"
@@ -98,6 +100,7 @@ type VirtApi interface {
 	AddFlags()
 	ConfigureOpenAPIService()
 	Execute()
+	GetName() string
 }
 
 type virtAPIApp struct {
@@ -126,7 +129,7 @@ var _ service.Service = &virtAPIApp{}
 
 func NewVirtApi() VirtApi {
 
-	app := &virtAPIApp{}
+	app := &virtAPIApp{ServiceListen: service.ServiceListen{Name: "virt-api"}}
 	app.BindAddress = defaultHost
 	app.Port = defaultPort
 
@@ -989,26 +992,48 @@ func (app *virtAPIApp) setupTLS(fs Filesystem) error {
 
 func (app *virtAPIApp) startTLS() error {
 
-	errors := make(chan error)
+	app.SetupCertificateManager(app.virtCli, bootstrap.LoadCertConfigForService)
+
+	errors := make(chan error, 2)
 
 	err := app.setupTLS(IOUtil{})
 	if err != nil {
 		return err
 	}
 
-	// start TLS server
+	// start TLS server for the aggregated apiserver
 	go func() {
-		http.Handle("/metrics", promhttp.Handler())
-
 		server := &http.Server{
 			Addr:      fmt.Sprintf("%s:%d", app.BindAddress, app.Port),
 			TLSConfig: app.tlsConfig,
 		}
 
-		errors <- server.ListenAndServeTLS(app.certFile, app.keyFile)
+		err := server.ListenAndServeTLS(app.certFile, app.keyFile)
+		if err != nil {
+			errors <- fmt.Errorf("serving the aggregated apiserver failed: %v", err)
+		} else {
+			errors <- nil
+		}
 	}()
 
-	// wait for server to exit
+	// start TLS server for prometheus
+	handler := http.NewServeMux()
+	server := &http.Server{
+		Addr:      fmt.Sprintf("%s:%d", app.BindAddress, 9443),
+		TLSConfig: app.PromTLSConfig,
+		Handler:   handler,
+	}
+
+	handler.Handle("/metrics", promhttp.Handler())
+	go func() {
+		err = server.ListenAndServeTLS("", "")
+		if err != nil {
+			errors <- fmt.Errorf("serving prometheus failed: %v", err)
+		} else {
+			errors <- nil
+		}
+	}()
+
 	return <-errors
 }
 

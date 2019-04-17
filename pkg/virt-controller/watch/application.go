@@ -21,16 +21,11 @@ package watch
 
 import (
 	"context"
-	"crypto/tls"
-	"fmt"
 	golog "log"
-	"net"
 	"net/http"
 	"os"
 
 	"github.com/emicklei/go-restful"
-	"github.com/golang/glog"
-	prometheus "github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	flag "github.com/spf13/pflag"
 	k8sv1 "k8s.io/api/core/v1"
@@ -41,9 +36,9 @@ import (
 	"k8s.io/client-go/tools/leaderelection"
 	"k8s.io/client-go/tools/leaderelection/resourcelock"
 	"k8s.io/client-go/tools/record"
-	"k8s.io/client-go/util/certificate"
 
 	"kubevirt.io/kubevirt/pkg/certificates/bootstrap"
+
 	containerdisk "kubevirt.io/kubevirt/pkg/container-disk"
 	"kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/kubecli"
@@ -74,10 +69,6 @@ const (
 	controllerThreads = 3
 
 	hostOverride = ""
-
-	podIpAddress = ""
-
-	certificateDir = "/var/lib/kubevirt/certificates"
 )
 
 type VirtControllerApp struct {
@@ -124,18 +115,13 @@ type VirtControllerApp struct {
 	kubevirtNamespace          string
 	evacuationController       *evacuation.EvacuationController
 	disruptionBudgetController *disruptionbudget.DisruptionBudgetController
-
-	// for certificate management
-	PodName      string
-	PodIpAddress string
-	CertDir      string
 }
 
 var _ service.Service = &VirtControllerApp{}
 
 func Execute() {
 	var err error
-	var app VirtControllerApp = VirtControllerApp{}
+	app := VirtControllerApp{ServiceListen: service.ServiceListen{Name: "virt-controller"}}
 
 	app.LeaderElection = leaderelectionconfig.DefaultLeaderElectionConfiguration()
 
@@ -144,8 +130,6 @@ func Execute() {
 	virtconfig.Init()
 
 	app.readyChan = make(chan bool, 1)
-
-	log.InitializeLogging("virt-controller")
 
 	app.clientSet, err = kubecli.GetKubevirtClient()
 
@@ -216,49 +200,12 @@ func (vca *VirtControllerApp) Run() {
 		}
 		vca.PodName = defaultHostName
 	}
-
-	podIP := net.ParseIP(vca.PodIpAddress)
-	if podIP == nil {
-		glog.Fatalf("Invalid Pod IP: %s", vca.PodIpAddress)
-	}
-
-	certStore, err := certificate.NewFileStore("kubevirt-client", vca.CertDir, vca.CertDir, "", "")
-	if err != nil {
-		glog.Fatalf("unable to initialize certificae store: %v", err)
-	}
-
-	certExpirationGauge := prometheus.NewGauge(
-		prometheus.GaugeOpts{
-			Namespace: "virt_controller",
-			Subsystem: "certificate_manager",
-			Name:      "client_expiration_seconds",
-			Help:      "Gauge of the lifetime of a certificate. The value is the date the certificate will expire in seconds since January 1, 1970 UTC.",
-		},
-	)
-	prometheus.MustRegister(certExpirationGauge)
-	config := bootstrap.LoadCertConfigForService(certStore, "virt-controller:"+vca.PodName, []string{vca.PodName}, []net.IP{podIP})
-	config.CertificateExpiration = certExpirationGauge
-	manager, err := bootstrap.NewCertificateManager(config, vca.clientSet.CertificatesV1beta1())
-	if err != nil {
-		glog.Fatalf("failed to request or fetch the certificate: %v", err)
-	}
-	go manager.Start()
-
-	tlsConfig := &tls.Config{
-		MinVersion: tls.VersionTLS12,
-		GetCertificate: func(info *tls.ClientHelloInfo) (*tls.Certificate, error) {
-			cert := manager.Current()
-			if cert == nil {
-				return nil, fmt.Errorf("no serving certificate available for virt-controller")
-			}
-			return cert, nil
-		},
-	}
+	vca.SetupCertificateManager(vca.clientSet, bootstrap.LoadCertConfigForService)
 
 	handler := http.NewServeMux()
 	server := &http.Server{
 		Addr:      vca.Address(),
-		TLSConfig: tlsConfig,
+		TLSConfig: vca.PromTLSConfig,
 		Handler:   handler,
 	}
 	handler.Handle("/metrics", promhttp.Handler())
@@ -383,7 +330,7 @@ func (vca *VirtControllerApp) initDisruptionBudgetController() {
 }
 
 func (vca *VirtControllerApp) initEvacuationController() {
-	recorder := vca.getNewRecorder(k8sv1.NamespaceAll, "disruptionbudget-controller")
+	recorder := vca.getNewRecorder(k8sv1.NamespaceAll, "evacuation-controller")
 	vca.evacuationController = evacuation.NewEvacuationController(
 		vca.vmiInformer,
 		vca.migrationInformer,
@@ -431,13 +378,4 @@ func (vca *VirtControllerApp) AddFlags() {
 
 	flag.StringVar(&vca.ephemeralDiskDir, "ephemeral-disk-dir", ephemeralDiskDir,
 		"Base directory for ephemeral disk data")
-
-	flag.StringVar(&vca.PodIpAddress, "pod-ip-address", podIpAddress,
-		"The pod ip address")
-
-	flag.StringVar(&vca.PodName, "pod-name", hostOverride,
-		"The pod name")
-
-	flag.StringVar(&vca.CertDir, "cert-dir", certificateDir,
-		"Certificate store directory")
 }

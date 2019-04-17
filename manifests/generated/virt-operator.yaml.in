@@ -28,6 +28,10 @@ spec:
         - virt-operator
         - --port
         - "8443"
+        - --pod-ip-address
+        - $(MY_POD_IP)
+        - --pod-name
+        - $(MY_POD_NAME)
         - -v
         - {{.Verbosity}}
         env:
@@ -37,6 +41,14 @@ spec:
           valueFrom:
             fieldRef:
               fieldPath: metadata.annotations['olm.targetNamespaces']
+        - name: MY_POD_IP
+          valueFrom:
+            fieldRef:
+              fieldPath: status.podIP
+        - name: MY_POD_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
         image: {{.DockerPrefix}}/virt-operator:{{.DockerTag}}
         imagePullPolicy: {{.ImagePullPolicy}}
         name: virt-operator
@@ -52,6 +64,12 @@ spec:
           initialDelaySeconds: 5
           timeoutSeconds: 10
         resources: {}
+        volumeMounts:
+        - mountPath: /var/lib/kubevirt/certificates
+          name: certdir
       securityContext:
         runAsNonRoot: true
       serviceAccountName: kubevirt-operator
+      volumes:
+      - emptyDir: {}
+        name: certdir

@@ -21,15 +21,14 @@ package main
 
 import (
 	"crypto/tls"
+	"crypto/x509"
 	"fmt"
-	"net"
 	"net/http"
 	"os"
 	"time"
 
 	"github.com/emicklei/go-restful"
 	"github.com/golang/glog"
-	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	flag "github.com/spf13/pflag"
 	k8sv1 "k8s.io/api/core/v1"
@@ -39,11 +38,11 @@ import (
 	k8coresv1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/record"
-	certutil "k8s.io/client-go/util/cert"
 	"k8s.io/client-go/util/certificate"
 
-	v1 "kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/certificates/bootstrap"
+
+	v1 "kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/controller"
 	inotifyinformer "kubevirt.io/kubevirt/pkg/inotify-informer"
 	"kubevirt.io/kubevirt/pkg/kubecli"
@@ -72,11 +71,7 @@ const (
 
 	hostOverride = ""
 
-	podIpAddress = ""
-
 	virtShareDir = "/var/run/kubevirt"
-
-	certificateDir = "/var/lib/kubevirt/certificates"
 
 	// This value is derived from default MaxPods in Kubelet Config
 	maxDevices = 110
@@ -85,10 +80,7 @@ const (
 type virtHandlerApp struct {
 	service.ServiceListen
 	HostOverride            string
-	PodName                 string
-	PodIpAddress            string
 	VirtShareDir            string
-	CertDir                 string
 	WatchdogTimeoutDuration time.Duration
 	MaxDevices              int
 }
@@ -109,11 +101,6 @@ func (app *virtHandlerApp) Run() {
 		app.PodName = app.HostOverride
 	}
 
-	podIP := net.ParseIP(app.PodIpAddress)
-	if podIP == nil {
-		glog.Fatalf("Invalid Pod IP: %s", app.PodIpAddress)
-	}
-
 	logger := log.Log
 	logger.V(1).Level(log.INFO).Log("hostname", app.HostOverride)
 
@@ -125,7 +112,7 @@ func (app *virtHandlerApp) Run() {
 	broadcaster := record.NewBroadcaster()
 	broadcaster.StartRecordingToSink(&k8coresv1.EventSinkImpl{Interface: virtCli.CoreV1().Events(k8sv1.NamespaceAll)})
 	// Scheme is used to create an ObjectReference from an Object (e.g. VirtualMachineInstance) during Event creation
-	recorder := broadcaster.NewRecorder(scheme.Scheme, k8sv1.EventSource{Component: "virt-handler", Host: app.HostOverride})
+	recorder := broadcaster.NewRecorder(scheme.Scheme, k8sv1.EventSource{Component: app.GetName(), Host: app.HostOverride})
 
 	if err != nil {
 		panic(err)
@@ -174,47 +161,54 @@ func (app *virtHandlerApp) Run() {
 	stop := make(chan struct{})
 	defer close(stop)
 
-	store, err := certificate.NewFileStore("kubevirt-client", app.CertDir, app.CertDir, "", "")
-	if err != nil {
-		glog.Fatalf("unable to initialize certificae store: %v", err)
-	}
+	app.SetupCertificateManager(virtCli, bootstrap.LoadCertConfigForNode)
 
-	certExpirationGauge := prometheus.NewGauge(
-		prometheus.GaugeOpts{
-			Namespace: "virt_handler",
-			Subsystem: "certificate_manager",
-			Name:      "client_expiration_seconds",
-			Help:      "Gauge of the lifetime of a certificate. The value is the date the certificate will expire in seconds since January 1, 1970 UTC.",
-		},
+	gracefulShutdownInformer := cache.NewSharedIndexInformer(
+		inotifyinformer.NewFileListWatchFromClient(
+			virtlauncher.GracefulShutdownTriggerDir(app.VirtShareDir)),
+		&virt_api.Domain{},
+		0,
+		cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
+
+	vmController := virthandler.NewController(
+		recorder,
+		virtCli,
+		app.HostOverride,
+		app.PodIpAddress.String(),
+		app.VirtShareDir,
+		vmSourceSharedInformer,
+		vmTargetSharedInformer,
+		domainSharedInformer,
+		gracefulShutdownInformer,
+		int(app.WatchdogTimeoutDuration.Seconds()),
+		app.MaxDevices,
+		virtconfig.NewClusterConfig(factory.ConfigMap().GetStore(), namespace),
+		newMigrationTLSConfig(app.RootCAPool, app.CertificateManager),
 	)
-	prometheus.MustRegister(certExpirationGauge)
 
-	config := bootstrap.LoadCertConfigForNode(store, app.PodName, []string{app.PodName}, []net.IP{podIP})
-	config.CertificateExpiration = certExpirationGauge
-	manager, err := bootstrap.NewCertificateManager(config, virtCli.CertificatesV1beta1())
-	if err != nil {
-		glog.Fatalf("failed to request or fetch the certificate: %v", err)
+	factory.Start(stop)
+	cache.WaitForCacheSync(stop, factory.ConfigMap().HasSynced)
+	go vmController.Run(3, stop)
+
+	handler := http.NewServeMux()
+	server := &http.Server{
+		Addr:      app.ServiceListen.Address(),
+		TLSConfig: app.PromTLSConfig,
+		Handler:   handler,
 	}
-	go manager.Start()
 
-	certPool, err := certutil.NewPool("/var/run/secrets/kubernetes.io/serviceaccount/ca.crt")
+	promvm.SetupCollector(app.VirtShareDir)
+
+	handler.Handle("/metrics", promhttp.Handler())
+	handler.Handle("/", restful.DefaultContainer)
+	err = server.ListenAndServeTLS("", "")
 	if err != nil {
+		log.Log.Reason(err).Error("Serving prometheus failed.")
 		panic(err)
 	}
+}
 
-	promTLSConfig := &tls.Config{
-		MinVersion: tls.VersionTLS12,
-		ClientCAs:  certPool,
-		RootCAs:    certPool,
-		GetCertificate: func(info *tls.ClientHelloInfo) (*tls.Certificate, error) {
-			cert := manager.Current()
-			if cert == nil {
-				return nil, fmt.Errorf("no serving certificate available for virt-handler")
-			}
-			return cert, nil
-		},
-	}
-
+func newMigrationTLSConfig(certPool *x509.CertPool, manager certificate.Manager) *tls.Config {
 	migrationTLSConfig := &tls.Config{
 		MinVersion: tls.VersionTLS12,
 		ClientAuth: tls.RequireAndVerifyClientCert,
@@ -235,50 +229,7 @@ func (app *virtHandlerApp) Run() {
 			return cert, nil
 		},
 	}
-
-	gracefulShutdownInformer := cache.NewSharedIndexInformer(
-		inotifyinformer.NewFileListWatchFromClient(
-			virtlauncher.GracefulShutdownTriggerDir(app.VirtShareDir)),
-		&virt_api.Domain{},
-		0,
-		cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
-
-	vmController := virthandler.NewController(
-		recorder,
-		virtCli,
-		app.HostOverride,
-		app.PodIpAddress,
-		app.VirtShareDir,
-		vmSourceSharedInformer,
-		vmTargetSharedInformer,
-		domainSharedInformer,
-		gracefulShutdownInformer,
-		int(app.WatchdogTimeoutDuration.Seconds()),
-		app.MaxDevices,
-		virtconfig.NewClusterConfig(factory.ConfigMap().GetStore(), namespace),
-		migrationTLSConfig,
-	)
-
-	factory.Start(stop)
-	cache.WaitForCacheSync(stop, factory.ConfigMap().HasSynced)
-	go vmController.Run(3, stop)
-
-	handler := http.NewServeMux()
-	server := &http.Server{
-		Addr:      app.ServiceListen.Address(),
-		TLSConfig: promTLSConfig,
-		Handler:   handler,
-	}
-
-	promvm.SetupCollector(app.VirtShareDir)
-
-	handler.Handle("/metrics", promhttp.Handler())
-	handler.Handle("/", restful.DefaultContainer)
-	err = server.ListenAndServeTLS("", "")
-	if err != nil {
-		log.Log.Reason(err).Error("Serving prometheus failed.")
-		panic(err)
-	}
+	return migrationTLSConfig
 }
 
 func (app *virtHandlerApp) AddFlags() {
@@ -292,17 +243,8 @@ func (app *virtHandlerApp) AddFlags() {
 	flag.StringVar(&app.HostOverride, "hostname-override", hostOverride,
 		"Name under which the node is registered in Kubernetes, where this virt-handler instance is running on")
 
-	flag.StringVar(&app.PodIpAddress, "pod-ip-address", podIpAddress,
-		"The pod ip address")
-
-	flag.StringVar(&app.PodName, "pod-name", hostOverride,
-		"The pod name")
-
 	flag.StringVar(&app.VirtShareDir, "kubevirt-share-dir", virtShareDir,
 		"Shared directory between virt-handler and virt-launcher")
-
-	flag.StringVar(&app.CertDir, "cert-dir", certificateDir,
-		"Certificate store directory")
 
 	flag.DurationVar(&app.WatchdogTimeoutDuration, "watchdog-timeout", defaultWatchdogTimeout,
 		"Watchdog file timeout")
@@ -315,8 +257,7 @@ func (app *virtHandlerApp) AddFlags() {
 }
 
 func main() {
-	app := &virtHandlerApp{}
+	app := &virtHandlerApp{ServiceListen: service.ServiceListen{Name: "virt-handler"}}
 	service.Setup(app)
-	log.InitializeLogging("virt-handler")
 	app.Run()
 }

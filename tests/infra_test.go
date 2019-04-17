@@ -70,33 +70,6 @@ var _ = Describe("Infrastructure", func() {
 			close(stopChan)
 		})
 
-		It("should be exposed and and registered on the metrics endpoint", func() {
-			endpoint, err := virtClient.CoreV1().Endpoints(tests.KubeVirtInstallNamespace).Get("kubevirt-prometheus-metrics", metav1.GetOptions{})
-			Expect(err).ToNot(HaveOccurred())
-			l, err := labels.Parse("prometheus.kubevirt.io")
-			Expect(err).ToNot(HaveOccurred())
-			pods, err := virtClient.CoreV1().Pods(tests.KubeVirtInstallNamespace).List(metav1.ListOptions{LabelSelector: l.String()})
-			Expect(err).ToNot(HaveOccurred())
-			Expect(endpoint.Subsets).To(HaveLen(1))
-
-			By("checking if the endpoint contains the metrics port and only one matching subset")
-			Expect(endpoint.Subsets[0].Ports).To(HaveLen(1))
-			Expect(endpoint.Subsets[0].Ports[0].Name).To(Equal("metrics"))
-			Expect(endpoint.Subsets[0].Ports[0].Port).To(Equal(int32(8443)))
-
-			By("checking if  the IPs in the subset match the KubeVirt system Pod count")
-			Expect(len(pods.Items)).To(BeNumerically(">=", 3), "At least one api, controller and handler need to be present")
-			Expect(endpoint.Subsets[0].Addresses).To(HaveLen(len(pods.Items)))
-
-			ips := map[string]string{}
-			for _, ep := range endpoint.Subsets[0].Addresses {
-				ips[ep.IP] = ""
-			}
-			for _, pod := range pods.Items {
-				Expect(ips).To(HaveKey(pod.Status.PodIP), fmt.Sprintf("IP of Pod %s not found in metrics endpoint", pod.Name))
-			}
-		})
-
 		table.DescribeTable("should provide a valid certificate", func(component string) {
 
 			var pod *k8sv1.Pod
@@ -163,25 +136,30 @@ var _ = Describe("Infrastructure", func() {
 			table.Entry("on virt-controller", "virt-controller"),
 		)
 
-		It("should return Prometheus metrics", func() {
+		It("should return Prometheus metrics and be registerd on the endpoint if the have the prometheus.kubevirt.io label", func() {
 			endpoint, err := virtClient.CoreV1().Endpoints(tests.KubeVirtInstallNamespace).Get("kubevirt-prometheus-metrics", metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
-			handler, err := tests.GetRandomVirtHandler(tests.KubeVirtInstallNamespace)
+			l, err := labels.Parse(fmt.Sprintf("prometheus.kubevirt.io"))
+			Expect(err).ToNot(HaveOccurred())
+			pods, err := virtClient.CoreV1().Pods(tests.KubeVirtInstallNamespace).List(metav1.ListOptions{LabelSelector: l.String()})
 			Expect(err).NotTo(HaveOccurred())
 
-			for _, ep := range endpoint.Subsets[0].Addresses {
-				stdout, _, err := tests.ExecuteCommandOnPodV2(virtClient,
-					handler, "virt-handler",
-					[]string{
-						"curl",
-						"-L",
-						"-k",
-						fmt.Sprintf("https://%s:%s/metrics", ep.IP, "8443"),
-					})
-				Expect(err).ToNot(HaveOccurred())
-				Expect(stdout).To(ContainSubstring("go_goroutines"))
+			addresses := map[string]bool{}
+			for _, subset := range endpoint.Subsets {
+				for _, ep := range subset.Addresses {
+					addresses[ep.IP] = true
+					Expect(err).ToNot(HaveOccurred())
+				}
+			}
+			Expect(addresses).To(HaveLen(len(pods.Items)))
+
+			for _, pod := range pods.Items {
+				Expect(addresses).To(HaveKey(pod.Status.PodIP))
+				metrics := getKubevirtVMMetrics(&pod)
+				Expect(metrics).To(ContainSubstring("go_goroutines"))
 			}
 		})
+
 		It("should include the metrics for a running VM", func() {
 			By("Creating the VirtualMachineInstance")
 			vmi := tests.NewRandomVMI()
@@ -413,8 +391,21 @@ func takeMetricsWithPrefix(output, prefix string) []string {
 
 func getKubevirtVMMetrics(pod *k8sv1.Pod) (metrics string) {
 	stopChan := make(chan struct{})
+	var metricsPort *k8sv1.ContainerPort
+
+loop:
+	for _, container := range pod.Spec.Containers {
+		for _, port := range container.Ports {
+			if port.Name == "metrics" {
+				metricsPort = &port
+				break loop
+			}
+		}
+	}
+	Expect(metricsPort).ToNot(BeNil(), "Pod does not contain a port named 'metrics'")
+
 	defer close(stopChan)
-	Expect(tests.ForwardPorts(pod, []string{"4321:8443"}, stopChan, 10*time.Second)).To(Succeed())
+	Expect(tests.ForwardPorts(pod, []string{fmt.Sprintf("4321:%v", metricsPort.ContainerPort)}, stopChan, 10*time.Second)).To(Succeed())
 	resp, err := tests.GetK8sHTTPClient().Get(fmt.Sprintf("https://localhost:%s/metrics", "4321"))
 	Expect(err).ToNot(HaveOccurred())
 	data, err := ioutil.ReadAll(resp.Body)

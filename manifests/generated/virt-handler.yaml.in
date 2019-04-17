@@ -57,6 +57,8 @@ spec:
         securityContext:
           privileged: true
         volumeMounts:
+        - mountPath: /var/lib/kubevirt/certificates
+          name: certdir
         - mountPath: /var/run/kubevirt-libvirt-runtimes
           name: libvirt-runtimes
         - mountPath: /var/run/kubevirt
@@ -65,11 +67,11 @@ spec:
           name: virt-private-dir
         - mountPath: /var/lib/kubelet/device-plugins
           name: device-plugin
-        - mountPath: /var/lib/kubevirt/certificates
-          name: certificates
       hostPID: true
       serviceAccountName: kubevirt-handler
       volumes:
+      - emptyDir: {}
+        name: certdir
       - hostPath:
           path: /var/run/kubevirt-libvirt-runtimes
         name: libvirt-runtimes
@@ -82,7 +84,5 @@ spec:
       - hostPath:
           path: /var/lib/kubelet/device-plugins
         name: device-plugin
-      - emptyDir: {}
-        name: certificates
   updateStrategy:
     type: RollingUpdate

@@ -285,9 +285,43 @@ func NewApiServerDeployment(namespace string, repository string, version string,
 		"virt-api",
 		"--port",
 		"8443",
+		"--pod-ip-address",
+		"$(MY_POD_IP)",
+		"--pod-name",
+		"$(MY_POD_NAME)",
 		"--subresources-only",
 		"-v",
 		verbosity,
+	}
+	pod.Volumes = append(pod.Volumes,
+		corev1.Volume{
+			Name: "certdir",
+			VolumeSource: corev1.VolumeSource{
+				EmptyDir: &corev1.EmptyDirVolumeSource{},
+			},
+		},
+	)
+	container.VolumeMounts = append(container.VolumeMounts, corev1.VolumeMount{
+		Name:      "certdir",
+		MountPath: "/var/lib/kubevirt/certificates",
+	})
+	container.Env = []corev1.EnvVar{
+		{
+			Name: "MY_POD_IP",
+			ValueFrom: &corev1.EnvVarSource{
+				FieldRef: &corev1.ObjectFieldSelector{
+					FieldPath: "status.podIP",
+				},
+			},
+		},
+		{
+			Name: "MY_POD_NAME",
+			ValueFrom: &corev1.EnvVarSource{
+				FieldRef: &corev1.ObjectFieldSelector{
+					FieldPath: "metadata.name",
+				},
+			},
+		},
 	}
 	container.Ports = []corev1.ContainerPort{
 		{
@@ -298,7 +332,7 @@ func NewApiServerDeployment(namespace string, repository string, version string,
 		{
 			Name:          "metrics",
 			Protocol:      corev1.ProtocolTCP,
-			ContainerPort: 8443,
+			ContainerPort: 9443,
 		},
 	}
 	container.ReadinessProbe = &corev1.Probe{
@@ -499,9 +533,18 @@ func NewHandlerDaemonSet(namespace string, repository string, version string, pu
 			},
 		},
 	}
-
-	container.VolumeMounts = []corev1.VolumeMount{}
-	pod.Volumes = []corev1.Volume{}
+	pod.Volumes = append(pod.Volumes,
+		corev1.Volume{
+			Name: "certdir",
+			VolumeSource: corev1.VolumeSource{
+				EmptyDir: &corev1.EmptyDirVolumeSource{},
+			},
+		},
+	)
+	container.VolumeMounts = append(container.VolumeMounts, corev1.VolumeMount{
+		Name:      "certdir",
+		MountPath: "/var/lib/kubevirt/certificates",
+	})
 
 	type volume struct {
 		name string
@@ -529,17 +572,6 @@ func NewHandlerDaemonSet(namespace string, repository string, version string, pu
 			},
 		})
 	}
-
-	container.VolumeMounts = append(container.VolumeMounts, corev1.VolumeMount{
-		Name:      "certificates",
-		MountPath: "/var/lib/kubevirt/certificates",
-	})
-	pod.Volumes = append(pod.Volumes, corev1.Volume{
-		Name: "certificates",
-		VolumeSource: corev1.VolumeSource{
-			EmptyDir: &corev1.EmptyDirVolumeSource{},
-		},
-	})
 	return daemonset, nil
 
 }
@@ -591,6 +623,14 @@ func NewOperatorDeployment(namespace string, repository string, version string, 
 				},
 				Spec: corev1.PodSpec{
 					ServiceAccountName: "kubevirt-operator",
+					Volumes: []corev1.Volume{
+						{
+							Name: "certdir",
+							VolumeSource: corev1.VolumeSource{
+								EmptyDir: &corev1.EmptyDirVolumeSource{},
+							},
+						},
+					},
 					Containers: []corev1.Container{
 						{
 							Name:            name,
@@ -600,8 +640,18 @@ func NewOperatorDeployment(namespace string, repository string, version string, 
 								"virt-operator",
 								"--port",
 								"8443",
+								"--pod-ip-address",
+								"$(MY_POD_IP)",
+								"--pod-name",
+								"$(MY_POD_NAME)",
 								"-v",
 								verbosity,
+							},
+							VolumeMounts: []corev1.VolumeMount{
+								{
+									Name:      "certdir",
+									MountPath: "/var/lib/kubevirt/certificates",
+								},
 							},
 							Ports: []corev1.ContainerPort{
 								{
@@ -634,6 +684,22 @@ func NewOperatorDeployment(namespace string, repository string, version string, 
 									ValueFrom: &corev1.EnvVarSource{
 										FieldRef: &corev1.ObjectFieldSelector{
 											FieldPath: "metadata.annotations['olm.targetNamespaces']", // filled by OLM
+										},
+									},
+								},
+								{
+									Name: "MY_POD_IP",
+									ValueFrom: &corev1.EnvVarSource{
+										FieldRef: &corev1.ObjectFieldSelector{
+											FieldPath: "status.podIP",
+										},
+									},
+								},
+								{
+									Name: "MY_POD_NAME",
+									ValueFrom: &corev1.EnvVarSource{
+										FieldRef: &corev1.ObjectFieldSelector{
+											FieldPath: "metadata.name",
 										},
 									},
 								},

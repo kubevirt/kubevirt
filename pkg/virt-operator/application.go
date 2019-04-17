@@ -20,14 +20,16 @@
 package virt_operator
 
 import (
-	"io/ioutil"
 	golog "log"
 	"net/http"
 	"os"
 
+	"github.com/emicklei/go-restful"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/spf13/pflag"
 	k8sinformers "k8s.io/client-go/informers"
+
+	"kubevirt.io/kubevirt/pkg/certificates/bootstrap"
 
 	"kubevirt.io/kubevirt/pkg/virt-operator/certificates/approver"
 
@@ -38,7 +40,6 @@ import (
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/record"
 
-	"kubevirt.io/kubevirt/pkg/certificates"
 	"kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/kubecli"
 	"kubevirt.io/kubevirt/pkg/log"
@@ -81,13 +82,11 @@ var _ service.Service = &VirtOperatorApp{}
 
 func Execute() {
 	var err error
-	app := VirtOperatorApp{}
+	app := VirtOperatorApp{ServiceListen: service.ServiceListen{Name: "virt-operator"}}
 
 	dumpInstallStrategy := pflag.Bool("dump-install-strategy", false, "Dump install strategy to configmap and exit")
 
 	service.Setup(&app)
-
-	log.InitializeLogging("virt-operator")
 
 	app.clientSet, err = kubecli.GetKubevirtClient()
 
@@ -159,7 +158,7 @@ func Execute() {
 		app.stores.SCCCache = app.informerFactory.DummyOperatorSCC().GetStore()
 	}
 
-	app.kubeVirtRecorder = app.getNewRecorder(k8sv1.NamespaceAll, "virt-operator")
+	app.kubeVirtRecorder = app.getNewRecorder(k8sv1.NamespaceAll, app.GetName())
 	app.kubeVirtController = *NewKubeVirtController(app.clientSet, app.kubeVirtInformer, app.kubeVirtRecorder, app.stores, app.informers)
 
 	image := os.Getenv(util.OperatorImageEnvName)
@@ -173,19 +172,6 @@ func Execute() {
 
 func (app *VirtOperatorApp) Run() {
 
-	// prepare certs
-	certsDirectory, err := ioutil.TempDir("", "certsdir")
-	if err != nil {
-		panic(err)
-	}
-	defer os.RemoveAll(certsDirectory)
-
-	certStore, err := certificates.GenerateSelfSignedCert(certsDirectory, "virt-operator", app.operatorNamespace)
-	if err != nil {
-		log.Log.Reason(err).Error("unable to generate certificates")
-		panic(err)
-	}
-
 	// run app
 	stop := make(chan struct{})
 	defer close(stop)
@@ -196,14 +182,23 @@ func (app *VirtOperatorApp) Run() {
 	go app.kubeVirtController.Run(controllerThreads, stop)
 
 	f.Start(stop)
+
 	// serve metrics
-	http.Handle("/metrics", promhttp.Handler())
-	err = http.ListenAndServeTLS(app.ServiceListen.Address(), certStore.CurrentPath(), certStore.CurrentPath(), nil)
+	app.SetupCertificateManager(app.clientSet, bootstrap.LoadCertConfigForService)
+	handler := http.NewServeMux()
+	server := &http.Server{
+		Addr:      app.ServiceListen.Address(),
+		TLSConfig: app.PromTLSConfig,
+		Handler:   handler,
+	}
+
+	handler.Handle("/metrics", promhttp.Handler())
+	handler.Handle("/", restful.DefaultContainer)
+	err := server.ListenAndServeTLS("", "")
 	if err != nil {
 		log.Log.Reason(err).Error("Serving prometheus failed.")
 		panic(err)
 	}
-
 }
 
 func (app *VirtOperatorApp) getNewRecorder(namespace string, componentName string) record.EventRecorder {

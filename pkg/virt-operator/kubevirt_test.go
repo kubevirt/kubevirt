@@ -105,7 +105,7 @@ var _ = Describe("KubeVirt Operator", func() {
 	NAMESPACE := "kubevirt-test"
 	resourceCount := 31
 	patchCount := 13
-	updateCount := 16
+	updateCount := 18
 
 	deleteFromCache := true
 
