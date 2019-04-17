@@ -49,13 +49,14 @@ type operatorData struct {
 }
 
 type templateData struct {
+	Version         string
+	VersionReplaces string
 	Namespace       string
-	CsvVersion      string
-	CsvReplaces     string
 	ContainerPrefix string
 	ContainerTag    string
 	ImagePullPolicy string
 	CNA             *operatorData
+	AddonsImages    *components.AddonsImages
 }
 
 func check(err error) {
@@ -135,9 +136,11 @@ func getCNA(data *templateData) {
 
 	// Get CNA Deployment
 	cnadeployment := components.GetDeployment(
+		data.Namespace,
 		data.ContainerPrefix,
 		data.ContainerTag,
 		data.ImagePullPolicy,
+		data.AddonsImages,
 	)
 	err := marshallObject(cnadeployment, &writer)
 	check(err)
@@ -151,7 +154,7 @@ func getCNA(data *templateData) {
 
 	// Get CNA Role
 	writer = strings.Builder{}
-	role := components.GetRole()
+	role := components.GetRole(data.Namespace)
 	marshallObject(role, &writer)
 	roleString := writer.String()
 
@@ -206,24 +209,36 @@ func getCNA(data *templateData) {
 }
 
 func main() {
+	version := flag.String("version", "", "")
+	versionReplaces := flag.String("version-replaces", "", "")
 	namespace := flag.String("namespace", "cluster-network-addons-operator", "")
 	containerPrefix := flag.String("container-prefix", "quay.io/kubevirt", "")
 	containerTag := flag.String("container-tag", "latest", "")
-	csvVersion := flag.String("csv-version", "latest", "")
-	csvReplaces := flag.String("csv-replaces", "", "")
 	imagePullPolicy := flag.String("image-pull-policy", "Always", "")
 	inputFile := flag.String("input-file", "", "")
+	multusImage := flag.String("multus-image", "", "")
+	linuxBridgeCniImage := flag.String("linux-bridge-cni-image", "", "")
+	sriovDpImage := flag.String("sriov-dp-image", "", "")
+	sriovCniImage := flag.String("sriov-cni-image", "", "")
+	kubeMacPoolImage := flag.String("kubemacpool-image", "", "")
 	pflag.CommandLine.AddGoFlagSet(flag.CommandLine)
 	pflag.CommandLine.ParseErrorsWhitelist.UnknownFlags = true
 	pflag.Parse()
 
 	data := templateData{
+		Version:         *version,
+		VersionReplaces: *versionReplaces,
 		Namespace:       *namespace,
-		CsvVersion:      *csvVersion,
-		CsvReplaces:     *csvReplaces,
 		ContainerPrefix: *containerPrefix,
 		ContainerTag:    *containerTag,
 		ImagePullPolicy: *imagePullPolicy,
+		AddonsImages: (&components.AddonsImages{
+			Multus:         *multusImage,
+			LinuxBridgeCni: *linuxBridgeCniImage,
+			SriovDp:        *sriovDpImage,
+			SriovCni:       *sriovCniImage,
+			KubeMacPool:    *kubeMacPoolImage,
+		}).FillDefaults(),
 	}
 
 	// Load in all CNA Resources

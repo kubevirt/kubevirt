@@ -163,6 +163,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: cluster-network-addons-operator
+  namespace: kubevirt-hyperconverged
 spec:
   replicas: 1
   selector:
@@ -180,28 +181,33 @@ spec:
         - name: MULTUS_IMAGE
           value: docker.io/nfvpe/multus:latest
         - name: LINUX_BRIDGE_IMAGE
-          value: quay.io/kubevirt/cni-default-plugins
+          value: quay.io/kubevirt/cni-default-plugins:latest
         - name: SRIOV_DP_IMAGE
           value: quay.io/booxter/sriov-device-plugin:latest
         - name: SRIOV_CNI_IMAGE
           value: docker.io/nfvpe/sriov-cni:latest
         - name: SRIOV_ROOT_DEVICES
+        - name: SRIOV_NETWORK_NAME
+          value: sriov-network
+        - name: SRIOV_NETWORK_TYPE
+          value: sriov
         - name: KUBEMACPOOL_IMAGE
           value: quay.io/schseba/mac-controller:latest
         - name: OPERATOR_IMAGE
-          value: quay.io/kubevirt/cluster-network-addons-operator:latest
+          value: quay.io/kubevirt/cluster-network-addons-operator:0.4.0
         - name: OPERATOR_NAME
           value: cluster-network-addons-operator
+        - name: OPERATOR_NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
         - name: POD_NAME
           valueFrom:
             fieldRef:
               fieldPath: metadata.name
         - name: WATCH_NAMESPACE
-          valueFrom:
-            fieldRef:
-              fieldPath: metadata.namespace
-        image: quay.io/kubevirt/cluster-network-addons-operator:latest
-        imagePullPolicy: Always
+        image: quay.io/kubevirt/cluster-network-addons-operator:0.4.0
+        imagePullPolicy: IfNotPresent
         name: cluster-network-addons-operator
         resources: {}
       serviceAccountName: cluster-network-addons-operator

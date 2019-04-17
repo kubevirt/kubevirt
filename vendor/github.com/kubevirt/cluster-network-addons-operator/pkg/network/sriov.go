@@ -87,6 +87,8 @@ func renderSriov(conf *opv1alpha1.NetworkAddonsConfigSpec, manifestDir string, c
 	data.Data["SriovRootDevices"] = getRootDevicesConfigString(os.Getenv("SRIOV_ROOT_DEVICES"))
 	data.Data["SriovDpImage"] = os.Getenv("SRIOV_DP_IMAGE")
 	data.Data["SriovCniImage"] = os.Getenv("SRIOV_CNI_IMAGE")
+	data.Data["SriovNetworkName"] = os.Getenv("SRIOV_NETWORK_NAME")
+	data.Data["SriovNetworkType"] = os.Getenv("SRIOV_NETWORK_TYPE")
 	data.Data["ImagePullPolicy"] = conf.ImagePullPolicy
 	if clusterInfo.OpenShift4 {
 		data.Data["CNIBinDir"] = cni.BinDirOpenShift4

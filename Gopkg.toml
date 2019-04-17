@@ -29,7 +29,7 @@ required = [
 
 [[override]]
   name = "github.com/kubevirt/cluster-network-addons-operator"
-  version = "=v0.3.0"
+  version = "=0.4.0"
 
 [[override]]
   name = "k8s.io/code-generator"

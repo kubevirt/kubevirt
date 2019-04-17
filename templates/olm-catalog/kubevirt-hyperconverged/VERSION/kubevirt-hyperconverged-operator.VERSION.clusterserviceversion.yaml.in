@@ -65,6 +65,10 @@ spec:
   install:
     strategy: deployment
     spec:
+      permissions:
+        - serviceAccountName: cluster-network-addons-operator
+          rules:
+{{.CNA.Rules}}
       clusterPermissions:
         - serviceAccountName: hyperconverged-cluster-operator
           rules:
@@ -78,7 +82,7 @@ spec:
 {{.CDI.Rules}}
         - serviceAccountName: cluster-network-addons-operator
           rules:
-{{.CNA.Rules}}
+{{.CNA.ClusterRules}}
 {{end}}
       deployments:
         - name: hco-operator

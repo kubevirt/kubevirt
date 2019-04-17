@@ -44,24 +44,27 @@ import (
 type operatorData struct {
 	Deployment        string
 	DeploymentSpec    string
-	ClusterRoleString string
+	RoleString        string
 	Rules             string
+	ClusterRoleString string
+	ClusterRules      string
 	CRD               *extv1beta1.CustomResourceDefinition
 	CRDString         string
 	CRString          string
 }
 
 type templateData struct {
-	Converged       bool
-	Namespace       string
-	CsvVersion      string
-	ContainerPrefix string
-	ContainerTag    string
-	ImagePullPolicy string
-	HCO             *operatorData
-	KubeVirt        *operatorData
-	CDI             *operatorData
-	CNA             *operatorData
+	Converged          bool
+	Namespace          string
+	CsvVersion         string
+	ContainerPrefix    string
+	CnaContainerPrefix string
+	ContainerTag       string
+	ImagePullPolicy    string
+	HCO                *operatorData
+	KubeVirt           *operatorData
+	CDI                *operatorData
+	CNA                *operatorData
 }
 
 func check(err error) {
@@ -304,9 +307,11 @@ func getCNA(data *templateData) {
 
 	// Get CNA Deployment
 	cnadeployment := cnacomponents.GetDeployment(
-		"kubevirt",
-		"latest",
-		"Always",
+		data.Namespace,
+		data.CnaContainerPrefix,
+		"0.4.0",
+		data.ImagePullPolicy,
+		(&cnacomponents.AddonsImages{}).FillDefaults(),
 	)
 	err := marshallObject(cnadeployment, &writer)
 	check(err)
@@ -318,6 +323,21 @@ func getCNA(data *templateData) {
 	check(err)
 	deploymentSpec := fixResourceString(writer.String(), 12)
 
+	// Get CNA Role
+	writer = strings.Builder{}
+	role := cnacomponents.GetRole(data.Namespace)
+	marshallObject(role, &writer)
+	roleString := writer.String()
+
+	// Get the Rules out of CNA's ClusterRole
+	writer = strings.Builder{}
+	cnaRules := role.Rules
+	for _, rule := range cnaRules {
+		err := marshallObject(rule, &writer)
+		check(err)
+	}
+	rules := fixResourceString(writer.String(), 14)
+
 	// Get CNA ClusterRole
 	writer = strings.Builder{}
 	clusterRole := cnacomponents.GetClusterRole()
@@ -326,12 +346,12 @@ func getCNA(data *templateData) {
 
 	// Get the Rules out of CNA's ClusterRole
 	writer = strings.Builder{}
-	cnarules := clusterRole.Rules
-	for _, rule := range cnarules {
+	cnaClusterRules := clusterRole.Rules
+	for _, rule := range cnaClusterRules {
 		err := marshallObject(rule, &writer)
 		check(err)
 	}
-	rules := fixResourceString(writer.String(), 14)
+	clusterRules := fixResourceString(writer.String(), 14)
 
 	// Get CNA CRD
 	writer = strings.Builder{}
@@ -342,8 +362,10 @@ func getCNA(data *templateData) {
 	cnaData := operatorData{
 		Deployment:        deployment,
 		DeploymentSpec:    deploymentSpec,
-		ClusterRoleString: clusterRoleString,
+		RoleString:        roleString,
 		Rules:             rules,
+		ClusterRoleString: clusterRoleString,
+		ClusterRules:      clusterRules,
 		CRD:               crd,
 		CRDString:         crdString,
 	}
@@ -355,6 +377,7 @@ func main() {
 	namespace := flag.String("namespace", "kubevirt-hyperconverged", "")
 	csvVersion := flag.String("csv-version", "0.0.1", "")
 	containerPrefix := flag.String("container-prefix", "kubevirt", "")
+	cnaContainerPrefix := flag.String("cna-container-prefix", *containerPrefix, "")
 	containerTag := flag.String("container-tag", "latest", "")
 	imagePullPolicy := flag.String("image-pull-policy", "IfNotPresent", "")
 	inputFile := flag.String("input-file", "", "")
@@ -363,12 +386,13 @@ func main() {
 	pflag.Parse()
 
 	data := templateData{
-		Converged:       *converged,
-		Namespace:       *namespace,
-		CsvVersion:      *csvVersion,
-		ContainerPrefix: *containerPrefix,
-		ContainerTag:    *containerTag,
-		ImagePullPolicy: *imagePullPolicy,
+		Converged:          *converged,
+		Namespace:          *namespace,
+		CsvVersion:         *csvVersion,
+		ContainerPrefix:    *containerPrefix,
+		CnaContainerPrefix: *cnaContainerPrefix,
+		ContainerTag:       *containerTag,
+		ImagePullPolicy:    *imagePullPolicy,
 	}
 
 	// Load in all HCO Resources
