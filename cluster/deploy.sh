@@ -78,10 +78,10 @@ until _kubectl -n kubevirt get kv kubevirt; do
 done
 
 # wait until KubeVirt is ready
+timeout=360
 if [[ "$KUBEVIRT_PROVIDER" =~ .*.10..* ]]; then
     # k8s version 1.10.* does not have wait command
     # TODO: drop it once we get rid of 1.10.* provider
-    timeout=180
     sample=30
     current_time=0
     while [ -n "$(_kubectl -n kubevirt get kv kubevirt -o'custom-columns=status:status.conditions[*].type' --no-headers | grep -v Ready)" ]; do
@@ -96,7 +96,7 @@ if [[ "$KUBEVIRT_PROVIDER" =~ .*.10..* ]]; then
     done
 else
     date
-    _kubectl wait -n kubevirt kv kubevirt --for condition=Ready --timeout 180s || (echo "KubeVirt not ready in time" && date && exit 1)
+    _kubectl wait -n kubevirt kv kubevirt --for condition=Ready --timeout ${timeout}s || (echo "KubeVirt not ready in time" && date && exit 1)
     date
 fi
 
