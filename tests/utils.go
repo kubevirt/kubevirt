@@ -2871,31 +2871,34 @@ func CreateISCSITargetPOD(containerDiskName ContainerDisk) (iscsiTargetIP string
 	return
 }
 
-func CreateISCSIPvAndPvc(name string, size string, iscsiTargetIP string) {
+func CreateISCSIPvAndPvc(name string, size string, iscsiTargetIP string, volumeMode k8sv1.PersistentVolumeMode) {
 	accessMode := k8sv1.ReadWriteMany
-	NewISCSIPvAndPvc(name, size, iscsiTargetIP, accessMode)
+	NewISCSIPvAndPvc(name, size, iscsiTargetIP, accessMode, volumeMode)
 }
-func NewISCSIPvAndPvc(name string, size string, iscsiTargetIP string, accessMode k8sv1.PersistentVolumeAccessMode) {
+func NewISCSIPvAndPvc(name string, size string, iscsiTargetIP string, accessMode k8sv1.PersistentVolumeAccessMode, volumeMode k8sv1.PersistentVolumeMode) {
 	virtCli, err := kubecli.GetKubevirtClient()
 	PanicOnError(err)
 
-	_, err = virtCli.CoreV1().PersistentVolumes().Create(newISCSIPV(name, size, iscsiTargetIP, accessMode))
+	_, err = virtCli.CoreV1().PersistentVolumes().Create(newISCSIPV(name, size, iscsiTargetIP, accessMode, volumeMode))
 	if !errors.IsAlreadyExists(err) {
 		PanicOnError(err)
 	}
 
-	_, err = virtCli.CoreV1().PersistentVolumeClaims(NamespaceTestDefault).Create(newISCSIPVC(name, size, accessMode))
+	_, err = virtCli.CoreV1().PersistentVolumeClaims(NamespaceTestDefault).Create(newISCSIPVC(name, size, accessMode, volumeMode))
 	if !errors.IsAlreadyExists(err) {
 		PanicOnError(err)
 	}
 }
 
-func newISCSIPV(name string, size string, iscsiTargetIP string, accessMode k8sv1.PersistentVolumeAccessMode) *k8sv1.PersistentVolume {
+func CreateISCSIPV(name string, size string, iscsiTargetIP string, accessMode k8sv1.PersistentVolumeAccessMode, volumeMode k8sv1.PersistentVolumeMode) *k8sv1.PersistentVolume {
+	return newISCSIPV(name, size, iscsiTargetIP, accessMode, volumeMode)
+}
+
+func newISCSIPV(name string, size string, iscsiTargetIP string, accessMode k8sv1.PersistentVolumeAccessMode, volumeMode k8sv1.PersistentVolumeMode) *k8sv1.PersistentVolume {
 	quantity, err := resource.ParseQuantity(size)
 	PanicOnError(err)
 
 	storageClass := Config.StorageClassLocal
-	volumeMode := k8sv1.PersistentVolumeBlock
 
 	return &k8sv1.PersistentVolume{
 		ObjectMeta: metav1.ObjectMeta{
@@ -2905,10 +2908,6 @@ func newISCSIPV(name string, size string, iscsiTargetIP string, accessMode k8sv1
 			AccessModes: []k8sv1.PersistentVolumeAccessMode{accessMode},
 			Capacity: k8sv1.ResourceList{
 				"storage": quantity,
-			},
-			ClaimRef: &k8sv1.ObjectReference{
-				Name:      name,
-				Namespace: NamespaceTestDefault,
 			},
 			StorageClassName: storageClass,
 			VolumeMode:       &volumeMode,
@@ -2924,12 +2923,11 @@ func newISCSIPV(name string, size string, iscsiTargetIP string, accessMode k8sv1
 	}
 }
 
-func newISCSIPVC(name string, size string, accessMode k8sv1.PersistentVolumeAccessMode) *k8sv1.PersistentVolumeClaim {
+func newISCSIPVC(name string, size string, accessMode k8sv1.PersistentVolumeAccessMode, volumeMode k8sv1.PersistentVolumeMode) *k8sv1.PersistentVolumeClaim {
 	quantity, err := resource.ParseQuantity(size)
 	PanicOnError(err)
 
 	storageClass := Config.StorageClassLocal
-	volumeMode := k8sv1.PersistentVolumeBlock
 
 	return &k8sv1.PersistentVolumeClaim{
 		ObjectMeta: metav1.ObjectMeta{Name: name},
