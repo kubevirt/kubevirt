@@ -78,6 +78,7 @@ const (
 	vmiCreateValidatePath       = "/virtualmachineinstances-validate-create"
 	vmiUpdateValidatePath       = "/virtualmachineinstances-validate-update"
 	vmValidatePath              = "/virtualmachines-validate"
+	vmsValidatePath             = "/virtualmachinesnapshots-validate"
 	vmirsValidatePath           = "/virtualmachinereplicaset-validate"
 	vmipresetValidatePath       = "/vmipreset-validate"
 	migrationCreateValidatePath = "/migration-validate-create"
@@ -748,6 +749,9 @@ func (app *virtAPIApp) createValidatingWebhook() error {
 	})
 	http.HandleFunc(vmValidatePath, func(w http.ResponseWriter, r *http.Request) {
 		validating_webhook.ServeVMs(w, r, app.clusterConfig)
+	})
+	http.HandleFunc(vmsValidatePath, func(w http.ResponseWriter, r *http.Request) {
+		validating_webhook.ServeVMSs(w, r)
 	})
 	http.HandleFunc(vmirsValidatePath, func(w http.ResponseWriter, r *http.Request) {
 		validating_webhook.ServeVMIRS(w, r, app.clusterConfig)

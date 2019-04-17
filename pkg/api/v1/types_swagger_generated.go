@@ -223,6 +223,42 @@ func (VirtualMachineCondition) SwaggerDoc() map[string]string {
 	}
 }
 
+func (VirtualMachineSnapshot) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"":       "VirtualMachineSnapshot handles the snapshots\nThe VirtualMachineSnapshot contains the settings for snapshots and information\nabout snapshotted VirtualMachine as well as information about volume snapshots.",
+		"spec":   "Spec contains the specification of VirtualMachineSnapshot created",
+		"status": "Status holds the current state of the controller and information\nabout snapshots and VirtualMachine associated with VirtualMachineSnapshot",
+	}
+}
+
+func (VirtualMachineSnapshotList) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"":      "VirtualMachineSnapshotList is a list of VirtualMachineSnapshots",
+		"items": "Items is a list of VirtualMachineSnapshots",
+	}
+}
+
+func (VirtualMachineSnapshotSpec) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"":               "VirtualMachineSnapshotSpec describes how the snapshot should be performed",
+		"virtualMachine": "VirtualMachine targeted by VirtualMachineSnapshot",
+	}
+}
+
+func (VirtualMachineSnapshotStatus) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"":               "VirtualMachineSnapshotStatus represents the status returned by the\ncontroller to describe how the VirtualMachine is doing",
+		"virtualMachine": "VirtualMachine containes full VirtualMachine spec with metadata",
+		"conditions":     "Hold the state information of the VirtualMachine and its VirtualMachineInstance",
+	}
+}
+
+func (VirtualMachineSnapshotCondition) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"": "VirtualMachineSnapshotCondition represents the state of VirtualMachineSnapshot",
+	}
+}
+
 func (Handler) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"":          "Handler defines a specific action that should be taken",

@@ -21,6 +21,7 @@ ${KUBEVIRT_DIR}/tools/resource-generator/resource-generator --type=vmirs >${KUBE
 ${KUBEVIRT_DIR}/tools/resource-generator/resource-generator --type=vmipreset >${KUBEVIRT_DIR}/manifests/generated/vmipreset-resource.yaml
 ${KUBEVIRT_DIR}/tools/resource-generator/resource-generator --type=vm >${KUBEVIRT_DIR}/manifests/generated/vm-resource.yaml
 ${KUBEVIRT_DIR}/tools/resource-generator/resource-generator --type=vmim >${KUBEVIRT_DIR}/manifests/generated/vmim-resource.yaml
+${KUBEVIRT_DIR}/tools/resource-generator/resource-generator --type=vms >${KUBEVIRT_DIR}/manifests/generated/vms-resource.yaml
 ${KUBEVIRT_DIR}/tools/resource-generator/resource-generator --type=kv >${KUBEVIRT_DIR}/manifests/generated/kv-resource.yaml
 ${KUBEVIRT_DIR}/tools/resource-generator/resource-generator --type=kv-cr --namespace={{.Namespace}} --pullPolicy={{.ImagePullPolicy}} >${KUBEVIRT_DIR}/manifests/generated/kubevirt-cr.yaml.in
 ${KUBEVIRT_DIR}/tools/resource-generator/resource-generator --type=kubevirt-rbac --namespace={{.Namespace}} >${KUBEVIRT_DIR}/manifests/generated/rbac-kubevirt.authorization.k8s.yaml.in

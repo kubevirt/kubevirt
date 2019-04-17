@@ -69,6 +69,8 @@ var VirtualMachineGroupVersionKind = schema.GroupVersionKind{Group: GroupName, V
 
 var VirtualMachineInstanceMigrationGroupVersionKind = schema.GroupVersionKind{Group: GroupName, Version: GroupVersion.Version, Kind: "VirtualMachineInstanceMigration"}
 
+var VirtualMachineSnapshotGroupVersionKind = schema.GroupVersionKind{Group: GroupName, Version: GroupVersion.Version, Kind: "VirtualMachineSnapshot"}
+
 var KubeVirtGroupVersionKind = schema.GroupVersionKind{Group: GroupName, Version: GroupVersion.Version, Kind: "KubeVirt"}
 
 // Adds the list of known types to api.Scheme.
@@ -87,6 +89,8 @@ func addKnownTypes(scheme *runtime.Scheme) error {
 		&metav1.GetOptions{},
 		&VirtualMachine{},
 		&VirtualMachineList{},
+		&VirtualMachineSnapshot{},
+		&VirtualMachineSnapshotList{},
 		&KubeVirt{},
 		&KubeVirtList{},
 	)
@@ -1059,6 +1063,95 @@ const (
 	// fails to be created due to insufficient quota, limit ranges, pod security policy, node selectors,
 	// etc. or deleted due to kubelet being down or finalizers are failing.
 	VirtualMachineFailure VirtualMachineConditionType = "Failure"
+)
+
+// VirtualMachineSnapshot handles the snapshots
+// The VirtualMachineSnapshot contains the settings for snapshots and information
+// about snapshotted VirtualMachine as well as information about volume snapshots.
+// ---
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+// +k8s:openapi-gen=true
+type VirtualMachineSnapshot struct {
+	metav1.TypeMeta   `json:",inline"`
+	metav1.ObjectMeta `json:"metadata,omitempty"`
+
+	// Spec contains the specification of VirtualMachineSnapshot created
+	Spec VirtualMachineSnapshotSpec `json:"spec,omitempty"`
+	// Status holds the current state of the controller and information
+	// about snapshots and VirtualMachine associated with VirtualMachineSnapshot
+	Status VirtualMachineSnapshotStatus `json:"status,omitempty"`
+}
+
+// VirtualMachineSnapshotList is a list of VirtualMachineSnapshots
+// ---
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+// +k8s:openapi-gen=true
+type VirtualMachineSnapshotList struct {
+	metav1.TypeMeta `json:",inline"`
+	metav1.ListMeta `json:"metadata"`
+
+	// Items is a list of VirtualMachineSnapshots
+	Items []VirtualMachineSnapshot `json:"items"`
+}
+
+// VirtualMachineSnapshotSpec describes how the snapshot should be performed
+// ---
+// +k8s:openapi-gen=true
+type VirtualMachineSnapshotSpec struct {
+	// VirtualMachine targeted by VirtualMachineSnapshot
+	VirtualMachine string `json:"virtualMachine"`
+}
+
+// VirtualMachineSnapshotStatus represents the status returned by the
+// controller to describe how the VirtualMachine is doing
+// ---
+// +k8s:openapi-gen=true
+type VirtualMachineSnapshotStatus struct {
+	// VirtualMachine containes full VirtualMachine spec with metadata
+	VirtualMachine *VirtualMachine `json:"virtualMachine"`
+	// Hold the state information of the VirtualMachine and its VirtualMachineInstance
+	Conditions []VirtualMachineSnapshotCondition `json:"conditions,omitempty" optional:"true"`
+}
+
+// GetObjectKind is required to satisfy Object interface
+func (v *VirtualMachineSnapshot) GetObjectKind() schema.ObjectKind {
+	return &v.TypeMeta
+}
+
+// GetObjectMeta is required to satisfy ObjectMetaAccessor interface
+func (v *VirtualMachineSnapshot) GetObjectMeta() metav1.Object {
+	return &v.ObjectMeta
+}
+
+// VirtualMachineSnapshotCondition represents the state of VirtualMachineSnapshot
+// ---
+// +k8s:openapi-gen=true
+type VirtualMachineSnapshotCondition struct {
+	Type               VirtualMachineSnapshotConditionType `json:"type"`
+	Status             k8sv1.ConditionStatus               `json:"status"`
+	LastProbeTime      metav1.Time                         `json:"lastProbeTime,omitempty"`
+	LastTransitionTime metav1.Time                         `json:"lastTransitionTime,omitempty"`
+	Reason             string                              `json:"reason,omitempty"`
+	Message            string                              `json:"message,omitempty"`
+}
+
+// ---
+// +k8s:openapi-gen=true
+type VirtualMachineSnapshotConditionType string
+
+const (
+	// VirtualMachineFailure signals snapshot was not created successfully
+	VirtualMachineSnapshotFailure VirtualMachineSnapshotConditionType = "Failure"
+	// VirtualMachineSnapshotSuccess signals snapshot was created successfully
+	VirtualMachineSnapshotSuccess VirtualMachineSnapshotConditionType = "Success"
+	// VirtualMachineSnapshotVMCopySuccess signals VM copy was successful
+	VirtualMachineSnapshotVMCopySuccess VirtualMachineSnapshotConditionType = "Success"
+	// VirtualMachineSnapshotVMCopyFailure signals VM copy was not successful
+	VirtualMachineSnapshotVMCopyFailure VirtualMachineSnapshotConditionType = "Failure"
+	// VirtualMachineSnapshotVMVolumeSuccess signals Volume snapshot was successful
+	VirtualMachineSnapshotVolumeSuccess VirtualMachineSnapshotConditionType = "Success"
+	// VirtualMachineSnapshotVMVolumeFailure signals Volume snapshot failed due to an error
+	VirtualMachineSnapshotVolumeFailure VirtualMachineSnapshotConditionType = "Failure"
 )
 
 // ---

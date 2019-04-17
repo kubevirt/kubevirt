@@ -16,3 +16,4 @@ metadata:
 {{index .GeneratedManifests "vmipreset-resource.yaml"}}
 {{index .GeneratedManifests "vm-resource.yaml"}}
 {{index .GeneratedManifests "vmim-resource.yaml"}}
+{{index .GeneratedManifests "vms-resource.yaml"}}

@@ -44,6 +44,8 @@ func RegisterDefaults(scheme *runtime.Scheme) error {
 		SetObjectDefaults_VirtualMachineInstanceReplicaSetList(obj.(*VirtualMachineInstanceReplicaSetList))
 	})
 	scheme.AddTypeDefaultingFunc(&VirtualMachineList{}, func(obj interface{}) { SetObjectDefaults_VirtualMachineList(obj.(*VirtualMachineList)) })
+	scheme.AddTypeDefaultingFunc(&VirtualMachineSnapshot{}, func(obj interface{}) { SetObjectDefaults_VirtualMachineSnapshot(obj.(*VirtualMachineSnapshot)) })
+	scheme.AddTypeDefaultingFunc(&VirtualMachineSnapshotList{}, func(obj interface{}) { SetObjectDefaults_VirtualMachineSnapshotList(obj.(*VirtualMachineSnapshotList)) })
 	return nil
 }
 
@@ -455,5 +457,18 @@ func SetObjectDefaults_VirtualMachineList(in *VirtualMachineList) {
 	for i := range in.Items {
 		a := &in.Items[i]
 		SetObjectDefaults_VirtualMachine(a)
+	}
+}
+
+func SetObjectDefaults_VirtualMachineSnapshot(in *VirtualMachineSnapshot) {
+	if in.Status.VirtualMachine != nil {
+		SetObjectDefaults_VirtualMachine(in.Status.VirtualMachine)
+	}
+}
+
+func SetObjectDefaults_VirtualMachineSnapshotList(in *VirtualMachineSnapshotList) {
+	for i := range in.Items {
+		a := &in.Items[i]
+		SetObjectDefaults_VirtualMachineSnapshot(a)
 	}
 }

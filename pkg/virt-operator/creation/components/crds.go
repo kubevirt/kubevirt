@@ -49,6 +49,7 @@ func CreateCRDs(clientset kubecli.KubevirtClient, kv *virtv1.KubeVirt, stores ut
 		NewReplicaSetCrd(),
 		NewPresetCrd(),
 		NewVirtualMachineInstanceMigrationCrd(),
+		NewVirtualMachineSnapshotCrd(),
 	}
 
 	for _, crd := range crds {
@@ -214,6 +215,30 @@ func NewVirtualMachineInstanceMigrationCrd() *extv1beta1.CustomResourceDefinitio
 // Used by manifest generation
 // If you change something here, you probably need to change the CSV manifest too,
 // see /manifests/release/kubevirt.VERSION.csv.yaml.in
+
+func NewVirtualMachineSnapshotCrd() *extv1beta1.CustomResourceDefinition {
+	crd := newBlankCrd()
+
+	crd.ObjectMeta.Name = "virtualmachinesnapshots." + virtv1.VirtualMachineSnapshotGroupVersionKind.Group
+	crd.Spec = extv1beta1.CustomResourceDefinitionSpec{
+		Group:   virtv1.VirtualMachineSnapshotGroupVersionKind.Group,
+		Version: virtv1.VirtualMachineSnapshotGroupVersionKind.Version,
+		Scope:   "Namespaced",
+
+		Names: extv1beta1.CustomResourceDefinitionNames{
+			Plural:     "virtualmachinesnapshots",
+			Singular:   "virtualmachinesnapshot",
+			Kind:       virtv1.VirtualMachineSnapshotGroupVersionKind.Kind,
+			ShortNames: []string{"vmss", "vmsnaps"},
+		},
+		AdditionalPrinterColumns: []extv1beta1.CustomResourceColumnDefinition{
+			{Name: "Age", Type: "date", JSONPath: ".metadata.creationTimestamp"},
+		},
+	}
+
+	return crd
+}
+
 func NewKubeVirtCrd() *extv1beta1.CustomResourceDefinition {
 
 	// we use a different label here, so no newBlankCrd()
