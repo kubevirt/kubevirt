@@ -595,11 +595,7 @@ func (c *KubeVirtController) deleteAllInstallStrategy() error {
 
 func (c *KubeVirtController) getImageTag(kv *v1.KubeVirt) string {
 	if kv.Spec.ImageTag == "" {
-		if kv.Status.TargetKubeVirtVersion != "" {
-			return kv.Status.TargetKubeVirtVersion
-		} else {
-			return c.config.ImageTag
-		}
+		return c.config.ImageTag
 	}
 
 	return kv.Spec.ImageTag
@@ -607,11 +603,7 @@ func (c *KubeVirtController) getImageTag(kv *v1.KubeVirt) string {
 
 func (c *KubeVirtController) getImageRegistry(kv *v1.KubeVirt) string {
 	if kv.Spec.ImageRegistry == "" {
-		if kv.Status.TargetKubeVirtRegistry != "" {
-			return kv.Status.TargetKubeVirtRegistry
-		} else {
-			return c.config.ImageRegistry
-		}
+		return c.config.ImageRegistry
 	}
 
 	return kv.Spec.ImageRegistry
