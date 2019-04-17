@@ -279,7 +279,7 @@ func classifyVolumesForMigration(vmi *v1.VirtualMachineInstance) *migrationDisks
 	}
 	for _, volume := range vmi.Spec.Volumes {
 		volSrc := volume.VolumeSource
-		if volSrc.PersistentVolumeClaim != nil ||
+		if volSrc.PersistentVolumeClaim != nil || volSrc.DataVolume != nil ||
 			(volSrc.HostDisk != nil && *volSrc.HostDisk.Shared) {
 			disks.shared[volume.Name] = true
 		}
