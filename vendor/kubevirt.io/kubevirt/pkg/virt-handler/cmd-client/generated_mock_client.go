@@ -72,14 +72,14 @@ func (_mr *_MockLauncherClientRecorder) KillVirtualMachine(arg0 interface{}) *go
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "KillVirtualMachine", arg0)
 }
 
-func (_m *MockLauncherClient) MigrateVirtualMachine(vmi *v1.VirtualMachineInstance) error {
-	ret := _m.ctrl.Call(_m, "MigrateVirtualMachine", vmi)
+func (_m *MockLauncherClient) MigrateVirtualMachine(vmi *v1.VirtualMachineInstance, options *MigrationOptions) error {
+	ret := _m.ctrl.Call(_m, "MigrateVirtualMachine", vmi, options)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
-func (_mr *_MockLauncherClientRecorder) MigrateVirtualMachine(arg0 interface{}) *gomock.Call {
-	return _mr.mock.ctrl.RecordCall(_mr.mock, "MigrateVirtualMachine", arg0)
+func (_mr *_MockLauncherClientRecorder) MigrateVirtualMachine(arg0, arg1 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "MigrateVirtualMachine", arg0, arg1)
 }
 
 func (_m *MockLauncherClient) CancelVirtualMachineMigration(vmi *v1.VirtualMachineInstance) error {

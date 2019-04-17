@@ -70,6 +70,7 @@ func NewController(
 	gracefulShutdownInformer cache.SharedIndexInformer,
 	watchdogTimeoutSeconds int,
 	maxDevices int,
+	clusterConfig *virtconfig.ClusterConfig,
 ) *VirtualMachineController {
 
 	queue := workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter())
@@ -89,6 +90,7 @@ func NewController(
 		watchdogTimeoutSeconds:   watchdogTimeoutSeconds,
 		migrationProxy:           migrationproxy.NewMigrationProxyManager(virtShareDir),
 		podIsolationDetector:     isolation.NewSocketBasedIsolationDetector(virtShareDir),
+		clusterConfig:            clusterConfig,
 	}
 
 	vmiSourceInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
@@ -140,6 +142,7 @@ type VirtualMachineController struct {
 	kvmController            *device_manager.DeviceController
 	migrationProxy           migrationproxy.ProxyManager
 	podIsolationDetector     isolation.PodIsolationDetector
+	clusterConfig            *virtconfig.ClusterConfig
 }
 
 // Determines if a domain's grace period has expired during shutdown.
@@ -1350,7 +1353,12 @@ func (d *VirtualMachineController) processVmUpdate(origVMI *v1.VirtualMachineIns
 				d.recorder.Event(vmi, k8sv1.EventTypeNormal, v1.Migrating.String(), "VirtualMachineInstance is aborting migration.")
 			}
 		} else {
-			err = client.MigrateVirtualMachine(vmi)
+			options := &cmdclient.MigrationOptions{
+				Bandwidth:               *d.clusterConfig.GetMigrationConfig().BandwidthPerMigration,
+				ProgressTimeout:         *d.clusterConfig.GetMigrationConfig().ProgressTimeout,
+				CompletionTimeoutPerGiB: *d.clusterConfig.GetMigrationConfig().CompletionTimeoutPerGiB,
+			}
+			err = client.MigrateVirtualMachine(vmi, options)
 			if err != nil {
 				return err
 			}

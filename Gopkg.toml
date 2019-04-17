@@ -18,10 +18,8 @@ required = [
   version = "=v1.6.0"
 
 [[override]]
-  # TODO: Update once OLM integration is released
   name = "kubevirt.io/kubevirt"
-  #version = "=v0.15.0"
-  branch = "master"
+  version = "=v0.16.0"
 
 [[override]]
   name = "github.com/go-kit/kit"

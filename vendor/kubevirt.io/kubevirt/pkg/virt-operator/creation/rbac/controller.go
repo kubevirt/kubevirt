@@ -128,6 +128,17 @@ func newControllerClusterRole() *rbacv1.ClusterRole {
 		Rules: []rbacv1.PolicyRule{
 			{
 				APIGroups: []string{
+					"policy",
+				},
+				Resources: []string{
+					"poddisruptionbudgets",
+				},
+				Verbs: []string{
+					"get", "list", "watch", "delete", "create",
+				},
+			},
+			{
+				APIGroups: []string{
 					"",
 				},
 				Resources: []string{

@@ -37,6 +37,8 @@ import (
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/record"
 
+	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
+
 	v1 "kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/certificates"
 	"kubevirt.io/kubevirt/pkg/controller"
@@ -149,6 +151,13 @@ func (app *virtHandlerApp) Run() {
 
 	virtlauncher.InitializeSharedDirectories(app.VirtShareDir)
 
+	namespace, err := util.GetNamespace()
+	if err != nil {
+		glog.Fatalf("Error searching for namespace: %v", err)
+	}
+
+	factory := controller.NewKubeInformerFactory(virtCli.RestClient(), virtCli, namespace)
+
 	gracefulShutdownInformer := cache.NewSharedIndexInformer(
 		inotifyinformer.NewFileListWatchFromClient(
 			virtlauncher.GracefulShutdownTriggerDir(app.VirtShareDir)),
@@ -168,6 +177,7 @@ func (app *virtHandlerApp) Run() {
 		gracefulShutdownInformer,
 		int(app.WatchdogTimeoutDuration.Seconds()),
 		app.MaxDevices,
+		virtconfig.NewClusterConfig(factory.ConfigMap().GetStore(), namespace),
 	)
 
 	certsDirectory, err := ioutil.TempDir("", "certsdir")
@@ -175,10 +185,7 @@ func (app *virtHandlerApp) Run() {
 		panic(err)
 	}
 	defer os.RemoveAll(certsDirectory)
-	namespace, err := util.GetNamespace()
-	if err != nil {
-		glog.Fatalf("Error searching for namespace: %v", err)
-	}
+
 	certStore, err := certificates.GenerateSelfSignedCert(certsDirectory, "virt-handler", namespace)
 	if err != nil {
 		glog.Fatalf("unable to generate certificates: %v", err)
@@ -189,6 +196,9 @@ func (app *virtHandlerApp) Run() {
 	// Bootstrapping. From here on the startup order matters
 	stop := make(chan struct{})
 	defer close(stop)
+	factory.Start(stop)
+	cache.WaitForCacheSync(stop, factory.ConfigMap().HasSynced)
+
 	go vmController.Run(3, stop)
 
 	http.Handle("/metrics", promhttp.Handler())

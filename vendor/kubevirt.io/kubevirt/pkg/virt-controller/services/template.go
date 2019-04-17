@@ -70,6 +70,7 @@ const LibvirtStartupDelay = 10
 //to match a VirtualMachineInstance CPU model(Family) and/or features to nodes that support them.
 const NFD_CPU_MODEL_PREFIX = "feature.node.kubernetes.io/cpu-model-"
 const NFD_CPU_FEATURE_PREFIX = "feature.node.kubernetes.io/cpu-feature-"
+const NFD_KVM_INFO_PREFIX = "feature.node.kubernetes.io/kvm-info-cap-hyperv-"
 
 const MULTUS_RESOURCE_NAME_ANNOTATION = "k8s.v1.cni.cncf.io/resourceName"
 const MULTUS_DEFAULT_NETWORK_CNI_ANNOTATION = "v1.multus-cni.io/default-network"
@@ -184,6 +185,43 @@ func IsCPUNodeDiscoveryEnabled(store cache.Store) bool {
 		return true
 	}
 	return false
+}
+
+func isFeatureStateEnabled(fs *v1.FeatureState) bool {
+	return fs != nil && fs.Enabled != nil && *fs.Enabled
+}
+
+func getHypervNodeSelectors(vmi *v1.VirtualMachineInstance) (map[string]string, error) {
+	if vmi.Spec.Domain.Features == nil || vmi.Spec.Domain.Features.Hyperv == nil {
+		return nil, nil
+	}
+
+	nodeSelectors := make(map[string]string)
+	// The following HyperV features don't require support from the host kernel, according to inspection
+	// of the QEMU sources (4.0 - adb3321bfd)
+	// VAPIC, Relaxed, Spinlocks, VendorID
+	// see https://schd.ws/hosted_files/devconfcz2019/cf/vkuznets_enlightening_kvm_devconf2019.pdf
+	// to learn about dependencies between enlightenments
+
+	hyperv := vmi.Spec.Domain.Features.Hyperv // shortcut
+	if isFeatureStateEnabled(hyperv.VPIndex) {
+		nodeSelectors[NFD_KVM_INFO_PREFIX+"vpindex"] = "true"
+	}
+	if isFeatureStateEnabled(hyperv.Runtime) {
+		nodeSelectors[NFD_KVM_INFO_PREFIX+"runtime"] = "true"
+	}
+	if isFeatureStateEnabled(hyperv.Reset) {
+		nodeSelectors[NFD_KVM_INFO_PREFIX+"reset"] = "true"
+	}
+	if isFeatureStateEnabled(hyperv.SyNIC) {
+		nodeSelectors[NFD_KVM_INFO_PREFIX+"synic"] = "true"
+		// TODO: SyNIC depends on vp-index on QEMU level. We should enforce this constraint.
+	}
+	if isFeatureStateEnabled(hyperv.SyNICTimer) {
+		nodeSelectors[NFD_KVM_INFO_PREFIX+"synictimer"] = "true"
+		// TODO: SyNICTimer depends on SyNIC and Relaxed. We should enforce this constraint.
+	}
+	return nodeSelectors, nil
 }
 
 func CPUModelLabelFromCPUModel(vmi *v1.VirtualMachineInstance) (label string, err error) {
@@ -792,6 +830,16 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 		}
 	}
 
+	if virtconfig.HypervStrictCheckEnabled() {
+		hvNodeSelectors, err := getHypervNodeSelectors(vmi)
+		if err != nil {
+			return nil, err
+		}
+		for k, v := range hvNodeSelectors {
+			nodeSelector[k] = v
+		}
+	}
+
 	nodeSelector[v1.NodeSchedulable] = "true"
 	nodeSelectors, err := getNodeSelectors(t.configMapStore)
 	if err != nil {
@@ -923,12 +971,7 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 		SetNodeAffinityForForbiddenFeaturePolicy(vmi, &pod)
 	}
 
-	if vmi.Spec.Tolerations != nil {
-		pod.Spec.Tolerations = []k8sv1.Toleration{}
-		for _, v := range vmi.Spec.Tolerations {
-			pod.Spec.Tolerations = append(pod.Spec.Tolerations, v)
-		}
-	}
+	pod.Spec.Tolerations = vmi.Spec.Tolerations
 
 	if len(serviceAccountName) > 0 {
 		pod.Spec.ServiceAccountName = serviceAccountName
