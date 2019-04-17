@@ -12,7 +12,11 @@ get_sriov_pci_root_addresses() {
 create_pci_string() {
   local quoted_values=($(echo "${pci_addresses[@]}" | xargs printf "\"%s\" "  ))
   local quoted_as_string=${quoted_values[@]}
-  pci_string=${quoted_as_string// /, }
+  if [ "$quoted_as_string" = "\"\"" ]; then
+    pci_string=""
+  else
+    pci_string=${quoted_as_string// /, }
+  fi
 }
 
 sriov_device_plugin() {
