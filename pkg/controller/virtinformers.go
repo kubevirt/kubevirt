@@ -80,6 +80,9 @@ type KubeInformerFactory interface {
 	// VirtualMachineSnapshot handles the snapshots for a VMs
 	VirtualMachineSnapshot() cache.SharedIndexInformer
 
+	// VirtualMachineRestore handles restoring from snapshots for a VMs
+	VirtualMachineRestore() cache.SharedIndexInformer
+
 	// Watches VirtualMachineInstanceMigration objects
 	VirtualMachineInstanceMigration() cache.SharedIndexInformer
 
@@ -278,6 +281,13 @@ func (f *kubeInformerFactory) VirtualMachineSnapshot() cache.SharedIndexInformer
 	return f.getInformer("vmsInformer", func() cache.SharedIndexInformer {
 		lw := cache.NewListWatchFromClient(f.restClient, "virtualmachinesnapshots", k8sv1.NamespaceAll, fields.Everything())
 		return cache.NewSharedIndexInformer(lw, &kubev1.VirtualMachineSnapshot{}, f.defaultResync, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
+	})
+}
+
+func (f *kubeInformerFactory) VirtualMachineRestore() cache.SharedIndexInformer {
+	return f.getInformer("vmrInformer", func() cache.SharedIndexInformer {
+		lw := cache.NewListWatchFromClient(f.restClient, "virtualmachinerestore", k8sv1.NamespaceAll, fields.Everything())
+		return cache.NewSharedIndexInformer(lw, &kubev1.VirtualMachineRestore{}, f.defaultResync, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
 	})
 }
 

@@ -32,7 +32,7 @@ import (
 )
 
 func main() {
-	resourceType := flag.String("type", "", "Type of resource to generate. vmi | vmipreset | vmirs | vm | vmim | kv | rbac | vms")
+	resourceType := flag.String("type", "", "Type of resource to generate. vmi | vmipreset | vmirs | vm | vmim | kv | rbac | vms | vmr")
 	namespace := flag.String("namespace", "kube-system", "Namespace to use.")
 	repository := flag.String("repository", "kubevirt", "Image Repository to use.")
 	version := flag.String("version", "latest", "version to use.")
@@ -56,6 +56,8 @@ func main() {
 		util.MarshallObject(components.NewVirtualMachineInstanceMigrationCrd(), os.Stdout)
 	case "vms":
 		util.MarshallObject(components.NewVirtualMachineSnapshotCrd(), os.Stdout)
+	case "vmr":
+		util.MarshallObject(components.NewVirtualMachineRestoreCrd(), os.Stdout)
 	case "kv":
 		util.MarshallObject(components.NewKubeVirtCrd(), os.Stdout)
 	case "kv-cr":

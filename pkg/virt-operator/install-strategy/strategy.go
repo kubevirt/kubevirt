@@ -195,6 +195,7 @@ func GenerateCurrentInstallStrategy(namespace string,
 	strategy.crds = append(strategy.crds, components.NewVirtualMachineCrd())
 	strategy.crds = append(strategy.crds, components.NewVirtualMachineInstanceMigrationCrd())
 	strategy.crds = append(strategy.crds, components.NewVirtualMachineSnapshotCrd())
+	strategy.crds = append(strategy.crds, components.NewVirtualMachineRestoreCrd())
 
 	rbaclist := make([]interface{}, 0)
 	rbaclist = append(rbaclist, rbac.GetAllCluster(namespace)...)

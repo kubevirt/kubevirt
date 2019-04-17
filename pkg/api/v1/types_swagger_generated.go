@@ -259,6 +259,35 @@ func (VirtualMachineSnapshotCondition) SwaggerDoc() map[string]string {
 	}
 }
 
+func (VirtualMachineRestore) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"":       "VirtualMachineRestore handles the restoring virtual machine from a snapshots\nThe VirtualMachineRestore contains the settings for restoring the virtual machine\nThe name of VirtualMachineRestore must be the same as the name of VirtualMachine\ntargetet for restore. This is important since only one restore can take place.\nAlso when doing new restore, the old object have to be deleted.",
+		"spec":   "Spec contains the specification of VirtualMachineSnapshot created",
+		"status": "Status holds the current state of the controller and information\nabout snapshots and VirtualMachine associated with VirtualMachineSnapshot",
+	}
+}
+
+func (VirtualMachineRestoreList) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"":      "VirtualMachineRestoreList is a list of VirtualMachineRestores",
+		"items": "Items is a list of VirtualMachineSnapshots",
+	}
+}
+
+func (VirtualMachineRestoreSpec) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"":               "VirtualMachineRestoreSpec describes which snapshot should be restored",
+		"virtualMachine": "VirtualMachineSnapshot is a targeted snapshot from",
+	}
+}
+
+func (VirtualMachineRestoreStatus) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"":           "VirtualMachineRestoreStatus represents the status returned by the\ncontroller to describe how the VirtualMachine is doing",
+		"conditions": "Hold the state information of the VirtualMachine and its VirtualMachineInstance",
+	}
+}
+
 func (Handler) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"":          "Handler defines a specific action that should be taken",

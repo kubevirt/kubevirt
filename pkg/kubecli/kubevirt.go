@@ -50,6 +50,7 @@ type KubevirtClient interface {
 	ReplicaSet(namespace string) ReplicaSetInterface
 	VirtualMachine(namespace string) VirtualMachineInterface
 	VirtualMachineSnapshot(namespace string) VirtualMachineSnapshotInterface
+	VirtualMachineRestore(namespace string) VirtualMachineRestoreInterface
 	KubeVirt(namespace string) KubeVirtInterface
 	VirtualMachineInstancePreset(namespace string) VirtualMachineInstancePresetInterface
 	ServerVersion() *ServerVersion
@@ -165,6 +166,15 @@ type VirtualMachineSnapshotInterface interface {
 	Update(*v1.VirtualMachineSnapshot) (*v1.VirtualMachineSnapshot, error)
 	Delete(name string, options *k8smetav1.DeleteOptions) error
 	Patch(name string, pt types.PatchType, data []byte, subresources ...string) (result *v1.VirtualMachineSnapshot, err error)
+}
+
+type VirtualMachineRestoreInterface interface {
+	Get(name string, options k8smetav1.GetOptions) (*v1.VirtualMachineRestore, error)
+	List(opts k8smetav1.ListOptions) (*v1.VirtualMachineRestoreList, error)
+	Create(*v1.VirtualMachineRestore) (*v1.VirtualMachineRestore, error)
+	Update(*v1.VirtualMachineRestore) (*v1.VirtualMachineRestore, error)
+	Delete(name string, options *k8smetav1.DeleteOptions) error
+	Patch(name string, pt types.PatchType, data []byte, subresources ...string) (result *v1.VirtualMachineRestore, err error)
 }
 
 type VirtualMachineInstanceMigrationInterface interface {

@@ -60,8 +60,16 @@ func NewMinimalVirtualMachineSnapshot(name string) *v1.VirtualMachineSnapshot {
 	return &v1.VirtualMachineSnapshot{TypeMeta: k8smetav1.TypeMeta{APIVersion: v1.GroupVersion.String(), Kind: "VirtualMachineSnapshot"}, ObjectMeta: k8smetav1.ObjectMeta{Name: name}}
 }
 
+func NewMinimalVirtualMachineRestore(name string) *v1.VirtualMachineRestore {
+	return &v1.VirtualMachineRestore{TypeMeta: k8smetav1.TypeMeta{APIVersion: v1.GroupVersion.String(), Kind: "VirtualMachineRestore"}, ObjectMeta: k8smetav1.ObjectMeta{Name: name}}
+}
+
 func NewVirtualMachineSnapshotList(ss ...v1.VirtualMachineSnapshot) *v1.VirtualMachineSnapshotList {
 	return &v1.VirtualMachineSnapshotList{TypeMeta: k8smetav1.TypeMeta{APIVersion: v1.GroupVersion.String(), Kind: "VirtualMachineSnapshotList"}, Items: ss}
+}
+
+func NewVirtualMachineRestoreList(ss ...v1.VirtualMachineRestore) *v1.VirtualMachineRestoreList {
+	return &v1.VirtualMachineRestoreList{TypeMeta: k8smetav1.TypeMeta{APIVersion: v1.GroupVersion.String(), Kind: "VirtualMachineRestoreList"}, Items: ss}
 }
 
 func NewMinimalKubeVirt(name string) *v1.KubeVirt {

@@ -50,6 +50,7 @@ func CreateCRDs(clientset kubecli.KubevirtClient, kv *virtv1.KubeVirt, stores ut
 		NewPresetCrd(),
 		NewVirtualMachineInstanceMigrationCrd(),
 		NewVirtualMachineSnapshotCrd(),
+		NewVirtualMachineRestoreCrd(),
 	}
 
 	for _, crd := range crds {
@@ -230,6 +231,29 @@ func NewVirtualMachineSnapshotCrd() *extv1beta1.CustomResourceDefinition {
 			Singular:   "virtualmachinesnapshot",
 			Kind:       virtv1.VirtualMachineSnapshotGroupVersionKind.Kind,
 			ShortNames: []string{"vmss", "vmsnaps"},
+		},
+		AdditionalPrinterColumns: []extv1beta1.CustomResourceColumnDefinition{
+			{Name: "Age", Type: "date", JSONPath: ".metadata.creationTimestamp"},
+		},
+	}
+
+	return crd
+}
+
+func NewVirtualMachineRestoreCrd() *extv1beta1.CustomResourceDefinition {
+	crd := newBlankCrd()
+
+	crd.ObjectMeta.Name = "virtualmachinerestores." + virtv1.VirtualMachineRestoreGroupVersionKind.Group
+	crd.Spec = extv1beta1.CustomResourceDefinitionSpec{
+		Group:   virtv1.VirtualMachineRestoreGroupVersionKind.Group,
+		Version: virtv1.VirtualMachineRestoreGroupVersionKind.Version,
+		Scope:   "Namespaced",
+
+		Names: extv1beta1.CustomResourceDefinitionNames{
+			Plural:     "virtualmachinerestores",
+			Singular:   "virtualmachinerestore",
+			Kind:       virtv1.VirtualMachineRestoreGroupVersionKind.Kind,
+			ShortNames: []string{"vmrs", "vmrest"},
 		},
 		AdditionalPrinterColumns: []extv1beta1.CustomResourceColumnDefinition{
 			{Name: "Age", Type: "date", JSONPath: ".metadata.creationTimestamp"},

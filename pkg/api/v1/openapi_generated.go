@@ -115,6 +115,10 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"kubevirt.io/kubevirt/pkg/api/v1.VirtualMachineInstanceStatus":              schema_kubevirt_pkg_api_v1_VirtualMachineInstanceStatus(ref),
 		"kubevirt.io/kubevirt/pkg/api/v1.VirtualMachineInstanceTemplateSpec":        schema_kubevirt_pkg_api_v1_VirtualMachineInstanceTemplateSpec(ref),
 		"kubevirt.io/kubevirt/pkg/api/v1.VirtualMachineList":                        schema_kubevirt_pkg_api_v1_VirtualMachineList(ref),
+		"kubevirt.io/kubevirt/pkg/api/v1.VirtualMachineRestore":                     schema_kubevirt_pkg_api_v1_VirtualMachineRestore(ref),
+		"kubevirt.io/kubevirt/pkg/api/v1.VirtualMachineRestoreList":                 schema_kubevirt_pkg_api_v1_VirtualMachineRestoreList(ref),
+		"kubevirt.io/kubevirt/pkg/api/v1.VirtualMachineRestoreSpec":                 schema_kubevirt_pkg_api_v1_VirtualMachineRestoreSpec(ref),
+		"kubevirt.io/kubevirt/pkg/api/v1.VirtualMachineRestoreStatus":               schema_kubevirt_pkg_api_v1_VirtualMachineRestoreStatus(ref),
 		"kubevirt.io/kubevirt/pkg/api/v1.VirtualMachineSnapshot":                    schema_kubevirt_pkg_api_v1_VirtualMachineSnapshot(ref),
 		"kubevirt.io/kubevirt/pkg/api/v1.VirtualMachineSnapshotCondition":           schema_kubevirt_pkg_api_v1_VirtualMachineSnapshotCondition(ref),
 		"kubevirt.io/kubevirt/pkg/api/v1.VirtualMachineSnapshotList":                schema_kubevirt_pkg_api_v1_VirtualMachineSnapshotList(ref),
@@ -3318,6 +3322,151 @@ func schema_kubevirt_pkg_api_v1_VirtualMachineList(ref common.ReferenceCallback)
 		},
 		Dependencies: []string{
 			"k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta", "kubevirt.io/kubevirt/pkg/api/v1.VirtualMachine"},
+	}
+}
+
+func schema_kubevirt_pkg_api_v1_VirtualMachineRestore(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "VirtualMachineRestore handles the restoring virtual machine from a snapshots The VirtualMachineRestore contains the settings for restoring the virtual machine The name of VirtualMachineRestore must be the same as the name of VirtualMachine targetet for restore. This is important since only one restore can take place. Also when doing new restore, the old object have to be deleted.",
+				Properties: map[string]spec.Schema{
+					"kind": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#types-kinds",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"apiVersion": {
+						SchemaProps: spec.SchemaProps{
+							Description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#resources",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"metadata": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"),
+						},
+					},
+					"spec": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Spec contains the specification of VirtualMachineSnapshot created",
+							Ref:         ref("kubevirt.io/kubevirt/pkg/api/v1.VirtualMachineRestoreSpec"),
+						},
+					},
+					"status": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Status holds the current state of the controller and information about snapshots and VirtualMachine associated with VirtualMachineSnapshot",
+							Ref:         ref("kubevirt.io/kubevirt/pkg/api/v1.VirtualMachineRestoreStatus"),
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			"k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta", "kubevirt.io/kubevirt/pkg/api/v1.VirtualMachineRestoreSpec", "kubevirt.io/kubevirt/pkg/api/v1.VirtualMachineRestoreStatus"},
+	}
+}
+
+func schema_kubevirt_pkg_api_v1_VirtualMachineRestoreList(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "VirtualMachineRestoreList is a list of VirtualMachineRestores",
+				Properties: map[string]spec.Schema{
+					"kind": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#types-kinds",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"apiVersion": {
+						SchemaProps: spec.SchemaProps{
+							Description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#resources",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"metadata": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta"),
+						},
+					},
+					"items": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Items is a list of VirtualMachineSnapshots",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Ref: ref("kubevirt.io/kubevirt/pkg/api/v1.VirtualMachineRestore"),
+									},
+								},
+							},
+						},
+					},
+				},
+				Required: []string{"metadata", "items"},
+			},
+		},
+		Dependencies: []string{
+			"k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta", "kubevirt.io/kubevirt/pkg/api/v1.VirtualMachineRestore"},
+	}
+}
+
+func schema_kubevirt_pkg_api_v1_VirtualMachineRestoreSpec(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "VirtualMachineRestoreSpec describes which snapshot should be restored",
+				Properties: map[string]spec.Schema{
+					"virtualMachine": {
+						SchemaProps: spec.SchemaProps{
+							Description: "VirtualMachineSnapshot is a targeted snapshot from",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+				},
+				Required: []string{"virtualMachine"},
+			},
+		},
+		Dependencies: []string{},
+	}
+}
+
+func schema_kubevirt_pkg_api_v1_VirtualMachineRestoreStatus(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "VirtualMachineRestoreStatus represents the status returned by the controller to describe how the VirtualMachine is doing",
+				Properties: map[string]spec.Schema{
+					"restoredOn": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("k8s.io/apimachinery/pkg/apis/meta/v1.Time"),
+						},
+					},
+					"conditions": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Hold the state information of the VirtualMachine and its VirtualMachineInstance",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Ref: ref("kubevirt.io/kubevirt/pkg/api/v1.VirtualMachineSnapshotCondition"),
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			"k8s.io/apimachinery/pkg/apis/meta/v1.Time", "kubevirt.io/kubevirt/pkg/api/v1.VirtualMachineSnapshotCondition"},
 	}
 }
 

@@ -64,6 +64,12 @@ var VirtualMachineSnapshotGroupVersionResource = metav1.GroupVersionResource{
 	Resource: "virtualmachinesnapshots",
 }
 
+var VirtualMachineRestoreGroupVersionResource = metav1.GroupVersionResource{
+	Group:    v1.VirtualMachineRestoreGroupVersionKind.Group,
+	Version:  v1.VirtualMachineRestoreGroupVersionKind.Version,
+	Resource: "virtualmachinerestores",
+}
+
 var VirtualMachineInstancePresetGroupVersionResource = metav1.GroupVersionResource{
 	Group:    v1.VirtualMachineInstancePresetGroupVersionKind.Group,
 	Version:  v1.VirtualMachineInstancePresetGroupVersionKind.Version,

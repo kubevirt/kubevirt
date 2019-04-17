@@ -71,6 +71,8 @@ var VirtualMachineInstanceMigrationGroupVersionKind = schema.GroupVersionKind{Gr
 
 var VirtualMachineSnapshotGroupVersionKind = schema.GroupVersionKind{Group: GroupName, Version: GroupVersion.Version, Kind: "VirtualMachineSnapshot"}
 
+var VirtualMachineRestoreGroupVersionKind = schema.GroupVersionKind{Group: GroupName, Version: GroupVersion.Version, Kind: "VirtualMachineRestore"}
+
 var KubeVirtGroupVersionKind = schema.GroupVersionKind{Group: GroupName, Version: GroupVersion.Version, Kind: "KubeVirt"}
 
 // Adds the list of known types to api.Scheme.
@@ -91,6 +93,8 @@ func addKnownTypes(scheme *runtime.Scheme) error {
 		&VirtualMachineList{},
 		&VirtualMachineSnapshot{},
 		&VirtualMachineSnapshotList{},
+		&VirtualMachineRestore{},
+		&VirtualMachineRestoreList{},
 		&KubeVirt{},
 		&KubeVirtList{},
 	)
@@ -1153,6 +1157,65 @@ const (
 	// VirtualMachineSnapshotVMVolumeFailure signals Volume snapshot failed due to an error
 	VirtualMachineSnapshotVolumeFailure VirtualMachineSnapshotConditionType = "Failure"
 )
+
+// VirtualMachineRestore handles the restoring virtual machine from a snapshots
+// The VirtualMachineRestore contains the settings for restoring the virtual machine
+// The name of VirtualMachineRestore must be the same as the name of VirtualMachine
+// targetet for restore. This is important since only one restore can take place.
+// Also when doing new restore, the old object have to be deleted.
+// ---
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+// +k8s:openapi-gen=true
+type VirtualMachineRestore struct {
+	metav1.TypeMeta   `json:",inline"`
+	metav1.ObjectMeta `json:"metadata,omitempty"`
+
+	// Spec contains the specification of VirtualMachineSnapshot created
+	Spec VirtualMachineRestoreSpec `json:"spec,omitempty"`
+	// Status holds the current state of the controller and information
+	// about snapshots and VirtualMachine associated with VirtualMachineSnapshot
+	Status VirtualMachineRestoreStatus `json:"status,omitempty"`
+}
+
+// VirtualMachineRestoreList is a list of VirtualMachineRestores
+// ---
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+// +k8s:openapi-gen=true
+type VirtualMachineRestoreList struct {
+	metav1.TypeMeta `json:",inline"`
+	metav1.ListMeta `json:"metadata"`
+
+	// Items is a list of VirtualMachineSnapshots
+	Items []VirtualMachineRestore `json:"items"`
+}
+
+// VirtualMachineRestoreSpec describes which snapshot should be restored
+// ---
+// +k8s:openapi-gen=true
+type VirtualMachineRestoreSpec struct {
+	// VirtualMachineSnapshot is a targeted snapshot from
+	VirtualMachineSnapshot string `json:"virtualMachine"`
+}
+
+// VirtualMachineRestoreStatus represents the status returned by the
+// controller to describe how the VirtualMachine is doing
+// ---
+// +k8s:openapi-gen=true
+type VirtualMachineRestoreStatus struct {
+	RestoredOn metav1.Time `json:"restoredOn,omitempty"`
+	// Hold the state information of the VirtualMachine and its VirtualMachineInstance
+	Conditions []VirtualMachineSnapshotCondition `json:"conditions,omitempty" optional:"true"`
+}
+
+// GetObjectKind is required to satisfy Object interface
+func (v *VirtualMachineRestore) GetObjectKind() schema.ObjectKind {
+	return &v.TypeMeta
+}
+
+// GetObjectMeta is required to satisfy ObjectMetaAccessor interface
+func (v *VirtualMachineRestore) GetObjectMeta() metav1.Object {
+	return &v.ObjectMeta
+}
 
 // ---
 // +k8s:openapi-gen=true
