@@ -196,12 +196,10 @@ type hvFeatureLabel struct {
 	Label   string
 }
 
-func getHypervNodeSelectors(vmi *v1.VirtualMachineInstance) (map[string]string, error) {
-	if vmi.Spec.Domain.Features == nil || vmi.Spec.Domain.Features.Hyperv == nil {
-		return nil, nil
-	}
-
-	nodeSelectors := make(map[string]string)
+// makeHVFeatureLabelTable creates the mapping table between the VMI hyperv state and the label names.
+// The table needs pointers to v1.FeatureHyperv struct, so it has to be generated and can't be a
+// static var
+func makeHVFeatureLabelTable(vmi *v1.VirtualMachineInstance) []hvFeatureLabel {
 	// The following HyperV features don't require support from the host kernel, according to inspection
 	// of the QEMU sources (4.0 - adb3321bfd)
 	// VAPIC, Relaxed, Spinlocks, VendorID
@@ -215,7 +213,7 @@ func getHypervNodeSelectors(vmi *v1.VirtualMachineInstance) (map[string]string, 
 	// to learn about dependencies between enlightenments
 
 	hyperv := vmi.Spec.Domain.Features.Hyperv // shortcut
-	hvFeatureLabels := []hvFeatureLabel{
+	return []hvFeatureLabel{
 		hvFeatureLabel{
 			Feature: hyperv.VPIndex,
 			Label:   "vpindex",
@@ -255,12 +253,21 @@ func getHypervNodeSelectors(vmi *v1.VirtualMachineInstance) (map[string]string, 
 			Label:   "ipi",
 		},
 	}
+}
+
+func getHypervNodeSelectors(vmi *v1.VirtualMachineInstance) map[string]string {
+	nodeSelectors := make(map[string]string)
+	if vmi.Spec.Domain.Features == nil || vmi.Spec.Domain.Features.Hyperv == nil {
+		return nodeSelectors
+	}
+
+	hvFeatureLabels := makeHVFeatureLabelTable(vmi)
 	for _, hv := range hvFeatureLabels {
 		if isFeatureStateEnabled(hv.Feature) {
 			nodeSelectors[NFD_KVM_INFO_PREFIX+hv.Label] = "true"
 		}
 	}
-	return nodeSelectors, nil
+	return nodeSelectors
 }
 
 func CPUModelLabelFromCPUModel(vmi *v1.VirtualMachineInstance) (label string, err error) {
@@ -870,10 +877,7 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 	}
 
 	if virtconfig.HypervStrictCheckEnabled() {
-		hvNodeSelectors, err := getHypervNodeSelectors(vmi)
-		if err != nil {
-			return nil, err
-		}
+		hvNodeSelectors := getHypervNodeSelectors(vmi)
 		for k, v := range hvNodeSelectors {
 			nodeSelector[k] = v
 		}
