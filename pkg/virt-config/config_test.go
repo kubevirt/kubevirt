@@ -1,6 +1,8 @@
 package virtconfig
 
 import (
+	"strings"
+
 	. "github.com/onsi/ginkgo"
 	"github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
@@ -128,6 +130,23 @@ var _ = Describe("ConfigMap", func() {
 	},
 		table.Entry("when set, it should return the value", "512Mi", "512Mi"),
 		table.Entry("when unset, it should return the default", "", DefaultMemoryRequest),
+	)
+
+	table.DescribeTable(" when emulatedMachines", func(value string, result []string) {
+		cfgMap := kubev1.ConfigMap{
+			ObjectMeta: metav1.ObjectMeta{
+				ResourceVersion: "1234",
+				Namespace:       "kubevirt",
+				Name:            "kubevirt-config",
+			},
+			Data: map[string]string{emulatedMachinesKey: value},
+		}
+		clusterConfig, _ := MakeClusterConfig([]kubev1.ConfigMap{cfgMap}, stopChan)
+		emulatedMachines := clusterConfig.GetEmulatedMachines()
+		Expect(emulatedMachines).To(ConsistOf(result))
+	},
+		table.Entry("when set, it should return the value", "q35, i440*", []string{"q35", "i440*"}),
+		table.Entry("when unset, it should return the defaults", "", strings.Split(DefaultEmulatedMachines, ",")),
 	)
 
 	It("Should return migration config values if specified as json", func() {

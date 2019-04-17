@@ -743,7 +743,10 @@ func ValidateVirtualMachineInstanceSpec(field *k8sfield.Path, spec *v1.VirtualMa
 	// Validate emulated machine
 	if len(spec.Domain.Machine.Type) > 0 {
 		machine := spec.Domain.Machine.Type
-		supportedMachines := virtconfig.SupportedEmulatedMachines()
+		informers := webhooks.GetInformers()
+		namespace, _ := util.GetNamespace()
+		config := virtconfig.NewClusterConfig(informers.ConfigMapInformer.GetStore(), namespace)
+		supportedMachines := config.GetEmulatedMachines()
 		var match = false
 		for _, val := range supportedMachines {
 			if regexp.MustCompile(val).MatchString(machine) {
