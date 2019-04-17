@@ -113,6 +113,23 @@ var _ = Describe("ConfigMap", func() {
 		table.Entry("when unset, it should return the default", "", DefaultCPURequest),
 	)
 
+	table.DescribeTable(" when memoryRequest", func(value string, result string) {
+		cfgMap := kubev1.ConfigMap{
+			ObjectMeta: metav1.ObjectMeta{
+				ResourceVersion: "1234",
+				Namespace:       "kubevirt",
+				Name:            "kubevirt-config",
+			},
+			Data: map[string]string{memoryRequestKey: value},
+		}
+		clusterConfig, _ := MakeClusterConfig([]kubev1.ConfigMap{cfgMap}, stopChan)
+		memoryRequest := clusterConfig.GetMemoryRequest()
+		Expect(memoryRequest.String()).To(Equal(result))
+	},
+		table.Entry("when set, it should return the value", "512Mi", "512Mi"),
+		table.Entry("when unset, it should return the default", "", DefaultMemoryRequest),
+	)
+
 	It("Should return migration config values if specified as json", func() {
 		cfgMap := kubev1.ConfigMap{
 			ObjectMeta: metav1.ObjectMeta{

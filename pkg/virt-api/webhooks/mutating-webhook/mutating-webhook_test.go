@@ -48,6 +48,8 @@ var _ = Describe("Mutating Webhook", func() {
 		limitMemory, _ := resource.ParseQuantity("128M")
 		cpuModelFromConfig := "Haswell"
 		machineTypeFromConfig := "pc-q35-3.0"
+		cpuRequestFromConfig := resource.MustParse("800m")
+		memoryRequestFromConfig := resource.MustParse("256Mi")
 
 		getVMISpecMetaFromResponse := func() (*v1.VirtualMachineInstanceSpec, *k8smetav1.ObjectMeta) {
 			vmiBytes, err := json.Marshal(vmi)
@@ -152,8 +154,11 @@ var _ = Describe("Mutating Webhook", func() {
 		It("should apply configurable defaults on VMI create", func() {
 			setDefaultCPUModel(vmi, cpuModelFromConfig)
 			setDefaultMachineType(vmi, machineTypeFromConfig)
+			setDefaultResourceRequests(vmi, memoryRequestFromConfig, cpuRequestFromConfig)
 			Expect(vmi.Spec.Domain.CPU.Model).To(Equal(cpuModelFromConfig))
 			Expect(vmi.Spec.Domain.Machine.Type).To(Equal(machineTypeFromConfig))
+			Expect(vmi.Spec.Domain.Resources.Requests.Cpu().String()).To(Equal("800m"))
+			Expect(vmi.Spec.Domain.Resources.Requests.Memory().String()).To(Equal("256Mi"))
 		})
 
 		It("should not override specified properties with defaults on VMI create", func() {

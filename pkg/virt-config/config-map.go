@@ -51,6 +51,7 @@ const (
 	migrationsConfigKey    = "migrations"
 	cpuModelKey            = "default-cpu-model"
 	cpuRequestKey          = "cpu-request"
+	memoryRequestKey       = "memory-request"
 
 	ParallelOutboundMigrationsPerNodeDefault uint32 = 2
 	ParallelMigrationsPerClusterDefault      uint32 = 5
@@ -59,6 +60,7 @@ const (
 	MigrationCompletionTimeoutPerGiB         int64  = 800
 	DefaultMachineType                              = "q35"
 	DefaultCPURequest                               = "100m"
+	DefaultMemoryRequest                            = "8Mi"
 
 	NodeDrainTaintDefaultKey = "kubevirt.io/drain"
 )
@@ -144,6 +146,7 @@ func defaultClusterConfig() *Config {
 	progressTimeout := MigrationProgressTimeout
 	completionTimeoutPerGiB := MigrationCompletionTimeoutPerGiB
 	cpuRequestDefault := resource.MustParse(DefaultCPURequest)
+	memoryRequestDefault := resource.MustParse(DefaultMemoryRequest)
 	return &Config{
 		ResourceVersion: "0",
 		ImagePullPolicy: k8sv1.PullIfNotPresent,
@@ -157,8 +160,9 @@ func defaultClusterConfig() *Config {
 			CompletionTimeoutPerGiB:           &completionTimeoutPerGiB,
 			UnsafeMigrationOverride:           false,
 		},
-		MachineType: DefaultMachineType,
-		CPURequest:  cpuRequestDefault,
+		MachineType:   DefaultMachineType,
+		CPURequest:    cpuRequestDefault,
+		MemoryRequest: memoryRequestDefault,
 	}
 }
 
@@ -170,6 +174,7 @@ type Config struct {
 	MachineType     string
 	CPUModel        string
 	CPURequest      resource.Quantity
+	MemoryRequest   resource.Quantity
 }
 
 type MigrationConfig struct {
@@ -213,6 +218,10 @@ func (c *ClusterConfig) GetCPUModel() string {
 
 func (c *ClusterConfig) GetCPURequest() resource.Quantity {
 	return c.getConfig().CPURequest
+}
+
+func (c *ClusterConfig) GetMemoryRequest() resource.Quantity {
+	return c.getConfig().MemoryRequest
 }
 
 // setConfig parses the provided config map and updates the provided config.
@@ -271,6 +280,10 @@ func setConfig(config *Config, configMap *k8sv1.ConfigMap) error {
 
 	if cpuRequest := strings.TrimSpace(configMap.Data[cpuRequestKey]); cpuRequest != "" {
 		config.CPURequest = resource.MustParse(cpuRequest)
+	}
+
+	if memoryRequest := strings.TrimSpace(configMap.Data[memoryRequestKey]); memoryRequest != "" {
+		config.MemoryRequest = resource.MustParse(memoryRequest)
 	}
 
 	return nil
