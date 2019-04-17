@@ -406,7 +406,7 @@ loop:
 
 	defer close(stopChan)
 	Expect(tests.ForwardPorts(pod, []string{fmt.Sprintf("4321:%v", metricsPort.ContainerPort)}, stopChan, 10*time.Second)).To(Succeed())
-	resp, err := tests.GetK8sHTTPClient().Get(fmt.Sprintf("https://localhost:%s/metrics", "4321"))
+	resp, err := tests.NewK8sHTTPClient().Get(fmt.Sprintf("https://localhost:%s/metrics", "4321"))
 	Expect(err).ToNot(HaveOccurred())
 	data, err := ioutil.ReadAll(resp.Body)
 	Expect(err).ToNot(HaveOccurred())

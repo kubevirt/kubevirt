@@ -3529,9 +3529,8 @@ func GetRandomVirtController(namespace string) (pod *k8sv1.Pod, err error) {
 	return GetRandomKubeVirtComponent(namespace, "virt-controller")
 }
 
-// GetK8sHTTPClient return a http client which can use and verify connections over kubectl-like forwarded ports
-func GetK8sHTTPClient() *http.Client {
-	transport := &http.Transport{TLSClientConfig: &tls.Config{
+func NewTLSConfig() *tls.Config {
+	return &tls.Config{
 		RootCAs:            ClusterCA,
 		ClientCAs:          ClusterCA,
 		InsecureSkipVerify: true,
@@ -3549,7 +3548,14 @@ func GetK8sHTTPClient() *http.Client {
 			}
 			return nil
 		},
-	}}
+	}
+}
 
-	return &http.Client{Transport: transport}
+// NewK8sHTTPClient return a http client which can use and verify connections over kubectl-like forwarded ports
+func NewK8sHTTPClient() *http.Client {
+	transport := &http.Transport{TLSClientConfig: NewTLSConfig()}
+
+	client := &http.Client{Transport: transport}
+	client.Timeout = 1 * time.Second
+	return client
 }
