@@ -25,6 +25,7 @@ import (
 	"crypto/rand"
 	"encoding/json"
 	"fmt"
+	"os/exec"
 
 	"io/ioutil"
 	"net"
@@ -83,6 +84,7 @@ type NetworkHandler interface {
 	StartDHCP(nic *VIF, serverAddr *netlink.Addr, bridgeInterfaceName string, dhcpOptions *v1.DHCPOptions)
 	IptablesNewChain(table, chain string) error
 	IptablesAppendRule(table, chain string, rulespec ...string) error
+	NeighDelete(iface, macAddress string) error
 }
 
 type NetworkUtilsHandler struct{}
@@ -252,6 +254,15 @@ func (h *NetworkUtilsHandler) GenerateRandomMac() (net.HardwareAddr, error) {
 		return nil, err
 	}
 	return net.HardwareAddr(append(prefix, suffix...)), nil
+}
+
+func (h *NetworkUtilsHandler) NeighDelete(iface, macAddress string) error {
+	// Todo: (schSeba) Change this with netlink function when available
+	// PR: https://github.com/vishvananda/netlink/issues/439
+	cmd := exec.Command("bridge", "fdb", "delete", macAddress, "dev", iface, "master")
+	_, err := cmd.CombinedOutput()
+
+	return err
 }
 
 // Allow mocking for tests

@@ -224,3 +224,13 @@ func (_mr *_MockNetworkHandlerRecorder) IptablesAppendRule(arg0, arg1 interface{
 	_s := append([]interface{}{arg0, arg1}, arg2...)
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "IptablesAppendRule", _s...)
 }
+
+func (_m *MockNetworkHandler) NeighDelete(iface string, macAddress string) error {
+	ret := _m.ctrl.Call(_m, "NeighDelete", iface, macAddress)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+func (_mr *_MockNetworkHandlerRecorder) NeighDelete(arg0, arg1 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "NeighDelete", arg0, arg1)
+}

@@ -320,17 +320,6 @@ var _ = Describe("Multus", func() {
 					&expect.BExp{R: "1"},
 				}, 15)
 				Expect(err).ToNot(HaveOccurred())
-
-				By("Verifying the desired custom MAC is not configured inside the pod namespace.")
-				vmiPod := tests.GetRunningPodByVirtualMachineInstance(vmiOne, tests.NamespaceTestDefault)
-				out, err := tests.ExecuteCommandOnPod(
-					virtClient,
-					vmiPod,
-					"compute",
-					[]string{"sh", "-c", "ip a"},
-				)
-				Expect(err).ToNot(HaveOccurred())
-				Expect(strings.Contains(out, customMacAddress)).To(BeFalse())
 			},
 				table.Entry("when not using tuning plugin", "ptp-conf"),
 				table.Entry("when using tuning plugin", "ptp-conf-tuning"),
@@ -552,17 +541,6 @@ var _ = Describe("Multus", func() {
 					&expect.BExp{R: "1"},
 				}, 15)
 				Expect(err).ToNot(HaveOccurred())
-
-				By("Verifying the desired custom MAC is not configured inside the pod namespace.")
-				vmiPod := tests.GetRunningPodByVirtualMachineInstance(vmiOne, tests.NamespaceTestDefault)
-				out, err := tests.ExecuteCommandOnPod(
-					virtClient,
-					vmiPod,
-					"compute",
-					[]string{"sh", "-c", "ip a"},
-				)
-				Expect(err).ToNot(HaveOccurred())
-				Expect(strings.Contains(out, customMacAddress)).To(BeFalse())
 
 				By("Ping from the VM with the custom MAC to the other VM.")
 				pingVirtualMachine(vmiOne, "10.1.1.2", "localhost:~#")
