@@ -24,7 +24,7 @@ source hack/config.sh
 
 skipj2=false
 if [ "$1" == "--skipj2" ]; then
-  skipj2=true
+    skipj2=true
 fi
 
 manifest_docker_prefix=${manifest_docker_prefix-${docker_prefix}}
@@ -82,9 +82,9 @@ for arg in $args; do
         --bundle-out-dir=${bundle_out_dir} \
         --quay-repository=${QUAY_REPOSITORY} >${outfile}
 
-    if [ "$skipj2" = true ] ; then
-      echo "skipping j2 template for $infile"
-      continue
+    if [ "$skipj2" = true ]; then
+        echo "skipping j2 template for $infile"
+        continue
     fi
 
     ${KUBEVIRT_DIR}/tools/manifest-templator/manifest-templator \
@@ -109,8 +109,8 @@ done
 find ${MANIFESTS_OUT_DIR}/ -type f -exec sed -i {} -e '${/^$/d;}' \;
 find ${MANIFEST_TEMPLATES_OUT_DIR}/ -type f -exec sed -i {} -e '${/^$/d;}' \;
 
-if [ "$skipj2" = true ] ; then
-  exit 0
+if [ "$skipj2" = true ]; then
+    exit 0
 fi
 
 # make sure that template manifests align with release manifests
