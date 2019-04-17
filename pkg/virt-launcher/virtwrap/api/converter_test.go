@@ -155,7 +155,7 @@ var _ = Describe("Converter", func() {
 				},
 			}
 			vmi.Spec.Domain.Resources.Limits = make(k8sv1.ResourceList)
-			vmi.Spec.Domain.Resources.Requests = make(k8sv1.ResourceList)
+			vmi.Spec.Domain.Resources.Requests = k8sv1.ResourceList{k8sv1.ResourceMemory: resource.MustParse("8192Ki")}
 			vmi.Spec.Domain.Devices.Inputs = []v1.Input{
 				{
 					Bus:  "virtio",
@@ -1435,7 +1435,10 @@ var _ = Describe("Converter", func() {
 			}
 
 			vmi.Spec.Domain.Devices.BlockMultiQueue = True()
-			vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceCPU] = resource.MustParse("2")
+			vmi.Spec.Domain.Resources.Requests = k8sv1.ResourceList{
+				k8sv1.ResourceMemory: resource.MustParse("8192Ki"),
+				k8sv1.ResourceCPU:    resource.MustParse("2"),
+			}
 		})
 
 		It("should assign queues to a device if requested", func() {
@@ -1556,7 +1559,10 @@ var _ = Describe("Converter", func() {
 			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
 
 			vmi.Spec.Domain.Devices.NetworkInterfaceMultiQueue = True()
-			vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceCPU] = resource.MustParse("2")
+			vmi.Spec.Domain.Resources.Requests = k8sv1.ResourceList{
+				k8sv1.ResourceMemory: resource.MustParse("8192Ki"),
+				k8sv1.ResourceCPU:    resource.MustParse("2"),
+			}
 		})
 
 		It("should assign queues to a device if requested", func() {
