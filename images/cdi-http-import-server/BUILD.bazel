@@ -15,6 +15,7 @@ rpm_image(
         "@libstdc//file",
         "@capstone//file",
         "@libaio//file",
+        "@e2fsprogs//file",
     ],
 )
 
