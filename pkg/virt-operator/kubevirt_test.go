@@ -96,7 +96,6 @@ var _ = Describe("KubeVirt Operator", func() {
 
 	defaultImageTag := "v9.9.9"
 	defaultRegistry := "someregistry"
-	os.Setenv(util.OperatorImageEnvName, fmt.Sprintf("%s/virt-operator:%s", defaultRegistry, defaultImageTag))
 
 	var totalAdds int
 	var totalUpdates int
@@ -155,6 +154,8 @@ var _ = Describe("KubeVirt Operator", func() {
 	}
 
 	BeforeEach(func() {
+
+		os.Setenv(util.OperatorImageEnvName, fmt.Sprintf("%s/virt-operator:%s", defaultRegistry, defaultImageTag))
 
 		totalAdds = 0
 		totalUpdates = 0
@@ -1426,6 +1427,76 @@ var _ = Describe("KubeVirt Operator", func() {
 			// this prevents the new API from coming online until the controllers can manage it.
 			Expect(totalPatches).To(Equal(patchCount - 1))
 			Expect(totalUpdates).To(Equal(updateCount))
+		}, 15)
+
+		It("should update kubevirt resources when Operator version changes if no imageTag and imageRegistry is explicilty set.", func(done Done) {
+			defer close(done)
+
+			updatedVersion := "1.1.1"
+			updatedRegistry := "otherregistry"
+
+			os.Setenv(util.OperatorImageEnvName, fmt.Sprintf("%s/virt-operator:%s", updatedRegistry, updatedVersion))
+
+			controller.config = util.GetConfig()
+
+			kv := &v1.KubeVirt{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:       "test-install",
+					Namespace:  NAMESPACE,
+					Finalizers: []string{util.KubeVirtFinalizer},
+				},
+				Spec: v1.KubeVirtSpec{},
+				Status: v1.KubeVirtStatus{
+					Phase: v1.KubeVirtPhaseDeployed,
+					Conditions: []v1.KubeVirtCondition{
+						{
+							Type:    v1.KubeVirtConditionCreated,
+							Status:  k8sv1.ConditionTrue,
+							Reason:  ConditionReasonDeploymentCreated,
+							Message: "All resources were created.",
+						},
+						{
+							Type:    v1.KubeVirtConditionReady,
+							Status:  k8sv1.ConditionTrue,
+							Reason:  ConditionReasonDeploymentReady,
+							Message: "All components are ready.",
+						},
+					},
+					OperatorVersion:          version.Get().String(),
+					TargetKubeVirtVersion:    defaultImageTag,
+					TargetKubeVirtRegistry:   defaultRegistry,
+					ObservedKubeVirtVersion:  defaultImageTag,
+					ObservedKubeVirtRegistry: defaultRegistry,
+				},
+			}
+
+			// create all resources which should already exist
+			addKubeVirt(kv)
+			addInstallStrategy(defaultImageTag, defaultRegistry)
+			addInstallStrategy(updatedVersion, updatedRegistry)
+
+			addAll(defaultImageTag, defaultRegistry)
+			addPods(defaultImageTag, defaultRegistry)
+
+			// pods for the new version are added so this test won't
+			// wait for daemonsets to rollover before updating/patching
+			// all resources.
+			addPods(updatedVersion, updatedRegistry)
+
+			makeApiAndControllerReady()
+			makeHandlerReady()
+
+			shouldExpectPatchesAndUpdates()
+			shouldExpectKubeVirtUpdate(1)
+
+			controller.Execute()
+
+			Expect(totalPatches).To(Equal(patchCount))
+			Expect(totalUpdates).To(Equal(updateCount))
+
+			// ensure every resource is either patched or updated
+			Expect(totalUpdates + totalPatches).To(Equal(resourceCount))
+
 		}, 15)
 
 		It("should update resources when changing KubeVirt version.", func(done Done) {
