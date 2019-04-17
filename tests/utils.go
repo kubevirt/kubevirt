@@ -1334,11 +1334,11 @@ func PanicOnError(err error) {
 	}
 }
 
-func NewRandomDataVolumeWithHttpImport(imageUrl string, namespace string) *cdiv1.DataVolume {
+func NewRandomDataVolumeWithHttpImport(imageUrl string, namespace string, accessMode k8sv1.PersistentVolumeAccessMode) *cdiv1.DataVolume {
 
 	name := "test-datavolume-" + rand.String(12)
 	storageClass := Config.StorageClassLocal
-	quantity, err := resource.ParseQuantity("2Gi")
+	quantity, err := resource.ParseQuantity("1Gi")
 	PanicOnError(err)
 	dataVolume := &cdiv1.DataVolume{
 		ObjectMeta: metav1.ObjectMeta{
@@ -1352,7 +1352,7 @@ func NewRandomDataVolumeWithHttpImport(imageUrl string, namespace string) *cdiv1
 				},
 			},
 			PVC: &k8sv1.PersistentVolumeClaimSpec{
-				AccessModes: []k8sv1.PersistentVolumeAccessMode{k8sv1.ReadWriteOnce},
+				AccessModes: []k8sv1.PersistentVolumeAccessMode{accessMode},
 				Resources: k8sv1.ResourceRequirements{
 					Requests: k8sv1.ResourceList{
 						"storage": quantity,
@@ -1412,7 +1412,7 @@ func NewRandomVMIWithDataVolume(dataVolumeName string) *v1.VirtualMachineInstanc
 }
 
 func NewRandomVMWithDataVolume(imageUrl string, namespace string) *v1.VirtualMachine {
-	dataVolume := NewRandomDataVolumeWithHttpImport(imageUrl, namespace)
+	dataVolume := NewRandomDataVolumeWithHttpImport(imageUrl, namespace, k8sv1.ReadWriteOnce)
 	vmi := NewRandomVMIWithDataVolume(dataVolume.Name)
 	vm := NewRandomVirtualMachine(vmi, false)
 
