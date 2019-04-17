@@ -121,10 +121,8 @@ func mutateVMIs(ar *v1beta1.AdmissionReview) *v1beta1.AdmissionResponse {
 	log.Log.Object(&vmi).V(4).Info("Apply defaults")
 	setDefaultCPUModel(&vmi, config.GetCPUModel())
 	setDefaultMachineType(&vmi, config.GetMachineType())
+	setDefaultResourceRequests(&vmi, config.GetCPURequest())
 	v1.SetObjectDefaults_VirtualMachineInstance(&vmi)
-	// Default CPU request is done after the Resources section is initialized, if needed,
-	// in v1.SetObjectDefaults_VirtualMachineInstance. TODO: set default memory here
-	setDefaultCPURequest(&vmi, config.GetCPURequest())
 
 	// Add foreground finalizer
 	vmi.Finalizers = append(vmi.Finalizers, v1.VirtualMachineInstanceFinalizer)
@@ -230,7 +228,14 @@ func setDefaultMachineType(vmi *v1.VirtualMachineInstance, defaultMachineType st
 	}
 }
 
-func setDefaultCPURequest(vmi *v1.VirtualMachineInstance, defaultCPURequest resource.Quantity) {
+func setDefaultResourceRequests(vmi *v1.VirtualMachineInstance, defaultCPURequest resource.Quantity) {
+	if _, exists := vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory]; !exists {
+		if vmi.Spec.Domain.Resources.Requests == nil {
+			vmi.Spec.Domain.Resources.Requests = k8sv1.ResourceList{}
+		}
+		vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("8192Ki")
+	}
+
 	if _, exists := vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceCPU]; !exists {
 		if vmi.Spec.Domain.CPU != nil && vmi.Spec.Domain.CPU.DedicatedCPUPlacement {
 			return
