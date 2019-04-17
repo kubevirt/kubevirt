@@ -2242,7 +2242,7 @@ const (
 	ContainerDiskAlpine ContainerDisk = "alpine"
 	ContainerDiskFedora ContainerDisk = "fedora-cloud"
 	ContainerDiskVirtio ContainerDisk = "virtio-container-disk"
-	ContainerDiskEmpty ContainerDisk = "empty"
+	ContainerDiskEmpty  ContainerDisk = "empty"
 )
 
 // ContainerDiskFor takes the name of an image and returns the full
@@ -2836,29 +2836,29 @@ func CreateISCSITargetPOD(containerDiskName ContainerDisk) (iscsiTargetIP string
 			},
 		},
 	}
-    if containerDiskName ==  ContainerDiskEmpty {
-	    asEmpty := []k8sv1.EnvVar{
-                        {
-							Name:  "AS_EMPTY",
-							Value: "true",
-						},
-                    }
-        pod.Spec.Containers[0].Env = asEmpty
-    } else {
-	    imageEnv := []k8sv1.EnvVar{
-						{
-							Name:  "AS_ISCSI",
-							Value: "true",
-						},
-                        {
-							Name:  "IMAGE_NAME",
-							Value: fmt.Sprintf("%s", containerDiskName),
-						},
-                    }
-        pod.Spec.Containers[0].Env = imageEnv
-    }
+	if containerDiskName == ContainerDiskEmpty {
+		asEmpty := []k8sv1.EnvVar{
+			{
+				Name:  "AS_EMPTY",
+				Value: "true",
+			},
+		}
+		pod.Spec.Containers[0].Env = asEmpty
+	} else {
+		imageEnv := []k8sv1.EnvVar{
+			{
+				Name:  "AS_ISCSI",
+				Value: "true",
+			},
+			{
+				Name:  "IMAGE_NAME",
+				Value: fmt.Sprintf("%s", containerDiskName),
+			},
+		}
+		pod.Spec.Containers[0].Env = imageEnv
+	}
 
-    pod, err = virtClient.CoreV1().Pods(NamespaceTestDefault).Create(pod)
+	pod, err = virtClient.CoreV1().Pods(NamespaceTestDefault).Create(pod)
 	PanicOnError(err)
 
 	getStatus := func() k8sv1.PodPhase {
