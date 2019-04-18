@@ -1,4 +1,4 @@
-FROM fedora:28
+FROM fedora:29
 
 RUN dnf install -y qemu xz gzip git gradle gcc && dnf clean all
 

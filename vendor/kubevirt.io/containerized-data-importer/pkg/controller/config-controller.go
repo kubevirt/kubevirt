@@ -134,6 +134,7 @@ func (c *ConfigController) handleObjDelete(obj interface{}) {
 }
 
 func (c *ConfigController) handleObject(obj interface{}, verb string) {
+
 	var object metav1.Object
 	var ok bool
 	if object, ok = obj.(metav1.Object); !ok {
@@ -350,7 +351,11 @@ func (c *ConfigController) Run(threadiness int, stopCh <-chan struct{}) error {
 		return errors.Errorf("expected >0 threads, got %d", threadiness)
 	}
 
-	if ok := cache.WaitForCacheSync(stopCh, c.ingressesSynced, c.routesSynced); !ok {
+	informersNeedingSync := []cache.InformerSynced{c.ingressesSynced}
+	if isOpenshift := IsOpenshift(c.client); isOpenshift {
+		informersNeedingSync = append(informersNeedingSync, c.routesSynced)
+	}
+	if ok := cache.WaitForCacheSync(stopCh, informersNeedingSync...); !ok {
 		return errors.New("failed to wait for caches to sync")
 	}
 

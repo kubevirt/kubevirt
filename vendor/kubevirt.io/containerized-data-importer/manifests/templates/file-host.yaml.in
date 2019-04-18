@@ -5,16 +5,16 @@ metadata:
   name: cdi-file-host
   namespace: {{ .Namespace }}
   labels:
-    cdi.kubevirt.io: ""
     cdi.kubevirt.io/testing: ""
 spec:
   selector:
     matchLabels:
-      cdi.kubevirt.io/testing: ""
+      name: cdi-file-host
   replicas: 1
   template:
     metadata:
       labels:
+        name: cdi-file-host
         cdi.kubevirt.io/testing: ""
     spec:
       securityContext:
@@ -89,11 +89,10 @@ metadata:
   name: cdi-file-host
   namespace: {{ .Namespace }}
   labels:
-    cdi.kubevirt.io: ""
     cdi.kubevirt.io/testing: ""
 spec:
   selector:
-      cdi.kubevirt.io/testing: ""
+      name: cdi-file-host
   type: NodePort
   ports:
   - name: rate-limit

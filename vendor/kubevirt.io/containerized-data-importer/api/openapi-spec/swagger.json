@@ -2613,6 +2613,9 @@
      "phase": {
       "description": "Phase is the current phase of the data volume",
       "type": "string"
+     },
+     "progress": {
+      "type": "string"
      }
     }
    },

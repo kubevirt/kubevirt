@@ -1,4 +1,4 @@
-FROM fedora:28
+FROM fedora:29
 
 COPY ./cdi-uploadproxy /usr/bin/cdi-uploadproxy
 

@@ -52,6 +52,7 @@ spec:
     metadata:
       labels:
         name: cdi-operator
+        operator.cdi.kubevirt.io: ""
     spec:
       serviceAccountName: cdi-operator
       containers:

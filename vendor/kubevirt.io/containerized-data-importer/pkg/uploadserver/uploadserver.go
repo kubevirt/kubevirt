@@ -33,6 +33,7 @@ import (
 
 	"github.com/pkg/errors"
 	"k8s.io/klog"
+	"kubevirt.io/containerized-data-importer/pkg/common"
 	"kubevirt.io/containerized-data-importer/pkg/controller"
 	"kubevirt.io/containerized-data-importer/pkg/importer"
 )
@@ -67,7 +68,7 @@ type uploadServerApp struct {
 }
 
 // may be overridden in tests
-var saveStremFunc = importer.DefaultSaveStream
+var uploadProcessorFunc = newUploadStreamProcessor
 
 // GetUploadServerURL returns the url the proxy should post to for a particular pvc
 func GetUploadServerURL(namespace, pvc string) string {
@@ -233,7 +234,7 @@ func (app *uploadServerApp) uploadHandler(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	sz, err := saveStremFunc(r.Body, app.destination, app.imageSize)
+	err := uploadProcessorFunc(r.Body, app.destination, app.imageSize)
 
 	app.mutex.Lock()
 	defer app.mutex.Unlock()
@@ -250,5 +251,11 @@ func (app *uploadServerApp) uploadHandler(w http.ResponseWriter, r *http.Request
 
 	close(app.doneChan)
 
-	klog.Infof("Wrote %d bytes to %s", sz, app.destination)
+	klog.Infof("Wrote data to %s", app.destination)
+}
+
+func newUploadStreamProcessor(stream io.ReadCloser, dest, imageSize string) error {
+	uds := importer.NewUploadDataSource(stream)
+	processor := importer.NewDataProcessor(uds, dest, common.ImporterVolumePath, common.ScratchDataDir, imageSize)
+	return processor.ProcessData()
 }

@@ -111,7 +111,8 @@ type DataVolumeSourceHTTP struct {
 // DataVolumeStatus provides the parameters to store the phase of the Data Volume
 type DataVolumeStatus struct {
 	//Phase is the current phase of the data volume
-	Phase DataVolumePhase `json:"phase,omitempty"`
+	Phase    DataVolumePhase    `json:"phase,omitempty"`
+	Progress DataVolumeProgress `json:"progress,omitempty"`
 }
 
 //DataVolumeList provides the needed parameters to do request a list of Data Volumes from the system
@@ -126,6 +127,9 @@ type DataVolumeList struct {
 
 // DataVolumePhase is the current phase of the DataVolume
 type DataVolumePhase string
+
+// DataVolumeProgress is the current progress of the DataVolume transfer operation. Value between 0 and 100 inclusive
+type DataVolumeProgress string
 
 const (
 	// PhaseUnset represents a data volume with no current phase

@@ -4,17 +4,17 @@ metadata:
   name: cdi-docker-registry-host
   namespace: {{ .Namespace }}
   labels:
-    cdi.kubevirt.io: ""
-    cdi.kubevirt.io/testing.registry: ""
+    cdi.kubevirt.io/testing: ""
 spec:
   selector:
     matchLabels:
-      cdi.kubevirt.io/testing.registry: ""
+      name: cdi-docker-registry-host
   replicas: 1
   template:
     metadata:
       labels:
-        cdi.kubevirt.io/testing.registry: ""
+        name: cdi-docker-registry-host
+        cdi.kubevirt.io/testing: ""
     spec:
       securityContext:
         runAsUser: 0
@@ -82,11 +82,10 @@ metadata:
   name: cdi-docker-registry-host
   namespace: {{ .Namespace }}
   labels:
-    cdi.kubevirt.io: ""
-    cdi.kubevirt.io/testing.registry: ""
+    cdi.kubevirt.io/testing: ""
 spec:
   selector:
-    cdi.kubevirt.io/testing.registry: ""
+    name: cdi-docker-registry-host
   ports:
   - name: sec-docker-reg
     port: 443

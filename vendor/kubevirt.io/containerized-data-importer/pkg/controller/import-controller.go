@@ -5,7 +5,7 @@ import (
 	"strconv"
 
 	"github.com/pkg/errors"
-	"k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	coreinformers "k8s.io/client-go/informers/core/v1"
@@ -233,10 +233,7 @@ func (ic *ImportController) createScratchPvcForPod(pvc *v1.PersistentVolumeClaim
 		return err
 	}
 	if scratchPvc == nil {
-		storageClassName, err := GetScratchPvcStorageClass(ic.clientset, ic.cdiClient, pvc)
-		if err != nil {
-			return err
-		}
+		storageClassName := GetScratchPvcStorageClass(ic.clientset, ic.cdiClient, pvc)
 		// Scratch PVC doesn't exist yet, create it. Determine which storage class to use.
 		scratchPvc, err = CreateScratchPersistentVolumeClaim(ic.clientset, pvc, pod, storageClassName)
 		if err != nil {

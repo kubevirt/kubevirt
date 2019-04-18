@@ -42,3 +42,4 @@ done
 # Start functional test HTTP server.
 ./cluster/kubectl.sh apply -f ./manifests/generated/file-host.yaml
 ./cluster/kubectl.sh apply -f ./manifests/generated/registry-host.yaml
+./cluster/kubectl.sh apply -f ./manifests/generated/block-device.yaml

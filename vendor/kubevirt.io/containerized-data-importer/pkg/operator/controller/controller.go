@@ -221,26 +221,24 @@ func (r *ReconcileCDI) reconcileUpdate(logger logr.Logger, cr *cdiv1alpha1.CDI) 
 				"name", desiredMetaObj.GetName(),
 				"type", fmt.Sprintf("%T", desiredMetaObj))
 		} else {
-			if !r.shouldUpdateObject(currentRuntimeObj) {
-				continue
-			}
-
 			currentMetaObj := currentRuntimeObj.(metav1.Object)
 
 			// allow users to add new annotations (but not change ours)
 			mergeLabelsAndAnnotations(currentMetaObj, desiredMetaObj)
 
-			desiredBytes, err := json.Marshal(desiredRuntimeObj)
-			if err != nil {
-				return reconcile.Result{}, err
-			}
+			if !r.isMutable(currentRuntimeObj) {
+				desiredBytes, err := json.Marshal(desiredRuntimeObj)
+				if err != nil {
+					return reconcile.Result{}, err
+				}
 
-			if err = json.Unmarshal(desiredBytes, currentRuntimeObj); err != nil {
-				return reconcile.Result{}, err
-			}
+				if err = json.Unmarshal(desiredBytes, currentRuntimeObj); err != nil {
+					return reconcile.Result{}, err
+				}
 
-			if err = r.client.Update(context.TODO(), currentRuntimeObj); err != nil {
-				return reconcile.Result{}, err
+				if err = r.client.Update(context.TODO(), currentRuntimeObj); err != nil {
+					return reconcile.Result{}, err
+				}
 			}
 
 			logger.Info("Resource updated",
@@ -259,20 +257,26 @@ func (r *ReconcileCDI) reconcileUpdate(logger logr.Logger, cr *cdiv1alpha1.CDI) 
 		logger.Info("Successfully entered Deployed state")
 	}
 
-	if err = r.checkReady(logger, cr); err != nil {
+	ready, err := r.checkReady(logger, cr)
+	if err != nil {
 		return reconcile.Result{}, err
+	}
+
+	if ready {
+		if err = r.ensureUploadProxyRouteExists(logger, cr); err != nil {
+			return reconcile.Result{}, err
+		}
 	}
 
 	return reconcile.Result{}, nil
 }
 
-func (r *ReconcileCDI) shouldUpdateObject(obj runtime.Object) bool {
+func (r *ReconcileCDI) isMutable(obj runtime.Object) bool {
 	switch obj.(type) {
-	case *corev1.Secret:
 	case *corev1.ConfigMap:
-		return false
+		return true
 	}
-	return true
+	return false
 }
 
 // I hate that this function exists, but major refactoring required to make CDI CR the owner of all the things
@@ -369,19 +373,19 @@ func (r *ReconcileCDI) reconcileError(logger logr.Logger, cr *cdiv1alpha1.CDI) (
 	return reconcile.Result{}, nil
 }
 
-func (r *ReconcileCDI) checkReady(logger logr.Logger, cr *cdiv1alpha1.CDI) error {
+func (r *ReconcileCDI) checkReady(logger logr.Logger, cr *cdiv1alpha1.CDI) (bool, error) {
 	readyCond := conditionReady
 
 	deployments, err := r.getAllDeployments(cr)
 	if err != nil {
-		return err
+		return false, err
 	}
 
 	for _, deployment := range deployments {
 		key := client.ObjectKey{Namespace: deployment.Namespace, Name: deployment.Name}
 
 		if err = r.client.Get(context.TODO(), key, deployment); err != nil {
-			return err
+			return false, err
 		}
 
 		desiredReplicas := deployment.Spec.Replicas
@@ -400,10 +404,10 @@ func (r *ReconcileCDI) checkReady(logger logr.Logger, cr *cdiv1alpha1.CDI) error
 	logger.Info("CDI Ready check", "Status", readyCond.Status)
 
 	if err = r.conditionUpdate(readyCond, cr); err != nil {
-		return err
+		return false, err
 	}
 
-	return nil
+	return readyCond == conditionReady, nil
 }
 
 func (r *ReconcileCDI) add(mgr manager.Manager) error {
@@ -427,7 +431,15 @@ func (r *ReconcileCDI) watch(c controller.Controller) error {
 		return err
 	}
 
-	return r.watchTypes(c, resources)
+	if err = r.watchResourceTypes(c, resources); err != nil {
+		return err
+	}
+
+	if err = r.watchSecurityContextConstraints(c); err != nil {
+		return err
+	}
+
+	return r.watchRoutes(c)
 }
 
 func (r *ReconcileCDI) getConfigMap() (*corev1.ConfigMap, error) {
@@ -511,12 +523,17 @@ func (r *ReconcileCDI) getAllResources(cr *cdiv1alpha1.CDI) ([]runtime.Object, e
 	return resources, nil
 }
 
-func (r *ReconcileCDI) watchTypes(c controller.Controller, resources []runtime.Object) error {
+func (r *ReconcileCDI) watchResourceTypes(c controller.Controller, resources []runtime.Object) error {
 	types := map[string]bool{}
 
 	for _, resource := range resources {
 		t := fmt.Sprintf("%T", resource)
 		if types[t] {
+			continue
+		}
+
+		if r.isMutable(resource) {
+			log.Info("NOT Watching", "type", t)
 			continue
 		}
 

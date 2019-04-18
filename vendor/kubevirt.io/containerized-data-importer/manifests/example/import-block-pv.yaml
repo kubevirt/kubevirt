@@ -1,0 +1,24 @@
+kind: PersistentVolume
+apiVersion: v1
+metadata:
+  name: import-block-pv
+  annotations:
+spec:
+  nodeAffinity:
+    required:
+      nodeSelectorTerms:
+      - matchExpressions:
+        - key: kubernetes.io/hostname
+          operator: In
+          values:
+          - node01
+  volumeMode: Block
+  storageClassName: local 
+  capacity:
+    storage: 1Gi
+  local:
+    path: /dev/loop10
+  accessModes:
+    - ReadWriteOnce
+  persistentVolumeReclaimPolicy: Delete 
+
