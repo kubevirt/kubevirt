@@ -693,33 +693,44 @@ func createOrUpdateCrds(kv *v1.KubeVirt,
 	return nil
 }
 
-func needsClusterRoleBindingBackup(kv *v1.KubeVirt, stores util.Stores, crb *rbacv1.ClusterRoleBinding) bool {
+func shouldBackupRBACObject(kv *v1.KubeVirt, objectMeta *metav1.ObjectMeta) (bool, string, string) {
 	curImageTag := kv.Status.TargetKubeVirtVersion
 	curImageRegistry := kv.Status.TargetKubeVirtRegistry
 
-	if objectMatchesVersion(&crb.ObjectMeta, curImageTag, curImageRegistry) {
+	if objectMatchesVersion(objectMeta, curImageTag, curImageRegistry) {
 		// matches current target version already, so doesn't need backup
-		return false
+		return false, "", ""
 	}
 
-	if crb.Annotations == nil {
-		return false
+	if objectMeta.Annotations == nil {
+		return false, "", ""
 	}
 
-	_, ok := crb.Annotations[v1.EphemeralBackupObject]
+	_, ok := objectMeta.Annotations[v1.EphemeralBackupObject]
 	if ok {
 		// ephemeral backup objects don't need to be backed up because
 		// they are the backup
-		return false
+		return false, "", ""
 	}
 
-	imageTag, ok := crb.Annotations[v1.InstallStrategyVersionAnnotation]
+	imageTag, ok := objectMeta.Annotations[v1.InstallStrategyVersionAnnotation]
 	if !ok {
-		return false
+		return false, "", ""
 	}
 
-	imageRegistry, ok := crb.Annotations[v1.InstallStrategyRegistryAnnotation]
+	imageRegistry, ok := objectMeta.Annotations[v1.InstallStrategyRegistryAnnotation]
 	if !ok {
+		return false, "", ""
+	}
+
+	return true, imageTag, imageRegistry
+
+}
+
+func needsClusterRoleBindingBackup(kv *v1.KubeVirt, stores util.Stores, crb *rbacv1.ClusterRoleBinding) bool {
+
+	backup, imageTag, imageRegistry := shouldBackupRBACObject(kv, &crb.ObjectMeta)
+	if !backup {
 		return false
 	}
 
@@ -753,32 +764,8 @@ func needsClusterRoleBindingBackup(kv *v1.KubeVirt, stores util.Stores, crb *rba
 }
 
 func needsClusterRoleBackup(kv *v1.KubeVirt, stores util.Stores, cr *rbacv1.ClusterRole) bool {
-	curImageTag := kv.Status.TargetKubeVirtVersion
-	curImageRegistry := kv.Status.TargetKubeVirtRegistry
-
-	if objectMatchesVersion(&cr.ObjectMeta, curImageTag, curImageRegistry) {
-		// matches current target version already, so doesn't need backup
-		return false
-	}
-
-	if cr.Annotations == nil {
-		return false
-	}
-
-	_, ok := cr.Annotations[v1.EphemeralBackupObject]
-	if ok {
-		// ephemeral backup objects don't need to be backed up because
-		// they are the backup
-		return false
-	}
-
-	imageTag, ok := cr.Annotations[v1.InstallStrategyVersionAnnotation]
-	if !ok {
-		return false
-	}
-
-	imageRegistry, ok := cr.Annotations[v1.InstallStrategyRegistryAnnotation]
-	if !ok {
+	backup, imageTag, imageRegistry := shouldBackupRBACObject(kv, &cr.ObjectMeta)
+	if !backup {
 		return false
 	}
 
@@ -812,32 +799,9 @@ func needsClusterRoleBackup(kv *v1.KubeVirt, stores util.Stores, cr *rbacv1.Clus
 }
 
 func needsRoleBindingBackup(kv *v1.KubeVirt, stores util.Stores, rb *rbacv1.RoleBinding) bool {
-	curImageTag := kv.Status.TargetKubeVirtVersion
-	curImageRegistry := kv.Status.TargetKubeVirtRegistry
 
-	if objectMatchesVersion(&rb.ObjectMeta, curImageTag, curImageRegistry) {
-		// matches current target version already, so doesn't need backup
-		return false
-	}
-
-	if rb.Annotations == nil {
-		return false
-	}
-
-	_, ok := rb.Annotations[v1.EphemeralBackupObject]
-	if ok {
-		// ephemeral backup objects don't need to be backed up because
-		// they are the backup
-		return false
-	}
-
-	imageTag, ok := rb.Annotations[v1.InstallStrategyVersionAnnotation]
-	if !ok {
-		return false
-	}
-
-	imageRegistry, ok := rb.Annotations[v1.InstallStrategyRegistryAnnotation]
-	if !ok {
+	backup, imageTag, imageRegistry := shouldBackupRBACObject(kv, &rb.ObjectMeta)
+	if !backup {
 		return false
 	}
 
@@ -871,32 +835,9 @@ func needsRoleBindingBackup(kv *v1.KubeVirt, stores util.Stores, rb *rbacv1.Role
 }
 
 func needsRoleBackup(kv *v1.KubeVirt, stores util.Stores, r *rbacv1.Role) bool {
-	curImageTag := kv.Status.TargetKubeVirtVersion
-	curImageRegistry := kv.Status.TargetKubeVirtRegistry
 
-	if objectMatchesVersion(&r.ObjectMeta, curImageTag, curImageRegistry) {
-		// matches current target version already, so doesn't need backup
-		return false
-	}
-
-	if r.Annotations == nil {
-		return false
-	}
-
-	_, ok := r.Annotations[v1.EphemeralBackupObject]
-	if ok {
-		// ephemeral backup objects don't need to be backed up because
-		// they are the backup
-		return false
-	}
-
-	imageTag, ok := r.Annotations[v1.InstallStrategyVersionAnnotation]
-	if !ok {
-		return false
-	}
-
-	imageRegistry, ok := r.Annotations[v1.InstallStrategyRegistryAnnotation]
-	if !ok {
+	backup, imageTag, imageRegistry := shouldBackupRBACObject(kv, &r.ObjectMeta)
+	if !backup {
 		return false
 	}
 
