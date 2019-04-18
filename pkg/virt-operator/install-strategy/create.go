@@ -87,7 +87,7 @@ func controllerDeployments(strategy *InstallStrategy) []*appsv1.Deployment {
 	return deployments
 }
 
-func injectOperatorLabelAndAnnotations(objectMeta *metav1.ObjectMeta, imageTag string, imageRegistry string) {
+func injectOperatorMetadata(kv *v1.KubeVirt, objectMeta *metav1.ObjectMeta, imageTag string, imageRegistry string) {
 	if objectMeta.Labels == nil {
 		objectMeta.Labels = make(map[string]string)
 	}
@@ -98,6 +98,9 @@ func injectOperatorLabelAndAnnotations(objectMeta *metav1.ObjectMeta, imageTag s
 	}
 	objectMeta.Annotations[v1.InstallStrategyVersionAnnotation] = imageTag
 	objectMeta.Annotations[v1.InstallStrategyRegistryAnnotation] = imageRegistry
+
+	objectMeta.OwnerReferences = []metav1.OwnerReference{*metav1.NewControllerRef(kv, v1.KubeVirtGroupVersionKind)}
+
 }
 
 func generatePatchBytes(ops []string) []byte {
@@ -140,8 +143,8 @@ func syncDaemonSet(kv *v1.KubeVirt,
 	imageTag := kv.Status.TargetKubeVirtVersion
 	imageRegistry := kv.Status.TargetKubeVirtRegistry
 
-	injectOperatorLabelAndAnnotations(&daemonSet.ObjectMeta, imageTag, imageRegistry)
-	injectOperatorLabelAndAnnotations(&daemonSet.Spec.Template.ObjectMeta, imageTag, imageRegistry)
+	injectOperatorMetadata(kv, &daemonSet.ObjectMeta, imageTag, imageRegistry)
+	injectOperatorMetadata(kv, &daemonSet.Spec.Template.ObjectMeta, imageTag, imageRegistry)
 
 	kvkey, err := controller.KeyFunc(kv)
 	if err != nil {
@@ -202,8 +205,8 @@ func syncDeployment(kv *v1.KubeVirt,
 	imageTag := kv.Status.TargetKubeVirtVersion
 	imageRegistry := kv.Status.TargetKubeVirtRegistry
 
-	injectOperatorLabelAndAnnotations(&deployment.ObjectMeta, imageTag, imageRegistry)
-	injectOperatorLabelAndAnnotations(&deployment.Spec.Template.ObjectMeta, imageTag, imageRegistry)
+	injectOperatorMetadata(kv, &deployment.ObjectMeta, imageTag, imageRegistry)
+	injectOperatorMetadata(kv, &deployment.Spec.Template.ObjectMeta, imageTag, imageRegistry)
 
 	kvkey, err := controller.KeyFunc(kv)
 	if err != nil {
@@ -433,7 +436,7 @@ func createDummyWebhookValidator(targetStrategy *InstallStrategy,
 		},
 		Webhooks: webhooks,
 	}
-	injectOperatorLabelAndAnnotations(&validationWebhook.ObjectMeta, imageTag, imageRegistry)
+	injectOperatorMetadata(kv, &validationWebhook.ObjectMeta, imageTag, imageRegistry)
 
 	expectations.ValidationWebhook.RaiseExpectations(kvkey, 1, 0)
 	_, err = clientset.AdmissionregistrationV1beta1().ValidatingWebhookConfigurations().Create(validationWebhook)
@@ -447,7 +450,7 @@ func createDummyWebhookValidator(targetStrategy *InstallStrategy,
 }
 
 func createOrUpdateRoleBinding(rb *rbacv1.RoleBinding,
-	kvkey string,
+	kv *v1.KubeVirt,
 	imageTag string,
 	imageRegistry string,
 	namespace string,
@@ -460,6 +463,11 @@ func createOrUpdateRoleBinding(rb *rbacv1.RoleBinding,
 
 	var cachedRb *rbacv1.RoleBinding
 
+	kvkey, err := controller.KeyFunc(kv)
+	if err != nil {
+		return err
+	}
+
 	rb = rb.DeepCopy()
 	obj, exists, _ := stores.RoleBindingCache.Get(rb)
 
@@ -467,7 +475,7 @@ func createOrUpdateRoleBinding(rb *rbacv1.RoleBinding,
 		cachedRb = obj.(*rbacv1.RoleBinding)
 	}
 
-	injectOperatorLabelAndAnnotations(&rb.ObjectMeta, imageTag, imageRegistry)
+	injectOperatorMetadata(kv, &rb.ObjectMeta, imageTag, imageRegistry)
 	if !exists {
 		// Create non existent
 		expectations.RoleBinding.RaiseExpectations(kvkey, 1, 0)
@@ -493,7 +501,7 @@ func createOrUpdateRoleBinding(rb *rbacv1.RoleBinding,
 }
 
 func createOrUpdateRole(r *rbacv1.Role,
-	kvkey string,
+	kv *v1.KubeVirt,
 	imageTag string,
 	imageRegistry string,
 	namespace string,
@@ -506,13 +514,18 @@ func createOrUpdateRole(r *rbacv1.Role,
 
 	var cachedR *rbacv1.Role
 
+	kvkey, err := controller.KeyFunc(kv)
+	if err != nil {
+		return err
+	}
+
 	r = r.DeepCopy()
 	obj, exists, _ := stores.RoleCache.Get(r)
 	if exists {
 		cachedR = obj.(*rbacv1.Role)
 	}
 
-	injectOperatorLabelAndAnnotations(&r.ObjectMeta, imageTag, imageRegistry)
+	injectOperatorMetadata(kv, &r.ObjectMeta, imageTag, imageRegistry)
 	if !exists {
 		// Create non existent
 		expectations.Role.RaiseExpectations(kvkey, 1, 0)
@@ -537,7 +550,7 @@ func createOrUpdateRole(r *rbacv1.Role,
 }
 
 func createOrUpdateClusterRoleBinding(crb *rbacv1.ClusterRoleBinding,
-	kvkey string,
+	kv *v1.KubeVirt,
 	imageTag string,
 	imageRegistry string,
 	stores util.Stores,
@@ -549,13 +562,18 @@ func createOrUpdateClusterRoleBinding(crb *rbacv1.ClusterRoleBinding,
 
 	var cachedCrb *rbacv1.ClusterRoleBinding
 
+	kvkey, err := controller.KeyFunc(kv)
+	if err != nil {
+		return err
+	}
+
 	crb = crb.DeepCopy()
 	obj, exists, _ := stores.ClusterRoleBindingCache.Get(crb)
 	if exists {
 		cachedCrb = obj.(*rbacv1.ClusterRoleBinding)
 	}
 
-	injectOperatorLabelAndAnnotations(&crb.ObjectMeta, imageTag, imageRegistry)
+	injectOperatorMetadata(kv, &crb.ObjectMeta, imageTag, imageRegistry)
 	if !exists {
 		// Create non existent
 		expectations.ClusterRoleBinding.RaiseExpectations(kvkey, 1, 0)
@@ -581,7 +599,7 @@ func createOrUpdateClusterRoleBinding(crb *rbacv1.ClusterRoleBinding,
 }
 
 func createOrUpdateClusterRole(cr *rbacv1.ClusterRole,
-	kvkey string,
+	kv *v1.KubeVirt,
 	imageTag string,
 	imageRegistry string,
 	stores util.Stores,
@@ -593,6 +611,11 @@ func createOrUpdateClusterRole(cr *rbacv1.ClusterRole,
 
 	var cachedCr *rbacv1.ClusterRole
 
+	kvkey, err := controller.KeyFunc(kv)
+	if err != nil {
+		return err
+	}
+
 	cr = cr.DeepCopy()
 	obj, exists, _ := stores.ClusterRoleCache.Get(cr)
 
@@ -600,7 +623,7 @@ func createOrUpdateClusterRole(cr *rbacv1.ClusterRole,
 		cachedCr = obj.(*rbacv1.ClusterRole)
 	}
 
-	injectOperatorLabelAndAnnotations(&cr.ObjectMeta, imageTag, imageRegistry)
+	injectOperatorMetadata(kv, &cr.ObjectMeta, imageTag, imageRegistry)
 	if !exists {
 		// Create non existent
 		expectations.ClusterRole.RaiseExpectations(kvkey, 1, 0)
@@ -650,7 +673,7 @@ func createOrUpdateCrds(kv *v1.KubeVirt,
 			cachedCrd = obj.(*extv1beta1.CustomResourceDefinition)
 		}
 
-		injectOperatorLabelAndAnnotations(&crd.ObjectMeta, imageTag, imageRegistry)
+		injectOperatorMetadata(kv, &crd.ObjectMeta, imageTag, imageRegistry)
 		if !exists {
 			// Create non existent
 			expectations.Crd.RaiseExpectations(kvkey, 1, 0)
@@ -904,7 +927,7 @@ func backupRbac(kv *v1.KubeVirt,
 		cr.ObjectMeta = metav1.ObjectMeta{
 			GenerateName: cachedCr.Name,
 		}
-		injectOperatorLabelAndAnnotations(&cr.ObjectMeta, imageTag, imageRegistry)
+		injectOperatorMetadata(kv, &cr.ObjectMeta, imageTag, imageRegistry)
 		cr.Annotations[v1.EphemeralBackupObject] = string(cachedCr.UID)
 
 		// Create backup
@@ -939,7 +962,7 @@ func backupRbac(kv *v1.KubeVirt,
 		crb.ObjectMeta = metav1.ObjectMeta{
 			GenerateName: cachedCrb.Name,
 		}
-		injectOperatorLabelAndAnnotations(&crb.ObjectMeta, imageTag, imageRegistry)
+		injectOperatorMetadata(kv, &crb.ObjectMeta, imageTag, imageRegistry)
 		crb.Annotations[v1.EphemeralBackupObject] = string(cachedCrb.UID)
 
 		// Create backup
@@ -974,7 +997,7 @@ func backupRbac(kv *v1.KubeVirt,
 		r.ObjectMeta = metav1.ObjectMeta{
 			GenerateName: cachedCr.Name,
 		}
-		injectOperatorLabelAndAnnotations(&r.ObjectMeta, imageTag, imageRegistry)
+		injectOperatorMetadata(kv, &r.ObjectMeta, imageTag, imageRegistry)
 		r.Annotations[v1.EphemeralBackupObject] = string(cachedCr.UID)
 
 		// Create backup
@@ -1009,7 +1032,7 @@ func backupRbac(kv *v1.KubeVirt,
 		rb.ObjectMeta = metav1.ObjectMeta{
 			GenerateName: cachedRb.Name,
 		}
-		injectOperatorLabelAndAnnotations(&rb.ObjectMeta, imageTag, imageRegistry)
+		injectOperatorMetadata(kv, &rb.ObjectMeta, imageTag, imageRegistry)
 		rb.Annotations[v1.EphemeralBackupObject] = string(cachedRb.UID)
 
 		// Create backup
@@ -1051,7 +1074,7 @@ func createOrUpdateRbac(kv *v1.KubeVirt,
 			cachedSa = obj.(*corev1.ServiceAccount)
 		}
 
-		injectOperatorLabelAndAnnotations(&sa.ObjectMeta, imageTag, imageRegistry)
+		injectOperatorMetadata(kv, &sa.ObjectMeta, imageTag, imageRegistry)
 		if !exists {
 			// Create non existent
 			expectations.ServiceAccount.RaiseExpectations(kvkey, 1, 0)
@@ -1087,7 +1110,7 @@ func createOrUpdateRbac(kv *v1.KubeVirt,
 	// create/update ClusterRoles
 	for _, cr := range targetStrategy.clusterRoles {
 		err := createOrUpdateClusterRole(cr,
-			kvkey,
+			kv,
 			imageTag,
 			imageRegistry,
 			stores,
@@ -1101,7 +1124,7 @@ func createOrUpdateRbac(kv *v1.KubeVirt,
 	// create/update ClusterRoleBindings
 	for _, crb := range targetStrategy.clusterRoleBindings {
 		err := createOrUpdateClusterRoleBinding(crb,
-			kvkey,
+			kv,
 			imageTag,
 			imageRegistry,
 			stores,
@@ -1116,7 +1139,7 @@ func createOrUpdateRbac(kv *v1.KubeVirt,
 	// create/update Roles
 	for _, r := range targetStrategy.roles {
 		err := createOrUpdateRole(r,
-			kvkey,
+			kv,
 			imageTag,
 			imageRegistry,
 			kv.Namespace,
@@ -1131,7 +1154,7 @@ func createOrUpdateRbac(kv *v1.KubeVirt,
 	// create/update RoleBindings
 	for _, rb := range targetStrategy.roleBindings {
 		err := createOrUpdateRoleBinding(rb,
-			kvkey,
+			kv,
 			imageTag,
 			imageRegistry,
 			kv.Namespace,
@@ -1260,7 +1283,7 @@ func createOrUpdateService(kv *v1.KubeVirt,
 			cachedService = obj.(*corev1.Service)
 		}
 
-		injectOperatorLabelAndAnnotations(&service.ObjectMeta, imageTag, imageRegistry)
+		injectOperatorMetadata(kv, &service.ObjectMeta, imageTag, imageRegistry)
 		if !exists {
 			expectations.Service.RaiseExpectations(kvkey, 1, 0)
 			_, err := core.Services(kv.Namespace).Create(service)
