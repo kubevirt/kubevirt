@@ -28,6 +28,7 @@ NETWORK_ADDONS_LINUX_BRIDGE_CNI_IMAGE="${NETWORK_ADDONS_LINUX_BRIDGE_CNI_IMAGE:-
 NETWORK_ADDONS_SRIOV_DP_IMAGE="${NETWORK_ADDONS_SRIOV_DP_IMAGE:-quay.io/booxter/sriov-device-plugin:latest}"
 NETWORK_ADDONS_SRIOV_CNI_IMAGE="${NETWORK_ADDONS_SRIOV_CNI_IMAGE:-docker.io/nfvpe/sriov-cni:latest}"
 NETWORK_ADDONS_KUBEMACPOOL_IMAGE="${NETWORK_ADDONS_KUBEMACPOOL_IMAGE:-quay.io/schseba/mac-controller:latest}"
+NETWORK_ADDONS_SRIOV_NETWORK_TYPE="${NETWORK_ADDONS_SRIOV_NETWORK_TYPE:-sriov}"
 
 if echo "${CDI_CONTAINER_REGISTRY}" | grep 'brew'; then
     CONTROLLER_IMAGE="virt-${CONTROLLER_IMAGE}"
@@ -59,6 +60,7 @@ function network_addons_sed {
     sed -i "s|value: .*sriov-device-plugin.*|value: ${NETWORK_ADDONS_SRIOV_DP_IMAGE}|g" ${TEMP_DIR}/operator.yaml
     sed -i "s|value: .*sriov-cni.*|value: ${NETWORK_ADDONS_SRIOV_CNI_IMAGE}|g" ${TEMP_DIR}/operator.yaml
     sed -i "s|value: .*mac-controller.*|value: ${NETWORK_ADDONS_KUBEMACPOOL_IMAGE}|g" ${TEMP_DIR}/operator.yaml
+    sed -i "s|value: sriov$|value: ${NETWORK_ADDONS_SRIOV_NETWORK_TYPE}|g" ${TEMP_DIR}/operator.yaml
 }
 
 # Deploy upstream operators
