@@ -11,7 +11,8 @@ spec:
   selector:
     matchLabels:
       kubevirt.io: virt-operator
-  strategy: {}
+  strategy:
+    type: Recreate
   template:
     metadata:
       annotations:

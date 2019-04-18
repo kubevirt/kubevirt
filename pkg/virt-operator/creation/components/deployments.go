@@ -520,6 +520,9 @@ func NewOperatorDeployment(namespace string, repository string, version string, 
 					virtv1.AppLabel: name,
 				},
 			},
+			Strategy: appsv1.DeploymentStrategy{
+				Type: appsv1.RecreateDeploymentStrategyType,
+			},
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
 					Labels: map[string]string{
