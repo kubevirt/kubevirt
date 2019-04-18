@@ -29,7 +29,7 @@
 set -ex
 
 export WORKSPACE="${WORKSPACE:-$PWD}"
-readonly ARTIFACTS_PATH="$WORKSPACE/exported-artifacts"
+readonly ARTIFACTS_PATH="${ARTIFACTS-$WORKSPACE/exported-artifacts}"
 readonly TEMPLATES_SERVER="https://templates.ovirt.org/kubevirt/"
 
 if [[ $TARGET =~ windows.* ]]; then
@@ -140,17 +140,7 @@ fi
 
 kubectl() { cluster/kubectl.sh "$@"; }
 
-
-# If run on CI use random kubevirt system-namespaces
-if [ -n "${JOB_NAME}" ]; then
-  export NAMESPACE="kubevirt-system-$(cat /dev/urandom | tr -dc 'a-zA-Z0-9' | fold -w 10 | head -n 1)"
-  cat >hack/config-local.sh <<EOF
-namespace=${NAMESPACE}
-EOF
-else
-  export NAMESPACE="${NAMESPACE:-kubevirt}"
-fi
-
+export NAMESPACE="${NAMESPACE:-kubevirt}"
 
 # Make sure that the VM is properly shut down on exit
 trap '{ make cluster-down; }' EXIT SIGINT SIGTERM SIGSTOP
