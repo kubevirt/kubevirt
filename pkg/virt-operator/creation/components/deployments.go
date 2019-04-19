@@ -332,7 +332,7 @@ func NewApiServerDeployment(namespace string, repository string, version string,
 		{
 			Name:          "metrics",
 			Protocol:      corev1.ProtocolTCP,
-			ContainerPort: 9443,
+			ContainerPort: 8443,
 		},
 	}
 	container.ReadinessProbe = &corev1.Probe{

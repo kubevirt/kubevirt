@@ -157,24 +157,78 @@ func hasExactUsages(csr *capi.CertificateSigningRequest, usages []capi.KeyUsage)
 	return true
 }
 
-var kubeletClientUsages = []capi.KeyUsage{
+var virtHandlerUsages = []capi.KeyUsage{
 	capi.UsageKeyEncipherment,
 	capi.UsageDigitalSignature,
 	capi.UsageClientAuth,
 	capi.UsageServerAuth,
 }
 
+var serverUsages = []capi.KeyUsage{
+	capi.UsageKeyEncipherment,
+	capi.UsageDigitalSignature,
+	capi.UsageServerAuth,
+}
+
 func isKubeVirtCert(csr *capi.CertificateSigningRequest, x509cr *x509.CertificateRequest) bool {
+	// Only sign for the kubevirt.io:system org
 	if !reflect.DeepEqual([]string{"kubevirt.io:system"}, x509cr.Subject.Organization) {
 		return false
 	}
+
+	// No email needed
 	if len(x509cr.EmailAddresses) > 0 {
 		return false
 	}
-	if !hasExactUsages(csr, kubeletClientUsages) {
+
+	// This is the PodIP, we want to have that on every cert
+	if len(x509cr.IPAddresses) != 1 {
 		return false
 	}
-	if !strings.HasPrefix(x509cr.Subject.CommonName, "kubevirt.io:system") {
+
+	switch csr.Spec.Username {
+
+	case "system:serviceaccount:kubevirt:kubevirt-handler":
+		// virt-handler is server and client
+		if !hasExactUsages(csr, virtHandlerUsages) {
+			return false
+		}
+		// virt-handler does not need any dns names, communication only happens via IPs
+		if len(x509cr.DNSNames) > 0 {
+			return false
+		}
+		// virt-handlers should have the kubevirt.io:system:nodes prefix in the common name
+		if !strings.HasPrefix(x509cr.Subject.CommonName, "kubevirt.io:system:nodes") {
+			return false
+		}
+	case "system:serviceaccount:kubevirt:kubevirt-controller", "system:serviceaccount:kubevirt:kubevirt-operator":
+		// virt-controller is only a server
+		if !hasExactUsages(csr, serverUsages) {
+			return false
+		}
+		// virt-controller does not need any dns names, communication only happens via IPs
+		if len(x509cr.DNSNames) > 0 {
+			return false
+		}
+		// virt-controller acts on the cluster level, not on the node level
+		if !strings.HasPrefix(x509cr.Subject.CommonName, "kubevirt.io:system:services") {
+			return false
+		}
+	case "system:serviceaccount:kubevirt:kubevirt-apiserver":
+		// virt-api is only a server
+		if !hasExactUsages(csr, serverUsages) {
+			return false
+		}
+		// virt-api needs to be reachable via the virt-api service in the install namespace
+		if len(x509cr.DNSNames) != 1 {
+			return false
+		}
+
+		// virt-api acts on the cluster level, not on the node level
+		if !strings.HasPrefix(x509cr.Subject.CommonName, "kubevirt.io:system:services") {
+			return false
+		}
+	default:
 		return false
 	}
 	return true

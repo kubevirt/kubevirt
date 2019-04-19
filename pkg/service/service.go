@@ -25,6 +25,7 @@ import (
 	goflag "flag"
 	"fmt"
 	"net"
+	"os"
 	"strconv"
 	"strings"
 
@@ -40,7 +41,8 @@ import (
 )
 
 const (
-	certificateDir = "/var/lib/kubevirt/certificates"
+	certificateDir           = "/var/lib/kubevirt/certificates"
+	ServiceAccountRootCAFile = "/var/run/secrets/kubernetes.io/serviceaccount/ca.crt"
 )
 
 type CertificateConfigCallback func(certStore certificate.Store, name string, dnsSANs []string, ipSANs []net.IP) *certificate.Config
@@ -59,6 +61,7 @@ type ServiceListen struct {
 	PromTLSConfig      *tls.Config
 	CertificateManager certificate.Manager
 	RootCAPool         *x509.CertPool
+	RootCAFile         string
 	PodIpAddress       net.IP
 	PodName            string
 }
@@ -73,12 +76,18 @@ func (service *ServiceListen) GetName() string {
 
 func (service *ServiceListen) SetupCertificateManager(virtCli kubecli.KubevirtClient, certificateConfigFunc CertificateConfigCallback) {
 	var err error
-	service.CertificateManager, service.RootCAPool, err = SetupCertificateManager(service.Name, service.CertDir, service.PodName, service.PodIpAddress, virtCli, certificateConfigFunc)
+	caFile := service.RootCAFile
+
+	if caFile == "" {
+		caFile = ServiceAccountRootCAFile
+	}
+
+	service.CertificateManager, service.RootCAPool, err = SetupCertificateManager(service.Name, service.CertDir, service.PodName, service.PodIpAddress, virtCli, caFile, certificateConfigFunc)
 	if err != nil {
 		glog.Fatalf("Failed to setup certificate manager: %v", err)
 	}
 	go service.CertificateManager.Start()
-	service.PromTLSConfig = NewPromTLSConfig(service.Name, service.RootCAPool, service.CertificateManager)
+	service.PromTLSConfig = NewPromTLSConfig(service.Name, service.CertificateManager)
 }
 
 func (service *ServiceListen) Address() string {
@@ -116,7 +125,12 @@ func Setup(service Service) {
 	flag.Parse()
 }
 
-func SetupCertificateManager(component string, certDir string, podName string, podIP net.IP, virtCli kubecli.KubevirtClient, certificateConfigFunc CertificateConfigCallback) (manager certificate.Manager, rootCA *x509.CertPool, err error) {
+func SetupCertificateManager(component string, certDir string, podName string, podIP net.IP, virtCli kubecli.KubevirtClient, rootCAFile string, certificateConfigFunc CertificateConfigCallback) (manager certificate.Manager, caCertPool *x509.CertPool, err error) {
+
+	err = os.MkdirAll(certDir, 0700)
+	if err != nil && !os.IsExist(err) {
+		return nil, nil, fmt.Errorf("failed to create certificate directory: %v", err)
+	}
 	store, err := certificate.NewFileStore("kubevirt-client", certDir, certDir, "", "")
 	if err != nil {
 		return nil, nil, fmt.Errorf("unable to initialize certificae store: %v", err)
@@ -130,24 +144,22 @@ func SetupCertificateManager(component string, certDir string, podName string, p
 		},
 	)
 	prometheus.MustRegister(certExpirationGauge)
-	config := certificateConfigFunc(store, podName, []string{podName}, []net.IP{podIP})
+	config := certificateConfigFunc(store, podName, []string{}, []net.IP{podIP})
 	config.CertificateExpiration = certExpirationGauge
 	manager, err = bootstrap.NewCertificateManager(config, virtCli.CertificatesV1beta1())
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to setup the certificate manager: %v", err)
 	}
-	certPool, err := certutil.NewPool("/var/run/secrets/kubernetes.io/serviceaccount/ca.crt")
+	certPool, err := certutil.NewPool(rootCAFile)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to load the root ca: %v", err)
 	}
 	return manager, certPool, nil
 }
 
-func NewPromTLSConfig(component string, certPool *x509.CertPool, manager certificate.Manager) *tls.Config {
+func NewPromTLSConfig(component string, manager certificate.Manager) *tls.Config {
 	return &tls.Config{
 		MinVersion: tls.VersionTLS12,
-		ClientCAs:  certPool,
-		RootCAs:    certPool,
 		GetCertificate: func(info *tls.ClientHelloInfo) (*tls.Certificate, error) {
 			cert := manager.Current()
 			if cert == nil {

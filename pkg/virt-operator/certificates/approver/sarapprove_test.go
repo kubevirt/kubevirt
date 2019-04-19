@@ -79,7 +79,7 @@ func TestHasKubeletUsages(t *testing.T) {
 			Spec: capi.CertificateSigningRequestSpec{
 				Usages: c.usages,
 			},
-		}, kubeletClientUsages) != c.expected {
+		}, virtHandlerUsages) != c.expected {
 			t.Errorf("unexpected result of hasKubeletUsages(%v), expecting: %v", c.usages, c.expected)
 		}
 	}
@@ -187,13 +187,13 @@ func TestHandle(t *testing.T) {
 	}
 }
 
-func TestRecognizers(t *testing.T) {
+func TestVirtHandlerRecognizers(t *testing.T) {
 	goodCases := []func(b *csrBuilder){
 		func(b *csrBuilder) {
 		},
 	}
 
-	testRecognizer(t, goodCases, isKubeVirtCert, true)
+	testVirtHandlerRecognizer(t, goodCases, isKubeVirtCert, true)
 
 	badCases := []func(b *csrBuilder){
 		func(b *csrBuilder) {
@@ -203,40 +203,219 @@ func TestRecognizers(t *testing.T) {
 			b.orgs = nil
 		},
 		func(b *csrBuilder) {
+			b.emails = []string{"something"}
+		},
+		func(b *csrBuilder) {
 			b.orgs = []string{"system:master"}
 		},
 		func(b *csrBuilder) {
 			b.usages = append(b.usages, capi.UsageServerAuth)
 		},
-	}
-
-	testRecognizer(t, badCases, isKubeVirtCert, false)
-
-	// cn different then requestor
-	differentCN := []func(b *csrBuilder){
+		func(b *csrBuilder) {
+			b.ips = nil
+		},
+		func(b *csrBuilder) {
+			b.ips = []net.IP{net.ParseIP("127.0.0.1"), net.ParseIP("127.0.0.1")}
+		},
 		func(b *csrBuilder) {
 			b.requestor = "joe"
 		},
 		func(b *csrBuilder) {
-			b.cn = "kubevirt.io:system:bar"
+			b.dns = []string{"something"}
 		},
 	}
 
-	testRecognizer(t, differentCN, isKubeVirtCert, true)
+	testVirtHandlerRecognizer(t, badCases, isKubeVirtCert, false)
 }
 
-func testRecognizer(t *testing.T, cases []func(b *csrBuilder), recognizeFunc func(csr *capi.CertificateSigningRequest, x509cr *x509.CertificateRequest) bool, shouldRecognize bool) {
+func TestServiceRecognizers(t *testing.T) {
+	goodCases := []func(b *csrBuilder){
+		func(b *csrBuilder) {
+		},
+	}
+
+	testControllerRecognizer(t, goodCases, isKubeVirtCert, true)
+	testOperatorRecognizer(t, goodCases, isKubeVirtCert, true)
+
+	badCases := []func(b *csrBuilder){
+		func(b *csrBuilder) {
+			b.cn = "mike"
+		},
+		func(b *csrBuilder) {
+			b.emails = []string{"something"}
+		},
+		func(b *csrBuilder) {
+			b.orgs = nil
+		},
+		func(b *csrBuilder) {
+			b.orgs = []string{"system:master"}
+		},
+		func(b *csrBuilder) {
+			b.usages = append(b.usages, capi.UsageClientAuth)
+		},
+		func(b *csrBuilder) {
+			b.usages = []capi.KeyUsage{capi.UsageClientAuth}
+		},
+		func(b *csrBuilder) {
+			b.ips = nil
+		},
+		func(b *csrBuilder) {
+			b.ips = []net.IP{net.ParseIP("127.0.0.1"), net.ParseIP("127.0.0.1")}
+		},
+		func(b *csrBuilder) {
+			b.requestor = "joe"
+		},
+		func(b *csrBuilder) {
+			b.dns = []string{"something"}
+		},
+	}
+
+	testControllerRecognizer(t, badCases, isKubeVirtCert, false)
+	testOperatorRecognizer(t, badCases, isKubeVirtCert, false)
+}
+
+func TestAPIServerRecognizers(t *testing.T) {
+	goodCases := []func(b *csrBuilder){
+		func(b *csrBuilder) {
+		},
+	}
+
+	testAPIServerRecognizer(t, goodCases, isKubeVirtCert, true)
+
+	badCases := []func(b *csrBuilder){
+		func(b *csrBuilder) {
+			b.cn = "mike"
+		},
+		func(b *csrBuilder) {
+			b.emails = []string{"something"}
+		},
+		func(b *csrBuilder) {
+			b.orgs = nil
+		},
+		func(b *csrBuilder) {
+			b.orgs = []string{"system:master"}
+		},
+		func(b *csrBuilder) {
+			b.usages = append(b.usages, capi.UsageClientAuth)
+		},
+		func(b *csrBuilder) {
+			b.usages = []capi.KeyUsage{capi.UsageClientAuth}
+		},
+		func(b *csrBuilder) {
+			b.ips = nil
+		},
+		func(b *csrBuilder) {
+			b.ips = []net.IP{net.ParseIP("127.0.0.1"), net.ParseIP("127.0.0.1")}
+		},
+		func(b *csrBuilder) {
+			b.requestor = "joe"
+		},
+		func(b *csrBuilder) {
+			b.dns = []string{"something", "else"}
+		},
+		func(b *csrBuilder) {
+			b.dns = nil
+		},
+	}
+
+	testAPIServerRecognizer(t, badCases, isKubeVirtCert, false)
+}
+
+func testVirtHandlerRecognizer(t *testing.T, cases []func(b *csrBuilder), recognizeFunc func(csr *capi.CertificateSigningRequest, x509cr *x509.CertificateRequest) bool, shouldRecognize bool) {
 	for _, c := range cases {
 		b := csrBuilder{
-			cn:        "kubevirt.io:system:foo",
+			cn:        "kubevirt.io:system:nodes",
 			orgs:      []string{"kubevirt.io:system"},
-			requestor: "kubevirt.io:system:foo",
+			requestor: "system:serviceaccount:kubevirt:kubevirt-handler",
 			usages: []capi.KeyUsage{
 				capi.UsageKeyEncipherment,
 				capi.UsageDigitalSignature,
 				capi.UsageClientAuth,
 				capi.UsageServerAuth,
 			},
+			ips: []net.IP{net.ParseIP("127.0.0.1")},
+		}
+		c(&b)
+		t.Run(fmt.Sprintf("csr:%#v", b), func(t *testing.T) {
+			csr := makeFancyTestCsr(b)
+			x509cr, err := csr2.ParseCSR(csr)
+			if err != nil {
+				t.Errorf("unexpected err: %v", err)
+			}
+			if recognizeFunc(csr, x509cr) != shouldRecognize {
+				t.Errorf("expected recognized to be %v", shouldRecognize)
+			}
+		})
+	}
+}
+
+func testControllerRecognizer(t *testing.T, cases []func(b *csrBuilder), recognizeFunc func(csr *capi.CertificateSigningRequest, x509cr *x509.CertificateRequest) bool, shouldRecognize bool) {
+	for _, c := range cases {
+		b := csrBuilder{
+			cn:        "kubevirt.io:system:services",
+			orgs:      []string{"kubevirt.io:system"},
+			requestor: "system:serviceaccount:kubevirt:kubevirt-controller",
+			usages: []capi.KeyUsage{
+				capi.UsageKeyEncipherment,
+				capi.UsageDigitalSignature,
+				capi.UsageServerAuth,
+			},
+			ips: []net.IP{net.ParseIP("127.0.0.1")},
+		}
+		c(&b)
+		t.Run(fmt.Sprintf("csr:%#v", b), func(t *testing.T) {
+			csr := makeFancyTestCsr(b)
+			x509cr, err := csr2.ParseCSR(csr)
+			if err != nil {
+				t.Errorf("unexpected err: %v", err)
+			}
+			if recognizeFunc(csr, x509cr) != shouldRecognize {
+				t.Errorf("expected recognized to be %v", shouldRecognize)
+			}
+		})
+	}
+}
+
+func testAPIServerRecognizer(t *testing.T, cases []func(b *csrBuilder), recognizeFunc func(csr *capi.CertificateSigningRequest, x509cr *x509.CertificateRequest) bool, shouldRecognize bool) {
+	for _, c := range cases {
+		b := csrBuilder{
+			cn:        "kubevirt.io:system:services",
+			orgs:      []string{"kubevirt.io:system"},
+			requestor: "system:serviceaccount:kubevirt:kubevirt-apiserver",
+			usages: []capi.KeyUsage{
+				capi.UsageKeyEncipherment,
+				capi.UsageDigitalSignature,
+				capi.UsageServerAuth,
+			},
+			ips: []net.IP{net.ParseIP("127.0.0.1")},
+			dns: []string{"virt-api.kubevirt.svc"},
+		}
+		c(&b)
+		t.Run(fmt.Sprintf("csr:%#v", b), func(t *testing.T) {
+			csr := makeFancyTestCsr(b)
+			x509cr, err := csr2.ParseCSR(csr)
+			if err != nil {
+				t.Errorf("unexpected err: %v", err)
+			}
+			if recognizeFunc(csr, x509cr) != shouldRecognize {
+				t.Errorf("expected recognized to be %v", shouldRecognize)
+			}
+		})
+	}
+}
+
+func testOperatorRecognizer(t *testing.T, cases []func(b *csrBuilder), recognizeFunc func(csr *capi.CertificateSigningRequest, x509cr *x509.CertificateRequest) bool, shouldRecognize bool) {
+	for _, c := range cases {
+		b := csrBuilder{
+			cn:        "kubevirt.io:system:services",
+			orgs:      []string{"kubevirt.io:system"},
+			requestor: "system:serviceaccount:kubevirt:kubevirt-operator",
+			usages: []capi.KeyUsage{
+				capi.UsageKeyEncipherment,
+				capi.UsageDigitalSignature,
+				capi.UsageServerAuth,
+			},
+			ips: []net.IP{net.ParseIP("127.0.0.1")},
 		}
 		c(&b)
 		t.Run(fmt.Sprintf("csr:%#v", b), func(t *testing.T) {

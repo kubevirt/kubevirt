@@ -20,24 +20,28 @@
 package virt_api
 
 import (
+	"crypto/tls"
 	"errors"
 	"io/ioutil"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"path/filepath"
 
-	restful "github.com/emicklei/go-restful"
+	"github.com/emicklei/go-restful"
 	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/ghttp"
+	"github.com/prometheus/client_golang/prometheus"
 	admissionregistrationv1beta1 "k8s.io/api/admissionregistration/v1beta1"
 	k8sv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/client-go/util/cert"
 	"k8s.io/client-go/util/cert/triple"
+	"k8s.io/client-go/util/certificate"
 	aggregatorclient "k8s.io/kube-aggregator/pkg/client/clientset_generated/clientset"
 
 	v1 "kubevirt.io/kubevirt/pkg/api/v1"
@@ -50,34 +54,32 @@ const namespaceKubevirt = "kubevirt"
 
 var _ = Describe("Virt-api", func() {
 	var app virtAPIApp
-	var tmpDir, keyFile, certFile, signingCertFile, clientCAFile string
-	var goodPemCertificate1, goodPemCertificate2, badPemCertificate string
+	var tmpDir string
+	var certTmpDir string
+	var goodPemCertificate1, badPemCertificate string
 	var server *ghttp.Server
 	var backend *httptest.Server
 	var ctrl *gomock.Controller
 	var authorizorMock *rest.MockVirtApiAuthorizor
-	var filesystemMock *MockFilesystem
-	var fileMock *MockFile
 	var expectedValidatingWebhooks *admissionregistrationv1beta1.ValidatingWebhookConfiguration
 	var expectedMutatingWebhooks *admissionregistrationv1beta1.MutatingWebhookConfiguration
-	var restrictiveMode os.FileMode
+	var servedCert *tls.Certificate
 	subresourceAggregatedApiName := v1.SubresourceGroupVersion.Version + "." + v1.SubresourceGroupName
 	log.Log.SetIOWriter(GinkgoWriter)
 
 	BeforeEach(func() {
+		var err error
 		app = virtAPIApp{namespace: namespaceKubevirt}
 		server = ghttp.NewServer()
 
 		backend = httptest.NewServer(nil)
-		tmpDir, err := ioutil.TempDir("", "api_tmp_dir")
+		tmpDir, err = ioutil.TempDir("", "api_tmp_dir")
+		certTmpDir, err = ioutil.TempDir("", "cert_tmp_dir")
+		app.CertDir = tmpDir
 		Expect(err).ToNot(HaveOccurred())
 		app.virtCli, _ = kubecli.GetKubevirtClientFromFlags(server.URL(), "")
-		app.certsDirectory = tmpDir
-		keyFile = filepath.Join(app.certsDirectory, "/key.pem")
-		certFile = filepath.Join(app.certsDirectory, "/cert.pem")
-		clientCAFile = filepath.Join(app.certsDirectory, "/clientCA.crt")
-		signingCertFile = filepath.Join(app.certsDirectory, "/signingCert.pem")
-		restrictiveMode = 0600
+		prepareCAs(&app, certTmpDir)
+		servedCert = prepareValidCert(&app, certTmpDir)
 
 		config, err := clientcmd.BuildConfigFromFlags(server.URL(), "")
 		Expect(err).ToNot(HaveOccurred())
@@ -86,8 +88,6 @@ var _ = Describe("Virt-api", func() {
 		Expect(err).ToNot(HaveOccurred())
 		ctrl = gomock.NewController(GinkgoT())
 		authorizorMock = rest.NewMockVirtApiAuthorizor(ctrl)
-		filesystemMock = NewMockFilesystem(ctrl)
-		fileMock = NewMockFile(ctrl)
 
 		// Reset go-restful
 		http.DefaultServeMux = new(http.ServeMux)
@@ -151,120 +151,19 @@ BQUAA4GBAJiDAAtY0mQQeuxWdzLRzXmjvdSuL9GoyT3BF/jSnpxz5/58dba8pWen
 v3pj4P3w5DoOso0rzkZy2jEsEitlVM2mLSbQpMM+MUVQCQoiG6W9xuCFuxSrwPIS
 pAqEAuV4DNoxQKKWmhVv+J0ptMWD25Pnpxeq5sXzghfJnslJlQND
 -----END CERTIFICATE-----`
-		goodPemCertificate2 = `-----BEGIN PRIVATE KEY-----
-MIIEvgIBADANBgkqhkiG9w0BAQEFAASCBKgwggSkAgEAAoIBAQC+Z2mi8shZ3T0c
-5ItI4KwLfYFXxNr3dmIY+2DS9boD18T46Ccow3wW/15SCcI1BdD/pPBmOTpUWP0b
-B22l4gAOUIWfk/CAHuaD+pHAGMlolAMdscwDZPdaM3XEdu839y2gy6RL4Pxls8No
-sI5h2BTGl3YgjSxA+vKJE+/IXzjajfiKfGHuywPjwPpGl1juOgSaU6zqLf4MlUnq
-Daq7r5V9KtJh8dz46PB6c8ALGNM+dxMJSLMyDvT1/7d9aYBkBvpb3mxOu9agIDNn
-2AZ3AxYwA0ykBLmc5R6V0toqRIjfruvBHqQfcjsFaoKS6O+QjtA/eBTIzGajnyis
-1TfeJxURAgMBAAECggEARANIlq5GpuMCW3m/zy6CBjC0rRdiaBbff7D7qx+fbJP8
-hjTXGBaMEuLxXDikKLCFMWxHexxiG5MWBjunDSQnhPV6ZcBAnmNrUCWHPqkb+ME2
-Q7so9uVv/cZ4AM/DL6iZoeBcNcaOIf4OhSzcD1NSSIX96i7Dagq57AE1G8v30Qlb
-CDybxrkbW8D9TkPh57oH/VNuhGLsFp62BjleYtNqo+aknlnHCj09mFQ+N5cA8DuK
-0CcNFCy4C8oZvg9kVsfdypBr4IR0kXTArqMyjUgXe9KqOzf/GdHR9anWhOzHsy/b
-T1Nb+vF6fDm0o6WHWhfODoF4iklrdwRibAnme+zegQKBgQDzvt4KQLnG5jWxeCLn
-P+QR9q63H98oL3kKToyXPaJVL+I71GtZm4yhYP8KB+bTgrMHPhR5se63cySX2lMJ
-RRKkieeEFuDVKVHulRH39g9fMvvl/f97qwv2mAJhdNuIaIjLSVFjQ8WZ6UWvJczp
-sTAyhIxDGiOV00HaUp3BFFnEOQKBgQDH+gLGIsLlPAwuMpbSyuDJucMk0Jzo3+at
-6h19pu5JpfTWn71Zs0RL45x9BLwbx8oi+vjECjMiaE2OyKC6uObxpXRl5okWQ63E
-XBpbONB+fx2v2h1cuB7iJCJxJ6DPTL70torWtwCp+I7CcIT+J/2SqPhiKipWo0Sk
-R2dxeb1HmQKBgEU8mmXfLOZKzkWzEncNtwNDRy3NZ95KXd+HoHf1kf8Qsvq7xCKY
-BMJygv+ebvr1zVTpVXecC2sg0ewwoBWqATmr0o+6z/K84gEbZxdAVe181gDmvYOr
-eqJ5W3PDdfixeOoF0ZCY17B4isrNuf9HzaEL9au56RHOCI6zmQwXc8hBAoGBAMaI
-h0h+Kk+7FbynrOUJVbHwIrTiB2WLJFF1JGIi4F9ty21omWv8dcmB51KW6MoLx7qC
-v4ahObLnKlifBjNabq1pPe4MufzIpDNV3TTDavqq6KY1PQFYKhEJHsiINzaXUt1Q
-fPY+KQKWKeUQIHjS6wQ3jKCoi/AHl5Yg7anS2v/BAoGBAIi309nwDFJG/2UFSObA
-WC+V6T7qy62UlwFlBwsFCbxf9FmFQfoP6wwbQef35Wx2aDnZaSzoXKn/1jvG5e1e
-TFW7K9oC8JkeA//mnTAVrgkvkaHGZmd27zQYB1U3DsO3fLvEt62PZn8fyEwaczeM
-vOOkHciP4pIhAObg/uiO0V9I
------END PRIVATE KEY-----
------BEGIN CERTIFICATE-----
-MIIDXTCCAkWgAwIBAgIJAM9HYUREwVxFMA0GCSqGSIb3DQEBCwUAMEUxCzAJBgNV
-BAYTAkNOMRMwEQYDVQQIDApTb21lLVN0YXRlMSEwHwYDVQQKDBhJbnRlcm5ldCBX
-aWRnaXRzIFB0eSBMdGQwHhcNMTQxMTAxMDY1OTE2WhcNMjQxMDI5MDY1OTE2WjBF
-MQswCQYDVQQGEwJDTjETMBEGA1UECAwKU29tZS1TdGF0ZTEhMB8GA1UECgwYSW50
-ZXJuZXQgV2lkZ2l0cyBQdHkgTHRkMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIB
-CgKCAQEAvmdpovLIWd09HOSLSOCsC32BV8Ta93ZiGPtg0vW6A9fE+OgnKMN8Fv9e
-UgnCNQXQ/6TwZjk6VFj9GwdtpeIADlCFn5PwgB7mg/qRwBjJaJQDHbHMA2T3WjN1
-xHbvN/ctoMukS+D8ZbPDaLCOYdgUxpd2II0sQPryiRPvyF842o34inxh7ssD48D6
-RpdY7joEmlOs6i3+DJVJ6g2qu6+VfSrSYfHc+OjwenPACxjTPncTCUizMg709f+3
-fWmAZAb6W95sTrvWoCAzZ9gGdwMWMANMpAS5nOUeldLaKkSI367rwR6kH3I7BWqC
-kujvkI7QP3gUyMxmo58orNU33icVEQIDAQABo1AwTjAdBgNVHQ4EFgQUJS1vm+Z3
-dm8z29qqdzeI94ZmoqwwHwYDVR0jBBgwFoAUJS1vm+Z3dm8z29qqdzeI94Zmoqww
-DAYDVR0TBAUwAwEB/zANBgkqhkiG9w0BAQsFAAOCAQEAl/6TWgvtFCcxue+YmpLz
-gcPckabL2dbgC7uxbIMgFEJUjtmHRpY1Tih8pKqqbdkPWhK2IBvyCqp7L1P5A4ib
-FTKRGogJSaWMjnh/w644yrmsjjo5uoAueqygwha+OAC3gtt6p844hb9KJTjaoMHC
-caaZ6jCAnfjAp2O/3bBpgXCy69UNlWizx8aXajn5a9ah/DrY8wZfI+ESRH3oMd/f
-hecgZLhdTPSkUJi/l6WK9wBuI8mVl+/Gesi8zgz8u+/BRZsxQoP9tBWUjOG396fm
-PCpapHzlchV1N1s0k+poxmoO/GI0GTPcIY3RhU6QJIQ0dtGCLZFVWchJms5u9GBg
-xw==
------END CERTIFICATE-----`
-
 	})
 
 	Context("Virt api server", func() {
-		It("should generate certs the first time it is run", func() {
-			server.AppendHandlers(
-				ghttp.CombineHandlers(
-					ghttp.VerifyRequest("GET", "/api/v1/namespaces/kubevirt/secrets/"+virtApiCertSecretName),
-					ghttp.RespondWithJSONEncoded(http.StatusNotFound, nil),
-				),
-				ghttp.CombineHandlers(
-					ghttp.VerifyRequest("POST", "/api/v1/namespaces/kubevirt/secrets"),
-					ghttp.RespondWithJSONEncoded(http.StatusOK, nil),
-				),
-			)
 
-			err := app.getSelfSignedCert()
-			Expect(err).ToNot(HaveOccurred())
-			Expect(len(app.signingCertBytes)).ToNot(Equal(0))
-			Expect(len(app.certBytes)).ToNot(Equal(0))
-			Expect(len(app.keyBytes)).ToNot(Equal(0))
-		}, 5)
+		It("should not request a certificate if it already exists", func() {
 
-		It("should not generate certs if secret already exists", func() {
-			caKeyPair, _ := triple.NewCA("kubevirt.io")
-			keyPair, _ := triple.NewServerKeyPair(
-				caKeyPair,
-				"virt-api.kubevirt.pod.cluster.local",
-				"virt-api",
-				namespaceKubevirt,
-				"cluster.local",
-				nil,
-				nil,
-			)
-			keyBytes := cert.EncodePrivateKeyPEM(keyPair.Key)
-			certBytes := cert.EncodeCertPEM(keyPair.Cert)
-			signingCertBytes := cert.EncodeCertPEM(caKeyPair.Cert)
-			secret := k8sv1.Secret{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      virtApiCertSecretName,
-					Namespace: namespaceKubevirt,
-					Labels: map[string]string{
-						v1.AppLabel: "virt-api-aggregator",
-					},
-				},
-				Type: "Opaque",
-				Data: map[string][]byte{
-					certBytesValue:        certBytes,
-					keyBytesValue:         keyBytes,
-					signingCertBytesValue: signingCertBytes,
-				},
-			}
-
-			server.AppendHandlers(
-				ghttp.CombineHandlers(
-					ghttp.VerifyRequest("GET", "/api/v1/namespaces/kubevirt/secrets/"+virtApiCertSecretName),
-					ghttp.RespondWithJSONEncoded(http.StatusOK, secret),
-				),
-			)
-
-			err := app.getSelfSignedCert()
-			Expect(err).ToNot(HaveOccurred())
-			Expect(app.signingCertBytes).To(Equal(signingCertBytes))
-			Expect(app.certBytes).To(Equal(certBytes))
-			Expect(app.keyBytes).To(Equal(keyBytes))
+			Expect(app.PromTLSConfig).To(BeNil())
+			Expect(app.setupTLS()).To(Succeed())
+			Expect(app.PromTLSConfig).NotTo(BeNil())
+			Eventually(func() *tls.Certificate {
+				c, _ := app.PromTLSConfig.GetCertificate(nil)
+				return c
+			}).Should(Equal(servedCert))
 		}, 5)
 
 		It("should return error if client CA doesn't exist", func() {
@@ -566,123 +465,30 @@ xw==
 			Expect(err).To(HaveOccurred())
 		}, 5)
 
-		It("should fail setupTLS at clientCAFile write error", func() {
-			clientCAFile := filepath.Join(app.certsDirectory, "/clientCA.crt")
-			filesystemMock.EXPECT().
-				WriteFile(clientCAFile, app.clientCABytes, restrictiveMode).
-				Return(errors.New("fake error writing " + clientCAFile))
-			err := app.setupTLS(filesystemMock)
-			Expect(err).To(HaveOccurred())
-		}, 5)
-
-		It("should fail setupTLS at keyBytes write error", func() {
-			filesystemMock.EXPECT().
-				WriteFile(clientCAFile, app.clientCABytes, restrictiveMode)
-			filesystemMock.EXPECT().
-				WriteFile(keyFile, app.keyBytes, restrictiveMode).
-				Return(errors.New("fake error writing " + keyFile))
-			err := app.setupTLS(filesystemMock)
-			Expect(err).To(HaveOccurred())
-		}, 5)
-
-		It("should fail setupTLS at certFile write error", func() {
-			filesystemMock.EXPECT().
-				WriteFile(clientCAFile, app.clientCABytes, restrictiveMode)
-			filesystemMock.EXPECT().
-				WriteFile(keyFile, app.keyBytes, restrictiveMode)
-			filesystemMock.EXPECT().
-				WriteFile(certFile, app.certBytes, restrictiveMode).
-				Return(errors.New("fake error writing " + certFile))
-			err := app.setupTLS(filesystemMock)
-			Expect(err).To(HaveOccurred())
-		}, 5)
-
-		It("should fail setupTLS at signingCertBytes write error", func() {
-			filesystemMock.EXPECT().
-				WriteFile(clientCAFile, app.clientCABytes, restrictiveMode)
-			filesystemMock.EXPECT().
-				WriteFile(keyFile, app.keyBytes, restrictiveMode)
-			filesystemMock.EXPECT().
-				WriteFile(certFile, app.certBytes, restrictiveMode)
-			filesystemMock.EXPECT().
-				WriteFile(signingCertFile, app.signingCertBytes, restrictiveMode).
-				Return(errors.New("fake error writing " + signingCertFile))
-			err := app.setupTLS(filesystemMock)
-			Expect(err).To(HaveOccurred())
-		}, 5)
-
-		It("should fail setupTLS at new pool error", func() {
-			filesystemMock.EXPECT().
-				WriteFile(clientCAFile, app.clientCABytes, restrictiveMode)
-			filesystemMock.EXPECT().
-				WriteFile(keyFile, app.keyBytes, restrictiveMode)
-			filesystemMock.EXPECT().
-				WriteFile(certFile, app.certBytes, restrictiveMode)
-			filesystemMock.EXPECT().
-				WriteFile(signingCertFile, app.signingCertBytes, restrictiveMode)
-			err := app.setupTLS(filesystemMock)
-			Expect(err).To(HaveOccurred())
-		}, 5)
-
-		It("should fail when client CA from request at open error", func() {
-			app.requestHeaderClientCABytes = []byte(goodPemCertificate1)
-			filesystemMock.EXPECT().
-				WriteFile(clientCAFile, app.clientCABytes, restrictiveMode)
-			filesystemMock.EXPECT().
-				OpenFile(clientCAFile, os.O_APPEND|os.O_WRONLY, restrictiveMode).
-				Return(nil, errors.New("fake error opening "+clientCAFile))
-			err := app.setupTLS(filesystemMock)
-			Expect(err).To(HaveOccurred())
-		}, 5)
-
-		It("should fail when client CA from request at write error", func() {
-			app.requestHeaderClientCABytes = []byte(goodPemCertificate1)
-			filesystemMock.EXPECT().
-				WriteFile(clientCAFile, app.clientCABytes, restrictiveMode)
-			filesystemMock.EXPECT().
-				OpenFile(clientCAFile, os.O_APPEND|os.O_WRONLY, restrictiveMode).
-				Return(fileMock, nil)
-			fileMock.EXPECT().
-				Write(app.requestHeaderClientCABytes).
-				Return(0, errors.New("fake error writing request client CA"))
-			fileMock.EXPECT().Close()
-			err := app.setupTLS(filesystemMock)
-			Expect(err).To(HaveOccurred())
-		}, 5)
-
 		It("should pass setupTLS at good client CA from config", func() {
+			app.requestHeaderClientCABytes = nil
 			app.clientCABytes = []byte(goodPemCertificate1)
-			err := app.setupTLS(IOUtil{})
+			err := app.setupTLS()
 			Expect(err).ToNot(HaveOccurred())
 		}, 5)
 
 		It("should fail setupTLS at bad client CA from config", func() {
+			app.requestHeaderClientCABytes = nil
 			app.clientCABytes = []byte(badPemCertificate)
-			err := app.setupTLS(IOUtil{})
-			Expect(len(app.requestHeaderClientCABytes)).To(Equal(0))
+			err := app.setupTLS()
 			Expect(err).To(HaveOccurred())
 		}, 5)
 
 		It("should pass setupTLS at good client CA from request", func() {
 			app.requestHeaderClientCABytes = []byte(goodPemCertificate1)
-			err := app.setupTLS(IOUtil{})
+			err := app.setupTLS()
 			Expect(err).ToNot(HaveOccurred())
 		}, 5)
 
 		It("should fail setupTLS at bad client CA from request", func() {
 			app.requestHeaderClientCABytes = []byte(badPemCertificate)
-			err := app.setupTLS(IOUtil{})
+			err := app.setupTLS()
 			Expect(err).To(HaveOccurred())
-		}, 5)
-
-		It("should concatenate at setupTLS client CA from request and config", func() {
-			app.clientCABytes = []byte(goodPemCertificate1)
-			app.requestHeaderClientCABytes = []byte(goodPemCertificate2)
-			err := app.setupTLS(IOUtil{})
-			Expect(err).ToNot(HaveOccurred())
-			clientCABytes, err := ioutil.ReadFile(clientCAFile)
-			Expect(err).ToNot(HaveOccurred())
-			Expect(clientCABytes).To(Equal([]byte(goodPemCertificate1 + goodPemCertificate2)))
 		}, 5)
 
 		It("should have default values for flags", func() {
@@ -697,5 +503,48 @@ xw==
 		backend.Close()
 		server.Close()
 		os.RemoveAll(tmpDir)
+		os.RemoveAll(certTmpDir)
+		prometheus.DefaultRegisterer = prometheus.NewRegistry()
 	})
 })
+
+func prepareValidCert(app *virtAPIApp, certTmpDir string) *tls.Certificate {
+	caKeyPair, _ := triple.NewCA("kubevirt.io")
+	keyPair, _ := triple.NewServerKeyPair(
+		caKeyPair,
+		"virt-api.kubevirt.pod.cluster.local",
+		"virt-api.kubevirt.svc",
+		namespaceKubevirt,
+		"cluster.local",
+		nil,
+		nil,
+	)
+
+	keyBytes := cert.EncodePrivateKeyPEM(keyPair.Key)
+	certBytes := cert.EncodeCertPEM(keyPair.Cert)
+	keyFile := filepath.Join(certTmpDir, "key.pem")
+	certFile := filepath.Join(certTmpDir, "cert.pem")
+	Expect(ioutil.WriteFile(keyFile, keyBytes, 777)).To(Succeed())
+	Expect(ioutil.WriteFile(certFile, certBytes, 777)).To(Succeed())
+
+	store, err := certificate.NewFileStore("kubevirt-client", app.CertDir, app.CertDir, "", "")
+	Expect(err).ToNot(HaveOccurred())
+	_, err = store.Update(certBytes, keyBytes)
+	Expect(err).ToNot(HaveOccurred())
+
+	cert, err := store.Current()
+	Expect(err).ToNot(HaveOccurred())
+	Expect(cert).ToNot(BeNil())
+	Expect(err).ToNot(HaveOccurred())
+	return cert
+}
+
+func prepareCAs(app *virtAPIApp, certTmpDir string) {
+	caKeyPair, _ := triple.NewCA("kubevirt.io")
+	caBytes := cert.EncodeCertPEM(caKeyPair.Cert)
+	app.PodIpAddress = net.ParseIP("127.0.0.1")
+	caFile := filepath.Join(certTmpDir, "ca.pem")
+	Expect(ioutil.WriteFile(caFile, caBytes, 777)).To(Succeed())
+	app.RootCAFile = caFile
+	app.requestHeaderClientCABytes = caBytes
+}

@@ -21,12 +21,12 @@ package virt_api
 
 import (
 	"crypto/tls"
+	"crypto/x509"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
+	"net"
 	"net/http"
-	"os"
-	"path/filepath"
 	"sync"
 
 	"github.com/emicklei/go-restful"
@@ -35,13 +35,12 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	flag "github.com/spf13/pflag"
 	admissionregistrationv1beta1 "k8s.io/api/admissionregistration/v1beta1"
-	k8sv1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/cert"
-	"k8s.io/client-go/util/cert/triple"
+	"k8s.io/client-go/util/certificate"
 	apiregistrationv1beta1 "k8s.io/kube-aggregator/pkg/apis/apiregistration/v1beta1"
 	aggregatorclient "k8s.io/kube-aggregator/pkg/client/clientset_generated/clientset"
 
@@ -70,9 +69,6 @@ const (
 	// Default address that virt-api listens on.
 	defaultHost = "0.0.0.0"
 
-	// selfsigned cert secret name
-	virtApiCertSecretName = "kubevirt-virt-api-certs"
-
 	virtWebhookValidator = "virt-api-validator"
 	virtWebhookMutator   = "virt-api-mutator"
 
@@ -81,17 +77,13 @@ const (
 	vmiCreateValidatePath       = "/virtualmachineinstances-validate-create"
 	vmiUpdateValidatePath       = "/virtualmachineinstances-validate-update"
 	vmValidatePath              = "/virtualmachines-validate"
-	vmirsValidatePath           = "/virtualmachinereplicaset-validate"
+	vmirsValidatePath           = "/virtualmachinereplicaset-v/tlsalidate"
 	vmipresetValidatePath       = "/vmipreset-validate"
 	migrationCreateValidatePath = "/migration-validate-create"
 	migrationUpdateValidatePath = "/migration-validate-update"
 
 	vmiMutatePath       = "/virtualmachineinstances-mutate"
 	migrationMutatePath = "/migration-mutate-create"
-
-	certBytesValue        = "cert-bytes"
-	keyBytesValue         = "key-bytes"
-	signingCertBytesValue = "signing-cert-bytes"
 )
 
 type VirtApi interface {
@@ -110,11 +102,8 @@ type virtAPIApp struct {
 	virtCli          kubecli.KubevirtClient
 	aggregatorClient *aggregatorclient.Clientset
 	authorizor       rest.VirtApiAuthorizor
-	certsDirectory   string
 
 	signingCertBytes           []byte
-	certBytes                  []byte
-	keyBytes                   []byte
 	clientCABytes              []byte
 	requestHeaderClientCABytes []byte
 	certFile                   string
@@ -122,7 +111,6 @@ type virtAPIApp struct {
 	clientCAFile               string
 	signingCertFile            string
 	namespace                  string
-	tlsConfig                  *tls.Config
 }
 
 var _ service.Service = &virtAPIApp{}
@@ -160,10 +148,6 @@ func (app *virtAPIApp) Execute() {
 
 	app.virtCli = virtCli
 
-	app.certsDirectory, err = ioutil.TempDir("", "certsdir")
-	if err != nil {
-		panic(err)
-	}
 	app.namespace, err = util.GetNamespace()
 	if err != nil {
 		panic(err)
@@ -436,72 +420,10 @@ func (app *virtAPIApp) getClientCert() error {
 	return nil
 }
 
-func (app *virtAPIApp) getSelfSignedCert() error {
-	var ok bool
+func (app *virtAPIApp) loadRootCA() (err error) {
 
-	generateCerts := false
-	secret, err := app.virtCli.CoreV1().Secrets(app.namespace).Get(virtApiCertSecretName, metav1.GetOptions{})
-	if err != nil {
-		if k8serrors.IsNotFound(err) {
-			generateCerts = true
-		} else {
-			return err
-		}
-	}
-
-	if generateCerts {
-		// Generate new certs if secret doesn't already exist
-		caKeyPair, _ := triple.NewCA("kubevirt.io")
-		keyPair, _ := triple.NewServerKeyPair(
-			caKeyPair,
-			"virt-api."+app.namespace+".pod.cluster.local",
-			"virt-api",
-			app.namespace,
-			"cluster.local",
-			nil,
-			nil,
-		)
-
-		app.keyBytes = cert.EncodePrivateKeyPEM(keyPair.Key)
-		app.certBytes = cert.EncodeCertPEM(keyPair.Cert)
-		app.signingCertBytes = cert.EncodeCertPEM(caKeyPair.Cert)
-
-		secret := k8sv1.Secret{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      virtApiCertSecretName,
-				Namespace: app.namespace,
-				Labels: map[string]string{
-					v1.AppLabel: "virt-api-aggregator",
-				},
-			},
-			Type: "Opaque",
-			Data: map[string][]byte{
-				certBytesValue:        app.certBytes,
-				keyBytesValue:         app.keyBytes,
-				signingCertBytesValue: app.signingCertBytes,
-			},
-		}
-		_, err := app.virtCli.CoreV1().Secrets(app.namespace).Create(&secret)
-		if err != nil {
-			return err
-		}
-	} else {
-		// retrieve self signed cert info from secret
-
-		app.certBytes, ok = secret.Data[certBytesValue]
-		if !ok {
-			return fmt.Errorf("%s value not found in %s virt-api secret", certBytesValue, virtApiCertSecretName)
-		}
-		app.keyBytes, ok = secret.Data[keyBytesValue]
-		if !ok {
-			return fmt.Errorf("%s value not found in %s virt-api secret", keyBytesValue, virtApiCertSecretName)
-		}
-		app.signingCertBytes, ok = secret.Data[signingCertBytesValue]
-		if !ok {
-			return fmt.Errorf("%s value not found in %s virt-api secret", signingCertBytesValue, virtApiCertSecretName)
-		}
-	}
-	return nil
+	app.signingCertBytes, err = ioutil.ReadFile(service.ServiceAccountRootCAFile)
+	return err
 }
 
 func (app *virtAPIApp) createWebhook() error {
@@ -921,120 +843,71 @@ func (app *virtAPIApp) createSubresourceApiservice() error {
 	return nil
 }
 
-func (app *virtAPIApp) setupTLS(fs Filesystem) error {
-
-	app.keyFile = filepath.Join(app.certsDirectory, "/key.pem")
-	app.certFile = filepath.Join(app.certsDirectory, "/cert.pem")
-	app.signingCertFile = filepath.Join(app.certsDirectory, "/signingCert.pem")
-	app.clientCAFile = filepath.Join(app.certsDirectory, "/clientCA.crt")
-
-	// Write the certs to disk
-	err := fs.WriteFile(app.clientCAFile, app.clientCABytes, 0600)
-	if err != nil {
-		return err
-	}
-
-	if len(app.requestHeaderClientCABytes) != 0 {
-		f, err := fs.OpenFile(app.clientCAFile, os.O_APPEND|os.O_WRONLY, 0600)
-		if err != nil {
-			return err
-		}
-		defer f.Close()
-
-		_, err = f.Write(app.requestHeaderClientCABytes)
-		if err != nil {
-			return err
-		}
-	}
-
-	err = fs.WriteFile(app.keyFile, app.keyBytes, 0600)
-	if err != nil {
-		return err
-	}
-	err = fs.WriteFile(app.certFile, app.certBytes, 0600)
-	if err != nil {
-		return err
-	}
-	err = fs.WriteFile(app.signingCertFile, app.signingCertBytes, 0600)
-	if err != nil {
-		return err
-	}
-
-	// create the client CA pool.
-	// This ensures we're talking to the k8s api server
-	pool, err := cert.NewPool(app.clientCAFile)
-	if err != nil {
-		return err
-	}
-
-	app.tlsConfig = &tls.Config{
-		ClientCAs: pool,
-		// A VerifyClientCertIfGiven request means we're not guaranteed
-		// a client has been authenticated unless they provide a peer
-		// cert.
-		//
-		// Make sure to verify in subresource endpoint that peer cert
-		// was provided before processing request. If the peer cert is
-		// given on the connection, then we can be guaranteed that it
-		// was signed by the client CA in our pool.
-		//
-		// There is another ClientAuth type called 'RequireAndVerifyClientCert'
-		// We can't use this type here because during the aggregated api status
-		// check it attempts to hit '/' on our api endpoint to verify an http
-		// response is given. That status request won't send a peer cert regardless
-		// if the TLS handshake requests it. As a result, the TLS handshake fails
-		// and our aggregated endpoint never becomes available.
+func newAggregationTLSConfig(certPool *x509.CertPool, manager certificate.Manager) *tls.Config {
+	migrationTLSConfig := &tls.Config{
+		MinVersion: tls.VersionTLS12,
 		ClientAuth: tls.VerifyClientCertIfGiven,
+		ClientCAs:  certPool,
+		GetCertificate: func(info *tls.ClientHelloInfo) (*tls.Certificate, error) {
+			cert := manager.Current()
+			if cert == nil {
+				return nil, fmt.Errorf("no serving certificate available for virt-api")
+			}
+			return cert, nil
+		},
 	}
-	app.tlsConfig.BuildNameToCertificate()
+	return migrationTLSConfig
+}
+
+func (app *virtAPIApp) setupTLS() (err error) {
+
+	app.SetupCertificateManager(app.virtCli, func(certStore certificate.Store, name string, dnsSANs []string, ipSANs []net.IP) *certificate.Config {
+		namespacedName := fmt.Sprintf("%s.%s", virtApiServiceName, app.namespace)
+		internalAPIServerFQDN := append([]string{
+			fmt.Sprintf("%s.svc", namespacedName),
+		}, dnsSANs...)
+		return bootstrap.LoadCertConfigForService(certStore, name, internalAPIServerFQDN, ipSANs)
+	})
+
+	var certs []*x509.Certificate
+	if len(app.requestHeaderClientCABytes) > 0 {
+		certs, err = cert.ParseCertsPEM(app.requestHeaderClientCABytes)
+		if err != nil {
+			return err
+		}
+	} else {
+		certs, err = cert.ParseCertsPEM(app.clientCABytes)
+		if err != nil {
+			return err
+		}
+	}
+
+	certPool := x509.NewCertPool()
+	for _, cert := range certs {
+		certPool.AddCert(cert)
+	}
+
+	app.PromTLSConfig = newAggregationTLSConfig(certPool, app.CertificateManager)
 	return nil
 }
 
-func (app *virtAPIApp) startTLS() error {
-
-	app.SetupCertificateManager(app.virtCli, bootstrap.LoadCertConfigForService)
-
-	errors := make(chan error, 2)
-
-	err := app.setupTLS(IOUtil{})
-	if err != nil {
-		return err
-	}
-
-	// start TLS server for the aggregated apiserver
-	go func() {
-		server := &http.Server{
-			Addr:      fmt.Sprintf("%s:%d", app.BindAddress, app.Port),
-			TLSConfig: app.tlsConfig,
-		}
-
-		err := server.ListenAndServeTLS(app.certFile, app.keyFile)
-		if err != nil {
-			errors <- fmt.Errorf("serving the aggregated apiserver failed: %v", err)
-		} else {
-			errors <- nil
-		}
-	}()
-
-	// start TLS server for prometheus
+func (app *virtAPIApp) startTLS() (err error) {
 	handler := http.NewServeMux()
+	handler.Handle("/metrics", promhttp.Handler())
+	handler.Handle("/", restful.DefaultContainer)
+
 	server := &http.Server{
-		Addr:      fmt.Sprintf("%s:%d", app.BindAddress, 9443),
+		Addr:      app.Address(),
 		TLSConfig: app.PromTLSConfig,
 		Handler:   handler,
 	}
 
-	handler.Handle("/metrics", promhttp.Handler())
-	go func() {
-		err = server.ListenAndServeTLS("", "")
-		if err != nil {
-			errors <- fmt.Errorf("serving prometheus failed: %v", err)
-		} else {
-			errors <- nil
-		}
-	}()
+	err = server.ListenAndServeTLS("", "")
+	if err != nil {
+		return fmt.Errorf("serving the aggregated apiserver failed: %v", err)
+	}
 
-	return <-errors
+	return nil
 }
 
 func (app *virtAPIApp) Run() {
@@ -1045,7 +918,7 @@ func (app *virtAPIApp) Run() {
 	}
 
 	// Get/Set selfsigned cert
-	err = app.getSelfSignedCert()
+	err = app.loadRootCA()
 	if err != nil {
 		panic(err)
 	}
@@ -1078,9 +951,12 @@ func (app *virtAPIApp) Run() {
 		panic(err)
 	}
 
+	if err := app.setupTLS(); err != nil {
+		panic(err)
+	}
+
 	// start TLS server
-	err = app.startTLS()
-	if err != nil {
+	if err := app.startTLS(); err != nil {
 		panic(err)
 	}
 }
