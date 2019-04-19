@@ -77,7 +77,7 @@ const (
 	vmiCreateValidatePath       = "/virtualmachineinstances-validate-create"
 	vmiUpdateValidatePath       = "/virtualmachineinstances-validate-update"
 	vmValidatePath              = "/virtualmachines-validate"
-	vmirsValidatePath           = "/virtualmachinereplicaset-v/tlsalidate"
+	vmirsValidatePath           = "/virtualmachinereplicaset-validate"
 	vmipresetValidatePath       = "/vmipreset-validate"
 	migrationCreateValidatePath = "/migration-validate-create"
 	migrationUpdateValidatePath = "/migration-validate-update"

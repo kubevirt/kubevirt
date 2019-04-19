@@ -25,6 +25,8 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"reflect"
+	"strings"
 	"time"
 
 	"github.com/emicklei/go-restful"
@@ -227,6 +229,19 @@ func newMigrationTLSConfig(certPool *x509.CertPool, manager certificate.Manager)
 				return nil, fmt.Errorf("no serving certificate available for virt-handler")
 			}
 			return cert, nil
+		},
+		VerifyPeerCertificate: func(rawCerts [][]byte, verifiedChains [][]*x509.Certificate) error {
+			c, err := x509.ParseCertificate(rawCerts[0])
+			if err != nil {
+				return fmt.Errorf("failed to parse certificate: %v", err)
+			}
+			if !reflect.DeepEqual([]string{"kubevirt.io:system"}, c.Subject.Organization) {
+				return fmt.Errorf("expected organization kubevirt.io:system, but got: %v", c.Subject.Organization)
+			}
+			if !strings.HasPrefix(c.Subject.CommonName, "kubevirt.io:system:nodes") {
+				return fmt.Errorf("expected common name with kubevirt.io:system:nodes prefix, but got: %s", c.Subject.CommonName)
+			}
+			return nil
 		},
 	}
 	return migrationTLSConfig
