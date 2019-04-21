@@ -80,6 +80,7 @@ func serve(resp http.ResponseWriter, req *http.Request, m mutator) {
 }
 
 type VMIsMutator struct {
+	clusterConfig *virtconfig.ClusterConfig
 }
 
 func (mutator *VMIsMutator) mutate(ar *v1beta1.AdmissionReview) *v1beta1.AdmissionResponse {
@@ -101,11 +102,7 @@ func (mutator *VMIsMutator) mutate(ar *v1beta1.AdmissionReview) *v1beta1.Admissi
 	}
 
 	informers := webhooks.GetInformers()
-	namespace, err := util.GetNamespace()
-	if err != nil {
-		return webhooks.ToAdmissionResponseError(err)
-	}
-	config := virtconfig.NewClusterConfig(informers.ConfigMapInformer.GetStore(), namespace)
+	config := mutator.clusterConfig
 
 	// Apply presets
 	err = applyPresets(&vmi, informers.VMIPresetInformer)
@@ -251,7 +248,11 @@ func setDefaultResourceRequests(vmi *v1.VirtualMachineInstance, defaultMemoryReq
 }
 
 func ServeVMIs(resp http.ResponseWriter, req *http.Request) {
-	serve(resp, req, &VMIsMutator{})
+	informers := webhooks.GetInformers()
+	namespace, _ := util.GetNamespace()
+	serve(resp, req, &VMIsMutator{
+		clusterConfig: virtconfig.NewClusterConfig(informers.ConfigMapInformer.GetStore(), namespace),
+	})
 }
 
 func ServeMigrationCreate(resp http.ResponseWriter, req *http.Request) {

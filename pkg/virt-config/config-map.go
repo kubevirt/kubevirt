@@ -44,13 +44,13 @@ const (
 	featureGateEnvVar   = "FEATURE_GATES"
 	FeatureGatesKey     = "feature-gates"
 	emulatedMachinesKey = "emulated-machines"
-	machineTypeKey      = "machine-type"
+	MachineTypeKey      = "machine-type"
 	useEmulationKey     = "debug.useEmulation"
 	imagePullPolicyKey  = "dev.imagePullPolicy"
 	migrationsConfigKey = "migrations"
-	cpuModelKey         = "default-cpu-model"
-	cpuRequestKey       = "cpu-request"
-	memoryRequestKey    = "memory-request"
+	CpuModelKey         = "default-cpu-model"
+	CpuRequestKey       = "cpu-request"
+	MemoryRequestKey    = "memory-request"
 
 	ParallelOutboundMigrationsPerNodeDefault uint32 = 2
 	ParallelMigrationsPerClusterDefault      uint32 = 5
@@ -273,19 +273,19 @@ func setConfig(config *Config, configMap *k8sv1.ConfigMap) error {
 	}
 
 	// set machine type
-	if machineType := strings.TrimSpace(configMap.Data[machineTypeKey]); machineType != "" {
+	if machineType := strings.TrimSpace(configMap.Data[MachineTypeKey]); machineType != "" {
 		config.MachineType = machineType
 	}
 
-	if cpuModel := strings.TrimSpace(configMap.Data[cpuModelKey]); cpuModel != "" {
+	if cpuModel := strings.TrimSpace(configMap.Data[CpuModelKey]); cpuModel != "" {
 		config.CPUModel = cpuModel
 	}
 
-	if cpuRequest := strings.TrimSpace(configMap.Data[cpuRequestKey]); cpuRequest != "" {
+	if cpuRequest := strings.TrimSpace(configMap.Data[CpuRequestKey]); cpuRequest != "" {
 		config.CPURequest = resource.MustParse(cpuRequest)
 	}
 
-	if memoryRequest := strings.TrimSpace(configMap.Data[memoryRequestKey]); memoryRequest != "" {
+	if memoryRequest := strings.TrimSpace(configMap.Data[MemoryRequestKey]); memoryRequest != "" {
 		config.MemoryRequest = resource.MustParse(memoryRequest)
 	}
 

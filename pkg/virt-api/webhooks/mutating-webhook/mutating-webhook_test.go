@@ -34,6 +34,7 @@ import (
 	v1 "kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/testutils"
 	"kubevirt.io/kubevirt/pkg/virt-api/webhooks"
+	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 )
 
 var _ = Describe("Mutating Webhook", func() {
@@ -44,12 +45,14 @@ var _ = Describe("Mutating Webhook", func() {
 		var presetInformer cache.SharedIndexInformer
 		var namespaceLimit *k8sv1.LimitRange
 		var namespaceLimitInformer cache.SharedIndexInformer
+		var configMapStore cache.Store
+		var mutator *VMIsMutator
 
-		limitMemory, _ := resource.ParseQuantity("128M")
+		memoryLimit := "128M"
 		cpuModelFromConfig := "Haswell"
 		machineTypeFromConfig := "pc-q35-3.0"
-		cpuRequestFromConfig := resource.MustParse("800m")
-		memoryRequestFromConfig := resource.MustParse("256Mi")
+		cpuRequestFromConfig := "800m"
+		memoryRequestFromConfig := "256Mi"
 
 		getVMISpecMetaFromResponse := func() (*v1.VirtualMachineInstanceSpec, *k8smetav1.ObjectMeta) {
 			vmiBytes, err := json.Marshal(vmi)
@@ -64,7 +67,6 @@ var _ = Describe("Mutating Webhook", func() {
 				},
 			}
 			By("Mutating the VMI")
-			mutator := &VMIsMutator{}
 			resp := mutator.mutate(ar)
 			Expect(resp.Allowed).To(Equal(true))
 
@@ -115,7 +117,7 @@ var _ = Describe("Mutating Webhook", func() {
 						{
 							Type: k8sv1.LimitTypeContainer,
 							Default: k8sv1.ResourceList{
-								k8sv1.ResourceMemory: limitMemory,
+								k8sv1.ResourceMemory: resource.MustParse(memoryLimit),
 							},
 						},
 					},
@@ -131,6 +133,9 @@ var _ = Describe("Mutating Webhook", func() {
 					ConfigMapInformer:       configMapInformer,
 				},
 			)
+
+			mutator = &VMIsMutator{}
+			mutator.clusterConfig, configMapStore = testutils.NewFakeClusterConfig(&k8sv1.ConfigMap{})
 		})
 
 		It("should apply presets on VMI create", func() {
@@ -141,7 +146,7 @@ var _ = Describe("Mutating Webhook", func() {
 
 		It("should apply namespace limit ranges on VMI create", func() {
 			vmiSpec, _ := getVMISpecMetaFromResponse()
-			Expect(vmiSpec.Domain.Resources.Limits.Memory().String()).To(Equal("128M"))
+			Expect(vmiSpec.Domain.Resources.Limits.Memory().String()).To(Equal(memoryLimit))
 		})
 
 		It("should apply defaults on VMI create", func() {
@@ -153,36 +158,44 @@ var _ = Describe("Mutating Webhook", func() {
 		})
 
 		It("should apply configurable defaults on VMI create", func() {
-			setDefaultCPUModel(vmi, cpuModelFromConfig)
-			setDefaultMachineType(vmi, machineTypeFromConfig)
-			setDefaultResourceRequests(vmi, memoryRequestFromConfig, cpuRequestFromConfig)
-			Expect(vmi.Spec.Domain.CPU.Model).To(Equal(cpuModelFromConfig))
-			Expect(vmi.Spec.Domain.Machine.Type).To(Equal(machineTypeFromConfig))
-			Expect(vmi.Spec.Domain.Resources.Requests.Cpu().String()).To(Equal("800m"))
-			Expect(vmi.Spec.Domain.Resources.Requests.Memory().String()).To(Equal("256Mi"))
+			testutils.UpdateFakeClusterConfig(configMapStore, &k8sv1.ConfigMap{
+				Data: map[string]string{
+					virtconfig.CpuModelKey:      cpuModelFromConfig,
+					virtconfig.MachineTypeKey:   machineTypeFromConfig,
+					virtconfig.MemoryRequestKey: memoryRequestFromConfig,
+					virtconfig.CpuRequestKey:    cpuRequestFromConfig,
+				},
+			})
+
+			vmiSpec, _ := getVMISpecMetaFromResponse()
+			Expect(vmiSpec.Domain.CPU.Model).To(Equal(cpuModelFromConfig))
+			Expect(vmiSpec.Domain.Machine.Type).To(Equal(machineTypeFromConfig))
+			Expect(vmiSpec.Domain.Resources.Requests.Cpu().String()).To(Equal(cpuRequestFromConfig))
+			Expect(vmiSpec.Domain.Resources.Requests.Memory().String()).To(Equal(memoryRequestFromConfig))
 		})
 
 		It("should not override specified properties with defaults on VMI create", func() {
-			vmCPUModel := "EPYC"
-			vmMachineType := "q35"
-			cpu := "600m"
-			memory := "512Mi"
+			testutils.UpdateFakeClusterConfig(configMapStore, &k8sv1.ConfigMap{
+				Data: map[string]string{
+					virtconfig.CpuModelKey:      cpuModelFromConfig,
+					virtconfig.MachineTypeKey:   machineTypeFromConfig,
+					virtconfig.MemoryRequestKey: memoryRequestFromConfig,
+					virtconfig.CpuRequestKey:    cpuRequestFromConfig,
+				},
+			})
+
 			vmi.Spec.Domain.Resources.Requests = k8sv1.ResourceList{
-				k8sv1.ResourceCPU:    resource.MustParse(cpu),
-				k8sv1.ResourceMemory: resource.MustParse(memory),
+				k8sv1.ResourceCPU:    resource.MustParse("600m"),
+				k8sv1.ResourceMemory: resource.MustParse("512Mi"),
 			}
-			vmi.Spec.Domain.CPU = &v1.CPU{
-				Model: vmCPUModel,
-			}
-			vmi.Spec.Domain.Machine.Type = vmMachineType
+			vmi.Spec.Domain.CPU = &v1.CPU{Model: "EPYC"}
+			vmi.Spec.Domain.Machine.Type = "q35"
 
 			vmiSpec, _ := getVMISpecMetaFromResponse()
-			setDefaultCPUModel(vmi, cpuModelFromConfig)
-			setDefaultMachineType(vmi, machineTypeFromConfig)
-			Expect(vmi.Spec.Domain.CPU.Model).To(Equal(vmCPUModel))
-			Expect(vmi.Spec.Domain.Machine.Type).To(Equal(vmMachineType))
-			Expect(vmiSpec.Domain.Resources.Requests.Cpu().String()).To(Equal(cpu))
-			Expect(vmiSpec.Domain.Resources.Requests.Memory().String()).To(Equal(memory))
+			Expect(vmiSpec.Domain.CPU.Model).To(Equal(vmi.Spec.Domain.CPU.Model))
+			Expect(vmiSpec.Domain.Machine.Type).To(Equal(vmi.Spec.Domain.Machine.Type))
+			Expect(vmiSpec.Domain.Resources.Requests.Cpu()).To(Equal(vmi.Spec.Domain.Resources.Requests.Cpu()))
+			Expect(vmiSpec.Domain.Resources.Requests.Memory()).To(Equal(vmi.Spec.Domain.Resources.Requests.Memory()))
 		})
 
 		It("should apply foreground finalizer on VMI create", func() {
