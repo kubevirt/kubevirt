@@ -110,7 +110,7 @@ var _ = Describe("Subresource Api", func() {
 
 			It("should return an error when VM has not been found but VMI is running", func() {
 				vmi := tests.NewRandomVMI()
-				tests.RunVMIAndExpectLaunch(vmi, false, 60)
+				tests.RunVMIAndExpectLaunch(vmi, 60)
 
 				err := virtCli.VirtualMachine(tests.NamespaceTestDefault).Restart(vmi.Name)
 				Expect(err).To(HaveOccurred())

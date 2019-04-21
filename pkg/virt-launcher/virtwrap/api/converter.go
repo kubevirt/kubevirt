@@ -1151,8 +1151,6 @@ func getCPUTopology(vmi *v1.VirtualMachineInstance) *CPUTopology {
 	sockets := uint32(1)
 	vmiCPU := vmi.Spec.Domain.CPU
 	if vmiCPU != nil {
-		vmiCPU := vmi.Spec.Domain.CPU
-
 		if vmiCPU.Cores != 0 {
 			cores = vmiCPU.Cores
 		}
@@ -1170,10 +1168,10 @@ func getCPUTopology(vmi *v1.VirtualMachineInstance) *CPUTopology {
 		//if cores, sockets, threads are not set, take value from domain resources request or limits and
 		//set value into sockets, which have best performance (https://bugzilla.redhat.com/show_bug.cgi?id=1653453)
 		resources := vmi.Spec.Domain.Resources
-		if cpuRequests, ok := resources.Requests[k8sv1.ResourceCPU]; ok {
-			sockets = uint32(cpuRequests.Value())
-		} else if cpuLimit, ok := resources.Limits[k8sv1.ResourceCPU]; ok {
+		if cpuLimit, ok := resources.Limits[k8sv1.ResourceCPU]; ok {
 			sockets = uint32(cpuLimit.Value())
+		} else if cpuRequests, ok := resources.Requests[k8sv1.ResourceCPU]; ok {
+			sockets = uint32(cpuRequests.Value())
 		}
 	}
 

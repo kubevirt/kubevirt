@@ -224,3 +224,20 @@ func ExpectEvents(recorder *record.FakeRecorder, reasons ...string) {
 		}
 	}
 }
+
+//BeIn succeeds if actual is contained in the passed in elements.
+//BeIn() always uses Equal() to perform the match.
+//When the passed in elements are comprised of a single element that is either a Map or Array or Slice, BeIn() behaves
+//as the reverse of ContainElement() that operates with Equal() to perform the match.
+//    Eventually(fn).Should(BeIn([]int{1, 2}))
+//    Expect(2).Should(BeIn(map[string]int{"foo": 1, "bar": 2}))
+//Otherwise, BeIn() provides a syntactic sugar for Or(Equal(_), Equal(_), ...):
+//    Expect(2).Should(BeIn(1, 2))
+//
+//Actual must be a type.
+//Proposed to gomega: https://github.com/onsi/gomega/pull/344
+func BeIn(elements ...interface{}) types.GomegaMatcher {
+	return &BeInMatcher{
+		Elements: elements,
+	}
+}

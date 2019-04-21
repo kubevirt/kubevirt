@@ -69,6 +69,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/kubecli"
 	"kubevirt.io/kubevirt/pkg/log"
+	"kubevirt.io/kubevirt/pkg/testutils"
 	"kubevirt.io/kubevirt/pkg/util/net/dns"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
@@ -1177,10 +1178,17 @@ func RunVMI(vmi *v1.VirtualMachineInstance, timeout int) *v1.VirtualMachineInsta
 	return obj
 }
 
-func RunVMIAndExpectLaunch(vmi *v1.VirtualMachineInstance, withAuth bool, timeout int) *v1.VirtualMachineInstance {
+func RunVMIAndExpectLaunch(vmi *v1.VirtualMachineInstance, timeout int) *v1.VirtualMachineInstance {
 	obj := RunVMI(vmi, timeout)
 	By("Waiting until the VirtualMachineInstance will start")
 	WaitForSuccessfulVMIStartWithTimeout(obj, timeout)
+	return obj
+}
+
+func RunVMIAndExpectScheduling(vmi *v1.VirtualMachineInstance, timeout int) *v1.VirtualMachineInstance {
+	obj := RunVMI(vmi, timeout)
+	By("Waiting until the VirtualMachineInstance will be scheduled")
+	waitForVMIScheduling(obj, timeout, false)
 	return obj
 }
 
@@ -1228,6 +1236,28 @@ func GetRunningPodByLabel(label string, labelType string, namespace string) *k8s
 	}
 
 	return readyPod
+}
+
+func GetPodByVirtualMachineInstance(vmi *v1.VirtualMachineInstance, namespace string) *k8sv1.Pod {
+	virtCli, err := kubecli.GetKubevirtClient()
+	PanicOnError(err)
+
+	pods, err := virtCli.CoreV1().Pods(namespace).List(metav1.ListOptions{})
+	PanicOnError(err)
+
+	var controlledPod *k8sv1.Pod
+	for _, pod := range pods.Items {
+		if controller.IsControlledBy(&pod, vmi) {
+			controlledPod = &pod
+			break
+		}
+	}
+
+	if controlledPod == nil {
+		PanicOnError(fmt.Errorf("no controlled pod was found for VMI"))
+	}
+
+	return controlledPod
 }
 
 func cleanNamespaces() {
@@ -1998,6 +2028,15 @@ func WaitForSuccessfulDataVolumeImport(obj runtime.Object, seconds int) {
 
 // Block until the specified VirtualMachineInstance started and return the target node name.
 func waitForVMIStart(obj runtime.Object, seconds int, ignoreWarnings bool) (nodeName string) {
+	return waitForVMIPhase([]v1.VirtualMachineInstancePhase{v1.Running}, obj, seconds, ignoreWarnings)
+}
+
+// Block until the specified VirtualMachineInstance scheduled and return the target node name.
+func waitForVMIScheduling(obj runtime.Object, seconds int, ignoreWarnings bool) {
+	waitForVMIPhase([]v1.VirtualMachineInstancePhase{v1.Scheduling, v1.Scheduled, v1.Running}, obj, seconds, ignoreWarnings)
+}
+
+func waitForVMIPhase(phases []v1.VirtualMachineInstancePhase, obj runtime.Object, seconds int, ignoreWarnings bool) (nodeName string) {
 	vmi, ok := obj.(*v1.VirtualMachineInstance)
 	ExpectWithOffset(1, ok).To(BeTrue(), "Object is not of type *v1.VMI")
 
@@ -2025,6 +2064,7 @@ func waitForVMIStart(obj runtime.Object, seconds int, ignoreWarnings bool) (node
 		}()
 	}
 
+	timeoutMsg := fmt.Sprintf("Timed out waiting for VMI to enter %s phase(s)", phases)
 	// FIXME the event order is wrong. First the document should be updated
 	EventuallyWithOffset(1, func() v1.VirtualMachineInstancePhase {
 		vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &metav1.GetOptions{})
@@ -2033,7 +2073,7 @@ func waitForVMIStart(obj runtime.Object, seconds int, ignoreWarnings bool) (node
 		nodeName = vmi.Status.NodeName
 		Expect(vmi.IsFinal()).To(BeFalse(), "VMI unexpectedly stopped. State: %s", vmi.Status.Phase)
 		return vmi.Status.Phase
-	}, time.Duration(seconds)*time.Second, 1*time.Second).Should(Equal(v1.Running), "Timed out waiting for VMI to enter Running phase")
+	}, time.Duration(seconds)*time.Second, 1*time.Second).Should(testutils.BeIn(phases), timeoutMsg)
 
 	return
 }
