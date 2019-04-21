@@ -73,7 +73,7 @@ var _ = Describe("ConfigMap", func() {
 				Namespace:       "kubevirt",
 				Name:            "kubevirt-config",
 			},
-			Data: map[string]string{machineTypeKey: value},
+			Data: map[string]string{MachineTypeKey: value},
 		}
 		clusterConfig, _ := MakeClusterConfig([]kubev1.ConfigMap{cfgMap}, stopChan)
 		Expect(clusterConfig.GetMachineType()).To(Equal(result))
@@ -89,7 +89,7 @@ var _ = Describe("ConfigMap", func() {
 				Namespace:       "kubevirt",
 				Name:            "kubevirt-config",
 			},
-			Data: map[string]string{cpuModelKey: value},
+			Data: map[string]string{CpuModelKey: value},
 		}
 		clusterConfig, _ := MakeClusterConfig([]kubev1.ConfigMap{cfgMap}, stopChan)
 		Expect(clusterConfig.GetCPUModel()).To(Equal(result))
@@ -105,7 +105,7 @@ var _ = Describe("ConfigMap", func() {
 				Namespace:       "kubevirt",
 				Name:            "kubevirt-config",
 			},
-			Data: map[string]string{cpuRequestKey: value},
+			Data: map[string]string{CpuRequestKey: value},
 		}
 		clusterConfig, _ := MakeClusterConfig([]kubev1.ConfigMap{cfgMap}, stopChan)
 		cpuRequest := clusterConfig.GetCPURequest()
@@ -122,7 +122,7 @@ var _ = Describe("ConfigMap", func() {
 				Namespace:       "kubevirt",
 				Name:            "kubevirt-config",
 			},
-			Data: map[string]string{memoryRequestKey: value},
+			Data: map[string]string{MemoryRequestKey: value},
 		}
 		clusterConfig, _ := MakeClusterConfig([]kubev1.ConfigMap{cfgMap}, stopChan)
 		memoryRequest := clusterConfig.GetMemoryRequest()
