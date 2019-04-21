@@ -43,9 +43,11 @@ type patchOperation struct {
 	Value interface{} `json:"value,omitempty"`
 }
 
-type mutateFunc func(*v1beta1.AdmissionReview) *v1beta1.AdmissionResponse
+type mutator interface {
+	mutate(*v1beta1.AdmissionReview) *v1beta1.AdmissionResponse
+}
 
-func serve(resp http.ResponseWriter, req *http.Request, mutate mutateFunc) {
+func serve(resp http.ResponseWriter, req *http.Request, m mutator) {
 	response := v1beta1.AdmissionReview{}
 	review, err := webhooks.GetAdmissionReview(req)
 
@@ -54,7 +56,7 @@ func serve(resp http.ResponseWriter, req *http.Request, mutate mutateFunc) {
 		return
 	}
 
-	reviewResponse := mutate(review)
+	reviewResponse := m.mutate(review)
 	if reviewResponse != nil {
 		response.Response = reviewResponse
 		response.Response.UID = review.Request.UID
@@ -77,8 +79,10 @@ func serve(resp http.ResponseWriter, req *http.Request, mutate mutateFunc) {
 	resp.WriteHeader(http.StatusOK)
 }
 
-func mutateVMIs(ar *v1beta1.AdmissionReview) *v1beta1.AdmissionResponse {
+type VMIsMutator struct {
+}
 
+func (mutator *VMIsMutator) mutate(ar *v1beta1.AdmissionReview) *v1beta1.AdmissionResponse {
 	if ar.Request.Resource != webhooks.VirtualMachineInstanceGroupVersionResource {
 		err := fmt.Errorf("expect resource to be '%s'", webhooks.VirtualMachineInstanceGroupVersionResource.Resource)
 		return webhooks.ToAdmissionResponseError(err)
@@ -157,8 +161,10 @@ func mutateVMIs(ar *v1beta1.AdmissionReview) *v1beta1.AdmissionResponse {
 
 }
 
-func mutateMigrationCreate(ar *v1beta1.AdmissionReview) *v1beta1.AdmissionResponse {
+type MigrationCreateMutator struct {
+}
 
+func (mutator *MigrationCreateMutator) mutate(ar *v1beta1.AdmissionReview) *v1beta1.AdmissionResponse {
 	if ar.Request.Resource != webhooks.MigrationGroupVersionResource {
 		err := fmt.Errorf("expect resource to be '%s'", webhooks.MigrationGroupVersionResource.Resource)
 		return webhooks.ToAdmissionResponseError(err)
@@ -245,9 +251,9 @@ func setDefaultResourceRequests(vmi *v1.VirtualMachineInstance, defaultMemoryReq
 }
 
 func ServeVMIs(resp http.ResponseWriter, req *http.Request) {
-	serve(resp, req, mutateVMIs)
+	serve(resp, req, &VMIsMutator{})
 }
 
 func ServeMigrationCreate(resp http.ResponseWriter, req *http.Request) {
-	serve(resp, req, mutateMigrationCreate)
+	serve(resp, req, &MigrationCreateMutator{})
 }

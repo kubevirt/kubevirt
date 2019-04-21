@@ -66,9 +66,11 @@ var validIOThreadsPolicies = []v1.IOThreadsPolicy{v1.IOThreadsPolicyShared, v1.I
 var validCPUFeaturePolicies = []string{"", "force", "require", "optional", "disable", "forbid"}
 var validRunStrategies = []v1.VirtualMachineRunStrategy{v1.RunStrategyHalted, v1.RunStrategyManual, v1.RunStrategyAlways, v1.RunStrategyRerunOnFailure}
 
-type admitFunc func(*v1beta1.AdmissionReview) *v1beta1.AdmissionResponse
+type admitter interface {
+	admit(*v1beta1.AdmissionReview) *v1beta1.AdmissionResponse
+}
 
-func serve(resp http.ResponseWriter, req *http.Request, admit admitFunc) {
+func serve(resp http.ResponseWriter, req *http.Request, a admitter) {
 	response := v1beta1.AdmissionReview{}
 	review, err := webhooks.GetAdmissionReview(req)
 
@@ -77,7 +79,7 @@ func serve(resp http.ResponseWriter, req *http.Request, admit admitFunc) {
 		return
 	}
 
-	reviewResponse := admit(review)
+	reviewResponse := a.admit(review)
 	if reviewResponse != nil {
 		response.Response = reviewResponse
 		response.Response.UID = review.Request.UID
@@ -1638,7 +1640,10 @@ func getAdmissionReviewVMI(ar *v1beta1.AdmissionReview) (new *v1.VirtualMachineI
 	return &newVMI, nil, nil
 }
 
-func admitVMICreate(ar *v1beta1.AdmissionReview) *v1beta1.AdmissionResponse {
+type VMICreateAdmitter struct {
+}
+
+func (admitter *VMICreateAdmitter) admit(ar *v1beta1.AdmissionReview) *v1beta1.AdmissionResponse {
 	if resp := webhooks.ValidateSchema(v1.VirtualMachineInstanceGroupVersionKind, ar.Request.Object.Raw); resp != nil {
 		return resp
 	}
@@ -1662,10 +1667,13 @@ func admitVMICreate(ar *v1beta1.AdmissionReview) *v1beta1.AdmissionResponse {
 }
 
 func ServeVMICreate(resp http.ResponseWriter, req *http.Request) {
-	serve(resp, req, admitVMICreate)
+	serve(resp, req, &VMICreateAdmitter{})
 }
 
-func admitVMIUpdate(ar *v1beta1.AdmissionReview) *v1beta1.AdmissionResponse {
+type VMIUpdateAdmitter struct {
+}
+
+func (admitter *VMIUpdateAdmitter) admit(ar *v1beta1.AdmissionReview) *v1beta1.AdmissionResponse {
 
 	if resp := webhooks.ValidateSchema(v1.VirtualMachineInstanceGroupVersionKind, ar.Request.Object.Raw); resp != nil {
 		return resp
@@ -1692,10 +1700,13 @@ func admitVMIUpdate(ar *v1beta1.AdmissionReview) *v1beta1.AdmissionResponse {
 }
 
 func ServeVMIUpdate(resp http.ResponseWriter, req *http.Request) {
-	serve(resp, req, admitVMIUpdate)
+	serve(resp, req, &VMIUpdateAdmitter{})
 }
 
-func admitVMs(ar *v1beta1.AdmissionReview) *v1beta1.AdmissionResponse {
+type VMsAdmitter struct {
+}
+
+func (admitter *VMsAdmitter) admit(ar *v1beta1.AdmissionReview) *v1beta1.AdmissionResponse {
 	if ar.Request.Resource != webhooks.VirtualMachineGroupVersionResource {
 		err := fmt.Errorf("expect resource to be '%s'", webhooks.VirtualMachineGroupVersionResource.Resource)
 		return webhooks.ToAdmissionResponseError(err)
@@ -1724,10 +1735,13 @@ func admitVMs(ar *v1beta1.AdmissionReview) *v1beta1.AdmissionResponse {
 }
 
 func ServeVMs(resp http.ResponseWriter, req *http.Request) {
-	serve(resp, req, admitVMs)
+	serve(resp, req, &VMsAdmitter{})
 }
 
-func admitVMIRS(ar *v1beta1.AdmissionReview) *v1beta1.AdmissionResponse {
+type VMIRSAdmitter struct {
+}
+
+func (admitter *VMIRSAdmitter) admit(ar *v1beta1.AdmissionReview) *v1beta1.AdmissionResponse {
 	if ar.Request.Resource != webhooks.VirtualMachineInstanceReplicaSetGroupVersionResource {
 		err := fmt.Errorf("expect resource to be '%s'", webhooks.VirtualMachineInstanceReplicaSetGroupVersionResource.Resource)
 		return webhooks.ToAdmissionResponseError(err)
@@ -1756,9 +1770,13 @@ func admitVMIRS(ar *v1beta1.AdmissionReview) *v1beta1.AdmissionResponse {
 }
 
 func ServeVMIRS(resp http.ResponseWriter, req *http.Request) {
-	serve(resp, req, admitVMIRS)
+	serve(resp, req, &VMIRSAdmitter{})
 }
-func admitVMIPreset(ar *v1beta1.AdmissionReview) *v1beta1.AdmissionResponse {
+
+type VMIPresetAdmitter struct {
+}
+
+func (admitter *VMIPresetAdmitter) admit(ar *v1beta1.AdmissionReview) *v1beta1.AdmissionResponse {
 	if ar.Request.Resource != webhooks.VirtualMachineInstancePresetGroupVersionResource {
 		err := fmt.Errorf("expect resource to be '%s'", webhooks.VirtualMachineInstancePresetGroupVersionResource.Resource)
 		return webhooks.ToAdmissionResponseError(err)
@@ -1787,7 +1805,7 @@ func admitVMIPreset(ar *v1beta1.AdmissionReview) *v1beta1.AdmissionResponse {
 }
 
 func ServeVMIPreset(resp http.ResponseWriter, req *http.Request) {
-	serve(resp, req, admitVMIPreset)
+	serve(resp, req, &VMIPresetAdmitter{})
 }
 
 func getAdmissionReviewMigration(ar *v1beta1.AdmissionReview) (new *v1.VirtualMachineInstanceMigration, old *v1.VirtualMachineInstanceMigration, err error) {
@@ -1817,7 +1835,10 @@ func getAdmissionReviewMigration(ar *v1beta1.AdmissionReview) (new *v1.VirtualMa
 	return &newMigration, nil, nil
 }
 
-func admitMigrationCreate(ar *v1beta1.AdmissionReview) *v1beta1.AdmissionResponse {
+type MigrationCreateAdmitter struct {
+}
+
+func (admitter *MigrationCreateAdmitter) admit(ar *v1beta1.AdmissionReview) *v1beta1.AdmissionResponse {
 	migration, _, err := getAdmissionReviewMigration(ar)
 	if err != nil {
 		return webhooks.ToAdmissionResponseError(err)
@@ -1880,10 +1901,13 @@ func admitMigrationCreate(ar *v1beta1.AdmissionReview) *v1beta1.AdmissionRespons
 }
 
 func ServeMigrationCreate(resp http.ResponseWriter, req *http.Request) {
-	serve(resp, req, admitMigrationCreate)
+	serve(resp, req, &MigrationCreateAdmitter{})
 }
 
-func admitMigrationUpdate(ar *v1beta1.AdmissionReview) *v1beta1.AdmissionResponse {
+type MigrationUpdateAdmitter struct {
+}
+
+func (admitter *MigrationUpdateAdmitter) admit(ar *v1beta1.AdmissionReview) *v1beta1.AdmissionResponse {
 	// Get new migration from admission response
 	newMigration, oldMigration, err := getAdmissionReviewMigration(ar)
 	if err != nil {
@@ -1910,7 +1934,7 @@ func admitMigrationUpdate(ar *v1beta1.AdmissionReview) *v1beta1.AdmissionRespons
 }
 
 func ServeMigrationUpdate(resp http.ResponseWriter, req *http.Request) {
-	serve(resp, req, admitMigrationUpdate)
+	serve(resp, req, &MigrationUpdateAdmitter{})
 }
 
 // Copied from kubernetes/pkg/apis/core/validation/validation.go
