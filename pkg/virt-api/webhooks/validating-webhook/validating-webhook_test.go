@@ -49,6 +49,13 @@ import (
 var _ = Describe("Validating Webhook", func() {
 	var vmiInformer cache.SharedIndexInformer
 	dnsConfigTestOption := "test"
+	vmiCreateAdmitter := &VMICreateAdmitter{}
+	vmiUpdateAdmitter := &VMIUpdateAdmitter{}
+	vmirsAdmitter := &VMIRSAdmitter{}
+	vmsAdmitter := &VMsAdmitter{}
+	vmiPresetAdmitter := &VMIPresetAdmitter{}
+	migrationCreateAdmitter := &MigrationCreateAdmitter{}
+	migrationUpdateAdmitter := &MigrationUpdateAdmitter{}
 
 	notRunning := false
 
@@ -82,7 +89,7 @@ var _ = Describe("Validating Webhook", func() {
 				},
 			}
 
-			resp := admitVMICreate(ar)
+			resp := vmiCreateAdmitter.admit(ar)
 			Expect(resp.Allowed).To(Equal(false))
 			Expect(len(resp.Result.Details.Causes)).To(Equal(1))
 			Expect(resp.Result.Details.Causes[0].Field).To(Equal("spec.domain.devices.disks[0].name"))
@@ -109,7 +116,7 @@ var _ = Describe("Validating Webhook", func() {
 					},
 				},
 			}
-			resp := admitVMICreate(ar)
+			resp := vmiCreateAdmitter.admit(ar)
 			Expect(resp.Allowed).To(Equal(false))
 			Expect(resp.Result.Message).To(ContainSubstring("no memory requested"))
 		})
@@ -174,7 +181,7 @@ var _ = Describe("Validating Webhook", func() {
 						},
 					},
 				}
-				resp := admitVMICreate(ar)
+				resp := vmiCreateAdmitter.admit(ar)
 				Expect(resp.Allowed).To(Equal(false))
 				Expect(resp.Result.Message).To(Equal(`either spec.readinessProbe.tcpSocket or spec.readinessProbe.httpGet must be set if a spec.readinessProbe is specified, either spec.livenessProbe.tcpSocket or spec.livenessProbe.httpGet must be set if a spec.livenessProbe is specified`))
 			})
@@ -210,7 +217,7 @@ var _ = Describe("Validating Webhook", func() {
 						},
 					},
 				}
-				resp := admitVMICreate(ar)
+				resp := vmiCreateAdmitter.admit(ar)
 				Expect(resp.Allowed).To(Equal(false))
 				Expect(resp.Result.Message).To(Equal(`spec.readinessProbe must have exactly one probe type set, spec.livenessProbe must have exactly one probe type set`))
 			})
@@ -244,7 +251,7 @@ var _ = Describe("Validating Webhook", func() {
 						},
 					},
 				}
-				resp := admitVMICreate(ar)
+				resp := vmiCreateAdmitter.admit(ar)
 				Expect(resp.Allowed).To(Equal(true))
 			})
 			It("should reject properly configured readiness and liveness probes if no Pod Network is present", func() {
@@ -275,7 +282,7 @@ var _ = Describe("Validating Webhook", func() {
 						},
 					},
 				}
-				resp := admitVMICreate(ar)
+				resp := vmiCreateAdmitter.admit(ar)
 				Expect(resp.Allowed).To(Equal(false))
 				Expect(resp.Result.Message).To(Equal(`spec.livenessProbe is only allowed if the Pod Network is attached, spec.readinessProbe is only allowed if the Pod Network is attached`))
 			})
@@ -302,7 +309,7 @@ var _ = Describe("Validating Webhook", func() {
 					},
 				},
 			}
-			resp := admitVMICreate(ar)
+			resp := vmiCreateAdmitter.admit(ar)
 			Expect(resp.Allowed).To(Equal(true))
 		})
 
@@ -315,7 +322,7 @@ var _ = Describe("Validating Webhook", func() {
 					},
 				},
 			}
-			resp := admitVMICreate(ar)
+			resp := vmiCreateAdmitter.admit(ar)
 			Expect(resp.Allowed).To(BeFalse())
 			Expect(resp.Result.Message).To(Equal(`.very in body is a forbidden property, spec.extremely in body is a forbidden property, spec.domain in body is required`))
 		})
@@ -340,37 +347,37 @@ var _ = Describe("Validating Webhook", func() {
 				`{"very": "unknown", "spec": { "extremely": "unknown" }}`,
 				`.very in body is a forbidden property, spec.extremely in body is a forbidden property, spec.domain in body is required`,
 				webhooks.VirtualMachineInstanceGroupVersionResource,
-				admitVMICreate,
+				vmiCreateAdmitter.admit,
 			),
 			table.Entry("VirtualMachineInstance update",
 				`{"very": "unknown", "spec": { "extremely": "unknown" }}`,
 				`.very in body is a forbidden property, spec.extremely in body is a forbidden property, spec.domain in body is required`,
 				webhooks.VirtualMachineInstanceGroupVersionResource,
-				admitVMIUpdate,
+				vmiUpdateAdmitter.admit,
 			),
 			table.Entry("VirtualMachineInstancePreset creation and update",
 				`{"very": "unknown", "spec": { "extremely": "unknown" }}`,
 				`.very in body is a forbidden property, spec.extremely in body is a forbidden property, spec.selector in body is required`,
 				webhooks.VirtualMachineInstancePresetGroupVersionResource,
-				admitVMIPreset,
+				vmiPresetAdmitter.admit,
 			),
 			table.Entry("Migration creation ",
 				`{"very": "unknown", "spec": { "extremely": "unknown" }}`,
 				`.very in body is a forbidden property, spec.extremely in body is a forbidden property`,
 				webhooks.MigrationGroupVersionResource,
-				admitMigrationCreate,
+				migrationCreateAdmitter.admit,
 			),
 			table.Entry("Migration update",
 				`{"very": "unknown", "spec": { "extremely": "unknown" }}`,
 				`.very in body is a forbidden property, spec.extremely in body is a forbidden property`,
 				webhooks.MigrationGroupVersionResource,
-				admitMigrationCreate,
+				migrationCreateAdmitter.admit,
 			),
 			table.Entry("VirtualMachineInstanceReplicaSet creation and update",
 				`{"very": "unknown", "spec": { "extremely": "unknown" }}`,
 				`.very in body is a forbidden property, spec.extremely in body is a forbidden property, spec.selector in body is required, spec.template in body is required`,
 				webhooks.VirtualMachineInstanceReplicaSetGroupVersionResource,
-				admitVMIRS,
+				vmirsAdmitter.admit,
 			),
 		)
 		It("should reject valid VirtualMachineInstance spec on update", func() {
@@ -402,7 +409,7 @@ var _ = Describe("Validating Webhook", func() {
 				},
 			}
 
-			resp := admitVMIUpdate(ar)
+			resp := vmiUpdateAdmitter.admit(ar)
 			Expect(resp.Allowed).To(Equal(false))
 			Expect(len(resp.Result.Details.Causes)).To(Equal(1))
 			Expect(resp.Result.Details.Causes[0].Message).To(Equal("update of VMI object is restricted"))
@@ -421,7 +428,7 @@ var _ = Describe("Validating Webhook", func() {
 				},
 			}
 
-			resp := admitVMIRS(ar)
+			resp := vmirsAdmitter.admit(ar)
 			Expect(resp.Allowed).To(Equal(false))
 			Expect(resp.Result.Details.Causes).To(HaveLen(len(causes)))
 			for i, cause := range causes {
@@ -483,7 +490,7 @@ var _ = Describe("Validating Webhook", func() {
 				},
 			}
 
-			resp := admitVMIRS(ar)
+			resp := vmirsAdmitter.admit(ar)
 			Expect(resp.Allowed).To(Equal(true))
 		})
 	})
@@ -513,7 +520,7 @@ var _ = Describe("Validating Webhook", func() {
 				},
 			}
 
-			resp := admitVMs(ar)
+			resp := vmsAdmitter.admit(ar)
 			Expect(resp.Allowed).To(Equal(false))
 			Expect(len(resp.Result.Details.Causes)).To(Equal(1))
 			Expect(resp.Result.Details.Causes[0].Field).To(Equal("spec.template.spec.domain.devices.disks[0].name"))
@@ -549,7 +556,7 @@ var _ = Describe("Validating Webhook", func() {
 				},
 			}
 
-			resp := admitVMs(ar)
+			resp := vmsAdmitter.admit(ar)
 			Expect(resp.Allowed).To(Equal(true))
 		})
 
@@ -594,7 +601,7 @@ var _ = Describe("Validating Webhook", func() {
 			}
 
 			os.Setenv("FEATURE_GATES", "DataVolumes")
-			resp := admitVMs(ar)
+			resp := vmsAdmitter.admit(ar)
 			Expect(resp.Allowed).To(Equal(true))
 		})
 
@@ -639,7 +646,7 @@ var _ = Describe("Validating Webhook", func() {
 			}
 
 			os.Setenv("FEATURE_GATES", "DataVolumes")
-			resp := admitVMs(ar)
+			resp := vmsAdmitter.admit(ar)
 			Expect(resp.Allowed).To(Equal(false))
 			Expect(len(resp.Result.Details.Causes)).To(Equal(1))
 			Expect(resp.Result.Details.Causes[0].Field).To(Equal("spec.dataVolumeTemplate[0]"))
@@ -675,7 +682,7 @@ var _ = Describe("Validating Webhook", func() {
 				},
 			}
 
-			resp := admitVMIPreset(ar)
+			resp := vmiPresetAdmitter.admit(ar)
 			Expect(resp.Allowed).To(Equal(false))
 			Expect(len(resp.Result.Details.Causes)).To(Equal(1))
 			Expect(resp.Result.Details.Causes[0].Field).To(Equal("spec.domain.devices.disks[0]"))
@@ -702,7 +709,7 @@ var _ = Describe("Validating Webhook", func() {
 				},
 			}
 
-			resp := admitVMIPreset(ar)
+			resp := vmiPresetAdmitter.admit(ar)
 			Expect(resp.Allowed).To(Equal(true))
 		})
 	})
@@ -730,7 +737,7 @@ var _ = Describe("Validating Webhook", func() {
 				},
 			}
 
-			resp := admitMigrationCreate(ar)
+			resp := migrationCreateAdmitter.admit(ar)
 			Expect(resp.Allowed).To(Equal(false))
 			Expect(len(resp.Result.Details.Causes)).To(Equal(1))
 			Expect(resp.Result.Details.Causes[0].Field).To(Equal("spec.vmiName"))
@@ -763,7 +770,7 @@ var _ = Describe("Validating Webhook", func() {
 				},
 			}
 
-			resp := admitMigrationCreate(ar)
+			resp := migrationCreateAdmitter.admit(ar)
 			Expect(resp.Allowed).To(Equal(true))
 		})
 
@@ -794,7 +801,7 @@ var _ = Describe("Validating Webhook", func() {
 				},
 			}
 
-			resp := admitMigrationCreate(ar)
+			resp := migrationCreateAdmitter.admit(ar)
 			Expect(resp.Allowed).To(Equal(false))
 		})
 
@@ -830,7 +837,7 @@ var _ = Describe("Validating Webhook", func() {
 				},
 			}
 
-			resp := admitMigrationCreate(ar)
+			resp := migrationCreateAdmitter.admit(ar)
 			Expect(resp.Allowed).To(Equal(false))
 		})
 
@@ -866,7 +873,7 @@ var _ = Describe("Validating Webhook", func() {
 				},
 			}
 
-			resp := admitMigrationCreate(ar)
+			resp := migrationCreateAdmitter.admit(ar)
 			Expect(resp.Allowed).To(Equal(true))
 		})
 
@@ -898,7 +905,7 @@ var _ = Describe("Validating Webhook", func() {
 				},
 			}
 
-			resp := admitMigrationCreate(ar)
+			resp := migrationCreateAdmitter.admit(ar)
 			Expect(resp.Allowed).To(Equal(false))
 		})
 
@@ -942,7 +949,7 @@ var _ = Describe("Validating Webhook", func() {
 				},
 			}
 
-			resp := admitMigrationCreate(ar)
+			resp := migrationCreateAdmitter.admit(ar)
 			Expect(resp.Allowed).To(Equal(false))
 			Expect(resp.Result.Message).To(ContainSubstring("DisksNotLiveMigratable"))
 		})
@@ -984,7 +991,7 @@ var _ = Describe("Validating Webhook", func() {
 				},
 			}
 
-			resp := admitMigrationUpdate(ar)
+			resp := migrationUpdateAdmitter.admit(ar)
 			Expect(resp.Allowed).To(Equal(false))
 		})
 
@@ -1022,7 +1029,7 @@ var _ = Describe("Validating Webhook", func() {
 				},
 			}
 
-			resp := admitMigrationUpdate(ar)
+			resp := migrationUpdateAdmitter.admit(ar)
 			Expect(resp.Allowed).To(Equal(true))
 		})
 	})

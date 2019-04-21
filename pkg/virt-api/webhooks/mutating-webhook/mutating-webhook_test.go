@@ -64,7 +64,8 @@ var _ = Describe("Mutating Webhook", func() {
 				},
 			}
 			By("Mutating the VMI")
-			resp := mutateVMIs(ar)
+			mutator := &VMIsMutator{}
+			resp := mutator.mutate(ar)
 			Expect(resp.Allowed).To(Equal(true))
 
 			By("Getting the VMI spec from the response")
@@ -206,7 +207,8 @@ var _ = Describe("Mutating Webhook", func() {
 			}
 
 			By("Mutating the Migration")
-			resp := mutateMigrationCreate(ar)
+			mutator := &MigrationCreateMutator{}
+			resp := mutator.mutate(ar)
 			Expect(resp.Allowed).To(Equal(true))
 
 			By("Getting the VMI spec from the response")
