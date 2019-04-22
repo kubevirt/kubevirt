@@ -1664,12 +1664,8 @@ func (admitter *VMICreateAdmitter) admit(ar *v1beta1.AdmissionReview) *v1beta1.A
 	return &reviewResponse
 }
 
-func ServeVMICreate(resp http.ResponseWriter, req *http.Request) {
-	informers := webhooks.GetInformers()
-	namespace, _ := util.GetNamespace()
-	serve(resp, req, &VMICreateAdmitter{
-		clusterConfig: virtconfig.NewClusterConfig(informers.ConfigMapInformer.GetStore(), namespace),
-	})
+func ServeVMICreate(resp http.ResponseWriter, req *http.Request, clusterConfig *virtconfig.ClusterConfig) {
+	serve(resp, req, &VMICreateAdmitter{clusterConfig: clusterConfig})
 }
 
 type VMIUpdateAdmitter struct {
@@ -1737,12 +1733,8 @@ func (admitter *VMsAdmitter) admit(ar *v1beta1.AdmissionReview) *v1beta1.Admissi
 	return &reviewResponse
 }
 
-func ServeVMs(resp http.ResponseWriter, req *http.Request) {
-	informers := webhooks.GetInformers()
-	namespace, _ := util.GetNamespace()
-	serve(resp, req, &VMsAdmitter{
-		clusterConfig: virtconfig.NewClusterConfig(informers.ConfigMapInformer.GetStore(), namespace),
-	})
+func ServeVMs(resp http.ResponseWriter, req *http.Request, clusterConfig *virtconfig.ClusterConfig) {
+	serve(resp, req, &VMsAdmitter{clusterConfig: clusterConfig})
 }
 
 type VMIRSAdmitter struct {
@@ -1777,12 +1769,8 @@ func (admitter *VMIRSAdmitter) admit(ar *v1beta1.AdmissionReview) *v1beta1.Admis
 	return &reviewResponse
 }
 
-func ServeVMIRS(resp http.ResponseWriter, req *http.Request) {
-	informers := webhooks.GetInformers()
-	namespace, _ := util.GetNamespace()
-	serve(resp, req, &VMIRSAdmitter{
-		clusterConfig: virtconfig.NewClusterConfig(informers.ConfigMapInformer.GetStore(), namespace),
-	})
+func ServeVMIRS(resp http.ResponseWriter, req *http.Request, clusterConfig *virtconfig.ClusterConfig) {
+	serve(resp, req, &VMIRSAdmitter{clusterConfig: clusterConfig})
 }
 
 type VMIPresetAdmitter struct {
