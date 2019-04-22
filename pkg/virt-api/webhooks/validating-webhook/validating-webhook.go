@@ -575,7 +575,7 @@ func ValidateVirtualMachineInstanceMandatoryFields(field *k8sfield.Path, spec *v
 	return causes
 }
 
-func ValidateVirtualMachineInstanceSpec(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec) []metav1.StatusCause {
+func ValidateVirtualMachineInstanceSpec(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec, config *virtconfig.ClusterConfig) []metav1.StatusCause {
 	var causes []metav1.StatusCause
 	volumeNameMap := make(map[string]*v1.Volume)
 	networkNameMap := make(map[string]*v1.Network)
@@ -745,9 +745,6 @@ func ValidateVirtualMachineInstanceSpec(field *k8sfield.Path, spec *v1.VirtualMa
 	// Validate emulated machine
 	if len(spec.Domain.Machine.Type) > 0 {
 		machine := spec.Domain.Machine.Type
-		informers := webhooks.GetInformers()
-		namespace, _ := util.GetNamespace()
-		config := virtconfig.NewClusterConfig(informers.ConfigMapInformer.GetStore(), namespace)
 		supportedMachines := config.GetEmulatedMachines()
 		var match = false
 		for _, val := range supportedMachines {
@@ -1464,7 +1461,7 @@ func ValidateVirtualMachineInstanceMetadata(field *k8sfield.Path, vmi *v1.Virtua
 	return causes
 }
 
-func ValidateVirtualMachineSpec(field *k8sfield.Path, spec *v1.VirtualMachineSpec) []metav1.StatusCause {
+func ValidateVirtualMachineSpec(field *k8sfield.Path, spec *v1.VirtualMachineSpec, config *virtconfig.ClusterConfig) []metav1.StatusCause {
 	var causes []metav1.StatusCause
 
 	if spec.Template == nil {
@@ -1475,7 +1472,7 @@ func ValidateVirtualMachineSpec(field *k8sfield.Path, spec *v1.VirtualMachineSpe
 		})
 	}
 
-	causes = append(causes, ValidateVirtualMachineInstanceSpec(field.Child("template", "spec"), &spec.Template.Spec)...)
+	causes = append(causes, ValidateVirtualMachineInstanceSpec(field.Child("template", "spec"), &spec.Template.Spec, config)...)
 
 	if len(spec.DataVolumeTemplates) > 0 {
 
@@ -1568,7 +1565,7 @@ func ValidateVMIPresetSpec(field *k8sfield.Path, spec *v1.VirtualMachineInstance
 	return causes
 }
 
-func ValidateVMIRSSpec(field *k8sfield.Path, spec *v1.VirtualMachineInstanceReplicaSetSpec) []metav1.StatusCause {
+func ValidateVMIRSSpec(field *k8sfield.Path, spec *v1.VirtualMachineInstanceReplicaSetSpec, config *virtconfig.ClusterConfig) []metav1.StatusCause {
 	var causes []metav1.StatusCause
 
 	if spec.Template == nil {
@@ -1578,7 +1575,7 @@ func ValidateVMIRSSpec(field *k8sfield.Path, spec *v1.VirtualMachineInstanceRepl
 			Field:   field.Child("template").String(),
 		})
 	}
-	causes = append(causes, ValidateVirtualMachineInstanceSpec(field.Child("template", "spec"), &spec.Template.Spec)...)
+	causes = append(causes, ValidateVirtualMachineInstanceSpec(field.Child("template", "spec"), &spec.Template.Spec, config)...)
 
 	selector, err := metav1.LabelSelectorAsSelector(spec.Selector)
 	if err != nil {
@@ -1641,6 +1638,7 @@ func getAdmissionReviewVMI(ar *v1beta1.AdmissionReview) (new *v1.VirtualMachineI
 }
 
 type VMICreateAdmitter struct {
+	clusterConfig *virtconfig.ClusterConfig
 }
 
 func (admitter *VMICreateAdmitter) admit(ar *v1beta1.AdmissionReview) *v1beta1.AdmissionResponse {
@@ -1653,7 +1651,7 @@ func (admitter *VMICreateAdmitter) admit(ar *v1beta1.AdmissionReview) *v1beta1.A
 		return webhooks.ToAdmissionResponseError(err)
 	}
 
-	causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("spec"), &vmi.Spec)
+	causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("spec"), &vmi.Spec, admitter.clusterConfig)
 	causes = append(causes, ValidateVirtualMachineInstanceMandatoryFields(k8sfield.NewPath("spec"), &vmi.Spec)...)
 	causes = append(causes, ValidateVirtualMachineInstanceMetadata(k8sfield.NewPath("spec"), vmi)...)
 
@@ -1667,7 +1665,11 @@ func (admitter *VMICreateAdmitter) admit(ar *v1beta1.AdmissionReview) *v1beta1.A
 }
 
 func ServeVMICreate(resp http.ResponseWriter, req *http.Request) {
-	serve(resp, req, &VMICreateAdmitter{})
+	informers := webhooks.GetInformers()
+	namespace, _ := util.GetNamespace()
+	serve(resp, req, &VMICreateAdmitter{
+		clusterConfig: virtconfig.NewClusterConfig(informers.ConfigMapInformer.GetStore(), namespace),
+	})
 }
 
 type VMIUpdateAdmitter struct {
@@ -1704,6 +1706,7 @@ func ServeVMIUpdate(resp http.ResponseWriter, req *http.Request) {
 }
 
 type VMsAdmitter struct {
+	clusterConfig *virtconfig.ClusterConfig
 }
 
 func (admitter *VMsAdmitter) admit(ar *v1beta1.AdmissionReview) *v1beta1.AdmissionResponse {
@@ -1724,7 +1727,7 @@ func (admitter *VMsAdmitter) admit(ar *v1beta1.AdmissionReview) *v1beta1.Admissi
 		return webhooks.ToAdmissionResponseError(err)
 	}
 
-	causes := ValidateVirtualMachineSpec(k8sfield.NewPath("spec"), &vm.Spec)
+	causes := ValidateVirtualMachineSpec(k8sfield.NewPath("spec"), &vm.Spec, admitter.clusterConfig)
 	if len(causes) > 0 {
 		return webhooks.ToAdmissionResponse(causes)
 	}
@@ -1735,10 +1738,15 @@ func (admitter *VMsAdmitter) admit(ar *v1beta1.AdmissionReview) *v1beta1.Admissi
 }
 
 func ServeVMs(resp http.ResponseWriter, req *http.Request) {
-	serve(resp, req, &VMsAdmitter{})
+	informers := webhooks.GetInformers()
+	namespace, _ := util.GetNamespace()
+	serve(resp, req, &VMsAdmitter{
+		clusterConfig: virtconfig.NewClusterConfig(informers.ConfigMapInformer.GetStore(), namespace),
+	})
 }
 
 type VMIRSAdmitter struct {
+	clusterConfig *virtconfig.ClusterConfig
 }
 
 func (admitter *VMIRSAdmitter) admit(ar *v1beta1.AdmissionReview) *v1beta1.AdmissionResponse {
@@ -1759,7 +1767,7 @@ func (admitter *VMIRSAdmitter) admit(ar *v1beta1.AdmissionReview) *v1beta1.Admis
 		return webhooks.ToAdmissionResponseError(err)
 	}
 
-	causes := ValidateVMIRSSpec(k8sfield.NewPath("spec"), &vmirs.Spec)
+	causes := ValidateVMIRSSpec(k8sfield.NewPath("spec"), &vmirs.Spec, admitter.clusterConfig)
 	if len(causes) > 0 {
 		return webhooks.ToAdmissionResponse(causes)
 	}
@@ -1770,7 +1778,11 @@ func (admitter *VMIRSAdmitter) admit(ar *v1beta1.AdmissionReview) *v1beta1.Admis
 }
 
 func ServeVMIRS(resp http.ResponseWriter, req *http.Request) {
-	serve(resp, req, &VMIRSAdmitter{})
+	informers := webhooks.GetInformers()
+	namespace, _ := util.GetNamespace()
+	serve(resp, req, &VMIRSAdmitter{
+		clusterConfig: virtconfig.NewClusterConfig(informers.ConfigMapInformer.GetStore(), namespace),
+	})
 }
 
 type VMIPresetAdmitter struct {

@@ -49,10 +49,11 @@ import (
 var _ = Describe("Validating Webhook", func() {
 	var vmiInformer cache.SharedIndexInformer
 	dnsConfigTestOption := "test"
-	vmiCreateAdmitter := &VMICreateAdmitter{}
+	config, _ := testutils.NewFakeClusterConfig(&k8sv1.ConfigMap{})
+	vmiCreateAdmitter := &VMICreateAdmitter{clusterConfig: config}
 	vmiUpdateAdmitter := &VMIUpdateAdmitter{}
-	vmirsAdmitter := &VMIRSAdmitter{}
-	vmsAdmitter := &VMsAdmitter{}
+	vmirsAdmitter := &VMIRSAdmitter{clusterConfig: config}
+	vmsAdmitter := &VMsAdmitter{clusterConfig: config}
 	vmiPresetAdmitter := &VMIPresetAdmitter{}
 	migrationCreateAdmitter := &MigrationCreateAdmitter{}
 	migrationUpdateAdmitter := &MigrationUpdateAdmitter{}
@@ -132,7 +133,7 @@ var _ = Describe("Validating Webhook", func() {
 
 			table.DescribeTable("it should allow", func(policy v1.EvictionStrategy) {
 				vmi.Spec.EvictionStrategy = &policy
-				resp := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec)
+				resp := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
 				Expect(resp).To(BeEmpty())
 			},
 				table.Entry("migration policy to be set", v1.EvictionStrategyLiveMigrate),
@@ -141,20 +142,20 @@ var _ = Describe("Validating Webhook", func() {
 			It("should block setting eviction policies if the feature gate is disabled", func() {
 				os.Setenv("FEATURE_GATES", "")
 				vmi.Spec.EvictionStrategy = &policy
-				resp := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec)
+				resp := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
 				Expect(resp[0].Message).To(ContainSubstring("LiveMigration feature gate is not enabled"))
 			})
 
 			It("should allow no eviction policy to be set", func() {
 				vmi.Spec.EvictionStrategy = nil
-				resp := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec)
+				resp := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
 				Expect(resp).To(BeEmpty())
 			})
 
 			It("should  not allow unknown eviction policies", func() {
 				policy := v1.EvictionStrategy("fantasy")
 				vmi.Spec.EvictionStrategy = &policy
-				resp := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec)
+				resp := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
 				Expect(resp).To(HaveLen(1))
 				Expect(resp[0].Message).To(Equal("fake.evictionStrategy is set with an unrecognized option: fantasy"))
 			})
@@ -1039,14 +1040,14 @@ var _ = Describe("Validating Webhook", func() {
 			vmi := v1.NewMinimalVMI("testvmi")
 			vmi.Spec.Domain.Machine.Type = "q35"
 
-			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec)
+			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
 			Expect(len(causes)).To(Equal(0))
 		})
 		It("should reject invalid machine type", func() {
 			vmi := v1.NewMinimalVMI("testvmi")
 			vmi.Spec.Domain.Machine.Type = "test"
 
-			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec)
+			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
 			Expect(len(causes)).To(Equal(1))
 			Expect(string(causes[0].Type)).To(Equal("FieldValueInvalid"))
 			Expect(causes[0].Field).To(Equal("fake.domain.machine.type"))
@@ -1057,14 +1058,14 @@ var _ = Describe("Validating Webhook", func() {
 			vmi := v1.NewMinimalVMI("testvmi")
 			vmi.Spec.Hostname = "test"
 
-			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec)
+			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
 			Expect(len(causes)).To(Equal(0))
 		})
 		It("should reject invalid hostname", func() {
 			vmi := v1.NewMinimalVMI("testvmi")
 			vmi.Spec.Hostname = "test+bad"
 
-			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec)
+			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
 			Expect(len(causes)).To(Equal(1))
 			Expect(string(causes[0].Type)).To(Equal("FieldValueInvalid"))
 			Expect(causes[0].Field).To(Equal("fake.hostname"))
@@ -1074,14 +1075,14 @@ var _ = Describe("Validating Webhook", func() {
 			vmi := v1.NewMinimalVMI("testvmi")
 			vmi.Spec.Subdomain = "testsubdomain"
 
-			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec)
+			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
 			Expect(len(causes)).To(Equal(0))
 		})
 		It("should reject invalid subdomain name", func() {
 			vmi := v1.NewMinimalVMI("testvmi")
 			vmi.Spec.Subdomain = "bad+domain"
 
-			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec)
+			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
 			Expect(len(causes)).To(Equal(1))
 			Expect(causes[0].Field).To(Equal("fake.subdomain"))
 		})
@@ -1101,7 +1102,7 @@ var _ = Describe("Validating Webhook", func() {
 				})
 			}
 
-			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec)
+			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
 			Expect(len(causes)).To(Equal(0))
 		})
 		It("should reject disk lists greater than max element length", func() {
@@ -1114,7 +1115,7 @@ var _ = Describe("Validating Webhook", func() {
 				})
 			}
 
-			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec)
+			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
 			// if this is processed correctly, it should result in a single error
 			// If multiple causes occurred, then the spec was processed too far.
 			Expect(len(causes)).To(Equal(1))
@@ -1133,7 +1134,7 @@ var _ = Describe("Validating Webhook", func() {
 				})
 			}
 
-			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec)
+			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
 			// if this is processed correctly, it should result in a single error
 			// If multiple causes occurred, then the spec was processed too far.
 			Expect(len(causes)).To(Equal(1))
@@ -1147,7 +1148,7 @@ var _ = Describe("Validating Webhook", func() {
 				Name: "testdisk",
 			})
 
-			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec)
+			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
 			Expect(len(causes)).To(Equal(1))
 			Expect(causes[0].Field).To(Equal("fake.domain.devices.disks[0].name"))
 		})
@@ -1168,7 +1169,7 @@ var _ = Describe("Validating Webhook", func() {
 					ContainerDisk: &v1.ContainerDiskSource{},
 				},
 			})
-			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec)
+			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
 			Expect(len(causes)).To(Equal(1))
 			Expect(causes[0].Field).To(Equal("fake.domain.devices.disks[1].name"))
 		})
@@ -1183,7 +1184,7 @@ var _ = Describe("Validating Webhook", func() {
 				},
 			})
 
-			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec)
+			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
 			// missing volume and multiple targets set. should result in 2 causes
 			Expect(len(causes)).To(Equal(2))
 			Expect(causes[0].Field).To(Equal("fake.domain.devices.disks[0].name"))
@@ -1194,7 +1195,7 @@ var _ = Describe("Validating Webhook", func() {
 			func(input v1.Input, expectedErrors int, expectedErrorTypes []string, expectMessage string) {
 				vmi := v1.NewMinimalVMI("testvmi")
 				vmi.Spec.Domain.Devices.Inputs = append(vmi.Spec.Domain.Devices.Inputs, input)
-				causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec)
+				causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
 				Expect(len(causes)).To(Equal(expectedErrors), fmt.Sprintf("Expect %d errors", expectedErrors))
 				for i, errorType := range expectedErrorTypes {
 					Expect(causes[i].Field).To(Equal(errorType), expectMessage)
@@ -1250,7 +1251,7 @@ var _ = Describe("Validating Webhook", func() {
 				k8sv1.ResourceCPU: resource.MustParse("-200m"),
 			}
 
-			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vm.Spec)
+			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vm.Spec, config)
 			Expect(len(causes)).To(Equal(1))
 			Expect(causes[0].Field).To(Equal("fake.domain.resources.requests.cpu"))
 		})
@@ -1261,7 +1262,7 @@ var _ = Describe("Validating Webhook", func() {
 				k8sv1.ResourceCPU: resource.MustParse("-3"),
 			}
 
-			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vm.Spec)
+			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vm.Spec, config)
 			Expect(len(causes)).To(Equal(1))
 			Expect(causes[0].Field).To(Equal("fake.domain.resources.limits.cpu"))
 		})
@@ -1275,7 +1276,7 @@ var _ = Describe("Validating Webhook", func() {
 				k8sv1.ResourceCPU: resource.MustParse("500m"),
 			}
 
-			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vm.Spec)
+			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vm.Spec, config)
 			Expect(len(causes)).To(Equal(1))
 			Expect(causes[0].Field).To(Equal("fake.domain.resources.requests.cpu"))
 		})
@@ -1289,7 +1290,7 @@ var _ = Describe("Validating Webhook", func() {
 				k8sv1.ResourceCPU: resource.MustParse("2"),
 			}
 
-			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vm.Spec)
+			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vm.Spec, config)
 			Expect(len(causes)).To(Equal(0))
 		})
 
@@ -1300,7 +1301,7 @@ var _ = Describe("Validating Webhook", func() {
 				k8sv1.ResourceMemory: resource.MustParse("-64Mi"),
 			}
 
-			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vm.Spec)
+			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vm.Spec, config)
 			Expect(len(causes)).To(Equal(1))
 			Expect(causes[0].Field).To(Equal("fake.domain.resources.requests.memory"))
 		})
@@ -1311,7 +1312,7 @@ var _ = Describe("Validating Webhook", func() {
 				k8sv1.ResourceMemory: resource.MustParse("64m"),
 			}
 
-			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vm.Spec)
+			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vm.Spec, config)
 			Expect(len(causes)).To(Equal(1))
 			Expect(causes[0].Field).To(Equal("fake.domain.resources.requests.memory"))
 		})
@@ -1322,7 +1323,7 @@ var _ = Describe("Validating Webhook", func() {
 				k8sv1.ResourceMemory: resource.MustParse("-65Mi"),
 			}
 
-			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vm.Spec)
+			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vm.Spec, config)
 			Expect(len(causes)).To(Equal(1))
 			Expect(causes[0].Field).To(Equal("fake.domain.resources.limits.memory"))
 		})
@@ -1336,7 +1337,7 @@ var _ = Describe("Validating Webhook", func() {
 				k8sv1.ResourceMemory: resource.MustParse("64Mi"),
 			}
 
-			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vm.Spec)
+			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vm.Spec, config)
 			Expect(len(causes)).To(Equal(1))
 			Expect(causes[0].Field).To(Equal("fake.domain.resources.requests.memory"))
 		})
@@ -1350,7 +1351,7 @@ var _ = Describe("Validating Webhook", func() {
 				k8sv1.ResourceMemory: resource.MustParse("65Mi"),
 			}
 
-			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vm.Spec)
+			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vm.Spec, config)
 			Expect(len(causes)).To(Equal(0))
 		})
 		It("should reject incorrect hugepages size format", func() {
@@ -1362,7 +1363,7 @@ var _ = Describe("Validating Webhook", func() {
 			vmi.Spec.Domain.Memory = &v1.Memory{Hugepages: &v1.Hugepages{}}
 			vmi.Spec.Domain.Memory.Hugepages.PageSize = "2ab"
 
-			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec)
+			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
 			Expect(len(causes)).To(Equal(1))
 			Expect(causes[0].Field).To(Equal("fake.domain.hugepages.size"))
 		})
@@ -1375,7 +1376,7 @@ var _ = Describe("Validating Webhook", func() {
 			vmi.Spec.Domain.Memory = &v1.Memory{Hugepages: &v1.Hugepages{}}
 			vmi.Spec.Domain.Memory.Hugepages.PageSize = "1Gi"
 
-			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec)
+			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
 			Expect(len(causes)).To(Equal(1))
 			Expect(causes[0].Field).To(Equal("fake.domain.resources.requests.memory"))
 		})
@@ -1388,7 +1389,7 @@ var _ = Describe("Validating Webhook", func() {
 			}
 			vmi.Spec.Domain.Memory = &v1.Memory{Guest: &guestMemory}
 
-			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec)
+			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
 			Expect(len(causes)).To(Equal(1))
 			Expect(causes[0].Field).To(Equal("fake.domain.memory.guest"))
 		})
@@ -1401,7 +1402,7 @@ var _ = Describe("Validating Webhook", func() {
 			}
 			vmi.Spec.Domain.Memory = &v1.Memory{Guest: &guestMemory}
 
-			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec)
+			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
 			Expect(len(causes)).To(Equal(1))
 			Expect(causes[0].Field).To(Equal("fake.domain.memory.guest"))
 		})
@@ -1417,7 +1418,7 @@ var _ = Describe("Validating Webhook", func() {
 			}
 			vmi.Spec.Domain.Memory = &v1.Memory{Guest: &guestMemory}
 
-			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec)
+			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
 			Expect(causes).To(BeEmpty())
 		})
 		It("should allow setting guest memory when no limit is set", func() {
@@ -1429,7 +1430,7 @@ var _ = Describe("Validating Webhook", func() {
 			}
 			vmi.Spec.Domain.Memory = &v1.Memory{Guest: &guestMemory}
 
-			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec)
+			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
 			Expect(causes).To(BeEmpty())
 		})
 		It("should reject not divisable by hugepages.size requests.memory", func() {
@@ -1441,7 +1442,7 @@ var _ = Describe("Validating Webhook", func() {
 			vmi.Spec.Domain.Memory = &v1.Memory{Hugepages: &v1.Hugepages{}}
 			vmi.Spec.Domain.Memory.Hugepages.PageSize = "2Gi"
 
-			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec)
+			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
 			Expect(len(causes)).To(Equal(1))
 			Expect(causes[0].Field).To(Equal("fake.domain.resources.requests.memory"))
 		})
@@ -1454,7 +1455,7 @@ var _ = Describe("Validating Webhook", func() {
 			vmi.Spec.Domain.Memory = &v1.Memory{Hugepages: &v1.Hugepages{}}
 			vmi.Spec.Domain.Memory.Hugepages.PageSize = "2Mi"
 
-			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec)
+			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
 			Expect(len(causes)).To(Equal(0))
 		})
 		It("should reject incorrect memory and hugepages size values", func() {
@@ -1466,7 +1467,7 @@ var _ = Describe("Validating Webhook", func() {
 			vmi.Spec.Domain.Memory = &v1.Memory{Hugepages: &v1.Hugepages{}}
 			vmi.Spec.Domain.Memory.Hugepages.PageSize = "10Mi"
 
-			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec)
+			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
 			Expect(len(causes)).To(Equal(1))
 			Expect(string(causes[0].Type)).To(Equal("FieldValueInvalid"))
 			Expect(causes[0].Field).To(Equal("fake.domain.resources.requests.memory"))
@@ -1487,7 +1488,7 @@ var _ = Describe("Validating Webhook", func() {
 			}
 			vmi.Spec.Domain.Memory.Hugepages.PageSize = "2Mi"
 
-			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec)
+			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
 			Expect(len(causes)).To(Equal(1))
 			Expect(string(causes[0].Type)).To(Equal("FieldValueInvalid"))
 			Expect(causes[0].Field).To(Equal("fake.domain.resources.requests.memory"))
@@ -1505,7 +1506,7 @@ var _ = Describe("Validating Webhook", func() {
 				})
 				vmi.Spec.Volumes = append(vmi.Spec.Volumes, *volume)
 
-				causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec)
+				causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
 				Expect(len(causes)).To(Equal(expectedErrors))
 			},
 			table.Entry("and reject non PVC sources",
@@ -1528,7 +1529,7 @@ var _ = Describe("Validating Webhook", func() {
 			vm.Spec.Domain.Devices.Interfaces = []v1.Interface{*v1.DefaultNetworkInterface()}
 			vm.Spec.Networks = []v1.Network{*v1.DefaultPodNetwork()}
 
-			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vm.Spec)
+			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vm.Spec, config)
 			Expect(len(causes)).To(Equal(0))
 		})
 
@@ -1548,7 +1549,7 @@ var _ = Describe("Validating Webhook", func() {
 					v1.Network{Name: networkName, NetworkSource: v1.NetworkSource{
 						Multus: &v1.MultusNetwork{NetworkName: networkName}}})
 			}
-			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec)
+			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
 			Expect(len(causes)).To(Equal(0))
 		})
 		It("should reject interface lists greater than max element length", func() {
@@ -1561,7 +1562,7 @@ var _ = Describe("Validating Webhook", func() {
 						InterfaceBindingMethod: v1.InterfaceBindingMethod{
 							Bridge: &v1.InterfaceBridge{}}})
 			}
-			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec)
+			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
 			Expect(len(causes)).To(Equal(1))
 			Expect(causes[0].Message).To(Equal(fmt.Sprintf("fake.domain.devices.interfaces "+
 				"list exceeds the %d element limit in length", arrayLenMax)))
@@ -1575,7 +1576,7 @@ var _ = Describe("Validating Webhook", func() {
 					v1.Network{Name: networkName, NetworkSource: v1.NetworkSource{
 						Multus: &v1.MultusNetwork{NetworkName: networkName}}})
 			}
-			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec)
+			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
 			Expect(len(causes)).To(Equal(1))
 			Expect(causes[0].Message).To(Equal(fmt.Sprintf("fake.networks "+
 				"list exceeds the %d element limit in length", arrayLenMax)))
@@ -1593,7 +1594,7 @@ var _ = Describe("Validating Webhook", func() {
 				})
 			}
 
-			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec)
+			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
 			// if this is processed correctly, it should result in a single error
 			// If multiple causes occurred, then the spec was processed too far.
 			Expect(len(causes)).To(Equal(1))
@@ -1614,7 +1615,7 @@ var _ = Describe("Validating Webhook", func() {
 				{Name: "testvolume2", VolumeSource: v1.VolumeSource{
 					ContainerDisk: &v1.ContainerDiskSource{}}}}...)
 
-			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec)
+			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
 			Expect(len(causes)).To(Equal(1))
 			Expect(causes[0].Field).To(Equal("fake.domain.devices.disks[1].bootOrder"))
 			Expect(causes[0].Message).To(Equal("Boot order for " +
@@ -1627,7 +1628,7 @@ var _ = Describe("Validating Webhook", func() {
 				*v1.DefaultNetworkInterface()}
 			vm.Spec.Networks = []v1.Network{*v1.DefaultPodNetwork()}
 
-			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vm.Spec)
+			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vm.Spec, config)
 			// if this is processed correctly, it should result an error
 			Expect(len(causes)).To(Equal(1))
 			Expect(causes[0].Field).To(Equal("fake.domain.devices.interfaces[1].name"))
@@ -1638,7 +1639,7 @@ var _ = Describe("Validating Webhook", func() {
 				{Name: "default2", InterfaceBindingMethod: v1.InterfaceBindingMethod{Bridge: &v1.InterfaceBridge{}}}}
 			vm.Spec.Networks = []v1.Network{{Name: "default", NetworkSource: v1.NetworkSource{Pod: &v1.PodNetwork{}}},
 				{Name: "default2", NetworkSource: v1.NetworkSource{Pod: &v1.PodNetwork{}}}}
-			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vm.Spec)
+			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vm.Spec, config)
 			// if this is processed correctly, it should result an error only about duplicate pod network configuration
 			Expect(len(causes)).To(Equal(1))
 			Expect(causes[0].Message).To(Equal("more than one interface is connected to a pod network in fake.interfaces"))
@@ -1651,7 +1652,7 @@ var _ = Describe("Validating Webhook", func() {
 
 			for _, model := range validInterfaceModels {
 				vmi.Spec.Domain.Devices.Interfaces[0].Model = model
-				causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec)
+				causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
 				// if this is processed correctly, it should not result in any error
 				Expect(len(causes)).To(Equal(0))
 			}
@@ -1662,7 +1663,7 @@ var _ = Describe("Validating Webhook", func() {
 			vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{*v1.DefaultNetworkInterface()}
 			vmi.Spec.Networks = []v1.Network{*v1.DefaultPodNetwork()}
 			vmi.Spec.Domain.Devices.Interfaces[0].Model = "invalid_model"
-			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec)
+			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
 			Expect(len(causes)).To(Equal(1))
 		})
 
@@ -1678,7 +1679,7 @@ var _ = Describe("Validating Webhook", func() {
 				},
 			}
 
-			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vm.Spec)
+			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vm.Spec, config)
 			Expect(len(causes)).To(Equal(1))
 			Expect(causes[0].Field).To(Equal("fake.domain.devices.interfaces[0].name"))
 		})
@@ -1700,7 +1701,7 @@ var _ = Describe("Validating Webhook", func() {
 				},
 			}
 
-			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vm.Spec)
+			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vm.Spec, config)
 			Expect(len(causes)).To(Equal(1))
 			Expect(causes[0].Field).To(Equal("fake.networks"))
 		})
@@ -1714,7 +1715,7 @@ var _ = Describe("Validating Webhook", func() {
 				},
 			}
 
-			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vm.Spec)
+			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vm.Spec, config)
 			Expect(len(causes)).To(Equal(0))
 		})
 		It("should accept networks with a multus network source and bridge interface", func() {
@@ -1729,7 +1730,7 @@ var _ = Describe("Validating Webhook", func() {
 				},
 			}
 
-			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vm.Spec)
+			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vm.Spec, config)
 			Expect(causes).To(BeEmpty())
 		})
 		It("should accept networks with a genie network source and bridge interface", func() {
@@ -1744,7 +1745,7 @@ var _ = Describe("Validating Webhook", func() {
 				},
 			}
 
-			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vm.Spec)
+			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vm.Spec, config)
 			Expect(causes).To(BeEmpty())
 		})
 		It("should reject when multiple types defined for a CNI network", func() {
@@ -1760,7 +1761,7 @@ var _ = Describe("Validating Webhook", func() {
 				},
 			}
 
-			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vm.Spec)
+			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vm.Spec, config)
 			Expect(causes).To(HaveLen(1))
 			Expect(causes[0].Field).To(Equal("fake.networks[0]"))
 		})
@@ -1795,7 +1796,7 @@ var _ = Describe("Validating Webhook", func() {
 				},
 			}
 
-			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vm.Spec)
+			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vm.Spec, config)
 			Expect(causes).To(BeEmpty())
 		})
 		It("should allow single multus network with a multus default", func() {
@@ -1813,7 +1814,7 @@ var _ = Describe("Validating Webhook", func() {
 				},
 			}
 
-			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vm.Spec)
+			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vm.Spec, config)
 			Expect(causes).To(BeEmpty())
 		})
 		It("should reject multiple multus networks with a multus default", func() {
@@ -1839,7 +1840,7 @@ var _ = Describe("Validating Webhook", func() {
 				},
 			}
 
-			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vm.Spec)
+			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vm.Spec, config)
 			Expect(causes).To(HaveLen(1))
 			Expect(string(causes[0].Type)).To(Equal("FieldValueInvalid"))
 			Expect(causes[0].Field).To(Equal("fake.networks"))
@@ -1867,7 +1868,7 @@ var _ = Describe("Validating Webhook", func() {
 				},
 			}
 
-			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vm.Spec)
+			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vm.Spec, config)
 			Expect(causes).To(HaveLen(1))
 			Expect(string(causes[0].Type)).To(Equal("FieldValueInvalid"))
 			Expect(causes[0].Field).To(Equal("fake.networks"))
@@ -1896,7 +1897,7 @@ var _ = Describe("Validating Webhook", func() {
 				},
 			}
 
-			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vm.Spec)
+			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vm.Spec, config)
 			Expect(causes).To(HaveLen(1))
 			Expect(causes[0].Field).To(Equal("fake.networks[1]"))
 		})
@@ -1923,7 +1924,7 @@ var _ = Describe("Validating Webhook", func() {
 				},
 			}
 
-			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vm.Spec)
+			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vm.Spec, config)
 			Expect(causes).To(HaveLen(1))
 			Expect(causes[0].Field).To(Equal("fake.networks[1]"))
 		})
@@ -1939,7 +1940,7 @@ var _ = Describe("Validating Webhook", func() {
 				},
 			}
 
-			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vm.Spec)
+			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vm.Spec, config)
 			Expect(causes).To(HaveLen(1))
 			Expect(causes[0].Field).To(Equal("fake.networks[0]"))
 		})
@@ -1959,7 +1960,7 @@ var _ = Describe("Validating Webhook", func() {
 				},
 			}
 
-			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vm.Spec)
+			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vm.Spec, config)
 			Expect(len(causes)).To(Equal(1))
 		})
 		It("should accept networks with a pod network source and slirp interface", func() {
@@ -1977,7 +1978,7 @@ var _ = Describe("Validating Webhook", func() {
 				},
 			}
 
-			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vm.Spec)
+			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vm.Spec, config)
 			Expect(len(causes)).To(Equal(0))
 		})
 		It("should accept networks with a pod network source and slirp interface with port", func() {
@@ -1996,7 +1997,7 @@ var _ = Describe("Validating Webhook", func() {
 				},
 			}
 
-			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vm.Spec)
+			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vm.Spec, config)
 			Expect(len(causes)).To(Equal(0))
 		})
 		It("should reject networks with a pod network source and slirp interface without specific port", func() {
@@ -2015,7 +2016,7 @@ var _ = Describe("Validating Webhook", func() {
 				},
 			}
 
-			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vm.Spec)
+			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vm.Spec, config)
 			Expect(len(causes)).To(Equal(1))
 			Expect(causes[0].Field).To(Equal("fake.domain.devices.interfaces[0].ports[0]"))
 		})
@@ -2035,7 +2036,7 @@ var _ = Describe("Validating Webhook", func() {
 				},
 			}
 
-			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vm.Spec)
+			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vm.Spec, config)
 			Expect(len(causes)).To(Equal(1))
 			Expect(causes[0].Field).To(Equal("fake.domain.devices.interfaces[0].name"))
 		})
@@ -2055,7 +2056,7 @@ var _ = Describe("Validating Webhook", func() {
 				},
 			}
 
-			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vm.Spec)
+			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vm.Spec, config)
 			Expect(len(causes)).To(Equal(1))
 			Expect(causes[0].Field).To(Equal("fake.domain.devices.interfaces[0].ports[0].protocol"))
 		})
@@ -2075,7 +2076,7 @@ var _ = Describe("Validating Webhook", func() {
 				},
 			}
 
-			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vm.Spec)
+			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vm.Spec, config)
 			Expect(len(causes)).To(Equal(0))
 		})
 		It("should reject port out of range", func() {
@@ -2094,7 +2095,7 @@ var _ = Describe("Validating Webhook", func() {
 				},
 			}
 
-			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vm.Spec)
+			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vm.Spec, config)
 			Expect(len(causes)).To(Equal(1))
 			Expect(causes[0].Field).To(Equal("fake.domain.devices.interfaces[0].ports[0]"))
 		})
@@ -2114,7 +2115,7 @@ var _ = Describe("Validating Webhook", func() {
 				},
 			}
 
-			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vm.Spec)
+			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vm.Spec, config)
 			Expect(len(causes)).To(Equal(1))
 			Expect(causes[0].Field).To(Equal("fake.domain.devices.interfaces[0].ports[1].name"))
 		})
@@ -2140,7 +2141,7 @@ var _ = Describe("Validating Webhook", func() {
 				},
 			}
 
-			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vm.Spec)
+			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vm.Spec, config)
 			Expect(len(causes)).To(Equal(2))
 			Expect(causes[0].Field).To(Equal("fake.domain.devices.interfaces[1].name"))
 			Expect(causes[1].Field).To(Equal("fake.domain.devices.interfaces[1].ports[0].name"))
@@ -2161,7 +2162,7 @@ var _ = Describe("Validating Webhook", func() {
 				},
 			}
 
-			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vm.Spec)
+			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vm.Spec, config)
 			Expect(len(causes)).To(Equal(0))
 		})
 		It("should reject specs with multiple pod interfaces", func() {
@@ -2179,7 +2180,7 @@ var _ = Describe("Validating Webhook", func() {
 				vm.Spec.Networks = append(vm.Spec.Networks, *net)
 			}
 
-			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vm.Spec)
+			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vm.Spec, config)
 			Expect(len(causes)).To(Equal(1))
 			Expect(causes[0].Field).To(Equal("fake.interfaces"))
 		})
@@ -2190,7 +2191,7 @@ var _ = Describe("Validating Webhook", func() {
 			vmi.Spec.Networks = []v1.Network{*v1.DefaultPodNetwork()}
 			for _, macAddress := range []string{"de:ad:00:00:be:af", "de-ad-00-00-be-af"} {
 				vmi.Spec.Domain.Devices.Interfaces[0].MacAddress = macAddress // missing octet
-				causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec)
+				causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
 				// if this is processed correctly, it should not result in any error
 				Expect(len(causes)).To(Equal(0))
 			}
@@ -2202,7 +2203,7 @@ var _ = Describe("Validating Webhook", func() {
 			vmi.Spec.Networks = []v1.Network{*v1.DefaultPodNetwork()}
 			for _, macAddress := range []string{"de:ad:00:00:be", "de-ad-00-00-be", "de:ad:00:00:be:af:be:af"} {
 				vmi.Spec.Domain.Devices.Interfaces[0].MacAddress = macAddress
-				causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec)
+				causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
 				Expect(len(causes)).To(Equal(1))
 				Expect(causes[0].Field).To(Equal("fake.domain.devices.interfaces[0].macAddress"))
 			}
@@ -2213,7 +2214,7 @@ var _ = Describe("Validating Webhook", func() {
 			vmi.Spec.Networks = []v1.Network{*v1.DefaultPodNetwork()}
 			for _, pciAddress := range []string{"0000:81:11.1", "0001:02:00.0"} {
 				vmi.Spec.Domain.Devices.Interfaces[0].PciAddress = pciAddress
-				causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec)
+				causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
 				// if this is processed correctly, it should not result in any error
 				Expect(len(causes)).To(Equal(0))
 			}
@@ -2225,7 +2226,7 @@ var _ = Describe("Validating Webhook", func() {
 			vmi.Spec.Networks = []v1.Network{*v1.DefaultPodNetwork()}
 			for _, pciAddress := range []string{"0000:80.10.1", "0000:80:80:1.0", "0000:80:11.15"} {
 				vmi.Spec.Domain.Devices.Interfaces[0].PciAddress = pciAddress
-				causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec)
+				causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
 				Expect(len(causes)).To(Equal(1))
 				Expect(causes[0].Field).To(Equal("fake.domain.devices.interfaces[0].pciAddress"))
 			}
@@ -2238,7 +2239,7 @@ var _ = Describe("Validating Webhook", func() {
 			vmi.Spec.Domain.Devices.Interfaces[0].DHCPOptions = &v1.DHCPOptions{
 				NTPServers: []string{"127.0.0.1", "127.0.0.2"},
 			}
-			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec)
+			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
 			Expect(len(causes)).To(Equal(0))
 		})
 
@@ -2249,7 +2250,7 @@ var _ = Describe("Validating Webhook", func() {
 			vmi.Spec.Domain.Devices.Interfaces[0].DHCPOptions = &v1.DHCPOptions{
 				NTPServers: []string{"::1", "hostname"},
 			}
-			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec)
+			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
 			Expect(len(causes)).To(Equal(2))
 		})
 
@@ -2260,7 +2261,7 @@ var _ = Describe("Validating Webhook", func() {
 			vmi.Spec.Domain.Devices.Interfaces[0].DHCPOptions = &v1.DHCPOptions{
 				PrivateOptions: []v1.DHCPPrivateOptions{v1.DHCPPrivateOptions{Option: 240, Value: "extra.options.kubevirt.io"}},
 			}
-			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec)
+			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
 			Expect(len(causes)).To(Equal(0))
 		})
 
@@ -2271,7 +2272,7 @@ var _ = Describe("Validating Webhook", func() {
 			vmi.Spec.Domain.Devices.Interfaces[0].DHCPOptions = &v1.DHCPOptions{
 				PrivateOptions: []v1.DHCPPrivateOptions{v1.DHCPPrivateOptions{Option: 223, Value: "extra.options.kubevirt.io"}},
 			}
-			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec)
+			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
 			Expect(len(causes)).To(Equal(1))
 		})
 
@@ -2284,7 +2285,7 @@ var _ = Describe("Validating Webhook", func() {
 					v1.DHCPPrivateOptions{Option: 240, Value: "extra.options.kubevirt.io"},
 					v1.DHCPPrivateOptions{Option: 240, Value: "sameextra.options.kubevirt.io"}},
 			}
-			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec)
+			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
 			Expect(len(causes)).To(Equal(1))
 		})
 
@@ -2297,7 +2298,7 @@ var _ = Describe("Validating Webhook", func() {
 					v1.DHCPPrivateOptions{Option: 240, Value: "extra.options.kubevirt.io"},
 					v1.DHCPPrivateOptions{Option: 241, Value: "sameextra.options.kubevirt.io"}},
 			}
-			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec)
+			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
 			Expect(len(causes)).To(Equal(0))
 		})
 
@@ -2327,7 +2328,7 @@ var _ = Describe("Validating Webhook", func() {
 			vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{nic}
 			vmi.Spec.Networks = []v1.Network{*v1.DefaultPodNetwork()}
 			vmi.Spec.Domain.Devices.NetworkInterfaceMultiQueue = &_true
-			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec)
+			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
 			Expect(len(causes)).To(Equal(2))
 			Expect(causes[0].Field).To(Equal("fake.domain.devices.networkInterfaceMultiqueue"))
 		})
@@ -2337,7 +2338,7 @@ var _ = Describe("Validating Webhook", func() {
 			vmi := v1.NewMinimalVMI("testvm")
 			vmi.Spec.Domain.Devices.NetworkInterfaceMultiQueue = &_true
 
-			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec)
+			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
 			Expect(len(causes)).To(Equal(1))
 			Expect(causes[0].Field).To(Equal("fake.domain.devices.networkInterfaceMultiqueue"))
 		})
@@ -2347,7 +2348,7 @@ var _ = Describe("Validating Webhook", func() {
 			vmi := v1.NewMinimalVMI("testvm")
 			vmi.Spec.Domain.Devices.BlockMultiQueue = &_true
 
-			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec)
+			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
 			Expect(len(causes)).To(Equal(1))
 			Expect(causes[0].Field).To(Equal("fake.domain.devices.blockMultiQueue"))
 		})
@@ -2359,7 +2360,7 @@ var _ = Describe("Validating Webhook", func() {
 			vmi.Spec.Domain.Resources.Limits = k8sv1.ResourceList{}
 			vmi.Spec.Domain.Resources.Limits[k8sv1.ResourceCPU] = resource.MustParse("5")
 
-			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec)
+			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
 			Expect(len(causes)).To(Equal(0))
 		})
 
@@ -2368,7 +2369,7 @@ var _ = Describe("Validating Webhook", func() {
 			vmi := v1.NewMinimalVMI("testvm")
 			vmi.Spec.Domain.Devices.BlockMultiQueue = &_false
 
-			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec)
+			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
 			Expect(len(causes)).To(Equal(0))
 		})
 
@@ -2398,7 +2399,7 @@ var _ = Describe("Validating Webhook", func() {
 
 			os.Setenv("FEATURE_GATES", "")
 
-			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec)
+			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
 			Expect(len(causes)).To(Equal(1))
 			Expect(causes[0].Field).To(Equal("fake.domain.devices.interfaces[1].name"))
 		})
@@ -2408,7 +2409,7 @@ var _ = Describe("Validating Webhook", func() {
 			var ioThreadPolicy v1.IOThreadsPolicy
 			ioThreadPolicy = "auto"
 			vmi.Spec.Domain.IOThreadsPolicy = &ioThreadPolicy
-			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec)
+			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
 			Expect(len(causes)).To(Equal(0))
 		})
 
@@ -2417,7 +2418,7 @@ var _ = Describe("Validating Webhook", func() {
 			var ioThreadPolicy v1.IOThreadsPolicy
 			ioThreadPolicy = "bad"
 			vmi.Spec.Domain.IOThreadsPolicy = &ioThreadPolicy
-			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec)
+			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
 			Expect(len(causes)).To(Equal(1))
 			Expect(causes[0].Message).To(Equal(fmt.Sprintf("Invalid IOThreadsPolicy (%s)", ioThreadPolicy)))
 		})
@@ -2427,7 +2428,7 @@ var _ = Describe("Validating Webhook", func() {
 				vmi := v1.NewMinimalVMI("testvmi")
 				vmi.Spec.DNSPolicy = dnsPolicy
 				vmi.Spec.DNSConfig = dnsConfig
-				causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec)
+				causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
 				Expect(len(causes)).To(Equal(0))
 			},
 			table.Entry("with DNSPolicy ClusterFirstWithHostNet", k8sv1.DNSClusterFirstWithHostNet, &k8sv1.PodDNSConfig{}),
@@ -2450,7 +2451,7 @@ var _ = Describe("Validating Webhook", func() {
 				vmi := v1.NewMinimalVMI("testvmi")
 				vmi.Spec.DNSPolicy = dnsPolicy
 				vmi.Spec.DNSConfig = dnsConfig
-				causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec)
+				causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
 				Expect(len(causes)).To(Equal(causeCount))
 				for i := 0; i < causeCount; i++ {
 					Expect(causes[i].Message).To(Equal(causeMessage[i]))
@@ -2495,7 +2496,7 @@ var _ = Describe("Validating Webhook", func() {
 			vmi.Spec.Domain.CPU = &v1.CPU{DedicatedCPUPlacement: true}
 		})
 		It("should reject specs without cpu reqirements", func() {
-			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec)
+			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
 			Expect(len(causes)).To(Equal(1))
 			Expect(causes[0].Field).To(Equal("fake.domain.cpu.dedicatedCpuPlacement"))
 		})
@@ -2504,7 +2505,7 @@ var _ = Describe("Validating Webhook", func() {
 			vmi.Spec.Domain.Resources.Limits = k8sv1.ResourceList{
 				k8sv1.ResourceCPU: resource.MustParse("2"),
 			}
-			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec)
+			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
 			Expect(len(causes)).To(Equal(1))
 			Expect(causes[0].Field).To(Equal("fake.domain.cpu.dedicatedCpuPlacement"))
 		})
@@ -2512,7 +2513,7 @@ var _ = Describe("Validating Webhook", func() {
 			vmi.Spec.Domain.Resources.Limits = k8sv1.ResourceList{
 				k8sv1.ResourceCPU: resource.MustParse("800m"),
 			}
-			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec)
+			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
 			Expect(len(causes)).To(Equal(1))
 			Expect(causes[0].Field).To(Equal("fake.domain.resources.limits.cpu"))
 		})
@@ -2521,7 +2522,7 @@ var _ = Describe("Validating Webhook", func() {
 				k8sv1.ResourceCPU:    resource.MustParse("800m"),
 				k8sv1.ResourceMemory: resource.MustParse("8Mi"),
 			}
-			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec)
+			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
 			Expect(len(causes)).To(Equal(1))
 			Expect(causes[0].Field).To(Equal("fake.domain.resources.requests.cpu"))
 		})
@@ -2534,7 +2535,7 @@ var _ = Describe("Validating Webhook", func() {
 				k8sv1.ResourceCPU:    resource.MustParse("2"),
 				k8sv1.ResourceMemory: resource.MustParse("8Mi"),
 			}
-			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec)
+			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
 			Expect(len(causes)).To(Equal(1))
 			Expect(causes[0].Field).To(Equal("fake.domain.cpu.dedicatedCpuPlacement"))
 		})
@@ -2545,7 +2546,7 @@ var _ = Describe("Validating Webhook", func() {
 			vmi.Spec.Domain.Resources.Requests = k8sv1.ResourceList{
 				k8sv1.ResourceCPU: resource.MustParse("4"),
 			}
-			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec)
+			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
 			Expect(len(causes)).To(Equal(1))
 			Expect(causes[0].Field).To(Equal("fake.domain.resources.limits.memory"))
 		})
@@ -2558,7 +2559,7 @@ var _ = Describe("Validating Webhook", func() {
 				k8sv1.ResourceCPU:    resource.MustParse("1"),
 				k8sv1.ResourceMemory: resource.MustParse("4Mi"),
 			}
-			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec)
+			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
 			Expect(len(causes)).To(Equal(1))
 			Expect(causes[0].Field).To(Equal("fake.domain.resources.requests.memory"))
 		})
@@ -2577,7 +2578,7 @@ var _ = Describe("Validating Webhook", func() {
 
 			for _, policy := range validCPUFeaturePolicies {
 				vmi.Spec.Domain.CPU.Features[0].Policy = policy
-				causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec)
+				causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
 				Expect(len(causes)).To(Equal(0))
 			}
 		})
@@ -2592,7 +2593,7 @@ var _ = Describe("Validating Webhook", func() {
 					},
 				},
 			}
-			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec)
+			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
 			Expect(len(causes)).To(Equal(1))
 		})
 	})
@@ -3296,7 +3297,7 @@ var _ = Describe("Validating Webhook", func() {
 				Bootloader: nil,
 			}
 
-			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec)
+			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
 			Expect(len(causes)).To(Equal(0))
 		})
 
@@ -3310,7 +3311,7 @@ var _ = Describe("Validating Webhook", func() {
 				},
 			}
 
-			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec)
+			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
 			Expect(len(causes)).To(Equal(0))
 		})
 
@@ -3324,7 +3325,7 @@ var _ = Describe("Validating Webhook", func() {
 				},
 			}
 
-			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec)
+			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
 			Expect(len(causes)).To(Equal(0))
 		})
 
@@ -3339,13 +3340,14 @@ var _ = Describe("Validating Webhook", func() {
 				},
 			}
 
-			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec)
+			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
 			Expect(len(causes)).To(Equal(1))
 		})
 	})
 })
 
 var _ = Describe("Function getNumberOfPodInterfaces()", func() {
+	config, _ := testutils.NewFakeClusterConfig(&k8sv1.ConfigMap{})
 
 	It("should work for empty network list", func() {
 		spec := &v1.VirtualMachineInstanceSpec{}
@@ -3413,7 +3415,7 @@ var _ = Describe("Function getNumberOfPodInterfaces()", func() {
 		iface1 := v1.Interface{Name: net1.Name}
 		spec.Networks = []v1.Network{net1}
 		spec.Domain.Devices.Interfaces = []v1.Interface{iface1}
-		causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), spec)
+		causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), spec, config)
 		Expect(causes).To(HaveLen(1))
 	})
 	It("should reject when more than one network source is configured", func() {
@@ -3427,7 +3429,7 @@ var _ = Describe("Function getNumberOfPodInterfaces()", func() {
 		iface1 := v1.Interface{Name: net1.Name}
 		spec.Networks = []v1.Network{net1}
 		spec.Domain.Devices.Interfaces = []v1.Interface{iface1}
-		causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), spec)
+		causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), spec, config)
 		Expect(causes).To(HaveLen(1))
 	})
 	It("should work when boot order is given to interfaces", func() {
@@ -3442,7 +3444,7 @@ var _ = Describe("Function getNumberOfPodInterfaces()", func() {
 		iface := v1.Interface{Name: net.Name, BootOrder: &order}
 		spec.Networks = []v1.Network{net}
 		spec.Domain.Devices.Interfaces = []v1.Interface{iface}
-		causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), spec)
+		causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), spec, config)
 		Expect(causes).To(HaveLen(0))
 	})
 	It("should fail when invalid boot order is given to interface", func() {
@@ -3457,7 +3459,7 @@ var _ = Describe("Function getNumberOfPodInterfaces()", func() {
 		iface := v1.Interface{Name: net.Name, BootOrder: &order}
 		spec.Networks = []v1.Network{net}
 		spec.Domain.Devices.Interfaces = []v1.Interface{iface}
-		causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), spec)
+		causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), spec, config)
 		Expect(causes).To(HaveLen(1))
 		Expect(causes[0].Field).To(Equal("fake[0].bootOrder"))
 	})
@@ -3492,7 +3494,7 @@ var _ = Describe("Function getNumberOfPodInterfaces()", func() {
 
 		spec.Volumes = []v1.Volume{volume}
 		spec.Domain.Devices.Disks = []v1.Disk{disk}
-		causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), spec)
+		causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), spec, config)
 		Expect(causes).To(HaveLen(0))
 	})
 	It("should fail when same boot order is given to more than one device", func() {
@@ -3524,7 +3526,7 @@ var _ = Describe("Function getNumberOfPodInterfaces()", func() {
 		}
 		spec.Volumes = []v1.Volume{volume}
 
-		causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), spec)
+		causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), spec, config)
 		Expect(causes).To(HaveLen(1))
 		Expect(causes[0].Field).To(ContainSubstring("bootOrder"))
 	})
@@ -3534,7 +3536,7 @@ var _ = Describe("Function getNumberOfPodInterfaces()", func() {
 
 		spec.Domain.Firmware = &v1.Firmware{Serial: sn}
 
-		causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), spec)
+		causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), spec, config)
 		Expect(causes).To(HaveLen(1))
 		Expect(causes[0].Field).To(ContainSubstring("serial"))
 	})
@@ -3544,7 +3546,7 @@ var _ = Describe("Function getNumberOfPodInterfaces()", func() {
 
 		spec.Domain.Firmware = &v1.Firmware{Serial: sn}
 
-		causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), spec)
+		causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), spec, config)
 		Expect(causes).To(HaveLen(1))
 		Expect(causes[0].Field).To(ContainSubstring("serial"))
 	})
@@ -3554,7 +3556,7 @@ var _ = Describe("Function getNumberOfPodInterfaces()", func() {
 
 		spec.Domain.Firmware = &v1.Firmware{Serial: sn}
 
-		causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), spec)
+		causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), spec, config)
 		Expect(len(causes)).To(Equal(0))
 	})
 })
