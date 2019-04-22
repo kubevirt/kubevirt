@@ -155,6 +155,7 @@ func defaultClusterConfig() *Config {
 			NodeDrainTaintKey:                 &nodeDrainTaintDefaultKey,
 			ProgressTimeout:                   &progressTimeout,
 			CompletionTimeoutPerGiB:           &completionTimeoutPerGiB,
+			UnsafeMigrationOverride:           false,
 		},
 		MachineType: DefaultMachineType,
 		CPURequest:  cpuRequestDefault,
@@ -178,6 +179,7 @@ type MigrationConfig struct {
 	NodeDrainTaintKey                 *string            `json:"nodeDrainTaintKey,omitempty"`
 	ProgressTimeout                   *int64             `json:"progressTimeout,omitempty"`
 	CompletionTimeoutPerGiB           *int64             `json:"completionTimeoutPerGiB,omitempty"`
+	UnsafeMigrationOverride           bool               `json:"unsafeMigrationOverride"`
 }
 
 type ClusterConfig struct {
