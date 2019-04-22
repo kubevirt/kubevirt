@@ -665,16 +665,20 @@ var _ = Describe("Multus", func() {
 				ep2Ip := "1.0.0.11/24"
 				ep1IpV6 := "fe80::ce3d:82ff:fe52:24c0/64"
 				ep2IpV6 := "fe80::ce3d:82ff:fe52:24c1/64"
-				agentVMI = tests.NewRandomVMIWithEphemeralDiskAndUserdata(tests.ContainerDiskFor(tests.ContainerDiskFedora), fmt.Sprintf(`#!/bin/bash
-	                echo "fedora" |passwd fedora --stdin
-	                ip link add ep1 type veth peer name ep2
-	                ip addr add %s dev ep1
+				userdata := fmt.Sprintf(`#!/bin/bash
+                    echo "fedora" |passwd fedora --stdin
+                    setenforce 0
+                    ip link add ep1 type veth peer name ep2
+                    ip addr add %s dev ep1
 	                ip addr add %s dev ep2
 	                ip addr add %s dev ep1
 	                ip addr add %s dev ep2
-					yum install -y qemu-guest-agent
-					systemctl start  qemu-guest-agent
-	                `, ep1Ip, ep2Ip, ep1IpV6, ep2IpV6))
+                    mkdir -p /usr/local/bin
+                    curl %s > /usr/local/bin/qemu-ga
+                    chmod +x /usr/local/bin/qemu-ga
+                    systemd-run --unit=guestagent /usr/local/bin/qemu-ga
+                `, ep1Ip, ep2Ip, ep1IpV6, ep2IpV6, tests.GuestAgentHttpUrl)
+				agentVMI = tests.NewRandomVMIWithEphemeralDiskAndUserdata(tests.ContainerDiskFor(tests.ContainerDiskFedora), userdata)
 
 				agentVMI.Spec.Domain.Devices.Interfaces = interfaces
 				agentVMI.Spec.Networks = networks
