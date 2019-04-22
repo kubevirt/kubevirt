@@ -949,9 +949,9 @@ spec:
                   - name: SRIOV_NETWORK_TYPE
                     value: sriov
                   - name: KUBEMACPOOL_IMAGE
-                    value: quay.io/schseba/mac-controller:latest
+                    value: quay.io/kubevirt/kubemacpool:v0.2.0
                   - name: OPERATOR_IMAGE
-                    value: quay.io/kubevirt/cluster-network-addons-operator:0.4.0
+                    value: quay.io/kubevirt/cluster-network-addons-operator:0.5.0
                   - name: OPERATOR_NAME
                     value: cluster-network-addons-operator
                   - name: OPERATOR_NAMESPACE
@@ -963,7 +963,7 @@ spec:
                       fieldRef:
                         fieldPath: metadata.name
                   - name: WATCH_NAMESPACE
-                  image: quay.io/kubevirt/cluster-network-addons-operator:0.4.0
+                  image: quay.io/kubevirt/cluster-network-addons-operator:0.5.0
                   imagePullPolicy: IfNotPresent
                   name: cluster-network-addons-operator
                   resources: {}

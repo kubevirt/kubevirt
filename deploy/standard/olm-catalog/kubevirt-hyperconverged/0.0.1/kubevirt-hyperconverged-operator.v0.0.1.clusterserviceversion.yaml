@@ -5,42 +5,19 @@ metadata:
   namespace: placeholder
   annotations:
     capabilities: "Full Lifecycle"
-    categories: "OpenShift Optional"
-    certified: "false"
-    support: "false"
-    containerImage: quay.io/community-operators/kubevirt/hyperconverged-cluster-operator:v2.0.0-4
-    repository: https://github.com/kubevirt/hyperconverged-cluster-operator
-    createdAt: 2019-04-17T16:01:59Z
-    alm-examples: >-
+    categories: "Virtualization"
+    alm-examples: |
       [
         {
-          "apiVersion": "hco.kubevirt.io/v1alpha1",
-          "kind": "HyperConverged",
+          "apiVersion":"hco.kubevirt.io/v1alpha1",
+          "kind":"HyperConverged",
           "metadata": {
-            "name": "kubevirt-hyperconverged",
-            "namespace": "kubevirt-hyperconverged"
-          }
-        },
-        {
-          "apiVersion": "cdi.kubevirt.io/v1alpha1",
-          "kind": "CDI",
-          "metadata": {
-            "name": "cdi"
-          }
-        },
-        {
-          "apiVersion": "kubevirt.io/v1alpha3",
-          "kind": "KubeVirt",
-          "metadata": {
-            "name": "kubevirt",
-            "namespace": "kubevirt"
-          }
-        },
-        {
-          "apiVersion": "networkaddonsoperator.network.kubevirt.io/v1alpha1",
-          "kind": "NetworkAddonsConfig",
-          "metadata": {
-            "name": "cluster"
+            "name":"kubevirt-hyperconverged",
+            "namespace":"kubevirt-hyperconverged"
+          },
+          "spec": {
+            "CDIImagePullPolicy":"IfNotPresent",
+            "KubeVirtImagePullPolicy":"IfNotPresent"
           }
         }
       ]

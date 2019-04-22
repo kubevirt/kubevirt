@@ -22,8 +22,8 @@ type Multus struct{}
 type LinuxBridge struct{}
 
 type KubeMacPool struct {
-	StartPoolRange string `json:"startPoolRange,omitempty"`
-	EndPoolRange   string `json:"endPoolRange,omitempty"`
+	RangeStart string `json:"rangeStart,omitempty"`
+	RangeEnd   string `json:"rangeEnd,omitempty"`
 }
 
 // +k8s:openapi-gen=true

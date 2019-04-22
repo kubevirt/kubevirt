@@ -309,7 +309,7 @@ func getCNA(data *templateData) {
 	cnadeployment := cnacomponents.GetDeployment(
 		data.Namespace,
 		data.CnaContainerPrefix,
-		"0.4.0",
+		"0.5.0",
 		data.ImagePullPolicy,
 		(&cnacomponents.AddonsImages{}).FillDefaults(),
 	)

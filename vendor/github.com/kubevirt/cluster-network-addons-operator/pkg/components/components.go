@@ -18,7 +18,7 @@ const (
 	LinuxBridgeCniImageDefault = "quay.io/kubevirt/cni-default-plugins:latest"
 	SriovDpImageDefault        = "quay.io/booxter/sriov-device-plugin:latest"
 	SriovCniImageDefault       = "docker.io/nfvpe/sriov-cni:latest"
-	KubeMacPoolImageDefault    = "quay.io/schseba/mac-controller:latest"
+	KubeMacPoolImageDefault    = "quay.io/kubevirt/kubemacpool:v0.2.0"
 )
 
 type AddonsImages struct {

@@ -122,8 +122,8 @@ func (status *StatusManager) SetFailing(level StatusLevel, reason, message strin
 func (status *StatusManager) SetNotFailing(level StatusLevel) {
 	if status.failing[level] != nil {
 		status.failing[level] = nil
-		status.syncFailing()
 	}
+	status.syncFailing()
 }
 
 func (status *StatusManager) SetDaemonSets(daemonSets []types.NamespacedName) {
@@ -176,6 +176,10 @@ func (status *StatusManager) SetFromPods() {
 			progressing = append(progressing, fmt.Sprintf("DaemonSet %q is not available (awaiting %d nodes)", dsName.String(), ds.Status.NumberUnavailable))
 		} else if ds.Status.NumberAvailable == 0 {
 			progressing = append(progressing, fmt.Sprintf("DaemonSet %q is not yet scheduled on any nodes", dsName.String()))
+		} else if ds.Status.UpdatedNumberScheduled < ds.Status.DesiredNumberScheduled {
+			progressing = append(progressing, fmt.Sprintf("DaemonSet %q update is rolling out (%d out of %d updated)", dsName.String(), ds.Status.UpdatedNumberScheduled, ds.Status.DesiredNumberScheduled))
+		} else if ds.Generation > ds.Status.ObservedGeneration {
+			progressing = append(progressing, fmt.Sprintf("DaemonSet %q update is being processed (generation %d, observed generation %d)", dsName.String(), ds.Generation, ds.Status.ObservedGeneration))
 		}
 	}
 
@@ -214,6 +218,8 @@ func (status *StatusManager) SetFromPods() {
 			progressing = append(progressing, fmt.Sprintf("Deployment %q is not available (awaiting %d nodes)", depName.String(), dep.Status.UnavailableReplicas))
 		} else if dep.Status.AvailableReplicas == 0 {
 			progressing = append(progressing, fmt.Sprintf("Deployment %q is not yet scheduled on any nodes", depName.String()))
+		} else if dep.Status.ObservedGeneration < dep.Generation {
+			progressing = append(progressing, fmt.Sprintf("Deployment %q update is being processed (generation %d, observed generation %d)", depName.String(), dep.Generation, dep.Status.ObservedGeneration))
 		}
 	}
 

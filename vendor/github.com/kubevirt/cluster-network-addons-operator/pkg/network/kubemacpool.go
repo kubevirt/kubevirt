@@ -23,21 +23,21 @@ func validateKubeMacPool(conf *opv1alpha1.NetworkAddonsConfigSpec) []error {
 	// If the range is not configured by the administrator we generate a random range.
 	// This random range spans from 02:XX:XX:00:00:00 to 02:XX:XX:FF:FF:FF,
 	// where 02 makes the address local unicast and XX:XX is a random prefix.
-	if conf.KubeMacPool.StartPoolRange == "" && conf.KubeMacPool.EndPoolRange == "" {
+	if conf.KubeMacPool.RangeStart == "" && conf.KubeMacPool.RangeEnd == "" {
 		return []error{}
 	}
 
-	if (conf.KubeMacPool.StartPoolRange == "" && conf.KubeMacPool.EndPoolRange != "") ||
-		(conf.KubeMacPool.StartPoolRange != "" && conf.KubeMacPool.EndPoolRange == "") {
+	if (conf.KubeMacPool.RangeStart == "" && conf.KubeMacPool.RangeEnd != "") ||
+		(conf.KubeMacPool.RangeStart != "" && conf.KubeMacPool.RangeEnd == "") {
 		return []error{errors.Errorf("both or none of the KubeMacPool ranges needs to be configured")}
 	}
 
-	if _, err := net.ParseMAC(conf.KubeMacPool.StartPoolRange); err != nil {
-		return []error{errors.Errorf("failed to parse startPoolRange invalid mac address")}
+	if _, err := net.ParseMAC(conf.KubeMacPool.RangeStart); err != nil {
+		return []error{errors.Errorf("failed to parse rangeStart because the mac address is invalid")}
 	}
 
-	if _, err := net.ParseMAC(conf.KubeMacPool.EndPoolRange); err != nil {
-		return []error{errors.Errorf("failed to parse endPoolRange invalid mac address")}
+	if _, err := net.ParseMAC(conf.KubeMacPool.RangeEnd); err != nil {
+		return []error{errors.Errorf("failed to parse rangeEnd because the mac address is invalid")}
 	}
 
 	return []error{}
@@ -56,25 +56,25 @@ func renderKubeMacPool(conf *opv1alpha1.NetworkAddonsConfigSpec, manifestDir str
 		return nil, nil
 	}
 
-	if conf.KubeMacPool.StartPoolRange == "" || conf.KubeMacPool.EndPoolRange == "" {
+	if conf.KubeMacPool.RangeStart == "" || conf.KubeMacPool.RangeEnd == "" {
 		prefix, err := generateRandomMacPrefix()
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to generate random mac address prefix")
 		}
 
-		startPoolRange := net.HardwareAddr(append(prefix, 0x00, 0x00, 0x00))
-		conf.KubeMacPool.StartPoolRange = startPoolRange.String()
+		rangeStart := net.HardwareAddr(append(prefix, 0x00, 0x00, 0x00))
+		conf.KubeMacPool.RangeStart = rangeStart.String()
 
-		endPoolRange := net.HardwareAddr(append(prefix, 0xFF, 0xFF, 0xFF))
-		conf.KubeMacPool.EndPoolRange = endPoolRange.String()
+		rangeEnd := net.HardwareAddr(append(prefix, 0xFF, 0xFF, 0xFF))
+		conf.KubeMacPool.RangeEnd = rangeEnd.String()
 	}
 
 	// render the manifests on disk
 	data := render.MakeRenderData()
 	data.Data["KubeMacPoolImage"] = os.Getenv("KUBEMACPOOL_IMAGE")
 	data.Data["ImagePullPolicy"] = conf.ImagePullPolicy
-	data.Data["StartPoolRange"] = conf.KubeMacPool.StartPoolRange
-	data.Data["EndPoolRange"] = conf.KubeMacPool.EndPoolRange
+	data.Data["RangeStart"] = conf.KubeMacPool.RangeStart
+	data.Data["RangeEnd"] = conf.KubeMacPool.RangeEnd
 
 	objs, err := render.RenderDir(filepath.Join(manifestDir, "kubemacpool"), &data)
 	if err != nil {
