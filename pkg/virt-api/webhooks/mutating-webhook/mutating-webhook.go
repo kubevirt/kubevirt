@@ -32,7 +32,6 @@ import (
 
 	v1 "kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/log"
-	"kubevirt.io/kubevirt/pkg/util"
 	"kubevirt.io/kubevirt/pkg/virt-api/webhooks"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 )
@@ -247,12 +246,8 @@ func setDefaultResourceRequests(vmi *v1.VirtualMachineInstance, defaultMemoryReq
 	}
 }
 
-func ServeVMIs(resp http.ResponseWriter, req *http.Request) {
-	informers := webhooks.GetInformers()
-	namespace, _ := util.GetNamespace()
-	serve(resp, req, &VMIsMutator{
-		clusterConfig: virtconfig.NewClusterConfig(informers.ConfigMapInformer.GetStore(), namespace),
-	})
+func ServeVMIs(resp http.ResponseWriter, req *http.Request, clusterConfig *virtconfig.ClusterConfig) {
+	serve(resp, req, &VMIsMutator{clusterConfig: clusterConfig})
 }
 
 func ServeMigrationCreate(resp http.ResponseWriter, req *http.Request) {
