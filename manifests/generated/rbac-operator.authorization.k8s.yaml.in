@@ -30,6 +30,7 @@ rules:
   resources:
   - serviceaccounts
   - services
+  - endpoints
   verbs:
   - get
   - list

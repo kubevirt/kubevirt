@@ -92,6 +92,7 @@ func NewOperatorClusterRole() *rbacv1.ClusterRole {
 				Resources: []string{
 					"serviceaccounts",
 					"services",
+					"endpoints",
 				},
 				Verbs: []string{
 					"get",
