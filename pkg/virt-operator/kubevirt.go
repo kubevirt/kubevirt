@@ -358,7 +358,7 @@ func (c *KubeVirtController) enqueueKubeVirt(obj interface{}) {
 	c.queue.Add(key)
 }
 
-func (c *KubeVirtController) Run(threadiness int, stopCh chan struct{}) {
+func (c *KubeVirtController) Run(threadiness int, stopCh <-chan struct{}) {
 	defer controller.HandlePanic()
 	defer c.queue.ShutDown()
 	log.Log.Info("Starting KubeVirt controller.")

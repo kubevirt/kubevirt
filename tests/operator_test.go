@@ -177,7 +177,7 @@ var _ = Describe("Operator", func() {
 				return fmt.Errorf("Waiting for updating condition")
 			}
 			return nil
-		}, 30*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
+		}, 120*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
 
 	}
 
@@ -408,6 +408,9 @@ var _ = Describe("Operator", func() {
 
 		})
 
+		// NOTE - this test verifies new operators can grab the leader election lease
+		// during operator updates. The only way the new infrastructure is deployed
+		// is if the update operator is capable of getting the lease.
 		It("should be able to update kubevirt install when operator updates if no custom image tag is set", func() {
 
 			if tests.KubeVirtVersionTagAlt == "" {
