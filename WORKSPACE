@@ -163,7 +163,7 @@ container_pull(
 # Pull kubevirt-testing image
 container_pull(
     name = "kubevirt-testing",
-    digest = "sha256:2e43d16abaaea55672b125515e89ae69d8c6424fc2c110273aaf7db047f0b82f",
+    digest = "sha256:eb86f7388217bb18611c8c4e6169af3463c2a18f420314eb4d742b3d3669b16f",
     registry = "index.docker.io",
     repository = "kubevirtci/kubevirt-testing",
     #tag = "28",
@@ -237,5 +237,13 @@ http_file(
     sha256 = "bd93021d826c98cbec15b4bf7e0800f723f986e7ed89357c56284a7efa6394b5",
     urls = [
         "https://dl.fedoraproject.org/pub/fedora/linux/releases/28/Everything/x86_64/os/Packages/s/stress-1.0.4-20.fc28.x86_64.rpm",
+    ],
+)
+
+http_file(
+    name = "e2fsprogs",
+    sha256 = "d6db37d587a2a0f7cd19e42aea8bd3e5e7c3a9c39c324d40be7514624f9f8f5f",
+    urls = [
+        "https://dl.fedoraproject.org/pub/fedora/linux/updates/28/Everything/x86_64/Packages/e/e2fsprogs-1.44.2-0.fc28.x86_64.rpm",
     ],
 )

@@ -270,6 +270,141 @@ var _ = Describe("Migrations", func() {
 
 			})
 		})
+		Context("with a shared ISCSI Filesystem PVC", func() {
+			var options metav1.GetOptions
+			var cfgMap *k8sv1.ConfigMap
+			var originalMigrationConfig string
+			var kubevirtConfig = "kubevirt-config"
+			BeforeEach(func() {
+				tests.BeforeTestCleanup()
+				if !tests.HasCDI() {
+					Skip("Skip DataVolume tests when CDI is not present")
+				}
+				// set unsafe migration flag
+				options = metav1.GetOptions{}
+				cfgMap, err = virtClient.CoreV1().ConfigMaps(namespaceKubevirt).Get(kubevirtConfig, options)
+				Expect(err).ToNot(HaveOccurred())
+				originalMigrationConfig = cfgMap.Data["migrations"]
+				cfgMap.Data["migrations"] = `{"unsafeMigrationOverride": true}`
+
+				_, err = virtClient.CoreV1().ConfigMaps(namespaceKubevirt).Update(cfgMap)
+				Expect(err).ToNot(HaveOccurred())
+				time.Sleep(5 * time.Second)
+
+			}, 60)
+
+			AfterEach(func() {
+				cfgMap, err = virtClient.CoreV1().ConfigMaps(namespaceKubevirt).Get(kubevirtConfig, options)
+				Expect(err).ToNot(HaveOccurred())
+				cfgMap.Data["migrations"] = originalMigrationConfig
+				_, err = virtClient.CoreV1().ConfigMaps(namespaceKubevirt).Update(cfgMap)
+				Expect(err).ToNot(HaveOccurred())
+			}, 60)
+
+			It("should migrate a vmi with UNSAFE_MIGRATION flag set", func() {
+				// Normally, live migration with a shared volume that contains
+				// a non-clustered filesystem will be prevented for disk safety reasons.
+				// This test sets a UNSAFE_MIGRATION flag and a migration with an ext4 filesystem
+				// should succeed.
+
+				pvName := "test-iscsi-dv" + rand.String(48)
+				// Start a ISCSI POD and service
+				By("Starting an iSCSI POD")
+				iscsiIP := tests.CreateISCSITargetPOD(tests.ContainerDiskEmpty)
+				_, err = virtClient.CoreV1().PersistentVolumes().Create(tests.CreateISCSIPV(pvName, "2Gi", iscsiIP, k8sv1.ReadWriteMany, k8sv1.PersistentVolumeFilesystem))
+				Expect(err).To(BeNil())
+				dataVolume := tests.NewRandomDataVolumeWithHttpImport(tests.AlpineHttpUrl, tests.NamespaceTestDefault, k8sv1.ReadWriteMany)
+				volMode := k8sv1.PersistentVolumeFilesystem
+				dataVolume.Spec.PVC.VolumeMode = &volMode
+				vmi := tests.NewRandomVMIWithDataVolume(dataVolume.Name)
+
+				_, err := virtClient.CdiClient().CdiV1alpha1().DataVolumes(dataVolume.Namespace).Create(dataVolume)
+				Expect(err).To(BeNil())
+
+				By("checking that the datavolume has succeeded")
+				tests.WaitForSuccessfulDataVolumeImport(vmi, 340)
+
+				vmi = runVMIAndExpectLaunch(vmi, 240)
+
+				// Verify console on last iteration to verify the VirtualMachineInstance is still booting properly
+				// after being restarted multiple times
+				By("Checking that the VirtualMachineInstance console has expected output")
+				expecter, err := tests.LoggedInAlpineExpecter(vmi)
+				Expect(err).To(BeNil())
+				expecter.Close()
+
+				// execute a migration, wait for finalized state
+				By("Starting the Migration")
+				migration := tests.NewRandomMigration(vmi.Name, vmi.Namespace)
+				migrationUID := runMigrationAndExpectCompletion(migration, 180)
+
+				// check VMI, confirm migration state
+				confirmVMIPostMigration(vmi, migrationUID)
+
+				// delete VMI
+				By("Deleting the VMI")
+				err = virtClient.VirtualMachineInstance(vmi.Namespace).Delete(vmi.Name, &metav1.DeleteOptions{})
+				Expect(err).To(BeNil())
+
+				By("Waiting for VMI to disappear")
+				tests.WaitForVirtualMachineToDisappearWithTimeout(vmi, 120)
+
+				err = virtClient.CdiClient().CdiV1alpha1().DataVolumes(dataVolume.Namespace).Delete(dataVolume.Name, &metav1.DeleteOptions{})
+				Expect(err).To(BeNil())
+			})
+		})
+		Context("with an Alpine DataVolume", func() {
+			BeforeEach(func() {
+				tests.BeforeTestCleanup()
+				if !tests.HasCDI() {
+					Skip("Skip DataVolume tests when CDI is not present")
+				}
+			}, 60)
+			It("should reject a migration of a vmi with a non-shared data volume", func() {
+				dataVolume := tests.NewRandomDataVolumeWithHttpImport(tests.AlpineHttpUrl, tests.NamespaceTestDefault, k8sv1.ReadWriteOnce)
+				vmi := tests.NewRandomVMIWithDataVolume(dataVolume.Name)
+
+				_, err := virtClient.CdiClient().CdiV1alpha1().DataVolumes(dataVolume.Namespace).Create(dataVolume)
+				Expect(err).To(BeNil())
+
+				By("checking that the datavolume has succeeded")
+				tests.WaitForSuccessfulDataVolumeImport(vmi, 240)
+
+				vmi = runVMIAndExpectLaunch(vmi, 240)
+
+				// Verify console on last iteration to verify the VirtualMachineInstance is still booting properly
+				// after being restarted multiple times
+				By("Checking that the VirtualMachineInstance console has expected output")
+				expecter, err := tests.LoggedInAlpineExpecter(vmi)
+				Expect(err).To(BeNil())
+				expecter.Close()
+
+				for _, c := range vmi.Status.Conditions {
+					if c.Type == v1.VirtualMachineInstanceIsMigratable {
+						Expect(c.Status).To(Equal(k8sv1.ConditionFalse))
+					}
+				}
+
+				// execute a migration, wait for finalized state
+				migration := tests.NewRandomMigration(vmi.Name, vmi.Namespace)
+
+				By("Starting a Migration")
+				_, err = virtClient.VirtualMachineInstanceMigration(migration.Namespace).Create(migration)
+				Expect(err).ToNot(BeNil())
+				Expect(err.Error()).To(ContainSubstring("DisksNotLiveMigratable"))
+
+				// delete VMI
+				By("Deleting the VMI")
+				err = virtClient.VirtualMachineInstance(vmi.Namespace).Delete(vmi.Name, &metav1.DeleteOptions{})
+				Expect(err).To(BeNil())
+
+				By("Waiting for VMI to disappear")
+				tests.WaitForVirtualMachineToDisappearWithTimeout(vmi, 120)
+
+				err = virtClient.CdiClient().CdiV1alpha1().DataVolumes(dataVolume.Namespace).Delete(dataVolume.Name, &metav1.DeleteOptions{})
+				Expect(err).To(BeNil())
+			})
+		})
 		Context("with an Alpine shared ISCSI PVC", func() {
 			var pvName string
 			BeforeEach(func() {
@@ -279,7 +414,7 @@ var _ = Describe("Migrations", func() {
 				iscsiIP := tests.CreateISCSITargetPOD(tests.ContainerDiskAlpine)
 				// create a new PV and PVC (PVs can't be reused)
 				By("create a new iSCSI PV and PVC")
-				tests.CreateISCSIPvAndPvc(pvName, "1Gi", iscsiIP)
+				tests.CreateISCSIPvAndPvc(pvName, "1Gi", iscsiIP, k8sv1.PersistentVolumeBlock)
 			}, 60)
 
 			AfterEach(func() {
@@ -351,7 +486,7 @@ var _ = Describe("Migrations", func() {
 				iscsiIP := tests.CreateISCSITargetPOD(tests.ContainerDiskCirros)
 				// create a new PV and PVC (PVs can't be reused)
 				By("create a new iSCSI PV and PVC")
-				tests.CreateISCSIPvAndPvc(pvName, "1Gi", iscsiIP)
+				tests.CreateISCSIPvAndPvc(pvName, "1Gi", iscsiIP, k8sv1.PersistentVolumeBlock)
 			}, 60)
 
 			AfterEach(func() {
@@ -471,7 +606,7 @@ var _ = Describe("Migrations", func() {
 				iscsiIP := tests.CreateISCSITargetPOD(tests.ContainerDiskCirros)
 				// create a new PV and PVC (PVs can't be reused)
 				By("create a new iSCSI PV and PVC")
-				tests.NewISCSIPvAndPvc(pvName, "1Gi", iscsiIP, k8sv1.ReadWriteOnce)
+				tests.NewISCSIPvAndPvc(pvName, "1Gi", iscsiIP, k8sv1.ReadWriteOnce, k8sv1.PersistentVolumeBlock)
 			}, 60)
 
 			AfterEach(func() {
