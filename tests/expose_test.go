@@ -340,7 +340,7 @@ var _ = Describe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 			By("Creating an VM object")
 			template := tests.NewRandomVMIWithEphemeralDiskAndUserdata(tests.ContainerDiskFor(tests.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n")
 			template.Labels = map[string]string{"expose": "vm"}
-			vm = NewRandomVirtualMachine(template, false)
+			vm = tests.NewRandomVirtualMachine(template, false)
 
 			By("Creating the VM")
 			_, err := virtClient.VirtualMachine(tests.NamespaceTestDefault).Create(vm)
