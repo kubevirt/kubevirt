@@ -64,6 +64,7 @@ const (
 var validInterfaceModels = []string{"e1000", "e1000e", "ne2k_pci", "pcnet", "rtl8139", "virtio"}
 var validIOThreadsPolicies = []v1.IOThreadsPolicy{v1.IOThreadsPolicyShared, v1.IOThreadsPolicyAuto}
 var validCPUFeaturePolicies = []string{"", "force", "require", "optional", "disable", "forbid"}
+var validRunStrategies = []v1.VirtualMachineRunStrategy{v1.RunStrategyHalted, v1.RunStrategyManual, v1.RunStrategyAlways, v1.RunStrategyRerunOnFailure}
 
 type admitFunc func(*v1beta1.AdmissionReview) *v1beta1.AdmissionResponse
 
@@ -1454,6 +1455,7 @@ func ValidateVirtualMachineInstanceMetadata(field *k8sfield.Path, vmi *v1.Virtua
 			Field:   field.String(),
 		})
 	}
+
 	return causes
 }
 
@@ -1500,6 +1502,41 @@ func ValidateVirtualMachineSpec(field *k8sfield.Path, spec *v1.VirtualMachineSpe
 			}
 		}
 	}
+
+	// Validate RunStrategy
+	if spec.Running != nil && spec.RunStrategy != nil {
+		causes = append(causes, metav1.StatusCause{
+			Type:    metav1.CauseTypeFieldValueInvalid,
+			Message: fmt.Sprintf("Running and RunStrategy are mutually exclusive"),
+			Field:   field.Child("running").String(),
+		})
+	}
+
+	if spec.Running == nil && spec.RunStrategy == nil {
+		causes = append(causes, metav1.StatusCause{
+			Type:    metav1.CauseTypeFieldValueInvalid,
+			Message: fmt.Sprintf("One of Running or RunStrategy must be specified"),
+			Field:   field.Child("running").String(),
+		})
+	}
+
+	if spec.RunStrategy != nil {
+		validRunStrategy := false
+		for _, strategy := range validRunStrategies {
+			if *spec.RunStrategy == strategy {
+				validRunStrategy = true
+				break
+			}
+		}
+		if validRunStrategy == false {
+			causes = append(causes, metav1.StatusCause{
+				Type:    metav1.CauseTypeFieldValueInvalid,
+				Message: fmt.Sprintf("Invalid RunStrategy (%s)", *spec.RunStrategy),
+				Field:   field.Child("runStrategy").String(),
+			})
+		}
+	}
+
 	// Validate ignition feature gate if set when the corresponding annotation is found
 	if spec.Template.ObjectMeta.GetAnnotations()[v1.IgnitionAnnotation] != "" && !virtconfig.IgnitionEnabled() {
 		causes = append(causes, metav1.StatusCause{
