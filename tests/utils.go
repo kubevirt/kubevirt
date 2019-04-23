@@ -112,6 +112,7 @@ const (
 const (
 	AlpineHttpUrl     = "http://cdi-http-import-server.kubevirt/images/alpine.iso"
 	GuestAgentHttpUrl = "http://cdi-http-import-server.kubevirt/qemu-ga"
+	StressHttpUrl     = "http://cdi-http-import-server.kubevirt/stress"
 )
 
 const (
@@ -1546,6 +1547,22 @@ func AddEphemeralCdrom(vmi *v1.VirtualMachineInstance, name string, bus string, 
 	})
 
 	return vmi
+}
+
+func NewRandomFedoraVMIWitGuestAgent() *v1.VirtualMachineInstance {
+	agentVMI := NewRandomVMIWithEphemeralDiskAndUserdata(ContainerDiskFor(ContainerDiskFedora), fmt.Sprintf(`#!/bin/bash
+                echo "fedora" |passwd fedora --stdin
+                mkdir -p /usr/local/bin
+                curl %s > /usr/local/bin/qemu-ga
+                chmod +x /usr/local/bin/qemu-ga
+                curl %s > /usr/local/bin/stress
+                chmod +x /usr/local/bin/stress
+                setenforce 0
+                systemd-run --unit=guestagent /usr/local/bin/qemu-ga
+                `, GuestAgentHttpUrl, StressHttpUrl))
+	agentVMI.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("512M")
+	return agentVMI
+
 }
 
 func NewRandomVMIWithEphemeralDiskAndUserdata(containerImage string, userData string) *v1.VirtualMachineInstance {

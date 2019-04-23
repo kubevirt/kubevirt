@@ -387,6 +387,7 @@ var _ = Describe("Migrations", func() {
 				tests.WaitForVirtualMachineToDisappearWithTimeout(vmi, 120)
 			})
 		})
+
 		Context("migration monitor", func() {
 			var options metav1.GetOptions
 			var cfgMap *k8sv1.ConfigMap
@@ -413,13 +414,8 @@ var _ = Describe("Migrations", func() {
 				Expect(err).ToNot(HaveOccurred())
 			})
 			It("should abort a vmi migration without progress", func() {
-
-				vmi := tests.NewRandomVMIWithEphemeralDisk(tests.ContainerDiskFor(tests.ContainerDiskFedora))
+				vmi := tests.NewRandomFedoraVMIWitGuestAgent()
 				vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("1Gi")
-				tests.AddUserData(vmi, "cloud-init", fmt.Sprintf(`#!/bin/bash
-					echo "fedora" |passwd fedora --stdin
-					yum install -y stress qemu-guest-agent
-                    systemctl start  qemu-guest-agent`))
 
 				By("Starting the VirtualMachineInstance")
 				vmi = runVMIAndExpectLaunch(vmi, 240)
@@ -517,13 +513,8 @@ var _ = Describe("Migrations", func() {
 				tests.WaitForVirtualMachineToDisappearWithTimeout(vmi, 120)
 			})
 			It("should be able successfully cancel a migration", func() {
-
-				vmi := tests.NewRandomVMIWithEphemeralDisk(tests.ContainerDiskFor(tests.ContainerDiskFedora))
+				vmi := tests.NewRandomFedoraVMIWitGuestAgent()
 				vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("1Gi")
-				tests.AddUserData(vmi, "cloud-init", fmt.Sprintf(`#!/bin/bash
-					echo "fedora" |passwd fedora --stdin
-					yum install -y stress qemu-guest-agent
-                    systemctl start  qemu-guest-agent`))
 
 				By("Starting the VirtualMachineInstance")
 				vmi = runVMIAndExpectLaunch(vmi, 240)
@@ -643,6 +634,78 @@ var _ = Describe("Migrations", func() {
 				pod := tests.GetRunningPodByVirtualMachineInstance(vmi, vmi.Namespace)
 				err := virtClient.CoreV1().Pods(vmi.Namespace).Evict(&v1beta1.Eviction{ObjectMeta: metav1.ObjectMeta{Name: pod.Name}})
 				Expect(errors.IsTooManyRequests(err)).To(BeTrue())
+			})
+
+			It("should block the eviction api while a slow migration is in progress", func() {
+				vmi = tests.NewRandomFedoraVMIWitGuestAgent()
+				strategy := v1.EvictionStrategyLiveMigrate
+				vmi.Spec.EvictionStrategy = &strategy
+				vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("1Gi")
+
+				By("Starting the VirtualMachineInstance")
+				vmi = runVMIAndExpectLaunch(vmi, 240)
+
+				getOptions := &metav1.GetOptions{}
+				By("Checking that the VirtualMachineInstance console has expected output")
+				expecter, expecterErr := tests.LoggedInFedoraExpecter(vmi)
+				Expect(expecterErr).To(BeNil())
+				defer expecter.Close()
+
+				var updatedVmi *v1.VirtualMachineInstance
+				// Need to wait for cloud init to finnish and start the agent inside the vmi.
+				Eventually(func() bool {
+					updatedVmi, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Get(vmi.Name, getOptions)
+					Expect(err).ToNot(HaveOccurred())
+					for _, condition := range updatedVmi.Status.Conditions {
+						if condition.Type == "AgentConnected" && condition.Status == "True" {
+							return true
+						}
+					}
+					return false
+				}, 420*time.Second, 2).Should(BeTrue(), "Should have agent connected condition")
+
+				By("Run a stress test to dirty some pages and slow down the migration")
+				_, err = expecter.ExpectBatch([]expect.Batcher{
+					&expect.BSnd{S: "stress --vm 1 --vm-bytes 600M --vm-keep --timeout 10s\n"},
+				}, 15*time.Second)
+				Expect(err).ToNot(HaveOccurred(), "should run a stress test")
+
+				// execute a migration, wait for finalized state
+				By("Starting the Migration")
+				migration := tests.NewRandomMigration(vmi.Name, vmi.Namespace)
+				_, err := virtClient.VirtualMachineInstanceMigration(vmi.Namespace).Create(migration)
+				Expect(err).ToNot(HaveOccurred())
+
+				By("Waiting until we have two available pods")
+				var pods *k8sv1.PodList
+				Eventually(func() []k8sv1.Pod {
+					labelSelector := fmt.Sprintf("%s=%s", v1.CreatedByLabel, vmi.GetUID())
+					fieldSelector := fmt.Sprintf("status.phase==%s", k8sv1.PodRunning)
+					pods, err = virtClient.CoreV1().Pods(vmi.Namespace).List(metav1.ListOptions{LabelSelector: labelSelector, FieldSelector: fieldSelector})
+					Expect(err).ToNot(HaveOccurred())
+					return pods.Items
+				}, 90*time.Second, 500*time.Millisecond).Should(HaveLen(2))
+
+				By("Verifying at least once that both pods are protected")
+				for _, pod := range pods.Items {
+					err := virtClient.CoreV1().Pods(vmi.Namespace).Evict(&v1beta1.Eviction{ObjectMeta: metav1.ObjectMeta{Name: pod.Name}})
+					Expect(errors.IsTooManyRequests(err)).To(BeTrue())
+				}
+				By("Verifying that both pods are protected by the PodDisruptionBudget for the whole migration")
+				Eventually(func() v1.VirtualMachineInstanceMigrationPhase {
+					currentMigration, err := virtClient.VirtualMachineInstanceMigration(vmi.Namespace).Get(migration.Name, getOptions)
+					Expect(err).ToNot(HaveOccurred())
+					Expect(currentMigration.Status.Phase).NotTo(Equal(v1.MigrationFailed))
+					for _, pod := range pods.Items {
+						err := virtClient.CoreV1().Pods(vmi.Namespace).Evict(&v1beta1.Eviction{ObjectMeta: metav1.ObjectMeta{Name: pod.Name}})
+						if !errors.IsTooManyRequests(err) && currentMigration.Status.Phase != v1.MigrationRunning {
+							// In case we get an unexpected error and the migration isn't running anymore, let's not fail
+							continue
+						}
+						Expect(errors.IsTooManyRequests(err)).To(BeTrue())
+					}
+					return currentMigration.Status.Phase
+				}, 180*time.Second, 500*time.Millisecond).Should(Equal(v1.MigrationSucceeded))
 			})
 
 			Context("with node tainted", func() {

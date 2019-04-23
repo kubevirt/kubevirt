@@ -815,15 +815,7 @@ var _ = Describe("Configurations", func() {
 			It("[test_id:1677]VMI condition should signal agent presence", func() {
 
 				// TODO: actually review this once the VM image is present
-				agentVMI := tests.NewRandomVMIWithEphemeralDiskAndUserdata(tests.ContainerDiskFor(tests.ContainerDiskFedora), fmt.Sprintf(`#!/bin/bash
-                echo "fedora" |passwd fedora --stdin
-                mkdir -p /usr/local/bin
-                curl %s > /usr/local/bin/qemu-ga
-                chmod +x /usr/local/bin/qemu-ga
-                setenforce 0
-                systemd-run --unit=guestagent /usr/local/bin/qemu-ga
-                `, tests.GuestAgentHttpUrl))
-				agentVMI.Spec.Domain.Resources.Requests[kubev1.ResourceMemory] = resource.MustParse("512M")
+				agentVMI := tests.NewRandomFedoraVMIWitGuestAgent()
 
 				By("Starting a VirtualMachineInstance")
 				agentVMI, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(agentVMI)
