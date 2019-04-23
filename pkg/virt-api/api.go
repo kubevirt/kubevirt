@@ -212,6 +212,22 @@ func (app *virtAPIApp) composeSubresources() {
 		Returns(http.StatusOK, "OK", nil).
 		Returns(http.StatusNotFound, "Not Found", nil))
 
+	subws.Route(subws.PUT(rest.ResourcePath(subresourcesvmGVR)+rest.SubResourcePath("start")).
+		To(subresourceApp.StartVMRequestHandler).
+		Param(rest.NamespaceParam(subws)).Param(rest.NameParam(subws)).
+		Operation("start").
+		Doc("Start a VirtualMachine object.").
+		Returns(http.StatusOK, "OK", nil).
+		Returns(http.StatusNotFound, "Not Found", nil))
+
+	subws.Route(subws.PUT(rest.ResourcePath(subresourcesvmGVR)+rest.SubResourcePath("stop")).
+		To(subresourceApp.StopVMRequestHandler).
+		Param(rest.NamespaceParam(subws)).Param(rest.NameParam(subws)).
+		Operation("stop").
+		Doc("Stop a VirtualMachine object.").
+		Returns(http.StatusOK, "OK", nil).
+		Returns(http.StatusNotFound, "Not Found", nil))
+
 	subws.Route(subws.GET(rest.ResourcePath(subresourcesvmiGVR) + rest.SubResourcePath("console")).
 		To(subresourceApp.ConsoleRequestHandler).
 		Param(rest.NamespaceParam(subws)).Param(rest.NameParam(subws)).
@@ -266,6 +282,14 @@ func (app *virtAPIApp) composeSubresources() {
 				},
 				{
 					Name:       "virtualmachines/restart",
+					Namespaced: true,
+				},
+				{
+					Name:       "virtualmachines/start",
+					Namespaced: true,
+				},
+				{
+					Name:       "virtualmachines/stop",
 					Namespaced: true,
 				},
 				{

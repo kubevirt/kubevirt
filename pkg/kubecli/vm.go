@@ -140,3 +140,13 @@ func (v *vm) Restart(name string) error {
 	uri := fmt.Sprintf(vmSubresourceURL, v.namespace, name, "restart")
 	return v.restClient.Put().RequestURI(uri).Do().Error()
 }
+
+func (v *vm) Start(name string) error {
+	uri := fmt.Sprintf(vmSubresourceURL, v.namespace, name, "start")
+	return v.restClient.Put().RequestURI(uri).Do().Error()
+}
+
+func (v *vm) Stop(name string) error {
+	uri := fmt.Sprintf(vmSubresourceURL, v.namespace, name, "stop")
+	return v.restClient.Put().RequestURI(uri).Do().Error()
+}
