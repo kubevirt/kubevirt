@@ -177,7 +177,7 @@ var _ = Describe("Operator", func() {
 				return fmt.Errorf("Waiting for updating condition")
 			}
 			return nil
-		}, 30*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
+		}, 120*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
 
 	}
 
