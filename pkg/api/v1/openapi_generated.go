@@ -3324,8 +3324,15 @@ func schema_kubevirt_pkg_api_v1_VirtualMachineSpec(ref common.ReferenceCallback)
 				Properties: map[string]spec.Schema{
 					"running": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Running controls whether the associatied VirtualMachineInstance is created or not",
+							Description: "Running controls whether the associatied VirtualMachineInstance is created or not Mutually exclusive with RunStrategy",
 							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
+					"runStrategy": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Running state indicates the requested running state of the VirtualMachineInstance mutually exclusive with Running",
+							Type:        []string{"string"},
 							Format:      "",
 						},
 					},
@@ -3349,7 +3356,7 @@ func schema_kubevirt_pkg_api_v1_VirtualMachineSpec(ref common.ReferenceCallback)
 						},
 					},
 				},
-				Required: []string{"running", "template"},
+				Required: []string{"template"},
 			},
 		},
 		Dependencies: []string{
@@ -3390,11 +3397,24 @@ func schema_kubevirt_pkg_api_v1_VirtualMachineStatus(ref common.ReferenceCallbac
 							},
 						},
 					},
+					"stateChangeRequests": {
+						SchemaProps: spec.SchemaProps{
+							Description: "StateChangeRequests indicates a list of actions that should be taken on a VMI e.g. stop a specific VMI then start a new one.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Ref: ref("kubevirt.io/kubevirt/pkg/api/v1.VirtualMachineStateChangeRequest"),
+									},
+								},
+							},
+						},
+					},
 				},
 			},
 		},
 		Dependencies: []string{
-			"kubevirt.io/kubevirt/pkg/api/v1.VirtualMachineCondition"},
+			"kubevirt.io/kubevirt/pkg/api/v1.VirtualMachineCondition", "kubevirt.io/kubevirt/pkg/api/v1.VirtualMachineStateChangeRequest"},
 	}
 }
 
