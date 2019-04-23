@@ -217,7 +217,7 @@ func newApiServerClusterRole() *rbacv1.ClusterRole {
 					"virtualmachineinstancemigrations",
 				},
 				Verbs: []string{
-					"get", "list", "watch", "delete",
+					"get", "list", "watch", "patch",
 				},
 			},
 			{
