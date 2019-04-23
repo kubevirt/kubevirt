@@ -80,6 +80,9 @@ var _ = Describe("Infrastructure", func() {
 			case "virt-controller":
 				pod, err = tests.GetRandomVirtController(tests.KubeVirtInstallNamespace)
 				Expect(err).NotTo(HaveOccurred())
+			case "virt-operator":
+				pod, err = tests.GetRandomOperator(tests.KubeVirtInstallNamespace)
+				Expect(err).NotTo(HaveOccurred())
 			default:
 				Expect(true).To(BeFalse())
 			}
@@ -134,6 +137,7 @@ var _ = Describe("Infrastructure", func() {
 		},
 			table.Entry("on virt-handler", "virt-handler"),
 			table.Entry("on virt-controller", "virt-controller"),
+			table.Entry("on virt-operator", "virt-operator"),
 		)
 
 		It("should return Prometheus metrics and be registerd on the endpoint if the have the prometheus.kubevirt.io label", func() {

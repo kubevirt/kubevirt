@@ -133,7 +133,7 @@ func SetupCertificateManager(component string, certDir string, podName string, p
 	}
 	store, err := certificate.NewFileStore("kubevirt-client", certDir, certDir, "", "")
 	if err != nil {
-		return nil, nil, fmt.Errorf("unable to initialize certificae store: %v", err)
+		return nil, nil, fmt.Errorf("unable to initialize certificate store: %v", err)
 	}
 	certExpirationGauge := prometheus.NewGauge(
 		prometheus.GaugeOpts{

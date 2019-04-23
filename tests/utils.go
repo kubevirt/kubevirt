@@ -3529,6 +3529,10 @@ func GetRandomVirtController(namespace string) (pod *k8sv1.Pod, err error) {
 	return GetRandomKubeVirtComponent(namespace, "virt-controller")
 }
 
+func GetRandomOperator(namespace string) (pod *k8sv1.Pod, err error) {
+	return GetRandomKubeVirtComponent(namespace, "virt-operator")
+}
+
 func NewTLSConfig() *tls.Config {
 	return &tls.Config{
 		RootCAs:            ClusterCA,
