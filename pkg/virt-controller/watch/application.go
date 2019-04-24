@@ -91,6 +91,7 @@ type VirtControllerApp struct {
 
 	configMapCache    cache.Store
 	configMapInformer cache.SharedIndexInformer
+	clusterConfig     *virtconfig.ClusterConfig
 
 	persistentVolumeClaimCache    cache.Store
 	persistentVolumeClaimInformer cache.SharedIndexInformer
@@ -164,6 +165,7 @@ func Execute() {
 
 	app.configMapInformer = app.informerFactory.ConfigMap()
 	app.configMapCache = app.configMapInformer.GetStore()
+	app.clusterConfig = virtconfig.NewClusterConfig(app.configMapInformer.GetStore(), app.kubevirtNamespace)
 
 	app.persistentVolumeClaimInformer = app.informerFactory.PersistentVolumeClaim()
 	app.persistentVolumeClaimCache = app.persistentVolumeClaimInformer.GetStore()
@@ -174,7 +176,7 @@ func Execute() {
 
 	app.migrationInformer = app.informerFactory.VirtualMachineInstanceMigration()
 
-	if virtconfig.DataVolumesEnabled() {
+	if app.clusterConfig.DataVolumesEnabled() {
 		app.dataVolumeInformer = app.informerFactory.DataVolume()
 		log.Log.Infof("DataVolume integration enabled")
 	} else {
@@ -295,7 +297,7 @@ func (vca *VirtControllerApp) initCommon() {
 	vca.vmiController = NewVMIController(vca.templateService, vca.vmiInformer, vca.podInformer, vca.vmiRecorder, vca.clientSet, vca.configMapInformer, vca.dataVolumeInformer)
 	recorder := vca.getNewRecorder(k8sv1.NamespaceAll, "node-controller")
 	vca.nodeController = NewNodeController(vca.clientSet, vca.nodeInformer, vca.vmiInformer, recorder)
-	vca.migrationController = NewMigrationController(vca.templateService, vca.vmiInformer, vca.podInformer, vca.migrationInformer, vca.vmiRecorder, vca.clientSet, virtconfig.NewClusterConfig(vca.configMapInformer.GetStore(), vca.kubevirtNamespace))
+	vca.migrationController = NewMigrationController(vca.templateService, vca.vmiInformer, vca.podInformer, vca.migrationInformer, vca.vmiRecorder, vca.clientSet, vca.clusterConfig)
 }
 
 func (vca *VirtControllerApp) initReplicaSet() {
@@ -333,7 +335,7 @@ func (vca *VirtControllerApp) initEvacuationController() {
 		vca.nodeInformer,
 		recorder,
 		vca.clientSet,
-		virtconfig.NewClusterConfig(vca.configMapInformer.GetStore(), vca.kubevirtNamespace),
+		vca.clusterConfig,
 	)
 }
 

@@ -271,7 +271,7 @@ func validateBootloader(field *k8sfield.Path, bootloader *v1.Bootloader) []metav
 	return causes
 }
 
-func validateVolumes(field *k8sfield.Path, volumes []v1.Volume) []metav1.StatusCause {
+func validateVolumes(field *k8sfield.Path, volumes []v1.Volume, config *virtconfig.ClusterConfig) []metav1.StatusCause {
 	var causes []metav1.StatusCause
 	nameMap := make(map[string]int)
 
@@ -322,7 +322,7 @@ func validateVolumes(field *k8sfield.Path, volumes []v1.Volume) []metav1.StatusC
 			volumeSourceSetCount++
 		}
 		if volume.DataVolume != nil {
-			if !virtconfig.DataVolumesEnabled() {
+			if !config.DataVolumesEnabled() {
 				causes = append(causes, metav1.StatusCause{
 					Type:    metav1.CauseTypeFieldValueInvalid,
 					Message: "DataVolume feature gate is not enabled",
@@ -1421,7 +1421,7 @@ func ValidateVirtualMachineInstanceSpec(field *k8sfield.Path, spec *v1.VirtualMa
 	}
 
 	causes = append(causes, validateDomainSpec(field.Child("domain"), &spec.Domain)...)
-	causes = append(causes, validateVolumes(field.Child("volumes"), spec.Volumes)...)
+	causes = append(causes, validateVolumes(field.Child("volumes"), spec.Volumes, config)...)
 	if spec.DNSPolicy != "" {
 		causes = append(causes, validateDNSPolicy(&spec.DNSPolicy, field.Child("dnsPolicy"))...)
 	}

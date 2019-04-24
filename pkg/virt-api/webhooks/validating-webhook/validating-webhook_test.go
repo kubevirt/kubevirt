@@ -23,7 +23,6 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
-	"os"
 	"strconv"
 	"strings"
 
@@ -67,6 +66,9 @@ var _ = Describe("Validating Webhook", func() {
 			Data: map[string]string{virtconfig.FeatureGatesKey: featureGate},
 		})
 	}
+	disableFeatureGates := func() {
+		testutils.UpdateFakeClusterConfig(configMapStore, &k8sv1.ConfigMap{})
+	}
 
 	BeforeSuite(func() {
 		vmiInformer, _ = testutils.NewFakeInformerFor(&v1.VirtualMachineInstance{})
@@ -83,8 +85,7 @@ var _ = Describe("Validating Webhook", func() {
 	})
 
 	AfterEach(func() {
-		os.Setenv("FEATURE_GATES", "")
-		testutils.UpdateFakeClusterConfig(configMapStore, &k8sv1.ConfigMap{})
+		disableFeatureGates()
 	})
 
 	Context("with VirtualMachineInstance admission review", func() {
@@ -154,11 +155,7 @@ var _ = Describe("Validating Webhook", func() {
 			)
 
 			It("should block setting eviction policies if the feature gate is disabled", func() {
-				testutils.UpdateFakeClusterConfig(configMapStore, &k8sv1.ConfigMap{
-					Data: map[string]string{
-						virtconfig.FeatureGatesKey: "",
-					},
-				})
+				disableFeatureGates()
 				vmi.Spec.EvictionStrategy = &policy
 				resp := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
 				Expect(resp[0].Message).To(ContainSubstring("LiveMigration feature gate is not enabled"))
@@ -619,7 +616,7 @@ var _ = Describe("Validating Webhook", func() {
 				},
 			}
 
-			os.Setenv("FEATURE_GATES", "DataVolumes")
+			enableFeatureGate("DataVolumes")
 			resp := vmsAdmitter.admit(ar)
 			Expect(resp.Allowed).To(Equal(true))
 		})
@@ -664,7 +661,7 @@ var _ = Describe("Validating Webhook", func() {
 				},
 			}
 
-			os.Setenv("FEATURE_GATES", "DataVolumes")
+			enableFeatureGate("DataVolumes")
 			resp := vmsAdmitter.admit(ar)
 			Expect(resp.Allowed).To(Equal(false))
 			Expect(len(resp.Result.Details.Causes)).To(Equal(1))
@@ -809,7 +806,7 @@ var _ = Describe("Validating Webhook", func() {
 			}
 			migrationBytes, _ := json.Marshal(&migration)
 
-			os.Setenv("FEATURE_GATES", "")
+			disableFeatureGates()
 
 			ar := &v1beta1.AdmissionReview{
 				Request: &v1beta1.AdmissionRequest{
@@ -2415,7 +2412,7 @@ var _ = Describe("Validating Webhook", func() {
 				},
 			)
 
-			os.Setenv("FEATURE_GATES", "")
+			disableFeatureGates()
 
 			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
 			Expect(len(causes)).To(Equal(1))
@@ -2625,8 +2622,8 @@ var _ = Describe("Validating Webhook", func() {
 					VolumeSource: volumeSource,
 				})
 
-				os.Setenv("FEATURE_GATES", "DataVolumes")
-				causes := validateVolumes(k8sfield.NewPath("fake"), vmi.Spec.Volumes)
+				enableFeatureGate("DataVolumes")
+				causes := validateVolumes(k8sfield.NewPath("fake"), vmi.Spec.Volumes, config)
 				Expect(len(causes)).To(Equal(0))
 			},
 			table.Entry("with pvc volume source", v1.VolumeSource{PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{}}),
@@ -2648,8 +2645,8 @@ var _ = Describe("Validating Webhook", func() {
 				VolumeSource: v1.VolumeSource{DataVolume: &v1.DataVolumeSource{Name: "fake"}},
 			})
 
-			os.Setenv("FEATURE_GATES", "")
-			causes := validateVolumes(k8sfield.NewPath("fake"), vmi.Spec.Volumes)
+			disableFeatureGates()
+			causes := validateVolumes(k8sfield.NewPath("fake"), vmi.Spec.Volumes, config)
 			Expect(len(causes)).To(Equal(1))
 			Expect(causes[0].Field).To(Equal("fake[0]"))
 		})
@@ -2661,8 +2658,8 @@ var _ = Describe("Validating Webhook", func() {
 				VolumeSource: v1.VolumeSource{DataVolume: &v1.DataVolumeSource{Name: ""}},
 			})
 
-			os.Setenv("FEATURE_GATES", "DataVolumes")
-			causes := validateVolumes(k8sfield.NewPath("fake"), vmi.Spec.Volumes)
+			enableFeatureGate("DataVolumes")
+			causes := validateVolumes(k8sfield.NewPath("fake"), vmi.Spec.Volumes, config)
 			Expect(len(causes)).To(Equal(1))
 			Expect(string(causes[0].Type)).To(Equal("FieldValueRequired"))
 			Expect(causes[0].Field).To(Equal("fake[0].name"))
@@ -2675,7 +2672,7 @@ var _ = Describe("Validating Webhook", func() {
 				Name: "testvolume",
 			})
 
-			causes := validateVolumes(k8sfield.NewPath("fake"), vmi.Spec.Volumes)
+			causes := validateVolumes(k8sfield.NewPath("fake"), vmi.Spec.Volumes, config)
 			Expect(len(causes)).To(Equal(1))
 			Expect(causes[0].Field).To(Equal("fake[0]"))
 		})
@@ -2690,7 +2687,7 @@ var _ = Describe("Validating Webhook", func() {
 				},
 			})
 
-			causes := validateVolumes(k8sfield.NewPath("fake"), vmi.Spec.Volumes)
+			causes := validateVolumes(k8sfield.NewPath("fake"), vmi.Spec.Volumes, config)
 			Expect(len(causes)).To(Equal(1))
 			Expect(causes[0].Field).To(Equal("fake[0]"))
 		})
@@ -2710,7 +2707,7 @@ var _ = Describe("Validating Webhook", func() {
 				},
 			})
 
-			causes := validateVolumes(k8sfield.NewPath("fake"), vmi.Spec.Volumes)
+			causes := validateVolumes(k8sfield.NewPath("fake"), vmi.Spec.Volumes, config)
 			Expect(len(causes)).To(Equal(1))
 			Expect(causes[0].Field).To(Equal("fake[1].name"))
 		})
@@ -2727,7 +2724,7 @@ var _ = Describe("Validating Webhook", func() {
 				})
 			}
 
-			causes := validateVolumes(k8sfield.NewPath("fake"), vmi.Spec.Volumes)
+			causes := validateVolumes(k8sfield.NewPath("fake"), vmi.Spec.Volumes, config)
 			Expect(len(causes)).To(Equal(1))
 			Expect(string(causes[0].Type)).To(Equal("FieldValueInvalid"))
 			Expect(causes[0].Field).To(Equal("fake"))
@@ -2751,7 +2748,7 @@ var _ = Describe("Validating Webhook", func() {
 				vmi.Spec.Volumes[0].VolumeSource.CloudInitNoCloud.UserData = userdata
 			}
 
-			causes := validateVolumes(k8sfield.NewPath("fake"), vmi.Spec.Volumes)
+			causes := validateVolumes(k8sfield.NewPath("fake"), vmi.Spec.Volumes, config)
 			Expect(len(causes)).To(Equal(expectedErrors))
 			for _, cause := range causes {
 				Expect(cause.Field).To(ContainSubstring("fake[0].cloudInitNoCloud"))
@@ -2783,7 +2780,7 @@ var _ = Describe("Validating Webhook", func() {
 				vmi.Spec.Volumes[0].VolumeSource.CloudInitNoCloud.NetworkData = networkdata
 			}
 
-			causes := validateVolumes(k8sfield.NewPath("fake"), vmi.Spec.Volumes)
+			causes := validateVolumes(k8sfield.NewPath("fake"), vmi.Spec.Volumes, config)
 			Expect(len(causes)).To(Equal(expectedErrors))
 			for _, cause := range causes {
 				Expect(cause.Field).To(ContainSubstring("fake[0].cloudInitNoCloud"))
@@ -2808,7 +2805,7 @@ var _ = Describe("Validating Webhook", func() {
 				},
 			})
 
-			causes := validateVolumes(k8sfield.NewPath("fake"), vmi.Spec.Volumes)
+			causes := validateVolumes(k8sfield.NewPath("fake"), vmi.Spec.Volumes, config)
 			Expect(len(causes)).To(Equal(1))
 			Expect(causes[0].Field).To(Equal("fake[0].cloudInitNoCloud.userDataBase64"))
 		})
@@ -2825,7 +2822,7 @@ var _ = Describe("Validating Webhook", func() {
 				},
 			})
 
-			causes := validateVolumes(k8sfield.NewPath("fake"), vmi.Spec.Volumes)
+			causes := validateVolumes(k8sfield.NewPath("fake"), vmi.Spec.Volumes, config)
 			Expect(len(causes)).To(Equal(1))
 			Expect(causes[0].Field).To(Equal("fake[0].cloudInitNoCloud.networkDataBase64"))
 		})
@@ -2844,7 +2841,7 @@ var _ = Describe("Validating Webhook", func() {
 				},
 			})
 
-			causes := validateVolumes(k8sfield.NewPath("fake"), vmi.Spec.Volumes)
+			causes := validateVolumes(k8sfield.NewPath("fake"), vmi.Spec.Volumes, config)
 			Expect(len(causes)).To(Equal(1))
 			Expect(causes[0].Field).To(Equal("fake[0].cloudInitNoCloud"))
 		})
@@ -2864,7 +2861,7 @@ var _ = Describe("Validating Webhook", func() {
 				},
 			})
 
-			causes := validateVolumes(k8sfield.NewPath("fake"), vmi.Spec.Volumes)
+			causes := validateVolumes(k8sfield.NewPath("fake"), vmi.Spec.Volumes, config)
 			Expect(len(causes)).To(Equal(1))
 			Expect(causes[0].Field).To(Equal("fake[0].cloudInitNoCloud"))
 		})
@@ -2877,7 +2874,7 @@ var _ = Describe("Validating Webhook", func() {
 				},
 			})
 
-			causes := validateVolumes(k8sfield.NewPath("fake"), vmi.Spec.Volumes)
+			causes := validateVolumes(k8sfield.NewPath("fake"), vmi.Spec.Volumes, config)
 			Expect(len(causes)).To(Equal(2))
 			Expect(causes[0].Field).To(Equal("fake[0].hostDisk.path"))
 			Expect(causes[1].Field).To(Equal("fake[0].hostDisk.type"))
@@ -2893,7 +2890,7 @@ var _ = Describe("Validating Webhook", func() {
 				},
 			})
 
-			causes := validateVolumes(k8sfield.NewPath("fake"), vmi.Spec.Volumes)
+			causes := validateVolumes(k8sfield.NewPath("fake"), vmi.Spec.Volumes, config)
 			Expect(len(causes)).To(Equal(1))
 			Expect(causes[0].Field).To(Equal("fake[0].hostDisk.path"))
 		})
@@ -2909,7 +2906,7 @@ var _ = Describe("Validating Webhook", func() {
 				},
 			})
 
-			causes := validateVolumes(k8sfield.NewPath("fake"), vmi.Spec.Volumes)
+			causes := validateVolumes(k8sfield.NewPath("fake"), vmi.Spec.Volumes, config)
 			Expect(len(causes)).To(Equal(1))
 			Expect(causes[0].Field).To(Equal("fake[0].hostDisk.type"))
 		})
@@ -2926,7 +2923,7 @@ var _ = Describe("Validating Webhook", func() {
 				},
 			})
 
-			causes := validateVolumes(k8sfield.NewPath("fake"), vmi.Spec.Volumes)
+			causes := validateVolumes(k8sfield.NewPath("fake"), vmi.Spec.Volumes, config)
 			Expect(len(causes)).To(Equal(1))
 			Expect(causes[0].Field).To(Equal("fake[0].hostDisk.capacity"))
 		})
@@ -2940,7 +2937,7 @@ var _ = Describe("Validating Webhook", func() {
 				},
 			})
 
-			causes := validateVolumes(k8sfield.NewPath("fake"), vmi.Spec.Volumes)
+			causes := validateVolumes(k8sfield.NewPath("fake"), vmi.Spec.Volumes, config)
 			Expect(len(causes)).To(Equal(1))
 			Expect(causes[0].Field).To(Equal("fake[0].configMap.name"))
 		})
@@ -2954,7 +2951,7 @@ var _ = Describe("Validating Webhook", func() {
 				},
 			})
 
-			causes := validateVolumes(k8sfield.NewPath("fake"), vmi.Spec.Volumes)
+			causes := validateVolumes(k8sfield.NewPath("fake"), vmi.Spec.Volumes, config)
 			Expect(len(causes)).To(Equal(1))
 			Expect(causes[0].Field).To(Equal("fake[0].secret.secretName"))
 		})
@@ -2968,7 +2965,7 @@ var _ = Describe("Validating Webhook", func() {
 				},
 			})
 
-			causes := validateVolumes(k8sfield.NewPath("fake"), vmi.Spec.Volumes)
+			causes := validateVolumes(k8sfield.NewPath("fake"), vmi.Spec.Volumes, config)
 			Expect(len(causes)).To(Equal(1))
 			Expect(causes[0].Field).To(Equal("fake[0].serviceAccount.serviceAccountName"))
 		})
@@ -2989,7 +2986,7 @@ var _ = Describe("Validating Webhook", func() {
 				},
 			})
 
-			causes := validateVolumes(k8sfield.NewPath("fake"), vmi.Spec.Volumes)
+			causes := validateVolumes(k8sfield.NewPath("fake"), vmi.Spec.Volumes, config)
 			Expect(len(causes)).To(Equal(1))
 			Expect(causes[0].Field).To(Equal("fake"))
 		})
