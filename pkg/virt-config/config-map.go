@@ -174,6 +174,7 @@ type Config struct {
 	CPURequest       resource.Quantity
 	MemoryRequest    resource.Quantity
 	EmulatedMachines []string
+	FeatureGates     string
 }
 
 type MigrationConfig struct {
@@ -295,6 +296,10 @@ func setConfig(config *Config, configMap *k8sv1.ConfigMap) error {
 			vals[i] = strings.TrimSpace(vals[i])
 		}
 		config.EmulatedMachines = vals
+	}
+
+	if featureGates := strings.TrimSpace(configMap.Data[FeatureGatesKey]); featureGates != "" {
+		config.FeatureGates = featureGates
 	}
 
 	return nil

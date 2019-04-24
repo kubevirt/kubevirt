@@ -39,6 +39,10 @@ const (
 	HypervStrictCheckGate = "HypervStrictCheck"
 )
 
+func (c *ClusterConfig) isFeatureGateEnabled(featureGate string) bool {
+	return strings.Contains(c.getConfig().FeatureGates, featureGate)
+}
+
 func DataVolumesEnabled() bool {
 	return strings.Contains(os.Getenv(featureGateEnvVar), dataVolumesGate)
 }
