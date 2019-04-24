@@ -128,8 +128,6 @@ func Execute() {
 
 	service.Setup(&app)
 
-	virtconfig.Init()
-
 	app.readyChan = make(chan bool, 1)
 
 	log.InitializeLogging("virt-controller")
