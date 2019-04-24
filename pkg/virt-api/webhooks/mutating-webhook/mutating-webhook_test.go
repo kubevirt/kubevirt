@@ -125,12 +125,10 @@ var _ = Describe("Mutating Webhook", func() {
 			}
 			namespaceLimitInformer, _ = testutils.NewFakeInformerFor(&k8sv1.LimitRange{})
 			namespaceLimitInformer.GetIndexer().Add(namespaceLimit)
-			configMapInformer, _ := testutils.NewFakeInformerFor(&k8sv1.ConfigMap{})
 			webhooks.SetInformers(
 				&webhooks.Informers{
 					VMIPresetInformer:       presetInformer,
 					NamespaceLimitsInformer: namespaceLimitInformer,
-					ConfigMapInformer:       configMapInformer,
 				},
 			)
 

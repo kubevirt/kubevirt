@@ -80,7 +80,6 @@ type Informers struct {
 	VMIPresetInformer       cache.SharedIndexInformer
 	NamespaceLimitsInformer cache.SharedIndexInformer
 	VMIInformer             cache.SharedIndexInformer
-	ConfigMapInformer       cache.SharedIndexInformer
 }
 
 func GetInformers() *Informers {
@@ -111,7 +110,6 @@ func newInformers() *Informers {
 		VMIInformer:             kubeInformerFactory.VMI(),
 		VMIPresetInformer:       kubeInformerFactory.VirtualMachinePreset(),
 		NamespaceLimitsInformer: kubeInformerFactory.LimitRanges(),
-		ConfigMapInformer:       kubeInformerFactory.ConfigMap(),
 	}
 }
 
