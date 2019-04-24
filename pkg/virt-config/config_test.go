@@ -1,6 +1,7 @@
 package virtconfig
 
 import (
+	"regexp"
 	"strings"
 
 	. "github.com/onsi/ginkgo"
@@ -280,6 +281,18 @@ var _ = Describe("ConfigMap", func() {
 		clusterConfig, _ := MakeClusterConfig([]kubev1.ConfigMap{}, stopChan)
 		result := clusterConfig.GetMigrationConfig()
 		Expect(*result.ParallelOutboundMigrationsPerNode).To(BeNumerically("==", 2))
+	})
+
+	It("should contain a default machine type that is supported by default", func() {
+		isDefaultMachineTypeSupported := func() bool {
+			for _, val := range strings.Split(DefaultEmulatedMachines, ",") {
+				if regexp.MustCompile(val).MatchString(DefaultMachineType) {
+					return true
+				}
+			}
+			return false
+		}
+		Expect(isDefaultMachineTypeSupported()).To(BeTrue())
 	})
 })
 
