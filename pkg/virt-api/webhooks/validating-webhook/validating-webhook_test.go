@@ -44,21 +44,29 @@ import (
 	v1 "kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/testutils"
 	"kubevirt.io/kubevirt/pkg/virt-api/webhooks"
+	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 )
 
 var _ = Describe("Validating Webhook", func() {
 	var vmiInformer cache.SharedIndexInformer
+	var config *virtconfig.ClusterConfig
+	var configMapStore cache.Store
 	dnsConfigTestOption := "test"
-	config, _ := testutils.NewFakeClusterConfig(&k8sv1.ConfigMap{})
-	vmiCreateAdmitter := &VMICreateAdmitter{clusterConfig: config}
+	var vmiCreateAdmitter *VMICreateAdmitter
+	var vmirsAdmitter *VMIRSAdmitter
+	var vmsAdmitter *VMsAdmitter
+	var migrationCreateAdmitter *MigrationCreateAdmitter
 	vmiUpdateAdmitter := &VMIUpdateAdmitter{}
-	vmirsAdmitter := &VMIRSAdmitter{clusterConfig: config}
-	vmsAdmitter := &VMsAdmitter{clusterConfig: config}
 	vmiPresetAdmitter := &VMIPresetAdmitter{}
-	migrationCreateAdmitter := &MigrationCreateAdmitter{}
 	migrationUpdateAdmitter := &MigrationUpdateAdmitter{}
 
 	notRunning := false
+
+	enableFeatureGate := func(featureGate string) {
+		testutils.UpdateFakeClusterConfig(configMapStore, &k8sv1.ConfigMap{
+			Data: map[string]string{virtconfig.FeatureGatesKey: featureGate},
+		})
+	}
 
 	BeforeSuite(func() {
 		vmiInformer, _ = testutils.NewFakeInformerFor(&v1.VirtualMachineInstance{})
@@ -67,10 +75,16 @@ var _ = Describe("Validating Webhook", func() {
 			VMIInformer:       vmiInformer,
 			ConfigMapInformer: configMapInformer,
 		})
+		config, configMapStore = testutils.NewFakeClusterConfig(&k8sv1.ConfigMap{})
+		vmiCreateAdmitter = &VMICreateAdmitter{clusterConfig: config}
+		vmirsAdmitter = &VMIRSAdmitter{clusterConfig: config}
+		vmsAdmitter = &VMsAdmitter{clusterConfig: config}
+		migrationCreateAdmitter = &MigrationCreateAdmitter{clusterConfig: config}
 	})
 
 	AfterEach(func() {
 		os.Setenv("FEATURE_GATES", "")
+		testutils.UpdateFakeClusterConfig(configMapStore, &k8sv1.ConfigMap{})
 	})
 
 	Context("with VirtualMachineInstance admission review", func() {
@@ -126,7 +140,7 @@ var _ = Describe("Validating Webhook", func() {
 			var vmi *v1.VirtualMachineInstance
 			var policy = v1.EvictionStrategyLiveMigrate
 			BeforeEach(func() {
-				os.Setenv("FEATURE_GATES", "LiveMigration")
+				enableFeatureGate("LiveMigration")
 				vmi = v1.NewMinimalVMI("testvmi")
 				vmi.Spec.EvictionStrategy = nil
 			})
@@ -140,7 +154,11 @@ var _ = Describe("Validating Webhook", func() {
 			)
 
 			It("should block setting eviction policies if the feature gate is disabled", func() {
-				os.Setenv("FEATURE_GATES", "")
+				testutils.UpdateFakeClusterConfig(configMapStore, &k8sv1.ConfigMap{
+					Data: map[string]string{
+						virtconfig.FeatureGatesKey: "",
+					},
+				})
 				vmi.Spec.EvictionStrategy = &policy
 				resp := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
 				Expect(resp[0].Message).To(ContainSubstring("LiveMigration feature gate is not enabled"))
@@ -727,7 +745,7 @@ var _ = Describe("Validating Webhook", func() {
 			}
 			migrationBytes, _ := json.Marshal(&migration)
 
-			os.Setenv("FEATURE_GATES", "LiveMigration")
+			enableFeatureGate("LiveMigration")
 
 			ar := &v1beta1.AdmissionReview{
 				Request: &v1beta1.AdmissionRequest{
@@ -760,7 +778,7 @@ var _ = Describe("Validating Webhook", func() {
 			}
 			migrationBytes, _ := json.Marshal(&migration)
 
-			os.Setenv("FEATURE_GATES", "LiveMigration")
+			enableFeatureGate("LiveMigration")
 
 			ar := &v1beta1.AdmissionReview{
 				Request: &v1beta1.AdmissionRequest{
@@ -827,7 +845,7 @@ var _ = Describe("Validating Webhook", func() {
 			}
 			migrationBytes, _ := json.Marshal(&migration)
 
-			os.Setenv("FEATURE_GATES", "LiveMigration")
+			enableFeatureGate("LiveMigration")
 
 			ar := &v1beta1.AdmissionReview{
 				Request: &v1beta1.AdmissionRequest{
@@ -863,7 +881,7 @@ var _ = Describe("Validating Webhook", func() {
 			}
 			migrationBytes, _ := json.Marshal(&migration)
 
-			os.Setenv("FEATURE_GATES", "LiveMigration")
+			enableFeatureGate("LiveMigration")
 
 			ar := &v1beta1.AdmissionReview{
 				Request: &v1beta1.AdmissionRequest{
@@ -895,7 +913,7 @@ var _ = Describe("Validating Webhook", func() {
 			}
 			migrationBytes, _ := json.Marshal(&migration)
 
-			os.Setenv("FEATURE_GATES", "LiveMigration")
+			enableFeatureGate("LiveMigration")
 
 			ar := &v1beta1.AdmissionReview{
 				Request: &v1beta1.AdmissionRequest{
@@ -939,7 +957,7 @@ var _ = Describe("Validating Webhook", func() {
 			}
 			migrationBytes, _ := json.Marshal(&migration)
 
-			os.Setenv("FEATURE_GATES", "LiveMigration")
+			enableFeatureGate("LiveMigration")
 
 			ar := &v1beta1.AdmissionReview{
 				Request: &v1beta1.AdmissionRequest{
@@ -977,7 +995,7 @@ var _ = Describe("Validating Webhook", func() {
 			newMigration.Spec.VMIName = "somethingelse"
 			newMigrationBytes, _ := json.Marshal(&newMigration)
 
-			os.Setenv("FEATURE_GATES", "LiveMigration")
+			enableFeatureGate("LiveMigration")
 
 			ar := &v1beta1.AdmissionReview{
 				Request: &v1beta1.AdmissionRequest{
@@ -1015,7 +1033,7 @@ var _ = Describe("Validating Webhook", func() {
 
 			migrationBytes, _ := json.Marshal(&migration)
 
-			os.Setenv("FEATURE_GATES", "LiveMigration")
+			enableFeatureGate("LiveMigration")
 
 			ar := &v1beta1.AdmissionReview{
 				Request: &v1beta1.AdmissionRequest{
