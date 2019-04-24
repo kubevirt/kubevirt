@@ -456,6 +456,8 @@ func liveMigrationMonitor(vmi *v1.VirtualMachineInstance, dom cli.VirDomain, l *
 	lastProgressUpdate := start
 	progressWatermark := int64(0)
 
+	getStatsFailCount := 0
+
 	// update timeouts from migration config
 	progressTimeout := options.ProgressTimeout
 	completionTimeoutPerGiB := options.CompletionTimeoutPerGiB
@@ -465,9 +467,21 @@ monitorLoop:
 	for {
 		stats, err := dom.GetJobInfo()
 		if err != nil {
+			getStatsFailCount++
 			logger.Reason(err).Error("failed to get domain job info")
-			break
+
+			if getStatsFailCount > 20 {
+				logger.Reason(err).Error("migration monitor loop giving up after failing to retrieve job stats multiple times")
+				l.setMigrationResult(vmi, true, fmt.Sprintf("Migration job monitoring failed: %v", err), "")
+				break monitorLoop
+			}
+
+			time.Sleep(400 * time.Millisecond)
+			continue monitorLoop
 		}
+
+		getStatsFailCount = 0
+
 		remainingData := int64(stats.DataRemaining)
 		switch stats.Type {
 		case libvirt.DOMAIN_JOB_UNBOUNDED:
