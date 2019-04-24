@@ -103,6 +103,9 @@ type VirtControllerApp struct {
 	vmsController *VMSnapshotController
 	vmsInformer   cache.SharedIndexInformer
 
+	vmrController *VMRestoreController
+	vmrInformer   cache.SharedIndexInformer
+
 	dataVolumeInformer cache.SharedIndexInformer
 
 	migrationController *MigrationController
@@ -176,6 +179,8 @@ func Execute() {
 
 	app.vmsInformer = app.informerFactory.VirtualMachineSnapshot()
 
+	app.vmrInformer = app.informerFactory.VirtualMachineRestore()
+
 	app.migrationInformer = app.informerFactory.VirtualMachineInstanceMigration()
 
 	cache.WaitForCacheSync(stopChan, configMapInformer.HasSynced)
@@ -198,6 +203,7 @@ func Execute() {
 	app.initDisruptionBudgetController()
 	app.initEvacuationController()
 	app.initSnapshots()
+	app.initRestores()
 	app.Run()
 }
 
@@ -262,6 +268,7 @@ func (vca *VirtControllerApp) Run() {
 					go vca.vmController.Run(controllerThreads, stop)
 					go vca.migrationController.Run(controllerThreads, stop)
 					go vca.vmsController.Run(controllerThreads, stop)
+					go vca.vmrController.Run(controllerThreads, stop)
 					cache.WaitForCacheSync(stop, vca.persistentVolumeClaimInformer.HasSynced)
 					close(vca.readyChan)
 				},
@@ -316,6 +323,11 @@ func (vca *VirtControllerApp) initReplicaSet() {
 func (vca *VirtControllerApp) initSnapshots() {
 	recorder := vca.getNewRecorder(k8sv1.NamespaceAll, "virtualmachinesnapshots-controller")
 	vca.vmsController = NewVMSnapshotController(vca.vmInformer, vca.vmsInformer, recorder, vca.clientSet)
+}
+
+func (vca *VirtControllerApp) initRestores() {
+	recorder := vca.getNewRecorder(k8sv1.NamespaceAll, "virtualmachinerestores-controller")
+	vca.vmrController = NewVMRestoreController(vca.vmInformer, vca.vmsInformer, vca.vmrInformer, recorder, vca.clientSet)
 }
 
 func (vca *VirtControllerApp) initVirtualMachines() {

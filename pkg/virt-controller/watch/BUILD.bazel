@@ -9,6 +9,7 @@ go_library(
         "replicaset.go",
         "vm.go",
         "vmi.go",
+        "vmr.go",
         "vms.go",
     ],
     importpath = "kubevirt.io/kubevirt/pkg/virt-controller/watch",
