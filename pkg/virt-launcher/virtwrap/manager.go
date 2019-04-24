@@ -211,7 +211,6 @@ func (l *LibvirtDomainManager) setMigrationResultHelper(vmi *v1.VirtualMachineIn
 	if err != nil {
 		return err
 	}
-
 	migrationMetadata := domainSpec.Metadata.KubeVirt.Migration
 	if migrationMetadata == nil {
 		// nothing to report if migration metadata is empty
@@ -296,7 +295,6 @@ func getAllDomainDisks(dom cli.VirDomain) ([]api.Disk, error) {
 	if err != nil {
 		return nil, err
 	}
-
 	var newSpec api.DomainSpec
 	err = xml.Unmarshal([]byte(xmlstr), &newSpec)
 	if err != nil {
@@ -312,7 +310,6 @@ func getDiskTargetsForMigration(dom cli.VirDomain, vmi *v1.VirtualMachineInstanc
 	// Shared volues are being excluded.
 	copyDisks := []string{}
 	migrationVols := classifyVolumesForMigration(vmi)
-
 	disks, err := getAllDomainDisks(dom)
 	if err != nil {
 		log.Log.Object(vmi).Reason(err).Error("failed to parse domain XML to get disks.")
@@ -401,14 +398,15 @@ func (l *LibvirtDomainManager) asyncMigrate(vmi *v1.VirtualMachineInstance, opti
 			params.MigrateDisksSet = true
 		}
 		// start live migration tracking
-		go liveMigrationMonitor(vmi, dom, l, options)
+		migrationErrorChan := make(chan error)
+		defer close(migrationErrorChan)
+		go liveMigrationMonitor(vmi, dom, l, options, migrationErrorChan)
 		err = dom.MigrateToURI3(dstUri, params, migrateFlags)
 		if err != nil {
-
 			log.Log.Object(vmi).Reason(err).Error("Live migration failed.")
+			migrationErrorChan <- err
 			return
 		}
-
 		log.Log.Object(vmi).Infof("Live migration succeeded.")
 	}(l, vmi)
 }
@@ -450,7 +448,7 @@ func getVMIMigrationDataSize(vmi *v1.VirtualMachineInstance) int64 {
 	return memory.ScaledValue(resource.Giga)
 }
 
-func liveMigrationMonitor(vmi *v1.VirtualMachineInstance, dom cli.VirDomain, l *LibvirtDomainManager, options *cmdclient.MigrationOptions) {
+func liveMigrationMonitor(vmi *v1.VirtualMachineInstance, dom cli.VirDomain, l *LibvirtDomainManager, options *cmdclient.MigrationOptions, migrationErr chan error) {
 	logger := log.Log.Object(vmi)
 	start := time.Now().UTC().Unix()
 	lastProgressUpdate := start
@@ -463,6 +461,17 @@ func liveMigrationMonitor(vmi *v1.VirtualMachineInstance, dom cli.VirDomain, l *
 	acceptableCompletionTime := completionTimeoutPerGiB * getVMIMigrationDataSize(vmi)
 monitorLoop:
 	for {
+
+		select {
+		case passedErr := <-migrationErr:
+			if passedErr != nil {
+				logger.Reason(passedErr).Error("Live migration failed")
+				l.setMigrationResult(vmi, true, fmt.Sprintf("Live migration failed %v", passedErr), "")
+				break monitorLoop
+			}
+		default:
+		}
+
 		stats, err := dom.GetJobInfo()
 		if err != nil {
 			logger.Reason(err).Error("failed to get domain job info")
@@ -580,7 +589,6 @@ func (l *LibvirtDomainManager) MigrateVMI(vmi *v1.VirtualMachineInstance, option
 	if err != nil {
 		return err
 	}
-
 	if inProgress {
 		return nil
 	}

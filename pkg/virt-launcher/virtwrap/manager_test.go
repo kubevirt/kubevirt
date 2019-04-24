@@ -26,6 +26,7 @@ import (
 	"io/ioutil"
 	"os"
 	"os/user"
+	"strings"
 	"time"
 
 	"github.com/golang/mock/gomock"
@@ -214,6 +215,8 @@ var _ = Describe("Manager", func() {
 	})
 	Context("test migration monitor", func() {
 		It("migration should be canceled if it's not progressing", func() {
+			migrationErrorChan := make(chan error)
+			defer close(migrationErrorChan)
 			// Make sure that we always free the domain after use
 			mockDomain.EXPECT().Free().AnyTimes()
 			fake_jobinfo := &libvirt.DomainJobInfo{
@@ -248,9 +251,11 @@ var _ = Describe("Manager", func() {
 			mockDomain.EXPECT().GetXMLDesc(gomock.Eq(libvirt.DOMAIN_XML_MIGRATABLE)).Return(string(xml), nil)
 			mockDomain.EXPECT().GetXMLDesc(gomock.Eq(libvirt.DOMAIN_XML_INACTIVE)).Return(string(xml), nil)
 
-			liveMigrationMonitor(vmi, mockDomain, manager, options)
+			liveMigrationMonitor(vmi, mockDomain, manager, options, migrationErrorChan)
 		})
 		It("migration should be canceled if timeout has been reached", func() {
+			migrationErrorChan := make(chan error)
+			defer close(migrationErrorChan)
 			// Make sure that we always free the domain after use
 			var migrationData = 32479827394
 			mockDomain.EXPECT().Free().AnyTimes()
@@ -288,7 +293,7 @@ var _ = Describe("Manager", func() {
 			mockDomain.EXPECT().GetXMLDesc(gomock.Eq(libvirt.DOMAIN_XML_MIGRATABLE)).Return(string(xml), nil)
 			mockDomain.EXPECT().GetXMLDesc(gomock.Eq(libvirt.DOMAIN_XML_INACTIVE)).Return(string(xml), nil)
 
-			liveMigrationMonitor(vmi, mockDomain, manager, options)
+			liveMigrationMonitor(vmi, mockDomain, manager, options, migrationErrorChan)
 		})
 		It("migration should be canceled when requested", func() {
 			// Make sure that we always free the domain after use
@@ -364,6 +369,57 @@ var _ = Describe("Manager", func() {
 			manager, _ := NewLibvirtDomainManager(mockConn, "fake", nil, 0)
 			err := manager.PrepareMigrationTarget(vmi, true)
 			Expect(err).To(BeNil())
+		})
+		It("should verify that migration failure is set in the monitor thread", func() {
+			var isMigrationFailedSet bool
+			// Make sure that we always free the domain after use
+			mockDomain.EXPECT().Free().AnyTimes()
+			fake_jobinfo := func() *libvirt.DomainJobInfo {
+				return &libvirt.DomainJobInfo{
+					Type:          libvirt.DOMAIN_JOB_NONE,
+					DataRemaining: uint64(32479827394),
+				}
+			}()
+
+			vmi := newVMI(testNamespace, testVmName)
+			vmi.Status.MigrationState = &v1.VirtualMachineInstanceMigrationState{
+				MigrationUID: "111222333",
+			}
+
+			userData := "fake\nuser\ndata\n"
+			networkData := "FakeNetwork"
+			addCloudInitDisk(vmi, userData, networkData)
+			domainSpec := expectIsolationDetectionForVMI(vmi)
+			domainSpec.Metadata.KubeVirt.Migration = &api.MigrationMetadata{}
+
+			manager, _ := NewLibvirtDomainManager(mockConn, "fake", nil, 0)
+
+			mockConn.EXPECT().LookupDomainByName(testDomainName).AnyTimes().Return(mockDomain, nil)
+			mockDomain.EXPECT().GetState().AnyTimes().Return(libvirt.DOMAIN_RUNNING, 1, nil)
+
+			xml, err := xml.Marshal(domainSpec)
+			Expect(err).To(BeNil())
+			mockDomain.EXPECT().GetJobInfo().AnyTimes().Return(fake_jobinfo, nil)
+			gomock.InOrder(
+				mockConn.EXPECT().DomainDefineXML(gomock.Any()).Return(mockDomain, nil),
+				mockConn.EXPECT().DomainDefineXML(gomock.Any()).DoAndReturn(func(xml string) (cli.VirDomain, error) {
+					Expect(strings.Contains(xml, "MigrationFailed")).To(BeTrue())
+					isMigrationFailedSet = true
+					return mockDomain, nil
+				}),
+			)
+			mockDomain.EXPECT().GetXMLDesc(gomock.Any()).AnyTimes().Return(string(xml), nil)
+			mockDomain.EXPECT().MigrateToURI3(gomock.Any(), gomock.Any(), gomock.Any()).Return(fmt.Errorf("MigrationFailed"))
+			options := &cmdclient.MigrationOptions{
+				Bandwidth:               resource.MustParse("64Mi"),
+				ProgressTimeout:         150,
+				CompletionTimeoutPerGiB: 300,
+			}
+			err = manager.MigrateVMI(vmi, options)
+			Expect(err).To(BeNil())
+			Eventually(func() bool {
+				return isMigrationFailedSet
+			}, 20*time.Second, 2).Should(BeTrue(), "failed migration result wasn't set")
 		})
 
 		It("should detect inprogress migration job", func() {
