@@ -371,7 +371,10 @@ var _ = Describe("Manager", func() {
 			Expect(err).To(BeNil())
 		})
 		It("should verify that migration failure is set in the monitor thread", func() {
-			var isMigrationFailedSet bool
+			isMigrationFailedSet := make(chan bool, 1)
+
+			defer close(isMigrationFailedSet)
+
 			// Make sure that we always free the domain after use
 			mockDomain.EXPECT().Free().AnyTimes()
 			fake_jobinfo := func() *libvirt.DomainJobInfo {
@@ -404,7 +407,7 @@ var _ = Describe("Manager", func() {
 				mockConn.EXPECT().DomainDefineXML(gomock.Any()).Return(mockDomain, nil),
 				mockConn.EXPECT().DomainDefineXML(gomock.Any()).DoAndReturn(func(xml string) (cli.VirDomain, error) {
 					Expect(strings.Contains(xml, "MigrationFailed")).To(BeTrue())
-					isMigrationFailedSet = true
+					isMigrationFailedSet <- true
 					return mockDomain, nil
 				}),
 			)
@@ -418,7 +421,12 @@ var _ = Describe("Manager", func() {
 			err = manager.MigrateVMI(vmi, options)
 			Expect(err).To(BeNil())
 			Eventually(func() bool {
-				return isMigrationFailedSet
+				select {
+				case isSet := <-isMigrationFailedSet:
+					return isSet
+				default:
+				}
+				return false
 			}, 20*time.Second, 2).Should(BeTrue(), "failed migration result wasn't set")
 		})
 
