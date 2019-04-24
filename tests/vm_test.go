@@ -918,7 +918,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 						"New VMI was created, but StateChangeRequest was never cleared")
 				})
 
-				It("should remove a succeeded VMI", func() {
+				It("should not remove a succeeded VMI", func() {
 					By("creating a VM with RunStrategyManual")
 					virtualMachine := newVirtualMachineWithRunStrategy(v1.RunStrategyManual)
 
@@ -946,12 +946,34 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 					}, 10*time.Second)
 					Expect(err).ToNot(HaveOccurred())
 
-					By("Ensuring the VirtualMachineInstance is deleted")
-					Eventually(func() error {
-						_, err := virtClient.VirtualMachineInstance(virtualMachine.Namespace).Get(virtualMachine.Name, &v12.GetOptions{})
+					By("Ensuring the VirtualMachineInstance enters Succeeded phase")
+					Eventually(func() v1.VirtualMachineInstancePhase {
+						vmi, err := virtClient.VirtualMachineInstance(virtualMachine.Namespace).Get(virtualMachine.Name, &v12.GetOptions{})
 
-						return err
-					}, 360*time.Second, 1*time.Second).Should(HaveOccurred(), "VMI was not deleted")
+						Expect(err).ToNot(HaveOccurred())
+						return vmi.Status.Phase
+					}, 240*time.Second, 1*time.Second).Should(Equal(v1.Succeeded))
+
+					// At this point, explicitly test that a start command will delete an existing
+					// VMI in the Succeeded phase.
+					By("Invoking virtctl start")
+					restartCommand := tests.NewRepeatableVirtctlCommand(vm.COMMAND_START, "--namespace", virtualMachine.Namespace, virtualMachine.Name)
+					err = restartCommand()
+					Expect(err).ToNot(HaveOccurred())
+
+					By("Waiting for StartRequest to be cleared")
+					Eventually(func() int {
+						newVM, err := virtClient.VirtualMachine(virtualMachine.Namespace).Get(virtualMachine.Name, &v12.GetOptions{})
+						Expect(err).ToNot(HaveOccurred())
+						return len(newVM.Status.StateChangeRequests)
+					}, 240*time.Second, 1*time.Second).Should(Equal(0), "StateChangeRequest was never cleared")
+
+					By("Waiting for VMI to be ready")
+					Eventually(func() bool {
+						virtualMachine, err = virtClient.VirtualMachine(virtualMachine.Namespace).Get(virtualMachine.Name, &v12.GetOptions{})
+						Expect(err).ToNot(HaveOccurred())
+						return virtualMachine.Status.Ready
+					}, 360*time.Second, 1*time.Second).Should(BeTrue())
 				})
 			})
 		})
