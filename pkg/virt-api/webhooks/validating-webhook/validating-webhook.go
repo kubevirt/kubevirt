@@ -1115,7 +1115,7 @@ func ValidateVirtualMachineInstanceSpec(field *k8sfield.Path, spec *v1.VirtualMa
 				})
 			}
 
-			if iface.SRIOV != nil && !virtconfig.SRIOVEnabled() {
+			if iface.SRIOV != nil && !config.SRIOVEnabled() {
 				causes = append(causes, metav1.StatusCause{
 					Type:    metav1.CauseTypeFieldValueInvalid,
 					Message: fmt.Sprintf("SRIOV feature gate is not enabled in kubevirt-config"),
@@ -1447,10 +1447,10 @@ func ValidateVirtualMachineInstanceSpec(field *k8sfield.Path, spec *v1.VirtualMa
 	return causes
 }
 
-func ValidateVirtualMachineInstanceMetadata(field *k8sfield.Path, vmi *v1.VirtualMachineInstance) []metav1.StatusCause {
+func ValidateVirtualMachineInstanceMetadata(field *k8sfield.Path, vmi *v1.VirtualMachineInstance, config *virtconfig.ClusterConfig) []metav1.StatusCause {
 	var causes []metav1.StatusCause
 	// Validate ignition feature gate if set when the corresponding annotation is found
-	if vmi.GetObjectMeta().GetAnnotations()[v1.IgnitionAnnotation] != "" && !virtconfig.IgnitionEnabled() {
+	if vmi.GetObjectMeta().GetAnnotations()[v1.IgnitionAnnotation] != "" && !config.IgnitionEnabled() {
 		causes = append(causes, metav1.StatusCause{
 			Type:    metav1.CauseTypeFieldValueInvalid,
 			Message: fmt.Sprintf("ExperimentalIgnitionSupport feature gate is not enabled in kubevirt-config"),
@@ -1540,7 +1540,7 @@ func ValidateVirtualMachineSpec(field *k8sfield.Path, spec *v1.VirtualMachineSpe
 	}
 
 	// Validate ignition feature gate if set when the corresponding annotation is found
-	if spec.Template.ObjectMeta.GetAnnotations()[v1.IgnitionAnnotation] != "" && !virtconfig.IgnitionEnabled() {
+	if spec.Template.ObjectMeta.GetAnnotations()[v1.IgnitionAnnotation] != "" && !config.IgnitionEnabled() {
 		causes = append(causes, metav1.StatusCause{
 			Type:    metav1.CauseTypeFieldValueInvalid,
 			Message: fmt.Sprintf("ExperimentalIgnitionSupport feature gate is not enabled in kubevirt-config"),
@@ -1653,7 +1653,7 @@ func (admitter *VMICreateAdmitter) admit(ar *v1beta1.AdmissionReview) *v1beta1.A
 
 	causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("spec"), &vmi.Spec, admitter.clusterConfig)
 	causes = append(causes, ValidateVirtualMachineInstanceMandatoryFields(k8sfield.NewPath("spec"), &vmi.Spec)...)
-	causes = append(causes, ValidateVirtualMachineInstanceMetadata(k8sfield.NewPath("spec"), vmi)...)
+	causes = append(causes, ValidateVirtualMachineInstanceMetadata(k8sfield.NewPath("spec"), vmi, admitter.clusterConfig)...)
 
 	if len(causes) > 0 {
 		return webhooks.ToAdmissionResponse(causes)

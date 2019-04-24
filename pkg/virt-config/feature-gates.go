@@ -25,7 +25,6 @@ package virtconfig
 */
 
 import (
-	"os"
 	"strings"
 )
 
@@ -51,16 +50,16 @@ func (config *ClusterConfig) CPUManagerEnabled() bool {
 	return config.isFeatureGateEnabled(cpuManager)
 }
 
-func IgnitionEnabled() bool {
-	return strings.Contains(os.Getenv(featureGateEnvVar), ignitionGate)
+func (config *ClusterConfig) IgnitionEnabled() bool {
+	return config.isFeatureGateEnabled(ignitionGate)
 }
 
 func (config *ClusterConfig) LiveMigrationEnabled() bool {
 	return config.isFeatureGateEnabled(liveMigrationGate)
 }
 
-func SRIOVEnabled() bool {
-	return strings.Contains(os.Getenv(featureGateEnvVar), SRIOVGate)
+func (config *ClusterConfig) SRIOVEnabled() bool {
+	return config.isFeatureGateEnabled(SRIOVGate)
 }
 
 func (config *ClusterConfig) HypervStrictCheckEnabled() bool {
