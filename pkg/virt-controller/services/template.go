@@ -179,15 +179,6 @@ func isSRIOVVmi(vmi *v1.VirtualMachineInstance) bool {
 	return false
 }
 
-func IsCPUNodeDiscoveryEnabled(store cache.Store) bool {
-	if value, err := getConfigMapEntry(store, virtconfig.FeatureGatesKey); err != nil {
-		return false
-	} else if strings.Contains(value, virtconfig.CPUNodeDiscoveryGate) {
-		return true
-	}
-	return false
-}
-
 func isFeatureStateEnabled(fs *v1.FeatureState) bool {
 	return fs != nil && fs.Enabled != nil && *fs.Enabled
 }
@@ -866,7 +857,7 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 		nodeSelector[k] = v
 
 	}
-	if IsCPUNodeDiscoveryEnabled(t.configMapStore) {
+	if t.clusterConfig.CPUNodeDiscoveryEnabled() {
 		if cpuModelLabel, err := CPUModelLabelFromCPUModel(vmi); err == nil {
 			if vmi.Spec.Domain.CPU.Model != v1.CPUModeHostModel && vmi.Spec.Domain.CPU.Model != v1.CPUModeHostPassthrough {
 				nodeSelector[cpuModelLabel] = "true"
@@ -1011,7 +1002,7 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 		pod.Spec.Affinity = vmi.Spec.Affinity.DeepCopy()
 	}
 
-	if IsCPUNodeDiscoveryEnabled(t.configMapStore) {
+	if t.clusterConfig.CPUNodeDiscoveryEnabled() {
 		SetNodeAffinityForForbiddenFeaturePolicy(vmi, &pod)
 	}
 

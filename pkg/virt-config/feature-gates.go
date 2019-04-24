@@ -65,3 +65,7 @@ func (config *ClusterConfig) SRIOVEnabled() bool {
 func (config *ClusterConfig) HypervStrictCheckEnabled() bool {
 	return config.isFeatureGateEnabled(HypervStrictCheckGate)
 }
+
+func (config *ClusterConfig) CPUNodeDiscoveryEnabled() bool {
+	return config.isFeatureGateEnabled(CPUNodeDiscoveryGate)
+}
