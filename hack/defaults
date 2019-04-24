@@ -7,10 +7,12 @@ WAIT_TIMEOUT="${WAIT_TIMEOUT:-300s}"
 KUBEVIRT_MANIFEST_VERSION="v0.15.0"
 CDI_MANIFEST_VERSION="v1.6.0"
 NETWORK_ADDONS_MANIFEST_VERSION="0.5.0"
+SSP_MANIFEST_VERSION="v0.1.0"
 
 CDI_CONTAINER_REGISTRY="${CDI_CONTAINER_REGISTRY:-docker.io/kubevirt}"
 KUBEVIRT_CONTAINER_REGISTRY="${KUBEVIRT_CONTAINER_REGISTRY:-docker.io/kubevirt}"
 NETWORK_ADDONS_CONTAINER_REGISTRY="${NETWORK_ADDONS_CONTAINER_REGISTRY:-quay.io/kubevirt}"
+SSP_CONTAINER_REGISTRY="${SSP_CONTAINER_REGISTRY:-quay.io/fromani}"
 
 CDI_OPERATOR_NAME="${CDI_OPERATOR_NAME:-cdi-operator}"
 
@@ -63,13 +65,20 @@ function network_addons_sed {
     sed -i "s|value: sriov$|value: ${NETWORK_ADDONS_SRIOV_NETWORK_TYPE}|g" ${TEMP_DIR}/operator.yaml
 }
 
+function ssp_sed {
+    sed -i "s|          image: \&image quay\.io\/fromani\/kubevirt-ssp-operator-container:${SSP_MANIFEST_VERSION}|          image: \&image ${SSP_CONTAINER_REGISTRY}\/kubevirt-ssp-operator-container:${SSP_VERSION}|g" ${TEMP_DIR}/operator.yaml
+}
+
 # Deploy upstream operators
 OPERATOR_MANIFESTS="https://github.com/kubevirt/kubevirt/releases/download/${KUBEVIRT_MANIFEST_VERSION}/kubevirt-operator.yaml
 https://github.com/kubevirt/containerized-data-importer/releases/download/${CDI_MANIFEST_VERSION}/cdi-operator.yaml.j2
 https://github.com/kubevirt/cluster-network-addons-operator/releases/download/${NETWORK_ADDONS_MANIFEST_VERSION}/network-addons-config.crd.yaml
 https://github.com/kubevirt/cluster-network-addons-operator/releases/download/${NETWORK_ADDONS_MANIFEST_VERSION}/namespace.yaml
-https://github.com/kubevirt/cluster-network-addons-operator/releases/download/${NETWORK_ADDONS_MANIFEST_VERSION}/operator.yaml"
+https://github.com/kubevirt/cluster-network-addons-operator/releases/download/${NETWORK_ADDONS_MANIFEST_VERSION}/operator.yaml
+https://github.com/MarSik/kubevirt-ssp-operator/releases/download/${SSP_MANIFEST_VERSION}/kubevirt-ssp-operator-${SSP_MANIFEST_VERSION}.crds.yaml
+https://github.com/MarSik/kubevirt-ssp-operator/releases/download/${SSP_MANIFEST_VERSION}/kubevirt-ssp-operator-${SSP_MANIFEST_VERSION}.yaml"
 
 OPERATOR_CRS="https://github.com/kubevirt/kubevirt/releases/download/${KUBEVIRT_MANIFEST_VERSION}/kubevirt-cr.yaml
 https://github.com/kubevirt/containerized-data-importer/releases/download/${CDI_MANIFEST_VERSION}/cdi-operator-cr.yaml
-https://github.com/kubevirt/cluster-network-addons-operator/releases/download/${NETWORK_ADDONS_MANIFEST_VERSION}/network-addons-config-example.cr.yaml"
+https://github.com/kubevirt/cluster-network-addons-operator/releases/download/${NETWORK_ADDONS_MANIFEST_VERSION}/network-addons-config-example.cr.yaml
+https://github.com/MarSik/kubevirt-ssp-operator/releases/download/${SSP_MANIFEST_VERSION}/kubevirt-ssp-operator-${SSP_MANIFEST_VERSION}.crs.yaml"

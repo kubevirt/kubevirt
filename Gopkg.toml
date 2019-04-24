@@ -30,6 +30,10 @@ required = [
   version = "=0.5.0"
 
 [[override]]
+  name = "github.com/MarSik/kubevirt-ssp-operator"
+  version = "v0.1"
+
+[[override]]
   name = "k8s.io/code-generator"
   # revision for tag "kubernetes-1.13.1"
   revision = "c2090bec4d9b1fb25de3812f868accc2bc9ecbae"

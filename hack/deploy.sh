@@ -47,6 +47,11 @@ fi
 "${CMD}" create -f "${CNA_URL_PREFIX}"/operator.yaml
 "${CMD}" create -f "${CNA_URL_PREFIX}"/network-addons-config-example.cr.yaml
 
+# Create ssp-operator
+"${CMD}" create -f "${SSP_URL_PREFIX}"/kubevirt-ssp-operator-v0.1.0.crds.yaml
+"${CMD}" create -f "${SSP_URL_PREFIX}"/kubevirt-ssp-operator-v0.1.0.yaml
+"${CMD}" create -f "${SSP_URL_PREFIX}"/kubevirt-ssp-operator-v0.1.0.crs.yaml
+
 # Create an HCO CustomResource
 "${CMD}" create -f deploy/standard/crds/hco.cr.yaml
 

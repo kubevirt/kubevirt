@@ -3,6 +3,8 @@ package hyperconverged
 import (
 	"context"
 
+	sspv1 "github.com/MarSik/kubevirt-ssp-operator/pkg/apis/kubevirt/v1"
+	sspversions "github.com/MarSik/kubevirt-ssp-operator/pkg/versions"
 	networkaddons "github.com/kubevirt/cluster-network-addons-operator/pkg/apis/networkaddonsoperator/v1alpha1"
 	networkaddonsnames "github.com/kubevirt/cluster-network-addons-operator/pkg/names"
 	hcov1alpha1 "github.com/kubevirt/hyperconverged-cluster-operator/pkg/apis/hco/v1alpha1"
@@ -67,6 +69,29 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 	}
 
 	err = c.Watch(&source.Kind{Type: &networkaddons.NetworkAddonsConfig{}}, &handler.EnqueueRequestForOwner{
+		IsController: true,
+		OwnerType:    &hcov1alpha1.HyperConverged{},
+	})
+	if err != nil {
+		return err
+	}
+
+	// SSP needs to handle few types; SSP components are intentionally split in few CRs
+	err = c.Watch(&source.Kind{Type: &sspv1.KubevirtCommonTemplatesBundle{}}, &handler.EnqueueRequestForOwner{
+		IsController: true,
+		OwnerType:    &hcov1alpha1.HyperConverged{},
+	})
+	if err != nil {
+		return err
+	}
+	err = c.Watch(&source.Kind{Type: &sspv1.KubevirtNodeLabellerBundle{}}, &handler.EnqueueRequestForOwner{
+		IsController: true,
+		OwnerType:    &hcov1alpha1.HyperConverged{},
+	})
+	if err != nil {
+		return err
+	}
+	err = c.Watch(&source.Kind{Type: &sspv1.KubevirtTemplateValidator{}}, &handler.EnqueueRequestForOwner{
 		IsController: true,
 		OwnerType:    &hcov1alpha1.HyperConverged{},
 	})
@@ -166,6 +191,47 @@ func (r *ReconcileHyperConverged) Reconcile(request reconcile.Request) (reconcil
 		return result, err
 	}
 
+	// Define new SSP objects
+	kubevirtCommonTemplatesBundleCR := newKubevirtCommonTemplateBundleForCR(instance)
+	// Set HyperConverged instance as the owner and controller
+	if err := controllerutil.SetControllerReference(instance, kubevirtCommonTemplatesBundleCR, r.scheme); err != nil {
+		return reconcile.Result{}, err
+	}
+	// Check if this CR already exists
+	foundKubevirtCommonTemplatesBundle := &sspv1.KubevirtCommonTemplatesBundle{}
+	err = r.client.Get(context.TODO(), types.NamespacedName{Name: kubevirtCommonTemplatesBundleCR.Name, Namespace: ""}, foundKubevirtCommonTemplatesBundle)
+	result, err = manageComponentCR(err, kubevirtCommonTemplatesBundleCR, "KubevirtCommonTemplatesBundle", r.client)
+	// object failed to create, requeue
+	if err != nil {
+		return result, err
+	}
+	kubevirtNodeLabellerBundleCR := newKubevirtNodeLabellerBundleForCR(instance)
+	// Set HyperConverged instance as the owner and controller
+	if err := controllerutil.SetControllerReference(instance, kubevirtNodeLabellerBundleCR, r.scheme); err != nil {
+		return reconcile.Result{}, err
+	}
+	// Check if this CR already exists
+	foundKubevirtNodeLabellerBundle := &sspv1.KubevirtNodeLabellerBundle{}
+	err = r.client.Get(context.TODO(), types.NamespacedName{Name: kubevirtNodeLabellerBundleCR.Name, Namespace: ""}, foundKubevirtNodeLabellerBundle)
+	result, err = manageComponentCR(err, kubevirtNodeLabellerBundleCR, "KubevirtNodeLabellerBundle", r.client)
+	// object failed to create, requeue
+	if err != nil {
+		return result, err
+	}
+	kubevirtTemplateValidatorCR := newKubevirtTemplateValidatorForCR(instance)
+	// Set HyperConverged instance as the owner and controller
+	if err := controllerutil.SetControllerReference(instance, kubevirtTemplateValidatorCR, r.scheme); err != nil {
+		return reconcile.Result{}, err
+	}
+	// Check if this CR already exists
+	foundKubevirtTemplateValidator := &sspv1.KubevirtTemplateValidator{}
+	err = r.client.Get(context.TODO(), types.NamespacedName{Name: kubevirtTemplateValidatorCR.Name, Namespace: ""}, foundKubevirtTemplateValidator)
+	result, err = manageComponentCR(err, kubevirtTemplateValidatorCR, "KubevirtTemplateValidator", r.client)
+	// object failed to create, requeue
+	if err != nil {
+		return result, err
+	}
+
 	return result, nil
 }
 
@@ -229,6 +295,51 @@ func newNetworkAddonsForCR(cr *hcov1alpha1.HyperConverged) *networkaddons.Networ
 			Multus:      &networkaddons.Multus{},
 			LinuxBridge: &networkaddons.LinuxBridge{},
 			KubeMacPool: &networkaddons.KubeMacPool{},
+		},
+	}
+}
+
+func newKubevirtCommonTemplateBundleForCR(cr *hcov1alpha1.HyperConverged) *sspv1.KubevirtCommonTemplatesBundle {
+	labels := map[string]string{
+		"app": cr.Name,
+	}
+	return &sspv1.KubevirtCommonTemplatesBundle{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:   "common-templates-" + cr.Name,
+			Labels: labels,
+		},
+		Spec: sspv1.VersionSpec{
+			Version: sspversions.TagForVersion(sspversions.KubevirtCommonTemplates),
+		},
+	}
+}
+
+func newKubevirtNodeLabellerBundleForCR(cr *hcov1alpha1.HyperConverged) *sspv1.KubevirtNodeLabellerBundle {
+	labels := map[string]string{
+		"app": cr.Name,
+	}
+	return &sspv1.KubevirtNodeLabellerBundle{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:   "node-labeller-" + cr.Name,
+			Labels: labels,
+		},
+		Spec: sspv1.VersionSpec{
+			Version: sspversions.TagForVersion(sspversions.KubevirtNodeLabeller),
+		},
+	}
+}
+
+func newKubevirtTemplateValidatorForCR(cr *hcov1alpha1.HyperConverged) *sspv1.KubevirtTemplateValidator {
+	labels := map[string]string{
+		"app": cr.Name,
+	}
+	return &sspv1.KubevirtTemplateValidator{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:   "template-validator-" + cr.Name,
+			Labels: labels,
+		},
+		Spec: sspv1.VersionSpec{
+			Version: sspversions.TagForVersion(sspversions.KubevirtTemplateValidator),
 		},
 	}
 }

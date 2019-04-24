@@ -10,6 +10,18 @@
   version = "v0.37.2"
 
 [[projects]]
+  digest = "1:0c6944c0b0a1d2f4bd532983c0e591ec06ec6287d9262dcd7ce05273d4153c6f"
+  name = "github.com/MarSik/kubevirt-ssp-operator"
+  packages = [
+    "pkg/apis",
+    "pkg/apis/kubevirt/v1",
+    "pkg/versions",
+  ]
+  pruneopts = "NT"
+  revision = "3654884541d549803716ff13651d0c4a3f6cd8af"
+  version = "v0.1"
+
+[[projects]]
   digest = "1:0a111edd8693fd977f42a0c4f199a0efb13c20aec9da99ad8830c7bb6a87e8d6"
   name = "github.com/PuerkitoBio/purell"
   packages = ["."]
@@ -1164,6 +1176,9 @@
   analyzer-name = "dep"
   analyzer-version = 1
   input-imports = [
+    "github.com/MarSik/kubevirt-ssp-operator/pkg/apis",
+    "github.com/MarSik/kubevirt-ssp-operator/pkg/apis/kubevirt/v1",
+    "github.com/MarSik/kubevirt-ssp-operator/pkg/versions",
     "github.com/ghodss/yaml",
     "github.com/go-openapi/spec",
     "github.com/kubevirt/cluster-network-addons-operator/pkg/apis",

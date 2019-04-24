@@ -22,6 +22,7 @@ CDI_OPERATOR_URL=$(curl --silent "https://api.github.com/repos/kubevirt/containe
 KUBEVIRT_OPERATOR_URL=$(curl --silent "https://api.github.com/repos/kubevirt/kubevirt/releases/latest" \
  | grep browser_download_url | grep "kubevirt-operator.yaml\"" | cut -d'"' -f4)
 CNA_URL_PREFIX="https://raw.githubusercontent.com/kubevirt/cluster-network-addons-operator/master/manifests/cluster-network-addons/0.3.0"
+SSP_URL_PREFIX="https://raw.githubusercontent.com/MarSik/kubevirt-ssp-operator/master/manifests/v0.1.0/"
 KUBECTL=$(which kubectl 2> /dev/null)
 
 if [ -z "${KUBECTL}" ]; then
