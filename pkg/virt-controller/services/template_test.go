@@ -41,6 +41,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/hooks"
 	"kubevirt.io/kubevirt/pkg/kubecli"
 	"kubevirt.io/kubevirt/pkg/log"
+	"kubevirt.io/kubevirt/pkg/testutils"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 )
 
@@ -56,6 +57,16 @@ var _ = Describe("Template", func() {
 
 	ctrl := gomock.NewController(GinkgoT())
 	virtClient := kubecli.NewMockKubevirtClient(ctrl)
+	config, configMapStore := testutils.NewFakeClusterConfig(&kubev1.ConfigMap{})
+
+	enableFeatureGate := func(featureGate string) {
+		testutils.UpdateFakeClusterConfig(configMapStore, &kubev1.ConfigMap{
+			Data: map[string]string{virtconfig.FeatureGatesKey: featureGate},
+		})
+	}
+	disableFeatureGates := func() {
+		testutils.UpdateFakeClusterConfig(configMapStore, &kubev1.ConfigMap{})
+	}
 
 	BeforeEach(func() {
 		cmCache = cache.NewIndexer(cache.DeletionHandlingMetaNamespaceKeyFunc, nil)
@@ -65,7 +76,9 @@ var _ = Describe("Template", func() {
 			"pull-secret-1",
 			cmCache,
 			pvcCache,
-			virtClient)
+			virtClient,
+			config,
+		)
 
 		// Set up mock clients
 		networkClient := fakenetworkclient.NewSimpleClientset()
@@ -102,7 +115,7 @@ var _ = Describe("Template", func() {
 	})
 
 	AfterEach(func() {
-		virtconfig.Clear()
+		disableFeatureGates()
 	})
 
 	Describe("Rendering", func() {
@@ -449,14 +462,7 @@ var _ = Describe("Template", func() {
 			})
 
 			It("should not add node selector for hyperv nodes if VMI does not request hyperv features", func() {
-				cfgMap := kubev1.ConfigMap{
-					ObjectMeta: metav1.ObjectMeta{
-						Namespace: namespaceKubevirt,
-						Name:      "kubevirt-config",
-					},
-					Data: map[string]string{virtconfig.FeatureGatesKey: virtconfig.HypervStrictCheckGate},
-				}
-				virtconfig.InitFromConfigMap(&cfgMap)
+				enableFeatureGate(virtconfig.HypervStrictCheckGate)
 
 				vmi := v1.VirtualMachineInstance{
 					ObjectMeta: metav1.ObjectMeta{
@@ -510,14 +516,7 @@ var _ = Describe("Template", func() {
 			})
 
 			It("should add node selector for hyperv nodes if VMI requests hyperv features which depend on host kernel", func() {
-				cfgMap := kubev1.ConfigMap{
-					ObjectMeta: metav1.ObjectMeta{
-						Namespace: namespaceKubevirt,
-						Name:      "kubevirt-config",
-					},
-					Data: map[string]string{virtconfig.FeatureGatesKey: virtconfig.HypervStrictCheckGate},
-				}
-				virtconfig.InitFromConfigMap(&cfgMap)
+				enableFeatureGate(virtconfig.HypervStrictCheckGate)
 
 				enabled := true
 				vmi := v1.VirtualMachineInstance{
@@ -558,14 +557,7 @@ var _ = Describe("Template", func() {
 			})
 
 			It("should not add node selector for hyperv nodes if VMI requests hyperv features which do not depend on host kernel", func() {
-				cfgMap := kubev1.ConfigMap{
-					ObjectMeta: metav1.ObjectMeta{
-						Namespace: namespaceKubevirt,
-						Name:      "kubevirt-config",
-					},
-					Data: map[string]string{virtconfig.FeatureGatesKey: virtconfig.HypervStrictCheckGate},
-				}
-				virtconfig.InitFromConfigMap(&cfgMap)
+				enableFeatureGate(virtconfig.HypervStrictCheckGate)
 
 				var retries uint32 = 4095
 				enabled := true

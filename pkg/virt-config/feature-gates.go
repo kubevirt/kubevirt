@@ -63,6 +63,6 @@ func SRIOVEnabled() bool {
 	return strings.Contains(os.Getenv(featureGateEnvVar), SRIOVGate)
 }
 
-func HypervStrictCheckEnabled() bool {
-	return strings.Contains(os.Getenv(featureGateEnvVar), HypervStrictCheckGate)
+func (config *ClusterConfig) HypervStrictCheckEnabled() bool {
+	return config.isFeatureGateEnabled(HypervStrictCheckGate)
 }
