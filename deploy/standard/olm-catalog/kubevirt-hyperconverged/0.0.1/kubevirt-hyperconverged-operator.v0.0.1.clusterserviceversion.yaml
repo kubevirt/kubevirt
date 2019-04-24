@@ -12,12 +12,30 @@ metadata:
           "apiVersion":"hco.kubevirt.io/v1alpha1",
           "kind":"HyperConverged",
           "metadata": {
-            "name":"kubevirt-hyperconverged",
-            "namespace":"kubevirt-hyperconverged"
+            "name": "kubevirt-hyperconverged",
+            "namespace": "kubevirt-hyperconverged",
           },
-          "spec": {
-            "CDIImagePullPolicy":"IfNotPresent",
-            "KubeVirtImagePullPolicy":"IfNotPresent"
+        },
+        {
+          "apiVersion": "cdi.kubevirt.io/v1alpha1",
+          "kind": "CDI",
+          "metadata": {
+            "name": "cdi"
+          }
+        },
+        {
+          "apiVersion": "kubevirt.io/v1alpha3",
+          "kind": "KubeVirt",
+          "metadata": {
+            "name": "kubevirt",
+            "namespace": "kubevirt"
+          }
+        },
+        {
+          "apiVersion": "networkaddonsoperator.network.kubevirt.io/v1alpha1",
+          "kind": "NetworkAddonsConfig",
+          "metadata": {
+            "name": "cluster"
           }
         }
       ]

@@ -306,10 +306,6 @@ func GetCR() *hcov1alpha1.HyperConverged {
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "hyperconverged-cluster",
 		},
-		Spec: hcov1alpha1.HyperConvergedSpec{
-			KubeVirtImagePullPolicy: "IfNotPresent",
-			CDIImagePullPolicy:      "IfNotPresent",
-		},
 	}
 }
 

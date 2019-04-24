@@ -9,7 +9,6 @@ import (
 	cdi "kubevirt.io/containerized-data-importer/pkg/apis/core/v1alpha1"
 	kubevirt "kubevirt.io/kubevirt/pkg/api/v1"
 
-	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -25,12 +24,6 @@ import (
 )
 
 var log = logf.Log.WithName("controller_hyperconverged")
-
-var (
-	KubeVirtImagePullPolicy      = "IfNotPresent"
-	CDIImagePullPolicy           = "IfNotPresent"
-	NetworkAddonsImagePullPolicy = "IfNotPresent"
-)
 
 // Add creates a new HyperConverged Controller and adds it to the Manager. The Manager will set fields on the Controller
 // and Start it when the Manager is Started.
@@ -115,24 +108,6 @@ func (r *ReconcileHyperConverged) Reconcile(request reconcile.Request) (reconcil
 		}
 		// Error reading the object - requeue the request.
 		return reconcile.Result{}, err
-	}
-
-	if instance.Spec.KubeVirtImagePullPolicy != "" {
-		reqLogger := log.WithValues("imagePullPolicy", instance.Spec.KubeVirtImagePullPolicy)
-		reqLogger.Info("HCO CR contains KubeVirt Image Pull Policy")
-		KubeVirtImagePullPolicy = instance.Spec.KubeVirtImagePullPolicy
-	}
-
-	if instance.Spec.CDIImagePullPolicy != "" {
-		reqLogger := log.WithValues("imagePullPolicy", instance.Spec.CDIImagePullPolicy)
-		reqLogger.Info("HCO CR contains CDI Image Pull Policy")
-		CDIImagePullPolicy = instance.Spec.CDIImagePullPolicy
-	}
-
-	if instance.Spec.NetworkAddonsImagePullPolicy != "" {
-		reqLogger := log.WithValues("imagePullPolicy", instance.Spec.NetworkAddonsImagePullPolicy)
-		reqLogger.Info("HCO CR contains Network Addons Image Pull Policy")
-		NetworkAddonsImagePullPolicy = instance.Spec.NetworkAddonsImagePullPolicy
 	}
 
 	// Define a new KubeVirt object
@@ -224,9 +199,6 @@ func newKubeVirtForCR(cr *hcov1alpha1.HyperConverged) *kubevirt.KubeVirt {
 			Name:   "kubevirt-" + cr.Name,
 			Labels: labels,
 		},
-		Spec: kubevirt.KubeVirtSpec{
-			ImagePullPolicy: v1.PullPolicy(KubeVirtImagePullPolicy),
-		},
 	}
 }
 
@@ -239,9 +211,6 @@ func newCDIForCR(cr *hcov1alpha1.HyperConverged) *cdi.CDI {
 		ObjectMeta: metav1.ObjectMeta{
 			Name:   "cdi-" + cr.Name,
 			Labels: labels,
-		},
-		Spec: cdi.CDISpec{
-			ImagePullPolicy: v1.PullPolicy(CDIImagePullPolicy),
 		},
 	}
 }
@@ -257,10 +226,9 @@ func newNetworkAddonsForCR(cr *hcov1alpha1.HyperConverged) *networkaddons.Networ
 			Labels: labels,
 		},
 		Spec: networkaddons.NetworkAddonsConfigSpec{
-			Multus:          &networkaddons.Multus{},
-			LinuxBridge:     &networkaddons.LinuxBridge{},
-			KubeMacPool:     &networkaddons.KubeMacPool{},
-			ImagePullPolicy: v1.PullPolicy(NetworkAddonsImagePullPolicy),
+			Multus:      &networkaddons.Multus{},
+			LinuxBridge: &networkaddons.LinuxBridge{},
+			KubeMacPool: &networkaddons.KubeMacPool{},
 		},
 	}
 }

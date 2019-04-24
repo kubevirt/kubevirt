@@ -64,9 +64,7 @@ required = [
 [[override]]
   name = "k8s.io/client-go"
   # revision for tag "kubernetes-1.13.1"
-  # revision = "8d9ed539ba3134352c586810e749e58df4e94e4f"
-  # revision for tag "kubernetes-1.12.4
-  revision = "5e6a3d4e34f694e895b13ae728111e726a5b69df"
+  revision = "8d9ed539ba3134352c586810e749e58df4e94e4f"
 
 [[override]]
   name = "github.com/openshift/api"

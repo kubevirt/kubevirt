@@ -13,12 +13,8 @@ metadata:
           "kind":"HyperConverged",
           "metadata": {
             "name":"kubevirt-hyperconverged",
-            "namespace":"kubevirt-hyperconverged"
+            "namespace":"kubevirt-hyperconverged",
           },
-          "spec": {
-            "CDIImagePullPolicy":"IfNotPresent",
-            "KubeVirtImagePullPolicy":"IfNotPresent"
-          }
         }
       ]
     description: Creates and maintains a HyperConverged KubeVirt Deployment

@@ -4,5 +4,3 @@ kind: HyperConverged
 metadata:
   name: hyperconverged-cluster
 spec:
-  CDIImagePullPolicy: IfNotPresent
-  KubeVirtImagePullPolicy: IfNotPresent
