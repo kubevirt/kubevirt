@@ -43,8 +43,8 @@ func (c *ClusterConfig) isFeatureGateEnabled(featureGate string) bool {
 	return strings.Contains(c.getConfig().FeatureGates, featureGate)
 }
 
-func DataVolumesEnabled() bool {
-	return strings.Contains(os.Getenv(featureGateEnvVar), dataVolumesGate)
+func (config *ClusterConfig) DataVolumesEnabled() bool {
+	return config.isFeatureGateEnabled(dataVolumesGate)
 }
 
 func CPUManagerEnabled() bool {

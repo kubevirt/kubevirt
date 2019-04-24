@@ -34,6 +34,7 @@ import (
 	v1 "kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/testutils"
 	validating_webhook "kubevirt.io/kubevirt/pkg/virt-api/webhooks/validating-webhook"
+	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	"kubevirt.io/kubevirt/tools/vms-generator/utils"
 )
 
@@ -43,8 +44,12 @@ func main() {
 	genDir := flag.String("generated-vms-dir", "", "")
 	flag.Parse()
 
-	// Required to validate DataVolume usage
-	os.Setenv("FEATURE_GATES", "DataVolumes,LiveMigration,SRIOV")
+	config, _ := testutils.NewFakeClusterConfig(&k8sv1.ConfigMap{
+		Data: map[string]string{
+			// Required to validate DataVolume usage
+			virtconfig.FeatureGatesKey: "DataVolumes,LiveMigration,SRIOV",
+		},
+	})
 
 	var vms = map[string]*v1.VirtualMachine{
 		utils.VmCirros:           utils.GetVMCirros(),
@@ -124,9 +129,6 @@ func main() {
 
 		return nil
 	}
-
-	// This is a hack to satisfy validating_webhook's functions that need a ClusterConfig
-	config, _ := testutils.NewFakeClusterConfig(&k8sv1.ConfigMap{})
 
 	// Having no generics is lots of fun
 	for name, obj := range vms {
