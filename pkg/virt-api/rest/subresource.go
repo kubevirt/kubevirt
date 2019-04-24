@@ -314,8 +314,12 @@ func (app *SubresourceAPIApp) StartVMRequestHandler(request *restful.Request, re
 				return
 			}
 		} else {
-			if vmi.IsFinal() {
+			if (runStrategy == v1.RunStrategyRerunOnFailure && vmi.Status.Phase == v1.Succeeded) ||
+				(runStrategy == v1.RunStrategyManual && vmi.IsFinal()) {
 				needsRestart = true
+			} else if runStrategy == v1.RunStrategyRerunOnFailure && vmi.Status.Phase == v1.Failed {
+				response.WriteError(http.StatusBadRequest, fmt.Errorf("runstrategy rerunonerror does not support starting VM from failed state"))
+				return
 			}
 		}
 

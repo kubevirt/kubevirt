@@ -114,7 +114,7 @@ func (o *Command) Run(cmd *cobra.Command, args []string) error {
 	case COMMAND_START:
 		err = virtClient.VirtualMachine(namespace).Start(vmiName)
 		if err != nil {
-			return fmt.Errorf("Error restarting VirtualMachine %v", err)
+			return fmt.Errorf("Error starting VirtualMachine %v", err)
 		}
 	case COMMAND_STOP:
 		err = virtClient.VirtualMachine(namespace).Stop(vmiName)
@@ -124,7 +124,7 @@ func (o *Command) Run(cmd *cobra.Command, args []string) error {
 	case COMMAND_RESTART:
 		err = virtClient.VirtualMachine(namespace).Restart(vmiName)
 		if err != nil {
-			return fmt.Errorf("Error starting VirtualMachine %v", err)
+			return fmt.Errorf("Error restarting VirtualMachine %v", err)
 		}
 	}
 
