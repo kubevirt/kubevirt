@@ -398,7 +398,7 @@ func (l *LibvirtDomainManager) asyncMigrate(vmi *v1.VirtualMachineInstance, opti
 			params.MigrateDisksSet = true
 		}
 		// start live migration tracking
-		migrationErrorChan := make(chan error)
+		migrationErrorChan := make(chan error, 1)
 		defer close(migrationErrorChan)
 		go liveMigrationMonitor(vmi, dom, l, options, migrationErrorChan)
 		err = dom.MigrateToURI3(dstUri, params, migrateFlags)
