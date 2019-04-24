@@ -1427,7 +1427,7 @@ func ValidateVirtualMachineInstanceSpec(field *k8sfield.Path, spec *v1.VirtualMa
 	}
 	causes = append(causes, validatePodDNSConfig(spec.DNSConfig, &spec.DNSPolicy, field.Child("dnsConfig"))...)
 
-	if !virtconfig.LiveMigrationEnabled() && spec.EvictionStrategy != nil {
+	if !config.LiveMigrationEnabled() && spec.EvictionStrategy != nil {
 		causes = append(causes, metav1.StatusCause{
 			Type:    metav1.CauseTypeFieldValueInvalid,
 			Message: "LiveMigration feature gate is not enabled",
@@ -1836,6 +1836,7 @@ func getAdmissionReviewMigration(ar *v1beta1.AdmissionReview) (new *v1.VirtualMa
 }
 
 type MigrationCreateAdmitter struct {
+	clusterConfig *virtconfig.ClusterConfig
 }
 
 func (admitter *MigrationCreateAdmitter) admit(ar *v1beta1.AdmissionReview) *v1beta1.AdmissionResponse {
@@ -1848,7 +1849,7 @@ func (admitter *MigrationCreateAdmitter) admit(ar *v1beta1.AdmissionReview) *v1b
 		return resp
 	}
 
-	if !virtconfig.LiveMigrationEnabled() {
+	if !admitter.clusterConfig.LiveMigrationEnabled() {
 		return webhooks.ToAdmissionResponseError(fmt.Errorf("LiveMigration feature gate is not enabled in kubevirt-config"))
 	}
 
@@ -1900,8 +1901,8 @@ func (admitter *MigrationCreateAdmitter) admit(ar *v1beta1.AdmissionReview) *v1b
 	return &reviewResponse
 }
 
-func ServeMigrationCreate(resp http.ResponseWriter, req *http.Request) {
-	serve(resp, req, &MigrationCreateAdmitter{})
+func ServeMigrationCreate(resp http.ResponseWriter, req *http.Request, clusterConfig *virtconfig.ClusterConfig) {
+	serve(resp, req, &MigrationCreateAdmitter{clusterConfig: clusterConfig})
 }
 
 type MigrationUpdateAdmitter struct {

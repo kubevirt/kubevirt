@@ -55,8 +55,8 @@ func IgnitionEnabled() bool {
 	return strings.Contains(os.Getenv(featureGateEnvVar), ignitionGate)
 }
 
-func LiveMigrationEnabled() bool {
-	return strings.Contains(os.Getenv(featureGateEnvVar), liveMigrationGate)
+func (config *ClusterConfig) LiveMigrationEnabled() bool {
+	return config.isFeatureGateEnabled(liveMigrationGate)
 }
 
 func SRIOVEnabled() bool {

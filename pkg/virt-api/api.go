@@ -758,7 +758,7 @@ func (app *virtAPIApp) createValidatingWebhook() error {
 		validating_webhook.ServeVMIPreset(w, r)
 	})
 	http.HandleFunc(migrationCreateValidatePath, func(w http.ResponseWriter, r *http.Request) {
-		validating_webhook.ServeMigrationCreate(w, r)
+		validating_webhook.ServeMigrationCreate(w, r, app.clusterConfig)
 	})
 	http.HandleFunc(migrationUpdateValidatePath, func(w http.ResponseWriter, r *http.Request) {
 		validating_webhook.ServeMigrationUpdate(w, r)
