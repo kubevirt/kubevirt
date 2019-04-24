@@ -1194,7 +1194,7 @@ type VirtualMachineRestoreList struct {
 // +k8s:openapi-gen=true
 type VirtualMachineRestoreSpec struct {
 	// VirtualMachineSnapshot is a targeted snapshot from
-	VirtualMachineSnapshot string `json:"virtualMachine"`
+	VirtualMachineSnapshot string `json:"virtualMachineSnapshot"`
 }
 
 // VirtualMachineRestoreStatus represents the status returned by the
