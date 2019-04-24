@@ -25,6 +25,8 @@ CNA_URL_PREFIX="https://raw.githubusercontent.com/kubevirt/cluster-network-addon
 SSP_URL_PREFIX="https://raw.githubusercontent.com/MarSik/kubevirt-ssp-operator/master/manifests/v0.1.0/"
 KUBECTL=$(which kubectl 2> /dev/null)
 
+KWEBUI_URL="https://raw.githubusercontent.com/kubevirt/web-ui-operator/master/deploy/operator.yaml"
+
 if [ -z "${KUBECTL}" ]; then
     CMD=oc
 else

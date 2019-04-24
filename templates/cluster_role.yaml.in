@@ -3,4 +3,5 @@
 {{.KubeVirt.ClusterRoleString}}
 {{.CDI.ClusterRoleString}}
 {{.CNA.ClusterRoleString}}
+{{.KWEBUI.ClusterRoleString}}
 {{end}}

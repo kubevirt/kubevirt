@@ -3,4 +3,5 @@
 {{.KubeVirt.Deployment}}
 {{.CDI.Deployment}}
 {{.CNA.Deployment}}
+{{.KWEBUI.Deployment}}
 {{end}}

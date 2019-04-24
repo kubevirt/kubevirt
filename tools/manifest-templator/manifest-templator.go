@@ -39,6 +39,7 @@ import (
 	extv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
 	kvcomponents "kubevirt.io/kubevirt/pkg/virt-operator/creation/components"
 	kvrbac "kubevirt.io/kubevirt/pkg/virt-operator/creation/rbac"
+	kwebuicomponents "github.com/kubevirt/web-ui-operator/pkg/components"
 )
 
 type operatorData struct {
@@ -65,6 +66,7 @@ type templateData struct {
 	KubeVirt           *operatorData
 	CDI                *operatorData
 	CNA                *operatorData
+	KWEBUI             *operatorData
 }
 
 func check(err error) {
@@ -372,6 +374,76 @@ func getCNA(data *templateData) {
 	data.CNA = &cnaData
 }
 
+// TODO: implement kwebuicomponents in kubevirt-web-ui-operator and update vendor folder
+func getKWWEBUI(data *templateData) {
+	writer := strings.Builder{}
+
+	// Get KWEBUI Deployment
+	kwebuideployment := kwebuicomponents.GetDeployment(
+		data.Namespace,
+		data.ContainerPrefix,
+		"latest", // TODO: can it be configured?
+		data.ImagePullPolicy,
+	)
+	err := marshallObject(kwebuideployment, &writer)
+	check(err)
+	deployment := writer.String()
+
+	// Get KWebUI DeploymentSpec for CSV
+	writer = strings.Builder{}
+	err = marshallObject(kwebuideployment.Spec, &writer)
+	check(err)
+	deploymentSpec := fixResourceString(writer.String(), 12)
+
+	// Get KWebUI Role
+	writer = strings.Builder{}
+	role := kwebuicomponents.GetRole(data.Namespace)
+	marshallObject(role, &writer)
+	roleString := writer.String()
+
+	// Get the Rules out of KWebUI's ClusterRole
+	writer = strings.Builder{}
+	kwebuiRules := role.Rules
+	for _, rule := range kwebuiRules {
+		err := marshallObject(rule, &writer)
+		check(err)
+	}
+	rules := fixResourceString(writer.String(), 14)
+
+	// Get KWebUI ClusterRole
+	writer = strings.Builder{}
+	clusterRole := kwebuicomponents.GetClusterRole()
+	marshallObject(clusterRole, &writer)
+	clusterRoleString := writer.String()
+
+	// Get the Rules out of KWebUI's ClusterRole
+	writer = strings.Builder{}
+	kwebuiClusterRules := clusterRole.Rules
+	for _, rule := range kwebuiClusterRules {
+		err := marshallObject(rule, &writer)
+		check(err)
+	}
+	clusterRules := fixResourceString(writer.String(), 14)
+
+	// Get KWebUI CRD
+	writer = strings.Builder{}
+	crd := kwebuicomponents.GetCrd()
+	marshallObject(crd, &writer)
+	crdString := writer.String()
+
+	kwebuiData := operatorData{
+		Deployment:        deployment,
+		DeploymentSpec:    deploymentSpec,
+		RoleString:        roleString,
+		Rules:             rules,
+		ClusterRoleString: clusterRoleString,
+		ClusterRules:      clusterRules,
+		CRD:               crd,
+		CRDString:         crdString,
+	}
+	data.KWEBUI = &kwebuiData
+}
+
 func main() {
 	converged := flag.Bool("converged", false, "")
 	namespace := flag.String("namespace", "kubevirt-hyperconverged", "")
@@ -403,6 +475,8 @@ func main() {
 	getCDI(&data)
 	// Load in all CNA Resources
 	getCNA(&data)
+	// Load in all KWEBUI Resources
+	getKWWEBUI(&data)
 
 	if *inputFile == "" {
 		panic("Must specify input file")

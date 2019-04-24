@@ -38,6 +38,9 @@ rules:
   - serviceaccounts
   - services
   - nodes
+  - secrets
+  - replicationcontrollers
+  - namespaces
   verbs:
   - get
   - list
@@ -140,3 +143,23 @@ rules:
   - list
   - patch
   - watch
+    - extensions
+    - apps
+  resources:
+    - deployments
+    - replicasets
+  verbs:
+    - '*'
+- apiGroups:
+    - template.openshift.io
+    - route.openshift.io
+  resources:
+    - '*'
+  verbs:
+    - '*'
+- apiGroups:
+    - oauth.openshift.io
+  resources:
+    - '*'
+  verbs:
+    - '*'
