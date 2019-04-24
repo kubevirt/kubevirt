@@ -175,7 +175,7 @@ func DefaultVMSnapshot() (*v1.VirtualMachineSnapshot, *v1.VirtualMachine) {
 	vms := &v1.VirtualMachineSnapshot{
 		ObjectMeta: metav1.ObjectMeta{Name: "test_vms", Namespace: vm.ObjectMeta.Namespace, ResourceVersion: "1"},
 		Spec: v1.VirtualMachineSnapshotSpec{
-			VirtualMachine: "test_vm",
+			VirtualMachine: vm.Name,
 		},
 	}
 	return vms, vm
