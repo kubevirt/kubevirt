@@ -42,6 +42,7 @@ import (
 	v1 "kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/kubecli"
 	"kubevirt.io/kubevirt/pkg/log"
+	"kubevirt.io/kubevirt/pkg/testutils"
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
 )
 
@@ -89,7 +90,9 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 			vmi := v1.NewMinimalVMI("testvmi")
 			vmi.Status.Phase = v1.Running
 			vmi.ObjectMeta.SetUID(uuid.NewUUID())
-			templateService := services.NewTemplateService("whatever", "whatever", "whatever", "whatever", configCache, pvcCache, app.VirtCli)
+
+			config, _ := testutils.NewFakeClusterConfig(&k8sv1.ConfigMap{})
+			templateService := services.NewTemplateService("whatever", "whatever", "whatever", "whatever", configCache, pvcCache, app.VirtCli, config)
 
 			pod, err := templateService.RenderLaunchManifest(vmi)
 			Expect(err).ToNot(HaveOccurred())
@@ -261,7 +264,8 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 			vmi.Status.Phase = v1.Running
 			vmi.ObjectMeta.SetUID(uuid.NewUUID())
 
-			templateService := services.NewTemplateService("whatever", "whatever", "whatever", "whatever", configCache, pvcCache, app.VirtCli)
+			config, _ := testutils.NewFakeClusterConfig(&k8sv1.ConfigMap{})
+			templateService := services.NewTemplateService("whatever", "whatever", "whatever", "whatever", configCache, pvcCache, app.VirtCli, config)
 
 			pod, err := templateService.RenderLaunchManifest(vmi)
 			Expect(err).ToNot(HaveOccurred())

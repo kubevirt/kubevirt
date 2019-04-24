@@ -163,9 +163,10 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 		recorder = record.NewFakeRecorder(100)
 
 		configMapInformer, _ = testutils.NewFakeInformerFor(&k8sv1.ConfigMap{})
+		config, _ := testutils.NewFakeClusterConfig(&k8sv1.ConfigMap{})
 		pvcInformer, _ = testutils.NewFakeInformerFor(&k8sv1.PersistentVolumeClaim{})
 		controller = NewVMIController(
-			services.NewTemplateService("a", "b", "c", "d", configMapInformer.GetStore(), pvcInformer.GetStore(), virtClient),
+			services.NewTemplateService("a", "b", "c", "d", configMapInformer.GetStore(), pvcInformer.GetStore(), virtClient, config),
 			vmiInformer,
 			podInformer,
 			recorder,

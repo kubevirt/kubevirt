@@ -90,6 +90,7 @@ type templateService struct {
 	configMapStore             cache.Store
 	persistentVolumeClaimStore cache.Store
 	virtClient                 kubecli.KubevirtClient
+	clusterConfig              *virtconfig.ClusterConfig
 }
 
 type PvcNotFoundError error
@@ -876,7 +877,7 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 		}
 	}
 
-	if virtconfig.HypervStrictCheckEnabled() {
+	if t.clusterConfig.HypervStrictCheckEnabled() {
 		hvNodeSelectors := getHypervNodeSelectors(vmi)
 		for k, v := range hvNodeSelectors {
 			nodeSelector[k] = v
@@ -1237,7 +1238,8 @@ func NewTemplateService(launcherImage string,
 	imagePullSecret string,
 	configMapCache cache.Store,
 	persistentVolumeClaimCache cache.Store,
-	virtClient kubecli.KubevirtClient) TemplateService {
+	virtClient kubecli.KubevirtClient,
+	clusterConfig *virtconfig.ClusterConfig) TemplateService {
 
 	precond.MustNotBeEmpty(launcherImage)
 	svc := templateService{
@@ -1248,6 +1250,7 @@ func NewTemplateService(launcherImage string,
 		configMapStore:             configMapCache,
 		persistentVolumeClaimStore: persistentVolumeClaimCache,
 		virtClient:                 virtClient,
+		clusterConfig:              clusterConfig,
 	}
 	return &svc
 }

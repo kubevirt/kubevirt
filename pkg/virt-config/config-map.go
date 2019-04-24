@@ -68,17 +68,9 @@ const (
 // We cannot rely on automatic invocation of 'init' method because this initialization
 // code assumes a cluster is available to pull the configmap from
 func Init() {
-	InitFromConfigMap(getConfigMap())
-}
-
-func InitFromConfigMap(cfgMap *k8sv1.ConfigMap) {
-	if val, ok := cfgMap.Data[FeatureGatesKey]; ok {
+	if val, ok := getConfigMap().Data[FeatureGatesKey]; ok {
 		os.Setenv(featureGateEnvVar, val)
 	}
-}
-
-func Clear() {
-	os.Unsetenv(featureGateEnvVar)
 }
 
 func getConfigMap() *k8sv1.ConfigMap {

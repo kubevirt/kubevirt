@@ -292,7 +292,9 @@ func (vca *VirtControllerApp) initCommon() {
 		vca.imagePullSecret,
 		vca.configMapCache,
 		vca.persistentVolumeClaimCache,
-		virtClient)
+		virtClient,
+		vca.clusterConfig,
+	)
 
 	vca.vmiController = NewVMIController(vca.templateService, vca.vmiInformer, vca.podInformer, vca.vmiRecorder, vca.clientSet, vca.configMapInformer, vca.dataVolumeInformer)
 	recorder := vca.getNewRecorder(k8sv1.NamespaceAll, "node-controller")

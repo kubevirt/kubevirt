@@ -164,15 +164,16 @@ var _ = Describe("Migration watcher", func() {
 
 		configMapInformer, _ = testutils.NewFakeInformerFor(&k8sv1.ConfigMap{})
 		pvcInformer, _ = testutils.NewFakeInformerFor(&k8sv1.PersistentVolumeClaim{})
+		config, _ := testutils.NewFakeClusterConfig(&k8sv1.ConfigMap{})
 
 		controller = NewMigrationController(
-			services.NewTemplateService("a", "b", "c", "d", configMapInformer.GetStore(), pvcInformer.GetStore(), virtClient),
+			services.NewTemplateService("a", "b", "c", "d", configMapInformer.GetStore(), pvcInformer.GetStore(), virtClient, config),
 			vmiInformer,
 			podInformer,
 			migrationInformer,
 			recorder,
 			virtClient,
-			testutils.MakeFakeClusterConfig(nil, stop),
+			config,
 		)
 		// Wrap our workqueue to have a way to detect when we are done processing updates
 		mockQueue = testutils.NewMockWorkQueue(controller.Queue)
