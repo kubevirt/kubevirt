@@ -388,15 +388,7 @@ var _ = Describe("Template", func() {
 			})
 
 			It("should add node selector for node discovery feature to template", func() {
-
-				cfgMap := kubev1.ConfigMap{
-					ObjectMeta: metav1.ObjectMeta{
-						Namespace: namespaceKubevirt,
-						Name:      "kubevirt-config",
-					},
-					Data: map[string]string{virtconfig.FeatureGatesKey: virtconfig.CPUNodeDiscoveryGate},
-				}
-				cmCache.Add(&cfgMap)
+				enableFeatureGate(virtconfig.CPUNodeDiscoveryGate)
 
 				vmi := v1.VirtualMachineInstance{
 					ObjectMeta: metav1.ObjectMeta{
