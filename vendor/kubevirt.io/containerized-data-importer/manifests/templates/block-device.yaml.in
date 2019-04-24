@@ -1,0 +1,38 @@
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: cdi-block-device
+  namespace: {{.Namespace}}
+  labels:
+    kubevirt.io: "cdi-block-device"
+spec:
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        name: cdi-block-device
+        kubevirt.io: cdi-block-device
+      name: cdi-block-device
+    spec:
+      serviceAccountName: cdi-sa
+      containers:
+        - name: block
+          image: {{.DockerRepo}}/cdi-func-test-block-device:{{.DockerTag}}
+          imagePullPolicy: {{ .PullPolicy }}
+          volumeMounts:
+          - name: local-storage
+            mountPath: /local-storage/block-device
+          securityContext:
+            privileged: true
+          readinessProbe:
+            exec:
+              command:
+              - cat
+              - /ready
+            initialDelaySeconds: 10
+            periodSeconds: 5
+      volumes:
+        - name: local-storage
+          hostPath:
+            path: /mnt/local-storage/block-device
+            type: DirectoryOrCreate

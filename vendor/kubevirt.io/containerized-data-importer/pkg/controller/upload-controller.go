@@ -484,10 +484,8 @@ func (c *UploadController) getOrCreateScratchPvc(pvc *v1.PersistentVolumeClaim, 
 		}
 		return nil, errors.New("Scratch PVC exists, but is not owned by the right pod")
 	}
-	storageClassName, err := GetScratchPvcStorageClass(c.client, c.cdiClient, pvc)
-	if err != nil {
-		return nil, err
-	}
+	storageClassName := GetScratchPvcStorageClass(c.client, c.cdiClient, pvc)
+
 	// Scratch PVC doesn't exist yet, create it. Determine which storage class to use.
 	scratchPvc, err = CreateScratchPersistentVolumeClaim(c.client, pvc, pod, storageClassName)
 	if err != nil {

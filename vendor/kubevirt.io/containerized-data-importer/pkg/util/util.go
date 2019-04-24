@@ -10,13 +10,16 @@ import (
 	"math/rand"
 	"os"
 	"os/exec"
+	"strconv"
 	"strings"
 	"syscall"
 	"time"
 
 	"github.com/pkg/errors"
+	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/klog"
+	"kubevirt.io/containerized-data-importer/pkg/common"
 )
 
 // CountingReader is a reader that keeps track of how much has been read
@@ -75,6 +78,15 @@ func (r *CountingReader) Close() error {
 	return r.Reader.Close()
 }
 
+// GetAvailableSpaceByVolumeMode calls another method based on the volumeMode parameter to get the amount of
+// available space at the path specified.
+func GetAvailableSpaceByVolumeMode(volumeMode v1.PersistentVolumeMode) int64 {
+	if volumeMode == v1.PersistentVolumeBlock {
+		return GetAvailableSpaceBlock(common.ImporterWriteBlockPath)
+	}
+	return GetAvailableSpace(common.ImporterVolumePath)
+}
+
 // GetAvailableSpace gets the amount of available space at the path specified.
 func GetAvailableSpace(path string) int64 {
 	var stat syscall.Statfs_t
@@ -83,6 +95,24 @@ func GetAvailableSpace(path string) int64 {
 		return int64(-1)
 	}
 	return int64(stat.Bavail) * int64(stat.Bsize)
+}
+
+// GetAvailableSpaceBlock gets the amount of available space at the block device path specified.
+func GetAvailableSpaceBlock(deviceName string) int64 {
+	cmd := exec.Command("/usr/bin/lsblk", "-n", "-b", "-o", "SIZE", deviceName)
+	var out bytes.Buffer
+	var stderr bytes.Buffer
+	cmd.Stdout = &out
+	cmd.Stderr = &stderr
+	err := cmd.Run()
+	if err != nil {
+		return int64(-1)
+	}
+	i, err := strconv.ParseInt(strings.TrimSpace(string(out.Bytes())), 10, 64)
+	if err != nil {
+		return int64(-1)
+	}
+	return i
 }
 
 // MinQuantity calculates the minimum of two quantities.
@@ -151,13 +181,4 @@ func CopyFile(src, dst string) error {
 		return err
 	}
 	return out.Close()
-}
-
-// MoveFileAcrossFs moves a file by doing a copy and then removing the source file. This works across file system which os.Rename won't
-func MoveFileAcrossFs(src, dst string) error {
-	err := CopyFile(src, dst)
-	if err != nil {
-		return err
-	}
-	return os.Remove(src)
 }

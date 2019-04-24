@@ -1,10 +1,16 @@
-FROM fedora:28
+FROM fedora:29
 
 MAINTAINER "The KubeVirt Project" <kubevirt-dev@googlegroups.com>
 
 ENV container docker
 
-RUN dnf -y update && dnf -y install nginx && dnf clean all -y
+COPY fedora.repo /tmp/fedora_ci.dnf.conf
+
+RUN mv /etc/dnf/dnf.conf /etc/dnf/dnf.conf.org && \
+    mv /tmp/fedora_ci.dnf.conf /etc/dnf/dnf.conf && \
+	dnf -y update && dnf -y install nginx && dnf clean all -y && \
+	mv /etc/dnf/dnf.conf /tmp/fedora_ci.dnf.conf && \
+	mv /etc/dnf/dnf.conf.org /etc/dnf/dnf.conf
 
 ARG IMAGE_DIR=/usr/share/nginx/html/images
 

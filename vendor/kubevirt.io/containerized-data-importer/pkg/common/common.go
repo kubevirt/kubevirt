@@ -29,7 +29,8 @@ const (
 	DiskImageName = "disk.img"
 	// ImporterWritePath provides a constant for the cmd/cdi-importer/importer.go executable
 	ImporterWritePath = ImporterVolumePath + "/" + DiskImageName
-
+	// ImporterWriteBlockPath provides a constant for the path where the PV is mounted.
+	ImporterWriteBlockPath = "/dev/blockDevice"
 	// ImporterPodName provides a constant to use as a prefix for Pods created by CDI (controller only)
 	ImporterPodName = "importer"
 	// ImporterDataDir provides a constant for the controller pkg to use as a hardcoded path to where content is transferred to/from (controller only)
@@ -103,7 +104,6 @@ const (
 
 	// DefaultResyncPeriod sets a 10 minute resync period, used in the controller pkg and the controller cmd executable
 	DefaultResyncPeriod = 10 * time.Minute
-
 	// InsecureRegistryConfigMap is the name of the ConfigMap for insecure registries
 	InsecureRegistryConfigMap = "cdi-insecure-registries"
 

@@ -143,6 +143,14 @@ func getContentType(pvc *v1.PersistentVolumeClaim) string {
 	return contentType
 }
 
+// returns the volumeMode which determines if the PVC is block PVC or not.
+func getVolumeMode(pvc *v1.PersistentVolumeClaim) v1.PersistentVolumeMode {
+	if pvc.Spec.VolumeMode != nil {
+		return *pvc.Spec.VolumeMode
+	}
+	return v1.PersistentVolumeFilesystem
+}
+
 // returns the name of the secret containing endpoint credentials consumed by the importer pod.
 // A value of "" implies there are no credentials for the endpoint being used. A returned error
 // causes processNextItem() to stop.
@@ -253,7 +261,7 @@ func newScratchPersistentVolumeClaimSpec(pvc *v1.PersistentVolumeClaim, pod *v1.
 		LabelImportPvc:   pvc.Name,
 	}
 
-	return &v1.PersistentVolumeClaim{
+	pvcDef := &v1.PersistentVolumeClaim{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      pvc.Name + "-scratch",
 			Namespace: pvc.Namespace,
@@ -268,11 +276,14 @@ func newScratchPersistentVolumeClaimSpec(pvc *v1.PersistentVolumeClaim, pod *v1.
 			},
 		},
 		Spec: v1.PersistentVolumeClaimSpec{
-			AccessModes:      []v1.PersistentVolumeAccessMode{"ReadWriteOnce"},
-			Resources:        pvc.Spec.Resources,
-			StorageClassName: &storageClassName,
+			AccessModes: []v1.PersistentVolumeAccessMode{"ReadWriteOnce"},
+			Resources:   pvc.Spec.Resources,
 		},
 	}
+	if storageClassName != "" {
+		pvcDef.Spec.StorageClassName = &storageClassName
+	}
+	return pvcDef
 }
 
 // CreateScratchPersistentVolumeClaim creates and returns a pointer to a scratch PVC which is created based on the passed-in pvc and storage class name.
@@ -292,11 +303,11 @@ func CreateScratchPersistentVolumeClaim(client kubernetes.Interface, pvc *v1.Per
 // 1. Defined value in CDI config map.
 // 2. If 1 is not available use the 'default' storage class.
 // 3. If 2 is not available use the storage class name of the original pvc that will own the scratch pvc.
-// 4. If none of those are available, fail with an error.
-func GetScratchPvcStorageClass(client kubernetes.Interface, cdiclient clientset.Interface, pvc *v1.PersistentVolumeClaim) (string, error) {
+// 4. If none of those are available, return blank.
+func GetScratchPvcStorageClass(client kubernetes.Interface, cdiclient clientset.Interface, pvc *v1.PersistentVolumeClaim) string {
 	config, err := cdiclient.CdiV1alpha1().CDIConfigs().Get(common.ConfigName, metav1.GetOptions{})
 	if err != nil {
-		klog.Warningf("Unable to find CDI configuration, %v\n", err)
+		klog.Errorf("Unable to find CDI configuration, %v\n", err)
 	}
 	storageClassName := config.Status.ScratchSpaceStorageClass
 	if storageClassName == "" {
@@ -304,13 +315,13 @@ func GetScratchPvcStorageClass(client kubernetes.Interface, cdiclient clientset.
 		if pvc.Spec.StorageClassName != nil {
 			storageClassName = *pvc.Spec.StorageClassName
 			if storageClassName != "" {
-				return storageClassName, nil
+				return storageClassName
 			}
 		}
 	} else {
-		return storageClassName, nil
+		return storageClassName
 	}
-	return "", errors.New("Unable to determine storage class to use for creating scratch space")
+	return ""
 }
 
 // CreateImporterPod creates and returns a pointer to a pod which is created based on the passed-in endpoint, secret
@@ -348,13 +359,6 @@ func MakeImporterPodSpec(image, verbose, pullPolicy string, podEnvVar *importPod
 		},
 	}
 
-	volumeMounts := []v1.VolumeMount{
-		{
-			Name:      DataVolName,
-			MountPath: common.ImporterDataDir,
-		},
-	}
-
 	if scratchPvcName != nil {
 		volumes = append(volumes, v1.Volume{
 			Name: ScratchVolName,
@@ -364,10 +368,6 @@ func MakeImporterPodSpec(image, verbose, pullPolicy string, podEnvVar *importPod
 					ReadOnly:  false,
 				},
 			},
-		})
-		volumeMounts = append(volumeMounts, v1.VolumeMount{
-			Name:      ScratchVolName,
-			MountPath: common.ScratchDataDir,
 		})
 	}
 
@@ -405,7 +405,6 @@ func MakeImporterPodSpec(image, verbose, pullPolicy string, podEnvVar *importPod
 					Name:            common.ImporterPodName,
 					Image:           image,
 					ImagePullPolicy: v1.PullPolicy(pullPolicy),
-					VolumeMounts:    volumeMounts,
 					Args:            []string{"-v=" + verbose},
 					Ports: []v1.ContainerPort{
 						{
@@ -425,6 +424,20 @@ func MakeImporterPodSpec(image, verbose, pullPolicy string, podEnvVar *importPod
 	if len(pvc.OwnerReferences) == 1 {
 		ownerUID = pvc.OwnerReferences[0].UID
 	}
+
+	if getVolumeMode(pvc) == v1.PersistentVolumeBlock {
+		pod.Spec.Containers[0].VolumeDevices = addVolumeDevices()
+	} else {
+		pod.Spec.Containers[0].VolumeMounts = addVolumeMounts()
+	}
+
+	if scratchPvcName != nil {
+		pod.Spec.Containers[0].VolumeMounts = append(pod.Spec.Containers[0].VolumeMounts, v1.VolumeMount{
+			Name:      ScratchVolName,
+			MountPath: common.ScratchDataDir,
+		})
+	}
+
 	pod.Spec.Containers[0].Env = makeEnv(podEnvVar, ownerUID)
 
 	if podEnvVar.certConfigMap != "" {
@@ -447,8 +460,29 @@ func MakeImporterPodSpec(image, verbose, pullPolicy string, podEnvVar *importPod
 		pod.Spec.Containers[0].VolumeMounts = append(pod.Spec.Containers[0].VolumeMounts, vm)
 		pod.Spec.Volumes = append(pod.Spec.Volumes, vol)
 	}
-
 	return pod
+}
+
+// this is being called for pods using PV with block volume mode
+func addVolumeDevices() []v1.VolumeDevice {
+	volumeDevices := []v1.VolumeDevice{
+		{
+			Name:       DataVolName,
+			DevicePath: common.ImporterWriteBlockPath,
+		},
+	}
+	return volumeDevices
+}
+
+// this is being called for pods using PV with filesystem volume mode
+func addVolumeMounts() []v1.VolumeMount {
+	volumeMounts := []v1.VolumeMount{
+		{
+			Name:      DataVolName,
+			MountPath: common.ImporterDataDir,
+		},
+	}
+	return volumeMounts
 }
 
 // return the Env portion for the importer container.
@@ -569,6 +603,7 @@ func MakeCloneSourcePodSpec(image, pullPolicy, sourcePvcName string, pvc *v1.Per
 	id := string(pvc.GetUID())
 	blockOwnerDeletion := true
 	isController := true
+
 	pod := &v1.Pod{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "Pod",
@@ -585,7 +620,7 @@ func MakeCloneSourcePodSpec(image, pullPolicy, sourcePvcName string, pvc *v1.Per
 				common.CDIComponentLabel: common.ClonerSourcePodName,
 				common.CloningLabelKey:   common.CloningLabelValue + "-" + id, //used by podAffity
 				// this label is used when searching for a pvc's cloner source pod.
-				CloneUniqueID: pvc.Name + "-source-pod",
+				CloneUniqueID: id + "-source-pod",
 			},
 			OwnerReferences: []metav1.OwnerReference{
 				{
@@ -608,6 +643,7 @@ func MakeCloneSourcePodSpec(image, pullPolicy, sourcePvcName string, pvc *v1.Per
 						Privileged: &[]bool{true}[0],
 						RunAsUser:  &[]int64{0}[0],
 					},
+
 					VolumeMounts: []v1.VolumeMount{
 						{
 							Name:      ImagePathName,
@@ -687,7 +723,7 @@ func MakeCloneTargetPodSpec(image, pullPolicy, podAffinityNamespace string, pvc 
 				common.CDILabelKey:       common.CDILabelValue, //filtered by the podInformer
 				common.CDIComponentLabel: common.ClonerTargetPodName,
 				// this label is used when searching for a pvc's cloner target pod.
-				CloneUniqueID:          pvc.Name + "-target-pod",
+				CloneUniqueID:          id + "-target-pod",
 				common.PrometheusLabel: "",
 			},
 			OwnerReferences: []metav1.OwnerReference{
@@ -730,6 +766,7 @@ func MakeCloneTargetPodSpec(image, pullPolicy, podAffinityNamespace string, pvc 
 						Privileged: &[]bool{true}[0],
 						RunAsUser:  &[]int64{0}[0],
 					},
+
 					VolumeMounts: []v1.VolumeMount{
 						{
 							Name:      ImagePathName,
@@ -1106,7 +1143,6 @@ func createImportEnvVar(client kubernetes.Interface, pvc *v1.PersistentVolumeCla
 	podEnvVar.contentType = getContentType(pvc)
 
 	var err error
-
 	if podEnvVar.source != SourceNone {
 		podEnvVar.ep, err = getEndpoint(pvc)
 		if err != nil {

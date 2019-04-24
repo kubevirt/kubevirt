@@ -14,7 +14,7 @@ fi
 image=$(getClusterType)
 echo "Image:${image}"
 if [[ $image == $KUBERNETES_IMAGE ]]; then
-    $gocli run --random-ports --nodes ${num_nodes} --memory ${mem_size} --background kubevirtci/${image}
+    $gocli run --enable-ceph --random-ports --nodes ${num_nodes} --memory ${mem_size} --background kubevirtci/${image}
     cluster_port=$($gocli ports k8s | tr -d '\r')
     $gocli scp /usr/bin/kubectl - > ./cluster/.kubectl
     chmod u+x ./cluster/.kubectl
