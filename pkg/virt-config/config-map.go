@@ -21,7 +21,6 @@ package virtconfig
 
 import (
 	"fmt"
-	"os"
 	"strings"
 	"sync"
 	"time"
@@ -41,7 +40,6 @@ import (
 
 const (
 	configMapName       = "kubevirt-config"
-	featureGateEnvVar   = "FEATURE_GATES"
 	FeatureGatesKey     = "feature-gates"
 	emulatedMachinesKey = "emulated-machines"
 	MachineTypeKey      = "machine-type"
@@ -64,14 +62,6 @@ const (
 
 	NodeDrainTaintDefaultKey = "kubevirt.io/drain"
 )
-
-// We cannot rely on automatic invocation of 'init' method because this initialization
-// code assumes a cluster is available to pull the configmap from
-func Init() {
-	if val, ok := getConfigMap().Data[FeatureGatesKey]; ok {
-		os.Setenv(featureGateEnvVar, val)
-	}
-}
 
 func getConfigMap() *k8sv1.ConfigMap {
 	virtClient, err := kubecli.GetKubevirtClient()

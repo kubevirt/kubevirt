@@ -133,8 +133,6 @@ func NewVirtApi() VirtApi {
 }
 
 func (app *virtAPIApp) Execute() {
-	virtconfig.Init()
-
 	virtCli, err := kubecli.GetKubevirtClient()
 	if err != nil {
 		panic(err)
