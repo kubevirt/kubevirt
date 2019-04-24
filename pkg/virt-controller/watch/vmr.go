@@ -221,7 +221,7 @@ func (c *VMRestoreController) doRestore(vmr *virtv1.VirtualMachineRestore, vms *
 		return false, err
 	}
 
-	log.Log.Object(updatedVM).Infof("updatedVM: %s", updatedVM.Spec.Template.Spec.Domain.Resources.Requests.Memory())
+	log.Log.Object(vm).Infof("updatedVM: %s", updatedVM.Spec.Template.Spec.Domain.Resources.Requests.Memory())
 
 	return true, nil
 }
