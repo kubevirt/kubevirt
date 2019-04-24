@@ -241,3 +241,11 @@ func BeIn(elements ...interface{}) types.GomegaMatcher {
 		Elements: elements,
 	}
 }
+
+func SatisfyAnyRegexp(regexps []string) types.GomegaMatcher {
+	matchers := []types.GomegaMatcher{}
+	for _, regexp := range regexps {
+		matchers = append(matchers, gomega.MatchRegexp(regexp))
+	}
+	return gomega.SatisfyAny(matchers...)
+}

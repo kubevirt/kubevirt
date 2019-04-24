@@ -199,4 +199,9 @@ var _ = Describe("ConfigMap", func() {
 		result := clusterConfig.GetMigrationConfig()
 		Expect(*result.ParallelOutboundMigrationsPerNode).To(BeNumerically("==", 2))
 	})
+
+	It("should contain a default machine type that is supported by default", func() {
+		clusterConfig, _ := testutils.NewFakeClusterConfig(&kubev1.ConfigMap{})
+		Expect(clusterConfig.GetMachineType()).To(testutils.SatisfyAnyRegexp(clusterConfig.GetEmulatedMachines()))
+	})
 })
