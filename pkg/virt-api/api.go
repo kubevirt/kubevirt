@@ -45,6 +45,7 @@ import (
 	aggregatorclient "k8s.io/kube-aggregator/pkg/client/clientset_generated/clientset"
 
 	v1 "kubevirt.io/kubevirt/pkg/api/v1"
+	"kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/healthz"
 	"kubevirt.io/kubevirt/pkg/kubecli"
 	"kubevirt.io/kubevirt/pkg/log"
@@ -1036,21 +1037,23 @@ func (app *virtAPIApp) Run() {
 
 	// Run informers for webhooks usage
 	webhookInformers := webhooks.GetInformers()
+	kubeInformerFactory := controller.NewKubeInformerFactory(app.virtCli.RestClient(), app.virtCli, app.namespace)
+	configMapInformer := kubeInformerFactory.ConfigMap()
 
 	stopChan := make(chan struct{}, 1)
 	defer close(stopChan)
 	go webhookInformers.VMIInformer.Run(stopChan)
 	go webhookInformers.VMIPresetInformer.Run(stopChan)
 	go webhookInformers.NamespaceLimitsInformer.Run(stopChan)
-	go webhookInformers.ConfigMapInformer.Run(stopChan)
+	go configMapInformer.Run(stopChan)
 
 	cache.WaitForCacheSync(stopChan,
 		webhookInformers.VMIInformer.HasSynced,
 		webhookInformers.VMIPresetInformer.HasSynced,
 		webhookInformers.NamespaceLimitsInformer.HasSynced,
-		webhookInformers.ConfigMapInformer.HasSynced)
+		configMapInformer.HasSynced)
 
-	app.clusterConfig = virtconfig.NewClusterConfig(webhookInformers.ConfigMapInformer.GetStore(), app.namespace)
+	app.clusterConfig = virtconfig.NewClusterConfig(configMapInformer.GetStore(), app.namespace)
 
 	// Verify/create webhook endpoint.
 	err = app.createWebhook()

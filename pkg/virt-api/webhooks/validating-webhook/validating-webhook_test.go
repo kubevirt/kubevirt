@@ -72,10 +72,8 @@ var _ = Describe("Validating Webhook", func() {
 
 	BeforeSuite(func() {
 		vmiInformer, _ = testutils.NewFakeInformerFor(&v1.VirtualMachineInstance{})
-		configMapInformer, _ := testutils.NewFakeInformerFor(&k8sv1.ConfigMap{})
 		webhooks.SetInformers(&webhooks.Informers{
-			VMIInformer:       vmiInformer,
-			ConfigMapInformer: configMapInformer,
+			VMIInformer: vmiInformer,
 		})
 		config, configMapStore = testutils.NewFakeClusterConfig(&k8sv1.ConfigMap{})
 		vmiCreateAdmitter = &VMICreateAdmitter{clusterConfig: config}
