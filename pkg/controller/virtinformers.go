@@ -286,7 +286,7 @@ func (f *kubeInformerFactory) VirtualMachineSnapshot() cache.SharedIndexInformer
 
 func (f *kubeInformerFactory) VirtualMachineRestore() cache.SharedIndexInformer {
 	return f.getInformer("vmrInformer", func() cache.SharedIndexInformer {
-		lw := cache.NewListWatchFromClient(f.restClient, "virtualmachinerestore", k8sv1.NamespaceAll, fields.Everything())
+		lw := cache.NewListWatchFromClient(f.restClient, "virtualmachinerestores", k8sv1.NamespaceAll, fields.Everything())
 		return cache.NewSharedIndexInformer(lw, &kubev1.VirtualMachineRestore{}, f.defaultResync, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
 	})
 }

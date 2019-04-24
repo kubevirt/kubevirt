@@ -1202,7 +1202,7 @@ type VirtualMachineRestoreSpec struct {
 // ---
 // +k8s:openapi-gen=true
 type VirtualMachineRestoreStatus struct {
-	RestoredOn metav1.Time `json:"restoredOn,omitempty"`
+	RestoredOn *metav1.Time `json:"restoredOn,omitempty"`
 	// Hold the state information of the VirtualMachine and its VirtualMachineInstance
 	Conditions []VirtualMachineSnapshotCondition `json:"conditions,omitempty" optional:"true"`
 }
