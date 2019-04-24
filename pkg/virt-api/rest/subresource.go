@@ -303,16 +303,7 @@ func (app *SubresourceAPIApp) StartVMRequestHandler(request *restful.Request, re
 	switch runStrategy {
 	case v1.RunStrategyHalted:
 		bodyString = getRunningJson(vm, true)
-	case v1.RunStrategyManual:
-		patchType = types.JSONPatchType
-
-		bodyString, err = getChangeRequestJson(vm,
-			v1.VirtualMachineStateChangeRequest{Action: v1.StartRequest})
-		if err != nil {
-			response.WriteError(http.StatusInternalServerError, err)
-			return
-		}
-	case v1.RunStrategyRerunOnFailure:
+	case v1.RunStrategyRerunOnFailure, v1.RunStrategyManual:
 		patchType = types.JSONPatchType
 
 		needsRestart := false
@@ -323,7 +314,7 @@ func (app *SubresourceAPIApp) StartVMRequestHandler(request *restful.Request, re
 				return
 			}
 		} else {
-			if vmi.Status.Phase == v1.Succeeded {
+			if vmi.IsFinal() {
 				needsRestart = true
 			}
 		}
@@ -341,7 +332,7 @@ func (app *SubresourceAPIApp) StartVMRequestHandler(request *restful.Request, re
 			return
 		}
 	case v1.RunStrategyAlways:
-		response.WriteError(http.StatusBadRequest, fmt.Errorf("VM is already running"))
+		response.WriteError(http.StatusBadRequest, fmt.Errorf("the selected runstrategy does not support manual start requests"))
 		return
 	}
 

@@ -529,7 +529,7 @@ func (c *VMController) startStop(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualM
 					forceStop = true
 				}
 			}
-			if forceStop || vmi.IsFinal() {
+			if forceStop {
 				log.Log.Object(vm).V(4).Info("Stopping VMI")
 				err := c.stopVMI(vm, vmi)
 				if err != nil {
