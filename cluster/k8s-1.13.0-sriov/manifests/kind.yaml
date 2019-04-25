@@ -6,3 +6,6 @@ nodes:
   - containerPath: /etc/pcidp/config.json
     hostPath: /etc/pcidp/config.json
     readOnly: true
+  - containerPath: /lib/modules
+    hostPath: /lib/modules
+    readOnly: true
