@@ -242,54 +242,50 @@ spec:
                   fieldPath: metadata.namespace
             - name: OPERATOR_NAME
               value: "kubevirt-ssp-operator"
+
 ---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: kubevirt-web-ui-operator
-  namespace: kubevirt-hyperconverged
 spec:
   replicas: 1
   selector:
     matchLabels:
       name: kubevirt-web-ui-operator
-  strategy: {}
   template:
     metadata:
-      creationTimestamp: null
       labels:
         name: kubevirt-web-ui-operator
     spec:
-      containers:
-      - env:
-        - name: OPERATOR_NAME
-          value: kubevirt-web-ui-operator
-        - name: OPERATOR_NAMESPACE
-          valueFrom:
-            fieldRef:
-              fieldPath: metadata.namespace
-        - name: POD_NAME
-          valueFrom:
-            fieldRef:
-              fieldPath: metadata.name
-        - name: WATCH_NAMESPACE
-          valueFrom:
-            fieldRef:
-              fieldPath: metadata.namespace
-        image: kubevirt/kubevirt-web-ui-operator:latest
-        imagePullPolicy: IfNotPresent
-        name: kubevirt-web-ui-operator
-        ports:
-        - containerPort: 60000
-          name: metrics
-          protocol: TCP
-        readinessProbe:
-          exec:
-            command:
-            - stat
-            - /tmp/operator-sdk-ready
-          failureThreshold: 1
-          initialDelaySeconds: 4
-          periodSeconds: 10
-        resources: {}
       serviceAccountName: kubevirt-web-ui-operator
+      containers:
+        - name: kubevirt-web-ui-operator
+          securityContext:
+            runAsUser: 0
+          image: quay.io/kubevirt/kubevirt-web-ui-operator:latest
+          imagePullPolicy: Always
+          ports:
+          - containerPort: 60000
+            name: metrics
+          command:
+          - kubevirt-web-ui-operator
+          readinessProbe:
+            exec:
+              command:
+                - stat
+                - /tmp/operator-sdk-ready
+            initialDelaySeconds: 4
+            periodSeconds: 10
+            failureThreshold: 1
+          env:
+            - name: WATCH_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: OPERATOR_NAME
+              value: "kubevirt-web-ui-operator"
