@@ -20,6 +20,7 @@
 package virthandler
 
 import (
+	"crypto/tls"
 	"fmt"
 	"io/ioutil"
 	"net"
@@ -39,6 +40,8 @@ import (
 	"k8s.io/client-go/tools/cache"
 	framework "k8s.io/client-go/tools/cache/testing"
 	"k8s.io/client-go/tools/record"
+
+	"kubevirt.io/kubevirt/pkg/certificates"
 
 	v1 "kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/kubecli"
@@ -82,9 +85,23 @@ var _ = Describe("VirtualMachineInstance", func() {
 
 	log.Log.SetIOWriter(GinkgoWriter)
 
+	var certDir string
+
 	BeforeEach(func() {
 		stop = make(chan struct{})
 		shareDir, err = ioutil.TempDir("", "kubevirt-share")
+		Expect(err).ToNot(HaveOccurred())
+		certDir, err = ioutil.TempDir("", "migrationproxytest")
+		Expect(err).ToNot(HaveOccurred())
+
+		store, err := certificates.GenerateSelfSignedCert(certDir, "test", "test")
+
+		tlsConfig := &tls.Config{
+			InsecureSkipVerify: true,
+			GetCertificate: func(info *tls.ClientHelloInfo) (certificate *tls.Certificate, e error) {
+				return store.Current()
+			},
+		}
 		Expect(err).ToNot(HaveOccurred())
 
 		host = "master"
@@ -118,6 +135,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 			1,
 			10,
 			testutils.MakeFakeClusterConfig(nil, stop),
+			tlsConfig,
 		)
 
 		testUUID = uuid.NewUUID()
@@ -142,6 +160,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 		close(stop)
 		ctrl.Finish()
 		os.RemoveAll(shareDir)
+		os.RemoveAll(certDir)
 	})
 
 	initGracePeriodHelper := func(gracePeriod int64, vmi *v1.VirtualMachineInstance, dom *api.Domain) {

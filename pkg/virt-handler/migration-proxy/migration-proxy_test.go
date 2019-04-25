@@ -20,6 +20,7 @@
 package migrationproxy
 
 import (
+	"crypto/tls"
 	"io/ioutil"
 	"net"
 	"os"
@@ -27,13 +28,27 @@ import (
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+
+	"kubevirt.io/kubevirt/pkg/certificates"
 )
 
 var _ = Describe("MigrationProxy", func() {
 	tmpDir, _ := ioutil.TempDir("", "migrationproxytest")
+	var tlsConfig *tls.Config
 
 	BeforeEach(func() {
+
 		os.MkdirAll(tmpDir, 0755)
+		store, err := certificates.GenerateSelfSignedCert(tmpDir, "test", "test")
+
+		tlsConfig = &tls.Config{
+			InsecureSkipVerify: true,
+			MinVersion:         tls.VersionTLS12,
+			GetCertificate: func(info *tls.ClientHelloInfo) (certificate *tls.Certificate, e error) {
+				return store.Current()
+			},
+		}
+		Expect(err).ToNot(HaveOccurred())
 	})
 
 	AfterEach(func() {
@@ -45,12 +60,12 @@ var _ = Describe("MigrationProxy", func() {
 			It("by verifying source proxy works", func() {
 				sourceSock := tmpDir + "/source-sock"
 
-				listener, err := net.Listen("tcp", "127.0.0.1:12345")
+				listener, err := tls.Listen("tcp", "127.0.0.1:12345", tlsConfig)
 				Expect(err).ShouldNot(HaveOccurred())
 
 				defer listener.Close()
 
-				sourceProxy := NewSourceProxy(sourceSock, "127.0.0.1:12345")
+				sourceProxy := NewSourceProxy(sourceSock, "127.0.0.1:12345", tlsConfig)
 				defer sourceProxy.StopListening()
 
 				err = sourceProxy.StartListening()
@@ -92,8 +107,8 @@ var _ = Describe("MigrationProxy", func() {
 
 				defer libvirtdListener.Close()
 
-				targetProxy := NewTargetProxy("0.0.0.0", 12345, libvirtdSock)
-				sourceProxy := NewSourceProxy(sourceSock, "127.0.0.1:12345")
+				targetProxy := NewTargetProxy("0.0.0.0", 12345, tlsConfig, libvirtdSock)
+				sourceProxy := NewSourceProxy(sourceSock, "127.0.0.1:12345", tlsConfig)
 				defer targetProxy.StopListening()
 				defer sourceProxy.StopListening()
 
@@ -136,7 +151,7 @@ var _ = Describe("MigrationProxy", func() {
 
 				Expect(err).ShouldNot(HaveOccurred())
 
-				manager := NewMigrationProxyManager(tmpDir)
+				manager := NewMigrationProxyManager(tmpDir, tlsConfig)
 				manager.StartTargetListener("mykey", []string{libvirtdSock, directSock})
 				destSrcPortMap := manager.GetTargetListenerPorts("mykey")
 				manager.StartSourceListener("mykey", "127.0.0.1", destSrcPortMap)
