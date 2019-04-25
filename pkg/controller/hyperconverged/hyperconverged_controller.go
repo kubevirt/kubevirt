@@ -207,7 +207,7 @@ func (r *ReconcileHyperConverged) Reconcile(request reconcile.Request) (reconcil
 	}
 	// Check if this CR already exists
 	foundKubevirtCommonTemplatesBundle := &sspv1.KubevirtCommonTemplatesBundle{}
-	err = r.client.Get(context.TODO(), types.NamespacedName{Name: kubevirtCommonTemplatesBundleCR.Name, Namespace: ""}, foundKubevirtCommonTemplatesBundle)
+	err = r.client.Get(context.TODO(), types.NamespacedName{Name: kubevirtCommonTemplatesBundleCR.Name, Namespace: kubevirtCommonTemplatesBundleCR.Namespace}, foundKubevirtCommonTemplatesBundle)
 	result, err = manageComponentCR(err, kubevirtCommonTemplatesBundleCR, "KubevirtCommonTemplatesBundle", r.client)
 	// object failed to create, requeue
 	if err != nil {
@@ -332,6 +332,7 @@ func newKubevirtCommonTemplateBundleForCR(cr *hcov1alpha1.HyperConverged) *sspv1
 		ObjectMeta: metav1.ObjectMeta{
 			Name:   "common-templates-" + cr.Name,
 			Labels: labels,
+			Namespace: "openshift",
 		},
 		Spec: sspv1.VersionSpec{
 			Version: sspversions.TagForVersion(sspversions.KubevirtCommonTemplates),
