@@ -22,6 +22,8 @@ package watch
 import (
 	"time"
 
+	v12 "k8s.io/api/core/v1"
+	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/tools/cache"
@@ -32,6 +34,12 @@ import (
 	"kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/kubecli"
 	"kubevirt.io/kubevirt/pkg/log"
+)
+
+const (
+	VirtualMachineRestoredSnapshotReason = "VirtualMachineRestored"
+	VirtualMachineNoSnapshotReason = "VirtualMachineHasNoSnapshot"
+	VirtualMachineNoVMSnapshotReason = "VirtualMachineHasNoVM"
 )
 
 func NewVMRestoreController(
@@ -55,6 +63,10 @@ func NewVMRestoreController(
 		AddFunc:    c.addVMRestore,
 		DeleteFunc: c.deleteVMRestore,
 		UpdateFunc: c.updateVMRestore,
+	})
+
+	c.vmInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
+		UpdateFunc: c.updateVirtualMachine,
 	})
 
 	return c
@@ -120,38 +132,40 @@ func (c *VMRestoreController) execute(key string) error {
 	}
 	vmr := obj.(*virtv1.VirtualMachineRestore)
 
+	var snapshotConditions []virtv1.VirtualMachineSnapshotCondition
+
 	logger := log.Log.Object(vmr)
 	logger.Info("Started processing the restore")
 
-	// get all potentially interesting VMs from the cache
+	// get relevant VMs from the cache
 	obj, exists, err = c.vmInformer.GetStore().GetByKey(vmr.Namespace + "/" + vmr.Name)
-	if err != nil {
-		return nil
-	}
-	if !exists {
-		// nothing we need to do. It should always be possible to re-create this type of controller
+	var vm *virtv1.VirtualMachine
+	if !exists || err != nil {
 		logger.Reason(err).Errorf("Failed to fetch VirtualMachine %s", vmr.Namespace + "/" + vmr.Name)
-		return nil
-	}
-	vm := obj.(*virtv1.VirtualMachine)
-	logger.Infof("found VM: %s", vm.Name)
 
-	// get all potentially interesting VMSs from the cache
-	obj, exists, err = c.vmsInformer.GetStore().GetByKey(vmr.Namespace + "/" + vmr.Spec.VirtualMachineSnapshot)
-	if err != nil {
-		return nil
+	} else {
+		vm = obj.(*virtv1.VirtualMachine)
+		logger.Infof("found VM: %s", vm.Name)
 	}
-	if !exists {
+
+	// get relevant VMSs from the cache
+	obj, exists, err = c.vmsInformer.GetStore().GetByKey(vmr.Namespace + "/" + vmr.Spec.VirtualMachineSnapshot)
+	var vms *virtv1.VirtualMachineSnapshot
+	if !exists || err != nil{
 		// nothing we need to do. It should always be possible to re-create this type of controller
 		logger.Reason(err).Errorf("Failed to fetch VirtualMachineSnapshot %s", vmr.Namespace + "/" + vmr.Spec.VirtualMachineSnapshot)
-		return nil
+	} else {
+		vms = obj.(*virtv1.VirtualMachineSnapshot)
+		logger.Infof("found VMS: %s", vms.Name)
 	}
-	vms := obj.(*virtv1.VirtualMachineSnapshot)
-	logger.Infof("found VMS: %s", vms.Name)
 
 	// check whether it can do snapshot
-	doRestore, err := shouldDoRestore(vmr, vms, vm)
-	var restoredOn metav1.Time
+	doRestore, reasonCondition := shouldDoRestore(vmr, vms, vm)
+	if reasonCondition != nil {
+		snapshotConditions = append(snapshotConditions, reasonCondition...)
+	}
+
+	var restoredOn *metav1.Time
 	var restored, updatedStatus bool
 
 	logger.Infof("Doing restore: %t", doRestore)
@@ -163,13 +177,12 @@ func (c *VMRestoreController) execute(key string) error {
 		}
 		if restored {
 			logger.Infof("Restored VM: %s", vm.Name)
-			restoredOn = metav1.Now()
+			restoredTime := metav1.Now()
+			restoredOn = &restoredTime
 		}
 	}
 
-	if restored {
-		vmr, updatedStatus = updateVMRestoreStatus(vmr, restoredOn)
-	}
+	vmr, updatedStatus = updateVMRestoreStatus(vmr, restoredOn, snapshotConditions)
 
 	if updatedStatus {
 		// update the snapshot in cluster
@@ -192,6 +205,31 @@ func (c *VMRestoreController) deleteVMRestore(obj interface{}) {
 
 func (c *VMRestoreController) updateVMRestore(old, curr interface{}) {
 	c.enqueueVMRestore(curr)
+}
+
+func (c *VMRestoreController) updateVirtualMachine(old, cur interface{}) {
+	curVMI := cur.(*virtv1.VirtualMachine)
+	oldVMI := old.(*virtv1.VirtualMachine)
+	if curVMI.ResourceVersion == oldVMI.ResourceVersion {
+		// Periodic resync will send update events for all known vmis.
+		// Two different versions of the same vmi will always have different RVs.
+		return
+	}
+
+	// list all controller VirtualMachineSnapshots by this VirtualMachine
+	obj, exists, err := c.vmrInformer.GetStore().GetByKey(curVMI.Namespace + "/" + curVMI.Name)
+	if err != nil {
+		log.Log.Reason(err).Error(err.Error())
+		return
+	}
+	if !exists {
+		log.Log.Errorf("Cannot react to VM update, VirtualMachineRestore %s not found", curVMI.Name)
+		return
+	}
+	vmr := obj.(*virtv1.VirtualMachineRestore)
+
+	log.Log.Infof("Enqueuing VirtualMachineSnapshot: %s", vmr.Name)
+	c.enqueueVMRestore(vmr)
 }
 
 func (c *VMRestoreController) enqueueVMRestore(obj interface{}) {
@@ -242,32 +280,91 @@ func (c *VMRestoreController) updateResourceVersion(vm *virtv1.VirtualMachine) (
 	return clusterVM, nil
 }
 
-func shouldDoRestore(vmr *virtv1.VirtualMachineRestore, vms *virtv1.VirtualMachineSnapshot, vm *virtv1.VirtualMachine) (bool, error) {
+func shouldDoRestore(vmr *virtv1.VirtualMachineRestore, vms *virtv1.VirtualMachineSnapshot, vm *virtv1.VirtualMachine) (bool, []virtv1.VirtualMachineSnapshotCondition) {
+	var snapshotConditions []virtv1.VirtualMachineSnapshotCondition
+	doRestore := true
+
 	if vmr.Status.RestoredOn != nil {
 		// VirtualMachine already restored from this restore
 		// configuration. Cannot perform another one.
 		log.Log.Infof("VM %s is already restored", vm.Name)
-		return false, nil
+		doRestore = false
 	}
 
-	if vm.Spec.Running == true {
-		// VirtualMachine have to be shutdown to perform restore
-		log.Log.Infof("VM: %s is running", vm.Name)
-		return false, nil
+	if vm == nil {
+		snapshotConditions = append(snapshotConditions, virtv1.VirtualMachineSnapshotCondition{
+			Type:               virtv1.VirtualMachineSnapshotFailure,
+			Reason:             VirtualMachineNoVMSnapshotReason,
+			Message:            "No Virtual Machine to restore",
+			LastTransitionTime: v1.Now(),
+			Status:             v12.ConditionTrue,
+		})
+
+		doRestore = false
+	} else {
+		if vm.Spec.Running == true {
+			// VirtualMachine have to be shutdown to perform restore
+			log.Log.Infof("VM: %s is running", vm.Name)
+			snapshotConditions = append(snapshotConditions, virtv1.VirtualMachineSnapshotCondition{
+				Type:               virtv1.VirtualMachineSnapshotFailure,
+				Reason:             VirtualMachineRunningSnapshotReason,
+				Message:            "Virtual Machine is running",
+				LastTransitionTime: v1.Now(),
+				Status:             v12.ConditionTrue,
+			})
+			doRestore = false
+		}
 	}
 
-	if vms.Status.VirtualMachine == nil {
-		// Nothing to restore from
-		log.Log.Infof("VMS: %s does not have VM cloned", vms.Name)
-		return false, nil
+	if vms == nil {
+		snapshotConditions = append(snapshotConditions, virtv1.VirtualMachineSnapshotCondition{
+			Type:               virtv1.VirtualMachineSnapshotFailure,
+			Reason:             VirtualMachineNoSnapshotReason,
+			Message:            "No Virtual Machine Snapshot to restore",
+			LastTransitionTime: v1.Now(),
+			Status:             v12.ConditionTrue,
+		})
+
+		doRestore = false
+	} else {
+		if vms.Status.VirtualMachine == nil {
+			// Nothing to restore from
+			log.Log.Infof("VMS: %s does not have VM cloned", vms.Name)
+			snapshotConditions = append(snapshotConditions, virtv1.VirtualMachineSnapshotCondition{
+				Type:               virtv1.VirtualMachineSnapshotFailure,
+				Reason:             VirtualMachineNoSnapshotReason,
+				Message:            "Virtual Machine has no snapshot",
+				LastTransitionTime: v1.Now(),
+				Status:             v12.ConditionTrue,
+			})
+			doRestore = false
+		}
 	}
 
-	return true, nil
+	return doRestore, snapshotConditions
 }
 
-func updateVMRestoreStatus(vmr *virtv1.VirtualMachineRestore, restoredOn metav1.Time) (*virtv1.VirtualMachineRestore, bool) {
+// updateVMRestoreStatus computes the VirtualMachineSnapshot status based on the snapshot state, VirtualMachine state
+// and operations in progress
+// it returns new updated VirtualMachineSnapshot if status has been updated.
+// it returns original VirtualMachineSnapshot if there was not change
+func updateVMRestoreStatus(vmr *virtv1.VirtualMachineRestore, restoredOn *metav1.Time, conditions []virtv1.VirtualMachineSnapshotCondition) (*virtv1.VirtualMachineRestore, bool) {
 	updatedVMR := vmr.DeepCopy()
-	updatedVMR.Status.RestoredOn = &restoredOn
+	updated := false
 
-	return updatedVMR, true
+	log.Log.Infof("Updating VirtualMachineSnapshot: %s status", vmr.Name)
+
+	if restoredOn != nil {
+		updatedVMR.Status.RestoredOn = restoredOn
+		updated = true
+	}
+
+	updatedVMR.Status.Conditions = make([]virtv1.VirtualMachineSnapshotCondition, len(conditions))
+	if len(conditions) > 0 {
+		// overwrite conditions, in this stage the conditions are set and nothing changes
+		copy(updatedVMR.Status.Conditions, conditions)
+		updated = true
+	}
+
+	return updatedVMR, updated
 }
