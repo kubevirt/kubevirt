@@ -79,7 +79,7 @@ flock -e  -w "$SRIOV_TIMEOUT_SEC" "$fd" || {
 # ================
 go get -u sigs.k8s.io/kind
 
-kind create cluster --name=${CLUSTER_NAME} --config=${MANIFESTS_DIR}/kind.yaml
+kind --loglevel debug create cluster --name=${CLUSTER_NAME} --config=${MANIFESTS_DIR}/kind.yaml
 
 export KUBECONFIG=$(kind get kubeconfig-path --name=${CLUSTER_NAME})
 kubectl cluster-info
