@@ -497,6 +497,8 @@ const (
 	InstallStrategyVersionAnnotation = "kubevirt.io/install-strategy-version"
 	// This annotation represents the kubevirt registry used for an install strategy configmap.
 	InstallStrategyRegistryAnnotation = "kubevirt.io/install-strategy-registry"
+	// This annotation represents that this object is for temporary use during updates
+	EphemeralBackupObject = "kubevirt.io/ephemeral-backup-object"
 
 	// This label indicates the object is a part of the install strategy retrieval process.
 	InstallStrategyLabel = "kubevirt.io/install-strategy"
