@@ -21,6 +21,7 @@ package rest
 
 import (
 	"flag"
+	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -32,6 +33,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/ghttp"
 	k8sv1 "k8s.io/api/core/v1"
+	k8smetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/httpstream"
 	"k8s.io/apimachinery/pkg/util/httpstream/spdy"
 	"k8s.io/apimachinery/pkg/util/uuid"
@@ -49,6 +51,9 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 	var request *restful.Request
 	var response *restful.Response
 	var wsURL string
+
+	running := true
+	notRunning := false
 
 	log.Log.SetIOWriter(GinkgoWriter)
 
@@ -360,7 +365,7 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 
 			vm := v1.VirtualMachine{
 				Spec: v1.VirtualMachineSpec{
-					Running: false,
+					Running: &notRunning,
 				},
 			}
 
@@ -374,38 +379,7 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 			app.RestartVMRequestHandler(request, response)
 
 			Expect(response.Error()).To(HaveOccurred())
-			Expect(response.StatusCode()).To(Equal(http.StatusNotFound))
-			close(done)
-		})
-
-		It("should fail if VirtualMachine has been deleted during the restart request", func(done Done) {
-			request.PathParameters()["name"] = "testvm"
-			request.PathParameters()["namespace"] = "default"
-
-			vm := v1.VirtualMachine{
-				Spec: v1.VirtualMachineSpec{
-					Running: true,
-				},
-			}
-
-			server.AppendHandlers(
-				ghttp.CombineHandlers(
-					ghttp.VerifyRequest("GET", "/apis/kubevirt.io/v1alpha3/namespaces/default/virtualmachines/testvm"),
-					ghttp.RespondWithJSONEncoded(http.StatusOK, vm),
-				),
-			)
-
-			server.AppendHandlers(
-				ghttp.CombineHandlers(
-					ghttp.VerifyRequest("DELETE", "/apis/kubevirt.io/v1alpha3/namespaces/default/virtualmachineinstances/testvm"),
-					ghttp.RespondWithJSONEncoded(http.StatusInternalServerError, nil),
-				),
-			)
-
-			app.RestartVMRequestHandler(request, response)
-
-			Expect(response.Error()).To(HaveOccurred())
-			Expect(response.StatusCode()).To(Equal(http.StatusInternalServerError))
+			Expect(response.StatusCode()).To(Equal(http.StatusBadRequest))
 			close(done)
 		})
 
@@ -414,8 +388,58 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 			request.PathParameters()["namespace"] = "default"
 
 			vm := v1.VirtualMachine{
+				ObjectMeta: k8smetav1.ObjectMeta{
+					Name: "testvm",
+				},
 				Spec: v1.VirtualMachineSpec{
-					Running: true,
+					Running: &running,
+				},
+			}
+
+			vmi := v1.VirtualMachineInstance{
+				Spec: v1.VirtualMachineInstanceSpec{},
+			}
+
+			vmi.ObjectMeta.SetUID(uuid.NewUUID())
+
+			server.AppendHandlers(
+				ghttp.CombineHandlers(
+					ghttp.VerifyRequest("GET", "/apis/kubevirt.io/v1alpha3/namespaces/default/virtualmachines/testvm"),
+					ghttp.RespondWithJSONEncoded(http.StatusOK, vm),
+				),
+			)
+
+			server.AppendHandlers(
+				ghttp.CombineHandlers(
+					ghttp.VerifyRequest("GET", "/apis/kubevirt.io/v1alpha3/namespaces/default/virtualmachineinstances/testvm"),
+					ghttp.RespondWithJSONEncoded(http.StatusNotFound, vmi),
+				),
+			)
+
+			server.AppendHandlers(
+				ghttp.CombineHandlers(
+					ghttp.VerifyRequest("PATCH", "/apis/kubevirt.io/v1alpha3/namespaces/default/virtualmachines/testvm"),
+					ghttp.RespondWithJSONEncoded(http.StatusOK, vm),
+				),
+			)
+
+			app.RestartVMRequestHandler(request, response)
+
+			Expect(response.Error()).ToNot(HaveOccurred())
+			Expect(response.StatusCode()).To(Equal(http.StatusAccepted))
+			close(done)
+		})
+
+		It("should start VirtualMachine if VMI doesn't exist", func(done Done) {
+			request.PathParameters()["name"] = "testvm"
+			request.PathParameters()["namespace"] = "default"
+
+			vm := v1.VirtualMachine{
+				ObjectMeta: k8smetav1.ObjectMeta{
+					Name: "testvm",
+				},
+				Spec: v1.VirtualMachineSpec{
+					Running: &running,
 				},
 			}
 
@@ -428,18 +452,174 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 
 			server.AppendHandlers(
 				ghttp.CombineHandlers(
-					ghttp.VerifyRequest("DELETE", "/apis/kubevirt.io/v1alpha3/namespaces/default/virtualmachineinstances/testvm"),
+					ghttp.VerifyRequest("GET", "/apis/kubevirt.io/v1alpha3/namespaces/default/virtualmachineinstances/testvm"),
 					ghttp.RespondWithJSONEncoded(http.StatusOK, nil),
+				),
+			)
+
+			server.AppendHandlers(
+				ghttp.CombineHandlers(
+					ghttp.VerifyRequest("PATCH", "/apis/kubevirt.io/v1alpha3/namespaces/default/virtualmachines/testvm"),
+					ghttp.RespondWithJSONEncoded(http.StatusOK, vm),
 				),
 			)
 
 			app.RestartVMRequestHandler(request, response)
 
 			Expect(response.Error()).NotTo(HaveOccurred())
-			Expect(response.StatusCode()).To(Equal(http.StatusOK))
+			Expect(response.StatusCode()).To(Equal(http.StatusAccepted))
 			close(done)
 		})
+	})
 
+	Context("StateChange JSON", func() {
+		It("should create a stop request if status exists", func() {
+			uid := uuid.NewUUID()
+			vm := newMinimalVM("testvm")
+			vm.Status.Created = true
+			stopRequest := v1.VirtualMachineStateChangeRequest{
+				Action: v1.StopRequest,
+				UID:    &uid,
+			}
+
+			res, err := getChangeRequestJson(vm, stopRequest)
+			Expect(err).ToNot(HaveOccurred())
+
+			ref := fmt.Sprintf(`[{ "op": "test", "path": "/status/stateChangeRequests", "value": null}, { "op": "add", "path": "/status/stateChangeRequests", "value": [{"action":"Stop","uid":"%s"}]}]`, uid)
+			Expect(res).To(Equal(ref))
+		})
+
+		It("should create a stop request if status doesn't exist", func() {
+			uid := uuid.NewUUID()
+			vm := newMinimalVM("testvm")
+			stopRequest := v1.VirtualMachineStateChangeRequest{
+				Action: v1.StopRequest,
+				UID:    &uid,
+			}
+
+			res, err := getChangeRequestJson(vm, stopRequest)
+			Expect(err).ToNot(HaveOccurred())
+
+			ref := fmt.Sprintf(`[{ "op": "add", "path": "/status", "value": {"stateChangeRequests":[{"action":"Stop","uid":"%s"}]}}]`, uid)
+			Expect(res).To(Equal(ref))
+		})
+
+		It("should create a restart request if status exists", func() {
+			uid := uuid.NewUUID()
+			vm := newMinimalVM("testvm")
+			vm.Status.Created = true
+			stopRequest := v1.VirtualMachineStateChangeRequest{
+				Action: v1.StopRequest,
+				UID:    &uid,
+			}
+			startRequest := v1.VirtualMachineStateChangeRequest{
+				Action: v1.StartRequest,
+			}
+
+			res, err := getChangeRequestJson(vm, stopRequest, startRequest)
+			Expect(err).ToNot(HaveOccurred())
+
+			ref := fmt.Sprintf(`[{ "op": "test", "path": "/status/stateChangeRequests", "value": null}, { "op": "add", "path": "/status/stateChangeRequests", "value": [{"action":"Stop","uid":"%s"},{"action":"Start"}]}]`, uid)
+			Expect(res).To(Equal(ref))
+		})
+
+		It("should create a restart request if status doesn't exist", func() {
+			uid := uuid.NewUUID()
+			vm := newMinimalVM("testvm")
+			stopRequest := v1.VirtualMachineStateChangeRequest{
+				Action: v1.StopRequest,
+				UID:    &uid,
+			}
+			startRequest := v1.VirtualMachineStateChangeRequest{
+				Action: v1.StartRequest,
+			}
+
+			res, err := getChangeRequestJson(vm, stopRequest, startRequest)
+			Expect(err).ToNot(HaveOccurred())
+
+			ref := fmt.Sprintf(`[{ "op": "add", "path": "/status", "value": {"stateChangeRequests":[{"action":"Stop","uid":"%s"},{"action":"Start"}]}}]`, uid)
+			Expect(res).To(Equal(ref))
+		})
+
+		It("should create a start request if status exists", func() {
+			vm := newMinimalVM("testvm")
+			vm.Status.Created = true
+
+			startRequest := v1.VirtualMachineStateChangeRequest{
+				Action: v1.StartRequest,
+			}
+
+			res, err := getChangeRequestJson(vm, startRequest)
+			Expect(err).ToNot(HaveOccurred())
+
+			ref := fmt.Sprintf(`[{ "op": "test", "path": "/status/stateChangeRequests", "value": null}, { "op": "add", "path": "/status/stateChangeRequests", "value": [{"action":"Start"}]}]`)
+			Expect(res).To(Equal(ref))
+		})
+
+		It("should create a start request if status doesn't exist", func() {
+			vm := newMinimalVM("testvm")
+
+			startRequest := v1.VirtualMachineStateChangeRequest{
+				Action: v1.StartRequest,
+			}
+
+			res, err := getChangeRequestJson(vm, startRequest)
+			Expect(err).ToNot(HaveOccurred())
+
+			ref := fmt.Sprintf(`[{ "op": "add", "path": "/status", "value": {"stateChangeRequests":[{"action":"Start"}]}}]`)
+			Expect(res).To(Equal(ref))
+		})
+
+		It("should force a stop request to override", func() {
+			uid := uuid.NewUUID()
+			vm := newMinimalVM("testvm")
+			stopRequest := v1.VirtualMachineStateChangeRequest{
+				Action: v1.StopRequest,
+				UID:    &uid,
+			}
+			startRequest := v1.VirtualMachineStateChangeRequest{
+				Action: v1.StartRequest,
+			}
+			vm.Status.StateChangeRequests = append(vm.Status.StateChangeRequests, startRequest)
+
+			res, err := getChangeRequestJson(vm, stopRequest)
+			Expect(err).ToNot(HaveOccurred())
+
+			ref := fmt.Sprintf(`[{ "op": "test", "path": "/status/stateChangeRequests", "value": [{"action":"Start"}]}, { "op": "replace", "path": "/status/stateChangeRequests", "value": [{"action":"Stop","uid":"%s"}]}]`, uid)
+			Expect(res).To(Equal(ref))
+		})
+
+		It("should error on start request if other requests exist", func() {
+			uid := uuid.NewUUID()
+			vm := newMinimalVM("testvm")
+			stopRequest := v1.VirtualMachineStateChangeRequest{
+				Action: v1.StopRequest,
+				UID:    &uid,
+			}
+			startRequest := v1.VirtualMachineStateChangeRequest{
+				Action: v1.StartRequest,
+			}
+			vm.Status.StateChangeRequests = append(vm.Status.StateChangeRequests, stopRequest)
+
+			_, err := getChangeRequestJson(vm, startRequest)
+			Expect(err).To(HaveOccurred())
+		})
+
+		It("should error on restart request if other requests exist", func() {
+			uid := uuid.NewUUID()
+			vm := newMinimalVM("testvm")
+			stopRequest := v1.VirtualMachineStateChangeRequest{
+				Action: v1.StopRequest,
+				UID:    &uid,
+			}
+			startRequest := v1.VirtualMachineStateChangeRequest{
+				Action: v1.StartRequest,
+			}
+			vm.Status.StateChangeRequests = append(vm.Status.StateChangeRequests, startRequest)
+
+			_, err := getChangeRequestJson(vm, stopRequest, startRequest)
+			Expect(err).To(HaveOccurred())
+		})
 	})
 
 	AfterEach(func() {
@@ -447,3 +627,7 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 		backend.Close()
 	})
 })
+
+func newMinimalVM(name string) *v1.VirtualMachine {
+	return &v1.VirtualMachine{TypeMeta: k8smetav1.TypeMeta{APIVersion: v1.GroupVersion.String(), Kind: "VirtualMachine"}, ObjectMeta: k8smetav1.ObjectMeta{Name: name}}
+}

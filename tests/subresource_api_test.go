@@ -41,6 +41,9 @@ var _ = Describe("Subresource Api", func() {
 	virtCli, err := kubecli.GetKubevirtClient()
 	tests.PanicOnError(err)
 
+	manual := v1.RunStrategyManual
+	restartOnError := v1.RunStrategyRerunOnFailure
+
 	BeforeEach(func() {
 		tests.BeforeTestCleanup()
 	})
@@ -78,7 +81,7 @@ var _ = Describe("Subresource Api", func() {
 	Describe("VirtualMachine subresource", func() {
 		Context("with a restart endpoint", func() {
 			It("should restart a VM", func() {
-				vm := NewRandomVirtualMachine(tests.NewRandomVMI(), false)
+				vm := tests.NewRandomVirtualMachine(tests.NewRandomVMI(), false)
 				vm, err := virtCli.VirtualMachine(tests.NamespaceTestDefault).Create(vm)
 				Expect(err).NotTo(HaveOccurred())
 
@@ -100,7 +103,7 @@ var _ = Describe("Subresource Api", func() {
 			})
 
 			It("should return an error when VM is not running", func() {
-				vm := NewRandomVirtualMachine(tests.NewRandomVMI(), false)
+				vm := tests.NewRandomVirtualMachine(tests.NewRandomVMI(), false)
 				vm, err := virtCli.VirtualMachine(tests.NamespaceTestDefault).Create(vm)
 				Expect(err).NotTo(HaveOccurred())
 
@@ -114,6 +117,105 @@ var _ = Describe("Subresource Api", func() {
 
 				err := virtCli.VirtualMachine(tests.NamespaceTestDefault).Restart(vmi.Name)
 				Expect(err).To(HaveOccurred())
+			})
+		})
+
+		Context("With manual RunStrategy", func() {
+			It("Should restart when VM is not running", func() {
+				vm := tests.NewRandomVirtualMachine(tests.NewRandomVMI(), false)
+				vm.Spec.RunStrategy = &manual
+				vm.Spec.Running = nil
+
+				By("Creating VM")
+				vm, err := virtCli.VirtualMachine(tests.NamespaceTestDefault).Create(vm)
+				Expect(err).ToNot(HaveOccurred())
+
+				By("Starting VM via Restart subresource")
+				err = virtCli.VirtualMachine(tests.NamespaceTestDefault).Restart(vm.Name)
+				Expect(err).ToNot(HaveOccurred())
+
+				By("Waiting for VMI to start")
+				Eventually(func() v1.VirtualMachineInstancePhase {
+					newVMI, err := virtCli.VirtualMachineInstance(tests.NamespaceTestDefault).Get(vm.Name, &metav1.GetOptions{})
+					if err != nil {
+						return v1.VmPhaseUnset
+					}
+					return newVMI.Status.Phase
+				}, 90*time.Second, 1*time.Second).Should(Equal(v1.Running))
+			})
+
+			It("Should restart when VM is running", func() {
+				vm := tests.NewRandomVirtualMachine(tests.NewRandomVMI(), false)
+				vm.Spec.RunStrategy = &manual
+				vm.Spec.Running = nil
+
+				By("Creating VM")
+				vm, err := virtCli.VirtualMachine(tests.NamespaceTestDefault).Create(vm)
+				Expect(err).ToNot(HaveOccurred())
+
+				By("Starting VM via Restart subresource")
+				err = virtCli.VirtualMachine(tests.NamespaceTestDefault).Restart(vm.Name)
+				Expect(err).ToNot(HaveOccurred())
+
+				By("Waiting for VMI to start")
+				Eventually(func() v1.VirtualMachineInstancePhase {
+					newVMI, err := virtCli.VirtualMachineInstance(tests.NamespaceTestDefault).Get(vm.Name, &metav1.GetOptions{})
+					if err != nil {
+						return v1.VmPhaseUnset
+					}
+					return newVMI.Status.Phase
+				}, 90*time.Second, 1*time.Second).Should(Equal(v1.Running))
+
+				vmi, err := virtCli.VirtualMachineInstance(tests.NamespaceTestDefault).Get(vm.Name, &metav1.GetOptions{})
+				Expect(err).NotTo(HaveOccurred())
+
+				By("Restarting VM")
+				err = virtCli.VirtualMachine(tests.NamespaceTestDefault).Restart(vm.Name)
+				Expect(err).ToNot(HaveOccurred())
+
+				Eventually(func() v1.VirtualMachineInstancePhase {
+					newVMI, err := virtCli.VirtualMachineInstance(tests.NamespaceTestDefault).Get(vm.Name, &metav1.GetOptions{})
+					if err != nil || vmi.UID == newVMI.UID {
+						return v1.VmPhaseUnset
+					}
+					return newVMI.Status.Phase
+				}, 90*time.Second, 1*time.Second).Should(Equal(v1.Running))
+			})
+		})
+
+		Context("With RunStrategy RerunOnFailure", func() {
+			It("Should restart the VM", func() {
+				vm := tests.NewRandomVirtualMachine(tests.NewRandomVMI(), false)
+				vm.Spec.RunStrategy = &restartOnError
+				vm.Spec.Running = nil
+
+				By("Creating VM")
+				vm, err := virtCli.VirtualMachine(tests.NamespaceTestDefault).Create(vm)
+				Expect(err).ToNot(HaveOccurred())
+
+				By("Waiting for VMI to start")
+				Eventually(func() v1.VirtualMachineInstancePhase {
+					newVMI, err := virtCli.VirtualMachineInstance(tests.NamespaceTestDefault).Get(vm.Name, &metav1.GetOptions{})
+					if err != nil {
+						return v1.VmPhaseUnset
+					}
+					return newVMI.Status.Phase
+				}, 90*time.Second, 1*time.Second).Should(Equal(v1.Running))
+
+				vmi, err := virtCli.VirtualMachineInstance(tests.NamespaceTestDefault).Get(vm.Name, &metav1.GetOptions{})
+				Expect(err).NotTo(HaveOccurred())
+
+				By("Restarting VM")
+				err = virtCli.VirtualMachine(tests.NamespaceTestDefault).Restart(vm.Name)
+				Expect(err).ToNot(HaveOccurred())
+
+				Eventually(func() v1.VirtualMachineInstancePhase {
+					newVMI, err := virtCli.VirtualMachineInstance(tests.NamespaceTestDefault).Get(vm.Name, &metav1.GetOptions{})
+					if err != nil || vmi.UID == newVMI.UID {
+						return v1.VmPhaseUnset
+					}
+					return newVMI.Status.Phase
+				}, 90*time.Second, 1*time.Second).Should(Equal(v1.Running))
 			})
 		})
 	})

@@ -24,6 +24,8 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"reflect"
+	"strings"
 
 	restful "github.com/emicklei/go-restful"
 	"github.com/gorilla/websocket"
@@ -33,6 +35,8 @@ import (
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
+	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/json"
 	"k8s.io/client-go/kubernetes/scheme"
 	restclient "k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/remotecommand"
@@ -148,7 +152,74 @@ func (app *SubresourceAPIApp) ConsoleRequestHandler(request *restful.Request, re
 	app.streamRequestHandler(request, response, CONSOLE)
 }
 
+func getChangeRequestJson(vm *v1.VirtualMachine, changes ...v1.VirtualMachineStateChangeRequest) (string, error) {
+	verb := "add"
+	// Special case: if there's no status field at all, add one.
+	newStatus := v1.VirtualMachineStatus{}
+	if reflect.DeepEqual(vm.Status, newStatus) {
+		for _, change := range changes {
+			newStatus.StateChangeRequests = append(newStatus.StateChangeRequests, change)
+		}
+		statusJson, err := json.Marshal(newStatus)
+		if err != nil {
+			return "", err
+		}
+		update := fmt.Sprintf(`{ "op": "%s", "path": "/status", "value": %s}`, verb, string(statusJson))
+
+		return fmt.Sprintf("[%s]", update), nil
+	}
+
+	failOnConflict := true
+	if len(changes) == 1 && changes[0].Action == v1.StopRequest {
+		// If this is a stopRequest, replace all existing StateChangeRequests.
+		failOnConflict = false
+	}
+
+	if len(vm.Status.StateChangeRequests) != 0 {
+		if failOnConflict {
+			return "", fmt.Errorf("unable to complete request: stop/start already underway")
+		} else {
+			verb = "replace"
+		}
+	}
+
+	changeRequests := []v1.VirtualMachineStateChangeRequest{}
+	for _, change := range changes {
+		changeRequests = append(changeRequests, change)
+	}
+
+	oldChangeRequestsJson, err := json.Marshal(vm.Status.StateChangeRequests)
+	if err != nil {
+		return "", err
+	}
+
+	newChangeRequestsJson, err := json.Marshal(changeRequests)
+	if err != nil {
+		return "", err
+	}
+
+	test := fmt.Sprintf(`{ "op": "test", "path": "/status/stateChangeRequests", "value": %s}`, string(oldChangeRequestsJson))
+	update := fmt.Sprintf(`{ "op": "%s", "path": "/status/stateChangeRequests", "value": %s}`, verb, string(newChangeRequestsJson))
+	return fmt.Sprintf("[%s, %s]", test, update), nil
+}
+
+func getRunningJson(vm *v1.VirtualMachine, running bool) string {
+	runStrategy := v1.RunStrategyHalted
+	if running {
+		runStrategy = v1.RunStrategyAlways
+	}
+	if vm.Spec.RunStrategy != nil {
+		return fmt.Sprintf("{\"spec\":{\"runStrategy\": \"%s\"}}", runStrategy)
+	} else {
+		return fmt.Sprintf("{\"spec\":{\"running\": %t}}", running)
+	}
+}
+
 func (app *SubresourceAPIApp) RestartVMRequestHandler(request *restful.Request, response *restful.Response) {
+	// RunStrategyHalted         -> doesn't make sense
+	// RunStrategyManual         -> send restart request
+	// RunStrategyAlways         -> send restart request
+	// RunStrategyRerunOnFailure -> send restart request
 	name := request.PathParameter("name")
 	namespace := request.PathParameter("namespace")
 
@@ -158,21 +229,192 @@ func (app *SubresourceAPIApp) RestartVMRequestHandler(request *restful.Request, 
 		return
 	}
 
-	if !vm.Spec.Running {
-		response.WriteError(http.StatusNotFound, fmt.Errorf("Not found running %s VM", vm.Name))
+	runStrategy, err := vm.RunStrategy()
+	if err != nil {
+		response.WriteError(http.StatusInternalServerError, err)
+		return
+	}
+	if runStrategy == v1.RunStrategyHalted {
+		response.WriteError(http.StatusBadRequest, fmt.Errorf("runstrategy halted does not support manual restart requests"))
 		return
 	}
 
-	err = app.VirtCli.VirtualMachineInstance(namespace).Delete(name, &k8smetav1.DeleteOptions{})
+	startOnly := false
+	vmi, err := app.VirtCli.VirtualMachineInstance(namespace).Get(name, &k8smetav1.GetOptions{})
 	if err != nil {
-		if errors.IsNotFound(err) {
-			response.WriteError(http.StatusNotFound, err)
-		} else {
+		if !errors.IsNotFound(err) {
 			response.WriteError(http.StatusInternalServerError, err)
+			return
 		}
+		// If there's no VMI, just request to start
+		startOnly = true
+	}
+
+	bodyString := ""
+	if startOnly {
+		bodyString, err = getChangeRequestJson(vm,
+			v1.VirtualMachineStateChangeRequest{Action: v1.StartRequest})
+	} else {
+		bodyString, err = getChangeRequestJson(vm,
+			v1.VirtualMachineStateChangeRequest{Action: v1.StopRequest, UID: &vmi.UID},
+			v1.VirtualMachineStateChangeRequest{Action: v1.StartRequest})
+	}
+	if err != nil {
+		response.WriteError(http.StatusInternalServerError, err)
 		return
 	}
-	response.WriteHeader(http.StatusOK)
+
+	log.Log.Object(vm).V(4).Infof("Patching VM: %s", bodyString)
+	_, err = app.VirtCli.VirtualMachine(namespace).Patch(vm.GetName(), types.JSONPatchType, []byte(bodyString))
+	if err != nil {
+		errCode := http.StatusInternalServerError
+		if strings.Contains(err.Error(), "jsonpatch test operation does not apply") {
+			errCode = http.StatusConflict
+		}
+		response.WriteError(errCode, fmt.Errorf("%v: %s", err, bodyString))
+		return
+	}
+
+	response.WriteHeader(http.StatusAccepted)
+}
+
+func (app *SubresourceAPIApp) StartVMRequestHandler(request *restful.Request, response *restful.Response) {
+	name := request.PathParameter("name")
+	namespace := request.PathParameter("namespace")
+
+	vm, code, err := app.fetchVirtualMachine(name, namespace)
+	if err != nil {
+		response.WriteError(code, err)
+		return
+	}
+
+	bodyString := ""
+	patchType := types.MergePatchType
+
+	runStrategy, err := vm.RunStrategy()
+	if err != nil {
+		response.WriteError(http.StatusInternalServerError, err)
+		return
+	}
+	// RunStrategyHalted         -> spec.running = true
+	// RunStrategyManual         -> send start request
+	// RunStrategyAlways         -> doesn't make sense
+	// RunStrategyRerunOnFailure -> doesn't make sense
+	switch runStrategy {
+	case v1.RunStrategyHalted:
+		bodyString = getRunningJson(vm, true)
+	case v1.RunStrategyRerunOnFailure, v1.RunStrategyManual:
+		patchType = types.JSONPatchType
+
+		needsRestart := false
+		vmi, err := app.VirtCli.VirtualMachineInstance(namespace).Get(name, &k8smetav1.GetOptions{})
+		if err != nil {
+			if !errors.IsNotFound(err) {
+				response.WriteError(http.StatusInternalServerError, err)
+				return
+			}
+		} else {
+			if (runStrategy == v1.RunStrategyRerunOnFailure && vmi.Status.Phase == v1.Succeeded) ||
+				(runStrategy == v1.RunStrategyManual && vmi.IsFinal()) {
+				needsRestart = true
+			} else if runStrategy == v1.RunStrategyRerunOnFailure && vmi.Status.Phase == v1.Failed {
+				response.WriteError(http.StatusBadRequest, fmt.Errorf("runstrategy rerunonerror does not support starting VM from failed state"))
+				return
+			}
+		}
+
+		if needsRestart {
+			bodyString, err = getChangeRequestJson(vm,
+				v1.VirtualMachineStateChangeRequest{Action: v1.StopRequest, UID: &vmi.UID},
+				v1.VirtualMachineStateChangeRequest{Action: v1.StartRequest})
+		} else {
+			bodyString, err = getChangeRequestJson(vm,
+				v1.VirtualMachineStateChangeRequest{Action: v1.StartRequest})
+		}
+		if err != nil {
+			response.WriteError(http.StatusInternalServerError, err)
+			return
+		}
+	case v1.RunStrategyAlways:
+		response.WriteError(http.StatusBadRequest, fmt.Errorf("runstrategy always does not support manual start requests"))
+		return
+	}
+
+	log.Log.Object(vm).V(4).Infof("Patching VM: %s", bodyString)
+	_, err = app.VirtCli.VirtualMachine(namespace).Patch(vm.GetName(), patchType, []byte(bodyString))
+	if err != nil {
+		errCode := http.StatusInternalServerError
+		if strings.Contains(err.Error(), "jsonpatch test operation does not apply") {
+			errCode = http.StatusConflict
+		}
+		response.WriteError(errCode, fmt.Errorf("%v: %s", err, bodyString))
+		return
+	}
+
+	response.WriteHeader(http.StatusAccepted)
+}
+
+func (app *SubresourceAPIApp) StopVMRequestHandler(request *restful.Request, response *restful.Response) {
+	name := request.PathParameter("name")
+	namespace := request.PathParameter("namespace")
+
+	vm, code, err := app.fetchVirtualMachine(name, namespace)
+	if err != nil {
+		response.WriteError(code, err)
+		return
+	}
+
+	bodyString := ""
+	patchType := types.MergePatchType
+	runStrategy, err := vm.RunStrategy()
+	if err != nil {
+		response.WriteError(http.StatusInternalServerError, err)
+		return
+	}
+	// RunStrategyHalted         -> doesn't make sense
+	// RunStrategyManual         -> send stop request
+	// RunStrategyAlways         -> spec.running = false
+	// RunStrategyRerunOnFailure -> spec.running = false
+	switch runStrategy {
+	case v1.RunStrategyHalted:
+		response.WriteError(http.StatusInternalServerError, fmt.Errorf("runstrategy halted does not support manual stop requests"))
+		return
+	case v1.RunStrategyManual:
+		// pass the buck and ask virt-controller to stop the VM. this way the
+		// VM will retain RunStrategy = manual
+		vmi, err := app.VirtCli.VirtualMachineInstance(namespace).Get(name, &k8smetav1.GetOptions{})
+		if err != nil {
+			if !errors.IsNotFound(err) {
+				response.WriteError(http.StatusInternalServerError, err)
+				return
+			}
+			response.WriteError(http.StatusBadRequest, fmt.Errorf("VM is not running"))
+			return
+		} else {
+			patchType = types.JSONPatchType
+			bodyString, err = getChangeRequestJson(vm,
+				v1.VirtualMachineStateChangeRequest{Action: v1.StopRequest, UID: &vmi.UID})
+			if err != nil {
+				response.WriteError(http.StatusInternalServerError, err)
+				return
+			}
+		}
+	case v1.RunStrategyRerunOnFailure, v1.RunStrategyAlways:
+		bodyString = getRunningJson(vm, false)
+	}
+
+	log.Log.Object(vm).V(4).Infof("Patching VM: %s", bodyString)
+	_, err = app.VirtCli.VirtualMachine(namespace).Patch(vm.GetName(), patchType, []byte(bodyString))
+	if err != nil {
+		errCode := http.StatusInternalServerError
+		if strings.Contains(err.Error(), "jsonpatch test operation does not apply") {
+			errCode = http.StatusConflict
+		}
+		response.WriteError(errCode, fmt.Errorf("%v: %s", err, bodyString))
+		return
+	}
+
+	response.WriteHeader(http.StatusAccepted)
 }
 
 func (app *SubresourceAPIApp) findPod(namespace string, uid string) (string, error) {

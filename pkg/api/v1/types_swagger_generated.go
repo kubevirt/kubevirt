@@ -193,7 +193,8 @@ func (VirtualMachineList) SwaggerDoc() map[string]string {
 func (VirtualMachineSpec) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"":                    "VirtualMachineSpec describes how the proper VirtualMachine\nshould look like",
-		"running":             "Running controls whether the associatied VirtualMachineInstance is created or not",
+		"running":             "Running controls whether the associatied VirtualMachineInstance is created or not\nMutually exclusive with RunStrategy",
+		"runStrategy":         "Running state indicates the requested running state of the VirtualMachineInstance\nmutually exclusive with Running",
 		"template":            "Template is the direct specification of VirtualMachineInstance",
 		"dataVolumeTemplates": "dataVolumeTemplates is a list of dataVolumes that the VirtualMachineInstance template can reference.\nDataVolumes in this list are dynamically created for the VirtualMachine and are tied to the VirtualMachine's life-cycle.",
 	}
@@ -201,10 +202,18 @@ func (VirtualMachineSpec) SwaggerDoc() map[string]string {
 
 func (VirtualMachineStatus) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"":           "VirtualMachineStatus represents the status returned by the\ncontroller to describe how the VirtualMachine is doing",
-		"created":    "Created indicates if the virtual machine is created in the cluster",
-		"ready":      "Ready indicates if the virtual machine is running and ready",
-		"conditions": "Hold the state information of the VirtualMachine and its VirtualMachineInstance",
+		"":                    "VirtualMachineStatus represents the status returned by the\ncontroller to describe how the VirtualMachine is doing",
+		"created":             "Created indicates if the virtual machine is created in the cluster",
+		"ready":               "Ready indicates if the virtual machine is running and ready",
+		"conditions":          "Hold the state information of the VirtualMachine and its VirtualMachineInstance",
+		"stateChangeRequests": "StateChangeRequests indicates a list of actions that should be taken on a VMI\ne.g. stop a specific VMI then start a new one.",
+	}
+}
+
+func (VirtualMachineStateChangeRequest) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"action": "Indicates the type of action that is requested. e.g. Start or Stop",
+		"uid":    "Indicates the UUID of an existing Virtual Machine Instance that this change request applies to -- if applicable",
 	}
 }
 

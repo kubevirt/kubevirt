@@ -24,8 +24,6 @@ import (
 	"strings"
 
 	"github.com/spf13/cobra"
-	k8smetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/clientcmd"
 
 	"kubevirt.io/kubevirt/pkg/kubecli"
@@ -112,39 +110,16 @@ func (o *Command) Run(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("Cannot obtain KubeVirt client: %v", err)
 	}
 
-	options := k8smetav1.GetOptions{}
-	vm, err := virtClient.VirtualMachine(namespace).Get(vmiName, &options)
-	if err != nil {
-		return fmt.Errorf("Error fetching VirtualMachine: %v", err)
-	}
-
 	switch o.command {
-	case COMMAND_STOP, COMMAND_START:
-		running := false
-		if o.command == COMMAND_START {
-			running = true
+	case COMMAND_START:
+		err = virtClient.VirtualMachine(namespace).Start(vmiName)
+		if err != nil {
+			return fmt.Errorf("Error starting VirtualMachine %v", err)
 		}
-
-		if vm.Spec.Running != running {
-			bodyStr := fmt.Sprintf("{\"spec\":{\"running\":%t}}", running)
-
-			vm, err := virtClient.VirtualMachine(namespace).Patch(vm.Name, types.MergePatchType,
-				[]byte(bodyStr))
-
-			if err != nil {
-				return fmt.Errorf("Error updating VirtualMachine: %v", err)
-			}
-
-			if vm.Spec.Running != running {
-				return fmt.Errorf("Error VirtualMachine running state should be %t but returned: %t", running, vm.Spec.Running)
-			}
-
-		} else {
-			stateMsg := "stopped"
-			if running {
-				stateMsg = "running"
-			}
-			return fmt.Errorf("Error: VirtualMachineInstance '%s' is already %s", vmiName, stateMsg)
+	case COMMAND_STOP:
+		err = virtClient.VirtualMachine(namespace).Stop(vmiName)
+		if err != nil {
+			return fmt.Errorf("Error stopping VirtualMachine %v", err)
 		}
 	case COMMAND_RESTART:
 		err = virtClient.VirtualMachine(namespace).Restart(vmiName)

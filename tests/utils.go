@@ -3242,7 +3242,7 @@ func NewRandomVirtualMachine(vmi *v1.VirtualMachineInstance, running bool) *v1.V
 			Namespace: namespace,
 		},
 		Spec: v1.VirtualMachineSpec{
-			Running: running,
+			Running: &running,
 			Template: &v1.VirtualMachineInstanceTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
 					Labels:    map[string]string{"name": name},
@@ -3260,10 +3260,11 @@ func StopVirtualMachine(vm *v1.VirtualMachine) *v1.VirtualMachine {
 	By("Stopping the VirtualMachineInstance")
 	virtClient, err := kubecli.GetKubevirtClient()
 	PanicOnError(err)
+	running := false
 	Eventually(func() error {
 		updatedVM, err := virtClient.VirtualMachine(vm.Namespace).Get(vm.Name, &metav1.GetOptions{})
 		Expect(err).ToNot(HaveOccurred())
-		updatedVM.Spec.Running = false
+		updatedVM.Spec.Running = &running
 		_, err = virtClient.VirtualMachine(updatedVM.Namespace).Update(updatedVM)
 		return err
 	}, 300*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
@@ -3289,10 +3290,11 @@ func StartVirtualMachine(vm *v1.VirtualMachine) *v1.VirtualMachine {
 	By("Starting the VirtualMachineInstance")
 	virtClient, err := kubecli.GetKubevirtClient()
 	PanicOnError(err)
+	running := true
 	Eventually(func() error {
 		updatedVM, err := virtClient.VirtualMachine(vm.Namespace).Get(vm.Name, &metav1.GetOptions{})
 		Expect(err).ToNot(HaveOccurred())
-		updatedVM.Spec.Running = true
+		updatedVM.Spec.Running = &running
 		_, err = virtClient.VirtualMachine(updatedVM.Namespace).Update(updatedVM)
 		return err
 	}, 300*time.Second, 1*time.Second).ShouldNot(HaveOccurred())

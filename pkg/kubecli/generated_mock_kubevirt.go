@@ -1141,6 +1141,26 @@ func (_mr *_MockVirtualMachineInterfaceRecorder) Restart(arg0 interface{}) *gomo
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "Restart", arg0)
 }
 
+func (_m *MockVirtualMachineInterface) Start(name string) error {
+	ret := _m.ctrl.Call(_m, "Start", name)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+func (_mr *_MockVirtualMachineInterfaceRecorder) Start(arg0 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "Start", arg0)
+}
+
+func (_m *MockVirtualMachineInterface) Stop(name string) error {
+	ret := _m.ctrl.Call(_m, "Stop", name)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+func (_mr *_MockVirtualMachineInterfaceRecorder) Stop(arg0 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "Stop", arg0)
+}
+
 // Mock of VirtualMachineInstanceMigrationInterface interface
 type MockVirtualMachineInstanceMigrationInterface struct {
 	ctrl     *gomock.Controller
