@@ -50,14 +50,13 @@ const namespaceKubevirt = "kubevirt"
 
 var _ = Describe("Virt-api", func() {
 	var app virtAPIApp
-	var tmpDir, keyFile, certFile, signingCertFile, clientCAFile string
+	var tmpDir, keyFile, certFile, signingCertFile, caFile string
 	var goodPemCertificate1, goodPemCertificate2, badPemCertificate string
 	var server *ghttp.Server
 	var backend *httptest.Server
 	var ctrl *gomock.Controller
 	var authorizorMock *rest.MockVirtApiAuthorizor
 	var filesystemMock *MockFilesystem
-	var fileMock *MockFile
 	var expectedValidatingWebhooks *admissionregistrationv1beta1.ValidatingWebhookConfiguration
 	var expectedMutatingWebhooks *admissionregistrationv1beta1.MutatingWebhookConfiguration
 	var restrictiveMode os.FileMode
@@ -75,7 +74,7 @@ var _ = Describe("Virt-api", func() {
 		app.certsDirectory = tmpDir
 		keyFile = filepath.Join(app.certsDirectory, "/key.pem")
 		certFile = filepath.Join(app.certsDirectory, "/cert.pem")
-		clientCAFile = filepath.Join(app.certsDirectory, "/clientCA.crt")
+		caFile = filepath.Join(app.certsDirectory, "/clientCA.crt")
 		signingCertFile = filepath.Join(app.certsDirectory, "/signingCert.pem")
 		restrictiveMode = 0600
 
@@ -87,7 +86,6 @@ var _ = Describe("Virt-api", func() {
 		ctrl = gomock.NewController(GinkgoT())
 		authorizorMock = rest.NewMockVirtApiAuthorizor(ctrl)
 		filesystemMock = NewMockFilesystem(ctrl)
-		fileMock = NewMockFile(ctrl)
 
 		// Reset go-restful
 		http.DefaultServeMux = new(http.ServeMux)
@@ -280,26 +278,6 @@ xw==
 
 		}, 5)
 
-		It("should retrieve client and requestheader CA", func() {
-
-			configMap := &k8sv1.ConfigMap{}
-			configMap.Data = make(map[string]string)
-			configMap.Data["client-ca-file"] = "fakedata"
-			configMap.Data["requestheader-client-ca-file"] = "morefakedata"
-
-			server.AppendHandlers(
-				ghttp.CombineHandlers(
-					ghttp.VerifyRequest("GET", "/api/v1/namespaces/kube-system/configmaps/extension-apiserver-authentication"),
-					ghttp.RespondWithJSONEncoded(http.StatusOK, configMap),
-				),
-			)
-
-			err := app.getClientCert()
-			Expect(err).ToNot(HaveOccurred())
-			Expect(app.clientCABytes).To(Equal([]byte("fakedata")))
-			Expect(app.requestHeaderClientCABytes).To(Equal([]byte("morefakedata")))
-		}, 5)
-
 		It("should retrieve requestheader CA only", func() {
 
 			configMap := &k8sv1.ConfigMap{}
@@ -314,7 +292,6 @@ xw==
 
 			err := app.getClientCert()
 			Expect(err).ToNot(HaveOccurred())
-			Expect(app.clientCABytes).To(BeEmpty())
 			Expect(app.requestHeaderClientCABytes).To(Equal([]byte("morefakedata")))
 		}, 5)
 
@@ -322,7 +299,6 @@ xw==
 
 			configMap := &k8sv1.ConfigMap{}
 			configMap.Data = make(map[string]string)
-			configMap.Data["client-ca-file"] = "fakedata"
 			server.AppendHandlers(
 				ghttp.CombineHandlers(
 					ghttp.VerifyRequest("GET", "/api/v1/namespaces/kube-system/configmaps/extension-apiserver-authentication"),
@@ -605,15 +581,17 @@ xw==
 
 		It("should fail setupTLS without any data available at key write error", func() {
 			filesystemMock.EXPECT().
+				WriteFile(caFile, app.requestHeaderClientCABytes, restrictiveMode)
+			filesystemMock.EXPECT().
 				WriteFile(keyFile, app.keyBytes, restrictiveMode).
-				Return(errors.New("fake error writing " + clientCAFile))
+				Return(errors.New("fake error writing " + caFile))
 			err := app.setupTLS(filesystemMock)
 			Expect(err).To(HaveOccurred())
 		}, 5)
 
 		It("should fail setupTLS at keyBytes write error", func() {
 			filesystemMock.EXPECT().
-				WriteFile(clientCAFile, app.clientCABytes, restrictiveMode)
+				WriteFile(caFile, app.requestHeaderClientCABytes, restrictiveMode)
 			filesystemMock.EXPECT().
 				WriteFile(keyFile, app.keyBytes, restrictiveMode).
 				Return(errors.New("fake error writing " + keyFile))
@@ -623,7 +601,7 @@ xw==
 
 		It("should fail setupTLS at certFile write error", func() {
 			filesystemMock.EXPECT().
-				WriteFile(clientCAFile, app.clientCABytes, restrictiveMode)
+				WriteFile(caFile, app.requestHeaderClientCABytes, restrictiveMode)
 			filesystemMock.EXPECT().
 				WriteFile(keyFile, app.keyBytes, restrictiveMode)
 			filesystemMock.EXPECT().
@@ -635,7 +613,7 @@ xw==
 
 		It("should fail setupTLS at signingCertBytes write error", func() {
 			filesystemMock.EXPECT().
-				WriteFile(clientCAFile, app.clientCABytes, restrictiveMode)
+				WriteFile(caFile, app.requestHeaderClientCABytes, restrictiveMode)
 			filesystemMock.EXPECT().
 				WriteFile(keyFile, app.keyBytes, restrictiveMode)
 			filesystemMock.EXPECT().
@@ -649,7 +627,7 @@ xw==
 
 		It("should fail setupTLS at new pool error", func() {
 			filesystemMock.EXPECT().
-				WriteFile(clientCAFile, app.clientCABytes, restrictiveMode)
+				WriteFile(caFile, app.requestHeaderClientCABytes, restrictiveMode)
 			filesystemMock.EXPECT().
 				WriteFile(keyFile, app.keyBytes, restrictiveMode)
 			filesystemMock.EXPECT().
@@ -660,79 +638,34 @@ xw==
 			Expect(err).To(HaveOccurred())
 		}, 5)
 
-		It("should fail when client CA from request at open error", func() {
+		It("should fail setupTLS at requestheader CA write error", func() {
 			app.requestHeaderClientCABytes = []byte(goodPemCertificate1)
 			filesystemMock.EXPECT().
-				OpenFile(clientCAFile, os.O_CREATE|os.O_APPEND|os.O_WRONLY, restrictiveMode).
-				Return(nil, errors.New("fake error opening "+clientCAFile))
+				WriteFile(caFile, app.requestHeaderClientCABytes, restrictiveMode).
+				Return(errors.New("fake error opening " + caFile))
 			err := app.setupTLS(filesystemMock)
 			Expect(err).To(HaveOccurred())
 		}, 5)
 
-		It("should fail when client CA from request at write error", func() {
-			app.requestHeaderClientCABytes = []byte(goodPemCertificate1)
-			filesystemMock.EXPECT().
-				OpenFile(clientCAFile, os.O_CREATE|os.O_APPEND|os.O_WRONLY, restrictiveMode).
-				Return(fileMock, nil)
-			fileMock.EXPECT().
-				Write(app.requestHeaderClientCABytes).
-				Return(0, errors.New("fake error writing request client CA"))
-			fileMock.EXPECT().Close()
-			err := app.setupTLS(filesystemMock)
-			Expect(err).To(HaveOccurred())
-		}, 5)
-
-		It("should pass setupTLS at good client CA from config", func() {
-			app.clientCABytes = []byte(goodPemCertificate1)
-			err := app.setupTLS(IOUtil{})
-			Expect(err).ToNot(HaveOccurred())
-		}, 5)
-
-		It("should fail setupTLS at bad client CA from config", func() {
-			app.clientCABytes = []byte(badPemCertificate)
-			err := app.setupTLS(IOUtil{})
-			Expect(len(app.requestHeaderClientCABytes)).To(Equal(0))
-			Expect(err).To(HaveOccurred())
-		}, 5)
-
-		It("should pass setupTLS at good client CA from request", func() {
+		It("should pass setupTLS at good requestheader CA", func() {
 			app.requestHeaderClientCABytes = []byte(goodPemCertificate1)
 			err := app.setupTLS(IOUtil{})
 			Expect(err).ToNot(HaveOccurred())
 		}, 5)
 
-		It("should fail setupTLS at bad client CA from request", func() {
+		It("should fail setupTLS at bad requestheader CA", func() {
 			app.requestHeaderClientCABytes = []byte(badPemCertificate)
 			err := app.setupTLS(IOUtil{})
 			Expect(err).To(HaveOccurred())
-		}, 5)
-
-		It("should write client CA only at setupTLS", func() {
-			app.clientCABytes = []byte(goodPemCertificate1)
-			err := app.setupTLS(IOUtil{})
-			Expect(err).ToNot(HaveOccurred())
-			clientCABytes, err := ioutil.ReadFile(clientCAFile)
-			Expect(err).ToNot(HaveOccurred())
-			Expect(clientCABytes).To(Equal([]byte(goodPemCertificate1)))
 		}, 5)
 
 		It("should write requestheader CA only at setupTLS", func() {
 			app.requestHeaderClientCABytes = []byte(goodPemCertificate2)
 			err := app.setupTLS(IOUtil{})
 			Expect(err).ToNot(HaveOccurred())
-			clientCABytes, err := ioutil.ReadFile(clientCAFile)
+			clientCABytes, err := ioutil.ReadFile(caFile)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(clientCABytes).To(Equal([]byte(goodPemCertificate2)))
-		}, 5)
-
-		It("should concatenate at setupTLS client CA from request and config", func() {
-			app.clientCABytes = []byte(goodPemCertificate1)
-			app.requestHeaderClientCABytes = []byte(goodPemCertificate2)
-			err := app.setupTLS(IOUtil{})
-			Expect(err).ToNot(HaveOccurred())
-			clientCABytes, err := ioutil.ReadFile(clientCAFile)
-			Expect(err).ToNot(HaveOccurred())
-			Expect(clientCABytes).To(Equal([]byte(goodPemCertificate1 + goodPemCertificate2)))
 		}, 5)
 
 		It("should have default values for flags", func() {
