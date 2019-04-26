@@ -267,7 +267,7 @@ xw==
 			Expect(app.keyBytes).To(Equal(keyBytes))
 		}, 5)
 
-		It("should return error if client CA doesn't exist", func() {
+		It("should return error if extension-apiserver-authentication ConfigMap doesn't exist", func() {
 			server.AppendHandlers(
 				ghttp.CombineHandlers(
 					ghttp.VerifyRequest("GET", "/api/v1/namespaces/kube-system/configmaps/extension-apiserver-authentication"),
@@ -280,11 +280,13 @@ xw==
 
 		}, 5)
 
-		It("should retrieve client CA", func() {
+		It("should retrieve client and requestheader CA", func() {
 
 			configMap := &k8sv1.ConfigMap{}
 			configMap.Data = make(map[string]string)
 			configMap.Data["client-ca-file"] = "fakedata"
+			configMap.Data["requestheader-client-ca-file"] = "morefakedata"
+
 			server.AppendHandlers(
 				ghttp.CombineHandlers(
 					ghttp.VerifyRequest("GET", "/api/v1/namespaces/kube-system/configmaps/extension-apiserver-authentication"),
@@ -295,9 +297,10 @@ xw==
 			err := app.getClientCert()
 			Expect(err).ToNot(HaveOccurred())
 			Expect(app.clientCABytes).To(Equal([]byte("fakedata")))
+			Expect(app.requestHeaderClientCABytes).To(Equal([]byte("morefakedata")))
 		}, 5)
 
-		It("should retrieve requestheader client CA", func() {
+		It("should retrieve requestheader CA only", func() {
 
 			configMap := &k8sv1.ConfigMap{}
 			configMap.Data = make(map[string]string)
@@ -311,13 +314,30 @@ xw==
 
 			err := app.getClientCert()
 			Expect(err).ToNot(HaveOccurred())
+			Expect(app.clientCABytes).To(BeEmpty())
 			Expect(app.requestHeaderClientCABytes).To(Equal([]byte("morefakedata")))
+		}, 5)
+
+		It("should fail without requestheader CA", func() {
+
+			configMap := &k8sv1.ConfigMap{}
+			configMap.Data = make(map[string]string)
+			configMap.Data["client-ca-file"] = "fakedata"
+			server.AppendHandlers(
+				ghttp.CombineHandlers(
+					ghttp.VerifyRequest("GET", "/api/v1/namespaces/kube-system/configmaps/extension-apiserver-authentication"),
+					ghttp.RespondWithJSONEncoded(http.StatusOK, configMap),
+				),
+			)
+
+			err := app.getClientCert()
+			Expect(err).To(HaveOccurred())
 		}, 5)
 
 		It("should auto detect correct request headers from cert configmap", func() {
 			configMap := &k8sv1.ConfigMap{}
 			configMap.Data = make(map[string]string)
-			configMap.Data["client-ca-file"] = "fakedata"
+			configMap.Data["requestheader-client-ca-file"] = "morefakedata"
 			configMap.Data["requestheader-username-headers"] = "[\"fakeheader1\"]"
 			configMap.Data["requestheader-group-headers"] = "[\"fakeheader2\"]"
 			configMap.Data["requestheader-extra-headers-prefix"] = "[\"fakeheader3-\"]"
