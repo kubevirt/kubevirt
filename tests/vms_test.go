@@ -63,6 +63,24 @@ var _ = FDescribe("VirtualMachineSnapshot", func() {
 		return newVMS, currentVM
 	}
 
+	newRestore := func(vm *v1.VirtualMachine, vms *v1.VirtualMachineSnapshot) *v1.VirtualMachineRestore {
+		By("Create a new VirtualMachineRestore")
+		if vm == nil || vms == nil{
+			return nil
+		}
+
+		vmr := &v1.VirtualMachineRestore{
+			ObjectMeta: v12.ObjectMeta{Name: vms.Spec.VirtualMachine, Namespace: vms.ObjectMeta.Namespace},
+			Spec: v1.VirtualMachineRestoreSpec{
+				VirtualMachineSnapshot: vms.Name,
+			},
+		}
+
+		vmr, err := virtClient.VirtualMachineRestore(tests.NamespaceTestDefault).Create(vmr)
+		Expect(err).ToNot(HaveOccurred())
+		return vmr
+	}
+
 	Context("with valid VirtualMachine", func() {
 		It("should snapshot VirtualMachine", func() {
 			vms, vm := newSnapshotWithVM(nil)
@@ -101,6 +119,103 @@ var _ = FDescribe("VirtualMachineSnapshot", func() {
 				}
 			}, 300*time.Second, 1*time.Second).Should(Equal(vm.UID))
 
+		})
+
+		It("should restore VirtualMachine", func() {
+			vms, vm := newSnapshotWithVM(nil)
+			Eventually(func() types.UID {
+				vms, _ = virtClient.VirtualMachineSnapshot(tests.NamespaceTestDefault).Get(vms.Name, v12.GetOptions{})
+				if vms.Status.VirtualMachine != nil {
+					return vms.Status.VirtualMachine.UID
+				} else {
+					return ""
+				}
+			}, 300*time.Second, 1*time.Second).Should(Equal(vm.UID))
+
+			updatedVM := vm.DeepCopy()
+			updatedVM.Spec.Template.Spec.Hostname = "test"
+
+			updatedVM, err := virtClient.VirtualMachine(tests.NamespaceTestDefault).Update(updatedVM)
+			Expect(err).To(BeNil(), "should update VM")
+
+			By("Restoring its state")
+			vmr := newRestore(vm, vms)
+			Eventually(func() *v12.Time {
+				vmr, _ = virtClient.VirtualMachineRestore(tests.NamespaceTestDefault).Get(vmr.Name, v12.GetOptions{})
+				return vmr.Status.RestoredOn
+			}, 300*time.Second, 1*time.Second).ShouldNot(BeNil())
+
+			updatedVM, err = virtClient.VirtualMachine(tests.NamespaceTestDefault).Get(updatedVM.Name, &v12.GetOptions{})
+			Expect(err).To(BeNil())
+			Expect(updatedVM.Spec.Template.Spec.Hostname).To(Equal(vm.Spec.Template.Spec.Hostname))
+		})
+
+		It("should restore VirtualMachine one it is running", func() {
+			vms, vm := newSnapshotWithVM(nil)
+			Eventually(func() types.UID {
+				vms, _ = virtClient.VirtualMachineSnapshot(tests.NamespaceTestDefault).Get(vms.Name, v12.GetOptions{})
+				if vms.Status.VirtualMachine != nil {
+					return vms.Status.VirtualMachine.UID
+				} else {
+					return ""
+				}
+			}, 300*time.Second, 1*time.Second).Should(Equal(vm.UID))
+
+			updatedVM := vm.DeepCopy()
+			updatedVM.Spec.Template.Spec.Hostname = "test"
+			updatedVM.Spec.Running = true
+
+			updatedVM, err := virtClient.VirtualMachine(tests.NamespaceTestDefault).Update(updatedVM)
+			Expect(err).To(BeNil(), "should update VM")
+
+			By("Restoring its state")
+			vmr := newRestore(vm, vms)
+			Eventually(func() int {
+				vmr, _ = virtClient.VirtualMachineRestore(tests.NamespaceTestDefault).Get(vmr.Name, v12.GetOptions{})
+				return len(vmr.Status.Conditions)
+			}, 300*time.Second, 1*time.Second).Should(Equal(1))
+
+			Expect(vmr.Status.Conditions[0].Reason).To(Equal("VirtualMachineRunning"))
+			updatedVM, err = virtClient.VirtualMachine(tests.NamespaceTestDefault).Get(updatedVM.Name, &v12.GetOptions{})
+			Expect(err).To(BeNil())
+			Expect(updatedVM.Spec.Template.Spec.Hostname).To(Equal("test"))
+
+			updatedVM.Spec.Running = false
+			updatedVM, err = virtClient.VirtualMachine(tests.NamespaceTestDefault).Update(updatedVM)
+			Expect(err).To(BeNil(), "should update VM")
+
+			By("Waiting until VM is not running")
+			Eventually(func() *v12.Time {
+				vmr, _ = virtClient.VirtualMachineRestore(tests.NamespaceTestDefault).Get(vmr.Name, v12.GetOptions{})
+				return vmr.Status.RestoredOn
+			}, 300*time.Second, 1*time.Second).ShouldNot(BeNil())
+
+			updatedVM, err = virtClient.VirtualMachine(tests.NamespaceTestDefault).Get(updatedVM.Name, &v12.GetOptions{})
+			Expect(err).To(BeNil())
+			Expect(updatedVM.Spec.Template.Spec.Hostname).To(Equal(vm.Spec.Template.Spec.Hostname))
+		})
+
+		It("should not restore VirtualMachine without existing Snapshot", func() {
+			vms, vm := newSnapshotWithVM(nil)
+			Eventually(func() types.UID {
+				vms, _ = virtClient.VirtualMachineSnapshot(tests.NamespaceTestDefault).Get(vms.Name, v12.GetOptions{})
+				if vms.Status.VirtualMachine != nil {
+					return vms.Status.VirtualMachine.UID
+				} else {
+					return ""
+				}
+			}, 300*time.Second, 1*time.Second).Should(Equal(vm.UID))
+
+			virtClient.VirtualMachineSnapshot(tests.NamespaceTestDefault).Delete(vms.Name, &v12.DeleteOptions{})
+			Expect(err).To(BeNil(), "should delete Snapshot")
+
+			vmr := newRestore(vm, vms)
+			Eventually(func() int {
+				vmr, _ = virtClient.VirtualMachineRestore(tests.NamespaceTestDefault).Get(vmr.Name, v12.GetOptions{})
+				return len(vmr.Status.Conditions)
+			}, 300*time.Second, 1*time.Second).Should(Equal(1))
+			By("Expecting it to fail due to missing snapshot")
+			Expect(vmr.Status.Conditions[0].Reason).To(Equal("VirtualMachineHasNoSnapshot"), "should have snapshot")
 		})
 
 	})
