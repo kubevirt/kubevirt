@@ -59,6 +59,7 @@ function collect_artifacts {
 }
 
 function finish {
+    sleep $((60*60*4))
     collect_artifacts
     kind delete cluster --name=${CLUSTER_NAME}
 }
@@ -79,7 +80,7 @@ flock -e  -w "$SRIOV_TIMEOUT_SEC" "$fd" || {
 # ================
 go get -u sigs.k8s.io/kind
 
-kind --loglevel debug create cluster --name=${CLUSTER_NAME} --config=${MANIFESTS_DIR}/kind.yaml
+kind --loglevel debug create cluster --retain --name=${CLUSTER_NAME} --config=${MANIFESTS_DIR}/kind.yaml
 
 export KUBECONFIG=$(kind get kubeconfig-path --name=${CLUSTER_NAME})
 kubectl cluster-info
