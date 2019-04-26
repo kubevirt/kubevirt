@@ -207,7 +207,7 @@ func isInfoOrHealthEndpoint(req *restful.Request) bool {
 func isAuthenticated(req *restful.Request) bool {
 	// Peer cert is required for authentication.
 	// If the peer's cert is provided, we are guaranteed
-	// it has been validated against our client CA pool
+	// it has been validated against our CA pool containing the requestheader CA
 	if req.Request == nil || req.Request.TLS == nil || len(req.Request.TLS.PeerCertificates) == 0 {
 		return false
 	}
