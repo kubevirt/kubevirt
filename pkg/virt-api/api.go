@@ -397,12 +397,14 @@ func (app *virtAPIApp) getClientCert() error {
 		app.clientCABytes = []byte(clientCA)
 	}
 
-	// request-header-ca-file doesn't always exist in all deployments.
-	// set it if the value is set though.
+	// The request-header CA is mandatory. It can be retrieved from the configmap as we do here, or it must be provided
+	// via flag on start of this apiserver. Since we don't do the latter, the former is mandatory for us
+	// see https://github.com/kubernetes-incubator/apiserver-builder-alpha/blob/master/docs/concepts/auth.md#requestheader-authentication
 	requestHeaderClientCA, ok := authConfigMap.Data["requestheader-client-ca-file"]
-	if ok {
-		app.requestHeaderClientCABytes = []byte(requestHeaderClientCA)
+	if !ok {
+		return fmt.Errorf("requestheader-client-ca-file not found in extension-apiserver-authentication ConfigMap")
 	}
+	app.requestHeaderClientCABytes = []byte(requestHeaderClientCA)
 
 	// This config map also contains information about what
 	// headers our authorizor should inspect
