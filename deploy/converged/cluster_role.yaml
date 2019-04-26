@@ -804,37 +804,44 @@ rules:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  name: kubevirt-web-ui-operator
+  labels:
+    name: node-maintenance-operator
+  name: node-maintenance-operator
 rules:
 - apiGroups:
-  - oauth.openshift.io
-  - apiextensions.k8s.io
+  - ""
   resources:
-  - '*'
+  - services
+  - endpoints
+  - events
+  - configmaps
+  - serviceaccounts
   verbs:
   - '*'
 - apiGroups:
   - ""
   resources:
-  - pods
-  - services
-  - endpoints
-  - persistentvolumeclaims
-  - events
-  - configmaps
-  - secrets
-  - replicationcontrollers
-  - serviceaccounts
+  - nodes
   verbs:
-  - '*'
+  - get
+  - list
+  - update
+  - patch
+  - watch
 - apiGroups:
-  - extensions
-  - apps
+  - ""
   resources:
-  - deployments
-  - replicasets
+  - pods
   verbs:
-  - '*'
+  - get
+  - list
+  - watch
+- apiGroups:
+  - ""
+  resources:
+  - pods/eviction
+  verbs:
+  - create
 - apiGroups:
   - ""
   resources:
@@ -859,9 +866,34 @@ rules:
   - create
 - apiGroups:
   - kubevirt.io
-  - template.openshift.io
-  - route.openshift.io
   resources:
   - '*'
+  verbs:
+  - '*'
+- apiGroups:
+  - oauth.openshift.io
+  resources:
+  - '*'
+  verbs:
+  - '*'
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  labels:
+    name: kubevirt-web-ui-operator
+  name: kubevirt-web-ui-operator
+rules:
+- apiGroups:
+  - oauth.openshift.io
+  - apiextensions.k8s.io
+  resources:
+  - '*'
+  verbs:
+  - '*'
+- apiGroups:
+  - ""
+  resources:
+  - configmaps
   verbs:
   - '*'

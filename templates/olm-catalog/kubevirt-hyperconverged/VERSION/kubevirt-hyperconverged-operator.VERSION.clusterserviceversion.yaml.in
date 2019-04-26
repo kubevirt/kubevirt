@@ -5,16 +5,76 @@ metadata:
   namespace: placeholder
   annotations:
     capabilities: "Full Lifecycle"
-    categories: "Virtualization"
-    alm-examples: |
+    categories: "OpenShift Optional"
+    certified: "false"
+    support: "false"
+    repository: https://github.com/kubevirt/hyperconverged-cluster-operator
+    alm-examples: >-
       [
         {
-          "apiVersion":"hco.kubevirt.io/v1alpha1",
-          "kind":"HyperConverged",
+          "apiVersion": "hco.kubevirt.io/v1alpha1",
+          "kind": "HyperConverged",
           "metadata": {
-            "name":"kubevirt-hyperconverged",
-            "namespace":"kubevirt-hyperconverged",
-          },
+            "name": "kubevirt-hyperconverged",
+            "namespace": "kubevirt-hyperconverged",
+          }{{if .Converged}}
+        },
+        {
+          "apiVersion": "cdi.kubevirt.io/v1alpha1",
+          "kind": "CDI",
+          "metadata": {
+            "name": "cdi"
+          }
+        },
+        {
+          "apiVersion": "kubevirt.io/v1alpha3",
+          "kind": "KubeVirt",
+          "metadata": {
+            "name": "kubevirt",
+            "namespace": "kubevirt"
+          }
+        },
+        {
+          "apiVersion": "networkaddonsoperator.network.kubevirt.io/v1alpha1",
+          "kind": "NetworkAddonsConfig",
+          "metadata": {
+            "name": "network-addons"
+          }
+        },
+        {
+          "apiVersion": "kwebuis.kubevirt.io/v1alpha1",
+          "kind": "KWebUI",
+          "metadata": {
+            "name": "web-ui"
+          }
+        },
+        {
+          "apiVersion": "kubevirtcommontemplatesbundles.kubevirt.io/v1",
+          "kind": "KubevirtCommonTemplatesBundle",
+          "metadata": {
+            "name": "common-templates"
+          }
+        },
+        {
+          "apiVersion": "kubevirtnodelabellerbundles.kubevirt.io/v1",
+          "kind": "KubevirtNodeLabellerBundle",
+          "metadata": {
+            "name": "node-labeller"
+          }
+        },
+        {
+          "apiVersion": "kubevirttemplatevalidators.kubevirt.io/v1",
+          "kind": "KubevirtTemplateValidator",
+          "metadata": {
+            "name": "template-validator"
+          }
+        },
+        {
+          "apiVersion": "nodemaintenances.kubevirt.io/v1alpha1",
+          "kind": "NodeMaintenance",
+          "metadata": {
+            "name": "node-maintenance"
+          }{{end}}
         }
       ]
     description: Creates and maintains a HyperConverged KubeVirt Deployment
@@ -82,6 +142,170 @@ spec:
         - serviceAccountName: kubevirt-web-ui-operator
           rules:
 {{.KWEBUI.ClusterRules}}
+        - serviceAccountName: kubevirt-ssp-operator
+          rules:
+          - apiGroups:
+            - oauth.openshift.io
+            - template.openshift.io
+            resources:
+            - '*'
+            verbs:
+            - '*'
+          - apiGroups:
+            - rbac.authorization.k8s.io
+            resources:
+            - clusterroles
+            verbs:
+            - create
+            - get
+            - patch
+            - list
+          - apiGroups:
+            - rbac.authorization.k8s.io
+            resources:
+            - clusterrolebindings
+            verbs:
+            - create
+            - get
+            - list
+            - watch
+            - patch
+          - apiGroups:
+            - extensions
+            - apps
+            resources:
+            - deployments
+            - replicasets
+            verbs:
+            - create
+            - get
+            - patch
+            - list
+          - apiGroups:
+            - apps
+            resources:
+            - daemonsets
+            verbs:
+            - create
+            - get
+            - patch
+          - apiGroups:
+            - ""
+            resources:
+            - serviceaccounts
+            verbs:
+            - create
+            - get
+            - patch
+          - apiGroups:
+            - ""
+            resources:
+            - pods
+            - configmaps
+            - nodes
+            verbs:
+            - create
+            - get
+            - patch
+            - update
+          - apiGroups:
+            - ""
+            resources:
+            - services
+            verbs:
+            - list
+            - get
+            - create
+            - patch
+          - apiGroups:
+            - admissionregistration.k8s.io
+            resources:
+            - validatingwebhookconfigurations
+            verbs:
+            - create
+            - get
+            - list
+            - patch
+            - watch
+          - apiGroups:
+            - security.openshift.io
+            resources:
+            - securitycontextconstraints
+            verbs:
+            - '*'
+            resourceName:
+            - privileged
+
+        - serviceAccountName: node-maintenance-operator
+          rules:
+          - apiGroups:
+            - ""
+            resources:
+            - services
+            - endpoints
+            - events
+            - configmaps
+            - serviceaccounts
+            verbs:
+            - '*'
+          - apiGroups:
+            - ""
+            resources:
+            - nodes
+            verbs:
+            - get
+            - list
+            - update
+            - patch
+            - watch
+          - apiGroups:
+            - ""
+            resources:
+            - pods
+            verbs:
+            - get
+            - list
+            - watch
+          - apiGroups:
+            - ""
+            resources:
+            - pods/eviction
+            verbs:
+            - create
+          - apiGroups:
+            - ""
+            resources:
+            - namespaces
+            verbs:
+            - get
+          - apiGroups:
+            - apps
+            resources:
+            - deployments
+            - daemonsets
+            - replicasets
+            - statefulsets
+            verbs:
+            - '*'
+          - apiGroups:
+            - monitoring.coreos.com
+            resources:
+            - servicemonitors
+            verbs:
+            - get
+            - create
+          - apiGroups:
+            - kubevirt.io
+            resources:
+            - '*'
+            verbs:
+            - '*'
+          - apiGroups:
+            - oauth.openshift.io
+            resources:
+            - '*'
+            verbs:
+            - '*'
 {{end}}
       deployments:
         - name: hco-operator
@@ -100,6 +324,69 @@ spec:
         - name: kubevirt-web-ui-operator
           spec:
 {{.KWEBUI.DeploymentSpec}}
+        - name: kubevirt-ssp-operator
+          spec:
+            replicas: 1
+            selector:
+              matchLabels:
+                name: kubevirt-ssp-operator
+            template:
+              metadata:
+                labels:
+                  name: kubevirt-ssp-operator
+              spec:
+                serviceAccountName: kubevirt-ssp-operator
+                containers:
+                  - name: kubevirt-ssp-operator
+                    image: quay.io/fromani/kubevirt-ssp-operator-container:latest
+                    ports:
+                    - containerPort: 60000
+                      name: metrics
+                    imagePullPolicy: Always
+                    env:
+                      - name: WATCH_NAMESPACE
+                        valueFrom:
+                          fieldRef:
+                            fieldPath: metadata.namespace
+                      - name: OPERATOR_NAME
+                        value: "kubevirt-ssp-operator"
+
+        - name: node-maintenance-operator
+          spec:
+          replicas: 1
+          selector:
+            matchLabels:
+              name: node-maintenance-operator
+          strategy: {}
+          template:
+            metadata:
+              labels:
+                name: node-maintenance-operator
+            spec:
+              affinity:
+                nodeAffinity:
+                  requiredDuringSchedulingIgnoredDuringExecution:
+                    nodeSelectorTerms:
+                    - matchExpressions:
+                      - key: node-role.kubernetes.io/master
+                        operator: Exists
+              containers:
+              - env:
+                - name: WATCH_NAMESPACE
+                - name: POD_NAME
+                  valueFrom:
+                    fieldRef:
+                      fieldPath: metadata.name
+                - name: OPERATOR_NAME
+                  value: node-maintenance-operator
+                image: quay.io/kubevirt/node-maintenance-operator:latest
+                imagePullPolicy: Always
+                name: node-maintenance-operator
+                resources: {}
+              serviceAccountName: node-maintenance-operator
+              tolerations:
+              - effect: NoSchedule
+                key: node-role.kubernetes.io/master
 {{end}}
   customresourcedefinitions:
     owned:
@@ -131,3 +418,23 @@ spec:
         kind: {{.KWEBUI.CRD.Spec.Names.Kind}}
         displayName: Web User Interface
         description: KubeVirt Web User Interface
+      - name: kubevirtcommontemplatesbundles.kubevirt.io
+        version: v1
+        kind: KubevirtCommonTemplatesBundle
+        displayName: KubeVirt Common Templates
+        description: KubeVirt Common Templates
+      - name: kubevirtnodelabellerbundles.kubevirt.io
+        version: v1
+        kind: KubevirtNodeLabellerBundle
+        displayName: KubeVirt Node Labeller Bundler
+        description: KubeVirt Node Labeller Bundler
+      - name: kubevirttemplatevalidators.kubevirt.io
+        version: v1
+        kind: KubevirtTemplateValidator
+        displayName: KubeVirt Template Validator
+        description: KubeVirt Template Validator
+      - name: nodemaintenances.kubevirt.io
+        version: v1alpha1
+        kind: NodeMaintenance
+        displayName: Node Maintenance
+        description: Node Maintenance

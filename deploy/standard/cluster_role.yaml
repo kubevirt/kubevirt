@@ -37,10 +37,6 @@ rules:
   - pods
   - serviceaccounts
   - services
-  - nodes
-  - secrets
-  - replicationcontrollers
-  - namespaces
   verbs:
   - get
   - list
@@ -48,7 +44,6 @@ rules:
   - create
   - update
   - delete
-  - patch
 - apiGroups:
   - batch
   resources:
@@ -70,7 +65,6 @@ rules:
   - watch
   - create
   - delete
-  - patch
 - apiGroups:
   - rbac.authorization.k8s.io
   resources:
@@ -84,7 +78,6 @@ rules:
   - watch
   - create
   - delete
-  - patch
 - apiGroups:
   - apiextensions.k8s.io
   resources:
@@ -115,51 +108,3 @@ rules:
   - get
   - patch
   - update
-- apiGroups:
-  - oauth.openshift.io
-  - template.openshift.io
-  resources:
-  - '*'
-  verbs:
-  - '*'
-- apiGroups:
-  - extensions
-  - apps
-  resources:
-  - deployments
-  - replicasets
-  verbs:
-  - create
-  - get
-  - patch
-  - list
-- apiGroups:
-  - admissionregistration.k8s.io
-  resources:
-  - validatingwebhookconfigurations
-  verbs:
-  - create
-  - get
-  - list
-  - patch
-  - watch
-    - extensions
-    - apps
-  resources:
-    - deployments
-    - replicasets
-  verbs:
-    - '*'
-- apiGroups:
-    - template.openshift.io
-    - route.openshift.io
-  resources:
-    - '*'
-  verbs:
-    - '*'
-- apiGroups:
-    - oauth.openshift.io
-  resources:
-    - '*'
-  verbs:
-    - '*'
