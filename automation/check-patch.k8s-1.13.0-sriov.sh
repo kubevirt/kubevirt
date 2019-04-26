@@ -80,6 +80,9 @@ flock -e  -w "$SRIOV_TIMEOUT_SEC" "$fd" || {
 # ================
 go get -u sigs.k8s.io/kind
 
+# try to create cluster twice...
+kind --loglevel debug create cluster --wait=$((60*60))s --retain --name=${CLUSTER_NAME} --config=${MANIFESTS_DIR}/kind.yaml || true
+kind delete cluster --name=${CLUSTER_NAME}
 kind --loglevel debug create cluster --wait=$((60*60))s --retain --name=${CLUSTER_NAME} --config=${MANIFESTS_DIR}/kind.yaml
 
 export KUBECONFIG=$(kind get kubeconfig-path --name=${CLUSTER_NAME})
