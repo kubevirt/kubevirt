@@ -40,5 +40,5 @@ source hack/common.sh
 "${CMD}" delete ns cluster-network-addons-operator
 
 # Delete ssp-operator
-"${CMD}" delete -f "${SSP_URL_PREFIX}"/kubevirt-ssp-operator-v0.1.0.crds.yaml
-"${CMD}" delete -f "${SSP_URL_PREFIX}"/kubevirt-ssp-operator-v0.1.0.yaml
+"${CMD}" delete -f "${SSP_URL_PREFIX}"/kubevirt-ssp-operator-crd.yaml
+"${CMD}" delete -f "${SSP_URL_PREFIX}"/kubevirt-ssp-operator.yaml

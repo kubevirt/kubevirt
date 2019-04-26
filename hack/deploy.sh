@@ -49,9 +49,9 @@ fi
 "${CMD}" create -f "${CNA_URL_PREFIX}"/network-addons-config-example.cr.yaml
 
 # Create ssp-operator
-"${CMD}" create -f "${SSP_URL_PREFIX}"/kubevirt-ssp-operator-v0.1.0.crds.yaml
-"${CMD}" create -f "${SSP_URL_PREFIX}"/kubevirt-ssp-operator-v0.1.0.yaml
-"${CMD}" create -f "${SSP_URL_PREFIX}"/kubevirt-ssp-operator-v0.1.0.crs.yaml
+"${CMD}" create -f "${SSP_URL_PREFIX}"/kubevirt-ssp-operator-crd.yaml
+"${CMD}" create -f "${SSP_URL_PREFIX}"/kubevirt-ssp-operator.yaml
+"${CMD}" create -f "${SSP_URL_PREFIX}"/kubevirt-ssp-operator-cr.yaml
 # Create kubevirt-web-ui-operator
 "${CMD}" create -f "${KWEBUI_URL}" || true
 
