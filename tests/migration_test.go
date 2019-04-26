@@ -34,6 +34,8 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/rand"
+	"k8s.io/client-go/util/cert"
+	"k8s.io/client-go/util/cert/triple"
 
 	v1 "kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/kubecli"
@@ -598,20 +600,36 @@ var _ = Describe("Migrations", func() {
 					return true
 				}, 60*time.Second, 1*time.Second).Should(BeTrue())
 
-				By("checking if we fail to connect")
+				By("checking if we fail to connect with our own cert")
+				// Generate new certs if secret doesn't already exist
+				caKeyPair, _ := triple.NewCA("kubevirt.io")
+
+				clientKeyPair, _ := triple.NewClientKeyPair(caKeyPair,
+					"kubevirt.io:system:node:virt-handler",
+					nil,
+				)
+
+				certPEM := cert.EncodeCertPEM(clientKeyPair.Cert)
+				keyPEM := cert.EncodePrivateKeyPEM(clientKeyPair.Key)
+				cert, err := tls.X509KeyPair(certPEM, keyPEM)
+				Expect(err).ToNot(HaveOccurred())
+				tlsConfig := &tls.Config{
+					InsecureSkipVerify: true,
+					GetClientCertificate: func(info *tls.CertificateRequestInfo) (certificate *tls.Certificate, e error) {
+						return &cert, nil
+					},
+				}
 				handler, err := kubecli.NewVirtHandlerClient(virtClient).ForNode(vmi.Status.MigrationState.TargetNode).Pod()
 				Expect(err).ToNot(HaveOccurred())
 				// The port-forwarder tears down after each check, but may be too slow, so use different ports on fast checks
-				i := 0
 				for port, _ := range vmi.Status.MigrationState.TargetDirectMigrationNodePorts {
 					func() {
 						stopChan := make(chan struct{})
 						defer close(stopChan)
-						Expect(tests.ForwardPorts(handler, []string{fmt.Sprintf("4321%d:%d", i, port)}, stopChan, 10*time.Second)).To(Succeed())
-						_, err = tls.Dial("tcp", fmt.Sprintf("localhost:4321%d", i), nil)
-						Expect(err.Error()).To(ContainSubstring("certificate is valid for kubevirt.io:system:node:virt-handler, not localhost"))
+						Expect(tests.ForwardPorts(handler, []string{fmt.Sprintf("4321:%d", port)}, stopChan, 10*time.Second)).To(Succeed())
+						_, err = tls.Dial("tcp", fmt.Sprintf("localhost:4321"), tlsConfig)
+						Expect(err.Error()).To(ContainSubstring("remote error: tls: bad certificate"))
 					}()
-					i++
 				}
 			})
 		})

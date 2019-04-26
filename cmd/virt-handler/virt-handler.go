@@ -351,6 +351,7 @@ func (app *virtHandlerApp) setupTLS() error {
 
 	app.migrationTLSConfig = &tls.Config{
 		MinVersion: tls.VersionTLS12,
+		ClientCAs:  certPool,
 		GetClientCertificate: func(info *tls.CertificateRequestInfo) (certificate *tls.Certificate, e error) {
 			return &clientCert, nil
 		},
@@ -373,7 +374,7 @@ func (app *virtHandlerApp) setupTLS() error {
 			}
 			_, err = c.Verify(x509.VerifyOptions{
 				Roots:     certPool,
-				KeyUsages: []x509.ExtKeyUsage{x509.ExtKeyUsageAny},
+				KeyUsages: []x509.ExtKeyUsage{x509.ExtKeyUsageClientAuth},
 			})
 
 			if err != nil {
@@ -381,7 +382,7 @@ func (app *virtHandlerApp) setupTLS() error {
 			}
 			return nil
 		},
-		ClientAuth: tls.RequireAnyClientCert,
+		ClientAuth: tls.RequireAndVerifyClientCert,
 	}
 
 	return nil
