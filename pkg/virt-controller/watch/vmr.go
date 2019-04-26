@@ -253,13 +253,11 @@ func (c *VMRestoreController) doRestore(vmr *virtv1.VirtualMachineRestore, vms *
 	newVM := vms.Status.VirtualMachine
 	newVM.ResourceVersion = vm.ResourceVersion
 
-	updatedVM, err := c.clientset.VirtualMachine(vm.ObjectMeta.Namespace).Update(newVM)
+	_, err := c.clientset.VirtualMachine(vm.ObjectMeta.Namespace).Update(newVM)
 	if err != nil {
 		log.Log.Errorf("Cannot update VM: %s", newVM.Name)
 		return false, err
 	}
-
-	log.Log.Object(vm).Infof("updatedVM: %s", updatedVM.Spec.Template.Spec.Domain.Resources.Requests.Memory())
 
 	return true, nil
 }
@@ -292,6 +290,7 @@ func shouldDoRestore(vmr *virtv1.VirtualMachineRestore, vms *virtv1.VirtualMachi
 	}
 
 	if vm == nil {
+		log.Log.Infof("VM %s not found", vmr.Name)
 		snapshotConditions = append(snapshotConditions, virtv1.VirtualMachineSnapshotCondition{
 			Type:               virtv1.VirtualMachineSnapshotFailure,
 			Reason:             VirtualMachineNoVMSnapshotReason,
@@ -317,6 +316,7 @@ func shouldDoRestore(vmr *virtv1.VirtualMachineRestore, vms *virtv1.VirtualMachi
 	}
 
 	if vms == nil {
+		log.Log.Infof("VMS %s not found", vmr.Spec.VirtualMachineSnapshot)
 		snapshotConditions = append(snapshotConditions, virtv1.VirtualMachineSnapshotCondition{
 			Type:               virtv1.VirtualMachineSnapshotFailure,
 			Reason:             VirtualMachineNoSnapshotReason,
