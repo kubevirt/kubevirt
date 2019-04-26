@@ -195,7 +195,7 @@ var _ = Describe("VirtualMachineRestore", func() {
 
 	})
 
-	FContext("Valid multiple VirtualMachineSnapshots given", func() {
+	Context("Valid multiple VirtualMachineSnapshots given", func() {
 		It("should restore VM only from one snapshot once", func() {
 			vms, vm := DefaultVMSnapshot()
 			vms_2 := &v1.VirtualMachineSnapshot{
