@@ -21,6 +21,7 @@ package installstrategy
 
 import (
 	"reflect"
+	"strings"
 
 	. "github.com/onsi/ginkgo"
 	"github.com/onsi/ginkgo/extensions/table"
@@ -33,6 +34,9 @@ import (
 	rbacv1 "k8s.io/api/rbac/v1"
 	extv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/intstr"
+
+	v1 "kubevirt.io/kubevirt/pkg/api/v1"
 )
 
 var _ = Describe("Install Strategy", func() {
@@ -173,6 +177,309 @@ var _ = Describe("Install Strategy", func() {
 			table.Entry("with identical semver no prefix", "0.15.0", "0.15.0", false),
 			table.Entry("with invalid semver no prefix", "devel", "0.14.0", true),
 			table.Entry("with no current no prefix", "devel", "", false),
+		)
+	})
+
+	Context("should handle service endpoint updates", func() {
+		table.DescribeTable("with either patch or complete replacement",
+			func(cachedService *corev1.Service,
+				targetService *corev1.Service,
+				expectLabelsAnnotationsPatch bool,
+				expectSpecPatch bool,
+				expectDelete bool) {
+
+				kv := &v1.KubeVirt{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "test-install",
+						Namespace: "default",
+					},
+					Spec: v1.KubeVirtSpec{
+						ImageTag:      imageTag,
+						ImageRegistry: imageRegistry,
+					},
+					Status: v1.KubeVirtStatus{
+						TargetKubeVirtVersion:  imageTag,
+						TargetKubeVirtRegistry: imageRegistry,
+					},
+				}
+
+				ops, shouldDeleteAndReplace, err := generateServicePatch(kv, cachedService, targetService)
+				Expect(err).To(BeNil())
+				Expect(shouldDeleteAndReplace).To(Equal(expectDelete))
+
+				hasSubstring := func(ops []string, substring string) bool {
+					for _, op := range ops {
+						if strings.Contains(op, substring) {
+							return true
+						}
+					}
+					return false
+				}
+
+				if expectLabelsAnnotationsPatch {
+					Expect(hasSubstring(ops, "/metadata/labels")).To(BeTrue())
+					Expect(hasSubstring(ops, "/metadata/annotations")).To(BeTrue())
+				}
+
+				if expectSpecPatch {
+					Expect(hasSubstring(ops, "/spec")).To(BeTrue())
+				}
+
+				if !expectSpecPatch && !expectLabelsAnnotationsPatch {
+					Expect(len(ops)).To(Equal(0))
+				}
+			},
+			table.Entry("should delete and recreate service if of mixed 'type'.",
+				&corev1.Service{
+					Spec: corev1.ServiceSpec{
+						Type: corev1.ServiceTypeClusterIP,
+					},
+				},
+				&corev1.Service{
+					Spec: corev1.ServiceSpec{
+						Type: corev1.ServiceTypeNodePort,
+					},
+				},
+				false, false, true),
+			table.Entry("should delete and recreate service if not of type ClusterIP.",
+				&corev1.Service{
+					Spec: corev1.ServiceSpec{
+						Type: corev1.ServiceTypeNodePort,
+					},
+				},
+				&corev1.Service{
+					Spec: corev1.ServiceSpec{
+						Type: corev1.ServiceTypeNodePort,
+					},
+				},
+				false, false, true),
+			table.Entry("should delete and recreate service if ClusterIP changes (clusterIP is not mutable)",
+				&corev1.Service{
+					Spec: corev1.ServiceSpec{
+						ClusterIP: "2.2.2.2",
+						Type:      corev1.ServiceTypeClusterIP,
+					},
+				},
+				&corev1.Service{
+					Spec: corev1.ServiceSpec{
+						ClusterIP: "1.1.1.1",
+						Type:      corev1.ServiceTypeClusterIP,
+					},
+				},
+				false, false, true),
+			table.Entry("should do nothing if cached service has ClusterIP set and target does not (clusterIP is dynamically assigned when empty)",
+				&corev1.Service{
+					ObjectMeta: metav1.ObjectMeta{
+						Annotations: map[string]string{
+							v1.InstallStrategyVersionAnnotation:  imageTag,
+							v1.InstallStrategyRegistryAnnotation: imageRegistry,
+						},
+					},
+					Spec: corev1.ServiceSpec{
+						ClusterIP: "2.2.2.2",
+						Type:      corev1.ServiceTypeClusterIP,
+					},
+				},
+				&corev1.Service{
+					ObjectMeta: metav1.ObjectMeta{
+						Annotations: map[string]string{
+							v1.InstallStrategyVersionAnnotation:  imageTag,
+							v1.InstallStrategyRegistryAnnotation: imageRegistry,
+						},
+					},
+					Spec: corev1.ServiceSpec{
+						Type: corev1.ServiceTypeClusterIP,
+					},
+				},
+				false, false, false),
+			table.Entry("should update labels, annotations on update",
+				&corev1.Service{
+					ObjectMeta: metav1.ObjectMeta{
+						Annotations: map[string]string{
+							v1.InstallStrategyVersionAnnotation:  "oldversion",
+							v1.InstallStrategyRegistryAnnotation: "oldversion",
+						},
+					},
+					Spec: corev1.ServiceSpec{
+						Selector: map[string]string{
+							"prometheus.kubevirt.io": "",
+						},
+						Ports: []corev1.ServicePort{
+							{
+								Name: "old",
+								Port: 444,
+								TargetPort: intstr.IntOrString{
+									Type:   intstr.Int,
+									IntVal: 8444,
+								},
+								Protocol: corev1.ProtocolTCP,
+							},
+						},
+						Type: corev1.ServiceTypeClusterIP,
+					},
+				},
+				&corev1.Service{
+					ObjectMeta: metav1.ObjectMeta{
+						Annotations: map[string]string{
+							v1.InstallStrategyVersionAnnotation:  imageTag,
+							v1.InstallStrategyRegistryAnnotation: imageRegistry,
+						},
+					},
+					Spec: corev1.ServiceSpec{
+						Selector: map[string]string{
+							"prometheus.kubevirt.io": "",
+						},
+						Ports: []corev1.ServicePort{
+							{
+								Name: "old",
+								Port: 444,
+								TargetPort: intstr.IntOrString{
+									Type:   intstr.Int,
+									IntVal: 8444,
+								},
+								Protocol: corev1.ProtocolTCP,
+							},
+						},
+						Type: corev1.ServiceTypeClusterIP,
+					},
+				},
+				true, false, false),
+			table.Entry("no-op with identical specs",
+				&corev1.Service{
+					ObjectMeta: metav1.ObjectMeta{
+						Annotations: map[string]string{
+							v1.InstallStrategyVersionAnnotation:  imageTag,
+							v1.InstallStrategyRegistryAnnotation: imageRegistry,
+						},
+					},
+					Spec: corev1.ServiceSpec{
+						Selector: map[string]string{
+							v1.AppLabel: "virt-api",
+						},
+						Ports: []corev1.ServicePort{
+							{
+								Port: 443,
+								TargetPort: intstr.IntOrString{
+									Type:   intstr.Int,
+									IntVal: 8443,
+								},
+								Protocol: corev1.ProtocolTCP,
+							},
+							{
+								Name: "metrics",
+								Port: 443,
+								TargetPort: intstr.IntOrString{
+									Type:   intstr.String,
+									StrVal: "metrics",
+								},
+								Protocol: corev1.ProtocolTCP,
+							},
+						},
+						Type: corev1.ServiceTypeClusterIP,
+					},
+				},
+				&corev1.Service{
+					ObjectMeta: metav1.ObjectMeta{
+						Annotations: map[string]string{
+							v1.InstallStrategyVersionAnnotation:  imageTag,
+							v1.InstallStrategyRegistryAnnotation: imageRegistry,
+						},
+					},
+					Spec: corev1.ServiceSpec{
+						Selector: map[string]string{
+							v1.AppLabel: "virt-api",
+						},
+						Ports: []corev1.ServicePort{
+							{
+								Port: 443,
+								TargetPort: intstr.IntOrString{
+									Type:   intstr.Int,
+									IntVal: 8443,
+								},
+								Protocol: corev1.ProtocolTCP,
+							},
+							{
+								Name: "metrics",
+								Port: 443,
+								TargetPort: intstr.IntOrString{
+									Type:   intstr.String,
+									StrVal: "metrics",
+								},
+								Protocol: corev1.ProtocolTCP,
+							},
+						},
+						Type: corev1.ServiceTypeClusterIP,
+					},
+				},
+				false, false, false),
+			table.Entry("should patch spec when selectors differ",
+				&corev1.Service{
+					ObjectMeta: metav1.ObjectMeta{
+						Annotations: map[string]string{
+							v1.InstallStrategyVersionAnnotation:  "old",
+							v1.InstallStrategyRegistryAnnotation: "old",
+						},
+					},
+					Spec: corev1.ServiceSpec{
+						Selector: map[string]string{
+							v1.AppLabel: "virt-api",
+						},
+						Ports: []corev1.ServicePort{
+							{
+								Port: 443,
+								TargetPort: intstr.IntOrString{
+									Type:   intstr.Int,
+									IntVal: 8443,
+								},
+								Protocol: corev1.ProtocolTCP,
+							},
+							{
+								Name: "metrics",
+								Port: 443,
+								TargetPort: intstr.IntOrString{
+									Type:   intstr.String,
+									StrVal: "metrics",
+								},
+								Protocol: corev1.ProtocolTCP,
+							},
+						},
+						Type: corev1.ServiceTypeClusterIP,
+					},
+				},
+				&corev1.Service{
+					ObjectMeta: metav1.ObjectMeta{
+						Annotations: map[string]string{
+							v1.InstallStrategyVersionAnnotation:  imageTag,
+							v1.InstallStrategyRegistryAnnotation: imageRegistry,
+						},
+					},
+					Spec: corev1.ServiceSpec{
+						Selector: map[string]string{
+							"somenew-selector": "val",
+						},
+						Ports: []corev1.ServicePort{
+							{
+								Port: 443,
+								TargetPort: intstr.IntOrString{
+									Type:   intstr.Int,
+									IntVal: 8443,
+								},
+								Protocol: corev1.ProtocolTCP,
+							},
+							{
+								Name: "metrics",
+								Port: 443,
+								TargetPort: intstr.IntOrString{
+									Type:   intstr.String,
+									StrVal: "metrics",
+								},
+								Protocol: corev1.ProtocolTCP,
+							},
+						},
+						Type: corev1.ServiceTypeClusterIP,
+					},
+				},
+				true, true, false),
 		)
 	})
 	Context("should match", func() {

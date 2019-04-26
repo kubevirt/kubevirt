@@ -7,11 +7,12 @@ metadata:
   name: virt-operator
   namespace: {{.Namespace}}
 spec:
-  replicas: 1
+  replicas: 2
   selector:
     matchLabels:
       kubevirt.io: virt-operator
-  strategy: {}
+  strategy:
+    type: RollingUpdate
   template:
     metadata:
       annotations:

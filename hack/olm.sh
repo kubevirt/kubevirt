@@ -27,6 +27,10 @@ if [ $# -ne 1 ]; then
 fi
 
 BUNDLE_DIR=${OUT_DIR}/manifests/release/olm/bundle
+
+echo "operator-courier version:"
+operator-courier --version
+
 echo "using these manifests:"
 ls ${BUNDLE_DIR}
 
@@ -34,14 +38,7 @@ case ${1} in
 
 verify)
 
-    IFS=
-    result=$(operator-courier verify ${BUNDLE_DIR} 2>&1)
-    echo $result
-
-    if [[ $result =~ "ERROR" ]]; then
-        echo "olm verify failed!"
-        exit 1
-    fi
+    operator-courier verify --ui_validate_io ${BUNDLE_DIR}
 
     echo "olm verify success!"
     exit 0
@@ -65,7 +62,7 @@ push)
         }' | jq -r '.token')
 
     echo "pushing bundle"
-    operator-courier push "$BUNDLE_DIR" "$QUAY_REPOSITORY" kubevirt "$csv_version" "$AUTH_TOKEN"
+    operator-courier push "$BUNDLE_DIR" "$QUAY_REPOSITORY" "$package_name" "$csv_version" "$AUTH_TOKEN"
 
     ;;
 esac

@@ -32,6 +32,7 @@ import (
 	secv1 "github.com/openshift/api/security/v1"
 	secv1fake "github.com/openshift/client-go/security/clientset/versioned/typed/security/v1/fake"
 
+	admissionregistrationv1beta1 "k8s.io/api/admissionregistration/v1beta1"
 	appsv1 "k8s.io/api/apps/v1"
 	batchv1 "k8s.io/api/batch/v1"
 	k8sv1 "k8s.io/api/core/v1"
@@ -75,6 +76,7 @@ var _ = Describe("KubeVirt Operator", func() {
 	var serviceSource *framework.FakeControllerSource
 	var deploymentSource *framework.FakeControllerSource
 	var daemonSetSource *framework.FakeControllerSource
+	var validatingWebhookSource *framework.FakeControllerSource
 	var sccSource *framework.FakeControllerSource
 	var installStrategyConfigMapSource *framework.FakeControllerSource
 	var installStrategyJobSource *framework.FakeControllerSource
@@ -96,7 +98,6 @@ var _ = Describe("KubeVirt Operator", func() {
 
 	defaultImageTag := "v9.9.9"
 	defaultRegistry := "someregistry"
-	os.Setenv(util.OperatorImageEnvName, fmt.Sprintf("%s/virt-operator:%s", defaultRegistry, defaultImageTag))
 
 	var totalAdds int
 	var totalUpdates int
@@ -109,6 +110,7 @@ var _ = Describe("KubeVirt Operator", func() {
 	updateCount := 16
 
 	deleteFromCache := true
+	addToCache := true
 
 	syncCaches := func(stop chan struct{}) {
 		go kvInformer.Run(stop)
@@ -121,6 +123,7 @@ var _ = Describe("KubeVirt Operator", func() {
 		go informers.Service.Run(stop)
 		go informers.Deployment.Run(stop)
 		go informers.DaemonSet.Run(stop)
+		go informers.ValidationWebhook.Run(stop)
 		go informers.SCC.Run(stop)
 		go informers.InstallStrategyJob.Run(stop)
 		go informers.InstallStrategyConfigMap.Run(stop)
@@ -137,6 +140,7 @@ var _ = Describe("KubeVirt Operator", func() {
 		cache.WaitForCacheSync(stop, informers.Service.HasSynced)
 		cache.WaitForCacheSync(stop, informers.Deployment.HasSynced)
 		cache.WaitForCacheSync(stop, informers.DaemonSet.HasSynced)
+		cache.WaitForCacheSync(stop, informers.ValidationWebhook.HasSynced)
 		cache.WaitForCacheSync(stop, informers.SCC.HasSynced)
 		cache.WaitForCacheSync(stop, informers.InstallStrategyJob.HasSynced)
 		cache.WaitForCacheSync(stop, informers.InstallStrategyConfigMap.HasSynced)
@@ -156,11 +160,14 @@ var _ = Describe("KubeVirt Operator", func() {
 
 	BeforeEach(func() {
 
+		os.Setenv(util.OperatorImageEnvName, fmt.Sprintf("%s/virt-operator:%s", defaultRegistry, defaultImageTag))
+
 		totalAdds = 0
 		totalUpdates = 0
 		totalPatches = 0
 		totalDeletions = 0
 		deleteFromCache = true
+		addToCache = true
 
 		stop = make(chan struct{})
 		ctrl = gomock.NewController(GinkgoT())
@@ -197,6 +204,9 @@ var _ = Describe("KubeVirt Operator", func() {
 		informers.DaemonSet, daemonSetSource = testutils.NewFakeInformerFor(&appsv1.DaemonSet{})
 		stores.DaemonSetCache = informers.DaemonSet.GetStore()
 
+		informers.ValidationWebhook, validatingWebhookSource = testutils.NewFakeInformerFor(&admissionregistrationv1beta1.ValidatingWebhookConfiguration{})
+		stores.ValidationWebhookCache = informers.ValidationWebhook.GetStore()
+
 		informers.SCC, sccSource = testutils.NewFakeInformerFor(&secv1.SecurityContextConstraints{})
 		stores.SCCCache = informers.SCC.GetStore()
 
@@ -223,6 +233,7 @@ var _ = Describe("KubeVirt Operator", func() {
 		}
 		extClient = extclientfake.NewSimpleClientset()
 
+		virtClient.EXPECT().AdmissionregistrationV1beta1().Return(kubeClient.AdmissionregistrationV1beta1()).AnyTimes()
 		virtClient.EXPECT().CoreV1().Return(kubeClient.CoreV1()).AnyTimes()
 		virtClient.EXPECT().BatchV1().Return(kubeClient.BatchV1()).AnyTimes()
 		virtClient.EXPECT().RbacV1().Return(kubeClient.RbacV1()).AnyTimes()
@@ -336,6 +347,12 @@ var _ = Describe("KubeVirt Operator", func() {
 		mockQueue.Wait()
 	}
 
+	addValidatingWebhook := func(wh *admissionregistrationv1beta1.ValidatingWebhookConfiguration) {
+		mockQueue.ExpectAdds(1)
+		validatingWebhookSource.Add(wh)
+		mockQueue.Wait()
+	}
+
 	addInstallStrategyConfigMap := func(c *k8sv1.ConfigMap) {
 		mockQueue.ExpectAdds(1)
 		installStrategyConfigMapSource.Add(c)
@@ -383,6 +400,9 @@ var _ = Describe("KubeVirt Operator", func() {
 		case *appsv1.DaemonSet:
 			injectMetadata(&obj.(*appsv1.DaemonSet).ObjectMeta, version, registry)
 			addDaemonset(resource)
+		case *admissionregistrationv1beta1.ValidatingWebhookConfiguration:
+			injectMetadata(&obj.(*admissionregistrationv1beta1.ValidatingWebhookConfiguration).ObjectMeta, version, registry)
+			addValidatingWebhook(resource)
 		case *batchv1.Job:
 			injectMetadata(&obj.(*batchv1.Job).ObjectMeta, version, registry)
 			addInstallStrategyJob(resource)
@@ -559,6 +579,20 @@ var _ = Describe("KubeVirt Operator", func() {
 		return len(all)
 	}
 
+	addDummyValidationWebhook := func() {
+		version := fmt.Sprintf("rand-%s", rand.String(10))
+		registry := fmt.Sprintf("rand-%s", rand.String(10))
+
+		validationWebhook := &admissionregistrationv1beta1.ValidatingWebhookConfiguration{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "virt-operator-tmp-webhook",
+			},
+		}
+
+		injectMetadata(&validationWebhook.ObjectMeta, version, registry)
+		addValidatingWebhook(validationWebhook)
+	}
+
 	addAll := func(version string, registry string) {
 		pullPolicy := "IfNotPresent"
 		imagePullPolicy := k8sv1.PullPolicy(pullPolicy)
@@ -721,6 +755,14 @@ var _ = Describe("KubeVirt Operator", func() {
 		mockQueue.Wait()
 	}
 
+	deleteValidationWebhook := func(key string) {
+		mockQueue.ExpectAdds(1)
+		if obj, exists, _ := informers.ValidationWebhook.GetStore().GetByKey(key); exists {
+			validatingWebhookSource.Delete(obj.(runtime.Object))
+		}
+		mockQueue.Wait()
+	}
+
 	deleteInstallStrategyJob := func(key string) {
 		mockQueue.ExpectAdds(1)
 		if obj, exists, _ := informers.InstallStrategyJob.GetStore().GetByKey(key); exists {
@@ -756,6 +798,8 @@ var _ = Describe("KubeVirt Operator", func() {
 			deleteDeployment(key)
 		case "daemonsets":
 			deleteDaemonset(key)
+		case "validatingwebhookconfigurations":
+			deleteValidationWebhook(key)
 		case "jobs":
 			deleteInstallStrategyJob(key)
 		case "configmaps":
@@ -784,7 +828,9 @@ var _ = Describe("KubeVirt Operator", func() {
 		create, ok := action.(testing.CreateAction)
 		Expect(ok).To(BeTrue())
 		totalAdds++
-		addResource(create.GetObject(), "", "")
+		if addToCache {
+			addResource(create.GetObject(), "", "")
+		}
 		return true, create.GetObject(), nil
 	}
 	genericDeleteFunc := func(action testing.Action) (handled bool, obj runtime.Object, err error) {
@@ -844,6 +890,7 @@ var _ = Describe("KubeVirt Operator", func() {
 		kubeClient.Fake.PrependReactor("delete", "services", genericDeleteFunc)
 		kubeClient.Fake.PrependReactor("delete", "deployments", genericDeleteFunc)
 		kubeClient.Fake.PrependReactor("delete", "daemonsets", genericDeleteFunc)
+		kubeClient.Fake.PrependReactor("delete", "validatingwebhookconfigurations", genericDeleteFunc)
 	}
 
 	shouldExpectJobDeletion := func() {
@@ -867,6 +914,13 @@ var _ = Describe("KubeVirt Operator", func() {
 		kubeClient.Fake.PrependReactor("patch", "deployments", genericPatchFunc)
 	}
 
+	shouldExpectRbacBackupCreations := func() {
+		kubeClient.Fake.PrependReactor("create", "clusterroles", genericCreateFunc)
+		kubeClient.Fake.PrependReactor("create", "clusterrolebindings", genericCreateFunc)
+		kubeClient.Fake.PrependReactor("create", "roles", genericCreateFunc)
+		kubeClient.Fake.PrependReactor("create", "rolebindings", genericCreateFunc)
+	}
+
 	shouldExpectCreations := func() {
 		kubeClient.Fake.PrependReactor("create", "serviceaccounts", genericCreateFunc)
 		kubeClient.Fake.PrependReactor("create", "clusterroles", genericCreateFunc)
@@ -884,6 +938,7 @@ var _ = Describe("KubeVirt Operator", func() {
 		kubeClient.Fake.PrependReactor("create", "services", genericCreateFunc)
 		kubeClient.Fake.PrependReactor("create", "deployments", genericCreateFunc)
 		kubeClient.Fake.PrependReactor("create", "daemonsets", genericCreateFunc)
+		kubeClient.Fake.PrependReactor("create", "validatingwebhookconfigurations", genericCreateFunc)
 	}
 
 	shouldExpectKubeVirtUpdate := func(times int) {
@@ -990,6 +1045,57 @@ var _ = Describe("KubeVirt Operator", func() {
 
 			shouldExpectKubeVirtUpdateVersion(1, "custom.tag")
 			controller.Execute()
+
+		}, 15)
+
+		It("delete temporary validation webhook once virt-api is deployed", func(done Done) {
+			defer close(done)
+
+			kv := &v1.KubeVirt{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:       "test-install",
+					Namespace:  NAMESPACE,
+					Finalizers: []string{util.KubeVirtFinalizer},
+				},
+				Status: v1.KubeVirtStatus{
+					Phase: v1.KubeVirtPhaseDeployed,
+					Conditions: []v1.KubeVirtCondition{
+						{
+							Type:    v1.KubeVirtConditionCreated,
+							Status:  k8sv1.ConditionTrue,
+							Reason:  ConditionReasonDeploymentCreated,
+							Message: "All resources were created.",
+						},
+						{
+							Type:    v1.KubeVirtConditionReady,
+							Status:  k8sv1.ConditionTrue,
+							Reason:  ConditionReasonDeploymentReady,
+							Message: "All components are ready.",
+						},
+					},
+					OperatorVersion:          version.Get().String(),
+					TargetKubeVirtVersion:    defaultImageTag,
+					TargetKubeVirtRegistry:   defaultRegistry,
+					ObservedKubeVirtVersion:  defaultImageTag,
+					ObservedKubeVirtRegistry: defaultRegistry,
+				},
+			}
+
+			deleteFromCache = false
+
+			// create all resources which should already exist
+			addKubeVirt(kv)
+			addDummyValidationWebhook()
+			addInstallStrategy(defaultImageTag, defaultRegistry)
+			addAll(defaultImageTag, defaultRegistry)
+			addPods(defaultImageTag, defaultRegistry)
+			makeApiAndControllerReady()
+			makeHandlerReady()
+
+			shouldExpectDeletions()
+
+			controller.Execute()
+			Expect(totalDeletions).To(Equal(1))
 
 		}, 15)
 
@@ -1288,8 +1394,13 @@ var _ = Describe("KubeVirt Operator", func() {
 			Expect(kv.Status.Phase).To(Equal(v1.KubeVirtPhaseDeploying))
 			Expect(len(kv.Status.Conditions)).To(Equal(0))
 
-			// -2 because waiting on controller and virt-handler daemonset until API server deploys successfully
-			Expect(totalAdds).To(Equal(resourceCount - 2))
+			// 2 because waiting on controller and virt-handler daemonset until API server deploys successfully
+			expectedUncreatedResources := 2
+
+			// 1 because a temporary validation webhook is created to block new CRDs until api server is deployed
+			expectedTemporaryResources := 1
+
+			Expect(totalAdds).To(Equal(resourceCount - expectedUncreatedResources + expectedTemporaryResources))
 			Expect(len(controller.stores.ServiceAccountCache.List())).To(Equal(3))
 			Expect(len(controller.stores.ClusterRoleCache.List())).To(Equal(7))
 			Expect(len(controller.stores.ClusterRoleBindingCache.List())).To(Equal(5))
@@ -1299,6 +1410,7 @@ var _ = Describe("KubeVirt Operator", func() {
 			Expect(len(controller.stores.ServiceCache.List())).To(Equal(2))
 			Expect(len(controller.stores.DeploymentCache.List())).To(Equal(1))
 			Expect(len(controller.stores.DaemonSetCache.List())).To(Equal(0))
+			Expect(len(controller.stores.ValidationWebhookCache.List())).To(Equal(1))
 		}, 15)
 
 		It("should pause rollback until api server is rolled over.", func(done Done) {
@@ -1352,6 +1464,8 @@ var _ = Describe("KubeVirt Operator", func() {
 			makeApiAndControllerReady()
 			makeHandlerReady()
 
+			addToCache = false
+			shouldExpectRbacBackupCreations()
 			shouldExpectPatchesAndUpdates()
 			shouldExpectKubeVirtUpdate(1)
 
@@ -1417,6 +1531,8 @@ var _ = Describe("KubeVirt Operator", func() {
 			makeApiAndControllerReady()
 			makeHandlerReady()
 
+			addToCache = false
+			shouldExpectRbacBackupCreations()
 			shouldExpectPatchesAndUpdates()
 			shouldExpectKubeVirtUpdate(1)
 
@@ -1426,6 +1542,76 @@ var _ = Describe("KubeVirt Operator", func() {
 			// this prevents the new API from coming online until the controllers can manage it.
 			Expect(totalPatches).To(Equal(patchCount - 1))
 			Expect(totalUpdates).To(Equal(updateCount))
+		}, 15)
+
+		It("should update kubevirt resources when Operator version changes if no imageTag and imageRegistry is explicilty set.", func(done Done) {
+			defer close(done)
+
+			updatedVersion := "1.1.1"
+			updatedRegistry := "otherregistry"
+
+			os.Setenv(util.OperatorImageEnvName, fmt.Sprintf("%s/virt-operator:%s", updatedRegistry, updatedVersion))
+
+			controller.config = util.GetConfig()
+
+			kv := &v1.KubeVirt{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:       "test-install",
+					Namespace:  NAMESPACE,
+					Finalizers: []string{util.KubeVirtFinalizer},
+				},
+				Spec: v1.KubeVirtSpec{},
+				Status: v1.KubeVirtStatus{
+					Phase: v1.KubeVirtPhaseDeployed,
+					Conditions: []v1.KubeVirtCondition{
+						{
+							Type:    v1.KubeVirtConditionCreated,
+							Status:  k8sv1.ConditionTrue,
+							Reason:  ConditionReasonDeploymentCreated,
+							Message: "All resources were created.",
+						},
+						{
+							Type:    v1.KubeVirtConditionReady,
+							Status:  k8sv1.ConditionTrue,
+							Reason:  ConditionReasonDeploymentReady,
+							Message: "All components are ready.",
+						},
+					},
+					OperatorVersion:          version.Get().String(),
+					TargetKubeVirtVersion:    defaultImageTag,
+					TargetKubeVirtRegistry:   defaultRegistry,
+					ObservedKubeVirtVersion:  defaultImageTag,
+					ObservedKubeVirtRegistry: defaultRegistry,
+				},
+			}
+
+			// create all resources which should already exist
+			addKubeVirt(kv)
+			addInstallStrategy(defaultImageTag, defaultRegistry)
+			addInstallStrategy(updatedVersion, updatedRegistry)
+
+			addAll(defaultImageTag, defaultRegistry)
+			addPods(defaultImageTag, defaultRegistry)
+
+			// pods for the new version are added so this test won't
+			// wait for daemonsets to rollover before updating/patching
+			// all resources.
+			addPods(updatedVersion, updatedRegistry)
+
+			makeApiAndControllerReady()
+			makeHandlerReady()
+
+			shouldExpectPatchesAndUpdates()
+			shouldExpectKubeVirtUpdate(1)
+
+			controller.Execute()
+
+			Expect(totalPatches).To(Equal(patchCount))
+			Expect(totalUpdates).To(Equal(updateCount))
+
+			// ensure every resource is either patched or updated
+			Expect(totalUpdates + totalPatches).To(Equal(resourceCount))
+
 		}, 15)
 
 		It("should update resources when changing KubeVirt version.", func(done Done) {

@@ -88,12 +88,7 @@ func DeploymentIsReady(kv *v1.KubeVirt, deployment *appsv1.Deployment, stores St
 		return false
 	}
 
-	var specReplicas int32 = 1
-	if deployment.Spec.Replicas != nil {
-		specReplicas = *deployment.Spec.Replicas
-	}
-	if specReplicas != deployment.Status.Replicas ||
-		deployment.Status.Replicas != deployment.Status.ReadyReplicas {
+	if deployment.Status.Replicas == 0 || deployment.Status.ReadyReplicas == 0 {
 		log.Log.V(4).Infof("Deployment %v not ready yet", deployment.Name)
 		return false
 	}

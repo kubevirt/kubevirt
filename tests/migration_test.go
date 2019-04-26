@@ -270,6 +270,141 @@ var _ = Describe("Migrations", func() {
 
 			})
 		})
+		Context("with a shared ISCSI Filesystem PVC", func() {
+			var options metav1.GetOptions
+			var cfgMap *k8sv1.ConfigMap
+			var originalMigrationConfig string
+			var kubevirtConfig = "kubevirt-config"
+			BeforeEach(func() {
+				tests.BeforeTestCleanup()
+				if !tests.HasCDI() {
+					Skip("Skip DataVolume tests when CDI is not present")
+				}
+				// set unsafe migration flag
+				options = metav1.GetOptions{}
+				cfgMap, err = virtClient.CoreV1().ConfigMaps(namespaceKubevirt).Get(kubevirtConfig, options)
+				Expect(err).ToNot(HaveOccurred())
+				originalMigrationConfig = cfgMap.Data["migrations"]
+				cfgMap.Data["migrations"] = `{"unsafeMigrationOverride": true}`
+
+				_, err = virtClient.CoreV1().ConfigMaps(namespaceKubevirt).Update(cfgMap)
+				Expect(err).ToNot(HaveOccurred())
+				time.Sleep(5 * time.Second)
+
+			}, 60)
+
+			AfterEach(func() {
+				cfgMap, err = virtClient.CoreV1().ConfigMaps(namespaceKubevirt).Get(kubevirtConfig, options)
+				Expect(err).ToNot(HaveOccurred())
+				cfgMap.Data["migrations"] = originalMigrationConfig
+				_, err = virtClient.CoreV1().ConfigMaps(namespaceKubevirt).Update(cfgMap)
+				Expect(err).ToNot(HaveOccurred())
+			}, 60)
+
+			It("should migrate a vmi with UNSAFE_MIGRATION flag set", func() {
+				// Normally, live migration with a shared volume that contains
+				// a non-clustered filesystem will be prevented for disk safety reasons.
+				// This test sets a UNSAFE_MIGRATION flag and a migration with an ext4 filesystem
+				// should succeed.
+
+				pvName := "test-iscsi-dv" + rand.String(48)
+				// Start a ISCSI POD and service
+				By("Starting an iSCSI POD")
+				iscsiIP := tests.CreateISCSITargetPOD(tests.ContainerDiskEmpty)
+				_, err = virtClient.CoreV1().PersistentVolumes().Create(tests.CreateISCSIPV(pvName, "2Gi", iscsiIP, k8sv1.ReadWriteMany, k8sv1.PersistentVolumeFilesystem))
+				Expect(err).To(BeNil())
+				dataVolume := tests.NewRandomDataVolumeWithHttpImport(tests.AlpineHttpUrl, tests.NamespaceTestDefault, k8sv1.ReadWriteMany)
+				volMode := k8sv1.PersistentVolumeFilesystem
+				dataVolume.Spec.PVC.VolumeMode = &volMode
+				vmi := tests.NewRandomVMIWithDataVolume(dataVolume.Name)
+
+				_, err := virtClient.CdiClient().CdiV1alpha1().DataVolumes(dataVolume.Namespace).Create(dataVolume)
+				Expect(err).To(BeNil())
+
+				By("checking that the datavolume has succeeded")
+				tests.WaitForSuccessfulDataVolumeImport(vmi, 340)
+
+				vmi = runVMIAndExpectLaunch(vmi, 240)
+
+				// Verify console on last iteration to verify the VirtualMachineInstance is still booting properly
+				// after being restarted multiple times
+				By("Checking that the VirtualMachineInstance console has expected output")
+				expecter, err := tests.LoggedInAlpineExpecter(vmi)
+				Expect(err).To(BeNil())
+				expecter.Close()
+
+				// execute a migration, wait for finalized state
+				By("Starting the Migration")
+				migration := tests.NewRandomMigration(vmi.Name, vmi.Namespace)
+				migrationUID := runMigrationAndExpectCompletion(migration, 180)
+
+				// check VMI, confirm migration state
+				confirmVMIPostMigration(vmi, migrationUID)
+
+				// delete VMI
+				By("Deleting the VMI")
+				err = virtClient.VirtualMachineInstance(vmi.Namespace).Delete(vmi.Name, &metav1.DeleteOptions{})
+				Expect(err).To(BeNil())
+
+				By("Waiting for VMI to disappear")
+				tests.WaitForVirtualMachineToDisappearWithTimeout(vmi, 120)
+
+				err = virtClient.CdiClient().CdiV1alpha1().DataVolumes(dataVolume.Namespace).Delete(dataVolume.Name, &metav1.DeleteOptions{})
+				Expect(err).To(BeNil())
+			})
+		})
+		Context("with an Alpine DataVolume", func() {
+			BeforeEach(func() {
+				tests.BeforeTestCleanup()
+				if !tests.HasCDI() {
+					Skip("Skip DataVolume tests when CDI is not present")
+				}
+			}, 60)
+			It("should reject a migration of a vmi with a non-shared data volume", func() {
+				dataVolume := tests.NewRandomDataVolumeWithHttpImport(tests.AlpineHttpUrl, tests.NamespaceTestDefault, k8sv1.ReadWriteOnce)
+				vmi := tests.NewRandomVMIWithDataVolume(dataVolume.Name)
+
+				_, err := virtClient.CdiClient().CdiV1alpha1().DataVolumes(dataVolume.Namespace).Create(dataVolume)
+				Expect(err).To(BeNil())
+
+				By("checking that the datavolume has succeeded")
+				tests.WaitForSuccessfulDataVolumeImport(vmi, 240)
+
+				vmi = runVMIAndExpectLaunch(vmi, 240)
+
+				// Verify console on last iteration to verify the VirtualMachineInstance is still booting properly
+				// after being restarted multiple times
+				By("Checking that the VirtualMachineInstance console has expected output")
+				expecter, err := tests.LoggedInAlpineExpecter(vmi)
+				Expect(err).To(BeNil())
+				expecter.Close()
+
+				for _, c := range vmi.Status.Conditions {
+					if c.Type == v1.VirtualMachineInstanceIsMigratable {
+						Expect(c.Status).To(Equal(k8sv1.ConditionFalse))
+					}
+				}
+
+				// execute a migration, wait for finalized state
+				migration := tests.NewRandomMigration(vmi.Name, vmi.Namespace)
+
+				By("Starting a Migration")
+				_, err = virtClient.VirtualMachineInstanceMigration(migration.Namespace).Create(migration)
+				Expect(err).ToNot(BeNil())
+				Expect(err.Error()).To(ContainSubstring("DisksNotLiveMigratable"))
+
+				// delete VMI
+				By("Deleting the VMI")
+				err = virtClient.VirtualMachineInstance(vmi.Namespace).Delete(vmi.Name, &metav1.DeleteOptions{})
+				Expect(err).To(BeNil())
+
+				By("Waiting for VMI to disappear")
+				tests.WaitForVirtualMachineToDisappearWithTimeout(vmi, 120)
+
+				err = virtClient.CdiClient().CdiV1alpha1().DataVolumes(dataVolume.Namespace).Delete(dataVolume.Name, &metav1.DeleteOptions{})
+				Expect(err).To(BeNil())
+			})
+		})
 		Context("with an Alpine shared ISCSI PVC", func() {
 			var pvName string
 			BeforeEach(func() {
@@ -279,7 +414,7 @@ var _ = Describe("Migrations", func() {
 				iscsiIP := tests.CreateISCSITargetPOD(tests.ContainerDiskAlpine)
 				// create a new PV and PVC (PVs can't be reused)
 				By("create a new iSCSI PV and PVC")
-				tests.CreateISCSIPvAndPvc(pvName, "1Gi", iscsiIP)
+				tests.CreateISCSIPvAndPvc(pvName, "1Gi", iscsiIP, k8sv1.PersistentVolumeBlock)
 			}, 60)
 
 			AfterEach(func() {
@@ -351,7 +486,7 @@ var _ = Describe("Migrations", func() {
 				iscsiIP := tests.CreateISCSITargetPOD(tests.ContainerDiskCirros)
 				// create a new PV and PVC (PVs can't be reused)
 				By("create a new iSCSI PV and PVC")
-				tests.CreateISCSIPvAndPvc(pvName, "1Gi", iscsiIP)
+				tests.CreateISCSIPvAndPvc(pvName, "1Gi", iscsiIP, k8sv1.PersistentVolumeBlock)
 			}, 60)
 
 			AfterEach(func() {
@@ -387,6 +522,7 @@ var _ = Describe("Migrations", func() {
 				tests.WaitForVirtualMachineToDisappearWithTimeout(vmi, 120)
 			})
 		})
+
 		Context("migration monitor", func() {
 			var options metav1.GetOptions
 			var cfgMap *k8sv1.ConfigMap
@@ -413,13 +549,8 @@ var _ = Describe("Migrations", func() {
 				Expect(err).ToNot(HaveOccurred())
 			})
 			It("should abort a vmi migration without progress", func() {
-
-				vmi := tests.NewRandomVMIWithEphemeralDisk(tests.ContainerDiskFor(tests.ContainerDiskFedora))
+				vmi := tests.NewRandomFedoraVMIWitGuestAgent()
 				vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("1Gi")
-				tests.AddUserData(vmi, "cloud-init", fmt.Sprintf(`#!/bin/bash
-					echo "fedora" |passwd fedora --stdin
-					yum install -y stress qemu-guest-agent
-                    systemctl start  qemu-guest-agent`))
 
 				By("Starting the VirtualMachineInstance")
 				vmi = runVMIAndExpectLaunch(vmi, 240)
@@ -475,7 +606,7 @@ var _ = Describe("Migrations", func() {
 				iscsiIP := tests.CreateISCSITargetPOD(tests.ContainerDiskCirros)
 				// create a new PV and PVC (PVs can't be reused)
 				By("create a new iSCSI PV and PVC")
-				tests.NewISCSIPvAndPvc(pvName, "1Gi", iscsiIP, k8sv1.ReadWriteOnce)
+				tests.NewISCSIPvAndPvc(pvName, "1Gi", iscsiIP, k8sv1.ReadWriteOnce, k8sv1.PersistentVolumeBlock)
 			}, 60)
 
 			AfterEach(func() {
@@ -517,13 +648,8 @@ var _ = Describe("Migrations", func() {
 				tests.WaitForVirtualMachineToDisappearWithTimeout(vmi, 120)
 			})
 			It("should be able successfully cancel a migration", func() {
-
-				vmi := tests.NewRandomVMIWithEphemeralDisk(tests.ContainerDiskFor(tests.ContainerDiskFedora))
+				vmi := tests.NewRandomFedoraVMIWitGuestAgent()
 				vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("1Gi")
-				tests.AddUserData(vmi, "cloud-init", fmt.Sprintf(`#!/bin/bash
-					echo "fedora" |passwd fedora --stdin
-					yum install -y stress qemu-guest-agent
-                    systemctl start  qemu-guest-agent`))
 
 				By("Starting the VirtualMachineInstance")
 				vmi = runVMIAndExpectLaunch(vmi, 240)
@@ -577,6 +703,53 @@ var _ = Describe("Migrations", func() {
 		})
 	})
 
+	Context("with sata disks", func() {
+
+		It("VM with containerDisk + CloudInit + ServiceAccount + ConfigMap + Secret", func() {
+			configMapName := "configmap-" + rand.String(5)
+			secretName := "secret-" + rand.String(5)
+
+			config_data := map[string]string{
+				"config1": "value1",
+				"config2": "value2",
+			}
+
+			secret_data := map[string]string{
+				"user":     "admin",
+				"password": "redhat",
+			}
+
+			tests.CreateConfigMap(configMapName, config_data)
+			tests.CreateSecret(secretName, secret_data)
+
+			vmi := tests.NewRandomVMIWithEphemeralDisk(tests.ContainerDiskFor(tests.ContainerDiskFedora))
+			vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("2G")
+			vmi.Spec.Domain.Devices.Rng = &v1.Rng{}
+			tests.AddUserData(vmi, "cloud-init", "#cloud-config\npassword: fedora\nchpasswd: { expire: False }\n")
+			tests.AddConfigMapDisk(vmi, configMapName)
+			tests.AddSecretDisk(vmi, secretName)
+			tests.AddServiceAccountDisk(vmi, "default")
+
+			vmi = runVMIAndExpectLaunch(vmi, 180)
+
+			// execute a migration, wait for finalized state
+			By("Starting the Migration")
+			migration := tests.NewRandomMigration(vmi.Name, vmi.Namespace)
+			migrationUID := runMigrationAndExpectCompletion(migration, 180)
+
+			// check VMI, confirm migration state
+			confirmVMIPostMigration(vmi, migrationUID)
+
+			// delete VMI
+			By("Deleting the VMI")
+			err = virtClient.VirtualMachineInstance(vmi.Namespace).Delete(vmi.Name, &metav1.DeleteOptions{})
+			Expect(err).To(BeNil())
+
+			By("Waiting for VMI to disappear")
+			tests.WaitForVirtualMachineToDisappearWithTimeout(vmi, 120)
+		})
+	})
+
 	Context("with a live-migrate eviction strategy set", func() {
 
 		AfterEach(func() {
@@ -596,6 +769,78 @@ var _ = Describe("Migrations", func() {
 				pod := tests.GetRunningPodByVirtualMachineInstance(vmi, vmi.Namespace)
 				err := virtClient.CoreV1().Pods(vmi.Namespace).Evict(&v1beta1.Eviction{ObjectMeta: metav1.ObjectMeta{Name: pod.Name}})
 				Expect(errors.IsTooManyRequests(err)).To(BeTrue())
+			})
+
+			It("should block the eviction api while a slow migration is in progress", func() {
+				vmi = tests.NewRandomFedoraVMIWitGuestAgent()
+				strategy := v1.EvictionStrategyLiveMigrate
+				vmi.Spec.EvictionStrategy = &strategy
+				vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("1Gi")
+
+				By("Starting the VirtualMachineInstance")
+				vmi = runVMIAndExpectLaunch(vmi, 240)
+
+				getOptions := &metav1.GetOptions{}
+				By("Checking that the VirtualMachineInstance console has expected output")
+				expecter, expecterErr := tests.LoggedInFedoraExpecter(vmi)
+				Expect(expecterErr).To(BeNil())
+				defer expecter.Close()
+
+				var updatedVmi *v1.VirtualMachineInstance
+				// Need to wait for cloud init to finnish and start the agent inside the vmi.
+				Eventually(func() bool {
+					updatedVmi, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Get(vmi.Name, getOptions)
+					Expect(err).ToNot(HaveOccurred())
+					for _, condition := range updatedVmi.Status.Conditions {
+						if condition.Type == "AgentConnected" && condition.Status == "True" {
+							return true
+						}
+					}
+					return false
+				}, 420*time.Second, 2).Should(BeTrue(), "Should have agent connected condition")
+
+				By("Run a stress test to dirty some pages and slow down the migration")
+				_, err = expecter.ExpectBatch([]expect.Batcher{
+					&expect.BSnd{S: "stress --vm 1 --vm-bytes 600M --vm-keep --timeout 10s\n"},
+				}, 15*time.Second)
+				Expect(err).ToNot(HaveOccurred(), "should run a stress test")
+
+				// execute a migration, wait for finalized state
+				By("Starting the Migration")
+				migration := tests.NewRandomMigration(vmi.Name, vmi.Namespace)
+				_, err := virtClient.VirtualMachineInstanceMigration(vmi.Namespace).Create(migration)
+				Expect(err).ToNot(HaveOccurred())
+
+				By("Waiting until we have two available pods")
+				var pods *k8sv1.PodList
+				Eventually(func() []k8sv1.Pod {
+					labelSelector := fmt.Sprintf("%s=%s", v1.CreatedByLabel, vmi.GetUID())
+					fieldSelector := fmt.Sprintf("status.phase==%s", k8sv1.PodRunning)
+					pods, err = virtClient.CoreV1().Pods(vmi.Namespace).List(metav1.ListOptions{LabelSelector: labelSelector, FieldSelector: fieldSelector})
+					Expect(err).ToNot(HaveOccurred())
+					return pods.Items
+				}, 90*time.Second, 500*time.Millisecond).Should(HaveLen(2))
+
+				By("Verifying at least once that both pods are protected")
+				for _, pod := range pods.Items {
+					err := virtClient.CoreV1().Pods(vmi.Namespace).Evict(&v1beta1.Eviction{ObjectMeta: metav1.ObjectMeta{Name: pod.Name}})
+					Expect(errors.IsTooManyRequests(err)).To(BeTrue())
+				}
+				By("Verifying that both pods are protected by the PodDisruptionBudget for the whole migration")
+				Eventually(func() v1.VirtualMachineInstanceMigrationPhase {
+					currentMigration, err := virtClient.VirtualMachineInstanceMigration(vmi.Namespace).Get(migration.Name, getOptions)
+					Expect(err).ToNot(HaveOccurred())
+					Expect(currentMigration.Status.Phase).NotTo(Equal(v1.MigrationFailed))
+					for _, pod := range pods.Items {
+						err := virtClient.CoreV1().Pods(vmi.Namespace).Evict(&v1beta1.Eviction{ObjectMeta: metav1.ObjectMeta{Name: pod.Name}})
+						if !errors.IsTooManyRequests(err) && currentMigration.Status.Phase != v1.MigrationRunning {
+							// In case we get an unexpected error and the migration isn't running anymore, let's not fail
+							continue
+						}
+						Expect(errors.IsTooManyRequests(err)).To(BeTrue())
+					}
+					return currentMigration.Status.Phase
+				}, 180*time.Second, 500*time.Millisecond).Should(Equal(v1.MigrationSucceeded))
 			})
 
 			Context("with node tainted", func() {

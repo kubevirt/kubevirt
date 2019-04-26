@@ -735,7 +735,7 @@ func VirtualMachineFromVMI(name string, vmi *v1.VirtualMachineInstance, started 
 	vm := &v1.VirtualMachine{
 		ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: vmi.ObjectMeta.Namespace, ResourceVersion: "1"},
 		Spec: v1.VirtualMachineSpec{
-			Running: started,
+			Running: &started,
 			Template: &v1.VirtualMachineInstanceTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:   vmi.ObjectMeta.Name,

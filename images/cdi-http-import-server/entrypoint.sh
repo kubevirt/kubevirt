@@ -47,8 +47,16 @@ if [ -n "$AS_ISCSI" ]; then
     touch /tmp/healthy
     bash expose-as-iscsi.sh "${IMAGE_PATH}/disk.raw"
     # use as nginx server
+elif [ -n "$AS_EMPTY" ]; then
+    mkdir -p $IMAGE_PATH
+    dd if=/dev/zero of=$IMAGE_PATH/disk.raw bs=1M count=1024
+    /usr/sbin/mkfs.ext4 $IMAGE_PATH/disk.raw
+    sleep 20
+    touch /tmp/healthy
+    bash expose-as-iscsi.sh "${IMAGE_PATH}/disk.raw"
 else
     # Expose qemu-guest-agent via nginx server
     cp /usr/bin/qemu-ga /usr/share/nginx/html/
+    cp /usr/bin/stress /usr/share/nginx/html/
     /usr/sbin/nginx
 fi

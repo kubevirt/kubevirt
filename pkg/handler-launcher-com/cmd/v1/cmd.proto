@@ -1,0 +1,47 @@
+syntax = "proto3";
+
+package kubevirt.cmd.v1;
+option go_package = "v1";
+
+service Cmd {
+  rpc SyncVirtualMachine(VMIRequest) returns (Response) {}
+  rpc ShutdownVirtualMachine(VMIRequest) returns (Response) {}
+  rpc KillVirtualMachine(VMIRequest) returns (Response) {}
+  rpc DeleteVirtualMachine(VMIRequest) returns (Response) {}
+  rpc MigrateVirtualMachine(MigrationRequest) returns (Response) {}
+  rpc SyncMigrationTarget(VMIRequest) returns (Response) {}
+  rpc CancelVirtualMachineMigration(VMIRequest) returns (Response) {}
+  rpc GetDomain(EmptyRequest) returns (DomainResponse) {}
+  rpc GetDomainStats(EmptyRequest) returns (DomainStatsResponse) {}
+  rpc Ping(EmptyRequest) returns (Response) {}
+}
+
+message VMI {
+  bytes vmiJson = 1;
+}
+
+message VMIRequest {
+  VMI vmi = 1;
+}
+
+message MigrationRequest {
+  VMI vmi = 1;
+  bytes options = 2;
+}
+
+message EmptyRequest {}
+
+message Response {
+  bool success = 1;
+  string message = 2;
+}
+
+message DomainResponse {
+  Response response = 1;
+  string domain = 2;
+}
+
+message DomainStatsResponse {
+  Response response = 1;
+  string domainStats = 2;
+}

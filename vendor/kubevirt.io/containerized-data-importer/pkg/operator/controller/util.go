@@ -29,10 +29,8 @@ func mergeLabelsAndAnnotations(src, dest metav1.Object) {
 		if dest.GetLabels() == nil {
 			dest.SetLabels(map[string]string{})
 		}
-		_, exists := dest.GetLabels()[k]
-		if !exists {
-			dest.GetLabels()[k] = v
-		}
+
+		dest.GetLabels()[k] = v
 	}
 
 	// same for annotations
@@ -40,10 +38,8 @@ func mergeLabelsAndAnnotations(src, dest metav1.Object) {
 		if dest.GetAnnotations() == nil {
 			dest.SetAnnotations(map[string]string{})
 		}
-		_, exists := dest.GetAnnotations()[k]
-		if !exists {
-			dest.GetAnnotations()[k] = v
-		}
+
+		dest.GetAnnotations()[k] = v
 	}
 }
 

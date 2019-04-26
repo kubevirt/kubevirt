@@ -50,7 +50,7 @@ The standard workflow is performed inside a helper container to normalize the bu
 - `docker-functest-registry-populate`: build the container that popuplates registry server with various container images 
 - `docker-functest-registry`: build the container that hosts docker registry
 - `clean`: cleans up previous build artifacts
-- `cluster-up`: start a default Kubernetes or Open Shift cluster. set KUBEVIRT_PROVIDER environment variable to either 'k8s-1.11.0' or 'os-3.11.0' to select the type of cluster. set KUBEVIRT_NUM_NODES to something higher than 1 to have more than one node.
+- `cluster-up`: start a default Kubernetes or Open Shift cluster. set KUBEVIRT_PROVIDER environment variable to either 'k8s-1.13.3' or 'os-3.11.0' to select the type of cluster. set KUBEVIRT_NUM_NODES to something higher than 1 to have more than one node.
 - `cluster-down`: stop the cluster, doing a make cluster-down && make cluster-up will basically restart the cluster into an empty fresh state.
 - `cluster-down-purge`: cluster-down and cleanup all cached images from docker registry. Accepts [make variables](#make-variables) DOCKER_REPO. Removes all images of the specified repository. If not specified removes localhost repository of current cluster instance.
 - `cluster-sync`: builds the controller/importer/cloner, and pushes it into a running cluster. The cluster must be up before running a cluster sync. Also generates a manifest and applies it to the running cluster after pushing the images to it.
@@ -131,7 +131,7 @@ Environment Variables and Supported Values
 
 | Env Variable       | Default       | Additional Values  |
 |--------------------|---------------|--------------------|
-|KUBEVIRT_PROVIDER   | k8s-1.11.0    | os-3.11.0          |
+|KUBEVIRT_PROVIDER   | k8s-1.13.3    | os-3.11.0          |
 |NUM_NODES           | 1             | 2-5                |
 
 To Run Standard *cluster-up/kubevirtci* Tests

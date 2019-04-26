@@ -1,6 +1,6 @@
 ---
 sub-stages:
-  - k8s-1.11.0-release
+  - k8s-1.13.3-release
   - openshift-3.11.0-release
 runtime_requirements:
   support_nesting_level: 2

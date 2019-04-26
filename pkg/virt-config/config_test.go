@@ -80,6 +80,39 @@ var _ = Describe("ConfigMap", func() {
 		table.Entry("when unset, it should return the default", "", DefaultMachineType),
 	)
 
+	table.DescribeTable(" when cpuModel", func(value string, result string) {
+		cfgMap := kubev1.ConfigMap{
+			ObjectMeta: metav1.ObjectMeta{
+				ResourceVersion: "1234",
+				Namespace:       "kubevirt",
+				Name:            "kubevirt-config",
+			},
+			Data: map[string]string{cpuModelKey: value},
+		}
+		clusterConfig, _ := MakeClusterConfig([]kubev1.ConfigMap{cfgMap}, stopChan)
+		Expect(clusterConfig.GetCPUModel()).To(Equal(result))
+	},
+		table.Entry("when set, it should return the value", "Haswell", "Haswell"),
+		table.Entry("when unset, it should return empty string", "", ""),
+	)
+
+	table.DescribeTable(" when cpuRequest", func(value string, result string) {
+		cfgMap := kubev1.ConfigMap{
+			ObjectMeta: metav1.ObjectMeta{
+				ResourceVersion: "1234",
+				Namespace:       "kubevirt",
+				Name:            "kubevirt-config",
+			},
+			Data: map[string]string{cpuRequestKey: value},
+		}
+		clusterConfig, _ := MakeClusterConfig([]kubev1.ConfigMap{cfgMap}, stopChan)
+		cpuRequest := clusterConfig.GetCPURequest()
+		Expect(cpuRequest.String()).To(Equal(result))
+	},
+		table.Entry("when set, it should return the value", "400m", "400m"),
+		table.Entry("when unset, it should return the default", "", DefaultCPURequest),
+	)
+
 	It("Should return migration config values if specified as json", func() {
 		cfgMap := kubev1.ConfigMap{
 			ObjectMeta: metav1.ObjectMeta{
@@ -87,7 +120,7 @@ var _ = Describe("ConfigMap", func() {
 				Namespace:       "kubevirt",
 				Name:            "kubevirt-config",
 			},
-			Data: map[string]string{migrationsConfigKey: `{"parallelOutboundMigrationsPerNode" : 10, "parallelMigrationsPerCluster": 20, "bandwidthPerMigration": "110Mi", "progressTimeout" : 5, "completionTimeoutPerGiB": 5}`},
+			Data: map[string]string{migrationsConfigKey: `{"parallelOutboundMigrationsPerNode" : 10, "parallelMigrationsPerCluster": 20, "bandwidthPerMigration": "110Mi", "progressTimeout" : 5, "completionTimeoutPerGiB": 5, "unsafeMigrationOverride": true}`},
 		}
 		clusterConfig, _ := MakeClusterConfig([]kubev1.ConfigMap{cfgMap}, stopChan)
 		result := clusterConfig.GetMigrationConfig()
@@ -96,6 +129,7 @@ var _ = Describe("ConfigMap", func() {
 		Expect(result.BandwidthPerMigration.String()).To(Equal("110Mi"))
 		Expect(*result.ProgressTimeout).To(BeNumerically("==", 5))
 		Expect(*result.CompletionTimeoutPerGiB).To(BeNumerically("==", 5))
+		Expect(result.UnsafeMigrationOverride).To(Equal(true))
 	})
 
 	It("Should return migration config values if specified as yaml", func() {

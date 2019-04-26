@@ -25,19 +25,17 @@ import (
 	"encoding/xml"
 	"fmt"
 	"io/ioutil"
-	"net"
 	"sort"
 	"strings"
 	"sync"
 	"time"
-
-	"google.golang.org/grpc"
 
 	v1 "kubevirt.io/kubevirt/pkg/api/v1"
 	hooksInfo "kubevirt.io/kubevirt/pkg/hooks/info"
 	hooksV1alpha1 "kubevirt.io/kubevirt/pkg/hooks/v1alpha1"
 	hooksV1alpha2 "kubevirt.io/kubevirt/pkg/hooks/v1alpha2"
 	"kubevirt.io/kubevirt/pkg/log"
+	grpcutil "kubevirt.io/kubevirt/pkg/util/net/grpc"
 	virtwrapApi "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 )
 
@@ -122,7 +120,7 @@ func collectSideCarSockets(numberOfRequestedHookSidecars uint, timeout time.Dura
 }
 
 func processSideCarSocket(socketPath string) (*callBackClient, bool, error) {
-	conn, err := dialSocket(socketPath)
+	conn, err := grpcutil.DialSocketWithTimeout(socketPath, 1)
 	if err != nil {
 		log.Log.Reason(err).Infof("Failed to Dial hook socket: %s", socketPath)
 		return nil, true, nil
@@ -189,7 +187,7 @@ func (m *Manager) OnDefineDomain(domainSpec *virtwrapApi.DomainSpec, vmi *v1.Vir
 					return "", fmt.Errorf("Failed to marshal VMI spec: %v", vmi)
 				}
 
-				conn, err := dialSocket(callback.SocketPath)
+				conn, err := grpcutil.DialSocketWithTimeout(callback.SocketPath, 1)
 				if err != nil {
 					log.Log.Reason(err).Infof("Failed to Dial hook socket: %s", callback.SocketPath)
 					return "", err
@@ -244,7 +242,7 @@ func (m *Manager) PreCloudInitIso(vmi *v1.VirtualMachineInstance, cloudInitData 
 					return cloudInitData, fmt.Errorf("Failed to marshal CloudInitNoCloudSource: %v", cloudInitData)
 				}
 
-				conn, err := dialSocket(callback.SocketPath)
+				conn, err := grpcutil.DialSocketWithTimeout(callback.SocketPath, 1)
 				if err != nil {
 					log.Log.Reason(err).Infof("Failed to Dial hook socket: %s", callback.SocketPath)
 					return cloudInitData, err
@@ -273,15 +271,4 @@ func (m *Manager) PreCloudInitIso(vmi *v1.VirtualMachineInstance, cloudInitData 
 		}
 	}
 	return cloudInitData, nil
-}
-
-func dialSocket(socketPath string) (*grpc.ClientConn, error) {
-	return grpc.Dial(
-		socketPath,
-		grpc.WithInsecure(),
-		grpc.WithDialer(func(addr string, timeout time.Duration) (net.Conn, error) {
-			return net.DialTimeout("unix", addr, timeout)
-		}),
-		grpc.WithTimeout(time.Second),
-	)
 }

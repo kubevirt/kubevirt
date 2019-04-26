@@ -494,6 +494,9 @@ var _ = Describe("Template", func() {
 									SyNIC: &v1.FeatureState{
 										Enabled: &enabled,
 									},
+									Reenlightenment: &v1.FeatureState{
+										Enabled: &enabled,
+									},
 								},
 							},
 						},
@@ -533,6 +536,12 @@ var _ = Describe("Template", func() {
 									SyNICTimer: &v1.FeatureState{
 										Enabled: &enabled,
 									},
+									Frequencies: &v1.FeatureState{
+										Enabled: &enabled,
+									},
+									IPI: &v1.FeatureState{
+										Enabled: &enabled,
+									},
 								},
 							},
 						},
@@ -544,6 +553,8 @@ var _ = Describe("Template", func() {
 
 				Expect(pod.Spec.NodeSelector).Should(HaveKeyWithValue(NFD_KVM_INFO_PREFIX+"synic", "true"))
 				Expect(pod.Spec.NodeSelector).Should(HaveKeyWithValue(NFD_KVM_INFO_PREFIX+"synictimer", "true"))
+				Expect(pod.Spec.NodeSelector).Should(HaveKeyWithValue(NFD_KVM_INFO_PREFIX+"frequencies", "true"))
+				Expect(pod.Spec.NodeSelector).Should(HaveKeyWithValue(NFD_KVM_INFO_PREFIX+"ipi", "true"))
 			})
 
 			It("should not add node selector for hyperv nodes if VMI requests hyperv features which do not depend on host kernel", func() {

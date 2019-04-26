@@ -115,7 +115,8 @@ var _ = Describe("Kubevirt VirtualMachine Client", func() {
 
 	It("should patch a VirtualMachine", func() {
 		vm := NewMinimalVM("testvm")
-		vm.Spec.Running = true
+		running := true
+		vm.Spec.Running = &running
 
 		server.AppendHandlers(ghttp.CombineHandlers(
 			ghttp.VerifyRequest("PATCH", vmiPath),

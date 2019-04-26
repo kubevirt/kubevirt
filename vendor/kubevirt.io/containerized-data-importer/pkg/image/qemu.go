@@ -56,12 +56,11 @@ type ImgInfo struct {
 
 // QEMUOperations defines the interface for executing qemu subprocesses
 type QEMUOperations interface {
-	ConvertQcow2ToRaw(string, string) error
-	ConvertQcow2ToRawStream(*url.URL, string) error
+	ConvertToRawStream(*url.URL, string) error
 	Resize(string, resource.Quantity) error
-	Info(string) (*ImgInfo, error)
-	Validate(string, string, int64) error
-	CreateBlankImage(dest string, size resource.Quantity) error
+	Info(url *url.URL) (*ImgInfo, error)
+	Validate(*url.URL, int64) error
+	CreateBlankImage(string, resource.Quantity) error
 }
 
 type qemuOperations struct{}
@@ -92,23 +91,28 @@ func NewQEMUOperations() QEMUOperations {
 	return &qemuOperations{}
 }
 
-func (o *qemuOperations) ConvertQcow2ToRaw(src, dest string) error {
-	_, err := qemuExecFunction(nil, nil, "qemu-img", "convert", "-p", "-f", "qcow2", "-O", "raw", src, dest)
+func convertToRaw(src, dest string) error {
+	_, err := qemuExecFunction(nil, nil, "qemu-img", "convert", "-p", "-O", "raw", src, dest)
 	if err != nil {
 		os.Remove(dest)
-		return errors.Wrap(err, "could not convert local qcow2 image to raw")
+		return errors.Wrap(err, "could not convert image to raw")
 	}
 
 	return nil
 }
 
-func (o *qemuOperations) ConvertQcow2ToRawStream(url *url.URL, dest string) error {
+func (o *qemuOperations) ConvertToRawStream(url *url.URL, dest string) error {
+	if len(url.Scheme) == 0 {
+		// File, instead of URL
+		return convertToRaw(url.String(), dest)
+	}
 	jsonArg := fmt.Sprintf("json: {\"file.driver\": \"%s\", \"file.url\": \"%s\", \"file.timeout\": %d}", url.Scheme, url, networkTimeoutSecs)
 
-	_, err := qemuExecFunction(nil, reportProgress, "qemu-img", "convert", "-p", "-f", "qcow2", "-O", "raw", jsonArg, dest)
+	_, err := qemuExecFunction(nil, reportProgress, "qemu-img", "convert", "-p", "-O", "raw", jsonArg, dest)
 	if err != nil {
+		// TODO: Determine what to do here, the conversion failed, and we need to clean up the mess, but we could be writing to a block device
 		os.Remove(dest)
-		return errors.Wrap(err, "could not stream/convert qcow2 image to raw")
+		return errors.Wrap(err, "could not stream/convert image to raw")
 	}
 
 	return nil
@@ -132,41 +136,50 @@ func (o *qemuOperations) Resize(image string, size resource.Quantity) error {
 	return nil
 }
 
-func (o *qemuOperations) Info(image string) (*ImgInfo, error) {
-	url, err := url.Parse(image)
+func (o *qemuOperations) Info(url *url.URL) (*ImgInfo, error) {
 	var output []byte
+	var err error
 
-	if url != nil && len(url.Scheme) > 0 {
+	if len(url.Scheme) > 0 {
 		// Image is a URL, make sure the timeout is long enough.
 		jsonArg := fmt.Sprintf("json: {\"file.driver\": \"%s\", \"file.url\": \"%s\", \"file.timeout\": %d}", url.Scheme, url, networkTimeoutSecs)
 		output, err = qemuExecFunction(qemuInfoLimits, nil, "qemu-img", "info", "--output=json", jsonArg)
 	} else {
-		output, err = qemuExecFunction(qemuInfoLimits, nil, "qemu-img", "info", "--output=json", image)
+		output, err = qemuExecFunction(qemuInfoLimits, nil, "qemu-img", "info", "--output=json", url.String())
 	}
 	if err != nil {
-		return nil, errors.Wrapf(err, "Error getting info on image %s", image)
+		return nil, errors.Wrapf(err, "Error getting info on image %s", url.String())
 	}
 	var info ImgInfo
 	err = json.Unmarshal(output, &info)
 	if err != nil {
 		klog.Errorf("Invalid JSON:\n%s\n", string(output))
-		return nil, errors.Wrapf(err, "Invalid json for image %s", image)
+		return nil, errors.Wrapf(err, "Invalid json for image %s", url.String())
 	}
 	return &info, nil
 }
 
-func (o *qemuOperations) Validate(image, format string, availableSize int64) error {
-	info, err := o.Info(image)
+func isSupportedFormat(value string) bool {
+	switch value {
+	case "raw", "qcow2":
+		return true
+	default:
+		return false
+	}
+}
+
+func (o *qemuOperations) Validate(url *url.URL, availableSize int64) error {
+	info, err := o.Info(url)
 	if err != nil {
 		return err
 	}
 
-	if info.Format != format {
-		return errors.Errorf("Invalid format %s for image %s", info.Format, image)
+	if !isSupportedFormat(info.Format) {
+		return errors.Errorf("Invalid format %s for image %s", info.Format, url.String())
 	}
 
 	if len(info.BackingFile) > 0 {
-		return errors.Errorf("Image %s is invalid because it has backing file %s", image, info.BackingFile)
+		return errors.Errorf("Image %s is invalid because it has backing file %s", url.String(), info.BackingFile)
 	}
 
 	if availableSize < info.VirtualSize {
@@ -175,20 +188,14 @@ func (o *qemuOperations) Validate(image, format string, availableSize int64) err
 	return nil
 }
 
-// ConvertQcow2ToRaw is a wrapper for qemu-img convert which takes a qcow2 file (specified by src) and converts
-// it to a raw image (written to the provided dest file)
-func ConvertQcow2ToRaw(src, dest string) error {
-	return qemuIterface.ConvertQcow2ToRaw(src, dest)
-}
-
-// ConvertQcow2ToRawStream converts an http accessible qcow2 image to raw format without locally caching the qcow2 image
-func ConvertQcow2ToRawStream(url *url.URL, dest string) error {
-	return qemuIterface.ConvertQcow2ToRawStream(url, dest)
+// ConvertToRawStream converts an http accessible image to raw format without locally caching the image
+func ConvertToRawStream(url *url.URL, dest string) error {
+	return qemuIterface.ConvertToRawStream(url, dest)
 }
 
 // Validate does basic validation of a qemu image
-func Validate(image, format string, availableSize int64) error {
-	return qemuIterface.Validate(image, format, availableSize)
+func Validate(url *url.URL, availableSize int64) error {
+	return qemuIterface.Validate(url, availableSize)
 }
 
 func reportProgress(line string) {
@@ -199,8 +206,8 @@ func reportProgress(line string) {
 		// Don't need to check for an error, the regex made sure its a number we can parse.
 		v, _ := strconv.ParseFloat(matches[1], 64)
 		metric := &dto.Metric{}
-		progress.WithLabelValues(ownerUID).Write(metric)
-		if v > 0 && v > *metric.Counter.Value {
+		err := progress.WithLabelValues(ownerUID).Write(metric)
+		if err == nil && v > 0 && v > *metric.Counter.Value {
 			progress.WithLabelValues(ownerUID).Add(v - *metric.Counter.Value)
 		}
 	}

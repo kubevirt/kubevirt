@@ -1036,7 +1036,7 @@ func (d *VirtualMachineController) getLauncherClient(vmi *v1.VirtualMachineInsta
 		return client, nil
 	}
 
-	client, err := cmdclient.GetClient(sockFile)
+	client, err := cmdclient.NewClient(sockFile)
 	if err != nil {
 		return nil, err
 	}
@@ -1208,10 +1208,16 @@ func (d *VirtualMachineController) checkVolumesForMigration(vmi *v1.VirtualMachi
 	// A relevant error will be returned in this case.
 	for _, volume := range vmi.Spec.Volumes {
 		volSrc := volume.VolumeSource
-		if volSrc.PersistentVolumeClaim != nil {
-			_, shared, err := pvcutils.IsSharedPVCFromClient(d.clientset, vmi.Namespace, volSrc.PersistentVolumeClaim.ClaimName)
+		if volSrc.PersistentVolumeClaim != nil || volSrc.DataVolume != nil {
+			var volName string
+			if volSrc.PersistentVolumeClaim != nil {
+				volName = volSrc.PersistentVolumeClaim.ClaimName
+			} else {
+				volName = volSrc.DataVolume.Name
+			}
+			_, shared, err := pvcutils.IsSharedPVCFromClient(d.clientset, vmi.Namespace, volName)
 			if errors.IsNotFound(err) {
-				return blockMigrate, fmt.Errorf("persistentvolumeclaim %v not found", volSrc.PersistentVolumeClaim.ClaimName)
+				return blockMigrate, fmt.Errorf("persistentvolumeclaim %v not found", volName)
 			} else if err != nil {
 				return blockMigrate, err
 			}
@@ -1357,6 +1363,7 @@ func (d *VirtualMachineController) processVmUpdate(origVMI *v1.VirtualMachineIns
 				Bandwidth:               *d.clusterConfig.GetMigrationConfig().BandwidthPerMigration,
 				ProgressTimeout:         *d.clusterConfig.GetMigrationConfig().ProgressTimeout,
 				CompletionTimeoutPerGiB: *d.clusterConfig.GetMigrationConfig().CompletionTimeoutPerGiB,
+				UnsafeMigration:         d.clusterConfig.GetMigrationConfig().UnsafeMigrationOverride,
 			}
 			err = client.MigrateVirtualMachine(vmi, options)
 			if err != nil {

@@ -32,7 +32,7 @@ mkdir -p "${WORKSPACE}/${ARTIFACTS_PATH}"
 if [[ $TARGET =~ openshift-.* ]]; then
   export KUBEVIRT_PROVIDER="os-3.11.0"
 elif [[ $TARGET =~ k8s-.* ]]; then
-  export KUBEVIRT_PROVIDER="k8s-1.11.0"
+  export KUBEVIRT_PROVIDER="k8s-1.13.3"
 fi
 
 export KUBEVIRT_NUM_NODES=2

@@ -71,7 +71,9 @@ var _ = Describe("Disruptionbudget", func() {
 		// Expect pod creation
 		kubeClient.Fake.PrependReactor("create", "poddisruptionbudgets", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
 			update, ok := action.(testing.CreateAction)
+			pdb := update.GetObject().(*v1beta1.PodDisruptionBudget)
 			Expect(ok).To(BeTrue())
+			Expect(pdb.Spec.MinAvailable.String()).To(Equal("2"))
 			Expect(update.GetObject().(*v1beta1.PodDisruptionBudget).Spec.Selector.MatchLabels[v1.CreatedByLabel]).To(Equal(string(uid)))
 			return true, update.GetObject(), nil
 		})

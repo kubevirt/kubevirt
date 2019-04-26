@@ -30,6 +30,7 @@ rules:
   resources:
   - serviceaccounts
   - services
+  - endpoints
   verbs:
   - get
   - list
@@ -109,6 +110,16 @@ rules:
   - admissionregistration.k8s.io
   resources:
   - validatingwebhookconfigurations
+  verbs:
+  - get
+  - list
+  - watch
+  - create
+  - delete
+- apiGroups:
+  - admissionregistration.k8s.io
+  resources:
+  - validatingwebhookconfigurations
   - mutatingwebhookconfigurations
   verbs:
   - get
@@ -145,7 +156,7 @@ rules:
   - get
   - list
   - watch
-  - delete
+  - patch
 - apiGroups:
   - kubevirt.io
   resources:

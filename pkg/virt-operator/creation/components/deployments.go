@@ -180,7 +180,7 @@ func NewApiServerService(namespace string) *corev1.Service {
 	}
 }
 
-func newPodTemplateSpec(name string, repository string, version string, pullPolicy corev1.PullPolicy) (*corev1.PodTemplateSpec, error) {
+func newPodTemplateSpec(name string, repository string, version string, pullPolicy corev1.PullPolicy, podAffinity *corev1.Affinity) (*corev1.PodTemplateSpec, error) {
 
 	tolerations, err := criticalAddonsToleration()
 	if err != nil {
@@ -200,6 +200,7 @@ func newPodTemplateSpec(name string, repository string, version string, pullPoli
 			Name: name,
 		},
 		Spec: corev1.PodSpec{
+			Affinity: podAffinity,
 			Containers: []corev1.Container{
 				{
 					Name:            name,
@@ -211,9 +212,9 @@ func newPodTemplateSpec(name string, repository string, version string, pullPoli
 	}, nil
 }
 
-func newBaseDeployment(name string, namespace string, repository string, version string, pullPolicy corev1.PullPolicy) (*appsv1.Deployment, error) {
+func newBaseDeployment(name string, namespace string, repository string, version string, pullPolicy corev1.PullPolicy, podAffinity *corev1.Affinity) (*appsv1.Deployment, error) {
 
-	podTemplateSpec, err := newPodTemplateSpec(name, repository, version, pullPolicy)
+	podTemplateSpec, err := newPodTemplateSpec(name, repository, version, pullPolicy, podAffinity)
 	if err != nil {
 		return nil, err
 	}
@@ -242,8 +243,33 @@ func newBaseDeployment(name string, namespace string, repository string, version
 	}, nil
 }
 
+func newPodAntiAffinity(key, topologyKey string, operator metav1.LabelSelectorOperator, values []string) *corev1.Affinity {
+	return &corev1.Affinity{
+		PodAntiAffinity: &corev1.PodAntiAffinity{
+			PreferredDuringSchedulingIgnoredDuringExecution: []corev1.WeightedPodAffinityTerm{
+				{
+					Weight: 1,
+					PodAffinityTerm: corev1.PodAffinityTerm{
+						LabelSelector: &metav1.LabelSelector{
+							MatchExpressions: []metav1.LabelSelectorRequirement{
+								{
+									Key:      key,
+									Operator: operator,
+									Values:   values,
+								},
+							},
+						},
+						TopologyKey: topologyKey,
+					},
+				},
+			},
+		},
+	}
+}
+
 func NewApiServerDeployment(namespace string, repository string, version string, pullPolicy corev1.PullPolicy, verbosity string) (*appsv1.Deployment, error) {
-	deployment, err := newBaseDeployment("virt-api", namespace, repository, version, pullPolicy)
+	podAntiAffinity := newPodAntiAffinity("kubevirt.io", "kubernetes.io/hostname", metav1.LabelSelectorOpIn, []string{"virt-api"})
+	deployment, err := newBaseDeployment("virt-api", namespace, repository, version, pullPolicy, podAntiAffinity)
 	if err != nil {
 		return nil, err
 	}
@@ -293,7 +319,8 @@ func NewApiServerDeployment(namespace string, repository string, version string,
 }
 
 func NewControllerDeployment(namespace string, repository string, version string, pullPolicy corev1.PullPolicy, verbosity string) (*appsv1.Deployment, error) {
-	deployment, err := newBaseDeployment("virt-controller", namespace, repository, version, pullPolicy)
+	podAntiAffinity := newPodAntiAffinity("kubevirt.io", "kubernetes.io/hostname", metav1.LabelSelectorOpIn, []string{"virt-controller"})
+	deployment, err := newBaseDeployment("virt-controller", namespace, repository, version, pullPolicy, podAntiAffinity)
 	if err != nil {
 		return nil, err
 	}
@@ -354,8 +381,7 @@ func NewControllerDeployment(namespace string, repository string, version string
 }
 
 func NewHandlerDaemonSet(namespace string, repository string, version string, pullPolicy corev1.PullPolicy, verbosity string) (*appsv1.DaemonSet, error) {
-
-	podTemplateSpec, err := newPodTemplateSpec("virt-handler", repository, version, pullPolicy)
+	podTemplateSpec, err := newPodTemplateSpec("virt-handler", repository, version, pullPolicy, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -488,11 +514,14 @@ func NewOperatorDeployment(namespace string, repository string, version string, 
 			},
 		},
 		Spec: appsv1.DeploymentSpec{
-			Replicas: int32Ptr(1),
+			Replicas: int32Ptr(2),
 			Selector: &metav1.LabelSelector{
 				MatchLabels: map[string]string{
 					virtv1.AppLabel: name,
 				},
+			},
+			Strategy: appsv1.DeploymentStrategy{
+				Type: appsv1.RollingUpdateDeploymentStrategyType,
 			},
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{

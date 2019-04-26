@@ -15,6 +15,7 @@ go_library(
         "pvc.go",
         "secrets.go",
         "services.go",
+        "storageclass.go",
         "upload.go",
     ],
     importmap = "kubevirt.io/kubevirt/vendor/kubevirt.io/containerized-data-importer/tests/utils",
@@ -23,6 +24,7 @@ go_library(
     deps = [
         "//vendor/github.com/onsi/ginkgo:go_default_library",
         "//vendor/k8s.io/api/core/v1:go_default_library",
+        "//vendor/k8s.io/api/storage/v1:go_default_library",
         "//vendor/k8s.io/apimachinery/pkg/api/errors:go_default_library",
         "//vendor/k8s.io/apimachinery/pkg/api/resource:go_default_library",
         "//vendor/k8s.io/apimachinery/pkg/apis/meta/v1:go_default_library",

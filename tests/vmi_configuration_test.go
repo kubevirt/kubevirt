@@ -52,6 +52,20 @@ var _ = Describe("Configurations", func() {
 	virtClient, err := kubecli.GetKubevirtClient()
 	tests.PanicOnError(err)
 
+	getComputeContainerOfPod := func(pod *kubev1.Pod) *kubev1.Container {
+		var computeContainer *kubev1.Container
+		for _, container := range pod.Spec.Containers {
+			if container.Name == "compute" {
+				computeContainer = &container
+				break
+			}
+		}
+		if computeContainer == nil {
+			tests.PanicOnError(fmt.Errorf("could not find the compute container"))
+		}
+		return computeContainer
+	}
+
 	BeforeEach(func() {
 		tests.BeforeTestCleanup()
 	})
@@ -267,22 +281,6 @@ var _ = Describe("Configurations", func() {
 				domXml, err := tests.GetRunningVirtualMachineInstanceDomainXML(virtClient, vmi)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(domXml).To(ContainSubstring("driver name='vhost' queues='3'"))
-			})
-
-			It("[test_id:1666]should reject virtio block queues without cores", func() {
-				_true := true
-				vmi.Spec.Domain.Resources = v1.ResourceRequirements{
-					Requests: kubev1.ResourceList{
-						kubev1.ResourceMemory: resource.MustParse("64M"),
-					},
-				}
-				vmi.Spec.Domain.Devices.BlockMultiQueue = &_true
-
-				By("Starting a VirtualMachineInstance")
-				vmi, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
-				Expect(err).To(HaveOccurred())
-				regexp := "(MultiQueue for block devices|the server rejected our request)"
-				Expect(err.Error()).To(MatchRegexp(regexp))
 			})
 
 			It("[test_id:1667]should not enforce explicitly rejected virtio block queues without cores", func() {
@@ -812,15 +810,7 @@ var _ = Describe("Configurations", func() {
 			It("[test_id:1677]VMI condition should signal agent presence", func() {
 
 				// TODO: actually review this once the VM image is present
-				agentVMI := tests.NewRandomVMIWithEphemeralDiskAndUserdata(tests.ContainerDiskFor(tests.ContainerDiskFedora), fmt.Sprintf(`#!/bin/bash
-                echo "fedora" |passwd fedora --stdin
-                mkdir -p /usr/local/bin
-                curl %s > /usr/local/bin/qemu-ga
-                chmod +x /usr/local/bin/qemu-ga
-                setenforce 0
-                systemd-run --unit=guestagent /usr/local/bin/qemu-ga
-                `, tests.GuestAgentHttpUrl))
-				agentVMI.Spec.Domain.Resources.Requests[kubev1.ResourceMemory] = resource.MustParse("512M")
+				agentVMI := tests.NewRandomFedoraVMIWitGuestAgent()
 
 				By("Starting a VirtualMachineInstance")
 				agentVMI, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(agentVMI)
@@ -1089,7 +1079,7 @@ var _ = Describe("Configurations", func() {
 		It("should set machine type from VMI spec", func() {
 			vmi := tests.NewRandomVMI()
 			vmi.Spec.Domain.Machine.Type = "pc-q35-3.0"
-			tests.RunVMIAndExpectLaunch(vmi, false, 30)
+			tests.RunVMIAndExpectLaunch(vmi, 30)
 			runningVMISpec, err := tests.GetRunningVMISpec(vmi)
 
 			Expect(err).ToNot(HaveOccurred())
@@ -1099,14 +1089,14 @@ var _ = Describe("Configurations", func() {
 		It("should set default machine type when it is not provided", func() {
 			vmi := tests.NewRandomVMI()
 			vmi.Spec.Domain.Machine.Type = ""
-			tests.RunVMIAndExpectLaunch(vmi, false, 30)
+			tests.RunVMIAndExpectLaunch(vmi, 30)
 			runningVMISpec, err := tests.GetRunningVMISpec(vmi)
 
 			Expect(err).ToNot(HaveOccurred())
 			Expect(runningVMISpec.OS.Type.Machine).To(ContainSubstring("q35"))
 		})
 
-		It("should set machine type from kubevirt-confg", func() {
+		It("should set machine type from kubevirt-config", func() {
 			cfgMap, err := virtClient.CoreV1().ConfigMaps(namespaceKubevirt).Get(kubevirtConfig, metav1.GetOptions{})
 			Expect(err).To(BeNil())
 			cfgMap.Data[defaultMachineTypeKey] = "pc-q35-3.0"
@@ -1115,11 +1105,72 @@ var _ = Describe("Configurations", func() {
 
 			vmi := tests.NewRandomVMI()
 			vmi.Spec.Domain.Machine.Type = ""
-			tests.RunVMIAndExpectLaunch(vmi, false, 30)
+			tests.RunVMIAndExpectLaunch(vmi, 30)
 			runningVMISpec, err := tests.GetRunningVMISpec(vmi)
 
 			Expect(err).ToNot(HaveOccurred())
 			Expect(runningVMISpec.OS.Type.Machine).To(Equal("pc-q35-3.0"))
+		})
+	})
+
+	Context("with CPU request settings", func() {
+		defaultCPURequestKey := "cpu-request"
+
+		AfterEach(func() {
+			cfgMap, err := virtClient.CoreV1().ConfigMaps(namespaceKubevirt).Get(kubevirtConfig, metav1.GetOptions{})
+			Expect(err).NotTo(HaveOccurred())
+
+			cfgMap.Data[defaultCPURequestKey] = ""
+
+			_, err = virtClient.CoreV1().ConfigMaps(namespaceKubevirt).Update(cfgMap)
+			Expect(err).ToNot(HaveOccurred())
+		})
+
+		It("should set CPU request from VMI spec", func() {
+			vmi := tests.NewRandomVMI()
+			vmi.Spec.Domain.Resources.Requests[kubev1.ResourceCPU] = resource.MustParse("500m")
+			runningVMI := tests.RunVMIAndExpectScheduling(vmi, 30)
+
+			readyPod := tests.GetPodByVirtualMachineInstance(runningVMI, tests.NamespaceTestDefault)
+			computeContainer := getComputeContainerOfPod(readyPod)
+			cpuRequest := computeContainer.Resources.Requests[kubev1.ResourceCPU]
+			Expect(cpuRequest.String()).To(Equal("500m"))
+		})
+
+		It("should set CPU request when it is not provided", func() {
+			vmi := tests.NewRandomVMI()
+			vmi.Spec.Domain.Resources = v1.ResourceRequirements{
+				Requests: kubev1.ResourceList{
+					kubev1.ResourceMemory: resource.MustParse("64M"),
+				},
+			}
+			runningVMI := tests.RunVMIAndExpectScheduling(vmi, 30)
+
+			readyPod := tests.GetPodByVirtualMachineInstance(runningVMI, tests.NamespaceTestDefault)
+			computeContainer := getComputeContainerOfPod(readyPod)
+			cpuRequest := computeContainer.Resources.Requests[kubev1.ResourceCPU]
+			Expect(cpuRequest.String()).To(Equal("100m"))
+		})
+
+		It("should set CPU request from kubevirt-config", func() {
+			cfgMap, err := virtClient.CoreV1().ConfigMaps(namespaceKubevirt).Get(kubevirtConfig, metav1.GetOptions{})
+			Expect(err).To(BeNil())
+			cfgMap.Data[defaultCPURequestKey] = "800m"
+			_, err = virtClient.CoreV1().ConfigMaps(namespaceKubevirt).Update(cfgMap)
+			Expect(err).ToNot(HaveOccurred())
+
+			vmi := tests.NewRandomVMI()
+			vmi.Spec.Domain.Resources = v1.ResourceRequirements{
+				Requests: kubev1.ResourceList{
+					kubev1.ResourceMemory: resource.MustParse("64M"),
+				},
+			}
+			runningVMI := tests.RunVMIAndExpectScheduling(vmi, 30)
+
+			readyPod := tests.GetPodByVirtualMachineInstance(runningVMI, tests.NamespaceTestDefault)
+			computeContainer := getComputeContainerOfPod(readyPod)
+			cpuRequest := computeContainer.Resources.Requests[kubev1.ResourceCPU]
+			Expect(cpuRequest.String()).To(Equal("800m"))
 		})
 	})
 
@@ -1151,7 +1202,7 @@ var _ = Describe("Configurations", func() {
 			tests.AddPVCDisk(vmi, "hostpath-pvc", "virtio", tests.DiskAlpineHostPath)
 			tests.AddPVCDisk(vmi, "block-pvc", "virtio", blockPVName)
 			tests.AddHostDisk(vmi, "/run/kubevirt-private/vm-disks/test-disk.img", v1.HostDiskExistsOrCreate, "hostdisk")
-			tests.RunVMIAndExpectLaunch(vmi, false, 60)
+			tests.RunVMIAndExpectLaunch(vmi, 60)
 
 			runningVMISpec, err := tests.GetRunningVMISpec(vmi)
 			Expect(err).ToNot(HaveOccurred())

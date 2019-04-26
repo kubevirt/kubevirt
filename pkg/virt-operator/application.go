@@ -20,6 +20,7 @@
 package virt_operator
 
 import (
+	"context"
 	"io/ioutil"
 	golog "log"
 	"net/http"
@@ -33,6 +34,8 @@ import (
 	k8coresv1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	clientrest "k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
+	"k8s.io/client-go/tools/leaderelection"
+	"k8s.io/client-go/tools/leaderelection/resourcelock"
 	"k8s.io/client-go/tools/record"
 
 	"kubevirt.io/kubevirt/pkg/certificates"
@@ -41,6 +44,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/log"
 	"kubevirt.io/kubevirt/pkg/service"
 	kvutil "kubevirt.io/kubevirt/pkg/util"
+	"kubevirt.io/kubevirt/pkg/virt-controller/leaderelectionconfig"
 	installstrategy "kubevirt.io/kubevirt/pkg/virt-operator/install-strategy"
 	"kubevirt.io/kubevirt/pkg/virt-operator/util"
 )
@@ -72,6 +76,8 @@ type VirtOperatorApp struct {
 
 	stores    util.Stores
 	informers util.Informers
+
+	LeaderElection leaderelectionconfig.Configuration
 }
 
 var _ service.Service = &VirtOperatorApp{}
@@ -93,6 +99,8 @@ func Execute() {
 	}
 
 	app.restClient = app.clientSet.RestClient()
+
+	app.LeaderElection = leaderelectionconfig.DefaultLeaderElectionConfiguration()
 
 	app.operatorNamespace, err = kvutil.GetNamespace()
 	if err != nil {
@@ -122,6 +130,7 @@ func Execute() {
 		Service:                  app.informerFactory.OperatorService(),
 		Deployment:               app.informerFactory.OperatorDeployment(),
 		DaemonSet:                app.informerFactory.OperatorDaemonSet(),
+		ValidationWebhook:        app.informerFactory.OperatorValidationWebhook(),
 		InstallStrategyConfigMap: app.informerFactory.OperatorInstallStrategyConfigMaps(),
 		InstallStrategyJob:       app.informerFactory.OperatorInstallStrategyJob(),
 		InfrastructurePod:        app.informerFactory.OperatorPod(),
@@ -137,6 +146,7 @@ func Execute() {
 		ServiceCache:                  app.informerFactory.OperatorService().GetStore(),
 		DeploymentCache:               app.informerFactory.OperatorDeployment().GetStore(),
 		DaemonSetCache:                app.informerFactory.OperatorDaemonSet().GetStore(),
+		ValidationWebhookCache:        app.informerFactory.OperatorValidationWebhook().GetStore(),
 		InstallStrategyConfigMapCache: app.informerFactory.OperatorInstallStrategyConfigMaps().GetStore(),
 		InstallStrategyJobCache:       app.informerFactory.OperatorInstallStrategyJob().GetStore(),
 		InfrastructurePodCache:        app.informerFactory.OperatorPod().GetStore(),
@@ -183,20 +193,66 @@ func (app *VirtOperatorApp) Run() {
 		panic(err)
 	}
 
-	// run app
-	stop := make(chan struct{})
-	defer close(stop)
+	go func() {
+		// serve metrics
+		http.Handle("/metrics", promhttp.Handler())
+		err = http.ListenAndServeTLS(app.ServiceListen.Address(), certStore.CurrentPath(), certStore.CurrentPath(), nil)
+		if err != nil {
+			log.Log.Reason(err).Error("Serving prometheus failed.")
+			panic(err)
+		}
+	}()
 
-	app.informerFactory.Start(stop)
-	go app.kubeVirtController.Run(controllerThreads, stop)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
 
-	// serve metrics
-	http.Handle("/metrics", promhttp.Handler())
-	err = http.ListenAndServeTLS(app.ServiceListen.Address(), certStore.CurrentPath(), certStore.CurrentPath(), nil)
+	endpointName := "virt-operator"
+
+	recorder := app.getNewRecorder(k8sv1.NamespaceAll, endpointName)
+
+	id, err := os.Hostname()
 	if err != nil {
-		log.Log.Reason(err).Error("Serving prometheus failed.")
-		panic(err)
+		golog.Fatalf("unable to get hostname: %v", err)
 	}
+
+	rl, err := resourcelock.New(app.LeaderElection.ResourceLock,
+		app.operatorNamespace,
+		endpointName,
+		app.clientSet.CoreV1(),
+		resourcelock.ResourceLockConfig{
+			Identity:      id,
+			EventRecorder: recorder,
+		})
+	if err != nil {
+		golog.Fatal(err)
+	}
+
+	leaderElector, err := leaderelection.NewLeaderElector(
+		leaderelection.LeaderElectionConfig{
+			Lock:          rl,
+			LeaseDuration: app.LeaderElection.LeaseDuration.Duration,
+			RenewDeadline: app.LeaderElection.RenewDeadline.Duration,
+			RetryPeriod:   app.LeaderElection.RetryPeriod.Duration,
+			Callbacks: leaderelection.LeaderCallbacks{
+				OnStartedLeading: func(ctx context.Context) {
+					log.Log.Infof("Started leading")
+					// run app
+					stop := ctx.Done()
+					app.informerFactory.Start(stop)
+					go app.kubeVirtController.Run(controllerThreads, stop)
+				},
+				OnStoppedLeading: func() {
+					golog.Fatal("leaderelection lost")
+				},
+			},
+		})
+	if err != nil {
+		golog.Fatal(err)
+	}
+
+	log.Log.Infof("Attempting to aquire leader status")
+	leaderElector.Run(ctx)
+	panic("unreachable")
 
 }
 

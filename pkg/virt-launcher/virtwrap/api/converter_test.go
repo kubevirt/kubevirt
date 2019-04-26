@@ -138,15 +138,20 @@ var _ = Describe("Converter", func() {
 				APIC: &v1.FeatureAPIC{},
 				SMM:  &v1.FeatureState{},
 				Hyperv: &v1.FeatureHyperv{
-					Relaxed:    &v1.FeatureState{Enabled: &_false},
-					VAPIC:      &v1.FeatureState{Enabled: &_true},
-					Spinlocks:  &v1.FeatureSpinlocks{Enabled: &_true},
-					VPIndex:    &v1.FeatureState{Enabled: &_true},
-					Runtime:    &v1.FeatureState{Enabled: &_false},
-					SyNIC:      &v1.FeatureState{Enabled: &_true},
-					SyNICTimer: &v1.FeatureState{Enabled: &_false},
-					Reset:      &v1.FeatureState{Enabled: &_true},
-					VendorID:   &v1.FeatureVendorID{Enabled: &_false, VendorID: "myvendor"},
+					Relaxed:         &v1.FeatureState{Enabled: &_false},
+					VAPIC:           &v1.FeatureState{Enabled: &_true},
+					Spinlocks:       &v1.FeatureSpinlocks{Enabled: &_true},
+					VPIndex:         &v1.FeatureState{Enabled: &_true},
+					Runtime:         &v1.FeatureState{Enabled: &_false},
+					SyNIC:           &v1.FeatureState{Enabled: &_true},
+					SyNICTimer:      &v1.FeatureState{Enabled: &_false},
+					Reset:           &v1.FeatureState{Enabled: &_true},
+					VendorID:        &v1.FeatureVendorID{Enabled: &_false, VendorID: "myvendor"},
+					Frequencies:     &v1.FeatureState{Enabled: &_false},
+					Reenlightenment: &v1.FeatureState{Enabled: &_false},
+					TLBFlush:        &v1.FeatureState{Enabled: &_true},
+					IPI:             &v1.FeatureState{Enabled: &_true},
+					EVMCS:           &v1.FeatureState{Enabled: &_false},
 				},
 			}
 			vmi.Spec.Domain.Resources.Limits = make(k8sv1.ResourceList)
@@ -517,6 +522,11 @@ var _ = Describe("Converter", func() {
       <stimer state="off"></stimer>
       <reset state="on"></reset>
       <vendor_id state="off" value="myvendor"></vendor_id>
+      <frequencies state="off"></frequencies>
+      <reenlightenment state="off"></reenlightenment>
+      <tlbflush state="on"></tlbflush>
+      <ipi state="on"></ipi>
+      <evmcs state="off"></evmcs>
     </hyperv>
     <smm></smm>
   </features>

@@ -22,6 +22,18 @@ spec:
         prometheus.kubevirt.io: ""
       name: virt-controller
     spec:
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - podAffinityTerm:
+              labelSelector:
+                matchExpressions:
+                - key: kubevirt.io
+                  operator: In
+                  values:
+                  - virt-controller
+              topologyKey: kubernetes.io/hostname
+            weight: 1
       containers:
       - command:
         - virt-controller

@@ -9,7 +9,7 @@ Operator Marketplace is Apache 2.0 licensed and accepts contributions via GitHub
 - Get access to an OpenShift cluster. The marketplace-operator is currently supported on OpenShift 4.0. You can find instructions on installing an OpenShift cluster [here](https://github.com/openshift/installer).
 - The Cluster-Version-Operator(CVO) manages the lifecycle of the marketplace-operator along with other internal OpenShift components. Before deleting the marketplace-operator deployment, instruct CVO to stop managing the marketplace-operator 
 ```
-$ oc apply -f examples/cvo.override.yaml
+$ oc apply -f deploy/examples/cvo.override.yaml
 ``` 
 - Delete the marketplace-operator deployment
 ```

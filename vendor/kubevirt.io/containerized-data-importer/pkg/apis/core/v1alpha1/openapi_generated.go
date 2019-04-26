@@ -728,6 +728,12 @@ func schema_pkg_apis_core_v1alpha1_DataVolumeStatus(ref common.ReferenceCallback
 							Format:      "",
 						},
 					},
+					"progress": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
 				},
 			},
 		},

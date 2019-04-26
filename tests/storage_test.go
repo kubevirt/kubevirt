@@ -68,7 +68,7 @@ var _ = Describe("Storage", func() {
 			table.DescribeTable("should be successfully started", func(newVMI VMICreationFunc) {
 				// Start the VirtualMachineInstance with the PVC attached
 				vmi := newVMI(tests.DiskAlpineHostPath)
-				tests.RunVMIAndExpectLaunch(vmi, false, 90)
+				tests.RunVMIAndExpectLaunch(vmi, 90)
 
 				By("Checking that the VirtualMachineInstance console has expected output")
 				expecter, err := tests.LoggedInAlpineExpecter(vmi)
@@ -85,7 +85,7 @@ var _ = Describe("Storage", func() {
 				num := 3
 				By("Starting and stopping the VirtualMachineInstance number of times")
 				for i := 1; i <= num; i++ {
-					vmi := tests.RunVMIAndExpectLaunch(vmi, false, 90)
+					vmi := tests.RunVMIAndExpectLaunch(vmi, 90)
 
 					// Verify console on last iteration to verify the VirtualMachineInstance is still booting properly
 					// after being restarted multiple times
@@ -128,7 +128,7 @@ var _ = Describe("Storage", func() {
 						},
 					},
 				})
-				tests.RunVMIAndExpectLaunch(vmi, false, 90)
+				tests.RunVMIAndExpectLaunch(vmi, 90)
 
 				expecter, err := tests.LoggedInCirrosExpecter(vmi)
 				Expect(err).ToNot(HaveOccurred())
@@ -178,7 +178,7 @@ var _ = Describe("Storage", func() {
 						},
 					},
 				})
-				tests.RunVMIAndExpectLaunch(vmi, false, 90)
+				tests.RunVMIAndExpectLaunch(vmi, 90)
 
 				expecter, err := tests.LoggedInCirrosExpecter(vmi)
 				Expect(err).ToNot(HaveOccurred())
@@ -200,7 +200,7 @@ var _ = Describe("Storage", func() {
 			It("should be successfully started", func() {
 				// Start the VirtualMachineInstance with the PVC attached
 				vmi := tests.NewRandomVMIWithEphemeralPVC(tests.DiskAlpineHostPath)
-				tests.RunVMIAndExpectLaunch(vmi, false, 90)
+				tests.RunVMIAndExpectLaunch(vmi, 90)
 
 				By("Checking that the VirtualMachineInstance console has expected output")
 				expecter, err := tests.LoggedInAlpineExpecter(vmi)
@@ -212,7 +212,7 @@ var _ = Describe("Storage", func() {
 				vmi := tests.NewRandomVMIWithEphemeralPVC(tests.DiskAlpineHostPath)
 
 				By("Starting the VirtualMachineInstance")
-				createdVMI := tests.RunVMIAndExpectLaunch(vmi, false, 90)
+				createdVMI := tests.RunVMIAndExpectLaunch(vmi, 90)
 
 				By("Writing an arbitrary file to it's EFI partition")
 				expecter, err := tests.LoggedInAlpineExpecter(vmi)
@@ -236,7 +236,7 @@ var _ = Describe("Storage", func() {
 				tests.WaitForVirtualMachineToDisappearWithTimeout(createdVMI, 120)
 
 				By("Starting the VirtualMachineInstance again")
-				tests.RunVMIAndExpectLaunch(vmi, false, 90)
+				tests.RunVMIAndExpectLaunch(vmi, 90)
 
 				By("Making sure that the previously written file is not present")
 				expecter, err = tests.LoggedInAlpineExpecter(vmi)
@@ -275,7 +275,7 @@ var _ = Describe("Storage", func() {
 				num := 3
 				By("Starting and stopping the VirtualMachineInstance number of times")
 				for i := 1; i <= num; i++ {
-					obj := tests.RunVMIAndExpectLaunch(vmi, false, 120)
+					obj := tests.RunVMIAndExpectLaunch(vmi, 120)
 
 					// Verify console on last iteration to verify the VirtualMachineInstance is still booting properly
 					// after being restarted multiple times
@@ -312,7 +312,7 @@ var _ = Describe("Storage", func() {
 				It("Should create a disk image and start", func() {
 					By("Starting VirtualMachineInstance")
 					vmi := tests.NewRandomVMIWithHostDisk(diskPath, v1.HostDiskExistsOrCreate, nodeName)
-					tests.RunVMIAndExpectLaunch(vmi, false, 30)
+					tests.RunVMIAndExpectLaunch(vmi, 30)
 
 					By("Checking if disk.img has been created")
 					vmiPod := tests.GetRunningPodByVirtualMachineInstance(vmi, tests.NamespaceTestDefault)
@@ -364,7 +364,7 @@ var _ = Describe("Storage", func() {
 				It("Should use existing disk image and start", func() {
 					By("Starting VirtualMachineInstance")
 					vmi := tests.NewRandomVMIWithHostDisk(diskPath, v1.HostDiskExists, nodeName)
-					tests.RunVMIAndExpectLaunch(vmi, false, 30)
+					tests.RunVMIAndExpectLaunch(vmi, 30)
 
 					By("Checking if disk.img exists")
 					vmiPod := tests.GetRunningPodByVirtualMachineInstance(vmi, tests.NamespaceTestDefault)
@@ -410,7 +410,7 @@ var _ = Describe("Storage", func() {
 				for _, pvc := range pvcs {
 					By("starting VirtualMachineInstance")
 					vmi := tests.NewRandomVMIWithPVC("disk-" + pvc)
-					tests.RunVMIAndExpectLaunch(vmi, false, 90)
+					tests.RunVMIAndExpectLaunch(vmi, 90)
 
 					By("Checking if disk.img exists")
 					vmiPod := tests.GetRunningPodByVirtualMachineInstance(vmi, tests.NamespaceTestDefault)
@@ -504,7 +504,7 @@ var _ = Describe("Storage", func() {
 				By("starting VirtualMachineInstance")
 				vmi := tests.NewRandomVMIWithHostDisk(diskPath, v1.HostDiskExistsOrCreate, pod.Spec.NodeName)
 				vmi.Spec.Volumes[0].HostDisk.Capacity = resource.MustParse(strconv.Itoa(int(float64(diskSize) * 1.2)))
-				tests.RunVMIAndExpectLaunch(vmi, false, 30)
+				tests.RunVMIAndExpectLaunch(vmi, 30)
 
 				By("Checking events")
 				objectEventWatcher := tests.NewObjectEventWatcher(vmi).SinceWatchedObjectResourceVersion().Timeout(time.Duration(30) * time.Second)
@@ -535,7 +535,7 @@ var _ = Describe("Storage", func() {
 				// Without userdata the hostname isn't set correctly and the login expecter fails...
 				tests.AddUserData(vmi, "cloud-init", "#!/bin/bash\necho 'hello'\n")
 
-				tests.RunVMIAndExpectLaunch(vmi, false, 90)
+				tests.RunVMIAndExpectLaunch(vmi, 90)
 
 				By("Checking that the VirtualMachineInstance console has expected output")
 				expecter, err := tests.LoggedInCirrosExpecter(vmi)
@@ -552,7 +552,7 @@ var _ = Describe("Storage", func() {
 				// Start a ISCSI POD and service
 				By("Creating a ISCSI POD")
 				iscsiTargetIP := tests.CreateISCSITargetPOD(tests.ContainerDiskAlpine)
-				tests.CreateISCSIPvAndPvc(pvName, "1Gi", iscsiTargetIP)
+				tests.CreateISCSIPvAndPvc(pvName, "1Gi", iscsiTargetIP, k8sv1.PersistentVolumeBlock)
 			}, 60)
 
 			AfterEach(func() {
@@ -565,7 +565,7 @@ var _ = Describe("Storage", func() {
 				// Start the VirtualMachineInstance with the PVC attached
 				vmi := tests.NewRandomVMIWithPVC(pvName)
 				By("Launching a VMI with PVC ")
-				tests.RunVMIAndExpectLaunch(vmi, false, 180)
+				tests.RunVMIAndExpectLaunch(vmi, 180)
 
 				By("Checking that the VirtualMachineInstance console has expected output")
 				expecter, err := tests.LoggedInAlpineExpecter(vmi)

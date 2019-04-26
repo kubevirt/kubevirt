@@ -3,7 +3,12 @@ load("@io_bazel_rules_go//go:def.bzl", "go_library")
 go_library(
     name = "go_default_library",
     srcs = [
-        "dataStream.go",
+        "data-processor.go",
+        "format-readers.go",
+        "http-datasource.go",
+        "registry-datasource.go",
+        "s3-datasource.go",
+        "upload-datasource.go",
         "util.go",
     ],
     importmap = "kubevirt.io/kubevirt/vendor/kubevirt.io/containerized-data-importer/pkg/importer",
@@ -13,7 +18,6 @@ go_library(
         "//vendor/k8s.io/apimachinery/pkg/api/resource:go_default_library",
         "//vendor/kubevirt.io/containerized-data-importer/pkg/apis/core/v1alpha1:go_default_library",
         "//vendor/kubevirt.io/containerized-data-importer/pkg/common:go_default_library",
-        "//vendor/kubevirt.io/containerized-data-importer/pkg/controller:go_default_library",
         "//vendor/kubevirt.io/containerized-data-importer/pkg/image:go_default_library",
         "//vendor/kubevirt.io/containerized-data-importer/pkg/util:go_default_library",
         "@com_github_minio_minio_go//:go_default_library",

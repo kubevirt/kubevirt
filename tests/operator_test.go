@@ -20,8 +20,10 @@
 package tests_test
 
 import (
+	"encoding/json"
 	"flag"
 	"fmt"
+	"regexp"
 	"time"
 
 	. "github.com/onsi/ginkgo"
@@ -175,7 +177,7 @@ var _ = Describe("Operator", func() {
 				return fmt.Errorf("Waiting for updating condition")
 			}
 			return nil
-		}, 30*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
+		}, 120*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
 
 	}
 
@@ -211,6 +213,35 @@ var _ = Describe("Operator", func() {
 		data := []byte(fmt.Sprintf(`[{ "op": "add", "path": "/spec/imageTag", "value": "%s"}]`, version))
 		Eventually(func() error {
 			_, err := virtClient.KubeVirt(tests.KubeVirtInstallNamespace).Patch(name, types.JSONPatchType, data)
+
+			return err
+		}, 10*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
+	}
+
+	patchOperatorVersion := func(imageTag string) {
+		Eventually(func() error {
+
+			operator, err := virtClient.AppsV1().Deployments(tests.KubeVirtInstallNamespace).Get("virt-operator", metav1.GetOptions{})
+
+			imageRegEx := regexp.MustCompile(`^(.*)/virt-operator(:.*)?$`)
+			matches := imageRegEx.FindAllStringSubmatch(operator.Spec.Template.Spec.Containers[0].Image, 1)
+			registry := matches[0][1]
+			newImage := fmt.Sprintf("%s/virt-operator:%s", registry, imageTag)
+
+			operator.Spec.Template.Spec.Containers[0].Image = newImage
+			for idx, env := range operator.Spec.Template.Spec.Containers[0].Env {
+				if env.Name == "OPERATOR_IMAGE" {
+					env.Value = newImage
+					operator.Spec.Template.Spec.Containers[0].Env[idx] = env
+					break
+				}
+			}
+
+			newTemplate, _ := json.Marshal(operator.Spec.Template)
+
+			op := fmt.Sprintf(`[{ "op": "replace", "path": "/spec/template", "value": %s }]`, string(newTemplate))
+
+			_, err = virtClient.AppsV1().Deployments(tests.KubeVirtInstallNamespace).Patch("virt-operator", types.JSONPatchType, []byte(op))
 
 			return err
 		}, 10*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
@@ -262,6 +293,7 @@ var _ = Describe("Operator", func() {
 		if len(kvs) == 0 {
 			createKv(copyOriginalKv())
 		}
+		patchOperatorVersion(tests.KubeVirtVersionTag)
 		waitForKv(originalKv)
 		allPodsAreReady(tests.KubeVirtVersionTag)
 	})
@@ -374,6 +406,46 @@ var _ = Describe("Operator", func() {
 			By("Deleting KubeVirt object")
 			deleteAllKvAndWait(false)
 
+		})
+
+		// NOTE - this test verifies new operators can grab the leader election lease
+		// during operator updates. The only way the new infrastructure is deployed
+		// is if the update operator is capable of getting the lease.
+		It("should be able to update kubevirt install when operator updates if no custom image tag is set", func() {
+
+			if tests.KubeVirtVersionTagAlt == "" {
+				Skip("Skip operator custom image tag test because alt tag is not present")
+			}
+
+			kv := copyOriginalKv()
+
+			allPodsAreReady(tests.KubeVirtVersionTag)
+			sanityCheckDeploymentsExist()
+
+			By("Update Virt-Operator using  Alt Tag")
+			patchOperatorVersion(tests.KubeVirtVersionTagAlt)
+
+			// should result in kubevirt cr entering updating state
+			By("Wait for Updating Condition")
+			waitForUpdateCondition(kv)
+
+			By("Waiting for KV to stabilize")
+			waitForKv(kv)
+
+			By("Verifying infrastructure Is Updated")
+			allPodsAreReady(tests.KubeVirtVersionTagAlt)
+
+			By("Restore Operator Version using original image tag. ")
+			patchOperatorVersion(tests.KubeVirtVersionTag)
+
+			By("Wait for Updating Condition")
+			waitForUpdateCondition(kv)
+
+			By("Waiting for KV to stabilize")
+			waitForKv(kv)
+
+			By("Verifying infrastructure Is Restored to original version")
+			allPodsAreReady(tests.KubeVirtVersionTag)
 		})
 
 		It("should fail if KV object already exists", func() {

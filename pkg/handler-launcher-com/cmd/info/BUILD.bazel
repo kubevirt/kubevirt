@@ -1,0 +1,29 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+load("@io_bazel_rules_go//proto:def.bzl", "go_proto_library")
+
+proto_library(
+    name = "info_proto",
+    srcs = ["info.proto"],
+    visibility = ["//visibility:public"],
+)
+
+go_proto_library(
+    name = "info_go_proto",
+    compilers = ["@io_bazel_rules_go//proto:go_grpc"],
+    importpath = "kubevirt.io/kubevirt/pkg/handler-launcher-com/cmd/info",
+    proto = ":info_proto",
+    visibility = ["//visibility:public"],
+)
+
+go_library(
+    name = "go_default_library",
+    srcs = ["generated_mock_info.go"],
+    embed = [":info_go_proto"],
+    importpath = "kubevirt.io/kubevirt/pkg/handler-launcher-com/cmd/info",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//vendor/github.com/golang/mock/gomock:go_default_library",
+        "//vendor/golang.org/x/net/context:go_default_library",
+        "@org_golang_google_grpc//:go_default_library",
+    ],
+)

@@ -5,7 +5,6 @@ import (
 
 	"github.com/onsi/gomega"
 	k8sv1 "k8s.io/api/core/v1"
-
 	"kubevirt.io/containerized-data-importer/tests/utils"
 )
 
@@ -76,8 +75,14 @@ func (f *Framework) VerifyTargetPVCContent(namespace *k8sv1.Namespace, pvc *k8sv
 }
 
 // VerifyTargetPVCContentMD5 provides a function to check the md5 of data on a PVC and ensure it matches that which is provided
-func (f *Framework) VerifyTargetPVCContentMD5(namespace *k8sv1.Namespace, pvc *k8sv1.PersistentVolumeClaim, fileName string, expectedHash string) (bool, error) {
-	executorPod, err := utils.CreateExecutorPodWithPVC(f.K8sClient, "verify-pvc-md5", namespace.Name, pvc)
+func (f *Framework) VerifyTargetPVCContentMD5(namespace *k8sv1.Namespace, pvc *k8sv1.PersistentVolumeClaim, fileName string, expectedHash string, isBlockPV bool) (bool, error) {
+	var executorPod *k8sv1.Pod
+	var err error
+	if isBlockPV {
+		executorPod, err = utils.CreateExecutorPodWithBlockPVC(f.K8sClient, "verify-pvc-md5", namespace.Name, pvc)
+	} else {
+		executorPod, err = utils.CreateExecutorPodWithPVC(f.K8sClient, "verify-pvc-md5", namespace.Name, pvc)
+	}
 	gomega.Expect(err).ToNot(gomega.HaveOccurred())
 	err = utils.WaitTimeoutForPodReady(f.K8sClient, executorPod.Name, namespace.Name, utils.PodWaitForTime)
 	gomega.Expect(err).ToNot(gomega.HaveOccurred())

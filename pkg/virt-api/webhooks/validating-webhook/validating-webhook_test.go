@@ -51,6 +51,8 @@ var _ = Describe("Validating Webhook", func() {
 	var vmiInformer cache.SharedIndexInformer
 	dnsConfigTestOption := "test"
 
+	notRunning := false
+
 	BeforeSuite(func() {
 		vmiInformer, _ = testutils.NewFakeInformerFor(&v1.VirtualMachineInstance{})
 		webhooks.SetInformers(&webhooks.Informers{
@@ -363,12 +365,6 @@ var _ = Describe("Validating Webhook", func() {
 				webhooks.MigrationGroupVersionResource,
 				admitMigrationCreate,
 			),
-			table.Entry("VirtualMachine creation and update",
-				`{"very": "unknown", "spec": { "extremely": "unknown" }}`,
-				`.very in body is a forbidden property, spec.extremely in body is a forbidden property, spec.running in body is required, spec.template in body is required`,
-				webhooks.VirtualMachineGroupVersionResource,
-				admitVMs,
-			),
 			table.Entry("VirtualMachineInstanceReplicaSet creation and update",
 				`{"very": "unknown", "spec": { "extremely": "unknown" }}`,
 				`.very in body is a forbidden property, spec.extremely in body is a forbidden property, spec.selector in body is required, spec.template in body is required`,
@@ -499,7 +495,7 @@ var _ = Describe("Validating Webhook", func() {
 			})
 			vm := &v1.VirtualMachine{
 				Spec: v1.VirtualMachineSpec{
-					Running: false,
+					Running: &notRunning,
 					Template: &v1.VirtualMachineInstanceTemplateSpec{
 						Spec: vmi.Spec,
 					},
@@ -535,7 +531,7 @@ var _ = Describe("Validating Webhook", func() {
 
 			vm := &v1.VirtualMachine{
 				Spec: v1.VirtualMachineSpec{
-					Running: false,
+					Running: &notRunning,
 					Template: &v1.VirtualMachineInstanceTemplateSpec{
 						Spec: vmi.Spec,
 					},
@@ -572,7 +568,7 @@ var _ = Describe("Validating Webhook", func() {
 
 			vm := &v1.VirtualMachine{
 				Spec: v1.VirtualMachineSpec{
-					Running: false,
+					Running: &notRunning,
 					Template: &v1.VirtualMachineInstanceTemplateSpec{
 						Spec: vmi.Spec,
 					},
@@ -617,7 +613,7 @@ var _ = Describe("Validating Webhook", func() {
 
 			vm := &v1.VirtualMachine{
 				Spec: v1.VirtualMachineSpec{
-					Running: false,
+					Running: &notRunning,
 					Template: &v1.VirtualMachineInstanceTemplateSpec{
 						Spec: vmi.Spec,
 					},

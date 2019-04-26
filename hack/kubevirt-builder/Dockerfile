@@ -13,7 +13,7 @@ RUN \
     go get -u github.com/rmohr/go-swagger-utils/swagger-doc && \
     go get -u github.com/onsi/ginkgo/ginkgo
 
-RUN pip install j2cli && pip3 install operator-courier
+RUN pip install j2cli && pip3 install operator-courier==1.3.0
 
 COPY rsyncd.conf /etc/rsyncd.conf
 

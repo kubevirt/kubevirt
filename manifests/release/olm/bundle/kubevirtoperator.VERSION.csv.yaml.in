@@ -4,8 +4,11 @@ metadata:
   name: kubevirtoperator.{{.CsvVersion}}
   namespace: placeholder
   annotations:
-    capabilities: "Full Lifecycle"
-    categories: "Virtualization"
+    capabilities: Seamless Upgrades
+    categories: "OpenShift Optional"
+    containerImage: {{.DockerPrefix}}/virt-operator:{{.DockerTag}}
+    createdAt: {{.CreatedAt}}
+    repository: https://github.com/kubevirt/kubevirt
     alm-examples: |
       [
         {
@@ -25,8 +28,7 @@ spec:
   displayName: KubeVirt
   description: |
     KubeVirt is a cluster add-on that provides a way to run virtualized workloads alongside containerized workload in a Kubernetes / OpenShift native way.
-
-    _The KubeVirt Operator does not support updates yet._
+    Minor and patch level updates are supported.
   keywords:
     - KubeVirt
     - Virtualization

@@ -23,8 +23,10 @@ import (
 	"testing"
 
 	. "github.com/onsi/ginkgo"
+	"github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
 	v1 "k8s.io/api/core/v1"
+	k8smetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"kubevirt.io/kubevirt/pkg/log"
 )
@@ -90,6 +92,68 @@ var _ = Describe("PodSelectors", func() {
 			Expect(len(selector.MatchExpressions)).To(Equal(2))
 			Expect(len(selector.MatchExpressions[1].Values)).To(Equal(1))
 			Expect(selector.MatchExpressions[1].Values[0]).To(Equal("test-node"))
+		})
+	})
+
+	Context("RunStrategy Rules", func() {
+		var vm = VirtualMachine{}
+		BeforeEach(func() {
+			vm = VirtualMachine{
+				TypeMeta:   k8smetav1.TypeMeta{APIVersion: GroupVersion.String(), Kind: "VirtualMachine"},
+				ObjectMeta: k8smetav1.ObjectMeta{Name: "testvm"}}
+		})
+
+		It("should fail if both Running and RunStrategy are defined", func() {
+			notRunning := false
+			runStrategy := RunStrategyAlways
+			vm.Spec.Running = &notRunning
+			vm.Spec.RunStrategy = &runStrategy
+
+			_, err := vm.RunStrategy()
+			Expect(err).To(HaveOccurred())
+		})
+
+		It("should convert running=false to Halted", func() {
+			notRunning := false
+			vm.Spec.Running = &notRunning
+			vm.Spec.RunStrategy = nil
+
+			runStrategy, err := vm.RunStrategy()
+			Expect(err).ToNot(HaveOccurred())
+			Expect(runStrategy).To(Equal(RunStrategyHalted))
+		})
+
+		It("should convert running=true to RunStrategyAlways", func() {
+			running := true
+			vm.Spec.Running = &running
+			vm.Spec.RunStrategy = nil
+
+			runStrategy, err := vm.RunStrategy()
+			Expect(err).ToNot(HaveOccurred())
+			Expect(runStrategy).To(Equal(RunStrategyAlways))
+		})
+
+		table.DescribeTable("should return RunStrategy", func(runStrategy VirtualMachineRunStrategy) {
+			vm.Spec.Running = nil
+			vm.Spec.RunStrategy = &runStrategy
+
+			newRunStrategy, err := vm.RunStrategy()
+			Expect(err).ToNot(HaveOccurred())
+			Expect(newRunStrategy).To(Equal(runStrategy))
+		},
+			table.Entry(string(RunStrategyAlways), RunStrategyAlways),
+			table.Entry(string(RunStrategyHalted), RunStrategyHalted),
+			table.Entry(string(RunStrategyManual), RunStrategyManual),
+			table.Entry(string(RunStrategyRerunOnFailure), RunStrategyRerunOnFailure),
+		)
+
+		It("should default to RunStrategyHalted", func() {
+			vm.Spec.Running = nil
+			vm.Spec.RunStrategy = nil
+
+			runStrategy, err := vm.RunStrategy()
+			Expect(err).ToNot(HaveOccurred())
+			Expect(runStrategy).To(Equal(RunStrategyHalted))
 		})
 	})
 })

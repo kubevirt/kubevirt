@@ -29,8 +29,9 @@ import (
 	"syscall"
 	"time"
 
-	libvirt "github.com/libvirt/libvirt-go"
+	"github.com/libvirt/libvirt-go"
 	"github.com/spf13/pflag"
+
 	"k8s.io/apimachinery/pkg/types"
 	utilwait "k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/apimachinery/pkg/watch"
@@ -99,10 +100,11 @@ func startCmdServer(socketPath string,
 	//
 	// Timing out causes an error to be returned
 	err = utilwait.PollImmediate(1*time.Second, 15*time.Second, func() (bool, error) {
-		client, err := cmdclient.GetClient(socketPath)
+		client, err := cmdclient.NewClient(socketPath)
 		if err != nil {
 			return false, nil
 		}
+		defer client.Close()
 
 		err = client.Ping()
 		if err != nil {
@@ -128,7 +130,7 @@ func createLibvirtConnection() virtcli.Connection {
 	return domainConn
 }
 
-func startDomainEventMonitoring(notifier *notifyclient.NotifyClient, virtShareDir string, domainConn virtcli.Connection, deleteNotificationSent chan watch.Event, vmiUID types.UID, qemuAgentPollerInterval *time.Duration) {
+func startDomainEventMonitoring(notifier *notifyclient.Notifier, virtShareDir string, domainConn virtcli.Connection, deleteNotificationSent chan watch.Event, vmiUID types.UID, qemuAgentPollerInterval *time.Duration) {
 	go func() {
 		for {
 			if res := libvirt.EventRunDefaultImpl(); res != nil {
@@ -387,10 +389,11 @@ func main() {
 	domainConn := createLibvirtConnection()
 	defer domainConn.Close()
 
-	notifier, err := notifyclient.NewNotifyClient(*virtShareDir)
+	notifier, err := notifyclient.NewNotifier(*virtShareDir)
 	if err != nil {
 		panic(err)
 	}
+	defer notifier.Close()
 
 	domainManager, err := virtwrap.NewLibvirtDomainManager(domainConn, *virtShareDir, notifier, *lessPVCSpaceToleration)
 	if err != nil {

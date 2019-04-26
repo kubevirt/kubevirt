@@ -22,6 +22,11 @@ set -e
 source hack/common.sh
 source hack/config.sh
 
+skipj2=false
+if [ "$1" == "--skipj2" ]; then
+    skipj2=true
+fi
+
 manifest_docker_prefix=${manifest_docker_prefix-${docker_prefix}}
 kubevirt_logo_path="assets/kubevirt_logo.png"
 
@@ -72,9 +77,15 @@ for arg in $args; do
         --verbosity=${verbosity} \
         --csv-version=${csv_version} \
         --kubevirt-logo-path=${kubevirt_logo_path} \
+        --package-name=${package_name} \
         --input-file=${infile} \
         --bundle-out-dir=${bundle_out_dir} \
         --quay-repository=${QUAY_REPOSITORY} >${outfile}
+
+    if [ "$skipj2" = true ]; then
+        echo "skipping j2 template for $infile"
+        continue
+    fi
 
     ${KUBEVIRT_DIR}/tools/manifest-templator/manifest-templator \
         --process-vars \
@@ -86,6 +97,7 @@ for arg in $args; do
         --verbosity=${verbosity} \
         --csv-version=${csv_version} \
         --kubevirt-logo-path=${kubevirt_logo_path} \
+        --package-name=${package_name} \
         --input-file=${infile} \
         --quay-repository=${QUAY_REPOSITORY} >${template_outfile}
 done
@@ -96,6 +108,10 @@ done
 # Remove empty lines at the end of files which are added by go templating
 find ${MANIFESTS_OUT_DIR}/ -type f -exec sed -i {} -e '${/^$/d;}' \;
 find ${MANIFEST_TEMPLATES_OUT_DIR}/ -type f -exec sed -i {} -e '${/^$/d;}' \;
+
+if [ "$skipj2" = true ]; then
+    exit 0
+fi
 
 # make sure that template manifests align with release manifests
 export namespace=${namespace}

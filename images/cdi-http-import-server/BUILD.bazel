@@ -11,9 +11,11 @@ rpm_image(
     rpms = [
         "@qemu-img//file",
         "@qemu-guest-agent//file",
+        "@stress//file",
         "@libstdc//file",
         "@capstone//file",
         "@libaio//file",
+        "@e2fsprogs//file",
     ],
 )
 

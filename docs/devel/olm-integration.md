@@ -149,6 +149,7 @@ Travis cares for this on every release.
 ## Sources
 
 [CSV description](https://github.com/operator-framework/operator-lifecycle-manager/blob/master/Documentation/design/building-your-csv.md)  
+[CSV required fields](https://github.com/operator-framework/community-operators/blob/master/docs/required-fields.md)  
 [Publish bundles](https://github.com/operator-framework/community-operators/blob/master/docs/testing-operators.md)  
 [Install OLM](https://github.com/operator-framework/operator-lifecycle-manager/blob/master/Documentation/install/install.md)  
 [Install and use Marketplace](https://github.com/operator-framework/operator-marketplace)  

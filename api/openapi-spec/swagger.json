@@ -3809,6 +3809,76 @@
      }
     }
    },
+   "/apis/subresources.kubevirt.io/v1alpha3/namespaces/{namespace}/virtualmachines/{name}/start": {
+    "put": {
+     "summary": "Start a VirtualMachine object.",
+     "operationId": "start",
+     "parameters": [
+      {
+       "pattern": "[a-z0-9][a-z0-9\\-]*",
+       "type": "string",
+       "description": "Object name and auth scope, such as for teams and projects",
+       "name": "namespace",
+       "in": "path",
+       "required": true
+      },
+      {
+       "pattern": "[a-z0-9][a-z0-9\\-]*",
+       "type": "string",
+       "description": "Name of the resource",
+       "name": "name",
+       "in": "path",
+       "required": true
+      }
+     ],
+     "responses": {
+      "200": {
+       "description": "OK"
+      },
+      "404": {
+       "description": "Not Found"
+      },
+      "default": {
+       "description": "OK"
+      }
+     }
+    }
+   },
+   "/apis/subresources.kubevirt.io/v1alpha3/namespaces/{namespace}/virtualmachines/{name}/stop": {
+    "put": {
+     "summary": "Stop a VirtualMachine object.",
+     "operationId": "stop",
+     "parameters": [
+      {
+       "pattern": "[a-z0-9][a-z0-9\\-]*",
+       "type": "string",
+       "description": "Object name and auth scope, such as for teams and projects",
+       "name": "namespace",
+       "in": "path",
+       "required": true
+      },
+      {
+       "pattern": "[a-z0-9][a-z0-9\\-]*",
+       "type": "string",
+       "description": "Name of the resource",
+       "name": "name",
+       "in": "path",
+       "required": true
+      }
+     ],
+     "responses": {
+      "200": {
+       "description": "OK"
+      },
+      "404": {
+       "description": "Not Found"
+      },
+      "default": {
+       "description": "OK"
+      }
+     }
+    }
+   },
    "/apis/subresources.kubevirt.io/v1alpha3/version": {
     "get": {
      "produces": [
@@ -4463,12 +4533,28 @@
    "v1.FeatureHyperv": {
     "description": "Hyperv specific features.",
     "properties": {
+     "evmcs": {
+      "description": "EVMCS Speeds up L2 vmexits, but disables other virtualization features. Requires vapic.\nDefaults to the machine type setting.\n+optional",
+      "$ref": "#/definitions/v1.FeatureState"
+     },
+     "frequencies": {
+      "description": "Frequencies improve Hyper-V on KVM (TSC clock source).\nDefaults to the machine type setting.\n+optional",
+      "$ref": "#/definitions/v1.FeatureState"
+     },
+     "ipi": {
+      "description": "IPI improves performances in overcommited environments. Requires vpindex.\nDefaults to the machine type setting.\n+optional",
+      "$ref": "#/definitions/v1.FeatureState"
+     },
+     "reenlightenment": {
+      "description": "Reenlightenment improve Hyper-V on KVM (TSC clock source).\nDefaults to the machine type setting.\n+optional",
+      "$ref": "#/definitions/v1.FeatureState"
+     },
      "relaxed": {
       "description": "Relaxed relaxes constraints on timer.\nDefaults to the machine type setting.\n+optional",
       "$ref": "#/definitions/v1.FeatureState"
      },
      "reset": {
-      "description": "Reset enables Hyperv reboot/reset for the vmi.\nDefaults to the machine type setting.\n+optional",
+      "description": "Reset enables Hyperv reboot/reset for the vmi. Requires synic.\nDefaults to the machine type setting.\n+optional",
       "$ref": "#/definitions/v1.FeatureState"
      },
      "runtime": {
@@ -4485,6 +4571,10 @@
      },
      "synictimer": {
       "description": "SyNICTimer enable Synthetic Interrupt Controller timer.\nDefaults to the machine type setting.\n+optional",
+      "$ref": "#/definitions/v1.FeatureState"
+     },
+     "tlbflush": {
+      "description": "TLBFlush improves performances in overcommited environments. Requires vpindex.\nDefaults to the machine type setting.\n+optional",
       "$ref": "#/definitions/v1.FeatureState"
      },
      "vapic": {
@@ -6362,10 +6452,10 @@
      }
     }
    },
+   "v1.VirtualMachineRunStrategy": {},
    "v1.VirtualMachineSpec": {
     "description": "VirtualMachineSpec describes how the proper VirtualMachine\nshould look like",
     "required": [
-     "running",
      "template"
     ],
     "properties": {
@@ -6376,13 +6466,32 @@
        "$ref": "#/definitions/v1alpha1.DataVolume"
       }
      },
+     "runStrategy": {
+      "description": "Running state indicates the requested running state of the VirtualMachineInstance\nmutually exclusive with Running",
+      "$ref": "#/definitions/v1.VirtualMachineRunStrategy"
+     },
      "running": {
-      "description": "Running controls whether the associatied VirtualMachineInstance is created or not",
+      "description": "Running controls whether the associatied VirtualMachineInstance is created or not\nMutually exclusive with RunStrategy",
       "type": "boolean"
      },
      "template": {
       "description": "Template is the direct specification of VirtualMachineInstance",
       "$ref": "#/definitions/v1.VirtualMachineInstanceTemplateSpec"
+     }
+    }
+   },
+   "v1.VirtualMachineStateChangeRequest": {
+    "required": [
+     "action"
+    ],
+    "properties": {
+     "action": {
+      "description": "Indicates the type of action that is requested. e.g. Start or Stop",
+      "type": "string"
+     },
+     "uid": {
+      "description": "Indicates the UUID of an existing Virtual Machine Instance that this change request applies to -- if applicable",
+      "$ref": "#/definitions/types.UID"
      }
     }
    },
@@ -6403,6 +6512,13 @@
      "ready": {
       "description": "Ready indicates if the virtual machine is running and ready",
       "type": "boolean"
+     },
+     "stateChangeRequests": {
+      "description": "StateChangeRequests indicates a list of actions that should be taken on a VMI\ne.g. stop a specific VMI then start a new one.",
+      "type": "array",
+      "items": {
+       "$ref": "#/definitions/v1.VirtualMachineStateChangeRequest"
+      }
      }
     }
    },
@@ -6644,6 +6760,9 @@
     "properties": {
      "phase": {
       "description": "Phase is the current phase of the data volume",
+      "type": "string"
+     },
+     "progress": {
       "type": "string"
      }
     }

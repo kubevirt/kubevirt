@@ -366,7 +366,7 @@ func (c *DisruptionBudgetController) sync(key string, vmi *virtv1.VirtualMachine
 		c.recorder.Eventf(vmi, v12.EventTypeNormal, SuccessfulDeletePodDisruptionBudgetReason, "Deleted PodDisruptionBudget %s", pdb.Name)
 		return nil
 	} else if create {
-		one := intstr.FromInt(1)
+		two := intstr.FromInt(2)
 		c.podDisruptionBudgetExpectations.ExpectCreations(key, 1)
 		createdPDB, err := c.clientset.PolicyV1beta1().PodDisruptionBudgets(vmi.Namespace).Create(&v1beta1.PodDisruptionBudget{
 			ObjectMeta: v1.ObjectMeta{
@@ -376,7 +376,7 @@ func (c *DisruptionBudgetController) sync(key string, vmi *virtv1.VirtualMachine
 				GenerateName: "kubevirt-disruption-budget-",
 			},
 			Spec: v1beta1.PodDisruptionBudgetSpec{
-				MinAvailable: &one,
+				MinAvailable: &two,
 				Selector: &v1.LabelSelector{
 					MatchLabels: map[string]string{
 						virtv1.CreatedByLabel: string(vmi.UID),

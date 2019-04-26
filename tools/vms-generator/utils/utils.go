@@ -514,6 +514,7 @@ func GetVMIWindows() *v1.VirtualMachineInstance {
 
 func getBaseVM(name string, labels map[string]string) *v1.VirtualMachine {
 	baseVMISpec := getBaseVMISpec()
+	running := false
 
 	return &v1.VirtualMachine{
 		TypeMeta: metav1.TypeMeta{
@@ -525,7 +526,7 @@ func getBaseVM(name string, labels map[string]string) *v1.VirtualMachine {
 			Labels: labels,
 		},
 		Spec: v1.VirtualMachineSpec{
-			Running: false,
+			Running: &running,
 			Template: &v1.VirtualMachineInstanceTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
 					Labels: labels,

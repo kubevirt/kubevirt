@@ -49,6 +49,8 @@ const (
 	useEmulationKey        = "debug.useEmulation"
 	imagePullPolicyKey     = "dev.imagePullPolicy"
 	migrationsConfigKey    = "migrations"
+	cpuModelKey            = "default-cpu-model"
+	cpuRequestKey          = "cpu-request"
 
 	ParallelOutboundMigrationsPerNodeDefault uint32 = 2
 	ParallelMigrationsPerClusterDefault      uint32 = 5
@@ -56,6 +58,7 @@ const (
 	MigrationProgressTimeout                 int64  = 150
 	MigrationCompletionTimeoutPerGiB         int64  = 800
 	DefaultMachineType                              = "q35"
+	DefaultCPURequest                               = "100m"
 
 	NodeDrainTaintDefaultKey = "kubevirt.io/drain"
 )
@@ -140,6 +143,7 @@ func defaultClusterConfig() *Config {
 	nodeDrainTaintDefaultKey := NodeDrainTaintDefaultKey
 	progressTimeout := MigrationProgressTimeout
 	completionTimeoutPerGiB := MigrationCompletionTimeoutPerGiB
+	cpuRequestDefault := resource.MustParse(DefaultCPURequest)
 	return &Config{
 		ResourceVersion: "0",
 		ImagePullPolicy: k8sv1.PullIfNotPresent,
@@ -151,8 +155,10 @@ func defaultClusterConfig() *Config {
 			NodeDrainTaintKey:                 &nodeDrainTaintDefaultKey,
 			ProgressTimeout:                   &progressTimeout,
 			CompletionTimeoutPerGiB:           &completionTimeoutPerGiB,
+			UnsafeMigrationOverride:           false,
 		},
 		MachineType: DefaultMachineType,
+		CPURequest:  cpuRequestDefault,
 	}
 }
 
@@ -162,6 +168,8 @@ type Config struct {
 	MigrationConfig *MigrationConfig
 	ImagePullPolicy k8sv1.PullPolicy
 	MachineType     string
+	CPUModel        string
+	CPURequest      resource.Quantity
 }
 
 type MigrationConfig struct {
@@ -171,6 +179,7 @@ type MigrationConfig struct {
 	NodeDrainTaintKey                 *string            `json:"nodeDrainTaintKey,omitempty"`
 	ProgressTimeout                   *int64             `json:"progressTimeout,omitempty"`
 	CompletionTimeoutPerGiB           *int64             `json:"completionTimeoutPerGiB,omitempty"`
+	UnsafeMigrationOverride           bool               `json:"unsafeMigrationOverride"`
 }
 
 type ClusterConfig struct {
@@ -196,6 +205,14 @@ func (c *ClusterConfig) GetImagePullPolicy() (policy k8sv1.PullPolicy) {
 
 func (c *ClusterConfig) GetMachineType() string {
 	return c.getConfig().MachineType
+}
+
+func (c *ClusterConfig) GetCPUModel() string {
+	return c.getConfig().CPUModel
+}
+
+func (c *ClusterConfig) GetCPURequest() resource.Quantity {
+	return c.getConfig().CPURequest
 }
 
 // setConfig parses the provided config map and updates the provided config.
@@ -246,6 +263,14 @@ func setConfig(config *Config, configMap *k8sv1.ConfigMap) error {
 	// set machine type
 	if machineType := strings.TrimSpace(configMap.Data[machineTypeKey]); machineType != "" {
 		config.MachineType = machineType
+	}
+
+	if cpuModel := strings.TrimSpace(configMap.Data[cpuModelKey]); cpuModel != "" {
+		config.CPUModel = cpuModel
+	}
+
+	if cpuRequest := strings.TrimSpace(configMap.Data[cpuRequestKey]); cpuRequest != "" {
+		config.CPURequest = resource.MustParse(cpuRequest)
 	}
 
 	return nil

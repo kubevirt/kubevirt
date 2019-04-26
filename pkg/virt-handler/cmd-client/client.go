@@ -34,32 +34,38 @@ import (
 	"os"
 	"path/filepath"
 	"syscall"
+	"time"
+
+	"golang.org/x/net/context"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 
 	"k8s.io/apimachinery/pkg/api/resource"
+	"k8s.io/apimachinery/pkg/util/json"
 
 	v1 "kubevirt.io/kubevirt/pkg/api/v1"
 	diskutils "kubevirt.io/kubevirt/pkg/ephemeral-disk-utils"
+	com "kubevirt.io/kubevirt/pkg/handler-launcher-com"
+	"kubevirt.io/kubevirt/pkg/handler-launcher-com/cmd/info"
+	cmdv1 "kubevirt.io/kubevirt/pkg/handler-launcher-com/cmd/v1"
+	"kubevirt.io/kubevirt/pkg/log"
+	grpcutil "kubevirt.io/kubevirt/pkg/util/net/grpc"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/stats"
 )
 
-type Reply struct {
-	Success     bool
-	Message     string
-	Domain      *api.Domain
-	DomainStats *stats.DomainStats
-}
-
-type Args struct {
-	// used for domain management
-	VMI              *v1.VirtualMachineInstance
-	MigrationOptions *MigrationOptions
-}
+var (
+	// add older version when supported
+	// don't use the variable in pkg/handler-launcher-com/cmd/v1/version.go in order to detect version mismatches early
+	supportedCmdVersions = []uint32{1}
+)
 
 type MigrationOptions struct {
 	Bandwidth               resource.Quantity
 	ProgressTimeout         int64
 	CompletionTimeoutPerGiB int64
+	UnsafeMigration         bool
 }
 
 type LauncherClient interface {
@@ -77,7 +83,8 @@ type LauncherClient interface {
 }
 
 type VirtLauncherClient struct {
-	client *rpc.Client
+	v1client cmdv1.CmdClient
+	conn     *grpc.ClientConn
 }
 
 func ListAllSockets(baseDir string) ([]string, error) {
@@ -112,158 +119,91 @@ func SocketFromUID(baseDir string, uid string) string {
 	return filepath.Join(SocketsDirectory(baseDir), sockFile)
 }
 
-func GetClient(socketPath string) (LauncherClient, error) {
-	conn, err := rpc.Dial("unix", socketPath)
+func NewClient(socketPath string) (LauncherClient, error) {
+	// dial socket
+	conn, err := grpcutil.DialSocket(socketPath)
+	if err != nil {
+		log.Log.Reason(err).Infof("failed to dial cmd socket: %s", socketPath)
+		return nil, err
+	}
+
+	// create info client and find cmd version to use
+	infoClient := info.NewCmdInfoClient(conn)
+	return NewClientWithInfoClient(infoClient, conn)
+}
+
+func NewClientWithInfoClient(infoClient info.CmdInfoClient, conn *grpc.ClientConn) (LauncherClient, error) {
+	ctx, _ := context.WithTimeout(context.Background(), 5*time.Second)
+	info, err := infoClient.Info(ctx, &info.CmdInfoRequest{})
+	if err != nil {
+		return nil, fmt.Errorf("could not check cmd server version: %v", err)
+	}
+	version, err := com.GetHighestCompatibleVersion(info.SupportedCmdVersions, supportedCmdVersions)
 	if err != nil {
 		return nil, err
 	}
 
-	return &VirtLauncherClient{client: conn}, nil
+	// create cmd client
+	switch version {
+	case 1:
+		client := cmdv1.NewCmdClient(conn)
+		return newV1Client(client, conn), nil
+	default:
+		return nil, fmt.Errorf("cmd client version %v not implemented yet", version)
+	}
+}
+
+func newV1Client(client cmdv1.CmdClient, conn *grpc.ClientConn) LauncherClient {
+	return &VirtLauncherClient{
+		v1client: client,
+		conn:     conn,
+	}
 }
 
 func (c *VirtLauncherClient) Close() {
-	c.client.Close()
+	c.conn.Close()
 }
 
-func (c *VirtLauncherClient) genericSendCmd(args *Args, cmd string) (*Reply, error) {
-	reply := &Reply{}
+func (c *VirtLauncherClient) genericSendVMICmd(cmdName string,
+	cmdFunc func(ctx context.Context, request *cmdv1.VMIRequest, opts ...grpc.CallOption) (*cmdv1.Response, error),
+	vmi *v1.VirtualMachineInstance) error {
 
-	err := c.client.Call(cmd, args, reply)
+	vmiJson, err := json.Marshal(vmi)
+	if err != nil {
+		return err
+	}
+
+	request := &cmdv1.VMIRequest{
+		Vmi: &cmdv1.VMI{
+			VmiJson: vmiJson,
+		},
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	response, err := cmdFunc(ctx, request)
+
+	err = handleError(err, cmdName, response)
+	return err
+}
+
+func handleError(err error, cmdName string, response *cmdv1.Response) error {
 	if IsDisconnected(err) {
-		return reply, err
+		return err
 	} else if err != nil {
-		msg := fmt.Sprintf("unknown error encountered sending command %s: %s", cmd, err.Error())
-		return reply, fmt.Errorf(msg)
-	} else if reply.Success != true {
-		return reply, fmt.Errorf("server error. command %s failed: %q", cmd, reply.Message)
+		msg := fmt.Sprintf("unknown error encountered sending command %s: %s", cmdName, err.Error())
+		return fmt.Errorf(msg)
+	} else if response.Success != true {
+		return fmt.Errorf("server error. command %s failed: %q", cmdName, response.Message)
 	}
-	return reply, nil
-}
-
-func (c *VirtLauncherClient) ShutdownVirtualMachine(vmi *v1.VirtualMachineInstance) error {
-	cmd := "Launcher.Shutdown"
-
-	args := &Args{
-		VMI: vmi,
-	}
-	_, err := c.genericSendCmd(args, cmd)
-
-	return err
-}
-
-func (c *VirtLauncherClient) MigrateVirtualMachine(vmi *v1.VirtualMachineInstance, options *MigrationOptions) error {
-	cmd := "Launcher.Migrate"
-
-	args := &Args{
-		VMI:              vmi,
-		MigrationOptions: options,
-	}
-	_, err := c.genericSendCmd(args, cmd)
-
-	return err
-}
-
-func (c *VirtLauncherClient) CancelVirtualMachineMigration(vmi *v1.VirtualMachineInstance) error {
-	cmd := "Launcher.CancelMigration"
-
-	args := &Args{
-		VMI: vmi,
-	}
-	_, err := c.genericSendCmd(args, cmd)
-
-	return err
-}
-
-func (c *VirtLauncherClient) KillVirtualMachine(vmi *v1.VirtualMachineInstance) error {
-	cmd := "Launcher.Kill"
-
-	args := &Args{
-		VMI: vmi,
-	}
-	_, err := c.genericSendCmd(args, cmd)
-
-	return err
-}
-
-func (c *VirtLauncherClient) DeleteDomain(vmi *v1.VirtualMachineInstance) error {
-	cmd := "Launcher.Delete"
-
-	args := &Args{
-		VMI: vmi,
-	}
-	_, err := c.genericSendCmd(args, cmd)
-
-	return err
-}
-
-func (c *VirtLauncherClient) GetDomain() (*api.Domain, bool, error) {
-	domain := &api.Domain{}
-	cmd := "Launcher.GetDomain"
-	exists := false
-
-	args := &Args{}
-
-	reply, err := c.genericSendCmd(args, cmd)
-	if err != nil {
-		return nil, exists, err
-	}
-
-	if reply.Domain != nil {
-		domain = reply.Domain
-		exists = true
-	}
-	return domain, exists, nil
-}
-
-func (c *VirtLauncherClient) GetDomainStats() (*stats.DomainStats, bool, error) {
-	stats := &stats.DomainStats{}
-	cmd := "Launcher.GetDomainStats"
-	exists := false
-
-	args := &Args{}
-
-	reply, err := c.genericSendCmd(args, cmd)
-	if err != nil {
-		return nil, exists, err
-	}
-
-	if reply.DomainStats != nil {
-		stats = reply.DomainStats
-		exists = true
-	}
-	return stats, exists, nil
-}
-
-func (c *VirtLauncherClient) SyncVirtualMachine(vmi *v1.VirtualMachineInstance) error {
-
-	cmd := "Launcher.Sync"
-
-	args := &Args{
-		VMI: vmi,
-	}
-
-	_, err := c.genericSendCmd(args, cmd)
-
-	return err
-}
-
-func (c *VirtLauncherClient) SyncMigrationTarget(vmi *v1.VirtualMachineInstance) error {
-
-	cmd := "Launcher.SyncMigrationTarget"
-
-	args := &Args{
-		VMI: vmi,
-	}
-
-	_, err := c.genericSendCmd(args, cmd)
-
-	return err
+	return nil
 }
 
 func IsDisconnected(err error) bool {
 	if err == nil {
 		return false
 	}
+
 	if err == rpc.ErrShutdown || err == io.ErrUnexpectedEOF || err == io.EOF {
 		return true
 	}
@@ -277,13 +217,128 @@ func IsDisconnected(err error) bool {
 		}
 	}
 
+	if grpcStatus, ok := status.FromError(err); ok {
+
+		// see https://github.com/grpc/grpc-go/blob/master/codes/codes.go
+		// TODO which other codes might be related to disconnection...?
+		switch grpcStatus.Code() {
+		case codes.Canceled:
+			// e.g. v1client connection closing
+			return true
+		}
+
+	}
+
 	return false
 }
 
-func (c *VirtLauncherClient) Ping() error {
-	cmd := "Launcher.Ping"
-	args := &Args{}
-	_, err := c.genericSendCmd(args, cmd)
+func (c *VirtLauncherClient) SyncVirtualMachine(vmi *v1.VirtualMachineInstance) error {
+	return c.genericSendVMICmd("SyncVMI", c.v1client.SyncVirtualMachine, vmi)
 
+}
+
+func (c *VirtLauncherClient) ShutdownVirtualMachine(vmi *v1.VirtualMachineInstance) error {
+	return c.genericSendVMICmd("Shutdown", c.v1client.ShutdownVirtualMachine, vmi)
+}
+
+func (c *VirtLauncherClient) KillVirtualMachine(vmi *v1.VirtualMachineInstance) error {
+	return c.genericSendVMICmd("Kill", c.v1client.KillVirtualMachine, vmi)
+}
+
+func (c *VirtLauncherClient) DeleteDomain(vmi *v1.VirtualMachineInstance) error {
+	return c.genericSendVMICmd("Delete", c.v1client.DeleteVirtualMachine, vmi)
+}
+
+func (c *VirtLauncherClient) MigrateVirtualMachine(vmi *v1.VirtualMachineInstance, options *MigrationOptions) error {
+
+	vmiJson, err := json.Marshal(vmi)
+	if err != nil {
+		return err
+	}
+
+	optionsJson, err := json.Marshal(options)
+	if err != nil {
+		return err
+	}
+
+	request := &cmdv1.MigrationRequest{
+		Vmi: &cmdv1.VMI{
+			VmiJson: vmiJson,
+		},
+		Options: optionsJson,
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	response, err := c.v1client.MigrateVirtualMachine(ctx, request)
+
+	err = handleError(err, "Migrate", response)
+	return err
+
+}
+
+func (c *VirtLauncherClient) CancelVirtualMachineMigration(vmi *v1.VirtualMachineInstance) error {
+	return c.genericSendVMICmd("CancelMigration", c.v1client.CancelVirtualMachineMigration, vmi)
+}
+
+func (c *VirtLauncherClient) SyncMigrationTarget(vmi *v1.VirtualMachineInstance) error {
+	return c.genericSendVMICmd("SyncMigrationTarget", c.v1client.SyncMigrationTarget, vmi)
+
+}
+
+func (c *VirtLauncherClient) GetDomain() (*api.Domain, bool, error) {
+
+	domain := &api.Domain{}
+	exists := false
+
+	request := &cmdv1.EmptyRequest{}
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	response, err := c.v1client.GetDomain(ctx, request)
+
+	if err = handleError(err, "GetDomain", response.Response); err != nil {
+		return domain, exists, err
+	}
+
+	if response.Domain != "" {
+		if err := json.Unmarshal([]byte(response.Domain), domain); err != nil {
+			log.Log.Reason(err).Error("error unmarshalling domain")
+			return domain, exists, err
+		}
+		exists = true
+	}
+	return domain, exists, nil
+}
+
+func (c *VirtLauncherClient) GetDomainStats() (*stats.DomainStats, bool, error) {
+	stats := &stats.DomainStats{}
+	exists := false
+
+	request := &cmdv1.EmptyRequest{}
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	response, err := c.v1client.GetDomainStats(ctx, request)
+
+	if err = handleError(err, "GetDomainStats", response.Response); err != nil {
+		return stats, exists, err
+	}
+
+	if response.DomainStats != "" {
+		if err := json.Unmarshal([]byte(response.DomainStats), stats); err != nil {
+			log.Log.Reason(err).Error("error unmarshalling domain")
+			return stats, exists, err
+		}
+		exists = true
+	}
+	return stats, exists, nil
+}
+
+func (c *VirtLauncherClient) Ping() error {
+	request := &cmdv1.EmptyRequest{}
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	response, err := c.v1client.Ping(ctx, request)
+
+	err = handleError(err, "Ping", response)
 	return err
 }

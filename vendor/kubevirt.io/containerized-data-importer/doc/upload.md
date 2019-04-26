@@ -31,6 +31,7 @@ In order to upload data to your cluster, the cdi-uploadproxy service must be acc
 
 ```bash
 cat <<EOF | kubectl apply -f -
+apiVersion: v1
 kind: Service
 metadata:
   name: cdi-uploadproxy-nodeport
