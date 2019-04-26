@@ -12,6 +12,7 @@ import (
 	cdi "kubevirt.io/containerized-data-importer/pkg/apis/core/v1alpha1"
 	kubevirt "kubevirt.io/kubevirt/pkg/api/v1"
 
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -143,6 +144,25 @@ func (r *ReconcileHyperConverged) Reconcile(request reconcile.Request) (reconcil
 		return reconcile.Result{}, err
 	}
 
+	// Define KubeVirt's configuration ConfigMap first
+	kvConfig := newKubeVirtConfigForCR(instance)
+	kvConfig.ObjectMeta.Namespace = request.Namespace
+
+	// Set HyperConverged instance as the owner and controller
+	if err := controllerutil.SetControllerReference(instance, kvConfig, r.scheme); err != nil {
+		return reconcile.Result{}, err
+	}
+
+	// Check if this KubeVirt ConfigMap already exists
+	foundKVConfig := &corev1.ConfigMap{}
+	err = r.client.Get(context.TODO(), types.NamespacedName{Name: kvConfig.Name, Namespace: kvConfig.Namespace}, foundKVConfig)
+	result, err := manageComponentResource(err, kvConfig, "KubeVirtConfig", r.client)
+
+	// KubeVirt ConfigMap failed to create, requeue
+	if err != nil {
+		return result, err
+	}
+
 	// Define a new KubeVirt object
 	virtCR := newKubeVirtForCR(instance)
 	virtCR.ObjectMeta.Namespace = request.Namespace
@@ -155,7 +175,7 @@ func (r *ReconcileHyperConverged) Reconcile(request reconcile.Request) (reconcil
 	// Check if this KubeVirt CR already exists
 	foundKubeVirt := &kubevirt.KubeVirt{}
 	err = r.client.Get(context.TODO(), types.NamespacedName{Name: virtCR.Name, Namespace: virtCR.Namespace}, foundKubeVirt)
-	result, err := manageComponentCR(err, virtCR, "KubeVirt", r.client)
+	result, err = manageComponentResource(err, virtCR, "KubeVirt", r.client)
 
 	// KubeVirt failed to create, requeue
 	if err != nil {
@@ -174,7 +194,7 @@ func (r *ReconcileHyperConverged) Reconcile(request reconcile.Request) (reconcil
 	// Check if this CDI CR already exists
 	foundCDI := &cdi.CDI{}
 	err = r.client.Get(context.TODO(), types.NamespacedName{Name: cdiCR.Name, Namespace: cdiCR.Namespace}, foundCDI)
-	result, err = manageComponentCR(err, cdiCR, "CDI", r.client)
+	result, err = manageComponentResource(err, cdiCR, "CDI", r.client)
 
 	// CDI failed to create, requeue
 	if err != nil {
@@ -192,7 +212,7 @@ func (r *ReconcileHyperConverged) Reconcile(request reconcile.Request) (reconcil
 	// Check if this NetworkAddonsConfig CR already exists
 	foundNetworkAddons := &networkaddons.NetworkAddonsConfig{}
 	err = r.client.Get(context.TODO(), types.NamespacedName{Name: networkAddonsCR.Name, Namespace: ""}, foundNetworkAddons)
-	result, err = manageComponentCR(err, networkAddonsCR, "NetworkAddonsConfig", r.client)
+	result, err = manageComponentResource(err, networkAddonsCR, "NetworkAddonsConfig", r.client)
 
 	// NetworkAddonsConfig failed to create, requeue
 	if err != nil {
@@ -208,7 +228,7 @@ func (r *ReconcileHyperConverged) Reconcile(request reconcile.Request) (reconcil
 	// Check if this CR already exists
 	foundKubevirtCommonTemplatesBundle := &sspv1.KubevirtCommonTemplatesBundle{}
 	err = r.client.Get(context.TODO(), types.NamespacedName{Name: kubevirtCommonTemplatesBundleCR.Name, Namespace: kubevirtCommonTemplatesBundleCR.Namespace}, foundKubevirtCommonTemplatesBundle)
-	result, err = manageComponentCR(err, kubevirtCommonTemplatesBundleCR, "KubevirtCommonTemplatesBundle", r.client)
+	result, err = manageComponentResource(err, kubevirtCommonTemplatesBundleCR, "KubevirtCommonTemplatesBundle", r.client)
 	// object failed to create, requeue
 	if err != nil {
 		return result, err
@@ -221,7 +241,7 @@ func (r *ReconcileHyperConverged) Reconcile(request reconcile.Request) (reconcil
 	// Check if this CR already exists
 	foundKubevirtNodeLabellerBundle := &sspv1.KubevirtNodeLabellerBundle{}
 	err = r.client.Get(context.TODO(), types.NamespacedName{Name: kubevirtNodeLabellerBundleCR.Name, Namespace: ""}, foundKubevirtNodeLabellerBundle)
-	result, err = manageComponentCR(err, kubevirtNodeLabellerBundleCR, "KubevirtNodeLabellerBundle", r.client)
+	result, err = manageComponentResource(err, kubevirtNodeLabellerBundleCR, "KubevirtNodeLabellerBundle", r.client)
 	// object failed to create, requeue
 	if err != nil {
 		return result, err
@@ -234,7 +254,7 @@ func (r *ReconcileHyperConverged) Reconcile(request reconcile.Request) (reconcil
 	// Check if this CR already exists
 	foundKubevirtTemplateValidator := &sspv1.KubevirtTemplateValidator{}
 	err = r.client.Get(context.TODO(), types.NamespacedName{Name: kubevirtTemplateValidatorCR.Name, Namespace: ""}, foundKubevirtTemplateValidator)
-	result, err = manageComponentCR(err, kubevirtTemplateValidatorCR, "KubevirtTemplateValidator", r.client)
+	result, err = manageComponentResource(err, kubevirtTemplateValidatorCR, "KubevirtTemplateValidator", r.client)
 	// object failed to create, requeue
 	if err != nil {
 		return result, err
@@ -251,7 +271,7 @@ func (r *ReconcileHyperConverged) Reconcile(request reconcile.Request) (reconcil
 	// Check if this KWebUI CR already exists
 	foundKwebui := &kwebuis.KWebUI{}
 	err = r.client.Get(context.TODO(), types.NamespacedName{Name: kwebuiCR.Name, Namespace: ""}, foundKwebui)
-	result, err = manageComponentCR(err, kwebuiCR, "KWebUI", r.client)
+	result, err = manageComponentResource(err, kwebuiCR, "KWebUI", r.client)
 
 	// KWebUI failed to create, requeue
 	if err != nil {
@@ -260,24 +280,39 @@ func (r *ReconcileHyperConverged) Reconcile(request reconcile.Request) (reconcil
 	return result, nil
 }
 
-func manageComponentCR(err error, o runtime.Object, kind string, c client.Client) (reconcile.Result, error) {
+func manageComponentResource(err error, o runtime.Object, kind string, c client.Client) (reconcile.Result, error) {
 	if err != nil && errors.IsNotFound(err) {
-		log.Info("Creating a new CR", "Kind", kind)
+		log.Info("Creating new resource", "Kind", kind)
 		err = c.Create(context.TODO(), o)
 		if err != nil {
 			return reconcile.Result{}, err
 		}
 
-		// Object CR created successfully - don't requeue
+		// Resource created successfully - don't requeue
 		return reconcile.Result{}, nil
 	} else if err != nil {
 		return reconcile.Result{}, err
 	}
 
-	// Object CR already exists - don't requeue
-	log.Info("Skip reconcile: CR already exists", "Kind", kind)
+	// Resource already exists - don't requeue
+	log.Info("Skip reconcile: resource already exists", "Kind", kind)
 
 	return reconcile.Result{}, nil
+}
+
+func newKubeVirtConfigForCR(cr *hcov1alpha1.HyperConverged) *corev1.ConfigMap {
+	labels := map[string]string{
+		"app": cr.Name,
+	}
+	return &corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:   "kubevirt-config",
+			Labels: labels,
+		},
+		Data: map[string]string{
+			"feature-gates": "DataVolumes,SRIOV,LiveMigration,CPUManager",
+		},
+	}
 }
 
 // newKubeVirtForCR returns a KubeVirt CR
@@ -330,8 +365,8 @@ func newKubevirtCommonTemplateBundleForCR(cr *hcov1alpha1.HyperConverged) *sspv1
 	}
 	return &sspv1.KubevirtCommonTemplatesBundle{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:   "common-templates-" + cr.Name,
-			Labels: labels,
+			Name:      "common-templates-" + cr.Name,
+			Labels:    labels,
 			Namespace: "openshift",
 		},
 		Spec: sspv1.VersionSpec{
