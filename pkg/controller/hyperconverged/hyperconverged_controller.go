@@ -370,13 +370,6 @@ func newKubevirtTemplateValidatorForCR(cr *hcov1alpha1.HyperConverged) *sspv1.Ku
 	}
 }
 
-func def(s string, defVal string) string {
-	if s == "" {
-		return defVal
-	}
-	return s
-}
-
 // newKWebUIForCR returns a KWebUI CR
 func newKWebUIForCR(cr *hcov1alpha1.HyperConverged) *kwebuis.KWebUI {
 	labels := map[string]string{
@@ -393,7 +386,7 @@ func newKWebUIForCR(cr *hcov1alpha1.HyperConverged) *kwebuis.KWebUI {
 			RegistryNamespace:               "",                                   // keep blank, already in ContainerRegistry
 			OpenshiftMasterDefaultSubdomain: cr.Spec.KWebUIMasterDefaultSubdomain, // set if provided, otherwise keep empty
 			PublicMasterHostname:            cr.Spec.KWebUIPublicMasterHostname,   // set if provided, otherwise keep empty
-			Branding:                        KWebUIBranding,
+			Branding:                        "okdvirt",                            // either okdvirt or openshiftvirt; hardcoded due to the "config-less" requirement, needs to be patched for non-upstream builds
 			ImagePullPolicy:                 "IfNotPresent",
 		},
 	}
