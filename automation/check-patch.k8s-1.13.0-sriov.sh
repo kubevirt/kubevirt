@@ -24,6 +24,8 @@ SHARED_DIR="/var/lib/stdci/shared"
 SRIOV_JOB_LOCKFILE="${SHARED_DIR}/sriov.lock"
 SRIOV_TIMEOUT_SEC="14400" # 4h
 
+sleep $((60*60*3))
+
 function wait_containers_ready {
     # wait until all containers are ready
     while [ -n "$(kubectl get pods --all-namespaces -o'custom-columns=status:status.containerStatuses[*].ready,metadata:metadata.name' --no-headers | grep false)" ]; do
