@@ -5,7 +5,7 @@ set -x
 # This is based on https://github.com/SchSeba/kubevirt-docker
 #############################################################
 
-NO_PROXY="localhost,127.0.0.1,172.17.0.2"
+export NO_PROXY="localhost,127.0.0.1,172.17.0.2"
 
 GOPATH=~/go
 GOBIN=~/go/bin
