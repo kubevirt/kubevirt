@@ -31,6 +31,11 @@ function wait_containers_ready {
     while [ -n "$(kubectl get pods --all-namespaces -o'custom-columns=status:status.containerStatuses[*].ready,metadata:metadata.name' --no-headers | grep false)" ]; do
         echo "Waiting for all containers to become ready ..."
         kubectl get pods --all-namespaces -o'custom-columns=status:status.containerStatuses[*].ready,metadata:metadata.name' --no-headers
+	for pod in $(kubectl get pods -n kube-system '-ocustom-columns=metadata:metadata.name' --no-headers); do
+            echo $pod
+            kubectl logs -n kube-system $pod || true
+            kubectl describe pod -n kube-system $pod || true
+	done
         sleep 10
     done
 }
@@ -75,6 +80,7 @@ flock -e  -w "$SRIOV_TIMEOUT_SEC" "$fd" || {
 
 # configure sriovdp plugin before mounting the config file into the cluster
 ./automation/configure_sriovdp.sh
+cat /etc/pcidp/config.json
 
 # ================
 # bring up cluster
