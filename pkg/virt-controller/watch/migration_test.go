@@ -65,7 +65,6 @@ var _ = Describe("Migration watcher", func() {
 	var virtClient *kubecli.MockKubevirtClient
 	var kubeClient *fake.Clientset
 	var networkClient *fakenetworkclient.Clientset
-	var configMapInformer cache.SharedIndexInformer
 	var pvcInformer cache.SharedIndexInformer
 
 	shouldExpectPodCreation := func(uid types.UID, migrationUid types.UID, expectedAntiAffinityCount int, expectedAffinityCount int, expectedNodeAffinityCount int) {
@@ -162,17 +161,17 @@ var _ = Describe("Migration watcher", func() {
 		podInformer, podSource = testutils.NewFakeInformerFor(&k8sv1.Pod{})
 		recorder = record.NewFakeRecorder(100)
 
-		configMapInformer, _ = testutils.NewFakeInformerFor(&k8sv1.ConfigMap{})
+		config, configStore := testutils.NewFakeClusterConfig(&k8sv1.ConfigMap{})
 		pvcInformer, _ = testutils.NewFakeInformerFor(&k8sv1.PersistentVolumeClaim{})
 
 		controller = NewMigrationController(
-			services.NewTemplateService("a", "b", "c", "d", configMapInformer.GetStore(), pvcInformer.GetStore(), virtClient),
+			services.NewTemplateService("a", "b", "c", "d", configStore, pvcInformer.GetStore(), virtClient),
 			vmiInformer,
 			podInformer,
 			migrationInformer,
 			recorder,
 			virtClient,
-			testutils.MakeFakeClusterConfig(nil, stop),
+			config,
 		)
 		// Wrap our workqueue to have a way to detect when we are done processing updates
 		mockQueue = testutils.NewMockWorkQueue(controller.Queue)
