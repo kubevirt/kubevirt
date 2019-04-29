@@ -1,9 +1,6 @@
 package virtconfig
 
 import (
-	"regexp"
-	"strings"
-
 	. "github.com/onsi/ginkgo"
 	"github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
@@ -74,7 +71,7 @@ var _ = Describe("ConfigMap", func() {
 				Namespace:       "kubevirt",
 				Name:            "kubevirt-config",
 			},
-			Data: map[string]string{MachineTypeKey: value},
+			Data: map[string]string{machineTypeKey: value},
 		}
 		clusterConfig, _ := MakeClusterConfig([]kubev1.ConfigMap{cfgMap}, stopChan)
 		Expect(clusterConfig.GetMachineType()).To(Equal(result))
@@ -90,7 +87,7 @@ var _ = Describe("ConfigMap", func() {
 				Namespace:       "kubevirt",
 				Name:            "kubevirt-config",
 			},
-			Data: map[string]string{CpuModelKey: value},
+			Data: map[string]string{cpuModelKey: value},
 		}
 		clusterConfig, _ := MakeClusterConfig([]kubev1.ConfigMap{cfgMap}, stopChan)
 		Expect(clusterConfig.GetCPUModel()).To(Equal(result))
@@ -106,7 +103,7 @@ var _ = Describe("ConfigMap", func() {
 				Namespace:       "kubevirt",
 				Name:            "kubevirt-config",
 			},
-			Data: map[string]string{CpuRequestKey: value},
+			Data: map[string]string{cpuRequestKey: value},
 		}
 		clusterConfig, _ := MakeClusterConfig([]kubev1.ConfigMap{cfgMap}, stopChan)
 		cpuRequest := clusterConfig.GetCPURequest()
@@ -114,40 +111,6 @@ var _ = Describe("ConfigMap", func() {
 	},
 		table.Entry("when set, it should return the value", "400m", "400m"),
 		table.Entry("when unset, it should return the default", "", DefaultCPURequest),
-	)
-
-	table.DescribeTable(" when memoryRequest", func(value string, result string) {
-		cfgMap := kubev1.ConfigMap{
-			ObjectMeta: metav1.ObjectMeta{
-				ResourceVersion: "1234",
-				Namespace:       "kubevirt",
-				Name:            "kubevirt-config",
-			},
-			Data: map[string]string{MemoryRequestKey: value},
-		}
-		clusterConfig, _ := MakeClusterConfig([]kubev1.ConfigMap{cfgMap}, stopChan)
-		memoryRequest := clusterConfig.GetMemoryRequest()
-		Expect(memoryRequest.String()).To(Equal(result))
-	},
-		table.Entry("when set, it should return the value", "512Mi", "512Mi"),
-		table.Entry("when unset, it should return the default", "", DefaultMemoryRequest),
-	)
-
-	table.DescribeTable(" when emulatedMachines", func(value string, result []string) {
-		cfgMap := kubev1.ConfigMap{
-			ObjectMeta: metav1.ObjectMeta{
-				ResourceVersion: "1234",
-				Namespace:       "kubevirt",
-				Name:            "kubevirt-config",
-			},
-			Data: map[string]string{emulatedMachinesKey: value},
-		}
-		clusterConfig, _ := MakeClusterConfig([]kubev1.ConfigMap{cfgMap}, stopChan)
-		emulatedMachines := clusterConfig.GetEmulatedMachines()
-		Expect(emulatedMachines).To(ConsistOf(result))
-	},
-		table.Entry("when set, it should return the value", "q35, i440*", []string{"q35", "i440*"}),
-		table.Entry("when unset, it should return the defaults", "", strings.Split(DefaultEmulatedMachines, ",")),
 	)
 
 	It("Should return migration config values if specified as json", func() {
@@ -281,18 +244,6 @@ var _ = Describe("ConfigMap", func() {
 		clusterConfig, _ := MakeClusterConfig([]kubev1.ConfigMap{}, stopChan)
 		result := clusterConfig.GetMigrationConfig()
 		Expect(*result.ParallelOutboundMigrationsPerNode).To(BeNumerically("==", 2))
-	})
-
-	It("should contain a default machine type that is supported by default", func() {
-		isDefaultMachineTypeSupported := func() bool {
-			for _, val := range strings.Split(DefaultEmulatedMachines, ",") {
-				if regexp.MustCompile(val).MatchString(DefaultMachineType) {
-					return true
-				}
-			}
-			return false
-		}
-		Expect(isDefaultMachineTypeSupported()).To(BeTrue())
 	})
 })
 

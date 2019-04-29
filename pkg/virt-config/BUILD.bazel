@@ -5,6 +5,7 @@ go_library(
     srcs = [
         "config-map.go",
         "feature-gates.go",
+        "virt-properties.go",
     ],
     importpath = "kubevirt.io/kubevirt/pkg/virt-config",
     visibility = ["//visibility:public"],

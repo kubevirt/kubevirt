@@ -107,7 +107,6 @@ type virtAPIApp struct {
 	aggregatorClient *aggregatorclient.Clientset
 	authorizor       rest.VirtApiAuthorizor
 	certsDirectory   string
-	clusterConfig    *virtconfig.ClusterConfig
 
 	signingCertBytes           []byte
 	certBytes                  []byte
@@ -749,16 +748,16 @@ func (app *virtAPIApp) createValidatingWebhook() error {
 	}
 
 	http.HandleFunc(vmiCreateValidatePath, func(w http.ResponseWriter, r *http.Request) {
-		validating_webhook.ServeVMICreate(w, r, app.clusterConfig)
+		validating_webhook.ServeVMICreate(w, r)
 	})
 	http.HandleFunc(vmiUpdateValidatePath, func(w http.ResponseWriter, r *http.Request) {
 		validating_webhook.ServeVMIUpdate(w, r)
 	})
 	http.HandleFunc(vmValidatePath, func(w http.ResponseWriter, r *http.Request) {
-		validating_webhook.ServeVMs(w, r, app.clusterConfig)
+		validating_webhook.ServeVMs(w, r)
 	})
 	http.HandleFunc(vmirsValidatePath, func(w http.ResponseWriter, r *http.Request) {
-		validating_webhook.ServeVMIRS(w, r, app.clusterConfig)
+		validating_webhook.ServeVMIRS(w, r)
 	})
 	http.HandleFunc(vmipresetValidatePath, func(w http.ResponseWriter, r *http.Request) {
 		validating_webhook.ServeVMIPreset(w, r)
@@ -867,7 +866,7 @@ func (app *virtAPIApp) createMutatingWebhook() error {
 	}
 
 	http.HandleFunc(vmiMutatePath, func(w http.ResponseWriter, r *http.Request) {
-		mutating_webhook.ServeVMIs(w, r, app.clusterConfig)
+		mutating_webhook.ServeVMIs(w, r)
 	})
 	http.HandleFunc(migrationMutatePath, func(w http.ResponseWriter, r *http.Request) {
 		mutating_webhook.ServeMigrationCreate(w, r)
@@ -1051,8 +1050,6 @@ func (app *virtAPIApp) Run() {
 		webhookInformers.VMIPresetInformer.HasSynced,
 		webhookInformers.NamespaceLimitsInformer.HasSynced,
 		webhookInformers.ConfigMapInformer.HasSynced)
-
-	app.clusterConfig = virtconfig.NewClusterConfig(webhookInformers.ConfigMapInformer.GetStore(), app.namespace)
 
 	// Verify/create webhook endpoint.
 	err = app.createWebhook()

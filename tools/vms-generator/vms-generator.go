@@ -27,12 +27,10 @@ import (
 
 	"kubevirt.io/kubevirt/tools/util"
 
-	k8sv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	k8sfield "k8s.io/apimachinery/pkg/util/validation/field"
 
 	v1 "kubevirt.io/kubevirt/pkg/api/v1"
-	"kubevirt.io/kubevirt/pkg/testutils"
 	validating_webhook "kubevirt.io/kubevirt/pkg/virt-api/webhooks/validating-webhook"
 	"kubevirt.io/kubevirt/tools/vms-generator/utils"
 )
@@ -125,24 +123,21 @@ func main() {
 		return nil
 	}
 
-	// This is a hack to satisfy validating_webhook's functions that need a ClusterConfig
-	config, _ := testutils.NewFakeClusterConfig(&k8sv1.ConfigMap{})
-
 	// Having no generics is lots of fun
 	for name, obj := range vms {
-		causes := validating_webhook.ValidateVirtualMachineSpec(k8sfield.NewPath("spec"), &obj.Spec, config)
+		causes := validating_webhook.ValidateVirtualMachineSpec(k8sfield.NewPath("spec"), &obj.Spec)
 		handleCauses(causes, name, "vm")
 		handleError(dumpObject(name, *obj))
 	}
 
 	for name, obj := range vmis {
-		causes := validating_webhook.ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("spec"), &obj.Spec, config)
+		causes := validating_webhook.ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("spec"), &obj.Spec)
 		handleCauses(causes, name, "vmi")
 		handleError(dumpObject(name, *obj))
 	}
 
 	for name, obj := range vmireplicasets {
-		causes := validating_webhook.ValidateVMIRSSpec(k8sfield.NewPath("spec"), &obj.Spec, config)
+		causes := validating_webhook.ValidateVMIRSSpec(k8sfield.NewPath("spec"), &obj.Spec)
 		handleCauses(causes, name, "vmi replica set")
 		handleError(dumpObject(name, *obj))
 	}
