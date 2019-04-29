@@ -5,6 +5,8 @@ set -x
 # This is based on https://github.com/SchSeba/kubevirt-docker
 #############################################################
 
+NO_PROXY="localhost,127.0.0.1,172.17.0.2"
+
 GOPATH=~/go
 GOBIN=~/go/bin
 PATH=$PATH:$GOBIN
@@ -23,8 +25,6 @@ ARTIFACTS_DIR="${KUBEVIRT_PATH}/exported-artifacts"
 SHARED_DIR="/var/lib/stdci/shared"
 SRIOV_JOB_LOCKFILE="${SHARED_DIR}/sriov.lock"
 SRIOV_TIMEOUT_SEC="14400" # 4h
-
-sleep $((60*60*3))
 
 function wait_containers_ready {
     # wait until all containers are ready
@@ -61,7 +61,6 @@ function collect_artifacts {
 }
 
 function finish {
-    sleep $((60*60*4))
     collect_artifacts
     kind delete cluster --name=${CLUSTER_NAME}
 }
@@ -83,8 +82,6 @@ flock -e  -w "$SRIOV_TIMEOUT_SEC" "$fd" || {
 go get -u sigs.k8s.io/kind
 
 # try to create cluster twice...
-kind --loglevel debug create cluster --wait=$((60*60))s --retain --name=${CLUSTER_NAME} --config=${MANIFESTS_DIR}/kind.yaml || true
-kind delete cluster --name=${CLUSTER_NAME}
 kind --loglevel debug create cluster --wait=$((60*60))s --retain --name=${CLUSTER_NAME} --config=${MANIFESTS_DIR}/kind.yaml
 
 export KUBECONFIG=$(kind get kubeconfig-path --name=${CLUSTER_NAME})
