@@ -272,8 +272,7 @@ spec:
         effect: NoSchedule
       containers:
         - name: node-maintenance-operator
-          # Replace this with the built image name
-          image: quay.io/kubevirt/node-maintenance-operator:latest
+          image: quay.io/kubevirt/node-maintenance-operator:v0.2.0
           imagePullPolicy: Always
           env:
             - name: WATCH_NAMESPACE
