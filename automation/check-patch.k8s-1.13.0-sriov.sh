@@ -33,7 +33,8 @@ function wait_containers_ready {
         kubectl get pods --all-namespaces -o'custom-columns=status:status.containerStatuses[*].ready,metadata:metadata.name' --no-headers
 	for pod in $(kubectl get pods -n kube-system '-ocustom-columns=metadata:metadata.name' --no-headers); do
             echo $pod
-            kubectl logs -n kube-system $pod
+            kubectl logs -n kube-system $pod || true
+            kubectl describe pod -n kube-system $pod || true
 	done
         sleep 10
     done
