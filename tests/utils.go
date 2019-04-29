@@ -220,8 +220,9 @@ const (
 )
 
 const (
-	auditLogPath = "/var/lib/origin/audit-ocp.log"
-	swaggerPath  = "api/openapi-spec/swagger.json"
+	osAuditLogPath  = "/var/lib/origin/audit-ocp.log"
+	k8sAuditLogPath = "/var/log/k8s-audit.log"
+	swaggerPath     = "api/openapi-spec/swagger.json"
 )
 
 type ProcessFunc func(event *k8sv1.Event) (done bool)
@@ -478,12 +479,20 @@ func AfterTestSuitCleanup() {
 	removeNamespaces()
 
 	// generate REST API coverage report
+	var auditLogPath string
+	if IsOpenShift() {
+		auditLogPath = osAuditLogPath
+	} else {
+		auditLogPath = k8sAuditLogPath
+	}
+
 	auditLogs, _, err := RunCommandWithNS("", "gocli", "scp", auditLogPath, "-")
 	if err != nil {
-		fmt.Printf("Could not get audit log from %s, %s", auditLogPath, err)
-	}
-	if err := restCoverage.GenerateReport(auditLogs, swaggerPath, "/apis/kubevirt.io/v1alpha3/"); err != nil {
-		fmt.Println(err)
+		fmt.Printf("ERROR: Could not get audit log from %s, %s\n", auditLogPath, err)
+	} else {
+		if err := restCoverage.GenerateReport(auditLogs, swaggerPath, "/apis/kubevirt.io/v1alpha3/"); err != nil {
+			fmt.Printf("ERROR: %s\n", err)
+		}
 	}
 
 	CleanNodes()

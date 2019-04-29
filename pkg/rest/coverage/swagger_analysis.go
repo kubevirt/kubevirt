@@ -16,6 +16,8 @@ type RequestStats struct {
 	ParamsHit    int
 	ParamsNum    int
 	MethodCalled bool
+	Path         string
+	Method       string
 }
 
 type Request struct {
@@ -50,7 +52,9 @@ func getRESTApi(swaggerPath string, filter string) (map[string]Request, error) {
 
 		if _, ok := restAPI[path].Methods[method]; !ok {
 			restAPI[path].Methods[method] = &RequestStats{
-				Query: make(map[string]int),
+				Query:  make(map[string]int),
+				Path:   path,
+				Method: method,
 			}
 		}
 
