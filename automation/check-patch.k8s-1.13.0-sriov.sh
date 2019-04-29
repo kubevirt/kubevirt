@@ -76,6 +76,9 @@ flock -e  -w "$SRIOV_TIMEOUT_SEC" "$fd" || {
     exit 1
 }
 
+# configure sriovdp plugin before mounting the config file into the cluster
+./automation/configure_sriovdp.sh
+
 # ================
 # bring up cluster
 # ================
