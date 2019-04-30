@@ -40,17 +40,17 @@ import (
 )
 
 const (
-	configMapName       = "kubevirt-config"
-	featureGateEnvVar   = "FEATURE_GATES"
-	FeatureGatesKey     = "feature-gates"
-	emulatedMachinesKey = "emulated-machines"
-	MachineTypeKey      = "machine-type"
-	useEmulationKey     = "debug.useEmulation"
-	imagePullPolicyKey  = "dev.imagePullPolicy"
-	migrationsConfigKey = "migrations"
-	CpuModelKey         = "default-cpu-model"
-	CpuRequestKey       = "cpu-request"
-	MemoryRequestKey    = "memory-request"
+	configMapName          = "kubevirt-config"
+	featureGateEnvVar      = "FEATURE_GATES"
+	FeatureGatesKey        = "feature-gates"
+	emulatedMachinesEnvVar = "VIRT_EMULATED_MACHINES"
+	emulatedMachinesKey    = "emulated-machines"
+	machineTypeKey         = "machine-type"
+	useEmulationKey        = "debug.useEmulation"
+	imagePullPolicyKey     = "dev.imagePullPolicy"
+	migrationsConfigKey    = "migrations"
+	cpuModelKey            = "default-cpu-model"
+	cpuRequestKey          = "cpu-request"
 
 	ParallelOutboundMigrationsPerNodeDefault uint32 = 2
 	ParallelMigrationsPerClusterDefault      uint32 = 5
@@ -59,8 +59,6 @@ const (
 	MigrationCompletionTimeoutPerGiB         int64  = 800
 	DefaultMachineType                              = "q35"
 	DefaultCPURequest                               = "100m"
-	DefaultMemoryRequest                            = "8Mi"
-	DefaultEmulatedMachines                         = "q35*,pc-q35*"
 
 	NodeDrainTaintDefaultKey = "kubevirt.io/drain"
 )
@@ -75,10 +73,14 @@ func InitFromConfigMap(cfgMap *k8sv1.ConfigMap) {
 	if val, ok := cfgMap.Data[FeatureGatesKey]; ok {
 		os.Setenv(featureGateEnvVar, val)
 	}
+	if val, ok := cfgMap.Data[emulatedMachinesKey]; ok {
+		os.Setenv(emulatedMachinesEnvVar, val)
+	}
 }
 
 func Clear() {
 	os.Unsetenv(featureGateEnvVar)
+	os.Unsetenv(emulatedMachinesEnvVar)
 }
 
 func getConfigMap() *k8sv1.ConfigMap {
@@ -142,8 +144,6 @@ func defaultClusterConfig() *Config {
 	progressTimeout := MigrationProgressTimeout
 	completionTimeoutPerGiB := MigrationCompletionTimeoutPerGiB
 	cpuRequestDefault := resource.MustParse(DefaultCPURequest)
-	memoryRequestDefault := resource.MustParse(DefaultMemoryRequest)
-	emulatedMachinesDefault := strings.Split(DefaultEmulatedMachines, ",")
 	return &Config{
 		ResourceVersion: "0",
 		ImagePullPolicy: k8sv1.PullIfNotPresent,
@@ -157,23 +157,19 @@ func defaultClusterConfig() *Config {
 			CompletionTimeoutPerGiB:           &completionTimeoutPerGiB,
 			UnsafeMigrationOverride:           false,
 		},
-		MachineType:      DefaultMachineType,
-		CPURequest:       cpuRequestDefault,
-		MemoryRequest:    memoryRequestDefault,
-		EmulatedMachines: emulatedMachinesDefault,
+		MachineType: DefaultMachineType,
+		CPURequest:  cpuRequestDefault,
 	}
 }
 
 type Config struct {
-	ResourceVersion  string
-	UseEmulation     bool
-	MigrationConfig  *MigrationConfig
-	ImagePullPolicy  k8sv1.PullPolicy
-	MachineType      string
-	CPUModel         string
-	CPURequest       resource.Quantity
-	MemoryRequest    resource.Quantity
-	EmulatedMachines []string
+	ResourceVersion string
+	UseEmulation    bool
+	MigrationConfig *MigrationConfig
+	ImagePullPolicy k8sv1.PullPolicy
+	MachineType     string
+	CPUModel        string
+	CPURequest      resource.Quantity
 }
 
 type MigrationConfig struct {
@@ -217,14 +213,6 @@ func (c *ClusterConfig) GetCPUModel() string {
 
 func (c *ClusterConfig) GetCPURequest() resource.Quantity {
 	return c.getConfig().CPURequest
-}
-
-func (c *ClusterConfig) GetMemoryRequest() resource.Quantity {
-	return c.getConfig().MemoryRequest
-}
-
-func (c *ClusterConfig) GetEmulatedMachines() []string {
-	return c.getConfig().EmulatedMachines
 }
 
 // setConfig parses the provided config map and updates the provided config.
@@ -273,28 +261,16 @@ func setConfig(config *Config, configMap *k8sv1.ConfigMap) error {
 	}
 
 	// set machine type
-	if machineType := strings.TrimSpace(configMap.Data[MachineTypeKey]); machineType != "" {
+	if machineType := strings.TrimSpace(configMap.Data[machineTypeKey]); machineType != "" {
 		config.MachineType = machineType
 	}
 
-	if cpuModel := strings.TrimSpace(configMap.Data[CpuModelKey]); cpuModel != "" {
+	if cpuModel := strings.TrimSpace(configMap.Data[cpuModelKey]); cpuModel != "" {
 		config.CPUModel = cpuModel
 	}
 
-	if cpuRequest := strings.TrimSpace(configMap.Data[CpuRequestKey]); cpuRequest != "" {
+	if cpuRequest := strings.TrimSpace(configMap.Data[cpuRequestKey]); cpuRequest != "" {
 		config.CPURequest = resource.MustParse(cpuRequest)
-	}
-
-	if memoryRequest := strings.TrimSpace(configMap.Data[MemoryRequestKey]); memoryRequest != "" {
-		config.MemoryRequest = resource.MustParse(memoryRequest)
-	}
-
-	if emulatedMachines := strings.TrimSpace(configMap.Data[emulatedMachinesKey]); emulatedMachines != "" {
-		vals := strings.Split(emulatedMachines, ",")
-		for i := range vals {
-			vals[i] = strings.TrimSpace(vals[i])
-		}
-		config.EmulatedMachines = vals
 	}
 
 	return nil

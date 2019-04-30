@@ -32,6 +32,7 @@ import (
 
 	v1 "kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/log"
+	"kubevirt.io/kubevirt/pkg/util"
 	"kubevirt.io/kubevirt/pkg/virt-api/webhooks"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 )
@@ -42,11 +43,9 @@ type patchOperation struct {
 	Value interface{} `json:"value,omitempty"`
 }
 
-type mutator interface {
-	mutate(*v1beta1.AdmissionReview) *v1beta1.AdmissionResponse
-}
+type mutateFunc func(*v1beta1.AdmissionReview) *v1beta1.AdmissionResponse
 
-func serve(resp http.ResponseWriter, req *http.Request, m mutator) {
+func serve(resp http.ResponseWriter, req *http.Request, mutate mutateFunc) {
 	response := v1beta1.AdmissionReview{}
 	review, err := webhooks.GetAdmissionReview(req)
 
@@ -55,7 +54,7 @@ func serve(resp http.ResponseWriter, req *http.Request, m mutator) {
 		return
 	}
 
-	reviewResponse := m.mutate(review)
+	reviewResponse := mutate(review)
 	if reviewResponse != nil {
 		response.Response = reviewResponse
 		response.Response.UID = review.Request.UID
@@ -78,11 +77,8 @@ func serve(resp http.ResponseWriter, req *http.Request, m mutator) {
 	resp.WriteHeader(http.StatusOK)
 }
 
-type VMIsMutator struct {
-	clusterConfig *virtconfig.ClusterConfig
-}
+func mutateVMIs(ar *v1beta1.AdmissionReview) *v1beta1.AdmissionResponse {
 
-func (mutator *VMIsMutator) mutate(ar *v1beta1.AdmissionReview) *v1beta1.AdmissionResponse {
 	if ar.Request.Resource != webhooks.VirtualMachineInstanceGroupVersionResource {
 		err := fmt.Errorf("expect resource to be '%s'", webhooks.VirtualMachineInstanceGroupVersionResource.Resource)
 		return webhooks.ToAdmissionResponseError(err)
@@ -101,7 +97,11 @@ func (mutator *VMIsMutator) mutate(ar *v1beta1.AdmissionReview) *v1beta1.Admissi
 	}
 
 	informers := webhooks.GetInformers()
-	config := mutator.clusterConfig
+	namespace, err := util.GetNamespace()
+	if err != nil {
+		return webhooks.ToAdmissionResponseError(err)
+	}
+	config := virtconfig.NewClusterConfig(informers.ConfigMapInformer.GetStore(), namespace)
 
 	// Apply presets
 	err = applyPresets(&vmi, informers.VMIPresetInformer)
@@ -121,8 +121,10 @@ func (mutator *VMIsMutator) mutate(ar *v1beta1.AdmissionReview) *v1beta1.Admissi
 	log.Log.Object(&vmi).V(4).Info("Apply defaults")
 	setDefaultCPUModel(&vmi, config.GetCPUModel())
 	setDefaultMachineType(&vmi, config.GetMachineType())
-	setDefaultResourceRequests(&vmi, config.GetMemoryRequest(), config.GetCPURequest())
 	v1.SetObjectDefaults_VirtualMachineInstance(&vmi)
+	// Default CPU request is done after the Resources section is initialized, if needed,
+	// in v1.SetObjectDefaults_VirtualMachineInstance. TODO: set default memory here
+	setDefaultCPURequest(&vmi, config.GetCPURequest())
 
 	// Add foreground finalizer
 	vmi.Finalizers = append(vmi.Finalizers, v1.VirtualMachineInstanceFinalizer)
@@ -157,10 +159,8 @@ func (mutator *VMIsMutator) mutate(ar *v1beta1.AdmissionReview) *v1beta1.Admissi
 
 }
 
-type MigrationCreateMutator struct {
-}
+func mutateMigrationCreate(ar *v1beta1.AdmissionReview) *v1beta1.AdmissionResponse {
 
-func (mutator *MigrationCreateMutator) mutate(ar *v1beta1.AdmissionReview) *v1beta1.AdmissionResponse {
 	if ar.Request.Resource != webhooks.MigrationGroupVersionResource {
 		err := fmt.Errorf("expect resource to be '%s'", webhooks.MigrationGroupVersionResource.Resource)
 		return webhooks.ToAdmissionResponseError(err)
@@ -230,14 +230,7 @@ func setDefaultMachineType(vmi *v1.VirtualMachineInstance, defaultMachineType st
 	}
 }
 
-func setDefaultResourceRequests(vmi *v1.VirtualMachineInstance, defaultMemoryRequest resource.Quantity, defaultCPURequest resource.Quantity) {
-	if _, exists := vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory]; !exists {
-		if vmi.Spec.Domain.Resources.Requests == nil {
-			vmi.Spec.Domain.Resources.Requests = k8sv1.ResourceList{}
-		}
-		vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = defaultMemoryRequest
-	}
-
+func setDefaultCPURequest(vmi *v1.VirtualMachineInstance, defaultCPURequest resource.Quantity) {
 	if _, exists := vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceCPU]; !exists {
 		if vmi.Spec.Domain.CPU != nil && vmi.Spec.Domain.CPU.DedicatedCPUPlacement {
 			return
@@ -246,10 +239,10 @@ func setDefaultResourceRequests(vmi *v1.VirtualMachineInstance, defaultMemoryReq
 	}
 }
 
-func ServeVMIs(resp http.ResponseWriter, req *http.Request, clusterConfig *virtconfig.ClusterConfig) {
-	serve(resp, req, &VMIsMutator{clusterConfig: clusterConfig})
+func ServeVMIs(resp http.ResponseWriter, req *http.Request) {
+	serve(resp, req, mutateVMIs)
 }
 
 func ServeMigrationCreate(resp http.ResponseWriter, req *http.Request) {
-	serve(resp, req, &MigrationCreateMutator{})
+	serve(resp, req, mutateMigrationCreate)
 }
