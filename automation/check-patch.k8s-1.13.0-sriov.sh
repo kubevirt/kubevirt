@@ -5,10 +5,6 @@ set -x
 # This is based on https://github.com/SchSeba/kubevirt-docker
 #############################################################
 
-ls /host/etc/* -l || true
-
-sleep $((60*60*3))
-
 export NO_PROXY="localhost,127.0.0.1,172.17.0.2"
 
 GOPATH=~/go
@@ -80,10 +76,6 @@ flock -e  -w "$SRIOV_TIMEOUT_SEC" "$fd" || {
     exit 1
 }
 
-# configure sriovdp plugin before mounting the config file into the cluster
-./automation/configure_sriovdp.sh
-cat /etc/pcidp/config.json
-
 # ================
 # bring up cluster
 # ================
@@ -91,7 +83,6 @@ go get -u sigs.k8s.io/kind
 
 # try to create cluster twice...
 kind --loglevel debug create cluster --wait=$((60*60))s --retain --name=${CLUSTER_NAME} --config=${MANIFESTS_DIR}/kind.yaml
-cat /etc/pcidp/config.json
 
 export KUBECONFIG=$(kind get kubeconfig-path --name=${CLUSTER_NAME})
 kubectl cluster-info
@@ -191,15 +182,26 @@ kubectl apply -f $MANIFESTS_DIR/sriov-cni-daemonset.yaml
 # prepare kernel for vfio passthrough
 modprobe vfio-pci
 
-${CLUSTER_CMD} ls -l /etc/pcidp/ || true
-${CLUSTER_CMD} cat /etc/pcidp/config.json || true
 # deploy sriov device plugin
+function configure-sriovdp() {
+    local cmd_context="${1}" # context to run command e.g. sudo, docker exec
+    ${cmd_context} "mkdir -p /etc/pcidp"
+    ${cmd_context} "$(sriovdp-config-cmd)"
+}
+
+function sriovdp-config-cmd() {
+    ./automation/configure_sriovdp.sh
+    echo "cat <<EOF > /etc/pcidp/config.json
+$(cat /etc/pcidp/config.json)
+EOF
+"
+}
+
+configure-sriovdp "${CLUSTER_CMD} bash -c"
 kubectl apply -f $MANIFESTS_DIR/sriovdp-daemonset.yaml
 
 # give them some time to create pods before checking pod status
 sleep 10
-${CLUSTER_CMD} ls -l /etc/pcidp/ || true
-${CLUSTER_CMD} cat /etc/pcidp/config.json || true
 
 # make sure all containers are ready
 wait_containers_ready
@@ -226,6 +228,7 @@ ${CLUSTER_CMD} mknod /dev/loop0 b 7 0
 # ===============
 export KUBEVIRT_PROVIDER=external
 export DOCKER_PREFIX=${CONTAINER_REGISTRY_HOST}/kubevirt
+export DOCKER_TAG=devel
 make cluster-build
 make cluster-deploy
 wait_kubevirt_up
