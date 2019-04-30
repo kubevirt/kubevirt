@@ -31,11 +31,6 @@ function wait_containers_ready {
     while [ -n "$(kubectl get pods --all-namespaces -o'custom-columns=status:status.containerStatuses[*].ready,metadata:metadata.name' --no-headers | grep false)" ]; do
         echo "Waiting for all containers to become ready ..."
         kubectl get pods --all-namespaces -o'custom-columns=status:status.containerStatuses[*].ready,metadata:metadata.name' --no-headers
-	for pod in $(kubectl get pods -n kube-system '-ocustom-columns=metadata:metadata.name' --no-headers); do
-            echo $pod
-            kubectl logs -n kube-system $pod || true
-            kubectl describe pod -n kube-system $pod || true
-	done
         sleep 10
     done
 }
@@ -77,10 +72,6 @@ flock -e  -w "$SRIOV_TIMEOUT_SEC" "$fd" || {
     echo "ERROR: Timed out after $SRIOV_TIMEOUT_SEC seconds waiting for sriov.lock" >&2
     exit 1
 }
-
-# configure sriovdp plugin before mounting the config file into the cluster
-./automation/configure_sriovdp.sh
-cat /etc/pcidp/config.json
 
 # ================
 # bring up cluster
@@ -188,6 +179,21 @@ kubectl apply -f $MANIFESTS_DIR/sriov-cni-daemonset.yaml
 modprobe vfio-pci
 
 # deploy sriov device plugin
+function configure-sriovdp() {
+    local cmd_context="${1}" # context to run command e.g. sudo, docker exec
+    ${cmd_context} "mkdir -p /etc/pcidp"
+    ${cmd_context} "$(sriovdp-config-cmd)"
+}
+
+function sriovdp-config-cmd() {
+    ./automation/configure_sriovdp.sh
+    echo "cat <<EOF > /etc/pcidp/config.json
+$(cat /etc/pcidp/config.json)
+EOF
+"
+}
+
+configure-sriovdp "${CLUSTER_CMD} bash -c"
 kubectl apply -f $MANIFESTS_DIR/sriovdp-daemonset.yaml
 
 # give them some time to create pods before checking pod status
@@ -218,6 +224,7 @@ ${CLUSTER_CMD} mknod /dev/loop0 b 7 0
 # ===============
 export KUBEVIRT_PROVIDER=external
 export DOCKER_PREFIX=${CONTAINER_REGISTRY_HOST}/kubevirt
+export DOCKER_TAG=devel
 make cluster-build
 make cluster-deploy
 wait_kubevirt_up
