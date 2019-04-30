@@ -40,6 +40,11 @@ func (f *File) URI() span.URI {
 	return f.uris[0]
 }
 
+// View returns the view associated with the file.
+func (f *File) View() source.View {
+	return f.view
+}
+
 // GetContent returns the contents of the file, reading it from file system if needed.
 func (f *File) GetContent(ctx context.Context) []byte {
 	f.view.mu.Lock()
@@ -84,8 +89,7 @@ func (f *File) GetPackage(ctx context.Context) source.Package {
 	f.view.mu.Lock()
 	defer f.view.mu.Unlock()
 	if f.pkg == nil || len(f.view.contentChanges) > 0 {
-		errs, err := f.view.parse(ctx, f)
-		if err != nil {
+		if errs, err := f.view.parse(ctx, f); err != nil {
 			// Create diagnostics for errors if we are able to.
 			if len(errs) > 0 {
 				return &Package{errors: errs}
@@ -112,9 +116,15 @@ func (f *File) read(ctx context.Context) {
 			return
 		}
 	}
+	// We might have the content saved in an overlay.
+	if content, ok := f.view.Config.Overlay[f.filename]; ok {
+		f.content = content
+		return
+	}
 	// We don't know the content yet, so read it.
 	content, err := ioutil.ReadFile(f.filename)
 	if err != nil {
+		f.view.Logger().Errorf(ctx, "unable to read file %s: %v", f.filename, err)
 		return
 	}
 	f.content = content

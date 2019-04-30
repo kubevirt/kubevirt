@@ -90,6 +90,7 @@ func NewKubeVirtController(
 			Service:                  controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectationsWithName("Service")),
 			Deployment:               controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectationsWithName("Deployment")),
 			DaemonSet:                controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectationsWithName("DaemonSet")),
+			ValidationWebhook:        controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectationsWithName("ValidationWebhook")),
 			InstallStrategyConfigMap: controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectationsWithName("ConfigMap")),
 			InstallStrategyJob:       controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectationsWithName("Jobs")),
 		},
@@ -207,6 +208,18 @@ func NewKubeVirtController(
 		},
 		UpdateFunc: func(oldObj, newObj interface{}) {
 			c.genericUpdateHandler(oldObj, newObj, c.kubeVirtExpectations.DaemonSet)
+		},
+	})
+
+	c.informers.ValidationWebhook.AddEventHandler(cache.ResourceEventHandlerFuncs{
+		AddFunc: func(obj interface{}) {
+			c.genericAddHandler(obj, c.kubeVirtExpectations.ValidationWebhook)
+		},
+		DeleteFunc: func(obj interface{}) {
+			c.genericDeleteHandler(obj, c.kubeVirtExpectations.ValidationWebhook)
+		},
+		UpdateFunc: func(oldObj, newObj interface{}) {
+			c.genericUpdateHandler(oldObj, newObj, c.kubeVirtExpectations.ValidationWebhook)
 		},
 	})
 
@@ -358,7 +371,7 @@ func (c *KubeVirtController) enqueueKubeVirt(obj interface{}) {
 	c.queue.Add(key)
 }
 
-func (c *KubeVirtController) Run(threadiness int, stopCh chan struct{}) {
+func (c *KubeVirtController) Run(threadiness int, stopCh <-chan struct{}) {
 	defer controller.HandlePanic()
 	defer c.queue.ShutDown()
 	log.Log.Info("Starting KubeVirt controller.")
@@ -374,6 +387,7 @@ func (c *KubeVirtController) Run(threadiness int, stopCh chan struct{}) {
 	cache.WaitForCacheSync(stopCh, c.informers.Service.HasSynced)
 	cache.WaitForCacheSync(stopCh, c.informers.Deployment.HasSynced)
 	cache.WaitForCacheSync(stopCh, c.informers.DaemonSet.HasSynced)
+	cache.WaitForCacheSync(stopCh, c.informers.ValidationWebhook.HasSynced)
 	cache.WaitForCacheSync(stopCh, c.informers.SCC.HasSynced)
 	cache.WaitForCacheSync(stopCh, c.informers.InstallStrategyConfigMap.HasSynced)
 	cache.WaitForCacheSync(stopCh, c.informers.InstallStrategyJob.HasSynced)
@@ -595,11 +609,7 @@ func (c *KubeVirtController) deleteAllInstallStrategy() error {
 
 func (c *KubeVirtController) getImageTag(kv *v1.KubeVirt) string {
 	if kv.Spec.ImageTag == "" {
-		if kv.Status.TargetKubeVirtVersion != "" {
-			return kv.Status.TargetKubeVirtVersion
-		} else {
-			return c.config.ImageTag
-		}
+		return c.config.ImageTag
 	}
 
 	return kv.Spec.ImageTag
@@ -607,11 +617,7 @@ func (c *KubeVirtController) getImageTag(kv *v1.KubeVirt) string {
 
 func (c *KubeVirtController) getImageRegistry(kv *v1.KubeVirt) string {
 	if kv.Spec.ImageRegistry == "" {
-		if kv.Status.TargetKubeVirtRegistry != "" {
-			return kv.Status.TargetKubeVirtRegistry
-		} else {
-			return c.config.ImageRegistry
-		}
+		return c.config.ImageRegistry
 	}
 
 	return kv.Spec.ImageRegistry

@@ -27,6 +27,7 @@ import (
 	secv1 "github.com/openshift/api/security/v1"
 	"k8s.io/client-go/informers"
 
+	admissionregistrationv1beta1 "k8s.io/api/admissionregistration/v1beta1"
 	appsv1 "k8s.io/api/apps/v1"
 	batchv1 "k8s.io/api/batch/v1"
 	k8sv1 "k8s.io/api/core/v1"
@@ -137,6 +138,9 @@ type KubeInformerFactory interface {
 
 	// KubeVirt infrastructure pods
 	OperatorPod() cache.SharedIndexInformer
+
+	// Webhooks created/managed by virt operator
+	OperatorValidationWebhook() cache.SharedIndexInformer
 
 	K8SInformerFactory() informers.SharedInformerFactory
 }
@@ -475,6 +479,18 @@ func (f *kubeInformerFactory) OperatorPod() cache.SharedIndexInformer {
 
 		lw := NewListWatchFromClient(f.clientSet.CoreV1().RESTClient(), "pods", k8sv1.NamespaceAll, fields.Everything(), labelSelector)
 		return cache.NewSharedIndexInformer(lw, &k8sv1.Pod{}, f.defaultResync, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
+	})
+}
+
+func (f *kubeInformerFactory) OperatorValidationWebhook() cache.SharedIndexInformer {
+	return f.getInformer("operatorWebhookInformer", func() cache.SharedIndexInformer {
+		labelSelector, err := labels.Parse(OperatorLabel)
+		if err != nil {
+			panic(err)
+		}
+
+		lw := NewListWatchFromClient(f.clientSet.AdmissionregistrationV1beta1().RESTClient(), "validatingwebhookconfigurations", k8sv1.NamespaceAll, fields.Everything(), labelSelector)
+		return cache.NewSharedIndexInformer(lw, &admissionregistrationv1beta1.ValidatingWebhookConfiguration{}, f.defaultResync, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
 	})
 }
 

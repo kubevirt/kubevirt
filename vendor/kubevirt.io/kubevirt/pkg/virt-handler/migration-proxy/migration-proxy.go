@@ -347,7 +347,9 @@ func (m *migrationProxy) createUnixListener() error {
 func (m *migrationProxy) StopListening() {
 
 	close(m.stopChan)
-	m.listener.Close()
+	if m.listener != nil {
+		m.listener.Close()
+	}
 }
 
 func handleConnection(fd net.Conn, targetAddress string, targetProtocol string, stopChan chan struct{}) {

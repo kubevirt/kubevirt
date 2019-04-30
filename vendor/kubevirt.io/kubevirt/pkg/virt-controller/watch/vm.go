@@ -36,6 +36,8 @@ import (
 	"k8s.io/client-go/tools/record"
 	"k8s.io/client-go/util/workqueue"
 
+	"k8s.io/apimachinery/pkg/api/errors"
+
 	cdiv1 "kubevirt.io/containerized-data-importer/pkg/apis/core/v1alpha1"
 	virtv1 "kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/controller"
@@ -429,17 +431,37 @@ func (c *VMController) handleDataVolumes(vm *virtv1.VirtualMachine, dataVolumes 
 }
 
 func (c *VMController) startStop(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance) error {
-	log.Log.Object(vm).V(4).Infof("Start the VirtualMachineInstance: %t", vm.Spec.Running)
+	runStrategy, err := vm.RunStrategy()
+	if err != nil {
+		log.Log.Object(vm).Errorf("Error fetching RunStrategy: %v", err)
+		return err
+	}
+	log.Log.Object(vm).V(4).Infof("VirtualMachine RunStrategy: %s", runStrategy)
 
-	if vm.Spec.Running == true {
+	switch runStrategy {
+	case virtv1.RunStrategyAlways:
+		// For this RunStrategy, a VMI should always be running. If a StateChangeRequest
+		// asks to stop a VMI, a new one must be immediately re-started.
 		if vmi != nil {
-			if vmi.IsFinal() {
-				// The VirtualMachineInstance can fail od be finished. The job of this controller
+			forceRestart := false
+			if len(vm.Status.StateChangeRequests) != 0 {
+				stateChange := vm.Status.StateChangeRequests[0]
+				if stateChange.Action == virtv1.StopRequest &&
+					stateChange.UID != nil &&
+					*stateChange.UID == vmi.UID {
+					log.Log.Object(vm).V(4).Info("VMI should be restarted")
+					forceRestart = true
+				}
+			}
+
+			if forceRestart || vmi.IsFinal() {
+				// The VirtualMachineInstance can fail or be finished. The job of this controller
 				// is keep the VirtualMachineInstance running, therefore it restarts it.
 				// restarting VirtualMachineInstance by stopping it and letting it start in next step
+				log.Log.Object(vm).V(4).Info("Stopping VMI")
 				err := c.stopVMI(vm, vmi)
 				if err != nil {
-					log.Log.Object(vm).Error("Cannot restart VirtualMachineInstance, the VirtualMachineInstance cannot be deleted.")
+					log.Log.Object(vm).Errorf("Failure attempting to delete VMI: %v", err)
 					return err
 				}
 				// return to let the controller pick up the expected deletion
@@ -448,21 +470,105 @@ func (c *VMController) startStop(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualM
 			return nil
 		}
 
+		log.Log.Object(vm).V(4).Info("Starting VMI")
 		err := c.startVMI(vm)
-		return err
-	}
+		if err != nil {
+			return err
+		}
+		return nil
 
-	if vm.Spec.Running == false {
-		log.Log.Object(vm).V(4).Info("It is false delete")
+	case virtv1.RunStrategyRerunOnFailure:
+		// For this RunStrategy, a VMI should only be restarted if it failed.
+		// If a VMI enters the Succeeded phase, it should not be restarted.
+		if vmi != nil {
+			forceStop := false
+			// If there's a stop request that matches the existing VMI's UUID
+			if len(vm.Status.StateChangeRequests) != 0 {
+				stateChange := vm.Status.StateChangeRequests[0]
+				if stateChange.Action == virtv1.StopRequest &&
+					stateChange.UID != nil &&
+					*stateChange.UID == vmi.UID {
+					log.Log.Object(vm).V(4).Info("VMI should be stopped")
+					forceStop = true
+				}
+			}
+
+			if forceStop || vmi.Status.Phase == virtv1.Failed {
+				// For RerunOnFailure, this controller should only restart the VirtualMachineInstance
+				// if it failed.
+				log.Log.Object(vm).V(4).Info("Stopping VMI")
+				err := c.stopVMI(vm, vmi)
+				if err != nil {
+					log.Log.Object(vm).Errorf("Failure attempting to delete VMI: %v", err)
+					return err
+				}
+				// return to let the controller pick up the expected deletion
+			}
+			// VirtualMachineInstance is OK no need to do anything
+			return nil
+		}
+
+		log.Log.Object(vm).V(4).Info("Starting VMI")
+		err := c.startVMI(vm)
+		if err != nil {
+			return err
+		}
+		return nil
+
+	case virtv1.RunStrategyManual:
+		// For this RunStrategy, VMI's will be started/stopped/restarted using api endpoints only
+		if vmi != nil {
+			log.Log.Object(vm).V(4).Info("VMI exists")
+			forceStop := false
+			if len(vm.Status.StateChangeRequests) != 0 {
+				stateChange := vm.Status.StateChangeRequests[0]
+				if stateChange.Action == virtv1.StopRequest &&
+					stateChange.UID != nil &&
+					*stateChange.UID == vmi.UID {
+					log.Log.Object(vm).V(4).Info("VMI should be stopped")
+					forceStop = true
+				}
+			}
+			if forceStop {
+				log.Log.Object(vm).V(4).Info("Stopping VMI")
+				err := c.stopVMI(vm, vmi)
+				if err != nil {
+					log.Log.Object(vm).Errorf("Failure attempting to delete VMI: %v", err)
+					return err
+				}
+				// return to let the controller pick up the expected deletion
+				return nil
+			}
+		} else {
+			forceStart := false
+			if len(vm.Status.StateChangeRequests) != 0 {
+				stateChange := vm.Status.StateChangeRequests[0]
+				if stateChange.Action == virtv1.StartRequest {
+					log.Log.Object(vm).V(4).Info("VMI should be started")
+					forceStart = true
+				}
+			}
+			if forceStart {
+				log.Log.Object(vm).V(4).Info("Starting VMI")
+				err := c.startVMI(vm)
+				if err != nil {
+					return err
+				}
+			}
+		}
+		return nil
+
+	case virtv1.RunStrategyHalted:
+		// For this runStrategy, no VMI should be running under any circumstances.
+		log.Log.Object(vm).V(4).Info("VMI should be deleted")
 		if vmi == nil {
-			// vmi should not run and is not running
 			return nil
 		}
 		err := c.stopVMI(vm, vmi)
 		return err
+	default:
+		return fmt.Errorf("unknown runstrategy: %s", runStrategy)
 	}
-
-	return nil
 }
 
 func (c *VMController) startVMI(vm *virtv1.VirtualMachine) error {
@@ -527,6 +633,7 @@ func (c *VMController) setupVMIFromVM(vm *virtv1.VirtualMachine) *virtv1.Virtual
 	vmi.ObjectMeta = vm.Spec.Template.ObjectMeta
 	vmi.ObjectMeta.Name = basename
 	vmi.ObjectMeta.GenerateName = basename
+	vmi.ObjectMeta.Namespace = vm.ObjectMeta.Namespace
 	vmi.Spec = vm.Spec.Template.Spec
 
 	setupStableFirmwareUUID(vm, vmi)
@@ -922,19 +1029,68 @@ func (c *VMController) removeCondition(vm *virtv1.VirtualMachine, cond virtv1.Vi
 }
 
 func (c *VMController) updateStatus(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance, createErr error) error {
-
 	// Check if it is worth updating
 	errMatch := (createErr != nil) == c.hasCondition(vm, virtv1.VirtualMachineFailure)
 	created := vmi != nil
 	createdMatch := created == vm.Status.Created
 
 	ready := false
+
 	if created {
 		ready = controller.NewVirtualMachineInstanceConditionManager().HasConditionWithStatus(vmi, virtv1.VirtualMachineInstanceConditionType(k8score.PodReady), k8score.ConditionTrue)
 	}
 	readyMatch := ready == vm.Status.Ready
 
-	if errMatch && createdMatch && readyMatch {
+	runStrategy, err := vm.RunStrategy()
+	if err != nil {
+		log.Log.Object(vm).Errorf("Error getting RunStrategy: %v", err)
+	}
+	clearChangeRequest := false
+	if len(vm.Status.StateChangeRequests) != 0 {
+		// Only consider one stateChangeRequest at a time. The second and subsequent change
+		// requests have not been acted upon by this controller yet!
+		stateChange := vm.Status.StateChangeRequests[0]
+		switch stateChange.Action {
+		case virtv1.StopRequest:
+			if vmi == nil {
+				// because either the VM or VMI informers can trigger processing here
+				// double check the state of the cluster before taking action
+				_, err = c.clientset.VirtualMachineInstance(vm.ObjectMeta.Namespace).Get(vm.GetName(), &v1.GetOptions{})
+				if err != nil && errors.IsNotFound(err) {
+					// If there's no VMI, then the VMI was stopped, and the stopRequest can be cleared
+					log.Log.Object(vm).V(4).Infof("No VMI. Clearing stop request")
+					clearChangeRequest = true
+				}
+			} else {
+				if stateChange.UID == nil {
+					// It never makes sense to have a request to stop a VMI that doesn't
+					// have a UUID associated with it. This shouldn't be possible -- but if
+					// it occurs, clear the stopRequest because it can't be acted upon
+					log.Log.Object(vm).Errorf("Stop Request has no UID.")
+					clearChangeRequest = true
+				} else if *stateChange.UID != vmi.UID {
+					// If there is a VMI, but the UID doesn't match, then it
+					// must have been previously stopped, so the stopRequest can be cleared
+					log.Log.Object(vm).V(4).Infof("VMI's UID doesn't match. clearing stop request")
+					clearChangeRequest = true
+				}
+			}
+		case virtv1.StartRequest:
+			// If the current VMI is running, then it has been started.
+			if vmi != nil {
+				log.Log.Object(vm).V(4).Infof("VMI exists. clearing start request")
+				clearChangeRequest = true
+			}
+			// It never makes sense to start a VM with RunStrategy Halted -- This shouldn't be
+			// possible -- but if it occurs, clear the request, because it can't be acted upon.
+			if runStrategy == virtv1.RunStrategyHalted {
+				log.Log.Object(vm).Errorf("Start request shouldn't be honored for RunStrategyHalted.")
+				clearChangeRequest = true
+			}
+		}
+	}
+
+	if errMatch && createdMatch && readyMatch && !clearChangeRequest {
 		return nil
 	}
 
@@ -942,12 +1098,16 @@ func (c *VMController) updateStatus(vm *virtv1.VirtualMachine, vmi *virtv1.Virtu
 	vm.Status.Created = created
 	vm.Status.Ready = ready
 
+	if clearChangeRequest {
+		vm.Status.StateChangeRequests = vm.Status.StateChangeRequests[1:]
+	}
+
 	// Add/Remove Failure condition if necessary
 	if !(errMatch) {
 		c.processFailure(vm, vmi, createErr)
 	}
 
-	_, err := c.clientset.VirtualMachine(vm.ObjectMeta.Namespace).Update(vm)
+	_, err = c.clientset.VirtualMachine(vm.ObjectMeta.Namespace).Update(vm)
 
 	return err
 }
@@ -967,10 +1127,14 @@ func (c *VMController) getVirtualMachineBaseName(vm *virtv1.VirtualMachine) stri
 func (c *VMController) processFailure(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance, createErr error) {
 	reason := ""
 	message := ""
-	log.Log.Object(vm).V(4).Infof("Processing failure status:: shouldRun: %t; noErr: %t; noVm: %t", vm.Spec.Running, createErr != nil, vmi != nil)
+	runStrategy, err := vm.RunStrategy()
+	if err != nil {
+		log.Log.Object(vm).Errorf("Error fetching RunStrategy: %v", err)
+	}
+	log.Log.Object(vm).V(4).Infof("Processing failure status:: runStrategy: %s; noErr: %t; noVm: %t", runStrategy, createErr != nil, vmi != nil)
 
 	if createErr != nil {
-		if vm.Spec.Running == true {
+		if (vm.Spec.Running != nil && *vm.Spec.Running == true) || (vm.Spec.RunStrategy != nil && *vm.Spec.RunStrategy != virtv1.RunStrategyHalted) {
 			reason = "FailedCreate"
 		} else {
 			reason = "FailedDelete"

@@ -983,7 +983,7 @@ func schema_kubevirt_pkg_api_v1_FeatureHyperv(ref common.ReferenceCallback) comm
 					},
 					"reset": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Reset enables Hyperv reboot/reset for the vmi. Defaults to the machine type setting.",
+							Description: "Reset enables Hyperv reboot/reset for the vmi. Requires synic. Defaults to the machine type setting.",
 							Ref:         ref("kubevirt.io/kubevirt/pkg/api/v1.FeatureState"),
 						},
 					},
@@ -991,6 +991,36 @@ func schema_kubevirt_pkg_api_v1_FeatureHyperv(ref common.ReferenceCallback) comm
 						SchemaProps: spec.SchemaProps{
 							Description: "VendorID allows setting the hypervisor vendor id. Defaults to the machine type setting.",
 							Ref:         ref("kubevirt.io/kubevirt/pkg/api/v1.FeatureVendorID"),
+						},
+					},
+					"frequencies": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Frequencies improve Hyper-V on KVM (TSC clock source). Defaults to the machine type setting.",
+							Ref:         ref("kubevirt.io/kubevirt/pkg/api/v1.FeatureState"),
+						},
+					},
+					"reenlightenment": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Reenlightenment improve Hyper-V on KVM (TSC clock source). Defaults to the machine type setting.",
+							Ref:         ref("kubevirt.io/kubevirt/pkg/api/v1.FeatureState"),
+						},
+					},
+					"tlbflush": {
+						SchemaProps: spec.SchemaProps{
+							Description: "TLBFlush improves performances in overcommited environments. Requires vpindex. Defaults to the machine type setting.",
+							Ref:         ref("kubevirt.io/kubevirt/pkg/api/v1.FeatureState"),
+						},
+					},
+					"ipi": {
+						SchemaProps: spec.SchemaProps{
+							Description: "IPI improves performances in overcommited environments. Requires vpindex. Defaults to the machine type setting.",
+							Ref:         ref("kubevirt.io/kubevirt/pkg/api/v1.FeatureState"),
+						},
+					},
+					"evmcs": {
+						SchemaProps: spec.SchemaProps{
+							Description: "EVMCS Speeds up L2 vmexits, but disables other virtualization features. Requires vapic. Defaults to the machine type setting.",
+							Ref:         ref("kubevirt.io/kubevirt/pkg/api/v1.FeatureState"),
 						},
 					},
 				},
@@ -3294,8 +3324,15 @@ func schema_kubevirt_pkg_api_v1_VirtualMachineSpec(ref common.ReferenceCallback)
 				Properties: map[string]spec.Schema{
 					"running": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Running controls whether the associatied VirtualMachineInstance is created or not",
+							Description: "Running controls whether the associatied VirtualMachineInstance is created or not Mutually exclusive with RunStrategy",
 							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
+					"runStrategy": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Running state indicates the requested running state of the VirtualMachineInstance mutually exclusive with Running",
+							Type:        []string{"string"},
 							Format:      "",
 						},
 					},
@@ -3319,7 +3356,7 @@ func schema_kubevirt_pkg_api_v1_VirtualMachineSpec(ref common.ReferenceCallback)
 						},
 					},
 				},
-				Required: []string{"running", "template"},
+				Required: []string{"template"},
 			},
 		},
 		Dependencies: []string{
@@ -3360,11 +3397,24 @@ func schema_kubevirt_pkg_api_v1_VirtualMachineStatus(ref common.ReferenceCallbac
 							},
 						},
 					},
+					"stateChangeRequests": {
+						SchemaProps: spec.SchemaProps{
+							Description: "StateChangeRequests indicates a list of actions that should be taken on a VMI e.g. stop a specific VMI then start a new one.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Ref: ref("kubevirt.io/kubevirt/pkg/api/v1.VirtualMachineStateChangeRequest"),
+									},
+								},
+							},
+						},
+					},
 				},
 			},
 		},
 		Dependencies: []string{
-			"kubevirt.io/kubevirt/pkg/api/v1.VirtualMachineCondition"},
+			"kubevirt.io/kubevirt/pkg/api/v1.VirtualMachineCondition", "kubevirt.io/kubevirt/pkg/api/v1.VirtualMachineStateChangeRequest"},
 	}
 }
 

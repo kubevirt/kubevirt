@@ -25,11 +25,10 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
-	"os"
 	"path/filepath"
 	"sync"
 
-	restful "github.com/emicklei/go-restful"
+	"github.com/emicklei/go-restful"
 	restfulspec "github.com/emicklei/go-restful-openapi"
 	"github.com/go-openapi/spec"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
@@ -112,11 +111,10 @@ type virtAPIApp struct {
 	signingCertBytes           []byte
 	certBytes                  []byte
 	keyBytes                   []byte
-	clientCABytes              []byte
 	requestHeaderClientCABytes []byte
 	certFile                   string
 	keyFile                    string
-	clientCAFile               string
+	caFile                     string
 	signingCertFile            string
 	namespace                  string
 	tlsConfig                  *tls.Config
@@ -212,6 +210,22 @@ func (app *virtAPIApp) composeSubresources() {
 		Returns(http.StatusOK, "OK", nil).
 		Returns(http.StatusNotFound, "Not Found", nil))
 
+	subws.Route(subws.PUT(rest.ResourcePath(subresourcesvmGVR)+rest.SubResourcePath("start")).
+		To(subresourceApp.StartVMRequestHandler).
+		Param(rest.NamespaceParam(subws)).Param(rest.NameParam(subws)).
+		Operation("start").
+		Doc("Start a VirtualMachine object.").
+		Returns(http.StatusOK, "OK", nil).
+		Returns(http.StatusNotFound, "Not Found", nil))
+
+	subws.Route(subws.PUT(rest.ResourcePath(subresourcesvmGVR)+rest.SubResourcePath("stop")).
+		To(subresourceApp.StopVMRequestHandler).
+		Param(rest.NamespaceParam(subws)).Param(rest.NameParam(subws)).
+		Operation("stop").
+		Doc("Stop a VirtualMachine object.").
+		Returns(http.StatusOK, "OK", nil).
+		Returns(http.StatusNotFound, "Not Found", nil))
+
 	subws.Route(subws.GET(rest.ResourcePath(subresourcesvmiGVR) + rest.SubResourcePath("console")).
 		To(subresourceApp.ConsoleRequestHandler).
 		Param(rest.NamespaceParam(subws)).Param(rest.NameParam(subws)).
@@ -266,6 +280,14 @@ func (app *virtAPIApp) composeSubresources() {
 				},
 				{
 					Name:       "virtualmachines/restart",
+					Namespaced: true,
+				},
+				{
+					Name:       "virtualmachines/start",
+					Namespaced: true,
+				},
+				{
+					Name:       "virtualmachines/stop",
 					Namespaced: true,
 				},
 				{
@@ -389,18 +411,14 @@ func (app *virtAPIApp) getClientCert() error {
 		return err
 	}
 
-	clientCA, ok := authConfigMap.Data["client-ca-file"]
-	if !ok {
-		return fmt.Errorf("client-ca-file value not found in auth config map.")
-	}
-	app.clientCABytes = []byte(clientCA)
-
-	// request-header-ca-file doesn't always exist in all deployments.
-	// set it if the value is set though.
+	// The request-header CA is mandatory. It can be retrieved from the configmap as we do here, or it must be provided
+	// via flag on start of this apiserver. Since we don't do the latter, the former is mandatory for us
+	// see https://github.com/kubernetes-incubator/apiserver-builder-alpha/blob/master/docs/concepts/auth.md#requestheader-authentication
 	requestHeaderClientCA, ok := authConfigMap.Data["requestheader-client-ca-file"]
-	if ok {
-		app.requestHeaderClientCABytes = []byte(requestHeaderClientCA)
+	if !ok {
+		return fmt.Errorf("requestheader-client-ca-file not found in extension-apiserver-authentication ConfigMap")
 	}
+	app.requestHeaderClientCABytes = []byte(requestHeaderClientCA)
 
 	// This config map also contains information about what
 	// headers our authorizor should inspect
@@ -923,27 +941,13 @@ func (app *virtAPIApp) setupTLS(fs Filesystem) error {
 	app.keyFile = filepath.Join(app.certsDirectory, "/key.pem")
 	app.certFile = filepath.Join(app.certsDirectory, "/cert.pem")
 	app.signingCertFile = filepath.Join(app.certsDirectory, "/signingCert.pem")
-	app.clientCAFile = filepath.Join(app.certsDirectory, "/clientCA.crt")
+	app.caFile = filepath.Join(app.certsDirectory, "/clientCA.crt")
 
 	// Write the certs to disk
-	err := fs.WriteFile(app.clientCAFile, app.clientCABytes, 0600)
+	err := fs.WriteFile(app.caFile, app.requestHeaderClientCABytes, 0600)
 	if err != nil {
 		return err
 	}
-
-	if len(app.requestHeaderClientCABytes) != 0 {
-		f, err := fs.OpenFile(app.clientCAFile, os.O_APPEND|os.O_WRONLY, 0600)
-		if err != nil {
-			return err
-		}
-		defer f.Close()
-
-		_, err = f.Write(app.requestHeaderClientCABytes)
-		if err != nil {
-			return err
-		}
-	}
-
 	err = fs.WriteFile(app.keyFile, app.keyBytes, 0600)
 	if err != nil {
 		return err
@@ -959,7 +963,7 @@ func (app *virtAPIApp) setupTLS(fs Filesystem) error {
 
 	// create the client CA pool.
 	// This ensures we're talking to the k8s api server
-	pool, err := cert.NewPool(app.clientCAFile)
+	pool, err := cert.NewPool(app.caFile)
 	if err != nil {
 		return err
 	}

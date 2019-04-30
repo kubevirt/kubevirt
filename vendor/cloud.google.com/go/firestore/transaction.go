@@ -18,6 +18,7 @@ import (
 	"context"
 	"errors"
 
+	"cloud.google.com/go/internal/trace"
 	gax "github.com/googleapis/gax-go/v2"
 	pb "google.golang.org/genproto/googleapis/firestore/v1"
 	"google.golang.org/grpc"
@@ -89,7 +90,10 @@ type transactionInProgressKey struct{}
 //
 // Since f may be called more than once, f should usually be idempotent – that is, it
 // should have the same result when called multiple times.
-func (c *Client) RunTransaction(ctx context.Context, f func(context.Context, *Transaction) error, opts ...TransactionOption) error {
+func (c *Client) RunTransaction(ctx context.Context, f func(context.Context, *Transaction) error, opts ...TransactionOption) (err error) {
+	ctx = trace.StartSpan(ctx, "cloud.google.com/go/firestore.Client.RunTransaction")
+	defer func() { trace.EndSpan(ctx, err) }()
+
 	if ctx.Value(transactionInProgressKey{}) != nil {
 		return errNestedTransaction
 	}
@@ -112,7 +116,6 @@ func (c *Client) RunTransaction(ctx context.Context, f func(context.Context, *Tr
 	// TODO(jba): use other than the standard backoff parameters?
 	// TODO(jba): get backoff time from gRPC trailer metadata? See
 	// extractRetryDelay in https://code.googlesource.com/gocloud/+/master/spanner/retry.go.
-	var err error
 	for i := 0; i < t.maxAttempts; i++ {
 		var res *pb.BeginTransactionResponse
 		res, err = t.c.c.BeginTransaction(t.ctx, &pb.BeginTransactionRequest{

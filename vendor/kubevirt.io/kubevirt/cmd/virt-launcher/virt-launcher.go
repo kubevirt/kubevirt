@@ -29,8 +29,9 @@ import (
 	"syscall"
 	"time"
 
-	libvirt "github.com/libvirt/libvirt-go"
+	"github.com/libvirt/libvirt-go"
 	"github.com/spf13/pflag"
+
 	"k8s.io/apimachinery/pkg/types"
 	utilwait "k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/apimachinery/pkg/watch"
@@ -99,10 +100,11 @@ func startCmdServer(socketPath string,
 	//
 	// Timing out causes an error to be returned
 	err = utilwait.PollImmediate(1*time.Second, 15*time.Second, func() (bool, error) {
-		client, err := cmdclient.GetClient(socketPath)
+		client, err := cmdclient.NewClient(socketPath)
 		if err != nil {
 			return false, nil
 		}
+		defer client.Close()
 
 		err = client.Ping()
 		if err != nil {
@@ -128,7 +130,7 @@ func createLibvirtConnection() virtcli.Connection {
 	return domainConn
 }
 
-func startDomainEventMonitoring(notifier *notifyclient.NotifyClient, virtShareDir string, domainConn virtcli.Connection, deleteNotificationSent chan watch.Event, vmiUID types.UID, qemuAgentPollerInterval *time.Duration) {
+func startDomainEventMonitoring(notifier *notifyclient.Notifier, virtShareDir string, domainConn virtcli.Connection, deleteNotificationSent chan watch.Event, vmiUID types.UID, qemuAgentPollerInterval *time.Duration) {
 	go func() {
 		for {
 			if res := libvirt.EventRunDefaultImpl(); res != nil {
@@ -302,6 +304,26 @@ func waitForFinalNotify(deleteNotificationSent chan watch.Event,
 	}
 }
 
+// writeProtectPrivateDir waits until the kubevirt private vnc socket exists and than mark its folder as read only
+// this is a workaround preventing QEMU from deleting its sockets prematurely as described in a bug https://bugs.launchpad.net/qemu/+bug/1795100
+// once the QEMU 4.0 is released the need for this workaround goes away
+// Fixes https://bugzilla.redhat.com/show_bug.cgi?id=1683964
+func writeProtectPrivateDir(uid string) {
+	vncAppeared := false
+	// waits maximum of 20s for vnc file to appear
+	for i := 0; i < 20; i++ {
+		if _, err := os.Stat(filepath.Join("/var/run/kubevirt-private", uid, "virt-vnc")); os.IsNotExist(err) {
+			time.Sleep(1 * time.Second)
+			continue
+		}
+		vncAppeared = true
+		break
+	}
+	if vncAppeared {
+		os.Chmod(filepath.Join("/var/run/kubevirt-private", uid), 0444)
+	}
+}
+
 func main() {
 	qemuTimeout := pflag.Duration("qemu-timeout", defaultStartTimeout, "Amount of time to wait for qemu")
 	virtShareDir := pflag.String("kubevirt-share-dir", "/var/run/kubevirt", "Shared directory between virt-handler and virt-launcher")
@@ -367,10 +389,11 @@ func main() {
 	domainConn := createLibvirtConnection()
 	defer domainConn.Close()
 
-	notifier, err := notifyclient.NewNotifyClient(*virtShareDir)
+	notifier, err := notifyclient.NewNotifier(*virtShareDir)
 	if err != nil {
 		panic(err)
 	}
+	defer notifier.Close()
 
 	domainManager, err := virtwrap.NewLibvirtDomainManager(domainConn, *virtShareDir, notifier, *lessPVCSpaceToleration)
 	if err != nil {
@@ -431,6 +454,12 @@ func main() {
 			gracefulShutdownTriggerFile,
 			*gracePeriodSeconds,
 			shutdownCallback)
+
+		// waits until virt-vnc socket is ready and than mark its parent folder as read only
+		// workaround preventing QEMU from deleting socket prematurely
+		// the code need to be executed after the QEMU reports VM is running, so the wait
+		// for socket creation is the shortest possible
+		go writeProtectPrivateDir(*uid)
 
 		// This is a wait loop that monitors the qemu pid. When the pid
 		// exits, the wait loop breaks.

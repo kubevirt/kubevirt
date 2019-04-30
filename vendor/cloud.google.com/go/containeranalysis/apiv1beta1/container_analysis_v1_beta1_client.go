@@ -18,6 +18,7 @@ package containeranalysis
 
 import (
 	"context"
+	"fmt"
 	"math"
 	"time"
 
@@ -151,7 +152,8 @@ func (c *ContainerAnalysisV1Beta1Client) setGoogleClientInfo(keyval ...string) {
 // notes and projects/[PROJECT_ID]/occurrences/[OCCURRENCE_ID] for
 // occurrences.
 func (c *ContainerAnalysisV1Beta1Client) SetIamPolicy(ctx context.Context, req *iampb.SetIamPolicyRequest, opts ...gax.CallOption) (*iampb.Policy, error) {
-	ctx = insertMetadata(ctx, c.xGoogMetadata)
+	md := metadata.Pairs("x-goog-request-params", fmt.Sprintf("%s=%v", "resource", req.GetResource()))
+	ctx = insertMetadata(ctx, c.xGoogMetadata, md)
 	opts = append(c.CallOptions.SetIamPolicy[0:len(c.CallOptions.SetIamPolicy):len(c.CallOptions.SetIamPolicy)], opts...)
 	var resp *iampb.Policy
 	err := gax.Invoke(ctx, func(ctx context.Context, settings gax.CallSettings) error {
@@ -174,7 +176,8 @@ func (c *ContainerAnalysisV1Beta1Client) SetIamPolicy(ctx context.Context, req *
 // notes and projects/[PROJECT_ID]/occurrences/[OCCURRENCE_ID] for
 // occurrences.
 func (c *ContainerAnalysisV1Beta1Client) GetIamPolicy(ctx context.Context, req *iampb.GetIamPolicyRequest, opts ...gax.CallOption) (*iampb.Policy, error) {
-	ctx = insertMetadata(ctx, c.xGoogMetadata)
+	md := metadata.Pairs("x-goog-request-params", fmt.Sprintf("%s=%v", "resource", req.GetResource()))
+	ctx = insertMetadata(ctx, c.xGoogMetadata, md)
 	opts = append(c.CallOptions.GetIamPolicy[0:len(c.CallOptions.GetIamPolicy):len(c.CallOptions.GetIamPolicy)], opts...)
 	var resp *iampb.Policy
 	err := gax.Invoke(ctx, func(ctx context.Context, settings gax.CallSettings) error {
@@ -196,7 +199,8 @@ func (c *ContainerAnalysisV1Beta1Client) GetIamPolicy(ctx context.Context, req *
 // notes and projects/[PROJECT_ID]/occurrences/[OCCURRENCE_ID] for
 // occurrences.
 func (c *ContainerAnalysisV1Beta1Client) TestIamPermissions(ctx context.Context, req *iampb.TestIamPermissionsRequest, opts ...gax.CallOption) (*iampb.TestIamPermissionsResponse, error) {
-	ctx = insertMetadata(ctx, c.xGoogMetadata)
+	md := metadata.Pairs("x-goog-request-params", fmt.Sprintf("%s=%v", "resource", req.GetResource()))
+	ctx = insertMetadata(ctx, c.xGoogMetadata, md)
 	opts = append(c.CallOptions.TestIamPermissions[0:len(c.CallOptions.TestIamPermissions):len(c.CallOptions.TestIamPermissions)], opts...)
 	var resp *iampb.TestIamPermissionsResponse
 	err := gax.Invoke(ctx, func(ctx context.Context, settings gax.CallSettings) error {
@@ -212,7 +216,8 @@ func (c *ContainerAnalysisV1Beta1Client) TestIamPermissions(ctx context.Context,
 
 // GetScanConfig gets the specified scan configuration.
 func (c *ContainerAnalysisV1Beta1Client) GetScanConfig(ctx context.Context, req *containeranalysispb.GetScanConfigRequest, opts ...gax.CallOption) (*containeranalysispb.ScanConfig, error) {
-	ctx = insertMetadata(ctx, c.xGoogMetadata)
+	md := metadata.Pairs("x-goog-request-params", fmt.Sprintf("%s=%v", "name", req.GetName()))
+	ctx = insertMetadata(ctx, c.xGoogMetadata, md)
 	opts = append(c.CallOptions.GetScanConfig[0:len(c.CallOptions.GetScanConfig):len(c.CallOptions.GetScanConfig)], opts...)
 	var resp *containeranalysispb.ScanConfig
 	err := gax.Invoke(ctx, func(ctx context.Context, settings gax.CallSettings) error {
@@ -228,7 +233,8 @@ func (c *ContainerAnalysisV1Beta1Client) GetScanConfig(ctx context.Context, req 
 
 // ListScanConfigs lists scan configurations for the specified project.
 func (c *ContainerAnalysisV1Beta1Client) ListScanConfigs(ctx context.Context, req *containeranalysispb.ListScanConfigsRequest, opts ...gax.CallOption) *ScanConfigIterator {
-	ctx = insertMetadata(ctx, c.xGoogMetadata)
+	md := metadata.Pairs("x-goog-request-params", fmt.Sprintf("%s=%v", "parent", req.GetParent()))
+	ctx = insertMetadata(ctx, c.xGoogMetadata, md)
 	opts = append(c.CallOptions.ListScanConfigs[0:len(c.CallOptions.ListScanConfigs):len(c.CallOptions.ListScanConfigs)], opts...)
 	it := &ScanConfigIterator{}
 	req = proto.Clone(req).(*containeranalysispb.ListScanConfigsRequest)
@@ -265,7 +271,8 @@ func (c *ContainerAnalysisV1Beta1Client) ListScanConfigs(ctx context.Context, re
 
 // UpdateScanConfig updates the specified scan configuration.
 func (c *ContainerAnalysisV1Beta1Client) UpdateScanConfig(ctx context.Context, req *containeranalysispb.UpdateScanConfigRequest, opts ...gax.CallOption) (*containeranalysispb.ScanConfig, error) {
-	ctx = insertMetadata(ctx, c.xGoogMetadata)
+	md := metadata.Pairs("x-goog-request-params", fmt.Sprintf("%s=%v", "name", req.GetName()))
+	ctx = insertMetadata(ctx, c.xGoogMetadata, md)
 	opts = append(c.CallOptions.UpdateScanConfig[0:len(c.CallOptions.UpdateScanConfig):len(c.CallOptions.UpdateScanConfig)], opts...)
 	var resp *containeranalysispb.ScanConfig
 	err := gax.Invoke(ctx, func(ctx context.Context, settings gax.CallSettings) error {

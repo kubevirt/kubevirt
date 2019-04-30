@@ -16,7 +16,7 @@ content of the module zip file.  The path@vers prefix required of files in the
 zip file is added automatically by the proxy: the files in the archive have
 names without the prefix, like plain "go.mod", "x.go", and so on.
 
-See ../cmd/txtar-addmod and ../cmd/txtar-savedir for tools generate txtar
+See ../cmd/txtar-addmod and ../cmd/txtar-c for tools generate txtar
 files, although it's fine to write them by hand.
 */
 package goproxytest

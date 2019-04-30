@@ -399,13 +399,6 @@ func (op *CreateClusterOperation) Name() string {
 	return op.lro.Name()
 }
 
-// Delete deletes a long-running operation.
-// This method indicates that the client is no longer interested in the operation result.
-// It does not cancel the operation.
-func (op *CreateClusterOperation) Delete(ctx context.Context, opts ...gax.CallOption) error {
-	return op.lro.Delete(ctx, opts...)
-}
-
 // DeleteClusterOperation manages a long-running operation from DeleteCluster.
 type DeleteClusterOperation struct {
 	lro *longrunning.Operation
@@ -462,13 +455,6 @@ func (op *DeleteClusterOperation) Name() string {
 	return op.lro.Name()
 }
 
-// Delete deletes a long-running operation.
-// This method indicates that the client is no longer interested in the operation result.
-// It does not cancel the operation.
-func (op *DeleteClusterOperation) Delete(ctx context.Context, opts ...gax.CallOption) error {
-	return op.lro.Delete(ctx, opts...)
-}
-
 // DiagnoseClusterOperation manages a long-running operation from DiagnoseCluster.
 type DiagnoseClusterOperation struct {
 	lro *longrunning.Operation
@@ -523,13 +509,6 @@ func (op *DiagnoseClusterOperation) Done() bool {
 // The name is assigned by the server and is unique within the service from which the operation is created.
 func (op *DiagnoseClusterOperation) Name() string {
 	return op.lro.Name()
-}
-
-// Delete deletes a long-running operation.
-// This method indicates that the client is no longer interested in the operation result.
-// It does not cancel the operation.
-func (op *DiagnoseClusterOperation) Delete(ctx context.Context, opts ...gax.CallOption) error {
-	return op.lro.Delete(ctx, opts...)
 }
 
 // UpdateClusterOperation manages a long-running operation from UpdateCluster.
@@ -599,11 +578,4 @@ func (op *UpdateClusterOperation) Done() bool {
 // The name is assigned by the server and is unique within the service from which the operation is created.
 func (op *UpdateClusterOperation) Name() string {
 	return op.lro.Name()
-}
-
-// Delete deletes a long-running operation.
-// This method indicates that the client is no longer interested in the operation result.
-// It does not cancel the operation.
-func (op *UpdateClusterOperation) Delete(ctx context.Context, opts ...gax.CallOption) error {
-	return op.lro.Delete(ctx, opts...)
 }

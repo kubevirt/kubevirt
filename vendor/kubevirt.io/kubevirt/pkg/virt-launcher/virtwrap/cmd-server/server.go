@@ -20,15 +20,18 @@
 package cmdserver
 
 import (
-	goerror "errors"
 	"fmt"
-	"net"
-	"net/rpc"
 	"os"
-	"path/filepath"
+
+	"golang.org/x/net/context"
+	"google.golang.org/grpc"
+
+	"k8s.io/apimachinery/pkg/util/json"
 
 	v1 "kubevirt.io/kubevirt/pkg/api/v1"
+	cmdv1 "kubevirt.io/kubevirt/pkg/handler-launcher-com/cmd/v1"
 	"kubevirt.io/kubevirt/pkg/log"
+	grpcutil "kubevirt.io/kubevirt/pkg/util/net/grpc"
 	cmdclient "kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap"
 	launcherErrors "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/errors"
@@ -47,18 +50,33 @@ type Launcher struct {
 	useEmulation  bool
 }
 
-func getVmfromClientArgs(args *cmdclient.Args) (*v1.VirtualMachineInstance, error) {
-	if args.VMI == nil {
-		return nil, goerror.New(fmt.Sprintf("vmi object not present in command server args"))
+func getVMIFromRequest(request *cmdv1.VMI) (*v1.VirtualMachineInstance, *cmdv1.Response) {
+
+	response := &cmdv1.Response{
+		Success: true,
 	}
-	return args.VMI, nil
+
+	var vmi v1.VirtualMachineInstance
+	if err := json.Unmarshal(request.VmiJson, &vmi); err != nil {
+		response.Success = false
+		response.Message = "No valid vmi object present in command server request"
+	}
+
+	return &vmi, response
 }
 
-func getMigrationOptionsfromClientArgs(args *cmdclient.Args) (*cmdclient.MigrationOptions, error) {
-	if args.MigrationOptions == nil {
-		return nil, goerror.New(fmt.Sprintf("migration options object not present in command server args"))
+func getMigrationOptionsFromRequest(request *cmdv1.MigrationRequest) (*cmdclient.MigrationOptions, error) {
+
+	if request.Options == nil {
+		return nil, fmt.Errorf("migration options object not present in command server request")
 	}
-	return args.MigrationOptions, nil
+
+	var options *cmdclient.MigrationOptions
+	if err := json.Unmarshal(request.Options, &options); err != nil {
+		return nil, fmt.Errorf("no valid migration options object present in command server request: %v", err)
+	}
+
+	return options, nil
 }
 
 func getErrorMessage(err error) string {
@@ -68,228 +86,197 @@ func getErrorMessage(err error) string {
 	return err.Error()
 }
 
-func (s *Launcher) Migrate(args *cmdclient.Args, reply *cmdclient.Reply) error {
+func (l *Launcher) MigrateVirtualMachine(ctx context.Context, request *cmdv1.MigrationRequest) (*cmdv1.Response, error) {
 
-	reply.Success = true
-
-	vmi, err := getVmfromClientArgs(args)
-	if err != nil {
-		reply.Success = false
-		reply.Message = err.Error()
-		return nil
+	vmi, response := getVMIFromRequest(request.Vmi)
+	if !response.Success {
+		return response, nil
 	}
 
-	options, err := getMigrationOptionsfromClientArgs(args)
+	options, err := getMigrationOptionsFromRequest(request)
 	if err != nil {
-		reply.Success = false
-		reply.Message = err.Error()
-		return nil
+		response.Success = false
+		response.Message = err.Error()
+		return response, nil
 	}
 
-	err = s.domainManager.MigrateVMI(vmi, options)
-	if err != nil {
+	if err := l.domainManager.MigrateVMI(vmi, options); err != nil {
 		log.Log.Object(vmi).Reason(err).Errorf("Failed to migrate vmi")
-		reply.Success = false
-		reply.Message = getErrorMessage(err)
-		return nil
+		response.Success = false
+		response.Message = getErrorMessage(err)
+		return response, nil
 	}
 
 	log.Log.Object(vmi).Info("Signaled vmi migration")
-	return nil
+	return response, nil
 }
 
-func (s *Launcher) CancelMigration(args *cmdclient.Args, reply *cmdclient.Reply) error {
+func (l *Launcher) CancelVirtualMachineMigration(ctx context.Context, request *cmdv1.VMIRequest) (*cmdv1.Response, error) {
 
-	reply.Success = true
-
-	vmi, err := getVmfromClientArgs(args)
-	if err != nil {
-		reply.Success = false
-		reply.Message = err.Error()
-		return nil
+	vmi, response := getVMIFromRequest(request.Vmi)
+	if !response.Success {
+		return response, nil
 	}
 
-	err = s.domainManager.CancelVMIMigration(vmi)
-	if err != nil {
-		log.Log.Object(vmi).Reason(err).Errorf("failed to abort live migration")
-		reply.Success = false
-		reply.Message = getErrorMessage(err)
-		return nil
+	if err := l.domainManager.CancelVMIMigration(vmi); err != nil {
+		log.Log.Object(vmi).Reason(err).Errorf("Failed to abort live migration")
+		response.Success = false
+		response.Message = getErrorMessage(err)
+		return response, nil
 	}
 
 	log.Log.Object(vmi).Info("Live migration as been aborted")
-	return nil
+	return response, nil
 
 }
 
-func (s *Launcher) SyncMigrationTarget(args *cmdclient.Args, reply *cmdclient.Reply) error {
+func (l *Launcher) SyncMigrationTarget(ctx context.Context, request *cmdv1.VMIRequest) (*cmdv1.Response, error) {
 
-	reply.Success = true
-
-	vmi, err := getVmfromClientArgs(args)
-	if err != nil {
-		reply.Success = false
-		reply.Message = err.Error()
-		return nil
+	vmi, response := getVMIFromRequest(request.Vmi)
+	if !response.Success {
+		return response, nil
 	}
 
-	err = s.domainManager.PrepareMigrationTarget(vmi, s.useEmulation)
-	if err != nil {
+	if err := l.domainManager.PrepareMigrationTarget(vmi, l.useEmulation); err != nil {
 		log.Log.Object(vmi).Reason(err).Errorf("Failed to prepare migration target pod")
-		reply.Success = false
-		reply.Message = getErrorMessage(err)
-		return nil
+		response.Success = false
+		response.Message = getErrorMessage(err)
+		return response, nil
 	}
 
 	log.Log.Object(vmi).Info("Prepared migration target pod")
-	return nil
+	return response, nil
 
 }
 
-func (s *Launcher) Sync(args *cmdclient.Args, reply *cmdclient.Reply) error {
-	reply.Success = true
+func (l *Launcher) SyncVirtualMachine(ctx context.Context, request *cmdv1.VMIRequest) (*cmdv1.Response, error) {
 
-	vmi, err := getVmfromClientArgs(args)
-	if err != nil {
-		reply.Success = false
-		reply.Message = err.Error()
-		return nil
+	vmi, response := getVMIFromRequest(request.Vmi)
+	if !response.Success {
+		return response, nil
 	}
 
-	_, err = s.domainManager.SyncVMI(vmi, s.useEmulation)
-	if err != nil {
+	if _, err := l.domainManager.SyncVMI(vmi, l.useEmulation); err != nil {
 		log.Log.Object(vmi).Reason(err).Errorf("Failed to sync vmi")
-		reply.Success = false
-		reply.Message = getErrorMessage(err)
-		return nil
+		response.Success = false
+		response.Message = getErrorMessage(err)
+		return response, nil
 	}
 
 	log.Log.Object(vmi).Info("Synced vmi")
-	return nil
+	return response, nil
 }
 
-func (s *Launcher) Kill(args *cmdclient.Args, reply *cmdclient.Reply) error {
-	reply.Success = true
+func (l *Launcher) KillVirtualMachine(ctx context.Context, request *cmdv1.VMIRequest) (*cmdv1.Response, error) {
 
-	vmi, err := getVmfromClientArgs(args)
-	if err != nil {
-		reply.Success = false
-		reply.Message = err.Error()
-		return nil
+	vmi, response := getVMIFromRequest(request.Vmi)
+	if !response.Success {
+		return response, nil
 	}
 
-	err = s.domainManager.KillVMI(vmi)
-	if err != nil {
+	if err := l.domainManager.KillVMI(vmi); err != nil {
 		log.Log.Object(vmi).Reason(err).Errorf("Failed to kill vmi")
-		reply.Success = false
-		reply.Message = getErrorMessage(err)
-		return nil
+		response.Success = false
+		response.Message = getErrorMessage(err)
+		return response, nil
 	}
 
 	log.Log.Object(vmi).Info("Signaled vmi kill")
-	return nil
+	return response, nil
 }
 
-func (s *Launcher) Shutdown(args *cmdclient.Args, reply *cmdclient.Reply) error {
-	reply.Success = true
+func (l *Launcher) ShutdownVirtualMachine(ctx context.Context, request *cmdv1.VMIRequest) (*cmdv1.Response, error) {
 
-	vmi, err := getVmfromClientArgs(args)
-	if err != nil {
-		reply.Success = false
-		reply.Message = err.Error()
-		return nil
+	vmi, response := getVMIFromRequest(request.Vmi)
+	if !response.Success {
+		return response, nil
 	}
 
-	err = s.domainManager.SignalShutdownVMI(vmi)
-	if err != nil {
+	if err := l.domainManager.SignalShutdownVMI(vmi); err != nil {
 		log.Log.Object(vmi).Reason(err).Errorf("Failed to signal shutdown for vmi")
-		reply.Success = false
-		reply.Message = getErrorMessage(err)
-		return nil
+		response.Success = false
+		response.Message = getErrorMessage(err)
+		return response, nil
 	}
 
 	log.Log.Object(vmi).Info("Signaled vmi shutdown")
-	return nil
+	return response, nil
 }
 
-func (s *Launcher) Delete(args *cmdclient.Args, reply *cmdclient.Reply) error {
-	reply.Success = true
+func (l *Launcher) DeleteVirtualMachine(ctx context.Context, request *cmdv1.VMIRequest) (*cmdv1.Response, error) {
 
-	vmi, err := getVmfromClientArgs(args)
-	if err != nil {
-		reply.Success = false
-		reply.Message = err.Error()
-		return nil
+	vmi, response := getVMIFromRequest(request.Vmi)
+	if !response.Success {
+		return response, nil
 	}
 
-	err = s.domainManager.DeleteVMI(vmi)
-	if err != nil {
+	if err := l.domainManager.DeleteVMI(vmi); err != nil {
 		log.Log.Object(vmi).Reason(err).Errorf("Failed to signal deletion for vmi")
-		reply.Success = false
-		reply.Message = getErrorMessage(err)
-		return nil
+		response.Success = false
+		response.Message = getErrorMessage(err)
+		return response, nil
 	}
 
 	log.Log.Object(vmi).Info("Signaled vmi deletion")
-	return nil
+	return response, nil
 }
 
-func (s *Launcher) GetDomain(args *cmdclient.Args, reply *cmdclient.Reply) error {
+func (l *Launcher) GetDomain(ctx context.Context, request *cmdv1.EmptyRequest) (*cmdv1.DomainResponse, error) {
 
-	reply.Success = true
+	response := &cmdv1.DomainResponse{
+		Response: &cmdv1.Response{
+			Success: true,
+		},
+	}
 
-	list, err := s.domainManager.ListAllDomains()
+	list, err := l.domainManager.ListAllDomains()
 	if err != nil {
-		reply.Success = false
-		reply.Message = getErrorMessage(err)
-		return nil
+		response.Response.Success = false
+		response.Response.Message = getErrorMessage(err)
+		return response, nil
 	}
 
-	if len(list) == 0 {
-		reply.Domain = nil
-	} else {
-		reply.Domain = list[0]
+	if len(list) >= 0 {
+		if domain, err := json.Marshal(list[0]); err != nil {
+			log.Log.Reason(err).Errorf("Failed to marshal domain")
+			response.Response.Success = false
+			response.Response.Message = getErrorMessage(err)
+			return response, nil
+		} else {
+			response.Domain = string(domain)
+		}
 	}
 
-	return nil
+	return response, nil
 }
 
-func (s *Launcher) GetDomainStats(args *cmdclient.Args, reply *cmdclient.Reply) error {
+func (l *Launcher) GetDomainStats(ctx context.Context, request *cmdv1.EmptyRequest) (*cmdv1.DomainStatsResponse, error) {
 
-	reply.Success = true
+	response := &cmdv1.DomainStatsResponse{
+		Response: &cmdv1.Response{
+			Success: true,
+		},
+	}
 
-	list, err := s.domainManager.GetDomainStats()
+	list, err := l.domainManager.GetDomainStats()
 	if err != nil {
-		reply.Success = false
-		reply.Message = getErrorMessage(err)
-		return nil
+		response.Response.Success = false
+		response.Response.Message = getErrorMessage(err)
+		return response, nil
 	}
 
-	if len(list) == 0 {
-		reply.DomainStats = nil
-	} else {
-		reply.DomainStats = list[0]
+	if len(list) >= 0 {
+		if domainStats, err := json.Marshal(list[0]); err != nil {
+			log.Log.Reason(err).Errorf("Failed to marshal domain stats")
+			response.Response.Success = false
+			response.Response.Message = getErrorMessage(err)
+			return response, nil
+		} else {
+			response.DomainStats = string(domainStats)
+		}
 	}
 
-	return nil
-}
-
-func createSocket(socketPath string) (net.Listener, error) {
-	os.RemoveAll(socketPath)
-
-	err := os.MkdirAll(filepath.Dir(socketPath), 0755)
-	if err != nil {
-		log.Log.Reason(err).Error("unable to create directory for unix socket")
-		return nil, err
-	}
-
-	socket, err := net.Listen("unix", socketPath)
-
-	if err != nil {
-		log.Log.Reason(err).Error("failed to create unix socket for launcher cmd service")
-		return nil, err
-	}
-	return socket, nil
+	return response, nil
 }
 
 func RunServer(socketPath string,
@@ -301,13 +288,19 @@ func RunServer(socketPath string,
 	if options != nil {
 		useEmulation = options.useEmulation
 	}
-	rpcServer := rpc.NewServer()
+
+	grpcServer := grpc.NewServer([]grpc.ServerOption{}...)
 	server := &Launcher{
 		domainManager: domainManager,
 		useEmulation:  useEmulation,
 	}
-	rpcServer.Register(server)
-	sock, err := createSocket(socketPath)
+	registerInfoServer(grpcServer)
+
+	// register more versions as soon as needed
+	// and add them to info.go
+	cmdv1.RegisterCmdServer(grpcServer, server)
+
+	sock, err := grpcutil.CreateSocket(socketPath)
 	if err != nil {
 		return nil, err
 	}
@@ -317,21 +310,24 @@ func RunServer(socketPath string,
 	go func() {
 		select {
 		case <-stopChan:
+			log.Log.Info("stopping cmd server")
+			grpcServer.Stop()
 			sock.Close()
 			os.Remove(socketPath)
-			log.Log.Info("closing cmd server socket")
 			close(done)
 		}
 	}()
 
 	go func() {
-		rpcServer.Accept(sock)
+		grpcServer.Serve(sock)
 	}()
 
 	return done, nil
 }
 
-func (s *Launcher) Ping(args *cmdclient.Args, reply *cmdclient.Reply) error {
-	reply.Success = true
-	return nil
+func (l *Launcher) Ping(ctx context.Context, request *cmdv1.EmptyRequest) (*cmdv1.Response, error) {
+	response := &cmdv1.Response{
+		Success: true,
+	}
+	return response, nil
 }

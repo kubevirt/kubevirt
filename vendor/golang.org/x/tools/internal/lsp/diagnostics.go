@@ -6,45 +6,81 @@ package lsp
 
 import (
 	"context"
-	"sort"
 
+	"golang.org/x/tools/internal/lsp/cache"
 	"golang.org/x/tools/internal/lsp/protocol"
 	"golang.org/x/tools/internal/lsp/source"
 	"golang.org/x/tools/internal/span"
 )
 
-func (s *server) cacheAndDiagnose(ctx context.Context, uri span.URI, content string) error {
-	if err := s.setContent(ctx, uri, []byte(content)); err != nil {
+func (s *Server) cacheAndDiagnose(ctx context.Context, uri span.URI, content string) error {
+	s.log.Debugf(ctx, "cacheAndDiagnose: %s", uri)
+
+	view := s.findView(ctx, uri)
+	if err := view.SetContent(ctx, uri, []byte(content)); err != nil {
 		return err
 	}
+
+	s.log.Debugf(ctx, "cacheAndDiagnose: set content for %s", uri)
+
 	go func() {
-		//TODO: this is an ugly hack to make the diagnostics call happen after the
-		// configuration is collected, we need to rewrite all the concurrency
-		<-s.configured
-		ctx := s.view.BackgroundContext()
+		ctx := view.BackgroundContext()
 		if ctx.Err() != nil {
+			s.log.Errorf(ctx, "canceling diagnostics for %s: %v", uri, ctx.Err())
 			return
 		}
-		reports, err := source.Diagnostics(ctx, s.view, uri)
+
+		s.log.Debugf(ctx, "cacheAndDiagnose: going to get diagnostics for %s", uri)
+
+		reports, err := source.Diagnostics(ctx, view, uri)
 		if err != nil {
-			return // handle error?
+			s.log.Errorf(ctx, "failed to compute diagnostics for %s: %v", uri, err)
+			return
 		}
+
+		s.undeliveredMu.Lock()
+		defer s.undeliveredMu.Unlock()
+
+		s.log.Debugf(ctx, "cacheAndDiagnose: publishing diagnostics")
+
 		for uri, diagnostics := range reports {
-			protocolDiagnostics, err := toProtocolDiagnostics(ctx, s.view, diagnostics)
-			if err != nil {
-				continue // handle errors?
+			if err := s.publishDiagnostics(ctx, view, uri, diagnostics); err != nil {
+				if s.undelivered == nil {
+					s.undelivered = make(map[span.URI][]source.Diagnostic)
+				}
+				s.undelivered[uri] = diagnostics
+				continue
 			}
-			s.client.PublishDiagnostics(ctx, &protocol.PublishDiagnosticsParams{
-				Diagnostics: protocolDiagnostics,
-				URI:         protocol.NewURI(uri),
-			})
+			// In case we had old, undelivered diagnostics.
+			delete(s.undelivered, uri)
+		}
+
+		s.log.Debugf(ctx, "cacheAndDiagnose: publishing undelivered diagnostics")
+
+		// Anytime we compute diagnostics, make sure to also send along any
+		// undelivered ones (only for remaining URIs).
+		for uri, diagnostics := range s.undelivered {
+			s.publishDiagnostics(ctx, view, uri, diagnostics)
+
+			// If we fail to deliver the same diagnostics twice, just give up.
+			delete(s.undelivered, uri)
 		}
 	}()
+
+	s.log.Debugf(ctx, "cacheAndDiagnose: returned from diagnostics for %s", uri)
 	return nil
 }
 
-func (s *server) setContent(ctx context.Context, uri span.URI, content []byte) error {
-	return s.view.SetContent(ctx, uri, content)
+func (s *Server) publishDiagnostics(ctx context.Context, view *cache.View, uri span.URI, diagnostics []source.Diagnostic) error {
+	protocolDiagnostics, err := toProtocolDiagnostics(ctx, view, diagnostics)
+	if err != nil {
+		return err
+	}
+	s.client.PublishDiagnostics(ctx, &protocol.PublishDiagnosticsParams{
+		Diagnostics: protocolDiagnostics,
+		URI:         protocol.NewURI(uri),
+	})
+	return nil
 }
 
 func toProtocolDiagnostics(ctx context.Context, v source.View, diagnostics []source.Diagnostic) ([]protocol.Diagnostic, error) {
@@ -53,10 +89,6 @@ func toProtocolDiagnostics(ctx context.Context, v source.View, diagnostics []sou
 		_, m, err := newColumnMap(ctx, v, diag.Span.URI())
 		if err != nil {
 			return nil, err
-		}
-		src := diag.Source
-		if src == "" {
-			src = "LSP"
 		}
 		var severity protocol.DiagnosticSeverity
 		switch diag.Severity {
@@ -73,20 +105,8 @@ func toProtocolDiagnostics(ctx context.Context, v source.View, diagnostics []sou
 			Message:  diag.Message,
 			Range:    rng,
 			Severity: severity,
-			Source:   src,
+			Source:   diag.Source,
 		})
 	}
 	return reports, nil
-}
-
-func sorted(d []protocol.Diagnostic) {
-	sort.Slice(d, func(i int, j int) bool {
-		if d[i].Range.Start.Line == d[j].Range.Start.Line {
-			if d[i].Range.Start.Character == d[j].Range.Start.Character {
-				return d[i].Message < d[j].Message
-			}
-			return d[i].Range.Start.Character < d[j].Range.Start.Character
-		}
-		return d[i].Range.Start.Line < d[j].Range.Start.Line
-	})
 }

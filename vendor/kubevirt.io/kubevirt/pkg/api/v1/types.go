@@ -497,6 +497,8 @@ const (
 	InstallStrategyVersionAnnotation = "kubevirt.io/install-strategy-version"
 	// This annotation represents the kubevirt registry used for an install strategy configmap.
 	InstallStrategyRegistryAnnotation = "kubevirt.io/install-strategy-registry"
+	// This annotation represents that this object is for temporary use during updates
+	EphemeralBackupObject = "kubevirt.io/ephemeral-backup-object"
 
 	// This label indicates the object is a part of the install strategy retrieval process.
 	InstallStrategyLabel = "kubevirt.io/install-strategy"
@@ -920,6 +922,25 @@ type VirtualMachine struct {
 	Status VirtualMachineStatus `json:"status,omitempty"`
 }
 
+// Return the current runStrategy for the VirtualMachine
+// if vm.spec.running is set, that will be mapped to runStrategy:
+//   false: RunStrategyHalted
+//   true: RunStrategyAlways
+func (vm *VirtualMachine) RunStrategy() (VirtualMachineRunStrategy, error) {
+	if vm.Spec.Running != nil && vm.Spec.RunStrategy != nil {
+		return RunStrategyUnknown, fmt.Errorf("running and runstrategy are mutually exclusive")
+	}
+	RunStrategy := RunStrategyHalted
+	if vm.Spec.Running != nil {
+		if (*vm.Spec.Running) == true {
+			RunStrategy = RunStrategyAlways
+		}
+	} else if vm.Spec.RunStrategy != nil {
+		RunStrategy = *vm.Spec.RunStrategy
+	}
+	return RunStrategy, nil
+}
+
 // VirtualMachineList is a list of virtualmachines
 // ---
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
@@ -932,13 +953,38 @@ type VirtualMachineList struct {
 	Items []VirtualMachine `json:"items"`
 }
 
+// VirtualMachineRunStrategy is a label for the requested VirtualMachineInstance Running State at the current time.
+// ---
+// +k8s:openapi-gen=true
+type VirtualMachineRunStrategy string
+
+// These are the valid VMI run strategies
+const (
+	// Placeholder. Not a valid RunStrategy.
+	RunStrategyUnknown VirtualMachineRunStrategy = ""
+	// VMI should always be running.
+	RunStrategyAlways VirtualMachineRunStrategy = "Always"
+	// VMI should never be running.
+	RunStrategyHalted VirtualMachineRunStrategy = "Halted"
+	// VMI can be started/stopped using API endpoints.
+	RunStrategyManual VirtualMachineRunStrategy = "Manual"
+	// VMI will initially be running--and restarted if a failure occurs.
+	// It will not be restarted upon successful completion.
+	RunStrategyRerunOnFailure VirtualMachineRunStrategy = "RerunOnFailure"
+)
+
 // VirtualMachineSpec describes how the proper VirtualMachine
 // should look like
 // ---
 // +k8s:openapi-gen=true
 type VirtualMachineSpec struct {
 	// Running controls whether the associatied VirtualMachineInstance is created or not
-	Running bool `json:"running"`
+	// Mutually exclusive with RunStrategy
+	Running *bool `json:"running,omitempty" optional:"true"`
+
+	// Running state indicates the requested running state of the VirtualMachineInstance
+	// mutually exclusive with Running
+	RunStrategy *VirtualMachineRunStrategy `json:"runStrategy,omitempty" optional:"true"`
 
 	// Template is the direct specification of VirtualMachineInstance
 	Template *VirtualMachineInstanceTemplateSpec `json:"template"`
@@ -947,6 +993,17 @@ type VirtualMachineSpec struct {
 	// DataVolumes in this list are dynamically created for the VirtualMachine and are tied to the VirtualMachine's life-cycle.
 	DataVolumeTemplates []cdiv1.DataVolume `json:"dataVolumeTemplates,omitempty"`
 }
+
+// StateChangeRequestType represents the existing state change requests that are possible
+// ---
+// +k8s:openapi-gen=true
+type StateChangeRequestAction string
+
+// These are the currently defined state change requests
+const (
+	StartRequest StateChangeRequestAction = "Start"
+	StopRequest  StateChangeRequestAction = "Stop"
+)
 
 // VirtualMachineStatus represents the status returned by the
 // controller to describe how the VirtualMachine is doing
@@ -959,6 +1016,16 @@ type VirtualMachineStatus struct {
 	Ready bool `json:"ready,omitempty"`
 	// Hold the state information of the VirtualMachine and its VirtualMachineInstance
 	Conditions []VirtualMachineCondition `json:"conditions,omitempty" optional:"true"`
+	// StateChangeRequests indicates a list of actions that should be taken on a VMI
+	// e.g. stop a specific VMI then start a new one.
+	StateChangeRequests []VirtualMachineStateChangeRequest `json:"stateChangeRequests,omitempty" optional:"true"`
+}
+
+type VirtualMachineStateChangeRequest struct {
+	// Indicates the type of action that is requested. e.g. Start or Stop
+	Action StateChangeRequestAction `json:"action"`
+	// Indicates the UUID of an existing Virtual Machine Instance that this change request applies to -- if applicable
+	UID *types.UID `json:"uid,omitempty" optional:"true" protobuf:"bytes,5,opt,name=uid,casttype=k8s.io/kubernetes/pkg/types.UID"`
 }
 
 // GetObjectKind is required to satisfy Object interface

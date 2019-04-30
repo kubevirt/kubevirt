@@ -84,6 +84,13 @@ var (
 		[]string{"domain"},
 		nil,
 	)
+
+	swapTrafficDesc = prometheus.NewDesc(
+		"kubevirt_vm_memory_swap_traffic_bytes_total",
+		"swap memory traffic.",
+		[]string{"domain", "type"},
+		nil,
+	)
 )
 
 func updateMemory(vmStats *stats.DomainStats, ch chan<- prometheus.Metric) {
@@ -104,6 +111,29 @@ func updateMemory(vmStats *stats.DomainStats, ch chan<- prometheus.Metric) {
 			// the libvirt value is in KiB
 			float64(vmStats.Memory.RSS)*1024,
 			vmStats.Name,
+		)
+		if err == nil {
+			ch <- mv
+		}
+	}
+
+	if vmStats.Memory.SwapInSet {
+		mv, err := prometheus.NewConstMetric(
+			swapTrafficDesc, prometheus.GaugeValue,
+			// the libvirt value is in KiB
+			float64(vmStats.Memory.SwapIn)*1024,
+			vmStats.Name, "in",
+		)
+		if err == nil {
+			ch <- mv
+		}
+	}
+	if vmStats.Memory.SwapInSet {
+		mv, err := prometheus.NewConstMetric(
+			swapTrafficDesc, prometheus.GaugeValue,
+			// the libvirt value is in KiB
+			float64(vmStats.Memory.SwapOut)*1024,
+			vmStats.Name, "out",
 		)
 		if err == nil {
 			ch <- mv
@@ -290,7 +320,7 @@ type prometheusScraper struct {
 
 func (ps *prometheusScraper) Scrape(socketFile string) {
 	ts := time.Now()
-	cli, err := cmdclient.GetClient(socketFile)
+	cli, err := cmdclient.NewClient(socketFile)
 	if err != nil {
 		log.Log.Reason(err).Error("failed to connect to cmd client socket")
 		// Ignore failure to connect to client.

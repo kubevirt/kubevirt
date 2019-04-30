@@ -29,6 +29,7 @@ import (
 	"path/filepath"
 	"strings"
 	"text/template"
+	"time"
 
 	v1 "k8s.io/api/core/v1"
 
@@ -53,6 +54,8 @@ type templateData struct {
 	OperatorDeploymentSpec string
 	OperatorRules          string
 	KubeVirtLogo           string
+	PackageName            string
+	CreatedAt              string
 	GeneratedManifests     map[string]string
 }
 
@@ -69,6 +72,7 @@ func main() {
 	processFiles := flag.Bool("process-files", false, "")
 	processVars := flag.Bool("process-vars", false, "")
 	kubeVirtLogoPath := flag.String("kubevirt-logo-path", "", "")
+	packageName := flag.String("package-name", "", "")
 	bundleOutDir := flag.String("bundle-out-dir", "", "")
 	quayRepository := flag.String("quay-repository", "", "")
 
@@ -96,9 +100,11 @@ func main() {
 		data.OperatorDeploymentSpec = getOperatorDeploymentSpec(data)
 		data.OperatorRules = getOperatorRules()
 		data.KubeVirtLogo = getKubeVirtLogo(*kubeVirtLogoPath)
+		data.PackageName = *packageName
+		data.CreatedAt = getTimestamp()
 		// prevent loading latest bundle from Quay for every file, only do it for the CSV manifest
 		data.ReplacesCsvVersion = ""
-		if strings.Contains(*inputFile, ".csv.yaml") && *bundleOutDir != "" {
+		if strings.Contains(*inputFile, ".csv.yaml") && *bundleOutDir != "" && data.QuayRepository != "" {
 			bundleHelper, err := helper.NewBundleHelper(*quayRepository)
 			if err != nil {
 				panic(err)
@@ -131,6 +137,8 @@ func main() {
 		data.OperatorDeploymentSpec = "{{.OperatorDeploymentSpec}}"
 		data.OperatorRules = "{{.OperatorRules}}"
 		data.KubeVirtLogo = "{{.KubeVirtLogo}}"
+		data.PackageName = "{{.PackageName}}"
+		data.CreatedAt = "{{.CreatedAt}}"
 	}
 
 	if *processFiles {
@@ -221,4 +229,8 @@ func getKubeVirtLogo(path string) string {
 	// Encode as base64.
 	encoded := base64.StdEncoding.EncodeToString(content)
 	return encoded
+}
+
+func getTimestamp() string {
+	return time.Now().UTC().Format("2006-01-02T15:04:05Z")
 }

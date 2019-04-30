@@ -23,6 +23,7 @@ import (
 	"bytes"
 	"encoding/base64"
 	"encoding/json"
+	"encoding/xml"
 	goerrors "errors"
 	"flag"
 	"fmt"
@@ -68,9 +69,11 @@ import (
 	"kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/kubecli"
 	"kubevirt.io/kubevirt/pkg/log"
+	"kubevirt.io/kubevirt/pkg/testutils"
 	"kubevirt.io/kubevirt/pkg/util/net/dns"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
+	launcherApi "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/pkg/virtctl"
 	vmsgen "kubevirt.io/kubevirt/tools/vms-generator/utils"
 )
@@ -112,6 +115,7 @@ const (
 const (
 	AlpineHttpUrl     = "http://cdi-http-import-server.kubevirt/images/alpine.iso"
 	GuestAgentHttpUrl = "http://cdi-http-import-server.kubevirt/qemu-ga"
+	StressHttpUrl     = "http://cdi-http-import-server.kubevirt/stress"
 )
 
 const (
@@ -884,7 +888,11 @@ func DeleteRawManifest(object unstructured.Unstructured) error {
 
 	uri := composeResourceURI(object)
 	uri = uri + "/" + object.GetName()
-	result := virtCli.CoreV1().RESTClient().Delete().RequestURI(uri).Do()
+
+	policy := metav1.DeletePropagationBackground
+	options := &metav1.DeleteOptions{PropagationPolicy: &policy}
+
+	result := virtCli.CoreV1().RESTClient().Delete().RequestURI(uri).Body(options).Do()
 	if result.Error() != nil && !errors.IsNotFound(result.Error()) {
 		fmt.Printf(fmt.Sprintf("ERROR: Can not delete %s err: %#v %s\n", object.GetName(), result.Error(), object))
 		panic(err)
@@ -1170,10 +1178,17 @@ func RunVMI(vmi *v1.VirtualMachineInstance, timeout int) *v1.VirtualMachineInsta
 	return obj
 }
 
-func RunVMIAndExpectLaunch(vmi *v1.VirtualMachineInstance, withAuth bool, timeout int) *v1.VirtualMachineInstance {
+func RunVMIAndExpectLaunch(vmi *v1.VirtualMachineInstance, timeout int) *v1.VirtualMachineInstance {
 	obj := RunVMI(vmi, timeout)
 	By("Waiting until the VirtualMachineInstance will start")
 	WaitForSuccessfulVMIStartWithTimeout(obj, timeout)
+	return obj
+}
+
+func RunVMIAndExpectScheduling(vmi *v1.VirtualMachineInstance, timeout int) *v1.VirtualMachineInstance {
+	obj := RunVMI(vmi, timeout)
+	By("Waiting until the VirtualMachineInstance will be scheduled")
+	waitForVMIScheduling(obj, timeout, false)
 	return obj
 }
 
@@ -1221,6 +1236,28 @@ func GetRunningPodByLabel(label string, labelType string, namespace string) *k8s
 	}
 
 	return readyPod
+}
+
+func GetPodByVirtualMachineInstance(vmi *v1.VirtualMachineInstance, namespace string) *k8sv1.Pod {
+	virtCli, err := kubecli.GetKubevirtClient()
+	PanicOnError(err)
+
+	pods, err := virtCli.CoreV1().Pods(namespace).List(metav1.ListOptions{})
+	PanicOnError(err)
+
+	var controlledPod *k8sv1.Pod
+	for _, pod := range pods.Items {
+		if controller.IsControlledBy(&pod, vmi) {
+			controlledPod = &pod
+			break
+		}
+	}
+
+	if controlledPod == nil {
+		PanicOnError(fmt.Errorf("no controlled pod was found for VMI"))
+	}
+
+	return controlledPod
 }
 
 func cleanNamespaces() {
@@ -1333,11 +1370,11 @@ func PanicOnError(err error) {
 	}
 }
 
-func NewRandomDataVolumeWithHttpImport(imageUrl string, namespace string) *cdiv1.DataVolume {
+func NewRandomDataVolumeWithHttpImport(imageUrl string, namespace string, accessMode k8sv1.PersistentVolumeAccessMode) *cdiv1.DataVolume {
 
 	name := "test-datavolume-" + rand.String(12)
 	storageClass := Config.StorageClassLocal
-	quantity, err := resource.ParseQuantity("2Gi")
+	quantity, err := resource.ParseQuantity("1Gi")
 	PanicOnError(err)
 	dataVolume := &cdiv1.DataVolume{
 		ObjectMeta: metav1.ObjectMeta{
@@ -1351,7 +1388,7 @@ func NewRandomDataVolumeWithHttpImport(imageUrl string, namespace string) *cdiv1
 				},
 			},
 			PVC: &k8sv1.PersistentVolumeClaimSpec{
-				AccessModes: []k8sv1.PersistentVolumeAccessMode{k8sv1.ReadWriteOnce},
+				AccessModes: []k8sv1.PersistentVolumeAccessMode{accessMode},
 				Resources: k8sv1.ResourceRequirements{
 					Requests: k8sv1.ResourceList{
 						"storage": quantity,
@@ -1411,7 +1448,7 @@ func NewRandomVMIWithDataVolume(dataVolumeName string) *v1.VirtualMachineInstanc
 }
 
 func NewRandomVMWithDataVolume(imageUrl string, namespace string) *v1.VirtualMachine {
-	dataVolume := NewRandomDataVolumeWithHttpImport(imageUrl, namespace)
+	dataVolume := NewRandomDataVolumeWithHttpImport(imageUrl, namespace, k8sv1.ReadWriteOnce)
 	vmi := NewRandomVMIWithDataVolume(dataVolume.Name)
 	vm := NewRandomVirtualMachine(vmi, false)
 
@@ -1546,6 +1583,22 @@ func AddEphemeralCdrom(vmi *v1.VirtualMachineInstance, name string, bus string, 
 	})
 
 	return vmi
+}
+
+func NewRandomFedoraVMIWitGuestAgent() *v1.VirtualMachineInstance {
+	agentVMI := NewRandomVMIWithEphemeralDiskAndUserdata(ContainerDiskFor(ContainerDiskFedora), fmt.Sprintf(`#!/bin/bash
+                echo "fedora" |passwd fedora --stdin
+                mkdir -p /usr/local/bin
+                curl %s > /usr/local/bin/qemu-ga
+                chmod +x /usr/local/bin/qemu-ga
+                curl %s > /usr/local/bin/stress
+                chmod +x /usr/local/bin/stress
+                setenforce 0
+                systemd-run --unit=guestagent /usr/local/bin/qemu-ga
+                `, GuestAgentHttpUrl, StressHttpUrl))
+	agentVMI.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("512M")
+	return agentVMI
+
 }
 
 func NewRandomVMIWithEphemeralDiskAndUserdata(containerImage string, userData string) *v1.VirtualMachineInstance {
@@ -1975,6 +2028,15 @@ func WaitForSuccessfulDataVolumeImport(obj runtime.Object, seconds int) {
 
 // Block until the specified VirtualMachineInstance started and return the target node name.
 func waitForVMIStart(obj runtime.Object, seconds int, ignoreWarnings bool) (nodeName string) {
+	return waitForVMIPhase([]v1.VirtualMachineInstancePhase{v1.Running}, obj, seconds, ignoreWarnings)
+}
+
+// Block until the specified VirtualMachineInstance scheduled and return the target node name.
+func waitForVMIScheduling(obj runtime.Object, seconds int, ignoreWarnings bool) {
+	waitForVMIPhase([]v1.VirtualMachineInstancePhase{v1.Scheduling, v1.Scheduled, v1.Running}, obj, seconds, ignoreWarnings)
+}
+
+func waitForVMIPhase(phases []v1.VirtualMachineInstancePhase, obj runtime.Object, seconds int, ignoreWarnings bool) (nodeName string) {
 	vmi, ok := obj.(*v1.VirtualMachineInstance)
 	ExpectWithOffset(1, ok).To(BeTrue(), "Object is not of type *v1.VMI")
 
@@ -2002,6 +2064,7 @@ func waitForVMIStart(obj runtime.Object, seconds int, ignoreWarnings bool) (node
 		}()
 	}
 
+	timeoutMsg := fmt.Sprintf("Timed out waiting for VMI to enter %s phase(s)", phases)
 	// FIXME the event order is wrong. First the document should be updated
 	EventuallyWithOffset(1, func() v1.VirtualMachineInstancePhase {
 		vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &metav1.GetOptions{})
@@ -2010,7 +2073,7 @@ func waitForVMIStart(obj runtime.Object, seconds int, ignoreWarnings bool) (node
 		nodeName = vmi.Status.NodeName
 		Expect(vmi.IsFinal()).To(BeFalse(), "VMI unexpectedly stopped. State: %s", vmi.Status.Phase)
 		return vmi.Status.Phase
-	}, time.Duration(seconds)*time.Second, 1*time.Second).Should(Equal(v1.Running), "Timed out waiting for VMI to enter Running phase")
+	}, time.Duration(seconds)*time.Second, 1*time.Second).Should(testutils.BeIn(phases), timeoutMsg)
 
 	return
 }
@@ -2179,6 +2242,7 @@ const (
 	ContainerDiskAlpine ContainerDisk = "alpine"
 	ContainerDiskFedora ContainerDisk = "fedora-cloud"
 	ContainerDiskVirtio ContainerDisk = "virtio-container-disk"
+	ContainerDiskEmpty  ContainerDisk = "empty"
 )
 
 // ContainerDiskFor takes the name of an image and returns the full
@@ -2768,20 +2832,32 @@ func CreateISCSITargetPOD(containerDiskName ContainerDisk) (iscsiTargetIP string
 					Name:      "test-iscsi-target",
 					Image:     image,
 					Resources: resources,
-					Env: []k8sv1.EnvVar{
-						{
-							Name:  "AS_ISCSI",
-							Value: "true",
-						},
-						{
-							Name:  "IMAGE_NAME",
-							Value: fmt.Sprintf("%s", containerDiskName),
-						},
-					},
 				},
 			},
 		},
 	}
+	if containerDiskName == ContainerDiskEmpty {
+		asEmpty := []k8sv1.EnvVar{
+			{
+				Name:  "AS_EMPTY",
+				Value: "true",
+			},
+		}
+		pod.Spec.Containers[0].Env = asEmpty
+	} else {
+		imageEnv := []k8sv1.EnvVar{
+			{
+				Name:  "AS_ISCSI",
+				Value: "true",
+			},
+			{
+				Name:  "IMAGE_NAME",
+				Value: fmt.Sprintf("%s", containerDiskName),
+			},
+		}
+		pod.Spec.Containers[0].Env = imageEnv
+	}
+
 	pod, err = virtClient.CoreV1().Pods(NamespaceTestDefault).Create(pod)
 	PanicOnError(err)
 
@@ -2795,31 +2871,34 @@ func CreateISCSITargetPOD(containerDiskName ContainerDisk) (iscsiTargetIP string
 	return
 }
 
-func CreateISCSIPvAndPvc(name string, size string, iscsiTargetIP string) {
+func CreateISCSIPvAndPvc(name string, size string, iscsiTargetIP string, volumeMode k8sv1.PersistentVolumeMode) {
 	accessMode := k8sv1.ReadWriteMany
-	NewISCSIPvAndPvc(name, size, iscsiTargetIP, accessMode)
+	NewISCSIPvAndPvc(name, size, iscsiTargetIP, accessMode, volumeMode)
 }
-func NewISCSIPvAndPvc(name string, size string, iscsiTargetIP string, accessMode k8sv1.PersistentVolumeAccessMode) {
+func NewISCSIPvAndPvc(name string, size string, iscsiTargetIP string, accessMode k8sv1.PersistentVolumeAccessMode, volumeMode k8sv1.PersistentVolumeMode) {
 	virtCli, err := kubecli.GetKubevirtClient()
 	PanicOnError(err)
 
-	_, err = virtCli.CoreV1().PersistentVolumes().Create(newISCSIPV(name, size, iscsiTargetIP, accessMode))
+	_, err = virtCli.CoreV1().PersistentVolumes().Create(newISCSIPV(name, size, iscsiTargetIP, accessMode, volumeMode))
 	if !errors.IsAlreadyExists(err) {
 		PanicOnError(err)
 	}
 
-	_, err = virtCli.CoreV1().PersistentVolumeClaims(NamespaceTestDefault).Create(newISCSIPVC(name, size, accessMode))
+	_, err = virtCli.CoreV1().PersistentVolumeClaims(NamespaceTestDefault).Create(newISCSIPVC(name, size, accessMode, volumeMode))
 	if !errors.IsAlreadyExists(err) {
 		PanicOnError(err)
 	}
 }
 
-func newISCSIPV(name string, size string, iscsiTargetIP string, accessMode k8sv1.PersistentVolumeAccessMode) *k8sv1.PersistentVolume {
+func CreateISCSIPV(name string, size string, iscsiTargetIP string, accessMode k8sv1.PersistentVolumeAccessMode, volumeMode k8sv1.PersistentVolumeMode) *k8sv1.PersistentVolume {
+	return newISCSIPV(name, size, iscsiTargetIP, accessMode, volumeMode)
+}
+
+func newISCSIPV(name string, size string, iscsiTargetIP string, accessMode k8sv1.PersistentVolumeAccessMode, volumeMode k8sv1.PersistentVolumeMode) *k8sv1.PersistentVolume {
 	quantity, err := resource.ParseQuantity(size)
 	PanicOnError(err)
 
 	storageClass := Config.StorageClassLocal
-	volumeMode := k8sv1.PersistentVolumeBlock
 
 	return &k8sv1.PersistentVolume{
 		ObjectMeta: metav1.ObjectMeta{
@@ -2829,10 +2908,6 @@ func newISCSIPV(name string, size string, iscsiTargetIP string, accessMode k8sv1
 			AccessModes: []k8sv1.PersistentVolumeAccessMode{accessMode},
 			Capacity: k8sv1.ResourceList{
 				"storage": quantity,
-			},
-			ClaimRef: &k8sv1.ObjectReference{
-				Name:      name,
-				Namespace: NamespaceTestDefault,
 			},
 			StorageClassName: storageClass,
 			VolumeMode:       &volumeMode,
@@ -2848,12 +2923,11 @@ func newISCSIPV(name string, size string, iscsiTargetIP string, accessMode k8sv1
 	}
 }
 
-func newISCSIPVC(name string, size string, accessMode k8sv1.PersistentVolumeAccessMode) *k8sv1.PersistentVolumeClaim {
+func newISCSIPVC(name string, size string, accessMode k8sv1.PersistentVolumeAccessMode, volumeMode k8sv1.PersistentVolumeMode) *k8sv1.PersistentVolumeClaim {
 	quantity, err := resource.ParseQuantity(size)
 	PanicOnError(err)
 
 	storageClass := Config.StorageClassLocal
-	volumeMode := k8sv1.PersistentVolumeBlock
 
 	return &k8sv1.PersistentVolumeClaim{
 		ObjectMeta: metav1.ObjectMeta{Name: name},
@@ -3168,7 +3242,7 @@ func NewRandomVirtualMachine(vmi *v1.VirtualMachineInstance, running bool) *v1.V
 			Namespace: namespace,
 		},
 		Spec: v1.VirtualMachineSpec{
-			Running: running,
+			Running: &running,
 			Template: &v1.VirtualMachineInstanceTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
 					Labels:    map[string]string{"name": name},
@@ -3186,10 +3260,11 @@ func StopVirtualMachine(vm *v1.VirtualMachine) *v1.VirtualMachine {
 	By("Stopping the VirtualMachineInstance")
 	virtClient, err := kubecli.GetKubevirtClient()
 	PanicOnError(err)
+	running := false
 	Eventually(func() error {
 		updatedVM, err := virtClient.VirtualMachine(vm.Namespace).Get(vm.Name, &metav1.GetOptions{})
 		Expect(err).ToNot(HaveOccurred())
-		updatedVM.Spec.Running = false
+		updatedVM.Spec.Running = &running
 		_, err = virtClient.VirtualMachine(updatedVM.Namespace).Update(updatedVM)
 		return err
 	}, 300*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
@@ -3215,10 +3290,11 @@ func StartVirtualMachine(vm *v1.VirtualMachine) *v1.VirtualMachine {
 	By("Starting the VirtualMachineInstance")
 	virtClient, err := kubecli.GetKubevirtClient()
 	PanicOnError(err)
+	running := true
 	Eventually(func() error {
 		updatedVM, err := virtClient.VirtualMachine(vm.Namespace).Get(vm.Name, &metav1.GetOptions{})
 		Expect(err).ToNot(HaveOccurred())
-		updatedVM.Spec.Running = true
+		updatedVM.Spec.Running = &running
 		_, err = virtClient.VirtualMachine(updatedVM.Namespace).Update(updatedVM)
 		return err
 	}, 300*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
@@ -3337,4 +3413,20 @@ func AppendEmptyDisk(vmi *v1.VirtualMachineInstance, diskName, busName, diskSize
 			},
 		},
 	})
+}
+
+func GetRunningVMISpec(vmi *v1.VirtualMachineInstance) (*launcherApi.DomainSpec, error) {
+	runningVMISpec := launcherApi.DomainSpec{}
+	cli, err := kubecli.GetKubevirtClient()
+	if err != nil {
+		return nil, err
+	}
+
+	domXML, err := GetRunningVirtualMachineInstanceDomainXML(cli, vmi)
+	if err != nil {
+		return nil, err
+	}
+
+	err = xml.Unmarshal([]byte(domXML), &runningVMISpec)
+	return &runningVMISpec, err
 }

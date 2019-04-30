@@ -19,7 +19,7 @@ required = [
 
 [[override]]
   name = "kubevirt.io/kubevirt"
-  version = "=v0.16.0"
+  version = "=v0.17.0-alpha.0"
 
 [[override]]
   name = "github.com/go-kit/kit"

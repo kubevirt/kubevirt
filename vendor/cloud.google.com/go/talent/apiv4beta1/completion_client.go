@@ -18,6 +18,7 @@ package talent
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	gax "github.com/googleapis/gax-go/v2"
@@ -119,7 +120,8 @@ func (c *CompletionClient) setGoogleClientInfo(keyval ...string) {
 // CompleteQuery completes the specified prefix with keyword suggestions.
 // Intended for use by a job search auto-complete search box.
 func (c *CompletionClient) CompleteQuery(ctx context.Context, req *talentpb.CompleteQueryRequest, opts ...gax.CallOption) (*talentpb.CompleteQueryResponse, error) {
-	ctx = insertMetadata(ctx, c.xGoogMetadata)
+	md := metadata.Pairs("x-goog-request-params", fmt.Sprintf("%s=%v", "parent", req.GetParent()))
+	ctx = insertMetadata(ctx, c.xGoogMetadata, md)
 	opts = append(c.CallOptions.CompleteQuery[0:len(c.CallOptions.CompleteQuery):len(c.CallOptions.CompleteQuery)], opts...)
 	var resp *talentpb.CompleteQueryResponse
 	err := gax.Invoke(ctx, func(ctx context.Context, settings gax.CallSettings) error {

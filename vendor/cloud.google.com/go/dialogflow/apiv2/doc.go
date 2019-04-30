@@ -19,8 +19,8 @@
 //
 //   NOTE: This package is in alpha. It is not stable, and is likely to change.
 //
-// An end-to-end development suite for conversational interfaces (e.g.,
-// chatbots, voice-powered apps and devices).
+// Builds conversational interfaces (for example, chatbots, and voice-powered
+// apps and devices).
 //
 // Use of Context
 //
@@ -58,6 +58,7 @@ func insertMetadata(ctx context.Context, mds ...metadata.MD) context.Context {
 func DefaultAuthScopes() []string {
 	return []string{
 		"https://www.googleapis.com/auth/cloud-platform",
+		"https://www.googleapis.com/auth/dialogflow",
 	}
 }
 
@@ -98,4 +99,4 @@ func versionGo() string {
 	return "UNKNOWN"
 }
 
-const versionClient = "20190322"
+const versionClient = "20190404"

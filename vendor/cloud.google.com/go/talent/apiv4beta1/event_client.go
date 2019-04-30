@@ -18,6 +18,7 @@ package talent
 
 import (
 	"context"
+	"fmt"
 
 	gax "github.com/googleapis/gax-go/v2"
 	"google.golang.org/api/option"
@@ -109,7 +110,8 @@ func (c *EventClient) setGoogleClientInfo(keyval ...string) {
 // more (at https://cloud.google.com/talent-solution/docs/management-tools)
 // about self service tools.
 func (c *EventClient) CreateClientEvent(ctx context.Context, req *talentpb.CreateClientEventRequest, opts ...gax.CallOption) (*talentpb.ClientEvent, error) {
-	ctx = insertMetadata(ctx, c.xGoogMetadata)
+	md := metadata.Pairs("x-goog-request-params", fmt.Sprintf("%s=%v", "parent", req.GetParent()))
+	ctx = insertMetadata(ctx, c.xGoogMetadata, md)
 	opts = append(c.CallOptions.CreateClientEvent[0:len(c.CallOptions.CreateClientEvent):len(c.CallOptions.CreateClientEvent)], opts...)
 	var resp *talentpb.ClientEvent
 	err := gax.Invoke(ctx, func(ctx context.Context, settings gax.CallSettings) error {

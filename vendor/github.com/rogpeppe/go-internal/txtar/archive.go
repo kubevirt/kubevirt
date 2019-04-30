@@ -33,11 +33,13 @@ package txtar
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strings"
+	"unicode/utf8"
 )
 
 // An Archive is a collection of files.
@@ -87,6 +89,55 @@ func Parse(data []byte) *Archive {
 		a.Files = append(a.Files, f)
 	}
 	return a
+}
+
+// NeedsQuote reports whether the given data needs to
+// be quoted before it's included as a txtar file.
+func NeedsQuote(data []byte) bool {
+	_, _, after := findFileMarker(data)
+	return after != nil
+}
+
+// Quote quotes the data so that it can be safely stored in a txtar
+// file. This copes with files that contain lines that look like txtar
+// separators.
+//
+// The original data can be recovered with Unquote. It returns an error
+// if the data cannot be quoted (for example because it has no final
+// newline or it holds unprintable characters)
+func Quote(data []byte) ([]byte, error) {
+	if len(data) == 0 {
+		return nil, nil
+	}
+	if data[len(data)-1] != '\n' {
+		return nil, errors.New("data has no final newline")
+	}
+	if !utf8.Valid(data) {
+		return nil, fmt.Errorf("data contains non-UTF-8 characters")
+	}
+	var nd []byte
+	prev := byte('\n')
+	for _, b := range data {
+		if prev == '\n' {
+			nd = append(nd, '>')
+		}
+		nd = append(nd, b)
+		prev = b
+	}
+	return nd, nil
+}
+
+// Unquote unquotes data as quoted by Quote.
+func Unquote(data []byte) ([]byte, error) {
+	if len(data) == 0 {
+		return nil, nil
+	}
+	if data[0] != '>' || data[len(data)-1] != '\n' {
+		return nil, errors.New("data does not appear to be quoted")
+	}
+	data = bytes.Replace(data, []byte("\n>"), []byte("\n"), -1)
+	data = bytes.TrimPrefix(data, []byte(">"))
+	return data, nil
 }
 
 var (

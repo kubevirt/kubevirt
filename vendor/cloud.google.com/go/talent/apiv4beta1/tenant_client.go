@@ -18,6 +18,7 @@ package talent
 
 import (
 	"context"
+	"fmt"
 	"math"
 	"time"
 
@@ -129,7 +130,8 @@ func (c *TenantClient) setGoogleClientInfo(keyval ...string) {
 
 // CreateTenant creates a new tenant entity.
 func (c *TenantClient) CreateTenant(ctx context.Context, req *talentpb.CreateTenantRequest, opts ...gax.CallOption) (*talentpb.Tenant, error) {
-	ctx = insertMetadata(ctx, c.xGoogMetadata)
+	md := metadata.Pairs("x-goog-request-params", fmt.Sprintf("%s=%v", "parent", req.GetParent()))
+	ctx = insertMetadata(ctx, c.xGoogMetadata, md)
 	opts = append(c.CallOptions.CreateTenant[0:len(c.CallOptions.CreateTenant):len(c.CallOptions.CreateTenant)], opts...)
 	var resp *talentpb.Tenant
 	err := gax.Invoke(ctx, func(ctx context.Context, settings gax.CallSettings) error {
@@ -145,7 +147,8 @@ func (c *TenantClient) CreateTenant(ctx context.Context, req *talentpb.CreateTen
 
 // GetTenant retrieves specified tenant.
 func (c *TenantClient) GetTenant(ctx context.Context, req *talentpb.GetTenantRequest, opts ...gax.CallOption) (*talentpb.Tenant, error) {
-	ctx = insertMetadata(ctx, c.xGoogMetadata)
+	md := metadata.Pairs("x-goog-request-params", fmt.Sprintf("%s=%v", "name", req.GetName()))
+	ctx = insertMetadata(ctx, c.xGoogMetadata, md)
 	opts = append(c.CallOptions.GetTenant[0:len(c.CallOptions.GetTenant):len(c.CallOptions.GetTenant)], opts...)
 	var resp *talentpb.Tenant
 	err := gax.Invoke(ctx, func(ctx context.Context, settings gax.CallSettings) error {
@@ -161,7 +164,8 @@ func (c *TenantClient) GetTenant(ctx context.Context, req *talentpb.GetTenantReq
 
 // UpdateTenant updates specified tenant.
 func (c *TenantClient) UpdateTenant(ctx context.Context, req *talentpb.UpdateTenantRequest, opts ...gax.CallOption) (*talentpb.Tenant, error) {
-	ctx = insertMetadata(ctx, c.xGoogMetadata)
+	md := metadata.Pairs("x-goog-request-params", fmt.Sprintf("%s=%v", "tenant.name", req.GetTenant().GetName()))
+	ctx = insertMetadata(ctx, c.xGoogMetadata, md)
 	opts = append(c.CallOptions.UpdateTenant[0:len(c.CallOptions.UpdateTenant):len(c.CallOptions.UpdateTenant)], opts...)
 	var resp *talentpb.Tenant
 	err := gax.Invoke(ctx, func(ctx context.Context, settings gax.CallSettings) error {
@@ -177,7 +181,8 @@ func (c *TenantClient) UpdateTenant(ctx context.Context, req *talentpb.UpdateTen
 
 // DeleteTenant deletes specified tenant.
 func (c *TenantClient) DeleteTenant(ctx context.Context, req *talentpb.DeleteTenantRequest, opts ...gax.CallOption) error {
-	ctx = insertMetadata(ctx, c.xGoogMetadata)
+	md := metadata.Pairs("x-goog-request-params", fmt.Sprintf("%s=%v", "name", req.GetName()))
+	ctx = insertMetadata(ctx, c.xGoogMetadata, md)
 	opts = append(c.CallOptions.DeleteTenant[0:len(c.CallOptions.DeleteTenant):len(c.CallOptions.DeleteTenant)], opts...)
 	err := gax.Invoke(ctx, func(ctx context.Context, settings gax.CallSettings) error {
 		var err error
@@ -189,7 +194,8 @@ func (c *TenantClient) DeleteTenant(ctx context.Context, req *talentpb.DeleteTen
 
 // ListTenants lists all tenants associated with the project.
 func (c *TenantClient) ListTenants(ctx context.Context, req *talentpb.ListTenantsRequest, opts ...gax.CallOption) *TenantIterator {
-	ctx = insertMetadata(ctx, c.xGoogMetadata)
+	md := metadata.Pairs("x-goog-request-params", fmt.Sprintf("%s=%v", "parent", req.GetParent()))
+	ctx = insertMetadata(ctx, c.xGoogMetadata, md)
 	opts = append(c.CallOptions.ListTenants[0:len(c.CallOptions.ListTenants):len(c.CallOptions.ListTenants)], opts...)
 	it := &TenantIterator{}
 	req = proto.Clone(req).(*talentpb.ListTenantsRequest)

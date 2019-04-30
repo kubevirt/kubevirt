@@ -36,6 +36,22 @@ import (
 func usage() {
 	fmt.Fprintf(os.Stderr, "usage: txtar-addmod dir path@version...\n")
 	flag.PrintDefaults()
+
+	fmt.Fprintf(os.Stderr, `
+The txtar-addmod command adds a module as a txtar archive to the
+testdata module directory as understood by the goproxytest package
+(see https://godoc.org/github.com/rogpeppe/go-internal/goproxytest).
+
+The dir argument names to directory to add the module to. If dir is "-",
+the result will instead be written to the standard output in a form
+suitable for embedding directly into a testscript txtar file, with each
+file prefixed with the ".gomodproxy" directory.
+
+In general, txtar-addmod is intended to be used only for very small
+modules - we do not want to check very large files into testdata/mod.
+
+It is acceptable to edit the archive afterward to remove or shorten files.
+`)
 	os.Exit(2)
 }
 
@@ -133,12 +149,19 @@ func main1() int {
 		if !strings.Contains(arg, "@") {
 			title += "@" + vers
 		}
-		a.Comment = []byte(fmt.Sprintf("module %s\n\n", title))
-		a.Files = []txtar.File{
-			{Name: ".mod", Data: mod},
-			{Name: ".info", Data: info},
-		}
 		dir = filepath.Clean(dir)
+		modDir := strings.Replace(path, "/", "_", -1) + "_" + vers
+		filePrefix := ""
+		if targetDir == "-" {
+			filePrefix = ".gomodproxy/" + modDir + "/"
+		} else {
+			// No comment if we're writing to stdout.
+			a.Comment = []byte(fmt.Sprintf("module %s\n\n", title))
+		}
+		a.Files = []txtar.File{
+			{Name: filePrefix + ".mod", Data: mod},
+			{Name: filePrefix + ".info", Data: info},
+		}
 		err = filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
 			if !info.Mode().IsRegular() {
 				return nil
@@ -159,7 +182,10 @@ func main1() int {
 			if err != nil {
 				return err
 			}
-			a.Files = append(a.Files, txtar.File{Name: strings.TrimPrefix(path, dir+string(filepath.Separator)), Data: data})
+			a.Files = append(a.Files, txtar.File{
+				Name: filePrefix + strings.TrimPrefix(path, dir+string(filepath.Separator)),
+				Data: data,
+			})
 			return nil
 		})
 		if err != nil {
@@ -169,11 +195,18 @@ func main1() int {
 		}
 
 		data := txtar.Format(a)
-		target := filepath.Join(targetDir, strings.Replace(path, "/", "_", -1)+"_"+vers+".txt")
-		if err := ioutil.WriteFile(target, data, 0666); err != nil {
-			log.Printf("%s: %v", arg, err)
-			exitCode = 1
-			continue
+		if targetDir == "-" {
+			if _, err := os.Stdout.Write(data); err != nil {
+				log.Printf("cannot write output: %v", err)
+				exitCode = 1
+				break
+			}
+		} else {
+			if err := ioutil.WriteFile(filepath.Join(targetDir, modDir+".txt"), data, 0666); err != nil {
+				log.Printf("%s: %v", arg, err)
+				exitCode = 1
+				continue
+			}
 		}
 	}
 	os.RemoveAll(tmpdir)

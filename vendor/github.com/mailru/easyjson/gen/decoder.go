@@ -240,7 +240,13 @@ func (g *Generator) genTypeDecoderNoCheck(t reflect.Type, out string, tags field
 		fmt.Fprintln(g.out, ws+"  }")
 
 		fmt.Fprintln(g.out, ws+"  for !in.IsDelim('}') {")
-		if keyDec != "" {
+		// NOTE: extra check for TextUnmarshaler. It overrides default methods.
+		if reflect.PtrTo(key).Implements(reflect.TypeOf((*encoding.TextUnmarshaler)(nil)).Elem()) {
+			fmt.Fprintln(g.out, ws+"    var key "+g.getType(key))
+			fmt.Fprintln(g.out, ws+"if data := in.UnsafeBytes(); in.Ok() {")
+			fmt.Fprintln(g.out, ws+"  in.AddError(key.UnmarshalText(data) )")
+			fmt.Fprintln(g.out, ws+"}")
+		} else if keyDec != "" {
 			fmt.Fprintln(g.out, ws+"    key := "+g.getType(key)+"("+keyDec+")")
 		} else {
 			fmt.Fprintln(g.out, ws+"    var key "+g.getType(key))

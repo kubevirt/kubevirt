@@ -18,6 +18,7 @@ package dialogflow
 
 import (
 	"context"
+	"fmt"
 	"math"
 	"time"
 
@@ -133,11 +134,11 @@ type EntityTypesClient struct {
 //
 // *   **User** - entities that are built for an individual user such as
 //     favorites, preferences, playlists, and so on. A user entity is
-//     represented by the
-//     [SessionEntityType][google.cloud.dialogflow.v2.SessionEntityType] type.
+//     represented by the [SessionEntityType][google.cloud.dialogflow.v2.SessionEntityType] type.
 //
 // For more information about entity types, see the
-// [Dialogflow documentation](https://dialogflow.com/docs/entities).
+// [Dialogflow
+// documentation](https://cloud.google.com/dialogflow-enterprise/docs/entities-overview).
 func NewEntityTypesClient(ctx context.Context, opts ...option.ClientOption) (*EntityTypesClient, error) {
 	conn, err := transport.DialGRPC(ctx, append(defaultEntityTypesClientOptions(), opts...)...)
 	if err != nil {
@@ -186,7 +187,8 @@ func (c *EntityTypesClient) setGoogleClientInfo(keyval ...string) {
 
 // ListEntityTypes returns the list of all entity types in the specified agent.
 func (c *EntityTypesClient) ListEntityTypes(ctx context.Context, req *dialogflowpb.ListEntityTypesRequest, opts ...gax.CallOption) *EntityTypeIterator {
-	ctx = insertMetadata(ctx, c.xGoogMetadata)
+	md := metadata.Pairs("x-goog-request-params", fmt.Sprintf("%s=%v", "parent", req.GetParent()))
+	ctx = insertMetadata(ctx, c.xGoogMetadata, md)
 	opts = append(c.CallOptions.ListEntityTypes[0:len(c.CallOptions.ListEntityTypes):len(c.CallOptions.ListEntityTypes)], opts...)
 	it := &EntityTypeIterator{}
 	req = proto.Clone(req).(*dialogflowpb.ListEntityTypesRequest)
@@ -223,7 +225,8 @@ func (c *EntityTypesClient) ListEntityTypes(ctx context.Context, req *dialogflow
 
 // GetEntityType retrieves the specified entity type.
 func (c *EntityTypesClient) GetEntityType(ctx context.Context, req *dialogflowpb.GetEntityTypeRequest, opts ...gax.CallOption) (*dialogflowpb.EntityType, error) {
-	ctx = insertMetadata(ctx, c.xGoogMetadata)
+	md := metadata.Pairs("x-goog-request-params", fmt.Sprintf("%s=%v", "name", req.GetName()))
+	ctx = insertMetadata(ctx, c.xGoogMetadata, md)
 	opts = append(c.CallOptions.GetEntityType[0:len(c.CallOptions.GetEntityType):len(c.CallOptions.GetEntityType)], opts...)
 	var resp *dialogflowpb.EntityType
 	err := gax.Invoke(ctx, func(ctx context.Context, settings gax.CallSettings) error {
@@ -239,7 +242,8 @@ func (c *EntityTypesClient) GetEntityType(ctx context.Context, req *dialogflowpb
 
 // CreateEntityType creates an entity type in the specified agent.
 func (c *EntityTypesClient) CreateEntityType(ctx context.Context, req *dialogflowpb.CreateEntityTypeRequest, opts ...gax.CallOption) (*dialogflowpb.EntityType, error) {
-	ctx = insertMetadata(ctx, c.xGoogMetadata)
+	md := metadata.Pairs("x-goog-request-params", fmt.Sprintf("%s=%v", "parent", req.GetParent()))
+	ctx = insertMetadata(ctx, c.xGoogMetadata, md)
 	opts = append(c.CallOptions.CreateEntityType[0:len(c.CallOptions.CreateEntityType):len(c.CallOptions.CreateEntityType)], opts...)
 	var resp *dialogflowpb.EntityType
 	err := gax.Invoke(ctx, func(ctx context.Context, settings gax.CallSettings) error {
@@ -255,7 +259,8 @@ func (c *EntityTypesClient) CreateEntityType(ctx context.Context, req *dialogflo
 
 // UpdateEntityType updates the specified entity type.
 func (c *EntityTypesClient) UpdateEntityType(ctx context.Context, req *dialogflowpb.UpdateEntityTypeRequest, opts ...gax.CallOption) (*dialogflowpb.EntityType, error) {
-	ctx = insertMetadata(ctx, c.xGoogMetadata)
+	md := metadata.Pairs("x-goog-request-params", fmt.Sprintf("%s=%v", "entity_type.name", req.GetEntityType().GetName()))
+	ctx = insertMetadata(ctx, c.xGoogMetadata, md)
 	opts = append(c.CallOptions.UpdateEntityType[0:len(c.CallOptions.UpdateEntityType):len(c.CallOptions.UpdateEntityType)], opts...)
 	var resp *dialogflowpb.EntityType
 	err := gax.Invoke(ctx, func(ctx context.Context, settings gax.CallSettings) error {
@@ -271,7 +276,8 @@ func (c *EntityTypesClient) UpdateEntityType(ctx context.Context, req *dialogflo
 
 // DeleteEntityType deletes the specified entity type.
 func (c *EntityTypesClient) DeleteEntityType(ctx context.Context, req *dialogflowpb.DeleteEntityTypeRequest, opts ...gax.CallOption) error {
-	ctx = insertMetadata(ctx, c.xGoogMetadata)
+	md := metadata.Pairs("x-goog-request-params", fmt.Sprintf("%s=%v", "name", req.GetName()))
+	ctx = insertMetadata(ctx, c.xGoogMetadata, md)
 	opts = append(c.CallOptions.DeleteEntityType[0:len(c.CallOptions.DeleteEntityType):len(c.CallOptions.DeleteEntityType)], opts...)
 	err := gax.Invoke(ctx, func(ctx context.Context, settings gax.CallSettings) error {
 		var err error
@@ -283,11 +289,10 @@ func (c *EntityTypesClient) DeleteEntityType(ctx context.Context, req *dialogflo
 
 // BatchUpdateEntityTypes updates/Creates multiple entity types in the specified agent.
 //
-// Operation <response:
-// [BatchUpdateEntityTypesResponse][google.cloud.dialogflow.v2.BatchUpdateEntityTypesResponse],
-// metadata: [google.protobuf.Struct][google.protobuf.Struct]>
+// Operation <response: [BatchUpdateEntityTypesResponse][google.cloud.dialogflow.v2.BatchUpdateEntityTypesResponse]>
 func (c *EntityTypesClient) BatchUpdateEntityTypes(ctx context.Context, req *dialogflowpb.BatchUpdateEntityTypesRequest, opts ...gax.CallOption) (*BatchUpdateEntityTypesOperation, error) {
-	ctx = insertMetadata(ctx, c.xGoogMetadata)
+	md := metadata.Pairs("x-goog-request-params", fmt.Sprintf("%s=%v", "parent", req.GetParent()))
+	ctx = insertMetadata(ctx, c.xGoogMetadata, md)
 	opts = append(c.CallOptions.BatchUpdateEntityTypes[0:len(c.CallOptions.BatchUpdateEntityTypes):len(c.CallOptions.BatchUpdateEntityTypes)], opts...)
 	var resp *longrunningpb.Operation
 	err := gax.Invoke(ctx, func(ctx context.Context, settings gax.CallSettings) error {
@@ -305,10 +310,10 @@ func (c *EntityTypesClient) BatchUpdateEntityTypes(ctx context.Context, req *dia
 
 // BatchDeleteEntityTypes deletes entity types in the specified agent.
 //
-// Operation <response: [google.protobuf.Empty][google.protobuf.Empty],
-// metadata: [google.protobuf.Struct][google.protobuf.Struct]>
+// Operation <response: [google.protobuf.Empty][google.protobuf.Empty]>
 func (c *EntityTypesClient) BatchDeleteEntityTypes(ctx context.Context, req *dialogflowpb.BatchDeleteEntityTypesRequest, opts ...gax.CallOption) (*BatchDeleteEntityTypesOperation, error) {
-	ctx = insertMetadata(ctx, c.xGoogMetadata)
+	md := metadata.Pairs("x-goog-request-params", fmt.Sprintf("%s=%v", "parent", req.GetParent()))
+	ctx = insertMetadata(ctx, c.xGoogMetadata, md)
 	opts = append(c.CallOptions.BatchDeleteEntityTypes[0:len(c.CallOptions.BatchDeleteEntityTypes):len(c.CallOptions.BatchDeleteEntityTypes)], opts...)
 	var resp *longrunningpb.Operation
 	err := gax.Invoke(ctx, func(ctx context.Context, settings gax.CallSettings) error {
@@ -324,12 +329,12 @@ func (c *EntityTypesClient) BatchDeleteEntityTypes(ctx context.Context, req *dia
 	}, nil
 }
 
-// BatchCreateEntities creates multiple new entities in the specified entity type (extends the
-// existing collection of entries).
+// BatchCreateEntities creates multiple new entities in the specified entity type.
 //
 // Operation <response: [google.protobuf.Empty][google.protobuf.Empty]>
 func (c *EntityTypesClient) BatchCreateEntities(ctx context.Context, req *dialogflowpb.BatchCreateEntitiesRequest, opts ...gax.CallOption) (*BatchCreateEntitiesOperation, error) {
-	ctx = insertMetadata(ctx, c.xGoogMetadata)
+	md := metadata.Pairs("x-goog-request-params", fmt.Sprintf("%s=%v", "parent", req.GetParent()))
+	ctx = insertMetadata(ctx, c.xGoogMetadata, md)
 	opts = append(c.CallOptions.BatchCreateEntities[0:len(c.CallOptions.BatchCreateEntities):len(c.CallOptions.BatchCreateEntities)], opts...)
 	var resp *longrunningpb.Operation
 	err := gax.Invoke(ctx, func(ctx context.Context, settings gax.CallSettings) error {
@@ -345,13 +350,14 @@ func (c *EntityTypesClient) BatchCreateEntities(ctx context.Context, req *dialog
 	}, nil
 }
 
-// BatchUpdateEntities updates entities in the specified entity type (replaces the existing
-// collection of entries).
+// BatchUpdateEntities updates or creates multiple entities in the specified entity type. This
+// method does not affect entities in the entity type that aren't explicitly
+// specified in the request.
 //
-// Operation <response: [google.protobuf.Empty][google.protobuf.Empty],
-// metadata: [google.protobuf.Struct][google.protobuf.Struct]>
+// Operation <response: [google.protobuf.Empty][google.protobuf.Empty]>
 func (c *EntityTypesClient) BatchUpdateEntities(ctx context.Context, req *dialogflowpb.BatchUpdateEntitiesRequest, opts ...gax.CallOption) (*BatchUpdateEntitiesOperation, error) {
-	ctx = insertMetadata(ctx, c.xGoogMetadata)
+	md := metadata.Pairs("x-goog-request-params", fmt.Sprintf("%s=%v", "parent", req.GetParent()))
+	ctx = insertMetadata(ctx, c.xGoogMetadata, md)
 	opts = append(c.CallOptions.BatchUpdateEntities[0:len(c.CallOptions.BatchUpdateEntities):len(c.CallOptions.BatchUpdateEntities)], opts...)
 	var resp *longrunningpb.Operation
 	err := gax.Invoke(ctx, func(ctx context.Context, settings gax.CallSettings) error {
@@ -369,10 +375,10 @@ func (c *EntityTypesClient) BatchUpdateEntities(ctx context.Context, req *dialog
 
 // BatchDeleteEntities deletes entities in the specified entity type.
 //
-// Operation <response: [google.protobuf.Empty][google.protobuf.Empty],
-// metadata: [google.protobuf.Struct][google.protobuf.Struct]>
+// Operation <response: [google.protobuf.Empty][google.protobuf.Empty]>
 func (c *EntityTypesClient) BatchDeleteEntities(ctx context.Context, req *dialogflowpb.BatchDeleteEntitiesRequest, opts ...gax.CallOption) (*BatchDeleteEntitiesOperation, error) {
-	ctx = insertMetadata(ctx, c.xGoogMetadata)
+	md := metadata.Pairs("x-goog-request-params", fmt.Sprintf("%s=%v", "parent", req.GetParent()))
+	ctx = insertMetadata(ctx, c.xGoogMetadata, md)
 	opts = append(c.CallOptions.BatchDeleteEntities[0:len(c.CallOptions.BatchDeleteEntities):len(c.CallOptions.BatchDeleteEntities)], opts...)
 	var resp *longrunningpb.Operation
 	err := gax.Invoke(ctx, func(ctx context.Context, settings gax.CallSettings) error {

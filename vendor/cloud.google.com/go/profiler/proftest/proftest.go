@@ -18,8 +18,6 @@
 package proftest
 
 import (
-	"archive/zip"
-	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -32,10 +30,6 @@ import (
 
 	"cloud.google.com/go/storage"
 	gax "github.com/googleapis/gax-go/v2"
-	"golang.org/x/build/kubernetes"
-	k8sapi "golang.org/x/build/kubernetes/api"
-	"golang.org/x/build/kubernetes/gke"
-	cloudbuild "google.golang.org/api/cloudbuild/v1"
 	compute "google.golang.org/api/compute/v1"
 	container "google.golang.org/api/container/v1"
 	"google.golang.org/api/googleapi"
@@ -337,56 +331,6 @@ func (tr *TestRunner) QueryProfiles(projectID, service, startTime, endTime, prof
 	return pr, nil
 }
 
-// createAndPublishDockerImage creates a docker image from source code in a GCS
-// bucket and pushes the image to Google Container Registry.
-func (tr *GKETestRunner) createAndPublishDockerImage(ctx context.Context, projectID, sourceBucket, sourceObject, ImageName string) error {
-	cloudbuildService, err := cloudbuild.New(tr.Client)
-	if err != nil {
-		return err
-	}
-
-	build := &cloudbuild.Build{
-		Source: &cloudbuild.Source{
-			StorageSource: &cloudbuild.StorageSource{
-				Bucket: sourceBucket,
-				Object: sourceObject,
-			},
-		},
-		Steps: []*cloudbuild.BuildStep{
-			{
-				Name: "gcr.io/cloud-builders/docker",
-				Args: []string{"build", "-t", ImageName, "."},
-			},
-		},
-		Images: []string{ImageName},
-	}
-
-	op, err := cloudbuildService.Projects.Builds.Create(projectID, build).Context(ctx).Do()
-	if err != nil {
-		return fmt.Errorf("failed to create image: %v", err)
-	}
-	opID := op.Name
-
-	// Wait for creating image.
-	for {
-		select {
-		case <-ctx.Done():
-			return fmt.Errorf("timed out waiting creating image")
-
-		case <-time.After(10 * time.Second):
-			op, err := cloudbuildService.Operations.Get(opID).Context(ctx).Do()
-			if err != nil {
-				log.Printf("Transient error getting operation (will retry): %v", err)
-				break
-			}
-			if op.Done {
-				log.Printf("Published image %s to Google Container Registry.", ImageName)
-				return nil
-			}
-		}
-	}
-}
-
 type imageResponse struct {
 	Manifest map[string]interface{} `json:"manifest"`
 	Name     string                 `json:"name"`
@@ -443,58 +387,6 @@ func deleteDockerImageResource(client *http.Client, url string) error {
 	return nil
 }
 
-func (tr *GKETestRunner) deployContainer(ctx context.Context, kubernetesClient *kubernetes.Client, podName, ImageName string) error {
-	// TODO: Pod restart policy defaults to "Always". Previous logs will disappear
-	// after restarting. Always restart causes the test not be able to see the
-	// finish signal. Should probably set the restart policy to "OnFailure" when
-	// we get the GKE workflow working and testable.
-	pod := &k8sapi.Pod{
-		ObjectMeta: k8sapi.ObjectMeta{
-			Name: podName,
-		},
-		Spec: k8sapi.PodSpec{
-			Containers: []k8sapi.Container{
-				{
-					Name:  "profiler-test",
-					Image: fmt.Sprintf("gcr.io/%s:latest", ImageName),
-				},
-			},
-		},
-	}
-	if _, err := kubernetesClient.RunLongLivedPod(ctx, pod); err != nil {
-		return fmt.Errorf("failed to run pod %s: %v", podName, err)
-	}
-	return nil
-}
-
-// PollPodLog polls the log of the kubernetes client and returns when the
-// finishString appears in the log, or when the context times out.
-func (tr *GKETestRunner) PollPodLog(ctx context.Context, kubernetesClient *kubernetes.Client, podName, finishString string) error {
-	var output string
-	defer func() {
-		log.Printf("Log for pod %s:\n%s", podName, output)
-	}()
-
-	for {
-		select {
-		case <-ctx.Done():
-			return fmt.Errorf("timed out waiting profiling finishing on container")
-
-		case <-time.After(20 * time.Second):
-			var err error
-			output, err = kubernetesClient.PodLog(ctx, podName)
-			if err != nil {
-				// Transient failure.
-				log.Printf("Transient error getting log (will retry): %v", err)
-				continue
-			}
-			if strings.Contains(output, finishString) {
-				return nil
-			}
-		}
-	}
-}
-
 // DeleteClusterAndImage deletes cluster and images used to create cluster.
 func (tr *GKETestRunner) DeleteClusterAndImage(ctx context.Context, cfg *ClusterConfig) []error {
 	var errs []error
@@ -509,55 +401,4 @@ func (tr *GKETestRunner) DeleteClusterAndImage(ctx context.Context, cfg *Cluster
 	}
 
 	return errs
-}
-
-// StartAndDeployCluster creates image needed for cluster, then starts and
-// deploys to cluster.
-func (tr *GKETestRunner) StartAndDeployCluster(ctx context.Context, cfg *ClusterConfig) (*kubernetes.Client, error) {
-	if err := tr.uploadImageSource(ctx, cfg.Bucket, cfg.ImageSourceName, cfg.Dockerfile); err != nil {
-		return nil, fmt.Errorf("failed to upload image source: %v", err)
-	}
-
-	createImageCtx, cancel := context.WithTimeout(ctx, 5*time.Minute)
-	defer cancel()
-	if err := tr.createAndPublishDockerImage(createImageCtx, cfg.ProjectID, cfg.Bucket, cfg.ImageSourceName, fmt.Sprintf("gcr.io/%s", cfg.ImageName)); err != nil {
-		return nil, fmt.Errorf("failed to create and publish docker image %s: %v", cfg.ImageName, err)
-	}
-
-	kubernetesClient, err := gke.NewClient(ctx, cfg.ClusterName, gke.OptZone(cfg.Zone), gke.OptProject(cfg.ProjectID))
-	if err != nil {
-		return nil, fmt.Errorf("failed to create new GKE client: %v", err)
-	}
-
-	deployContainerCtx, cancel := context.WithTimeout(ctx, 5*time.Minute)
-	defer cancel()
-	if err := tr.deployContainer(deployContainerCtx, kubernetesClient, cfg.PodName, cfg.ImageName); err != nil {
-		return nil, fmt.Errorf("failed to deploy image %q to pod %q: %v", cfg.PodName, cfg.ImageName, err)
-	}
-	return kubernetesClient, nil
-}
-
-// uploadImageSource uploads source code for building docker image to GCS.
-func (tr *GKETestRunner) uploadImageSource(ctx context.Context, bucket, objectName, dockerfile string) error {
-	zipBuf := new(bytes.Buffer)
-	z := zip.NewWriter(zipBuf)
-	f, err := z.Create("Dockerfile")
-	if err != nil {
-		return err
-	}
-
-	if _, err := f.Write([]byte(dockerfile)); err != nil {
-		return err
-	}
-
-	if err := z.Close(); err != nil {
-		return err
-	}
-	wc := tr.StorageClient.Bucket(bucket).Object(objectName).NewWriter(ctx)
-	wc.ContentType = "application/zip"
-	wc.ACL = []storage.ACLRule{{Entity: storage.AllUsers, Role: storage.RoleReader}}
-	if _, err := wc.Write(zipBuf.Bytes()); err != nil {
-		return err
-	}
-	return wc.Close()
 }

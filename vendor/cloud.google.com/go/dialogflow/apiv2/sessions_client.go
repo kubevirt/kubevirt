@@ -18,6 +18,7 @@ package dialogflow
 
 import (
 	"context"
+	"fmt"
 
 	gax "github.com/googleapis/gax-go/v2"
 	"google.golang.org/api/option"
@@ -68,10 +69,9 @@ type SessionsClient struct {
 // NewSessionsClient creates a new sessions client.
 //
 // A session represents an interaction with a user. You retrieve user input
-// and pass it to the
-// [DetectIntent][google.cloud.dialogflow.v2.Sessions.DetectIntent] (or
-// [StreamingDetectIntent][google.cloud.dialogflow.v2.Sessions.StreamingDetectIntent])
-// method to determine user intent and respond.
+// and pass it to the [DetectIntent][google.cloud.dialogflow.v2.Sessions.DetectIntent] (or
+// [StreamingDetectIntent][google.cloud.dialogflow.v2.Sessions.StreamingDetectIntent]) method to determine
+// user intent and respond.
 func NewSessionsClient(ctx context.Context, opts ...option.ClientOption) (*SessionsClient, error) {
 	conn, err := transport.DialGRPC(ctx, append(defaultSessionsClientOptions(), opts...)...)
 	if err != nil {
@@ -112,7 +112,8 @@ func (c *SessionsClient) setGoogleClientInfo(keyval ...string) {
 // and session entity types to be updated, which in turn might affect
 // results of future queries.
 func (c *SessionsClient) DetectIntent(ctx context.Context, req *dialogflowpb.DetectIntentRequest, opts ...gax.CallOption) (*dialogflowpb.DetectIntentResponse, error) {
-	ctx = insertMetadata(ctx, c.xGoogMetadata)
+	md := metadata.Pairs("x-goog-request-params", fmt.Sprintf("%s=%v", "session", req.GetSession()))
+	ctx = insertMetadata(ctx, c.xGoogMetadata, md)
 	opts = append(c.CallOptions.DetectIntent[0:len(c.CallOptions.DetectIntent):len(c.CallOptions.DetectIntent)], opts...)
 	var resp *dialogflowpb.DetectIntentResponse
 	err := gax.Invoke(ctx, func(ctx context.Context, settings gax.CallSettings) error {

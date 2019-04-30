@@ -70,7 +70,7 @@ type PowerSupply struct {
 	PowerNow                 *int64 `fileName:"power_now"`                   // /sys/class/power_suppy/<Name>/power_now
 	PrechargeCurrent         *int64 `fileName:"precharge_current"`           // /sys/class/power_suppy/<Name>/precharge_current
 	Present                  *int64 `fileName:"present"`                     // /sys/class/power_suppy/<Name>/present
-	Scope                    *int64 `fileName:"scope"`                       // /sys/class/power_suppy/<Name>/scope
+	Scope                    string `fileName:"scope"`                       // /sys/class/power_suppy/<Name>/scope
 	SerialNumber             string `fileName:"serial_number"`               // /sys/class/power_suppy/<Name>/serial_number
 	Status                   string `fileName:"status"`                      // /sys/class/power_supply/<Name>/status
 	Technology               string `fileName:"technology"`                  // /sys/class/power_suppy/<Name>/technology

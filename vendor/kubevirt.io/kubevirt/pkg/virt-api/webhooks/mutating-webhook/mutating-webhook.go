@@ -25,13 +25,16 @@ import (
 	"net/http"
 
 	"k8s.io/api/admission/v1beta1"
+	k8sv1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 
-	kubev1 "kubevirt.io/kubevirt/pkg/api/v1"
 	v1 "kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/log"
+	"kubevirt.io/kubevirt/pkg/util"
 	"kubevirt.io/kubevirt/pkg/virt-api/webhooks"
+	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 )
 
 type patchOperation struct {
@@ -81,7 +84,7 @@ func mutateVMIs(ar *v1beta1.AdmissionReview) *v1beta1.AdmissionResponse {
 		return webhooks.ToAdmissionResponseError(err)
 	}
 
-	if resp := webhooks.ValidateSchema(kubev1.VirtualMachineInstanceGroupVersionKind, ar.Request.Object.Raw); resp != nil {
+	if resp := webhooks.ValidateSchema(v1.VirtualMachineInstanceGroupVersionKind, ar.Request.Object.Raw); resp != nil {
 		return resp
 	}
 
@@ -94,6 +97,11 @@ func mutateVMIs(ar *v1beta1.AdmissionReview) *v1beta1.AdmissionResponse {
 	}
 
 	informers := webhooks.GetInformers()
+	namespace, err := util.GetNamespace()
+	if err != nil {
+		return webhooks.ToAdmissionResponseError(err)
+	}
+	config := virtconfig.NewClusterConfig(informers.ConfigMapInformer.GetStore(), namespace)
 
 	// Apply presets
 	err = applyPresets(&vmi, informers.VMIPresetInformer)
@@ -105,15 +113,18 @@ func mutateVMIs(ar *v1beta1.AdmissionReview) *v1beta1.AdmissionResponse {
 			},
 		}
 	}
-	// Apply default cpu model
-	setDefaultCPUModel(&vmi, informers.ConfigMapInformer.GetStore())
 
 	// Apply namespace limits
 	applyNamespaceLimitRangeValues(&vmi, informers.NamespaceLimitsInformer)
 
 	// Set VMI defaults
 	log.Log.Object(&vmi).V(4).Info("Apply defaults")
-	kubev1.SetObjectDefaults_VirtualMachineInstance(&vmi)
+	setDefaultCPUModel(&vmi, config.GetCPUModel())
+	setDefaultMachineType(&vmi, config.GetMachineType())
+	v1.SetObjectDefaults_VirtualMachineInstance(&vmi)
+	// Default CPU request is done after the Resources section is initialized, if needed,
+	// in v1.SetObjectDefaults_VirtualMachineInstance. TODO: set default memory here
+	setDefaultCPURequest(&vmi, config.GetCPURequest())
 
 	// Add foreground finalizer
 	vmi.Finalizers = append(vmi.Finalizers, v1.VirtualMachineInstanceFinalizer)
@@ -196,6 +207,35 @@ func mutateMigrationCreate(ar *v1beta1.AdmissionReview) *v1beta1.AdmissionRespon
 		Allowed:   true,
 		Patch:     patchBytes,
 		PatchType: &jsonPatchType,
+	}
+}
+
+func setDefaultCPUModel(vmi *v1.VirtualMachineInstance, defaultCPUModel string) {
+	//if vmi doesn't have cpu topology or cpu model set
+	if vmi.Spec.Domain.CPU == nil || vmi.Spec.Domain.CPU.Model == "" {
+		if defaultCPUModel != "" {
+			// create cpu topology struct
+			if vmi.Spec.Domain.CPU == nil {
+				vmi.Spec.Domain.CPU = &v1.CPU{}
+			}
+			//set is as vmi cpu model
+			vmi.Spec.Domain.CPU.Model = defaultCPUModel
+		}
+	}
+}
+
+func setDefaultMachineType(vmi *v1.VirtualMachineInstance, defaultMachineType string) {
+	if vmi.Spec.Domain.Machine.Type == "" {
+		vmi.Spec.Domain.Machine.Type = defaultMachineType
+	}
+}
+
+func setDefaultCPURequest(vmi *v1.VirtualMachineInstance, defaultCPURequest resource.Quantity) {
+	if _, exists := vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceCPU]; !exists {
+		if vmi.Spec.Domain.CPU != nil && vmi.Spec.Domain.CPU.DedicatedCPUPlacement {
+			return
+		}
+		vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceCPU] = defaultCPURequest
 	}
 }
 

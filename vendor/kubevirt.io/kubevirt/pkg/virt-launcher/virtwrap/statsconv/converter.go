@@ -86,6 +86,12 @@ func Convert_libvirt_MemoryStat_to_stats_DomainStatsMemory(inMem []libvirt.Domai
 		case libvirt.DOMAIN_MEMORY_STAT_RSS:
 			ret.RSSSet = true
 			ret.RSS = stat.Val
+		case libvirt.DOMAIN_MEMORY_STAT_SWAP_IN:
+			ret.SwapInSet = true
+			ret.SwapIn = stat.Val
+		case libvirt.DOMAIN_MEMORY_STAT_SWAP_OUT:
+			ret.SwapOutSet = true
+			ret.SwapOut = stat.Val
 		}
 	}
 	return ret

@@ -34,15 +34,13 @@ import (
 )
 
 const (
-	// MaxPublishRequestCount is the maximum number of messages that can be in a single publish request, as
-	// defined by the PubSub service.
+	// MaxPublishRequestCount is the maximum number of messages that can be in
+	// a single publish request, as defined by the PubSub service.
 	MaxPublishRequestCount = 1000
 
-	// MaxPublishRequestBytes is the maximum size of a single publish request in bytes, as defined by the PubSub
-	// service.
+	// MaxPublishRequestBytes is the maximum size of a single publish request
+	// in bytes, as defined by the PubSub service.
 	MaxPublishRequestBytes = 1e7
-
-	maxInt = int(^uint(0) >> 1)
 )
 
 // ErrOversizedMessage indicates that a message's size exceeds MaxPublishRequestBytes.
@@ -427,7 +425,11 @@ func (t *Topic) initBundler() {
 		t.bundler.BundleCountThreshold = MaxPublishRequestCount
 	}
 	t.bundler.BundleByteThreshold = t.PublishSettings.ByteThreshold
-	t.bundler.BufferedByteLimit = maxInt
+
+	// Limit the bundler to 10 times the max message size. The number 10 is
+	// chosen as a reasonable amount of messages in the worst case whilst still
+	// capping the number to a low enough value to not OOM users.
+	t.bundler.BufferedByteLimit = 10 * MaxPublishRequestBytes
 	t.bundler.BundleByteLimit = MaxPublishRequestBytes
 	// Unless overridden, allow many goroutines per CPU to call the Publish RPC concurrently.
 	// The default value was determined via extensive load testing (see the loadtest subdirectory).

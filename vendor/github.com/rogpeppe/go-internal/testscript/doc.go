@@ -133,6 +133,8 @@ The predefined commands are:
 
 - cp src... dst
   Copy the listed files to the target file or existing directory.
+  src can include "stdout" or "stderr" to use the standard output or standard error
+  from the most recent exec or go command.
 
 - env [key=value...]
   With no arguments, print the environment (useful for debugging).
@@ -163,6 +165,12 @@ The predefined commands are:
 
 - mkdir path...
   Create the listed directories, if they do not already exists.
+
+- unquote file...
+  Rewrite each file by replacing any leading ">" characters from
+  each line. This enables a file to contain substrings that look like
+  txtar file markers.
+  See also https://godoc.org/github.com/rogpeppe/go-internal/txtar#Unquote
 
 - rm file...
   Remove the listed files or directories.

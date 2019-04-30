@@ -24,6 +24,7 @@ import (
 	"fmt"
 
 	secv1 "github.com/openshift/api/security/v1"
+	admissionregistrationv1beta1 "k8s.io/api/admissionregistration/v1beta1"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
@@ -37,6 +38,43 @@ import (
 	"kubevirt.io/kubevirt/pkg/log"
 	"kubevirt.io/kubevirt/pkg/virt-operator/util"
 )
+
+func deleteDummyWebhookValidators(kv *v1.KubeVirt,
+	clientset kubecli.KubevirtClient,
+	stores util.Stores,
+	expectations *util.Expectations) error {
+
+	kvkey, err := controller.KeyFunc(kv)
+	if err != nil {
+		return err
+	}
+
+	gracePeriod := int64(0)
+	deleteOptions := &metav1.DeleteOptions{
+		GracePeriodSeconds: &gracePeriod,
+	}
+
+	objects := stores.ValidationWebhookCache.List()
+	for _, obj := range objects {
+		if webhook, ok := obj.(*admissionregistrationv1beta1.ValidatingWebhookConfiguration); ok {
+
+			if webhook.DeletionTimestamp != nil {
+				continue
+			}
+			if key, err := controller.KeyFunc(webhook); err == nil {
+				expectations.ValidationWebhook.AddExpectedDeletion(kvkey, key)
+				err = clientset.AdmissionregistrationV1beta1().ValidatingWebhookConfigurations().Delete(webhook.Name, deleteOptions)
+				if err != nil {
+					expectations.ValidationWebhook.DeletionObserved(kvkey, key)
+					return fmt.Errorf("unable to delete validation webhook: %v", err)
+				}
+				log.Log.V(2).Infof("Temporary blocking validation webhook %s deleted", webhook.Name)
+			}
+		}
+	}
+
+	return nil
+}
 
 func DeleteAll(kv *v1.KubeVirt,
 	strategy *InstallStrategy,
@@ -263,6 +301,8 @@ func DeleteAll(kv *v1.KubeVirt,
 			}
 		}
 	}
+
+	deleteDummyWebhookValidators(kv, clientset, stores, expectations)
 
 	return nil
 }

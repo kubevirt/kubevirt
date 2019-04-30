@@ -55,6 +55,8 @@ const (
 
 	//UploadProxyURI is a URI of the upoad proxy
 	UploadProxyURI = "/v1alpha1/upload"
+
+	configName = "config"
 )
 
 var (
@@ -104,7 +106,6 @@ func NewImageUploadCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
 	}
 	cmd.Flags().BoolVar(&insecure, "insecure", insecure, "Allow insecure server connections when using HTTPS.")
 	cmd.Flags().StringVar(&uploadProxyURL, "uploadproxy-url", "", "The URL of the cdi-upload proxy service.")
-	cmd.MarkFlagRequired("uploadproxy-url")
 	cmd.Flags().StringVar(&pvcName, "pvc-name", "", "The destination PVC.")
 	cmd.MarkFlagRequired("pvc-name")
 	cmd.Flags().StringVar(&pvcSize, "pvc-size", "", "The size of the PVC to create (ex. 10Gi, 500Mi).")
@@ -175,11 +176,20 @@ func (c *command) run(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return err
 	}
+	if uploadProxyURL == "" {
+		uploadProxyURL, err = getUploadProxyURL(virtClient.CdiClient())
+		if err != nil {
+			return err
+		}
+		if uploadProxyURL == "" {
+			return fmt.Errorf("Upload Proxy URL not found")
+		}
+	}
 	u, err := url.Parse(uploadProxyURL)
 	if err != nil {
 		return err
 	} else if u.Scheme == "" {
-		uploadProxyURL = fmt.Sprintf("http://%s", uploadProxyURL)
+		uploadProxyURL = fmt.Sprintf("https://%s", uploadProxyURL)
 	}
 	fmt.Printf("Uploading data to %s\n", uploadProxyURL)
 
@@ -410,4 +420,18 @@ func getAndValidateUploadPVC(client kubernetes.Interface, namespace, name string
 	}
 
 	return pvc, nil
+}
+
+func getUploadProxyURL(client cdiClientset.Interface) (string, error) {
+	cdiConfig, err := client.CdiV1alpha1().CDIConfigs().Get(configName, metav1.GetOptions{})
+	if err != nil {
+		return "", err
+	}
+	if cdiConfig.Spec.UploadProxyURLOverride != nil {
+		return *cdiConfig.Spec.UploadProxyURLOverride, nil
+	}
+	if cdiConfig.Status.UploadProxyURL != nil {
+		return *cdiConfig.Status.UploadProxyURL, nil
+	}
+	return "", nil
 }

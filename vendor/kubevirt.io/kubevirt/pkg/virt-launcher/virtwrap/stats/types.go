@@ -36,6 +36,13 @@ package stats
 // and to avoid that client code (e.g. anything that uses cmd-client) needs to import it,
 // dragging the libvirt dependency in the final binary.
 
+// For versioning of the virt-handler and -launcher communication,
+// you need to increase the Version const when making changes,
+// and make necessary changes in the cmd rpc implementation!
+const (
+	DomainStatsVersion = "v1"
+)
+
 type DomainStats struct {
 	// the following aren't really needed for stats, but it's practical to report
 	// OTOH, the whole "Domain" is too much data to be unconditionally reported
@@ -134,4 +141,8 @@ type DomainStatsMemory struct {
 	ActualBalloon    uint64
 	RSSSet           bool
 	RSS              uint64
+	SwapInSet        bool
+	SwapIn           uint64
+	SwapOutSet       bool
+	SwapOut          uint64
 }

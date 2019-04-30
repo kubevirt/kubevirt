@@ -36,6 +36,13 @@ import (
 	"kubevirt.io/kubevirt/pkg/precond"
 )
 
+// For versioning of the virt-handler and -launcher communication,
+// you need to increase the Version const when making changes,
+// and make necessary changes in the cmd and notify rpc implementation!
+const (
+	DomainVersion = "v1"
+)
+
 type LifeCycle string
 type StateChangeReason string
 
@@ -187,15 +194,20 @@ type Features struct {
 }
 
 type FeatureHyperv struct {
-	Relaxed    *FeatureState     `xml:"relaxed,omitempty"`
-	VAPIC      *FeatureState     `xml:"vapic,omitempty"`
-	Spinlocks  *FeatureSpinlocks `xml:"spinlocks,omitempty"`
-	VPIndex    *FeatureState     `xml:"vpindex,omitempty"`
-	Runtime    *FeatureState     `xml:"runtime,omitempty"`
-	SyNIC      *FeatureState     `xml:"synic,omitempty"`
-	SyNICTimer *FeatureState     `xml:"stimer,omitempty"`
-	Reset      *FeatureState     `xml:"reset,omitempty"`
-	VendorID   *FeatureVendorID  `xml:"vendor_id,omitempty"`
+	Relaxed         *FeatureState     `xml:"relaxed,omitempty"`
+	VAPIC           *FeatureState     `xml:"vapic,omitempty"`
+	Spinlocks       *FeatureSpinlocks `xml:"spinlocks,omitempty"`
+	VPIndex         *FeatureState     `xml:"vpindex,omitempty"`
+	Runtime         *FeatureState     `xml:"runtime,omitempty"`
+	SyNIC           *FeatureState     `xml:"synic,omitempty"`
+	SyNICTimer      *FeatureState     `xml:"stimer,omitempty"`
+	Reset           *FeatureState     `xml:"reset,omitempty"`
+	VendorID        *FeatureVendorID  `xml:"vendor_id,omitempty"`
+	Frequencies     *FeatureState     `xml:"frequencies,omitempty"`
+	Reenlightenment *FeatureState     `xml:"reenlightenment,omitempty"`
+	TLBFlush        *FeatureState     `xml:"tlbflush,omitempty"`
+	IPI             *FeatureState     `xml:"ipi,omitempty"`
+	EVMCS           *FeatureState     `xml:"evmcs,omitempty"`
 }
 
 type FeatureSpinlocks struct {
@@ -679,11 +691,14 @@ type GraphicsListen struct {
 }
 
 type Address struct {
-	Type     string `xml:"type,attr"`
-	Domain   string `xml:"domain,attr"`
-	Bus      string `xml:"bus,attr"`
-	Slot     string `xml:"slot,attr"`
-	Function string `xml:"function,attr"`
+	Type       string `xml:"type,attr"`
+	Domain     string `xml:"domain,attr,omitempty"`
+	Bus        string `xml:"bus,attr"`
+	Slot       string `xml:"slot,attr,omitempty"`
+	Function   string `xml:"function,attr,omitempty"`
+	Controller string `xml:"controller,attr,omitempty"`
+	Target     string `xml:"target,attr,omitempty"`
+	Unit       string `xml:"unit,attr,omitempty"`
 }
 
 //END Video -------------------
