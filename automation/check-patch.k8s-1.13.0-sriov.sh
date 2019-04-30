@@ -31,11 +31,6 @@ function wait_containers_ready {
     while [ -n "$(kubectl get pods --all-namespaces -o'custom-columns=status:status.containerStatuses[*].ready,metadata:metadata.name' --no-headers | grep false)" ]; do
         echo "Waiting for all containers to become ready ..."
         kubectl get pods --all-namespaces -o'custom-columns=status:status.containerStatuses[*].ready,metadata:metadata.name' --no-headers
-	for pod in $(kubectl get pods -n kube-system '-ocustom-columns=metadata:metadata.name' --no-headers); do
-            echo $pod
-            kubectl logs -n kube-system $pod || true
-            kubectl describe pod -n kube-system $pod || true
-	done
         sleep 10
     done
 }
@@ -92,6 +87,7 @@ go get -u sigs.k8s.io/kind
 
 # try to create cluster twice...
 kind --loglevel debug create cluster --wait=$((60*60))s --retain --name=${CLUSTER_NAME} --config=${MANIFESTS_DIR}/kind.yaml
+cat /etc/pcidp/config.json
 
 export KUBECONFIG=$(kind get kubeconfig-path --name=${CLUSTER_NAME})
 kubectl cluster-info
@@ -191,11 +187,13 @@ kubectl apply -f $MANIFESTS_DIR/sriov-cni-daemonset.yaml
 # prepare kernel for vfio passthrough
 modprobe vfio-pci
 
+${CLUSTER_CMD} cat /etc/pcidp/config.json || true
 # deploy sriov device plugin
 kubectl apply -f $MANIFESTS_DIR/sriovdp-daemonset.yaml
 
 # give them some time to create pods before checking pod status
 sleep 10
+${CLUSTER_CMD} cat /etc/pcidp/config.json || true
 
 # make sure all containers are ready
 wait_containers_ready
