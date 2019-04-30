@@ -293,15 +293,14 @@ func (c *MigrationController) updateStatus(migration *virtv1.VirtualMachineInsta
 		migrationCopy.Status.Phase = virtv1.MigrationFailed
 		c.recorder.Eventf(migration, k8sv1.EventTypeWarning, FailedMigrationReason, "Source node reported migration failed")
 		log.Log.Object(migration).Error("VMI reported migration failed.")
-	} else if migration.DeletionTimestamp != nil && !migration.IsFinal() {
-		if !conditionManager.HasCondition(migration, virtv1.VirtualMachineInstanceMigrationAbortRequested) {
-			condition := virtv1.VirtualMachineInstanceMigrationCondition{
-				Type:          virtv1.VirtualMachineInstanceMigrationAbortRequested,
-				Status:        k8sv1.ConditionTrue,
-				LastProbeTime: v1.Now(),
-			}
-			migrationCopy.Status.Conditions = append(migrationCopy.Status.Conditions, condition)
+	} else if migration.DeletionTimestamp != nil && !migration.IsFinal() &&
+		!conditionManager.HasCondition(migration, virtv1.VirtualMachineInstanceMigrationAbortRequested) {
+		condition := virtv1.VirtualMachineInstanceMigrationCondition{
+			Type:          virtv1.VirtualMachineInstanceMigrationAbortRequested,
+			Status:        k8sv1.ConditionTrue,
+			LastProbeTime: v1.Now(),
 		}
+		migrationCopy.Status.Conditions = append(migrationCopy.Status.Conditions, condition)
 	} else {
 
 		switch migration.Status.Phase {
@@ -415,7 +414,8 @@ func (c *MigrationController) sync(key string, migration *virtv1.VirtualMachineI
 		pod = pods[0]
 	}
 
-	if vmi != nil && migration.DeletionTimestamp != nil && !migration.IsFinal() {
+	if vmi != nil && migration.DeletionTimestamp != nil &&
+		migration.Status.Phase == virtv1.MigrationRunning {
 		vmiCopy := vmi.DeepCopy()
 		if vmiCopy.Status.MigrationState != nil {
 			vmiCopy.Status.MigrationState.AbortRequested = true

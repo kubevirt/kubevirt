@@ -671,7 +671,7 @@ var _ = Describe("Migration watcher", func() {
 		It("should abort the migration", func() {
 			vmi := newVirtualMachine("testvmi", v1.Running)
 			vmi.Status.NodeName = "node02"
-			migration := newMigration("testmigration", vmi.Name, v1.MigrationTargetReady)
+			migration := newMigration("testmigration", vmi.Name, v1.MigrationRunning)
 			condition := v1.VirtualMachineInstanceMigrationCondition{
 				Type:          v1.VirtualMachineInstanceMigrationAbortRequested,
 				Status:        k8sv1.ConditionTrue,
@@ -693,7 +693,6 @@ var _ = Describe("Migration watcher", func() {
 			podFeeder.Add(pod)
 
 			vmiInterface.EXPECT().Patch(vmi.Name, types.JSONPatchType, gomock.Any()).Return(vmi, nil)
-
 			controller.Execute()
 			testutils.ExpectEvent(recorder, SuccessfulAbortMigrationReason)
 		})

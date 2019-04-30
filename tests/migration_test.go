@@ -123,9 +123,7 @@ var _ = Describe("Migrations", func() {
 			vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &metav1.GetOptions{})
 			Expect(err).To(BeNil())
 
-			Expect(vmi.Status.MigrationState).ToNot(BeNil())
-
-			if vmi.Status.MigrationState.Completed &&
+			if vmi.Status.MigrationState != nil && vmi.Status.MigrationState.Completed &&
 				vmi.Status.MigrationState.AbortStatus == v1.MigrationAbortSucceeded {
 				return true
 			}
@@ -198,6 +196,32 @@ var _ = Describe("Migrations", func() {
 				if vmi.Status.MigrationState.Completed != true {
 					return true
 				}
+			}
+			return false
+
+		}, timeout, 1*time.Second).Should(Equal(true))
+
+		By("Cancelling a Migration")
+		Expect(virtClient.VirtualMachineInstanceMigration(migration.Namespace).Delete(migration.Name, &metav1.DeleteOptions{})).To(Succeed(), "Migration should be deleted successfully")
+
+		return uid
+	}
+	runAndImmediatelyCancelMigration := func(migration *v1.VirtualMachineInstanceMigration, vmi *v1.VirtualMachineInstance, timeout int) string {
+		By("Starting a Migration")
+		Eventually(func() error {
+			_, err := virtClient.VirtualMachineInstanceMigration(migration.Namespace).Create(migration)
+			return err
+		}, timeout, 1*time.Second).ShouldNot(HaveOccurred())
+
+		By("Waiting until the Migration is Running")
+
+		uid := ""
+		Eventually(func() bool {
+			migration, err := virtClient.VirtualMachineInstanceMigration(migration.Namespace).Get(migration.Name, &metav1.GetOptions{})
+			Expect(err).To(BeNil())
+			uid = string(migration.UID)
+			if uid != "" {
+				return true
 			}
 			return false
 
@@ -684,6 +708,39 @@ var _ = Describe("Migrations", func() {
 				migration := tests.NewRandomMigration(vmi.Name, vmi.Namespace)
 
 				migrationUID := runAndCancelMigration(migration, vmi, 180)
+
+				// check VMI, confirm migration state
+				confirmVMIPostMigrationAborted(vmi, migrationUID, 180)
+
+				By("Waiting for the migration object to disappear")
+				tests.WaitForMigrationToDisappearWithTimeout(migration, 240)
+
+				// delete VMI
+				By("Deleting the VMI")
+				err = virtClient.VirtualMachineInstance(vmi.Namespace).Delete(vmi.Name, &metav1.DeleteOptions{})
+				Expect(err).To(BeNil())
+
+				By("Waiting for VMI to disappear")
+				tests.WaitForVirtualMachineToDisappearWithTimeout(vmi, 240)
+
+			})
+			It("should be able successfully cancel a migration right after posting it", func() {
+				vmi := tests.NewRandomFedoraVMIWitGuestAgent()
+				vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("1Gi")
+
+				By("Starting the VirtualMachineInstance")
+				vmi = runVMIAndExpectLaunch(vmi, 240)
+
+				By("Checking that the VirtualMachineInstance console has expected output")
+				expecter, expecterErr := tests.LoggedInFedoraExpecter(vmi)
+				Expect(expecterErr).To(BeNil())
+				defer expecter.Close()
+
+				// execute a migration, wait for finalized state
+				By("Starting the Migration")
+				migration := tests.NewRandomMigration(vmi.Name, vmi.Namespace)
+
+				migrationUID := runAndImmediatelyCancelMigration(migration, vmi, 180)
 
 				// check VMI, confirm migration state
 				confirmVMIPostMigrationAborted(vmi, migrationUID, 180)
