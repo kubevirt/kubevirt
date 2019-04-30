@@ -114,7 +114,7 @@ safe_download() (
     fi
 )
 
-if [[ $TARGET =~ os-.* ]]; then
+if [[ $TARGET =~ os-.* ]] || [[ $TARGET =~ okd-.* ]]; then
     # Create images directory
     if [[ ! -d $RHEL_NFS_DIR ]]; then
         mkdir -p $RHEL_NFS_DIR
@@ -190,7 +190,14 @@ set -e
 echo "Nodes are ready:"
 kubectl get nodes
 
-make cluster-sync
+make cluster-build
+
+# I do not have good indication that OKD API server ready to serve requests, so I will just
+# repeat cluster-deploy until it succeeds
+until make cluster-deploy; do
+    sleep 1
+done
+
 hack/dockerized bazel shutdown
 
 # OpenShift is running important containers under default namespace

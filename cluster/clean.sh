@@ -81,7 +81,7 @@ for label in ${labels[@]}; do
     _kubectl delete clusterroles -l ${label}
     _kubectl delete customresourcedefinitions -l ${label}
 
-    if [[ "$KUBEVIRT_PROVIDER" =~ os-* ]]; then
+    if [[ "$KUBEVIRT_PROVIDER" =~ os-* ]] || [[ "$KUBEVIRT_PROVIDER" =~ okd-* ]]; then
         _kubectl delete scc -l ${label}
     fi
 
