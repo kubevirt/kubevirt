@@ -10,6 +10,7 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	k8sv1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
 	k8smetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	v1 "kubevirt.io/kubevirt/pkg/api/v1"
@@ -431,6 +432,9 @@ var _ = Describe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 				By("Verifying the VMI is back up AFTER restart (in Running status with new UID).")
 				Eventually(func() bool {
 					vmi, err = virtClient.VirtualMachineInstance(vmObj.Namespace).Get(vmObj.Name, &k8smetav1.GetOptions{})
+					if errors.IsNotFound(err) {
+						return false
+					}
 					Expect(err).ToNot(HaveOccurred())
 					vmiUIdAfterRestart := vmi.GetObjectMeta().GetUID()
 					newUId := (vmiUIdAfterRestart != vmiUIdBeforeRestart)

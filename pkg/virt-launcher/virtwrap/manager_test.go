@@ -548,7 +548,7 @@ var _ = Describe("Manager", func() {
 				// Make sure that we always free the domain after use
 				mockDomain.EXPECT().Free()
 				mockConn.EXPECT().LookupDomainByName(testDomainName).Return(mockDomain, nil)
-				mockDomain.EXPECT().Undefine().Return(nil)
+				mockDomain.EXPECT().UndefineFlags(libvirt.DOMAIN_UNDEFINE_NVRAM).Return(nil)
 				manager, _ := NewLibvirtDomainManager(mockConn, "fake", nil, 0)
 				err := manager.DeleteVMI(newVMI(testNamespace, testVmName))
 				Expect(err).To(BeNil())

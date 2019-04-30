@@ -198,7 +198,6 @@ type ObjectEventWatcher struct {
 	resourceVersion        string
 	startType              startType
 	dontFailOnMissingEvent bool
-	abort                  chan struct{}
 }
 
 func NewObjectEventWatcher(object runtime.Object) *ObjectEventWatcher {
@@ -324,7 +323,7 @@ func (w *ObjectEventWatcher) Watch(abortChan chan struct{}, processFunc ProcessF
 	if w.timeout != nil {
 		select {
 		case <-done:
-		case <-w.abort:
+		case <-abortChan:
 		case <-time.After(*w.timeout):
 			if !w.dontFailOnMissingEvent {
 				Fail(fmt.Sprintf("Waited for %v seconds on the event stream to match a specific event", w.timeout.Seconds()), 1)
@@ -332,8 +331,8 @@ func (w *ObjectEventWatcher) Watch(abortChan chan struct{}, processFunc ProcessF
 		}
 	} else {
 		select {
+		case <-abortChan:
 		case <-done:
-		case <-w.abort:
 		}
 	}
 }

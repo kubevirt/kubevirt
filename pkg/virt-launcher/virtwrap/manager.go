@@ -1086,7 +1086,7 @@ func (l *LibvirtDomainManager) DeleteVMI(vmi *v1.VirtualMachineInstance) error {
 	}
 	defer dom.Free()
 
-	err = dom.Undefine()
+	err = dom.UndefineFlags(libvirt.DOMAIN_UNDEFINE_NVRAM)
 	if err != nil {
 		log.Log.Object(vmi).Reason(err).Error("Undefining the domain failed.")
 		return err
