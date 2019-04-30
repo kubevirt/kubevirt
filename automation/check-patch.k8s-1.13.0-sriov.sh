@@ -187,12 +187,14 @@ kubectl apply -f $MANIFESTS_DIR/sriov-cni-daemonset.yaml
 # prepare kernel for vfio passthrough
 modprobe vfio-pci
 
+${CLUSTER_CMD} ls -l /etc/pcidp/ || true
 ${CLUSTER_CMD} cat /etc/pcidp/config.json || true
 # deploy sriov device plugin
 kubectl apply -f $MANIFESTS_DIR/sriovdp-daemonset.yaml
 
 # give them some time to create pods before checking pod status
 sleep 10
+${CLUSTER_CMD} ls -l /etc/pcidp/ || true
 ${CLUSTER_CMD} cat /etc/pcidp/config.json || true
 
 # make sure all containers are ready
