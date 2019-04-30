@@ -49,7 +49,7 @@ import (
 var _ = Describe("Validating Webhook", func() {
 	var vmiInformer cache.SharedIndexInformer
 	var config *virtconfig.ClusterConfig
-	var configMapStore cache.Store
+	var configMapInformer cache.SharedIndexInformer
 	dnsConfigTestOption := "test"
 	var vmiCreateAdmitter *VMICreateAdmitter
 	var vmirsAdmitter *VMIRSAdmitter
@@ -62,12 +62,12 @@ var _ = Describe("Validating Webhook", func() {
 	notRunning := false
 
 	enableFeatureGate := func(featureGate string) {
-		testutils.UpdateFakeClusterConfig(configMapStore, &k8sv1.ConfigMap{
+		testutils.UpdateFakeClusterConfig(configMapInformer, &k8sv1.ConfigMap{
 			Data: map[string]string{virtconfig.FeatureGatesKey: featureGate},
 		})
 	}
 	disableFeatureGates := func() {
-		testutils.UpdateFakeClusterConfig(configMapStore, &k8sv1.ConfigMap{})
+		testutils.UpdateFakeClusterConfig(configMapInformer, &k8sv1.ConfigMap{})
 	}
 
 	BeforeSuite(func() {
@@ -75,7 +75,7 @@ var _ = Describe("Validating Webhook", func() {
 		webhooks.SetInformers(&webhooks.Informers{
 			VMIInformer: vmiInformer,
 		})
-		config, configMapStore = testutils.NewFakeClusterConfig(&k8sv1.ConfigMap{})
+		config, configMapInformer = testutils.NewFakeClusterConfig(&k8sv1.ConfigMap{})
 		vmiCreateAdmitter = &VMICreateAdmitter{clusterConfig: config}
 		vmirsAdmitter = &VMIRSAdmitter{clusterConfig: config}
 		vmsAdmitter = &VMsAdmitter{clusterConfig: config}

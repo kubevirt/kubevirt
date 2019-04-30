@@ -104,10 +104,10 @@ func getConfigMap() *k8sv1.ConfigMap {
 // 1. Check if the config exists. If it does not exist, return the default config
 // 2. Check if the config got updated. If so, try to parse and return it
 // 3. In case of errors or no updates (resource version stays the same), it returns the values from the last good config
-func NewClusterConfig(configMapInformer cache.Store, namespace string) *ClusterConfig {
+func NewClusterConfig(configMapInformer cache.SharedIndexInformer, namespace string) *ClusterConfig {
 
 	c := &ClusterConfig{
-		store:           configMapInformer,
+		informer:        configMapInformer,
 		lock:            &sync.Mutex{},
 		namespace:       namespace,
 		lastValidConfig: defaultClusterConfig(),
@@ -170,7 +170,7 @@ type MigrationConfig struct {
 }
 
 type ClusterConfig struct {
-	store                            cache.Store
+	informer                         cache.SharedIndexInformer
 	namespace                        string
 	lock                             *sync.Mutex
 	lastValidConfig                  *Config
@@ -295,7 +295,7 @@ func (c *ClusterConfig) getConfig() (config *Config) {
 	c.lock.Lock()
 	defer c.lock.Unlock()
 
-	if obj, exists, err := c.store.GetByKey(c.namespace + "/" + configMapName); err != nil {
+	if obj, exists, err := c.informer.GetStore().GetByKey(c.namespace + "/" + configMapName); err != nil {
 		log.DefaultLogger().Reason(err).Errorf("Error loading the cluster config from cache, falling back to last good resource version '%s'", c.lastValidConfig.ResourceVersion)
 		return c.lastValidConfig
 	} else if !exists {

@@ -161,12 +161,11 @@ var _ = Describe("Migration watcher", func() {
 		podInformer, podSource = testutils.NewFakeInformerFor(&k8sv1.Pod{})
 		recorder = record.NewFakeRecorder(100)
 
-		config, configStore := testutils.NewFakeClusterConfig(&k8sv1.ConfigMap{})
 		pvcInformer, _ = testutils.NewFakeInformerFor(&k8sv1.PersistentVolumeClaim{})
-		config, _ := testutils.NewFakeClusterConfig(&k8sv1.ConfigMap{})
+		config, configMapInformer := testutils.NewFakeClusterConfig(&k8sv1.ConfigMap{})
 
 		controller = NewMigrationController(
-			services.NewTemplateService("a", "b", "c", "d", configStore, pvcInformer.GetStore(), virtClient, config),
+			services.NewTemplateService("a", "b", "c", "d", configMapInformer.GetStore(), pvcInformer.GetStore(), virtClient, config),
 			vmiInformer,
 			podInformer,
 			migrationInformer,

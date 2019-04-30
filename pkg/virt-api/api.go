@@ -1045,7 +1045,7 @@ func (app *virtAPIApp) Run() {
 		webhookInformers.NamespaceLimitsInformer.HasSynced,
 		configMapInformer.HasSynced)
 
-	app.clusterConfig = virtconfig.NewClusterConfig(configMapInformer.GetStore(), app.namespace)
+	app.clusterConfig = virtconfig.NewClusterConfig(configMapInformer, app.namespace)
 
 	// Verify/create webhook endpoint.
 	err = app.createWebhook()

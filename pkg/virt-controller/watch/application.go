@@ -176,7 +176,7 @@ func Execute() {
 	app.migrationInformer = app.informerFactory.VirtualMachineInstanceMigration()
 
 	cache.WaitForCacheSync(stopChan, configMapInformer.HasSynced)
-	app.clusterConfig = virtconfig.NewClusterConfig(configMapInformer.GetStore(), app.kubevirtNamespace)
+	app.clusterConfig = virtconfig.NewClusterConfig(configMapInformer, app.kubevirtNamespace)
 
 	if app.clusterConfig.DataVolumesEnabled() {
 		app.dataVolumeInformer = app.informerFactory.DataVolume()

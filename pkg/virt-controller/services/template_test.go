@@ -57,15 +57,15 @@ var _ = Describe("Template", func() {
 
 	ctrl := gomock.NewController(GinkgoT())
 	virtClient := kubecli.NewMockKubevirtClient(ctrl)
-	config, configMapStore := testutils.NewFakeClusterConfig(&kubev1.ConfigMap{})
+	config, configMapInformer := testutils.NewFakeClusterConfig(&kubev1.ConfigMap{})
 
 	enableFeatureGate := func(featureGate string) {
-		testutils.UpdateFakeClusterConfig(configMapStore, &kubev1.ConfigMap{
+		testutils.UpdateFakeClusterConfig(configMapInformer, &kubev1.ConfigMap{
 			Data: map[string]string{virtconfig.FeatureGatesKey: featureGate},
 		})
 	}
 	disableFeatureGates := func() {
-		testutils.UpdateFakeClusterConfig(configMapStore, &kubev1.ConfigMap{})
+		testutils.UpdateFakeClusterConfig(configMapInformer, &kubev1.ConfigMap{})
 	}
 
 	BeforeEach(func() {
