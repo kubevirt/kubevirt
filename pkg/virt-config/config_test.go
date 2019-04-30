@@ -1,4 +1,4 @@
-package virtconfig
+package virtconfig_test
 
 import (
 	"regexp"
@@ -8,12 +8,10 @@ import (
 	"github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
 	kubev1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/watch"
-	"k8s.io/client-go/tools/cache"
 
 	"kubevirt.io/kubevirt/pkg/log"
+	"kubevirt.io/kubevirt/pkg/testutils"
+	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 )
 
 var _ = Describe("ConfigMap", func() {
@@ -31,15 +29,10 @@ var _ = Describe("ConfigMap", func() {
 	})
 
 	table.DescribeTable(" when useEmulation", func(value string, result bool) {
-		cfgMap := kubev1.ConfigMap{
-			ObjectMeta: metav1.ObjectMeta{
-				ResourceVersion: "1234",
-				Namespace:       "kubevirt",
-				Name:            "kubevirt-config",
-			},
+		cfgMap := &kubev1.ConfigMap{
 			Data: map[string]string{"debug.useEmulation": value},
 		}
-		clusterConfig, _ := MakeClusterConfig([]kubev1.ConfigMap{cfgMap}, stopChan)
+		clusterConfig, _ := testutils.NewFakeClusterConfig(cfgMap)
 		Expect(clusterConfig.IsUseEmulation()).To(Equal(result))
 	},
 		table.Entry("is true, it should return true", "true", true),
@@ -49,15 +42,10 @@ var _ = Describe("ConfigMap", func() {
 	)
 
 	table.DescribeTable(" when imagePullPolicy", func(value string, result kubev1.PullPolicy) {
-		cfgMap := kubev1.ConfigMap{
-			ObjectMeta: metav1.ObjectMeta{
-				ResourceVersion: "1234",
-				Namespace:       "kubevirt",
-				Name:            "kubevirt-config",
-			},
-			Data: map[string]string{imagePullPolicyKey: value},
+		cfgMap := &kubev1.ConfigMap{
+			Data: map[string]string{virtconfig.ImagePullPolicyKey: value},
 		}
-		clusterConfig, _ := MakeClusterConfig([]kubev1.ConfigMap{cfgMap}, stopChan)
+		clusterConfig, _ := testutils.NewFakeClusterConfig(cfgMap)
 		Expect(clusterConfig.GetImagePullPolicy()).To(Equal(result))
 	},
 		table.Entry("is PullAlways, it should return PullAlways", "Always", kubev1.PullAlways),
@@ -68,31 +56,21 @@ var _ = Describe("ConfigMap", func() {
 	)
 
 	table.DescribeTable(" when machineType", func(value string, result string) {
-		cfgMap := kubev1.ConfigMap{
-			ObjectMeta: metav1.ObjectMeta{
-				ResourceVersion: "1234",
-				Namespace:       "kubevirt",
-				Name:            "kubevirt-config",
-			},
-			Data: map[string]string{MachineTypeKey: value},
+		cfgMap := &kubev1.ConfigMap{
+			Data: map[string]string{virtconfig.MachineTypeKey: value},
 		}
-		clusterConfig, _ := MakeClusterConfig([]kubev1.ConfigMap{cfgMap}, stopChan)
+		clusterConfig, _ := testutils.NewFakeClusterConfig(cfgMap)
 		Expect(clusterConfig.GetMachineType()).To(Equal(result))
 	},
 		table.Entry("when set, it should return the value", "pc-q35-3.0", "pc-q35-3.0"),
-		table.Entry("when unset, it should return the default", "", DefaultMachineType),
+		table.Entry("when unset, it should return the default", "", virtconfig.DefaultMachineType),
 	)
 
 	table.DescribeTable(" when cpuModel", func(value string, result string) {
-		cfgMap := kubev1.ConfigMap{
-			ObjectMeta: metav1.ObjectMeta{
-				ResourceVersion: "1234",
-				Namespace:       "kubevirt",
-				Name:            "kubevirt-config",
-			},
-			Data: map[string]string{CpuModelKey: value},
+		cfgMap := &kubev1.ConfigMap{
+			Data: map[string]string{virtconfig.CpuModelKey: value},
 		}
-		clusterConfig, _ := MakeClusterConfig([]kubev1.ConfigMap{cfgMap}, stopChan)
+		clusterConfig, _ := testutils.NewFakeClusterConfig(cfgMap)
 		Expect(clusterConfig.GetCPUModel()).To(Equal(result))
 	},
 		table.Entry("when set, it should return the value", "Haswell", "Haswell"),
@@ -100,66 +78,46 @@ var _ = Describe("ConfigMap", func() {
 	)
 
 	table.DescribeTable(" when cpuRequest", func(value string, result string) {
-		cfgMap := kubev1.ConfigMap{
-			ObjectMeta: metav1.ObjectMeta{
-				ResourceVersion: "1234",
-				Namespace:       "kubevirt",
-				Name:            "kubevirt-config",
-			},
-			Data: map[string]string{CpuRequestKey: value},
+		cfgMap := &kubev1.ConfigMap{
+			Data: map[string]string{virtconfig.CpuRequestKey: value},
 		}
-		clusterConfig, _ := MakeClusterConfig([]kubev1.ConfigMap{cfgMap}, stopChan)
+		clusterConfig, _ := testutils.NewFakeClusterConfig(cfgMap)
 		cpuRequest := clusterConfig.GetCPURequest()
 		Expect(cpuRequest.String()).To(Equal(result))
 	},
 		table.Entry("when set, it should return the value", "400m", "400m"),
-		table.Entry("when unset, it should return the default", "", DefaultCPURequest),
+		table.Entry("when unset, it should return the default", "", virtconfig.DefaultCPURequest),
 	)
 
 	table.DescribeTable(" when memoryRequest", func(value string, result string) {
-		cfgMap := kubev1.ConfigMap{
-			ObjectMeta: metav1.ObjectMeta{
-				ResourceVersion: "1234",
-				Namespace:       "kubevirt",
-				Name:            "kubevirt-config",
-			},
-			Data: map[string]string{MemoryRequestKey: value},
+		cfgMap := &kubev1.ConfigMap{
+			Data: map[string]string{virtconfig.MemoryRequestKey: value},
 		}
-		clusterConfig, _ := MakeClusterConfig([]kubev1.ConfigMap{cfgMap}, stopChan)
+		clusterConfig, _ := testutils.NewFakeClusterConfig(cfgMap)
 		memoryRequest := clusterConfig.GetMemoryRequest()
 		Expect(memoryRequest.String()).To(Equal(result))
 	},
 		table.Entry("when set, it should return the value", "512Mi", "512Mi"),
-		table.Entry("when unset, it should return the default", "", DefaultMemoryRequest),
+		table.Entry("when unset, it should return the default", "", virtconfig.DefaultMemoryRequest),
 	)
 
 	table.DescribeTable(" when emulatedMachines", func(value string, result []string) {
-		cfgMap := kubev1.ConfigMap{
-			ObjectMeta: metav1.ObjectMeta{
-				ResourceVersion: "1234",
-				Namespace:       "kubevirt",
-				Name:            "kubevirt-config",
-			},
-			Data: map[string]string{emulatedMachinesKey: value},
+		cfgMap := &kubev1.ConfigMap{
+			Data: map[string]string{virtconfig.EmulatedMachinesKey: value},
 		}
-		clusterConfig, _ := MakeClusterConfig([]kubev1.ConfigMap{cfgMap}, stopChan)
+		clusterConfig, _ := testutils.NewFakeClusterConfig(cfgMap)
 		emulatedMachines := clusterConfig.GetEmulatedMachines()
 		Expect(emulatedMachines).To(ConsistOf(result))
 	},
 		table.Entry("when set, it should return the value", "q35, i440*", []string{"q35", "i440*"}),
-		table.Entry("when unset, it should return the defaults", "", strings.Split(DefaultEmulatedMachines, ",")),
+		table.Entry("when unset, it should return the defaults", "", strings.Split(virtconfig.DefaultEmulatedMachines, ",")),
 	)
 
 	It("Should return migration config values if specified as json", func() {
-		cfgMap := kubev1.ConfigMap{
-			ObjectMeta: metav1.ObjectMeta{
-				ResourceVersion: "1234",
-				Namespace:       "kubevirt",
-				Name:            "kubevirt-config",
-			},
-			Data: map[string]string{migrationsConfigKey: `{"parallelOutboundMigrationsPerNode" : 10, "parallelMigrationsPerCluster": 20, "bandwidthPerMigration": "110Mi", "progressTimeout" : 5, "completionTimeoutPerGiB": 5, "unsafeMigrationOverride": true}`},
+		cfgMap := &kubev1.ConfigMap{
+			Data: map[string]string{virtconfig.MigrationsConfigKey: `{"parallelOutboundMigrationsPerNode" : 10, "parallelMigrationsPerCluster": 20, "bandwidthPerMigration": "110Mi", "progressTimeout" : 5, "completionTimeoutPerGiB": 5, "unsafeMigrationOverride": true}`},
 		}
-		clusterConfig, _ := MakeClusterConfig([]kubev1.ConfigMap{cfgMap}, stopChan)
+		clusterConfig, _ := testutils.NewFakeClusterConfig(cfgMap)
 		result := clusterConfig.GetMigrationConfig()
 		Expect(*result.ParallelOutboundMigrationsPerNode).To(BeNumerically("==", 10))
 		Expect(*result.ParallelMigrationsPerCluster).To(BeNumerically("==", 20))
@@ -170,17 +128,12 @@ var _ = Describe("ConfigMap", func() {
 	})
 
 	It("Should return migration config values if specified as yaml", func() {
-		cfgMap := kubev1.ConfigMap{
-			ObjectMeta: metav1.ObjectMeta{
-				ResourceVersion: "1234",
-				Namespace:       "kubevirt",
-				Name:            "kubevirt-config",
-			},
-			Data: map[string]string{migrationsConfigKey: `"parallelOutboundMigrationsPerNode" : 10
+		cfgMap := &kubev1.ConfigMap{
+			Data: map[string]string{virtconfig.MigrationsConfigKey: `"parallelOutboundMigrationsPerNode" : 10
 "parallelMigrationsPerCluster": 20
 "bandwidthPerMigration": "110Mi"`},
 		}
-		clusterConfig, _ := MakeClusterConfig([]kubev1.ConfigMap{cfgMap}, stopChan)
+		clusterConfig, _ := testutils.NewFakeClusterConfig(cfgMap)
 		result := clusterConfig.GetMigrationConfig()
 		Expect(*result.ParallelOutboundMigrationsPerNode).To(BeNumerically("==", 10))
 		Expect(*result.ParallelMigrationsPerCluster).To(BeNumerically("==", 20))
@@ -188,15 +141,10 @@ var _ = Describe("ConfigMap", func() {
 	})
 
 	It("Should return defaults if parts of the config are not set", func() {
-		cfgMap := kubev1.ConfigMap{
-			ObjectMeta: metav1.ObjectMeta{
-				ResourceVersion: "1234",
-				Namespace:       "kubevirt",
-				Name:            "kubevirt-config",
-			},
-			Data: map[string]string{migrationsConfigKey: `{"parallelOutboundMigrationsPerNode" : 10}`},
+		cfgMap := &kubev1.ConfigMap{
+			Data: map[string]string{virtconfig.MigrationsConfigKey: `{"parallelOutboundMigrationsPerNode" : 10}`},
 		}
-		clusterConfig, _ := MakeClusterConfig([]kubev1.ConfigMap{cfgMap}, stopChan)
+		clusterConfig, _ := testutils.NewFakeClusterConfig(cfgMap)
 		result := clusterConfig.GetMigrationConfig()
 		Expect(*result.ParallelOutboundMigrationsPerNode).To(BeNumerically("==", 10))
 		Expect(*result.ParallelMigrationsPerCluster).To(BeNumerically("==", 5))
@@ -204,89 +152,75 @@ var _ = Describe("ConfigMap", func() {
 	})
 
 	It("Should update the config if a newer version is available", func() {
-		cfgMap := kubev1.ConfigMap{
-			ObjectMeta: metav1.ObjectMeta{
-				ResourceVersion: "1234",
-				Namespace:       "kubevirt",
-				Name:            "kubevirt-config",
-			},
-			Data: map[string]string{migrationsConfigKey: `{"parallelOutboundMigrationsPerNode" : 10}`},
+		cfgMap := &kubev1.ConfigMap{
+			Data: map[string]string{virtconfig.MigrationsConfigKey: `{"parallelOutboundMigrationsPerNode" : 10}`},
 		}
-		clusterConfig, store := MakeClusterConfig([]kubev1.ConfigMap{cfgMap}, stopChan)
+		clusterConfig, informer := testutils.NewFakeClusterConfig(cfgMap)
 		result := clusterConfig.GetMigrationConfig()
 		Expect(*result.ParallelOutboundMigrationsPerNode).To(BeNumerically("==", 10))
 
-		newCfg := cfgMap.DeepCopy()
-		newCfg.ResourceVersion = "12345"
-		newCfg.Data = map[string]string{migrationsConfigKey: `{"parallelOutboundMigrationsPerNode" : 9}`}
-		store.Add(newCfg)
+		newCfg := &kubev1.ConfigMap{
+			Data: map[string]string{virtconfig.MigrationsConfigKey: `{"parallelOutboundMigrationsPerNode" : 9}`},
+		}
+		testutils.UpdateFakeClusterConfig(informer, newCfg)
 		Eventually(func() uint32 {
 			return *clusterConfig.GetMigrationConfig().ParallelOutboundMigrationsPerNode
 		}).Should(BeNumerically("==", 9))
 	})
 
 	It("Should stick with the last good config", func() {
-		cfgMap := kubev1.ConfigMap{
-			ObjectMeta: metav1.ObjectMeta{
-				ResourceVersion: "1234",
-				Namespace:       "kubevirt",
-				Name:            "kubevirt-config",
-			},
-			Data: map[string]string{migrationsConfigKey: `{"parallelOutboundMigrationsPerNode" : 10}`},
+		cfgMap := &kubev1.ConfigMap{
+			Data: map[string]string{virtconfig.MigrationsConfigKey: `{"parallelOutboundMigrationsPerNode" : 10}`},
 		}
-		clusterConfig, store := MakeClusterConfig([]kubev1.ConfigMap{cfgMap}, stopChan)
+		clusterConfig, informer := testutils.NewFakeClusterConfig(cfgMap)
 		result := clusterConfig.GetMigrationConfig()
 		Expect(*result.ParallelOutboundMigrationsPerNode).To(BeNumerically("==", 10))
 
-		newCfg := cfgMap.DeepCopy()
-		newCfg.ResourceVersion = "12345"
-		newCfg.Data = map[string]string{migrationsConfigKey: `{"parallelOutboundMigrationsPerNode" : "invalid"}`}
-		store.Add(newCfg)
+		newCfg := &kubev1.ConfigMap{
+			Data: map[string]string{virtconfig.MigrationsConfigKey: `{"parallelOutboundMigrationsPerNode" : "invalid"}`},
+		}
+		informer.GetStore().Add(newCfg)
+		testutils.UpdateFakeClusterConfig(informer, newCfg)
 		Consistently(func() uint32 {
 			return *clusterConfig.GetMigrationConfig().ParallelOutboundMigrationsPerNode
 		}).Should(BeNumerically("==", 10))
 	})
 
 	It("Should pick up the latest config once it is fixed and parsable again", func() {
-		cfgMap := kubev1.ConfigMap{
-			ObjectMeta: metav1.ObjectMeta{
-				ResourceVersion: "1234",
-				Namespace:       "kubevirt",
-				Name:            "kubevirt-config",
-			},
-			Data: map[string]string{migrationsConfigKey: `{"parallelOutboundMigrationsPerNode" : 10}`},
+		cfgMap := &kubev1.ConfigMap{
+			Data: map[string]string{virtconfig.MigrationsConfigKey: `{"parallelOutboundMigrationsPerNode" : 10}`},
 		}
-		clusterConfig, store := MakeClusterConfig([]kubev1.ConfigMap{cfgMap}, stopChan)
+		clusterConfig, informer := testutils.NewFakeClusterConfig(cfgMap)
 		result := clusterConfig.GetMigrationConfig()
 		Expect(*result.ParallelOutboundMigrationsPerNode).To(BeNumerically("==", 10))
 
-		invalidCfg := cfgMap.DeepCopy()
-		invalidCfg.ResourceVersion = "12345"
-		invalidCfg.Data = map[string]string{migrationsConfigKey: `{"parallelOutboundMigrationsPerNode" : "invalid"}`}
-		store.Add(invalidCfg)
+		invalidCfg := &kubev1.ConfigMap{
+			Data: map[string]string{virtconfig.MigrationsConfigKey: `{"parallelOutboundMigrationsPerNode" : "invalid"}`},
+		}
+		testutils.UpdateFakeClusterConfig(informer, invalidCfg)
 		Consistently(func() uint32 {
 			return *clusterConfig.GetMigrationConfig().ParallelOutboundMigrationsPerNode
 		}).Should(BeNumerically("==", 10))
 
-		validCfg := cfgMap.DeepCopy()
-		validCfg.ResourceVersion = "123456"
-		validCfg.Data = map[string]string{migrationsConfigKey: `{"parallelOutboundMigrationsPerNode" : 9}`}
-		store.Add(validCfg)
+		validCfg := &kubev1.ConfigMap{
+			Data: map[string]string{virtconfig.MigrationsConfigKey: `{"parallelOutboundMigrationsPerNode" : 9}`},
+		}
+		testutils.UpdateFakeClusterConfig(informer, validCfg)
 		Consistently(func() uint32 {
 			return *clusterConfig.GetMigrationConfig().ParallelOutboundMigrationsPerNode
 		}).Should(BeNumerically("==", 9))
 	})
 
 	It("should return the default config if no config map exists", func() {
-		clusterConfig, _ := MakeClusterConfig([]kubev1.ConfigMap{}, stopChan)
+		clusterConfig, _ := testutils.NewFakeClusterConfig(&kubev1.ConfigMap{})
 		result := clusterConfig.GetMigrationConfig()
 		Expect(*result.ParallelOutboundMigrationsPerNode).To(BeNumerically("==", 2))
 	})
 
 	It("should contain a default machine type that is supported by default", func() {
 		isDefaultMachineTypeSupported := func() bool {
-			for _, val := range strings.Split(DefaultEmulatedMachines, ",") {
-				if regexp.MustCompile(val).MatchString(DefaultMachineType) {
+			for _, val := range strings.Split(virtconfig.DefaultEmulatedMachines, ",") {
+				if regexp.MustCompile(val).MatchString(virtconfig.DefaultMachineType) {
 					return true
 				}
 			}
@@ -295,22 +229,3 @@ var _ = Describe("ConfigMap", func() {
 		Expect(isDefaultMachineTypeSupported()).To(BeTrue())
 	})
 })
-
-func MakeClusterConfig(configMaps []kubev1.ConfigMap, stopChan chan struct{}) (*ClusterConfig, cache.Store) {
-	cmListWatch := &cache.ListWatch{
-		ListFunc: func(options metav1.ListOptions) (runtime.Object, error) {
-			return &kubev1.ConfigMapList{Items: configMaps}, nil
-		},
-		WatchFunc: func(options metav1.ListOptions) (watch.Interface, error) {
-			fakeWatch := watch.NewFake()
-			for _, cfgMap := range configMaps {
-				fakeWatch.Add(&cfgMap)
-			}
-			return fakeWatch, nil
-		},
-	}
-	cmInformer := cache.NewSharedIndexInformer(cmListWatch, &kubev1.ConfigMap{}, 0, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
-	go cmInformer.Run(stopChan)
-	cache.WaitForCacheSync(stopChan, cmInformer.HasSynced)
-	return NewClusterConfig(cmInformer, "kubevirt"), cmInformer.GetStore()
-}
