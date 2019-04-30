@@ -33,6 +33,7 @@ import (
 	. "github.com/onsi/gomega"
 	. "github.com/onsi/gomega/gstruct"
 	kubev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -918,12 +919,14 @@ var _ = Describe("Configurations", func() {
 		var cpuFeatures []string
 		var cpuVmi *v1.VirtualMachineInstance
 
-		BeforeEach(func() {
-			nodes, err := virtClient.CoreV1().Nodes().List(metav1.ListOptions{})
+		// Collect capabilities once for all tests
+		tests.BeforeAll(func() {
+			vmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(tests.ContainerDiskFor(tests.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n")
+			_, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
 			Expect(err).ToNot(HaveOccurred())
-			Expect(nodes.Items).NotTo(BeEmpty())
+			node := tests.WaitForSuccessfulVMIStart(vmi)
 
-			virshCaps := tests.GetNodeLibvirtCapabilities(nodes.Items[0].Name)
+			virshCaps := tests.GetNodeLibvirtCapabilities(vmi)
 
 			model := libvirtCPUModelRegexp.FindStringSubmatch(virshCaps)
 			Expect(len(model)).To(Equal(2))
@@ -939,7 +942,7 @@ var _ = Describe("Configurations", func() {
 				cpuFeatures = append(cpuFeatures, cpuFeature[1])
 			}
 
-			cpuInfo := tests.GetNodeCPUInfo(nodes.Items[0].Name)
+			cpuInfo := tests.GetNodeCPUInfo(vmi)
 			modelName := cpuModelNameRegexp.FindStringSubmatch(cpuInfo)
 			Expect(len(modelName)).To(Equal(2))
 			cpuModelName = modelName[1]
@@ -951,13 +954,24 @@ var _ = Describe("Configurations", func() {
 						NodeSelectorTerms: []kubev1.NodeSelectorTerm{
 							{
 								MatchExpressions: []kubev1.NodeSelectorRequirement{
-									{Key: "kubernetes.io/hostname", Operator: kubev1.NodeSelectorOpIn, Values: []string{nodes.Items[0].Name}},
+									{Key: "kubernetes.io/hostname", Operator: kubev1.NodeSelectorOpIn, Values: []string{node}},
 								},
 							},
 						},
 					},
 				},
 			}
+
+			// Best to also delete the VMI, in the case that there is only one spot free for scheduling
+			err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Delete(vmi.Name, &metav1.DeleteOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			Eventually(func() bool {
+				_, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Get(vmi.Name, &metav1.GetOptions{})
+				if errors.IsNotFound(err) {
+					return true
+				}
+				return false
+			}, 30*time.Second, 1*time.Second).Should(BeTrue())
 		})
 
 		Context("[rfe_id:140][crit:medium][vendor:cnv-qe@redhat.com][level:component]when CPU model defined", func() {
