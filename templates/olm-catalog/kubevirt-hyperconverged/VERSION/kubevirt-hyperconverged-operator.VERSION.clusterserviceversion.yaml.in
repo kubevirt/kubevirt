@@ -353,40 +353,40 @@ spec:
 
         - name: node-maintenance-operator
           spec:
-          replicas: 1
-          selector:
-            matchLabels:
-              name: node-maintenance-operator
-          strategy: {}
-          template:
-            metadata:
-              labels:
+            replicas: 1
+            selector:
+              matchLabels:
                 name: node-maintenance-operator
-            spec:
-              affinity:
-                nodeAffinity:
-                  requiredDuringSchedulingIgnoredDuringExecution:
-                    nodeSelectorTerms:
-                    - matchExpressions:
-                      - key: node-role.kubernetes.io/master
-                        operator: Exists
-              containers:
-              - env:
-                - name: WATCH_NAMESPACE
-                - name: POD_NAME
-                  valueFrom:
-                    fieldRef:
-                      fieldPath: metadata.name
-                - name: OPERATOR_NAME
-                  value: node-maintenance-operator
-                image: quay.io/kubevirt/node-maintenance-operator:v0.2.0
-                imagePullPolicy: Always
-                name: node-maintenance-operator
-                resources: {}
-              serviceAccountName: node-maintenance-operator
-              tolerations:
-              - effect: NoSchedule
-                key: node-role.kubernetes.io/master
+            strategy: {}
+            template:
+              metadata:
+                labels:
+                  name: node-maintenance-operator
+              spec:
+                affinity:
+                  nodeAffinity:
+                    requiredDuringSchedulingIgnoredDuringExecution:
+                      nodeSelectorTerms:
+                      - matchExpressions:
+                        - key: node-role.kubernetes.io/master
+                          operator: Exists
+                containers:
+                - env:
+                  - name: WATCH_NAMESPACE
+                  - name: POD_NAME
+                    valueFrom:
+                      fieldRef:
+                        fieldPath: metadata.name
+                  - name: OPERATOR_NAME
+                    value: node-maintenance-operator
+                  image: quay.io/kubevirt/node-maintenance-operator:v0.2.0
+                  imagePullPolicy: Always
+                  name: node-maintenance-operator
+                  resources: {}
+                serviceAccountName: node-maintenance-operator
+                tolerations:
+                - effect: NoSchedule
+                  key: node-role.kubernetes.io/master
 {{end}}
   customresourcedefinitions:
     owned:
