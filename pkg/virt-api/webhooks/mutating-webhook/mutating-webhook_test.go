@@ -45,7 +45,7 @@ var _ = Describe("Mutating Webhook", func() {
 		var presetInformer cache.SharedIndexInformer
 		var namespaceLimit *k8sv1.LimitRange
 		var namespaceLimitInformer cache.SharedIndexInformer
-		var configMapStore cache.Store
+		var configMapInformer cache.SharedIndexInformer
 		var mutator *VMIsMutator
 
 		memoryLimit := "128M"
@@ -133,7 +133,7 @@ var _ = Describe("Mutating Webhook", func() {
 			)
 
 			mutator = &VMIsMutator{}
-			mutator.clusterConfig, configMapStore = testutils.NewFakeClusterConfig(&k8sv1.ConfigMap{})
+			mutator.clusterConfig, configMapInformer = testutils.NewFakeClusterConfig(&k8sv1.ConfigMap{})
 		})
 
 		It("should apply presets on VMI create", func() {
@@ -156,7 +156,7 @@ var _ = Describe("Mutating Webhook", func() {
 		})
 
 		It("should apply configurable defaults on VMI create", func() {
-			testutils.UpdateFakeClusterConfig(configMapStore, &k8sv1.ConfigMap{
+			testutils.UpdateFakeClusterConfig(configMapInformer, &k8sv1.ConfigMap{
 				Data: map[string]string{
 					virtconfig.CpuModelKey:      cpuModelFromConfig,
 					virtconfig.MachineTypeKey:   machineTypeFromConfig,
@@ -173,7 +173,7 @@ var _ = Describe("Mutating Webhook", func() {
 		})
 
 		It("should not override specified properties with defaults on VMI create", func() {
-			testutils.UpdateFakeClusterConfig(configMapStore, &k8sv1.ConfigMap{
+			testutils.UpdateFakeClusterConfig(configMapInformer, &k8sv1.ConfigMap{
 				Data: map[string]string{
 					virtconfig.CpuModelKey:      cpuModelFromConfig,
 					virtconfig.MachineTypeKey:   machineTypeFromConfig,

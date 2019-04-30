@@ -312,5 +312,5 @@ func MakeClusterConfig(configMaps []kubev1.ConfigMap, stopChan chan struct{}) (*
 	cmInformer := cache.NewSharedIndexInformer(cmListWatch, &kubev1.ConfigMap{}, 0, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
 	go cmInformer.Run(stopChan)
 	cache.WaitForCacheSync(stopChan, cmInformer.HasSynced)
-	return NewClusterConfig(cmInformer.GetStore(), "kubevirt"), cmInformer.GetStore()
+	return NewClusterConfig(cmInformer, "kubevirt"), cmInformer.GetStore()
 }

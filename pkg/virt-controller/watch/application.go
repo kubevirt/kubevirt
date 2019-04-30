@@ -163,7 +163,7 @@ func Execute() {
 
 	app.configMapInformer = app.informerFactory.ConfigMap()
 	app.configMapCache = app.configMapInformer.GetStore()
-	app.clusterConfig = virtconfig.NewClusterConfig(app.configMapInformer.GetStore(), app.kubevirtNamespace)
+	app.clusterConfig = virtconfig.NewClusterConfig(app.configMapInformer, app.kubevirtNamespace)
 
 	app.persistentVolumeClaimInformer = app.informerFactory.PersistentVolumeClaim()
 	app.persistentVolumeClaimCache = app.persistentVolumeClaimInformer.GetStore()

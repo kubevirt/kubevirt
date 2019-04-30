@@ -65,7 +65,6 @@ var _ = Describe("Migration watcher", func() {
 	var virtClient *kubecli.MockKubevirtClient
 	var kubeClient *fake.Clientset
 	var networkClient *fakenetworkclient.Clientset
-	var configMapInformer cache.SharedIndexInformer
 	var pvcInformer cache.SharedIndexInformer
 
 	shouldExpectPodCreation := func(uid types.UID, migrationUid types.UID, expectedAntiAffinityCount int, expectedAffinityCount int, expectedNodeAffinityCount int) {
@@ -162,9 +161,8 @@ var _ = Describe("Migration watcher", func() {
 		podInformer, podSource = testutils.NewFakeInformerFor(&k8sv1.Pod{})
 		recorder = record.NewFakeRecorder(100)
 
-		configMapInformer, _ = testutils.NewFakeInformerFor(&k8sv1.ConfigMap{})
 		pvcInformer, _ = testutils.NewFakeInformerFor(&k8sv1.PersistentVolumeClaim{})
-		config, _ := testutils.NewFakeClusterConfig(&k8sv1.ConfigMap{})
+		config, configMapInformer := testutils.NewFakeClusterConfig(&k8sv1.ConfigMap{})
 
 		controller = NewMigrationController(
 			services.NewTemplateService("a", "b", "c", "d", configMapInformer.GetStore(), pvcInformer.GetStore(), virtClient, config),

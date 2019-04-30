@@ -32,19 +32,19 @@ func MakeFakeClusterConfig(configMaps []v1.ConfigMap, stopChan chan struct{}) *v
 	cmInformer := cache.NewSharedIndexInformer(cmListWatch, &v1.ConfigMap{}, 0, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
 	go cmInformer.Run(stopChan)
 	cache.WaitForCacheSync(stopChan, cmInformer.HasSynced)
-	return virtconfig.NewClusterConfig(cmInformer.GetStore(), namespace)
+	return virtconfig.NewClusterConfig(cmInformer, namespace)
 }
 
-func NewFakeClusterConfig(cfgMap *v1.ConfigMap) (*virtconfig.ClusterConfig, cache.Store) {
-	store := cache.NewStore(cache.DeletionHandlingMetaNamespaceKeyFunc)
+func NewFakeClusterConfig(cfgMap *v1.ConfigMap) (*virtconfig.ClusterConfig, cache.SharedIndexInformer) {
+	informer, _ := NewFakeInformerFor(&v1.ConfigMap{})
 	copy := copy(cfgMap)
-	store.Add(copy)
-	return virtconfig.NewClusterConfig(store, namespace), store
+	informer.GetStore().Add(copy)
+	return virtconfig.NewClusterConfig(informer, namespace), informer
 }
 
-func UpdateFakeClusterConfig(store cache.Store, cfgMap *v1.ConfigMap) {
+func UpdateFakeClusterConfig(informer cache.SharedIndexInformer, cfgMap *v1.ConfigMap) {
 	copy := copy(cfgMap)
-	store.Update(copy)
+	informer.GetStore().Update(copy)
 }
 
 func copy(cfgMap *v1.ConfigMap) *v1.ConfigMap {
