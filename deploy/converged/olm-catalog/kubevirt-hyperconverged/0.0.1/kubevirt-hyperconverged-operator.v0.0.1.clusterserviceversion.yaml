@@ -276,6 +276,7 @@ spec:
               resources:
               - serviceaccounts
               - services
+              - endpoints
               verbs:
               - get
               - list
@@ -355,6 +356,16 @@ spec:
               - admissionregistration.k8s.io
               resources:
               - validatingwebhookconfigurations
+              verbs:
+              - get
+              - list
+              - watch
+              - create
+              - delete
+            - apiGroups:
+              - admissionregistration.k8s.io
+              resources:
+              - validatingwebhookconfigurations
               - mutatingwebhookconfigurations
               verbs:
               - get
@@ -391,7 +402,7 @@ spec:
               - get
               - list
               - watch
-              - delete
+              - patch
             - apiGroups:
               - kubevirt.io
               resources:
@@ -1051,11 +1062,12 @@ spec:
 
         - name: virt-operator
           spec:
-            replicas: 1
+            replicas: 2
             selector:
               matchLabels:
                 kubevirt.io: virt-operator
-            strategy: {}
+            strategy:
+              type: RollingUpdate
             template:
               metadata:
                 annotations:
