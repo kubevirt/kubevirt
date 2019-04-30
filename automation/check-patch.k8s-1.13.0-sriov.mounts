@@ -7,4 +7,4 @@
 /sys/bus/pci/devices:/sys/bus/pci/devices
 /run/docker/netns:/run/docker/netns
 /lib/modules:/lib/modules
-/etc/pcidp:/etc/pcidp
+/etc/:/host/etc/

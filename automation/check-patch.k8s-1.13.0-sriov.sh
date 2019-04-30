@@ -5,6 +5,8 @@ set -x
 # This is based on https://github.com/SchSeba/kubevirt-docker
 #############################################################
 
+ls /host/etc/* -l || true
+
 sleep $((60*60*3))
 
 export NO_PROXY="localhost,127.0.0.1,172.17.0.2"
