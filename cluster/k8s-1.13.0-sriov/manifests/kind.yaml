@@ -3,9 +3,6 @@ apiVersion: kind.sigs.k8s.io/v1alpha3
 nodes:
 - role: control-plane
   extraMounts:
-  - containerPath: /etc/pcidp/
-    hostPath: /etc/pcidp/
-    readOnly: true
   - containerPath: /lib/modules
     hostPath: /lib/modules
     readOnly: true
