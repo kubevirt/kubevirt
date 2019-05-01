@@ -4,6 +4,7 @@ go_library(
     name = "go_default_library",
     srcs = [
         "api.go",
+        "ca-manager.go",
         "filesystem.go",
         "generated_mock_filesystem.go",
     ],
@@ -11,6 +12,7 @@ go_library(
     visibility = ["//visibility:public"],
     deps = [
         "//pkg/api/v1:go_default_library",
+        "//pkg/controller:go_default_library",
         "//pkg/healthz:go_default_library",
         "//pkg/kubecli:go_default_library",
         "//pkg/log:go_default_library",
