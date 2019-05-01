@@ -3112,19 +3112,12 @@ func RunCommandOnVmiPod(vmi *v1.VirtualMachineInstance, command []string) string
 }
 
 // GetNodeLibvirtCapabilities returns node libvirt capabilities
-func GetNodeLibvirtCapabilities(nodeName string) string {
-	// Create a virt-launcher pod to fetch virsh capabilities
-	vmi := NewRandomVMIWithEphemeralDiskAndUserdata(ContainerDiskFor(ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n")
-	StartVmOnNode(vmi, nodeName)
-
+func GetNodeLibvirtCapabilities(vmi *v1.VirtualMachineInstance) string {
 	return RunCommandOnVmiPod(vmi, []string{"virsh", "-r", "capabilities"})
 }
 
 // GetNodeCPUInfo returns output of lscpu on the pod that runs on the specified node
-func GetNodeCPUInfo(nodeName string) string {
-	vmi := NewRandomVMIWithEphemeralDiskAndUserdata(ContainerDiskFor(ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n")
-	StartVmOnNode(vmi, nodeName)
-
+func GetNodeCPUInfo(vmi *v1.VirtualMachineInstance) string {
 	return RunCommandOnVmiPod(vmi, []string{"lscpu"})
 }
 
