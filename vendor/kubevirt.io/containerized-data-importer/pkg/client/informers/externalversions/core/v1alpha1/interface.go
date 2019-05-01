@@ -45,12 +45,12 @@ func New(f internalinterfaces.SharedInformerFactory, namespace string, tweakList
 
 // CDIs returns a CDIInformer.
 func (v *version) CDIs() CDIInformer {
-	return &cDIInformer{factory: v.factory, namespace: v.namespace, tweakListOptions: v.tweakListOptions}
+	return &cDIInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
 }
 
 // CDIConfigs returns a CDIConfigInformer.
 func (v *version) CDIConfigs() CDIConfigInformer {
-	return &cDIConfigInformer{factory: v.factory, namespace: v.namespace, tweakListOptions: v.tweakListOptions}
+	return &cDIConfigInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
 }
 
 // DataVolumes returns a DataVolumeInformer.

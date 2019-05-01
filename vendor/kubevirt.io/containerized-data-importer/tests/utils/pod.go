@@ -27,6 +27,12 @@ func CreateExecutorPodWithPVC(clientSet *kubernetes.Clientset, podName, namespac
 	return CreatePod(clientSet, namespace, newExecutorPodWithPVC(podName, pvc))
 }
 
+// CreateExecutorPodWithBlockPVC creates a Pod with the passed in PVC mounted under /pvc. You can then use the executor utilities to
+// run commands against the PVC through this Pod.
+func CreateExecutorPodWithBlockPVC(clientSet *kubernetes.Clientset, podName, namespace string, pvc *k8sv1.PersistentVolumeClaim) (*k8sv1.Pod, error) {
+	return CreatePod(clientSet, namespace, newExecutorPodWithBlockPVC(podName, pvc))
+}
+
 // CreatePod calls the Kubernetes API to create a Pod
 func CreatePod(clientSet *kubernetes.Clientset, namespace string, podDef *k8sv1.Pod) (*k8sv1.Pod, error) {
 	var pod *k8sv1.Pod
@@ -61,12 +67,45 @@ func NewPodWithPVC(podName, cmd string, pvc *k8sv1.PersistentVolumeClaim) *k8sv1
 			Containers: []k8sv1.Container{
 				{
 					Name:    "runner",
-					Image:   "fedora:28",
+					Image:   "fedora:29",
 					Command: []string{"/bin/sh", "-c", cmd},
 					VolumeMounts: []k8sv1.VolumeMount{
 						{
 							Name:      pvc.GetName(),
 							MountPath: DefaultPvcMountPath,
+						},
+					},
+				},
+			},
+			Volumes: []k8sv1.Volume{
+				{
+					Name: pvc.GetName(),
+					VolumeSource: k8sv1.VolumeSource{
+						PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{
+							ClaimName: pvc.GetName(),
+						},
+					},
+				},
+			},
+		},
+	}
+}
+
+// NewPodWithBlockPVC creates a new pod that mounts the given PVC as block device
+func NewPodWithBlockPVC(podName, cmd string, pvc *k8sv1.PersistentVolumeClaim) *k8sv1.Pod {
+	return &k8sv1.Pod{
+		ObjectMeta: metav1.ObjectMeta{Name: podName},
+		Spec: k8sv1.PodSpec{
+			RestartPolicy: k8sv1.RestartPolicyNever,
+			Containers: []k8sv1.Container{
+				{
+					Name:    "runner",
+					Image:   "fedora:28",
+					Command: []string{"/bin/sh", "-c", cmd},
+					VolumeDevices: []k8sv1.VolumeDevice{
+						{
+							Name:       pvc.GetName(),
+							DevicePath: DefaultPvcMountPath,
 						},
 					},
 				},
@@ -117,6 +156,10 @@ func FindPodByPrefix(clientSet *kubernetes.Clientset, namespace, prefix, labelSe
 
 func newExecutorPodWithPVC(podName string, pvc *k8sv1.PersistentVolumeClaim) *k8sv1.Pod {
 	return NewPodWithPVC(podName, "sleep 30; echo I am an executor pod;", pvc)
+}
+
+func newExecutorPodWithBlockPVC(podName string, pvc *k8sv1.PersistentVolumeClaim) *k8sv1.Pod {
+	return NewPodWithBlockPVC(podName, "sleep 30; echo I am an executor pod;", pvc)
 }
 
 // WaitTimeoutForPodReady waits for the given pod to be created and ready

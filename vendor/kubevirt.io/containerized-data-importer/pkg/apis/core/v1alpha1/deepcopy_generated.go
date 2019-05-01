@@ -140,6 +140,11 @@ func (in *CDIConfigSpec) DeepCopyInto(out *CDIConfigSpec) {
 		*out = new(string)
 		**out = **in
 	}
+	if in.ScratchSpaceStorageClass != nil {
+		in, out := &in.ScratchSpaceStorageClass, &out.ScratchSpaceStorageClass
+		*out = new(string)
+		**out = **in
+	}
 	return
 }
 

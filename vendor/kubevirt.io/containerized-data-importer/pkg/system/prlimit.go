@@ -23,9 +23,9 @@ import (
 	"syscall"
 	"unsafe"
 
-	"github.com/golang/glog"
 	"github.com/pkg/errors"
 	"golang.org/x/sys/unix"
+	"k8s.io/klog"
 )
 
 // ProcessLimiter defines the methods limiting resources of a Process
@@ -104,8 +104,7 @@ func processScanner(scanner *bufio.Scanner, buf *bytes.Buffer, done chan bool, c
 
 // ExecWithLimits executes a command with process limits
 func ExecWithLimits(limits *ProcessLimitValues, callback func(string), command string, args ...string) ([]byte, error) {
-	glog.Infof("ExecWithLimits %s, %+v", command, args)
-
+	// Args can potentially contain sensitive information, make sure NOT to write args to the logs.
 	var buf bytes.Buffer
 	stdoutDone := make(chan bool)
 	stderrDone := make(chan bool)
@@ -156,8 +155,8 @@ func ExecWithLimits(limits *ProcessLimitValues, callback func(string), command s
 
 	output := buf.Bytes()
 	if err != nil {
-		glog.Errorf("%s %s failed output is:\n", command, args)
-		glog.Errorf("%s\n", string(output))
+		klog.Errorf("%s failed output is:\n", command)
+		klog.Errorf("%s\n", string(output))
 		return output, errors.Wrapf(err, "%s execution failed", command)
 	}
 	return output, nil

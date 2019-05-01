@@ -14,21 +14,40 @@ package main
 
 import (
 	"flag"
-
-	"github.com/golang/glog"
-	"github.com/pkg/errors"
-	"kubevirt.io/containerized-data-importer/tests/utils"
 	"os"
 	"path/filepath"
 	"strings"
+
+	"github.com/pkg/errors"
+	"k8s.io/klog"
+
+	"kubevirt.io/containerized-data-importer/pkg/util"
+	"kubevirt.io/containerized-data-importer/tests/utils"
+)
+
+const (
+	serviceName   = "cdi-file-host"
+	configMapName = serviceName + "-certs"
+	certFile      = "tls.crt"
+	keyFile       = "tls.key"
 )
 
 func main() {
+	certDir := flag.String("certDir", "", "")
 	inFile := flag.String("inFile", "", "")
 	outDir := flag.String("outDir", "", "")
 	flag.Parse()
+	klogFlags := flag.NewFlagSet("klog", flag.ExitOnError)
+	klog.InitFlags(klogFlags)
+	flag.CommandLine.VisitAll(func(f1 *flag.Flag) {
+		f2 := klogFlags.Lookup(f1.Name)
+		if f2 != nil {
+			value := f1.Value.String()
+			f2.Value.Set(value)
+		}
+	})
 
-	glog.Info("Generating test files")
+	klog.Info("Generating test files")
 	ft := &formatTable{
 		[]string{""},
 		[]string{".tar"},
@@ -39,24 +58,28 @@ func main() {
 		[]string{".qcow2"},
 	}
 
+	if err := utils.CreateCertForTestService(util.GetNamespace(), serviceName, configMapName, *certDir, certFile, keyFile); err != nil {
+		klog.Fatal(errors.Wrapf(err, "populate certificate directory %s' errored: ", *certDir))
+	}
+
 	if err := os.MkdirAll(*outDir, 0777); err != nil {
-		glog.Fatal(errors.Wrapf(err, "'mkdir %s' errored: ", *outDir))
+		klog.Fatal(errors.Wrapf(err, "'mkdir %s' errored: ", *outDir))
 	}
 	if err := ft.initializeTestFiles(*inFile, *outDir); err != nil {
-		glog.Fatal(err)
+		klog.Fatal(err)
 	}
-	glog.Info("File initialization completed without error.")
+	klog.Info("File initialization completed without error.")
 }
 
 type formatTable [][]string
 
 func (ft formatTable) initializeTestFiles(inFile, outDir string) error {
-	sem := make(chan bool, 3)
+	sem := make(chan bool, 2)
 	errChan := make(chan error, len(ft))
 
 	reportError := func(err error, msg string, format ...interface{}) {
 		e := errors.Wrapf(err, msg, format...)
-		glog.Error(e)
+		klog.Error(e)
 		errChan <- e
 		return
 	}
@@ -66,7 +89,7 @@ func (ft formatTable) initializeTestFiles(inFile, outDir string) error {
 
 		go func(i, o string, f []string) {
 			defer func() { <-sem }()
-			glog.Infof("Generating file %s\n", f)
+			klog.Infof("Generating file %s\n", f)
 
 			ext := strings.Join(f, "")
 			tmpDir := filepath.Join(o, "tmp"+ext)
@@ -81,7 +104,7 @@ func (ft formatTable) initializeTestFiles(inFile, outDir string) error {
 				}
 			}()
 
-			glog.Infof("Mkdir %s\n", tmpDir)
+			klog.Infof("Mkdir %s\n", tmpDir)
 
 			p, err := utils.FormatTestData(i, tmpDir, f...)
 			if err != nil {
@@ -94,7 +117,7 @@ func (ft formatTable) initializeTestFiles(inFile, outDir string) error {
 				return
 			}
 
-			glog.Infof("Generated file %q\n", p)
+			klog.Infof("Generated file %q\n", p)
 		}(inFile, outDir, fList)
 	}
 	for i := 0; i < cap(sem); i++ {
@@ -104,7 +127,7 @@ func (ft formatTable) initializeTestFiles(inFile, outDir string) error {
 
 	if len(errChan) > 0 {
 		for err := range errChan {
-			glog.Error(err)
+			klog.Error(err)
 		}
 		return errors.New("Error(s) occurred during file conversion")
 	}

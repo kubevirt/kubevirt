@@ -4,14 +4,16 @@ import (
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes"
+
 	//"time"
 	"fmt"
+	"time"
+
 	"github.com/onsi/ginkgo"
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"time"
 )
 
 const (
@@ -68,6 +70,46 @@ func NewPVDefinition(pvName string, size string, labels map[string]string, stora
 									Key:      "kubernetes.io/hostname",
 									Operator: k8sv1.NodeSelectorOpIn,
 									Values:   []string{"node01"},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+}
+
+// NewBlockPVDefinition creates a PV definition with volueMode 'Block'
+func NewBlockPVDefinition(pvName string, size string, labels map[string]string, storageClassName string, nodeName string) *k8sv1.PersistentVolume {
+	volumeMode := k8sv1.PersistentVolumeBlock
+	return &k8sv1.PersistentVolume{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:   pvName,
+			Labels: labels,
+		},
+		Spec: k8sv1.PersistentVolumeSpec{
+			StorageClassName:              storageClassName,
+			AccessModes:                   []k8sv1.PersistentVolumeAccessMode{k8sv1.ReadWriteOnce},
+			PersistentVolumeReclaimPolicy: k8sv1.PersistentVolumeReclaimDelete,
+			Capacity: k8sv1.ResourceList{
+				k8sv1.ResourceName(k8sv1.ResourceStorage): resource.MustParse(size),
+			},
+			VolumeMode: &volumeMode,
+			PersistentVolumeSource: k8sv1.PersistentVolumeSource{
+				Local: &k8sv1.LocalVolumeSource{
+					Path: "/mnt/local-storage/block-device/loop0",
+				},
+			},
+			NodeAffinity: &k8sv1.VolumeNodeAffinity{
+				Required: &k8sv1.NodeSelector{
+					NodeSelectorTerms: []k8sv1.NodeSelectorTerm{
+						{
+							MatchExpressions: []k8sv1.NodeSelectorRequirement{
+								{
+									Key:      "kubernetes.io/hostname",
+									Operator: k8sv1.NodeSelectorOpIn,
+									Values:   []string{nodeName},
 								},
 							},
 						},

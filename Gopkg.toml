@@ -15,7 +15,7 @@ required = [
 
 [[override]]
   name = "kubevirt.io/containerized-data-importer"
-  version = "=v1.6.0"
+  version = "=v1.8.0"
 
 [[override]]
   name = "kubevirt.io/kubevirt"

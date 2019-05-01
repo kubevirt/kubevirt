@@ -142,6 +142,7 @@ func createDataVolumeCRD() *extv1beta1.CustomResourceDefinition {
 									},
 									Required: []string{
 										"resources",
+										"accessModes",
 									},
 								},
 							},

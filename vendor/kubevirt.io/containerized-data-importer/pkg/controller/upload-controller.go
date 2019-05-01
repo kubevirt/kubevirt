@@ -19,9 +19,8 @@ package controller
 import (
 	"time"
 
-	"github.com/golang/glog"
 	"github.com/pkg/errors"
-	"k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/runtime"
@@ -32,9 +31,11 @@ import (
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/cert/triple"
 	"k8s.io/client-go/util/workqueue"
-
+	"k8s.io/klog"
 	"kubevirt.io/containerized-data-importer/pkg/keys"
 	"kubevirt.io/containerized-data-importer/pkg/util"
+
+	clientset "kubevirt.io/containerized-data-importer/pkg/client/clientset/versioned"
 )
 
 const (
@@ -62,6 +63,7 @@ const (
 // UploadController members
 type UploadController struct {
 	client                                    kubernetes.Interface
+	cdiClient                                 clientset.Interface
 	queue                                     workqueue.RateLimitingInterface
 	pvcInformer, podInformer, serviceInformer cache.SharedIndexInformer
 	pvcLister                                 corelisters.PersistentVolumeClaimLister
@@ -99,6 +101,7 @@ func UploadPossibleForPVC(pvc *v1.PersistentVolumeClaim) error {
 
 // NewUploadController returns a new UploadController
 func NewUploadController(client kubernetes.Interface,
+	cdiClientSet clientset.Interface,
 	pvcInformer coreinformers.PersistentVolumeClaimInformer,
 	podInformer coreinformers.PodInformer,
 	serviceInformer coreinformers.ServiceInformer,
@@ -108,6 +111,7 @@ func NewUploadController(client kubernetes.Interface,
 	verbose string) *UploadController {
 	c := &UploadController{
 		client:                 client,
+		cdiClient:              cdiClientSet,
 		queue:                  workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter()),
 		pvcInformer:            pvcInformer.Informer(),
 		podInformer:            podInformer.Informer(),
@@ -167,39 +171,44 @@ func NewUploadController(client kubernetes.Interface,
 	return c
 }
 
-// Run sets up UploadController state and executes main event loop
-func (c *UploadController) Run(threadiness int, stopCh <-chan struct{}) error {
-	defer runtime.HandleCrash()
-	defer c.queue.ShutDown()
-
-	glog.V(2).Infoln("Getting/creating certs")
+// Init does synchronous initialization before being considered "ready"
+func (c *UploadController) Init() error {
+	klog.V(2).Infoln("Getting/creating certs")
 
 	if err := c.initCerts(); err != nil {
 		runtime.HandleError(err)
 		return errors.Wrap(err, "Error initializing certificates")
 	}
 
-	glog.V(2).Infoln("Starting cdi upload controller Run loop")
+	return nil
+}
+
+// Run sets up UploadController state and executes main event loop
+func (c *UploadController) Run(threadiness int, stopCh <-chan struct{}) error {
+	defer runtime.HandleCrash()
+	defer c.queue.ShutDown()
+
+	klog.V(2).Infoln("Starting cdi upload controller Run loop")
 
 	if threadiness < 1 {
 		return errors.Errorf("expected >0 threads, got %d", threadiness)
 	}
 
-	glog.V(3).Info("Waiting for informer caches to sync")
+	klog.V(3).Info("Waiting for informer caches to sync")
 
 	if ok := cache.WaitForCacheSync(stopCh, c.pvcsSynced, c.podsSynced, c.servicesSynced); !ok {
 		return errors.New("failed to wait for caches to sync")
 	}
 
-	glog.V(3).Infoln("UploadController cache has synced")
+	klog.V(3).Infoln("UploadController cache has synced")
 
 	for i := 0; i < threadiness; i++ {
 		go wait.Until(c.runWorker, time.Second, stopCh)
 	}
 
-	glog.Info("Started workers")
+	klog.Info("Started workers")
 	<-stopCh
-	glog.Info("Shutting down workers")
+	klog.Info("Shutting down workers")
 
 	return nil
 }
@@ -268,9 +277,9 @@ func (c *UploadController) handleObject(obj interface{}) {
 			runtime.HandleError(errors.Errorf("error decoding object tombstone, invalid type"))
 			return
 		}
-		glog.V(3).Infof("Recovered deleted object '%s' from tombstone", object.GetName())
+		klog.V(3).Infof("Recovered deleted object '%s' from tombstone", object.GetName())
 	}
-	glog.V(3).Infof("Processing object: %s", object.GetName())
+	klog.V(3).Infof("Processing object: %s", object.GetName())
 	if ownerRef := metav1.GetControllerOf(object); ownerRef != nil {
 		_, createdByUs := object.GetAnnotations()[annCreatedByUpload]
 
@@ -280,11 +289,11 @@ func (c *UploadController) handleObject(obj interface{}) {
 
 		pvc, err := c.pvcLister.PersistentVolumeClaims(object.GetNamespace()).Get(ownerRef.Name)
 		if err != nil {
-			glog.V(3).Infof("ignoring orphaned object '%s' of pvc '%s'", object.GetSelfLink(), ownerRef.Name)
+			klog.V(3).Infof("ignoring orphaned object '%s' of pvc '%s'", object.GetSelfLink(), ownerRef.Name)
 			return
 		}
 
-		glog.V(3).Infof("queueing pvc %+v!!", pvc)
+		klog.V(3).Infof("queueing pvc %+v!!", pvc)
 
 		c.enqueueObject(pvc)
 		return
@@ -329,7 +338,7 @@ func (c *UploadController) processNextWorkItem() bool {
 		}
 
 		c.queue.Forget(obj)
-		glog.Infof("Successfully synced '%s'", key)
+		klog.Infof("Successfully synced '%s'", key)
 		return nil
 
 	}(obj)
@@ -436,7 +445,6 @@ func (c *UploadController) syncHandler(key string) error {
 		if err != nil {
 			return errors.Wrapf(err, "Error deleting upload pod for pvc: %s", key)
 		}
-
 	} else {
 		// make sure the service exists
 		if _, err = c.getOrCreateUploadService(pvc, resourceName); err != nil {
@@ -451,14 +459,39 @@ func (c *UploadController) getOrCreateUploadPod(pvc *v1.PersistentVolumeClaim, n
 	pod, err := c.podLister.Pods(pvc.Namespace).Get(name)
 
 	if k8serrors.IsNotFound(err) {
-		pod, err = CreateUploadPod(c.client, c.serverCAKeyPair, c.clientCAKeyPair.Cert, c.uploadServiceImage, c.verbose, c.pullPolicy, name, pvc)
+		pod, err = CreateUploadPod(c.client, c.serverCAKeyPair, c.clientCAKeyPair.Cert, c.uploadServiceImage, c.verbose, c.pullPolicy, name, pvc, pvc.Name+"-scratch")
+	}
+	// Always try to get or create the scratch PVC for a pod that is not successful yet, if it exists nothing happens otherwise attempt to create.
+	_, err = c.getOrCreateScratchPvc(pvc, pod)
+	if err != nil {
+		return nil, errors.Wrap(err, "Unable to create scratch space for upload")
 	}
 
 	if pod != nil && !metav1.IsControlledBy(pod, pvc) {
 		return nil, errors.Errorf("%s pod not controlled by pvc %s", name, pvc.Name)
 	}
-
 	return pod, err
+}
+
+func (c *UploadController) getOrCreateScratchPvc(pvc *v1.PersistentVolumeClaim, pod *v1.Pod) (*v1.PersistentVolumeClaim, error) {
+	scratchPvc, err := c.pvcLister.PersistentVolumeClaims(pvc.Namespace).Get(pvc.Name + "-scratch")
+	if scratchPvc != nil {
+		// Scratch PVC already exists, maybe the pod crashed and the pvc didn't get cleaned up, verify this pvc is owned by the pod.
+		for _, ownerRef := range scratchPvc.OwnerReferences {
+			if ownerRef.UID == pod.UID {
+				return scratchPvc, nil
+			}
+		}
+		return nil, errors.New("Scratch PVC exists, but is not owned by the right pod")
+	}
+	storageClassName := GetScratchPvcStorageClass(c.client, c.cdiClient, pvc)
+
+	// Scratch PVC doesn't exist yet, create it. Determine which storage class to use.
+	scratchPvc, err = CreateScratchPersistentVolumeClaim(c.client, pvc, pod, storageClassName)
+	if err != nil {
+		return nil, err
+	}
+	return scratchPvc, nil
 }
 
 func (c *UploadController) getOrCreateUploadService(pvc *v1.PersistentVolumeClaim, name string) (*v1.Service, error) {

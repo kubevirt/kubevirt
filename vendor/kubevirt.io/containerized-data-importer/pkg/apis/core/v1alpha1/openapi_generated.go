@@ -248,6 +248,12 @@ func schema_pkg_apis_core_v1alpha1_CDIConfigSpec(ref common.ReferenceCallback) c
 							Format: "",
 						},
 					},
+					"scratchSpaceStorageClass": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
 				},
 			},
 		},
@@ -262,6 +268,12 @@ func schema_pkg_apis_core_v1alpha1_CDIConfigStatus(ref common.ReferenceCallback)
 				Description: "CDIConfigStatus provides",
 				Properties: map[string]spec.Schema{
 					"uploadProxyURL": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"scratchSpaceStorageClass": {
 						SchemaProps: spec.SchemaProps{
 							Type:   []string{"string"},
 							Format: "",
@@ -714,6 +726,12 @@ func schema_pkg_apis_core_v1alpha1_DataVolumeStatus(ref common.ReferenceCallback
 							Description: "Phase is the current phase of the data volume",
 							Type:        []string{"string"},
 							Format:      "",
+						},
+					},
+					"progress": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
 						},
 					},
 				},

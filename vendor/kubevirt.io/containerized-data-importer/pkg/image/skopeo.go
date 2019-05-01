@@ -23,9 +23,8 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/golang/glog"
 	"github.com/pkg/errors"
-
+	"k8s.io/klog"
 	"kubevirt.io/containerized-data-importer/pkg/system"
 	"kubevirt.io/containerized-data-importer/pkg/util"
 )
@@ -69,10 +68,10 @@ func (o *skopeoOperations) CopyImage(url, dest, accessKey, secKey, certDir strin
 		args = append(args, creds)
 	}
 	if certDir != "" {
-		glog.Infof("Using user specified TLS certs at %s", certDir)
+		klog.Infof("Using user specified TLS certs at %s", certDir)
 		args = append(args, "--src-cert-dir="+certDir)
 	} else if insecureRegistry {
-		glog.Infof("Disabling TLS verification for URL %s", url)
+		klog.Infof("Disabling TLS verification for URL %s", url)
 		args = append(args, "--src-tls-verify=false")
 	}
 	_, err = skopeoExecFunction(nil, nil, "skopeo", args...)
@@ -83,13 +82,22 @@ func (o *skopeoOperations) CopyImage(url, dest, accessKey, secKey, certDir strin
 }
 
 // CopyRegistryImage download image from registry with skopeo
+// url: source registry url.
+// dest: the scratch space destination.
+// accessKey: accessKey for the registry described in url.
+// secKey: secretKey for the registry decribed in url.
+// certDir: directory public CA keys are stored for registry identity verification
+// insecureRegistry: boolean if true will allow insecure registries.
 func CopyRegistryImage(url, dest, destFile, accessKey, secKey, certDir string, insecureRegistry bool) error {
-	skopeoDest := "dir:" + dest + dataTmpDir
+	skopeoDest := "dir:" + filepath.Join(dest, dataTmpDir)
+
+	// Copy to scratch space
 	err := SkopeoInterface.CopyImage(url, skopeoDest, accessKey, secKey, certDir, insecureRegistry)
 	if err != nil {
-		os.RemoveAll(dest + dataTmpDir)
+		os.RemoveAll(filepath.Join(dest, dataTmpDir))
 		return errors.Wrap(err, "Failed to download from registry")
 	}
+	// Extract image layers to target space.
 	err = extractImageLayers(dest, destFile)
 	if err != nil {
 		return errors.Wrap(err, "Failed to extract image layers")
@@ -98,18 +106,18 @@ func CopyRegistryImage(url, dest, destFile, accessKey, secKey, certDir string, i
 	//If a specifc file was requested verify it exists, if not - fail
 	if len(destFile) > 0 {
 		if _, err = os.Stat(filepath.Join(dest, destFile)); err != nil {
-			glog.Errorf("Failed to find VM disk image file in the container image")
+			klog.Errorf("Failed to find VM disk image file in the container image")
 			err = errors.New("Failed to find VM disk image file in the container image")
 		}
 	}
-	// Clean temp folder
-	os.RemoveAll(dest + dataTmpDir)
+	// Clean scratch space
+	os.RemoveAll(filepath.Join(dest, dataTmpDir))
 
 	return err
 }
 
 var extractImageLayers = func(dest string, arg ...string) error {
-	glog.V(1).Infof("extracting image layers to %q\n", dest)
+	klog.V(1).Infof("extracting image layers to %q\n", dest)
 	// Parse manifest file
 	manifest, err := getImageManifest(dest + dataTmpDir)
 	if err != nil {

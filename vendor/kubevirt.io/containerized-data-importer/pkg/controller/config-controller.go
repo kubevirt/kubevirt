@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/golang/glog"
 	routev1 "github.com/openshift/api/route/v1"
 	routeinformers "github.com/openshift/client-go/route/informers/externalversions/route/v1"
 	routelisters "github.com/openshift/client-go/route/listers/route/v1"
@@ -19,6 +18,7 @@ import (
 	extensionlisters "k8s.io/client-go/listers/extensions/v1beta1"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
+	"k8s.io/klog"
 	cdiv1 "kubevirt.io/containerized-data-importer/pkg/apis/core/v1alpha1"
 	cdiclientset "kubevirt.io/containerized-data-importer/pkg/client/clientset/versioned"
 	informers "kubevirt.io/containerized-data-importer/pkg/client/informers/externalversions/core/v1alpha1"
@@ -134,6 +134,7 @@ func (c *ConfigController) handleObjDelete(obj interface{}) {
 }
 
 func (c *ConfigController) handleObject(obj interface{}, verb string) {
+
 	var object metav1.Object
 	var ok bool
 	if object, ok = obj.(metav1.Object); !ok {
@@ -147,24 +148,14 @@ func (c *ConfigController) handleObject(obj interface{}, verb string) {
 			runtime.HandleError(errors.Errorf("error decoding object tombstone, invalid type"))
 			return
 		}
-		glog.V(3).Infof("Recovered deleted object '%s' from tombstone", object.GetName())
+		klog.V(3).Infof("Recovered deleted object '%s' from tombstone", object.GetName())
 	}
-	glog.V(3).Infof("Processing object: %s", object.GetName())
+	klog.V(3).Infof("Processing object: %s", object.GetName())
 
 	var config *cdiv1.CDIConfig
-	configs, err := c.configLister.CDIConfigs(metav1.NamespaceAll).List(labels.NewSelector())
+	config, err := c.configLister.Get(c.configName)
 	if err != nil {
-		runtime.HandleError(errors.Errorf("error listing CDI configs: %s", err))
-		return
-	}
-	for _, conf := range configs {
-		if conf.Name == c.configName {
-			config = conf
-		}
-	}
-
-	if config == nil {
-		runtime.HandleError(errors.Errorf("error getting CDI config"))
+		runtime.HandleError(errors.Errorf("error getting CDI config: %s", err))
 		return
 	}
 
@@ -223,7 +214,7 @@ func (c *ConfigController) processNextWorkItem() bool {
 		}
 
 		c.queue.Forget(obj)
-		glog.Infof("Successfully synced '%s'", key)
+		klog.Infof("Successfully synced '%s'", key)
 		return nil
 
 	}(obj)
@@ -237,24 +228,15 @@ func (c *ConfigController) processNextWorkItem() bool {
 }
 
 func (c *ConfigController) syncHandler(key string) error {
-	namespace, name, err := cache.SplitMetaNamespaceKey(key)
+	updateConfig := false
+	_, name, err := cache.SplitMetaNamespaceKey(key)
 	if err != nil {
 		runtime.HandleError(errors.Errorf("invalid resource key: %s", key))
 		return nil
 	}
 
-	var config *cdiv1.CDIConfig
-	configs, err := c.configLister.CDIConfigs(namespace).List(labels.NewSelector())
+	config, err := c.configLister.Get(name)
 	if err != nil {
-		return err
-	}
-	for _, conf := range configs {
-		if conf.Name == name {
-			config = conf
-		}
-	}
-
-	if config == nil {
 		runtime.HandleError(errors.Errorf("CDIConfig '%s' in work queue no longer exists", key))
 		return nil
 	}
@@ -287,22 +269,72 @@ func (c *ConfigController) syncHandler(key string) error {
 			}
 		}
 	}
+
 	if (config.Status.UploadProxyURL != nil && url == *config.Status.UploadProxyURL) || (config.Status.UploadProxyURL == nil && url == "") {
-		//status already stores the URL
-		return nil
-	}
-
-	newConfig := config.DeepCopy()
-	// mutate newConfig
-	if url == "" {
-		newConfig.Status.UploadProxyURL = nil
+		updateConfig = false
 	} else {
-		newConfig.Status.UploadProxyURL = &url
+		updateConfig = true
+	}
+	newConfig := config.DeepCopy()
+	if updateConfig {
+		// mutate newConfig
+		if url == "" {
+			newConfig.Status.UploadProxyURL = nil
+		} else {
+			newConfig.Status.UploadProxyURL = &url
+		}
 	}
 
-	err = updateCDIConfig(c.cdiClientSet, newConfig)
+	storageClass, err := c.scratchSpaceStorageClassStatus(config)
+
+	if storageClass == config.Status.ScratchSpaceStorageClass {
+		updateConfig = updateConfig || false
+	} else {
+		newConfig.Status.ScratchSpaceStorageClass = storageClass
+		updateConfig = true
+	}
+
+	if updateConfig {
+		err = updateCDIConfig(c.cdiClientSet, newConfig)
+		if err != nil {
+			return fmt.Errorf("Error updating CDI Config %s: %s", key, err)
+		}
+	}
+
+	return nil
+}
+
+func (c *ConfigController) scratchSpaceStorageClassStatus(config *cdiv1.CDIConfig) (string, error) {
+	storageClassList, err := c.client.StorageV1().StorageClasses().List(metav1.ListOptions{})
 	if err != nil {
-		return fmt.Errorf("Error updating CDI Config %s: %s", key, err)
+		klog.Warningf("Unable to find storage classes, %v\n", err)
+	}
+	// Check config for scratch space class
+	if config.Spec.ScratchSpaceStorageClass != nil {
+		for _, storageClass := range storageClassList.Items {
+			if storageClass.Name == *config.Spec.ScratchSpaceStorageClass {
+				return storageClass.Name, nil
+			}
+		}
+	}
+	// Check for default storage class.
+	for _, storageClass := range storageClassList.Items {
+		if defaultClassValue, ok := storageClass.Annotations[AnnDefaultStorageClass]; ok {
+			if defaultClassValue == "true" {
+				return storageClass.Name, nil
+			}
+		}
+	}
+	return "", nil
+}
+
+// Init is meant to be called synchroniously when the the controller is starting
+func (c *ConfigController) Init() error {
+	klog.V(3).Infoln("Creating CDI config if necessary")
+
+	if err := EnsureCDIConfigExists(c.client, c.cdiClientSet, c.configName); err != nil {
+		runtime.HandleError(err)
+		return errors.Wrap(err, "Error creating CDI config")
 	}
 
 	return nil
@@ -314,30 +346,28 @@ func (c *ConfigController) Run(threadiness int, stopCh <-chan struct{}) error {
 		c.queue.ShutDown()
 	}()
 
-	glog.V(3).Infoln("Creating CDI config")
-	if _, err := CreateCDIConfig(c.client, c.cdiClientSet, c.configName); err != nil {
-		runtime.HandleError(err)
-		return errors.Wrap(err, "Error creating CDI config")
-	}
-
-	glog.V(3).Infoln("Starting config controller Run loop")
+	klog.V(3).Infoln("Starting config controller Run loop")
 	if threadiness < 1 {
 		return errors.Errorf("expected >0 threads, got %d", threadiness)
 	}
 
-	if ok := cache.WaitForCacheSync(stopCh, c.ingressesSynced, c.routesSynced); !ok {
+	informersNeedingSync := []cache.InformerSynced{c.ingressesSynced}
+	if isOpenshift := IsOpenshift(c.client); isOpenshift {
+		informersNeedingSync = append(informersNeedingSync, c.routesSynced)
+	}
+	if ok := cache.WaitForCacheSync(stopCh, informersNeedingSync...); !ok {
 		return errors.New("failed to wait for caches to sync")
 	}
 
-	glog.V(3).Infoln("ConfigController cache has synced")
+	klog.V(3).Infoln("ConfigController cache has synced")
 
 	for i := 0; i < threadiness; i++ {
 		go wait.Until(c.runWorker, time.Second, stopCh)
 	}
 
-	glog.Info("Started workers")
+	klog.Info("Started workers")
 	<-stopCh
-	glog.Info("Shutting down workers")
+	klog.Info("Shutting down workers")
 	return nil
 }
 

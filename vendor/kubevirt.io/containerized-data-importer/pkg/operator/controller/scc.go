@@ -24,12 +24,52 @@ import (
 
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
+	"k8s.io/apimachinery/pkg/types"
 
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/controller"
+	"sigs.k8s.io/controller-runtime/pkg/handler"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
+	"sigs.k8s.io/controller-runtime/pkg/source"
 
 	cdiv1alpha1 "kubevirt.io/containerized-data-importer/pkg/apis/core/v1alpha1"
 	cdinamespaced "kubevirt.io/containerized-data-importer/pkg/operator/resources/namespaced"
 )
+
+func (r *ReconcileCDI) watchSecurityContextConstraints(c controller.Controller) error {
+	err := c.Watch(
+		&source.Kind{Type: &secv1.SecurityContextConstraints{}},
+		&handler.EnqueueRequestsFromMapFunc{
+			ToRequests: handler.ToRequestsFunc(func(obj handler.MapObject) []reconcile.Request {
+				var rrs []reconcile.Request
+				cdiList := &cdiv1alpha1.CDIList{}
+
+				if err := r.client.List(context.TODO(), &client.ListOptions{}, cdiList); err != nil {
+					log.Error(err, "Error listing all CDI objects")
+					return nil
+				}
+
+				for _, cdi := range cdiList.Items {
+					rr := reconcile.Request{
+						NamespacedName: types.NamespacedName{Namespace: cdi.Namespace, Name: cdi.Name},
+					}
+					rrs = append(rrs, rr)
+				}
+
+				return rrs
+			}),
+		})
+	if err != nil {
+		if errors.IsNotFound(err) || meta.IsNoMatchError(err) {
+			log.Info("Not watching SecurityContextConstraints")
+			return nil
+		}
+
+		return err
+	}
+
+	return nil
+}
 
 func (r *ReconcileCDI) syncPrivilegedAccounts(logger logr.Logger, cr *cdiv1alpha1.CDI, add bool) error {
 	constraints := &secv1.SecurityContextConstraints{}
@@ -63,7 +103,7 @@ func (r *ReconcileCDI) syncPrivilegedAccounts(logger logr.Logger, cr *cdiv1alpha
 	}
 
 	if update {
-		log.Info("Updating SecurityContextConstraints")
+		logger.Info("Updating SecurityContextConstraints")
 
 		if err := r.client.Update(context.TODO(), constraints); err != nil {
 			return err

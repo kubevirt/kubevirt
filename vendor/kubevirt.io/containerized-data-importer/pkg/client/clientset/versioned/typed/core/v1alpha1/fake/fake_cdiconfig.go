@@ -31,7 +31,6 @@ import (
 // FakeCDIConfigs implements CDIConfigInterface
 type FakeCDIConfigs struct {
 	Fake *FakeCdiV1alpha1
-	ns   string
 }
 
 var cdiconfigsResource = schema.GroupVersionResource{Group: "cdi.kubevirt.io", Version: "v1alpha1", Resource: "cdiconfigs"}
@@ -41,8 +40,7 @@ var cdiconfigsKind = schema.GroupVersionKind{Group: "cdi.kubevirt.io", Version: 
 // Get takes name of the cDIConfig, and returns the corresponding cDIConfig object, and an error if there is any.
 func (c *FakeCDIConfigs) Get(name string, options v1.GetOptions) (result *v1alpha1.CDIConfig, err error) {
 	obj, err := c.Fake.
-		Invokes(testing.NewGetAction(cdiconfigsResource, c.ns, name), &v1alpha1.CDIConfig{})
-
+		Invokes(testing.NewRootGetAction(cdiconfigsResource, name), &v1alpha1.CDIConfig{})
 	if obj == nil {
 		return nil, err
 	}
@@ -52,8 +50,7 @@ func (c *FakeCDIConfigs) Get(name string, options v1.GetOptions) (result *v1alph
 // List takes label and field selectors, and returns the list of CDIConfigs that match those selectors.
 func (c *FakeCDIConfigs) List(opts v1.ListOptions) (result *v1alpha1.CDIConfigList, err error) {
 	obj, err := c.Fake.
-		Invokes(testing.NewListAction(cdiconfigsResource, cdiconfigsKind, c.ns, opts), &v1alpha1.CDIConfigList{})
-
+		Invokes(testing.NewRootListAction(cdiconfigsResource, cdiconfigsKind, opts), &v1alpha1.CDIConfigList{})
 	if obj == nil {
 		return nil, err
 	}
@@ -74,15 +71,13 @@ func (c *FakeCDIConfigs) List(opts v1.ListOptions) (result *v1alpha1.CDIConfigLi
 // Watch returns a watch.Interface that watches the requested cDIConfigs.
 func (c *FakeCDIConfigs) Watch(opts v1.ListOptions) (watch.Interface, error) {
 	return c.Fake.
-		InvokesWatch(testing.NewWatchAction(cdiconfigsResource, c.ns, opts))
-
+		InvokesWatch(testing.NewRootWatchAction(cdiconfigsResource, opts))
 }
 
 // Create takes the representation of a cDIConfig and creates it.  Returns the server's representation of the cDIConfig, and an error, if there is any.
 func (c *FakeCDIConfigs) Create(cDIConfig *v1alpha1.CDIConfig) (result *v1alpha1.CDIConfig, err error) {
 	obj, err := c.Fake.
-		Invokes(testing.NewCreateAction(cdiconfigsResource, c.ns, cDIConfig), &v1alpha1.CDIConfig{})
-
+		Invokes(testing.NewRootCreateAction(cdiconfigsResource, cDIConfig), &v1alpha1.CDIConfig{})
 	if obj == nil {
 		return nil, err
 	}
@@ -92,8 +87,7 @@ func (c *FakeCDIConfigs) Create(cDIConfig *v1alpha1.CDIConfig) (result *v1alpha1
 // Update takes the representation of a cDIConfig and updates it. Returns the server's representation of the cDIConfig, and an error, if there is any.
 func (c *FakeCDIConfigs) Update(cDIConfig *v1alpha1.CDIConfig) (result *v1alpha1.CDIConfig, err error) {
 	obj, err := c.Fake.
-		Invokes(testing.NewUpdateAction(cdiconfigsResource, c.ns, cDIConfig), &v1alpha1.CDIConfig{})
-
+		Invokes(testing.NewRootUpdateAction(cdiconfigsResource, cDIConfig), &v1alpha1.CDIConfig{})
 	if obj == nil {
 		return nil, err
 	}
@@ -104,8 +98,7 @@ func (c *FakeCDIConfigs) Update(cDIConfig *v1alpha1.CDIConfig) (result *v1alpha1
 // Add a +genclient:noStatus comment above the type to avoid generating UpdateStatus().
 func (c *FakeCDIConfigs) UpdateStatus(cDIConfig *v1alpha1.CDIConfig) (*v1alpha1.CDIConfig, error) {
 	obj, err := c.Fake.
-		Invokes(testing.NewUpdateSubresourceAction(cdiconfigsResource, "status", c.ns, cDIConfig), &v1alpha1.CDIConfig{})
-
+		Invokes(testing.NewRootUpdateSubresourceAction(cdiconfigsResource, "status", cDIConfig), &v1alpha1.CDIConfig{})
 	if obj == nil {
 		return nil, err
 	}
@@ -115,14 +108,13 @@ func (c *FakeCDIConfigs) UpdateStatus(cDIConfig *v1alpha1.CDIConfig) (*v1alpha1.
 // Delete takes name of the cDIConfig and deletes it. Returns an error if one occurs.
 func (c *FakeCDIConfigs) Delete(name string, options *v1.DeleteOptions) error {
 	_, err := c.Fake.
-		Invokes(testing.NewDeleteAction(cdiconfigsResource, c.ns, name), &v1alpha1.CDIConfig{})
-
+		Invokes(testing.NewRootDeleteAction(cdiconfigsResource, name), &v1alpha1.CDIConfig{})
 	return err
 }
 
 // DeleteCollection deletes a collection of objects.
 func (c *FakeCDIConfigs) DeleteCollection(options *v1.DeleteOptions, listOptions v1.ListOptions) error {
-	action := testing.NewDeleteCollectionAction(cdiconfigsResource, c.ns, listOptions)
+	action := testing.NewRootDeleteCollectionAction(cdiconfigsResource, listOptions)
 
 	_, err := c.Fake.Invokes(action, &v1alpha1.CDIConfigList{})
 	return err
@@ -131,8 +123,7 @@ func (c *FakeCDIConfigs) DeleteCollection(options *v1.DeleteOptions, listOptions
 // Patch applies the patch and returns the patched cDIConfig.
 func (c *FakeCDIConfigs) Patch(name string, pt types.PatchType, data []byte, subresources ...string) (result *v1alpha1.CDIConfig, err error) {
 	obj, err := c.Fake.
-		Invokes(testing.NewPatchSubresourceAction(cdiconfigsResource, c.ns, name, data, subresources...), &v1alpha1.CDIConfig{})
-
+		Invokes(testing.NewRootPatchSubresourceAction(cdiconfigsResource, name, data, subresources...), &v1alpha1.CDIConfig{})
 	if obj == nil {
 		return nil, err
 	}

@@ -17,14 +17,11 @@ limitations under the License.
 package operator
 
 import (
-	"fmt"
-
-	// use glog her because all callers currently using that
-	"github.com/golang/glog"
+	"fmt" // use klog her because all callers currently using that
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
-
+	"k8s.io/klog"
 	"kubevirt.io/containerized-data-importer/pkg/util"
 )
 
@@ -40,7 +37,7 @@ func SetOwner(client kubernetes.Interface, object metav1.Object) error {
 	namespace := util.GetNamespace()
 	configMap, err := client.CoreV1().ConfigMaps(namespace).Get(ConfigMapName, metav1.GetOptions{})
 	if err != nil {
-		glog.Warningf("ConfigMap %s does not exist, so not assigning owner", ConfigMapName)
+		klog.Warningf("ConfigMap %s does not exist, so not assigning owner", ConfigMapName)
 		return nil
 	}
 

@@ -23,7 +23,6 @@ import (
 	"io/ioutil"
 	"path/filepath"
 
-	"github.com/golang/glog"
 	"github.com/pkg/errors"
 	v1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
@@ -31,7 +30,7 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/util/cert"
 	"k8s.io/client-go/util/cert/triple"
-
+	"k8s.io/klog"
 	"kubevirt.io/containerized-data-importer/pkg/common"
 	"kubevirt.io/containerized-data-importer/pkg/operator"
 )
@@ -76,11 +75,11 @@ func GetOrCreateCA(client kubernetes.Interface, namespace, secretName, caName st
 	}
 
 	if keyPairAndCert != nil {
-		glog.Infof("Retrieved CA key/cert %s from kubernetes", caName)
+		klog.Infof("Retrieved CA key/cert %s from kubernetes", caName)
 		return &keyPairAndCert.KeyPair, nil
 	}
 
-	glog.Infof("Recreating CA %s", caName)
+	klog.Infof("Recreating CA %s", caName)
 
 	keyPair, err := triple.NewCA(caName)
 	if err != nil {
@@ -120,7 +119,7 @@ func GetOrCreateServerKeyPairAndCert(client kubernetes.Interface,
 	}
 
 	if keyPairAndCert != nil {
-		glog.Infof("Retrieved server key/cert %s from kubernetes", commonName)
+		klog.Infof("Retrieved server key/cert %s from kubernetes", commonName)
 		return keyPairAndCert, nil
 	}
 
@@ -158,7 +157,7 @@ func GetOrCreateClientKeyPairAndCert(client kubernetes.Interface,
 	}
 
 	if keyPairAndCert != nil {
-		glog.Infof("Retrieved client key/cert %s from kubernetes", commonName)
+		klog.Infof("Retrieved client key/cert %s from kubernetes", commonName)
 		return keyPairAndCert, nil
 	}
 

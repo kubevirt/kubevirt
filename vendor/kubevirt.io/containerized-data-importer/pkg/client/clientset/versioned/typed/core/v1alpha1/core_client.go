@@ -37,12 +37,12 @@ type CdiV1alpha1Client struct {
 	restClient rest.Interface
 }
 
-func (c *CdiV1alpha1Client) CDIs(namespace string) CDIInterface {
-	return newCDIs(c, namespace)
+func (c *CdiV1alpha1Client) CDIs() CDIInterface {
+	return newCDIs(c)
 }
 
-func (c *CdiV1alpha1Client) CDIConfigs(namespace string) CDIConfigInterface {
-	return newCDIConfigs(c, namespace)
+func (c *CdiV1alpha1Client) CDIConfigs() CDIConfigInterface {
+	return newCDIConfigs(c)
 }
 
 func (c *CdiV1alpha1Client) DataVolumes(namespace string) DataVolumeInterface {

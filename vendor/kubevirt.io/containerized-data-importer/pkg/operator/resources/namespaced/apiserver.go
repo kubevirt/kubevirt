@@ -22,12 +22,9 @@ import (
 	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/intstr"
-
-	"kubevirt.io/containerized-data-importer/pkg/common"
 )
 
 const (
-	cdiLabel                  = common.CDIComponentLabel
 	apiServerRessouceName     = "cdi-apiserver"
 	extensionAPIResourceName  = "cdi-extension-apiserver-authentication"
 	extensionAPIConfigMapName = "extension-apiserver-authentication"
@@ -124,6 +121,20 @@ func createAPIServerService() *corev1.Service {
 func createAPIServerDeployment(repo, image, tag, verbosity, pullPolicy string) *appsv1.Deployment {
 	deployment := createDeployment(apiServerRessouceName, cdiLabel, apiServerRessouceName, apiServerRessouceName, 1)
 	container := createContainer(apiServerRessouceName, repo, image, tag, verbosity, corev1.PullPolicy(pullPolicy))
+	container.ReadinessProbe = &corev1.Probe{
+		Handler: corev1.Handler{
+			HTTPGet: &corev1.HTTPGetAction{
+				Path: "/healthz",
+				Port: intstr.IntOrString{
+					Type:   intstr.Int,
+					IntVal: 8443,
+				},
+				Scheme: corev1.URISchemeHTTPS,
+			},
+		},
+		InitialDelaySeconds: 2,
+		PeriodSeconds:       5,
+	}
 	deployment.Spec.Template.Spec.Containers = []corev1.Container{container}
 	return deployment
 }

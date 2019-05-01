@@ -10,14 +10,16 @@ import (
 	"math/rand"
 	"os"
 	"os/exec"
+	"strconv"
 	"strings"
 	"syscall"
 	"time"
 
-	"github.com/golang/glog"
 	"github.com/pkg/errors"
-
+	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
+	"k8s.io/klog"
+	"kubevirt.io/containerized-data-importer/pkg/common"
 )
 
 // CountingReader is a reader that keeps track of how much has been read
@@ -76,11 +78,41 @@ func (r *CountingReader) Close() error {
 	return r.Reader.Close()
 }
 
+// GetAvailableSpaceByVolumeMode calls another method based on the volumeMode parameter to get the amount of
+// available space at the path specified.
+func GetAvailableSpaceByVolumeMode(volumeMode v1.PersistentVolumeMode) int64 {
+	if volumeMode == v1.PersistentVolumeBlock {
+		return GetAvailableSpaceBlock(common.ImporterWriteBlockPath)
+	}
+	return GetAvailableSpace(common.ImporterVolumePath)
+}
+
 // GetAvailableSpace gets the amount of available space at the path specified.
 func GetAvailableSpace(path string) int64 {
 	var stat syscall.Statfs_t
-	syscall.Statfs(path, &stat)
+	err := syscall.Statfs(path, &stat)
+	if err != nil {
+		return int64(-1)
+	}
 	return int64(stat.Bavail) * int64(stat.Bsize)
+}
+
+// GetAvailableSpaceBlock gets the amount of available space at the block device path specified.
+func GetAvailableSpaceBlock(deviceName string) int64 {
+	cmd := exec.Command("/usr/bin/lsblk", "-n", "-b", "-o", "SIZE", deviceName)
+	var out bytes.Buffer
+	var stderr bytes.Buffer
+	cmd.Stdout = &out
+	cmd.Stderr = &stderr
+	err := cmd.Run()
+	if err != nil {
+		return int64(-1)
+	}
+	i, err := strconv.ParseInt(strings.TrimSpace(string(out.Bytes())), 10, 64)
+	if err != nil {
+		return int64(-1)
+	}
+	return i
 }
 
 // MinQuantity calculates the minimum of two quantities.
@@ -94,7 +126,7 @@ func MinQuantity(availableSpace, imageSize *resource.Quantity) resource.Quantity
 // UnArchiveTar unarchives a tar file and streams its files
 // using the specified io.Reader to the specified destination.
 func UnArchiveTar(reader io.Reader, destDir string, arg ...string) error {
-	glog.V(1).Infof("begin untar...\n")
+	klog.V(1).Infof("begin untar...\n")
 
 	var tarOptions string
 	var args = arg
@@ -113,8 +145,8 @@ func UnArchiveTar(reader io.Reader, destDir string, arg ...string) error {
 	}
 	err = untar.Wait()
 	if err != nil {
-		glog.V(3).Infof("%s\n", string(errBuf.Bytes()))
-		glog.Errorf("%s\n", err.Error())
+		klog.V(3).Infof("%s\n", string(errBuf.Bytes()))
+		klog.Errorf("%s\n", err.Error())
 		return err
 	}
 	return nil
@@ -128,4 +160,25 @@ func UnArchiveLocalTar(filePath, destDir string, arg ...string) error {
 	}
 	fileReader := bufio.NewReader(file)
 	return UnArchiveTar(fileReader, destDir, arg...)
+}
+
+// CopyFile copies a file from one location to another.
+func CopyFile(src, dst string) error {
+	in, err := os.Open(src)
+	if err != nil {
+		return err
+	}
+	defer in.Close()
+
+	out, err := os.Create(dst)
+	if err != nil {
+		return err
+	}
+	defer out.Close()
+
+	_, err = io.Copy(out, in)
+	if err != nil {
+		return err
+	}
+	return out.Close()
 }

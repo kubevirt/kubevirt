@@ -1,14 +1,13 @@
 package utils
 
 import (
-	"github.com/golang/glog"
 	"github.com/pkg/errors"
-
 	"k8s.io/api/core/v1"
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes"
+	"k8s.io/klog"
 )
 
 const (
@@ -42,7 +41,7 @@ func CreateSecretFromDefinition(c *kubernetes.Clientset, secret *v1.Secret) (*v1
 			return true, err
 		}
 		// Log non-fatal errors
-		glog.Error(errors.Wrapf(err, "Encountered create error for secret \"%s/%s\"", secret.Namespace, secret.Name))
+		klog.Error(errors.Wrapf(err, "Encountered create error for secret \"%s/%s\"", secret.Namespace, secret.Name))
 		return false, nil
 	})
 	if err != nil {

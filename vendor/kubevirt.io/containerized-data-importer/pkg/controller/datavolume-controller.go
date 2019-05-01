@@ -17,16 +17,22 @@ limitations under the License.
 package controller
 
 import (
+	"crypto/tls"
 	"fmt"
+	"io/ioutil"
+	"net/http"
 	"reflect"
+	"regexp"
+	"strconv"
 	"time"
 
-	"github.com/golang/glog"
 	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
 	coreinformers "k8s.io/client-go/informers/core/v1"
@@ -37,12 +43,13 @@ import (
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/record"
 	"k8s.io/client-go/util/workqueue"
-
+	"k8s.io/klog"
 	cdiv1 "kubevirt.io/containerized-data-importer/pkg/apis/core/v1alpha1"
 	clientset "kubevirt.io/containerized-data-importer/pkg/client/clientset/versioned"
 	cdischeme "kubevirt.io/containerized-data-importer/pkg/client/clientset/versioned/scheme"
 	informers "kubevirt.io/containerized-data-importer/pkg/client/informers/externalversions/core/v1alpha1"
 	listers "kubevirt.io/containerized-data-importer/pkg/client/listers/core/v1alpha1"
+	"kubevirt.io/containerized-data-importer/pkg/common"
 	expectations "kubevirt.io/containerized-data-importer/pkg/expectations"
 )
 
@@ -117,6 +124,8 @@ const (
 	MessageUploadSucceeded = "Successfully uploaded into %s"
 )
 
+var httpClient *http.Client
+
 // DataVolumeController represents the CDI Data Volume Controller
 type DataVolumeController struct {
 	// kubeclientset is a standard kubernetes clientset
@@ -155,9 +164,9 @@ func NewDataVolumeController(
 	// Add datavolume-controller types to the default Kubernetes Scheme so Events can be
 	// logged for datavolume-controller types.
 	cdischeme.AddToScheme(scheme.Scheme)
-	glog.V(3).Info("Creating event broadcaster")
+	klog.V(3).Info("Creating event broadcaster")
 	eventBroadcaster := record.NewBroadcaster()
-	eventBroadcaster.StartLogging(glog.V(2).Infof)
+	eventBroadcaster.StartLogging(klog.V(2).Infof)
 	eventBroadcaster.StartRecordingToSink(&typedcorev1.EventSinkImpl{Interface: kubeclientset.CoreV1().Events("")})
 	recorder := eventBroadcaster.NewRecorder(scheme.Scheme, corev1.EventSource{Component: controllerAgentName})
 
@@ -173,7 +182,7 @@ func NewDataVolumeController(
 		pvcExpectations:   expectations.NewUIDTrackingControllerExpectations(expectations.NewControllerExpectations()),
 	}
 
-	glog.V(2).Info("Setting up event handlers")
+	klog.V(2).Info("Setting up event handlers")
 
 	// Set up an event handler for when DataVolume resources change
 	dataVolumeInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
@@ -212,23 +221,23 @@ func (c *DataVolumeController) Run(threadiness int, stopCh <-chan struct{}) erro
 	defer c.workqueue.ShutDown()
 
 	// Start the informer factories to begin populating the informer caches
-	glog.V(2).Info("Starting DataVolume controller")
+	klog.V(2).Info("Starting DataVolume controller")
 
 	// Wait for the caches to be synced before starting workers
-	glog.V(2).Info("Waiting for informer caches to sync")
+	klog.V(2).Info("Waiting for informer caches to sync")
 	if ok := cache.WaitForCacheSync(stopCh, c.pvcsSynced, c.dataVolumesSynced); !ok {
 		return errors.Errorf("failed to wait for caches to sync")
 	}
 
-	glog.V(2).Info("Starting workers")
+	klog.V(2).Info("Starting workers")
 	// Launch two workers to process DataVolume resources
 	for i := 0; i < threadiness; i++ {
 		go wait.Until(c.runWorker, time.Second, stopCh)
 	}
 
-	glog.V(2).Info("Started workers")
+	klog.V(2).Info("Started workers")
 	<-stopCh
-	glog.V(2).Info("Shutting down workers")
+	klog.V(2).Info("Shutting down workers")
 
 	return nil
 }
@@ -282,7 +291,7 @@ func (c *DataVolumeController) processNextWorkItem() bool {
 		// Finally, if no error occurs we Forget this item so it does not
 		// get queued again until another change happens.
 		c.workqueue.Forget(obj)
-		glog.V(2).Infof("Successfully synced '%s'", key)
+		klog.V(2).Infof("Successfully synced '%s'", key)
 		return nil
 	}(obj)
 
@@ -355,6 +364,9 @@ func (c *DataVolumeController) syncHandler(key string) error {
 			c.pvcExpectations.CreationObserved(key)
 			return err
 		}
+		if canUpdateProgress(newPvc.Annotations) {
+			go c.scheduleProgressUpdate(dataVolume.Name, dataVolume.Namespace, pvc.GetUID())
+		}
 	}
 
 	// Finally, we update the status block of the DataVolume resource to reflect the
@@ -366,6 +378,32 @@ func (c *DataVolumeController) syncHandler(key string) error {
 
 	c.recorder.Event(dataVolume, corev1.EventTypeNormal, SuccessSynced, MessageResourceSynced)
 	return nil
+}
+
+func (c *DataVolumeController) scheduleProgressUpdate(dataVolumeName, dataVolumeNamespace string, pvcUID types.UID) {
+	for {
+		time.Sleep(2 * time.Second)
+		dataVolume, err := c.dataVolumesLister.DataVolumes(dataVolumeNamespace).Get(dataVolumeName)
+		if k8serrors.IsNotFound(err) {
+			// Data volume is no longer there, or not found.
+			klog.V(3).Info("DV is gone, cancelling update thread.")
+			return
+		} else if err != nil {
+			klog.Errorf("error retrieving data volume %+v", err)
+		}
+		if dataVolume.Status.Phase == cdiv1.Succeeded || dataVolume.Status.Phase == cdiv1.Failed {
+			// Data volume completed progress, or failed, either way stop queueing the data volume.
+			return
+		}
+		pod, err := c.getPodFromPvc(dataVolumeNamespace, pvcUID)
+		if err == nil {
+			c.updateProgressUsingPod(dataVolume, pod)
+			_, err = c.cdiClientSet.CdiV1alpha1().DataVolumes(dataVolume.Namespace).Update(dataVolume)
+			if err != nil {
+				klog.Errorf("Unable to update data volume %s progress %+v", dataVolume.Name, err)
+			}
+		}
+	}
 }
 
 func (c *DataVolumeController) updateImportStatusPhase(pvc *corev1.PersistentVolumeClaim, dataVolumeCopy *cdiv1.DataVolume, event *DataVolumeEvent) {
@@ -391,6 +429,7 @@ func (c *DataVolumeController) updateImportStatusPhase(pvc *corev1.PersistentVol
 			event.message = fmt.Sprintf(MessageImportFailed, pvc.Name)
 		case string(corev1.PodSucceeded):
 			dataVolumeCopy.Status.Phase = cdiv1.Succeeded
+			dataVolumeCopy.Status.Progress = cdiv1.DataVolumeProgress("100.0%")
 			event.eventType = corev1.EventTypeNormal
 			event.reason = ImportSucceeded
 			event.message = fmt.Sprintf(MessageImportSucceeded, pvc.Name)
@@ -421,6 +460,7 @@ func (c *DataVolumeController) updateCloneStatusPhase(pvc *corev1.PersistentVolu
 			event.message = fmt.Sprintf(MessageCloneFailed, dataVolumeCopy.Spec.Source.PVC.Namespace, dataVolumeCopy.Spec.Source.PVC.Name, pvc.Namespace, pvc.Name)
 		case string(corev1.PodSucceeded):
 			dataVolumeCopy.Status.Phase = cdiv1.Succeeded
+			dataVolumeCopy.Status.Progress = cdiv1.DataVolumeProgress("100.0%")
 			event.eventType = corev1.EventTypeNormal
 			event.reason = CloneSucceeded
 			event.message = fmt.Sprintf(MessageCloneSucceeded, dataVolumeCopy.Spec.Source.PVC.Namespace, dataVolumeCopy.Spec.Source.PVC.Name, pvc.Namespace, pvc.Name)
@@ -529,6 +569,104 @@ func (c *DataVolumeController) updateDataVolumeStatus(dataVolume *cdiv1.DataVolu
 	return err
 }
 
+// canUpdateProgress determines what kind annotations will be able generate progress update information.
+// currently only http importer and clone have progress information.
+func canUpdateProgress(ann map[string]string) bool {
+	value, ok := ann[AnnSource]
+	if ok && value == SourceHTTP {
+		return true
+	}
+	_, ok = ann[AnnCloneRequest]
+	if ok {
+		return true
+	}
+	return false
+}
+
+// getPodFromPvc determines the pod associated with the pvc UID passed in.
+func (c *DataVolumeController) getPodFromPvc(namespace string, pvcUID types.UID) (*corev1.Pod, error) {
+	l, _ := labels.Parse(common.PrometheusLabel)
+	pods, err := c.kubeclientset.CoreV1().Pods(namespace).List(metav1.ListOptions{LabelSelector: l.String()})
+	if err != nil {
+		return nil, err
+	}
+	for _, pod := range pods.Items {
+		if pod.OwnerReferences[0].UID == pvcUID {
+			return &pod, nil
+		}
+	}
+	return nil, errors.Errorf("Unable to find pod owned by UID: %s, in namespace: %s", string(pvcUID), namespace)
+}
+
+func (c *DataVolumeController) updateProgressUsingPod(dataVolumeCopy *cdiv1.DataVolume, pod *corev1.Pod) {
+	httpClient := buildHTTPClient()
+	// Example value: import_progress{ownerUID="b856691e-1038-11e9-a5ab-525500d15501"} 13.45
+	var importRegExp = regexp.MustCompile("progress\\{ownerUID\\=\"" + string(dataVolumeCopy.UID) + "\"\\} (\\d{1,3}\\.?\\d*)")
+
+	port, err := c.getPodMetricsPort(pod)
+	if err == nil {
+		url := fmt.Sprintf("https://%s:%d/metrics", pod.Status.PodIP, port)
+		klog.V(3).Info("Connecting to URL: " + url)
+		resp, err := httpClient.Get(url)
+		if err != nil {
+			klog.Errorf("%+v", err)
+			return
+		}
+		defer resp.Body.Close()
+		body, err := ioutil.ReadAll(resp.Body)
+		if err != nil {
+			return
+		}
+		match := importRegExp.FindStringSubmatch(string(body))
+		if match == nil {
+			klog.V(3).Info("No match found")
+			// No match
+			return
+		}
+		if f, err := strconv.ParseFloat(match[1], 64); err == nil {
+			klog.V(3).Info("Setting progress to: " + match[1])
+			dataVolumeCopy.Status.Progress = cdiv1.DataVolumeProgress(fmt.Sprintf("%.2f%%", f))
+		}
+	}
+}
+
+func (c *DataVolumeController) getPodMetricsPort(pod *corev1.Pod) (int, error) {
+	for _, container := range pod.Spec.Containers {
+		if container.Name == common.ImporterPodName {
+			for _, port := range container.Ports {
+				if port.Name == "metrics" {
+					return int(port.ContainerPort), nil
+				}
+			}
+		}
+	}
+	klog.Errorf("Unable to find metrics port on pod: %s", pod.Name)
+	return 0, errors.New("Metrics port not found in pod")
+}
+
+// buildHTTPClient generates an http client that accepts any certificate, since we are using
+// it to get prometheus data it doesn't matter if someone can intercept the data. Once we have
+// a mechanism to properly sign the server, we can update this method to get a proper client.
+func buildHTTPClient() *http.Client {
+	if httpClient == nil {
+		defaultTransport := http.DefaultTransport.(*http.Transport)
+		// Create new Transport that ignores self-signed SSL
+		tr := &http.Transport{
+			Proxy:                 defaultTransport.Proxy,
+			DialContext:           defaultTransport.DialContext,
+			MaxIdleConns:          defaultTransport.MaxIdleConns,
+			IdleConnTimeout:       defaultTransport.IdleConnTimeout,
+			ExpectContinueTimeout: defaultTransport.ExpectContinueTimeout,
+			TLSHandshakeTimeout:   defaultTransport.TLSHandshakeTimeout,
+			TLSClientConfig:       &tls.Config{InsecureSkipVerify: true},
+		}
+		httpClient = &http.Client{
+			Transport: tr,
+		}
+	}
+	return httpClient
+}
+
 // enqueueDataVolume takes a DataVolume resource and converts it into a namespace/name
 // string which is then put onto the work queue. This method should *not* be
 // passed resources of any type other than DataVolume.
@@ -571,9 +709,9 @@ func (c *DataVolumeController) handleObject(obj interface{}, verb string) {
 			runtime.HandleError(errors.Errorf("error decoding object tombstone, invalid type"))
 			return
 		}
-		glog.V(3).Infof("Recovered deleted object '%s' from tombstone", object.GetName())
+		klog.V(3).Infof("Recovered deleted object '%s' from tombstone", object.GetName())
 	}
-	glog.V(3).Infof("Processing object: %s", object.GetName())
+	klog.V(3).Infof("Processing object: %s", object.GetName())
 	if ownerRef := metav1.GetControllerOf(object); ownerRef != nil {
 		// If this object is not owned by a DataVolume, we should not do anything more
 		// with it.
@@ -583,7 +721,7 @@ func (c *DataVolumeController) handleObject(obj interface{}, verb string) {
 
 		dataVolume, err := c.dataVolumesLister.DataVolumes(object.GetNamespace()).Get(ownerRef.Name)
 		if err != nil {
-			glog.V(3).Infof("ignoring orphaned object '%s' of datavolume '%s'", object.GetSelfLink(), ownerRef.Name)
+			klog.V(3).Infof("ignoring orphaned object '%s' of datavolume '%s'", object.GetSelfLink(), ownerRef.Name)
 			return
 		}
 

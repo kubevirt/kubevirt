@@ -29,11 +29,14 @@ const (
 	DiskImageName = "disk.img"
 	// ImporterWritePath provides a constant for the cmd/cdi-importer/importer.go executable
 	ImporterWritePath = ImporterVolumePath + "/" + DiskImageName
-
+	// ImporterWriteBlockPath provides a constant for the path where the PV is mounted.
+	ImporterWriteBlockPath = "/dev/blockDevice"
 	// ImporterPodName provides a constant to use as a prefix for Pods created by CDI (controller only)
 	ImporterPodName = "importer"
 	// ImporterDataDir provides a constant for the controller pkg to use as a hardcoded path to where content is transferred to/from (controller only)
 	ImporterDataDir = "/data"
+	// ScratchDataDir provides a constant for the controller pkg to use as a hardcoded path to where scratch space is located.
+	ScratchDataDir = "/scratch"
 	// ImporterS3Host provides an S3 string used by importer/dataStream.go only
 	ImporterS3Host = "s3.amazonaws.com"
 	// ImporterCertDir is where the configmap containg certs will be mounted
@@ -85,6 +88,8 @@ const (
 	UploadServerDataDir = ImporterDataDir
 	// UploadServerServiceLabel is the label selector for upload server services
 	UploadServerServiceLabel = "service"
+	// UploadImageSize provides a constant to capture our env variable "UPLOAD_IMAGE_SIZE"
+	UploadImageSize = "UPLOAD_IMAGE_SIZE"
 
 	// ConfigName is the name of default CDI Config
 	ConfigName = "config"
@@ -99,7 +104,9 @@ const (
 
 	// DefaultResyncPeriod sets a 10 minute resync period, used in the controller pkg and the controller cmd executable
 	DefaultResyncPeriod = 10 * time.Minute
-
 	// InsecureRegistryConfigMap is the name of the ConfigMap for insecure registries
 	InsecureRegistryConfigMap = "cdi-insecure-registries"
+
+	// ScratchSpaceNeededExitCode is the exit code that indicates the importer pod requires scratch space to function properly.
+	ScratchSpaceNeededExitCode = 42
 )

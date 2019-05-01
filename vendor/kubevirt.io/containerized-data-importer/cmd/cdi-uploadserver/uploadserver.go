@@ -24,7 +24,7 @@ import (
 	"os"
 	"strconv"
 
-	"github.com/golang/glog"
+	"k8s.io/klog"
 	"kubevirt.io/containerized-data-importer/pkg/common"
 	"kubevirt.io/containerized-data-importer/pkg/uploadserver"
 )
@@ -38,10 +38,20 @@ const (
 
 func init() {
 	flag.Parse()
+	klogFlags := flag.NewFlagSet("klog", flag.ExitOnError)
+	klog.InitFlags(klogFlags)
+	flag.CommandLine.VisitAll(func(f1 *flag.Flag) {
+		f2 := klogFlags.Lookup(f1.Name)
+		if f2 != nil {
+			value := f1.Value.String()
+			f2.Value.Set(value)
+		}
+	})
+
 }
 
 func main() {
-	defer glog.Flush()
+	defer klog.Flush()
 
 	listenAddress, listenPort := getListenAddressAndPort()
 
@@ -54,19 +64,20 @@ func main() {
 		os.Getenv("TLS_KEY"),
 		os.Getenv("TLS_CERT"),
 		os.Getenv("CLIENT_CERT"),
+		os.Getenv(common.UploadImageSize),
 	)
 
-	glog.Infof("Upload destination: %s", destination)
+	klog.Infof("Upload destination: %s", destination)
 
-	glog.Infof("Running server on %s:%d", listenAddress, listenPort)
+	klog.Infof("Running server on %s:%d", listenAddress, listenPort)
 
 	err := server.Run()
 	if err != nil {
-		glog.Error("UploadServer failed: %s", err)
+		klog.Errorf("UploadServer failed: %s", err)
 		os.Exit(1)
 	}
 
-	glog.Info("UploadServer successfully exited")
+	klog.Info("UploadServer successfully exited")
 }
 
 func getListenAddressAndPort() (string, int) {

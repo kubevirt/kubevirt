@@ -29,8 +29,8 @@ import (
 type CDIConfigLister interface {
 	// List lists all CDIConfigs in the indexer.
 	List(selector labels.Selector) (ret []*v1alpha1.CDIConfig, err error)
-	// CDIConfigs returns an object that can list and get CDIConfigs.
-	CDIConfigs(namespace string) CDIConfigNamespaceLister
+	// Get retrieves the CDIConfig from the index for a given name.
+	Get(name string) (*v1alpha1.CDIConfig, error)
 	CDIConfigListerExpansion
 }
 
@@ -52,38 +52,9 @@ func (s *cDIConfigLister) List(selector labels.Selector) (ret []*v1alpha1.CDICon
 	return ret, err
 }
 
-// CDIConfigs returns an object that can list and get CDIConfigs.
-func (s *cDIConfigLister) CDIConfigs(namespace string) CDIConfigNamespaceLister {
-	return cDIConfigNamespaceLister{indexer: s.indexer, namespace: namespace}
-}
-
-// CDIConfigNamespaceLister helps list and get CDIConfigs.
-type CDIConfigNamespaceLister interface {
-	// List lists all CDIConfigs in the indexer for a given namespace.
-	List(selector labels.Selector) (ret []*v1alpha1.CDIConfig, err error)
-	// Get retrieves the CDIConfig from the indexer for a given namespace and name.
-	Get(name string) (*v1alpha1.CDIConfig, error)
-	CDIConfigNamespaceListerExpansion
-}
-
-// cDIConfigNamespaceLister implements the CDIConfigNamespaceLister
-// interface.
-type cDIConfigNamespaceLister struct {
-	indexer   cache.Indexer
-	namespace string
-}
-
-// List lists all CDIConfigs in the indexer for a given namespace.
-func (s cDIConfigNamespaceLister) List(selector labels.Selector) (ret []*v1alpha1.CDIConfig, err error) {
-	err = cache.ListAllByNamespace(s.indexer, s.namespace, selector, func(m interface{}) {
-		ret = append(ret, m.(*v1alpha1.CDIConfig))
-	})
-	return ret, err
-}
-
-// Get retrieves the CDIConfig from the indexer for a given namespace and name.
-func (s cDIConfigNamespaceLister) Get(name string) (*v1alpha1.CDIConfig, error) {
-	obj, exists, err := s.indexer.GetByKey(s.namespace + "/" + name)
+// Get retrieves the CDIConfig from the index for a given name.
+func (s *cDIConfigLister) Get(name string) (*v1alpha1.CDIConfig, error) {
+	obj, exists, err := s.indexer.GetByKey(name)
 	if err != nil {
 		return nil, err
 	}

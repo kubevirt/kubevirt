@@ -29,8 +29,8 @@ import (
 type CDILister interface {
 	// List lists all CDIs in the indexer.
 	List(selector labels.Selector) (ret []*v1alpha1.CDI, err error)
-	// CDIs returns an object that can list and get CDIs.
-	CDIs(namespace string) CDINamespaceLister
+	// Get retrieves the CDI from the index for a given name.
+	Get(name string) (*v1alpha1.CDI, error)
 	CDIListerExpansion
 }
 
@@ -52,38 +52,9 @@ func (s *cDILister) List(selector labels.Selector) (ret []*v1alpha1.CDI, err err
 	return ret, err
 }
 
-// CDIs returns an object that can list and get CDIs.
-func (s *cDILister) CDIs(namespace string) CDINamespaceLister {
-	return cDINamespaceLister{indexer: s.indexer, namespace: namespace}
-}
-
-// CDINamespaceLister helps list and get CDIs.
-type CDINamespaceLister interface {
-	// List lists all CDIs in the indexer for a given namespace.
-	List(selector labels.Selector) (ret []*v1alpha1.CDI, err error)
-	// Get retrieves the CDI from the indexer for a given namespace and name.
-	Get(name string) (*v1alpha1.CDI, error)
-	CDINamespaceListerExpansion
-}
-
-// cDINamespaceLister implements the CDINamespaceLister
-// interface.
-type cDINamespaceLister struct {
-	indexer   cache.Indexer
-	namespace string
-}
-
-// List lists all CDIs in the indexer for a given namespace.
-func (s cDINamespaceLister) List(selector labels.Selector) (ret []*v1alpha1.CDI, err error) {
-	err = cache.ListAllByNamespace(s.indexer, s.namespace, selector, func(m interface{}) {
-		ret = append(ret, m.(*v1alpha1.CDI))
-	})
-	return ret, err
-}
-
-// Get retrieves the CDI from the indexer for a given namespace and name.
-func (s cDINamespaceLister) Get(name string) (*v1alpha1.CDI, error) {
-	obj, exists, err := s.indexer.GetByKey(s.namespace + "/" + name)
+// Get retrieves the CDI from the index for a given name.
+func (s *cDILister) Get(name string) (*v1alpha1.CDI, error) {
+	obj, exists, err := s.indexer.GetByKey(name)
 	if err != nil {
 		return nil, err
 	}
