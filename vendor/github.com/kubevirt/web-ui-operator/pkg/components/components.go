@@ -240,6 +240,8 @@ func GetClusterRole() *rbacv1.ClusterRole {
 				APIGroups: []string{
 					"oauth.openshift.io",
 					"apiextensions.k8s.io",
+					"kubevirt.io",
+					"extensions",
 				},
 				Resources: []string{
 					"*",
