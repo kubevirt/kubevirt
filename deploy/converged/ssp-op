@@ -1,0 +1,223 @@
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: kubevirt-ssp-operator
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  creationTimestamp: null
+  name: kubevirt-ssp-operator
+rules:
+- apiGroups:
+  - ""
+  resources:
+  - pods
+  - services
+  - endpoints
+  - persistentvolumeclaims
+  - events
+  - configmaps
+  - secrets
+  - replicationcontrollers
+  - serviceaccounts
+  - templates
+  verbs:
+  - '*'
+- apiGroups:
+  - extensions
+  - apps
+  resources:
+  - deployments
+  - replicasets
+  verbs:
+  - '*'
+- apiGroups:
+  - ""
+  resources:
+  - namespaces
+  verbs:
+  - get
+- apiGroups:
+  - apps
+  resources:
+  - deployments
+  - daemonsets
+  - replicasets
+  - statefulsets
+  verbs:
+  - '*'
+- apiGroups:
+  - monitoring.coreos.com
+  resources:
+  - servicemonitors
+  verbs:
+  - get
+  - create
+- apiGroups:
+  - kubevirt.io
+  - template.openshift.io
+  - route.openshift.io
+  resources:
+  - '*'
+  verbs:
+  - '*'
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: kubevirt-ssp-operator
+rules:
+- apiGroups:
+  - oauth.openshift.io
+  - template.openshift.io
+  resources:
+  - '*'
+  verbs:
+  - '*'
+- apiGroups:
+  - rbac.authorization.k8s.io
+  resources:
+  - clusterroles
+  verbs:
+  - create
+  - get
+  - patch
+  - list
+- apiGroups:
+  - rbac.authorization.k8s.io
+  resources:
+  - clusterrolebindings
+  verbs:
+  - create
+  - get
+  - list
+  - watch
+  - patch
+- apiGroups:
+  - extensions
+  - apps
+  resources:
+  - deployments
+  - replicasets
+  verbs:
+  - create
+  - get
+  - patch
+  - list
+- apiGroups:
+  - apps
+  resources:
+  - daemonsets
+  verbs:
+  - create
+  - get
+  - patch
+- apiGroups:
+  - ""
+  resources:
+  - serviceaccounts
+  verbs:
+  - create
+  - get
+  - patch
+- apiGroups:
+  - ""
+  resources:
+  - pods
+  - configmaps
+  - nodes
+  verbs:
+  - create
+  - get
+  - patch
+  - update
+- apiGroups:
+  - ""
+  resources:
+  - services
+  verbs:
+  - list
+  - get
+  - create
+  - patch
+- apiGroups:
+  - admissionregistration.k8s.io
+  resources:
+  - validatingwebhookconfigurations
+  verbs:
+  - create
+  - get
+  - list
+  - patch
+  - watch
+- apiGroups:
+  - security.openshift.io
+  resources:
+  - securitycontextconstraints
+  verbs:
+  - '*'
+  resourceName:
+  - privileged
+
+---
+kind: RoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: kubevirt-ssp-operator
+subjects:
+- kind: ServiceAccount
+  name: kubevirt-ssp-operator
+roleRef:
+  kind: Role
+  name: kubevirt-ssp-operator
+  apiGroup: rbac.authorization.k8s.io
+
+---
+kind: ClusterRoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: kubevirt-ssp-operator
+subjects:
+- kind: ServiceAccount
+  name: kubevirt-ssp-operator
+  namespace: default 
+roleRef:
+  kind: ClusterRole
+  name: kubevirt-ssp-operator
+  apiGroup: rbac.authorization.k8s.io
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kubevirt-ssp-operator
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      name: kubevirt-ssp-operator
+  template:
+    metadata:
+      labels:
+        name: kubevirt-ssp-operator
+    spec:
+      serviceAccountName: kubevirt-ssp-operator
+      containers:
+        - name: kubevirt-ssp-operator
+          #FIXME Replace this with the built image name
+          image: quay.io/fromani/kubevirt-ssp-operator-container:latest
+          ports:
+          - containerPort: 60000
+            name: metrics
+          imagePullPolicy: Always
+          env:
+            - name: WATCH_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+            - name: OPERATOR_NAME
+              value: "kubevirt-ssp-operator"
+
+     

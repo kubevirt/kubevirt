@@ -18,8 +18,8 @@
     "pkg/versions",
   ]
   pruneopts = "NT"
-  revision = "3654884541d549803716ff13651d0c4a3f6cd8af"
-  version = "v0.1"
+  revision = "dac8207d7df2668263ae5e7ce3611cba43fe78c4"
+  version = "v1.0.0"
 
 [[projects]]
   digest = "1:0a111edd8693fd977f42a0c4f199a0efb13c20aec9da99ad8830c7bb6a87e8d6"

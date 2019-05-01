@@ -64,35 +64,6 @@ spec:
   install:
     strategy: deployment
     spec:
-      permissions:
-        - serviceAccountName: cluster-network-addons-operator
-          rules:
-            - apiGroups:
-              - ""
-              resources:
-              - pods
-              - configmaps
-              verbs:
-              - get
-              - list
-              - watch
-              - create
-              - patch
-              - update
-              - delete
-            - apiGroups:
-              - apps
-              resources:
-              - deployments
-              - replicasets
-              verbs:
-              - get
-              - list
-              - watch
-              - create
-              - patch
-              - update
-              - delete
 
       clusterPermissions:
         - serviceAccountName: hyperconverged-cluster-operator

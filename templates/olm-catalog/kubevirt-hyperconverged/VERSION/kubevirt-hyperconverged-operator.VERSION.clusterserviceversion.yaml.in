@@ -121,10 +121,67 @@ spec:
   install:
     strategy: deployment
     spec:
+{{if .Converged}}
       permissions:
         - serviceAccountName: cluster-network-addons-operator
           rules:
 {{.CNA.Rules}}
+        - serviceAccountName: kubevirt-ssp-operator
+          rules:
+          - apiGroups:
+            - ""
+            resources:
+            - pods
+            - services
+            - endpoints
+            - persistentvolumeclaims
+            - events
+            - configmaps
+            - secrets
+            - replicationcontrollers
+            - serviceaccounts
+            - templates
+            verbs:
+            - '*'
+          - apiGroups:
+            - extensions
+            - apps
+            resources:
+            - deployments
+            - replicasets
+            verbs:
+            - '*'
+          - apiGroups:
+            - ""
+            resources:
+            - namespaces
+            verbs:
+            - get
+          - apiGroups:
+            - apps
+            resources:
+            - deployments
+            - daemonsets
+            - replicasets
+            - statefulsets
+            verbs:
+            - '*'
+          - apiGroups:
+            - monitoring.coreos.com
+            resources:
+            - servicemonitors
+            verbs:
+            - get
+            - create
+          - apiGroups:
+            - kubevirt.io
+            - template.openshift.io
+            - route.openshift.io
+            resources:
+            - '*'
+            verbs:
+            - '*'
+{{end}}
       clusterPermissions:
         - serviceAccountName: hyperconverged-cluster-operator
           rules:
@@ -233,8 +290,6 @@ spec:
             - securitycontextconstraints
             verbs:
             - '*'
-            resourceName:
-            - privileged
 
         - serviceAccountName: node-maintenance-operator
           rules:
