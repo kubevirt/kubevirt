@@ -5,8 +5,6 @@ go_library(
     srcs = [
         "api.go",
         "ca-manager.go",
-        "filesystem.go",
-        "generated_mock_filesystem.go",
     ],
     importpath = "kubevirt.io/kubevirt/pkg/virt-api",
     visibility = ["//visibility:public"],
@@ -29,7 +27,6 @@ go_library(
         "//vendor/github.com/emicklei/go-restful:go_default_library",
         "//vendor/github.com/emicklei/go-restful-openapi:go_default_library",
         "//vendor/github.com/go-openapi/spec:go_default_library",
-        "//vendor/github.com/golang/mock/gomock:go_default_library",
         "//vendor/github.com/prometheus/client_golang/prometheus/promhttp:go_default_library",
         "//vendor/github.com/spf13/pflag:go_default_library",
         "//vendor/k8s.io/api/admissionregistration/v1beta1:go_default_library",
