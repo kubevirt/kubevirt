@@ -25,9 +25,8 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
-	"path/filepath"
 
-	restful "github.com/emicklei/go-restful"
+	"github.com/emicklei/go-restful"
 	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -50,15 +49,13 @@ const namespaceKubevirt = "kubevirt"
 
 var _ = Describe("Virt-api", func() {
 	var app virtAPIApp
-	var tmpDir, keyFile, certFile, signingCertFile, caFile string
+	var tmpDir string
 	var server *ghttp.Server
 	var backend *httptest.Server
 	var ctrl *gomock.Controller
 	var authorizorMock *rest.MockVirtApiAuthorizor
-	var filesystemMock *MockFilesystem
 	var expectedValidatingWebhooks *admissionregistrationv1beta1.ValidatingWebhookConfiguration
 	var expectedMutatingWebhooks *admissionregistrationv1beta1.MutatingWebhookConfiguration
-	var restrictiveMode os.FileMode
 	subresourceAggregatedApiName := v1.SubresourceGroupVersion.Version + "." + v1.SubresourceGroupName
 	log.Log.SetIOWriter(GinkgoWriter)
 
@@ -71,11 +68,6 @@ var _ = Describe("Virt-api", func() {
 		Expect(err).ToNot(HaveOccurred())
 		app.virtCli, _ = kubecli.GetKubevirtClientFromFlags(server.URL(), "")
 		app.certsDirectory = tmpDir
-		keyFile = filepath.Join(app.certsDirectory, "/key.pem")
-		certFile = filepath.Join(app.certsDirectory, "/cert.pem")
-		caFile = filepath.Join(app.certsDirectory, "/clientCA.crt")
-		signingCertFile = filepath.Join(app.certsDirectory, "/signingCert.pem")
-		restrictiveMode = 0600
 
 		config, err := clientcmd.BuildConfigFromFlags(server.URL(), "")
 		Expect(err).ToNot(HaveOccurred())
@@ -84,7 +76,6 @@ var _ = Describe("Virt-api", func() {
 		Expect(err).ToNot(HaveOccurred())
 		ctrl = gomock.NewController(GinkgoT())
 		authorizorMock = rest.NewMockVirtApiAuthorizor(ctrl)
-		filesystemMock = NewMockFilesystem(ctrl)
 
 		// Reset go-restful
 		http.DefaultServeMux = new(http.ServeMux)
@@ -478,44 +469,6 @@ var _ = Describe("Virt-api", func() {
 			)
 
 			err := app.createMutatingWebhook()
-			Expect(err).To(HaveOccurred())
-		}, 5)
-
-		It("should fail setupTLS without any data available at key write error", func() {
-			filesystemMock.EXPECT().
-				WriteFile(keyFile, app.keyBytes, restrictiveMode).
-				Return(errors.New("fake error writing " + caFile))
-			err := app.setupTLS(filesystemMock, nil)
-			Expect(err).To(HaveOccurred())
-		}, 5)
-
-		It("should fail setupTLS at keyBytes write error", func() {
-			filesystemMock.EXPECT().
-				WriteFile(keyFile, app.keyBytes, restrictiveMode).
-				Return(errors.New("fake error writing " + keyFile))
-			err := app.setupTLS(filesystemMock, nil)
-			Expect(err).To(HaveOccurred())
-		}, 5)
-
-		It("should fail setupTLS at certFile write error", func() {
-			filesystemMock.EXPECT().
-				WriteFile(keyFile, app.keyBytes, restrictiveMode)
-			filesystemMock.EXPECT().
-				WriteFile(certFile, app.certBytes, restrictiveMode).
-				Return(errors.New("fake error writing " + certFile))
-			err := app.setupTLS(filesystemMock, nil)
-			Expect(err).To(HaveOccurred())
-		}, 5)
-
-		It("should fail setupTLS at signingCertBytes write error", func() {
-			filesystemMock.EXPECT().
-				WriteFile(keyFile, app.keyBytes, restrictiveMode)
-			filesystemMock.EXPECT().
-				WriteFile(certFile, app.certBytes, restrictiveMode)
-			filesystemMock.EXPECT().
-				WriteFile(signingCertFile, app.signingCertBytes, restrictiveMode).
-				Return(errors.New("fake error writing " + signingCertFile))
-			err := app.setupTLS(filesystemMock, nil)
 			Expect(err).To(HaveOccurred())
 		}, 5)
 

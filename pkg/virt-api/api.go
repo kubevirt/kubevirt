@@ -25,7 +25,6 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
-	"path/filepath"
 	"sync"
 
 	"github.com/emicklei/go-restful"
@@ -112,10 +111,6 @@ type virtAPIApp struct {
 	signingCertBytes []byte
 	certBytes        []byte
 	keyBytes         []byte
-	certFile         string
-	keyFile          string
-	caFile           string
-	signingCertFile  string
 	namespace        string
 	tlsConfig        *tls.Config
 }
@@ -911,27 +906,9 @@ func (app *virtAPIApp) createSubresourceApiservice() error {
 	return nil
 }
 
-func (app *virtAPIApp) setupTLS(fs Filesystem, caManager ClientCAManager) error {
+func (app *virtAPIApp) setupTLS(caManager ClientCAManager) error {
 
-	app.keyFile = filepath.Join(app.certsDirectory, "/key.pem")
-	app.certFile = filepath.Join(app.certsDirectory, "/cert.pem")
-	app.signingCertFile = filepath.Join(app.certsDirectory, "/signingCert.pem")
-
-	// Write the certs to disk
-	err := fs.WriteFile(app.keyFile, app.keyBytes, 0600)
-	if err != nil {
-		return err
-	}
-	err = fs.WriteFile(app.certFile, app.certBytes, 0600)
-	if err != nil {
-		return err
-	}
-	err = fs.WriteFile(app.signingCertFile, app.signingCertBytes, 0600)
-	if err != nil {
-		return err
-	}
-
-	certPair, err := tls.LoadX509KeyPair(app.certFile, app.keyFile)
+	certPair, err := tls.X509KeyPair(app.certBytes, app.keyBytes)
 	if err != nil {
 		return fmt.Errorf("some special error: %b", err)
 	}
@@ -987,7 +964,7 @@ func (app *virtAPIApp) startTLS(stopCh <-chan struct{}) error {
 
 	caManager := NewClientCAManager(authConfigMapInformer.GetStore())
 
-	err := app.setupTLS(IOUtil{}, caManager)
+	err := app.setupTLS(caManager)
 	if err != nil {
 		return err
 	}
