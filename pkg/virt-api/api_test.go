@@ -34,6 +34,7 @@ import (
 	admissionregistrationv1beta1 "k8s.io/api/admissionregistration/v1beta1"
 	k8sv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/client-go/util/cert"
 	"k8s.io/client-go/util/cert/triple"
@@ -204,6 +205,42 @@ var _ = Describe("Virt-api", func() {
 			err := app.readRequestHeader()
 			Expect(err).To(HaveOccurred())
 		}, 5)
+
+		It("should create a tls config which uses the CA Manager", func() {
+			ca, err := triple.NewCA("first")
+			// Just provide any cert
+			app.certBytes = cert.EncodeCertPEM(ca.Cert)
+			app.keyBytes = cert.EncodePrivateKeyPEM(ca.Key)
+			Expect(err).ToNot(HaveOccurred())
+			configMap := &k8sv1.ConfigMap{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:            util.ExtensionAPIServerAuthenticationConfigMap,
+					Namespace:       metav1.NamespaceSystem,
+					ResourceVersion: "1",
+				},
+				Data: map[string]string{
+					util.RequestHeaderClientCAFileKey: string(cert.EncodeCertPEM(ca.Cert)),
+				},
+			}
+			store := cache.NewStore(cache.DeletionHandlingMetaNamespaceKeyFunc)
+			Expect(store.Add(configMap)).To(Succeed())
+			manager := NewClientCAManager(store)
+			Expect(app.setupTLS(manager)).To(Succeed())
+
+			By("checking if the initial certificate is used in the tlsConfig")
+			config, err := app.tlsConfig.GetConfigForClient(nil)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(config.ClientCAs.Subjects()[0]).To(ContainSubstring("first"))
+
+			By("checking if the new certificate is used in the tlsConfig")
+			newCA, err := triple.NewCA("new")
+			Expect(err).ToNot(HaveOccurred())
+			configMap.Data[util.RequestHeaderClientCAFileKey] = string(cert.EncodeCertPEM(newCA.Cert))
+			configMap.ObjectMeta.ResourceVersion = "2"
+			config, err = app.tlsConfig.GetConfigForClient(nil)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(config.ClientCAs.Subjects()[0]).To(ContainSubstring("new"))
+		})
 
 		It("should auto detect correct request headers from cert configmap", func() {
 			configMap := &k8sv1.ConfigMap{}
