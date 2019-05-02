@@ -20,6 +20,7 @@
 package migrationproxy
 
 import (
+	"crypto/tls"
 	"fmt"
 	"io"
 	"net"
@@ -53,6 +54,7 @@ type migrationProxyManager struct {
 	sourceProxies map[string][]*migrationProxy
 	targetProxies map[string][]*migrationProxy
 	managerLock   sync.Mutex
+	tlsConfig     *tls.Config
 }
 
 type migrationProxy struct {
@@ -65,7 +67,8 @@ type migrationProxy struct {
 	listenErrChan  chan error
 	fdChan         chan net.Conn
 
-	listener net.Listener
+	listener  net.Listener
+	tlsConfig *tls.Config
 }
 
 func GetMigrationPortsList(isBlockMigration bool) (ports []int) {
@@ -76,11 +79,12 @@ func GetMigrationPortsList(isBlockMigration bool) (ports []int) {
 	return
 }
 
-func NewMigrationProxyManager(virtShareDir string) ProxyManager {
+func NewMigrationProxyManager(virtShareDir string, tlsConfig *tls.Config) ProxyManager {
 	return &migrationProxyManager{
 		virtShareDir:  virtShareDir,
 		sourceProxies: make(map[string][]*migrationProxy),
 		targetProxies: make(map[string][]*migrationProxy),
+		tlsConfig:     tlsConfig,
 	}
 }
 
@@ -124,7 +128,7 @@ func (m *migrationProxyManager) StartTargetListener(key string, targetUnixFiles 
 	proxiesList := []*migrationProxy{}
 	for _, targetUnixFile := range targetUnixFiles {
 		// 0 means random port is used
-		proxy := NewTargetProxy("0.0.0.0", 0, targetUnixFile)
+		proxy := NewTargetProxy("0.0.0.0", 0, m.tlsConfig, targetUnixFile)
 
 		err := proxy.StartListening()
 		if err != nil {
@@ -245,7 +249,7 @@ func (m *migrationProxyManager) StartSourceListener(key string, targetAddress st
 		filePath := SourceUnixFile(m.virtShareDir, proxyKey)
 
 		os.RemoveAll(filePath)
-		proxy := NewSourceProxy(filePath, targetFullAddr)
+		proxy := NewSourceProxy(filePath, targetFullAddr, m.tlsConfig)
 
 		err := proxy.StartListening()
 		if err != nil {
@@ -282,7 +286,7 @@ func (m *migrationProxyManager) StopSourceListener(key string) {
 // SRC POD ENV(migration unix socket) <-> HOST ENV (tcp client) <-----> HOST ENV (tcp server) <-> TARGET POD ENV (libvirtd unix socket)
 
 // Source proxy exposes a unix socket server and pipes to an outbound TCP connection.
-func NewSourceProxy(unixSocketPath string, tcpTargetAddress string) *migrationProxy {
+func NewSourceProxy(unixSocketPath string, tcpTargetAddress string, tlsConfig *tls.Config) *migrationProxy {
 	return &migrationProxy{
 		unixSocketPath: unixSocketPath,
 		targetAddress:  tcpTargetAddress,
@@ -290,11 +294,12 @@ func NewSourceProxy(unixSocketPath string, tcpTargetAddress string) *migrationPr
 		stopChan:       make(chan struct{}),
 		fdChan:         make(chan net.Conn, 1),
 		listenErrChan:  make(chan error, 1),
+		tlsConfig:      tlsConfig,
 	}
 }
 
 // Target proxy listens on a tcp socket and pipes to a libvirtd unix socket
-func NewTargetProxy(tcpBindAddress string, tcpBindPort int, libvirtdSocketPath string) *migrationProxy {
+func NewTargetProxy(tcpBindAddress string, tcpBindPort int, tlsConfig *tls.Config, libvirtdSocketPath string) *migrationProxy {
 
 	return &migrationProxy{
 		tcpBindAddress: tcpBindAddress,
@@ -304,12 +309,21 @@ func NewTargetProxy(tcpBindAddress string, tcpBindPort int, libvirtdSocketPath s
 		stopChan:       make(chan struct{}),
 		fdChan:         make(chan net.Conn, 1),
 		listenErrChan:  make(chan error, 1),
+		tlsConfig:      tlsConfig,
 	}
 
 }
 
 func (m *migrationProxy) createTcpListener() error {
-	listener, err := net.Listen("tcp", fmt.Sprintf("%s:%d", m.tcpBindAddress, m.tcpBindPort))
+	var listener net.Listener
+	var err error
+	if m.tlsConfig != nil {
+		listener, err = tls.Listen("tcp", fmt.Sprintf("%s:%d", m.tcpBindAddress, m.tcpBindPort), m.tlsConfig)
+	} else if strings.Contains(m.tcpBindAddress, "127.0.0.1") {
+		listener, err = net.Listen("tcp", fmt.Sprintf("%s:%d", m.tcpBindAddress, m.tcpBindPort))
+	} else {
+		return fmt.Errorf("Unsecured tcp migration proxy listeners are not permitted")
+	}
 	if err != nil {
 		log.Log.Reason(err).Error("failed to create unix socket for proxy service")
 		return err
@@ -352,12 +366,19 @@ func (m *migrationProxy) StopListening() {
 	}
 }
 
-func handleConnection(fd net.Conn, targetAddress string, targetProtocol string, stopChan chan struct{}) {
+func handleConnection(fd net.Conn, targetAddress string, targetProtocol string, tlsConfig *tls.Config, stopChan chan struct{}) {
 	defer fd.Close()
 
 	outBoundErr := make(chan error)
 	inBoundErr := make(chan error)
-	conn, err := net.Dial(targetProtocol, targetAddress)
+
+	var conn net.Conn
+	var err error
+	if targetProtocol == "tcp" && tlsConfig != nil {
+		conn, err = tls.Dial(targetProtocol, targetAddress, tlsConfig)
+	} else {
+		conn, err = net.Dial(targetProtocol, targetAddress)
+	}
 	if err != nil {
 		log.Log.Reason(err).Errorf("unable to create outbound leg of proxy to host %s", targetAddress)
 		return
@@ -418,11 +439,11 @@ func (m *migrationProxy) StartListening() error {
 		}
 	}(m.listener, m.fdChan, m.listenErrChan)
 
-	go func(targetAddress string, targetProtocol string, fdChan chan net.Conn, stopChan chan struct{}, listenErrChan chan error) {
+	go func(targetAddress string, targetProtocol string, tlsConfig *tls.Config, fdChan chan net.Conn, stopChan chan struct{}, listenErrChan chan error) {
 		for {
 			select {
 			case fd := <-fdChan:
-				go handleConnection(fd, targetAddress, targetProtocol, stopChan)
+				go handleConnection(fd, targetAddress, targetProtocol, tlsConfig, stopChan)
 			case <-stopChan:
 				return
 			case <-listenErrChan:
@@ -430,7 +451,7 @@ func (m *migrationProxy) StartListening() error {
 			}
 		}
 
-	}(m.targetAddress, m.targetProtocol, m.fdChan, m.stopChan, m.listenErrChan)
+	}(m.targetAddress, m.targetProtocol, m.tlsConfig, m.fdChan, m.stopChan, m.listenErrChan)
 
 	return nil
 }

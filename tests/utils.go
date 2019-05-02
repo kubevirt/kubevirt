@@ -62,7 +62,9 @@ import (
 	"k8s.io/apimachinery/pkg/util/yaml"
 	k8sversion "k8s.io/apimachinery/pkg/version"
 	"k8s.io/client-go/kubernetes/scheme"
+	"k8s.io/client-go/tools/portforward"
 	"k8s.io/client-go/tools/remotecommand"
+	"k8s.io/client-go/transport/spdy"
 
 	cdiv1 "kubevirt.io/containerized-data-importer/pkg/apis/core/v1alpha1"
 	v1 "kubevirt.io/kubevirt/pkg/api/v1"
@@ -3421,4 +3423,52 @@ func GetRunningVMISpec(vmi *v1.VirtualMachineInstance) (*launcherApi.DomainSpec,
 
 	err = xml.Unmarshal([]byte(domXML), &runningVMISpec)
 	return &runningVMISpec, err
+}
+
+func ForwardPorts(pod *k8sv1.Pod, ports []string, stop chan struct{}, readyTimeout time.Duration) error {
+	errChan := make(chan error, 1)
+	readyChan := make(chan struct{})
+	go func() {
+		cli, err := kubecli.GetKubevirtClient()
+		if err != nil {
+			errChan <- err
+			return
+		}
+
+		req := cli.CoreV1().RESTClient().Post().
+			Resource("pods").
+			Namespace(pod.Namespace).
+			Name(pod.Name).
+			SubResource("portforward")
+
+		config, err := kubecli.GetKubevirtClientConfig()
+		if err != nil {
+			errChan <- err
+			return
+		}
+		transport, upgrader, err := spdy.RoundTripperFor(config)
+		if err != nil {
+			errChan <- err
+			return
+		}
+		dialer := spdy.NewDialer(upgrader, &http.Client{Transport: transport}, "POST", req.URL())
+		forwarder, err := portforward.New(dialer, ports, stop, readyChan, GinkgoWriter, GinkgoWriter)
+		if err != nil {
+			errChan <- err
+			return
+		}
+		err = forwarder.ForwardPorts()
+		if err != nil {
+			errChan <- err
+		}
+	}()
+
+	select {
+	case err := <-errChan:
+		return err
+	case <-readyChan:
+		return nil
+	case <-time.After(readyTimeout):
+		return fmt.Errorf("failed to forward ports, timed out")
+	}
 }
