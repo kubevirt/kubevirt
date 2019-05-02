@@ -25,9 +25,8 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
-	"path/filepath"
 
-	restful "github.com/emicklei/go-restful"
+	"github.com/emicklei/go-restful"
 	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -35,10 +34,13 @@ import (
 	admissionregistrationv1beta1 "k8s.io/api/admissionregistration/v1beta1"
 	k8sv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/client-go/util/cert"
 	"k8s.io/client-go/util/cert/triple"
 	aggregatorclient "k8s.io/kube-aggregator/pkg/client/clientset_generated/clientset"
+
+	"kubevirt.io/kubevirt/pkg/util"
 
 	v1 "kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/kubecli"
@@ -50,16 +52,13 @@ const namespaceKubevirt = "kubevirt"
 
 var _ = Describe("Virt-api", func() {
 	var app virtAPIApp
-	var tmpDir, keyFile, certFile, signingCertFile, caFile string
-	var goodPemCertificate1, goodPemCertificate2, badPemCertificate string
+	var tmpDir string
 	var server *ghttp.Server
 	var backend *httptest.Server
 	var ctrl *gomock.Controller
 	var authorizorMock *rest.MockVirtApiAuthorizor
-	var filesystemMock *MockFilesystem
 	var expectedValidatingWebhooks *admissionregistrationv1beta1.ValidatingWebhookConfiguration
 	var expectedMutatingWebhooks *admissionregistrationv1beta1.MutatingWebhookConfiguration
-	var restrictiveMode os.FileMode
 	subresourceAggregatedApiName := v1.SubresourceGroupVersion.Version + "." + v1.SubresourceGroupName
 	log.Log.SetIOWriter(GinkgoWriter)
 
@@ -72,11 +71,6 @@ var _ = Describe("Virt-api", func() {
 		Expect(err).ToNot(HaveOccurred())
 		app.virtCli, _ = kubecli.GetKubevirtClientFromFlags(server.URL(), "")
 		app.certsDirectory = tmpDir
-		keyFile = filepath.Join(app.certsDirectory, "/key.pem")
-		certFile = filepath.Join(app.certsDirectory, "/cert.pem")
-		caFile = filepath.Join(app.certsDirectory, "/clientCA.crt")
-		signingCertFile = filepath.Join(app.certsDirectory, "/signingCert.pem")
-		restrictiveMode = 0600
 
 		config, err := clientcmd.BuildConfigFromFlags(server.URL(), "")
 		Expect(err).ToNot(HaveOccurred())
@@ -85,7 +79,6 @@ var _ = Describe("Virt-api", func() {
 		Expect(err).ToNot(HaveOccurred())
 		ctrl = gomock.NewController(GinkgoT())
 		authorizorMock = rest.NewMockVirtApiAuthorizor(ctrl)
-		filesystemMock = NewMockFilesystem(ctrl)
 
 		// Reset go-restful
 		http.DefaultServeMux = new(http.ServeMux)
@@ -119,86 +112,6 @@ var _ = Describe("Virt-api", func() {
 			},
 			Webhooks: app.validatingWebhooks(),
 		}
-		badPemCertificate = "bad-pem"
-		goodPemCertificate1 = `-----BEGIN RSA PRIVATE KEY-----
-izfrNTmQLnfsLzi2Wb9xPz2Qj9fQYGgeug3N2MkDuVHwpPcgkhHkJgCQuuvT+qZI
-MbS2U6wTS24SZk5RunJIUkitRKeWWMS28SLGfkDs1bBYlSPa5smAd3/q1OePi4ae
-dU6YgWuDxzBAKEKVSUu6pA2HOdyQ9N4F1dI+F8w9J990zE93EgyNqZFBBa2L70h4
-M7DrB0gJBWMdUMoxGnun5glLiCMo2JrHZ9RkMiallS1sHMhELx2UAlP8I1+0Mav8
-iMlHGyUW8EJy0paVf09MPpceEcVwDBeX0+G4UQlO551GTFtOSRjcD8U+GkCzka9W
-/SFQrSGe3Gh3SDaOw/4JEMAjWPDLiCglwh0rLIO4VwU6AxzTCuCw3d1ZxQsU6VFQ
-PqHA8haOUATZIrp3886PBThVqALBk9p1Nqn51bXLh13Zy9DZIVx4Z5Ioz/EGuzgR
-d68VW5wybLjYE2r6Q9nHpitSZ4ZderwjIZRes67HdxYFw8unm4Wo6kuGnb5jSSag
-vwBxKzAf3Omn+J6IthTJKuDd13rKZGMcRpQQ6VstwihYt1TahQ/qfJUWPjPcU5ML
-9LkgVwA8Ndi1wp1/sEPe+UlL16L6vO9jUHcueWN7+zSUOE/cDSJyMd9x/ZL8QASA
-ETd5dujVIqlINL2vJKr1o4T+i0RsnpfFiqFmBKlFqww/SKzJeChdyEtpa/dJMrt2
-8S86b6zEmkser+SDYgGketS2DZ4hB+vh2ujSXmS8Gkwrn+BfHMzkbtio8lWbGw0l
-eM1tfdFZ6wMTLkxRhBkBK4JiMiUMvpERyPib6a2L6iXTfH+3RUDS6A==
------END RSA PRIVATE KEY-----
------BEGIN CERTIFICATE-----
-MIICMzCCAZygAwIBAgIJALiPnVsvq8dsMA0GCSqGSIb3DQEBBQUAMFMxCzAJBgNV
-BAYTAlVTMQwwCgYDVQQIEwNmb28xDDAKBgNVBAcTA2ZvbzEMMAoGA1UEChMDZm9v
-MQwwCgYDVQQLEwNmb28xDDAKBgNVBAMTA2ZvbzAeFw0xMzAzMTkxNTQwMTlaFw0x
-ODAzMTgxNTQwMTlaMFMxCzAJBgNVBAYTAlVTMQwwCgYDVQQIEwNmb28xDDAKBgNV
-BAcTA2ZvbzEMMAoGA1UEChMDZm9vMQwwCgYDVQQLEwNmb28xDDAKBgNVBAMTA2Zv
-bzCBnzANBgkqhkiG9w0BAQEFAAOBjQAwgYkCgYEAzdGfxi9CNbMf1UUcvDQh7MYB
-OveIHyc0E0KIbhjK5FkCBU4CiZrbfHagaW7ZEcN0tt3EvpbOMxxc/ZQU2WN/s/wP
-xph0pSfsfFsTKM4RhTWD2v4fgk+xZiKd1p0+L4hTtpwnEw0uXRVd0ki6muwV5y/P
-+5FHUeldq+pgTcgzuK8CAwEAAaMPMA0wCwYDVR0PBAQDAgLkMA0GCSqGSIb3DQEB
-BQUAA4GBAJiDAAtY0mQQeuxWdzLRzXmjvdSuL9GoyT3BF/jSnpxz5/58dba8pWen
-v3pj4P3w5DoOso0rzkZy2jEsEitlVM2mLSbQpMM+MUVQCQoiG6W9xuCFuxSrwPIS
-pAqEAuV4DNoxQKKWmhVv+J0ptMWD25Pnpxeq5sXzghfJnslJlQND
------END CERTIFICATE-----`
-		goodPemCertificate2 = `-----BEGIN PRIVATE KEY-----
-MIIEvgIBADANBgkqhkiG9w0BAQEFAASCBKgwggSkAgEAAoIBAQC+Z2mi8shZ3T0c
-5ItI4KwLfYFXxNr3dmIY+2DS9boD18T46Ccow3wW/15SCcI1BdD/pPBmOTpUWP0b
-B22l4gAOUIWfk/CAHuaD+pHAGMlolAMdscwDZPdaM3XEdu839y2gy6RL4Pxls8No
-sI5h2BTGl3YgjSxA+vKJE+/IXzjajfiKfGHuywPjwPpGl1juOgSaU6zqLf4MlUnq
-Daq7r5V9KtJh8dz46PB6c8ALGNM+dxMJSLMyDvT1/7d9aYBkBvpb3mxOu9agIDNn
-2AZ3AxYwA0ykBLmc5R6V0toqRIjfruvBHqQfcjsFaoKS6O+QjtA/eBTIzGajnyis
-1TfeJxURAgMBAAECggEARANIlq5GpuMCW3m/zy6CBjC0rRdiaBbff7D7qx+fbJP8
-hjTXGBaMEuLxXDikKLCFMWxHexxiG5MWBjunDSQnhPV6ZcBAnmNrUCWHPqkb+ME2
-Q7so9uVv/cZ4AM/DL6iZoeBcNcaOIf4OhSzcD1NSSIX96i7Dagq57AE1G8v30Qlb
-CDybxrkbW8D9TkPh57oH/VNuhGLsFp62BjleYtNqo+aknlnHCj09mFQ+N5cA8DuK
-0CcNFCy4C8oZvg9kVsfdypBr4IR0kXTArqMyjUgXe9KqOzf/GdHR9anWhOzHsy/b
-T1Nb+vF6fDm0o6WHWhfODoF4iklrdwRibAnme+zegQKBgQDzvt4KQLnG5jWxeCLn
-P+QR9q63H98oL3kKToyXPaJVL+I71GtZm4yhYP8KB+bTgrMHPhR5se63cySX2lMJ
-RRKkieeEFuDVKVHulRH39g9fMvvl/f97qwv2mAJhdNuIaIjLSVFjQ8WZ6UWvJczp
-sTAyhIxDGiOV00HaUp3BFFnEOQKBgQDH+gLGIsLlPAwuMpbSyuDJucMk0Jzo3+at
-6h19pu5JpfTWn71Zs0RL45x9BLwbx8oi+vjECjMiaE2OyKC6uObxpXRl5okWQ63E
-XBpbONB+fx2v2h1cuB7iJCJxJ6DPTL70torWtwCp+I7CcIT+J/2SqPhiKipWo0Sk
-R2dxeb1HmQKBgEU8mmXfLOZKzkWzEncNtwNDRy3NZ95KXd+HoHf1kf8Qsvq7xCKY
-BMJygv+ebvr1zVTpVXecC2sg0ewwoBWqATmr0o+6z/K84gEbZxdAVe181gDmvYOr
-eqJ5W3PDdfixeOoF0ZCY17B4isrNuf9HzaEL9au56RHOCI6zmQwXc8hBAoGBAMaI
-h0h+Kk+7FbynrOUJVbHwIrTiB2WLJFF1JGIi4F9ty21omWv8dcmB51KW6MoLx7qC
-v4ahObLnKlifBjNabq1pPe4MufzIpDNV3TTDavqq6KY1PQFYKhEJHsiINzaXUt1Q
-fPY+KQKWKeUQIHjS6wQ3jKCoi/AHl5Yg7anS2v/BAoGBAIi309nwDFJG/2UFSObA
-WC+V6T7qy62UlwFlBwsFCbxf9FmFQfoP6wwbQef35Wx2aDnZaSzoXKn/1jvG5e1e
-TFW7K9oC8JkeA//mnTAVrgkvkaHGZmd27zQYB1U3DsO3fLvEt62PZn8fyEwaczeM
-vOOkHciP4pIhAObg/uiO0V9I
------END PRIVATE KEY-----
------BEGIN CERTIFICATE-----
-MIIDXTCCAkWgAwIBAgIJAM9HYUREwVxFMA0GCSqGSIb3DQEBCwUAMEUxCzAJBgNV
-BAYTAkNOMRMwEQYDVQQIDApTb21lLVN0YXRlMSEwHwYDVQQKDBhJbnRlcm5ldCBX
-aWRnaXRzIFB0eSBMdGQwHhcNMTQxMTAxMDY1OTE2WhcNMjQxMDI5MDY1OTE2WjBF
-MQswCQYDVQQGEwJDTjETMBEGA1UECAwKU29tZS1TdGF0ZTEhMB8GA1UECgwYSW50
-ZXJuZXQgV2lkZ2l0cyBQdHkgTHRkMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIB
-CgKCAQEAvmdpovLIWd09HOSLSOCsC32BV8Ta93ZiGPtg0vW6A9fE+OgnKMN8Fv9e
-UgnCNQXQ/6TwZjk6VFj9GwdtpeIADlCFn5PwgB7mg/qRwBjJaJQDHbHMA2T3WjN1
-xHbvN/ctoMukS+D8ZbPDaLCOYdgUxpd2II0sQPryiRPvyF842o34inxh7ssD48D6
-RpdY7joEmlOs6i3+DJVJ6g2qu6+VfSrSYfHc+OjwenPACxjTPncTCUizMg709f+3
-fWmAZAb6W95sTrvWoCAzZ9gGdwMWMANMpAS5nOUeldLaKkSI367rwR6kH3I7BWqC
-kujvkI7QP3gUyMxmo58orNU33icVEQIDAQABo1AwTjAdBgNVHQ4EFgQUJS1vm+Z3
-dm8z29qqdzeI94ZmoqwwHwYDVR0jBBgwFoAUJS1vm+Z3dm8z29qqdzeI94Zmoqww
-DAYDVR0TBAUwAwEB/zANBgkqhkiG9w0BAQsFAAOCAQEAl/6TWgvtFCcxue+YmpLz
-gcPckabL2dbgC7uxbIMgFEJUjtmHRpY1Tih8pKqqbdkPWhK2IBvyCqp7L1P5A4ib
-FTKRGogJSaWMjnh/w644yrmsjjo5uoAueqygwha+OAC3gtt6p844hb9KJTjaoMHC
-caaZ6jCAnfjAp2O/3bBpgXCy69UNlWizx8aXajn5a9ah/DrY8wZfI+ESRH3oMd/f
-hecgZLhdTPSkUJi/l6WK9wBuI8mVl+/Gesi8zgz8u+/BRZsxQoP9tBWUjOG396fm
-PCpapHzlchV1N1s0k+poxmoO/GI0GTPcIY3RhU6QJIQ0dtGCLZFVWchJms5u9GBg
-xw==
------END CERTIFICATE-----`
-
 	})
 
 	Context("Virt api server", func() {
@@ -273,26 +186,9 @@ xw==
 				),
 			)
 
-			err := app.getClientCert()
+			err := app.readRequestHeader()
 			Expect(err).To(HaveOccurred())
 
-		}, 5)
-
-		It("should retrieve requestheader CA only", func() {
-
-			configMap := &k8sv1.ConfigMap{}
-			configMap.Data = make(map[string]string)
-			configMap.Data["requestheader-client-ca-file"] = "morefakedata"
-			server.AppendHandlers(
-				ghttp.CombineHandlers(
-					ghttp.VerifyRequest("GET", "/api/v1/namespaces/kube-system/configmaps/extension-apiserver-authentication"),
-					ghttp.RespondWithJSONEncoded(http.StatusOK, configMap),
-				),
-			)
-
-			err := app.getClientCert()
-			Expect(err).ToNot(HaveOccurred())
-			Expect(app.requestHeaderClientCABytes).To(Equal([]byte("morefakedata")))
 		}, 5)
 
 		It("should fail without requestheader CA", func() {
@@ -306,14 +202,50 @@ xw==
 				),
 			)
 
-			err := app.getClientCert()
+			err := app.readRequestHeader()
 			Expect(err).To(HaveOccurred())
 		}, 5)
+
+		It("should create a tls config which uses the CA Manager", func() {
+			ca, err := triple.NewCA("first")
+			// Just provide any cert
+			app.certBytes = cert.EncodeCertPEM(ca.Cert)
+			app.keyBytes = cert.EncodePrivateKeyPEM(ca.Key)
+			Expect(err).ToNot(HaveOccurred())
+			configMap := &k8sv1.ConfigMap{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:            util.ExtensionAPIServerAuthenticationConfigMap,
+					Namespace:       metav1.NamespaceSystem,
+					ResourceVersion: "1",
+				},
+				Data: map[string]string{
+					util.RequestHeaderClientCAFileKey: string(cert.EncodeCertPEM(ca.Cert)),
+				},
+			}
+			store := cache.NewStore(cache.DeletionHandlingMetaNamespaceKeyFunc)
+			Expect(store.Add(configMap)).To(Succeed())
+			manager := NewClientCAManager(store)
+			Expect(app.setupTLS(manager)).To(Succeed())
+
+			By("checking if the initial certificate is used in the tlsConfig")
+			config, err := app.tlsConfig.GetConfigForClient(nil)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(config.ClientCAs.Subjects()[0]).To(ContainSubstring("first"))
+
+			By("checking if the new certificate is used in the tlsConfig")
+			newCA, err := triple.NewCA("new")
+			Expect(err).ToNot(HaveOccurred())
+			configMap.Data[util.RequestHeaderClientCAFileKey] = string(cert.EncodeCertPEM(newCA.Cert))
+			configMap.ObjectMeta.ResourceVersion = "2"
+			config, err = app.tlsConfig.GetConfigForClient(nil)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(config.ClientCAs.Subjects()[0]).To(ContainSubstring("new"))
+		})
 
 		It("should auto detect correct request headers from cert configmap", func() {
 			configMap := &k8sv1.ConfigMap{}
 			configMap.Data = make(map[string]string)
-			configMap.Data["requestheader-client-ca-file"] = "morefakedata"
+			configMap.Data[util.RequestHeaderClientCAFileKey] = "morefakedata"
 			configMap.Data["requestheader-username-headers"] = "[\"fakeheader1\"]"
 			configMap.Data["requestheader-group-headers"] = "[\"fakeheader2\"]"
 			configMap.Data["requestheader-extra-headers-prefix"] = "[\"fakeheader3-\"]"
@@ -324,7 +256,7 @@ xw==
 				),
 			)
 
-			err := app.getClientCert()
+			err := app.readRequestHeader()
 			Expect(err).ToNot(HaveOccurred())
 			Expect(app.authorizor.GetUserHeaders()).To(Equal([]string{"X-Remote-User", "fakeheader1"}))
 			Expect(app.authorizor.GetGroupHeaders()).To(Equal([]string{"X-Remote-Group", "fakeheader2"}))
@@ -577,95 +509,6 @@ xw==
 
 			err := app.createMutatingWebhook()
 			Expect(err).To(HaveOccurred())
-		}, 5)
-
-		It("should fail setupTLS without any data available at key write error", func() {
-			filesystemMock.EXPECT().
-				WriteFile(caFile, app.requestHeaderClientCABytes, restrictiveMode)
-			filesystemMock.EXPECT().
-				WriteFile(keyFile, app.keyBytes, restrictiveMode).
-				Return(errors.New("fake error writing " + caFile))
-			err := app.setupTLS(filesystemMock)
-			Expect(err).To(HaveOccurred())
-		}, 5)
-
-		It("should fail setupTLS at keyBytes write error", func() {
-			filesystemMock.EXPECT().
-				WriteFile(caFile, app.requestHeaderClientCABytes, restrictiveMode)
-			filesystemMock.EXPECT().
-				WriteFile(keyFile, app.keyBytes, restrictiveMode).
-				Return(errors.New("fake error writing " + keyFile))
-			err := app.setupTLS(filesystemMock)
-			Expect(err).To(HaveOccurred())
-		}, 5)
-
-		It("should fail setupTLS at certFile write error", func() {
-			filesystemMock.EXPECT().
-				WriteFile(caFile, app.requestHeaderClientCABytes, restrictiveMode)
-			filesystemMock.EXPECT().
-				WriteFile(keyFile, app.keyBytes, restrictiveMode)
-			filesystemMock.EXPECT().
-				WriteFile(certFile, app.certBytes, restrictiveMode).
-				Return(errors.New("fake error writing " + certFile))
-			err := app.setupTLS(filesystemMock)
-			Expect(err).To(HaveOccurred())
-		}, 5)
-
-		It("should fail setupTLS at signingCertBytes write error", func() {
-			filesystemMock.EXPECT().
-				WriteFile(caFile, app.requestHeaderClientCABytes, restrictiveMode)
-			filesystemMock.EXPECT().
-				WriteFile(keyFile, app.keyBytes, restrictiveMode)
-			filesystemMock.EXPECT().
-				WriteFile(certFile, app.certBytes, restrictiveMode)
-			filesystemMock.EXPECT().
-				WriteFile(signingCertFile, app.signingCertBytes, restrictiveMode).
-				Return(errors.New("fake error writing " + signingCertFile))
-			err := app.setupTLS(filesystemMock)
-			Expect(err).To(HaveOccurred())
-		}, 5)
-
-		It("should fail setupTLS at new pool error", func() {
-			filesystemMock.EXPECT().
-				WriteFile(caFile, app.requestHeaderClientCABytes, restrictiveMode)
-			filesystemMock.EXPECT().
-				WriteFile(keyFile, app.keyBytes, restrictiveMode)
-			filesystemMock.EXPECT().
-				WriteFile(certFile, app.certBytes, restrictiveMode)
-			filesystemMock.EXPECT().
-				WriteFile(signingCertFile, app.signingCertBytes, restrictiveMode)
-			err := app.setupTLS(filesystemMock)
-			Expect(err).To(HaveOccurred())
-		}, 5)
-
-		It("should fail setupTLS at requestheader CA write error", func() {
-			app.requestHeaderClientCABytes = []byte(goodPemCertificate1)
-			filesystemMock.EXPECT().
-				WriteFile(caFile, app.requestHeaderClientCABytes, restrictiveMode).
-				Return(errors.New("fake error opening " + caFile))
-			err := app.setupTLS(filesystemMock)
-			Expect(err).To(HaveOccurred())
-		}, 5)
-
-		It("should pass setupTLS at good requestheader CA", func() {
-			app.requestHeaderClientCABytes = []byte(goodPemCertificate1)
-			err := app.setupTLS(IOUtil{})
-			Expect(err).ToNot(HaveOccurred())
-		}, 5)
-
-		It("should fail setupTLS at bad requestheader CA", func() {
-			app.requestHeaderClientCABytes = []byte(badPemCertificate)
-			err := app.setupTLS(IOUtil{})
-			Expect(err).To(HaveOccurred())
-		}, 5)
-
-		It("should write requestheader CA only at setupTLS", func() {
-			app.requestHeaderClientCABytes = []byte(goodPemCertificate2)
-			err := app.setupTLS(IOUtil{})
-			Expect(err).ToNot(HaveOccurred())
-			clientCABytes, err := ioutil.ReadFile(caFile)
-			Expect(err).ToNot(HaveOccurred())
-			Expect(clientCABytes).To(Equal([]byte(goodPemCertificate2)))
 		}, 5)
 
 		It("should have default values for flags", func() {

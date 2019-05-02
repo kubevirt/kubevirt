@@ -9,6 +9,8 @@ import (
 
 const ServiceAccountNamespaceFile = "/var/run/secrets/kubernetes.io/serviceaccount/namespace"
 const namespaceKubevirt = "kubevirt"
+const ExtensionAPIServerAuthenticationConfigMap = "extension-apiserver-authentication"
+const RequestHeaderClientCAFileKey = "requestheader-client-ca-file"
 
 func GetNamespace() (string, error) {
 	if data, err := ioutil.ReadFile(ServiceAccountNamespaceFile); err == nil {

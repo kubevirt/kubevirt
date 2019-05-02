@@ -238,9 +238,6 @@ func newApiServerClusterRole() *rbacv1.ClusterRole {
 				Resources: []string{
 					"configmaps",
 				},
-				ResourceNames: []string{
-					"extension-apiserver-authentication",
-				},
 				Verbs: []string{
 					"get", "list", "watch",
 				},
