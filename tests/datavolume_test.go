@@ -306,6 +306,25 @@ var _ = Describe("DataVolume Integration", func() {
 			deleteIfExistsDataVolume(dataVolumeName, vm.Namespace)
 		})
 
+		It("[test_id:836] Creating a VM with DataVolumeTemplates should succeed.", func() {
+			By("Creating VM with DataVolumeTemplate entry with k8s client binary")
+			_, _, err = tests.RunCommand(k8sClient, "create", "-f", vmJson)
+			Expect(err).ToNot(HaveOccurred())
+
+			By("Verifying DataVolume succeeded and is created with VM owner reference")
+			dataVolumeIsSuccessAndOwned(dataVolumeName, vm.Namespace)
+
+			By("Verifying PVC is created")
+			pvcExists(pvcName, vm.Namespace)
+
+			By("Verifying VMI is created with VM owner reference")
+			vmiIsRunningAndOwned(vm.Name, vm.Namespace)
+
+			By("Delete VM")
+			_, _, err = tests.RunCommand("kubectl", "delete", "vm", vm.Name)
+			Expect(err).ToNot(HaveOccurred())
+		})
+
 		It("[test_id:837]deleting VM with cascade=true should automatically delete DataVolumes and VMI owned by VM.", func() {
 			By("Creating VM with DataVolumeTemplate entry with k8s client binary")
 			_, _, err = tests.RunCommand(k8sClient, "create", "-f", vmJson)
