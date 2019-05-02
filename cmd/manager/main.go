@@ -9,6 +9,7 @@ import (
 
 	sspopv1 "github.com/MarSik/kubevirt-ssp-operator/pkg/apis"
 	networkaddons "github.com/kubevirt/cluster-network-addons-operator/pkg/apis"
+	kwebuis "github.com/kubevirt/web-ui-operator/pkg/apis"
 	cdiv1alpha1 "kubevirt.io/containerized-data-importer/pkg/apis/core/v1alpha1"
 
 	"github.com/kubevirt/hyperconverged-cluster-operator/pkg/apis"
@@ -117,6 +118,12 @@ func main() {
 
 	// Setup Scheme for SSP
 	if err := sspopv1.AddToScheme(mgr.GetScheme()); err != nil {
+		log.Error(err, "")
+		os.Exit(1)
+	}
+
+	// Setup Scheme for KWebUI
+	if err := kwebuis.AddToScheme(mgr.GetScheme()); err != nil {
 		log.Error(err, "")
 		os.Exit(1)
 	}
