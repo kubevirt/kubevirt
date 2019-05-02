@@ -405,7 +405,6 @@ func newKubevirtTemplateValidatorForCR(cr *hcov1alpha1.HyperConverged) *sspv1.Ku
 	}
 }
 
-// newKWebUIForCR returns a KWebUI CR
 func newKWebUIForCR(cr *hcov1alpha1.HyperConverged) *kwebuis.KWebUI {
 	labels := map[string]string{
 		"app": cr.Name,
@@ -415,14 +414,10 @@ func newKWebUIForCR(cr *hcov1alpha1.HyperConverged) *kwebuis.KWebUI {
 			Name:   "kubevirt-web-ui-" + cr.Name,
 			Labels: labels,
 		},
+		// Missing CR values will be set via ENV variables of the web-ui-operator
 		Spec: kwebuis.KWebUISpec{
-			Version:                         "latest",                             // TODO: image tag name, use Version ; https://github.com/kubevirt/hyperconverged-cluster-operator/pull/22/files
-			RegistryUrl:                     "",                                   // TODO: use ContainerRegistry  ; https://github.com/kubevirt/hyperconverged-cluster-operator/pull/22/files
-			RegistryNamespace:               "",                                   // keep blank, already in ContainerRegistry
 			OpenshiftMasterDefaultSubdomain: cr.Spec.KWebUIMasterDefaultSubdomain, // set if provided, otherwise keep empty
 			PublicMasterHostname:            cr.Spec.KWebUIPublicMasterHostname,   // set if provided, otherwise keep empty
-			Branding:                        "okdvirt",                            // either okdvirt or openshiftvirt; hardcoded due to the "config-less" requirement, needs to be patched for non-upstream builds
-			ImagePullPolicy:                 "IfNotPresent",
 		},
 	}
 }

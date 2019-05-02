@@ -14,6 +14,7 @@ NAMESPACE="${NAMESPACE:-kubevirt-hyperconverged}"
 CSV_VERSION="${CSV_VERSION:-0.0.1}"
 CONTAINER_PREFIX="${CONTAINER_PREFIX:-kubevirt}"
 CNA_CONTAINER_PREFIX="${CNA_CONTAINER_PREFIX:-quay.io/kubevirt}"
+WEBUI_CONTAINER_PREFIX="${WEBUI_CONTAINER_PREFIX:-quay.io/kubevirt}"
 CONTAINER_TAG="${CONTAINER_TAG:-latest}"
 IMAGE_PULL_POLICY="${IMAGE_PULL_POLICY:-IfNotPresent}"
 
@@ -55,6 +56,7 @@ for template in $templates; do
 		--csv-version=${CSV_VERSION} \
 		--container-prefix=${CONTAINER_PREFIX} \
 		--cna-container-prefix=${CNA_CONTAINER_PREFIX} \
+		--webui-container-prefix=${WEBUI_CONTAINER_PREFIX} \
 		--container-tag=${CONTAINER_TAG} \
 		--image-pull-policy=${IMAGE_PULL_POLICY} \
 		--input-file=${infile} \
