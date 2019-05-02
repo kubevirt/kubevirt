@@ -7,7 +7,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
-	kubevirtv1alpha1 "kubevirt.io/web-ui-operator/pkg/apis/kubevirt/v1alpha1"
+	kubevirtv1alpha1 "github.com/kubevirt/web-ui-operator/pkg/apis/kubevirt/v1alpha1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/handler"

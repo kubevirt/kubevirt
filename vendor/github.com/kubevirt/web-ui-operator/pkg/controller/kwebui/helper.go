@@ -60,9 +60,12 @@ func LogPerLine(header string, out string) {
 	}
 }
 
-func Def(s string, defVal string) string {
+func Def(s string, other string, defVal string) string {
 	if s == "" {
-		return defVal
+		if other == "" {
+			return defVal
+		}
+		return other
 	}
 	return s
 }

@@ -69,6 +69,22 @@ func GetDeployment(namespace string, repository string, tag string, imagePullPol
 									Value: Name,
 								},
 								{
+									Name:  "OPERATOR_REGISTRY",
+									Value: repository,
+								},
+								{
+									Name:  "OPERATOR_TAG",
+									Value: tag,
+								},
+								{
+									Name:  "BRANDING",
+									Value: "okdvirt", // or openshiftvirt
+								},
+								{
+									Name: "IMAGE_PULL_POLICY",
+									Value: imagePullPolicy,
+								},
+								{
 									Name: "OPERATOR_NAMESPACE",
 									ValueFrom: &corev1.EnvVarSource{
 										FieldRef: &corev1.ObjectFieldSelector{

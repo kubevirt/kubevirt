@@ -1,7 +1,7 @@
 package controller
 
 import (
-	"kubevirt.io/web-ui-operator/pkg/controller/kwebui"
+	"github.com/kubevirt/web-ui-operator/pkg/controller/kwebui"
 )
 
 func init() {

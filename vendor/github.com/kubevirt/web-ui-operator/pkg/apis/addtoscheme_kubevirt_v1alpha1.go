@@ -1,7 +1,7 @@
 package apis
 
 import (
-	"kubevirt.io/web-ui-operator/pkg/apis/kubevirt/v1alpha1"
+	"github.com/kubevirt/web-ui-operator/pkg/apis/kubevirt/v1alpha1"
 )
 
 func init() {
