@@ -34,6 +34,7 @@ import (
 	rbacv1 "k8s.io/api/rbac/v1"
 	extv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
 	extclient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/client-go/rest"
@@ -78,6 +79,9 @@ type KubeInformerFactory interface {
 
 	// Watches VirtualMachineInstanceMigration objects
 	VirtualMachineInstanceMigration() cache.SharedIndexInformer
+
+	// Watches for k8s extensions api configmap
+	ApiAuthConfigMap() cache.SharedIndexInformer
 
 	// Watches for ConfigMap objects
 	ConfigMap() cache.SharedIndexInformer
@@ -279,6 +283,15 @@ func (f *kubeInformerFactory) DummyDataVolume() cache.SharedIndexInformer {
 	return f.getInformer("fakeDataVolumeInformer", func() cache.SharedIndexInformer {
 		informer, _ := testutils.NewFakeInformerFor(&cdiv1.DataVolume{})
 		return informer
+	})
+}
+
+func (f *kubeInformerFactory) ApiAuthConfigMap() cache.SharedIndexInformer {
+	return f.getInformer("extensionsConfigMapInformer", func() cache.SharedIndexInformer {
+		restClient := f.clientSet.CoreV1().RESTClient()
+		fieldSelector := fields.OneTermEqualSelector("metadata.name", "extension-apiserver-authentication")
+		lw := cache.NewListWatchFromClient(restClient, "configmaps", metav1.NamespaceSystem, fieldSelector)
+		return cache.NewSharedIndexInformer(lw, &k8sv1.ConfigMap{}, f.defaultResync, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
 	})
 }
 

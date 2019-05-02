@@ -166,8 +166,6 @@ rules:
   - list
 - apiGroups:
   - ""
-  resourceNames:
-  - extension-apiserver-authentication
   resources:
   - configmaps
   verbs:
