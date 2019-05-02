@@ -28,6 +28,8 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/cert"
+
+	"kubevirt.io/kubevirt/pkg/util"
 )
 
 type ClientCAManager interface {
@@ -53,9 +55,7 @@ func (m *manager) GetCurrent() (*x509.CertPool, error) {
 	m.lock.Lock()
 	defer m.lock.Unlock()
 
-	configMapName := "extension-apiserver-authentication"
-
-	obj, exists, err := m.store.GetByKey(metav1.NamespaceSystem + "/" + configMapName)
+	obj, exists, err := m.store.GetByKey(metav1.NamespaceSystem + "/" + util.ExtensionAPIServerAuthenticationConfigMap)
 
 	if err != nil {
 		return nil, err
@@ -64,7 +64,7 @@ func (m *manager) GetCurrent() (*x509.CertPool, error) {
 			return m.lastPool, nil
 		}
 
-		return nil, fmt.Errorf("configmap %s not found. Unable to detect request header CA", configMapName)
+		return nil, fmt.Errorf("configmap %s not found. Unable to detect request header CA", util.ExtensionAPIServerAuthenticationConfigMap)
 	}
 
 	configMap := obj.(*k8sv1.ConfigMap)
@@ -74,7 +74,7 @@ func (m *manager) GetCurrent() (*x509.CertPool, error) {
 		return m.lastPool, nil
 	}
 
-	requestHeaderClientCA, ok := configMap.Data["requestheader-client-ca-file"]
+	requestHeaderClientCA, ok := configMap.Data[util.RequestHeaderClientCAFileKey]
 	if !ok {
 		return nil, fmt.Errorf("requestheader-client-ca-file not found in extension-apiserver-authentication ConfigMap")
 	}

@@ -401,7 +401,7 @@ func deserializeStrings(in string) ([]string, error) {
 }
 
 func (app *virtAPIApp) readRequestHeader() error {
-	authConfigMap, err := app.virtCli.CoreV1().ConfigMaps(metav1.NamespaceSystem).Get("extension-apiserver-authentication", metav1.GetOptions{})
+	authConfigMap, err := app.virtCli.CoreV1().ConfigMaps(metav1.NamespaceSystem).Get(util.ExtensionAPIServerAuthenticationConfigMap, metav1.GetOptions{})
 	if err != nil {
 		return err
 	}
@@ -409,7 +409,7 @@ func (app *virtAPIApp) readRequestHeader() error {
 	// The request-header CA is mandatory. It can be retrieved from the configmap as we do here, or it must be provided
 	// via flag on start of this apiserver. Since we don't do the latter, the former is mandatory for us
 	// see https://github.com/kubernetes-incubator/apiserver-builder-alpha/blob/master/docs/concepts/auth.md#requestheader-authentication
-	_, ok := authConfigMap.Data["requestheader-client-ca-file"]
+	_, ok := authConfigMap.Data[util.RequestHeaderClientCAFileKey]
 	if !ok {
 		return fmt.Errorf("requestheader-client-ca-file not found in extension-apiserver-authentication ConfigMap")
 	}
