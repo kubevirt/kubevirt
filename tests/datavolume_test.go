@@ -30,6 +30,7 @@ import (
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
 	cdiv1 "kubevirt.io/containerized-data-importer/pkg/apis/core/v1alpha1"
 
 	v1 "kubevirt.io/kubevirt/pkg/api/v1"
@@ -136,7 +137,7 @@ var _ = Describe("DataVolume Integration", func() {
 		})
 	})
 
-	Describe("with oc/kubectl", func() {
+	Describe("[rfe_id:896][crit:high][vendor:cnv-qe@redhat.com][level:system] with oc/kubectl", func() {
 		var vm *v1.VirtualMachine
 		var err error
 		var vmJson string
@@ -305,7 +306,7 @@ var _ = Describe("DataVolume Integration", func() {
 			deleteIfExistsDataVolume(dataVolumeName, vm.Namespace)
 		})
 
-		It("deleting VM with cascade=true should automatically delete DataVolumes and VMI owned by VM.", func() {
+		It("[test_id:837]deleting VM with cascade=true should automatically delete DataVolumes and VMI owned by VM.", func() {
 			By("Creating VM with DataVolumeTemplate entry with k8s client binary")
 			_, _, err = tests.RunCommand(k8sClient, "create", "-f", vmJson)
 			Expect(err).ToNot(HaveOccurred())
@@ -336,7 +337,7 @@ var _ = Describe("DataVolume Integration", func() {
 			waitForDeletionPVC(pvcName, vm.Namespace)
 		})
 
-		It("deleting VM with cascade=false should orphan DataVolumes and VMI owned by VM.", func() {
+		It("[test_id:838]deleting VM with cascade=false should orphan DataVolumes and VMI owned by VM.", func() {
 
 			By("Creating VM with DataVolumeTemplate entry with k8s client binary")
 			_, _, err = tests.RunCommand(k8sClient, "create", "-f", vmJson)
