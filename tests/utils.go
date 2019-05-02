@@ -2526,6 +2526,15 @@ func SkipIfNotUseNetworkPolicy(virtClient kubecli.KubevirtClient) {
 	}
 }
 
+func GetK8sCmdClient() string {
+	// use oc if it exists, otherwise use kubectl
+	if KubeVirtOcPath != "" {
+		return "oc"
+	}
+
+	return "kubectl"
+}
+
 func SkipIfNoCmd(cmdName string) {
 	var cmdPath string
 	switch strings.ToLower(cmdName) {
@@ -2718,6 +2727,20 @@ func RunCommandPipeWithNS(namespace string, commands ...[]string) (string, strin
 
 	outputString, stderrString := captureOutputBuffers()
 	return outputString, stderrString, nil
+}
+
+func GenerateVMJson(vm *v1.VirtualMachine) (string, error) {
+	data, err := json.Marshal(vm)
+	if err != nil {
+		return "", fmt.Errorf("failed to generate json for vm %s", vm.Name)
+	}
+
+	jsonFile := fmt.Sprintf("%s.json", vm.Name)
+	err = ioutil.WriteFile(jsonFile, data, 0644)
+	if err != nil {
+		return "", fmt.Errorf("failed to write json file %s", jsonFile)
+	}
+	return jsonFile, nil
 }
 
 func GenerateVMIJson(vmi *v1.VirtualMachineInstance) (string, error) {
@@ -3247,6 +3270,7 @@ func NewRandomVirtualMachine(vmi *v1.VirtualMachineInstance, running bool) *v1.V
 			},
 		},
 	}
+	vm.SetGroupVersionKind(schema.GroupVersionKind{Group: v1.GroupVersion.Group, Kind: "VirtualMachine", Version: v1.GroupVersion.Version})
 	return vm
 }
 
