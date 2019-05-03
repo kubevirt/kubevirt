@@ -334,7 +334,7 @@ var _ = Describe("[rfe_id:609][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 			}
 		})
 
-		It("should override presets", func() {
+                It("[test_id:644][rfe_id:609] should override presets", func() {
 			By("Creating preset with 64M")
 			err := virtClient.RestClient().Post().Resource("virtualmachineinstancepresets").Namespace(tests.NamespaceTestDefault).Body(overridePreset).Do().Error()
 			Expect(err).ToNot(HaveOccurred())
