@@ -350,6 +350,7 @@
   digest = "1:e49bb6c146519c77cb69dda16474a54d1e93291c12c02947189307e7a8137175"
   name = "github.com/kubevirt/web-ui-operator"
   packages = [
+    "pkg/apis",
     "pkg/apis/kubevirt/v1alpha1",
     "pkg/components",
   ]
@@ -1198,6 +1199,7 @@
     "github.com/kubevirt/cluster-network-addons-operator/pkg/apis/networkaddonsoperator/v1alpha1",
     "github.com/kubevirt/cluster-network-addons-operator/pkg/components",
     "github.com/kubevirt/cluster-network-addons-operator/pkg/names",
+    "github.com/kubevirt/web-ui-operator/pkg/apis",
     "github.com/kubevirt/web-ui-operator/pkg/apis/kubevirt/v1alpha1",
     "github.com/kubevirt/web-ui-operator/pkg/components",
     "github.com/operator-framework/operator-sdk/pkg/k8sutil",
@@ -1215,7 +1217,6 @@
     "k8s.io/apimachinery/pkg/apis/meta/v1/unstructured",
     "k8s.io/apimachinery/pkg/runtime",
     "k8s.io/apimachinery/pkg/runtime/schema",
-    "k8s.io/apimachinery/pkg/types",
     "k8s.io/client-go/plugin/pkg/client/auth/gcp",
     "k8s.io/code-generator/cmd/client-gen",
     "k8s.io/code-generator/cmd/conversion-gen",
