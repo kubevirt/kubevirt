@@ -24,6 +24,7 @@ import (
 	"flag"
 	"fmt"
 	"regexp"
+	"strings"
 	"time"
 
 	. "github.com/onsi/ginkgo"
@@ -41,6 +42,8 @@ import (
 var _ = Describe("Operator", func() {
 	flag.Parse()
 	var originalKv *v1.KubeVirt
+	var originalKubeVirtConfig *k8sv1.ConfigMap
+	var err error
 
 	virtClient, err := kubecli.GetKubevirtClient()
 	tests.PanicOnError(err)
@@ -181,6 +184,62 @@ var _ = Describe("Operator", func() {
 
 	}
 
+	disableFeatureGate := func(feature string) {
+		if !tests.HasFeature(feature) {
+			return
+		}
+
+		cfg, err := virtClient.CoreV1().ConfigMaps(tests.KubeVirtInstallNamespace).Get("kubevirt-config", metav1.GetOptions{})
+		if err != nil {
+			Expect(err).ToNot(HaveOccurred())
+		}
+
+		val, _ := cfg.Data["feature-gates"]
+
+		newVal := strings.Replace(val, feature+",", "", 1)
+		newVal = strings.Replace(newVal, feature, "", 1)
+
+		cfg.Data["feature-gates"] = newVal
+
+		newData, err := json.Marshal(cfg.Data)
+		if err != nil {
+			Expect(err).ToNot(HaveOccurred())
+		}
+		data := fmt.Sprintf(`[{ "op": "replace", "path": "/data", "value": %s }]`, string(newData))
+
+		if err != nil {
+			Expect(err).ToNot(HaveOccurred())
+		}
+		_, err = virtClient.CoreV1().ConfigMaps(tests.KubeVirtInstallNamespace).Patch("kubevirt-config", types.JSONPatchType, []byte(data))
+	}
+
+	enableFeatureGate := func(feature string) {
+		if tests.HasFeature(feature) {
+			return
+		}
+
+		cfg, err := virtClient.CoreV1().ConfigMaps(tests.KubeVirtInstallNamespace).Get("kubevirt-config", metav1.GetOptions{})
+		if err != nil {
+			Expect(err).ToNot(HaveOccurred())
+		}
+
+		val, _ := cfg.Data["feature-gates"]
+		newVal := fmt.Sprintf("%s,%s", val, feature)
+
+		cfg.Data["feature-gates"] = newVal
+
+		newData, err := json.Marshal(cfg.Data)
+		if err != nil {
+			Expect(err).ToNot(HaveOccurred())
+		}
+		data := fmt.Sprintf(`[{ "op": "replace", "path": "/data", "value": %s }]`, string(newData))
+
+		if err != nil {
+			Expect(err).ToNot(HaveOccurred())
+		}
+		_, err = virtClient.CoreV1().ConfigMaps(tests.KubeVirtInstallNamespace).Patch("kubevirt-config", types.JSONPatchType, []byte(data))
+	}
+
 	waitForKv := func(newKv *v1.KubeVirt) {
 		Eventually(func() error {
 			kv, err := virtClient.KubeVirt(tests.KubeVirtInstallNamespace).Get(newKv.Name, &metav1.GetOptions{})
@@ -279,6 +338,28 @@ var _ = Describe("Operator", func() {
 
 	tests.BeforeAll(func() {
 		originalKv = getCurrentKv()
+
+		originalKubeVirtConfig, err = virtClient.CoreV1().ConfigMaps(tests.KubeVirtInstallNamespace).Get("kubevirt-config", metav1.GetOptions{})
+		if err != nil && !errors.IsNotFound(err) {
+			Expect(err).ToNot(HaveOccurred())
+		}
+
+		if errors.IsNotFound(err) {
+			// create an empty kubevirt-config configmap if none exists.
+			cfgMap := &k8sv1.ConfigMap{
+				ObjectMeta: metav1.ObjectMeta{Name: "kubevirt-config"},
+				Data: map[string]string{
+					"feature-gates": "",
+				},
+			}
+
+			originalKubeVirtConfig, err = virtClient.CoreV1().ConfigMaps(tests.KubeVirtInstallNamespace).Create(cfgMap)
+			if err != nil {
+				Expect(err).ToNot(HaveOccurred())
+			}
+
+		}
+
 	})
 
 	BeforeEach(func() {
@@ -286,7 +367,31 @@ var _ = Describe("Operator", func() {
 	})
 
 	AfterEach(func() {
-		deleteAllKvAndWait(true)
+		ignoreDeleteOriginalKV := true
+
+		curKubeVirtConfig, err := virtClient.CoreV1().ConfigMaps(tests.KubeVirtInstallNamespace).Get("kubevirt-config", metav1.GetOptions{})
+		if err != nil {
+			Expect(err).ToNot(HaveOccurred())
+		}
+
+		// if revision changed, patch data and reload everything
+		if curKubeVirtConfig.ResourceVersion != originalKubeVirtConfig.ResourceVersion {
+			ignoreDeleteOriginalKV = false
+
+			// Add Spec Patch
+			newData, err := json.Marshal(originalKubeVirtConfig.Data)
+			if err != nil {
+				Expect(err).ToNot(HaveOccurred())
+			}
+			data := fmt.Sprintf(`[{ "op": "replace", "path": "/data", "value": %s }]`, string(newData))
+
+			if err != nil {
+				Expect(err).ToNot(HaveOccurred())
+			}
+			originalKubeVirtConfig, err = virtClient.CoreV1().ConfigMaps(tests.KubeVirtInstallNamespace).Patch("kubevirt-config", types.JSONPatchType, []byte(data))
+		}
+
+		deleteAllKvAndWait(ignoreDeleteOriginalKV)
 
 		kvs := getKvList()
 
@@ -296,6 +401,7 @@ var _ = Describe("Operator", func() {
 		patchOperatorVersion(tests.KubeVirtVersionTag)
 		waitForKv(originalKv)
 		allPodsAreReady(tests.KubeVirtVersionTag)
+
 	})
 
 	Describe("infrastructure management", func() {
@@ -479,6 +585,93 @@ var _ = Describe("Operator", func() {
 
 			By("Deleting duplicate KubeVirt Object")
 			deleteAllKvAndWait(true)
+		})
+	})
+
+	Describe("feature flag enabling/disabling", func() {
+
+		var vm *v1.VirtualMachine
+
+		AfterEach(func() {
+
+			if vm != nil {
+				_, err := virtClient.VirtualMachine(vm.Namespace).Get(vm.Name, &metav1.GetOptions{})
+				if err != nil && !errors.IsNotFound(err) {
+					Expect(err).ToNot(HaveOccurred())
+				}
+
+				if vm != nil && vm.DeletionTimestamp == nil {
+					err = virtClient.VirtualMachine(vm.Namespace).Delete(vm.Name, &metav1.DeleteOptions{})
+					Expect(err).ToNot(HaveOccurred())
+				}
+				vm = nil
+			}
+		})
+
+		It("[test_id:835]Ensure infra can start with DataVolume feature gate enabled.", func() {
+			if !tests.HasDataVolumeCRD() {
+				Skip("Can't test DataVolume support when DataVolume CRD isn't present")
+			}
+
+			// This tests starting infrastructure with and without the DataVolumes feature gate
+			running := false
+			vm = tests.NewRandomVMWithDataVolume(tests.AlpineHttpUrl, tests.NamespaceTestDefault)
+			vm.Spec.Running = &running
+
+			// Disable the gate
+			By("DisablingFeatureGate")
+			disableFeatureGate("DataVolumes")
+
+			// Cycle the infrastructure to pick up the change.
+			allPodsAreReady(tests.KubeVirtVersionTag)
+			sanityCheckDeploymentsExist()
+
+			By("Deleting KubeVirt object")
+			deleteAllKvAndWait(false)
+
+			By("Sanity Checking Deployments infrastructure is deleted")
+			sanityCheckDeploymentsDeleted()
+
+			By("Creating KubeVirt Object")
+			createKv(copyOriginalKv())
+
+			By("Creating KubeVirt Object Created and Ready Condition")
+			waitForKv(originalKv)
+
+			By("Verifying infrastructure is Ready")
+			allPodsAreReady(tests.KubeVirtVersionTag)
+			sanityCheckDeploymentsExist()
+
+			// Verify posting a VM with DataVolumeTemplate fails when DataVolumes
+			// feature gate is disabled
+			By("Expecting Error to Occur when posting VM with DataVolume")
+			_, err = virtClient.VirtualMachine(tests.NamespaceTestDefault).Create(vm)
+			Expect(err).To(HaveOccurred())
+
+			// Enable DataVolumes feature gate
+			By("EnablingFeatureGate")
+			enableFeatureGate("DataVolumes")
+
+			// Cycle the infrastructure so we know the feature gate is picked up.
+			By("Deleting KubeVirt object")
+			deleteAllKvAndWait(false)
+
+			By("Sanity Checking Deployments infrastructure is deleted")
+			sanityCheckDeploymentsDeleted()
+
+			By("Creating KubeVirt Object")
+			createKv(copyOriginalKv())
+
+			By("Creating KubeVirt Object Created and Ready Condition")
+			waitForKv(originalKv)
+
+			By("Verifying infrastructure is Ready")
+			allPodsAreReady(tests.KubeVirtVersionTag)
+
+			// Verify we can post a VM with DataVolumeTemplates successfully
+			By("Expecting Error to not occur when posting VM with DataVolume")
+			_, err = virtClient.VirtualMachine(tests.NamespaceTestDefault).Create(vm)
+			Expect(err).ToNot(HaveOccurred())
 		})
 	})
 })

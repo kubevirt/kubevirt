@@ -47,6 +47,7 @@ import (
 	k8sv1 "k8s.io/api/core/v1"
 	k8sextv1beta1 "k8s.io/api/extensions/v1beta1"
 	rbacv1 "k8s.io/api/rbac/v1"
+	extclient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -3350,6 +3351,21 @@ func HasFeature(feature string) bool {
 		}
 	}
 	return hasFeature
+}
+
+func HasDataVolumeCRD() bool {
+	virtClient, err := kubecli.GetKubevirtClient()
+	PanicOnError(err)
+
+	ext, err := extclient.NewForConfig(virtClient.Config())
+	PanicOnError(err)
+
+	_, err = ext.ApiextensionsV1beta1().CustomResourceDefinitions().Get("datavolumes.cdi.kubevirt.io", metav1.GetOptions{})
+
+	if err != nil {
+		return false
+	}
+	return true
 }
 
 func HasCDI() bool {
