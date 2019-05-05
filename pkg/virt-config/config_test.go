@@ -54,7 +54,7 @@ var _ = Describe("ConfigMap", func() {
 				Namespace:       "kubevirt",
 				Name:            "kubevirt-config",
 			},
-			Data: map[string]string{imagePullPolicyKey: value},
+			Data: map[string]string{ImagePullPolicyKey: value},
 		}
 		clusterConfig, _ := MakeClusterConfig([]kubev1.ConfigMap{cfgMap}, stopChan)
 		Expect(clusterConfig.GetImagePullPolicy()).To(Equal(result))
@@ -139,7 +139,7 @@ var _ = Describe("ConfigMap", func() {
 				Namespace:       "kubevirt",
 				Name:            "kubevirt-config",
 			},
-			Data: map[string]string{emulatedMachinesKey: value},
+			Data: map[string]string{EmulatedMachinesKey: value},
 		}
 		clusterConfig, _ := MakeClusterConfig([]kubev1.ConfigMap{cfgMap}, stopChan)
 		emulatedMachines := clusterConfig.GetEmulatedMachines()
@@ -156,7 +156,7 @@ var _ = Describe("ConfigMap", func() {
 				Namespace:       "kubevirt",
 				Name:            "kubevirt-config",
 			},
-			Data: map[string]string{migrationsConfigKey: `{"parallelOutboundMigrationsPerNode" : 10, "parallelMigrationsPerCluster": 20, "bandwidthPerMigration": "110Mi", "progressTimeout" : 5, "completionTimeoutPerGiB": 5, "unsafeMigrationOverride": true}`},
+			Data: map[string]string{virtconfig.MigrationsConfigKey: `{"parallelOutboundMigrationsPerNode" : 10, "parallelMigrationsPerCluster": 20, "bandwidthPerMigration": "110Mi", "progressTimeout" : 5, "completionTimeoutPerGiB": 5, "unsafeMigrationOverride": true}`},
 		}
 		clusterConfig, _ := MakeClusterConfig([]kubev1.ConfigMap{cfgMap}, stopChan)
 		result := clusterConfig.GetMigrationConfig()
@@ -175,7 +175,7 @@ var _ = Describe("ConfigMap", func() {
 				Namespace:       "kubevirt",
 				Name:            "kubevirt-config",
 			},
-			Data: map[string]string{migrationsConfigKey: `"parallelOutboundMigrationsPerNode" : 10
+			Data: map[string]string{virtconfig.MigrationsConfigKey: `"parallelOutboundMigrationsPerNode" : 10
 "parallelMigrationsPerCluster": 20
 "bandwidthPerMigration": "110Mi"`},
 		}
@@ -193,7 +193,7 @@ var _ = Describe("ConfigMap", func() {
 				Namespace:       "kubevirt",
 				Name:            "kubevirt-config",
 			},
-			Data: map[string]string{migrationsConfigKey: `{"parallelOutboundMigrationsPerNode" : 10}`},
+			Data: map[string]string{virtconfig.MigrationsConfigKey: `{"parallelOutboundMigrationsPerNode" : 10}`},
 		}
 		clusterConfig, _ := MakeClusterConfig([]kubev1.ConfigMap{cfgMap}, stopChan)
 		result := clusterConfig.GetMigrationConfig()
@@ -209,7 +209,7 @@ var _ = Describe("ConfigMap", func() {
 				Namespace:       "kubevirt",
 				Name:            "kubevirt-config",
 			},
-			Data: map[string]string{migrationsConfigKey: `{"parallelOutboundMigrationsPerNode" : 10}`},
+			Data: map[string]string{virtconfig.MigrationsConfigKey: `{"parallelOutboundMigrationsPerNode" : 10}`},
 		}
 		clusterConfig, store := MakeClusterConfig([]kubev1.ConfigMap{cfgMap}, stopChan)
 		result := clusterConfig.GetMigrationConfig()
@@ -217,7 +217,7 @@ var _ = Describe("ConfigMap", func() {
 
 		newCfg := cfgMap.DeepCopy()
 		newCfg.ResourceVersion = "12345"
-		newCfg.Data = map[string]string{migrationsConfigKey: `{"parallelOutboundMigrationsPerNode" : 9}`}
+		newCfg.Data = map[string]string{virtconfig.MigrationsConfigKey: `{"parallelOutboundMigrationsPerNode" : 9}`}
 		store.Add(newCfg)
 		Eventually(func() uint32 {
 			return *clusterConfig.GetMigrationConfig().ParallelOutboundMigrationsPerNode
@@ -231,7 +231,7 @@ var _ = Describe("ConfigMap", func() {
 				Namespace:       "kubevirt",
 				Name:            "kubevirt-config",
 			},
-			Data: map[string]string{migrationsConfigKey: `{"parallelOutboundMigrationsPerNode" : 10}`},
+			Data: map[string]string{virtconfig.MigrationsConfigKey: `{"parallelOutboundMigrationsPerNode" : 10}`},
 		}
 		clusterConfig, store := MakeClusterConfig([]kubev1.ConfigMap{cfgMap}, stopChan)
 		result := clusterConfig.GetMigrationConfig()
@@ -239,7 +239,7 @@ var _ = Describe("ConfigMap", func() {
 
 		newCfg := cfgMap.DeepCopy()
 		newCfg.ResourceVersion = "12345"
-		newCfg.Data = map[string]string{migrationsConfigKey: `{"parallelOutboundMigrationsPerNode" : "invalid"}`}
+		newCfg.Data = map[string]string{virtconfig.MigrationsConfigKey: `{"parallelOutboundMigrationsPerNode" : "invalid"}`}
 		store.Add(newCfg)
 		Consistently(func() uint32 {
 			return *clusterConfig.GetMigrationConfig().ParallelOutboundMigrationsPerNode
@@ -253,7 +253,7 @@ var _ = Describe("ConfigMap", func() {
 				Namespace:       "kubevirt",
 				Name:            "kubevirt-config",
 			},
-			Data: map[string]string{migrationsConfigKey: `{"parallelOutboundMigrationsPerNode" : 10}`},
+			Data: map[string]string{virtconfig.MigrationsConfigKey: `{"parallelOutboundMigrationsPerNode" : 10}`},
 		}
 		clusterConfig, store := MakeClusterConfig([]kubev1.ConfigMap{cfgMap}, stopChan)
 		result := clusterConfig.GetMigrationConfig()
@@ -261,7 +261,7 @@ var _ = Describe("ConfigMap", func() {
 
 		invalidCfg := cfgMap.DeepCopy()
 		invalidCfg.ResourceVersion = "12345"
-		invalidCfg.Data = map[string]string{migrationsConfigKey: `{"parallelOutboundMigrationsPerNode" : "invalid"}`}
+		invalidCfg.Data = map[string]string{virtconfig.MigrationsConfigKey: `{"parallelOutboundMigrationsPerNode" : "invalid"}`}
 		store.Add(invalidCfg)
 		Consistently(func() uint32 {
 			return *clusterConfig.GetMigrationConfig().ParallelOutboundMigrationsPerNode
@@ -269,7 +269,7 @@ var _ = Describe("ConfigMap", func() {
 
 		validCfg := cfgMap.DeepCopy()
 		validCfg.ResourceVersion = "123456"
-		validCfg.Data = map[string]string{migrationsConfigKey: `{"parallelOutboundMigrationsPerNode" : 9}`}
+		validCfg.Data = map[string]string{virtconfig.MigrationsConfigKey: `{"parallelOutboundMigrationsPerNode" : 9}`}
 		store.Add(validCfg)
 		Consistently(func() uint32 {
 			return *clusterConfig.GetMigrationConfig().ParallelOutboundMigrationsPerNode

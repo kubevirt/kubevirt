@@ -43,11 +43,11 @@ const (
 	configMapName       = "kubevirt-config"
 	featureGateEnvVar   = "FEATURE_GATES"
 	FeatureGatesKey     = "feature-gates"
-	emulatedMachinesKey = "emulated-machines"
+	EmulatedMachinesKey = "emulated-machines"
 	MachineTypeKey      = "machine-type"
 	useEmulationKey     = "debug.useEmulation"
-	imagePullPolicyKey  = "dev.imagePullPolicy"
-	migrationsConfigKey = "migrations"
+	ImagePullPolicyKey  = "dev.imagePullPolicy"
+	MigrationsConfigKey = "migrations"
 	CpuModelKey         = "default-cpu-model"
 	CpuRequestKey       = "cpu-request"
 	MemoryRequestKey    = "memory-request"
@@ -235,7 +235,7 @@ func setConfig(config *Config, configMap *k8sv1.ConfigMap) error {
 	config.ResourceVersion = configMap.ResourceVersion
 
 	// set migration options
-	rawConfig := strings.TrimSpace(configMap.Data[migrationsConfigKey])
+	rawConfig := strings.TrimSpace(configMap.Data[MigrationsConfigKey])
 	if rawConfig != "" {
 		// only sets values if they were specified, default values stay intact
 		err := yaml.NewYAMLOrJSONDecoder(strings.NewReader(rawConfig), 1024).Decode(config.MigrationConfig)
@@ -245,7 +245,7 @@ func setConfig(config *Config, configMap *k8sv1.ConfigMap) error {
 	}
 
 	// set image pull policy
-	policy := strings.TrimSpace(configMap.Data[imagePullPolicyKey])
+	policy := strings.TrimSpace(configMap.Data[ImagePullPolicyKey])
 	switch policy {
 	case "":
 		// keep the default
@@ -289,7 +289,7 @@ func setConfig(config *Config, configMap *k8sv1.ConfigMap) error {
 		config.MemoryRequest = resource.MustParse(memoryRequest)
 	}
 
-	if emulatedMachines := strings.TrimSpace(configMap.Data[emulatedMachinesKey]); emulatedMachines != "" {
+	if emulatedMachines := strings.TrimSpace(configMap.Data[EmulatedMachinesKey]); emulatedMachines != "" {
 		vals := strings.Split(emulatedMachines, ",")
 		for i := range vals {
 			vals[i] = strings.TrimSpace(vals[i])
