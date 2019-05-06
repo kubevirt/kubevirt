@@ -78,9 +78,9 @@ var _ = Describe("Subresource Api", func() {
 		})
 	})
 
-	Describe("VirtualMachine subresource", func() {
+	Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:component] VirtualMachine subresource", func() {
 		Context("with a restart endpoint", func() {
-			It("should restart a VM", func() {
+			It("[test_id:1304] should restart a VM", func() {
 				vm := tests.NewRandomVirtualMachine(tests.NewRandomVMI(), false)
 				vm, err := virtCli.VirtualMachine(tests.NamespaceTestDefault).Create(vm)
 				Expect(err).NotTo(HaveOccurred())
