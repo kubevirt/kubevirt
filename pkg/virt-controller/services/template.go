@@ -48,8 +48,6 @@ import (
 )
 
 const configMapName = "kubevirt-config"
-const UseEmulationKey = "debug.useEmulation"
-const ImagePullPolicyKey = "dev.imagePullPolicy"
 const LessPVCSpaceTolerationKey = "pvc-tolerate-less-space-up-to-percent"
 const NodeSelectorsKey = "node-selectors"
 const KvmDevice = "devices.kubevirt.io/kvm"
@@ -109,34 +107,6 @@ func getConfigMapEntry(store cache.Store, key string) (string, error) {
 	} else {
 		return obj.(*k8sv1.ConfigMap).Data[key], nil
 	}
-}
-
-func IsEmulationAllowed(store cache.Store) (useEmulation bool, err error) {
-	var value string
-	value, err = getConfigMapEntry(store, UseEmulationKey)
-	if strings.ToLower(value) == "true" {
-		useEmulation = true
-	}
-	return
-}
-
-func GetImagePullPolicy(store cache.Store) (policy k8sv1.PullPolicy, err error) {
-	var value string
-	if value, err = getConfigMapEntry(store, ImagePullPolicyKey); err != nil || value == "" {
-		policy = k8sv1.PullIfNotPresent // Default if not specified
-	} else {
-		switch value {
-		case "Always":
-			policy = k8sv1.PullAlways
-		case "Never":
-			policy = k8sv1.PullNever
-		case "IfNotPresent":
-			policy = k8sv1.PullIfNotPresent
-		default:
-			err = fmt.Errorf("Invalid ImagePullPolicy in ConfigMap: %s", value)
-		}
-	}
-	return
 }
 
 func GetlessPVCSpaceToleration(store cache.Store) (toleration int, err error) {
@@ -727,15 +697,8 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 		"--less-pvc-space-toleration", strconv.Itoa(lessPVCSpaceToleration),
 	}
 
-	useEmulation, err := IsEmulationAllowed(t.configMapStore)
-	if err != nil {
-		return nil, err
-	}
-
-	imagePullPolicy, err := GetImagePullPolicy(t.configMapStore)
-	if err != nil {
-		return nil, err
-	}
+	useEmulation := t.clusterConfig.IsUseEmulation()
+	imagePullPolicy := t.clusterConfig.GetImagePullPolicy()
 
 	if resources.Limits == nil {
 		resources.Limits = make(k8sv1.ResourceList)
