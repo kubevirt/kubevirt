@@ -470,6 +470,9 @@ func CleanNodes() {
 
 			if taint.Key == "kubevirt.io/drain" && taint.Effect == k8sv1.TaintEffectNoSchedule {
 				found = true
+			} else if taint.Key == "kubevirt.io/alt-drain" && taint.Effect == k8sv1.TaintEffectNoSchedule {
+				// this key is used in testing as a custom alternate drain key
+				found = true
 			} else {
 				taints = append(taints, taint)
 			}
@@ -482,6 +485,10 @@ func CleanNodes() {
 				found = true
 				delete(new.Labels, k)
 			}
+		}
+
+		if node.Spec.Unschedulable {
+			new.Spec.Unschedulable = false
 		}
 
 		if !found {
