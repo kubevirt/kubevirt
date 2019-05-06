@@ -915,6 +915,7 @@ spec:
               - ""
               resources:
               - configmaps
+              - pods
               verbs:
               - '*'
 

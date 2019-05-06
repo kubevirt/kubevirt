@@ -35,7 +35,7 @@ required = [
 
 [[override]]
   name = "github.com/kubevirt/web-ui-operator"
-  version = "=v0.1.5"
+  version = "=v0.1.6"
 
 [[override]]
   name = "k8s.io/code-generator"

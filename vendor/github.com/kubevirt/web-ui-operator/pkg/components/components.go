@@ -81,7 +81,7 @@ func GetDeployment(namespace string, repository string, tag string, imagePullPol
 									Value: "okdvirt", // or openshiftvirt
 								},
 								{
-									Name: "IMAGE_PULL_POLICY",
+									Name:  "IMAGE_PULL_POLICY",
 									Value: imagePullPolicy,
 								},
 								{
@@ -101,7 +101,7 @@ func GetDeployment(namespace string, repository string, tag string, imagePullPol
 									},
 								},
 								{
-									Name:  "WATCH_NAMESPACE",
+									Name: "WATCH_NAMESPACE",
 									ValueFrom: &corev1.EnvVarSource{
 										FieldRef: &corev1.ObjectFieldSelector{
 											FieldPath: "metadata.namespace",
@@ -272,6 +272,7 @@ func GetClusterRole() *rbacv1.ClusterRole {
 				},
 				Resources: []string{
 					"configmaps",
+					"pods",
 				},
 				Verbs: []string{
 					"*",

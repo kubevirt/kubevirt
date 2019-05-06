@@ -347,7 +347,7 @@
   version = "0.5.0"
 
 [[projects]]
-  digest = "1:e49bb6c146519c77cb69dda16474a54d1e93291c12c02947189307e7a8137175"
+  digest = "1:96b30b437283790fcf353f1c0706de6416356f2b06573efd5e4d55b7988fca5e"
   name = "github.com/kubevirt/web-ui-operator"
   packages = [
     "pkg/apis",
@@ -355,8 +355,8 @@
     "pkg/components",
   ]
   pruneopts = "NT"
-  revision = "36f0054cc71fb50b0f897cb8ee3862df821a86b5"
-  version = "v0.1.5"
+  revision = "33a02f2998ab6e91a684211fca4983e0a89e6a3f"
+  version = "v0.1.6"
 
 [[projects]]
   branch = "master"

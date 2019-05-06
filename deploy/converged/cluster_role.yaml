@@ -908,5 +908,6 @@ rules:
   - ""
   resources:
   - configmaps
+  - pods
   verbs:
   - '*'
