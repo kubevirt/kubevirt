@@ -48,7 +48,6 @@ import (
 )
 
 const configMapName = "kubevirt-config"
-const NodeSelectorsKey = "node-selectors"
 const KvmDevice = "devices.kubevirt.io/kvm"
 const TunDevice = "devices.kubevirt.io/tun"
 const VhostNetDevice = "devices.kubevirt.io/vhost-net"
@@ -106,23 +105,6 @@ func getConfigMapEntry(store cache.Store, key string) (string, error) {
 	} else {
 		return obj.(*k8sv1.ConfigMap).Data[key], nil
 	}
-}
-
-func getNodeSelectors(store cache.Store) (nodeSelectors map[string]string, err error) {
-	var value string
-	nodeSelectors = make(map[string]string)
-
-	if value, err = getConfigMapEntry(store, NodeSelectorsKey); err != nil || value == "" {
-		return
-	}
-	for _, s := range strings.Split(strings.TrimSpace(value), "\n") {
-		v := strings.Split(s, "=")
-		if len(v) != 2 {
-			return nil, fmt.Errorf("Invalid node selector: %s", s)
-		}
-		nodeSelectors[v[0]] = v[1]
-	}
-	return
 }
 
 func isSRIOVVmi(vmi *v1.VirtualMachineInstance) bool {
@@ -821,10 +803,7 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 	}
 
 	nodeSelector[v1.NodeSchedulable] = "true"
-	nodeSelectors, err := getNodeSelectors(t.configMapStore)
-	if err != nil {
-		return nil, err
-	}
+	nodeSelectors := t.clusterConfig.GetNodeSelectors()
 	for k, v := range nodeSelectors {
 		nodeSelector[k] = v
 	}

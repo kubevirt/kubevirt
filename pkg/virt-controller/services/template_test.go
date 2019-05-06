@@ -432,14 +432,9 @@ var _ = Describe("Template", func() {
 			})
 
 			It("should add node selectors from kubevirt-config configMap", func() {
-				cfgMap := kubev1.ConfigMap{
-					ObjectMeta: metav1.ObjectMeta{
-						Namespace: namespaceKubevirt,
-						Name:      "kubevirt-config",
-					},
-					Data: map[string]string{NodeSelectorsKey: "kubernetes.io/hostname=node02\nnode-role.kubernetes.io/compute=true\n"},
-				}
-				cmCache.Add(&cfgMap)
+				testutils.UpdateFakeClusterConfig(configMapInformer, &kubev1.ConfigMap{
+					Data: map[string]string{virtconfig.NodeSelectorsKey: "kubernetes.io/hostname=node02\nnode-role.kubernetes.io/compute=true\n"},
+				})
 				vmi := v1.VirtualMachineInstance{
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "testvmi", Namespace: "default", UID: "1234",

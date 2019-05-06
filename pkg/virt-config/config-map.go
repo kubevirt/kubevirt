@@ -51,6 +51,7 @@ const (
 	CpuRequestKey             = "cpu-request"
 	MemoryRequestKey          = "memory-request"
 	LessPVCSpaceTolerationKey = "pvc-tolerate-less-space-up-to-percent"
+	NodeSelectorsKey          = "node-selectors"
 
 	ParallelOutboundMigrationsPerNodeDefault uint32 = 2
 	ParallelMigrationsPerClusterDefault      uint32 = 5
@@ -62,6 +63,7 @@ const (
 	DefaultMemoryRequest                            = "8Mi"
 	DefaultEmulatedMachines                         = "q35*,pc-q35*"
 	DefaultLessPVCSpaceToleration                   = 10
+	DefaultNodeSelectors                            = ""
 
 	NodeDrainTaintDefaultKey = "kubevirt.io/drain"
 )
@@ -129,6 +131,7 @@ func defaultClusterConfig() *Config {
 	cpuRequestDefault := resource.MustParse(DefaultCPURequest)
 	memoryRequestDefault := resource.MustParse(DefaultMemoryRequest)
 	emulatedMachinesDefault := strings.Split(DefaultEmulatedMachines, ",")
+	nodeSelectorsDefault, _ := parseNodeSelectors(DefaultNodeSelectors)
 	return &Config{
 		ResourceVersion: "0",
 		ImagePullPolicy: k8sv1.PullIfNotPresent,
@@ -147,6 +150,7 @@ func defaultClusterConfig() *Config {
 		MemoryRequest:          memoryRequestDefault,
 		EmulatedMachines:       emulatedMachinesDefault,
 		LessPVCSpaceToleration: DefaultLessPVCSpaceToleration,
+		NodeSelectors:          nodeSelectorsDefault,
 	}
 }
 
@@ -162,6 +166,7 @@ type Config struct {
 	EmulatedMachines       []string
 	FeatureGates           string
 	LessPVCSpaceToleration int
+	NodeSelectors          map[string]string
 }
 
 type MigrationConfig struct {
@@ -217,6 +222,10 @@ func (c *ClusterConfig) GetEmulatedMachines() []string {
 
 func (c *ClusterConfig) GetLessPVCSpaceToleration() int {
 	return c.getConfig().LessPVCSpaceToleration
+}
+
+func (c *ClusterConfig) GetNodeSelectors() map[string]string {
+	return c.getConfig().NodeSelectors
 }
 
 // setConfig parses the provided config map and updates the provided config.
@@ -301,6 +310,14 @@ func setConfig(config *Config, configMap *k8sv1.ConfigMap) error {
 		}
 	}
 
+	if nodeSelectors := strings.TrimSpace(configMap.Data[NodeSelectorsKey]); nodeSelectors != "" {
+		if selectors, err := parseNodeSelectors(nodeSelectors); err != nil {
+			return err
+		} else {
+			config.NodeSelectors = selectors
+		}
+	}
+
 	return nil
 }
 
@@ -333,4 +350,16 @@ func (c *ClusterConfig) getConfig() (config *Config) {
 		c.lastValidConfig = config
 		return c.lastValidConfig
 	}
+}
+
+func parseNodeSelectors(str string) (map[string]string, error) {
+	nodeSelectors := make(map[string]string)
+	for _, s := range strings.Split(strings.TrimSpace(str), "\n") {
+		v := strings.Split(s, "=")
+		if len(v) != 2 {
+			return nil, fmt.Errorf("Invalid node selector: %s", s)
+		}
+		nodeSelectors[v[0]] = v[1]
+	}
+	return nodeSelectors, nil
 }

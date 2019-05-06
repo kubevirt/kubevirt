@@ -63,6 +63,22 @@ var _ = Describe("ConfigMap", func() {
 		table.Entry("is invalid, it should return the default", "-1", virtconfig.DefaultLessPVCSpaceToleration),
 	)
 
+	nodeSelectorsStr := "kubernetes.io/hostname=node02\nnode-role.kubernetes.io/compute=true\n"
+	nodeSelectors := map[string]string{
+		"kubernetes.io/hostname":          "node02",
+		"node-role.kubernetes.io/compute": "true",
+	}
+	table.DescribeTable(" when nodeSelectors", func(value string, result map[string]string) {
+		clusterConfig, _ := testutils.NewFakeClusterConfig(&kubev1.ConfigMap{
+			Data: map[string]string{virtconfig.NodeSelectorsKey: value},
+		})
+		Expect(clusterConfig.GetNodeSelectors()).To(Equal(result))
+	},
+		table.Entry("is set, it should return correct value", nodeSelectorsStr, nodeSelectors),
+		table.Entry("is unset, it should return the default", "", nil),
+		table.Entry("is invalid, it should return the default", "-1", nil),
+	)
+
 	table.DescribeTable(" when machineType", func(value string, result string) {
 		clusterConfig, _ := testutils.NewFakeClusterConfig(&kubev1.ConfigMap{
 			Data: map[string]string{virtconfig.MachineTypeKey: value},
