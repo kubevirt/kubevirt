@@ -334,7 +334,7 @@ var _ = Describe("[rfe_id:609][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 			}
 		})
 
-                It("[test_id:644][rfe_id:609] should override presets", func() {
+		It("[test_id:644][rfe_id:609] should override presets", func() {
 			By("Creating preset with 64M")
 			err := virtClient.RestClient().Post().Resource("virtualmachineinstancepresets").Namespace(tests.NamespaceTestDefault).Body(overridePreset).Do().Error()
 			Expect(err).ToNot(HaveOccurred())
@@ -355,6 +355,7 @@ var _ = Describe("[rfe_id:609][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 			label, ok := vmi.Labels[overrideKey]
 			Expect(ok).To(BeTrue())
 			Expect(label).To(Equal(overrideFlavor))
+			Expect(newVmi.Spec.Domain.Resources.Requests["memory"]).To(Equal(vmiMemory))
 
 			By("Checking event list")
 			evList, err := virtClient.CoreV1().Events(tests.NamespaceTestDefault).List(k8smetav1.ListOptions{})
