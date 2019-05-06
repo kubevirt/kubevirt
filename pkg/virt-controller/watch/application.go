@@ -89,8 +89,7 @@ type VirtControllerApp struct {
 	vmiInformer   cache.SharedIndexInformer
 	vmiRecorder   record.EventRecorder
 
-	configMapCache cache.Store
-	clusterConfig  *virtconfig.ClusterConfig
+	clusterConfig *virtconfig.ClusterConfig
 
 	persistentVolumeClaimCache    cache.Store
 	persistentVolumeClaimInformer cache.SharedIndexInformer
@@ -152,7 +151,6 @@ func Execute() {
 	app.informerFactory = controller.NewKubeInformerFactory(app.restClient, app.clientSet, app.kubevirtNamespace)
 
 	configMapInformer := app.informerFactory.ConfigMap()
-	app.configMapCache = configMapInformer.GetStore()
 	stopChan := make(chan struct{}, 1)
 	defer close(stopChan)
 	app.informerFactory.Start(stopChan)
@@ -292,7 +290,6 @@ func (vca *VirtControllerApp) initCommon() {
 		vca.virtShareDir,
 		vca.ephemeralDiskDir,
 		vca.imagePullSecret,
-		vca.configMapCache,
 		vca.persistentVolumeClaimCache,
 		virtClient,
 		vca.clusterConfig,

@@ -40,7 +40,6 @@ import (
 	"kubevirt.io/kubevirt/pkg/kubecli"
 	"kubevirt.io/kubevirt/pkg/log"
 	"kubevirt.io/kubevirt/pkg/precond"
-	"kubevirt.io/kubevirt/pkg/util"
 	"kubevirt.io/kubevirt/pkg/util/hardware"
 	"kubevirt.io/kubevirt/pkg/util/net/dns"
 	"kubevirt.io/kubevirt/pkg/util/types"
@@ -83,29 +82,12 @@ type templateService struct {
 	virtShareDir               string
 	ephemeralDiskDir           string
 	imagePullSecret            string
-	configMapStore             cache.Store
 	persistentVolumeClaimStore cache.Store
 	virtClient                 kubecli.KubevirtClient
 	clusterConfig              *virtconfig.ClusterConfig
 }
 
 type PvcNotFoundError error
-
-func getConfigMapEntry(store cache.Store, key string) (string, error) {
-
-	namespace, err := util.GetNamespace()
-	if err != nil {
-		return "", err
-	}
-
-	if obj, exists, err := store.GetByKey(namespace + "/" + configMapName); err != nil {
-		return "", err
-	} else if !exists {
-		return "", nil
-	} else {
-		return obj.(*k8sv1.ConfigMap).Data[key], nil
-	}
-}
 
 func isSRIOVVmi(vmi *v1.VirtualMachineInstance) bool {
 	for _, iface := range vmi.Spec.Domain.Devices.Interfaces {
@@ -1151,7 +1133,6 @@ func NewTemplateService(launcherImage string,
 	virtShareDir string,
 	ephemeralDiskDir string,
 	imagePullSecret string,
-	configMapCache cache.Store,
 	persistentVolumeClaimCache cache.Store,
 	virtClient kubecli.KubevirtClient,
 	clusterConfig *virtconfig.ClusterConfig) TemplateService {
@@ -1162,7 +1143,6 @@ func NewTemplateService(launcherImage string,
 		virtShareDir:               virtShareDir,
 		ephemeralDiskDir:           ephemeralDiskDir,
 		imagePullSecret:            imagePullSecret,
-		configMapStore:             configMapCache,
 		persistentVolumeClaimStore: persistentVolumeClaimCache,
 		virtClient:                 virtClient,
 		clusterConfig:              clusterConfig,

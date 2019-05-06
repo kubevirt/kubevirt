@@ -13,7 +13,6 @@ go_library(
         "//pkg/kubecli:go_default_library",
         "//pkg/log:go_default_library",
         "//pkg/precond:go_default_library",
-        "//pkg/util:go_default_library",
         "//pkg/util/hardware:go_default_library",
         "//pkg/util/net/dns:go_default_library",
         "//pkg/util/types:go_default_library",

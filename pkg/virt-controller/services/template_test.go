@@ -51,7 +51,6 @@ var _ = Describe("Template", func() {
 	log.Log.SetIOWriter(GinkgoWriter)
 
 	pvcCache := cache.NewIndexer(cache.DeletionHandlingMetaNamespaceKeyFunc, nil)
-	var cmCache cache.Indexer
 	var svc TemplateService
 
 	ctrl := gomock.NewController(GinkgoT())
@@ -68,12 +67,10 @@ var _ = Describe("Template", func() {
 	}
 
 	BeforeEach(func() {
-		cmCache = cache.NewIndexer(cache.DeletionHandlingMetaNamespaceKeyFunc, nil)
 		svc = NewTemplateService("kubevirt/virt-launcher",
 			"/var/run/kubevirt",
 			"/var/run/kubevirt-ephemeral-disks",
 			"pull-secret-1",
-			cmCache,
 			pvcCache,
 			virtClient,
 			config,

@@ -58,7 +58,6 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 
 	log.Log.SetIOWriter(GinkgoWriter)
 
-	configCache := cache.NewIndexer(cache.DeletionHandlingMetaNamespaceKeyFunc, nil)
 	pvcCache := cache.NewIndexer(cache.DeletionHandlingMetaNamespaceKeyFunc, nil)
 	app := SubresourceAPIApp{}
 	BeforeEach(func() {
@@ -92,7 +91,7 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 			vmi.ObjectMeta.SetUID(uuid.NewUUID())
 
 			config, _ := testutils.NewFakeClusterConfig(&k8sv1.ConfigMap{})
-			templateService := services.NewTemplateService("whatever", "whatever", "whatever", "whatever", configCache, pvcCache, app.VirtCli, config)
+			templateService := services.NewTemplateService("whatever", "whatever", "whatever", "whatever", pvcCache, app.VirtCli, config)
 
 			pod, err := templateService.RenderLaunchManifest(vmi)
 			Expect(err).ToNot(HaveOccurred())
@@ -265,7 +264,7 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 			vmi.ObjectMeta.SetUID(uuid.NewUUID())
 
 			config, _ := testutils.NewFakeClusterConfig(&k8sv1.ConfigMap{})
-			templateService := services.NewTemplateService("whatever", "whatever", "whatever", "whatever", configCache, pvcCache, app.VirtCli, config)
+			templateService := services.NewTemplateService("whatever", "whatever", "whatever", "whatever", pvcCache, app.VirtCli, config)
 
 			pod, err := templateService.RenderLaunchManifest(vmi)
 			Expect(err).ToNot(HaveOccurred())
