@@ -414,6 +414,67 @@ var _ = Describe("[rfe_id:609][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 		})
 	})
 
+	Context("Match Expressions", func() {
+		var preset *v1.VirtualMachineInstancePreset
+		labelKey := "kubevirt.io/os"
+
+		var vmiWin7 *v1.VirtualMachineInstance
+		var vmiWin10 *v1.VirtualMachineInstance
+		win7Label := "win7"
+		win10Label := "win10"
+
+		BeforeEach(func() {
+			selector := k8smetav1.LabelSelector{
+				MatchExpressions: []k8smetav1.LabelSelectorRequirement{
+					{
+						Key:      labelKey,
+						Operator: k8smetav1.LabelSelectorOpIn,
+						Values:   []string{win10Label, win7Label},
+					},
+				},
+			}
+
+			preset = &v1.VirtualMachineInstancePreset{
+				ObjectMeta: k8smetav1.ObjectMeta{GenerateName: memoryPrefix},
+				Spec: v1.VirtualMachineInstancePresetSpec{
+					Selector: selector,
+					Domain: &v1.DomainSpec{
+						Resources: v1.ResourceRequirements{Requests: k8sv1.ResourceList{
+							"memory": memory}},
+					},
+				},
+			}
+
+			// The actual type of machine is unimportant here. This test is about the label
+			vmiWin7 = tests.NewRandomVMIWithEphemeralDisk(tests.ContainerDiskFor(tests.ContainerDiskAlpine))
+			// this helper function explicitly sets a memory req, but we don't want one for this test
+			vmiWin7.Spec.Domain.Resources = v1.ResourceRequirements{}
+			vmiWin7.Labels = map[string]string{labelKey: win7Label}
+			vmiWin10 = tests.NewRandomVMIWithEphemeralDisk(tests.ContainerDiskFor(tests.ContainerDiskAlpine))
+			vmiWin10.Spec.Domain.Resources = v1.ResourceRequirements{}
+			vmiWin10.Labels = map[string]string{labelKey: win10Label}
+		})
+
+		It("[test_id:726] Should match multiple VMs via MatchExpression", func() {
+			By("Creating preset with MatchExpression")
+			err := virtClient.RestClient().Post().Resource("virtualmachineinstancepresets").Namespace(tests.NamespaceTestDefault).Body(preset).Do().Error()
+			Expect(err).ToNot(HaveOccurred())
+
+			waitForPreset(virtClient, preset.Name)
+
+			By("Creating first VirtualMachineInstance")
+			newVmi7, err := virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmiWin7)
+			Expect(err).ToNot(HaveOccurred())
+
+			By("Creating second VirtualMachineInstance")
+			newVmi10, err := virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmiWin10)
+			Expect(err).ToNot(HaveOccurred())
+
+			By("Checking that preset matched bot VMs")
+			Expect(newVmi7.Spec.Domain.Resources.Requests["memory"]).To(Equal(memory))
+			Expect(newVmi10.Spec.Domain.Resources.Requests["memory"]).To(Equal(memory))
+		})
+	})
 })
 
 func getPreset(virtClient kubecli.KubevirtClient, prefix string) (*v1.VirtualMachineInstancePreset, error) {
