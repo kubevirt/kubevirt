@@ -21,7 +21,6 @@ package services
 
 import (
 	"errors"
-	"strconv"
 	"testing"
 
 	"github.com/golang/mock/gomock"
@@ -1459,14 +1458,9 @@ var _ = Describe("Template", func() {
 
 		It("should add the lessPVCSpaceToleration argument to the template", func() {
 			expectedToleration := "42"
-			cfgMap := kubev1.ConfigMap{
-				ObjectMeta: metav1.ObjectMeta{
-					Namespace: namespaceKubevirt,
-					Name:      "kubevirt-config",
-				},
-				Data: map[string]string{LessPVCSpaceTolerationKey: expectedToleration},
-			}
-			cmCache.Add(&cfgMap)
+			testutils.UpdateFakeClusterConfig(configMapInformer, &kubev1.ConfigMap{
+				Data: map[string]string{virtconfig.LessPVCSpaceTolerationKey: expectedToleration},
+			})
 
 			vmi := v1.VirtualMachineInstance{
 				ObjectMeta: metav1.ObjectMeta{
@@ -1479,68 +1473,6 @@ var _ = Describe("Template", func() {
 
 			Expect(pod.Spec.Containers[0].Command).To(ContainElement("--less-pvc-space-toleration"), "command arg key should be correct")
 			Expect(pod.Spec.Containers[0].Command).To(ContainElement("42"), "command arg value should be correct")
-		})
-
-	})
-	Describe("ConfigMap", func() {
-
-		It("Should return correct lessPVCSpaceToleration", func() {
-			expectedToleration := "5"
-			cfgMap := kubev1.ConfigMap{
-				ObjectMeta: metav1.ObjectMeta{
-					Namespace: namespaceKubevirt,
-					Name:      "kubevirt-config",
-				},
-				Data: map[string]string{LessPVCSpaceTolerationKey: expectedToleration},
-			}
-			cmCache.Add(&cfgMap)
-
-			toleration, err := GetlessPVCSpaceToleration(cmCache)
-			Expect(err).ToNot(HaveOccurred())
-			Expect(strconv.Itoa(toleration)).To(Equal(expectedToleration), "Toleration should be "+expectedToleration)
-		})
-
-		It("Should return default lessPVCSpaceToleration", func() {
-			expectedToleration := "10"
-			cfgMap := kubev1.ConfigMap{
-				ObjectMeta: metav1.ObjectMeta{
-					Namespace: namespaceKubevirt,
-					Name:      "kubevirt-config",
-				},
-			}
-			cmCache.Add(&cfgMap)
-
-			toleration, err := GetlessPVCSpaceToleration(cmCache)
-			Expect(err).ToNot(HaveOccurred())
-			Expect(strconv.Itoa(toleration)).To(Equal(expectedToleration), "Toleration should be "+expectedToleration)
-		})
-
-		It("Should return error on invalid lessPVCSpaceToleration", func() {
-			cfgMap := kubev1.ConfigMap{
-				ObjectMeta: metav1.ObjectMeta{
-					Namespace: namespaceKubevirt,
-					Name:      "kubevirt-config",
-				},
-				Data: map[string]string{LessPVCSpaceTolerationKey: "-1"},
-			}
-			cmCache.Add(&cfgMap)
-
-			_, err := GetlessPVCSpaceToleration(cmCache)
-			Expect(err).To(HaveOccurred())
-		})
-
-		It("Should return error on invalid lessPVCSpaceToleration", func() {
-			cfgMap := kubev1.ConfigMap{
-				ObjectMeta: metav1.ObjectMeta{
-					Namespace: namespaceKubevirt,
-					Name:      "kubevirt-config",
-				},
-				Data: map[string]string{LessPVCSpaceTolerationKey: "foo"},
-			}
-			cmCache.Add(&cfgMap)
-
-			_, err := GetlessPVCSpaceToleration(cmCache)
-			Expect(err).To(HaveOccurred())
 		})
 
 	})

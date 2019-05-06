@@ -48,7 +48,6 @@ import (
 )
 
 const configMapName = "kubevirt-config"
-const LessPVCSpaceTolerationKey = "pvc-tolerate-less-space-up-to-percent"
 const NodeSelectorsKey = "node-selectors"
 const KvmDevice = "devices.kubevirt.io/kvm"
 const TunDevice = "devices.kubevirt.io/tun"
@@ -107,20 +106,6 @@ func getConfigMapEntry(store cache.Store, key string) (string, error) {
 	} else {
 		return obj.(*k8sv1.ConfigMap).Data[key], nil
 	}
-}
-
-func GetlessPVCSpaceToleration(store cache.Store) (toleration int, err error) {
-	var value string
-	if value, err = getConfigMapEntry(store, LessPVCSpaceTolerationKey); err != nil || value == "" {
-		toleration = 10 // Default if not specified
-	} else {
-		toleration, err = strconv.Atoi(value)
-		if err != nil || toleration < 0 || toleration > 100 {
-			err = fmt.Errorf("Invalid lessPVCSpaceToleration in ConfigMap: %s", value)
-			return
-		}
-	}
-	return
 }
 
 func getNodeSelectors(store cache.Store) (nodeSelectors map[string]string, err error) {
@@ -679,10 +664,7 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 		resources.Limits[k8sv1.ResourceMemory] = *resources.Requests.Memory()
 	}
 
-	lessPVCSpaceToleration, err := GetlessPVCSpaceToleration(t.configMapStore)
-	if err != nil {
-		return nil, err
-	}
+	lessPVCSpaceToleration := t.clusterConfig.GetLessPVCSpaceToleration()
 
 	command := []string{"/usr/bin/virt-launcher",
 		"--qemu-timeout", "5m",

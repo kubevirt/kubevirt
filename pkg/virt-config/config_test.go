@@ -52,6 +52,17 @@ var _ = Describe("ConfigMap", func() {
 		table.Entry("when invalid, it should return the default", "invalid", kubev1.PullIfNotPresent),
 	)
 
+	table.DescribeTable(" when lessPVCSpaceToleration", func(value string, result int) {
+		clusterConfig, _ := testutils.NewFakeClusterConfig(&kubev1.ConfigMap{
+			Data: map[string]string{virtconfig.LessPVCSpaceTolerationKey: value},
+		})
+		Expect(clusterConfig.GetLessPVCSpaceToleration()).To(Equal(result))
+	},
+		table.Entry("is set, it should return correct value", "5", 5),
+		table.Entry("is unset, it should return the default", "", virtconfig.DefaultLessPVCSpaceToleration),
+		table.Entry("is invalid, it should return the default", "-1", virtconfig.DefaultLessPVCSpaceToleration),
+	)
+
 	table.DescribeTable(" when machineType", func(value string, result string) {
 		clusterConfig, _ := testutils.NewFakeClusterConfig(&kubev1.ConfigMap{
 			Data: map[string]string{virtconfig.MachineTypeKey: value},

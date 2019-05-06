@@ -28,7 +28,6 @@ import (
 	"time"
 
 	hostdisk "kubevirt.io/kubevirt/pkg/host-disk"
-	"kubevirt.io/kubevirt/pkg/virt-controller/services"
 
 	expect "github.com/google/goexpect"
 	. "github.com/onsi/ginkgo"
@@ -43,6 +42,7 @@ import (
 	v1 "kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/kubecli"
 	"kubevirt.io/kubevirt/pkg/log"
+	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	"kubevirt.io/kubevirt/tests"
 )
 
@@ -475,7 +475,7 @@ var _ = Describe("Storage", func() {
 				config, err := virtClient.CoreV1().ConfigMaps(namespaceKubevirt).Get("kubevirt-config", metav1.GetOptions{})
 				ExpectWithOffset(1, err).ToNot(HaveOccurred())
 
-				config.Data[services.LessPVCSpaceTolerationKey] = strconv.Itoa(toleration)
+				config.Data[virtconfig.LessPVCSpaceTolerationKey] = strconv.Itoa(toleration)
 				_, err = virtClient.CoreV1().ConfigMaps(namespaceKubevirt).Update(config)
 				ExpectWithOffset(1, err).ToNot(HaveOccurred())
 			}

@@ -21,6 +21,7 @@ package virtconfig
 
 import (
 	"fmt"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -39,16 +40,17 @@ import (
 )
 
 const (
-	configMapName       = "kubevirt-config"
-	FeatureGatesKey     = "feature-gates"
-	EmulatedMachinesKey = "emulated-machines"
-	MachineTypeKey      = "machine-type"
-	useEmulationKey     = "debug.useEmulation"
-	ImagePullPolicyKey  = "dev.imagePullPolicy"
-	MigrationsConfigKey = "migrations"
-	CpuModelKey         = "default-cpu-model"
-	CpuRequestKey       = "cpu-request"
-	MemoryRequestKey    = "memory-request"
+	configMapName             = "kubevirt-config"
+	FeatureGatesKey           = "feature-gates"
+	EmulatedMachinesKey       = "emulated-machines"
+	MachineTypeKey            = "machine-type"
+	useEmulationKey           = "debug.useEmulation"
+	ImagePullPolicyKey        = "dev.imagePullPolicy"
+	MigrationsConfigKey       = "migrations"
+	CpuModelKey               = "default-cpu-model"
+	CpuRequestKey             = "cpu-request"
+	MemoryRequestKey          = "memory-request"
+	LessPVCSpaceTolerationKey = "pvc-tolerate-less-space-up-to-percent"
 
 	ParallelOutboundMigrationsPerNodeDefault uint32 = 2
 	ParallelMigrationsPerClusterDefault      uint32 = 5
@@ -59,6 +61,7 @@ const (
 	DefaultCPURequest                               = "100m"
 	DefaultMemoryRequest                            = "8Mi"
 	DefaultEmulatedMachines                         = "q35*,pc-q35*"
+	DefaultLessPVCSpaceToleration                   = 10
 
 	NodeDrainTaintDefaultKey = "kubevirt.io/drain"
 )
@@ -139,24 +142,26 @@ func defaultClusterConfig() *Config {
 			CompletionTimeoutPerGiB:           &completionTimeoutPerGiB,
 			UnsafeMigrationOverride:           false,
 		},
-		MachineType:      DefaultMachineType,
-		CPURequest:       cpuRequestDefault,
-		MemoryRequest:    memoryRequestDefault,
-		EmulatedMachines: emulatedMachinesDefault,
+		MachineType:            DefaultMachineType,
+		CPURequest:             cpuRequestDefault,
+		MemoryRequest:          memoryRequestDefault,
+		EmulatedMachines:       emulatedMachinesDefault,
+		LessPVCSpaceToleration: DefaultLessPVCSpaceToleration,
 	}
 }
 
 type Config struct {
-	ResourceVersion  string
-	UseEmulation     bool
-	MigrationConfig  *MigrationConfig
-	ImagePullPolicy  k8sv1.PullPolicy
-	MachineType      string
-	CPUModel         string
-	CPURequest       resource.Quantity
-	MemoryRequest    resource.Quantity
-	EmulatedMachines []string
-	FeatureGates     string
+	ResourceVersion        string
+	UseEmulation           bool
+	MigrationConfig        *MigrationConfig
+	ImagePullPolicy        k8sv1.PullPolicy
+	MachineType            string
+	CPUModel               string
+	CPURequest             resource.Quantity
+	MemoryRequest          resource.Quantity
+	EmulatedMachines       []string
+	FeatureGates           string
+	LessPVCSpaceToleration int
 }
 
 type MigrationConfig struct {
@@ -208,6 +213,10 @@ func (c *ClusterConfig) GetMemoryRequest() resource.Quantity {
 
 func (c *ClusterConfig) GetEmulatedMachines() []string {
 	return c.getConfig().EmulatedMachines
+}
+
+func (c *ClusterConfig) GetLessPVCSpaceToleration() int {
+	return c.getConfig().LessPVCSpaceToleration
 }
 
 // setConfig parses the provided config map and updates the provided config.
@@ -282,6 +291,14 @@ func setConfig(config *Config, configMap *k8sv1.ConfigMap) error {
 
 	if featureGates := strings.TrimSpace(configMap.Data[FeatureGatesKey]); featureGates != "" {
 		config.FeatureGates = featureGates
+	}
+
+	if toleration := strings.TrimSpace(configMap.Data[LessPVCSpaceTolerationKey]); toleration != "" {
+		if value, err := strconv.Atoi(toleration); err != nil || value < 0 || value > 100 {
+			return fmt.Errorf("Invalid lessPVCSpaceToleration in ConfigMap: %s", toleration)
+		} else {
+			config.LessPVCSpaceToleration = value
+		}
 	}
 
 	return nil
