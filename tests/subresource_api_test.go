@@ -102,7 +102,7 @@ var _ = Describe("Subresource Api", func() {
 				}, 90*time.Second, 1*time.Second).Should(Equal(v1.Running))
 			})
 
-			It("should return an error when VM is not running", func() {
+			It("[test_id:1305][posneg:negative] should return an error when VM is not running", func() {
 				vm := tests.NewRandomVirtualMachine(tests.NewRandomVMI(), false)
 				vm, err := virtCli.VirtualMachine(tests.NamespaceTestDefault).Create(vm)
 				Expect(err).NotTo(HaveOccurred())
@@ -111,7 +111,7 @@ var _ = Describe("Subresource Api", func() {
 				Expect(err).To(HaveOccurred())
 			})
 
-			It("should return an error when VM has not been found but VMI is running", func() {
+			It("[test_id:2265][posneg:negative] should return an error when VM has not been found but VMI is running", func() {
 				vmi := tests.NewRandomVMI()
 				tests.RunVMIAndExpectLaunch(vmi, 60)
 
