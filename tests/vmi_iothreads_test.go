@@ -49,7 +49,7 @@ var _ = Describe("IOThreads", func() {
 
 	Context("IOThreads Policies", func() {
 
-		It("Should honor shared ioThreadsPolicy", func() {
+		It("Should honor shared ioThreadsPolicy for single disk", func() {
 			policy := v1.IOThreadsPolicyShared
 			vmi.Spec.Domain.IOThreadsPolicy = &policy
 
@@ -73,6 +73,53 @@ var _ = Describe("IOThreads", func() {
 			Expect(int(domSpec.IOThreads.IOThreads)).To(Equal(expectedIOThreads))
 
 			Expect(len(newVMI.Spec.Domain.Devices.Disks)).To(Equal(1))
+		})
+
+		It("[test_id:864][ref_id:2065] Should honor a mix of shared and dedicated ioThreadsPolicy", func() {
+			policy := v1.IOThreadsPolicyShared
+			vmi.Spec.Domain.IOThreadsPolicy = &policy
+
+			// The disk that came with the VMI
+			dedicated := true
+			vmi.Spec.Domain.Devices.Disks[0].DedicatedIOThread = &dedicated
+
+			tests.AddEphemeralDisk(vmi, "shr1", "virtio", tests.ContainerDiskFor(tests.ContainerDiskCirros))
+			tests.AddEphemeralDisk(vmi, "shr2", "virtio", tests.ContainerDiskFor(tests.ContainerDiskCirros))
+
+			By("Creating VMI with 1 dedicated and 2 shared ioThreadPolicies")
+			vmi, err := virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
+			Expect(err).ToNot(HaveOccurred())
+
+			tests.WaitForSuccessfulVMIStart(vmi)
+
+			getOptions := metav1.GetOptions{}
+			var newVMI *v1.VirtualMachineInstance
+
+			By("Fetching the VMI from the cluster")
+			newVMI, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Get(vmi.Name, &getOptions)
+			Expect(err).ToNot(HaveOccurred())
+
+			By("Fetching the domain XML from the running pod")
+			domain, err := tests.GetRunningVirtualMachineInstanceDomainXML(virtClient, vmi)
+			Expect(err).ToNot(HaveOccurred())
+			domSpec := &api.DomainSpec{}
+			Expect(xml.Unmarshal([]byte(domain), domSpec)).To(Succeed())
+
+			By("Verifying the total number of ioThreads")
+			expectedIOThreads := 2
+			Expect(int(domSpec.IOThreads.IOThreads)).To(Equal(expectedIOThreads))
+
+			By("Ensuring there are the expected number of disks")
+			Expect(len(newVMI.Spec.Domain.Devices.Disks)).To(Equal(3))
+			By("Verifying the ioThread mapping for disks")
+			for _, disk := range domSpec.Devices.Disks {
+				if disk.Alias.Name == "disk0" {
+					Expect(int(*disk.Driver.IOThread)).To(Equal(2))
+				} else {
+					Expect(int(*disk.Driver.IOThread)).To(Equal(1))
+				}
+			}
+
 		})
 
 	})
