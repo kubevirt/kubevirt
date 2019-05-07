@@ -309,6 +309,64 @@ var _ = Describe("[rfe_id:609][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 			Expect(err).To(HaveOccurred())
 		})
 	})
+
+	Context("Override", func() {
+		var overridePreset *v1.VirtualMachineInstancePreset
+
+		overrideKey := fmt.Sprintf("kubevirt.io/vmPreset")
+		overrideFlavor := "vmi-preset-small"
+		overrideMemory, _ := resource.ParseQuantity("64M")
+		overridePrefix := "test-override-"
+
+		vmiMemory, _ := resource.ParseQuantity("128M")
+
+		BeforeEach(func() {
+			selector := k8smetav1.LabelSelector{MatchLabels: map[string]string{overrideKey: overrideFlavor}}
+			overridePreset = &v1.VirtualMachineInstancePreset{
+				ObjectMeta: k8smetav1.ObjectMeta{GenerateName: overridePrefix},
+				Spec: v1.VirtualMachineInstancePresetSpec{
+					Selector: selector,
+					Domain: &v1.DomainSpec{
+						Resources: v1.ResourceRequirements{Requests: k8sv1.ResourceList{
+							"memory": overrideMemory}},
+					},
+				},
+			}
+		})
+
+		It("[test_id:644][rfe_id:609] should override presets", func() {
+			By("Creating preset with 64M")
+			err := virtClient.RestClient().Post().Resource("virtualmachineinstancepresets").Namespace(tests.NamespaceTestDefault).Body(overridePreset).Do().Error()
+			Expect(err).ToNot(HaveOccurred())
+
+			By("Waiting for preset to be created")
+			waitForPreset(virtClient, overridePrefix)
+
+			By("Creating VMI with 128M")
+			vmi = tests.NewRandomVMIWithEphemeralDisk(tests.ContainerDiskFor(tests.ContainerDiskAlpine))
+			vmi.Labels = map[string]string{overrideKey: overrideFlavor}
+			vmi.Spec.Domain.Resources.Requests["memory"] = vmiMemory
+
+			newVmi, err := virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
+			Expect(err).ToNot(HaveOccurred())
+
+			By("Verifying VMI")
+			Expect(newVmi.Annotations).To(BeNil())
+			label, ok := vmi.Labels[overrideKey]
+			Expect(ok).To(BeTrue())
+			Expect(label).To(Equal(overrideFlavor))
+			Expect(newVmi.Spec.Domain.Resources.Requests["memory"]).To(Equal(vmiMemory))
+
+			By("Checking event list")
+			evList, err := virtClient.CoreV1().Events(tests.NamespaceTestDefault).List(k8smetav1.ListOptions{})
+			for _, event := range evList.Items {
+				if event.InvolvedObject.GetObjectKind() == newVmi.GetObjectKind() &&
+					event.InvolvedObject.Name == newVmi.GetName() {
+					Expect(event.Message).ToNot(ContainSubstring("Unable to apply VirtualMachineInstancePreset"))
+				}
+			}
+		})
+	})
 })
 
 func waitForPreset(virtClient kubecli.KubevirtClient, prefix string) v1.VirtualMachineInstancePreset {
