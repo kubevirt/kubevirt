@@ -87,6 +87,14 @@ http_file(
 )
 
 http_file(
+    name = "fedora30_image",
+    sha256 = "72b6ae7b4ed09a4dccd6e966e1b3ac69bd97da419de9760b410e837ba00b4e26",
+    urls = [
+        "https://download.fedoraproject.org/pub/fedora/linux/releases/30/Cloud/x86_64/images/Fedora-Cloud-Base-30-1.2.x86_64.qcow2",
+    ],
+)
+
+http_file(
     name = "virtio_win_image",
     sha256 = "594678f509ba6827c7b75d076ecfb64d45c6ad95e9fccba7258e6eee9a6a3560",
     urls = [

@@ -112,6 +112,30 @@ container_image(
 )
 
 genrule(
+    name = "fedora30-cloud-iso",
+    srcs = ["@fedora30_image//file"],
+    outs = ["disk/fedora30.qcow2"],
+    cmd = "mkdir disk && cat $(location @fedora30_image//file) > $@",
+)
+
+pkg_tar(
+    name = "fedora30-cloud-iso-tar",
+    srcs = [":fedora30-cloud-iso"],
+    mode = "0644",
+    package_dir = "disk",
+    visibility = ["//visibility:public"],
+)
+
+container_image(
+    name = "fedora30-cloud-container-disk-image",
+    base = ":container-disk-v1alpha-image",
+    directory = "/",
+    entrypoint = ["/entry-point.sh"],
+    tars = [":fedora30-cloud-iso-tar"],
+    visibility = ["//visibility:public"],
+)
+
+genrule(
     name = "virtio-win-iso",
     srcs = ["@virtio_win_image//file"],
     outs = ["disk/virtio-win.iso"],
