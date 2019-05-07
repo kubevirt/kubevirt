@@ -26,7 +26,6 @@ import (
 
 	"k8s.io/api/admission/v1beta1"
 	k8sv1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	v1 "kubevirt.io/kubevirt/pkg/api/v1"
@@ -58,7 +57,6 @@ func (mutator *VMIsMutator) Mutate(ar *v1beta1.AdmissionReview) *v1beta1.Admissi
 	}
 
 	informers := webhooks.GetInformers()
-	config := mutator.ClusterConfig
 
 	// Apply presets
 	err = applyPresets(&vmi, informers.VMIPresetInformer)
@@ -76,9 +74,9 @@ func (mutator *VMIsMutator) Mutate(ar *v1beta1.AdmissionReview) *v1beta1.Admissi
 
 	// Set VMI defaults
 	log.Log.Object(&vmi).V(4).Info("Apply defaults")
-	setDefaultCPUModel(&vmi, config.GetCPUModel())
-	setDefaultMachineType(&vmi, config.GetMachineType())
-	setDefaultResourceRequests(&vmi, config.GetMemoryRequest(), config.GetCPURequest())
+	mutator.setDefaultCPUModel(&vmi)
+	mutator.setDefaultMachineType(&vmi)
+	mutator.setDefaultResourceRequests(&vmi)
 	v1.SetObjectDefaults_VirtualMachineInstance(&vmi)
 
 	// Add foreground finalizer
@@ -113,10 +111,10 @@ func (mutator *VMIsMutator) Mutate(ar *v1beta1.AdmissionReview) *v1beta1.Admissi
 	}
 }
 
-func setDefaultCPUModel(vmi *v1.VirtualMachineInstance, defaultCPUModel string) {
+func (mutator *VMIsMutator) setDefaultCPUModel(vmi *v1.VirtualMachineInstance) {
 	//if vmi doesn't have cpu topology or cpu model set
 	if vmi.Spec.Domain.CPU == nil || vmi.Spec.Domain.CPU.Model == "" {
-		if defaultCPUModel != "" {
+		if defaultCPUModel := mutator.ClusterConfig.GetCPUModel(); defaultCPUModel != "" {
 			// create cpu topology struct
 			if vmi.Spec.Domain.CPU == nil {
 				vmi.Spec.Domain.CPU = &v1.CPU{}
@@ -127,24 +125,24 @@ func setDefaultCPUModel(vmi *v1.VirtualMachineInstance, defaultCPUModel string) 
 	}
 }
 
-func setDefaultMachineType(vmi *v1.VirtualMachineInstance, defaultMachineType string) {
+func (mutator *VMIsMutator) setDefaultMachineType(vmi *v1.VirtualMachineInstance) {
 	if vmi.Spec.Domain.Machine.Type == "" {
-		vmi.Spec.Domain.Machine.Type = defaultMachineType
+		vmi.Spec.Domain.Machine.Type = mutator.ClusterConfig.GetMachineType()
 	}
 }
 
-func setDefaultResourceRequests(vmi *v1.VirtualMachineInstance, defaultMemoryRequest resource.Quantity, defaultCPURequest resource.Quantity) {
+func (mutator *VMIsMutator) setDefaultResourceRequests(vmi *v1.VirtualMachineInstance) {
 	if _, exists := vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory]; !exists {
 		if vmi.Spec.Domain.Resources.Requests == nil {
 			vmi.Spec.Domain.Resources.Requests = k8sv1.ResourceList{}
 		}
-		vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = defaultMemoryRequest
+		vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = mutator.ClusterConfig.GetMemoryRequest()
 	}
 
 	if _, exists := vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceCPU]; !exists {
 		if vmi.Spec.Domain.CPU != nil && vmi.Spec.Domain.CPU.DedicatedCPUPlacement {
 			return
 		}
-		vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceCPU] = defaultCPURequest
+		vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceCPU] = mutator.ClusterConfig.GetCPURequest()
 	}
 }
