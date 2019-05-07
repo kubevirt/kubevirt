@@ -33,7 +33,7 @@ import (
 
 	v1 "kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/testutils"
-	validating_webhook "kubevirt.io/kubevirt/pkg/virt-api/webhooks/validating-webhook"
+	validating_webhook "kubevirt.io/kubevirt/pkg/virt-api/webhooks/validating-webhook/admitters"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	"kubevirt.io/kubevirt/tools/vms-generator/utils"
 )
