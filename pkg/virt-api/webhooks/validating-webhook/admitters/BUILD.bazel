@@ -34,6 +34,13 @@ go_test(
     srcs = [
         "admitters_suite_test.go",
         "admitters_test.go",
+        "migration-create-admitter_test.go",
+        "migration-update-admitter_test.go",
+        "vmi-create-admitter_test.go",
+        "vmi-preset-admitter_test.go",
+        "vmi-update-admitter_test.go",
+        "vmirs-admitter_test.go",
+        "vms-admitter_test.go",
     ],
     embed = [":go_default_library"],
     deps = [
