@@ -43,7 +43,7 @@ import (
 	"kubevirt.io/kubevirt/tests"
 )
 
-var _ = Describe("Migrations", func() {
+var _ = Describe("[rfe_id:393][crit:high[vendor:cnv-qe@redhat.com][level:system] VM Life Migration", func() {
 	flag.Parse()
 
 	virtClient, err := kubecli.GetKubevirtClient()
@@ -263,7 +263,7 @@ var _ = Describe("Migrations", func() {
 
 	Describe("Starting a VirtualMachineInstance ", func() {
 		Context("with a Cirros disk", func() {
-			It("should be successfully migrated multiple times with cloud-init disk", func() {
+			It("[test_id:1783]should be successfully migrated multiple times with cloud-init disk", func() {
 
 				vmi := tests.NewRandomVMIWithEphemeralDisk(tests.ContainerDiskFor(tests.ContainerDiskCirros))
 				tests.AddUserData(vmi, "cloud-init", "#!/bin/bash\necho 'hello'\n")
@@ -448,7 +448,7 @@ var _ = Describe("Migrations", func() {
 				// create a new PV and PVC (PVs can't be reused)
 				tests.DeletePvAndPvc(pvName)
 			}, 60)
-			It("should migrate a VMI with shared and non-shared disks", func() {
+			It("[test_id:1854]should migrate a VMI with shared and non-shared disks", func() {
 				// Start the VirtualMachineInstance with PVC and Ephemeral Disks
 				vmi := tests.NewRandomVMIWithPVC(pvName)
 				image := tests.ContainerDiskFor(tests.ContainerDiskAlpine)
@@ -477,7 +477,7 @@ var _ = Describe("Migrations", func() {
 				By("Waiting for VMI to disappear")
 				tests.WaitForVirtualMachineToDisappearWithTimeout(vmi, 120)
 			})
-			It("should be successfully migrated multiple times", func() {
+			It("[test_id:1377]should be successfully migrated multiple times", func() {
 				// Start the VirtualMachineInstance with the PVC attached
 				vmi := tests.NewRandomVMIWithPVC(pvName)
 				vmi = runVMIAndExpectLaunch(vmi, 180)
@@ -683,7 +683,7 @@ var _ = Describe("Migrations", func() {
 				_, err = virtClient.CoreV1().ConfigMaps(namespaceKubevirt).Update(cfgMap)
 				Expect(err).ToNot(HaveOccurred())
 			})
-			It("should abort a vmi migration without progress", func() {
+			It("[test_id:2227]should abort a vmi migration without progress", func() {
 				vmi := tests.NewRandomFedoraVMIWitGuestAgent()
 				vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("1Gi")
 
@@ -748,7 +748,7 @@ var _ = Describe("Migrations", func() {
 				// create a new PV and PVC (PVs can't be reused)
 				tests.DeletePvAndPvc(pvName)
 			}, 60)
-			It("should reject migrations for a non-migratable vmi", func() {
+			It("[test_id:1862][posneg:negative]should reject migrations for a non-migratable vmi", func() {
 				// Start the VirtualMachineInstance with the PVC attached
 				vmi := tests.NewRandomVMIWithPVC(pvName)
 				tests.AddUserData(vmi, "cloud-init", "#!/bin/bash\necho 'hello'\n")
@@ -782,7 +782,9 @@ var _ = Describe("Migrations", func() {
 				By("Waiting for VMI to disappear")
 				tests.WaitForVirtualMachineToDisappearWithTimeout(vmi, 120)
 			})
-			It("should be able successfully cancel a migration", func() {
+		})
+		Context("live migration cancelation", func() {
+			It("[test_id:2226]should be able successfully cancel a migration", func() {
 				vmi := tests.NewRandomFedoraVMIWitGuestAgent()
 				vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("1Gi")
 
@@ -873,7 +875,7 @@ var _ = Describe("Migrations", func() {
 
 	Context("with sata disks", func() {
 
-		It("VM with containerDisk + CloudInit + ServiceAccount + ConfigMap + Secret", func() {
+		It("[test_id:1853]VM with containerDisk + CloudInit + ServiceAccount + ConfigMap + Secret", func() {
 			configMapName := "configmap-" + rand.String(5)
 			secretName := "secret-" + rand.String(5)
 
