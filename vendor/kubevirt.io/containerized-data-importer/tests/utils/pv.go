@@ -120,6 +120,13 @@ func NewBlockPVDefinition(pvName string, size string, labels map[string]string, 
 	}
 }
 
+// NewTargetBlockPVDefinition creates a target PV definition with volueMode 'Block'
+func NewTargetBlockPVDefinition(pvName string, size string, labels map[string]string, storageClassName string, nodeName string) *k8sv1.PersistentVolume {
+	targetPV := NewBlockPVDefinition(pvName, size, labels, storageClassName, nodeName)
+	targetPV.Spec.PersistentVolumeSource.Local.Path = "/mnt/local-storage/block-device1/loop1"
+	return targetPV
+}
+
 // WaitTimeoutForPVReady waits for the given pv to be created and ready
 func WaitTimeoutForPVReady(clientSet *kubernetes.Clientset, pvName string, timeout time.Duration) error {
 	return WaitTimeoutForPVStatus(clientSet, pvName, k8sv1.VolumeAvailable, timeout)

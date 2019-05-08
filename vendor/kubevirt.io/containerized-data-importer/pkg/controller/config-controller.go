@@ -74,7 +74,7 @@ func NewConfigController(client kubernetes.Interface,
 
 	// Bind the ingress SharedIndexInformer to the ingress queue
 	c.ingressInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
-		AddFunc: c.handleObjAdd,
+		AddFunc: c.handleObject,
 		UpdateFunc: func(old, new interface{}) {
 			newDepl := new.(*extensionsv1beta1.Ingress)
 			oldDepl := old.(*extensionsv1beta1.Ingress)
@@ -82,15 +82,15 @@ func NewConfigController(client kubernetes.Interface,
 				// Periodic resync will send update events for all known ingresses.
 				return
 			}
-			c.handleObjUpdate(new)
+			c.handleObject(new)
 		},
 
-		DeleteFunc: c.handleObjDelete,
+		DeleteFunc: c.handleObject,
 	})
 
 	// Bind the route SharedIndexInformer to the route queue
 	c.routeInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
-		AddFunc: c.handleObjAdd,
+		AddFunc: c.handleObject,
 		UpdateFunc: func(old, new interface{}) {
 			newDepl := new.(*routev1.Route)
 			oldDepl := old.(*routev1.Route)
@@ -98,15 +98,15 @@ func NewConfigController(client kubernetes.Interface,
 				// Periodic resync will send update events for all known routes.
 				return
 			}
-			c.handleObjUpdate(new)
+			c.handleObject(new)
 		},
 
-		DeleteFunc: c.handleObjDelete,
+		DeleteFunc: c.handleObject,
 	})
 
 	// Bind the CDIconfig SharedIndexInformer to the CDIconfig queue
 	c.configInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
-		AddFunc: c.handleObjAdd,
+		AddFunc: c.handleObject,
 		UpdateFunc: func(old, new interface{}) {
 			newDepl := new.(*cdiv1.CDIConfig)
 			oldDepl := old.(*cdiv1.CDIConfig)
@@ -114,26 +114,16 @@ func NewConfigController(client kubernetes.Interface,
 				// Periodic resync will send update events for all known CDIconfigs.
 				return
 			}
-			c.handleObjUpdate(new)
+			c.handleObject(new)
 		},
 
-		DeleteFunc: c.handleObjDelete,
+		DeleteFunc: c.handleObject,
 	})
 
 	return c
 }
 
-func (c *ConfigController) handleObjAdd(obj interface{}) {
-	c.handleObject(obj, "add")
-}
-func (c *ConfigController) handleObjUpdate(obj interface{}) {
-	c.handleObject(obj, "update")
-}
-func (c *ConfigController) handleObjDelete(obj interface{}) {
-	c.handleObject(obj, "delete")
-}
-
-func (c *ConfigController) handleObject(obj interface{}, verb string) {
+func (c *ConfigController) handleObject(obj interface{}) {
 
 	var object metav1.Object
 	var ok bool

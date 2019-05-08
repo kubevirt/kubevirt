@@ -1184,7 +1184,7 @@ spec:
                 containers:
                 - env:
                   - name: OPERATOR_IMAGE
-                    value: kubevirt/cdi-operator:v1.7.0
+                    value: kubevirt/cdi-operator:v1.9.0
                   - name: OPERATOR_NAME
                     value: cdi-operator
                   - name: POD_NAME
@@ -1200,7 +1200,7 @@ spec:
                   - name: DOCKER_REPO
                     value: kubevirt
                   - name: DOCKER_TAG
-                    value: v1.7.0
+                    value: v1.9.0
                   - name: CONTROLLER_IMAGE
                     value: cdi-controller
                   - name: IMPORTER_IMAGE
@@ -1217,7 +1217,7 @@ spec:
                     value: "1"
                   - name: PULL_POLICY
                     value: IfNotPresent
-                  image: kubevirt/cdi-operator:v1.7.0
+                  image: kubevirt/cdi-operator:v1.9.0
                   imagePullPolicy: Always
                   name: cdi-operator
                   ports:

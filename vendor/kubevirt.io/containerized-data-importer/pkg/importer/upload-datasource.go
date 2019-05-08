@@ -56,7 +56,7 @@ func (ud *UploadDataSource) Transfer(path string) (ProcessingPhase, error) {
 		return ProcessingPhaseError, ErrInvalidPath
 	}
 	file := filepath.Join(path, tempFile)
-	err := StreamDataToFile(ud.readers.TopReader(), file)
+	err := util.StreamDataToFile(ud.readers.TopReader(), file)
 	if err != nil {
 		return ProcessingPhaseError, err
 	}
@@ -67,7 +67,7 @@ func (ud *UploadDataSource) Transfer(path string) (ProcessingPhase, error) {
 
 // TransferFile is called to transfer the data from the source to the passed in file.
 func (ud *UploadDataSource) TransferFile(fileName string) (ProcessingPhase, error) {
-	err := StreamDataToFile(ud.readers.TopReader(), fileName)
+	err := util.StreamDataToFile(ud.readers.TopReader(), fileName)
 	if err != nil {
 		return ProcessingPhaseError, err
 	}

@@ -21,7 +21,8 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-func createClusterRoleBinding(name, roleRef, serviceAccount, serviceAccountNamespace string) *rbacv1.ClusterRoleBinding {
+//CreateClusterRoleBinding create cluster role bunding
+func CreateClusterRoleBinding(name, roleRef, serviceAccount, serviceAccountNamespace string) *rbacv1.ClusterRoleBinding {
 	return &rbacv1.ClusterRoleBinding{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: "rbac.authorization.k8s.io/v1",
@@ -48,7 +49,8 @@ func createClusterRoleBinding(name, roleRef, serviceAccount, serviceAccountNames
 	}
 }
 
-func createClusterRole(name string) *rbacv1.ClusterRole {
+//CreateClusterRole create cluster role
+func CreateClusterRole(name string) *rbacv1.ClusterRole {
 	return &rbacv1.ClusterRole{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: "rbac.authorization.k8s.io/v1",

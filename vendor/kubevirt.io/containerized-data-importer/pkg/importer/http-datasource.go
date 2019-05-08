@@ -129,7 +129,7 @@ func (hs *HTTPDataSource) Transfer(path string) (ProcessingPhase, error) {
 			return ProcessingPhaseError, ErrInvalidPath
 		}
 		file := filepath.Join(path, tempFile)
-		err := StreamDataToFile(hs.readers.TopReader(), file)
+		err := util.StreamDataToFile(hs.readers.TopReader(), file)
 		if err != nil {
 			return ProcessingPhaseError, err
 		}
@@ -148,7 +148,7 @@ func (hs *HTTPDataSource) Transfer(path string) (ProcessingPhase, error) {
 
 // TransferFile is called to transfer the data from the source to the passed in file.
 func (hs *HTTPDataSource) TransferFile(fileName string) (ProcessingPhase, error) {
-	err := StreamDataToFile(hs.readers.TopReader(), fileName)
+	err := util.StreamDataToFile(hs.readers.TopReader(), fileName)
 	if err != nil {
 		return ProcessingPhaseError, err
 	}

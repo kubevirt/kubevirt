@@ -640,7 +640,7 @@ func (c *DataVolumeController) getPodMetricsPort(pod *corev1.Pod) (int, error) {
 			}
 		}
 	}
-	klog.Errorf("Unable to find metrics port on pod: %s", pod.Name)
+	klog.V(3).Infof("Unable to find metrics port on pod: %s", pod.Name)
 	return 0, errors.New("Metrics port not found in pod")
 }
 

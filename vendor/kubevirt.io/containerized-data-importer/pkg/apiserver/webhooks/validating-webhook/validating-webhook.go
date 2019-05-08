@@ -14,6 +14,7 @@ import (
 	k8sfield "k8s.io/apimachinery/pkg/util/validation/field"
 	"k8s.io/klog"
 	cdicorev1alpha1 "kubevirt.io/containerized-data-importer/pkg/apis/core/v1alpha1"
+	"kubevirt.io/containerized-data-importer/pkg/controller"
 )
 
 type admitFunc func(*v1beta1.AdmissionReview) *v1beta1.AdmissionResponse
@@ -156,7 +157,7 @@ func validateDataVolumeSpec(field *k8sfield.Path, spec *cdicorev1alpha1.DataVolu
 		}
 		client := GetClient()
 		if client != nil {
-			_, err := client.CoreV1().PersistentVolumeClaims(spec.Source.PVC.Namespace).Get(spec.Source.PVC.Name, metav1.GetOptions{})
+			sourcePVC, err := client.CoreV1().PersistentVolumeClaims(spec.Source.PVC.Namespace).Get(spec.Source.PVC.Name, metav1.GetOptions{})
 			if err != nil {
 				if k8serrors.IsNotFound(err) {
 					causes = append(causes, metav1.StatusCause{
@@ -166,6 +167,15 @@ func validateDataVolumeSpec(field *k8sfield.Path, spec *cdicorev1alpha1.DataVolu
 					})
 					return causes
 				}
+			}
+			err = controller.ValidateCanCloneSourceAndTargetSpec(&sourcePVC.Spec, spec.PVC)
+			if err != nil {
+				causes = append(causes, metav1.StatusCause{
+					Type:    metav1.CauseTypeFieldValueInvalid,
+					Message: err.Error(),
+					Field:   field.Child("PVC").String(),
+				})
+				return causes
 			}
 		}
 	}
@@ -178,11 +188,19 @@ func validateDataVolumeSpec(field *k8sfield.Path, spec *cdicorev1alpha1.DataVolu
 		})
 		return causes
 	}
-	pvcSize := spec.PVC.Resources.Requests["storage"]
-	if pvcSize.IsZero() || pvcSize.Value() < 0 {
+	if pvcSize, ok := spec.PVC.Resources.Requests["storage"]; ok {
+		if pvcSize.IsZero() || pvcSize.Value() < 0 {
+			causes = append(causes, metav1.StatusCause{
+				Type:    metav1.CauseTypeFieldValueInvalid,
+				Message: fmt.Sprintf("PVC size can't be equal or less than zero"),
+				Field:   field.Child("PVC", "resources", "requests", "size").String(),
+			})
+			return causes
+		}
+	} else {
 		causes = append(causes, metav1.StatusCause{
 			Type:    metav1.CauseTypeFieldValueInvalid,
-			Message: fmt.Sprintf("PVC size can't be equal or less than zero"),
+			Message: fmt.Sprintf("PVC size is missing"),
 			Field:   field.Child("PVC", "resources", "requests", "size").String(),
 		})
 		return causes

@@ -125,6 +125,13 @@ func (dp *DataProcessor) ProcessData() error {
 		// Attempt to be a good citizen and clean up my mess at the end.
 		defer CleanDir(dp.scratchDataDir)
 	}
+	if util.GetAvailableSpace(dp.dataDir) > int64(0) {
+		// Clean up data dir before trying to write in case a previous attempt failed and left some stuff behind.
+		err = CleanDir(dp.dataDir)
+		if err != nil {
+			return err
+		}
+	}
 	for dp.currentPhase != ProcessingPhaseComplete {
 		switch dp.currentPhase {
 		case ProcessingPhaseInfo:

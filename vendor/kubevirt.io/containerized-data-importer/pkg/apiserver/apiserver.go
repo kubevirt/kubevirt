@@ -129,15 +129,16 @@ func NewCdiAPIServer(bindAddress string,
 			}
 		}
 		chain.ProcessFilter(req, resp)
-		klog.V(1).Infof("----------------------------")
-		klog.V(1).Infof("remoteAddress:%s", strings.Split(req.Request.RemoteAddr, ":")[0])
-		klog.V(1).Infof("username: %s", username)
-		klog.V(1).Infof("method: %s", req.Request.Method)
-		klog.V(1).Infof("url: %s", req.Request.URL.RequestURI())
-		klog.V(1).Infof("proto: %s", req.Request.Proto)
-		klog.V(1).Infof("headers: %v", req.Request.Header)
-		klog.V(1).Infof("statusCode: %d", resp.StatusCode())
-		klog.V(1).Infof("contentLength: %d", resp.ContentLength())
+
+		klog.V(3).Infof("----------------------------")
+		klog.V(3).Infof("remoteAddress:%s", strings.Split(req.Request.RemoteAddr, ":")[0])
+		klog.V(3).Infof("username: %s", username)
+		klog.V(3).Infof("method: %s", req.Request.Method)
+		klog.V(3).Infof("url: %s", req.Request.URL.RequestURI())
+		klog.V(3).Infof("proto: %s", req.Request.Proto)
+		klog.V(3).Infof("headers: %v", req.Request.Header)
+		klog.V(3).Infof("statusCode: %d", resp.StatusCode())
+		klog.V(3).Infof("contentLength: %d", resp.ContentLength())
 
 	})
 
@@ -461,6 +462,24 @@ func (app *cdiAPIApp) composeUploadTokenAPI() {
 	app.container.Add(uploadTokenWs)
 
 	ws := new(restful.WebService)
+
+	ws.Route(ws.GET("/").
+		Produces("application/json").Writes(metav1.RootPaths{}).
+		To(func(request *restful.Request, response *restful.Response) {
+			response.WriteAsJson(&metav1.RootPaths{
+				Paths: []string{
+					"/apis",
+					"/apis/",
+					groupPath,
+					resourcePath,
+					healthzPath,
+				},
+			})
+		}).
+		Operation("getRootPaths").
+		Doc("Get a CDI API root paths").
+		Returns(http.StatusOK, "OK", metav1.RootPaths{}).
+		Returns(http.StatusNotFound, "Not Found", nil))
 
 	// K8s needs the ability to query info about a specific API group
 	ws.Route(ws.GET(groupPath).

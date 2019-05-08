@@ -26,6 +26,8 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 
 	"kubevirt.io/containerized-data-importer/pkg/common"
+
+	utils "kubevirt.io/containerized-data-importer/pkg/operator/resources/utils"
 )
 
 const (
@@ -56,12 +58,12 @@ func createControllerResources(args *FactoryArgs) []runtime.Object {
 }
 
 func createControllerServiceAccount() *corev1.ServiceAccount {
-	return createServiceAccount(controllerServiceAccount)
+	return utils.CreateServiceAccount(controllerServiceAccount)
 }
 
 func createControllerDeployment(repo, controllerImage, importerImage, clonerImage, uploadServerImage, tag, verbosity, pullPolicy string) *appsv1.Deployment {
-	deployment := createDeployment("cdi-deployment", "app", "containerized-data-importer", controllerServiceAccount, int32(1))
-	container := createContainer("cdi-controller", repo, controllerImage, tag, verbosity, corev1.PullPolicy(pullPolicy))
+	deployment := utils.CreateDeployment("cdi-deployment", "app", "containerized-data-importer", controllerServiceAccount, int32(1))
+	container := utils.CreateContainer("cdi-controller", repo, controllerImage, tag, verbosity, corev1.PullPolicy(pullPolicy))
 	container.Env = []corev1.EnvVar{
 		{
 			Name:  "IMPORTER_IMAGE",
@@ -137,7 +139,7 @@ func createInsecureRegConfigMap() *corev1.ConfigMap {
 		},
 		ObjectMeta: metav1.ObjectMeta{
 			Name:   common.InsecureRegistryConfigMap,
-			Labels: withCommonLabels(nil),
+			Labels: utils.WithCommonLabels(nil),
 		},
 	}
 }

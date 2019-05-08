@@ -24,17 +24,18 @@ import (
 
 // FactoryArgs contains the required parameters to generate all namespaced resources
 type FactoryArgs struct {
-	DockerRepo        string `required:"true" split_words:"true"`
-	DockerTag         string `required:"true" split_words:"true"`
-	ControllerImage   string `required:"true" split_words:"true"`
-	ImporterImage     string `required:"true" split_words:"true"`
-	ClonerImage       string `required:"true" split_words:"true"`
-	APIServerImage    string `required:"true" envconfig:"apiserver_image"`
-	UploadProxyImage  string `required:"true" split_words:"true"`
-	UploadServerImage string `required:"true" split_words:"true"`
-	Verbosity         string `required:"true"`
-	PullPolicy        string `required:"true" split_words:"true"`
-	Namespace         string
+	DockerRepo             string `required:"true" split_words:"true"`
+	DockerTag              string `required:"true" split_words:"true"`
+	ControllerImage        string `required:"true" split_words:"true"`
+	DeployClusterResources string `required:"true" split_words:"true"`
+	ImporterImage          string `required:"true" split_words:"true"`
+	ClonerImage            string `required:"true" split_words:"true"`
+	APIServerImage         string `required:"true" envconfig:"apiserver_image"`
+	UploadProxyImage       string `required:"true" split_words:"true"`
+	UploadServerImage      string `required:"true" split_words:"true"`
+	Verbosity              string `required:"true"`
+	PullPolicy             string `required:"true" split_words:"true"`
+	Namespace              string
 }
 
 type factoryFunc func(*FactoryArgs) []runtime.Object
@@ -48,6 +49,16 @@ var factoryFunctions = map[string]factoryFunc{
 	"apiserver":   createAPIServerResources,
 	"controller":  createControllerResources,
 	"uploadproxy": createUploadProxyResources,
+}
+
+//IsFactoryResource returns true id codeGroupo belolngs to factory functions
+func IsFactoryResource(codeGroup string) bool {
+	for k := range factoryFunctions {
+		if codeGroup == k {
+			return true
+		}
+	}
+	return false
 }
 
 // GetPrivilegedAccounts return special accounts for OpenShift

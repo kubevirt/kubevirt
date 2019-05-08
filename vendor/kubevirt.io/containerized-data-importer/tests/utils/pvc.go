@@ -25,8 +25,6 @@ const (
 
 	// DefaultImagePath is the default destination for images created by CDI
 	DefaultImagePath = DefaultPvcMountPath + "/disk.img"
-	// DefaultImageBlockDevice is the default block device destination
-	DefaultImageBlockDevice = "/dev/blockDevice"
 
 	pvcPollInterval = defaultPollInterval
 	pvcCreateTime   = defaultPollPeriod

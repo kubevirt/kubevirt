@@ -25,7 +25,7 @@ import (
 // CountingReader is a reader that keeps track of how much has been read
 type CountingReader struct {
 	Reader  io.ReadCloser
-	Current int64
+	Current uint64
 }
 
 // RandAlphaNum provides an implementation to generate a random alpha numeric string of the specified length
@@ -69,7 +69,7 @@ func ParseEnvVar(envVarName string, decode bool) (string, error) {
 // Read reads bytes from the stream and updates the prometheus clone_progress metric according to the progress.
 func (r *CountingReader) Read(p []byte) (n int, err error) {
 	n, err = r.Reader.Read(p)
-	r.Current += int64(n)
+	r.Current += uint64(n)
 	return n, err
 }
 
@@ -121,6 +121,30 @@ func MinQuantity(availableSpace, imageSize *resource.Quantity) resource.Quantity
 		return *availableSpace
 	}
 	return *imageSize
+}
+
+// StreamDataToFile provides a function to stream the specified io.Reader to the specified local file
+func StreamDataToFile(r io.Reader, fileName string) error {
+	var outFile *os.File
+	var err error
+	if GetAvailableSpaceBlock(fileName) < 0 {
+		// Attempt to create the file with name filePath.  If it exists, fail.
+		outFile, err = os.OpenFile(fileName, os.O_CREATE|os.O_EXCL|os.O_WRONLY, os.ModePerm)
+	} else {
+		outFile, err = os.OpenFile(fileName, os.O_EXCL|os.O_WRONLY, os.ModePerm)
+	}
+	if err != nil {
+		return errors.Wrapf(err, "could not open file %q", fileName)
+	}
+	defer outFile.Close()
+	klog.V(1).Infof("Writing data...\n")
+	if _, err = io.Copy(outFile, r); err != nil {
+		klog.Errorf("Unable to write file from dataReader: %v\n", err)
+		os.Remove(outFile.Name())
+		return errors.Wrapf(err, "unable to write to file")
+	}
+	err = outFile.Sync()
+	return err
 }
 
 // UnArchiveTar unarchives a tar file and streams its files

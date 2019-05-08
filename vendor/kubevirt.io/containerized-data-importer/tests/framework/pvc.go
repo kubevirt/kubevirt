@@ -1,8 +1,10 @@
 package framework
 
 import (
+	"fmt"
 	"strings"
 
+	"github.com/onsi/ginkgo"
 	"github.com/onsi/gomega"
 	k8sv1 "k8s.io/api/core/v1"
 	"kubevirt.io/containerized-data-importer/tests/utils"
@@ -47,13 +49,10 @@ func VerifyPVCIsEmpty(f *Framework, pvc *k8sv1.PersistentVolumeClaim) (bool, err
 }
 
 // CreateAndPopulateSourcePVC Creates and populates a PVC using the provided POD and command
-func (f *Framework) CreateAndPopulateSourcePVC(pvcName string, podName string, fillCommand string) *k8sv1.PersistentVolumeClaim {
+func (f *Framework) CreateAndPopulateSourcePVC(pvcDef *k8sv1.PersistentVolumeClaim, podName string, fillCommand string) *k8sv1.PersistentVolumeClaim {
 	// Create the source PVC and populate it with a file, so we can verify the clone.
-	sourcePvc, err := f.CreatePVCFromDefinition(utils.NewPVCDefinition(pvcName, "1G", nil, nil))
-
+	sourcePvc, err := f.CreatePVCFromDefinition(pvcDef)
 	gomega.Expect(err).ToNot(gomega.HaveOccurred())
-	// why not just call utils.CreatePod() we're not using framework to help with tests so not sure why it's even there
-	// it just wraps the calls in utils, doesn't seem to do much more
 	pod, err := f.CreatePod(utils.NewPodWithPVC(podName, fillCommand, sourcePvc))
 	gomega.Expect(err).ToNot(gomega.HaveOccurred())
 	err = f.WaitTimeoutForPodStatus(pod.Name, k8sv1.PodSucceeded, utils.PodWaitForTime)
@@ -62,12 +61,25 @@ func (f *Framework) CreateAndPopulateSourcePVC(pvcName string, podName string, f
 }
 
 // VerifyTargetPVCContent is used to check the contents of a PVC and ensure it matches the provided expected data
-func (f *Framework) VerifyTargetPVCContent(namespace *k8sv1.Namespace, pvc *k8sv1.PersistentVolumeClaim, fileName string, expectedData string) (bool, error) {
-	executorPod, err := utils.CreateExecutorPodWithPVC(f.K8sClient, "verify-pvc-content", namespace.Name, pvc)
+func (f *Framework) VerifyTargetPVCContent(namespace *k8sv1.Namespace, pvc *k8sv1.PersistentVolumeClaim,
+	expectedData, testBaseDir, testFile string) (bool, error) {
+
+	var dest string
+	var err error
+	var executorPod *k8sv1.Pod
+
+	executorPod, err = utils.CreateExecutorPodWithPVC(f.K8sClient, "verify-pvc-content", namespace.Name, pvc)
+	volumeMode := pvc.Spec.VolumeMode
+	if volumeMode != nil && *volumeMode == k8sv1.PersistentVolumeBlock {
+		dest = testBaseDir
+	} else {
+		dest = testBaseDir + testFile
+	}
+
 	gomega.Expect(err).ToNot(gomega.HaveOccurred())
 	err = utils.WaitTimeoutForPodReady(f.K8sClient, executorPod.Name, namespace.Name, utils.PodWaitForTime)
 	gomega.Expect(err).ToNot(gomega.HaveOccurred())
-	output, err := f.ExecShellInPod(executorPod.Name, namespace.Name, "cat "+fileName)
+	output, err := f.ExecShellInPod(executorPod.Name, namespace.Name, "cat "+dest)
 	if err != nil {
 		return false, err
 	}
@@ -75,14 +87,11 @@ func (f *Framework) VerifyTargetPVCContent(namespace *k8sv1.Namespace, pvc *k8sv
 }
 
 // VerifyTargetPVCContentMD5 provides a function to check the md5 of data on a PVC and ensure it matches that which is provided
-func (f *Framework) VerifyTargetPVCContentMD5(namespace *k8sv1.Namespace, pvc *k8sv1.PersistentVolumeClaim, fileName string, expectedHash string, isBlockPV bool) (bool, error) {
+func (f *Framework) VerifyTargetPVCContentMD5(namespace *k8sv1.Namespace, pvc *k8sv1.PersistentVolumeClaim, fileName string, expectedHash string) (bool, error) {
 	var executorPod *k8sv1.Pod
 	var err error
-	if isBlockPV {
-		executorPod, err = utils.CreateExecutorPodWithBlockPVC(f.K8sClient, "verify-pvc-md5", namespace.Name, pvc)
-	} else {
-		executorPod, err = utils.CreateExecutorPodWithPVC(f.K8sClient, "verify-pvc-md5", namespace.Name, pvc)
-	}
+
+	executorPod, err = utils.CreateExecutorPodWithPVC(f.K8sClient, "verify-pvc-md5", namespace.Name, pvc)
 	gomega.Expect(err).ToNot(gomega.HaveOccurred())
 	err = utils.WaitTimeoutForPodReady(f.K8sClient, executorPod.Name, namespace.Name, utils.PodWaitForTime)
 	gomega.Expect(err).ToNot(gomega.HaveOccurred())
@@ -90,6 +99,7 @@ func (f *Framework) VerifyTargetPVCContentMD5(namespace *k8sv1.Namespace, pvc *k
 	if err != nil {
 		return false, err
 	}
+	fmt.Fprintf(ginkgo.GinkgoWriter, "INFO: md5sum found %s\n", string(output[:32]))
 	return strings.Compare(expectedHash, output[:32]) == 0, nil
 }
 

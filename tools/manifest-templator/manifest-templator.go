@@ -260,7 +260,7 @@ func getCDI(data *templateData) {
 	// Get CDI Deployment
 	cdideployment := cdicomponents.GetDeployment(
 		"kubevirt",
-		"v1.7.0",
+		"v1.9.0",
 		"Always",
 	)
 	err := marshallObject(cdideployment, &writer)

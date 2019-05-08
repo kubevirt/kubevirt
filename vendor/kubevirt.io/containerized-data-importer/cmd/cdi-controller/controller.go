@@ -121,9 +121,7 @@ func start(cfg *rest.Config, stopCh <-chan struct{}) {
 	serviceInformerFactory := k8sinformers.NewFilteredSharedInformerFactory(client, common.DefaultResyncPeriod, "", func(options *v1.ListOptions) {
 		options.LabelSelector = common.CDILabelSelector
 	})
-	ingressInformerFactory := k8sinformers.NewFilteredSharedInformerFactory(client, common.DefaultResyncPeriod, "", func(options *v1.ListOptions) {
-		options.LabelSelector = common.CDILabelSelector
-	})
+	ingressInformerFactory := k8sinformers.NewSharedInformerFactory(client, common.DefaultResyncPeriod)
 	routeInformerFactory := routeinformers.NewSharedInformerFactory(openshiftClient, common.DefaultResyncPeriod)
 
 	pvcInformer := pvcInformerFactory.Core().V1().PersistentVolumeClaims()

@@ -9,12 +9,18 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	coreinformers "k8s.io/client-go/informers/core/v1"
 	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/kubernetes/scheme"
+	typedcorev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/client-go/tools/cache"
+	"k8s.io/client-go/tools/record"
 	"k8s.io/klog"
+	cdischeme "kubevirt.io/containerized-data-importer/pkg/client/clientset/versioned/scheme"
 	"kubevirt.io/containerized-data-importer/pkg/common"
 )
 
 const (
+	cloneControllerAgentName = "clone-controller"
+
 	//AnnCloneRequest sets our expected annotation for a CloneRequest
 	AnnCloneRequest = "k8s.io/CloneRequest"
 	//AnnCloneOf is used to indicate that cloning was complete
@@ -23,11 +29,15 @@ const (
 	CloneUniqueID = "cdi.kubevirt.io/storage.clone.cloneUniqeId"
 	//AnnTargetPodNamespace is being used as a pod label to find the related target PVC
 	AnnTargetPodNamespace = "cdi.kubevirt.io/storage.clone.targetPod.namespace"
+
+	// ErrIncompatiblePVC provides a const to indicate a clone is not possible due to an incompatible PVC
+	ErrIncompatiblePVC = "ErrIncompatiblePVC"
 )
 
 // CloneController represents the CDI Clone Controller
 type CloneController struct {
 	Controller
+	recorder record.EventRecorder
 }
 
 // NewCloneController sets up a Clone Controller, and returns a pointer to
@@ -38,8 +48,20 @@ func NewCloneController(client kubernetes.Interface,
 	image string,
 	pullPolicy string,
 	verbose string) *CloneController {
+
+	// Create event broadcaster
+	// Add datavolume-controller types to the default Kubernetes Scheme so Events can be
+	// logged for datavolume-controller types.
+	cdischeme.AddToScheme(scheme.Scheme)
+	klog.V(3).Info("Creating event broadcaster")
+	eventBroadcaster := record.NewBroadcaster()
+	eventBroadcaster.StartLogging(klog.V(2).Infof)
+	eventBroadcaster.StartRecordingToSink(&typedcorev1.EventSinkImpl{Interface: client.CoreV1().Events("")})
+	recorder := eventBroadcaster.NewRecorder(scheme.Scheme, v1.EventSource{Component: cloneControllerAgentName})
+
 	c := &CloneController{
 		Controller: *NewController(client, pvcInformer, podInformer, image, pullPolicy, verbose),
+		recorder:   recorder,
 	}
 	return c
 }
@@ -128,14 +150,14 @@ func (cc *CloneController) processPvcItem(pvc *v1.PersistentVolumeClaim) error {
 		}
 
 		if sourcePod == nil {
-			cr, err := getCloneRequestPVC(pvc)
+			crann, err := getCloneRequestPVCAnnotation(pvc)
 			if err != nil {
 				return err
 			}
 			// all checks passed, let's create the cloner pods!
 			cc.raisePodCreate(pvcKey)
 			//create the source pod
-			sourcePod, err = CreateCloneSourcePod(cc.clientset, cc.image, cc.pullPolicy, cr, pvc)
+			sourcePod, err = CreateCloneSourcePod(cc.clientset, cc.image, cc.pullPolicy, crann, pvc)
 			if err != nil {
 				cc.observePodCreate(pvcKey)
 				return err
@@ -259,8 +281,21 @@ func (cc *CloneController) syncPvc(key string) error {
 		klog.V(3).Infof("pvc annotation %q exists indicating cloning completed, skipping pvc \"%s/%s\"\n", AnnCloneOf, pvc.Namespace, pvc.Name)
 		return nil
 	}
+
+	if err := cc.validateSourceAndTarget(pvc); err != nil {
+		cc.recorder.Event(pvc, v1.EventTypeWarning, ErrIncompatiblePVC, err.Error())
+		return err
+	}
 	klog.V(3).Infof("ProcessNextPvcItem: next pvc to process: \"%s/%s\"\n", pvc.Namespace, pvc.Name)
 	return cc.processPvcItem(pvc)
+}
+
+func (cc *CloneController) validateSourceAndTarget(targetPvc *v1.PersistentVolumeClaim) error {
+	sourcePvc, err := getCloneRequestSourcePVC(targetPvc, cc.Controller.pvcLister)
+	if err != nil {
+		return err
+	}
+	return ValidateCanCloneSourceAndTargetSpec(&sourcePvc.Spec, &targetPvc.Spec)
 }
 
 //Run is being called from cdi-controller (cmd)

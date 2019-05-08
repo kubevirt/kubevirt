@@ -22,12 +22,18 @@ import (
 	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/intstr"
+	"kubevirt.io/containerized-data-importer/pkg/common"
+	utils "kubevirt.io/containerized-data-importer/pkg/operator/resources/utils"
 )
 
 const (
 	apiServerRessouceName     = "cdi-apiserver"
 	extensionAPIResourceName  = "cdi-extension-apiserver-authentication"
 	extensionAPIConfigMapName = "extension-apiserver-authentication"
+)
+
+const (
+	cdiLabel = common.CDIComponentLabel
 )
 
 func createAPIServerResources(args *FactoryArgs) []runtime.Object {
@@ -43,15 +49,15 @@ func createAPIServerResources(args *FactoryArgs) []runtime.Object {
 }
 
 func createAPIServerServiceAccount() *corev1.ServiceAccount {
-	return createServiceAccount(apiServerRessouceName)
+	return utils.CreateServiceAccount(apiServerRessouceName)
 }
 
 func createAPIServerRoleBinding(serviceAccountNamespace string) *rbacv1.RoleBinding {
-	return createRoleBinding(apiServerRessouceName, apiServerRessouceName, apiServerRessouceName, serviceAccountNamespace)
+	return utils.CreateRoleBinding(apiServerRessouceName, apiServerRessouceName, apiServerRessouceName, serviceAccountNamespace)
 }
 
 func createAPIServerRole() *rbacv1.Role {
-	role := createRole(apiServerRessouceName)
+	role := utils.CreateRole(apiServerRessouceName)
 	role.Rules = []rbacv1.PolicyRule{
 		{
 			APIGroups: []string{
@@ -71,7 +77,7 @@ func createAPIServerRole() *rbacv1.Role {
 }
 
 func createExtensionAPIServerRoleBinding(serviceAccountNamespace string) *rbacv1.RoleBinding {
-	roleBinding := createRoleBinding(
+	roleBinding := utils.CreateRoleBinding(
 		extensionAPIResourceName,
 		extensionAPIResourceName,
 		apiServerRessouceName,
@@ -82,7 +88,7 @@ func createExtensionAPIServerRoleBinding(serviceAccountNamespace string) *rbacv1
 }
 
 func createExtensionAPIServerRole() *rbacv1.Role {
-	role := createRole(extensionAPIResourceName)
+	role := utils.CreateRole(extensionAPIResourceName)
 	role.Rules = []rbacv1.PolicyRule{
 		{
 			APIGroups: []string{
@@ -104,7 +110,7 @@ func createExtensionAPIServerRole() *rbacv1.Role {
 }
 
 func createAPIServerService() *corev1.Service {
-	service := createService("cdi-api", cdiLabel, apiServerRessouceName)
+	service := utils.CreateService("cdi-api", cdiLabel, apiServerRessouceName)
 	service.Spec.Ports = []corev1.ServicePort{
 		{
 			Port: 443,
@@ -119,8 +125,8 @@ func createAPIServerService() *corev1.Service {
 }
 
 func createAPIServerDeployment(repo, image, tag, verbosity, pullPolicy string) *appsv1.Deployment {
-	deployment := createDeployment(apiServerRessouceName, cdiLabel, apiServerRessouceName, apiServerRessouceName, 1)
-	container := createContainer(apiServerRessouceName, repo, image, tag, verbosity, corev1.PullPolicy(pullPolicy))
+	deployment := utils.CreateDeployment(apiServerRessouceName, cdiLabel, apiServerRessouceName, apiServerRessouceName, 1)
+	container := utils.CreateContainer(apiServerRessouceName, repo, image, tag, verbosity, corev1.PullPolicy(pullPolicy))
 	container.ReadinessProbe = &corev1.Probe{
 		Handler: corev1.Handler{
 			HTTPGet: &corev1.HTTPGetAction{

@@ -339,6 +339,18 @@ func schema_pkg_apis_core_v1alpha1_CDISpec(ref common.ReferenceCallback) common.
 			SchemaProps: spec.SchemaProps{
 				Description: "CDISpec defines our specification for the CDI installation",
 				Properties: map[string]spec.Schema{
+					"imageRegistry": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"imageTag": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
 					"imagePullPolicy": {
 						SchemaProps: spec.SchemaProps{
 							Type:   []string{"string"},

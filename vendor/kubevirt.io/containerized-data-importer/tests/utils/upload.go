@@ -3,6 +3,7 @@ package utils
 import (
 	k8sv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/kubernetes"
 
 	cdiuploadv1alpha1 "kubevirt.io/containerized-data-importer/pkg/apis/upload/v1alpha1"
 	cdiClientset "kubevirt.io/containerized-data-importer/pkg/client/clientset/versioned"
@@ -11,6 +12,8 @@ import (
 const (
 	// UploadFileMD5 is the expected MD5 of the uploaded file
 	UploadFileMD5 = "bf07a12664935c64c472e907e5cbce7e"
+	// UploadBlockDeviceMD5 is the expected MD5 of the uploaded file
+	UploadBlockDeviceMD5 = "262c32cf90d3271a6e311cd838e3d4da"
 
 	uploadTargetAnnotation = "cdi.kubevirt.io/storage.upload.target"
 	uploadStatusAnnotation = "cdi.kubevirt.io/storage.pod.phase"
@@ -25,6 +28,17 @@ func UploadPodName(pvc *k8sv1.PersistentVolumeClaim) string {
 func UploadPVCDefinition() *k8sv1.PersistentVolumeClaim {
 	annotations := map[string]string{uploadTargetAnnotation: ""}
 	return NewPVCDefinition("upload-test", "1G", annotations, nil)
+}
+
+// UploadBlockPVCDefinition creates a PVC with the upload target annotation for block PV
+func UploadBlockPVCDefinition() *k8sv1.PersistentVolumeClaim {
+	annotations := map[string]string{uploadTargetAnnotation: ""}
+	return NewBlockPVCDefinition("upload-test", "500M", annotations, nil, "manual")
+}
+
+// WaitPVCUploadPodStatusRunning waits for the upload server pod status annotation to be Running
+func WaitPVCUploadPodStatusRunning(clientSet *kubernetes.Clientset, pvc *k8sv1.PersistentVolumeClaim) (bool, error) {
+	return WaitForPVCAnnotationWithValue(clientSet, pvc.Namespace, pvc, uploadStatusAnnotation, string(k8sv1.PodRunning))
 }
 
 // RequestUploadToken sends an upload token request to the server

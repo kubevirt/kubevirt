@@ -34,12 +34,12 @@ func createControllerResources(args *FactoryArgs) []runtime.Object {
 }
 
 func createControllerClusterRoleBinding(namespace string) *rbacv1.ClusterRoleBinding {
-	return createClusterRoleBinding(controllerServiceAccountName, controlerClusterRoleName, controllerServiceAccountName, namespace)
+	return CreateClusterRoleBinding(controllerServiceAccountName, controlerClusterRoleName, controllerServiceAccountName, namespace)
 }
 
-func createControllerClusterRole() *rbacv1.ClusterRole {
-	clusterRole := createClusterRole(controlerClusterRoleName)
-	clusterRole.Rules = []rbacv1.PolicyRule{
+//GetControllerPermissions geberates rules for cdi controller
+func GetControllerPermissions() []rbacv1.PolicyRule {
+	return []rbacv1.PolicyRule{
 		{
 			APIGroups: []string{
 				"",
@@ -189,5 +189,10 @@ func createControllerClusterRole() *rbacv1.ClusterRole {
 			},
 		},
 	}
+}
+
+func createControllerClusterRole() *rbacv1.ClusterRole {
+	clusterRole := CreateClusterRole(controlerClusterRoleName)
+	clusterRole.Rules = GetControllerPermissions()
 	return clusterRole
 }

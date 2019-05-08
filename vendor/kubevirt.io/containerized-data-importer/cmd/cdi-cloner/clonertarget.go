@@ -1,7 +1,6 @@
 package main
 
 import (
-	"bufio"
 	"flag"
 	"fmt"
 	"io"
@@ -10,8 +9,10 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 	dto "github.com/prometheus/client_model/go"
+	v1 "k8s.io/api/core/v1"
 	"k8s.io/klog"
 	"kubevirt.io/containerized-data-importer/pkg/common"
 	"kubevirt.io/containerized-data-importer/pkg/util"
@@ -20,7 +21,7 @@ import (
 
 type prometheusProgressReader struct {
 	util.CountingReader
-	total int64
+	total uint64
 }
 
 const (
@@ -59,7 +60,6 @@ func init() {
 func main() {
 	defer klog.Flush()
 	klog.V(1).Infoln("Starting cloner target")
-
 	certsDirectory, err := ioutil.TempDir("", "certsdir")
 	if err != nil {
 		panic(err)
@@ -77,9 +77,10 @@ func main() {
 		klog.Errorf("%+v", err)
 		os.Exit(1)
 	}
+	klog.V(3).Infof("Size read: %d\n", total)
 
 	//re-open pipe with fresh start.
-	out, err := os.OpenFile(*namedPipe, os.O_RDONLY, 0600)
+	out, err := os.OpenFile(*namedPipe, os.O_RDONLY, os.ModeNamedPipe)
 	if err != nil {
 		klog.Errorf("%+v", err)
 		os.Exit(1)
@@ -97,23 +98,33 @@ func main() {
 	// Start the progress update thread.
 	go promReader.timedUpdateProgress()
 
-	err = util.UnArchiveTar(promReader, ".")
+	volumeMode := v1.PersistentVolumeBlock
+	if _, err := os.Stat(common.ImporterWriteBlockPath); os.IsNotExist(err) {
+		volumeMode = v1.PersistentVolumeFilesystem
+	}
+	if volumeMode == v1.PersistentVolumeBlock {
+		klog.V(3).Infoln("Writing data to block device")
+		err = util.StreamDataToFile(promReader, common.ImporterWriteBlockPath)
+	} else {
+		klog.V(3).Infoln("Writing data to file system")
+		err = util.UnArchiveTar(promReader, ".")
+	}
+
 	if err != nil {
 		klog.Errorf("%+v", err)
 		os.Exit(1)
 	}
-
 	klog.V(1).Infoln("clone complete")
 }
 
-func collectTotalSize() (int64, error) {
+func collectTotalSize() (uint64, error) {
 	klog.V(3).Infoln("Reading total size")
-	out, err := os.OpenFile(*namedPipe, os.O_RDONLY, 0600)
+	out, err := os.OpenFile(*namedPipe, os.O_RDONLY, os.ModeNamedPipe)
 	if err != nil {
-		return int64(-1), err
+		return uint64(0), err
 	}
 	defer out.Close()
-	return readTotal(out), nil
+	return readTotal(out)
 }
 
 func (r *prometheusProgressReader) timedUpdateProgress() {
@@ -137,18 +148,17 @@ func (r *prometheusProgressReader) updateProgress() {
 }
 
 // read total file size from reader, and return the value as an int64
-func readTotal(r io.Reader) int64 {
-	totalScanner := bufio.NewScanner(r)
-	if !totalScanner.Scan() {
-		klog.Errorf("Unable to determine length of file")
-		return -1
-	}
-	totalText := totalScanner.Text()
-	total, err := strconv.ParseInt(totalText, 10, 64)
+func readTotal(r io.Reader) (uint64, error) {
+	b := make([]byte, 16)
+
+	n, err := r.Read(b)
 	if err != nil {
 		klog.Errorf("%+v", err)
-		return -1
+		return uint64(0), err
 	}
-	klog.V(1).Infoln(fmt.Sprintf("total size: %s", totalText))
-	return total
+	if n != len(b) {
+		// Didn't read all 16 bytes..
+		return uint64(0), errors.New("Didn't read all bytes for size header")
+	}
+	return strconv.ParseUint(string(b), 16, 64)
 }
