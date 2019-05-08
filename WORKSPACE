@@ -177,6 +177,15 @@ container_pull(
     #tag = "28",
 )
 
+# Pull nfs-server image
+container_pull(
+    name = "nfs-server",
+    digest = "sha256:e04be78e7a8b70ef594ac2f547fb4c9396be623a8765c7f70bb5a5b4986177c3",
+    registry = "index.docker.io",
+    repository = "fuzzle/docker-nfs-server",
+    #tag = "1.0.1",
+)
+
 load(
     "@io_bazel_rules_docker//go:image.bzl",
     _go_image_repos = "repositories",
