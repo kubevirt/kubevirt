@@ -808,7 +808,7 @@ rules:
   - securitycontextconstraints
   verbs:
   - '*'
-  resourceName:
+  resourceNames:
   - privileged
 
 ---
