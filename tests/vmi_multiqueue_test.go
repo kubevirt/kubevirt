@@ -52,7 +52,7 @@ var _ = Describe("MultiQueue", func() {
 
 	Context("MultiQueue Behavior", func() {
 
-		It("Should honor multiQueue requests", func() {
+		It("[test_id:959][rfe_id:2065] Should honor multiQueue requests", func() {
 			numCpus := 3
 
 			multiQueue := true
