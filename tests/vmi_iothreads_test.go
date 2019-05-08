@@ -22,6 +22,7 @@ package tests_test
 import (
 	"encoding/xml"
 	"flag"
+	"fmt"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -110,17 +111,30 @@ var _ = Describe("IOThreads", func() {
 			Expect(int(domSpec.IOThreads.IOThreads)).To(Equal(expectedIOThreads))
 
 			By("Ensuring there are the expected number of disks")
-			Expect(len(newVMI.Spec.Domain.Devices.Disks)).To(Equal(3))
+			Expect(len(newVMI.Spec.Domain.Devices.Disks)).To(Equal(len(vmi.Spec.Domain.Devices.Disks)))
 			By("Verifying the ioThread mapping for disks")
-			for _, disk := range domSpec.Devices.Disks {
-				if disk.Alias.Name == "disk0" {
-					Expect(int(*disk.Driver.IOThread)).To(Equal(2))
-				} else {
-					Expect(int(*disk.Driver.IOThread)).To(Equal(1))
-				}
-			}
 
+			disk0, err := getDiskByName(domSpec, "disk0")
+			Expect(err).ToNot(HaveOccurred())
+			disk1, err := getDiskByName(domSpec, "shr1")
+			Expect(err).ToNot(HaveOccurred())
+			disk2, err := getDiskByName(domSpec, "shr2")
+			Expect(err).ToNot(HaveOccurred())
+
+			By("Ensuring the ioThread ID for dedicated disk is unique")
+			Expect(*disk1.Driver.IOThread).To(Equal(*disk2.Driver.IOThread))
+			By("Ensuring that the ioThread ID's for shared disks are equal")
+			Expect(*disk0.Driver.IOThread).ToNot(Equal(*disk1.Driver.IOThread))
 		})
 
 	})
 })
+
+func getDiskByName(domSpec *api.DomainSpec, diskName string) (*api.Disk, error) {
+	for _, disk := range domSpec.Devices.Disks {
+		if disk.Alias.Name == diskName {
+			return &disk, nil
+		}
+	}
+	return nil, fmt.Errorf("disk device '%s' not found", diskName)
+}
