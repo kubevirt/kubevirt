@@ -33,7 +33,7 @@ import (
 func SupportedEmulatedMachines() []string {
 	config := os.Getenv(emulatedMachinesEnvVar)
 	if len(config) == 0 {
-		return []string{"q35*", "pc-q35*"}
+		return []string{"q35*", "pc-q35*", "pseries*"}
 	}
 
 	vals := strings.Split(config, ",")

@@ -405,7 +405,7 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 	var volumeDevices []k8sv1.VolumeDevice
 	var userId int64 = 0
 	// Privileged mode is disabled by default.
-	var privileged bool = false
+	var privileged bool = true
 	var volumeMounts []k8sv1.VolumeMount
 	var imagePullSecrets []k8sv1.LocalObjectReference
 
@@ -740,7 +740,7 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 		return nil, err
 	}
 
-	imagePullPolicy, err := GetImagePullPolicy(t.configMapStore)
+	_, err = GetImagePullPolicy(t.configMapStore)
 	if err != nil {
 		return nil, err
 	}
@@ -807,7 +807,7 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 	container := k8sv1.Container{
 		Name:            "compute",
 		Image:           t.launcherImage,
-		ImagePullPolicy: imagePullPolicy,
+		ImagePullPolicy: "Always",
 		SecurityContext: &k8sv1.SecurityContext{
 			RunAsUser:  &userId,
 			Privileged: &privileged,
@@ -934,7 +934,7 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 		readyContainer := k8sv1.Container{
 			Name:            "kubevirt-infra",
 			Image:           t.launcherImage,
-			ImagePullPolicy: imagePullPolicy,
+			ImagePullPolicy: "Always",
 			SecurityContext: &k8sv1.SecurityContext{
 				RunAsUser: &userId,
 			},
@@ -1037,6 +1037,7 @@ func getRequiredCapabilities(vmi *v1.VirtualMachineInstance) []k8sv1.Capability 
 	}
 	// add a CAP_SYS_NICE capability to allow setting cpu affinity
 	res = append(res, CAP_SYS_NICE)
+	res = append(res, "IPC_LOCK")
 	return res
 }
 

@@ -89,7 +89,7 @@ for arg in $args; do
 
             # always build and link the linux/amd64 binary
             LINUX_NAME=${ARCH_BASENAME}-linux-amd64
-            GOOS=linux GOARCH=amd64 go build -i -o ${CMD_OUT_DIR}/${BIN_NAME}/${LINUX_NAME} -ldflags "$(kubevirt::version::ldflags)" $(pkg_dir linux amd64)
+            GOOS=linux GOARCH=ppc64le go build -i -o ${CMD_OUT_DIR}/${BIN_NAME}/${LINUX_NAME} -ldflags "$(kubevirt::version::ldflags)" $(pkg_dir linux amd64)
             (cd ${CMD_OUT_DIR}/${BIN_NAME} && ln -sf ${LINUX_NAME} ${BIN_NAME})
 
             kubevirt::version::get_version_vars

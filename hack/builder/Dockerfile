@@ -1,14 +1,36 @@
-FROM fedora:28
+FROM ppc64le/fedora:28
 
-ENV LIBVIRT_VERSION 5.1.0
+#ENV LIBVIRT_VERSION 5.0.0
 
 # Install packages
+
+RUN dnf -y install \
+	java-1.8.0-openjdk \
+        java-1.8.0-openjdk-devel \
+	python \
+	zip \
+	unzip \
+	zlib-devel \
+	wget \
+        gcc \
+        gcc-c++ \
+        glibc-devel && \
+    dnf -y clean all
+
+#RUN mkdir -p /home/baz && \
+#    cd /home/baz && \
+#    wget https://github.com/bazelbuild/bazel/releases/download/0.23.0/bazel-0.23.0-dist.zip && \
+#    unzip -qq bazel-0.23.0-dist.zip
+
+#RUN    cd /home/baz && env EXTRA_BAZEL_ARGS="--host_javabase=@local_jdk//:jdk" bash ./compile.sh
+#RUN    mv /home/baz/output/bazel /usr/local/bin/bazel
+COPY  bazel /usr/local/bin/bazel
+
 RUN dnf install -y dnf-plugins-core && \
     dnf copr enable -y @virtmaint-sig/virt-preview && \
     dnf copr enable -y vbatts/bazel && \
     dnf -y install \
-        libvirt-devel-${LIBVIRT_VERSION} \
-        bazel \
+        libvirt-devel \
         cpio \
         patch \
         make \
@@ -28,6 +50,7 @@ RUN dnf install -y dnf-plugins-core && \
         redhat-rpm-config \
         jq && \
     dnf -y clean all
+
 
 ENV GIMME_GO_VERSION=1.11.5
 

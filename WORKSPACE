@@ -47,34 +47,34 @@ http_archive(
 # Libvirt dependencies
 http_file(
     name = "libvirt_libs",
-    sha256 = "95d317fd645fb52745d642578263a9bcb0d796beadf00aeadebc0d692f5529ba",
+    sha256 = "0152d484d71abc50759775329fc9ee699fecfb9ff67154d6c6a5d91090f791a7",
     urls = [
-        "https://libvirt.org/sources/libvirt-libs-5.0.0-1.fc28.x86_64.rpm",
+        "https://rpmfind.net/linux/fedora-secondary/development/rawhide/Everything/ppc64le/os/Packages/l/libvirt-libs-5.1.0-3.fc31.ppc64le.rpm",
     ],
 )
 
 http_file(
     name = "libvirt_devel",
-    sha256 = "6573a047d777ed00f6858c2e75c780053b1f898ae1c3f7415e991c94c5ccdd70",
+    sha256 = "dfb3f3108300cc9e62da822b3073639d9712110880e3025f99fc231874433147",
     urls = [
-        "https://libvirt.org/sources/libvirt-devel-5.0.0-1.fc28.x86_64.rpm",
+        "https://rpmfind.net/linux/fedora-secondary/development/rawhide/Everything/ppc64le/os/Packages/l/libvirt-devel-5.1.0-3.fc31.ppc64le.rpm",
     ],
 )
 
 # Disk images
 http_file(
     name = "alpine_image",
-    sha256 = "5a4b2588afd32e7024dd61d9558b77b03a4f3189cb4c9fc05e9e944fb780acdd",
+    sha256 = "d87d89958991d03ce158119ffa359ee0d9d0024dd46df7010c8c633a24f47be3",
     urls = [
-        "http://dl-cdn.alpinelinux.org/alpine/v3.7/releases/x86_64/alpine-virt-3.7.0-x86_64.iso",
+        "http://dl-cdn.alpinelinux.org/alpine/v3.9/releases/ppc64le/alpine-standard-3.9.2-ppc64le.iso",
     ],
 )
 
 http_file(
     name = "cirros_image",
-    sha256 = "a8dd75ecffd4cdd96072d60c2237b448e0c8b2bc94d57f10fdbc8c481d9005b8",
+    sha256 = "175063e409f4019acb760478eb1a94819628a1bec9376d26d3aa333449fe061d",
     urls = [
-        "https://download.cirros-cloud.net/0.4.0/cirros-0.4.0-x86_64-disk.img",
+        "https://download.cirros-cloud.net/0.4.0/cirros-0.4.0-ppc64le-disk.img",
     ],
 )
 
@@ -145,18 +145,18 @@ container_repositories()
 # Pull base image fedora28
 container_pull(
     name = "fedora",
-    digest = "sha256:57d86e03971841e79585379f8346289ceb5a3e8ee06933fbd5064b4f004659d1",
+    digest = "sha256:9b468a0c123715d5e1025876ee05aa5f2053aed4f9142937709b0145f7cd48cf",
     registry = "index.docker.io",
-    repository = "library/fedora",
-    #tag = "28",
+    repository = "ppc64le/fedora",
+    #    tag = "28",
 )
 
 # Pull base image libvirt
 container_pull(
     name = "libvirt",
-    digest = "sha256:081f113a73748775e5f37d8fb877a574f595df1551e39e48ebbe8e8afd501d3b",
+    digest = "sha256:a815b109a2942796dad95ca846ea019a7879c7607e529a546537d3985273ac7c",
     registry = "index.docker.io",
-    repository = "kubevirt/libvirt",
+    repository = "niteshkonkar/libvirt",
     #tag = "5.0.0",
 )
 
@@ -165,7 +165,7 @@ container_pull(
     name = "kubevirt-testing",
     digest = "sha256:eb86f7388217bb18611c8c4e6169af3463c2a18f420314eb4d742b3d3669b16f",
     registry = "index.docker.io",
-    repository = "kubevirtci/kubevirt-testing",
+    repository = "niteshkonkar/kubevirt-testing",
     #tag = "28",
 )
 
@@ -186,49 +186,49 @@ http_archive(
 # Get container-disk-v1alpha RPM's
 http_file(
     name = "qemu-img",
-    sha256 = "611d6ff8e08eca0d543486f3e8b437f7ddbc362e4d281c7422677d712d017d61",
+    sha256 = "1e4c0171edb631d07f2e45af734d378ea7fe8f70c2a646d9bdb9c8c39696f4f2",
     urls = [
-        "https://dl.fedoraproject.org/pub/fedora/linux/updates/28/Everything/x86_64/Packages/q/qemu-img-2.11.2-4.fc28.x86_64.rpm",
+        "https://rpmfind.net/linux/fedora-secondary/releases/28/Everything/ppc64le/os/Packages/q/qemu-img-2.11.1-2.fc28.ppc64le.rpm",
     ],
 )
 
 http_file(
     name = "bzip2",
-    sha256 = "5248b7b85e58319c6c16e9b545dc04f1b25ba236e0507a7c923d74b00fe8741c",
+    sha256 = "e593e694a232829765969e7270cc355d2353436cd2f950029cfa4c0549125f7f",
     urls = [
-        "https://dl.fedoraproject.org/pub/fedora/linux/releases/28/Everything/x86_64/os/Packages/b/bzip2-1.0.6-26.fc28.x86_64.rpm",
+        "https://rpmfind.net/linux/fedora-secondary/releases/28/Everything/ppc64le/os/Packages/b/bzip2-1.0.6-26.fc28.ppc64le.rpm",
     ],
 )
 
 http_file(
     name = "capstone",
-    sha256 = "847ebb3a852f82cfe932230d1700cb8b90f602acbe9f9dcf5de7129a1d222c6b",
+    sha256 = "ed0a40f96a28330b39f33965f7945de7373c08806998a2a827eb5def95448d2f",
     urls = [
-        "https://dl.fedoraproject.org/pub/fedora/linux/updates/28/Everything/x86_64/Packages/c/capstone-3.0.5-1.fc28.x86_64.rpm",
+        "https://rpmfind.net/linux/fedora-secondary/releases/28/Everything/ppc64le/os/Packages/c/capstone-3.0.4-14.fc28.ppc64le.rpm",
     ],
 )
 
 http_file(
     name = "libaio",
-    sha256 = "da731218ec1a8e8f690c880d7a45d09722ea01090caba0ae25d9202e0d521404",
+    sha256 = "2bad2d833f2a572c41dc5e71f03029f697e42a05bf729d9957479e9bd9ee3342",
     urls = [
-        "https://dl.fedoraproject.org/pub/fedora/linux/releases/28/Everything/x86_64/os/Packages/l/libaio-0.3.110-11.fc28.x86_64.rpm",
+        "https://rpmfind.net/linux/fedora-secondary/releases/28/Everything/ppc64le/os/Packages/l/libaio-0.3.110-11.fc28.ppc64le.rpm",
     ],
 )
 
 http_file(
     name = "libstdc",
-    sha256 = "61743bc70033f02604fc18991f2a06efebd3b0f55abcbf5b1f7bd3e3cdca6293",
+    sha256 = "c7d739bf5e9ebe45aed803d3f39d01372f1c61e535cfe3adaf5fa28de9ec4992",
     urls = [
-        "https://dl.fedoraproject.org/pub/fedora/linux/updates/28/Everything/x86_64/Packages/l/libstdc++-8.3.1-2.fc28.x86_64.rpm",
+        "https://rpmfind.net/linux/fedora-secondary/releases/28/Everything/ppc64le/os/Packages/l/libstdc++-8.0.1-0.20.fc28.ppc64le.rpm",
     ],
 )
 
 http_file(
     name = "qemu-guest-agent",
-    sha256 = "1d76ae3e482017439412e9cc8e179afb8f47ab415a8a9a7ceaa9b4ee4f9c85e8",
+    sha256 = "7f9607d5eb5ff43877520fcb0fe0b7a385fb6b9e1ee3ebc2d7d9d07170f310b2",
     urls = [
-        "https://dl.fedoraproject.org/pub/fedora/linux/updates/28/Everything/x86_64/Packages/q/qemu-guest-agent-2.11.2-4.fc28.x86_64.rpm",
+        "https://rpmfind.net/linux/fedora-secondary/releases/28/Everything/ppc64le/os/Packages/q/qemu-guest-agent-2.11.1-2.fc28.ppc64le.rpm",
     ],
 )
 

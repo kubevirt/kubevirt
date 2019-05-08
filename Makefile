@@ -12,7 +12,10 @@ bazel-generate:
 	SYNC_VENDOR=true hack/dockerized "./hack/bazel-generate.sh"
 
 bazel-build:
-	hack/dockerized "hack/bazel-fmt.sh && hack/bazel-build.sh"
+	hack/dockerized "bazel build \
+		--platforms=@io_bazel_rules_go//go/toolchain:linux_ppc64le \
+		--workspace_status_command=./hack/print-workspace-status.sh \
+		//cmd/..."
 
 bazel-build-images:
 	hack/dockerized "DOCKER_PREFIX=${DOCKER_PREFIX} DOCKER_TAG=${DOCKER_TAG} DOCKER_TAG_ALT=${DOCKER_TAG_ALT} ./hack/bazel-build-images.sh"

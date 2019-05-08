@@ -25,9 +25,9 @@ source hack/config.sh
 rm -rf ${CMD_OUT_DIR}
 mkdir -p ${CMD_OUT_DIR}/virtctl
 
-# Build all binaries for amd64
+# Build all binaries for ppc64le
 bazel build \
-    --platforms=@io_bazel_rules_go//go/toolchain:linux_amd64 \
+    --platforms=@io_bazel_rules_go//go/toolchain:linux_ppc64le \
     --workspace_status_command=./hack/print-workspace-status.sh \
     //cmd/...
 
@@ -40,9 +40,9 @@ bazel run \
 
 # linux
 bazel run \
-    --platforms=@io_bazel_rules_go//go/toolchain:linux_amd64 \
+    --platforms=@io_bazel_rules_go//go/toolchain:linux_ppc64le \
     --workspace_status_command=./hack/print-workspace-status.sh \
-    :build-virtctl -- ${CMD_OUT_DIR}/virtctl/virtctl-${KUBEVIRT_VERSION}-linux-amd64
+    :build-virtctl -- ${CMD_OUT_DIR}/virtctl/virtctl-${KUBEVIRT_VERSION}-linux-ppc64le
 
 # darwin
 bazel run \

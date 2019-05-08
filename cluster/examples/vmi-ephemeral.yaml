@@ -12,13 +12,13 @@ spec:
       - disk:
           bus: virtio
         name: containerdisk
-    machine:
-      type: ""
+    machine: 
+      type: "pseries-3.1"
     resources:
       requests:
         memory: 64M
   terminationGracePeriodSeconds: 0
   volumes:
   - containerDisk:
-      image: registry:5000/kubevirt/cirros-container-disk-demo:devel
+      image: niteshkonkar/cirros-container-disk-demo:devel
     name: containerdisk

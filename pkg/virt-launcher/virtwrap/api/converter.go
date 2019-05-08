@@ -816,17 +816,6 @@ func Convert_v1_VirtualMachine_To_api_Domain(vmi *v1.VirtualMachineInstance, dom
 		domain.Spec.Devices.Rng = newRng
 	}
 
-	//usb controller is turned on, only when user specify input device with usb bus,
-	//otherwise it is turned off
-	if usbDeviceExists := isUSBDevicePresent(vmi); !usbDeviceExists {
-		// disable usb controller
-		domain.Spec.Devices.Controllers = append(domain.Spec.Devices.Controllers, Controller{
-			Type:  "usb",
-			Index: "0",
-			Model: "none",
-		})
-	}
-
 	if vmi.Spec.Domain.Devices.Inputs != nil {
 		inputDevices := make([]Input, 0)
 		for _, input := range vmi.Spec.Domain.Devices.Inputs {
