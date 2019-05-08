@@ -2,7 +2,7 @@
 
 set -e
 
-_cli_container="kubevirtci/gocli@sha256:4a4565eb4487be95f464cb942590bbaa980a5b56acb32d955f7a9f81f4ba843c"
+_cli_container="kubevirtci/gocli@sha256:847a23412eb08217f9f062f90fd075af0f20b75e51462b1b170eba2eab7e1092"
 _cli_with_tty="docker run --privileged --net=host --rm -t -v /var/run/docker.sock:/var/run/docker.sock ${_cli_container}"
 _cli="docker run --privileged --net=host --rm ${USE_TTY} -v /var/run/docker.sock:/var/run/docker.sock ${_cli_container}"
 
@@ -46,19 +46,6 @@ function build() {
     ${KUBEVIRT_PATH}hack/dockerized "DOCKER_PREFIX=${DOCKER_PREFIX} DOCKER_TAG=${DOCKER_TAG} KUBEVIRT_PROVIDER=${KUBEVIRT_PROVIDER} IMAGE_PULL_POLICY=${IMAGE_PULL_POLICY} VERBOSITY=${VERBOSITY} ./hack/build-manifests.sh"
     ${KUBEVIRT_PATH}hack/dockerized "DOCKER_PREFIX=${DOCKER_PREFIX} DOCKER_TAG=${DOCKER_TAG} KUBEVIRT_PROVIDER=${KUBEVIRT_PROVIDER} ./hack/bazel-build.sh"
     ${KUBEVIRT_PATH}hack/dockerized "DOCKER_PREFIX=${DOCKER_PREFIX} DOCKER_TAG=${DOCKER_TAG} DOCKER_TAG_ALT=${DOCKER_TAG_ALT} KUBEVIRT_PROVIDER=${KUBEVIRT_PROVIDER} ./hack/bazel-push-images.sh"
-
-    # Make sure that all nodes use the newest images
-    container=""
-    container_alias=""
-    for arg in ${docker_images}; do
-        local name=$(basename $arg)
-        container="${container} ${manifest_docker_prefix}/${name}:${docker_tag} ${manifest_docker_prefix}/${name}:${docker_tag_alt}"
-        container_alias="${container_alias} ${manifest_docker_prefix}/${name}:${docker_tag} kubevirt/${name}:${docker_tag}"
-    done
-    for i in $(seq 1 ${KUBEVIRT_NUM_NODES}); do
-        ${_cli_with_tty} ssh --prefix $provider_prefix "node$(printf "%02d" ${i})" "echo \"${container}\" | xargs \-\-max-args=1 sudo docker pull"
-        ${_cli_with_tty} ssh --prefix $provider_prefix "node$(printf "%02d" ${i})" "echo \"${container_alias}\" | xargs \-\-max-args=2 sudo docker tag"
-    done
 }
 
 function _kubectl() {
