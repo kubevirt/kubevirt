@@ -218,6 +218,7 @@ func main() {
 	inputFile := flag.String("input-file", "", "")
 	multusImage := flag.String("multus-image", "", "")
 	linuxBridgeCniImage := flag.String("linux-bridge-cni-image", "", "")
+	linuxBridgeMarkerImage := flag.String("linux-bridge-marker-image", "", "")
 	sriovDpImage := flag.String("sriov-dp-image", "", "")
 	sriovCniImage := flag.String("sriov-cni-image", "", "")
 	kubeMacPoolImage := flag.String("kubemacpool-image", "", "")
@@ -233,11 +234,12 @@ func main() {
 		ContainerTag:    *containerTag,
 		ImagePullPolicy: *imagePullPolicy,
 		AddonsImages: (&components.AddonsImages{
-			Multus:         *multusImage,
-			LinuxBridgeCni: *linuxBridgeCniImage,
-			SriovDp:        *sriovDpImage,
-			SriovCni:       *sriovCniImage,
-			KubeMacPool:    *kubeMacPoolImage,
+			Multus:            *multusImage,
+			LinuxBridgeCni:    *linuxBridgeCniImage,
+			LinuxBridgeMarker: *linuxBridgeMarkerImage,
+			SriovDp:           *sriovDpImage,
+			SriovCni:          *sriovCniImage,
+			KubeMacPool:       *kubeMacPoolImage,
 		}).FillDefaults(),
 	}
 

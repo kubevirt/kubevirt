@@ -36,10 +36,10 @@ import (
 	cnacomponents "github.com/kubevirt/cluster-network-addons-operator/pkg/components"
 	cdicomponents "github.com/kubevirt/hyperconverged-cluster-operator/pkg/cdicomponents"
 	hcocomponents "github.com/kubevirt/hyperconverged-cluster-operator/pkg/components"
+	kwebuicomponents "github.com/kubevirt/web-ui-operator/pkg/components"
 	extv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
 	kvcomponents "kubevirt.io/kubevirt/pkg/virt-operator/creation/components"
 	kvrbac "kubevirt.io/kubevirt/pkg/virt-operator/creation/rbac"
-	kwebuicomponents "github.com/kubevirt/web-ui-operator/pkg/components"
 )
 
 type operatorData struct {
@@ -312,7 +312,7 @@ func getCNA(data *templateData) {
 	cnadeployment := cnacomponents.GetDeployment(
 		data.Namespace,
 		data.CnaContainerPrefix,
-		"0.5.0",
+		"0.7.0",
 		data.ImagePullPolicy,
 		(&cnacomponents.AddonsImages{}).FillDefaults(),
 	)

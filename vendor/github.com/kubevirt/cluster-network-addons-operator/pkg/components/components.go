@@ -14,19 +14,21 @@ import (
 const Name = "cluster-network-addons-operator"
 
 const (
-	MultusImageDefault         = "docker.io/nfvpe/multus:latest"
-	LinuxBridgeCniImageDefault = "quay.io/kubevirt/cni-default-plugins:latest"
-	SriovDpImageDefault        = "quay.io/booxter/sriov-device-plugin:latest"
-	SriovCniImageDefault       = "docker.io/nfvpe/sriov-cni:latest"
-	KubeMacPoolImageDefault    = "quay.io/kubevirt/kubemacpool:v0.2.0"
+	MultusImageDefault            = "quay.io/kubevirt/cluster-network-addon-multus:v3.2.0-1.gitbf61002"
+	LinuxBridgeCniImageDefault    = "quay.io/kubevirt/cni-default-plugins:v0.1.0"
+	LinuxBridgeMarkerImageDefault = "quay.io/kubevirt/bridge-marker:0.1.0"
+	SriovDpImageDefault           = "quay.io/kubevirt/cluster-network-addon-sriov-device-plugin:v2.0.0-1.git9a20829"
+	SriovCniImageDefault          = "quay.io/kubevirt/cluster-network-addon-sriov-cni:v1.1.0-1.git9e4c973"
+	KubeMacPoolImageDefault       = "quay.io/kubevirt/kubemacpool:v0.3.0"
 )
 
 type AddonsImages struct {
-	Multus         string
-	LinuxBridgeCni string
-	SriovDp        string
-	SriovCni       string
-	KubeMacPool    string
+	Multus            string
+	LinuxBridgeCni    string
+	LinuxBridgeMarker string
+	SriovDp           string
+	SriovCni          string
+	KubeMacPool       string
 }
 
 func (ai *AddonsImages) FillDefaults() *AddonsImages {
@@ -35,6 +37,9 @@ func (ai *AddonsImages) FillDefaults() *AddonsImages {
 	}
 	if ai.LinuxBridgeCni == "" {
 		ai.LinuxBridgeCni = LinuxBridgeCniImageDefault
+	}
+	if ai.LinuxBridgeMarker == "" {
+		ai.LinuxBridgeMarker = LinuxBridgeMarkerImageDefault
 	}
 	if ai.SriovDp == "" {
 		ai.SriovDp = SriovDpImageDefault
@@ -87,6 +92,10 @@ func GetDeployment(namespace string, repository string, tag string, imagePullPol
 								{
 									Name:  "LINUX_BRIDGE_IMAGE",
 									Value: addonsImages.LinuxBridgeCni,
+								},
+								{
+									Name:  "LINUX_BRIDGE_MARKER_IMAGE",
+									Value: addonsImages.LinuxBridgeMarker,
 								},
 								{
 									Name:  "SRIOV_DP_IMAGE",

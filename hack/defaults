@@ -6,7 +6,7 @@ WAIT_TIMEOUT="${WAIT_TIMEOUT:-300s}"
 # Use upstream manifests with downstream containers
 KUBEVIRT_MANIFEST_VERSION="v0.17.0"
 CDI_MANIFEST_VERSION="v1.6.0"
-NETWORK_ADDONS_MANIFEST_VERSION="0.5.0"
+NETWORK_ADDONS_MANIFEST_VERSION="0.7.0"
 SSP_MANIFEST_VERSION="v1.0.0"
 KWEBUI_MANIFEST_VERSION="v0.1.8"
 
@@ -27,11 +27,12 @@ APISERVER_IMAGE="${APISERVER_IMAGE:-cdi-apiserver}"
 UPLOADPROXY_IMAGE="${UPLOADPROXY_IMAGE:-cdi-uploadproxy}"
 UPLOADSERVER_IMAGE="${UPLOADSERVER_IMAGE:-cdi-uploadserver}"
 
-NETWORK_ADDONS_MULTUS_IMAGE="${NETWORK_ADDONS_MULTUS_IMAGE:-docker.io/nfvpe/multus:latest}"
-NETWORK_ADDONS_LINUX_BRIDGE_CNI_IMAGE="${NETWORK_ADDONS_LINUX_BRIDGE_CNI_IMAGE:-quay.io/kubevirt/cni-default-plugins:latest}"
-NETWORK_ADDONS_SRIOV_DP_IMAGE="${NETWORK_ADDONS_SRIOV_DP_IMAGE:-quay.io/booxter/sriov-device-plugin:latest}"
-NETWORK_ADDONS_SRIOV_CNI_IMAGE="${NETWORK_ADDONS_SRIOV_CNI_IMAGE:-docker.io/nfvpe/sriov-cni:latest}"
-NETWORK_ADDONS_KUBEMACPOOL_IMAGE="${NETWORK_ADDONS_KUBEMACPOOL_IMAGE:-quay.io/schseba/mac-controller:latest}"
+NETWORK_ADDONS_MULTUS_IMAGE="${NETWORK_ADDONS_MULTUS_IMAGE}"
+NETWORK_ADDONS_LINUX_BRIDGE_CNI_IMAGE="${NETWORK_ADDONS_LINUX_BRIDGE_CNI_IMAGE}"
+NETWORK_ADDONS_LINUX_BRIDGE_MARKER_IMAGE="${NETWORK_ADDONS_LINUX_BRIDGE_MARKER_IMAGE}"
+NETWORK_ADDONS_SRIOV_DP_IMAGE="${NETWORK_ADDONS_SRIOV_DP_IMAGE}"
+NETWORK_ADDONS_SRIOV_CNI_IMAGE="${NETWORK_ADDONS_SRIOV_CNI_IMAGE}"
+NETWORK_ADDONS_KUBEMACPOOL_IMAGE="${NETWORK_ADDONS_KUBEMACPOOL_IMAGE}"
 NETWORK_ADDONS_SRIOV_NETWORK_TYPE="${NETWORK_ADDONS_SRIOV_NETWORK_TYPE:-sriov}"
 
 if echo "${CDI_CONTAINER_REGISTRY}" | grep 'brew'; then
@@ -59,11 +60,26 @@ function cdi_sed {
 
 function network_addons_sed {
     sed -i "s|quay\.io\/kubevirt\/cluster-network-addons-operator:${NETWORK_ADDONS_MANIFEST_VERSION}|${NETWORK_ADDONS_CONTAINER_REGISTRY}\/cluster-network-addons-operator:${NETWORK_ADDONS_VERSION}|g" ${TEMP_DIR}/operator.yaml
-    sed -i "s|value: .*multus.*|value: ${NETWORK_ADDONS_MULTUS_IMAGE}|g" ${TEMP_DIR}/operator.yaml
-    sed -i "s|value: .*cni-default-plugins.*|value: ${NETWORK_ADDONS_LINUX_BRIDGE_CNI_IMAGE}|g" ${TEMP_DIR}/operator.yaml
-    sed -i "s|value: .*sriov-device-plugin.*|value: ${NETWORK_ADDONS_SRIOV_DP_IMAGE}|g" ${TEMP_DIR}/operator.yaml
-    sed -i "s|value: .*sriov-cni.*|value: ${NETWORK_ADDONS_SRIOV_CNI_IMAGE}|g" ${TEMP_DIR}/operator.yaml
-    sed -i "s|value: .*mac-controller.*|value: ${NETWORK_ADDONS_KUBEMACPOOL_IMAGE}|g" ${TEMP_DIR}/operator.yaml
+
+    if [ -n "${NETWORK_ADDONS_MULTUS_IMAGE}" ]; then
+        sed -i "s|value: .*multus.*|value: ${NETWORK_ADDONS_MULTUS_IMAGE}|g" ${TEMP_DIR}/operator.yaml
+    fi
+    if [ -n "${NETWORK_ADDONS_LINUX_BRIDGE_CNI_IMAGE}" ]; then
+        sed -i "s|value: .*cni-default-plugins.*|value: ${NETWORK_ADDONS_LINUX_BRIDGE_CNI_IMAGE}|g" ${TEMP_DIR}/operator.yaml
+    fi
+    if [ -n "${NETWORK_ADDONS_LINUX_BRIDGE_MARKER_IMAGE}" ]; then
+        sed -i "s|value: .*bridge-marker.*|value: ${NETWORK_ADDONS_LINUX_BRIDGE_MARKER_IMAGE}|g" ${TEMP_DIR}/operator.yaml
+    fi
+    if [ -n "${NETWORK_ADDONS_SRIOV_DP_IMAGE}" ]; then
+        sed -i "s|value: .*sriov-device-plugin.*|value: ${NETWORK_ADDONS_SRIOV_DP_IMAGE}|g" ${TEMP_DIR}/operator.yaml
+    fi
+    if [ -n "${NETWORK_ADDONS_SRIOV_CNI_IMAGE}" ]; then
+        sed -i "s|value: .*sriov-cni.*|value: ${NETWORK_ADDONS_SRIOV_CNI_IMAGE}|g" ${TEMP_DIR}/operator.yaml
+    fi
+    if [ -n "${NETWORK_ADDONS_KUBEMACPOOL_IMAGE}" ]; then
+        sed -i "s|value: .*mac-controller.*|value: ${NETWORK_ADDONS_KUBEMACPOOL_IMAGE}|g" ${TEMP_DIR}/operator.yaml
+    fi
+
     sed -i "s|value: sriov$|value: ${NETWORK_ADDONS_SRIOV_NETWORK_TYPE}|g" ${TEMP_DIR}/operator.yaml
 }
 
