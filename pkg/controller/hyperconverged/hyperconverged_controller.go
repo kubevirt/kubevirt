@@ -406,6 +406,7 @@ func newKWebUIForCR(cr *hcov1alpha1.HyperConverged) *kwebuis.KWebUI {
 		Spec: kwebuis.KWebUISpec{
 			OpenshiftMasterDefaultSubdomain: cr.Spec.KWebUIMasterDefaultSubdomain, // set if provided, otherwise keep empty
 			PublicMasterHostname:            cr.Spec.KWebUIPublicMasterHostname,   // set if provided, otherwise keep empty
+			Version:                         "automatic",                          // special value to determine version dynamically from env variables; empty or missing value is reserved for deprovision
 		},
 	}
 }
