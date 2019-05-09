@@ -122,7 +122,11 @@ func (l *LibvirtConnection) NewStream(flags libvirt.StreamFlags) (Stream, error)
 
 func (l *LibvirtConnection) Close() (int, error) {
 	close(l.stop)
-	return l.Connect.Close()
+	if l.Connect != nil {
+		return l.Connect.Close()
+	} else {
+		return 0, nil
+	}
 }
 
 func (l *LibvirtConnection) DomainEventLifecycleRegister(callback libvirt.DomainEventLifecycleCallback) (err error) {
@@ -243,9 +247,12 @@ func (l *LibvirtConnection) installWatchdog(checkInterval time.Duration) {
 				return
 
 			case <-time.After(checkInterval):
-				l.reconnectIfNecessary()
-
-				alive, err := l.Connect.IsAlive()
+				var alive bool
+				var err error
+				err = l.reconnectIfNecessary()
+				if l.Connect != nil {
+					alive, err = l.Connect.IsAlive()
+				}
 
 				// If the connection is ok, continue
 				if alive {
@@ -322,7 +329,7 @@ type VirDomain interface {
 	Resume() error
 	DestroyFlags(flags libvirt.DomainDestroyFlags) error
 	ShutdownFlags(flags libvirt.DomainShutdownFlags) error
-	Undefine() error
+	UndefineFlags(flags libvirt.DomainUndefineFlagsValues) error
 	GetName() (string, error)
 	GetUUIDString() (string, error)
 	GetXMLDesc(flags libvirt.DomainXMLFlags) (string, error)

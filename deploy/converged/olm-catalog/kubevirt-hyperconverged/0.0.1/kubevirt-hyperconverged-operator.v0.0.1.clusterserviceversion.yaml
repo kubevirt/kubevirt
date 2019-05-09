@@ -469,8 +469,6 @@ spec:
               - list
             - apiGroups:
               - ""
-              resourceNames:
-              - extension-apiserver-authentication
               resources:
               - configmaps
               verbs:
@@ -613,6 +611,12 @@ spec:
               - get
               - list
               - watch
+            - apiGroups:
+              - ""
+              resources:
+              - secrets
+              verbs:
+              - create
             - apiGroups:
               - subresources.kubevirt.io
               resources:

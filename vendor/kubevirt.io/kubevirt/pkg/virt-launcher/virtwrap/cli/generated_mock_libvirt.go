@@ -283,14 +283,14 @@ func (_mr *_MockVirDomainRecorder) ShutdownFlags(arg0 interface{}) *gomock.Call 
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "ShutdownFlags", arg0)
 }
 
-func (_m *MockVirDomain) Undefine() error {
-	ret := _m.ctrl.Call(_m, "Undefine")
+func (_m *MockVirDomain) UndefineFlags(flags libvirt_go.DomainUndefineFlagsValues) error {
+	ret := _m.ctrl.Call(_m, "UndefineFlags", flags)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
-func (_mr *_MockVirDomainRecorder) Undefine() *gomock.Call {
-	return _mr.mock.ctrl.RecordCall(_mr.mock, "Undefine")
+func (_mr *_MockVirDomainRecorder) UndefineFlags(arg0 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "UndefineFlags", arg0)
 }
 
 func (_m *MockVirDomain) GetName() (string, error) {

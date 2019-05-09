@@ -22,6 +22,7 @@ package main
 import (
 	goflag "flag"
 	"fmt"
+	"io/ioutil"
 	"os"
 	"os/exec"
 	"os/signal"
@@ -324,6 +325,24 @@ func writeProtectPrivateDir(uid string) {
 	}
 }
 
+func cleanupEphemeralDiskDirectory(ephemeralDiskDir string) {
+	// Cleanup the content of ephemeralDiskDir, to make sure that all containerDisk containers terminate
+	if _, err := os.Stat(ephemeralDiskDir); !os.IsNotExist(err) {
+		dir, err := ioutil.ReadDir(ephemeralDiskDir)
+		if err != nil {
+			log.Log.Reason(err).Errorf("failed to read content of the ephemeral disk directory: %s", ephemeralDiskDir)
+			return
+		}
+		for _, d := range dir {
+			removePath := filepath.Join(ephemeralDiskDir, d.Name())
+			err := os.RemoveAll(removePath)
+			if err != nil {
+				log.Log.Reason(err).Errorf("could not clean up ephemeral disk directory: %s", removePath)
+			}
+		}
+	}
+}
+
 func main() {
 	qemuTimeout := pflag.Duration("qemu-timeout", defaultStartTimeout, "Amount of time to wait for qemu")
 	virtShareDir := pflag.String("kubevirt-share-dir", "/var/run/kubevirt", "Shared directory between virt-handler and virt-launcher")
@@ -348,12 +367,12 @@ func main() {
 	log.InitializeLogging("virt-launcher")
 
 	if !*noFork {
-		err := ForkAndMonitor("qemu-system")
+		exitCode, err := ForkAndMonitor("qemu-system", *ephemeralDiskDir)
 		if err != nil {
 			log.Log.Reason(err).Error("monitoring virt-launcher failed")
 			os.Exit(1)
 		}
-		return
+		os.Exit(exitCode)
 	}
 
 	// Block until all requested hookSidecars are ready
@@ -480,14 +499,15 @@ func main() {
 
 // ForkAndMonitor itself to give qemu an extra grace period to properly terminate
 // in case of virt-launcher crashes
-func ForkAndMonitor(qemuProcessCommandPrefix string) error {
+func ForkAndMonitor(qemuProcessCommandPrefix string, ephemeralDiskDir string) (int, error) {
+	defer cleanupEphemeralDiskDirectory(ephemeralDiskDir)
 	cmd := exec.Command(os.Args[0], append(os.Args[1:], "--no-fork", "true")...)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 
 	if err := cmd.Start(); err != nil {
 		log.Log.Reason(err).Error("failed to fork virt-launcher")
-		return err
+		return 1, err
 	}
 
 	exitStatus := make(chan syscall.WaitStatus, 10)
@@ -544,12 +564,12 @@ func ForkAndMonitor(qemuProcessCommandPrefix string) error {
 	if pid > 0 {
 		p, err := os.FindProcess(pid)
 		if err != nil {
-			return err
+			return 1, err
 		}
 		// Signal qemu to shutdown
 		err = p.Signal(syscall.SIGTERM)
 		if err != nil {
-			return err
+			return 1, err
 		}
 		// Wait for 10 seconds for the qemu process to disappear
 		err = utilwait.PollImmediate(1*time.Second, 10*time.Second, func() (bool, error) {
@@ -560,6 +580,5 @@ func ForkAndMonitor(qemuProcessCommandPrefix string) error {
 			return false, nil
 		})
 	}
-	os.Exit(exitCode)
-	return nil
+	return exitCode, nil
 }

@@ -47,6 +47,7 @@ import (
 	k8sv1 "k8s.io/api/core/v1"
 	k8sextv1beta1 "k8s.io/api/extensions/v1beta1"
 	rbacv1 "k8s.io/api/rbac/v1"
+	extclient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -62,7 +63,9 @@ import (
 	"k8s.io/apimachinery/pkg/util/yaml"
 	k8sversion "k8s.io/apimachinery/pkg/version"
 	"k8s.io/client-go/kubernetes/scheme"
+	"k8s.io/client-go/tools/portforward"
 	"k8s.io/client-go/tools/remotecommand"
+	"k8s.io/client-go/transport/spdy"
 
 	cdiv1 "kubevirt.io/containerized-data-importer/pkg/apis/core/v1alpha1"
 	v1 "kubevirt.io/kubevirt/pkg/api/v1"
@@ -198,7 +201,6 @@ type ObjectEventWatcher struct {
 	resourceVersion        string
 	startType              startType
 	dontFailOnMissingEvent bool
-	abort                  chan struct{}
 }
 
 func NewObjectEventWatcher(object runtime.Object) *ObjectEventWatcher {
@@ -324,7 +326,7 @@ func (w *ObjectEventWatcher) Watch(abortChan chan struct{}, processFunc ProcessF
 	if w.timeout != nil {
 		select {
 		case <-done:
-		case <-w.abort:
+		case <-abortChan:
 		case <-time.After(*w.timeout):
 			if !w.dontFailOnMissingEvent {
 				Fail(fmt.Sprintf("Waited for %v seconds on the event stream to match a specific event", w.timeout.Seconds()), 1)
@@ -332,8 +334,8 @@ func (w *ObjectEventWatcher) Watch(abortChan chan struct{}, processFunc ProcessF
 		}
 	} else {
 		select {
+		case <-abortChan:
 		case <-done:
-		case <-w.abort:
 		}
 	}
 }
@@ -2525,6 +2527,15 @@ func SkipIfNotUseNetworkPolicy(virtClient kubecli.KubevirtClient) {
 	}
 }
 
+func GetK8sCmdClient() string {
+	// use oc if it exists, otherwise use kubectl
+	if KubeVirtOcPath != "" {
+		return "oc"
+	}
+
+	return "kubectl"
+}
+
 func SkipIfNoCmd(cmdName string) {
 	var cmdPath string
 	switch strings.ToLower(cmdName) {
@@ -2717,6 +2728,20 @@ func RunCommandPipeWithNS(namespace string, commands ...[]string) (string, strin
 
 	outputString, stderrString := captureOutputBuffers()
 	return outputString, stderrString, nil
+}
+
+func GenerateVMJson(vm *v1.VirtualMachine) (string, error) {
+	data, err := json.Marshal(vm)
+	if err != nil {
+		return "", fmt.Errorf("failed to generate json for vm %s", vm.Name)
+	}
+
+	jsonFile := fmt.Sprintf("%s.json", vm.Name)
+	err = ioutil.WriteFile(jsonFile, data, 0644)
+	if err != nil {
+		return "", fmt.Errorf("failed to write json file %s", jsonFile)
+	}
+	return jsonFile, nil
 }
 
 func GenerateVMIJson(vmi *v1.VirtualMachineInstance) (string, error) {
@@ -3113,19 +3138,12 @@ func RunCommandOnVmiPod(vmi *v1.VirtualMachineInstance, command []string) string
 }
 
 // GetNodeLibvirtCapabilities returns node libvirt capabilities
-func GetNodeLibvirtCapabilities(nodeName string) string {
-	// Create a virt-launcher pod to fetch virsh capabilities
-	vmi := NewRandomVMIWithEphemeralDiskAndUserdata(ContainerDiskFor(ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n")
-	StartVmOnNode(vmi, nodeName)
-
+func GetNodeLibvirtCapabilities(vmi *v1.VirtualMachineInstance) string {
 	return RunCommandOnVmiPod(vmi, []string{"virsh", "-r", "capabilities"})
 }
 
 // GetNodeCPUInfo returns output of lscpu on the pod that runs on the specified node
-func GetNodeCPUInfo(nodeName string) string {
-	vmi := NewRandomVMIWithEphemeralDiskAndUserdata(ContainerDiskFor(ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n")
-	StartVmOnNode(vmi, nodeName)
-
+func GetNodeCPUInfo(vmi *v1.VirtualMachineInstance) string {
 	return RunCommandOnVmiPod(vmi, []string{"lscpu"})
 }
 
@@ -3253,6 +3271,7 @@ func NewRandomVirtualMachine(vmi *v1.VirtualMachineInstance, running bool) *v1.V
 			},
 		},
 	}
+	vm.SetGroupVersionKind(schema.GroupVersionKind{Group: v1.GroupVersion.Group, Kind: "VirtualMachine", Version: v1.GroupVersion.Version})
 	return vm
 }
 
@@ -3332,6 +3351,21 @@ func HasFeature(feature string) bool {
 		}
 	}
 	return hasFeature
+}
+
+func HasDataVolumeCRD() bool {
+	virtClient, err := kubecli.GetKubevirtClient()
+	PanicOnError(err)
+
+	ext, err := extclient.NewForConfig(virtClient.Config())
+	PanicOnError(err)
+
+	_, err = ext.ApiextensionsV1beta1().CustomResourceDefinitions().Get("datavolumes.cdi.kubevirt.io", metav1.GetOptions{})
+
+	if err != nil {
+		return false
+	}
+	return true
 }
 
 func HasCDI() bool {
@@ -3429,4 +3463,52 @@ func GetRunningVMISpec(vmi *v1.VirtualMachineInstance) (*launcherApi.DomainSpec,
 
 	err = xml.Unmarshal([]byte(domXML), &runningVMISpec)
 	return &runningVMISpec, err
+}
+
+func ForwardPorts(pod *k8sv1.Pod, ports []string, stop chan struct{}, readyTimeout time.Duration) error {
+	errChan := make(chan error, 1)
+	readyChan := make(chan struct{})
+	go func() {
+		cli, err := kubecli.GetKubevirtClient()
+		if err != nil {
+			errChan <- err
+			return
+		}
+
+		req := cli.CoreV1().RESTClient().Post().
+			Resource("pods").
+			Namespace(pod.Namespace).
+			Name(pod.Name).
+			SubResource("portforward")
+
+		config, err := kubecli.GetKubevirtClientConfig()
+		if err != nil {
+			errChan <- err
+			return
+		}
+		transport, upgrader, err := spdy.RoundTripperFor(config)
+		if err != nil {
+			errChan <- err
+			return
+		}
+		dialer := spdy.NewDialer(upgrader, &http.Client{Transport: transport}, "POST", req.URL())
+		forwarder, err := portforward.New(dialer, ports, stop, readyChan, GinkgoWriter, GinkgoWriter)
+		if err != nil {
+			errChan <- err
+			return
+		}
+		err = forwarder.ForwardPorts()
+		if err != nil {
+			errChan <- err
+		}
+	}()
+
+	select {
+	case err := <-errChan:
+		return err
+	case <-readyChan:
+		return nil
+	case <-time.After(readyTimeout):
+		return fmt.Errorf("failed to forward ports, timed out")
+	}
 }
