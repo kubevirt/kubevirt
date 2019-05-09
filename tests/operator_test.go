@@ -190,9 +190,7 @@ var _ = Describe("Operator", func() {
 		}
 
 		cfg, err := virtClient.CoreV1().ConfigMaps(tests.KubeVirtInstallNamespace).Get("kubevirt-config", metav1.GetOptions{})
-		if err != nil {
-			Expect(err).ToNot(HaveOccurred())
-		}
+		Expect(err).ToNot(HaveOccurred())
 
 		val, _ := cfg.Data["feature-gates"]
 
@@ -202,15 +200,11 @@ var _ = Describe("Operator", func() {
 		cfg.Data["feature-gates"] = newVal
 
 		newData, err := json.Marshal(cfg.Data)
-		if err != nil {
-			Expect(err).ToNot(HaveOccurred())
-		}
-		data := fmt.Sprintf(`[{ "op": "replace", "path": "/data", "value": %s }]`, string(newData))
+		Expect(err).ToNot(HaveOccurred())
 
-		if err != nil {
-			Expect(err).ToNot(HaveOccurred())
-		}
+		data := fmt.Sprintf(`[{ "op": "replace", "path": "/data", "value": %s }]`, string(newData))
 		_, err = virtClient.CoreV1().ConfigMaps(tests.KubeVirtInstallNamespace).Patch("kubevirt-config", types.JSONPatchType, []byte(data))
+		Expect(err).ToNot(HaveOccurred())
 	}
 
 	enableFeatureGate := func(feature string) {
@@ -219,9 +213,7 @@ var _ = Describe("Operator", func() {
 		}
 
 		cfg, err := virtClient.CoreV1().ConfigMaps(tests.KubeVirtInstallNamespace).Get("kubevirt-config", metav1.GetOptions{})
-		if err != nil {
-			Expect(err).ToNot(HaveOccurred())
-		}
+		Expect(err).ToNot(HaveOccurred())
 
 		val, _ := cfg.Data["feature-gates"]
 		newVal := fmt.Sprintf("%s,%s", val, feature)
@@ -229,15 +221,12 @@ var _ = Describe("Operator", func() {
 		cfg.Data["feature-gates"] = newVal
 
 		newData, err := json.Marshal(cfg.Data)
-		if err != nil {
-			Expect(err).ToNot(HaveOccurred())
-		}
+		Expect(err).ToNot(HaveOccurred())
+
 		data := fmt.Sprintf(`[{ "op": "replace", "path": "/data", "value": %s }]`, string(newData))
 
-		if err != nil {
-			Expect(err).ToNot(HaveOccurred())
-		}
 		_, err = virtClient.CoreV1().ConfigMaps(tests.KubeVirtInstallNamespace).Patch("kubevirt-config", types.JSONPatchType, []byte(data))
+		Expect(err).ToNot(HaveOccurred())
 	}
 
 	waitForKv := func(newKv *v1.KubeVirt) {
@@ -354,9 +343,7 @@ var _ = Describe("Operator", func() {
 			}
 
 			originalKubeVirtConfig, err = virtClient.CoreV1().ConfigMaps(tests.KubeVirtInstallNamespace).Create(cfgMap)
-			if err != nil {
-				Expect(err).ToNot(HaveOccurred())
-			}
+			Expect(err).ToNot(HaveOccurred())
 
 		}
 
@@ -370,9 +357,7 @@ var _ = Describe("Operator", func() {
 		ignoreDeleteOriginalKV := true
 
 		curKubeVirtConfig, err := virtClient.CoreV1().ConfigMaps(tests.KubeVirtInstallNamespace).Get("kubevirt-config", metav1.GetOptions{})
-		if err != nil {
-			Expect(err).ToNot(HaveOccurred())
-		}
+		Expect(err).ToNot(HaveOccurred())
 
 		// if revision changed, patch data and reload everything
 		if curKubeVirtConfig.ResourceVersion != originalKubeVirtConfig.ResourceVersion {
@@ -380,15 +365,11 @@ var _ = Describe("Operator", func() {
 
 			// Add Spec Patch
 			newData, err := json.Marshal(originalKubeVirtConfig.Data)
-			if err != nil {
-				Expect(err).ToNot(HaveOccurred())
-			}
+			Expect(err).ToNot(HaveOccurred())
 			data := fmt.Sprintf(`[{ "op": "replace", "path": "/data", "value": %s }]`, string(newData))
 
-			if err != nil {
-				Expect(err).ToNot(HaveOccurred())
-			}
 			originalKubeVirtConfig, err = virtClient.CoreV1().ConfigMaps(tests.KubeVirtInstallNamespace).Patch("kubevirt-config", types.JSONPatchType, []byte(data))
+			Expect(err).ToNot(HaveOccurred())
 		}
 
 		deleteAllKvAndWait(ignoreDeleteOriginalKV)
