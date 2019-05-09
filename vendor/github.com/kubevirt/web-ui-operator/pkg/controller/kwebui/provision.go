@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"strings"
+	"time"
 
 	extenstionsv1beta1 "k8s.io/api/extensions/v1beta1"
 	"k8s.io/apimachinery/pkg/types"
@@ -30,6 +31,9 @@ const PhaseOtherError = "OTHER_ERROR"
 const PhaseNoDeployment = "NOT_DEPLOYED"
 const PhaseOwnerReferenceFailed = "OWNER_REFERENCE_FAILED"
 
+
+const VersionAutomatic = "automatic"
+
 func ReconcileExistingDeployment(r *ReconcileKWebUI, request reconcile.Request, instance *kubevirtv1alpha1.KWebUI, deployment *extenstionsv1beta1.Deployment) (reconcile.Result, error) {
 	existingVersion := ""
 	for _, container := range deployment.Spec.Template.Spec.Containers {
@@ -52,6 +56,12 @@ func ReconcileExistingDeployment(r *ReconcileKWebUI, request reconcile.Request, 
 		log.Info("Can not read deployed container version, giving up.")
 		updateStatus(r, request, PhaseOtherError, "Can not read deployed container version.")
 		return reconcile.Result{}, nil
+	}
+
+	if instance.Spec.Version == VersionAutomatic {
+		instance.Spec.Version = getWebUIVersion("")
+		log.Info(fmt.Sprintf("Requested 'automatic' version which is resolved to: %s", instance.Spec.Version))
+		updateVersion(r, request, instance.Spec.Version)
 	}
 
 	if instance.Spec.Version == existingVersion {
@@ -162,6 +172,10 @@ func loginClient(namespace string) (string, error) {
 	return configFile, nil
 }
 
+func getWebUIVersion(versionInCR string) string {
+	return Def(versionInCR, os.Getenv("WEBUI_TAG"),"v1.4")
+}
+
 func generateInventory(instance *kubevirtv1alpha1.KWebUI, namespace string, action string) (string, error) {
 	log.Info("Writing inventory file")
 	inventoryFile := fmt.Sprintf(InventoryFilePattern, Unique())
@@ -174,7 +188,7 @@ func generateInventory(instance *kubevirtv1alpha1.KWebUI, namespace string, acti
 
 	registryUrl := Def(instance.Spec.RegistryUrl, os.Getenv("OPERATOR_REGISTRY"), "quay.io/kubevirt")
 	registryNamespace := Def(instance.Spec.RegistryNamespace, "", "")
-	version := Def(instance.Spec.Version, os.Getenv("OPERATOR_TAG"),"v1.4")
+	version := getWebUIVersion(instance.Spec.Version)
 	branding := Def(instance.Spec.Branding, os.Getenv("BRANDING"), "okdvirt")
 	imagePullPolicy := Def(instance.Spec.ImagePullPolicy, os.Getenv("IMAGE_PULL_POLICY"), "IfNotPresent")
 
@@ -256,4 +270,34 @@ func updateStatus(r *ReconcileKWebUI, request reconcile.Request, phase string, m
 	if err != nil {
 		log.Error(err, fmt.Sprintf("Failed to update KWebUI status. Intended to write phase: '%s', message: %s", phase, msg))
 	}
+}
+
+func updateVersion(r *ReconcileKWebUI, request reconcile.Request, newVersion string) {
+	for counter := 0; counter < 5 ; counter++ {
+		err := updateVersionWorker(r, request, newVersion)
+		if err == nil {
+			return
+		}
+		log.Info("Failed to write new version to the kwebui CR, rescheduling ...")
+		time.Sleep(2 * time.Second)
+	}
+	log.Info("Failed to write new version to the kwebui CR after multiple attempts, giving up.")
+}
+
+func updateVersionWorker(r *ReconcileKWebUI, request reconcile.Request, newVersion string) error {
+	instance := &kubevirtv1alpha1.KWebUI{}
+	err := r.client.Get(context.TODO(), request.NamespacedName, instance)
+	if err != nil {
+		log.Error(err, fmt.Sprintf("Failed to get KWebUI object to update status info. Intended to write new version: '%s'", newVersion))
+		return err
+	}
+
+	instance.Spec.Version = newVersion
+	err = r.client.Update(context.TODO(), instance)
+	if err != nil {
+		log.Error(err, fmt.Sprintf("Failed to update KWebUI version. Intended to write version: '%s'", newVersion))
+		return err
+	}
+
+	return nil
 }

@@ -314,6 +314,8 @@ spec:
           value: quay.io/kubevirt
         - name: OPERATOR_TAG
           value: latest
+        - name: WEBUI_TAG
+          value: latest
         - name: BRANDING
           value: okdvirt
         - name: IMAGE_PULL_POLICY

@@ -911,6 +911,7 @@ spec:
               - apiextensions.k8s.io
               - kubevirt.io
               - extensions
+              - apps
               resources:
               - '*'
               verbs:
@@ -920,6 +921,19 @@ spec:
               resources:
               - configmaps
               - pods
+              - namespaces
+              - projects
+              - services
+              - endpoints
+              - persistentvolumeclaims
+              - events
+              - secrets
+              - replicationcontrollers
+              - serviceaccounts
+              - deployments
+              - daemonsets
+              - replicasets
+              - statefulsets
               verbs:
               - '*'
 
@@ -1298,6 +1312,8 @@ spec:
                   - name: OPERATOR_REGISTRY
                     value: quay.io/kubevirt
                   - name: OPERATOR_TAG
+                    value: latest
+                  - name: WEBUI_TAG
                     value: latest
                   - name: BRANDING
                     value: okdvirt
