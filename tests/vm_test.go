@@ -23,6 +23,7 @@ import (
 	"flag"
 	"fmt"
 	"net/http"
+	"os"
 	"strings"
 	"time"
 
@@ -977,6 +978,46 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 				})
 			})
 		})
+	})
+
+	Context("with oc/kubectl", func() {
+		var vm *v1.VirtualMachine
+		var err error
+		var vmJson string
+
+		// Get proper commandline client: oc or kubectl
+		k8sClient := tests.GetK8sCmdClient()
+
+		AfterEach(func() {
+			if vmJson != "" {
+				err = os.Remove(vmJson)
+				Expect(err).ToNot(HaveOccurred())
+				vmJson = ""
+			}
+		})
+
+		It("[test_id:243][posneg:negative]should create VM only once", func() {
+			vm = tests.NewRandomVMWithEphemeralDisk(tests.ContainerDiskFor(tests.ContainerDiskAlpine))
+
+			vmJson, err = tests.GenerateVMJson(vm)
+			Expect(err).ToNot(HaveOccurred(), "Cannot generate vmJson")
+
+			By("Creating VM with DataVolumeTemplate entry with k8s client binary")
+			_, _, err = tests.RunCommand(k8sClient, "create", "-f", vmJson)
+			Expect(err).ToNot(HaveOccurred())
+
+			By("Verifying VM is created")
+			newVM, err := virtClient.VirtualMachine(vm.Namespace).Get(vm.Name, &v12.GetOptions{})
+			Expect(err).ToNot(HaveOccurred(), "New VM was not created")
+			Expect(newVM.Name).To(Equal(vm.Name), "New VM was not created")
+
+			By("Creating the VM again")
+			_, stdErr, err := tests.RunCommand(k8sClient, "create", "-f", vmJson)
+			Expect(err).To(HaveOccurred())
+
+			Expect(strings.HasPrefix(stdErr, "Error from server (AlreadyExists): error when creating")).To(BeTrue(), "command should error when creating VM second time")
+		})
+
 	})
 })
 
