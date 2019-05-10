@@ -158,6 +158,7 @@ var _ = Describe("DataVolume Integration", func() {
 			pvcName = dataVolumeName
 
 			workDir, err := ioutil.TempDir("", tests.TempDirPrefix+"-")
+			Expect(err).ToNot(HaveOccurred())
 			vmJson, err = tests.GenerateVMJson(vm, workDir)
 			Expect(err).ToNot(HaveOccurred())
 		})
