@@ -45,6 +45,7 @@ var _ = Describe("IOThreads", func() {
 	tests.PanicOnError(err)
 
 	var vmi *v1.VirtualMachineInstance
+	dedicated := true
 
 	BeforeEach(func() {
 		tests.BeforeTestCleanup()
@@ -84,7 +85,6 @@ var _ = Describe("IOThreads", func() {
 			vmi.Spec.Domain.IOThreadsPolicy = &policy
 
 			// The disk that came with the VMI
-			dedicated := true
 			vmi.Spec.Domain.Devices.Disks[0].DedicatedIOThread = &dedicated
 
 			tests.AddEphemeralDisk(vmi, "shr1", "virtio", tests.ContainerDiskFor(tests.ContainerDiskCirros))
@@ -134,7 +134,6 @@ var _ = Describe("IOThreads", func() {
 			policy := v1.IOThreadsPolicyAuto
 			vmi.Spec.Domain.IOThreadsPolicy = &policy
 
-			dedicated := true
 			vmi.Spec.Domain.Devices.Disks[0].DedicatedIOThread = &dedicated
 
 			tests.AddEphemeralDisk(vmi, "ded2", "virtio", tests.ContainerDiskFor(tests.ContainerDiskCirros))
