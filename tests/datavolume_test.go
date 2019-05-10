@@ -22,6 +22,7 @@ package tests_test
 import (
 	"flag"
 	"fmt"
+	"io/ioutil"
 	"os"
 	"time"
 
@@ -140,6 +141,7 @@ var _ = Describe("DataVolume Integration", func() {
 	Describe("[rfe_id:896][crit:high][vendor:cnv-qe@redhat.com][level:system] with oc/kubectl", func() {
 		var vm *v1.VirtualMachine
 		var err error
+		var workDir string
 		var vmJson string
 		var dataVolumeName string
 		var pvcName string
@@ -155,8 +157,17 @@ var _ = Describe("DataVolume Integration", func() {
 			dataVolumeName = vm.Spec.DataVolumeTemplates[0].Name
 			pvcName = dataVolumeName
 
-			vmJson, err = tests.GenerateVMJson(vm)
+			workDir, err := ioutil.TempDir("", tests.TempDirPrefix+"-")
+			vmJson, err = tests.GenerateVMJson(vm, workDir)
 			Expect(err).ToNot(HaveOccurred())
+		})
+
+		AfterEach(func() {
+			if workDir != "" {
+				err = os.RemoveAll(workDir)
+				Expect(err).ToNot(HaveOccurred())
+				workDir = ""
+			}
 		})
 
 		deleteIfExistsVM := func(name string, namespace string) {

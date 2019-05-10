@@ -22,6 +22,7 @@ package tests_test
 import (
 	"flag"
 	"fmt"
+	"io/ioutil"
 	"net/http"
 	"os"
 	"strings"
@@ -264,18 +265,22 @@ var _ = Describe("Windows VirtualMachineInstance", func() {
 	})
 
 	Context("with kubectl command", func() {
+		var workDir string
 		var yamlFile string
 		BeforeEach(func() {
 			tests.SkipIfNoCmd("kubectl")
-			yamlFile, err = tests.GenerateVMIJson(windowsVMI)
+			workDir, err = ioutil.TempDir("", tests.TempDirPrefix+"-")
+			Expect(err).ToNot(HaveOccurred())
+			yamlFile, err = tests.GenerateVMIJson(windowsVMI, workDir)
 			Expect(err).ToNot(HaveOccurred())
 		})
 
 		AfterEach(func() {
-			if yamlFile != "" {
-				err = os.Remove(yamlFile)
+			os.RemoveAll(workDir)
+			if workDir != "" {
+				err = os.RemoveAll(workDir)
 				Expect(err).ToNot(HaveOccurred())
-				yamlFile = ""
+				workDir = ""
 			}
 		})
 
