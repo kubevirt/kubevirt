@@ -22,6 +22,7 @@ package tests_test
 import (
 	"flag"
 	"fmt"
+	"io/ioutil"
 	"net/http"
 	"os"
 	"strings"
@@ -980,27 +981,33 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 		})
 	})
 
-	Context("with oc/kubectl", func() {
+	Context("[rfe_id:273]with oc/kubectl", func() {
 		var vm *v1.VirtualMachine
 		var err error
 		var vmJson string
 
-		// Get proper commandline client: oc or kubectl
-		k8sClient := tests.GetK8sCmdClient()
+		var k8sClient string
+		var workDir string
+
+		BeforeEach(func() {
+			k8sClient = tests.GetK8sCmdClient()
+			workDir, err = ioutil.TempDir("", tests.TempDirPrefix+"-")
+			Expect(err).ToNot(HaveOccurred())
+		})
 
 		AfterEach(func() {
-			if vmJson != "" {
-				err = os.Remove(vmJson)
+			if workDir != "" {
+				err = os.RemoveAll(workDir)
 				Expect(err).ToNot(HaveOccurred())
-				vmJson = ""
+				workDir = ""
 			}
 		})
 
 		It("[test_id:243][posneg:negative]should create VM only once", func() {
 			vm = tests.NewRandomVMWithEphemeralDisk(tests.ContainerDiskFor(tests.ContainerDiskAlpine))
 
-			vmJson, err = tests.GenerateVMJson(vm)
-			Expect(err).ToNot(HaveOccurred(), "Cannot generate vmJson")
+			vmJson, err = tests.GenerateVMJson(vm, workDir)
+			Expect(err).ToNot(HaveOccurred(), "Cannot generate VMs manifest")
 
 			By("Creating VM with DataVolumeTemplate entry with k8s client binary")
 			_, _, err = tests.RunCommand(k8sClient, "create", "-f", vmJson)
@@ -1018,8 +1025,69 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 			Expect(strings.HasPrefix(stdErr, "Error from server (AlreadyExists): error when creating")).To(BeTrue(), "command should error when creating VM second time")
 		})
 
+		It("[test_id:299]should create VM via command line", func() {
+			vm = tests.NewRandomVMWithEphemeralDisk(tests.ContainerDiskFor(tests.ContainerDiskAlpine))
+			running := true
+			vm.Spec.Running = &running
+			vmJson, err = tests.GenerateVMJson(vm, workDir)
+			Expect(err).ToNot(HaveOccurred(), "Cannot generate VMs manifest")
+
+			By("Creating VM using k8s client binary")
+			_, _, err = tests.RunCommand(k8sClient, "create", "-f", vmJson)
+			Expect(err).ToNot(HaveOccurred())
+
+			By("Waiting for VMI to start")
+			Eventually(func() string {
+				newVMI, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(vm.GetName(), &v12.GetOptions{})
+				if err != nil {
+					if !errors.IsNotFound(err) {
+						Expect(err).ToNot(HaveOccurred())
+					}
+				}
+				if newVMI.Status.Phase == v1.Running {
+					return newVMI.Name
+				}
+				return ""
+			}, 60*time.Second, 1*time.Second).Should(Equal(vm.Name), "New VMI was not created")
+
+			By("Listing running pods")
+			stdout, _, err := tests.RunCommand(k8sClient, "get", "pods")
+			Expect(err).ToNot(HaveOccurred())
+
+			By("Ensuring pod is running")
+			found := false
+			expectedPodName := getExpectedPodName(vm)
+			for _, line := range strings.Split(strings.TrimSuffix(stdout, "\n"), "\n") {
+				if strings.Contains(line, expectedPodName) {
+					Expect(line).To(ContainSubstring("Running"))
+					found = true
+				}
+			}
+			Expect(found).To(BeTrue(), fmt.Sprintf("Running pod for %s was not found", vm.GetName()))
+
+			By("Checking that VM is running")
+			stdout, _, err = tests.RunCommand(k8sClient, "describe", "vmis", vm.GetName())
+			Expect(err).ToNot(HaveOccurred())
+			found = false
+			for _, line := range strings.Split(strings.TrimSuffix(stdout, "\n"), "\n") {
+				if strings.Contains(line, "Phase") {
+					Expect(line).To(ContainSubstring("Running"))
+					found = true
+				}
+			}
+			Expect(found).To(BeTrue(), "Could not determine phase of VM")
+		})
 	})
 })
+
+func getExpectedPodName(vm *v1.VirtualMachine) string {
+	maxNameLength := 63
+	podNamePrefix := "virt-launcher-"
+	podGeneratedSuffixLen := 5
+	charCountFromName := maxNameLength - len(podNamePrefix) - podGeneratedSuffixLen
+	expectedPodName := fmt.Sprintf(fmt.Sprintf("virt-launcher-%%.%ds", charCountFromName), vm.GetName())
+	return expectedPodName
+}
 
 // NewRandomVirtualMachine creates new VirtualMachine
 func NewRandomVirtualMachine(vmi *v1.VirtualMachineInstance, running bool) *v1.VirtualMachine {
