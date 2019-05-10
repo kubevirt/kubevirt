@@ -982,7 +982,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 	})
 
 	Context("[rfe_id:273]with oc/kubectl", func() {
-		var vm *v1.VirtualMachine
+		var vmi *v1.VirtualMachineInstance
 		var err error
 		var vmJson string
 
@@ -991,6 +991,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 
 		BeforeEach(func() {
 			k8sClient = tests.GetK8sCmdClient()
+			tests.SkipIfNoCmd(k8sClient)
 			workDir, err = ioutil.TempDir("", tests.TempDirPrefix+"-")
 			Expect(err).ToNot(HaveOccurred())
 		})
@@ -1026,9 +1027,9 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 		})
 
 		It("[test_id:299]should create VM via command line", func() {
-			vm = tests.NewRandomVMWithEphemeralDisk(tests.ContainerDiskFor(tests.ContainerDiskAlpine))
-			running := true
-			vm.Spec.Running = &running
+			vmi = tests.NewRandomVMIWithEphemeralDisk(tests.ContainerDiskFor(tests.ContainerDiskAlpine))
+			vm := tests.NewRandomVirtualMachine(vmi, true)
+
 			vmJson, err = tests.GenerateVMJson(vm, workDir)
 			Expect(err).ToNot(HaveOccurred(), "Cannot generate VMs manifest")
 
@@ -1076,6 +1077,68 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 				}
 			}
 			Expect(found).To(BeTrue(), "Could not determine phase of VM")
+		})
+
+		It("[test_id:264]should create and delete via command line", func() {
+			vmi = tests.NewRandomVMIWithEphemeralDisk(tests.ContainerDiskFor(tests.ContainerDiskAlpine))
+			thisVm := tests.NewRandomVirtualMachine(vmi, false)
+
+			vmJson, err = tests.GenerateVMJson(thisVm, workDir)
+			Expect(err).ToNot(HaveOccurred(), "Cannot generate VM's manifest")
+
+			By("Creating VM using k8s client binary")
+			_, _, err := tests.RunCommand(k8sClient, "create", "-f", vmJson)
+			Expect(err).ToNot(HaveOccurred())
+
+			By("Invoking virtctl start")
+			virtctl := tests.NewRepeatableVirtctlCommand(vm.COMMAND_START, "--namespace", thisVm.Namespace, thisVm.Name)
+			err = virtctl()
+			Expect(err).ToNot(HaveOccurred())
+
+			By("Waiting for VMI to start")
+			Eventually(func() string {
+				newVMI, err := virtClient.VirtualMachineInstance(thisVm.Namespace).Get(thisVm.GetName(), &v12.GetOptions{})
+				if err != nil {
+					if !errors.IsNotFound(err) {
+						Expect(err).ToNot(HaveOccurred())
+					}
+				}
+				if newVMI.Status.Phase == v1.Running {
+					return newVMI.Name
+				}
+				return ""
+			}, 60*time.Second, 1*time.Second).Should(Equal(thisVm.Name), "New VMI was not created")
+
+			By("Checking that VM is running")
+			stdout, _, err := tests.RunCommand(k8sClient, "describe", "vmis", thisVm.GetName())
+			Expect(err).ToNot(HaveOccurred())
+			found := false
+			for _, line := range strings.Split(strings.TrimSuffix(stdout, "\n"), "\n") {
+				if strings.Contains(line, "Phase") {
+					Expect(line).To(ContainSubstring("Running"))
+					found = true
+				}
+			}
+			Expect(found).To(BeTrue(), "Could not determine phase of VM")
+
+			By("Deleting VM using k8s client binary")
+			_, _, err = tests.RunCommand(k8sClient, "delete", "vm", thisVm.GetName())
+			Expect(err).ToNot(HaveOccurred())
+
+			By("Verifying the VM gets deleted")
+			Eventually(func() bool {
+				stdout, _, err = tests.RunCommand(k8sClient, "get", "vms")
+				Expect(err).ToNot(HaveOccurred())
+				return strings.Contains(stdout, thisVm.GetName())
+			}, 60*time.Second, 1*time.Second).Should(BeFalse(), "VM was not deleted")
+
+			By("Verifying pod gets deleted")
+			Eventually(func() bool {
+				expectedPodName := getExpectedPodName(thisVm)
+				stdout, _, err = tests.RunCommand(k8sClient, "get", "pods")
+				Expect(err).ToNot(HaveOccurred())
+				return strings.Contains(stdout, expectedPodName)
+			}, 60*time.Second, 1*time.Second).Should(BeFalse(), "Pod was not deleted")
 		})
 	})
 })
