@@ -28,15 +28,27 @@ spec:
     - port: 32765
       targetPort: 32765
       protocol: UDP
-      name: nfs3
+      name: nfs3-udp
+    - port: 32765
+      targetPort: 32765
+      protocol: TCP
+      name: nfs3-tcp
     - port: 32766
       targetPort: 32766
       protocol: UDP
-      name: nfs4
+      name: nfs4-udp
+    - port: 32766
+      targetPort: 32766
+      protocol: TCP
+      name: nfs4-tcp
     - port: 32767
       targetPort: 32767
       protocol: UDP
-      name: nfs5
+      name: nfs5-udp
+    - port: 32767
+      targetPort: 32767
+      protocol: TCP
+      name: nfs5-tcp
   selector:
     kubevirt.io: nfs-server
 ---
@@ -75,10 +87,16 @@ spec:
               protocol: "TCP"
             - containerPort: 32765
               protocol: "UDP"
+            - containerPort: 32765
+              protocol: "TCP"
             - containerPort: 32766
               protocol: "UDP"
+            - containerPort: 32766
+              protocol: "TCP"
             - containerPort: 32767
               protocol: "UDP"
+            - containerPort: 32767
+              protocol: "TCP"
       volumes:
         - name: nfs-data
           hostPath:
