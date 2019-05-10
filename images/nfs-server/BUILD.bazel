@@ -9,10 +9,10 @@ container_image(
     env = {
         "NFS_EXPORT_DIR_1": "/images/alpine",
         "NFS_EXPORT_DOMAIN_1": "*",
-        "NFS_EXPORT_OPTIONS_1": "rw,insecure,no_subtree_check,no_root_squash,fsid=root",
+        "NFS_EXPORT_OPTIONS_1": "rw,insecure,no_subtree_check,all_squash,anonuid=107,anongid=107",
         "NFS_EXPORT_DIR_2": "/images/cirros",
         "NFS_EXPORT_DOMAIN_2": "*",
-        "NFS_EXPORT_OPTIONS_2": "rw,insecure,no_subtree_check,no_root_squash,fsid=root",
+        "NFS_EXPORT_OPTIONS_2": "rw,insecure,no_subtree_check,all_squash,anonuid=107,anongid=107",
     },
     ports = [
         "111/udp",
@@ -20,6 +20,11 @@ container_image(
         "32765/udp",
         "32766/udp",
         "32767/udp",
+        "111/tcp",
+        "2049/tcp",
+        "32765/tcp",
+        "32766/tcp",
+        "32767/tcp",
     ],
     visibility = ["//visibility:public"],
 )
