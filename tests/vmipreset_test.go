@@ -29,6 +29,7 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	k8sv1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	k8smetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/json"
@@ -409,7 +410,7 @@ var _ = Describe("[rfe_id:609][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Checking preset was deleted")
-			waitForPresetDeletion(virtClient, presetNamePrefix)
+			waitForPresetDeletion(virtClient, newPreset.GetName())
 		})
 	})
 
@@ -427,19 +428,15 @@ func getPreset(virtClient kubecli.KubevirtClient, prefix string) (*v1.VirtualMac
 	return nil, fmt.Errorf("preset with prefix '%s' not found", prefix)
 }
 
-func waitForPresetDeletion(virtClient kubecli.KubevirtClient, prefix string) v1.VirtualMachineInstancePreset {
-	preset := v1.VirtualMachineInstancePreset{}
+func waitForPresetDeletion(virtClient kubecli.KubevirtClient, presetName string) {
 	Eventually(func() bool {
-		presetList := v1.VirtualMachineInstancePresetList{}
-		err := virtClient.RestClient().Get().Resource("virtualmachineinstancepresets").Namespace(tests.NamespaceTestDefault).Do().Into(&presetList)
-		Expect(err).ToNot(HaveOccurred())
-		for _, thisPreset := range presetList.Items {
-			if strings.HasPrefix(thisPreset.Name, prefix) {
-				preset = thisPreset
-				return true
+		_, err := virtClient.RestClient().Get().Resource("virtualmachineinstancepresets").Namespace(tests.NamespaceTestDefault).Name(presetName).Do().Get()
+		if err != nil {
+			if !errors.IsNotFound(err) {
+				Expect(err).ToNot(HaveOccurred())
 			}
+			return true
 		}
 		return false
-	}, time.Duration(60)*time.Second).Should(Equal(false), "timed out waiting for preset to be deleted")
-	return preset
+	}, time.Duration(60)*time.Second).Should(Equal(true), "timed out waiting for preset to be deleted")
 }
