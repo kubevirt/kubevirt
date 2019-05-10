@@ -9,6 +9,8 @@ metadata:
     containerImage: {{.DockerPrefix}}/virt-operator:{{.DockerTag}}
     createdAt: {{.CreatedAt}}
     repository: https://github.com/kubevirt/kubevirt
+    certified: "false"
+    support: KubeVirt
     alm-examples: |
       [
         {
@@ -59,7 +61,7 @@ spec:
     - type: OwnNamespace
       supported: true
     - type: SingleNamespace
-      supported: true
+      supported: false
     - type: MultiNamespace
       supported: true
     - type: AllNamespaces
