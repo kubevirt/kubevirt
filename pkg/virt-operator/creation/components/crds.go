@@ -97,6 +97,9 @@ func NewVirtualMachineInstanceCrd() *extv1beta1.CustomResourceDefinition {
 			Singular:   "virtualmachineinstance",
 			Kind:       virtv1.VirtualMachineInstanceGroupVersionKind.Kind,
 			ShortNames: []string{"vmi", "vmis"},
+			Categories: []string{
+				"all",
+			},
 		},
 		AdditionalPrinterColumns: []extv1beta1.CustomResourceColumnDefinition{
 			{Name: "Age", Type: "date", JSONPath: ".metadata.creationTimestamp"},
@@ -123,6 +126,9 @@ func NewVirtualMachineCrd() *extv1beta1.CustomResourceDefinition {
 			Singular:   "virtualmachine",
 			Kind:       virtv1.VirtualMachineGroupVersionKind.Kind,
 			ShortNames: []string{"vm", "vms"},
+			Categories: []string{
+				"all",
+			},
 		},
 		AdditionalPrinterColumns: []extv1beta1.CustomResourceColumnDefinition{
 			{Name: "Age", Type: "date", JSONPath: ".metadata.creationTimestamp"},
@@ -148,6 +154,9 @@ func NewPresetCrd() *extv1beta1.CustomResourceDefinition {
 			Singular:   "virtualmachineinstancepreset",
 			Kind:       virtv1.VirtualMachineInstancePresetGroupVersionKind.Kind,
 			ShortNames: []string{"vmipreset", "vmipresets"},
+			Categories: []string{
+				"all",
+			},
 		},
 	}
 
@@ -169,6 +178,9 @@ func NewReplicaSetCrd() *extv1beta1.CustomResourceDefinition {
 			Singular:   "virtualmachineinstancereplicaset",
 			Kind:       virtv1.VirtualMachineInstanceReplicaSetGroupVersionKind.Kind,
 			ShortNames: []string{"vmirs", "vmirss"},
+			Categories: []string{
+				"all",
+			},
 		},
 		AdditionalPrinterColumns: []extv1beta1.CustomResourceColumnDefinition{
 			{Name: "Desired", Type: "integer", JSONPath: ".spec.replicas",
@@ -205,6 +217,9 @@ func NewVirtualMachineInstanceMigrationCrd() *extv1beta1.CustomResourceDefinitio
 			Singular:   "virtualmachineinstancemigration",
 			Kind:       virtv1.VirtualMachineInstanceMigrationGroupVersionKind.Kind,
 			ShortNames: []string{"vmim", "vmims"},
+			Categories: []string{
+				"all",
+			},
 		},
 	}
 
@@ -240,6 +255,9 @@ func NewKubeVirtCrd() *extv1beta1.CustomResourceDefinition {
 			Singular:   "kubevirt",
 			Kind:       virtv1.KubeVirtGroupVersionKind.Kind,
 			ShortNames: []string{"kv", "kvs"},
+			Categories: []string{
+				"all",
+			},
 		},
 		AdditionalPrinterColumns: []extv1beta1.CustomResourceColumnDefinition{
 			{Name: "Age", Type: "date", JSONPath: ".metadata.creationTimestamp"},
