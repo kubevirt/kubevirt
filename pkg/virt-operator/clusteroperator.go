@@ -87,6 +87,7 @@ func syncClusterOperator(namespace string, version string, done bool) error {
 }
 
 func updateConditions(conditions []configv1.ClusterOperatorStatusCondition, done bool) []configv1.ClusterOperatorStatusCondition {
+	// FIXME: switch from deprecated Failing to newer Degraded
 	// FIXME: actually implement the expected semantics of these conditions
 	conditions = []configv1.ClusterOperatorStatusCondition{
 		{
@@ -96,7 +97,7 @@ func updateConditions(conditions []configv1.ClusterOperatorStatusCondition, done
 			Type:   configv1.OperatorProgressing,
 			Status: configv1.ConditionFalse,
 		}, {
-			Type:   configv1.OperatorDegraded,
+			Type:   configv1.OperatorFailing,
 			Status: configv1.ConditionFalse,
 		},
 	}
