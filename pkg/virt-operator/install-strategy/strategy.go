@@ -226,19 +226,19 @@ func GenerateCurrentInstallStrategy(namespace string,
 	strategy.services = append(strategy.services, components.NewPrometheusService(namespace))
 
 	strategy.services = append(strategy.services, components.NewApiServerService(namespace))
-	apiDeployment, err := components.NewApiServerDeployment(namespace, conf.ImageRegistry, conf.ImageTag, imagePullPolicy, verbosity)
+	apiDeployment, err := components.NewApiServerDeployment(namespace, conf.GetAPIImage(), imagePullPolicy, verbosity)
 	if err != nil {
 		return nil, fmt.Errorf("error generating virt-apiserver deployment %v", err)
 	}
 	strategy.deployments = append(strategy.deployments, apiDeployment)
 
-	controller, err := components.NewControllerDeployment(namespace, conf.ImageRegistry, conf.ImageTag, imagePullPolicy, verbosity)
+	controller, err := components.NewControllerDeployment(namespace, conf.GetControllerImage(), conf.GetLauncherImage(), imagePullPolicy, verbosity)
 	if err != nil {
 		return nil, fmt.Errorf("error generating virt-controller deployment %v", err)
 	}
 	strategy.deployments = append(strategy.deployments, controller)
 
-	handler, err := components.NewHandlerDaemonSet(namespace, conf.ImageRegistry, conf.ImageTag, imagePullPolicy, verbosity)
+	handler, err := components.NewHandlerDaemonSet(namespace, conf.GetHandlerImage(), imagePullPolicy, verbosity)
 	if err != nil {
 		return nil, fmt.Errorf("error generating virt-handler deployment %v", err)
 	}

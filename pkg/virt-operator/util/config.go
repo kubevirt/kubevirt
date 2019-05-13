@@ -20,6 +20,7 @@
 package util
 
 import (
+	"fmt"
 	"os"
 	"regexp"
 	"strings"
@@ -91,4 +92,24 @@ func SyncTargetStatus(status *v1.KubeVirtStatus, config *KubeVirtDeploymentConfi
 func SyncObservedStatus(status *v1.KubeVirtStatus, config *KubeVirtDeploymentConfig) {
 	status.ObservedKubeVirtVersion = config.ImageTag
 	status.ObservedKubeVirtRegistry = config.ImageRegistry
+}
+
+func (conf *KubeVirtDeploymentConfig) GetOperatorImage() string {
+	return fmt.Sprintf("%s/virt-operator:%s", conf.ImageRegistry, conf.ImageTag)
+}
+
+func (conf *KubeVirtDeploymentConfig) GetAPIImage() string {
+	return fmt.Sprintf("%s/virt-api:%s", conf.ImageRegistry, conf.ImageTag)
+}
+
+func (conf *KubeVirtDeploymentConfig) GetControllerImage() string {
+	return fmt.Sprintf("%s/virt-controller:%s", conf.ImageRegistry, conf.ImageTag)
+}
+
+func (conf *KubeVirtDeploymentConfig) GetLauncherImage() string {
+	return fmt.Sprintf("%s/virt-launcher:%s", conf.ImageRegistry, conf.ImageTag)
+}
+
+func (conf *KubeVirtDeploymentConfig) GetHandlerImage() string {
+	return fmt.Sprintf("%s/virt-handler:%s", conf.ImageRegistry, conf.ImageTag)
 }

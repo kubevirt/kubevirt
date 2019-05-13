@@ -511,7 +511,7 @@ func (c *KubeVirtController) generateInstallStrategyJob(kv *v1.KubeVirt) *batchv
 					Containers: []k8sv1.Container{
 						{
 							Name:            "install-strategy-upload",
-							Image:           fmt.Sprintf("%s/%s:%s", conf.ImageRegistry, "virt-operator", conf.ImageTag),
+							Image:           conf.GetOperatorImage(),
 							ImagePullPolicy: pullPolicy,
 							Command: []string{
 								"virt-operator",
@@ -520,7 +520,7 @@ func (c *KubeVirtController) generateInstallStrategyJob(kv *v1.KubeVirt) *batchv
 							Env: []k8sv1.EnvVar{
 								{
 									Name:  util.OperatorImageEnvName,
-									Value: fmt.Sprintf("%s/%s:%s", conf.ImageRegistry, "virt-operator", conf.ImageTag),
+									Value: conf.GetOperatorImage(),
 								},
 							},
 						},

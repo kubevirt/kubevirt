@@ -79,8 +79,9 @@ func main() {
 	case "prometheus":
 		util.MarshallObject(components.NewPrometheusService(*namespace), os.Stdout)
 	case "virt-api":
+		image := fmt.Sprintf("%s/virt-api:%s", *repository, *version)
 		apisService := components.NewApiServerService(*namespace)
-		apiDeployment, err := components.NewApiServerDeployment(*namespace, *repository, *version, imagePullPolicy, *verbosity)
+		apiDeployment, err := components.NewApiServerDeployment(*namespace, image, imagePullPolicy, *verbosity)
 		if err != nil {
 			panic(fmt.Errorf("error generating virt-apiserver deployment %v", err))
 
@@ -90,20 +91,24 @@ func main() {
 			util.MarshallObject(r, os.Stdout)
 		}
 	case "virt-controller":
-		controller, err := components.NewControllerDeployment(*namespace, *repository, *version, imagePullPolicy, *verbosity)
+		image := fmt.Sprintf("%s/virt-controller:%s", *repository, *version)
+		launcherImage := fmt.Sprintf("%s/virt-launcher:%s", *repository, *version)
+		controller, err := components.NewControllerDeployment(*namespace, image, launcherImage, imagePullPolicy, *verbosity)
 		if err != nil {
 			panic(fmt.Errorf("error generating virt-controller deployment %v", err))
 
 		}
 		util.MarshallObject(controller, os.Stdout)
 	case "virt-handler":
-		handler, err := components.NewHandlerDaemonSet(*namespace, *repository, *version, imagePullPolicy, *verbosity)
+		image := fmt.Sprintf("%s/virt-handler:%s", *repository, *version)
+		handler, err := components.NewHandlerDaemonSet(*namespace, image, imagePullPolicy, *verbosity)
 		if err != nil {
 			panic(fmt.Errorf("error generating virt-handler deployment %v", err))
 		}
 		util.MarshallObject(handler, os.Stdout)
 	case "virt-operator":
-		operator, err := components.NewOperatorDeployment(*namespace, *repository, *version, imagePullPolicy, *verbosity)
+		image := fmt.Sprintf("%s/virt-operator:%s", *repository, *version)
+		operator, err := components.NewOperatorDeployment(*namespace, image, imagePullPolicy, *verbosity)
 		if err != nil {
 			panic(fmt.Errorf("error generating virt-operator deployment %v", err))
 

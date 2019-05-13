@@ -171,7 +171,9 @@ func getOperatorRules() string {
 }
 
 func getOperatorDeploymentSpec(data templateData) string {
-	deployment, err := components.NewOperatorDeployment(data.Namespace, data.DockerPrefix, data.DockerTag, v1.PullPolicy(data.ImagePullPolicy), data.Verbosity)
+	image := fmt.Sprintf("%s/virt-operator:%s", data.DockerPrefix, data.DockerTag)
+
+	deployment, err := components.NewOperatorDeployment(data.Namespace, image, v1.PullPolicy(data.ImagePullPolicy), data.Verbosity)
 	if err != nil {
 		panic(err)
 	}

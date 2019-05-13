@@ -96,7 +96,7 @@ func NewApiServerService(namespace string) *corev1.Service {
 	}
 }
 
-func newPodTemplateSpec(name string, repository string, version string, pullPolicy corev1.PullPolicy) (*corev1.PodTemplateSpec, error) {
+func newPodTemplateSpec(name string, image string, pullPolicy corev1.PullPolicy) (*corev1.PodTemplateSpec, error) {
 
 	tolerations, err := criticalAddonsToleration()
 	if err != nil {
@@ -119,7 +119,7 @@ func newPodTemplateSpec(name string, repository string, version string, pullPoli
 			Containers: []corev1.Container{
 				{
 					Name:            name,
-					Image:           fmt.Sprintf("%s/%s:%s", repository, name, version),
+					Image:           image,
 					ImagePullPolicy: pullPolicy,
 				},
 			},
@@ -127,9 +127,9 @@ func newPodTemplateSpec(name string, repository string, version string, pullPoli
 	}, nil
 }
 
-func newBaseDeployment(name string, namespace string, repository string, version string, pullPolicy corev1.PullPolicy) (*appsv1.Deployment, error) {
+func newBaseDeployment(name string, namespace string, image string, pullPolicy corev1.PullPolicy) (*appsv1.Deployment, error) {
 
-	podTemplateSpec, err := newPodTemplateSpec(name, repository, version, pullPolicy)
+	podTemplateSpec, err := newPodTemplateSpec(name, image, pullPolicy)
 	if err != nil {
 		return nil, err
 	}
@@ -158,8 +158,8 @@ func newBaseDeployment(name string, namespace string, repository string, version
 	}, nil
 }
 
-func NewApiServerDeployment(namespace string, repository string, version string, pullPolicy corev1.PullPolicy, verbosity string) (*appsv1.Deployment, error) {
-	deployment, err := newBaseDeployment("virt-api", namespace, repository, version, pullPolicy)
+func NewApiServerDeployment(namespace string, image string, pullPolicy corev1.PullPolicy, verbosity string) (*appsv1.Deployment, error) {
+	deployment, err := newBaseDeployment("virt-api", namespace, image, pullPolicy)
 	if err != nil {
 		return nil, err
 	}
@@ -208,8 +208,8 @@ func NewApiServerDeployment(namespace string, repository string, version string,
 	return deployment, nil
 }
 
-func NewControllerDeployment(namespace string, repository string, version string, pullPolicy corev1.PullPolicy, verbosity string) (*appsv1.Deployment, error) {
-	deployment, err := newBaseDeployment("virt-controller", namespace, repository, version, pullPolicy)
+func NewControllerDeployment(namespace string, image string, launcherImage string, pullPolicy corev1.PullPolicy, verbosity string) (*appsv1.Deployment, error) {
+	deployment, err := newBaseDeployment("virt-controller", namespace, image, pullPolicy)
 	if err != nil {
 		return nil, err
 	}
@@ -224,7 +224,7 @@ func NewControllerDeployment(namespace string, repository string, version string
 	container.Command = []string{
 		"virt-controller",
 		"--launcher-image",
-		fmt.Sprintf("%s/%s:%s", repository, "virt-launcher", version),
+		launcherImage,
 		"--port",
 		"8443",
 		"-v",
@@ -269,9 +269,9 @@ func NewControllerDeployment(namespace string, repository string, version string
 	return deployment, nil
 }
 
-func NewHandlerDaemonSet(namespace string, repository string, version string, pullPolicy corev1.PullPolicy, verbosity string) (*appsv1.DaemonSet, error) {
+func NewHandlerDaemonSet(namespace string, image string, pullPolicy corev1.PullPolicy, verbosity string) (*appsv1.DaemonSet, error) {
 
-	podTemplateSpec, err := newPodTemplateSpec("virt-handler", repository, version, pullPolicy)
+	podTemplateSpec, err := newPodTemplateSpec("virt-handler", image, pullPolicy)
 	if err != nil {
 		return nil, err
 	}
@@ -381,10 +381,9 @@ func NewHandlerDaemonSet(namespace string, repository string, version string, pu
 }
 
 // Used for manifest generation only
-func NewOperatorDeployment(namespace string, repository string, version string, pullPolicy corev1.PullPolicy, verbosity string) (*appsv1.Deployment, error) {
+func NewOperatorDeployment(namespace string, image string, pullPolicy corev1.PullPolicy, verbosity string) (*appsv1.Deployment, error) {
 
 	name := "virt-operator"
-	image := fmt.Sprintf("%s/%s:%s", repository, name, version)
 
 	tolerations, err := criticalAddonsToleration()
 	if err != nil {
