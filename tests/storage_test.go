@@ -309,7 +309,7 @@ var _ = Describe("Storage", func() {
 				// do not choose a specific node to run the test
 				nodeName := ""
 
-				It("Should create a disk image and start", func() {
+				It("[test_id:851]Should create a disk image and start", func() {
 					By("Starting VirtualMachineInstance")
 					vmi := tests.NewRandomVMIWithHostDisk(diskPath, v1.HostDiskExistsOrCreate, nodeName)
 					tests.RunVMIAndExpectLaunch(vmi, 30)
