@@ -3086,6 +3086,26 @@ func SkipIfVersionBelow(message string, expectedVersion string) {
 	}
 }
 
+func SkipIfVersionAboveOrEqual(message string, expectedVersion string) {
+	virtClient, err := kubecli.GetKubevirtClient()
+	PanicOnError(err)
+
+	response, err := virtClient.RestClient().Get().AbsPath("/version").DoRaw()
+	ExpectWithOffset(1, err).ToNot(HaveOccurred())
+
+	var info k8sversion.Info
+
+	err = json.Unmarshal(response, &info)
+	ExpectWithOffset(1, err).ToNot(HaveOccurred())
+
+	curVersion := strings.Split(info.GitVersion, "+")[0]
+	curVersion = strings.Trim(curVersion, "v")
+
+	if curVersion >= expectedVersion {
+		Skip(message)
+	}
+}
+
 func SkipIfOpenShift(message string) {
 	if IsOpenShift() {
 		Skip("Openshift detected: " + message)

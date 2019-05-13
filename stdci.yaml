@@ -1,6 +1,6 @@
 ---
 sub-stages:
-  - k8s-1.10.11:
+  - k8s-1.13.3:
       timeout: 4h
   - k8s-1.11.0:
       timeout: 4h

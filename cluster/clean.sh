@@ -86,12 +86,8 @@ for label in ${labels[@]}; do
     fi
 
     # W/A for https://github.com/kubernetes/kubernetes/issues/65818
-    if [[ "$KUBEVIRT_PROVIDER" =~ .*.10..* ]]; then
-        # k8s version 1.10.* does not have --wait parameter
-        _kubectl delete apiservices -l ${label}
-    else
-        _kubectl delete apiservices -l ${label} --wait=false
-    fi
+    _kubectl delete apiservices -l ${label} --wait=false
+
     _kubectl get apiservices -l ${label} -o=custom-columns=NAME:.metadata.name,FINALIZERS:.metadata.finalizers --no-headers | grep foregroundDeletion | while read p; do
         arr=($p)
         name="${arr[0]}"
