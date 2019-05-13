@@ -23,16 +23,28 @@ import (
 	"os"
 	"regexp"
 	"strings"
+
+	kvutil "kubevirt.io/kubevirt/pkg/util"
 )
 
 const (
 	// Name of env var containing the operator's image name
-	OperatorImageEnvName = "OPERATOR_IMAGE"
+	OperatorImageEnvName   = "OPERATOR_IMAGE"
+	TargetInstallNamespace = "TARGET_INSTALL_NAMESPACE"
 )
 
 type KubeVirtDeploymentConfig struct {
 	ImageRegistry string
 	ImageTag      string
+}
+
+func GetTargetInstallNamespace() (string, error) {
+	ns := os.Getenv(TargetInstallNamespace)
+	if ns == "" {
+		return kvutil.GetNamespace()
+	}
+
+	return ns, nil
 }
 
 func GetConfig() KubeVirtDeploymentConfig {

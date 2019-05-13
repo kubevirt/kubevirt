@@ -300,19 +300,6 @@ var _ = Describe("Virt-api", func() {
 			Expect(err).ToNot(HaveOccurred())
 		}, 5)
 
-		It("should fail if apiservice is at different namespace", func() {
-			badApiService := app.subresourceApiservice()
-			badApiService.Spec.Service.Namespace = "differentnamespace"
-			server.AppendHandlers(
-				ghttp.CombineHandlers(
-					ghttp.VerifyRequest("GET", "/apis/apiregistration.k8s.io/v1beta1/apiservices/"+subresourceAggregatedApiName),
-					ghttp.RespondWithJSONEncoded(http.StatusOK, badApiService),
-				),
-			)
-			err := app.createSubresourceApiservice()
-			Expect(err).To(HaveOccurred())
-		}, 5)
-
 		It("should return internal error on authorizor error", func() {
 			app.authorizor = authorizorMock
 			authorizorMock.EXPECT().
@@ -447,20 +434,6 @@ var _ = Describe("Virt-api", func() {
 			Expect(err).ToNot(HaveOccurred())
 		}, 5)
 
-		It("should fail if validating webhook service at different namespace", func() {
-			expectedValidatingWebhooks.Webhooks[0].ClientConfig.Service.Namespace = "WrongNamespace"
-
-			server.AppendHandlers(
-				ghttp.CombineHandlers(
-					ghttp.VerifyRequest("GET", "/apis/admissionregistration.k8s.io/v1beta1/validatingwebhookconfigurations/virt-api-validator"),
-					ghttp.RespondWithJSONEncoded(http.StatusOK, expectedValidatingWebhooks),
-				),
-			)
-
-			err := app.createValidatingWebhook()
-			Expect(err).To(HaveOccurred())
-		}, 5)
-
 		It("should register mutating webhook if not found", func() {
 			server.AppendHandlers(
 				ghttp.CombineHandlers(
@@ -493,21 +466,6 @@ var _ = Describe("Virt-api", func() {
 
 			err := app.createMutatingWebhook()
 			Expect(err).ToNot(HaveOccurred())
-		}, 5)
-
-		It("should fail if validating webhook service at different namespace", func() {
-
-			expectedMutatingWebhooks.Webhooks[0].ClientConfig.Service.Namespace = "WrongNamespace"
-
-			server.AppendHandlers(
-				ghttp.CombineHandlers(
-					ghttp.VerifyRequest("GET", "/apis/admissionregistration.k8s.io/v1beta1/mutatingwebhookconfigurations/virt-api-mutator"),
-					ghttp.RespondWithJSONEncoded(http.StatusOK, expectedMutatingWebhooks),
-				),
-			)
-
-			err := app.createMutatingWebhook()
-			Expect(err).To(HaveOccurred())
 		}, 5)
 
 		It("should have default values for flags", func() {
