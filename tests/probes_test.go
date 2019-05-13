@@ -15,7 +15,7 @@ import (
 	"kubevirt.io/kubevirt/tests"
 )
 
-var _ = Describe("Probes", func() {
+var _ = Describe("[ref_id:1182]Probes", func() {
 	flag.Parse()
 
 	virtClient, err := kubecli.GetKubevirtClient()
@@ -73,8 +73,8 @@ var _ = Describe("Probes", func() {
 			}, 60, 1).Should(Equal(v1.ConditionTrue))
 			Expect(podReady(tests.GetRunningPodByVirtualMachineInstance(vmi, tests.NamespaceTestDefault))).To(Equal(v1.ConditionTrue))
 		},
-			table.Entry("with working TCP probe and tcp server", tcpProbe, tests.StartTCPServer),
-			table.Entry("with working HTTP probe and http server", httpProbe, tests.StartHTTPServer),
+			table.Entry("[test_id:1202][posneg:positive]with working TCP probe and tcp server", tcpProbe, tests.StartTCPServer),
+			table.Entry("[test_id:1200][posneg:positive]with working HTTP probe and http server", httpProbe, tests.StartHTTPServer),
 		)
 
 		table.DescribeTable("should fail", func(readinessProbe *v12.Probe) {
@@ -99,8 +99,8 @@ var _ = Describe("Probes", func() {
 			}, 60, 1).Should(Equal(v1.ConditionFalse))
 			Expect(podReady(tests.GetRunningPodByVirtualMachineInstance(vmi, tests.NamespaceTestDefault))).To(Equal(v1.ConditionFalse))
 		},
-			table.Entry("with working TCP probe and no running server", tcpProbe),
-			table.Entry("with working HTTP probe and no running server", httpProbe),
+			table.Entry("[test_id:1220][posneg:negative]with working TCP probe and no running server", tcpProbe),
+			table.Entry("[test_id:1219][posneg:negative]with working HTTP probe and no running server", httpProbe),
 		)
 	})
 
@@ -146,8 +146,8 @@ var _ = Describe("Probes", func() {
 				return vmi.IsFinal()
 			}, 120, 1).Should(Not(BeTrue()))
 		},
-			table.Entry("with working TCP probe and tcp server", tcpProbe, tests.StartTCPServer),
-			table.Entry("with working HTTP probe and http server", httpProbe, tests.StartHTTPServer),
+			table.Entry("[test_id:1199][posneg:positive]with working TCP probe and tcp server", tcpProbe, tests.StartTCPServer),
+			table.Entry("[test_id:1201][posneg:positive]with working HTTP probe and http server", httpProbe, tests.StartHTTPServer),
 		)
 
 		table.DescribeTable("should fail the VMI", func(livenessProbe *v12.Probe) {
@@ -166,8 +166,8 @@ var _ = Describe("Probes", func() {
 				return vmi.IsFinal()
 			}, 120, 1).Should(BeTrue())
 		},
-			table.Entry("with working TCP probe and no running server", tcpProbe),
-			table.Entry("with working HTTP probe and no running server", httpProbe),
+			table.Entry("[test_id:1217][posneg:negative]with working TCP probe and no running server", tcpProbe),
+			table.Entry("[test_id:1218][posneg:negative]with working HTTP probe and no running server", httpProbe),
 		)
 	})
 })
