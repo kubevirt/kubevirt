@@ -62,14 +62,11 @@ clean:
 	rm -f tools/openapispec/openapispec tools/resource-generator/resource-generator tools/manifest-templator/manifest-templator tools/vms-generator/vms-generator tools/marketplace/marketplace
 
 distclean: clean
-	hack/dockerized "rm -rf vendor/ && rm -f .glide.*.hash && glide cc"
+	hack/dockerized "rm -rf vendor/ && rm -f go.sum && GO111MODULE=on go clean -modcache"
 	rm -rf vendor/
 
-deps-install:
-	SYNC_VENDOR=true hack/dockerized "glide install --strip-vendor && hack/dep-prune.sh && ./hack/bazel-generate.sh"
-
 deps-update:
-	SYNC_VENDOR=true hack/dockerized "glide cc && glide update --strip-vendor && hack/dep-prune.sh && ./hack/bazel-generate.sh"
+	SYNC_VENDOR=true hack/dockerized "GO111MODULE=on go mod tidy && GO111MODULE=on go mod vendor && ./hack/bazel-generate.sh"
 
 check:
 	hack/dockerized "./hack/check.sh"

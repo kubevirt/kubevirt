@@ -89,7 +89,7 @@ for arg in $args; do
 
             # always build and link the linux/amd64 binary
             LINUX_NAME=${ARCH_BASENAME}-linux-amd64
-            GOOS=linux GOARCH=amd64 go build -i -o ${CMD_OUT_DIR}/${BIN_NAME}/${LINUX_NAME} -ldflags "$(kubevirt::version::ldflags)" $(pkg_dir linux amd64)
+            GOPROXY=off GOFLAGS=-mod=vendor GOOS=linux GOARCH=amd64 go build -i -o ${CMD_OUT_DIR}/${BIN_NAME}/${LINUX_NAME} -ldflags "$(kubevirt::version::ldflags)" $(pkg_dir linux amd64)
             (cd ${CMD_OUT_DIR}/${BIN_NAME} && ln -sf ${LINUX_NAME} ${BIN_NAME})
 
             kubevirt::version::get_version_vars
@@ -97,8 +97,8 @@ for arg in $args; do
 
             # build virtctl also for darwin and windows
             if [ "${BIN_NAME}" = "virtctl" ]; then
-                GOOS=darwin GOARCH=amd64 go build -i -o ${CMD_OUT_DIR}/${BIN_NAME}/${ARCH_BASENAME}-darwin-amd64 -ldflags "$(kubevirt::version::ldflags)" $(pkg_dir darwin amd64)
-                GOOS=windows GOARCH=amd64 go build -i -o ${CMD_OUT_DIR}/${BIN_NAME}/${ARCH_BASENAME}-windows-amd64.exe -ldflags "$(kubevirt::version::ldflags)" $(pkg_dir windows amd64)
+                GOPROXY=off GOFLAGS=-mod=vendor GOOS=darwin GOARCH=amd64 go build -i -o ${CMD_OUT_DIR}/${BIN_NAME}/${ARCH_BASENAME}-darwin-amd64 -ldflags "$(kubevirt::version::ldflags)" $(pkg_dir darwin amd64)
+                GOPROXY=off GOFLAGS=-mod=vendor GOOS=windows GOARCH=amd64 go build -i -o ${CMD_OUT_DIR}/${BIN_NAME}/${ARCH_BASENAME}-windows-amd64.exe -ldflags "$(kubevirt::version::ldflags)" $(pkg_dir windows amd64)
                 # Create symlinks to the latest binary of each architecture
                 (cd ${CMD_OUT_DIR}/${BIN_NAME} && ln -sf ${ARCH_BASENAME}-darwin-amd64 ${BIN_NAME}-darwin)
                 (cd ${CMD_OUT_DIR}/${BIN_NAME} && ln -sf ${ARCH_BASENAME}-windows-amd64.exe ${BIN_NAME}-windows.exe)

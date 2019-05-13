@@ -16,7 +16,6 @@ go_library(
         "proc_ns.go",
         "proc_psi.go",
         "proc_stat.go",
-        "proc_status.go",
         "stat.go",
         "xfrm.go",
     ],

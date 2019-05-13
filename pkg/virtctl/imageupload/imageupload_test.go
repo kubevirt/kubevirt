@@ -1,11 +1,11 @@
 package imageupload_test
 
 import (
-	"flag"
 	"fmt"
+	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
-	"path/filepath"
+	"os"
 	"strings"
 	"time"
 
@@ -40,15 +40,6 @@ const (
 	configName   = "config"
 )
 
-var imagePath string
-
-func init() {
-	// how could this ever happen that we have a 13MB blob in our repo?
-	flag.StringVar(&imagePath, "cirros-image-path", "vendor/kubevirt.io/containerized-data-importer/tests/images/cirros-qcow2.img", "path to cirros test image")
-	flag.Parse()
-	imagePath = filepath.Join("../../../", imagePath)
-}
-
 var _ = Describe("ImageUpload", func() {
 
 	var (
@@ -59,16 +50,24 @@ var _ = Describe("ImageUpload", func() {
 
 		createCalled bool
 		updateCalled bool
+
+		imagePath string
 	)
 
 	BeforeEach(func() {
 		ctrl = gomock.NewController(GinkgoT())
 		kubecli.GetKubevirtClientFromClientConfig = kubecli.GetMockKubevirtClientFromClientConfig
 		kubecli.MockKubevirtClientInstance = kubecli.NewMockKubevirtClient(ctrl)
+
+		imageFile, err := ioutil.TempFile("", "test_image")
+		Expect(err).ToNot(HaveOccurred())
+
+		imagePath = imageFile.Name()
 	})
 
 	AfterEach(func() {
 		ctrl.Finish()
+		os.Remove(imagePath)
 	})
 
 	addPodPhaseAnnotation := func() {

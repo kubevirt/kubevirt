@@ -7,7 +7,6 @@ RUN \
     mkdir -p /go && \
     source /etc/profile.d/gimme.sh && \
     go get github.com/mattn/goveralls && \
-    go get -u github.com/Masterminds/glide && \
     go get -u github.com/golang/mock/gomock && \
     go get -u github.com/rmohr/mock/mockgen && \
     go get -u github.com/rmohr/go-swagger-utils/swagger-doc && \
