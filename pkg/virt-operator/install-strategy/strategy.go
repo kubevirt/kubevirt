@@ -96,10 +96,7 @@ func NewInstallStrategyConfigMap(namespace string, conf *util.KubeVirtDeployment
 				v1.ManagedByLabel:       v1.ManagedByLabelOperatorValue,
 				v1.InstallStrategyLabel: "",
 			},
-			Annotations: map[string]string{
-				v1.InstallStrategyVersionAnnotation:  conf.ImageTag,
-				v1.InstallStrategyRegistryAnnotation: conf.ImageRegistry,
-			},
+			Annotations: conf.AddAnnotations(nil),
 		},
 		Data: map[string]string{
 			"manifests": string(dumpInstallStrategyToBytes(strategy)),
@@ -286,13 +283,7 @@ func LoadInstallStrategyFromCache(stores util.Stores, namespace string, conf *ut
 		if !ok {
 			continue
 		}
-		if config.ObjectMeta.Annotations == nil {
-			continue
-		}
-
-		version, _ := config.ObjectMeta.Annotations[v1.InstallStrategyVersionAnnotation]
-		registry, _ := config.ObjectMeta.Annotations[v1.InstallStrategyRegistryAnnotation]
-		if version == conf.ImageTag && registry == conf.ImageRegistry {
+		if conf.MatchesAnnotations(config.ObjectMeta.Annotations) {
 			matchingConfigMaps = append(matchingConfigMaps, config)
 		}
 	}

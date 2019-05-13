@@ -497,10 +497,7 @@ func (c *KubeVirtController) generateInstallStrategyJob(kv *v1.KubeVirt) *batchv
 				v1.ManagedByLabel:       v1.ManagedByLabelOperatorValue,
 				v1.InstallStrategyLabel: "",
 			},
-			Annotations: map[string]string{
-				v1.InstallStrategyVersionAnnotation:  conf.ImageTag,
-				v1.InstallStrategyRegistryAnnotation: conf.ImageRegistry,
-			},
+			Annotations: conf.AddAnnotations(nil),
 		},
 		Spec: batchv1.JobSpec{
 			Template: k8sv1.PodTemplateSpec{
@@ -563,7 +560,7 @@ func (c *KubeVirtController) getInstallStrategyFromMap(conf *util.KubeVirtDeploy
 	c.installStrategyMutex.Lock()
 	defer c.installStrategyMutex.Unlock()
 
-	strategy, ok := c.installStrategyMap[fmt.Sprintf("%s/%s", conf.ImageRegistry, conf.ImageTag)]
+	strategy, ok := c.installStrategyMap[conf.GetMapKey()]
 	return strategy, ok
 }
 
@@ -571,7 +568,7 @@ func (c *KubeVirtController) cacheInstallStrategyInMap(strategy *installstrategy
 
 	c.installStrategyMutex.Lock()
 	defer c.installStrategyMutex.Unlock()
-	c.installStrategyMap[fmt.Sprintf("%s/%s", conf.ImageRegistry, conf.ImageTag)] = strategy
+	c.installStrategyMap[conf.GetMapKey()] = strategy
 
 }
 
@@ -598,21 +595,7 @@ func (c *KubeVirtController) getInstallStrategyJob(conf *util.KubeVirtDeployment
 	objs := c.stores.InstallStrategyJobCache.List()
 	for _, obj := range objs {
 		if job, ok := obj.(*batchv1.Job); ok {
-			if job.Annotations == nil {
-				continue
-			}
-
-			tagAnno, ok := job.Annotations[v1.InstallStrategyVersionAnnotation]
-			if !ok {
-				continue
-			}
-
-			registryAnno, ok := job.Annotations[v1.InstallStrategyRegistryAnnotation]
-			if !ok {
-				continue
-			}
-
-			if tagAnno == conf.ImageTag && registryAnno == conf.ImageRegistry {
+			if conf.MatchesAnnotations(job.Annotations) {
 				return job, true
 			}
 		}

@@ -43,19 +43,7 @@ import (
 )
 
 func objectMatchesVersion(objectMeta *metav1.ObjectMeta, conf *util.KubeVirtDeploymentConfig) bool {
-
-	if objectMeta.Annotations == nil {
-		return false
-	}
-
-	foundImageTag := objectMeta.Annotations[v1.InstallStrategyVersionAnnotation]
-	foundImageRegistry := objectMeta.Annotations[v1.InstallStrategyRegistryAnnotation]
-
-	if foundImageTag == conf.ImageTag && foundImageRegistry == conf.ImageRegistry {
-		return true
-	}
-
-	return false
+	return conf.MatchesAnnotations(objectMeta.Annotations)
 }
 
 func apiDeployments(strategy *InstallStrategy) []*appsv1.Deployment {
@@ -90,11 +78,7 @@ func injectOperatorLabelAndAnnotations(objectMeta *metav1.ObjectMeta, conf *util
 	}
 	objectMeta.Labels[v1.ManagedByLabel] = v1.ManagedByLabelOperatorValue
 
-	if objectMeta.Annotations == nil {
-		objectMeta.Annotations = make(map[string]string)
-	}
-	objectMeta.Annotations[v1.InstallStrategyVersionAnnotation] = conf.ImageTag
-	objectMeta.Annotations[v1.InstallStrategyRegistryAnnotation] = conf.ImageRegistry
+	objectMeta.Annotations = conf.AddAnnotations(objectMeta.Annotations)
 }
 
 func generatePatchBytes(ops []string) []byte {

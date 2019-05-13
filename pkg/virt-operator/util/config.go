@@ -113,3 +113,34 @@ func (conf *KubeVirtDeploymentConfig) GetLauncherImage() string {
 func (conf *KubeVirtDeploymentConfig) GetHandlerImage() string {
 	return fmt.Sprintf("%s/virt-handler:%s", conf.ImageRegistry, conf.ImageTag)
 }
+
+func (conf *KubeVirtDeploymentConfig) GetMapKey() string {
+	return fmt.Sprintf("%s/%s", conf.ImageRegistry, conf.ImageTag)
+}
+
+func (conf *KubeVirtDeploymentConfig) AddAnnotations(annotations map[string]string) map[string]string {
+	if annotations == nil {
+		annotations = make(map[string]string)
+	}
+	annotations[v1.InstallStrategyVersionAnnotation] = conf.ImageTag
+	annotations[v1.InstallStrategyRegistryAnnotation] = conf.ImageRegistry
+	return annotations
+}
+
+func (conf *KubeVirtDeploymentConfig) MatchesAnnotations(annotations map[string]string) bool {
+	if annotations == nil {
+		return false
+	}
+
+	tagAnno, ok := annotations[v1.InstallStrategyVersionAnnotation]
+	if !ok {
+		return false
+	}
+
+	registryAnno, ok := annotations[v1.InstallStrategyRegistryAnnotation]
+	if !ok {
+		return false
+	}
+
+	return tagAnno == conf.ImageTag && registryAnno == conf.ImageRegistry
+}
