@@ -514,12 +514,7 @@ func (c *KubeVirtController) generateInstallStrategyJob(kv *v1.KubeVirt) *batchv
 								"virt-operator",
 								"--dump-install-strategy",
 							},
-							Env: []k8sv1.EnvVar{
-								{
-									Name:  util.OperatorImageEnvName,
-									Value: conf.GetOperatorImage(),
-								},
-							},
+							Env: conf.GetEnvVars(),
 						},
 					},
 				},

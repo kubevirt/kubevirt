@@ -25,6 +25,8 @@ import (
 	"regexp"
 	"strings"
 
+	k8sv1 "k8s.io/api/core/v1"
+
 	v1 "kubevirt.io/kubevirt/pkg/api/v1"
 )
 
@@ -189,6 +191,35 @@ func (conf *KubeVirtDeploymentConfig) GetHandlerImage() string {
 		return fmt.Sprintf("%s/virt-handler:%s", conf.ImageRegistry, conf.ImageTag)
 	}
 	return conf.Images.HandlerImage
+}
+
+func (conf *KubeVirtDeploymentConfig) GetEnvVars() []k8sv1.EnvVar {
+	return []k8sv1.EnvVar{
+		{
+			Name:  OperatorVersionEnvName,
+			Value: conf.ImageTag,
+		},
+		{
+			Name:  OperatorImageEnvName,
+			Value: conf.Images.OperatorImage,
+		},
+		{
+			Name:  APIImageEnvName,
+			Value: conf.Images.APIImage,
+		},
+		{
+			Name:  ControllerImageEnvName,
+			Value: conf.Images.ControllerImage,
+		},
+		{
+			Name:  LauncherImageEnvName,
+			Value: conf.Images.LauncherImage,
+		},
+		{
+			Name:  HandlerImageEnvName,
+			Value: conf.Images.HandlerImage,
+		},
+	}
 }
 
 func (conf *KubeVirtDeploymentConfig) String() string {
