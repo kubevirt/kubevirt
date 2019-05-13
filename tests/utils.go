@@ -1449,6 +1449,13 @@ func NewRandomVMIWithDataVolume(dataVolumeName string) *v1.VirtualMachineInstanc
 	return vmi
 }
 
+func NewRandomVMWithEphemeralDisk(containerImage string) *v1.VirtualMachine {
+	vmi := NewRandomVMIWithEphemeralDisk(containerImage)
+	vm := NewRandomVirtualMachine(vmi, false)
+
+	return vm
+}
+
 func NewRandomVMWithDataVolume(imageUrl string, namespace string) *v1.VirtualMachine {
 	dataVolume := NewRandomDataVolumeWithHttpImport(imageUrl, namespace, k8sv1.ReadWriteOnce)
 	vmi := NewRandomVMIWithDataVolume(dataVolume.Name)
