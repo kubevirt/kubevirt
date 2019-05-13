@@ -623,7 +623,7 @@ func (c *KubeVirtController) loadInstallStrategy(kv *v1.KubeVirt, conf *util.Kub
 	strategy, err = installstrategy.LoadInstallStrategyFromCache(c.stores, kv.Namespace, conf)
 	if err == nil {
 		c.cacheInstallStrategyInMap(strategy, conf)
-		log.Log.Infof("Loaded install strategy for kubevirt version %s into cache", conf.ImageTag)
+		log.Log.Infof("Loaded install strategy for kubevirt version %s into cache", conf)
 		return strategy, false, nil
 	}
 
@@ -639,7 +639,7 @@ func (c *KubeVirtController) loadInstallStrategy(kv *v1.KubeVirt, conf *util.Kub
 			// job completed but we don't have a install strategy still
 			// delete the job and we'll re-execute it once it is removed.
 
-			log.Log.Object(cachedJob).Errorf("Job failed to create install strategy for version %s", conf.ImageTag)
+			log.Log.Object(cachedJob).Errorf("Job failed to create install strategy for version %s", conf)
 			if cachedJob.DeletionTimestamp == nil {
 
 				// Just in case there's an issue causing the job to fail
@@ -674,7 +674,7 @@ func (c *KubeVirtController) loadInstallStrategy(kv *v1.KubeVirt, conf *util.Kub
 
 						return nil, true, err
 					}
-					log.Log.Object(cachedJob).Errorf("Deleting job for install strategy version %s because configmap was not generated", conf.ImageTag)
+					log.Log.Object(cachedJob).Errorf("Deleting job for install strategy version %s because configmap was not generated", conf)
 				}
 			}
 		}
@@ -691,7 +691,7 @@ func (c *KubeVirtController) loadInstallStrategy(kv *v1.KubeVirt, conf *util.Kub
 		c.kubeVirtExpectations.InstallStrategyJob.LowerExpectations(kvkey, 1, 0)
 		return nil, true, err
 	}
-	log.Log.Infof("Created job to generate install strategy configmap for version %s using registry %s", conf.ImageTag, conf.ImageRegistry)
+	log.Log.Infof("Created job to generate install strategy configmap for version %s", conf)
 
 	// pending is true here because we're waiting on the job
 	// to generate the install strategy

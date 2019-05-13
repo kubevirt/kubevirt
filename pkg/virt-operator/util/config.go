@@ -114,8 +114,12 @@ func (conf *KubeVirtDeploymentConfig) GetHandlerImage() string {
 	return fmt.Sprintf("%s/virt-handler:%s", conf.ImageRegistry, conf.ImageTag)
 }
 
-func (conf *KubeVirtDeploymentConfig) GetMapKey() string {
+func (conf *KubeVirtDeploymentConfig) String() string {
 	return fmt.Sprintf("%s/%s", conf.ImageRegistry, conf.ImageTag)
+}
+
+func (conf *KubeVirtDeploymentConfig) GetMapKey() string {
+	return conf.String()
 }
 
 func (conf *KubeVirtDeploymentConfig) AddAnnotations(annotations map[string]string) map[string]string {
