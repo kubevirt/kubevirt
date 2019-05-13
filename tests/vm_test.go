@@ -1107,7 +1107,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 					return newVMI.Name
 				}
 				return ""
-			}, 60*time.Second, 1*time.Second).Should(Equal(thisVm.Name), "New VMI was not created")
+			}, 120*time.Second, 1*time.Second).Should(Equal(thisVm.Name), "New VMI was not created")
 
 			By("Checking that VM is running")
 			stdout, _, err := tests.RunCommand(k8sClient, "describe", "vmis", thisVm.GetName())
@@ -1130,7 +1130,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 				stdout, _, err = tests.RunCommand(k8sClient, "get", "vms")
 				Expect(err).ToNot(HaveOccurred())
 				return strings.Contains(stdout, thisVm.GetName())
-			}, 60*time.Second, 1*time.Second).Should(BeFalse(), "VM was not deleted")
+			}, 120*time.Second, 1*time.Second).Should(BeFalse(), "VM was not deleted")
 
 			By("Verifying pod gets deleted")
 			Eventually(func() bool {
@@ -1138,8 +1138,60 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 				stdout, _, err = tests.RunCommand(k8sClient, "get", "pods")
 				Expect(err).ToNot(HaveOccurred())
 				return strings.Contains(stdout, expectedPodName)
-			}, 60*time.Second, 1*time.Second).Should(BeFalse(), "Pod was not deleted")
+			}, 120*time.Second, 1*time.Second).Should(BeFalse(), "Pod was not deleted")
 		})
+
+		It("[test_id:232]should create same manifest twice via command line", func() {
+			vmi = tests.NewRandomVMIWithEphemeralDisk(tests.ContainerDiskFor(tests.ContainerDiskAlpine))
+			thisVm := tests.NewRandomVirtualMachine(vmi, true)
+
+			vmJson, err = tests.GenerateVMJson(thisVm, workDir)
+			Expect(err).ToNot(HaveOccurred(), "Cannot generate VM's manifest")
+
+			By("Creating VM using k8s client binary")
+			_, _, err := tests.RunCommand(k8sClient, "create", "-f", vmJson)
+			Expect(err).ToNot(HaveOccurred())
+
+			By("Waiting for VMI to start")
+			Eventually(func() v1.VirtualMachineInstancePhase {
+				newVMI, err := virtClient.VirtualMachineInstance(thisVm.Namespace).Get(thisVm.GetName(), &v12.GetOptions{})
+				if err != nil {
+					if !errors.IsNotFound(err) {
+						Expect(err).ToNot(HaveOccurred())
+					}
+					return v1.Unknown
+				}
+				return newVMI.Status.Phase
+			}, 120*time.Second, 1*time.Second).Should(Equal(v1.Running), "New VMI was not created")
+
+			By("Deleting VM using k8s client binary")
+			_, _, err = tests.RunCommand(k8sClient, "delete", "vm", thisVm.GetName())
+			Expect(err).ToNot(HaveOccurred())
+
+			By("Verifying the VM gets deleted")
+			Eventually(func() bool {
+				stdout, _, err := tests.RunCommand(k8sClient, "get", "vms")
+				Expect(err).ToNot(HaveOccurred())
+				return strings.Contains(stdout, thisVm.GetName())
+			}, 120*time.Second, 1*time.Second).Should(BeFalse(), "VM was not deleted")
+
+			By("Creating same VM using k8s client binary and same manifest")
+			_, _, err = tests.RunCommand(k8sClient, "create", "-f", vmJson)
+			Expect(err).ToNot(HaveOccurred())
+
+			By("Waiting for VMI to start")
+			Eventually(func() v1.VirtualMachineInstancePhase {
+				newVMI, err := virtClient.VirtualMachineInstance(thisVm.Namespace).Get(thisVm.GetName(), &v12.GetOptions{})
+				if err != nil {
+					if !errors.IsNotFound(err) {
+						Expect(err).ToNot(HaveOccurred())
+					}
+					return v1.Unknown
+				}
+				return newVMI.Status.Phase
+			}, 120*time.Second, 1*time.Second).Should(Equal(v1.Running), "New VMI was not created")
+		})
+
 	})
 })
 
