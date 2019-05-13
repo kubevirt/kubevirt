@@ -81,6 +81,7 @@ func Execute() {
 	app := VirtOperatorApp{}
 
 	dumpInstallStrategy := pflag.Bool("dump-install-strategy", false, "Dump install strategy to configmap and exit")
+	clusterOperator := pflag.Bool("cluster-operator", false, "Report status to a ClusterOperator resource")
 
 	service.Setup(&app)
 
@@ -157,7 +158,7 @@ func Execute() {
 	}
 
 	app.kubeVirtRecorder = app.getNewRecorder(k8sv1.NamespaceAll, "virt-operator")
-	app.kubeVirtController = *NewKubeVirtController(app.clientSet, app.kubeVirtInformer, app.kubeVirtRecorder, app.stores, app.informers)
+	app.kubeVirtController = *NewKubeVirtController(app.clientSet, app.kubeVirtInformer, app.kubeVirtRecorder, app.stores, app.informers, *clusterOperator)
 
 	image := os.Getenv(util.OperatorImageEnvName)
 	if image == "" {

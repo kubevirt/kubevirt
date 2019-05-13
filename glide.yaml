@@ -19,6 +19,7 @@ ignore:
 - github.com/prometheus/procfs/nfs
 # Added because of "Error scanning github.com/prometheus/procfs/iostats: cannot find package "."" problem....
 - github.com/prometheus/procfs/iostats
+- github.com/prometheus/procfs/internal/fs
 import:
 - package: github.com/prometheus/client_golang
   version: 0.8.0
@@ -47,7 +48,9 @@ import:
 - package: k8s.io/apiextensions-apiserver
   version: kubernetes-1.12.4
 - package: github.com/openshift/client-go
-  version: release-3.11
+  version: master
+- package: github.com/openshift/api
+  version: master
 - package: github.com/fsnotify/fsnotify
   version: ^1.4.2
 - package: github.com/mailru/easyjson

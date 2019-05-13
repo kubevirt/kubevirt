@@ -63,6 +63,7 @@ type KubeVirtController struct {
 	kubeVirtExpectations util.Expectations
 	installStrategyMutex sync.Mutex
 	installStrategyMap   map[string]*installstrategy.InstallStrategy
+	clusterOperator      bool
 }
 
 func NewKubeVirtController(
@@ -70,7 +71,8 @@ func NewKubeVirtController(
 	informer cache.SharedIndexInformer,
 	recorder record.EventRecorder,
 	stores util.Stores,
-	informers util.Informers) *KubeVirtController {
+	informers util.Informers,
+	clusterOperator bool) *KubeVirtController {
 
 	c := KubeVirtController{
 		clientset:        clientset,
@@ -94,6 +96,7 @@ func NewKubeVirtController(
 			InstallStrategyJob:       controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectationsWithName("Jobs")),
 		},
 		installStrategyMap: make(map[string]*installstrategy.InstallStrategy),
+		clusterOperator:    clusterOperator,
 	}
 
 	c.kubeVirtInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
@@ -831,6 +834,9 @@ func (c *KubeVirtController) syncDeployment(kv *v1.KubeVirt, conf *util.KubeVirt
 		}
 		util.RemoveCondition(kv, v1.KubeVirtConditionReady)
 
+		if c.clusterOperator {
+			syncClusterOperator(kv.Namespace, conf.ImageTag, true)
+		}
 	} else {
 		util.RemoveCondition(kv, v1.KubeVirtConditionCreated)
 		util.RemoveCondition(kv, v1.KubeVirtConditionReady)

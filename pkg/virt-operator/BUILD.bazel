@@ -4,6 +4,7 @@ go_library(
     name = "go_default_library",
     srcs = [
         "application.go",
+        "clusteroperator.go",
         "kubevirt.go",
     ],
     importpath = "kubevirt.io/kubevirt/pkg/virt-operator",
@@ -18,6 +19,9 @@ go_library(
         "//pkg/util:go_default_library",
         "//pkg/virt-operator/install-strategy:go_default_library",
         "//pkg/virt-operator/util:go_default_library",
+        "//vendor/github.com/openshift/api/config/v1:go_default_library",
+        "//vendor/github.com/openshift/client-go/config/clientset/versioned/typed/config/v1:go_default_library",
+        "//vendor/github.com/openshift/library-go/pkg/operator/v1helpers:go_default_library",
         "//vendor/github.com/prometheus/client_golang/prometheus/promhttp:go_default_library",
         "//vendor/github.com/spf13/pflag:go_default_library",
         "//vendor/k8s.io/api/apps/v1:go_default_library",
