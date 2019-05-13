@@ -1,0 +1,17 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "go_default_library",
+    srcs = [
+        "client_metrics.go",
+        "workqueue_metrics.go",
+    ],
+    importmap = "kubevirt.io/kubevirt/vendor/github.com/openshift/library-go/pkg/controller/metrics",
+    importpath = "github.com/openshift/library-go/pkg/controller/metrics",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//vendor/github.com/prometheus/client_golang/prometheus:go_default_library",
+        "//vendor/k8s.io/client-go/tools/metrics:go_default_library",
+        "//vendor/k8s.io/client-go/util/workqueue:go_default_library",
+    ],
+)

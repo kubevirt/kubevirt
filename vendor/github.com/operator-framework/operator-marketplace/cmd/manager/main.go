@@ -67,24 +67,24 @@ func main() {
 	catalogsourceconfig.InitializeStaticSyncer(mgr.GetClient(), initialWait)
 	registrySyncer := operatorsource.NewRegistrySyncer(mgr.GetClient(), initialWait, resyncInterval, updateNotificationSendWait, catalogsourceconfig.Syncer, catalogsourceconfig.Syncer)
 
-	// monitorStopCh is used to send a signal to stop reporting cluteroperator status
+	// monitorStopCh is used to send a signal to stop reporting cluster operator status
 	monitorStopCh := make(chan struct{})
 	// monitorDoneCh will recieve a signal when threads have stopped updating cluster operator status
 	monitorDoneCh := status.StartReporting(cfg, mgr, namespace, os.Getenv("RELEASE_VERSION"), monitorStopCh)
 
 	// Setup Scheme for all defined resources
 	if err := apis.AddToScheme(mgr.GetScheme()); err != nil {
-		fatal(err, monitorDoneCh, monitorStopCh)
+		exit(err, monitorDoneCh, monitorStopCh)
 	}
 
 	// Add external resource to scheme
 	if err := olm.AddToScheme(mgr.GetScheme()); err != nil {
-		fatal(err, monitorDoneCh, monitorStopCh)
+		exit(err, monitorDoneCh, monitorStopCh)
 	}
 
 	// Setup all Controllers
 	if err := controller.AddToManager(mgr); err != nil {
-		fatal(err, monitorDoneCh, monitorStopCh)
+		exit(err, monitorDoneCh, monitorStopCh)
 	}
 
 	// Serve a health check.
@@ -100,18 +100,24 @@ func main() {
 	go catalogsourceconfig.Syncer.Sync(stopCh)
 
 	// Start the Cmd
-	// Update clusteroperator status and log a fatal error
-	fatal(mgr.Start(stopCh), monitorDoneCh, monitorStopCh)
+	// Update ClusterOperator status and log a fatal error
+	exit(mgr.Start(stopCh), monitorDoneCh, monitorStopCh)
 }
 
-// fatal updates clusteroperator status and logs a fatal error
-func fatal(err error, monitorDoneCh <-chan struct{}, monitorStopCh chan struct{}) {
-	// Stop reporting clusterOperator status
+// exit updates the ClusterOperator status and exits with the correct error code.
+func exit(err error, monitorDoneCh <-chan struct{}, monitorStopCh chan struct{}) {
+	// Stop reporting ClusterOperator status
 	close(monitorStopCh)
 
-	// Wait for clusterOperator status reporting to stop
+	// Wait for ClusterOperator status reporting to stop
 	<-monitorDoneCh
 
-	// exit
-	log.Fatal(err)
+	// If an error exists then exit with status set to 1
+	if err != nil {
+		log.Fatalf("The operator encountered an error, exit code 1: %v", err)
+	}
+
+	// No error, graceful termination
+	log.Info("The operator exited gracefully, exit code 0")
+	os.Exit(0)
 }

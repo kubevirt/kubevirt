@@ -1,0 +1,16 @@
+version: 2
+jobs:
+  build:
+    docker:
+      - image: circleci/golang:1.11
+    # This conforms to Go workspace requirements (we are pre-modules)
+    working_directory: /go/src/github.com/google/goexpect
+
+    steps:
+      - checkout
+      - run:
+          name: Get dependencies
+          command: go get -v ./...
+      - run:
+          name: Run unit tests
+          command: go test -v ./...

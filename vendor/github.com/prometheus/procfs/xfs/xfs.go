@@ -16,8 +16,10 @@ package xfs
 
 import (
 	"os"
-	"path"
 	"path/filepath"
+	"strings"
+
+	"github.com/prometheus/procfs/internal/fs"
 )
 
 // Stats contains XFS filesystem runtime statistics, parsed from
@@ -168,10 +170,37 @@ type ExtendedPrecisionStats struct {
 	ReadBytes  uint64
 }
 
-// ReadProcStat retrieves XFS filesystem runtime statistics
+// FS represents the pseudo-filesystems proc and sys, which provides an interface to
+// kernel data structures.
+type FS struct {
+	proc *fs.FS
+	sys  *fs.FS
+}
+
+// NewFS returns a new XFS handle using the given proc and sys mountPoints. It will error
+// if either of the mounts point can't be read.
+func NewFS(procMountPoint string, sysMountPoint string) (FS, error) {
+	if strings.TrimSpace(procMountPoint) == "" {
+		procMountPoint = fs.DefaultProcMountPoint
+	}
+	procfs, err := fs.NewFS(procMountPoint)
+	if err != nil {
+		return FS{}, err
+	}
+	if strings.TrimSpace(sysMountPoint) == "" {
+		sysMountPoint = fs.DefaultSysMountPoint
+	}
+	sysfs, err := fs.NewFS(sysMountPoint)
+	if err != nil {
+		return FS{}, err
+	}
+	return FS{&procfs, &sysfs}, nil
+}
+
+// ProcStat retrieves XFS filesystem runtime statistics
 // from proc/fs/xfs/stat given the profs mount point.
-func ReadProcStat(procfs string) (*Stats, error) {
-	f, err := os.Open(path.Join(procfs, "fs/xfs/stat"))
+func (fs FS) ProcStat() (*Stats, error) {
+	f, err := os.Open(fs.proc.Path("fs/xfs/stat"))
 	if err != nil {
 		return nil, err
 	}
@@ -180,11 +209,11 @@ func ReadProcStat(procfs string) (*Stats, error) {
 	return ParseStats(f)
 }
 
-// ReadSysStats retrieves XFS filesystem runtime statistics for each mounted XFS
+// SysStats retrieves XFS filesystem runtime statistics for each mounted XFS
 // filesystem.  Only available on kernel 4.4+.  On older kernels, an empty
 // slice of *xfs.Stats will be returned.
-func ReadSysStats(sysfs string) ([]*Stats, error) {
-	matches, err := filepath.Glob(path.Join(sysfs, "fs/xfs/*/stats/stats"))
+func (fs FS) SysStats() ([]*Stats, error) {
+	matches, err := filepath.Glob(fs.sys.Path("fs/xfs/*/stats/stats"))
 	if err != nil {
 		return nil, err
 	}

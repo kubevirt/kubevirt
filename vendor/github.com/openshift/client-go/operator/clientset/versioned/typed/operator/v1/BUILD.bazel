@@ -1,0 +1,36 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "go_default_library",
+    srcs = [
+        "authentication.go",
+        "console.go",
+        "dns.go",
+        "doc.go",
+        "etcd.go",
+        "generated_expansion.go",
+        "ingresscontroller.go",
+        "kubeapiserver.go",
+        "kubecontrollermanager.go",
+        "kubescheduler.go",
+        "network.go",
+        "openshiftapiserver.go",
+        "openshiftcontrollermanager.go",
+        "operator_client.go",
+        "serviceca.go",
+        "servicecatalogapiserver.go",
+        "servicecatalogcontrollermanager.go",
+    ],
+    importmap = "kubevirt.io/kubevirt/vendor/github.com/openshift/client-go/operator/clientset/versioned/typed/operator/v1",
+    importpath = "github.com/openshift/client-go/operator/clientset/versioned/typed/operator/v1",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//vendor/github.com/openshift/api/operator/v1:go_default_library",
+        "//vendor/github.com/openshift/client-go/operator/clientset/versioned/scheme:go_default_library",
+        "//vendor/k8s.io/apimachinery/pkg/apis/meta/v1:go_default_library",
+        "//vendor/k8s.io/apimachinery/pkg/runtime/serializer:go_default_library",
+        "//vendor/k8s.io/apimachinery/pkg/types:go_default_library",
+        "//vendor/k8s.io/apimachinery/pkg/watch:go_default_library",
+        "//vendor/k8s.io/client-go/rest:go_default_library",
+    ],
+)

@@ -1,0 +1,16 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_binary", "go_library")
+
+go_library(
+    name = "go_default_library",
+    srcs = ["main.go"],
+    importmap = "kubevirt.io/kubevirt/vendor/github.com/openshift/library-go/cmd/crd-schema-gen",
+    importpath = "github.com/openshift/library-go/cmd/crd-schema-gen",
+    visibility = ["//visibility:private"],
+    deps = ["//vendor/github.com/openshift/library-go/cmd/crd-schema-gen/generator:go_default_library"],
+)
+
+go_binary(
+    name = "crd-schema-gen",
+    embed = [":go_default_library"],
+    visibility = ["//visibility:public"],
+)

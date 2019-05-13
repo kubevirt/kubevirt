@@ -1,0 +1,22 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "go_default_library",
+    srcs = ["leaderelection.go"],
+    importmap = "kubevirt.io/kubevirt/vendor/github.com/openshift/library-go/pkg/config/leaderelection",
+    importpath = "github.com/openshift/library-go/pkg/config/leaderelection",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//vendor/github.com/openshift/api/config/v1:go_default_library",
+        "//vendor/k8s.io/api/core/v1:go_default_library",
+        "//vendor/k8s.io/apimachinery/pkg/util/uuid:go_default_library",
+        "//vendor/k8s.io/client-go/kubernetes:go_default_library",
+        "//vendor/k8s.io/client-go/kubernetes/scheme:go_default_library",
+        "//vendor/k8s.io/client-go/kubernetes/typed/core/v1:go_default_library",
+        "//vendor/k8s.io/client-go/rest:go_default_library",
+        "//vendor/k8s.io/client-go/tools/leaderelection:go_default_library",
+        "//vendor/k8s.io/client-go/tools/leaderelection/resourcelock:go_default_library",
+        "//vendor/k8s.io/client-go/tools/record:go_default_library",
+        "@io_k8s_klog//:go_default_library",
+    ],
+)

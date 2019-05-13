@@ -1,0 +1,10 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "go_default_library",
+    srcs = ["annotations.go"],
+    importmap = "kubevirt.io/kubevirt/vendor/github.com/openshift/library-go/pkg/network/networkapihelpers",
+    importpath = "github.com/openshift/library-go/pkg/network/networkapihelpers",
+    visibility = ["//visibility:public"],
+    deps = ["//vendor/github.com/openshift/api/network/v1:go_default_library"],
+)

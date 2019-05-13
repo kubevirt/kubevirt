@@ -1,0 +1,25 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "go_default_library",
+    srcs = ["staticpodstate_controller.go"],
+    importmap = "kubevirt.io/kubevirt/vendor/github.com/openshift/library-go/pkg/operator/staticpod/controller/staticpodstate",
+    importpath = "github.com/openshift/library-go/pkg/operator/staticpod/controller/staticpodstate",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//vendor/github.com/openshift/api/operator/v1:go_default_library",
+        "//vendor/github.com/openshift/library-go/pkg/operator/events:go_default_library",
+        "//vendor/github.com/openshift/library-go/pkg/operator/management:go_default_library",
+        "//vendor/github.com/openshift/library-go/pkg/operator/status:go_default_library",
+        "//vendor/github.com/openshift/library-go/pkg/operator/v1helpers:go_default_library",
+        "//vendor/k8s.io/apimachinery/pkg/apis/meta/v1:go_default_library",
+        "//vendor/k8s.io/apimachinery/pkg/util/runtime:go_default_library",
+        "//vendor/k8s.io/apimachinery/pkg/util/sets:go_default_library",
+        "//vendor/k8s.io/apimachinery/pkg/util/wait:go_default_library",
+        "//vendor/k8s.io/client-go/informers:go_default_library",
+        "//vendor/k8s.io/client-go/kubernetes/typed/core/v1:go_default_library",
+        "//vendor/k8s.io/client-go/tools/cache:go_default_library",
+        "//vendor/k8s.io/client-go/util/workqueue:go_default_library",
+        "@io_k8s_klog//:go_default_library",
+    ],
+)

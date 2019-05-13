@@ -1,0 +1,17 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "go_default_library",
+    srcs = [
+        "nosetuptests.go",
+        "operatorsourcetests.go",
+    ],
+    importmap = "kubevirt.io/kubevirt/vendor/github.com/operator-framework/operator-marketplace/test/testgroups",
+    importpath = "github.com/operator-framework/operator-marketplace/test/testgroups",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//vendor/github.com/operator-framework/operator-marketplace/test/helpers:go_default_library",
+        "//vendor/github.com/operator-framework/operator-marketplace/test/testsuites:go_default_library",
+        "@com_github_operator_framework_operator_sdk//pkg/test:go_default_library",
+    ],
+)

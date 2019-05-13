@@ -4,10 +4,10 @@ version: 2.1
 commands:
   default:
     steps:
-    - run: make style check_license vet test staticcheck
+    - run: make style check_license test lint
   no-test:
     steps:
-    - run: make style check_license vet staticcheck
+    - run: make style check_license lint
 
 jobs:
   test:

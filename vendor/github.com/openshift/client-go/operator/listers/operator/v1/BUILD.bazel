@@ -1,0 +1,31 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "go_default_library",
+    srcs = [
+        "authentication.go",
+        "console.go",
+        "dns.go",
+        "etcd.go",
+        "expansion_generated.go",
+        "ingresscontroller.go",
+        "kubeapiserver.go",
+        "kubecontrollermanager.go",
+        "kubescheduler.go",
+        "network.go",
+        "openshiftapiserver.go",
+        "openshiftcontrollermanager.go",
+        "serviceca.go",
+        "servicecatalogapiserver.go",
+        "servicecatalogcontrollermanager.go",
+    ],
+    importmap = "kubevirt.io/kubevirt/vendor/github.com/openshift/client-go/operator/listers/operator/v1",
+    importpath = "github.com/openshift/client-go/operator/listers/operator/v1",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//vendor/github.com/openshift/api/operator/v1:go_default_library",
+        "//vendor/k8s.io/apimachinery/pkg/api/errors:go_default_library",
+        "//vendor/k8s.io/apimachinery/pkg/labels:go_default_library",
+        "//vendor/k8s.io/client-go/tools/cache:go_default_library",
+    ],
+)

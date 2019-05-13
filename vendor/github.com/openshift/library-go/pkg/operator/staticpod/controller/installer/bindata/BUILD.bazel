@@ -1,0 +1,9 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "go_default_library",
+    srcs = ["bindata.go"],
+    importmap = "kubevirt.io/kubevirt/vendor/github.com/openshift/library-go/pkg/operator/staticpod/controller/installer/bindata",
+    importpath = "github.com/openshift/library-go/pkg/operator/staticpod/controller/installer/bindata",
+    visibility = ["//visibility:public"],
+)

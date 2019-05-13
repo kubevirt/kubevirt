@@ -1,0 +1,19 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "go_default_library",
+    srcs = [
+        "coordinates.go",
+        "interface.go",
+        "resource.go",
+        "resources.go",
+    ],
+    importmap = "kubevirt.io/kubevirt/vendor/github.com/openshift/library-go/pkg/operator/resource/resourcegraph",
+    importpath = "github.com/openshift/library-go/pkg/operator/resource/resourcegraph",
+    visibility = ["//visibility:public"],
+    deps = [
+        "@com_github_gonum_graph//:go_default_library",
+        "@com_github_gonum_graph//encoding/dot:go_default_library",
+        "@com_github_gonum_graph//simple:go_default_library",
+    ],
+)

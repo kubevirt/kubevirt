@@ -242,7 +242,7 @@ func EventuallyWithOffset(offset int, actual interface{}, intervals ...interface
 // assert that all other values are nil/zero.
 // This allows you to pass Consistently a function that returns a value and an error - a common pattern in Go.
 //
-// Consistently is useful in cases where you want to assert that something *does not happen* over a period of tiem.
+// Consistently is useful in cases where you want to assert that something *does not happen* over a period of time.
 // For example, you want to assert that a goroutine does *not* send data down a channel.  In this case, you could:
 //
 //   Consistently(channel).ShouldNot(Receive())
@@ -320,7 +320,7 @@ type GomegaAsyncAssertion = AsyncAssertion
 // All methods take a variadic optionalDescription argument.  This is passed on to fmt.Sprintf()
 // and is used to annotate failure messages.
 //
-// All methods return a bool that is true if hte assertion passed and false if it failed.
+// All methods return a bool that is true if the assertion passed and false if it failed.
 //
 // Example:
 //

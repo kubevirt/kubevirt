@@ -21,11 +21,12 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path/filepath"
+
+	flag "github.com/spf13/pflag"
 
 	kruntime "k8s.io/apimachinery/pkg/runtime"
-
-	"github.com/golang/glog"
-	flag "github.com/spf13/pflag"
+	"k8s.io/klog"
 )
 
 var (
@@ -38,7 +39,7 @@ func main() {
 	flag.Parse()
 
 	if *typeSrc == "" {
-		glog.Fatalf("Please define -s flag as it is the source file")
+		klog.Fatalf("Please define -s flag as it is the source file")
 	}
 
 	var funcOut io.Writer
@@ -47,13 +48,29 @@ func main() {
 	} else {
 		file, err := os.Create(*functionDest)
 		if err != nil {
-			glog.Fatalf("Couldn't open %v: %v", *functionDest, err)
+			klog.Fatalf("Couldn't open %v: %v", *functionDest, err)
 		}
 		defer file.Close()
 		funcOut = file
 	}
 
-	docsForTypes := kruntime.ParseDocumentationFrom(*typeSrc)
+	var docsForTypes []kruntime.KubeTypes
+	if fi, err := os.Stat(*typeSrc); err == nil && !fi.IsDir() {
+		docsForTypes = kruntime.ParseDocumentationFrom(*typeSrc)
+	} else if err == nil && fi.IsDir() {
+		klog.Fatalf("-s must be a valid file or file glob pattern, not a directory")
+	} else {
+		m, err := filepath.Glob(*typeSrc)
+		if err != nil {
+			klog.Fatalf("Couldn't search for files matching -s: %v", err)
+		}
+		if len(m) == 0 {
+			klog.Fatalf("-s must be a valid file or file glob pattern")
+		}
+		for _, file := range m {
+			docsForTypes = append(docsForTypes, kruntime.ParseDocumentationFrom(file)...)
+		}
+	}
 
 	if *verify == true {
 		rc, err := kruntime.VerifySwaggerDocsExist(docsForTypes, funcOut)

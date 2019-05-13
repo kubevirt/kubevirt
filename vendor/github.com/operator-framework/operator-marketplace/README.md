@@ -1,38 +1,51 @@
 # Marketplace Operator
 Marketplace is a conduit to bring off-cluster operators to your cluster.
 
-## Project Status: pre-alpha
-The project is currently pre-alpha and it is expected that breaking changes to the API will be made in the upcoming releases.
-
 ## Prerequisites
 In order to deploy the Marketplace Operator, you must:
 1. Have an OKD or a Kubernetes cluster with Operator Lifecycle Manager (OLM) [installed](https://github.com/operator-framework/operator-lifecycle-manager/blob/master/Documentation/install/install.md).
 2. Be logged in as a user with Cluster Admin role.
-   * This is a stop gap measure until the RBAC permissions are defined
-
-## Making changes to the Marketplace Operator
-The Marketplace Operator is hosted publicly at `quay.io/redhat/marketplace-operator` but not all developers have push privileges on this image. If you do not have the push privilege and are developing new features for the Marketplace Operator you must build and push your Marketplace Operator image to a registry where you have push and pull privileges and update the `deploy/operator.yaml` to pull this image. The steps below outline said process:
-1. Build and push your Marketplace Operator Image with the following command.
-```bash
-$ export REGISTRY=<SOME_REGISTRY> \
-   && export NAMESPACE=<SOME_NAMESPACE> \
-   && export REPOSITORY=<SOME_REPOSITORY> \
-   && export TAG=<SOME_TAG> \
-   && operator-sdk build $REGISTRY/$NAMESPACE/$REPOSITORY:$TAG \
-   && docker push $REGISTRY/$NAMESPACE/$REPOSITORY:$TAG
-```
-2. Update the `deploy/operator.yaml` to pull the Marketplace Operator image you just pushed. You should update the `spec.template.spec.containers[0].image` field with the `$REGISTRY/$NAMESPACE/$REPOSITORY:$TAG` value.
 
 ## Using the Marketplace Operator
 
 ### Description
-The operator manages two CRDs: [OperatorSource](./deploy/crds/operatorsource.crd.yaml) and [CatalogSourceConfig](./deploy/crds/catalogsourceconfig.crd.yaml).
+The operator manages two CRDs: [OperatorSource](./deploy/crds/operators_v1_operatorsource_crd.yaml) and [CatalogSourceConfig](./deploy/crds/operators_v1_catalogsourceconfig_crd.yaml).
 
-`OperatorSource` is used to define the external datastore we are using to store operator bundles. At the moment we only support Quay's app-registry as our external datastore. Please see [here](deploy/examples/community.operatorsource.cr.yaml) for an example `OperatorSource`. The `endpoint` in the `spec` is typically set to `https:/quay.io/cnr` if you are using Quay's app-registry. The `registryNamespace` is the name of your app-registry namespace. `displayName` and `publisher` are optional and only needed for UI purposes. If you want an `OperatorSource` to work with private app-registry repositories, please take a look at the [Private Repo Authentication](docs/how-to-authenticate-private-repositories.md) documentation.
+#### OperatorSource
+
+`OperatorSource` is used to define the external datastore we are using to store operator bundles.
+
+Here is a description of the spec fields:
+
+- `type` is the type of external datastore being described. At the moment we only support Quay's app-registry as our external datastore, so this value should be set to `appregistry`
+
+- `endpoint` is typically set to `https:/quay.io/cnr` if you are using Quay's app-registry.
+
+- `registryNamespace` is the name of your app-registry namespace.
+
+- `displayName` and `publisher` are optional and only needed for UI purposes.
+
+Please see [here][community-operators] for an example `OperatorSource`.
+
+If you want an `OperatorSource` to work with private app-registry repositories, please take a look at the [Private Repo Authentication](docs/how-to-authenticate-private-repositories.md) documentation.
+
 On adding an `OperatorSource` to an OKD cluster, operators will be visible in the [OperatorHub UI](https://github.com/openshift/console/tree/master/frontend/public/components/operator-hub) in the OKD console. There is no equivalent UI in the Kubernetes console.
 
-`CatalogSourceConfig` is used to enable an operator present in the `OperatorSource` to your cluster. Behind the scenes, it will configure an OLM `CatalogSource` so that the operator can then be managed by OLM. Please see [here](deploy/examples/catalogsourceconfig.cr.yaml) for an example `CatalogSourceConfig`.
-The `targetNamespace` is the namespace that OLM is watching. This is where the resulting `CatalogSource`, which will have the same name as the `CatalogSourceConfig`, is created or updated. `packages` is a comma separated list of operators. `csDisplayName` and `csPublisher` are optional but will result in the `CatalogSource` having proper UI displays. Once a `CatalogSourceConfig` is created successfully you can create a [`Subscription`](https://github.com/operator-framework/operator-lifecycle-manager#discovery-catalogs-and-automated-upgrades) for your operator referencing the newly created or updated `CatalogSource`.
+#### CatalogSourceConfig
+
+`CatalogSourceConfig` is used to enable an operator present in the `OperatorSource` to your cluster. Behind the scenes, it will configure an OLM `CatalogSource` so that the operator can then be managed by OLM.
+
+Here is a description of the spec fields:
+
+- `targetNamespace` is the namespace that OLM is watching. This is where the resulting `CatalogSource`, which will have the same name as the `CatalogSourceConfig`, is created or updated.
+
+- `packages` is a comma separated list of operators.
+
+- `csDisplayName` and `csPublisher` are optional but will result in the `CatalogSource` having proper UI displays.
+
+Please see [here](deploy/examples/catalogsourceconfig.cr.yaml) for an example `CatalogSourceConfig`.
+
+Once a `CatalogSourceConfig` is created successfully you can create a [`Subscription`](https://github.com/operator-framework/operator-lifecycle-manager#discovery-catalogs-and-automated-upgrades) for your operator referencing the newly created or updated `CatalogSource`.
 
 Please note that the Marketplace operator uses `CatalogSourceConfigs` and `CatalogSources` internally and you will find them present in the namespace where the Marketplace operator is running. These resources can be ignored and should not be modified or used.
 
@@ -48,9 +61,10 @@ $ kubectl apply -f deploy/upstream
 ```
 
 #### Installing an operator using Marketplace
-The following section assumes that Marketplace was installed in the `marketplace` namespace. For Marketplace to function you need to have at least one `OperatorSource` CR present on the cluster. To get started you can use the `OperatorSource` for [upstream-community-operators](deploy/examples/upstream.operatorsource.cr.yaml). If you are on an OKD cluster, you can skip this step as the `OperatorSource` for [community-operators](deploy/examples/community.operatorsource.cr.yaml) is installed by default instead.
+
+The following section assumes that Marketplace was installed in the `marketplace` namespace. For Marketplace to function you need to have at least one `OperatorSource` CR present on the cluster. To get started you can use the `OperatorSource` for [upstream-community-operators]. If you are on an OKD cluster, you can skip this step as the `OperatorSource` for [community-operators] is installed by default instead.
 ```bash
-$ kubectl apply -f deploy/examples/upstream.operatorsource.cr.yaml
+$ kubectl apply -f deploy/upstream/07_upstream_operatorsource.cr.yaml
 ```
 Once the `OperatorSource` has been successfully deployed, you can discover the operators available using the following command:
 ```bash
@@ -58,6 +72,7 @@ $ kubectl get opsrc upstream-community-operators -o=custom-columns=NAME:.metadat
 NAME                           PACKAGES
 upstream-community-operators   federationv2,svcat,metering,etcd,prometheus,automationbroker,templateservicebroker,cluster-logging,jaeger,descheduler
 ```
+**_Note_**: Please do not install [upstream-community-operators] and [community-operators] `OperatorSources` on the same cluster. The rule of thumb is to install [community-operators] on OpenShift clusters and [upstream-community-operators] on upstream Kubernetes clusters.
 
 Now if you want to install the `descheduler` and `jaeger` operators, create a `CatalogSourceConfig` CR as shown below:
 ```
@@ -143,7 +158,7 @@ $ kubectl delete catalogsourceconfig installed-upstream-community-operators -n m
 
 Follow the steps [here](https://github.com/operator-framework/community-operators/blob/master/docs/testing-operators.md) to upload operator artifacts to `quay.io`.
 
-Once your operator artifact is pushed to `quay.io` you can use an `OperatorSource` to add your operator offering to Marketplace. An example `OperatorSource` is provided [here](deploy/examples/upstream.operatorsource.cr.yaml).
+Once your operator artifact is pushed to `quay.io` you can use an `OperatorSource` to add your operator offering to Marketplace. An example `OperatorSource` is provided [here][upstream-community-operators].
 
 An `OperatorSource` must specify the `registryNamespace` the operator artifact was pushed to, and set the `name` and `namespace` for creating the `OperatorSource` on your cluster.
 
@@ -155,21 +170,11 @@ $ oc create -f your-operator-source.yaml
 
 Once created, the Marketplace operator will use the `OperatorSource` to download your operator artifact from the app registry and display your operator offering in the Marketplace UI.
 
-## Running End to End (e2e) Tests
+You can also access private AppRegistry repositories via an authenticated `OperatorSource`, which you can learn more about [here](docs/how-to-authenticate-private-repositories.md).
 
-To run the e2e tests defined in test/e2e that were created using the operator-sdk, first ensure that you have the following additional prerequisites:
+## Marketplace End to End (e2e) Tests
 
-1. The operator-sdk binary installed on your environment. You can get it by either downloading a released binary on the sdk release page [here](https://github.com/operator-framework/operator-sdk/releases/) or by pulling down the source and compiling it [locally](https://github.com/operator-framework/operator-sdk).
-2. A namespace on your cluster to run the tests on, e.g.
-```bash
-    $ oc create namespace test-namespace
-```
-3. A Kubeconfig file that points to the cluster you want to run the tests on.
+A full writeup on Marketplace e2e testing can be found [here](docs/e2e-testing.md)
 
-To run the tests, just call operator-sdk test and point to the test directory:
-
-```bash
-operator-sdk test local ./test/e2e --up-local --kubeconfig=$KUBECONFIG --namespace $TEST_NAMESPACE
-```
-
-You can also run the tests with `make e2e-test`.
+[upstream-community-operators]: deploy/upstream/07_upstream_operatorsource.cr.yaml
+[community-operators]: deploy/examples/community.operatorsource.cr.yaml

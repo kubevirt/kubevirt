@@ -1,0 +1,23 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "go_default_library",
+    srcs = [
+        "logrus.go",
+        "panic.go",
+        "profiler.go",
+        "sentry.go",
+        "serviceability.go",
+    ],
+    importmap = "kubevirt.io/kubevirt/vendor/github.com/openshift/library-go/pkg/serviceability",
+    importpath = "github.com/openshift/library-go/pkg/serviceability",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//vendor/k8s.io/apimachinery/pkg/util/runtime:go_default_library",
+        "//vendor/k8s.io/apimachinery/pkg/version:go_default_library",
+        "@com_github_getsentry_raven_go//:go_default_library",
+        "@com_github_pkg_profile//:go_default_library",
+        "@com_github_sirupsen_logrus//:go_default_library",
+        "@io_k8s_klog//:go_default_library",
+    ],
+)

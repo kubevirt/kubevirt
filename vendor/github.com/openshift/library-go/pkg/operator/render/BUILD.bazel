@@ -1,0 +1,13 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "go_default_library",
+    srcs = ["render.go"],
+    importmap = "kubevirt.io/kubevirt/vendor/github.com/openshift/library-go/pkg/operator/render",
+    importpath = "github.com/openshift/library-go/pkg/operator/render",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//vendor/github.com/openshift/library-go/pkg/assets:go_default_library",
+        "//vendor/github.com/openshift/library-go/pkg/operator/render/options:go_default_library",
+    ],
+)

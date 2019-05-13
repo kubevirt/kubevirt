@@ -1,0 +1,26 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "go_default_library",
+    srcs = ["controllers.go"],
+    importmap = "kubevirt.io/kubevirt/vendor/github.com/openshift/library-go/pkg/operator/staticpod",
+    importpath = "github.com/openshift/library-go/pkg/operator/staticpod",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//vendor/github.com/openshift/library-go/pkg/operator/events:go_default_library",
+        "//vendor/github.com/openshift/library-go/pkg/operator/loglevel:go_default_library",
+        "//vendor/github.com/openshift/library-go/pkg/operator/staticpod/controller/backingresource:go_default_library",
+        "//vendor/github.com/openshift/library-go/pkg/operator/staticpod/controller/installer:go_default_library",
+        "//vendor/github.com/openshift/library-go/pkg/operator/staticpod/controller/monitoring:go_default_library",
+        "//vendor/github.com/openshift/library-go/pkg/operator/staticpod/controller/node:go_default_library",
+        "//vendor/github.com/openshift/library-go/pkg/operator/staticpod/controller/prune:go_default_library",
+        "//vendor/github.com/openshift/library-go/pkg/operator/staticpod/controller/revision:go_default_library",
+        "//vendor/github.com/openshift/library-go/pkg/operator/staticpod/controller/staticpodstate:go_default_library",
+        "//vendor/github.com/openshift/library-go/pkg/operator/status:go_default_library",
+        "//vendor/github.com/openshift/library-go/pkg/operator/unsupportedconfigoverridescontroller:go_default_library",
+        "//vendor/github.com/openshift/library-go/pkg/operator/v1helpers:go_default_library",
+        "//vendor/k8s.io/apimachinery/pkg/util/errors:go_default_library",
+        "//vendor/k8s.io/client-go/dynamic:go_default_library",
+        "//vendor/k8s.io/client-go/kubernetes:go_default_library",
+    ],
+)

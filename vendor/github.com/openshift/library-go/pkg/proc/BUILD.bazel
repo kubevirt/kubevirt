@@ -1,0 +1,18 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "go_default_library",
+    srcs = [
+        "reaper.go",
+        "reaper_unsupported.go",
+    ],
+    importmap = "kubevirt.io/kubevirt/vendor/github.com/openshift/library-go/pkg/proc",
+    importpath = "github.com/openshift/library-go/pkg/proc",
+    visibility = ["//visibility:public"],
+    deps = select({
+        "@io_bazel_rules_go//go/platform:linux": [
+            "@io_k8s_klog//:go_default_library",
+        ],
+        "//conditions:default": [],
+    }),
+)

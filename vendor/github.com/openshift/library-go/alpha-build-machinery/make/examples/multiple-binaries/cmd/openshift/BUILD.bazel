@@ -1,0 +1,15 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_binary", "go_library")
+
+go_library(
+    name = "go_default_library",
+    srcs = ["main.go"],
+    importmap = "kubevirt.io/kubevirt/vendor/github.com/openshift/library-go/alpha-build-machinery/make/examples/multiple-binaries/cmd/openshift",
+    importpath = "github.com/openshift/library-go/alpha-build-machinery/make/examples/multiple-binaries/cmd/openshift",
+    visibility = ["//visibility:private"],
+)
+
+go_binary(
+    name = "openshift",
+    embed = [":go_default_library"],
+    visibility = ["//visibility:public"],
+)

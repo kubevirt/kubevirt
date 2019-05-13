@@ -1,0 +1,10 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "go_default_library",
+    srcs = ["compare.go"],
+    importmap = "kubevirt.io/kubevirt/vendor/github.com/openshift/library-go/pkg/operator/versioning",
+    importpath = "github.com/openshift/library-go/pkg/operator/versioning",
+    visibility = ["//visibility:public"],
+    deps = ["//vendor/github.com/blang/semver:go_default_library"],
+)

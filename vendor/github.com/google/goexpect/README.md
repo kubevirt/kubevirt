@@ -1,3 +1,5 @@
+[![CircleCI](https://circleci.com/gh/google/goexpect.svg?style=svg)](https://circleci.com/gh/google/goexpect)
+
 This package is an implementation of [Expect](https://en.wikipedia.org/wiki/Expect) in [Go](golang.org).
 
 

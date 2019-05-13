@@ -1,0 +1,16 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "go_default_library",
+    srcs = [
+        "observer.go",
+        "observer_polling.go",
+    ],
+    importmap = "kubevirt.io/kubevirt/vendor/github.com/openshift/library-go/pkg/controller/fileobserver",
+    importpath = "github.com/openshift/library-go/pkg/controller/fileobserver",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//vendor/k8s.io/apimachinery/pkg/util/wait:go_default_library",
+        "@io_k8s_klog//:go_default_library",
+    ],
+)

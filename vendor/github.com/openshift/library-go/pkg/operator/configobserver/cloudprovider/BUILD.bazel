@@ -1,0 +1,20 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "go_default_library",
+    srcs = ["observe_cloudprovider.go"],
+    importmap = "kubevirt.io/kubevirt/vendor/github.com/openshift/library-go/pkg/operator/configobserver/cloudprovider",
+    importpath = "github.com/openshift/library-go/pkg/operator/configobserver/cloudprovider",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//vendor/github.com/openshift/api/config/v1:go_default_library",
+        "//vendor/github.com/openshift/client-go/config/listers/config/v1:go_default_library",
+        "//vendor/github.com/openshift/library-go/pkg/operator/configobserver:go_default_library",
+        "//vendor/github.com/openshift/library-go/pkg/operator/events:go_default_library",
+        "//vendor/github.com/openshift/library-go/pkg/operator/resourcesynccontroller:go_default_library",
+        "//vendor/k8s.io/apimachinery/pkg/api/equality:go_default_library",
+        "//vendor/k8s.io/apimachinery/pkg/api/errors:go_default_library",
+        "//vendor/k8s.io/apimachinery/pkg/apis/meta/v1/unstructured:go_default_library",
+        "//vendor/k8s.io/apimachinery/pkg/util/sets:go_default_library",
+    ],
+)

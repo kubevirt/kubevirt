@@ -1,0 +1,18 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "go_default_library",
+    srcs = ["generator.go"],
+    importmap = "kubevirt.io/kubevirt/vendor/github.com/openshift/library-go/cmd/crd-schema-gen/generator",
+    importpath = "github.com/openshift/library-go/cmd/crd-schema-gen/generator",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//vendor/github.com/evanphx/json-patch:go_default_library",
+        "//vendor/gopkg.in/yaml.v2:go_default_library",
+        "//vendor/k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1:go_default_library",
+        "//vendor/k8s.io/apimachinery/pkg/runtime:go_default_library",
+        "//vendor/k8s.io/apimachinery/pkg/runtime/serializer:go_default_library",
+        "//vendor/k8s.io/apimachinery/pkg/util/yaml:go_default_library",
+        "@io_k8s_sigs_controller_tools//pkg/crd/generator:go_default_library",
+    ],
+)
