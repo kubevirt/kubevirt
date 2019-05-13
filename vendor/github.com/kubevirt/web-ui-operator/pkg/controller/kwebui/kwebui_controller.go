@@ -2,8 +2,9 @@ package kwebui
 
 import (
 	"context"
+	"fmt"
 
-    extenstionsv1beta1 "k8s.io/api/extensions/v1beta1"
+	extenstionsv1beta1 "k8s.io/api/extensions/v1beta1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
@@ -95,10 +96,17 @@ func (r *ReconcileKWebUI) Reconcile(request reconcile.Request) (reconcile.Result
 	}
 	reqLogger.Info("Desired kubevirt-web-ui version: ", "instance.Spec.Version", instance.Spec.Version)
 
+	if instance.Spec.Version == VersionAutomatic {
+		instance.Spec.Version = getWebUIVersion("")
+		log.Info(fmt.Sprintf("Requested 'automatic' version which is resolved to: %s", instance.Spec.Version))
+		updateVersion(r, request, instance.Spec.Version)
+	}
+
 	// Fetch the kubevirt-web-ui Deployment
 	deployment := &extenstionsv1beta1.Deployment{}
-	err = r.client.Get(context.TODO(), types.NamespacedName{Name: "console", Namespace: request.Namespace}, deployment)
+	err = r.client.Get(context.TODO(), types.NamespacedName{Name: "console", Namespace: getWebUINamespace()}, deployment)
 	if err != nil {
+		reqLogger.Error(err, "Looking for the console Deployment object")
 		if errors.IsNotFound(err) {
 			return freshProvision(r, request, instance)
 		}

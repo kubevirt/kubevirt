@@ -58,12 +58,6 @@ func ReconcileExistingDeployment(r *ReconcileKWebUI, request reconcile.Request, 
 		return reconcile.Result{}, nil
 	}
 
-	if instance.Spec.Version == VersionAutomatic {
-		instance.Spec.Version = getWebUIVersion("")
-		log.Info(fmt.Sprintf("Requested 'automatic' version which is resolved to: %s", instance.Spec.Version))
-		updateVersion(r, request, instance.Spec.Version)
-	}
-
 	if instance.Spec.Version == existingVersion {
 		msg := fmt.Sprintf("Existing version conforms the requested one: %s. Nothing to do.", existingVersion)
 		log.Info(msg)
@@ -114,7 +108,7 @@ func freshProvision(r *ReconcileKWebUI, request reconcile.Request, instance *kub
 	// Kubevirt-web-ui deployment is not present yet
 	log.Info("kubevirt-web-ui Deployment is not present. Ansible playbook will be executed to provision it.")
 	updateStatus(r, request, PhaseFreshProvision, fmt.Sprintf("Target version: %s", instance.Spec.Version))
-	res, err := runPlaybookWithSetup(request.Namespace, instance, "provision")
+	res, err := runPlaybookWithSetup(getWebUINamespace(), instance, "provision")
 	if err == nil {
 		setOwnerReference(r, request, instance)
 		updateStatus(r, request, PhaseProvisioned, "Provision finished.")
@@ -127,7 +121,7 @@ func freshProvision(r *ReconcileKWebUI, request reconcile.Request, instance *kub
 func deprovision(r *ReconcileKWebUI, request reconcile.Request, instance *kubevirtv1alpha1.KWebUI) (reconcile.Result, error) {
 	log.Info("Existing kubevirt-web-ui deployment is about to be deprovisioned.")
 	updateStatus(r, request, PhaseDeprovision, "")
-	res, err := runPlaybookWithSetup(request.Namespace, instance, "deprovision")
+	res, err := runPlaybookWithSetup(getWebUINamespace(), instance, "deprovision")
 	if err == nil {
 		updateStatus(r, request, PhaseDeprovisioned, "Deprovision finished.")
 	} else {
@@ -166,6 +160,17 @@ func loginClient(namespace string) (string, error) {
 	}
 	err = RunCommand(cmd, args, env, args)
 	if err != nil {
+		log.Error(err, "Failed to switch to the project. Trying to create it.", "Namespace", namespace)
+
+		cmd, args = "oc", []string{
+			"new-project",
+			namespace,
+		}
+		err = RunCommand(cmd, args, env, args)
+		if err != nil {
+			log.Error(err, "Failed to create project for the web-ui.", "Namespace", namespace)
+		}
+
 		return "", err
 	}
 
@@ -174,6 +179,10 @@ func loginClient(namespace string) (string, error) {
 
 func getWebUIVersion(versionInCR string) string {
 	return Def(versionInCR, os.Getenv("WEBUI_TAG"),"v1.4")
+}
+
+func getWebUINamespace() string {
+	return "kubevirt-web-ui"
 }
 
 func generateInventory(instance *kubevirtv1alpha1.KWebUI, namespace string, action string) (string, error) {
@@ -226,7 +235,7 @@ func generateInventory(instance *kubevirtv1alpha1.KWebUI, namespace string, acti
 
 func setOwnerReference(r *ReconcileKWebUI, request reconcile.Request, instance *kubevirtv1alpha1.KWebUI) error {
 	deployment := &extenstionsv1beta1.Deployment{}
-	err := r.client.Get(context.TODO(), types.NamespacedName{Name: "console", Namespace: request.Namespace}, deployment)
+	err := r.client.Get(context.TODO(), types.NamespacedName{Name: "console", Namespace: getWebUINamespace()}, deployment)
 	if err != nil {
 		msg := "Failed to retrieve the just created kubevirt-web-ui Deployment object to set owner reference."
 		log.Error(err, msg)

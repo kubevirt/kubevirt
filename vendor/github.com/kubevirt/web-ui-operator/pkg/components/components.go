@@ -131,6 +131,10 @@ func GetDeployment(namespace string, repository string, tag string, imagePullPol
 	return deployment
 }
 
+
+// The GetRole() is probably not needed since the use of `components.go` implicates operator's deployment for cluster-scope (within HCO).
+// To avoid confusion: If deployed independently using the deploy/*.yaml files, the operator is namespace-scoped.
+// TODO: validate the statement above and optionally remove this GetRole() function.
 func GetRole(namespace string) *rbacv1.Role {
 	role := &rbacv1.Role{
 		TypeMeta: metav1.TypeMeta{
@@ -268,10 +272,14 @@ func GetClusterRole() *rbacv1.ClusterRole {
 			{
 				APIGroups: []string{
 					"oauth.openshift.io",
+                                        "project.openshift.io",
+                                        "template.openshift.io",
+                                        "route.openshift.io",
 					"apiextensions.k8s.io",
 					"kubevirt.io",
 					"extensions",
 					"apps",
+                                        "monitoring.coreos.com",
 				},
 				Resources: []string{
 					"*",
@@ -288,7 +296,6 @@ func GetClusterRole() *rbacv1.ClusterRole {
 					"configmaps",
 					"pods",
 					"namespaces",
-					"projects",
 					"services",
 					"endpoints",
 					"persistentvolumeclaims",
@@ -296,9 +303,6 @@ func GetClusterRole() *rbacv1.ClusterRole {
 					"secrets",
 					"replicationcontrollers",
 					"serviceaccounts",
-					"deployments",
-					"daemonsets",
-					"replicasets",
 					"statefulsets",
 
 				},

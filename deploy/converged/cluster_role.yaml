@@ -901,10 +901,14 @@ metadata:
 rules:
 - apiGroups:
   - oauth.openshift.io
+  - project.openshift.io
+  - template.openshift.io
+  - route.openshift.io
   - apiextensions.k8s.io
   - kubevirt.io
   - extensions
   - apps
+  - monitoring.coreos.com
   resources:
   - '*'
   verbs:
@@ -915,7 +919,6 @@ rules:
   - configmaps
   - pods
   - namespaces
-  - projects
   - services
   - endpoints
   - persistentvolumeclaims
@@ -923,9 +926,6 @@ rules:
   - secrets
   - replicationcontrollers
   - serviceaccounts
-  - deployments
-  - daemonsets
-  - replicasets
   - statefulsets
   verbs:
   - '*'
