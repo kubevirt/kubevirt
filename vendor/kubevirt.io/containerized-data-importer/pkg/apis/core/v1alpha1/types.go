@@ -183,6 +183,10 @@ type CDI struct {
 
 // CDISpec defines our specification for the CDI installation
 type CDISpec struct {
+	ImageRegistry string `json:"imageRegistry,omitempty"`
+
+	ImageTag string `json:"imageTag,omitempty"`
+
 	ImagePullPolicy corev1.PullPolicy `json:"imagePullPolicy,omitempty" valid:"required"`
 }
 

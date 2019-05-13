@@ -33,10 +33,12 @@ type TestCases struct {
 }
 
 type TestCase struct {
-	Title                Title                `xml:"title"`
-	Description          Description          `xml:"description"`
-	TestCaseCustomFields TestCaseCustomFields `xml:"custom-fields"`
-	TestCaseSteps        *TestCaseSteps       `xml:"test-steps,omitempty"`
+	ID                      string                  `xml:"id,attr,omitempty"`
+	Title                   Title                   `xml:"title"`
+	Description             Description             `xml:"description"`
+	TestCaseCustomFields    TestCaseCustomFields    `xml:"custom-fields"`
+	TestCaseSteps           *TestCaseSteps          `xml:"test-steps,omitempty"`
+	TestCaseLinkedWorkItems TestCaseLinkedWorkItems `xml:"linked-work-items"`
 }
 
 type Title struct {
@@ -76,6 +78,15 @@ type PolarionProperties struct {
 type PolarionProperty struct {
 	Name  string `xml:"name,attr"`
 	Value string `xml:"value,attr"`
+}
+
+type TestCaseLinkedWorkItems struct {
+	LinkedWorkItems []TestCaseLinkedWorkItem `xml:"linked-work-item"`
+}
+
+type TestCaseLinkedWorkItem struct {
+	ID   string `xml:"workitem-id,attr"`
+	Role string `xml:"role-id,attr"`
 }
 
 func GeneratePolarionXmlFile(outputFile string, testCases interface{}) {

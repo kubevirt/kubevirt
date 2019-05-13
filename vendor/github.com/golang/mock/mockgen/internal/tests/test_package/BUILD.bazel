@@ -1,9 +1,0 @@
-load("@io_bazel_rules_go//go:def.bzl", "go_library")
-
-go_library(
-    name = "go_default_library",
-    srcs = ["foo.go"],
-    importmap = "kubevirt.io/kubevirt/vendor/github.com/golang/mock/mockgen/internal/tests/test_package",
-    importpath = "github.com/golang/mock/mockgen/internal/tests/test_package",
-    visibility = ["//vendor/github.com/golang/mock/mockgen:__subpackages__"],
-)

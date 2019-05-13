@@ -1,9 +1,0 @@
-load("@io_bazel_rules_go//go:def.bzl", "go_library")
-
-go_library(
-    name = "go_default_library",
-    srcs = ["singleflight.go"],
-    importmap = "kubevirt.io/kubevirt/vendor/github.com/golang/groupcache/singleflight",
-    importpath = "github.com/golang/groupcache/singleflight",
-    visibility = ["//visibility:public"],
-)

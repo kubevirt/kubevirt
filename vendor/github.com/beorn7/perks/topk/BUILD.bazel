@@ -1,9 +1,0 @@
-load("@io_bazel_rules_go//go:def.bzl", "go_library")
-
-go_library(
-    name = "go_default_library",
-    srcs = ["topk.go"],
-    importmap = "kubevirt.io/kubevirt/vendor/github.com/beorn7/perks/topk",
-    importpath = "github.com/beorn7/perks/topk",
-    visibility = ["//visibility:public"],
-)

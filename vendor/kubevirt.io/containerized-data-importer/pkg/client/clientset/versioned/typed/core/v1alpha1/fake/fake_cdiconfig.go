@@ -123,7 +123,7 @@ func (c *FakeCDIConfigs) DeleteCollection(options *v1.DeleteOptions, listOptions
 // Patch applies the patch and returns the patched cDIConfig.
 func (c *FakeCDIConfigs) Patch(name string, pt types.PatchType, data []byte, subresources ...string) (result *v1alpha1.CDIConfig, err error) {
 	obj, err := c.Fake.
-		Invokes(testing.NewRootPatchSubresourceAction(cdiconfigsResource, name, data, subresources...), &v1alpha1.CDIConfig{})
+		Invokes(testing.NewRootPatchSubresourceAction(cdiconfigsResource, name, pt, data, subresources...), &v1alpha1.CDIConfig{})
 	if obj == nil {
 		return nil, err
 	}

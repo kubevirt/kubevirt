@@ -1,9 +1,0 @@
-load("@io_bazel_rules_go//go:def.bzl", "go_library")
-
-go_library(
-    name = "go_default_library",
-    srcs = ["leakcheck.go"],
-    importmap = "kubevirt.io/kubevirt/vendor/google.golang.org/grpc/internal/leakcheck",
-    importpath = "google.golang.org/grpc/internal/leakcheck",
-    visibility = ["//vendor/google.golang.org/grpc:__subpackages__"],
-)

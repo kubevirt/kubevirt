@@ -1,9 +1,0 @@
-load("@io_bazel_rules_go//go:def.bzl", "go_library")
-
-go_library(
-    name = "go_default_library",
-    srcs = ["scram.go"],
-    importmap = "kubevirt.io/kubevirt/vendor/github.com/globalsign/mgo/internal/scram",
-    importpath = "github.com/globalsign/mgo/internal/scram",
-    visibility = ["//vendor/github.com/globalsign/mgo:__subpackages__"],
-)

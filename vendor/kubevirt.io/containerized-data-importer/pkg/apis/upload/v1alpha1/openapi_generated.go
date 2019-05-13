@@ -41,6 +41,7 @@ func schema_pkg_apis_upload_v1alpha1_UploadTokenRequest(ref common.ReferenceCall
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
 				Description: "UploadTokenRequest is the CR used to initiate a CDI upload",
+				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
 					"kind": {
 						SchemaProps: spec.SchemaProps{
@@ -87,6 +88,7 @@ func schema_pkg_apis_upload_v1alpha1_UploadTokenRequestList(ref common.Reference
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
 				Description: "UploadTokenRequestList contains a list of UploadTokenRequests",
+				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
 					"kind": {
 						SchemaProps: spec.SchemaProps{
@@ -134,6 +136,7 @@ func schema_pkg_apis_upload_v1alpha1_UploadTokenRequestSpec(ref common.Reference
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
 				Description: "UploadTokenRequestSpec defines the parameters of the token request",
+				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
 					"pvcName": {
 						SchemaProps: spec.SchemaProps{
@@ -146,7 +149,6 @@ func schema_pkg_apis_upload_v1alpha1_UploadTokenRequestSpec(ref common.Reference
 				Required: []string{"pvcName"},
 			},
 		},
-		Dependencies: []string{},
 	}
 }
 
@@ -155,6 +157,7 @@ func schema_pkg_apis_upload_v1alpha1_UploadTokenRequestStatus(ref common.Referen
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
 				Description: "UploadTokenRequestStatus stores the status of a token request",
+				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
 					"token": {
 						SchemaProps: spec.SchemaProps{
@@ -166,6 +169,5 @@ func schema_pkg_apis_upload_v1alpha1_UploadTokenRequestStatus(ref common.Referen
 				},
 			},
 		},
-		Dependencies: []string{},
 	}
 }

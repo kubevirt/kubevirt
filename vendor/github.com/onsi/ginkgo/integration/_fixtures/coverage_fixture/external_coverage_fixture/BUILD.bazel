@@ -1,9 +1,0 @@
-load("@io_bazel_rules_go//go:def.bzl", "go_library")
-
-go_library(
-    name = "go_default_library",
-    srcs = ["external_coverage.go"],
-    importmap = "kubevirt.io/kubevirt/vendor/github.com/onsi/ginkgo/integration/_fixtures/coverage_fixture/external_coverage_fixture",
-    importpath = "github.com/onsi/ginkgo/integration/_fixtures/coverage_fixture/external_coverage_fixture",
-    visibility = ["//visibility:public"],
-)

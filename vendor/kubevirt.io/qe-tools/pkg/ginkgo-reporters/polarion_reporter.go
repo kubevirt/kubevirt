@@ -23,6 +23,7 @@ import (
 	"encoding/xml"
 	"flag"
 	"fmt"
+	"regexp"
 	"strings"
 
 	"kubevirt.io/qe-tools/pkg/polarion-xml"
@@ -52,6 +53,7 @@ type PolarionTestSuite struct {
 
 type PolarionTestCase struct {
 	Name           string               `xml:"name,attr"`
+	Properties     PolarionProperties   `xml:"properties"`
 	FailureMessage *JUnitFailureMessage `xml:"failure,omitempty"`
 	Skipped        *JUnitSkipped        `xml:"skipped,omitempty"`
 	SystemOut      string               `xml:"system-out,omitempty"`
@@ -100,7 +102,7 @@ func (reporter *PolarionReporter) SpecSuiteWillBegin(config config.GinkgoConfigT
 			},
 			{
 				Name:  "polarion-lookup-method",
-				Value: "name",
+				Value: "id",
 			},
 			{
 				Name:  "polarion-custom-plannedin",
@@ -113,6 +115,10 @@ func (reporter *PolarionReporter) SpecSuiteWillBegin(config config.GinkgoConfigT
 			{
 				Name:  "polarion-custom-isautomated",
 				Value: "True",
+			},
+			{
+				Name:  "polarion-testrun-status-id",
+				Value: "inprogress",
 			},
 		},
 	}
@@ -137,8 +143,11 @@ func failureMessage(failure types.SpecFailure) string {
 func (reporter *PolarionReporter) handleSetupSummary(name string, setupSummary *types.SetupSummary) {
 	if setupSummary.State != types.SpecStatePassed {
 		testCase := PolarionTestCase{
-			Name: name,
+			Name:       name,
+			Properties: PolarionProperties{},
 		}
+
+		testCase.Properties = extractTestID(name, reporter.ProjectId)
 
 		testCase.FailureMessage = &JUnitFailureMessage{
 			Type:    reporter.failureTypeForState(setupSummary.State),
@@ -158,6 +167,9 @@ func (reporter *PolarionReporter) SpecDidComplete(specSummary *types.SpecSummary
 	testCase := PolarionTestCase{
 		Name: testName,
 	}
+
+	testCase.Properties = extractTestID(testName, reporter.ProjectId)
+
 	if specSummary.State == types.SpecStateFailed || specSummary.State == types.SpecStateTimedOut || specSummary.State == types.SpecStatePanicked {
 		testCase.FailureMessage = &JUnitFailureMessage{
 			Type:    reporter.failureTypeForState(specSummary.State),
@@ -205,4 +217,22 @@ func (reporter *PolarionReporter) failureTypeForState(state types.SpecState) str
 	default:
 		return ""
 	}
+}
+
+func extractTestID(testname string, ProjectID string) PolarionProperties {
+	var re = regexp.MustCompile(`test_id:\d+`)
+	properties := PolarionProperties{}
+	testID := re.FindString(testname)
+	if testID != "" {
+		testID = strings.Replace(testID, "test_id:", "", 1)
+		properties = PolarionProperties{
+			Property: []PolarionProperty{
+				{
+					Name:  "polarion-testcase-id",
+					Value: ProjectID + "-" + testID,
+				},
+			},
+		}
+	}
+	return properties
 }
