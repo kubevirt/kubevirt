@@ -298,7 +298,7 @@ func newKubeVirtConfigForCR(cr *hcov1alpha1.HyperConverged) *corev1.ConfigMap {
 			Labels: labels,
 		},
 		Data: map[string]string{
-			"feature-gates": "DataVolumes,SRIOV,LiveMigration,CPUManager",
+			"feature-gates": "DataVolumes,SRIOV,LiveMigration,CPUManager,CPUNodeDiscovery",
 		},
 	}
 }
