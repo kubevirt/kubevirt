@@ -29,6 +29,8 @@ import (
 )
 
 const (
+	// Name of env var containing the operator's version
+	OperatorVersionEnvName = "OPERATOR_VERSION"
 	// Name of env var containing the operator's image name
 	OperatorImageEnvName = "OPERATOR_IMAGE"
 )
@@ -39,13 +41,17 @@ type KubeVirtDeploymentConfig struct {
 }
 
 func GetConfig() KubeVirtDeploymentConfig {
+	tag := os.Getenv(OperatorVersionEnvName)
+
 	imageString := os.Getenv(OperatorImageEnvName)
 	imageRegEx := regexp.MustCompile(`^(.*)/virt-operator(:.*)?$`)
 	matches := imageRegEx.FindAllStringSubmatch(imageString, 1)
 	registry := matches[0][1]
-	tag := strings.TrimPrefix(matches[0][2], ":")
 	if tag == "" {
-		tag = "latest"
+		tag = strings.TrimPrefix(matches[0][2], ":")
+		if tag == "" {
+			tag = "latest"
+		}
 	}
 	return KubeVirtDeploymentConfig{
 		ImageRegistry: registry,
