@@ -23,6 +23,8 @@ import (
 	"os"
 	"regexp"
 	"strings"
+
+	v1 "kubevirt.io/kubevirt/pkg/api/v1"
 )
 
 const (
@@ -48,4 +50,45 @@ func GetConfig() KubeVirtDeploymentConfig {
 		ImageRegistry: registry,
 		ImageTag:      tag,
 	}
+}
+
+func getConfigFromStatus(version string, registry string) *KubeVirtDeploymentConfig {
+	return &KubeVirtDeploymentConfig{
+		ImageRegistry: registry,
+		ImageTag:      version,
+	}
+}
+
+func GetTargetConfigFromStatus(status *v1.KubeVirtStatus) *KubeVirtDeploymentConfig {
+	return getConfigFromStatus(status.TargetKubeVirtVersion, status.TargetKubeVirtRegistry)
+}
+
+func GetObservedConfigFromStatus(status *v1.KubeVirtStatus) *KubeVirtDeploymentConfig {
+	return getConfigFromStatus(status.ObservedKubeVirtVersion, status.ObservedKubeVirtRegistry)
+}
+
+func GetConfigFromSpec(spec *v1.KubeVirtSpec, fallback *KubeVirtDeploymentConfig) *KubeVirtDeploymentConfig {
+	registry := spec.ImageRegistry
+	if registry == "" {
+		registry = fallback.ImageRegistry
+	}
+
+	tag := spec.ImageTag
+	if tag == "" {
+		tag = fallback.ImageTag
+	}
+	return &KubeVirtDeploymentConfig{
+		ImageRegistry: registry,
+		ImageTag:      tag,
+	}
+}
+
+func SyncTargetStatus(status *v1.KubeVirtStatus, config *KubeVirtDeploymentConfig) {
+	status.TargetKubeVirtVersion = config.ImageTag
+	status.TargetKubeVirtRegistry = config.ImageRegistry
+}
+
+func SyncObservedStatus(status *v1.KubeVirtStatus, config *KubeVirtDeploymentConfig) {
+	status.ObservedKubeVirtVersion = config.ImageTag
+	status.ObservedKubeVirtRegistry = config.ImageRegistry
 }

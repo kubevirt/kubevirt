@@ -42,7 +42,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-operator/util"
 )
 
-func objectMatchesVersion(objectMeta *metav1.ObjectMeta, imageTag string, imageRegistry string) bool {
+func objectMatchesVersion(objectMeta *metav1.ObjectMeta, conf *util.KubeVirtDeploymentConfig) bool {
 
 	if objectMeta.Annotations == nil {
 		return false
@@ -51,7 +51,7 @@ func objectMatchesVersion(objectMeta *metav1.ObjectMeta, imageTag string, imageR
 	foundImageTag := objectMeta.Annotations[v1.InstallStrategyVersionAnnotation]
 	foundImageRegistry := objectMeta.Annotations[v1.InstallStrategyRegistryAnnotation]
 
-	if foundImageTag == imageTag && foundImageRegistry == imageRegistry {
+	if foundImageTag == conf.ImageTag && foundImageRegistry == conf.ImageRegistry {
 		return true
 	}
 
@@ -84,7 +84,7 @@ func controllerDeployments(strategy *InstallStrategy) []*appsv1.Deployment {
 	return deployments
 }
 
-func injectOperatorLabelAndAnnotations(objectMeta *metav1.ObjectMeta, imageTag string, imageRegistry string) {
+func injectOperatorLabelAndAnnotations(objectMeta *metav1.ObjectMeta, conf *util.KubeVirtDeploymentConfig) {
 	if objectMeta.Labels == nil {
 		objectMeta.Labels = make(map[string]string)
 	}
@@ -93,8 +93,8 @@ func injectOperatorLabelAndAnnotations(objectMeta *metav1.ObjectMeta, imageTag s
 	if objectMeta.Annotations == nil {
 		objectMeta.Annotations = make(map[string]string)
 	}
-	objectMeta.Annotations[v1.InstallStrategyVersionAnnotation] = imageTag
-	objectMeta.Annotations[v1.InstallStrategyRegistryAnnotation] = imageRegistry
+	objectMeta.Annotations[v1.InstallStrategyVersionAnnotation] = conf.ImageTag
+	objectMeta.Annotations[v1.InstallStrategyRegistryAnnotation] = conf.ImageRegistry
 }
 
 func generatePatchBytes(ops []string) []byte {
@@ -129,16 +129,15 @@ func syncDaemonSet(kv *v1.KubeVirt,
 	daemonSet *appsv1.DaemonSet,
 	stores util.Stores,
 	clientset kubecli.KubevirtClient,
+	conf *util.KubeVirtDeploymentConfig,
 	expectations *util.Expectations) error {
 
 	daemonSet = daemonSet.DeepCopy()
 
 	apps := clientset.AppsV1()
-	imageTag := kv.Status.TargetKubeVirtVersion
-	imageRegistry := kv.Status.TargetKubeVirtRegistry
 
-	injectOperatorLabelAndAnnotations(&daemonSet.ObjectMeta, imageTag, imageRegistry)
-	injectOperatorLabelAndAnnotations(&daemonSet.Spec.Template.ObjectMeta, imageTag, imageRegistry)
+	injectOperatorLabelAndAnnotations(&daemonSet.ObjectMeta, conf)
+	injectOperatorLabelAndAnnotations(&daemonSet.Spec.Template.ObjectMeta, conf)
 
 	kvkey, err := controller.KeyFunc(kv)
 	if err != nil {
@@ -157,7 +156,7 @@ func syncDaemonSet(kv *v1.KubeVirt,
 			expectations.DaemonSet.LowerExpectations(kvkey, 1, 0)
 			return fmt.Errorf("unable to create daemonset %+v: %v", daemonSet, err)
 		}
-	} else if !objectMatchesVersion(&cachedDaemonSet.ObjectMeta, imageTag, imageRegistry) {
+	} else if !objectMatchesVersion(&cachedDaemonSet.ObjectMeta, conf) {
 		// Patch if old version
 		var ops []string
 
@@ -191,16 +190,15 @@ func syncDeployment(kv *v1.KubeVirt,
 	deployment *appsv1.Deployment,
 	stores util.Stores,
 	clientset kubecli.KubevirtClient,
+	conf *util.KubeVirtDeploymentConfig,
 	expectations *util.Expectations) error {
 
 	deployment = deployment.DeepCopy()
 
 	apps := clientset.AppsV1()
-	imageTag := kv.Status.TargetKubeVirtVersion
-	imageRegistry := kv.Status.TargetKubeVirtRegistry
 
-	injectOperatorLabelAndAnnotations(&deployment.ObjectMeta, imageTag, imageRegistry)
-	injectOperatorLabelAndAnnotations(&deployment.Spec.Template.ObjectMeta, imageTag, imageRegistry)
+	injectOperatorLabelAndAnnotations(&deployment.ObjectMeta, conf)
+	injectOperatorLabelAndAnnotations(&deployment.Spec.Template.ObjectMeta, conf)
 
 	kvkey, err := controller.KeyFunc(kv)
 	if err != nil {
@@ -221,7 +219,7 @@ func syncDeployment(kv *v1.KubeVirt,
 			expectations.Deployment.LowerExpectations(kvkey, 1, 0)
 			return fmt.Errorf("unable to create deployment %+v: %v", deployment, err)
 		}
-	} else if !objectMatchesVersion(&cachedDeployment.ObjectMeta, imageTag, imageRegistry) {
+	} else if !objectMatchesVersion(&cachedDeployment.ObjectMeta, conf) {
 		// Patch if old version
 		var ops []string
 
@@ -286,6 +284,7 @@ func SyncAll(kv *v1.KubeVirt,
 	targetStrategy *InstallStrategy,
 	stores util.Stores,
 	clientset kubecli.KubevirtClient,
+	conf *util.KubeVirtDeploymentConfig,
 	expectations *util.Expectations) (bool, error) {
 
 	kvkey, err := controller.KeyFunc(kv)
@@ -303,9 +302,6 @@ func SyncAll(kv *v1.KubeVirt,
 	rbac := clientset.RbacV1()
 	scc := clientset.SecClient()
 
-	imageTag := kv.Status.TargetKubeVirtVersion
-	imageRegistry := kv.Status.TargetKubeVirtRegistry
-
 	takeUpdatePath := shouldTakeUpdatePath(kv.Status.TargetKubeVirtVersion, kv.Status.ObservedKubeVirtVersion)
 
 	// -------- CREATE AND ROLE OUT UPDATED OBJECTS --------
@@ -320,7 +316,7 @@ func SyncAll(kv *v1.KubeVirt,
 			cachedCrd = obj.(*extv1beta1.CustomResourceDefinition)
 		}
 
-		injectOperatorLabelAndAnnotations(&crd.ObjectMeta, imageTag, imageRegistry)
+		injectOperatorLabelAndAnnotations(&crd.ObjectMeta, conf)
 		if !exists {
 			// Create non existent
 			expectations.Crd.RaiseExpectations(kvkey, 1, 0)
@@ -331,7 +327,7 @@ func SyncAll(kv *v1.KubeVirt,
 			}
 			log.Log.V(2).Infof("crd %v created", crd.GetName())
 
-		} else if !objectMatchesVersion(&cachedCrd.ObjectMeta, imageTag, imageRegistry) {
+		} else if !objectMatchesVersion(&cachedCrd.ObjectMeta, conf) {
 			// Patch if old version
 			var ops []string
 
@@ -376,7 +372,7 @@ func SyncAll(kv *v1.KubeVirt,
 			cachedSa = obj.(*corev1.ServiceAccount)
 		}
 
-		injectOperatorLabelAndAnnotations(&sa.ObjectMeta, imageTag, imageRegistry)
+		injectOperatorLabelAndAnnotations(&sa.ObjectMeta, conf)
 		if !exists {
 			// Create non existent
 			expectations.ServiceAccount.RaiseExpectations(kvkey, 1, 0)
@@ -386,7 +382,7 @@ func SyncAll(kv *v1.KubeVirt,
 				return false, fmt.Errorf("unable to create serviceaccount %+v: %v", sa, err)
 			}
 			log.Log.V(2).Infof("serviceaccount %v created", sa.GetName())
-		} else if !objectMatchesVersion(&cachedSa.ObjectMeta, imageTag, imageRegistry) {
+		} else if !objectMatchesVersion(&cachedSa.ObjectMeta, conf) {
 			// Patch if old version
 			var ops []string
 
@@ -420,7 +416,7 @@ func SyncAll(kv *v1.KubeVirt,
 			cachedCr = obj.(*rbacv1.ClusterRole)
 		}
 
-		injectOperatorLabelAndAnnotations(&cr.ObjectMeta, imageTag, imageRegistry)
+		injectOperatorLabelAndAnnotations(&cr.ObjectMeta, conf)
 		if !exists {
 			// Create non existent
 			expectations.ClusterRole.RaiseExpectations(kvkey, 1, 0)
@@ -430,7 +426,7 @@ func SyncAll(kv *v1.KubeVirt,
 				return false, fmt.Errorf("unable to create clusterrole %+v: %v", cr, err)
 			}
 			log.Log.V(2).Infof("clusterrole %v created", cr.GetName())
-		} else if !objectMatchesVersion(&cachedCr.ObjectMeta, imageTag, imageRegistry) {
+		} else if !objectMatchesVersion(&cachedCr.ObjectMeta, conf) {
 			// Update existing, we don't need to patch for rbac rules.
 			_, err = rbac.ClusterRoles().Update(cr)
 			if err != nil {
@@ -454,7 +450,7 @@ func SyncAll(kv *v1.KubeVirt,
 			cachedCrb = obj.(*rbacv1.ClusterRoleBinding)
 		}
 
-		injectOperatorLabelAndAnnotations(&crb.ObjectMeta, imageTag, imageRegistry)
+		injectOperatorLabelAndAnnotations(&crb.ObjectMeta, conf)
 		if !exists {
 			// Create non existent
 			expectations.ClusterRoleBinding.RaiseExpectations(kvkey, 1, 0)
@@ -464,7 +460,7 @@ func SyncAll(kv *v1.KubeVirt,
 				return false, fmt.Errorf("unable to create clusterrolebinding %+v: %v", crb, err)
 			}
 			log.Log.V(2).Infof("clusterrolebinding %v created", crb.GetName())
-		} else if !objectMatchesVersion(&cachedCrb.ObjectMeta, imageTag, imageRegistry) {
+		} else if !objectMatchesVersion(&cachedCrb.ObjectMeta, conf) {
 			// Update existing, we don't need to patch for rbac rules.
 			_, err = rbac.ClusterRoleBindings().Update(crb)
 			if err != nil {
@@ -487,7 +483,7 @@ func SyncAll(kv *v1.KubeVirt,
 			cachedR = obj.(*rbacv1.Role)
 		}
 
-		injectOperatorLabelAndAnnotations(&r.ObjectMeta, imageTag, imageRegistry)
+		injectOperatorLabelAndAnnotations(&r.ObjectMeta, conf)
 		if !exists {
 			// Create non existent
 			expectations.Role.RaiseExpectations(kvkey, 1, 0)
@@ -497,7 +493,7 @@ func SyncAll(kv *v1.KubeVirt,
 				return false, fmt.Errorf("unable to create role %+v: %v", r, err)
 			}
 			log.Log.V(2).Infof("role %v created", r.GetName())
-		} else if !objectMatchesVersion(&cachedR.ObjectMeta, imageTag, imageRegistry) {
+		} else if !objectMatchesVersion(&cachedR.ObjectMeta, conf) {
 			// Update existing, we don't need to patch for rbac rules.
 			_, err = rbac.Roles(kv.Namespace).Update(r)
 			if err != nil {
@@ -521,7 +517,7 @@ func SyncAll(kv *v1.KubeVirt,
 			cachedRb = obj.(*rbacv1.RoleBinding)
 		}
 
-		injectOperatorLabelAndAnnotations(&rb.ObjectMeta, imageTag, imageRegistry)
+		injectOperatorLabelAndAnnotations(&rb.ObjectMeta, conf)
 		if !exists {
 			// Create non existent
 			expectations.RoleBinding.RaiseExpectations(kvkey, 1, 0)
@@ -531,7 +527,7 @@ func SyncAll(kv *v1.KubeVirt,
 				return false, fmt.Errorf("unable to create rolebinding %+v: %v", rb, err)
 			}
 			log.Log.V(2).Infof("rolebinding %v created", rb.GetName())
-		} else if !objectMatchesVersion(&cachedRb.ObjectMeta, imageTag, imageRegistry) {
+		} else if !objectMatchesVersion(&cachedRb.ObjectMeta, conf) {
 			// Update existing, we don't need to patch for rbac rules.
 			_, err = rbac.RoleBindings(kv.Namespace).Update(rb)
 			if err != nil {
@@ -554,7 +550,7 @@ func SyncAll(kv *v1.KubeVirt,
 			cachedService = obj.(*corev1.Service)
 		}
 
-		injectOperatorLabelAndAnnotations(&service.ObjectMeta, imageTag, imageRegistry)
+		injectOperatorLabelAndAnnotations(&service.ObjectMeta, conf)
 		if !exists {
 			expectations.Service.RaiseExpectations(kvkey, 1, 0)
 			_, err := core.Services(kv.Namespace).Create(service)
@@ -562,7 +558,7 @@ func SyncAll(kv *v1.KubeVirt,
 				expectations.Service.LowerExpectations(kvkey, 1, 0)
 				return false, fmt.Errorf("unable to create service %+v: %v", service, err)
 			}
-		} else if !objectMatchesVersion(&cachedService.ObjectMeta, imageTag, imageRegistry) {
+		} else if !objectMatchesVersion(&cachedService.ObjectMeta, conf) {
 			if !reflect.DeepEqual(cachedService.Spec, service.Spec) {
 
 				// The spec of a service is immutable. If the specs
@@ -682,7 +678,7 @@ func SyncAll(kv *v1.KubeVirt,
 
 		// create/update Daemonsets
 		for _, daemonSet := range targetStrategy.daemonSets {
-			err := syncDaemonSet(kv, daemonSet, stores, clientset, expectations)
+			err := syncDaemonSet(kv, daemonSet, stores, clientset, conf, expectations)
 			if err != nil {
 				return false, err
 			}
@@ -690,7 +686,7 @@ func SyncAll(kv *v1.KubeVirt,
 
 		// create/update Controller Deployments
 		for _, deployment := range controllerDeployments(targetStrategy) {
-			err := syncDeployment(kv, deployment, stores, clientset, expectations)
+			err := syncDeployment(kv, deployment, stores, clientset, conf, expectations)
 			if err != nil {
 				return false, err
 			}
@@ -717,7 +713,7 @@ func SyncAll(kv *v1.KubeVirt,
 		// create/update API Deployments
 		for _, deployment := range apiDeployments(targetStrategy) {
 			deployment := deployment.DeepCopy()
-			err := syncDeployment(kv, deployment, stores, clientset, expectations)
+			err := syncDeployment(kv, deployment, stores, clientset, conf, expectations)
 			if err != nil {
 				return false, err
 			}
@@ -731,7 +727,7 @@ func SyncAll(kv *v1.KubeVirt,
 		// create/update API Deployments
 		for _, deployment := range apiDeployments(targetStrategy) {
 			deployment := deployment.DeepCopy()
-			err := syncDeployment(kv, deployment, stores, clientset, expectations)
+			err := syncDeployment(kv, deployment, stores, clientset, conf, expectations)
 			if err != nil {
 				return false, err
 			}
@@ -748,7 +744,7 @@ func SyncAll(kv *v1.KubeVirt,
 
 		// create/update Controller Deployments
 		for _, deployment := range controllerDeployments(targetStrategy) {
-			err := syncDeployment(kv, deployment, stores, clientset, expectations)
+			err := syncDeployment(kv, deployment, stores, clientset, conf, expectations)
 			if err != nil {
 				return false, err
 			}
@@ -756,7 +752,7 @@ func SyncAll(kv *v1.KubeVirt,
 		}
 		// create/update Daemonsets
 		for _, daemonSet := range targetStrategy.daemonSets {
-			err := syncDaemonSet(kv, daemonSet, stores, clientset, expectations)
+			err := syncDaemonSet(kv, daemonSet, stores, clientset, conf, expectations)
 			if err != nil {
 				return false, err
 			}

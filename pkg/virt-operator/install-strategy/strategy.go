@@ -77,12 +77,11 @@ type InstallStrategy struct {
 	customSCCPrivileges []*customSCCPrivilegedAccounts
 }
 
-func NewInstallStrategyConfigMap(namespace string, imageTag string, imageRegistry string) (*corev1.ConfigMap, error) {
+func NewInstallStrategyConfigMap(namespace string, conf *util.KubeVirtDeploymentConfig) (*corev1.ConfigMap, error) {
 
 	strategy, err := GenerateCurrentInstallStrategy(
 		namespace,
-		imageTag,
-		imageRegistry,
+		conf,
 		corev1.PullIfNotPresent,
 		"2")
 	if err != nil {
@@ -98,8 +97,8 @@ func NewInstallStrategyConfigMap(namespace string, imageTag string, imageRegistr
 				v1.InstallStrategyLabel: "",
 			},
 			Annotations: map[string]string{
-				v1.InstallStrategyVersionAnnotation:  imageTag,
-				v1.InstallStrategyRegistryAnnotation: imageRegistry,
+				v1.InstallStrategyVersionAnnotation:  conf.ImageTag,
+				v1.InstallStrategyRegistryAnnotation: conf.ImageRegistry,
 			},
 		},
 		Data: map[string]string{
@@ -112,15 +111,13 @@ func NewInstallStrategyConfigMap(namespace string, imageTag string, imageRegistr
 func DumpInstallStrategyToConfigMap(clientset kubecli.KubevirtClient) error {
 
 	conf := util.GetConfig()
-	imageTag := conf.ImageTag
-	imageRegistry := conf.ImageRegistry
 
 	namespace, err := kvutil.GetNamespace()
 	if err != nil {
 		return err
 	}
 
-	configMap, err := NewInstallStrategyConfigMap(namespace, imageTag, imageRegistry)
+	configMap, err := NewInstallStrategyConfigMap(namespace, &conf)
 	if err != nil {
 		return err
 	}
@@ -182,8 +179,7 @@ func dumpInstallStrategyToBytes(strategy *InstallStrategy) []byte {
 }
 
 func GenerateCurrentInstallStrategy(namespace string,
-	version string,
-	repository string,
+	conf *util.KubeVirtDeploymentConfig,
 	imagePullPolicy corev1.PullPolicy,
 	verbosity string) (*InstallStrategy, error) {
 
@@ -230,19 +226,19 @@ func GenerateCurrentInstallStrategy(namespace string,
 	strategy.services = append(strategy.services, components.NewPrometheusService(namespace))
 
 	strategy.services = append(strategy.services, components.NewApiServerService(namespace))
-	apiDeployment, err := components.NewApiServerDeployment(namespace, repository, version, imagePullPolicy, verbosity)
+	apiDeployment, err := components.NewApiServerDeployment(namespace, conf.ImageRegistry, conf.ImageTag, imagePullPolicy, verbosity)
 	if err != nil {
 		return nil, fmt.Errorf("error generating virt-apiserver deployment %v", err)
 	}
 	strategy.deployments = append(strategy.deployments, apiDeployment)
 
-	controller, err := components.NewControllerDeployment(namespace, repository, version, imagePullPolicy, verbosity)
+	controller, err := components.NewControllerDeployment(namespace, conf.ImageRegistry, conf.ImageTag, imagePullPolicy, verbosity)
 	if err != nil {
 		return nil, fmt.Errorf("error generating virt-controller deployment %v", err)
 	}
 	strategy.deployments = append(strategy.deployments, controller)
 
-	handler, err := components.NewHandlerDaemonSet(namespace, repository, version, imagePullPolicy, verbosity)
+	handler, err := components.NewHandlerDaemonSet(namespace, conf.ImageRegistry, conf.ImageTag, imagePullPolicy, verbosity)
 	if err != nil {
 		return nil, fmt.Errorf("error generating virt-handler deployment %v", err)
 	}
@@ -281,7 +277,7 @@ func mostRecentConfigMap(configMaps []*corev1.ConfigMap) *corev1.ConfigMap {
 	return configMap
 }
 
-func LoadInstallStrategyFromCache(stores util.Stores, namespace string, imageTag string, imageRegistry string) (*InstallStrategy, error) {
+func LoadInstallStrategyFromCache(stores util.Stores, namespace string, conf *util.KubeVirtDeploymentConfig) (*InstallStrategy, error) {
 	var configMap *corev1.ConfigMap
 	var matchingConfigMaps []*corev1.ConfigMap
 
@@ -296,13 +292,13 @@ func LoadInstallStrategyFromCache(stores util.Stores, namespace string, imageTag
 
 		version, _ := config.ObjectMeta.Annotations[v1.InstallStrategyVersionAnnotation]
 		registry, _ := config.ObjectMeta.Annotations[v1.InstallStrategyRegistryAnnotation]
-		if version == imageTag && registry == imageRegistry {
+		if version == conf.ImageTag && registry == conf.ImageRegistry {
 			matchingConfigMaps = append(matchingConfigMaps, config)
 		}
 	}
 
 	if len(matchingConfigMaps) == 0 {
-		return nil, fmt.Errorf("no install strategy configmap found for version %s with registry %s", imageTag, imageRegistry)
+		return nil, fmt.Errorf("no install strategy configmap found for version %s with registry %s", conf.ImageTag, conf.ImageRegistry)
 	}
 
 	// choose the most recent configmap if multiple match.
