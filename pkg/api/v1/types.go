@@ -1109,8 +1109,33 @@ type KubeVirtSpec struct {
 	// Defaults to the same registry the operator's container image is pulled from.
 	ImageRegistry string `json:"imageRegistry,omitempty"`
 
+	// Individual component images, overriding the ones specified
+	// by the ImageTag and ImageRegistry fields.
+	Images KubeVirtImages `json:"images,omitempty"`
+
 	// The ImagePullPolicy to use.
 	ImagePullPolicy k8sv1.PullPolicy `json:"imagePullPolicy,omitempty" valid:"required"`
+}
+
+// KubeVirtImages represents information about the images of KubeVirt components
+// ---
+// +k8s:openapi-gen=true
+type KubeVirtImages struct {
+	// The image for virt-operator, overriding the one specified by the
+	// ImageTag and ImageRegistry fields.
+	OperatorImage string `json:"operatorImage,omitempty"`
+	// The image for virt-api, overriding the one specified by the
+	// ImageTag and ImageRegistry fields.
+	APIImage string `json:"apiImage,omitempty"`
+	// The image for virt-controller, overriding the one specified by the
+	// ImageTag and ImageRegistry fields.
+	ControllerImage string `json:"controllerImage,omitempty"`
+	// The image for virt-launcher, overriding the one specified by the
+	// ImageTag and ImageRegistry fields.
+	LauncherImage string `json:"launcherImage,omitempty"`
+	// The image for virt-handler, overriding the one specified by the
+	// ImageTag and ImageRegistry fields.
+	HandlerImage string `json:"handlerImage,omitempty"`
 }
 
 // KubeVirtStatus represents information pertaining to a KubeVirt deployment.
@@ -1122,8 +1147,10 @@ type KubeVirtStatus struct {
 	OperatorVersion          string              `json:"operatorVersion,omitempty" optional:"true"`
 	TargetKubeVirtVersion    string              `json:"targetKubeVirtVersion,omitempty" optional:"true"`
 	TargetKubeVirtRegistry   string              `json:"targetKubeVirtRegistry,omitempty" optional:"true"`
+	TargetKubeVirtImages     KubeVirtImages      `json:"targetKubeVirtImages,omitempty" optional:"true"`
 	ObservedKubeVirtVersion  string              `json:"observedKubeVirtVersion,omitempty" optional:"true"`
 	ObservedKubeVirtRegistry string              `json:"observedKubeVirtRegistry,omitempty" optional:"true"`
+	ObservedKubeVirtImages   KubeVirtImages      `json:"observedKubeVirtImages,omitempty" optional:"true"`
 }
 
 // KubeVirtPhase is a label for the phase of a KubeVirt deployment at the current time.
