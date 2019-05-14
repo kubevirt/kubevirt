@@ -23,8 +23,8 @@ import (
 	"time"
 
 	v12 "k8s.io/api/core/v1"
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/record"
@@ -38,8 +38,8 @@ import (
 
 const (
 	VirtualMachineRestoredSnapshotReason = "VirtualMachineRestored"
-	VirtualMachineNoSnapshotReason = "VirtualMachineHasNoSnapshot"
-	VirtualMachineNoVMSnapshotReason = "VirtualMachineHasNoVM"
+	VirtualMachineNoSnapshotReason       = "VirtualMachineHasNoSnapshot"
+	VirtualMachineNoVMSnapshotReason     = "VirtualMachineHasNoVM"
 )
 
 func NewVMRestoreController(
@@ -141,7 +141,7 @@ func (c *VMRestoreController) execute(key string) error {
 	obj, exists, err = c.vmInformer.GetStore().GetByKey(vmr.Namespace + "/" + vmr.Name)
 	var vm *virtv1.VirtualMachine
 	if !exists || err != nil {
-		logger.Reason(err).Errorf("Failed to fetch VirtualMachine %s", vmr.Namespace + "/" + vmr.Name)
+		logger.Reason(err).Errorf("Failed to fetch VirtualMachine %s", vmr.Namespace+"/"+vmr.Name)
 
 	} else {
 		vm = obj.(*virtv1.VirtualMachine)
@@ -151,9 +151,9 @@ func (c *VMRestoreController) execute(key string) error {
 	// get relevant VMSs from the cache
 	obj, exists, err = c.vmsInformer.GetStore().GetByKey(vmr.Namespace + "/" + vmr.Spec.VirtualMachineSnapshot)
 	var vms *virtv1.VirtualMachineSnapshot
-	if !exists || err != nil{
+	if !exists || err != nil {
 		// nothing we need to do. It should always be possible to re-create this type of controller
-		logger.Reason(err).Errorf("Failed to fetch VirtualMachineSnapshot %s", vmr.Namespace + "/" + vmr.Spec.VirtualMachineSnapshot)
+		logger.Reason(err).Errorf("Failed to fetch VirtualMachineSnapshot %s", vmr.Namespace+"/"+vmr.Spec.VirtualMachineSnapshot)
 	} else {
 		vms = obj.(*virtv1.VirtualMachineSnapshot)
 		logger.Infof("found VMS: %s", vms.Name)

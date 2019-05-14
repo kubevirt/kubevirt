@@ -57,7 +57,6 @@ var _ = Describe("VirtualMachineRestore", func() {
 		vmsInformer, vmsSource = testutils.NewFakeInformerFor(&v1.VirtualMachineSnapshot{})
 		vmrInformer, vmrSource = testutils.NewFakeInformerFor(&v1.VirtualMachineRestore{})
 
-
 		recorder = record.NewFakeRecorder(100)
 
 		controller = NewVMRestoreController(vmInformer, vmsInformer, vmrInformer, recorder, virtClient)
@@ -80,7 +79,7 @@ var _ = Describe("VirtualMachineRestore", func() {
 
 	Context("Valid VirtualMachineSnapshot given", func() {
 
-	 	It("should restore the VirtualMachine spec", func() {
+		It("should restore the VirtualMachine spec", func() {
 			vms, vm := DefaultVMSnapshot()
 			vmr := DefaultVMRestore(vms)
 
@@ -118,7 +117,6 @@ var _ = Describe("VirtualMachineRestore", func() {
 				Expect(len(obj.Status.Conditions)).To(Equal(1))
 				Expect(obj.Status.Conditions[0].Reason).To(Equal(VirtualMachineRunningSnapshotReason))
 			})
-
 
 			controller.Execute()
 		})
@@ -224,7 +222,6 @@ var _ = Describe("VirtualMachineRestore", func() {
 				Expect(obj.Status.RestoredOn).ToNot(BeNil())
 				oldTime = *obj.Status.RestoredOn
 			})
-
 
 			controller.Execute()
 

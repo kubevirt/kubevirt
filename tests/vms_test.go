@@ -65,7 +65,7 @@ var _ = FDescribe("VirtualMachineSnapshot", func() {
 
 	newRestore := func(vm *v1.VirtualMachine, vms *v1.VirtualMachineSnapshot) *v1.VirtualMachineRestore {
 		By("Create a new VirtualMachineRestore")
-		if vm == nil || vms == nil{
+		if vm == nil || vms == nil {
 			return nil
 		}
 

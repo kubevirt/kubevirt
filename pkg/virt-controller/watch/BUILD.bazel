@@ -64,6 +64,7 @@ go_test(
         "replicaset_test.go",
         "vm_test.go",
         "vmi_test.go",
+        "vmr_test.go",
         "vms_test.go",
         "watch_suite_test.go",
     ],
