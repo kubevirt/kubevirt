@@ -363,7 +363,7 @@ var _ = Describe("Storage", func() {
 						Eventually(getStatus, 30, 1).Should(Equal(k8sv1.PodSucceeded))
 					})
 
-					It("[test_id:847]Should use existing disk image and start", func() {
+					It("[test_id:2306]Should use existing disk image and start", func() {
 						By("Starting VirtualMachineInstance")
 						vmi := tests.NewRandomVMIWithHostDisk(diskPath, v1.HostDiskExists, nodeName)
 						tests.RunVMIAndExpectLaunch(vmi, 30)
@@ -382,6 +382,19 @@ var _ = Describe("Storage", func() {
 						Expect(err).ToNot(HaveOccurred())
 
 						tests.WaitForVirtualMachineToDisappearWithTimeout(vmi, 120)
+					})
+
+					It("[test_id:847]Should fail with a capacity option", func() {
+						By("Starting VirtualMachineInstance")
+						vmi := tests.NewRandomVMIWithHostDisk(diskPath, v1.HostDiskExists, nodeName)
+						for i, volume := range vmi.Spec.Volumes {
+							if volume.HostDisk != nil {
+								vmi.Spec.Volumes[i].HostDisk.Capacity = resource.MustParse("1Gi")
+								break
+							}
+						}
+						_, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
+						Expect(err).To(HaveOccurred())
 					})
 
 					AfterEach(func() {
@@ -431,6 +444,7 @@ var _ = Describe("Storage", func() {
 							vmiPod.Spec.Containers[0].Name,
 							[]string{"find", "/var/run/kubevirt-private/vmi-disks/disk0/", "-name", "disk.img", "-size", "1G"},
 						)
+						By("Checking if a disk image for PVC has been created")
 						Expect(strings.Contains(output, "disk.img")).To(BeTrue())
 					}
 				})
