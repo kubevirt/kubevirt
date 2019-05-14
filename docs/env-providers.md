@@ -26,7 +26,7 @@ Requires:
 Usage:
 
 ```bash
-export KUBEVIRT_PROVIDER=k8s-1.10.11 # choose this provider
+export KUBEVIRT_PROVIDER=k8s-1.13.3 # choose this provider
 export KUBEVIRT_NUM_NODES=3 # master + two nodes
 make cluster-up
 ```
