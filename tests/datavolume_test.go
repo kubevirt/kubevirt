@@ -55,9 +55,6 @@ var _ = Describe("DataVolume Integration", func() {
 
 	})
 
-	AfterEach(func() {
-	})
-
 	runVMIAndExpectLaunch := func(vmi *v1.VirtualMachineInstance, timeout int) *v1.VirtualMachineInstance {
 		By("Checking that the DataVolume has succeeded")
 		tests.WaitForSuccessfulDataVolumeImport(vmi, timeout)
@@ -161,14 +158,6 @@ var _ = Describe("DataVolume Integration", func() {
 			Expect(err).ToNot(HaveOccurred())
 			vmJson, err = tests.GenerateVMJson(vm, workDir)
 			Expect(err).ToNot(HaveOccurred())
-		})
-
-		AfterEach(func() {
-			if workDir != "" {
-				err = os.RemoveAll(workDir)
-				Expect(err).ToNot(HaveOccurred())
-				workDir = ""
-			}
 		})
 
 		deleteIfExistsVM := func(name string, namespace string) {
@@ -307,10 +296,10 @@ var _ = Describe("DataVolume Integration", func() {
 		}
 
 		AfterEach(func() {
-			if vmJson != "" {
-				err = os.Remove(vmJson)
+			if workDir != "" {
+				err = os.RemoveAll(workDir)
 				Expect(err).ToNot(HaveOccurred())
-				vmJson = ""
+				workDir = ""
 			}
 
 			deleteIfExistsVM(vm.Name, vm.Namespace)
