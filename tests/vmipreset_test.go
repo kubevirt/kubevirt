@@ -165,6 +165,9 @@ var _ = Describe("[rfe_id:609][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 			err := virtClient.RestClient().Post().Resource("virtualmachineinstancepresets").Namespace(tests.NamespaceTestDefault).Body(memoryPreset).Do().Error()
 			Expect(err).ToNot(HaveOccurred())
 
+			// Give virt-api's cache time to sync before proceeding
+			time.Sleep(3 * time.Second)
+
 			newPreset, err := getPreset(virtClient, memoryPrefix)
 			Expect(err).ToNot(HaveOccurred())
 
@@ -184,6 +187,9 @@ var _ = Describe("[rfe_id:609][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 		It("[test_id:1601]Should accept presets that don't conflict with VirtualMachineInstance settings", func() {
 			err := virtClient.RestClient().Post().Resource("virtualmachineinstancepresets").Namespace(tests.NamespaceTestDefault).Body(cpuPreset).Do().Error()
 			Expect(err).ToNot(HaveOccurred())
+
+			// Give virt-api's cache time to sync before proceeding
+			time.Sleep(3 * time.Second)
 
 			newPreset, err := getPreset(virtClient, cpuPrefix)
 			Expect(err).ToNot(HaveOccurred())
@@ -209,6 +215,9 @@ var _ = Describe("[rfe_id:609][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 		It("[test_id:1602]Should ignore VMIs that don't match", func() {
 			err := virtClient.RestClient().Post().Resource("virtualmachineinstancepresets").Namespace(tests.NamespaceTestDefault).Body(memoryPreset).Do().Error()
 			Expect(err).ToNot(HaveOccurred())
+
+			// Give virt-api's cache time to sync before proceeding
+			time.Sleep(3 * time.Second)
 
 			newPreset, err := getPreset(virtClient, memoryPrefix)
 			Expect(err).ToNot(HaveOccurred())
@@ -237,6 +246,9 @@ var _ = Describe("[rfe_id:609][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 			err = virtClient.RestClient().Post().Resource("virtualmachineinstancepresets").Namespace(tests.NamespaceTestDefault).Body(memoryPreset).Do().Error()
 			Expect(err).ToNot(HaveOccurred())
 
+			// Give virt-api's cache time to sync before proceeding
+			time.Sleep(3 * time.Second)
+
 			newPreset, err := getPreset(virtClient, memoryPrefix)
 			Expect(err).ToNot(HaveOccurred())
 
@@ -252,6 +264,9 @@ var _ = Describe("[rfe_id:609][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 		It("[test_id:1604]Should not apply presets to VirtualMachineInstance's with the exclusion marking", func() {
 			err := virtClient.RestClient().Post().Resource("virtualmachineinstancepresets").Namespace(tests.NamespaceTestDefault).Body(cpuPreset).Do().Error()
 			Expect(err).ToNot(HaveOccurred())
+
+			// Give virt-api's cache time to sync before proceeding
+			time.Sleep(3 * time.Second)
 
 			newPreset, err := getPreset(virtClient, cpuPrefix)
 			Expect(err).ToNot(HaveOccurred())
@@ -309,6 +324,9 @@ var _ = Describe("[rfe_id:609][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 			getPreset(virtClient, memoryPrefix)
 			Expect(err).ToNot(HaveOccurred())
 
+			// Give virt-api's cache time to sync before proceeding
+			time.Sleep(3 * time.Second)
+
 			vmi.Labels = map[string]string{flavorKey: memoryFlavor, conflictKey: conflictFlavor}
 			By("creating the VirtualMachineInstance")
 			_, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
@@ -345,9 +363,8 @@ var _ = Describe("[rfe_id:609][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 			err := virtClient.RestClient().Post().Resource("virtualmachineinstancepresets").Namespace(tests.NamespaceTestDefault).Body(overridePreset).Do().Error()
 			Expect(err).ToNot(HaveOccurred())
 
-			By("Waiting for preset to be created")
-			getPreset(virtClient, overridePrefix)
-			Expect(err).ToNot(HaveOccurred())
+			// Give virt-api's cache time to sync before proceeding
+			time.Sleep(3 * time.Second)
 
 			By("Creating VMI with 128M")
 			vmi = tests.NewRandomVMIWithEphemeralDisk(tests.ContainerDiskFor(tests.ContainerDiskAlpine))
@@ -460,7 +477,8 @@ var _ = Describe("[rfe_id:609][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 			err := virtClient.RestClient().Post().Resource("virtualmachineinstancepresets").Namespace(tests.NamespaceTestDefault).Body(preset).Do().Error()
 			Expect(err).ToNot(HaveOccurred())
 
-			waitForPreset(virtClient, preset.Name)
+			// Give virt-api's cache time to sync before proceeding
+			time.Sleep(3 * time.Second)
 
 			By("Creating first VirtualMachineInstance")
 			newVmi7, err := virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmiWin7)
