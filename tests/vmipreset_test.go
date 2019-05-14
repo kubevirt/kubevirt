@@ -316,12 +316,8 @@ var _ = Describe("[rfe_id:609][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 		It("[test_id:1605]should denied to start the VMI", func() {
 			err := virtClient.RestClient().Post().Resource("virtualmachineinstancepresets").Namespace(tests.NamespaceTestDefault).Body(conflictPreset).Do().Error()
 			Expect(err).ToNot(HaveOccurred())
-			getPreset(virtClient, conflictPrefix)
-			Expect(err).ToNot(HaveOccurred())
 
 			err = virtClient.RestClient().Post().Resource("virtualmachineinstancepresets").Namespace(tests.NamespaceTestDefault).Body(memoryPreset).Do().Error()
-			Expect(err).ToNot(HaveOccurred())
-			getPreset(virtClient, memoryPrefix)
 			Expect(err).ToNot(HaveOccurred())
 
 			// Give virt-api's cache time to sync before proceeding
