@@ -1208,6 +1208,10 @@ func (_m *MockVirtualMachineInterface) Stop(name string) error {
 	return ret0
 }
 
+func (_mr *_MockVirtualMachineInterfaceRecorder) Stop(arg0 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "Stop", arg0)
+}
+
 // Mock of VirtualMachineSnapshotInterface interface
 type MockVirtualMachineSnapshotInterface struct {
 	ctrl     *gomock.Controller
@@ -1277,10 +1281,6 @@ func (_m *MockVirtualMachineSnapshotInterface) Delete(name string, options *v11.
 	ret := _m.ctrl.Call(_m, "Delete", name, options)
 	ret0, _ := ret[0].(error)
 	return ret0
-}
-
-func (_mr *_MockVirtualMachineInterfaceRecorder) Stop(arg0 interface{}) *gomock.Call {
-	return _mr.mock.ctrl.RecordCall(_mr.mock, "Stop", arg0)
 }
 
 func (_mr *_MockVirtualMachineSnapshotInterfaceRecorder) Delete(arg0, arg1 interface{}) *gomock.Call {

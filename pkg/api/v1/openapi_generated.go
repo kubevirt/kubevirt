@@ -3423,7 +3423,7 @@ func schema_kubevirt_pkg_api_v1_VirtualMachineRestoreSpec(ref common.ReferenceCa
 			SchemaProps: spec.SchemaProps{
 				Description: "VirtualMachineRestoreSpec describes which snapshot should be restored",
 				Properties: map[string]spec.Schema{
-					"virtualMachine": {
+					"virtualMachineSnapshot": {
 						SchemaProps: spec.SchemaProps{
 							Description: "VirtualMachineSnapshot is a targeted snapshot from",
 							Type:        []string{"string"},
@@ -3431,7 +3431,7 @@ func schema_kubevirt_pkg_api_v1_VirtualMachineRestoreSpec(ref common.ReferenceCa
 						},
 					},
 				},
-				Required: []string{"virtualMachine"},
+				Required: []string{"virtualMachineSnapshot"},
 			},
 		},
 		Dependencies: []string{},

@@ -276,8 +276,8 @@ func (VirtualMachineRestoreList) SwaggerDoc() map[string]string {
 
 func (VirtualMachineRestoreSpec) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"":               "VirtualMachineRestoreSpec describes which snapshot should be restored",
-		"virtualMachine": "VirtualMachineSnapshot is a targeted snapshot from",
+		"":                       "VirtualMachineRestoreSpec describes which snapshot should be restored",
+		"virtualMachineSnapshot": "VirtualMachineSnapshot is a targeted snapshot from",
 	}
 }
 
