@@ -107,6 +107,7 @@ type virtAPIApp struct {
 	aggregatorClient *aggregatorclient.Clientset
 	authorizor       rest.VirtApiAuthorizor
 	certsDirectory   string
+	clusterConfig    *virtconfig.ClusterConfig
 
 	signingCertBytes []byte
 	certBytes        []byte
@@ -127,8 +128,6 @@ func NewVirtApi() VirtApi {
 }
 
 func (app *virtAPIApp) Execute() {
-	virtconfig.Init()
-
 	virtCli, err := kubecli.GetKubevirtClient()
 	if err != nil {
 		panic(err)
@@ -742,22 +741,22 @@ func (app *virtAPIApp) createValidatingWebhook() error {
 	}
 
 	http.HandleFunc(vmiCreateValidatePath, func(w http.ResponseWriter, r *http.Request) {
-		validating_webhook.ServeVMICreate(w, r)
+		validating_webhook.ServeVMICreate(w, r, app.clusterConfig)
 	})
 	http.HandleFunc(vmiUpdateValidatePath, func(w http.ResponseWriter, r *http.Request) {
 		validating_webhook.ServeVMIUpdate(w, r)
 	})
 	http.HandleFunc(vmValidatePath, func(w http.ResponseWriter, r *http.Request) {
-		validating_webhook.ServeVMs(w, r)
+		validating_webhook.ServeVMs(w, r, app.clusterConfig)
 	})
 	http.HandleFunc(vmirsValidatePath, func(w http.ResponseWriter, r *http.Request) {
-		validating_webhook.ServeVMIRS(w, r)
+		validating_webhook.ServeVMIRS(w, r, app.clusterConfig)
 	})
 	http.HandleFunc(vmipresetValidatePath, func(w http.ResponseWriter, r *http.Request) {
 		validating_webhook.ServeVMIPreset(w, r)
 	})
 	http.HandleFunc(migrationCreateValidatePath, func(w http.ResponseWriter, r *http.Request) {
-		validating_webhook.ServeMigrationCreate(w, r)
+		validating_webhook.ServeMigrationCreate(w, r, app.clusterConfig)
 	})
 	http.HandleFunc(migrationUpdateValidatePath, func(w http.ResponseWriter, r *http.Request) {
 		validating_webhook.ServeMigrationUpdate(w, r)
@@ -860,7 +859,7 @@ func (app *virtAPIApp) createMutatingWebhook() error {
 	}
 
 	http.HandleFunc(vmiMutatePath, func(w http.ResponseWriter, r *http.Request) {
-		mutating_webhook.ServeVMIs(w, r)
+		mutating_webhook.ServeVMIs(w, r, app.clusterConfig)
 	})
 	http.HandleFunc(migrationMutatePath, func(w http.ResponseWriter, r *http.Request) {
 		mutating_webhook.ServeMigrationCreate(w, r)
@@ -1030,19 +1029,23 @@ func (app *virtAPIApp) Run() {
 
 	// Run informers for webhooks usage
 	webhookInformers := webhooks.GetInformers()
+	kubeInformerFactory := controller.NewKubeInformerFactory(app.virtCli.RestClient(), app.virtCli, app.namespace)
+	configMapInformer := kubeInformerFactory.ConfigMap()
 
 	stopChan := make(chan struct{}, 1)
 	defer close(stopChan)
 	go webhookInformers.VMIInformer.Run(stopChan)
 	go webhookInformers.VMIPresetInformer.Run(stopChan)
 	go webhookInformers.NamespaceLimitsInformer.Run(stopChan)
-	go webhookInformers.ConfigMapInformer.Run(stopChan)
+	go configMapInformer.Run(stopChan)
 
 	cache.WaitForCacheSync(stopChan,
 		webhookInformers.VMIInformer.HasSynced,
 		webhookInformers.VMIPresetInformer.HasSynced,
 		webhookInformers.NamespaceLimitsInformer.HasSynced,
-		webhookInformers.ConfigMapInformer.HasSynced)
+		configMapInformer.HasSynced)
+
+	app.clusterConfig = virtconfig.NewClusterConfig(configMapInformer, app.namespace)
 
 	// Verify/create webhook endpoint.
 	err = app.createWebhook()

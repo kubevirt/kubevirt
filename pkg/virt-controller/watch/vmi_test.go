@@ -66,7 +66,6 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 	var virtClient *kubecli.MockKubevirtClient
 	var kubeClient *fake.Clientset
 	var networkClient *fakenetworkclient.Clientset
-	var configMapInformer cache.SharedIndexInformer
 	var pvcInformer cache.SharedIndexInformer
 
 	var dataVolumeSource *framework.FakeControllerSource
@@ -162,15 +161,14 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 		dataVolumeInformer, dataVolumeSource = testutils.NewFakeInformerFor(&cdiv1.DataVolume{})
 		recorder = record.NewFakeRecorder(100)
 
-		configMapInformer, _ = testutils.NewFakeInformerFor(&k8sv1.ConfigMap{})
+		config, _ := testutils.NewFakeClusterConfig(&k8sv1.ConfigMap{})
 		pvcInformer, _ = testutils.NewFakeInformerFor(&k8sv1.PersistentVolumeClaim{})
 		controller = NewVMIController(
-			services.NewTemplateService("a", "b", "c", "d", configMapInformer.GetStore(), pvcInformer.GetStore(), virtClient),
+			services.NewTemplateService("a", "b", "c", "d", pvcInformer.GetStore(), virtClient, config),
 			vmiInformer,
 			podInformer,
 			recorder,
 			virtClient,
-			configMapInformer,
 			dataVolumeInformer)
 		// Wrap our workqueue to have a way to detect when we are done processing updates
 		mockQueue = testutils.NewMockWorkQueue(controller.Queue)

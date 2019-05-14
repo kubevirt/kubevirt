@@ -40,7 +40,6 @@ import (
 	"kubevirt.io/kubevirt/pkg/kubecli"
 	"kubevirt.io/kubevirt/pkg/log"
 	"kubevirt.io/kubevirt/pkg/precond"
-	"kubevirt.io/kubevirt/pkg/util"
 	"kubevirt.io/kubevirt/pkg/util/hardware"
 	"kubevirt.io/kubevirt/pkg/util/net/dns"
 	"kubevirt.io/kubevirt/pkg/util/types"
@@ -48,10 +47,6 @@ import (
 )
 
 const configMapName = "kubevirt-config"
-const UseEmulationKey = "debug.useEmulation"
-const ImagePullPolicyKey = "dev.imagePullPolicy"
-const LessPVCSpaceTolerationKey = "pvc-tolerate-less-space-up-to-percent"
-const NodeSelectorsKey = "node-selectors"
 const KvmDevice = "devices.kubevirt.io/kvm"
 const TunDevice = "devices.kubevirt.io/tun"
 const VhostNetDevice = "devices.kubevirt.io/vhost-net"
@@ -87,102 +82,18 @@ type templateService struct {
 	virtShareDir               string
 	ephemeralDiskDir           string
 	imagePullSecret            string
-	configMapStore             cache.Store
 	persistentVolumeClaimStore cache.Store
 	virtClient                 kubecli.KubevirtClient
+	clusterConfig              *virtconfig.ClusterConfig
 }
 
 type PvcNotFoundError error
-
-func getConfigMapEntry(store cache.Store, key string) (string, error) {
-
-	namespace, err := util.GetNamespace()
-	if err != nil {
-		return "", err
-	}
-
-	if obj, exists, err := store.GetByKey(namespace + "/" + configMapName); err != nil {
-		return "", err
-	} else if !exists {
-		return "", nil
-	} else {
-		return obj.(*k8sv1.ConfigMap).Data[key], nil
-	}
-}
-
-func IsEmulationAllowed(store cache.Store) (useEmulation bool, err error) {
-	var value string
-	value, err = getConfigMapEntry(store, UseEmulationKey)
-	if strings.ToLower(value) == "true" {
-		useEmulation = true
-	}
-	return
-}
-
-func GetImagePullPolicy(store cache.Store) (policy k8sv1.PullPolicy, err error) {
-	var value string
-	if value, err = getConfigMapEntry(store, ImagePullPolicyKey); err != nil || value == "" {
-		policy = k8sv1.PullIfNotPresent // Default if not specified
-	} else {
-		switch value {
-		case "Always":
-			policy = k8sv1.PullAlways
-		case "Never":
-			policy = k8sv1.PullNever
-		case "IfNotPresent":
-			policy = k8sv1.PullIfNotPresent
-		default:
-			err = fmt.Errorf("Invalid ImagePullPolicy in ConfigMap: %s", value)
-		}
-	}
-	return
-}
-
-func GetlessPVCSpaceToleration(store cache.Store) (toleration int, err error) {
-	var value string
-	if value, err = getConfigMapEntry(store, LessPVCSpaceTolerationKey); err != nil || value == "" {
-		toleration = 10 // Default if not specified
-	} else {
-		toleration, err = strconv.Atoi(value)
-		if err != nil || toleration < 0 || toleration > 100 {
-			err = fmt.Errorf("Invalid lessPVCSpaceToleration in ConfigMap: %s", value)
-			return
-		}
-	}
-	return
-}
-
-func getNodeSelectors(store cache.Store) (nodeSelectors map[string]string, err error) {
-	var value string
-	nodeSelectors = make(map[string]string)
-
-	if value, err = getConfigMapEntry(store, NodeSelectorsKey); err != nil || value == "" {
-		return
-	}
-	for _, s := range strings.Split(strings.TrimSpace(value), "\n") {
-		v := strings.Split(s, "=")
-		if len(v) != 2 {
-			return nil, fmt.Errorf("Invalid node selector: %s", s)
-		}
-		nodeSelectors[v[0]] = v[1]
-	}
-	return
-}
 
 func isSRIOVVmi(vmi *v1.VirtualMachineInstance) bool {
 	for _, iface := range vmi.Spec.Domain.Devices.Interfaces {
 		if iface.SRIOV != nil {
 			return true
 		}
-	}
-	return false
-}
-
-func IsCPUNodeDiscoveryEnabled(store cache.Store) bool {
-	if value, err := getConfigMapEntry(store, virtconfig.FeatureGatesKey); err != nil {
-		return false
-	} else if strings.Contains(value, virtconfig.CPUNodeDiscoveryGate) {
-		return true
 	}
 	return false
 }
@@ -717,10 +628,7 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 		resources.Limits[k8sv1.ResourceMemory] = *resources.Requests.Memory()
 	}
 
-	lessPVCSpaceToleration, err := GetlessPVCSpaceToleration(t.configMapStore)
-	if err != nil {
-		return nil, err
-	}
+	lessPVCSpaceToleration := t.clusterConfig.GetLessPVCSpaceToleration()
 
 	command := []string{"/usr/bin/virt-launcher",
 		"--qemu-timeout", "5m",
@@ -735,15 +643,8 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 		"--less-pvc-space-toleration", strconv.Itoa(lessPVCSpaceToleration),
 	}
 
-	useEmulation, err := IsEmulationAllowed(t.configMapStore)
-	if err != nil {
-		return nil, err
-	}
-
-	imagePullPolicy, err := GetImagePullPolicy(t.configMapStore)
-	if err != nil {
-		return nil, err
-	}
+	useEmulation := t.clusterConfig.IsUseEmulation()
+	imagePullPolicy := t.clusterConfig.GetImagePullPolicy()
 
 	if resources.Limits == nil {
 		resources.Limits = make(k8sv1.ResourceList)
@@ -865,7 +766,7 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 		nodeSelector[k] = v
 
 	}
-	if IsCPUNodeDiscoveryEnabled(t.configMapStore) {
+	if t.clusterConfig.CPUNodeDiscoveryEnabled() {
 		if cpuModelLabel, err := CPUModelLabelFromCPUModel(vmi); err == nil {
 			if vmi.Spec.Domain.CPU.Model != v1.CPUModeHostModel && vmi.Spec.Domain.CPU.Model != v1.CPUModeHostPassthrough {
 				nodeSelector[cpuModelLabel] = "true"
@@ -876,7 +777,7 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 		}
 	}
 
-	if virtconfig.HypervStrictCheckEnabled() {
+	if t.clusterConfig.HypervStrictCheckEnabled() {
 		hvNodeSelectors := getHypervNodeSelectors(vmi)
 		for k, v := range hvNodeSelectors {
 			nodeSelector[k] = v
@@ -884,10 +785,7 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 	}
 
 	nodeSelector[v1.NodeSchedulable] = "true"
-	nodeSelectors, err := getNodeSelectors(t.configMapStore)
-	if err != nil {
-		return nil, err
-	}
+	nodeSelectors := t.clusterConfig.GetNodeSelectors()
 	for k, v := range nodeSelectors {
 		nodeSelector[k] = v
 	}
@@ -1010,7 +908,7 @@ func (t *templateService) RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (
 		pod.Spec.Affinity = vmi.Spec.Affinity.DeepCopy()
 	}
 
-	if IsCPUNodeDiscoveryEnabled(t.configMapStore) {
+	if t.clusterConfig.CPUNodeDiscoveryEnabled() {
 		SetNodeAffinityForForbiddenFeaturePolicy(vmi, &pod)
 	}
 
@@ -1235,9 +1133,9 @@ func NewTemplateService(launcherImage string,
 	virtShareDir string,
 	ephemeralDiskDir string,
 	imagePullSecret string,
-	configMapCache cache.Store,
 	persistentVolumeClaimCache cache.Store,
-	virtClient kubecli.KubevirtClient) TemplateService {
+	virtClient kubecli.KubevirtClient,
+	clusterConfig *virtconfig.ClusterConfig) TemplateService {
 
 	precond.MustNotBeEmpty(launcherImage)
 	svc := templateService{
@@ -1245,9 +1143,9 @@ func NewTemplateService(launcherImage string,
 		virtShareDir:               virtShareDir,
 		ephemeralDiskDir:           ephemeralDiskDir,
 		imagePullSecret:            imagePullSecret,
-		configMapStore:             configMapCache,
 		persistentVolumeClaimStore: persistentVolumeClaimCache,
 		virtClient:                 virtClient,
+		clusterConfig:              clusterConfig,
 	}
 	return &svc
 }

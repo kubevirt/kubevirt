@@ -101,7 +101,6 @@ func NewVMIController(templateService services.TemplateService,
 	podInformer cache.SharedIndexInformer,
 	recorder record.EventRecorder,
 	clientset kubecli.KubevirtClient,
-	configMapInformer cache.SharedIndexInformer,
 	dataVolumeInformer cache.SharedIndexInformer) *VMIController {
 
 	c := &VMIController{
@@ -112,7 +111,6 @@ func NewVMIController(templateService services.TemplateService,
 		recorder:           recorder,
 		clientset:          clientset,
 		podExpectations:    controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectations()),
-		configMapInformer:  configMapInformer,
 		dataVolumeInformer: dataVolumeInformer,
 	}
 
@@ -163,7 +161,6 @@ type VMIController struct {
 	podInformer        cache.SharedIndexInformer
 	recorder           record.EventRecorder
 	podExpectations    *controller.UIDTrackingControllerExpectations
-	configMapInformer  cache.SharedIndexInformer
 	dataVolumeInformer cache.SharedIndexInformer
 }
 
@@ -173,7 +170,7 @@ func (c *VMIController) Run(threadiness int, stopCh <-chan struct{}) {
 	log.Log.Info("Starting vmi controller.")
 
 	// Wait for cache sync before we start the pod controller
-	cache.WaitForCacheSync(stopCh, c.vmiInformer.HasSynced, c.podInformer.HasSynced, c.configMapInformer.HasSynced, c.dataVolumeInformer.HasSynced)
+	cache.WaitForCacheSync(stopCh, c.vmiInformer.HasSynced, c.podInformer.HasSynced, c.dataVolumeInformer.HasSynced)
 
 	// Start the actual work
 	for i := 0; i < threadiness; i++ {

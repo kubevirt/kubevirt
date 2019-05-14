@@ -89,8 +89,7 @@ type VirtControllerApp struct {
 	vmiInformer   cache.SharedIndexInformer
 	vmiRecorder   record.EventRecorder
 
-	configMapCache    cache.Store
-	configMapInformer cache.SharedIndexInformer
+	clusterConfig *virtconfig.ClusterConfig
 
 	persistentVolumeClaimCache    cache.Store
 	persistentVolumeClaimInformer cache.SharedIndexInformer
@@ -128,8 +127,6 @@ func Execute() {
 
 	service.Setup(&app)
 
-	virtconfig.Init()
-
 	app.readyChan = make(chan bool, 1)
 
 	log.InitializeLogging("virt-controller")
@@ -153,6 +150,11 @@ func Execute() {
 	}
 	app.informerFactory = controller.NewKubeInformerFactory(app.restClient, app.clientSet, app.kubevirtNamespace)
 
+	configMapInformer := app.informerFactory.ConfigMap()
+	stopChan := make(chan struct{}, 1)
+	defer close(stopChan)
+	app.informerFactory.Start(stopChan)
+
 	app.vmiInformer = app.informerFactory.VMI()
 	app.podInformer = app.informerFactory.KubeVirtPod()
 	app.nodeInformer = app.informerFactory.KubeVirtNode()
@@ -161,9 +163,6 @@ func Execute() {
 	app.vmiRecorder = app.getNewRecorder(k8sv1.NamespaceAll, "virtualmachine-controller")
 
 	app.rsInformer = app.informerFactory.VMIReplicaSet()
-
-	app.configMapInformer = app.informerFactory.ConfigMap()
-	app.configMapCache = app.configMapInformer.GetStore()
 
 	app.persistentVolumeClaimInformer = app.informerFactory.PersistentVolumeClaim()
 	app.persistentVolumeClaimCache = app.persistentVolumeClaimInformer.GetStore()
@@ -174,7 +173,10 @@ func Execute() {
 
 	app.migrationInformer = app.informerFactory.VirtualMachineInstanceMigration()
 
-	if virtconfig.DataVolumesEnabled() {
+	cache.WaitForCacheSync(stopChan, configMapInformer.HasSynced)
+	app.clusterConfig = virtconfig.NewClusterConfig(configMapInformer, app.kubevirtNamespace)
+
+	if app.clusterConfig.DataVolumesEnabled() {
 		app.dataVolumeInformer = app.informerFactory.DataVolume()
 		log.Log.Infof("DataVolume integration enabled")
 	} else {
@@ -288,14 +290,15 @@ func (vca *VirtControllerApp) initCommon() {
 		vca.virtShareDir,
 		vca.ephemeralDiskDir,
 		vca.imagePullSecret,
-		vca.configMapCache,
 		vca.persistentVolumeClaimCache,
-		virtClient)
+		virtClient,
+		vca.clusterConfig,
+	)
 
-	vca.vmiController = NewVMIController(vca.templateService, vca.vmiInformer, vca.podInformer, vca.vmiRecorder, vca.clientSet, vca.configMapInformer, vca.dataVolumeInformer)
+	vca.vmiController = NewVMIController(vca.templateService, vca.vmiInformer, vca.podInformer, vca.vmiRecorder, vca.clientSet, vca.dataVolumeInformer)
 	recorder := vca.getNewRecorder(k8sv1.NamespaceAll, "node-controller")
 	vca.nodeController = NewNodeController(vca.clientSet, vca.nodeInformer, vca.vmiInformer, recorder)
-	vca.migrationController = NewMigrationController(vca.templateService, vca.vmiInformer, vca.podInformer, vca.migrationInformer, vca.vmiRecorder, vca.clientSet, virtconfig.NewClusterConfig(vca.configMapInformer.GetStore(), vca.kubevirtNamespace))
+	vca.migrationController = NewMigrationController(vca.templateService, vca.vmiInformer, vca.podInformer, vca.migrationInformer, vca.vmiRecorder, vca.clientSet, vca.clusterConfig)
 }
 
 func (vca *VirtControllerApp) initReplicaSet() {
@@ -333,7 +336,7 @@ func (vca *VirtControllerApp) initEvacuationController() {
 		vca.nodeInformer,
 		recorder,
 		vca.clientSet,
-		virtconfig.NewClusterConfig(vca.configMapInformer.GetStore(), vca.kubevirtNamespace),
+		vca.clusterConfig,
 	)
 }
 
