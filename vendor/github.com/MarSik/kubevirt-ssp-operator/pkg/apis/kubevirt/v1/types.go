@@ -33,7 +33,7 @@ type KubevirtTemplateValidator struct {
 
 // custom spec
 type VersionSpec struct {
-	Version string `json:"versopm,omitempty"`
+	Version string `json:"version,omitempty"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object

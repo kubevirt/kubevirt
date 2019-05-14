@@ -31,7 +31,7 @@ required = [
 
 [[override]]
   name = "github.com/MarSik/kubevirt-ssp-operator"
-  version = "v1.0.0"
+  version = "v1.0.1"
 
 [[override]]
   name = "github.com/kubevirt/web-ui-operator"
