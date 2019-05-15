@@ -52,20 +52,6 @@ var _ = Describe("Configurations", func() {
 	virtClient, err := kubecli.GetKubevirtClient()
 	tests.PanicOnError(err)
 
-	getComputeContainerOfPod := func(pod *kubev1.Pod) *kubev1.Container {
-		var computeContainer *kubev1.Container
-		for _, container := range pod.Spec.Containers {
-			if container.Name == "compute" {
-				computeContainer = &container
-				break
-			}
-		}
-		if computeContainer == nil {
-			tests.PanicOnError(fmt.Errorf("could not find the compute container"))
-		}
-		return computeContainer
-	}
-
 	BeforeEach(func() {
 		tests.BeforeTestCleanup()
 	})
@@ -1145,7 +1131,7 @@ var _ = Describe("Configurations", func() {
 			runningVMI := tests.RunVMIAndExpectScheduling(vmi, 30)
 
 			readyPod := tests.GetPodByVirtualMachineInstance(runningVMI, tests.NamespaceTestDefault)
-			computeContainer := getComputeContainerOfPod(readyPod)
+			computeContainer := tests.GetComputeContainerOfPod(readyPod)
 			cpuRequest := computeContainer.Resources.Requests[kubev1.ResourceCPU]
 			Expect(cpuRequest.String()).To(Equal("500m"))
 		})
@@ -1160,7 +1146,7 @@ var _ = Describe("Configurations", func() {
 			runningVMI := tests.RunVMIAndExpectScheduling(vmi, 30)
 
 			readyPod := tests.GetPodByVirtualMachineInstance(runningVMI, tests.NamespaceTestDefault)
-			computeContainer := getComputeContainerOfPod(readyPod)
+			computeContainer := tests.GetComputeContainerOfPod(readyPod)
 			cpuRequest := computeContainer.Resources.Requests[kubev1.ResourceCPU]
 			Expect(cpuRequest.String()).To(Equal("100m"))
 		})
@@ -1181,7 +1167,7 @@ var _ = Describe("Configurations", func() {
 			runningVMI := tests.RunVMIAndExpectScheduling(vmi, 30)
 
 			readyPod := tests.GetPodByVirtualMachineInstance(runningVMI, tests.NamespaceTestDefault)
-			computeContainer := getComputeContainerOfPod(readyPod)
+			computeContainer := tests.GetComputeContainerOfPod(readyPod)
 			cpuRequest := computeContainer.Resources.Requests[kubev1.ResourceCPU]
 			Expect(cpuRequest.String()).To(Equal("800m"))
 		})
