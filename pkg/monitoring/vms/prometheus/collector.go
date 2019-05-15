@@ -23,7 +23,7 @@ import (
 	"sync"
 	"time"
 
-	"kubevirt.io/kubevirt/pkg/log"
+	"github.com/kunalkushwaha/go-sdk/log"
 )
 
 const collectionTimeout time.Duration = 10 * time.Second // "long enough", crude heuristic

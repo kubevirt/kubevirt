@@ -37,7 +37,7 @@ import (
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/record"
 
-	v1 "kubevirt.io/kubevirt/pkg/api/v1"
+	v1 "github.com/kunalkushwaha/go-sdk/api/v1"
 	"kubevirt.io/kubevirt/pkg/handler-launcher-com/notify/info"
 	"kubevirt.io/kubevirt/pkg/testutils"
 	notifyserver "kubevirt.io/kubevirt/pkg/virt-handler/notify-server"

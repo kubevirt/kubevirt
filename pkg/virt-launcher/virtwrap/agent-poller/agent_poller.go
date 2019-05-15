@@ -26,7 +26,7 @@ import (
 
 	"k8s.io/apimachinery/pkg/types"
 
-	"kubevirt.io/kubevirt/pkg/log"
+	"github.com/kunalkushwaha/go-sdk/log"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/cli"
 )

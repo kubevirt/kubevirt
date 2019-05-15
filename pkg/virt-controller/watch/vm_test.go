@@ -20,9 +20,9 @@ import (
 
 	cdiv1 "kubevirt.io/containerized-data-importer/pkg/apis/core/v1alpha1"
 	cdifake "kubevirt.io/containerized-data-importer/pkg/client/clientset/versioned/fake"
-	v1 "kubevirt.io/kubevirt/pkg/api/v1"
-	virtv1 "kubevirt.io/kubevirt/pkg/api/v1"
-	"kubevirt.io/kubevirt/pkg/kubecli"
+	v1 "github.com/kunalkushwaha/go-sdk/api/v1"
+	virtv1 "github.com/kunalkushwaha/go-sdk/api/v1"
+	"github.com/kunalkushwaha/go-sdk/kubecli"
 	"kubevirt.io/kubevirt/pkg/testutils"
 )
 

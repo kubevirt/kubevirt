@@ -43,7 +43,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	utilwait "k8s.io/apimachinery/pkg/util/wait"
 
-	v1 "kubevirt.io/kubevirt/pkg/api/v1"
+	v1 "github.com/kunalkushwaha/go-sdk/api/v1"
 	cloudinit "kubevirt.io/kubevirt/pkg/cloud-init"
 	"kubevirt.io/kubevirt/pkg/config"
 	containerdisk "kubevirt.io/kubevirt/pkg/container-disk"
@@ -52,7 +52,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/hooks"
 	hostdisk "kubevirt.io/kubevirt/pkg/host-disk"
 	"kubevirt.io/kubevirt/pkg/ignition"
-	"kubevirt.io/kubevirt/pkg/log"
+	"github.com/kunalkushwaha/go-sdk/log"
 	"kubevirt.io/kubevirt/pkg/util/net/dns"
 	migrationproxy "kubevirt.io/kubevirt/pkg/virt-handler/migration-proxy"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"

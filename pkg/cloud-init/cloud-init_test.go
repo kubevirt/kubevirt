@@ -37,9 +37,9 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes/fake"
 
-	v1 "kubevirt.io/kubevirt/pkg/api/v1"
-	"kubevirt.io/kubevirt/pkg/kubecli"
-	"kubevirt.io/kubevirt/pkg/precond"
+	v1 "github.com/kunalkushwaha/go-sdk/api/v1"
+	"github.com/kunalkushwaha/go-sdk/kubecli"
+	"github.com/kunalkushwaha/go-sdk/precond"
 )
 
 var _ = Describe("CloudInit", func() {

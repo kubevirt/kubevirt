@@ -31,8 +31,8 @@ import (
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/rest"
 
-	"kubevirt.io/kubevirt/pkg/log"
-	"kubevirt.io/kubevirt/pkg/precond"
+	"github.com/kunalkushwaha/go-sdk/log"
+	"github.com/kunalkushwaha/go-sdk/precond"
 )
 
 type AppError interface {

@@ -6,7 +6,7 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 
-	"kubevirt.io/kubevirt/pkg/kubecli"
+	"github.com/kunalkushwaha/go-sdk/kubecli"
 	"kubevirt.io/kubevirt/tests"
 )
 

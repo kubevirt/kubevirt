@@ -33,7 +33,7 @@ import (
 	authorizationclient "k8s.io/client-go/kubernetes/typed/authorization/v1beta1"
 	"k8s.io/client-go/tools/clientcmd"
 
-	"kubevirt.io/kubevirt/pkg/log"
+	"github.com/kunalkushwaha/go-sdk/log"
 )
 
 var _ = Describe("VirtualMachineInstance Subresources", func() {

@@ -32,7 +32,7 @@ import (
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
 
-	"kubevirt.io/kubevirt/pkg/log"
+	"github.com/kunalkushwaha/go-sdk/log"
 	pluginapi "kubevirt.io/kubevirt/pkg/virt-handler/device-manager/deviceplugin/v1beta1"
 )
 

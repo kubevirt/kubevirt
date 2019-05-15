@@ -39,8 +39,8 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/client-go/tools/leaderelection/resourcelock"
 
-	v1 "kubevirt.io/kubevirt/pkg/api/v1"
-	"kubevirt.io/kubevirt/pkg/kubecli"
+	v1 "github.com/kunalkushwaha/go-sdk/api/v1"
+	"github.com/kunalkushwaha/go-sdk/kubecli"
 	"kubevirt.io/kubevirt/pkg/virt-controller/leaderelectionconfig"
 	"kubevirt.io/kubevirt/tests"
 )

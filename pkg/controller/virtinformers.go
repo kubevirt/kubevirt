@@ -42,9 +42,9 @@ import (
 
 	cdiv1 "kubevirt.io/containerized-data-importer/pkg/apis/core/v1alpha1"
 	cdiv1informers "kubevirt.io/containerized-data-importer/pkg/client/informers/externalversions"
-	kubev1 "kubevirt.io/kubevirt/pkg/api/v1"
-	"kubevirt.io/kubevirt/pkg/kubecli"
-	"kubevirt.io/kubevirt/pkg/log"
+	kubev1 "github.com/kunalkushwaha/go-sdk/api/v1"
+	"github.com/kunalkushwaha/go-sdk/kubecli"
+	"github.com/kunalkushwaha/go-sdk/log"
 	"kubevirt.io/kubevirt/pkg/testutils"
 )
 

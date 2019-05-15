@@ -25,8 +25,8 @@ import (
 
 	"github.com/prometheus/client_golang/prometheus"
 
-	"kubevirt.io/kubevirt/pkg/log"
-	"kubevirt.io/kubevirt/pkg/version"
+	"github.com/kunalkushwaha/go-sdk/log"
+	"github.com/kunalkushwaha/go-sdk/version"
 	cmdclient "kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/stats"
 )

@@ -38,9 +38,9 @@ import (
 	framework "k8s.io/client-go/tools/cache/testing"
 	"k8s.io/client-go/tools/record"
 
-	v1 "kubevirt.io/kubevirt/pkg/api/v1"
-	"kubevirt.io/kubevirt/pkg/kubecli"
-	"kubevirt.io/kubevirt/pkg/log"
+	v1 "github.com/kunalkushwaha/go-sdk/api/v1"
+	"github.com/kunalkushwaha/go-sdk/kubecli"
+	"github.com/kunalkushwaha/go-sdk/log"
 	"kubevirt.io/kubevirt/pkg/testutils"
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
 )

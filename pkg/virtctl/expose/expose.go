@@ -10,9 +10,9 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/client-go/tools/clientcmd"
 
-	v12 "kubevirt.io/kubevirt/pkg/api/v1"
+	v12 "github.com/kunalkushwaha/go-sdk/api/v1"
 
-	"kubevirt.io/kubevirt/pkg/kubecli"
+	"github.com/kunalkushwaha/go-sdk/kubecli"
 	"kubevirt.io/kubevirt/pkg/virtctl/templates"
 )
 

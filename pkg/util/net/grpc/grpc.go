@@ -28,7 +28,7 @@ import (
 
 	"google.golang.org/grpc"
 
-	"kubevirt.io/kubevirt/pkg/log"
+	"github.com/kunalkushwaha/go-sdk/log"
 )
 
 const (

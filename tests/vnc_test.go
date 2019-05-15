@@ -32,10 +32,10 @@ import (
 	. "github.com/onsi/gomega"
 	"k8s.io/client-go/rest"
 
-	v1 "kubevirt.io/kubevirt/pkg/api/v1"
-	"kubevirt.io/kubevirt/pkg/kubecli"
-	"kubevirt.io/kubevirt/pkg/log"
-	"kubevirt.io/kubevirt/pkg/util/subresources"
+	v1 "github.com/kunalkushwaha/go-sdk/api/v1"
+	"github.com/kunalkushwaha/go-sdk/kubecli"
+	"github.com/kunalkushwaha/go-sdk/log"
+	"github.com/kunalkushwaha/go-sdk/util/subresources"
 	"kubevirt.io/kubevirt/tests"
 )
 

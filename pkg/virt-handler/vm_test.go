@@ -43,10 +43,10 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/certificates"
 
-	v1 "kubevirt.io/kubevirt/pkg/api/v1"
-	"kubevirt.io/kubevirt/pkg/kubecli"
-	"kubevirt.io/kubevirt/pkg/log"
-	"kubevirt.io/kubevirt/pkg/precond"
+	v1 "github.com/kunalkushwaha/go-sdk/api/v1"
+	"github.com/kunalkushwaha/go-sdk/kubecli"
+	"github.com/kunalkushwaha/go-sdk/log"
+	"github.com/kunalkushwaha/go-sdk/precond"
 	"kubevirt.io/kubevirt/pkg/testutils"
 	cmdclient "kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
 	virtlauncher "kubevirt.io/kubevirt/pkg/virt-launcher"

@@ -25,10 +25,10 @@ import (
 	"io/ioutil"
 	"os"
 
-	v1 "kubevirt.io/kubevirt/pkg/api/v1"
+	v1 "github.com/kunalkushwaha/go-sdk/api/v1"
 	diskutils "kubevirt.io/kubevirt/pkg/ephemeral-disk-utils"
-	"kubevirt.io/kubevirt/pkg/log"
-	"kubevirt.io/kubevirt/pkg/precond"
+	"github.com/kunalkushwaha/go-sdk/log"
+	"github.com/kunalkushwaha/go-sdk/precond"
 )
 
 var ignitionLocalDir = "/var/run/libvirt/ignition-dir"

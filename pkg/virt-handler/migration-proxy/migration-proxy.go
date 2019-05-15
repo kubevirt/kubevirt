@@ -29,7 +29,7 @@ import (
 	"strings"
 	"sync"
 
-	"kubevirt.io/kubevirt/pkg/log"
+	"github.com/kunalkushwaha/go-sdk/log"
 )
 
 const (

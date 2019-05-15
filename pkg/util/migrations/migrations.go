@@ -3,7 +3,7 @@ package migrations
 import (
 	"k8s.io/client-go/tools/cache"
 
-	v1 "kubevirt.io/kubevirt/pkg/api/v1"
+	v1 "github.com/kunalkushwaha/go-sdk/api/v1"
 )
 
 func ListUnfinishedMigrations(informer cache.SharedIndexInformer) ([]*v1.VirtualMachineInstanceMigration, error) {

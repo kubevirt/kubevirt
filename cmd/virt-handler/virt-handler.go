@@ -45,12 +45,12 @@ import (
 
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 
-	v1 "kubevirt.io/kubevirt/pkg/api/v1"
+	v1 "github.com/kunalkushwaha/go-sdk/api/v1"
 	"kubevirt.io/kubevirt/pkg/certificates"
 	"kubevirt.io/kubevirt/pkg/controller"
 	inotifyinformer "kubevirt.io/kubevirt/pkg/inotify-informer"
-	"kubevirt.io/kubevirt/pkg/kubecli"
-	"kubevirt.io/kubevirt/pkg/log"
+	"github.com/kunalkushwaha/go-sdk/kubecli"
+	"github.com/kunalkushwaha/go-sdk/log"
 	_ "kubevirt.io/kubevirt/pkg/monitoring/client/prometheus"    // import for prometheus metrics
 	_ "kubevirt.io/kubevirt/pkg/monitoring/reflector/prometheus" // import for prometheus metrics
 	promvm "kubevirt.io/kubevirt/pkg/monitoring/vms/prometheus"  // import for prometheus metrics

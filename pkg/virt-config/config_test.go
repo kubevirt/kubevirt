@@ -8,7 +8,7 @@ import (
 	. "github.com/onsi/gomega"
 	kubev1 "k8s.io/api/core/v1"
 
-	"kubevirt.io/kubevirt/pkg/log"
+	"github.com/kunalkushwaha/go-sdk/log"
 	testutils "kubevirt.io/kubevirt/pkg/testutils"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 )

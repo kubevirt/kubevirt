@@ -34,7 +34,7 @@ import (
 	"github.com/spf13/cobra"
 	"k8s.io/client-go/tools/clientcmd"
 
-	"kubevirt.io/kubevirt/pkg/kubecli"
+	"github.com/kunalkushwaha/go-sdk/kubecli"
 	"kubevirt.io/kubevirt/pkg/virtctl/templates"
 )
 

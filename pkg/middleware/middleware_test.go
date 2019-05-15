@@ -27,8 +27,8 @@ import (
 	. "github.com/onsi/gomega"
 	"golang.org/x/net/context"
 
-	klog "kubevirt.io/kubevirt/pkg/log"
-	"kubevirt.io/kubevirt/pkg/precond"
+	klog "github.com/kunalkushwaha/go-sdk/log"
+	"github.com/kunalkushwaha/go-sdk/precond"
 )
 
 var _ = Describe("Middleware", func() {

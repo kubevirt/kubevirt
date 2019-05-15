@@ -28,7 +28,7 @@ import (
 	"k8s.io/client-go/kubernetes/fake"
 	"k8s.io/client-go/tools/cache"
 
-	"kubevirt.io/kubevirt/pkg/kubecli"
+	"github.com/kunalkushwaha/go-sdk/kubecli"
 )
 
 var _ = Describe("PVC utils test", func() {

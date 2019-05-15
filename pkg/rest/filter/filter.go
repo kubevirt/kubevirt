@@ -24,7 +24,7 @@ import (
 
 	restful "github.com/emicklei/go-restful"
 
-	"kubevirt.io/kubevirt/pkg/log"
+	"github.com/kunalkushwaha/go-sdk/log"
 )
 
 func RequestLoggingFilter() restful.FilterFunction {

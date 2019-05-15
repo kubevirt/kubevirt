@@ -32,7 +32,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 
 	cdiv1 "kubevirt.io/containerized-data-importer/pkg/apis/core/v1alpha1"
-	v1 "kubevirt.io/kubevirt/pkg/api/v1"
+	v1 "github.com/kunalkushwaha/go-sdk/api/v1"
 )
 
 const (

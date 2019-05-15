@@ -10,7 +10,7 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 
-	kubevirtlog "kubevirt.io/kubevirt/pkg/log"
+	kubevirtlog "github.com/kunalkushwaha/go-sdk/log"
 )
 
 const (

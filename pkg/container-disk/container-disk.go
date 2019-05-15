@@ -26,9 +26,9 @@ import (
 	kubev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 
-	v1 "kubevirt.io/kubevirt/pkg/api/v1"
+	v1 "github.com/kunalkushwaha/go-sdk/api/v1"
 	diskutils "kubevirt.io/kubevirt/pkg/ephemeral-disk-utils"
-	"kubevirt.io/kubevirt/pkg/precond"
+	"github.com/kunalkushwaha/go-sdk/precond"
 )
 
 const filePrefix = "disk-image"

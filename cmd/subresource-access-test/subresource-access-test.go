@@ -26,7 +26,7 @@ import (
 
 	"k8s.io/client-go/rest"
 
-	"kubevirt.io/kubevirt/pkg/kubecli"
+	"github.com/kunalkushwaha/go-sdk/kubecli"
 )
 
 func main() {

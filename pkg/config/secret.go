@@ -22,7 +22,7 @@ package config
 import (
 	"path/filepath"
 
-	v1 "kubevirt.io/kubevirt/pkg/api/v1"
+	v1 "github.com/kunalkushwaha/go-sdk/api/v1"
 )
 
 // GetSecretSourcePath returns a path to Secret mounted on a pod

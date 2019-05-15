@@ -33,8 +33,8 @@ import (
 	discoveryFake "k8s.io/client-go/discovery/fake"
 	"k8s.io/client-go/kubernetes/fake"
 
-	v1 "kubevirt.io/kubevirt/pkg/api/v1"
-	"kubevirt.io/kubevirt/pkg/kubecli"
+	v1 "github.com/kunalkushwaha/go-sdk/api/v1"
+	"github.com/kunalkushwaha/go-sdk/kubecli"
 )
 
 var _ = Describe("Operator Client", func() {

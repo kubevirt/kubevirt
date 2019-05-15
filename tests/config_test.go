@@ -28,7 +28,7 @@ import (
 	"github.com/pborman/uuid"
 
 	"kubevirt.io/kubevirt/pkg/config"
-	"kubevirt.io/kubevirt/pkg/kubecli"
+	"github.com/kunalkushwaha/go-sdk/kubecli"
 	"kubevirt.io/kubevirt/tests"
 )
 

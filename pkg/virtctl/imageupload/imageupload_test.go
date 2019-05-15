@@ -22,7 +22,7 @@ import (
 
 	cdiv1 "kubevirt.io/containerized-data-importer/pkg/apis/core/v1alpha1"
 	fakecdiclient "kubevirt.io/containerized-data-importer/pkg/client/clientset/versioned/fake"
-	"kubevirt.io/kubevirt/pkg/kubecli"
+	"github.com/kunalkushwaha/go-sdk/kubecli"
 	"kubevirt.io/kubevirt/pkg/virtctl/imageupload"
 	"kubevirt.io/kubevirt/tests"
 )
