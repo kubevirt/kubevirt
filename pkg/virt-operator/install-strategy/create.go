@@ -1358,10 +1358,12 @@ func addOrRemoveSSC(targetStrategy *InstallStrategy,
 		if !ok {
 			return fmt.Errorf("couldn't cast object to SecurityContextConstraints: %+v", privSCCObj)
 		}
+
+		oldUsers := privSCC.Users
 		privSCCCopy := privSCC.DeepCopy()
+		users := privSCCCopy.Users
 
 		modified := false
-		users := privSCCCopy.Users
 
 		// remove users from previous
 		if curSccPriv != nil && !addOnly {
@@ -1392,13 +1394,19 @@ func addOrRemoveSSC(targetStrategy *InstallStrategy,
 		}
 
 		if modified {
+			oldUserBytes, err := json.Marshal(oldUsers)
+			if err != nil {
+				return err
+			}
 			userBytes, err := json.Marshal(users)
 			if err != nil {
 				return err
 			}
 
-			data := []byte(fmt.Sprintf(`{"users": %s}`, userBytes))
-			_, err = scc.SecurityContextConstraints().Patch(sccPriv.TargetSCC, types.StrategicMergePatchType, data)
+			test := fmt.Sprintf(`{ "op": "test", "path": "/users", "value": %s }`, string(oldUserBytes))
+			patch := fmt.Sprintf(`{ "op": "replace", "path": "/users", "value": %s }`, string(userBytes))
+
+			_, err = scc.SecurityContextConstraints().Patch(sccPriv.TargetSCC, types.JSONPatchType, []byte(fmt.Sprintf("[ %s, %s ]", test, patch)))
 			if err != nil {
 				return fmt.Errorf("unable to patch scc: %v", err)
 			}
