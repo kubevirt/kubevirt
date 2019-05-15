@@ -1073,6 +1073,9 @@ func (e *GExpect) waitForSession(r chan error, wait func() error, sIn io.WriteCl
 		for {
 			nr, err := out.Read(buf)
 			if err != nil || !e.check() {
+				if e.teeWriter != nil {
+					e.teeWriter.Close()
+				}
 				if err == io.EOF {
 					if e.verbose {
 						log.Printf("read closing down: %v", err)
@@ -1081,6 +1084,11 @@ func (e *GExpect) waitForSession(r chan error, wait func() error, sIn io.WriteCl
 				}
 				return
 			}
+			// Tee output to writer
+			if e.teeWriter != nil {
+				e.teeWriter.Write(buf[:nr])
+			}
+			// Add to buffer
 			e.mu.Lock()
 			e.out.Write(buf[:nr])
 			e.mu.Unlock()

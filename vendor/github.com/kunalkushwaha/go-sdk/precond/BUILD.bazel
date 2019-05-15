@@ -1,0 +1,9 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "go_default_library",
+    srcs = ["precond.go"],
+    importmap = "kubevirt.io/kubevirt/vendor/github.com/kunalkushwaha/go-sdk/precond",
+    importpath = "github.com/kunalkushwaha/go-sdk/precond",
+    visibility = ["//visibility:public"],
+)

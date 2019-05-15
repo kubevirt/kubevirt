@@ -460,12 +460,15 @@ type RoleBindingRestriction struct {
 // field must be non-nil.
 type RoleBindingRestrictionSpec struct {
 	// UserRestriction matches against user subjects.
+	// +nullable
 	UserRestriction *UserRestriction `json:"userrestriction" protobuf:"bytes,1,opt,name=userrestriction"`
 
 	// GroupRestriction matches against group subjects.
+	// +nullable
 	GroupRestriction *GroupRestriction `json:"grouprestriction" protobuf:"bytes,2,opt,name=grouprestriction"`
 
 	// ServiceAccountRestriction matches against service-account subjects.
+	// +nullable
 	ServiceAccountRestriction *ServiceAccountRestriction `json:"serviceaccountrestriction" protobuf:"bytes,3,opt,name=serviceaccountrestriction"`
 }
 
@@ -490,9 +493,11 @@ type UserRestriction struct {
 	Users []string `json:"users" protobuf:"bytes,1,rep,name=users"`
 
 	// Groups specifies a list of literal group names.
+	// +nullable
 	Groups []string `json:"groups" protobuf:"bytes,2,rep,name=groups"`
 
 	// Selectors specifies a list of label selectors over user labels.
+	// +nullable
 	Selectors []metav1.LabelSelector `json:"labels" protobuf:"bytes,3,rep,name=labels"`
 }
 
@@ -502,9 +507,11 @@ type GroupRestriction struct {
 	// Groups is a list of groups used to match against an individual user's
 	// groups. If the user is a member of one of the whitelisted groups, the user
 	// is allowed to be bound to a role.
+	// +nullable
 	Groups []string `json:"groups" protobuf:"bytes,1,rep,name=groups"`
 
 	// Selectors specifies a list of label selectors over group labels.
+	// +nullable
 	Selectors []metav1.LabelSelector `json:"labels" protobuf:"bytes,2,rep,name=labels"`
 }
 

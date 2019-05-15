@@ -85,7 +85,7 @@ func (s *syncRatio) ReportSyncEvent() {
 func (s *syncRatio) truncateSyncs() {
 	s.lock.Lock()
 	defer s.lock.Unlock()
-	s.syncEvents = s.syncEvents % s.syncEvents
+	s.syncEvents = s.syncEvents % s.syncTruncateValue
 	s.failedSyncs = s.failedSyncs % s.syncTruncateValue
 }
 

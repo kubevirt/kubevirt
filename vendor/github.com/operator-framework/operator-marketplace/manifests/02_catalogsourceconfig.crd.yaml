@@ -44,3 +44,12 @@ spec:
             packages:
               type: string
               description: Comma separated list of operator(s) without spaces which will be enabled in the target namespace
+            csDisplayName:
+              type: string
+              description: DisplayName is passed along to the CatalogSource to be used as a pretty name.
+            csPublisher:
+              type: string
+              description: It represents the entity that published the operator(s) specified in packages.
+        status:
+          type: object
+

@@ -9,10 +9,10 @@ go_library(
     importpath = "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/network/dhcp",
     visibility = ["//visibility:public"],
     deps = [
-        "//pkg/api/v1:go_default_library",
-        "//pkg/log:go_default_library",
         "//vendor/github.com/krolaw/dhcp4:go_default_library",
         "//vendor/github.com/krolaw/dhcp4/conn:go_default_library",
+        "//vendor/github.com/kunalkushwaha/go-sdk/api/v1:go_default_library",
+        "//vendor/github.com/kunalkushwaha/go-sdk/log:go_default_library",
         "//vendor/github.com/vishvananda/netlink:go_default_library",
     ],
 )
@@ -25,9 +25,9 @@ go_test(
     ],
     embed = [":go_default_library"],
     deps = [
-        "//pkg/api/v1:go_default_library",
-        "//pkg/log:go_default_library",
         "//vendor/github.com/krolaw/dhcp4:go_default_library",
+        "//vendor/github.com/kunalkushwaha/go-sdk/api/v1:go_default_library",
+        "//vendor/github.com/kunalkushwaha/go-sdk/log:go_default_library",
         "//vendor/github.com/onsi/ginkgo:go_default_library",
         "//vendor/github.com/onsi/gomega:go_default_library",
         "//vendor/github.com/vishvananda/netlink:go_default_library",

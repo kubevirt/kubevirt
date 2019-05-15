@@ -6,6 +6,7 @@ go_library(
         "atomic-list.go",
         "map-list.go",
         "set-list.go",
+        "untyped.go",
     ],
     importmap = "kubevirt.io/kubevirt/vendor/k8s.io/kube-openapi/test/integration/testdata/listtype",
     importpath = "k8s.io/kube-openapi/test/integration/testdata/listtype",

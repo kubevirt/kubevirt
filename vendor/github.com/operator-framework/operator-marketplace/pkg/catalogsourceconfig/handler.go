@@ -71,14 +71,14 @@ func (h *catalogsourceconfighandler) Handle(ctx context.Context, in *marketplace
 	// reconciliation has either completed successfully or failed. In either
 	// case, we need to update the modified CatalogSourceConfig object.
 	if updateErr := h.client.Update(ctx, out); updateErr != nil {
+		log.Errorf("Failed to update object - %v", updateErr)
+
 		if err == nil {
 			// No reconciliation err, but update of object has failed!
 			return updateErr
 		}
 
 		// Presence of both Reconciliation error and object update error.
-		log.Errorf("Failed to update object - %v", updateErr)
-
 		// TODO: find a way to chain the update error?
 		return err
 	}

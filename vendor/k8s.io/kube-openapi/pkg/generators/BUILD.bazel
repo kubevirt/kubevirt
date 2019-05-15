@@ -4,8 +4,10 @@ go_library(
     name = "go_default_library",
     srcs = [
         "api_linter.go",
+        "config.go",
         "extension.go",
         "openapi.go",
+        "union.go",
     ],
     importmap = "kubevirt.io/kubevirt/vendor/k8s.io/kube-openapi/pkg/generators",
     importpath = "k8s.io/kube-openapi/pkg/generators",
@@ -14,11 +16,11 @@ go_library(
         "//vendor/k8s.io/kube-openapi/cmd/openapi-gen/args:go_default_library",
         "//vendor/k8s.io/kube-openapi/pkg/common:go_default_library",
         "//vendor/k8s.io/kube-openapi/pkg/generators/rules:go_default_library",
-        "@com_github_golang_glog//:go_default_library",
         "@io_k8s_gengo//args:go_default_library",
         "@io_k8s_gengo//examples/set-gen/sets:go_default_library",
         "@io_k8s_gengo//generator:go_default_library",
         "@io_k8s_gengo//namer:go_default_library",
         "@io_k8s_gengo//types:go_default_library",
+        "@io_k8s_klog//:go_default_library",
     ],
 )

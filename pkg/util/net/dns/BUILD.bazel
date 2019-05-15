@@ -9,7 +9,7 @@ go_library(
     importpath = "kubevirt.io/kubevirt/pkg/util/net/dns",
     visibility = ["//visibility:public"],
     deps = [
-        "//pkg/api/v1:go_default_library",
+        "//vendor/github.com/kunalkushwaha/go-sdk/api/v1:go_default_library",
         "//vendor/k8s.io/apimachinery/pkg/util/validation:go_default_library",
     ],
 )

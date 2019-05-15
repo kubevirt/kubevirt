@@ -11,11 +11,11 @@ go_library(
     importpath = "kubevirt.io/kubevirt/pkg/testutils",
     visibility = ["//visibility:public"],
     deps = [
-        "//pkg/api/v1:go_default_library",
         "//pkg/rest:go_default_library",
         "//pkg/virt-config:go_default_library",
         "//pkg/virt-launcher/virtwrap/api:go_default_library",
         "//vendor/github.com/ghodss/yaml:go_default_library",
+        "//vendor/github.com/kunalkushwaha/go-sdk/api/v1:go_default_library",
         "//vendor/github.com/onsi/gomega:go_default_library",
         "//vendor/github.com/onsi/gomega/format:go_default_library",
         "//vendor/github.com/onsi/gomega/matchers:go_default_library",

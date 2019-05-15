@@ -412,25 +412,25 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:c52deed9c24a1e47dcc08684e3d9ad651990b684d43bd51faa86a3a6401ab469"
+  digest = "1:f0d91aa2c20f5806c77aa0850576a285b4df25effc8b646c41be02ee316636f6"
   name = "github.com/openshift/api"
   packages = [
     "config/v1",
     "operator/v1",
   ]
   pruneopts = "NT"
-  revision = "0e93a752a8cbf93d6c542ab9eeb1a89c2a38f899"
+  revision = "77b8897ec79a562e85920134fc65b63300c4d27a"
 
 [[projects]]
   branch = "master"
-  digest = "1:5bede1c917070dd9d8ba7d96d83655c9f444ffea62953a824db0c11b6f01d141"
+  digest = "1:a5aa6d074656d7cd97b9e1744f2c79244b8bc37ffb67cb31c47298010092c881"
   name = "github.com/openshift/client-go"
   packages = [
     "config/clientset/versioned/scheme",
     "config/clientset/versioned/typed/config/v1",
   ]
   pruneopts = "NT"
-  revision = "9d9c3dc826335abee846500602f450ba1bdb70ed"
+  revision = "0255926f53935175fe90b8e7672c4c06c17d79e6"
 
 [[projects]]
   branch = "master"
@@ -465,6 +465,7 @@
   packages = [
     "pkg/api/apis/operators",
     "pkg/api/apis/operators/v1alpha1",
+    "pkg/lib/signals",
   ]
   pruneopts = "NT"
   revision = "e40d4f4f2ae47d20af1dd07572245b91dd4a5d50"
@@ -1114,7 +1115,6 @@
     "pkg/runtime/inject",
     "pkg/runtime/log",
     "pkg/runtime/scheme",
-    "pkg/runtime/signals",
     "pkg/source",
     "pkg/source/internal",
     "pkg/webhook/admission",
@@ -1142,6 +1142,7 @@
     "github.com/operator-framework/go-appr/appregistry/package_appr",
     "github.com/operator-framework/go-appr/models",
     "github.com/operator-framework/operator-lifecycle-manager/pkg/api/apis/operators/v1alpha1",
+    "github.com/operator-framework/operator-lifecycle-manager/pkg/lib/signals",
     "github.com/operator-framework/operator-sdk/pkg/k8sutil",
     "github.com/operator-framework/operator-sdk/pkg/test",
     "github.com/operator-framework/operator-sdk/version",
@@ -1151,23 +1152,20 @@
     "k8s.io/api/apps/v1",
     "k8s.io/api/core/v1",
     "k8s.io/api/rbac/v1",
-    "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1",
     "k8s.io/apimachinery/pkg/api/errors",
     "k8s.io/apimachinery/pkg/apis/meta/v1",
+    "k8s.io/apimachinery/pkg/labels",
     "k8s.io/apimachinery/pkg/runtime",
     "k8s.io/apimachinery/pkg/runtime/schema",
-    "k8s.io/apimachinery/pkg/runtime/serializer",
     "k8s.io/apimachinery/pkg/types",
     "k8s.io/apimachinery/pkg/util/clock",
     "k8s.io/apimachinery/pkg/util/errors",
     "k8s.io/apimachinery/pkg/util/intstr",
-    "k8s.io/apimachinery/pkg/util/runtime",
     "k8s.io/apimachinery/pkg/util/wait",
-    "k8s.io/apimachinery/pkg/watch",
     "k8s.io/client-go/discovery",
+    "k8s.io/client-go/kubernetes",
     "k8s.io/client-go/plugin/pkg/client/auth/gcp",
     "k8s.io/client-go/rest",
-    "k8s.io/client-go/util/flowcontrol",
     "k8s.io/code-generator/cmd/client-gen",
     "k8s.io/code-generator/cmd/conversion-gen",
     "k8s.io/code-generator/cmd/deepcopy-gen",
@@ -1183,7 +1181,6 @@
     "sigs.k8s.io/controller-runtime/pkg/manager",
     "sigs.k8s.io/controller-runtime/pkg/reconcile",
     "sigs.k8s.io/controller-runtime/pkg/runtime/scheme",
-    "sigs.k8s.io/controller-runtime/pkg/runtime/signals",
     "sigs.k8s.io/controller-runtime/pkg/source",
   ]
   solver-name = "gps-cdcl"

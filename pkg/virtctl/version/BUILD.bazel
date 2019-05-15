@@ -6,9 +6,9 @@ go_library(
     importpath = "kubevirt.io/kubevirt/pkg/virtctl/version",
     visibility = ["//visibility:public"],
     deps = [
-        "//pkg/kubecli:go_default_library",
-        "//pkg/version:go_default_library",
         "//pkg/virtctl/templates:go_default_library",
+        "//vendor/github.com/kunalkushwaha/go-sdk/kubecli:go_default_library",
+        "//vendor/github.com/kunalkushwaha/go-sdk/version:go_default_library",
         "//vendor/github.com/spf13/cobra:go_default_library",
         "//vendor/k8s.io/client-go/tools/clientcmd:go_default_library",
     ],

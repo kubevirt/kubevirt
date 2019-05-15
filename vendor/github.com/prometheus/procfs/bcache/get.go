@@ -22,11 +22,32 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+
+	"github.com/prometheus/procfs/internal/fs"
 )
 
-// ReadStats retrieves bcache runtime statistics for each bcache.
-func ReadStats(sysfs string) ([]*Stats, error) {
-	matches, err := filepath.Glob(path.Join(sysfs, "fs/bcache/*-*"))
+// FS represents the pseudo-filesystem proc, which provides an interface to
+// kernel data structures.
+type FS struct {
+	sys *fs.FS
+}
+
+// NewFS returns a new Bcache using the given sys fs mount point. It will error
+// if the mount point can't be read.
+func NewFS(mountPoint string) (FS, error) {
+	if strings.TrimSpace(mountPoint) == "" {
+		mountPoint = fs.DefaultSysMountPoint
+	}
+	fs, err := fs.NewFS(mountPoint)
+	if err != nil {
+		return FS{}, err
+	}
+	return FS{&fs}, nil
+}
+
+// Stats retrieves bcache runtime statistics for each bcache.
+func (fs FS) Stats() ([]*Stats, error) {
+	matches, err := filepath.Glob(fs.sys.Path("fs/bcache/*-*"))
 	if err != nil {
 		return nil, err
 	}

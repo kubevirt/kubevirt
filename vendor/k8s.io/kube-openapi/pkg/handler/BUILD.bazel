@@ -12,10 +12,11 @@ go_library(
         "//vendor/github.com/golang/protobuf/proto:go_default_library",
         "//vendor/github.com/googleapis/gnostic/OpenAPIv2:go_default_library",
         "//vendor/github.com/googleapis/gnostic/compiler:go_default_library",
+        "//vendor/github.com/json-iterator/go:go_default_library",
         "//vendor/gopkg.in/yaml.v2:go_default_library",
         "//vendor/k8s.io/kube-openapi/pkg/builder:go_default_library",
         "//vendor/k8s.io/kube-openapi/pkg/common:go_default_library",
+        "@com_github_munnerz_goautoneg//:go_default_library",
         "@com_github_nytimes_gziphandler//:go_default_library",
-        "@org_bitbucket_ww_goautoneg//:go_default_library",
     ],
 )

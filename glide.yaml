@@ -103,6 +103,8 @@ import:
   version: v3.5.1
 - package: github.com/kunalkushwaha/go-sdk
   version: v0.1.0 
+- package: github.com/prometheus/procfs/fs
+  version: 5867b95ac084bbfee6ea16595c4e05ab009021da  
 testImport:
 - package: github.com/elazarl/goproxy
   version: 07b16b6e30fcac0ad8c0435548e743bcf2ca7e92
@@ -125,3 +127,5 @@ testImport:
 - package: github.com/coreos/go-iptables
 - package: github.com/kunalkushwaha/go-sdk
   version: v0.1.0
+- package: github.com/prometheus/procfs/fs
+  version: 5867b95ac084bbfee6ea16595c4e05ab009021da

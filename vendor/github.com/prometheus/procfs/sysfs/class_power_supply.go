@@ -114,7 +114,7 @@ func NewPowerSupplyClass() (PowerSupplyClass, error) {
 
 // NewPowerSupplyClass returns info for all power supplies read from /sys/class/power_supply/.
 func (fs FS) NewPowerSupplyClass() (PowerSupplyClass, error) {
-	path := fs.Path("class/power_supply")
+	path := fs.sys.Path("class/power_supply")
 
 	powerSupplyDirs, err := ioutil.ReadDir(path)
 	if err != nil {

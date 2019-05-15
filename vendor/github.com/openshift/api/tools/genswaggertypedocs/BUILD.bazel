@@ -9,7 +9,7 @@ go_library(
     deps = [
         "//vendor/github.com/spf13/pflag:go_default_library",
         "//vendor/k8s.io/apimachinery/pkg/runtime:go_default_library",
-        "@com_github_golang_glog//:go_default_library",
+        "@io_k8s_klog//:go_default_library",
     ],
 )
 
