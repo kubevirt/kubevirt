@@ -15,7 +15,7 @@ go_library(
     ],
 )
 
-load("//pkg/version:def.bzl", "version_x_defs")
+load("//vendor/github.com/kunalkushwaha/go-sdk/version:def.bzl", "version_x_defs")
 
 go_binary(
     name = "virt-api",

@@ -26,6 +26,7 @@ import (
 	. "github.com/onsi/gomega"
 
 	"github.com/kunalkushwaha/go-sdk/log"
+
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/stats"
 )
 

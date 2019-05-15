@@ -51,8 +51,9 @@ import (
 	v1 "github.com/kunalkushwaha/go-sdk/api/v1"
 	"github.com/kunalkushwaha/go-sdk/kubecli"
 	"github.com/kunalkushwaha/go-sdk/log"
-	"kubevirt.io/kubevirt/pkg/testutils"
 	"github.com/kunalkushwaha/go-sdk/version"
+
+	"kubevirt.io/kubevirt/pkg/testutils"
 	"kubevirt.io/kubevirt/pkg/virt-operator/creation/components"
 	"kubevirt.io/kubevirt/pkg/virt-operator/creation/rbac"
 	installstrategy "kubevirt.io/kubevirt/pkg/virt-operator/install-strategy"

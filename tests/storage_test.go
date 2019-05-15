@@ -42,6 +42,7 @@ import (
 	v1 "github.com/kunalkushwaha/go-sdk/api/v1"
 	"github.com/kunalkushwaha/go-sdk/kubecli"
 	"github.com/kunalkushwaha/go-sdk/log"
+
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	"kubevirt.io/kubevirt/tests"
 )

@@ -35,9 +35,10 @@ import (
 	"k8s.io/client-go/util/workqueue"
 
 	v1 "github.com/kunalkushwaha/go-sdk/api/v1"
-	"kubevirt.io/kubevirt/pkg/controller"
 	"github.com/kunalkushwaha/go-sdk/kubecli"
 	"github.com/kunalkushwaha/go-sdk/log"
+
+	"kubevirt.io/kubevirt/pkg/controller"
 	installstrategy "kubevirt.io/kubevirt/pkg/virt-operator/install-strategy"
 	"kubevirt.io/kubevirt/pkg/virt-operator/util"
 )

@@ -22,8 +22,9 @@ package rbac
 import (
 	"fmt"
 
-	"kubevirt.io/kubevirt/pkg/controller"
 	"github.com/kunalkushwaha/go-sdk/log"
+
+	"kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/virt-operator/util"
 
 	corev1 "k8s.io/api/core/v1"

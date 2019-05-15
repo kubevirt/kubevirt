@@ -38,10 +38,11 @@ import (
 	"k8s.io/client-go/tools/leaderelection/resourcelock"
 	"k8s.io/client-go/tools/record"
 
-	"kubevirt.io/kubevirt/pkg/certificates"
-	"kubevirt.io/kubevirt/pkg/controller"
 	"github.com/kunalkushwaha/go-sdk/kubecli"
 	"github.com/kunalkushwaha/go-sdk/log"
+
+	"kubevirt.io/kubevirt/pkg/certificates"
+	"kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/service"
 	kvutil "kubevirt.io/kubevirt/pkg/util"
 	"kubevirt.io/kubevirt/pkg/virt-controller/leaderelectionconfig"

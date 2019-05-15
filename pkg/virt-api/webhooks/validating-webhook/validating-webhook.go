@@ -40,6 +40,7 @@ import (
 
 	v1 "github.com/kunalkushwaha/go-sdk/api/v1"
 	"github.com/kunalkushwaha/go-sdk/log"
+
 	"kubevirt.io/kubevirt/pkg/util"
 	"kubevirt.io/kubevirt/pkg/util/hardware"
 	"kubevirt.io/kubevirt/pkg/virt-api/webhooks"

@@ -37,6 +37,7 @@ import (
 	v1 "github.com/kunalkushwaha/go-sdk/api/v1"
 	"github.com/kunalkushwaha/go-sdk/kubecli"
 	"github.com/kunalkushwaha/go-sdk/log"
+
 	kvutil "kubevirt.io/kubevirt/pkg/util"
 	"kubevirt.io/kubevirt/pkg/virt-operator/creation/components"
 	"kubevirt.io/kubevirt/pkg/virt-operator/creation/rbac"

@@ -28,6 +28,7 @@ import (
 	. "github.com/onsi/gomega"
 
 	"github.com/kunalkushwaha/go-sdk/kubecli"
+
 	"kubevirt.io/kubevirt/tests"
 )
 

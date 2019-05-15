@@ -8,6 +8,7 @@ import (
 
 	"github.com/kunalkushwaha/go-sdk/kubecli"
 	"github.com/kunalkushwaha/go-sdk/version"
+
 	"kubevirt.io/kubevirt/pkg/virtctl/templates"
 )
 

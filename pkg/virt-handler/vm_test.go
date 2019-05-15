@@ -47,6 +47,7 @@ import (
 	"github.com/kunalkushwaha/go-sdk/kubecli"
 	"github.com/kunalkushwaha/go-sdk/log"
 	"github.com/kunalkushwaha/go-sdk/precond"
+
 	"kubevirt.io/kubevirt/pkg/testutils"
 	cmdclient "kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
 	virtlauncher "kubevirt.io/kubevirt/pkg/virt-launcher"

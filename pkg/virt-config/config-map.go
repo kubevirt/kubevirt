@@ -36,6 +36,7 @@ import (
 
 	"github.com/kunalkushwaha/go-sdk/kubecli"
 	"github.com/kunalkushwaha/go-sdk/log"
+
 	"kubevirt.io/kubevirt/pkg/util"
 )
 

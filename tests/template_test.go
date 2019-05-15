@@ -36,6 +36,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/rand"
 
 	"github.com/kunalkushwaha/go-sdk/kubecli"
+
 	"kubevirt.io/kubevirt/tests"
 	vmsgen "kubevirt.io/kubevirt/tools/vms-generator/utils"
 )

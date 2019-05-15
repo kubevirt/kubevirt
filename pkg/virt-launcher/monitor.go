@@ -29,9 +29,10 @@ import (
 	"time"
 
 	v1 "github.com/kunalkushwaha/go-sdk/api/v1"
-	diskutils "kubevirt.io/kubevirt/pkg/ephemeral-disk-utils"
 	"github.com/kunalkushwaha/go-sdk/log"
 	"github.com/kunalkushwaha/go-sdk/precond"
+
+	diskutils "kubevirt.io/kubevirt/pkg/ephemeral-disk-utils"
 	cmdclient "kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
 	"kubevirt.io/kubevirt/pkg/watchdog"
 )

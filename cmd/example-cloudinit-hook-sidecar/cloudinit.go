@@ -29,10 +29,11 @@ import (
 	"google.golang.org/grpc"
 
 	v1 "github.com/kunalkushwaha/go-sdk/api/v1"
+	"github.com/kunalkushwaha/go-sdk/log"
+
 	hooks "kubevirt.io/kubevirt/pkg/hooks"
 	hooksInfo "kubevirt.io/kubevirt/pkg/hooks/info"
 	hooksV1alpha2 "kubevirt.io/kubevirt/pkg/hooks/v1alpha2"
-	"github.com/kunalkushwaha/go-sdk/log"
 )
 
 type infoServer struct{}

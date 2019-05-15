@@ -39,8 +39,9 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	v1 "github.com/kunalkushwaha/go-sdk/api/v1"
-	cloudinit "kubevirt.io/kubevirt/pkg/cloud-init"
 	"github.com/kunalkushwaha/go-sdk/log"
+
+	cloudinit "kubevirt.io/kubevirt/pkg/cloud-init"
 	cmdclient "kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/cli"

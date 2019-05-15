@@ -31,6 +31,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
 	v1 "github.com/kunalkushwaha/go-sdk/api/v1"
+
 	mime "kubevirt.io/kubevirt/pkg/rest"
 )
 

@@ -26,6 +26,7 @@ import (
 	"path/filepath"
 
 	v1 "github.com/kunalkushwaha/go-sdk/api/v1"
+
 	diskutils "kubevirt.io/kubevirt/pkg/ephemeral-disk-utils"
 )
 

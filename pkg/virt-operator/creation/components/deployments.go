@@ -21,8 +21,9 @@ package components
 import (
 	"fmt"
 
-	"kubevirt.io/kubevirt/pkg/controller"
 	"github.com/kunalkushwaha/go-sdk/log"
+
+	"kubevirt.io/kubevirt/pkg/controller"
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -32,6 +33,7 @@ import (
 
 	virtv1 "github.com/kunalkushwaha/go-sdk/api/v1"
 	"github.com/kunalkushwaha/go-sdk/kubecli"
+
 	"kubevirt.io/kubevirt/pkg/virt-operator/util"
 )
 

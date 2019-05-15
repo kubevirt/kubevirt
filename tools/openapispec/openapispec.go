@@ -29,6 +29,7 @@ import (
 	"github.com/spf13/pflag"
 
 	klog "github.com/kunalkushwaha/go-sdk/log"
+
 	"kubevirt.io/kubevirt/pkg/util/openapi"
 	virt_api "kubevirt.io/kubevirt/pkg/virt-api"
 	"kubevirt.io/kubevirt/pkg/virt-api/rest"

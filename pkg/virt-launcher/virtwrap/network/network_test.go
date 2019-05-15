@@ -25,6 +25,7 @@ import (
 	. "github.com/onsi/gomega"
 
 	v1 "github.com/kunalkushwaha/go-sdk/api/v1"
+
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 )
 

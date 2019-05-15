@@ -32,6 +32,7 @@ import (
 
 	v1 "github.com/kunalkushwaha/go-sdk/api/v1"
 	"github.com/kunalkushwaha/go-sdk/kubecli"
+
 	"kubevirt.io/kubevirt/tests"
 )
 

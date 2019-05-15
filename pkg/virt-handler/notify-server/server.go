@@ -35,8 +35,9 @@ import (
 	"k8s.io/client-go/tools/record"
 
 	v1 "github.com/kunalkushwaha/go-sdk/api/v1"
-	notifyv1 "kubevirt.io/kubevirt/pkg/handler-launcher-com/notify/v1"
 	"github.com/kunalkushwaha/go-sdk/log"
+
+	notifyv1 "kubevirt.io/kubevirt/pkg/handler-launcher-com/notify/v1"
 	grpcutil "kubevirt.io/kubevirt/pkg/util/net/grpc"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 )

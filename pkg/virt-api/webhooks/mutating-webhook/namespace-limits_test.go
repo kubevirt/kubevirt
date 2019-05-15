@@ -27,6 +27,7 @@ import (
 	"k8s.io/client-go/tools/cache"
 
 	v1 "github.com/kunalkushwaha/go-sdk/api/v1"
+
 	"kubevirt.io/kubevirt/pkg/testutils"
 )
 

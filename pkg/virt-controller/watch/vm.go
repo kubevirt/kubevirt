@@ -38,11 +38,12 @@ import (
 
 	"k8s.io/apimachinery/pkg/api/errors"
 
-	cdiv1 "kubevirt.io/containerized-data-importer/pkg/apis/core/v1alpha1"
 	virtv1 "github.com/kunalkushwaha/go-sdk/api/v1"
-	"kubevirt.io/kubevirt/pkg/controller"
 	"github.com/kunalkushwaha/go-sdk/kubecli"
 	"github.com/kunalkushwaha/go-sdk/log"
+
+	cdiv1 "kubevirt.io/containerized-data-importer/pkg/apis/core/v1alpha1"
+	"kubevirt.io/kubevirt/pkg/controller"
 )
 
 // TODO remove the dataVolume deletion retry logic once CDI fixes this issue.

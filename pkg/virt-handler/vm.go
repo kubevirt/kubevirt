@@ -42,12 +42,13 @@ import (
 	"k8s.io/client-go/util/workqueue"
 
 	v1 "github.com/kunalkushwaha/go-sdk/api/v1"
-	cloudinit "kubevirt.io/kubevirt/pkg/cloud-init"
-	"kubevirt.io/kubevirt/pkg/controller"
-	hostdisk "kubevirt.io/kubevirt/pkg/host-disk"
 	"github.com/kunalkushwaha/go-sdk/kubecli"
 	"github.com/kunalkushwaha/go-sdk/log"
 	"github.com/kunalkushwaha/go-sdk/precond"
+
+	cloudinit "kubevirt.io/kubevirt/pkg/cloud-init"
+	"kubevirt.io/kubevirt/pkg/controller"
+	hostdisk "kubevirt.io/kubevirt/pkg/host-disk"
 	pvcutils "kubevirt.io/kubevirt/pkg/util/types"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	cmdclient "kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"

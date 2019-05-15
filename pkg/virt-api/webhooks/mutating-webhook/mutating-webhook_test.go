@@ -32,6 +32,7 @@ import (
 	"k8s.io/client-go/tools/cache"
 
 	v1 "github.com/kunalkushwaha/go-sdk/api/v1"
+
 	"kubevirt.io/kubevirt/pkg/testutils"
 	"kubevirt.io/kubevirt/pkg/virt-api/webhooks"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
