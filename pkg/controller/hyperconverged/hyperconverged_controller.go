@@ -357,9 +357,6 @@ func newKubevirtCommonTemplateBundleForCR(cr *hcov1alpha1.HyperConverged) *sspv1
 			Labels:    labels,
 			Namespace: "openshift",
 		},
-		Spec: sspv1.VersionSpec{
-			Version: sspversions.TagForVersion(sspversions.KubevirtCommonTemplates),
-		},
 	}
 }
 
@@ -372,9 +369,6 @@ func newKubevirtNodeLabellerBundleForCR(cr *hcov1alpha1.HyperConverged) *sspv1.K
 			Name:   "node-labeller-" + cr.Name,
 			Labels: labels,
 		},
-		Spec: sspv1.VersionSpec{
-			Version: sspversions.TagForVersion(sspversions.KubevirtNodeLabeller),
-		},
 	}
 }
 
@@ -386,9 +380,6 @@ func newKubevirtTemplateValidatorForCR(cr *hcov1alpha1.HyperConverged) *sspv1.Ku
 		ObjectMeta: metav1.ObjectMeta{
 			Name:   "template-validator-" + cr.Name,
 			Labels: labels,
-		},
-		Spec: sspv1.VersionSpec{
-			Version: sspversions.TagForVersion(sspversions.KubevirtTemplateValidator),
 		},
 	}
 }
