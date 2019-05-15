@@ -22,8 +22,10 @@ package tests_test
 import (
 	"flag"
 	"fmt"
+	"io/ioutil"
 	"net/http"
 	"os"
+	"regexp"
 	"strings"
 	"time"
 
@@ -980,27 +982,40 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 		})
 	})
 
-	Context("with oc/kubectl", func() {
-		var vm *v1.VirtualMachine
+	Context("[rfe_id:273]with oc/kubectl", func() {
+		var vmi *v1.VirtualMachineInstance
 		var err error
 		var vmJson string
 
-		// Get proper commandline client: oc or kubectl
-		k8sClient := tests.GetK8sCmdClient()
+		var k8sClient string
+		var workDir string
+
+		var vmRunningRe *regexp.Regexp
+
+		BeforeEach(func() {
+			k8sClient = tests.GetK8sCmdClient()
+			tests.SkipIfNoCmd(k8sClient)
+			workDir, err = ioutil.TempDir("", tests.TempDirPrefix+"-")
+			Expect(err).ToNot(HaveOccurred())
+
+			// By default "." does not match newline: "Phase" and "Running" only match if on same line.
+			vmRunningRe = regexp.MustCompile("Phase.*Running")
+		})
 
 		AfterEach(func() {
-			if vmJson != "" {
-				err = os.Remove(vmJson)
+			if workDir != "" {
+				err = os.RemoveAll(workDir)
 				Expect(err).ToNot(HaveOccurred())
-				vmJson = ""
+				workDir = ""
 			}
 		})
 
 		It("[test_id:243][posneg:negative]should create VM only once", func() {
-			vm = tests.NewRandomVMWithEphemeralDisk(tests.ContainerDiskFor(tests.ContainerDiskAlpine))
+			vmi = tests.NewRandomVMIWithEphemeralDisk(tests.ContainerDiskFor(tests.ContainerDiskAlpine))
+			vm := tests.NewRandomVirtualMachine(vmi, true)
 
-			vmJson, err = tests.GenerateVMJson(vm)
-			Expect(err).ToNot(HaveOccurred(), "Cannot generate vmJson")
+			vmJson, err = tests.GenerateVMJson(vm, workDir)
+			Expect(err).ToNot(HaveOccurred(), "Cannot generate VMs manifest")
 
 			By("Creating VM with DataVolumeTemplate entry with k8s client binary")
 			_, _, err = tests.RunCommand(k8sClient, "create", "-f", vmJson)
@@ -1018,8 +1033,115 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 			Expect(strings.HasPrefix(stdErr, "Error from server (AlreadyExists): error when creating")).To(BeTrue(), "command should error when creating VM second time")
 		})
 
+		It("[test_id:299]should create VM via command line", func() {
+			vmi = tests.NewRandomVMIWithEphemeralDisk(tests.ContainerDiskFor(tests.ContainerDiskAlpine))
+			vm := tests.NewRandomVirtualMachine(vmi, true)
+
+			vmJson, err = tests.GenerateVMJson(vm, workDir)
+			Expect(err).ToNot(HaveOccurred(), "Cannot generate VMs manifest")
+
+			By("Creating VM using k8s client binary")
+			_, _, err = tests.RunCommand(k8sClient, "create", "-f", vmJson)
+			Expect(err).ToNot(HaveOccurred())
+
+			By("Waiting for VMI to start")
+			waitForVMIStart(virtClient, vmi)
+
+			By("Listing running pods")
+			stdout, _, err := tests.RunCommand(k8sClient, "get", "pods")
+			Expect(err).ToNot(HaveOccurred())
+
+			By("Ensuring pod is running")
+			expectedPodName := getExpectedPodName(vm)
+			podRunningRe, err := regexp.Compile(fmt.Sprintf("%s.*Running", expectedPodName))
+			Expect(err).ToNot(HaveOccurred())
+
+			Expect(podRunningRe.FindString(stdout)).ToNot(Equal(""), "Pod is not Running")
+
+			By("Checking that VM is running")
+			stdout, _, err = tests.RunCommand(k8sClient, "describe", "vmis", vm.GetName())
+			Expect(err).ToNot(HaveOccurred())
+
+			Expect(vmRunningRe.FindString(stdout)).ToNot(Equal(""), "VMI is not Running")
+		})
+
+		It("[test_id:264]should create and delete via command line", func() {
+			vmi = tests.NewRandomVMIWithEphemeralDisk(tests.ContainerDiskFor(tests.ContainerDiskAlpine))
+			thisVm := tests.NewRandomVirtualMachine(vmi, false)
+
+			vmJson, err = tests.GenerateVMJson(thisVm, workDir)
+			Expect(err).ToNot(HaveOccurred(), "Cannot generate VM's manifest")
+
+			By("Creating VM using k8s client binary")
+			_, _, err := tests.RunCommand(k8sClient, "create", "-f", vmJson)
+			Expect(err).ToNot(HaveOccurred())
+
+			By("Invoking virtctl start")
+			virtctl := tests.NewRepeatableVirtctlCommand(vm.COMMAND_START, "--namespace", thisVm.Namespace, thisVm.Name)
+			err = virtctl()
+			Expect(err).ToNot(HaveOccurred())
+
+			By("Waiting for VMI to start")
+			waitForVMIStart(virtClient, vmi)
+
+			By("Checking that VM is running")
+			stdout, _, err := tests.RunCommand(k8sClient, "describe", "vmis", thisVm.GetName())
+			Expect(err).ToNot(HaveOccurred())
+
+			Expect(vmRunningRe.FindString(stdout)).ToNot(Equal(""), "VMI is not Running")
+
+			By("Deleting VM using k8s client binary")
+			_, _, err = tests.RunCommand(k8sClient, "delete", "vm", thisVm.GetName())
+			Expect(err).ToNot(HaveOccurred())
+
+			By("Verifying the VM gets deleted")
+			waitForResourceDeletion(k8sClient, "vms", thisVm.GetName())
+
+			By("Verifying pod gets deleted")
+			expectedPodName := getExpectedPodName(thisVm)
+			waitForResourceDeletion(k8sClient, "pods", expectedPodName)
+		})
+
+		It("[test_id:232]should create same manifest twice via command line", func() {
+			vmi = tests.NewRandomVMIWithEphemeralDisk(tests.ContainerDiskFor(tests.ContainerDiskAlpine))
+			thisVm := tests.NewRandomVirtualMachine(vmi, true)
+
+			vmJson, err = tests.GenerateVMJson(thisVm, workDir)
+			Expect(err).ToNot(HaveOccurred(), "Cannot generate VM's manifest")
+
+			By("Creating VM using k8s client binary")
+			_, _, err := tests.RunCommand(k8sClient, "create", "-f", vmJson)
+			Expect(err).ToNot(HaveOccurred())
+
+			By("Waiting for VMI to start")
+			waitForVMIStart(virtClient, vmi)
+
+			By("Deleting VM using k8s client binary")
+			_, _, err = tests.RunCommand(k8sClient, "delete", "vm", thisVm.GetName())
+			Expect(err).ToNot(HaveOccurred())
+
+			By("Verifying the VM gets deleted")
+			waitForResourceDeletion(k8sClient, "vms", thisVm.GetName())
+
+			By("Creating same VM using k8s client binary and same manifest")
+			_, _, err = tests.RunCommand(k8sClient, "create", "-f", vmJson)
+			Expect(err).ToNot(HaveOccurred())
+
+			By("Waiting for VMI to start")
+			waitForVMIStart(virtClient, vmi)
+		})
+
 	})
 })
+
+func getExpectedPodName(vm *v1.VirtualMachine) string {
+	maxNameLength := 63
+	podNamePrefix := "virt-launcher-"
+	podGeneratedSuffixLen := 5
+	charCountFromName := maxNameLength - len(podNamePrefix) - podGeneratedSuffixLen
+	expectedPodName := fmt.Sprintf(fmt.Sprintf("virt-launcher-%%.%ds", charCountFromName), vm.GetName())
+	return expectedPodName
+}
 
 // NewRandomVirtualMachine creates new VirtualMachine
 func NewRandomVirtualMachine(vmi *v1.VirtualMachineInstance, running bool) *v1.VirtualMachine {
@@ -1069,4 +1191,25 @@ func NewRandomVirtualMachineWithRunStrategy(vmi *v1.VirtualMachineInstance, runS
 		},
 	}
 	return vm
+}
+
+func waitForVMIStart(virtClient kubecli.KubevirtClient, vmi *v1.VirtualMachineInstance) {
+	Eventually(func() v1.VirtualMachineInstancePhase {
+		newVMI, err := virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.GetName(), &v12.GetOptions{})
+		if err != nil {
+			if !errors.IsNotFound(err) {
+				Expect(err).ToNot(HaveOccurred())
+			}
+			return v1.Unknown
+		}
+		return newVMI.Status.Phase
+	}, 120*time.Second, 1*time.Second).Should(Equal(v1.Running), "New VMI was not created")
+}
+
+func waitForResourceDeletion(k8sClient string, resourceType string, resourceName string) {
+	Eventually(func() bool {
+		stdout, _, err := tests.RunCommand(k8sClient, "get", resourceType)
+		Expect(err).ToNot(HaveOccurred())
+		return strings.Contains(stdout, resourceName)
+	}, 120*time.Second, 1*time.Second).Should(BeFalse(), "VM was not deleted")
 }
