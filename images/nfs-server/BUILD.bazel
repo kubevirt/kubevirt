@@ -6,14 +6,6 @@ load(
 container_image(
     name = "nfs-server-image",
     base = "@nfs-server//image",
-    env = {
-        "NFS_EXPORT_DIR_1": "/images/alpine",
-        "NFS_EXPORT_DOMAIN_1": "*",
-        "NFS_EXPORT_OPTIONS_1": "rw,insecure,no_subtree_check,all_squash,anonuid=107,anongid=107",
-        "NFS_EXPORT_DIR_2": "/images/cirros",
-        "NFS_EXPORT_DOMAIN_2": "*",
-        "NFS_EXPORT_OPTIONS_2": "rw,insecure,no_subtree_check,all_squash,anonuid=107,anongid=107",
-    },
     ports = [
         "111/udp",
         "2049/udp",
