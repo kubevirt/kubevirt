@@ -30,6 +30,7 @@ spec:
     JSONPath: .metadata.creationTimestamp
   validation:
     openAPIV3Schema:
+      description: CatalogSourceConfig is used to enable an operator present in the OperatorSource to your cluster. Behind the scenes, it will configure an OLM CatalogSource so that the operator can then be managed by OLM.
       properties:
         spec:
           type: object
@@ -44,3 +45,11 @@ spec:
             packages:
               type: string
               description: Comma separated list of operator(s) without spaces which will be enabled in the target namespace
+            csDisplayName:
+              type: string
+              description: DisplayName is passed along to the CatalogSource to be used as a pretty name.
+            csPublisher:
+              type: string
+              description: It represents the entity that published the operator(s) specified in packages.
+        status:
+          type: object

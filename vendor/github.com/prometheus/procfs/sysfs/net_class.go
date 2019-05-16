@@ -78,7 +78,7 @@ func NewNetClass() (NetClass, error) {
 // NetClassDevices scans /sys/class/net for devices and returns them as a list of names.
 func (fs FS) NetClassDevices() ([]string, error) {
 	var res []string
-	path := fs.Path(netclassPath)
+	path := fs.sys.Path(netclassPath)
 
 	devices, err := ioutil.ReadDir(path)
 	if err != nil {
@@ -102,7 +102,7 @@ func (fs FS) NewNetClass() (NetClass, error) {
 		return nil, err
 	}
 
-	path := fs.Path(netclassPath)
+	path := fs.sys.Path(netclassPath)
 	netClass := NetClass{}
 	for _, deviceDir := range devices {
 		interfaceClass, err := netClass.parseNetClassIface(filepath.Join(path, deviceDir))

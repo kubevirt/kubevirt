@@ -120,6 +120,63 @@ SymlinkTo: net:[4026531993]
 Path: fixtures/proc/26231/root
 SymlinkTo: /
 # ttar - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+Path: fixtures/proc/26231/status
+Lines: 53
+
+Name:	prometheus
+Umask:	0022
+State:	S (sleeping)
+Tgid:	1
+Ngid:	0
+Pid:	1
+PPid:	0
+TracerPid:	0
+Uid:	0	0	0	0
+Gid:	0	0	0	0
+FDSize:	128
+Groups:
+NStgid:	1
+NSpid:	1
+NSpgid:	1
+NSsid:	1
+VmPeak:	   58472 kB
+VmSize:	   58440 kB
+VmLck:	       0 kB
+VmPin:	       0 kB
+VmHWM:	    8028 kB
+VmRSS:	    6716 kB
+RssAnon:	    2092 kB
+RssFile:	    4624 kB
+RssShmem:	       0 kB
+VmData:	    2580 kB
+VmStk:	     136 kB
+VmExe:	     948 kB
+VmLib:	    6816 kB
+VmPTE:	     128 kB
+VmPMD:	      12 kB
+VmSwap:	     660 kB
+HugetlbPages:	       0 kB
+Threads:	1
+SigQ:	8/63965
+SigPnd:	0000000000000000
+ShdPnd:	0000000000000000
+SigBlk:	7be3c0fe28014a03
+SigIgn:	0000000000001000
+SigCgt:	00000001800004ec
+CapInh:	0000000000000000
+CapPrm:	0000003fffffffff
+CapEff:	0000003fffffffff
+CapBnd:	0000003fffffffff
+CapAmb:	0000000000000000
+Seccomp:	0
+Cpus_allowed:	ff
+Cpus_allowed_list:	0-7
+Mems_allowed:	00000000,00000001
+Mems_allowed_list:	0
+voluntary_ctxt_switches:	4742839
+nonvoluntary_ctxt_switches:	1727500
+Mode: 644
+# ttar - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 Path: fixtures/proc/26231/stat
 Lines: 1
 26231 (vim) R 5392 7446 5392 34835 7446 4218880 32533 309516 26 82 1677 44 158 99 20 0 1 0 82375 56274944 1981 18446744073709551615 4194304 6294284 140736914091744 140736914087944 139965136429984 0 0 12288 1870679807 0 0 0 17 0 0 0 31 0 0 8391624 8481048 16420864 140736914093252 140736914093279 140736914093279 140736914096107 0
@@ -160,23 +217,23 @@ SymlinkTo: ../../symlinktargets/xyz
 # ttar - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 Path: fixtures/proc/26232/limits
 Lines: 17
-Limit                     Soft Limit           Hard Limit           Units     
-Max cpu time              unlimited            unlimited            seconds   
-Max file size             unlimited            unlimited            bytes     
-Max data size             unlimited            unlimited            bytes     
-Max stack size            8388608              unlimited            bytes     
-Max core file size        0                    unlimited            bytes     
-Max resident set          unlimited            unlimited            bytes     
-Max processes             29436                29436                processes 
-Max open files            1024                 4096                 files     
-Max locked memory         65536                65536                bytes     
-Max address space         unlimited            unlimited            bytes     
-Max file locks            unlimited            unlimited            locks     
-Max pending signals       29436                29436                signals   
-Max msgqueue size         819200               819200               bytes     
-Max nice priority         0                    0                    
-Max realtime priority     0                    0                    
-Max realtime timeout      unlimited            unlimited            us        
+Limit                     Soft Limit           Hard Limit           Units
+Max cpu time              unlimited            unlimited            seconds
+Max file size             unlimited            unlimited            bytes
+Max data size             unlimited            unlimited            bytes
+Max stack size            8388608              unlimited            bytes
+Max core file size        0                    unlimited            bytes
+Max resident set          unlimited            unlimited            bytes
+Max processes             29436                29436                processes
+Max open files            1024                 4096                 files
+Max locked memory         65536                65536                bytes
+Max address space         unlimited            unlimited            bytes
+Max file locks            unlimited            unlimited            locks
+Max pending signals       29436                29436                signals
+Max msgqueue size         819200               819200               bytes
+Max nice priority         0                    0
+Max realtime priority     0                    0
+Max realtime timeout      unlimited            unlimited            us
 Mode: 644
 # ttar - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 Path: fixtures/proc/26232/root
@@ -206,9 +263,9 @@ Mode: 644
 # ttar - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 Path: fixtures/proc/buddyinfo
 Lines: 3
-Node 0, zone      DMA      1      0      1      0      2      1      1      0      1      1      3 
-Node 0, zone    DMA32    759    572    791    475    194     45     12      0      0      0      0 
-Node 0, zone   Normal   4381   1093    185   1530    567    102      4      0      0      0      0 
+Node 0, zone      DMA      1      0      1      0      2      1      1      0      1      1      3
+Node 0, zone    DMA32    759    572    791    475    194     45     12      0      0      0      0
+Node 0, zone   Normal   4381   1093    185   1530    567    102      4      0      0      0      0
 Mode: 644
 # ttar - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 Path: fixtures/proc/diskstats
@@ -302,13 +359,13 @@ Lines: 26
 Personalities : [linear] [multipath] [raid0] [raid1] [raid6] [raid5] [raid4] [raid10]
 md3 : active raid6 sda1[8] sdh1[7] sdg1[6] sdf1[5] sde1[11] sdd1[3] sdc1[10] sdb1[9]
       5853468288 blocks super 1.2 level 6, 64k chunk, algorithm 2 [8/8] [UUUUUUUU]
-      
+
 md127 : active raid1 sdi2[0] sdj2[1]
       312319552 blocks [2/2] [UU]
-      
+
 md0 : active raid1 sdk[2](S) sdi1[0] sdj1[1]
       248896 blocks [2/2] [UU]
-      
+
 md4 : inactive raid1 sda3[0] sdb3[1]
       4883648 blocks [2/2] [UU]
 

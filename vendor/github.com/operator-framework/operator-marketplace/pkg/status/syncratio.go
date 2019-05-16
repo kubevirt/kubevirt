@@ -8,7 +8,7 @@ import (
 )
 
 // SyncRatio provides an interface for managing syncs which are used to report
-// operator status to CVO.
+// ClusterOperator status to CVO.
 type SyncRatio interface {
 	GetSyncs() (failedSyncs int, syncEvents int)
 	ReportFailedSync()
@@ -41,7 +41,7 @@ func NewSyncRatio(successRatio float32, syncsBeforeTruncate int, syncTruncateVal
 }
 
 type syncRatio struct {
-	// successRatio is the ratio of successfulSyncs to syncEvents
+	// successRatio is the ratio of successfulSyncs to syncEvents.
 	successRatio float32
 
 	// syncsBeforeTruncate the number of syncEvents before failedSyncs and
@@ -53,6 +53,7 @@ type syncRatio struct {
 
 	// failedSyncs represents the number of failed syncs.
 	failedSyncs int
+
 	// syncEvents represents the sum of syncs events.
 	syncEvents int
 
@@ -60,21 +61,21 @@ type syncRatio struct {
 	lock sync.Mutex
 }
 
-// GetSyncs returns the number of failedSyncs and the number of syncEvents
+// GetSyncs returns the number of failedSyncs and the number of syncEvents.
 func (s *syncRatio) GetSyncs() (failedSyncs int, syncEvents int) {
 	s.lock.Lock()
 	defer s.lock.Unlock()
 	return s.failedSyncs, s.syncEvents
 }
 
-// ReportFailedSync increments the number of syncEvents by one
+// ReportFailedSync increments the number of syncEvents by one.
 func (s *syncRatio) ReportFailedSync() {
 	s.lock.Lock()
 	defer s.lock.Unlock()
 	s.failedSyncs++
 }
 
-// ReportSyncEvent increments the number of syncEvents
+// ReportSyncEvent increments the number of syncEvents.
 func (s *syncRatio) ReportSyncEvent() {
 	s.lock.Lock()
 	defer s.lock.Unlock()
@@ -85,15 +86,15 @@ func (s *syncRatio) ReportSyncEvent() {
 func (s *syncRatio) truncateSyncs() {
 	s.lock.Lock()
 	defer s.lock.Unlock()
-	s.syncEvents = s.syncEvents % s.syncEvents
+	s.syncEvents = s.syncEvents % s.syncTruncateValue
 	s.failedSyncs = s.failedSyncs % s.syncTruncateValue
 }
 
-// isSucceeding returns whether or not the cluster operator should report a successful state.
-// If syncEvents is less than or equal to 0 an error is returned and syncr.
+// isSucceeding returns whether or not the ClusterOperator should report a successful state.
+// If syncEvents is less than or equal to 0 then (false, nil) is returned.
 func (s *syncRatio) IsSucceeding() (bool, *float32) {
 	ratio := s.getRatio()
-	// return error if s.syncs <= 0
+	// return (false, nil) if s.syncs <= 0.
 	if ratio == nil {
 		return false, ratio
 	}
@@ -105,9 +106,9 @@ func (s *syncRatio) IsSucceeding() (bool, *float32) {
 }
 
 // getRatio returns the ratio of successfulSyncs to syncEvents
-// If s.syncs is equal to 0 then nil is returned
+// If s.syncs is less than or equal to 0 then nil is returned.
 func (s *syncRatio) getRatio() *float32 {
-	// Prevent number of syncs from growing indefinitely
+	// Prevent number of syncs from growing indefinitely.
 	if s.syncEvents > s.syncsBeforeTruncate {
 		s.truncateSyncs()
 	}

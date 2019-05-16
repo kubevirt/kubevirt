@@ -23,5 +23,4 @@ subjects:
 roleRef:
   kind: Role
   name: marketplace-operator
-  namespace: marketplace
   apiGroup: rbac.authorization.k8s.io

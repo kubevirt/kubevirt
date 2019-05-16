@@ -14,33 +14,24 @@
 package sysfs
 
 import (
-	"fmt"
-	"os"
-	"path/filepath"
+	"github.com/prometheus/procfs/internal/fs"
 )
 
 // FS represents the pseudo-filesystem sys, which provides an interface to
 // kernel data structures.
-type FS string
+type FS struct {
+	sys fs.FS
+}
 
 // DefaultMountPoint is the common mount point of the sys filesystem.
-const DefaultMountPoint = "/sys"
+const DefaultMountPoint = fs.DefaultSysMountPoint
 
 // NewFS returns a new FS mounted under the given mountPoint. It will error
 // if the mount point can't be read.
 func NewFS(mountPoint string) (FS, error) {
-	info, err := os.Stat(mountPoint)
+	fs, err := fs.NewFS(mountPoint)
 	if err != nil {
-		return "", fmt.Errorf("could not read %s: %s", mountPoint, err)
+		return FS{}, err
 	}
-	if !info.IsDir() {
-		return "", fmt.Errorf("mount point %s is not a directory", mountPoint)
-	}
-
-	return FS(mountPoint), nil
-}
-
-// Path returns the path of the given subsystem relative to the sys root.
-func (fs FS) Path(p ...string) string {
-	return filepath.Join(append([]string{string(fs)}, p...)...)
+	return FS{fs}, nil
 }

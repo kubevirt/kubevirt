@@ -3,6 +3,7 @@ package status
 import (
 	configv1 "github.com/openshift/api/config/v1"
 	cohelpers "github.com/openshift/library-go/pkg/config/clusteroperator/v1helpers"
+	"k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 // compareArrayClusterOperatorStatusConditions takes two arrays of
@@ -36,4 +37,18 @@ func compareClusterOperatorStatusConditions(a configv1.ClusterOperatorStatusCond
 		return true
 	}
 	return false
+}
+
+func clusterStatusListBuilder() func(conditionType configv1.ClusterStatusConditionType, conditionStatus configv1.ConditionStatus, conditionMessage string) []configv1.ClusterOperatorStatusCondition {
+	time := v1.Now()
+	list := []configv1.ClusterOperatorStatusCondition{}
+	return func(conditionType configv1.ClusterStatusConditionType, conditionStatus configv1.ConditionStatus, conditionMessage string) []configv1.ClusterOperatorStatusCondition {
+		list = append(list, configv1.ClusterOperatorStatusCondition{
+			Type:               conditionType,
+			Status:             conditionStatus,
+			Message:            conditionMessage,
+			LastTransitionTime: time,
+		})
+		return list
+	}
 }
