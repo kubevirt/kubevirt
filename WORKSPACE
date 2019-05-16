@@ -183,10 +183,7 @@ container_pull(
     digest = "sha256:17fe1813fd20d9fdfa497a26c8a2e39dd49748cd39dbb0559df7627d9bcf4c53",
     registry = "index.docker.io",
     repository = "janeczku/nfs-ganesha",
-    #tag = "1.0.1",
 )
-
-
 
 load(
     "@io_bazel_rules_docker//go:image.bzl",

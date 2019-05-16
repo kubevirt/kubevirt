@@ -644,29 +644,38 @@ var _ = Describe("[rfe_id:393][crit:high[vendor:cnv-qe@redhat.com][level:system]
 				tests.WaitForVirtualMachineToDisappearWithTimeout(vmi, 120)
 			})
 		})
-		Context("with an Cirros shared NFS PVC", func() {
+		Context("with an Alpine shared NFS PVC", func() {
 			var pvName string
+			var vmi *v1.VirtualMachineInstance
 			BeforeEach(func() {
 				pvName = "test-nfs" + rand.String(48)
 				// Prepare a NFS backed PV
-				By("Create new NF PV and PVC")
-				tests.CreateNfsPvAndPvc(pvName, "cirros", "1Gi")
+				By("Starting an iSCSI POD")
+				nfsIP := tests.CreateNFSTargetPOD(tests.ContainerDiskAlpine)
+				// create a new PV and PVC (PVs can't be reused)
+				By("create a new iSCSI PV and PVC")
+				tests.CreateNFSPvAndPvc(pvName, "1Gi", nfsIP)
 			}, 60)
 
 			AfterEach(func() {
+				// delete VMI
+				By("Deleting the VMI")
+				err = virtClient.VirtualMachineInstance(vmi.Namespace).Delete(vmi.Name, &metav1.DeleteOptions{})
+				Expect(err).To(BeNil())
+
+				By("Waiting for VMI to disappear")
+				tests.WaitForVirtualMachineToDisappearWithTimeout(vmi, 120)
 				// create a new PV and PVC (PVs can't be reused)
 				tests.DeletePvAndPvc(pvName)
 			}, 60)
 			It("should be successfully with a cloud init", func() {
 				// Start the VirtualMachineInstance with the PVC attached
 				By("Creating the  VMI")
-				vmi := tests.NewRandomVMIWithPVC(pvName)
-				tests.AddUserData(vmi, "cloud-init", "#!/bin/bash\necho 'hello'\n")
-				vmi.Spec.Hostname = fmt.Sprintf("%s", tests.ContainerDiskCirros)
+				vmi = tests.NewRandomVMIWithPVC(pvName)
 				vmi = runVMIAndExpectLaunch(vmi, 180)
 
 				By("Checking that the VirtualMachineInstance console has expected output")
-				expecter, err := tests.LoggedInCirrosExpecter(vmi)
+				expecter, err := tests.LoggedInAlpineExpecter(vmi)
 				Expect(err).To(BeNil())
 				expecter.Close()
 
@@ -678,13 +687,6 @@ var _ = Describe("[rfe_id:393][crit:high[vendor:cnv-qe@redhat.com][level:system]
 				// check VMI, confirm migration state
 				confirmVMIPostMigration(vmi, migrationUID)
 
-				// delete VMI
-				By("Deleting the VMI")
-				err = virtClient.VirtualMachineInstance(vmi.Namespace).Delete(vmi.Name, &metav1.DeleteOptions{})
-				Expect(err).To(BeNil())
-
-				By("Waiting for VMI to disappear")
-				tests.WaitForVirtualMachineToDisappearWithTimeout(vmi, 120)
 			})
 		})
 
