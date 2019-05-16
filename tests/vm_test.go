@@ -651,7 +651,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 			})
 
 			Context("Using RunStrategyRerunOnFailure", func() {
-				It("should stop a running VM", func() {
+				It("[test_id:2186] should stop a running VM", func() {
 					By("creating a VM with RunStrategyRerunOnFailure")
 					virtualMachine := newVirtualMachineWithRunStrategy(v1.RunStrategyRerunOnFailure)
 
@@ -679,10 +679,11 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 					Expect(err).ToNot(HaveOccurred())
 					Expect(newVM.Spec.RunStrategy).ToNot(BeNil())
 					Expect(*newVM.Spec.RunStrategy).To(Equal(v1.RunStrategyHalted))
+					By("Ensuring stateChangeRequests list is cleared")
 					Expect(len(newVM.Status.StateChangeRequests)).To(Equal(0))
 				})
 
-				It("should restart a running VM", func() {
+				It("[test_id:2187] should restart a running VM", func() {
 					By("creating a VM with RunStrategyRerunOnFailure")
 					virtualMachine := newVirtualMachineWithRunStrategy(v1.RunStrategyRerunOnFailure)
 
@@ -723,6 +724,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 					Expect(newVM.Spec.RunStrategy).ToNot(BeNil())
 					Expect(*newVM.Spec.RunStrategy).To(Equal(v1.RunStrategyRerunOnFailure))
 
+					By("Ensuring stateChangeRequests list gets cleared")
 					// StateChangeRequest might still exist until the new VMI is created
 					// But it must eventually be cleared
 					Eventually(func() int {
@@ -733,7 +735,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 						"New VMI was created, but StateChangeRequest was never cleared")
 				})
 
-				It("should not remove a succeeded VMI", func() {
+				It("[test_id:2188] should not remove a succeeded VMI", func() {
 					By("creating a VM with RunStrategyRerunOnFailure")
 					virtualMachine := newVirtualMachineWithRunStrategy(v1.RunStrategyRerunOnFailure)
 
@@ -788,7 +790,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 			})
 
 			Context("Using RunStrategyHalted", func() {
-				It("should start a stopped VM", func() {
+				It("[test_id:2037] should start a stopped VM", func() {
 					By("creating a VM with RunStrategyHalted")
 					virtualMachine := newVirtualMachineWithRunStrategy(v1.RunStrategyHalted)
 
@@ -807,12 +809,13 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 					Expect(err).ToNot(HaveOccurred())
 					Expect(newVM.Spec.RunStrategy).ToNot(BeNil())
 					Expect(*newVM.Spec.RunStrategy).To(Equal(v1.RunStrategyAlways))
+					By("Ensuring stateChangeRequests list is cleared")
 					Expect(len(newVM.Status.StateChangeRequests)).To(Equal(0))
 				})
 			})
 
 			Context("Using RunStrategyManual", func() {
-				It("should start", func() {
+				It("[test_id:2036] should start", func() {
 					By("creating a VM with RunStrategyManual")
 					virtualMachine := newVirtualMachineWithRunStrategy(v1.RunStrategyManual)
 
@@ -831,10 +834,11 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 					Expect(err).ToNot(HaveOccurred())
 					Expect(newVM.Spec.RunStrategy).ToNot(BeNil())
 					Expect(*newVM.Spec.RunStrategy).To(Equal(v1.RunStrategyManual))
+					By("Ensuring stateChangeRequests list is cleared")
 					Expect(len(newVM.Status.StateChangeRequests)).To(Equal(0))
 				})
 
-				It("should stop", func() {
+				It("[test_id:2189] should stop", func() {
 					By("creating a VM with RunStrategyManual")
 					virtualMachine := newVirtualMachineWithRunStrategy(v1.RunStrategyManual)
 
@@ -864,14 +868,47 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 					Expect(err).ToNot(HaveOccurred())
 					Expect(newVM.Spec.RunStrategy).ToNot(BeNil())
 					Expect(*newVM.Spec.RunStrategy).To(Equal(v1.RunStrategyManual))
+					By("Ensuring stateChangeRequests list is cleared")
 					Expect(len(newVM.Status.StateChangeRequests)).To(Equal(0))
 				})
 
-				It("should restart", func() {
+				It("[test_id:2035] should restart", func() {
 					By("creating a VM with RunStrategyManual")
 					virtualMachine := newVirtualMachineWithRunStrategy(v1.RunStrategyManual)
 
 					startCommand := tests.NewRepeatableVirtctlCommand(vm.COMMAND_START, "--namespace", virtualMachine.Namespace, virtualMachine.Name)
+					stopCommand := tests.NewRepeatableVirtctlCommand(vm.COMMAND_STOP, "--namespace", virtualMachine.Namespace, virtualMachine.Name)
+					restartCommand := tests.NewRepeatableVirtctlCommand(vm.COMMAND_RESTART, "--namespace", virtualMachine.Namespace, virtualMachine.Name)
+
+					By("Invoking virtctl restart")
+					err = restartCommand()
+					Expect(err).ToNot(HaveOccurred())
+
+					By("Waiting for VMI to be ready")
+					Eventually(func() bool {
+						virtualMachine, err = virtClient.VirtualMachine(virtualMachine.Namespace).Get(virtualMachine.Name, &v12.GetOptions{})
+						Expect(err).ToNot(HaveOccurred())
+						return virtualMachine.Status.Ready
+					}, 240*time.Second, 1*time.Second).Should(BeTrue())
+
+					By("Invoking virtctl stop")
+					err = stopCommand()
+					Expect(err).ToNot(HaveOccurred())
+
+					By("Ensuring the VirtualMachineInstance is stopped")
+					Eventually(func() bool {
+						_, err = virtClient.VirtualMachineInstance(virtualMachine.Namespace).Get(virtualMachine.Name, &v12.GetOptions{})
+						if err != nil {
+							// A 404 is the expected end result
+							if !errors.IsNotFound(err) {
+								Expect(err).ToNot(HaveOccurred())
+							}
+							return true
+						}
+						return false
+					}, 240*time.Second, 1*time.Second).Should(BeTrue())
+
+					By("Invoking virtctl start")
 					err = startCommand()
 					Expect(err).ToNot(HaveOccurred())
 
@@ -888,7 +925,6 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 					currentUUID := virtualMachine.UID
 
 					By("Invoking virtctl restart")
-					restartCommand := tests.NewRepeatableVirtctlCommand(vm.COMMAND_RESTART, "--namespace", virtualMachine.Namespace, virtualMachine.Name)
 					err = restartCommand()
 					Expect(err).ToNot(HaveOccurred())
 
@@ -911,6 +947,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 					Expect(newVM.Spec.RunStrategy).ToNot(BeNil())
 					Expect(*newVM.Spec.RunStrategy).To(Equal(v1.RunStrategyManual))
 
+					By("Ensuring stateChangeRequests list gets cleared")
 					// StateChangeRequest might still exist until the new VMI is created
 					// But it must eventually be cleared
 					Eventually(func() int {
@@ -921,7 +958,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 						"New VMI was created, but StateChangeRequest was never cleared")
 				})
 
-				It("should not remove a succeeded VMI", func() {
+				It("[test_id:2190] should not remove a succeeded VMI", func() {
 					By("creating a VM with RunStrategyManual")
 					virtualMachine := newVirtualMachineWithRunStrategy(v1.RunStrategyManual)
 
