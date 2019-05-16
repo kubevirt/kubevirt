@@ -1,4 +1,4 @@
-package mutating_webhook
+package mutators
 
 import (
 	"testing"
@@ -12,5 +12,5 @@ import (
 func TestMutatingWebhook(t *testing.T) {
 	log.Log.SetIOWriter(GinkgoWriter)
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "MutatingWebhook Suite")
+	RunSpecs(t, "Mutators Suite")
 }

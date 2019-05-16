@@ -1,4 +1,4 @@
-package validating_webhook
+package admitters
 
 import (
 	"testing"
@@ -12,5 +12,5 @@ import (
 func TestValidatingWebhook(t *testing.T) {
 	log.Log.SetIOWriter(GinkgoWriter)
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "ValidatingWebhook Suite")
+	RunSpecs(t, "Admitters Suite")
 }
