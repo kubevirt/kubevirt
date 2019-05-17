@@ -39,6 +39,7 @@ kubectl create -f deploy/converged/crds/cdi.crd.yaml
 kubectl create -f deploy/converged/crds/cna.crd.yaml
 kubectl create -f deploy/converged/crds/ssp.crd.yaml
 kubectl create -f deploy/converged/crds/kwebui.crd.yaml
+kubectl create -f deploy/converged/crds/nodemaintenance.crd.yaml
 ```
 
 Launch all of the Service Accounts, Cluster Role(Binding)s, and Operators.
