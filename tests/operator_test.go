@@ -275,7 +275,16 @@ var _ = Describe("Operator", func() {
 				return fmt.Errorf("Waiting for phase to be deployed")
 			}
 			return nil
-		}, 160*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
+		}, 300*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
+	}
+
+	patchKvVersionAndRegistry := func(name string, version string, registry string) {
+		data := []byte(fmt.Sprintf(`[{ "op": "replace", "path": "/spec/imageTag", "value": "%s"},{ "op": "replace", "path": "/spec/imageRegistry", "value": "%s"}]`, version, registry))
+		Eventually(func() error {
+			_, err := virtClient.KubeVirt(tests.KubeVirtInstallNamespace).Patch(name, types.JSONPatchType, data)
+
+			return err
+		}, 10*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
 	}
 
 	patchKvVersion := func(name string, version string) {
@@ -401,6 +410,62 @@ var _ = Describe("Operator", func() {
 		patchOperatorVersion(tests.KubeVirtVersionTag)
 		waitForKv(originalKv)
 		allPodsAreReady(tests.KubeVirtVersionTag)
+
+	})
+
+	Describe("should update kubevirt", func() {
+
+		FIt("from previous release to latest", func() {
+
+			upstreamReleaseImageTag := "v0.17.0"
+			upstreamReleaseImageRegistry := "index.docker.io/kubevirt"
+
+			curTag := originalKv.Status.ObservedKubeVirtVersion
+			curRegistry := originalKv.Status.ObservedKubeVirtRegistry
+
+			allPodsAreReady(tests.KubeVirtVersionTag)
+			sanityCheckDeploymentsExist()
+
+			By("Deleting KubeVirt object")
+			deleteAllKvAndWait(false)
+
+			// this is just verifying some common known components do in fact get deleted.
+			By("Sanity Checking Deployments infrastructure is deleted")
+			sanityCheckDeploymentsDeleted()
+
+			By("Creating KubeVirt Object with Latest Release")
+			kv := copyOriginalKv()
+			kv.Name = "kubevirt-release-install"
+
+			kv.Spec.ImageTag = upstreamReleaseImageTag
+			kv.Spec.ImageRegistry = upstreamReleaseImageRegistry
+			createKv(kv)
+
+			By("Waiting for KV to stabilize")
+			waitForKv(kv)
+
+			By("Verifying infrastructure is Ready")
+			allPodsAreReady(upstreamReleaseImageTag)
+			// We're just verifying that a few common components that
+			// should always exist get re-deployed.
+			sanityCheckDeploymentsExist()
+
+			By("Updating KubeVirtObject With Devel Tag")
+			patchKvVersionAndRegistry(kv.Name, curTag, curRegistry)
+
+			By("Wait for Updating Condition")
+			waitForUpdateCondition(kv)
+
+			By("Waiting for KV to stabilize")
+			waitForKv(kv)
+
+			By("Verifying infrastructure Is Updated")
+			allPodsAreReady(curTag)
+
+			By("Deleting KubeVirt object")
+			deleteAllKvAndWait(false)
+
+		})
 
 	})
 
