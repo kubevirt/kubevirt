@@ -250,7 +250,7 @@ var _ = Describe("Operator", func() {
 		Expect(err).ToNot(HaveOccurred())
 	}
 
-	waitForKv := func(newKv *v1.KubeVirt) {
+	waitForKvWithTimeout := func(newKv *v1.KubeVirt, timeoutSeconds int) {
 		Eventually(func() error {
 			kv, err := virtClient.KubeVirt(newKv.Namespace).Get(newKv.Name, &metav1.GetOptions{})
 			if err != nil {
@@ -275,7 +275,11 @@ var _ = Describe("Operator", func() {
 				return fmt.Errorf("Waiting for phase to be deployed")
 			}
 			return nil
-		}, 300*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
+		}, time.Duration(timeoutSeconds)*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
+	}
+
+	waitForKv := func(newKv *v1.KubeVirt) {
+		waitForKvWithTimeout(newKv, 300)
 	}
 
 	patchKvVersionAndRegistry := func(name string, version string, registry string) {
@@ -414,11 +418,14 @@ var _ = Describe("Operator", func() {
 	})
 
 	Describe("should update kubevirt", func() {
+		It("from previous release to latest", func() {
 
-		FIt("from previous release to latest", func() {
+			latestImageTag := tests.LatestReleaseTag
+			latestImageRegistry := tests.LatestReleaseRegistry
 
-			upstreamReleaseImageTag := "v0.17.0"
-			upstreamReleaseImageRegistry := "index.docker.io/kubevirt"
+			if latestImageTag == "" {
+				Skip("--latest-release-tag not provided")
+			}
 
 			curTag := originalKv.Status.ObservedKubeVirtVersion
 			curRegistry := originalKv.Status.ObservedKubeVirtRegistry
@@ -437,15 +444,17 @@ var _ = Describe("Operator", func() {
 			kv := copyOriginalKv()
 			kv.Name = "kubevirt-release-install"
 
-			kv.Spec.ImageTag = upstreamReleaseImageTag
-			kv.Spec.ImageRegistry = upstreamReleaseImageRegistry
+			kv.Spec.ImageTag = latestImageTag
+			kv.Spec.ImageRegistry = latestImageRegistry
 			createKv(kv)
 
 			By("Waiting for KV to stabilize")
-			waitForKv(kv)
+			// wait 7 minutes because this test involves pulling containers
+			// over the internet related to the latest kubevirt release
+			waitForKvWithTimeout(kv, 420)
 
 			By("Verifying infrastructure is Ready")
-			allPodsAreReady(upstreamReleaseImageTag)
+			allPodsAreReady(latestImageTag)
 			// We're just verifying that a few common components that
 			// should always exist get re-deployed.
 			sanityCheckDeploymentsExist()
