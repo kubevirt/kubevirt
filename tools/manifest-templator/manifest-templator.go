@@ -34,10 +34,10 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 
 	cnacomponents "github.com/kubevirt/cluster-network-addons-operator/pkg/components"
-	cdicomponents "github.com/kubevirt/hyperconverged-cluster-operator/pkg/cdicomponents"
 	hcocomponents "github.com/kubevirt/hyperconverged-cluster-operator/pkg/components"
 	kwebuicomponents "github.com/kubevirt/web-ui-operator/pkg/components"
 	extv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
+	cdicomponents "kubevirt.io/containerized-data-importer/pkg/operator/resources/operator"
 	kvcomponents "kubevirt.io/kubevirt/pkg/virt-operator/creation/components"
 	kvrbac "kubevirt.io/kubevirt/pkg/virt-operator/creation/rbac"
 )
@@ -258,12 +258,16 @@ func getCDI(data *templateData) {
 	writer := strings.Builder{}
 
 	// Get CDI Deployment
-	cdideployment := cdicomponents.GetDeployment(
+	cdideployment, err := cdicomponents.NewCdiOperatorDeployment(
+		data.Namespace,
 		"kubevirt",
-		"v1.9.0",
-		"Always",
-	)
-	err := marshallObject(cdideployment, &writer)
+		"v1.9.1",
+		"IfNotPresent",
+		"1",
+		(&cdicomponents.CdiImages{}).FillDefaults())
+
+	check(err)
+	err = marshallObject(cdideployment, &writer)
 	check(err)
 	deployment := writer.String()
 
@@ -275,7 +279,7 @@ func getCDI(data *templateData) {
 
 	// Get CDI ClusterRole
 	writer = strings.Builder{}
-	clusterRole := cdicomponents.GetClusterRole()
+	clusterRole := cdicomponents.NewCdiOperatorClusterRole()
 	marshallObject(clusterRole, &writer)
 	clusterRoleString := writer.String()
 
@@ -290,7 +294,7 @@ func getCDI(data *templateData) {
 
 	// Get HCO CRD
 	writer = strings.Builder{}
-	crd := cdicomponents.GetCrd()
+	crd := cdicomponents.NewCdiCrd()
 	marshallObject(crd, &writer)
 	crdString := writer.String()
 

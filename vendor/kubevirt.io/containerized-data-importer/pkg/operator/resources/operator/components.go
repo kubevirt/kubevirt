@@ -59,13 +59,13 @@ func (ci *CdiImages) FillDefaults() *CdiImages {
 		ci.ClonerImage = ClonerImageDefault
 	}
 	if ci.APIServerImage == "" {
-		ci.ClonerImage = APIServerImageDefault
+		ci.APIServerImage = APIServerImageDefault
 	}
 	if ci.UplodaProxyImage == "" {
-		ci.ClonerImage = UploadProxyImageDefault
+		ci.UplodaProxyImage = UploadProxyImageDefault
 	}
 	if ci.UplodaServerImage == "" {
-		ci.ClonerImage = UploadServerImageDefault
+		ci.UplodaServerImage = UploadServerImageDefault
 	}
 
 	return ci

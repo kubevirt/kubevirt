@@ -33,8 +33,8 @@ import (
 
 const (
 	operatorServiceAccountName = "cdi-operator"
-	operatorClusterRoleName    = "cdi-operator-cluster-role"
-	operatorNamespacedRoleName = "cdi-operator-role"
+	operatorClusterRoleName    = "cdi-operator-cluster"
+	operatorNamespacedRoleName = "cdi-operator"
 	privilegedAccountPrefix    = "system:serviceaccount"
 	prometheusLabel            = common.PrometheusLabel
 )
@@ -86,7 +86,25 @@ func getOperatorClusterRules() *[]rbacv1.PolicyRule {
 				"securitycontextconstraints",
 			},
 			Verbs: []string{
-				"*",
+				"get",
+				"list",
+				"watch",
+			},
+		},
+		{
+			APIGroups: []string{
+				"security.openshift.io",
+			},
+			Resources: []string{
+				"securitycontextconstraints",
+			},
+			ResourceNames: []string{
+				"privileged",
+			},
+			Verbs: []string{
+				"get",
+				"patch",
+				"update",
 			},
 		},
 		{
@@ -187,6 +205,7 @@ func getOperatorClusterRules() *[]rbacv1.PolicyRule {
 				"update",
 				"patch",
 				"list",
+				"watch",
 			},
 		},
 		{
@@ -228,8 +247,11 @@ func getOperatorClusterRules() *[]rbacv1.PolicyRule {
 			},
 			Verbs: []string{
 				"get",
+				"list",
+				"watch",
 				"create",
 				"update",
+				"patch",
 			},
 		},
 		{
@@ -241,6 +263,18 @@ func getOperatorClusterRules() *[]rbacv1.PolicyRule {
 			},
 			Verbs: []string{
 				"*",
+			},
+		},
+		{
+			APIGroups: []string{
+				"storage.k8s.io",
+			},
+			Resources: []string{
+				"storageclasses",
+			},
+			Verbs: []string{
+				"get",
+				"list",
 			},
 		},
 		{
@@ -338,6 +372,21 @@ func getOperatorClusterRules() *[]rbacv1.PolicyRule {
 				"get",
 				"list",
 				"watch",
+				"create",
+				"update",
+				"patch",
+			},
+		},
+		{
+			APIGroups: []string{
+				"route.openshift.io",
+			},
+			Resources: []string{
+				"routes/custom-host",
+			},
+			Verbs: []string{
+				"create",
+				"update",
 			},
 		},
 	}
@@ -440,15 +489,32 @@ func createCDIListCRD() *extv1beta1.CustomResourceDefinition {
 			},
 		},
 		Spec: extv1beta1.CustomResourceDefinitionSpec{
-			Group: "cdi.kubevirt.io",
+			Group:   "cdi.kubevirt.io",
+			Version: "v1alpha1",
+			Scope:   "Cluster",
+
+			Versions: []extv1beta1.CustomResourceDefinitionVersion{
+				{
+					Name:    "v1alpha1",
+					Served:  true,
+					Storage: true,
+				},
+			},
 			Names: extv1beta1.CustomResourceDefinitionNames{
 				Kind:     "CDI",
 				ListKind: "CDIList",
 				Plural:   "cdis",
 				Singular: "cdi",
+				Categories: []string{
+					"all",
+				},
+				ShortNames: []string{"cdi", "cdis"},
 			},
-			Version: "v1alpha1",
-			Scope:   "Cluster",
+
+			AdditionalPrinterColumns: []extv1beta1.CustomResourceColumnDefinition{
+				{Name: "Age", Type: "date", JSONPath: ".metadata.creationTimestamp"},
+				{Name: "Phase", Type: "string", JSONPath: ".status.phase"},
+			},
 		},
 	}
 }
@@ -458,11 +524,20 @@ const (
 )
 
 func createOperatorDeploymentSpec(repo, namespace, deployClusterResources, operatorImage, controllerImage, importerImage, clonerImage, apiServerImage, uploadProxyImage, uploadServerImage, tag, verbosity, pullPolicy string) *appsv1.DeploymentSpec {
-	spec := utils.CreateOperatorDeploymentSpec("cdi-operator", namespace, "name", "cdi-operator", operatorServiceAccountName, int32(1))
-	container := utils.CreatePortsContainer("cdi-operator", repo, operatorImage, tag, verbosity, corev1.PullPolicy(pullPolicy), createPrometheusPorts())
-	container.Env = *createOperatorEnvVar(repo, deployClusterResources, operatorImage, controllerImage, importerImage, clonerImage, apiServerImage, uploadProxyImage, uploadServerImage, tag, verbosity, pullPolicy)
-	spec.Template.Spec.Containers = []corev1.Container{container}
-	return spec
+	deployment := createOperatorDeployment(repo,
+		namespace,
+		deployClusterResources,
+		operatorImage,
+		controllerImage,
+		importerImage,
+		clonerImage,
+		apiServerImage,
+		uploadProxyImage,
+		uploadServerImage,
+		tag,
+		verbosity,
+		pullPolicy)
+	return &deployment.Spec
 }
 
 func createOperatorEnvVar(repo, deployClusterResources, operatorImage, controllerImage, importerImage, clonerImage, apiServerImage, uploadProxyImage, uploadServerImage, tag, verbosity, pullPolicy string) *[]corev1.EnvVar {
@@ -527,6 +602,7 @@ func createPrometheusPorts() *[]corev1.ContainerPort {
 		{
 			Name:          "metrics",
 			ContainerPort: 60000,
+			Protocol:      "TCP",
 		},
 	}
 }
