@@ -25,7 +25,7 @@ Here is a description of the spec fields:
 
 - `displayName` and `publisher` are optional and only needed for UI purposes.
 
-Please see [here](deploy/examples/community.operatorsource.cr.yaml) for an example `OperatorSource`.
+Please see [here][community-operators] for an example `OperatorSource`.
 
 If you want an `OperatorSource` to work with private app-registry repositories, please take a look at the [Private Repo Authentication](docs/how-to-authenticate-private-repositories.md) documentation.
 
@@ -62,9 +62,9 @@ $ kubectl apply -f deploy/upstream
 
 #### Installing an operator using Marketplace
 
-The following section assumes that Marketplace was installed in the `marketplace` namespace. For Marketplace to function you need to have at least one `OperatorSource` CR present on the cluster. To get started you can use the `OperatorSource` for [upstream-community-operators](deploy/examples/upstream.operatorsource.cr.yaml). If you are on an OKD cluster, you can skip this step as the `OperatorSource` for [community-operators](deploy/examples/community.operatorsource.cr.yaml) is installed by default instead.
+The following section assumes that Marketplace was installed in the `marketplace` namespace. For Marketplace to function you need to have at least one `OperatorSource` CR present on the cluster. To get started you can use the `OperatorSource` for [upstream-community-operators]. If you are on an OKD cluster, you can skip this step as the `OperatorSource` for [community-operators] is installed by default instead.
 ```bash
-$ kubectl apply -f deploy/examples/upstream.operatorsource.cr.yaml
+$ kubectl apply -f deploy/upstream/07_upstream_operatorsource.cr.yaml
 ```
 Once the `OperatorSource` has been successfully deployed, you can discover the operators available using the following command:
 ```bash
@@ -72,6 +72,7 @@ $ kubectl get opsrc upstream-community-operators -o=custom-columns=NAME:.metadat
 NAME                           PACKAGES
 upstream-community-operators   federationv2,svcat,metering,etcd,prometheus,automationbroker,templateservicebroker,cluster-logging,jaeger,descheduler
 ```
+**_Note_**: Please do not install [upstream-community-operators] and [community-operators] `OperatorSources` on the same cluster. The rule of thumb is to install [community-operators] on OpenShift clusters and [upstream-community-operators] on upstream Kubernetes clusters.
 
 Now if you want to install the `descheduler` and `jaeger` operators, create a `CatalogSourceConfig` CR as shown below:
 ```
@@ -157,7 +158,7 @@ $ kubectl delete catalogsourceconfig installed-upstream-community-operators -n m
 
 Follow the steps [here](https://github.com/operator-framework/community-operators/blob/master/docs/testing-operators.md) to upload operator artifacts to `quay.io`.
 
-Once your operator artifact is pushed to `quay.io` you can use an `OperatorSource` to add your operator offering to Marketplace. An example `OperatorSource` is provided [here](deploy/examples/upstream.operatorsource.cr.yaml).
+Once your operator artifact is pushed to `quay.io` you can use an `OperatorSource` to add your operator offering to Marketplace. An example `OperatorSource` is provided [here][upstream-community-operators].
 
 An `OperatorSource` must specify the `registryNamespace` the operator artifact was pushed to, and set the `name` and `namespace` for creating the `OperatorSource` on your cluster.
 
@@ -174,3 +175,6 @@ You can also access private AppRegistry repositories via an authenticated `Opera
 ## Marketplace End to End (e2e) Tests
 
 A full writeup on Marketplace e2e testing can be found [here](docs/e2e-testing.md)
+
+[upstream-community-operators]: deploy/upstream/07_upstream_operatorsource.cr.yaml
+[community-operators]: deploy/examples/community.operatorsource.cr.yaml

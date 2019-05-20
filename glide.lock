@@ -1,5 +1,5 @@
-hash: 28a77e59ed187319e8f1beebf63a22d849b526c6004d49b0e1df4d7ebcd870b2
-updated: 2019-04-18T09:24:22.619672919Z
+hash: d9f54de5880e2870b0be418f89ee0c6688ad861e2fd0a25800458fd2e1e808e6
+updated: 2019-05-16T17:26:26.783851155Z
 imports:
 - name: cloud.google.com/go
   version: 3b1ae45394a234c385be014e9a488f2bb6eef821
@@ -23,7 +23,7 @@ imports:
 - name: github.com/blang/semver
   version: 2ee87856327ba09384cabd113bc6b5d174e9ec0f
 - name: github.com/coreos/go-iptables
-  version: 47f22b0dd3355c0ba570ba12b0b8a36bf214c04b
+  version: 78b5fff24e6df8886ef8eca9411f683a884349a5
   subpackages:
   - iptables
 - name: github.com/davecgh/go-spew
@@ -107,7 +107,7 @@ imports:
   subpackages:
   - lru
 - name: github.com/golang/mock
-  version: 73dc87cad333b55a02058f4b3d872dbbafddc2b0
+  version: d74b93584564161b2de771089ee697f07d8bd5b5
   subpackages:
   - gomock
 - name: github.com/golang/protobuf
@@ -121,7 +121,7 @@ imports:
 - name: github.com/google/btree
   version: 7d79101e329e5a3adf994758c578dab82b90c017
 - name: github.com/google/goexpect
-  version: ad7fe45ef179b699c10b4023805faec2d63fdcb0
+  version: b674c1c17d90d1eb62b39e96d3b521e409c1986b
 - name: github.com/google/gofuzz
   version: 44d81051d367757e1c7c6a5a86423ece9afcf63c
 - name: github.com/google/goterm
@@ -226,7 +226,7 @@ imports:
   - reporters/stenographer/support/go-isatty
   - types
 - name: github.com/onsi/gomega
-  version: abeb93df1e828c834ddbe55cb416f31b82409a3c
+  version: 6a48b4839f850fe696893f09085e3fc485d74a4a
   subpackages:
   - format
   - ghttp
@@ -263,7 +263,7 @@ imports:
   - appregistry/package_appr
   - models
 - name: github.com/operator-framework/operator-marketplace
-  version: 5d8c0db3c44f98c1d0758c2b846a934a2c3cae74
+  version: 94bf0884411c1d08149ab9c232ee4629d107136e
   subpackages:
   - pkg/apis/operators/v1
   - pkg/appregistry
@@ -288,7 +288,7 @@ imports:
   - internal/bitbucket.org/ww/goautoneg
   - model
 - name: github.com/prometheus/procfs
-  version: 8368d24ba045f26503eb745b624d930cbe214c79
+  version: 5de912679dde65656c7f24523dec790b452f10e1
 - name: github.com/PuerkitoBio/purell
   version: 8a290539e2e8629dbc4e6bad948158f790ec31f4
 - name: github.com/PuerkitoBio/urlesc
@@ -378,7 +378,7 @@ imports:
   subpackages:
   - rate
 - name: google.golang.org/appengine
-  version: 54a98f90d1c46b7731eb8fb305d2a321c30ef610
+  version: 311d3c5cf9373249645db030e53c37c209a8b378
   subpackages:
   - internal
   - internal/app_identity
@@ -695,6 +695,7 @@ imports:
   - tools/leaderelection/resourcelock
   - tools/metrics
   - tools/pager
+  - tools/portforward
   - tools/record
   - tools/reference
   - tools/remotecommand
@@ -776,7 +777,7 @@ testImports:
   subpackages:
   - assert
 - name: golang.org/x/sync
-  version: 56d357773e8497dfd526f0727e187720d1093757
+  version: 112230192c580c3556b8cee6403af37a4fc5f28c
   subpackages:
   - errgroup
 - name: gopkg.in/check.v1

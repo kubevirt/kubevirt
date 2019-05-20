@@ -20,7 +20,7 @@ import (
 )
 
 const (
-	// clusterOperatorName is the name of the cluster operator
+	// clusterOperatorName is the name of the ClusterOperator
 	clusterOperatorName = "marketplace"
 
 	// minSyncsBeforeReporting is the minimum number of syncs we wish to see
@@ -28,7 +28,7 @@ const (
 	minSyncsBeforeReporting = 4
 
 	// successRatio is the ratio of successful syncs / total syncs that we
-	// want to see in order to report that the marketplace operator is healthy.
+	// want to see in order to report that the marketplace operator is not degraded.
 	// This value is low right now because the failed syncs come from invalid CRs.
 	// As the status reporting evolves we can tweek this ratio to be a better
 	// representation of the operator's health.
@@ -42,7 +42,7 @@ const (
 	syncsBeforeTruncate = 10000
 	syncTruncateValue   = 100
 
-	// coStatusReportInterval is the interval at which the cluster operator status is updated
+	// coStatusReportInterval is the interval at which the ClusterOperator status is updated
 	coStatusReportInterval = 20 * time.Second
 )
 
@@ -89,7 +89,7 @@ func StartReporting(cfg *rest.Config, mgr manager.Manager, namespace string, ver
 	// ensure instance is only created once.
 	once.Do(func() {
 		instance = new(cfg, mgr, namespace, version, stopCh)
-		// exit if cluster operator api is not present
+		// exit if ClusterOperator api is not present
 		if instance.coAPINotPresent {
 			return
 		}
@@ -152,21 +152,6 @@ func new(cfg *rest.Config, mgr manager.Manager, namespace string, version string
 	}
 }
 
-// setFailing reports that operator has failed along with the error message
-func (s *status) setFailing(message string) error {
-	return s.setStatus(configv1.OperatorFailing, message)
-}
-
-// setAvailable reports that the operator is available to process events
-func (s *status) setAvailable(message string) error {
-	return s.setStatus(configv1.OperatorAvailable, message)
-}
-
-// setProgressing reports that the operator is being deployed
-func (s *status) setProgressing(message string) error {
-	return s.setStatus(configv1.OperatorProgressing, message)
-}
-
 // ensureClusterOperator ensures that a ClusterOperator CR is present on the
 // cluster
 func (s *status) ensureClusterOperator() error {
@@ -197,17 +182,20 @@ func (s *status) ensureClusterOperator() error {
 
 // setStatus handles setting all the required fields for the given
 // ClusterStatusConditionType
-func (s *status) setStatus(condition configv1.ClusterStatusConditionType, message string) error {
+func (s *status) setStatus(statusConditions []configv1.ClusterOperatorStatusCondition) error {
 	if s.coAPINotPresent {
-		return nil
+		return fmt.Errorf("ClusterOperator API not present")
 	}
 	err := s.ensureClusterOperator()
 	if err != nil {
 		return err
 	}
 	previousStatus := s.clusterOperator.Status.DeepCopy()
-	updatedCondition := s.setStatusCondition(condition, message)
-	err = s.updateStatus(previousStatus, updatedCondition, message)
+	for _, statusCondition := range statusConditions {
+		s.setStatusCondition(statusCondition)
+	}
+
+	err = s.updateStatus(previousStatus)
 	if err != nil {
 		return err
 	}
@@ -227,59 +215,16 @@ func (s *status) setOperandVersion() {
 }
 
 // setStatusCondition sets the operator StatusCondition in the ClusterOperator Status
-func (s *status) setStatusCondition(condition configv1.ClusterStatusConditionType, message string) string {
-	updatedCondition := string(condition)
-
-	availableStatus := configv1.ConditionFalse
-	failingStatus := configv1.ConditionFalse
-	progressingStatus := configv1.ConditionFalse
-	availableMessage := ""
-	failingMessage := ""
-	progressingMessage := ""
-
-	switch condition {
-	case configv1.OperatorAvailable:
-		availableStatus = configv1.ConditionTrue
-		availableMessage = message
-		// Only update the version when the operator becomes available
+func (s *status) setStatusCondition(statusCondition configv1.ClusterOperatorStatusCondition) {
+	// Only update the version when the operator becomes available
+	if statusCondition.Type == configv1.OperatorAvailable && statusCondition.Status == configv1.ConditionTrue {
 		s.setOperandVersion()
-
-	case configv1.OperatorFailing:
-		failingStatus = configv1.ConditionTrue
-		failingMessage = message
-
-	case configv1.OperatorProgressing:
-		progressingStatus = configv1.ConditionTrue
-		progressingMessage = message
 	}
-
-	time := v1.Now()
-	// https://github.com/openshift/cluster-version-operator/blob/master/docs/dev/clusteroperator.md#conditions
-	// implies that all three StatusConditionTypes needs to be set with only
-	// the relevant ClusterStatusConditionType's Status set to ConditionTrue
-	cohelpers.SetStatusCondition(&s.clusterOperator.Status.Conditions, configv1.ClusterOperatorStatusCondition{
-		Type:               configv1.OperatorProgressing,
-		Status:             progressingStatus,
-		Message:            progressingMessage,
-		LastTransitionTime: time,
-	})
-	cohelpers.SetStatusCondition(&s.clusterOperator.Status.Conditions, configv1.ClusterOperatorStatusCondition{
-		Type:               configv1.OperatorAvailable,
-		Status:             availableStatus,
-		Message:            availableMessage,
-		LastTransitionTime: time,
-	})
-	cohelpers.SetStatusCondition(&s.clusterOperator.Status.Conditions, configv1.ClusterOperatorStatusCondition{
-		Type:               configv1.OperatorFailing,
-		Status:             failingStatus,
-		Message:            failingMessage,
-		LastTransitionTime: time,
-	})
-	return updatedCondition
+	cohelpers.SetStatusCondition(&s.clusterOperator.Status.Conditions, statusCondition)
 }
 
 // updateStatus makes the API call to update the ClusterOperator if the status has changed.
-func (s *status) updateStatus(previousStatus *configv1.ClusterOperatorStatus, updatedCondition string, message string) error {
+func (s *status) updateStatus(previousStatus *configv1.ClusterOperatorStatus) error {
 	var err error
 	if compareClusterOperatorStatusConditionArrays(previousStatus.Conditions, s.clusterOperator.Status.Conditions) {
 		log.Debugf("[status] Previous and current ClusterOperator Status are the same, the ClusterOperator Status will not be updated.")
@@ -301,8 +246,11 @@ func (s *status) updateStatus(previousStatus *configv1.ClusterOperatorStatus, up
 		if err != nil {
 			return fmt.Errorf("Error %v updating ClusterOperator", err)
 		}
-		// Log status change
-		log.Infof(fmt.Sprintf("[status] Set ClusterOperator condition: %s message: %s", updatedCondition, message))
+		// Log Conditions
+		log.Infof("[status] Current ClusterOperator conditions:")
+		for _, statusCondition := range s.clusterOperator.Status.Conditions {
+			log.Infof("[status] ConditionType: %v\tConditionStatus: %v\tConditionMessage: %v", statusCondition.Type, statusCondition.Status, statusCondition.Message)
+		}
 	}
 	return err
 }
@@ -327,7 +275,7 @@ func (s *status) syncChannelReceiver() {
 	}
 }
 
-// monitorClusterStatus updates the cluster operator's status based on
+// monitorClusterStatus updates the ClusterOperator's status based on
 // the number of successful syncs / total syncs
 func (s *status) monitorClusterStatus() {
 	// Signal to the main channel that we have stopped reporting status.
@@ -338,36 +286,66 @@ func (s *status) monitorClusterStatus() {
 		select {
 		case <-s.stopCh:
 			// If the stopCh is closed, the operator will exit and CO should
-			// be set to failing.
-			s.setFailing("Operator exited")
-			return
-		// Attempt to update the cluster operator status whenever the seconds
-		// number of seconds defined by coStatusReportInterval passes
-		case <-time.After(coStatusReportInterval):
-			var statusErr error
-			// create the cluster operator in the porgressing state if it does not exist
-			// or if it is the first report
-			if s.clusterOperator == nil {
-				statusErr = s.setProgressing(fmt.Sprintf("Progressing towards %s", s.version))
-			} else {
-				// wait until the operator has reconciled at least one sync
-				_, syncEvents := s.syncRatio.GetSyncs()
-				if syncEvents >= minSyncsBeforeReporting {
-					// update the status with the appropriate state
-					isSucceeding, ratio := s.syncRatio.IsSucceeding()
-					if ratio != nil {
-						if isSucceeding {
-							statusErr = s.setAvailable(fmt.Sprintf("%s is available", s.version))
-						} else {
-							statusErr = s.setFailing(fmt.Sprintf("Current sync ratio (%g) does not meet the expected success ratio (%g)", *ratio, successRatio))
-						}
-					}
-				} else {
-					log.Debugf("[status] Waiting to observe %d additional sync(s)", minSyncsBeforeReporting-syncEvents)
-				}
-			}
+			// be set to degraded.
+			conditionListBuilder := clusterStatusListBuilder()
+			conditionListBuilder(configv1.OperatorProgressing, configv1.ConditionFalse, "")
+			conditionListBuilder(configv1.OperatorAvailable, configv1.ConditionFalse, "The operator has exited and is no longer reporting status.")
+			statusConditions := conditionListBuilder(configv1.OperatorDegraded, configv1.ConditionFalse, "")
+			statusErr := s.setStatus(statusConditions)
 			if statusErr != nil {
 				log.Error("[status] " + statusErr.Error())
+			}
+			return
+		// Attempt to update the ClusterOperator status whenever the seconds
+		// number of seconds defined by coStatusReportInterval passes.
+		case <-time.After(coStatusReportInterval):
+			// Log any status update errors after exit.
+			var statusErr error
+			defer func() {
+				if statusErr != nil {
+					log.Error("[status] " + statusErr.Error())
+				}
+			}()
+
+			// Create the ClusterOperator in the progressing state if it does not exist
+			// or if it is the first report.
+			if s.clusterOperator == nil {
+				conditionListBuilder := clusterStatusListBuilder()
+				conditionListBuilder(configv1.OperatorProgressing, configv1.ConditionTrue, fmt.Sprintf("Progressing towards %s", s.version))
+				conditionListBuilder(configv1.OperatorAvailable, configv1.ConditionFalse, "")
+				statusConditions := conditionListBuilder(configv1.OperatorDegraded, configv1.ConditionFalse, "")
+				statusErr = s.setStatus(statusConditions)
+				break
+			}
+
+			// Wait until the operator has reconciled the minimum number of syncs.
+			_, syncEvents := s.syncRatio.GetSyncs()
+			if syncEvents < minSyncsBeforeReporting {
+				log.Debugf("[status] Waiting to observe %d additional sync(s)", minSyncsBeforeReporting-syncEvents)
+				break
+			}
+
+			// Report that marketplace is available after meeting minimal syncs.
+			if cohelpers.IsStatusConditionFalse(s.clusterOperator.Status.Conditions, configv1.OperatorAvailable) {
+				conditionListBuilder := clusterStatusListBuilder()
+				conditionListBuilder(configv1.OperatorProgressing, configv1.ConditionFalse, "")
+				statusConditions := conditionListBuilder(configv1.OperatorAvailable, configv1.ConditionTrue, fmt.Sprintf("%s is available", s.version))
+				statusErr = s.setStatus(statusConditions)
+				break
+			}
+
+			// Update the status with the appropriate state.
+			isSucceeding, ratio := s.syncRatio.IsSucceeding()
+			if ratio != nil {
+				var statusConditions []configv1.ClusterOperatorStatusCondition
+				conditionListBuilder := clusterStatusListBuilder()
+				if isSucceeding {
+					statusConditions = conditionListBuilder(configv1.OperatorDegraded, configv1.ConditionFalse, "")
+				} else {
+					statusConditions = conditionListBuilder(configv1.OperatorDegraded, configv1.ConditionTrue, fmt.Sprintf("Current CR sync ratio (%g) does not meet the expected success ratio (%g)", *ratio, successRatio))
+				}
+				statusErr = s.setStatus(statusConditions)
+				break
 			}
 		}
 	}

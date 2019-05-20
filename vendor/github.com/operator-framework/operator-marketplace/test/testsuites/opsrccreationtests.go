@@ -4,11 +4,8 @@ import (
 	"testing"
 
 	olm "github.com/operator-framework/operator-lifecycle-manager/pkg/api/apis/operators/v1alpha1"
-	marketplace "github.com/operator-framework/operator-marketplace/pkg/apis/operators/v1"
 	"github.com/operator-framework/operator-marketplace/test/helpers"
 	"github.com/operator-framework/operator-sdk/pkg/test"
-	apps "k8s.io/api/apps/v1"
-	corev1 "k8s.io/api/core/v1"
 )
 
 // OpSrcCreation is a test suite that ensures that the expected kubernetets resources are
@@ -30,40 +27,20 @@ func testOperatorSourceGeneratesExpectedObjects(t *testing.T) {
 		t.Errorf("Could not get namespace: %v", err)
 	}
 
-	// Check that we created the CatalogSourceConfig.
-	resultCatalogSourceConfig := &marketplace.CatalogSourceConfig{}
-	err = helpers.WaitForResult(t, resultCatalogSourceConfig, namespace, helpers.TestOperatorSourceName)
+	// Check for the CatalogSourceConfig and it's child resources.
+	err = helpers.CheckCscSuccessfulCreation(test.Global.Client, helpers.TestOperatorSourceName, namespace, namespace)
 	if err != nil {
 		t.Error(err)
 	}
 
 	// Then check for the CatalogSource.
 	resultCatalogSource := &olm.CatalogSource{}
-	err = helpers.WaitForResult(t, resultCatalogSource, namespace, helpers.TestOperatorSourceName)
+	err = helpers.WaitForResult(test.Global.Client, resultCatalogSource, namespace, helpers.TestOperatorSourceName)
 	if err != nil {
 		t.Error(err)
 	}
 
-	// Then check that the service was created.
-	resultService := &corev1.Service{}
-	err = helpers.WaitForResult(t, resultService, namespace, helpers.TestOperatorSourceName)
-	if err != nil {
-		t.Error(err)
-	}
-
-	// Then check that the deployment was created.
-	resultDeployment := &apps.Deployment{}
-	err = helpers.WaitForResult(t, resultDeployment, namespace, helpers.TestOperatorSourceName)
-	if err != nil {
-		t.Error(err)
-	}
-
-	// Now check that the deployment is ready.
-	err = helpers.WaitForSuccessfulDeployment(t, *resultDeployment)
-	if err != nil {
-		t.Error(err)
-	}
-
+	// Check that the CatalogSource has the expected labels.
 	labels := resultCatalogSource.GetLabels()
 	groupGot, ok := labels[helpers.TestOperatorSourceLabelKey]
 

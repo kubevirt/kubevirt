@@ -20,11 +20,8 @@ func OperatorSourceTestGroup(t *testing.T) {
 		t.Errorf("Could not get namespace: %v", err)
 	}
 
-	// Get global framework variables.
-	f := test.Global
-
 	// Create the OperatorSource.
-	err = helpers.CreateRuntimeObject(f, ctx, helpers.CreateOperatorSourceDefinition(namespace))
+	err = helpers.CreateRuntimeObject(test.Global.Client, ctx, helpers.CreateOperatorSourceDefinition(namespace))
 	if err != nil {
 		t.Errorf("Could not create operator source: %v", err)
 	}
@@ -32,4 +29,5 @@ func OperatorSourceTestGroup(t *testing.T) {
 	// Run the test suites.
 	t.Run("opsrc-creation-test-suite", testsuites.OpSrcCreation)
 	t.Run("csc-target-namespace-test-suite", testsuites.CscTargetNamespace)
+	t.Run("csc-packages-test-suite", testsuites.TestCscWithNonExistingPackage)
 }

@@ -108,14 +108,14 @@ func (h *operatorsourcehandler) transition(ctx context.Context, logger *log.Entr
 	// either completed successfully or failed.
 	// In either case, we need to update the modified OperatorSource object.
 	if updateErr := h.client.Update(ctx, opsrc); updateErr != nil {
+		logger.Errorf("Failed to update object - %v", updateErr)
+
 		if reconciliationErr == nil {
 			// No reconciliation err, but update of object has failed!
 			return updateErr
 		}
 
 		// Presence of both Reconciliation error and object update error.
-		logger.Errorf("Failed to update object - %v", updateErr)
-
 		// TODO: find a way to chain the update error?
 		return reconciliationErr
 	}

@@ -50,6 +50,7 @@ spec:
     JSONPath: .metadata.creationTimestamp
   validation:
     openAPIV3Schema:
+      description: OperatorSource is used to define the external datastore we are using to store operator bundles.
       properties:
         spec:
           type: object
@@ -72,3 +73,18 @@ spec:
                 The namespace in app registry.
                 Only operator manifests under this namespace will be visible.
                 Please note that this is not a k8s namespace.
+            publisher:
+              type: string
+              description: It represents the entity that published the operator(s) associated with the OperatorSource.
+            displayName:
+              type: string
+              description: DisplayName is passed along to the CatalogSourceConfig to be used by the resulting CatalogSource to be used as a pretty name.
+            authorizationToken:
+              type: object
+              description: This is where a user can specify an authorization token that can be used to access private repositories in the remote registry associated with the OperatorSource.
+              properties:
+                secretName:
+                  type: string
+                  description: It is the name of the kubernetes secret object that contains the authorization token to access private repositories.
+        status:
+          type: object
