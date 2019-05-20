@@ -83,6 +83,7 @@ func NewKubeVirtController(
 		kubeVirtExpectations: util.Expectations{
 			ServiceAccount:           controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectationsWithName("ServiceAccount")),
 			ClusterRole:              controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectationsWithName("ClusterRole")),
+			PodSecurityPolicy:        controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectationsWithName("PodSecurityPolicy")),
 			ClusterRoleBinding:       controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectationsWithName("ClusterRoleBinding")),
 			Role:                     controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectationsWithName("Role")),
 			RoleBinding:              controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectationsWithName("RoleBinding")),
@@ -112,6 +113,18 @@ func NewKubeVirtController(
 		},
 		UpdateFunc: func(oldObj, newObj interface{}) {
 			c.genericUpdateHandler(oldObj, newObj, c.kubeVirtExpectations.ServiceAccount)
+		},
+	})
+
+	c.informers.PodSecurityPolicy.AddEventHandler(cache.ResourceEventHandlerFuncs{
+		AddFunc: func(obj interface{}) {
+			c.genericAddHandler(obj, c.kubeVirtExpectations.PodSecurityPolicy)
+		},
+		DeleteFunc: func(obj interface{}) {
+			c.genericDeleteHandler(obj, c.kubeVirtExpectations.PodSecurityPolicy)
+		},
+		UpdateFunc: func(oldObj, newObj interface{}) {
+			c.genericUpdateHandler(oldObj, newObj, c.kubeVirtExpectations.PodSecurityPolicy)
 		},
 	})
 
@@ -381,6 +394,7 @@ func (c *KubeVirtController) Run(threadiness int, stopCh <-chan struct{}) {
 	cache.WaitForCacheSync(stopCh, c.informers.ServiceAccount.HasSynced)
 	cache.WaitForCacheSync(stopCh, c.informers.ClusterRole.HasSynced)
 	cache.WaitForCacheSync(stopCh, c.informers.ClusterRoleBinding.HasSynced)
+	cache.WaitForCacheSync(stopCh, c.informers.PodSecurityPolicy.HasSynced)
 	cache.WaitForCacheSync(stopCh, c.informers.Role.HasSynced)
 	cache.WaitForCacheSync(stopCh, c.informers.RoleBinding.HasSynced)
 	cache.WaitForCacheSync(stopCh, c.informers.Crd.HasSynced)
