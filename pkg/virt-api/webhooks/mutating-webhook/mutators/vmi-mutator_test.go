@@ -191,6 +191,37 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 		Expect(vmiSpec.Domain.Resources.Requests.Memory()).To(Equal(vmi.Spec.Domain.Resources.Requests.Memory()))
 	})
 
+	It("should apply memory-overcommit when guest-memory is set and memory-request is not set", func() {
+		testutils.UpdateFakeClusterConfig(configMapInformer, &k8sv1.ConfigMap{
+			Data: map[string]string{
+				virtconfig.MemoryOvercommitKey: "150",
+			},
+		})
+		guestMemory := resource.MustParse("3072M")
+		vmi.Spec.Domain.Memory = &v1.Memory{Guest: &guestMemory}
+		vmiSpec, _ := getVMISpecMetaFromResponse()
+		Expect(vmiSpec.Domain.Memory.Guest.String()).To(Equal("3072M"))
+		Expect(vmiSpec.Domain.Resources.Requests.Memory().String()).To(Equal("2048M"))
+	})
+
+	It("should apply memory-overcommit when hugepages are set and memory-request is not set", func() {
+		vmi.Spec.Domain.Memory = &v1.Memory{Hugepages: &v1.Hugepages{PageSize: "3072M"}}
+		vmiSpec, _ := getVMISpecMetaFromResponse()
+		Expect(vmiSpec.Domain.Memory.Hugepages.PageSize).To(Equal("3072M"))
+		Expect(vmiSpec.Domain.Resources.Requests.Memory().String()).To(Equal("3072M"))
+	})
+
+	It("should not apply memory overcommit when memory-request and guest-memory are set", func() {
+		vmi.Spec.Domain.Resources.Requests = k8sv1.ResourceList{
+			k8sv1.ResourceMemory: resource.MustParse("512M"),
+		}
+		guestMemory := resource.MustParse("4096M")
+		vmi.Spec.Domain.Memory = &v1.Memory{Guest: &guestMemory}
+		vmiSpec, _ := getVMISpecMetaFromResponse()
+		Expect(vmiSpec.Domain.Resources.Requests.Memory().String()).To(Equal("512M"))
+		Expect(vmiSpec.Domain.Memory.Guest.String()).To(Equal("4096M"))
+	})
+
 	It("should apply foreground finalizer on VMI create", func() {
 		_, vmiMeta := getVMISpecMetaFromResponse()
 		Expect(vmiMeta.Finalizers).To(ContainElement(v1.VirtualMachineInstanceFinalizer))

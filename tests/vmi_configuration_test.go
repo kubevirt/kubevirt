@@ -299,6 +299,33 @@ var _ = Describe("Configurations", func() {
 			})
 		})
 
+		Context("with cluster memory overcommit being applied", func() {
+			BeforeEach(func() {
+				cfgMap, err := virtClient.CoreV1().ConfigMaps(namespaceKubevirt).Get(kubevirtConfig, metav1.GetOptions{})
+				Expect(err).To(BeNil())
+				cfgMap.Data["memory-overcommit"] = "200"
+				_, err = virtClient.CoreV1().ConfigMaps(namespaceKubevirt).Update(cfgMap)
+				Expect(err).ToNot(HaveOccurred())
+			})
+
+			AfterEach(func() {
+				cfgMap, err := virtClient.CoreV1().ConfigMaps(namespaceKubevirt).Get(kubevirtConfig, metav1.GetOptions{})
+				Expect(err).To(BeNil())
+				cfgMap.Data["memory-overcommit"] = ""
+				_, err = virtClient.CoreV1().ConfigMaps(namespaceKubevirt).Update(cfgMap)
+				Expect(err).ToNot(HaveOccurred())
+			})
+
+			It("should set requested amount of memory according to the specified virtual memory", func() {
+				vmi := tests.NewRandomVMI()
+				guestMemory := resource.MustParse("4096M")
+				vmi.Spec.Domain.Memory = &v1.Memory{Guest: &guestMemory}
+				vmi.Spec.Domain.Resources = v1.ResourceRequirements{}
+				runningVMI := tests.RunVMI(vmi, 30)
+				Expect(runningVMI.Spec.Domain.Resources.Requests.Memory().String()).To(Equal("2048M"))
+			})
+		})
+
 		Context("with EFI bootloader method", func() {
 
 			It("[test_id:1668]should use EFI", func() {

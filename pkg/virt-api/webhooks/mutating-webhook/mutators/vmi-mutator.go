@@ -26,6 +26,7 @@ import (
 
 	"k8s.io/api/admission/v1beta1"
 	k8sv1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	v1 "kubevirt.io/kubevirt/pkg/api/v1"
@@ -132,6 +133,30 @@ func (mutator *VMIsMutator) setDefaultMachineType(vmi *v1.VirtualMachineInstance
 }
 
 func (mutator *VMIsMutator) setDefaultResourceRequests(vmi *v1.VirtualMachineInstance) {
+	if _, exists := vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory]; !exists {
+		var memory *resource.Quantity
+		if vmi.Spec.Domain.Memory != nil && vmi.Spec.Domain.Memory.Guest != nil {
+			memory = vmi.Spec.Domain.Memory.Guest
+		}
+		if memory == nil && vmi.Spec.Domain.Memory != nil && vmi.Spec.Domain.Memory.Hugepages != nil {
+			if hugepagesSize, err := resource.ParseQuantity(vmi.Spec.Domain.Memory.Hugepages.PageSize); err == nil {
+				memory = &hugepagesSize
+			}
+		}
+		if memory != nil && memory.Value() > 0 {
+			if vmi.Spec.Domain.Resources.Requests == nil {
+				vmi.Spec.Domain.Resources.Requests = k8sv1.ResourceList{}
+			}
+			if mutator.ClusterConfig.GetMemoryOvercommit() == 100 {
+				vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = *memory
+			} else {
+				value := memory.Value() * int64(100)
+				value = value / int64(mutator.ClusterConfig.GetMemoryOvercommit())
+				vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = *resource.NewQuantity(value, memory.Format)
+			}
+		}
+	}
+
 	if _, exists := vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceCPU]; !exists {
 		if vmi.Spec.Domain.CPU != nil && vmi.Spec.Domain.CPU.DedicatedCPUPlacement {
 			return
