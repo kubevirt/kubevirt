@@ -39,6 +39,7 @@ type Stores struct {
 	InstallStrategyConfigMapCache cache.Store
 	InstallStrategyJobCache       cache.Store
 	InfrastructurePodCache        cache.Store
+	PodSecurityPolicyCache        cache.Store
 }
 
 func (s *Stores) AllEmpty() bool {
@@ -51,7 +52,8 @@ func (s *Stores) AllEmpty() bool {
 		IsStoreEmpty(s.ServiceCache) &&
 		IsStoreEmpty(s.DeploymentCache) &&
 		IsStoreEmpty(s.DaemonSetCache) &&
-		IsStoreEmpty(s.ValidationWebhookCache)
+		IsStoreEmpty(s.ValidationWebhookCache) &&
+		IsStoreEmpty(s.PodSecurityPolicyCache)
 	// Don't add InstallStrategyConfigMapCache to this list. The install
 	// strategies persist even after deletion and updates.
 }
@@ -73,10 +75,12 @@ type Expectations struct {
 	ValidationWebhook        *controller.UIDTrackingControllerExpectations
 	InstallStrategyConfigMap *controller.UIDTrackingControllerExpectations
 	InstallStrategyJob       *controller.UIDTrackingControllerExpectations
+	PodSecurityPolicy        *controller.UIDTrackingControllerExpectations
 }
 
 type Informers struct {
 	ServiceAccount           cache.SharedIndexInformer
+	PodSecurityPolicy        cache.SharedIndexInformer
 	ClusterRole              cache.SharedIndexInformer
 	ClusterRoleBinding       cache.SharedIndexInformer
 	Role                     cache.SharedIndexInformer
@@ -105,6 +109,7 @@ func (e *Expectations) DeleteExpectations(key string) {
 	e.ValidationWebhook.DeleteExpectations(key)
 	e.InstallStrategyConfigMap.DeleteExpectations(key)
 	e.InstallStrategyJob.DeleteExpectations(key)
+	e.PodSecurityPolicy.DeleteExpectations(key)
 }
 
 func (e *Expectations) ResetExpectations(key string) {
@@ -120,6 +125,7 @@ func (e *Expectations) ResetExpectations(key string) {
 	e.ValidationWebhook.SetExpectations(key, 0, 0)
 	e.InstallStrategyConfigMap.SetExpectations(key, 0, 0)
 	e.InstallStrategyJob.SetExpectations(key, 0, 0)
+	e.PodSecurityPolicy.SetExpectations(key, 0, 0)
 }
 
 func (e *Expectations) SatisfiedExpectations(key string) bool {
@@ -134,5 +140,6 @@ func (e *Expectations) SatisfiedExpectations(key string) bool {
 		e.DaemonSet.SatisfiedExpectations(key) &&
 		e.ValidationWebhook.SatisfiedExpectations(key) &&
 		e.InstallStrategyConfigMap.SatisfiedExpectations(key) &&
-		e.InstallStrategyJob.SatisfiedExpectations(key)
+		e.InstallStrategyJob.SatisfiedExpectations(key) &&
+		e.PodSecurityPolicy.SatisfiedExpectations(key)
 }
