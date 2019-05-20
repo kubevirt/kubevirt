@@ -17,7 +17,7 @@
  *
  */
 
-package mutating_webhook
+package mutators
 
 import (
 	"fmt"

@@ -470,6 +470,9 @@ func CleanNodes() {
 
 			if taint.Key == "kubevirt.io/drain" && taint.Effect == k8sv1.TaintEffectNoSchedule {
 				found = true
+			} else if taint.Key == "kubevirt.io/alt-drain" && taint.Effect == k8sv1.TaintEffectNoSchedule {
+				// this key is used in testing as a custom alternate drain key
+				found = true
 			} else {
 				taints = append(taints, taint)
 			}
@@ -482,6 +485,10 @@ func CleanNodes() {
 				found = true
 				delete(new.Labels, k)
 			}
+		}
+
+		if node.Spec.Unschedulable {
+			new.Spec.Unschedulable = false
 		}
 
 		if !found {
@@ -2737,13 +2744,13 @@ func RunCommandPipeWithNS(namespace string, commands ...[]string) (string, strin
 	return outputString, stderrString, nil
 }
 
-func GenerateVMJson(vm *v1.VirtualMachine) (string, error) {
+func GenerateVMJson(vm *v1.VirtualMachine, generateDirectory string) (string, error) {
 	data, err := json.Marshal(vm)
 	if err != nil {
 		return "", fmt.Errorf("failed to generate json for vm %s", vm.Name)
 	}
 
-	jsonFile := fmt.Sprintf("%s.json", vm.Name)
+	jsonFile := filepath.Join(generateDirectory, fmt.Sprintf("%s.json", vm.Name))
 	err = ioutil.WriteFile(jsonFile, data, 0644)
 	if err != nil {
 		return "", fmt.Errorf("failed to write json file %s", jsonFile)
@@ -2751,13 +2758,13 @@ func GenerateVMJson(vm *v1.VirtualMachine) (string, error) {
 	return jsonFile, nil
 }
 
-func GenerateVMIJson(vmi *v1.VirtualMachineInstance) (string, error) {
+func GenerateVMIJson(vmi *v1.VirtualMachineInstance, generateDirectory string) (string, error) {
 	data, err := json.Marshal(vmi)
 	if err != nil {
 		return "", fmt.Errorf("failed to generate json for vmi %s", vmi.Name)
 	}
 
-	jsonFile := fmt.Sprintf("%s.json", vmi.Name)
+	jsonFile := filepath.Join(generateDirectory, fmt.Sprintf("%s.json", vmi.Name))
 	err = ioutil.WriteFile(jsonFile, data, 0644)
 	if err != nil {
 		return "", fmt.Errorf("failed to write json file %s", jsonFile)
@@ -2765,18 +2772,13 @@ func GenerateVMIJson(vmi *v1.VirtualMachineInstance) (string, error) {
 	return jsonFile, nil
 }
 
-func GenerateTemplateJson(template *vmsgen.Template) (string, error) {
+func GenerateTemplateJson(template *vmsgen.Template, generateDirectory string) (string, error) {
 	data, err := json.Marshal(template)
 	if err != nil {
 		return "", fmt.Errorf("failed to generate json for template %q: %v", template.Name, err)
 	}
 
-	dir, err := ioutil.TempDir("", TempDirPrefix+"-")
-	if err != nil {
-		return "", fmt.Errorf("failed to create a temporary directory in %q: %v", os.TempDir(), err)
-	}
-
-	jsonFile := filepath.Join(dir, template.Name+".json")
+	jsonFile := filepath.Join(generateDirectory, template.Name+".json")
 	if err = ioutil.WriteFile(jsonFile, data, 0644); err != nil {
 		return "", fmt.Errorf("failed to write json to file %q: %v", jsonFile, err)
 	}

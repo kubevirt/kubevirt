@@ -20,7 +20,6 @@
 package virt_operator
 
 import (
-	"encoding/json"
 	"fmt"
 	"os"
 	"time"
@@ -883,15 +882,13 @@ var _ = Describe("KubeVirt Operator", func() {
 		}
 		return true, nil, nil
 	}
-	expectUsers := func(userBytes []byte, count int) {
-
-		type _users struct {
-			Users []string `json:"users"`
-		}
-		users := &_users{}
-
-		json.Unmarshal(userBytes, users)
-		ExpectWithOffset(2, len(users.Users)).To(Equal(count))
+	expectUsersDeleted := func(userBytes []byte) {
+		deletePatch := `[ { "op": "test", "path": "/users", "value": ["someUser","system:serviceaccount:kubevirt-test:kubevirt-handler","system:serviceaccount:kubevirt-test:kubevirt-apiserver","system:serviceaccount:kubevirt-test:kubevirt-controller"] }, { "op": "replace", "path": "/users", "value": ["someUser"] } ]`
+		Expect(userBytes).To(Equal([]byte(deletePatch)))
+	}
+	expectUsersAdded := func(userBytes []byte) {
+		addPatch := `[ { "op": "test", "path": "/users", "value": ["someUser"] }, { "op": "replace", "path": "/users", "value": ["someUser","system:serviceaccount:kubevirt-test:kubevirt-handler","system:serviceaccount:kubevirt-test:kubevirt-apiserver","system:serviceaccount:kubevirt-test:kubevirt-controller"] } ]`
+		Expect(userBytes).To(Equal([]byte(addPatch)))
 	}
 
 	shouldExpectInstallStrategyDeletion := func() {
@@ -919,7 +916,7 @@ var _ = Describe("KubeVirt Operator", func() {
 
 		secClient.Fake.PrependReactor("patch", "securitycontextconstraints", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
 			patch, _ := action.(testing.PatchAction)
-			expectUsers(patch.GetPatch(), 1)
+			expectUsersDeleted(patch.GetPatch())
 			return true, nil, nil
 		})
 		extClient.Fake.PrependReactor("delete", "customresourcedefinitions", genericDeleteFunc)
@@ -969,7 +966,7 @@ var _ = Describe("KubeVirt Operator", func() {
 
 		secClient.Fake.PrependReactor("patch", "securitycontextconstraints", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
 			patch, _ := action.(testing.PatchAction)
-			expectUsers(patch.GetPatch(), 4)
+			expectUsersAdded(patch.GetPatch())
 			return true, nil, nil
 		})
 		extClient.Fake.PrependReactor("create", "customresourcedefinitions", genericCreateFunc)

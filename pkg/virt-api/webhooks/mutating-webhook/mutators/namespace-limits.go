@@ -17,7 +17,7 @@
  *
  */
 
-package mutating_webhook
+package mutators
 
 import (
 	k8sv1 "k8s.io/api/core/v1"
