@@ -11,11 +11,7 @@ go_library(
     importpath = "kubevirt.io/kubevirt/pkg/virt-api/rest",
     visibility = ["//visibility:public"],
     deps = [
-        "//pkg/api/v1:go_default_library",
-        "//pkg/kubecli:go_default_library",
-        "//pkg/log:go_default_library",
         "//pkg/rest:go_default_library",
-        "//pkg/util/subresources:go_default_library",
         "//vendor/github.com/emicklei/go-restful:go_default_library",
         "//vendor/github.com/golang/mock/gomock:go_default_library",
         "//vendor/github.com/gorilla/websocket:go_default_library",
@@ -34,6 +30,10 @@ go_library(
         "//vendor/k8s.io/client-go/kubernetes/typed/authorization/v1beta1:go_default_library",
         "//vendor/k8s.io/client-go/rest:go_default_library",
         "//vendor/k8s.io/client-go/tools/remotecommand:go_default_library",
+        "//vendor/kubevirt.io/client-go/api/v1:go_default_library",
+        "//vendor/kubevirt.io/client-go/kubecli:go_default_library",
+        "//vendor/kubevirt.io/client-go/log:go_default_library",
+        "//vendor/kubevirt.io/client-go/subresources:go_default_library",
     ],
 )
 
@@ -46,9 +46,6 @@ go_test(
     ],
     embed = [":go_default_library"],
     deps = [
-        "//pkg/api/v1:go_default_library",
-        "//pkg/kubecli:go_default_library",
-        "//pkg/log:go_default_library",
         "//pkg/testutils:go_default_library",
         "//pkg/virt-controller/services:go_default_library",
         "//vendor/github.com/emicklei/go-restful:go_default_library",
@@ -65,5 +62,8 @@ go_test(
         "//vendor/k8s.io/client-go/kubernetes/typed/authorization/v1beta1:go_default_library",
         "//vendor/k8s.io/client-go/tools/cache:go_default_library",
         "//vendor/k8s.io/client-go/tools/clientcmd:go_default_library",
+        "//vendor/kubevirt.io/client-go/api/v1:go_default_library",
+        "//vendor/kubevirt.io/client-go/kubecli:go_default_library",
+        "//vendor/kubevirt.io/client-go/log:go_default_library",
     ],
 )

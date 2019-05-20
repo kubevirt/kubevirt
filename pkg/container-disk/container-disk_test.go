@@ -29,7 +29,7 @@ import (
 	. "github.com/onsi/gomega"
 	v12 "k8s.io/api/core/v1"
 
-	v1 "kubevirt.io/kubevirt/pkg/api/v1"
+	v1 "kubevirt.io/client-go/api/v1"
 )
 
 var _ = Describe("ContainerDisk", func() {

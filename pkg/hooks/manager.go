@@ -30,12 +30,12 @@ import (
 	"sync"
 	"time"
 
-	v1 "kubevirt.io/kubevirt/pkg/api/v1"
+	v1 "kubevirt.io/client-go/api/v1"
+	"kubevirt.io/client-go/log"
 	cloudinit "kubevirt.io/kubevirt/pkg/cloud-init"
 	hooksInfo "kubevirt.io/kubevirt/pkg/hooks/info"
 	hooksV1alpha1 "kubevirt.io/kubevirt/pkg/hooks/v1alpha1"
 	hooksV1alpha2 "kubevirt.io/kubevirt/pkg/hooks/v1alpha2"
-	"kubevirt.io/kubevirt/pkg/log"
 	grpcutil "kubevirt.io/kubevirt/pkg/util/net/grpc"
 	virtwrapApi "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 )

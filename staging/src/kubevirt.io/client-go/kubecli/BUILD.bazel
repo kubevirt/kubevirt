@@ -1,5 +1,35 @@
 load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
 
+go_test(
+    name = "go_default_test",
+    srcs = [
+        "kubecli_suite_test.go",
+        "kv_test.go",
+        "migration_test.go",
+        "replicaset_test.go",
+        "version_test.go",
+        "vm_test.go",
+        "vmi_test.go",
+        "vmipreset_test.go",
+    ],
+    embed = [":go_default_library"],
+    deps = [
+        "//vendor/github.com/gorilla/websocket:go_default_library",
+        "//vendor/github.com/onsi/ginkgo:go_default_library",
+        "//vendor/github.com/onsi/gomega:go_default_library",
+        "//vendor/github.com/onsi/gomega/ghttp:go_default_library",
+        "//vendor/k8s.io/api/autoscaling/v1:go_default_library",
+        "//vendor/k8s.io/api/core/v1:go_default_library",
+        "//vendor/k8s.io/apimachinery/pkg/api/errors:go_default_library",
+        "//vendor/k8s.io/apimachinery/pkg/apis/meta/v1:go_default_library",
+        "//vendor/k8s.io/apimachinery/pkg/runtime/schema:go_default_library",
+        "//vendor/k8s.io/apimachinery/pkg/types:go_default_library",
+        "//vendor/kubevirt.io/client-go/api/v1:go_default_library",
+        "//vendor/kubevirt.io/client-go/log:go_default_library",
+        "//vendor/kubevirt.io/client-go/version:go_default_library",
+    ],
+)
+
 go_library(
     name = "go_default_library",
     srcs = [
@@ -70,33 +100,9 @@ go_library(
         "//vendor/k8s.io/client-go/kubernetes/typed/storage/v1beta1:go_default_library",
         "//vendor/k8s.io/client-go/rest:go_default_library",
         "//vendor/k8s.io/client-go/tools/clientcmd:go_default_library",
+        "//vendor/kubevirt.io/client-go/api/v1:go_default_library",
+        "//vendor/kubevirt.io/client-go/subresources:go_default_library",
+        "//vendor/kubevirt.io/client-go/version:go_default_library",
         "//vendor/kubevirt.io/containerized-data-importer/pkg/client/clientset/versioned:go_default_library",
-    ],
-)
-
-go_test(
-    name = "go_default_test",
-    srcs = [
-        "kubecli_suite_test.go",
-        "kv_test.go",
-        "migration_test.go",
-        "replicaset_test.go",
-        "version_test.go",
-        "vm_test.go",
-        "vmi_test.go",
-        "vmipreset_test.go",
-    ],
-    embed = [":go_default_library"],
-    deps = [
-        "//vendor/github.com/gorilla/websocket:go_default_library",
-        "//vendor/github.com/onsi/ginkgo:go_default_library",
-        "//vendor/github.com/onsi/gomega:go_default_library",
-        "//vendor/github.com/onsi/gomega/ghttp:go_default_library",
-        "//vendor/k8s.io/api/autoscaling/v1:go_default_library",
-        "//vendor/k8s.io/api/core/v1:go_default_library",
-        "//vendor/k8s.io/apimachinery/pkg/api/errors:go_default_library",
-        "//vendor/k8s.io/apimachinery/pkg/apis/meta/v1:go_default_library",
-        "//vendor/k8s.io/apimachinery/pkg/runtime/schema:go_default_library",
-        "//vendor/k8s.io/apimachinery/pkg/types:go_default_library",
     ],
 )

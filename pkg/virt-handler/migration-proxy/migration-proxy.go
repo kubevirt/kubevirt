@@ -29,7 +29,7 @@ import (
 	"strings"
 	"sync"
 
-	"kubevirt.io/kubevirt/pkg/log"
+	"kubevirt.io/client-go/log"
 )
 
 const (

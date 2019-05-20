@@ -27,11 +27,11 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 
-	k6tv1 "kubevirt.io/kubevirt/pkg/api/v1"
-	"kubevirt.io/kubevirt/pkg/kubecli"
-	"kubevirt.io/kubevirt/pkg/log"
+	k6tv1 "kubevirt.io/client-go/pkg/api/v1"
+	"kubevirt.io/client-go/pkg/kubecli"
+	"kubevirt.io/client-go/pkg/log"
 	"kubevirt.io/kubevirt/pkg/util/lookup"
-	"kubevirt.io/kubevirt/pkg/version"
+	"kubevirt.io/client-go/pkg/version"
 	cmdclient "kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/stats"
 )

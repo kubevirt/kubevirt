@@ -31,7 +31,7 @@ import (
 	authorizationclient "k8s.io/client-go/kubernetes/typed/authorization/v1beta1"
 	restclient "k8s.io/client-go/rest"
 
-	"kubevirt.io/kubevirt/pkg/kubecli"
+	"kubevirt.io/client-go/kubecli"
 )
 
 const (

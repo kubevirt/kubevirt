@@ -18,11 +18,11 @@ import (
 	framework "k8s.io/client-go/tools/cache/testing"
 	"k8s.io/client-go/tools/record"
 
+	v1 "kubevirt.io/client-go/api/v1"
+	virtv1 "kubevirt.io/client-go/api/v1"
+	"kubevirt.io/client-go/kubecli"
 	cdiv1 "kubevirt.io/containerized-data-importer/pkg/apis/core/v1alpha1"
 	cdifake "kubevirt.io/containerized-data-importer/pkg/client/clientset/versioned/fake"
-	v1 "kubevirt.io/kubevirt/pkg/api/v1"
-	virtv1 "kubevirt.io/kubevirt/pkg/api/v1"
-	"kubevirt.io/kubevirt/pkg/kubecli"
 	"kubevirt.io/kubevirt/pkg/testutils"
 )
 

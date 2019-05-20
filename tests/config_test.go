@@ -26,8 +26,8 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/pborman/uuid"
 
+	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/kubevirt/pkg/config"
-	"kubevirt.io/kubevirt/pkg/kubecli"
 	"kubevirt.io/kubevirt/tests"
 )
 

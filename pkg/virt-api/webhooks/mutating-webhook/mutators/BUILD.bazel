@@ -12,8 +12,6 @@ go_library(
     importpath = "kubevirt.io/kubevirt/pkg/virt-api/webhooks/mutating-webhook/mutators",
     visibility = ["//visibility:public"],
     deps = [
-        "//pkg/api/v1:go_default_library",
-        "//pkg/log:go_default_library",
         "//pkg/virt-api/webhooks:go_default_library",
         "//pkg/virt-config:go_default_library",
         "//vendor/k8s.io/api/admission/v1beta1:go_default_library",
@@ -23,6 +21,8 @@ go_library(
         "//vendor/k8s.io/apimachinery/pkg/labels:go_default_library",
         "//vendor/k8s.io/apimachinery/pkg/util/errors:go_default_library",
         "//vendor/k8s.io/client-go/tools/cache:go_default_library",
+        "//vendor/kubevirt.io/client-go/api/v1:go_default_library",
+        "//vendor/kubevirt.io/client-go/log:go_default_library",
     ],
 )
 
@@ -37,8 +37,6 @@ go_test(
     ],
     embed = [":go_default_library"],
     deps = [
-        "//pkg/api/v1:go_default_library",
-        "//pkg/log:go_default_library",
         "//pkg/testutils:go_default_library",
         "//pkg/virt-api/webhooks:go_default_library",
         "//pkg/virt-config:go_default_library",
@@ -52,5 +50,7 @@ go_test(
         "//vendor/k8s.io/apimachinery/pkg/runtime:go_default_library",
         "//vendor/k8s.io/apimachinery/pkg/types:go_default_library",
         "//vendor/k8s.io/client-go/tools/cache:go_default_library",
+        "//vendor/kubevirt.io/client-go/api/v1:go_default_library",
+        "//vendor/kubevirt.io/client-go/log:go_default_library",
     ],
 )
