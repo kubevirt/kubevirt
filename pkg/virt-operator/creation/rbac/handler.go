@@ -21,17 +21,120 @@ package rbac
 
 import (
 	corev1 "k8s.io/api/core/v1"
+	pspv1b1 "k8s.io/api/policy/v1beta1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	virtv1 "kubevirt.io/client-go/api/v1"
 )
 
+func CreateHandlerRBAC(clientset kubecli.KubevirtClient, kv *virtv1.KubeVirt, stores util.Stores, expectations *util.Expectations) (int, error) {
+
+	objectsAdded := 0
+	core := clientset.CoreV1()
+	kvkey, err := controller.KeyFunc(kv)
+	if err != nil {
+		return 0, err
+	}
+
+	sa := newHandlerServiceAccount(kv.Namespace)
+	if _, exists, _ := stores.ServiceAccountCache.Get(sa); !exists {
+		expectations.ServiceAccount.RaiseExpectations(kvkey, 1, 0)
+		_, err := core.ServiceAccounts(kv.Namespace).Create(sa)
+		if err != nil {
+			expectations.ServiceAccount.LowerExpectations(kvkey, 1, 0)
+			return objectsAdded, fmt.Errorf("unable to create serviceaccount %+v: %v", sa, err)
+		} else if err == nil {
+			objectsAdded++
+		}
+	} else {
+		log.Log.Infof("serviceaccount %v already exists", sa.GetName())
+	}
+
+	rbac := clientset.RbacV1()
+
+	cr := newHandlerClusterRole()
+	if _, exists, _ := stores.ClusterRoleCache.Get(cr); !exists {
+		expectations.ClusterRole.RaiseExpectations(kvkey, 1, 0)
+		_, err := rbac.ClusterRoles().Create(cr)
+		if err != nil {
+			expectations.ClusterRole.LowerExpectations(kvkey, 1, 0)
+			return objectsAdded, fmt.Errorf("unable to create clusterrole %+v: %v", cr, err)
+		} else if err == nil {
+			objectsAdded++
+		}
+	} else {
+		log.Log.Infof("clusterrole %v already exists", cr.GetName())
+	}
+
+	crb := newHandlerClusterRoleBinding(kv.Namespace)
+	if _, exists, _ := stores.ClusterRoleBindingCache.Get(crb); !exists {
+		expectations.ClusterRoleBinding.RaiseExpectations(kvkey, 1, 0)
+		_, err := rbac.ClusterRoleBindings().Create(crb)
+		if err != nil {
+			expectations.ClusterRoleBinding.LowerExpectations(kvkey, 1, 0)
+			return objectsAdded, fmt.Errorf("unable to create clusterrolebinding %+v: %v", crb, err)
+		} else if err == nil {
+			objectsAdded++
+		}
+	} else {
+		log.Log.Infof("clusterrolebinding %v already exists", crb.GetName())
+	}
+
+	pspcli := clientset.PolicyV1beta1()
+	log.Log.Infof("prepare to create psp")
+	psp := newHandlerPsp()
+
+	if _, exists, _ := stores.PodSecurityPolicyCache.Get(psp); !exists {
+		expectations.PodSecurityPolicy.RaiseExpectations(kvkey, 1, 0)
+		_, err := pspcli.PodSecurityPolicies().Create(psp)
+		if err != nil {
+			expectations.PodSecurityPolicy.LowerExpectations(kvkey, 1, 0)
+			return objectsAdded, fmt.Errorf("unable to create psp %+v: %v", psp, err)
+		} else if err == nil {
+			objectsAdded++
+		}
+	} else {
+		log.Log.Infof("pss %v already exists", psp.GetName())
+	}
+
+	r := newHandlerRole(kv.Namespace)
+	if _, exists, _ := stores.RoleCache.Get(r); !exists {
+		expectations.Role.RaiseExpectations(kvkey, 1, 0)
+		_, err := rbac.Roles(kv.Namespace).Create(r)
+		if err != nil {
+			expectations.Role.LowerExpectations(kvkey, 1, 0)
+			return objectsAdded, fmt.Errorf("unable to create role %+v: %v", r, err)
+		} else if err == nil {
+			objectsAdded++
+		}
+	} else {
+		log.Log.Infof("role %v already exists", r.GetName())
+	}
+
+	rb := newHandlerRoleBinding(kv.Namespace)
+	if _, exists, _ := stores.RoleBindingCache.Get(rb); !exists {
+		expectations.RoleBinding.RaiseExpectations(kvkey, 1, 0)
+		_, err := rbac.RoleBindings(kv.Namespace).Create(rb)
+		if err != nil {
+			expectations.RoleBinding.LowerExpectations(kvkey, 1, 0)
+			return objectsAdded, fmt.Errorf("unable to create rolebinding %+v: %v", rb, err)
+		} else if err == nil {
+			objectsAdded++
+		}
+	} else {
+		log.Log.Infof("rolebinding %v already exists", rb.GetName())
+	}
+
+	return objectsAdded, nil
+}
+
 func GetAllHandler(namespace string) []interface{} {
 	return []interface{}{
 		newHandlerServiceAccount(namespace),
 		newHandlerClusterRole(),
 		newHandlerClusterRoleBinding(namespace),
+		newHandlerPsp(),
 		newHandlerRole(namespace),
 		newHandlerRoleBinding(namespace),
 	}
@@ -141,6 +244,44 @@ func newHandlerClusterRoleBinding(namespace string) *rbacv1.ClusterRoleBinding {
 	}
 }
 
+func newHandlerPsp() *pspv1b1.PodSecurityPolicy {
+	return &pspv1b1.PodSecurityPolicy{
+		TypeMeta: metav1.TypeMeta{
+			APIVersion: "policy/v1beta1",
+			Kind:       "PodSecurityPolicy",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "kubevirt-privileged-psp",
+		},
+		Spec: pspv1b1.PodSecurityPolicySpec{
+			Privileged: true,
+			HostPID:    true,
+			HostIPC:    true,
+			SELinux: pspv1b1.SELinuxStrategyOptions{
+				Rule: pspv1b1.SELinuxStrategyRunAsAny,
+			},
+			RunAsUser: pspv1b1.RunAsUserStrategyOptions{
+				Rule: pspv1b1.RunAsUserStrategyRunAsAny,
+			},
+			SupplementalGroups: pspv1b1.SupplementalGroupsStrategyOptions{
+				Rule: pspv1b1.SupplementalGroupsStrategyRunAsAny,
+			},
+			FSGroup: pspv1b1.FSGroupStrategyOptions{
+				Rule: pspv1b1.FSGroupStrategyRunAsAny,
+			},
+			AllowedHostPaths: []pspv1b1.AllowedHostPath{
+				{PathPrefix: "/var/run/kubevirt-libvirt-runtimes"},
+				{PathPrefix: "/var/run/kubevirt"},
+				{PathPrefix: "/var/run/kubevirt-private"},
+				{PathPrefix: "/var/lib/kubelet/device-plugins"},
+			},
+			Volumes: []pspv1b1.FSType{
+				"*",
+			},
+		},
+	}
+}
+
 func newHandlerRole(namespace string) *rbacv1.Role {
 	return &rbacv1.Role{
 		TypeMeta: metav1.TypeMeta{
@@ -175,6 +316,20 @@ func newHandlerRole(namespace string) *rbacv1.Role {
 				},
 				Verbs: []string{
 					"create",
+				},
+			},
+			{
+				APIGroups: []string{
+					"policy",
+				},
+				Resources: []string{
+					"podsecuritypolicies",
+				},
+				ResourceNames: []string{
+					"kubevirt-privileged-psp",
+				},
+				Verbs: []string{
+					"use",
 				},
 			},
 		},
