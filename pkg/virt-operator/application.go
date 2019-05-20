@@ -122,6 +122,7 @@ func Execute() {
 
 	app.informers = util.Informers{
 		ServiceAccount:           app.informerFactory.OperatorServiceAccount(),
+		PodSecurityPolicy:        app.informerFactory.OperatorPodSecurityPolicy(),
 		ClusterRole:              app.informerFactory.OperatorClusterRole(),
 		ClusterRoleBinding:       app.informerFactory.OperatorClusterRoleBinding(),
 		Role:                     app.informerFactory.OperatorRole(),
@@ -140,6 +141,7 @@ func Execute() {
 		ServiceAccountCache:           app.informerFactory.OperatorServiceAccount().GetStore(),
 		ClusterRoleCache:              app.informerFactory.OperatorClusterRole().GetStore(),
 		ClusterRoleBindingCache:       app.informerFactory.OperatorClusterRoleBinding().GetStore(),
+		PodSecurityPolicyCache:        app.informerFactory.OperatorPodSecurityPolicy().GetStore(),
 		RoleCache:                     app.informerFactory.OperatorRole().GetStore(),
 		RoleBindingCache:              app.informerFactory.OperatorRoleBinding().GetStore(),
 		CrdCache:                      app.informerFactory.OperatorCRD().GetStore(),

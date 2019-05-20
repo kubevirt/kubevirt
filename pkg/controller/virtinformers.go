@@ -31,6 +31,7 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	batchv1 "k8s.io/api/batch/v1"
 	k8sv1 "k8s.io/api/core/v1"
+	pspv1b1 "k8s.io/api/policy/v1beta1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	extv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
 	extclient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
@@ -109,6 +110,9 @@ type KubeInformerFactory interface {
 
 	// ClusterRoleBinding
 	OperatorClusterRoleBinding() cache.SharedIndexInformer
+
+	// PodSecurityPolicy
+	OperatorPodSecurityPolicy() cache.SharedIndexInformer
 
 	// Roles
 	OperatorRole() cache.SharedIndexInformer
@@ -367,6 +371,19 @@ func (f *kubeInformerFactory) OperatorClusterRoleBinding() cache.SharedIndexInfo
 		return cache.NewSharedIndexInformer(lw, &rbacv1.ClusterRoleBinding{}, f.defaultResync, cache.Indexers{})
 	})
 }
+
+func (f *kubeInformerFactory) OperatorPodSecurityPolicy() cache.SharedIndexInformer {
+	return f.getInformer("OperatorPodSecurityPolicyInformer", func() cache.SharedIndexInformer {
+		labelSelector, err := labels.Parse(OperatorLabel)
+		if err != nil {
+			panic(err)
+		}
+
+		lw := NewListWatchFromClient(f.clientSet.PolicyV1beta1().RESTClient(), "podsecuritypolicies", k8sv1.NamespaceAll, fields.Everything(), labelSelector)
+		return cache.NewSharedIndexInformer(lw, &pspv1b1.PodSecurityPolicy{}, f.defaultResync, cache.Indexers{})
+	})
+}
+
 func (f *kubeInformerFactory) OperatorRole() cache.SharedIndexInformer {
 	return f.getInformer("OperatorRoleInformer", func() cache.SharedIndexInformer {
 		labelSelector, err := labels.Parse(OperatorLabel)
