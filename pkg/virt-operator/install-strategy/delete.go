@@ -27,6 +27,7 @@ import (
 	admissionregistrationv1beta1 "k8s.io/api/admissionregistration/v1beta1"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	pspv1b1 "k8s.io/api/policy/v1beta1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	extv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -256,6 +257,24 @@ func DeleteAll(kv *v1.KubeVirt,
 				if err != nil {
 					expectations.ServiceAccount.DeletionObserved(kvkey, key)
 					log.Log.Errorf("Failed to delete serviceaccount %+v: %v", sa, err)
+					return err
+				}
+			}
+		} else if !ok {
+			log.Log.Errorf("Cast failed! obj: %+v", obj)
+			return nil
+		}
+	}
+
+	objects = stores.PodSecurityPolicyCache.List()
+	for _, obj := range objects {
+		if psp, ok := obj.(*pspv1b1.PodSecurityPolicy); ok && psp.DeletionTimestamp == nil {
+			if key, err := controller.KeyFunc(psp); err == nil {
+				expectations.PodSecurityPolicy.AddExpectedDeletion(kvkey, key)
+				err := clientset.PolicyV1beta1().PodSecurityPolicies().Delete(psp.Name, deleteOptions)
+				if err != nil {
+					expectations.PodSecurityPolicy.DeletionObserved(kvkey, key)
+					log.Log.Errorf("Failed to delete pod security policy %+v: %v", psp, err)
 					return err
 				}
 			}
