@@ -114,6 +114,9 @@ type KubeInformerFactory interface {
 	// ClusterRoleBinding
 	OperatorClusterRoleBinding() cache.SharedIndexInformer
 
+	// PodSecurityPolicy
+	OperatorPodSecurityPolicy() cache.SharedIndexInformer
+
 	// Roles
 	OperatorRole() cache.SharedIndexInformer
 
@@ -374,6 +377,19 @@ func (f *kubeInformerFactory) OperatorClusterRoleBinding() cache.SharedIndexInfo
 		return cache.NewSharedIndexInformer(lw, &rbacv1.ClusterRoleBinding{}, f.defaultResync, cache.Indexers{})
 	})
 }
+
+func (f *kubeInformerFactory) OperatorPodSecurityPolicy() cache.SharedIndexInformer {
+	return f.getInformer("OperatorPodSecurityPolicyInformer", func() cache.SharedIndexInformer {
+		labelSelector, err := labels.Parse(OperatorLabel)
+		if err != nil {
+			panic(err)
+		}
+
+		lw := NewListWatchFromClient(f.clientSet.PolicyV1beta1().RESTClient(), "podsecuritypolicies", k8sv1.NamespaceAll, fields.Everything(), labelSelector)
+		return cache.NewSharedIndexInformer(lw, &v1beta1.PodSecurityPolicy{}, f.defaultResync, cache.Indexers{})
+	})
+}
+
 func (f *kubeInformerFactory) OperatorRole() cache.SharedIndexInformer {
 	return f.getInformer("OperatorRoleInformer", func() cache.SharedIndexInformer {
 		labelSelector, err := labels.Parse(OperatorLabel)

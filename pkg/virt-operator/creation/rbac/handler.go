@@ -21,6 +21,7 @@ package rbac
 
 import (
 	corev1 "k8s.io/api/core/v1"
+	pspv1b1 "k8s.io/api/policy/v1beta1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
@@ -32,6 +33,7 @@ func GetAllHandler(namespace string) []interface{} {
 		newHandlerServiceAccount(namespace),
 		newHandlerClusterRole(),
 		newHandlerClusterRoleBinding(namespace),
+		newHandlerPsp(),
 		newHandlerRole(namespace),
 		newHandlerRoleBinding(namespace),
 	}
@@ -154,6 +156,44 @@ func newHandlerClusterRoleBinding(namespace string) *rbacv1.ClusterRoleBinding {
 	}
 }
 
+func newHandlerPsp() *pspv1b1.PodSecurityPolicy {
+	return &pspv1b1.PodSecurityPolicy{
+		TypeMeta: metav1.TypeMeta{
+			APIVersion: "policy/v1beta1",
+			Kind:       "PodSecurityPolicy",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "kubevirt-privileged-psp",
+		},
+		Spec: pspv1b1.PodSecurityPolicySpec{
+			Privileged: true,
+			HostPID:    true,
+			HostIPC:    true,
+			SELinux: pspv1b1.SELinuxStrategyOptions{
+				Rule: pspv1b1.SELinuxStrategyRunAsAny,
+			},
+			RunAsUser: pspv1b1.RunAsUserStrategyOptions{
+				Rule: pspv1b1.RunAsUserStrategyRunAsAny,
+			},
+			SupplementalGroups: pspv1b1.SupplementalGroupsStrategyOptions{
+				Rule: pspv1b1.SupplementalGroupsStrategyRunAsAny,
+			},
+			FSGroup: pspv1b1.FSGroupStrategyOptions{
+				Rule: pspv1b1.FSGroupStrategyRunAsAny,
+			},
+			AllowedHostPaths: []pspv1b1.AllowedHostPath{
+				{PathPrefix: "/var/run/kubevirt-libvirt-runtimes"},
+				{PathPrefix: "/var/run/kubevirt"},
+				{PathPrefix: "/var/run/kubevirt-private"},
+				{PathPrefix: "/var/lib/kubelet/device-plugins"},
+			},
+			Volumes: []pspv1b1.FSType{
+				"*",
+			},
+		},
+	}
+}
+
 func newHandlerRole(namespace string) *rbacv1.Role {
 	return &rbacv1.Role{
 		TypeMeta: metav1.TypeMeta{
@@ -188,6 +228,20 @@ func newHandlerRole(namespace string) *rbacv1.Role {
 				},
 				Verbs: []string{
 					"create",
+				},
+			},
+			{
+				APIGroups: []string{
+					"policy",
+				},
+				Resources: []string{
+					"podsecuritypolicies",
+				},
+				ResourceNames: []string{
+					"kubevirt-privileged-psp",
+				},
+				Verbs: []string{
+					"use",
 				},
 			},
 		},

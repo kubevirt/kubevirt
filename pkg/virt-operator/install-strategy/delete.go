@@ -286,6 +286,24 @@ func DeleteAll(kv *v1.KubeVirt,
 		}
 	}
 
+	objects = stores.PodSecurityPolicyCache.List()
+	for _, obj := range objects {
+		if psp, ok := obj.(*policyv1beta1.PodSecurityPolicy); ok && psp.DeletionTimestamp == nil {
+			if key, err := controller.KeyFunc(psp); err == nil {
+				expectations.PodSecurityPolicy.AddExpectedDeletion(kvkey, key)
+				err := clientset.PolicyV1beta1().PodSecurityPolicies().Delete(psp.Name, deleteOptions)
+				if err != nil {
+					expectations.PodSecurityPolicy.DeletionObserved(kvkey, key)
+					log.Log.Errorf("Failed to delete pod security policy %+v: %v", psp, err)
+					return err
+				}
+			}
+		} else if !ok {
+			log.Log.Errorf("Cast failed! obj: %+v", obj)
+			return nil
+		}
+	}
+
 	scc := clientset.SecClient()
 	for _, sccPriv := range strategy.customSCCPrivileges {
 		privSCCObj, exists, err := stores.SCCCache.GetByKey(sccPriv.TargetSCC)

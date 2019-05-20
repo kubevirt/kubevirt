@@ -477,6 +477,57 @@ func createOrUpdateRoleBinding(rb *rbacv1.RoleBinding,
 	return nil
 }
 
+func createOrUpdatePsp(psp *policyv1beta1.PodSecurityPolicy,
+	kv *v1.KubeVirt,
+	imageTag string,
+	imageRegistry string,
+	id string,
+	stores util.Stores,
+	clientset kubecli.KubevirtClient,
+	expectations *util.Expectations) error {
+
+	var err error
+	pspcli := clientset.PolicyV1beta1()
+
+	var cachedPsp *policyv1beta1.PodSecurityPolicy
+
+	kvkey, err := controller.KeyFunc(kv)
+	if err != nil {
+		return err
+	}
+
+	psp = psp.DeepCopy()
+	obj, exists, _ := stores.PodSecurityPolicyCache.Get(psp)
+	if exists {
+		cachedPsp = obj.(*policyv1beta1.PodSecurityPolicy)
+	}
+
+	injectOperatorMetadata(kv, &psp.ObjectMeta, imageTag, imageRegistry, id)
+	if !exists {
+		// Create non existent
+		expectations.PodSecurityPolicy.RaiseExpectations(kvkey, 1, 0)
+		_, err := pspcli.PodSecurityPolicies().Create(psp)
+		if err != nil {
+			expectations.PodSecurityPolicy.LowerExpectations(kvkey, 1, 0)
+			return fmt.Errorf("unable to create psp %+v: %v", psp, err)
+		}
+		log.Log.V(2).Infof("Psp %v created, %+v", psp.GetName(), psp)
+
+	} else if !objectMatchesVersion(&cachedPsp.ObjectMeta, imageTag, imageRegistry, id) {
+		// Update existing, we don't need to patch psp
+		_, err = pspcli.PodSecurityPolicies().Update(psp)
+		if err != nil {
+			return fmt.Errorf("unable to update psp %+v: %v", psp, err)
+		}
+		log.Log.V(2).Infof("psp %v updated", psp.GetName())
+
+	} else {
+		log.Log.V(4).Infof("psp %v already exists", psp.GetName())
+	}
+	return nil
+
+}
+
 func createOrUpdateRole(r *rbacv1.Role,
 	kv *v1.KubeVirt,
 	imageTag string,
@@ -1140,6 +1191,21 @@ func createOrUpdateRbac(kv *v1.KubeVirt,
 			return err
 		}
 
+	}
+
+	// need to create pod security policy for accesing hostIPC, hostPID and so on
+	for _, psp := range targetStrategy.psps {
+		err := createOrUpdatePsp(psp,
+			kv,
+			version,
+			imageRegistry,
+			id,
+			stores,
+			clientset,
+			expectations)
+		if err != nil {
+			return err
+		}
 	}
 
 	// create/update Roles
@@ -2009,6 +2075,30 @@ func SyncAll(kv *v1.KubeVirt,
 					if err != nil {
 						expectations.SCC.DeletionObserved(kvkey, key)
 						log.Log.Errorf("Failed to delete SecurityContextConstraints %+v: %v", scc, err)
+						return false, err
+					}
+				}
+			}
+		}
+	}
+	//remove unused pod security policy
+	objects = stores.PodSecurityPolicyCache.List()
+	for _, obj := range objects {
+		if psp, ok := obj.(*policyv1beta1.PodSecurityPolicy); ok && psp.DeletionTimestamp == nil {
+			found := false
+			for _, targetPsp := range targetStrategy.psps {
+				if targetPsp.Name == psp.Name && targetPsp.Namespace == psp.Namespace {
+					found = true
+					break
+				}
+			}
+			if !found {
+				if key, err := controller.KeyFunc(psp); err == nil {
+					expectations.PodSecurityPolicy.AddExpectedDeletion(kvkey, key)
+					err := clientset.PolicyV1beta1().PodSecurityPolicies().Delete(psp.Name, deleteOptions)
+					if err != nil {
+						expectations.PodSecurityPolicy.DeletionObserved(kvkey, key)
+						log.Log.Errorf("Failed to delete pod security policy %+v: %v", psp, err)
 						return false, err
 					}
 				}

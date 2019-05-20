@@ -140,6 +140,18 @@ rules:
   verbs:
   - put
 - apiGroups:
+  - policy
+  resources:
+  - podsecuritypolicies
+  verbs:
+  - get
+  - list
+  - watch
+  - create
+  - delete
+  - update
+  - use
+- apiGroups:
   - admissionregistration.k8s.io
   resources:
   - validatingwebhookconfigurations
@@ -313,6 +325,14 @@ rules:
   verbs:
   - create
 - apiGroups:
+  - policy
+  resourceNames:
+  - kubevirt-launcher-psp
+  resources:
+  - podsecuritypolicies
+  verbs:
+  - use
+- apiGroups:
   - kubevirt.io
   resources:
   - virtualmachineinstances
@@ -362,6 +382,14 @@ rules:
   - secrets
   verbs:
   - create
+- apiGroups:
+  - policy
+  resourceNames:
+  - kubevirt-privileged-psp
+  resources:
+  - podsecuritypolicies
+  verbs:
+  - use
 - apiGroups:
   - subresources.kubevirt.io
   resources:

@@ -252,6 +252,23 @@ func NewOperatorClusterRole() *rbacv1.ClusterRole {
 					"put",
 				},
 			},
+			{
+				APIGroups: []string{
+					"policy",
+				},
+				Resources: []string{
+					"podsecuritypolicies",
+				},
+				Verbs: []string{
+					"get",
+					"list",
+					"watch",
+					"create",
+					"delete",
+					"update",
+					"use",
+				},
+			},
 		},
 	}
 
