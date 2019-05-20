@@ -35,6 +35,7 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	batchv1 "k8s.io/api/batch/v1"
 	k8sv1 "k8s.io/api/core/v1"
+	pspv1b1 "k8s.io/api/policy/v1beta1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	extv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
 	extclientfake "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset/fake"
@@ -67,6 +68,7 @@ var _ = Describe("KubeVirt Operator", func() {
 	var kvInformer cache.SharedIndexInformer
 
 	var serviceAccountSource *framework.FakeControllerSource
+	var podsecurityPolicySource *framework.FakeControllerSource
 	var clusterRoleSource *framework.FakeControllerSource
 	var clusterRoleBindingSource *framework.FakeControllerSource
 	var roleSource *framework.FakeControllerSource
@@ -104,9 +106,9 @@ var _ = Describe("KubeVirt Operator", func() {
 	var totalDeletions int
 
 	NAMESPACE := "kubevirt-test"
-	resourceCount := 29
+	resourceCount := 30
 	patchCount := 13
-	updateCount := 16
+	updateCount := 17
 
 	deleteFromCache := true
 	addToCache := true
@@ -114,6 +116,7 @@ var _ = Describe("KubeVirt Operator", func() {
 	syncCaches := func(stop chan struct{}) {
 		go kvInformer.Run(stop)
 		go informers.ServiceAccount.Run(stop)
+		go informers.PodSecurityPolicy.Run(stop)
 		go informers.ClusterRole.Run(stop)
 		go informers.ClusterRoleBinding.Run(stop)
 		go informers.Role.Run(stop)
@@ -131,6 +134,7 @@ var _ = Describe("KubeVirt Operator", func() {
 		Expect(cache.WaitForCacheSync(stop, kvInformer.HasSynced)).To(BeTrue())
 
 		cache.WaitForCacheSync(stop, informers.ServiceAccount.HasSynced)
+		cache.WaitForCacheSync(stop, informers.PodSecurityPolicy.HasSynced)
 		cache.WaitForCacheSync(stop, informers.ClusterRole.HasSynced)
 		cache.WaitForCacheSync(stop, informers.ClusterRoleBinding.HasSynced)
 		cache.WaitForCacheSync(stop, informers.Role.HasSynced)
@@ -178,6 +182,9 @@ var _ = Describe("KubeVirt Operator", func() {
 
 		informers.ServiceAccount, serviceAccountSource = testutils.NewFakeInformerFor(&k8sv1.ServiceAccount{})
 		stores.ServiceAccountCache = informers.ServiceAccount.GetStore()
+
+		informers.PodSecurityPolicy, podsecurityPolicySource = testutils.NewFakeInformerFor(&pspv1b1.PodSecurityPolicy{})
+		stores.PodSecurityPolicyCache = informers.PodSecurityPolicy.GetStore()
 
 		informers.ClusterRole, clusterRoleSource = testutils.NewFakeInformerFor(&rbacv1.ClusterRole{})
 		stores.ClusterRoleCache = informers.ClusterRole.GetStore()
@@ -236,6 +243,7 @@ var _ = Describe("KubeVirt Operator", func() {
 		virtClient.EXPECT().CoreV1().Return(kubeClient.CoreV1()).AnyTimes()
 		virtClient.EXPECT().BatchV1().Return(kubeClient.BatchV1()).AnyTimes()
 		virtClient.EXPECT().RbacV1().Return(kubeClient.RbacV1()).AnyTimes()
+		virtClient.EXPECT().PolicyV1beta1().Return(kubeClient.PolicyV1beta1()).AnyTimes()
 		virtClient.EXPECT().AppsV1().Return(kubeClient.AppsV1()).AnyTimes()
 		virtClient.EXPECT().SecClient().Return(secClient).AnyTimes()
 		virtClient.EXPECT().ExtensionsClient().Return(extClient).AnyTimes()
@@ -295,6 +303,12 @@ var _ = Describe("KubeVirt Operator", func() {
 	addServiceAccount := func(sa *k8sv1.ServiceAccount) {
 		mockQueue.ExpectAdds(1)
 		serviceAccountSource.Add(sa)
+		mockQueue.Wait()
+	}
+
+	addPodSecurityPolicy := func(psp *pspv1b1.PodSecurityPolicy) {
+		mockQueue.ExpectAdds(1)
+		podsecurityPolicySource.Add(psp)
 		mockQueue.Wait()
 	}
 
@@ -375,6 +389,9 @@ var _ = Describe("KubeVirt Operator", func() {
 		case *k8sv1.ServiceAccount:
 			injectMetadata(&obj.(*k8sv1.ServiceAccount).ObjectMeta, version, registry)
 			addServiceAccount(resource)
+		case *pspv1b1.PodSecurityPolicy:
+			injectMetadata(&obj.(*pspv1b1.PodSecurityPolicy).ObjectMeta, version, registry)
+			addPodSecurityPolicy(resource)
 		case *rbacv1.ClusterRole:
 			injectMetadata(&obj.(*rbacv1.ClusterRole).ObjectMeta, version, registry)
 			addClusterRole(resource)
@@ -489,6 +506,15 @@ var _ = Describe("KubeVirt Operator", func() {
 			TypeMeta: metav1.TypeMeta{
 				APIVersion: "v1",
 				Kind:       "ServiceAccount",
+			},
+			ObjectMeta: metav1.ObjectMeta{
+				Name: fmt.Sprintf("rand-%s", rand.String(10)),
+			},
+		})
+		all = append(all, &pspv1b1.PodSecurityPolicy{
+			TypeMeta: metav1.TypeMeta{
+				APIVersion: "policy/v1beta1",
+				Kind:       "PodSecurityPolicy",
 			},
 			ObjectMeta: metav1.ObjectMeta{
 				Name: fmt.Sprintf("rand-%s", rand.String(10)),
@@ -690,6 +716,14 @@ var _ = Describe("KubeVirt Operator", func() {
 		mockQueue.Wait()
 	}
 
+	deletePodSecurityPolicy := func(key string) {
+		mockQueue.ExpectAdds(1)
+		if obj, exists, _ := informers.PodSecurityPolicy.GetStore().GetByKey(key); exists {
+			podsecurityPolicySource.Delete(obj.(runtime.Object))
+		}
+		mockQueue.Wait()
+	}
+
 	deleteClusterRole := func(key string) {
 		mockQueue.ExpectAdds(1)
 		if obj, exists, _ := informers.ClusterRole.GetStore().GetByKey(key); exists {
@@ -781,6 +815,8 @@ var _ = Describe("KubeVirt Operator", func() {
 		switch resource {
 		case "serviceaccounts":
 			deleteServiceAccount(key)
+		case "podsecuritypolicies":
+			deletePodSecurityPolicy(key)
 		case "clusterroles":
 			deleteClusterRole(key)
 		case "clusterrolebindings":
@@ -872,6 +908,7 @@ var _ = Describe("KubeVirt Operator", func() {
 
 	shouldExpectDeletions := func() {
 		kubeClient.Fake.PrependReactor("delete", "serviceaccounts", genericDeleteFunc)
+		kubeClient.Fake.PrependReactor("delete", "podsecuritypolicies", genericDeleteFunc)
 		kubeClient.Fake.PrependReactor("delete", "clusterroles", genericDeleteFunc)
 		kubeClient.Fake.PrependReactor("delete", "clusterrolebindings", genericDeleteFunc)
 		kubeClient.Fake.PrependReactor("delete", "roles", genericDeleteFunc)
@@ -901,6 +938,7 @@ var _ = Describe("KubeVirt Operator", func() {
 	shouldExpectPatchesAndUpdates := func() {
 		extClient.Fake.PrependReactor("patch", "customresourcedefinitions", genericPatchFunc)
 		kubeClient.Fake.PrependReactor("patch", "serviceaccounts", genericPatchFunc)
+		kubeClient.Fake.PrependReactor("update", "podsecuritypolicies", genericUpdateFunc)
 		kubeClient.Fake.PrependReactor("update", "clusterroles", genericUpdateFunc)
 		kubeClient.Fake.PrependReactor("update", "clusterrolebindings", genericUpdateFunc)
 		kubeClient.Fake.PrependReactor("update", "roles", genericUpdateFunc)
@@ -920,6 +958,7 @@ var _ = Describe("KubeVirt Operator", func() {
 
 	shouldExpectCreations := func() {
 		kubeClient.Fake.PrependReactor("create", "serviceaccounts", genericCreateFunc)
+		kubeClient.Fake.PrependReactor("create", "podsecuritypolicies", genericCreateFunc)
 		kubeClient.Fake.PrependReactor("create", "clusterroles", genericCreateFunc)
 		kubeClient.Fake.PrependReactor("create", "clusterrolebindings", genericCreateFunc)
 		kubeClient.Fake.PrependReactor("create", "roles", genericCreateFunc)
@@ -1399,6 +1438,7 @@ var _ = Describe("KubeVirt Operator", func() {
 
 			Expect(totalAdds).To(Equal(resourceCount - expectedUncreatedResources + expectedTemporaryResources))
 			Expect(len(controller.stores.ServiceAccountCache.List())).To(Equal(3))
+			Expect(len(controller.stores.PodSecurityPolicyCache.List())).To(Equal(1))
 			Expect(len(controller.stores.ClusterRoleCache.List())).To(Equal(7))
 			Expect(len(controller.stores.ClusterRoleBindingCache.List())).To(Equal(5))
 			Expect(len(controller.stores.RoleCache.List())).To(Equal(2))

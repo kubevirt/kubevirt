@@ -213,6 +213,22 @@ func NewOperatorClusterRole() *rbacv1.ClusterRole {
 					"get", "list", "watch", "create", "delete",
 				},
 			},
+			{
+				APIGroups: []string{
+					"policy",
+				},
+				Resources: []string{
+					"podsecuritypolicies",
+				},
+				Verbs: []string{
+					"get",
+					"list",
+					"watch",
+					"create",
+					"delete",
+					"use",
+				},
+			},
 		},
 	}
 

@@ -28,6 +28,7 @@ import (
 	"github.com/ghodss/yaml"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	pspv1b1 "k8s.io/api/policy/v1beta1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	extv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -63,6 +64,7 @@ type InstallStrategy struct {
 	clusterRoles        []*rbacv1.ClusterRole
 	clusterRoleBindings []*rbacv1.ClusterRoleBinding
 
+	psps         []*pspv1b1.PodSecurityPolicy
 	roles        []*rbacv1.Role
 	roleBindings []*rbacv1.RoleBinding
 
@@ -154,6 +156,9 @@ func dumpInstallStrategyToBytes(strategy *InstallStrategy) []byte {
 	for _, entry := range strategy.clusterRoleBindings {
 		marshalutil.MarshallObject(entry, writer)
 	}
+	for _, entry := range strategy.psps {
+		marshalutil.MarshallObject(entry, writer)
+	}
 	for _, entry := range strategy.roles {
 		marshalutil.MarshallObject(entry, writer)
 	}
@@ -208,6 +213,11 @@ func GenerateCurrentInstallStrategy(namespace string,
 		crb, ok := entry.(*rbacv1.ClusterRoleBinding)
 		if ok {
 			strategy.clusterRoleBindings = append(strategy.clusterRoleBindings, crb)
+		}
+
+		psp, ok := entry.(*pspv1b1.PodSecurityPolicy)
+		if ok {
+			strategy.psps = append(strategy.psps, psp)
 		}
 
 		r, ok := entry.(*rbacv1.Role)
@@ -355,6 +365,13 @@ func loadInstallStrategyFromBytes(data string) (*InstallStrategy, error) {
 				return nil, err
 			}
 			strategy.clusterRoleBindings = append(strategy.clusterRoleBindings, crb)
+		case "PodSecurityPolicy":
+			psp := &pspv1b1.PodSecurityPolicy{}
+			if err := yaml.Unmarshal([]byte(entry), &psp); err != nil {
+				return nil, err
+			}
+			log.Log.Infof("loadInstallStrategyFromBytes(), loaded psp %+v", psp)
+			strategy.psps = append(strategy.psps, psp)
 		case "Role":
 			r := &rbacv1.Role{}
 			if err := yaml.Unmarshal([]byte(entry), &r); err != nil {
