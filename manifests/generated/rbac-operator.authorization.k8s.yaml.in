@@ -117,6 +117,17 @@ rules:
   - create
   - delete
 - apiGroups:
+  - policy
+  resources:
+  - podsecuritypolicies
+  verbs:
+  - get
+  - list
+  - watch
+  - create
+  - delete
+  - use
+- apiGroups:
   - admissionregistration.k8s.io
   resources:
   - validatingwebhookconfigurations
@@ -315,6 +326,14 @@ rules:
   verbs:
   - create
 - apiGroups:
+  - policy
+  resourceNames:
+  - kubevirt-privileged-psp
+  resources:
+  - podsecuritypolicies
+  verbs:
+  - use
+- apiGroups:
   - subresources.kubevirt.io
   resources:
   - version
@@ -403,17 +422,6 @@ rules:
   - subjectaccessreviews
   verbs:
   - create
-- apiGroups:
-  - policy
-  resources:
-  - podsecuritypolicies
-  verbs:
-  - get
-  - list
-  - watch
-  - create
-  - delete
-  - use
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
