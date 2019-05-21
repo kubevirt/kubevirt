@@ -48,7 +48,6 @@ import (
 
 const (
 	diskSerial        = "FB-fb_18030C10002032"
-	namespaceKubevirt = "kubevirt"
 )
 
 type VMICreationFunc func(string) *v1.VirtualMachineInstance
@@ -472,11 +471,11 @@ var _ = Describe("Storage", func() {
 
 			configureToleration := func(toleration int) {
 				By("By configuring toleration")
-				config, err := virtClient.CoreV1().ConfigMaps(namespaceKubevirt).Get("kubevirt-config", metav1.GetOptions{})
+				config, err := virtClient.CoreV1().ConfigMaps(tests.KubeVirtInstallNamespace).Get("kubevirt-config", metav1.GetOptions{})
 				ExpectWithOffset(1, err).ToNot(HaveOccurred())
 
 				config.Data[services.LessPVCSpaceTolerationKey] = strconv.Itoa(toleration)
-				_, err = virtClient.CoreV1().ConfigMaps(namespaceKubevirt).Update(config)
+				_, err = virtClient.CoreV1().ConfigMaps(tests.KubeVirtInstallNamespace).Update(config)
 				ExpectWithOffset(1, err).ToNot(HaveOccurred())
 			}
 
