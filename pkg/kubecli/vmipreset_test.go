@@ -67,7 +67,7 @@ var _ = Describe("Kubevirt VirtualMachineInstancePreset Client", func() {
 
 		Expect(server.ReceivedRequests()).To(HaveLen(1))
 		Expect(err).To(HaveOccurred())
-		Expect(errors.IsNotFound(err)).To(BeTrue())
+		Expect(errors.IsNotFound(err)).To(BeTrue(), "Expected an IsNotFound error to have occurred")
 	})
 
 	It("should fetch a VirtualMachineInstancePreset list", func() {
