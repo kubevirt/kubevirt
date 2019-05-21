@@ -316,6 +316,30 @@ subjects:
   name: kubevirt-handler
   namespace: {{.Namespace}}
 ---
+apiVersion: policy/v1beta1
+kind: PodSecurityPolicy
+metadata:
+  name: kubevirt-privileged-psp
+spec:
+  allowedHostPaths:
+  - pathPrefix: /var/run/kubevirt-libvirt-runtimes
+  - pathPrefix: /var/run/kubevirt
+  - pathPrefix: /var/run/kubevirt-private
+  - pathPrefix: /var/lib/kubelet/device-plugins
+  fsGroup:
+    rule: RunAsAny
+  hostIPC: true
+  hostPID: true
+  privileged: true
+  runAsUser:
+    rule: RunAsAny
+  seLinux:
+    rule: RunAsAny
+  supplementalGroups:
+    rule: RunAsAny
+  volumes:
+  - '*'
+---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:
@@ -338,6 +362,14 @@ rules:
   - secrets
   verbs:
   - create
+- apiGroups:
+  - policy
+  resourceNames:
+  - kubevirt-privileged-psp
+  resources:
+  - podsecuritypolicies
+  verbs:
+  - use
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
