@@ -655,7 +655,7 @@ var _ = Describe("Multus", func() {
 
 				agentVMI.Spec.Domain.Devices.Interfaces = interfaces
 				agentVMI.Spec.Networks = networks
-				agentVMI.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("1024M")
+				agentVMI.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("512M")
 
 				By("Starting a VirtualMachineInstance")
 				agentVMI, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(agentVMI)
