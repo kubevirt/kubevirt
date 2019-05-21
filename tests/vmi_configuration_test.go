@@ -289,6 +289,16 @@ var _ = Describe("Configurations", func() {
 			})
 		})
 
+		Context("with no memory requested", func() {
+			It("should failed to the VMI creation", func() {
+				vmi := tests.NewRandomVMI()
+				vmi.Spec.Domain.Resources = v1.ResourceRequirements{}
+				By("Starting a VirtualMachineInstance")
+				_, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
+				Expect(err).To(HaveOccurred())
+			})
+		})
+
 		Context("with EFI bootloader method", func() {
 
 			It("[test_id:1668]should use EFI", func() {
@@ -532,7 +542,8 @@ var _ = Describe("Configurations", func() {
 					vmi = tests.NewRandomVMIWithEphemeralDisk(tests.ContainerDiskFor(tests.ContainerDiskAlpine))
 					vmi.Spec.Domain.Resources = v1.ResourceRequirements{
 						Requests: kubev1.ResourceList{
-							kubev1.ResourceCPU: resource.MustParse("800m"),
+							kubev1.ResourceCPU:    resource.MustParse("800m"),
+							kubev1.ResourceMemory: resource.MustParse("512M"),
 						},
 					}
 					vmi, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
@@ -1512,7 +1523,8 @@ var _ = Describe("Configurations", func() {
 				}
 				Vmi.Spec.Domain.Resources = v1.ResourceRequirements{
 					Requests: kubev1.ResourceList{
-						kubev1.ResourceCPU: resource.MustParse("1"),
+						kubev1.ResourceCPU:    resource.MustParse("1"),
+						kubev1.ResourceMemory: resource.MustParse("64M"),
 					},
 				}
 				Vmi.Spec.NodeSelector = map[string]string{v1.CPUManager: "true"}

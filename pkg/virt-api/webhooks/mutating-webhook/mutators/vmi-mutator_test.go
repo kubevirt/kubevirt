@@ -50,7 +50,6 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 	cpuModelFromConfig := "Haswell"
 	machineTypeFromConfig := "pc-q35-3.0"
 	cpuRequestFromConfig := "800m"
-	memoryRequestFromConfig := "256Mi"
 
 	getVMISpecMetaFromResponse := func() (*v1.VirtualMachineInstanceSpec, *k8smetav1.ObjectMeta) {
 		vmiBytes, err := json.Marshal(vmi)
@@ -150,16 +149,16 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 		Expect(vmiSpec.Domain.Machine.Type).To(Equal("q35"))
 		Expect(vmiSpec.Domain.CPU.Model).To(Equal(""))
 		Expect(vmiSpec.Domain.Resources.Requests.Cpu().String()).To(Equal("100m"))
-		Expect(vmiSpec.Domain.Resources.Requests.Memory().String()).To(Equal("8Mi"))
+		// no default for requested memory when no memory is specified
+		Expect(vmiSpec.Domain.Resources.Requests.Memory().Value()).To(Equal(int64(0)))
 	})
 
 	It("should apply configurable defaults on VMI create", func() {
 		testutils.UpdateFakeClusterConfig(configMapInformer, &k8sv1.ConfigMap{
 			Data: map[string]string{
-				virtconfig.CpuModelKey:      cpuModelFromConfig,
-				virtconfig.MachineTypeKey:   machineTypeFromConfig,
-				virtconfig.MemoryRequestKey: memoryRequestFromConfig,
-				virtconfig.CpuRequestKey:    cpuRequestFromConfig,
+				virtconfig.CpuModelKey:    cpuModelFromConfig,
+				virtconfig.MachineTypeKey: machineTypeFromConfig,
+				virtconfig.CpuRequestKey:  cpuRequestFromConfig,
 			},
 		})
 
@@ -167,16 +166,14 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 		Expect(vmiSpec.Domain.CPU.Model).To(Equal(cpuModelFromConfig))
 		Expect(vmiSpec.Domain.Machine.Type).To(Equal(machineTypeFromConfig))
 		Expect(vmiSpec.Domain.Resources.Requests.Cpu().String()).To(Equal(cpuRequestFromConfig))
-		Expect(vmiSpec.Domain.Resources.Requests.Memory().String()).To(Equal(memoryRequestFromConfig))
 	})
 
 	It("should not override specified properties with defaults on VMI create", func() {
 		testutils.UpdateFakeClusterConfig(configMapInformer, &k8sv1.ConfigMap{
 			Data: map[string]string{
-				virtconfig.CpuModelKey:      cpuModelFromConfig,
-				virtconfig.MachineTypeKey:   machineTypeFromConfig,
-				virtconfig.MemoryRequestKey: memoryRequestFromConfig,
-				virtconfig.CpuRequestKey:    cpuRequestFromConfig,
+				virtconfig.CpuModelKey:    cpuModelFromConfig,
+				virtconfig.MachineTypeKey: machineTypeFromConfig,
+				virtconfig.CpuRequestKey:  cpuRequestFromConfig,
 			},
 		})
 

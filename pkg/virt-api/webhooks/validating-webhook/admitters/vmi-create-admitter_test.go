@@ -84,16 +84,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 	})
 	It("should reject VMIs without memory after presets were applied", func() {
 		vmi := v1.NewMinimalVMI("testvmi")
-		vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
-			Name: "testdisk",
-		})
 		vmi.Spec.Domain.Resources = v1.ResourceRequirements{}
-		vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
-			Name: "testvolume",
-			VolumeSource: v1.VolumeSource{
-				ContainerDisk: &v1.ContainerDiskSource{},
-			},
-		})
 		vmiBytes, _ := json.Marshal(&vmi)
 
 		ar := &v1beta1.AdmissionReview{
@@ -106,6 +97,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 		}
 		resp := vmiCreateAdmitter.Admit(ar)
 		Expect(resp.Allowed).To(Equal(false))
+		Expect(len(resp.Result.Details.Causes)).To(Equal(1))
 		Expect(resp.Result.Message).To(ContainSubstring("no memory requested"))
 	})
 
@@ -151,9 +143,6 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 	Context("with probes given", func() {
 		It("should reject probes with not probe action configured", func() {
 			vmi := v1.NewMinimalVMI("testvmi")
-			m := resource.MustParse("64M")
-			vmi.Spec.Domain.Memory = &v1.Memory{Guest: &m}
-			vmi.Spec.Domain.Resources = v1.ResourceRequirements{}
 			vmi.Spec.ReadinessProbe = &v1.Probe{InitialDelaySeconds: 2}
 			vmi.Spec.LivenessProbe = &v1.Probe{InitialDelaySeconds: 2}
 			vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{*v1.DefaultNetworkInterface()}
@@ -175,9 +164,6 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 		})
 		It("should reject probes with more than one action per probe configured", func() {
 			vmi := v1.NewMinimalVMI("testvmi")
-			m := resource.MustParse("64M")
-			vmi.Spec.Domain.Memory = &v1.Memory{Guest: &m}
-			vmi.Spec.Domain.Resources = v1.ResourceRequirements{}
 			vmi.Spec.ReadinessProbe = &v1.Probe{
 				InitialDelaySeconds: 2,
 				Handler: v1.Handler{
@@ -211,9 +197,6 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 		})
 		It("should accept properly configured readiness and liveness probes", func() {
 			vmi := v1.NewMinimalVMI("testvmi")
-			m := resource.MustParse("64M")
-			vmi.Spec.Domain.Memory = &v1.Memory{Guest: &m}
-			vmi.Spec.Domain.Resources = v1.ResourceRequirements{}
 			vmi.Spec.ReadinessProbe = &v1.Probe{
 				InitialDelaySeconds: 2,
 				Handler: v1.Handler{
@@ -244,9 +227,6 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 		})
 		It("should reject properly configured readiness and liveness probes if no Pod Network is present", func() {
 			vmi := v1.NewMinimalVMI("testvmi")
-			m := resource.MustParse("64M")
-			vmi.Spec.Domain.Memory = &v1.Memory{Guest: &m}
-			vmi.Spec.Domain.Resources = v1.ResourceRequirements{}
 			vmi.Spec.ReadinessProbe = &v1.Probe{
 				InitialDelaySeconds: 2,
 				Handler: v1.Handler{
