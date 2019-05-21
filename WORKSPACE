@@ -186,9 +186,9 @@ http_archive(
 # Get container-disk-v1alpha RPM's
 http_file(
     name = "qemu-img",
-    sha256 = "611d6ff8e08eca0d543486f3e8b437f7ddbc362e4d281c7422677d712d017d61",
+    sha256 = "eadbd81fe25827a9d7712d0d96b134ab834bfab9e7332a8e9cf54dedd3c02581",
     urls = [
-        "https://dl.fedoraproject.org/pub/fedora/linux/updates/28/Everything/x86_64/Packages/q/qemu-img-2.11.2-4.fc28.x86_64.rpm",
+        "https://dl.fedoraproject.org/pub/fedora/linux/updates/28/Everything/x86_64/Packages/q/qemu-img-2.11.2-5.fc28.x86_64.rpm",
     ],
 )
 
@@ -226,9 +226,9 @@ http_file(
 
 http_file(
     name = "qemu-guest-agent",
-    sha256 = "1d76ae3e482017439412e9cc8e179afb8f47ab415a8a9a7ceaa9b4ee4f9c85e8",
+    sha256 = "d9c5072ab2476fbf9e50dd374b2bc680d3accadd2e70d52cae4eb515b6a893f4",
     urls = [
-        "https://dl.fedoraproject.org/pub/fedora/linux/updates/28/Everything/x86_64/Packages/q/qemu-guest-agent-2.11.2-4.fc28.x86_64.rpm",
+        "https://dl.fedoraproject.org/pub/fedora/linux/updates/28/Everything/x86_64/Packages/q/qemu-guest-agent-2.11.2-5.fc28.x86_64.rpm",
     ],
 )
 
