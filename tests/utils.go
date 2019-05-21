@@ -3401,6 +3401,10 @@ func HasCDI() bool {
 	return HasFeature("DataVolumes")
 }
 
+func HasExperimentalIgnitionSupport() bool {
+	return HasFeature("ExperimentalIgnitionSupport")
+}
+
 func HasLiveMigration() bool {
 	return HasFeature("LiveMigration")
 }
