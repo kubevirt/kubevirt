@@ -404,9 +404,7 @@ spec:
                           fieldRef:
                             fieldPath: metadata.name
                       - name: WATCH_NAMESPACE
-                        valueFrom:
-                          fieldRef:
-                            fieldPath: metadata.namespace
+                        value: ""
                       - name: OPERATOR_NAME
                         value: "kubevirt-ssp-operator"
 
