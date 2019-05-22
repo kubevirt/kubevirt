@@ -1092,12 +1092,12 @@ var _ = Describe("Configurations", func() {
 
 		It("should set machine type from VMI spec", func() {
 			vmi := tests.NewRandomVMI()
-			vmi.Spec.Domain.Machine.Type = "pc-q35-3.0"
+			vmi.Spec.Domain.Machine.Type = "q35"
 			tests.RunVMIAndExpectLaunch(vmi, 30)
 			runningVMISpec, err := tests.GetRunningVMISpec(vmi)
 
 			Expect(err).ToNot(HaveOccurred())
-			Expect(runningVMISpec.OS.Type.Machine).To(Equal("pc-q35-3.0"))
+			Expect(runningVMISpec.OS.Type.Machine).To(ContainSubstring("pc-q35"))
 		})
 
 		It("should set default machine type when it is not provided", func() {
@@ -1107,13 +1107,13 @@ var _ = Describe("Configurations", func() {
 			runningVMISpec, err := tests.GetRunningVMISpec(vmi)
 
 			Expect(err).ToNot(HaveOccurred())
-			Expect(runningVMISpec.OS.Type.Machine).To(ContainSubstring("q35"))
+			Expect(runningVMISpec.OS.Type.Machine).To(ContainSubstring("pc-q35"))
 		})
 
 		It("should set machine type from kubevirt-config", func() {
 			cfgMap, err := virtClient.CoreV1().ConfigMaps(tests.KubeVirtInstallNamespace).Get(kubevirtConfig, metav1.GetOptions{})
 			Expect(err).To(BeNil())
-			cfgMap.Data[defaultMachineTypeKey] = "pc-q35-3.0"
+			cfgMap.Data[defaultMachineTypeKey] = "q35"
 			_, err = virtClient.CoreV1().ConfigMaps(tests.KubeVirtInstallNamespace).Update(cfgMap)
 			Expect(err).ToNot(HaveOccurred())
 
@@ -1123,7 +1123,7 @@ var _ = Describe("Configurations", func() {
 			runningVMISpec, err := tests.GetRunningVMISpec(vmi)
 
 			Expect(err).ToNot(HaveOccurred())
-			Expect(runningVMISpec.OS.Type.Machine).To(Equal("pc-q35-3.0"))
+			Expect(runningVMISpec.OS.Type.Machine).To(ContainSubstring("pc-q35"))
 		})
 	})
 
