@@ -1077,27 +1077,27 @@ var _ = Describe("Configurations", func() {
 		})
 	})
 
-	Context("with machine type settings", func() {
+	FContext("with machine type settings", func() {
 		defaultMachineTypeKey := "machine-type"
 
 		AfterEach(func() {
-			cfgMap, err := virtClient.CoreV1().ConfigMaps(namespaceKubevirt).Get(kubevirtConfig, metav1.GetOptions{})
+			cfgMap, err := virtClient.CoreV1().ConfigMaps(tests.KubeVirtInstallNamespace).Get(kubevirtConfig, metav1.GetOptions{})
 			Expect(err).NotTo(HaveOccurred())
 
 			cfgMap.Data[defaultMachineTypeKey] = ""
 
-			_, err = virtClient.CoreV1().ConfigMaps(namespaceKubevirt).Update(cfgMap)
+			_, err = virtClient.CoreV1().ConfigMaps(tests.KubeVirtInstallNamespace).Update(cfgMap)
 			Expect(err).ToNot(HaveOccurred())
 		})
 
 		It("should set machine type from VMI spec", func() {
 			vmi := tests.NewRandomVMI()
-			vmi.Spec.Domain.Machine.Type = "pc-q35-3.0"
+			vmi.Spec.Domain.Machine.Type = "q35"
 			tests.RunVMIAndExpectLaunch(vmi, 30)
 			runningVMISpec, err := tests.GetRunningVMISpec(vmi)
 
 			Expect(err).ToNot(HaveOccurred())
-			Expect(runningVMISpec.OS.Type.Machine).To(Equal("pc-q35-3.0"))
+			Expect(runningVMISpec.OS.Type.Machine).To(Equal("q35"))
 		})
 
 		It("should set default machine type when it is not provided", func() {
@@ -1111,10 +1111,10 @@ var _ = Describe("Configurations", func() {
 		})
 
 		It("should set machine type from kubevirt-config", func() {
-			cfgMap, err := virtClient.CoreV1().ConfigMaps(namespaceKubevirt).Get(kubevirtConfig, metav1.GetOptions{})
+			cfgMap, err := virtClient.CoreV1().ConfigMaps(tests.KubeVirtInstallNamespace).Get(kubevirtConfig, metav1.GetOptions{})
 			Expect(err).To(BeNil())
-			cfgMap.Data[defaultMachineTypeKey] = "pc-q35-3.0"
-			_, err = virtClient.CoreV1().ConfigMaps(namespaceKubevirt).Update(cfgMap)
+			cfgMap.Data[defaultMachineTypeKey] = "q35"
+			_, err = virtClient.CoreV1().ConfigMaps(tests.KubeVirtInstallNamespace).Update(cfgMap)
 			Expect(err).ToNot(HaveOccurred())
 
 			vmi := tests.NewRandomVMI()
@@ -1123,7 +1123,7 @@ var _ = Describe("Configurations", func() {
 			runningVMISpec, err := tests.GetRunningVMISpec(vmi)
 
 			Expect(err).ToNot(HaveOccurred())
-			Expect(runningVMISpec.OS.Type.Machine).To(Equal("pc-q35-3.0"))
+			Expect(runningVMISpec.OS.Type.Machine).To(Equal("q35"))
 		})
 	})
 
