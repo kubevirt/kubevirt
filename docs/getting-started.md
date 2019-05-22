@@ -3,7 +3,7 @@
 A quick start guide to get KubeVirt up and running inside our container based
 development cluster.
 
-## I just want it built and run it on my cluser
+## I just want it built and run it on my cluster
 
 First, point the `Makefile` to the docker registry of your choice:
 
@@ -148,7 +148,7 @@ After a successful build you can run the *unit tests*:
 
 They do not need a running KubeVirt environment to succeed.
 To run the *functional tests*, make sure you have set
-up a dockerizied environment. Then run
+up a dockerized environment. Then run
 
 ```bash
     make cluster-sync # synchronize with your code, if necessary
