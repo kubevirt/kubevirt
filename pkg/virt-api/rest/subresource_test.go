@@ -27,7 +27,7 @@ import (
 	"net/http/httptest"
 	"strings"
 
-	restful "github.com/emicklei/go-restful"
+	"github.com/emicklei/go-restful"
 	"github.com/gorilla/websocket"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -473,6 +473,69 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 			Expect(response.StatusCode()).To(Equal(http.StatusAccepted))
 			close(done)
 		})
+
+		It("should fail on VM with RunStrategyHalted", func(done Done) {
+			request.PathParameters()["name"] = "testvm"
+			request.PathParameters()["namespace"] = "default"
+
+			vm := newVirtualMachineWithRunStrategy(v1.RunStrategyHalted)
+
+			server.AppendHandlers(
+				ghttp.CombineHandlers(
+					ghttp.VerifyRequest("GET", "/apis/kubevirt.io/v1alpha3/namespaces/default/virtualmachines/testvm"),
+					ghttp.RespondWithJSONEncoded(http.StatusOK, vm),
+				),
+			)
+
+			app.RestartVMRequestHandler(request, response)
+
+			Expect(response.Error()).To(HaveOccurred())
+			Expect(response.StatusCode()).To(Equal(http.StatusBadRequest))
+			close(done)
+		})
+
+		It("should not fail on VM with other RunStrategies", func(done Done) {
+			request.PathParameters()["name"] = "testvm"
+			request.PathParameters()["namespace"] = "default"
+
+			runStrategies := []v1.VirtualMachineRunStrategy{
+				v1.RunStrategyAlways,
+				v1.RunStrategyManual,
+				v1.RunStrategyRerunOnFailure,
+			}
+
+			for _, runStrategy := range runStrategies {
+				vm := newVirtualMachineWithRunStrategy(runStrategy)
+
+				server.AppendHandlers(
+					ghttp.CombineHandlers(
+						ghttp.VerifyRequest("GET", "/apis/kubevirt.io/v1alpha3/namespaces/default/virtualmachines/testvm"),
+						ghttp.RespondWithJSONEncoded(http.StatusOK, vm),
+					),
+				)
+
+				server.AppendHandlers(
+					ghttp.CombineHandlers(
+						ghttp.VerifyRequest("GET", "/apis/kubevirt.io/v1alpha3/namespaces/default/virtualmachineinstances/testvm"),
+						ghttp.RespondWithJSONEncoded(http.StatusNotFound, nil),
+					),
+				)
+
+				server.AppendHandlers(
+					ghttp.CombineHandlers(
+						ghttp.VerifyRequest("PATCH", "/apis/kubevirt.io/v1alpha3/namespaces/default/virtualmachines/testvm"),
+						ghttp.RespondWithJSONEncoded(http.StatusOK, vm),
+					),
+				)
+
+				app.RestartVMRequestHandler(request, response)
+
+				Expect(response.Error()).NotTo(HaveOccurred())
+				Expect(response.StatusCode()).To(Equal(http.StatusAccepted))
+			}
+			close(done)
+		})
+
 	})
 
 	Context("StateChange JSON", func() {
@@ -630,6 +693,17 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 		backend.Close()
 	})
 })
+
+func newVirtualMachineWithRunStrategy(runStrategy v1.VirtualMachineRunStrategy) v1.VirtualMachine {
+	return v1.VirtualMachine{
+		ObjectMeta: k8smetav1.ObjectMeta{
+			Name: "testvm",
+		},
+		Spec: v1.VirtualMachineSpec{
+			RunStrategy: &runStrategy,
+		},
+	}
+}
 
 func newMinimalVM(name string) *v1.VirtualMachine {
 	return &v1.VirtualMachine{TypeMeta: k8smetav1.TypeMeta{APIVersion: v1.GroupVersion.String(), Kind: "VirtualMachine"}, ObjectMeta: k8smetav1.ObjectMeta{Name: name}}
