@@ -239,7 +239,6 @@ func (app *SubresourceAPIApp) RestartVMRequestHandler(request *restful.Request, 
 		return
 	}
 
-	startOnly := false
 	vmi, err := app.VirtCli.VirtualMachineInstance(namespace).Get(name, &k8smetav1.GetOptions{})
 	if err != nil {
 		if !errors.IsNotFound(err) {
@@ -250,15 +249,9 @@ func (app *SubresourceAPIApp) RestartVMRequestHandler(request *restful.Request, 
 		return
 	}
 
-	bodyString := ""
-	if startOnly {
-		bodyString, err = getChangeRequestJson(vm,
-			v1.VirtualMachineStateChangeRequest{Action: v1.StartRequest})
-	} else {
-		bodyString, err = getChangeRequestJson(vm,
-			v1.VirtualMachineStateChangeRequest{Action: v1.StopRequest, UID: &vmi.UID},
-			v1.VirtualMachineStateChangeRequest{Action: v1.StartRequest})
-	}
+	bodyString, err := getChangeRequestJson(vm,
+		v1.VirtualMachineStateChangeRequest{Action: v1.StopRequest, UID: &vmi.UID},
+		v1.VirtualMachineStateChangeRequest{Action: v1.StartRequest})
 	if err != nil {
 		response.WriteError(http.StatusInternalServerError, err)
 		return
@@ -294,8 +287,7 @@ func (app *SubresourceAPIApp) StartVMRequestHandler(request *restful.Request, re
 			response.WriteError(http.StatusInternalServerError, err)
 			return
 		}
-	}
-	if vmi != nil {
+	} else {
 		response.WriteError(http.StatusBadRequest, fmt.Errorf("VM is already running"))
 		return
 	}

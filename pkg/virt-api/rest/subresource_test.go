@@ -959,8 +959,8 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 	})
 })
 
-func newVirtualMachineWithRunStrategy(runStrategy v1.VirtualMachineRunStrategy) v1.VirtualMachine {
-	return v1.VirtualMachine{
+func newVirtualMachineWithRunStrategy(runStrategy v1.VirtualMachineRunStrategy) *v1.VirtualMachine {
+	return &v1.VirtualMachine{
 		ObjectMeta: k8smetav1.ObjectMeta{
 			Name: "testvm",
 		},
