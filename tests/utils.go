@@ -2571,13 +2571,6 @@ func SkipIfNoRhelImage(virtClient kubecli.KubevirtClient) {
 	}
 }
 
-func SkipIfNoSriovDevicePlugin(virtClient kubecli.KubevirtClient) {
-	_, err := virtClient.ExtensionsV1beta1().DaemonSets(metav1.NamespaceSystem).Get("kube-sriov-device-plugin-amd64", metav1.GetOptions{})
-	if err != nil {
-		Skip("Skip srio tests that required sriov device plugin")
-	}
-}
-
 func SkipIfUseFlannel(virtClient kubecli.KubevirtClient) {
 	labelSelector := "app=flannel"
 	flannelpod, err := virtClient.CoreV1().Pods(metav1.NamespaceSystem).List(metav1.ListOptions{LabelSelector: labelSelector})

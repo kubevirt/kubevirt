@@ -588,7 +588,6 @@ var _ = Describe("SRIOV", func() {
 	tests.PanicOnError(err)
 
 	tests.BeforeAll(func() {
-		tests.SkipIfNoSriovDevicePlugin(virtClient)
 		tests.BeforeTestCleanup()
 		// Create two sriov networks referring to the same resource name
 		result := virtClient.RestClient().
