@@ -65,7 +65,7 @@ spec:
         effect: NoSchedule
       containers:
         - name: node-maintenance-operator
-          image: quay.io/kubevirt/node-maintenance-operator:v0.2.0
+          image: quay.io/kubevirt/node-maintenance-operator:v0.3.0
           imagePullPolicy: Always
           env:
             - name: WATCH_NAMESPACE

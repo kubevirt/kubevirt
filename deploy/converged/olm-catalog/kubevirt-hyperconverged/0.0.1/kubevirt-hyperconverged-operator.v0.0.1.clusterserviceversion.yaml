@@ -1438,7 +1438,7 @@ spec:
                         fieldPath: metadata.name
                   - name: OPERATOR_NAME
                     value: node-maintenance-operator
-                  image: quay.io/kubevirt/node-maintenance-operator:v0.2.0
+                  image: quay.io/kubevirt/node-maintenance-operator:v0.3.0
                   imagePullPolicy: Always
                   name: node-maintenance-operator
                   resources: {}
