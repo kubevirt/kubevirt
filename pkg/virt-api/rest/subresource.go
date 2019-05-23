@@ -288,8 +288,10 @@ func (app *SubresourceAPIApp) StartVMRequestHandler(request *restful.Request, re
 			return
 		}
 	} else {
-		response.WriteError(http.StatusBadRequest, fmt.Errorf("VM is already running"))
-		return
+		if vmi != nil && vmi.Status.Phase != v1.Succeeded && vmi.Status.Phase != v1.Failed {
+			response.WriteError(http.StatusBadRequest, fmt.Errorf("VM is already running"))
+			return
+		}
 	}
 
 	bodyString := ""
