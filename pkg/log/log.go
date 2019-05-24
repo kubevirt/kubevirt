@@ -368,6 +368,7 @@ func LogLibvirtLogLine(logger *FilteredLogger, line string) {
 		fmt.Println(err)
 		return
 	}
+	thread := strings.TrimSpace(fragments[1])
 	pos := strings.TrimSpace(fragments[3])
 	msg := strings.TrimSpace(fragments[4])
 
@@ -386,6 +387,7 @@ func LogLibvirtLogLine(logger *FilteredLogger, line string) {
 			"timestamp", t.Format("2006-01-02T15:04:05.000000Z"),
 			"component", logger.component,
 			"subcomponent", "libvirt",
+			"thread", thread,
 			"msg", msg,
 		)
 	} else {
@@ -395,6 +397,7 @@ func LogLibvirtLogLine(logger *FilteredLogger, line string) {
 			"pos", pos,
 			"component", logger.component,
 			"subcomponent", "libvirt",
+			"thread", thread,
 			"msg", msg,
 		)
 	}
