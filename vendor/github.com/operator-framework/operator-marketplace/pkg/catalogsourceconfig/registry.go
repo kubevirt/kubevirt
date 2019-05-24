@@ -3,7 +3,6 @@ package catalogsourceconfig
 import (
 	"context"
 	"strconv"
-	"strings"
 	"time"
 
 	marketplace "github.com/operator-framework/operator-marketplace/pkg/apis/operators/v1"
@@ -69,7 +68,7 @@ func NewRegistry(log *logrus.Entry, client client.Client, reader datastore.Reade
 // Ensure ensures a registry-pod deployment and its associated
 // resources are created.
 func (r *registry) Ensure() error {
-	appRegistries, secretIsPresent := r.getAppRegistryCmdLineOptions()
+	appRegistries, secretIsPresent := r.getAppRegistries()
 
 	// We create a ServiceAccount, Role and RoleBindings only if the registry
 	// pod needs to access private registry which requires access to a secret
@@ -103,7 +102,7 @@ func (r *registry) GetAddress() string {
 // needServiceAccount indicates that the deployment is for a private registry
 // and the pod requires a Service Account with the Role that allows it to access
 // secrets.
-func (r *registry) ensureDeployment(appRegistries string, needServiceAccount bool) error {
+func (r *registry) ensureDeployment(appRegistries []string, needServiceAccount bool) error {
 	registryCommand := getCommand(r.csc.GetPackages(), appRegistries)
 	deployment := new(DeploymentBuilder).WithTypeMeta().Deployment()
 	if err := r.client.Get(context.TODO(), r.csc.key(), deployment); err != nil {
@@ -243,27 +242,35 @@ func (r *registry) getLabel() map[string]string {
 	return map[string]string{"marketplace.catalogSourceConfig": r.csc.GetName()}
 }
 
-// getAppRegistryCmdLineOptions returns a group of "--registry=" command line
-// option(s) required for operator-registry. If one of the packages is from a
-// private repository secretIsPresent will be true.
-func (r *registry) getAppRegistryCmdLineOptions() (appRegistryOptions string, secretIsPresent bool) {
+// getAppRegistries returns a list of app registries in the format
+// {base url with cnr prefix}|{app registry namespace}|{secret namespace/secret name}.
+// |<secret namespace/secret name} will be present only for private repositories,
+// in which case secretIsPresent will be true.
+func (r *registry) getAppRegistries() (appRegistries []string, secretIsPresent bool) {
 	for _, packageID := range r.csc.Spec.GetPackageIDs() {
 		opsrcMeta, err := r.reader.Read(packageID)
 		if err != nil {
 			r.log.Errorf("Error %v reading package %s", err, packageID)
 			continue
 		}
-		//--registry="https://quay.io/cnr|community-operators" --regisry="https://quay.io/cnr|custom-operators|mynamespace/mysecret"
-		appRegistry := "--registry=" + opsrcMeta.Endpoint + "|" + opsrcMeta.RegistryNamespace
+		// {base url with cnr prefix}|{app registry namespace}
+		appRegistry := opsrcMeta.Endpoint + "|" + opsrcMeta.RegistryNamespace
 		if opsrcMeta.SecretNamespacedName != "" {
+			// {base url with cnr prefix}|{app registry namespace}|{secret namespace/secret name}
 			appRegistry += "|" + opsrcMeta.SecretNamespacedName
 			secretIsPresent = true
 		}
-		if !strings.Contains(appRegistryOptions, appRegistry) {
-			appRegistryOptions += appRegistry + " "
+		found := false
+		for _, r := range appRegistries {
+			if r == appRegistry {
+				found = true
+				break
+			}
+		}
+		if !found {
+			appRegistries = append(appRegistries, appRegistry)
 		}
 	}
-	appRegistryOptions = strings.TrimSuffix(appRegistryOptions, " ")
 	return
 }
 
@@ -414,9 +421,17 @@ func (r *registry) waitForDeploymentScaleDown(retryInterval, timeout time.Durati
 }
 
 // getCommand returns the command used to launch the registry server
-// appregistry-server --registry="<url>|<registry namespace>|<namespaced-secret> -o <packages>"
-func getCommand(packages string, registries string) []string {
-	return []string{"appregistry-server", registries, "-o", packages}
+// Example: appregistry-server \
+//    -r {base url with cnr prefix}|{app registry namespace} \
+//    -r {base url with cnr prefix}|{app registry namespace}|{secret namespace/secret name} \
+//    -o {packages}"
+func getCommand(packages string, appRegistries []string) []string {
+	command := []string{"appregistry-server"}
+	for _, registry := range appRegistries {
+		command = append(command, "-r", registry)
+	}
+	command = append(command, "-o", packages)
+	return command
 }
 
 // getRules returns the PolicyRule needed to access secrets from the registry pod

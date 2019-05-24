@@ -72,7 +72,6 @@ import (
 	"kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/kubecli"
 	"kubevirt.io/kubevirt/pkg/log"
-	"kubevirt.io/kubevirt/pkg/testutils"
 	"kubevirt.io/kubevirt/pkg/util/net/dns"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
@@ -2089,7 +2088,7 @@ func waitForVMIPhase(phases []v1.VirtualMachineInstancePhase, obj runtime.Object
 		nodeName = vmi.Status.NodeName
 		Expect(vmi.IsFinal()).To(BeFalse(), "VMI unexpectedly stopped. State: %s", vmi.Status.Phase)
 		return vmi.Status.Phase
-	}, time.Duration(seconds)*time.Second, 1*time.Second).Should(testutils.BeIn(phases), timeoutMsg)
+	}, time.Duration(seconds)*time.Second, 1*time.Second).Should(BeElementOf(phases), timeoutMsg)
 
 	return
 }

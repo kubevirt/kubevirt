@@ -1,0 +1,13 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "go_default_library",
+    srcs = ["cloudkey.go"],
+    importmap = "kubevirt.io/kubevirt/vendor/google.golang.org/appengine/datastore/internal/cloudkey",
+    importpath = "google.golang.org/appengine/datastore/internal/cloudkey",
+    visibility = ["//vendor/google.golang.org/appengine/datastore:__subpackages__"],
+    deps = [
+        "//vendor/github.com/golang/protobuf/proto:go_default_library",
+        "//vendor/google.golang.org/appengine/datastore/internal/cloudpb:go_default_library",
+    ],
+)

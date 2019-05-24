@@ -3,7 +3,6 @@ load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
 go_library(
     name = "go_default_library",
     srcs = [
-        "be_in_matcher.go",
         "matchers.go",
         "mock_config.go",
         "mock_queue.go",
@@ -17,8 +16,6 @@ go_library(
         "//pkg/virt-launcher/virtwrap/api:go_default_library",
         "//vendor/github.com/ghodss/yaml:go_default_library",
         "//vendor/github.com/onsi/gomega:go_default_library",
-        "//vendor/github.com/onsi/gomega/format:go_default_library",
-        "//vendor/github.com/onsi/gomega/matchers:go_default_library",
         "//vendor/github.com/onsi/gomega/types:go_default_library",
         "//vendor/k8s.io/api/core/v1:go_default_library",
         "//vendor/k8s.io/api/policy/v1beta1:go_default_library",
@@ -37,10 +34,7 @@ go_library(
 
 go_test(
     name = "go_default_test",
-    srcs = [
-        "be_in_matcher_test.go",
-        "testutils_suite_test.go",
-    ],
+    srcs = ["testutils_suite_test.go"],
     embed = [":go_default_library"],
     deps = [
         "//vendor/github.com/onsi/ginkgo:go_default_library",
