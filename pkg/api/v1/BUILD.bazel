@@ -11,6 +11,7 @@ go_library(
         "schema_swagger_generated.go",
         "types.go",
         "types_swagger_generated.go",
+        "utils.go",
         "zz_generated.defaults.go",
     ],
     importpath = "kubevirt.io/kubevirt/pkg/api/v1",
