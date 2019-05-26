@@ -301,19 +301,11 @@ var _ = Describe("Configurations", func() {
 
 		Context("with cluster memory overcommit being applied", func() {
 			BeforeEach(func() {
-				cfgMap, err := virtClient.CoreV1().ConfigMaps(namespaceKubevirt).Get(kubevirtConfig, metav1.GetOptions{})
-				Expect(err).To(BeNil())
-				cfgMap.Data["memory-overcommit"] = "200"
-				_, err = virtClient.CoreV1().ConfigMaps(namespaceKubevirt).Update(cfgMap)
-				Expect(err).ToNot(HaveOccurred())
+				tests.UpdateClusterConfigValue("memory-overcommit", "200")
 			})
 
 			AfterEach(func() {
-				cfgMap, err := virtClient.CoreV1().ConfigMaps(namespaceKubevirt).Get(kubevirtConfig, metav1.GetOptions{})
-				Expect(err).To(BeNil())
-				cfgMap.Data["memory-overcommit"] = ""
-				_, err = virtClient.CoreV1().ConfigMaps(namespaceKubevirt).Update(cfgMap)
-				Expect(err).ToNot(HaveOccurred())
+				tests.UpdateClusterConfigValue("memory-overcommit", "")
 			})
 
 			It("should set requested amount of memory according to the specified virtual memory", func() {
@@ -1104,13 +1096,7 @@ var _ = Describe("Configurations", func() {
 		defaultMachineTypeKey := "machine-type"
 
 		AfterEach(func() {
-			cfgMap, err := virtClient.CoreV1().ConfigMaps(tests.KubeVirtInstallNamespace).Get(kubevirtConfig, metav1.GetOptions{})
-			Expect(err).NotTo(HaveOccurred())
-
-			cfgMap.Data[defaultMachineTypeKey] = ""
-
-			_, err = virtClient.CoreV1().ConfigMaps(tests.KubeVirtInstallNamespace).Update(cfgMap)
-			Expect(err).ToNot(HaveOccurred())
+			tests.UpdateClusterConfigValue(defaultMachineTypeKey, "")
 		})
 
 		It("should set machine type from VMI spec", func() {
@@ -1134,11 +1120,7 @@ var _ = Describe("Configurations", func() {
 		})
 
 		It("should set machine type from kubevirt-config", func() {
-			cfgMap, err := virtClient.CoreV1().ConfigMaps(tests.KubeVirtInstallNamespace).Get(kubevirtConfig, metav1.GetOptions{})
-			Expect(err).To(BeNil())
-			cfgMap.Data[defaultMachineTypeKey] = "pc-q35-3.0"
-			_, err = virtClient.CoreV1().ConfigMaps(tests.KubeVirtInstallNamespace).Update(cfgMap)
-			Expect(err).ToNot(HaveOccurred())
+			tests.UpdateClusterConfigValue(defaultMachineTypeKey, "pc-q35-3.0")
 
 			vmi := tests.NewRandomVMI()
 			vmi.Spec.Domain.Machine.Type = ""
@@ -1154,13 +1136,7 @@ var _ = Describe("Configurations", func() {
 		defaultCPURequestKey := "cpu-request"
 
 		AfterEach(func() {
-			cfgMap, err := virtClient.CoreV1().ConfigMaps(tests.KubeVirtInstallNamespace).Get(kubevirtConfig, metav1.GetOptions{})
-			Expect(err).NotTo(HaveOccurred())
-
-			cfgMap.Data[defaultCPURequestKey] = ""
-
-			_, err = virtClient.CoreV1().ConfigMaps(tests.KubeVirtInstallNamespace).Update(cfgMap)
-			Expect(err).ToNot(HaveOccurred())
+			tests.UpdateClusterConfigValue(defaultCPURequestKey, "")
 		})
 
 		It("should set CPU request from VMI spec", func() {
@@ -1190,11 +1166,7 @@ var _ = Describe("Configurations", func() {
 		})
 
 		It("should set CPU request from kubevirt-config", func() {
-			cfgMap, err := virtClient.CoreV1().ConfigMaps(tests.KubeVirtInstallNamespace).Get(kubevirtConfig, metav1.GetOptions{})
-			Expect(err).To(BeNil())
-			cfgMap.Data[defaultCPURequestKey] = "800m"
-			_, err = virtClient.CoreV1().ConfigMaps(tests.KubeVirtInstallNamespace).Update(cfgMap)
-			Expect(err).ToNot(HaveOccurred())
+			tests.UpdateClusterConfigValue(defaultCPURequestKey, "800m")
 
 			vmi := tests.NewRandomVMI()
 			vmi.Spec.Domain.Resources = v1.ResourceRequirements{

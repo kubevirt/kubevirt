@@ -154,6 +154,8 @@ const (
 )
 
 const SubresourceTestLabel = "subresource-access-test-pod"
+const namespaceKubevirt = "kubevirt"
+const kubevirtConfig = "kubevirt-config"
 
 const (
 	// tests.NamespaceTestDefault is the default namespace, to test non-infrastructure related KubeVirt objects.
@@ -3617,5 +3619,15 @@ func GenerateHelloWorldServer(vmi *v1.VirtualMachineInstance, testPort int, prot
 		&expect.BSnd{S: "echo $?\n"},
 		&expect.BExp{R: "0"},
 	}, 60*time.Second)
+	Expect(err).ToNot(HaveOccurred())
+}
+
+func UpdateClusterConfigValue(key string, value string) {
+	virtClient, err := kubecli.GetKubevirtClient()
+	PanicOnError(err)
+	cfgMap, err := virtClient.CoreV1().ConfigMaps(KubeVirtInstallNamespace).Get(kubevirtConfig, metav1.GetOptions{})
+	Expect(err).NotTo(HaveOccurred())
+	cfgMap.Data[key] = value
+	_, err = virtClient.CoreV1().ConfigMaps(KubeVirtInstallNamespace).Update(cfgMap)
 	Expect(err).ToNot(HaveOccurred())
 }
