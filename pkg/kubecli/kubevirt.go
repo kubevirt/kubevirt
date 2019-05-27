@@ -50,6 +50,7 @@ type KubevirtClient interface {
 	ReplicaSet(namespace string) ReplicaSetInterface
 	VirtualMachine(namespace string) VirtualMachineInterface
 	KubeVirt(namespace string) KubeVirtInterface
+	VirtualMachineInstancePreset(namespace string) VirtualMachineInstancePresetInterface
 	ServerVersion() *ServerVersion
 	RestClient() *rest.RESTClient
 	CdiClient() cdiclient.Interface
@@ -133,7 +134,7 @@ type ReplicaSetInterface interface {
 	Patch(name string, pt types.PatchType, data []byte, subresources ...string) (result *v1.VirtualMachineInstanceReplicaSet, err error)
 }
 
-type VMIPresetInterface interface {
+type VirtualMachineInstancePresetInterface interface {
 	Get(name string, options k8smetav1.GetOptions) (*v1.VirtualMachineInstancePreset, error)
 	List(opts k8smetav1.ListOptions) (*v1.VirtualMachineInstancePresetList, error)
 	Create(*v1.VirtualMachineInstancePreset) (*v1.VirtualMachineInstancePreset, error)
