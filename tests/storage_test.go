@@ -47,7 +47,7 @@ import (
 )
 
 const (
-	diskSerial        = "FB-fb_18030C10002032"
+	diskSerial = "FB-fb_18030C10002032"
 )
 
 type VMICreationFunc func(string) *v1.VirtualMachineInstance
