@@ -65,6 +65,9 @@ var _ = Describe("[rfe_id:151][crit:high][vendor:cnv-qe@redhat.com][level:compon
 
 	BeforeEach(func() {
 		tests.BeforeTestCleanup()
+		if !tests.HasExperimentalIgnitionSupport() {
+			Skip("ExperimentalIgnitionSupport feature gate is not enabled in kubevirt-config")
+		}
 	})
 
 	Describe("[rfe_id:151][crit:medium][vendor:cnv-qe@redhat.com][level:component]A new VirtualMachineInstance", func() {
