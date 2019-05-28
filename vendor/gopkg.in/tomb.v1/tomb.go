@@ -46,7 +46,7 @@
 // When the tomb state changes to dying and there's still logic going
 // on within the goroutine, nested functions and methods may choose to
 // return ErrDying as their error value, as this error won't alter the
-// tomb state if provied to the Kill method. This is a convenient way to
+// tomb state if provided to the Kill method. This is a convenient way to
 // follow standard Go practices in the context of a dying tomb.
 //
 // For background and a detailed example, see the following blog post:

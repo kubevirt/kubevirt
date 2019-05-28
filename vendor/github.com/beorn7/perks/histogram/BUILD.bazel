@@ -1,9 +1,0 @@
-load("@io_bazel_rules_go//go:def.bzl", "go_library")
-
-go_library(
-    name = "go_default_library",
-    srcs = ["histogram.go"],
-    importmap = "kubevirt.io/kubevirt/vendor/github.com/beorn7/perks/histogram",
-    importpath = "github.com/beorn7/perks/histogram",
-    visibility = ["//visibility:public"],
-)

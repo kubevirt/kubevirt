@@ -119,7 +119,7 @@ func (c *FakeNetworkAttachmentDefinitions) DeleteCollection(options *v1.DeleteOp
 // Patch applies the patch and returns the patched networkAttachmentDefinition.
 func (c *FakeNetworkAttachmentDefinitions) Patch(name string, pt types.PatchType, data []byte, subresources ...string) (result *k8scnicncfiov1.NetworkAttachmentDefinition, err error) {
 	obj, err := c.Fake.
-		Invokes(testing.NewPatchSubresourceAction(networkattachmentdefinitionsResource, c.ns, name, data, subresources...), &k8scnicncfiov1.NetworkAttachmentDefinition{})
+		Invokes(testing.NewPatchSubresourceAction(networkattachmentdefinitionsResource, c.ns, name, pt, data, subresources...), &k8scnicncfiov1.NetworkAttachmentDefinition{})
 
 	if obj == nil {
 		return nil, err

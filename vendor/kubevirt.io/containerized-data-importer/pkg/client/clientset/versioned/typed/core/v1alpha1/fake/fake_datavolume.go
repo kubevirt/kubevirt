@@ -131,7 +131,7 @@ func (c *FakeDataVolumes) DeleteCollection(options *v1.DeleteOptions, listOption
 // Patch applies the patch and returns the patched dataVolume.
 func (c *FakeDataVolumes) Patch(name string, pt types.PatchType, data []byte, subresources ...string) (result *v1alpha1.DataVolume, err error) {
 	obj, err := c.Fake.
-		Invokes(testing.NewPatchSubresourceAction(datavolumesResource, c.ns, name, data, subresources...), &v1alpha1.DataVolume{})
+		Invokes(testing.NewPatchSubresourceAction(datavolumesResource, c.ns, name, pt, data, subresources...), &v1alpha1.DataVolume{})
 
 	if obj == nil {
 		return nil, err

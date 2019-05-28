@@ -1,10 +1,10 @@
 package jsonpatch
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"reflect"
-	"strings"
 )
 
 func merge(cur, patch *lazyNode, mergeMerge bool) *lazyNode {
@@ -28,7 +28,6 @@ func merge(cur, patch *lazyNode, mergeMerge bool) *lazyNode {
 
 func mergeDocs(doc, patch *partialDoc, mergeMerge bool) {
 	for k, v := range *patch {
-		k := decodePatchKey(k)
 		if v == nil {
 			if mergeMerge {
 				(*doc)[k] = nil
@@ -91,6 +90,7 @@ func pruneAryNulls(ary *partialArray) *partialArray {
 
 var errBadJSONDoc = fmt.Errorf("Invalid JSON Document")
 var errBadJSONPatch = fmt.Errorf("Invalid JSON Patch")
+var errBadMergeTypes = fmt.Errorf("Mismatched JSON Documents")
 
 // MergeMergePatches merges two merge patches together, such that
 // applying this resulting merged merge patch to a document yields the same
@@ -162,28 +162,104 @@ func doMergePatch(docData, patchData []byte, mergeMerge bool) ([]byte, error) {
 	return json.Marshal(doc)
 }
 
-// CreateMergePatch creates a merge patch as specified in http://tools.ietf.org/html/draft-ietf-appsawg-json-merge-patch-07
-//
-// 'a' is original, 'b' is the modified document. Both are to be given as json encoded content.
-// The function will return a mergeable json document with differences from a to b.
-//
-// An error will be returned if any of the two documents are invalid.
-func CreateMergePatch(a, b []byte) ([]byte, error) {
-	aI := map[string]interface{}{}
-	bI := map[string]interface{}{}
-	err := json.Unmarshal(a, &aI)
+// resemblesJSONArray indicates whether the byte-slice "appears" to be
+// a JSON array or not.
+// False-positives are possible, as this function does not check the internal
+// structure of the array. It only checks that the outer syntax is present and
+// correct.
+func resemblesJSONArray(input []byte) bool {
+	input = bytes.TrimSpace(input)
+
+	hasPrefix := bytes.HasPrefix(input, []byte("["))
+	hasSuffix := bytes.HasSuffix(input, []byte("]"))
+
+	return hasPrefix && hasSuffix
+}
+
+// CreateMergePatch will return a merge patch document capable of converting
+// the original document(s) to the modified document(s).
+// The parameters can be bytes of either two JSON Documents, or two arrays of
+// JSON documents.
+// The merge patch returned follows the specification defined at http://tools.ietf.org/html/draft-ietf-appsawg-json-merge-patch-07
+func CreateMergePatch(originalJSON, modifiedJSON []byte) ([]byte, error) {
+	originalResemblesArray := resemblesJSONArray(originalJSON)
+	modifiedResemblesArray := resemblesJSONArray(modifiedJSON)
+
+	// Do both byte-slices seem like JSON arrays?
+	if originalResemblesArray && modifiedResemblesArray {
+		return createArrayMergePatch(originalJSON, modifiedJSON)
+	}
+
+	// Are both byte-slices are not arrays? Then they are likely JSON objects...
+	if !originalResemblesArray && !modifiedResemblesArray {
+		return createObjectMergePatch(originalJSON, modifiedJSON)
+	}
+
+	// None of the above? Then return an error because of mismatched types.
+	return nil, errBadMergeTypes
+}
+
+// createObjectMergePatch will return a merge-patch document capable of
+// converting the original document to the modified document.
+func createObjectMergePatch(originalJSON, modifiedJSON []byte) ([]byte, error) {
+	originalDoc := map[string]interface{}{}
+	modifiedDoc := map[string]interface{}{}
+
+	err := json.Unmarshal(originalJSON, &originalDoc)
 	if err != nil {
 		return nil, errBadJSONDoc
 	}
-	err = json.Unmarshal(b, &bI)
+
+	err = json.Unmarshal(modifiedJSON, &modifiedDoc)
 	if err != nil {
 		return nil, errBadJSONDoc
 	}
-	dest, err := getDiff(aI, bI)
+
+	dest, err := getDiff(originalDoc, modifiedDoc)
 	if err != nil {
 		return nil, err
 	}
+
 	return json.Marshal(dest)
+}
+
+// createArrayMergePatch will return an array of merge-patch documents capable
+// of converting the original document to the modified document for each
+// pair of JSON documents provided in the arrays.
+// Arrays of mismatched sizes will result in an error.
+func createArrayMergePatch(originalJSON, modifiedJSON []byte) ([]byte, error) {
+	originalDocs := []json.RawMessage{}
+	modifiedDocs := []json.RawMessage{}
+
+	err := json.Unmarshal(originalJSON, &originalDocs)
+	if err != nil {
+		return nil, errBadJSONDoc
+	}
+
+	err = json.Unmarshal(modifiedJSON, &modifiedDocs)
+	if err != nil {
+		return nil, errBadJSONDoc
+	}
+
+	total := len(originalDocs)
+	if len(modifiedDocs) != total {
+		return nil, errBadJSONDoc
+	}
+
+	result := []json.RawMessage{}
+	for i := 0; i < len(originalDocs); i++ {
+		original := originalDocs[i]
+		modified := modifiedDocs[i]
+
+		patch, err := createObjectMergePatch(original, modified)
+		if err != nil {
+			return nil, err
+		}
+
+		result = append(result, json.RawMessage(patch))
+	}
+
+	return json.Marshal(result)
 }
 
 // Returns true if the array matches (must be json types).
@@ -226,6 +302,9 @@ func matchesValue(av, bv interface{}) bool {
 		if bt == at {
 			return true
 		}
+	case nil:
+		// Both nil, fine.
+		return true
 	case map[string]interface{}:
 		bt := bv.(map[string]interface{})
 		for key := range at {
@@ -250,16 +329,15 @@ func matchesValue(av, bv interface{}) bool {
 func getDiff(a, b map[string]interface{}) (map[string]interface{}, error) {
 	into := map[string]interface{}{}
 	for key, bv := range b {
-		escapedKey := encodePatchKey(key)
 		av, ok := a[key]
 		// value was added
 		if !ok {
-			into[escapedKey] = bv
+			into[key] = bv
 			continue
 		}
 		// If types have changed, replace completely
 		if reflect.TypeOf(av) != reflect.TypeOf(bv) {
-			into[escapedKey] = bv
+			into[key] = bv
 			continue
 		}
 		// Types are the same, compare values
@@ -272,23 +350,23 @@ func getDiff(a, b map[string]interface{}) (map[string]interface{}, error) {
 				return nil, err
 			}
 			if len(dst) > 0 {
-				into[escapedKey] = dst
+				into[key] = dst
 			}
 		case string, float64, bool:
 			if !matchesValue(av, bv) {
-				into[escapedKey] = bv
+				into[key] = bv
 			}
 		case []interface{}:
 			bt := bv.([]interface{})
 			if !matchesArray(at, bt) {
-				into[escapedKey] = bv
+				into[key] = bv
 			}
 		case nil:
 			switch bv.(type) {
 			case nil:
 				// Both nil, fine.
 			default:
-				into[escapedKey] = bv
+				into[key] = bv
 			}
 		default:
 			panic(fmt.Sprintf("Unknown type:%T in key %s", av, key))
@@ -302,24 +380,4 @@ func getDiff(a, b map[string]interface{}) (map[string]interface{}, error) {
 		}
 	}
 	return into, nil
-}
-
-// From http://tools.ietf.org/html/rfc6901#section-4 :
-//
-// Evaluation of each reference token begins by decoding any escaped
-// character sequence.  This is performed by first transforming any
-// occurrence of the sequence '~1' to '/', and then transforming any
-// occurrence of the sequence '~0' to '~'.
-
-var (
-	rfc6901Encoder = strings.NewReplacer("~", "~0", "/", "~1")
-	rfc6901Decoder = strings.NewReplacer("~1", "/", "~0", "~")
-)
-
-func decodePatchKey(k string) string {
-	return rfc6901Decoder.Replace(k)
-}
-
-func encodePatchKey(k string) string {
-	return rfc6901Encoder.Replace(k)
 }

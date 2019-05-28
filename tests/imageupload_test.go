@@ -3,6 +3,9 @@ package tests_test
 import (
 	"flag"
 	"fmt"
+	"io"
+	"net/http"
+	"os"
 	"time"
 
 	. "github.com/onsi/ginkgo"
@@ -19,7 +22,7 @@ const (
 	uploadProxyService   = "svc/cdi-uploadproxy"
 	uploadProxyPort      = 443
 	localUploadProxyPort = 18443
-	imagePath            = "./vendor/kubevirt.io/containerized-data-importer/tests/images/cirros-qcow2.img"
+	imagePath            = "/tmp/alpine.iso"
 )
 
 var _ = Describe("ImageUpload", func() {
@@ -27,11 +30,34 @@ var _ = Describe("ImageUpload", func() {
 	flag.Parse()
 
 	namespace := tests.NamespaceTestDefault
-	pvcName := "cirros-pvc"
+	pvcName := "alpine-pvc"
 	pvcSize := "100Mi"
 
 	virtClient, err := kubecli.GetKubevirtClient()
 	tests.PanicOnError(err)
+
+	BeforeEach(func() {
+		By("Getting CDI HTTP import server pod")
+		pods, err := virtClient.CoreV1().Pods(tests.KubeVirtInstallNamespace).List(metav1.ListOptions{LabelSelector: "kubevirt.io=cdi-http-import-server"})
+		Expect(err).ToNot(HaveOccurred())
+		Expect(pods.Items).ToNot(BeEmpty())
+
+		stopChan := make(chan struct{})
+		err = tests.ForwardPorts(&pods.Items[0], []string{"65432:80"}, stopChan, 10*time.Second)
+		Expect(err).ToNot(HaveOccurred())
+
+		By("Downloading alpine image")
+		r, err := http.Get("http://localhost:65432/images/alpine.iso")
+		Expect(err).ToNot(HaveOccurred())
+		defer r.Body.Close()
+
+		file, err := os.Create(imagePath)
+		Expect(err).ToNot(HaveOccurred())
+		defer file.Close()
+
+		_, err = io.Copy(file, r.Body)
+		Expect(err).ToNot(HaveOccurred())
+	})
 
 	Context("Upload an image and start a VMI", func() {
 		It("Should succeed", func() {
@@ -82,6 +108,9 @@ var _ = Describe("ImageUpload", func() {
 		if errors.IsNotFound(err) {
 			return
 		}
+		Expect(err).ToNot(HaveOccurred())
+
+		err = os.Remove(imagePath)
 		Expect(err).ToNot(HaveOccurred())
 	})
 })

@@ -1,9 +1,0 @@
-load("@io_bazel_rules_go//go:def.bzl", "go_library")
-
-go_library(
-    name = "go_default_library",
-    srcs = ["C.go"],
-    importmap = "kubevirt.io/kubevirt/vendor/github.com/onsi/ginkgo/integration/_fixtures/watch_fixtures/C",
-    importpath = "github.com/onsi/ginkgo/integration/_fixtures/watch_fixtures/C",
-    visibility = ["//visibility:public"],
-)

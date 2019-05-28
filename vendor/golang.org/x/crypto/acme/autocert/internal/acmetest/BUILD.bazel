@@ -1,9 +1,0 @@
-load("@io_bazel_rules_go//go:def.bzl", "go_library")
-
-go_library(
-    name = "go_default_library",
-    srcs = ["ca.go"],
-    importmap = "kubevirt.io/kubevirt/vendor/golang.org/x/crypto/acme/autocert/internal/acmetest",
-    importpath = "golang.org/x/crypto/acme/autocert/internal/acmetest",
-    visibility = ["//vendor/golang.org/x/crypto/acme/autocert:__subpackages__"],
-)

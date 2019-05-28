@@ -1,9 +1,0 @@
-load("@io_bazel_rules_go//go:def.bzl", "go_library")
-
-go_library(
-    name = "go_default_library",
-    srcs = ["doc.go"],
-    importmap = "kubevirt.io/kubevirt/vendor/github.com/gogo/protobuf/test/oneof3",
-    importpath = "github.com/gogo/protobuf/test/oneof3",
-    visibility = ["//visibility:public"],
-)

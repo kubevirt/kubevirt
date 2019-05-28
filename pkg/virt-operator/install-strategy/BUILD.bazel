@@ -11,6 +11,7 @@ go_library(
     visibility = ["//visibility:public"],
     deps = [
         "//pkg/api/v1:go_default_library",
+        "//pkg/certificates/triple:go_default_library",
         "//pkg/controller:go_default_library",
         "//pkg/kubecli:go_default_library",
         "//pkg/log:go_default_library",
@@ -31,7 +32,6 @@ go_library(
         "//vendor/k8s.io/apimachinery/pkg/apis/meta/v1:go_default_library",
         "//vendor/k8s.io/apimachinery/pkg/types:go_default_library",
         "//vendor/k8s.io/client-go/util/cert:go_default_library",
-        "//vendor/k8s.io/client-go/util/cert/triple:go_default_library",
     ],
 )
 

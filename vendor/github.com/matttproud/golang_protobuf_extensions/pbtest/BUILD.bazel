@@ -1,9 +1,0 @@
-load("@io_bazel_rules_go//go:def.bzl", "go_library")
-
-go_library(
-    name = "go_default_library",
-    srcs = ["deleted.go"],
-    importmap = "kubevirt.io/kubevirt/vendor/github.com/matttproud/golang_protobuf_extensions/pbtest",
-    importpath = "github.com/matttproud/golang_protobuf_extensions/pbtest",
-    visibility = ["//visibility:public"],
-)

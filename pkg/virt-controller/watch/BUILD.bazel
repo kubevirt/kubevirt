@@ -29,6 +29,7 @@ go_library(
         "//pkg/virt-controller/watch/drain/disruptionbudget:go_default_library",
         "//pkg/virt-controller/watch/drain/evacuation:go_default_library",
         "//vendor/github.com/emicklei/go-restful:go_default_library",
+        "//vendor/github.com/golang/glog:go_default_library",
         "//vendor/github.com/pborman/uuid:go_default_library",
         "//vendor/github.com/prometheus/client_golang/prometheus/promhttp:go_default_library",
         "//vendor/github.com/spf13/pflag:go_default_library",
@@ -49,7 +50,6 @@ go_library(
         "//vendor/k8s.io/client-go/tools/record:go_default_library",
         "//vendor/k8s.io/client-go/util/workqueue:go_default_library",
         "//vendor/kubevirt.io/containerized-data-importer/pkg/apis/core/v1alpha1:go_default_library",
-        "@com_github_golang_glog//:go_default_library",
     ],
 )
 

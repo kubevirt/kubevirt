@@ -1,9 +1,0 @@
-load("@io_bazel_rules_go//go:def.bzl", "go_library")
-
-go_library(
-    name = "go_default_library",
-    srcs = ["structtag.go"],
-    importmap = "kubevirt.io/kubevirt/vendor/github.com/facebookgo/structtag",
-    importpath = "github.com/facebookgo/structtag",
-    visibility = ["//visibility:public"],
-)

@@ -1,9 +1,0 @@
-load("@io_bazel_rules_go//go:def.bzl", "go_library")
-
-go_library(
-    name = "go_default_library",
-    srcs = ["doc.go"],
-    importmap = "kubevirt.io/kubevirt/vendor/github.com/gophercloud/gophercloud/openstack/networking/v2/extensions/layer3/routers/testing",
-    importpath = "github.com/gophercloud/gophercloud/openstack/networking/v2/extensions/layer3/routers/testing",
-    visibility = ["//visibility:public"],
-)

@@ -75,10 +75,6 @@ _rsync() {
     rsync -al "$@"
 }
 
-# For backward compatibility. If vendorless branches are used we need to make sure
-# that they can sync again.
-rm -f ${KUBEVIRT_DIR}/.glide*.hash
-
 # Copy kubevirt into the persistent docker volume
 _rsync \
     --delete \
@@ -118,7 +114,6 @@ _rsync \
     --exclude 'bazel-kubevirt' \
     --exclude 'bazel-out' \
     --exclude 'bazel-testlogs' \
-    --exclude '.glide*' \
     --exclude 'cluster/**/.kubectl' \
     --exclude 'cluster/**/.oc' \
     --exclude 'cluster/**/.kubeconfig' \

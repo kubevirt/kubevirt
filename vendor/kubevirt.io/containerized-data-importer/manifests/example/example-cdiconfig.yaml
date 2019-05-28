@@ -1,6 +1,0 @@
-apiVersion: cdi.kubevirt.io/v1alpha1
-kind: CDIConfig
-metadata:
-  name: config
-spec:
-  uploadProxyURLOverride: "www.example.com"

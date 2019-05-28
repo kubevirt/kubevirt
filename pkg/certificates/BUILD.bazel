@@ -6,8 +6,8 @@ go_library(
     importpath = "kubevirt.io/kubevirt/pkg/certificates",
     visibility = ["//visibility:public"],
     deps = [
+        "//pkg/certificates/triple:go_default_library",
         "//vendor/k8s.io/client-go/util/cert:go_default_library",
-        "//vendor/k8s.io/client-go/util/cert/triple:go_default_library",
         "//vendor/k8s.io/client-go/util/certificate:go_default_library",
     ],
 )
