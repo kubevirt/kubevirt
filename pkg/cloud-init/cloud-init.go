@@ -71,7 +71,7 @@ func IsValidCloudInitData(cloudInitData *CloudInitData) bool {
 	return cloudInitData != nil && cloudInitData.UserData != "" && cloudInitData.MetaData != ""
 }
 
-// ReadCloudInitVolumeDataSource scans the given VMI for CloutInit volumes and
+// ReadCloudInitVolumeDataSource scans the given VMI for CloudInit volumes and
 // reads their content into a CloudInitData struct. Does not resolve secret refs.
 // To ensure that secrets are read correctly, call InjectCloudInitSecrets beforehand.
 func ReadCloudInitVolumeDataSource(vmi *v1.VirtualMachineInstance) (cloudInitData *CloudInitData, err error) {
@@ -93,29 +93,40 @@ func ReadCloudInitVolumeDataSource(vmi *v1.VirtualMachineInstance) (cloudInitDat
 	return nil, nil
 }
 
-func readCloudInitNoCloudSource(source *v1.CloudInitNoCloudSource) (*CloudInitData, error) {
-	var userData string
-	if source.UserData != "" {
-		userData = source.UserData
-	} else if source.UserDataBase64 != "" {
-		userDataBytes, err := base64.StdEncoding.DecodeString(source.UserDataBase64)
-		if err != nil {
-			return &CloudInitData{}, err
-		}
-		userData = string(userDataBytes)
-	} else {
-		return &CloudInitData{}, fmt.Errorf("userDataBase64 or userData is required for no-cloud data source")
+func readRawOrBase64Data(rawData, base64Data string) (string, error) {
+	if rawData != "" {
+		return rawData, nil
+	} else if base64Data != "" {
+		bytes, err := base64.StdEncoding.DecodeString(base64Data)
+		return string(bytes), err
+	}
+	return "", nil
+}
+
+// readCloudInitData reads user and network data raw or in base64 encoding,
+// regardless from which data source they are coming from
+func readCloudInitData(userData, userDataBase64, networkData, networkDataBase64 string) (string, string, error) {
+	readUserData, err := readRawOrBase64Data(userData, userDataBase64)
+	if err != nil {
+		return "", "", err
+	}
+	if readUserData == "" {
+		return "", "", fmt.Errorf("userDataBase64 or userData is required for a cloud-init data source")
 	}
 
-	var networkData string
-	if source.NetworkData != "" {
-		networkData = source.NetworkData
-	} else if source.NetworkDataBase64 != "" {
-		networkDataBytes, err := base64.StdEncoding.DecodeString(source.NetworkDataBase64)
-		if err != nil {
-			return &CloudInitData{}, err
-		}
-		networkData = string(networkDataBytes)
+	readNetworkData, err := readRawOrBase64Data(networkData, networkDataBase64)
+	if err != nil {
+		return "", "", err
+	}
+
+	return readUserData, readNetworkData, nil
+}
+
+func readCloudInitNoCloudSource(source *v1.CloudInitNoCloudSource) (*CloudInitData, error) {
+	userData, networkData, err := readCloudInitData(source.UserData,
+		source.UserDataBase64, source.NetworkData, source.NetworkDataBase64)
+	if err != nil {
+		return &CloudInitData{}, err
 	}
 
 	return &CloudInitData{
@@ -126,28 +137,10 @@ func readCloudInitNoCloudSource(source *v1.CloudInitNoCloudSource) (*CloudInitDa
 }
 
 func readCloudInitConfigDriveSource(source *v1.CloudInitConfigDriveSource) (*CloudInitData, error) {
-	var userData string
-	if source.UserData != "" {
-		userData = source.UserData
-	} else if source.UserDataBase64 != "" {
-		userDataBytes, err := base64.StdEncoding.DecodeString(source.UserDataBase64)
-		if err != nil {
-			return &CloudInitData{}, err
-		}
-		userData = string(userDataBytes)
-	} else {
-		return &CloudInitData{}, fmt.Errorf("userDataBase64 or userData is required for configdrive data source")
-	}
-
-	var networkData string
-	if source.NetworkData != "" {
-		networkData = source.NetworkData
-	} else if source.NetworkDataBase64 != "" {
-		networkDataBytes, err := base64.StdEncoding.DecodeString(source.NetworkDataBase64)
-		if err != nil {
-			return &CloudInitData{}, err
-		}
-		networkData = string(networkDataBytes)
+	userData, networkData, err := readCloudInitData(source.UserData,
+		source.UserDataBase64, source.NetworkData, source.NetworkDataBase64)
+	if err != nil {
+		return &CloudInitData{}, err
 	}
 
 	return &CloudInitData{
@@ -236,12 +229,14 @@ func getDomainBasePath(domain string, namespace string) string {
 	return fmt.Sprintf("%s/%s/%s", cloudInitLocalDir, namespace, domain)
 }
 
-func GetNoCloudIsoFilePath(domain string, namespace string) string {
+func GetIsoFilePath(source DataSourceType, domain, namespace string) string {
+	switch source {
+	case DataSourceNoCloud:
+		return fmt.Sprintf("%s/%s", getDomainBasePath(domain, namespace), noCloudFile)
+	case DataSourceConfigDrive:
+		return fmt.Sprintf("%s/%s", getDomainBasePath(domain, namespace), configDriveFile)
+	}
 	return fmt.Sprintf("%s/%s", getDomainBasePath(domain, namespace), noCloudFile)
-}
-
-func GetConfigDriveIsoFilePath(domain string, namespace string) string {
-	return fmt.Sprintf("%s/%s", getDomainBasePath(domain, namespace), configDriveFile)
 }
 
 func removeLocalData(domain string, namespace string) error {
@@ -354,14 +349,14 @@ func GenerateLocalData(vmiName string, namespace string, data *CloudInitData) er
 		metaFile = fmt.Sprintf("%s/%s", dataPath, "meta-data")
 		userFile = fmt.Sprintf("%s/%s", dataPath, "user-data")
 		networkFile = fmt.Sprintf("%s/%s", dataPath, "network-config")
-		iso = GetNoCloudIsoFilePath(vmiName, namespace)
+		iso = GetIsoFilePath(DataSourceNoCloud, vmiName, namespace)
 		isoStaging = fmt.Sprintf("%s.staging", iso)
 	case DataSourceConfigDrive:
 		dataPath = fmt.Sprintf("%s/openstack/latest", dataBasePath)
 		metaFile = fmt.Sprintf("%s/%s", dataPath, "meta_data.json")
 		userFile = fmt.Sprintf("%s/%s", dataPath, "user_data")
 		networkFile = fmt.Sprintf("%s/%s", dataPath, "network_data.json")
-		iso = GetConfigDriveIsoFilePath(vmiName, namespace)
+		iso = GetIsoFilePath(DataSourceConfigDrive, vmiName, namespace)
 		isoStaging = fmt.Sprintf("%s.staging", iso)
 	default:
 		return fmt.Errorf("Invalid cloud-init data source: '%v'", data.DataSource)

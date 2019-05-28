@@ -282,7 +282,7 @@ var _ = Describe("CloudInit", func() {
 						NetworkData: networkData,
 					}
 					_, err := readCloudInitNoCloudSource(source)
-					Expect(err).Should(MatchError("userDataBase64 or userData is required for no-cloud data source"))
+					Expect(err).Should(MatchError("userDataBase64 or userData is required for a cloud-init data source"))
 				})
 
 				Context("with secretRefs", func() {
@@ -476,7 +476,7 @@ var _ = Describe("CloudInit", func() {
 						NetworkData: networkData,
 					}
 					_, err := readCloudInitConfigDriveSource(source)
-					Expect(err).Should(MatchError("userDataBase64 or userData is required for configdrive data source"))
+					Expect(err).Should(MatchError("userDataBase64 or userData is required for a cloud-init data source"))
 				})
 
 				Context("with secretRefs", func() {
