@@ -1377,6 +1377,7 @@ func (d *VirtualMachineController) processVmUpdate(origVMI *v1.VirtualMachineIns
 				ProgressTimeout:         *d.clusterConfig.GetMigrationConfig().ProgressTimeout,
 				CompletionTimeoutPerGiB: *d.clusterConfig.GetMigrationConfig().CompletionTimeoutPerGiB,
 				UnsafeMigration:         d.clusterConfig.GetMigrationConfig().UnsafeMigrationOverride,
+				AllowAutoConverge:       d.clusterConfig.GetMigrationConfig().AllowAutoConverge,
 			}
 			err = client.MigrateVirtualMachine(vmi, options)
 			if err != nil {
