@@ -17,18 +17,23 @@
 # Copyright 2017 Red Hat, Inc.
 #
 
-CDI_OPERATOR_URL=$(curl --silent "https://api.github.com/repos/kubevirt/containerized-data-importer/releases/latest" \
- | grep browser_download_url | grep "cdi-operator.yaml\"" | cut -d'"' -f4)
-KUBEVIRT_OPERATOR_URL=$(curl --silent "https://api.github.com/repos/kubevirt/kubevirt/releases/latest" \
- | grep browser_download_url | grep "kubevirt-operator.yaml\"" | cut -d'"' -f4)
-CNA_URL_PREFIX="https://raw.githubusercontent.com/kubevirt/cluster-network-addons-operator/master/manifests/cluster-network-addons/0.3.0"
-SSP_URL_PREFIX="https://raw.githubusercontent.com/MarSik/kubevirt-ssp-operator/master/cluster/1.0.0"
+source hack/defaults
+
+CDI_OPERATOR_URL="https://github.com/kubevirt/containerized-data-importer/releases/download/${CDI_MANIFEST_VERSION}/cdi-operator.yaml"
+KUBEVIRT_OPERATOR_URL="https://github.com/kubevirt/kubevirt/releases/download/${KUBEVIRT_MANIFEST_VERSION}/kubevirt-operator.yaml"
+CNA_URL_PREFIX="https://github.com/kubevirt/cluster-network-addons-operator/releases/download/${NETWORK_ADDONS_MANIFEST_VERSION}"
+
+# Change 'master' to '${SSP_MANIFEST_VERSION}' when ssp will release a new version (newer than v1.0.0)
+# ( SSP v1.0.0 has problems that were fixed on master )
+SSP_URL_PREFIX="https://raw.githubusercontent.com/MarSik/kubevirt-ssp-operator/master/cluster/${SSP_MANIFEST_VERSION:1}"
+KWEBUI_URL_PREFIX="https://raw.githubusercontent.com/kubevirt/web-ui-operator/${KWEBUI_MANIFEST_VERSION}/deploy"
+
 KUBECTL=$(which kubectl 2> /dev/null)
 
-KWEBUI_URL="https://raw.githubusercontent.com/kubevirt/web-ui-operator/master/deploy/operator.yaml"
-
-if [ -z "${KUBECTL}" ]; then
-    CMD=oc
-else
-    CMD=kubectl
+if [ -z "${CMD}" ]; then
+    if [ -z "${KUBECTL}" ] ; then
+        CMD=oc
+    else
+        CMD=kubectl
+    fi
 fi

@@ -20,25 +20,30 @@
 source hack/common.sh
 
 # Remove HCO
-"${CMD}" delete -f deploy/standard/crds/hco.cr.yaml --wait=false
-"${CMD}" wait --for=delete hyperconverged.hco.kubevirt.io/hyperconverged-cluster
-"${CMD}" delete -f deploy/standard/crds/hco.crd.yaml --wait=false
-"${CMD}" delete -f deploy/standard/
-"${CMD}" delete ns kubevirt-hyperconverged
+"${CMD}" delete -f deploy/standard/crds/hco.cr.yaml --wait=false --ignore-not-found || true
+"${CMD}" wait --for=delete hyperconverged.hco.kubevirt.io/hyperconverged-cluster || true
+"${CMD}" delete -f deploy/standard/crds/hco.crd.yaml --wait=false --ignore-not-found || true
+"${CMD}" delete -f deploy/standard/ --ignore-not-found || true
+"${CMD}" delete ns kubevirt-hyperconverged --ignore-not-found || true
 
 # Delete kubevirt-operator
-"${CMD}" delete -n kubevirt apiservice v1alpha3.kubevirt.io --wait=false
-"${CMD}" delete -f "${KUBEVIRT_OPERATOR_URL}"
+"${CMD}" delete -n kubevirt apiservice v1alpha3.kubevirt.io --wait=false --ignore-not-found || true
+"${CMD}" delete -f "${KUBEVIRT_OPERATOR_URL}" --ignore-not-found || true
 
-# # Delete cdi-operator
-"${CMD}" delete -n cdi apiservice v1alpha1.cdi.kubevirt.io --wait=false
-"${CMD}" delete -f "${CDI_OPERATOR_URL}"
+# Delete cdi-operator
+"${CMD}" delete -n cdi apiservice v1alpha1.cdi.kubevirt.io --wait=false --ignore-not-found || true
+"${CMD}" delete -f "${CDI_OPERATOR_URL}" --ignore-not-found || true
 
 # Delete cna-operator
-"${CMD}" delete -f "${CNA_URL_PREFIX}"/network-addons-config.crd.yaml
-"${CMD}" delete -f "${CNA_URL_PREFIX}"/operator.yaml
-"${CMD}" delete ns cluster-network-addons-operator
+"${CMD}" delete -f "${CNA_URL_PREFIX}"/network-addons-config.crd.yaml --ignore-not-found || true
+"${CMD}" delete -f "${CNA_URL_PREFIX}"/operator.yaml --ignore-not-found || true
+"${CMD}" delete ns cluster-network-addons-operator --ignore-not-found || true
 
 # Delete ssp-operator
-"${CMD}" delete -f "${SSP_URL_PREFIX}"/kubevirt-ssp-operator-crd.yaml
-"${CMD}" delete -f "${SSP_URL_PREFIX}"/kubevirt-ssp-operator.yaml
+"${CMD}" delete -f "${SSP_URL_PREFIX}"/kubevirt-ssp-operator-crd.yaml --ignore-not-found || true
+"${CMD}" delete -f "${SSP_URL_PREFIX}"/kubevirt-ssp-operator.yaml --ignore-not-found || true
+
+# Delete kubevirt-web-ui
+"${CMD}" delete -f "${KWEBUI_URL_PREFIX}"/crds/kubevirt_v1alpha1_kwebui_crd.yaml -n kubevirt-web-ui || true
+"${CMD}" delete -f "${KWEBUI_URL_PREFIX}"/operator.yaml -n kubevirt-web-ui || true
+"${CMD}" delete ns kubevirt-web-ui || true

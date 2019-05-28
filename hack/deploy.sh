@@ -26,16 +26,17 @@ source hack/common.sh
 "${CMD}" create ns cluster-network-addons-operator
 "${CMD}" create ns kubevirt-web-ui
 
-if [ "${CMD}" == "kubectl" ]; then
-    # switch namespace to kubevirt
-    kubectl config set-context $(kubectl config current-context) --namespace=kubevirt-hyperconverged
-else
+if [ "${CMD}" == "oc" ]; then
     # Switch project to kubevirt
     oc project kubevirt-hyperconverged
+else
+    # switch namespace to kubevirt
+    ${CMD} config set-context $(${CMD} config current-context) --namespace=kubevirt-hyperconverged
 fi
+
 # Deploy HCO manifests
-"${CMD}" create -f deploy/standard/crds/hco.crd.yaml
-"${CMD}" create -f deploy/standard/
+"${CMD}" create -f _out/crds/hco.crd.yaml
+"${CMD}" create -f _out/
 
 # Create kubevirt-operator
 "${CMD}" create -f "${KUBEVIRT_OPERATOR_URL}" || true
@@ -52,8 +53,11 @@ fi
 "${CMD}" create -f "${SSP_URL_PREFIX}"/kubevirt-ssp-operator-crd.yaml
 "${CMD}" create -f "${SSP_URL_PREFIX}"/kubevirt-ssp-operator.yaml
 "${CMD}" create -f "${SSP_URL_PREFIX}"/kubevirt-ssp-operator-cr.yaml
+
 # Create kubevirt-web-ui-operator
-"${CMD}" create -f "${KWEBUI_URL}" || true
+"${CMD}" create -f "${KWEBUI_URL_PREFIX}"/crds/kubevirt_v1alpha1_kwebui_crd.yaml
+"${CMD}" create -f "${KWEBUI_URL_PREFIX}"/operator.yaml
+"${CMD}" create -f "${KWEBUI_URL_PREFIX}"/crds/kubevirt_v1alpha1_kwebui_cr.yaml
 
 # Create an HCO CustomResource
 "${CMD}" create -f deploy/standard/crds/hco.cr.yaml

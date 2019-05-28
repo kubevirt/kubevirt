@@ -146,7 +146,7 @@ func getHCO(data *templateData) {
 
 	// Get HCO Deployment
 	hcodeployment := hcocomponents.GetDeployment(
-		"rthallisey",
+		"docker.io",
 		"latest",
 		"Always",
 	)

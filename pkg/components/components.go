@@ -13,6 +13,9 @@ import (
 
 func GetDeployment(repository string, tag string, imagePullPolicy string) *appsv1.Deployment {
 	name := "hyperconverged-cluster-operator"
+	if repository == "docker.io" {
+		name = "rthallisey/" + name
+	}
 	image := fmt.Sprintf("%s/%s:%s", repository, name, tag)
 	deployment := &appsv1.Deployment{
 		TypeMeta: metav1.TypeMeta{
