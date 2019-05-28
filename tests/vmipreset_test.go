@@ -470,7 +470,7 @@ var _ = Describe("[rfe_id:609][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 
 		It("[test_id:726] Should match multiple VMs via MatchExpression", func() {
 			By("Creating preset with MatchExpression")
-			err := virtClient.RestClient().Post().Resource("virtualmachineinstancepresets").Namespace(tests.NamespaceTestDefault).Body(preset).Do().Error()
+			_, err := virtClient.VirtualMachineInstancePreset(tests.NamespaceTestDefault).Create(preset)
 			Expect(err).ToNot(HaveOccurred())
 
 			// Give virt-api's cache time to sync before proceeding
