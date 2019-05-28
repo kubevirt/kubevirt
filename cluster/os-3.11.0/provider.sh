@@ -23,4 +23,8 @@ function up() {
 
     # Make sure that local config is correct
     prepare_config
+
+    if [[ $provider_prefix == "os-3.11.0-multus" ]]; then
+        ./cluster/kubectl.sh get po -n openshift-sdn | grep ovs | awk '{print "./cluster/kubectl.sh exec -n openshift-sdn",$1,"-- ovs-vsctl --may-exist add-br br1"}' | sh
+    fi
 }
