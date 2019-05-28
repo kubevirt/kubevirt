@@ -387,6 +387,84 @@ var _ = Describe("[rfe_id:393][crit:high[vendor:cnv-qe@redhat.com][level:system]
 
 			})
 		})
+		FContext("with auto converge enabled", func() {
+			var options metav1.GetOptions
+			var cfgMap *k8sv1.ConfigMap
+			var originalMigrationConfig string
+			var kubevirtConfig = "kubevirt-config"
+			BeforeEach(func() {
+				tests.BeforeTestCleanup()
+
+				// set unsafe migration flag
+				options = metav1.GetOptions{}
+				cfgMap, err = virtClient.CoreV1().ConfigMaps(namespaceKubevirt).Get(kubevirtConfig, options)
+				Expect(err).ToNot(HaveOccurred())
+				originalMigrationConfig = cfgMap.Data["migrations"]
+				cfgMap.Data["migrations"] = `{"allowAutoConverge": true}`
+
+				_, err = virtClient.CoreV1().ConfigMaps(namespaceKubevirt).Update(cfgMap)
+				Expect(err).ToNot(HaveOccurred())
+				time.Sleep(5 * time.Second)
+
+			}, 60)
+
+			AfterEach(func() {
+				cfgMap, err = virtClient.CoreV1().ConfigMaps(namespaceKubevirt).Get(kubevirtConfig, options)
+				Expect(err).ToNot(HaveOccurred())
+				cfgMap.Data["migrations"] = originalMigrationConfig
+				_, err = virtClient.CoreV1().ConfigMaps(namespaceKubevirt).Update(cfgMap)
+				Expect(err).ToNot(HaveOccurred())
+			}, 60)
+
+			It("should complete a migration", func() {
+				vmi := tests.NewRandomFedoraVMIWitGuestAgent()
+				vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("1Gi")
+
+				By("Starting the VirtualMachineInstance")
+				vmi = runVMIAndExpectLaunch(vmi, 240)
+
+				getOptions := &metav1.GetOptions{}
+				var updatedVmi *v1.VirtualMachineInstance
+				By("Checking that the VirtualMachineInstance console has expected output")
+				expecter, expecterErr := tests.LoggedInFedoraExpecter(vmi)
+				Expect(expecterErr).To(BeNil())
+				defer expecter.Close()
+
+				// Need to wait for cloud init to finnish and start the agent inside the vmi.
+				Eventually(func() bool {
+					updatedVmi, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Get(vmi.Name, getOptions)
+					Expect(err).ToNot(HaveOccurred())
+					for _, condition := range updatedVmi.Status.Conditions {
+						if condition.Type == "AgentConnected" && condition.Status == "True" {
+							return true
+						}
+					}
+					return false
+				}, 420*time.Second, 2).Should(BeTrue(), "Should have agent connected condition")
+
+				By("Run a stress test")
+				_, err = expecter.ExpectBatch([]expect.Batcher{
+					&expect.BSnd{S: "stress --vm 1 --vm-bytes 600M --vm-keep --timeout 1600s&\n"},
+				}, 15*time.Second)
+				Expect(err).ToNot(HaveOccurred(), "should run a stress test")
+
+				// execute a migration, wait for finalized state
+				By("Starting the Migration")
+				migration := tests.NewRandomMigration(vmi.Name, vmi.Namespace)
+				migrationUID := runMigrationAndExpectCompletion(migration, 240)
+
+				// check VMI, confirm migration state
+				confirmVMIPostMigration(vmi, migrationUID)
+
+				// delete VMI
+				By("Deleting the VMI")
+				err = virtClient.VirtualMachineInstance(vmi.Namespace).Delete(vmi.Name, &metav1.DeleteOptions{})
+				Expect(err).To(BeNil())
+
+				By("Waiting for VMI to disappear")
+				tests.WaitForVirtualMachineToDisappearWithTimeout(vmi, 240)
+			})
+		})
 		Context("with a shared ISCSI Filesystem PVC", func() {
 			var options metav1.GetOptions
 			var cfgMap *k8sv1.ConfigMap
