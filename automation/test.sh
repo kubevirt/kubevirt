@@ -273,7 +273,7 @@ elif [[ $TARGET =~ multus.* ]]; then
 elif [[ $TARGET =~ genie.* ]]; then
   ginko_params="$ginko_params --ginkgo.focus=Genie|Networking|VMIlifecycle|Expose"
 else
-  ginko_params="$ginko_params --ginkgo.skip=Multus|Genie"
+  ginko_params="$ginko_params --ginkgo.skip=Multus|Genie|SRIOV"
 fi
 
 # Prepare RHEL PV for Template testing
