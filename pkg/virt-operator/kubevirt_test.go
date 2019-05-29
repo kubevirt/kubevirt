@@ -106,9 +106,9 @@ var _ = Describe("KubeVirt Operator", func() {
 	var totalDeletions int
 
 	NAMESPACE := "kubevirt-test"
-	resourceCount := 30
+	resourceCount := 31
 	patchCount := 13
-	updateCount := 17
+	updateCount := 18
 
 	deleteFromCache := true
 	addToCache := true
@@ -1438,7 +1438,7 @@ var _ = Describe("KubeVirt Operator", func() {
 
 			Expect(totalAdds).To(Equal(resourceCount - expectedUncreatedResources + expectedTemporaryResources))
 			Expect(len(controller.stores.ServiceAccountCache.List())).To(Equal(3))
-			Expect(len(controller.stores.PodSecurityPolicyCache.List())).To(Equal(1))
+			Expect(len(controller.stores.PodSecurityPolicyCache.List())).To(Equal(2))
 			Expect(len(controller.stores.ClusterRoleCache.List())).To(Equal(7))
 			Expect(len(controller.stores.ClusterRoleBindingCache.List())).To(Equal(5))
 			Expect(len(controller.stores.RoleCache.List())).To(Equal(2))
