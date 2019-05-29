@@ -6,6 +6,7 @@
 | ------- | ------------------ |
 | master  | Yes                |
 | 0.17    | Yes                |
+| <0.17   | No                 |
 
 ## Reporting a Vulnerability
 
