@@ -548,6 +548,15 @@ func (p *MasqueradePodInterface) createNatRulesUsingIptables() error {
 		return err
 	}
 
+	if len(p.iface.Ports) == 0 {
+		err = Handler.IptablesAppendRule("nat", "KUBEVIRT_PREINBOUND",
+			"-j",
+			"DNAT",
+			"--to-destination", p.vif.IP.IP.String())
+
+		return err
+	}
+
 	for _, port := range p.iface.Ports {
 		if port.Protocol == "" {
 			port.Protocol = "tcp"
