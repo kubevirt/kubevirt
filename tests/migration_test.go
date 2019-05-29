@@ -644,17 +644,18 @@ var _ = Describe("[rfe_id:393][crit:high[vendor:cnv-qe@redhat.com][level:system]
 				tests.WaitForVirtualMachineToDisappearWithTimeout(vmi, 120)
 			})
 		})
-		Context("with an Alpine shared NFS PVC", func() {
+		Context("with an Fedora shared NFS PVC, cloud init and service account", func() {
 			var pvName string
 			var vmi *v1.VirtualMachineInstance
 			BeforeEach(func() {
 				pvName = "test-nfs" + rand.String(48)
 				// Prepare a NFS backed PV
-				By("Starting an iSCSI POD")
-				nfsIP := tests.CreateNFSTargetPOD(tests.ContainerDiskAlpine)
+				By("Starting an NFS POD")
+				os := string(tests.ContainerDiskFedora)
+				nfsIP := tests.CreateNFSTargetPOD(os)
 				// create a new PV and PVC (PVs can't be reused)
-				By("create a new iSCSI PV and PVC")
-				tests.CreateNFSPvAndPvc(pvName, "1Gi", nfsIP)
+				By("create a new NFS PV and PVC")
+				tests.CreateNFSPvAndPvc(pvName, "1Gi", nfsIP, os)
 			}, 60)
 
 			AfterEach(func() {
@@ -668,14 +669,18 @@ var _ = Describe("[rfe_id:393][crit:high[vendor:cnv-qe@redhat.com][level:system]
 				// create a new PV and PVC (PVs can't be reused)
 				tests.DeletePvAndPvc(pvName)
 			}, 60)
-			It("should be successfully with a cloud init", func() {
+			It("[test_id:1785]  should be migrated successfully", func() {
 				// Start the VirtualMachineInstance with the PVC attached
 				By("Creating the  VMI")
 				vmi = tests.NewRandomVMIWithPVC(pvName)
+				vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("1G")
+				tests.AddUserData(vmi, "cloud-init", "#cloud-config\npassword: fedora\nchpasswd: { expire: False }\n")
+				tests.AddServiceAccountDisk(vmi, "default")
+
 				vmi = runVMIAndExpectLaunch(vmi, 180)
 
 				By("Checking that the VirtualMachineInstance console has expected output")
-				expecter, err := tests.LoggedInAlpineExpecter(vmi)
+				expecter, err := tests.LoggedInFedoraExpecter(vmi)
 				Expect(err).To(BeNil())
 				expecter.Close()
 

@@ -2426,7 +2426,7 @@ func LoggedInFedoraExpecter(vmi *v1.VirtualMachineInstance) (expect.Expecter, er
 		&expect.BExp{R: "#"}})
 	res, err := expecter.ExpectBatch(b, 180*time.Second)
 	if err != nil {
-		log.DefaultLogger().Object(vmi).Infof("Login: %v", res)
+		log.DefaultLogger().Object(vmi).Infof("Login: %+v", res)
 		expecter.Close()
 		return nil, err
 	}
@@ -3026,7 +3026,7 @@ func newISCSIPVC(name string, size string, accessMode k8sv1.PersistentVolumeAcce
 	}
 }
 
-func CreateNFSTargetPOD(osImageName ContainerDisk) (nfsTargetIP string) {
+func CreateNFSTargetPOD(os string) (nfsTargetIP string) {
 	virtClient, err := kubecli.GetKubevirtClient()
 	PanicOnError(err)
 	image := fmt.Sprintf("%s/nfs-server:%s", KubeVirtRepoPrefix, KubeVirtVersionTag)
@@ -3036,7 +3036,7 @@ func CreateNFSTargetPOD(osImageName ContainerDisk) (nfsTargetIP string) {
 	hostPathType := k8sv1.HostPathDirectory
 	pod := &k8sv1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
-			GenerateName: "test-nfs-target",
+			Name: "test-nfs-target",
 			Labels: map[string]string{
 				v1.AppLabel: "test-nfs-target",
 			},
@@ -3048,7 +3048,7 @@ func CreateNFSTargetPOD(osImageName ContainerDisk) (nfsTargetIP string) {
 					Name: "nfsdata",
 					VolumeSource: k8sv1.VolumeSource{
 						HostPath: &k8sv1.HostPathVolumeSource{
-							Path: HostPathBase + string(osImageName),
+							Path: HostPathBase + os,
 							Type: &hostPathType,
 						},
 					},
@@ -3086,22 +3086,22 @@ func CreateNFSTargetPOD(osImageName ContainerDisk) (nfsTargetIP string) {
 	return
 }
 
-func CreateNFSPvAndPvc(name string, size string, nfsTargetIP string) {
+func CreateNFSPvAndPvc(name string, size string, nfsTargetIP string, os string) {
 	virtCli, err := kubecli.GetKubevirtClient()
 	PanicOnError(err)
 
-	_, err = virtCli.CoreV1().PersistentVolumes().Create(newNFSPV(name, size, nfsTargetIP))
+	_, err = virtCli.CoreV1().PersistentVolumes().Create(newNFSPV(name, size, nfsTargetIP, os))
 	if !errors.IsAlreadyExists(err) {
 		PanicOnError(err)
 	}
 
-	_, err = virtCli.CoreV1().PersistentVolumeClaims(NamespaceTestDefault).Create(newNFSPVC(name, size))
+	_, err = virtCli.CoreV1().PersistentVolumeClaims(NamespaceTestDefault).Create(newNFSPVC(name, size, os))
 	if !errors.IsAlreadyExists(err) {
 		PanicOnError(err)
 	}
 }
 
-func newNFSPV(name string, size string, nfsTargetIP string) *k8sv1.PersistentVolume {
+func newNFSPV(name string, size string, nfsTargetIP string, os string) *k8sv1.PersistentVolume {
 	quantity, err := resource.ParseQuantity(size)
 	PanicOnError(err)
 
@@ -3112,7 +3112,7 @@ func newNFSPV(name string, size string, nfsTargetIP string) *k8sv1.PersistentVol
 		ObjectMeta: metav1.ObjectMeta{
 			Name: name,
 			Labels: map[string]string{
-				"kubevirt.io/test": "cirros",
+				"kubevirt.io/test": os,
 			},
 		},
 		Spec: k8sv1.PersistentVolumeSpec{
@@ -3132,7 +3132,7 @@ func newNFSPV(name string, size string, nfsTargetIP string) *k8sv1.PersistentVol
 	}
 }
 
-func newNFSPVC(name string, size string) *k8sv1.PersistentVolumeClaim {
+func newNFSPVC(name string, size string, os string) *k8sv1.PersistentVolumeClaim {
 	quantity, err := resource.ParseQuantity(size)
 	PanicOnError(err)
 
@@ -3152,7 +3152,7 @@ func newNFSPVC(name string, size string) *k8sv1.PersistentVolumeClaim {
 			},
 			Selector: &metav1.LabelSelector{
 				MatchLabels: map[string]string{
-					"kubevirt.io/test": "cirros",
+					"kubevirt.io/test": os,
 				},
 			},
 			StorageClassName: &storageClass,
