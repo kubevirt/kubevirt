@@ -1438,11 +1438,7 @@ var _ = Describe("KubeVirt Operator", func() {
 
 			Expect(totalAdds).To(Equal(resourceCount - expectedUncreatedResources + expectedTemporaryResources))
 			Expect(len(controller.stores.ServiceAccountCache.List())).To(Equal(3))
-<<<<<<< HEAD
 			Expect(len(controller.stores.PodSecurityPolicyCache.List())).To(Equal(2))
-=======
-			Expect(len(controller.stores.PodSecurityPolicyCache.List())).To(Equal(1))
->>>>>>> Added pod security policy support when admission controller is enabled
 			Expect(len(controller.stores.ClusterRoleCache.List())).To(Equal(7))
 			Expect(len(controller.stores.ClusterRoleBindingCache.List())).To(Equal(5))
 			Expect(len(controller.stores.RoleCache.List())).To(Equal(2))
