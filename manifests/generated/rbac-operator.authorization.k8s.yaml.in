@@ -264,6 +264,14 @@ rules:
   - list
   - watch
 - apiGroups:
+  - policy
+  resourceNames:
+  - kubevirt-controller-psp
+  resources:
+  - podsecuritypolicies
+  verbs:
+  - use
+- apiGroups:
   - kubevirt.io
   resources:
   - '*'
