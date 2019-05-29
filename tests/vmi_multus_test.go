@@ -40,6 +40,7 @@ import (
 	"kubevirt.io/kubevirt/tests"
 )
 
+// TODO: use linux bridge instead
 const (
 	postUrl              = "/apis/k8s.cni.cncf.io/v1/namespaces/%s/network-attachment-definitions/%s"
 	ovsConfCRD           = `{"apiVersion":"k8s.cni.cncf.io/v1","kind":"NetworkAttachmentDefinition","metadata":{"name":"%s","namespace":"%s"},"spec":{"config":"{ \"cniVersion\": \"0.3.1\", \"type\": \"ovs\", \"bridge\": \"br1\", \"vlan\": 100 }"}}`
