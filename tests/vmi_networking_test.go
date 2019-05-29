@@ -674,22 +674,21 @@ var _ = Describe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 			return vmi
 		}
 
-		It("[test_id:1780]should allow regular network connection", func() {
-			By("creating two virtual machines")
-			ports := []v1.Port{{Name: "http", Port: 8080}}
+		table.DescribeTable("[test_id:1780]should allow regular network connection", func(ports []v1.Port) {
+			// Create the client only one time
+			if clientVMI == nil {
+				clientVMI = masqueradeVMI(tests.ContainerDiskFor(tests.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n", []v1.Port{})
+				_, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(clientVMI)
+				Expect(err).ToNot(HaveOccurred())
+				tests.WaitUntilVMIReady(clientVMI, tests.LoggedInCirrosExpecter)
+			}
+
 			serverVMI = masqueradeVMI(tests.ContainerDiskFor(tests.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n", ports)
 			serverVMI.Labels = map[string]string{"expose": "server"}
 			_, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(serverVMI)
 			Expect(err).ToNot(HaveOccurred())
 
-			clientVMI = masqueradeVMI(tests.ContainerDiskFor(tests.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n", []v1.Port{})
-			_, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(clientVMI)
-			Expect(err).ToNot(HaveOccurred())
-
-			By("waiting for the virtual machines to become ready")
-
 			tests.WaitUntilVMIReady(serverVMI, tests.LoggedInCirrosExpecter)
-			tests.WaitUntilVMIReady(clientVMI, tests.LoggedInCirrosExpecter)
 
 			serverVMI, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Get(serverVMI.Name, &v13.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
@@ -731,7 +730,13 @@ var _ = Describe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 				&expect.BExp{R: "1"},
 			}, 30)
 			Expect(err).ToNot(HaveOccurred())
-		})
+
+			err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Delete(serverVMI.Name, &v13.DeleteOptions{})
+			Expect(err).ToNot(HaveOccurred())
+
+		}, table.Entry("with a specific port number", []v1.Port{{Name: "http", Port: 8080}}),
+			table.Entry("without a specific port number", []v1.Port{}),
+		)
 	})
 
 	Context("VirtualMachineInstance with TX offload disabled", func() {
