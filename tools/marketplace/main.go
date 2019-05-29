@@ -27,10 +27,11 @@ import (
 
 func main() {
 
-	repo := flag.String("quay-repository", "kubevirt", "the Quay.io repository name, defaults to kubevirt")
+	ns := flag.String("quay-namespace", "kubevirt", "the Quay.io namespace, defaults to kubevirt")
+	pkg := flag.String("package", "kubevirt-operatorhub", "the package name, defaults to kubevirt-operatorhub")
 	flag.Parse()
 
-	bh, err := helper.NewBundleHelper(*repo)
+	bh, err := helper.NewBundleHelper(*ns, *pkg)
 	if err != nil {
 		panic(err)
 	}
