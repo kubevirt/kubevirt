@@ -106,7 +106,7 @@ func main() {
 		// prevent loading latest bundle from Quay for every file, only do it for the CSV manifest
 		data.ReplacesCsvVersion = ""
 		if strings.Contains(*inputFile, ".csv.yaml") && *bundleOutDir != "" && data.QuayRepository != "" {
-			bundleHelper, err := helper.NewBundleHelper(*quayRepository)
+			bundleHelper, err := helper.NewBundleHelper(*quayRepository, *packageName)
 			if err != nil {
 				panic(err)
 			}

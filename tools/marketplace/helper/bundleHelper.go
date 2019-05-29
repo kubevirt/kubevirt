@@ -53,15 +53,17 @@ type Bundle struct {
 }
 
 type BundleHelper struct {
-	repo string
-	Pkgs []Pkg
-	CRDs []v1beta1.CustomResourceDefinition
-	CSVs []yaml.MapSlice
+	namespace   string
+	packageName string
+	Pkgs        []Pkg
+	CRDs        []v1beta1.CustomResourceDefinition
+	CSVs        []yaml.MapSlice
 }
 
-func NewBundleHelper(repo string) (*BundleHelper, error) {
+func NewBundleHelper(namespace string, packageName string) (*BundleHelper, error) {
 	bh := &BundleHelper{
-		repo: repo,
+		namespace:   namespace,
+		packageName: packageName,
 	}
 	if err := bh.downloadAndParseBundle(); err != nil {
 		return nil, err
@@ -82,46 +84,59 @@ func (bh *BundleHelper) downloadAndParseBundle() error {
 	}
 
 	// get latest bundle info
-	bundles, err := client.ListPackages(bh.repo)
+	bundles, err := client.ListPackages(bh.namespace)
 	if err != nil {
 		return err
 	}
 
 	if len(bundles) == 0 {
-		fmt.Errorf("no old bundles found\n")
+		fmt.Println("no old bundles found")
 		return nil
 	}
-	bundleMetaData := bundles[0]
 
-	// download bundle
-	data, err := client.RetrieveOne(bundleMetaData.ID(), bundleMetaData.Release)
-	if err != nil {
-		return err
+	// since other projects are also pushing their bundle to the kubevirt namespace now, we need to find our own bundle
+	for _, bundleMetaData := range bundles {
+
+		// Quay repository name is always equal to package name
+		if bundleMetaData.Repository != bh.packageName {
+			fmt.Printf("skipping bundle: %v\n", bundleMetaData.Repository)
+			continue
+		}
+
+		// download bundle
+		data, err := client.RetrieveOne(bundleMetaData.ID(), bundleMetaData.Release)
+		if err != nil {
+			return err
+		}
+
+		// parse bundle into package, CRDs and CSVs
+		bundle := Bundle{}
+		if err := yaml.Unmarshal(data.RawYAML, &bundle); err != nil {
+			return err
+		}
+
+		if err := yaml.Unmarshal([]byte(bundle.Data.Packages), &bh.Pkgs); err != nil {
+			return err
+		}
+
+		if err := yaml.Unmarshal([]byte(bundle.Data.CSVs), &bh.CSVs); err != nil {
+			return err
+		}
+
+		// use k8s json unmarshaller for CRDs for filling metadata correctly
+		crds, err := yaml2.YAMLToJSON([]byte(bundle.Data.CRDs))
+		if err != nil {
+			return err
+		}
+		if err := json.Unmarshal([]byte(crds), &bh.CRDs); err != nil {
+			return err
+		}
+
+		// we found kubevirt, so no need to go on
+		return nil
 	}
 
-	// parse bundle into package, CRDs and CSVs
-	bundle := Bundle{}
-	if err := yaml.Unmarshal(data.RawYAML, &bundle); err != nil {
-		return err
-	}
-
-	if err := yaml.Unmarshal([]byte(bundle.Data.Packages), &bh.Pkgs); err != nil {
-		return err
-	}
-
-	if err := yaml.Unmarshal([]byte(bundle.Data.CSVs), &bh.CSVs); err != nil {
-		return err
-	}
-
-	// use k8s json unmarshaller for CRDs for filling metadata correctly
-	crds, err := yaml2.YAMLToJSON([]byte(bundle.Data.CRDs))
-	if err != nil {
-		return err
-	}
-	if err := json.Unmarshal([]byte(crds), &bh.CRDs); err != nil {
-		return err
-	}
-
+	fmt.Println("no old kubevirt bundle found")
 	return nil
 }
 
