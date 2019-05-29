@@ -159,6 +159,26 @@ metadata:
   name: kubevirt-controller
   namespace: {{.Namespace}}
 ---
+apiVersion: policy/v1beta1
+kind: PodSecurityPolicy
+metadata:
+  name: kubevirt-controller-psp
+spec:
+  allowedCapabilities:
+  - NET_ADMIN
+  - SYS_NICE
+  fsGroup:
+    rule: RunAsAny
+  privileged: true
+  runAsUser:
+    rule: RunAsAny
+  seLinux:
+    rule: RunAsAny
+  supplementalGroups:
+    rule: RunAsAny
+  volumes:
+  - '*'
+---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
@@ -241,6 +261,14 @@ rules:
   - get
   - list
   - watch
+- apiGroups:
+  - policy
+  resourceNames:
+  - kubevirt-controller-psp
+  resources:
+  - podsecuritypolicies
+  verbs:
+  - use
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
