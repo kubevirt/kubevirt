@@ -62,7 +62,7 @@ spec:
       containers:
         - name: cdi-http-import-server
           image: {{.DockerPrefix}}/cdi-http-import-server:{{.DockerTag}}
-          imagePullPolicy: IfNotPresent
+          imagePullPolicy: Always
           ports:
             - containerPort: 80
               name: "http"
@@ -92,6 +92,7 @@ spec:
       containers:
         - name: target
           image: {{.DockerPrefix}}/disks-images-provider:{{.DockerTag}}
+          imagePullPolicy: Always
           volumeMounts:
           - name: images
             mountPath: /hostImages
