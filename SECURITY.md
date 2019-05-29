@@ -1,12 +1,14 @@
 # Security Policy
 
-## Supported Versions
+## Community Supported Versions
 
-| Version | Supported          |
-| ------- | ------------------ |
-| master  | Yes                |
-| 0.17    | Yes                |
-| <0.17   | No                 |
+> **Note:** KubeVirt is still in a pre-release state so there might be more bugs than expected.
+
+| Version | Community Supported     |
+| ------- | ----------------------- |
+| master  | Yes                     |
+| 0.17    | Yes                     |
+| <0.17   | No                      |
 
 ## Reporting a Vulnerability
 
