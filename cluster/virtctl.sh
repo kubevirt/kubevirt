@@ -19,10 +19,13 @@
 
 set -e
 
-source $(dirname "$0")/../hack/common.sh
+KUBEVIRT_PATH="$(
+    cd "$(dirname "$BASH_SOURCE[0]")/../"
+    echo "$(pwd)/"
+)"
 
-source ${KUBEVIRT_DIR}/cluster/$KUBEVIRT_PROVIDER/provider.sh
-source ${KUBEVIRT_DIR}/hack/config.sh
+source ${KUBEVIRT_PATH}/cluster/$KUBEVIRT_PROVIDER/provider.sh
+source ${KUBEVIRT_PATH}/cluster-hack/config.sh
 
 CONFIG_ARGS=
 
@@ -32,4 +35,4 @@ elif [ -n "$KUBECONFIG" ]; then
     CONFIG_ARGS="--kubeconfig=${KUBECONFIG}"
 fi
 
-${KUBEVIRT_DIR}/_out/cmd/virtctl/virtctl $CONFIG_ARGS "$@"
+${KUBEVIRT_PATH}/_out/cmd/virtctl/virtctl $CONFIG_ARGS "$@"

@@ -107,10 +107,10 @@ cluster-build:
 	./hack/cluster-build.sh
 
 cluster-clean:
-	./build/cluster-clean.sh
+	./hack/cluster-clean.sh
 
 cluster-deploy: cluster-clean
-	./build/cluster-deploy.sh
+	./hack/cluster-deploy.sh
 
 cluster-sync: cluster-build cluster-deploy
 

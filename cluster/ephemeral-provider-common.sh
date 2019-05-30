@@ -2,7 +2,7 @@
 
 set -e
 
-_cli_container="kubevirtci/gocli@sha256:847a23412eb08217f9f062f90fd075af0f20b75e51462b1b170eba2eab7e1092"
+_cli_container="kubevirtci/gocli@sha256:b52e44d4e44e4c03811a42af9136492fd22f725523c4a3b9258ca9556447736d"
 _cli_with_tty="docker run --privileged --net=host --rm -t -v /var/run/docker.sock:/var/run/docker.sock ${_cli_container}"
 _cli="docker run --privileged --net=host --rm ${USE_TTY} -v /var/run/docker.sock:/var/run/docker.sock ${_cli_container}"
 
@@ -16,10 +16,8 @@ function _port() {
 
 function prepare_config() {
     BASE_PATH=${KUBEVIRT_PATH:-$PWD}
-    cat >hack/config-provider-$KUBEVIRT_PROVIDER.sh <<EOF
+    cat >cluster-hack/config-provider-$KUBEVIRT_PROVIDER.sh <<EOF
 master_ip=$(_main_ip)
-docker_tag=devel
-docker_tag_alt=devel_alt
 kubeconfig=${BASE_PATH}/cluster/$KUBEVIRT_PROVIDER/.kubeconfig
 kubectl=${BASE_PATH}/cluster/$KUBEVIRT_PROVIDER/.kubectl
 docker_prefix=localhost:$(_port registry)/kubevirt
@@ -39,13 +37,6 @@ function _add_common_params() {
         params=" --nfs-data $RHEL_NFS_DIR $params"
     fi
     echo $params
-}
-
-function build() {
-    # Build everyting and publish it
-    ${KUBEVIRT_PATH}hack/dockerized "DOCKER_PREFIX=${DOCKER_PREFIX} DOCKER_TAG=${DOCKER_TAG} KUBEVIRT_PROVIDER=${KUBEVIRT_PROVIDER} IMAGE_PULL_POLICY=${IMAGE_PULL_POLICY} VERBOSITY=${VERBOSITY} ./hack/build-manifests.sh"
-    ${KUBEVIRT_PATH}hack/dockerized "DOCKER_PREFIX=${DOCKER_PREFIX} DOCKER_TAG=${DOCKER_TAG} KUBEVIRT_PROVIDER=${KUBEVIRT_PROVIDER} ./hack/bazel-build.sh"
-    ${KUBEVIRT_PATH}hack/dockerized "DOCKER_PREFIX=${DOCKER_PREFIX} DOCKER_TAG=${DOCKER_TAG} DOCKER_TAG_ALT=${DOCKER_TAG_ALT} KUBEVIRT_PROVIDER=${KUBEVIRT_PROVIDER} ./hack/bazel-push-images.sh"
 }
 
 function _kubectl() {
