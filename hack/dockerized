@@ -125,7 +125,7 @@ _rsync \
     ${KUBEVIRT_DIR}/
 
 _rsync --delete "rsync://root@127.0.0.1:${RSYNCD_PORT}/build/manifests/generated/" "${KUBEVIRT_DIR}/manifests/generated"
-_rsync --delete "rsync://root@127.0.0.1:${RSYNCD_PORT}/build/cluster/examples/" "${KUBEVIRT_DIR}/cluster/examples"
+_rsync --delete "rsync://root@127.0.0.1:${RSYNCD_PORT}/build/examples/" "${KUBEVIRT_DIR}/examples"
 if [ "$SYNC_VENDOR" = "true" ]; then
     _rsync --delete "rsync://root@127.0.0.1:${RSYNCD_PORT}/vendor" "${VENDOR_DIR}/"
 fi

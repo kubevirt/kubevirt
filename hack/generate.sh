@@ -15,7 +15,7 @@ ${KUBEVIRT_DIR}/tools/openapispec/openapispec --dump-api-spec-path ${KUBEVIRT_DI
 
 (cd ${KUBEVIRT_DIR}/tools/resource-generator/ && go build)
 rm -f ${KUBEVIRT_DIR}/manifests/generated/*
-rm -f ${KUBEVIRT_DIR}/cluster/examples/*
+rm -f ${KUBEVIRT_DIR}/examples/*
 ${KUBEVIRT_DIR}/tools/resource-generator/resource-generator --type=vmi >${KUBEVIRT_DIR}/manifests/generated/vmi-resource.yaml
 ${KUBEVIRT_DIR}/tools/resource-generator/resource-generator --type=vmirs >${KUBEVIRT_DIR}/manifests/generated/vmirs-resource.yaml
 ${KUBEVIRT_DIR}/tools/resource-generator/resource-generator --type=vmipreset >${KUBEVIRT_DIR}/manifests/generated/vmipreset-resource.yaml
@@ -35,7 +35,7 @@ ${KUBEVIRT_DIR}/tools/resource-generator/resource-generator --type=virt-operator
 (cd ${KUBEVIRT_DIR}/tools/vms-generator/ && go build)
 vms_docker_prefix=${DOCKER_PREFIX:-registry:5000/kubevirt}
 vms_docker_tag=${DOCKER_TAG:-devel}
-${KUBEVIRT_DIR}/tools/vms-generator/vms-generator --container-prefix=${vms_docker_prefix} --container-tag=${vms_docker_tag} --generated-vms-dir=${KUBEVIRT_DIR}/cluster/examples
+${KUBEVIRT_DIR}/tools/vms-generator/vms-generator --container-prefix=${vms_docker_prefix} --container-tag=${vms_docker_tag} --generated-vms-dir=${KUBEVIRT_DIR}/examples
 
 protoc --proto_path=pkg/hooks/info --go_out=plugins=grpc,import_path=kubevirt_hooks_info:pkg/hooks/info pkg/hooks/info/api.proto
 protoc --proto_path=pkg/hooks/v1alpha1 --go_out=plugins=grpc,import_path=kubevirt_hooks_v1alpha1:pkg/hooks/v1alpha1 pkg/hooks/v1alpha1/api.proto
