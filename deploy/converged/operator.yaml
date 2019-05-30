@@ -173,13 +173,15 @@ spec:
         - name: MULTUS_IMAGE
           value: quay.io/kubevirt/cluster-network-addon-multus:v3.2.0-1.gitbf61002
         - name: LINUX_BRIDGE_IMAGE
-          value: quay.io/kubevirt/cni-default-plugins:v0.1.0
+          value: quay.io/kubevirt/cni-default-plugins:v0.8.0
         - name: LINUX_BRIDGE_MARKER_IMAGE
           value: quay.io/kubevirt/bridge-marker:0.1.0
         - name: SRIOV_DP_IMAGE
           value: quay.io/kubevirt/cluster-network-addon-sriov-device-plugin:v2.0.0-1.git9a20829
         - name: SRIOV_CNI_IMAGE
           value: quay.io/kubevirt/cluster-network-addon-sriov-cni:v1.1.0-1.git9e4c973
+        - name: NMSTATE_STATE_HANDLER_IMAGE
+          value: quay.io/nmstate/kubernetes-nmstate-state-handler:v0.2.0
         - name: SRIOV_ROOT_DEVICES
         - name: SRIOV_NETWORK_NAME
           value: sriov-network
@@ -188,7 +190,7 @@ spec:
         - name: KUBEMACPOOL_IMAGE
           value: quay.io/kubevirt/kubemacpool:v0.3.0
         - name: OPERATOR_IMAGE
-          value: quay.io/kubevirt/cluster-network-addons-operator:0.7.0
+          value: quay.io/kubevirt/cluster-network-addons-operator:0.9.0
         - name: OPERATOR_NAME
           value: cluster-network-addons-operator
         - name: OPERATOR_NAMESPACE
@@ -200,7 +202,7 @@ spec:
             fieldRef:
               fieldPath: metadata.name
         - name: WATCH_NAMESPACE
-        image: quay.io/kubevirt/cluster-network-addons-operator:0.7.0
+        image: quay.io/kubevirt/cluster-network-addons-operator:0.9.0
         imagePullPolicy: IfNotPresent
         name: cluster-network-addons-operator
         resources: {}

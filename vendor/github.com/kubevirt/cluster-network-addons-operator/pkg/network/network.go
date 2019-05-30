@@ -37,8 +37,17 @@ func Validate(conf *opv1alpha1.NetworkAddonsConfigSpec, openshiftNetworkConfig *
 //
 // Defaults are carried forward from previous if it is provided. This is so we
 // can change defaults as we move forward, but won't disrupt existing clusters.
-func FillDefaults(conf, previous *opv1alpha1.NetworkAddonsConfigSpec) {
-	fillDefaultsImagePullPolicy(conf, previous)
+func FillDefaults(conf, previous *opv1alpha1.NetworkAddonsConfigSpec) error {
+	errs := []error{}
+
+	errs = append(errs, fillDefaultsImagePullPolicy(conf, previous)...)
+	errs = append(errs, fillDefaultsKubeMacPool(conf, previous)...)
+
+	if len(errs) > 0 {
+		return errors.Errorf("invalid configuration:\n%s", errorListToMultiLineString(errs))
+	}
+
+	return nil
 }
 
 // IsChangeSafe checks to see if the change between prev and next are allowed
@@ -60,6 +69,7 @@ func IsChangeSafe(prev, next *opv1alpha1.NetworkAddonsConfigSpec) error {
 	errs = append(errs, changeSafeSriov(prev, next)...)
 	errs = append(errs, changeSafeKubeMacPool(prev, next)...)
 	errs = append(errs, changeSafeImagePullPolicy(prev, next)...)
+	errs = append(errs, changeSafeNMState(prev, next)...)
 
 	if len(errs) > 0 {
 		return errors.Errorf("invalid configuration:\n%s", errorListToMultiLineString(errs))
@@ -94,6 +104,13 @@ func Render(conf *opv1alpha1.NetworkAddonsConfigSpec, manifestDir string, opensh
 
 	// render kubeMacPool
 	o, err = renderKubeMacPool(conf, manifestDir)
+	if err != nil {
+		return nil, err
+	}
+	objs = append(objs, o...)
+
+	// render NMState
+	o, err = renderNMState(conf, manifestDir, clusterInfo)
 	if err != nil {
 		return nil, err
 	}

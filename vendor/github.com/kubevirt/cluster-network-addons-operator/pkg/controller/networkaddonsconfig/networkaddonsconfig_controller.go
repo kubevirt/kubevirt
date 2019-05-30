@@ -224,12 +224,14 @@ func (r *ReconcileNetworkAddonsConfig) renderObjects(networkAddonsConfig *opv1al
 	openshiftNetworkConfig, err := getOpenShiftNetworkConfig(context.TODO(), r.client)
 	if err != nil {
 		log.Printf("failed to load OpenShift NetworkConfig: %v", err)
+		err = errors.Wrapf(err, "failed to load OpenShift NetworkConfig: %v", err)
 		return objs, err
 	}
 
 	// Validate the configuration
 	if err := network.Validate(&networkAddonsConfig.Spec, openshiftNetworkConfig); err != nil {
 		log.Printf("failed to validate NetworkConfig.Spec: %v", err)
+		err = errors.Wrapf(err, "failed to validate NetworkConfig.Spec: %v", err)
 		return objs, err
 	}
 
@@ -237,11 +239,16 @@ func (r *ReconcileNetworkAddonsConfig) renderObjects(networkAddonsConfig *opv1al
 	prev, err := getAppliedConfiguration(context.TODO(), r.client, networkAddonsConfig.ObjectMeta.Name, r.namespace)
 	if err != nil {
 		log.Printf("failed to retrieve previously applied configuration: %v", err)
+		err = errors.Wrapf(err, "failed to retrieve previously applied configuration: %v", err)
 		return objs, err
 	}
 
 	// Fill all defaults explicitly
-	network.FillDefaults(&networkAddonsConfig.Spec, prev)
+	if err := network.FillDefaults(&networkAddonsConfig.Spec, prev); err != nil {
+		log.Printf("failed to fill defaults: %v", err)
+		err = errors.Wrapf(err, "failed to fill defaults: %v", err)
+		return objs, err
+	}
 
 	// Compare against previous applied configuration to see if this change
 	// is safe.
@@ -251,7 +258,7 @@ func (r *ReconcileNetworkAddonsConfig) renderObjects(networkAddonsConfig *opv1al
 		err = network.IsChangeSafe(prev, &networkAddonsConfig.Spec)
 		if err != nil {
 			log.Printf("not applying unsafe change: %v", err)
-			errors.Wrapf(err, "not applying unsafe change")
+			err = errors.Wrapf(err, "not applying unsafe change")
 			return objs, err
 		}
 	}

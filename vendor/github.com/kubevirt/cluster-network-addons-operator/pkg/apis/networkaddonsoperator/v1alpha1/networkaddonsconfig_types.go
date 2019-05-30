@@ -13,6 +13,7 @@ type NetworkAddonsConfigSpec struct {
 	Sriov           *Sriov            `json:"sriov,omitempty"`
 	KubeMacPool     *KubeMacPool      `json:"kubeMacPool,omitempty"`
 	ImagePullPolicy corev1.PullPolicy `json:"imagePullPolicy,omitempty"`
+	NMState         *NMState          `json:"nmstate,omitempty"`
 }
 
 // +k8s:openapi-gen=true
@@ -20,6 +21,8 @@ type Multus struct{}
 
 // +k8s:openapi-gen=true
 type LinuxBridge struct{}
+
+type NMState struct{}
 
 type KubeMacPool struct {
 	RangeStart string `json:"rangeStart,omitempty"`
