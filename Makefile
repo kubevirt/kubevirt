@@ -98,10 +98,10 @@ release-announce: .release-functest
 	./hack/release-announce.sh $(RELREF) $(PREREF)
 
 cluster-up:
-	./cluster/up.sh
+	./cluster-up/up.sh
 
 cluster-down:
-	./cluster/down.sh
+	./cluster-up/down.sh
 
 cluster-build:
 	./hack/cluster-build.sh

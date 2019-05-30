@@ -83,9 +83,9 @@ _rsync \
     --exclude 'bazel-kubevirt' \
     --exclude 'bazel-out' \
     --exclude 'bazel-testlogs' \
-    --exclude 'cluster/**/.kubectl' \
-    --exclude 'cluster/**/.oc' \
-    --exclude 'cluster/**/.kubeconfig' \
+    --exclude 'cluster-up/cluster/**/.kubectl' \
+    --exclude 'cluster-up/cluster/**/.oc' \
+    --exclude 'cluster-up/cluster/**/.kubeconfig' \
     --exclude "_out" \
     --exclude ".vagrant" \
     ${KUBEVIRT_DIR}/ \
@@ -114,9 +114,9 @@ _rsync \
     --exclude 'bazel-kubevirt' \
     --exclude 'bazel-out' \
     --exclude 'bazel-testlogs' \
-    --exclude 'cluster/**/.kubectl' \
-    --exclude 'cluster/**/.oc' \
-    --exclude 'cluster/**/.kubeconfig' \
+    --exclude 'cluster-up/cluster/**/.kubectl' \
+    --exclude 'cluster-up/cluster/**/.oc' \
+    --exclude 'cluster-up/cluster/**/.kubeconfig' \
     --exclude "_out" \
     --exclude "vendor" \
     --exclude ".vagrant" \

@@ -3,7 +3,7 @@ unset binaries docker_images docker_tag docker_tag_alt manifest_templates \
     csv_version package_name
 
 source ${KUBEVIRT_PATH}hack/config-default.sh
-source ${KUBEVIRT_PATH}cluster-hack/config.sh
+source ${KUBEVIRT_PATH}cluster-up/hack/config.sh
 
 export binaries docker_images docker_tag docker_tag_alt manifest_templates \
     namespace image_pull_policy verbosity \

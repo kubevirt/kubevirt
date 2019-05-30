@@ -19,16 +19,19 @@
 
 set -e
 
-DOCKER_TAG=${DOCKER_TAG:-devel}
-DOCKER_TAG_ALT=${DOCKER_TAG_ALT:-devel_alt}
-
-source hack/common.sh
-source hack/config.sh
-
-functest_docker_prefix=${manifest_docker_prefix-${docker_prefix}}
-
-if [[ ${TARGET} == openshift* ]]; then
-    oc=${kubectl}
+if [ -z "$KUBEVIRTCI_PATH" ]; then
+    KUBEVIRTCI_PATH="$(
+        cd "$(dirname "$BASH_SOURCE[0]")/"
+        echo "$(pwd)/"
+    )"
 fi
 
-${TESTS_OUT_DIR}/tests.test -kubeconfig=${kubeconfig} -container-tag=${docker_tag} -container-tag-alt=${docker_tag_alt} -container-prefix=${functest_docker_prefix} -oc-path=${oc} -kubectl-path=${kubectl} -test.timeout 210m ${FUNC_TEST_ARGS} -installed-namespace=${namespace}
+source ${KUBEVIRTCI_PATH}/hack/common.sh
+source ${KUBEVIRTCI_PATH}/cluster/$KUBEVIRT_PROVIDER/provider.sh
+source ${KUBEVIRTCI_PATH}/hack/config.sh
+
+if [ "$1" == "console" ] || [ "$1" == "vnc" ]; then
+    ${KUBEVIRTCI_PATH}/_out/cmd/virtctl/virtctl --kubeconfig=${kubeconfig} "$@"
+else
+    _kubectl "$@"
+fi

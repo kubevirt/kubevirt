@@ -48,11 +48,5 @@ protoc --go_out=plugins=grpc:. pkg/handler-launcher-com/cmd/info/info.proto
 mockgen -source pkg/handler-launcher-com/notify/info/info.pb.go -package=info -destination=pkg/handler-launcher-com/notify/info/generated_mock_info.go
 mockgen -source pkg/handler-launcher-com/cmd/info/info.pb.go -package=info -destination=pkg/handler-launcher-com/cmd/info/generated_mock_info.go
 
-rm -rf cluster cluster-hack
-git clone https://github.com/davidvossel/cluster-up.git
-cd cluster-up
-git checkout $cluster_up_git_hash
-mv cluster ../
-mv cluster-hack ../
-cd ..
 rm -rf cluster-up
+curl -L https://github.com/kubevirt/kubevirtci/archive/${kubevirtci_git_hash}/kubevirtci.tar.gz | tar xz kubevirtci-${kubevirtci_git_hash}/cluster-up --strip-component 1
