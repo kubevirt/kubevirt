@@ -104,13 +104,13 @@ cluster-down:
 	./cluster/down.sh
 
 cluster-build:
-	./cluster/build.sh
+	./hack/cluster-build.sh
 
 cluster-clean:
-	./cluster/clean.sh
+	./build/cluster-clean.sh
 
 cluster-deploy: cluster-clean
-	./cluster/deploy.sh
+	./build/cluster-deploy.sh
 
 cluster-sync: cluster-build cluster-deploy
 
