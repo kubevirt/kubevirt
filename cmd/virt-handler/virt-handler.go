@@ -200,10 +200,6 @@ func (app *virtHandlerApp) Run() {
 	// Scheme is used to create an ObjectReference from an Object (e.g. VirtualMachineInstance) during Event creation
 	recorder := broadcaster.NewRecorder(scheme.Scheme, k8sv1.EventSource{Component: "virt-handler", Host: app.HostOverride})
 
-	if err != nil {
-		panic(err)
-	}
-
 	vmiSourceLabel, err := labels.Parse(fmt.Sprintf(v1.NodeNameLabel+" in (%s)", app.HostOverride))
 	if err != nil {
 		panic(err)
