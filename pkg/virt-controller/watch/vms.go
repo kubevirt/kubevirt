@@ -387,7 +387,7 @@ func shouldDoSnapshot(vms *virtv1.VirtualMachineSnapshot, vm *virtv1.VirtualMach
 		return false, nil
 	}
 
-	if vm.Spec.Running && vm.Status.Ready {
+	if *vm.Spec.Running && vm.Status.Ready {
 		// currently only offline VirtualMachineSnapshot is supported
 		condition := virtv1.VirtualMachineSnapshotCondition{
 			Type:               virtv1.VirtualMachineSnapshotFailure,

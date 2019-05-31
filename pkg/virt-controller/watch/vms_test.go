@@ -85,7 +85,8 @@ var _ = Describe("VirtualMachineSnapshot", func() {
 
 		It("should not do nothing when VirtualMachine is running", func() {
 			vms, vm := DefaultVMSnapshot()
-			vm.Spec.Running = true
+            t := true
+            vm.Spec.Running = &t
 			vm.Status.Ready = true
 
 			addSnapshot(vms)
@@ -102,7 +103,8 @@ var _ = Describe("VirtualMachineSnapshot", func() {
 
 		It("should copy the VirtualMachine spec once VirtualMachine is running again", func() {
 			vms, vm := DefaultVMSnapshot()
-			vm.Spec.Running = true
+            t := true
+            vm.Spec.Running = &t
 			vm.Status.Ready = true
 
 			addSnapshot(vms)
@@ -116,8 +118,9 @@ var _ = Describe("VirtualMachineSnapshot", func() {
 
 			controller.Execute()
 
-			updatedVM := vm.DeepCopy()
-			updatedVM.Spec.Running = false
+            updatedVM := vm.DeepCopy()
+            f := false
+			updatedVM.Spec.Running = &f
 			updatedVM.Status.Ready = false
 			vmSource.Modify(updatedVM)
 
@@ -129,7 +132,7 @@ var _ = Describe("VirtualMachineSnapshot", func() {
 			vmInterface.EXPECT().Get(vm, gomock.Any()).Return(updatedVM, nil)
 			vmsInterface.EXPECT().Update(updatedVMS).Do(func(obj *v1.VirtualMachineSnapshot) {
 				Expect(len(obj.Status.Conditions)).To(Equal(0))
-				Expect(obj.Status.VirtualMachine.Spec.Running).To(BeFalse())
+				Expect(*obj.Status.VirtualMachine.Spec.Running).To(BeFalse())
 			})
 
 			controller.Execute()
@@ -147,13 +150,14 @@ var _ = Describe("VirtualMachineSnapshot", func() {
 			vmInterface.EXPECT().Get(vm, gomock.Any()).Return(vm, nil)
 			vmsInterface.EXPECT().Update(updatedVMS).Do(func(obj *v1.VirtualMachineSnapshot) {
 				Expect(len(obj.Status.Conditions)).To(Equal(0))
-				Expect(obj.Status.VirtualMachine.Spec.Running).To(BeFalse())
+				Expect(*obj.Status.VirtualMachine.Spec.Running).To(BeFalse())
 			})
 
 			controller.Execute()
 
 			updatedVM := vm.DeepCopy()
-			updatedVM.Spec.Running = true
+            t := true
+            updatedVM.Spec.Running = &t
 			updatedVM.Status.Ready = true
 			vmSource.Modify(updatedVM)
 			vmsSource.Modify(updatedVMS)
@@ -161,7 +165,7 @@ var _ = Describe("VirtualMachineSnapshot", func() {
 			vmInterface.EXPECT().Get(vm, gomock.Any()).Return(updatedVM, nil)
 			vmsInterface.EXPECT().Update(updatedVMS).Do(func(obj *v1.VirtualMachineSnapshot) {
 				Expect(len(obj.Status.Conditions)).To(Equal(0))
-				Expect(obj.Status.VirtualMachine.Spec.Running).To(BeFalse())
+				Expect(*obj.Status.VirtualMachine.Spec.Running).To(BeFalse())
 			})
 
 			controller.Execute()
