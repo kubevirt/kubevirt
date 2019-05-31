@@ -35,7 +35,7 @@ import (
 var _ = Describe("Validating VMRs Admitter", func() {
 	vmrsAdmitter := &VMRsAdmitter{}
 
-  Context("with VirtualMachineRestore", func() {
+	Context("with VirtualMachineRestore", func() {
 		It("should reject invalid VirtualMachineRestore spec", func() {
 			vmr := v1.VirtualMachineRestore{
 				Spec: v1.VirtualMachineRestoreSpec{
@@ -81,7 +81,6 @@ var _ = Describe("Validating VMRs Admitter", func() {
 			resp := vmrsAdmitter.Admit(ar)
 			Expect(resp.Allowed).To(Equal(true))
 		})
-})
-  
-})
+	})
 
+})

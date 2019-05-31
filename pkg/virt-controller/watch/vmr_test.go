@@ -105,7 +105,7 @@ var _ = Describe("VirtualMachineRestore", func() {
 
 			vms.Status.VirtualMachine = vm.DeepCopy()
 
-            t := true
+			t := true
 			vm.Spec.Running = &t
 
 			vmSource.Add(vm)
@@ -128,9 +128,9 @@ var _ = Describe("VirtualMachineRestore", func() {
 
 			vms.Status.VirtualMachine = vm.DeepCopy()
 
-            t := true
-            vm.Spec.Running = &t
-            
+			t := true
+			vm.Spec.Running = &t
+
 			vmSource.Add(vm)
 			vmsSource.Add(vms)
 			addRestore(vmr)
@@ -145,8 +145,8 @@ var _ = Describe("VirtualMachineRestore", func() {
 			controller.Execute()
 
 			updatedVM := vm.DeepCopy()
-            f := false
-            updatedVM.Spec.Running = &f
+			f := false
+			updatedVM.Spec.Running = &f
 			vmSource.Modify(updatedVM)
 
 			vmInterface.EXPECT().Get(vm, gomock.Any()).Return(updatedVM, nil)
