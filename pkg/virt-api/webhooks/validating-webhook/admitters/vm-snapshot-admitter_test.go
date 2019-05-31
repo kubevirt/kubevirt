@@ -35,7 +35,7 @@ import (
 var _ = Describe("Validating VMIRS Admitter", func() {
 	vmssAdmitter := &VMSsAdmitter{}
 
-    Context("with VirtualMachineSnapshot", func() {
+	Context("with VirtualMachineSnapshot", func() {
 		It("should reject invalid VirtualMachineInstance spec", func() {
 			vms := v1.VirtualMachineSnapshot{
 				Spec: v1.VirtualMachineSnapshotSpec{
@@ -81,6 +81,5 @@ var _ = Describe("Validating VMIRS Admitter", func() {
 			resp := vmssAdmitter.Admit(ar)
 			Expect(resp.Allowed).To(Equal(true))
 		})
-    })
+	})
 })
-

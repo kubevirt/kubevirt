@@ -5,6 +5,7 @@ go_library(
     srcs = [
         "migration-create-admitter.go",
         "migration-update-admitter.go",
+        "vm-snapshot-admitter.go",
         "vmi-create-admitter.go",
         "vmi-preset-admitter.go",
         "vmi-update-admitter.go",
@@ -36,6 +37,7 @@ go_test(
         "admitters_test.go",
         "migration-create-admitter_test.go",
         "migration-update-admitter_test.go",
+        "vm-snapshot-admitter_test.go",
         "vmi-create-admitter_test.go",
         "vmi-preset-admitter_test.go",
         "vmi-update-admitter_test.go",

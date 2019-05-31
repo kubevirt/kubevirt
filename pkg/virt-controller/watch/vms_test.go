@@ -85,8 +85,8 @@ var _ = Describe("VirtualMachineSnapshot", func() {
 
 		It("should not do nothing when VirtualMachine is running", func() {
 			vms, vm := DefaultVMSnapshot()
-            t := true
-            vm.Spec.Running = &t
+			t := true
+			vm.Spec.Running = &t
 			vm.Status.Ready = true
 
 			addSnapshot(vms)
@@ -103,8 +103,8 @@ var _ = Describe("VirtualMachineSnapshot", func() {
 
 		It("should copy the VirtualMachine spec once VirtualMachine is running again", func() {
 			vms, vm := DefaultVMSnapshot()
-            t := true
-            vm.Spec.Running = &t
+			t := true
+			vm.Spec.Running = &t
 			vm.Status.Ready = true
 
 			addSnapshot(vms)
@@ -118,8 +118,8 @@ var _ = Describe("VirtualMachineSnapshot", func() {
 
 			controller.Execute()
 
-            updatedVM := vm.DeepCopy()
-            f := false
+			updatedVM := vm.DeepCopy()
+			f := false
 			updatedVM.Spec.Running = &f
 			updatedVM.Status.Ready = false
 			vmSource.Modify(updatedVM)
@@ -156,8 +156,8 @@ var _ = Describe("VirtualMachineSnapshot", func() {
 			controller.Execute()
 
 			updatedVM := vm.DeepCopy()
-            t := true
-            updatedVM.Spec.Running = &t
+			t := true
+			updatedVM.Spec.Running = &t
 			updatedVM.Status.Ready = true
 			vmSource.Modify(updatedVM)
 			vmsSource.Modify(updatedVMS)
