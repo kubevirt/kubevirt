@@ -778,7 +778,9 @@ func (app *virtAPIApp) createValidatingWebhook() error {
 	http.HandleFunc(vmsValidatePath, func(w http.ResponseWriter, r *http.Request) {
 		validating_webhook.ServeVMSs(w, r)
 	})
-
+	http.HandleFunc(vmrValidatePath, func(w http.ResponseWriter, r *http.Request) {
+		validating_webhook.ServeVMRs(w, r)
+	})
 	http.HandleFunc(vmirsValidatePath, func(w http.ResponseWriter, r *http.Request) {
 		validating_webhook.ServeVMIRS(w, r, app.clusterConfig)
 	})
