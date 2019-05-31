@@ -95,3 +95,7 @@ func ServeMigrationCreate(resp http.ResponseWriter, req *http.Request, clusterCo
 func ServeMigrationUpdate(resp http.ResponseWriter, req *http.Request) {
 	serve(resp, req, &admitters.MigrationUpdateAdmitter{})
 }
+
+func ServeVMSs(resp http.ResponseWriter, req *http.Request) {
+	serve(resp, req, &admitters.VMSsAdmitter{})
+}
