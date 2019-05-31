@@ -301,7 +301,7 @@ func shouldDoRestore(vmr *virtv1.VirtualMachineRestore, vms *virtv1.VirtualMachi
 
 		doRestore = false
 	} else {
-		if vm.Spec.Running == true {
+		if *vm.Spec.Running == true {
 			// VirtualMachine have to be shutdown to perform restore
 			log.Log.Infof("VM: %s is running", vm.Name)
 			snapshotConditions = append(snapshotConditions, virtv1.VirtualMachineSnapshotCondition{
