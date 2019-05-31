@@ -537,7 +537,7 @@ func (app *virtAPIApp) validatingWebhooks() []admissionregistrationv1beta1.Webho
 	migrationUpdatePath := migrationUpdateValidatePath
 	failurePolicy := admissionregistrationv1beta1.Fail
 	vmsnapshotPath := vmsValidatePath
-	vmrnapshotPath := vmrValidatePath
+	vmrestorePath := vmrValidatePath
 
 	webHooks := []admissionregistrationv1beta1.Webhook{
 		{
@@ -738,7 +738,7 @@ func (app *virtAPIApp) validatingWebhooks() []admissionregistrationv1beta1.Webho
 				Service: &admissionregistrationv1beta1.ServiceReference{
 					Namespace: app.namespace,
 					Name:      virtApiServiceName,
-					Path:      &vmsnapshotPath,
+					Path:      &vmrestorePath,
 				},
 				CABundle: app.signingCertBytes,
 			},
