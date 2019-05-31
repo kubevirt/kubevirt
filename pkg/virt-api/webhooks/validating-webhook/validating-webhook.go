@@ -99,3 +99,7 @@ func ServeMigrationUpdate(resp http.ResponseWriter, req *http.Request) {
 func ServeVMSs(resp http.ResponseWriter, req *http.Request) {
 	serve(resp, req, &admitters.VMSsAdmitter{})
 }
+
+func ServeVMRs(resp http.ResponseWriter, req *http.Request) {
+	serve(resp, req, &admitters.VMRsAdmitter{})
+}
