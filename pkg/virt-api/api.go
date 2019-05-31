@@ -536,6 +536,7 @@ func (app *virtAPIApp) validatingWebhooks() []admissionregistrationv1beta1.Webho
 	migrationCreatePath := migrationCreateValidatePath
 	migrationUpdatePath := migrationUpdateValidatePath
 	failurePolicy := admissionregistrationv1beta1.Fail
+	vmsnapshotPath := vmsValidatePath
 
 	webHooks := []admissionregistrationv1beta1.Webhook{
 		{
@@ -691,6 +692,29 @@ func (app *virtAPIApp) validatingWebhooks() []admissionregistrationv1beta1.Webho
 					Namespace: app.namespace,
 					Name:      virtApiServiceName,
 					Path:      &migrationUpdatePath,
+				},
+				CABundle: app.signingCertBytes,
+			},
+		},
+		{
+			Name:          "virtualmachine-snapshot-validator.kubevirt.io",
+			FailurePolicy: &failurePolicy,
+			Rules: []admissionregistrationv1beta1.RuleWithOperations{{
+				Operations: []admissionregistrationv1beta1.OperationType{
+					admissionregistrationv1beta1.Create,
+					admissionregistrationv1beta1.Update,
+				},
+				Rule: admissionregistrationv1beta1.Rule{
+					APIGroups:   []string{v1.GroupName},
+					APIVersions: []string{v1.VirtualMachineSnapshotGroupVersionKind.Version},
+					Resources:   []string{"virtualmachinesnapshots"},
+				},
+			}},
+			ClientConfig: admissionregistrationv1beta1.WebhookClientConfig{
+				Service: &admissionregistrationv1beta1.ServiceReference{
+					Namespace: app.namespace,
+					Name:      virtApiServiceName,
+					Path:      &vmsnapshotPath,
 				},
 				CABundle: app.signingCertBytes,
 			},
