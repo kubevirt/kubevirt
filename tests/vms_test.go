@@ -107,7 +107,8 @@ var _ = FDescribe("VirtualMachineSnapshot", func() {
 			}, 300*time.Second, 1*time.Second).Should(BeTrue())
 
 			vms, vm := newSnapshotWithVM(vm)
-			vm.Spec.Running = false
+			f := false
+			vm.Spec.Running = &f
 			vm, err = virtClient.VirtualMachine(vm.Namespace).Update(vm)
 
 			Eventually(func() types.UID {
@@ -163,7 +164,8 @@ var _ = FDescribe("VirtualMachineSnapshot", func() {
 
 			updatedVM := vm.DeepCopy()
 			updatedVM.Spec.Template.Spec.Hostname = "test"
-			updatedVM.Spec.Running = true
+			t := true
+			updatedVM.Spec.Running = &t
 
 			updatedVM, err := virtClient.VirtualMachine(tests.NamespaceTestDefault).Update(updatedVM)
 			Expect(err).To(BeNil(), "should update VM")
@@ -180,7 +182,8 @@ var _ = FDescribe("VirtualMachineSnapshot", func() {
 			Expect(err).To(BeNil())
 			Expect(updatedVM.Spec.Template.Spec.Hostname).To(Equal("test"))
 
-			updatedVM.Spec.Running = false
+			f := false
+			updatedVM.Spec.Running = &f
 			updatedVM, err = virtClient.VirtualMachine(tests.NamespaceTestDefault).Update(updatedVM)
 			Expect(err).To(BeNil(), "should update VM")
 
