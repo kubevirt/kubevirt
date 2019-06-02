@@ -1,7 +1,7 @@
 # cloud.google.com/go v0.0.0-20160913182117-3b1ae45394a2
 cloud.google.com/go/compute/metadata
 cloud.google.com/go/internal
-# github.com/Azure/go-autorest v11.1.0+incompatible
+# github.com/Azure/go-autorest v11.1.0+incompatible => github.com/Azure/go-autorest v11.0.0+incompatible
 github.com/Azure/go-autorest/autorest
 github.com/Azure/go-autorest/autorest/adal
 github.com/Azure/go-autorest/autorest/azure
@@ -41,7 +41,7 @@ github.com/ghodss/yaml
 # github.com/globalsign/mgo v0.0.0-20181015135952-eeefdecb41b8
 github.com/globalsign/mgo/bson
 github.com/globalsign/mgo/internal/json
-# github.com/go-kit/kit v0.0.0-20160928073314-fe6fe28ba0d5
+# github.com/go-kit/kit v0.0.0-20160928073314-fe6fe28ba0d5 => github.com/go-kit/kit v0.3.0
 github.com/go-kit/kit/log
 github.com/go-kit/kit/endpoint
 github.com/go-kit/kit/transport/http
@@ -203,7 +203,7 @@ github.com/onsi/gomega/matchers/support/goraph/node
 github.com/onsi/gomega/matchers/support/goraph/util
 # github.com/openshift/api v3.9.1-0.20190401220125-3a6077f1f910+incompatible
 github.com/openshift/api/security/v1
-# github.com/openshift/client-go v0.0.0-20190401163519-84c2b942258a
+# github.com/openshift/client-go v0.0.0-20190401163519-84c2b942258a => github.com/openshift/client-go v0.0.0-20190401163519-84c2b942258a
 github.com/openshift/client-go/security/clientset/versioned/typed/security/v1
 github.com/openshift/client-go/security/clientset/versioned/scheme
 github.com/openshift/client-go/security/clientset/versioned/typed/security/v1/fake
@@ -354,7 +354,7 @@ gopkg.in/ini.v1
 gopkg.in/tomb.v1
 # gopkg.in/yaml.v2 v2.2.1
 gopkg.in/yaml.v2
-# k8s.io/api v0.0.0-20190222213804-5cb15d344471
+# k8s.io/api v0.0.0-20190222213804-5cb15d344471 => k8s.io/api v0.0.0-20190222213804-5cb15d344471
 k8s.io/api/core/v1
 k8s.io/api/autoscaling/v1
 k8s.io/api/admissionregistration/v1beta1
@@ -388,7 +388,7 @@ k8s.io/api/settings/v1alpha1
 k8s.io/api/storage/v1
 k8s.io/api/storage/v1alpha1
 k8s.io/api/storage/v1beta1
-# k8s.io/apiextensions-apiserver v0.0.0-20190228180357-d002e88f6236
+# k8s.io/apiextensions-apiserver v0.0.0-20190228180357-d002e88f6236 => k8s.io/apiextensions-apiserver v0.0.0-20190228180357-d002e88f6236
 k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1
 k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset
 k8s.io/apiextensions-apiserver/pkg/apis/apiextensions
@@ -396,7 +396,7 @@ k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset/typed/apiextension
 k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset/fake
 k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset/scheme
 k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset/typed/apiextensions/v1beta1/fake
-# k8s.io/apimachinery v0.0.0-20190221213512-86fb29eff628
+# k8s.io/apimachinery v0.0.0-20190221213512-86fb29eff628 => k8s.io/apimachinery v0.0.0-20190221213512-86fb29eff628
 k8s.io/apimachinery/pkg/api/errors
 k8s.io/apimachinery/pkg/apis/meta/v1
 k8s.io/apimachinery/pkg/fields
@@ -445,7 +445,7 @@ k8s.io/apimachinery/third_party/forked/golang/reflect
 k8s.io/apimachinery/pkg/apis/meta/internalversion
 k8s.io/apimachinery/pkg/util/framer
 k8s.io/apimachinery/third_party/forked/golang/netutil
-# k8s.io/client-go v0.0.0-20190228174230-b40b2a5939e4
+# k8s.io/client-go v0.0.0-20190228174230-b40b2a5939e4 => k8s.io/client-go v0.0.0-20190228174230-b40b2a5939e4
 k8s.io/client-go/rest
 k8s.io/client-go/kubernetes/scheme
 k8s.io/client-go/kubernetes/typed/core/v1
@@ -646,7 +646,7 @@ k8s.io/kube-aggregator/pkg/client/clientset_generated/clientset/scheme
 # k8s.io/kube-openapi v0.0.0-20190228160746-b3a7cee44a30
 k8s.io/kube-openapi/pkg/common
 k8s.io/kube-openapi/pkg/util/proto
-# kubevirt.io/containerized-data-importer v1.8.1-0.20190516083534-83c12eaae2ed
+# kubevirt.io/containerized-data-importer v1.8.1-0.20190516083534-83c12eaae2ed => kubevirt.io/containerized-data-importer v1.8.1-0.20190530153240-6734c225525a
 kubevirt.io/containerized-data-importer/pkg/apis/core/v1alpha1
 kubevirt.io/containerized-data-importer/pkg/client/informers/externalversions
 kubevirt.io/containerized-data-importer/pkg/client/clientset/versioned
