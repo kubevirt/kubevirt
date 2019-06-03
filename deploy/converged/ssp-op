@@ -5,67 +5,6 @@ metadata:
   name: kubevirt-ssp-operator
 ---
 apiVersion: rbac.authorization.k8s.io/v1
-kind: Role
-metadata:
-  creationTimestamp: null
-  name: kubevirt-ssp-operator
-rules:
-- apiGroups:
-  - ""
-  resources:
-  - pods
-  - services
-  - endpoints
-  - persistentvolumeclaims
-  - events
-  - configmaps
-  - secrets
-  - replicationcontrollers
-  - serviceaccounts
-  - templates
-  verbs:
-  - '*'
-- apiGroups:
-  - extensions
-  - apps
-  resources:
-  - deployments
-  - replicasets
-  verbs:
-  - '*'
-- apiGroups:
-  - ""
-  resources:
-  - namespaces
-  verbs:
-  - get
-- apiGroups:
-  - apps
-  resources:
-  - deployments
-  - daemonsets
-  - replicasets
-  - statefulsets
-  verbs:
-  - '*'
-- apiGroups:
-  - monitoring.coreos.com
-  resources:
-  - servicemonitors
-  verbs:
-  - get
-  - create
-- apiGroups:
-  - kubevirt.io
-  - template.openshift.io
-  - route.openshift.io
-  resources:
-  - '*'
-  verbs:
-  - '*'
-
----
-apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
   name: kubevirt-ssp-operator
@@ -163,19 +102,6 @@ rules:
   - privileged
 
 ---
-kind: RoleBinding
-apiVersion: rbac.authorization.k8s.io/v1
-metadata:
-  name: kubevirt-ssp-operator
-subjects:
-- kind: ServiceAccount
-  name: kubevirt-ssp-operator
-roleRef:
-  kind: Role
-  name: kubevirt-ssp-operator
-  apiGroup: rbac.authorization.k8s.io
-
----
 kind: ClusterRoleBinding
 apiVersion: rbac.authorization.k8s.io/v1
 metadata:
@@ -219,6 +145,8 @@ spec:
                   fieldPath: metadata.name
             - name: WATCH_NAMESPACE
               value: ""
+            - name: VIRT_LAUNCHER_TAG
+              value: v0.17.0
             - name: OPERATOR_NAME
               value: "kubevirt-ssp-operator"
 

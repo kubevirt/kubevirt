@@ -152,62 +152,6 @@ spec:
               - update
               - delete
 
-        - serviceAccountName: kubevirt-ssp-operator
-          rules:
-          - apiGroups:
-            - ""
-            resources:
-            - pods
-            - services
-            - endpoints
-            - persistentvolumeclaims
-            - events
-            - configmaps
-            - secrets
-            - replicationcontrollers
-            - serviceaccounts
-            - templates
-            verbs:
-            - '*'
-          - apiGroups:
-            - extensions
-            - apps
-            resources:
-            - deployments
-            - replicasets
-            verbs:
-            - '*'
-          - apiGroups:
-            - ""
-            resources:
-            - namespaces
-            verbs:
-            - get
-          - apiGroups:
-            - apps
-            resources:
-            - deployments
-            - daemonsets
-            - replicasets
-            - statefulsets
-            verbs:
-            - '*'
-          - apiGroups:
-            - monitoring.coreos.com
-            resources:
-            - servicemonitors
-            verbs:
-            - get
-            - create
-          - apiGroups:
-            - kubevirt.io
-            - template.openshift.io
-            - route.openshift.io
-            resources:
-            - '*'
-            verbs:
-            - '*'
-
       clusterPermissions:
         - serviceAccountName: hyperconverged-cluster-operator
           rules:
@@ -1409,6 +1353,8 @@ spec:
                             fieldPath: metadata.name
                       - name: WATCH_NAMESPACE
                         value: ""
+                      - name: VIRT_LAUNCHER_TAG
+                        value: v0.17.0
                       - name: OPERATOR_NAME
                         value: "kubevirt-ssp-operator"
 
