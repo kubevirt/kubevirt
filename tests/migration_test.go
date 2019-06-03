@@ -634,7 +634,7 @@ var _ = Describe("[rfe_id:393][crit:high[vendor:cnv-qe@redhat.com][level:system]
 				By("Starting the VirtualMachineInstance")
 				vmi = runVMIAndExpectLaunch(vmi, 240)
 
-				// Need to wait for cloud init to finnish and start the agent inside the vmi.
+				// Need to wait for cloud init to finish and start the agent inside the vmi.
 				Eventually(func() bool {
 					updatedVmi, err := virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Get(vmi.Name, &metav1.GetOptions{})
 					Expect(err).ToNot(HaveOccurred())
