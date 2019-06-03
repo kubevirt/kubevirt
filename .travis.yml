@@ -4,11 +4,18 @@ go:
 sudo: required
 dist: trusty
 
+install:
+    - go get -v github.com/onsi/ginkgo/ginkgo
+    - go get -v github.com/onsi/gomega
+    - go get -v -t ./...
+    - export PATH=$PATH:$HOME/gopath/bin
+
 services:
 - docker
 
 script:
 - make build
+- make test
 
 # Keeping this around from kubevirt/kubevirt for updating in the future
 # deploy:
