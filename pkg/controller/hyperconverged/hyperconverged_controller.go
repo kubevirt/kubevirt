@@ -52,58 +52,23 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 		return err
 	}
 
-	err = c.Watch(&source.Kind{Type: &kubevirt.KubeVirt{}}, &handler.EnqueueRequestForOwner{
-		IsController: true,
-		OwnerType:    &hcov1alpha1.HyperConverged{},
-	})
-	if err != nil {
-		return err
-	}
-
-	err = c.Watch(&source.Kind{Type: &cdi.CDI{}}, &handler.EnqueueRequestForOwner{
-		IsController: true,
-		OwnerType:    &hcov1alpha1.HyperConverged{},
-	})
-	if err != nil {
-		return err
-	}
-
-	err = c.Watch(&source.Kind{Type: &networkaddons.NetworkAddonsConfig{}}, &handler.EnqueueRequestForOwner{
-		IsController: true,
-		OwnerType:    &hcov1alpha1.HyperConverged{},
-	})
-	if err != nil {
-		return err
-	}
-
-	// SSP needs to handle few types; SSP components are intentionally split in few CRs
-	err = c.Watch(&source.Kind{Type: &sspv1.KubevirtCommonTemplatesBundle{}}, &handler.EnqueueRequestForOwner{
-		IsController: true,
-		OwnerType:    &hcov1alpha1.HyperConverged{},
-	})
-	if err != nil {
-		return err
-	}
-	err = c.Watch(&source.Kind{Type: &sspv1.KubevirtNodeLabellerBundle{}}, &handler.EnqueueRequestForOwner{
-		IsController: true,
-		OwnerType:    &hcov1alpha1.HyperConverged{},
-	})
-	if err != nil {
-		return err
-	}
-	err = c.Watch(&source.Kind{Type: &sspv1.KubevirtTemplateValidator{}}, &handler.EnqueueRequestForOwner{
-		IsController: true,
-		OwnerType:    &hcov1alpha1.HyperConverged{},
-	})
-	if err != nil {
-		return err
-	}
-	err = c.Watch(&source.Kind{Type: &kwebuis.KWebUI{}}, &handler.EnqueueRequestForOwner{
-		IsController: true,
-		OwnerType:    &hcov1alpha1.HyperConverged{},
-	})
-	if err != nil {
-		return err
+	// Watch secondary resources
+	for _, resource := range []runtime.Object{
+		&kubevirt.KubeVirt{},
+		&cdi.CDI{},
+		&networkaddons.NetworkAddonsConfig{},
+		&sspv1.KubevirtCommonTemplatesBundle{},
+		&sspv1.KubevirtNodeLabellerBundle{},
+		&sspv1.KubevirtTemplateValidator{},
+		&kwebuis.KWebUI{},
+	} {
+		err = c.Watch(&source.Kind{Type: resource}, &handler.EnqueueRequestForOwner{
+			IsController: true,
+			OwnerType:    &hcov1alpha1.HyperConverged{},
+		})
+		if err != nil {
+			return err
+		}
 	}
 
 	return nil
