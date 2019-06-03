@@ -1168,6 +1168,15 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 			waitForVMIStart(virtClient, vmi)
 		})
 
+		It("[test_id:233][posneg:negative]should fail when deleting nonexistent VM", func() {
+			vmi := tests.NewRandomVMWithEphemeralDisk(tests.ContainerDiskFor(tests.ContainerDiskAlpine))
+
+			By("Creating VM with DataVolumeTemplate entry with k8s client binary")
+			_, stdErr, err := tests.RunCommand(k8sClient, "delete", "vm", vmi.Name)
+			Expect(err).To(HaveOccurred())
+			Expect(strings.HasPrefix(stdErr, "Error from server (NotFound): virtualmachines.kubevirt.io")).To(BeTrue(), "should fail when deleting non existent VM")
+		})
+
 	})
 })
 
