@@ -57,13 +57,6 @@ export RHEL_LOCK_PATH=${RHEL_LOCK_PATH:-/var/lib/stdci/shared/download_rhel_imag
 export WINDOWS_NFS_DIR=${WINDOWS_NFS_DIR:-/var/lib/stdci/shared/kubevirt-images/windows2016}
 export WINDOWS_LOCK_PATH=${WINDOWS_LOCK_PATH:-/var/lib/stdci/shared/download_windows_image.lock}
 
-docker_daemon_mtu_setup() {
-    # Smaller packets are needed in order to work on some of our host providers
-    mkdir -p /etc/docker/
-    echo '{ "mtu": 1450 }' > /etc/docker/daemon.json
-    service docker restart
-}
-
 wait_for_download_lock() {
   local max_lock_attempts=60
   local lock_wait_interval=60
@@ -120,8 +113,6 @@ safe_download() (
         echo "${download_to} is up to date"
     fi
 )
-
-docker_daemon_mtu_setup
 
 if [[ $TARGET =~ os-.* ]] || [[ $TARGET =~ okd-.* ]]; then
     # Create images directory
