@@ -1,12 +1,12 @@
 # Security Policy
 
-## Supported Versions
+## Community Supported Versions
 
-| Version | Supported          |
-| ------- | ------------------ |
-| master  | Yes                |
-| 0.17    | Yes                |
-| <0.17   | No                 |
+| Version | Community Supported  |
+| ------- | -------------------- |
+| master  | Yes                  |
+| 0.17    | Yes                  |
+| <0.17   | No                   |
 
 ## Reporting a Vulnerability
 
