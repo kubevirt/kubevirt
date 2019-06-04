@@ -490,7 +490,7 @@ func AfterTestSuitCleanup() {
 	if err != nil {
 		fmt.Printf("ERROR: Could not get audit log from %s, %s\n", auditLogPath, err)
 	} else {
-		if err := restCoverage.GenerateReport(auditLogs, swaggerPath, "/apis/kubevirt.io/v1alpha3/"); err != nil {
+		if err := restCoverage.GenerateReport(auditLogs, swaggerPath, "/apis/kubevirt.io/v1alpha3/", "", true); err != nil {
 			fmt.Printf("ERROR: %s\n", err)
 		}
 	}

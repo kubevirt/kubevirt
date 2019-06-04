@@ -5,7 +5,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"net/url"
+	"sort"
 	"strings"
 	"time"
 
@@ -29,7 +31,7 @@ func getHTTPMethod(verb string) string {
 	// audit log does not contain info about HTTP methods
 
 	switch verb {
-	case "get", "list":
+	case "get", "list", "watch", "watchList":
 		return "GET"
 	case "create":
 		return "POST"
@@ -65,7 +67,6 @@ func matchBodyParams(requestObject *runtime.Unknown, requestStats *RequestStats)
 		if err != nil {
 			return err
 		}
-
 		switch r := req.(type) {
 		case []interface{}:
 			for _, v := range r {
@@ -99,7 +100,11 @@ func extractBodyParams(params interface{}, path string, body map[string]int, cou
 
 	pathCopy := path
 	for k, v := range p {
-		path += "." + k
+		if level == 1 {
+			path = k
+		} else {
+			path += "." + k
+		}
 
 		switch obj := v.(type) {
 		case map[string]interface{}:
@@ -119,14 +124,12 @@ func extractBodyParams(params interface{}, path string, body map[string]int, cou
 	return nil
 }
 
-func calculateCoverage(restAPI map[string]Request) {
+func calculateCoverage(restAPIStats map[string]map[string]*RequestStats) map[string]float64 {
+	result := map[string]float64{}
 	paramsNum, paramsHit := 0, 0
 
-	fmt.Printf("\nREST API coverage report:\n\n")
-	for path, req := range restAPI {
-		fmt.Println("\t", path)
-
-		for _, stats := range req.Methods {
+	for path, req := range restAPIStats {
+		for method, stats := range req {
 			// count path hit
 			if stats.MethodCalled {
 				stats.ParamsHit++
@@ -140,31 +143,77 @@ func calculateCoverage(restAPI map[string]Request) {
 			if stats.ParamsHit > stats.ParamsNum {
 				stats.ParamsHit = stats.ParamsNum
 			}
-			paramsNum += stats.ParamsNum
-			paramsHit += stats.ParamsHit
 
-			fmt.Printf("\t %s %.2f%%\n", stats.Method, float64(stats.ParamsHit)*100/float64(stats.ParamsNum))
+			if stats.ParamsNum > 0 {
+				paramsNum += stats.ParamsNum
+				paramsHit += stats.ParamsHit
+				result[path+":"+method] = float64(stats.ParamsHit) * 100 / float64(stats.ParamsNum)
+			} else {
+				result[path+":"+method] = 0
+			}
 		}
-		fmt.Println()
 	}
-	fmt.Printf("Total coverage: %.2f%%\n\n", float64(paramsHit)*100/float64(paramsNum))
+
+	if paramsNum > 0 {
+		result["total"] = float64(paramsHit) * 100 / float64(paramsNum)
+	} else {
+		result["total"] = 0
+	}
+
+	return result
 }
 
-func GenerateReport(auditLogs string, swaggerPath string, filter string) error {
+func printReport(report map[string]float64, detailed bool) error {
+	fmt.Printf("\nREST API coverage report:\n")
+	if detailed {
+		keys := []string{}
+		for k := range report {
+			keys = append(keys, k)
+		}
+		sort.Strings(keys)
+		prevPath := ""
+		for _, k := range keys {
+			if k == "total" {
+				continue
+			}
+			pm := strings.Split(k, ":")
+			if len(pm) != 2 {
+				return fmt.Errorf("Invalid path:method pair: %s", pm)
+			}
+			path, method := pm[0], pm[1]
+			if path != prevPath {
+				fmt.Printf("\n%s:\n", path)
+			}
+			prevPath = path
+			fmt.Printf("\t%s %s: %.2f%%\n", path, method, report[k])
+		}
+	}
+	fmt.Printf("\nTotal coverage: %.2f%%\n\n", report["total"])
+	return nil
+}
+
+func dumpReport(path string, report map[string]float64) error {
+	jsonReport, err := json.Marshal(report)
+	if err != nil {
+		return err
+	}
+	return ioutil.WriteFile(path, jsonReport, 0644)
+}
+
+func GenerateReport(auditLogs string, swaggerPath string, filter string, storeInFilePath string, detailed bool) error {
 	log.InitializeLogging("rest-api-coverage")
 
 	start := time.Now()
 	defer log.Log.Infof("REST API coverage execution time: %s", time.Since(start))
 
-	var event AuditV1.Event
-
-	restAPI, err := getRESTApi(swaggerPath, filter)
+	restAPIStats, err := getRESTApiStats(swaggerPath, filter)
 	if err != nil {
 		return err
 	}
 
 	scanner := bufio.NewReader(strings.NewReader(auditLogs))
 	for {
+		var event AuditV1.Event
 		b, err := scanner.ReadBytes('\n')
 		if err == io.EOF {
 			break
@@ -180,7 +229,7 @@ func GenerateReport(auditLogs string, swaggerPath string, filter string) error {
 		}
 
 		path := getSwaggerPath(uri.Path, event.ObjectRef)
-		if _, ok := restAPI[path]; !ok {
+		if _, ok := restAPIStats[path]; !ok {
 			log.Log.Errorf("Path '%s' not found in swagger", path)
 			continue
 		}
@@ -191,19 +240,22 @@ func GenerateReport(auditLogs string, swaggerPath string, filter string) error {
 			continue
 		}
 
-		if _, ok := restAPI[path].Methods[method]; !ok {
+		if _, ok := restAPIStats[path][method]; !ok {
 			log.Log.Errorf("Method '%s' not found for '%s' path", method, path)
 			continue
 		}
 
-		restAPI[path].Methods[method].MethodCalled = true
-		matchQueryParams(uri.Query(), restAPI[path].Methods[method])
-		err = matchBodyParams(event.RequestObject, restAPI[path].Methods[method])
+		restAPIStats[path][method].MethodCalled = true
+		matchQueryParams(uri.Query(), restAPIStats[path][method])
+		err = matchBodyParams(event.RequestObject, restAPIStats[path][method])
 		if err != nil {
 			log.Log.Errorf("%s", err)
 		}
 	}
 
-	calculateCoverage(restAPI)
-	return nil
+	report := calculateCoverage(restAPIStats)
+	if storeInFilePath != "" {
+		return dumpReport(storeInFilePath, report)
+	}
+	return printReport(report, detailed)
 }

@@ -20,12 +20,8 @@ type RequestStats struct {
 	Method       string
 }
 
-type Request struct {
-	Methods map[string]*RequestStats
-}
-
-func getRESTApi(swaggerPath string, filter string) (map[string]Request, error) {
-	restAPI := make(map[string]Request)
+func getRESTApiStats(swaggerPath string, filter string) (map[string]map[string]*RequestStats, error) {
+	restAPIStats := make(map[string]map[string]*RequestStats)
 
 	document, err := loads.JSONSpec(swaggerPath)
 	if err != nil {
@@ -35,7 +31,7 @@ func getRESTApi(swaggerPath string, filter string) (map[string]Request, error) {
 	for _, mp := range document.Analyzer.OperationMethodPaths() {
 		v := strings.Split(mp, " ")
 		if len(v) != 2 {
-			return nil, fmt.Errorf("Invalid method-path pair '%s'", mp)
+			return nil, fmt.Errorf("Invalid method:path pair '%s'", mp)
 		}
 		method, path := v[0], v[1]
 
@@ -44,49 +40,44 @@ func getRESTApi(swaggerPath string, filter string) (map[string]Request, error) {
 			continue
 		}
 
-		if _, ok := restAPI[path]; !ok {
-			restAPI[path] = Request{
-				Methods: make(map[string]*RequestStats),
-			}
+		if _, ok := restAPIStats[path]; !ok {
+			restAPIStats[path] = make(map[string]*RequestStats)
 		}
 
-		if _, ok := restAPI[path].Methods[method]; !ok {
-			restAPI[path].Methods[method] = &RequestStats{
+		if _, ok := restAPIStats[path][method]; !ok {
+			restAPIStats[path][method] = &RequestStats{
 				Query:  make(map[string]int),
 				Path:   path,
 				Method: method,
 			}
 		}
 
-		addSwaggerParams(method, path, document, restAPI)
+		addSwaggerParams(restAPIStats[path][method], document.Analyzer.ParamsFor(method, path), document.Spec().Definitions)
 	}
 
-	return restAPI, nil
+	return restAPIStats, nil
 }
 
-func addSwaggerParams(method string, path string, document *loads.Document, restAPI map[string]Request) {
-	swagger := document.Spec()
-	params := document.Analyzer.ParamsFor(method, path)
-
+func addSwaggerParams(requestStats *RequestStats, params map[string]spec.Parameter, definitions spec.Definitions) {
 	for _, param := range params {
 		switch param.In {
 		case "body":
-			restAPI[path].Methods[method].Body = make(map[string]int)
+			requestStats.Body = make(map[string]int)
 		case "query":
-			restAPI[path].Methods[method].Query[param.Name] = 0
+			requestStats.Query[param.Name] = 0
 		default:
 			continue
 		}
 
 		if param.Schema != nil {
-			restAPI[path].Methods[method].ParamsNum += countRefParams(param.Schema, swagger)
+			requestStats.ParamsNum += countRefParams(param.Schema, definitions)
 		} else {
-			restAPI[path].Methods[method].ParamsNum++
+			requestStats.ParamsNum++
 		}
 	}
 }
 
-func countRefParams(schema *spec.Schema, swagger *spec.Swagger) int {
+func countRefParams(schema *spec.Schema, definitions spec.Definitions) int {
 	var tokens []string
 	ptr := schema.Ref.GetPointer()
 	pCnt := 0
@@ -99,7 +90,7 @@ func countRefParams(schema *spec.Schema, swagger *spec.Swagger) int {
 		return 0
 	}
 
-	def, ok := swagger.Definitions[tokens[1]]
+	def, ok := definitions[tokens[1]]
 	// did not find swagger definition
 	if !ok {
 		return 0
@@ -113,7 +104,7 @@ func countRefParams(schema *spec.Schema, swagger *spec.Swagger) int {
 	if len(def.Properties) > 0 {
 		for _, p := range def.Properties {
 			if r := p.Ref.GetPointer(); r != nil && len(r.DecodedTokens()) > 0 {
-				pCnt += countRefParams(&p, swagger)
+				pCnt += countRefParams(&p, definitions)
 			} else {
 				pCnt++
 			}
