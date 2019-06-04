@@ -25,6 +25,8 @@ spec:
     type: date
   group: kubevirt.io
   names:
+    categories:
+    - all
     kind: VirtualMachineInstanceReplicaSet
     plural: virtualmachineinstancereplicasets
     shortNames:
