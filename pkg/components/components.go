@@ -12,41 +12,39 @@ import (
 )
 
 func GetDeployment(repository string, tag string, imagePullPolicy string) *appsv1.Deployment {
-	name := "hyperconverged-cluster-operator"
-	if repository == "docker.io" {
-		name = "rthallisey/" + name
-	}
-	image := fmt.Sprintf("%s/%s:%s", repository, name, tag)
+	hco_name := "hyperconverged-cluster-operator"
+	registry_name := repository + "/kubevirt/" + hco_name
+	image := fmt.Sprintf("%s:%s", registry_name, tag)
 	deployment := &appsv1.Deployment{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: "apps/v1",
 			Kind:       "Deployment",
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name: name,
+			Name: hco_name,
 		},
 		Spec: appsv1.DeploymentSpec{
 			Replicas: int32Ptr(1),
 			Selector: &metav1.LabelSelector{
 				MatchLabels: map[string]string{
-					"name": name,
+					"name": hco_name,
 				},
 			},
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
 					Labels: map[string]string{
-						"name": name,
+						"name": hco_name,
 					},
 				},
 				Spec: corev1.PodSpec{
-					ServiceAccountName: name,
+					ServiceAccountName: hco_name,
 					Containers: []corev1.Container{
 						{
-							Name:            name,
+							Name:            hco_name,
 							Image:           image,
 							ImagePullPolicy: corev1.PullPolicy(imagePullPolicy),
 							// TODO: command being name is artifact of operator-sdk usage
-							Command: []string{name},
+							Command: []string{hco_name},
 							Env: []corev1.EnvVar{
 								{
 									Name:  "OPERATOR_IMAGE",
@@ -54,7 +52,7 @@ func GetDeployment(repository string, tag string, imagePullPolicy string) *appsv
 								},
 								{
 									Name:  "OPERATOR_NAME",
-									Value: name,
+									Value: hco_name,
 								},
 								{
 									Name: "POD_NAME",

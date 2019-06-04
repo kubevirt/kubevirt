@@ -2,9 +2,9 @@ QUAY_USERNAME ?=
 QUAY_PASSWORD ?=
 SOURCE_DIRS   = cmd pkg
 SOURCES       := $(shell find . -name '*.go' -not -path "*/vendor/*")
-IMAGE_REGISTRY ?= docker.io
+IMAGE_REGISTRY ?= quay.io
 IMAGE_TAG ?= latest
-OPERATOR_IMAGE ?= rthallisey/hyperconverged-cluster-operator
+OPERATOR_IMAGE ?= kubevirt/hyperconverged-cluster-operator
 
 build: $(SOURCES) ## Build binary from source
 	go build -i -ldflags="-s -w" -o _out/hyperconverged-cluster-operator ./cmd/manager > /dev/null
