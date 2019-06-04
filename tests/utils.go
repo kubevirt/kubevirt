@@ -1424,6 +1424,14 @@ func NewRandomVMIWithNS(namespace string) *v1.VirtualMachineInstance {
 
 	t := defaultTestGracePeriod
 	vmi.Spec.TerminationGracePeriodSeconds = &t
+
+	// To avoid mac address issue in the tests change the pod interface binding to masquerade
+	vmi.Spec.Domain.Devices = v1.Devices{Interfaces: []v1.Interface{{Name: "default",
+		InterfaceBindingMethod: v1.InterfaceBindingMethod{
+			Masquerade: &v1.InterfaceMasquerade{}}}}}
+
+	vmi.Spec.Networks = []v1.Network{*v1.DefaultPodNetwork()}
+
 	return vmi
 }
 
