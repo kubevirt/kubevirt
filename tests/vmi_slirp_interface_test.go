@@ -57,7 +57,7 @@ var _ = Describe("Slirp Networking", func() {
 			vmi, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
 			Expect(err).ToNot(HaveOccurred())
 			tests.WaitForSuccessfulVMIStartIgnoreWarnings(vmi)
-			generateHelloWorldServer(vmi, virtClient, 80, "tcp")
+			tests.GenerateHelloWorldServer(vmi, 80, "tcp")
 		}
 	})
 
