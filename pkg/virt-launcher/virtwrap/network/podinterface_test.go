@@ -144,8 +144,32 @@ var _ = Describe("Pod Network", func() {
 		mockNetwork.EXPECT().AddrAdd(bridgeTest, masqueradeGwAddr).Return(nil)
 		mockNetwork.EXPECT().StartDHCP(masqueradeTestNic, masqueradeGwAddr, api.DefaultBridgeName, nil)
 		mockNetwork.EXPECT().GetHostAndGwAddressesFromCIDR(api.DefaultVMCIDR).Return("10.0.2.1/30", "10.0.2.2/30", nil)
+		// Global nat rules
 		mockNetwork.EXPECT().IptablesNewChain("nat", gomock.Any()).Return(nil).AnyTimes()
-		mockNetwork.EXPECT().IptablesAppendRule("nat", gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
+		mockNetwork.EXPECT().IptablesAppendRule("nat",
+			"POSTROUTING",
+			"-s",
+			"10.0.2.2",
+			"-j",
+			"MASQUERADE").Return(nil).AnyTimes()
+		mockNetwork.EXPECT().IptablesAppendRule("nat",
+			"PREROUTING",
+			"-i",
+			"eth0",
+			"-j",
+			"KUBEVIRT_PREINBOUND").Return(nil).AnyTimes()
+		mockNetwork.EXPECT().IptablesAppendRule("nat",
+			"POSTROUTING",
+			"-o",
+			"k6t-eth0",
+			"-j",
+			"KUBEVIRT_POSTINBOUND").Return(nil).AnyTimes()
+		mockNetwork.EXPECT().IptablesAppendRule("nat",
+			"KUBEVIRT_PREINBOUND",
+			"-j",
+			"DNAT",
+			"--to-destination",
+			"10.0.2.2").Return(nil).AnyTimes()
 
 		err := SetupPodNetwork(vm, domain)
 		Expect(err).To(BeNil())
@@ -361,9 +385,44 @@ var _ = Describe("Pod Network", func() {
 			})
 		})
 		Context("Masquerade Plug", func() {
-			It("should define a new VIF bind to a bridge", func() {
+			It("should define a new VIF bind to a bridge and create a default nat rule", func() {
+				// forward all the traffic
+				mockNetwork.EXPECT().IptablesAppendRule("nat",
+					"KUBEVIRT_PREINBOUND",
+					"-j",
+					"DNAT",
+					"--to-destination").Return(nil).AnyTimes()
+
 				domain := NewDomainWithBridgeInterface()
 				vm := newVMIMasqueradeInterface("testnamespace", "testVmName")
+
+				api.SetObjectDefaults_Domain(domain)
+				TestPodInterfaceIPBinding(vm, domain)
+			})
+			It("should define a new VIF bind to a bridge and create a specific nat rule", func() {
+				// Forward a specific port
+				mockNetwork.EXPECT().IptablesAppendRule("nat",
+					"KUBEVIRT_POSTINBOUND",
+					"-p",
+					"tcp",
+					"--dport",
+					"80", "-j", "SNAT", "--to-source", "10.0.2.1").Return(nil).AnyTimes()
+				mockNetwork.EXPECT().IptablesAppendRule("nat",
+					"KUBEVIRT_PREINBOUND",
+					"-p",
+					"tcp",
+					"--dport",
+					"80", "-j", "DNAT", "--to-destination", "10.0.2.2").Return(nil).AnyTimes()
+				mockNetwork.EXPECT().IptablesAppendRule("nat",
+					"OUTPUT",
+					"-p",
+					"tcp",
+					"--dport",
+					"80", "--destination", "127.0.0.1",
+					"-j", "DNAT", "--to-destination", "10.0.2.2").Return(nil).AnyTimes()
+				domain := NewDomainWithBridgeInterface()
+				vm := newVMIMasqueradeInterface("testnamespace", "testVmName")
+				vm.Spec.Domain.Devices.Interfaces[0].Ports = []v1.Port{{Name: "test", Port: 80, Protocol: "TCP"}}
 
 				api.SetObjectDefaults_Domain(domain)
 				TestPodInterfaceIPBinding(vm, domain)
