@@ -12,8 +12,7 @@
 
 **Reporting a Potential Security Vulnerability**: If you have discovered
 potential security vulnerability in this project, please send an e-mail to
-secalert@redhat.com. For issues related to Red Hat Products, please visit
-https://access.redhat.com/security/team/contact/.
+kubevirt-security@redhat.com.
 
 It is important to include the following details:
   - The projects and versions affected
@@ -28,6 +27,6 @@ contact you to to collaborate on resolving the issue. For more information on
 how Red Hat works to resolve security issues, see: *Vulnerability Handling
 Guidelines*
 
-PGP Key: https://access.redhat.com/security/team/contact/#contact
+PGP Key: https://access.redhat.com/sites/default/files/pages/attachments/dce3823597f5eac4.txt
 
 Vulnerability Handling Guidelines: https://access.redhat.com/security/team/contact/
