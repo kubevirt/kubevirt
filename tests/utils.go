@@ -76,6 +76,7 @@ import (
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
 	launcherApi "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
+	"kubevirt.io/kubevirt/pkg/virt-operator/util"
 	"kubevirt.io/kubevirt/pkg/virtctl"
 	vmsgen "kubevirt.io/kubevirt/tools/vms-generator/utils"
 )
@@ -838,24 +839,13 @@ func IsOpenShift() bool {
 	virtClient, err := kubecli.GetKubevirtClient()
 	PanicOnError(err)
 
-	result := virtClient.RestClient().Get().AbsPath("/version/openshift").Do()
-
-	var statusCode int
-	result.StatusCode(&statusCode)
-
-	if result.Error() == nil {
-		// It is OpenShift
-		if statusCode == http.StatusOK {
-			return true
-		}
-	} else {
-		// Got 404 so this is not Openshift
-		if statusCode == http.StatusNotFound {
-			return false
-		}
+	isOpenShift, err := util.IsOnOpenshift(virtClient)
+	if err != nil {
+		fmt.Printf("ERROR: Can not determine cluster type %v\n", err)
+		panic(err)
 	}
-	fmt.Printf(fmt.Sprintf("ERROR: Can not determine cluster type %#v\n", result))
-	panic(err)
+
+	return isOpenShift
 }
 
 func composeResourceURI(object unstructured.Unstructured) string {
