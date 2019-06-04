@@ -22,6 +22,13 @@ set -e
 source hack/common.sh
 source hack/config.sh
 
+if [ -z "$1" ]; then
+    target="build"
+else
+    target=$1
+    shift
+fi
+
 if [ $# -eq 0 ]; then
     args=$docker_images
     build_tests="true"
