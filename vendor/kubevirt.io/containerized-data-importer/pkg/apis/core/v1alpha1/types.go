@@ -152,6 +152,12 @@ const (
 	// CloneInProgress represents a data volume with a current phase of CloneInProgress
 	CloneInProgress DataVolumePhase = "CloneInProgress"
 
+	// SnapshotForSmartCloneInProgress represents a data volume with a current phase of SnapshotForSmartCloneInProgress
+	SnapshotForSmartCloneInProgress DataVolumePhase = "SnapshotForSmartCloneInProgress"
+
+	// SmartClonePVCInProgress represents a data volume with a current phase of SmartClonePVCInProgress
+	SmartClonePVCInProgress DataVolumePhase = "SmartClonePVCInProgress"
+
 	// UploadScheduled represents a data volume with a current phase of UploadScheduled
 	UploadScheduled DataVolumePhase = "UploadScheduled"
 
