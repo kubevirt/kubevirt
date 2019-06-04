@@ -655,7 +655,7 @@ var _ = Describe("[rfe_id:393][crit:high[vendor:cnv-qe@redhat.com][level:system]
 				nfsIP := tests.CreateNFSTargetPOD(os)
 				// create a new PV and PVC (PVs can't be reused)
 				By("create a new NFS PV and PVC")
-				tests.CreateNFSPvAndPvc(pvName, "1Gi", nfsIP, os)
+				tests.CreateNFSPvAndPvc(pvName, "5Gi", nfsIP, os)
 			}, 60)
 
 			AfterEach(func() {

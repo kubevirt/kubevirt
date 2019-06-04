@@ -3056,9 +3056,10 @@ func CreateNFSTargetPOD(os string) (nfsTargetIP string) {
 			},
 			Containers: []k8sv1.Container{
 				{
-					Name:      "test-nfs-target",
-					Image:     image,
-					Resources: resources,
+					Name:            "test-nfs-target",
+					Image:           image,
+					ImagePullPolicy: k8sv1.PullAlways,
+					Resources:       resources,
 					SecurityContext: &k8sv1.SecurityContext{
 						Privileged: NewBool(true),
 					},

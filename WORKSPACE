@@ -180,9 +180,9 @@ container_pull(
 # Pull nfs-server image
 container_pull(
     name = "nfs-server",
-    digest = "sha256:17fe1813fd20d9fdfa497a26c8a2e39dd49748cd39dbb0559df7627d9bcf4c53",
+    digest = "sha256:2a8c1cad9156165d0be1ee2c78fb2342f8368193acff72eb276ff276512508fa",
     registry = "index.docker.io",
-    repository = "janeczku/nfs-ganesha",
+    repository = "slintes/nfs-ganesha",
 )
 
 load(
