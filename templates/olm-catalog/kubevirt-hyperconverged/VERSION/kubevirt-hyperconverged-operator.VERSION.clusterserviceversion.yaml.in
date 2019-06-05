@@ -74,6 +74,10 @@ metadata:
           "kind": "NodeMaintenance",
           "metadata": {
             "name": "node-maintenance"
+          },
+          "spec": {
+            "nodeName": "nodename",
+            "reason": "node maintenance reason"
           }{{end}}
         }
       ]
