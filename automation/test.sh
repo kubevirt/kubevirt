@@ -160,6 +160,7 @@ cat >.bazelrc <<EOF
 startup --host_jvm_args=-Dbazel.DigestFunction=sha256
 build --remote_local_fallback
 build --remote_http_cache=${BAZEL_CACHE}
+build --jobs=4
 EOF
 
 # build all images with the basic repeat logic
