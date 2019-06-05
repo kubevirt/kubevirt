@@ -1,32 +1,49 @@
 # Security Policy
 
-## Community Supported Versions
-
-| Version | Community Supported  |
-| ------- | -------------------- |
-| master  | Yes                  |
-| 0.17    | Yes                  |
-| <0.17   | No                   |
-
 ## Reporting a Vulnerability
+The KubeVirt project treats security vulnerabilities seriously, so we
+strive to take action quickly when required.
 
-**Reporting a Potential Security Vulnerability**: If you have discovered
-potential security vulnerability in this project, please send an e-mail to
-kubevirt-security@redhat.com.
+The project requests that security issues be disclosed in a responsible
+manner to allow adequate time to respond.  If a security issue or
+vulnerability has been found, please disclose the details to our
+dedicated email address:
 
-It is important to include the following details:
-  - The projects and versions affected
-  - Detailed description of the vulnerability
-  - Information on known exploits
+kubevirt-security@redhat.com [PGP](#PGP Encryption)
 
-Vulnerability information is extremely sensitive. Please encrypt all security
-vulnerability reports using our *PGP key*
+Please include as much information as possible with the report. The
+following details assist with analysis efforts:
+  - Description of the vulnerability
+  - Affected component (version, commit, branch etc)
+  - Affected code (file path, line numbers)
+  - Exploit code
 
-A member of the Red Hat Product Security Team will review your e-mail and
-contact you to to collaborate on resolving the issue. For more information on
-how Red Hat works to resolve security issues, see: *Vulnerability Handling
-Guidelines*
+Any confidential information disclosed to the security team will be
+handled appropriately to prevent misuse or accidental disclosure.
 
-PGP Key: https://access.redhat.com/sites/default/files/pages/attachments/dce3823597f5eac4.txt
+## PGP Encryption
+Security issues can often be sensitive in nature, so information can be
+disclosed with PGP encryption. Our public key can be found on 
+[public keyservers](https://pgp.mit.edu/pks/lookup?search=0x26A3D09E&op=vindex&exact=on)
+and our fingerprint is as follows:
 
-Vulnerability Handling Guidelines: https://access.redhat.com/security/team/contact/
+```CEF1 66F8 B929 4CDE 3233  5FCF B3D9 0475 26A3 D09E```
+
+Please note that the above key will not be used for signing releases.
+Please refer to your vendors instructions for verifying packages, images
+or source code.
+
+## Security Notices
+Security notices will be sent to the kubevirt-dev@googlegroups.com
+mailing list and published to the
+[Security Advisories](https://github.com/kubevirt/kubevirt/security/advisories)
+page.
+
+## Security Team
+The security team consists of key developers, vendor security contacts
+and project leadership.
+
+Membership of the security team is assessed on a case-by-case basis. If
+you have cause to join the team, please sent an email to the email address
+above. Members will need to demonstrate secure information handling
+practices and procedures before joining.
