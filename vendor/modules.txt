@@ -77,7 +77,7 @@ github.com/go-openapi/swag
 github.com/go-openapi/validate
 # github.com/go-stack/stack v1.8.0
 github.com/go-stack/stack
-# github.com/gogo/protobuf v1.1.1
+# github.com/gogo/protobuf v0.0.0-20171007142547-342cbe0a0415
 github.com/gogo/protobuf/gogoproto
 github.com/gogo/protobuf/proto
 github.com/gogo/protobuf/sortkeys
@@ -88,7 +88,7 @@ github.com/golang/glog
 github.com/golang/groupcache/lru
 # github.com/golang/mock v0.0.0-20190509174753-d74b93584564
 github.com/golang/mock/gomock
-# github.com/golang/protobuf v1.3.1
+# github.com/golang/protobuf v1.2.0
 github.com/golang/protobuf/proto
 github.com/golang/protobuf/ptypes
 github.com/golang/protobuf/ptypes/any
@@ -229,7 +229,7 @@ github.com/prometheus/client_golang/prometheus/promhttp
 github.com/prometheus/client_golang/prometheus/internal
 # github.com/prometheus/client_model v0.0.0-20190129233127-fd36f4220a90
 github.com/prometheus/client_model/go
-# github.com/prometheus/common v0.4.0
+# github.com/prometheus/common v0.0.0-20181126121408-4724e9255275
 github.com/prometheus/common/expfmt
 github.com/prometheus/common/model
 github.com/prometheus/common/internal/bitbucket.org/ww/goautoneg
@@ -355,7 +355,7 @@ gopkg.in/ini.v1
 gopkg.in/tomb.v1
 # gopkg.in/yaml.v2 v2.2.1
 gopkg.in/yaml.v2
-# k8s.io/api v0.0.0-20190222213804-5cb15d344471 => k8s.io/api v0.0.0-20190222213804-5cb15d344471
+# k8s.io/api v0.0.0-20190602205700-9b8cae951d65 => k8s.io/api v0.0.0-20190222213804-5cb15d344471
 k8s.io/api/core/v1
 k8s.io/api/admissionregistration/v1beta1
 k8s.io/api/apps/v1
@@ -397,7 +397,7 @@ k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset/typed/apiextension
 k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset/fake
 k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset/scheme
 k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset/typed/apiextensions/v1beta1/fake
-# k8s.io/apimachinery v0.0.0-20190221213512-86fb29eff628 => k8s.io/apimachinery v0.0.0-20190221213512-86fb29eff628
+# k8s.io/apimachinery v0.0.0-20190602125621-c0632ccbde11 => k8s.io/apimachinery v0.0.0-20190221213512-86fb29eff628
 k8s.io/apimachinery/pkg/api/errors
 k8s.io/apimachinery/pkg/apis/meta/v1
 k8s.io/apimachinery/pkg/fields
@@ -446,7 +446,10 @@ k8s.io/apimachinery/third_party/forked/golang/reflect
 k8s.io/apimachinery/pkg/apis/meta/internalversion
 k8s.io/apimachinery/pkg/util/framer
 k8s.io/apimachinery/third_party/forked/golang/netutil
-# k8s.io/client-go v0.0.0-20190228174230-b40b2a5939e4 => k8s.io/client-go v0.0.0-20190228174230-b40b2a5939e4
+# k8s.io/apiserver v0.0.0-20190605050503-711565443900
+k8s.io/apiserver/pkg/apis/audit/v1
+k8s.io/apiserver/pkg/apis/audit
+# k8s.io/client-go v0.0.0-20190602130007-e65ca70987a6 => k8s.io/client-go v0.0.0-20190228174230-b40b2a5939e4
 k8s.io/client-go/rest
 k8s.io/client-go/kubernetes/scheme
 k8s.io/client-go/kubernetes/typed/core/v1
@@ -634,7 +637,7 @@ k8s.io/client-go/listers/settings/v1alpha1
 k8s.io/client-go/listers/storage/v1
 k8s.io/client-go/listers/storage/v1alpha1
 k8s.io/client-go/listers/storage/v1beta1
-# k8s.io/klog v0.3.0
+# k8s.io/klog v0.3.2
 k8s.io/klog
 # k8s.io/kube-aggregator v0.0.0-20190228175259-3e0149950b0e
 k8s.io/kube-aggregator/pkg/apis/apiregistration/v1beta1
