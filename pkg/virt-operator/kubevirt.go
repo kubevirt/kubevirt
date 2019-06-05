@@ -816,10 +816,10 @@ func (c *KubeVirtController) syncDeployment(kv *v1.KubeVirt) error {
 			k8sv1.ConditionTrue,
 			ConditionReasonUpdating,
 			fmt.Sprintf("Transitioning from previous version %s with registry %s to target version %s using registry %s",
-				kv.Status.TargetKubeVirtVersion,
-				kv.Status.TargetKubeVirtRegistry,
 				kv.Status.ObservedKubeVirtVersion,
-				kv.Status.ObservedKubeVirtRegistry))
+				kv.Status.ObservedKubeVirtRegistry,
+				kv.Status.TargetKubeVirtVersion,
+				kv.Status.TargetKubeVirtRegistry))
 
 		// If this is an update, we need to retrieve the install strategy of the
 		// previous version. This is only necessary because there are settings
