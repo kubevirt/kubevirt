@@ -47,7 +47,6 @@ import (
 	hostdisk "kubevirt.io/kubevirt/pkg/host-disk"
 	"kubevirt.io/kubevirt/pkg/kubecli"
 	"kubevirt.io/kubevirt/pkg/log"
-	"kubevirt.io/kubevirt/pkg/precond"
 	pvcutils "kubevirt.io/kubevirt/pkg/util/types"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	cmdclient "kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
@@ -963,20 +962,6 @@ func (d *VirtualMachineController) execute(key string) error {
 
 }
 
-func (d *VirtualMachineController) injectCloudInitSecrets(vmi *v1.VirtualMachineInstance) error {
-	cloudInitSpec := cloudinit.GetCloudInitNoCloudSource(vmi)
-	if cloudInitSpec == nil {
-		return nil
-	}
-	namespace := precond.MustNotBeEmpty(vmi.GetObjectMeta().GetNamespace())
-
-	err := cloudinit.ResolveSecrets(cloudInitSpec, namespace, d.clientset)
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
 func (d *VirtualMachineController) processVmCleanup(vmi *v1.VirtualMachineInstance) error {
 	err := virtlauncher.VmGracefulShutdownTriggerClear(d.virtShareDir, vmi)
 	if err != nil {
@@ -1324,7 +1309,7 @@ func (d *VirtualMachineController) processVmUpdate(origVMI *v1.VirtualMachineIns
 		return err
 	}
 
-	err = d.injectCloudInitSecrets(vmi)
+	err = cloudinit.InjectCloudInitSecrets(vmi, d.clientset)
 	if err != nil {
 		return err
 	}

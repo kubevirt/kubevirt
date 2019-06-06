@@ -37,6 +37,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"kubevirt.io/kubevirt/pkg/api/v1.Clock":                                     schema_kubevirt_pkg_api_v1_Clock(ref),
 		"kubevirt.io/kubevirt/pkg/api/v1.ClockOffset":                               schema_kubevirt_pkg_api_v1_ClockOffset(ref),
 		"kubevirt.io/kubevirt/pkg/api/v1.ClockOffsetUTC":                            schema_kubevirt_pkg_api_v1_ClockOffsetUTC(ref),
+		"kubevirt.io/kubevirt/pkg/api/v1.CloudInitConfigDriveSource":                schema_kubevirt_pkg_api_v1_CloudInitConfigDriveSource(ref),
 		"kubevirt.io/kubevirt/pkg/api/v1.CloudInitNoCloudSource":                    schema_kubevirt_pkg_api_v1_CloudInitNoCloudSource(ref),
 		"kubevirt.io/kubevirt/pkg/api/v1.ConfigMapVolumeSource":                     schema_kubevirt_pkg_api_v1_ConfigMapVolumeSource(ref),
 		"kubevirt.io/kubevirt/pkg/api/v1.ContainerDiskSource":                       schema_kubevirt_pkg_api_v1_ContainerDiskSource(ref),
@@ -356,6 +357,60 @@ func schema_kubevirt_pkg_api_v1_ClockOffsetUTC(ref common.ReferenceCallback) com
 			},
 		},
 		Dependencies: []string{},
+	}
+}
+
+func schema_kubevirt_pkg_api_v1_CloudInitConfigDriveSource(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "Represents a cloud-init config drive user data source. More info: https://cloudinit.readthedocs.io/en/latest/topics/datasources/configdrive.html",
+				Properties: map[string]spec.Schema{
+					"secretRef": {
+						SchemaProps: spec.SchemaProps{
+							Description: "UserDataSecretRef references a k8s secret that contains config drive userdata.",
+							Ref:         ref("k8s.io/api/core/v1.LocalObjectReference"),
+						},
+					},
+					"userDataBase64": {
+						SchemaProps: spec.SchemaProps{
+							Description: "UserDataBase64 contains config drive cloud-init userdata as a base64 encoded string.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"userData": {
+						SchemaProps: spec.SchemaProps{
+							Description: "UserData contains config drive inline cloud-init userdata.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"networkDataSecretRef": {
+						SchemaProps: spec.SchemaProps{
+							Description: "NetworkDataSecretRef references a k8s secret that contains config drive networkdata.",
+							Ref:         ref("k8s.io/api/core/v1.LocalObjectReference"),
+						},
+					},
+					"networkDataBase64": {
+						SchemaProps: spec.SchemaProps{
+							Description: "NetworkDataBase64 contains config drive cloud-init networkdata as a base64 encoded string.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"networkData": {
+						SchemaProps: spec.SchemaProps{
+							Description: "NetworkData contains config drive inline cloud-init networkdata.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			"k8s.io/api/core/v1.LocalObjectReference"},
 	}
 }
 
@@ -3449,6 +3504,12 @@ func schema_kubevirt_pkg_api_v1_Volume(ref common.ReferenceCallback) common.Open
 							Ref:         ref("kubevirt.io/kubevirt/pkg/api/v1.CloudInitNoCloudSource"),
 						},
 					},
+					"cloudInitConfigDrive": {
+						SchemaProps: spec.SchemaProps{
+							Description: "CloudInitConfigDrive represents a cloud-init Config Drive user-data source. The Config Drive data will be added as a disk to the vmi. A proper cloud-init installation is required inside the guest. More info: https://cloudinit.readthedocs.io/en/latest/topics/datasources/configdrive.html",
+							Ref:         ref("kubevirt.io/kubevirt/pkg/api/v1.CloudInitConfigDriveSource"),
+						},
+					},
 					"containerDisk": {
 						SchemaProps: spec.SchemaProps{
 							Description: "ContainerDisk references a docker image, embedding a qcow or raw disk. More info: https://kubevirt.gitbooks.io/user-guide/registry-disk.html",
@@ -3496,7 +3557,7 @@ func schema_kubevirt_pkg_api_v1_Volume(ref common.ReferenceCallback) common.Open
 			},
 		},
 		Dependencies: []string{
-			"k8s.io/api/core/v1.PersistentVolumeClaimVolumeSource", "kubevirt.io/kubevirt/pkg/api/v1.CloudInitNoCloudSource", "kubevirt.io/kubevirt/pkg/api/v1.ConfigMapVolumeSource", "kubevirt.io/kubevirt/pkg/api/v1.ContainerDiskSource", "kubevirt.io/kubevirt/pkg/api/v1.DataVolumeSource", "kubevirt.io/kubevirt/pkg/api/v1.EmptyDiskSource", "kubevirt.io/kubevirt/pkg/api/v1.EphemeralVolumeSource", "kubevirt.io/kubevirt/pkg/api/v1.HostDisk", "kubevirt.io/kubevirt/pkg/api/v1.SecretVolumeSource", "kubevirt.io/kubevirt/pkg/api/v1.ServiceAccountVolumeSource"},
+			"k8s.io/api/core/v1.PersistentVolumeClaimVolumeSource", "kubevirt.io/kubevirt/pkg/api/v1.CloudInitConfigDriveSource", "kubevirt.io/kubevirt/pkg/api/v1.CloudInitNoCloudSource", "kubevirt.io/kubevirt/pkg/api/v1.ConfigMapVolumeSource", "kubevirt.io/kubevirt/pkg/api/v1.ContainerDiskSource", "kubevirt.io/kubevirt/pkg/api/v1.DataVolumeSource", "kubevirt.io/kubevirt/pkg/api/v1.EmptyDiskSource", "kubevirt.io/kubevirt/pkg/api/v1.EphemeralVolumeSource", "kubevirt.io/kubevirt/pkg/api/v1.HostDisk", "kubevirt.io/kubevirt/pkg/api/v1.SecretVolumeSource", "kubevirt.io/kubevirt/pkg/api/v1.ServiceAccountVolumeSource"},
 	}
 }
 
@@ -3522,6 +3583,12 @@ func schema_kubevirt_pkg_api_v1_VolumeSource(ref common.ReferenceCallback) commo
 						SchemaProps: spec.SchemaProps{
 							Description: "CloudInitNoCloud represents a cloud-init NoCloud user-data source. The NoCloud data will be added as a disk to the vmi. A proper cloud-init installation is required inside the guest. More info: http://cloudinit.readthedocs.io/en/latest/topics/datasources/nocloud.html",
 							Ref:         ref("kubevirt.io/kubevirt/pkg/api/v1.CloudInitNoCloudSource"),
+						},
+					},
+					"cloudInitConfigDrive": {
+						SchemaProps: spec.SchemaProps{
+							Description: "CloudInitConfigDrive represents a cloud-init Config Drive user-data source. The Config Drive data will be added as a disk to the vmi. A proper cloud-init installation is required inside the guest. More info: https://cloudinit.readthedocs.io/en/latest/topics/datasources/configdrive.html",
+							Ref:         ref("kubevirt.io/kubevirt/pkg/api/v1.CloudInitConfigDriveSource"),
 						},
 					},
 					"containerDisk": {
@@ -3570,7 +3637,7 @@ func schema_kubevirt_pkg_api_v1_VolumeSource(ref common.ReferenceCallback) commo
 			},
 		},
 		Dependencies: []string{
-			"k8s.io/api/core/v1.PersistentVolumeClaimVolumeSource", "kubevirt.io/kubevirt/pkg/api/v1.CloudInitNoCloudSource", "kubevirt.io/kubevirt/pkg/api/v1.ConfigMapVolumeSource", "kubevirt.io/kubevirt/pkg/api/v1.ContainerDiskSource", "kubevirt.io/kubevirt/pkg/api/v1.DataVolumeSource", "kubevirt.io/kubevirt/pkg/api/v1.EmptyDiskSource", "kubevirt.io/kubevirt/pkg/api/v1.EphemeralVolumeSource", "kubevirt.io/kubevirt/pkg/api/v1.HostDisk", "kubevirt.io/kubevirt/pkg/api/v1.SecretVolumeSource", "kubevirt.io/kubevirt/pkg/api/v1.ServiceAccountVolumeSource"},
+			"k8s.io/api/core/v1.PersistentVolumeClaimVolumeSource", "kubevirt.io/kubevirt/pkg/api/v1.CloudInitConfigDriveSource", "kubevirt.io/kubevirt/pkg/api/v1.CloudInitNoCloudSource", "kubevirt.io/kubevirt/pkg/api/v1.ConfigMapVolumeSource", "kubevirt.io/kubevirt/pkg/api/v1.ContainerDiskSource", "kubevirt.io/kubevirt/pkg/api/v1.DataVolumeSource", "kubevirt.io/kubevirt/pkg/api/v1.EmptyDiskSource", "kubevirt.io/kubevirt/pkg/api/v1.EphemeralVolumeSource", "kubevirt.io/kubevirt/pkg/api/v1.HostDisk", "kubevirt.io/kubevirt/pkg/api/v1.SecretVolumeSource", "kubevirt.io/kubevirt/pkg/api/v1.ServiceAccountVolumeSource"},
 	}
 }
 

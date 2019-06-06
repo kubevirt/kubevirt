@@ -20,13 +20,19 @@ message OnDefineDomainResult {
 }
 
 message PreCloudInitIsoParams {
-  // cloudInitData is an object of CloudInitNoCloudSource encoded as JSON
-  bytes cloudInitData = 1;
+  // cloudInitNoCloudSource is an object of CloudInitNoCloudSource encoded as JSON
+  // This is a legacy field to ensure backwards compatibility. New code should use cloudInitData instead.
+  bytes cloudInitNoCloudSource = 1;
   // vmi is VirtualMachineInstance is object of virtual machine currently processed by virt-launcher, it is encoded as JSON
   bytes vmi = 2;
+  // cloudInitData is an object of CloudInitData encoded as JSON
+  bytes cloudInitData = 3;
 }
 
 message PreCloudInitIsoResult {
-  // cloudInitData is an object of CloudInitNoCloudSource encoded as JSON
-  bytes cloudInitData = 1;
+  // cloudInitNoCloudSource is an object of CloudInitNoCloudSource encoded as JSON
+  // This is a legacy field to ensure backwards compatibility. New code should use cloudInitData instead.
+  bytes cloudInitNoCloudSource = 1;
+  // cloudInitData is an object of CloudInitData encoded as JSON
+  bytes cloudInitData = 3;
 }

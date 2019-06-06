@@ -63,7 +63,7 @@ var _ = Describe("Manager", func() {
 	if err != nil {
 		panic(err)
 	}
-	isoCreationFunc := func(isoOutFile string, inFiles []string) error {
+	isoCreationFunc := func(isoOutFile, volumeID string, inDir string) error {
 		_, err := os.Create(isoOutFile)
 		return err
 	}

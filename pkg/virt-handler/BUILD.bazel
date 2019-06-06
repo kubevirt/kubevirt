@@ -12,7 +12,6 @@ go_library(
         "//pkg/host-disk:go_default_library",
         "//pkg/kubecli:go_default_library",
         "//pkg/log:go_default_library",
-        "//pkg/precond:go_default_library",
         "//pkg/util/types:go_default_library",
         "//pkg/virt-config:go_default_library",
         "//pkg/virt-handler/cmd-client:go_default_library",

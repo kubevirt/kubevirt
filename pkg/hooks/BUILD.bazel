@@ -10,6 +10,7 @@ go_library(
     visibility = ["//visibility:public"],
     deps = [
         "//pkg/api/v1:go_default_library",
+        "//pkg/cloud-init:go_default_library",
         "//pkg/hooks/info:go_default_library",
         "//pkg/hooks/v1alpha1:go_default_library",
         "//pkg/hooks/v1alpha2:go_default_library",

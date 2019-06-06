@@ -115,6 +115,31 @@ type CloudInitNoCloudSource struct {
 	NetworkData string `json:"networkData,omitempty"`
 }
 
+// Represents a cloud-init config drive user data source.
+// More info: https://cloudinit.readthedocs.io/en/latest/topics/datasources/configdrive.html
+// ---
+// +k8s:openapi-gen=true
+type CloudInitConfigDriveSource struct {
+	// UserDataSecretRef references a k8s secret that contains config drive userdata.
+	// + optional
+	UserDataSecretRef *v1.LocalObjectReference `json:"secretRef,omitempty"`
+	// UserDataBase64 contains config drive cloud-init userdata as a base64 encoded string.
+	// + optional
+	UserDataBase64 string `json:"userDataBase64,omitempty"`
+	// UserData contains config drive inline cloud-init userdata.
+	// + optional
+	UserData string `json:"userData,omitempty"`
+	// NetworkDataSecretRef references a k8s secret that contains config drive networkdata.
+	// + optional
+	NetworkDataSecretRef *v1.LocalObjectReference `json:"networkDataSecretRef,omitempty"`
+	// NetworkDataBase64 contains config drive cloud-init networkdata as a base64 encoded string.
+	// + optional
+	NetworkDataBase64 string `json:"networkDataBase64,omitempty"`
+	// NetworkData contains config drive inline cloud-init networkdata.
+	// + optional
+	NetworkData string `json:"networkData,omitempty"`
+}
+
 // ---
 // +k8s:openapi-gen=true
 type DomainSpec struct {
@@ -456,6 +481,11 @@ type VolumeSource struct {
 	// More info: http://cloudinit.readthedocs.io/en/latest/topics/datasources/nocloud.html
 	// +optional
 	CloudInitNoCloud *CloudInitNoCloudSource `json:"cloudInitNoCloud,omitempty"`
+	// CloudInitConfigDrive represents a cloud-init Config Drive user-data source.
+	// The Config Drive data will be added as a disk to the vmi. A proper cloud-init installation is required inside the guest.
+	// More info: https://cloudinit.readthedocs.io/en/latest/topics/datasources/configdrive.html
+	// +optional
+	CloudInitConfigDrive *CloudInitConfigDriveSource `json:"cloudInitConfigDrive,omitempty"`
 	// ContainerDisk references a docker image, embedding a qcow or raw disk.
 	// More info: https://kubevirt.gitbooks.io/user-guide/registry-disk.html
 	// +optional
