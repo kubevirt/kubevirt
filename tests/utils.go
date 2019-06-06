@@ -81,8 +81,10 @@ import (
 	vmsgen "kubevirt.io/kubevirt/tools/vms-generator/utils"
 )
 
+var KubeVirtUtilityVersionTag = ""
 var KubeVirtVersionTag = "latest"
 var KubeVirtVersionTagAlt = ""
+var KubeVirtUtilityRepoPrefix = ""
 var KubeVirtRepoPrefix = "kubevirt"
 var ContainerizedDataImporterNamespace = "cdi"
 var KubeVirtKubectlPath = ""
@@ -94,8 +96,10 @@ var DeployTestingInfrastructureFlag = false
 var PathToTestingInfrastrucureManifests = ""
 
 func init() {
+	flag.StringVar(&KubeVirtUtilityVersionTag, "utility-container-tag", "", "Set the image tag or digest to use")
 	flag.StringVar(&KubeVirtVersionTag, "container-tag", "latest", "Set the image tag or digest to use")
 	flag.StringVar(&KubeVirtVersionTagAlt, "container-tag-alt", "", "An alternate tag that can be used to test operator deployments")
+	flag.StringVar(&KubeVirtUtilityRepoPrefix, "utility-container-prefix", "", "Set the repository prefix for all images")
 	flag.StringVar(&KubeVirtRepoPrefix, "container-prefix", "kubevirt", "Set the repository prefix for all images")
 	flag.StringVar(&ContainerizedDataImporterNamespace, "cdi-namespace", "cdi", "Set the repository prefix for CDI components")
 	flag.StringVar(&KubeVirtKubectlPath, "kubectl-path", "", "Set path to kubectl binary")
@@ -104,6 +108,15 @@ func init() {
 	flag.StringVar(&KubeVirtInstallNamespace, "installed-namespace", "kubevirt", "Set the namespace KubeVirt is installed in")
 	flag.BoolVar(&DeployTestingInfrastructureFlag, "deploy-testing-infra", false, "Deploy testing infrastructure if set")
 	flag.StringVar(&PathToTestingInfrastrucureManifests, "path-to-testing-infra-manifests", "manifests/testing", "Set path to testing infrastructure manifests")
+
+	// When the flags are not provided, copy the values from normal version tag and prefix
+	if KubeVirtUtilityVersionTag == "" {
+		KubeVirtUtilityVersionTag = KubeVirtVersionTag
+	}
+
+	if KubeVirtUtilityRepoPrefix == "" {
+		KubeVirtUtilityRepoPrefix = KubeVirtRepoPrefix
+	}
 }
 
 type EventType string
@@ -2187,7 +2200,7 @@ func RenderJob(name string, cmd []string, args []string) *k8sv1.Pod {
 			Containers: []k8sv1.Container{
 				{
 					Name:    name,
-					Image:   fmt.Sprintf("%s/vm-killer:%s", KubeVirtRepoPrefix, KubeVirtVersionTag),
+					Image:   fmt.Sprintf("%s/vm-killer:%s", KubeVirtUtilityRepoPrefix, KubeVirtUtilityVersionTag),
 					Command: cmd,
 					Args:    args,
 					SecurityContext: &k8sv1.SecurityContext{
@@ -2256,9 +2269,9 @@ const (
 func ContainerDiskFor(name ContainerDisk) string {
 	switch name {
 	case ContainerDiskCirros, ContainerDiskAlpine, ContainerDiskFedora:
-		return fmt.Sprintf("%s/%s-container-disk-demo:%s", KubeVirtRepoPrefix, name, KubeVirtVersionTag)
+		return fmt.Sprintf("%s/%s-container-disk-demo:%s", KubeVirtUtilityRepoPrefix, name, KubeVirtUtilityVersionTag)
 	case ContainerDiskVirtio:
-		return fmt.Sprintf("%s/virtio-container-disk:%s", KubeVirtRepoPrefix, KubeVirtVersionTag)
+		return fmt.Sprintf("%s/virtio-container-disk:%s", KubeVirtUtilityRepoPrefix, KubeVirtUtilityVersionTag)
 	}
 	panic(fmt.Sprintf("Unsupported registry disk %s", name))
 }
@@ -2837,7 +2850,7 @@ func RemoveHostDiskImage(diskPath string, nodeName string) {
 func CreateISCSITargetPOD(containerDiskName ContainerDisk) (iscsiTargetIP string) {
 	virtClient, err := kubecli.GetKubevirtClient()
 	PanicOnError(err)
-	image := fmt.Sprintf("%s/cdi-http-import-server:%s", KubeVirtRepoPrefix, KubeVirtVersionTag)
+	image := fmt.Sprintf("%s/cdi-http-import-server:%s", KubeVirtUtilityRepoPrefix, KubeVirtUtilityVersionTag)
 	resources := k8sv1.ResourceRequirements{}
 	resources.Limits = make(k8sv1.ResourceList)
 	resources.Limits[k8sv1.ResourceMemory] = resource.MustParse("64M")

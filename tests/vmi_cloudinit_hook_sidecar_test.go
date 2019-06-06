@@ -89,7 +89,7 @@ var _ = Describe("CloudInitHookSidecars", func() {
 		tests.BeforeTestCleanup()
 		vmi = tests.NewRandomVMIWithEphemeralDiskAndUserdata(tests.ContainerDiskFor(tests.ContainerDiskCirros), "#FAKE")
 		vmi.ObjectMeta.Annotations = map[string]string{
-			"hooks.kubevirt.io/hookSidecars": fmt.Sprintf(`[{"image": "%s/%s:%s", "imagePullPolicy": "IfNotPresent"}]`, tests.KubeVirtRepoPrefix, cloudinitHookSidecarImage, tests.KubeVirtVersionTag),
+			"hooks.kubevirt.io/hookSidecars": fmt.Sprintf(`[{"image": "%s/%s:%s", "imagePullPolicy": "IfNotPresent"}]`, tests.KubeVirtUtilityRepoPrefix, cloudinitHookSidecarImage, tests.KubeVirtUtilityVersionTag),
 		}
 	})
 

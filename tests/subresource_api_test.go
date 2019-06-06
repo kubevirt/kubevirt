@@ -247,7 +247,7 @@ func testClientJob(virtCli kubecli.KubevirtClient, withServiceAccount bool, reso
 			Containers: []k8sv1.Container{
 				{
 					Name:    name,
-					Image:   fmt.Sprintf("%s/subresource-access-test:%s", tests.KubeVirtRepoPrefix, tests.KubeVirtVersionTag),
+					Image:   fmt.Sprintf("%s/subresource-access-test:%s", tests.KubeVirtUtilityRepoPrefix, tests.KubeVirtUtilityVersionTag),
 					Command: []string{"/subresource-access-test", resource},
 				},
 			},
