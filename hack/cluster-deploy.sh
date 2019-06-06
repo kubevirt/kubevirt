@@ -52,7 +52,10 @@ EOF
 _kubectl apply -f ${MANIFESTS_OUT_DIR}/release/kubevirt-operator.yaml
 
 if [[ "$KUBEVIRT_PROVIDER" =~ os-* ]] || [[ "$KUBEVIRT_PROVIDER" =~ okd-* ]]; then
-    _kubectl create -f ${MANIFESTS_OUT_DIR}/testing/ocp
+
+    if [ -d "${MANIFESTS_OUT_DIR}/testing/ocp" ]; then
+        _kubectl create -f ${MANIFESTS_OUT_DIR}/testing/ocp
+    fi
 
     _kubectl adm policy add-scc-to-user privileged -z kubevirt-operator -n ${namespace}
 

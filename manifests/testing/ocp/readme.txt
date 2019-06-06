@@ -1,0 +1,1 @@
+place manifests for ocp here, ending in *for-ocp-yaml.in
