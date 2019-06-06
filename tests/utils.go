@@ -1294,6 +1294,12 @@ func cleanNamespaces() {
 		// Remove all Pods
 		PanicOnError(virtCli.CoreV1().RESTClient().Delete().Namespace(namespace).Resource("pods").Do().Error())
 
+		// Remove all Services
+		svcList, err := virtCli.CoreV1().Services(namespace).List(metav1.ListOptions{})
+		for _, svc := range svcList.Items {
+			PanicOnError(virtCli.CoreV1().Services(namespace).Delete(svc.Name, &metav1.DeleteOptions{}))
+		}
+
 		// Remove all VirtualMachineInstance Secrets
 		labelSelector := fmt.Sprintf("%s", SecretLabel)
 		PanicOnError(
@@ -1414,6 +1420,15 @@ func NewRandomVMIWithNS(namespace string) *v1.VirtualMachineInstance {
 
 	t := defaultTestGracePeriod
 	vmi.Spec.TerminationGracePeriodSeconds = &t
+
+	// To avoid mac address issue in the tests change the pod interface binding to masquerade
+	// https://github.com/kubevirt/kubevirt/issues/1494
+	vmi.Spec.Domain.Devices = v1.Devices{Interfaces: []v1.Interface{{Name: "default",
+		InterfaceBindingMethod: v1.InterfaceBindingMethod{
+			Masquerade: &v1.InterfaceMasquerade{}}}}}
+
+	vmi.Spec.Networks = []v1.Network{*v1.DefaultPodNetwork()}
+
 	return vmi
 }
 
@@ -1985,9 +2000,9 @@ func NewRandomVMIWithSlirpInterfaceEphemeralDiskAndUserdata(containerImage strin
 	return vmi
 }
 
-func NewRandomVMIWithBridgeInterfaceEphemeralDiskAndUserdata(containerImage string, userData string, Ports []v1.Port) *v1.VirtualMachineInstance {
+func NewRandomVMIWithMasqueradeInterfaceEphemeralDiskAndUserdata(containerImage string, userData string, Ports []v1.Port) *v1.VirtualMachineInstance {
 	vmi := NewRandomVMIWithEphemeralDiskAndUserdata(containerImage, userData)
-	vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{{Name: "default", Ports: Ports, InterfaceBindingMethod: v1.InterfaceBindingMethod{Bridge: &v1.InterfaceBridge{}}}}
+	vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{{Name: "default", Ports: Ports, InterfaceBindingMethod: v1.InterfaceBindingMethod{Masquerade: &v1.InterfaceMasquerade{}}}}
 	vmi.Spec.Networks = []v1.Network{*v1.DefaultPodNetwork()}
 
 	return vmi
@@ -3533,4 +3548,23 @@ func ForwardPorts(pod *k8sv1.Pod, ports []string, stop chan struct{}, readyTimeo
 	case <-time.After(readyTimeout):
 		return fmt.Errorf("failed to forward ports, timed out")
 	}
+}
+
+func GenerateHelloWorldServer(vmi *v1.VirtualMachineInstance, testPort int, protocol string) {
+	expecter, err := LoggedInCirrosExpecter(vmi)
+	Expect(err).ToNot(HaveOccurred())
+	defer expecter.Close()
+
+	serverCommand := fmt.Sprintf("screen -d -m sudo nc -klp %d -e echo -e 'Hello World!'\n", testPort)
+	if protocol == "udp" {
+		// nc has to be in a while loop in case of UDP, since it exists after one message
+		serverCommand = fmt.Sprintf("screen -d -m sh -c \"while true\n do nc -uklp %d -e echo -e 'Hello UDP World!'\ndone\n\"\n", testPort)
+	}
+	_, err = expecter.ExpectBatch([]expect.Batcher{
+		&expect.BSnd{S: serverCommand},
+		&expect.BExp{R: "\\$ "},
+		&expect.BSnd{S: "echo $?\n"},
+		&expect.BExp{R: "0"},
+	}, 60*time.Second)
+	Expect(err).ToNot(HaveOccurred())
 }
