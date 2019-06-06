@@ -2157,6 +2157,10 @@ func WaitForSuccessfulVMIStartWithTimeout(vmi runtime.Object, seconds int) (node
 	return waitForVMIStart(vmi, seconds, false)
 }
 
+func WaitForSuccessfulVMIStartWithTimeoutIgnoreWarnings(vmi runtime.Object, seconds int) string {
+	return waitForVMIStart(vmi, seconds, true)
+}
+
 func WaitForVirtualMachineToDisappearWithTimeout(vmi *v1.VirtualMachineInstance, seconds int) {
 	virtClient, err := kubecli.GetKubevirtClient()
 	ExpectWithOffset(1, err).ToNot(HaveOccurred())

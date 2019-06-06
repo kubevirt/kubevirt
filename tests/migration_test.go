@@ -122,7 +122,7 @@ var _ = Describe("[rfe_id:393][crit:high[vendor:cnv-qe@redhat.com][level:system]
 			return err
 		}, timeout, 1*time.Second).ShouldNot(HaveOccurred())
 		By("Waiting until the VirtualMachineInstance starts")
-		tests.WaitForSuccessfulVMIStartWithTimeout(obj, timeout)
+		tests.WaitForSuccessfulVMIStartWithTimeoutIgnoreWarnings(obj, timeout)
 		vmi, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Get(vmi.Name, &metav1.GetOptions{})
 		Expect(err).ToNot(HaveOccurred())
 		return vmi
