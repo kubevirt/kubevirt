@@ -81,10 +81,6 @@ for label in ${labels[@]}; do
     _kubectl delete clusterroles -l ${label}
     _kubectl delete customresourcedefinitions -l ${label}
 
-    if [[ "$KUBEVIRT_PROVIDER" =~ os-* ]]; then
-        _kubectl delete scc -l ${label}
-    fi
-
     # W/A for https://github.com/kubernetes/kubernetes/issues/65818
     if [[ "$KUBEVIRT_PROVIDER" =~ .*.10..* ]]; then
         # k8s version 1.10.* does not have --wait parameter
