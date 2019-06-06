@@ -160,7 +160,7 @@ var _ = Describe("Windows VirtualMachineInstance", func() {
 					Containers: []k8sv1.Container{
 						{
 							Name:    winrmCli,
-							Image:   fmt.Sprintf("%s/%s:%s", tests.KubeVirtRepoPrefix, winrmCli, tests.KubeVirtVersionTag),
+							Image:   fmt.Sprintf("%s/%s:%s", tests.KubeVirtUtilityRepoPrefix, winrmCli, tests.KubeVirtUtilityVersionTag),
 							Command: []string{"sleep"},
 							Args:    []string{"3600"},
 						},
