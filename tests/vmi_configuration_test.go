@@ -1370,7 +1370,7 @@ var _ = Describe("Configurations", func() {
 				}
 				Expect(cpuManagerEnabled).To(BeTrue())
 			})
-			It("[test_id:1686]should be scheduled on a node with running cpu manager", func() {
+			It("[test_id:991]should be scheduled on a node with running cpu manager", func() {
 				cpuVmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(tests.ContainerDiskFor(tests.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n")
 				cpuVmi.Spec.Domain.CPU = &v1.CPU{
 					Cores:                 2,
@@ -1432,7 +1432,7 @@ var _ = Describe("Configurations", func() {
 				Expect(err).ToNot(HaveOccurred())
 			})
 
-			It("[test_id:1687]should configure correct number of vcpus with requests.cpus", func() {
+			It("[test_id:995]should configure correct number of vcpus with requests.cpus", func() {
 				cpuVmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(tests.ContainerDiskFor(tests.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n")
 				cpuVmi.Spec.Domain.CPU = &v1.CPU{
 					DedicatedCPUPlacement: true,
@@ -1512,7 +1512,7 @@ var _ = Describe("Configurations", func() {
 				_, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(cpuVmi)
 				Expect(err).To(HaveOccurred())
 			})
-			It("[test_id:1691]should start a vm with no cpu pinning after a vm with cpu pinning on same node", func() {
+			It("[test_id:994]should start a vm with no cpu pinning after a vm with cpu pinning on same node", func() {
 				Vmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(tests.ContainerDiskFor(tests.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n")
 				cpuVmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(tests.ContainerDiskFor(tests.ContainerDiskCirros), "#!/bin/bash\necho 'hello'\n")
 				cpuVmi.Spec.Domain.CPU = &v1.CPU{
@@ -1542,6 +1542,100 @@ var _ = Describe("Configurations", func() {
 				Expect(err).ToNot(HaveOccurred())
 				node = tests.WaitForSuccessfulVMIStart(cpuVmi)
 				Expect(isNodeHasCPUManagerLabel(node)).To(BeTrue())
+			})
+		})
+
+		Context("cpu pinning with fedora images, dedicated and non dedicated cpu should be possible on same node via spec.domain.cpu.cores", func() {
+
+			var cpuvmi, vmi *v1.VirtualMachineInstance
+			var node string
+
+			BeforeEach(func() {
+
+				nodes := tests.GetAllSchedulableNodes(virtClient)
+				Expect(nodes.Items).ToNot(BeEmpty(), "There should be some nodes")
+				node = nodes.Items[1].Name
+
+				vmi = tests.NewRandomVMIWithEphemeralDiskAndUserdata(
+					tests.ContainerDiskFor(
+						tests.ContainerDiskFedora), "#!/bin/bash\necho \"fedora\" | passwd fedora --stdin\n")
+				cpuvmi = tests.NewRandomVMIWithEphemeralDiskAndUserdata(
+					tests.ContainerDiskFor(
+						tests.ContainerDiskFedora), "#!/bin/bash\necho \"fedora\" | passwd fedora --stdin\n")
+				cpuvmi.Spec.Domain.CPU = &v1.CPU{
+					Cores:                 2,
+					DedicatedCPUPlacement: true,
+				}
+				cpuvmi.Spec.Domain.Resources = v1.ResourceRequirements{
+					Requests: kubev1.ResourceList{
+						kubev1.ResourceMemory: resource.MustParse("512M"),
+					},
+				}
+				cpuvmi.Spec.NodeSelector = map[string]string{"kubernetes.io/hostname": node}
+
+				vmi.Spec.Domain.CPU = &v1.CPU{
+					Cores: 2,
+				}
+				vmi.Spec.Domain.Resources = v1.ResourceRequirements{
+					Requests: kubev1.ResourceList{
+						kubev1.ResourceMemory: resource.MustParse("512M"),
+					},
+				}
+				vmi.Spec.NodeSelector = map[string]string{"kubernetes.io/hostname": node}
+			})
+
+			It("[test_id:992]should start a vm with no cpu pinning after a vm with cpu pinning on same node", func() {
+
+				By("Starting a VirtualMachineInstance with dedicated cpus")
+				_, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(cpuvmi)
+				Expect(err).ToNot(HaveOccurred())
+				node1 := tests.WaitForSuccessfulVMIStart(cpuvmi)
+				Expect(isNodeHasCPUManagerLabel(node1)).To(BeTrue())
+				Expect(node1).To(Equal(node))
+
+				By("Expecting the VirtualMachineInstance console")
+				expecter1, err := tests.LoggedInFedoraExpecter(cpuvmi)
+				Expect(err).ToNot(HaveOccurred())
+				defer expecter1.Close()
+
+				By("Starting a VirtualMachineInstance without dedicated cpus")
+				_, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
+				Expect(err).ToNot(HaveOccurred())
+				node2 := tests.WaitForSuccessfulVMIStart(vmi)
+				Expect(isNodeHasCPUManagerLabel(node2)).To(BeTrue())
+				Expect(node2).To(Equal(node))
+
+				By("Expecting the VirtualMachineInstance console")
+				expecter2, err := tests.LoggedInFedoraExpecter(vmi)
+				Expect(err).ToNot(HaveOccurred())
+				defer expecter2.Close()
+			})
+
+			It("[test_id:832]should start a vm with cpu pinning after a vm with no cpu pinning on same node", func() {
+
+				By("Starting a VirtualMachineInstance without dedicated cpus")
+				_, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
+				Expect(err).ToNot(HaveOccurred())
+				node2 := tests.WaitForSuccessfulVMIStart(vmi)
+				Expect(isNodeHasCPUManagerLabel(node2)).To(BeTrue())
+				Expect(node2).To(Equal(node))
+
+				By("Expecting the VirtualMachineInstance console")
+				expecter1, err := tests.LoggedInFedoraExpecter(vmi)
+				Expect(err).ToNot(HaveOccurred())
+				defer expecter1.Close()
+
+				By("Starting a VirtualMachineInstance with dedicated cpus")
+				_, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(cpuvmi)
+				Expect(err).ToNot(HaveOccurred())
+				node1 := tests.WaitForSuccessfulVMIStart(cpuvmi)
+				Expect(isNodeHasCPUManagerLabel(node1)).To(BeTrue())
+				Expect(node1).To(Equal(node))
+
+				By("Expecting the VirtualMachineInstance console")
+				expecter2, err := tests.LoggedInFedoraExpecter(cpuvmi)
+				Expect(err).ToNot(HaveOccurred())
+				defer expecter2.Close()
 			})
 		})
 	})
