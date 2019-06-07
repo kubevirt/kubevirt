@@ -43,7 +43,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: node-maintenance-operator
-  namespace: node-maintenance-operator
+  namespace: {{.Namespace}}
 spec:
   replicas: 1
   selector:
