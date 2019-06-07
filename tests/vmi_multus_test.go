@@ -44,7 +44,8 @@ const (
 	ovsConfCRD           = `{"apiVersion":"k8s.cni.cncf.io/v1","kind":"NetworkAttachmentDefinition","metadata":{"name":"%s","namespace":"%s"},"spec":{"config":"{ \"cniVersion\": \"0.3.1\", \"type\": \"ovs\", \"bridge\": \"br1\", \"vlan\": 100 }"}}`
 	ptpConfCRD           = `{"apiVersion":"k8s.cni.cncf.io/v1","kind":"NetworkAttachmentDefinition","metadata":{"name":"%s","namespace":"%s"},"spec":{"config":"{ \"name\": \"mynet\", \"type\": \"ptp\", \"ipam\": { \"type\": \"host-local\", \"subnet\": \"10.1.1.0/24\" } }"}}`
 	ptpConfWithTuningCRD = `{"apiVersion":"k8s.cni.cncf.io/v1","kind":"NetworkAttachmentDefinition","metadata":{"name":"%s","namespace":"%s"},"spec":{"config":"{ \"cniVersion\": \"0.3.1\", \"name\": \"mynet\", \"plugins\": [{\"type\": \"ptp\", \"ipam\": { \"type\": \"host-local\", \"subnet\": \"10.1.1.0/24\" }},{\"type\": \"tuning\"}]}"}}`
-	sriovConfCRD         = `{"apiVersion":"k8s.cni.cncf.io/v1","kind":"NetworkAttachmentDefinition","metadata":{"name":"%s","namespace":"%s","annotations":{"k8s.v1.cni.cncf.io/resourceName":"intel.com/sriov"}},"spec":{"config":"{ \"name\": \"sriov\", \"type\": \"sriov\", \"ipam\": { \"type\": \"host-local\", \"subnet\": \"10.1.1.0/24\" } }"}}`
+	// note: we assume resource name has intel.com prefix even if the actual driver is not Intel
+	sriovConfCRD = `{"apiVersion":"k8s.cni.cncf.io/v1","kind":"NetworkAttachmentDefinition","metadata":{"name":"%s","namespace":"%s","annotations":{"k8s.v1.cni.cncf.io/resourceName":"intel.com/sriov"}},"spec":{"config":"{ \"name\": \"sriov\", \"type\": \"sriov\", \"ipam\": { \"type\": \"host-local\", \"subnet\": \"10.1.1.0/24\" } }"}}`
 )
 
 var _ = Describe("Multus", func() {
@@ -333,7 +334,16 @@ var _ = Describe("Multus", func() {
 			})
 
 			getSriovVmi := func(networks []string) (vmi *v1.VirtualMachineInstance) {
-				userData := "#cloud-config\npassword: fedora\nchpasswd: { expire: False }\n"
+				// If we run on a host with Mellanox SR-IOV cards then we'll need to load in corresponding kernel modules.
+				// Use agent to signal about cloud-init phase completion.
+				userData := fmt.Sprintf(`#!/bin/sh
+				    echo "fedora" |passwd fedora --stdin
+				    dnf install -y kernel-modules-$(uname -r)
+				    modprobe mlx5_ib
+				    mkdir -p /usr/local/bin
+				    curl %s > /usr/local/bin/qemu-ga
+				    chmod +x /usr/local/bin/qemu-ga
+				    systemd-run --unit=guestagent /usr/local/bin/qemu-ga`, tests.GuestAgentHttpUrl)
 				vmi = tests.NewRandomVMIWithEphemeralDiskAndUserdata(tests.ContainerDiskFor(tests.ContainerDiskFedora), userData)
 
 				tests.AddExplicitPodNetworkInterface(vmi)
@@ -350,6 +360,9 @@ var _ = Describe("Multus", func() {
 				_, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
 				Expect(err).ToNot(HaveOccurred())
 				tests.WaitUntilVMIReady(vmi, tests.LoggedInFedoraExpecter)
+
+				// Need to wait for cloud init to finish and start the agent inside the vmi.
+				tests.WaitAgentConnected(virtClient, vmi)
 
 				return
 			}
