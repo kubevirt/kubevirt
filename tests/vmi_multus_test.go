@@ -661,18 +661,19 @@ var _ = Describe("Multus", func() {
 				Expect(err).ToNot(HaveOccurred(), "Should create VMI successfully")
 				tests.WaitForSuccessfulVMIStart(agentVMI)
 
-				getOptions := &metav1.GetOptions{}
-				var updatedVmi *v1.VirtualMachineInstance
-
 				// Need to wait for cloud init to finish and start the agent inside the vmi.
 				tests.WaitAgentConnected(virtClient, agentVMI)
 
+				getOptions := &metav1.GetOptions{}
 				Eventually(func() bool {
-					updatedVmi, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Get(agentVMI.Name, getOptions)
+					updatedVmi, err := virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Get(agentVMI.Name, getOptions)
+					if err != nil {
+						return false
+					}
 					return len(updatedVmi.Status.Interfaces) == 4
 				}, 420*time.Second, 4).Should(BeTrue(), "Should have interfaces in vmi status")
 
-				updatedVmi, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Get(agentVMI.Name, getOptions)
+				updatedVmi, err := virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Get(agentVMI.Name, getOptions)
 				Expect(err).ToNot(HaveOccurred())
 
 				Expect(len(updatedVmi.Status.Interfaces)).To(Equal(4))
