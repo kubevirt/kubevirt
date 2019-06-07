@@ -98,19 +98,19 @@ release-announce: .release-functest
 	./hack/release-announce.sh $(RELREF) $(PREREF)
 
 cluster-up:
-	./cluster/up.sh
+	./cluster-up/up.sh
 
 cluster-down:
-	./cluster/down.sh
+	./cluster-up/down.sh
 
 cluster-build:
-	./cluster/build.sh
+	./hack/cluster-build.sh
 
 cluster-clean:
-	./cluster/clean.sh
+	./hack/cluster-clean.sh
 
 cluster-deploy: cluster-clean
-	./cluster/deploy.sh
+	./hack/cluster-deploy.sh
 
 cluster-sync: cluster-build cluster-deploy
 

@@ -39,7 +39,7 @@ else
   export KUBEVIRT_PROVIDER=$TARGET
 fi
 
-if [ ! -d "cluster/$KUBEVIRT_PROVIDER" ]; then
+if [ ! -d "cluster-up/cluster/$KUBEVIRT_PROVIDER" ]; then
   echo "The cluster provider $KUBEVIRT_PROVIDER does not exist"
   exit 1
 fi
@@ -139,7 +139,7 @@ if [[ $TARGET =~ windows.* ]]; then
   safe_download "$WINDOWS_LOCK_PATH" "$win_image_url" "$win_image" || exit 1
 fi
 
-kubectl() { cluster/kubectl.sh "$@"; }
+kubectl() { cluster-up/kubectl.sh "$@"; }
 
 export NAMESPACE="${NAMESPACE:-kubevirt}"
 

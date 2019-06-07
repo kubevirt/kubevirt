@@ -14,21 +14,16 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-# Copyright 2017 Red Hat, Inc.
+# Copyright 2019 Red Hat, Inc.
 #
 
 set -e
 
-DOCKER_TAG=${DOCKER_TAG:-devel}
-DOCKER_TAG_ALT=${DOCKER_TAG_ALT:-devel_alt}
-
-source hack/common.sh
-source hack/config.sh
-
-functest_docker_prefix=${manifest_docker_prefix-${docker_prefix}}
-
-if [[ ${TARGET} == openshift* ]]; then
-    oc=${kubectl}
+if [ -z "$KUBEVIRTCI_PATH" ]; then
+    KUBEVIRTCI_PATH="$(
+        cd "$(dirname "$BASH_SOURCE[0]")/"
+        echo "$(pwd)/"
+    )"
 fi
 
-${TESTS_OUT_DIR}/tests.test -kubeconfig=${kubeconfig} -container-tag=${docker_tag} -container-tag-alt=${docker_tag_alt} -container-prefix=${functest_docker_prefix} -oc-path=${oc} -kubectl-path=${kubectl} -test.timeout 210m ${FUNC_TEST_ARGS} -installed-namespace=${namespace}
+$KUBEVIRTCI_PATH/kubectl.sh "$@"

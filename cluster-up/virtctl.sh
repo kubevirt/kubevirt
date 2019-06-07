@@ -14,21 +14,27 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-# Copyright 2017 Red Hat, Inc.
+# Copyright 2018 Red Hat, Inc.
 #
 
 set -e
 
-DOCKER_TAG=${DOCKER_TAG:-devel}
-DOCKER_TAG_ALT=${DOCKER_TAG_ALT:-devel_alt}
-
-source hack/common.sh
-source hack/config.sh
-
-functest_docker_prefix=${manifest_docker_prefix-${docker_prefix}}
-
-if [[ ${TARGET} == openshift* ]]; then
-    oc=${kubectl}
+if [ -z "$KUBEVIRTCI_PATH" ]; then
+    KUBEVIRTCI_PATH="$(
+        cd "$(dirname "$BASH_SOURCE[0]")/"
+        echo "$(pwd)/"
+    )"
 fi
 
-${TESTS_OUT_DIR}/tests.test -kubeconfig=${kubeconfig} -container-tag=${docker_tag} -container-tag-alt=${docker_tag_alt} -container-prefix=${functest_docker_prefix} -oc-path=${oc} -kubectl-path=${kubectl} -test.timeout 210m ${FUNC_TEST_ARGS} -installed-namespace=${namespace}
+source ${KUBEVIRTCI_PATH}/cluster/$KUBEVIRT_PROVIDER/provider.sh
+source ${KUBEVIRTCI_PATH}/hack/config.sh
+
+CONFIG_ARGS=
+
+if [ -n "$kubeconfig" ]; then
+    CONFIG_ARGS="--kubeconfig=${kubeconfig}"
+elif [ -n "$KUBECONFIG" ]; then
+    CONFIG_ARGS="--kubeconfig=${KUBECONFIG}"
+fi
+
+${KUBEVIRTCI_PATH}/_out/cmd/virtctl/virtctl $CONFIG_ARGS "$@"
