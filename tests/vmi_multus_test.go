@@ -664,17 +664,8 @@ var _ = Describe("Multus", func() {
 				getOptions := &metav1.GetOptions{}
 				var updatedVmi *v1.VirtualMachineInstance
 
-				// Need to wait for cloud init to finnish and start the agent inside the vmi.
-				Eventually(func() bool {
-					updatedVmi, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Get(agentVMI.Name, getOptions)
-					Expect(err).ToNot(HaveOccurred())
-					for _, condition := range updatedVmi.Status.Conditions {
-						if condition.Type == "AgentConnected" && condition.Status == "True" {
-							return true
-						}
-					}
-					return false
-				}, 420*time.Second, 2).Should(BeTrue(), "Should have agent connected condition")
+				// Need to wait for cloud init to finish and start the agent inside the vmi.
+				tests.WaitAgentConnected(virtClient, agentVMI)
 
 				Eventually(func() bool {
 					updatedVmi, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Get(agentVMI.Name, getOptions)

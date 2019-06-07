@@ -635,16 +635,7 @@ var _ = Describe("[rfe_id:393][crit:high[vendor:cnv-qe@redhat.com][level:system]
 				vmi = runVMIAndExpectLaunch(vmi, 240)
 
 				// Need to wait for cloud init to finish and start the agent inside the vmi.
-				Eventually(func() bool {
-					updatedVmi, err := virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Get(vmi.Name, &metav1.GetOptions{})
-					Expect(err).ToNot(HaveOccurred())
-					for _, condition := range updatedVmi.Status.Conditions {
-						if condition.Type == "AgentConnected" && condition.Status == "True" {
-							return true
-						}
-					}
-					return false
-				}, 420*time.Second, 2).Should(BeTrue(), "Should have agent connected condition")
+				tests.WaitAgentConnected(virtClient, vmi)
 
 				// Run
 				expecter, expecterErr := tests.LoggedInFedoraExpecter(vmi)
@@ -742,24 +733,13 @@ var _ = Describe("[rfe_id:393][crit:high[vendor:cnv-qe@redhat.com][level:system]
 				By("Starting the VirtualMachineInstance")
 				vmi = runVMIAndExpectLaunch(vmi, 240)
 
-				getOptions := &metav1.GetOptions{}
-				var updatedVmi *v1.VirtualMachineInstance
 				By("Checking that the VirtualMachineInstance console has expected output")
 				expecter, expecterErr := tests.LoggedInFedoraExpecter(vmi)
 				Expect(expecterErr).To(BeNil())
 				defer expecter.Close()
 
-				// Need to wait for cloud init to finnish and start the agent inside the vmi.
-				Eventually(func() bool {
-					updatedVmi, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Get(vmi.Name, getOptions)
-					Expect(err).ToNot(HaveOccurred())
-					for _, condition := range updatedVmi.Status.Conditions {
-						if condition.Type == "AgentConnected" && condition.Status == "True" {
-							return true
-						}
-					}
-					return false
-				}, 420*time.Second, 2).Should(BeTrue(), "Should have agent connected condition")
+				// Need to wait for cloud init to finish and start the agent inside the vmi.
+				tests.WaitAgentConnected(virtClient, vmi)
 
 				By("Run a stress test")
 				_, err = expecter.ExpectBatch([]expect.Batcher{
@@ -844,24 +824,13 @@ var _ = Describe("[rfe_id:393][crit:high[vendor:cnv-qe@redhat.com][level:system]
 				By("Starting the VirtualMachineInstance")
 				vmi = runVMIAndExpectLaunch(vmi, 240)
 
-				getOptions := &metav1.GetOptions{}
-				var updatedVmi *v1.VirtualMachineInstance
 				By("Checking that the VirtualMachineInstance console has expected output")
 				expecter, expecterErr := tests.LoggedInFedoraExpecter(vmi)
 				Expect(expecterErr).To(BeNil())
 				defer expecter.Close()
 
-				// Need to wait for cloud init to finnish and start the agent inside the vmi.
-				Eventually(func() bool {
-					updatedVmi, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Get(vmi.Name, getOptions)
-					Expect(err).ToNot(HaveOccurred())
-					for _, condition := range updatedVmi.Status.Conditions {
-						if condition.Type == "AgentConnected" && condition.Status == "True" {
-							return true
-						}
-					}
-					return false
-				}, 420*time.Second, 2).Should(BeTrue(), "Should have agent connected condition")
+				// Need to wait for cloud init to finish and start the agent inside the vmi.
+				tests.WaitAgentConnected(virtClient, vmi)
 
 				By("Run a stress test")
 				_, err = expecter.ExpectBatch([]expect.Batcher{
@@ -1006,7 +975,7 @@ var _ = Describe("[rfe_id:393][crit:high[vendor:cnv-qe@redhat.com][level:system]
 				defer expecter.Close()
 
 				By("Waiting for user agent connection")
-				waitForUserAgentConnection(vmi)
+				tests.WaitAgentConnected(virtClient, vmi)
 
 				By("Run a stress test to dirty some pages and slow down the migration")
 				_, err = expecter.ExpectBatch([]expect.Batcher{
@@ -1067,7 +1036,7 @@ var _ = Describe("[rfe_id:393][crit:high[vendor:cnv-qe@redhat.com][level:system]
 					defer expecter.Close()
 
 					By("Waiting for user agent connection")
-					waitForUserAgentConnection(vmi)
+					tests.WaitAgentConnected(virtClient, vmi)
 
 					// Put VMI under load
 					By("Run a stress test to dirty some pages and slow down the migration")
@@ -1339,23 +1308,6 @@ var _ = Describe("[rfe_id:393][crit:high[vendor:cnv-qe@redhat.com][level:system]
 
 	})
 })
-
-func waitForUserAgentConnection(vmi *v1.VirtualMachineInstance) {
-	virtClient, err := kubecli.GetKubevirtClient()
-	tests.PanicOnError(err)
-
-	getOptions := &metav1.GetOptions{}
-	Eventually(func() bool {
-		updatedVmi, err := virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Get(vmi.Name, getOptions)
-		Expect(err).ToNot(HaveOccurred())
-		for _, condition := range updatedVmi.Status.Conditions {
-			if condition.Type == "AgentConnected" && condition.Status == "True" {
-				return true
-			}
-		}
-		return false
-	}, 420*time.Second, 2).Should(BeTrue(), "Should have agent connected condition")
-}
 
 func fedoraVMIWithEvictionStrategy() *v1.VirtualMachineInstance {
 	vmi := tests.NewRandomFedoraVMIWitGuestAgent()
