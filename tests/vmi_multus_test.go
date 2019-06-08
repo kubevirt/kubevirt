@@ -20,9 +20,11 @@
 package tests_test
 
 import (
+	"bytes"
 	"flag"
 	"fmt"
 	"strings"
+	"text/template"
 	"time"
 
 	expect "github.com/google/goexpect"
@@ -41,11 +43,7 @@ import (
 )
 
 const (
-	postUrl              = "/apis/k8s.cni.cncf.io/v1/namespaces/%s/network-attachment-definitions/%s"
-	ovsConfCRD           = `{"apiVersion":"k8s.cni.cncf.io/v1","kind":"NetworkAttachmentDefinition","metadata":{"name":"%s","namespace":"%s"},"spec":{"config":"{ \"cniVersion\": \"0.3.1\", \"type\": \"ovs\", \"bridge\": \"br1\", \"vlan\": 100 }"}}`
-	ptpConfCRD           = `{"apiVersion":"k8s.cni.cncf.io/v1","kind":"NetworkAttachmentDefinition","metadata":{"name":"%s","namespace":"%s"},"spec":{"config":"{ \"name\": \"mynet\", \"type\": \"ptp\", \"ipam\": { \"type\": \"host-local\", \"subnet\": \"10.1.1.0/24\" } }"}}`
-	ptpConfWithTuningCRD = `{"apiVersion":"k8s.cni.cncf.io/v1","kind":"NetworkAttachmentDefinition","metadata":{"name":"%s","namespace":"%s"},"spec":{"config":"{ \"cniVersion\": \"0.3.1\", \"name\": \"mynet\", \"plugins\": [{\"type\": \"ptp\", \"ipam\": { \"type\": \"host-local\", \"subnet\": \"10.1.1.0/24\" }},{\"type\": \"tuning\"}]}"}}`
-	sriovConfCRD         = `{"apiVersion":"k8s.cni.cncf.io/v1","kind":"NetworkAttachmentDefinition","metadata":{"name":"%s","namespace":"%s","annotations":{"k8s.v1.cni.cncf.io/resourceName":"intel.com/sriov"}},"spec":{"config":"{ \"name\": \"sriov\", \"type\": \"sriov\", \"ipam\": { \"type\": \"host-local\", \"subnet\": \"10.1.1.0/24\" } }"}}`
+	postUrl = "/apis/k8s.cni.cncf.io/v1/namespaces/%s/network-attachment-definitions/%s"
 )
 
 var _ = Describe("Multus", func() {
@@ -64,8 +62,8 @@ var _ = Describe("Multus", func() {
 		},
 	}
 
-	ovsInterface := v1.Interface{
-		Name: "ovs",
+	linuxBridgeInterface := v1.Interface{
+		Name: "linux-bridge",
 		InterfaceBindingMethod: v1.InterfaceBindingMethod{
 			Bridge: &v1.InterfaceBridge{},
 		},
@@ -78,14 +76,69 @@ var _ = Describe("Multus", func() {
 		},
 	}
 
-	ovsNetwork := v1.Network{
-		Name: "ovs",
+	linuxBridgeNetwork := v1.Network{
+		Name: "linux-bridge",
 		NetworkSource: v1.NetworkSource{
 			Multus: &v1.MultusNetwork{
-				NetworkName: "ovs-net-vlan100",
+				NetworkName: "linux-bridge-net-vlan100",
 			},
 		},
 	}
+
+	linuxBridgeConfCRD := networkAttachmentDefinitionTemplate("", `
+{
+  "cniVersion": "0.3.1",
+  "name": "mynet",
+  "plugins": [
+    {
+      "type": "bridge",
+      "bridge": "br10",
+      "vlan": 100
+    },
+    {
+      "type": "tuning"
+    }
+  ]
+}
+`)
+	ptpConfCRD := networkAttachmentDefinitionTemplate("", `
+{
+  "name": "mynet",
+  "type": "ptp",
+  "ipam": {
+    "type": "host-local",
+    "subnet": "10.1.1.0/24"
+  }
+}
+`)
+	ptpConfWithTuningCRD := networkAttachmentDefinitionTemplate("", `
+{
+  "cniVersion": "0.3.1",
+  "name": "mynet",
+  "plugins": [
+    {
+      "type": "ptp",
+      "ipam": {
+        "type": "host-local",
+        "subnet": "10.1.1.0/24"
+      }
+    },
+    {
+      "type": "tuning"
+    }
+  ]
+}
+`)
+	sriovConfCRD := networkAttachmentDefinitionTemplate("intel.com/sriov", `
+{
+  "name": "sriov",
+  "type": "sriov",
+  "ipam": {
+    "type": "host-local",
+    "subnet": "10.1.1.0/24"
+  }
+}
+`)
 
 	AfterEach(func() {
 		// Multus tests need to ensure that old VMIs are gone
@@ -121,8 +174,8 @@ var _ = Describe("Multus", func() {
 
 		result := virtClient.RestClient().
 			Post().
-			RequestURI(fmt.Sprintf(postUrl, tests.NamespaceTestDefault, "ovs-net-vlan100")).
-			Body([]byte(fmt.Sprintf(ovsConfCRD, "ovs-net-vlan100", tests.NamespaceTestDefault))).
+			RequestURI(fmt.Sprintf(postUrl, tests.NamespaceTestDefault, "linux-bridge-net-vlan100")).
+			Body([]byte(fmt.Sprintf(linuxBridgeConfCRD, "linux-bridge-net-vlan100", tests.NamespaceTestDefault))).
 			Do()
 		Expect(result.Error()).NotTo(HaveOccurred())
 
@@ -451,12 +504,12 @@ var _ = Describe("Multus", func() {
 			})
 		})
 
-		Context("VirtualMachineInstance with ovs-cni plugin interface", func() {
+		Context("VirtualMachineInstance with Linux bridge CNI plugin interface", func() {
 
 			It("[test_id:1577]should create two virtual machines with one interface", func() {
-				By("checking virtual machine instance can ping the secondary virtual machine instance using ovs-cni plugin")
-				interfaces := []v1.Interface{ovsInterface}
-				networks := []v1.Network{ovsNetwork}
+				By("checking virtual machine instance can ping the secondary virtual machine instance using Linux bridge CNI plugin")
+				interfaces := []v1.Interface{linuxBridgeInterface}
+				networks := []v1.Network{linuxBridgeNetwork}
 
 				vmiOne := createVMIOnNode(interfaces, networks)
 				vmiTwo := createVMIOnNode(interfaces, networks)
@@ -477,14 +530,14 @@ var _ = Describe("Multus", func() {
 			})
 
 			It("[test_id:1578]should create two virtual machines with two interfaces", func() {
-				By("checking the first virtual machine instance can ping 10.1.1.2 using ovs-cni plugin")
+				By("checking the first virtual machine instance can ping 10.1.1.2 using Linux bridge CNI plugin")
 				interfaces := []v1.Interface{
 					defaultInterface,
-					ovsInterface,
+					linuxBridgeInterface,
 				}
 				networks := []v1.Network{
 					defaultNetwork,
-					ovsNetwork,
+					linuxBridgeNetwork,
 				}
 
 				vmiOne := createVMIOnNode(interfaces, networks)
@@ -506,23 +559,23 @@ var _ = Describe("Multus", func() {
 			})
 		})
 
-		Context("VirtualMachineInstance with ovs-cni plugin interface and custom MAC address.", func() {
-			interfaces := []v1.Interface{ovsInterface}
-			networks := []v1.Network{ovsNetwork}
-			ovsIfIdx := 0
+		Context("VirtualMachineInstance with Linux bridge CNI plugin interface and custom MAC address.", func() {
+			interfaces := []v1.Interface{linuxBridgeInterface}
+			networks := []v1.Network{linuxBridgeNetwork}
+			linuxBridgeIfIdx := 0
 			customMacAddress := "50:00:00:00:90:0d"
 
-			It("[test_id:676]should configure valid custom MAC address on ovs-cni interface.", func() {
-				By("Creating a VM with ovs-cni network interface and default MAC address.")
+			It("[test_id:676]should configure valid custom MAC address on Linux bridge CNI interface.", func() {
+				By("Creating a VM with Linux bridge CNI network interface and default MAC address.")
 				vmiTwo := createVMIOnNode(interfaces, networks)
 				tests.WaitUntilVMIReady(vmiTwo, tests.LoggedInAlpineExpecter)
 
-				By("Creating another VM with custom MAC address on its ovs-cni interface.")
-				interfaces[ovsIfIdx].MacAddress = customMacAddress
+				By("Creating another VM with custom MAC address on its Linux bridge CNI interface.")
+				interfaces[linuxBridgeIfIdx].MacAddress = customMacAddress
 				vmiOne := createVMIOnNode(interfaces, networks)
 				tests.WaitUntilVMIReady(vmiOne, tests.LoggedInAlpineExpecter)
 
-				By("Configuring static IP address to the ovs interface.")
+				By("Configuring static IP address to the Linux bridge interface.")
 				configInterface(vmiOne, "eth0", "10.1.1.1/24", "localhost:~#")
 				configInterface(vmiTwo, "eth0", "10.1.1.2/24", "localhost:~#")
 
@@ -549,16 +602,16 @@ var _ = Describe("Multus", func() {
 				pingVirtualMachine(vmiOne, "10.1.1.2", "localhost:~#")
 			})
 		})
-		Context("Single VirtualMachineInstance with ovs-cni plugin interface", func() {
+		Context("Single VirtualMachineInstance with Linux bridge CNI plugin interface", func() {
 
 			It("[test_id:1756]should report all interfaces in Status", func() {
 				interfaces := []v1.Interface{
 					defaultInterface,
-					ovsInterface,
+					linuxBridgeInterface,
 				}
 				networks := []v1.Network{
 					defaultNetwork,
-					ovsNetwork,
+					linuxBridgeNetwork,
 				}
 
 				vmiOne := createVMIOnNode(interfaces, networks)
@@ -579,14 +632,14 @@ var _ = Describe("Multus", func() {
 					Expect(is_present).To(BeTrue())
 					Expect(ifc.MAC).To(Not(BeZero()))
 				}
-				Expect(interfacesByName["default"].MAC).To(Not(Equal(interfacesByName["ovs"].MAC)))
+				Expect(interfacesByName["default"].MAC).To(Not(Equal(interfacesByName["linux-bridge"].MAC)))
 
 				err = tests.CheckForTextExpecter(updatedVmi, []expect.Batcher{
 					&expect.BSnd{S: fmt.Sprintf("ip addr show eth0 | grep %s | wc -l", interfacesByName["default"].MAC)},
 					&expect.BExp{R: "1"},
 				}, 15)
 				err = tests.CheckForTextExpecter(updatedVmi, []expect.Batcher{
-					&expect.BSnd{S: fmt.Sprintf("ip addr show eth1 | grep %s | wc -l", interfacesByName["ovs"].MAC)},
+					&expect.BSnd{S: fmt.Sprintf("ip addr show eth1 | grep %s | wc -l", interfacesByName["linux-bridge"].MAC)},
 					&expect.BExp{R: "1"},
 				}, 15)
 			})
@@ -599,18 +652,18 @@ var _ = Describe("Multus", func() {
 
 			It("[test_id:1713]should failed to start with invalid MAC address", func() {
 				By("Start VMI")
-				ovsIfIdx := 1
+				linuxBridgeIfIdx := 1
 
 				vmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(tests.ContainerDiskFor(tests.ContainerDiskAlpine), "#!/bin/bash\n")
 				vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{
 					defaultInterface,
-					ovsInterface,
+					linuxBridgeInterface,
 				}
-				vmi.Spec.Domain.Devices.Interfaces[ovsIfIdx].MacAddress = "de:00c:00c:00:00:de:abc"
+				vmi.Spec.Domain.Devices.Interfaces[linuxBridgeIfIdx].MacAddress = "de:00c:00c:00:00:de:abc"
 
 				vmi.Spec.Networks = []v1.Network{
 					defaultNetwork,
-					ovsNetwork,
+					linuxBridgeNetwork,
 				}
 
 				_, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
@@ -627,11 +680,11 @@ var _ = Describe("Multus", func() {
 			It("[test_id:1757] should report guest interfaces in VMI status", func() {
 				interfaces := []v1.Interface{
 					defaultInterface,
-					ovsInterface,
+					linuxBridgeInterface,
 				}
 				networks := []v1.Network{
 					defaultNetwork,
-					ovsNetwork,
+					linuxBridgeNetwork,
 				}
 
 				ep1Ip := "1.0.0.10/24"
@@ -693,7 +746,7 @@ var _ = Describe("Multus", func() {
 				Expect(interfaceByIfcName["eth0"].Name).To(Equal("default"))
 				Expect(interfaceByIfcName["eth0"].InterfaceName).To(Equal("eth0"))
 
-				Expect(interfaceByIfcName["eth1"].Name).To(Equal("ovs"))
+				Expect(interfaceByIfcName["eth1"].Name).To(Equal("linux-bridge"))
 				Expect(interfaceByIfcName["eth1"].InterfaceName).To(Equal("eth1"))
 
 				Expect(interfaceByIfcName["ep1"].Name).To(Equal(""))
@@ -758,4 +811,35 @@ func pingVirtualMachine(vmi *v1.VirtualMachineInstance, ipAddr, prompt string) {
 		&expect.BExp{R: "0"},
 	}, 30)
 	Expect(err).ToNot(HaveOccurred())
+}
+
+func networkAttachmentDefinitionTemplate(resourceName, config string) string {
+	nadTemplate := template.Must(template.New("NetworkAttachmentDefinition").Parse(`
+{
+  "apiVersion": "k8s.cni.cncf.io/v1",
+  "kind": "NetworkAttachmentDefinition",
+  "metadata": {
+{{ if .ResourceName }}
+    "annotations": {
+      "k8s.v1.cni.cncf.io/resourceName": "{{ .ResourceName }}"
+    }
+{{ end }}
+    "name": "%s",
+    "namespace": "%s"
+  },
+  "spec": {
+    "config": "{{ .Config }}"
+  }
+}
+`))
+
+	var nad bytes.Buffer
+	if err := nadTemplate.Execute(&nad, map[string]string{
+		"ResourceName": resourceName,
+		"Config":       strings.Replace(config, "\"", "\\\"", -1),
+	}); err != nil {
+		panic(err)
+	}
+
+	return strings.Replace(nad.String(), "\n", "", -1)
 }
