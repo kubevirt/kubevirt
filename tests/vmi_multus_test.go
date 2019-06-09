@@ -29,11 +29,13 @@ import (
 	. "github.com/onsi/ginkgo"
 	"github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
+	appsv1 "k8s.io/api/apps/v1"
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	v13 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/utils/pointer"
 
 	v1 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/client-go/kubecli"
@@ -42,7 +44,7 @@ import (
 
 const (
 	postUrl              = "/apis/k8s.cni.cncf.io/v1/namespaces/%s/network-attachment-definitions/%s"
-	ovsConfCRD           = `{"apiVersion":"k8s.cni.cncf.io/v1","kind":"NetworkAttachmentDefinition","metadata":{"name":"%s","namespace":"%s"},"spec":{"config":"{ \"cniVersion\": \"0.3.1\", \"type\": \"ovs\", \"bridge\": \"br1\", \"vlan\": 100 }"}}`
+	linuxBridgeConfCRD   = `{"apiVersion":"k8s.cni.cncf.io/v1","kind":"NetworkAttachmentDefinition","metadata":{"name":"%s","namespace":"%s"},"spec":{"config":"{ \"cniVersion\": \"0.3.1\", \"name\": \"mynet\", \"plugins\": [{\"type\": \"bridge\", \"bridge\": \"br10\", \"vlan\": 100, \"ipam\": {}},{\"type\": \"tuning\"}]}"}}`
 	ptpConfCRD           = `{"apiVersion":"k8s.cni.cncf.io/v1","kind":"NetworkAttachmentDefinition","metadata":{"name":"%s","namespace":"%s"},"spec":{"config":"{ \"name\": \"mynet\", \"type\": \"ptp\", \"ipam\": { \"type\": \"host-local\", \"subnet\": \"10.1.1.0/24\" } }"}}`
 	ptpConfWithTuningCRD = `{"apiVersion":"k8s.cni.cncf.io/v1","kind":"NetworkAttachmentDefinition","metadata":{"name":"%s","namespace":"%s"},"spec":{"config":"{ \"cniVersion\": \"0.3.1\", \"name\": \"mynet\", \"plugins\": [{\"type\": \"ptp\", \"ipam\": { \"type\": \"host-local\", \"subnet\": \"10.1.1.0/24\" }},{\"type\": \"tuning\"}]}"}}`
 	// note: we assume resource name has intel.com prefix even if the actual driver is not Intel
@@ -65,8 +67,8 @@ var _ = Describe("Multus", func() {
 		},
 	}
 
-	ovsInterface := v1.Interface{
-		Name: "ovs",
+	linuxBridgeInterface := v1.Interface{
+		Name: "linux-bridge",
 		InterfaceBindingMethod: v1.InterfaceBindingMethod{
 			Bridge: &v1.InterfaceBridge{},
 		},
@@ -79,11 +81,11 @@ var _ = Describe("Multus", func() {
 		},
 	}
 
-	ovsNetwork := v1.Network{
-		Name: "ovs",
+	linuxBridgeNetwork := v1.Network{
+		Name: "linux-bridge",
 		NetworkSource: v1.NetworkSource{
 			Multus: &v1.MultusNetwork{
-				NetworkName: "ovs-net-vlan100",
+				NetworkName: "linux-bridge-net-vlan100",
 			},
 		},
 	}
@@ -120,10 +122,12 @@ var _ = Describe("Multus", func() {
 		nodes = tests.GetAllSchedulableNodes(virtClient)
 		Expect(len(nodes.Items) > 0).To(BeTrue())
 
+		configureNodeNetwork(virtClient)
+
 		result := virtClient.RestClient().
 			Post().
-			RequestURI(fmt.Sprintf(postUrl, tests.NamespaceTestDefault, "ovs-net-vlan100")).
-			Body([]byte(fmt.Sprintf(ovsConfCRD, "ovs-net-vlan100", tests.NamespaceTestDefault))).
+			RequestURI(fmt.Sprintf(postUrl, tests.NamespaceTestDefault, "linux-bridge-net-vlan100")).
+			Body([]byte(fmt.Sprintf(linuxBridgeConfCRD, "linux-bridge-net-vlan100", tests.NamespaceTestDefault))).
 			Do()
 		Expect(result.Error()).NotTo(HaveOccurred())
 
@@ -329,12 +333,12 @@ var _ = Describe("Multus", func() {
 			)
 		})
 
-		Context("VirtualMachineInstance with ovs-cni plugin interface", func() {
+		Context("VirtualMachineInstance with Linux bridge plugin interface", func() {
 
 			It("[test_id:1577]should create two virtual machines with one interface", func() {
-				By("checking virtual machine instance can ping the secondary virtual machine instance using ovs-cni plugin")
-				interfaces := []v1.Interface{ovsInterface}
-				networks := []v1.Network{ovsNetwork}
+				By("checking virtual machine instance can ping the secondary virtual machine instance using Linux bridge CNI plugin")
+				interfaces := []v1.Interface{linuxBridgeInterface}
+				networks := []v1.Network{linuxBridgeNetwork}
 
 				vmiOne := createVMIOnNode(interfaces, networks)
 				vmiTwo := createVMIOnNode(interfaces, networks)
@@ -355,14 +359,14 @@ var _ = Describe("Multus", func() {
 			})
 
 			It("[test_id:1578]should create two virtual machines with two interfaces", func() {
-				By("checking the first virtual machine instance can ping 10.1.1.2 using ovs-cni plugin")
+				By("checking the first virtual machine instance can ping 10.1.1.2 using Linux bridge CNI plugin")
 				interfaces := []v1.Interface{
 					defaultInterface,
-					ovsInterface,
+					linuxBridgeInterface,
 				}
 				networks := []v1.Network{
 					defaultNetwork,
-					ovsNetwork,
+					linuxBridgeNetwork,
 				}
 
 				vmiOne := createVMIOnNode(interfaces, networks)
@@ -384,23 +388,23 @@ var _ = Describe("Multus", func() {
 			})
 		})
 
-		Context("VirtualMachineInstance with ovs-cni plugin interface and custom MAC address.", func() {
-			interfaces := []v1.Interface{ovsInterface}
-			networks := []v1.Network{ovsNetwork}
-			ovsIfIdx := 0
+		Context("VirtualMachineInstance with Linux bridge CNI plugin interface and custom MAC address.", func() {
+			interfaces := []v1.Interface{linuxBridgeInterface}
+			networks := []v1.Network{linuxBridgeNetwork}
+			linuxBridgeIfIdx := 0
 			customMacAddress := "50:00:00:00:90:0d"
 
-			It("[test_id:676]should configure valid custom MAC address on ovs-cni interface.", func() {
-				By("Creating a VM with ovs-cni network interface and default MAC address.")
+			It("[test_id:676]should configure valid custom MAC address on Linux bridge CNI interface.", func() {
+				By("Creating a VM with Linux bridge CNI network interface and default MAC address.")
 				vmiTwo := createVMIOnNode(interfaces, networks)
 				tests.WaitUntilVMIReady(vmiTwo, tests.LoggedInAlpineExpecter)
 
-				By("Creating another VM with custom MAC address on its ovs-cni interface.")
-				interfaces[ovsIfIdx].MacAddress = customMacAddress
+				By("Creating another VM with custom MAC address on its Linux bridge CNI interface.")
+				interfaces[linuxBridgeIfIdx].MacAddress = customMacAddress
 				vmiOne := createVMIOnNode(interfaces, networks)
 				tests.WaitUntilVMIReady(vmiOne, tests.LoggedInAlpineExpecter)
 
-				By("Configuring static IP address to the ovs interface.")
+				By("Configuring static IP address to the Linux bridge interface.")
 				configInterface(vmiOne, "eth0", "10.1.1.1/24", "localhost:~#")
 				configInterface(vmiTwo, "eth0", "10.1.1.2/24", "localhost:~#")
 
@@ -427,16 +431,16 @@ var _ = Describe("Multus", func() {
 				pingVirtualMachine(vmiOne, "10.1.1.2", "localhost:~#")
 			})
 		})
-		Context("Single VirtualMachineInstance with ovs-cni plugin interface", func() {
+		Context("Single VirtualMachineInstance with Linux bridge CNI plugin interface", func() {
 
 			It("[test_id:1756]should report all interfaces in Status", func() {
 				interfaces := []v1.Interface{
 					defaultInterface,
-					ovsInterface,
+					linuxBridgeInterface,
 				}
 				networks := []v1.Network{
 					defaultNetwork,
-					ovsNetwork,
+					linuxBridgeNetwork,
 				}
 
 				vmiOne := createVMIOnNode(interfaces, networks)
@@ -457,14 +461,14 @@ var _ = Describe("Multus", func() {
 					Expect(is_present).To(BeTrue())
 					Expect(ifc.MAC).To(Not(BeZero()))
 				}
-				Expect(interfacesByName["default"].MAC).To(Not(Equal(interfacesByName["ovs"].MAC)))
+				Expect(interfacesByName["default"].MAC).To(Not(Equal(interfacesByName["linux-bridge"].MAC)))
 
 				err = tests.CheckForTextExpecter(updatedVmi, []expect.Batcher{
 					&expect.BSnd{S: fmt.Sprintf("ip addr show eth0 | grep %s | wc -l", interfacesByName["default"].MAC)},
 					&expect.BExp{R: "1"},
 				}, 15)
 				err = tests.CheckForTextExpecter(updatedVmi, []expect.Batcher{
-					&expect.BSnd{S: fmt.Sprintf("ip addr show eth1 | grep %s | wc -l", interfacesByName["ovs"].MAC)},
+					&expect.BSnd{S: fmt.Sprintf("ip addr show eth1 | grep %s | wc -l", interfacesByName["linux-bridge"].MAC)},
 					&expect.BExp{R: "1"},
 				}, 15)
 			})
@@ -477,18 +481,18 @@ var _ = Describe("Multus", func() {
 
 			It("[test_id:1713]should failed to start with invalid MAC address", func() {
 				By("Start VMI")
-				ovsIfIdx := 1
+				linuxBridgeIfIdx := 1
 
 				vmi := tests.NewRandomVMIWithEphemeralDiskAndUserdata(tests.ContainerDiskFor(tests.ContainerDiskAlpine), "#!/bin/bash\n")
 				vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{
 					defaultInterface,
-					ovsInterface,
+					linuxBridgeInterface,
 				}
-				vmi.Spec.Domain.Devices.Interfaces[ovsIfIdx].MacAddress = "de:00c:00c:00:00:de:abc"
+				vmi.Spec.Domain.Devices.Interfaces[linuxBridgeIfIdx].MacAddress = "de:00c:00c:00:00:de:abc"
 
 				vmi.Spec.Networks = []v1.Network{
 					defaultNetwork,
-					ovsNetwork,
+					linuxBridgeNetwork,
 				}
 
 				_, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
@@ -505,11 +509,11 @@ var _ = Describe("Multus", func() {
 			It("[test_id:1757] should report guest interfaces in VMI status", func() {
 				interfaces := []v1.Interface{
 					defaultInterface,
-					ovsInterface,
+					linuxBridgeInterface,
 				}
 				networks := []v1.Network{
 					defaultNetwork,
-					ovsNetwork,
+					linuxBridgeNetwork,
 				}
 
 				ep1Ip := "1.0.0.10/24"
@@ -563,7 +567,7 @@ var _ = Describe("Multus", func() {
 				Expect(interfaceByIfcName["eth0"].Name).To(Equal("default"))
 				Expect(interfaceByIfcName["eth0"].InterfaceName).To(Equal("eth0"))
 
-				Expect(interfaceByIfcName["eth1"].Name).To(Equal("ovs"))
+				Expect(interfaceByIfcName["eth1"].Name).To(Equal("linux-bridge"))
 				Expect(interfaceByIfcName["eth1"].InterfaceName).To(Equal("eth1"))
 
 				Expect(interfaceByIfcName["ep1"].Name).To(Equal(""))
@@ -729,7 +733,7 @@ func configInterface(vmi *v1.VirtualMachineInstance, interfaceName, interfaceAdd
 		&expect.BSnd{S: "echo $?\n"},
 		&expect.BExp{R: "0"},
 	}, 15)
-	Expect(err).ToNot(HaveOccurred())
+	Expect(err).ToNot(HaveOccurred(), "Failed to configure address %s for interface %s on VMI %s", interfaceAddress, interfaceName, vmi.Name)
 
 	cmdCheck = fmt.Sprintf("ip link set %s up\n", interfaceName)
 	err = tests.CheckForTextExpecter(vmi, []expect.Batcher{
@@ -740,7 +744,7 @@ func configInterface(vmi *v1.VirtualMachineInstance, interfaceName, interfaceAdd
 		&expect.BSnd{S: "echo $?\n"},
 		&expect.BExp{R: "0"},
 	}, 15)
-	Expect(err).ToNot(HaveOccurred())
+	Expect(err).ToNot(HaveOccurred(), "Failed to set interface %s up on VMI %s", interfaceName, vmi.Name)
 }
 
 func checkInterface(vmi *v1.VirtualMachineInstance, interfaceName, prompt string) {
@@ -753,7 +757,7 @@ func checkInterface(vmi *v1.VirtualMachineInstance, interfaceName, prompt string
 		&expect.BSnd{S: "echo $?\n"},
 		&expect.BExp{R: "0"},
 	}, 15)
-	Expect(err).ToNot(HaveOccurred())
+	Expect(err).ToNot(HaveOccurred(), "Interface %q was not found in the VMI %s within the given timeout", interfaceName, vmi.Name)
 }
 
 func pingVirtualMachine(vmi *v1.VirtualMachineInstance, ipAddr, prompt string) {
@@ -766,5 +770,101 @@ func pingVirtualMachine(vmi *v1.VirtualMachineInstance, ipAddr, prompt string) {
 		&expect.BSnd{S: "echo $?\n"},
 		&expect.BExp{R: "0"},
 	}, 30)
-	Expect(err).ToNot(HaveOccurred())
+	Expect(err).ToNot(HaveOccurred(), "Failed to ping VMI %s within the given timeout", vmi.Name)
+}
+
+// Tests in Multus suite are expecting a Linux bridge to be available on each node, with iptables allowing
+// traffic to go through. This function creates a Daemon Set on the cluster (if not exists yet), this Daemon
+// Set creates a linux bridge and configures the firewall. We use iptables-compat in order to work with
+// both iptables and newer nftables.
+// TODO: Once kubernetes-nmstate is ready, we should use it instead
+func configureNodeNetwork(virtClient kubecli.KubevirtClient) {
+	// Privileged DaemonSet configuring host networking as needed
+	networkConfigDaemonSet := appsv1.DaemonSet{
+		TypeMeta: metav1.TypeMeta{
+			APIVersion: "apps/v1",
+			Kind:       "DaemonSet",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "network-config",
+			Namespace: metav1.NamespaceSystem,
+		},
+		Spec: appsv1.DaemonSetSpec{
+			Selector: &metav1.LabelSelector{
+				MatchLabels: map[string]string{"name": "network-config"},
+			},
+			Template: k8sv1.PodTemplateSpec{
+				ObjectMeta: metav1.ObjectMeta{
+					Labels: map[string]string{"name": "network-config"},
+				},
+				Spec: k8sv1.PodSpec{
+					Containers: []k8sv1.Container{
+						{
+							Name: "network-config",
+							// Reuse image which is already installed in the cluster. All we need is chroot.
+							// Local OKD cluster doesn't allow us to pull from the outside.
+							Image: "registry:5000/kubevirt/virt-operator:devel",
+							Command: []string{
+								"sh",
+								"-c",
+								"set -x; chroot /host ip link add br10 type bridge; chroot /host iptables -I FORWARD 1 -i br10 -j ACCEPT; touch /tmp/ready; sleep INF",
+							},
+							SecurityContext: &k8sv1.SecurityContext{
+								Privileged: pointer.BoolPtr(true),
+								RunAsUser:  pointer.Int64Ptr(0),
+							},
+							ReadinessProbe: &k8sv1.Probe{
+								Handler: k8sv1.Handler{
+									Exec: &k8sv1.ExecAction{
+										Command: []string{"cat", "/tmp/ready"},
+									},
+								},
+							},
+							VolumeMounts: []k8sv1.VolumeMount{
+								k8sv1.VolumeMount{
+									Name:      "host",
+									MountPath: "/host",
+								},
+							},
+						},
+					},
+					Volumes: []k8sv1.Volume{
+						k8sv1.Volume{
+							Name: "host",
+							VolumeSource: k8sv1.VolumeSource{
+								HostPath: &k8sv1.HostPathVolumeSource{
+									Path: "/",
+								},
+							},
+						},
+					},
+					HostNetwork: true,
+				},
+			},
+		},
+	}
+
+	// Helper function returning existing network-config DaemonSet if exists
+	getNetworkConfigDaemonSet := func() *appsv1.DaemonSet {
+		daemonSet, err := virtClient.AppsV1().DaemonSets(metav1.NamespaceSystem).Get(networkConfigDaemonSet.Name, metav1.GetOptions{})
+		if errors.IsNotFound(err) {
+			return nil
+		}
+		Expect(err).NotTo(HaveOccurred())
+		return daemonSet
+	}
+
+	// If the DaemonSet haven't been created yet, do so
+	runningNetworkConfigDaemonSet := getNetworkConfigDaemonSet()
+	if runningNetworkConfigDaemonSet == nil {
+		_, err := virtClient.AppsV1().DaemonSets(metav1.NamespaceSystem).Create(&networkConfigDaemonSet)
+		Expect(err).NotTo(HaveOccurred())
+	}
+
+	// Make sure that all pods in the Daemon Set finished the configuration
+	nodes := tests.GetAllSchedulableNodes(virtClient)
+	Eventually(func() int {
+		daemonSet := getNetworkConfigDaemonSet()
+		return int(daemonSet.Status.NumberAvailable)
+	}, time.Minute, time.Second).Should(Equal(len(nodes.Items)))
 }
