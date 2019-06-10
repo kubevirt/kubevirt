@@ -109,6 +109,11 @@ func init() {
 	flag.BoolVar(&DeployTestingInfrastructureFlag, "deploy-testing-infra", false, "Deploy testing infrastructure if set")
 	flag.StringVar(&PathToTestingInfrastrucureManifests, "path-to-testing-infra-manifests", "manifests/testing", "Set path to testing infrastructure manifests")
 
+}
+
+func FlagParse() {
+	flag.Parse()
+
 	// When the flags are not provided, copy the values from normal version tag and prefix
 	if KubeVirtUtilityVersionTag == "" {
 		KubeVirtUtilityVersionTag = KubeVirtVersionTag

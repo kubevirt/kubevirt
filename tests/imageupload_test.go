@@ -1,7 +1,6 @@
 package tests_test
 
 import (
-	"flag"
 	"fmt"
 	"io"
 	"net/http"
@@ -27,7 +26,7 @@ const (
 
 var _ = Describe("ImageUpload", func() {
 
-	flag.Parse()
+	tests.FlagParse()
 
 	namespace := tests.NamespaceTestDefault
 	pvcName := "alpine-pvc"

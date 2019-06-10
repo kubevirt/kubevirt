@@ -1,8 +1,6 @@
 package tests_test
 
 import (
-	"flag"
-
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 
@@ -12,7 +10,7 @@ import (
 
 var _ = PDescribe("Ensure stable functionality", func() {
 
-	flag.Parse()
+	tests.FlagParse()
 
 	virtClient, err := kubecli.GetKubevirtClient()
 	tests.PanicOnError(err)

@@ -21,7 +21,7 @@ package tests_test
 
 import (
 	"encoding/json"
-	"flag"
+
 	"fmt"
 	"sort"
 	"strconv"
@@ -46,7 +46,7 @@ import (
 )
 
 var _ = Describe("Infrastructure", func() {
-	flag.Parse()
+	tests.FlagParse()
 
 	virtClient, err := kubecli.GetKubevirtClient()
 	tests.PanicOnError(err)

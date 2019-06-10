@@ -20,7 +20,6 @@
 package tests_test
 
 import (
-	"flag"
 	"fmt"
 	"time"
 
@@ -36,7 +35,7 @@ import (
 
 var _ = Describe("Subresource Api", func() {
 
-	flag.Parse()
+	tests.FlagParse()
 
 	virtCli, err := kubecli.GetKubevirtClient()
 	tests.PanicOnError(err)

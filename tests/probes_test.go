@@ -1,8 +1,6 @@
 package tests_test
 
 import (
-	"flag"
-
 	. "github.com/onsi/ginkgo"
 	"github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
@@ -16,7 +14,7 @@ import (
 )
 
 var _ = Describe("[ref_id:1182]Probes", func() {
-	flag.Parse()
+	tests.FlagParse()
 
 	virtClient, err := kubecli.GetKubevirtClient()
 	tests.PanicOnError(err)
