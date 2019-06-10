@@ -25,10 +25,10 @@ DOCKER_TAG_ALT=${DOCKER_TAG_ALT:-devel_alt}
 source hack/common.sh
 source hack/config.sh
 
-_auto_detected_latest_release_tag=$(curl -s https://github.com/kubevirt/kubevirt/releases/latest | grep -o "v[0-9]\.[0-9]*\.[0-9]*")
+_auto_detected_previous_release_tag=$(curl -s https://github.com/kubevirt/kubevirt/releases/latest | grep -o "v[0-9]\.[0-9]*\.[0-9]*")
 
-latest_release_tag=${LATEST_RELEASE_TAG:-$_auto_detected_latest_release_tag}
-latest_release_registry=${LATEST_RELEASE_REGISTRY:-"index.docker.io/kubevirt"}
+previous_release_tag=${PREVIOUS_RELEASE_TAG:-$_auto_detected_previous_release_tag}
+previous_release_registry=${PREVIOUS_RELEASE_REGISTRY:-"index.docker.io/kubevirt"}
 
 functest_docker_prefix=${manifest_docker_prefix-${docker_prefix}}
 
@@ -36,4 +36,4 @@ if [[ ${TARGET} == openshift* ]]; then
     oc=${kubectl}
 fi
 
-${TESTS_OUT_DIR}/tests.test -kubeconfig=${kubeconfig} -container-tag=${docker_tag} -container-tag-alt=${docker_tag_alt} -container-prefix=${functest_docker_prefix} -oc-path=${oc} -kubectl-path=${kubectl} -test.timeout 210m ${FUNC_TEST_ARGS} -installed-namespace=${namespace} -latest-release-tag=${latest_release_tag} -latest-release-registry=${latest_release_registry}
+${TESTS_OUT_DIR}/tests.test -kubeconfig=${kubeconfig} -container-tag=${docker_tag} -container-tag-alt=${docker_tag_alt} -container-prefix=${functest_docker_prefix} -oc-path=${oc} -kubectl-path=${kubectl} -test.timeout 210m ${FUNC_TEST_ARGS} -installed-namespace=${namespace} -previous-release-tag=${previous_release_tag} -previous-release-registry=${previous_release_registry}

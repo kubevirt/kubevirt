@@ -91,8 +91,8 @@ var KubeVirtKubectlPath = ""
 var KubeVirtOcPath = ""
 var KubeVirtVirtctlPath = ""
 var KubeVirtInstallNamespace string
-var LatestReleaseTag = ""
-var LatestReleaseRegistry = ""
+var PreviousReleaseTag = ""
+var PreviousReleaseRegistry = ""
 
 var DeployTestingInfrastructureFlag = false
 var PathToTestingInfrastrucureManifests = ""
@@ -110,8 +110,8 @@ func init() {
 	flag.StringVar(&KubeVirtInstallNamespace, "installed-namespace", "kubevirt", "Set the namespace KubeVirt is installed in")
 	flag.BoolVar(&DeployTestingInfrastructureFlag, "deploy-testing-infra", false, "Deploy testing infrastructure if set")
 	flag.StringVar(&PathToTestingInfrastrucureManifests, "path-to-testing-infra-manifests", "manifests/testing", "Set path to testing infrastructure manifests")
-	flag.StringVar(&LatestReleaseTag, "latest-release-tag", "", "Set tag of the release to test updating from")
-	flag.StringVar(&LatestReleaseRegistry, "latest-release-registry", "", "Set registry of the release to test updating from")
+	flag.StringVar(&PreviousReleaseTag, "previous-release-tag", "", "Set tag of the release to test updating from")
+	flag.StringVar(&PreviousReleaseRegistry, "previous-release-registry", "", "Set registry of the release to test updating from")
 
 }
 
