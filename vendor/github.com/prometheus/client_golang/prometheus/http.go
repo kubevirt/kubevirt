@@ -34,6 +34,7 @@ import (
 
 const (
 	contentTypeHeader     = "Content-Type"
+	contentLengthHeader   = "Content-Length"
 	contentEncodingHeader = "Content-Encoding"
 	acceptEncodingHeader  = "Accept-Encoding"
 )
@@ -330,8 +331,6 @@ type fancyResponseWriterDelegator struct {
 }
 
 func (f *fancyResponseWriterDelegator) CloseNotify() <-chan bool {
-	//lint:ignore SA1019 http.CloseNotifier is deprecated but we don't want to
-	//remove support from client_golang yet.
 	return f.ResponseWriter.(http.CloseNotifier).CloseNotify()
 }
 
