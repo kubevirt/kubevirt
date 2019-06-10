@@ -1344,6 +1344,25 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			Expect(len(causes)).To(Equal(1))
 			Expect(causes[0].Field).To(Equal("fake.domain.devices.interfaces[0].name"))
 		})
+		It("should reject a bad port name", func() {
+			vm := v1.NewMinimalVMI("testvm")
+			vm.Spec.Domain.Devices.Interfaces = []v1.Interface{{
+				Name: "default",
+				InterfaceBindingMethod: v1.InterfaceBindingMethod{
+					Masquerade: &v1.InterfaceMasquerade{},
+				},
+				Ports: []v1.Port{{Name: "Test", Port: 80}}}}
+
+			vm.Spec.Networks = []v1.Network{{
+				Name:          "default",
+				NetworkSource: v1.NetworkSource{Pod: &v1.PodNetwork{}},
+			},
+			}
+
+			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vm.Spec, config)
+			Expect(len(causes)).To(Equal(1))
+			Expect(causes[0].Field).To(Equal("fake.domain.devices.interfaces[0].ports[0].name"))
+		})
 		It("should reject networks with a pod network source and slirp interface with bad protocol type", func() {
 			vm := v1.NewMinimalVMI("testvm")
 			vm.Spec.Domain.Devices.Interfaces = []v1.Interface{v1.Interface{
@@ -1410,7 +1429,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 				InterfaceBindingMethod: v1.InterfaceBindingMethod{
 					Slirp: &v1.InterfaceSlirp{},
 				},
-				Ports: []v1.Port{{Name: "testPort", Port: 80}, {Name: "testPort", Protocol: "UDP", Port: 80}}}}
+				Ports: []v1.Port{{Name: "testport", Port: 80}, {Name: "testport", Protocol: "UDP", Port: 80}}}}
 
 			vm.Spec.Networks = []v1.Network{
 				v1.Network{
@@ -1430,13 +1449,13 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 				InterfaceBindingMethod: v1.InterfaceBindingMethod{
 					Slirp: &v1.InterfaceSlirp{},
 				},
-				Ports: []v1.Port{{Name: "testPort", Port: 80}}},
+				Ports: []v1.Port{{Name: "testport", Port: 80}}},
 				v1.Interface{
 					Name: "default",
 					InterfaceBindingMethod: v1.InterfaceBindingMethod{
 						Slirp: &v1.InterfaceSlirp{},
 					},
-					Ports: []v1.Port{{Name: "testPort", Protocol: "UDP", Port: 80}}}}
+					Ports: []v1.Port{{Name: "testport", Protocol: "UDP", Port: 80}}}}
 
 			vm.Spec.Networks = []v1.Network{
 				v1.Network{
