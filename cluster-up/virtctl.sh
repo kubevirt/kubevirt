@@ -26,6 +26,7 @@ if [ -z "$KUBEVIRTCI_PATH" ]; then
     )"
 fi
 
+source ${KUBEVIRTCI_PATH}/hack/common.sh
 source ${KUBEVIRTCI_PATH}/cluster/$KUBEVIRT_PROVIDER/provider.sh
 source ${KUBEVIRTCI_PATH}/hack/config.sh
 
@@ -37,4 +38,4 @@ elif [ -n "$KUBECONFIG" ]; then
     CONFIG_ARGS="--kubeconfig=${KUBECONFIG}"
 fi
 
-${KUBEVIRTCI_PATH}/_out/cmd/virtctl/virtctl $CONFIG_ARGS "$@"
+${KUBEVIRTCI_PATH}/../_out/cmd/virtctl/virtctl $CONFIG_ARGS "$@"
