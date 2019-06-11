@@ -41,7 +41,7 @@ github.com/ghodss/yaml
 # github.com/globalsign/mgo v0.0.0-20181015135952-eeefdecb41b8
 github.com/globalsign/mgo/bson
 github.com/globalsign/mgo/internal/json
-# github.com/go-kit/kit v0.0.0-20160928073314-fe6fe28ba0d5 => github.com/go-kit/kit v0.3.0
+# github.com/go-kit/kit v0.8.0 => github.com/go-kit/kit v0.3.0
 github.com/go-kit/kit/log
 github.com/go-kit/kit/endpoint
 github.com/go-kit/kit/transport/http
@@ -77,7 +77,7 @@ github.com/go-openapi/swag
 github.com/go-openapi/validate
 # github.com/go-stack/stack v1.8.0
 github.com/go-stack/stack
-# github.com/gogo/protobuf v0.0.0-20171007142547-342cbe0a0415
+# github.com/gogo/protobuf v1.1.1
 github.com/gogo/protobuf/gogoproto
 github.com/gogo/protobuf/proto
 github.com/gogo/protobuf/sortkeys
@@ -88,7 +88,7 @@ github.com/golang/glog
 github.com/golang/groupcache/lru
 # github.com/golang/mock v0.0.0-20190509174753-d74b93584564
 github.com/golang/mock/gomock
-# github.com/golang/protobuf v1.2.0
+# github.com/golang/protobuf v1.3.1
 github.com/golang/protobuf/proto
 github.com/golang/protobuf/ptypes
 github.com/golang/protobuf/ptypes/any
@@ -223,12 +223,13 @@ github.com/operator-framework/operator-marketplace/pkg/apis/operators/v1
 github.com/pborman/uuid
 # github.com/peterbourgon/diskv v2.0.1+incompatible
 github.com/peterbourgon/diskv
-# github.com/prometheus/client_golang v0.8.0
+# github.com/prometheus/client_golang v0.9.3
 github.com/prometheus/client_golang/prometheus/promhttp
 github.com/prometheus/client_golang/prometheus
+github.com/prometheus/client_golang/prometheus/internal
 # github.com/prometheus/client_model v0.0.0-20190129233127-fd36f4220a90
 github.com/prometheus/client_model/go
-# github.com/prometheus/common v0.0.0-20170427095455-13ba4ddd0caa
+# github.com/prometheus/common v0.4.0
 github.com/prometheus/common/expfmt
 github.com/prometheus/common/model
 github.com/prometheus/common/internal/bitbucket.org/ww/goautoneg

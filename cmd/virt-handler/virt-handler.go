@@ -29,7 +29,6 @@ import (
 	"time"
 
 	"github.com/golang/glog"
-	"github.com/prometheus/client_golang/prometheus/promhttp"
 	flag "github.com/spf13/pflag"
 
 	k8sv1 "k8s.io/api/core/v1"
@@ -87,6 +86,7 @@ const (
 
 	// selfsigned cert secret name
 	virtHandlerCertSecretName = "kubevirt-virt-handler-certs"
+	maxRequestsInFlight       = 3
 )
 
 type virtHandlerApp struct {
@@ -96,6 +96,7 @@ type virtHandlerApp struct {
 	VirtShareDir            string
 	WatchdogTimeoutDuration time.Duration
 	MaxDevices              int
+	MaxRequestsInFlight     int
 
 	signingCertBytes []byte
 	clientCertBytes  []byte
@@ -292,7 +293,9 @@ func (app *virtHandlerApp) Run() {
 
 	go vmController.Run(3, stop)
 
-	http.Handle("/metrics", promhttp.Handler())
+	logger.V(1).Infof("metrics: max concurrent requests=%d", app.MaxRequestsInFlight)
+	http.Handle("/metrics", promvm.Handler(app.MaxRequestsInFlight))
+
 	err = http.ListenAndServeTLS(app.ServiceListen.Address(), certStore.CurrentPath(), certStore.CurrentPath(), nil)
 	if err != nil {
 		log.Log.Reason(err).Error("Serving prometheus failed.")
@@ -325,6 +328,9 @@ func (app *virtHandlerApp) AddFlags() {
 	// This should be deprecated if the API allows for shared resources in the future
 	flag.IntVar(&app.MaxDevices, "max-devices", maxDevices,
 		"Number of devices to register with Kubernetes device plugin framework")
+
+	flag.IntVar(&app.MaxRequestsInFlight, "max-metric-requests", maxRequestsInFlight,
+		"Number of concurrent requests to the metrics endpoint")
 }
 
 func (app *virtHandlerApp) setupTLS() error {
