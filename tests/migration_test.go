@@ -639,6 +639,9 @@ var _ = Describe("[rfe_id:393][crit:high[vendor:cnv-qe@redhat.com][level:system]
 				Expect(err).To(BeNil())
 				expecter.Close()
 
+				By("Checking that MigrationMethod is set to BlockMigration")
+				Expect(vmi.Status.MigrationMethod).To(Equal(v1.BlockMigration))
+
 				// execute a migration, wait for finalized state
 				By("Starting the Migration for iteration")
 				migration := tests.NewRandomMigration(vmi.Name, vmi.Namespace)
@@ -686,8 +689,19 @@ var _ = Describe("[rfe_id:393][crit:high[vendor:cnv-qe@redhat.com][level:system]
 				By("Creating the  VMI")
 				vmi = tests.NewRandomVMIWithPVC(pvName)
 				vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("1G")
-				tests.AddUserData(vmi, "cloud-init", "#cloud-config\npassword: fedora\nchpasswd: { expire: False }\n")
+				userData := `#cloud-config
+password: fedora
+chpasswd: { expire: False }
+bootcmd:
+  # mount the service account disk
+  - "mkdir /mnt/servacc"
+  - "mount /dev/$(lsblk --nodeps -no name,serial | grep D23YZ9W6WA5DJ487 | cut -f1 -d' ') /mnt/servacc"
+`
+				tests.AddUserData(vmi, "cloud-init", userData)
 				tests.AddServiceAccountDisk(vmi, "default")
+				// set serial for the service account disk
+				disks := vmi.Spec.Domain.Devices.Disks
+				disks[len(disks)-1].Serial = "D23YZ9W6WA5DJ487"
 
 				vmi = runVMIAndExpectLaunchIgnoreWarnings(vmi, 180)
 
@@ -703,6 +717,18 @@ var _ = Describe("[rfe_id:393][crit:high[vendor:cnv-qe@redhat.com][level:system]
 
 				// check VMI, confirm migration state
 				confirmVMIPostMigration(vmi, migrationUID)
+
+				By("Checking that the migrated VirtualMachineInstance console has expected output")
+				expecter, err = tests.ReLoggedInFedoraExpecter(vmi)
+				defer expecter.Close()
+				Expect(err).To(BeNil())
+
+				By("Checking that the service account is mounted")
+				_, err = expecter.ExpectBatch([]expect.Batcher{
+					&expect.BSnd{S: "cat /mnt/servacc/namespace\n"},
+					&expect.BExp{R: tests.NamespaceTestDefault},
+				}, 30*time.Second)
+				Expect(err).ToNot(HaveOccurred())
 
 			})
 		})
