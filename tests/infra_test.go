@@ -20,9 +20,11 @@
 package tests_test
 
 import (
+	"crypto/tls"
 	"encoding/json"
 	"flag"
 	"fmt"
+	"net/http"
 	"sort"
 	"strconv"
 	"strings"
@@ -104,6 +106,65 @@ var _ = Describe("Infrastructure", func() {
 				Expect(stdout).To(ContainSubstring("go_goroutines"))
 			}
 		})
+
+		It("should throttle the Prometheus metrics access", func() {
+			By("Creating the VirtualMachineInstance")
+			vmi := tests.NewRandomVMI()
+
+			By("Starting a new VirtualMachineInstance")
+			obj, err := virtClient.RestClient().Post().Resource("virtualmachineinstances").Namespace(tests.NamespaceTestDefault).Body(vmi).Do().Get()
+			Expect(err).ToNot(HaveOccurred(), "Should create VMI")
+
+			By("Waiting until the VM is ready")
+			nodeName := tests.WaitForSuccessfulVMIStart(obj)
+
+			By("Finding the prometheus endpoint")
+			pod, err := kubecli.NewVirtHandlerClient(virtClient).ForNode(nodeName).Pod()
+			Expect(err).ToNot(HaveOccurred(), "Should find the virt-handler pod")
+
+			By("Scraping the Prometheus endpoint")
+
+			concurrency := 100 // random value "much higher" than maxRequestsInFlight
+			metricsURL := fmt.Sprintf("https://%s:%s/metrics", pod.Status.PodIP, "8443")
+
+			tr := &http.Transport{
+				MaxIdleConnsPerHost: concurrency,
+				TLSClientConfig: &tls.Config{
+					InsecureSkipVerify: true,
+				},
+			}
+
+			client := http.Client{
+				Timeout:   time.Duration(1 * time.Second),
+				Transport: tr,
+			}
+
+			errors := make(chan error)
+			for ix := 0; ix < concurrency; ix++ {
+				go func() {
+					req, _ := http.NewRequest("GET", metricsURL, nil)
+					resp, err := client.Do(req)
+					if err != nil {
+						fmt.Fprintf(GinkgoWriter, "client: request: %v #%d: %v\n", req, ix, err) // troubleshooting helper
+					} else {
+						resp.Body.Close()
+					}
+					errors <- err
+				}()
+			}
+
+			errorCount := 0
+			for ix := 0; ix < concurrency; ix++ {
+				err := <-errors
+				if err != nil {
+					errorCount += 1
+				}
+			}
+
+			fmt.Fprintf(GinkgoWriter, "client: total errors #%d\n", errorCount) // troubleshooting helper
+			Expect(errorCount).To(BeNumerically(">", 0))
+		}, 300)
+
 		It("should include the metrics for a running VM", func() {
 			By("Creating the VirtualMachineInstance")
 			vmi := tests.NewRandomVMI()
