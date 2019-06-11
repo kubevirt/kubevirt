@@ -3107,8 +3107,7 @@ func CreateNFSPvAndPvc(name string, size string, nfsTargetIP string, os string) 
 }
 
 func newNFSPV(name string, size string, nfsTargetIP string, os string) *k8sv1.PersistentVolume {
-	quantity, err := resource.ParseQuantity(size)
-	PanicOnError(err)
+	quantity := resource.MustParse(size)
 
 	storageClass := Config.StorageClassLocal
 	volumeMode := k8sv1.PersistentVolumeFilesystem

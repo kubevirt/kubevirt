@@ -113,7 +113,7 @@ var _ = Describe("[rfe_id:393][crit:high[vendor:cnv-qe@redhat.com][level:system]
 
 	})
 
-	runVMIAndExpectLaunch := func(vmi *v1.VirtualMachineInstance, timeout int) *v1.VirtualMachineInstance {
+	runVMIAndExpectLaunchWithIgnoreWarningArg := func(vmi *v1.VirtualMachineInstance, timeout int, ignoreWarnings bool) *v1.VirtualMachineInstance {
 		By("Starting a VirtualMachineInstance")
 		var obj *v1.VirtualMachineInstance
 		var err error
@@ -122,10 +122,22 @@ var _ = Describe("[rfe_id:393][crit:high[vendor:cnv-qe@redhat.com][level:system]
 			return err
 		}, timeout, 1*time.Second).ShouldNot(HaveOccurred())
 		By("Waiting until the VirtualMachineInstance starts")
-		tests.WaitForSuccessfulVMIStartWithTimeoutIgnoreWarnings(obj, timeout)
+		if ignoreWarnings {
+			tests.WaitForSuccessfulVMIStartWithTimeoutIgnoreWarnings(obj, timeout)
+		} else {
+			tests.WaitForSuccessfulVMIStartWithTimeout(obj, timeout)
+		}
 		vmi, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Get(vmi.Name, &metav1.GetOptions{})
 		Expect(err).ToNot(HaveOccurred())
 		return vmi
+	}
+
+	runVMIAndExpectLaunch := func(vmi *v1.VirtualMachineInstance, timeout int) *v1.VirtualMachineInstance {
+		return runVMIAndExpectLaunchWithIgnoreWarningArg(vmi, timeout, false)
+	}
+
+	runVMIAndExpectLaunchIgnoreWarnings := func(vmi *v1.VirtualMachineInstance, timeout int) *v1.VirtualMachineInstance {
+		return runVMIAndExpectLaunchWithIgnoreWarningArg(vmi, timeout, true)
 	}
 
 	confirmVMIPostMigration := func(vmi *v1.VirtualMachineInstance, migrationUID string) {
@@ -677,7 +689,7 @@ var _ = Describe("[rfe_id:393][crit:high[vendor:cnv-qe@redhat.com][level:system]
 				tests.AddUserData(vmi, "cloud-init", "#cloud-config\npassword: fedora\nchpasswd: { expire: False }\n")
 				tests.AddServiceAccountDisk(vmi, "default")
 
-				vmi = runVMIAndExpectLaunch(vmi, 180)
+				vmi = runVMIAndExpectLaunchIgnoreWarnings(vmi, 180)
 
 				By("Checking that the VirtualMachineInstance console has expected output")
 				expecter, err := tests.LoggedInFedoraExpecter(vmi)
