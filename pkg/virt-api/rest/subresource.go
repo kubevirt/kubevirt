@@ -235,7 +235,7 @@ func (app *SubresourceAPIApp) RestartVMRequestHandler(request *restful.Request, 
 		return
 	}
 	if runStrategy == v1.RunStrategyHalted {
-		response.WriteError(http.StatusBadRequest, fmt.Errorf("runstrategy halted does not support manual restart requests"))
+		response.WriteError(http.StatusBadRequest, fmt.Errorf("%v does not support manual restart requests", v1.RunStrategyHalted))
 		return
 	}
 
@@ -282,13 +282,22 @@ func (app *SubresourceAPIApp) StartVMRequestHandler(request *restful.Request, re
 	}
 
 	vmi, err := app.VirtCli.VirtualMachineInstance(namespace).Get(name, &k8smetav1.GetOptions{})
+
+	var (
+		vmiStatusPhase = v1.Unknown
+		vmiIsFinal     = false
+	)
+	if vmi != nil {
+		vmiStatusPhase = vmi.Status.Phase
+		vmiIsFinal = vmi.IsFinal()
+	}
 	if err != nil {
 		if !errors.IsNotFound(err) {
 			response.WriteError(http.StatusInternalServerError, err)
 			return
 		}
 	} else {
-		if vmi != nil && vmi.Status.Phase != v1.Succeeded && vmi.Status.Phase != v1.Failed {
+		if !vmiIsFinal {
 			response.WriteError(http.StatusBadRequest, fmt.Errorf("VM is already running"))
 			return
 		}
@@ -313,11 +322,11 @@ func (app *SubresourceAPIApp) StartVMRequestHandler(request *restful.Request, re
 		patchType = types.JSONPatchType
 
 		needsRestart := false
-		if (runStrategy == v1.RunStrategyRerunOnFailure && vmi.Status.Phase == v1.Succeeded) ||
-			(runStrategy == v1.RunStrategyManual && vmi.IsFinal()) {
+		if (runStrategy == v1.RunStrategyRerunOnFailure && vmiStatusPhase == v1.Succeeded) ||
+			(runStrategy == v1.RunStrategyManual && vmiIsFinal) {
 			needsRestart = true
-		} else if runStrategy == v1.RunStrategyRerunOnFailure && vmi.Status.Phase == v1.Failed {
-			response.WriteError(http.StatusBadRequest, fmt.Errorf("runstrategy rerunonerror does not support starting VM from failed state"))
+		} else if runStrategy == v1.RunStrategyRerunOnFailure && vmiStatusPhase == v1.Failed {
+			response.WriteError(http.StatusBadRequest, fmt.Errorf("%v does not support starting VM from failed state", v1.RunStrategyRerunOnFailure))
 			return
 		}
 
@@ -334,7 +343,7 @@ func (app *SubresourceAPIApp) StartVMRequestHandler(request *restful.Request, re
 			return
 		}
 	case v1.RunStrategyAlways:
-		response.WriteError(http.StatusBadRequest, fmt.Errorf("runstrategy always does not support manual start requests"))
+		response.WriteError(http.StatusBadRequest, fmt.Errorf("%v does not support manual start requests", v1.RunStrategyAlways))
 		return
 	}
 
@@ -373,6 +382,8 @@ func (app *SubresourceAPIApp) StopVMRequestHandler(request *restful.Request, res
 			response.WriteError(http.StatusInternalServerError, err)
 			return
 		}
+	}
+	if vmi == nil || !vmi.IsRunning() {
 		response.WriteError(http.StatusBadRequest, fmt.Errorf("VM is not running"))
 		return
 	}
@@ -386,7 +397,7 @@ func (app *SubresourceAPIApp) StopVMRequestHandler(request *restful.Request, res
 	}
 	switch runStrategy {
 	case v1.RunStrategyHalted:
-		response.WriteError(http.StatusBadRequest, fmt.Errorf("runstrategy halted does not support manual stop requests"))
+		response.WriteError(http.StatusBadRequest, fmt.Errorf("%v does not support manual stop requests", v1.RunStrategyHalted))
 		return
 	case v1.RunStrategyManual:
 		// pass the buck and ask virt-controller to stop the VM. this way the
