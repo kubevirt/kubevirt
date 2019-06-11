@@ -20,7 +20,6 @@
 package tests_test
 
 import (
-	"flag"
 	"fmt"
 	"strings"
 	"time"
@@ -40,7 +39,7 @@ const hookSidecarImage = "example-hook-sidecar"
 
 var _ = Describe("HookSidecars", func() {
 
-	flag.Parse()
+	tests.FlagParse()
 
 	virtClient, err := kubecli.GetKubevirtClient()
 	tests.PanicOnError(err)

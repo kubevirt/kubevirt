@@ -21,7 +21,7 @@ package tests_test
 
 import (
 	"encoding/json"
-	"flag"
+
 	"fmt"
 	"regexp"
 	"strings"
@@ -40,7 +40,7 @@ import (
 )
 
 var _ = Describe("Operator", func() {
-	flag.Parse()
+	tests.FlagParse()
 	var originalKv *v1.KubeVirt
 	var originalKubeVirtConfig *k8sv1.ConfigMap
 	var err error

@@ -19,7 +19,6 @@
 package tests_test
 
 import (
-	"flag"
 	"time"
 
 	expect "github.com/google/goexpect"
@@ -34,7 +33,7 @@ import (
 
 var _ = Describe("[rfe_id:899][crit:medium][vendor:cnv-qe@redhat.com][level:component]Config", func() {
 
-	flag.Parse()
+	tests.FlagParse()
 
 	BeforeEach(func() {
 		tests.BeforeTestCleanup()

@@ -20,7 +20,6 @@
 package tests_test
 
 import (
-	"flag"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -42,7 +41,7 @@ import (
 const InvalidDataVolumeUrl = "http://127.0.0.1/invalid"
 
 var _ = Describe("DataVolume Integration", func() {
-	flag.Parse()
+	tests.FlagParse()
 
 	virtClient, err := kubecli.GetKubevirtClient()
 	tests.PanicOnError(err)

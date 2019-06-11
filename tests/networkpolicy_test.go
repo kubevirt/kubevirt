@@ -1,7 +1,6 @@
 package tests_test
 
 import (
-	"flag"
 	"fmt"
 
 	expect "github.com/google/goexpect"
@@ -41,7 +40,7 @@ func assertPingFail(ip string, vmi *v1.VirtualMachineInstance) {
 
 var _ = Describe("[rfe_id:150][crit:high][vendor:cnv-qe@redhat.com][level:component]Networkpolicy", func() {
 
-	flag.Parse()
+	tests.FlagParse()
 
 	virtClient, err := kubecli.GetKubevirtClient()
 	tests.PanicOnError(err)

@@ -20,7 +20,6 @@
 package tests_test
 
 import (
-	"flag"
 	"fmt"
 	"net/http"
 	"strings"
@@ -40,7 +39,7 @@ import (
 )
 
 var _ = Describe("[rfe_id:609][crit:medium][vendor:cnv-qe@redhat.com][level:component]VMIPreset", func() {
-	flag.Parse()
+	tests.FlagParse()
 
 	virtClient, err := kubecli.GetKubevirtClient()
 	tests.PanicOnError(err)

@@ -22,7 +22,7 @@ package tests_test
 import (
 	"crypto/tls"
 	"encoding/json"
-	"flag"
+
 	"fmt"
 	"net/http"
 	"sort"
@@ -48,7 +48,7 @@ import (
 )
 
 var _ = Describe("Infrastructure", func() {
-	flag.Parse()
+	tests.FlagParse()
 
 	virtClient, err := kubecli.GetKubevirtClient()
 	tests.PanicOnError(err)

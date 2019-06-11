@@ -20,7 +20,6 @@
 package tests_test
 
 import (
-	"flag"
 	"time"
 
 	expect "github.com/google/goexpect"
@@ -35,7 +34,7 @@ import (
 
 var _ = Describe("Health Monitoring", func() {
 
-	flag.Parse()
+	tests.FlagParse()
 
 	virtClient, err := kubecli.GetKubevirtClient()
 	tests.PanicOnError(err)

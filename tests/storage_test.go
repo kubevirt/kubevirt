@@ -20,7 +20,6 @@
 package tests_test
 
 import (
-	"flag"
 	"fmt"
 	"path/filepath"
 	"strconv"
@@ -53,7 +52,7 @@ const (
 type VMICreationFunc func(string) *v1.VirtualMachineInstance
 
 var _ = Describe("Storage", func() {
-	flag.Parse()
+	tests.FlagParse()
 
 	virtClient, err := kubecli.GetKubevirtClient()
 	tests.PanicOnError(err)

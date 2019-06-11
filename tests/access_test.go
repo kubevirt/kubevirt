@@ -20,7 +20,6 @@
 package tests_test
 
 import (
-	"flag"
 	"fmt"
 
 	. "github.com/onsi/ginkgo"
@@ -32,7 +31,7 @@ import (
 
 var _ = Describe("[rfe_id:500][crit:high][vendor:cnv-qe@redhat.com][level:component]User Access", func() {
 
-	flag.Parse()
+	tests.FlagParse()
 
 	BeforeEach(func() {
 		tests.BeforeTestCleanup()
