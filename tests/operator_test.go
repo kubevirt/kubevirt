@@ -507,7 +507,7 @@ spec:
 			sanityCheckDeploymentsDeleted()
 
 			// Install Previous Release of KubeVirt
-			By("Creating KubeVirt Object with Prefious Release")
+			By(fmt.Sprintf("Creating KubeVirt Object with Previous Release: %s using registry %s", previousImageTag, previousImageRegistry))
 			kv := copyOriginalKv()
 			kv.Name = "kubevirt-release-install"
 			kv.Spec.ImageTag = previousImageTag
