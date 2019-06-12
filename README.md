@@ -21,36 +21,12 @@ Until we publish (and consume) the HCO and component operators through
 Marketplace|operatorhub.io, this is a means to demonstrate the HCO workflow
 without OLM.
 
-Create the namespace for the HCO.
+Run the following script to apply the HCO operator:
+
 ```bash
-kubectl create ns kubevirt-hyperconverged
+$ curl https://raw.githubusercontent.com/kubevirt/hyperconverged-cluster-operator/master/deploy/deploy.sh | bash
 ```
 
-Switch to the HCO namespace.
-```bash
-kubectl config set-context $(kubectl config current-context) --namespace=kubevirt-hyperconverged
-```
-
-Launch all of the CRDs.
-```bash
-kubectl create -f deploy/converged/crds/hco.crd.yaml
-kubectl create -f deploy/converged/crds/kubevirt.crd.yaml
-kubectl create -f deploy/converged/crds/cdi.crd.yaml
-kubectl create -f deploy/converged/crds/cna.crd.yaml
-kubectl create -f deploy/converged/crds/ssp.crd.yaml
-kubectl create -f deploy/converged/crds/kwebui.crd.yaml
-kubectl create -f deploy/converged/crds/nodemaintenance.crd.yaml
-```
-
-Launch all of the Service Accounts, Cluster Role(Binding)s, and Operators.
-```bash
-kubectl create -f deploy/converged
-```
-
-Create an HCO CustomResource, which creates the KubeVirt CR, launching KubeVirt.
-```bash
-kubectl create -f deploy/converged/crds/hco.cr.yaml
-```
 
 ## Launching the HCO through OLM
 
