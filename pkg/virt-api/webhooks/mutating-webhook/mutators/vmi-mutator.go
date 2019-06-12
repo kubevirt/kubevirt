@@ -144,6 +144,7 @@ func (mutator *VMIsMutator) setDefaultResourceRequests(vmi *v1.VirtualMachineIns
 			}
 		}
 		if memory != nil && memory.Value() > 0 {
+			log.Log.Object(vmi).V(4).Info("Setting memory-request in light of memory-overcommit")
 			if vmi.Spec.Domain.Resources.Requests == nil {
 				vmi.Spec.Domain.Resources.Requests = k8sv1.ResourceList{}
 			}
