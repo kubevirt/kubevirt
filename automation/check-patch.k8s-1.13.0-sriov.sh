@@ -125,45 +125,6 @@ done
 # wait until all containers are ready
 wait_containers_ready
 
-# ===============================================
-# move all VF netlink interfaces into kube-master
-# ===============================================
-#DOCKER_NAMESPACE=`docker inspect kube-master | grep netns | tr "/" " "  | awk '{print substr($7, 1, length($7)-2)}'`
-
-# Instead of dealing with `setns` from within a chroot, we spawn a privileged
-# container with host network. Since docker socket is mounted from the host,
-# the container is actually being created on the host itself and have access to
-# the different namespaces.
-# We set MAC addresses for all VFs because some NICs leave their VFs with
-# all-zeroes addresses. We use a common MAC prefix from Virtualbox for all  of
-# them. And we assume that the number of VFs per node is not higher than 255.
-#docker run -i --privileged --net=host --rm \
-#    -v /run/docker/netns/:/var/run/netns/ centos:7 /bin/bash <<EOF
-#    set -x
-#    yum install -y iproute
-#    sriov_vfs=( /sys/class/net/*/device/virtfn* )
-#    i=0
-#    for vf in "\${sriov_vfs[@]}"; do
-#      ifs_arr=( "\$vf"/net/* )
-#      for ifs in "\${ifs_arr[@]}"; do
-#          ifs_name="\${ifs%%\/net\/*}"
-#          ifs_name="\${ifs##*\/}"
-#          ip link set dev "\$ifs_name" down
-#          ip link set dev "\$ifs_name" address 0a:00:27:00:00:\$(printf "%x\\n" "\$i")
-#          ip link set dev "\$ifs_name" up
-#          ip link set "\$ifs_name" netns "$DOCKER_NAMESPACE"
-#          i=\$((\$i+1))
-#      done
-#    done
-#
-#    sriov_pfs=( /sys/class/net/*/device/sriov_numvfs )
-#    for ifs in "\${sriov_pfs[@]}"; do
-#      ifs_name="\${ifs%%/device/*}"
-#      ifs_name="\${ifs_name##*/}"
-#      ip link set "\$ifs_name" netns "$DOCKER_NAMESPACE"
-#    done
-#EOF
-
 # ========================
 # deploy SR-IOV components
 # ========================
