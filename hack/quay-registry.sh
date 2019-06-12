@@ -54,3 +54,16 @@ spec:
   authorizationToken:
     secretName: quay-registry-$REGISTRY_NAMESPACE
 EOF
+
+cat <<EOF | oc create -f -
+apiVersion: operators.coreos.com/v1
+kind: CatalogSourceConfig
+metadata:
+  name: hco-catalogsource
+  namespace: openshift-marketplace
+spec:
+  targetNamespace: kubevirt-hyperconverged
+  packages: kubevirt-hyperconverged
+  csDisplayName: "CNV Operators"
+  csPublisher: "Red Hat"
+EOF
