@@ -52,13 +52,6 @@ EOF
 _kubectl apply -f ${MANIFESTS_OUT_DIR}/release/kubevirt-operator.yaml
 
 if [[ "$KUBEVIRT_PROVIDER" =~ os-* ]] || [[ "$KUBEVIRT_PROVIDER" =~ okd-* ]]; then
-
-    if [ -d "${MANIFESTS_OUT_DIR}/testing/ocp" ]; then
-        _kubectl create -f ${MANIFESTS_OUT_DIR}/testing/ocp
-    fi
-
-    _kubectl adm policy add-scc-to-user privileged -z kubevirt-operator -n ${namespace}
-
     # Helpful for development. Allows admin to access everything KubeVirt creates in the web console
     _kubectl adm policy add-scc-to-user privileged admin
 fi
