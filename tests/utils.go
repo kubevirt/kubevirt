@@ -788,7 +788,6 @@ func CreateHostPathPvWithSize(osName string, hostPath string, size string) {
 
 func GetListOfManifests(pathToManifestsDir string) []string {
 	var manifests []string
-	isOpenshift := IsOpenShift()
 	matchFileName := func(pattern, filename string) bool {
 		match, err := filepath.Match(pattern, filename)
 		if err != nil {
@@ -801,18 +800,8 @@ func GetListOfManifests(pathToManifestsDir string) []string {
 			fmt.Printf("ERROR: Can not access a path %q: %v\n", path, err)
 			return err
 		}
-		if !info.IsDir() {
-			if matchFileName("*-for-ocp.yaml", info.Name()) {
-				if isOpenshift {
-					manifests = append(manifests, path)
-				}
-			} else if matchFileName("*-for-k8s.yaml", info.Name()) {
-				if !isOpenshift {
-					manifests = append(manifests, path)
-				}
-			} else if matchFileName("*.yaml", info.Name()) {
-				manifests = append(manifests, path)
-			}
+		if !info.IsDir() && matchFileName("*.yaml", info.Name()) {
+			manifests = append(manifests, path)
 		}
 		return nil
 	})

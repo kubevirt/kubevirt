@@ -83,10 +83,6 @@ for label in ${labels[@]}; do
     _kubectl delete clusterroles -l ${label}
     _kubectl delete customresourcedefinitions -l ${label}
 
-    if [[ "$KUBEVIRT_PROVIDER" =~ os-* ]] || [[ "$KUBEVIRT_PROVIDER" =~ okd-* ]]; then
-        _kubectl delete scc -l ${label}
-    fi
-
     # W/A for https://github.com/kubernetes/kubernetes/issues/65818
     _kubectl delete apiservices -l ${label} --wait=false
 
