@@ -8,12 +8,6 @@ sub-stages:
   - k8s-genie-1.11.1
   - os-3.11.0:
       timeout: 4h
-  - k8s-1.13.0-sriov:
-      runtime_requirements:
-        sriovnic: true
-        # todo: do we need to duplicate the following parameters?..
-        support_nesting_level: 2
-        isolation_level: container
   - os-3.11.0-crio:
       timeout: 4h
   - os-3.11.0-multus
