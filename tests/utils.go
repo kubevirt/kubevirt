@@ -2439,7 +2439,7 @@ func LoggedInFedoraExpecter(vmi *v1.VirtualMachineInstance) (expect.Expecter, er
 
 // ReLoggedInFedoraExpecter return prepared and ready to use console expecter for
 // Fedora test VM, when you are reconnecting (no login needed)
-func ReLoggedInFedoraExpecter(vmi *v1.VirtualMachineInstance) (expect.Expecter, error) {
+func ReLoggedInFedoraExpecter(vmi *v1.VirtualMachineInstance, timeout int) (expect.Expecter, error) {
 	virtClient, err := kubecli.GetKubevirtClient()
 	PanicOnError(err)
 	expecter, _, err := NewConsoleExpecter(virtClient, vmi, 10*time.Second)
@@ -2449,7 +2449,7 @@ func ReLoggedInFedoraExpecter(vmi *v1.VirtualMachineInstance) (expect.Expecter, 
 	b := append([]expect.Batcher{
 		&expect.BSnd{S: "\n"},
 		&expect.BExp{R: "#"}})
-	res, err := expecter.ExpectBatch(b, 180*time.Second)
+	res, err := expecter.ExpectBatch(b, time.Duration(timeout)*time.Second)
 	if err != nil {
 		log.DefaultLogger().Object(vmi).Infof("Login: %+v", res)
 		expecter.Close()

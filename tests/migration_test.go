@@ -719,7 +719,7 @@ bootcmd:
 				confirmVMIPostMigration(vmi, migrationUID)
 
 				By("Checking that the migrated VirtualMachineInstance console has expected output")
-				expecter, err = tests.ReLoggedInFedoraExpecter(vmi)
+				expecter, err = tests.ReLoggedInFedoraExpecter(vmi, 600)
 				defer expecter.Close()
 				Expect(err).To(BeNil())
 
