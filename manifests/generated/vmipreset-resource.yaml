@@ -8,6 +8,8 @@ metadata:
 spec:
   group: kubevirt.io
   names:
+    categories:
+    - all
     kind: VirtualMachineInstancePreset
     plural: virtualmachineinstancepresets
     shortNames:

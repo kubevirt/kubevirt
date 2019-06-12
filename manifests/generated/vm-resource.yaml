@@ -19,6 +19,8 @@ spec:
     type: string
   group: kubevirt.io
   names:
+    categories:
+    - all
     kind: VirtualMachine
     plural: virtualmachines
     shortNames:
