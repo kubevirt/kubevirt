@@ -1110,7 +1110,7 @@ var _ = Describe("Template", func() {
 		})
 
 		Context("with sriov interface", func() {
-			It("should run privileged", func() {
+			It("should not run privileged", func() {
 				sriovInterface := v1.InterfaceSRIOV{}
 				domain := v1.DomainSpec{}
 				domain.Devices.Interfaces = []v1.Interface{{Name: "testnet", InterfaceBindingMethod: v1.InterfaceBindingMethod{SRIOV: &sriovInterface}}}
@@ -1125,7 +1125,7 @@ var _ = Describe("Template", func() {
 				Expect(err).ToNot(HaveOccurred())
 
 				Expect(len(pod.Spec.Containers)).To(Equal(1))
-				Expect(*pod.Spec.Containers[0].SecurityContext.Privileged).To(Equal(true))
+				Expect(*pod.Spec.Containers[0].SecurityContext.Privileged).To(Equal(false))
 			})
 			It("should mount pci related host directories", func() {
 				sriovInterface := v1.InterfaceSRIOV{}
