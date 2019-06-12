@@ -20,7 +20,6 @@
 package tests_test
 
 import (
-	"flag"
 	"strings"
 	"time"
 
@@ -39,7 +38,7 @@ import (
 
 var _ = Describe("[rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][level:component]ContainerDisk", func() {
 
-	flag.Parse()
+	tests.FlagParse()
 
 	virtClient, err := kubecli.GetKubevirtClient()
 	tests.PanicOnError(err)

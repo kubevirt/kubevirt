@@ -21,7 +21,7 @@ package tests_test
 
 import (
 	"encoding/xml"
-	"flag"
+
 	"fmt"
 
 	. "github.com/onsi/ginkgo"
@@ -38,7 +38,7 @@ import (
 )
 
 var _ = Describe("MultiQueue", func() {
-	flag.Parse()
+	tests.FlagParse()
 
 	virtClient, err := kubecli.GetKubevirtClient()
 	tests.PanicOnError(err)

@@ -1,7 +1,6 @@
 package tests_test
 
 import (
-	"flag"
 	"strconv"
 	"time"
 
@@ -52,7 +51,7 @@ func waitForJobToCompleteWithStatus(virtClient *kubecli.KubevirtClient, jobPod *
 
 var _ = Describe("[rfe_id:253][crit:medium][vendor:cnv-qe@redhat.com][level:component]Expose", func() {
 
-	flag.Parse()
+	tests.FlagParse()
 
 	virtClient, err := kubecli.GetKubevirtClient()
 	tests.PanicOnError(err)

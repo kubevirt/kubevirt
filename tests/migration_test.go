@@ -22,7 +22,7 @@ package tests_test
 import (
 	"crypto/tls"
 	"encoding/json"
-	"flag"
+
 	"fmt"
 	"time"
 
@@ -46,7 +46,7 @@ import (
 )
 
 var _ = Describe("[rfe_id:393][crit:high[vendor:cnv-qe@redhat.com][level:system] VM Live Migration", func() {
-	flag.Parse()
+	tests.FlagParse()
 
 	virtClient, err := kubecli.GetKubevirtClient()
 	tests.PanicOnError(err)

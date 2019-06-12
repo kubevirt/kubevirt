@@ -20,7 +20,6 @@
 package tests_test
 
 import (
-	"flag"
 	"fmt"
 	"time"
 
@@ -38,7 +37,7 @@ const cloudinitHookSidecarImage = "example-cloudinit-hook-sidecar"
 
 var _ = Describe("CloudInitHookSidecars", func() {
 
-	flag.Parse()
+	tests.FlagParse()
 
 	virtClient, err := kubecli.GetKubevirtClient()
 	tests.PanicOnError(err)

@@ -20,7 +20,6 @@
 package tests_test
 
 import (
-	"flag"
 	"strings"
 	"time"
 
@@ -38,7 +37,7 @@ import (
 
 var _ = Describe("Slirp Networking", func() {
 
-	flag.Parse()
+	tests.FlagParse()
 
 	virtClient, err := kubecli.GetKubevirtClient()
 	tests.PanicOnError(err)

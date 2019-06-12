@@ -21,7 +21,7 @@ package tests_test
 
 import (
 	"encoding/json"
-	"flag"
+
 	"fmt"
 	"regexp"
 	"strings"
@@ -40,7 +40,7 @@ import (
 )
 
 var _ = Describe("Operator", func() {
-	flag.Parse()
+	tests.FlagParse()
 	var originalKv *v1.KubeVirt
 	var originalKubeVirtConfig *k8sv1.ConfigMap
 	var err error
@@ -49,17 +49,30 @@ var _ = Describe("Operator", func() {
 	tests.PanicOnError(err)
 
 	getKvList := func() []v1.KubeVirt {
-		var kvList *v1.KubeVirtList
+		var kvListInstallNS *v1.KubeVirtList
+		var kvListDefaultNS *v1.KubeVirtList
+		var items []v1.KubeVirt
+
 		var err error
 
 		Eventually(func() error {
 
-			kvList, err = virtClient.KubeVirt(tests.KubeVirtInstallNamespace).List(&metav1.ListOptions{})
+			kvListInstallNS, err = virtClient.KubeVirt(tests.KubeVirtInstallNamespace).List(&metav1.ListOptions{})
 
 			return err
 		}, 10*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
 
-		return kvList.Items
+		Eventually(func() error {
+
+			kvListDefaultNS, err = virtClient.KubeVirt(tests.NamespaceTestDefault).List(&metav1.ListOptions{})
+
+			return err
+		}, 10*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
+
+		items = append(items, kvListInstallNS.Items...)
+		items = append(items, kvListDefaultNS.Items...)
+
+		return items
 	}
 
 	getCurrentKv := func() *v1.KubeVirt {
@@ -83,24 +96,28 @@ var _ = Describe("Operator", func() {
 
 	createKv := func(newKv *v1.KubeVirt) {
 		Eventually(func() error {
-			_, err = virtClient.KubeVirt(tests.KubeVirtInstallNamespace).Create(newKv)
+			_, err = virtClient.KubeVirt(newKv.Namespace).Create(newKv)
 			return err
 		}, 10*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
 	}
 
-	sanityCheckDeploymentsExist := func() {
+	sanityCheckDeploymentsExistWithNS := func(namespace string) {
 		Eventually(func() error {
-			_, err := virtClient.ExtensionsV1beta1().Deployments(tests.KubeVirtInstallNamespace).Get("virt-api", metav1.GetOptions{})
+			_, err := virtClient.ExtensionsV1beta1().Deployments(namespace).Get("virt-api", metav1.GetOptions{})
 			if err != nil {
 				return err
 			}
 
-			_, err = virtClient.ExtensionsV1beta1().Deployments(tests.KubeVirtInstallNamespace).Get("virt-controller", metav1.GetOptions{})
+			_, err = virtClient.ExtensionsV1beta1().Deployments(namespace).Get("virt-controller", metav1.GetOptions{})
 			if err != nil {
 				return err
 			}
 			return nil
 		}, 10*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
+	}
+
+	sanityCheckDeploymentsExist := func() {
+		sanityCheckDeploymentsExistWithNS(tests.KubeVirtInstallNamespace)
 	}
 
 	sanityCheckDeploymentsDeleted := func() {
@@ -119,11 +136,11 @@ var _ = Describe("Operator", func() {
 		}, 10*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
 	}
 
-	allPodsAreReady := func(expectedVersion string) {
+	allPodsAreReadyWithNS := func(expectedVersion string, namespace string) {
 		Eventually(func() error {
 			podsReadyAndOwned := 0
 
-			pods, err := virtClient.CoreV1().Pods(tests.KubeVirtInstallNamespace).List(metav1.ListOptions{LabelSelector: "kubevirt.io"})
+			pods, err := virtClient.CoreV1().Pods(namespace).List(metav1.ListOptions{LabelSelector: "kubevirt.io"})
 			if err != nil {
 				return err
 			}
@@ -163,9 +180,13 @@ var _ = Describe("Operator", func() {
 		}, 120*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
 	}
 
+	allPodsAreReady := func(expectedVersion string) {
+		allPodsAreReadyWithNS(expectedVersion, tests.KubeVirtInstallNamespace)
+	}
+
 	waitForUpdateCondition := func(kv *v1.KubeVirt) {
 		Eventually(func() error {
-			kv, err := virtClient.KubeVirt(tests.KubeVirtInstallNamespace).Get(kv.Name, &metav1.GetOptions{})
+			kv, err := virtClient.KubeVirt(kv.Namespace).Get(kv.Name, &metav1.GetOptions{})
 			if err != nil {
 				return err
 			}
@@ -231,7 +252,7 @@ var _ = Describe("Operator", func() {
 
 	waitForKv := func(newKv *v1.KubeVirt) {
 		Eventually(func() error {
-			kv, err := virtClient.KubeVirt(tests.KubeVirtInstallNamespace).Get(newKv.Name, &metav1.GetOptions{})
+			kv, err := virtClient.KubeVirt(newKv.Namespace).Get(newKv.Name, &metav1.GetOptions{})
 			if err != nil {
 				return err
 			}
@@ -297,13 +318,11 @@ var _ = Describe("Operator", func() {
 
 	deleteAllKvAndWait := func(ignoreOriginal bool) {
 		Eventually(func() error {
-			kvList, err := virtClient.KubeVirt(tests.KubeVirtInstallNamespace).List(&metav1.ListOptions{})
-			if err != nil {
-				return err
-			}
+
+			kvs := getKvList()
 
 			deleteCount := 0
-			for _, kv := range kvList.Items {
+			for _, kv := range kvs {
 
 				if ignoreOriginal && kv.Name == originalKv.Name {
 					continue
@@ -408,6 +427,34 @@ var _ = Describe("Operator", func() {
 			// We're just verifying that a few common components that
 			// should always exist get re-deployed.
 			sanityCheckDeploymentsExist()
+		})
+
+		It("should be able to delete and re-create kubevirt install in a different namespace", func() {
+			allPodsAreReady(tests.KubeVirtVersionTag)
+			sanityCheckDeploymentsExist()
+
+			By("Deleting KubeVirt object")
+			deleteAllKvAndWait(false)
+
+			// this is just verifying some common known components do in fact get deleted.
+			By("Sanity Checking Deployments infrastructure is deleted")
+			sanityCheckDeploymentsDeleted()
+
+			By("Creating KubeVirt Object")
+			newKV := copyOriginalKv()
+			newKV.Name = "kubevirt-test-default-namespace"
+			newKV.Namespace = tests.NamespaceTestDefault
+
+			createKv(newKV)
+
+			By("Creating KubeVirt Object Created and Ready Condition")
+			waitForKv(newKV)
+
+			By("Verifying infrastructure is Ready")
+			allPodsAreReadyWithNS(tests.KubeVirtVersionTag, newKV.Namespace)
+			// We're just verifying that a few common components that
+			// should always exist get re-deployed.
+			sanityCheckDeploymentsExistWithNS(newKV.Namespace)
 		})
 
 		It("should be able to create kubevirt install with custom image tag", func() {
