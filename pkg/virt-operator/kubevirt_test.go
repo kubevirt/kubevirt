@@ -218,7 +218,7 @@ var _ = Describe("KubeVirt Operator", func() {
 		informers.InfrastructurePod, infrastructurePodSource = testutils.NewFakeInformerFor(&k8sv1.Pod{})
 		stores.InfrastructurePodCache = informers.InfrastructurePod.GetStore()
 
-		controller = NewKubeVirtController(virtClient, kvInformer, recorder, stores, informers)
+		controller = NewKubeVirtController(virtClient, kvInformer, recorder, stores, informers, NAMESPACE)
 
 		// Wrap our workqueue to have a way to detect when we are done processing updates
 		mockQueue = testutils.NewMockWorkQueue(controller.queue)

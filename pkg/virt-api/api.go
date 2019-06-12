@@ -725,11 +725,6 @@ func (app *virtAPIApp) createValidatingWebhook() error {
 			return err
 		}
 	} else {
-		for _, webhook := range webhookRegistration.Webhooks {
-			if webhook.ClientConfig.Service != nil && webhook.ClientConfig.Service.Namespace != app.namespace {
-				return fmt.Errorf("ValidatingAdmissionWebhook [%s] is already registered using services endpoints in a different namespace. Existing webhook registration must be deleted before virt-api can proceed.", virtWebhookValidator)
-			}
-		}
 
 		// update registered webhook with our data
 		webhookRegistration.Webhooks = webHooks
@@ -843,12 +838,6 @@ func (app *virtAPIApp) createMutatingWebhook() error {
 		}
 	} else {
 
-		for _, webhook := range webhookRegistration.Webhooks {
-			if webhook.ClientConfig.Service != nil && webhook.ClientConfig.Service.Namespace != app.namespace {
-				return fmt.Errorf("MutatingAdmissionWebhook [%s] is already registered using services endpoints in a different namespace. Existing webhook registration must be deleted before virt-api can proceed.", virtWebhookMutator)
-			}
-		}
-
 		// update registered webhook with our data
 		webhookRegistration.Webhooks = webHooks
 
@@ -915,9 +904,6 @@ func (app *virtAPIApp) createSubresourceApiservice() error {
 			return err
 		}
 	} else {
-		if apiService.Spec.Service != nil && apiService.Spec.Service.Namespace != app.namespace {
-			return fmt.Errorf("apiservice [%s] is already registered in a different namespace. Existing apiservice registration must be deleted before virt-api can proceed.", subresourceApiservice.Name)
-		}
 
 		// Always update spec to latest.
 		apiService.Spec = app.subresourceApiservice().Spec

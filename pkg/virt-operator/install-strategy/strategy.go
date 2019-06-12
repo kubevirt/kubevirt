@@ -37,7 +37,6 @@ import (
 	v1 "kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/kubecli"
 	"kubevirt.io/kubevirt/pkg/log"
-	kvutil "kubevirt.io/kubevirt/pkg/util"
 	"kubevirt.io/kubevirt/pkg/virt-operator/creation/components"
 	"kubevirt.io/kubevirt/pkg/virt-operator/creation/rbac"
 	"kubevirt.io/kubevirt/pkg/virt-operator/util"
@@ -115,7 +114,7 @@ func DumpInstallStrategyToConfigMap(clientset kubecli.KubevirtClient) error {
 	imageTag := conf.ImageTag
 	imageRegistry := conf.ImageRegistry
 
-	namespace, err := kvutil.GetNamespace()
+	namespace, err := util.GetTargetInstallNamespace()
 	if err != nil {
 		return err
 	}
@@ -289,8 +288,9 @@ func LoadInstallStrategyFromCache(stores util.Stores, namespace string, imageTag
 		config, ok := obj.(*corev1.ConfigMap)
 		if !ok {
 			continue
-		}
-		if config.ObjectMeta.Annotations == nil {
+		} else if config.ObjectMeta.Annotations == nil {
+			continue
+		} else if config.ObjectMeta.Namespace != namespace {
 			continue
 		}
 
