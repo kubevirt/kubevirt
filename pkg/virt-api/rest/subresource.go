@@ -27,7 +27,7 @@ import (
 	"reflect"
 	"strings"
 
-	restful "github.com/emicklei/go-restful"
+	"github.com/emicklei/go-restful"
 	"github.com/gorilla/websocket"
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -282,25 +282,15 @@ func (app *SubresourceAPIApp) StartVMRequestHandler(request *restful.Request, re
 	}
 
 	vmi, err := app.VirtCli.VirtualMachineInstance(namespace).Get(name, &k8smetav1.GetOptions{})
-
-	var (
-		vmiStatusPhase = v1.Unknown
-		vmiIsFinal     = false
-	)
-	if vmi != nil {
-		vmiStatusPhase = vmi.Status.Phase
-		vmiIsFinal = vmi.IsFinal()
-	}
 	if err != nil {
 		if !errors.IsNotFound(err) {
 			response.WriteError(http.StatusInternalServerError, err)
 			return
 		}
-	} else {
-		if !vmiIsFinal {
-			response.WriteError(http.StatusBadRequest, fmt.Errorf("VM is already running"))
-			return
-		}
+	}
+	if vmi != nil && vmi.IsRunning() {
+		response.WriteError(http.StatusBadRequest, fmt.Errorf("VM is already running"))
+		return
 	}
 
 	bodyString := ""
@@ -322,10 +312,10 @@ func (app *SubresourceAPIApp) StartVMRequestHandler(request *restful.Request, re
 		patchType = types.JSONPatchType
 
 		needsRestart := false
-		if (runStrategy == v1.RunStrategyRerunOnFailure && vmiStatusPhase == v1.Succeeded) ||
-			(runStrategy == v1.RunStrategyManual && vmiIsFinal) {
+		if (runStrategy == v1.RunStrategyRerunOnFailure && vmi != nil && vmi.Status.Phase == v1.Succeeded) ||
+			(runStrategy == v1.RunStrategyManual && vmi != nil && vmi.IsFinal()) {
 			needsRestart = true
-		} else if runStrategy == v1.RunStrategyRerunOnFailure && vmiStatusPhase == v1.Failed {
+		} else if runStrategy == v1.RunStrategyRerunOnFailure && vmi != nil && vmi.Status.Phase == v1.Failed {
 			response.WriteError(http.StatusBadRequest, fmt.Errorf("%v does not support starting VM from failed state", v1.RunStrategyRerunOnFailure))
 			return
 		}

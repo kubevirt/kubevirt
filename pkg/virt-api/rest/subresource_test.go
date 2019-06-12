@@ -570,7 +570,7 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 		})
 
 		table.DescribeTable("should fail on VM with RunStrategy",
-			func(runStrategy v1.VirtualMachineRunStrategy, phase v1.VirtualMachineInstancePhase) {
+			func(runStrategy v1.VirtualMachineRunStrategy, phase v1.VirtualMachineInstancePhase, status int) {
 				vm := newVirtualMachineWithRunStrategy(runStrategy)
 				var vmi *v1.VirtualMachineInstance
 				if phase != v1.VmPhaseUnset {
@@ -587,7 +587,7 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 				server.AppendHandlers(
 					ghttp.CombineHandlers(
 						ghttp.VerifyRequest("GET", "/apis/kubevirt.io/v1alpha3/namespaces/default/virtualmachineinstances/testvm"),
-						ghttp.RespondWithJSONEncoded(http.StatusNotFound, vmi),
+						ghttp.RespondWithJSONEncoded(status, vmi),
 					),
 				)
 
@@ -596,64 +596,49 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 				Expect(response.Error()).To(HaveOccurred())
 				Expect(response.StatusCode()).To(Equal(http.StatusBadRequest))
 			},
-			table.Entry("Always without VMI", v1.RunStrategyAlways, v1.VmPhaseUnset),
-			table.Entry("Always with VMI", v1.RunStrategyAlways, v1.Running),
+			table.Entry("Always without VMI", v1.RunStrategyAlways, v1.VmPhaseUnset, http.StatusNotFound),
+			table.Entry("Always with VMI in phase Running", v1.RunStrategyAlways, v1.Running, http.StatusOK),
+			table.Entry("RerunOnFailure with VMI in phase Failed", v1.RunStrategyRerunOnFailure, v1.Failed, http.StatusOK),
 		)
 
-		It("should fail on VM with RunStrategy RerunOnFailure and Phase Failed", func() {
-			vm := newVirtualMachineWithRunStrategy(v1.RunStrategyRerunOnFailure)
-			vmi := newVirtualMachineInstanceInPhase(v1.Failed)
+		table.DescribeTable("should not fail on VM with RunStrategy ",
+			func(runStrategy v1.VirtualMachineRunStrategy, phase v1.VirtualMachineInstancePhase, status int) {
+				vm := newVirtualMachineWithRunStrategy(runStrategy)
+				var vmi *v1.VirtualMachineInstance
+				if phase != v1.VmPhaseUnset {
+					vmi = newVirtualMachineInstanceInPhase(phase)
+				}
 
-			server.AppendHandlers(
-				ghttp.CombineHandlers(
-					ghttp.VerifyRequest("GET", "/apis/kubevirt.io/v1alpha3/namespaces/default/virtualmachines/testvm"),
-					ghttp.RespondWithJSONEncoded(http.StatusOK, vm),
-				),
-			)
+				server.AppendHandlers(
+					ghttp.CombineHandlers(
+						ghttp.VerifyRequest("GET", "/apis/kubevirt.io/v1alpha3/namespaces/default/virtualmachines/testvm"),
+						ghttp.RespondWithJSONEncoded(http.StatusOK, vm),
+					),
+				)
 
-			server.AppendHandlers(
-				ghttp.CombineHandlers(
-					ghttp.VerifyRequest("GET", "/apis/kubevirt.io/v1alpha3/namespaces/default/virtualmachineinstances/testvm"),
-					ghttp.RespondWithJSONEncoded(http.StatusOK, vmi),
-				),
-			)
+				server.AppendHandlers(
+					ghttp.CombineHandlers(
+						ghttp.VerifyRequest("GET", "/apis/kubevirt.io/v1alpha3/namespaces/default/virtualmachineinstances/testvm"),
+						ghttp.RespondWithJSONEncoded(http.StatusOK, vmi),
+					),
+				)
 
-			app.StartVMRequestHandler(request, response)
+				server.AppendHandlers(
+					ghttp.CombineHandlers(
+						ghttp.VerifyRequest("PATCH", "/apis/kubevirt.io/v1alpha3/namespaces/default/virtualmachines/testvm"),
+						ghttp.RespondWithJSONEncoded(http.StatusOK, vm),
+					),
+				)
 
-			Expect(response.Error()).To(HaveOccurred())
-			Expect(response.StatusCode()).To(Equal(http.StatusBadRequest))
-		})
+				app.StartVMRequestHandler(request, response)
 
-		It("should not fail on VM with RunStrategy RerunOnFailure and Phase Succeeded", func() {
-			vm := newVirtualMachineWithRunStrategy(v1.RunStrategyRerunOnFailure)
-			vmi := newVirtualMachineInstanceInPhase(v1.Succeeded)
-
-			server.AppendHandlers(
-				ghttp.CombineHandlers(
-					ghttp.VerifyRequest("GET", "/apis/kubevirt.io/v1alpha3/namespaces/default/virtualmachines/testvm"),
-					ghttp.RespondWithJSONEncoded(http.StatusOK, vm),
-				),
-			)
-
-			server.AppendHandlers(
-				ghttp.CombineHandlers(
-					ghttp.VerifyRequest("GET", "/apis/kubevirt.io/v1alpha3/namespaces/default/virtualmachineinstances/testvm"),
-					ghttp.RespondWithJSONEncoded(http.StatusOK, vmi),
-				),
-			)
-
-			server.AppendHandlers(
-				ghttp.CombineHandlers(
-					ghttp.VerifyRequest("PATCH", "/apis/kubevirt.io/v1alpha3/namespaces/default/virtualmachines/testvm"),
-					ghttp.RespondWithJSONEncoded(http.StatusOK, vm),
-				),
-			)
-
-			app.StartVMRequestHandler(request, response)
-
-			Expect(response.Error()).NotTo(HaveOccurred())
-			Expect(response.StatusCode()).To(Equal(http.StatusAccepted))
-		})
+				Expect(response.Error()).NotTo(HaveOccurred())
+				Expect(response.StatusCode()).To(Equal(http.StatusAccepted))
+			},
+			table.Entry("RerunOnFailure with VMI in state Succeeded", v1.RunStrategyRerunOnFailure, v1.Succeeded, http.StatusOK),
+			table.Entry("Manual with VMI in state Succeeded", v1.RunStrategyManual, v1.Succeeded, http.StatusOK),
+			table.Entry("Manual with VMI in state Failed", v1.RunStrategyManual, v1.Failed, http.StatusOK),
+		)
 	})
 
 	Context("Subresource api - error handling for StopVMRequestHandler", func() {
