@@ -1276,6 +1276,20 @@ func GetPodByVirtualMachineInstance(vmi *v1.VirtualMachineInstance, namespace st
 	return controlledPod
 }
 
+func GetComputeContainerOfPod(pod *k8sv1.Pod) *k8sv1.Container {
+	var computeContainer *k8sv1.Container
+	for _, container := range pod.Spec.Containers {
+		if container.Name == "compute" {
+			computeContainer = &container
+			break
+		}
+	}
+	if computeContainer == nil {
+		PanicOnError(fmt.Errorf("could not find the compute container"))
+	}
+	return computeContainer
+}
+
 func cleanNamespaces() {
 	virtCli, err := kubecli.GetKubevirtClient()
 	PanicOnError(err)
