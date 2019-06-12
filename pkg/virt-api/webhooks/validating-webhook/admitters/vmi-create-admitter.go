@@ -687,6 +687,14 @@ func ValidateVirtualMachineInstanceSpec(field *k8sfield.Path, spec *v1.VirtualMa
 							})
 						}
 
+						if msgs := validation.IsValidPortName(forwardPort.Name); len(msgs) != 0 {
+							causes = append(causes, metav1.StatusCause{
+								Type:    metav1.CauseTypeFieldValueInvalid,
+								Message: fmt.Sprintf("Invalid name of the port: %s", forwardPort.Name),
+								Field:   field.Child("domain", "devices", "interfaces").Index(idx).Child("ports").Index(portIdx).Child("name").String(),
+							})
+						}
+
 						portForwardMap[forwardPort.Name] = struct{}{}
 					}
 				}
