@@ -48,53 +48,19 @@ var _ = Describe("Operator", func() {
 	var originalKubeVirtConfig *k8sv1.ConfigMap
 	var err error
 	var workDir string
-	var vmV1Alpha3YamlFile string
 
 	virtClient, err := kubecli.GetKubevirtClient()
 	tests.PanicOnError(err)
 
 	k8sClient := tests.GetK8sCmdClient()
 
-	vmV1Alpha3Name := "vm-v1alpha3"
-	vmV1Alpha3Yaml := fmt.Sprintf(`apiVersion: kubevirt.io/v1alpha3
-kind: VirtualMachine
-metadata:
-  labels:
-    kubevirt.io/vm: alpha
-  name: %s
-spec:
-  running: false
-  template:
-    metadata:
-      labels:
-        kubevirt.io/vm: alpha
-    spec:
-      domain:
-        devices:
-          disks:
-          - disk:
-              bus: virtio
-            name: containerdisk
-          - disk:
-              bus: virtio
-            name: cloudinitdisk
-        machine:
-          type: ""
-        resources:
-          requests:
-            memory: 64M
-      terminationGracePeriodSeconds: 0
-      volumes:
-      - containerDisk:
-          image: %s/%s-container-disk-demo:%s
-        name: containerdisk
-      - cloudInitNoCloud:
-          userData: |
-            #!/bin/sh
-
-            echo 'printed from cloud-init userdata'
-        name: cloudinitdisk
-`, vmV1Alpha3Name, tests.KubeVirtUtilityRepoPrefix, tests.ContainerDiskCirros, tests.KubeVirtUtilityVersionTag)
+	supportedVersions := []string{"v1alpha3"}
+	type vmYamlDefinition struct {
+		vmName        string
+		generatedYaml string
+		yamlFile      string
+	}
+	var vmYamls []vmYamlDefinition
 
 	getKvList := func() []v1.KubeVirt {
 		var kvListInstallNS *v1.KubeVirtList
@@ -435,10 +401,62 @@ spec:
 		workDir, err = ioutil.TempDir("", tests.TempDirPrefix+"-")
 		Expect(err).ToNot(HaveOccurred())
 
-		vmV1Alpha3YamlFile = filepath.Join(workDir, "vm-v1alpha3.yaml")
-		err = ioutil.WriteFile(vmV1Alpha3YamlFile, []byte(vmV1Alpha3Yaml), 0644)
+		vmYamls = []vmYamlDefinition{}
 
-		Expect(err).ToNot(HaveOccurred())
+		// Soon this list will be expanded beyond v1alpha3
+		// which is why the list is structured like this.
+		for _, version := range supportedVersions {
+			vmYaml := fmt.Sprintf(`apiVersion: kubevirt.io/%s
+kind: VirtualMachine
+metadata:
+  labels:
+    kubevirt.io/vm: %s
+  name: %s
+spec:
+  running: false
+  template:
+    metadata:
+      labels:
+        kubevirt.io/vm: %s
+    spec:
+      domain:
+        devices:
+          disks:
+          - disk:
+              bus: virtio
+            name: containerdisk
+          - disk:
+              bus: virtio
+            name: cloudinitdisk
+        machine:
+          type: ""
+        resources:
+          requests:
+            memory: 64M
+      terminationGracePeriodSeconds: 0
+      volumes:
+      - containerDisk:
+          image: %s/%s-container-disk-demo:%s
+        name: containerdisk
+      - cloudInitNoCloud:
+          userData: |
+            #!/bin/sh
+
+            echo 'printed from cloud-init userdata'
+        name: cloudinitdisk
+`, version, version, version, version, tests.KubeVirtUtilityRepoPrefix, tests.ContainerDiskCirros, tests.KubeVirtUtilityVersionTag)
+
+			yamlFile := filepath.Join(workDir, fmt.Sprintf("vm-%s.yaml", version))
+			err = ioutil.WriteFile(yamlFile, []byte(vmYaml), 0644)
+
+			Expect(err).ToNot(HaveOccurred())
+
+			vmYamls = append(vmYamls, vmYamlDefinition{
+				vmName:        version,
+				generatedYaml: vmYaml,
+				yamlFile:      yamlFile,
+			})
+		}
 	})
 
 	AfterEach(func() {
@@ -526,36 +544,40 @@ spec:
 
 			// Create VM on previous release using a specific API.
 			// NOTE: we are testing with yaml here and explicilty _NOT_ generating
-			// this vm using the latest api code. We want to guarantee there are no
+			// this vm using the latest api code. We want to guarrantee there are no
 			// surprises when it comes to backwards compatiblity with previous
 			// virt apis.  As we progress our api from v1alpha3 -> v1beta1 -> v1 there
 			// needs to be a VM created for every api. This is how we will ensure
 			// our api remains upgradable and supportable from previous release.
-			By("Creating VM with v1alpha3 api")
-			_, _, err = tests.RunCommand(k8sClient, "create", "-f", vmV1Alpha3YamlFile)
-			Expect(err).ToNot(HaveOccurred())
-
-			// Use Current virtctl to start VM
-			// NOTE: we are using virtctl explicitly here because we want to start the VM
-			// using the subresource endpoint in the same way virtctl performs this.
-			By("Starting VM with virtctl")
-			startFn := tests.NewRepeatableVirtctlCommand("start", "--namespace", tests.NamespaceTestDefault, vmV1Alpha3Name)
-			err = startFn()
-			Expect(err).ToNot(HaveOccurred())
-
-			By("Waiting for v1alpha3 VM to be ready")
-			Eventually(func() bool {
-				virtualMachine, err := virtClient.VirtualMachine(tests.NamespaceTestDefault).Get(vmV1Alpha3Name, &metav1.GetOptions{})
+			for _, vmYaml := range vmYamls {
+				By(fmt.Sprintf("Creating VM with %s api", vmYaml.vmName))
+				_, _, err = tests.RunCommand(k8sClient, "create", "-f", vmYaml.yamlFile)
 				Expect(err).ToNot(HaveOccurred())
-				return virtualMachine.Status.Ready
-			}, 360*time.Second, 1*time.Second).Should(BeTrue())
 
-			By("Connecting to v1alpha3's console")
-			vmi, err := virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Get(vmV1Alpha3Name, &metav1.GetOptions{})
-			Expect(err).ToNot(HaveOccurred())
-			expecter, err := tests.LoggedInCirrosExpecter(vmi)
-			Expect(err).ToNot(HaveOccurred())
-			expecter.Close()
+				// Use Current virtctl to start VM
+				// NOTE: we are using virtctl explicitly here because we want to start the VM
+				// using the subresource endpoint in the same way virtctl performs this.
+				By("Starting VM with virtctl")
+				startFn := tests.NewRepeatableVirtctlCommand("start", "--namespace", tests.NamespaceTestDefault, vmYaml.vmName)
+				err = startFn()
+				Expect(err).ToNot(HaveOccurred())
+			}
+
+			for _, vmYaml := range vmYamls {
+				By(fmt.Sprintf("Waiting for %s to be ready", vmYaml.vmName))
+				Eventually(func() bool {
+					virtualMachine, err := virtClient.VirtualMachine(tests.NamespaceTestDefault).Get(vmYaml.vmName, &metav1.GetOptions{})
+					Expect(err).ToNot(HaveOccurred())
+					return virtualMachine.Status.Ready
+				}, 360*time.Second, 1*time.Second).Should(BeTrue())
+
+				By(fmt.Sprintf("Connecting to %s's console", vmYaml.vmName))
+				vmi, err := virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Get(vmYaml.vmName, &metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				expecter, err := tests.LoggedInCirrosExpecter(vmi)
+				Expect(err).ToNot(HaveOccurred())
+				expecter.Close()
+			}
 
 			// Update KubeVIrt from the previous release to the testing target release.
 			By("Updating KubeVirtObject With Current Tag")
@@ -571,22 +593,29 @@ spec:
 			allPodsAreReady(curTag)
 
 			// Verify console connectivity to VMI
-			By("Verifying VM's console is still active after update")
-			expecter, err = tests.LoggedInCirrosExpecter(vmi)
-			Expect(err).ToNot(HaveOccurred())
-			expecter.Close()
+			for _, vmYaml := range vmYamls {
+				By(fmt.Sprintf("Ensuring %s is still ready", vmYaml.vmName))
+				virtualMachine, err := virtClient.VirtualMachine(tests.NamespaceTestDefault).Get(vmYaml.vmName, &metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				Expect(virtualMachine.Status.Ready).To(Equal(true))
 
-			// Stop VM
-			// NOTE: we are using virtctl explicitly here because we want to start the VM
-			// using the subresource endpoint in the same way virtctl performs this.
-			By("Stopping VM with virtctl")
-			stopFn := tests.NewRepeatableVirtctlCommand("stop", "--namespace", tests.NamespaceTestDefault, vmV1Alpha3Name)
-			err = stopFn()
-			Expect(err).ToNot(HaveOccurred())
+				By(fmt.Sprintf("Connecting to %s's console", vmYaml.vmName))
+				vmi, err := virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Get(vmYaml.vmName, &metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				expecter, err := tests.LoggedInCirrosExpecter(vmi)
+				Expect(err).ToNot(HaveOccurred())
+				expecter.Close()
 
-			By("Deleting VM with v1alpha3 api")
-			_, _, err = tests.RunCommand(k8sClient, "delete", "-f", vmV1Alpha3YamlFile)
-			Expect(err).ToNot(HaveOccurred())
+				By("Stopping VM with virtctl")
+				stopFn := tests.NewRepeatableVirtctlCommand("stop", "--namespace", tests.NamespaceTestDefault, vmYaml.vmName)
+				err = stopFn()
+				Expect(err).ToNot(HaveOccurred())
+
+				By(fmt.Sprintf("Deleting VM with %s api", vmYaml.vmName))
+				_, _, err = tests.RunCommand(k8sClient, "delete", "-f", vmYaml.yamlFile)
+				Expect(err).ToNot(HaveOccurred())
+
+			}
 
 			By("Deleting KubeVirt object")
 			deleteAllKvAndWait(false)
