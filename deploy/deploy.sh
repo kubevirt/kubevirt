@@ -4,7 +4,6 @@ set -x
 
 # Create the namespaces for the HCO
 kubectl create ns kubevirt-hyperconverged
-kubectl create ns node-maintenance-operator
 
 # Switch to the HCO namespace.
 kubectl config set-context $(kubectl config current-context) --namespace=kubevirt-hyperconverged
