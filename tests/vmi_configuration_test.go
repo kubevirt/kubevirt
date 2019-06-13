@@ -368,11 +368,11 @@ var _ = Describe("Configurations", func() {
 				defer expecter.Close()
 
 				res, err := expecter.ExpectBatch([]expect.Batcher{
-					&expect.BSnd{S: "free -m | grep Mem: | tr -s ' ' | cut -d' ' -f2\n"},
-					&expect.BExp{R: "236"},
+					&expect.BSnd{S: "[ $(free -m | grep Mem: | tr -s ' ' | cut -d' ' -f2) -gt 200 ] && echo 'pass' || echo 'fail'\n"},
+					&expect.BExp{R: "pass"},
 					&expect.BSnd{S: "swapoff -a && dd if=/dev/zero of=/dev/shm/test bs=1k count=118k; echo $?\n"},
 					&expect.BExp{R: "0"},
-				}, 20*time.Second)
+				}, 15*time.Second)
 				log.DefaultLogger().Object(vmi).Infof("%v", res)
 				Expect(err).ToNot(HaveOccurred())
 
@@ -384,11 +384,11 @@ var _ = Describe("Configurations", func() {
 					[]string{"/usr/bin/bash", "-c", "cat /sys/fs/cgroup/memory/memory.usage_in_bytes"},
 				)
 				Expect(err).ToNot(HaveOccurred())
-
-				By("Checking if pod memory usage is > 64Mi")
+				By("Converting pod memory usage")
 				m, err := strconv.Atoi(strings.Trim(podMemoryUsage, "\n"))
 				Expect(err).ToNot(HaveOccurred())
-				Expect(m > 67108864).To(BeTrue())
+				By("Checking if pod memory usage is > 64Mi")
+				Expect(m > 67108864).To(BeTrue(), "67108864 B = 64 Mi")
 			})
 
 		})
