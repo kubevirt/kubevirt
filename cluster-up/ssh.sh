@@ -27,7 +27,7 @@ if [ -z "$node" ]; then
 fi
 
 if [[ $provider_prefix =~ okd.* ]]; then
-    ports=$($KUBEVIRTCI_PATH/cluster/cli.sh --prefix $provider_prefix ports --container-name cluster)
+    ports=$(${KUBEVIRTCI_PATH}cli.sh --prefix $provider_prefix ports --container-name cluster)
 
     if [[ $node =~ worker-0.* ]]; then
         port=$(echo "$ports" | grep 2202 | awk -F':' '{print $2}')
@@ -39,7 +39,8 @@ if [[ $provider_prefix =~ okd.* ]]; then
         echo "no ssh port found for $node"
         exit 1
     fi
-    ssh -lcore -p $port core@127.0.0.1 -i ${ssh_key}
+    shift
+    ssh -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -q -lcore -p $port core@127.0.0.1 -i ${ssh_key} $@
 else
-    ${_cli} --prefix $provider_prefix ssh "$1"
+    ${_cli} --prefix $provider_prefix ssh "$@"
 fi
