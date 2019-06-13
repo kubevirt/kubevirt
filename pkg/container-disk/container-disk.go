@@ -123,7 +123,7 @@ func GenerateContainers(vmi *v1.VirtualMachineInstance, podVolumeName string, po
 			container := kubev1.Container{
 				Name:            diskContainerName,
 				Image:           diskContainerImage,
-				ImagePullPolicy: kubev1.PullIfNotPresent,
+				ImagePullPolicy: volume.ContainerDisk.ImagePullPolicy,
 				Command:         []string{"/entry-point.sh"},
 				Env: []kubev1.EnvVar{
 					{

@@ -551,6 +551,13 @@ type ContainerDiskSource struct {
 	ImagePullSecret string `json:"imagePullSecret,omitempty"`
 	// Path defines the path to disk file in the container
 	Path string `json:"path,omitempty"`
+	// Image pull policy.
+	// One of Always, Never, IfNotPresent.
+	// Defaults to Always if :latest tag is specified, or IfNotPresent otherwise.
+	// Cannot be updated.
+	// More info: https://kubernetes.io/docs/concepts/containers/images#updating-images
+	// +optional
+	ImagePullPolicy v1.PullPolicy `json:"imagePullPolicy,omitempty"`
 }
 
 // Exactly one of its members must be set.

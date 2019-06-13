@@ -23,6 +23,7 @@ import (
 	"encoding/json"
 
 	. "github.com/onsi/ginkgo"
+	"github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
 	"k8s.io/api/admission/v1beta1"
 	k8sv1 "k8s.io/api/core/v1"
@@ -169,6 +170,159 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 		Expect(vmiSpec.Domain.Resources.Requests.Cpu().String()).To(Equal(cpuRequestFromConfig))
 		Expect(vmiSpec.Domain.Resources.Requests.Memory().String()).To(Equal(memoryRequestFromConfig))
 	})
+
+	table.DescribeTable("it should", func(given []v1.Volume, expected []v1.Volume) {
+		vmi.Spec.Volumes = given
+		vmiSpec, _ := getVMISpecMetaFromResponse()
+		Expect(vmiSpec.Volumes).To(Equal(expected))
+	},
+		table.Entry("set the ImagePullPolicy to Always if :latest is specified",
+			[]v1.Volume{
+				{"a",
+					v1.VolumeSource{
+						ContainerDisk: &v1.ContainerDiskSource{
+							Image: "test:latest",
+						},
+					},
+				},
+			},
+			[]v1.Volume{
+				{"a",
+					v1.VolumeSource{
+						ContainerDisk: &v1.ContainerDiskSource{
+							Image:           "test:latest",
+							ImagePullPolicy: k8sv1.PullAlways,
+						},
+					},
+				},
+			},
+		),
+		table.Entry("set the ImagePullPolicy to Always if no tag or shasum is specified",
+			[]v1.Volume{
+				{"a",
+					v1.VolumeSource{
+						ContainerDisk: &v1.ContainerDiskSource{
+							Image: "test",
+						},
+					},
+				},
+			},
+			[]v1.Volume{
+				{"a",
+					v1.VolumeSource{
+						ContainerDisk: &v1.ContainerDiskSource{
+							Image:           "test",
+							ImagePullPolicy: k8sv1.PullAlways,
+						},
+					},
+				},
+			},
+		),
+		table.Entry("set the ImagePullPolicy to IfNotPresent if arbitrary tags are specified",
+			[]v1.Volume{
+				{"a",
+					v1.VolumeSource{
+						ContainerDisk: &v1.ContainerDiskSource{
+							Image: "test:notlatest",
+						},
+					},
+				},
+			},
+			[]v1.Volume{
+				{"a",
+					v1.VolumeSource{
+						ContainerDisk: &v1.ContainerDiskSource{
+							Image:           "test:notlatest",
+							ImagePullPolicy: k8sv1.PullIfNotPresent,
+						},
+					},
+				},
+			},
+		),
+		table.Entry("set the right ImagePullPolicy on a mixture of sources",
+			[]v1.Volume{
+				{"a",
+					v1.VolumeSource{
+						ContainerDisk: &v1.ContainerDiskSource{
+							Image: "test:notlatest",
+						},
+					},
+				},
+				{"b",
+					v1.VolumeSource{
+						ContainerDisk: &v1.ContainerDiskSource{
+							Image: "test:latest",
+						},
+					},
+				},
+				{"c",
+					v1.VolumeSource{
+						ContainerDisk: &v1.ContainerDiskSource{
+							Image:           "test:latest",
+							ImagePullPolicy: k8sv1.PullNever,
+						},
+					},
+				},
+				{"d",
+					v1.VolumeSource{
+						ContainerDisk: &v1.ContainerDiskSource{
+							Image:           "test",
+							ImagePullPolicy: k8sv1.PullIfNotPresent,
+						},
+					},
+				},
+				{"e",
+					v1.VolumeSource{
+						ContainerDisk: &v1.ContainerDiskSource{
+							Image: "test:notlatest",
+						},
+					},
+				},
+			},
+			[]v1.Volume{
+				{"a",
+					v1.VolumeSource{
+						ContainerDisk: &v1.ContainerDiskSource{
+							Image:           "test:notlatest",
+							ImagePullPolicy: k8sv1.PullIfNotPresent,
+						},
+					},
+				},
+				{"b",
+					v1.VolumeSource{
+						ContainerDisk: &v1.ContainerDiskSource{
+							Image:           "test:latest",
+							ImagePullPolicy: k8sv1.PullAlways,
+						},
+					},
+				},
+				{"c",
+					v1.VolumeSource{
+						ContainerDisk: &v1.ContainerDiskSource{
+							Image:           "test:latest",
+							ImagePullPolicy: k8sv1.PullNever,
+						},
+					},
+				},
+				{"d",
+					v1.VolumeSource{
+						ContainerDisk: &v1.ContainerDiskSource{
+							Image:           "test",
+							ImagePullPolicy: k8sv1.PullIfNotPresent,
+						},
+					},
+				},
+				{"e",
+					v1.VolumeSource{
+						ContainerDisk: &v1.ContainerDiskSource{
+							Image:           "test:notlatest",
+							ImagePullPolicy: k8sv1.PullIfNotPresent,
+						},
+					},
+				},
+			},
+		),
+	)
 
 	It("should not override specified properties with defaults on VMI create", func() {
 		testutils.UpdateFakeClusterConfig(configMapInformer, &k8sv1.ConfigMap{
