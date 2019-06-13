@@ -11,20 +11,20 @@ GOPATH=~/go
 GOBIN=~/go/bin
 PATH=$PATH:$GOBIN
 
-CLUSTER_NAME=sriov-ci-$(uuidgen)
+CLUSTER_NAME=sriov-ci
 CLUSTER_CONTROL_PLANE=${CLUSTER_NAME}-control-plane
 CONTAINER_REGISTRY_HOST="localhost:5000"
 
 CLUSTER_CMD="docker exec -it -d ${CLUSTER_CONTROL_PLANE}"
 
 KUBEVIRT_PATH=`pwd`
-CLUSTER_DIR="cluster/k8s-1.13.0-sriov"
+CLUSTER_DIR="cluster-up/cluster/k8s-1.13.0-sriov"
 MANIFESTS_DIR="${CLUSTER_DIR}/manifests"
 ARTIFACTS_DIR="${KUBEVIRT_PATH}/exported-artifacts"
 
-SHARED_DIR="/var/lib/stdci/shared"
-SRIOV_JOB_LOCKFILE="${SHARED_DIR}/sriov.lock"
-SRIOV_TIMEOUT_SEC="14400" # 4h
+# SHARED_DIR="/var/lib/stdci/shared"
+# SRIOV_JOB_LOCKFILE="${SHARED_DIR}/sriov.lock"
+# SRIOV_TIMEOUT_SEC="14400" # 4h
 
 function wait_containers_ready {
     # wait until all containers are ready
@@ -62,25 +62,29 @@ function finish {
     kind delete cluster --name=${CLUSTER_NAME}
 }
 
-trap finish EXIT
+#trap finish EXIT
+
+# TODO Fede: this may not be needed because of prow
 
 # serialize all sriov jobs running on the same ci node
-[ -d "${SHARED_DIR}" ] || mkdir -p "${SHARED_DIR}"
-touch "$SRIOV_JOB_LOCKFILE"
-exec {fd}< "$SRIOV_JOB_LOCKFILE"
-flock -e  -w "$SRIOV_TIMEOUT_SEC" "$fd" || {
-    echo "ERROR: Timed out after $SRIOV_TIMEOUT_SEC seconds waiting for sriov.lock" >&2
-    exit 1
-}
+#[ -d "${SHARED_DIR}" ] || mkdir -p "${SHARED_DIR}"
+#touch "$SRIOV_JOB_LOCKFILE"
+#exec {fd}< "$SRIOV_JOB_LOCKFILE"
+#flock -e  -w "$SRIOV_TIMEOUT_SEC" "$fd" || {
+#    echo "ERROR: Timed out after $SRIOV_TIMEOUT_SEC seconds waiting for sriov.lock" >&2
+#    exit 1
+#}
 
 # ================
 # bring up cluster
 # ================
-go get -u sigs.k8s.io/kind
+# TODO FEDE takes too long to go get, move to docker image?
+#go get -u sigs.k8s.io/kind 
 
 kind --loglevel debug create cluster --wait=$((60*60))s --retain --name=${CLUSTER_NAME} --config=${MANIFESTS_DIR}/kind.yaml
 
 export KUBECONFIG=$(kind get kubeconfig-path --name=${CLUSTER_NAME})
+
 kubectl cluster-info
 
 # copied from https://github.com/kubernetes-sigs/federation-v2/blob/master/scripts/create-clusters.sh
@@ -133,11 +137,11 @@ wait_containers_ready
 kubectl apply -f $MANIFESTS_DIR/multus.yaml
 
 # deploy sriov cni
-kubectl apply -f $MANIFESTS_DIR/sriov-crd.yaml
-kubectl apply -f $MANIFESTS_DIR/sriov-cni-daemonset.yaml
+# TODO FEDE SRIOV kubectl apply -f $MANIFESTS_DIR/sriov-crd.yaml
+# TODO FEDE SRIOV kubectl apply -f $MANIFESTS_DIR/sriov-cni-daemonset.yaml
 
 # prepare kernel for vfio passthrough
-modprobe vfio-pci
+# TODO FEDE SRIOV modprobe vfio-pci
 
 # deploy sriov device plugin
 function configure-sriovdp() {
@@ -154,8 +158,8 @@ EOF
 "
 }
 
-configure-sriovdp "${CLUSTER_CMD} bash -c"
-kubectl apply -f $MANIFESTS_DIR/sriovdp-daemonset.yaml
+# TODO FEDE SRIOV configure-sriovdp "${CLUSTER_CMD} bash -c"
+# TODO FEDE SRIOV kubectl apply -f $MANIFESTS_DIR/sriovdp-daemonset.yaml
 
 # give them some time to create pods before checking pod status
 sleep 10
@@ -193,8 +197,8 @@ wait_kubevirt_up
 # =========================
 # enable sriov feature gate
 # =========================
-kubectl patch configmap kubevirt-config -n kubevirt --patch "data:
-  feature-gates: DataVolumes, CPUManager, LiveMigration, SRIOV"
+# TODO FEDE SRIOV kubectl patch configmap kubevirt-config -n kubevirt --patch "data:
+# TODO FEDE SRIOV   feature-gates: DataVolumes, CPUManager, LiveMigration, SRIOV"
 
 # delete all virt- pods so that they have a chance to catch up with feature gate change
 kubectl get pods -n kubevirt | grep virt | awk '{print $1}' | xargs kubectl delete pods -n kubevirt
@@ -203,4 +207,4 @@ wait_kubevirt_up
 # ========================
 # execute functional tests
 # ========================
-./${CLUSTER_DIR}/test.sh
+#./${CLUSTER_DIR}/test.sh
