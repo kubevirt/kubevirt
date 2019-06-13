@@ -2590,6 +2590,15 @@ func (in *VirtualMachineInstanceStatus) DeepCopyInto(out *VirtualMachineInstance
 			(*in).DeepCopyInto(*out)
 		}
 	}
+	if in.QOSClass != nil {
+		in, out := &in.QOSClass, &out.QOSClass
+		if *in == nil {
+			*out = nil
+		} else {
+			*out = new(core_v1.PodQOSClass)
+			**out = **in
+		}
+	}
 	return
 }
 

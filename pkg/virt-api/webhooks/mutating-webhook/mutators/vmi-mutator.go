@@ -147,7 +147,24 @@ func (mutator *VMIsMutator) setDefaultPullPoliciesOnContainerDisks(vmi *v1.Virtu
 }
 
 func (mutator *VMIsMutator) setDefaultResourceRequests(vmi *v1.VirtualMachineInstance) {
-	if _, exists := vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory]; !exists {
+
+	resources := &vmi.Spec.Domain.Resources
+
+	if !resources.Limits.Cpu().IsZero() && resources.Requests.Cpu().IsZero() {
+		if resources.Requests == nil {
+			resources.Requests = k8sv1.ResourceList{}
+		}
+		resources.Requests[k8sv1.ResourceCPU] = resources.Limits[k8sv1.ResourceCPU]
+	}
+
+	if !resources.Limits.Memory().IsZero() && resources.Requests.Memory().IsZero() {
+		if resources.Requests == nil {
+			resources.Requests = k8sv1.ResourceList{}
+		}
+		resources.Requests[k8sv1.ResourceMemory] = resources.Limits[k8sv1.ResourceMemory]
+	}
+
+	if _, exists := resources.Requests[k8sv1.ResourceMemory]; !exists {
 		var memory *resource.Quantity
 		if vmi.Spec.Domain.Memory != nil && vmi.Spec.Domain.Memory.Guest != nil {
 			memory = vmi.Spec.Domain.Memory.Guest
@@ -158,28 +175,28 @@ func (mutator *VMIsMutator) setDefaultResourceRequests(vmi *v1.VirtualMachineIns
 			}
 		}
 		if memory != nil && memory.Value() > 0 {
-			if vmi.Spec.Domain.Resources.Requests == nil {
-				vmi.Spec.Domain.Resources.Requests = k8sv1.ResourceList{}
+			if resources.Requests == nil {
+				resources.Requests = k8sv1.ResourceList{}
 			}
 			overcommit := mutator.ClusterConfig.GetMemoryOvercommit()
 			if overcommit == 100 {
-				vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = *memory
+				resources.Requests[k8sv1.ResourceMemory] = *memory
 			} else {
 				value := (memory.Value() * int64(100)) / int64(overcommit)
-				vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = *resource.NewQuantity(value, memory.Format)
+				resources.Requests[k8sv1.ResourceMemory] = *resource.NewQuantity(value, memory.Format)
 			}
-			memoryRequest := vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory]
+			memoryRequest := resources.Requests[k8sv1.ResourceMemory]
 			log.Log.Object(vmi).V(4).Infof("Set memory-request to %s as a result of memory-overcommit = %v%%", memoryRequest.String(), overcommit)
 		}
 	}
 
-	if _, exists := vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceCPU]; !exists {
+	if _, exists := resources.Requests[k8sv1.ResourceCPU]; !exists {
 		if vmi.Spec.Domain.CPU != nil && vmi.Spec.Domain.CPU.DedicatedCPUPlacement {
 			return
 		}
-		if vmi.Spec.Domain.Resources.Requests == nil {
-			vmi.Spec.Domain.Resources.Requests = k8sv1.ResourceList{}
+		if resources.Requests == nil {
+			resources.Requests = k8sv1.ResourceList{}
 		}
-		vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceCPU] = mutator.ClusterConfig.GetCPURequest()
+		resources.Requests[k8sv1.ResourceCPU] = mutator.ClusterConfig.GetCPURequest()
 	}
 }

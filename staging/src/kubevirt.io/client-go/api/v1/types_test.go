@@ -26,12 +26,43 @@ import (
 	"github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
 	k8sv1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 	k8smetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"kubevirt.io/client-go/log"
 )
 
 var _ = Describe("PodSelectors", func() {
+
+	It("should detect if VMIs want guaranteed QOS", func() {
+		vmi := NewMinimalVMI("testvmi")
+		vmi.Spec.Domain.Resources = ResourceRequirements{
+			Requests: k8sv1.ResourceList{
+				k8sv1.ResourceCPU:    resource.MustParse("1"),
+				k8sv1.ResourceMemory: resource.MustParse("64M"),
+			},
+			Limits: k8sv1.ResourceList{
+				k8sv1.ResourceCPU:    resource.MustParse("1"),
+				k8sv1.ResourceMemory: resource.MustParse("64M"),
+			},
+		}
+		Expect(vmi.WantsToHaveQOSGuaranteed()).To(BeTrue())
+	})
+
+	It("should detect if VMIs don't want guaranteed QOS", func() {
+		vmi := NewMinimalVMI("testvmi")
+		vmi.Spec.Domain.Resources = ResourceRequirements{
+			Requests: k8sv1.ResourceList{
+				k8sv1.ResourceMemory: resource.MustParse("64M"),
+			},
+			Limits: k8sv1.ResourceList{
+				k8sv1.ResourceCPU:    resource.MustParse("1"),
+				k8sv1.ResourceMemory: resource.MustParse("64M"),
+			},
+		}
+		Expect(vmi.WantsToHaveQOSGuaranteed()).To(BeFalse())
+	})
+
 	Context("Pod affinity rules", func() {
 
 		It("should work", func() {

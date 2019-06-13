@@ -229,6 +229,11 @@ type VirtualMachineInstanceStatus struct {
 	MigrationState *VirtualMachineInstanceMigrationState `json:"migrationState,omitempty"`
 	// Represents the method using which the vmi can be migrated: live migration or block migration
 	MigrationMethod VirtualMachineInstanceMigrationMethod `json:"migrationMethod,omitempty"`
+	// The Quality of Service (QOS) classification assigned to the virtual machine instance based on resource requirements
+	// See PodQOSClass type for available QOS classes
+	// More info: https://git.k8s.io/community/contributors/design-proposals/node/resource-qos.md
+	// +optional
+	QOSClass *k8sv1.PodQOSClass `json:"qosClass,omitempty"`
 }
 
 // Required to satisfy Object interface
@@ -268,6 +273,14 @@ func (v *VirtualMachineInstance) IsUnprocessed() bool {
 // Checks if CPU pinning has been requested
 func (v *VirtualMachineInstance) IsCPUDedicated() bool {
 	return v.Spec.Domain.CPU != nil && v.Spec.Domain.CPU.DedicatedCPUPlacement
+}
+
+// WantsToHaveQOSGuaranteed checks if cpu and memoyr limits and requests are identical on the VMI.
+// This is the indicator that people want a VMI with QOS of guaranteed
+func (v *VirtualMachineInstance) WantsToHaveQOSGuaranteed() bool {
+	resources := v.Spec.Domain.Resources
+	return !resources.Requests.Memory().IsZero() && resources.Requests.Memory().Cmp(*resources.Limits.Memory()) == 0 &&
+		!resources.Requests.Cpu().IsZero() && resources.Requests.Cpu().Cmp(*resources.Limits.Cpu()) == 0
 }
 
 // Required to satisfy Object interface

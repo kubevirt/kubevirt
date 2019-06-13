@@ -5468,6 +5468,7 @@
      }
     }
    },
+   "v1.PodQOSClass": {},
    "v1.Port": {
     "description": "Port repesents a port to expose from the virtual machine.\nDefault protocol TCP.\nThe port field is mandatory",
     "required": [
@@ -6440,6 +6441,10 @@
      "phase": {
       "description": "Phase is the status of the VirtualMachineInstance in kubernetes world. It is not the VirtualMachineInstance status, but partially correlates to it.",
       "type": "string"
+     },
+     "qosClass": {
+      "description": "The Quality of Service (QOS) classification assigned to the virtual machine instance based on resource requirements\nSee PodQOSClass type for available QOS classes\nMore info: https://git.k8s.io/community/contributors/design-proposals/node/resource-qos.md\n+optional",
+      "$ref": "#/definitions/v1.PodQOSClass"
      },
      "reason": {
       "description": "A brief CamelCase message indicating details about why the VMI is in this state. e.g. 'NodeUnresponsive'\n+optional",

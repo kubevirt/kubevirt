@@ -27,7 +27,8 @@ import (
 	. "github.com/onsi/ginkgo"
 	"github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
-	v12 "k8s.io/api/core/v1"
+	k8sv1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 
 	v1 "kubevirt.io/client-go/api/v1"
 )
@@ -85,6 +86,23 @@ var _ = Describe("ContainerDisk", func() {
 				err := SetFilePermissions(vmi)
 				Expect(err).To(HaveOccurred())
 			})
+			It("by verifying that resources are set if the VMI wants the guaranteed QOS class", func() {
+
+				vmi := v1.NewMinimalVMI("fake-vmi")
+				appendContainerDisk(vmi, "r0")
+				vmi.Spec.Domain.Resources = v1.ResourceRequirements{
+					Requests: k8sv1.ResourceList{
+						k8sv1.ResourceCPU:    resource.MustParse("1"),
+						k8sv1.ResourceMemory: resource.MustParse("64M"),
+					},
+					Limits: k8sv1.ResourceList{
+						k8sv1.ResourceCPU:    resource.MustParse("1"),
+						k8sv1.ResourceMemory: resource.MustParse("64M"),
+					},
+				}
+				containers := GenerateContainers(vmi, "libvirt-runtime", "/var/run/libvirt")
+				Expect(containers[0].Resources.Limits).To(HaveLen(2))
+			})
 			It("by verifying container generation", func() {
 				vmi := v1.NewMinimalVMI("fake-vmi")
 				appendContainerDisk(vmi, "r1")
@@ -93,8 +111,8 @@ var _ = Describe("ContainerDisk", func() {
 				Expect(err).ToNot(HaveOccurred())
 
 				Expect(len(containers)).To(Equal(2))
-				Expect(containers[0].ImagePullPolicy).To(Equal(v12.PullAlways))
-				Expect(containers[1].ImagePullPolicy).To(Equal(v12.PullAlways))
+				Expect(containers[0].ImagePullPolicy).To(Equal(k8sv1.PullAlways))
+				Expect(containers[1].ImagePullPolicy).To(Equal(k8sv1.PullAlways))
 			})
 		})
 	})
@@ -112,7 +130,7 @@ func appendContainerDisk(vmi *v1.VirtualMachineInstance, diskName string) {
 		VolumeSource: v1.VolumeSource{
 			ContainerDisk: &v1.ContainerDiskSource{
 				Image:           "someimage:v1.2.3.4",
-				ImagePullPolicy: v12.PullAlways,
+				ImagePullPolicy: k8sv1.PullAlways,
 			},
 		},
 	})
