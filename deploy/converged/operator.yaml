@@ -100,8 +100,6 @@ spec:
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  labels:
-    operator.cdi.kubevirt.io: ""
   name: cdi-operator
   namespace: kubevirt-hyperconverged
 spec:
@@ -109,12 +107,14 @@ spec:
   selector:
     matchLabels:
       name: cdi-operator
+      operator.cdi.kubevirt.io: ""
   strategy: {}
   template:
     metadata:
       creationTimestamp: null
       labels:
         name: cdi-operator
+        operator.cdi.kubevirt.io: ""
     spec:
       containers:
       - env:

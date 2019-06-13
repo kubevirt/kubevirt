@@ -1403,17 +1403,22 @@ func isInsecureTLS(client kubernetes.Interface, pvc *v1.PersistentVolumeClaim) (
 		return false, nil
 	}
 
+	klog.V(3).Infof("Checking configmap %s for host %s", configMapName, url.Host)
+
 	cm, err := client.CoreV1().ConfigMaps(util.GetNamespace()).Get(configMapName, metav1.GetOptions{})
 	if err != nil {
 		if k8serrors.IsNotFound(err) {
+			klog.Warningf("Configmap %s does not exist", configMapName)
 			return false, nil
 		}
 
 		return false, err
 	}
 
-	for host := range cm.Data {
-		if host == url.Host {
+	for key, value := range cm.Data {
+		klog.V(3).Infof("Checking %q against %q: %q", url.Host, key, value)
+
+		if value == url.Host {
 			return true, nil
 		}
 	}

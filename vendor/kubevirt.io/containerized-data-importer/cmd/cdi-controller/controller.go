@@ -232,10 +232,6 @@ func start(cfg *rest.Config, stopCh <-chan struct{}) {
 			klog.Fatalf("Error running config controller: %+v", err)
 		}
 	}()
-
-	if err = createReadyFile(); err != nil {
-		klog.Fatalf("Error creating ready file: %+v", err)
-	}
 }
 
 func main() {
@@ -254,6 +250,10 @@ func main() {
 
 	if err != nil {
 		klog.Fatalf("Unable to start leader election: %v\n", errors.WithStack(err))
+	}
+
+	if err = createReadyFile(); err != nil {
+		klog.Fatalf("Error creating ready file: %+v", err)
 	}
 
 	<-stopCh

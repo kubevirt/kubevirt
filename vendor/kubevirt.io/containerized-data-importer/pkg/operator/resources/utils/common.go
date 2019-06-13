@@ -144,16 +144,15 @@ func CreateRole(name string) *rbacv1.Role {
 
 //CreateOperatorDeploymentSpec creates deployment
 func CreateOperatorDeploymentSpec(name, namespace, matchKey, matchValue, serviceAccount string, numReplicas int32) *appsv1.DeploymentSpec {
+	matchMap := map[string]string{matchKey: matchValue}
 	spec := &appsv1.DeploymentSpec{
 		Replicas: &numReplicas,
 		Selector: &metav1.LabelSelector{
-			MatchLabels: map[string]string{
-				"name": "cdi-operator",
-			},
+			MatchLabels: WithOperatorLabels(matchMap),
 		},
 		Template: corev1.PodTemplateSpec{
 			ObjectMeta: metav1.ObjectMeta{
-				Labels: map[string]string{"name": "cdi-operator"},
+				Labels: WithOperatorLabels(matchMap),
 			},
 		},
 	}
@@ -167,16 +166,12 @@ func CreateOperatorDeploymentSpec(name, namespace, matchKey, matchValue, service
 
 //CreateOperatorDeployment creates deployment
 func CreateOperatorDeployment(name, namespace, matchKey, matchValue, serviceAccount string, numReplicas int32) *appsv1.Deployment {
-	//matchMap := map[string]string{matchKey: matchValue}
 	deployment := &appsv1.Deployment{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: "apps/v1",
 			Kind:       "Deployment",
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Labels: map[string]string{
-				"operator.cdi.kubevirt.io": "",
-			},
 			Name:      name,
 			Namespace: namespace,
 		},

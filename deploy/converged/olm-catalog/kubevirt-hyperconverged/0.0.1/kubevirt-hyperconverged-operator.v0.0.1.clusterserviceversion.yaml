@@ -78,7 +78,7 @@ metadata:
           "spec": {
             "nodeName": "nodename",
             "reason": "node maintenance reason"
-          }          
+          }
         }
       ]
     description: Creates and maintains a HyperConverged KubeVirt Deployment
@@ -1184,11 +1184,13 @@ spec:
             selector:
               matchLabels:
                 name: cdi-operator
+                operator.cdi.kubevirt.io: ""
             strategy: {}
             template:
               metadata:
                 labels:
                   name: cdi-operator
+                  operator.cdi.kubevirt.io: ""
               spec:
                 containers:
                 - env:
