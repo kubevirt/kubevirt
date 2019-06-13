@@ -55,9 +55,10 @@ rules:
 - apiGroups:
   - subresources.kubevirt.io
   resources:
+  - virtualmachines/start
+  - virtualmachines/stop
   - virtualmachines/restart
   verbs:
-  - put
   - update
 - apiGroups:
   - kubevirt.io
@@ -94,9 +95,10 @@ rules:
 - apiGroups:
   - subresources.kubevirt.io
   resources:
+  - virtualmachines/start
+  - virtualmachines/stop
   - virtualmachines/restart
   verbs:
-  - put
   - update
 - apiGroups:
   - kubevirt.io

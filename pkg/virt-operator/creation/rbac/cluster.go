@@ -192,10 +192,12 @@ func newAdminClusterRole() *rbacv1.ClusterRole {
 					"subresources.kubevirt.io",
 				},
 				Resources: []string{
+					"virtualmachines/start",
+					"virtualmachines/stop",
 					"virtualmachines/restart",
 				},
 				Verbs: []string{
-					"put", "update",
+					"update",
 				},
 			},
 			{
@@ -247,10 +249,12 @@ func newEditClusterRole() *rbacv1.ClusterRole {
 					"subresources.kubevirt.io",
 				},
 				Resources: []string{
+					"virtualmachines/start",
+					"virtualmachines/stop",
 					"virtualmachines/restart",
 				},
 				Verbs: []string{
-					"put", "update",
+					"update",
 				},
 			},
 			{
