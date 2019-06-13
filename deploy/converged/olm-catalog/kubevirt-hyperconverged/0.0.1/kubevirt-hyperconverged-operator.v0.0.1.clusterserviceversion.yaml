@@ -931,6 +931,7 @@ spec:
         - serviceAccountName: kubevirt-ssp-operator
           rules:
           - apiGroups:
+            - kubevirt.io
             - oauth.openshift.io
             - template.openshift.io
             resources:
@@ -944,8 +945,10 @@ spec:
             verbs:
             - create
             - get
-            - patch
             - list
+            - watch
+            - patch
+            - update
           - apiGroups:
             - rbac.authorization.k8s.io
             resources:
@@ -956,53 +959,57 @@ spec:
             - list
             - watch
             - patch
+            - update
           - apiGroups:
             - extensions
             - apps
             resources:
             - deployments
             - replicasets
-            verbs:
-            - create
-            - get
-            - patch
-            - list
-          - apiGroups:
-            - apps
-            resources:
             - daemonsets
+            - statefulsets
             verbs:
-            - create
-            - get
-            - patch
+            - '*'
           - apiGroups:
             - ""
             resources:
             - serviceaccounts
-            verbs:
-            - create
-            - get
-            - patch
-          - apiGroups:
-            - ""
-            resources:
-            - pods
             - configmaps
             - nodes
+            - endpoints
+            - events
+            - secrets
             verbs:
             - create
             - get
             - patch
             - update
+            - list
+            - watch
+          - apiGroups:
+            - ""
+            resources:
+            - pods
+            verbs:
+            - '*'
           - apiGroups:
             - ""
             resources:
             - services
             verbs:
-            - list
-            - get
             - create
+            - get
+            - list
             - patch
+            - watch
+          - apiGroups:
+            - ""
+            resources:
+            - namespaces
+            verbs:
+            - get
+            - list
+            - watch
           - apiGroups:
             - admissionregistration.k8s.io
             resources:
