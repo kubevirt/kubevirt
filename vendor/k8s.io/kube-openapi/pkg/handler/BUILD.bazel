@@ -16,6 +16,5 @@ go_library(
         "//vendor/k8s.io/kube-openapi/pkg/builder:go_default_library",
         "//vendor/k8s.io/kube-openapi/pkg/common:go_default_library",
         "@com_github_nytimes_gziphandler//:go_default_library",
-        "@org_bitbucket_ww_goautoneg//:go_default_library",
     ],
 )
