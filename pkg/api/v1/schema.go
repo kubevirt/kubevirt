@@ -228,7 +228,7 @@ type CPU struct {
 	// Must be a value greater or equal 1.
 	Threads uint32 `json:"threads,omitempty"`
 	// Model specifies the CPU model inside the VMI.
-	// List of available models https://github.com/libvirt/libvirt/blob/master/src/cpu/cpu_map.xml.
+	// List of available models https://github.com/libvirt/libvirt/tree/master/src/cpu_map.
 	// It is possible to specify special cases like "host-passthrough" to get the same CPU as the node
 	// and "host-model" to get CPU closest to the node one.
 	// Defaults to host-model.
