@@ -1,3 +1,4 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_binary", "go_library")
 load("@io_bazel_rules_docker//container:container.bzl", "container_image")
 load("@bazel_tools//tools/build_defs/pkg:pkg.bzl", "pkg_tar")
 load("@io_bazel_rules_container_rpm//rpm:rpm.bzl", "rpm_image")
@@ -20,7 +21,7 @@ container_image(
     directory = "/",
     empty_dirs = ["/disk"],
     entrypoint = ["/entry-point.sh"],
-    files = ["entry-point.sh"],
+    tars = [":entry-point-tar"],
     visibility = ["//visibility:public"],
 )
 
@@ -73,6 +74,13 @@ pkg_tar(
     srcs = [":cirros-custom-iso"],
     mode = "0644",
     package_dir = "custom-disk",
+)
+
+pkg_tar(
+    name = "entry-point-tar",
+    srcs = [":entry-point.sh"],
+    mode = "0755",
+    package_dir = "/",
 )
 
 container_image(
@@ -156,5 +164,19 @@ container_image(
     directory = "/",
     entrypoint = ["/entry-point.sh"],
     tars = [":virtio-win-iso-tar"],
+    visibility = ["//visibility:public"],
+)
+
+go_library(
+    name = "go_default_library",
+    srcs = ["main.go"],
+    importpath = "kubevirt.io/kubevirt/cmd/container-disk-v1alpha",
+    visibility = ["//visibility:private"],
+    deps = ["//pkg/log:go_default_library"],
+)
+
+go_binary(
+    name = "entry-point.sh",
+    embed = [":go_default_library"],
     visibility = ["//visibility:public"],
 )
