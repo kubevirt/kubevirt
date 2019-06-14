@@ -27,7 +27,10 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 
+	k6tv1 "kubevirt.io/kubevirt/pkg/api/v1"
+	"kubevirt.io/kubevirt/pkg/kubecli"
 	"kubevirt.io/kubevirt/pkg/log"
+	"kubevirt.io/kubevirt/pkg/util/lookup"
 	"kubevirt.io/kubevirt/pkg/version"
 	cmdclient "kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/stats"
@@ -95,7 +98,7 @@ var (
 	)
 )
 
-func updateMemory(vmStats *stats.DomainStats, ch chan<- prometheus.Metric) {
+func updateMemory(vmi *k6tv1.VirtualMachineInstance, vmStats *stats.DomainStats, ch chan<- prometheus.Metric) {
 	if vmStats.Memory.AvailableSet {
 		mv, err := prometheus.NewConstMetric(
 			memoryAvailableDesc, prometheus.GaugeValue,
@@ -143,7 +146,7 @@ func updateMemory(vmStats *stats.DomainStats, ch chan<- prometheus.Metric) {
 	}
 }
 
-func updateVcpu(vmStats *stats.DomainStats, ch chan<- prometheus.Metric) {
+func updateVcpu(vmi *k6tv1.VirtualMachineInstance, vmStats *stats.DomainStats, ch chan<- prometheus.Metric) {
 	for vcpuId, vcpu := range vmStats.Vcpu {
 		if !vcpu.StateSet || !vcpu.TimeSet {
 			continue
@@ -161,7 +164,7 @@ func updateVcpu(vmStats *stats.DomainStats, ch chan<- prometheus.Metric) {
 
 }
 
-func updateBlock(vmStats *stats.DomainStats, ch chan<- prometheus.Metric) {
+func updateBlock(vmi *k6tv1.VirtualMachineInstance, vmStats *stats.DomainStats, ch chan<- prometheus.Metric) {
 	for _, block := range vmStats.Block {
 		if !block.NameSet {
 			continue
@@ -232,7 +235,7 @@ func updateBlock(vmStats *stats.DomainStats, ch chan<- prometheus.Metric) {
 	}
 }
 
-func updateNetwork(vmStats *stats.DomainStats, ch chan<- prometheus.Metric) {
+func updateNetwork(vmi *k6tv1.VirtualMachineInstance, vmStats *stats.DomainStats, ch chan<- prometheus.Metric) {
 	for _, net := range vmStats.Net {
 		if !net.NameSet {
 			continue
@@ -270,14 +273,18 @@ func updateVersion(ch chan<- prometheus.Metric) {
 }
 
 type Collector struct {
+	virtCli       kubecli.KubevirtClient
 	virtShareDir  string
+	nodeName      string
 	concCollector *concurrentCollector
 }
 
-func SetupCollector(virtShareDir string) *Collector {
-	log.Log.Infof("Starting collector: sharedir=%v", virtShareDir)
+func SetupCollector(virtCli kubecli.KubevirtClient, virtShareDir, nodeName string) *Collector {
+	log.Log.Infof("Starting collector: node name=%v", nodeName)
 	co := &Collector{
+		virtCli:       virtCli,
 		virtShareDir:  virtShareDir,
+		nodeName:      nodeName,
 		concCollector: NewConcurrentCollector(),
 	}
 	prometheus.MustRegister(co)
@@ -296,23 +303,37 @@ func (co *Collector) Describe(ch chan<- *prometheus.Desc) {
 	ch <- memoryResidentDesc
 }
 
+func newvmiSocketMapFromVMIs(baseDir string, vmis []*k6tv1.VirtualMachineInstance) vmiSocketMap {
+	if len(vmis) == 0 {
+		return nil
+	}
+
+	ret := make(vmiSocketMap)
+	for _, vmi := range vmis {
+		socketPath := cmdclient.SocketFromUID(baseDir, string(vmi.UID))
+		ret[socketPath] = vmi
+	}
+	return ret
+}
+
 // Note that Collect could be called concurrently
 func (co *Collector) Collect(ch chan<- prometheus.Metric) {
 	updateVersion(ch)
 
-	socketFiles, err := cmdclient.ListAllSockets(co.virtShareDir)
+	vmis, err := lookup.VirtualMachinesOnNode(co.virtCli, co.nodeName)
 	if err != nil {
-		log.Log.Reason(err).Errorf("failed to list all sockets in '%s'", co.virtShareDir)
+		log.Log.Reason(err).Errorf("failed to list all VMIs in '%s': %s", co.nodeName, err)
 		return
 	}
 
-	if len(socketFiles) == 0 {
-		log.Log.V(2).Infof("No VMs detected")
+	if len(vmis) == 0 {
+		log.Log.V(2).Infof("No VMIs detected")
 		return
 	}
 
+	socketToVMIs := newvmiSocketMapFromVMIs(co.virtShareDir, vmis)
 	scraper := &prometheusScraper{ch: ch}
-	co.concCollector.Collect(socketFiles, scraper, collectionTimeout)
+	co.concCollector.Collect(socketToVMIs, scraper, collectionTimeout)
 	return
 }
 
@@ -320,7 +341,12 @@ type prometheusScraper struct {
 	ch chan<- prometheus.Metric
 }
 
-func (ps *prometheusScraper) Scrape(socketFile string) {
+type vmiStatsInfo struct {
+	vmiSpec  *k6tv1.VirtualMachineInstance
+	vmiStats *stats.DomainStats
+}
+
+func (ps *prometheusScraper) Scrape(socketFile string, vmi *k6tv1.VirtualMachineInstance) {
 	ts := time.Now()
 	cli, err := cmdclient.NewClient(socketFile)
 	if err != nil {
@@ -353,10 +379,10 @@ func (ps *prometheusScraper) Scrape(socketFile string) {
 		return
 	}
 
-	ps.Report(socketFile, vmStats)
+	ps.Report(socketFile, vmi, vmStats)
 }
 
-func (ps *prometheusScraper) Report(socketFile string, vmStats *stats.DomainStats) {
+func (ps *prometheusScraper) Report(socketFile string, vmi *k6tv1.VirtualMachineInstance, vmStats *stats.DomainStats) {
 	// statsMaxAge is an estimation - and there is not better way to do that. So it is possible that
 	// GetDomainStats() takes enough time to lag behind, but not enough to trigger the statsMaxAge check.
 	// In this case the next functions will end up writing on a closed channel. This will panic.
@@ -369,10 +395,10 @@ func (ps *prometheusScraper) Report(socketFile string, vmStats *stats.DomainStat
 		}
 	}()
 
-	updateMemory(vmStats, ps.ch)
-	updateVcpu(vmStats, ps.ch)
-	updateBlock(vmStats, ps.ch)
-	updateNetwork(vmStats, ps.ch)
+	updateMemory(vmi, vmStats, ps.ch)
+	updateVcpu(vmi, vmStats, ps.ch)
+	updateBlock(vmi, vmStats, ps.ch)
+	updateNetwork(vmi, vmStats, ps.ch)
 }
 
 func Handler(MaxRequestsInFlight int) http.Handler {
