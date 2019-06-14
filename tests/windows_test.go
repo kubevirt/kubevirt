@@ -146,7 +146,7 @@ var _ = Describe("Windows VirtualMachineInstance", func() {
 		Expect(err).To(BeNil())
 	}, 300)
 
-	Context("with winrm connection", func() {
+	Context("[ref_id:295]with winrm connection", func() {
 		var winrmcliPod *k8sv1.Pod
 		var cli []string
 		var output string
@@ -188,7 +188,7 @@ var _ = Describe("Windows VirtualMachineInstance", func() {
 			}
 		})
 
-		It("should have correct UUID", func() {
+		It("[test_id:240]should have correct UUID", func() {
 			command := append(cli, "wmic csproduct get \"UUID\"")
 			By(fmt.Sprintf("Running \"%s\" command via winrm-cli", command))
 			Eventually(func() error {
@@ -263,7 +263,7 @@ var _ = Describe("Windows VirtualMachineInstance", func() {
 		}, 360)
 	})
 
-	Context("with kubectl command", func() {
+	Context("[ref_id:222]with kubectl command", func() {
 		var workDir string
 		var yamlFile string
 		BeforeEach(func() {
@@ -291,7 +291,7 @@ var _ = Describe("Windows VirtualMachineInstance", func() {
 			tests.WaitForSuccessfulVMIStartWithTimeout(windowsVMI, 360)
 		})
 
-		It("should succeed to stop a vmi", func() {
+		It("[test_id:239]should succeed to stop a vmi", func() {
 			By("Starting the vmi via kubectl command")
 			_, _, err = tests.RunCommand("kubectl", "create", "-f", yamlFile)
 			Expect(err).ToNot(HaveOccurred())
