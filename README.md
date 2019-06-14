@@ -1,4 +1,4 @@
-[![Build Status](https://travis-ci.org/kubevirt/hyperconverged-cluster-operator.svg?branch=master)](https://travis-ci.org/kubevirt/hyperconverged-cluster-operator)
+[![Build Status](https://travis-ci.com/kubevirt/hyperconverged-cluster-operator.svg?branch=master)](https://travis-ci.com/kubevirt/hyperconverged-cluster-operator)
 [![Go Report Card](https://goreportcard.com/badge/github.com/kubevirt/hyperconverged-cluster-operator)](https://goreportcard.com/report/github.com/kubevirt/hyperconverged-cluster-operator)
 [![Coverage Status](https://coveralls.io/repos/github/kubevirt/hyperconverged-cluster-operator/badge.svg?branch=master&service=github)](https://coveralls.io/github/kubevirt/hyperconverged-cluster-operator?branch=master)
 
