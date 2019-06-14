@@ -37,4 +37,30 @@ ${KUBEVIRT_PATH}hack/dockerized "DOCKER_PREFIX=${DOCKER_PREFIX} DOCKER_TAG=${DOC
 ${KUBEVIRT_PATH}hack/dockerized "DOCKER_PREFIX=${DOCKER_PREFIX} DOCKER_TAG=${DOCKER_TAG} KUBEVIRT_PROVIDER=${KUBEVIRT_PROVIDER} ./hack/bazel-build.sh"
 ${KUBEVIRT_PATH}hack/dockerized "DOCKER_PREFIX=${DOCKER_PREFIX} DOCKER_TAG=${DOCKER_TAG} DOCKER_TAG_ALT=${DOCKER_TAG_ALT} KUBEVIRT_PROVIDER=${KUBEVIRT_PROVIDER} ./hack/bazel-push-images.sh"
 
+# Make sure that all nodes use the newest images
+container=""
+container_alias=""
+for arg in ${docker_images}; do
+    name=$(basename $arg)
+    container="${container} ${manifest_docker_prefix}/${name}:${docker_tag} ${manifest_docker_prefix}/${name}:${docker_tag_alt}"
+    container_alias="${container_alias} ${manifest_docker_prefix}/${name}:${docker_tag} kubevirt/${name}:${docker_tag}"
+done
+
+# OKD provider has different node names and does not have docker
+if [[ $KUBEVIRT_PROVIDER =~ okd.* ]]; then
+    nodes=("master-0" "worker-0")
+    pull_command="podman"
+else
+    nodes=()
+    for i in $(seq 1 ${KUBEVIRT_NUM_NODES}); do
+        nodes+=("node$(printf "%02d" ${i})")
+    done
+    pull_command="docker"
+fi
+
+for node in ${nodes}; do
+    ${KUBEVIRT_PATH}cluster-up/ssh.sh ${node} "echo \"${container}\" | xargs \-\-max-args=1 sudo ${pull_command} pull"
+    ${KUBEVIRT_PATH}cluster-up/ssh.sh ${node} "echo \"${container_alias}\" | xargs \-\-max-args=2 sudo ${pull_command} tag"
+done
+
 echo "Done"
