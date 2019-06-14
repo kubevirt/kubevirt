@@ -39,6 +39,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/tools/leaderelection/resourcelock"
 
 	v1 "kubevirt.io/kubevirt/pkg/api/v1"
@@ -289,6 +290,18 @@ var _ = Describe("Infrastructure", func() {
 				}
 			}
 		}, 300)
+
+		It("should include VMI infos for a running VM", func() {
+			vmi, nodeName, _, metrics := newRandomVMIWithMetrics(virtClient, "kubevirt_vm_")
+			By("Checking the collected metrics")
+			keys := getKeysFromMetrics(metrics)
+			for _, key := range keys {
+				// we don't care about the ordering of the labels
+				Expect(key).To(ContainSubstring(fmt.Sprintf("node=%s", nodeName)))
+				Expect(key).To(ContainSubstring(fmt.Sprintf("namespace=%s", vmi.Namespace)))
+				Expect(key).To(ContainSubstring(fmt.Sprintf("name=%s", vmi.Name)))
+			}
+		}, 300)
 	})
 
 	Describe("Start a VirtualMachineInstance", func() {
@@ -405,4 +418,42 @@ func takeMetricsWithPrefix(output, prefix string) []string {
 		}
 	}
 	return ret
+}
+
+func newRandomVMIWithMetrics(virtClient kubecli.KubevirtClient, metricSubstring string) (*v1.VirtualMachineInstance, string, runtime.Object, map[string]float64) {
+	By("Creating the VirtualMachineInstance")
+	vmi := tests.NewRandomVMI()
+
+	By("Starting a new VirtualMachineInstance")
+	obj, err := virtClient.RestClient().Post().Resource("virtualmachineinstances").Namespace(tests.NamespaceTestDefault).Body(vmi).Do().Get()
+	Expect(err).ToNot(HaveOccurred(), "Should create VMI")
+
+	By("Waiting until the VM is ready")
+	nodeName := tests.WaitForSuccessfulVMIStart(obj)
+
+	By("Finding the prometheus endpoint")
+	pod, err := kubecli.NewVirtHandlerClient(virtClient).ForNode(nodeName).Pod()
+	Expect(err).ToNot(HaveOccurred(), "Should find the virt-handler pod")
+
+	By("Scraping the Prometheus endpoint")
+	var metrics map[string]float64
+	Eventually(func() map[string]float64 {
+		out := getKubevirtVMMetrics(virtClient, pod, "virt-handler")
+		lines := takeMetricsWithPrefix(out, "kubevirt")
+		metrics, err := parseMetricsToMap(lines)
+		Expect(err).ToNot(HaveOccurred())
+		return metrics
+	}, 30*time.Second, 2*time.Second).Should(HaveKey(ContainSubstring(metricSubstring)))
+
+	return vmi, nodeName, obj, metrics
+}
+
+func getKeysFromMetrics(metrics map[string]float64) []string {
+	var keys []string
+	for metric := range metrics {
+		keys = append(keys, metric)
+	}
+	// we sort keys only to make debug of test failures easier
+	sort.Strings(keys)
+	return keys
 }

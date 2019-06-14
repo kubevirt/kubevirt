@@ -50,50 +50,74 @@ var (
 	storageIopsDesc = prometheus.NewDesc(
 		"kubevirt_vm_storage_iops_total",
 		"I/O operation performed.",
-		[]string{"domain", "drive", "type"},
+		[]string{
+			"node", "namespace", "name",
+			"domain", "drive", "type",
+		},
 		nil,
 	)
 	storageTrafficDesc = prometheus.NewDesc(
 		"kubevirt_vm_storage_traffic_bytes_total",
 		"storage traffic.",
-		[]string{"domain", "drive", "type"},
+		[]string{
+			"node", "namespace", "name",
+			"domain", "drive", "type",
+		},
 		nil,
 	)
 	storageTimesDesc = prometheus.NewDesc(
 		"kubevirt_vm_storage_times_ms_total",
 		"storage operation time.",
-		[]string{"domain", "drive", "type"},
+		[]string{
+			"node", "namespace", "name",
+			"domain", "drive", "type",
+		},
 		nil,
 	)
 	vcpuUsageDesc = prometheus.NewDesc(
 		"kubevirt_vm_vcpu_seconds",
 		"Vcpu elapsed time.",
-		[]string{"domain", "id", "state"},
+		[]string{
+			"node", "namespace", "name",
+			"domain", "id", "state",
+		},
 		nil,
 	)
 	networkTrafficDesc = prometheus.NewDesc(
 		"kubevirt_vm_network_traffic_bytes_total",
 		"network traffic.",
-		[]string{"domain", "interface", "type"},
+		[]string{
+			"node", "namespace", "name",
+			"domain", "interface", "type",
+		},
 		nil,
 	)
 	memoryAvailableDesc = prometheus.NewDesc(
 		"kubevirt_vm_memory_available_bytes",
 		"amount of usable memory as seen by the domain.",
-		[]string{"domain"},
+		[]string{
+			"node", "namespace", "name",
+			"domain",
+		},
 		nil,
 	)
 	memoryResidentDesc = prometheus.NewDesc(
 		"kubevirt_vm_memory_resident_bytes",
 		"resident set size of the process running the domain",
-		[]string{"domain"},
+		[]string{
+			"node", "namespace", "name",
+			"domain",
+		},
 		nil,
 	)
 
 	swapTrafficDesc = prometheus.NewDesc(
 		"kubevirt_vm_memory_swap_traffic_bytes_total",
 		"swap memory traffic.",
-		[]string{"domain", "type"},
+		[]string{
+			"node", "namespace", "name",
+			"domain", "type",
+		},
 		nil,
 	)
 )
@@ -104,6 +128,7 @@ func updateMemory(vmi *k6tv1.VirtualMachineInstance, vmStats *stats.DomainStats,
 			memoryAvailableDesc, prometheus.GaugeValue,
 			// the libvirt value is in KiB
 			float64(vmStats.Memory.Available)*1024,
+			vmi.Status.NodeName, vmi.Namespace, vmi.Name,
 			vmStats.Name,
 		)
 		if err == nil {
@@ -115,6 +140,7 @@ func updateMemory(vmi *k6tv1.VirtualMachineInstance, vmStats *stats.DomainStats,
 			memoryResidentDesc, prometheus.GaugeValue,
 			// the libvirt value is in KiB
 			float64(vmStats.Memory.RSS)*1024,
+			vmi.Status.NodeName, vmi.Namespace, vmi.Name,
 			vmStats.Name,
 		)
 		if err == nil {
@@ -127,6 +153,7 @@ func updateMemory(vmi *k6tv1.VirtualMachineInstance, vmStats *stats.DomainStats,
 			swapTrafficDesc, prometheus.GaugeValue,
 			// the libvirt value is in KiB
 			float64(vmStats.Memory.SwapIn)*1024,
+			vmi.Status.NodeName, vmi.Namespace, vmi.Name,
 			vmStats.Name, "in",
 		)
 		if err == nil {
@@ -138,6 +165,7 @@ func updateMemory(vmi *k6tv1.VirtualMachineInstance, vmStats *stats.DomainStats,
 			swapTrafficDesc, prometheus.GaugeValue,
 			// the libvirt value is in KiB
 			float64(vmStats.Memory.SwapOut)*1024,
+			vmi.Status.NodeName, vmi.Namespace, vmi.Name,
 			vmStats.Name, "out",
 		)
 		if err == nil {
@@ -154,6 +182,7 @@ func updateVcpu(vmi *k6tv1.VirtualMachineInstance, vmStats *stats.DomainStats, c
 		mv, err := prometheus.NewConstMetric(
 			vcpuUsageDesc, prometheus.GaugeValue,
 			float64(vcpu.Time/1000000000),
+			vmi.Status.NodeName, vmi.Namespace, vmi.Name,
 			vmStats.Name, fmt.Sprintf("%v", vcpuId), fmt.Sprintf("%v", vcpu.State),
 		)
 		if err != nil {
@@ -174,6 +203,7 @@ func updateBlock(vmi *k6tv1.VirtualMachineInstance, vmStats *stats.DomainStats, 
 			mv, err := prometheus.NewConstMetric(
 				storageIopsDesc, prometheus.CounterValue,
 				float64(block.RdReqs),
+				vmi.Status.NodeName, vmi.Namespace, vmi.Name,
 				vmStats.Name, block.Name, "read",
 			)
 			if err == nil {
@@ -184,6 +214,7 @@ func updateBlock(vmi *k6tv1.VirtualMachineInstance, vmStats *stats.DomainStats, 
 			mv, err := prometheus.NewConstMetric(
 				storageIopsDesc, prometheus.CounterValue,
 				float64(block.WrReqs),
+				vmi.Status.NodeName, vmi.Namespace, vmi.Name,
 				vmStats.Name, block.Name, "write",
 			)
 			if err == nil {
@@ -195,6 +226,7 @@ func updateBlock(vmi *k6tv1.VirtualMachineInstance, vmStats *stats.DomainStats, 
 			mv, err := prometheus.NewConstMetric(
 				storageTrafficDesc, prometheus.CounterValue,
 				float64(block.RdBytes),
+				vmi.Status.NodeName, vmi.Namespace, vmi.Name,
 				vmStats.Name, block.Name, "read",
 			)
 			if err == nil {
@@ -205,6 +237,7 @@ func updateBlock(vmi *k6tv1.VirtualMachineInstance, vmStats *stats.DomainStats, 
 			mv, err := prometheus.NewConstMetric(
 				storageTrafficDesc, prometheus.CounterValue,
 				float64(block.WrBytes),
+				vmi.Status.NodeName, vmi.Namespace, vmi.Name,
 				vmStats.Name, block.Name, "write",
 			)
 			if err == nil {
@@ -216,6 +249,7 @@ func updateBlock(vmi *k6tv1.VirtualMachineInstance, vmStats *stats.DomainStats, 
 			mv, err := prometheus.NewConstMetric(
 				storageTimesDesc, prometheus.CounterValue,
 				float64(block.RdTimes),
+				vmi.Status.NodeName, vmi.Namespace, vmi.Name,
 				vmStats.Name, block.Name, "read",
 			)
 			if err == nil {
@@ -226,6 +260,7 @@ func updateBlock(vmi *k6tv1.VirtualMachineInstance, vmStats *stats.DomainStats, 
 			mv, err := prometheus.NewConstMetric(
 				storageTimesDesc, prometheus.CounterValue,
 				float64(block.WrTimes),
+				vmi.Status.NodeName, vmi.Namespace, vmi.Name,
 				vmStats.Name, block.Name, "write",
 			)
 			if err == nil {
@@ -244,6 +279,7 @@ func updateNetwork(vmi *k6tv1.VirtualMachineInstance, vmStats *stats.DomainStats
 			mv, err := prometheus.NewConstMetric(
 				networkTrafficDesc, prometheus.CounterValue,
 				float64(net.RxBytes),
+				vmi.Status.NodeName, vmi.Namespace, vmi.Name,
 				vmStats.Name, net.Name, "rx",
 			)
 			if err == nil {
@@ -254,6 +290,7 @@ func updateNetwork(vmi *k6tv1.VirtualMachineInstance, vmStats *stats.DomainStats
 			mv, err := prometheus.NewConstMetric(
 				networkTrafficDesc, prometheus.CounterValue,
 				float64(net.TxBytes),
+				vmi.Status.NodeName, vmi.Namespace, vmi.Name,
 				vmStats.Name, net.Name, "tx",
 			)
 			if err == nil {
