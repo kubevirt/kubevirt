@@ -225,7 +225,7 @@ func schema_kubevirt_pkg_api_v1_CPU(ref common.ReferenceCallback) common.OpenAPI
 					},
 					"model": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Model specifies the CPU model inside the VMI. List of available models https://github.com/libvirt/libvirt/blob/master/src/cpu/cpu_map.xml. It is possible to specify special cases like \"host-passthrough\" to get the same CPU as the node and \"host-model\" to get CPU closest to the node one. Defaults to host-model.",
+							Description: "Model specifies the CPU model inside the VMI. List of available models https://github.com/libvirt/libvirt/tree/master/src/cpu_map. It is possible to specify special cases like \"host-passthrough\" to get the same CPU as the node and \"host-model\" to get CPU closest to the node one. Defaults to host-model.",
 							Type:        []string{"string"},
 							Format:      "",
 						},
@@ -518,6 +518,13 @@ func schema_kubevirt_pkg_api_v1_ContainerDiskSource(ref common.ReferenceCallback
 					"path": {
 						SchemaProps: spec.SchemaProps{
 							Description: "Path defines the path to disk file in the container",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"imagePullPolicy": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Image pull policy. One of Always, Never, IfNotPresent. Defaults to Always if :latest tag is specified, or IfNotPresent otherwise. Cannot be updated. More info: https://kubernetes.io/docs/concepts/containers/images#updating-images",
 							Type:        []string{"string"},
 							Format:      "",
 						},
@@ -996,19 +1003,19 @@ func schema_kubevirt_pkg_api_v1_FeatureHyperv(ref common.ReferenceCallback) comm
 				Properties: map[string]spec.Schema{
 					"relaxed": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Relaxed relaxes constraints on timer. Defaults to the machine type setting.",
+							Description: "Relaxed instructs the guest OS to disable watchdog timeouts. Defaults to the machine type setting.",
 							Ref:         ref("kubevirt.io/kubevirt/pkg/api/v1.FeatureState"),
 						},
 					},
 					"vapic": {
 						SchemaProps: spec.SchemaProps{
-							Description: "VAPIC indicates whether virtual APIC is enabled. Defaults to the machine type setting.",
+							Description: "VAPIC improves the paravirtualized handling of interrupts. Defaults to the machine type setting.",
 							Ref:         ref("kubevirt.io/kubevirt/pkg/api/v1.FeatureState"),
 						},
 					},
 					"spinlocks": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Spinlocks indicates if spinlocks should be made available to the guest.",
+							Description: "Spinlocks allows to configure the spinlock retry attempts.",
 							Ref:         ref("kubevirt.io/kubevirt/pkg/api/v1.FeatureSpinlocks"),
 						},
 					},
@@ -1020,19 +1027,19 @@ func schema_kubevirt_pkg_api_v1_FeatureHyperv(ref common.ReferenceCallback) comm
 					},
 					"runtime": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Runtime. Defaults to the machine type setting.",
+							Description: "Runtime improves the time accounting to improve scheduling in the guest. Defaults to the machine type setting.",
 							Ref:         ref("kubevirt.io/kubevirt/pkg/api/v1.FeatureState"),
 						},
 					},
 					"synic": {
 						SchemaProps: spec.SchemaProps{
-							Description: "SyNIC enable Synthetic Interrupt Controller. Defaults to the machine type setting.",
+							Description: "SyNIC enables the Synthetic Interrupt Controller. Defaults to the machine type setting.",
 							Ref:         ref("kubevirt.io/kubevirt/pkg/api/v1.FeatureState"),
 						},
 					},
 					"synictimer": {
 						SchemaProps: spec.SchemaProps{
-							Description: "SyNICTimer enable Synthetic Interrupt Controller timer. Defaults to the machine type setting.",
+							Description: "SyNICTimer enables Synthetic Interrupt Controller Timers, reducing CPU load. Defaults to the machine type setting.",
 							Ref:         ref("kubevirt.io/kubevirt/pkg/api/v1.FeatureState"),
 						},
 					},
@@ -1050,13 +1057,13 @@ func schema_kubevirt_pkg_api_v1_FeatureHyperv(ref common.ReferenceCallback) comm
 					},
 					"frequencies": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Frequencies improve Hyper-V on KVM (TSC clock source). Defaults to the machine type setting.",
+							Description: "Frequencies improves the TSC clock source handling for Hyper-V on KVM. Defaults to the machine type setting.",
 							Ref:         ref("kubevirt.io/kubevirt/pkg/api/v1.FeatureState"),
 						},
 					},
 					"reenlightenment": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Reenlightenment improve Hyper-V on KVM (TSC clock source). Defaults to the machine type setting.",
+							Description: "Reenlightenment enables the notifications on TSC frequency changes. Defaults to the machine type setting.",
 							Ref:         ref("kubevirt.io/kubevirt/pkg/api/v1.FeatureState"),
 						},
 					},

@@ -106,7 +106,7 @@ func (CPU) SwaggerDoc() map[string]string {
 		"cores":                 "Cores specifies the number of cores inside the vmi.\nMust be a value greater or equal 1.",
 		"sockets":               "Sockets specifies the number of sockets inside the vmi.\nMust be a value greater or equal 1.",
 		"threads":               "Threads specifies the number of threads inside the vmi.\nMust be a value greater or equal 1.",
-		"model":                 "Model specifies the CPU model inside the VMI.\nList of available models https://github.com/libvirt/libvirt/blob/master/src/cpu/cpu_map.xml.\nIt is possible to specify special cases like \"host-passthrough\" to get the same CPU as the node\nand \"host-model\" to get CPU closest to the node one.\nDefaults to host-model.\n+optional",
+		"model":                 "Model specifies the CPU model inside the VMI.\nList of available models https://github.com/libvirt/libvirt/tree/master/src/cpu_map.\nIt is possible to specify special cases like \"host-passthrough\" to get the same CPU as the node\nand \"host-model\" to get CPU closest to the node one.\nDefaults to host-model.\n+optional",
 		"features":              "Features specifies the CPU features list inside the VMI.\n+optional",
 		"dedicatedCpuPlacement": "DedicatedCPUPlacement requests the scheduler to place the VirtualMachineInstance on a node\nwith enough dedicated pCPUs and pin the vCPUs to it.\n+optional",
 	}
@@ -270,6 +270,7 @@ func (ContainerDiskSource) SwaggerDoc() map[string]string {
 		"image":           "Image is the name of the image with the embedded disk.",
 		"imagePullSecret": "ImagePullSecret is the name of the Docker registry secret required to pull the image. The secret must already exist.",
 		"path":            "Path defines the path to disk file in the container",
+		"imagePullPolicy": "Image pull policy.\nOne of Always, Never, IfNotPresent.\nDefaults to Always if :latest tag is specified, or IfNotPresent otherwise.\nCannot be updated.\nMore info: https://kubernetes.io/docs/concepts/containers/images#updating-images\n+optional",
 	}
 }
 
@@ -380,17 +381,17 @@ func (FeatureVendorID) SwaggerDoc() map[string]string {
 func (FeatureHyperv) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"":                "Hyperv specific features.",
-		"relaxed":         "Relaxed relaxes constraints on timer.\nDefaults to the machine type setting.\n+optional",
-		"vapic":           "VAPIC indicates whether virtual APIC is enabled.\nDefaults to the machine type setting.\n+optional",
-		"spinlocks":       "Spinlocks indicates if spinlocks should be made available to the guest.\n+optional",
+		"relaxed":         "Relaxed instructs the guest OS to disable watchdog timeouts.\nDefaults to the machine type setting.\n+optional",
+		"vapic":           "VAPIC improves the paravirtualized handling of interrupts.\nDefaults to the machine type setting.\n+optional",
+		"spinlocks":       "Spinlocks allows to configure the spinlock retry attempts.\n+optional",
 		"vpindex":         "VPIndex enables the Virtual Processor Index to help windows identifying virtual processors.\nDefaults to the machine type setting.\n+optional",
-		"runtime":         "Runtime.\nDefaults to the machine type setting.\n+optional",
-		"synic":           "SyNIC enable Synthetic Interrupt Controller.\nDefaults to the machine type setting.\n+optional",
-		"synictimer":      "SyNICTimer enable Synthetic Interrupt Controller timer.\nDefaults to the machine type setting.\n+optional",
+		"runtime":         "Runtime improves the time accounting to improve scheduling in the guest.\nDefaults to the machine type setting.\n+optional",
+		"synic":           "SyNIC enables the Synthetic Interrupt Controller.\nDefaults to the machine type setting.\n+optional",
+		"synictimer":      "SyNICTimer enables Synthetic Interrupt Controller Timers, reducing CPU load.\nDefaults to the machine type setting.\n+optional",
 		"reset":           "Reset enables Hyperv reboot/reset for the vmi. Requires synic.\nDefaults to the machine type setting.\n+optional",
 		"vendorid":        "VendorID allows setting the hypervisor vendor id.\nDefaults to the machine type setting.\n+optional",
-		"frequencies":     "Frequencies improve Hyper-V on KVM (TSC clock source).\nDefaults to the machine type setting.\n+optional",
-		"reenlightenment": "Reenlightenment improve Hyper-V on KVM (TSC clock source).\nDefaults to the machine type setting.\n+optional",
+		"frequencies":     "Frequencies improves the TSC clock source handling for Hyper-V on KVM.\nDefaults to the machine type setting.\n+optional",
+		"reenlightenment": "Reenlightenment enables the notifications on TSC frequency changes.\nDefaults to the machine type setting.\n+optional",
 		"tlbflush":        "TLBFlush improves performances in overcommited environments. Requires vpindex.\nDefaults to the machine type setting.\n+optional",
 		"ipi":             "IPI improves performances in overcommited environments. Requires vpindex.\nDefaults to the machine type setting.\n+optional",
 		"evmcs":           "EVMCS Speeds up L2 vmexits, but disables other virtualization features. Requires vapic.\nDefaults to the machine type setting.\n+optional",

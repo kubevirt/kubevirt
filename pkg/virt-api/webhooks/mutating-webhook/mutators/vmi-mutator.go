@@ -23,6 +23,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"strings"
 
 	"k8s.io/api/admission/v1beta1"
 	k8sv1 "k8s.io/api/core/v1"
@@ -77,6 +78,7 @@ func (mutator *VMIsMutator) Mutate(ar *v1beta1.AdmissionReview) *v1beta1.Admissi
 	mutator.setDefaultCPUModel(&vmi)
 	mutator.setDefaultMachineType(&vmi)
 	mutator.setDefaultResourceRequests(&vmi)
+	mutator.setDefaultPullPoliciesOnContainerDisks(&vmi)
 	v1.SetObjectDefaults_VirtualMachineInstance(&vmi)
 
 	// Add foreground finalizer
@@ -128,6 +130,18 @@ func (mutator *VMIsMutator) setDefaultCPUModel(vmi *v1.VirtualMachineInstance) {
 func (mutator *VMIsMutator) setDefaultMachineType(vmi *v1.VirtualMachineInstance) {
 	if vmi.Spec.Domain.Machine.Type == "" {
 		vmi.Spec.Domain.Machine.Type = mutator.ClusterConfig.GetMachineType()
+	}
+}
+
+func (mutator *VMIsMutator) setDefaultPullPoliciesOnContainerDisks(vmi *v1.VirtualMachineInstance) {
+	for _, volume := range vmi.Spec.Volumes {
+		if volume.ContainerDisk != nil && volume.ContainerDisk.ImagePullPolicy == "" {
+			if strings.HasSuffix(volume.ContainerDisk.Image, ":latest") || !strings.ContainsAny(volume.ContainerDisk.Image, ":@") {
+				volume.ContainerDisk.ImagePullPolicy = k8sv1.PullAlways
+			} else {
+				volume.ContainerDisk.ImagePullPolicy = k8sv1.PullIfNotPresent
+			}
+		}
 	}
 }
 

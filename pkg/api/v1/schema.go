@@ -228,7 +228,7 @@ type CPU struct {
 	// Must be a value greater or equal 1.
 	Threads uint32 `json:"threads,omitempty"`
 	// Model specifies the CPU model inside the VMI.
-	// List of available models https://github.com/libvirt/libvirt/blob/master/src/cpu/cpu_map.xml.
+	// List of available models https://github.com/libvirt/libvirt/tree/master/src/cpu_map.
 	// It is possible to specify special cases like "host-passthrough" to get the same CPU as the node
 	// and "host-model" to get CPU closest to the node one.
 	// Defaults to host-model.
@@ -551,6 +551,13 @@ type ContainerDiskSource struct {
 	ImagePullSecret string `json:"imagePullSecret,omitempty"`
 	// Path defines the path to disk file in the container
 	Path string `json:"path,omitempty"`
+	// Image pull policy.
+	// One of Always, Never, IfNotPresent.
+	// Defaults to Always if :latest tag is specified, or IfNotPresent otherwise.
+	// Cannot be updated.
+	// More info: https://kubernetes.io/docs/concepts/containers/images#updating-images
+	// +optional
+	ImagePullPolicy v1.PullPolicy `json:"imagePullPolicy,omitempty"`
 }
 
 // Exactly one of its members must be set.
@@ -792,30 +799,30 @@ type FeatureVendorID struct {
 // ---
 // +k8s:openapi-gen=true
 type FeatureHyperv struct {
-	// Relaxed relaxes constraints on timer.
+	// Relaxed instructs the guest OS to disable watchdog timeouts.
 	// Defaults to the machine type setting.
 	// +optional
 	Relaxed *FeatureState `json:"relaxed,omitempty"`
-	// VAPIC indicates whether virtual APIC is enabled.
+	// VAPIC improves the paravirtualized handling of interrupts.
 	// Defaults to the machine type setting.
 	// +optional
 	VAPIC *FeatureState `json:"vapic,omitempty"`
-	// Spinlocks indicates if spinlocks should be made available to the guest.
+	// Spinlocks allows to configure the spinlock retry attempts.
 	// +optional
 	Spinlocks *FeatureSpinlocks `json:"spinlocks,omitempty"`
 	// VPIndex enables the Virtual Processor Index to help windows identifying virtual processors.
 	// Defaults to the machine type setting.
 	// +optional
 	VPIndex *FeatureState `json:"vpindex,omitempty"`
-	// Runtime.
+	// Runtime improves the time accounting to improve scheduling in the guest.
 	// Defaults to the machine type setting.
 	// +optional
 	Runtime *FeatureState `json:"runtime,omitempty"`
-	// SyNIC enable Synthetic Interrupt Controller.
+	// SyNIC enables the Synthetic Interrupt Controller.
 	// Defaults to the machine type setting.
 	// +optional
 	SyNIC *FeatureState `json:"synic,omitempty"`
-	// SyNICTimer enable Synthetic Interrupt Controller timer.
+	// SyNICTimer enables Synthetic Interrupt Controller Timers, reducing CPU load.
 	// Defaults to the machine type setting.
 	// +optional
 	SyNICTimer *FeatureState `json:"synictimer,omitempty"`
@@ -827,11 +834,11 @@ type FeatureHyperv struct {
 	// Defaults to the machine type setting.
 	// +optional
 	VendorID *FeatureVendorID `json:"vendorid,omitempty"`
-	// Frequencies improve Hyper-V on KVM (TSC clock source).
+	// Frequencies improves the TSC clock source handling for Hyper-V on KVM.
 	// Defaults to the machine type setting.
 	// +optional
 	Frequencies *FeatureState `json:"frequencies,omitempty"`
-	// Reenlightenment improve Hyper-V on KVM (TSC clock source).
+	// Reenlightenment enables the notifications on TSC frequency changes.
 	// Defaults to the machine type setting.
 	// +optional
 	Reenlightenment *FeatureState `json:"reenlightenment,omitempty"`

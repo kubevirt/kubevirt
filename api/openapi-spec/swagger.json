@@ -4126,7 +4126,7 @@
       }
      },
      "model": {
-      "description": "Model specifies the CPU model inside the VMI.\nList of available models https://github.com/libvirt/libvirt/blob/master/src/cpu/cpu_map.xml.\nIt is possible to specify special cases like \"host-passthrough\" to get the same CPU as the node\nand \"host-model\" to get CPU closest to the node one.\nDefaults to host-model.\n+optional",
+      "description": "Model specifies the CPU model inside the VMI.\nList of available models https://github.com/libvirt/libvirt/tree/master/src/cpu_map.\nIt is possible to specify special cases like \"host-passthrough\" to get the same CPU as the node\nand \"host-model\" to get CPU closest to the node one.\nDefaults to host-model.\n+optional",
       "type": "string"
      },
      "sockets": {
@@ -4265,6 +4265,10 @@
     "properties": {
      "image": {
       "description": "Image is the name of the image with the embedded disk.",
+      "type": "string"
+     },
+     "imagePullPolicy": {
+      "description": "Image pull policy.\nOne of Always, Never, IfNotPresent.\nDefaults to Always if :latest tag is specified, or IfNotPresent otherwise.\nCannot be updated.\nMore info: https://kubernetes.io/docs/concepts/containers/images#updating-images\n+optional",
       "type": "string"
      },
      "imagePullSecret": {
@@ -4567,7 +4571,7 @@
       "$ref": "#/definitions/v1.FeatureState"
      },
      "frequencies": {
-      "description": "Frequencies improve Hyper-V on KVM (TSC clock source).\nDefaults to the machine type setting.\n+optional",
+      "description": "Frequencies improves the TSC clock source handling for Hyper-V on KVM.\nDefaults to the machine type setting.\n+optional",
       "$ref": "#/definitions/v1.FeatureState"
      },
      "ipi": {
@@ -4575,11 +4579,11 @@
       "$ref": "#/definitions/v1.FeatureState"
      },
      "reenlightenment": {
-      "description": "Reenlightenment improve Hyper-V on KVM (TSC clock source).\nDefaults to the machine type setting.\n+optional",
+      "description": "Reenlightenment enables the notifications on TSC frequency changes.\nDefaults to the machine type setting.\n+optional",
       "$ref": "#/definitions/v1.FeatureState"
      },
      "relaxed": {
-      "description": "Relaxed relaxes constraints on timer.\nDefaults to the machine type setting.\n+optional",
+      "description": "Relaxed instructs the guest OS to disable watchdog timeouts.\nDefaults to the machine type setting.\n+optional",
       "$ref": "#/definitions/v1.FeatureState"
      },
      "reset": {
@@ -4587,19 +4591,19 @@
       "$ref": "#/definitions/v1.FeatureState"
      },
      "runtime": {
-      "description": "Runtime.\nDefaults to the machine type setting.\n+optional",
+      "description": "Runtime improves the time accounting to improve scheduling in the guest.\nDefaults to the machine type setting.\n+optional",
       "$ref": "#/definitions/v1.FeatureState"
      },
      "spinlocks": {
-      "description": "Spinlocks indicates if spinlocks should be made available to the guest.\n+optional",
+      "description": "Spinlocks allows to configure the spinlock retry attempts.\n+optional",
       "$ref": "#/definitions/v1.FeatureSpinlocks"
      },
      "synic": {
-      "description": "SyNIC enable Synthetic Interrupt Controller.\nDefaults to the machine type setting.\n+optional",
+      "description": "SyNIC enables the Synthetic Interrupt Controller.\nDefaults to the machine type setting.\n+optional",
       "$ref": "#/definitions/v1.FeatureState"
      },
      "synictimer": {
-      "description": "SyNICTimer enable Synthetic Interrupt Controller timer.\nDefaults to the machine type setting.\n+optional",
+      "description": "SyNICTimer enables Synthetic Interrupt Controller Timers, reducing CPU load.\nDefaults to the machine type setting.\n+optional",
       "$ref": "#/definitions/v1.FeatureState"
      },
      "tlbflush": {
@@ -4607,7 +4611,7 @@
       "$ref": "#/definitions/v1.FeatureState"
      },
      "vapic": {
-      "description": "VAPIC indicates whether virtual APIC is enabled.\nDefaults to the machine type setting.\n+optional",
+      "description": "VAPIC improves the paravirtualized handling of interrupts.\nDefaults to the machine type setting.\n+optional",
       "$ref": "#/definitions/v1.FeatureState"
      },
      "vendorid": {

@@ -27,6 +27,7 @@ import (
 	. "github.com/onsi/ginkgo"
 	"github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
+	v12 "k8s.io/api/core/v1"
 
 	v1 "kubevirt.io/kubevirt/pkg/api/v1"
 )
@@ -92,6 +93,8 @@ var _ = Describe("ContainerDisk", func() {
 				Expect(err).ToNot(HaveOccurred())
 
 				Expect(len(containers)).To(Equal(2))
+				Expect(containers[0].ImagePullPolicy).To(Equal(v12.PullAlways))
+				Expect(containers[1].ImagePullPolicy).To(Equal(v12.PullAlways))
 			})
 		})
 	})
@@ -108,7 +111,8 @@ func appendContainerDisk(vmi *v1.VirtualMachineInstance, diskName string) {
 		Name: diskName,
 		VolumeSource: v1.VolumeSource{
 			ContainerDisk: &v1.ContainerDiskSource{
-				Image: "someimage:v1.2.3.4",
+				Image:           "someimage:v1.2.3.4",
+				ImagePullPolicy: v12.PullAlways,
 			},
 		},
 	})
