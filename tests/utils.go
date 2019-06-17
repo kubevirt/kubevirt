@@ -221,7 +221,7 @@ const (
 
 const (
 	osAuditLogPath  = "/var/lib/origin/audit-ocp.log"
-	k8sAuditLogPath = "/var/log/k8s-audit.log"
+	k8sAuditLogPath = "/var/log/k8s-audit/k8s-audit.log"
 	swaggerPath     = "api/openapi-spec/swagger.json"
 )
 

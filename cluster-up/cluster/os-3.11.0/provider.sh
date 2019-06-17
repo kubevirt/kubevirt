@@ -2,7 +2,7 @@
 
 set -e
 
-image="os-3.11.0@sha256:2d0a8f59dfebe181f550c4fbcd90d491a56a7d642d761c32a3c7732644325c0b"
+image="os-3.11.0@sha256:ce98292a3e11f6b69a8c2db173c586fd1aea5a2f34031e5e5bc16802320cec82"
 
 source ${KUBEVIRTCI_PATH}/cluster/ephemeral-provider-common.sh
 

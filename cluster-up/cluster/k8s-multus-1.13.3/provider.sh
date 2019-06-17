@@ -2,7 +2,7 @@
 
 set -e
 
-image="k8s-multus-1.13.3@sha256:8418163abbc4acddefa26a63706446af9fd67aab20388a5e8d453cff0c0169f1"
+image="k8s-multus-1.13.3@sha256:3fdf4cb510c69e581c53db6e30d87994fbbdffe4b1e8ecf70be4030ce223e1d7"
 
 source ${KUBEVIRTCI_PATH}/cluster/ephemeral-provider-common.sh
 

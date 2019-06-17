@@ -8,7 +8,7 @@ import (
 	"os"
 
 	"k8s.io/apimachinery/pkg/runtime"
-	AuditV1 "k8s.io/apiserver/pkg/apis/audit/v1"
+	auditv1 "k8s.io/apiserver/pkg/apis/audit/v1"
 
 	. "github.com/onsi/ginkgo"
 	"github.com/onsi/ginkgo/extensions/table"
@@ -55,32 +55,32 @@ var _ = Describe("REST API coverage report", func() {
 			})
 		})
 
-		table.DescribeTable("Should return correct swagger path based on audit URL", func(URI string, objRef *AuditV1.ObjectReference, swaggerPath string) {
+		table.DescribeTable("Should return correct swagger path based on audit URL", func(URI string, objRef *auditv1.ObjectReference, swaggerPath string) {
 			path := getSwaggerPath(URI, objRef)
 			Expect(path).To(Equal(swaggerPath))
 		},
 			table.Entry(
 				"With an empty namespace",
 				"/pets/bite",
-				&AuditV1.ObjectReference{Name: "bite"},
+				&auditv1.ObjectReference{Name: "bite"},
 				"/pets/{name}",
 			),
 			table.Entry(
 				"With defined namespace",
 				"/pets/namespace/default/bite",
-				&AuditV1.ObjectReference{Name: "bite"},
+				&auditv1.ObjectReference{Name: "bite"},
 				"/pets/namespace/default/{name}",
 			),
 			table.Entry(
 				"With empty object reference",
 				"/pets",
-				&AuditV1.ObjectReference{},
+				&auditv1.ObjectReference{},
 				"/pets",
 			),
 			table.Entry(
 				"With VMI list request",
 				"/apis/kubevirt.io/v1alpha3/namespaces/kubevirt-test-default/virtualmachineinstances",
-				&AuditV1.ObjectReference{
+				&auditv1.ObjectReference{
 					Resource:  "virtualmachineinstances",
 					Namespace: "kubevirt-test-default",
 				},
@@ -89,7 +89,7 @@ var _ = Describe("REST API coverage report", func() {
 			table.Entry(
 				"With VMI get request",
 				"/apis/kubevirt.io/v1alpha3/namespaces/kubevirt/virtualmachineinstances/testvmi22gsnklt2flhqflcnp8jpmq6fkj72szv8h9sn26z2hdhkm6l",
-				&AuditV1.ObjectReference{
+				&auditv1.ObjectReference{
 					Resource:  "virtualmachineinstances",
 					Namespace: "kubevirt",
 					Name:      "testvmi22gsnklt2flhqflcnp8jpmq6fkj72szv8h9sn26z2hdhkm6l",

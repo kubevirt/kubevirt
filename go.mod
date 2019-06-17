@@ -86,7 +86,6 @@ require (
 	k8s.io/apiserver v0.0.0-20190605050503-711565443900
 	k8s.io/client-go v0.0.0-20190602130007-e65ca70987a6
 	k8s.io/kube-aggregator v0.0.0-20190228175259-3e0149950b0e
-	k8s.io/kube-openapi v0.0.0-20190228160746-b3a7cee44a30 // indirect
 	kubevirt.io/client-go v0.0.0-00010101000000-000000000000
 	kubevirt.io/containerized-data-importer v1.8.1-0.20190516083534-83c12eaae2ed
 	kubevirt.io/qe-tools v0.1.3-0.20190512140058-934db0579e0c

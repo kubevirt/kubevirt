@@ -12,12 +12,12 @@ import (
 	"time"
 
 	"k8s.io/apimachinery/pkg/runtime"
-	AuditV1 "k8s.io/apiserver/pkg/apis/audit/v1"
+	auditv1 "k8s.io/apiserver/pkg/apis/audit/v1"
 
-	"kubevirt.io/kubevirt/pkg/log"
+	"kubevirt.io/client-go/log"
 )
 
-func getSwaggerPath(path string, objectRef *AuditV1.ObjectReference) string {
+func getSwaggerPath(path string, objectRef *auditv1.ObjectReference) string {
 	if namespace := objectRef.Namespace; namespace != "" {
 		path = strings.Replace(path, "namespaces/"+namespace, "namespaces/{namespace}", 1)
 	}
@@ -213,7 +213,7 @@ func GenerateReport(auditLogs string, swaggerPath string, filter string, storeIn
 
 	scanner := bufio.NewReader(strings.NewReader(auditLogs))
 	for {
-		var event AuditV1.Event
+		var event auditv1.Event
 		b, err := scanner.ReadBytes('\n')
 		if err == io.EOF {
 			break
