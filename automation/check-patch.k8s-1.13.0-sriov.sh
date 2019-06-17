@@ -174,7 +174,7 @@ until [ -z "$(docker ps -a | grep registry)" ]; do
     sleep 5
 done
 docker run -d -p 5000:5000 --restart=always --name registry registry:2
-${CLUSTER_CMD} socat TCP-LISTEN:5000,fork TCP:172.17.0.1:5000
+${CLUSTER_CMD} socat TCP-LISTEN:5000,fork TCP:$(docker inspect --format '{{.NetworkSettings.IPAddress }}' registry):5000
 
 # prepare local storage
 for i in {1..10}; do
