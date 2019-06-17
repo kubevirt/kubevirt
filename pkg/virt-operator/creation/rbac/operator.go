@@ -226,6 +226,7 @@ func NewOperatorClusterRole() *rbacv1.ClusterRole {
 					"watch",
 					"create",
 					"delete",
+					"update",
 					"use",
 				},
 			},
