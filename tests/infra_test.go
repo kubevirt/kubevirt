@@ -59,7 +59,7 @@ var _ = Describe("Infrastructure", func() {
 	})
 
 	Describe("Prometheus Endpoints", func() {
-		It("should be exposed and and registered on the metrics endpoint", func() {
+		It("should be exposed and registered on the metrics endpoint", func() {
 			endpoint, err := virtClient.CoreV1().Endpoints(tests.KubeVirtInstallNamespace).Get("kubevirt-prometheus-metrics", metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			l, err := labels.Parse("prometheus.kubevirt.io")
@@ -236,12 +236,7 @@ var _ = Describe("Infrastructure", func() {
 			Expect(metrics).To(HaveKey(ContainSubstring("kubevirt_vm_storage_")))
 
 			By("Checking the collected metrics")
-			var keys []string
-			for metric := range metrics {
-				keys = append(keys, metric)
-			}
-			// we sort keys only to make debug of test failures easier
-			sort.Strings(keys)
+			keys := getKeysFromMetrics(metrics)
 			for _, key := range keys {
 				if strings.HasPrefix(key, "kubevirt_vm_storage_") && strings.Contains(key, "vdb") {
 					value := metrics[key]
@@ -251,37 +246,9 @@ var _ = Describe("Infrastructure", func() {
 		}, 300)
 
 		It("should include the memory metrics for a running VM", func() {
-			By("Creating the VirtualMachineInstance")
-			vmi := tests.NewRandomVMI()
-
-			By("Starting a new VirtualMachineInstance")
-			obj, err := virtClient.RestClient().Post().Resource("virtualmachineinstances").Namespace(tests.NamespaceTestDefault).Body(vmi).Do().Get()
-			Expect(err).ToNot(HaveOccurred(), "Should create VMI")
-
-			By("Waiting until the VM is ready")
-			nodeName := tests.WaitForSuccessfulVMIStart(obj)
-
-			By("Finding the prometheus endpoint")
-			pod, err := kubecli.NewVirtHandlerClient(virtClient).ForNode(nodeName).Pod()
-			Expect(err).ToNot(HaveOccurred(), "Should find the virt-handler pod")
-
-			By("Scraping the Prometheus endpoint")
-			var metrics map[string]float64
-			Eventually(func() map[string]float64 {
-				out := getKubevirtVMMetrics(virtClient, pod, "virt-handler")
-				lines := takeMetricsWithPrefix(out, "kubevirt")
-				metrics, err := parseMetricsToMap(lines)
-				Expect(err).ToNot(HaveOccurred())
-				return metrics
-			}, 30*time.Second, 2*time.Second).Should(HaveKey(ContainSubstring("kubevirt_vm_memory_")))
-
+			_, _, _, metrics := newRandomVMIWithMetrics(virtClient, "kubevirt_vm_memory_")
 			By("Checking the collected metrics")
-			var keys []string
-			for metric := range metrics {
-				keys = append(keys, metric)
-			}
-			// we sort keys only to make debug of test failures easier
-			sort.Strings(keys)
+			keys := getKeysFromMetrics(metrics)
 			for _, key := range keys {
 				if strings.HasPrefix(key, "kubevirt_vm_metrics_") {
 					value := metrics[key]
