@@ -126,6 +126,7 @@ rules:
   - watch
   - create
   - delete
+  - update
   - use
 - apiGroups:
   - admissionregistration.k8s.io
