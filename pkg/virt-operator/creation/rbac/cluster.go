@@ -209,6 +209,7 @@ func newAdminClusterRole() *rbacv1.ClusterRole {
 					"virtualmachineinstances",
 					"virtualmachineinstancepresets",
 					"virtualmachineinstancereplicasets",
+					"virtualmachineinstancemigrations",
 				},
 				Verbs: []string{
 					"get", "delete", "create", "update", "patch", "list", "watch", "deletecollection",
@@ -266,6 +267,7 @@ func newEditClusterRole() *rbacv1.ClusterRole {
 					"virtualmachineinstances",
 					"virtualmachineinstancepresets",
 					"virtualmachineinstancereplicasets",
+					"virtualmachineinstancemigrations",
 				},
 				Verbs: []string{
 					"get", "delete", "create", "update", "patch", "list", "watch",
@@ -298,6 +300,7 @@ func newViewClusterRole() *rbacv1.ClusterRole {
 					"virtualmachineinstances",
 					"virtualmachineinstancepresets",
 					"virtualmachineinstancereplicasets",
+					"virtualmachineinstancemigrations",
 				},
 				Verbs: []string{
 					"get", "list", "watch",

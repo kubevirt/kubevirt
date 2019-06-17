@@ -67,6 +67,7 @@ rules:
   - virtualmachineinstances
   - virtualmachineinstancepresets
   - virtualmachineinstancereplicasets
+  - virtualmachineinstancemigrations
   verbs:
   - get
   - delete
@@ -107,6 +108,7 @@ rules:
   - virtualmachineinstances
   - virtualmachineinstancepresets
   - virtualmachineinstancereplicasets
+  - virtualmachineinstancemigrations
   verbs:
   - get
   - delete
@@ -131,6 +133,7 @@ rules:
   - virtualmachineinstances
   - virtualmachineinstancepresets
   - virtualmachineinstancereplicasets
+  - virtualmachineinstancemigrations
   verbs:
   - get
   - list
