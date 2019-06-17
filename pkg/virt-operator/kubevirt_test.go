@@ -418,7 +418,7 @@ var _ = Describe("KubeVirt Operator", func() {
 
 	addInstallStrategy := func(imageTag string, imageRegistry string) {
 		// install strategy config
-		resource, _ := installstrategy.NewInstallStrategyConfigMap(NAMESPACE, imageTag, imageRegistry)
+		resource, _ := installstrategy.NewInstallStrategyConfigMap(NAMESPACE, imageTag, imageRegistry, "IfNotPresent")
 
 		resource.Name = fmt.Sprintf("%s-%s", resource.Name, rand.String(10))
 		addResource(resource, imageTag, imageRegistry)

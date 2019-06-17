@@ -542,6 +542,10 @@ func (c *KubeVirtController) generateInstallStrategyJob(kv *v1.KubeVirt) *batchv
 									Name:  util.TargetInstallNamespace,
 									Value: kv.Namespace,
 								},
+								{
+									Name:  util.TargetImagePullPolicy,
+									Value: string(pullPolicy),
+								},
 							},
 						},
 					},
