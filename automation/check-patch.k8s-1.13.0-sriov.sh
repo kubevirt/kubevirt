@@ -81,7 +81,8 @@ function finish {
 # TODO FEDE takes too long to go get, move to docker image?
 #go get -u sigs.k8s.io/kind 
 
-kind --loglevel debug create cluster --wait=$((60*60))s --retain --name=${CLUSTER_NAME} --config=${MANIFESTS_DIR}/kind.yaml
+
+kind --loglevel debug create cluster --wait=$((60*60))s --retain --name=${CLUSTER_NAME} --config=${MANIFESTS_DIR}/kind.yaml --image=onesourceintegrations/node:multus
 
 export KUBECONFIG=$(kind get kubeconfig-path --name=${CLUSTER_NAME})
 
