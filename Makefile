@@ -40,6 +40,9 @@ cluster-sync:
 cluster-clean:
 	CMD="./cluster/kubectl.sh" ./hack/clean.sh
 
+functest:
+	./hack/functest.sh
+
 stageRegistry:
 	@REGISTRY_NAMESPACE=redhat-operators-stage ./hack/quay-registry.sh $(QUAY_USERNAME) $(QUAY_PASSWORD)
 
@@ -73,4 +76,5 @@ test: test-unit
 		cluster-down \
 		cluster-sync \
 		cluster-clean \
-		stageRegistry
+		stageRegistry \
+		functest
