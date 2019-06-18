@@ -4,6 +4,9 @@ set -x
 #############################################################
 # This is based on https://github.com/SchSeba/kubevirt-docker
 #############################################################
+#TODO FEDE Cleanup
+apt update
+apt install -y kmod pciutils
 
 export NO_PROXY="localhost,127.0.0.1,172.17.0.2"
 
