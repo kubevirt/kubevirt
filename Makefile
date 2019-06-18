@@ -1,10 +1,11 @@
-QUAY_USERNAME ?=
-QUAY_PASSWORD ?=
-SOURCE_DIRS   = cmd pkg
-SOURCES       := $(shell find . -name '*.go' -not -path "*/vendor/*")
-IMAGE_REGISTRY ?= quay.io
-IMAGE_TAG ?= latest
-OPERATOR_IMAGE ?= kubevirt/hyperconverged-cluster-operator
+QUAY_USERNAME      ?=
+QUAY_PASSWORD      ?=
+SOURCE_DIRS        = cmd pkg
+SOURCES            := $(shell find . -name '*.go' -not -path "*/vendor/*")
+IMAGE_REGISTRY     ?= quay.io
+IMAGE_TAG          ?= latest
+OPERATOR_IMAGE     ?= kubevirt/hyperconverged-cluster-operator
+REGISTRY_NAMESPACE ?=
 
 build: $(SOURCES) ## Build binary from source
 	go build -i -ldflags="-s -w" -o _out/hyperconverged-cluster-operator ./cmd/manager > /dev/null
@@ -45,6 +46,9 @@ functest:
 
 stageRegistry:
 	@REGISTRY_NAMESPACE=redhat-operators-stage ./hack/quay-registry.sh $(QUAY_USERNAME) $(QUAY_PASSWORD)
+
+bundleRegistry:
+	REGISTRY_NAMESPACE=$(REGISTRY_NAMESPACE) IMAGE_REGISTRY=$(IMAGE_REGISTRY) ./hack/build-registry-bundle.sh
 
 help: ## Show this help screen
 	@echo 'Usage: make <OPTIONS> ... <TARGETS>'

@@ -43,10 +43,8 @@ as official operator-registry images for HCO will not be provided.
 Build and push the converged HCO operator-registry image.
 
 ```bash
-cd deploy/converged
-export HCO_DOCKER_ORG=<docker_org>
-docker build --no-cache -t docker.io/$HCO_DOCKER_ORG/hco-registry:example -f Dockerfile .
-docker push docker.io/$HCO_DOCKER_ORG/hco-registry:example
+export REGISTRY_NAMESPACE=<container_org>
+make bundleRegistry CONTAINER_TAG=example
 ```
 
 Create the namespace for the HCO.
@@ -75,7 +73,7 @@ metadata:
   namespace: openshift-operator-lifecycle-manager
 spec:
   sourceType: grpc
-  image: docker.io/$HCO_DOCKER_ORG/hco-registry:example
+  image: docker.io/$REGISTRY_NAMESPACE/hco-registry:example
   displayName: KubeVirt HyperConverged
   publisher: Red Hat
 EOF
