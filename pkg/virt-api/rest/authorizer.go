@@ -165,7 +165,11 @@ func (a *authorizor) generateAccessReview(req *restful.Request) (*authorization.
 	if err != nil {
 		return nil, err
 	}
-	verb := strings.ToLower(httpRequest.Method)
+
+	verb, err := mapHttpVerbToRbacVerb(httpRequest.Method, resourceName)
+	if err != nil {
+		return nil, err
+	}
 
 	r := &authorization.SubjectAccessReview{}
 	r.Spec = authorization.SubjectAccessReviewSpec{
@@ -185,6 +189,33 @@ func (a *authorizor) generateAccessReview(req *restful.Request) (*authorization.
 	}
 
 	return r, nil
+}
+
+func mapHttpVerbToRbacVerb(httpVerb string, name string) (string, error) {
+	// see https://kubernetes.io/docs/reference/access-authn-authz/authorization/#determine-the-request-verb
+	// if name is empty, we assume plural verbs
+	switch strings.ToLower(httpVerb) {
+	case strings.ToLower(http.MethodPost):
+		return "create", nil
+	case strings.ToLower(http.MethodGet), strings.ToLower(http.MethodHead):
+		if name != "" {
+			return "get", nil
+		} else {
+			return "list", nil
+		}
+	case strings.ToLower(http.MethodPut):
+		return "update", nil
+	case strings.ToLower(http.MethodPatch):
+		return "patch", nil
+	case strings.ToLower(http.MethodDelete):
+		if name != "" {
+			return "delete", nil
+		} else {
+			return "deletecollection", nil
+		}
+	default:
+		return "", fmt.Errorf("unknown http verb in request: %v", httpVerb)
+	}
 }
 
 func isInfoOrHealthEndpoint(req *restful.Request) bool {
