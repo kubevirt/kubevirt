@@ -75,6 +75,9 @@ function finish {
 #    exit 1
 #}
 
+tools/util/vfio.sh
+
+
 # ================
 # bring up cluster
 # ================
@@ -138,11 +141,11 @@ wait_containers_ready
 kubectl apply -f $MANIFESTS_DIR/multus.yaml
 
 # deploy sriov cni
-# TODO FEDE SRIOV kubectl apply -f $MANIFESTS_DIR/sriov-crd.yaml
-# TODO FEDE SRIOV kubectl apply -f $MANIFESTS_DIR/sriov-cni-daemonset.yaml
+kubectl apply -f $MANIFESTS_DIR/sriov-crd.yaml
+kubectl apply -f $MANIFESTS_DIR/sriov-cni-daemonset.yaml
 
 # prepare kernel for vfio passthrough
-# TODO FEDE SRIOV modprobe vfio-pci
+modprobe vfio-pci
 
 # deploy sriov device plugin
 function configure-sriovdp() {
@@ -159,8 +162,8 @@ EOF
 "
 }
 
-# TODO FEDE SRIOV configure-sriovdp "${CLUSTER_CMD} bash -c"
-# TODO FEDE SRIOV kubectl apply -f $MANIFESTS_DIR/sriovdp-daemonset.yaml
+configure-sriovdp "${CLUSTER_CMD} bash -c"
+kubectl apply -f $MANIFESTS_DIR/sriovdp-daemonset.yaml
 
 # give them some time to create pods before checking pod status
 sleep 10
@@ -198,8 +201,8 @@ wait_kubevirt_up
 # =========================
 # enable sriov feature gate
 # =========================
-# TODO FEDE SRIOV kubectl patch configmap kubevirt-config -n kubevirt --patch "data:
-# TODO FEDE SRIOV   feature-gates: DataVolumes, CPUManager, LiveMigration, SRIOV"
+kubectl patch configmap kubevirt-config -n kubevirt --patch "data:
+  feature-gates: DataVolumes, CPUManager, LiveMigration, SRIOV"
 
 # delete all virt- pods so that they have a chance to catch up with feature gate change
 kubectl get pods -n kubevirt | grep virt | awk '{print $1}' | xargs kubectl delete pods -n kubevirt
