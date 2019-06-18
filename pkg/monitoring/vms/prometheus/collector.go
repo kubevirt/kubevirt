@@ -23,7 +23,7 @@ import (
 	"sync"
 	"time"
 
-	k6tv1 "kubevirt.io/client-go/pkg/api/v1"
+	k6tv1 "kubevirt.io/client-go/api/v1"
 	"kubevirt.io/client-go/log"
 )
 

@@ -66,7 +66,7 @@ distclean: clean
 	rm -rf vendor/
 
 deps-update:
-	SYNC_VENDOR=true hack/dockerized "GO111MODULE=on go mod tidy && GO111MODULE=on go mod vendor && ./hack/bazel-generate.sh"
+	SYNC_VENDOR=true hack/dockerized "GO111MODULE=on go mod tidy && GO111MODULE=on go mod vendor && ./hack/dep-prune.sh && ./hack/bazel-generate.sh"
 
 check:
 	hack/dockerized "./hack/check.sh"

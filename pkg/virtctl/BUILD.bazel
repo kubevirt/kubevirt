@@ -16,9 +16,9 @@ go_library(
         "//pkg/virtctl/version:go_default_library",
         "//pkg/virtctl/vm:go_default_library",
         "//pkg/virtctl/vnc:go_default_library",
+        "//staging/src/kubevirt.io/client-go/kubecli:go_default_library",
+        "//staging/src/kubevirt.io/client-go/log:go_default_library",
         "//vendor/github.com/spf13/cobra:go_default_library",
         "//vendor/github.com/spf13/pflag:go_default_library",
-        "//vendor/kubevirt.io/client-go/kubecli:go_default_library",
-        "//vendor/kubevirt.io/client-go/log:go_default_library",
     ],
 )

@@ -6,7 +6,7 @@ go_library(
     importpath = "kubevirt.io/kubevirt/pkg/ephemeral-disk-utils",
     visibility = ["//visibility:public"],
     deps = [
-        "//vendor/kubevirt.io/client-go/api/v1:go_default_library",
-        "//vendor/kubevirt.io/client-go/log:go_default_library",
+        "//staging/src/kubevirt.io/client-go/api/v1:go_default_library",
+        "//staging/src/kubevirt.io/client-go/log:go_default_library",
     ],
 )

@@ -7,6 +7,6 @@ go_library(
         "types.go",
         "version.go",
     ],
-    importpath = "kubevirt.io/kubevirt/staging/src/kubevirt.io/client-go/version",
+    importpath = "kubevirt.io/client-go/version",
     visibility = ["//visibility:public"],
 )
