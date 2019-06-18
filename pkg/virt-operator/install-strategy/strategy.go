@@ -78,13 +78,13 @@ type InstallStrategy struct {
 	customSCCPrivileges []*customSCCPrivilegedAccounts
 }
 
-func NewInstallStrategyConfigMap(namespace string, imageTag string, imageRegistry string) (*corev1.ConfigMap, error) {
+func NewInstallStrategyConfigMap(namespace string, imageTag string, imageRegistry string, pullPolicy corev1.PullPolicy) (*corev1.ConfigMap, error) {
 
 	strategy, err := GenerateCurrentInstallStrategy(
 		namespace,
 		imageTag,
 		imageRegistry,
-		corev1.PullIfNotPresent,
+		pullPolicy,
 		"2")
 	if err != nil {
 		return nil, err
@@ -120,8 +120,9 @@ func DumpInstallStrategyToConfigMap(clientset kubecli.KubevirtClient) error {
 	if err != nil {
 		return err
 	}
+	pullPolicy := util.GetTargetImagePullPolicy()
 
-	configMap, err := NewInstallStrategyConfigMap(namespace, imageTag, imageRegistry)
+	configMap, err := NewInstallStrategyConfigMap(namespace, imageTag, imageRegistry, pullPolicy)
 	if err != nil {
 		return err
 	}
