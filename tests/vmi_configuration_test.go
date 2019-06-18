@@ -1296,6 +1296,35 @@ var _ = Describe("Configurations", func() {
 
 			checkPciAddress(vmi, vmi.Spec.Domain.Devices.Disks[0].Disk.PciAddress, "\\$")
 		})
+
+		It("[test_id:1020]should not create the VM with wrong PCI adress", func() {
+			By("setting disk1 Pci address")
+
+			wrongPciAddress := "0000:04:10.0"
+
+			vmi.Spec.Domain.Devices.Disks[0].Disk.PciAddress = wrongPciAddress
+			vmi.Spec.Domain.Devices.Disks[0].Disk.Bus = "virtio"
+			vmi, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
+			Expect(err).ToNot(HaveOccurred())
+
+			var vmiCondition v1.VirtualMachineInstanceCondition
+			Eventually(func() bool {
+				vmi, err := virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Get(vmi.Name, &metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+
+				if len(vmi.Status.Conditions) > 0 {
+					for _, cond := range vmi.Status.Conditions {
+						if cond.Type == v1.VirtualMachineInstanceConditionType(v1.VirtualMachineInstanceSynchronized) && cond.Status == kubev1.ConditionFalse {
+							vmiCondition = cond
+							return true
+						}
+					}
+				}
+				return false
+			}, 120*time.Second, time.Second).Should(BeTrue())
+			Expect(vmiCondition.Message).To(ContainSubstring("Invalid PCI address " + wrongPciAddress))
+			Expect(vmiCondition.Reason).To(Equal("Synchronizing with the Domain failed."))
+		})
 	})
 	Describe("[rfe_id:897][crit:medium][vendor:cnv-qe@redhat.com][level:component]VirtualMachineInstance with CPU pinning", func() {
 		var nodes *kubev1.NodeList
