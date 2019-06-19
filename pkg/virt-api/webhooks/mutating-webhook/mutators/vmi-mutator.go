@@ -158,17 +158,18 @@ func (mutator *VMIsMutator) setDefaultResourceRequests(vmi *v1.VirtualMachineIns
 			}
 		}
 		if memory != nil && memory.Value() > 0 {
-			log.Log.Object(vmi).V(4).Info("Setting memory-request in light of memory-overcommit")
 			if vmi.Spec.Domain.Resources.Requests == nil {
 				vmi.Spec.Domain.Resources.Requests = k8sv1.ResourceList{}
 			}
-			if mutator.ClusterConfig.GetMemoryOvercommit() == 100 {
+			overcommit := mutator.ClusterConfig.GetMemoryOvercommit()
+			if overcommit == 100 {
 				vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = *memory
 			} else {
-				value := memory.Value() * int64(100)
-				value = value / int64(mutator.ClusterConfig.GetMemoryOvercommit())
+				value := (memory.Value() * int64(100)) / int64(overcommit)
 				vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = *resource.NewQuantity(value, memory.Format)
 			}
+			memoryRequest := vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory]
+			log.Log.Object(vmi).V(4).Infof("Set memory-request to %s as a result of memory-overcommit = %v%%", memoryRequest.String(), overcommit)
 		}
 	}
 
