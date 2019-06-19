@@ -25,7 +25,7 @@ import (
 	. "github.com/onsi/ginkgo"
 	"github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
-	v1 "k8s.io/api/core/v1"
+	k8sv1 "k8s.io/api/core/v1"
 	k8smetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"kubevirt.io/kubevirt/pkg/log"
@@ -37,7 +37,7 @@ var _ = Describe("PodSelectors", func() {
 		It("should work", func() {
 			vmi := NewMinimalVMI("testvmi")
 			vmi.Status.NodeName = "test-node"
-			pod := &v1.Pod{}
+			pod := &k8sv1.Pod{}
 			affinity := UpdateAntiAffinityFromVMINode(pod, vmi)
 			newSelector := affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution.NodeSelectorTerms[0]
 			Expect(newSelector).ToNot(BeNil())
@@ -50,20 +50,20 @@ var _ = Describe("PodSelectors", func() {
 			vmi := NewMinimalVMI("testvmi")
 			vmi.Status.NodeName = "test-node"
 
-			existingTerm := v1.NodeSelectorTerm{}
-			secondExistingTerm := v1.NodeSelectorTerm{
-				MatchExpressions: []v1.NodeSelectorRequirement{
+			existingTerm := k8sv1.NodeSelectorTerm{}
+			secondExistingTerm := k8sv1.NodeSelectorTerm{
+				MatchExpressions: []k8sv1.NodeSelectorRequirement{
 					{},
 				},
 			}
 
-			pod := &v1.Pod{
-				Spec: v1.PodSpec{
-					Affinity: &v1.Affinity{
-						PodAffinity: &v1.PodAffinity{},
-						NodeAffinity: &v1.NodeAffinity{
-							RequiredDuringSchedulingIgnoredDuringExecution: &v1.NodeSelector{
-								NodeSelectorTerms: []v1.NodeSelectorTerm{
+			pod := &k8sv1.Pod{
+				Spec: k8sv1.PodSpec{
+					Affinity: &k8sv1.Affinity{
+						PodAffinity: &k8sv1.PodAffinity{},
+						NodeAffinity: &k8sv1.NodeAffinity{
+							RequiredDuringSchedulingIgnoredDuringExecution: &k8sv1.NodeSelector{
+								NodeSelectorTerms: []k8sv1.NodeSelectorTerm{
 									existingTerm,
 									secondExistingTerm,
 								},

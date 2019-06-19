@@ -1356,31 +1356,25 @@ func QuantityToMebiByte(quantity resource.Quantity) (uint64, error) {
 }
 
 func boolToOnOff(value *bool, defaultOn bool) string {
-	if value == nil {
-		if defaultOn {
-			return "on"
-		}
-		return "off"
-	}
-
-	if *value {
-		return "on"
-	}
-	return "off"
+	return boolToString(value, defaultOn, "on", "off")
 }
 
 func boolToYesNo(value *bool, defaultYes bool) string {
-	if value == nil {
-		if defaultYes {
-			return "yes"
+	return boolToString(value, defaultYes, "yes", "no")
+}
+
+func boolToString(value *bool, defaultPositive bool, positive string, negative string) string {
+	toString := func(value bool) string {
+		if value {
+			return positive
 		}
-		return "no"
+		return negative
 	}
 
-	if *value {
-		return "yes"
+	if value == nil {
+		return toString(defaultPositive)
 	}
-	return "no"
+	return toString(*value)
 }
 
 // returns nameservers [][]byte, searchdomains []string, error

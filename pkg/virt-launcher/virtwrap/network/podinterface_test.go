@@ -31,7 +31,6 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"github.com/vishvananda/netlink"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	v1 "kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/log"
@@ -490,17 +489,8 @@ var _ = Describe("Pod Network", func() {
 })
 
 func newVMI(namespace, name string) *v1.VirtualMachineInstance {
-	vmi := &v1.VirtualMachineInstance{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      name,
-			Namespace: namespace,
-		},
-		Spec: v1.VirtualMachineInstanceSpec{
-			Domain:   v1.NewMinimalDomainSpec(),
-			Networks: []v1.Network{*v1.DefaultPodNetwork()},
-		},
-	}
-
+	vmi := v1.NewMinimalVMIWithNS(namespace, name)
+	vmi.Spec.Networks = []v1.Network{*v1.DefaultPodNetwork()}
 	return vmi
 }
 

@@ -697,11 +697,8 @@ var _ = Describe("getSRIOVPCIAddresses", func() {
 	})
 })
 
-func newVMI(namespace string, name string) *v1.VirtualMachineInstance {
-	vmi := &v1.VirtualMachineInstance{
-		ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: namespace},
-		Spec:       v1.VirtualMachineInstanceSpec{Domain: v1.NewMinimalDomainSpec()},
-	}
+func newVMI(namespace, name string) *v1.VirtualMachineInstance {
+	vmi := v1.NewMinimalVMIWithNS(namespace, name)
 	v1.SetObjectDefaults_VirtualMachineInstance(vmi)
 	return vmi
 }

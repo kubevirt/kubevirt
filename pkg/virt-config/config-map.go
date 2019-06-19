@@ -49,7 +49,7 @@ const (
 	MigrationsConfigKey       = "migrations"
 	CpuModelKey               = "default-cpu-model"
 	CpuRequestKey             = "cpu-request"
-	MemoryRequestKey          = "memory-request"
+	MemoryOvercommitKey       = "memory-overcommit"
 	LessPVCSpaceTolerationKey = "pvc-tolerate-less-space-up-to-percent"
 	NodeSelectorsKey          = "node-selectors"
 
@@ -60,7 +60,7 @@ const (
 	MigrationCompletionTimeoutPerGiB         int64  = 800
 	DefaultMachineType                              = "q35"
 	DefaultCPURequest                               = "100m"
-	DefaultMemoryRequest                            = "8Mi"
+	DefaultMemoryOvercommit                         = 100
 	DefaultEmulatedMachines                         = "q35*,pc-q35*"
 	DefaultLessPVCSpaceToleration                   = 10
 	DefaultNodeSelectors                            = ""
@@ -129,7 +129,6 @@ func defaultClusterConfig() *Config {
 	progressTimeout := MigrationProgressTimeout
 	completionTimeoutPerGiB := MigrationCompletionTimeoutPerGiB
 	cpuRequestDefault := resource.MustParse(DefaultCPURequest)
-	memoryRequestDefault := resource.MustParse(DefaultMemoryRequest)
 	emulatedMachinesDefault := strings.Split(DefaultEmulatedMachines, ",")
 	nodeSelectorsDefault, _ := parseNodeSelectors(DefaultNodeSelectors)
 	return &Config{
@@ -147,7 +146,7 @@ func defaultClusterConfig() *Config {
 		},
 		MachineType:            DefaultMachineType,
 		CPURequest:             cpuRequestDefault,
-		MemoryRequest:          memoryRequestDefault,
+		MemoryOvercommit:       DefaultMemoryOvercommit,
 		EmulatedMachines:       emulatedMachinesDefault,
 		LessPVCSpaceToleration: DefaultLessPVCSpaceToleration,
 		NodeSelectors:          nodeSelectorsDefault,
@@ -162,7 +161,7 @@ type Config struct {
 	MachineType            string
 	CPUModel               string
 	CPURequest             resource.Quantity
-	MemoryRequest          resource.Quantity
+	MemoryOvercommit       int
 	EmulatedMachines       []string
 	FeatureGates           string
 	LessPVCSpaceToleration int
@@ -212,8 +211,8 @@ func (c *ClusterConfig) GetCPURequest() resource.Quantity {
 	return c.getConfig().CPURequest
 }
 
-func (c *ClusterConfig) GetMemoryRequest() resource.Quantity {
-	return c.getConfig().MemoryRequest
+func (c *ClusterConfig) GetMemoryOvercommit() int {
+	return c.getConfig().MemoryOvercommit
 }
 
 func (c *ClusterConfig) GetEmulatedMachines() []string {
@@ -286,8 +285,12 @@ func setConfig(config *Config, configMap *k8sv1.ConfigMap) error {
 		config.CPURequest = resource.MustParse(cpuRequest)
 	}
 
-	if memoryRequest := strings.TrimSpace(configMap.Data[MemoryRequestKey]); memoryRequest != "" {
-		config.MemoryRequest = resource.MustParse(memoryRequest)
+	if memoryOvercommit := strings.TrimSpace(configMap.Data[MemoryOvercommitKey]); memoryOvercommit != "" {
+		if value, err := strconv.Atoi(memoryOvercommit); err == nil && value > 0 {
+			config.MemoryOvercommit = value
+		} else {
+			return fmt.Errorf("Invalid memoryOvercommit in ConfigMap: %s", memoryOvercommit)
+		}
 	}
 
 	if emulatedMachines := strings.TrimSpace(configMap.Data[EmulatedMachinesKey]); emulatedMachines != "" {
