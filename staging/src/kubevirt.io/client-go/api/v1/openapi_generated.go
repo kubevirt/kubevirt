@@ -2174,7 +2174,7 @@ func schema_kubevirtio_client_go_api_v1_ResourceRequirements(ref common.Referenc
 					},
 					"overcommitGuestOverhead": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Don't ask the scheduler to take the guest-management overhead into account. Instead put the overhead only into the requested memory limits. This can lead to crashes if all memory is in use on a node. Defaults to false.",
+							Description: "Don't ask the scheduler to take the guest-management overhead into account. Instead put the overhead only into the container's memory limit. This can lead to crashes if all memory is in use on a node. Defaults to false.",
 							Type:        []string{"boolean"},
 							Format:      "",
 						},
