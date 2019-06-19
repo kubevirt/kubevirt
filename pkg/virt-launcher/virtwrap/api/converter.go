@@ -1028,6 +1028,7 @@ func Convert_v1_VirtualMachine_To_api_Domain(vmi *v1.VirtualMachineInstance, dom
 			return fmt.Errorf("failed to find network %s", iface.Name)
 		}
 
+		var domainIface Interface
 		if iface.SRIOV != nil {
 			var pciAddr string
 			pciAddr, sriovPciAddresses, err = popSRIOVPCIAddress(iface.Name, sriovPciAddresses)
@@ -1040,8 +1041,11 @@ func Convert_v1_VirtualMachine_To_api_Domain(vmi *v1.VirtualMachineInstance, dom
 				return err
 			}
 
-			hostDev := HostDevice{
-				Source: HostDeviceSource{
+			domainIface = Interface{
+				Driver: &InterfaceDriver{
+					Name: "vfio",
+				},
+				Source: InterfaceSource{
 					Address: &Address{
 						Type:     "pci",
 						Domain:   "0x" + dbsfFields[0],
@@ -1050,17 +1054,20 @@ func Convert_v1_VirtualMachine_To_api_Domain(vmi *v1.VirtualMachineInstance, dom
 						Function: "0x" + dbsfFields[3],
 					},
 				},
-				Type:    "pci",
-				Managed: "yes",
+				Type: "hostdev",
 			}
 			if iface.BootOrder != nil {
-				hostDev.BootOrder = &BootOrder{Order: *iface.BootOrder}
+				domainIface.BootOrder = &BootOrder{Order: *iface.BootOrder}
 			}
-			log.Log.Infof("SR-IOV PCI device allocated: %s", pciAddr)
-			domain.Spec.Devices.HostDevices = append(domain.Spec.Devices.HostDevices, hostDev)
+			if iface.MacAddress != "" {
+				domainIface.MAC = &MAC{MAC: iface.MacAddress}
+				log.Log.Infof("SR-IOV PCI device allocated: %s (MAC: %s)", pciAddr, iface.MacAddress)
+			} else {
+				log.Log.Infof("SR-IOV PCI device allocated: %s", pciAddr)
+			}
 		} else {
 			ifaceType := getInterfaceType(&iface)
-			domainIface := Interface{
+			domainIface = Interface{
 				Model: &Model{
 					Type: ifaceType,
 				},
@@ -1133,8 +1140,8 @@ func Convert_v1_VirtualMachine_To_api_Domain(vmi *v1.VirtualMachineInstance, dom
 					return err
 				}
 			}
-			domain.Spec.Devices.Interfaces = append(domain.Spec.Devices.Interfaces, domainIface)
 		}
+		domain.Spec.Devices.Interfaces = append(domain.Spec.Devices.Interfaces, domainIface)
 	}
 
 	// Add Ignition Command Line if present
