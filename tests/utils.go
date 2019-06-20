@@ -1645,7 +1645,13 @@ func AddEphemeralCdrom(vmi *v1.VirtualMachineInstance, name string, bus string, 
 }
 
 func NewRandomFedoraVMIWitGuestAgent() *v1.VirtualMachineInstance {
-	agentVMI := NewRandomVMIWithEphemeralDiskAndUserdata(ContainerDiskFor(ContainerDiskFedora), fmt.Sprintf(`#!/bin/bash
+	agentVMI := NewRandomVMIWithEphemeralDiskAndUserdata(ContainerDiskFor(ContainerDiskFedora), GetGuestAgentUserData())
+	agentVMI.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("512M")
+	return agentVMI
+}
+
+func GetGuestAgentUserData() string {
+	return fmt.Sprintf(`#!/bin/bash
                 echo "fedora" |passwd fedora --stdin
                 mkdir -p /usr/local/bin
                 curl %s > /usr/local/bin/qemu-ga
@@ -1654,10 +1660,24 @@ func NewRandomFedoraVMIWitGuestAgent() *v1.VirtualMachineInstance {
                 chmod +x /usr/local/bin/stress
                 setenforce 0
                 systemd-run --unit=guestagent /usr/local/bin/qemu-ga
-                `, GuestAgentHttpUrl, StressHttpUrl))
-	agentVMI.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("512M")
-	return agentVMI
+                `, GuestAgentHttpUrl, StressHttpUrl)
+}
 
+func WaitForGuestAgentChannel(vmi *v1.VirtualMachineInstance) {
+	virtClient, err := kubecli.GetKubevirtClient()
+	PanicOnError(err)
+
+	By("Waiting for guest agent connection")
+	EventuallyWithOffset(1, func() bool {
+		updatedVmi, err := virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &metav1.GetOptions{})
+		Expect(err).ToNot(HaveOccurred())
+		for _, condition := range updatedVmi.Status.Conditions {
+			if condition.Type == v1.VirtualMachineInstanceAgentConnected && condition.Status == k8sv1.ConditionTrue {
+				return true
+			}
+		}
+		return false
+	}, 420*time.Second, 2).Should(BeTrue(), "Should have agent connected condition")
 }
 
 func NewRandomVMIWithEphemeralDiskAndUserdata(containerImage string, userData string) *v1.VirtualMachineInstance {
@@ -1736,26 +1756,8 @@ func addCloudInitDiskAndVolume(vmi *v1.VirtualMachineInstance, name string, volu
 }
 
 func NewRandomVMIWithPVC(claimName string) *v1.VirtualMachineInstance {
-
 	vmi := NewRandomVMI()
-
-	vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("64M")
-	vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
-		Name: "disk0",
-		DiskDevice: v1.DiskDevice{
-			Disk: &v1.DiskTarget{
-				Bus: "virtio",
-			},
-		},
-	})
-	vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
-		Name: "disk0",
-		VolumeSource: v1.VolumeSource{
-			PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{
-				ClaimName: claimName,
-			},
-		},
-	})
+	vmi = AddPVCDisk(vmi, "disk0", "virtio", claimName)
 	return vmi
 }
 

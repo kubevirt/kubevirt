@@ -689,21 +689,24 @@ var _ = Describe("[rfe_id:393][crit:high[vendor:cnv-qe@redhat.com][level:system]
 				By("Creating the  VMI")
 				vmi = tests.NewRandomVMIWithPVC(pvName)
 				vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("1G")
-				userData := `#cloud-config
-password: fedora
-chpasswd: { expire: False }
-bootcmd:
-  # mount the service account disk
-  - "mkdir /mnt/servacc"
-  - "mount /dev/$(lsblk --nodeps -no name,serial | grep D23YZ9W6WA5DJ487 | cut -f1 -d' ') /mnt/servacc"
-`
+
+				// add userdata for guest agent and service account mount
+				secretDiskSerial := "D23YZ9W6WA5DJ487"
+				mountSvcAccCommands := fmt.Sprintf(`
+					mkdir /mnt/servacc
+					mount /dev/$(lsblk --nodeps -no name,serial | grep %s | cut -f1 -d' ') /mnt/servacc
+				`, secretDiskSerial)
+				userData := fmt.Sprintf("%s\n%s", tests.GetGuestAgentUserData(), mountSvcAccCommands)
 				tests.AddUserData(vmi, "cloud-init", userData)
+
 				tests.AddServiceAccountDisk(vmi, "default")
-				// set serial for the service account disk
 				disks := vmi.Spec.Domain.Devices.Disks
-				disks[len(disks)-1].Serial = "D23YZ9W6WA5DJ487"
+				disks[len(disks)-1].Serial = secretDiskSerial
 
 				vmi = runVMIAndExpectLaunchIgnoreWarnings(vmi, 180)
+
+				// Wait for cloud init to finish and start the agent inside the vmi.
+				tests.WaitForGuestAgentChannel(vmi)
 
 				By("Checking that the VirtualMachineInstance console has expected output")
 				expecter, err := tests.LoggedInFedoraExpecter(vmi)
@@ -718,8 +721,11 @@ bootcmd:
 				// check VMI, confirm migration state
 				confirmVMIPostMigration(vmi, migrationUID)
 
+				// Wait for cloud init to finish and start the agent inside the vmi.
+				tests.WaitForGuestAgentChannel(vmi)
+
 				By("Checking that the migrated VirtualMachineInstance console has expected output")
-				expecter, err = tests.ReLoggedInFedoraExpecter(vmi, 600)
+				expecter, err = tests.ReLoggedInFedoraExpecter(vmi, 60)
 				defer expecter.Close()
 				Expect(err).To(BeNil())
 
