@@ -309,6 +309,49 @@ var _ = Describe("[rfe_id:393][crit:high[vendor:cnv-qe@redhat.com][level:system]
 	}
 
 	Describe("Starting a VirtualMachineInstance ", func() {
+		Context("with a bridge network interface", func() {
+			It("should reject a migration of a vmi with a brdige interface", func() {
+				vmi := tests.NewRandomVMIWithEphemeralDisk(tests.ContainerDiskFor(tests.ContainerDiskAlpine))
+				vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{
+					{
+						Name: "default",
+						InterfaceBindingMethod: v1.InterfaceBindingMethod{
+							Bridge: &v1.InterfaceBridge{},
+						},
+					},
+				}
+				vmi = runVMIAndExpectLaunch(vmi, 240)
+
+				// Verify console on last iteration to verify the VirtualMachineInstance is still booting properly
+				// after being restarted multiple times
+				By("Checking that the VirtualMachineInstance console has expected output")
+				expecter, err := tests.LoggedInAlpineExpecter(vmi)
+				Expect(err).To(BeNil())
+				expecter.Close()
+
+				for _, c := range vmi.Status.Conditions {
+					if c.Type == v1.VirtualMachineInstanceIsMigratable {
+						Expect(c.Status).To(Equal(k8sv1.ConditionFalse))
+					}
+				}
+
+				// execute a migration, wait for finalized state
+				migration := tests.NewRandomMigration(vmi.Name, vmi.Namespace)
+
+				By("Starting a Migration")
+				_, err = virtClient.VirtualMachineInstanceMigration(migration.Namespace).Create(migration)
+				Expect(err).ToNot(BeNil())
+				Expect(err.Error()).To(ContainSubstring("InterfaceNotLiveMigratable"))
+
+				// delete VMI
+				By("Deleting the VMI")
+				err = virtClient.VirtualMachineInstance(vmi.Namespace).Delete(vmi.Name, &metav1.DeleteOptions{})
+				Expect(err).To(BeNil())
+
+				By("Waiting for VMI to disappear")
+				tests.WaitForVirtualMachineToDisappearWithTimeout(vmi, 120)
+			})
+		})
 		Context("with a Cirros disk", func() {
 			It("[test_id:1783]should be successfully migrated multiple times with cloud-init disk", func() {
 
