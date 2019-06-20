@@ -16,10 +16,14 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
+	"k8s.io/api/core/v1"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/util/cert"
 	"k8s.io/klog"
 	"kubevirt.io/containerized-data-importer/pkg/apiserver"
+	"kubevirt.io/containerized-data-importer/pkg/controller"
 	"kubevirt.io/containerized-data-importer/pkg/uploadserver"
 )
 
@@ -169,7 +173,30 @@ func (app *uploadProxyApp) handleUploadRequest(w http.ResponseWriter, r *http.Re
 
 	klog.V(1).Infof("Received valid token: pvc: %s, namespace: %s", tokenData.PvcName, tokenData.Namespace)
 
+	err = app.uploadPossible(tokenData.PvcName, tokenData.Namespace)
+	if err != nil {
+		klog.Error(err)
+		w.WriteHeader(http.StatusServiceUnavailable)
+		return
+	}
+
 	app.proxyUploadRequest(tokenData.Namespace, tokenData.PvcName, w, r)
+}
+
+func (app *uploadProxyApp) uploadPossible(pvcName, pvcNamespace string) error {
+	podName := controller.GetUploadResourceName(pvcName)
+	pod, err := app.client.CoreV1().Pods(pvcNamespace).Get(podName, metav1.GetOptions{})
+	if err != nil {
+		if k8serrors.IsNotFound(err) {
+			return fmt.Errorf("Rejecting Upload Request for Pod %s that doesn't exist", podName)
+		}
+		return err
+	}
+	phase := pod.Status.Phase
+	if phase == v1.PodSucceeded {
+		return fmt.Errorf("Rejecting Upload Request for Pod %s that already finished uploading", podName)
+	}
+	return nil
 }
 
 func (app *uploadProxyApp) proxyUploadRequest(namespace, pvc string, w http.ResponseWriter, r *http.Request) {

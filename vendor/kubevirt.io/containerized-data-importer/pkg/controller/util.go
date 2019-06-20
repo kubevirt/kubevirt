@@ -1365,6 +1365,7 @@ func getURLFromRoute(route *routev1.Route, uploadProxyServiceName string) string
 
 //IsOpenshift checks if we are on OpenShift platform
 func IsOpenshift(client kubernetes.Interface) bool {
+	//OpenShift 3.X check
 	result := client.Discovery().RESTClient().Get().AbsPath("/oapi/v1").Do()
 	var statusCode int
 	result.StatusCode(&statusCode)
@@ -1375,11 +1376,19 @@ func IsOpenshift(client kubernetes.Interface) bool {
 			return true
 		}
 	} else {
-		// Got 404 so this is not Openshift
-		if statusCode == http.StatusNotFound {
-			return false
+		// Got 404 so this is not Openshift 3.X, let's check OpenShift 4
+		result = client.Discovery().RESTClient().Get().AbsPath("/apis/route.openshift.io").Do()
+		var statusCode int
+		result.StatusCode(&statusCode)
+
+		if result.Error() == nil {
+			// It is OpenShift
+			if statusCode == http.StatusOK {
+				return true
+			}
 		}
 	}
+
 	return false
 }
 

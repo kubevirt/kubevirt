@@ -1,20 +1,40 @@
+/*
+ * This file is part of the CDI project
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ * Copyright 2019 Red Hat, Inc.
+ *
+ */
+
 package apiserver
 
 import (
+	"context"
 	"crypto/rsa"
 	"crypto/tls"
+	"crypto/x509"
 	"encoding/json"
 	"fmt"
 	"io"
 	"io/ioutil"
 	"net/http"
-	"os"
-	"path/filepath"
 	"reflect"
 	"strings"
 
 	restful "github.com/emicklei/go-restful"
 	"github.com/pkg/errors"
+
 	admissionregistrationv1beta1 "k8s.io/api/admissionregistration/v1beta1"
 	v1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
@@ -54,7 +74,7 @@ const (
 
 // CdiAPIServer is the public interface to the CDI API
 type CdiAPIServer interface {
-	Start() error
+	Start(<-chan struct{}) error
 }
 
 type uploadPossibleFunc func(*v1.PersistentVolumeClaim) error
@@ -66,17 +86,18 @@ type cdiAPIApp struct {
 	client           kubernetes.Interface
 	aggregatorClient aggregatorclient.Interface
 
-	authorizer CdiAPIAuthorizer
+	serverCACertBytes []byte
+	serverCertBytes   []byte
+	serverKeyBytes    []byte
 
-	signingCertBytes           []byte
-	certBytes                  []byte
-	keyBytes                   []byte
-	clientCABytes              []byte
-	requestHeaderClientCABytes []byte
+	serverCert *tls.Certificate
 
 	privateSigningKey *rsa.PrivateKey
 
 	container *restful.Container
+
+	authorizer        CdiAPIAuthorizer
+	authConfigWatcher AuthConfigWatcher
 
 	// test hook
 	uploadPossible uploadPossibleFunc
@@ -94,22 +115,20 @@ func NewCdiAPIServer(bindAddress string,
 	bindPort uint,
 	client kubernetes.Interface,
 	aggregatorClient aggregatorclient.Interface,
-	authorizor CdiAPIAuthorizer) (CdiAPIServer, error) {
+	authorizor CdiAPIAuthorizer,
+	authConfigWatcher AuthConfigWatcher) (CdiAPIServer, error) {
 	var err error
 	app := &cdiAPIApp{
-		bindAddress:      bindAddress,
-		bindPort:         bindPort,
-		client:           client,
-		aggregatorClient: aggregatorClient,
-		authorizer:       authorizor,
-		uploadPossible:   controller.UploadPossibleForPVC,
-	}
-	err = app.getClientCert()
-	if err != nil {
-		return nil, errors.Errorf("Unable to get client cert: %v\n", errors.WithStack(err))
+		bindAddress:       bindAddress,
+		bindPort:          bindPort,
+		client:            client,
+		aggregatorClient:  aggregatorClient,
+		authorizer:        authorizor,
+		uploadPossible:    controller.UploadPossibleForPVC,
+		authConfigWatcher: authConfigWatcher,
 	}
 
-	err = app.getSelfSignedCert()
+	err = app.getKeysAndCerts()
 	if err != nil {
 		return nil, errors.Errorf("Unable to get self signed cert: %v\n", errors.WithStack(err))
 	}
@@ -152,73 +171,11 @@ func NewCdiAPIServer(bindAddress string,
 	return app, nil
 }
 
-func (app *cdiAPIApp) Start() error {
-	return app.startTLS()
+func (app *cdiAPIApp) Start(ch <-chan struct{}) error {
+	return app.startTLS(ch)
 }
 
-func deserializeStrings(in string) ([]string, error) {
-	if len(in) == 0 {
-		return nil, nil
-	}
-	var ret []string
-	if err := json.Unmarshal([]byte(in), &ret); err != nil {
-		return nil, err
-	}
-	return ret, nil
-}
-
-func (app *cdiAPIApp) getClientCert() error {
-	authConfigMap, err := app.client.CoreV1().ConfigMaps(metav1.NamespaceSystem).Get("extension-apiserver-authentication", metav1.GetOptions{})
-	if err != nil {
-		return err
-	}
-
-	clientCA, ok := authConfigMap.Data["client-ca-file"]
-	if !ok {
-		return errors.Errorf("client-ca-file value not found in auth config map.")
-	}
-	app.clientCABytes = []byte(clientCA)
-
-	// request-header-ca-file doesn't always exist in all deployments.
-	// set it if the value is set though.
-	requestHeaderClientCA, ok := authConfigMap.Data["requestheader-client-ca-file"]
-	if ok {
-		app.requestHeaderClientCABytes = []byte(requestHeaderClientCA)
-	}
-
-	// This config map also contains information about what
-	// headers our authorizor should inspect
-	headers, ok := authConfigMap.Data["requestheader-username-headers"]
-	if ok {
-		headerList, err := deserializeStrings(headers)
-		if err != nil {
-			return err
-		}
-		app.authorizer.AddUserHeaders(headerList)
-	}
-
-	headers, ok = authConfigMap.Data["requestheader-group-headers"]
-	if ok {
-		headerList, err := deserializeStrings(headers)
-		if err != nil {
-			return err
-		}
-		app.authorizer.AddGroupHeaders(headerList)
-	}
-
-	headers, ok = authConfigMap.Data["requestheader-extra-headers-prefix"]
-	if ok {
-		headerList, err := deserializeStrings(headers)
-		if err != nil {
-			return err
-		}
-		app.authorizer.AddExtraPrefixHeaders(headerList)
-	}
-
-	return nil
-}
-
-func (app *cdiAPIApp) getSelfSignedCert() error {
+func (app *cdiAPIApp) getKeysAndCerts() error {
 	namespace := util.GetNamespace()
 	caKeyPair, err := triple.NewCA("api.cdi.kubevirt.io")
 	if err != nil {
@@ -238,96 +195,101 @@ func (app *cdiAPIApp) getSelfSignedCert() error {
 		return errors.Wrapf(err, "Error getting/creating secret %s", apiCertSecretName)
 	}
 
-	app.keyBytes = cert.EncodePrivateKeyPEM(keyPairAndCert.KeyPair.Key)
-	app.certBytes = cert.EncodeCertPEM(keyPairAndCert.KeyPair.Cert)
-	app.signingCertBytes = cert.EncodeCertPEM(keyPairAndCert.CACert)
+	serverKeyBytes := cert.EncodePrivateKeyPEM(keyPairAndCert.KeyPair.Key)
+	serverCertBytes := cert.EncodeCertPEM(keyPairAndCert.KeyPair.Cert)
+
+	serverCert, err := tls.X509KeyPair(serverCertBytes, serverKeyBytes)
+	if err != nil {
+		return err
+	}
 
 	privateKey, err := keys.GetOrCreatePrivateKey(app.client, namespace, apiSigningKeySecretName)
 	if err != nil {
 		return errors.Wrap(err, "Error getting/creating signing key")
 	}
 
+	app.serverKeyBytes = serverKeyBytes
+	app.serverCertBytes = serverCertBytes
+	app.serverCACertBytes = cert.EncodeCertPEM(keyPairAndCert.CACert)
+
+	app.serverCert = &serverCert
+
 	app.privateSigningKey = privateKey
 
 	return nil
 }
 
-func (app *cdiAPIApp) startTLS() error {
-	certsDirectory, err := ioutil.TempDir("", "certsdir")
-	if err != nil {
-		return err
-	}
-	defer os.RemoveAll(certsDirectory)
+func (app *cdiAPIApp) getTLSConfig() (*tls.Config, error) {
+	authConfig := app.authConfigWatcher.GetAuthConfig()
 
-	keyFile := filepath.Join(certsDirectory, "key.pem")
-	certFile := filepath.Join(certsDirectory, "cert.pem")
-	signingCertFile := filepath.Join(certsDirectory, "signingCert.pem")
-	clientCAFile := filepath.Join(certsDirectory, "clientCA.crt")
-
-	// Write the certs to disk
-	err = ioutil.WriteFile(clientCAFile, app.clientCABytes, 0600)
-	if err != nil {
-		return err
-	}
-
-	if len(app.requestHeaderClientCABytes) != 0 {
-		f, err := os.OpenFile(clientCAFile, os.O_APPEND|os.O_WRONLY, 0600)
-		if err != nil {
-			return err
+	validName := func(name string) bool {
+		for _, n := range authConfig.AllowedNames {
+			if n == name {
+				return true
+			}
 		}
-		defer f.Close()
-
-		_, err = f.Write(app.requestHeaderClientCABytes)
-		if err != nil {
-			return err
-		}
-	}
-
-	err = ioutil.WriteFile(keyFile, app.keyBytes, 0600)
-	if err != nil {
-		return err
-	}
-	err = ioutil.WriteFile(certFile, app.certBytes, 0600)
-	if err != nil {
-		return err
-	}
-	err = ioutil.WriteFile(signingCertFile, app.signingCertBytes, 0600)
-	if err != nil {
-		return err
-	}
-
-	errChan := make(chan error)
-
-	// create the client CA pool.
-	// This ensures we're talking to the k8s api server
-	pool, err := cert.NewPool(clientCAFile)
-	if err != nil {
-		return err
+		return false
 	}
 
 	tlsConfig := &tls.Config{
-		ClientCAs:  pool,
-		ClientAuth: tls.VerifyClientCertIfGiven,
+		Certificates: []tls.Certificate{*app.serverCert},
+		ClientCAs:    authConfig.CertPool,
+		ClientAuth:   tls.VerifyClientCertIfGiven,
+		VerifyPeerCertificate: func(rawCerts [][]byte, verifiedChains [][]*x509.Certificate) error {
+			if len(verifiedChains) == 0 {
+				return nil
+			}
+			for i := range verifiedChains {
+				if validName(verifiedChains[i][0].Subject.CommonName) {
+					return nil
+				}
+			}
+			return fmt.Errorf("No valid subject specified")
+		},
 	}
 	tlsConfig.BuildNameToCertificate()
 
-	go func() {
-		server := &http.Server{
-			Addr:      fmt.Sprintf("%s:%d", app.bindAddress, app.bindPort),
-			TLSConfig: tlsConfig,
-			Handler:   app.container,
-		}
+	return tlsConfig, nil
+}
 
-		errChan <- server.ListenAndServeTLS(certFile, keyFile)
+func (app *cdiAPIApp) startTLS(stopChan <-chan struct{}) error {
+	errChan := make(chan error)
+
+	tlsConfig, err := app.getTLSConfig()
+	if err != nil {
+		return err
+	}
+
+	tlsConfig.GetConfigForClient = func(_ *tls.ClientHelloInfo) (*tls.Config, error) {
+		klog.V(3).Info("Getting TLS config")
+		config, err := app.getTLSConfig()
+		if err != nil {
+			klog.Errorf("Error %+v getting TLS config", err)
+		}
+		return config, err
+	}
+
+	server := &http.Server{
+		Addr:      fmt.Sprintf("%s:%d", app.bindAddress, app.bindPort),
+		TLSConfig: tlsConfig,
+		Handler:   app.container,
+	}
+
+	go func() {
+		errChan <- server.ListenAndServeTLS("", "")
 	}()
 
-	// wait for server to exit
-	return <-errChan
+	select {
+	case <-stopChan:
+		return server.Shutdown(context.Background())
+	case err = <-errChan:
+		return err
+	}
 }
 
 func (app *cdiAPIApp) uploadHandler(request *restful.Request, response *restful.Response) {
-
 	allowed, reason, err := app.authorizer.Authorize(request)
+
 	if err != nil {
 		klog.Error(err)
 		response.WriteHeader(http.StatusInternalServerError)
@@ -545,7 +507,7 @@ func (app *cdiAPIApp) createAPIService() error {
 			},
 			Group:                uploadTokenGroup,
 			Version:              uploadTokenVersion,
-			CABundle:             app.signingCertBytes,
+			CABundle:             app.serverCACertBytes,
 			GroupPriorityMinimum: 1000,
 			VersionPriority:      15,
 		},
@@ -607,7 +569,7 @@ func (app *cdiAPIApp) createWebhook() error {
 					Name:      apiServiceName,
 					Path:      &dvPathCreate,
 				},
-				CABundle: app.signingCertBytes,
+				CABundle: app.serverCACertBytes,
 			},
 		},
 	}

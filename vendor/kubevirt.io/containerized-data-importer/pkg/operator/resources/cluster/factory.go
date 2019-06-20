@@ -45,6 +45,8 @@ const (
 	CdiRBAC string = "cdi-rbac"
 	//APIServerRBAC - groupCode to generate only apiserver rbac manifest
 	APIServerRBAC string = "apiserver-rbac"
+	//UploadProxyRBAC - groupCode to generate only apiserver rbac manifest
+	UploadProxyRBAC string = "uploadproxy-rbac"
 	//ControllerRBAC - groupCode to generate only controller rbac manifest
 	ControllerRBAC string = "controller-rbac"
 	//CRDResources - groupCode to generate only resources' manifest
@@ -52,10 +54,11 @@ const (
 )
 
 var factoryFunctions = map[string]factoryFunc{
-	CdiRBAC:        createCdiRBAC,
-	APIServerRBAC:  createAPIServerResources,
-	ControllerRBAC: createControllerResources,
-	CRDResources:   createCRDResources,
+	CdiRBAC:         createCdiRBAC,
+	APIServerRBAC:   createAPIServerResources,
+	ControllerRBAC:  createControllerResources,
+	CRDResources:    createCRDResources,
+	UploadProxyRBAC: createUploadProxyResources,
 }
 
 //IsFactoryResource returns true id codeGroupo belolngs to factory functions

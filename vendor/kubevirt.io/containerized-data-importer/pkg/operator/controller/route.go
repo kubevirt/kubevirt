@@ -98,6 +98,9 @@ func (r *ReconcileCDI) ensureUploadProxyRouteExists(logger logr.Logger, cr *cdiv
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      uploadProxyRouteName,
 			Namespace: r.namespace,
+			Annotations: map[string]string{
+				"haproxy.router.openshift.io/timeout": "3m",
+			},
 		},
 		Spec: routev1.RouteSpec{
 			To: routev1.RouteTargetReference{

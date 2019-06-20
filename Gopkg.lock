@@ -992,8 +992,8 @@
     "pkg/operator/resources/operator",
     "pkg/operator/resources/utils"
   ]
-  revision = "dd3d5d75fece6c7f12483c4561cbc5cdfa717a00"
-  version = "v1.9.2"
+  revision = "e1d07c4bab891baa010ad0c690132bada66a81fe"
+  version = "v1.9.3"
 
 [[projects]]
   name = "kubevirt.io/kubevirt"
@@ -1084,6 +1084,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "508567c88d04aa7499fdb52dc5e38fd46b6db41deaee5c0a16e46fad77977502"
+  inputs-digest = "a0572fc3c102834513f56cb992f8586f03a0ab6ff05715da8c5b425372cbdc03"
   solver-name = "gps-cdcl"
   solver-version = 1

@@ -99,6 +99,8 @@ func createExtensionAPIServerRole() *rbacv1.Role {
 			},
 			Verbs: []string{
 				"get",
+				"list",
+				"watch",
 			},
 			ResourceNames: []string{
 				extensionAPIConfigMapName,

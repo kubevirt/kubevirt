@@ -1,3 +1,22 @@
+/*
+ * This file is part of the CDI project
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ * Copyright 2019 Red Hat, Inc.
+ *
+ */
+
 package main
 
 import (
@@ -6,10 +25,14 @@ import (
 	"os"
 
 	"github.com/pkg/errors"
+
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/klog"
 	aggregatorclient "k8s.io/kube-aggregator/pkg/client/clientset_generated/clientset"
+
+	"sigs.k8s.io/controller-runtime/pkg/runtime/signals"
+
 	"kubevirt.io/containerized-data-importer/pkg/apiserver"
 	"kubevirt.io/containerized-data-importer/pkg/version/verflag"
 )
@@ -73,17 +96,26 @@ func main() {
 
 	aggregatorClient := aggregatorclient.NewForConfigOrDie(cfg)
 
-	authorizor, err := apiserver.NewAuthorizorFromConfig(cfg)
+	ch := signals.SetupSignalHandler()
+
+	authConfigWatcher := apiserver.NewAuthConfigWatcher(client, ch)
+
+	authorizor, err := apiserver.NewAuthorizorFromConfig(cfg, authConfigWatcher)
 	if err != nil {
 		klog.Fatalf("Unable to create authorizor: %v\n", errors.WithStack(err))
 	}
 
-	uploadApp, err := apiserver.NewCdiAPIServer(defaultHost, defaultPort, client, aggregatorClient, authorizor)
+	uploadApp, err := apiserver.NewCdiAPIServer(defaultHost,
+		defaultPort,
+		client,
+		aggregatorClient,
+		authorizor,
+		authConfigWatcher)
 	if err != nil {
 		klog.Fatalf("Upload api failed to initialize: %v\n", errors.WithStack(err))
 	}
 
-	err = uploadApp.Start()
+	err = uploadApp.Start(ch)
 	if err != nil {
 		klog.Fatalf("TLS server failed: %v\n", errors.WithStack(err))
 	}

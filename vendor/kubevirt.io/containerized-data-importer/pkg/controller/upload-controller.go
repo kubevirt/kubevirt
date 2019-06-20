@@ -91,11 +91,6 @@ func UploadPossibleForPVC(pvc *v1.PersistentVolumeClaim) error {
 		return errors.Errorf("PVC %s is not an upload target", pvc.Name)
 	}
 
-	pvcPodStatus, ok := pvc.Annotations[AnnPodPhase]
-	if !ok || v1.PodPhase(pvcPodStatus) != v1.PodRunning {
-		return errors.Errorf("Upload Server pod not currently running for PVC %s", pvc.Name)
-	}
-
 	return nil
 }
 

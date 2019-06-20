@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Copyright 2018 Red Hat, Inc.
+ * Copyright 2019 Red Hat, Inc.
  *
  */
 
@@ -23,6 +23,8 @@ import (
 	"fmt"
 	"net/http"
 	"strings"
+
+	"k8s.io/klog"
 
 	"github.com/emicklei/go-restful"
 
@@ -42,51 +44,29 @@ const (
 // CdiAPIAuthorizer defines methods to authorize api requests
 type CdiAPIAuthorizer interface {
 	Authorize(req *restful.Request) (bool, string, error)
-	AddUserHeaders(header []string)
-	GetUserHeaders() []string
-	AddGroupHeaders(header []string)
-	GetGroupHeaders() []string
-	AddExtraPrefixHeaders(header []string)
-	GetExtraPrefixHeaders() []string
 }
 
 type authorizor struct {
-	userHeaders             []string
-	groupHeaders            []string
-	userExtraHeaderPrefixes []string
-
+	authConfigWatcher   AuthConfigWatcher
 	subjectAccessReview authorizationclient.SubjectAccessReviewInterface
 }
 
-func (a *authorizor) getUserGroups(header http.Header) ([]string, error) {
-
-	for _, key := range a.groupHeaders {
-		groups, ok := header[key]
+func (a *authorizor) matchHeaders(headers http.Header, toMatch []string) ([]string, error) {
+	for _, header := range toMatch {
+		value, ok := headers[header]
 		if ok {
-			return groups, nil
+			return value, nil
 		}
 	}
 
-	return nil, fmt.Errorf("a valid group header is required for authorization")
+	return nil, fmt.Errorf("one of these headers required for authorization: %+v", toMatch)
 }
 
-func (a *authorizor) getUserName(header http.Header) (string, error) {
-	for _, key := range a.userHeaders {
-		user, ok := header[key]
-		if ok {
-			return user[0], nil
-		}
-	}
-
-	return "", fmt.Errorf("a valid user header is required for authorization")
-}
-
-func (a *authorizor) getUserExtras(header http.Header) map[string]authorization.ExtraValue {
-
+func (a *authorizor) getUserExtras(headers http.Header, toMatch []string) map[string]authorization.ExtraValue {
 	extras := map[string]authorization.ExtraValue{}
 
-	for _, prefix := range a.userExtraHeaderPrefixes {
-		for k, v := range header {
+	for _, prefix := range toMatch {
+		for k, v := range headers {
 			if strings.HasPrefix(k, prefix) {
 				extraKey := strings.TrimPrefix(k, prefix)
 				extras[extraKey] = v
@@ -95,30 +75,6 @@ func (a *authorizor) getUserExtras(header http.Header) map[string]authorization.
 	}
 
 	return extras
-}
-
-func (a *authorizor) AddUserHeaders(headers []string) {
-	a.userHeaders = append(a.userHeaders, headers...)
-}
-
-func (a *authorizor) GetUserHeaders() []string {
-	return a.userHeaders
-}
-
-func (a *authorizor) AddGroupHeaders(headers []string) {
-	a.groupHeaders = append(a.groupHeaders, headers...)
-}
-
-func (a *authorizor) GetGroupHeaders() []string {
-	return a.groupHeaders
-}
-
-func (a *authorizor) AddExtraPrefixHeaders(headers []string) {
-	a.userExtraHeaderPrefixes = append(a.userExtraHeaderPrefixes, headers...)
-}
-
-func (a *authorizor) GetExtraPrefixHeaders() []string {
-	return a.userExtraHeaderPrefixes
 }
 
 func (a *authorizor) generateAccessReview(req *restful.Request) (*authorization.SubjectAccessReview, error) {
@@ -142,11 +98,13 @@ func (a *authorizor) generateAccessReview(req *restful.Request) (*authorization.
 		return nil, fmt.Errorf("unknown api endpoint %s", url.Path)
 	}
 
+	authConfig := a.authConfigWatcher.GetAuthConfig()
+
 	group := pathSplit[2]
 	version := pathSplit[3]
 	namespace := pathSplit[5]
 	resource := pathSplit[6]
-	userExtras := a.getUserExtras(headers)
+	userExtras := a.getUserExtras(headers, authConfig.ExtraPrefixHeaders)
 
 	if group != uploadTokenGroup {
 		return nil, fmt.Errorf("unknown api group %s", group)
@@ -156,12 +114,16 @@ func (a *authorizor) generateAccessReview(req *restful.Request) (*authorization.
 		return nil, fmt.Errorf("unknown resource type %s", resource)
 	}
 
-	userName, err := a.getUserName(headers)
+	users, err := a.matchHeaders(headers, authConfig.UserHeaders)
 	if err != nil {
 		return nil, err
 	}
 
-	userGroups, err := a.getUserGroups(headers)
+	if len(users) == 0 {
+		return nil, fmt.Errorf("No user header found")
+	}
+
+	userGroups, err := a.matchHeaders(headers, authConfig.GroupHeaders)
 	if err != nil {
 		return nil, err
 	}
@@ -169,7 +131,7 @@ func (a *authorizor) generateAccessReview(req *restful.Request) (*authorization.
 
 	r := &authorization.SubjectAccessReview{}
 	r.Spec = authorization.SubjectAccessReviewSpec{
-		User:   userName,
+		User:   users[0],
 		Groups: userGroups,
 		Extra:  userExtras,
 	}
@@ -203,10 +165,16 @@ func isInfoEndpoint(req *restful.Request) bool {
 }
 
 func isAuthenticated(req *restful.Request) bool {
+	klog.V(3).Infof("Authenticating request: %+v", req.Request)
+	klog.V(3).Infof("Authenticating request TLS: %+v", req.Request.TLS)
+
 	// Peer cert is required for authentication.
 	// If the peer's cert is provided, we are guaranteed
 	// it has been validated against our client CA pool
-	if req.Request == nil || req.Request.TLS == nil || len(req.Request.TLS.PeerCertificates) == 0 {
+	if req.Request == nil ||
+		req.Request.TLS == nil ||
+		len(req.Request.TLS.PeerCertificates) == 0 ||
+		len(req.Request.TLS.VerifiedChains) == 0 {
 		return false
 	}
 	return true
@@ -255,7 +223,7 @@ func (a *authorizor) Authorize(req *restful.Request) (bool, string, error) {
 }
 
 // NewAuthorizorFromConfig creates a new CdiAPIAuthorizor
-func NewAuthorizorFromConfig(config *restclient.Config) (CdiAPIAuthorizer, error) {
+func NewAuthorizorFromConfig(config *restclient.Config, authConfigWatcher AuthConfigWatcher) (CdiAPIAuthorizer, error) {
 	client, err := authorizationclient.NewForConfig(config)
 	if err != nil {
 		return nil, err
@@ -264,13 +232,9 @@ func NewAuthorizorFromConfig(config *restclient.Config) (CdiAPIAuthorizer, error
 	subjectAccessReview := client.SubjectAccessReviews()
 
 	a := &authorizor{
+		authConfigWatcher:   authConfigWatcher,
 		subjectAccessReview: subjectAccessReview,
 	}
-
-	// add default headers
-	a.userHeaders = append(a.userHeaders, userHeader)
-	a.groupHeaders = append(a.groupHeaders, groupHeader)
-	a.userExtraHeaderPrefixes = append(a.userExtraHeaderPrefixes, userExtraHeaderPrefix)
 
 	return a, nil
 }
