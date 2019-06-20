@@ -82,6 +82,19 @@ func (mutator *VMIsMutator) Mutate(ar *v1beta1.AdmissionReview) *v1beta1.Admissi
 	mutator.setDefaultPullPoliciesOnContainerDisks(&vmi)
 	v1.SetObjectDefaults_VirtualMachineInstance(&vmi)
 
+	// In a future, yet undecided, release either libvirt or QEMU are going to check the hyperv dependencies, so we can get rid of this code.
+	// Until that time, we need to handle the hyperv deps to avoid obscure rejections from QEMU later on
+	log.Log.V(4).Info("Set HyperV dependencies")
+	err = webhooks.SetVirtualMachineInstanceHypervFeatureDependencies(&vmi)
+	if err != nil {
+		// HyperV is a special case. If our best-effort attempt fails, we should leave
+		// rejection to be performed later on in the validating webhook, and continue here.
+		// Please note this means that partial changes may have been performed.
+		// This is OK since each dependency must be atomic and independent (in ACID sense),
+		// so the VMI configuration is still legal.
+		log.Log.V(2).Infof("Failed to set HyperV dependencies: %s", err)
+	}
+
 	// Add foreground finalizer
 	vmi.Finalizers = append(vmi.Finalizers, v1.VirtualMachineInstanceFinalizer)
 
