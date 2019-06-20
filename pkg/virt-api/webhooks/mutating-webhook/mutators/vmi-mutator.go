@@ -80,6 +80,7 @@ func (mutator *VMIsMutator) Mutate(ar *v1beta1.AdmissionReview) *v1beta1.Admissi
 	mutator.setDefaultMachineType(&vmi)
 	mutator.setDefaultResourceRequests(&vmi)
 	mutator.setDefaultPullPoliciesOnContainerDisks(&vmi)
+	mutator.setDefaultNetworkInterface(&vmi)
 	v1.SetObjectDefaults_VirtualMachineInstance(&vmi)
 
 	// Add foreground finalizer
@@ -111,6 +112,32 @@ func (mutator *VMIsMutator) Mutate(ar *v1beta1.AdmissionReview) *v1beta1.Admissi
 		Allowed:   true,
 		Patch:     patchBytes,
 		PatchType: &jsonPatchType,
+	}
+}
+
+func (mutator *VMIsMutator) setDefaultNetworkInterface(obj *v1.VirtualMachineInstance) {
+	autoAttach := obj.Spec.Domain.Devices.AutoattachPodInterface
+	if autoAttach != nil && *autoAttach == false {
+		return
+	}
+
+	// Override only when nothing is specified
+	if len(obj.Spec.Networks) == 0 {
+		iface := mutator.ClusterConfig.GetDefaultNetworkInterface()
+		switch iface {
+		case "bridge":
+			obj.Spec.Domain.Devices.Interfaces = []v1.Interface{*v1.DefaultBridgeNetworkInterface()}
+		case "masquerade":
+			obj.Spec.Domain.Devices.Interfaces = []v1.Interface{*v1.DefaultMasqueradeNetworkInterface()}
+		case "slirp":
+			defaultIface := v1.DefaultSlirpNetworkInterface()
+			if mutator.ClusterConfig.IsSlirpInterfaceDisabled() {
+				defaultIface = v1.DefaultMasqueradeNetworkInterface()
+			}
+			obj.Spec.Domain.Devices.Interfaces = []v1.Interface{*defaultIface}
+		}
+
+		obj.Spec.Networks = []v1.Network{*v1.DefaultPodNetwork()}
 	}
 }
 
