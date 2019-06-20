@@ -110,15 +110,14 @@ var _ = Describe("ConfigMap", func() {
 		table.Entry("when unset, it should return the default", "", virtconfig.DefaultCPURequest),
 	)
 
-	table.DescribeTable(" when memoryRequest", func(value string, result string) {
+	table.DescribeTable(" when memoryOvercommit", func(value string, result int) {
 		clusterConfig, _ := testutils.NewFakeClusterConfig(&kubev1.ConfigMap{
-			Data: map[string]string{virtconfig.MemoryRequestKey: value},
+			Data: map[string]string{virtconfig.MemoryOvercommitKey: value},
 		})
-		memoryRequest := clusterConfig.GetMemoryRequest()
-		Expect(memoryRequest.String()).To(Equal(result))
+		Expect(clusterConfig.GetMemoryOvercommit()).To(Equal(result))
 	},
-		table.Entry("when set, it should return the value", "512Mi", "512Mi"),
-		table.Entry("when unset, it should return the default", "", virtconfig.DefaultMemoryRequest),
+		table.Entry("when set, it should return the value", "150", 150),
+		table.Entry("when unset, it should return the default", "", virtconfig.DefaultMemoryOvercommit),
 	)
 
 	table.DescribeTable(" when emulatedMachines", func(value string, result []string) {

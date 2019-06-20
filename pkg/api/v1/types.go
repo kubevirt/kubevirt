@@ -43,7 +43,6 @@ import (
 	"k8s.io/client-go/kubernetes/scheme"
 
 	cdiv1 "kubevirt.io/containerized-data-importer/pkg/apis/core/v1alpha1"
-	"kubevirt.io/kubevirt/pkg/precond"
 )
 
 // GroupName is the group name use in this package
@@ -548,21 +547,6 @@ const (
 
 func (s SyncEvent) String() string {
 	return string(s)
-}
-
-func NewMinimalVMI(vmiName string) *VirtualMachineInstance {
-	return NewMinimalVMIWithNS(k8sv1.NamespaceDefault, vmiName)
-}
-
-func NewMinimalVMIWithNS(namespace string, vmiName string) *VirtualMachineInstance {
-	precond.CheckNotEmpty(vmiName)
-	vmi := NewVMIReferenceFromNameWithNS(namespace, vmiName)
-	vmi.Spec = VirtualMachineInstanceSpec{Domain: NewMinimalDomainSpec()}
-	vmi.TypeMeta = metav1.TypeMeta{
-		APIVersion: GroupVersion.String(),
-		Kind:       "VirtualMachineInstance",
-	}
-	return vmi
 }
 
 // TODO Namespace could be different, also store it somewhere in the domain, so that we can report deletes on handler startup properly

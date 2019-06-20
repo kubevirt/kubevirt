@@ -25,13 +25,16 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 
+	k6tv1 "kubevirt.io/kubevirt/pkg/api/v1"
 	"kubevirt.io/kubevirt/pkg/log"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/stats"
 )
 
-var _ = Describe("Prometheus", func() {
+var _ = BeforeSuite(func() {
 	log.Log.SetIOWriter(GinkgoWriter)
+})
 
+var _ = Describe("Prometheus", func() {
 	Context("on blocked source", func() {
 		It("should handle closed reporting socket", func() {
 			ch := make(chan prometheus.Metric)
@@ -48,7 +51,8 @@ var _ = Describe("Prometheus", func() {
 						RSSSet: true,
 					},
 				}
-				ps.Report("test", vmStats)
+				vmi := k6tv1.VirtualMachineInstance{}
+				ps.Report("test", &vmi, vmStats)
 			}
 			Expect(testReportPanic).ToNot(Panic())
 		})

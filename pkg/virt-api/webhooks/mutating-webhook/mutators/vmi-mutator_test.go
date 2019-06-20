@@ -51,7 +51,6 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 	cpuModelFromConfig := "Haswell"
 	machineTypeFromConfig := "pc-q35-3.0"
 	cpuRequestFromConfig := "800m"
-	memoryRequestFromConfig := "256Mi"
 
 	getVMISpecMetaFromResponse := func() (*v1.VirtualMachineInstanceSpec, *k8smetav1.ObjectMeta) {
 		vmiBytes, err := json.Marshal(vmi)
@@ -151,16 +150,16 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 		Expect(vmiSpec.Domain.Machine.Type).To(Equal("q35"))
 		Expect(vmiSpec.Domain.CPU.Model).To(Equal(""))
 		Expect(vmiSpec.Domain.Resources.Requests.Cpu().String()).To(Equal("100m"))
-		Expect(vmiSpec.Domain.Resources.Requests.Memory().String()).To(Equal("8Mi"))
+		// no default for requested memory when no memory is specified
+		Expect(vmiSpec.Domain.Resources.Requests.Memory().Value()).To(Equal(int64(0)))
 	})
 
 	It("should apply configurable defaults on VMI create", func() {
 		testutils.UpdateFakeClusterConfig(configMapInformer, &k8sv1.ConfigMap{
 			Data: map[string]string{
-				virtconfig.CpuModelKey:      cpuModelFromConfig,
-				virtconfig.MachineTypeKey:   machineTypeFromConfig,
-				virtconfig.MemoryRequestKey: memoryRequestFromConfig,
-				virtconfig.CpuRequestKey:    cpuRequestFromConfig,
+				virtconfig.CpuModelKey:    cpuModelFromConfig,
+				virtconfig.MachineTypeKey: machineTypeFromConfig,
+				virtconfig.CpuRequestKey:  cpuRequestFromConfig,
 			},
 		})
 
@@ -168,7 +167,6 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 		Expect(vmiSpec.Domain.CPU.Model).To(Equal(cpuModelFromConfig))
 		Expect(vmiSpec.Domain.Machine.Type).To(Equal(machineTypeFromConfig))
 		Expect(vmiSpec.Domain.Resources.Requests.Cpu().String()).To(Equal(cpuRequestFromConfig))
-		Expect(vmiSpec.Domain.Resources.Requests.Memory().String()).To(Equal(memoryRequestFromConfig))
 	})
 
 	table.DescribeTable("it should", func(given []v1.Volume, expected []v1.Volume) {
@@ -327,10 +325,9 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 	It("should not override specified properties with defaults on VMI create", func() {
 		testutils.UpdateFakeClusterConfig(configMapInformer, &k8sv1.ConfigMap{
 			Data: map[string]string{
-				virtconfig.CpuModelKey:      cpuModelFromConfig,
-				virtconfig.MachineTypeKey:   machineTypeFromConfig,
-				virtconfig.MemoryRequestKey: memoryRequestFromConfig,
-				virtconfig.CpuRequestKey:    cpuRequestFromConfig,
+				virtconfig.CpuModelKey:    cpuModelFromConfig,
+				virtconfig.MachineTypeKey: machineTypeFromConfig,
+				virtconfig.CpuRequestKey:  cpuRequestFromConfig,
 			},
 		})
 
@@ -346,6 +343,37 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 		Expect(vmiSpec.Domain.Machine.Type).To(Equal(vmi.Spec.Domain.Machine.Type))
 		Expect(vmiSpec.Domain.Resources.Requests.Cpu()).To(Equal(vmi.Spec.Domain.Resources.Requests.Cpu()))
 		Expect(vmiSpec.Domain.Resources.Requests.Memory()).To(Equal(vmi.Spec.Domain.Resources.Requests.Memory()))
+	})
+
+	It("should apply memory-overcommit when guest-memory is set and memory-request is not set", func() {
+		testutils.UpdateFakeClusterConfig(configMapInformer, &k8sv1.ConfigMap{
+			Data: map[string]string{
+				virtconfig.MemoryOvercommitKey: "150",
+			},
+		})
+		guestMemory := resource.MustParse("3072M")
+		vmi.Spec.Domain.Memory = &v1.Memory{Guest: &guestMemory}
+		vmiSpec, _ := getVMISpecMetaFromResponse()
+		Expect(vmiSpec.Domain.Memory.Guest.String()).To(Equal("3072M"))
+		Expect(vmiSpec.Domain.Resources.Requests.Memory().String()).To(Equal("2048M"))
+	})
+
+	It("should apply memory-overcommit when hugepages are set and memory-request is not set", func() {
+		vmi.Spec.Domain.Memory = &v1.Memory{Hugepages: &v1.Hugepages{PageSize: "3072M"}}
+		vmiSpec, _ := getVMISpecMetaFromResponse()
+		Expect(vmiSpec.Domain.Memory.Hugepages.PageSize).To(Equal("3072M"))
+		Expect(vmiSpec.Domain.Resources.Requests.Memory().String()).To(Equal("3072M"))
+	})
+
+	It("should not apply memory overcommit when memory-request and guest-memory are set", func() {
+		vmi.Spec.Domain.Resources.Requests = k8sv1.ResourceList{
+			k8sv1.ResourceMemory: resource.MustParse("512M"),
+		}
+		guestMemory := resource.MustParse("4096M")
+		vmi.Spec.Domain.Memory = &v1.Memory{Guest: &guestMemory}
+		vmiSpec, _ := getVMISpecMetaFromResponse()
+		Expect(vmiSpec.Domain.Resources.Requests.Memory().String()).To(Equal("512M"))
+		Expect(vmiSpec.Domain.Memory.Guest.String()).To(Equal("4096M"))
 	})
 
 	It("should apply foreground finalizer on VMI create", func() {

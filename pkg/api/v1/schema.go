@@ -900,16 +900,6 @@ type I6300ESBWatchdog struct {
 	Action WatchdogAction `json:"action,omitempty"`
 }
 
-// TODO ballooning, rng, cpu ...
-
-func NewMinimalDomainSpec() DomainSpec {
-	domain := DomainSpec{}
-	domain.Resources.Requests = v1.ResourceList{
-		v1.ResourceMemory: resource.MustParse("8192Ki"),
-	}
-	return domain
-}
-
 // ---
 // +k8s:openapi-gen=true
 type Interface struct {

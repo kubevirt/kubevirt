@@ -7,7 +7,7 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-func TestCollector(t *testing.T) {
+func TestPrometheus(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Collector Suite")
+	RunSpecs(t, "Prometheus Suite")
 }
