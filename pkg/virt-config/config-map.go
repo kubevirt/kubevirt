@@ -52,6 +52,8 @@ const (
 	MemoryOvercommitKey       = "memory-overcommit"
 	LessPVCSpaceTolerationKey = "pvc-tolerate-less-space-up-to-percent"
 	NodeSelectorsKey          = "node-selectors"
+	NetworkInterfaceKey       = "default-network-interface"
+	DisableSlirp              = "disableSlirp"
 
 	ParallelOutboundMigrationsPerNodeDefault uint32 = 2
 	ParallelMigrationsPerClusterDefault      uint32 = 5
@@ -64,6 +66,7 @@ const (
 	DefaultEmulatedMachines                         = "q35*,pc-q35*"
 	DefaultLessPVCSpaceToleration                   = 10
 	DefaultNodeSelectors                            = ""
+	DefaultNetworkInterface                         = "bridge"
 
 	NodeDrainTaintDefaultKey = "kubevirt.io/drain"
 )
@@ -131,6 +134,7 @@ func defaultClusterConfig() *Config {
 	cpuRequestDefault := resource.MustParse(DefaultCPURequest)
 	emulatedMachinesDefault := strings.Split(DefaultEmulatedMachines, ",")
 	nodeSelectorsDefault, _ := parseNodeSelectors(DefaultNodeSelectors)
+	defaultNetworkInterface := DefaultNetworkInterface
 	return &Config{
 		ResourceVersion: "0",
 		ImagePullPolicy: k8sv1.PullIfNotPresent,
@@ -150,6 +154,8 @@ func defaultClusterConfig() *Config {
 		EmulatedMachines:       emulatedMachinesDefault,
 		LessPVCSpaceToleration: DefaultLessPVCSpaceToleration,
 		NodeSelectors:          nodeSelectorsDefault,
+		NetworkInterface:       defaultNetworkInterface,
+		DisableSlirpInterface:  true,
 	}
 }
 
@@ -166,6 +172,8 @@ type Config struct {
 	FeatureGates           string
 	LessPVCSpaceToleration int
 	NodeSelectors          map[string]string
+	NetworkInterface       string
+	DisableSlirpInterface  bool
 }
 
 type MigrationConfig struct {
@@ -225,6 +233,14 @@ func (c *ClusterConfig) GetLessPVCSpaceToleration() int {
 
 func (c *ClusterConfig) GetNodeSelectors() map[string]string {
 	return c.getConfig().NodeSelectors
+}
+
+func (c *ClusterConfig) GetDefaultNetworkInterface() string {
+	return c.getConfig().NetworkInterface
+}
+
+func (c *ClusterConfig) IsSlirpInterfaceDisabled() bool {
+	return c.getConfig().DisableSlirpInterface
 }
 
 // setConfig parses the provided config map and updates the provided config.
@@ -321,6 +337,29 @@ func setConfig(config *Config, configMap *k8sv1.ConfigMap) error {
 		}
 	}
 
+	// disable slirp
+	disableSlirp := strings.TrimSpace(configMap.Data[DisableSlirp])
+	switch disableSlirp {
+	case "":
+		// keep the default
+	case "true":
+		config.DisableSlirpInterface = true
+	case "false":
+		config.DisableSlirpInterface = false
+	default:
+		return fmt.Errorf("invalid value for disableSlirp in config: %v", disableSlirp)
+	}
+
+	// set default network interface
+	iface := strings.TrimSpace(configMap.Data[NetworkInterfaceKey])
+	switch iface {
+	case "":
+		// keep the default
+	case "bridge", "slirp", "masquerade":
+		config.NetworkInterface = iface
+	default:
+		return fmt.Errorf("invalid default-network-interface in config: %v", iface)
+	}
 	return nil
 }
 
