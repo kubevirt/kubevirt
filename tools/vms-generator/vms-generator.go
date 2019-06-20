@@ -48,6 +48,7 @@ func main() {
 		Data: map[string]string{
 			// Required to validate DataVolume usage
 			virtconfig.FeatureGatesKey: "DataVolumes,LiveMigration,SRIOV",
+			virtconfig.DisableSlirp:    "false",
 		},
 	})
 
