@@ -58,7 +58,7 @@ else
     pull_command="docker"
 fi
 
-for node in ${nodes}; do
+for node in ${nodes[@]}; do
     ${KUBEVIRT_PATH}cluster-up/ssh.sh ${node} "echo \"${container}\" | xargs \-\-max-args=1 sudo ${pull_command} pull"
     ${KUBEVIRT_PATH}cluster-up/ssh.sh ${node} "echo \"${container_alias}\" | xargs \-\-max-args=2 sudo ${pull_command} tag"
 done
