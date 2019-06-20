@@ -44,7 +44,8 @@ const (
 	ovsConfCRD           = `{"apiVersion":"k8s.cni.cncf.io/v1","kind":"NetworkAttachmentDefinition","metadata":{"name":"%s","namespace":"%s"},"spec":{"config":"{ \"cniVersion\": \"0.3.1\", \"type\": \"ovs\", \"bridge\": \"br1\", \"vlan\": 100 }"}}`
 	ptpConfCRD           = `{"apiVersion":"k8s.cni.cncf.io/v1","kind":"NetworkAttachmentDefinition","metadata":{"name":"%s","namespace":"%s"},"spec":{"config":"{ \"name\": \"mynet\", \"type\": \"ptp\", \"ipam\": { \"type\": \"host-local\", \"subnet\": \"10.1.1.0/24\" } }"}}`
 	ptpConfWithTuningCRD = `{"apiVersion":"k8s.cni.cncf.io/v1","kind":"NetworkAttachmentDefinition","metadata":{"name":"%s","namespace":"%s"},"spec":{"config":"{ \"cniVersion\": \"0.3.1\", \"name\": \"mynet\", \"plugins\": [{\"type\": \"ptp\", \"ipam\": { \"type\": \"host-local\", \"subnet\": \"10.1.1.0/24\" }},{\"type\": \"tuning\"}]}"}}`
-	sriovConfCRD         = `{"apiVersion":"k8s.cni.cncf.io/v1","kind":"NetworkAttachmentDefinition","metadata":{"name":"%s","namespace":"%s","annotations":{"k8s.v1.cni.cncf.io/resourceName":"intel.com/sriov"}},"spec":{"config":"{ \"name\": \"sriov\", \"type\": \"sriov\", \"ipam\": { \"type\": \"host-local\", \"subnet\": \"10.1.1.0/24\" } }"}}`
+	// note: we assume resource name has intel.com prefix even if the actual driver is not Intel
+	sriovConfCRD = `{"apiVersion":"k8s.cni.cncf.io/v1","kind":"NetworkAttachmentDefinition","metadata":{"name":"%s","namespace":"%s","annotations":{"k8s.v1.cni.cncf.io/resourceName":"intel.com/sriov"}},"spec":{"config":"{ \"name\": \"sriov\", \"type\": \"sriov\", \"ipam\": { \"type\": \"host-local\", \"subnet\": \"10.1.1.0/24\" } }"}}`
 )
 
 var _ = Describe("Multus", func() {
@@ -332,34 +333,42 @@ var _ = Describe("Multus", func() {
 				tests.SkipIfNoSriovDevicePlugin(virtClient)
 			})
 
-			It("[test_id:1754]should create a virtual machine with sriov interface", func() {
-				// since neither cirros nor alpine has drivers for Intel NICs, we are left with fedora
-				userData := "#cloud-config\npassword: fedora\nchpasswd: { expire: False }\n"
-				vmiOne := tests.NewRandomVMIWithEphemeralDiskAndUserdata(tests.ContainerDiskFor(tests.ContainerDiskFedora), userData)
-				tests.AddExplicitPodNetworkInterface(vmiOne)
+			getSriovVmi := func(networks []string) (vmi *v1.VirtualMachineInstance) {
+				// If we run on a host with Mellanox SR-IOV cards then we'll need to load in corresponding kernel modules.
+				// Use agent to signal about cloud-init phase completion.
+				userData := fmt.Sprintf(`#!/bin/sh
+				    echo "fedora" |passwd fedora --stdin
+				    dnf install -y kernel-modules-$(uname -r)
+				    modprobe mlx5_ib
+				    mkdir -p /usr/local/bin
+				    curl %s > /usr/local/bin/qemu-ga
+				    chmod +x /usr/local/bin/qemu-ga
+				    systemd-run --unit=guestagent /usr/local/bin/qemu-ga`, tests.GuestAgentHttpUrl)
+				vmi = tests.NewRandomVMIWithEphemeralDiskAndUserdata(tests.ContainerDiskFor(tests.ContainerDiskFedora), userData)
 
-				iface := v1.Interface{Name: "sriov", InterfaceBindingMethod: v1.InterfaceBindingMethod{SRIOV: &v1.InterfaceSRIOV{}}}
-				network := v1.Network{Name: "sriov", NetworkSource: v1.NetworkSource{Multus: &v1.MultusNetwork{NetworkName: "sriov"}}}
-				vmiOne.Spec.Domain.Devices.Interfaces = append(vmiOne.Spec.Domain.Devices.Interfaces, iface)
-				vmiOne.Spec.Networks = append(vmiOne.Spec.Networks, network)
+				tests.AddExplicitPodNetworkInterface(vmi)
+				for _, name := range networks {
+					iface := v1.Interface{Name: name, InterfaceBindingMethod: v1.InterfaceBindingMethod{SRIOV: &v1.InterfaceSRIOV{}}}
+					network := v1.Network{Name: name, NetworkSource: v1.NetworkSource{Multus: &v1.MultusNetwork{NetworkName: name}}}
+					vmi.Spec.Domain.Devices.Interfaces = append(vmi.Spec.Domain.Devices.Interfaces, iface)
+					vmi.Spec.Networks = append(vmi.Spec.Networks, network)
+				}
 
 				// fedora requires some more memory to boot without kernel panics
-				vmiOne.Spec.Domain.Resources.Requests[k8sv1.ResourceName("memory")] = resource.MustParse("1024M")
+				vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceName("memory")] = resource.MustParse("1024M")
 
-				_, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmiOne)
+				_, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmi)
 				Expect(err).ToNot(HaveOccurred())
-				tests.WaitUntilVMIReady(vmiOne, tests.LoggedInFedoraExpecter)
+				tests.WaitUntilVMIReady(vmi, tests.LoggedInFedoraExpecter)
 
-				By("checking KUBEVIRT_RESOURCE_NAME_<networkName> variable is defined in pod")
-				vmiPod := tests.GetRunningPodByVirtualMachineInstance(vmiOne, tests.NamespaceTestDefault)
-				out, err := tests.ExecuteCommandOnPod(
-					virtClient,
-					vmiPod,
-					"compute",
-					[]string{"sh", "-c", "echo $KUBEVIRT_RESOURCE_NAME_sriov"},
-				)
-				Expect(err).ToNot(HaveOccurred())
-				Expect(out).To(Equal("intel.com/sriov\n"))
+				// Need to wait for cloud init to finish and start the agent inside the vmi.
+				tests.WaitAgentConnected(virtClient, vmi)
+
+				return
+			}
+
+			checkDefaultInterfaceInPod := func(vmi *v1.VirtualMachineInstance) {
+				vmiPod := tests.GetRunningPodByVirtualMachineInstance(vmi, tests.NamespaceTestDefault)
 
 				By("checking default interface is present")
 				_, err = tests.ExecuteCommandOnPod(
@@ -378,10 +387,32 @@ var _ = Describe("Multus", func() {
 					[]string{"ip", "address", "show", "k6t-eth0"},
 				)
 				Expect(err).ToNot(HaveOccurred())
+			}
+
+			checkInterfacesInGuest := func(vmi *v1.VirtualMachineInstance, interfaces []string) {
+				for _, iface := range interfaces {
+					checkInterface(vmi, iface, "#")
+				}
+			}
+
+			It("[test_id:1754]should create a virtual machine with sriov interface", func() {
+				vmi := getSriovVmi([]string{"sriov"})
+
+				By("checking KUBEVIRT_RESOURCE_NAME_<networkName> variable is defined in pod")
+				vmiPod := tests.GetRunningPodByVirtualMachineInstance(vmi, tests.NamespaceTestDefault)
+				out, err := tests.ExecuteCommandOnPod(
+					virtClient,
+					vmiPod,
+					"compute",
+					[]string{"sh", "-c", "echo $KUBEVIRT_RESOURCE_NAME_sriov"},
+				)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(out).To(Equal("intel.com/sriov\n"))
+
+				checkDefaultInterfaceInPod(vmi)
 
 				By("checking virtual machine instance has two interfaces")
-				checkInterface(vmiOne, "eth0", "#")
-				checkInterface(vmiOne, "eth1", "#")
+				checkInterfacesInGuest(vmi, []string{"eth0", "eth1"})
 
 				// there is little we can do beyond just checking two devices are present: PCI slots are different inside
 				// the guest, and DP doesn't pass information about vendor IDs of allocated devices into the pod, so
@@ -389,27 +420,10 @@ var _ = Describe("Multus", func() {
 			})
 
 			It("[test_id:1755]should create a virtual machine with two sriov interfaces referring the same resource", func() {
-				// since neither cirros nor alpine has drivers for Intel NICs, we are left with fedora
-				userData := "#cloud-config\npassword: fedora\nchpasswd: { expire: False }\n"
-				vmiOne := tests.NewRandomVMIWithEphemeralDiskAndUserdata(tests.ContainerDiskFor(tests.ContainerDiskFedora), userData)
-				tests.AddExplicitPodNetworkInterface(vmiOne)
-
-				for _, name := range []string{"sriov", "sriov2"} {
-					iface := v1.Interface{Name: name, InterfaceBindingMethod: v1.InterfaceBindingMethod{SRIOV: &v1.InterfaceSRIOV{}}}
-					network := v1.Network{Name: name, NetworkSource: v1.NetworkSource{Multus: &v1.MultusNetwork{NetworkName: name}}}
-					vmiOne.Spec.Domain.Devices.Interfaces = append(vmiOne.Spec.Domain.Devices.Interfaces, iface)
-					vmiOne.Spec.Networks = append(vmiOne.Spec.Networks, network)
-				}
-
-				// fedora requires some more memory to boot without kernel panics
-				vmiOne.Spec.Domain.Resources.Requests[k8sv1.ResourceName("memory")] = resource.MustParse("1024M")
-
-				_, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Create(vmiOne)
-				Expect(err).ToNot(HaveOccurred())
-				tests.WaitUntilVMIReady(vmiOne, tests.LoggedInFedoraExpecter)
+				vmi := getSriovVmi([]string{"sriov", "sriov2"})
 
 				By("checking KUBEVIRT_RESOURCE_NAME_<networkName> variables are defined in pod")
-				vmiPod := tests.GetRunningPodByVirtualMachineInstance(vmiOne, tests.NamespaceTestDefault)
+				vmiPod := tests.GetRunningPodByVirtualMachineInstance(vmi, tests.NamespaceTestDefault)
 				for _, name := range []string{"sriov", "sriov"} {
 					out, err := tests.ExecuteCommandOnPod(
 						virtClient,
@@ -421,30 +435,12 @@ var _ = Describe("Multus", func() {
 					Expect(out).To(Equal("intel.com/sriov\n"))
 				}
 
-				By("checking default interface is present")
-				_, err = tests.ExecuteCommandOnPod(
-					virtClient,
-					vmiPod,
-					"compute",
-					[]string{"ip", "address", "show", "eth0"},
-				)
-				Expect(err).ToNot(HaveOccurred())
-
-				By("checking default interface is attached to VMI")
-				_, err = tests.ExecuteCommandOnPod(
-					virtClient,
-					vmiPod,
-					"compute",
-					[]string{"ip", "address", "show", "k6t-eth0"},
-				)
-				Expect(err).ToNot(HaveOccurred())
+				checkDefaultInterfaceInPod(vmi)
 
 				By("checking virtual machine instance has three interfaces")
-				checkInterface(vmiOne, "eth0", "#")
-				checkInterface(vmiOne, "eth1", "#")
-				checkInterface(vmiOne, "eth2", "#")
+				checkInterfacesInGuest(vmi, []string{"eth0", "eth1", "eth2"})
 
-				// there is little we can do beyond just checking two devices are present: PCI slots are different inside
+				// there is little we can do beyond just checking three devices are present: PCI slots are different inside
 				// the guest, and DP doesn't pass information about vendor IDs of allocated devices into the pod, so
 				// it's hard to match them.
 			})
@@ -661,27 +657,19 @@ var _ = Describe("Multus", func() {
 				Expect(err).ToNot(HaveOccurred(), "Should create VMI successfully")
 				tests.WaitForSuccessfulVMIStart(agentVMI)
 
+				// Need to wait for cloud init to finish and start the agent inside the vmi.
+				tests.WaitAgentConnected(virtClient, agentVMI)
+
 				getOptions := &metav1.GetOptions{}
-				var updatedVmi *v1.VirtualMachineInstance
-
-				// Need to wait for cloud init to finnish and start the agent inside the vmi.
 				Eventually(func() bool {
-					updatedVmi, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Get(agentVMI.Name, getOptions)
-					Expect(err).ToNot(HaveOccurred())
-					for _, condition := range updatedVmi.Status.Conditions {
-						if condition.Type == "AgentConnected" && condition.Status == "True" {
-							return true
-						}
+					updatedVmi, err := virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Get(agentVMI.Name, getOptions)
+					if err != nil {
+						return false
 					}
-					return false
-				}, 420*time.Second, 2).Should(BeTrue(), "Should have agent connected condition")
-
-				Eventually(func() bool {
-					updatedVmi, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Get(agentVMI.Name, getOptions)
 					return len(updatedVmi.Status.Interfaces) == 4
 				}, 420*time.Second, 4).Should(BeTrue(), "Should have interfaces in vmi status")
 
-				updatedVmi, err = virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Get(agentVMI.Name, getOptions)
+				updatedVmi, err := virtClient.VirtualMachineInstance(tests.NamespaceTestDefault).Get(agentVMI.Name, getOptions)
 				Expect(err).ToNot(HaveOccurred())
 
 				Expect(len(updatedVmi.Status.Interfaces)).To(Equal(4))

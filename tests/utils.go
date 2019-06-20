@@ -3629,3 +3629,16 @@ func UpdateClusterConfigValue(key string, value string) {
 	_, err = virtClient.CoreV1().ConfigMaps(KubeVirtInstallNamespace).Update(cfgMap)
 	Expect(err).ToNot(HaveOccurred())
 }
+
+func WaitAgentConnected(virtClient kubecli.KubevirtClient, vmi *v1.VirtualMachineInstance) {
+	Eventually(func() bool {
+		updatedVmi, err := virtClient.VirtualMachineInstance(NamespaceTestDefault).Get(vmi.Name, &metav1.GetOptions{})
+		Expect(err).ToNot(HaveOccurred())
+		for _, condition := range updatedVmi.Status.Conditions {
+			if condition.Type == "AgentConnected" && condition.Status == "True" {
+				return true
+			}
+		}
+		return false
+	}, 420*time.Second, 2).Should(BeTrue(), "Should have agent connected condition")
+}
