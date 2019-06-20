@@ -539,7 +539,7 @@ var _ = Describe("Storage", func() {
 			})
 		})
 
-		Context("With Cirros BlockMode PVC", func() {
+		Context("[rfe_id:2288][crit:high][vendor:cnv-qe@redhat.com][level:component] With Cirros BlockMode PVC", func() {
 
 			pvName := "block-pv-" + rand.String(48)
 
@@ -553,7 +553,7 @@ var _ = Describe("Storage", func() {
 				tests.DeletePvAndPvc(pvName)
 			}, 60)
 
-			It("should be successfully started", func() {
+			It("[test_id:1015] should be successfully started", func() {
 				// Start the VirtualMachineInstance with the PVC attached
 				vmi := tests.NewRandomVMIWithPVC(pvName)
 				// Without userdata the hostname isn't set correctly and the login expecter fails...
