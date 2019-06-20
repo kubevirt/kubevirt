@@ -115,11 +115,11 @@ var _ = Describe("Notify", func() {
 				case event := <-eventChan:
 					newDomain, ok := event.Object.(*api.Domain)
 					newDomain.Spec.XMLName = xml.Name{}
-					Expect(ok).To(Equal(true), "should typecase domain")
-					Expect(reflect.DeepEqual(domain.Spec, newDomain.Spec)).To(Equal(true))
+					Expect(ok).To(BeTrue(), "should typecase domain")
+					Expect(reflect.DeepEqual(domain.Spec, newDomain.Spec)).To(BeTrue())
 					Expect(event.Type).To(Equal(kubeEventType))
 				}
-				Expect(timedOut).To(Equal(false), "should not time out")
+				Expect(timedOut).To(BeFalse(), "should not time out")
 			},
 				table.Entry("modified for crashed VMIs", libvirt.DOMAIN_CRASHED, libvirt.DOMAIN_EVENT_CRASHED, api.Crashed, watch.Modified),
 				table.Entry("modified for stopped VMIs", libvirt.DOMAIN_SHUTOFF, libvirt.DOMAIN_EVENT_SHUTDOWN, api.Shutoff, watch.Modified),
@@ -147,7 +147,7 @@ var _ = Describe("Notify", func() {
 					Expect(e.Object.(*api.Domain).Status.Status).To(Equal(api.NoState))
 					Expect(e.Type).To(Equal(watch.Deleted))
 				}
-				Expect(timedOut).To(Equal(false))
+				Expect(timedOut).To(BeFalse())
 
 				select {
 				case <-timeout:
@@ -155,7 +155,7 @@ var _ = Describe("Notify", func() {
 				case <-deleteNotificationSent:
 					// virt-launcher waits in a final delete notification to be sent before exiting.
 				}
-				Expect(timedOut).To(Equal(false))
+				Expect(timedOut).To(BeFalse())
 			})
 
 		It("should update Interface status",
@@ -189,9 +189,9 @@ var _ = Describe("Notify", func() {
 					newDomain, _ := event.Object.(*api.Domain)
 					newInterfaceStatuses := newDomain.Status.Interfaces
 					Expect(len(newInterfaceStatuses)).To(Equal(2))
-					Expect(reflect.DeepEqual(interfaceStatus, newInterfaceStatuses)).To(Equal(true))
+					Expect(reflect.DeepEqual(interfaceStatus, newInterfaceStatuses)).To(BeTrue())
 				}
-				Expect(timedOut).To(Equal(false))
+				Expect(timedOut).To(BeFalse())
 			})
 	})
 

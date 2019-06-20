@@ -43,7 +43,7 @@ var _ = Describe("Common Methods", func() {
 			var cached_iface api.Interface
 			isExist, err := readFromCachedFile(ifaceName, interfaceCacheFile, &cached_iface)
 			Expect(err).ToNot(HaveOccurred())
-			Expect(isExist).To(Equal(true))
+			Expect(isExist).To(BeTrue())
 
 			Expect(iface).To(Equal(cached_iface))
 		})
@@ -59,7 +59,7 @@ var _ = Describe("Common Methods", func() {
 			var cached_qemuArg api.Arg
 			isExist, err := readFromCachedFile(qemuArgName, interfaceCacheFile, &cached_qemuArg)
 			Expect(err).ToNot(HaveOccurred())
-			Expect(isExist).To(Equal(true))
+			Expect(isExist).To(BeTrue())
 
 			Expect(qemuArg).To(Equal(cached_qemuArg))
 		})

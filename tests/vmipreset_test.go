@@ -584,5 +584,5 @@ func waitForPresetDeletion(virtClient kubecli.KubevirtClient, presetName string)
 			return true
 		}
 		return false
-	}, time.Duration(60)*time.Second).Should(Equal(true), "timed out waiting for preset to be deleted")
+	}, time.Duration(60)*time.Second).Should(BeTrue(), "timed out waiting for preset to be deleted")
 }

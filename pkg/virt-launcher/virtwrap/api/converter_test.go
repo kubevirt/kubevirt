@@ -761,7 +761,7 @@ var _ = Describe("Converter", func() {
 				}
 			}
 
-			Expect(disabled).To(Equal(false), "Expect controller not to be disabled")
+			Expect(disabled).To(BeFalse(), "Expect controller not to be disabled")
 		})
 
 		It("should fail when input device is set to ps2 bus", func() {

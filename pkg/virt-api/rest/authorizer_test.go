@@ -74,7 +74,7 @@ var _ = Describe("Authorizer", func() {
 			It("should reject unauthenticated user", func(done Done) {
 				allowed, reason, err := app.Authorize(req)
 				Expect(err).ToNot(HaveOccurred())
-				Expect(allowed).To(Equal(false))
+				Expect(allowed).To(BeFalse())
 				Expect(reason).To(Equal("request is not authenticated"))
 
 				close(done)
@@ -99,7 +99,7 @@ var _ = Describe("Authorizer", func() {
 
 				allowed, reason, err := app.Authorize(req)
 				Expect(err).ToNot(HaveOccurred())
-				Expect(allowed).To(Equal(false))
+				Expect(allowed).To(BeFalse())
 				Expect(reason).To(Equal("just because"))
 
 				close(done)
@@ -123,7 +123,7 @@ var _ = Describe("Authorizer", func() {
 
 				allowed, _, err := app.Authorize(req)
 				Expect(err).ToNot(HaveOccurred())
-				Expect(allowed).To(Equal(true))
+				Expect(allowed).To(BeTrue())
 
 				close(done)
 			}, 5)
@@ -142,7 +142,7 @@ var _ = Describe("Authorizer", func() {
 
 				allowed, _, err := app.Authorize(req)
 				Expect(err).To(HaveOccurred())
-				Expect(allowed).To(Equal(false))
+				Expect(allowed).To(BeFalse())
 
 				close(done)
 			}, 5)
@@ -151,7 +151,7 @@ var _ = Describe("Authorizer", func() {
 				req.Request.URL.Path = path
 				allowed, _, err := app.Authorize(req)
 				Expect(err).ToNot(HaveOccurred())
-				Expect(allowed).To(Equal(true))
+				Expect(allowed).To(BeTrue())
 			},
 				table.Entry("root", "/"),
 				table.Entry("apis", "/apis"),
@@ -166,7 +166,7 @@ var _ = Describe("Authorizer", func() {
 				req.Request.URL.Path = path
 				allowed, _, err := app.Authorize(req)
 				Expect(err).ToNot(HaveOccurred())
-				Expect(allowed).To(Equal(false))
+				Expect(allowed).To(BeFalse())
 
 			},
 				table.Entry("random1", "/apis/subresources.kubevirt.io/v1alpha3/madethisup"),

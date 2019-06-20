@@ -165,7 +165,7 @@ var _ = Describe("VirtLauncher", func() {
 					exited = true
 				}
 
-				Expect(exited).To(Equal(true))
+				Expect(exited).To(BeTrue())
 			})
 
 			It("verify monitor loop exits when signal arrives and no pid is present", func() {
@@ -189,7 +189,7 @@ var _ = Describe("VirtLauncher", func() {
 					exited = true
 				}
 
-				Expect(exited).To(Equal(true))
+				Expect(exited).To(BeTrue())
 			})
 
 			It("verify graceful shutdown trigger works", func() {
@@ -209,7 +209,7 @@ var _ = Describe("VirtLauncher", func() {
 
 				exists, err := hasGracefulShutdownTrigger(tmpDir, "fakenamespace", "fakedomain")
 				Expect(err).ToNot(HaveOccurred())
-				Expect(exists).To(Equal(false))
+				Expect(exists).To(BeFalse())
 
 				close(stopChan)
 
@@ -217,7 +217,7 @@ var _ = Describe("VirtLauncher", func() {
 
 				exists, err = hasGracefulShutdownTrigger(tmpDir, "fakenamespace", "fakedomain")
 				Expect(err).ToNot(HaveOccurred())
-				Expect(exists).To(Equal(true))
+				Expect(exists).To(BeTrue())
 			})
 
 			It("verify grace period works", func() {
@@ -243,7 +243,7 @@ var _ = Describe("VirtLauncher", func() {
 					exited = true
 				}
 
-				Expect(exited).To(Equal(true))
+				Expect(exited).To(BeTrue())
 			})
 		})
 	})

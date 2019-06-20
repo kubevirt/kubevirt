@@ -139,8 +139,8 @@ var _ = Describe("[rfe_id:393][crit:high[vendor:cnv-qe@redhat.com][level:system]
 		Expect(vmi.Status.MigrationState.EndTimestamp).ToNot(BeNil())
 		Expect(vmi.Status.MigrationState.TargetNode).To(Equal(vmi.Status.NodeName))
 		Expect(vmi.Status.MigrationState.TargetNode).ToNot(Equal(vmi.Status.MigrationState.SourceNode))
-		Expect(vmi.Status.MigrationState.Completed).To(Equal(true))
-		Expect(vmi.Status.MigrationState.Failed).To(Equal(false))
+		Expect(vmi.Status.MigrationState.Completed).To(BeTrue())
+		Expect(vmi.Status.MigrationState.Failed).To(BeFalse())
 		Expect(vmi.Status.MigrationState.TargetNodeAddress).ToNot(Equal(""))
 		Expect(string(vmi.Status.MigrationState.MigrationUID)).To(Equal(migrationUID))
 
@@ -159,8 +159,8 @@ var _ = Describe("[rfe_id:393][crit:high[vendor:cnv-qe@redhat.com][level:system]
 		Expect(vmi.Status.MigrationState.EndTimestamp).ToNot(BeNil())
 		Expect(vmi.Status.MigrationState.SourceNode).To(Equal(vmi.Status.NodeName))
 		Expect(vmi.Status.MigrationState.TargetNode).ToNot(Equal(vmi.Status.MigrationState.SourceNode))
-		Expect(vmi.Status.MigrationState.Completed).To(Equal(true))
-		Expect(vmi.Status.MigrationState.Failed).To(Equal(true))
+		Expect(vmi.Status.MigrationState.Completed).To(BeTrue())
+		Expect(vmi.Status.MigrationState.Failed).To(BeTrue())
 		Expect(vmi.Status.MigrationState.TargetNodeAddress).ToNot(Equal(""))
 		Expect(string(vmi.Status.MigrationState.MigrationUID)).To(Equal(migrationUID))
 
@@ -179,7 +179,7 @@ var _ = Describe("[rfe_id:393][crit:high[vendor:cnv-qe@redhat.com][level:system]
 			}
 			return false
 
-		}, timeout, 1*time.Second).Should(Equal(true))
+		}, timeout, 1*time.Second).Should(BeTrue())
 
 		By("Retrieving the VMI post migration")
 		vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(vmi.Name, &metav1.GetOptions{})
@@ -193,8 +193,8 @@ var _ = Describe("[rfe_id:393][crit:high[vendor:cnv-qe@redhat.com][level:system]
 		Expect(vmi.Status.MigrationState.TargetNode).ToNot(Equal(vmi.Status.MigrationState.SourceNode))
 		Expect(vmi.Status.MigrationState.TargetNodeAddress).ToNot(Equal(""))
 		Expect(string(vmi.Status.MigrationState.MigrationUID)).To(Equal(migrationUID))
-		Expect(vmi.Status.MigrationState.Failed).To(Equal(true))
-		Expect(vmi.Status.MigrationState.AbortRequested).To(Equal(true))
+		Expect(vmi.Status.MigrationState.Failed).To(BeTrue())
+		Expect(vmi.Status.MigrationState.AbortRequested).To(BeTrue())
 
 		By("Verifying the VMI's is in the running state")
 		Expect(vmi.Status.Phase).To(Equal(v1.Running))
@@ -221,7 +221,7 @@ var _ = Describe("[rfe_id:393][crit:high[vendor:cnv-qe@redhat.com][level:system]
 			}
 			return false
 
-		}, timeout, 1*time.Second).Should(Equal(true))
+		}, timeout, 1*time.Second).Should(BeTrue())
 		return uid
 	}
 	runAndCancelMigration := func(migration *v1.VirtualMachineInstanceMigration, vmi *v1.VirtualMachineInstance, timeout int) string {
@@ -249,7 +249,7 @@ var _ = Describe("[rfe_id:393][crit:high[vendor:cnv-qe@redhat.com][level:system]
 			}
 			return false
 
-		}, timeout, 1*time.Second).Should(Equal(true))
+		}, timeout, 1*time.Second).Should(BeTrue())
 
 		By("Cancelling a Migration")
 		Expect(virtClient.VirtualMachineInstanceMigration(migration.Namespace).Delete(migration.Name, &metav1.DeleteOptions{})).To(Succeed(), "Migration should be deleted successfully")
@@ -275,7 +275,7 @@ var _ = Describe("[rfe_id:393][crit:high[vendor:cnv-qe@redhat.com][level:system]
 			}
 			return false
 
-		}, timeout, 1*time.Second).Should(Equal(true))
+		}, timeout, 1*time.Second).Should(BeTrue())
 
 		By("Cancelling a Migration")
 		Expect(virtClient.VirtualMachineInstanceMigration(migration.Namespace).Delete(migration.Name, &metav1.DeleteOptions{})).To(Succeed(), "Migration should be deleted successfully")
@@ -304,7 +304,7 @@ var _ = Describe("[rfe_id:393][crit:high[vendor:cnv-qe@redhat.com][level:system]
 			}
 			return false
 
-		}, timeout, 1*time.Second).Should(Equal(true))
+		}, timeout, 1*time.Second).Should(BeTrue())
 		return uid
 	}
 

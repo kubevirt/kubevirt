@@ -78,7 +78,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 		}
 
 		resp := vmiCreateAdmitter.Admit(ar)
-		Expect(resp.Allowed).To(Equal(false))
+		Expect(resp.Allowed).To(BeFalse())
 		Expect(len(resp.Result.Details.Causes)).To(Equal(1))
 		Expect(resp.Result.Details.Causes[0].Field).To(Equal("spec.domain.devices.disks[0].name"))
 	})
@@ -96,7 +96,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			},
 		}
 		resp := vmiCreateAdmitter.Admit(ar)
-		Expect(resp.Allowed).To(Equal(false))
+		Expect(resp.Allowed).To(BeFalse())
 		Expect(len(resp.Result.Details.Causes)).To(Equal(1))
 		Expect(resp.Result.Message).To(ContainSubstring("no memory requested"))
 	})
@@ -159,7 +159,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 				},
 			}
 			resp := vmiCreateAdmitter.Admit(ar)
-			Expect(resp.Allowed).To(Equal(false))
+			Expect(resp.Allowed).To(BeFalse())
 			Expect(resp.Result.Message).To(Equal(`either spec.readinessProbe.tcpSocket or spec.readinessProbe.httpGet must be set if a spec.readinessProbe is specified, either spec.livenessProbe.tcpSocket or spec.livenessProbe.httpGet must be set if a spec.livenessProbe is specified`))
 		})
 		It("should reject probes with more than one action per probe configured", func() {
@@ -192,7 +192,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 				},
 			}
 			resp := vmiCreateAdmitter.Admit(ar)
-			Expect(resp.Allowed).To(Equal(false))
+			Expect(resp.Allowed).To(BeFalse())
 			Expect(resp.Result.Message).To(Equal(`spec.readinessProbe must have exactly one probe type set, spec.livenessProbe must have exactly one probe type set`))
 		})
 		It("should accept properly configured readiness and liveness probes", func() {
@@ -223,7 +223,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 				},
 			}
 			resp := vmiCreateAdmitter.Admit(ar)
-			Expect(resp.Allowed).To(Equal(true))
+			Expect(resp.Allowed).To(BeTrue())
 		})
 		It("should reject properly configured readiness and liveness probes if no Pod Network is present", func() {
 			vmi := v1.NewMinimalVMI("testvmi")
@@ -251,7 +251,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 				},
 			}
 			resp := vmiCreateAdmitter.Admit(ar)
-			Expect(resp.Allowed).To(Equal(false))
+			Expect(resp.Allowed).To(BeFalse())
 			Expect(resp.Result.Message).To(Equal(`spec.livenessProbe is only allowed if the Pod Network is attached, spec.readinessProbe is only allowed if the Pod Network is attached`))
 		})
 	})
@@ -278,7 +278,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			},
 		}
 		resp := vmiCreateAdmitter.Admit(ar)
-		Expect(resp.Allowed).To(Equal(true))
+		Expect(resp.Allowed).To(BeTrue())
 	})
 
 	It("should allow unknown fields in the status to allow updates", func() {

@@ -472,7 +472,7 @@ var _ = Describe("Virt-api", func() {
 		It("should have default values for flags", func() {
 			app.AddFlags()
 			Expect(app.SwaggerUI).To(Equal("third_party/swagger-ui"))
-			Expect(app.SubresourcesOnly).To(Equal(false))
+			Expect(app.SubresourcesOnly).To(BeFalse())
 		}, 5)
 
 	})

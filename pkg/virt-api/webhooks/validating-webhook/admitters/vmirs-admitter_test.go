@@ -75,7 +75,7 @@ var _ = Describe("Validating VMIRS Admitter", func() {
 		}
 
 		resp := vmirsAdmitter.Admit(ar)
-		Expect(resp.Allowed).To(Equal(false))
+		Expect(resp.Allowed).To(BeFalse())
 		Expect(resp.Result.Details.Causes).To(HaveLen(len(causes)))
 		for i, cause := range causes {
 			Expect(resp.Result.Details.Causes[i].Field).To(Equal(cause))
@@ -137,7 +137,7 @@ var _ = Describe("Validating VMIRS Admitter", func() {
 		}
 
 		resp := vmirsAdmitter.Admit(ar)
-		Expect(resp.Allowed).To(Equal(true))
+		Expect(resp.Allowed).To(BeTrue())
 	})
 })
 

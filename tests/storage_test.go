@@ -625,7 +625,7 @@ var _ = Describe("Storage", func() {
 					Expect(vmi.Status.Conditions[0].Status).To(Equal(k8sv1.ConditionFalse))
 					Expect(vmi.Status.Conditions[0].Message).To(Equal(fmt.Sprintf("failed to render launch manifest: didn't find PVC %v", pvcName)))
 					return true
-				}, time.Duration(10)*time.Second).Should(Equal(true), "Timed out waiting for VMI to get Unschedulable condition")
+				}, time.Duration(10)*time.Second).Should(BeTrue(), "Timed out waiting for VMI to get Unschedulable condition")
 
 			})
 		})

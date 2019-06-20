@@ -136,7 +136,7 @@ var _ = Describe("CloudInit", func() {
 				cloudInitData, _ := readCloudInitNoCloudSource(source)
 				err := GenerateLocalData(domain, namespace, cloudInitData)
 				Expect(err).To(HaveOccurred())
-				Expect(timedOut).To(Equal(true))
+				Expect(timedOut).To(BeTrue())
 			})
 
 			Context("when local data does not exist", func() {
