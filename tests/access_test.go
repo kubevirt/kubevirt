@@ -25,12 +25,11 @@ import (
 	. "github.com/onsi/ginkgo"
 	"github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
-
 	authv1 "k8s.io/api/authorization/v1"
 	authClientV1 "k8s.io/client-go/kubernetes/typed/authorization/v1"
 
-	v1 "kubevirt.io/kubevirt/pkg/api/v1"
-	"kubevirt.io/kubevirt/pkg/kubecli"
+	v1 "kubevirt.io/client-go/api/v1"
+	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/kubevirt/tests"
 )
 

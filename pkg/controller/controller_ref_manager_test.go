@@ -29,8 +29,8 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 
+	virtv1 "kubevirt.io/client-go/api/v1"
 	cdiv1 "kubevirt.io/containerized-data-importer/pkg/apis/core/v1alpha1"
-	virtv1 "kubevirt.io/kubevirt/pkg/api/v1"
 )
 
 var (

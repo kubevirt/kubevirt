@@ -9,7 +9,7 @@ import (
 	. "github.com/onsi/gomega"
 	"k8s.io/apimachinery/pkg/api/resource"
 
-	v1 "kubevirt.io/kubevirt/pkg/api/v1"
+	v1 "kubevirt.io/client-go/api/v1"
 )
 
 var _ = Describe("EmptyDisk", func() {

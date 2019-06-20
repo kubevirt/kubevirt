@@ -42,13 +42,13 @@ import (
 	"k8s.io/client-go/tools/record"
 	"k8s.io/client-go/util/cert"
 
-	v1 "kubevirt.io/kubevirt/pkg/api/v1"
+	v1 "kubevirt.io/client-go/api/v1"
+	"kubevirt.io/client-go/kubecli"
+	"kubevirt.io/client-go/log"
 	"kubevirt.io/kubevirt/pkg/certificates"
 	"kubevirt.io/kubevirt/pkg/certificates/triple"
 	"kubevirt.io/kubevirt/pkg/controller"
 	inotifyinformer "kubevirt.io/kubevirt/pkg/inotify-informer"
-	"kubevirt.io/kubevirt/pkg/kubecli"
-	"kubevirt.io/kubevirt/pkg/log"
 	_ "kubevirt.io/kubevirt/pkg/monitoring/client/prometheus"    // import for prometheus metrics
 	_ "kubevirt.io/kubevirt/pkg/monitoring/reflector/prometheus" // import for prometheus metrics
 	promvm "kubevirt.io/kubevirt/pkg/monitoring/vms/prometheus"  // import for prometheus metrics

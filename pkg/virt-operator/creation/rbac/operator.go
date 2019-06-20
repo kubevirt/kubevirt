@@ -23,7 +23,7 @@ import (
 	rbacv1 "k8s.io/api/rbac/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	virtv1 "kubevirt.io/kubevirt/pkg/api/v1"
+	virtv1 "kubevirt.io/client-go/api/v1"
 )
 
 // Used for manifest generation only, not by the operator itself

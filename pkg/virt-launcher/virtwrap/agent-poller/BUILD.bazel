@@ -6,9 +6,9 @@ go_library(
     importpath = "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/agent-poller",
     visibility = ["//visibility:public"],
     deps = [
-        "//pkg/log:go_default_library",
         "//pkg/virt-launcher/virtwrap/api:go_default_library",
         "//pkg/virt-launcher/virtwrap/cli:go_default_library",
+        "//staging/src/kubevirt.io/client-go/log:go_default_library",
         "//vendor/k8s.io/apimachinery/pkg/types:go_default_library",
     ],
 )

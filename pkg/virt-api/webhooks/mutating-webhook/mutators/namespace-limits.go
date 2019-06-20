@@ -23,8 +23,8 @@ import (
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/tools/cache"
 
-	kubev1 "kubevirt.io/kubevirt/pkg/api/v1"
-	"kubevirt.io/kubevirt/pkg/log"
+	kubev1 "kubevirt.io/client-go/api/v1"
+	"kubevirt.io/client-go/log"
 )
 
 func applyNamespaceLimitRangeValues(vmi *kubev1.VirtualMachineInstance, limitrangeInformer cache.SharedIndexInformer) {

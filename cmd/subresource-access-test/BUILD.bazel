@@ -6,7 +6,7 @@ go_library(
     importpath = "kubevirt.io/kubevirt/cmd/subresource-access-test",
     visibility = ["//visibility:private"],
     deps = [
-        "//pkg/kubecli:go_default_library",
+        "//staging/src/kubevirt.io/client-go/kubecli:go_default_library",
         "//vendor/k8s.io/client-go/rest:go_default_library",
     ],
 )

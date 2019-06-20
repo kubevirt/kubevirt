@@ -20,9 +20,9 @@ import (
 	fakek8sclient "k8s.io/client-go/kubernetes/fake"
 	"k8s.io/client-go/testing"
 
+	"kubevirt.io/client-go/kubecli"
 	cdiv1 "kubevirt.io/containerized-data-importer/pkg/apis/core/v1alpha1"
 	fakecdiclient "kubevirt.io/containerized-data-importer/pkg/client/clientset/versioned/fake"
-	"kubevirt.io/kubevirt/pkg/kubecli"
 	"kubevirt.io/kubevirt/pkg/virtctl/imageupload"
 	"kubevirt.io/kubevirt/tests"
 )

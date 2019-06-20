@@ -29,7 +29,7 @@ import (
 	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
 	"k8s.io/apimachinery/pkg/util/json"
 
-	v1 "kubevirt.io/kubevirt/pkg/api/v1"
+	v1 "kubevirt.io/client-go/api/v1"
 )
 
 type Channel struct {

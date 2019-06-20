@@ -34,8 +34,8 @@ import (
 	"k8s.io/apimachinery/pkg/util/yaml"
 	"k8s.io/client-go/tools/cache"
 
-	"kubevirt.io/kubevirt/pkg/kubecli"
-	"kubevirt.io/kubevirt/pkg/log"
+	"kubevirt.io/client-go/kubecli"
+	"kubevirt.io/client-go/log"
 	"kubevirt.io/kubevirt/pkg/util"
 )
 

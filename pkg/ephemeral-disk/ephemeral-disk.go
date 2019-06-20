@@ -25,7 +25,7 @@ import (
 	"os/exec"
 	"path/filepath"
 
-	v1 "kubevirt.io/kubevirt/pkg/api/v1"
+	v1 "kubevirt.io/client-go/api/v1"
 	diskutils "kubevirt.io/kubevirt/pkg/ephemeral-disk-utils"
 )
 

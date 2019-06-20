@@ -28,7 +28,7 @@ import (
 	restful "github.com/emicklei/go-restful"
 	"github.com/spf13/pflag"
 
-	klog "kubevirt.io/kubevirt/pkg/log"
+	klog "kubevirt.io/client-go/log"
 	"kubevirt.io/kubevirt/pkg/util/openapi"
 	virt_api "kubevirt.io/kubevirt/pkg/virt-api"
 	"kubevirt.io/kubevirt/pkg/virt-api/rest"

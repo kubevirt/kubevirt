@@ -35,7 +35,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/rand"
 
-	"kubevirt.io/kubevirt/pkg/kubecli"
+	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/kubevirt/tests"
 	vmsgen "kubevirt.io/kubevirt/tools/vms-generator/utils"
 )

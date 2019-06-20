@@ -26,7 +26,7 @@ import (
 	restful "github.com/emicklei/go-restful"
 	"k8s.io/apimachinery/pkg/util/json"
 
-	"kubevirt.io/kubevirt/pkg/kubecli"
+	"kubevirt.io/client-go/kubecli"
 )
 
 func KubeConnectionHealthzFunc(_ *restful.Request, response *restful.Response) {

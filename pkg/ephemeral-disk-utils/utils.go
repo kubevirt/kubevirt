@@ -29,8 +29,8 @@ import (
 	"strconv"
 	"strings"
 
-	v1 "kubevirt.io/kubevirt/pkg/api/v1"
-	"kubevirt.io/kubevirt/pkg/log"
+	v1 "kubevirt.io/client-go/api/v1"
+	"kubevirt.io/client-go/log"
 )
 
 func RemoveFile(path string) error {

@@ -38,9 +38,9 @@ import (
 	"k8s.io/apimachinery/pkg/util/rand"
 	"k8s.io/client-go/util/cert"
 
-	v1 "kubevirt.io/kubevirt/pkg/api/v1"
+	v1 "kubevirt.io/client-go/api/v1"
+	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/kubevirt/pkg/certificates/triple"
-	"kubevirt.io/kubevirt/pkg/kubecli"
 	migrations2 "kubevirt.io/kubevirt/pkg/util/migrations"
 	"kubevirt.io/kubevirt/tests"
 )

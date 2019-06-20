@@ -29,12 +29,12 @@ import (
 	"github.com/spf13/pflag"
 	"google.golang.org/grpc"
 
-	vmSchema "kubevirt.io/kubevirt/pkg/api/v1"
+	vmSchema "kubevirt.io/client-go/api/v1"
+	"kubevirt.io/client-go/log"
 	"kubevirt.io/kubevirt/pkg/hooks"
 	hooksInfo "kubevirt.io/kubevirt/pkg/hooks/info"
 	hooksV1alpha1 "kubevirt.io/kubevirt/pkg/hooks/v1alpha1"
 	hooksV1alpha2 "kubevirt.io/kubevirt/pkg/hooks/v1alpha2"
-	"kubevirt.io/kubevirt/pkg/log"
 	domainSchema "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 )
 

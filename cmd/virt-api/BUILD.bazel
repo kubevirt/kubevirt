@@ -6,16 +6,16 @@ go_library(
     importpath = "kubevirt.io/kubevirt/cmd/virt-api",
     visibility = ["//visibility:private"],
     deps = [
-        "//pkg/log:go_default_library",
         "//pkg/monitoring/client/prometheus:go_default_library",
         "//pkg/monitoring/reflector/prometheus:go_default_library",
         "//pkg/monitoring/workqueue/prometheus:go_default_library",
         "//pkg/service:go_default_library",
         "//pkg/virt-api:go_default_library",
+        "//staging/src/kubevirt.io/client-go/log:go_default_library",
     ],
 )
 
-load("//pkg/version:def.bzl", "version_x_defs")
+load("//vendor/kubevirt.io/client-go/version:def.bzl", "version_x_defs")
 
 go_binary(
     name = "virt-api",

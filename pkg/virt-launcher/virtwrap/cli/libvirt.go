@@ -30,7 +30,7 @@ import (
 	libvirt "github.com/libvirt/libvirt-go"
 	utilwait "k8s.io/apimachinery/pkg/util/wait"
 
-	"kubevirt.io/kubevirt/pkg/log"
+	"kubevirt.io/client-go/log"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/errors"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/stats"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/statsconv"

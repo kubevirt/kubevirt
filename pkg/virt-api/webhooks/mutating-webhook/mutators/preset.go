@@ -29,8 +29,8 @@ import (
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/client-go/tools/cache"
 
-	kubev1 "kubevirt.io/kubevirt/pkg/api/v1"
-	"kubevirt.io/kubevirt/pkg/log"
+	kubev1 "kubevirt.io/client-go/api/v1"
+	"kubevirt.io/client-go/log"
 )
 
 const exclusionMarking = "virtualmachineinstancepresets.admission.kubevirt.io/exclude"

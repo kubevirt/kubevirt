@@ -42,8 +42,8 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/tools/leaderelection/resourcelock"
 
-	v1 "kubevirt.io/kubevirt/pkg/api/v1"
-	"kubevirt.io/kubevirt/pkg/kubecli"
+	v1 "kubevirt.io/client-go/api/v1"
+	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/kubevirt/pkg/virt-controller/leaderelectionconfig"
 	"kubevirt.io/kubevirt/tests"
 )

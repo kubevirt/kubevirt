@@ -23,8 +23,8 @@ import (
 	"sync"
 	"time"
 
-	k6tv1 "kubevirt.io/kubevirt/pkg/api/v1"
-	"kubevirt.io/kubevirt/pkg/log"
+	k6tv1 "kubevirt.io/client-go/api/v1"
+	"kubevirt.io/client-go/log"
 )
 
 const collectionTimeout time.Duration = 10 * time.Second // "long enough", crude heuristic

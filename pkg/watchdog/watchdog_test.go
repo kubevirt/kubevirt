@@ -27,8 +27,8 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 
-	v1 "kubevirt.io/kubevirt/pkg/api/v1"
-	"kubevirt.io/kubevirt/pkg/precond"
+	v1 "kubevirt.io/client-go/api/v1"
+	"kubevirt.io/client-go/precond"
 )
 
 var _ = Describe("Watchdog", func() {

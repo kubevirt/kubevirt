@@ -11,8 +11,8 @@ go_library(
     visibility = ["//visibility:public"],
     deps = [
         "//pkg/middleware:go_default_library",
-        "//pkg/precond:go_default_library",
         "//pkg/rest:go_default_library",
+        "//staging/src/kubevirt.io/client-go/precond:go_default_library",
         "//vendor/github.com/asaskevich/govalidator:go_default_library",
         "//vendor/github.com/emicklei/go-restful:go_default_library",
         "//vendor/github.com/ghodss/yaml:go_default_library",
@@ -37,9 +37,9 @@ go_test(
     ],
     embed = [":go_default_library"],
     deps = [
-        "//pkg/log:go_default_library",
         "//pkg/middleware:go_default_library",
         "//pkg/rest:go_default_library",
+        "//staging/src/kubevirt.io/client-go/log:go_default_library",
         "//vendor/github.com/emicklei/go-restful:go_default_library",
         "//vendor/github.com/evanphx/json-patch:go_default_library",
         "//vendor/github.com/ghodss/yaml:go_default_library",
