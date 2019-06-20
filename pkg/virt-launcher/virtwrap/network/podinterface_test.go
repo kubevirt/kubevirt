@@ -496,7 +496,7 @@ func newVMI(namespace, name string) *v1.VirtualMachineInstance {
 
 func newVMIBridgeInterface(namespace string, name string) *v1.VirtualMachineInstance {
 	vmi := newVMI(namespace, name)
-	vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{*v1.DefaultNetworkInterface()}
+	vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{*v1.DefaultBridgeNetworkInterface()}
 	v1.SetObjectDefaults_VirtualMachineInstance(vmi)
 	return vmi
 }

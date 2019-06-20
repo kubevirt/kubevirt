@@ -48,7 +48,7 @@ var _ = Describe("Network", func() {
 			domain := &api.Domain{}
 			vm := newVMIBridgeInterface("testnamespace", "testVmName")
 			api.SetObjectDefaults_Domain(domain)
-			iface := v1.DefaultNetworkInterface()
+			iface := v1.DefaultBridgeNetworkInterface()
 			defaultNet := v1.DefaultPodNetwork()
 
 			mockNetworkInterface.EXPECT().Plug(vm, iface, defaultNet, domain, podInterface)
@@ -69,7 +69,7 @@ var _ = Describe("Network", func() {
 			domain := &api.Domain{}
 			vm := newVMIBridgeInterface("testnamespace", "testVmName")
 			api.SetObjectDefaults_Domain(domain)
-			iface := v1.DefaultNetworkInterface()
+			iface := v1.DefaultBridgeNetworkInterface()
 			cniNet := &v1.Network{
 				Name: "default",
 				NetworkSource: v1.NetworkSource{
@@ -149,7 +149,7 @@ var _ = Describe("Network", func() {
 			domain := &api.Domain{}
 			vm := newVMIBridgeInterface("testnamespace", "testVmName")
 			api.SetObjectDefaults_Domain(domain)
-			iface := v1.DefaultNetworkInterface()
+			iface := v1.DefaultBridgeNetworkInterface()
 			cniNet := &v1.Network{
 				Name: "default",
 				NetworkSource: v1.NetworkSource{
