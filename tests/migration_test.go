@@ -706,7 +706,7 @@ var _ = Describe("[rfe_id:393][crit:high[vendor:cnv-qe@redhat.com][level:system]
 				vmi = runVMIAndExpectLaunchIgnoreWarnings(vmi, 180)
 
 				// Wait for cloud init to finish and start the agent inside the vmi.
-				tests.WaitForGuestAgentChannel(vmi)
+				tests.WaitAgentConnected(virtClient, vmi)
 
 				By("Checking that the VirtualMachineInstance console has expected output")
 				expecter, err := tests.LoggedInFedoraExpecter(vmi)
@@ -722,7 +722,7 @@ var _ = Describe("[rfe_id:393][crit:high[vendor:cnv-qe@redhat.com][level:system]
 				confirmVMIPostMigration(vmi, migrationUID)
 
 				// Wait for cloud init to finish and start the agent inside the vmi.
-				tests.WaitForGuestAgentChannel(vmi)
+				tests.WaitAgentConnected(virtClient, vmi)
 
 				By("Checking that the migrated VirtualMachineInstance console has expected output")
 				expecter, err = tests.ReLoggedInFedoraExpecter(vmi, 60)
