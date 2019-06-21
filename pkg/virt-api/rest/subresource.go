@@ -288,7 +288,7 @@ func (app *SubresourceAPIApp) StartVMRequestHandler(request *restful.Request, re
 			return
 		}
 	}
-	if vmi != nil && !vmi.IsFinal() && vmi.Status.Phase != v1.Unknown {
+	if vmi != nil && !vmi.IsFinal() && vmi.Status.Phase != v1.Unknown && vmi.Status.Phase != v1.VmPhaseUnset {
 		response.WriteError(http.StatusBadRequest, fmt.Errorf("VM is already running"))
 		return
 	}
@@ -376,7 +376,7 @@ func (app *SubresourceAPIApp) StopVMRequestHandler(request *restful.Request, res
 			return
 		}
 	}
-	if vmi == nil || vmi.IsFinal() || vmi.Status.Phase == v1.Unknown {
+	if vmi == nil || vmi.IsFinal() || vmi.Status.Phase == v1.Unknown || vmi.Status.Phase == v1.VmPhaseUnset {
 		response.WriteError(http.StatusBadRequest, fmt.Errorf("VM is not running"))
 		return
 	}
